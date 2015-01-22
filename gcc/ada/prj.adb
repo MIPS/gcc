@@ -1934,7 +1934,8 @@ package body Prj is
          Require_Obj_Dirs           => Require_Obj_Dirs,
          Allow_Invalid_External     => Allow_Invalid_External,
          Missing_Source_Files       => Missing_Source_Files,
-         Ignore_Missing_With        => Ignore_Missing_With);
+         Ignore_Missing_With        => Ignore_Missing_With,
+         Incomplete_Withs           => False);
    end Create_Flags;
 
    ------------
@@ -2147,16 +2148,17 @@ package body Prj is
         (Root_Project, Root_Tree, Project_Context'(False, False));
    end For_Project_And_Aggregated_Context;
 
-   --------------------------------
-   -- Update_Ignore_Missing_With --
-   --------------------------------
+   -----------------------------
+   -- Set_Ignore_Missing_With --
+   -----------------------------
 
-   procedure Update_Ignore_Missing_With
-     (Flags : in out Processing_Flags; Value : Boolean)
+   procedure Set_Ignore_Missing_With
+     (Flags : in out Processing_Flags;
+      Value : Boolean)
    is
    begin
       Flags.Ignore_Missing_With := Value;
-   end Update_Ignore_Missing_With;
+   end Set_Ignore_Missing_With;
 
 --  Package initialization for Prj
 

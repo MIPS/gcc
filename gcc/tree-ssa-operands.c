@@ -1,5 +1,5 @@
 /* SSA operands management for trees.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,14 +21,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stmt.h"
 #include "print-tree.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -409,9 +415,10 @@ finalize_ssa_uses (struct function *fn, gimple stmt)
   /* If there is anything in the old list, free it.  */
   if (old_ops)
     {
-      for (ptr = old_ops; ptr; ptr = ptr->next)
+      for (ptr = old_ops; ptr->next; ptr = ptr->next)
 	delink_imm_use (USE_OP_PTR (ptr));
-      old_ops->next = gimple_ssa_operands (fn)->free_uses;
+      delink_imm_use (USE_OP_PTR (ptr));
+      ptr->next = gimple_ssa_operands (fn)->free_uses;
       gimple_ssa_operands (fn)->free_uses = old_ops;
     }
 
@@ -641,7 +648,7 @@ get_tmr_operands (struct function *fn, gimple stmt, tree expr, int flags)
    escape, add them to the VDEF/VUSE lists for it.  */
 
 static void
-maybe_add_call_vops (struct function *fn, gimple stmt)
+maybe_add_call_vops (struct function *fn, gcall *stmt)
 {
   int call_flags = gimple_call_flags (stmt);
 
@@ -662,7 +669,7 @@ maybe_add_call_vops (struct function *fn, gimple stmt)
 /* Scan operands in the ASM_EXPR stmt referred to in INFO.  */
 
 static void
-get_asm_stmt_operands (struct function *fn, gimple stmt)
+get_asm_stmt_operands (struct function *fn, gasm *stmt)
 {
   size_t i, noutputs;
   const char **oconstraints;
@@ -916,7 +923,7 @@ parse_ssa_operands (struct function *fn, gimple stmt)
   switch (code)
     {
     case GIMPLE_ASM:
-      get_asm_stmt_operands (fn, stmt);
+      get_asm_stmt_operands (fn, as_a <gasm *> (stmt));
       break;
 
     case GIMPLE_TRANSACTION:
@@ -937,7 +944,7 @@ parse_ssa_operands (struct function *fn, gimple stmt)
 
     case GIMPLE_CALL:
       /* Add call-clobbered operands, if needed.  */
-      maybe_add_call_vops (fn, stmt);
+      maybe_add_call_vops (fn, as_a <gcall *> (stmt));
       /* FALLTHRU */
 
     case GIMPLE_ASSIGN:

@@ -1,3 +1,17 @@
+2014-12-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* testsuite/lib/libvtv.exp: Load target-utils.exp
+
+2014-11-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/63784
+	* configure: Regenerated.
+
+2014-11-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR target/63610
+	* configure: Regenerate.
+
 2013-09-25 Caroline Tice  <cmtice@google.com>
 
 	* Makefile.am: Reinstate ENABLE_VTABLE_VERIFY checks, to make

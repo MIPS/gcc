@@ -1,5 +1,5 @@
 /* Register Transfer Language (RTL) definitions for GCC
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,7 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_RTL_H
 #define GCC_RTL_H
 
-#include <utility>
 #include "statistics.h"
 #include "machmode.h"
 #include "input.h"
@@ -182,7 +181,7 @@ struct GTY(()) mem_attrs
    object in the low part of a 4-byte register, the OFFSET field
    will be -3 rather than 0.  */
 
-struct GTY(()) reg_attrs {
+struct GTY((for_user)) reg_attrs {
   tree decl;			/* decl corresponding to REG.  */
   HOST_WIDE_INT offset;		/* Offset from start of DECL.  */
 };
@@ -2838,7 +2837,7 @@ extern int reg_set_p (const_rtx, const_rtx);
 extern int multiple_sets (const_rtx);
 extern int set_noop_p (const_rtx);
 extern int noop_move_p (const_rtx);
-extern int refers_to_regno_p (unsigned int, unsigned int, const_rtx, rtx *);
+extern bool refers_to_regno_p (unsigned int, unsigned int, const_rtx, rtx *);
 extern int reg_overlap_mentioned_p (const_rtx, const_rtx);
 extern const_rtx set_of (const_rtx, const_rtx);
 extern void record_hard_reg_sets (rtx, const_rtx, void *);
@@ -2886,9 +2885,12 @@ extern bool tablejump_p (const rtx_insn *, rtx *, rtx_jump_table_data **);
 extern int computed_jump_p (const_rtx);
 extern bool tls_referenced_p (const_rtx);
 
-typedef int (*rtx_function) (rtx *, void *);
-extern int for_each_rtx (rtx *, rtx_function, void *);
-extern int for_each_rtx_in_insn (rtx_insn **, rtx_function, void *);
+/* Overload for refers_to_regno_p for checking a single register.  */
+inline bool
+refers_to_regno_p (unsigned int regnum, const_rtx x, rtx* loc = NULL)
+{
+  return refers_to_regno_p (regnum, regnum + 1, x, loc);
+}
 
 /* Callback for for_each_inc_dec, to process the autoinc operation OP
    within MEM that sets DEST to SRC + SRCOFF, or SRC if SRCOFF is

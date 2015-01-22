@@ -1,5 +1,4 @@
-/* Copyright (C) 2014
-   Free Software Foundation, Inc.
+/* Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -1710,7 +1709,7 @@ _mm256_cvtepi32_epi16 (__m256i __A)
 						  (__mmask8) -1);
 }
 
-extern __inline
+extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mask_cvtepi32_storeu_epi16 (void *  __P, __mmask8 __M, __m256i __A)
 {
@@ -1813,7 +1812,7 @@ _mm_cvtusepi32_epi16 (__m128i __A)
 						    (__mmask8) -1);
 }
 
-extern __inline
+extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mask_cvtusepi32_storeu_epi16 (void * __P, __mmask8 __M, __m128i __A)
 {
@@ -2360,7 +2359,7 @@ _mm_cvtsepi64_epi32 (__m128i __A)
 						   (__mmask8) -1);
 }
 
-extern __inline
+extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mask_cvtsepi64_storeu_epi32 (void * __P, __mmask8 __M, __m128i __A)
 {
@@ -2642,30 +2641,18 @@ extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_mask_set1_epi64 (__m256i __O, __mmask8 __M, long long __A)
 {
-#ifdef TARGET_64BIT
   return (__m256i) __builtin_ia32_pbroadcastq256_gpr_mask (__A, (__v4di) __O,
 							   __M);
-#else
-  return (__m256i) __builtin_ia32_pbroadcastq256_mem_mask (__A, (__v4di) __O,
-							   __M);
-#endif
 }
 
 extern __inline __m256i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_maskz_set1_epi64 (__mmask8 __M, long long __A)
 {
-#ifdef TARGET_64BIT
   return (__m256i) __builtin_ia32_pbroadcastq256_gpr_mask (__A,
 							   (__v4di)
 							   _mm256_setzero_si256 (),
 							   __M);
-#else
-  return (__m256i) __builtin_ia32_pbroadcastq256_mem_mask (__A,
-							   (__v4di)
-							   _mm256_setzero_si256 (),
-							   __M);
-#endif
 }
 
 extern __inline __m128i
@@ -2691,30 +2678,18 @@ extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mask_set1_epi64 (__m128i __O, __mmask8 __M, long long __A)
 {
-#ifdef TARGET_64BIT
   return (__m128i) __builtin_ia32_pbroadcastq128_gpr_mask (__A, (__v2di) __O,
 							   __M);
-#else
-  return (__m128i) __builtin_ia32_pbroadcastq128_mem_mask (__A, (__v2di) __O,
-							   __M);
-#endif
 }
 
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_maskz_set1_epi64 (__mmask8 __M, long long __A)
 {
-#ifdef TARGET_64BIT
   return (__m128i) __builtin_ia32_pbroadcastq128_gpr_mask (__A,
 							   (__v2di)
 							   _mm_setzero_si128 (),
 							   __M);
-#else
-  return (__m128i) __builtin_ia32_pbroadcastq128_mem_mask (__A,
-							   (__v2di)
-							   _mm_setzero_si128 (),
-							   __M);
-#endif
 }
 
 extern __inline __m256

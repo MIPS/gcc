@@ -1,6 +1,6 @@
 # Makefile.in
 
-# Copyright (C) 2005-2014 Free Software Foundation, Inc.
+# Copyright (C) 2005-2015 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -42,6 +42,7 @@ decimal_float = @decimal_float@
 enable_vtable_verify = @enable_vtable_verify@
 enable_decimal_float = @enable_decimal_float@
 fixed_point = @fixed_point@
+with_aix_soname = @with_aix_soname@
 
 host_noncanonical = @host_noncanonical@
 target_noncanonical = @target_noncanonical@
@@ -184,7 +185,7 @@ STRIP = @STRIP@
 STRIP_FOR_TARGET = $(STRIP)
 
 # Directory in which the compiler finds libraries etc.
-libsubdir = $(libdir)/gcc/$(host_noncanonical)/$(version)
+libsubdir = $(libdir)/gcc/$(host_noncanonical)/$(version)@accel_dir_suffix@
 # Used to install the shared libgcc.
 slibdir = @slibdir@
 # Maybe used for DLLs on Windows targets.
@@ -994,6 +995,14 @@ crtendS$(objext): $(srcdir)/crtstuff.c
 # This is a version of crtbegin for -static links.
 crtbeginT$(objext): $(srcdir)/crtstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS) -c $< -DCRT_BEGIN -DCRTSTUFFT_O
+
+# crtoffloadbegin and crtoffloadend contain symbols, that mark the begin and
+# the end of tables with addresses, required for offloading.
+crtoffloadbegin$(objext): $(srcdir)/offloadstuff.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS) -c $< -DCRT_BEGIN
+
+crtoffloadend$(objext): $(srcdir)/offloadstuff.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS) -c $< -DCRT_END
 
 ifeq ($(enable_vtable_verify),yes)
 # These are used in vtable verification; see comments in source files for

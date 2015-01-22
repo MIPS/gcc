@@ -1,6 +1,6 @@
 /* Medium-level subroutines: convert bit-field store and extract
    and shifts, multiplies and divides to rtl instructions.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,11 +25,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "insn-config.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -39,7 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "df.h"
 #include "target.h"
-#include "expmed.h"
 
 struct target_expmed default_target_expmed;
 #if SWITCHABLE_TARGET
@@ -565,6 +587,21 @@ store_bit_field_using_insv (const extraction_insn *insv, rtx op0,
       emit_move_insn (tem, xop0);
       xop0 = tem;
       copy_back = true;
+    }
+
+  /* There are similar overflow check at the start of store_bit_field_1,
+     but that only check the situation where the field lies completely
+     outside the register, while there do have situation where the field
+     lies partialy in the register, we need to adjust bitsize for this
+     partial overflow situation.  Without this fix, pr48335-2.c on big-endian
+     will broken on those arch support bit insert instruction, like arm, aarch64
+     etc.  */
+  if (bitsize + bitnum > unit && bitnum < unit)
+    {
+      warning (OPT_Wextra, "write of %wu-bit data outside the bound of "
+	       "destination object, data truncated into %wu-bit",
+	       bitsize, unit - bitnum);
+      bitsize = unit - bitnum;
     }
 
   /* If BITS_BIG_ENDIAN is zero on a BYTES_BIG_ENDIAN machine, we count
@@ -2250,6 +2287,18 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
       code = left ? LROTATE_EXPR : RROTATE_EXPR;
     }
 
+  /* Rotation of 16bit values by 8 bits is effectively equivalent to a bswaphi.
+     Note that this is not the case for bigger values.  For instance a rotation
+     of 0x01020304 by 16 bits gives 0x03040102 which is different from
+     0x04030201 (bswapsi).  */
+  if (rotate
+      && CONST_INT_P (op1)
+      && INTVAL (op1) == BITS_PER_UNIT
+      && GET_MODE_SIZE (scalar_mode) == 2
+      && optab_handler (bswap_optab, HImode) != CODE_FOR_nothing)
+    return expand_unop (HImode, bswap_optab, shifted, NULL_RTX,
+				  unsignedp);
+
   if (op1 == const0_rtx)
     return shifted;
 
@@ -3161,11 +3210,7 @@ expand_mult (machine_mode mode, rtx op0, rtx op1, rtx target,
   bool do_trapv = flag_trapv && SCALAR_INT_MODE_P (mode) && !unsignedp;
 
   if (CONSTANT_P (op0))
-    {
-      rtx temp = op0;
-      op0 = op1;
-      op1 = temp;
-    }
+    std::swap (op0, op1);
 
   /* For vectors, there are several simplifications that can be made if
      all elements of the vector constant are identical.  */
@@ -3362,6 +3407,9 @@ expand_widening_mult (machine_mode mode, rtx op0, rtx op1, rtx target,
       int max_cost;
       enum mult_variant variant;
       struct algorithm algorithm;
+
+      if (coeff == 0)
+	return CONST0_RTX (mode);
 
       /* Special case powers of two.  */
       if (EXACT_POWER_OF_2_OR_ZERO_P (coeff))
@@ -5183,7 +5231,7 @@ expand_and (machine_mode mode, rtx op0, rtx op1, rtx target)
 }
 
 /* Helper function for emit_store_flag.  */
-static rtx
+rtx
 emit_cstore (rtx target, enum insn_code icode, enum rtx_code code,
 	     machine_mode mode, machine_mode compare_mode,
 	     int unsignedp, rtx x, rtx y, int normalizep,

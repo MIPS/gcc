@@ -1,5 +1,5 @@
 /* Allocation for dataflow support routines.
-   Copyright (C) 1999-2014 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -181,7 +181,7 @@ There are four ways of doing the incremental scanning:
    next call to df_analyze or df_process_deferred_rescans.
 
    This mode is also used by a few passes that still rely on note_uses,
-   note_stores and for_each_rtx instead of using the DF data.  This
+   note_stores and rtx iterators instead of using the DF data.  This
    can be said to fall under case 1c.
 
    To enable this mode, call df_set_flags (DF_DEFER_INSN_RESCAN).

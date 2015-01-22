@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions.
 
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.
 
@@ -27,6 +27,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stmt.h"
 #include "varasm.h"
@@ -44,10 +53,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -61,6 +66,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "builtins.h"
 #include "convert.h"
+#include "gomp-constants.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -511,8 +517,7 @@ begin_maybe_infinite_loop (tree cond)
   bool maybe_infinite = true;
   if (cond)
     {
-      cond = fold_non_dependent_expr_sfinae (cond, tf_none);
-      cond = maybe_constant_value (cond);
+      cond = fold_non_dependent_expr (cond);
       maybe_infinite = integer_nonzerop (cond);
     }
   vec_safe_push (cp_function_chain->infinite_loops,
@@ -543,7 +548,6 @@ end_maybe_infinite_loop (tree cond)
   if (current != NULL_TREE)
     {
       cond = fold_non_dependent_expr (cond);
-      cond = maybe_constant_value (cond);
       if (integer_nonzerop (cond))
 	current_function_infinite_loop = 1;
     }
@@ -625,6 +629,10 @@ finish_goto_stmt (tree destination)
     TREE_USED (destination) = 1;
   else
     {
+      if (check_no_cilk (destination,
+	 "Cilk array notation cannot be used as a computed goto expression",
+	 "%<_Cilk_spawn%> statement cannot be used as a computed goto expression"))
+	destination = error_mark_node;
       destination = mark_rvalue_use (destination);
       if (!processing_template_decl)
 	{
@@ -796,6 +804,10 @@ begin_while_stmt (void)
 void
 finish_while_stmt_cond (tree cond, tree while_stmt, bool ivdep)
 {
+  if (check_no_cilk (cond,
+      "Cilk array notation cannot be used as a condition for while statement",
+      "%<_Cilk_spawn%> statement cannot be used as a condition for while statement"))
+    cond = error_mark_node;
   cond = maybe_convert_cond (cond);
   finish_cond (&WHILE_COND (while_stmt), cond);
   begin_maybe_infinite_loop (cond);
@@ -851,6 +863,10 @@ finish_do_body (tree do_stmt)
 void
 finish_do_stmt (tree cond, tree do_stmt, bool ivdep)
 {
+  if (check_no_cilk (cond,
+  "Cilk array notation cannot be used as a condition for a do-while statement",
+  "%<_Cilk_spawn%> statement cannot be used as a condition for a do-while statement"))
+    cond = error_mark_node;
   cond = maybe_convert_cond (cond);
   end_maybe_infinite_loop (cond);
   if (ivdep && cond != error_mark_node)
@@ -960,6 +976,10 @@ finish_for_init_stmt (tree for_stmt)
 void
 finish_for_cond (tree cond, tree for_stmt, bool ivdep)
 {
+  if (check_no_cilk (cond,
+	 "Cilk array notation cannot be used in a condition for a for-loop",
+	 "%<_Cilk_spawn%> statement cannot be used in a condition for a for-loop"))
+    cond = error_mark_node;
   cond = maybe_convert_cond (cond);
   finish_cond (&FOR_COND (for_stmt), cond);
   begin_maybe_infinite_loop (cond);
@@ -1122,6 +1142,12 @@ void
 finish_switch_cond (tree cond, tree switch_stmt)
 {
   tree orig_type = NULL;
+
+  if (check_no_cilk (cond,
+	"Cilk array notation cannot be used as a condition for switch statement",
+	"%<_Cilk_spawn%> statement cannot be used as a condition for switch statement"))
+    cond = error_mark_node;
+
   if (!processing_template_decl)
     {
       /* Convert the condition to an integer or enumeration type.  */
@@ -1640,6 +1666,9 @@ force_paren_expr (tree expr)
 	  tree type = unlowered_expr_type (expr);
 	  bool rval = !!(kind & clk_rvalueref);
 	  type = cp_build_reference_type (type, rval);
+	  /* This inhibits warnings in, eg, cxx_mark_addressable
+	     (c++/60955).  */
+	  warning_sentinel s (extra_warnings);
 	  expr = build_static_cast (type, expr, tf_error);
 	  if (expr != error_mark_node)
 	    REF_PARENTHESIZED_P (expr) = true;
@@ -3105,7 +3134,7 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
 	   form, so wait until instantiation time.  */
 	return decl;
       else if (decl_constant_var_p (decl))
-	return integral_constant_value (decl);
+	return scalar_constant_value (decl);
     }
 
   if (parsing_nsdmi ())
@@ -3118,8 +3147,12 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
     while (context != containing_function
 	   && LAMBDA_FUNCTION_P (containing_function))
       {
-	lambda_expr = CLASSTYPE_LAMBDA_EXPR
-	  (DECL_CONTEXT (containing_function));
+	tree closure = DECL_CONTEXT (containing_function);
+	lambda_expr = CLASSTYPE_LAMBDA_EXPR (closure);
+
+	if (TYPE_CLASS_SCOPE_P (closure))
+	  /* A lambda in an NSDMI (c++/64496).  */
+	  break;
 
 	if (LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lambda_expr)
 	    == CPLD_NONE)
@@ -3149,7 +3182,19 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
   else if (lambda_expr)
     {
       if (complain & tf_error)
-	error ("%qD is not captured", decl);
+	{
+	  error ("%qD is not captured", decl);
+	  tree closure = LAMBDA_EXPR_CLOSURE (lambda_expr);
+	  if (LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lambda_expr)
+	      == CPLD_NONE)
+	    inform (location_of (closure),
+		    "the lambda has no capture-default");
+	  else if (TYPE_CLASS_SCOPE_P (closure))
+	    inform (0, "lambda in local class %q+T cannot "
+		    "capture variables from the enclosing context",
+		    TYPE_CONTEXT (closure));
+	  inform (input_location, "%q+#D declared here", decl);
+	}
       return error_mark_node;
     }
   else
@@ -3831,6 +3876,15 @@ finish_bases (tree type, bool direct)
 tree
 finish_offsetof (tree expr, location_t loc)
 {
+  /* If we're processing a template, we can't finish the semantics yet.
+     Otherwise we can fold the entire expression now.  */
+  if (processing_template_decl)
+    {
+      expr = build1 (OFFSETOF_EXPR, size_type_node, expr);
+      SET_EXPR_LOCATION (expr, loc);
+      return expr;
+    }
+
   if (TREE_CODE (expr) == PSEUDO_DTOR_EXPR)
     {
       error ("cannot apply %<offsetof%> to destructor %<~%T%>",
@@ -4617,7 +4671,7 @@ handle_omp_array_sections (tree c)
 	    return false;
 	  tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 				      OMP_CLAUSE_MAP);
-	  OMP_CLAUSE_MAP_KIND (c2) = OMP_CLAUSE_MAP_POINTER;
+	  OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
 	  if (!cxx_mark_addressable (t))
 	    return false;
 	  OMP_CLAUSE_DECL (c2) = t;
@@ -4641,7 +4695,7 @@ handle_omp_array_sections (tree c)
 	    {
 	      tree c3 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 					  OMP_CLAUSE_MAP);
-	      OMP_CLAUSE_MAP_KIND (c3) = OMP_CLAUSE_MAP_POINTER;
+	      OMP_CLAUSE_SET_MAP_KIND (c3, GOMP_MAP_POINTER);
 	      OMP_CLAUSE_DECL (c3) = ptr;
 	      OMP_CLAUSE_DECL (c2) = convert_from_reference (ptr);
 	      OMP_CLAUSE_SIZE (c3) = size_zero_node;
@@ -5118,6 +5172,8 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
       id = OVL_CURRENT (id);
       mark_used (id);
       tree body = DECL_SAVED_TREE (id);
+      if (!body)
+	return true;
       if (TREE_CODE (body) == STATEMENT_LIST)
 	{
 	  tree_stmt_iterator tsi;
@@ -5516,6 +5572,44 @@ finish_omp_clauses (tree clauses)
 	    }
 	  break;
 
+	case OMP_CLAUSE_ASYNC:
+	  t = OMP_CLAUSE_ASYNC_EXPR (c);
+	  if (t == error_mark_node)
+	    remove = true;
+	  else if (!type_dependent_expression_p (t)
+		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
+	    {
+	      error ("%<async%> expression must be integral");
+	      remove = true;
+	    }
+	  else
+	    {
+	      t = mark_rvalue_use (t);
+	      if (!processing_template_decl)
+		t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+	      OMP_CLAUSE_ASYNC_EXPR (c) = t;
+	    }
+	  break;
+
+	case OMP_CLAUSE_VECTOR_LENGTH:
+	  t = OMP_CLAUSE_VECTOR_LENGTH_EXPR (c);
+	  t = maybe_convert_cond (t);
+	  if (t == error_mark_node)
+	    remove = true;
+	  else if (!processing_template_decl)
+	    t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+	  OMP_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
+	  break;
+
+	case OMP_CLAUSE_WAIT:
+	  t = OMP_CLAUSE_WAIT_EXPR (c);
+	  if (t == error_mark_node)
+	    remove = true;
+	  else if (!processing_template_decl)
+	    t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+	  OMP_CLAUSE_WAIT_EXPR (c) = t;
+	  break;
+
 	case OMP_CLAUSE_THREAD_LIMIT:
 	  t = OMP_CLAUSE_THREAD_LIMIT_EXPR (c);
 	  if (t == error_mark_node)
@@ -5666,6 +5760,7 @@ finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_MAP:
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
+	case OMP_CLAUSE__CACHE_:
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
@@ -5694,7 +5789,7 @@ finish_omp_clauses (tree clauses)
 	      if (processing_template_decl)
 		break;
 	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		  && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
+		  && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
 		break;
 	      if (DECL_P (t))
 		error ("%qD is not a variable in %qs clause", t,
@@ -5715,7 +5810,7 @@ finish_omp_clauses (tree clauses)
 		   && !cxx_mark_addressable (t))
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		     && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
+		     && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
 		   && !type_dependent_expression_p (t)
 		   && !cp_omp_mappable_type ((TREE_CODE (TREE_TYPE (t))
 					      == REFERENCE_TYPE)
@@ -6031,6 +6126,60 @@ tree
 finish_omp_structured_block (tree block)
 {
   return do_poplevel (block);
+}
+
+/* Generate OACC_DATA, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OACC_DATA.  */
+
+tree
+finish_oacc_data (tree clauses, tree block)
+{
+  tree stmt;
+
+  block = finish_omp_structured_block (block);
+
+  stmt = make_node (OACC_DATA);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_DATA_CLAUSES (stmt) = clauses;
+  OACC_DATA_BODY (stmt) = block;
+
+  return add_stmt (stmt);
+}
+
+/* Generate OACC_KERNELS, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OACC_KERNELS.  */
+
+tree
+finish_oacc_kernels (tree clauses, tree block)
+{
+  tree stmt;
+
+  block = finish_omp_structured_block (block);
+
+  stmt = make_node (OACC_KERNELS);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_KERNELS_CLAUSES (stmt) = clauses;
+  OACC_KERNELS_BODY (stmt) = block;
+
+  return add_stmt (stmt);
+}
+
+/* Generate OACC_PARALLEL, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OACC_PARALLEL.  */
+
+tree
+finish_oacc_parallel (tree clauses, tree block)
+{
+  tree stmt;
+
+  block = finish_omp_structured_block (block);
+
+  stmt = make_node (OACC_PARALLEL);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_PARALLEL_CLAUSES (stmt) = clauses;
+  OACC_PARALLEL_BODY (stmt) = block;
+
+  return add_stmt (stmt);
 }
 
 /* Similarly, except force the retention of the BLOCK.  */
@@ -7021,7 +7170,7 @@ finish_static_assert (tree condition, tree message, location_t location,
     }
 
   /* Fold the expression and convert it to a boolean value. */
-  condition = fold_non_dependent_expr (condition);
+  condition = instantiate_non_dependent_expr (condition);
   condition = cp_convert (boolean_type_node, condition, tf_warning_or_error);
   condition = maybe_constant_value (condition);
 
@@ -7217,16 +7366,6 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 	  if (clk != clk_none && !(clk & clk_class))
 	    type = cp_build_reference_type (type, (clk & clk_rvalueref));
 	}
-    }
-
-  if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
-      && (flag_iso || warn_vla > 0))
-    {
-      if (complain & tf_warning_or_error)
-	pedwarn (input_location, OPT_Wvla,
-		 "taking decltype of array of runtime bound");
-      else
-	return error_mark_node;
     }
 
   return type;

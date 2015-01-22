@@ -1,5 +1,5 @@
 /* Structure for saving state for a nested function.
-   Copyright (C) 1989-2014 Free Software Foundation, Inc.
+   Copyright (C) 1989-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -589,6 +589,9 @@ struct GTY(()) function {
      a string describing the reason for failure.  */
   const char * GTY((skip)) cannot_be_copied_reason;
 
+  /* Last assigned dependence info clique.  */
+  unsigned short last_clique;
+
   /* Collected bit flags.  */
 
   /* Number of units of general registers that need saving in stdarg
@@ -901,6 +904,8 @@ extern void init_function_start (tree);
 extern void stack_protect_epilogue (void);
 extern void expand_function_start (tree);
 extern void expand_dummy_function_end (void);
+
+extern void thread_prologue_and_epilogue_insns (void);
 
 #ifdef RTX_CODE
 extern void diddle_return_value (void (*)(rtx, void*), void*);

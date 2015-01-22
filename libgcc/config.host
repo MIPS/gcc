@@ -1,5 +1,5 @@
 # libgcc host-specific configuration file.
-# Copyright (C) 1997-2014 Free Software Foundation, Inc.
+# Copyright (C) 1997-2015 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -365,6 +365,13 @@ arc*-*-linux-uclibc*)
 arm-wrs-vxworks)
 	tmake_file="$tmake_file arm/t-arm arm/t-elf t-softfp-sfdf t-softfp-excl arm/t-softfp t-softfp"
 	extra_parts="$extra_parts crti.o crtn.o"
+	;;
+arm*-*-freebsd*)                # ARM FreeBSD EABI
+	tmake_file="${tmake_file} arm/t-arm t-fixedpoint-gnu-prefix arm/t-elf"
+	tmake_file="${tmake_file} arm/t-bpabi arm/t-freebsd t-slibgcc-libgcc"
+	tm_file="${tm_file} arm/bpabi-lib.h"
+	unwind_header=config/arm/unwind-arm.h
+	tmake_file="${tmake_file} t-softfp-sfdf t-softfp-excl arm/t-softfp t-softfp"
 	;;
 arm*-*-netbsdelf*)
 	tmake_file="$tmake_file arm/t-arm arm/t-netbsd t-slibgcc-gld-nover"
@@ -827,8 +834,10 @@ mips*-sde-elf*)
 	;;
 mipsisa32-*-elf* | mipsisa32el-*-elf* | \
 mipsisa32r2-*-elf* | mipsisa32r2el-*-elf* | \
+mipsisa32r6-*-elf* | mipsisa32r6el-*-elf* | \
 mipsisa64-*-elf* | mipsisa64el-*-elf* | \
-mipsisa64r2-*-elf* | mipsisa64r2el-*-elf*)
+mipsisa64r2-*-elf* | mipsisa64r2el-*-elf* | \
+mipsisa64r6-*-elf* | mipsisa64r6el-*-elf*)
 	tmake_file="$tmake_file mips/t-elf mips/t-crtstuff mips/t-mips16"
 	extra_parts="$extra_parts crti.o crtn.o"
 	;;
@@ -1233,6 +1242,10 @@ vax-*-netbsdelf*)
 	;;
 vax-*-openbsd*)
 	;;
+visium-*-elf*)
+        extra_parts="$extra_parts crtbegin.o crtend.o crti.o crtn.o"
+        tmake_file="visium/t-visium t-fdpbit"
+        ;;
 xstormy16-*-elf)
 	tmake_file="stormy16/t-stormy16 t-fdpbit"
 	;;
@@ -1255,6 +1268,10 @@ m32c-*-elf*|m32c-*-rtems*)
 mep*-*-*)
 	tmake_file="mep/t-mep t-fdpbit"
 	extra_parts="crtbegin.o crtend.o"
+	;;
+nvptx-*)
+	tmake_file="$tmake_file nvptx/t-nvptx"
+	extra_parts="crt0.o"
 	;;
 *)
 	echo "*** Configuration ${host} not supported" 1>&2

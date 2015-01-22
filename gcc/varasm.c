@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,18 +30,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "varasm.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "regs.h"
 #include "output.h"
@@ -1673,6 +1689,18 @@ decide_function_section (tree decl)
   in_cold_section_p = first_function_block_is_cold;
 }
 
+/* Get the function's name, as described by its RTL.  This may be
+   different from the DECL_NAME name used in the source file.  */
+const char *
+get_fnname_from_decl (tree decl)
+{
+  rtx x = DECL_RTL (decl);
+  gcc_assert (MEM_P (x));
+  x = XEXP (x, 0);
+  gcc_assert (GET_CODE (x) == SYMBOL_REF);
+  return XSTR (x, 0);
+}
+
 /* Output assembler code for the constant pool of a function and associated
    with defining the name of the function.  DECL describes the function.
    NAME is the function's name.  For the constant pool, we use the current
@@ -2042,7 +2070,17 @@ assemble_variable_contents (tree decl, const char *name,
       else
 	/* Leave space for it.  */
 	assemble_zeros (tree_to_uhwi (DECL_SIZE_UNIT (decl)));
+      targetm.asm_out.decl_end ();
     }
+}
+
+/* Write out assembly for the variable DECL, which is not defined in
+   the current translation unit.  */
+void
+assemble_undefined_decl (tree decl)
+{
+  const char *name = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+  targetm.asm_out.assemble_undefined_decl (asm_out_file, name, decl);
 }
 
 /* Assemble everything that is needed for a variable or function declaration.
@@ -3348,6 +3386,8 @@ assemble_constant_contents (tree exp, const char *label, unsigned int align)
 
   /* Output the value of EXP.  */
   output_constant (exp, size, align, false);
+
+  targetm.asm_out.decl_end ();
 }
 
 /* We must output the constant data referred to by SYMBOL; do so.  */
@@ -5724,8 +5764,26 @@ assemble_alias (tree decl, tree target)
    to its transaction aware clone.  Note that tm_pure functions are
    considered to be their own clone.  */
 
-static GTY((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
-     htab_t tm_clone_hash;
+struct tm_clone_hasher : ggc_cache_hasher<tree_map *>
+{
+  static hashval_t hash (tree_map *m) { return tree_map_hash (m); }
+  static bool equal (tree_map *a, tree_map *b) { return tree_map_eq (a, b); }
+
+  static void handle_cache_entry (tree_map *&e)
+  {
+    if (e != HTAB_EMPTY_ENTRY || e != HTAB_DELETED_ENTRY)
+      {
+	extern void gt_ggc_mx (tree_map *&);
+	if (ggc_marked_p (e->base.from))
+	  gt_ggc_mx (e);
+	else
+	  e = static_cast<tree_map *> (HTAB_DELETED_ENTRY);
+      }
+  }
+};
+
+static GTY((cache))
+     hash_table<tm_clone_hasher> *tm_clone_hash;
 
 void
 record_tm_clone_pair (tree o, tree n)
@@ -5733,15 +5791,14 @@ record_tm_clone_pair (tree o, tree n)
   struct tree_map **slot, *h;
 
   if (tm_clone_hash == NULL)
-    tm_clone_hash = htab_create_ggc (32, tree_map_hash, tree_map_eq, 0);
+    tm_clone_hash = hash_table<tm_clone_hasher>::create_ggc (32);
 
   h = ggc_alloc<tree_map> ();
   h->hash = htab_hash_pointer (o);
   h->base.from = o;
   h->to = n;
 
-  slot = (struct tree_map **)
-    htab_find_slot_with_hash (tm_clone_hash, h, h->hash, INSERT);
+  slot = tm_clone_hash->find_slot_with_hash (h, h->hash, INSERT);
   *slot = h;
 }
 
@@ -5754,8 +5811,7 @@ get_tm_clone_pair (tree o)
 
       in.base.from = o;
       in.hash = htab_hash_pointer (o);
-      h = (struct tree_map *) htab_find_with_hash (tm_clone_hash,
-						   &in, in.hash);
+      h = tm_clone_hash->find_with_hash (&in, in.hash);
       if (h)
 	return h->to;
     }
@@ -5769,19 +5825,6 @@ typedef struct tm_alias_pair
   tree to;
 } tm_alias_pair;
 
-
-/* Helper function for finish_tm_clone_pairs.  Dump a hash table entry
-   into a VEC in INFO.  */
-
-static int
-dump_tm_clone_to_vec (void **slot, void *info)
-{
-  struct tree_map *map = (struct tree_map *) *slot;
-  vec<tm_alias_pair> *tm_alias_pairs = (vec<tm_alias_pair> *) info;
-  tm_alias_pair p = {DECL_UID (map->base.from), map->base.from, map->to};
-  tm_alias_pairs->safe_push (p);
-  return 1;
-}
 
 /* Dump the actual pairs to the .tm_clone_table section.  */
 
@@ -5863,15 +5906,20 @@ finish_tm_clone_pairs (void)
      to a vector, sort it, and dump the vector.  */
 
   /* Dump the hashtable to a vector.  */
-  htab_traverse_noresize (tm_clone_hash, dump_tm_clone_to_vec,
-			  (void *) &tm_alias_pairs);
+  tree_map *map;
+  hash_table<tm_clone_hasher>::iterator iter;
+  FOR_EACH_HASH_TABLE_ELEMENT (*tm_clone_hash, map, tree_map *, iter)
+    {
+      tm_alias_pair p = {DECL_UID (map->base.from), map->base.from, map->to};
+      tm_alias_pairs.safe_push (p);
+    }
   /* Sort it.  */
   tm_alias_pairs.qsort (tm_alias_pair_cmp);
 
   /* Dump it.  */
   dump_tm_clone_pairs (tm_alias_pairs);
 
-  htab_delete (tm_clone_hash);
+  tm_clone_hash->empty ();
   tm_clone_hash = NULL;
   tm_alias_pairs.release ();
 }
@@ -7185,7 +7233,7 @@ get_section_anchor (struct object_block *block, HOST_WIDE_INT offset,
     offset = 0;
   else
     {
-      bias = 1 << (GET_MODE_BITSIZE (ptr_mode) - 1);
+      bias = HOST_WIDE_INT_1U << (GET_MODE_BITSIZE (ptr_mode) - 1);
       if (offset < 0)
 	{
 	  delta = -(unsigned HOST_WIDE_INT) offset + max_offset;

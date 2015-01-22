@@ -1,5 +1,5 @@
 /* Pass computing data for optimizing stdarg functions.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -22,11 +22,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
-#include "hashtab.h"
 #include "hash-set.h"
-#include "vec.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -547,14 +553,13 @@ check_all_va_list_escapes (struct stdarg_info *si)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple_stmt_iterator i;
-
-      for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
+      for (gphi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
+	   gsi_next (&i))
 	{
 	  tree lhs;
 	  use_operand_p uop;
 	  ssa_op_iter soi;
-	  gimple phi = gsi_stmt (i);
+	  gphi *phi = i.phi ();
 
 	  lhs = PHI_RESULT (phi);
 	  if (virtual_operand_p (lhs)
@@ -580,7 +585,8 @@ check_all_va_list_escapes (struct stdarg_info *si)
 	    }
 	}
 
-      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+      for (gimple_stmt_iterator i = gsi_start_bb (bb); !gsi_end_p (i);
+	   gsi_next (&i))
 	{
 	  gimple stmt = gsi_stmt (i);
 	  tree use;
@@ -844,8 +850,6 @@ pass_stdarg::execute (function *fun)
 
   FOR_EACH_BB_FN (bb, fun)
     {
-      gimple_stmt_iterator i;
-
       si.compute_sizes = -1;
       si.bb = bb;
 
@@ -859,9 +863,10 @@ pass_stdarg::execute (function *fun)
 	  use_operand_p uop;
 	  ssa_op_iter soi;
 
-	  for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
+	  for (gphi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
+	       gsi_next (&i))
 	    {
-	      gimple phi = gsi_stmt (i);
+	      gphi *phi = i.phi ();
 	      lhs = PHI_RESULT (phi);
 
 	      if (virtual_operand_p (lhs))
@@ -891,7 +896,7 @@ pass_stdarg::execute (function *fun)
 	    }
 	}
 
-      for (i = gsi_start_bb (bb);
+      for (gimple_stmt_iterator i = gsi_start_bb (bb);
 	   !gsi_end_p (i) && !va_list_escapes;
 	   gsi_next (&i))
 	{

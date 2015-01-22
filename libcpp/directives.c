@@ -1,5 +1,5 @@
 /* CPP Library. (Directive handling.)
-   Copyright (C) 1986-2014 Free Software Foundation, Inc.
+   Copyright (C) 1986-2015 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -2400,11 +2400,11 @@ cpp_define (cpp_reader *pfile, const char *str)
 void
 cpp_define_formatted (cpp_reader *pfile, const char *fmt, ...)
 {
-  char *ptr = NULL;
+  char *ptr;
 
   va_list ap;
   va_start (ap, fmt);
-  vasprintf (&ptr, fmt, ap);
+  ptr = xvasprintf (fmt, ap);
   va_end (ap);
 
   cpp_define (pfile, ptr);

@@ -2916,31 +2916,82 @@ package body Exp_Util is
    -- Following_Address_Clause --
    ------------------------------
 
-   --  Should this function check the private part in a package ???
-
    function Following_Address_Clause (D : Node_Id) return Node_Id is
-      Id   : constant Entity_Id := Defining_Identifier (D);
-      Decl : Node_Id;
+      Id     : constant Entity_Id := Defining_Identifier (D);
+      Result : Node_Id;
+      Par    : Node_Id;
+
+      function Check_Decls (D : Node_Id) return Node_Id;
+      --  This internal function differs from the main function in that it
+      --  gets called to deal with a following package private part, and
+      --  it checks declarations starting with D (the main function checks
+      --  declarations following D). If D is Empty, then Empty is returned.
+
+      -----------------
+      -- Check_Decls --
+      -----------------
+
+      function Check_Decls (D : Node_Id) return Node_Id is
+         Decl : Node_Id;
+
+      begin
+         Decl := D;
+         while Present (Decl) loop
+            if Nkind (Decl) = N_At_Clause
+              and then Chars (Identifier (Decl)) = Chars (Id)
+            then
+               return Decl;
+
+            elsif Nkind (Decl) = N_Attribute_Definition_Clause
+              and then Chars (Decl) = Name_Address
+              and then Chars (Name (Decl)) = Chars (Id)
+            then
+               return Decl;
+            end if;
+
+            Next (Decl);
+         end loop;
+
+         --  Otherwise not found, return Empty
+
+         return Empty;
+      end Check_Decls;
+
+      --  Start of processing for Following_Address_Clause
 
    begin
-      Decl := Next (D);
-      while Present (Decl) loop
-         if Nkind (Decl) = N_At_Clause
-           and then Chars (Identifier (Decl)) = Chars (Id)
-         then
-            return Decl;
+      --  If parser detected no address clause for the identifier in question,
+      --  then the answer is a quick NO, without the need for a search.
 
-         elsif Nkind (Decl) = N_Attribute_Definition_Clause
-           and then Chars (Decl) = Name_Address
-           and then Chars (Name (Decl)) = Chars (Id)
-         then
-            return Decl;
-         end if;
+      if not Get_Name_Table_Boolean1 (Chars (Id)) then
+         return Empty;
+      end if;
 
-         Next (Decl);
-      end loop;
+      --  Otherwise search current declarative unit
 
-      return Empty;
+      Result := Check_Decls (Next (D));
+
+      if Present (Result) then
+         return Result;
+      end if;
+
+      --  Check for possible package private part following
+
+      Par := Parent (D);
+
+      if Nkind (Par) = N_Package_Specification
+        and then Visible_Declarations (Par) = List_Containing (D)
+        and then Present (Private_Declarations (Par))
+      then
+         --  Private part present, check declarations there
+
+         return Check_Decls (First (Private_Declarations (Par)));
+
+      else
+         --  No private part, clause not found, return Empty
+
+         return Empty;
+      end if;
    end Following_Address_Clause;
 
    ----------------------
@@ -6023,6 +6074,16 @@ package body Exp_Util is
         or else Is_Constrained (Root_Typ)
       then
          Constr_Root := Root_Typ;
+
+         --  At this point in the expansion, non-limited view of the type
+         --  must be available, otherwise the error will be reported later.
+
+         if From_Limited_With (Constr_Root)
+           and then Present (Non_Limited_View (Constr_Root))
+         then
+            Constr_Root := Non_Limited_View (Constr_Root);
+         end if;
+
       else
          Constr_Root := Make_Temporary (Loc, 'R');
 
@@ -6357,22 +6418,24 @@ package body Exp_Util is
      (E       : Node_Id;
       Unc_Typ : Entity_Id) return Node_Id
    is
-      Loc         : constant Source_Ptr := Sloc (E);
       List_Constr : constant List_Id    := New_List;
+      Loc         : constant Source_Ptr := Sloc (E);
       D           : Entity_Id;
-
-      Full_Subtyp  : Entity_Id;
-      Priv_Subtyp  : Entity_Id;
-      Utyp         : Entity_Id;
-      Full_Exp     : Node_Id;
+      Full_Exp    : Node_Id;
+      Full_Subtyp : Entity_Id;
+      High_Bound  : Entity_Id;
+      Index_Typ   : Entity_Id;
+      Low_Bound   : Entity_Id;
+      Priv_Subtyp : Entity_Id;
+      Utyp        : Entity_Id;
 
    begin
       if Is_Private_Type (Unc_Typ)
         and then Has_Unknown_Discriminants (Unc_Typ)
       then
-         --  Prepare the subtype completion, Go to base type to
-         --  find underlying type, because the type may be a generic
-         --  actual or an explicit subtype.
+         --  Prepare the subtype completion. Use the base type to find the
+         --  underlying type because the type may be a generic actual or an
+         --  explicit subtype.
 
          Utyp        := Underlying_Type (Base_Type (Unc_Typ));
          Full_Subtyp := Make_Temporary (Loc, 'C');
@@ -6409,22 +6472,66 @@ package body Exp_Util is
          return New_Occurrence_Of (Priv_Subtyp, Loc);
 
       elsif Is_Array_Type (Unc_Typ) then
+         Index_Typ := First_Index (Unc_Typ);
          for J in 1 .. Number_Dimensions (Unc_Typ) loop
-            Append_To (List_Constr,
-              Make_Range (Loc,
-                Low_Bound =>
-                  Make_Attribute_Reference (Loc,
-                    Prefix => Duplicate_Subexpr_No_Checks (E),
-                    Attribute_Name => Name_First,
-                    Expressions => New_List (
-                      Make_Integer_Literal (Loc, J))),
 
-                High_Bound =>
+            --  Capture the bounds of each index constraint in case the context
+            --  is an object declaration of an unconstrained type initialized
+            --  by a function call:
+
+            --    Obj : Unconstr_Typ := Func_Call;
+
+            --  This scenario requires secondary scope management and the index
+            --  constraint cannot depend on the temporary used to capture the
+            --  result of the function call.
+
+            --    SS_Mark;
+            --    Temp : Unconstr_Typ_Ptr := Func_Call'reference;
+            --    subtype S is Unconstr_Typ (Temp.all'First .. Temp.all'Last);
+            --    Obj : S := Temp.all;
+            --    SS_Release;  --  Temp is gone at this point, bounds of S are
+            --                 --  non existent.
+
+            --  Generate:
+            --    Low_Bound : constant Base_Type (Index_Typ) := E'First (J);
+
+            Low_Bound := Make_Temporary (Loc, 'B');
+            Insert_Action (E,
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Low_Bound,
+                Object_Definition   =>
+                  New_Occurrence_Of (Base_Type (Etype (Index_Typ)), Loc),
+                Constant_Present    => True,
+                Expression          =>
+                  Make_Attribute_Reference (Loc,
+                    Prefix         => Duplicate_Subexpr_No_Checks (E),
+                    Attribute_Name => Name_First,
+                    Expressions    => New_List (
+                      Make_Integer_Literal (Loc, J)))));
+
+            --  Generate:
+            --    High_Bound : constant Base_Type (Index_Typ) := E'Last (J);
+
+            High_Bound := Make_Temporary (Loc, 'B');
+            Insert_Action (E,
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => High_Bound,
+                Object_Definition   =>
+                  New_Occurrence_Of (Base_Type (Etype (Index_Typ)), Loc),
+                Constant_Present    => True,
+                Expression          =>
                   Make_Attribute_Reference (Loc,
                     Prefix         => Duplicate_Subexpr_No_Checks (E),
                     Attribute_Name => Name_Last,
                     Expressions    => New_List (
                       Make_Integer_Literal (Loc, J)))));
+
+            Append_To (List_Constr,
+              Make_Range (Loc,
+                Low_Bound  => New_Occurrence_Of (Low_Bound,  Loc),
+                High_Bound => New_Occurrence_Of (High_Bound, Loc)));
+
+            Index_Typ := Next_Index (Index_Typ);
          end loop;
 
       elsif Is_Class_Wide_Type (Unc_Typ) then
@@ -7733,13 +7840,19 @@ package body Exp_Util is
          if Nkind (Decl) = N_Full_Type_Declaration then
             Typ := Defining_Identifier (Decl);
 
-            if Is_Tagged_Type (Typ)
+            --  Ignored Ghost types do not need any cleanup actions because
+            --  they will not appear in the final tree.
+
+            if Is_Ignored_Ghost_Entity (Typ) then
+               null;
+
+            elsif Is_Tagged_Type (Typ)
               and then Is_Library_Level_Entity (Typ)
               and then Convention (Typ) = Convention_Ada
               and then Present (Access_Disp_Table (Typ))
               and then RTE_Available (RE_Unregister_Tag)
-              and then not No_Run_Time_Mode
               and then not Is_Abstract_Type (Typ)
+              and then not No_Run_Time_Mode
             then
                return True;
             end if;
@@ -7763,6 +7876,12 @@ package body Exp_Util is
             --  Objects.
 
             elsif Is_Processed_Transient (Obj_Id) then
+               null;
+
+            --  Ignored Ghost objects do not need any cleanup actions because
+            --  they will not appear in the final tree.
+
+            elsif Is_Ignored_Ghost_Entity (Obj_Id) then
                null;
 
             --  The object is of the form:
@@ -7843,6 +7962,12 @@ package body Exp_Util is
             if Lib_Level and then Finalize_Storage_Only (Obj_Typ) then
                null;
 
+            --  Ignored Ghost object renamings do not need any cleanup actions
+            --  because they will not appear in the final tree.
+
+            elsif Is_Ignored_Ghost_Entity (Obj_Id) then
+               null;
+
             --  Return object of a build-in-place function. This case is
             --  recognized and marked by the expansion of an extended return
             --  statement (see Expand_N_Extended_Return_Statement).
@@ -7884,11 +8009,17 @@ package body Exp_Util is
          then
             Typ := Entity (Decl);
 
-            if ((Is_Access_Type (Typ)
-                  and then not Is_Access_Subprogram_Type (Typ)
-                  and then Needs_Finalization
-                             (Available_View (Designated_Type (Typ))))
-                or else (Is_Type (Typ) and then Needs_Finalization (Typ)))
+            --  Freeze nodes for ignored Ghost types do not need cleanup
+            --  actions because they will never appear in the final tree.
+
+            if Is_Ignored_Ghost_Entity (Typ) then
+               null;
+
+            elsif ((Is_Access_Type (Typ)
+                      and then not Is_Access_Subprogram_Type (Typ)
+                      and then Needs_Finalization
+                                 (Available_View (Designated_Type (Typ))))
+                    or else (Is_Type (Typ) and then Needs_Finalization (Typ)))
               and then Requires_Cleanup_Actions
                          (Actions (Decl), Lib_Level, Nested_Constructs)
             then
@@ -7900,15 +8031,17 @@ package body Exp_Util is
          elsif Nested_Constructs
            and then Nkind (Decl) = N_Package_Declaration
          then
-            Pack_Id := Defining_Unit_Name (Specification (Decl));
+            Pack_Id := Defining_Entity (Decl);
 
-            if Nkind (Pack_Id) = N_Defining_Program_Unit_Name then
-               Pack_Id := Defining_Identifier (Pack_Id);
-            end if;
+            --  Do not inspect an ignored Ghost package because all code found
+            --  within will not appear in the final tree.
 
-            if Ekind (Pack_Id) /= E_Generic_Package
-              and then
-                Requires_Cleanup_Actions (Specification (Decl), Lib_Level)
+            if Is_Ignored_Ghost_Entity (Pack_Id) then
+               null;
+
+            elsif Ekind (Pack_Id) /= E_Generic_Package
+              and then Requires_Cleanup_Actions
+                         (Specification (Decl), Lib_Level)
             then
                return True;
             end if;
@@ -7916,11 +8049,37 @@ package body Exp_Util is
          --  Nested package bodies
 
          elsif Nested_Constructs and then Nkind (Decl) = N_Package_Body then
-            Pack_Id := Corresponding_Spec (Decl);
 
-            if Ekind (Pack_Id) /= E_Generic_Package
+            --  Do not inspect an ignored Ghost package body because all code
+            --  found within will not appear in the final tree.
+
+            if Is_Ignored_Ghost_Entity (Defining_Entity (Decl)) then
+               null;
+
+            elsif Ekind (Corresponding_Spec (Decl)) /= E_Generic_Package
               and then Requires_Cleanup_Actions (Decl, Lib_Level)
             then
+               return True;
+            end if;
+
+         elsif Nkind (Decl) = N_Block_Statement
+           and then
+
+           --  Handle a rare case caused by a controlled transient variable
+           --  created as part of a record init proc. The variable is wrapped
+           --  in a block, but the block is not associated with a transient
+           --  scope.
+
+           (Inside_Init_Proc
+
+           --  Handle the case where the original context has been wrapped in
+           --  a block to avoid interference between exception handlers and
+           --  At_End handlers. Treat the block as transparent and process its
+           --  contents.
+
+             or else Is_Finalization_Wrapper (Decl))
+         then
+            if Requires_Cleanup_Actions (Decl, Lib_Level) then
                return True;
             end if;
          end if;

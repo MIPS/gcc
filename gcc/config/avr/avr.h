@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for ATMEL AVR at90s8515, ATmega103/103L, ATmega603/603L microcontrollers.
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (chertykov@gmail.com)
 
 This file is part of GCC.
@@ -494,6 +494,10 @@ typedef struct avr_args
 
 #define DRIVER_SELF_SPECS " %{mmcu=*:-specs=device-specs/specs-%*%s %<mmcu=*} "
 #define CPP_SPEC ""
+
+/* We want cc1plus used as a preprocessor to pick up the cpp spec from the
+   per-device spec files  */
+#define CPLUSPLUS_CPP_SPEC "%(cpp)"
 
 #define CC1_SPEC ""
 

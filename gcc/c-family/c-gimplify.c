@@ -2,7 +2,7 @@
    by the C-based front ends.  The structure of gimplified, or
    language-independent, trees is dictated by the grammar described in this
    file.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Lowering of expressions contributed by Sebastian Pop <s.pop@laposte.net>
    Re-written to support lowering of whole function trees, documentation
    and miscellaneous cleanups by Diego Novillo <dnovillo@redhat.com>
@@ -27,7 +27,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "c-common.h"
 #include "predict.h"
 #include "vec.h"
@@ -175,8 +185,8 @@ add_block_to_enclosing (tree block)
 {
   unsigned i;
   tree enclosing;
-  gimple bind;
-  vec<gimple> stack = gimple_bind_expr_stack ();
+  gbind *bind;
+  vec<gbind *> stack = gimple_bind_expr_stack ();
 
   FOR_EACH_VEC_ELT (stack, i, bind)
     if (gimple_bind_block (bind))
@@ -242,6 +252,27 @@ c_gimplify_expr (tree *expr_p, gimple_seq *pre_p ATTRIBUTE_UNUSED,
 
   switch (code)
     {
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
+      {
+	/* We used to convert the right operand of a shift-expression
+	   to an integer_type_node in the FEs.  But it is unnecessary
+	   and not desirable for diagnostics and sanitizers.  We keep
+	   this here to not pessimize the code, but we convert to an
+	   unsigned type, because negative shift counts are undefined
+	   anyway.
+	   We should get rid of this conversion when we have a proper
+	   type demotion/promotion pass.  */
+	tree *op1_p = &TREE_OPERAND (*expr_p, 1);
+	if (TREE_CODE (TREE_TYPE (*op1_p)) != VECTOR_TYPE
+	    && !types_compatible_p (TYPE_MAIN_VARIANT (TREE_TYPE (*op1_p)),
+				    unsigned_type_node)
+	    && !types_compatible_p (TYPE_MAIN_VARIANT (TREE_TYPE (*op1_p)),
+				    integer_type_node))
+	  *op1_p = convert (unsigned_type_node, *op1_p);
+	break;
+      }
+
     case DECL_EXPR:
       /* This is handled mostly by gimplify.c, but we have to deal with
 	 not warning about int x = x; as it is a GCC extension to turn off

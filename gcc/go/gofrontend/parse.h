@@ -218,7 +218,7 @@ class Parse
   Typed_identifier* receiver();
   Expression* operand(bool may_be_sink, bool *is_parenthesized);
   Expression* enclosing_var_reference(Named_object*, Named_object*,
-				      Location);
+				      bool may_be_sink, Location);
   Expression* composite_lit(Type*, int depth, Location);
   Expression* function_lit();
   Expression* create_closure(Named_object* function, Enclosing_vars*,
@@ -245,7 +245,7 @@ class Parse
   void statement_list();
   bool statement_list_may_start_here();
   void expression_stat(Expression*);
-  void send_stmt(Expression*);
+  void send_stmt(Expression*, bool may_be_composite_lit);
   void inc_dec_stat(Expression*);
   void assignment(Expression*, bool may_be_composite_lit, Range_clause*);
   void tuple_assignment(Expression_list*, bool may_be_composite_lit,

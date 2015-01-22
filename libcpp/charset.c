@@ -1,5 +1,5 @@
 /* CPP Library - charsets
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
 
    Broken out of c-lex.c Apr 2003, adding valid C99 UCN ranges.
 
@@ -353,7 +353,7 @@ one_utf8_to_utf16 (iconv_t bigend, const uchar **inbufp, size_t *inbytesleftp,
       return EILSEQ;
     }
 
-  if (s < 0xFFFF)
+  if (s <= 0xFFFF)
     {
       if (*outbytesleftp < 2)
 	{

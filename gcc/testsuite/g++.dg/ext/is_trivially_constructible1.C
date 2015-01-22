@@ -33,3 +33,11 @@ SA(__is_trivially_constructible(int,double));
 SA(!__is_trivially_constructible(int,B));
 
 SA(!__is_trivially_constructible(D));
+
+SA(__is_trivially_copyable(int));
+SA(!__is_trivially_copyable(volatile int));
+
+struct E1 {const int val;};
+SA(__is_trivially_copyable(E1));
+struct E2 {int& val;};
+SA(__is_trivially_copyable(E2));

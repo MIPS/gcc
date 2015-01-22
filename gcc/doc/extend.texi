@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2014 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
 
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -46,6 +46,7 @@ extensions, accepted by GCC in C90 mode and in C++.
 * Escaped Newlines::    Slightly looser rules for escaped newlines.
 * Subscripting::        Any array can be subscripted, even if not an lvalue.
 * Pointer Arith::       Arithmetic on @code{void}-pointers and function pointers.
+* Pointers to Arrays::  Pointers to arrays with qualifiers work as expected.
 * Initializers::        Non-constant initializers.
 * Compound Literals::   Compound literals give structures, unions
                         or arrays as values.
@@ -76,6 +77,8 @@ extensions, accepted by GCC in C90 mode and in C++.
 * Offsetof::            Special syntax for implementing @code{offsetof}.
 * __sync Builtins::     Legacy built-in functions for atomic memory access.
 * __atomic Builtins::   Atomic built-in functions with memory model.
+* Integer Overflow Builtins:: Built-in functions to perform arithmetics and
+                        arithmetic overflow checking.
 * x86 specific memory model extensions for transactional memory:: x86 memory models.
 * Object Size Checking:: Built-in functions for limited buffer overflow
                         checking.
@@ -1541,7 +1544,7 @@ struct bar @{ struct foo z; @};
 struct foo a = @{ 1, @{ 2, 3, 4 @} @};        // @r{Valid.}
 struct bar b = @{ @{ 1, @{ 2, 3, 4 @} @} @};    // @r{Invalid.}
 struct bar c = @{ @{ 1, @{ @} @} @};            // @r{Valid.}
-struct foo d[1] = @{ @{ 1 @{ 2, 3, 4 @} @} @};  // @r{Invalid.}
+struct foo d[1] = @{ @{ 1, @{ 2, 3, 4 @} @} @};  // @r{Invalid.}
 @end smallexample
 
 @node Empty Structures
@@ -1781,6 +1784,27 @@ and on function types, and returns 1.
 @opindex Wpointer-arith
 The option @option{-Wpointer-arith} requests a warning if these extensions
 are used.
+
+@node Pointers to Arrays
+@section Pointers to arrays with qualifiers work as expected
+@cindex pointers to arrays
+@cindex const qualifier
+
+In GNU C, pointers to arrays with qualifiers work similar to pointers
+to other qualified types. For example, a value of type @code{int (*)[5]}
+can be used to initialize a variable of type @code{const int (*)[5]}.
+These types are incompatible in ISO C because the @code{const} qualifier
+is formally attached to the element type of the array and not the
+array itself.
+
+@smallexample
+extern void
+transpose (int N, int M, double out[M][N], const double in[N][M]);
+double x[3][2];
+double y[2][3];
+@r{@dots{}}
+transpose(3, 2, y, x);
+@end smallexample
 
 @node Initializers
 @section Non-Constant Initializers
@@ -2171,6 +2195,7 @@ attribute specification inside double parentheses.  The following
 attributes are currently defined for functions on all targets:
 @code{aligned}, @code{alloc_size}, @code{alloc_align}, @code{assume_aligned},
 @code{noreturn}, @code{returns_twice}, @code{noinline}, @code{noclone},
+@code{no_icf},
 @code{always_inline}, @code{flatten}, @code{pure}, @code{const},
 @code{nothrow}, @code{sentinel}, @code{format}, @code{format_arg},
 @code{no_instrument_function}, @code{no_split_stack},
@@ -2181,8 +2206,9 @@ attributes are currently defined for functions on all targets:
 @code{returns_nonnull}, @code{gnu_inline},
 @code{externally_visible}, @code{hot}, @code{cold}, @code{artificial},
 @code{no_sanitize_address}, @code{no_address_safety_analysis},
+@code{no_sanitize_thread},
 @code{no_sanitize_undefined}, @code{no_reorder}, @code{bnd_legacy},
-@code{bnd_instrument},
+@code{bnd_instrument}, @code{stack_protect},
 @code{error} and @code{warning}.
 Several other attributes are defined for functions on particular
 target systems.  Other attributes, including @code{section} are
@@ -2911,12 +2937,11 @@ least version 2.20.1), and GNU C library (at least version 2.11.1).
 @item interrupt
 @cindex interrupt handler functions
 Use this attribute on the ARC, ARM, AVR, CR16, Epiphany, M32C, M32R/D,
-m68k, MeP, MIPS, MSP430, RL78, RX and Xstormy16 ports to indicate that
-the specified function is an
-interrupt handler.  The compiler generates function entry and exit
-sequences suitable for use in an interrupt handler when this attribute
-is present.  With Epiphany targets it may also generate a special section with
-code to initialize the interrupt vector table.
+m68k, MeP, MIPS, MSP430, RL78, RX, Visium and Xstormy16 ports to indicate
+that the specified function is an interrupt handler.  The compiler generates
+function entry and exit sequences suitable for use in an interrupt handler
+when this attribute is present.  With Epiphany targets it may also generate
+a special section with code to initialize the interrupt vector table.
 
 Note, interrupt handlers for the Blackfin, H8/300, H8/300H, H8S, MicroBlaze,
 and SH processors can be specified via the @code{interrupt_handler} attribute.
@@ -3420,6 +3445,12 @@ prologue which decides whether to split the stack.  Functions with the
 @code{no_split_stack} attribute do not have that prologue, and thus
 may run with only a small amount of stack space available.
 
+@item stack_protect
+@cindex @code{stack_protect} function attribute
+This function attribute make a stack protection of the function if 
+flags @option{fstack-protector} or @option{fstack-protector-strong}
+or @option{fstack-protector-explicit} are set.
+
 @item noinline
 @cindex @code{noinline} function attribute
 This function attribute prevents a function from being considered for
@@ -3444,6 +3475,11 @@ This function attribute prevents a function from being considered for
 cloning---a mechanism that produces specialized copies of functions
 and which is (currently) performed by interprocedural constant
 propagation.
+
+@item no_icf
+@cindex @code{no_icf} function attribute
+This function attribute prevents a functions from being merged with another
+semantically equivalent function.
 
 @item nonnull (@var{arg-index}, @dots{})
 @cindex @code{nonnull} function attribute
@@ -3697,6 +3733,12 @@ in the function when compiling with the @option{-fsanitize=address} option.
 The @code{no_address_safety_analysis} is a deprecated alias of the
 @code{no_sanitize_address} attribute, new code should use
 @code{no_sanitize_address}.
+
+@item no_sanitize_thread
+@cindex @code{no_sanitize_thread} function attribute
+The @code{no_sanitize_thread} attribute on functions is used
+to inform the compiler that it should not instrument memory accesses
+in the function when compiling with the @option{-fsanitize=thread} option.
 
 @item no_sanitize_undefined
 @cindex @code{no_sanitize_undefined} function attribute
@@ -8524,6 +8566,65 @@ alignment.  A value of 0 indicates typical alignment should be used.  The
 compiler may also ignore this parameter.
 @end deftypefn
 
+@node Integer Overflow Builtins
+@section Built-in functions to perform arithmetics and arithmetic overflow checking.
+
+The following built-in functions allow performing simple arithmetic operations
+together with checking whether the operations overflowed.
+
+@deftypefn {Built-in Function} bool __builtin_add_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
+@deftypefnx {Built-in Function} bool __builtin_sadd_overflow (int a, int b, int *res)
+@deftypefnx {Built-in Function} bool __builtin_saddl_overflow (long int a, long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_saddll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_uadd_overflow (unsigned int a, unsigned int b, unsigned int *res)
+@deftypefnx {Built-in Function} bool __builtin_uaddl_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_uaddll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+
+These built-in functions promote the first two operands into infinite precision signed
+type and perform addition on those promoted operands.  The result is then
+cast to the type the third pointer argument points to and stored there.
+If the stored result is equal to the infinite precision result, the built-in
+functions return false, otherwise they return true.  As the addition is
+performed in infinite signed precision, these built-in functions have fully defined
+behavior for all argument values.
+
+The first built-in function allows arbitrary integral types for operands and
+the result type must be pointer to some integer type, the rest of the built-in
+functions have explicit integer types.
+
+The compiler will attempt to use hardware instructions to implement
+these built-in functions where possible, like conditional jump on overflow
+after addition, conditional jump on carry etc.
+
+@end deftypefn
+
+@deftypefn {Built-in Function} bool __builtin_sub_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
+@deftypefnx {Built-in Function} bool __builtin_ssub_overflow (int a, int b, int *res)
+@deftypefnx {Built-in Function} bool __builtin_ssubl_overflow (long int a, long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_ssubll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_usub_overflow (unsigned int a, unsigned int b, unsigned int *res)
+@deftypefnx {Built-in Function} bool __builtin_usubl_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_usubll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+
+These built-in functions are similar to the add overflow checking built-in
+functions above, except they perform subtraction, subtract the second argument
+from the first one, instead of addition.
+
+@end deftypefn
+
+@deftypefn {Built-in Function} bool __builtin_mul_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
+@deftypefnx {Built-in Function} bool __builtin_smul_overflow (int a, int b, int *res)
+@deftypefnx {Built-in Function} bool __builtin_smull_overflow (long int a, long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_smulll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_umul_overflow (unsigned int a, unsigned int b, unsigned int *res)
+@deftypefnx {Built-in Function} bool __builtin_umull_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_umulll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+
+These built-in functions are similar to the add overflow checking built-in
+functions above, except they perform multiplication, instead of addition.
+
+@end deftypefn
+
 @node x86 specific memory model extensions for transactional memory
 @section x86 specific memory model extensions for transactional memory
 
@@ -8889,6 +8990,7 @@ in the Cilk Plus language manual which can be found at
 @node Other Builtins
 @section Other Built-in Functions Provided by GCC
 @cindex built-in functions
+@findex __builtin_call_with_static_chain
 @findex __builtin_fpclassify
 @findex __builtin_isfinite
 @findex __builtin_isnormal
@@ -9477,6 +9579,18 @@ depending on the arguments' types.  For example:
 
 @end deftypefn
 
+@deftypefn {Built-in Function} @var{type} __builtin_call_with_static_chain (@var{call_exp}, @var{pointer_exp})
+
+The @var{call_exp} expression must be a function call, and the
+@var{pointer_exp} expression must be a pointer.  The @var{pointer_exp}
+is passed to the function call in the target's static chain location.
+The result of builtin is the result of the function call.
+
+@emph{Note:} This builtin is only available for C@.
+This builtin can be used to call Go closures from C.
+
+@end deftypefn
+
 @deftypefn {Built-in Function} @var{type} __builtin_choose_expr (@var{const_exp}, @var{exp1}, @var{exp2})
 
 You can use the built-in function @code{__builtin_choose_expr} to
@@ -10023,14 +10137,12 @@ instructions, but allow the compiler to schedule those calls.
 
 @menu
 * AArch64 Built-in Functions::
-* AArch64 intrinsics::
 * Alpha Built-in Functions::
 * Altera Nios II Built-in Functions::
 * ARC Built-in Functions::
 * ARC SIMD Built-in Functions::
 * ARM iWMMXt Built-in Functions::
-* ARM NEON Intrinsics::
-* ARM ACLE Intrinsics::
+* ARM C Language Extensions (ACLE)::
 * ARM Floating Point Status and Control Intrinsics::
 * AVR Built-in Functions::
 * Blackfin Built-in Functions::
@@ -10068,11 +10180,6 @@ void __builtin_aarch64_set_fpcr (unsigned int)
 unsigned int __builtin_aarch64_get_fpsr ()
 void __builtin_aarch64_set_fpsr (unsigned int)
 @end smallexample
-
-@node AArch64 intrinsics
-@subsection ACLE Intrinsics for AArch64
-
-@include aarch64-acle-intrinsics.texi
 
 @node Alpha Built-in Functions
 @subsection Alpha Built-in Functions
@@ -10837,18 +10944,29 @@ long long __builtin_arm_wxor (long long, long long)
 long long __builtin_arm_wzero ()
 @end smallexample
 
-@node ARM NEON Intrinsics
-@subsection ARM NEON Intrinsics
 
-These built-in intrinsics for the ARM Advanced SIMD extension are available
-when the @option{-mfpu=neon} switch is used:
+@node ARM C Language Extensions (ACLE)
+@subsection ARM C Language Extensions (ACLE)
 
-@include arm-neon-intrinsics.texi
+GCC implements extensions for C as described in the ARM C Language
+Extensions (ACLE) specification, which can be found at
+@uref{http://infocenter.arm.com/help/topic/com.arm.doc.ihi0053c/IHI0053C_acle_2_0.pdf}.
 
-@node ARM ACLE Intrinsics
-@subsection ARM ACLE Intrinsics
+As a part of ACLE, GCC implements extensions for Advanced SIMD as described in
+the ARM C Language Extensions Specification.  The complete list of Advanced SIMD
+intrinsics can be found at
+@uref{http://infocenter.arm.com/help/topic/com.arm.doc.ihi0073a/IHI0073A_arm_neon_intrinsics_ref.pdf}.
+The built-in intrinsics for the Advanced SIMD extension are available when
+NEON is enabled.
 
-@include arm-acle-intrinsics.texi
+Currently, ARM and AArch64 back-ends do not support ACLE 2.0 fully.  Both
+back-ends support CRC32 intrinsics from @file{arm_acle.h}.  The ARM backend's
+16-bit floating-point Advanded SIMD Intrinsics currently comply to ACLE v1.1.
+AArch64's backend does not have support for 16-bit floating point Advanced SIMD
+Intrinsics yet.
+
+See @ref{ARM Options} and @ref{AArch64 Options} for more information on the
+availability of extensions.
 
 @node ARM Floating Point Status and Control Intrinsics
 @subsection ARM Floating Point Status and Control Intrinsics
@@ -11601,6 +11719,8 @@ SSE4.2 instructions.
 AVX instructions.
 @item avx2
 AVX2 instructions.
+@item avx512f
+AVX512F instructions.
 @end table
 
 Here is an example:
@@ -16857,6 +16977,15 @@ int get_tcb_value (void)
 @}
 
 @end smallexample
+@end deftypefn
+
+@deftypefn {Built-in Function} {unsigned int} __builtin_sh_get_fpscr (void)
+Returns the value that is currently set in the @samp{FPSCR} register.
+@end deftypefn
+
+@deftypefn {Built-in Function} {void} __builtin_sh_set_fpscr (unsigned int @var{val})
+Sets the @samp{FPSCR} register to the specified value @var{val}, while
+preserving the current values of the FR, SZ and PR bits.
 @end deftypefn
 
 @node SPARC VIS Built-in Functions

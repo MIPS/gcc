@@ -37,6 +37,7 @@ with Errout;   use Errout;
 with Exp_Disp; use Exp_Disp;
 with Exp_Dist; use Exp_Dist;
 with Exp_Dbug; use Exp_Dbug;
+with Ghost;    use Ghost;
 with Lib;      use Lib;
 with Lib.Xref; use Lib.Xref;
 with Namet;    use Namet;
@@ -634,6 +635,13 @@ package body Sem_Ch7 is
          end if;
       end if;
 
+      --  The corresponding spec of the package body may be subject to pragma
+      --  Ghost with policy Ignore. Set the mode now to ensure that any nodes
+      --  generated during analysis and expansion are properly flagged as
+      --  ignored Ghost.
+
+      Set_Ghost_Mode (N, Spec_Id);
+
       Set_Is_Compilation_Unit (Body_Id, Is_Compilation_Unit (Spec_Id));
       Style.Check_Identifier (Body_Id, Spec_Id);
 
@@ -731,11 +739,11 @@ package body Sem_Ch7 is
       --  property is not directly inherited as the body may be subject to a
       --  different Ghost assertion policy.
 
-      if Is_Ghost_Entity (Spec_Id) or else Within_Ghost_Scope then
+      if Is_Ghost_Entity (Spec_Id) or else Ghost_Mode > None then
          Set_Is_Ghost_Entity (Body_Id);
 
          --  The Ghost policy in effect at the point of declaration and at the
-         --  point of completion must match (SPARK RM 6.9(14)).
+         --  point of completion must match (SPARK RM 6.9(15)).
 
          Check_Ghost_Completion (Spec_Id, Body_Id);
       end if;
@@ -1000,6 +1008,12 @@ package body Sem_Ch7 is
          Write_Eol;
          Indent;
       end if;
+
+      --  The package declaration may be subject to pragma Ghost with policy
+      --  Ignore. Set the mode now to ensure that any nodes generated during
+      --  analysis and expansion are properly flagged as ignored Ghost.
+
+      Set_Ghost_Mode (N);
 
       Generate_Definition (Id);
       Enter_Name (Id);
@@ -1762,6 +1776,12 @@ package body Sem_Ch7 is
       Id : constant Entity_Id := Defining_Identifier (N);
 
    begin
+      --  The private type declaration may be subject to pragma Ghost with
+      --  policy Ignore. Set the mode now to ensure that any nodes generated
+      --  during analysis and expansion are properly flagged as ignored Ghost.
+
+      Set_Ghost_Mode (N);
+
       Generate_Definition (Id);
       Set_Is_Pure         (Id, PF);
       Init_Size_Align     (Id);
@@ -1775,10 +1795,10 @@ package body Sem_Ch7 is
       New_Private_Type (N, Id, N);
       Set_Depends_On_Private (Id);
 
-      --  A type declared within a Ghost scope is automatically Ghost
+      --  A type declared within a Ghost region is automatically Ghost
       --  (SPARK RM 6.9(2)).
 
-      if Within_Ghost_Scope then
+      if Ghost_Mode > None then
          Set_Is_Ghost_Entity (Id);
       end if;
 
@@ -2444,7 +2464,8 @@ package body Sem_Ch7 is
 
    function Requires_Completion_In_Body
      (Id      : Entity_Id;
-      Pack_Id : Entity_Id) return Boolean is
+      Pack_Id : Entity_Id) return Boolean
+   is
    begin
       --  Always ignore child units. Child units get added to the entity list
       --  of a parent unit, but are not original entities of the parent, and

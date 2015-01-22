@@ -1,7 +1,7 @@
 /* Miscellaneous utilities for GIMPLE streaming.  Things that are used
    in both input and output are here.
 
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Doug Kwan <dougkwan@google.com>
 
 This file is part of GCC.
@@ -26,12 +26,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "toplev.h"
 #include "flags.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -60,6 +66,9 @@ struct lto_stats_d lto_stats;
 static bitmap_obstack lto_obstack;
 static bool lto_obstack_initialized;
 
+const char *section_name_prefix = LTO_SECTION_NAME_PREFIX;
+/* Set when streaming LTO for offloading compiler.  */
+bool lto_stream_offload_p;
 
 /* Return a string representing LTO tag TAG.  */
 
@@ -189,7 +198,7 @@ lto_get_section_name (int section_type, const char *name, struct lto_file_decl_d
     sprintf (post, "." HOST_WIDE_INT_PRINT_HEX_PURE, f->id);
   else
     sprintf (post, "." HOST_WIDE_INT_PRINT_HEX_PURE, get_random_seed (false)); 
-  return concat (LTO_SECTION_NAME_PREFIX, sep, add, post, NULL);
+  return concat (section_name_prefix, sep, add, post, NULL);
 }
 
 
@@ -327,7 +336,7 @@ lto_streamer_init (void)
 bool
 gate_lto_out (void)
 {
-  return ((flag_generate_lto || in_lto_p)
+  return ((flag_generate_lto || flag_generate_offload || in_lto_p)
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !seen_error ());
 }

@@ -1,6 +1,6 @@
 // RB tree implementation -*- C++ -*-
 
-// Copyright (C) 2001-2014 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -359,16 +359,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef const _Rb_tree_node<_Val>*	_Const_Link_type;
 
     private:
-      // Functor recycling a pool of nodes and using allocation once the pool is
-      // empty.
+      // Functor recycling a pool of nodes and using allocation once the pool
+      // is empty.
       struct _Reuse_or_alloc_node
       {
-	_Reuse_or_alloc_node(const _Rb_tree_node_base& __header,
-			     _Rb_tree& __t)
-	  : _M_root(__header._M_parent), _M_nodes(__header._M_right), _M_t(__t)
+	_Reuse_or_alloc_node(_Rb_tree& __t)
+	  : _M_root(__t._M_root()), _M_nodes(__t._M_rightmost()), _M_t(__t)
 	{
 	  if (_M_root)
-	    _M_root->_M_parent = 0;
+	    {
+	      _M_root->_M_parent = 0;
+
+	      if (_M_nodes->_M_left)
+		_M_nodes = _M_nodes->_M_left;
+	    }
 	  else
 	    _M_nodes = 0;
 	}
@@ -420,6 +424,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 		      while (_M_nodes->_M_right)
 			_M_nodes = _M_nodes->_M_right;
+
+		      if (_M_nodes->_M_left)
+			_M_nodes = _M_nodes->_M_left;
 		    }
 		}
 	      else // __node is on the left.
@@ -436,7 +443,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_Rb_tree& _M_t;
       };
 
-      // Functor similar to the previous one but without any pool of node to
+      // Functor similar to the previous one but without any pool of nodes to
       // recycle.
       struct _Alloc_node
       {
@@ -1111,6 +1118,137 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       pair<const_iterator, const_iterator>
       equal_range(const key_type& __k) const;
 
+#if __cplusplus > 201103L
+      template<typename _Cmp, typename _Kt, typename = __void_t<>>
+	struct __is_transparent { };
+
+      template<typename _Cmp, typename _Kt>
+	struct
+	__is_transparent<_Cmp, _Kt, __void_t<typename _Cmp::is_transparent>>
+	{ typedef void type; };
+
+      static auto _S_iter(_Link_type __x) { return iterator(__x); }
+
+      static auto _S_iter(_Const_Link_type __x) { return const_iterator(__x); }
+
+      template<typename _Cmp, typename _Link, typename _Kt>
+	static auto
+	_S_lower_bound_tr(_Cmp& __cmp, _Link __x, _Link __y, const _Kt& __k)
+	{
+	  while (__x != 0)
+	    if (!__cmp(_S_key(__x), __k))
+	      __y = __x, __x = _S_left(__x);
+	    else
+	      __x = _S_right(__x);
+	  return _S_iter(__y);
+	}
+
+      template<typename _Cmp, typename _Link, typename _Kt>
+	static auto
+	_S_upper_bound_tr(_Cmp& __cmp, _Link __x, _Link __y, const _Kt& __k)
+	{
+	  while (__x != 0)
+	    if (__cmp(__k, _S_key(__x)))
+	      __y = __x, __x = _S_left(__x);
+	    else
+	      __x = _S_right(__x);
+	  return _S_iter(__y);
+	}
+
+      template<typename _Kt,
+	       typename _Req = typename __is_transparent<_Compare, _Kt>::type>
+	iterator
+	_M_find_tr(const _Kt& __k)
+	{
+	  auto& __cmp = _M_impl._M_key_compare;
+	  auto __j = _S_lower_bound_tr(__cmp, _M_begin(), _M_end(), __k);
+	  return (__j == end() || __cmp(__k, _S_key(__j._M_node)))
+	    ? end() : __j;
+	}
+
+      template<typename _Kt,
+	       typename _Req = typename __is_transparent<_Compare, _Kt>::type>
+	const_iterator
+	_M_find_tr(const _Kt& __k) const
+	{
+	  auto& __cmp = _M_impl._M_key_compare;
+	  auto __j = _S_lower_bound_tr(__cmp, _M_begin(), _M_end(), __k);
+	  return (__j == end() || __cmp(__k, _S_key(__j._M_node)))
+	    ? end() : __j;
+	}
+
+      template<typename _Kt,
+	       typename _Req = typename __is_transparent<_Compare, _Kt>::type>
+	size_type
+	_M_count_tr(const _Kt& __k) const
+	{
+	  auto __p = _M_equal_range_tr(__k);
+	  return std::distance(__p.first, __p.second);
+	}
+
+      template<typename _Kt,
+	       typename _Req = typename __is_transparent<_Compare, _Kt>::type>
+	iterator
+	_M_lower_bound_tr(const _Kt& __k)
+	{
+	  auto& __cmp = _M_impl._M_key_compare;
+	  return _S_lower_bound_tr(__cmp, _M_begin(), _M_end(), __k);
+	}
+
+      template<typename _Kt,
+	       typename _Req = typename __is_transparent<_Compare, _Kt>::type>
+	const_iterator
+	_M_lower_bound_tr(const _Kt& __k) const
+	{
+	  auto& __cmp = _M_impl._M_key_compare;
+	  return _S_lower_bound_tr(__cmp, _M_begin(), _M_end(), __k);
+	}
+
+      template<typename _Kt,
+	       typename _Req = typename __is_transparent<_Compare, _Kt>::type>
+	iterator
+	_M_upper_bound_tr(const _Kt& __k)
+	{
+	  auto& __cmp = _M_impl._M_key_compare;
+	  return _S_upper_bound_tr(__cmp, _M_begin(), _M_end(), __k);
+	}
+
+      template<typename _Kt,
+	       typename _Req = typename __is_transparent<_Compare, _Kt>::type>
+	const_iterator
+	_M_upper_bound_tr(const _Kt& __k) const
+	{
+	  auto& __cmp = _M_impl._M_key_compare;
+	  return _S_upper_bound_tr(__cmp, _M_begin(), _M_end(), __k);
+	}
+
+      template<typename _Kt,
+	       typename _Req = typename __is_transparent<_Compare, _Kt>::type>
+	pair<iterator, iterator>
+	_M_equal_range_tr(const _Kt& __k)
+	{
+	  auto __low = _M_lower_bound_tr(__k);
+	  auto __high = __low;
+	  auto& __cmp = _M_impl._M_key_compare;
+	  while (__high != end() && !__cmp(__k, _S_key(__high._M_node)))
+	    ++__high;
+	  return { __low, __high };
+	}
+
+      template<typename _Kt,
+	       typename _Req = typename __is_transparent<_Compare, _Kt>::type>
+	pair<const_iterator, const_iterator>
+	_M_equal_range_tr(const _Kt& __k) const
+	{
+	  auto __low = _M_lower_bound_tr(__k);
+	  auto __high = __low;
+	  auto& __cmp = _M_impl._M_key_compare;
+	  while (__high != end() && !__cmp(__k, _S_key(__high._M_node)))
+	    ++__high;
+	  return { __low, __high };
+	}
+#endif
+
       // Debugging.
       bool
       __rb_verify() const;
@@ -1271,7 +1409,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       // Try to move each node reusing existing nodes and copying __x nodes
       // structure.
-      _Reuse_or_alloc_node __roan(_M_impl._M_header, *this);
+      _Reuse_or_alloc_node __roan(*this);
       _M_impl._M_reset();
       if (__x._M_root() != nullptr)
 	{
@@ -1297,7 +1435,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>::
       _M_assign_unique(_Iterator __first, _Iterator __last)
       {
-	_Reuse_or_alloc_node __roan(this->_M_impl._M_header, *this);
+	_Reuse_or_alloc_node __roan(*this);
 	_M_impl._M_reset();
 	for (; __first != __last; ++__first)
 	  _M_insert_unique_(end(), *__first, __roan);
@@ -1310,7 +1448,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>::
       _M_assign_equal(_Iterator __first, _Iterator __last)
       {
-	_Reuse_or_alloc_node __roan(this->_M_impl._M_header, *this);
+	_Reuse_or_alloc_node __roan(*this);
 	_M_impl._M_reset();
 	for (; __first != __last; ++__first)
 	  _M_insert_equal_(end(), *__first, __roan);
@@ -1342,7 +1480,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    }
 #endif
 
-	  _Reuse_or_alloc_node __roan(this->_M_impl._M_header, *this);
+	  _Reuse_or_alloc_node __roan(*this);
 	  _M_impl._M_reset();
 	  _M_impl._M_key_compare = __x._M_impl._M_key_compare;
 	  if (__x._M_root() != 0)

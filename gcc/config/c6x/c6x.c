@@ -1,5 +1,5 @@
 /* Target Code for TI C6X
-   Copyright (C) 2010-2014 Free Software Foundation, Inc.
+   Copyright (C) 2010-2015 Free Software Foundation, Inc.
    Contributed by Andrew Jenner <andrew@codesourcery.com>
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
@@ -24,7 +24,17 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
@@ -33,6 +43,19 @@
 #include "output.h"
 #include "insn-attr.h"
 #include "insn-codes.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "regs.h"
 #include "optabs.h"
@@ -53,13 +76,6 @@
 #include "tm-preds.h"
 #include "tm-constrs.h"
 #include "df.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "diagnostic-core.h"
 #include "hash-map.h"
 #include "is-a.h"
@@ -3513,7 +3529,8 @@ try_rename_operands (rtx_insn *head, rtx_insn *tail, unit_req_table reqs,
   COMPL_HARD_REG_SET (unavailable, reg_class_contents[(int) super_class]);
 
   old_reg = this_head->regno;
-  best_reg = find_best_rename_reg (this_head, super_class, &unavailable, old_reg);
+  best_reg =
+    find_rename_reg (this_head, super_class, &unavailable, old_reg, true);
 
   regrename_do_replace (this_head, best_reg);
 

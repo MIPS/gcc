@@ -37,8 +37,18 @@
 #include "stringpool.h"
 
 #include "gcc-interface.h"
-#include "tree-core.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
 #include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "c-tree.h"
 #include "toplev.h"
@@ -54,8 +64,6 @@
 #include "callbacks.hh"
 #include "connection.hh"
 #include "rpc.hh"
-
-#include <string>
 
 #ifdef __GNUC__
 #pragma GCC visibility push(default)

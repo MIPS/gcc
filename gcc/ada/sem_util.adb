@@ -70,7 +70,7 @@ with GNAT.HTable; use GNAT.HTable;
 package body Sem_Util is
 
    ----------------------------------------
-   -- Global_Variables for New_Copy_Tree --
+   -- Global Variables for New_Copy_Tree --
    ----------------------------------------
 
    --  These global variables are used by New_Copy_Tree. See description of the
@@ -110,12 +110,6 @@ package body Sem_Util is
    --  and Build_Discriminal_Subtype_Of_Component. C is a list of constraints,
    --  Loc is the source location, T is the original subtype.
 
-   function Is_Fully_Initialized_Variant (Typ : Entity_Id) return Boolean;
-   --  Subsidiary to Is_Fully_Initialized_Type. For an unconstrained type
-   --  with discriminants whose default values are static, examine only the
-   --  components in the selected variant to determine whether all of them
-   --  have a default.
-
    function Has_Enabled_Property
      (Item_Id  : Entity_Id;
       Property : Name_Id) return Boolean;
@@ -126,6 +120,12 @@ package body Sem_Util is
    function Has_Null_Extension (T : Entity_Id) return Boolean;
    --  T is a derived tagged type. Check whether the type extension is null.
    --  If the parent type is fully initialized, T can be treated as such.
+
+   function Is_Fully_Initialized_Variant (Typ : Entity_Id) return Boolean;
+   --  Subsidiary to Is_Fully_Initialized_Type. For an unconstrained type
+   --  with discriminants whose default values are static, examine only the
+   --  components in the selected variant to determine whether all of them
+   --  have a default.
 
    ------------------------------
    --  Abstract_Interface_List --
@@ -897,8 +897,9 @@ package body Sem_Util is
    is
    begin
       return Is_Enumeration_Type (T)
-        and then Comes_From_Source (N)
         and then Warn_On_Unordered_Enumeration_Type
+        and then not Is_Generic_Type (T)
+        and then Comes_From_Source (N)
         and then not Has_Pragma_Ordered (T)
         and then not In_Same_Extended_Unit (N, T);
    end Bad_Unordered_Enumeration_Reference;
@@ -2132,6 +2133,12 @@ package body Sem_Util is
                   begin
                      Id := Get_Function_Id (Call);
 
+                     --  In case of previous error, no check is possible
+
+                     if No (Id) then
+                        return Abandon;
+                     end if;
+
                      Formal := First_Formal (Id);
                      Actual := First_Actual (Call);
                      while Present (Actual) and then Present (Formal) loop
@@ -2669,82 +2676,6 @@ package body Sem_Util is
       end if;
    end Check_Function_Writable_Actuals;
 
-   ----------------------------
-   -- Check_Ghost_Completion --
-   ----------------------------
-
-   procedure Check_Ghost_Completion
-     (Partial_View : Entity_Id;
-      Full_View    : Entity_Id)
-   is
-      Policy : constant Name_Id := Policy_In_Effect (Name_Ghost);
-
-   begin
-      --  The Ghost policy in effect at the point of declaration and at the
-      --  point of completion must match (SPARK RM 6.9(14)).
-
-      if Is_Checked_Ghost_Entity (Partial_View)
-        and then Policy = Name_Ignore
-      then
-         Error_Msg_Sloc := Sloc (Full_View);
-
-         SPARK_Msg_N ("incompatible ghost policies in effect",   Partial_View);
-         SPARK_Msg_N ("\& declared with ghost policy Check",     Partial_View);
-         SPARK_Msg_N ("\& completed # with ghost policy Ignore", Partial_View);
-
-      elsif Is_Ignored_Ghost_Entity (Partial_View)
-        and then Policy = Name_Check
-      then
-         Error_Msg_Sloc := Sloc (Full_View);
-
-         SPARK_Msg_N ("incompatible ghost policies in effect",  Partial_View);
-         SPARK_Msg_N ("\& declared with ghost policy Ignore",   Partial_View);
-         SPARK_Msg_N ("\& completed # with ghost policy Check", Partial_View);
-      end if;
-   end Check_Ghost_Completion;
-
-   ----------------------------
-   -- Check_Ghost_Derivation --
-   ----------------------------
-
-   procedure Check_Ghost_Derivation (Typ : Entity_Id) is
-      Parent_Typ : constant Entity_Id := Etype (Typ);
-      Iface      : Entity_Id;
-      Iface_Elmt : Elmt_Id;
-
-   begin
-      --  Allow untagged derivations from predefined types such as Integer as
-      --  those are not Ghost by definition.
-
-      if Is_Scalar_Type (Typ) and then Parent_Typ = Base_Type (Typ) then
-         null;
-
-      --  The parent type of a Ghost type extension must be Ghost
-
-      elsif not Is_Ghost_Entity (Parent_Typ) then
-         SPARK_Msg_N  ("type extension & cannot be ghost", Typ);
-         SPARK_Msg_NE ("\parent type & is not ghost", Typ, Parent_Typ);
-         return;
-      end if;
-
-      --  All progenitors (if any) must be Ghost as well
-
-      if Is_Tagged_Type (Typ) and then Present (Interfaces (Typ)) then
-         Iface_Elmt := First_Elmt (Interfaces (Typ));
-         while Present (Iface_Elmt) loop
-            Iface := Node (Iface_Elmt);
-
-            if not Is_Ghost_Entity (Iface) then
-               SPARK_Msg_N  ("type extension & cannot be ghost", Typ);
-               SPARK_Msg_NE ("\interface type & is not ghost", Typ, Iface);
-               return;
-            end if;
-
-            Next_Elmt (Iface_Elmt);
-         end loop;
-      end if;
-   end Check_Ghost_Derivation;
-
    --------------------------------
    -- Check_Implicit_Dereference --
    --------------------------------
@@ -2759,7 +2690,6 @@ package body Sem_Util is
         and then Present (Generalized_Indexing (N))
       then
          Nam := Generalized_Indexing (N);
-
       else
          Nam := N;
       end if;
@@ -5059,23 +4989,22 @@ package body Sem_Util is
          end if;
       end Select_Node;
 
-   --  Start of processing for Designate_Next_Unit
+   --  Start of processing for Designate_Same_Unit
 
    begin
-      if (K1 = N_Identifier or else K1 = N_Defining_Identifier)
+      if Nkind_In (K1, N_Identifier, N_Defining_Identifier)
            and then
-         (K2 = N_Identifier or else K2 = N_Defining_Identifier)
+         Nkind_In (K2, N_Identifier, N_Defining_Identifier)
       then
          return Chars (Name1) = Chars (Name2);
 
-      elsif
-         (K1 = N_Expanded_Name      or else
-          K1 = N_Selected_Component or else
-          K1 = N_Defining_Program_Unit_Name)
-        and then
-         (K2 = N_Expanded_Name      or else
-          K2 = N_Selected_Component or else
-          K2 = N_Defining_Program_Unit_Name)
+      elsif Nkind_In (K1, N_Expanded_Name,
+                          N_Selected_Component,
+                          N_Defining_Program_Unit_Name)
+              and then
+            Nkind_In (K2, N_Expanded_Name,
+                          N_Selected_Component,
+                          N_Defining_Program_Unit_Name)
       then
          return
            (Chars (Select_Node (Name1)) = Chars (Select_Node (Name2)))
@@ -5924,74 +5853,106 @@ package body Sem_Util is
    function Extensions_Visible_Status
      (Id : Entity_Id) return Extensions_Visible_Mode
    is
-      Arg1 : Node_Id;
+      Arg  : Node_Id;
+      Decl : Node_Id;
       Expr : Node_Id;
       Prag : Node_Id;
       Subp : Entity_Id;
 
    begin
-      if SPARK_Mode = On then
+      --  When a formal parameter is subject to Extensions_Visible, the pragma
+      --  is stored in the contract of related subprogram.
 
-         --  When a formal parameter is subject to Extensions_Visible, the
-         --  pragma is stored in the contract of related subprogram.
+      if Is_Formal (Id) then
+         Subp := Scope (Id);
 
-         if Is_Formal (Id) then
-            Subp := Scope (Id);
+      elsif Is_Subprogram_Or_Generic_Subprogram (Id) then
+         Subp := Id;
 
-         elsif Is_Subprogram_Or_Generic_Subprogram (Id) then
-            Subp := Id;
-
-         --  No other construct carries this pragma
-
-         else
-            return Extensions_Visible_None;
-         end if;
-
-         Prag := Get_Pragma (Subp, Pragma_Extensions_Visible);
-
-         --  Extract the value from the Boolean expression (if any)
-
-         if Present (Prag) then
-            Arg1 := First (Pragma_Argument_Associations (Prag));
-
-            --  The pragma appears with an argument
-
-            if Present (Arg1) then
-               Expr := Get_Pragma_Arg (Arg1);
-
-               --  Guarg against cascading errors when the argument of pragma
-               --  Extensions_Visible is not a valid static Boolean expression.
-
-               if Error_Posted (Expr) then
-                  return Extensions_Visible_None;
-
-               elsif Is_True (Expr_Value (Expr)) then
-                  return Extensions_Visible_True;
-
-               else
-                  return Extensions_Visible_False;
-               end if;
-
-            --  Otherwise the pragma defaults to True
-
-            else
-               return Extensions_Visible_True;
-            end if;
-
-         --  Otherwise pragma Expresions_Visible is not inherited or directly
-         --  specified, its value defaults to "False".
-
-         else
-            return Extensions_Visible_False;
-         end if;
-
-      --  When SPARK_Mode is disabled, all semantic checks related to pragma
-      --  Extensions_Visible are disabled as well. Instead of saturating the
-      --  code with "if SPARK_Mode /= Off then" checks, the predicate returns
-      --  a default value.
+      --  No other construct carries this pragma
 
       else
          return Extensions_Visible_None;
+      end if;
+
+      Prag := Get_Pragma (Subp, Pragma_Extensions_Visible);
+
+      --  In certain cases analysis may request the Extensions_Visible status
+      --  of an expression function before the pragma has been analyzed yet.
+      --  Inspect the declarative items after the expression function looking
+      --  for the pragma (if any).
+
+      if No (Prag) and then Is_Expression_Function (Subp) then
+         Decl := Next (Unit_Declaration_Node (Subp));
+         while Present (Decl) loop
+            if Nkind (Decl) = N_Pragma
+              and then Pragma_Name (Decl) = Name_Extensions_Visible
+            then
+               Prag := Decl;
+               exit;
+
+            --  A source construct ends the region where Extensions_Visible may
+            --  appear, stop the traversal. An expanded expression function is
+            --  no longer a source construct, but it must still be recognized.
+
+            elsif Comes_From_Source (Decl)
+              or else
+                (Nkind_In (Decl, N_Subprogram_Body,
+                                 N_Subprogram_Declaration)
+                  and then Is_Expression_Function (Defining_Entity (Decl)))
+            then
+               exit;
+            end if;
+
+            Next (Decl);
+         end loop;
+      end if;
+
+      --  Extract the value from the Boolean expression (if any)
+
+      if Present (Prag) then
+         Arg := First (Pragma_Argument_Associations (Prag));
+
+         if Present (Arg) then
+            Expr := Get_Pragma_Arg (Arg);
+
+            --  When the associated subprogram is an expression function, the
+            --  argument of the pragma may not have been analyzed.
+
+            if not Analyzed (Expr) then
+               Preanalyze_And_Resolve (Expr, Standard_Boolean);
+            end if;
+
+            --  Guard against cascading errors when the argument of pragma
+            --  Extensions_Visible is not a valid static Boolean expression.
+
+            if Error_Posted (Expr) then
+               return Extensions_Visible_None;
+
+            elsif Is_True (Expr_Value (Expr)) then
+               return Extensions_Visible_True;
+
+            else
+               return Extensions_Visible_False;
+            end if;
+
+         --  Otherwise the aspect or pragma defaults to True
+
+         else
+            return Extensions_Visible_True;
+         end if;
+
+      --  Otherwise aspect or pragma Extensions_Visible is not inherited or
+      --  directly specified. In SPARK code, its value defaults to "False".
+
+      elsif SPARK_Mode = On then
+         return Extensions_Visible_False;
+
+      --  In non-SPARK code, aspect or pragma Extensions_Visible defaults to
+      --  "True".
+
+      else
+         return Extensions_Visible_True;
       end if;
    end Extensions_Visible_Status;
 
@@ -6038,6 +5999,14 @@ package body Sem_Util is
         and then Is_Overloadable (Entity (Name (Call)))
         and then not Is_Overloaded (Name (Call))
       then
+         --  If node is name in call it is not an actual
+
+         if N = Name (Call) then
+            Call := Empty;
+            Formal := Empty;
+            return;
+         end if;
+
          --  Fall here if we are definitely a parameter
 
          Actual := First_Actual (Call);
@@ -6464,7 +6433,8 @@ package body Sem_Util is
                --  be a static subtype, since otherwise it would have
                --  been diagnosed as illegal.
 
-               elsif Is_Entity_Name (Choice) and then Is_Type (Entity (Choice))
+               elsif Is_Entity_Name (Choice)
+                 and then Is_Type (Entity (Choice))
                then
                   exit Search when Is_In_Range (Expr, Etype (Choice),
                                                 Assume_Valid => False);
@@ -6664,10 +6634,22 @@ package body Sem_Util is
       Discrim_Value := Expression (Assoc);
 
       if not Is_OK_Static_Expression (Discrim_Value) then
-         Error_Msg_FE
-           ("value for discriminant & must be static!",
-            Discrim_Value, Discrim);
-         Why_Not_Static (Discrim_Value);
+
+         --  If the variant part is governed by a discriminant of the type
+         --  this is an error. If the variant part and the discriminant are
+         --  inherited from an ancestor this is legal (AI05-120) unless the
+         --  components are being gathered for an aggregate, in which case
+         --  the caller must check Report_Errors.
+
+         if Scope (Original_Record_Component
+                     ((Entity (First (Choices (Assoc)))))) = Typ
+         then
+            Error_Msg_FE
+              ("value for discriminant & must be static!",
+               Discrim_Value, Discrim);
+            Why_Not_Static (Discrim_Value);
+         end if;
+
          Report_Errors := True;
          return;
       end if;
@@ -7214,7 +7196,7 @@ package body Sem_Util is
 
    function Get_Name_Entity_Id (Id : Name_Id) return Entity_Id is
    begin
-      return Entity_Id (Get_Name_Table_Info (Id));
+      return Entity_Id (Get_Name_Table_Int (Id));
    end Get_Name_Entity_Id;
 
    ------------------------------
@@ -9460,7 +9442,7 @@ package body Sem_Util is
          Pkg_Decl : Node_Id := Pkg;
 
       begin
-         if Ekind (Pkg) = E_Package then
+         if Present (Pkg) and then Ekind (Pkg) = E_Package then
             while Nkind (Pkg_Decl) /= N_Package_Specification loop
                Pkg_Decl := Parent (Pkg_Decl);
             end loop;
@@ -10399,6 +10381,39 @@ package body Sem_Util is
         and then Is_Imported (Entity (Name (N)));
    end Is_CPP_Constructor_Call;
 
+   --------------------
+   -- Is_Declaration --
+   --------------------
+
+   function Is_Declaration (N : Node_Id) return Boolean is
+   begin
+      case Nkind (N) is
+         when N_Abstract_Subprogram_Declaration        |
+              N_Exception_Declaration                  |
+              N_Exception_Renaming_Declaration         |
+              N_Full_Type_Declaration                  |
+              N_Generic_Function_Renaming_Declaration  |
+              N_Generic_Package_Declaration            |
+              N_Generic_Package_Renaming_Declaration   |
+              N_Generic_Procedure_Renaming_Declaration |
+              N_Generic_Subprogram_Declaration         |
+              N_Number_Declaration                     |
+              N_Object_Declaration                     |
+              N_Object_Renaming_Declaration            |
+              N_Package_Declaration                    |
+              N_Package_Renaming_Declaration           |
+              N_Private_Extension_Declaration          |
+              N_Private_Type_Declaration               |
+              N_Subprogram_Declaration                 |
+              N_Subprogram_Renaming_Declaration        |
+              N_Subtype_Declaration                    =>
+            return True;
+
+         when others                                   =>
+            return False;
+      end case;
+   end Is_Declaration;
+
    -----------------
    -- Is_Delegate --
    -----------------
@@ -10847,6 +10862,16 @@ package body Sem_Util is
                          N_Type_Conversion)
       then
          return Is_EVF_Expression (Expression (N));
+
+      --  Attributes 'Loop_Entry, 'Old and 'Update are an EVF expression when
+      --  their prefix denotes an EVF expression.
+
+      elsif Nkind (N) = N_Attribute_Reference
+        and then Nam_In (Attribute_Name (N), Name_Loop_Entry,
+                                             Name_Old,
+                                             Name_Update)
+      then
+         return Is_EVF_Expression (Prefix (N));
       end if;
 
       return False;
@@ -11161,110 +11186,6 @@ package body Sem_Util is
       end if;
    end Is_Fully_Initialized_Variant;
 
-   ---------------------
-   -- Is_Ghost_Entity --
-   ---------------------
-
-   function Is_Ghost_Entity (Id : Entity_Id) return Boolean is
-   begin
-      return Is_Checked_Ghost_Entity (Id) or else Is_Ignored_Ghost_Entity (Id);
-   end Is_Ghost_Entity;
-
-   ----------------------------------
-   -- Is_Ghost_Statement_Or_Pragma --
-   ----------------------------------
-
-   function Is_Ghost_Statement_Or_Pragma (N : Node_Id) return Boolean is
-      function Is_Ghost_Entity_Reference (N : Node_Id) return Boolean;
-      --  Determine whether an arbitrary node denotes a reference to a Ghost
-      --  entity.
-
-      -------------------------------
-      -- Is_Ghost_Entity_Reference --
-      -------------------------------
-
-      function Is_Ghost_Entity_Reference (N : Node_Id) return Boolean is
-         Ref : Node_Id;
-
-      begin
-         Ref := N;
-
-         --  When the reference extracts a subcomponent, recover the related
-         --  object (SPARK RM 6.9(1)).
-
-         while Nkind_In (Ref, N_Explicit_Dereference,
-                              N_Indexed_Component,
-                              N_Selected_Component,
-                              N_Slice)
-         loop
-            Ref := Prefix (Ref);
-         end loop;
-
-         return
-           Is_Entity_Name (Ref)
-             and then Present (Entity (Ref))
-             and then Is_Ghost_Entity (Entity (Ref));
-      end Is_Ghost_Entity_Reference;
-
-      --  Local variables
-
-      Arg  : Node_Id;
-      Stmt : Node_Id;
-
-   --  Start of processing for Is_Ghost_Statement_Or_Pragma
-
-   begin
-      if Nkind (N) = N_Pragma then
-
-         --  A pragma is Ghost when it appears within a Ghost package or
-         --  subprogram.
-
-         if Within_Ghost_Scope then
-            return True;
-         end if;
-
-         --  A pragma is Ghost when it mentions a Ghost entity
-
-         Arg := First (Pragma_Argument_Associations (N));
-         while Present (Arg) loop
-            if Is_Ghost_Entity_Reference (Get_Pragma_Arg (Arg)) then
-               return True;
-            end if;
-
-            Next (Arg);
-         end loop;
-      end if;
-
-      Stmt := N;
-      while Present (Stmt) loop
-
-         --  A statement is Ghost when it appears within a Ghost package or
-         --  subprogram.
-
-         if Is_Statement (Stmt) and then Within_Ghost_Scope then
-            return True;
-
-         --  An assignment statement is Ghost when the target is a Ghost
-         --  variable. A procedure call is Ghost when the invoked procedure
-         --  is Ghost.
-
-         elsif Nkind_In (Stmt, N_Assignment_Statement,
-                               N_Procedure_Call_Statement)
-         then
-            return Is_Ghost_Entity_Reference (Name (Stmt));
-
-         --  Prevent the search from going too far
-
-         elsif Is_Body_Or_Package_Declaration (Stmt) then
-            return False;
-         end if;
-
-         Stmt := Parent (Stmt);
-      end loop;
-
-      return False;
-   end Is_Ghost_Statement_Or_Pragma;
-
    ----------------------------
    -- Is_Inherited_Operation --
    ----------------------------
@@ -11577,6 +11498,18 @@ package body Sem_Util is
 
       elsif Is_Variable (AV) then
          return True;
+
+      --  Generalized indexing operations are rewritten as explicit
+      --  dereferences, and it is only during resolution that we can
+      --  check whether the context requires an access_to_variable type.
+
+      elsif Nkind (AV) = N_Explicit_Dereference
+        and then Ada_Version >= Ada_2012
+        and then Nkind (Original_Node (AV)) = N_Indexed_Component
+        and then Present (Etype (Original_Node (AV)))
+        and then Has_Implicit_Dereference (Etype (Original_Node (AV)))
+      then
+         return not Is_Access_Constant (Etype (Prefix (AV)));
 
       --  Unchecked conversions are allowed only if they come from the
       --  generated code, which sometimes uses unchecked conversions for out
@@ -12357,123 +12290,6 @@ package body Sem_Util is
           or else Nkind (N) = N_Procedure_Call_Statement;
    end Is_Statement;
 
-   -------------------------
-   -- Is_Subject_To_Ghost --
-   -------------------------
-
-   function Is_Subject_To_Ghost (N : Node_Id) return Boolean is
-      function Enables_Ghostness (Arg : Node_Id) return Boolean;
-      --  Determine whether aspect or pragma argument Arg enables "ghostness"
-
-      -----------------------
-      -- Enables_Ghostness --
-      -----------------------
-
-      function Enables_Ghostness (Arg : Node_Id) return Boolean is
-         Expr : Node_Id;
-
-      begin
-         Expr := Arg;
-
-         if Nkind (Expr) = N_Pragma_Argument_Association then
-            Expr := Get_Pragma_Arg (Expr);
-         end if;
-
-         --  Determine whether the expression of the aspect is static and
-         --  denotes True.
-
-         if Present (Expr) then
-            Preanalyze_And_Resolve (Expr);
-
-            return
-              Is_OK_Static_Expression (Expr)
-                and then Is_True (Expr_Value (Expr));
-
-         --  Otherwise Ghost defaults to True
-
-         else
-            return True;
-         end if;
-      end Enables_Ghostness;
-
-      --  Local variables
-
-      Id      : constant Entity_Id := Defining_Entity (N);
-      Asp     : Node_Id;
-      Decl    : Node_Id;
-      Prev_Id : Entity_Id;
-
-   --  Start of processing for Is_Subject_To_Ghost
-
-   begin
-      if Is_Ghost_Entity (Id) then
-         return True;
-
-      --  The completion of a type or a constant is not fully analyzed when the
-      --  reference to the Ghost entity is resolved. Because the completion is
-      --  not marked as Ghost yet, inspect the partial view.
-
-      elsif Is_Record_Type (Id)
-        or else Ekind (Id) = E_Constant
-        or else (Nkind (N) = N_Object_Declaration
-                  and then Constant_Present (N))
-      then
-         Prev_Id := Incomplete_Or_Partial_View (Id);
-
-         if Present (Prev_Id) and then Is_Ghost_Entity (Prev_Id) then
-            return True;
-         end if;
-      end if;
-
-      --  Examine the aspect specifications (if any) looking for aspect Ghost
-
-      if Permits_Aspect_Specifications (N) then
-         Asp := First (Aspect_Specifications (N));
-         while Present (Asp) loop
-            if Chars (Identifier (Asp)) = Name_Ghost then
-               return Enables_Ghostness (Expression (Asp));
-            end if;
-
-            Next (Asp);
-         end loop;
-      end if;
-
-      Decl := Empty;
-
-      --  When the context is a [generic] package declaration, pragma Ghost
-      --  resides in the visible declarations.
-
-      if Nkind_In (N, N_Generic_Package_Declaration,
-                      N_Package_Declaration)
-      then
-         Decl := First (Visible_Declarations (Specification (N)));
-
-      --  Otherwise pragma Ghost appears in the declarations following N
-
-      elsif Is_List_Member (N) then
-         Decl := Next (N);
-      end if;
-
-      while Present (Decl) loop
-         if Nkind (Decl) = N_Pragma
-           and then Pragma_Name (Decl) = Name_Ghost
-         then
-            return
-              Enables_Ghostness (First (Pragma_Argument_Associations (Decl)));
-
-         --  A source construct ends the region where pragma Ghost may appear,
-         --  stop the traversal.
-
-         elsif Comes_From_Source (Decl) then
-            exit;
-         end if;
-
-         Next (Decl);
-      end loop;
-
-      return False;
-   end Is_Subject_To_Ghost;
-
    --------------------------------------------------
    -- Is_Subprogram_Stub_Without_Prior_Declaration --
    --------------------------------------------------
@@ -12807,14 +12623,15 @@ package body Sem_Util is
              Is_Variable_Prefix (Original_Node (Prefix (N)));
 
       --  in Ada 2012, the dereference may have been added for a type with
-      --  a declared implicit dereference aspect.
+      --  a declared implicit dereference aspect. Check that it is not an
+      --  access to constant.
 
       elsif Nkind (N) = N_Explicit_Dereference
         and then Present (Etype (Orig_Node))
         and then Ada_Version >= Ada_2012
         and then Has_Implicit_Dereference (Etype (Orig_Node))
       then
-         return True;
+         return not Is_Access_Constant (Etype (Prefix (N)));
 
       --  A function call is never a variable
 
@@ -15353,10 +15170,20 @@ package body Sem_Util is
          --  recursive call on the prefix, which will in turn check the level
          --  of the prefix object of the selected discriminant.
 
+         --  In Ada 2012, if the discriminant has implicit dereference and
+         --  the context is a selected component, treat this as an object of
+         --  unknown scope (see below). This is necessary in compile-only mode;
+         --  otherwise expansion will already have transformed the prefix into
+         --  a temporary.
+
          if Nkind (Prefix (Obj)) = N_Selected_Component
            and then Ekind (Etype (Prefix (Obj))) = E_Anonymous_Access_Type
            and then
              Ekind (Entity (Selector_Name (Prefix (Obj)))) = E_Discriminant
+           and then
+             (not Has_Implicit_Dereference
+                    (Entity (Selector_Name (Prefix (Obj))))
+               or else Nkind (Parent (Obj)) /= N_Selected_Component)
          then
             return Object_Access_Level (Prefix (Obj));
 
@@ -15671,10 +15498,11 @@ package body Sem_Util is
       end if;
 
       --  The context lacks policy pragmas, determine the mode based on whether
-      --  assertions are enabled.
+      --  assertions are enabled at the configuration level. This ensures that
+      --  the policy is preserved when analyzing generics.
 
       if Kind = No_Name then
-         if Assertions_Enabled then
+         if Assertions_Enabled_Config then
             Kind := Name_Check;
          else
             Kind := Name_Ignore;
@@ -17193,29 +17021,13 @@ package body Sem_Util is
       Set_Entity (N, Val);
    end Set_Entity_With_Checks;
 
-   -------------------------
-   -- Set_Is_Ghost_Entity --
-   -------------------------
-
-   procedure Set_Is_Ghost_Entity (Id : Entity_Id) is
-      Policy : constant Name_Id := Policy_In_Effect (Name_Ghost);
-
-   begin
-      if Policy = Name_Check then
-         Set_Is_Checked_Ghost_Entity (Id);
-
-      elsif Policy = Name_Ignore then
-         Set_Is_Ignored_Ghost_Entity (Id);
-      end if;
-   end Set_Is_Ghost_Entity;
-
    ------------------------
    -- Set_Name_Entity_Id --
    ------------------------
 
    procedure Set_Name_Entity_Id (Id : Name_Id; Val : Entity_Id) is
    begin
-      Set_Name_Table_Info (Id, Int (Val));
+      Set_Name_Table_Int (Id, Int (Val));
    end Set_Name_Entity_Id;
 
    ---------------------
@@ -17564,48 +17376,87 @@ package body Sem_Util is
    -----------------------
 
    procedure Transfer_Entities (From : Entity_Id; To : Entity_Id) is
-      Ent : Entity_Id := First_Entity (From);
+      procedure Set_Public_Status_Of (Id : Entity_Id);
+      --  Set the Is_Public attribute of arbitrary entity Id by calling routine
+      --  Set_Public_Status. If successfull and Id denotes a record type, set
+      --  the Is_Public attribute of its fields.
 
-   begin
-      if No (Ent) then
-         return;
-      end if;
+      --------------------------
+      -- Set_Public_Status_Of --
+      --------------------------
 
-      if (Last_Entity (To)) = Empty then
-         Set_First_Entity (To, Ent);
-      else
-         Set_Next_Entity (Last_Entity (To), Ent);
-      end if;
+      procedure Set_Public_Status_Of (Id : Entity_Id) is
+         Field : Entity_Id;
 
-      Set_Last_Entity (To, Last_Entity (From));
+      begin
+         if not Is_Public (Id) then
+            Set_Public_Status (Id);
 
-      while Present (Ent) loop
-         Set_Scope (Ent, To);
+            --  When the input entity is a public record type, ensure that all
+            --  its internal fields are also exposed to the linker. The fields
+            --  of a class-wide type are never made public.
 
-         if not Is_Public (Ent) then
-            Set_Public_Status (Ent);
-
-            if Is_Public (Ent) and then Ekind (Ent) = E_Record_Subtype then
-
-               --  The components of the propagated Itype must also be public
-
-               declare
-                  Comp : Entity_Id;
-               begin
-                  Comp := First_Entity (Ent);
-                  while Present (Comp) loop
-                     Set_Is_Public (Comp);
-                     Next_Entity (Comp);
-                  end loop;
-               end;
+            if Is_Public (Id)
+              and then Is_Record_Type (Id)
+              and then not Is_Class_Wide_Type (Id)
+            then
+               Field := First_Entity (Id);
+               while Present (Field) loop
+                  Set_Is_Public (Field);
+                  Next_Entity (Field);
+               end loop;
             end if;
          end if;
+      end Set_Public_Status_Of;
 
-         Next_Entity (Ent);
-      end loop;
+      --  Local variables
 
-      Set_First_Entity (From, Empty);
-      Set_Last_Entity (From, Empty);
+      Full_Id : Entity_Id;
+      Id      : Entity_Id;
+
+   --  Start of processing for Transfer_Entities
+
+   begin
+      Id := First_Entity (From);
+
+      if Present (Id) then
+
+         --  Merge the entity chain of the source scope with that of the
+         --  destination scope.
+
+         if Present (Last_Entity (To)) then
+            Set_Next_Entity (Last_Entity (To), Id);
+         else
+            Set_First_Entity (To, Id);
+         end if;
+
+         Set_Last_Entity (To, Last_Entity (From));
+
+         --  Inspect the entities of the source scope and update their Scope
+         --  attribute.
+
+         while Present (Id) loop
+            Set_Scope            (Id, To);
+            Set_Public_Status_Of (Id);
+
+            --  Handle an internally generated full view for a private type
+
+            if Is_Private_Type (Id)
+              and then Present (Full_View (Id))
+              and then Is_Itype (Full_View (Id))
+            then
+               Full_Id := Full_View (Id);
+
+               Set_Scope            (Full_Id, To);
+               Set_Public_Status_Of (Full_Id);
+            end if;
+
+            Next_Entity (Id);
+         end loop;
+
+         Set_First_Entity (From, Empty);
+         Set_Last_Entity  (From, Empty);
+      end if;
    end Transfer_Entities;
 
    -----------------------
@@ -18101,30 +17952,6 @@ package body Sem_Util is
 
       return List_1;
    end Visible_Ancestors;
-
-   ------------------------
-   -- Within_Ghost_Scope --
-   ------------------------
-
-   function Within_Ghost_Scope
-     (Id : Entity_Id := Current_Scope) return Boolean
-   is
-      S : Entity_Id;
-
-   begin
-      --  Climb the scope stack looking for a Ghost scope
-
-      S := Id;
-      while Present (S) and then S /= Standard_Standard loop
-         if Is_Ghost_Entity (S) then
-            return True;
-         end if;
-
-         S := Scope (S);
-      end loop;
-
-      return False;
-   end Within_Ghost_Scope;
 
    ----------------------
    -- Within_Init_Proc --

@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -21,6 +21,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "options.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "c-common.h"
 #include "c-pragma.h"
@@ -34,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "incpath.h"
 #include "debug.h"		/* For debug_hooks.  */
 #include "opts.h"
-#include "options.h"
 #include "plugin.h"		/* For PLUGIN_INCLUDE_FILE event.  */
 #include "mkdeps.h"
 #include "c-target.h"
@@ -889,6 +898,10 @@ c_common_post_options (const char **pfilename)
   else if (warn_narrowing == -1)
     warn_narrowing = 0;
 
+  /* Global sized deallocation is new in C++14.  */
+  if (flag_sized_deallocation == -1)
+    flag_sized_deallocation = (cxx_dialect >= cxx14);
+
   if (flag_extern_tls_init)
     {
 #if !defined (ASM_OUTPUT_DEF) || !SUPPORTS_WEAK
@@ -1450,6 +1463,7 @@ set_std_c89 (int c94, int iso)
   flag_isoc94 = c94;
   flag_isoc99 = 0;
   flag_isoc11 = 0;
+  lang_hooks.name = "GNU C89";
 }
 
 /* Set the C 99 standard (without GNU extensions if ISO).  */
@@ -1463,6 +1477,7 @@ set_std_c99 (int iso)
   flag_isoc11 = 0;
   flag_isoc99 = 1;
   flag_isoc94 = 1;
+  lang_hooks.name = "GNU C99";
 }
 
 /* Set the C 11 standard (without GNU extensions if ISO).  */
@@ -1476,6 +1491,7 @@ set_std_c11 (int iso)
   flag_isoc11 = 1;
   flag_isoc99 = 1;
   flag_isoc94 = 1;
+  lang_hooks.name = "GNU C11";
 }
 
 /* Set the C++ 98 standard (without GNU extensions if ISO).  */
@@ -1487,6 +1503,7 @@ set_std_cxx98 (int iso)
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
   cxx_dialect = cxx98;
+  lang_hooks.name = "GNU C++98";
 }
 
 /* Set the C++ 2011 standard (without GNU extensions if ISO).  */
@@ -1501,6 +1518,7 @@ set_std_cxx11 (int iso)
   flag_isoc94 = 1;
   flag_isoc99 = 1;
   cxx_dialect = cxx11;
+  lang_hooks.name = "GNU C++11";
 }
 
 /* Set the C++ 2014 draft standard (without GNU extensions if ISO).  */
@@ -1515,6 +1533,7 @@ set_std_cxx14 (int iso)
   flag_isoc94 = 1;
   flag_isoc99 = 1;
   cxx_dialect = cxx14;
+  lang_hooks.name = "GNU C++14";
 }
 
 /* Set the C++ 201z draft standard (without GNU extensions if ISO).  */
@@ -1530,6 +1549,7 @@ set_std_cxx1z (int iso)
   flag_isoc99 = 1;
   flag_isoc11 = 1;
   cxx_dialect = cxx1z;
+  lang_hooks.name = "GNU C++14"; /* Pretend C++14 till standarization.  */
 }
 
 /* Args to -d specify what to dump.  Silently ignore

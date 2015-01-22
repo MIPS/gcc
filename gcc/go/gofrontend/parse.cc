@@ -199,7 +199,7 @@ Parse::qualified_ident(std::string* pname, Named_object** ppackage)
       return false;
     }
 
-  package->package_value()->set_used();
+  package->package_value()->note_usage();
 
   token = this->advance_token();
   if (!token->is_identifier())
@@ -2401,7 +2401,7 @@ Parse::operand(bool may_be_sink, bool* is_parenthesized)
 		return Expression::make_error(location);
 	      }
 	    package = named_object->package_value();
-	    package->set_used();
+	    package->note_usage();
 	    id = this->peek_token()->identifier();
 	    is_exported = this->peek_token()->is_identifier_exported();
 	    packed = this->gogo_->pack_hidden_name(id, is_exported);
@@ -2450,7 +2450,7 @@ Parse::operand(bool may_be_sink, bool* is_parenthesized)
 	    && (named_object->is_variable()
 		|| named_object->is_result_variable()))
 	  return this->enclosing_var_reference(in_function, named_object,
-					       location);
+					       may_be_sink, location);
 
 	switch (named_object->classification())
 	  {
@@ -2591,11 +2591,14 @@ Parse::operand(bool may_be_sink, bool* is_parenthesized)
 
 Expression*
 Parse::enclosing_var_reference(Named_object* in_function, Named_object* var,
-			       Location location)
+			       bool may_be_sink, Location location)
 {
   go_assert(var->is_variable() || var->is_result_variable());
 
-  this->mark_var_used(var);
+  // Any left-hand-side can be a sink, so if this can not be
+  // a sink, then it must be a use of the variable.
+  if (!may_be_sink)
+    this->mark_var_used(var);
 
   Named_object* this_function = this->gogo_->current_function();
   Named_object* closure = this_function->func_value()->closure_var();
@@ -2912,7 +2915,7 @@ Parse::create_closure(Named_object* function, Enclosing_vars* enclosing_vars,
 	ref = Expression::make_var_reference(var, location);
       else
 	ref = this->enclosing_var_reference(ev[i].in_function(), var,
-					    location);
+					    true, location);
       Expression* refaddr = Expression::make_unary(OPERATOR_AND, ref,
 						   location);
       initializer->push_back(refaddr);
@@ -3190,9 +3193,12 @@ Parse::call(Expression* func)
   if (token->is_op(OPERATOR_COMMA))
     token = this->advance_token();
   if (!token->is_op(OPERATOR_RPAREN))
-    error_at(this->location(), "missing %<)%>");
-  else
-    this->advance_token();
+    {
+      error_at(this->location(), "missing %<)%>");
+      if (!this->skip_past_error(OPERATOR_RPAREN))
+	return Expression::make_error(this->location());
+    }
+  this->advance_token();
   if (func->is_error_expression())
     return func;
   return Expression::make_call(func, args, is_varargs, func->location());
@@ -3212,7 +3218,7 @@ Parse::id_to_expression(const std::string& name, Location location,
   if (in_function != NULL
       && in_function != this->gogo_->current_function()
       && (named_object->is_variable() || named_object->is_result_variable()))
-    return this->enclosing_var_reference(in_function, named_object,
+    return this->enclosing_var_reference(in_function, named_object, is_lhs,
 					 location);
 
   switch (named_object->classification())
@@ -3242,9 +3248,12 @@ Parse::id_to_expression(const std::string& name, Location location,
     case Named_object::NAMED_OBJECT_TYPE_DECLARATION:
       {
 	// These cases can arise for a field name in a composite
-	// literal.
+	// literal.  Keep track of these as they might be fake uses of
+	// the related package.
 	Unknown_expression* ue =
 	  Expression::make_unknown_reference(named_object, location);
+	if (named_object->package() != NULL)
+	  named_object->package()->note_fake_usage(ue);
 	if (this->is_erroneous_function_)
 	  ue->set_no_error_message();
 	return ue;
@@ -3813,7 +3822,7 @@ Parse::simple_stat(bool may_be_composite_lit, bool* return_exp,
   token = this->peek_token();
   if (token->is_op(OPERATOR_CHANOP))
     {
-      this->send_stmt(this->verify_not_sink(exp));
+      this->send_stmt(this->verify_not_sink(exp), may_be_composite_lit);
       if (return_exp != NULL)
 	*return_exp = true;
     }
@@ -3907,13 +3916,13 @@ Parse::expression_stat(Expression* exp)
 // Channel  = Expression .
 
 void
-Parse::send_stmt(Expression* channel)
+Parse::send_stmt(Expression* channel, bool may_be_composite_lit)
 {
   go_assert(this->peek_token()->is_op(OPERATOR_CHANOP));
   Location loc = this->location();
   this->advance_token();
-  Expression* val = this->expression(PRECEDENCE_NORMAL, false, true, NULL,
-				     NULL);
+  Expression* val = this->expression(PRECEDENCE_NORMAL, false,
+				     may_be_composite_lit, NULL, NULL);
   Statement* s = Statement::make_send_statement(channel, val, loc);
   this->gogo_->add_statement(s);
 }
@@ -5025,6 +5034,16 @@ Parse::send_or_recv_stmt(bool* is_send, Expression** channel, Expression** val,
       e = Expression::make_receive(*channel, (*channel)->location());
     }
 
+  if (!saw_comma && this->peek_token()->is_op(OPERATOR_COMMA))
+    {
+      this->advance_token();
+      // case v, e = <-c:
+      if (!e->is_sink_expression())
+	*val = e;
+      e = this->expression(PRECEDENCE_NORMAL, true, true, NULL, NULL);
+      saw_comma = true;
+    }
+
   if (this->peek_token()->is_op(OPERATOR_EQ))
     {
       if (!this->advance_token()->is_op(OPERATOR_CHANOP))
@@ -5706,6 +5725,20 @@ Parse::verify_not_sink(Expression* expr)
   Var_expression* ve = expr->var_expression();
   if (ve != NULL)
     this->mark_var_used(ve->named_object());
+  else if (expr->deref()->field_reference_expression() != NULL
+	   && this->gogo_->current_function() != NULL)
+    {
+      // We could be looking at a variable referenced from a closure.
+      // If so, we need to get the enclosed variable and mark it as used.
+      Function* this_function = this->gogo_->current_function()->func_value();
+      Named_object* closure = this_function->closure_var();
+      if (closure != NULL)
+	{
+	  unsigned int var_index =
+	    expr->deref()->field_reference_expression()->field_index();
+	  this->mark_var_used(this_function->enclosing_var(var_index - 1));
+	}
+    }
 
   return expr;
 }

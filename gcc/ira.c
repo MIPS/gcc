@@ -1,5 +1,5 @@
 /* Integrated Register Allocator (IRA) entry point.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -368,6 +368,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "regs.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -377,11 +386,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "hard-reg-set.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -390,6 +394,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgcleanup.h"
 #include "basic-block.h"
 #include "df.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "recog.h"
 #include "params.h"
@@ -431,9 +447,9 @@ struct ira_spilled_reg_stack_slot *ira_spilled_reg_stack_slots;
    the allocnos assigned to memory, cost of loads, stores and register
    move insns generated for pseudo-register live range splitting (see
    ira-emit.c).  */
-int ira_overall_cost, overall_cost_before;
-int ira_reg_cost, ira_mem_cost;
-int ira_load_cost, ira_store_cost, ira_shuffle_cost;
+int64_t ira_overall_cost, overall_cost_before;
+int64_t ira_reg_cost, ira_mem_cost;
+int64_t ira_load_cost, ira_store_cost, ira_shuffle_cost;
 int ira_move_loops_num, ira_additional_jumps_num;
 
 /* All registers that can be eliminated.  */
@@ -2489,10 +2505,15 @@ calculate_allocation_cost (void)
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
     {
       fprintf (ira_dump_file,
-	       "+++Costs: overall %d, reg %d, mem %d, ld %d, st %d, move %d\n",
+	       "+++Costs: overall %"PRId64
+	       ", reg %"PRId64
+	       ", mem %"PRId64
+	       ", ld %"PRId64
+	       ", st %"PRId64
+	       ", move %"PRId64,
 	       ira_overall_cost, ira_reg_cost, ira_mem_cost,
 	       ira_load_cost, ira_store_cost, ira_shuffle_cost);
-      fprintf (ira_dump_file, "+++       move loops %d, new jumps %d\n",
+      fprintf (ira_dump_file, "\n+++       move loops %d, new jumps %d\n",
 	       ira_move_loops_num, ira_additional_jumps_num);
     }
 
@@ -4358,6 +4379,12 @@ rtx_moveable_p (rtx *loc, enum op_type type)
     case CLOBBER:
       return rtx_moveable_p (&SET_DEST (x), OP_OUT);
 
+    case UNSPEC_VOLATILE:
+      /* It is a bad idea to consider insns with with such rtl
+	 as moveable ones.  The insn scheduler also considers them as barrier
+	 for a reason.  */
+      return false;
+
     default:
       break;
     }
@@ -5263,7 +5290,18 @@ ira (FILE *f)
 	      ira_allocno_iterator ai;
 
 	      FOR_EACH_ALLOCNO (a, ai)
-		ALLOCNO_REGNO (a) = REGNO (ALLOCNO_EMIT_DATA (a)->reg);
+                {
+                  int old_regno = ALLOCNO_REGNO (a);
+                  int new_regno = REGNO (ALLOCNO_EMIT_DATA (a)->reg);
+
+                  ALLOCNO_REGNO (a) = new_regno;
+
+                  if (old_regno != new_regno)
+                    setup_reg_classes (new_regno, reg_preferred_class (old_regno),
+                                       reg_alternate_class (old_regno),
+                                       reg_allocno_class (old_regno));
+                }
+
 	    }
 	  else
 	    {
@@ -5405,7 +5443,8 @@ do_reload (void)
 
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL
       && overall_cost_before != ira_overall_cost)
-    fprintf (ira_dump_file, "+++Overall after reload %d\n", ira_overall_cost);
+    fprintf (ira_dump_file, "+++Overall after reload %"PRId64 "\n",
+	     ira_overall_cost);
 
   flag_ira_share_spill_slots = saved_flag_ira_share_spill_slots;
 

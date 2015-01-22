@@ -1,5 +1,5 @@
 /* Subroutines for the C front end on the PowerPC architecture.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
 
    Contributed by Zack Weinberg <zack@codesourcery.com>
    and Paolo Bonzini <bonzini@gnu.org>
@@ -25,7 +25,17 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "cpplib.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "wide-int.h"
@@ -380,6 +390,10 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
     rs6000_define_or_undefine_macro (define_p, "__QUAD_MEMORY_ATOMIC__");
   if ((flags & OPTION_MASK_CRYPTO) != 0)
     rs6000_define_or_undefine_macro (define_p, "__CRYPTO__");
+  if ((flags & OPTION_MASK_UPPER_REGS_DF) != 0)
+    rs6000_define_or_undefine_macro (define_p, "__UPPER_REGS_DF__");
+  if ((flags & OPTION_MASK_UPPER_REGS_SF) != 0)
+    rs6000_define_or_undefine_macro (define_p, "__UPPER_REGS_SF__");
 
   /* options from the builtin masks.  */
   if ((bu_mask & RS6000_BTM_SPE) != 0)
@@ -3407,6 +3421,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
 
   { VSX_BUILTIN_VEC_LD, VSX_BUILTIN_LXVD2X_V2DF,
     RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_V2DF, 0 },
+  { VSX_BUILTIN_VEC_LD, VSX_BUILTIN_LXVD2X_V2DF,
+    RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_double, 0 },
   { VSX_BUILTIN_VEC_LD, VSX_BUILTIN_LXVD2X_V2DI,
     RS6000_BTI_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_V2DI, 0 },
   { VSX_BUILTIN_VEC_LD, VSX_BUILTIN_LXVD2X_V2DI,
@@ -3461,6 +3477,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
 
   { VSX_BUILTIN_VEC_ST, VSX_BUILTIN_STXVD2X_V2DF,
     RS6000_BTI_void, RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_V2DF },
+  { VSX_BUILTIN_VEC_ST, VSX_BUILTIN_STXVD2X_V2DF,
+    RS6000_BTI_void, RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_double },
   { VSX_BUILTIN_VEC_ST, VSX_BUILTIN_STXVD2X_V2DI,
     RS6000_BTI_void, RS6000_BTI_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_V2DI },
   { VSX_BUILTIN_VEC_ST, VSX_BUILTIN_STXVD2X_V2DI,

@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -101,6 +101,10 @@ extern int elf_record_gcc_switches (print_switch_type type, const char *);
    the target actually supports multiple different modes.  For now,
    we disable such optimizations on such targets, using this function.  */
 extern bool target_default_pointer_address_modes_p (void);
+
+/* For hooks which use the MOVE_RATIO macro, this gives the legacy default
+   behaviour.  */
+extern unsigned int get_move_ratio (bool);
 
 struct stdarg_info;
 struct spec_info_def;

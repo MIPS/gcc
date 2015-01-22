@@ -1,6 +1,6 @@
 // <optional> -*- C++ -*-
 
-// Copyright (C) 2013-2014 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -67,7 +67,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @{
    */
 
-#define __cpp_lib_experimental_optional 201406
+#define __cpp_lib_experimental_optional 201411
 
   // All subsequent [X.Y.n] references are against n3793.
 
@@ -110,9 +110,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   class bad_optional_access : public logic_error
   {
   public:
-    // XXX Should not be inline
-    explicit bad_optional_access(const string& __arg) : logic_error(__arg) { }
+    bad_optional_access() : logic_error("bad optional access") { }
 
+    // XXX This constructor is non-standard. Should not be inline
     explicit bad_optional_access(const char* __arg) : logic_error(__arg) { }
 
     virtual ~bad_optional_access() noexcept = default;
@@ -127,13 +127,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   __throw_bad_optional_access(const char* __s)
   { _GLIBCXX_THROW_OR_ABORT(bad_optional_access(__s)); }
 
-  template<typename _Tp, typename _Sfinae = void>
-    struct _Has_addressof_impl : std::false_type { };
+  template<typename _Tp, typename = void>
+    struct _Has_addressof_mem : std::false_type { };
 
   template<typename _Tp>
-    struct _Has_addressof_impl<_Tp,
-      decltype( std::declval<const _Tp&>().operator&(), void() )>
-      : std::true_type { };
+    struct _Has_addressof_mem<_Tp,
+         __void_t<decltype( std::declval<const _Tp&>().operator&() )>
+      >
+    : std::true_type { };
+
+  template<typename _Tp, typename = void>
+    struct _Has_addressof_free : std::false_type { };
+
+  template<typename _Tp>
+    struct _Has_addressof_free<_Tp,
+         __void_t<decltype( operator&(std::declval<const _Tp&>()) )>
+      >
+    : std::true_type { };
 
   /**
     * @brief Trait that detects the presence of an overloaded unary operator&.
@@ -143,7 +153,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     * declval<_Tp * const&>().operator&()).
     */
   template<typename _Tp>
-    struct _Has_addressof : _Has_addressof_impl<_Tp>::type { };
+    struct _Has_addressof
+    : std::__or_<_Has_addressof_mem<_Tp>, _Has_addressof_free<_Tp>>::type
+    { };
 
   /**
     * @brief An overload that attempts to take the address of an lvalue as a
@@ -278,7 +290,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       { return this->_M_engaged; }
 
       // The _M_get operations have _M_engaged as a precondition.
-      _Tp&
+      constexpr _Tp&
       _M_get() noexcept
       { return _M_payload; }
 
@@ -562,18 +574,26 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       { return std::__addressof(this->_M_get()); }
 
       constexpr const _Tp&
-      operator*() const
+      operator*() const&
       { return this->_M_get(); }
 
-      _Tp&
-      operator*()
+      constexpr _Tp&
+      operator*()&
       { return this->_M_get(); }
+
+      constexpr _Tp&&
+      operator*()&&
+      { return std::move(this->_M_get()); }
+
+      constexpr const _Tp&&
+      operator*() const&&
+      { return std::move(this->_M_get()); }
 
       constexpr explicit operator bool() const noexcept
       { return this->_M_is_engaged(); }
 
       constexpr const _Tp&
-      value() const
+      value() const&
       {
 	return this->_M_is_engaged()
 	  ?  this->_M_get()
@@ -582,14 +602,34 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	     this->_M_get());
       }
 
-      _Tp&
-      value()
+      constexpr _Tp&
+      value()&
       {
-        if (this->_M_is_engaged())
-          return this->_M_get();
+	return this->_M_is_engaged()
+	  ?  this->_M_get()
+	  : (__throw_bad_optional_access("Attempt to access value of a "
+		                         "disengaged optional object"),
+	     this->_M_get());
+      }
 
-        __throw_bad_optional_access("Attempt to access value of a "
-				    "disengaged optional object");
+      constexpr _Tp&&
+      value()&&
+      {
+	return this->_M_is_engaged()
+	  ?  std::move(this->_M_get())
+	  : (__throw_bad_optional_access("Attempt to access value of a "
+		                         "disengaged optional object"),
+	     std::move(this->_M_get()));
+      }
+
+      constexpr const _Tp&&
+      value() const&&
+      {
+	return this->_M_is_engaged()
+	  ?  std::move(this->_M_get())
+	  : (__throw_bad_optional_access("Attempt to access value of a "
+		                         "disengaged optional object"),
+	     std::move(this->_M_get()));
       }
 
       template<typename _Up>

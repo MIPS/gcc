@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for SPARC.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -24,7 +24,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
@@ -38,13 +48,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "except.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "optabs.h"
 #include "recog.h"
@@ -80,7 +94,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "tree-pass.h"
 #include "context.h"
-#include "wide-int.h"
 #include "builtins.h"
 #include "rtl-iter.h"
 
@@ -6819,28 +6832,30 @@ function_arg_union_value (int size, machine_mode mode, int slotno,
 }
 
 /* Used by function_arg and sparc_function_value_1 to implement the conventions
-   for passing and returning large (BLKmode) vectors.
+   for passing and returning BLKmode vectors.
    Return an expression valid as a return value for the FUNCTION_ARG
    and TARGET_FUNCTION_VALUE.
 
-   SIZE is the size in bytes of the vector (at least 8 bytes).
+   SIZE is the size in bytes of the vector.
    REGNO is the FP hard register the vector will be passed in.  */
 
 static rtx
 function_arg_vector_value (int size, int regno)
 {
-  int i, nregs = size / 8;
-  rtx regs;
+  const int nregs = MAX (1, size / 8);
+  rtx regs = gen_rtx_PARALLEL (BLKmode, rtvec_alloc (nregs));
 
-  regs = gen_rtx_PARALLEL (BLKmode, rtvec_alloc (nregs));
-
-  for (i = 0; i < nregs; i++)
-    {
+  if (size < 8)
+    XVECEXP (regs, 0, 0)
+      = gen_rtx_EXPR_LIST (VOIDmode,
+			   gen_rtx_REG (SImode, regno),
+			   const0_rtx);
+  else
+    for (int i = 0; i < nregs; i++)
       XVECEXP (regs, 0, i)
 	= gen_rtx_EXPR_LIST (VOIDmode,
 			     gen_rtx_REG (DImode, regno + 2*i),
 			     GEN_INT (i*8));
-    }
 
   return regs;
 }
@@ -6886,10 +6901,9 @@ sparc_function_arg_1 (cumulative_args_t cum_v, machine_mode mode,
 		  || (TARGET_ARCH64 && size <= 16));
 
       if (mode == BLKmode)
-	return function_arg_vector_value (size,
-					  SPARC_FP_ARG_FIRST + 2*slotno);
-      else
-	mclass = MODE_FLOAT;
+	return function_arg_vector_value (size, SPARC_FP_ARG_FIRST + 2*slotno);
+
+      mclass = MODE_FLOAT;
     }
 
   if (TARGET_ARCH32)
@@ -7333,10 +7347,9 @@ sparc_function_value_1 (const_tree type, machine_mode mode,
 		  || (TARGET_ARCH64 && size <= 32));
 
       if (mode == BLKmode)
-	return function_arg_vector_value (size,
-					  SPARC_FP_ARG_FIRST);
-      else
-	mclass = MODE_FLOAT;
+	return function_arg_vector_value (size, SPARC_FP_ARG_FIRST);
+
+      mclass = MODE_FLOAT;
     }
 
   if (TARGET_ARCH64 && type)
@@ -12608,13 +12621,13 @@ sparc_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
        __builtin_load_fsr (&tmp1_var);  */
 
-  tree fenv_var = create_tmp_var (unsigned_type_node, NULL);
+  tree fenv_var = create_tmp_var (unsigned_type_node);
   mark_addressable (fenv_var);
   tree fenv_addr = build_fold_addr_expr (fenv_var);
   tree stfsr = sparc_builtins[SPARC_BUILTIN_STFSR];
   tree hold_stfsr = build_call_expr (stfsr, 1, fenv_addr);
 
-  tree tmp1_var = create_tmp_var (unsigned_type_node, NULL);
+  tree tmp1_var = create_tmp_var (unsigned_type_node);
   mark_addressable (tmp1_var);
   tree masked_fenv_var
     = build2 (BIT_AND_EXPR, unsigned_type_node, fenv_var,
@@ -12646,7 +12659,7 @@ sparc_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
          tmp2_var >>= 5;
        __atomic_feraiseexcept ((int) tmp2_var);  */
 
-  tree tmp2_var = create_tmp_var (unsigned_type_node, NULL);
+  tree tmp2_var = create_tmp_var (unsigned_type_node);
   mark_addressable (tmp2_var);
   tree tmp3_addr = build_fold_addr_expr (tmp2_var);
   tree update_stfsr = build_call_expr (stfsr, 1, tmp3_addr);

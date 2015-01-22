@@ -1,5 +1,5 @@
 /* Driver of optimization process
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -161,17 +161,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "output.h"
 #include "rtl.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -197,13 +203,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "diagnostic.h"
 #include "params.h"
-#include "fibheap.h"
 #include "intl.h"
 #include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
@@ -224,6 +230,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "dbgcnt.h"
 #include "tree-chkp.h"
+#include "lto-section-names.h"
+#include "omp-low.h"
+#include "print-tree.h"
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
@@ -262,7 +271,7 @@ symtab_node::needed_p (void)
   if (forced_by_abi && TREE_PUBLIC (decl))
     return true;
 
- /* Keep constructors, destructors and virtual functions.  */
+  /* Keep constructors, destructors and virtual functions.  */
    if (TREE_CODE (decl) == FUNCTION_DECL
        && (DECL_STATIC_CONSTRUCTOR (decl) || DECL_STATIC_DESTRUCTOR (decl)))
     return true;
@@ -326,6 +335,7 @@ symbol_table::process_new_functions (void)
 
 	case IPA:
 	case IPA_SSA:
+	case IPA_SSA_AFTER_INLINING:
 	  /* When IPA optimization already started, do all essential
 	     transformations that has been already performed on the whole
 	     cgraph but not on this function.  */
@@ -334,10 +344,10 @@ symbol_table::process_new_functions (void)
 	  if (!node->analyzed)
 	    node->analyze ();
 	  push_cfun (DECL_STRUCT_FUNCTION (fndecl));
-	  if (state == IPA_SSA
+	  if ((state == IPA_SSA || state == IPA_SSA_AFTER_INLINING)
 	      && !gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)))
 	    g->get_passes ()->execute_early_local_passes ();
-	  else if (inline_summary_vec != NULL)
+	  else if (inline_summaries != NULL)
 	    compute_inline_parameters (node, true);
 	  free_dominance_info (CDI_POST_DOMINATORS);
 	  free_dominance_info (CDI_DOMINATORS);
@@ -449,7 +459,7 @@ cgraph_node::finalize_function (tree decl, bool no_collect)
      declared inline and nested functions.  These were optimized out
      in the original implementation and it is unclear whether we want
      to change the behavior here.  */
-  if ((!optimize
+  if ((!opt_for_fn (decl, optimize)
        && !node->cpp_implicit_alias
        && !DECL_DISREGARD_INLINE_LIMITS (decl)
        && !DECL_DECLARED_INLINE_P (decl)
@@ -506,6 +516,7 @@ cgraph_node::add_new_function (tree fndecl, bool lowered)
 
       case IPA:
       case IPA_SSA:
+      case IPA_SSA_AFTER_INLINING:
       case EXPANSION:
 	/* Bring the function into finalized state and enqueue for later
 	   analyzing and compilation.  */
@@ -928,8 +939,7 @@ analyze_functions (void)
     FOR_EACH_SYMBOL (node)
       if (node->cpp_implicit_alias)
 	  node->fixup_same_cpp_alias_visibility (node->get_alias_target ());
-  if (optimize && flag_devirtualize)
-    build_type_inheritance_graph ();
+  build_type_inheritance_graph ();
 
   /* Analysis adds static variables that in turn adds references to new functions.
      So we need to iterate the process until it stabilize.  */
@@ -998,9 +1008,23 @@ analyze_functions (void)
 		cnode->analyze ();
 
 	      for (edge = cnode->callees; edge; edge = edge->next_callee)
-		if (edge->callee->definition)
+		if (edge->callee->definition
+		    && (!DECL_EXTERNAL (edge->callee->decl)
+			/* When not optimizing, do not try to analyze extern
+			   inline functions.  Doing so is pointless.  */
+			|| opt_for_fn (edge->callee->decl, optimize)
+			/* Weakrefs needs to be preserved.  */
+			|| edge->callee->alias
+			/* always_inline functions are inlined aven at -O0.  */
+		        || lookup_attribute
+				 ("always_inline",
+			          DECL_ATTRIBUTES (edge->callee->decl))
+			/* Multiversioned functions needs the dispatcher to
+			   be produced locally even for extern functions.  */
+			|| edge->callee->function_version ()))
 		   enqueue_node (edge->callee);
-	      if (optimize && flag_devirtualize)
+	      if (opt_for_fn (cnode->decl, optimize)
+		  && opt_for_fn (cnode->decl, flag_devirtualize))
 		{
 		  cgraph_edge *next;
 
@@ -1037,16 +1061,23 @@ analyze_functions (void)
 	      for (next = node->same_comdat_group;
 		   next != node;
 		   next = next->same_comdat_group)
-		enqueue_node (next);
+		if (!next->comdat_local_p ())
+		  enqueue_node (next);
 	    }
 	  for (i = 0; node->iterate_reference (i, ref); i++)
-	    if (ref->referred->definition)
+	    if (ref->referred->definition
+		&& (!DECL_EXTERNAL (ref->referred->decl)
+		    || ((TREE_CODE (ref->referred->decl) != FUNCTION_DECL
+			 && optimize)
+			|| (TREE_CODE (ref->referred->decl) == FUNCTION_DECL
+			    && opt_for_fn (ref->referred->decl, optimize))
+		    || node->alias
+		    || ref->referred->alias)))
 	      enqueue_node (ref->referred);
 	  symtab->process_new_functions ();
 	}
     }
-  if (optimize && flag_devirtualize)
-    update_type_inheritance_graph ();
+  update_type_inheritance_graph ();
 
   /* Collect entry points to the unit.  */
   if (symtab->dump_file)
@@ -1340,7 +1371,7 @@ thunk_adjust (gimple_stmt_iterator * bsi,
 	      tree ptr, bool this_adjusting,
 	      HOST_WIDE_INT fixed_offset, tree virtual_offset)
 {
-  gimple stmt;
+  gassign *stmt;
   tree ret;
 
   if (this_adjusting
@@ -1467,7 +1498,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 	}
 
       if (in_lto_p)
-	get_body ();
+	get_untransformed_body ();
       a = DECL_ARGUMENTS (thunk_fndecl);
       
       current_function_decl = thunk_fndecl;
@@ -1516,11 +1547,11 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       tree resdecl;
       tree restmp = NULL;
 
-      gimple call;
-      gimple ret;
+      gcall *call;
+      greturn *ret;
 
       if (in_lto_p)
-	get_body ();
+	get_untransformed_body ();
       a = DECL_ARGUMENTS (thunk_fndecl);
 
       current_function_decl = thunk_fndecl;
@@ -1555,7 +1586,15 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       if (!VOID_TYPE_P (restype))
 	{
 	  if (DECL_BY_REFERENCE (resdecl))
-	    restmp = gimple_fold_indirect_ref (resdecl);
+	    {
+	      restmp = gimple_fold_indirect_ref (resdecl);
+	      if (!restmp)
+		restmp = build2 (MEM_REF,
+				 TREE_TYPE (TREE_TYPE (DECL_RESULT (alias))),
+				 resdecl,
+				 build_int_cst (TREE_TYPE
+				   (DECL_RESULT (alias)), 0));
+	    }
 	  else if (!is_gimple_reg_type (restype))
 	    {
 	      restmp = resdecl;
@@ -1651,7 +1690,11 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 	    gimple_call_set_tail (call, true);
 
 	  /* Build return value.  */
-	  ret = gimple_build_return (restmp);
+	  if (!DECL_BY_REFERENCE (resdecl))
+	    ret = gimple_build_return (restmp);
+	  else
+	    ret = gimple_build_return (resdecl);
+
 	  gsi_insert_after (&bsi, ret, GSI_NEW_STMT);
 	}
       else
@@ -1730,7 +1773,7 @@ cgraph_node::expand (void)
   announce_function (decl);
   process = 0;
   gcc_assert (lowered);
-  get_body ();
+  get_untransformed_body ();
 
   /* Generate RTL for the body of DECL.  */
 
@@ -2041,7 +2084,7 @@ ipa_passes (void)
 
   /* This extra symtab_remove_unreachable_nodes pass tends to catch some
      devirtualization and other changes where removal iterate.  */
-  symtab->remove_unreachable_nodes (true, symtab->dump_file);
+  symtab->remove_unreachable_nodes (symtab->dump_file);
 
   /* If pass_all_early_optimizations was not scheduled, the state of
      the cgraph will not be properly updated.  Update it now.  */
@@ -2063,13 +2106,27 @@ ipa_passes (void)
     }
 
   /* Some targets need to handle LTO assembler output specially.  */
-  if (flag_generate_lto)
+  if (flag_generate_lto || flag_generate_offload)
     targetm.asm_out.lto_start ();
 
   if (!in_lto_p)
-    ipa_write_summaries ();
+    {
+      if (g->have_offload)
+	{
+	  section_name_prefix = OFFLOAD_SECTION_NAME_PREFIX;
+	  lto_stream_offload_p = true;
+	  ipa_write_summaries ();
+	  lto_stream_offload_p = false;
+	}
+      if (flag_lto)
+	{
+	  section_name_prefix = LTO_SECTION_NAME_PREFIX;
+	  lto_stream_offload_p = false;
+	  ipa_write_summaries ();
+	}
+    }
 
-  if (flag_generate_lto)
+  if (flag_generate_lto || flag_generate_offload)
     targetm.asm_out.lto_end ();
 
   if (!flag_ltrans && (in_lto_p || !flag_lto || flag_fat_lto_objects))
@@ -2151,8 +2208,12 @@ symbol_table::compile (void)
     fprintf (stderr, "Performing interprocedural optimizations\n");
   state = IPA;
 
+  /* Offloading requires LTO infrastructure.  */
+  if (!in_lto_p && g->have_offload)
+    flag_generate_offload = 1;
+
   /* If LTO is enabled, initialize the streamer hooks needed by GIMPLE.  */
-  if (flag_lto)
+  if (flag_generate_lto || flag_generate_offload)
     lto_streamer_hooks_init ();
 
   /* Don't run the IPA passes if there was any error or sorry messages.  */
@@ -2167,10 +2228,6 @@ symbol_table::compile (void)
       return;
     }
 
-  /* This pass remove bodies of extern inline functions we never inlined.
-     Do this later so other IPA passes see what is really going on.
-     FIXME: This should be run just after inlining by pasmanager.  */
-  remove_unreachable_nodes (false, dump_file);
   global_info_ready = true;
   if (dump_file)
     {
@@ -2337,32 +2394,40 @@ cgraphunit_c_finalize (void)
 void
 cgraph_node::create_wrapper (cgraph_node *target)
 {
-    /* Preserve DECL_RESULT so we get right by reference flag.  */
-    tree decl_result = DECL_RESULT (decl);
+  /* Preserve DECL_RESULT so we get right by reference flag.  */
+  tree decl_result = DECL_RESULT (decl);
 
-    /* Remove the function's body but keep arguments to be reused
-       for thunk.  */
-    release_body (true);
-    reset ();
+  /* Remove the function's body but keep arguments to be reused
+     for thunk.  */
+  release_body (true);
+  reset ();
 
-    DECL_RESULT (decl) = decl_result;
-    DECL_INITIAL (decl) = NULL;
-    allocate_struct_function (decl, false);
-    set_cfun (NULL);
+  DECL_RESULT (decl) = decl_result;
+  DECL_INITIAL (decl) = NULL;
+  allocate_struct_function (decl, false);
+  set_cfun (NULL);
 
-    /* Turn alias into thunk and expand it into GIMPLE representation.  */
-    definition = true;
-    thunk.thunk_p = true;
-    thunk.this_adjusting = false;
+  /* Turn alias into thunk and expand it into GIMPLE representation.  */
+  definition = true;
+  thunk.thunk_p = true;
+  thunk.this_adjusting = false;
 
-    cgraph_edge *e = create_edge (target, NULL, 0, CGRAPH_FREQ_BASE);
+  cgraph_edge *e = create_edge (target, NULL, 0, CGRAPH_FREQ_BASE);
 
-    expand_thunk (false, true);
-    e->call_stmt_cannot_inline_p = true;
+  tree arguments = DECL_ARGUMENTS (decl);
 
-    /* Inline summary set-up.  */
-    analyze ();
-    inline_analyze_function (this);
+  while (arguments)
+    {
+      TREE_ADDRESSABLE (arguments) = false;
+      arguments = TREE_CHAIN (arguments);
+    }
+
+  expand_thunk (false, true);
+  e->call_stmt_cannot_inline_p = true;
+
+  /* Inline summary set-up.  */
+  analyze ();
+  inline_analyze_function (this);
 }
 
 #include "gt-cgraphunit.h"

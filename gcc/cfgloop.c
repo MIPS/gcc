@@ -1,5 +1,5 @@
 /* Natural loop discovery code for GNU compiler.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "hash-set.h"
 #include "vec.h"
+#include "symtab.h"
+#include "inchash.h"
 #include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -38,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "flags.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
@@ -587,8 +590,8 @@ find_subloop_latch_edge_by_ivs (struct loop *loop ATTRIBUTE_UNUSED, vec<edge> la
 {
   edge e, latch = latches[0];
   unsigned i;
-  gimple phi;
-  gimple_stmt_iterator psi;
+  gphi *phi;
+  gphi_iterator psi;
   tree lop;
   basic_block bb;
 
@@ -606,7 +609,7 @@ find_subloop_latch_edge_by_ivs (struct loop *loop ATTRIBUTE_UNUSED, vec<edge> la
      a subloop.  */
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
       lop = PHI_ARG_DEF_FROM_EDGE (phi, latch);
 
       /* Ignore the values that are not changed inside the subloop.  */
@@ -1928,9 +1931,10 @@ bb_loop_depth (const_basic_block bb)
 void
 mark_loop_for_removal (loop_p loop)
 {
+  if (loop->header == NULL)
+    return;
   loop->former_header = loop->header;
   loop->header = NULL;
   loop->latch = NULL;
   loops_state_set (LOOPS_NEED_FIXUP);
 }
-

@@ -1,4 +1,4 @@
-#   Copyright (C) 1999-2014 Free Software Foundation, Inc.
+#   Copyright (C) 1999-2015 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -436,6 +436,7 @@ proc check_effective_target_trampolines { } {
     }
     if { [istarget avr-*-*]
 	 || [istarget msp430-*-*]
+	 || [istarget nvptx-*-*]
 	 || [istarget hppa2.0w-hp-hpux11.23]
 	 || [istarget hppa64-hp-hpux11.23] } {
 	return 0;
@@ -532,10 +533,12 @@ proc check_profiling_available { test_what } {
 	     || [istarget msp430-*-*]
 	     || [istarget nds32*-*-elf]
 	     || [istarget nios2-*-elf]
+	     || [istarget nvptx-*-*]
 	     || [istarget powerpc-*-eabi*]
 	     || [istarget powerpc-*-elf]
 	     || [istarget rx-*-*]	
 	     || [istarget tic6x-*-elf]
+	     || [istarget visium-*-*]
 	     || [istarget xstormy16-*]
 	     || [istarget xtensa*-*-elf]
 	     || [istarget *-*-rtems*]
@@ -546,7 +549,16 @@ proc check_profiling_available { test_what } {
 	}
     }
 
-    return $profiling_available_saved
+    # -pg link test result can't be cached since it may change between
+    # runs.
+    set profiling_working $profiling_available_saved
+    if { $profiling_available_saved == 1
+         && ![check_no_compiler_messages_nocache profiling executable {
+	      int main() { return 0; } } "-pg"] } {
+	set profiling_working 0
+    }
+
+    return $profiling_working
 }
 
 # Check to see if a target is "freestanding". This is as per the definition
@@ -594,9 +606,70 @@ proc add_options_for_tls { flags } {
 	     int f (void) { return i; }
 	     void g (int j) { i = j; }
 	 }] } {
-	return "$flags -pthread"
+	return "-pthread [g++_link_flags [get_multilibs "-pthread"] ] $flags "
     }
     return $flags
+}
+
+# Return 1 if indirect jumps are supported, 0 otherwise.
+
+proc check_effective_target_indirect_jumps {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return 1
+}
+
+# Return 1 if nonlocal goto is supported, 0 otherwise.
+
+proc check_effective_target_nonlocal_goto {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return 1
+}
+
+# Return 1 if taking label values is supported, 0 otherwise.
+
+proc check_effective_target_label_values {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return [check_no_compiler_messages label_values assembly {
+	#ifdef NO_LABEL_VALUES
+	#error NO
+	#endif
+    }]
+}
+
+# Return 1 if builtin_return_address and builtin_frame_address are
+# supported, 0 otherwise.
+
+proc check_effective_target_return_address {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return 1
+}
+
+# Return 1 if the assembler does not verify function types against
+# calls, 0 otherwise.  Such verification will typically show up problems
+# with K&R C function declarations.
+
+proc check_effective_target_untyped_assembly {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return 1
+}
+
+# Return 1 if alloca is supported, 0 otherwise.
+
+proc check_effective_target_alloca {} {
+    if { [istarget nvptx-*-*] } {
+	return 0
+    }
+    return 1
 }
 
 # Return 1 if thread local storage (TLS) is supported, 0 otherwise.
@@ -644,9 +717,9 @@ proc check_effective_target_tls_emulated {} {
 # Return 1 if TLS executables can run correctly, 0 otherwise.
 
 proc check_effective_target_tls_runtime {} {
-    # MSP430 runtime does not have TLS support, but just
+    # The runtime does not have TLS support, but just
     # running the test below is insufficient to show this.
-    if { [istarget msp430-*-*] } {
+    if { [istarget msp430-*-*] || [istarget visium-*-*] } {
 	return 0
     }
     return [check_runtime tls_runtime {
@@ -713,6 +786,15 @@ proc check_effective_target_fgraphite {} {
     return [check_no_compiler_messages fgraphite object {
 	void foo (void) { }
     } "-O1 -fgraphite"]
+}
+
+# Return 1 if compilation with -fopenacc is error-free for trivial
+# code, 0 otherwise.
+
+proc check_effective_target_fopenacc {} {
+    return [check_no_compiler_messages fopenacc object {
+	void foo (void) { }
+    } "-fopenacc"]
 }
 
 # Return 1 if compilation with -fopenmp is error-free for trivial
@@ -1016,6 +1098,16 @@ proc check_effective_target_nonpic { } {
     }]
 }
 
+# Return 1 if the current multilib generates PIE by default.
+
+proc check_effective_target_pie { } {
+    return [check_no_compiler_messages pie assembly {
+	#ifndef __PIE__
+	#error unsupported
+	#endif
+    }]
+}
+
 # Return 1 if the target does not use a status wrapper.
 
 proc check_effective_target_unwrapped { } {
@@ -1062,6 +1154,13 @@ proc check_libcilkrts_available { } {
 		return x; 
 	    }
 	} "-fcilkplus -lcilkrts" ]
+}
+
+# Return true if the atomic library is supported on the target.
+proc check_effective_target_libatomic_available { } {
+    return [check_no_compiler_messages libatomic_available executable {
+	int main (void) { return 0; }
+    } "-latomic"]
 }
 
 # Return 1 if an ASCII locale is supported on this host, 0 otherwise.
@@ -2502,6 +2601,11 @@ proc check_effective_target_arm_neon_ok_nocache { } {
 	    if { [check_no_compiler_messages_nocache arm_neon_ok object {
 		#include "arm_neon.h"
 		int dummy;
+		/* Avoid the case where a test adds -mfpu=neon, but the toolchain is
+		   configured for -mcpu=arm926ej-s, for example.  */
+		#if __ARM_ARCH < 7
+		#error Architecture too old for NEON.
+		#endif
 	    } "$flags"] } {
 		set et_arm_neon_flags $flags
 		return 1
@@ -3336,6 +3440,7 @@ proc check_effective_target_vect_shift { } {
 proc check_effective_target_whole_vector_shift { } {
     if { [istarget i?86-*-*] || [istarget x86_64-*-*]
 	 || [istarget ia64-*-*]
+	 || [istarget aarch64*-*-*]
 	 || ([check_effective_target_arm32]
 	     && [check_effective_target_arm_little_endian])
 	 || ([istarget mips*-*-*]
@@ -4170,7 +4275,8 @@ proc check_effective_target_vect_natural_alignment { } {
         verbose "check_effective_target_vect_natural_alignment: using cached result" 2
     } else {
         set et_vect_natural_alignment_saved 1
-        if { [check_effective_target_arm_eabi] } {
+        if { [check_effective_target_arm_eabi]
+	     || [istarget nvptx-*-*] } {
             set et_vect_natural_alignment_saved 0
         }
     }
@@ -5060,6 +5166,30 @@ proc check_effective_target_non_bionic {} {
     }]
 }
 
+# Return true if this target has error.h header.
+
+proc check_effective_target_error_h {} {
+    return [check_no_compiler_messages error_h object {
+ #include <error.h>
+    }]
+}
+
+# Return true if this target has tgmath.h header.
+
+proc check_effective_target_tgmath_h {} {
+    return [check_no_compiler_messages tgmath_h object {
+ #include <tgmath.h>
+    }]
+}
+
+# Return true if target's libc supports complex functions.
+
+proc check_effective_target_libc_has_complex_functions {} {
+    return [check_no_compiler_messages libc_has_complex_functions object {
+ #include <complex.h>
+    }]
+}
+
 # Return 1 if
 #   (a) an error of a few ULP is expected in string to floating-point
 #       conversion functions; and
@@ -5639,8 +5769,12 @@ proc check_effective_target_gld { } {
 # (LTO) support.
 
 proc check_effective_target_lto { } {
-    global ENABLE_LTO
-    return [info exists ENABLE_LTO]
+    if { [istarget nvptx-*-*] } {
+	return 0;
+    }
+    return [check_no_compiler_messages lto object {
+	void foo (void) { }
+    } "-flto"]
 }
 
 # Return 1 if -mx32 -maddress-mode=short can compile, 0 otherwise.
@@ -5762,6 +5896,12 @@ proc check_effective_target_run_expensive_tests { } {
 
 proc check_effective_target_mempcpy {} {
     return [check_function_available "mempcpy"]
+}
+
+# Returns 1 if "stpcpy" is available on the target system.
+
+proc check_effective_target_stpcpy {} {
+    return [check_function_available "stpcpy"]
 }
 
 # Check whether the vectorizer tests are supported by the target and
@@ -5961,11 +6101,19 @@ proc check_effective_target_fenv_exceptions {} {
 }
 
 proc check_effective_target_tiny {} {
-    if { [istarget aarch64*-*-*]
-         && [check_effective_target_aarch64_tiny] } {
-        return 1
+    global et_target_tiny_saved
+
+    if [info exists et_target_tine_saved] {
+      verbose "check_effective_target_tiny: using cached result" 2
+    } else {
+       set et_target_tiny_saved 0
+       if { [istarget aarch64*-*-*]
+             && [check_effective_target_aarch64_tiny] } {
+         set et_target_tiny_saved 1
+       }
     }
-    return 0
+
+    return $et_target_tiny_saved
 }
 
 # Return 1 if LOGICAL_OP_NON_SHORT_CIRCUIT is set to 0 for the current target.
@@ -5979,6 +6127,7 @@ proc check_effective_target_logical_op_short_circuit {} {
 	 || [istarget s390*-*-*]
 	 || [istarget powerpc*-*-*]
 	 || [istarget nios2*-*-*]
+	 || [istarget visium-*-*]
 	 || [check_effective_target_arm_cortex_m] } {
 	return 1
     }
@@ -5998,3 +6147,54 @@ proc force_conventional_output_for { test } {
     }
 }
 
+# Return 1 if the x86-64 target supports PIE with copy reloc, 0
+# otherwise.  Cache the result.
+
+proc check_effective_target_pie_copyreloc { } {
+    global pie_copyreloc_available_saved
+    global tool
+    global GCC_UNDER_TEST
+
+    if { !([istarget x86_64-*-*] || [istarget i?86-*-*]) } {
+	return 0
+    }
+
+    # Need auto-host.h to check linker support.
+    if { ![file exists ../../auto-host.h ] } {
+	return 0
+    }
+
+    if [info exists pie_copyreloc_available_saved] {
+	verbose "check_effective_target_pie_copyreloc returning saved $pie_copyreloc_available_saved" 2
+    } else {
+	# Set up and compile to see if linker supports PIE with copy
+	# reloc.  Include the current process ID in the file names to
+	# prevent conflicts with invocations for multiple testsuites.
+
+	set src pie[pid].c
+	set obj pie[pid].o
+
+	set f [open $src "w"]
+	puts $f "#include \"../../auto-host.h\""
+	puts $f "#if HAVE_LD_PIE_COPYRELOC == 0"
+	puts $f "# error Linker does not support PIE with copy reloc."
+	puts $f "#endif"
+	close $f
+
+	verbose "check_effective_target_pie_copyreloc compiling testfile $src" 2
+	set lines [${tool}_target_compile $src $obj object ""]
+
+	file delete $src
+	file delete $obj
+
+	if [string match "" $lines] then {
+	    verbose "check_effective_target_pie_copyreloc testfile compilation passed" 2
+	    set pie_copyreloc_available_saved 1
+	} else {
+	    verbose "check_effective_target_pie_copyreloc testfile compilation failed" 2
+	    set pie_copyreloc_available_saved 0
+	}
+    }
+
+    return $pie_copyreloc_available_saved
+}

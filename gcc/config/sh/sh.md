@@ -1,5 +1,5 @@
 ;;- Machine description for Renesas / SuperH SH.
-;;  Copyright (C) 1993-2014 Free Software Foundation, Inc.
+;;  Copyright (C) 1993-2015 Free Software Foundation, Inc.
 ;;  Contributed by Steve Chamberlain (sac@cygnus.com).
 ;;  Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -666,30 +666,40 @@
   [(set_attr "type" "mt_group")])
 
 ;; This pattern might be risky because it also tests the upper bits and not
-;; only the subreg.  However, it seems that combine will get to this only
-;; when testing sign/zero extended values.  In this case the extended upper
-;; bits do not matter.
-(define_insn "*tst<mode>_t_zero"
+;; only the subreg.  We have to check whether the operands have been sign
+;; or zero extended.  In the worst case, a zero extension has to be inserted
+;; to mask out the unwanted bits.
+(define_insn_and_split "*tst<mode>_t_subregs"
   [(set (reg:SI T_REG)
 	(eq:SI
 	  (subreg:QIHI
-	    (and:SI (match_operand:SI 0 "arith_reg_operand" "%r")
-		    (match_operand:SI 1 "arith_reg_operand" "r")) <lowpart_le>)
+	    (and:SI (match_operand:SI 0 "arith_reg_operand")
+		    (match_operand:SI 1 "arith_reg_operand")) <lowpart_le>)
 	  (const_int 0)))]
-  "TARGET_SH1 && TARGET_LITTLE_ENDIAN"
-  "tst	%0,%1"
-  [(set_attr "type" "mt_group")])
+  "TARGET_SH1 && TARGET_LITTLE_ENDIAN && can_create_pseudo_p ()"
+  "#"
+  "&& 1"
+  [(const_int 0)]
+{
+  sh_split_tst_subregs (curr_insn, <MODE>mode, <lowpart_le>, operands);
+  DONE;
+})
 
-(define_insn "*tst<mode>_t_zero"
+(define_insn_and_split "*tst<mode>_t_subregs"
   [(set (reg:SI T_REG)
 	(eq:SI
 	  (subreg:QIHI
-	    (and:SI (match_operand:SI 0 "arith_reg_operand" "%r")
-		    (match_operand:SI 1 "arith_reg_operand" "r")) <lowpart_be>)
+	    (and:SI (match_operand:SI 0 "arith_reg_operand")
+		    (match_operand:SI 1 "arith_reg_operand")) <lowpart_be>)
 	  (const_int 0)))]
-  "TARGET_SH1 && TARGET_BIG_ENDIAN"
-  "tst	%0,%1"
-  [(set_attr "type" "mt_group")])
+  "TARGET_SH1 && TARGET_BIG_ENDIAN && can_create_pseudo_p ()"
+  "#"
+  "&& 1"
+  [(const_int 0)]
+{
+  sh_split_tst_subregs (curr_insn, <MODE>mode, <lowpart_be>, operands);
+  DONE;
+})
 
 ;; Extract LSB, negate and store in T bit.
 (define_insn "tstsi_t_and_not"
@@ -1085,47 +1095,6 @@
 	(if_then_else (eq (reg:SI T_REG) (const_int 0))
 		      (label_ref (match_dup 2))
 		      (pc)))])
-
-;; Conditional move combine pattern for div0s comparisons.
-;; This is used when TARGET_PRETEND_CMOVE is in effect.
-(define_insn_and_split "*movsicc_div0s"
-  [(set (match_operand:SI 0 "arith_reg_dest" "")
-	(if_then_else:SI (ge (xor:SI (match_operand:SI 1 "arith_reg_operand" "")
-				     (match_operand:SI 2 "arith_reg_operand" ""))
-			     (const_int 0))
-			 (match_operand:SI 3 "arith_reg_operand" "")
-			 (match_operand:SI 4 "general_movsrc_operand" "")))
-   (clobber (reg:SI T_REG))]
-  "TARGET_PRETEND_CMOVE"
-  "#"
-  "&& 1"
-  [(set (reg:SI T_REG) (lt:SI (xor:SI (match_dup 1) (match_dup 2))
-			      (const_int 0)))
-   (set (match_dup 0)
-	(if_then_else (ne (reg:SI T_REG) (const_int 0))
-		      (match_dup 4)
-		      (match_dup 3)))])
-
-(define_insn_and_split "*movsicc_div0s"
-  [(set (match_operand:SI 0 "arith_reg_dest")
-	(if_then_else:SI (eq (lshiftrt:SI
-				(match_operand:SI 1 "arith_reg_operand")
-				(const_int 31))
-			     (lshiftrt:SI
-				(match_operand:SI 2 "arith_reg_operand")
-				(const_int 31)))
-			 (match_operand:SI 3 "arith_reg_operand")
-			 (match_operand:SI 4 "general_movsrc_operand")))
-   (clobber (reg:SI T_REG))]
-   "TARGET_PRETEND_CMOVE"
-   "#"
-   "&& 1"
-  [(set (reg:SI T_REG) (lt:SI (xor:SI (match_dup 1) (match_dup 2))
-			      (const_int 0)))
-   (set (match_dup 0)
-	(if_then_else (ne (reg:SI T_REG) (const_int 0))
-		      (match_dup 4)
-		      (match_dup 3)))])
 
 ;; -------------------------------------------------------------------------
 ;; SImode unsigned integer comparisons
@@ -1618,14 +1587,9 @@
   extract_insn (insn2);
   if (! constrain_operands (1, get_preferred_alternatives (insn2, bb)))
     {
-      rtx tmp;
     failure:
-      tmp = replacements[0];
-      replacements[0] = replacements[1];
-      replacements[1] = tmp;
-      tmp = replacements[2];
-      replacements[2] = replacements[3];
-      replacements[3] = tmp;
+      std::swap (replacements[0], replacements[1]);
+      std::swap (replacements[2], replacements[3]);
       replace_n_hard_rtx (SET_DEST (set1), replacements, 2, 1);
       replace_n_hard_rtx (SET_DEST (set2), replacements, 2, 1);
       replace_n_hard_rtx (SET_SRC (set2), replacements, 2, 1);
@@ -2066,11 +2030,16 @@
 (define_expand "addsi3"
   [(set (match_operand:SI 0 "arith_reg_operand" "")
 	(plus:SI (match_operand:SI 1 "arith_operand" "")
-		 (match_operand:SI 2 "arith_operand" "")))]
+		 (match_operand:SI 2 "arith_or_int_operand" "")))]
   ""
 {
   if (TARGET_SHMEDIA)
     operands[1] = force_reg (SImode, operands[1]);
+  else if (! arith_operand (operands[2], SImode))
+    {
+      if (reg_overlap_mentioned_p (operands[0], operands[1]))
+	FAIL;
+    }
 })
 
 (define_insn "addsi3_media"
@@ -2097,12 +2066,34 @@
   [(set_attr "type" "arith_media")
    (set_attr "highpart" "ignore")])
 
-(define_insn "*addsi3_compact"
-  [(set (match_operand:SI 0 "arith_reg_dest" "=r")
-	(plus:SI (match_operand:SI 1 "arith_operand" "%0")
-		 (match_operand:SI 2 "arith_operand" "rI08")))]
-  "TARGET_SH1"
-  "add	%2,%0"
+;; The *addsi3_compact is made an insn_and_split and accepts actually
+;; impossible constraints to make LRA's register elimination work well on SH.
+;; The problem is that LRA expects something like
+;;    (set rA (plus rB (const_int N)))
+;; to work.  We can do that, but we have to split out an additional reg-reg
+;; copy or constant load before the actual add insn.
+;; Use u constraint for that case to avoid the invalid value in the stack
+;; pointer.
+(define_insn_and_split "*addsi3_compact"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=r,&u")
+	(plus:SI (match_operand:SI 1 "arith_operand" "%0,r")
+		 (match_operand:SI 2 "arith_or_int_operand" "rI08,rn")))]
+  "TARGET_SH1
+   && ((rtx_equal_p (operands[0], operands[1])
+        && arith_operand (operands[2], SImode))
+       || ! reg_overlap_mentioned_p (operands[0], operands[1]))"
+  "@
+	add	%2,%0
+	#"
+  "reload_completed
+   && ! reg_overlap_mentioned_p (operands[0], operands[1])"
+  [(set (match_dup 0) (match_dup 2))
+   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 1)))]
+{
+  /* Prefer 'mov r0,r1; add #imm8,r1' over 'mov #imm8,r1; add r0,r1'  */
+  if (satisfies_constraint_I08 (operands[2]))
+    std::swap (operands[1], operands[2]);
+}
   [(set_attr "type" "arith")])
 
 ;; -------------------------------------------------------------------------
@@ -2411,8 +2402,8 @@
    (clobber (reg:SI R4_REG))
    (clobber (reg:SI R5_REG))
    (clobber (reg:SI FPSCR_STAT_REG))
-   (use (reg:SI FPSCR_MODES_REG))
-   (use (match_operand:SI 1 "arith_reg_operand" "r"))]
+   (use (match_operand:SI 1 "arith_reg_operand" "r"))
+   (use (reg:SI FPSCR_MODES_REG))]
   "TARGET_FPU_DOUBLE && ! TARGET_FPU_SINGLE"
   "jsr	@%1%#"
   [(set_attr "type" "sfunc")
@@ -2683,8 +2674,8 @@
    (clobber (reg:DF DR0_REG))
    (clobber (reg:DF DR2_REG))
    (clobber (reg:SI FPSCR_STAT_REG))
-   (use (reg:SI FPSCR_MODES_REG))
-   (use (match_operand:SI 1 "arith_reg_operand" "r"))]
+   (use (match_operand:SI 1 "arith_reg_operand" "r"))
+   (use (reg:SI FPSCR_MODES_REG))]
   "TARGET_FPU_DOUBLE && ! TARGET_FPU_SINGLE"
   "jsr	@%1%#"
   [(set_attr "type" "sfunc")
@@ -6369,10 +6360,9 @@ label:
 })
 
 (define_expand "extendqihi2"
-  [(set (match_operand:HI 0 "arith_reg_dest" "")
-	(sign_extend:HI (match_operand:QI 1 "arith_reg_operand" "")))]
-  ""
-  "")
+  [(set (match_operand:HI 0 "arith_reg_dest")
+	(sign_extend:HI (match_operand:QI 1 "arith_reg_operand")))]
+  "TARGET_SH1")
 
 (define_insn "*extendqihi2_compact_reg"
   [(set (match_operand:HI 0 "arith_reg_dest" "=r")
@@ -6712,7 +6702,7 @@ label:
 ;; TARGET_FMOVD is in effect, and mode switching is done before reload.
 (define_insn "movsi_ie"
   [(set (match_operand:SI 0 "general_movdst_operand"
-	    "=r,r,r,r,r,r,r,r,m,<,<,x,l,x,l,y,<,r,y,r,*f,y,*f,y")
+	    "=r,r,r,r,r,r,r,r,mr,<,<,x,l,x,l,y,<,r,y,r,*f,y,*f,y")
 	(match_operand:SI 1 "general_movsrc_operand"
 	 "Q,r,I08,I20,I28,mr,x,l,r,x,l,r,r,>,>,>,y,i,r,y,y,*f,*f,y"))]
   "(TARGET_SH2E || TARGET_SH2A)
@@ -7279,8 +7269,7 @@ label:
       gcc_unreachable ();
     }
 
-  if (regno == -1
-      || ! refers_to_regno_p (regno, regno + 1, operands[1], 0))
+  if (regno == -1 || ! refers_to_regno_p (regno, operands[1]))
     {
       operands[2] = operand_subword (operands[0], 0, 0, DImode);
       operands[3] = operand_subword (operands[1], 0, 0, DImode);
@@ -7813,8 +7802,7 @@ label:
 	  alter_subreg (&word0, true);
 	  word1 = gen_rtx_SUBREG (SImode, regop, 4);
 	  alter_subreg (&word1, true);
-	  if (store_p || ! refers_to_regno_p (REGNO (word0),
-					      REGNO (word0) + 1, addr, 0))
+	  if (store_p || ! refers_to_regno_p (REGNO (word0), addr))
 	    {
 	      emit_insn (store_p
 			 ? gen_movsi_ie (mem, word0)
@@ -8093,8 +8081,7 @@ label:
       gcc_unreachable ();
     }
 
-  if (regno == -1
-      || ! refers_to_regno_p (regno, regno + 1, operands[1], 0))
+  if (regno == -1 || ! refers_to_regno_p (regno, operands[1]))
     {
       operands[2] = operand_subword (operands[0], 0, 0, DFmode);
       operands[3] = operand_subword (operands[1], 0, 0, DFmode);
@@ -8376,7 +8363,7 @@ label:
 	(match_operand:SF 1 "general_movsrc_operand"
 	  "f,r,G,H,FQ,mf,f,FQ,mr,r,y,f,>,fr,y,r,y,>,y"))
    (use (reg:SI FPSCR_MODES_REG))
-   (clobber (match_scratch:SI 2 "=X,X,Bsc,Bsc,&z,X,X,X,X,X,X,X,X,y,X,X,X,X,X"))]
+   (clobber (match_scratch:SI 2 "=X,X,X,X,&z,X,X,X,X,X,X,X,X,y,X,X,X,X,X"))]
   "TARGET_SH2E
    && (arith_reg_operand (operands[0], SFmode) || fpul_operand (operands[0], SFmode)
        || arith_reg_operand (operands[1], SFmode) || fpul_operand (operands[1], SFmode)
@@ -8401,6 +8388,104 @@ label:
 	sts.l	%1,%0
 	lds.l	%1,%0
 	! move optimized away"
+  [(set_attr "type" "fmove,move,fmove,fmove,pcfload,fload,fstore,pcload,load,
+		     store,fmove,fmove,load,*,fpul_gp,gp_fpul,fstore,load,nil")
+   (set_attr "late_fp_use" "*,*,*,*,*,*,yes,*,*,*,*,*,*,*,yes,*,yes,*,*")
+   (set_attr_alternative "length"
+     [(const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (if_then_else
+	(match_test "TARGET_SH2A")
+	(const_int 4) (const_int 2))
+      (if_then_else
+	(match_test "TARGET_SH2A")
+	(const_int 4) (const_int 2))
+      (const_int 2)
+      (if_then_else
+	(match_test "TARGET_SH2A")
+	(const_int 4) (const_int 2))
+      (if_then_else
+	(match_test "TARGET_SH2A")
+	(const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 0)])
+  (set_attr_alternative "fp_mode"
+     [(if_then_else (eq_attr "fmovd" "yes")
+		    (const_string "single") (const_string "none"))
+      (const_string "none")
+      (const_string "single")
+      (const_string "single")
+      (const_string "none")
+      (if_then_else (eq_attr "fmovd" "yes")
+		    (const_string "single") (const_string "none"))
+      (if_then_else (eq_attr "fmovd" "yes")
+		    (const_string "single") (const_string "none"))
+      (const_string "none")
+      (const_string "none")
+      (const_string "none")
+      (const_string "none")
+      (const_string "none")
+      (const_string "none")
+      (const_string "none")
+      (const_string "none")
+      (const_string "none")
+      (const_string "none")
+      (const_string "none")
+      (const_string "none")])])
+
+(define_insn_and_split "movsf_ie_ra"
+  [(set (match_operand:SF 0 "general_movdst_operand"
+	 "=f,r,f,f,fy,f,m,r,r,m,f,y,y,rf,r,y,<,y,y")
+	(match_operand:SF 1 "general_movsrc_operand"
+	  "f,r,G,H,FQ,m,f,FQ,m,r,y,f,>,fr,y,r,y,>,y"))
+   (use (reg:SI FPSCR_MODES_REG))
+   (clobber (match_scratch:SF 2 "=r,r,X,X,&z,r,r,X,r,r,r,r,r,y,r,r,r,r,r"))
+   (const_int 0)]
+  "TARGET_SH2E
+   && (arith_reg_operand (operands[0], SFmode)
+       || fpul_operand (operands[0], SFmode)
+       || arith_reg_operand (operands[1], SFmode)
+       || fpul_operand (operands[1], SFmode))"
+  "@
+	fmov	%1,%0
+	mov	%1,%0
+	fldi0	%0
+	fldi1	%0
+	#
+	fmov.s	%1,%0
+	fmov.s	%1,%0
+	mov.l	%1,%0
+	mov.l	%1,%0
+	mov.l	%1,%0
+	fsts	fpul,%0
+	flds	%1,fpul
+	lds.l	%1,%0
+	#
+	sts	%1,%0
+	lds	%1,%0
+	sts.l	%1,%0
+	lds.l	%1,%0
+	! move optimized away"
+  "reload_completed
+   && sh_movsf_ie_ra_split_p (operands[0], operands[1], operands[2])"
+  [(const_int 0)]
+{
+  if (! rtx_equal_p (operands[0], operands[1]))
+    {
+      emit_insn (gen_movsf_ie (operands[2], operands[1]));
+      emit_insn (gen_movsf_ie (operands[0], operands[2]));
+    }
+}
   [(set_attr "type" "fmove,move,fmove,fmove,pcfload,fload,fstore,pcload,load,
 		     store,fmove,fmove,load,*,fpul_gp,gp_fpul,fstore,load,nil")
    (set_attr "late_fp_use" "*,*,*,*,*,*,yes,*,*,*,*,*,*,*,yes,*,yes,*,*")
@@ -8486,6 +8571,14 @@ label:
     }
   if (TARGET_SH2E)
     {
+      if (lra_in_progress)
+	{
+	  if (GET_CODE (operands[0]) == SCRATCH)
+	    DONE;
+	  emit_insn (gen_movsf_ie_ra (operands[0], operands[1]));
+	  DONE;
+	}
+
       emit_insn (gen_movsf_ie (operands[0], operands[1]));
       DONE;
     }
@@ -10102,6 +10195,18 @@ label:
 	      (match_operand 2 "" "")])]
   "(TARGET_SH2E || TARGET_SH2A) || TARGET_SHMEDIA"
 {
+  if (! TARGET_SHMEDIA)
+    {
+      /* RA does not know that the call sets the function value registers.
+	 We avoid problems by claiming that those registers are clobbered
+	 at this point.  */
+      for (int i = 0; i < XVECLEN (operands[2], 0); i++)
+	{
+	  rtx set = XVECEXP (operands[2], 0, i);
+	  emit_clobber (SET_SRC (set));
+	}
+    }
+
   emit_call_insn (gen_call (operands[0], const0_rtx, const0_rtx));
 
   for (int i = 0; i < XVECLEN (operands[2], 0); i++)
@@ -11348,9 +11453,7 @@ label:
 
   if (swap)
     {
-      rtx tem = operands[2];
-      operands[2] = operands[3];
-      operands[3] = tem;
+      std::swap (operands[2], operands[3]);
       code = swap_condition (code);
     }
 
@@ -11452,13 +11555,21 @@ label:
   DONE;
 })
 
-(define_insn "movrt_negc"
+(define_insn_and_split "movrt_negc"
   [(set (match_operand:SI 0 "arith_reg_dest" "=r")
-	(xor:SI (match_operand:SI 1 "t_reg_operand" "") (const_int 1)))
+	(xor:SI (match_operand:SI 1 "t_reg_operand") (const_int 1)))
    (set (reg:SI T_REG) (const_int 1))
    (use (match_operand:SI 2 "arith_reg_operand" "r"))]
   "TARGET_SH1"
   "negc	%2,%0"
+  "&& 1"
+  [(const_int 0)]
+{
+  if (sh_split_movrt_negc_to_movt_xor (curr_insn, operands))
+    DONE;
+  else
+    FAIL;
+}
   [(set_attr "type" "arith")])
 
 ;; The -1 constant will not be CSE-ed for the *movrt_negc pattern, but the
@@ -11467,17 +11578,25 @@ label:
 ;; generating a pseudo reg before reload.
 (define_insn_and_split "*movrt_negc"
   [(set (match_operand:SI 0 "arith_reg_dest" "=r")
-	(xor:SI (match_operand:SI 1 "t_reg_operand" "") (const_int 1)))
+	(xor:SI (match_operand:SI 1 "t_reg_operand") (const_int 1)))
    (clobber (match_scratch:SI 2 "=r"))
    (clobber (reg:SI T_REG))]
   "TARGET_SH1 && ! TARGET_SH2A"
   "#"
-  "&& reload_completed"
-  [(set (match_dup 2) (const_int -1))
-   (parallel
-       [(set (match_dup 0) (xor:SI (match_dup 1) (const_int 1)))
-	(set (reg:SI T_REG) (const_int 1))
-	(use (match_dup 2))])])
+  "&& 1"
+  [(const_int 0)]
+{
+  if (sh_split_movrt_negc_to_movt_xor (curr_insn, operands))
+    DONE;
+  else if (reload_completed)
+    {
+      emit_move_insn (operands[2], gen_int_mode (-1, SImode));
+      emit_insn (gen_movrt_negc (operands[0], operands[1], operands[2]));
+      DONE;
+    }
+  else
+    FAIL;
+})
 
 ;; Store the negated T bit in a reg using r0 and xor.  This one doesn't
 ;; clobber the T bit, which is useful when storing the T bit and the
@@ -11488,48 +11607,15 @@ label:
   [(set (match_operand:SI 0 "arith_reg_dest" "=z")
 	(xor:SI (match_operand:SI 1 "t_reg_operand") (const_int 1)))
    (use (reg:SI T_REG))]
-  "TARGET_SH1 && !TARGET_SH2A"
+  "TARGET_SH1"
   "#"
   "&& reload_completed"
   [(set (match_dup 0) (reg:SI T_REG))
    (set (match_dup 0) (xor:SI (match_dup 0) (const_int 1)))])
 
-;; Store the T bit and the negated T bit in two regs in parallel.  There is
-;; no real insn to do that, but specifying this pattern will give combine
-;; some opportunities.
-(define_insn_and_split "*movt_movrt"
-  [(parallel [(set (match_operand:SI 0 "arith_reg_dest")
-		   (match_operand:SI 1 "negt_reg_operand"))
-	      (set (match_operand:SI 2 "arith_reg_dest")
-		   (match_operand:SI 3 "t_reg_operand"))])]
-  "TARGET_SH1"
-  "#"
-  "&& 1"
-  [(const_int 0)]
-{
-  rtx i = TARGET_SH2A
-	  ? gen_movrt (operands[0], get_t_reg_rtx ())
-	  : gen_movrt_xor (operands[0], get_t_reg_rtx ());
-  
-  emit_insn (i);
-  emit_insn (gen_movt (operands[2], get_t_reg_rtx ()));
-  DONE;
-})
-
-(define_insn_and_split "*movt_movrt"
-  [(parallel [(set (match_operand:SI 0 "arith_reg_dest")
-		   (match_operand:SI 1 "t_reg_operand"))
-	      (set (match_operand:SI 2 "arith_reg_dest")
-		   (match_operand:SI 3 "negt_reg_operand"))])]
-  "TARGET_SH1"
-  "#"
-  "&& 1"
-  [(parallel [(set (match_dup 2) (match_dup 3))
-	      (set (match_dup 0) (match_dup 1))])])
-
 ;; Use negc to store the T bit in a MSB of a reg in the following way:
-;;	T = 1: 0x80000000 -> reg
-;;	T = 0: 0x7FFFFFFF -> reg
+;;	T = 0: 0x80000000 -> reg
+;;	T = 1: 0x7FFFFFFF -> reg
 ;; This works because 0 - 0x80000000 = 0x80000000.
 ;;
 ;; This insn must not match again after it has been split into the constant
@@ -11562,27 +11648,27 @@ label:
   "negc	%1,%0"
   [(set_attr "type" "arith")])
 
-;; These are essentially the same as above, but with the inverted T bit.
-;; Combine recognizes the split patterns, but does not take them sometimes
-;; if the T_REG clobber is specified.  Instead it tries to split out the
-;; T bit negation.  Since these splits are supposed to be taken only by
-;; combine, it will see the T_REG clobber of the *mov_t_msb_neg insn, so this
-;; should be fine.
-(define_split
+(define_insn_and_split "*mov_t_msb_neg"
   [(set (match_operand:SI 0 "arith_reg_dest")
 	(plus:SI (match_operand 1 "negt_reg_operand")
-		 (const_int 2147483647)))]  ;; 0x7fffffff
-  "TARGET_SH1 && can_create_pseudo_p ()"
+		 (const_int 2147483647)))  ;; 0x7fffffff
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH1"
+   "#"
+   "&& can_create_pseudo_p ()"
   [(parallel [(set (match_dup 0)
 		   (minus:SI (const_int -2147483648) (reg:SI T_REG)))
 	      (clobber (reg:SI T_REG))])])
 
-(define_split
+(define_insn_and_split "*mov_t_msb_neg"
   [(set (match_operand:SI 0 "arith_reg_dest")
 	(if_then_else:SI (match_operand 1 "t_reg_operand")
 			 (const_int 2147483647)  ;; 0x7fffffff
-			 (const_int -2147483648)))]  ;; 0x80000000
-  "TARGET_SH1 && can_create_pseudo_p ()"
+			 (const_int -2147483648)))  ;; 0x80000000
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH1"
+  "#"
+  "&& can_create_pseudo_p ()"
   [(parallel [(set (match_dup 0)
 		   (minus:SI (const_int -2147483648) (reg:SI T_REG)))
 	      (clobber (reg:SI T_REG))])])
@@ -12538,11 +12624,7 @@ label:
   /* Change 'b * a + a' into 'a * b + a'.
      This is better for register allocation.  */
   if (REGNO (operands[2]) == REGNO (operands[3]))
-    {
-      rtx tmp = operands[1];
-      operands[1] = operands[2];
-      operands[2] = tmp;
-    }
+    std::swap (operands[1], operands[2]);
 }
   [(set_attr "type" "fp")
    (set_attr "fp_mode" "single")])

@@ -1,5 +1,5 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995-2014 Free Software Foundation, Inc.
+   Copyright (C) 1995-2015 Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
 This program is free software; you can redistribute it and/or modify it
@@ -208,6 +208,12 @@ enum cpp_token_fld_kind {
 struct GTY(()) cpp_macro_arg {
   /* Argument number.  */
   unsigned int arg_no;
+  /* The original spelling of the macro argument token.  */
+  cpp_hashnode *
+    GTY ((nested_ptr (union tree_node,
+		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
+			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL")))
+       spelling;
 };
 
 /* An identifier in the cpp_token union.  */
@@ -218,6 +224,12 @@ struct GTY(()) cpp_identifier {
 		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
 			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL")))
        node;
+  /* The original spelling of the identifier.  */
+  cpp_hashnode *
+    GTY ((nested_ptr (union tree_node,
+		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
+			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL")))
+       spelling;
 };
 
 /* A preprocessing token.  This has been carefully packed and should
@@ -238,7 +250,7 @@ struct GTY(()) cpp_token {
     /* A string, or number.  */
     struct cpp_string GTY ((tag ("CPP_TOKEN_FLD_STR"))) str;
 
-    /* Argument no. for a CPP_MACRO_ARG.  */
+    /* Argument no. (and original spelling) for a CPP_MACRO_ARG.  */
     struct cpp_macro_arg GTY ((tag ("CPP_TOKEN_FLD_ARG_NO"))) macro_arg;
 
     /* Original token no. for a CPP_PASTE (from a sequence of
@@ -568,6 +580,9 @@ struct cpp_callbacks
      Second argument is the location of the start of the current expansion.  */
   void (*used) (cpp_reader *, source_location, cpp_hashnode *);
 
+  /* Callback to identify whether an attribute exists.  */
+  int (*has_attribute) (cpp_reader *);
+
   /* Callback that can change a user builtin into normal macro.  */
   bool (*user_builtin_macro) (cpp_reader *, cpp_hashnode *);
 };
@@ -661,6 +676,7 @@ enum cpp_builtin_type
   BT_PRAGMA,			/* `_Pragma' operator */
   BT_TIMESTAMP,			/* `__TIMESTAMP__' */
   BT_COUNTER,			/* `__COUNTER__' */
+  BT_HAS_ATTRIBUTE,		/* `__has_attribute__(x)' */
   BT_FIRST_USER,		/* User defined builtin macros.  */
   BT_LAST_USER = BT_FIRST_USER + 31
 };

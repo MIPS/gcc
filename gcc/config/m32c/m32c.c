@@ -1,5 +1,5 @@
 /* Target Code for R8C/M16C/M32C
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -35,20 +35,34 @@
 #include "reload.h"
 #include "diagnostic-core.h"
 #include "obstack.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "ggc.h"
 #include "target.h"
 #include "target-def.h"
@@ -194,6 +208,9 @@ encode_pattern_1 (rtx x)
     case SUBREG:
       if (GET_MODE_SIZE (GET_MODE (x)) !=
 	  GET_MODE_SIZE (GET_MODE (XEXP (x, 0))))
+	*patternp++ = 'S';
+      if (GET_MODE (x) == PSImode
+	  && GET_CODE (XEXP (x, 0)) == REG)
 	*patternp++ = 'S';
       encode_pattern_1 (XEXP (x, 0));
       break;
@@ -1008,12 +1025,9 @@ m32c_eh_return_data_regno (int n)
   switch (n)
     {
     case 0:
-      return A0_REGNO;
+      return MEM0_REGNO;
     case 1:
-      if (TARGET_A16)
-	return R3_REGNO;
-      else
-	return R1_REGNO;
+      return MEM0_REGNO+4;
     default:
       return INVALID_REGNUM;
     }
@@ -1790,6 +1804,8 @@ m32c_legitimate_address_p (machine_mode mode, rtx x, bool strict)
 	  /*    case SB_REGNO: */
 	  return 1;
 	default:
+	  if (GET_CODE (reg) == SUBREG)
+	    return 0;
 	  if (IS_PSEUDO (reg, strict))
 	    return 1;
 	  return 0;

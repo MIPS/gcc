@@ -1,5 +1,5 @@
 /* Subroutines used for code generation of Andes NDS32 cpu for GNU compiler
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Andes Technology Corporation.
 
    This file is part of GCC.
@@ -24,6 +24,15 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -38,12 +47,17 @@
 #include "insn-codes.h"		/* For CODE_FOR_xxx.  */
 #include "reload.h"		/* For push_reload().  */
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "recog.h"
 #include "diagnostic-core.h"
@@ -381,7 +395,7 @@ nds32_compute_stack_frame (void)
      "push registers to memory",
      "adjust stack pointer".  */
 static void
-nds32_emit_stack_push_multiple (rtx Rb, rtx Re, rtx En4)
+nds32_emit_stack_push_multiple (rtx Rb, rtx Re, rtx En4, bool vaarg_p)
 {
   int regno;
   int extra_count;
@@ -395,6 +409,7 @@ nds32_emit_stack_push_multiple (rtx Rb, rtx Re, rtx En4)
   rtx push_rtx;
   rtx adjust_sp_rtx;
   rtx parallel_insn;
+  rtx dwarf;
 
   /* We need to provide a customized rtx which contains
      necessary information for data analysis,
@@ -517,6 +532,15 @@ nds32_emit_stack_push_multiple (rtx Rb, rtx Re, rtx En4)
      We need to use RTX_FRAME_RELATED_P so that GCC is able to
      generate CFI (Call Frame Information) stuff.  */
   RTX_FRAME_RELATED_P (parallel_insn) = 1;
+
+  /* Don't use GCC's logic for CFI info if we are generate a push for VAARG
+     since we will not restore those register at epilogue.  */
+  if (vaarg_p)
+    {
+      dwarf = alloc_reg_note (REG_CFA_ADJUST_CFA,
+			      copy_rtx (adjust_sp_rtx), NULL_RTX);
+      REG_NOTES (parallel_insn) = dwarf;
+    }
 }
 
 /* Function to create a parallel rtx pattern
@@ -1946,24 +1970,27 @@ nds32_legitimate_address_p (machine_mode mode, rtx x, bool strict)
       return nds32_address_register_rtx_p (x, strict);
 
     case SYMBOL_REF:
-
-      if (!TARGET_GP_DIRECT
+      /* (mem (symbol_ref A)) => [symbol_ref] */
+      /* If -mcmodel=large, the 'symbol_ref' is not a valid address
+         during or after LRA/reload phase.  */
+      if (TARGET_CMODEL_LARGE
+	  && (reload_completed
+	      || reload_in_progress
+	      || lra_in_progress))
+	return false;
+      /* If -mcmodel=medium and the symbol references to rodata section,
+         the 'symbol_ref' is not a valid address during or after
+         LRA/reload phase.  */
+      if (TARGET_CMODEL_MEDIUM
+	  && NDS32_SYMBOL_REF_RODATA_P (x)
 	  && (reload_completed
 	      || reload_in_progress
 	      || lra_in_progress))
 	return false;
 
-      /* (mem (symbol_ref A)) => [symbol_ref] */
-      return !currently_expanding_to_rtl;
+      return true;
 
     case CONST:
-
-      if (!TARGET_GP_DIRECT
-	  && (reload_completed
-	      || reload_in_progress
-	      || lra_in_progress))
-	return false;
-
       /* (mem (const (...)))
          => [ + const_addr ], where const_addr = symbol_ref + const_int */
       if (GET_CODE (XEXP (x, 0)) == PLUS)
@@ -1974,9 +2001,30 @@ nds32_legitimate_address_p (machine_mode mode, rtx x, bool strict)
 	  rtx op1 = XEXP (plus_op, 1);
 
 	  if (GET_CODE (op0) == SYMBOL_REF && CONST_INT_P (op1))
-	    return true;
-	  else
-	    return false;
+	    {
+	      /* Now we see the [ + const_addr ] pattern, but we need
+	         some further checking.  */
+	      /* If -mcmodel=large, the 'const_addr' is not a valid address
+	         during or after LRA/reload phase.  */
+	      if (TARGET_CMODEL_LARGE
+		  && (reload_completed
+		      || reload_in_progress
+		      || lra_in_progress))
+		return false;
+	      /* If -mcmodel=medium and the symbol references to rodata section,
+	         the 'const_addr' is not a valid address during or after
+	         LRA/reload phase.  */
+	      if (TARGET_CMODEL_MEDIUM
+		  && NDS32_SYMBOL_REF_RODATA_P (op0)
+		  && (reload_completed
+		      || reload_in_progress
+		      || lra_in_progress))
+		return false;
+
+	      /* At this point we can make sure 'const_addr' is a
+		 valid address.  */
+	      return true;
+	    }
 	}
 
 	return false;
@@ -2031,8 +2079,14 @@ nds32_legitimate_address_p (machine_mode mode, rtx x, bool strict)
 	return false;
 
     case LO_SUM:
-      if (!TARGET_GP_DIRECT)
-	return true;
+      /* (mem (lo_sum (reg) (symbol_ref))) */
+      /* (mem (lo_sum (reg) (const))) */
+      gcc_assert (REG_P (XEXP (x, 0)));
+      if (GET_CODE (XEXP (x, 1)) == SYMBOL_REF
+	  || GET_CODE (XEXP (x, 1)) == CONST)
+	return nds32_legitimate_address_p (mode, XEXP (x, 1), strict);
+      else
+	return false;
 
     default:
       return false;
@@ -2086,6 +2140,45 @@ nds32_address_cost (rtx address,
 }
 
 
+/* Dividing the Output into Sections (Texts, Data, . . . ).  */
+
+/* If references to a symbol or a constant must be treated differently
+   depending on something about the variable or function named by the symbol
+   (such as what section it is in), we use this hook to store flags
+   in symbol_ref rtx.  */
+static void
+nds32_encode_section_info (tree decl, rtx rtl, int new_decl_p)
+{
+  default_encode_section_info (decl, rtl, new_decl_p);
+
+  /* For the memory rtx, if it references to rodata section, we can store
+     NDS32_SYMBOL_FLAG_RODATA flag into symbol_ref rtx so that the
+     nds32_legitimate_address_p() can determine how to treat such symbol_ref
+     based on -mcmodel=X and this information.  */
+  if (MEM_P (rtl) && MEM_READONLY_P (rtl))
+    {
+      rtx addr = XEXP (rtl, 0);
+
+      if (GET_CODE (addr) == SYMBOL_REF)
+	{
+	  /* For (mem (symbol_ref X)) case.  */
+	  SYMBOL_REF_FLAGS (addr) |= NDS32_SYMBOL_FLAG_RODATA;
+	}
+      else if (GET_CODE (addr) == CONST
+	       && GET_CODE (XEXP (addr, 0)) == PLUS)
+	{
+	  /* For (mem (const (plus (symbol_ref X) (const_int N)))) case.  */
+	  rtx plus_op = XEXP (addr, 0);
+	  rtx op0 = XEXP (plus_op, 0);
+	  rtx op1 = XEXP (plus_op, 1);
+
+	  if (GET_CODE (op0) == SYMBOL_REF && CONST_INT_P (op1))
+	    SYMBOL_REF_FLAGS (op0) |= NDS32_SYMBOL_FLAG_RODATA;
+	}
+    }
+}
+
+
 /* Defining the Output Assembler Language.  */
 
 /* -- The Overall Framework of an Assembler File.  */
@@ -2107,26 +2200,6 @@ nds32_asm_file_start (void)
 			 "for checking inconsistency on interrupt handler\n");
   fprintf (asm_out_file, "\t.vec_size\t%d\n", nds32_isr_vector_size);
 
-  /* If user enables '-mforce-fp-as-gp' or compiles programs with -Os,
-     the compiler may produce 'la $fp,_FP_BASE_' instruction
-     at prologue for fp-as-gp optimization.
-     We should emit weak reference of _FP_BASE_ to avoid undefined reference
-     in case user does not pass '--relax' option to linker.  */
-  if (TARGET_FORCE_FP_AS_GP || optimize_size)
-    {
-      fprintf (asm_out_file, "\t! This weak reference is required to do "
-			     "fp-as-gp link time optimization\n");
-      fprintf (asm_out_file, "\t.weak\t_FP_BASE_\n");
-    }
-  /* If user enables '-mex9', we should emit relaxation directive
-     to tell linker that this file is allowed to do ex9 optimization.  */
-  if (TARGET_EX9)
-    {
-      fprintf (asm_out_file, "\t! This relaxation directive is required "
-			     "to do ex9 link time optimization\n");
-      fprintf (asm_out_file, "\t.relax\tex9\n");
-    }
-
   fprintf (asm_out_file, "\t! ------------------------------------\n");
 
   if (TARGET_ISA_V2)
@@ -2135,6 +2208,13 @@ nds32_asm_file_start (void)
     fprintf (asm_out_file, "\t! ISA family\t\t: %s\n", "V3");
   if (TARGET_ISA_V3M)
     fprintf (asm_out_file, "\t! ISA family\t\t: %s\n", "V3M");
+
+  if (TARGET_CMODEL_SMALL)
+    fprintf (asm_out_file, "\t! Code model\t\t: %s\n", "SMALL");
+  if (TARGET_CMODEL_MEDIUM)
+    fprintf (asm_out_file, "\t! Code model\t\t: %s\n", "MEDIUM");
+  if (TARGET_CMODEL_LARGE)
+    fprintf (asm_out_file, "\t! Code model\t\t: %s\n", "LARGE");
 
   fprintf (asm_out_file, "\t! Endian setting\t: %s\n",
 			 ((TARGET_BIG_ENDIAN) ? "big-endian"
@@ -2157,9 +2237,6 @@ nds32_asm_file_start (void)
   fprintf (asm_out_file, "\t! 16-bit instructions\t: %s\n",
 			 ((TARGET_16_BIT) ? "Yes"
 					  : "No"));
-  fprintf (asm_out_file, "\t! GP base access\t: %s\n",
-			 ((TARGET_GP_DIRECT) ? "Yes"
-					     : "No"));
   fprintf (asm_out_file, "\t! Reduced registers set\t: %s\n",
 			 ((TARGET_REDUCED_REGS) ? "Yes"
 						: "No"));
@@ -2656,12 +2733,6 @@ nds32_option_override (void)
 	fixed_regs[r] = call_used_regs[r] = 1;
     }
 
-  /* See if user explicitly would like to use fp-as-gp optimization.
-     If so, we must prevent $fp from being allocated
-     during register allocation.  */
-  if (TARGET_FORCE_FP_AS_GP)
-    fixed_regs[FP_REGNUM] = call_used_regs[FP_REGNUM] = 1;
-
   if (!TARGET_16_BIT)
     {
       /* Under no 16 bit ISA, we need to strictly disable TARGET_V3PUSH.  */
@@ -2866,7 +2937,7 @@ nds32_expand_prologue (void)
       Rb = gen_rtx_REG (SImode, cfun->machine->va_args_first_regno);
       Re = gen_rtx_REG (SImode, cfun->machine->va_args_last_regno);
       /* No need to push $fp, $gp, or $lp, so use GEN_INT(0).  */
-      nds32_emit_stack_push_multiple (Rb, Re, GEN_INT (0));
+      nds32_emit_stack_push_multiple (Rb, Re, GEN_INT (0), true);
 
       /* We may also need to adjust stack pointer for padding bytes
          because varargs may cause $sp not 8-byte aligned.  */
@@ -2915,7 +2986,7 @@ nds32_expand_prologue (void)
   if (!(REGNO (Rb) == SP_REGNUM && REGNO (Re) == SP_REGNUM && en4_const == 0))
     {
       /* Create multiple push instruction rtx.  */
-      nds32_emit_stack_push_multiple (Rb, Re, GEN_INT (en4_const));
+      nds32_emit_stack_push_multiple (Rb, Re, GEN_INT (en4_const), false);
     }
 
   /* Check frame_pointer_needed to see
@@ -2937,6 +3008,9 @@ nds32_expand_prologue (void)
 				   GEN_INT (fp_adjust));
       /* Emit rtx into instructions list and receive INSN rtx form.  */
       fp_adjust_insn = emit_insn (fp_adjust_insn);
+
+      /* The insn rtx 'fp_adjust_insn' will change frame layout.  */
+      RTX_FRAME_RELATED_P (fp_adjust_insn) = 1;
     }
 
   /* Adjust $sp = $sp - local_size - out_args_size
@@ -2970,7 +3044,7 @@ nds32_expand_prologue (void)
 
 /* Function for normal multiple pop epilogue.  */
 void
-nds32_expand_epilogue (void)
+nds32_expand_epilogue (bool sibcall_p)
 {
   int sp_adjust;
   int en4_const;
@@ -3013,12 +3087,10 @@ nds32_expand_epilogue (void)
 	  RTX_FRAME_RELATED_P (sp_adjust_insn) = 1;
 	}
 
-      /* Generate return instruction by using
-         unspec_volatile_func_return pattern.
-         Make sure this instruction is after gen_blockage().
-         NOTE that $lp will become 'live'
-         after this instruction has been emitted.  */
-      emit_insn (gen_unspec_volatile_func_return ());
+      /* Generate return instruction by using 'return_internal' pattern.
+         Make sure this instruction is after gen_blockage().  */
+      if (!sibcall_p)
+	emit_jump_insn (gen_return_internal ());
       return;
     }
 
@@ -3122,9 +3194,9 @@ nds32_expand_epilogue (void)
       RTX_FRAME_RELATED_P (sp_adjust_insn) = 1;
     }
 
-  /* Generate return instruction by using
-     unspec_volatile_func_return pattern.  */
-  emit_insn (gen_unspec_volatile_func_return ());
+  /* Generate return instruction.  */
+  if (!sibcall_p)
+    emit_jump_insn (gen_return_internal ());
 }
 
 /* Function for v3push prologue.  */
@@ -3257,7 +3329,7 @@ nds32_expand_prologue_v3push (void)
 
 /* Function for v3pop epilogue.  */
 void
-nds32_expand_epilogue_v3pop (void)
+nds32_expand_epilogue_v3pop (bool sibcall_p)
 {
   int sp_adjust;
 
@@ -3276,12 +3348,10 @@ nds32_expand_epilogue_v3pop (void)
      epilogue code fragment BUT 'ret' instruction.  */
   if (cfun->machine->naked_p)
     {
-      /* Generate return instruction by using
-         unspec_volatile_func_return pattern.
-         Make sure this instruction is after gen_blockage().
-         NOTE that $lp will become 'live'
-         after this instruction has been emitted.  */
-      emit_insn (gen_unspec_volatile_func_return ());
+      /* Generate return instruction by using 'return_internal' pattern.
+         Make sure this instruction is after gen_blockage().  */
+      if (!sibcall_p)
+	emit_jump_insn (gen_return_internal ());
       return;
     }
 
@@ -3375,6 +3445,28 @@ nds32_expand_epilogue_v3pop (void)
       nds32_emit_stack_v3pop (Rb, Re,
 			      GEN_INT (14), GEN_INT (0));
     }
+
+  /* Generate return instruction.  */
+  emit_jump_insn (gen_pop25return ());
+}
+
+/* Return nonzero if this function is known to have a null epilogue.
+   This allows the optimizer to omit jumps to jumps if no stack
+   was created.  */
+int
+nds32_can_use_return_insn (void)
+{
+  /* Prior to reloading, we can't tell how many registers must be saved.
+     Thus we can not determine whether this function has null epilogue.  */
+  if (!reload_completed)
+    return 0;
+
+  /* If no stack was created, two conditions must be satisfied:
+     1. This is a naked function.
+        So there is no callee-saved, local size, or outgoing size.
+     2. This is NOT a variadic function.
+        So there is no pushing arguement registers into the stack.  */
+  return (cfun->machine->naked_p && (cfun->machine->va_args_size == 0));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -3640,6 +3732,9 @@ nds32_target_alignment (rtx label)
 
 
 /* Dividing the Output into Sections (Texts, Data, . . . ).  */
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO nds32_encode_section_info
 
 
 /* Position Independent Code.  */

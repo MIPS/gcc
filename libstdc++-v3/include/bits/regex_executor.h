@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2013-2014 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -205,7 +205,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       _ResultsVec                                           _M_cur_results;
       _BiIter                                               _M_current;
-      const _BiIter                                         _M_begin;
+      _BiIter                                               _M_begin;
       const _BiIter                                         _M_end;
       const _RegexT&                                        _M_re;
       const _NFAT&                                          _M_nfa;

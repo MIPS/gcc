@@ -1,5 +1,5 @@
 /* Xstormy16 target functions.
-   Copyright (C) 1997-2014 Free Software Foundation, Inc.
+   Copyright (C) 1997-2015 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
    This file is part of GCC.
@@ -34,21 +34,35 @@
 #include "recog.h"
 #include "diagnostic-core.h"
 #include "obstack.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "target.h"
 #include "target-def.h"
 #include "tm_p.h"
@@ -815,7 +829,7 @@ xstormy16_split_move (machine_mode mode, rtx dest, rtx src)
       gcc_assert (refers_to_regno_p (regno, regno + num_words,
 				     mem_operand, 0));
 
-      if (refers_to_regno_p (regno, regno + 1, mem_operand, 0))
+      if (refers_to_regno_p (regno, mem_operand))
 	direction = -1;
       else if (refers_to_regno_p (regno + num_words - 1, regno + num_words,
 				  mem_operand, 0))
@@ -1373,7 +1387,7 @@ xstormy16_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   count_tmp = get_initialized_tmp_var (count, pre_p, NULL);
   lab_gotaddr = create_artificial_label (UNKNOWN_LOCATION);
   lab_fromstack = create_artificial_label (UNKNOWN_LOCATION);
-  addr = create_tmp_var (ptr_type_node, NULL);
+  addr = create_tmp_var (ptr_type_node);
 
   if (!must_stack)
     {

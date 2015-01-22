@@ -59,8 +59,8 @@ runtime_gotraceback(bool *crash)
 static int32	argc;
 static byte**	argv;
 
-extern Slice os_Args __asm__ (GOSYM_PREFIX "os.Args");
-extern Slice syscall_Envs __asm__ (GOSYM_PREFIX "syscall.Envs");
+static Slice args;
+Slice envs;
 
 void (*runtime_sysargs)(int32, uint8**);
 
@@ -92,9 +92,9 @@ runtime_goargs(void)
 	s = runtime_malloc(argc*sizeof s[0]);
 	for(i=0; i<argc; i++)
 		s[i] = runtime_gostringnocopy((const byte*)argv[i]);
-	os_Args.__values = (void*)s;
-	os_Args.__count = argc;
-	os_Args.__capacity = argc;
+	args.__values = (void*)s;
+	args.__count = argc;
+	args.__capacity = argc;
 }
 
 void
@@ -109,9 +109,26 @@ runtime_goenvs_unix(void)
 	s = runtime_malloc(n*sizeof s[0]);
 	for(i=0; i<n; i++)
 		s[i] = runtime_gostringnocopy(argv[argc+1+i]);
-	syscall_Envs.__values = (void*)s;
-	syscall_Envs.__count = n;
-	syscall_Envs.__capacity = n;
+	envs.__values = (void*)s;
+	envs.__count = n;
+	envs.__capacity = n;
+}
+
+// Called from the syscall package.
+Slice runtime_envs(void) __asm__ (GOSYM_PREFIX "syscall.runtime_envs");
+
+Slice
+runtime_envs()
+{
+	return envs;
+}
+
+Slice os_runtime_args(void) __asm__ (GOSYM_PREFIX "os.runtime_args");
+
+Slice
+os_runtime_args()
+{
+	return args;
 }
 
 int32
@@ -127,8 +144,8 @@ runtime_atoi(const byte *p)
 
 static struct root_list runtime_roots =
 { nil,
-  { { &syscall_Envs, sizeof syscall_Envs },
-    { &os_Args, sizeof os_Args },
+  { { &envs, sizeof envs },
+    { &args, sizeof args },
     { nil, 0 } },
 };
 
@@ -195,12 +212,12 @@ runtime_cputicks(void)
   asm("rdtsc" : "=a" (low), "=d" (high));
   return (int64)(((uint64)high << 32) | (uint64)low);
 #elif defined (__s390__) || defined (__s390x__)
-  uint64 clock;
-#ifdef S390_HAVE_STCKF
-  asm("stckf\t%0" : "=Q" (clock) : : );
-#else
-  clock = 0;
-#endif
+  uint64 clock = 0;
+  /* stckf may not write the return variable in case of a clock error, so make
+     it read-write to prevent that the initialisation is optimised out.
+     Note: Targets below z9-109 will crash when executing store clock fast, i.e.
+     we don't support Go for machines older than that.  */
+  asm volatile(".insn s,0xb27c0000,%0" /* stckf */ : "+Q" (clock) : : "cc" );
   return (int64)clock;
 #else
   // FIXME: implement for other processors.

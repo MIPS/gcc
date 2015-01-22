@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -27,7 +27,17 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "attribs.h"
@@ -45,10 +55,6 @@
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -233,20 +239,23 @@ static GTY(()) vec<tree, va_gc> *global_renaming_pointers;
 /* A chain of unused BLOCK nodes. */
 static GTY((deletable)) tree free_block_chain;
 
-static int pad_type_hash_marked_p (const void *p);
-static hashval_t pad_type_hash_hash (const void *p);
-static int pad_type_hash_eq (const void *p1, const void *p2);
-
 /* A hash table of padded types.  It is modelled on the generic type
    hash table in tree.c, which must thus be used as a reference.  */
-struct GTY(()) pad_type_hash {
+
+struct GTY((for_user)) pad_type_hash {
   unsigned long hash;
   tree type;
 };
 
-static GTY ((if_marked ("pad_type_hash_marked_p"),
-	     param_is (struct pad_type_hash)))
-  htab_t pad_type_hash_table;
+struct pad_type_hasher : ggc_cache_hasher<pad_type_hash *>
+{
+  static inline hashval_t hash (pad_type_hash *t) { return t->hash; }
+  static bool equal (pad_type_hash *a, pad_type_hash *b);
+  static void handle_cache_entry (pad_type_hash *&);
+};
+
+static GTY ((cache))
+  hash_table<pad_type_hasher> *pad_type_hash_table;
 
 static tree merge_sizes (tree, tree, tree, bool, bool);
 static tree compute_related_constant (tree, tree);
@@ -294,8 +303,7 @@ init_gnat_utils (void)
   dummy_node_table = ggc_cleared_vec_alloc<tree> (max_gnat_nodes);
 
   /* Initialize the hash table of padded types.  */
-  pad_type_hash_table
-    = htab_create_ggc (512, pad_type_hash_hash, pad_type_hash_eq, 0);
+  pad_type_hash_table = hash_table<pad_type_hasher>::create_ggc (512);
 }
 
 /* Destroy data structures of the utils.c module.  */
@@ -312,7 +320,7 @@ destroy_gnat_utils (void)
   dummy_node_table = NULL;
 
   /* Destroy the hash table of padded types.  */
-  htab_delete (pad_type_hash_table);
+  pad_type_hash_table->empty ();
   pad_type_hash_table = NULL;
 
   /* Invalidate the global renaming pointers.   */
@@ -1156,29 +1164,23 @@ make_type_from_size (tree type, tree size_tree, bool for_biased)
 
 /* See if the data pointed to by the hash table slot is marked.  */
 
-static int
-pad_type_hash_marked_p (const void *p)
+void
+pad_type_hasher::handle_cache_entry (pad_type_hash *&t)
 {
-  const_tree const type = ((const struct pad_type_hash *) p)->type;
-
-  return ggc_marked_p (type);
+  extern void gt_ggc_mx (pad_type_hash *&);
+  if (t == HTAB_EMPTY_ENTRY || t == HTAB_DELETED_ENTRY)
+    return;
+  else if (ggc_marked_p (t->type))
+    gt_ggc_mx (t);
+  else
+    t = static_cast<pad_type_hash *> (HTAB_DELETED_ENTRY);
 }
 
-/* Return the cached hash value.  */
+/* Return true iff the padded types are equivalent.  */
 
-static hashval_t
-pad_type_hash_hash (const void *p)
+bool
+pad_type_hasher::equal (pad_type_hash *t1, pad_type_hash *t2)
 {
-  return ((const struct pad_type_hash *) p)->hash;
-}
-
-/* Return 1 iff the padded types are equivalent.  */
-
-static int
-pad_type_hash_eq (const void *p1, const void *p2)
-{
-  const struct pad_type_hash *const t1 = (const struct pad_type_hash *) p1;
-  const struct pad_type_hash *const t2 = (const struct pad_type_hash *) p2;
   tree type1, type2;
 
   if (t1->hash != t2->hash)
@@ -1206,7 +1208,6 @@ lookup_and_insert_pad_type (tree type)
 {
   hashval_t hashcode;
   struct pad_type_hash in, *h;
-  void **loc;
 
   hashcode
     = iterative_hash_object (TYPE_HASH (TREE_TYPE (TYPE_FIELDS (type))), 0);
@@ -1216,16 +1217,14 @@ lookup_and_insert_pad_type (tree type)
 
   in.hash = hashcode;
   in.type = type;
-  h = (struct pad_type_hash *)
-	htab_find_with_hash (pad_type_hash_table, &in, hashcode);
+  h = pad_type_hash_table->find_with_hash (&in, hashcode);
   if (h)
     return h->type;
 
   h = ggc_alloc<pad_type_hash> ();
   h->hash = hashcode;
   h->type = type;
-  loc = htab_find_slot_with_hash (pad_type_hash_table, h, hashcode, INSERT);
-  *loc = (void *)h;
+  *pad_type_hash_table->find_slot_with_hash (h, hashcode, INSERT) = h;
   return NULL_TREE;
 }
 
@@ -3054,18 +3053,6 @@ create_subprog_decl (tree subprog_name, tree asm_name, tree subprog_type,
 				 TREE_TYPE (subprog_type));
   DECL_ARGUMENTS (subprog_decl) = param_decl_list;
 
-  /* If this is a non-inline function nested inside an inlined external
-     function, we cannot honor both requests without cloning the nested
-     function in the current unit since it is private to the other unit.
-     We could inline the nested function as well but it's probably better
-     to err on the side of too little inlining.  */
-  if ((inline_status == is_suppressed || inline_status == is_disabled)
-      && !public_flag
-      && current_function_decl
-      && DECL_DECLARED_INLINE_P (current_function_decl)
-      && DECL_EXTERNAL (current_function_decl))
-    DECL_DECLARED_INLINE_P (current_function_decl) = 0;
-
   DECL_ARTIFICIAL (subprog_decl) = artificial_flag;
   DECL_EXTERNAL (subprog_decl) = extern_flag;
 
@@ -3906,8 +3893,7 @@ convert_to_fat_pointer (tree type, tree expr)
 	{
 	  /* The template type can still be dummy at this point so we build an
 	     empty constructor.  The middle-end will fill it in with zeros.  */
-	  t = build_constructor (template_type,
-				 NULL);
+	  t = build_constructor (template_type, NULL);
 	  TREE_CONSTANT (t) = TREE_STATIC (t) = 1;
 	  null_bounds = build_unary_op (ADDR_EXPR, NULL_TREE, t);
 	  SET_TYPE_NULL_BOUNDS (ptr_template_type, null_bounds);
@@ -5410,6 +5396,12 @@ enum c_builtin_type
 #define DEF_FUNCTION_TYPE_VAR_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
 #define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
   NAME,
+#define DEF_FUNCTION_TYPE_VAR_8(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6, ARG7, ARG8)			\
+  NAME,
+#define DEF_FUNCTION_TYPE_VAR_12(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11, ARG12) \
+  NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "builtin-types.def"
 #undef DEF_PRIMITIVE_TYPE
@@ -5428,6 +5420,8 @@ enum c_builtin_type
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
+#undef DEF_FUNCTION_TYPE_VAR_8
+#undef DEF_FUNCTION_TYPE_VAR_12
 #undef DEF_POINTER_TYPE
   BT_LAST
 };
@@ -5533,6 +5527,14 @@ install_builtin_function_types (void)
   def_fn_type (ENUM, RETURN, 1, 4, ARG1, ARG2, ARG3, ARG4);
 #define DEF_FUNCTION_TYPE_VAR_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
   def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5);
+#define DEF_FUNCTION_TYPE_VAR_8(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6, ARG7, ARG8)			\
+  def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,	\
+	       ARG7, ARG8);
+#define DEF_FUNCTION_TYPE_VAR_12(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11, ARG12) \
+  def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,	\
+	       ARG7, ARG8, ARG9, ARG10, ARG11, ARG12);
 #define DEF_POINTER_TYPE(ENUM, TYPE) \
   builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
 
@@ -5554,6 +5556,8 @@ install_builtin_function_types (void)
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
+#undef DEF_FUNCTION_TYPE_VAR_8
+#undef DEF_FUNCTION_TYPE_VAR_12
 #undef DEF_POINTER_TYPE
   builtin_types[(int) BT_LAST] = NULL_TREE;
 }

@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Tensilica's Xtensa architecture.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -47,13 +47,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "recog.h"
 #include "output.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
-#include "expr.h"
 #include "flags.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
+#include "expr.h"
 #include "reload.h"
 #include "tm_p.h"
 #include "diagnostic-core.h"
@@ -3014,7 +3028,7 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
          && !must_pass_in_stack (type))
         __array = (AP).__va_reg; */
 
-  array = create_tmp_var (ptr_type_node, NULL);
+  array = create_tmp_var (ptr_type_node);
 
   lab_over = NULL;
   if (!targetm.calls.must_pass_in_stack (TYPE_MODE (type), type))
@@ -3626,7 +3640,7 @@ xtensa_function_value_regno_p (const unsigned int regno)
    expressions that denote where they are stored.  */
 
 static rtx
-xtensa_static_chain (const_tree ARG_UNUSED (fndecl), bool incoming_p)
+xtensa_static_chain (const_tree ARG_UNUSED (fndecl_or_type), bool incoming_p)
 {
   rtx base = incoming_p ? arg_pointer_rtx : stack_pointer_rtx;
   return gen_frame_mem (Pmode, plus_constant (Pmode, base,
@@ -3765,6 +3779,8 @@ xtensa_invalid_within_doloop (const rtx_insn *insn)
 }
 
 /* Optimize LOOP.  */
+
+#if TARGET_LOOPS
 
 static bool
 hwloop_optimize (hwloop_info loop)
@@ -3951,6 +3967,12 @@ xtensa_reorg_loops (void)
 {
   reorg_loops (false, &xtensa_doloop_hooks);
 }
+#else
+static inline void
+xtensa_reorg_loops (void)
+{
+}
+#endif
 
 /* Implement the TARGET_MACHINE_DEPENDENT_REORG pass.  */
 

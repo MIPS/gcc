@@ -3720,7 +3720,17 @@ package body Exp_Ch6 is
                  (Unit_File_Name (Get_Source_Unit (Sloc (Subp))))
               and then In_Extended_Main_Source_Unit (N)
             then
-               Set_Needs_Debug_Info (Subp, False);
+               --  We make an exception for calls to the Ada hierarchy if call
+               --  comes from source, because some user applications need the
+               --  debugging information for such calls.
+
+               if Comes_From_Source (Call_Node)
+                 and then Name_Buffer (1 .. 2) = "a-"
+               then
+                  null;
+               else
+                  Set_Needs_Debug_Info (Subp, False);
+               end if;
             end if;
 
          --  Front end expansion of simple functions returning unconstrained
@@ -5903,6 +5913,12 @@ package body Exp_Ch6 is
 
       elsif Is_Thunk (Current_Scope) and then Is_Interface (Exptyp) then
          null;
+
+      --  If the call is within a thunk and the type is a limited view, the
+      --  backend will eventually see the non-limited view of the type.
+
+      elsif Is_Thunk (Current_Scope) and then Is_Incomplete_Type (Exptyp) then
+         return;
 
       elsif not Requires_Transient_Scope (R_Type) then
 

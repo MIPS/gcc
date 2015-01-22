@@ -1,5 +1,5 @@
 /* Interprocedural Identical Code Folding pass
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
    Contributed by Jan Hubicka <hubicka@ucw.cz> and Martin Liska <mliska@suse.cz>
 
@@ -54,15 +54,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -72,6 +78,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -87,6 +107,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "cfgloop.h"
@@ -189,6 +210,18 @@ sem_item::dump (void)
 
       fprintf (dump_file, "\n");
     }
+}
+
+/* Return true if target supports alias symbols.  */
+
+bool
+sem_item::target_supports_symbol_aliases_p (void)
+{
+#if !defined (ASM_OUTPUT_DEF) || (!defined(ASM_OUTPUT_WEAK_ALIAS) && !defined (ASM_WEAKEN_DECL))
+  return false;
+#else
+  return true;
+#endif
 }
 
 /* Semantic function constructor that uses STACK as bitmap memory stack.  */
@@ -319,7 +352,8 @@ sem_function::equals_wpa (sem_item *item,
 	return return_false_with_msg ("NULL argument type");
 
       /* Polymorphic comparison is executed just for non-leaf functions.  */
-      bool is_not_leaf = get_node ()->callees != NULL;
+      bool is_not_leaf = get_node ()->callees != NULL
+			 || get_node ()->indirect_calls != NULL;
 
       if (!func_checker::compatible_types_p (arg_types[i],
 					     m_compared_func->arg_types[i],
@@ -398,7 +432,6 @@ sem_function::equals_private (sem_item *item,
   basic_block bb1, bb2;
   edge e1, e2;
   edge_iterator ei1, ei2;
-  int *bb_dict = NULL;
   bool result = true;
   tree arg1, arg2;
 
@@ -413,6 +446,45 @@ sem_function::equals_private (sem_item *item,
 
   if (!equals_wpa (item, ignored_nodes))
     return false;
+
+  /* Checking function TARGET and OPTIMIZATION flags.  */
+  cl_target_option *tar1 = target_opts_for_fn (decl);
+  cl_target_option *tar2 = target_opts_for_fn (m_compared_func->decl);
+
+  if (tar1 != NULL && tar2 != NULL)
+    {
+      if (!cl_target_option_eq (tar1, tar2))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "target flags difference");
+	      cl_target_option_print_diff (dump_file, 2, tar1, tar2);
+	    }
+
+	  return return_false_with_msg ("Target flags are different");
+	}
+    }
+  else if (tar1 != NULL || tar2 != NULL)
+    return return_false_with_msg ("Target flags are different");
+
+  cl_optimization *opt1 = opts_for_fn (decl);
+  cl_optimization *opt2 = opts_for_fn (m_compared_func->decl);
+
+  if (opt1 != NULL && opt2 != NULL)
+    {
+      if (memcmp (opt1, opt2, sizeof(cl_optimization)))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "optimization flags difference");
+	      cl_optimization_print_diff (dump_file, 2, opt1, opt2);
+	    }
+
+	  return return_false_with_msg ("optimization flags are different");
+	}
+    }
+  else if (opt1 != NULL || opt2 != NULL)
+    return return_false_with_msg ("optimization flags are different");
 
   /* Checking function arguments.  */
   tree decl1 = DECL_ATTRIBUTES (decl);
@@ -474,12 +546,11 @@ sem_function::equals_private (sem_item *item,
 
   dump_message ("All BBs are equal\n");
 
+  auto_vec <int> bb_dict;
+
   /* Basic block edges check.  */
   for (unsigned i = 0; i < bb_sorted.length (); ++i)
     {
-      bb_dict = XNEWVEC (int, bb_sorted.length () + 2);
-      memset (bb_dict, -1, (bb_sorted.length () + 2) * sizeof (int));
-
       bb1 = bb_sorted[i]->bb;
       bb2 = m_compared_func->bb_sorted[i]->bb;
 
@@ -589,7 +660,8 @@ sem_function::merge (sem_item *alias_item)
       redirect_callers = false;
     }
 
-  if (create_alias && DECL_COMDAT_GROUP (alias->decl))
+  if (create_alias && (DECL_COMDAT_GROUP (alias->decl)
+		       || !sem_item::target_supports_symbol_aliases_p ()))
     {
       create_alias = false;
       create_thunk = true;
@@ -604,6 +676,21 @@ sem_function::merge (sem_item *alias_item)
 		  == DECL_COMDAT_GROUP (alias->decl)))))
     local_original
       = dyn_cast <cgraph_node *> (original->noninterposable_alias ());
+
+    if (!local_original)
+      {
+	if (dump_file)
+	  fprintf (dump_file, "Noninterposable alias cannot be created.\n\n");
+
+	return false;
+      }
+
+  if (!decl_binds_to_current_def_p (alias->decl))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Declaration does not bind to currect definition.\n\n");
+      return false;
+    }
 
   if (redirect_callers)
     {
@@ -649,7 +736,7 @@ sem_function::merge (sem_item *alias_item)
       alias->resolve_alias (original);
 
       /* Workaround for PR63566 that forces equal calling convention
-	 to be used.  */
+       to be used.  */
       alias->local.local = false;
       original->local.local = false;
 
@@ -665,6 +752,14 @@ sem_function::merge (sem_item *alias_item)
 
 	  return 0;
 	}
+
+      if (DECL_STATIC_CHAIN (alias->decl))
+        {
+         if (dump_file)
+           fprintf (dump_file, "Thunk creation is risky for static-chain functions.\n\n");
+
+         return 0;
+        }
 
       alias->icf_merged = true;
       ipa_merge_profiles (local_original, alias);
@@ -685,7 +780,7 @@ void
 sem_function::init (void)
 {
   if (in_lto_p)
-    get_node ()->get_body ();
+    get_node ()->get_untransformed_body ();
 
   tree fndecl = node->decl;
   function *func = DECL_STRUCT_FUNCTION (fndecl);
@@ -798,7 +893,9 @@ bool
 sem_function::compare_polymorphic_p (void)
 {
   return get_node ()->callees != NULL
-	 || m_compared_func->get_node ()->callees != NULL;
+	 || get_node ()->indirect_calls != NULL
+	 || m_compared_func->get_node ()->callees != NULL
+	 || m_compared_func->get_node ()->indirect_calls != NULL;
 }
 
 /* For a given call graph NODE, the function constructs new
@@ -862,8 +959,8 @@ sem_function::parse_tree_args (void)
 bool
 sem_function::compare_phi_node (basic_block bb1, basic_block bb2)
 {
-  gimple_stmt_iterator si1, si2;
-  gimple phi1, phi2;
+  gphi_iterator si1, si2;
+  gphi *phi1, *phi2;
   unsigned size1, size2, i;
   tree t1, t2;
   edge e1, e2;
@@ -884,8 +981,8 @@ sem_function::compare_phi_node (basic_block bb1, basic_block bb2)
       if (gsi_end_p (si1) || gsi_end_p (si2))
 	return return_false();
 
-      phi1 = gsi_stmt (si1);
-      phi2 = gsi_stmt (si2);
+      phi1 = si1.phi ();
+      phi2 = si2.phi ();
 
       tree phi_result1 = gimple_phi_result (phi1);
       tree phi_result2 = gimple_phi_result (phi2);
@@ -936,9 +1033,15 @@ sem_function::icf_handled_component_p (tree t)
    corresponds to TARGET.  */
 
 bool
-sem_function::bb_dict_test (int* bb_dict, int source, int target)
+sem_function::bb_dict_test (auto_vec<int> bb_dict, int source, int target)
 {
-  if (bb_dict[source] == -1)
+  source++;
+  target++;
+
+  if (bb_dict.length () <= (unsigned)source)
+    bb_dict.safe_grow_cleared (source + 1);
+
+  if (bb_dict[source] == 0)
     {
       bb_dict[source] = target;
       return true;
@@ -1106,10 +1209,14 @@ sem_variable::parse (varpool_node *node, bitmap_obstack *stack)
   tree decl = node->decl;
 
   bool readonly = TYPE_P (decl) ? TYPE_READONLY (decl) : TREE_READONLY (decl);
-  bool can_handle = readonly && (DECL_VIRTUAL_P (decl)
-				 || !TREE_ADDRESSABLE (decl));
+  if (!readonly)
+    return NULL;
 
-  if (!can_handle)
+  bool can_handle = DECL_VIRTUAL_P (decl)
+		    || flag_merge_constants >= 2
+		    || (!TREE_ADDRESSABLE (decl) && !node->externally_visible);
+
+  if (!can_handle || DECL_EXTERNAL (decl))
     return NULL;
 
   tree ctor = ctor_for_folding (decl);
@@ -1154,6 +1261,13 @@ bool
 sem_variable::merge (sem_item *alias_item)
 {
   gcc_assert (alias_item->type == VAR);
+
+  if (!sem_item::target_supports_symbol_aliases_p ())
+    {
+      if (dump_file)
+	fprintf (dump_file, "Symbol aliases are not supported by target\n\n");
+      return false;
+    }
 
   sem_variable *alias_var = static_cast<sem_variable *> (alias_item);
 
@@ -1294,6 +1408,7 @@ sem_item_optimizer::~sem_item_optimizer ()
 	delete (*it)->classes[i];
 
       (*it)->classes.release ();
+      free (*it);
     }
 
   m_items.release ();
@@ -1537,39 +1652,31 @@ sem_item_optimizer::filter_removed_items (void)
     {
       sem_item *item = m_items[i];
 
-      if (!flag_ipa_icf_functions && item->type == FUNC)
-	{
+      if (m_removed_items_set.contains (item->node))
+        {
 	  remove_item (item);
 	  continue;
-	}
-
-      if (!flag_ipa_icf_variables && item->type == VAR)
-	{
-	  remove_item (item);
-	  continue;
-	}
-
-      bool no_body_function = false;
+        }
 
       if (item->type == FUNC)
-	{
+        {
 	  cgraph_node *cnode = static_cast <sem_function *>(item)->get_node ();
 
-	  no_body_function = in_lto_p && (cnode->alias || cnode->body_removed);
-	}
-
-      if(!m_removed_items_set.contains (m_items[i]->node)
-	  && !no_body_function)
-	{
-	  if (item->type == VAR || (!DECL_CXX_CONSTRUCTOR_P (item->decl)
-				    && !DECL_CXX_DESTRUCTOR_P (item->decl)))
-	    {
-	      filtered.safe_push (m_items[i]);
-	      continue;
-	    }
-	}
-
-      remove_item (item);
+	  bool no_body_function = in_lto_p && (cnode->alias || cnode->body_removed);
+	  if (no_body_function || !opt_for_fn (item->decl, flag_ipa_icf_functions)
+	      || DECL_CXX_CONSTRUCTOR_P (item->decl)
+	      || DECL_CXX_DESTRUCTOR_P (item->decl))
+	    remove_item (item);
+	  else
+	    filtered.safe_push (item);
+        }
+      else /* VAR.  */
+        {
+	  if (!flag_ipa_icf_variables)
+	    remove_item (item);
+	  else
+	    filtered.safe_push (item);
+        }
     }
 
   /* Clean-up of released semantic items.  */
@@ -2248,7 +2355,6 @@ sem_item_optimizer::merge_classes (unsigned int prev_class_count)
 	for (unsigned int j = 1; j < c->members.length (); j++)
 	  {
 	    sem_item *alias = c->members[j];
-	    source->equals (alias, m_symtab_node_map);
 
 	    if (dump_file)
 	      {
@@ -2256,6 +2362,16 @@ sem_item_optimizer::merge_classes (unsigned int prev_class_count)
 			 source->name (), alias->name ());
 		fprintf (dump_file, "Assembler symbol names:%s->%s\n",
 			 source->asm_name (), alias->asm_name ());
+	      }
+
+	    if (lookup_attribute ("no_icf", DECL_ATTRIBUTES (alias->decl)))
+	      {
+	        if (dump_file)
+		  fprintf (dump_file,
+			   "Merge operation is skipped due to no_icf "
+			   "attribute.\n\n");
+
+		continue;
 	      }
 
 	    if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2385,7 +2501,7 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
   {
-    return flag_ipa_icf_variables || flag_ipa_icf_functions;
+    return in_lto_p || flag_ipa_icf_variables || flag_ipa_icf_functions;
   }
 
   virtual unsigned int execute (function *)

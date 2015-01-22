@@ -1,5 +1,5 @@
 /* Analyze RTL for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -41,6 +41,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "basic-block.h"
 #include "df.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
 #include "addresses.h"
@@ -64,10 +67,6 @@ static unsigned int cached_num_sign_bit_copies (const_rtx, machine_mode, const_r
                                                 unsigned int);
 static unsigned int num_sign_bit_copies1 (const_rtx, machine_mode, const_rtx,
                                           machine_mode, unsigned int);
-
-/* Offset of the first 'e', 'E' or 'V' operand for each rtx code, or
-   -1 if a code has no such operand.  */
-static int non_rtx_starting_operands[NUM_RTX_CODE];
 
 rtx_subrtx_bound_info rtx_all_subrtx_bounds[NUM_RTX_CODE];
 rtx_subrtx_bound_info rtx_nonconst_subrtx_bounds[NUM_RTX_CODE];
@@ -1001,6 +1000,17 @@ reg_set_between_p (const_rtx reg, const rtx_insn *from_insn,
 int
 reg_set_p (const_rtx reg, const_rtx insn)
 {
+  /* After delay slot handling, call and branch insns might be in a
+     sequence.  Check all the elements there.  */
+  if (INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
+    {
+      for (int i = 0; i < XVECLEN (PATTERN (insn), 0); ++i)
+	if (reg_set_p (reg, XVECEXP (PATTERN (insn), 0, i)))
+	  return true;
+
+      return false;
+    }
+
   /* We can be passed an insn or part of one.  If we are passed an insn,
      check if a side-effect of the insn clobbers REG.  */
   if (INSN_P (insn)
@@ -1012,7 +1022,7 @@ reg_set_p (const_rtx reg, const_rtx insn)
 					       GET_MODE (reg), REGNO (reg)))
 		  || MEM_P (reg)
 		  || find_reg_fusage (insn, CLOBBER, reg)))))
-    return 1;
+    return true;
 
   return set_of (reg, insn) != NULL_RTX;
 }
@@ -1406,7 +1416,7 @@ noop_move_p (const_rtx insn)
    References contained within the substructure at LOC do not count.
    LOC may be zero, meaning don't ignore anything.  */
 
-int
+bool
 refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 		   rtx *loc)
 {
@@ -1419,7 +1429,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
   /* The contents of a REG_NONNEG note is always zero, so we must come here
      upon repeat in case the last REG_NOTE is a REG_NONNEG note.  */
   if (x == 0)
-    return 0;
+    return false;
 
   code = GET_CODE (x);
 
@@ -1437,7 +1447,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 #endif
 	   || x_regno == FRAME_POINTER_REGNUM)
 	  && regno >= FIRST_VIRTUAL_REGISTER && regno <= LAST_VIRTUAL_REGISTER)
-	return 1;
+	return true;
 
       return endregno > x_regno && regno < END_REGNO (x);
 
@@ -1470,10 +1480,10 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 				     SUBREG_REG (SET_DEST (x)), loc))
 	      || (!REG_P (SET_DEST (x))
 		  && refers_to_regno_p (regno, endregno, SET_DEST (x), loc))))
-	return 1;
+	return true;
 
       if (code == CLOBBER || loc == &SET_SRC (x))
-	return 0;
+	return false;
       x = SET_SRC (x);
       goto repeat;
 
@@ -1495,7 +1505,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 	    }
 	  else
 	    if (refers_to_regno_p (regno, endregno, XEXP (x, i), loc))
-	      return 1;
+	      return true;
 	}
       else if (fmt[i] == 'E')
 	{
@@ -1503,10 +1513,10 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    if (loc != &XVECEXP (x, i, j)
 		&& refers_to_regno_p (regno, endregno, XVECEXP (x, i, j), loc))
-	      return 1;
+	      return true;
 	}
     }
-  return 0;
+  return false;
 }
 
 /* Nonzero if modifying X will affect IN.  If X is a register or a SUBREG,
@@ -2530,7 +2540,7 @@ may_trap_p_1 (const_rtx x, unsigned flags)
     case MOD:
     case UDIV:
     case UMOD:
-      if (HONOR_SNANS (GET_MODE (x)))
+      if (HONOR_SNANS (x))
 	return 1;
       if (SCALAR_FLOAT_MODE_P (GET_MODE (x)))
 	return flag_trapping_math;
@@ -2556,28 +2566,28 @@ may_trap_p_1 (const_rtx x, unsigned flags)
 	 when COMPARE is used, though many targets do make this distinction.
 	 For instance, sparc uses CCFPE for compares which generate exceptions
 	 and CCFP for compares which do not generate exceptions.  */
-      if (HONOR_NANS (GET_MODE (x)))
+      if (HONOR_NANS (x))
 	return 1;
       /* But often the compare has some CC mode, so check operand
 	 modes as well.  */
-      if (HONOR_NANS (GET_MODE (XEXP (x, 0)))
-	  || HONOR_NANS (GET_MODE (XEXP (x, 1))))
+      if (HONOR_NANS (XEXP (x, 0))
+	  || HONOR_NANS (XEXP (x, 1)))
 	return 1;
       break;
 
     case EQ:
     case NE:
-      if (HONOR_SNANS (GET_MODE (x)))
+      if (HONOR_SNANS (x))
 	return 1;
       /* Often comparison is CC mode, so check operand modes.  */
-      if (HONOR_SNANS (GET_MODE (XEXP (x, 0)))
-	  || HONOR_SNANS (GET_MODE (XEXP (x, 1))))
+      if (HONOR_SNANS (XEXP (x, 0))
+	  || HONOR_SNANS (XEXP (x, 1)))
 	return 1;
       break;
 
     case FIX:
       /* Conversion of floating point might trap.  */
-      if (flag_trapping_math && HONOR_NANS (GET_MODE (XEXP (x, 0))))
+      if (flag_trapping_math && HONOR_NANS (XEXP (x, 0)))
 	return 1;
       break;
 
@@ -3018,137 +3028,6 @@ computed_jump_p (const_rtx insn)
 	return 1;
     }
   return 0;
-}
-
-/* Optimized loop of for_each_rtx, trying to avoid useless recursive
-   calls.  Processes the subexpressions of EXP and passes them to F.  */
-static int
-for_each_rtx_1 (rtx exp, int n, rtx_function f, void *data)
-{
-  int result, i, j;
-  const char *format = GET_RTX_FORMAT (GET_CODE (exp));
-  rtx *x;
-
-  for (; format[n] != '\0'; n++)
-    {
-      switch (format[n])
-	{
-	case 'e':
-	  /* Call F on X.  */
-	  x = &XEXP (exp, n);
-	  result = (*f) (x, data);
-	  if (result == -1)
-	    /* Do not traverse sub-expressions.  */
-	    continue;
-	  else if (result != 0)
-	    /* Stop the traversal.  */
-	    return result;
-
-	  if (*x == NULL_RTX)
-	    /* There are no sub-expressions.  */
-	    continue;
-
-	  i = non_rtx_starting_operands[GET_CODE (*x)];
-	  if (i >= 0)
-	    {
-	      result = for_each_rtx_1 (*x, i, f, data);
-	      if (result != 0)
-		return result;
-	    }
-	  break;
-
-	case 'V':
-	case 'E':
-	  if (XVEC (exp, n) == 0)
-	    continue;
-	  for (j = 0; j < XVECLEN (exp, n); ++j)
-	    {
-	      /* Call F on X.  */
-	      x = &XVECEXP (exp, n, j);
-	      result = (*f) (x, data);
-	      if (result == -1)
-		/* Do not traverse sub-expressions.  */
-		continue;
-	      else if (result != 0)
-		/* Stop the traversal.  */
-		return result;
-
-	      if (*x == NULL_RTX)
-		/* There are no sub-expressions.  */
-		continue;
-
-	      i = non_rtx_starting_operands[GET_CODE (*x)];
-	      if (i >= 0)
-		{
-		  result = for_each_rtx_1 (*x, i, f, data);
-		  if (result != 0)
-		    return result;
-	        }
-	    }
-	  break;
-
-	default:
-	  /* Nothing to do.  */
-	  break;
-	}
-    }
-
-  return 0;
-}
-
-/* Traverse X via depth-first search, calling F for each
-   sub-expression (including X itself).  F is also passed the DATA.
-   If F returns -1, do not traverse sub-expressions, but continue
-   traversing the rest of the tree.  If F ever returns any other
-   nonzero value, stop the traversal, and return the value returned
-   by F.  Otherwise, return 0.  This function does not traverse inside
-   tree structure that contains RTX_EXPRs, or into sub-expressions
-   whose format code is `0' since it is not known whether or not those
-   codes are actually RTL.
-
-   This routine is very general, and could (should?) be used to
-   implement many of the other routines in this file.  */
-
-int
-for_each_rtx (rtx *x, rtx_function f, void *data)
-{
-  int result;
-  int i;
-
-  /* Call F on X.  */
-  result = (*f) (x, data);
-  if (result == -1)
-    /* Do not traverse sub-expressions.  */
-    return 0;
-  else if (result != 0)
-    /* Stop the traversal.  */
-    return result;
-
-  if (*x == NULL_RTX)
-    /* There are no sub-expressions.  */
-    return 0;
-
-  i = non_rtx_starting_operands[GET_CODE (*x)];
-  if (i < 0)
-    return 0;
-
-  return for_each_rtx_1 (*x, i, f, data);
-}
-
-/* Like "for_each_rtx", but for calling on an rtx_insn **.  */
-
-int
-for_each_rtx_in_insn (rtx_insn **insn, rtx_function f, void *data)
-{
-  rtx insn_as_rtx = *insn;
-  int result;
-
-  result = for_each_rtx (&insn_as_rtx, f, data);
-
-  if (insn_as_rtx != *insn)
-    *insn = safe_as_a <rtx_insn *> (insn_as_rtx);
-
-  return result;
 }
 
 
@@ -5496,17 +5375,13 @@ setup_reg_subrtx_bounds (unsigned int code)
   return true;
 }
 
-/* Initialize non_rtx_starting_operands, which is used to speed up
-   for_each_rtx, and rtx_all_subrtx_bounds.  */
+/* Initialize rtx_all_subrtx_bounds.  */
 void
 init_rtlanal (void)
 {
   int i;
   for (i = 0; i < NUM_RTX_CODE; i++)
     {
-      const char *format = GET_RTX_FORMAT (i);
-      const char *first = strpbrk (format, "eEV");
-      non_rtx_starting_operands[i] = first ? first - format : -1;
       if (!setup_reg_subrtx_bounds (i))
 	rtx_all_subrtx_bounds[i].count = UCHAR_MAX;
       if (GET_RTX_CLASS (i) != RTX_CONST_OBJ)
@@ -5813,7 +5688,8 @@ get_index_term (rtx *inner)
     inner = strip_address_mutations (&XEXP (*inner, 0));
   if (REG_P (*inner)
       || MEM_P (*inner)
-      || GET_CODE (*inner) == SUBREG)
+      || GET_CODE (*inner) == SUBREG
+      || GET_CODE (*inner) == SCRATCH)
     return inner;
   return 0;
 }

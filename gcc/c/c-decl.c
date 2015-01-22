@@ -1,5 +1,5 @@
 /* Process declarations and variables for C compiler.
-   Copyright (C) 1988-2014 Free Software Foundation, Inc.
+   Copyright (C) 1988-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,7 +30,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "tm.h"
 #include "intl.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "symtab.h"
+#include "input.h"
+#include "alias.h"
+#include "double-int.h"
+#include "machmode.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "print-tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -2573,6 +2582,8 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 			set_builtin_decl_implicit_p (fncode, true);
 		      break;
 		    default:
+		      if (builtin_decl_explicit_p (fncode))
+			set_builtin_decl_declared_p (fncode, true);
 		      break;
 		    }
 		}
@@ -3946,8 +3957,6 @@ c_init_decl_processing (void)
 			boolean_type_node));
 
   input_location = save_loc;
-
-  pedantic_lvalues = true;
 
   make_fname_decl = c_make_fname_decl;
   start_fname_decls ();
@@ -8372,7 +8381,8 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   else if (warn_missing_declarations
 	   && TREE_PUBLIC (decl1)
 	   && old_decl == 0
-	   && !MAIN_NAME_P (DECL_NAME (decl1)))
+	   && !MAIN_NAME_P (DECL_NAME (decl1))
+	   && !DECL_DECLARED_INLINE_P (decl1))
     warning_at (loc, OPT_Wmissing_declarations,
 		"no previous declaration for %qD",
 		decl1);

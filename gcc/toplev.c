@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,7 +28,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "line-map.h"
 #include "input.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
 #include "tree-inline.h"
 #include "realmpfr.h"	/* For GMP/MPFR/MPC versions, in print_version.  */
@@ -43,12 +52,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "output.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "function.h"
 #include "toplev.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "intl.h"
 #include "regs.h"
@@ -86,18 +101,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimple.h"
 #include "plugin.h"
-#include "diagnostic-color.h"
 #include "context.h"
 #include "pass_manager.h"
 #include "auto-profile.h"
 #include "dwarf2out.h"
 #include "bitmap.h"
 #include "ipa-reference.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "gcse.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "tree-chkp.h"
+#include "omp-low.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -110,6 +126,13 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
+#endif
+
+#ifndef HAVE_epilogue
+#define HAVE_epilogue 0
+#endif
+#ifndef HAVE_prologue
+#define HAVE_prologue 0
 #endif
 
 #include <new>
@@ -601,6 +624,8 @@ compile_file (void)
       if (flag_check_pointer_bounds)
 	chkp_finish_file ();
 
+      omp_finish_file ();
+
       output_shared_constant_pool ();
       output_object_blocks ();
       finish_tm_clone_pairs ();
@@ -636,7 +661,7 @@ compile_file (void)
      We used to emit an undefined reference here, but this produces
      link errors if an object file with IL is stored into a shared
      library without invoking lto1.  */
-  if (flag_generate_lto)
+  if (flag_generate_lto || flag_generate_offload)
     {
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
       ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
@@ -650,23 +675,23 @@ compile_file (void)
 			 (unsigned HOST_WIDE_INT) 1,
 			 (unsigned HOST_WIDE_INT) 1);
 #endif
-      /* Let linker plugin know that this is a slim object and must be LTOed
-         even when user did not ask for it.  */
-      if (!flag_fat_lto_objects)
-        {
+    }
+
+  /* Let linker plugin know that this is a slim object and must be LTOed
+     even when user did not ask for it.  */
+  if (flag_generate_lto && !flag_fat_lto_objects)
+    {
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
-	  ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
-					  "__gnu_lto_slim",
-					  (unsigned HOST_WIDE_INT) 1, 8);
+      ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE, "__gnu_lto_slim",
+				      (unsigned HOST_WIDE_INT) 1, 8);
 #elif defined ASM_OUTPUT_ALIGNED_COMMON
-	  ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_slim",
-				     (unsigned HOST_WIDE_INT) 1, 8);
+      ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_slim",
+				 (unsigned HOST_WIDE_INT) 1, 8);
 #else
-	  ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_slim",
-			     (unsigned HOST_WIDE_INT) 1,
-			     (unsigned HOST_WIDE_INT) 1);
+      ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_slim",
+			 (unsigned HOST_WIDE_INT) 1,
+			 (unsigned HOST_WIDE_INT) 1);
 #endif
-        }
     }
 
   /* Attach a special .ident directive to the end of the file to identify
@@ -942,10 +967,18 @@ init_asm_output (const char *name)
 	}
       if (!strcmp (asm_file_name, "-"))
 	asm_out_file = stdout;
-      else
+      else if (!canonical_filename_eq (asm_file_name, name)
+	       || !strcmp (asm_file_name, HOST_BIT_BUCKET))
 	asm_out_file = fopen (asm_file_name, "w");
+      else
+	/* Use fatal_error (UNKOWN_LOCATION) instead of just fatal_error to
+	   prevent gcc from printing the first line in the current file. */
+	fatal_error (UNKNOWN_LOCATION,
+		     "input file %qs is the same as output file",
+		     asm_file_name);
       if (asm_out_file == 0)
-	fatal_error ("can%'t open %s for writing: %m", asm_file_name);
+	fatal_error (UNKNOWN_LOCATION,
+		     "can%'t open %qs for writing: %m", asm_file_name);
     }
 
   if (!flag_syntax_only)
@@ -1202,7 +1235,7 @@ general_init (const char *argv0)
   /* Create the singleton holder for global state.
      Doing so also creates the pass manager and with it the passes.  */
   g = new gcc::context ();
-  symtab = ggc_cleared_alloc <symbol_table> ();
+  symtab = new (ggc_cleared_alloc <symbol_table> ()) symbol_table ();
 
   statistics_early_init ();
   finish_params ();
@@ -1257,18 +1290,25 @@ process_options (void)
 
   maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
 
-  /* Default to -fdiagnostics-color=auto if GCC_COLORS is in the environment,
-     otherwise default to -fdiagnostics-color=never.  */
-  if (!global_options_set.x_flag_diagnostics_show_color
-      && getenv ("GCC_COLORS"))
-    pp_show_color (global_dc->printer)
-      = colorize_init (DIAGNOSTICS_COLOR_AUTO);
-
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
      so we can correctly initialize debug output.  */
   no_backend = lang_hooks.post_options (&main_input_filename);
+
+  /* Set default values for parameters relation to the Scalar Reduction
+     of Aggregates passes (SRA and IP-SRA).  We must do this here, rather
+     than in opts.c:default_options_optimization as historically these
+     tuning heuristics have been based on MOVE_RATIO, which on some
+     targets requires other symbols from the backend.  */
+  maybe_set_param_value
+    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED,
+     get_move_ratio (true) * UNITS_PER_WORD,
+     global_options.x_param_values, global_options_set.x_param_values);
+  maybe_set_param_value
+    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE,
+     get_move_ratio (false) * UNITS_PER_WORD,
+     global_options.x_param_values, global_options_set.x_param_values);
 
   /* Some machines may reject certain combinations of options.  */
   targetm.target_option.override ();
@@ -1306,11 +1346,12 @@ process_options (void)
       || flag_loop_block
       || flag_loop_interchange
       || flag_loop_strip_mine
-      || flag_loop_parallelize_all)
+      || flag_loop_parallelize_all
+      || flag_loop_unroll_jam)
     sorry ("Graphite loop optimizations cannot be used (ISL is not available)" 
 	   "(-fgraphite, -fgraphite-identity, -floop-block, "
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
-	   "and -ftree-loop-linear)");
+	   "-floop-unroll-and-jam, and -ftree-loop-linear)");
 #endif
 
   if (flag_check_pointer_bounds)
@@ -1449,7 +1490,7 @@ process_options (void)
     debug_hooks = &vmsdbg_debug_hooks;
 #endif
   else
-    error ("target system does not support the \"%s\" debug format",
+    error ("target system does not support the %qs debug format",
 	   debug_type_names[write_symbols]);
 
   /* We know which debug output will be used so we can set flag_var_tracking
@@ -1615,6 +1656,11 @@ process_options (void)
   /* Save the current optimization options.  */
   optimization_default_node = build_optimization_node (&global_options);
   optimization_current_node = optimization_default_node;
+
+ /* Disable use caller save optimization if profiler is active or port
+    does not emit prologue and epilogue as RTL.  */
+  if (profile_flag || !HAVE_prologue || !HAVE_epilogue)
+    flag_ipa_ra = 0;
 }
 
 /* This function can be called multiple times to reinitialize the compiler
@@ -2121,11 +2167,25 @@ toplev::finalize (void)
   rtl_initialized = false;
   this_target_rtl->target_specific_initialized = false;
 
+  /* Needs to be called before cgraph_c_finalize since it uses symtab.  */
+  ipa_reference_c_finalize ();
+
   cgraph_c_finalize ();
   cgraphunit_c_finalize ();
   dwarf2out_c_finalize ();
   gcse_c_finalize ();
   ipa_cp_c_finalize ();
-  ipa_reference_c_finalize ();
+  ira_costs_c_finalize ();
   params_c_finalize ();
+
+  finalize_options_struct (&global_options);
+  finalize_options_struct (&global_options_set);
+
+  XDELETEVEC (save_decoded_options);
+
+  /* Clean up the context (and pass_manager etc). */
+  delete g;
+  g = NULL;
+
+  obstack_free (&opts_obstack, NULL);
 }

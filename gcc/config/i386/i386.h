@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2014 Free Software Foundation, Inc.
+   Copyright (C) 1988-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -77,6 +77,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_AVX512BW_P(x)	TARGET_ISA_AVX512BW_P(x)
 #define TARGET_AVX512VL	TARGET_ISA_AVX512VL
 #define TARGET_AVX512VL_P(x)	TARGET_ISA_AVX512VL_P(x)
+#define TARGET_AVX512VBMI	TARGET_ISA_AVX512VBMI
+#define TARGET_AVX512VBMI_P(x)	TARGET_ISA_AVX512VBMI_P(x)
+#define TARGET_AVX512IFMA	TARGET_ISA_AVX512IFMA
+#define TARGET_AVX512IFMA_P(x)	TARGET_ISA_AVX512IFMA_P(x)
 #define TARGET_FMA	TARGET_ISA_FMA
 #define TARGET_FMA_P(x)	TARGET_ISA_FMA_P(x)
 #define TARGET_SSE4A	TARGET_ISA_SSE4A
@@ -146,6 +150,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_PREFETCHWT1_P(x)	TARGET_ISA_PREFETCHWT1_P(x)
 #define TARGET_MPX	TARGET_ISA_MPX
 #define TARGET_MPX_P(x)	TARGET_ISA_MPX_P(x)
+#define TARGET_PCOMMIT	TARGET_ISA_PCOMMIT
+#define TARGET_PCOMMIT_P(x)	TARGET_ISA_PCOMMIT_P(x)
+#define TARGET_CLWB	TARGET_ISA_CLWB
+#define TARGET_CLWB_P(x)	TARGET_ISA_CLWB_P(x)
 
 #define TARGET_LP64	TARGET_ABI_64
 #define TARGET_LP64_P(x)	TARGET_ABI_64_P(x)
@@ -329,6 +337,7 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_HASWELL (ix86_tune == PROCESSOR_HASWELL)
 #define TARGET_BONNELL (ix86_tune == PROCESSOR_BONNELL)
 #define TARGET_SILVERMONT (ix86_tune == PROCESSOR_SILVERMONT)
+#define TARGET_KNL (ix86_tune == PROCESSOR_KNL)
 #define TARGET_INTEL (ix86_tune == PROCESSOR_INTEL)
 #define TARGET_GENERIC (ix86_tune == PROCESSOR_GENERIC)
 #define TARGET_AMDFAM10 (ix86_tune == PROCESSOR_AMDFAM10)
@@ -1244,7 +1253,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    the pic register when possible.  The change is visible after the
    prologue has been emitted.  */
 
-#define REAL_PIC_OFFSET_TABLE_REGNUM  BX_REG
+#define REAL_PIC_OFFSET_TABLE_REGNUM  (TARGET_64BIT ? R15_REG : BX_REG)
 
 #define PIC_OFFSET_TABLE_REGNUM						\
   ((TARGET_64BIT && (ix86_cmodel == CM_SMALL_PIC			\
@@ -1303,6 +1312,7 @@ enum reg_class
   FP_TOP_REG, FP_SECOND_REG,	/* %st(0) %st(1) */
   FLOAT_REGS,
   SSE_FIRST_REG,
+  NO_REX_SSE_REGS,
   SSE_REGS,
   EVEX_SSE_REGS,
   BND_REGS,
@@ -1361,6 +1371,7 @@ enum reg_class
    "FP_TOP_REG", "FP_SECOND_REG",	\
    "FLOAT_REGS",			\
    "SSE_FIRST_REG",			\
+   "NO_REX_SSE_REGS",			\
    "SSE_REGS",				\
    "EVEX_SSE_REGS",			\
    "BND_REGS",				\
@@ -1401,6 +1412,7 @@ enum reg_class
     { 0x0200,       0x0,    0x0 },       /* FP_SECOND_REG */             \
     { 0xff00,       0x0,    0x0 },       /* FLOAT_REGS */                \
   { 0x200000,       0x0,    0x0 },       /* SSE_FIRST_REG */             \
+{ 0x1fe00000,  0x000000,    0x0 },       /* NO_REX_SSE_REGS */           \
 { 0x1fe00000,  0x1fe000,    0x0 },       /* SSE_REGS */                  \
        { 0x0,0xffe00000,   0x1f },       /* EVEX_SSE_REGS */             \
        { 0x0,       0x0,0x1e000 },       /* BND_REGS */			 \
@@ -2261,6 +2273,7 @@ enum processor_type
   PROCESSOR_HASWELL,
   PROCESSOR_BONNELL,
   PROCESSOR_SILVERMONT,
+  PROCESSOR_KNL,
   PROCESSOR_INTEL,
   PROCESSOR_GEODE,
   PROCESSOR_K6,

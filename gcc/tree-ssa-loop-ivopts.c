@@ -1,5 +1,5 @@
 /* Induction variable optimizations.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -65,16 +65,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -104,29 +109,39 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
-#include "insn-config.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
-#include "cfgloop.h"
 #include "params.h"
 #include "langhooks.h"
 #include "tree-affine.h"
 #include "target.h"
 #include "tree-inline.h"
 #include "tree-ssa-propagate.h"
-#include "expmed.h"
 #include "tree-ssa-address.h"
 #include "builtins.h"
 
 /* FIXME: Expressions are expanded to RTL in this pass to determine the
    cost of different addressing modes.  This should be moved to a TBD
    interface between the GIMPLE and RTL worlds.  */
-#include "expr.h"
 #include "recog.h"
 
 /* The infinite cost.  */
@@ -1049,7 +1064,7 @@ get_iv (struct ivopts_data *data, tree var)
    not define a simple affine biv with nonzero step.  */
 
 static tree
-determine_biv_step (gimple phi)
+determine_biv_step (gphi *phi)
 {
   struct loop *loop = gimple_bb (phi)->loop_father;
   tree name = PHI_RESULT (phi);
@@ -1069,15 +1084,15 @@ determine_biv_step (gimple phi)
 static bool
 find_bivs (struct ivopts_data *data)
 {
-  gimple phi;
+  gphi *phi;
   tree step, type, base;
   bool found = false;
   struct loop *loop = data->current_loop;
-  gimple_stmt_iterator psi;
+  gphi_iterator psi;
 
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
 
       if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)))
 	continue;
@@ -1114,16 +1129,17 @@ find_bivs (struct ivopts_data *data)
 static void
 mark_bivs (struct ivopts_data *data)
 {
-  gimple phi, def;
+  gphi *phi;
+  gimple def;
   tree var;
   struct iv *iv, *incr_iv;
   struct loop *loop = data->current_loop;
   basic_block incr_bb;
-  gimple_stmt_iterator psi;
+  gphi_iterator psi;
 
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
 
       iv = get_iv (data, PHI_RESULT (phi));
       if (!iv)
@@ -1390,8 +1406,9 @@ extract_cond_operands (struct ivopts_data *data, gimple stmt,
 
   if (gimple_code (stmt) == GIMPLE_COND)
     {
-      op0 = gimple_cond_lhs_ptr (stmt);
-      op1 = gimple_cond_rhs_ptr (stmt);
+      gcond *cond_stmt = as_a <gcond *> (stmt);
+      op0 = gimple_cond_lhs_ptr (cond_stmt);
+      op1 = gimple_cond_rhs_ptr (cond_stmt);
     }
   else
     {
@@ -2018,13 +2035,13 @@ find_interesting_uses_stmt (struct ivopts_data *data, gimple stmt)
 static void
 find_interesting_uses_outside (struct ivopts_data *data, edge exit)
 {
-  gimple phi;
-  gimple_stmt_iterator psi;
+  gphi *phi;
+  gphi_iterator psi;
   tree def;
 
   for (psi = gsi_start_phis (exit->dest); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
       def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
       if (!virtual_operand_p (def))
         find_interesting_uses_op (data, def);
@@ -4194,7 +4211,7 @@ get_computation_cost_at (struct ivopts_data *data,
 
   if (cst_and_fits_in_hwi (cbase))
     {
-      offset = - ratio * int_cst_value (cbase);
+      offset = - ratio * (unsigned HOST_WIDE_INT) int_cst_value (cbase);
       cost = difference_cost (data,
 			      ubase, build_int_cst (utype, 0),
 			      &symbol_present, &var_present, &offset,
@@ -5190,8 +5207,8 @@ static void
 determine_set_costs (struct ivopts_data *data)
 {
   unsigned j, n;
-  gimple phi;
-  gimple_stmt_iterator psi;
+  gphi *phi;
+  gphi_iterator psi;
   tree op;
   struct loop *loop = data->current_loop;
   bitmap_iterator bi;
@@ -5208,7 +5225,7 @@ determine_set_costs (struct ivopts_data *data)
   n = 0;
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
       op = PHI_RESULT (phi);
 
       if (virtual_operand_p (op))
@@ -5873,6 +5890,108 @@ iv_ca_prune (struct ivopts_data *data, struct iv_ca *ivs,
   return best_cost;
 }
 
+/* Check if CAND_IDX is a candidate other than OLD_CAND and has
+   cheaper local cost for USE than BEST_CP.  Return pointer to
+   the corresponding cost_pair, otherwise just return BEST_CP.  */
+
+static struct cost_pair*
+cheaper_cost_with_cand (struct ivopts_data *data, struct iv_use *use,
+			unsigned int cand_idx, struct iv_cand *old_cand,
+			struct cost_pair *best_cp)
+{
+  struct iv_cand *cand;
+  struct cost_pair *cp;
+
+  gcc_assert (old_cand != NULL && best_cp != NULL);
+  if (cand_idx == old_cand->id)
+    return best_cp;
+
+  cand = iv_cand (data, cand_idx);
+  cp = get_use_iv_cost (data, use, cand);
+  if (cp != NULL && cheaper_cost_pair (cp, best_cp))
+    return cp;
+
+  return best_cp;
+}
+
+/* Try breaking local optimal fixed-point for IVS by replacing candidates
+   which are used by more than one iv uses.  For each of those candidates,
+   this function tries to represent iv uses under that candidate using
+   other ones with lower local cost, then tries to prune the new set.
+   If the new set has lower cost, It returns the new cost after recording
+   candidate replacement in list DELTA.  */
+
+static comp_cost
+iv_ca_replace (struct ivopts_data *data, struct iv_ca *ivs,
+	       struct iv_ca_delta **delta)
+{
+  bitmap_iterator bi, bj;
+  unsigned int i, j, k;
+  struct iv_use *use;
+  struct iv_cand *cand;
+  comp_cost orig_cost, acost;
+  struct iv_ca_delta *act_delta, *tmp_delta;
+  struct cost_pair *old_cp, *best_cp = NULL;
+
+  *delta = NULL;
+  orig_cost = iv_ca_cost (ivs);
+
+  EXECUTE_IF_SET_IN_BITMAP (ivs->cands, 0, i, bi)
+    {
+      if (ivs->n_cand_uses[i] == 1
+	  || ivs->n_cand_uses[i] > ALWAYS_PRUNE_CAND_SET_BOUND)
+	continue;
+
+      cand = iv_cand (data, i);
+  
+      act_delta = NULL;
+      /*  Represent uses under current candidate using other ones with
+	  lower local cost.  */
+      for (j = 0; j < ivs->upto; j++)
+	{
+	  use = iv_use (data, j);
+	  old_cp = iv_ca_cand_for_use (ivs, use);
+
+	  if (old_cp->cand != cand)
+	    continue;
+
+	  best_cp = old_cp;
+	  if (data->consider_all_candidates)
+	    for (k = 0; k < n_iv_cands (data); k++)
+	      best_cp = cheaper_cost_with_cand (data, use, k,
+						old_cp->cand, best_cp);
+	  else
+	    EXECUTE_IF_SET_IN_BITMAP (use->related_cands, 0, k, bj)
+	      best_cp = cheaper_cost_with_cand (data, use, k,
+						old_cp->cand, best_cp);
+
+	  if (best_cp == old_cp)
+	    continue;
+
+	  act_delta = iv_ca_delta_add (use, old_cp, best_cp, act_delta);
+	}
+      /* No need for further prune.  */
+      if (!act_delta)
+	continue;
+
+      /* Prune the new candidate set.  */
+      iv_ca_delta_commit (data, ivs, act_delta, true);
+      acost = iv_ca_prune (data, ivs, NULL, &tmp_delta);
+      iv_ca_delta_commit (data, ivs, act_delta, false);
+      act_delta = iv_ca_delta_join (act_delta, tmp_delta);
+
+      if (compare_costs (acost, orig_cost) < 0)
+	{
+	  *delta = act_delta;
+	  return acost;
+	}
+      else
+	iv_ca_delta_free (&act_delta);
+    }
+
+  return orig_cost;
+}
+
 /* Tries to extend the sets IVS in the best possible way in order
    to express the USE.  If ORIGINALP is true, prefer candidates from
    the original set of IVs, otherwise favor important candidates not
@@ -6006,10 +6125,13 @@ get_initial_solution (struct ivopts_data *data, bool originalp)
   return ivs;
 }
 
-/* Tries to improve set of induction variables IVS.  */
+/* Tries to improve set of induction variables IVS.  TRY_REPLACE_P
+   points to a bool variable, this function tries to break local
+   optimal fixed-point by replacing candidates in IVS if it's true.  */
 
 static bool
-try_improve_iv_set (struct ivopts_data *data, struct iv_ca *ivs)
+try_improve_iv_set (struct ivopts_data *data,
+		    struct iv_ca *ivs, bool *try_replace_p)
 {
   unsigned i, n_ivs;
   comp_cost acost, best_cost = iv_ca_cost (ivs);
@@ -6053,7 +6175,20 @@ try_improve_iv_set (struct ivopts_data *data, struct iv_ca *ivs)
       /* Try removing the candidates from the set instead.  */
       best_cost = iv_ca_prune (data, ivs, NULL, &best_delta);
 
-      /* Nothing more we can do.  */
+      if (!best_delta && *try_replace_p)
+	{
+	  *try_replace_p = false;
+	  /* So far candidate selecting algorithm tends to choose fewer IVs
+	     so that it can handle cases in which loops have many variables
+	     but the best choice is often to use only one general biv.  One
+	     weakness is it can't handle opposite cases, in which different
+	     candidates should be chosen with respect to each use.  To solve
+	     the problem, we replace candidates in a manner described by the
+	     comments of iv_ca_replace, thus give general algorithm a chance
+	     to break local optimal fixed-point in these cases.  */
+	  best_cost = iv_ca_replace (data, ivs, &best_delta);
+	}
+
       if (!best_delta)
 	return false;
     }
@@ -6072,6 +6207,7 @@ static struct iv_ca *
 find_optimal_iv_set_1 (struct ivopts_data *data, bool originalp)
 {
   struct iv_ca *set;
+  bool try_replace_p = true;
 
   /* Get the initial solution.  */
   set = get_initial_solution (data, originalp);
@@ -6088,7 +6224,7 @@ find_optimal_iv_set_1 (struct ivopts_data *data, bool originalp)
       iv_ca_dump (data, dump_file, set);
     }
 
-  while (try_improve_iv_set (data, set))
+  while (try_improve_iv_set (data, set, &try_replace_p))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -6232,7 +6368,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 {
   tree comp;
   tree op, tgt;
-  gimple ass;
+  gassign *ass;
   gimple_stmt_iterator bsi;
 
   /* An important special case -- if we are asked to express value of
@@ -6484,9 +6620,10 @@ rewrite_use_compare (struct ivopts_data *data,
 		loop_preheader_edge (data->current_loop),
 		stmts);
 
-      gimple_cond_set_lhs (use->stmt, var);
-      gimple_cond_set_code (use->stmt, compare);
-      gimple_cond_set_rhs (use->stmt, op);
+      gcond *cond_stmt = as_a <gcond *> (use->stmt);
+      gimple_cond_set_lhs (cond_stmt, var);
+      gimple_cond_set_code (cond_stmt, compare);
+      gimple_cond_set_rhs (cond_stmt, op);
       return;
     }
 
@@ -6649,7 +6786,8 @@ remove_unused_ivs (struct ivopts_data *data)
 		    DECL_MODE (vexpr) = DECL_MODE (SSA_NAME_VAR (def));
 		  else
 		    DECL_MODE (vexpr) = TYPE_MODE (TREE_TYPE (vexpr));
-		  gimple def_temp = gimple_build_debug_bind (vexpr, comp, NULL);
+		  gdebug *def_temp
+		    = gimple_build_debug_bind (vexpr, comp, NULL);
 		  gimple_stmt_iterator gsi;
 
 		  if (gimple_code (SSA_NAME_DEF_STMT (def)) == GIMPLE_PHI)

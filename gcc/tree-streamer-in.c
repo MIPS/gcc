@@ -1,6 +1,6 @@
 /* Routines for reading trees from a file stream.
 
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -23,13 +23,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic.h"
-#include "tree.h"
-#include "stringpool.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "stringpool.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -49,6 +58,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "streamer-hooks.h"
 #include "lto-streamer.h"
 #include "builtins.h"
+#include "ipa-chkp.h"
+#include "gomp-constants.h"
+
 
 /* Read a STRING_CST from the string table in DATA_IN using input
    block IB.  */
@@ -337,7 +349,7 @@ unpack_ts_function_decl_value_fields (struct bitpack_d *bp, tree expr)
   if (DECL_BUILT_IN_CLASS (expr) != NOT_BUILT_IN)
     {
       DECL_FUNCTION_CODE (expr) = (enum built_in_function) bp_unpack_value (bp,
-	                                                                    11);
+	                                                                    12);
       if (DECL_BUILT_IN_CLASS (expr) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (expr) >= END_BUILTINS)
 	fatal_error ("machine independent builtin code out of range");
@@ -404,21 +416,6 @@ unpack_ts_translation_unit_decl_value_fields (struct data_in *data_in,
   vec_safe_push (all_translation_units, expr);
 }
 
-/* Unpack a TS_OPTIMIZATION tree from BP into EXPR.  */
-
-static void
-unpack_ts_optimization (struct bitpack_d *bp, tree expr)
-{
-  unsigned i, len;
-  struct cl_optimization *t = TREE_OPTIMIZATION (expr);
-
-  len = sizeof (struct cl_optimization);
-  for (i = 0; i < len; i++)
-    ((unsigned char *)t)[i] = bp_unpack_value (bp, 8);
-  if (bp_unpack_value (bp, 32) != 0x12345678)
-    fatal_error ("cl_optimization size mismatch in LTO reader and writer");
-}
-
 
 /* Unpack all the non-pointer fields of the TS_OMP_CLAUSE
    structure of expression EXPR from bitpack BP.  */
@@ -445,8 +442,8 @@ unpack_ts_omp_clause_value_fields (struct data_in *data_in,
 	= bp_unpack_enum (bp, omp_clause_depend_kind, OMP_CLAUSE_DEPEND_LAST);
       break;
     case OMP_CLAUSE_MAP:
-      OMP_CLAUSE_MAP_KIND (expr)
-	= bp_unpack_enum (bp, omp_clause_map_kind, OMP_CLAUSE_MAP_LAST);
+      OMP_CLAUSE_SET_MAP_KIND (expr, bp_unpack_enum (bp, gomp_map_kind,
+						     GOMP_MAP_LAST));
       break;
     case OMP_CLAUSE_PROC_BIND:
       OMP_CLAUSE_PROC_BIND_KIND (expr)
@@ -503,7 +500,18 @@ unpack_value_fields (struct data_in *data_in, struct bitpack_d *bp, tree expr)
     unpack_ts_type_common_value_fields (bp, expr);
 
   if (CODE_CONTAINS_STRUCT (code, TS_EXP))
-    SET_EXPR_LOCATION (expr, stream_input_location (bp, data_in));
+    {
+      SET_EXPR_LOCATION (expr, stream_input_location (bp, data_in));
+      if (code == MEM_REF
+	  || code == TARGET_MEM_REF)
+	{
+	  MR_DEPENDENCE_CLIQUE (expr)
+	    = (unsigned)bp_unpack_value (bp, sizeof (short) * 8);
+	  if (MR_DEPENDENCE_CLIQUE (expr) != 0)
+	    MR_DEPENDENCE_BASE (expr)
+	      = (unsigned)bp_unpack_value (bp, sizeof (short) * 8);
+	}
+    }
 
   if (CODE_CONTAINS_STRUCT (code, TS_BLOCK))
     unpack_ts_block_value_fields (data_in, bp, expr);
@@ -511,11 +519,8 @@ unpack_value_fields (struct data_in *data_in, struct bitpack_d *bp, tree expr)
   if (CODE_CONTAINS_STRUCT (code, TS_TRANSLATION_UNIT_DECL))
     unpack_ts_translation_unit_decl_value_fields (data_in, bp, expr);
 
-  if (CODE_CONTAINS_STRUCT (code, TS_TARGET_OPTION))
-    gcc_unreachable ();
-
   if (CODE_CONTAINS_STRUCT (code, TS_OPTIMIZATION))
-    unpack_ts_optimization (bp, expr);
+    cl_optimization_stream_in (bp, TREE_OPTIMIZATION (expr));
 
   if (CODE_CONTAINS_STRUCT (code, TS_BINFO))
     {
@@ -530,6 +535,11 @@ unpack_value_fields (struct data_in *data_in, struct bitpack_d *bp, tree expr)
       if (length > 0)
 	vec_safe_grow (CONSTRUCTOR_ELTS (expr), length);
     }
+
+#ifndef ACCEL_COMPILER
+  if (CODE_CONTAINS_STRUCT (code, TS_TARGET_OPTION))
+    cl_target_option_stream_in (data_in, bp, TREE_TARGET_OPTION (expr));
+#endif
 
   if (code == OMP_CLAUSE)
     unpack_ts_omp_clause_value_fields (data_in, bp, expr);
@@ -793,7 +803,9 @@ lto_input_ts_function_decl_tree_pointers (struct lto_input_block *ib,
   DECL_VINDEX (expr) = stream_read_tree (ib, data_in);
   /* DECL_STRUCT_FUNCTION is loaded on demand by cgraph_get_body.  */
   DECL_FUNCTION_PERSONALITY (expr) = stream_read_tree (ib, data_in);
-  /* DECL_FUNCTION_SPECIFIC_TARGET is regenerated from attributes.  */
+#ifndef ACCEL_COMPILER
+  DECL_FUNCTION_SPECIFIC_TARGET (expr) = stream_read_tree (ib, data_in);
+#endif
   DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr) = stream_read_tree (ib, data_in);
 
   /* If the file contains a function with an EH personality set,
@@ -1133,6 +1145,14 @@ streamer_get_builtin_tree (struct lto_input_block *ib, struct data_in *data_in)
       if (fcode >= END_BUILTINS)
 	fatal_error ("machine independent builtin code out of range");
       result = builtin_decl_explicit (fcode);
+      if (!result
+	  && fcode > BEGIN_CHKP_BUILTINS
+	  && fcode < END_CHKP_BUILTINS)
+	{
+	  fcode = (enum built_in_function) (fcode - BEGIN_CHKP_BUILTINS - 1);
+	  result = builtin_decl_explicit (fcode);
+	  result = chkp_maybe_clone_builtin_fndecl (result);
+	}
       gcc_assert (result);
     }
   else if (fclass == BUILT_IN_MD)

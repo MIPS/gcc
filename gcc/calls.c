@@ -1,5 +1,5 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
-   Copyright (C) 1989-2014 Free Software Foundation, Inc.
+   Copyright (C) 1989-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,18 +22,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "stringpool.h"
 #include "attribs.h"
 #include "predict.h"
-#include "vec.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
@@ -42,6 +48,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "gimple.h"
 #include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -197,7 +213,7 @@ static void restore_fixed_argument_area (rtx, rtx, int, int);
    CALL_INSN_FUNCTION_USAGE information.  */
 
 rtx
-prepare_call_address (tree fndecl, rtx funexp, rtx static_chain_value,
+prepare_call_address (tree fndecl_or_type, rtx funexp, rtx static_chain_value,
 		      rtx *call_fusage, int reg_parm_seen, int sibcallp)
 {
   /* Make a valid memory address and copy constants through pseudo-regs,
@@ -217,12 +233,13 @@ prepare_call_address (tree fndecl, rtx funexp, rtx static_chain_value,
 #endif
     }
 
-  if (static_chain_value != 0)
+  if (static_chain_value != 0
+      && (TREE_CODE (fndecl_or_type) != FUNCTION_DECL
+	  || DECL_STATIC_CHAIN (fndecl_or_type)))
     {
       rtx chain;
 
-      gcc_assert (fndecl);
-      chain = targetm.calls.static_chain (fndecl, false);
+      chain = targetm.calls.static_chain (fndecl_or_type, false);
       static_chain_value = convert_memory_address (Pmode, static_chain_value);
 
       emit_move_insn (chain, static_chain_value);
@@ -1304,6 +1321,16 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 		  && TREE_CODE (base) != SSA_NAME
 		  && (!DECL_P (base) || MEM_P (DECL_RTL (base)))))
 	    {
+	      /* Argument setup code may have copied the value to register.  We
+		 revert that optimization now because the tail call code must
+		 use the original location.  */
+	      if (TREE_CODE (args[i].tree_value) == PARM_DECL
+		  && !MEM_P (DECL_RTL (args[i].tree_value))
+		  && DECL_INCOMING_RTL (args[i].tree_value)
+		  && MEM_P (DECL_INCOMING_RTL (args[i].tree_value)))
+		set_decl_rtl (args[i].tree_value,
+			      DECL_INCOMING_RTL (args[i].tree_value));
+
 	      mark_addressable (args[i].tree_value);
 
 	      /* We can't use sibcalls if a callee-copied argument is
@@ -3103,45 +3130,6 @@ expand_call (tree exp, rtx target, int ignore)
 
       funexp = rtx_for_function_call (fndecl, addr);
 
-      /* Figure out the register where the value, if any, will come back.  */
-      valreg = 0;
-      valbnd = 0;
-      if (TYPE_MODE (rettype) != VOIDmode
-	  && ! structure_value_addr)
-	{
-	  if (pcc_struct_value)
-	    {
-	      valreg = hard_function_value (build_pointer_type (rettype),
-					    fndecl, NULL, (pass == 0));
-	      if (CALL_WITH_BOUNDS_P (exp))
-		valbnd = targetm.calls.
-		  chkp_function_value_bounds (build_pointer_type (rettype),
-					      fndecl, (pass == 0));
-	    }
-	  else
-	    {
-	      valreg = hard_function_value (rettype, fndecl, fntype,
-					    (pass == 0));
-	      if (CALL_WITH_BOUNDS_P (exp))
-		valbnd = targetm.calls.chkp_function_value_bounds (rettype,
-								   fndecl,
-								   (pass == 0));
-	    }
-
-	  /* If VALREG is a PARALLEL whose first member has a zero
-	     offset, use that.  This is for targets such as m68k that
-	     return the same value in multiple places.  */
-	  if (GET_CODE (valreg) == PARALLEL)
-	    {
-	      rtx elem = XVECEXP (valreg, 0, 0);
-	      rtx where = XEXP (elem, 0);
-	      rtx offset = XEXP (elem, 1);
-	      if (offset == const0_rtx
-		  && GET_MODE (where) == GET_MODE (valreg))
-		valreg = where;
-	    }
-	}
-
       /* Precompute all register parameters.  It isn't safe to compute anything
 	 once we have started filling any specific hard regs.  */
       precompute_register_parameters (num_actuals, args, &reg_parm_seen);
@@ -3223,6 +3211,55 @@ expand_call (tree exp, rtx target, int ignore)
 		sibcall_failure = 1;
 	    }
 
+      bool any_regs = false;
+      for (i = 0; i < num_actuals; i++)
+	if (args[i].reg != NULL_RTX)
+	  {
+	    any_regs = true;
+	    targetm.calls.call_args (args[i].reg, funtype);
+	  }
+      if (!any_regs)
+	targetm.calls.call_args (pc_rtx, funtype);
+
+      /* Figure out the register where the value, if any, will come back.  */
+      valreg = 0;
+      valbnd = 0;
+      if (TYPE_MODE (rettype) != VOIDmode
+	  && ! structure_value_addr)
+	{
+	  if (pcc_struct_value)
+	    {
+	      valreg = hard_function_value (build_pointer_type (rettype),
+					    fndecl, NULL, (pass == 0));
+	      if (CALL_WITH_BOUNDS_P (exp))
+		valbnd = targetm.calls.
+		  chkp_function_value_bounds (build_pointer_type (rettype),
+					      fndecl, (pass == 0));
+	    }
+	  else
+	    {
+	      valreg = hard_function_value (rettype, fndecl, fntype,
+					    (pass == 0));
+	      if (CALL_WITH_BOUNDS_P (exp))
+		valbnd = targetm.calls.chkp_function_value_bounds (rettype,
+								   fndecl,
+								   (pass == 0));
+	    }
+
+	  /* If VALREG is a PARALLEL whose first member has a zero
+	     offset, use that.  This is for targets such as m68k that
+	     return the same value in multiple places.  */
+	  if (GET_CODE (valreg) == PARALLEL)
+	    {
+	      rtx elem = XVECEXP (valreg, 0, 0);
+	      rtx where = XEXP (elem, 0);
+	      rtx offset = XEXP (elem, 1);
+	      if (offset == const0_rtx
+		  && GET_MODE (where) == GET_MODE (valreg))
+		valreg = where;
+	    }
+	}
+
       /* Store all bounds not passed in registers.  */
       for (i = 0; i < num_actuals; i++)
 	{
@@ -3258,8 +3295,9 @@ expand_call (tree exp, rtx target, int ignore)
 	}
 
       after_args = get_last_insn ();
-      funexp = prepare_call_address (fndecl, funexp, static_chain_value,
-				     &call_fusage, reg_parm_seen, pass == 0);
+      funexp = prepare_call_address (fndecl ? fndecl : fntype, funexp,
+				     static_chain_value, &call_fusage,
+				     reg_parm_seen, pass == 0);
 
       load_register_parameters (args, num_actuals, &call_fusage, flags,
 				pass == 0, &sibcall_failure);
@@ -3308,7 +3346,7 @@ expand_call (tree exp, rtx target, int ignore)
 		   next_arg_reg, valreg, old_inhibit_defer_pop, call_fusage,
 		   flags, args_so_far);
 
-      if (flag_use_caller_save)
+      if (flag_ipa_ra)
 	{
 	  rtx_call_insn *last;
 	  rtx datum = NULL_RTX;
@@ -3582,6 +3620,8 @@ expand_call (tree exp, rtx target, int ignore)
       for (i = 0; i < num_actuals; ++i)
 	free (args[i].aligned_regs);
 
+      targetm.calls.end_call_args ();
+
       insns = get_insns ();
       end_sequence ();
 
@@ -3768,6 +3808,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   int reg_parm_stack_space = 0;
   int needed;
   rtx_insn *before_call;
+  bool have_push_fusage;
   tree tfom;			/* type_for_mode (outmode, 0) */
 
 #ifdef REG_PARM_STACK_SPACE
@@ -4111,7 +4152,21 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
     }
 #endif
 
+  /* When expanding a normal call, args are stored in push order,
+     which is the reverse of what we have here.  */
+  bool any_regs = false;
+  for (int i = nargs; i-- > 0; )
+    if (argvec[i].reg != NULL_RTX)
+      {
+	targetm.calls.call_args (argvec[i].reg, NULL_TREE);
+	any_regs = true;
+      }
+  if (!any_regs)
+    targetm.calls.call_args (pc_rtx, NULL_TREE);
+
   /* Push the args that need to be pushed.  */
+
+  have_push_fusage = false;
 
   /* ARGNUM indexes the ARGVEC array in the order in which the arguments
      are to be pushed.  */
@@ -4204,14 +4259,19 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  if (argblock)
 	    use = plus_constant (Pmode, argblock,
 				 argvec[argnum].locate.offset.constant);
+	  else if (have_push_fusage)
+	    continue;
 	  else
-	    /* When arguments are pushed, trying to tell alias.c where
-	       exactly this argument is won't work, because the
-	       auto-increment causes confusion.  So we merely indicate
-	       that we access something with a known mode somewhere on
-	       the stack.  */
-	    use = gen_rtx_PLUS (Pmode, virtual_outgoing_args_rtx,
-				gen_rtx_SCRATCH (Pmode));
+	    {
+	      /* When arguments are pushed, trying to tell alias.c where
+		 exactly this argument is won't work, because the
+		 auto-increment causes confusion.  So we merely indicate
+		 that we access something with a known mode somewhere on
+		 the stack.  */
+	      use = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
+				  gen_rtx_SCRATCH (Pmode));
+	      have_push_fusage = true;
+	    }
 	  use = gen_rtx_MEM (argvec[argnum].mode, use);
 	  use = gen_rtx_USE (VOIDmode, use);
 	  call_fusage = gen_rtx_EXPR_LIST (VOIDmode, use, call_fusage);
@@ -4334,7 +4394,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	       valreg,
 	       old_inhibit_defer_pop + 1, call_fusage, flags, args_so_far);
 
-  if (flag_use_caller_save)
+  if (flag_ipa_ra)
     {
       rtx last, datum = orgfun;
       gcc_assert (GET_CODE (datum) == SYMBOL_REF);
@@ -4350,6 +4410,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       shift_return_value (TYPE_MODE (tfom), false, valreg);
       valreg = gen_rtx_REG (TYPE_MODE (tfom), REGNO (valreg));
     }
+
+  targetm.calls.end_call_args ();
 
   /* For calls to `setjmp', etc., inform function.c:setjmp_warnings
      that it should complain if nonvolatile values are live.  For
