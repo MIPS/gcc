@@ -134,13 +134,11 @@ static inline long melt_get_current_pass_index (void) {
 /* implementation of wrapping gate and exec functions from libmelt-ana-base.melt */
 bool melthk_gimple_gate(void)
 { 
-  debugeprintf("melthk_gimple_gate start");
   return melthookproc_HOOK_GIMPLE_GATE () != 0L; 
 }
 
 unsigned int melthk_gimple_execute(void) 
 {
-  debugeprintf("melthk_gimple_execute start");
   return (unsigned) melthookproc_HOOK_GIMPLE_EXECUTE (); 
 }
 

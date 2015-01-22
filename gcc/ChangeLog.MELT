@@ -1,11 +1,20 @@
 
 2015-01-21   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{@@ STILL UNSTABLE and not fully building, but with progress...}}
+	* melt/libmelt-ana-base.melt (melthk_gimple_gate)
+	(melthk_gimple_execute): Remove debugeprintf-s.
+
+	* melt/libmelt-ana-gimple.melt: Use gimple_build_assign instead of
+	gimple_build_assign_with_ops for GCC 5.0, but still incomplete so
+	the generated C++ does not compile yet...
+
+2015-01-21   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merged with trunk -i.e. GCC5.0 in stage4- using
 	svn merge -r209216:219879 svn+ssh://bstarynk@gcc.gnu.org/svn/gcc/trunk
 	but should probably have used
 	svn merge -r209216:219879 ^/trunk
 
-	**@@@ UNSTABLE since libmelt-ana-gimple.melt not compiling, but
+	@@@ UNSTABLE since libmelt-ana-gimple.melt not compiling, but
 	translator painfully bootstrapping!!@@@@ }}
 
 	* toplev.c: Merged manually by keeping MELT extra stuff.
