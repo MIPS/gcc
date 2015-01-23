@@ -30,15 +30,19 @@ fp128_orig_src2		= $(addsuffix .c,$(fp128_orig_src1))
 fp128_orig_src		= $(addprefix $(srcdir)/soft-fp/,$(fp128_orig_src2))
 
 fp128_vsx_src		= $(addsuffix -vsx.c,$(fp128_funcs))
-fp128_vsx_static_obj	= $(addsuffix -vsx$(objext),$(fp128_funcs))
-fp128_vsx_shared_obj	= $(addsuffix -vsx_s$(objext),$(fp128_funcs))
+fp128_vsx_static_obj	= $(addsuffix -vsx$(objext),$(fp128_funcs)) \
+			  cmpkf2-vsx$(objext)
+fp128_vsx_shared_obj	= $(addsuffix -vsx_s$(objext),$(fp128_funcs)) \
+			  cmpkf2-vsx_s$(objext)
 fp128_vsx_obj		= $(fp128_vsx_static_obj) $(fp128_vsx_shared_obj)
 fp128_vsx_sed		= $(srcdir)/config/rs6000/fp128-vsx-sed
 fp128_vsx_dep		= $(fp128_vsx_sed) $(srcdir)/config/rs6000/t-float128
 
 fp128_ref_src		= $(addsuffix -ref.c,$(fp128_funcs))
-fp128_ref_static_obj	= $(addsuffix -ref$(objext),$(fp128_funcs))
-fp128_ref_shared_obj	= $(addsuffix -ref_s$(objext),$(fp128_funcs))
+fp128_ref_static_obj	= $(addsuffix -ref$(objext),$(fp128_funcs)) \
+			  cmpkf2-ref$(objext)
+fp128_ref_shared_obj	= $(addsuffix -ref_s$(objext),$(fp128_funcs)) \
+			   cmpkf2-ref_s$(objext)
 fp128_ref_obj		= $(fp128_ref_static_obj) $(fp128_ref_shared_obj)
 fp128_ref_sed		= $(srcdir)/config/rs6000/fp128-ref-sed
 fp128_ref_dep		= $(fp128_ref_sed) $(srcdir)/config/rs6000/t-float128
@@ -76,21 +80,18 @@ $(fp128_vsx_src) : $(srcdir)/soft-fp/$(subst -vsx,,$(subst kf,tf,$@)) $(fp128_vs
 	echo "Create $@"; \
 	(echo "/* file created from $$src */"; \
 	 echo; \
-	 sed -f $(fp128_vsx_sed) < $$src; \
-	 if [ "$@" = "eqkf2-vsx.c" ]; then \
-		echo "strong_alias (__eqkf2, __cmpkf2)"; \
-	 fi) > $@
+	 sed -f $(fp128_vsx_sed) < $$src) > $@
 
 $(fp128_ref_src) : $(srcdir)/soft-fp/$(subst -ref,,$(subst kf,tf,$@)) $(fp128_ref_dep)
 	@src="$(srcdir)/soft-fp/$(subst -ref,,$(subst kf,tf,$@))"; \
 	echo "Create $@"; \
 	(echo "/* file created from $$src */"; \
 	 echo; \
-	 sed -f $(fp128_ref_sed) < $$src; \
-	 if [ "$@" = "eqkf2-ref.c" ]; then \
-		echo "strong_alias (_q_feq, _q_fcmp)"; \
-	 fi) > $@
+	 sed -f $(fp128_ref_sed) < $$src) > $@
 
+cmpkf2-ref.c : $(srcdir)/config/rs6000/cmpkf2-vsx.c
+	rm -f cmpkf2-ref.c
+	ln -s $(srcdir)/config/rs6000/cmpkf2-vsx.c cmpkf2-ref.c
 
 test: $(fp128_vsx_src) $(fp128_ref_src)
 	@echo "fp128_vsx_src = $(fp128_vsx_src)"; \
@@ -99,5 +100,8 @@ test: $(fp128_vsx_src) $(fp128_ref_src)
 	 echo "fp128_ref_obj = $(fp128_ref_obj)"
 
 # For now, only put it in the static library
-# LIB2ADD += $(fp128_vsx_src) $(fp128_ref_src)
-LIB2ADD_ST += $(fp128_vsx_src) $(fp128_ref_src)
+# LIB2ADD += $(fp128_vsx_src) $(fp128_ref_src) \
+#	     $(srcdir)/config/rs6000/cmpkf2-vsx.c vmpkf2-ref.c
+
+LIB2ADD_ST += $(fp128_vsx_src) $(fp128_ref_src) \
+	      $(srcdir)/config/rs6000/cmpkf2-vsx.c cmpkf2-ref.c
