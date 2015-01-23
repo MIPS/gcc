@@ -1982,6 +1982,7 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 			;;
 		mips*android*)
 			default_mips_arch=mips32
+			tm_file="${tm_file} mips/android.h"
 			tmake_file="$tmake_file mips/t-linux-android"
 			;;
 		mipsisa32r6*)
