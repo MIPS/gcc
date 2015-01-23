@@ -1,3 +1,79 @@
+2015-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/63637
+	PR rtl-optimization/60663
+	* gcc.dg/pr63637-1.c: New test.
+	* gcc.dg/pr63637-2.c: New test.
+	* gcc.dg/pr63637-3.c: New test.
+	* gcc.dg/pr63637-4.c: New test.
+	* gcc.dg/pr63637-5.c: New test.
+	* gcc.dg/pr63637-6.c: New test.
+	* gcc.target/i386/pr63637-1.c: New test.
+	* gcc.target/i386/pr63637-2.c: New test.
+	* gcc.target/i386/pr63637-3.c: New test.
+	* gcc.target/i386/pr63637-4.c: New test.
+	* gcc.target/i386/pr63637-5.c: New test.
+	* gcc.target/i386/pr63637-6.c: New test.
+
+2015-01-23  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/63439
+	* gcc.dg/vect/bb-slp-11.c: Require vect_pack_trunc.
+	* gcc.dg/vect/bb-slp-26.c: Require vect_hw_misalign.
+
+2015-01-23  Marek Polacek  <polacek@redhat.com>
+
+	PR preprocessor/60570
+	* gcc.dg/cpp/pr36320.c: Turn dg-error into dg-bogus.
+	* gcc.dg/cpp/pr60570.c: New test.
+
+2015-01-23  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/63439
+	* gcc.dg/vect/vect-33.c: Adjust target selectors for v16qi
+	vectorization on vect64 targets.
+
+2015-01-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60922
+	* gfortran.dg/class_allocate_17.f90: New.
+
+2015-01-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/64726
+	* gfortran.dg/goacc/combined_loop.f90: New.
+
+2015-01-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/61933
+	* gfortran.dg/make_unit.f90: New test.
+
+2015-01-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/61933
+	* gfortran.dg/negative_unit_int8.f: Update.
+
+2015-01-22  Jeff Law  <law@redhat.com>
+
+	PR target/52076
+	* gcc.target/m68k/pr52076-1.c: New test.
+	* gcc.target/m68k/pr52076-2.c: New test.
+
+2015-01-22  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64728
+	* gcc.dg/torture/pr64728.c: New testcase.
+
+2015-22-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/64688
+	* g++.dg/pr64688.C: New test.
+
+2015-01-22  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.target/i386/chkp-always_inline.c (f1): Make static
+	to avoid errors with -fpic.
+
 2015-01-22  Richard Biener  <rguenther@suse.de>
 
 	PR libstdc++/64535

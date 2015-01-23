@@ -1,3 +1,175 @@
+2015-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/63637
+	PR rtl-optimization/60663
+	* cse.c (merge_equiv_classes): Set new_elt->cost to MAX_COST
+	if elt->cost is MAX_COST for ASM_OPERANDS.
+	(find_sets_in_insn): Fix up comment typo.
+	(cse_insn): Don't set src_volatile for all non-volatile
+	ASM_OPERANDS in PARALLELs, but just those with multiple outputs
+	or with "memory" clobber.  Set elt->cost to MAX_COST
+	for ASM_OPERANDS in PARALLEL.  Set src_elt->cost to MAX_COST
+	if new_src is ASM_OPERANDS and elt->cost is MAX_COST.
+
+2015-01-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (sse2_loadld): Set attribute isa to sse2 for
+	alternative 1.
+
+2015-01-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/gnu-user.h (CRT_GET_RFIB_DATA): Move definition to
+	libgcc/config/i386/elf-lib.h.
+
+2015-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR driver/64737
+	* gcc.c (print_configuration): Don't print a blank line at the end
+	here...
+	(run_attempt): ... but here unstead.
+
+	PR middle-end/64734
+	* omp-low.c (scan_sharing_clauses): Don't ignore
+	OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION GOMP_MAP_POINTER clauses
+	on target data/update constructs.
+
+2015-01-23  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR target/50928
+	* config/m32c/m32c.c (encode_pattern_1): Removed gcc_unreachable here.
+	(DEBUG_RELOAD): Removed define.
+	(m32c_limit_reload_class): Enable traces with if DEBUG0.
+	(m32c_function_arg): Added a type cast.
+	(m32c_legitimize_reload_address): Push A_REGS reload with PSImode.
+	* config/m32c/addsub.md (addsi3_1): Specify the mode of all arguments.
+	* config/m32c/bitops.md (andqi3_16): Likewise.
+	* config/m32c/mov.md (m32c_immd_dbl_mov): Likewise.
+	(push_a01_l): Likewise.
+
+2015-01-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/64721
+	* main.c (main): Construct toplev instances with init_signals=true.
+	* toplev.c (general_init): Add param "init_signals", and use it to
+	conditionalize the calls to signal and host_hooks.extra_signals.
+	(toplev::toplev): Add param "init_signals".
+	(toplev::main): When invoking general_init, pass m_init_signals
+	to control whether signal-handlers are installed.
+	* toplev.h (toplev::toplev): Add param "init_signals".
+	(toplev::m_init_signals): New field.
+
+2015-01-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/64722
+	* emit-rtl.c (init_emit_regs): Set pic_offset_table_rtx to
+	NULL_RTX before testing PIC_OFFSET_TABLE_REGNUM, since the
+	latter may be affected by the former (e.g. on i686).
+
+2015-01-23  Martin Liska  <mliska@suse.cz>
+
+	* tree.h (tree_vec_elt_check): Workaround -Wstrict-overflow
+	false positive during profiledbootstrap.
+
+2015-01-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/64672
+	* lto-opts.c (lto_write_options): Output non-explicit conservative
+	-fno-openacc.
+	* lto-wrapper.c (merge_and_complain): Handle merging -fopenacc.
+	(append_compiler_options): Pass -fopenacc through.
+
+2015-01-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/64707
+	* lto-opts.c (lto_write_options): Output non-explicit conservative
+	-fno-openmp.
+	* lto-wrapper.c (merge_and_complain): Handle merging -fopenmp.
+	(append_compiler_options): Pass -fopenmp through.
+
+2015-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/64511
+	* dwarf2out.c (struct dw_loc_descr_node): Add chain_next
+	GTY markup.
+
+	* diagnostic-core.h (internal_error_no_backtrace): New prototype.
+	* diagnostic.def (DK_ICE_NOBT): New kind.
+	* diagnostic.c (diagnostic_action_after_output): Handle DK_ICE_NOBT
+	like DK_ICE, but never print backtrace.
+	(diagnostic_report_diagnostic): Handle DK_ICE_NOBT like DK_ICE.
+	(internal_error_no_backtrace): New function.
+	* gcc.c (execute): Use internal_error_no_backtrace instead of
+	internal_error.
+
+2015-01-22  Jeff Law  <law@redhat.com>
+
+	PR target/52076
+	* config/m68k/m68k.md (xorsi3_internal): Twiddle constraints to
+	improve code density for small immediate to memory case.
+	(insv): Better handle bitfield assignments when the field is
+	being set to all ones.
+	* config/m68k/predicates.md (reg_or_pow2_m1_operand): New
+	operand predicate.
+
+2015-01-22  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (LINK_SSP_SPEC): Handle -fstack-protector-explicit
+	for !TARGET_LIBC_PROVIDES_SSP version and
+	-fstack-protector-{all,strong,explicit} otherwise.
+	* config/freebsd.h (LINK_SSP_SPEC): Handle
+	-fstack-protector-{strong,explicit}.
+
+2015-01-22  Jan Hubicka  <hubicka@ucw.cz>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR ipa/64694
+	* ipa-inline.c (inline_small_functions): Fix thinko in maintenance of
+	heap.
+
+2015-01-22  Wei Mi  <wmi@google.com>
+
+	PR rtl-optimization/64557
+	* dse.c (record_store): Call get_addr for mem_addr.
+	(check_mem_read_rtx): Likewise.
+
+2015-01-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* fold-const.c (const_binop): Add early return for non-tcc_binary.
+
+2015-01-22  Chen Gang  <gang.chen.5i5j@gmail.com>
+
+	* toplev.c (init_local_tick): Process the failure when read
+	fails for random_seed.
+
+	* ubsan.c (ubsan_type_descriptor): Use 'pretty_print' for
+	'pretty_name' to avoid memory overflow.
+
+2015-01-22  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64728
+	* tree-ssa-coalesce.c (coalesce_partitions): Do not perform
+	abnormal coalescing on undefined SSA names.
+
+2015-22-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/64688
+	PR target/64477
+	* config/i386/sse.md (vec_set<mode>_0): Use (Yi/r/C) constraints
+	for alternative 3.
+	(*vec_dup<mode>): Use (Yi/$r) constraints for alternative 1.
+
+2015-01-22  Trevor Saunders  <tsaunders@mozilla.com>
+
+	PR middle-end/63325
+	* fold-const.c (fold_checksum_tree): Don't include value of
+	expr->decl_with_vis.symtab_node in the checksum.
+
+2015-01-22  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md (atomic code attribute): Fix typo "ior" ->
+	"or".
+
 2015-01-22  Max Ostapenko  <m.ostapenko@partner.samsung.com>
 
 	PR driver/64690
