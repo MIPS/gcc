@@ -29,26 +29,10 @@
    License along with the GNU C Library; if not, see
    <http://www.gnu.org/licenses/>.  */
 
-#include "soft-fp/soft-fp.h"
-#include "soft-fp/double.h"
-#include "soft-fp/single.h"
-
-#ifndef __FLOAT128__
-#error "-mfloat128-vsx or -mfloat128-ref is required"
-#endif
-
-/* Depending on options, we want to create two different names, one that passes
-   the values as VSX types, and the other that passes values by reference.  */
-#ifdef __FLOAT128_VSX__
-#define F128_MAP(VSX,REF) VSX
-
-#include "quad-vsx.h"
-
-#else
-#define F128_MAP(VSX,REF) REF
-
-#include "quad-ref.h"
-#endif
+#include "soft-fp.h"
+#include "double.h"
+#include "single.h"
+#include "quad.h"
 
 /* PowerPC condition register bits.  */
 #define PPC_UNORDERED		0x1		/* isnan (a) || isnan (b).  */
@@ -79,7 +63,7 @@ static const unsigned char ppc_cr_map[] = {
    PowerPC conditon code register.  */
 
 CMPtype
-F128_MAP(__cmpkf2,_q_fcmp) (TFtype a, TFtype b)
+__cmpkf2 (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);

@@ -1,10 +1,12 @@
 s/__addtf3/_q_add/g
+s/__cmpkf2/_q_fcmp/g
 s/__divtf3/_q_div/g
 s/__eqtf2/_q_feq/g
 s/__extenddftf2/_q_dtoq/g
 s/__extendsftf2/_q_stoq/g
 s/__fixtfdi/_q_qtoi_d/g
 s/__fixtfsi/_q_qtoi/g
+s/__fixunstfsi/_q_qtou/g
 s/__fixunstfdi/_q_qtou_d/g
 s/__floatditf/_q_itoq_d/g
 s/__floatsitf/_q_itoq/g
