@@ -4207,6 +4207,144 @@ cp_parser_statement_expr (cp_parser *parser)
 
 /* Expressions [gram.expr] */
 
+
+/* A helper function for cp_parser_fold_operator. Consume the token
+   and return the matched tree CODE. */
+static inline int
+cp_parser_match_fold_op (cp_parser *parser, int code) 
+{
+  cp_lexer_consume_token (parser->lexer);
+  return code;
+}
+
+/* Parse a fold-operator.
+
+    fold-operator:
+        -  *  /  %  ^  &  |  =  <  >  <<  >>
+      =  -=  *=  /=  %=  ^=  &=  |=  <<=  >>=
+      ==  !=  <=  >=  &&  ||  ,  .*  ->* 
+
+   This returns the tree code corresponding to the matched operator
+   as an int. When the current token matches a compound assignment
+   opertor, the resulting tree code is the negative value of the
+   non-assignment operator. */
+
+static int
+cp_parser_fold_operator (cp_parser *parser) 
+{
+  cp_token* token = cp_lexer_peek_token (parser->lexer);
+  switch (token->type) 
+    {
+    case CPP_PLUS: return cp_parser_match_fold_op (parser, PLUS_EXPR);
+    case CPP_MINUS: return cp_parser_match_fold_op (parser, MINUS_EXPR);
+    case CPP_MULT: return cp_parser_match_fold_op (parser, MULT_EXPR);
+    case CPP_DIV: return cp_parser_match_fold_op (parser, TRUNC_DIV_EXPR);
+    case CPP_MOD: return cp_parser_match_fold_op (parser, TRUNC_MOD_EXPR);
+    case CPP_XOR: return cp_parser_match_fold_op (parser, BIT_XOR_EXPR);
+    case CPP_AND: return cp_parser_match_fold_op (parser, BIT_AND_EXPR);
+    case CPP_OR: return cp_parser_match_fold_op (parser, BIT_IOR_EXPR);
+    case CPP_LSHIFT: return cp_parser_match_fold_op (parser, LSHIFT_EXPR);
+    case CPP_RSHIFT: return cp_parser_match_fold_op (parser, RSHIFT_EXPR);
+
+    case CPP_EQ: return cp_parser_match_fold_op (parser, -NOP_EXPR);
+    case CPP_PLUS_EQ: return cp_parser_match_fold_op (parser, -PLUS_EXPR);
+    case CPP_MINUS_EQ: return cp_parser_match_fold_op (parser, -MINUS_EXPR);
+    case CPP_MULT_EQ: return cp_parser_match_fold_op (parser, -MULT_EXPR);
+    case CPP_DIV_EQ: return cp_parser_match_fold_op (parser, -TRUNC_DIV_EXPR);
+    case CPP_MOD_EQ: return cp_parser_match_fold_op (parser, -TRUNC_MOD_EXPR);
+    case CPP_XOR_EQ: return cp_parser_match_fold_op (parser, -BIT_XOR_EXPR);
+    case CPP_AND_EQ: return cp_parser_match_fold_op (parser, -BIT_AND_EXPR);
+    case CPP_OR_EQ: return cp_parser_match_fold_op (parser, -BIT_IOR_EXPR);
+    case CPP_LSHIFT_EQ: return cp_parser_match_fold_op (parser, -LSHIFT_EXPR);
+    case CPP_RSHIFT_EQ: return cp_parser_match_fold_op (parser, -RSHIFT_EXPR);
+
+    case CPP_EQ_EQ: return cp_parser_match_fold_op (parser, EQ_EXPR);
+    case CPP_NOT_EQ: return cp_parser_match_fold_op (parser, NE_EXPR);
+    case CPP_LESS: return cp_parser_match_fold_op (parser, LT_EXPR);
+    case CPP_GREATER: return cp_parser_match_fold_op (parser, GT_EXPR);
+    case CPP_LESS_EQ: return cp_parser_match_fold_op (parser, LE_EXPR);
+    case CPP_GREATER_EQ: return cp_parser_match_fold_op (parser, GE_EXPR);
+
+    case CPP_AND_AND: return cp_parser_match_fold_op (parser, TRUTH_ANDIF_EXPR);
+    case CPP_OR_OR: return cp_parser_match_fold_op (parser, TRUTH_ORIF_EXPR);
+    
+    case CPP_COMMA: return cp_parser_match_fold_op (parser, COMPOUND_EXPR);
+    
+    case CPP_DOT_STAR: return cp_parser_match_fold_op (parser, DOTSTAR_EXPR);
+    case CPP_DEREF_STAR: return cp_parser_match_fold_op (parser, MEMBER_REF);
+    
+    default: return ERROR_MARK;
+    }
+}
+
+/* Parse a fold-expression.
+
+     fold-expression:
+       ( ... folding-operator cast-expression)
+       ( cast-expression folding-operator ... )
+       ( cast-expression folding operator ... folding-operator cast-expression)
+
+   Note that the '(' and ')' are matched in primary expression. */
+
+static tree
+cp_parser_fold_expression (cp_parser *parser) {
+  cp_id_kind pidk;
+
+  // Left fold
+  if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS)) 
+    {
+      cp_lexer_consume_token (parser->lexer);
+      int op = cp_parser_fold_operator (parser);
+      if (op == ERROR_MARK) 
+        {
+          cp_parser_error (parser, "expected cast-expression");
+          return error_mark_node;
+        }
+      
+      tree expr = cp_parser_cast_expression (parser, false, false, false, &pidk);
+      if (expr == error_mark_node)
+        return error_mark_node;
+      return finish_left_unary_fold_expr (expr, op);
+    }
+
+  tree expr1 = cp_parser_cast_expression (parser, false, false, false, &pidk);
+  if (expr1 == error_mark_node)
+    return error_mark_node;
+
+  const cp_token* token = cp_lexer_peek_token (parser->lexer);
+  int op = cp_parser_fold_operator (parser);
+  if (op == ERROR_MARK) 
+    {
+      cp_parser_error (parser, "expected cast-expression");
+      return error_mark_node;
+    }
+  
+  if (cp_lexer_next_token_is_not (parser->lexer, CPP_ELLIPSIS)) 
+    {
+      cp_parser_error (parser, "expected ...");
+      return error_mark_node;
+    }
+  cp_lexer_consume_token (parser->lexer);
+
+  // Right fold
+  if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_PAREN))
+    return finish_right_unary_fold_expr (expr1, op);
+
+  if (cp_lexer_next_token_is_not (parser->lexer, token->type)) 
+    {
+      error ("mismatched fold-operator in cast expression");
+      return error_mark_node;
+    }
+  cp_lexer_consume_token (parser->lexer);
+
+  // Binary left or right fold
+  tree expr2 = cp_parser_cast_expression (parser, false, false, false, &pidk);
+  if (expr2 == error_mark_node)
+    return error_mark_node;
+  tree t = finish_binary_fold_expr (expr1, expr2, op);
+  return t;
+}
+
 /* Parse a primary-expression.
 
    primary-expression:
@@ -4412,6 +4550,16 @@ cp_parser_primary_expression (cp_parser *parser,
 	saved_greater_than_is_operator_p
 	  = parser->greater_than_is_operator_p;
 	parser->greater_than_is_operator_p = true;
+
+        // Try to parse a fold-expression.
+        cp_parser_parse_tentatively (parser);
+        tree fold = cp_parser_fold_expression (parser);
+        if (cp_parser_parse_definitely (parser)) 
+          {
+            if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+              cp_parser_skip_to_end_of_statement (parser);
+            return fold;
+          }
 
 	/* Parse the parenthesized expression.  */
 	expr = cp_parser_expression (parser, idk, cast_p, decltype_p);

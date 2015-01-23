@@ -7645,4 +7645,72 @@ capture_decltype (tree decl)
   return type;
 }
 
+/* Build a unary fold expression of EXPR over OP. If IS_RIGHT is true,
+   this is a right unary fold. Otherwise it is a left unary fold. */
+
+static tree 
+finish_unary_fold_expr (tree expr, int op, tree_code dir) 
+{
+  // Build a pack expansion (assuming expr has pack type).
+  if (!PACK_EXPANSION_P (TREE_TYPE (expr)))
+    {
+      error ("argument %qE is not a pack expansion", expr);
+      return error_mark_node;
+    }
+  tree pack = make_pack_expansion (expr);
+
+  // Build the fold expression.
+  tree code = build_int_cstu (integer_type_node, abs (op));
+  tree fold = build_min (dir, unknown_type_node, code, pack);
+  FOLD_EXPR_MODIFY_P (fold) = (op < 0);
+  return fold;
+}
+
+tree 
+finish_left_unary_fold_expr (tree expr, int op) 
+{
+  return finish_unary_fold_expr(expr, op, UNARY_LEFT_FOLD_EXPR);
+}
+
+tree 
+finish_right_unary_fold_expr (tree expr, int op) 
+{
+  return finish_unary_fold_expr(expr, op, UNARY_RIGHT_FOLD_EXPR);
+}
+
+
+/* Build a binary fold expression over EXPR1 and EXPR2. The
+   associativity of the fold is determined EXPR1 and EXPR2 (whichever
+   has an unexpanded parameter pack). */
+
+tree
+finish_binary_fold_expr (tree pack, tree init, int op, tree_code dir) {
+  pack = make_pack_expansion (pack);
+  tree code = build_int_cstu (integer_type_node, abs (op));
+  tree fold = build_min (dir, unknown_type_node, code, pack, init);
+  FOLD_EXPR_MODIFY_P (fold) = (op < 0);
+  return fold;
+}
+
+tree 
+finish_binary_fold_expr (tree expr1, tree expr2, int op) 
+{
+  // Determine which expr has an unexpanded parameter pack and
+  // set the pack and initial term. 
+  tree type1 = TREE_TYPE (expr1);
+  tree type2 = TREE_TYPE (expr2);
+  if (PACK_EXPANSION_P (type1) && !PACK_EXPANSION_P (type2))
+    return finish_binary_fold_expr (expr1, expr2, op, BINARY_RIGHT_FOLD_EXPR);
+  else if (PACK_EXPANSION_P (type2) && !PACK_EXPANSION_P (type1))
+    return finish_binary_fold_expr (expr2, expr1, op, BINARY_LEFT_FOLD_EXPR);
+  else
+    {
+      if (PACK_EXPANSION_P (type1))
+        error ("both arguments in binary fold have unexpanded parameter packs");
+      else
+        error ("no unexpanded parameter packs in binary fold");
+    }
+  return error_mark_node;
+}
+
 #include "gt-cp-semantics.h"
