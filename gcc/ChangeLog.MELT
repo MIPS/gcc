@@ -1,5 +1,9 @@
 
-2015-01-21   Basile Starynkevitch  <basile@starynkevitch.net>
+2015-01-23   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-gimple.melt: Adding all static_casts. Compiles
+	ok.
+
+2015-01-22   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{@@ STILL UNSTABLE and not fully building, but with progress...}}
 	* melt/libmelt-ana-gimple.melt: Adding more static_casts. Incomplete.
 

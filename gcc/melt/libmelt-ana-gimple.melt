@@ -3178,7 +3178,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 			      ($GR));
   $GBODY = gimple_bind_body(
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gbind*>
+	    static_cast <gbind*>
 #endif /* GCC 5.0 */
 			    ($GR));
   }# 
@@ -3245,42 +3245,82 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   #{ /* gimple_switch $gimpswitch ? */ ($gr &&  gimple_code($gr) == GIMPLE_SWITCH) }#
   ;; fill
   #{ /* gimple_switch $gimpswitch ! */
-  $tindex = gimple_switch_index ($gr);
-  $numlabels = gimple_switch_num_labels ($gr);
-  $tdeflab = gimple_switch_default_label ($gr);
+  $tindex = gimple_switch_index (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gswitch*>
+#endif /* GCC 5.0 */
+				 ($GR));
+  $numlabels = gimple_switch_num_labels (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gswitch*>
+#endif /* GCC 5.0 */
+					 ($GR));
+  $tdeflab = gimple_switch_default_label (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gswitch*>
+#endif /* GCC 5.0 */
+					  ($GR));
   }#
   ;; operate
-  #{ /* gimple_switch: */ gimple_build_switch_nlabels($NUMLABELS, $TINDEX, $TDEFLAB) }#
+  #{ /* gimple_switch: */
+  gimple_build_switch_nlabels($NUMLABELS, $TINDEX, $TDEFLAB) }#
 )
 
 ;;; return the index of a switch
 (defprimitive gimple_switch_index (:gimple gs) :tree
   :doc #{Retrieve the index of gimple switch $GS.}#
   #{ (($GS) && gimple_code($GS) == GIMPLE_SWITCH) ? 
-  gimple_switch_index($GS) : (tree) NULL }#)
+  gimple_switch_index(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gswitch*>
+#endif /* GCC 5.0 */
+	    ($GS)) : (tree) NULL }#)
 
 ;;; set the index of a switch
 (defprimitive gimple_switch_set_index (:gimple gs :tree trix) :void
   :doc #{In gimple switch $GS set the index to $TRIX.}#
   #{ if (($GS) && gimple_code($GS) == GIMPLE_SWITCH && ($TRIX) && (SSA_VAR_P ($TRIX) || CONSTANT_CLASS_P ($TRIX)))
-  { gimple_switch_set_index ($GS, $TRIX); }
+  { gimple_switch_set_index (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <gswitch*>
+#endif /* GCC 5.0 */
+			     ($GS), $TRIX);
+  }
   }#)
 
 ;;; return a tree label in a switch
 (defprimitive gimple_switch_label (:gimple gs :long n) :tree
   :doc #{Safely retrieve in gimple switch $GS the $N-th label -with $N positive or zero-.}#
   #{ (($GS) && gimple_code($GS) == GIMPLE_SWITCH
-      &&  $N >= 0 &&  $N < gimple_switch_num_labels($GS)) ?
-  gimple_switch_label($GS, $N) : NULL_TREE }#)
+      &&  $N >= 0 &&  $N < gimple_switch_num_labels(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gswitch*>
+#endif /* GCC 5.0 */
+						    ($GS))) ?
+  gimple_switch_label(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gswitch*>
+#endif /* GCC 5.0 */
+                       ($GS), $N)
+              : NULL_TREE
+}#)
 
 ;;; set the tree label in a switch
 (defprimitive gimple_switch_set_label (:gimple gs :long n :tree tlab) :void
   :doc  #{Safely set in gimple switch $GS the $N-th label -with $N positive or zero- to tree case label $TLAB.}#
   #{ /* gimple_switch_set_label */
   if (($GS) && gimple_code($GS) == GIMPLE_SWITCH
-      &&  $N >= 0 &&  $N < gimple_switch_num_labels($GS)
+      &&  $N >= 0 &&  $N < gimple_switch_num_labels(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gswitch*>
+#endif /* GCC 5.0 */
+						    ($GS))
       && ($TLAB == NULL_TREE || TREE_CODE($TLAB) == CASE_LABEL_EXPR))
-     gimple_switch_set_label ($GS, (unsigned)$N, $TLAB);
+     gimple_switch_set_label (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <gswitch*>
+#endif /* GCC 5.0 */
+                     ($GS), (unsigned)$N, $TLAB);
   }#)
 
 (defun make_gimple_switch (indexv defcasev cases)
@@ -3373,13 +3413,22 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
       $CASEIX = 0L;
       if ($GS &&  gimple_code($GS) == GIMPLE_SWITCH)
       {
-          int $ECOS#_n = gimple_switch_num_labels($GS);
+      int $ECOS#_n = gimple_switch_num_labels
+      (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gswitch*>
+#endif /* GCC 5.0 */
+       ($GS));
 
           for ($ECOS#_i = 0; 
 	       $ECOS#_i < $ECOS#_n; 
                $ECOS#_i++)
           {
-              $TCASE = gimple_switch_label ($GS, $ECOS#_i);
+	  $TCASE = gimple_switch_label (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gswitch*>
+#endif /* GCC 5.0 */
+					($GS), $ECOS#_i);
               $CASEIX = $ECOS#_i;
   }#
 
@@ -3421,9 +3470,18 @@ the $N-th argdef of a gimple phinode.}#
 (defprimitive gimple_phi_nth_arg_edge (:gimple g :long n) :edge
   :doc #{$GIMPLE_PHI_NTH_ARG_EDGE safely retrieve from gimple $G 
 the $N-th edge of a gimple phinode.}#
-  #{ ( ($g && gimple_code($G) == GIMPLE_PHI 
-	   && $N >= 0 && $N < gimple_phi_num_args ($G)) 
-       ? gimple_phi_arg_edge($G, $N) : (edge) NULL) }#)
+  #{ ( ($G && gimple_code($G) == GIMPLE_PHI 
+	   && $N >= 0 && $N < gimple_phi_num_args
+	   (
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <const gphi*>
+#endif /* GCC 5.0 */
+	    ($G))) 
+       ? gimple_phi_arg_edge(
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+	    static_cast <gphi*>
+#endif /* GCC 5.0 */
+			     ($G), $N) : (edge) NULL) }#)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
