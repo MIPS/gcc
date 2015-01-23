@@ -1,5 +1,5 @@
 /* Primary expression subroutines
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -2379,7 +2379,7 @@ build_actual_constructor (gfc_structure_ctor_component **comp_head,
 				   "structure constructor at %C", comp->name))
 		return false;
 	    }
-	  else if (!comp->attr.deferred_parameter)
+	  else if (!comp->attr.artificial)
 	    {
 	      gfc_error ("No initializer for component %qs given in the"
 			 " structure constructor at %C!", comp->name);
@@ -2461,7 +2461,7 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
 	{
 	  /* Components without name are not allowed after the first named
 	     component initializer!  */
-	  if (!comp || comp->attr.deferred_parameter)
+	  if (!comp || comp->attr.artificial)
 	    {
 	      if (last_name)
 		gfc_error ("Component initializer without name after component"

@@ -698,7 +698,8 @@ Gogo::init_imports(std::vector<Bstatement*>& init_stmts)
       Bexpression* pfunc_code =
           this->backend()->function_code_expression(pfunc, unknown_loc);
       Bexpression* pfunc_call =
-          this->backend()->call_expression(pfunc_code, empty_args, unknown_loc);
+	this->backend()->call_expression(pfunc_code, empty_args,
+					 NULL, unknown_loc);
       init_stmts.push_back(this->backend()->expression_statement(pfunc_call));
     }
 }
@@ -1088,6 +1089,7 @@ sort_var_inits(Gogo* gogo, Var_inits* var_inits)
   // variable initializations that depend on it.
   typedef std::map<Var_init, std::set<Var_init*> > Init_deps;
   Init_deps init_deps;
+  bool init_loop = false;
   for (Var_inits::iterator p1 = var_inits->begin();
        p1 != var_inits->end();
        ++p1)
@@ -1136,14 +1138,15 @@ sort_var_inits(Gogo* gogo, Var_inits* var_inits)
 			   p2var->message_name().c_str());
 		  inform(p2->var()->location(), "%qs defined here",
 			 p2var->message_name().c_str());
-		  p2 = var_inits->end();
+		  init_loop = true;
+		  break;
 		}
 	    }
 	}
     }
 
   // If there are no dependencies then the declaration order is sorted.
-  if (!init_deps.empty())
+  if (!init_deps.empty() && !init_loop)
     {
       // Otherwise, sort variable initializations by emitting all variables with
       // no dependencies in declaration order. VAR_INITS is already in
@@ -1413,7 +1416,7 @@ Gogo::write_globals()
           this->backend()->function_code_expression(initfn, func_loc);
       Bexpression* call = this->backend()->call_expression(func_code,
                                                            empty_args,
-                                                           func_loc);
+							   NULL, func_loc);
       init_stmts.push_back(this->backend()->expression_statement(call));
     }
 
@@ -3915,6 +3918,7 @@ Build_recover_thunks::function(Named_object* orig_no)
       Variable* orig_closure_var = orig_closure_no->var_value();
       Variable* new_var = new Variable(orig_closure_var->type(), NULL, false,
 				       false, false, location);
+      new_var->set_is_closure();
       snprintf(buf, sizeof buf, "closure.%u", count);
       ++count;
       Named_object* new_closure_no = Named_object::make_variable(buf, NULL,
@@ -4518,6 +4522,7 @@ Function::closure_var()
       Variable* var = new Variable(Type::make_pointer_type(struct_type),
 				   NULL, false, false, false, loc);
       var->set_is_used();
+      var->set_is_closure();
       this->closure_var_ = Named_object::make_variable("$closure", NULL, var);
       // Note that the new variable is not in any binding contour.
     }
@@ -5188,18 +5193,12 @@ Function::build(Gogo* gogo, Named_object* named_function)
       return;
     }
 
-  // If we need a closure variable, fetch it by calling a runtime
-  // function.  The caller will have called __go_set_closure before
-  // the function call.
+  // If we need a closure variable, make sure to create it.
+  // It gets installed in the function as a side effect of creation.
   if (this->closure_var_ != NULL)
     {
-      Bvariable* closure_bvar =
-	this->closure_var_->get_backend_variable(gogo, named_function);
-      vars.push_back(closure_bvar);
-
-      Expression* closure =
-          Runtime::make_call(Runtime::GET_CLOSURE, this->location_, 0);
-      var_inits.push_back(closure->get_backend(&context));
+      go_assert(this->closure_var_->var_value()->is_closure());
+      this->closure_var_->get_backend_variable(gogo, named_function);
     }
 
   if (this->block_ != NULL)
@@ -5733,7 +5732,8 @@ Variable::Variable(Type* type, Expression* init, bool is_global,
 		   Location location)
   : type_(type), init_(init), preinit_(NULL), location_(location),
     backend_(NULL), is_global_(is_global), is_parameter_(is_parameter),
-    is_receiver_(is_receiver), is_varargs_parameter_(false), is_used_(false),
+    is_closure_(false), is_receiver_(is_receiver),
+    is_varargs_parameter_(false), is_used_(false),
     is_address_taken_(false), is_non_escaping_address_taken_(false),
     seen_(false), init_is_lowered_(false), init_is_flattened_(false),
     type_from_init_tuple_(false), type_from_range_index_(false),
@@ -6287,7 +6287,10 @@ Variable::get_backend_variable(Gogo* gogo, Named_object* function,
 	      Bfunction* bfunction = function->func_value()->get_decl();
 	      bool is_address_taken = (this->is_non_escaping_address_taken_
 				       && !this->is_in_heap());
-	      if (is_parameter)
+	      if (this->is_closure())
+		bvar = backend->static_chain_variable(bfunction, n, btype,
+						      this->location_);
+	      else if (is_parameter)
 		bvar = backend->parameter_variable(bfunction, n, btype,
 						   is_address_taken,
 						   this->location_);

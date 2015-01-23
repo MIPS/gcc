@@ -1,5 +1,5 @@
 /* Expression translation
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -25,7 +25,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "gfortran.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "diagnostic-core.h"	/* For fatal_error.  */
 #include "langhooks.h"
@@ -40,7 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-stmt.h"
 #include "dependency.h"
 #include "gimplify.h"
-#include "wide-int.h"
 
 /* Convert a scalar to an array descriptor. To be used for assumed-rank
    arrays.  */
@@ -1853,11 +1863,11 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
       fault = fold_build2_loc (input_location, TRUTH_ANDIF_EXPR,
 			       boolean_type_node, nonempty, fault);
       if (name)
-	asprintf (&msg, "Substring out of bounds: lower bound (%%ld) of '%s' "
-		  "is less than one", name);
+	msg = xasprintf ("Substring out of bounds: lower bound (%%ld) of '%s' "
+			 "is less than one", name);
       else
-	asprintf (&msg, "Substring out of bounds: lower bound (%%ld)"
-		  "is less than one");
+	msg = xasprintf ("Substring out of bounds: lower bound (%%ld)"
+			 "is less than one");
       gfc_trans_runtime_check (true, false, fault, &se->pre, where, msg,
 			       fold_convert (long_integer_type_node,
 					     start.expr));
@@ -1869,11 +1879,11 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
       fault = fold_build2_loc (input_location, TRUTH_ANDIF_EXPR,
 			       boolean_type_node, nonempty, fault);
       if (name)
-	asprintf (&msg, "Substring out of bounds: upper bound (%%ld) of '%s' "
-		  "exceeds string length (%%ld)", name);
+	msg = xasprintf ("Substring out of bounds: upper bound (%%ld) of '%s' "
+			 "exceeds string length (%%ld)", name);
       else
-	asprintf (&msg, "Substring out of bounds: upper bound (%%ld) "
-		  "exceeds string length (%%ld)");
+	msg = xasprintf ("Substring out of bounds: upper bound (%%ld) "
+			 "exceeds string length (%%ld)");
       gfc_trans_runtime_check (true, false, fault, &se->pre, where, msg,
 			       fold_convert (long_integer_type_node, end.expr),
 			       fold_convert (long_integer_type_node,
@@ -1951,7 +1961,10 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
 
   se->expr = tmp;
 
-  if (c->ts.type == BT_CHARACTER && !c->attr.proc_pointer)
+  /* Allocatable deferred char arrays are to be handled by the gfc_deferred_
+     strlen () conditional below.  */
+  if (c->ts.type == BT_CHARACTER && !c->attr.proc_pointer
+      && !(c->attr.allocatable && c->ts.deferred))
     {
       tmp = c->ts.u.cl->backend_decl;
       /* Components must always be constant length.  */
@@ -4984,18 +4997,19 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 
 	      if (attr.allocatable
 		  && (fsym == NULL || !fsym->attr.allocatable))
-		asprintf (&msg, "Allocatable actual argument '%s' is not "
-			  "allocated or not present", e->symtree->n.sym->name);
+		msg = xasprintf ("Allocatable actual argument '%s' is not "
+				 "allocated or not present",
+				 e->symtree->n.sym->name);
 	      else if (attr.pointer
 		       && (fsym == NULL || !fsym->attr.pointer))
-		asprintf (&msg, "Pointer actual argument '%s' is not "
-			  "associated or not present",
-			  e->symtree->n.sym->name);
+		msg = xasprintf ("Pointer actual argument '%s' is not "
+				 "associated or not present",
+				 e->symtree->n.sym->name);
 	      else if (attr.proc_pointer
 		       && (fsym == NULL || !fsym->attr.proc_pointer))
-		asprintf (&msg, "Proc-pointer actual argument '%s' is not "
-			  "associated or not present",
-			  e->symtree->n.sym->name);
+		msg = xasprintf ("Proc-pointer actual argument '%s' is not "
+				 "associated or not present",
+				 e->symtree->n.sym->name);
 	      else
 		goto end_pointer_check;
 
@@ -5017,16 +5031,16 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	    {
 	      if (attr.allocatable
 		  && (fsym == NULL || !fsym->attr.allocatable))
-		asprintf (&msg, "Allocatable actual argument '%s' is not "
-		      "allocated", e->symtree->n.sym->name);
+		msg = xasprintf ("Allocatable actual argument '%s' is not "
+				 "allocated", e->symtree->n.sym->name);
 	      else if (attr.pointer
 		       && (fsym == NULL || !fsym->attr.pointer))
-		asprintf (&msg, "Pointer actual argument '%s' is not "
-		      "associated", e->symtree->n.sym->name);
+		msg = xasprintf ("Pointer actual argument '%s' is not "
+				 "associated", e->symtree->n.sym->name);
 	      else if (attr.proc_pointer
 		       && (fsym == NULL || !fsym->attr.proc_pointer))
-		asprintf (&msg, "Proc-pointer actual argument '%s' is not "
-		      "associated", e->symtree->n.sym->name);
+		msg = xasprintf ("Proc-pointer actual argument '%s' is not "
+				 "associated", e->symtree->n.sym->name);
 	      else
 		goto end_pointer_check;
 
@@ -5053,10 +5067,18 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	 so that the value can be returned.  */
       if (parmse.string_length && fsym && fsym->ts.deferred)
 	{
-	  tmp = parmse.string_length;
-	  if (TREE_CODE (tmp) != VAR_DECL)
-	    tmp = gfc_evaluate_now (parmse.string_length, &se->pre);
-	  parmse.string_length = gfc_build_addr_expr (NULL_TREE, tmp);
+	  if (INDIRECT_REF_P (parmse.string_length))
+	    /* In chains of functions/procedure calls the string_length already
+	       is a pointer to the variable holding the length.  Therefore
+	       remove the deref on call.  */
+	    parmse.string_length = TREE_OPERAND (parmse.string_length, 0);
+	  else
+	    {
+	      tmp = parmse.string_length;
+	      if (TREE_CODE (tmp) != VAR_DECL)
+		tmp = gfc_evaluate_now (parmse.string_length, &se->pre);
+	      parmse.string_length = gfc_build_addr_expr (NULL_TREE, tmp);
+	    }
 	}
 
       /* Character strings are passed as two parameters, a length and a
@@ -6506,8 +6528,16 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
 	  gfc_init_se (&se, NULL);
 	  gfc_conv_expr (&se, expr);
 	  gfc_add_block_to_block (&block, &se.pre);
-	  gfc_add_modify (&block, dest,
-			       fold_convert (TREE_TYPE (dest), se.expr));
+	  if (cm->ts.u.derived->attr.alloc_comp
+	      && expr->expr_type == EXPR_VARIABLE)
+	    {
+	      tmp = gfc_copy_alloc_comp (cm->ts.u.derived, se.expr,
+					 dest, expr->rank);
+	      gfc_add_expr_to_block (&block, tmp);
+	    }
+	  else
+	    gfc_add_modify (&block, dest,
+			    fold_convert (TREE_TYPE (dest), se.expr));
 	  gfc_add_block_to_block (&block, &se.post);
 	}
       else
@@ -6550,7 +6580,7 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
 	  gfc_add_expr_to_block (&block, tmp);
 	}
     }
-  else if (!cm->attr.deferred_parameter)
+  else if (!cm->attr.artificial)
     {
       /* Scalar component (excluding deferred parameters).  */
       gfc_init_se (&se, NULL);
@@ -7137,6 +7167,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 		rse.expr = gfc_class_data_get (rse.expr);
 	      else
 		{
+		  gfc_add_block_to_block (&block, &rse.pre);
 		  tmp = gfc_create_var (TREE_TYPE (rse.expr), "ptrtemp");
 		  gfc_add_modify (&lse.pre, tmp, rse.expr);
 
@@ -7208,6 +7239,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 	    }
 	  else
 	    {
+	      gfc_add_block_to_block (&block, &rse.pre);
 	      tmp = gfc_create_var (TREE_TYPE (rse.expr), "ptrtemp");
 	      gfc_add_modify (&lse.pre, tmp, rse.expr);
 

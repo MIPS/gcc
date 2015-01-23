@@ -1,5 +1,5 @@
 /* Perform type resolution on the various structures.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -9131,6 +9131,18 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_WAIT:
 	  break;
 
+	case EXEC_OACC_PARALLEL_LOOP:
+	case EXEC_OACC_PARALLEL:
+	case EXEC_OACC_KERNELS_LOOP:
+	case EXEC_OACC_KERNELS:
+	case EXEC_OACC_DATA:
+	case EXEC_OACC_HOST_DATA:
+	case EXEC_OACC_LOOP:
+	case EXEC_OACC_UPDATE:
+	case EXEC_OACC_WAIT:
+	case EXEC_OACC_CACHE:
+	case EXEC_OACC_ENTER_DATA:
+	case EXEC_OACC_EXIT_DATA:
 	case EXEC_OMP_ATOMIC:
 	case EXEC_OMP_CRITICAL:
 	case EXEC_OMP_DISTRIBUTE:
@@ -9946,6 +9958,15 @@ gfc_resolve_code (gfc_code *code, gfc_namespace *ns)
 	  omp_workshare_save = -1;
 	  switch (code->op)
 	    {
+	    case EXEC_OACC_PARALLEL_LOOP:
+	    case EXEC_OACC_PARALLEL:
+	    case EXEC_OACC_KERNELS_LOOP:
+	    case EXEC_OACC_KERNELS:
+	    case EXEC_OACC_DATA:
+	    case EXEC_OACC_HOST_DATA:
+	    case EXEC_OACC_LOOP:
+	      gfc_resolve_oacc_blocks (code, ns);
+	      break;
 	    case EXEC_OMP_PARALLEL_WORKSHARE:
 	      omp_workshare_save = omp_workshare_flag;
 	      omp_workshare_flag = 1;
@@ -10296,6 +10317,21 @@ gfc_resolve_code (gfc_code *code, gfc_namespace *ns)
 	      && (code->expr1->ts.type != BT_LOGICAL || code->expr1->rank))
 	    gfc_error ("FORALL mask clause at %L requires a scalar LOGICAL "
 		       "expression", &code->expr1->where);
+	  break;
+
+	case EXEC_OACC_PARALLEL_LOOP:
+	case EXEC_OACC_PARALLEL:
+	case EXEC_OACC_KERNELS_LOOP:
+	case EXEC_OACC_KERNELS:
+	case EXEC_OACC_DATA:
+	case EXEC_OACC_HOST_DATA:
+	case EXEC_OACC_LOOP:
+	case EXEC_OACC_UPDATE:
+	case EXEC_OACC_WAIT:
+	case EXEC_OACC_CACHE:
+	case EXEC_OACC_ENTER_DATA:
+	case EXEC_OACC_EXIT_DATA:
+	  gfc_resolve_oacc_directive (code, ns);
 	  break;
 
 	case EXEC_OMP_ATOMIC:
@@ -12382,6 +12418,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
   c = (sym->attr.is_class) ? sym->components->ts.u.derived->components
 			   : sym->components;
 
+  bool success = true;
+
   for ( ; c != NULL; c = c->next)
     {
       if (c->attr.artificial)
@@ -12394,7 +12432,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	{
 	  gfc_error ("Coarray component %qs at %L must be allocatable with "
 		     "deferred shape", c->name, &c->loc);
-	  return false;
+	  success = false;
+	  continue;
 	}
 
       /* F2008, C443.  */
@@ -12403,7 +12442,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	{
 	  gfc_error ("Component %qs at %L of TYPE(C_PTR) or TYPE(C_FUNPTR) "
 		     "shall not be a coarray", c->name, &c->loc);
-	  return false;
+	  success = false;
+	  continue;
 	}
 
       /* F2008, C444.  */
@@ -12414,7 +12454,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	  gfc_error ("Component %qs at %L with coarray component "
 		     "shall be a nonpointer, nonallocatable scalar",
 		     c->name, &c->loc);
-	  return false;
+	  success = false;
+	  continue;
 	}
 
       /* F2008, C448.  */
@@ -12422,16 +12463,20 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	{
 	  gfc_error ("Component %qs at %L has the CONTIGUOUS attribute but "
 		     "is not an array pointer", c->name, &c->loc);
-	  return false;
+	  success = false;
+	  continue;
 	}
 
       if (c->attr.proc_pointer && c->ts.interface)
 	{
 	  gfc_symbol *ifc = c->ts.interface;
 
-	  if (!sym->attr.vtype
-	      && !check_proc_interface (ifc, &c->loc))
-	    return false;
+	  if (!sym->attr.vtype && !check_proc_interface (ifc, &c->loc))
+	    {
+	      c->tb->error = 1;
+	      success = false;
+	      continue;
+	    }
 
 	  if (ifc->attr.if_source || ifc->attr.intrinsic)
 	    {
@@ -12474,7 +12519,11 @@ resolve_fl_derived0 (gfc_symbol *sym)
 		  gfc_charlen *cl = gfc_new_charlen (sym->ns, ifc->ts.u.cl);
 		  if (cl->length && !cl->resolved
 		      && !gfc_resolve_expr (cl->length))
-		    return false;
+		    {
+		      c->tb->error = 1;
+		      success = false;
+		      continue;
+		    }
 		  c->ts.u.cl = cl;
 		}
 	    }
@@ -12517,7 +12566,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			     "at %L has no argument %qs", c->name,
 			     c->tb->pass_arg, &c->loc, c->tb->pass_arg);
 		  c->tb->error = 1;
-		  return false;
+		  success = false;
+		  continue;
 		}
 	    }
 	  else
@@ -12531,7 +12581,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			     "must have at least one argument",
 			     c->name, &c->loc);
 		  c->tb->error = 1;
-		  return false;
+		  success = false;
+		  continue;
 		}
 	      me_arg = c->ts.interface->formal->sym;
 	    }
@@ -12547,7 +12598,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			 " the derived type %qs", me_arg->name, c->name,
 			 me_arg->name, &c->loc, sym->name);
 	      c->tb->error = 1;
-	      return false;
+	      success = false;
+	      continue;
 	    }
 
 	  /* Check for C453.  */
@@ -12557,7 +12609,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			 "must be scalar", me_arg->name, c->name, me_arg->name,
 			 &c->loc);
 	      c->tb->error = 1;
-	      return false;
+	      success = false;
+	      continue;
 	    }
 
 	  if (me_arg->attr.pointer)
@@ -12566,7 +12619,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			 "may not have the POINTER attribute", me_arg->name,
 			 c->name, me_arg->name, &c->loc);
 	      c->tb->error = 1;
-	      return false;
+	      success = false;
+	      continue;
 	    }
 
 	  if (me_arg->attr.allocatable)
@@ -12575,12 +12629,17 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			 "may not be ALLOCATABLE", me_arg->name, c->name,
 			 me_arg->name, &c->loc);
 	      c->tb->error = 1;
-	      return false;
+	      success = false;
+	      continue;
 	    }
 
 	  if (gfc_type_is_extensible (sym) && me_arg->ts.type != BT_CLASS)
-	    gfc_error ("Non-polymorphic passed-object dummy argument of %qs"
-		       " at %L", c->name, &c->loc);
+	    {
+	      gfc_error ("Non-polymorphic passed-object dummy argument of %qs"
+			 " at %L", c->name, &c->loc);
+	      success = false;
+	      continue;
+	    }
 
 	}
 
@@ -12653,7 +12712,7 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	      strlen->ts.type = BT_INTEGER;
 	      strlen->ts.kind = gfc_charlen_int_kind;
 	      strlen->attr.access = ACCESS_PRIVATE;
-	      strlen->attr.deferred_parameter = 1;
+	      strlen->attr.artificial = 1;
 	    }
 	}
 
@@ -12748,6 +12807,9 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	  && !gfc_check_assign_symbol (sym, c, c->initializer))
 	return false;
     }
+
+  if (!success)
+    return false;
 
   check_defined_assignments (sym);
 
@@ -14910,6 +14972,7 @@ resolve_codes (gfc_namespace *ns)
   old_obstack = labels_obstack;
   bitmap_obstack_initialize (&labels_obstack);
 
+  gfc_resolve_oacc_declare (ns);
   gfc_resolve_code (ns->code, ns);
 
   bitmap_obstack_release (&labels_obstack);

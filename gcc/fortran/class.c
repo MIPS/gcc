@@ -1,5 +1,5 @@
 /* Implementation of Fortran 2003 Polymorphism.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Paul Richard Thomas <pault@gcc.gnu.org>
    and Janus Weil <janus@gcc.gnu.org>
 
@@ -928,7 +928,7 @@ finalize_component (gfc_expr *expr, gfc_symbol *derived, gfc_component *comp,
       /* Add IF (fini_coarray).  */
       if (comp->attr.codimension
 	  || (comp->ts.type == BT_CLASS && CLASS_DATA (comp)
-	      && CLASS_DATA (comp)->attr.allocatable))
+	      && CLASS_DATA (comp)->attr.codimension))
 	{
 	  block = gfc_get_code (EXEC_IF);
 	  if (*code)

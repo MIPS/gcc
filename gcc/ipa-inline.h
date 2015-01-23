@@ -1,5 +1,5 @@
 /* Inlining decision heuristics.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -224,7 +224,6 @@ struct edge_growth_cache_entry
   inline_hints hints;
 };
 
-extern vec<int> node_growth_cache;
 extern vec<edge_growth_cache_entry> edge_growth_cache;
 
 /* In ipa-inline-analysis.c  */
@@ -245,7 +244,7 @@ void estimate_ipcp_clone_size_and_time (struct cgraph_node *,
 					vec<ipa_polymorphic_call_context>,
 					vec<ipa_agg_jump_function_p>,
 					int *, int *, inline_hints *);
-int do_estimate_growth (struct cgraph_node *);
+int estimate_growth (struct cgraph_node *);
 bool growth_likely_positive (struct cgraph_node *, int);
 void inline_merge_summary (struct cgraph_edge *edge);
 void inline_update_overall_summary (struct cgraph_node *node);
@@ -257,6 +256,8 @@ void free_growth_caches (void);
 void compute_inline_parameters (struct cgraph_node *, bool);
 bool speculation_useful_p (struct cgraph_edge *e, bool anticipate_inlining);
 unsigned int early_inliner (function *fun);
+bool inline_account_function_p (struct cgraph_node *node);
+
 
 /* In ipa-inline-transform.c  */
 bool inline_call (struct cgraph_edge *, bool, vec<cgraph_edge *> *, int *, bool,
@@ -272,21 +273,6 @@ static inline struct inline_edge_summary *
 inline_edge_summary (struct cgraph_edge *edge)
 {
   return &inline_edge_summary_vec[edge->uid];
-}
-
-/* Return estimated unit growth after inlning all calls to NODE.
-   Quick accesors to the inline growth caches.  
-   For convenience we keep zero 0 as unknown.  Because growth
-   can be both positive and negative, we simply increase positive
-   growths by 1. */
-static inline int
-estimate_growth (struct cgraph_node *node)
-{
-  int ret;
-  if ((int)node_growth_cache.length () <= node->uid
-      || !(ret = node_growth_cache[node->uid]))
-    return do_estimate_growth (node);
-  return ret - (ret > 0);
 }
 
 
@@ -340,16 +326,6 @@ estimate_edge_hints (struct cgraph_edge *edge)
       || !(ret = edge_growth_cache[edge->uid].hints))
     return do_estimate_edge_hints (edge);
   return ret - 1;
-}
-
-
-/* Reset cached value for NODE.  */
-
-static inline void
-reset_node_growth_cache (struct cgraph_node *node)
-{
-  if ((int)node_growth_cache.length () > node->uid)
-    node_growth_cache[node->uid] = 0;
 }
 
 /* Reset cached value for EDGE.  */
