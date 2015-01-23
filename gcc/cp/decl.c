@@ -106,7 +106,7 @@ static void bad_specifiers (tree, enum bad_spec_place, int, int, int, int,
 			    int);
 static void check_for_uninitialized_const_var (tree);
 static tree local_variable_p_walkfn (tree *, int *, void *);
-static tree record_builtin_java_type (const char *, int);
+static ttype *record_builtin_java_type (const char *, int);
 static const char *tag_name (enum tag_types);
 static tree lookup_and_check_tag (enum tag_types, tree, tag_scope, bool);
 static int walk_namespaces_r (tree, walk_namespaces_fn, void *);
@@ -170,6 +170,7 @@ static void expand_static_init (tree, tree);
 	tree tinfo_var_id;  */
 
 tree cp_global_trees[CPTI_MAX];
+ttype *cp_global_types[CPTPI_MAX];
 
 /* Indicates that there is a type value in some namespace, although
    that is not necessarily in scope at the moment.  */
@@ -3686,10 +3687,11 @@ record_builtin_type (enum rid rid_index,
  * If SIZE > 0, it is the size of one of the integral types;
  * otherwise it is the negative of the size of one of the other types.  */
 
-static tree
+static ttype *
 record_builtin_java_type (const char* name, int size)
 {
-  tree type, decl;
+  ttype *type;
+  tree decl;
   if (size > 0)
     {
       type = build_nonstandard_integer_type (size, 0);
@@ -3712,7 +3714,7 @@ record_builtin_java_type (const char* name, int size)
     }
   else
     { /* "__java_float" or ""__java_double".  */
-      type = make_node (REAL_TYPE);
+      type = make_type_node (REAL_TYPE);
       TYPE_PRECISION (type) = - size;
       layout_type (type);
     }
@@ -3874,7 +3876,7 @@ cxx_init_decl_processing (void)
 
   /* C++ extensions */
 
-  unknown_type_node = make_node (LANG_TYPE);
+  unknown_type_node = make_type_node (LANG_TYPE);
   record_unknown_type (unknown_type_node, "unknown type");
 
   /* Indirecting an UNKNOWN_TYPE node yields an UNKNOWN_TYPE node.  */
@@ -3885,7 +3887,7 @@ cxx_init_decl_processing (void)
   TYPE_POINTER_TO (unknown_type_node) = unknown_type_node;
   TYPE_REFERENCE_TO (unknown_type_node) = unknown_type_node;
 
-  init_list_type_node = make_node (LANG_TYPE);
+  init_list_type_node = make_type_node (LANG_TYPE);
   record_unknown_type (init_list_type_node, "init list");
 
   {
@@ -3982,7 +3984,7 @@ cxx_init_decl_processing (void)
 	push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
       }
 
-    nullptr_type_node = make_node (NULLPTR_TYPE);
+    nullptr_type_node = make_type_node (NULLPTR_TYPE);
     TYPE_SIZE (nullptr_type_node) = bitsize_int (GET_MODE_BITSIZE (ptr_mode));
     TYPE_SIZE_UNIT (nullptr_type_node) = size_int (GET_MODE_SIZE (ptr_mode));
     TYPE_UNSIGNED (nullptr_type_node) = 1;

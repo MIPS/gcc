@@ -6601,7 +6601,7 @@ convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
 	warning_at (loc, OPT_Wdouble_promotion,
 		    "implicit conversion from %qT to %qT when passing "
 		    "argument to function",
-		    arg_type, double_type_node);
+		    arg_type, TREE_CAST(double_type_node));
       arg = convert_to_real (double_type_node, arg);
     }
   else if (NULLPTR_TYPE_P (arg_type))

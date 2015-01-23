@@ -117,7 +117,7 @@ typedef struct
      (e.g., "signed size_t").  */
   const char *name;
   /* The type itself.  */
-  tree *type;
+  ttype **type;
 } format_type_detail;
 
 
@@ -247,10 +247,10 @@ typedef struct
   int alloc_char;
   /* Pointer to type of argument expected if '*' is used for a width,
      or NULL if '*' not used for widths.  */
-  tree *width_type;
+  ttype **width_type;
   /* Pointer to type of argument expected if '*' is used for a precision,
      or NULL if '*' not used for precisions.  */
-  tree *precision_type;
+  ttype **precision_type;
 } format_kind_info;
 
 #define T_I	&integer_type_node

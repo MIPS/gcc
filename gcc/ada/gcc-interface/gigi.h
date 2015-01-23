@@ -1044,9 +1044,6 @@ extern void enumerate_modes (void (*f) (const char *, int, int, int, int, int,
 }
 #endif
 
-/* Convenient shortcuts.  */
-#define VECTOR_TYPE_P(TYPE) (TREE_CODE (TYPE) == VECTOR_TYPE)
-
 /* If EXP's type is a VECTOR_TYPE, return EXP converted to the associated
    TYPE_REPRESENTATIVE_ARRAY.  */
 

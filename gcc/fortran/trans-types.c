@@ -983,7 +983,7 @@ gfc_init_types (void)
 			wi::mask (n, UNSIGNED,
 				  TYPE_PRECISION (size_type_node)));
 
-  boolean_type_node = gfc_get_logical_type (gfc_default_logical_kind);
+  boolean_type_node = TTYPE (gfc_get_logical_type (gfc_default_logical_kind));
   boolean_true_node = build_int_cst (boolean_type_node, 1);
   boolean_false_node = build_int_cst (boolean_type_node, 0);
 
@@ -2794,7 +2794,7 @@ gfc_get_function_type (gfc_symbol * sym)
 	  else
 	    /* Deferred character lengths are transferred by reference
 	       so that the value can be returned.  */
-	    vec_safe_push (typelist, build_pointer_type(gfc_charlen_type_node));
+	    vec_safe_push (typelist, TREE_CAST (build_pointer_type(gfc_charlen_type_node)));
 	}
     }
 

@@ -625,7 +625,7 @@ java_init_decl_processing (void)
 			unsigned_long_type_node));
 
   /* Define these next since types below may used them.  */
-  integer_type_node = java_type_for_size (INT_TYPE_SIZE, 0);
+  integer_type_node = TTYPE (java_type_for_size (INT_TYPE_SIZE, 0));
   integer_zero_node = build_int_cst (NULL_TREE, 0);
   integer_one_node = build_int_cst (NULL_TREE, 1);
   integer_two_node = build_int_cst (NULL_TREE, 2);
@@ -670,14 +670,14 @@ java_init_decl_processing (void)
   promoted_boolean_type_node
     = push_promoted_type ("promoted_boolean", boolean_type_node);
 
-  float_type_node = make_node (REAL_TYPE);
+  float_type_node = make_type_node (REAL_TYPE);
   TYPE_PRECISION (float_type_node) = 32;
   pushdecl (build_decl (BUILTINS_LOCATION,
 			TYPE_DECL, get_identifier ("float"),
                         float_type_node));
   layout_type (float_type_node);
 
-  double_type_node = make_node (REAL_TYPE);
+  double_type_node = make_type_node (REAL_TYPE);
   TYPE_PRECISION (double_type_node) = 64;
   pushdecl (build_decl (BUILTINS_LOCATION,
 			TYPE_DECL, get_identifier ("double"),

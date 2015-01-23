@@ -814,13 +814,13 @@ set_array_type_canon (tree t, tree elt_type, tree index_type)
    variant element type is a variant of the array of the main variant of
    the element type.  */
 
-tree
+ttype *
 build_cplus_array_type (tree elt_type, tree index_type)
 {
   tree t;
 
   if (elt_type == error_mark_node || index_type == error_mark_node)
-    return error_mark_node;
+    return error_type_node;
 
   bool dependent
     = (processing_template_decl
@@ -850,7 +850,7 @@ build_cplus_array_type (tree elt_type, tree index_type)
       tree *e = cplus_array_htab->find_slot_with_hash (&cai, hash, INSERT); 
       if (*e)
 	/* We have found the type: we're done.  */
-	return (tree) *e;
+	return TTYPE (*e);
       else
 	{
 	  /* Build a new array type.  */
@@ -915,7 +915,7 @@ build_cplus_array_type (tree elt_type, tree index_type)
 	}
     }
 
-  return t;
+  return TTYPE (t);
 }
 
 /* Return an ARRAY_TYPE with element type ELT and length N.  */
