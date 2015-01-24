@@ -2888,7 +2888,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 	  if (code == COND_EXPR)
 	    {
 	      if (real_lvalue_p (args[i]))
-		vec_safe_push (types[i], build_reference_type (argtypes[i]));
+		vec_safe_push (types[i], TREE_CAST (build_reference_type (argtypes[i])));
 
 	      vec_safe_push (types[i], TYPE_MAIN_VARIANT (argtypes[i]));
 	    }
@@ -2925,7 +2925,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
       else
 	{
 	  if (code == COND_EXPR && real_lvalue_p (args[i]))
-	    vec_safe_push (types[i], build_reference_type (argtypes[i]));
+	    vec_safe_push (types[i], TREE_CAST (build_reference_type (argtypes[i])));
 	  type = non_reference (argtypes[i]);
 	  if (i != 0 || ! ref1)
 	    {

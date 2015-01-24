@@ -4728,7 +4728,7 @@ build_decl_attribute_variant (tree ddecl, tree attribute)
 
    Record such modified types already made so we don't make duplicates.  */
 
-tree
+ttype *
 build_type_attribute_qual_variant (tree type, tree attribute, int quals)
 {
   if (! attribute_list_equal (TYPE_ATTRIBUTES (type), attribute))
@@ -4807,7 +4807,7 @@ build_type_attribute_qual_variant (tree type, tree attribute, int quals)
   else if (TYPE_QUALS (type) != quals)
     type = build_qualified_type (type, quals);
 
-  return type;
+  return TTYPE (type);
 }
 
 /* Check if "omp declare simd" attribute arguments, CLAUSES1 and CLAUSES2, are
@@ -4952,7 +4952,7 @@ comp_type_attributes (const_tree type1, const_tree type2)
 
    Record such modified types already made so we don't make duplicates.  */
 
-tree
+ttype *
 build_type_attribute_variant (tree type, tree attribute)
 {
   return build_type_attribute_qual_variant (type, attribute,
@@ -6438,7 +6438,7 @@ get_qualified_type (tree type, int type_quals)
 /* Like get_qualified_type, but creates the type if it does not
    exist.  This function never returns NULL_TREE.  */
 
-tree
+ttype *
 build_qualified_type (tree type, int type_quals)
 {
   tree t;
@@ -6481,7 +6481,7 @@ build_qualified_type (tree type, int type_quals)
 
     }
 
-  return t;
+  return TTYPE (t);
 }
 
 /* Create a variant of type T with alignment ALIGN.  */
@@ -7776,7 +7776,7 @@ build_reference_type_for_mode (tree to_type, machine_mode mode,
 /* Build the node for the type of references-to-TO_TYPE by default
    in ptr_mode.  */
 
-tree
+ttype *
 build_reference_type (tree to_type)
 {
   addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
@@ -7829,10 +7829,10 @@ build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
    or BOOLEAN_TYPE) with low bound LOWVAL and high bound HIGHVAL.  If SHARED
    is true, reuse such a type that has already been constructed.  */
 
-static tree
+static ttype *
 build_range_type_1 (tree type, tree lowval, tree highval, bool shared)
 {
-  tree itype = make_node (INTEGER_TYPE);
+  ttype *itype = make_type_node (INTEGER_TYPE);
   inchash::hash hstate;
 
   TREE_TYPE (itype) = type;
@@ -7864,14 +7864,14 @@ build_range_type_1 (tree type, tree lowval, tree highval, bool shared)
   inchash::add_expr (TYPE_MIN_VALUE (itype), hstate);
   inchash::add_expr (TYPE_MAX_VALUE (itype), hstate);
   hstate.merge_hash (TYPE_HASH (type));
-  itype = type_hash_canon (hstate.end (), itype);
+  itype = TTYPE (type_hash_canon (hstate.end (), itype));
 
   return itype;
 }
 
 /* Wrapper around build_range_type_1 with SHARED set to true.  */
 
-tree
+ttype *
 build_range_type (tree type, tree lowval, tree highval)
 {
   return build_range_type_1 (type, lowval, highval, true);
@@ -7879,7 +7879,7 @@ build_range_type (tree type, tree lowval, tree highval)
 
 /* Wrapper around build_range_type_1 with SHARED set to false.  */
 
-tree
+ttype *
 build_nonshared_range_type (tree type, tree lowval, tree highval)
 {
   return build_range_type_1 (type, lowval, highval, false);
@@ -8109,10 +8109,10 @@ maybe_canonicalize_argtypes (tree argtypes,
    are data type nodes for the arguments of the function.
    If such a type has already been constructed, reuse it.  */
 
-tree
+ttype *
 build_function_type (tree value_type, tree arg_types)
 {
-  tree t;
+  ttype *t;
   inchash::hash hstate;
   bool any_structural_p, any_noncanonical_p;
   tree canon_argtypes;
@@ -8124,14 +8124,14 @@ build_function_type (tree value_type, tree arg_types)
     }
 
   /* Make a node of the sort we want.  */
-  t = make_node (FUNCTION_TYPE);
+  t = make_type_node (FUNCTION_TYPE);
   TREE_TYPE (t) = value_type;
   TYPE_ARG_TYPES (t) = arg_types;
 
   /* If we already have such a type, use the old one.  */
   hstate.add_object (TYPE_HASH (value_type));
   type_hash_list (arg_types, hstate);
-  t = type_hash_canon (hstate.end (), t);
+  t = TTYPE (type_hash_canon (hstate.end (), t));
 
   /* Set up the canonical type. */
   any_structural_p   = TYPE_STRUCTURAL_EQUALITY_P (value_type);
@@ -8223,9 +8223,9 @@ build_varargs_function_type_list (tree return_type, ...)
    function takes N named arguments, the types of which are provided in
    ARG_TYPES.  */
 
-static tree
+static ttype *
 build_function_type_array_1 (bool vaargs, tree return_type, int n,
-			     tree *arg_types)
+			     type_array arg_types)
 {
   int i;
   tree t = vaargs ? NULL_TREE : void_list_node;
@@ -8240,8 +8240,8 @@ build_function_type_array_1 (bool vaargs, tree return_type, int n,
    function.  The function takes N named arguments, the types of which
    are provided in ARG_TYPES.  */
 
-tree
-build_function_type_array (tree return_type, int n, tree *arg_types)
+ttype *
+build_function_type_array (tree return_type, int n, type_array arg_types)
 {
   return build_function_type_array_1 (false, return_type, n, arg_types);
 }
@@ -8250,8 +8250,9 @@ build_function_type_array (tree return_type, int n, tree *arg_types)
    returned by the function.  The function takes N named arguments, the
    types of which are provided in ARG_TYPES.  */
 
-tree
-build_varargs_function_type_array (tree return_type, int n, tree *arg_types)
+ttype *
+build_varargs_function_type_array (tree return_type, int n,
+				   type_array arg_types)
 {
   return build_function_type_array_1 (true, return_type, n, arg_types);
 }

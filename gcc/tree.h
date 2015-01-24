@@ -3792,7 +3792,7 @@ extern tree truth_type_for (tree);
 extern ttype *build_pointer_type_for_mode (tree, machine_mode, bool);
 extern ttype *build_pointer_type (tree);
 extern ttype *build_reference_type_for_mode (tree, machine_mode, bool);
-extern tree build_reference_type (tree);
+extern ttype *build_reference_type (tree);
 extern tree build_vector_type_for_mode (tree, machine_mode);
 extern tree build_vector_type (tree innertype, int nunits);
 extern tree build_opaque_vector_type (tree innertype, int nunits);
@@ -3800,11 +3800,20 @@ extern tree build_index_type (tree);
 extern ttype *build_array_type (tree, tree);
 extern tree build_nonshared_array_type (tree, tree);
 extern tree build_array_type_nelts (tree, unsigned HOST_WIDE_INT);
-extern tree build_function_type (tree, tree);
+extern ttype *build_function_type (tree, tree);
 extern tree build_function_type_list (tree, ...);
 extern tree build_varargs_function_type_list (tree, ...);
-extern tree build_function_type_array (tree, int, tree *);
-extern tree build_varargs_function_type_array (tree, int, tree *);
+
+class type_array {
+  void *vec;
+public:
+  inline type_array (tree *t) { vec = t; }
+  inline type_array (ttype **t) { vec = t; }
+  tree operator[] (unsigned x) { return ((tree *)vec)[x]; }
+};
+
+extern ttype *build_function_type_array (tree, int, type_array);
+extern ttype *build_varargs_function_type_array (tree, int, type_array);
 #define build_function_type_vec(RET, V) \
   build_function_type_array (RET, vec_safe_length (V), vec_safe_address (V))
 #define build_varargs_function_type_vec(RET, V) \
@@ -3872,9 +3881,9 @@ extern tree make_tree (tree, rtx);
    Such modified types already made are recorded so that duplicates
    are not made.  */
 
-extern tree build_type_attribute_variant (tree, tree);
+extern ttype *build_type_attribute_variant (tree, tree);
 extern tree build_decl_attribute_variant (tree, tree);
-extern tree build_type_attribute_qual_variant (tree, tree, int);
+extern ttype *build_type_attribute_qual_variant (tree, tree, int);
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a
@@ -3989,7 +3998,7 @@ extern tree get_qualified_type (tree, int);
 /* Like get_qualified_type, but creates the type if it does not
    exist.  This function never returns NULL_TREE.  */
 
-extern tree build_qualified_type (tree, int);
+extern ttype *build_qualified_type (tree, int);
 
 /* Create a variant of type T with alignment ALIGN.  */
 
@@ -4446,8 +4455,8 @@ extern void init_ttree (void);
 extern void build_common_tree_nodes (bool, bool);
 extern void build_common_builtin_nodes (void);
 extern ttype *build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
-extern tree build_range_type (tree, tree, tree);
-extern tree build_nonshared_range_type (tree, tree, tree);
+extern ttype *build_range_type (tree, tree, tree);
+extern ttype *build_nonshared_range_type (tree, tree, tree);
 extern bool subrange_type_for_debug_p (const_tree, tree *, tree *);
 extern HOST_WIDE_INT int_cst_value (const_tree);
 extern tree tree_block (tree);
@@ -4997,6 +5006,5 @@ ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)"))) ;
 
 #define TREE_TTYPE(NODE) (as_a <ttype *>(TREE_TYPE (NODE)))
 #define TREE_CAST(NODE) ((tree)(NODE))
-
 
 #endif  /* GCC_TREE_H  */
