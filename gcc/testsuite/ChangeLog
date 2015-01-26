@@ -1,3 +1,126 @@
+2015-01-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR testsuite/64712
+	* gnat.dg/unchecked_convert1.adb (Unchecked_Convert1): Initialize A.
+
+2015-01-26  Tony Liu  <tony.liu@arm.com>
+
+	* gcc.target/arm/scd42-1.c: Improve the check for UAL and
+	non-UAL cases.
+
+2015-01-26  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/64770
+	* gfortran.dg/open_new_segv.f90: Add dg- stuff to make test work
+	correctly, clean up afterwards.
+
+2015-01-25  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/62044
+	* gfortran.dg/use_rename_7.f90: New.
+
+2015-01-25  Allan Sandfeld Jensen  <sandfeld@kde.org>
+
+	* gcc.target/i386/funcspec-5.c: Test new multiversion targets.
+	* g++.dg/ext/mv17.C: Test BMI/BMI2 multiversion dispatcher.
+
+2015-01-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54236
+	* gcc.target/sh/pr54236-4.c: New.
+
+2015-01-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/builtin_target.c (check_intel_cpu_model): Add
+	Silvermont, Ivy Bridge, Haswell and Broadwell tests.  Update Sandy
+	Bridge test.
+
+2015-01-24  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/64770
+	* gfortran.dg/open_new_segv.f90: New test.
+
+2015-01-24  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/49263
+	PR target/53987
+	PR target/64345
+	PR target/59533
+	PR target/52933
+	PR target/54236
+	PR target/51244
+	* gcc.target/sh/pr64345-1.c: New.
+	* gcc.target/sh/pr64345-2.c: New.
+	* gcc.target/sh/pr59533-1.c: New.
+	* gcc.target/sh/pr49263.c: Adjust matching of expected insns.
+	* gcc.target/sh/pr52933-2.c: Likewise.
+	* gcc.target/sh/pr54089-1.c: Likewise.
+	* gcc.target/sh/pr54236-1.c: Likewise.
+	* gcc.target/sh/pr51244-20-sh2a.c: Likewise.
+	* gcc.target/sh/pr49263-1.c: Remove xfails.
+	* gcc.target/sh/pr49263-2.c: Likewise.
+	* gcc.target/sh/pr49263-3.c: Likewise.
+	* gcc.target/sh/pr53987-1.c: Likewise.
+	* gcc.target/sh/pr52933-1.c: Adjust matching of expected insns.
+	(test_24, test_25, test_26, test_27, test_28, test_29, test_30): New.
+	* gcc.target/sh/pr51244-12.c: Adjust matching of expected insns.
+	(test05, test06, test07, test08, test09, test10, test11, test12): New.
+	* gcc.target/sh/pr54236-3.c: Adjust matching of expected insns.
+	(test_002, test_003, test_004, test_005, test_006, test_007, test_008,
+	test_009): New.
+	* gcc.target/sh/pr51244-4.c: Adjust matching of expected insns.
+	(test_02): New.
+
+2015-01-24  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.target/i386/funcspec-5.c: Replace avx512 with avx512f.
+
+2015-01-23  Ian Lance Taylor  <iant@google.com>
+
+	PR go/64510
+	* go.test/go-test.exp (go-gc-tests): Skip nilptr2.go test on
+	targets without split stack support.
+
+2015-01-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/64317
+	* gcc.target/i386/pr64317.c: New test.
+
+2015-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/63637
+	PR rtl-optimization/60663
+	* gcc.dg/pr63637-1.c: New test.
+	* gcc.dg/pr63637-2.c: New test.
+	* gcc.dg/pr63637-3.c: New test.
+	* gcc.dg/pr63637-4.c: New test.
+	* gcc.dg/pr63637-5.c: New test.
+	* gcc.dg/pr63637-6.c: New test.
+	* gcc.target/i386/pr63637-1.c: New test.
+	* gcc.target/i386/pr63637-2.c: New test.
+	* gcc.target/i386/pr63637-3.c: New test.
+	* gcc.target/i386/pr63637-4.c: New test.
+	* gcc.target/i386/pr63637-5.c: New test.
+	* gcc.target/i386/pr63637-6.c: New test.
+
+2015-01-23  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/63439
+	* gcc.dg/vect/bb-slp-11.c: Require vect_pack_trunc.
+	* gcc.dg/vect/bb-slp-26.c: Require vect_hw_misalign.
+
+2015-01-23  Marek Polacek  <polacek@redhat.com>
+
+	PR preprocessor/60570
+	* gcc.dg/cpp/pr36320.c: Turn dg-error into dg-bogus.
+	* gcc.dg/cpp/pr60570.c: New test.
+
+2015-01-23  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/63439
+	* gcc.dg/vect/vect-33.c: Adjust target selectors for v16qi
+	vectorization on vect64 targets.
+
 2015-01-23  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/60922

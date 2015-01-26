@@ -1,3 +1,239 @@
+2015-01-26  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/arm.c (arm_file_start): Update the assignment of
+	Tag_ABI_HardFP_use.
+
+2014-01-25  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/arm-cores.def (cortex-a57): Use the new Cortex-A57
+	pipeline model.
+	config/arm/arm.md: Include the new Cortex-A57 model.
+	(generic_sched): Don't use generic_sched when tuning for
+	Cortex-A57.
+
+2015-01-25  Allan Sandfeld Jensen  <sandfeld@kde.org>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (get_builtin_code_for_version): Add
+	support for BMI and BMI2 multiversion functions.
+
+2015-01-25  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* emit-rtl.h (store_bit_field): Move prototype to expmed.h.
+	(extract_bit_field): Likewise.
+	(extract_low_bits): Likewise.
+	(expand_mult): Likewise.
+	(expand_mult_highpart_adjust): Likewise.
+
+2015-01-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Check new
+	Silvermont, Haswell, Broadwell and Knights Landing model numbers.
+	* config/i386/i386.c (processor_model): Add
+	M_INTEL_COREI7_BROADWELL.
+	(arch_names_table): Add "broadwell".
+
+2015-01-24  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/49263
+	PR target/53987
+	PR target/64345
+	PR target/59533
+	PR target/52933
+	PR target/54236
+	PR target/51244
+	* config/sh/sh-protos.h
+	(sh_extending_set_of_reg::can_use_as_unextended_reg,
+	sh_extending_set_of_reg::use_as_unextended_reg,
+	sh_is_nott_insn, sh_movt_set_dest, sh_movrt_set_dest, sh_is_movt_insn,
+	sh_is_movrt_insn, sh_insn_operands_modified_between_p,
+	sh_reg_dead_or_unused_after_insn, sh_in_recog_treg_set_expr,
+	sh_recog_treg_set_expr, sh_split_treg_set_expr): New functions.
+	(sh_treg_insns): New class.
+	* config/sh/sh.c (TARGET_LEGITIMATE_COMBINED_INSN): Define target hook.
+	(scope_counter): New class.
+	(sh_legitimate_combined_insn, sh_is_nott_insn, sh_movt_set_dest,
+	sh_movrt_set_dest, sh_reg_dead_or_unused_after_insn,
+	sh_extending_set_of_reg::can_use_as_unextended_reg,
+	sh_extending_set_of_reg::use_as_unextended_reg, sh_recog_treg_set_expr,
+	sh_in_recog_treg_set_expr, sh_try_split_insn_simple,
+	sh_split_treg_set_expr): New functions.
+	(addsubcosts): Handle treg_set_expr.
+	(sh_rtx_costs): Handle IF_THEN_ELSE and ZERO_EXTRACT.
+	(sh_rtx_costs): Use arith_reg_operand in SIGN_EXTEND and ZERO_EXTEND.
+	(sh_rtx_costs): Handle additional bit test patterns in EQ and AND cases.
+	(sh_insn_operands_modified_between_p): Make non-static.
+	* config/sh/predicates.md (zero_extend_movu_operand): Allow
+	simple_mem_operand in addition to displacement_mem_operand.
+	(zero_extend_operand): Don't allow zero_extend_movu_operand.
+	(treg_set_expr, treg_set_expr_not_const01,
+	arith_reg_or_treg_set_expr): New predicates.
+	* config/sh/sh.md (tstsi_t): Use arith_reg_operand and
+	arith_or_int_operand instead of logical_operand.  Convert to
+	insn_and_split.  Try to optimize constant operand in splitter.
+	(tsthi_t, tstqi_t): Fold into *tst<mode>_t.  Convert to insn_and_split.
+	(*tstqi_t_zero): Delete.
+	(*tst<mode>_t_subregs): Add !sh_in_recog_treg_set_expr split condition.
+	(tstsi_t_and_not): Delete.
+	(tst<mode>_t_zero_extract_eq): Rename to *tst<mode>_t_zero_extract.
+	Convert to insn_and_split.
+	(unnamed split, tstsi_t_zero_extract_xor,
+	tstsi_t_zero_extract_subreg_xor_little,
+	tstsi_t_zero_extract_subreg_xor_big): Delete.
+	(*tstsi_t_shift_mask): New insn_and_split.
+	(cmpeqsi_t, cmpgesi_t): Add new split for const_int 0 operands and try
+	to recombine with surrounding insns when splitting.
+	(*negtstsi): Add !sh_in_recog_treg_set_expr condition.
+	(cmp_div0s_0, cmp_div0s_1, *cmp_div0s_0, *cmp_div0s_1): Rewrite as ...
+	(cmp_div0s, *cmp_div0s_1, *cmp_div0s_2, *cmp_div0s_3, *cmp_div0s_4,
+	*cmp_div0s_5, *cmp_div0s_6): ... these new insn_and_split patterns.
+	(*cbranch_div0s: Delete.
+	(*addc): Convert to insn_and_split.  Use treg_set_expr as 3rd operand.
+	Try to recombine with surrounding insns when splitting.  Add operand
+	order variants.
+	(*addc_t_r, *addc_r_t): Use treg_set_expr_not_const01.
+	(*addc_r_r_1, *addc_r_lsb, *addc_r_r_lsb, *addc_r_lsb_r, *addc_r_msb,
+	*addc_r_r_msb, *addc_2r_msb): Delete.
+	(*addc_2r_lsb): Rename to *addc_2r_t.  Use treg_set_expr.  Add operand
+	order variant.
+	(*addc_negreg_t): New insn_and_split.
+	(*subc): Convert to insn_and_split.  Use treg_set_expr as 3rd operand.
+	Try to recombine with surrounding insns when splitting.
+	Add operand order variants.  
+	(*subc_negt_reg, *subc_negreg_t, *reg_lsb_t, *reg_msb_t): New
+	insn_and_split patterns.
+	(*rotcr): Use arith_reg_or_treg_set_expr.  Try to recombine with
+	surrounding insns when splitting.
+	(unnamed rotcr split): Use arith_reg_or_treg_set_expr.
+	(*rotcl): Likewise.  Add zero_extract variant.
+	(*ashrsi2_31): New insn_and_split.
+	(*negc): Convert to insn_and_split.  Use treg_set_expr.
+	(*zero_extend<mode>si2_disp_mem): Update comment.
+	(movrt_negc, *movrt_negc, nott): Add !sh_in_recog_treg_set_expr split
+	condition.
+	(*mov_t_msb_neg, mov_neg_si_t): Use treg_set_expr.  Try to recombine
+	with surrounding insns when splitting.
+	(any_treg_expr_to_reg): New insn_and_split.
+	(*neg_zero_extract_0, *neg_zero_extract_1, *neg_zero_extract_2,
+	*neg_zero_extract_3, *neg_zero_extract_4, *neg_zero_extract_5,
+	*neg_zero_extract_6, *zero_extract_0, *zero_extract_1,
+	*zero_extract_2): New single bit zero extract patterns.
+	(bld_reg, *bld_regqi): Fold into bld<mode>_reg.
+	(*get_thread_pointersi, store_gbr, *mov<mode>_gbr_load,
+	*mov<mode>_gbr_load, *mov<mode>_gbr_load, *mov<mode>_gbr_load,
+	*movdi_gbr_load): Use arith_reg_dest instead of register_operand for
+	set destination.
+	(set_thread_pointersi, load_gbr): Use arith_reg_operand instead of
+	register_operand for set source.
+
+2015-01-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	* i386.opt (prefetch_sse): New targetsave.
+	* i386.c (ix86_function_specific_save): Save prefetch_sse.
+	(ix86_function_specific_restore): Restore prefetch_sse and initialize
+	ix86_cost/ix86_tune_cost.
+
+2015-01-23  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_output_function_epilogue):
+	Support the JIT by using 0 as the language type.
+
+2015-01-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/64317
+	* lra-lives.c (make_hard_regno_born): Add parameter.  Don't make
+	REAL_PIC_OFFSET_TABLE_REGNUM conflicting with pic offset pseudo.
+	(mark_regno_live, process_bb_lives): Pass new parameter value to
+	make_hard_regno_born.
+
+2015-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/63637
+	PR rtl-optimization/60663
+	* cse.c (merge_equiv_classes): Set new_elt->cost to MAX_COST
+	if elt->cost is MAX_COST for ASM_OPERANDS.
+	(find_sets_in_insn): Fix up comment typo.
+	(cse_insn): Don't set src_volatile for all non-volatile
+	ASM_OPERANDS in PARALLELs, but just those with multiple outputs
+	or with "memory" clobber.  Set elt->cost to MAX_COST
+	for ASM_OPERANDS in PARALLEL.  Set src_elt->cost to MAX_COST
+	if new_src is ASM_OPERANDS and elt->cost is MAX_COST.
+
+2015-01-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (sse2_loadld): Set attribute isa to sse2 for
+	alternative 1.
+
+2015-01-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/gnu-user.h (CRT_GET_RFIB_DATA): Move definition to
+	libgcc/config/i386/elf-lib.h.
+
+2015-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR driver/64737
+	* gcc.c (print_configuration): Don't print a blank line at the end
+	here...
+	(run_attempt): ... but here unstead.
+
+	PR middle-end/64734
+	* omp-low.c (scan_sharing_clauses): Don't ignore
+	OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION GOMP_MAP_POINTER clauses
+	on target data/update constructs.
+
+2015-01-23  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR target/50928
+	* config/m32c/m32c.c (encode_pattern_1): Removed gcc_unreachable here.
+	(DEBUG_RELOAD): Removed define.
+	(m32c_limit_reload_class): Enable traces with if DEBUG0.
+	(m32c_function_arg): Added a type cast.
+	(m32c_legitimize_reload_address): Push A_REGS reload with PSImode.
+	* config/m32c/addsub.md (addsi3_1): Specify the mode of all arguments.
+	* config/m32c/bitops.md (andqi3_16): Likewise.
+	* config/m32c/mov.md (m32c_immd_dbl_mov): Likewise.
+	(push_a01_l): Likewise.
+
+2015-01-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/64721
+	* main.c (main): Construct toplev instances with init_signals=true.
+	* toplev.c (general_init): Add param "init_signals", and use it to
+	conditionalize the calls to signal and host_hooks.extra_signals.
+	(toplev::toplev): Add param "init_signals".
+	(toplev::main): When invoking general_init, pass m_init_signals
+	to control whether signal-handlers are installed.
+	* toplev.h (toplev::toplev): Add param "init_signals".
+	(toplev::m_init_signals): New field.
+
+2015-01-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/64722
+	* emit-rtl.c (init_emit_regs): Set pic_offset_table_rtx to
+	NULL_RTX before testing PIC_OFFSET_TABLE_REGNUM, since the
+	latter may be affected by the former (e.g. on i686).
+
+2015-01-23  Martin Liska  <mliska@suse.cz>
+
+	* tree.h (tree_vec_elt_check): Workaround -Wstrict-overflow
+	false positive during profiledbootstrap.
+
+2015-01-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/64672
+	* lto-opts.c (lto_write_options): Output non-explicit conservative
+	-fno-openacc.
+	* lto-wrapper.c (merge_and_complain): Handle merging -fopenacc.
+	(append_compiler_options): Pass -fopenacc through.
+
+2015-01-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/64707
+	* lto-opts.c (lto_write_options): Output non-explicit conservative
+	-fno-openmp.
+	* lto-wrapper.c (merge_and_complain): Handle merging -fopenmp.
+	(append_compiler_options): Pass -fopenmp through.
+
 2015-01-23  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/64511
