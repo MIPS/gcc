@@ -529,6 +529,10 @@ Warray-bounds
 Common Var(warn_array_bounds) Warning
 Warn if an array is accessed out of bounds
 
+Warray-bounds=
+Common Joined RejectNegative UInteger Var(warn_array_bounds) Warning
+Warn if an array is accessed out of bounds
+
 Wattributes
 Common Var(warn_attributes) Init(1) Warning
 Warn about inappropriate attribute usage
@@ -2088,6 +2092,10 @@ Use a stack protection method for every function
 fstack-protector-strong
 Common Report RejectNegative Var(flag_stack_protect, 3)
 Use a smart stack protection method for certain functions
+
+fstack-protector-explicit
+Common Report RejectNegative Var(flag_stack_protect, 4)
+Use stack protection method only for functions with the stack_protect attribute
 
 fstack-usage
 Common RejectNegative Var(flag_stack_usage)

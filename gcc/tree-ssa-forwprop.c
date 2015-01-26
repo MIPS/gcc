@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -58,13 +57,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-pass.h"
 #include "langhooks.h"
-#include "flags.h"
 #include "diagnostic.h"
-#include "expr.h"
 #include "cfgloop.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -2267,6 +2278,8 @@ pass_forwprop::execute (function *fun)
 
 		      gsi_insert_before (&gsi, new_stmt, GSI_SAME_STMT);
 		    }
+
+		  release_defs (stmt);
 		  gsi_remove (&gsi, true);
 		}
 	      else
@@ -2281,7 +2294,9 @@ pass_forwprop::execute (function *fun)
 	      if (single_imm_use (lhs, &use_p, &use_stmt)
 		  && gimple_store_p (use_stmt)
 		  && !gimple_has_volatile_ops (use_stmt)
-		  && is_gimple_assign (use_stmt))
+		  && is_gimple_assign (use_stmt)
+		  && (TREE_CODE (gimple_assign_lhs (use_stmt))
+		      != TARGET_MEM_REF))
 		{
 		  tree use_lhs = gimple_assign_lhs (use_stmt);
 		  tree new_lhs = build1 (REALPART_EXPR,
@@ -2302,6 +2317,7 @@ pass_forwprop::execute (function *fun)
 		  gimple_assign_set_rhs1 (use_stmt, gimple_assign_rhs2 (stmt));
 		  update_stmt (use_stmt);
 
+		  release_defs (stmt);
 		  gsi_remove (&gsi, true);
 		}
 	      else

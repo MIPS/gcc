@@ -1,3 +1,30 @@
+2015-01-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58671
+	* decl2.c (var_defined_without_dynamic_init): Handle gracefully
+	self-initialization.
+
+2015-01-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64356
+	PR libstdc++/58777
+	* constexpr.c (cxx_eval_binary_expression): Don't VERIFY_CONSTANT
+	pointer expressions.
+	(cxx_eval_increment_expression): Likewise.
+
+	PR c++/64514
+	* pt.c (coerce_template_parameter_pack): Return NULL for a
+	zero-length fixed parameter pack with a pack expansion arg.
+
+	PR c++/64520
+	* pt.c (unify): Don't try to deduce to std::initializer_list<T...>.
+
+2015-01-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64547
+	* constexpr.c (cxx_eval_call_expression): A call to a void
+	function doesn't need to return a value.
+
 2015-01-09  Michael Collison  <michael.collison@linaro.org>
 
 	* call.c: Include hash-set.h, machmode.h, vec.h, double-int.h,

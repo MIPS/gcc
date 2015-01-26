@@ -69,7 +69,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -79,6 +78,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -109,7 +122,6 @@ along with GCC; see the file COPYING3.  If not see
 #include <list>
 #include "ipa-icf-gimple.h"
 #include "ipa-icf.h"
-#include "varasm.h"
 
 using namespace ipa_icf_gimple;
 
@@ -340,7 +352,8 @@ sem_function::equals_wpa (sem_item *item,
 	return return_false_with_msg ("NULL argument type");
 
       /* Polymorphic comparison is executed just for non-leaf functions.  */
-      bool is_not_leaf = get_node ()->callees != NULL;
+      bool is_not_leaf = get_node ()->callees != NULL
+			 || get_node ()->indirect_calls != NULL;
 
       if (!func_checker::compatible_types_p (arg_types[i],
 					     m_compared_func->arg_types[i],
@@ -438,16 +451,14 @@ sem_function::equals_private (sem_item *item,
   cl_target_option *tar1 = target_opts_for_fn (decl);
   cl_target_option *tar2 = target_opts_for_fn (m_compared_func->decl);
 
-  if (tar1 != NULL || tar2 != NULL)
+  if (tar1 != NULL && tar2 != NULL)
     {
       if (!cl_target_option_eq (tar1, tar2))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Source target flags\n");
-	      cl_target_option_print (dump_file, 2, tar1);
-	      fprintf (dump_file, "Target target flags\n");
-	      cl_target_option_print (dump_file, 2, tar2);
+	      fprintf (dump_file, "target flags difference");
+	      cl_target_option_print_diff (dump_file, 2, tar1, tar2);
 	    }
 
 	  return return_false_with_msg ("Target flags are different");
@@ -465,10 +476,8 @@ sem_function::equals_private (sem_item *item,
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Source optimization flags\n");
-	      cl_optimization_print (dump_file, 2, opt1);
-	      fprintf (dump_file, "Target optimization flags\n");
-	      cl_optimization_print (dump_file, 2, opt2);
+	      fprintf (dump_file, "optimization flags difference");
+	      cl_optimization_print_diff (dump_file, 2, opt1, opt2);
 	    }
 
 	  return return_false_with_msg ("optimization flags are different");
@@ -884,7 +893,9 @@ bool
 sem_function::compare_polymorphic_p (void)
 {
   return get_node ()->callees != NULL
-	 || m_compared_func->get_node ()->callees != NULL;
+	 || get_node ()->indirect_calls != NULL
+	 || m_compared_func->get_node ()->callees != NULL
+	 || m_compared_func->get_node ()->indirect_calls != NULL;
 }
 
 /* For a given call graph NODE, the function constructs new

@@ -167,7 +167,6 @@ function_summary <inline_summary *> *inline_summaries;
 vec<inline_edge_summary_t> inline_edge_summary_vec;
 
 /* Cached node/edge growths.  */
-vec<int> node_growth_cache;
 vec<edge_growth_cache_entry> edge_growth_cache;
 
 /* Edge predicates goes here.  */
@@ -1312,6 +1311,13 @@ inline_edge_duplication_hook (struct cgraph_edge *src,
   info->predicate = NULL;
   edge_set_predicate (dst, srcinfo->predicate);
   info->param = srcinfo->param.copy ();
+  if (!dst->indirect_unknown_callee && src->indirect_unknown_callee)
+    {
+      info->call_stmt_size -= (eni_size_weights.indirect_call_cost
+			       - eni_size_weights.call_cost);
+      info->call_stmt_time -= (eni_time_weights.indirect_call_cost
+			       - eni_time_weights.call_cost);
+    }
 }
 
 
@@ -1334,8 +1340,6 @@ initialize_growth_caches (void)
 {
   if (symtab->edges_max_uid)
     edge_growth_cache.safe_grow_cleared (symtab->edges_max_uid);
-  if (symtab->cgraph_max_uid)
-    node_growth_cache.safe_grow_cleared (symtab->cgraph_max_uid);
 }
 
 
@@ -1345,7 +1349,6 @@ void
 free_growth_caches (void)
 {
   edge_growth_cache.release ();
-  node_growth_cache.release ();
 }
 
 
@@ -3924,7 +3927,7 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
 /* Estimate the growth caused by inlining NODE into all callees.  */
 
 int
-do_estimate_growth (struct cgraph_node *node)
+estimate_growth (struct cgraph_node *node)
 {
   struct growth_data d = { node, 0, false };
   struct inline_summary *info = inline_summaries->get (node);
@@ -3953,12 +3956,6 @@ do_estimate_growth (struct cgraph_node *node)
 		     + 50) / 100;
     }
 
-  if (node_growth_cache.exists ())
-    {
-      if ((int) node_growth_cache.length () <= node->uid)
-	node_growth_cache.safe_grow_cleared (symtab->cgraph_max_uid);
-      node_growth_cache[node->uid] = d.growth + (d.growth >= 0);
-    }
   return d.growth;
 }
 
@@ -3972,7 +3969,6 @@ bool
 growth_likely_positive (struct cgraph_node *node, int edge_growth ATTRIBUTE_UNUSED)
 {
   int max_callers;
-  int ret;
   struct cgraph_edge *e;
   gcc_checking_assert (edge_growth > 0);
 
@@ -3992,10 +3988,6 @@ growth_likely_positive (struct cgraph_node *node, int edge_growth ATTRIBUTE_UNUS
       || !node->can_remove_if_no_direct_calls_p ())
     return true;
 
-  /* If there is cached value, just go ahead.  */
-  if ((int)node_growth_cache.length () > node->uid
-      && (ret = node_growth_cache[node->uid]))
-    return ret > 0;
   if (!node->will_be_removed_from_program_if_no_direct_calls_p ()
       && (!DECL_COMDAT (node->decl)
 	  || !node->can_remove_if_no_direct_calls_p ()))

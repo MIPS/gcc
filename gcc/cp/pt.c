@@ -6825,6 +6825,9 @@ coerce_template_parameter_pack (tree parms,
               if (invalid_nontype_parm_type_p (t, complain))
                 return error_mark_node;
             }
+	  /* We don't know how many args we have yet, just
+	     use the unconverted ones for now.  */
+	  return NULL_TREE;
         }
 
       packed_args = make_tree_vec (TREE_VEC_LENGTH (packed_parms));
@@ -17854,7 +17857,13 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
       if (TREE_CODE (parm) == ARRAY_TYPE)
 	elttype = TREE_TYPE (parm);
       else
-	elttype = TREE_VEC_ELT (CLASSTYPE_TI_ARGS (parm), 0);
+	{
+	  elttype = TREE_VEC_ELT (CLASSTYPE_TI_ARGS (parm), 0);
+	  /* Deduction is defined in terms of a single type, so just punt
+	     on the (bizarre) std::initializer_list<T...>.  */
+	  if (PACK_EXPANSION_P (elttype))
+	    return unify_success (explain_p);
+	}
 
       FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (arg), i, elt)
 	{

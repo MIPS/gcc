@@ -240,7 +240,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-fsyntax-only  -fmax-errors=@var{n}  -Wpedantic @gol
 -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waddress  -Waggregate-return  @gol
--Waggressive-loop-optimizations -Warray-bounds @gol
+-Waggressive-loop-optimizations -Warray-bounds -Warray-bounds=@var{n} @gol
 -Wbool-compare @gol
 -Wno-attributes -Wno-builtin-macro-redefined @gol
 -Wc90-c99-compat -Wc99-c11-compat @gol
@@ -287,7 +287,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-unused-result -Wunused-value @gol -Wunused-variable @gol
 -Wunused-but-set-parameter -Wunused-but-set-variable @gol
 -Wuseless-cast -Wvariadic-macros -Wvector-operation-performance @gol
--Wvla -Wvolatile-register-var  -Wwrite-strings -Wzero-as-null-pointer-constant}
+-Wvla -Wvolatile-register-var  -Wwrite-strings @gol
+-Wzero-as-null-pointer-constant}
 
 @item C and Objective-C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
@@ -393,7 +394,8 @@ Objective-C and Objective-C++ Dialects}.
 -fira-loop-pressure -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fisolate-erroneous-paths-dereference -fisolate-erroneous-paths-attribute @gol
--fivopts -fkeep-inline-functions -fkeep-static-consts -flive-range-shrinkage @gol
+-fivopts -fkeep-inline-functions -fkeep-static-consts @gol
+-flive-range-shrinkage @gol
 -floop-block -floop-interchange -floop-strip-mine @gol  
 -floop-unroll-and-jam -floop-nest-optimize @gol
 -floop-parallelize-all -flra-remat -flto -flto-compression-level @gol
@@ -409,8 +411,9 @@ Objective-C and Objective-C++ Dialects}.
 -fprefetch-loop-arrays -fprofile-report @gol
 -fprofile-correction -fprofile-dir=@var{path} -fprofile-generate @gol
 -fprofile-generate=@var{path} @gol
--fprofile-use -fprofile-use=@var{path} -fprofile-values -fprofile-reorder-functions @gol
--freciprocal-math -free -frename-registers -fschedule-fusion -freorder-blocks @gol
+-fprofile-use -fprofile-use=@var{path} -fprofile-values @gol
+-fprofile-reorder-functions @gol
+-freciprocal-math -free -frename-registers -freorder-blocks @gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
 -frounding-math -fsched2-use-superblocks -fsched-pressure @gol
@@ -419,13 +422,15 @@ Objective-C and Objective-C++ Dialects}.
 -fsched-group-heuristic -fsched-critical-path-heuristic @gol
 -fsched-spec-insn-heuristic -fsched-rank-heuristic @gol
 -fsched-last-insn-heuristic -fsched-dep-count-heuristic @gol
+-fschedule-fusion @gol
 -fschedule-insns -fschedule-insns2 -fsection-anchors @gol
 -fselective-scheduling -fselective-scheduling2 @gol
 -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
 -fsemantic-interposition @gol
 -fshrink-wrap -fsignaling-nans -fsingle-precision-constant @gol
--fsplit-ivs-in-unroller -fsplit-wide-types -fssa-phiopt -fstack-protector @gol
--fstack-protector-all -fstack-protector-strong -fstrict-aliasing @gol
+-fsplit-ivs-in-unroller -fsplit-wide-types -fssa-phiopt @gol
+-fstack-protector -fstack-protector-all -fstack-protector-strong @gol
+-fstack-protector-explicit -fstrict-aliasing @gol
 -fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
 -ftree-coalesce-inline-vars -ftree-coalesce-vars -ftree-copy-prop @gol
@@ -442,7 +447,7 @@ Objective-C and Objective-C++ Dialects}.
 -funit-at-a-time -funroll-all-loops -funroll-loops @gol
 -funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops @gol
 -fipa-ra -fvariable-expansion-in-unroller -fvect-cost-model -fvpt @gol
--fweb -fwhole-program -fwpa -fuse-ld=@var{linker} -fuse-linker-plugin @gol
+-fweb -fwhole-program -fwpa -fuse-linker-plugin @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os -Ofast -Og}
 
@@ -468,7 +473,7 @@ Objective-C and Objective-C++ Dialects}.
 
 @item Linker Options
 @xref{Link Options,,Options for Linking}.
-@gccoptlist{@var{object-file-name}  -l@var{library} @gol
+@gccoptlist{@var{object-file-name}  -fuse-ld=@var{linker} -l@var{library} @gol
 -nostartfiles  -nodefaultlibs  -nostdlib -pie -rdynamic @gol
 -s  -static -static-libgcc -static-libstdc++ @gol
 -static-libasan -static-libtsan -static-liblsan -static-libubsan @gol
@@ -691,7 +696,7 @@ Objective-C and Objective-C++ Dialects}.
 -mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mmpx -mthreads @gol
 -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically -mstringop-strategy=@var{alg} @gol
--mmemcpy-strategy=@var{strategy} -mmemset-strategy=@var{strategy}
+-mmemcpy-strategy=@var{strategy} -mmemset-strategy=@var{strategy} @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double -mlong-double-64 -mlong-double-80 -mlong-double-128 @gol
 -mregparm=@var{num}  -msseregparm @gol
@@ -752,7 +757,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-mcpu=@var{cpu} -msim -memregs=@var{number}}
 
 @emph{M680x0 Options}
-@gccoptlist{-march=@var{arch}  -mcpu=@var{cpu}  -mtune=@var{tune}
+@gccoptlist{-march=@var{arch}  -mcpu=@var{cpu}  -mtune=@var{tune} @gol
 -m68000  -m68020  -m68020-40  -m68020-60  -m68030  -m68040 @gol
 -m68060  -mcpu32  -m5200  -m5206e  -m528x  -m5307  -m5407 @gol
 -mcfv4e  -mbitfield  -mno-bitfield  -mc68000  -mc68020 @gol
@@ -3178,7 +3183,10 @@ and @samp{48;5;0} to @samp{48;5;255}
 for 88-color and 256-color modes background colors.
 
 The default @env{GCC_COLORS} is
-@samp{error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01}
+@smallexample
+error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01
+@end smallexample
+@noindent
 where @samp{01;31} is bold red, @samp{01;35} is bold magenta,
 @samp{01;36} is bold cyan, @samp{01;32} is bold green and
 @samp{01} is bold. Setting @env{GCC_COLORS} to the empty
@@ -3392,7 +3400,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 @option{-Wall} turns on the following warning flags:
 
 @gccoptlist{-Waddress   @gol
--Warray-bounds @r{(only with} @option{-O2}@r{)}  @gol
+-Warray-bounds=1 @r{(only with} @option{-O2}@r{)}  @gol
 -Wc++11-compat  -Wc++14-compat@gol
 -Wchar-subscripts  @gol
 -Wenum-compare @r{(in C/ObjC; this is on by default in C++)} @gol
@@ -4245,7 +4253,7 @@ Warn about functions that might be candidates for attributes
 functions visible in other compilation units or (in the case of @code{pure} and
 @code{const}) if it cannot prove that the function returns normally. A function
 returns normally if it doesn't contain an infinite loop or return abnormally
-by throwing, calling @code{abort()} or trapping.  This analysis requires option
+by throwing, calling @code{abort} or trapping.  This analysis requires option
 @option{-fipa-pure-const}, which is enabled by default at @option{-O} and
 higher.  Higher optimization levels improve the accuracy of the analysis.
 
@@ -4306,11 +4314,25 @@ Warn about overriding virtual functions that are not marked with the override
 keyword.
 
 @item -Warray-bounds
+@itemx -Warray-bounds=@var{n}
 @opindex Wno-array-bounds
 @opindex Warray-bounds
 This option is only active when @option{-ftree-vrp} is active
 (default for @option{-O2} and above). It warns about subscripts to arrays
 that are always out of bounds. This warning is enabled by @option{-Wall}.
+
+@table @gcctabopt
+@item -Warray-bounds=1
+This is the warning level of @option{-Warray-bounds} and is enabled
+by @option{-Wall}; higher levels are not, and must be explicitly requested.
+
+@item -Warray-bounds=2
+This warning level also warns about out of bounds access for
+arrays at the end of a struct and for arrays accessed through
+pointers. This warning level may give a larger number of
+false positives and is deactivated by default.
+@end table
+
 
 @item -Wbool-compare
 @opindex Wno-bool-compare
@@ -4628,8 +4650,9 @@ example, warn if an unsigned variable is compared against zero with
 @item -Wbad-function-cast @r{(C and Objective-C only)}
 @opindex Wbad-function-cast
 @opindex Wno-bad-function-cast
-Warn whenever a function call is cast to a non-matching type.
-For example, warn if @code{int malloc()} is cast to @code{anything *}.
+Warn when a function call is cast to a non-matching type.
+For example, warn if a call to a function returning an integer type 
+is cast to a pointer type.
 
 @item -Wc90-c99-compat @r{(C and Objective-C only)}
 @opindex Wc90-c99-compat
@@ -5775,14 +5798,19 @@ accepted, the former enables recovery for all sanitizers that support it,
 the latter disables recovery for all sanitizers that support it.
 
 Syntax without explicit @var{opts} parameter is deprecated.  It is equivalent to
-@option{-fsanitize-recover=undefined,float-cast-overflow,float-divide-by-zero}.
+@smallexample
+-fsanitize-recover=undefined,float-cast-overflow,float-divide-by-zero
+@end smallexample
+@noindent
 Similarly @option{-fno-sanitize-recover} is equivalent to
-@option{-fno-sanitize-recover=undefined,float-cast-overflow,float-divide-by-zero}.
+@smallexample
+-fno-sanitize-recover=undefined,float-cast-overflow,float-divide-by-zero
+@end smallexample
 
 @item -fsanitize-undefined-trap-on-error
 @opindex fsanitize-undefined-trap-on-error
 The @option{-fsanitize-undefined-trap-on-error} instructs the compiler to
-report undefined behavior using @code{__builtin_trap ()} rather than
+report undefined behavior using @code{__builtin_trap} rather than
 a @code{libubsan} library routine.  The advantage of this is that the
 @code{libubsan} library is not needed and is not linked in, so this
 is usable even in freestanding environments.
@@ -6106,7 +6134,7 @@ Set the internal debug counter upper bound.  @var{counter-value-list}
 is a comma-separated list of @var{name}:@var{value} pairs
 which sets the upper bound of each debug counter @var{name} to @var{value}.
 All debug counters have the initial upper bound of @code{UINT_MAX};
-thus @code{dbg_cnt()} returns true always unless the upper bound
+thus @code{dbg_cnt} returns true always unless the upper bound
 is set by this option.
 For example, with @option{-fdbg-cnt=dce:10,tail_call:0},
 @code{dbg_cnt(dce)} returns true only for first 10 invocations.
@@ -6409,9 +6437,7 @@ Dump after sibling call optimizations.
 @opindex fdump-rtl-split3
 @opindex fdump-rtl-split4
 @opindex fdump-rtl-split5
-@option{-fdump-rtl-split1}, @option{-fdump-rtl-split2},
-@option{-fdump-rtl-split3}, @option{-fdump-rtl-split4} and
-@option{-fdump-rtl-split5} enable dumping after five rounds of
+These options enable dumping after five rounds of
 instruction splitting.
 
 @item -fdump-rtl-sms
@@ -9323,14 +9349,6 @@ the comparison operation before register allocation is complete.
 
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
-@item -fuse-ld=bfd
-@opindex fuse-ld=bfd
-Use the @command{bfd} linker instead of the default linker.
-
-@item -fuse-ld=gold
-@opindex fuse-ld=gold
-Use the @command{gold} linker instead of the default linker.
-
 @item -fcprop-registers
 @opindex fcprop-registers
 After register allocation and post-register allocation instruction splitting,
@@ -9475,7 +9493,7 @@ is unpredictable.
 
 @item -ffast-math
 @opindex ffast-math
-Sets @option{-fno-math-errno}, @option{-funsafe-math-optimizations},
+Sets the options @option{-fno-math-errno}, @option{-funsafe-math-optimizations},
 @option{-ffinite-math-only}, @option{-fno-rounding-math},
 @option{-fno-signaling-nans} and @option{-fcx-limited-range}.
 
@@ -9831,6 +9849,11 @@ Like @option{-fstack-protector} but includes additional functions to
 be protected --- those that have local array definitions, or have
 references to local frame addresses.
 
+@item -fstack-protector-explicit
+@opindex fstack-protector-explicit
+Like @option{-fstack-protector} but only protects those functions which
+have the @code{stack_protect} attribute
+
 @item -fsection-anchors
 @opindex fsection-anchors
 Try to reduce the number of symbolic address calculations by using
@@ -10018,20 +10041,21 @@ Specifies the maximum number of instructions an out-of-line copy of a
 self-recursive inline
 function can grow into by performing recursive inlining.
 
-For functions declared inline, @option{--param max-inline-insns-recursive} is
-taken into account.  For functions not declared inline, recursive inlining
+@option{--param max-inline-insns-recursive} applies to functions
+declared inline.
+For functions not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
-enabled and @option{--param max-inline-insns-recursive-auto} is used.  The
+enabled; @option{--param max-inline-insns-recursive-auto} applies instead.  The
 default value is 450.
 
 @item max-inline-recursive-depth
 @itemx max-inline-recursive-depth-auto
 Specifies the maximum recursion depth used for recursive inlining.
 
-For functions declared inline, @option{--param max-inline-recursive-depth} is
-taken into account.  For functions not declared inline, recursive inlining
+@option{--param max-inline-recursive-depth} applies to functions
+declared inline.  For functions not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
-enabled and @option{--param max-inline-recursive-depth-auto} is used.  The
+enabled; @option{--param max-inline-recursive-depth-auto} applies instead.  The
 default value is 8.
 
 @item min-inline-recursive-probability
@@ -10872,6 +10896,14 @@ to the linker.
 If any of these options is used, then the linker is not run, and
 object file names should not be used as arguments.  @xref{Overall
 Options}.
+
+@item -fuse-ld=bfd
+@opindex fuse-ld=bfd
+Use the @command{bfd} linker instead of the default linker.
+
+@item -fuse-ld=gold
+@opindex fuse-ld=gold
+Use the @command{gold} linker instead of the default linker.
 
 @cindex Libraries
 @item -l@var{library}
@@ -12079,7 +12111,8 @@ architecture.
 @opindex mtune
 Specify the name of the target processor for which GCC should tune the
 performance of the code.  Permissible values for this option are:
-@samp{generic}, @samp{cortex-a53}, @samp{cortex-a57}, @samp{thunderx}.
+@samp{generic}, @samp{cortex-a53}, @samp{cortex-a57}, @samp{thunderx},
+@samp{xgene1}.
 
 Additionally, this option can specify that GCC should tune the performance
 of the code for a big.LITTLE system.  The only permissible value is
@@ -12812,10 +12845,11 @@ Standard for all functions, even if this is not strictly necessary for
 correct execution of the code.  Specifying @option{-fomit-frame-pointer}
 with this option causes the stack frames not to be generated for
 leaf functions.  The default is @option{-mno-apcs-frame}.
+This option is deprecated.
 
 @item -mapcs
 @opindex mapcs
-This is a synonym for @option{-mapcs-frame}.
+This is a synonym for @option{-mapcs-frame} and is deprecated.
 
 @ignore
 @c not currently implemented
@@ -12955,7 +12989,8 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{marvell-pj4},
 @samp{xscale}, @samp{iwmmxt}, @samp{iwmmxt2}, @samp{ep9312},
 @samp{fa526}, @samp{fa626},
-@samp{fa606te}, @samp{fa626te}, @samp{fmp626}, @samp{fa726te}.
+@samp{fa606te}, @samp{fa626te}, @samp{fmp626}, @samp{fa726te},
+@samp{xgene1}.
 
 Additionally, this option can specify that GCC should tune the performance
 of the code for a big.LITTLE system.  Permissible names are:
@@ -18452,7 +18487,7 @@ Divide-by-zero checks can be completely disabled using
 @itemx -mno-memcpy
 @opindex mmemcpy
 @opindex mno-memcpy
-Force (do not force) the use of @code{memcpy()} for non-trivial block
+Force (do not force) the use of @code{memcpy} for non-trivial block
 moves.  The default is @option{-mno-memcpy}, which allows GCC to inline
 most constant-sized copies.
 
@@ -18665,7 +18700,7 @@ Disable the insertion of cache barriers.  This is the default setting.
 @opindex mflush-func
 Specifies the function to call to flush the I and D caches, or to not
 call any such function.  If called, the function must take the same
-arguments as the common @code{_flush_func()}, that is, the address of the
+arguments as the common @code{_flush_func}, that is, the address of the
 memory range for which the cache is being flushed, the size of the
 memory range, and the number 3 (to flush both caches).  The default
 depends on the target GCC was configured for, but commonly is either
@@ -18719,7 +18754,7 @@ It is enabled by default at optimization level @option{-O3}.
 @opindex msynci
 Enable (disable) generation of @code{synci} instructions on
 architectures that support it.  The @code{synci} instructions (if
-enabled) are generated when @code{__builtin___clear_cache()} is
+enabled) are generated when @code{__builtin___clear_cache} is
 compiled.
 
 This option defaults to @option{-mno-synci}, but the default can be
@@ -22872,7 +22907,7 @@ kernel code.
 @itemx -mno-text-section-literals
 @opindex mtext-section-literals
 @opindex mno-text-section-literals
-Control the treatment of literal pools.  The default is
+These options control the treatment of literal pools.  The default is
 @option{-mno-text-section-literals}, which places literals in a separate
 section in the output file.  This allows the literal pool to be placed
 in a data RAM/ROM, and it also allows the linker to combine literal
