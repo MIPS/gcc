@@ -741,22 +741,22 @@ rvalue (tree expr)
 
 struct cplus_array_info
 {
-  tree type;
+  ttype *type;
   tree domain;
 };
 
-struct cplus_array_hasher : ggc_hasher<tree>
+struct cplus_array_hasher : ggc_hasher<ttype *>
 {
   typedef cplus_array_info *compare_type;
 
-  static hashval_t hash (tree t);
-  static bool equal (tree, cplus_array_info *);
+  static hashval_t hash (ttype *t);
+  static bool equal (ttype *, cplus_array_info *);
 };
 
 /* Hash an ARRAY_TYPE.  K is really of type `tree'.  */
 
 hashval_t
-cplus_array_hasher::hash (tree t)
+cplus_array_hasher::hash (ttype *t)
 {
   hashval_t hash;
 
@@ -770,9 +770,9 @@ cplus_array_hasher::hash (tree t)
    of type `cplus_array_info*'. */
 
 bool
-cplus_array_hasher::equal (tree t1, cplus_array_info *t2)
+cplus_array_hasher::equal (ttype *t1, cplus_array_info *t2)
 {
-  return (TREE_TYPE (t1) == t2->type && TYPE_DOMAIN (t1) == t2->domain);
+  return (TREE_TTYPE (t1) == t2->type && TYPE_DOMAIN (t1) == t2->domain);
 }
 
 /* Hash table containing dependent array types, which are unsuitable for
@@ -781,10 +781,10 @@ static GTY (()) hash_table<cplus_array_hasher> *cplus_array_htab;
 
 /* Build an ARRAY_TYPE without laying it out.  */
 
-static tree
+static ttype * 
 build_min_array_type (tree elt_type, tree index_type)
 {
-  tree t = cxx_make_type (ARRAY_TYPE);
+  ttype *t = cxx_make_type (ARRAY_TYPE);
   TREE_TYPE (t) = elt_type;
   TYPE_DOMAIN (t) = index_type;
   return t;
@@ -817,7 +817,7 @@ set_array_type_canon (tree t, tree elt_type, tree index_type)
 ttype *
 build_cplus_array_type (tree elt_type, tree index_type)
 {
-  tree t;
+  ttype *t;
 
   if (elt_type == error_mark_node || index_type == error_mark_node)
     return error_type_node;
@@ -844,13 +844,13 @@ build_cplus_array_type (tree elt_type, tree index_type)
       hash = TYPE_UID (elt_type);
       if (index_type)
 	hash ^= TYPE_UID (index_type);
-      cai.type = elt_type;
+      cai.type = TTYPE (elt_type);
       cai.domain = index_type;
 
-      tree *e = cplus_array_htab->find_slot_with_hash (&cai, hash, INSERT); 
+      ttype **e = cplus_array_htab->find_slot_with_hash (&cai, hash, INSERT); 
       if (*e)
 	/* We have found the type: we're done.  */
-	return TTYPE (*e);
+	return *e;
       else
 	{
 	  /* Build a new array type.  */
@@ -871,8 +871,8 @@ build_cplus_array_type (tree elt_type, tree index_type)
   /* Now check whether we already have this array variant.  */
   if (elt_type != TYPE_MAIN_VARIANT (elt_type))
     {
-      tree m = t;
-      for (t = m; t; t = TYPE_NEXT_VARIANT (t))
+      ttype *m = t;
+      for (t = m; t; t = TTYPE (TYPE_NEXT_VARIANT (t)))
 	if (TREE_TYPE (t) == elt_type
 	    && TYPE_NAME (t) == NULL_TREE
 	    && TYPE_ATTRIBUTES (t) == NULL_TREE)
@@ -915,7 +915,7 @@ build_cplus_array_type (tree elt_type, tree index_type)
 	}
     }
 
-  return TTYPE (t);
+  return t;
 }
 
 /* Return an ARRAY_TYPE with element type ELT and length N.  */

@@ -60,7 +60,7 @@ struct lang_hooks_for_types
 {
   /* Return a new type (with the indicated CODE), doing whatever
      language-specific processing is required.  */
-  tree (*make_type) (enum tree_code);
+  ttype *(*make_type) (enum tree_code);
 
   /* Return what kind of RECORD_TYPE this is, mainly for purposes of
      debug information.  If not defined, record types are assumed to

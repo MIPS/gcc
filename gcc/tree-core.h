@@ -1734,6 +1734,9 @@ struct GTY ((ptr_alias (union lang_tree_node), desc("0"), tag("0"))) tree_node {
 class GTY((ptr_alias (union lang_tree_node))) ttype : public tree_node {
 };
 
+extern void gt_ggc_mx (class ttype *&);
+extern void gt_pch_nx (class ttype *&);
+
 /* Structure describing an attribute and a function to handle it.  */
 struct attribute_spec {
   /* The name of the attribute (without any leading or trailing __),

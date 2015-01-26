@@ -1480,6 +1480,7 @@ typedef struct gfc_symbol
 }
 gfc_symbol;
 
+#define BACKEND_TYPE(SYM)  (as_a<ttype *> ((SYM)->backend_decl))
 
 struct gfc_undo_change_set
 {

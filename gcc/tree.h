@@ -4996,10 +4996,11 @@ is_a_helper <ttype *>::test (tree t)
 
 static inline ttype *TTYPE (tree t) 
 { 
-  if (t != error_mark_node)
-    return as_a <ttype *>(t); 
-  else
+  if (t == NULL_TREE)
+    return NULL;
+  if (t == error_mark_node)
     return error_type_node;
+  return as_a <ttype *>(t); 
 }
 
 ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)"))) ;

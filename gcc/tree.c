@@ -12419,4 +12419,19 @@ element_mode (const_tree t)
   return TYPE_MODE (t);
 }
 
+void gt_ggc_mx (class ttype *& x)
+{
+//  extern void gt_ggc_mx_lang_tree_node (void *);
+  if (x)
+      gt_ggc_mx_lang_tree_node ((void *) x);
+}
+
+void gt_pch_nx (class ttype *& x)
+{
+//  extern void gt_pch_nx_lang_tree_node (void *);
+  if (x)
+      gt_pch_nx_lang_tree_node ((void *) x);
+}
+
+
 #include "gt-tree.h"

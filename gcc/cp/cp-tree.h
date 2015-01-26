@@ -5617,7 +5617,7 @@ extern tree build_lang_decl_loc			(location_t, enum tree_code, tree, tree);
 extern void retrofit_lang_decl			(tree);
 extern tree copy_decl				(tree);
 extern tree copy_type				(tree);
-extern tree cxx_make_type			(enum tree_code);
+extern ttype *cxx_make_type			(enum tree_code);
 extern tree make_class_type			(enum tree_code);
 extern bool cxx_init				(void);
 extern void cxx_finish				(void);

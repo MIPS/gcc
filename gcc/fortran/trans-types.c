@@ -1825,8 +1825,8 @@ gfc_get_array_type_bounds (tree etype, int dimen, int codimen, tree * lbound,
 			   enum gfc_array_kind akind, bool restricted)
 {
   char name[8 + 2*GFC_RANK_DIGITS + 1 + GFC_MAX_SYMBOL_LEN];
-  tree base_type, arraytype, lower, upper, stride, tmp, rtype;
-  ttype *fat_type;
+  tree base_type, lower, upper, stride, tmp, rtype;
+  ttype *fat_type, *arraytype;
   const char *type_name;
   int n;
 
@@ -1956,16 +1956,16 @@ gfc_get_array_type_bounds (tree etype, int dimen, int codimen, tree * lbound,
 /* Build a pointer type. This function is called from gfc_sym_type().  */
 
 static ttype *
-gfc_build_pointer_type (gfc_symbol * sym, tree type)
+gfc_build_pointer_type (gfc_symbol * sym, ttype *type)
 {
   /* Array pointer types aren't actually pointers.  */
   if (sym->attr.dimension)
-    return TTYPE (type);
+    return type;
   else
     return build_pointer_type (type);
 }
 
-static ttype *gfc_nonrestricted_type (tree t);
+static ttype *gfc_nonrestricted_type (ttype *t);
 /* Given two record or union type nodes TO and FROM, ensure
    that all fields in FROM have a corresponding field in TO,
    their type being nonrestrict variants.  This accepts a TO
@@ -2004,7 +2004,7 @@ mirror_fields (tree to, tree from)
 
       if (TREE_CODE (ffrom) == FIELD_DECL)
 	{
-	  tree elemtype = gfc_nonrestricted_type (TREE_TYPE (ffrom));
+	  tree elemtype = gfc_nonrestricted_type (TREE_TTYPE (ffrom));
 	  TREE_TYPE (newfield) = elemtype;
 	}
     }
@@ -2015,9 +2015,9 @@ mirror_fields (tree to, tree from)
    except that all types it refers to (recursively) are always
    non-restrict qualified types.  */
 static ttype *
-gfc_nonrestricted_type (tree t)
+gfc_nonrestricted_type (ttype *t)
 {
-  ttype *ret = TTYPE (t);
+  ttype *ret = t;
 
   /* If the type isn't laid out yet, don't copy it.  If something
      needs it for real it should wait until the type got finished.  */
@@ -2048,7 +2048,7 @@ gfc_nonrestricted_type (tree t)
       case POINTER_TYPE:
       case REFERENCE_TYPE:
 	{
-	  tree totype = gfc_nonrestricted_type (TREE_TYPE (t));
+	  tree totype = gfc_nonrestricted_type (TREE_TTYPE (t));
 	  if (totype == TREE_TYPE (t))
 	    ;
 	  else if (TREE_CODE (t) == POINTER_TYPE)
@@ -2062,7 +2062,7 @@ gfc_nonrestricted_type (tree t)
 
       case ARRAY_TYPE:
 	{
-	  tree elemtype = gfc_nonrestricted_type (TREE_TYPE (t));
+	  tree elemtype = gfc_nonrestricted_type (TREE_TTYPE (t));
 	  if (elemtype == TREE_TYPE (t))
 	    ;
 	  else
@@ -2072,7 +2072,7 @@ gfc_nonrestricted_type (tree t)
 	      if (TYPE_LANG_SPECIFIC (t)
 		  && GFC_TYPE_ARRAY_DATAPTR_TYPE (t))
 		{
-		  tree dataptr_type = GFC_TYPE_ARRAY_DATAPTR_TYPE (t);
+		  ttype *dataptr_type = GFC_TYPE_ARRAY_DATAPTR_TYPE (t);
 		  dataptr_type = gfc_nonrestricted_type (dataptr_type);
 		  if (dataptr_type != GFC_TYPE_ARRAY_DATAPTR_TYPE (t))
 		    {
@@ -2104,7 +2104,7 @@ gfc_nonrestricted_type (tree t)
 	  for (field = TYPE_FIELDS (t); field; field = DECL_CHAIN (field))
 	    if (TREE_CODE (field) == FIELD_DECL)
 	      {
-		tree elemtype = gfc_nonrestricted_type (TREE_TYPE (field));
+		ttype *elemtype = gfc_nonrestricted_type (TREE_TTYPE (field));
 		if (elemtype != TREE_TYPE (field))
 		  break;
 	      }
@@ -2341,10 +2341,10 @@ gfc_copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to,
 
 /* Build a tree node for a procedure pointer component.  */
 
-tree
+ttype *
 gfc_get_ppc_type (gfc_component* c)
 {
-  tree t;
+  ttype *t;
 
   /* Explicit interface.  */
   if (c->attr.if_source != IFSRC_UNKNOWN && c->ts.interface)
@@ -2368,7 +2368,8 @@ gfc_get_ppc_type (gfc_component* c)
 ttype *
 gfc_get_derived_type (gfc_symbol * derived)
 {
-  tree typenode = NULL, field = NULL, field_type = NULL;
+  tree typenode = NULL, field = NULL;
+  ttype *field_type = NULL;
   tree canonical = NULL_TREE;
   tree *chain = NULL;
   bool got_canonical = false;
@@ -2388,7 +2389,7 @@ gfc_get_derived_type (gfc_symbol * derived)
   if (derived->attr.is_iso_c == 1 || derived->ts.f90_type == BT_VOID)
     {
       if (derived->backend_decl)
-	return TTYPE (derived->backend_decl);
+	return BACKEND_TYPE (derived);
 
       if (derived->intmod_sym_id == ISOCBINDING_PTR)
 	derived->backend_decl = ptr_type_node;
@@ -2402,7 +2403,7 @@ gfc_get_derived_type (gfc_symbol * derived)
          iso_c_binding derived types.  */
       derived->ts.f90_type = BT_VOID;
 
-      return TTYPE (derived->backend_decl);
+      return BACKEND_TYPE (derived);
     }
 
   /* If use associated, use the module type for this one.  */
@@ -2451,7 +2452,7 @@ gfc_get_derived_type (gfc_symbol * derived)
 	 pointer component.  */
       if (TYPE_FIELDS (derived->backend_decl)
 	    || derived->attr.proc_pointer_comp)
-        return TTYPE (derived->backend_decl);
+        return BACKEND_TYPE (derived);
       else
         typenode = derived->backend_decl;
     }
@@ -2503,7 +2504,7 @@ gfc_get_derived_type (gfc_symbol * derived)
     }
 
   if (TYPE_FIELDS (derived->backend_decl))
-    return TTYPE (derived->backend_decl);
+    return BACKEND_TYPE (derived);
 
   /* Build the type member list. Install the newly created RECORD_TYPE
      node as DECL_CONTEXT of each FIELD_DECL.  */
@@ -2512,7 +2513,7 @@ gfc_get_derived_type (gfc_symbol * derived)
       if (c->attr.proc_pointer)
 	field_type = gfc_get_ppc_type (c);
       else if (c->ts.type == BT_DERIVED || c->ts.type == BT_CLASS)
-        field_type = c->ts.u.derived->backend_decl;
+        field_type = BACKEND_TYPE (c->ts.u.derived);
       else
 	{
 	  if (c->ts.type == BT_CHARACTER && !c->ts.deferred)
@@ -2618,7 +2619,7 @@ copy_derived_types:
   for (dt = gfc_derived_types; dt; dt = dt->next)
     gfc_copy_dt_decls_ifequal (derived, dt->derived, false);
 
-  return TTYPE (derived->backend_decl);
+  return BACKEND_TYPE (derived);
 }
 
 
