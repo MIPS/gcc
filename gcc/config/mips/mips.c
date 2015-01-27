@@ -16763,7 +16763,8 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
      branch instruction was not in a sequence (as the sequence would
      imply it is not actually a compact branch anyway) and the current
      insn is not an inline asm, and can't go in a delay slot.  */
-  else if (*fs_delay && get_attr_can_delay (insn) == CAN_DELAY_NO
+  else if (TARGET_FORBIDDEN_SLOTS && *fs_delay
+	   && get_attr_can_delay (insn) == CAN_DELAY_NO
 	   && GET_CODE (PATTERN (after)) != SEQUENCE
 	   && GET_CODE (pattern) != ASM_INPUT
 	   && asm_noperands (pattern) < 0)
