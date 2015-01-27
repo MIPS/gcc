@@ -840,7 +840,9 @@ struct mips_cpu_info {
   MIPS_ISA_NAN2008_SPEC,       \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k*: -mdsp} \
-     %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}"
+     %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}"		    \
+  "%{!mforbidden-slots:							    \
+     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}"
 
 #define DRIVER_SELF_SPECS \
   MIPS_ISA_LEVEL_SPEC,	  \
@@ -1301,6 +1303,7 @@ struct mips_cpu_info {
 %{mtune=*} \
 %{mhard-float} %{msoft-float} \
 %{msingle-float} %{mdouble-float} \
+%{mforbidden-slots} \
 %(subtarget_asm_spec)"
 
 /* Extra switches sometimes passed to the linker.  */
