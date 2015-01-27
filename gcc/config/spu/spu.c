@@ -7160,13 +7160,13 @@ spu_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
 /*  Table of machine attributes.  */
 static const struct attribute_spec spu_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handler, affects_type_identity } */
   { "naked",          0, 0, true,  false, false, spu_handle_fndecl_attribute,
-    false },
-  { "spu_vector",     0, 0, false, true,  false, spu_handle_vector_attribute,
-    false },
-  { NULL,             0, 0, false, false, false, NULL, false }
+    NULL, false },
+  { "spu_vector",     0, 0, false, true,  false, NULL,
+    spu_handle_vector_attribute, false },
+  { NULL,             0, 0, false, false, false, NULL, NULL, false }
 };
 
 /*  TARGET overrides.  */

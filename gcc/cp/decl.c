@@ -9648,7 +9648,7 @@ grokdeclarator (const cp_declarator *declarator,
     {
       /* Apply the c++11 attributes to the type preceding them.  */
       input_location = declspecs->locations[ds_std_attribute];
-      decl_attributes (&type, declspecs->std_attributes, 0);
+      type_attributes (&type, declspecs->std_attributes, 0);
       input_location = saved_loc;
     }
 
@@ -9674,7 +9674,7 @@ grokdeclarator (const cp_declarator *declarator,
 	    attr_flags |= (int) ATTR_FLAG_FUNCTION_NEXT;
 	  if (declarator->kind == cdk_array)
 	    attr_flags |= (int) ATTR_FLAG_ARRAY_NEXT;
-	  returned_attrs = decl_attributes (&type,
+	  returned_attrs = type_attributes (&type,
 					    chainon (returned_attrs, attrs),
 					    attr_flags);
 	}
@@ -9920,7 +9920,7 @@ grokdeclarator (const cp_declarator *declarator,
 
 		 The optional attribute-specifier-seq appertains to
 		 the function type.  */
-	      decl_attributes (&type, declarator->std_attributes,
+	      type_attributes (&type, declarator->std_attributes,
 			       0);
 	  }
 	  break;
@@ -10094,7 +10094,7 @@ grokdeclarator (const cp_declarator *declarator,
 		 [the optional attribute-specifier-seq (7.6.1) appertains
 		  to the pointer and not to the object pointed to].  */
 	  if (declarator->std_attributes)
-	    decl_attributes (&type, declarator->std_attributes,
+	    type_attributes (&type, declarator->std_attributes,
 			     0);
 
 	  ctype = NULL_TREE;

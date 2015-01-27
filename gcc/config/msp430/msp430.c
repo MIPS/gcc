@@ -1330,13 +1330,13 @@ msp430_attr (tree * node,
 const struct attribute_spec msp430_attribute_table[] =
 {
   /* Name          min_len  decl_req,    fn_type_req,    affects_type_identity
-                       max_len,  type_req,        handler.  */
-  { "interrupt",      0, 1, true,  false, false, msp430_attr, false },
-  { "naked",          0, 0, true,  false, false, msp430_attr, false },
-  { "reentrant",      0, 0, true,  false, false, msp430_attr, false },
-  { "critical",       0, 0, true,  false, false, msp430_attr, false },
-  { "wakeup",         0, 0, true,  false, false, msp430_attr, false },
-  { NULL,             0, 0, false, false, false, NULL,        false }
+                       max_len,  type_req, decl_handler, type_handler.  */
+  { "interrupt",      0, 1, true,  false, false, msp430_attr, NULL, false },
+  { "naked",          0, 0, true,  false, false, msp430_attr, NULL, false },
+  { "reentrant",      0, 0, true,  false, false, msp430_attr, NULL, false },
+  { "critical",       0, 0, true,  false, false, msp430_attr, NULL, false },
+  { "wakeup",         0, 0, true,  false, false, msp430_attr, NULL, false },
+  { NULL,             0, 0, false, false, false, NULL,        NULL, false }
 };
 
 void

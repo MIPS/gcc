@@ -64,10 +64,17 @@ static tree count_trees_r (tree *, int *, void *);
 static tree verify_stmt_tree_r (tree *, int *, void *);
 static tree build_local_temp (tree);
 
-static tree handle_java_interface_attribute (tree *, tree, tree, int, bool *);
-static tree handle_com_interface_attribute (tree *, tree, tree, int, bool *);
+static tree handle_java_interface_decl_attribute (tree *, tree, tree, int,
+						  bool *);
+static tree handle_java_interface_type_attribute (tree *, tree, tree, int,
+						  bool *);
+static tree handle_com_interface_decl_attribute (tree *, tree, tree, int,
+						 bool *);
+static tree handle_com_interface_type_attribute (tree *, tree, tree, int,
+						 bool *);
 static tree handle_init_priority_attribute (tree *, tree, tree, int, bool *);
-static tree handle_abi_tag_attribute (tree *, tree, tree, int, bool *);
+static tree handle_abi_tag_decl_attribute (tree *, tree, tree, int, bool *);
+static tree handle_abi_tag_type_attribute (tree *, tree, tree, int, bool *);
 
 /* If REF is an lvalue, returns the kind of lvalue that REF is.
    Otherwise, returns clk_none.  */
@@ -3319,31 +3326,51 @@ zero_init_p (const_tree t)
 /* Table of valid C++ attributes.  */
 const struct attribute_spec cxx_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handler, affects_type_identity } */
   { "java_interface", 0, 0, false, false, false,
-    handle_java_interface_attribute, false },
+    handle_java_interface_decl_attribute, handle_java_interface_type_attribute,
+    false },
   { "com_interface",  0, 0, false, false, false,
-    handle_com_interface_attribute, false },
+    handle_com_interface_decl_attribute, handle_com_interface_type_attribute,
+    false },
   { "init_priority",  1, 1, true,  false, false,
-    handle_init_priority_attribute, false },
+    handle_init_priority_attribute, NULL, false },
   { "abi_tag", 1, -1, false, false, false,
-    handle_abi_tag_attribute, true },
-  { NULL,	      0, 0, false, false, false, NULL, false }
+    handle_abi_tag_decl_attribute, handle_abi_tag_type_attribute, true },
+  { NULL,	      0, 0, false, false, false, NULL, NULL, false }
 };
+
+
+static tree
+handle_java_interface_decl_attribute (tree* /*node*/, tree name, tree /*args*/,
+				      int /*flags*/, bool* no_add_attrs)
+{
+  error ("%qE attribute can only be applied to Java class definitions", name);
+  *no_add_attrs = true;
+  return NULL_TREE;
+}
+
+static tree
+handle_com_interface_decl_attribute (tree* /*node*/, tree name, tree /*args*/,
+				     int /*flags*/, bool* no_add_attrs)
+{
+  warning (OPT_Wattributes, "%qE attribute can only be applied "
+	   "to class definitions", name);
+  *no_add_attrs = true;
+  return NULL_TREE;
+}
 
 /* Handle a "java_interface" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-handle_java_interface_attribute (tree* node,
-				 tree name,
-				 tree /*args*/,
-				 int flags,
-				 bool* no_add_attrs)
+handle_java_interface_type_attribute (tree* node,
+				      tree name,
+				      tree /*args*/,
+				      int flags,
+				      bool* no_add_attrs)
 {
-  if (DECL_P (*node)
-      || !CLASS_TYPE_P (*node)
-      || !TYPE_FOR_JAVA (*node))
+  if (!CLASS_TYPE_P (*node) || !TYPE_FOR_JAVA (*node))
     {
       error ("%qE attribute can only be applied to Java class definitions",
 	     name);
@@ -3360,19 +3387,17 @@ handle_java_interface_attribute (tree* node,
 /* Handle a "com_interface" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-handle_com_interface_attribute (tree* node,
-				tree name,
-				tree /*args*/,
-				int /*flags*/,
-				bool* no_add_attrs)
+handle_com_interface_type_attribute (tree* node,
+				     tree name,
+				     tree /*args*/,
+				     int /*flags*/,
+				     bool* no_add_attrs)
 {
   static int warned;
 
   *no_add_attrs = true;
 
-  if (DECL_P (*node)
-      || !CLASS_TYPE_P (*node)
-      || *node != TYPE_MAIN_VARIANT (*node))
+  if (!CLASS_TYPE_P (*node) || *node != TYPE_MAIN_VARIANT (*node))
     {
       warning (OPT_Wattributes, "%qE attribute can only be applied "
 	       "to class definitions", name);
@@ -3498,36 +3523,55 @@ check_abi_tag_redeclaration (const_tree decl, const_tree old, const_tree new_)
    struct attribute_spec.handler.  */
 
 static tree
-handle_abi_tag_attribute (tree* node, tree name, tree args,
+handle_abi_tag_decl_attribute (tree* node, tree name, tree /*args*/,
+			       int /*flags*/, bool* no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      error ("%qE attribute applied to non-function %qD", name, *node);
+      *no_add_attrs = true;
+    }
+  else if (DECL_LANGUAGE (*node) == lang_c)
+    {
+      error ("%qE attribute applied to extern \"C\" function %qD",
+	     name, *node);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+
+static tree
+handle_abi_tag_type_attribute (tree* node, tree name, tree args,
 			  int flags, bool* no_add_attrs)
 {
-  if (TYPE_P (*node))
+  if (!OVERLOAD_TYPE_P (*node))
     {
-      if (!OVERLOAD_TYPE_P (*node))
-	{
-	  error ("%qE attribute applied to non-class, non-enum type %qT",
-		 name, *node);
-	  goto fail;
-	}
-      else if (!(flags & (int)ATTR_FLAG_TYPE_IN_PLACE))
-	{
-	  error ("%qE attribute applied to %qT after its definition",
-		 name, *node);
-	  goto fail;
-	}
-      else if (CLASSTYPE_TEMPLATE_INSTANTIATION (*node))
-	{
-	  warning (OPT_Wattributes, "ignoring %qE attribute applied to "
-		   "template instantiation %qT", name, *node);
-	  goto fail;
-	}
-      else if (CLASSTYPE_TEMPLATE_SPECIALIZATION (*node))
-	{
-	  warning (OPT_Wattributes, "ignoring %qE attribute applied to "
-		   "template specialization %qT", name, *node);
-	  goto fail;
-	}
-
+      error ("%qE attribute applied to non-class, non-enum type %qT",
+	     name, *node);
+      *no_add_attrs = true;
+    }
+  else if (!(flags & (int)ATTR_FLAG_TYPE_IN_PLACE))
+    {
+      error ("%qE attribute applied to %qT after its definition",
+	     name, *node);
+      *no_add_attrs = true;
+    }
+  else if (CLASSTYPE_TEMPLATE_INSTANTIATION (*node))
+    {
+      warning (OPT_Wattributes, "ignoring %qE attribute applied to "
+	       "template instantiation %qT", name, *node);
+      *no_add_attrs = true;
+    }
+  else if (CLASSTYPE_TEMPLATE_SPECIALIZATION (*node))
+    {
+      warning (OPT_Wattributes, "ignoring %qE attribute applied to "
+	       "template specialization %qT", name, *node);
+      *no_add_attrs = true;
+    }
+  else
+    {
       tree attributes = TYPE_ATTRIBUTES (*node);
       tree decl = TYPE_NAME (*node);
 
@@ -3538,28 +3582,10 @@ handle_abi_tag_attribute (tree* node, tree name, tree args,
 					    lookup_attribute ("abi_tag",
 							      attributes),
 					    args))
-	    goto fail;
+	    *no_add_attrs = true;
 	}
-    }
-  else
-    {
-      if (TREE_CODE (*node) != FUNCTION_DECL)
-	{
-	  error ("%qE attribute applied to non-function %qD", name, *node);
-	  goto fail;
-	}
-      else if (DECL_LANGUAGE (*node) == lang_c)
-	{
-	  error ("%qE attribute applied to extern \"C\" function %qD",
-		 name, *node);
-	  goto fail;
-	}
-    }
+     }
 
-  return NULL_TREE;
-
- fail:
-  *no_add_attrs = true;
   return NULL_TREE;
 }
 
