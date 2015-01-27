@@ -860,7 +860,9 @@ struct mips_cpu_info {
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
        |march=interaptiv: -mdsp} \
-     %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}"
+     %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}" \
+  "%{!mforbidden-slots: \
+     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}"
 
 #define DRIVER_SELF_SPECS \
   MIPS_ISA_LEVEL_SPEC,	  \
@@ -1334,6 +1336,7 @@ struct mips_cpu_info {
 %{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
 %{mtune=*}" \
+%{mforbidden-slots} \
 FP_ASM_SPEC "\
 %(subtarget_asm_spec)"
 
