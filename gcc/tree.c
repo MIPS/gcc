@@ -4734,7 +4734,7 @@ build_type_attribute_qual_variant (tree type, tree attribute, int quals)
   if (! attribute_list_equal (TYPE_ATTRIBUTES (type), attribute))
     {
       inchash::hash hstate;
-      tree ntype;
+      ttype *ntype;
       int i;
       tree t;
       enum tree_code code = TREE_CODE (type);
@@ -6924,15 +6924,15 @@ type_cache_hasher::equal (type_hash *a, type_hash *b)
    make it different from other similar types.
    Then call this function and use the value.  */
 
-tree
-type_hash_canon (unsigned int hashcode, tree type)
+ttype *
+type_hash_canon (unsigned int hashcode, ttype *type)
 {
   type_hash in;
   type_hash **loc;
 
   /* The hash table only contains main variants, so ensure that's what we're
      being passed.  */
-  gcc_assert (TYPE_MAIN_VARIANT (type) == type);
+  gcc_assert (TTYPE_MAIN_VARIANT (type) == type);
 
   /* The TYPE_ALIGN field of a type is set by layout_type(), so we
      must call that routine before comparing TYPE_ALIGNs.  */
@@ -6944,7 +6944,7 @@ type_hash_canon (unsigned int hashcode, tree type)
   loc = type_hash_table->find_slot_with_hash (&in, hashcode, INSERT);
   if (*loc)
     {
-      tree t1 = ((type_hash *) *loc)->type;
+      ttype *t1 = TTYPE (((type_hash *) *loc)->type);
       gcc_assert (TYPE_MAIN_VARIANT (t1) == t1);
       if (GATHER_STATISTICS)
 	{
@@ -7787,7 +7787,7 @@ build_reference_type (tree to_type)
 
 #define MAX_INT_CACHED_PREC \
   (HOST_BITS_PER_WIDE_INT > 64 ? HOST_BITS_PER_WIDE_INT : 64)
-static GTY(()) tree nonstandard_integer_type_cache[2 * MAX_INT_CACHED_PREC + 2];
+static GTY(()) ttype *nonstandard_integer_type_cache[2 * MAX_INT_CACHED_PREC + 2];
 
 /* Builds a signed or unsigned integer type of precision PRECISION.
    Used for C bitfields whose precision does not match that of
@@ -7796,7 +7796,7 @@ ttype *
 build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
 				int unsignedp)
 {
-  tree itype, ret;
+  ttype *itype, *ret;
 
   if (unsignedp)
     unsignedp = MAX_INT_CACHED_PREC + 1;
@@ -7805,10 +7805,10 @@ build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
     {
       itype = nonstandard_integer_type_cache[precision + unsignedp];
       if (itype)
-	return TTYPE (itype);
+	return itype;
     }
 
-  itype = make_node (INTEGER_TYPE);
+  itype = make_type_node (INTEGER_TYPE);
   TYPE_PRECISION (itype) = precision;
 
   if (unsignedp)
@@ -7822,7 +7822,7 @@ build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
   if (precision <= MAX_INT_CACHED_PREC)
     nonstandard_integer_type_cache[precision + unsignedp] = ret;
 
-  return TTYPE (ret);
+  return ret;
 }
 
 /* Create a range of some discrete type TYPE (an INTEGER_TYPE, ENUMERAL_TYPE
@@ -7864,7 +7864,7 @@ build_range_type_1 (tree type, tree lowval, tree highval, bool shared)
   inchash::add_expr (TYPE_MIN_VALUE (itype), hstate);
   inchash::add_expr (TYPE_MAX_VALUE (itype), hstate);
   hstate.merge_hash (TYPE_HASH (type));
-  itype = TTYPE (type_hash_canon (hstate.end (), itype));
+  itype = type_hash_canon (hstate.end (), itype);
 
   return itype;
 }
@@ -7894,7 +7894,7 @@ build_nonshared_range_type (tree type, tree lowval, tree highval)
    The limit exists because the result is a signed type and we don't handle
    sizes that use more than one HOST_WIDE_INT.  */
 
-tree
+ttype *
 build_index_type (tree maxval)
 {
   return build_range_type (sizetype, size_zero_node, maxval);
@@ -7944,10 +7944,10 @@ subrange_type_for_debug_p (const_tree type, tree *lowval, tree *highval)
    and number of elements specified by the range of values of INDEX_TYPE.
    If SHARED is true, reuse such a type that has already been constructed.  */
 
-static tree
+static ttype *
 build_array_type_1 (tree elt_type, tree index_type, bool shared)
 {
-  tree t;
+  ttype *t;
 
   if (TREE_CODE (elt_type) == FUNCTION_TYPE)
     {
@@ -7955,7 +7955,7 @@ build_array_type_1 (tree elt_type, tree index_type, bool shared)
       elt_type = integer_type_node;
     }
 
-  t = make_node (ARRAY_TYPE);
+  t = make_type_node (ARRAY_TYPE);
   TREE_TYPE (t) = elt_type;
   TYPE_DOMAIN (t) = index_type;
   TYPE_ADDR_SPACE (t) = TYPE_ADDR_SPACE (elt_type);
@@ -7998,12 +7998,12 @@ build_array_type_1 (tree elt_type, tree index_type, bool shared)
 ttype *
 build_array_type (tree elt_type, tree index_type)
 {
-  return TTYPE (build_array_type_1 (elt_type, index_type, true));
+  return build_array_type_1 (elt_type, index_type, true);
 }
 
 /* Wrapper around build_array_type_1 with SHARED set to false.  */
 
-tree
+ttype *
 build_nonshared_array_type (tree elt_type, tree index_type)
 {
   return build_array_type_1 (elt_type, index_type, false);
@@ -8012,7 +8012,7 @@ build_nonshared_array_type (tree elt_type, tree index_type)
 /* Return a representation of ELT_TYPE[NELTS], using indices of type
    sizetype.  */
 
-tree
+ttype *
 build_array_type_nelts (tree elt_type, unsigned HOST_WIDE_INT nelts)
 {
   return build_array_type (elt_type, build_index_type (size_int (nelts - 1)));
@@ -8131,7 +8131,7 @@ build_function_type (tree value_type, tree arg_types)
   /* If we already have such a type, use the old one.  */
   hstate.add_object (TYPE_HASH (value_type));
   type_hash_list (arg_types, hstate);
-  t = TTYPE (type_hash_canon (hstate.end (), t));
+  t = type_hash_canon (hstate.end (), t);
 
   /* Set up the canonical type. */
   any_structural_p   = TYPE_STRUCTURAL_EQUALITY_P (value_type);
@@ -8154,10 +8154,11 @@ build_function_type (tree value_type, tree arg_types)
    function.  If VAARGS is set, no void_type_node is appended to the
    the list.  ARGP must be always be terminated be a NULL_TREE.  */
 
-static tree
+static ttype *
 build_function_type_list_1 (bool vaargs, tree return_type, va_list argp)
 {
   tree t, args, last;
+  ttype *ret;
 
   t = va_arg (argp, tree);
   for (args = NULL_TREE; t != NULL_TREE; t = va_arg (argp, tree))
@@ -8178,9 +8179,9 @@ build_function_type_list_1 (bool vaargs, tree return_type, va_list argp)
       args = nreverse (args);
       TREE_CHAIN (last) = void_list_node;
     }
-  args = build_function_type (return_type, args);
+  ret = build_function_type (return_type, args);
 
-  return args;
+  return ret;
 }
 
 /* Build a function type.  The RETURN_TYPE is the type returned by the
@@ -8188,10 +8189,10 @@ build_function_type_list_1 (bool vaargs, tree return_type, va_list argp)
    additional argument types.  The list of argument types must always
    be terminated by NULL_TREE.  */
 
-tree
+ttype *
 build_function_type_list (tree return_type, ...)
 {
-  tree args;
+  ttype *args;
   va_list p;
 
   va_start (p, return_type);
@@ -8205,10 +8206,10 @@ build_function_type_list (tree return_type, ...)
    they are additional argument types.  The list of argument types must
    always be terminated by NULL_TREE.  */
 
-tree
+ttype *
 build_varargs_function_type_list (tree return_type, ...)
 {
-  tree args;
+  ttype *args;
   va_list p;
 
   va_start (p, return_type);
@@ -8262,19 +8263,19 @@ build_varargs_function_type_array (tree return_type, int n,
    for the method.  An implicit additional parameter (of type
    pointer-to-BASETYPE) is added to the ARGTYPES.  */
 
-tree
+ttype *
 build_method_type_directly (tree basetype,
 			    tree rettype,
 			    tree argtypes)
 {
-  tree t;
+  ttype *t;
   tree ptype;
   inchash::hash hstate;
   bool any_structural_p, any_noncanonical_p;
   tree canon_argtypes;
 
   /* Make a node of the sort we want.  */
-  t = make_node (METHOD_TYPE);
+  t = make_type_node (METHOD_TYPE);
 
   TYPE_METHOD_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
   TREE_TYPE (t) = rettype;
@@ -8333,14 +8334,14 @@ build_method_type (tree basetype, tree type)
    of type TYPE, within an object of type BASETYPE.
    If a suitable offset type exists already, reuse it.  */
 
-tree
+ttype *
 build_offset_type (tree basetype, tree type)
 {
-  tree t;
+  ttype *t;
   inchash::hash hstate;
 
   /* Make a node of the sort we want.  */
-  t = make_node (OFFSET_TYPE);
+  t = make_type_node (OFFSET_TYPE);
 
   TYPE_OFFSET_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
   TREE_TYPE (t) = type;
@@ -8370,10 +8371,10 @@ build_offset_type (tree basetype, tree type)
 
 /* Create a complex type whose components are COMPONENT_TYPE.  */
 
-tree
+ttype *
 build_complex_type (tree component_type)
 {
-  tree t;
+  ttype *t;
   inchash::hash hstate;
 
   gcc_assert (INTEGRAL_TYPE_P (component_type)
@@ -8381,7 +8382,7 @@ build_complex_type (tree component_type)
 	      || FIXED_POINT_TYPE_P (component_type));
 
   /* Make a node of the sort we want.  */
-  t = make_node (COMPLEX_TYPE);
+  t = make_type_node (COMPLEX_TYPE);
 
   TREE_TYPE (t) = TYPE_MAIN_VARIANT (component_type);
 
@@ -9522,13 +9523,13 @@ omp_clause_operand_check_failed (int idx, const_tree t, const char *file,
    and mapped to the machine mode MODE.  Initialize its fields and build
    the information necessary for debugging output.  */
 
-static tree
+static ttype *
 make_vector_type (tree innertype, int nunits, machine_mode mode)
 {
-  tree t;
+  ttype *t;
   inchash::hash hstate;
 
-  t = make_node (VECTOR_TYPE);
+  t = make_type_node (VECTOR_TYPE);
   TREE_TYPE (t) = TYPE_MAIN_VARIANT (innertype);
   SET_TYPE_VECTOR_SUBPARTS (t, nunits);
   SET_TYPE_MODE (t, mode);
@@ -9894,11 +9895,10 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   SET_TYPE_MODE (dfloat128_type_node, TDmode);
   dfloat128_ptr_type_node = build_pointer_type (dfloat128_type_node);
 
-  complex_integer_type_node = TTYPE (build_complex_type (integer_type_node));
-  complex_float_type_node = TTYPE (build_complex_type (float_type_node));
-  complex_double_type_node = TTYPE (build_complex_type (double_type_node));
-  complex_long_double_type_node
-			  = TTYPE (build_complex_type (long_double_type_node));
+  complex_integer_type_node = build_complex_type (integer_type_node);
+  complex_float_type_node = build_complex_type (float_type_node);
+  complex_double_type_node = build_complex_type (double_type_node);
+  complex_long_double_type_node = build_complex_type (long_double_type_node);
 
 /* Make fixed-point nodes based on sat/non-sat and signed/unsigned.  */
 #define MAKE_FIXED_TYPE_NODE(KIND,SIZE) \
@@ -10320,7 +10320,7 @@ reconstruct_complex_type (tree type, tree bottom)
 
 /* Returns a vector tree node given a mode (integer, vector, or BLKmode) and
    the inner type.  */
-tree
+ttype *
 build_vector_type_for_mode (tree innertype, machine_mode mode)
 {
   int nunits;
@@ -10355,7 +10355,7 @@ build_vector_type_for_mode (tree innertype, machine_mode mode)
 /* Similarly, but takes the inner type and number of units, which must be
    a power of two.  */
 
-tree
+ttype *
 build_vector_type (tree innertype, int nunits)
 {
   return make_vector_type (innertype, nunits, VOIDmode);
@@ -10363,14 +10363,14 @@ build_vector_type (tree innertype, int nunits)
 
 /* Similarly, but builds a variant type with TYPE_VECTOR_OPAQUE set.  */
 
-tree
+ttype *
 build_opaque_vector_type (tree innertype, int nunits)
 {
-  tree t = make_vector_type (innertype, nunits, VOIDmode);
-  tree cand;
+  ttype *t = make_vector_type (innertype, nunits, VOIDmode);
+  ttype *cand;
   /* We always build the non-opaque variant before the opaque one,
      so if it already exists, it is TYPE_NEXT_VARIANT of this one.  */
-  cand = TYPE_NEXT_VARIANT (t);
+  cand = TTYPE_NEXT_VARIANT (t);
   if (cand
       && TYPE_VECTOR_OPAQUE (cand)
       && check_qualified_type (cand, t, TYPE_QUALS (t)))

@@ -6104,7 +6104,7 @@ extern void diagnose_non_constexpr_vec_init	(tree);
 extern tree hash_tree_cons			(tree, tree, tree);
 extern tree hash_tree_chain			(tree, tree);
 extern tree build_qualified_name		(tree, tree, tree, bool);
-extern tree build_ref_qualified_type		(tree, cp_ref_qualifier);
+extern ttype *build_ref_qualified_type		(tree, cp_ref_qualifier);
 extern int is_overloaded_fn			(tree);
 extern tree dependent_name			(tree);
 extern tree get_fns				(tree);
@@ -6115,7 +6115,7 @@ extern tree ovl_scope				(tree);
 extern bool non_static_member_function_p        (tree);
 extern const char *cxx_printable_name		(tree, int);
 extern const char *cxx_printable_name_translate	(tree, int);
-extern tree build_exception_variant		(tree, tree);
+extern ttype *build_exception_variant		(tree, tree);
 extern tree bind_template_template_parm		(tree, tree);
 extern tree array_type_nelts_total		(tree);
 extern tree array_type_nelts_top		(tree);
@@ -6140,9 +6140,9 @@ extern tree make_ptrmem_cst			(tree, tree);
 extern tree cp_build_type_attribute_variant     (tree, tree);
 extern tree cp_build_reference_type		(tree, bool);
 extern tree move				(tree);
-extern tree cp_build_qualified_type_real	(tree, int, tsubst_flags_t);
+extern ttype *cp_build_qualified_type_real	(tree, int, tsubst_flags_t);
 #define cp_build_qualified_type(TYPE, QUALS) \
-  TTYPE (cp_build_qualified_type_real ((TYPE), (QUALS), tf_warning_or_error))
+	  cp_build_qualified_type_real ((TYPE), (QUALS), tf_warning_or_error)
 extern bool cv_qualified_p			(const_tree);
 extern tree cv_unqualified			(tree);
 extern special_function_kind special_function_p (const_tree);

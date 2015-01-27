@@ -73,7 +73,7 @@ struct lang_hooks_for_types
 
   /* Given PRECISION and UNSIGNEDP, return a suitable type-tree for an
      integer type with at least that precision.  */
-  tree (*type_for_size) (unsigned, int);
+  ttype *(*type_for_size) (unsigned, int);
 
   /* True if the type is an instantiation of a generic type,
      e.g. C++ template implicit specializations.  */

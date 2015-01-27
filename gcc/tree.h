@@ -1646,6 +1646,10 @@ extern void protected_set_expr_location (tree, location_t);
 #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.main_variant)
 #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->u.type_common.context)
 
+
+#define TTYPE_MAIN_VARIANT(NODE) (TTYPE (TYPE_MAIN_VARIANT (NODE)))
+#define TTYPE_NEXT_VARIANT(NODE) (TTYPE (TYPE_NEXT_VARIANT(NODE)))
+
 #define TYPE_MODE(NODE) \
   (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
    ? vector_type_mode (NODE) : (NODE)->u.type_common.mode)
@@ -1950,6 +1954,7 @@ extern machine_mode element_mode (const_tree t);
 
 /* The actual data type node being inherited in this basetype.  */
 #define BINFO_TYPE(NODE) TREE_TYPE (TREE_BINFO_CHECK (NODE))
+#define BINFO_TTYPE(NODE) TREE_TTYPE (TREE_BINFO_CHECK (NODE))
 
 /* The offset where this basetype appears in its containing type.
    BINFO_OFFSET slot holds the offset (in bytes)
@@ -3793,16 +3798,16 @@ extern ttype *build_pointer_type_for_mode (tree, machine_mode, bool);
 extern ttype *build_pointer_type (tree);
 extern ttype *build_reference_type_for_mode (tree, machine_mode, bool);
 extern ttype *build_reference_type (tree);
-extern tree build_vector_type_for_mode (tree, machine_mode);
-extern tree build_vector_type (tree innertype, int nunits);
-extern tree build_opaque_vector_type (tree innertype, int nunits);
-extern tree build_index_type (tree);
+extern ttype *build_vector_type_for_mode (tree, machine_mode);
+extern ttype *build_vector_type (tree innertype, int nunits);
+extern ttype *build_opaque_vector_type (tree innertype, int nunits);
+extern ttype *build_index_type (tree);
 extern ttype *build_array_type (tree, tree);
-extern tree build_nonshared_array_type (tree, tree);
-extern tree build_array_type_nelts (tree, unsigned HOST_WIDE_INT);
+extern ttype *build_nonshared_array_type (tree, tree);
+extern ttype *build_array_type_nelts (tree, unsigned HOST_WIDE_INT);
 extern ttype *build_function_type (tree, tree);
-extern tree build_function_type_list (tree, ...);
-extern tree build_varargs_function_type_list (tree, ...);
+extern ttype *build_function_type_list (tree, ...);
+extern ttype *build_varargs_function_type_list (tree, ...);
 
 class type_array {
   void *vec;
@@ -3819,10 +3824,10 @@ extern ttype *build_varargs_function_type_array (tree, int, type_array);
 #define build_varargs_function_type_vec(RET, V) \
   build_varargs_function_type_array (RET, vec_safe_length (V), \
 				     vec_safe_address (V))
-extern tree build_method_type_directly (tree, tree, tree);
+extern ttype *build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
-extern tree build_offset_type (tree, tree);
-extern tree build_complex_type (tree);
+extern ttype *build_offset_type (tree, tree);
+extern ttype *build_complex_type (tree);
 extern tree array_type_nelts (const_tree);
 
 extern tree value_member (tree, tree);
@@ -4024,7 +4029,7 @@ extern ttype *build_variant_type_copy (tree);
    How the hash code is computed is up to the caller, as long as any two
    callers that could hash identical-looking type nodes agree.  */
 
-extern tree type_hash_canon (unsigned int, tree);
+extern ttype *type_hash_canon (unsigned int, ttype *);
 
 extern tree convert (tree, tree);
 extern unsigned int expr_align (const_tree);

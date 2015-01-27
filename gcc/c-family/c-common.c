@@ -3495,7 +3495,7 @@ check_case_bounds (location_t loc, tree type, tree orig_type,
 /* Return an integer type with BITS bits of precision,
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
-tree
+ttype *
 c_common_type_for_size (unsigned int bits, int unsignedp)
 {
   int i;
@@ -3811,7 +3811,7 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
      have the same size. This is necessary for warnings to work
      correctly in archs where sizeof(int) == sizeof(long) */
 
-  type1 = TTYPE (TYPE_MAIN_VARIANT (type));
+  type1 = TTYPE_MAIN_VARIANT (type);
   if (type1 == signed_char_type_node || type1 == char_type_node || type1 == unsigned_char_type_node)
     return unsignedp ? unsigned_char_type_node : signed_char_type_node;
   if (type1 == integer_type_node || type1 == unsigned_type_node)
@@ -5539,7 +5539,7 @@ c_common_nodes_and_builtins (void)
   signed_size_type_node = c_common_signed_type (size_type_node);
 
   pid_type_node =
-    TTYPE (TREE_TYPE (identifier_global_value (get_identifier (PID_TYPE))));
+	     TREE_TTYPE (identifier_global_value (get_identifier (PID_TYPE)));
 
   record_builtin_type (RID_FLOAT, NULL, float_type_node);
   record_builtin_type (RID_DOUBLE, NULL, double_type_node);
@@ -5812,7 +5812,7 @@ c_common_nodes_and_builtins (void)
       TREE_TTYPE (identifier_global_value (c_get_ident (UINTPTR_TYPE)));
 
   default_function_type
-    = TTYPE (build_varargs_function_type_list (integer_type_node, NULL_TREE));
+    = build_varargs_function_type_list (integer_type_node, NULL_TREE);
   ptrdiff_type_node
     = TREE_TTYPE (identifier_global_value (get_identifier (PTRDIFF_TYPE)));
   unsigned_ptrdiff_type_node = c_common_unsigned_type (ptrdiff_type_node);
@@ -10313,7 +10313,8 @@ invalid_indirection_error (location_t loc, tree type, ref_operator errstring)
 int
 complete_array_type (tree *ptype, tree initial_value, bool do_default)
 {
-  tree maxindex, type, main_type, elt, unqual_elt;
+  tree maxindex, type, elt, unqual_elt;
+  ttype *main_type;
   int failure = 0, quals;
   hashval_t hashcode = 0;
   bool overflow_p = false;

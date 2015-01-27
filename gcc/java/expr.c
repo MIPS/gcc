@@ -819,8 +819,8 @@ build_java_throw_out_of_bounds_exception (tree index)
 tree
 build_java_array_length_access (tree node)
 {
-  tree type = TREE_TYPE (node);
-  tree array_type = TREE_TYPE (type);
+  ttype *type = TREE_TTYPE (node);
+  ttype *array_type = TREE_TTYPE (type);
   HOST_WIDE_INT length;
 
   if (!is_array_type_p (type))
@@ -888,7 +888,7 @@ build_java_arrayaccess (tree array, tree type, tree index)
   tree node, throw_expr = NULL_TREE;
   tree data_field;
   tree ref;
-  tree array_type = TREE_TYPE (TREE_TYPE (array));
+  ttype *array_type = TREE_TTYPE (TREE_TYPE (array));
   tree size_exp = fold_convert (sizetype, size_in_bytes (type));
 
   if (!is_array_type_p (TREE_TYPE (array)))
@@ -1632,7 +1632,7 @@ expand_java_binop (tree type, enum tree_code op)
    class containing the field. */
 
 tree
-lookup_field (tree *typep, tree name)
+lookup_field (ttype **typep, tree name)
 {
   if (CLASS_P (*typep) && !CLASS_LOADED_P (*typep))
     {
@@ -1656,7 +1656,7 @@ lookup_field (tree *typep, tree name)
       for (binfo = TYPE_BINFO (*typep), i = 0;
 	   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 	{
-	  tree t = BINFO_TYPE (base_binfo);
+	  ttype *t = BINFO_TTYPE (base_binfo);
 	  if ((field = lookup_field (&t, name)))
 	    {
 	      if (save_field == field)
@@ -1679,7 +1679,7 @@ lookup_field (tree *typep, tree name)
       if (save_field != NULL_TREE)
 	return save_field;
 
-      *typep = CLASSTYPE_SUPER (*typep);
+      *typep = TTYPE (CLASSTYPE_SUPER (*typep));
     } while (*typep);
   return NULL_TREE;
 }
@@ -1691,7 +1691,7 @@ lookup_field (tree *typep, tree name)
 tree
 build_field_ref (tree self_value, tree self_class, tree name)
 {
-  tree base_class = self_class;
+  ttype *base_class = TTYPE (self_class);
   tree field_decl = lookup_field (&base_class, name);
   if (field_decl == NULL_TREE)
     {
@@ -1704,7 +1704,7 @@ build_field_ref (tree self_value, tree self_class, tree name)
     }
   else
     {
-      tree base_type = promote_type (base_class);
+      ttype *base_type = promote_type (base_class);
 
       /* CHECK is true if self_value is not the this pointer.  */
       int check = (! (DECL_P (self_value)
@@ -2842,10 +2842,10 @@ java_modify_addr_for_volatile (tree exp)
 static void
 expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 {
-  tree self_type
-    = get_class_constant (current_jcf,
-                          COMPONENT_REF_CLASS_INDEX (&current_jcf->cpool,
-                          field_ref_index));
+  ttype *self_type
+    = TTYPE (get_class_constant (current_jcf,
+				 COMPONENT_REF_CLASS_INDEX (&current_jcf->cpool,
+				 field_ref_index)));
   const char *self_name
     = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (self_type)));
   tree field_name = COMPONENT_REF_NAME (&current_jcf->cpool, field_ref_index);
@@ -2855,7 +2855,7 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
   tree new_value = is_putting ? pop_value (field_type) : NULL_TREE;
   tree field_ref;
   int is_error = 0;
-  tree original_self_type = self_type;
+  ttype *original_self_type = self_type;
   tree field_decl;
   tree modify_expr;
   

@@ -299,10 +299,10 @@ go_langhook_parse_file (void)
 			go_require_return_statement);
 }
 
-static tree
+static ttype *
 go_langhook_type_for_size (unsigned int bits, int unsignedp)
 {
-  tree type;
+  ttype *type;
   if (unsignedp)
     {
       if (bits == INT_TYPE_SIZE)

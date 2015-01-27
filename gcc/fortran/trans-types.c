@@ -2922,7 +2922,7 @@ arg_type_list_done:
 /* Return an integer type with BITS bits of precision,
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
-tree
+ttype *
 gfc_type_for_size (unsigned bits, int unsignedp)
 {
   if (!unsignedp)
@@ -2930,7 +2930,7 @@ gfc_type_for_size (unsigned bits, int unsignedp)
       int i;
       for (i = 0; i <= MAX_INT_KINDS; ++i)
 	{
-	  tree type = gfc_integer_types[i];
+	  ttype *type = gfc_integer_types[i];
 	  if (type && bits == TYPE_PRECISION (type))
 	    return type;
 	}
@@ -2967,7 +2967,7 @@ gfc_type_for_size (unsigned bits, int unsignedp)
 	return unsigned_intTI_type_node;
     }
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Return a data type that has machine mode MODE.  If the mode is an
