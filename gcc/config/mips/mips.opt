@@ -452,6 +452,9 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
 
+mforbidden-slots
+Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
+
 mclib=
 Target RejectNegative Joined Var(mips_c_lib) ToLower Enum(mips_lib_setting) Init(MIPS_LIB_NEWLIB)
 Specify the C library to use with this application.
