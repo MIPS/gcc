@@ -468,3 +468,6 @@ Enum(mips_lib_setting) String(small) Value(MIPS_LIB_SMALL)
 
 EnumValue
 Enum(mips_lib_setting) String(tiny) Value(MIPS_LIB_TINY)
+
+mforbidden-slots
+Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
