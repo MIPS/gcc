@@ -18629,7 +18629,7 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
 
   /* Ignore zero-length instructions (barriers and the like).  */
   ninsns = get_attr_length (insn) / 4;
-  if (ninsns == 0)
+  if (get_attr_length (insn) == 0)
     return;
 
   /* Work out how many nops are needed.  Note that we only care about
