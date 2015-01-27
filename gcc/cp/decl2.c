@@ -4346,6 +4346,9 @@ emit_debug_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
 
   check_global_declarations (vec, len);
 
+  /* FIXME: What does this do for templates?  I think we don't want to
+     send a template off to early_global_decl, but rather walk through
+     its specializations and emit them.  */
   for (tree t = level->names; t; t = TREE_CHAIN(t))
     debug_hooks->early_global_decl (t);
 

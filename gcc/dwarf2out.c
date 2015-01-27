@@ -106,6 +106,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "gdb/gdb-index.h"
 #include "rtl-iter.h"
+#include "print-tree.h"
 
 static void dwarf2out_source_line (unsigned int, const char *, int, bool);
 static rtx_insn *last_var_location_insn;
@@ -2424,6 +2425,7 @@ build_cfa_aligned_loc (dw_cfa_location *cfa,
 
 static void dwarf2out_init (const char *);
 static void dwarf2out_finish (const char *);
+static void dwarf2out_early_finish (void);
 static void dwarf2out_assembly_start (void);
 static void dwarf2out_define (unsigned int, const char *);
 static void dwarf2out_undef (unsigned int, const char *);
@@ -2451,6 +2453,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
 {
   dwarf2out_init,
   dwarf2out_finish,
+  dwarf2out_early_finish,
   dwarf2out_assembly_start,
   dwarf2out_define,
   dwarf2out_undef,
@@ -2611,6 +2614,9 @@ typedef struct GTY((chain_circular ("%h.die_sib"), for_user)) die_struct {
   int die_mark;
   unsigned int decl_id;
   enum dwarf_tag die_tag;
+  /* No one should depend on this, as it is a temporary debugging aid
+     to indicate the DECL for which this DIE was created for.  */
+  tree tmp_created_for;
   /* Die is used and must not be pruned as unused.  */
   BOOL_BITFIELD die_perennial_p : 1;
   BOOL_BITFIELD comdat_type_p : 1; /* DIE has a type signature */
@@ -4890,6 +4896,7 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
   dw_die_ref die = ggc_cleared_alloc<die_node> ();
 
   die->die_tag = tag_value;
+  die->tmp_created_for = t;
 
   if (early_dwarf_dumping)
     die->dumped_early = true;
@@ -4899,6 +4906,30 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
   else
     {
       limbo_die_node *limbo_node;
+
+      /* No DIEs created after early dwarf should end up in limbo,
+	 because the limbo list should not persist past LTO
+	 streaming.  */
+      if (tag_value != DW_TAG_compile_unit
+	  && !early_dwarf_dumping
+	  /* Allow nested functions to live in limbo because they will
+	     only temporarily live there, as decls_for_scope will fix
+	     them up.  */
+	  /* FIXME: Allow types for now.  We are getting some internal
+	     template types from inlining (building libstdc++).
+	     Templates need to be looked at.  */
+	  && !TYPE_P (t)
+	  && (TREE_CODE (t) != FUNCTION_DECL
+	      || !decl_function_context (t))
+	  /* FIXME: Allow late limbo DIE creation for LTO, especially
+	     in the ltrans stage, but once we implement LTO dwarf
+	     streaming, we should remove this exception.  */
+	  && !in_lto_p)
+	{
+	  fprintf (stderr, "symbol ended up in limbo too late:");
+	  debug_generic_stmt (t);
+	  gcc_unreachable ();
+	}
 
       limbo_node = ggc_cleared_alloc<limbo_die_node> ();
       limbo_node->die = die;
@@ -5399,6 +5430,12 @@ print_die (dw_die_ref die, FILE *outfile)
 	fprintf (outfile, ": %s", name);
       fputc (')', outfile);
     }
+  if (die->tmp_created_for
+      && DECL_P (die->tmp_created_for)
+      && CODE_CONTAINS_STRUCT
+           (TREE_CODE (die->tmp_created_for), TS_DECL_WITH_VIS))
+    fprintf (outfile, "(mangle: %s)",
+	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (die->tmp_created_for)));
   fputc ('\n', outfile);
   print_spaces (outfile);
   fprintf (outfile, "  abbrev id: %lu", die->die_abbrev);
@@ -18274,9 +18311,10 @@ dwarf2out_abstract_function (tree decl)
   current_function_decl = decl;
 
   was_abstract = DECL_ABSTRACT_P (decl);
-  set_decl_abstract_flags (decl, 1);
+  if (!was_abstract)
+    set_decl_abstract_flags (decl, 1);
   dwarf2out_decl (decl);
-  if (! was_abstract)
+  if (!was_abstract)
     set_decl_abstract_flags (decl, 0);
 
   current_function_decl = save_fn;
@@ -18414,12 +18452,16 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
      from the member list for the class.  If so, DECLARATION takes priority;
      we'll get back to the abstract instance when done with the class.  */
 
+  /* ?? We must not reset `origin', so C++ clones get a proper
+     DW_AT_abstract_origin tagged DIE further on.  */
+#if 0
   /* The class-scope declaration DIE must be the primary DIE.  */
   if (origin && declaration && class_or_namespace_scope_p (context_die))
     {
       origin = NULL;
       gcc_assert (!old_die);
     }
+#endif
 
   /* Now that the C++ front end lazily declares artificial member fns, we
      might need to retrofit the declaration into its class.  */
@@ -18433,21 +18475,32 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   /* An inlined instance, tag a new DIE with DW_AT_abstract_origin.  */
   if (origin != NULL)
     {
-      gcc_assert (!declaration || local_scope_p (context_die));
+      // ?? Make C++ clones work since they're tagged as
+      // declarations but are class scoped instead.
+      //gcc_assert (!declaration || local_scope_p (context_die));
 
       /* Fixup die_parent for the abstract instance of a nested
 	 inline function.  */
       if (old_die && old_die->die_parent == NULL)
 	add_child_die (context_die, old_die);
 
-      subr_die = new_die (DW_TAG_subprogram, context_die, decl);
-      add_abstract_origin_attribute (subr_die, origin);
-      /*  This is where the actual code for a cloned function is.
-	  Let's emit linkage name attribute for it.  This helps
-	  debuggers to e.g, set breakpoints into
-	  constructors/destructors when the user asks "break
-	  K::K".  */
-      add_linkage_name (subr_die, decl);
+      if (old_die && get_AT_ref (old_die, DW_AT_abstract_origin))
+	{
+	  /* If we have a DW_AT_abstract_origin we have a working
+	     cached version.  */
+	  subr_die = old_die;
+	}
+      else
+	{
+	  subr_die = new_die (DW_TAG_subprogram, context_die, decl);
+	  add_abstract_origin_attribute (subr_die, origin);
+	  /*  This is where the actual code for a cloned function is.
+	      Let's emit linkage name attribute for it.  This helps
+	      debuggers to e.g, set breakpoints into
+	      constructors/destructors when the user asks "break
+	      K::K".  */
+	  add_linkage_name (subr_die, decl);
+	}
     }
   /* A cached copy, possibly from early dwarf generation.  Reuse as
      much as possible.  */
@@ -20125,9 +20178,9 @@ gen_member_die (tree type, dw_die_ref context_die)
   /* Now output info about the function members (if any).  */
   for (member = TYPE_METHODS (type); member; member = DECL_CHAIN (member))
     {
-      /* Don't include clones in the member list.  */
-      if (DECL_ABSTRACT_ORIGIN (member))
-	continue;
+      if (DECL_ABSTRACT_ORIGIN (member) && flag_dump_early_debug_stats)
+	fprintf(stderr, "generating dwarf for member clone: %s\n",
+		IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (member)));
 
       child = lookup_decl_die (member);
       if (child)
@@ -21732,6 +21785,9 @@ static struct dwarf_file_data *
 lookup_filename (const char *file_name)
 {
   struct dwarf_file_data * created;
+
+  if (!file_name)
+    return NULL;
 
   dwarf_file_data **slot
     = file_table->find_slot_with_hash (file_name, htab_hash_string (file_name),
@@ -24726,9 +24782,18 @@ optimize_location_lists (dw_die_ref die)
 static void
 dwarf2out_finish (const char *filename)
 {
-  limbo_die_node *node, *next_node;
   comdat_type_node *ctnode;
   dw_die_ref main_comp_unit_die;
+
+  /* If the limbo list has anything, it should be things that were
+     created after the compilation proper.  Anything from the early
+     dwarf pass, should have parents and should never be in the limbo
+     list this late.  */
+  for (limbo_die_node *node = limbo_die_list; node; node = node->next)
+    gcc_assert (!node->die->dumped_early);
+
+  /* Flush out any latecomers to the limbo party.  */
+  dwarf2out_early_finish();
 
   /* PCH might result in DW_AT_producer string being restored from the
      header compilation, so always fill it with empty string initially
@@ -24753,55 +24818,6 @@ dwarf2out_finish (const char *filename)
       if (p)
 	add_comp_dir_attribute (comp_unit_die ());
     }
-
-  /* Traverse the limbo die list, and add parent/child links.  The only
-     dies without parents that should be here are concrete instances of
-     inline functions, and the comp_unit_die.  We can ignore the comp_unit_die.
-     For concrete instances, we can get the parent die from the abstract
-     instance.  */
-  for (node = limbo_die_list; node; node = next_node)
-    {
-      dw_die_ref die = node->die;
-      next_node = node->next;
-
-      if (die->die_parent == NULL)
-	{
-	  dw_die_ref origin = get_AT_ref (die, DW_AT_abstract_origin);
-
-	  if (origin && origin->die_parent)
-	    add_child_die (origin->die_parent, die);
-	  else if (is_cu_die (die))
-	    ;
-	  else if (seen_error ())
-	    /* It's OK to be confused by errors in the input.  */
-	    add_child_die (comp_unit_die (), die);
-	  else
-	    {
-	      /* In certain situations, the lexical block containing a
-		 nested function can be optimized away, which results
-		 in the nested function die being orphaned.  Likewise
-		 with the return type of that nested function.  Force
-		 this to be a child of the containing function.
-
-		 It may happen that even the containing function got fully
-		 inlined and optimized out.  In that case we are lost and
-		 assign the empty child.  This should not be big issue as
-		 the function is likely unreachable too.  */
-	      gcc_assert (node->created_for);
-
-	      if (DECL_P (node->created_for))
-		origin = get_context_die (DECL_CONTEXT (node->created_for));
-	      else if (TYPE_P (node->created_for))
-		origin = scope_die_for (node->created_for, comp_unit_die ());
-	      else
-		origin = comp_unit_die ();
-
-	      add_child_die (origin, die);
-	    }
-	}
-    }
-
-  limbo_die_list = NULL;
 
 #if ENABLE_ASSERT_CHECKING
   {
@@ -24850,6 +24866,7 @@ dwarf2out_finish (const char *filename)
   /* Traverse the DIE's and add add sibling attributes to those DIE's
      that have children.  */
   add_sibling_attributes (comp_unit_die ());
+  limbo_die_node *node;
   for (node = limbo_die_list; node; node = node->next)
     add_sibling_attributes (node->die);
   for (ctnode = comdat_type_list; ctnode != NULL; ctnode = ctnode->next)
@@ -25109,6 +25126,66 @@ dwarf2out_finish (const char *filename)
   /* If we emitted any indirect strings, output the string table too.  */
   if (debug_str_hash || skeleton_debug_str_hash)
     output_indirect_strings ();
+}
+
+/* Perform any cleanups needed after the early debug generation pass
+   has run.  */
+
+static void
+dwarf2out_early_finish (void)
+{
+  /* Traverse the limbo die list, and add parent/child links.  The only
+     dies without parents that should be here are concrete instances of
+     inline functions, and the comp_unit_die.  We can ignore the comp_unit_die.
+     For concrete instances, we can get the parent die from the abstract
+     instance.
+
+     The point here is to flush out the limbo list so that it is empty
+     and we don't need to stream it for LTO.  */
+  limbo_die_node *node, *next_node;
+  for (node = limbo_die_list; node; node = next_node)
+    {
+      dw_die_ref die = node->die;
+      next_node = node->next;
+
+      if (die->die_parent == NULL)
+	{
+	  dw_die_ref origin = get_AT_ref (die, DW_AT_abstract_origin);
+
+	  if (origin && origin->die_parent)
+	    add_child_die (origin->die_parent, die);
+	  else if (is_cu_die (die))
+	    ;
+	  else if (seen_error ())
+	    /* It's OK to be confused by errors in the input.  */
+	    add_child_die (comp_unit_die (), die);
+	  else
+	    {
+	      /* In certain situations, the lexical block containing a
+		 nested function can be optimized away, which results
+		 in the nested function die being orphaned.  Likewise
+		 with the return type of that nested function.  Force
+		 this to be a child of the containing function.
+
+		 It may happen that even the containing function got fully
+		 inlined and optimized out.  In that case we are lost and
+		 assign the empty child.  This should not be big issue as
+		 the function is likely unreachable too.  */
+	      gcc_assert (node->created_for);
+
+	      if (DECL_P (node->created_for))
+		origin = get_context_die (DECL_CONTEXT (node->created_for));
+	      else if (TYPE_P (node->created_for))
+		origin = scope_die_for (node->created_for, comp_unit_die ());
+	      else
+		origin = comp_unit_die ();
+
+	      add_child_die (origin, die);
+	    }
+	}
+    }
+
+  limbo_die_list = NULL;
 }
 
 /* Reset all state within dwarf2out.c so that we can rerun the compiler

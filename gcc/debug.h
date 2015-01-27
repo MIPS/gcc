@@ -30,6 +30,9 @@ struct gcc_debug_hooks
   /* Output debug symbols.  */
   void (* finish) (const char *main_filename);
 
+  /* Run cleanups necessary after early debug generation.  */
+  void (* early_finish) (void);
+
   /* Called from cgraph_optimize before starting to assemble
      functions/variables/toplevel asms.  */
   void (* assembly_start) (void);

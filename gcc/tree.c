@@ -5730,6 +5730,10 @@ free_lang_data (void)
 {
   unsigned i;
 
+  /* Clean up anything that needs cleaning up after initial debug
+     generation.  */
+  (*debug_hooks->early_finish) ();
+
   /* If we are the LTO frontend we have freed lang-specific data already.  */
   if (in_lto_p
       /* FIXME: Eventually we need to remove this so the function
