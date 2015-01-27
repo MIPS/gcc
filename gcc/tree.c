@@ -201,7 +201,7 @@ static GTY(()) int next_debug_decl_uid;
 
 struct GTY((for_user)) type_hash {
   unsigned long hash;
-  tree type;
+  ttype *type;
 };
 
 /* Initial size of the hash table (rounded to next prime).  */
@@ -1117,6 +1117,41 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 /* Return a new node with the same contents as NODE except that its
    TREE_CHAIN, if it has one, is zero and it has a fresh uid.  */
 
+ttype *
+copy_node_stat (ttype *node MEM_STAT_DECL)
+{
+  ttype *t;
+  enum tree_code code = TREE_CODE (node);
+  size_t length;
+
+  length = tree_size (node);
+  record_node_allocation_statistics (code, length);
+  t = ggc_alloc_ttype_stat (length PASS_MEM_STAT);
+  memcpy (t, node, length);
+
+  TREE_CHAIN (t) = 0;
+  TREE_ASM_WRITTEN (t) = 0;
+  TREE_VISITED (t) = 0;
+
+  TYPE_UID (t) = next_type_uid++;
+  /* The following is so that the debug code for
+     the copy is different from the original type.
+     The two statements usually duplicate each other
+     (because they clear fields of the same union),
+     but the optimizer should catch that.  */
+  TYPE_SYMTAB_POINTER (t) = 0;
+  TYPE_SYMTAB_ADDRESS (t) = 0;
+
+  /* Do not copy the values cache.  */
+  if (TYPE_CACHED_VALUES_P (t))
+    {
+      TYPE_CACHED_VALUES_P (t) = 0;
+      TYPE_CACHED_VALUES (t) = NULL_TREE;
+    }
+  return t;
+}
+
+
 tree
 copy_node_stat (tree node MEM_STAT_DECL)
 {
@@ -1124,6 +1159,9 @@ copy_node_stat (tree node MEM_STAT_DECL)
   enum tree_code code = TREE_CODE (node);
   size_t length;
 
+  if (TREE_CODE_CLASS (code) == tcc_type)
+    return copy_node_stat (as_a<ttype *> (node) MEM_STAT_DECL);
+    
   gcc_assert (code != STATEMENT_LIST);
 
   length = tree_size (node);
@@ -1167,24 +1205,6 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	{
 	  DECL_STRUCT_FUNCTION (t) = NULL;
 	  DECL_SYMTAB_NODE (t) = NULL;
-	}
-    }
-  else if (TREE_CODE_CLASS (code) == tcc_type)
-    {
-      TYPE_UID (t) = next_type_uid++;
-      /* The following is so that the debug code for
-	 the copy is different from the original type.
-	 The two statements usually duplicate each other
-	 (because they clear fields of the same union),
-	 but the optimizer should catch that.  */
-      TYPE_SYMTAB_POINTER (t) = 0;
-      TYPE_SYMTAB_ADDRESS (t) = 0;
-
-      /* Do not copy the values cache.  */
-      if (TYPE_CACHED_VALUES_P (t))
-	{
-	  TYPE_CACHED_VALUES_P (t) = 0;
-	  TYPE_CACHED_VALUES (t) = NULL_TREE;
 	}
     }
 
@@ -6417,22 +6437,22 @@ find_atomic_core_type (tree type)
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
 
-tree
+ttype *
 get_qualified_type (tree type, int type_quals)
 {
-  tree t;
+  ttype *t;
 
   if (TYPE_QUALS (type) == type_quals)
-    return type;
+    return TTYPE (type);
 
   /* Search the chain of variants to see if there is already one there just
      like the one we need to have.  If so, use that existing one.  We must
      preserve the TYPE_NAME, since there is code that depends on this.  */
-  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+  for (t = TTYPE_MAIN_VARIANT (type); t; t = TTYPE_NEXT_VARIANT (t))
     if (check_qualified_type (t, type, type_quals))
       return t;
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Like get_qualified_type, but creates the type if it does not
@@ -6513,7 +6533,7 @@ build_aligned_type (tree type, unsigned int align)
 ttype *
 build_distinct_type_copy (tree type)
 {
-  tree t = copy_node (type);
+  ttype *t = copy_node (TTYPE (type));
 
   TYPE_POINTER_TO (t) = 0;
   TYPE_REFERENCE_TO (t) = 0;
@@ -6533,7 +6553,7 @@ build_distinct_type_copy (tree type)
      whose TREE_TYPE is not t.  This can also happen in the Ada
      frontend when using subtypes.  */
 
-  return TTYPE (t);
+  return t;
 }
 
 /* Create a new variant of TYPE, equivalent but distinct.  This is so
@@ -6545,7 +6565,7 @@ build_distinct_type_copy (tree type)
 ttype *
 build_variant_type_copy (tree type)
 {
-  tree t, m = TYPE_MAIN_VARIANT (type);
+  ttype *t, *m = TTYPE_MAIN_VARIANT (type);
 
   t = build_distinct_type_copy (type);
 
@@ -6558,7 +6578,7 @@ build_variant_type_copy (tree type)
   TYPE_NEXT_VARIANT (m) = t;
   TYPE_MAIN_VARIANT (t) = m;
 
-  return TTYPE (t);
+  return t;
 }
 
 /* Return true if the from tree in both tree maps are equal.  */
@@ -6944,7 +6964,7 @@ type_hash_canon (unsigned int hashcode, ttype *type)
   loc = type_hash_table->find_slot_with_hash (&in, hashcode, INSERT);
   if (*loc)
     {
-      ttype *t1 = TTYPE (((type_hash *) *loc)->type);
+      ttype *t1 = ((type_hash *) *loc)->type;
       gcc_assert (TYPE_MAIN_VARIANT (t1) == t1);
       if (GATHER_STATISTICS)
 	{
@@ -7657,7 +7677,7 @@ ttype *
 build_pointer_type_for_mode (tree to_type, machine_mode mode,
 			     bool can_alias_all)
 {
-  tree t;
+  ttype *t;
 
   if (to_type == error_mark_node)
     return error_type_node;
@@ -7677,15 +7697,15 @@ build_pointer_type_for_mode (tree to_type, machine_mode mode,
      at the moment.  */
   if (TYPE_POINTER_TO (to_type) != 0
       && TREE_CODE (TYPE_POINTER_TO (to_type)) != POINTER_TYPE)
-    return TTYPE (TYPE_POINTER_TO (to_type));
+    return TTYPE_POINTER_TO (to_type);
 
   /* First, if we already have a type for pointers to TO_TYPE and it's
      the proper mode, use it.  */
-  for (t = TYPE_POINTER_TO (to_type); t; t = TYPE_NEXT_PTR_TO (t))
+  for (t = TTYPE_POINTER_TO (to_type); t; t = TTYPE_NEXT_PTR_TO (t))
     if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
-      return TTYPE (t);
+      return t;
 
-  t = make_node (POINTER_TYPE);
+  t = make_type_node (POINTER_TYPE);
 
   TREE_TYPE (t) = to_type;
   SET_TYPE_MODE (t, mode);
@@ -7704,7 +7724,7 @@ build_pointer_type_for_mode (tree to_type, machine_mode mode,
      with expression-construction, and this simplifies them all.  */
   layout_type (t);
 
-  return TTYPE (t);
+  return t;
 }
 
 /* By default build pointers in ptr_mode.  */
@@ -7724,7 +7744,7 @@ ttype *
 build_reference_type_for_mode (tree to_type, machine_mode mode,
 			       bool can_alias_all)
 {
-  tree t;
+  ttype *t;
 
   if (to_type == error_mark_node)
     return error_type_node;
@@ -7744,15 +7764,15 @@ build_reference_type_for_mode (tree to_type, machine_mode mode,
      at the moment.  */
   if (TYPE_REFERENCE_TO (to_type) != 0
       && TREE_CODE (TYPE_REFERENCE_TO (to_type)) != REFERENCE_TYPE)
-    return TTYPE (TYPE_REFERENCE_TO (to_type));
+    return TTYPE_REFERENCE_TO (to_type);
 
   /* First, if we already have a type for pointers to TO_TYPE and it's
      the proper mode, use it.  */
-  for (t = TYPE_REFERENCE_TO (to_type); t; t = TYPE_NEXT_REF_TO (t))
+  for (t = TTYPE_REFERENCE_TO (to_type); t; t = TTYPE_NEXT_REF_TO (t))
     if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
-      return TTYPE (t);
+      return t;
 
-  t = make_node (REFERENCE_TYPE);
+  t = make_type_node (REFERENCE_TYPE);
 
   TREE_TYPE (t) = to_type;
   SET_TYPE_MODE (t, mode);
@@ -7769,7 +7789,7 @@ build_reference_type_for_mode (tree to_type, machine_mode mode,
 
   layout_type (t);
 
-  return TTYPE (t);
+  return t;
 }
 
 
@@ -9674,11 +9694,11 @@ make_or_reuse_accum_type (unsigned size, int unsignedp, int satp)
 static ttype *
 build_atomic_base (tree type, unsigned int align)
 {
-  tree t;
+  ttype *t;
 
   /* Make sure its not already registered.  */
   if ((t = get_qualified_type (type, TYPE_QUAL_ATOMIC)))
-    return TTYPE (t);
+    return t;
   
   t = build_variant_type_copy (type);
   set_type_quals (t, TYPE_QUAL_ATOMIC);
@@ -9686,7 +9706,7 @@ build_atomic_base (tree type, unsigned int align)
   if (align)
     TYPE_ALIGN (t) = align;
 
-  return TTYPE (t);
+  return t;
 }
 
 /* Create nodes for all integer types (and error_mark_node) using the sizes
