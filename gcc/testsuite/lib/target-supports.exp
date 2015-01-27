@@ -1420,10 +1420,9 @@ proc check_mpaired_single_hw_available { } {
 	    check_runtime_nocache mpaired_single_hw_available {
 	      int main()
 	      {
-		asm volatile ("pll $f2,$f4,$f6");
-		return v[0];
+		asm volatile ("pll.ps $f2,$f4,$f6");
+		return 0;
 	      }
-	      #endif
 	    } ""
 	}
     }]
@@ -1443,9 +1442,8 @@ proc check_mips_loongson_hw_available { } {
 	      int main()
 	      {
 		asm volatile ("paddw $f2,$f4,$f6");
-		return v[0];
+		return 0;
 	      }
-	      #endif
 	    } ""
 	}
     }]
@@ -1455,7 +1453,7 @@ proc check_mips_loongson_hw_available { } {
 # otherwise.  Cache the result.
 
 proc check_mips_msa_hw_available { } {
-    return [check_cached_effective_target msa_hw_available {
+    return [check_cached_effective_target mips_msa_hw_available {
 	# If this is not the right target then we can skip the test.
 	if { !([istarget mips*-*-*]) } {
 	    expr 0
