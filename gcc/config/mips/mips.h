@@ -884,6 +884,8 @@ struct mips_cpu_info {
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
        |march=interaptiv*: -mdsp} \
      %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}" \
+  "%{!mforbidden-slots:	\
+     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}" \
   "%{!mno-mips16e2: \
      %{march=interaptiv-mr2: -mmips16e2}}"
 
@@ -1378,6 +1380,7 @@ struct mips_cpu_info {
 FP_ASM_SPEC "\
 %{mmips16e2} \
 %{mmips16-copy:-mmips16cp} \
+%{mforbidden-slots} \
 %(subtarget_asm_spec)"
 
 /* Extra switches sometimes passed to the linker.  */
