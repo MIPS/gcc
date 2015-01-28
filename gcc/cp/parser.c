@@ -3961,13 +3961,13 @@ cp_parser_userdef_numeric_literal (cp_parser *parser)
 	  if (TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE && overflow > 0)
 	    warning_at (token->location, OPT_Woverflow,
 		        "integer literal exceeds range of %qT type",
-		        TREE_CAST (long_long_unsigned_type_node));
+		        long_long_unsigned_type_node);
 	  else
 	    {
 	      if (overflow > 0)
 		warning_at (token->location, OPT_Woverflow,
 			    "floating literal exceeds range of %qT type",
-			    TREE_CAST (long_double_type_node));
+			    long_double_type_node);
 	      else if (overflow < 0)
 		warning_at (token->location, OPT_Woverflow,
 			    "floating literal truncated to zero");
@@ -4071,7 +4071,7 @@ cp_parser_userdef_string_literal (tree literal)
     return result;
 
   error ("unable to find string literal operator %qD with %qT, %qT arguments",
-	 name, TREE_TYPE (value), TREE_CAST (size_type_node));
+	 name, TREE_TYPE (value), size_type_node);
   return error_mark_node;
 }
 

@@ -3548,25 +3548,25 @@ handle_abi_tag_type_attribute (ttype ** node, tree name, tree args,
   if (!OVERLOAD_TYPE_P (*node))
     {
       error ("%qE attribute applied to non-class, non-enum type %qT",
-	     name, TREE_CAST (*node));
+	     name, *node);
       *no_add_attrs = true;
     }
   else if (!(flags & (int)ATTR_FLAG_TYPE_IN_PLACE))
     {
       error ("%qE attribute applied to %qT after its definition",
-	     name, TREE_CAST (*node));
+	     name, *node);
       *no_add_attrs = true;
     }
   else if (CLASSTYPE_TEMPLATE_INSTANTIATION (*node))
     {
       warning (OPT_Wattributes, "ignoring %qE attribute applied to "
-	       "template instantiation %qT", name, TREE_CAST (*node));
+	       "template instantiation %qT", name, *node);
       *no_add_attrs = true;
     }
   else if (CLASSTYPE_TEMPLATE_SPECIALIZATION (*node))
     {
       warning (OPT_Wattributes, "ignoring %qE attribute applied to "
-	       "template specialization %qT", name, TREE_CAST (*node));
+	       "template specialization %qT", name, *node);
       *no_add_attrs = true;
     }
   else

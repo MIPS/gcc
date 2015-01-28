@@ -8163,7 +8163,7 @@ handle_visibility_type_attribute (ttype **node, tree name, tree args,
   else if (TYPE_FIELDS (*node))
     {
       error ("%qE attribute ignored because %qT is already defined",
-	     name, TREE_CAST (*node));
+	     name, *node);
       return NULL_TREE;
     }
 
