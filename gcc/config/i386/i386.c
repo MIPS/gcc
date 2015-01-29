@@ -34289,8 +34289,8 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
     P_PROC_SSE4_A,
     P_SSE4_1,
     P_SSE4_2,
-    P_POPCNT,
     P_PROC_SSE4_2,
+    P_POPCNT,
     P_AVX,
     P_PROC_AVX,
     P_BMI,
@@ -35145,7 +35145,7 @@ make_resolver_func (const tree default_decl,
 
   gimplify_function_tree (decl);
   push_cfun (DECL_STRUCT_FUNCTION (decl));
-  *empty_bb = init_lowered_empty_function (decl, false);
+  *empty_bb = init_lowered_empty_function (decl, false, 0);
 
   cgraph_node::add_new_function (decl, true);
   symtab->call_cgraph_insertion_hooks (cgraph_node::get_create (decl));
