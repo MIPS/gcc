@@ -1,3 +1,383 @@
+2015-01-29  Marek Polacek  <polacek@redhat.com>
+
+	* doc/standards.texi: Reflect that the default for C is gnu11.
+
+2015-01-29  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/64761
+	* reorg.c (switch_text_sections_between_p): New function.
+	(relax_delay_slots): Call it when testing if the jump insn
+	is removable.  Use targetm.can_follow_jump when testing if
+	the conditional branch can follow an unconditional jump.
+
+2015-01-27  Caroline Tice  <cmtice@google.com>
+
+	Committing VTV Cywin/Ming patch for Patrick Wollgast
+	* config/i386/cygwin.h (STARTFILE_SPEC): Add vtv_start.o,
+	if -fvtable-verify=preinit/std is used.
+	* config/i386/mingw-w64.h (STARTFILE_SPEC): Likewise.
+	* config/i386/mingw32.h (STARTFILE_SPEC): Likewise.
+	* config/i386/cygwin.h (ENDFILE_SPEC): Add vtv_end.o,
+	if -fvtable-verify=preinit/std is used.
+	* config/i386/mingw32.h (ENDFILE_SPEC): Likewise.
+	* config/i386/cygwin.h (LIB_SPEC): Pass -lvtv and -lpsapi,
+	if -fvtable-verify=preinit/std is used.
+	* config/i386/mingw-w64.h (LIB_SPEC): Likewise.
+	* config/i386/mingw32.h (LIB_SPEC): Likewise.
+	* varasm.c (assemble_variable): Add code to properly set the comdat
+	section and name for the .vtable_map_vars section in case the
+	target is PE or COFF.
+
+2015-01-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/64801
+	* cgraphunit.c (init_lowered_empty_function): Add CoUNT parameter;
+	make sane BB profile.
+	(cgraph_node::expand_thunk): Make sane BB profile.
+	(cgraph_node::create_wrapper): Do not set call_stmt_cannot_inline_p.
+	* cgraph.h (init_lowered_empty_function): Update prototype.
+	* config/i386/i386.c (make_resolver_func): Update call.
+	* predict.c (gate): Disable branch prediction pass if
+	profile is already there.
+
+2015-01-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	* optc-save-gen.awk: flag_fp_contract_mode is no longer speical.
+	* opth-gen.awk: Likewise.
+	* common.opt: Mark flag_fp_contract_mode as Optimization.
+
+2015-01-29  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* config/i386/cygwin.h (LIBGCJ_SONAME): Set libgcj version to -16.
+	* config/i386/mingw32.h (LIBGCJ_SONAME): Set libgcj version to -16.
+
+2015-01-28  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/64659
+	* config/sh/predicates.md (atomic_arith_operand,
+	atomic_logical_operand): Remove.
+	* config/sh/sync.md (fetchop_predicate, fetchop_constraint): Remove.
+	(atomic_arith_operand_0): New predicate.
+	(atomic_compare_and_swap<mode>): Use arith_reg_dest for output values.
+	Use atomic_arith_operand_0 for input values.
+	(atomic_compare_and_swapsi_hard, atomic_compare_and_swap<mode>_hard,
+	atomic_compare_and_swap<mode>_soft_gusa,
+	atomic_compare_and_swap<mode>_soft_tcb,
+	atomic_compare_and_swap<mode>_soft_imask): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.
+	(atomic_exchange<mode>): Use arith_reg_dest for output value.  Use
+	atomic_arith_operand_0 for newval input.
+	(atomic_exchangesi_hard, atomic_exchange<mode>_hard,
+	atomic_exchange<mode>_soft_gusa, atomic_exchange<mode>_soft_tcb,
+	atomic_exchange<mode>_soft_imask): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.
+	(atomic_arith_operand_1, atomic_logical_operand_1): New predicates.
+	fetchop_predicate_1, fetchop_constraint_1_llcs,
+	fetchop_constraint_1_gusa, fetchop_constraint_1_tcb,
+	fetchop_constraint_1_imask): New code iterator attributes.
+	(atomic_fetch_<fetchop_name><mode>): Use arith_reg_dest instead of
+	register_operand.  Use fetchop_predicate_1.
+	(atomic_fetch_<fetchop_name>si_hard,
+	atomic_fetch_<fetchop_name><mode>_hard): Use arith_reg_dest instead of
+	register_operand.  Use fetchop_predicate_1, fetchop_constraint_1_llcs.
+	(atomic_fetch_<fetchop_name><mode>_soft_gusa): Use arith_reg_dest
+	and arith_reg_operand instead of register_operand.  Use
+	fetchop_predicate_1, fetchop_constraint_1_gusa.
+	(atomic_fetch_<fetchop_name><mode>_soft_tcb): Use arith_reg_dest
+	and arith_reg_operand instead of register_operand.  Use
+	fetchop_predicate_1, fetchop_constraint_1_tcb.  Adjust asm sequence
+	to allow R0 usage.
+	(atomic_fetch_<fetchop_name><mode>_soft_imask): Use arith_reg_dest
+	and arith_reg_operand instead of register_operand.  Use
+	fetchop_predicate_1, fetchop_constraint_1_imask.  Adjust asm sequence
+	to allow R0 usage.
+	(atomic_fetch_nand<mode>): Use arith_reg_dest instead of
+	register_operand.  Use atomic_logical_operand_1.
+	(atomic_fetch_nandsi_hard, atomic_fetch_nand<mode>_hard,
+	atomic_fetch_nand<mode>_soft_gusa): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.
+	(atomic_fetch_nand<mode>_soft_tcb, atomic_fetch_nand<mode>_soft_imask):
+	Use arith_reg_dest and arith_reg_operand instead of register_operand.
+	Use logical_operand and rK08.  Adjust asm sequence to allow R0 usage.
+	(atomic_<fetchop_name>_fetch<mode>): Use arith_reg_dest instead of
+	register_operand.  Use fetchop_predicate_1.
+	(atomic_<fetchop_name>_fetchsi_hard,
+	atomic_<fetchop_name>_fetch<mode>_hard): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use fetchop_predicate_1,
+	fetchop_constraint_1_llcs.
+	(atomic_<fetchop_name>_fetch<mode>_soft_gusa): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use fetchop_predicate_1,
+	fetchop_constraint_1_gusa.
+	(atomic_<fetchop_name>_fetch<mode>_soft_tcb): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use fetchop_predicate_1,
+	fetchop_constraint_1_tcb.  Adjust asm sequence to allow R0 usage.
+	(atomic_<fetchop_name>_fetch<mode>_soft_imask): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use fetchop_predicate_1,
+	fetchop_constraint_1_imask.  Adjust asm sequence to allow R0 usage.
+	(atomic_nand_fetch<mode>): Use arith_reg_dest instead of
+	register_operand.  Use atomic_logical_operand_1.
+	(atomic_nand_fetchsi_hard, atomic_nand_fetch<mode>_hard,
+	atomic_nand_fetch<mode>_soft_gusa): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.
+	(atomic_nand_fetch<mode>_soft_tcb): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use logical_operand
+	and K08.  Adjust asm sequence to allow R0 usage.
+	(atomic_nand_fetch<mode>_soft_imask): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use logical_operand
+	and K08.
+
+2015-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/63504
+	* dwarf2out.c (add_AT_wide, mem_loc_descriptor, loc_descriptor):
+	Use ggc_alloc<wide_int> instead of ggc_cleared_alloc<wide_int>.
+	(attr_checksum, attr_checksum_ordered, hash_loc_operands): Checksum
+	only get_full_len HOST_WIDE_INTs from get_val () array rather than
+	all bits in *val_wide.
+
+2015-01-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* varpool.c (tls_model_names): Fix names.
+	(varpool_node::dump): Dump tls- prefix for tls models.
+
+2015-01-28  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/mkoffload.c: New file.
+	* config/nvptx/t-nvptx: Add build rules for it.
+	* config.gcc <nvptx-*> [$enable_as_accelerator = yes]
+	(extra_programs): Add mkoffload.
+	* config/nvptx/nvptx.c (nvptx_record_offload_symbol): New
+	function.
+	(TARGET_RECORD_OFFLOAD_SYMBOL): Define macro to use it.
+
+2015-01-28  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR middle-end/64809
+	* cfgexpand.c (reorder_operands): Skip debug gimples.
+
+2015-01-28  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/64277
+	* tree-ssa-loop-niter.c (record_nonwrapping_iv): Use base
+	range info when possible to refine estimation.
+
+2015-01-28  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/64718
+	* tree-ssa-math-opts.c (pass_optimize_bswap::execute): Make bswap_type
+	be a 16bit unsigned integer when n->range is 16.
+	(bswap_replace): Convert src to that type if necessary for all bswap
+	sizes.  Fix rotation right notation in nearby comment.  Use bswap_type
+	set in pass_optimize_bswap::execute ().
+
+2015-01-28  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_abs<mode>): New.
+	* config/aarch64/aarch64-simd-builtins.def (abs): Split by
+	integer and floating point variants.
+	* config/aarch64/iterators.md (unspec): Add UNSPEC_ABS.
+
+2015-01-28  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* config/mips/mips.c (mips_hard_regno_mode_ok_p): Prohibit accumulators
+	for all vector modes.
+
+2015-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/64612
+	* doc/sourcebuild.texi (comdat_group): Document.
+
+2015-01-28  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/thumb1.md (*thumb1_movpc_insn): New insn pattern.
+
+2015-01-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* toplev.c (print_version): Add param "show_global_state", and
+	only print GGC and plugin information if it is true.
+	(init_asm_output): Pass in "true" for the new param when calling
+	print_version.
+	(process_options): Likewise.
+	(toplev::main): Likewise.
+	* toplev.h (print_version): Add new param to decl.
+
+2015-01-27  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/60871
+	PR ipa/64139
+	* tree.c (lookup_binfo_at_offset): New function.
+	(get_binfo_at_offset): Use it.
+
+2015-01-27  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/64282
+	* gimple-fold.c (gimple_get_virt_method_for_vtable): Remove assert
+	on vtable being vtable.
+
+2015-01-27  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+        * doc/extend.texi: s/390: Update documentation of hotpatch attribute.
+        * doc/invoke.texi (-mhotpatch): s/390: Update documentation of
+        -mhotpatch= option.
+        * config/s390/s390.opt (mhotpatch): s/390: Remove -mhotpatch and
+        -mno-hotpatch options.  Change syntax of -mhotpatch= option.
+        * config/s390/s390.c (s390_hotpatch_trampoline_halfwords_default):
+        Renamed.
+        (s390_hotpatch_trampoline_halfwords_max): Renamed.
+        (s390_hotpatch_hw_max): New name.
+        (s390_hotpatch_trampoline_halfwords): Renamed.
+        (s390_hotpatch_hw_before_label): New name.
+        (get_hotpatch_attribute): Removed.
+        (s390_hotpatch_hw_after_label): New name.
+        (s390_handle_hotpatch_attribute): Add second parameter to hotpatch
+        attribute.
+        (s390_attribute_table): Ditto.
+        (s390_function_num_hotpatch_trampoline_halfwords): Renamed.
+        (s390_function_num_hotpatch_hw): New name.
+        Remove special handling of inline functions and hotpatching.
+        Return number of nops before and after the function label.
+        (s390_can_inline_p): Removed.
+        (s390_asm_output_function_label): Emit a configurable number of nops
+        after the function label.
+        (s390_option_override): Update -mhotpatch= syntax and remove -mhotpatch.
+        (TARGET_CAN_INLINE_P) Removed.
+        (TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P): New.
+
+2015-01-27  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64.md (tb<optab><mode>1): Clobber CC reg instead
+	of scratch reg.
+	(cb<optab><mode>1): Likewise.
+	* config/aarch64/iterators.md (bcond): New define_code_attr.
+
+2015-01-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_memory_move_cost): Increase costs for
+	memory accesses.
+
+2015-01-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_register_move_cost): Increase costs for
+	FPR->GPR moves.
+
+2015-01-27  Richard Biener  <rguenther@suse.de>
+
+	* tree-vrp.c (update_value_range): Intersect the range with
+	old recorded SSA name range information.
+
+2015-01-27  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78.c (rl78_expand_prologue): In G10 mode push the
+	BC, DE and HL registers directly, not via AX.
+	When decrementing the stack pointer by a large amount, transfer SP
+	into AX and perform the subtraction there.
+	(rl78_expand_epilogue): Perform the inverse of the above
+	enhancements.
+
+2015-01-27  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/i386/sysv4.h (CRT_GET_RFIB_DATA): Remove.
+
+2015-01-27  Jakub Jelinek  <jakub@redhat.com>
+	    Yury Gribov  <y.gribov@samsung.com>
+
+	PR ubsan/64741
+	* ubsan.c (ubsan_source_location): Refactor code.
+	(ubsan_type_descriptor): Update type size. Refactor code.
+
+2015-01-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56273
+	PR tree-optimization/59124
+	PR tree-optimization/64277
+	* tree-vrp.c (vrp_finalize): Emit array-bound warnings only
+	from the first VRP pass.
+
+2015-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/64776
+	* cgraphunit.c (cgraph_node::expand_thunk): If not this_adjusting,
+	handle the first argument in the same loop as all the other arguments.
+
+	PR rtl-optimization/61058
+	* jump.c (cleanup_barriers): Update basic block boundaries
+	if BLOCK_FOR_INSN is non-NULL on PREV.
+
+2015-01-27  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-chkp.c (chkp_call_returns_bounds_p): Fix handling of
+	bounds narrowing, already instrumented calls and calls to
+	not instrumentable functions.
+
+2015-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/64807
+	* wide-int.cc (wi::divmod_internal): Clear
+	b_dividend[dividend_blocks_needed].
+
+2015-01-26  DJ Delorie  <dj@redhat.com>
+
+	* config/rl78/rl78.c (move_elim_pass): Don't optimize away
+	volatile memory references.
+
+2015-01-26  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/49263
+	* config/sh/sh.c (sh_split_treg_set_expr): Invoke emit_insn before
+	remove_insn.
+	* config/sh/sh.md (tstsi_t): Don't try to optimize constant with right
+	shifts if it already fits into K08.
+
+2015-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/64730
+	* ipa-inline.c (inline_small_functions): Print "unknown" even
+	if edge->call_stmt is non-NULL, but has builtins or unknown
+	location.
+
+	PR middle-end/64421
+	* omp-low.c (simd_clone_mangle): If DECL_ASSEMBLER_NAME starts
+	with asterisk, skip the first character.
+
+2015-01-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/64806
+	* config/i386/i386 (feature_priority): Revert the last P_POPCNT
+	order change.
+
+2015-01-26  Uros Bizjak  <ubizjak@gmail.com>
+
+        PR target/64795
+	* config/i386/i386.md (*movdi_internal): Also check operand 0
+	to determine TYPE_LEA operand.
+	(*movsi_internal): Ditto.
+
+2015-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000-cpus.def (POWERPC_MASKS): Add
+	OPTION_MASK_QUAD_MEMORY_ATOMIC.
+
+2015-01-26  Renlin Li  <renlin.li@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_load_symref_appropriately): Correct
+	the comment.
+	* config/aarch64/aarch64.md (tlsle_small_<mode>): Add left shift 12-bit
+	for higher part.
+
+2015-01-26  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64764
+	* tree-ssa-uninit.c (is_pred_expr_subset_of): Handle
+	combining two BIT_AND_EXPR predicates.
+
+2015-01-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/64754
+	* tree-ssa-structalias.c (new_var_info): Initialize ruid.
+
 2015-01-26  Terry Guo  <terry.guo@arm.com>
 
 	* config/arm/arm.c (arm_file_start): Update the assignment of
@@ -99,7 +479,7 @@
 	(*addc_negreg_t): New insn_and_split.
 	(*subc): Convert to insn_and_split.  Use treg_set_expr as 3rd operand.
 	Try to recombine with surrounding insns when splitting.
-	Add operand order variants.  
+	Add operand order variants.
 	(*subc_negt_reg, *subc_negreg_t, *reg_lsb_t, *reg_msb_t): New
 	insn_and_split patterns.
 	(*rotcr): Use arith_reg_or_treg_set_expr.  Try to recombine with
@@ -1183,7 +1563,7 @@
 	remove -mgp-direct option.
 
 2015-01-15  Jan Hubicka  <hubicka@ucw.cz>
-	
+
 	* doc/invoke.texi (--param early-inlining-insns): Update default value.
 	* params.def (PARAM_EARLY_INLINING_INSNS): Set to 14.
 
@@ -2084,7 +2464,7 @@
 
 	PR target/64386
 	* config/i386/i386.c (ix86_expand_sse_cmp): Handle V64QImode,
-	V32HImode. 
+	V32HImode.
 
 2015-01-14  Ilya Tocar  <ilya.tocar@intel.com>
 
@@ -2270,7 +2650,7 @@
 2015-01-13  Andrew Pinski   <apinski@cavium.com>
 
 	* config/aarch64/aarch64.c (fusion_load_store): Check dest mode
-	instead of src mode.	
+	instead of src mode.
 
 2015-01-13  Richard Biener  <rguenther@suse.de>
 
@@ -2391,7 +2771,7 @@
 
 	* doc/invoke.texi ([-Wbad-function-cast]): Rewrite to avoid confusing
 	example.
-	
+
 2015-01-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/64563
@@ -2580,7 +2960,7 @@
 	[(--param max-inline-insns-recursive)]: Likewise.
 	[(--param max-inline-recursive-depth)]: Likewise.
 	[(-mno-text-section-literals)]: Likewise.
-	
+
 2015-01-10  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* doc/install.texi: Update for libgomp being renamed from "GNU
