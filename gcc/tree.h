@@ -3840,6 +3840,7 @@ extern tree array_type_nelts (const_tree);
 extern tree value_member (tree, tree);
 extern tree purpose_member (const_tree, tree);
 extern bool vec_member (const_tree, vec<tree, va_gc> *);
+extern bool vec_member (const ttype *, vec<ttype *, va_gc> *);
 extern tree chain_index (int, tree);
 
 extern int attribute_list_equal (const_tree, const_tree);
@@ -5018,7 +5019,7 @@ static inline ttype *TTYPE (tree t)
 
 ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)"))) ;
 
-#define TREE_TTYPE(NODE) (as_a <ttype *>(TREE_TYPE (NODE)))
+#define TREE_TTYPE(NODE) TTYPE (TREE_TYPE (NODE))
 #define TREE_CAST(NODE) ((tree)(NODE))
 #define TREE_PTR_CAST(NODE) ((tree *)(NODE))
 #define TTYPE_PTR(NODE)  ((ttype **)(NODE))

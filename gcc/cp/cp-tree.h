@@ -6144,7 +6144,7 @@ extern ttype *cp_build_qualified_type_real	(tree, int, tsubst_flags_t);
 #define cp_build_qualified_type(TYPE, QUALS) \
 	  cp_build_qualified_type_real ((TYPE), (QUALS), tf_warning_or_error)
 extern bool cv_qualified_p			(const_tree);
-extern tree cv_unqualified			(tree);
+extern ttype *cv_unqualified			(tree);
 extern special_function_kind special_function_p (const_tree);
 extern int count_trees				(tree);
 extern int char_type_p				(tree);
@@ -6199,8 +6199,8 @@ extern tree cxx_sizeof_or_alignof_expr		(tree, enum tree_code, bool);
 extern tree cxx_sizeof_or_alignof_type		(tree, enum tree_code, bool);
 extern tree cxx_alignas_expr                    (tree);
 extern tree cxx_sizeof_nowarn                   (tree);
-extern tree is_bitfield_expr_with_lowered_type  (const_tree);
-extern tree unlowered_expr_type                 (const_tree);
+extern ttype *is_bitfield_expr_with_lowered_type  (const_tree);
+extern ttype *unlowered_expr_type                 (const_tree);
 extern tree decay_conversion			(tree, tsubst_flags_t);
 extern tree build_class_member_access_expr      (tree, tree, tree, bool,
 						 tsubst_flags_t);
@@ -6289,7 +6289,7 @@ extern tree build_simple_component_ref		(tree, tree);
 extern tree build_ptrmemfunc_access_expr	(tree, tree);
 extern tree build_address			(tree);
 extern tree build_nop				(tree, tree);
-extern tree non_reference			(tree);
+extern ttype *non_reference			(tree);
 extern tree lookup_anon_field			(tree, tree);
 extern bool invalid_nonstatic_memfn_p		(tree, tsubst_flags_t);
 extern tree convert_member_func_to_ptr		(tree, tree, tsubst_flags_t);

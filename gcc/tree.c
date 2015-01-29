@@ -2682,6 +2682,19 @@ vec_member (const_tree elem, vec<tree, va_gc> *v)
   return false;
 }
 
+/* Return true if ELEM is in V.  */
+
+bool
+vec_member (const ttype *elem, vec<ttype *, va_gc> *v)
+{
+  unsigned ix;
+  ttype *t;
+  FOR_EACH_VEC_SAFE_ELT (v, ix, t)
+    if (elem == t)
+      return true;
+  return false;
+}
+
 /* Returns element number IDX (zero-origin) of chain CHAIN, or
    NULL_TREE.  */
 
@@ -12444,20 +12457,6 @@ element_mode (const_tree t)
   if (VECTOR_TYPE_P (t) || TREE_CODE (t) == COMPLEX_TYPE)
     t = TREE_TYPE (t);
   return TYPE_MODE (t);
-}
-
-void gt_ggc_mx (class ttype *& x)
-{
-//  extern void gt_ggc_mx_lang_tree_node (void *);
-  if (x)
-      gt_ggc_mx_lang_tree_node ((void *) x);
-}
-
-void gt_pch_nx (class ttype *& x)
-{
-//  extern void gt_pch_nx_lang_tree_node (void *);
-  if (x)
-      gt_pch_nx_lang_tree_node ((void *) x);
 }
 
 

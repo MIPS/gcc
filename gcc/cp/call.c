@@ -200,10 +200,10 @@ static void add_builtin_candidates
 	 tree, tree *, int, tsubst_flags_t);
 static void add_builtin_candidate
 	(struct z_candidate **, enum tree_code, enum tree_code,
-	 tree, tree, tree, tree *, tree *, int, tsubst_flags_t);
+	 tree, tree, tree, tree *, type_array, int, tsubst_flags_t);
 static bool is_complete (tree);
 static void build_builtin_candidate
-	(struct z_candidate **, tree, tree, tree, tree *, tree *,
+	(struct z_candidate **, tree, tree, tree, tree *, type_array,
 	 int, tsubst_flags_t);
 static struct z_candidate *add_conv_candidate
 	(struct z_candidate **, tree, tree, tree, const vec<tree, va_gc> *, tree,
@@ -2235,7 +2235,7 @@ add_conv_candidate (struct z_candidate **candidates, tree fn, tree obj,
 
 static void
 build_builtin_candidate (struct z_candidate **candidates, tree fnname,
-			 tree type1, tree type2, tree *args, tree *argtypes,
+			 tree type1, tree type2, tree *args, type_array argtypes,
 			 int flags, tsubst_flags_t complain)
 {
   conversion *t;
@@ -2344,7 +2344,7 @@ promoted_arithmetic_type_p (tree type)
 static void
 add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 		       enum tree_code code2, tree fnname, tree type1,
-		       tree type2, tree *args, tree *argtypes, int flags,
+		       tree type2, tree *args, type_array argtypes, int flags,
 		       tsubst_flags_t complain)
 {
   switch (code)
@@ -2803,10 +2803,10 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 {
   int ref1, i;
   int enum_p = 0;
-  tree type, argtypes[3], t;
+  ttype *type, *argtypes[3], *t;
   /* TYPES[i] is the set of possible builtin-operator parameter types
      we will consider for the Ith argument.  */
-  vec<tree, va_gc> *types[2];
+  vec<ttype *, va_gc> *types[2];
   unsigned ix;
 
   for (i = 0; i < 3; ++i)
@@ -2814,7 +2814,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
       if (args[i])
 	argtypes[i] = unlowered_expr_type (args[i]);
       else
-	argtypes[i] = NULL_TREE;
+	argtypes[i] = NULL;
     }
 
   switch (code)
@@ -2869,8 +2869,8 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
       ref1 = 0;
     }
 
-  types[0] = make_tree_vector ();
-  types[1] = make_tree_vector ();
+  types[0] = make_ttype_vector ();
+  types[1] = make_ttype_vector ();
 
   for (i = 0; i < 2; ++i)
     {
@@ -2888,9 +2888,9 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 	  if (code == COND_EXPR)
 	    {
 	      if (real_lvalue_p (args[i]))
-		vec_safe_push (types[i], TREE_CAST (build_reference_type (argtypes[i])));
+		vec_safe_push (types[i], build_reference_type (argtypes[i]));
 
-	      vec_safe_push (types[i], TYPE_MAIN_VARIANT (argtypes[i]));
+	      vec_safe_push (types[i], TTYPE_MAIN_VARIANT (argtypes[i]));
 	    }
 
 	  else if (! convs)
@@ -2898,7 +2898,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 
 	  for (; convs; convs = TREE_CHAIN (convs))
 	    {
-	      type = TREE_TYPE (convs);
+	      type = TREE_TTYPE (convs);
 
 	      if (i == 0 && ref1
 		  && (TREE_CODE (type) != REFERENCE_TYPE
@@ -2915,7 +2915,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 		  if (enum_p && TREE_CODE (type) == ENUMERAL_TYPE)
 		    vec_safe_push (types[i], type);
 		  if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
-		    type = type_promotes_to (type);
+		    type = TTYPE (type_promotes_to (type));
 		}
 
 	      if (! vec_member (type, types[i]))
@@ -2925,7 +2925,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
       else
 	{
 	  if (code == COND_EXPR && real_lvalue_p (args[i]))
-	    vec_safe_push (types[i], TREE_CAST (build_reference_type (argtypes[i])));
+	    vec_safe_push (types[i], build_reference_type (argtypes[i]));
 	  type = non_reference (argtypes[i]);
 	  if (i != 0 || ! ref1)
 	    {
@@ -2933,7 +2933,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 	      if (enum_p && UNSCOPED_ENUM_P (type))
 		vec_safe_push (types[i], type);
 	      if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
-		type = type_promotes_to (type);
+		type = TTYPE (type_promotes_to (type));
 	    }
 	  vec_safe_push (types[i], type);
 	}
@@ -2944,7 +2944,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
   FOR_EACH_VEC_ELT_REVERSE (*(types[0]), ix, t)
     {
       unsigned jx;
-      tree u;
+      ttype *u;
 
       if (!types[1]->is_empty ())
 	FOR_EACH_VEC_ELT_REVERSE (*(types[1]), jx, u)
@@ -2957,8 +2957,8 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 	   NULL_TREE, args, argtypes, flags, complain);
     }
 
-  release_tree_vector (types[0]);
-  release_tree_vector (types[1]);
+  release_ttype_vector (types[0]);
+  release_ttype_vector (types[1]);
 }
 
 

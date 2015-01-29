@@ -1161,13 +1161,13 @@ cp_build_qualified_type_real (tree type,
 
 /* Return TYPE with const and volatile removed.  */
 
-tree
+ttype *
 cv_unqualified (tree type)
 {
   int quals;
 
   if (type == error_mark_node)
-    return type;
+    return error_type_node;
 
   quals = cp_type_quals (type);
   quals &= ~(TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE);
