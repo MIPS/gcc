@@ -5188,7 +5188,7 @@ extern tree build_call_n			(tree, int, ...);
 extern bool null_ptr_cst_p			(tree);
 extern bool null_member_pointer_value_p		(tree);
 extern bool sufficient_parms_p			(const_tree);
-extern tree type_decays_to			(tree);
+extern ttype *type_decays_to			(tree);
 extern tree build_user_type_conversion		(tree, tree, int,
 						 tsubst_flags_t);
 extern tree build_new_function_call		(tree, vec<tree, va_gc> **, bool, 
@@ -5224,7 +5224,7 @@ extern tree convert_default_arg			(tree, tree, tree, int,
 						 tsubst_flags_t);
 extern tree convert_arg_to_ellipsis		(tree, tsubst_flags_t);
 extern tree build_x_va_arg			(source_location, tree, tree);
-extern tree cxx_type_promotes_to		(tree);
+extern ttype *cxx_type_promotes_to		(tree);
 extern tree type_passed_as			(tree);
 extern tree convert_for_arg_passing		(tree, tree, tsubst_flags_t);
 extern bool is_properly_derived_from		(tree, tree);
@@ -5344,7 +5344,7 @@ extern tree convert_to_void			(tree, impl_conv_void,
 extern tree convert_force			(tree, tree, int,
 						 tsubst_flags_t);
 extern tree build_expr_type_conversion		(int, tree, bool);
-extern tree type_promotes_to			(tree);
+extern ttype *type_promotes_to			(tree);
 extern tree perform_qualification_conversions	(tree, tree);
 
 /* in name-lookup.c */

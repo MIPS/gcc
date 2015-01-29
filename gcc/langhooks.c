@@ -205,7 +205,7 @@ lhd_set_decl_assembler_name (tree decl)
 }
 
 /* Type promotion for variable arguments.  */
-tree
+ttype *
 lhd_type_promotes_to (tree ARG_UNUSED (type))
 {
   gcc_unreachable ();

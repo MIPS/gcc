@@ -291,10 +291,10 @@ c_incomplete_type_error (const_tree value, const_tree type)
 /* Given a type, apply default promotions wrt unnamed function
    arguments and return the new type.  */
 
-tree
+ttype *
 c_type_promotes_to (tree type)
 {
-  tree ret = NULL_TREE;
+  ttype *ret = NULL;
 
   if (TYPE_MAIN_VARIANT (type) == float_type_node)
     ret = double_type_node;
@@ -313,7 +313,7 @@ c_type_promotes_to (tree type)
 	    ? c_build_qualified_type (ret, TYPE_QUAL_ATOMIC)
 	    : ret);
 
-  return type;
+  return TTYPE (type);
 }
 
 /* Return true if between two named address spaces, whether there is a superset
@@ -12539,20 +12539,20 @@ c_finish_transaction (location_t loc, tree block, int flags)
 /* Make a variant type in the proper way for C/C++, propagating qualifiers
    down to the element type of an array.  */
 
-tree
+ttype *
 c_build_qualified_type (tree type, int type_quals)
 {
   if (type == error_mark_node)
-    return type;
+    return error_type_node;
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      tree t;
-      tree element_type = c_build_qualified_type (TREE_TYPE (type),
+      ttype *t;
+      ttype *element_type = c_build_qualified_type (TREE_TYPE (type),
 						  type_quals);
 
       /* See if we already have an identically qualified type.  */
-      for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+      for (t = TTYPE_MAIN_VARIANT (type); t; t = TTYPE_NEXT_VARIANT (t))
 	{
 	  if (TYPE_QUALS (strip_array_types (t)) == type_quals
 	      && TYPE_NAME (t) == TYPE_NAME (type)

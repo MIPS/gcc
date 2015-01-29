@@ -86,7 +86,7 @@ struct lang_hooks_for_types
      arguments and return the new type.  Return the same type if no
      change.  Required by any language that supports variadic
      arguments.  The default hook dies.  */
-  tree (*type_promotes_to) (tree);
+  ttype *(*type_promotes_to) (tree);
 
   /* Register TYPE as a builtin type with the indicated NAME.  The
      TYPE is placed in the outermost lexical scope.  The semantics

@@ -855,7 +855,7 @@ extern tree pointer_int_sum (location_t, enum tree_code, tree, tree,
 			     bool = true);
 
 /* Add qualifiers to a type, in the fashion for C.  */
-extern tree c_build_qualified_type (tree, int);
+extern ttype *c_build_qualified_type (tree, int);
 
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */

@@ -1007,7 +1007,7 @@ move (tree expr)
 /* Used by the C++ front end to build qualified array types.  However,
    the C version of this function does not properly maintain canonical
    types (which are not used in C).  */
-tree
+ttype *
 c_build_qualified_type (tree type, int type_quals)
 {
   return cp_build_qualified_type (type, type_quals);

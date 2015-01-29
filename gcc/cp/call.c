@@ -2773,14 +2773,14 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
     (candidates, fnname, type1, type2, args, argtypes, flags, complain);
 }
 
-tree
+ttype *
 type_decays_to (tree type)
 {
   if (TREE_CODE (type) == ARRAY_TYPE)
     return build_pointer_type (TREE_TYPE (type));
   if (TREE_CODE (type) == FUNCTION_TYPE)
     return build_pointer_type (type);
-  return type;
+  return TTYPE (type);
 }
 
 /* There are three conditions of builtin candidates:
@@ -2915,7 +2915,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 		  if (enum_p && TREE_CODE (type) == ENUMERAL_TYPE)
 		    vec_safe_push (types[i], type);
 		  if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
-		    type = TTYPE (type_promotes_to (type));
+		    type = type_promotes_to (type);
 		}
 
 	      if (! vec_member (type, types[i]))
@@ -2933,7 +2933,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 	      if (enum_p && UNSCOPED_ENUM_P (type))
 		vec_safe_push (types[i], type);
 	      if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
-		type = TTYPE (type_promotes_to (type));
+		type = type_promotes_to (type);
 	    }
 	  vec_safe_push (types[i], type);
 	}
@@ -6713,18 +6713,18 @@ build_x_va_arg (source_location loc, tree expr, tree type)
    would have happened when passed via ellipsis.  Return the promoted
    type, or the passed type if there is no change.  */
 
-tree
+ttype *
 cxx_type_promotes_to (tree type)
 {
-  tree promote;
+  ttype *promote;
 
   /* Perform the array-to-pointer and function-to-pointer
      conversions.  */
-  type = type_decays_to (type);
+  promote = type_decays_to (type);
 
-  promote = type_promotes_to (type);
+  promote = type_promotes_to (promote);
   if (same_type_p (type, promote))
-    promote = type;
+    promote = TTYPE (type);
 
   return promote;
 }
