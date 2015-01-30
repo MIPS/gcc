@@ -48,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "cilk.h"
-#include "debug.h"
 
 enum add_variable_type {
     /* Reference to previously-defined variable.  */
