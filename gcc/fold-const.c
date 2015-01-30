@@ -3032,6 +3032,11 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
       switch (TREE_CODE (arg0))
 	{
 	case CALL_EXPR:
+	  /* Handle internal_fns conservatively.  */
+	  if (CALL_EXPR_FN (arg0) == NULL_TREE
+	      || CALL_EXPR_FN (arg1) == NULL_TREE)
+	    return 0;
+
 	  /* If the CALL_EXPRs call different functions, then they
 	     clearly can not be equal.  */
 	  if (! operand_equal_p (CALL_EXPR_FN (arg0), CALL_EXPR_FN (arg1),
