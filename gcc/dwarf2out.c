@@ -18311,9 +18311,10 @@ dwarf2out_abstract_function (tree decl)
   current_function_decl = decl;
 
   was_abstract = DECL_ABSTRACT_P (decl);
-  set_decl_abstract_flags (decl, 1);
+  if (!was_abstract)
+    set_decl_abstract_flags (decl, 1);
   dwarf2out_decl (decl);
-  if (! was_abstract)
+  if (!was_abstract)
     set_decl_abstract_flags (decl, 0);
 
   current_function_decl = save_fn;
@@ -18445,23 +18446,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
   premark_used_types (DECL_STRUCT_FUNCTION (decl));
 
-  /* It is possible to have both DECL_ABSTRACT_P and DECLARATION be true if we
-     started to generate the abstract instance of an inline, decided to output
-     its containing class, and proceeded to emit the declaration of the inline
-     from the member list for the class.  If so, DECLARATION takes priority;
-     we'll get back to the abstract instance when done with the class.  */
-
-  /* ?? We must not reset `origin', so C++ clones get a proper
-     DW_AT_abstract_origin tagged DIE further on.  */
-#if 0
-  /* The class-scope declaration DIE must be the primary DIE.  */
-  if (origin && declaration && class_or_namespace_scope_p (context_die))
-    {
-      origin = NULL;
-      gcc_assert (!old_die);
-    }
-#endif
-
   /* Now that the C++ front end lazily declares artificial member fns, we
      might need to retrofit the declaration into its class.  */
   if (!declaration && !origin && !old_die
@@ -18474,11 +18458,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   /* An inlined instance, tag a new DIE with DW_AT_abstract_origin.  */
   if (origin != NULL)
     {
-      // ?? Make C++ clones work since they're tagged as
-      // declarations but are class scoped instead.
-#if 0
       gcc_assert (!declaration || local_scope_p (context_die));
-#endif
 
       /* Fixup die_parent for the abstract instance of a nested
 	 inline function.  */
@@ -20179,9 +20159,9 @@ gen_member_die (tree type, dw_die_ref context_die)
   /* Now output info about the function members (if any).  */
   for (member = TYPE_METHODS (type); member; member = DECL_CHAIN (member))
     {
-      if (DECL_ABSTRACT_ORIGIN (member) && flag_dump_early_debug_stats)
-	fprintf(stderr, "generating dwarf for member clone: %s\n",
-		IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (member)));
+      /* Don't include clones in the member list.  */
+      if (DECL_ABSTRACT_ORIGIN (member))
+	continue;
 
       child = lookup_decl_die (member);
       if (child)
@@ -21786,9 +21766,6 @@ static struct dwarf_file_data *
 lookup_filename (const char *file_name)
 {
   struct dwarf_file_data * created;
-
-  if (!file_name)
-    return NULL;
 
   dwarf_file_data **slot
     = file_table->find_slot_with_hash (file_name, htab_hash_string (file_name),

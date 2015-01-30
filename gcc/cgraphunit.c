@@ -2336,6 +2336,19 @@ symbol_table::finalize_compilation_unit (void)
   /* Gimplify and lower thunks.  */
   analyze_functions ();
 
+  /* Emit early dwarf information for clones now that we know which
+     ones are actually needed.  This is especially useful for C++
+     clones which have been skipped in gen_member_die().  */
+  cgraph_node *node;
+  FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
+    if (DECL_ABSTRACT_ORIGIN (node->decl))
+      {
+	tree save_fndecl = current_function_decl;
+	current_function_decl = node->decl;
+	(*debug_hooks->early_global_decl) (current_function_decl);
+	current_function_decl = save_fndecl;
+      }
+
   /* Finally drive the pass manager.  */
   compile ();
 
