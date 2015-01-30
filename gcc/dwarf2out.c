@@ -21733,14 +21733,6 @@ lookup_filename (const char *file_name)
 {
   struct dwarf_file_data * created;
 
-  /* Check to see if the file name that was searched on the previous
-     call matches this file name.  If so, return the index.  */
-  if (file_table_last_lookup
-      && (file_name == file_table_last_lookup->filename
-	  || filename_cmp (file_table_last_lookup->filename, file_name) == 0))
-    return file_table_last_lookup;
-
-  /* Didn't match the previous lookup, search the table.  */
   dwarf_file_data **slot
     = file_table->find_slot_with_hash (file_name, htab_hash_string (file_name),
 				       INSERT);
