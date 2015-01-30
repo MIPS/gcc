@@ -1857,10 +1857,13 @@ mips_symbol_binds_local_p (const_rtx x)
 	  : SYMBOL_REF_LOCAL_P (x));
 }
 
+/* Return true if OP is a constant vector with the number of units in MODE,
+   and each unit has the same bit set.  */
+
 bool
 mips_const_vector_bitimm_set_p (rtx op, machine_mode mode)
 {
-  if (GET_CODE (op) == CONST_VECTOR && op != const0_rtx)
+  if (GET_CODE (op) == CONST_VECTOR && op != CONST0_RTX (mode))
     {
       rtx elt0 = CONST_VECTOR_ELT (op, 0);
       HOST_WIDE_INT val = INTVAL (elt0);
@@ -1879,10 +1882,13 @@ mips_const_vector_bitimm_set_p (rtx op, machine_mode mode)
   return false;
 }
 
+/* Return true if OP is a constant vector with the number of units in MODE,
+   and each unit has the same bit clear.  */
+
 bool
 mips_const_vector_bitimm_clr_p (rtx op, machine_mode mode)
 {
-  if (GET_CODE (op) == CONST_VECTOR && op != constm1_rtx)
+  if (GET_CODE (op) == CONST_VECTOR && op != CONSTM1_RTX (mode))
     {
       rtx elt0 = CONST_VECTOR_ELT (op, 0);
       HOST_WIDE_INT val = INTVAL (elt0);
@@ -4430,7 +4436,6 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	      *total = COSTS_N_INSNS (2) + set_src_cost (XEXP (x, 0), speed);
 	      return true;
 	    }
-	  *total = COSTS_N_INSNS (mips_idiv_insns ());
 	  if (MSA_SUPPORTED_MODE_P (mode))
 	    *total = COSTS_N_INSNS (mips_msa_idiv_insns ());
 	  else
@@ -4984,7 +4989,7 @@ mips_split_msa_insert_d (rtx dest, rtx src1, rtx index, rtx src2)
 			       GEN_INT (i * 2 + 1), high));
 }
 
-/* Split fill.d.  */
+/* Split FILL.D.  */
 
 void
 mips_split_msa_fill_d (rtx dest, rtx src)
@@ -5050,7 +5055,7 @@ mips_output_move (rtx dest, rtx src)
       && src_code == CONST_VECTOR
       && CONST_INT_P (CONST_VECTOR_ELT (src, 0)))
     {
-      gcc_assert (const_yi_operand (src, mode));
+      gcc_assert (mips_const_vector_same_int_p (src, mode, -512, 511));
       return "ldi.%v0\t%w0,%E1";
     }
 
@@ -8910,8 +8915,8 @@ mips_print_operand_punct_valid_p (unsigned char code)
    'M'	Print high-order register in a double-word register operand.
    'z'	Print $0 if OP is zero, otherwise print OP normally.
    'b'	Print the address of a memory operand, without offset.
-   'v'	Print the insn size suffix b,h,w,d,f or d for vector modes V16QI,V8HI,V4SI,
-	  V2SI,V4DF and V2DF.  */
+   'v'	Print the insn size suffix b, h, w or d for vector modes V16QI, V8HI,
+	  V4SI, V2SI, and w, d for vector modes V4SF, V2DF respectively.  */
 
 static void
 mips_print_operand (FILE *file, rtx op, int letter)
@@ -8965,38 +8970,8 @@ mips_print_operand (FILE *file, rtx op, int letter)
     case 'B':
       if (CONST_INT_P (op))
 	{
-	  HOST_WIDE_INT val = INTVAL (op);
-	  if (val < 0)
-	    {
-	      gcc_assert (val >= -128);
-	      val += 256;
-	      fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
-	    }
-	  else
-	    {
-	      gcc_assert (val <= 255);
-	      fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
-	    }
-	}
-      else
-	output_operand_lossage ("invalid use of '%%%c'", letter);
-      break;
-
-    case 'K':
-      if (CONST_INT_P (op))
-	{
-	  int val = INTVAL (op);
-	  int i;
-	  for (i = 0; i < 16; i++)
-	    {
-	      if ((val & (1 << i)) == val)
-		{
-		  fprintf (file, "%d", i);
-		  break;
-		}
-	    }
-	  if (i == 16)
-	    output_operand_lossage ("invalid use of '%%%c' - Mask inappropriate", letter);
+	  unsigned HOST_WIDE_INT val8 = UINTVAL (op) & GET_MODE_MASK (QImode);
+	  fprintf (file, HOST_WIDE_INT_PRINT_UNSIGNED, val8);
 	}
       else
 	output_operand_lossage ("invalid use of '%%%c'", letter);
@@ -14899,16 +14874,16 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
   LOONGSON_BUILTIN_ALIAS (INSN, INSN ## _ ## SUFFIX, FUNCTION_TYPE)
 
 /* Define a MSA MIPS_BUILTIN_DIRECT function __builtin_msa_<INSN>
-   for instruction CODE_FOR_msa_<INSN>.  FUNCTION_TYPE is a
-   builtin_description field.  */
+   for instruction CODE_FOR_msa_<INSN>.  FUNCTION_TYPE is a builtin_description
+   field.  */
 #define MSA_BUILTIN(INSN, FUNCTION_TYPE)				\
     { CODE_FOR_msa_ ## INSN, MIPS_FP_COND_f,				\
     "__builtin_msa_" #INSN,  MIPS_BUILTIN_DIRECT,			\
     FUNCTION_TYPE, mips_builtin_avail_msa }
 
 /* Define a MSA MIPS_BUILTIN_DIRECT_NO_TARGET function __builtin_msa_<INSN>
-   for instruction CODE_FOR_msa_<INSN>.  FUNCTION_TYPE is a
-   builtin_description field.  */
+   for instruction CODE_FOR_msa_<INSN>.  FUNCTION_TYPE is a builtin_description
+   field.  */
 #define MSA_NO_TARGET_BUILTIN(INSN, FUNCTION_TYPE)			\
     { CODE_FOR_msa_ ## INSN, MIPS_FP_COND_f,				\
     "__builtin_msa_" #INSN,  MIPS_BUILTIN_DIRECT_NO_TARGET,		\
@@ -16073,8 +16048,7 @@ mips_builtin_decl (unsigned int code, bool initialize_p ATTRIBUTE_UNUSED)
 /* Implement TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION.  */
 
 static tree
-mips_builtin_vectorized_function (tree fndecl, tree type_out,
-				  tree type_in)
+mips_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
 {
   machine_mode in_mode, out_mode;
   enum built_in_function fn = DECL_FUNCTION_CODE (fndecl);
@@ -20310,7 +20284,7 @@ mips_expand_vec_perm_const (rtx operands[4])
 
 static int
 mips_sched_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
-			       machine_mode mode)
+				machine_mode mode)
 {
   if (MSA_SUPPORTED_MODE_P (mode))
     return 2;
@@ -20589,7 +20563,8 @@ mips_expand_vector_init (rtx target, rtx vals)
 	  rtx same = XVECEXP (vals, 0, 0);
 	  rtx temp, temp2;
 
-	  if (CONST_INT_P (same) && nvar == 0 && mips_signed_immediate_p (INTVAL (same), 10, 0))
+	  if (CONST_INT_P (same) && nvar == 0
+	      && mips_signed_immediate_p (INTVAL (same), 10, 0))
 	    {
 	      switch (vmode)
 		{
@@ -20623,8 +20598,10 @@ mips_expand_vector_init (rtx target, rtx vals)
 	      unsigned offset = 0;
 
 	      if (TARGET_BIG_ENDIAN)
-		offset = GET_MODE_SIZE (GET_MODE (same)) - GET_MODE_SIZE (imode);
-	      temp2 = simplify_gen_subreg (imode, same, GET_MODE (same), offset);
+		offset = GET_MODE_SIZE (GET_MODE (same))
+			 - GET_MODE_SIZE (imode);
+	      temp2 = simplify_gen_subreg (imode, same, GET_MODE (same),
+					   offset);
 	    }
 	  emit_move_insn (temp, temp2);
 
@@ -21148,8 +21125,8 @@ mips_msa_reversed_fp_cond (enum rtx_code *code)
     }
 }
 
-/* Generate RTL for comparing CMP_OP0, CMP_ OP1 using condition COND
-   and store the result -1 or 0 in DEST TRUE_SRC and DEST_SRC
+/* Generate RTL for comparing CMP_OP0, CMP_OP1 using condition COND
+   and store the result -1 or 0 in DEST.  TRUE_SRC and FALSE_SRC
    must be -1 and 0 respectively.  */
 
 static void
@@ -21180,7 +21157,7 @@ mips_expand_msa_vcond (rtx dest, rtx true_src, rtx false_src,
    OPERANDS operands of VEC_COND_EXPR
    gen_msa_and_fn used to generate a VIMODE vector msa AND
    gen_msa_nor_fn used to generate a VIMODE vector msa NOR
-   gen_msa_ior_fn used to generate a VIMODE vector msa AND.  */
+   gen_msa_ior_fn used to generate a VIMODE vector msa IOR.  */
 
 void
 mips_expand_vec_cond_expr (machine_mode mode,
