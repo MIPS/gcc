@@ -24,8 +24,6 @@
 	(lookup_filename): Return NULL when no file name.
 	(optimize_location_lists): Abstract flushing of limbo list to...
 	(dwarf2out_early_finish): ...here. New function.
-	(dwarf2out_abstract_function): Do not set DECL_ABSTRACT_P
-	recursively if DECL_ABSTRACT_P of parent is set.
 	(print_die): Output tmp_created_for field.
 	* toplev.c (toplev::main): Add temporary debugging aid.
 	* tree.c (free_lang_data): Call debug_hooks->early_finish.
