@@ -5865,6 +5865,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
   int checkparm;
   int no_repack;
   bool optional_arg;
+  gfc_array_spec *as;
 
   /* Do nothing for pointer and allocatable arrays.  */
   if (sym->attr.pointer || sym->attr.allocatable)
@@ -5884,13 +5885,14 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
   gcc_assert (GFC_ARRAY_TYPE_P (type));
   dumdesc = GFC_DECL_SAVED_DESCRIPTOR (tmpdesc);
   dumdesc = build_fold_indirect_ref_loc (input_location, dumdesc);
+  as = sym->as;
   gfc_start_block (&init);
 
   if (sym->ts.type == BT_CHARACTER
       && TREE_CODE (sym->ts.u.cl->backend_decl) == VAR_DECL)
     gfc_conv_string_length (sym->ts.u.cl, NULL, &init);
 
-  checkparm = (sym->as->type == AS_EXPLICIT
+  checkparm = (as->type == AS_EXPLICIT
 	       && (gfc_option.rtcheck & GFC_RTCHECK_BOUNDS));
 
   no_repack = !(GFC_DECL_PACKED_ARRAY (tmpdesc)
@@ -5966,9 +5968,9 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
   size = gfc_index_one_node;
 
   /* Evaluate the bounds of the array.  */
-  for (n = 0; n < sym->as->rank; n++)
+  for (n = 0; n < as->rank; n++)
     {
-      if (checkparm || !sym->as->upper[n])
+      if (checkparm || !as->upper[n])
 	{
 	  /* Get the bounds of the actual parameter.  */
 	  dubound = gfc_conv_descriptor_ubound_get (dumdesc, gfc_rank_cst[n]);
@@ -5984,7 +5986,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
       if (!INTEGER_CST_P (lbound))
 	{
 	  gfc_init_se (&se, NULL);
-	  gfc_conv_expr_type (&se, sym->as->lower[n],
+	  gfc_conv_expr_type (&se, as->lower[n],
 			      gfc_array_index_type);
 	  gfc_add_block_to_block (&init, &se.pre);
 	  gfc_add_modify (&init, lbound, se.expr);
@@ -5992,13 +5994,13 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
 
       ubound = GFC_TYPE_ARRAY_UBOUND (type, n);
       /* Set the desired upper bound.  */
-      if (sym->as->upper[n])
+      if (as->upper[n])
 	{
 	  /* We know what we want the upper bound to be.  */
 	  if (!INTEGER_CST_P (ubound))
 	    {
 	      gfc_init_se (&se, NULL);
-	      gfc_conv_expr_type (&se, sym->as->upper[n],
+	      gfc_conv_expr_type (&se, as->upper[n],
 				  gfc_array_index_type);
 	      gfc_add_block_to_block (&init, &se.pre);
 	      gfc_add_modify (&init, ubound, se.expr);
@@ -6051,7 +6053,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
 				gfc_array_index_type, offset, tmp);
 
       /* The size of this dimension, and the stride of the next.  */
-      if (n + 1 < sym->as->rank)
+      if (n + 1 < as->rank)
 	{
 	  stride = GFC_TYPE_ARRAY_STRIDE (type, n + 1);
 

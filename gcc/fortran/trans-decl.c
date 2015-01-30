@@ -811,8 +811,12 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
   int dim;
   int nest;
   gfc_namespace* procns;
+  symbol_attribute *attr;
+  gfc_array_spec *as;
 
   type = TREE_TYPE (decl);
+  attr = &sym->attr;
+  as = sym->as;
 
   /* We just use the descriptor, if there is one.  */
   if (GFC_DESCRIPTOR_TYPE_P (type))
@@ -823,15 +827,15 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
   nest = (procns->proc_name->backend_decl != current_function_decl)
 	 && !sym->attr.contained;
 
-  if (sym->attr.codimension && flag_coarray == GFC_FCOARRAY_LIB
-      && sym->as->type != AS_ASSUMED_SHAPE
+  if (attr->codimension && flag_coarray == GFC_FCOARRAY_LIB
+      && as->type != AS_ASSUMED_SHAPE
       && GFC_TYPE_ARRAY_CAF_TOKEN (type) == NULL_TREE)
     {
       tree token;
       tree token_type = build_qualified_type (pvoid_type_node,
 					      TYPE_QUAL_RESTRICT);
 
-      if (sym->module && (sym->attr.use_assoc
+      if (sym->module && (attr->use_assoc
 			  || sym->ns->proc_name->attr.flavor == FL_MODULE))
 	{
 	  tree token_name
@@ -839,13 +843,13 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
 			IDENTIFIER_POINTER (gfc_sym_mangled_identifier (sym))));
 	  token = build_decl (DECL_SOURCE_LOCATION (decl), VAR_DECL, token_name,
 			      token_type);
-	  if (sym->attr.use_assoc)
+	  if (attr->use_assoc)
 	    DECL_EXTERNAL (token) = 1;
 	  else
 	    TREE_STATIC (token) = 1;
 
-	  if (sym->attr.use_assoc || sym->attr.access != ACCESS_PRIVATE ||
-	      sym->attr.public_used)
+	  if (attr->use_assoc || attr->access != ACCESS_PRIVATE ||
+	      attr->public_used)
 	    TREE_PUBLIC (token) = 1;
 	}
       else
@@ -858,7 +862,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
       DECL_ARTIFICIAL (token) = 1;
       DECL_NONALIASED (token) = 1;
 
-      if (sym->module && !sym->attr.use_assoc)
+      if (sym->module && !attr->use_assoc)
 	{
 	  pushdecl (token);
 	  DECL_CONTEXT (token) = sym->ns->proc_name->backend_decl;
@@ -877,7 +881,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
 	}
       /* Don't try to use the unknown bound for assumed shape arrays.  */
       if (GFC_TYPE_ARRAY_UBOUND (type, dim) == NULL_TREE
-          && (sym->as->type != AS_ASSUMED_SIZE
+          && (as->type != AS_ASSUMED_SIZE
               || dim < GFC_TYPE_ARRAY_RANK (type) - 1))
 	{
 	  GFC_TYPE_ARRAY_UBOUND (type, dim) = create_index_var ("ubound", nest);
@@ -919,7 +923,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
     }
 
   if (GFC_TYPE_ARRAY_SIZE (type) == NULL_TREE
-      && sym->as->type != AS_ASSUMED_SIZE)
+      && as->type != AS_ASSUMED_SIZE)
     {
       GFC_TYPE_ARRAY_SIZE (type) = create_index_var ("size", nest);
       TREE_NO_WARNING (GFC_TYPE_ARRAY_SIZE (type)) = 1;
@@ -946,12 +950,12 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
     }
 
   if (TYPE_NAME (type) != NULL_TREE
-      && GFC_TYPE_ARRAY_UBOUND (type, sym->as->rank - 1) != NULL_TREE
-      && TREE_CODE (GFC_TYPE_ARRAY_UBOUND (type, sym->as->rank - 1)) == VAR_DECL)
+      && GFC_TYPE_ARRAY_UBOUND (type, as->rank - 1) != NULL_TREE
+      && TREE_CODE (GFC_TYPE_ARRAY_UBOUND (type, as->rank - 1)) == VAR_DECL)
     {
       tree gtype = DECL_ORIGINAL_TYPE (TYPE_NAME (type));
 
-      for (dim = 0; dim < sym->as->rank - 1; dim++)
+      for (dim = 0; dim < as->rank - 1; dim++)
 	{
 	  gcc_assert (TREE_CODE (gtype) == ARRAY_TYPE);
 	  gtype = TREE_TYPE (gtype);
@@ -965,7 +969,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
     {
       tree gtype = TREE_TYPE (type), rtype, type_decl;
 
-      for (dim = sym->as->rank - 1; dim >= 0; dim--)
+      for (dim = as->rank - 1; dim >= 0; dim--)
 	{
 	  tree lbound, ubound;
 	  lbound = GFC_TYPE_ARRAY_LBOUND (type, dim);
@@ -1018,8 +1022,11 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   int n;
   bool known_size;
 
+  /* Use the array as.  */
+  as = sym->as;
+
   if (sym->attr.pointer || sym->attr.allocatable
-      || (sym->as && sym->as->type == AS_ASSUMED_RANK))
+      || (as && as->type == AS_ASSUMED_RANK))
     return dummy;
 
   /* Add to list of variables if not a fake result variable.  */
@@ -1047,7 +1054,6 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   if (GFC_DESCRIPTOR_TYPE_P (type))
     {
       /* Create a descriptorless array pointer.  */
-      as = sym->as;
       packed = PACKED_NO;
 
       /* Even when -frepack-arrays is used, symbols with TARGET attribute
@@ -1079,7 +1085,7 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
 	}
 
       type = gfc_typenode_for_spec (&sym->ts);
-      type = gfc_get_nodesc_array_type (type, sym->as, packed,
+      type = gfc_get_nodesc_array_type (type, as, packed,
 					!sym->attr.target);
     }
   else
@@ -1109,7 +1115,7 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
 
   /* We should never get deferred shape arrays here.  We used to because of
      frontend bugs.  */
-  gcc_assert (sym->as->type != AS_DEFERRED);
+  gcc_assert (as->type != AS_DEFERRED);
 
   if (packed == PACKED_PARTIAL)
     GFC_DECL_PARTIAL_PACKED_ARRAY (decl) = 1;
@@ -3973,16 +3979,20 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	}
       else if (sym->attr.dimension || sym->attr.codimension)
 	{
-          /* Assumed-size Cray pointees need to be treated as AS_EXPLICIT.  */
-          array_type tmp = sym->as->type;
-          if (tmp == AS_ASSUMED_SIZE && sym->as->cp_was_assumed)
-            tmp = AS_EXPLICIT;
-          switch (tmp)
+	  gfc_array_spec *as;
+	  symbol_attribute *attr;
+	  as = sym->as;
+	  attr = &sym->attr;
+	  /* Assumed-size Cray pointees need to be treated as AS_EXPLICIT.  */
+	  array_type tmp = as->type;
+	  if (tmp == AS_ASSUMED_SIZE && as->cp_was_assumed)
+	    tmp = AS_EXPLICIT;
+	  switch (tmp)
 	    {
 	    case AS_EXPLICIT:
-	      if (sym->attr.dummy || sym->attr.result)
+	      if (attr->dummy || attr->result)
 		gfc_trans_dummy_array_bias (sym, sym->backend_decl, block);
-	      else if (sym->attr.pointer || sym->attr.allocatable)
+	      else if (attr->pointer || attr->allocatable)
 		{
 		  if (TREE_STATIC (sym->backend_decl))
 		    {
@@ -4018,8 +4028,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		    }
 		  else if (sym->ts.type == BT_DERIVED
 			     && sym->value
-			     && !sym->attr.data
-			     && sym->attr.save == SAVE_NONE)
+			     && !attr->data
+			     && attr->save == SAVE_NONE)
 		    {
 		      gfc_start_block (&tmpblock);
 		      gfc_init_default_dt (sym, &tmpblock, false);
@@ -4036,7 +4046,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 
 	    case AS_ASSUMED_SIZE:
 	      /* Must be a dummy parameter.  */
-	      gcc_assert (sym->attr.dummy || sym->as->cp_was_assumed);
+	      gcc_assert (sym->attr.dummy || as->cp_was_assumed);
 
 	      /* We should always pass assumed size arrays the g77 way.  */
 	      if (sym->attr.dummy)
