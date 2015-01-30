@@ -1799,6 +1799,13 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   if (boundary > align
       && !integer_zerop (TYPE_SIZE (type)))
     {
+      t = fold_build_pointer_plus_hwi (valist_tmp, boundary - 1);
+      t = fold_build2 (BIT_AND_EXPR, TREE_TYPE (valist), t,
+		       build_int_cst (TREE_TYPE (valist), -boundary));
+      gimplify_expr (&t, pre_p, post_p, is_gimple_val, fb_rvalue);
+      valist_tmp = t;
+#if 0
+      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
       t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
 		  fold_build_pointer_plus_hwi (valist_tmp, boundary - 1));
       gimplify_and_add (t, pre_p);
@@ -1808,6 +1815,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 			       valist_tmp,
 			       build_int_cst (TREE_TYPE (valist), -boundary)));
       gimplify_and_add (t, pre_p);
+#endif
     }
   else
     boundary = align;
