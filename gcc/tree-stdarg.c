@@ -52,10 +52,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
 #include "gimple-ssa.h"
+#include "gimplify.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "tree-into-ssa.h"
 #include "sbitmap.h"
 #include "tree-pass.h"
 #include "tree-stdarg.h"
@@ -679,6 +681,16 @@ check_all_va_list_escapes (struct stdarg_info *si)
 }
 
 
+/* TODO: Move to tree-cfg.h.  */
+extern bool gimple_find_sub_bbs (gimple_seq seq, gimple_stmt_iterator *gsi);
+
+/* TODO: move to gimple-iterator.h.  */
+extern void update_modified_stmts (gimple_seq seq);
+
+/* TODO: move to gimplify.h.  */
+extern tree gimplify_va_arg_internal (tree, tree, location_t, gimple_seq *,
+				      gimple_seq *);
+
 namespace {
 
 const pass_data pass_data_stdarg =
@@ -702,11 +714,9 @@ public:
   {}
 
   /* opt_pass methods: */
-  virtual bool gate (function *fun)
+  virtual bool gate (function *)
     {
-      /* This optimization is only for stdarg functions.  */
-      return (flag_tree_stdarg_opt
-	      && fun->stdarg != 0);
+      return true;
     }
 
   virtual unsigned int execute (function *);
@@ -723,6 +733,74 @@ pass_stdarg::execute (function *fun)
   struct walk_stmt_info wi;
   const char *funcname = NULL;
   tree cfun_va_list;
+  unsigned int retflags = 0;
+
+  /* Expand va_arg.  */
+  /* TODO: teach pass_stdarg how process the va_arg builtin, and reverse the
+     order of:
+     - expansion of va_arg builtin, and
+     - va_list_gpr/fpr_size optimization.  */
+  FOR_EACH_BB_FN (bb, fun)
+    {
+      gimple_stmt_iterator i;
+
+      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+	{
+	  gimple stmt = gsi_stmt (i);
+
+	  if (is_gimple_call (stmt)
+	      && gimple_call_internal_p (stmt)
+	      && gimple_call_internal_fn (stmt) == IFN_VA_ARG)
+	    {
+	      gimple_seq pre = NULL, post = NULL;
+	      tree type = TREE_TYPE (TREE_TYPE (gimple_call_arg (stmt, 1)));
+	      tree ap;
+	      tree expr;
+	      gimple g;
+
+	      ap = gimple_call_arg (stmt, 0);
+	      ap = build_fold_indirect_ref (ap);
+
+	      push_gimplify_context (false);
+	      expr = gimplify_va_arg_internal (ap, type, gimple_location (stmt),
+					       &pre, &post);
+
+	      if (gimple_call_lhs (stmt))
+		{
+		  gcc_assert (useless_type_conversion_p (TREE_TYPE (gimple_call_lhs (stmt)), type));
+		  gimplify_expr (&expr, &pre, &post, is_gimple_val, fb_rvalue);
+		  g = gimple_build_assign (gimple_call_lhs (stmt), expr);
+		  gimple_set_location (g, gimple_location (stmt));
+		  gimple_seq_add_stmt (&pre, g);
+		}
+
+	      pop_gimplify_context (NULL);
+
+	      gimple_seq_add_seq (&pre, post);
+
+	      update_modified_stmts (pre);
+	      gimple_find_sub_bbs (pre, &i);
+#if 0
+	      gsi_insert_seq_after (&i, pre, GSI_SAME_STMT);
+#endif
+	      gsi_remove (&i, true);
+	      retflags = TODO_update_ssa;
+	      if (gsi_end_p (i))
+		break;
+	    }
+	}
+    }
+
+  if (retflags)
+    {
+      free_dominance_info (CDI_DOMINATORS);
+      update_ssa (retflags);
+    }
+
+  if (!flag_tree_stdarg_opt
+      /* This optimization is only for stdarg functions.  */
+      || fun->stdarg == 0)
+    return 0;
 
   fun->va_list_gpr_size = 0;
   fun->va_list_fpr_size = 0;

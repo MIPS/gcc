@@ -9281,6 +9281,39 @@ dummy_object (tree type)
   return build2 (MEM_REF, type, t, t);
 }
 
+/* Call the target expander for evaluating a va_arg call of VALIST
+   and TYPE.  */
+
+tree
+gimplify_va_arg_internal (tree valist, tree type, location_t loc,
+			  gimple_seq *pre_p, gimple_seq *post_p)
+{
+  tree have_va_type = TREE_TYPE (valist);
+  have_va_type = targetm.canonical_va_list_type (have_va_type);
+
+  /* Make it easier for the backends by protecting the valist argument
+     from multiple evaluations.  */
+  if (TREE_CODE (have_va_type) == ARRAY_TYPE)
+    {
+      /* For this case, the backends will be expecting a pointer to
+	 TREE_TYPE (abi), but it's possible we've
+	 actually been given an array (an actual TARGET_FN_ABI_VA_LIST).
+	 So fix it.  */
+      if (TREE_CODE (TREE_TYPE (valist)) == ARRAY_TYPE)
+	{
+	  tree p1 = build_pointer_type (TREE_TYPE (have_va_type));
+	  valist = fold_convert_loc (loc, p1,
+				     build_fold_addr_expr_loc (loc, valist));
+	}
+
+      gimplify_expr (&valist, pre_p, post_p, is_gimple_val, fb_rvalue);
+    }
+  else
+    gimplify_expr (&valist, pre_p, post_p, is_gimple_min_lval, fb_lvalue);
+
+  return targetm.gimplify_va_arg_expr (valist, type, pre_p, post_p);
+}
+
 /* Gimplify __builtin_va_arg, aka VA_ARG_EXPR, which is not really a
    builtin function, but a very special sort of operator.  */
 
@@ -9307,8 +9340,7 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
   /* Generate a diagnostic for requesting data of a type that cannot
      be passed through `...' due to type promotion at the call site.  */
-  if ((promoted_type = lang_hooks.types.type_promotes_to (type))
-	   != type)
+  if ((promoted_type = lang_hooks.types.type_promotes_to (type)) != type)
     {
       static bool gave_help;
       bool warned;
@@ -9342,36 +9374,37 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       *expr_p = dummy_object (type);
       return GS_ALL_DONE;
     }
-  else
+  else if (optimize && !optimize_debug)
     {
-      /* Make it easier for the backends by protecting the valist argument
-	 from multiple evaluations.  */
-      if (TREE_CODE (have_va_type) == ARRAY_TYPE)
+      tree tmp, tmp2, tag;
+      gimple call, assign;
+      tmp = build_fold_addr_expr_loc (loc, valist);
+      if (gimplify_arg (&tmp, pre_p, loc) == GS_ERROR)
+	return GS_ERROR;
+      tag = build_int_cst (build_pointer_type (type), 0);
+      call = gimple_build_call_internal (IFN_VA_ARG, 2, tmp, tag);
+      gimple_seq_add_stmt (pre_p, call);
+      if (VOID_TYPE_P (type))
 	{
-	  /* For this case, the backends will be expecting a pointer to
-	     TREE_TYPE (abi), but it's possible we've
-	     actually been given an array (an actual TARGET_FN_ABI_VA_LIST).
-	     So fix it.  */
-	  if (TREE_CODE (TREE_TYPE (valist)) == ARRAY_TYPE)
-	    {
-	      tree p1 = build_pointer_type (TREE_TYPE (have_va_type));
-	      valist = fold_convert_loc (loc, p1,
-					 build_fold_addr_expr_loc (loc, valist));
-	    }
-
-	  gimplify_expr (&valist, pre_p, post_p, is_gimple_val, fb_rvalue);
+	  *expr_p = NULL;
+	  return GS_ALL_DONE;
 	}
-      else
-	gimplify_expr (&valist, pre_p, post_p, is_gimple_min_lval, fb_lvalue);
+      tmp2 = create_tmp_var (type, NULL);
+      gimple_set_lhs (call, tmp2);
+      *expr_p = tmp2;
 
-      if (!targetm.gimplify_va_arg_expr)
-	/* FIXME: Once most targets are converted we should merely
-	   assert this is non-null.  */
-	return GS_ALL_DONE;
-
-      *expr_p = targetm.gimplify_va_arg_expr (valist, type, pre_p, post_p);
-      return GS_OK;
+      if (TREE_CODE (tmp) == ADDR_EXPR
+	  && TREE_OPERAND (tmp, 0) != valist)
+	{
+	  /* If we're passing the address of a temp, instead of the addres of
+	     valist, we need to copy back the value of the temp to valist.  */
+	  assign = gimple_build_assign (valist, TREE_OPERAND (tmp, 0));
+	  gimple_seq_add_stmt (pre_p, assign);
+	}
     }
+  else
+    *expr_p = gimplify_va_arg_internal (valist, type, loc, pre_p, post_p);
+  return GS_OK;
 }
 
 /* Build a new GIMPLE_ASSIGN tuple and append it to the end of *SEQ_P.
