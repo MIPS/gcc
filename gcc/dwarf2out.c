@@ -4915,12 +4915,12 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 	  /* Allow nested functions to live in limbo because they will
 	     only temporarily live there, as decls_for_scope will fix
 	     them up.  */
+	  && (TREE_CODE (t) != FUNCTION_DECL
+	      || !decl_function_context (t))
 	  /* FIXME: Allow types for now.  We are getting some internal
 	     template types from inlining (building libstdc++).
 	     Templates need to be looked at.  */
 	  && !TYPE_P (t)
-	  && (TREE_CODE (t) != FUNCTION_DECL
-	      || !decl_function_context (t))
 	  /* FIXME: Allow late limbo DIE creation for LTO, especially
 	     in the ltrans stage, but once we implement LTO dwarf
 	     streaming, we should remove this exception.  */
@@ -18476,7 +18476,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
     {
       // ?? Make C++ clones work since they're tagged as
       // declarations but are class scoped instead.
-      //gcc_assert (!declaration || local_scope_p (context_die));
+#if 0
+      gcc_assert (!declaration || local_scope_p (context_die));
+#endif
 
       /* Fixup die_parent for the abstract instance of a nested
 	 inline function.  */
