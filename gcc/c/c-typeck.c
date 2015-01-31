@@ -292,7 +292,7 @@ c_incomplete_type_error (const_tree value, const_tree type)
    arguments and return the new type.  */
 
 ttype *
-c_type_promotes_to (tree type)
+c_type_promotes_to (ttype_p type)
 {
   ttype *ret = NULL;
 
@@ -313,7 +313,7 @@ c_type_promotes_to (tree type)
 	    ? c_build_qualified_type (ret, TYPE_QUAL_ATOMIC)
 	    : ret);
 
-  return TTYPE (type);
+  return type;
 }
 
 /* Return true if between two named address spaces, whether there is a superset

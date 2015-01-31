@@ -2774,13 +2774,13 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 }
 
 ttype *
-type_decays_to (tree type)
+type_decays_to (ttype_p type)
 {
   if (TREE_CODE (type) == ARRAY_TYPE)
     return build_pointer_type (TREE_TYPE (type));
   if (TREE_CODE (type) == FUNCTION_TYPE)
     return build_pointer_type (type);
-  return TTYPE (type);
+  return type;
 }
 
 /* There are three conditions of builtin candidates:
@@ -6714,7 +6714,7 @@ build_x_va_arg (source_location loc, tree expr, tree type)
    type, or the passed type if there is no change.  */
 
 ttype *
-cxx_type_promotes_to (tree type)
+cxx_type_promotes_to (ttype_p type)
 {
   ttype *promote;
 
@@ -6724,7 +6724,7 @@ cxx_type_promotes_to (tree type)
 
   promote = type_promotes_to (promote);
   if (same_type_p (type, promote))
-    promote = TTYPE (type);
+    promote = type;
 
   return promote;
 }

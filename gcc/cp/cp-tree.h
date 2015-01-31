@@ -5188,7 +5188,7 @@ extern tree build_call_n			(tree, int, ...);
 extern bool null_ptr_cst_p			(tree);
 extern bool null_member_pointer_value_p		(tree);
 extern bool sufficient_parms_p			(const_tree);
-extern ttype *type_decays_to			(tree);
+extern ttype *type_decays_to			(ttype_p);
 extern tree build_user_type_conversion		(tree, tree, int,
 						 tsubst_flags_t);
 extern tree build_new_function_call		(tree, vec<tree, va_gc> **, bool, 
@@ -5224,7 +5224,7 @@ extern tree convert_default_arg			(tree, tree, tree, int,
 						 tsubst_flags_t);
 extern tree convert_arg_to_ellipsis		(tree, tsubst_flags_t);
 extern tree build_x_va_arg			(source_location, tree, tree);
-extern ttype *cxx_type_promotes_to		(tree);
+extern ttype *cxx_type_promotes_to		(ttype_p);
 extern tree type_passed_as			(tree);
 extern tree convert_for_arg_passing		(tree, tree, tsubst_flags_t);
 extern bool is_properly_derived_from		(tree, tree);
@@ -5344,7 +5344,7 @@ extern tree convert_to_void			(tree, impl_conv_void,
 extern tree convert_force			(tree, tree, int,
 						 tsubst_flags_t);
 extern tree build_expr_type_conversion		(int, tree, bool);
-extern ttype *type_promotes_to			(tree);
+extern ttype *type_promotes_to			(ttype_p);
 extern tree perform_qualification_conversions	(tree, tree);
 
 /* in name-lookup.c */
@@ -5476,7 +5476,7 @@ extern tree grokfield (const cp_declarator *, cp_decl_specifier_seq *,
 		       tree, bool, tree, tree);
 extern tree grokbitfield (const cp_declarator *, cp_decl_specifier_seq *,
 			  tree, tree);
-extern ttype *cp_reconstruct_complex_type	(tree, tree);
+extern ttype *cp_reconstruct_complex_type	(ttype_p, ttype_p);
 extern bool attributes_naming_typedef_ok	(tree);
 extern void cplus_decl_attributes		(tree *, tree, int);
 extern void finish_anon_union			(tree);
@@ -6095,7 +6095,7 @@ extern tree build_cplus_new			(tree, tree, tsubst_flags_t);
 extern tree build_aggr_init_expr		(tree, tree);
 extern tree get_target_expr			(tree);
 extern tree get_target_expr_sfinae		(tree, tsubst_flags_t);
-extern ttype *build_cplus_array_type		(tree, tree);
+extern ttype *build_cplus_array_type		(ttype_p, tree);
 extern tree build_array_of_n_type		(tree, int);
 extern bool array_of_runtime_bound_p		(tree);
 extern tree build_array_copy			(tree);
@@ -6104,7 +6104,7 @@ extern void diagnose_non_constexpr_vec_init	(tree);
 extern tree hash_tree_cons			(tree, tree, tree);
 extern tree hash_tree_chain			(tree, tree);
 extern tree build_qualified_name		(tree, tree, tree, bool);
-extern ttype *build_ref_qualified_type		(tree, cp_ref_qualifier);
+extern ttype *build_ref_qualified_type		(ttype_p, cp_ref_qualifier);
 extern int is_overloaded_fn			(tree);
 extern tree dependent_name			(tree);
 extern tree get_fns				(tree);
@@ -6115,7 +6115,7 @@ extern tree ovl_scope				(tree);
 extern bool non_static_member_function_p        (tree);
 extern const char *cxx_printable_name		(tree, int);
 extern const char *cxx_printable_name_translate	(tree, int);
-extern ttype *build_exception_variant		(tree, tree);
+extern ttype *build_exception_variant		(ttype_p, tree);
 extern tree bind_template_template_parm		(tree, tree);
 extern tree array_type_nelts_total		(tree);
 extern tree array_type_nelts_top		(tree);
@@ -6140,7 +6140,7 @@ extern tree make_ptrmem_cst			(tree, tree);
 extern ttype *cp_build_type_attribute_variant     (tree, tree);
 extern tree cp_build_reference_type		(tree, bool);
 extern tree move				(tree);
-extern ttype *cp_build_qualified_type_real	(tree, int, tsubst_flags_t);
+extern ttype *cp_build_qualified_type_real	(ttype_p, int, tsubst_flags_t);
 #define cp_build_qualified_type(TYPE, QUALS) \
 	  cp_build_qualified_type_real ((TYPE), (QUALS), tf_warning_or_error)
 extern bool cv_qualified_p			(const_tree);
@@ -6264,7 +6264,8 @@ extern tree build_ptrmemfunc			(tree, tree, int, bool,
 extern int cp_type_quals			(const_tree);
 extern int type_memfn_quals			(const_tree);
 extern cp_ref_qualifier type_memfn_rqual	(const_tree);
-extern ttype *apply_memfn_quals			(tree, cp_cv_quals, cp_ref_qualifier);
+extern ttype *apply_memfn_quals			(ttype_p, cp_cv_quals,
+						 cp_ref_qualifier);
 extern bool cp_has_mutable_p			(const_tree);
 extern bool at_least_as_qualified_p		(const_tree, const_tree);
 extern void cp_apply_type_quals_to_decl		(int, tree);
@@ -6289,7 +6290,7 @@ extern tree build_simple_component_ref		(tree, tree);
 extern tree build_ptrmemfunc_access_expr	(tree, tree);
 extern tree build_address			(tree);
 extern tree build_nop				(tree, tree);
-extern ttype *non_reference			(tree);
+extern ttype *non_reference			(ttype_p);
 extern tree lookup_anon_field			(tree, tree);
 extern bool invalid_nonstatic_memfn_p		(tree, tsubst_flags_t);
 extern tree convert_member_func_to_ptr		(tree, tree, tsubst_flags_t);

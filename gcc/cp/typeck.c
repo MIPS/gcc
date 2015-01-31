@@ -8961,13 +8961,14 @@ type_memfn_quals (const_tree type)
    MEMFN_QUALS and its ref-qualifier to RQUAL. */
 
 ttype *
-apply_memfn_quals (tree type, cp_cv_quals memfn_quals, cp_ref_qualifier rqual)
+apply_memfn_quals (ttype_p type, cp_cv_quals memfn_quals,
+		   cp_ref_qualifier rqual)
 {
   /* Could handle METHOD_TYPE here if necessary.  */
   gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
   if (TYPE_QUALS (type) == memfn_quals
       && type_memfn_rqual (type) == rqual)
-    return (TTYPE (type));
+    return type;
 
   /* This should really have a different TYPE_MAIN_VARIANT, but that gets
      complex.  */
@@ -9161,11 +9162,11 @@ casts_away_constness (tree t1, tree t2, tsubst_flags_t complain)
    Otherwise, return T itself.  */
 
 ttype *
-non_reference (tree t)
+non_reference (ttype_p t)
 {
   if (t && TREE_CODE (t) == REFERENCE_TYPE)
     return TREE_TTYPE (t);
-  return TTYPE (t);
+  return t;
 }
 
 

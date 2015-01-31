@@ -822,7 +822,7 @@ set_array_type_canon (tree t, tree elt_type, tree index_type)
    the element type.  */
 
 ttype *
-build_cplus_array_type (tree elt_type, tree index_type)
+build_cplus_array_type (ttype_p elt_type, tree index_type)
 {
   ttype *t;
 
@@ -851,7 +851,7 @@ build_cplus_array_type (tree elt_type, tree index_type)
       hash = TYPE_UID (elt_type);
       if (index_type)
 	hash ^= TYPE_UID (index_type);
-      cai.type = TTYPE (elt_type);
+      cai.type = elt_type;
       cai.domain = index_type;
 
       ttype **e = cplus_array_htab->find_slot_with_hash (&cai, hash, INSERT); 
@@ -1035,7 +1035,7 @@ c_build_qualified_type (tree type, int type_quals)
    in a similar manner for restricting non-pointer types.  */
 
 ttype *
-cp_build_qualified_type_real (tree type,
+cp_build_qualified_type_real (ttype_p type,
 			      int type_quals,
 			      tsubst_flags_t complain)
 {
@@ -1046,7 +1046,7 @@ cp_build_qualified_type_real (tree type,
     return error_type_node;
 
   if (type_quals == cp_type_quals (type))
-    return TTYPE (type);
+    return type;
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
@@ -1139,9 +1139,9 @@ cp_build_qualified_type_real (tree type,
     return error_type_node;
   else
     {
-      tree bad_type = build_qualified_type (ptr_type_node, bad_quals);
+      ttype *bad_type = build_qualified_type (ptr_type_node, bad_quals);
       error ("%qV qualifiers cannot be applied to %qT",
-	     bad_type, type);
+	     bad_type, type.as_a_ttype ());
     }
 
   /* Retrieve (or create) the appropriately qualified variant.  */
@@ -1814,12 +1814,12 @@ cp_check_qualified_type (const_tree cand, const_tree base, int type_quals,
 /* Build the FUNCTION_TYPE or METHOD_TYPE with the ref-qualifier RQUAL.  */
 
 ttype *
-build_ref_qualified_type (tree type, cp_ref_qualifier rqual)
+build_ref_qualified_type (ttype_p type, cp_ref_qualifier rqual)
 {
   ttype *t;
 
   if (rqual == type_memfn_rqual (type))
-    return TTYPE (type);
+    return type;
 
   int type_quals = TYPE_QUALS (type);
   tree raises = TYPE_RAISES_EXCEPTIONS (type);
@@ -2054,13 +2054,13 @@ cxx_printable_name_translate (tree decl, int v)
    listed in RAISES.  */
 
 ttype *
-build_exception_variant (tree type, tree raises)
+build_exception_variant (ttype_p type, tree raises)
 {
   ttype *v;
   int type_quals;
 
   if (comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (type), ce_exact))
-    return TTYPE (type);
+    return type;
 
   type_quals = TYPE_QUALS (type);
   cp_ref_qualifier rqual = type_memfn_rqual (type);

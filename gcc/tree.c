@@ -4762,7 +4762,7 @@ build_decl_attribute_variant (tree ddecl, tree attribute)
    Record such modified types already made so we don't make duplicates.  */
 
 ttype *
-build_type_attribute_qual_variant (tree type, tree attribute, int quals)
+build_type_attribute_qual_variant (ttype_p type, tree attribute, int quals)
 {
   if (! attribute_list_equal (TYPE_ATTRIBUTES (type), attribute))
     {
@@ -4840,7 +4840,7 @@ build_type_attribute_qual_variant (tree type, tree attribute, int quals)
   else if (TYPE_QUALS (type) != quals)
     type = build_qualified_type (type, quals);
 
-  return TTYPE (type);
+  return type;
 }
 
 /* Check if "omp declare simd" attribute arguments, CLAUSES1 and CLAUSES2, are
@@ -6458,12 +6458,12 @@ find_atomic_core_type (tree type)
    return NULL_TREE.  */
 
 ttype *
-get_qualified_type (tree type, int type_quals)
+get_qualified_type (ttype_p type, int type_quals)
 {
   ttype *t;
 
   if (TYPE_QUALS (type) == type_quals)
-    return TTYPE (type);
+    return type;
 
   /* Search the chain of variants to see if there is already one there just
      like the one we need to have.  If so, use that existing one.  We must
@@ -6479,9 +6479,9 @@ get_qualified_type (tree type, int type_quals)
    exist.  This function never returns NULL_TREE.  */
 
 ttype *
-build_qualified_type (tree type, int type_quals)
+build_qualified_type (ttype_p type, int type_quals)
 {
-  tree t;
+  ttype *t;
 
   /* See if we already have the appropriate qualified variant.  */
   t = get_qualified_type (type, type_quals);
@@ -6521,7 +6521,7 @@ build_qualified_type (tree type, int type_quals)
 
     }
 
-  return TTYPE (t);
+  return t;
 }
 
 /* Create a variant of type T with alignment ALIGN.  */
@@ -6551,9 +6551,9 @@ build_aligned_type (tree type, unsigned int align)
    TYPE_CANONICAL points to itself. */
 
 ttype *
-build_distinct_type_copy (tree type)
+build_distinct_type_copy (ttype_p type)
 {
-  ttype *t = copy_node (TTYPE (type));
+  ttype *t = copy_node (type);
 
   TYPE_POINTER_TO (t) = 0;
   TYPE_REFERENCE_TO (t) = 0;
@@ -9994,7 +9994,7 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   MAKE_FIXED_MODE_NODE (accum, ta, TA)
 
   {
-    tree t = targetm.build_builtin_va_list ();
+    ttype *t = TTYPE (targetm.build_builtin_va_list ());
 
     /* Many back-ends define record types without setting TYPE_NAME.
        If we copied the record type here, we'd keep the original
@@ -10004,7 +10004,7 @@ build_common_tree_nodes (bool signed_char, bool short_double)
     if (TREE_CODE (t) != RECORD_TYPE)
       t = build_variant_type_copy (t);
 
-    va_list_type_node = TTYPE (t);
+    va_list_type_node = t;
   }
 }
 
@@ -10309,7 +10309,7 @@ build_common_builtin_nodes (void)
    new type which we will point to.  */
 
 ttype *
-reconstruct_complex_type (tree type, tree bottom)
+reconstruct_complex_type (ttype_p type, ttype_p bottom)
 {
   ttype *inner, *outer;
 
@@ -10352,7 +10352,7 @@ reconstruct_complex_type (tree type, tree bottom)
       outer = build_offset_type (TYPE_OFFSET_BASETYPE (type), inner);
     }
   else
-    return TTYPE (bottom);
+    return bottom;
 
   return build_type_attribute_qual_variant (outer, TYPE_ATTRIBUTES (type),
 					    TYPE_QUALS (type));

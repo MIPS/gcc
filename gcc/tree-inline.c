@@ -424,7 +424,7 @@ remap_decl (tree decl, copy_body_data *id)
 }
 
 static ttype *
-remap_type_1 (tree type, copy_body_data *id)
+remap_type_1 (ttype_p type, copy_body_data *id)
 {
   ttype *new_tree, *t;
 
@@ -456,7 +456,7 @@ remap_type_1 (tree type, copy_body_data *id)
       return new_tree;
     }
   else
-    new_tree = copy_node (TTYPE (type));
+    new_tree = copy_node (type);
 
   insert_decl_map (id, type, new_tree);
 
@@ -587,7 +587,7 @@ remap_type_1 (tree type, copy_body_data *id)
 }
 
 ttype *
-remap_type (tree type, copy_body_data *id)
+remap_type (ttype_p type, copy_body_data *id)
 {
   tree *node;
   ttype *tmp;
@@ -604,7 +604,7 @@ remap_type (tree type, copy_body_data *id)
   if (! variably_modified_type_p (type, id->src_fn))
     {
       insert_decl_map (id, type, type);
-      return TTYPE (type);
+      return type;
     }
 
   id->remapping_type_depth++;

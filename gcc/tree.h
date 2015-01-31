@@ -3589,6 +3589,40 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
   ((NODE) == error_mark_node					\
    || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
 
+template <>
+template <>
+inline bool
+is_a_helper <ttype *>::test (tree t)
+{
+  return TYPE_P (t);
+}
+
+static inline ttype *TTYPE (tree t) 
+{ 
+  if (t == NULL_TREE)
+    return NULL;
+  if (t == error_mark_node)
+    return error_type_node;
+  return as_a <ttype *>(t); 
+}
+
+ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)"))) ;
+
+
+class ttype_p {
+  ttype *type;
+public:
+  inline ttype_p (tree t) { type = TTYPE (t); }
+  inline ttype_p (ttype *t) { type = t; }
+  inline ttype_p& operator= (ttype *t) { type = t; return *this; }
+  inline operator ttype *() const { return type; }
+  inline ttype * operator->() { return type; }
+  // Used to mark locations which will simply be ttype when we can remove the
+  // ttype_p type at this location.  Mostly when used in varargs..
+  inline ttype *as_a_ttype () { return type; }
+};
+
+
 extern tree decl_assembler_name (tree);
 extern tree decl_comdat_group (const_tree);
 extern tree decl_comdat_group_id (const_tree);
@@ -3896,7 +3930,7 @@ extern tree make_tree (tree, rtx);
 
 extern ttype *build_type_attribute_variant (tree, tree);
 extern tree build_decl_attribute_variant (tree, tree);
-extern ttype *build_type_attribute_qual_variant (tree, tree, int);
+extern ttype *build_type_attribute_qual_variant (ttype_p, tree, int);
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a
@@ -4007,12 +4041,12 @@ extern bool check_qualified_type (const_tree, const_tree, int);
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
 
-extern ttype *get_qualified_type (tree, int);
+extern ttype *get_qualified_type (ttype_p, int);
 
 /* Like get_qualified_type, but creates the type if it does not
    exist.  This function never returns NULL_TREE.  */
 
-extern ttype *build_qualified_type (tree, int);
+extern ttype *build_qualified_type (ttype_p, int);
 
 /* Create a variant of type T with alignment ALIGN.  */
 
@@ -4030,7 +4064,7 @@ extern tree build_aligned_type (tree, unsigned int);
 
 /* Make a copy of a type node.  */
 
-extern ttype *build_distinct_type_copy (tree);
+extern ttype *build_distinct_type_copy (ttype_p);
 extern ttype *build_variant_type_copy (tree);
 
 /* Given a hashcode and a ..._TYPE node (for which the hashcode was made),
@@ -4462,7 +4496,7 @@ extern int chain_member (const_tree, const_tree);
 extern void dump_tree_statistics (void);
 extern void recompute_tree_invariant_for_addr_expr (tree);
 extern bool needs_to_live_in_memory (const_tree);
-extern ttype *reconstruct_complex_type (tree, tree);
+extern ttype *reconstruct_complex_type (ttype_p , ttype_p);
 extern int real_onep (const_tree);
 extern int real_minus_onep (const_tree);
 extern void init_ttree (void);
@@ -4999,25 +5033,6 @@ int_bit_position (const_tree field)
 extern void gt_ggc_mx (tree &);
 extern void gt_pch_nx (tree &);
 extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
-
-template <>
-template <>
-inline bool
-is_a_helper <ttype *>::test (tree t)
-{
-  return TYPE_P (t);
-}
-
-static inline ttype *TTYPE (tree t) 
-{ 
-  if (t == NULL_TREE)
-    return NULL;
-  if (t == error_mark_node)
-    return error_type_node;
-  return as_a <ttype *>(t); 
-}
-
-ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)"))) ;
 
 #define TREE_TTYPE(NODE) TTYPE (TREE_TYPE (NODE))
 #define TREE_CAST(NODE) ((tree)(NODE))

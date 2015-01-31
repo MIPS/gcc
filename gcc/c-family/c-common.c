@@ -3819,7 +3819,7 @@ c_common_signed_type (tree type)
    signed according to UNSIGNEDP.  */
 
 ttype *
-c_common_signed_or_unsigned_type (int unsignedp, tree type)
+c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
 {
   ttype *type1;
   int i;
@@ -3947,7 +3947,7 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
 
   if (!INTEGRAL_TYPE_P (type)
       || TYPE_UNSIGNED (type) == unsignedp)
-    return TTYPE (type);
+    return type;
 
 #define TYPE_OK(node)							    \
   (TYPE_MODE (type) == TYPE_MODE (node)					    \

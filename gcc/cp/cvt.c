@@ -1689,7 +1689,7 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 /* Implements integral promotion (4.1) and float->double promotion.  */
 
 ttype *
-type_promotes_to (tree orig_type)
+type_promotes_to (ttype_p orig_type)
 {
   ttype *promoted_type;
   ttype *type;
