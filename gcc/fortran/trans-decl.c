@@ -1017,19 +1017,22 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   tree decl;
   tree type;
   gfc_array_spec *as;
+  symbol_attribute *array_attr;
   char *name;
   gfc_packed packed;
   int n;
   bool known_size;
 
-  /* Use the array as.  */
+  /* Use the array as and attr.  */
   as = sym->as;
+  array_attr = &sym->attr;
 
-  if (sym->attr.pointer || sym->attr.allocatable
+  if (array_attr->pointer || array_attr->allocatable
       || (as && as->type == AS_ASSUMED_RANK))
     return dummy;
 
-  /* Add to list of variables if not a fake result variable.  */
+  /* Add to list of variables if not a fake result variable.
+     These symbols are set on the symbol only, not on the class component.  */
   if (sym->attr.result || sym->attr.dummy)
     gfc_defer_symbol_init (sym);
 
