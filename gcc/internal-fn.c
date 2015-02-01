@@ -934,6 +934,11 @@ expand_BUILTIN_EXPECT (gimple stmt)
     emit_move_insn (target, val);
 }
 
+static void
+expand_VA_ARG (gimple stmt ATTRIBUTE_UNUSED)
+{
+}
+
 /* Routines to expand each internal function, indexed by function number.
    Each routine has the prototype:
 
