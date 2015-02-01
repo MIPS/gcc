@@ -1972,6 +1972,12 @@ expand_BUILTIN_EXPECT (gcall *stmt)
     emit_move_insn (target, val);
 }
 
+static void
+expand_VA_ARG (gcall *stmt ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
 /* Routines to expand each internal function, indexed by function number.
    Each routine has the prototype:
 
