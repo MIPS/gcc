@@ -63,10 +63,12 @@ update_modified_stmt (gimple stmt)
   update_stmt_if_modified (stmt);
 }
 
+/* TODO: move to gimple-iterator.h.  */
+extern void update_modified_stmts (gimple_seq);
 
 /* Mark the statements in SEQ as modified, and update them.  */
 
-static void
+void
 update_modified_stmts (gimple_seq seq)
 {
   gimple_stmt_iterator gsi;
