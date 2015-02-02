@@ -3853,8 +3853,6 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
   gfc_expr *e;
   gfc_se se;
   stmtblock_t init;
-  gfc_array_spec *as;
-  symbol_attribute *array_attr;
 
   /* Deal with implicit return variables.  Explicit return variables will
      already have been added.  */
@@ -3952,10 +3950,6 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 				NULL_TREE);
 	}
 
-      /* The as and array_attr is only necessarry from here on.  */
-      as = sym->as;
-      array_attr = &sym->attr;
-
       if (sym->ts.type == BT_CLASS
 	  && (sym->attr.save || flag_max_stack_var_size == 0)
 	  && CLASS_DATA (sym)->attr.allocatable)
@@ -3986,11 +3980,11 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		= gfc_class_set_static_fields (sym->backend_decl, vptr, tmp);
 	  TREE_CONSTANT (DECL_INITIAL (sym->backend_decl)) = 1;
 	}
-      else if (array_attr->dimension || array_attr->codimension)
+      else if (sym->attr.dimension || sym->attr.codimension)
 	{
 	  /* Assumed-size Cray pointees need to be treated as AS_EXPLICIT.  */
-	  array_type tmp = as->type;
-	  if (tmp == AS_ASSUMED_SIZE && as->cp_was_assumed)
+	  array_type tmp = sym->as->type;
+	  if (tmp == AS_ASSUMED_SIZE && sym->as->cp_was_assumed)
 	    tmp = AS_EXPLICIT;
 	  switch (tmp)
 	    {
@@ -4000,7 +3994,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	      /* In a class array the _data component always has the pointer
 		 attribute set.  Therefore only check for allocatable in the
 		 array attributes and for pointer in the symbol.  */
-	      else if (sym->attr.pointer || array_attr->allocatable)
+	      else if (sym->attr.pointer || sym->attr.allocatable)
 		{
 		  if (TREE_STATIC (sym->backend_decl))
 		    {
@@ -4015,7 +4009,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		      gfc_trans_deferred_array (sym, block);
 		    }
 		}
-	      else if (array_attr->codimension
+	      else if (sym->attr.codimension
 		       && TREE_STATIC (sym->backend_decl))
 		{
 		  gfc_init_block (&tmpblock);
@@ -4055,7 +4049,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 
 	    case AS_ASSUMED_SIZE:
 	      /* Must be a dummy parameter.  */
-	      gcc_assert (sym->attr.dummy || as->cp_was_assumed);
+	      gcc_assert (sym->attr.dummy || sym->as->cp_was_assumed);
 
 	      /* We should always pass assumed size arrays the g77 way.  */
 	      if (sym->attr.dummy)
