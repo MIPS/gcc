@@ -2058,6 +2058,10 @@ fssa-phiopt
 Common Report Var(flag_ssa_phiopt) Optimization
 Optimize conditional patterns using SSA PHI nodes
 
+ftree-stdarg-opt
+Common Report Var(flag_tree_stdarg_opt) Init(1) Optimization
+Optimize amount of stdarg registers saved to stack at start of function
+
 fvariable-expansion-in-unroller
 Common Report Var(flag_variable_expansion_in_unroller) Optimization
 Apply variable expansion when loops are unrolled
