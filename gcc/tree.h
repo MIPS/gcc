@@ -1646,12 +1646,6 @@ extern void protected_set_expr_location (tree, location_t);
 #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.main_variant)
 #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->u.type_common.context)
 
-
-#define TTYPE_POINTER_TO(NODE) TTYPE ((TYPE_CHECK (NODE)->u.type_common.pointer_to))
-#define TTYPE_REFERENCE_TO(NODE) TTYPE ((TYPE_CHECK (NODE)->u.type_common.reference_to))
-#define TTYPE_MAIN_VARIANT(NODE) (TTYPE (TYPE_MAIN_VARIANT (NODE)))
-#define TTYPE_NEXT_VARIANT(NODE) (TTYPE (TYPE_NEXT_VARIANT(NODE)))
-
 #define TYPE_MODE(NODE) \
   (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
    ? vector_type_mode (NODE) : (NODE)->u.type_common.mode)
@@ -1911,11 +1905,6 @@ extern machine_mode element_mode (const_tree t);
 #define TYPE_MAX_VALUE(NODE) \
   (NUMERICAL_TYPE_CHECK (NODE)->u.type_non_common.maxval)
 
-#define TTYPE_NEXT_PTR_TO(NODE) \
-  TTYPE ((POINTER_TYPE_CHECK (NODE)->u.type_non_common.minval))
-#define TTYPE_NEXT_REF_TO(NODE) \
-  TTYPE ((REFERENCE_TYPE_CHECK (NODE)->u.type_non_common.minval))
-
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
    object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
    allocated.  */
@@ -1961,7 +1950,6 @@ extern machine_mode element_mode (const_tree t);
 
 /* The actual data type node being inherited in this basetype.  */
 #define BINFO_TYPE(NODE) TREE_TYPE (TREE_BINFO_CHECK (NODE))
-#define BINFO_TTYPE(NODE) TREE_TTYPE (TREE_BINFO_CHECK (NODE))
 
 /* The offset where this basetype appears in its containing type.
    BINFO_OFFSET slot holds the offset (in bytes)
@@ -3622,6 +3610,27 @@ public:
   inline ttype *as_a_ttype () { return type; }
 };
 
+#define TREE_CAST(NODE) ((tree)(NODE))
+#define TREE_PTR_CAST(NODE) ((tree *)(NODE))
+#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
+
+// This macros simply becomes TREE_TYPE when typed.type becomess a ttype *
+#define TREE_TTYPE(NODE) TTYPE (TREE_TYPE (NODE))
+// This macros simply becomes &TREE_TYPE when typed.type becomess a ttype *
+#define TREE_TTYPE_PTR(NODE)  TTYPE_PTR (&TREE_TYPE (NODE))
+
+// These macros become the normal TYPE_ when their underlying type is converted.
+#define TTYPE_POINTER_TO(NODE) TTYPE (TYPE_POINTER_TO (NODE))
+#define TTYPE_REFERENCE_TO(NODE) TTYPE (TYPE_REFERENCE_TO (NODE))
+#define TTYPE_MAIN_VARIANT(NODE) (TTYPE (TYPE_MAIN_VARIANT (NODE)))
+#define TTYPE_NEXT_VARIANT(NODE) (TTYPE (TYPE_NEXT_VARIANT (NODE)))
+
+#define TTYPE_NEXT_PTR_TO(NODE)  TTYPE (TYPE_NEXT_PTR_TO (NODE))
+#define TTYPE_NEXT_REF_TO(NODE) TTYPE (TYPE_NEXT_REF_TO(NODE))
+
+#define BINFO_TTYPE(NODE) TREE_TTYPE (TREE_BINFO_CHECK (NODE))
+
+
 
 extern tree decl_assembler_name (tree);
 extern tree decl_comdat_group (const_tree);
@@ -5033,11 +5042,5 @@ int_bit_position (const_tree field)
 extern void gt_ggc_mx (tree &);
 extern void gt_pch_nx (tree &);
 extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
-
-#define TREE_TTYPE(NODE) TTYPE (TREE_TYPE (NODE))
-#define TREE_CAST(NODE) ((tree)(NODE))
-#define TREE_PTR_CAST(NODE) ((tree *)(NODE))
-#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
-#define TREE_TTYPE_PTR(NODE)  TTYPE_PTR (&TREE_TYPE (NODE))
 
 #endif  /* GCC_TREE_H  */
