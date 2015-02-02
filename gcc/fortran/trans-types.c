@@ -1288,16 +1288,16 @@ gfc_get_element_type (tree type)
 int
 gfc_is_nodesc_array (gfc_symbol * sym)
 {
-  symbol_attribute *attr;
+  symbol_attribute *array_attr;
   gfc_array_spec *as;
 
-  attr = &sym->attr;
+  array_attr = &sym->attr;
   as = sym->as;
 
-  gcc_assert (attr->dimension || attr->codimension);
+  gcc_assert (array_attr->dimension || array_attr->codimension);
 
   /* We only want local arrays.  */
-  if (attr->pointer || attr->allocatable)
+  if (sym->attr.pointer || array_attr->allocatable)
     return 0;
 
   /* We want a descriptor for associate-name arrays that do not have an

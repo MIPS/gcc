@@ -811,11 +811,11 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
   int dim;
   int nest;
   gfc_namespace* procns;
-  symbol_attribute *attr;
+  symbol_attribute *array_attr;
   gfc_array_spec *as;
 
   type = TREE_TYPE (decl);
-  attr = &sym->attr;
+  array_attr = &sym->attr;
   as = sym->as;
 
   /* We just use the descriptor, if there is one.  */
@@ -827,7 +827,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
   nest = (procns->proc_name->backend_decl != current_function_decl)
 	 && !sym->attr.contained;
 
-  if (attr->codimension && flag_coarray == GFC_FCOARRAY_LIB
+  if (array_attr->codimension && flag_coarray == GFC_FCOARRAY_LIB
       && as->type != AS_ASSUMED_SHAPE
       && GFC_TYPE_ARRAY_CAF_TOKEN (type) == NULL_TREE)
     {
@@ -835,7 +835,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
       tree token_type = build_qualified_type (pvoid_type_node,
 					      TYPE_QUAL_RESTRICT);
 
-      if (sym->module && (attr->use_assoc
+      if (sym->module && (sym->attr.use_assoc
 			  || sym->ns->proc_name->attr.flavor == FL_MODULE))
 	{
 	  tree token_name
@@ -843,13 +843,13 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
 			IDENTIFIER_POINTER (gfc_sym_mangled_identifier (sym))));
 	  token = build_decl (DECL_SOURCE_LOCATION (decl), VAR_DECL, token_name,
 			      token_type);
-	  if (attr->use_assoc)
+	  if (sym->attr.use_assoc)
 	    DECL_EXTERNAL (token) = 1;
 	  else
 	    TREE_STATIC (token) = 1;
 
-	  if (attr->use_assoc || attr->access != ACCESS_PRIVATE ||
-	      attr->public_used)
+	  if (sym->attr.use_assoc || sym->attr.access != ACCESS_PRIVATE ||
+	      sym->attr.public_used)
 	    TREE_PUBLIC (token) = 1;
 	}
       else
@@ -862,7 +862,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
       DECL_ARTIFICIAL (token) = 1;
       DECL_NONALIASED (token) = 1;
 
-      if (sym->module && !attr->use_assoc)
+      if (sym->module && !sym->attr.use_assoc)
 	{
 	  pushdecl (token);
 	  DECL_CONTEXT (token) = sym->ns->proc_name->backend_decl;
@@ -3853,6 +3853,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
   gfc_expr *e;
   gfc_se se;
   stmtblock_t init;
+  gfc_array_spec *as;
+  symbol_attribute *array_attr;
 
   /* Deal with implicit return variables.  Explicit return variables will
      already have been added.  */
@@ -3950,6 +3952,10 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 				NULL_TREE);
 	}
 
+      /* The as and array_attr is only necessarry from here on.  */
+      as = sym->as;
+      array_attr = &sym->attr;
+
       if (sym->ts.type == BT_CLASS
 	  && (sym->attr.save || flag_max_stack_var_size == 0)
 	  && CLASS_DATA (sym)->attr.allocatable)
@@ -3980,12 +3986,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		= gfc_class_set_static_fields (sym->backend_decl, vptr, tmp);
 	  TREE_CONSTANT (DECL_INITIAL (sym->backend_decl)) = 1;
 	}
-      else if (sym->attr.dimension || sym->attr.codimension)
+      else if (array_attr->dimension || array_attr->codimension)
 	{
-	  gfc_array_spec *as;
-	  symbol_attribute *attr;
-	  as = sym->as;
-	  attr = &sym->attr;
 	  /* Assumed-size Cray pointees need to be treated as AS_EXPLICIT.  */
 	  array_type tmp = as->type;
 	  if (tmp == AS_ASSUMED_SIZE && as->cp_was_assumed)
@@ -3993,9 +3995,12 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	  switch (tmp)
 	    {
 	    case AS_EXPLICIT:
-	      if (attr->dummy || attr->result)
+	      if (sym->attr.dummy || sym->attr.result)
 		gfc_trans_dummy_array_bias (sym, sym->backend_decl, block);
-	      else if (attr->pointer || attr->allocatable)
+	      /* In a class array the _data component always has the pointer
+		 attribute set.  Therefore only check for allocatable in the
+		 array attributes and for pointer in the symbol.  */
+	      else if (sym->attr.pointer || array_attr->allocatable)
 		{
 		  if (TREE_STATIC (sym->backend_decl))
 		    {
@@ -4010,7 +4015,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		      gfc_trans_deferred_array (sym, block);
 		    }
 		}
-	      else if (sym->attr.codimension && TREE_STATIC (sym->backend_decl))
+	      else if (array_attr->codimension
+		       && TREE_STATIC (sym->backend_decl))
 		{
 		  gfc_init_block (&tmpblock);
 		  gfc_trans_array_cobounds (TREE_TYPE (sym->backend_decl),
@@ -4031,8 +4037,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		    }
 		  else if (sym->ts.type == BT_DERIVED
 			     && sym->value
-			     && !attr->data
-			     && attr->save == SAVE_NONE)
+			     && !sym->attr.data
+			     && sym->attr.save == SAVE_NONE)
 		    {
 		      gfc_start_block (&tmpblock);
 		      gfc_init_default_dt (sym, &tmpblock, false);
