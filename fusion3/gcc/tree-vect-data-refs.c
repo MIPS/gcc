@@ -40,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -63,7 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop.h"
-#include "dumpfile.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
@@ -74,11 +72,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "cgraph.h"
 /* Need to include rtl.h, expr.h, etc. for optabs.  */
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "builtins.h"
-#include "varasm.h"
 
 /* Return true if load- or store-lanes optab OPTAB is implemented for
    COUNT vectors of type VECTYPE.  NAME is the name of OPTAB.  */
@@ -1752,9 +1763,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
       if (do_peeling)
         {
-	  stmt_info_for_cost *si;
-	  void *data = LOOP_VINFO_TARGET_COST_DATA (loop_vinfo);
-
           /* (1.2) Update the DR_MISALIGNMENT of each data reference DR_i.
              If the misalignment of DR_i is identical to that of dr0 then set
              DR_MISALIGNMENT (DR_i) to zero.  If the misalignment of DR_i and
@@ -1780,20 +1788,10 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
               dump_printf_loc (MSG_NOTE, vect_location,
                                "Peeling for alignment will be applied.\n");
             }
-	  /* We've delayed passing the inside-loop peeling costs to the
-	     target cost model until we were sure peeling would happen.
-	     Do so now.  */
-	  if (body_cost_vec.exists ())
-	    {
-	      FOR_EACH_VEC_ELT (body_cost_vec, i, si)
-		{
-		  struct _stmt_vec_info *stmt_info
-		    = si->stmt ? vinfo_for_stmt (si->stmt) : NULL;
-		  (void) add_stmt_cost (data, si->count, si->kind, stmt_info,
-					si->misalign, vect_body);
-		}
-	      body_cost_vec.release ();
-	    }
+	  /* The inside-loop cost will be accounted for in vectorizable_load
+	     and vectorizable_store correctly with adjusted alignments.
+	     Drop the body_cst_vec on the floor here.  */
+	  body_cost_vec.release ();
 
 	  stat = vect_verify_datarefs_alignment (loop_vinfo, NULL);
 	  gcc_assert (stat);

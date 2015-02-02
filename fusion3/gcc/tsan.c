@@ -34,13 +34,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
+#include "hashtab.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "intl.h"
-#include "tm.h"
 #include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
@@ -64,7 +77,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "langhooks.h"
 #include "output.h"
-#include "options.h"
 #include "target.h"
 #include "diagnostic.h"
 #include "tree-ssa-propagate.h"
@@ -237,7 +249,7 @@ instrument_expr (gimple_stmt_iterator gsi, tree expr, bool is_write)
   else
     {
       builtin_decl = builtin_decl_implicit (BUILT_IN_TSAN_VPTR_UPDATE);
-      g = gimple_build_call (builtin_decl, 1, expr_ptr);
+      g = gimple_build_call (builtin_decl, 2, expr_ptr, unshare_expr (rhs));
     }
   gimple_set_location (g, loc);
   gimple_seq_add_stmt_without_update (&seq, g);

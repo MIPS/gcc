@@ -37,13 +37,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
-#include "expr.h"
-#include "flags.h"
-#include "params.h"
-#include "input.h"
-#include "predict.h"
+#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
+#include "params.h"
+#include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
@@ -72,7 +84,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-streamer.h"
 #include "lto-streamer.h"
 #include "tree-streamer.h"
-#include "tree-pass.h"
 #include "streamer-hooks.h"
 #include "cfgloop.h"
 
@@ -804,27 +815,31 @@ fixup_call_stmt_edges_1 (struct cgraph_node *node, gimple *stmts,
   for (cedge = node->callees; cedge; cedge = cedge->next_callee)
     {
       if (gimple_stmt_max_uid (fn) < cedge->lto_stmt_uid)
-        fatal_error ("Cgraph edge statement index out of range");
+        fatal_error (input_location,
+		     "Cgraph edge statement index out of range");
       cedge->call_stmt = as_a <gcall *> (stmts[cedge->lto_stmt_uid - 1]);
       if (!cedge->call_stmt)
-        fatal_error ("Cgraph edge statement index not found");
+        fatal_error (input_location,
+		     "Cgraph edge statement index not found");
     }
   for (cedge = node->indirect_calls; cedge; cedge = cedge->next_callee)
     {
       if (gimple_stmt_max_uid (fn) < cedge->lto_stmt_uid)
-        fatal_error ("Cgraph edge statement index out of range");
+        fatal_error (input_location,
+		     "Cgraph edge statement index out of range");
       cedge->call_stmt = as_a <gcall *> (stmts[cedge->lto_stmt_uid - 1]);
       if (!cedge->call_stmt)
-        fatal_error ("Cgraph edge statement index not found");
+        fatal_error (input_location, "Cgraph edge statement index not found");
     }
   for (i = 0; node->iterate_reference (i, ref); i++)
     if (ref->lto_stmt_uid)
       {
 	if (gimple_stmt_max_uid (fn) < ref->lto_stmt_uid)
-	  fatal_error ("Reference statement index out of range");
+	  fatal_error (input_location,
+		       "Reference statement index out of range");
 	ref->stmt = stmts[ref->lto_stmt_uid - 1];
 	if (!ref->stmt)
-	  fatal_error ("Reference statement index not found");
+	  fatal_error (input_location, "Reference statement index not found");
       }
 }
 

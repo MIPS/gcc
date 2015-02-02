@@ -76,11 +76,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "varasm.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "emit-rtl.h"
 #include "hash-table.h"
@@ -91,6 +87,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "reload.h"
 #include "output.h"
+#include "statistics.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "stmt.h"
 #include "expr.h"
 #include "except.h"
 #include "dwarf2.h"
@@ -3883,7 +3886,7 @@ add_AT_wide (dw_die_ref die, enum dwarf_attribute attr_kind,
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_wide_int;
-  attr.dw_attr_val.v.val_wide = ggc_cleared_alloc<wide_int> ();
+  attr.dw_attr_val.v.val_wide = ggc_alloc<wide_int> ();
   *attr.dw_attr_val.v.val_wide = w;
   add_dwarf_attr (die, &attr);
 }
@@ -5059,7 +5062,7 @@ equate_decl_number_to_die (tree decl, dw_die_ref decl_die)
 
 /* Return how many bits covers PIECE EXPR_LIST.  */
 
-static int
+static HOST_WIDE_INT
 decl_piece_bitsize (rtx piece)
 {
   int ret = (int) GET_MODE (piece);
@@ -5087,7 +5090,7 @@ decl_piece_varloc_ptr (rtx piece)
 static rtx_expr_list *
 decl_piece_node (rtx loc_note, HOST_WIDE_INT bitsize, rtx next)
 {
-  if (bitsize <= (int) MAX_MACHINE_MODE)
+  if (bitsize > 0 && bitsize <= (int) MAX_MACHINE_MODE)
     return alloc_EXPR_LIST (bitsize, loc_note, next);
   else
     return alloc_EXPR_LIST (0, gen_rtx_CONCAT (VOIDmode,
@@ -5126,7 +5129,7 @@ adjust_piece_list (rtx *dest, rtx *src, rtx *inner,
 		   HOST_WIDE_INT bitpos, HOST_WIDE_INT piece_bitpos,
 		   HOST_WIDE_INT bitsize, rtx loc_note)
 {
-  int diff;
+  HOST_WIDE_INT diff;
   bool copy = inner != NULL;
 
   if (copy)
@@ -5266,7 +5269,7 @@ add_var_loc_to_decl (tree decl, rtx loc_note, const char *label)
     {
       struct var_loc_node *last = temp->last, *unused = NULL;
       rtx *piece_loc = NULL, last_loc_note;
-      int piece_bitpos = 0;
+      HOST_WIDE_INT piece_bitpos = 0;
       if (last->next)
 	{
 	  last = last->next;
@@ -5277,7 +5280,7 @@ add_var_loc_to_decl (tree decl, rtx loc_note, const char *label)
 	  piece_loc = &last->loc;
 	  do
 	    {
-	      int cur_bitsize = decl_piece_bitsize (*piece_loc);
+	      HOST_WIDE_INT cur_bitsize = decl_piece_bitsize (*piece_loc);
 	      if (piece_bitpos + cur_bitsize > bitpos)
 		break;
 	      piece_bitpos += cur_bitsize;
@@ -5723,7 +5726,9 @@ attr_checksum (dw_attr_ref at, struct md5_ctx *ctx, int *mark)
       CHECKSUM (at->dw_attr_val.v.val_double);
       break;
     case dw_val_class_wide_int:
-      CHECKSUM (*at->dw_attr_val.v.val_wide);
+      CHECKSUM_BLOCK (at->dw_attr_val.v.val_wide->get_val (),
+		      get_full_len (*at->dw_attr_val.v.val_wide)
+		      * HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR);
       break;
     case dw_val_class_vec:
       CHECKSUM_BLOCK (at->dw_attr_val.v.val_vec.array,
@@ -6006,8 +6011,11 @@ attr_checksum_ordered (enum dwarf_tag tag, dw_attr_ref at,
 
     case dw_val_class_wide_int:
       CHECKSUM_ULEB128 (DW_FORM_block);
-      CHECKSUM_ULEB128 (sizeof (*at->dw_attr_val.v.val_wide));
-      CHECKSUM (*at->dw_attr_val.v.val_wide);
+      CHECKSUM_ULEB128 (get_full_len (*at->dw_attr_val.v.val_wide)
+			* HOST_BITS_PER_WIDE_INT / BITS_PER_UNIT);
+      CHECKSUM_BLOCK (at->dw_attr_val.v.val_wide->get_val (),
+		      get_full_len (*at->dw_attr_val.v.val_wide)
+		      * HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR);
       break;
 
     case dw_val_class_vec:
@@ -13157,7 +13165,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	  mem_loc_result->dw_loc_oprnd1.v.val_die_ref.external = 0;
 	  mem_loc_result->dw_loc_oprnd2.val_class
 	    = dw_val_class_wide_int;
-	  mem_loc_result->dw_loc_oprnd2.v.val_wide = ggc_cleared_alloc<wide_int> ();
+	  mem_loc_result->dw_loc_oprnd2.v.val_wide = ggc_alloc<wide_int> ();
 	  *mem_loc_result->dw_loc_oprnd2.v.val_wide = std::make_pair (rtl, mode);
 	}
       break;
@@ -13660,7 +13668,7 @@ loc_descriptor (rtx rtl, machine_mode mode,
 	  loc_result = new_loc_descr (DW_OP_implicit_value,
 				      GET_MODE_SIZE (mode), 0);
 	  loc_result->dw_loc_oprnd2.val_class = dw_val_class_wide_int;
-	  loc_result->dw_loc_oprnd2.v.val_wide = ggc_cleared_alloc<wide_int> ();
+	  loc_result->dw_loc_oprnd2.v.val_wide = ggc_alloc<wide_int> ();
 	  *loc_result->dw_loc_oprnd2.v.val_wide = std::make_pair (rtl, mode);
 	}
       break;
@@ -13921,7 +13929,7 @@ static dw_loc_descr_ref
 dw_sra_loc_expr (tree decl, rtx loc)
 {
   rtx p;
-  unsigned int padsize = 0;
+  unsigned HOST_WIDE_INT padsize = 0;
   dw_loc_descr_ref descr, *descr_tail;
   unsigned HOST_WIDE_INT decl_size;
   rtx varloc;
@@ -13937,11 +13945,11 @@ dw_sra_loc_expr (tree decl, rtx loc)
 
   for (p = loc; p; p = XEXP (p, 1))
     {
-      unsigned int bitsize = decl_piece_bitsize (p);
+      unsigned HOST_WIDE_INT bitsize = decl_piece_bitsize (p);
       rtx loc_note = *decl_piece_varloc_ptr (p);
       dw_loc_descr_ref cur_descr;
       dw_loc_descr_ref *tail, last = NULL;
-      unsigned int opsize = 0;
+      unsigned HOST_WIDE_INT opsize = 0;
 
       if (loc_note == NULL_RTX
 	  || NOTE_VAR_LOCATION_LOC (loc_note) == NULL_RTX)
@@ -19621,6 +19629,7 @@ gen_producer_string (void)
       case OPT__sysroot_:
       case OPT_nostdinc:
       case OPT_nostdinc__:
+      case OPT_fpreprocessed:
 	/* Ignore these.  */
 	continue;
       default:
@@ -24018,7 +24027,9 @@ hash_loc_operands (dw_loc_descr_ref loc, inchash::hash &hstate)
 	  hstate.add_object (val2->v.val_double.high);
 	  break;
 	case dw_val_class_wide_int:
-	  hstate.add_object (*val2->v.val_wide);
+	  hstate.add (val2->v.val_wide->get_val (),
+		      get_full_len (*val2->v.val_wide)
+		      * HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR);
 	  break;
 	case dw_val_class_addr:	
 	  inchash::add_rtx (val2->v.val_addr, hstate);
@@ -24109,7 +24120,9 @@ hash_loc_operands (dw_loc_descr_ref loc, inchash::hash &hstate)
 	    hstate.add_object (val2->v.val_double.high);
 	    break;
 	  case dw_val_class_wide_int:
-	    hstate.add_object (*val2->v.val_wide);
+	    hstate.add (val2->v.val_wide->get_val (),
+			get_full_len (*val2->v.val_wide)
+			* HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR);
 	    break;
 	  default:
 	    gcc_unreachable ();

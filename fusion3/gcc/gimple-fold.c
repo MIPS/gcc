@@ -34,17 +34,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
-#include "expr.h"
-#include "stmt.h"
-#include "stor-layout.h"
-#include "flags.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
+#include "stor-layout.h"
 #include "dumpfile.h"
 #include "bitmap.h"
 #include "predict.h"
@@ -5642,7 +5649,6 @@ gimple_get_virt_method_for_vtable (HOST_WIDE_INT token,
   if (TREE_CODE (v) != VAR_DECL
       || !DECL_VIRTUAL_P (v))
     {
-      gcc_assert (in_lto_p);
       /* Pass down that we lost track of the target.  */
       if (can_refer)
 	*can_refer = false;

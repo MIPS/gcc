@@ -41,10 +41,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "input.h"
 #include "function.h"
 #include "insn-codes.h"
 #include "optabs.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "ggc.h"
@@ -530,9 +539,15 @@ simplify_replace_fn_rtx (rtx x, const_rtx old_rtx,
 	  op0 = simplify_replace_fn_rtx (XEXP (x, 0), old_rtx, fn, data);
 	  op1 = simplify_replace_fn_rtx (XEXP (x, 1), old_rtx, fn, data);
 
-	  /* (lo_sum (high x) x) -> x  */
-	  if (GET_CODE (op0) == HIGH && rtx_equal_p (XEXP (op0, 0), op1))
-	    return op1;
+	  /* (lo_sum (high x) y) -> y where x and y have the same base.  */
+	  if (GET_CODE (op0) == HIGH)
+	    {
+	      rtx base0, base1, offset0, offset1;
+	      split_const (XEXP (op0, 0), &base0, &offset0);
+	      split_const (op1, &base1, &offset1);
+	      if (rtx_equal_p (base0, base1))
+		return op1;
+	    }
 
 	  if (op0 == XEXP (x, 0) && op1 == XEXP (x, 1))
 	    return x;
@@ -4574,7 +4589,8 @@ simplify_relational_operation_1 (enum rtx_code code, machine_mode mode,
   if ((code == EQ || code == NE)
       && op0code == AND
       && rtx_equal_p (XEXP (op0, 0), op1)
-      && !side_effects_p (op1))
+      && !side_effects_p (op1)
+      && op1 != CONST0_RTX (cmp_mode))
     {
       rtx not_y = simplify_gen_unary (NOT, cmp_mode, XEXP (op0, 1), cmp_mode);
       rtx lhs = simplify_gen_binary (AND, cmp_mode, not_y, XEXP (op0, 0));
@@ -4587,7 +4603,8 @@ simplify_relational_operation_1 (enum rtx_code code, machine_mode mode,
   if ((code == EQ || code == NE)
       && op0code == AND
       && rtx_equal_p (XEXP (op0, 1), op1)
-      && !side_effects_p (op1))
+      && !side_effects_p (op1)
+      && op1 != CONST0_RTX (cmp_mode))
     {
       rtx not_x = simplify_gen_unary (NOT, cmp_mode, XEXP (op0, 0), cmp_mode);
       rtx lhs = simplify_gen_binary (AND, cmp_mode, not_x, XEXP (op0, 1));

@@ -1836,6 +1836,9 @@ Target supports Graphite optimizations.
 @item fixed_point
 Target supports fixed-point extension to C.
 
+@item fopenacc
+Target supports OpenACC via @option{-fopenacc}.
+
 @item fopenmp
 Target supports OpenMP via @option{-fopenmp}.
 
@@ -1927,6 +1930,9 @@ Target supports @code{wchar_t} that is compatible with @code{char16_t}.
 
 @item wchar_t_char32_t_compatible
 Target supports @code{wchar_t} that is compatible with @code{char32_t}.
+
+@item comdat_group
+Target uses comdat groups.
 @end table
 
 @subsubsection Local to tests in @code{gcc.target/i386}

@@ -1728,7 +1728,7 @@ resolve_procedure_expression (gfc_expr* expr)
   /* A non-RECURSIVE procedure that is used as procedure expression within its
      own body is in danger of being called recursively.  */
   if (is_illegal_recursion (sym, gfc_current_ns))
-    gfc_warning ("Non-RECURSIVE procedure %qs at %L is possibly calling"
+    gfc_warning (0, "Non-RECURSIVE procedure %qs at %L is possibly calling"
 		 " itself recursively.  Declare it RECURSIVE or use"
 		 " %<-frecursive%>", sym->name, &expr->where);
 
@@ -2120,7 +2120,7 @@ resolve_elemental_actual (gfc_expr *expr, gfc_code *c)
 	  && (set_by_optional || arg->expr->rank != rank)
 	  && !(isym && isym->id == GFC_ISYM_CONVERSION))
 	{
-	  gfc_warning ("%qs at %L is an array and OPTIONAL; IF IT IS "
+	  gfc_warning (0, "%qs at %L is an array and OPTIONAL; IF IT IS "
 		       "MISSING, it cannot be the actual argument of an "
 		       "ELEMENTAL procedure unless there is a non-optional "
 		       "argument with the same rank (12.4.1.5)",
@@ -3631,7 +3631,7 @@ resolve_operator (gfc_expr *e)
 		  else
 		    msg = "Inequality comparison for %s at %L";
 
-		  gfc_warning (msg, gfc_typename (&op1->ts), &op1->where);
+		  gfc_warning (0, msg, gfc_typename (&op1->ts), &op1->where);
 		}
 	    }
 
@@ -3964,12 +3964,12 @@ check_dimension (int i, gfc_array_ref *ar, gfc_array_spec *as)
       if (compare_bound (ar->start[i], as->lower[i]) == CMP_LT)
 	{
 	  if (i < as->rank)
-	    gfc_warning ("Array reference at %L is out of bounds "
+	    gfc_warning (0, "Array reference at %L is out of bounds "
 			 "(%ld < %ld) in dimension %d", &ar->c_where[i],
 			 mpz_get_si (ar->start[i]->value.integer),
 			 mpz_get_si (as->lower[i]->value.integer), i+1);
 	  else
-	    gfc_warning ("Array reference at %L is out of bounds "
+	    gfc_warning (0, "Array reference at %L is out of bounds "
 			 "(%ld < %ld) in codimension %d", &ar->c_where[i],
 			 mpz_get_si (ar->start[i]->value.integer),
 			 mpz_get_si (as->lower[i]->value.integer),
@@ -3979,12 +3979,12 @@ check_dimension (int i, gfc_array_ref *ar, gfc_array_spec *as)
       if (compare_bound (ar->start[i], as->upper[i]) == CMP_GT)
 	{
 	  if (i < as->rank)
-	    gfc_warning ("Array reference at %L is out of bounds "
+	    gfc_warning (0, "Array reference at %L is out of bounds "
 			 "(%ld > %ld) in dimension %d", &ar->c_where[i],
 			 mpz_get_si (ar->start[i]->value.integer),
 			 mpz_get_si (as->upper[i]->value.integer), i+1);
 	  else
-	    gfc_warning ("Array reference at %L is out of bounds "
+	    gfc_warning (0, "Array reference at %L is out of bounds "
 			 "(%ld > %ld) in codimension %d", &ar->c_where[i],
 			 mpz_get_si (ar->start[i]->value.integer),
 			 mpz_get_si (as->upper[i]->value.integer),
@@ -4021,7 +4021,7 @@ check_dimension (int i, gfc_array_ref *ar, gfc_array_spec *as)
 	  {
 	    if (compare_bound (AR_START, as->lower[i]) == CMP_LT)
 	      {
-		gfc_warning ("Lower array reference at %L is out of bounds "
+		gfc_warning (0, "Lower array reference at %L is out of bounds "
 		       "(%ld < %ld) in dimension %d", &ar->c_where[i],
 		       mpz_get_si (AR_START->value.integer),
 		       mpz_get_si (as->lower[i]->value.integer), i+1);
@@ -4029,7 +4029,7 @@ check_dimension (int i, gfc_array_ref *ar, gfc_array_spec *as)
 	      }
 	    if (compare_bound (AR_START, as->upper[i]) == CMP_GT)
 	      {
-		gfc_warning ("Lower array reference at %L is out of bounds "
+		gfc_warning (0, "Lower array reference at %L is out of bounds "
 		       "(%ld > %ld) in dimension %d", &ar->c_where[i],
 		       mpz_get_si (AR_START->value.integer),
 		       mpz_get_si (as->upper[i]->value.integer), i+1);
@@ -4045,7 +4045,7 @@ check_dimension (int i, gfc_array_ref *ar, gfc_array_spec *as)
 	  {
 	    if (compare_bound_mpz_t (as->lower[i], last_value) == CMP_GT)
 	      {
-		gfc_warning ("Upper array reference at %L is out of bounds "
+		gfc_warning (0, "Upper array reference at %L is out of bounds "
 		       "(%ld < %ld) in dimension %d", &ar->c_where[i],
 		       mpz_get_si (last_value),
 		       mpz_get_si (as->lower[i]->value.integer), i+1);
@@ -4054,7 +4054,7 @@ check_dimension (int i, gfc_array_ref *ar, gfc_array_spec *as)
 	      }
 	    if (compare_bound_mpz_t (as->upper[i], last_value) == CMP_LT)
 	      {
-		gfc_warning ("Upper array reference at %L is out of bounds "
+		gfc_warning (0, "Upper array reference at %L is out of bounds "
 		       "(%ld > %ld) in dimension %d", &ar->c_where[i],
 		       mpz_get_si (last_value),
 		       mpz_get_si (as->upper[i]->value.integer), i+1);
@@ -6995,9 +6995,12 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
     {
       /* Default initialization via MOLD (non-polymorphic).  */
       gfc_expr *rhs = gfc_default_initializer (&code->expr3->ts);
-      gfc_resolve_expr (rhs);
-      gfc_free_expr (code->expr3);
-      code->expr3 = rhs;
+      if (rhs != NULL)
+	{
+	  gfc_resolve_expr (rhs);
+	  gfc_free_expr (code->expr3);
+	  code->expr3 = rhs;
+	}
     }
 
   if (e->ts.type == BT_CLASS && !unlimited && !UNLIMITED_POLY (code->expr3))
@@ -7192,7 +7195,7 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
   if (errmsg)
     {
       if (!stat)
-	gfc_warning ("ERRMSG at %L is useless without a STAT tag",
+	gfc_warning (0, "ERRMSG at %L is useless without a STAT tag",
 		     &errmsg->where);
 
       gfc_check_vardef_context (errmsg, false, false, false,
@@ -7640,7 +7643,7 @@ resolve_select (gfc_code *code, bool select_type)
 	  if (cp->low
 	      && gfc_check_integer_range (cp->low->value.integer,
 					  case_expr->ts.kind) != ARITH_OK)
-	    gfc_warning ("Expression in CASE statement at %L is "
+	    gfc_warning (0, "Expression in CASE statement at %L is "
 			 "not in the range of %s", &cp->low->where,
 			 gfc_typename (&case_expr->ts));
 
@@ -7648,7 +7651,7 @@ resolve_select (gfc_code *code, bool select_type)
 	      && cp->low != cp->high
 	      && gfc_check_integer_range (cp->high->value.integer,
 					  case_expr->ts.kind) != ARITH_OK)
-	    gfc_warning ("Expression in CASE statement at %L is "
+	    gfc_warning (0, "Expression in CASE statement at %L is "
 			 "not in the range of %s", &cp->high->where,
 			 gfc_typename (&case_expr->ts));
 	}
@@ -7935,8 +7938,11 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
   /* Finally resolve if this is an array or not.  */
   if (sym->attr.dimension && target->rank == 0)
     {
-      gfc_error ("Associate-name %qs at %L is used as array",
-		 sym->name, &sym->declared_at);
+      /* primary.c makes the assumption that a reference to an associate
+	 name followed by a left parenthesis is an array reference.  */
+      if (sym->ts.type != BT_CHARACTER)
+	gfc_error ("Associate-name %qs at %L is used as array",
+		   sym->name, &sym->declared_at);
       sym->attr.dimension = 0;
       return;
     }
@@ -8647,7 +8653,8 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
 
   if (code->here == label)
     {
-      gfc_warning ("Branch at %L may result in an infinite loop", &code->loc);
+      gfc_warning (0,
+		   "Branch at %L may result in an infinite loop", &code->loc);
       return;
     }
 
@@ -8854,7 +8861,7 @@ gfc_resolve_assign_in_forall (gfc_code *code, int nvar, gfc_expr **var_expr)
 	     assignment.  Emit a warning rather than an error because the
 	     mask could be resolving this problem.  */
 	  if (!find_forall_index (code->expr1, forall_index, 0))
-	    gfc_warning ("The FORALL with index %qs is not used on the "
+	    gfc_warning (0, "The FORALL with index %qs is not used on the "
 			 "left side of the assignment at %L and so might "
 			 "cause multiple assignment to this object",
 			 var_expr[n]->symtree->name, &code->expr1->where);
@@ -9126,6 +9133,18 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_WAIT:
 	  break;
 
+	case EXEC_OACC_PARALLEL_LOOP:
+	case EXEC_OACC_PARALLEL:
+	case EXEC_OACC_KERNELS_LOOP:
+	case EXEC_OACC_KERNELS:
+	case EXEC_OACC_DATA:
+	case EXEC_OACC_HOST_DATA:
+	case EXEC_OACC_LOOP:
+	case EXEC_OACC_UPDATE:
+	case EXEC_OACC_WAIT:
+	case EXEC_OACC_CACHE:
+	case EXEC_OACC_ENTER_DATA:
+	case EXEC_OACC_EXIT_DATA:
 	case EXEC_OMP_ATOMIC:
 	case EXEC_OMP_CRITICAL:
 	case EXEC_OMP_DISTRIBUTE:
@@ -9684,7 +9703,7 @@ generate_component_assignments (gfc_code **code, gfc_namespace *ns)
 				      (*code)->expr1->rank ? 1 : 0);
   if (depth > 1)
     {
-      gfc_warning ("TODO: type-bound defined assignment(s) at %L not "
+      gfc_warning (0, "TODO: type-bound defined assignment(s) at %L not "
 		   "done because multiple part array references would "
 		   "occur in intermediate expressions.", &(*code)->loc);
       return;
@@ -9941,6 +9960,15 @@ gfc_resolve_code (gfc_code *code, gfc_namespace *ns)
 	  omp_workshare_save = -1;
 	  switch (code->op)
 	    {
+	    case EXEC_OACC_PARALLEL_LOOP:
+	    case EXEC_OACC_PARALLEL:
+	    case EXEC_OACC_KERNELS_LOOP:
+	    case EXEC_OACC_KERNELS:
+	    case EXEC_OACC_DATA:
+	    case EXEC_OACC_HOST_DATA:
+	    case EXEC_OACC_LOOP:
+	      gfc_resolve_oacc_blocks (code, ns);
+	      break;
 	    case EXEC_OMP_PARALLEL_WORKSHARE:
 	      omp_workshare_save = omp_workshare_flag;
 	      omp_workshare_flag = 1;
@@ -10291,6 +10319,21 @@ gfc_resolve_code (gfc_code *code, gfc_namespace *ns)
 	      && (code->expr1->ts.type != BT_LOGICAL || code->expr1->rank))
 	    gfc_error ("FORALL mask clause at %L requires a scalar LOGICAL "
 		       "expression", &code->expr1->where);
+	  break;
+
+	case EXEC_OACC_PARALLEL_LOOP:
+	case EXEC_OACC_PARALLEL:
+	case EXEC_OACC_KERNELS_LOOP:
+	case EXEC_OACC_KERNELS:
+	case EXEC_OACC_DATA:
+	case EXEC_OACC_HOST_DATA:
+	case EXEC_OACC_LOOP:
+	case EXEC_OACC_UPDATE:
+	case EXEC_OACC_WAIT:
+	case EXEC_OACC_CACHE:
+	case EXEC_OACC_ENTER_DATA:
+	case EXEC_OACC_EXIT_DATA:
+	  gfc_resolve_oacc_directive (code, ns);
 	  break;
 
 	case EXEC_OMP_ATOMIC:
@@ -12377,6 +12420,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
   c = (sym->attr.is_class) ? sym->components->ts.u.derived->components
 			   : sym->components;
 
+  bool success = true;
+
   for ( ; c != NULL; c = c->next)
     {
       if (c->attr.artificial)
@@ -12389,7 +12434,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	{
 	  gfc_error ("Coarray component %qs at %L must be allocatable with "
 		     "deferred shape", c->name, &c->loc);
-	  return false;
+	  success = false;
+	  continue;
 	}
 
       /* F2008, C443.  */
@@ -12398,7 +12444,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	{
 	  gfc_error ("Component %qs at %L of TYPE(C_PTR) or TYPE(C_FUNPTR) "
 		     "shall not be a coarray", c->name, &c->loc);
-	  return false;
+	  success = false;
+	  continue;
 	}
 
       /* F2008, C444.  */
@@ -12409,7 +12456,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	  gfc_error ("Component %qs at %L with coarray component "
 		     "shall be a nonpointer, nonallocatable scalar",
 		     c->name, &c->loc);
-	  return false;
+	  success = false;
+	  continue;
 	}
 
       /* F2008, C448.  */
@@ -12417,7 +12465,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	{
 	  gfc_error ("Component %qs at %L has the CONTIGUOUS attribute but "
 		     "is not an array pointer", c->name, &c->loc);
-	  return false;
+	  success = false;
+	  continue;
 	}
 
       if (c->attr.proc_pointer && c->ts.interface)
@@ -12427,7 +12476,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	  if (!sym->attr.vtype && !check_proc_interface (ifc, &c->loc))
 	    {
 	      c->tb->error = 1;
-	      return false;
+	      success = false;
+	      continue;
 	    }
 
 	  if (ifc->attr.if_source || ifc->attr.intrinsic)
@@ -12471,7 +12521,11 @@ resolve_fl_derived0 (gfc_symbol *sym)
 		  gfc_charlen *cl = gfc_new_charlen (sym->ns, ifc->ts.u.cl);
 		  if (cl->length && !cl->resolved
 		      && !gfc_resolve_expr (cl->length))
-		    return false;
+		    {
+		      c->tb->error = 1;
+		      success = false;
+		      continue;
+		    }
 		  c->ts.u.cl = cl;
 		}
 	    }
@@ -12514,7 +12568,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			     "at %L has no argument %qs", c->name,
 			     c->tb->pass_arg, &c->loc, c->tb->pass_arg);
 		  c->tb->error = 1;
-		  return false;
+		  success = false;
+		  continue;
 		}
 	    }
 	  else
@@ -12528,7 +12583,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			     "must have at least one argument",
 			     c->name, &c->loc);
 		  c->tb->error = 1;
-		  return false;
+		  success = false;
+		  continue;
 		}
 	      me_arg = c->ts.interface->formal->sym;
 	    }
@@ -12544,7 +12600,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			 " the derived type %qs", me_arg->name, c->name,
 			 me_arg->name, &c->loc, sym->name);
 	      c->tb->error = 1;
-	      return false;
+	      success = false;
+	      continue;
 	    }
 
 	  /* Check for C453.  */
@@ -12554,7 +12611,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			 "must be scalar", me_arg->name, c->name, me_arg->name,
 			 &c->loc);
 	      c->tb->error = 1;
-	      return false;
+	      success = false;
+	      continue;
 	    }
 
 	  if (me_arg->attr.pointer)
@@ -12563,7 +12621,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			 "may not have the POINTER attribute", me_arg->name,
 			 c->name, me_arg->name, &c->loc);
 	      c->tb->error = 1;
-	      return false;
+	      success = false;
+	      continue;
 	    }
 
 	  if (me_arg->attr.allocatable)
@@ -12572,12 +12631,17 @@ resolve_fl_derived0 (gfc_symbol *sym)
 			 "may not be ALLOCATABLE", me_arg->name, c->name,
 			 me_arg->name, &c->loc);
 	      c->tb->error = 1;
-	      return false;
+	      success = false;
+	      continue;
 	    }
 
 	  if (gfc_type_is_extensible (sym) && me_arg->ts.type != BT_CLASS)
-	    gfc_error ("Non-polymorphic passed-object dummy argument of %qs"
-		       " at %L", c->name, &c->loc);
+	    {
+	      gfc_error ("Non-polymorphic passed-object dummy argument of %qs"
+			 " at %L", c->name, &c->loc);
+	      success = false;
+	      continue;
+	    }
 
 	}
 
@@ -12650,7 +12714,7 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	      strlen->ts.type = BT_INTEGER;
 	      strlen->ts.kind = gfc_charlen_int_kind;
 	      strlen->attr.access = ACCESS_PRIVATE;
-	      strlen->attr.deferred_parameter = 1;
+	      strlen->attr.artificial = 1;
 	    }
 	}
 
@@ -12745,6 +12809,9 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	  && !gfc_check_assign_symbol (sym, c, c->initializer))
 	return false;
     }
+
+  if (!success)
+    return false;
 
   check_defined_assignments (sym);
 
@@ -14278,12 +14345,12 @@ warn_unused_fortran_label (gfc_st_label *label)
   switch (label->referenced)
     {
     case ST_LABEL_UNKNOWN:
-      gfc_warning ("Label %d at %L defined but not used", label->value,
+      gfc_warning (0, "Label %d at %L defined but not used", label->value,
 		   &label->where);
       break;
 
     case ST_LABEL_BAD_TARGET:
-      gfc_warning ("Label %d at %L defined but cannot be used",
+      gfc_warning (0, "Label %d at %L defined but cannot be used",
 		   label->value, &label->where);
       break;
 
@@ -14907,6 +14974,7 @@ resolve_codes (gfc_namespace *ns)
   old_obstack = labels_obstack;
   bitmap_obstack_initialize (&labels_obstack);
 
+  gfc_resolve_oacc_declare (ns);
   gfc_resolve_code (ns->code, ns);
 
   bitmap_obstack_release (&labels_obstack);

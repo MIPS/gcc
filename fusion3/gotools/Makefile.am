@@ -38,7 +38,7 @@ endif
 GOCFLAGS = $(CFLAGS_FOR_TARGET)
 GOCOMPILE = $(GOCOMPILER) $(GOCFLAGS)
 
-AM_LDFLAGS = -L $(libgodir) -L $(libgodir)/.libs -static-libgo
+AM_LDFLAGS = -L $(libgodir) -L $(libgodir)/.libs
 GOLINK = $(GOCOMPILER) $(AM_GOCFLAGS) $(LDFLAGS) $(AM_LDFLAGS) -o $@
 
 cmdsrcdir = $(srcdir)/../libgo/go/cmd
@@ -46,27 +46,28 @@ cmdsrcdir = $(srcdir)/../libgo/go/cmd
 go_cmd_go_files = \
 	$(cmdsrcdir)/go/build.go \
 	$(cmdsrcdir)/go/clean.go \
-	$(cmdsrcdir)/go/main.go \
-	$(cmdsrcdir)/go/signal.go \
-	$(cmdsrcdir)/go/version.go \
-	$(cmdsrcdir)/go/env.go \
-	$(cmdsrcdir)/go/help.go \
-	$(cmdsrcdir)/go/run.go \
-	$(cmdsrcdir)/go/tool.go \
-	$(cmdsrcdir)/go/vet.go \
 	$(cmdsrcdir)/go/context.go \
-	$(cmdsrcdir)/go/fix.go \
-	$(cmdsrcdir)/go/get.go \
-	$(cmdsrcdir)/go/http.go \
-	$(cmdsrcdir)/go/signal_unix.go \
-	$(cmdsrcdir)/go/vcs.go \
 	$(cmdsrcdir)/go/discovery.go \
+	$(cmdsrcdir)/go/env.go \
+	$(cmdsrcdir)/go/fix.go \
 	$(cmdsrcdir)/go/fmt.go \
+	$(cmdsrcdir)/go/generate.go \
+	$(cmdsrcdir)/go/get.go \
 	$(cmdsrcdir)/go/go11.go \
+	$(cmdsrcdir)/go/help.go \
+	$(cmdsrcdir)/go/http.go \
 	$(cmdsrcdir)/go/list.go \
+	$(cmdsrcdir)/go/main.go \
 	$(cmdsrcdir)/go/pkg.go \
+	$(cmdsrcdir)/go/run.go \
+	$(cmdsrcdir)/go/signal.go \
+	$(cmdsrcdir)/go/signal_unix.go \
 	$(cmdsrcdir)/go/test.go \
-	$(cmdsrcdir)/go/testflag.go
+	$(cmdsrcdir)/go/testflag.go \
+	$(cmdsrcdir)/go/tool.go \
+	$(cmdsrcdir)/go/vcs.go \
+	$(cmdsrcdir)/go/version.go \
+	$(cmdsrcdir)/go/vet.go
 
 go_cmd_gofmt_files = \
 	$(cmdsrcdir)/gofmt/doc.go \
@@ -104,14 +105,23 @@ if NATIVE
 # and install them as regular programs.
 
 bin_PROGRAMS = go$(EXEEXT) gofmt$(EXEEXT)
-libexecsub_PROGRAMS = cgo$(EXEEXT)
+noinst_PROGRAMS = cgo$(EXEEXT)
+man_MANS = go.1 gofmt.1
 
 go$(EXEEXT): $(go_cmd_go_files) zdefaultcc.go $(LIBGODEP)
-	$(GOLINK) $(go_cmd_go_files) zdefaultcc.go
+	$(GOLINK) $(go_cmd_go_files) zdefaultcc.go $(LIBS) $(NET_LIBS)
 gofmt$(EXEEXT): $(go_cmd_gofmt_files) $(LIBGODEP)
-	$(GOLINK) $(go_cmd_gofmt_files)
+	$(GOLINK) $(go_cmd_gofmt_files) $(LIBS) $(NET_LIBS)
 cgo$(EXEEXT): $(go_cmd_cgo_files) zdefaultcc.go $(LIBGODEP)
-	$(GOLINK) $(go_cmd_cgo_files) zdefaultcc.go
+	$(GOLINK) $(go_cmd_cgo_files) zdefaultcc.go $(LIBS) $(NET_LIBS)
+
+install-exec-local: cgo$(EXEEXT)
+	$(MKDIR_P) $(DESTDIR)$(libexecsubdir)
+	rm -f $(DESTDIR)$(libexecsubdir)/cgo$(exeext)
+	$(INSTALL_PROGRAM) cgo$(exeext) $(DESTDIR)$(libexecsubdir)/cgo$(exeext)
+
+uninstall-local:
+	rm -f $(DESTDIR)$(libexecsubdir)/cgo$(exeext)
 
 else
 

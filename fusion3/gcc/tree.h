@@ -1195,12 +1195,47 @@ extern void protected_set_expr_location (tree, location_t);
 #define TRANSACTION_EXPR_RELAXED(NODE) \
   (TRANSACTION_EXPR_CHECK (NODE)->base.public_flag)
 
-/* OpenMP directive and clause accessors.  */
+/* OpenMP and OpenACC directive and clause accessors.  */
 
 #define OMP_BODY(NODE) \
-  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OMP_PARALLEL, OMP_CRITICAL), 0)
+  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_PARALLEL, OMP_CRITICAL), 0)
 #define OMP_CLAUSES(NODE) \
-  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OMP_PARALLEL, OMP_SINGLE), 1)
+  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_PARALLEL, OMP_SINGLE), 1)
+
+#define OACC_PARALLEL_BODY(NODE) \
+  TREE_OPERAND (OACC_PARALLEL_CHECK (NODE), 0)
+#define OACC_PARALLEL_CLAUSES(NODE) \
+  TREE_OPERAND (OACC_PARALLEL_CHECK (NODE), 1)
+
+#define OACC_KERNELS_BODY(NODE) \
+  TREE_OPERAND (OACC_KERNELS_CHECK(NODE), 0)
+#define OACC_KERNELS_CLAUSES(NODE) \
+  TREE_OPERAND (OACC_KERNELS_CHECK(NODE), 1)
+
+#define OACC_DATA_BODY(NODE) \
+  TREE_OPERAND (OACC_DATA_CHECK (NODE), 0)
+#define OACC_DATA_CLAUSES(NODE) \
+  TREE_OPERAND (OACC_DATA_CHECK (NODE), 1)
+
+#define OACC_HOST_DATA_BODY(NODE) \
+  TREE_OPERAND (OACC_HOST_DATA_CHECK (NODE), 0)
+#define OACC_HOST_DATA_CLAUSES(NODE) \
+  TREE_OPERAND (OACC_HOST_DATA_CHECK (NODE), 1)
+
+#define OACC_CACHE_CLAUSES(NODE) \
+  TREE_OPERAND (OACC_CACHE_CHECK (NODE), 0)
+
+#define OACC_DECLARE_CLAUSES(NODE) \
+  TREE_OPERAND (OACC_DECLARE_CHECK (NODE), 0)
+
+#define OACC_ENTER_DATA_CLAUSES(NODE) \
+  TREE_OPERAND (OACC_ENTER_DATA_CHECK (NODE), 0)
+
+#define OACC_EXIT_DATA_CLAUSES(NODE) \
+  TREE_OPERAND (OACC_EXIT_DATA_CHECK (NODE), 0)
+
+#define OACC_UPDATE_CLAUSES(NODE) \
+  TREE_OPERAND (OACC_UPDATE_CHECK (NODE), 0)
 
 #define OMP_PARALLEL_BODY(NODE)    TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 0)
 #define OMP_PARALLEL_CLAUSES(NODE) TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 1)
@@ -1212,7 +1247,7 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_TASKREG_BODY(NODE)    TREE_OPERAND (OMP_TASKREG_CHECK (NODE), 0)
 #define OMP_TASKREG_CLAUSES(NODE) TREE_OPERAND (OMP_TASKREG_CHECK (NODE), 1)
 
-#define OMP_LOOP_CHECK(NODE) TREE_RANGE_CHECK (NODE, OMP_FOR, OMP_DISTRIBUTE)
+#define OMP_LOOP_CHECK(NODE) TREE_RANGE_CHECK (NODE, OMP_FOR, OACC_LOOP)
 #define OMP_FOR_BODY(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 0)
 #define OMP_FOR_CLAUSES(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 1)
 #define OMP_FOR_INIT(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 2)
@@ -1254,7 +1289,7 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_SIZE(NODE)						\
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
 					      OMP_CLAUSE_FROM,		\
-					      OMP_CLAUSE_MAP), 1)
+					      OMP_CLAUSE__CACHE_), 1)
 
 #define OMP_CLAUSE_CHAIN(NODE)     TREE_CHAIN (OMP_CLAUSE_CHECK (NODE))
 #define OMP_CLAUSE_DECL(NODE)      					\
@@ -1270,6 +1305,15 @@ extern void protected_set_expr_location (tree, location_t);
    This status is meaningful in the implementation of lastprivate.  */
 #define OMP_SECTION_LAST(NODE) \
   (OMP_SECTION_CHECK (NODE)->base.private_flag)
+
+/* True on an OACC_KERNELS statement if is represents combined kernels loop
+   directive.  */
+#define OACC_KERNELS_COMBINED(NODE) \
+  (OACC_KERNELS_CHECK (NODE)->base.private_flag)
+
+/* Like OACC_KERNELS_COMBINED, but for parallel loop directive.  */
+#define OACC_PARALLEL_COMBINED(NODE) \
+  (OACC_PARALLEL_CHECK (NODE)->base.private_flag)
 
 /* True on an OMP_PARALLEL statement if it represents an explicit
    combined parallel work-sharing constructs.  */
@@ -1313,15 +1357,47 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_SCHEDULE_CHUNK_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE), 0)
 
+/* OpenACC clause expressions  */
+#define OMP_CLAUSE_GANG_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND ( \
+    OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_GANG), 0)
+#define OMP_CLAUSE_GANG_STATIC_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND ( \
+    OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_GANG), 1)
+#define OMP_CLAUSE_ASYNC_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND ( \
+    OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_ASYNC), 0)
+#define OMP_CLAUSE_WAIT_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND ( \
+    OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_WAIT), 0)
+#define OMP_CLAUSE_VECTOR_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND ( \
+    OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_VECTOR), 0)
+#define OMP_CLAUSE_WORKER_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND ( \
+    OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_WORKER), 0)
+#define OMP_CLAUSE_NUM_GANGS_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND ( \
+    OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_NUM_GANGS), 0)
+#define OMP_CLAUSE_NUM_WORKERS_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND ( \
+    OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_NUM_WORKERS), 0)
+#define OMP_CLAUSE_VECTOR_LENGTH_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND ( \
+    OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_VECTOR_LENGTH), 0)
+
 #define OMP_CLAUSE_DEPEND_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEPEND)->omp_clause.subcode.depend_kind)
 
 #define OMP_CLAUSE_MAP_KIND(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind)
+  ((enum gomp_map_kind) OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind)
+#define OMP_CLAUSE_SET_MAP_KIND(NODE, MAP_KIND) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind \
+   = (unsigned char) (MAP_KIND))
 
 /* Nonzero if this map clause is for array (rather than pointer) based array
-   section with zero bias.  Both the non-decl OMP_CLAUSE_MAP and
-   correspoidng OMP_CLAUSE_MAP_POINTER clause are marked with this flag.  */
+   section with zero bias.  Both the non-decl OMP_CLAUSE_MAP and corresponding
+   OMP_CLAUSE_MAP with GOMP_MAP_POINTER are marked with this flag.  */
 #define OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->base.public_flag)
 
@@ -2974,6 +3050,13 @@ tree_int_cst_elt_check (tree __t, int __i,
   return &CONST_CAST_TREE (__t)->int_cst.val[__i];
 }
 
+/* Workaround -Wstrict-overflow false positive during profiledbootstrap.  */
+
+# if GCC_VERSION >= 4006
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-overflow"
+#endif
+
 inline tree *
 tree_vec_elt_check (tree __t, int __i,
                     const char *__f, int __l, const char *__g)
@@ -2984,6 +3067,10 @@ tree_vec_elt_check (tree __t, int __i,
     tree_vec_elt_check_failed (__i, __t->base.u.length, __f, __l, __g);
   return &CONST_CAST_TREE (__t)->vec.a[__i];
 }
+
+# if GCC_VERSION >= 4006
+#pragma GCC diagnostic pop
+#endif
 
 inline tree *
 omp_clause_elt_check (tree __t, int __i,
@@ -4530,7 +4617,7 @@ builtin_decl_explicit (enum built_in_function fncode)
 {
   gcc_checking_assert (BUILTIN_VALID_P (fncode));
 
-  return builtin_info.decl[(size_t)fncode];
+  return builtin_info[(size_t)fncode].decl;
 }
 
 /* Return the tree node for an implicit builtin function or NULL.  */
@@ -4540,10 +4627,10 @@ builtin_decl_implicit (enum built_in_function fncode)
   size_t uns_fncode = (size_t)fncode;
   gcc_checking_assert (BUILTIN_VALID_P (fncode));
 
-  if (!builtin_info.implicit_p[uns_fncode])
+  if (!builtin_info[uns_fncode].implicit_p)
     return NULL_TREE;
 
-  return builtin_info.decl[uns_fncode];
+  return builtin_info[uns_fncode].decl;
 }
 
 /* Set explicit builtin function nodes and whether it is an implicit
@@ -4557,8 +4644,9 @@ set_builtin_decl (enum built_in_function fncode, tree decl, bool implicit_p)
   gcc_checking_assert (BUILTIN_VALID_P (fncode)
 		       && (decl != NULL_TREE || !implicit_p));
 
-  builtin_info.decl[ufncode] = decl;
-  builtin_info.implicit_p[ufncode] = implicit_p;
+  builtin_info[ufncode].decl = decl;
+  builtin_info[ufncode].implicit_p = implicit_p;
+  builtin_info[ufncode].declared_p = false;
 }
 
 /* Set the implicit flag for a builtin function.  */
@@ -4569,9 +4657,22 @@ set_builtin_decl_implicit_p (enum built_in_function fncode, bool implicit_p)
   size_t uns_fncode = (size_t)fncode;
 
   gcc_checking_assert (BUILTIN_VALID_P (fncode)
-		       && builtin_info.decl[uns_fncode] != NULL_TREE);
+		       && builtin_info[uns_fncode].decl != NULL_TREE);
 
-  builtin_info.implicit_p[uns_fncode] = implicit_p;
+  builtin_info[uns_fncode].implicit_p = implicit_p;
+}
+
+/* Set the declared flag for a builtin function.  */
+
+static inline void
+set_builtin_decl_declared_p (enum built_in_function fncode, bool declared_p)
+{
+  size_t uns_fncode = (size_t)fncode;
+
+  gcc_checking_assert (BUILTIN_VALID_P (fncode)
+		       && builtin_info[uns_fncode].decl != NULL_TREE);
+
+  builtin_info[uns_fncode].declared_p = declared_p;
 }
 
 /* Return whether the standard builtin function can be used as an explicit
@@ -4581,7 +4682,7 @@ static inline bool
 builtin_decl_explicit_p (enum built_in_function fncode)
 {
   gcc_checking_assert (BUILTIN_VALID_P (fncode));
-  return (builtin_info.decl[(size_t)fncode] != NULL_TREE);
+  return (builtin_info[(size_t)fncode].decl != NULL_TREE);
 }
 
 /* Return whether the standard builtin function can be used implicitly.  */
@@ -4592,8 +4693,20 @@ builtin_decl_implicit_p (enum built_in_function fncode)
   size_t uns_fncode = (size_t)fncode;
 
   gcc_checking_assert (BUILTIN_VALID_P (fncode));
-  return (builtin_info.decl[uns_fncode] != NULL_TREE
-	  && builtin_info.implicit_p[uns_fncode]);
+  return (builtin_info[uns_fncode].decl != NULL_TREE
+	  && builtin_info[uns_fncode].implicit_p);
+}
+
+/* Return whether the standard builtin function was declared.  */
+
+static inline bool
+builtin_decl_declared_p (enum built_in_function fncode)
+{
+  size_t uns_fncode = (size_t)fncode;
+
+  gcc_checking_assert (BUILTIN_VALID_P (fncode));
+  return (builtin_info[uns_fncode].decl != NULL_TREE
+	  && builtin_info[uns_fncode].declared_p);
 }
 
 /* Return true if T (assumed to be a DECL) is a global variable.

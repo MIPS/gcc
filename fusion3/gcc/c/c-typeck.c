@@ -68,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ubsan.h"
 #include "cilk.h"
 #include "wide-int.h"
+#include "gomp-constants.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -3142,7 +3143,7 @@ convert_arguments (location_t loc, vec<location_t> arg_loc, tree typelist,
 	  else
 	    error_at (loc, "too many arguments to function %qE", function);
 	  inform_declaration (fundecl);
-	  return parmnum;
+	  return error_args ? -1 : (int) parmnum;
 	}
 
       if (selector && argnum > 2)
@@ -6421,7 +6422,8 @@ store_init_value (location_t init_loc, tree decl, tree init, tree origtype)
     warning (OPT_Wtraditional, "traditional C rejects automatic "
 	     "aggregate initialization");
 
-  DECL_INITIAL (decl) = value;
+  if (value != error_mark_node || TREE_CODE (decl) != FUNCTION_DECL)
+    DECL_INITIAL (decl) = value;
 
   /* ANSI wants warnings about out-of-range constant initializers.  */
   STRIP_TYPE_NOPS (value);
@@ -7555,20 +7557,28 @@ pop_init_level (location_t loc, int implicit,
 	}
     }
 
-  /* Initialization with { } counts as zeroinit.  */
-  if (vec_safe_length (constructor_elements) == 0)
-    constructor_zeroinit = 1;
-  /* If the constructor has more than one element, it can't be { 0 }.  */
-  else if (vec_safe_length (constructor_elements) != 1)
-    constructor_zeroinit = 0;
+  switch (vec_safe_length (constructor_elements))
+    {
+    case 0:
+      /* Initialization with { } counts as zeroinit.  */
+      constructor_zeroinit = 1;
+      break;
+    case 1:
+      /* This might be zeroinit as well.  */
+      if (integer_zerop ((*constructor_elements)[0].value))
+	constructor_zeroinit = 1;
+      break;
+    default:
+      /* If the constructor has more than one element, it can't be { 0 }.  */
+      constructor_zeroinit = 0;
+      break;
+    }
 
   /* Warn when some structs are initialized with direct aggregation.  */
   if (!implicit && found_missing_braces && warn_missing_braces
       && !constructor_zeroinit)
-    {
-      warning_init (loc, OPT_Wmissing_braces,
-		    "missing braces around initializer");
-    }
+    warning_init (loc, OPT_Wmissing_braces,
+		  "missing braces around initializer");
 
   /* Warn when some struct elements are implicitly initialized to zero.  */
   if (warn_missing_field_initializers
@@ -11352,6 +11362,63 @@ c_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED, bool *se)
     return expr;
 }
 
+/* Generate OACC_PARALLEL, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OACC_PARALLEL.  */
+
+tree
+c_finish_oacc_parallel (location_t loc, tree clauses, tree block)
+{
+  tree stmt;
+
+  block = c_end_compound_stmt (loc, block, true);
+
+  stmt = make_node (OACC_PARALLEL);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_PARALLEL_CLAUSES (stmt) = clauses;
+  OACC_PARALLEL_BODY (stmt) = block;
+  SET_EXPR_LOCATION (stmt, loc);
+
+  return add_stmt (stmt);
+}
+
+/* Generate OACC_KERNELS, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OACC_KERNELS.  */
+
+tree
+c_finish_oacc_kernels (location_t loc, tree clauses, tree block)
+{
+  tree stmt;
+
+  block = c_end_compound_stmt (loc, block, true);
+
+  stmt = make_node (OACC_KERNELS);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_KERNELS_CLAUSES (stmt) = clauses;
+  OACC_KERNELS_BODY (stmt) = block;
+  SET_EXPR_LOCATION (stmt, loc);
+
+  return add_stmt (stmt);
+}
+
+/* Generate OACC_DATA, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OACC_DATA.  */
+
+tree
+c_finish_oacc_data (location_t loc, tree clauses, tree block)
+{
+  tree stmt;
+
+  block = c_end_compound_stmt (loc, block, true);
+
+  stmt = make_node (OACC_DATA);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_DATA_CLAUSES (stmt) = clauses;
+  OACC_DATA_BODY (stmt) = block;
+  SET_EXPR_LOCATION (stmt, loc);
+
+  return add_stmt (stmt);
+}
+
 /* Like c_begin_compound_stmt, except force the retention of the BLOCK.  */
 
 tree
@@ -11883,8 +11950,9 @@ handle_omp_array_sections (tree c)
       OMP_CLAUSE_SIZE (c) = size;
       if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
 	return false;
+      gcc_assert (OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FORCE_DEVICEPTR);
       tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
-      OMP_CLAUSE_MAP_KIND (c2) = OMP_CLAUSE_MAP_POINTER;
+      OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
       if (!c_mark_addressable (t))
 	return false;
       OMP_CLAUSE_DECL (c2) = t;
@@ -11946,7 +12014,7 @@ c_find_omp_placeholder_r (tree *tp, int *, void *data)
   return NULL_TREE;
 }
 
-/* For all elements of CLAUSES, validate them vs OpenMP constraints.
+/* For all elements of CLAUSES, validate them against their constraints.
    Remove any elements from the list that are invalid.  */
 
 tree
@@ -12268,6 +12336,7 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_MAP:
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
+	case OMP_CLAUSE__CACHE_:
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
@@ -12306,7 +12375,9 @@ c_finish_omp_clauses (tree clauses)
 	  else if (!c_mark_addressable (t))
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		     && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
+		     && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
+			 || (OMP_CLAUSE_MAP_KIND (c)
+			     == GOMP_MAP_FORCE_DEVICEPTR)))
 		   && !lang_hooks.types.omp_mappable_type (TREE_TYPE (t)))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
@@ -12375,6 +12446,16 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_TASKGROUP:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
+	case OMP_CLAUSE_NUM_GANGS:
+	case OMP_CLAUSE_NUM_WORKERS:
+	case OMP_CLAUSE_VECTOR_LENGTH:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WAIT:
+	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_VECTOR:
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 

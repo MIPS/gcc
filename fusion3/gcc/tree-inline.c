@@ -39,14 +39,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "flags.h"
 #include "params.h"
-#include "input.h"
 #include "insn-config.h"
 #include "hashtab.h"
 #include "langhooks.h"
 #include "predict.h"
-#include "vec.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "dominance.h"
@@ -73,6 +69,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
@@ -3536,7 +3542,7 @@ has_label_address_in_static_1 (tree *nodep, int *walk_subtrees, void *fnp)
 /* Determine if the function can be copied.  If so return NULL.  If
    not return a string describng the reason for failure.  */
 
-static const char *
+const char *
 copy_forbidden (struct function *fun, tree fndecl)
 {
   const char *reason = fun->cannot_be_copied_reason;
@@ -4188,7 +4194,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       return (estimate_num_insns_seq (gimple_try_eval (stmt), weights)
               + estimate_num_insns_seq (gimple_try_cleanup (stmt), weights));
 
-    /* OpenMP directives are generally very expensive.  */
+    /* OMP directives are generally very expensive.  */
 
     case GIMPLE_OMP_RETURN:
     case GIMPLE_OMP_SECTIONS_SWITCH:

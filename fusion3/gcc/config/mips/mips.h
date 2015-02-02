@@ -181,6 +181,12 @@ struct mips_cpu_info {
 #define ISA_HAS_DSP_MULT ISA_HAS_DSPR2
 #endif
 
+/* ISA has LSA available.  */
+#define ISA_HAS_LSA		(mips_isa_rev >= 6)
+
+/* ISA has DLSA available.  */
+#define ISA_HAS_DLSA		(TARGET_64BIT && mips_isa_rev >= 6)
+
 /* The ISA compression flags that are currently in effect.  */
 #define TARGET_COMPRESSION (target_flags & (MASK_MIPS16 | MASK_MICROMIPS))
 
@@ -1089,8 +1095,8 @@ struct mips_cpu_info {
 				  || mips_isa_rev >= 1)			\
 				 && !TARGET_MIPS16)
 
-/* ISA has data prefetch with limited 9-bit displacement.  */
-#define ISA_HAS_PREFETCH_9BIT	(mips_isa_rev >= 6)
+/* ISA has data prefetch, LL and SC with limited 9-bit displacement.  */
+#define ISA_HAS_9BIT_DISPLACEMENT	(mips_isa_rev >= 6)
 
 /* ISA has data indexed prefetch instructions.  This controls use of
    'prefx', along with TARGET_HARD_FLOAT and TARGET_DOUBLE_FLOAT.
@@ -1237,6 +1243,22 @@ struct mips_cpu_info {
 %{gcoff*:-mdebug} %{!gcoff*:-no-mdebug}"
 #endif
 
+/* FP_ASM_SPEC represents the floating-point options that must be passed
+   to the assembler when FPXX support exists.  Prior to that point the
+   assembler could accept the options but were not required for
+   correctness.  We only add the options when absolutely necessary
+   because passing -msoft-float to the assembler will cause it to reject
+   all hard-float instructions which may require some user code to be
+   updated.  */
+
+#ifdef HAVE_AS_DOT_MODULE
+#define FP_ASM_SPEC "\
+%{mhard-float} %{msoft-float} \
+%{msingle-float} %{mdouble-float}"
+#else
+#define FP_ASM_SPEC
+#endif
+
 /* SUBTARGET_ASM_SPEC is always passed to the assembler.  It may be
    overridden by subtargets.  */
 
@@ -1271,9 +1293,8 @@ struct mips_cpu_info {
 %{modd-spreg} %{mno-odd-spreg} \
 %{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
-%{mtune=*} \
-%{mhard-float} %{msoft-float} \
-%{msingle-float} %{mdouble-float} \
+%{mtune=*}" \
+FP_ASM_SPEC "\
 %(subtarget_asm_spec)"
 
 /* Extra switches sometimes passed to the linker.  */

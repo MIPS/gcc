@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "fold-const.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
@@ -44,8 +43,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
-#include "expr.h"
+#include "hashtab.h"
+#include "rtl.h"
 #include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
 #include "params.h"
 #include "diagnostic-core.h"
 #include "except.h"
@@ -445,7 +457,7 @@ lto_free_function_in_decl_state_for_node (symtab_node *node)
 void
 lto_section_overrun (struct lto_input_block *ib)
 {
-  fatal_error ("bytecode stream: trying to read %d bytes "
+  fatal_error (input_location, "bytecode stream: trying to read %d bytes "
 	       "after the end of the input buffer", ib->p - ib->len);
 }
 
@@ -455,6 +467,7 @@ void
 lto_value_range_error (const char *purpose, HOST_WIDE_INT val,
 		       HOST_WIDE_INT min, HOST_WIDE_INT max)
 {
-  fatal_error ("%s out of range: Range is %i to %i, value is %i",
+  fatal_error (input_location,
+	       "%s out of range: Range is %i to %i, value is %i",
 	       purpose, (int)min, (int)max, (int)val);
 }

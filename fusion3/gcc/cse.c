@@ -42,6 +42,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "symtab.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
@@ -1792,6 +1807,8 @@ merge_equiv_classes (struct table_elt *class1, struct table_elt *class2)
 	    }
 	  new_elt = insert (exp, class1, hash, mode);
 	  new_elt->in_memory = hash_arg_in_memory;
+	  if (GET_CODE (exp) == ASM_OPERANDS && elt->cost == MAX_COST)
+	    new_elt->cost = MAX_COST;
 	}
     }
 }
@@ -3093,8 +3110,10 @@ fold_rtx (rtx x, rtx_insn *insn)
   int changed = 0;
 
   /* Operands of X.  */
-  rtx folded_arg0;
-  rtx folded_arg1;
+  /* Workaround -Wmaybe-uninitialized false positive during
+     profiledbootstrap by initializing them.  */
+  rtx folded_arg0 = NULL_RTX;
+  rtx folded_arg1 = NULL_RTX;
 
   /* Constant equivalents of first three operands of X;
      0 when no such equivalent is known.  */
@@ -4258,7 +4277,7 @@ find_sets_in_insn (rtx_insn *insn, struct set **psets)
     {
       int i, lim = XVECLEN (x, 0);
 
-      /* Go over the epressions of the PARALLEL in forward order, to
+      /* Go over the expressions of the PARALLEL in forward order, to
 	 put them in the same order in the SETS array.  */
       for (i = 0; i < lim; i++)
 	{
@@ -4634,12 +4653,27 @@ cse_insn (rtx_insn *insn)
 	  && REGNO (dest) >= FIRST_PSEUDO_REGISTER)
 	sets[i].src_volatile = 1;
 
-      /* Also do not record result of a non-volatile inline asm with
-	 more than one result or with clobbers, we do not want CSE to
-	 break the inline asm apart.  */
       else if (GET_CODE (src) == ASM_OPERANDS
 	       && GET_CODE (x) == PARALLEL)
-	sets[i].src_volatile = 1;
+	{
+	  /* Do not record result of a non-volatile inline asm with
+	     more than one result.  */
+	  if (n_sets > 1)
+	    sets[i].src_volatile = 1;
+
+	  int j, lim = XVECLEN (x, 0);
+	  for (j = 0; j < lim; j++)
+	    {
+	      rtx y = XVECEXP (x, 0, j);
+	      /* And do not record result of a non-volatile inline asm
+		 with "memory" clobber.  */
+	      if (GET_CODE (y) == CLOBBER && MEM_P (XEXP (y, 0)))
+		{
+		  sets[i].src_volatile = 1;
+		  break;
+		}
+	    }
+	}
 
 #if 0
       /* It is no longer clear why we used to do this, but it doesn't
@@ -5230,8 +5264,8 @@ cse_insn (rtx_insn *insn)
 	    ;
 
 	  /* Look for a substitution that makes a valid insn.  */
-	  else if (validate_unshare_change
-		     (insn, &SET_SRC (sets[i].rtl), trial, 0))
+	  else if (validate_unshare_change (insn, &SET_SRC (sets[i].rtl),
+					    trial, 0))
 	    {
 	      rtx new_rtx = canon_reg (SET_SRC (sets[i].rtl), insn);
 
@@ -5593,6 +5627,12 @@ cse_insn (rtx_insn *insn)
 		  }
 		elt = insert (src, classp, sets[i].src_hash, mode);
 		elt->in_memory = sets[i].src_in_memory;
+		/* If inline asm has any clobbers, ensure we only reuse
+		   existing inline asms and never try to put the ASM_OPERANDS
+		   into an insn that isn't inline asm.  */
+		if (GET_CODE (src) == ASM_OPERANDS
+		    && GET_CODE (x) == PARALLEL)
+		  elt->cost = MAX_COST;
 		sets[i].src_elt = classp = elt;
 	      }
 	    if (sets[i].src_const && sets[i].src_const_elt == 0
@@ -5906,6 +5946,9 @@ cse_insn (rtx_insn *insn)
 		      }
 		    src_elt = insert (new_src, classp, src_hash, new_mode);
 		    src_elt->in_memory = elt->in_memory;
+		    if (GET_CODE (new_src) == ASM_OPERANDS
+			&& elt->cost == MAX_COST)
+		      src_elt->cost = MAX_COST;
 		  }
 		else if (classp && classp != src_elt->first_same_value)
 		  /* Show that two things that we've seen before are

@@ -91,7 +91,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "fold-const.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -114,6 +113,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
@@ -123,10 +136,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
-#include "statistics.h"
 #include "params.h"
 #include "target.h"
-#include "flags.h"
 #include "dbgcnt.h"
 #include "tree-inline.h"
 #include "gimple-pretty-print.h"
@@ -4873,7 +4884,7 @@ some_callers_have_mismatched_arguments_p (struct cgraph_node *node,
 {
   struct cgraph_edge *cs;
   for (cs = node->callers; cs; cs = cs->next_caller)
-    if (!callsite_arguments_match_p (cs->call_stmt))
+    if (!cs->call_stmt || !callsite_arguments_match_p (cs->call_stmt))
       return true;
 
   return false;

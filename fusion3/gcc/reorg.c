@@ -108,7 +108,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "symtab.h"
-#include "expr.h"
 #include "hashtab.h"
 #include "hash-set.h"
 #include "vec.h"
@@ -116,7 +115,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
+#include "flags.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
 #include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
 #include "conditions.h"
 #include "predict.h"
 #include "dominance.h"
@@ -124,7 +140,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "regs.h"
 #include "recog.h"
-#include "flags.h"
 #include "obstack.h"
 #include "insn-attr.h"
 #include "resource.h"
@@ -132,7 +147,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "target.h"
 #include "tree-pass.h"
-#include "emit-rtl.h"
 
 #ifdef DELAY_SLOTS
 
@@ -2058,9 +2072,24 @@ fill_simple_delay_slots (int non_jumps_p)
 
       if (slots_filled < slots_to_fill)
 	{
+	  /* If the flags register is dead after the insn, then we want to be
+	     able to accept a candidate that clobbers it.  For this purpose,
+	     we need to filter the flags register during life analysis, so
+	     that it doesn't create RAW and WAW dependencies, while still
+	     creating the necessary WAR dependencies.  */
+	  bool filter_flags
+	    = (slots_to_fill == 1
+	       && targetm.flags_regnum != INVALID_REGNUM
+	       && find_regno_note (insn, REG_DEAD, targetm.flags_regnum));
+	  struct resources fset;
 	  CLEAR_RESOURCE (&needed);
 	  CLEAR_RESOURCE (&set);
 	  mark_set_resources (insn, &set, 0, MARK_SRC_DEST);
+	  if (filter_flags)
+	    {
+	      CLEAR_RESOURCE (&fset);
+	      mark_set_resources (insn, &fset, 0, MARK_SRC_DEST);
+	    }
 	  mark_referenced_resources (insn, &needed, false);
 
 	  for (trial = prev_nonnote_insn (insn); ! stop_search_p (trial, 1);
@@ -2078,7 +2107,9 @@ fill_simple_delay_slots (int non_jumps_p)
 	      /* Check for resource conflict first, to avoid unnecessary
 		 splitting.  */
 	      if (! insn_references_resource_p (trial, &set, true)
-		  && ! insn_sets_resource_p (trial, &set, true)
+		  && ! insn_sets_resource_p (trial,
+					     filter_flags ? &fset : &set,
+					     true)
 		  && ! insn_sets_resource_p (trial, &needed, true)
 #ifdef HAVE_cc0
 		  /* Can't separate set of cc0 from its use.  */
@@ -2107,6 +2138,18 @@ fill_simple_delay_slots (int non_jumps_p)
 		}
 
 	      mark_set_resources (trial, &set, 0, MARK_SRC_DEST_CALL);
+	      if (filter_flags)
+		{
+		  mark_set_resources (trial, &fset, 0, MARK_SRC_DEST_CALL);
+		  /* If the flags register is set, then it doesn't create RAW
+		     dependencies any longer and it also doesn't create WAW
+		     dependencies since it's dead after the original insn.  */
+		  if (TEST_HARD_REG_BIT (fset.regs, targetm.flags_regnum))
+		    {
+		      CLEAR_HARD_REG_BIT (needed.regs, targetm.flags_regnum);
+		      CLEAR_HARD_REG_BIT (fset.regs, targetm.flags_regnum);
+		    }
+		}
 	      mark_referenced_resources (trial, &needed, true);
 	    }
 	}
@@ -3170,6 +3213,19 @@ label_before_next_insn (rtx x, rtx scan_limit)
   return insn;
 }
 
+/* Return TRUE if there is a NOTE_INSN_SWITCH_TEXT_SECTIONS note in between
+   BEG and END.  */
+
+static bool
+switch_text_sections_between_p (const rtx_insn *beg, const rtx_insn *end)
+{
+  const rtx_insn *p;
+  for (p = beg; p != end; p = NEXT_INSN (p))
+    if (NOTE_P (p) && NOTE_KIND (p) == NOTE_INSN_SWITCH_TEXT_SECTIONS)
+      return true;
+  return false;
+}
+
 
 /* Once we have tried two ways to fill a delay slot, make a pass over the
    code to try to improve the results and to do such things as more jump
@@ -3206,7 +3262,8 @@ relax_delay_slots (rtx_insn *first)
 	    target_label = find_end_label (target_label);
 
 	  if (target_label && next_active_insn (target_label) == next
-	      && ! condjump_in_parallel_p (insn))
+	      && ! condjump_in_parallel_p (insn)
+	      && ! (next && switch_text_sections_between_p (insn, next)))
 	    {
 	      delete_jump (insn);
 	      continue;
@@ -3221,12 +3278,13 @@ relax_delay_slots (rtx_insn *first)
 
 	  /* See if this jump conditionally branches around an unconditional
 	     jump.  If so, invert this jump and point it to the target of the
-	     second jump.  */
+	     second jump.  Check if it's possible on the target.  */
 	  if (next && simplejump_or_return_p (next)
 	      && any_condjump_p (insn)
 	      && target_label
 	      && next_active_insn (target_label) == next_active_insn (next)
-	      && no_labels_between_p (insn, next))
+	      && no_labels_between_p (insn, next)
+	      && targetm.can_follow_jump (insn, next))
 	    {
 	      rtx label = JUMP_LABEL (next);
 

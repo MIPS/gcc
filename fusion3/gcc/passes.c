@@ -32,7 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "vec.h"
 #include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "wide-int.h"
@@ -52,6 +51,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "function.h"
 #include "toplev.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "predict.h"
 #include "basic-block.h"
@@ -1446,14 +1455,15 @@ pass_manager::register_pass (struct register_pass_info *pass_info)
      passes should never fail these checks, so we mention plugin in
      the messages.  */
   if (!pass_info->pass)
-      fatal_error ("plugin cannot register a missing pass");
+      fatal_error (input_location, "plugin cannot register a missing pass");
 
   if (!pass_info->pass->name)
-      fatal_error ("plugin cannot register an unnamed pass");
+      fatal_error (input_location, "plugin cannot register an unnamed pass");
 
   if (!pass_info->reference_pass_name)
       fatal_error
-	("plugin cannot register pass %qs without reference pass name",
+	(input_location,
+	 "plugin cannot register pass %qs without reference pass name",
 	 pass_info->pass->name);
 
   /* Try to insert the new pass to the pass lists.  We need to check
@@ -1471,7 +1481,8 @@ pass_manager::register_pass (struct register_pass_info *pass_info)
     success |= position_pass (pass_info, &all_passes);
   if (!success)
     fatal_error
-      ("pass %qs not found but is referenced by new pass %qs",
+      (input_location,
+       "pass %qs not found but is referenced by new pass %qs",
        pass_info->reference_pass_name, pass_info->pass->name);
 
   /* OK, we have successfully inserted the new pass. We need to register

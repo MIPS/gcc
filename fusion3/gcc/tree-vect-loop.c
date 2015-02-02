@@ -38,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -63,6 +62,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop-niter.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "recog.h"
 #include "insn-codes.h"
@@ -2977,6 +2990,27 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
 
   vec_outside_cost = (int)(vec_prologue_cost + vec_epilogue_cost);
   
+  if (dump_enabled_p ())
+    {
+      dump_printf_loc (MSG_NOTE, vect_location, "Cost model analysis: \n");
+      dump_printf (MSG_NOTE, "  Vector inside of loop cost: %d\n",
+                   vec_inside_cost);
+      dump_printf (MSG_NOTE, "  Vector prologue cost: %d\n",
+                   vec_prologue_cost);
+      dump_printf (MSG_NOTE, "  Vector epilogue cost: %d\n",
+                   vec_epilogue_cost);
+      dump_printf (MSG_NOTE, "  Scalar iteration cost: %d\n",
+                   scalar_single_iter_cost);
+      dump_printf (MSG_NOTE, "  Scalar outside cost: %d\n",
+                   scalar_outside_cost);
+      dump_printf (MSG_NOTE, "  Vector outside cost: %d\n",
+                   vec_outside_cost);
+      dump_printf (MSG_NOTE, "  prologue iterations: %d\n",
+                   peel_iters_prologue);
+      dump_printf (MSG_NOTE, "  epilogue iterations: %d\n",
+                   peel_iters_epilogue);
+    }
+
   /* Calculate number of iterations required to make the vector version
      profitable, relative to the loop bodies only.  The following condition
      must hold true:
@@ -3024,30 +3058,9 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
       return;
     }
 
-  if (dump_enabled_p ())
-    {
-      dump_printf_loc (MSG_NOTE, vect_location, "Cost model analysis: \n");
-      dump_printf (MSG_NOTE, "  Vector inside of loop cost: %d\n",
-                   vec_inside_cost);
-      dump_printf (MSG_NOTE, "  Vector prologue cost: %d\n",
-                   vec_prologue_cost);
-      dump_printf (MSG_NOTE, "  Vector epilogue cost: %d\n",
-                   vec_epilogue_cost);
-      dump_printf (MSG_NOTE, "  Scalar iteration cost: %d\n",
-                   scalar_single_iter_cost);
-      dump_printf (MSG_NOTE, "  Scalar outside cost: %d\n",
-                   scalar_outside_cost);
-      dump_printf (MSG_NOTE, "  Vector outside cost: %d\n",
-                   vec_outside_cost);
-      dump_printf (MSG_NOTE, "  prologue iterations: %d\n",
-                   peel_iters_prologue);
-      dump_printf (MSG_NOTE, "  epilogue iterations: %d\n",
-                   peel_iters_epilogue);
-      dump_printf (MSG_NOTE,
-                   "  Calculated minimum iters for profitability: %d\n",
-                   min_profitable_iters);
-      dump_printf (MSG_NOTE, "\n");
-    }
+  dump_printf (MSG_NOTE,
+	       "  Calculated minimum iters for profitability: %d\n",
+	       min_profitable_iters);
 
   min_profitable_iters =
 	min_profitable_iters < vf ? vf : min_profitable_iters;

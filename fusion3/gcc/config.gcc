@@ -2233,6 +2233,10 @@ nios2-*-*)
 nvptx-*)
 	tm_file="${tm_file} newlib-stdint.h"
 	tmake_file="nvptx/t-nvptx"
+	if test x$enable_as_accelerator = xyes; then
+		extra_programs="${extra_programs} mkoffload\$(exeext)"
+		tm_file="${tm_file} nvptx/offload.h"
+	fi
 	;;
 pdp11-*-*)
 	tm_file="${tm_file} newlib-stdint.h"
@@ -2965,6 +2969,7 @@ esac
 case ${target} in
 *-intelmic-* | *-intelmicemul-*)
 	tmake_file="${tmake_file} i386/t-intelmic"
+	tm_file="${tm_file} i386/intelmic-offload.h"
 	;;
 esac
 

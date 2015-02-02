@@ -1,3 +1,19 @@
+2015-01-30  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* lex.c (search_line_fast): Change __ARM_NEON__ to __ARM_NEON.
+
+2015-01-23  Marek Polacek  <polacek@redhat.com>
+
+	DR#412
+	PR preprocessor/60570
+	* directives.c (do_elif): Don't evaluate #elif conditionals
+	when they don't need to be.
+
+2015-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (cpp_classify_number): Add N_() around ?: string
+	literals used in cpp_error_with_line call as format string.
+
 2015-01-05  Jakub Jelinek  <jakub@redhat.com>
 
 	Update copyright years.

@@ -41,7 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -71,6 +70,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-into-ssa.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
@@ -86,7 +98,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-live.h"
 #include "omp-low.h"
 #include "tree-cfgcleanup.h"
-#include "wide-int.h"
 #include "wide-int-print.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
@@ -8743,7 +8754,7 @@ const pass_data pass_data_fixup_cfg =
   PROP_cfg, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
-  0, /* todo_flags_start */
+  TODO_update_ssa_only_virtuals, /* todo_flags_start */
   0, /* todo_flags_finish */
 };
 

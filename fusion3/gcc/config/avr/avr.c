@@ -48,12 +48,20 @@
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "output.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "c-family/c-common.h"
 #include "diagnostic-core.h"
 #include "obstack.h"
-#include "input.h"
-#include "function.h"
 #include "recog.h"
 #include "optabs.h"
 #include "ggc.h"
@@ -373,7 +381,7 @@ avr_option_override (void)
   for (avr_current_device = avr_mcu_types; ; avr_current_device++)
     {
       if (!avr_current_device->name)
-        fatal_error ("mcu not found");
+        fatal_error (input_location, "mcu not found");
       if (!avr_current_device->macro
           && avr_current_device->arch == avr_arch_index)
         break;

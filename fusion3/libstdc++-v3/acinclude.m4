@@ -1777,7 +1777,7 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
 	      <tr1/cinttypes> in namespace std::tr1.])
   fi
 
-  # Check for the existence of whcar_t <inttypes.h> functions (NB: doesn't
+  # Check for the existence of wchar_t <inttypes.h> functions (NB: doesn't
   # make sense if the glibcxx_cv_c99_stdint_tr1 check fails, per C99, 7.8/1).
   ac_c99_inttypes_wchar_t_tr1=no;
   if test x"$glibcxx_cv_c99_stdint_tr1" = x"yes"; then
@@ -2320,8 +2320,17 @@ AC_DEFUN([GLIBCXX_ENABLE_VTABLE_VERIFY], [
   AC_MSG_CHECKING([for vtable verify support])
   AC_MSG_RESULT([$enable_vtable_verify])
 
+  vtv_cygmin=no
   if test $enable_vtable_verify = yes; then
-    VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+    case ${target_os} in
+      cygwin*|mingw32*)
+        VTV_CXXFLAGS="-fvtable-verify=std -Wl,-lvtv,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+        vtv_cygmin=yes
+        ;;
+      *)
+        VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+        ;;
+    esac
     VTV_PCH_CXXFLAGS="-fvtable-verify=std"
     VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,--rpath -Wl,${toplevel_builddir}/libvtv/.libs"		
   else
@@ -2333,6 +2342,7 @@ AC_DEFUN([GLIBCXX_ENABLE_VTABLE_VERIFY], [
   AC_SUBST(VTV_CXXFLAGS)
   AC_SUBST(VTV_PCH_CXXFLAGS)
   AC_SUBST(VTV_CXXLINKFLAGS)
+  AM_CONDITIONAL(VTV_CYGMIN, test x$vtv_cygmin = xyes)
   GLIBCXX_CONDITIONAL(ENABLE_VTABLE_VERIFY, test $enable_vtable_verify = yes)
 ])
 

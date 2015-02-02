@@ -37,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
@@ -45,6 +44,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -443,7 +456,7 @@ func_checker::compare_operand (tree t1, tree t2)
 	z2 = TREE_OPERAND (t2, 2);
 
 	ret = compare_ssa_name (x1, x2)
-	      && compare_ssa_name (y1, y2)
+	      && compare_operand (y1, y2)
 	      && compare_cst_or_decl (z1, z2);
 
 	return return_with_debug (ret);

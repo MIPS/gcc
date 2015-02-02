@@ -33,12 +33,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "fold-const.h"
 #include "calls.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
@@ -64,7 +76,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-data-ref.h"
 #include "params.h"
-#include "flags.h"
 #include "diagnostic-core.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
@@ -2743,6 +2754,7 @@ record_nonwrapping_iv (struct loop *loop, tree base, tree step, gimple stmt,
 {
   tree niter_bound, extreme, delta;
   tree type = TREE_TYPE (base), unsigned_type;
+  tree orig_base = base;
 
   if (TREE_CODE (step) != INTEGER_CST || integer_zerop (step))
     return;
@@ -2766,16 +2778,30 @@ record_nonwrapping_iv (struct loop *loop, tree base, tree step, gimple stmt,
 
   if (tree_int_cst_sign_bit (step))
     {
+      wide_int min, max;
       extreme = fold_convert (unsigned_type, low);
-      if (TREE_CODE (base) != INTEGER_CST)
+      if (TREE_CODE (orig_base) == SSA_NAME
+	  && TREE_CODE (high) == INTEGER_CST
+	  && INTEGRAL_TYPE_P (TREE_TYPE (orig_base))
+	  && get_range_info (orig_base, &min, &max) == VR_RANGE
+	  && wi::gts_p (high, max))
+	base = wide_int_to_tree (unsigned_type, max);
+      else if (TREE_CODE (base) != INTEGER_CST)
 	base = fold_convert (unsigned_type, high);
       delta = fold_build2 (MINUS_EXPR, unsigned_type, base, extreme);
       step = fold_build1 (NEGATE_EXPR, unsigned_type, step);
     }
   else
     {
+      wide_int min, max;
       extreme = fold_convert (unsigned_type, high);
-      if (TREE_CODE (base) != INTEGER_CST)
+      if (TREE_CODE (orig_base) == SSA_NAME
+	  && TREE_CODE (low) == INTEGER_CST
+	  && INTEGRAL_TYPE_P (TREE_TYPE (orig_base))
+	  && get_range_info (orig_base, &min, &max) == VR_RANGE
+	  && wi::gts_p (min, low))
+	base = wide_int_to_tree (unsigned_type, min);
+      else if (TREE_CODE (base) != INTEGER_CST)
 	base = fold_convert (unsigned_type, low);
       delta = fold_build2 (MINUS_EXPR, unsigned_type, extreme, base);
     }
