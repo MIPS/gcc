@@ -550,7 +550,8 @@ gfc_trans_return (gfc_code * code)
       result = gfc_get_fake_result_decl (NULL, 0);
       if (!result)
 	{
-	  gfc_warning ("An alternate return at %L without a * dummy argument",
+	  gfc_warning (0,
+		       "An alternate return at %L without a * dummy argument",
 		       &code->expr1->where);
 	  return gfc_generate_return ();
 	}
@@ -5150,7 +5151,7 @@ gfc_trans_allocate (gfc_code * code)
 	      if (unlimited_char)
 		tmp = TREE_TYPE (gfc_typenode_for_spec (&code->expr3->ts));
 	      else
-	      tmp = TREE_TYPE (gfc_typenode_for_spec (&al->expr->ts));
+		tmp = TREE_TYPE (gfc_typenode_for_spec (&al->expr->ts));
 	      tmp = TYPE_SIZE_UNIT (tmp);
 	      memsz = fold_build2_loc (input_location, MULT_EXPR,
 				       TREE_TYPE (tmp), tmp,
