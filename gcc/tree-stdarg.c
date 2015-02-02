@@ -699,7 +699,8 @@ public:
   virtual bool gate (function *fun)
     {
       /* This optimization is only for stdarg functions.  */
-      return fun->stdarg != 0;
+      return (flag_tree_stdarg_opt
+	      && fun->stdarg != 0);
     }
 
   virtual unsigned int execute (function *);
