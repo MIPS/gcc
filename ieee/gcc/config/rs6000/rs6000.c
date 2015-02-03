@@ -29258,6 +29258,9 @@ rs6000_mangle_type (const_tree type)
       && !TARGET_IEEEQUAD)
     return "g";
 
+  if (type == ibm128_float_type_node)
+    return "g";
+
   /* For all other types, use normal C++ mangling.  */
   return NULL;
 }
