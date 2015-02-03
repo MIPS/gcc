@@ -2081,6 +2081,7 @@ rs6000_debug_reg_global (void)
     SFmode,
     DFmode,
     TFmode,
+    IFmode,
     KFmode,
     SDmode,
     DDmode,
@@ -6099,13 +6100,15 @@ invalid_e500_subreg (rtx op, machine_mode mode)
 	  && REG_P (SUBREG_REG (op))
 	  && (GET_MODE (SUBREG_REG (op)) == DFmode
 	      || GET_MODE (SUBREG_REG (op)) == TFmode
+	      || GET_MODE (SUBREG_REG (op)) == IFmode
 	      || GET_MODE (SUBREG_REG (op)) == KFmode))
 	return true;
 
       /* Reject (subreg:DF (reg:DI)); likewise with subreg:TF and
 	 reg:TI.  */
       if (GET_CODE (op) == SUBREG
-	  && (mode == DFmode || mode == TFmode || mode == KFmode)
+	  && (mode == DFmode || mode == TFmode || mode == IFmode
+	      || mode == KFmode)
 	  && REG_P (SUBREG_REG (op))
 	  && (GET_MODE (SUBREG_REG (op)) == DImode
 	      || GET_MODE (SUBREG_REG (op)) == TImode
@@ -6749,6 +6752,7 @@ rs6000_legitimate_offset_address_p (machine_mode mode, rtx x,
       break;
 
     case TFmode:
+    case IFmode:
     case KFmode:
       if (TARGET_E500_DOUBLE)
 	return (SPE_CONST_OFFSET_OK (offset)
@@ -6943,6 +6947,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
     case TDmode:
     case TImode:
     case PTImode:
+    case IFmode:
     case KFmode:
       /* As in legitimate_offset_address_p we do not assume
 	 worst-case.  The mode here is just a hint as to the registers
@@ -7716,6 +7721,7 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
       && !reg_addr[mode].scalar_in_vmx_p
       && mode != TFmode
       && mode != TDmode
+      && mode != IFmode
       && mode != KFmode
       && (mode != TImode || !TARGET_VSX_TIMODE)
       && mode != PTImode
@@ -8731,7 +8737,9 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
 
     case TFmode:
     case TDmode:
-      rs6000_eliminate_indexed_memrefs (operands);
+    case IFmode:
+      if (FLOAT128_2REG_P (mode))
+	rs6000_eliminate_indexed_memrefs (operands);
       /* fall through */
 
     case DFmode:
@@ -11510,6 +11518,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
           || (TARGET_DOUBLE_FLOAT 
               && (TYPE_MODE (type) == DFmode 
  	          || TYPE_MODE (type) == TFmode
+ 	          || TYPE_MODE (type) == IFmode
  	          || TYPE_MODE (type) == KFmode
 	          || TYPE_MODE (type) == SDmode
 	          || TYPE_MODE (type) == DDmode
@@ -14289,6 +14298,7 @@ rs6000_init_builtins (void)
   tree ftype;
   machine_mode mode;
   machine_mode ieee128_mode;
+  machine_mode ibm128_mode;
 
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "rs6000_init_builtins%s%s%s%s\n",
@@ -14357,18 +14367,38 @@ rs6000_init_builtins (void)
   void_type_internal_node = void_type_node;
 
   /* 128-bit floating point support.  KFmode is IEEE 128-bit floating point.
+     IFmode is the IBM extended 128-bit format that is a pair of doubles.
      TFmode will be either IEEE 128-bit floating point or the IBM double-double
      format that uses a pair of doubles, depending on the switches and
      defaults.  */
-  ieee128_mode = (TARGET_IEEEQUAD) ? TFmode : KFmode;
+  if (TARGET_IEEEQUAD)
+    {
+      ieee128_mode = TFmode;
+      ibm128_mode = IFmode;
+    }
+  else
+    {
+      ieee128_mode = KFmode;
+      ibm128_mode = TFmode;
+    }
+
   ieee128_float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (ieee128_float_type_node) = 128;
   layout_type (ieee128_float_type_node);
   SET_TYPE_MODE (ieee128_float_type_node, ieee128_mode);
 
+  ibm128_float_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (ibm128_float_type_node) = 128;
+  layout_type (ibm128_float_type_node);
+  SET_TYPE_MODE (ibm128_float_type_node, ibm128_mode);
+
   if (TARGET_FLOAT128)
-    lang_hooks.types.register_builtin_type (ieee128_float_type_node,
-					    "__float128");
+    {
+      lang_hooks.types.register_builtin_type (ieee128_float_type_node,
+					      "__float128");
+      lang_hooks.types.register_builtin_type (ibm128_float_type_node,
+					      "__ibm128");
+    }
 
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
      tree type node.  */
@@ -14382,6 +14412,7 @@ rs6000_init_builtins (void)
   builtin_mode_to_type[TImode][1] = unsigned_intTI_type_node;
   builtin_mode_to_type[SFmode][0] = float_type_node;
   builtin_mode_to_type[DFmode][0] = double_type_node;
+  builtin_mode_to_type[IFmode][0] = ibm128_float_type_node;
   builtin_mode_to_type[KFmode][0] = ieee128_float_type_node;
   builtin_mode_to_type[TFmode][0] = long_double_type_node;
   builtin_mode_to_type[DDmode][0] = dfloat64_type_node;
@@ -15939,10 +15970,16 @@ init_float128_ieee (machine_mode mode)
       set_conv_libfunc (sfloat_optab, mode, DImode, "__floatdikf");
       set_conv_libfunc (ufloat_optab, mode, DImode, "__floatundikf");
 
-      if (mode == KFmode && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
+      if (mode == KFmode)
 	{
-	  set_conv_libfunc (sext_optab, TFmode, mode, "__extendkftf2");
-	  set_conv_libfunc (trunc_optab, mode, TFmode, "__trunctfkf2");
+	  set_conv_libfunc (sext_optab, IFmode, KFmode, "__extendkftf2");
+	  set_conv_libfunc (trunc_optab, KFmode, IFmode, "__trunctfkf2");
+
+	  if (!TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
+	    {
+	      set_conv_libfunc (sext_optab, TFmode, KFmode, "__extendkftf2");
+	      set_conv_libfunc (trunc_optab, mode, KFmode, "__trunctfkf2");
+	    }
 	}
     }
 
@@ -15980,10 +16017,16 @@ init_float128_ieee (machine_mode mode)
 	  set_optab_libfunc (unord_optab, mode, "_q_funordered");
 	  set_optab_libfunc (cmp_optab, mode, "_q_fcmp");
 
-	  if (mode == KFmode && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
+	  if (mode == KFmode)
 	    {
-	      set_conv_libfunc (sext_optab, TFmode, mode, "_q_qtot");
-	      set_conv_libfunc (trunc_optab, mode, TFmode, "_q_ttoq");
+	      set_conv_libfunc (sext_optab, IFmode, KFmode, "_q_qtot");
+	      set_conv_libfunc (trunc_optab, KFmode, IFmode, "_q_ttoq");
+
+	      if (!TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
+		{
+		  set_conv_libfunc (sext_optab, TFmode, KFmode, "_q_qtot");
+		  set_conv_libfunc (trunc_optab, KFmode, TFmode, "_q_ttoq");
+		}
 	    }
 
 	  set_conv_libfunc (sfix_optab, DImode, mode, "_q_qtoi_d");
@@ -15998,6 +16041,7 @@ static void
 rs6000_init_libfuncs (void)
 {
   /* AIX/Darwin/64-bit Linux quad floating point routines.  */
+  init_float128_ibm (IFmode);
   if (!TARGET_IEEEQUAD)
     init_float128_ibm (TFmode);
 
@@ -18100,6 +18144,7 @@ rs6000_cannot_change_mode_class (machine_mode from,
   if (TARGET_E500_DOUBLE
       && ((((to) == DFmode) + ((from) == DFmode)) == 1
 	  || (((to) == TFmode) + ((from) == TFmode)) == 1
+	  || (((to) == IFmode) + ((from) == IFmode)) == 1
 	  || (((to) == KFmode) + ((from) == KFmode)) == 1
 	  || (((to) == DDmode) + ((from) == DDmode)) == 1
 	  || (((to) == TDmode) + ((from) == TDmode)) == 1
@@ -19484,6 +19529,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
 	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfeq_gpr (compare_result, op0, op1)
@@ -19512,6 +19558,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
 	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfgt_gpr (compare_result, op0, op1)
@@ -19540,6 +19587,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
 	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttflt_gpr (compare_result, op0, op1)
@@ -19578,6 +19626,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
 	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfeq_gpr (compare_result2, op0, op1)
@@ -19785,7 +19834,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 }
 
 
-/* Expand floating point conversion to/from __float128.  */
+/* Expand floating point conversion to/from __float128 and __ibm128.  */
 
 void
 rs6000_expand_float128_convert (rtx dest, rtx src, bool unsigned_p)
@@ -25980,6 +26029,7 @@ rs6000_output_function_epilogue (FILE *file,
 			case DDmode:
 			case TFmode:
 			case TDmode:
+			case IFmode:
 			case KFmode:
 			  bits = 0x3;
 			  break;
@@ -26462,7 +26512,7 @@ output_toc (FILE *file, rtx x, int labelno, machine_mode mode)
      FP constants.  */
   if (GET_CODE (x) == CONST_DOUBLE &&
       (GET_MODE (x) == TFmode || GET_MODE (x) == TDmode
-       || GET_MODE (x) == KFmode))
+       || GET_MODE (x) == IFmode || GET_MODE (x) == KFmode))
     {
       REAL_VALUE_TYPE rv;
       long k[4];

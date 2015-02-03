@@ -948,6 +948,7 @@ examine and set these two fictitious variables with your debugger.
 @cindex additional floating types
 @cindex @code{__float80} data type
 @cindex @code{__float128} data type
+@cindex @code{__ibm128} data type
 @cindex @code{w} floating point suffix
 @cindex @code{q} floating point suffix
 @cindex @code{W} floating point suffix
@@ -989,6 +990,11 @@ The @code{__float128} type is supported on hppa HP-UX.
 The @code{__float128} type is supported on PowerPC systems by default
 if the vector scalar instruction set (VSX) is enabled, or if the
 @option{-mfloat128-fpr} option is used.
+
+On the PowerPC, @code{__ibm128} provides access to the IBM extended
+double format, and it is intended to be used by the library functions
+that handle conversions if/when long double is changed to be IEEE
+128-bit floating point.
 
 @node Half-Precision
 @section Half-Precision Floating Point

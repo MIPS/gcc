@@ -408,13 +408,16 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /* Helper macros for TFmode.  Quad floating point (TFmode) can be either IBM
    long double format that uses a pair of doubles, or IEEE 128-bit floating
    point.  KFmode was added as a way to represent IEEE 128-bit floating point,
-   even if the default for long double is the IBM long double format.  */
+   even if the default for long double is the IBM long double format.
+   Similarly IFmode is the IBM long double format even if the default is IEEE
+   128-bit.  */
 #define IEEE_128BIT_P(MODE)						\
   (((MODE) == KFmode)							\
    || (((MODE) == TFmode) && TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128))
 
 #define IBM_128BIT_P(MODE)						\
-  (((MODE) == TFmode) && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
+  ((((MODE) == TFmode) && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)	\
+   || ((MODE) == IFmode))
 
 /* Helper macros to say whether a 128-bit floating point type can go in a
    single vector register, or whether it needs paired scalar values.  */
@@ -1197,7 +1200,7 @@ enum data_align { align_abi, align_opt, align_both };
    ? V2DFmode								\
    : TARGET_E500_DOUBLE && ((MODE) == VOIDmode || (MODE) == DFmode)	\
    ? DFmode								\
-   : !TARGET_E500_DOUBLE && (MODE) == TFmode && FP_REGNO_P (REGNO)	\
+   : !TARGET_E500_DOUBLE && IBM_128BIT_P (MODE) && FP_REGNO_P (REGNO)	\
    ? DFmode								\
    : !TARGET_E500_DOUBLE && (MODE) == TDmode && FP_REGNO_P (REGNO)	\
    ? DImode								\
@@ -1214,8 +1217,9 @@ enum data_align { align_abi, align_opt, align_both };
 	 ((MODE) == V4SFmode		\
 	  || (MODE) == V2DFmode)	\
 
-/* Note KFmode and possibly TFmode (i.e. IEEE 128-bit floating point) are not really a vector, but
-   we want to treat it as a vector for moves, and such.  */
+/* Note KFmode and possibly TFmode (i.e. IEEE 128-bit floating point) are not
+   really a vector, but we want to treat it as a vector for moves, and
+   such.  */
 
 #define ALTIVEC_VECTOR_MODE(MODE)					\
   ((MODE) == V16QImode							\
@@ -2747,6 +2751,7 @@ enum rs6000_builtin_type_index
   RS6000_BTI_dfloat128,		 /* dfloat128_type_node */
   RS6000_BTI_void,	         /* void_type_node */
   RS6000_BTI_ieee128_float,	 /* ieee 128-bit floating point */
+  RS6000_BTI_ibm128_float,	 /* IBM 128-bit floating point */
   RS6000_BTI_MAX
 };
 
@@ -2802,6 +2807,7 @@ enum rs6000_builtin_type_index
 #define dfloat128_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_dfloat128])
 #define void_type_internal_node		 (rs6000_builtin_types[RS6000_BTI_void])
 #define ieee128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ieee128_float])
+#define ibm128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ibm128_float])
 
 extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
 extern GTY(()) tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
