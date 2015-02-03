@@ -2506,6 +2506,13 @@ early_inliner (function *fun)
 #endif
   node->remove_all_references ();
 
+  /* Rebuild this reference because it dosn't depend on
+     function's body and it's required to pass cgraph_node
+     verification.  */
+  if (node->instrumented_version
+      && !node->instrumentation_clone)
+    node->create_reference (node->instrumented_version, IPA_REF_CHKP, NULL);
+
   /* Even when not optimizing or not inlining inline always-inline
      functions.  */
   inlined = inline_always_inline_functions (node);
@@ -2521,7 +2528,9 @@ early_inliner (function *fun)
 	 cycles of edges to be always inlined in the callgraph.
 
 	 We might want to be smarter and just avoid this type of inlining.  */
-      || DECL_DISREGARD_INLINE_LIMITS (node->decl))
+      || (DECL_DISREGARD_INLINE_LIMITS (node->decl)
+	  && lookup_attribute ("always_inline",
+			       DECL_ATTRIBUTES (node->decl))))
     ;
   else if (lookup_attribute ("flatten",
 			     DECL_ATTRIBUTES (node->decl)) != NULL)
@@ -2536,6 +2545,18 @@ early_inliner (function *fun)
     }
   else
     {
+      /* If some always_inline functions was inlined, apply the changes.
+	 This way we will not account always inline into growth limits and
+	 moreover we will inline calls from always inlines that we skipped
+	 previously becuase of conditional above.  */
+      if (inlined)
+	{
+	  timevar_push (TV_INTEGRATION);
+	  todo |= optimize_inline_calls (current_function_decl);
+	  inline_update_overall_summary (node);
+	  inlined = false;
+	  timevar_pop (TV_INTEGRATION);
+	}
       /* We iterate incremental inlining to get trivial cases of indirect
 	 inlining.  */
       while (iterations < PARAM_VALUE (PARAM_EARLY_INLINER_MAX_ITERATIONS)
