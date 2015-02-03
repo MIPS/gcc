@@ -1,3 +1,158 @@
+2015-02-03    <dodji@redhat.com>
+
+	PR preprocessor/64803
+	* gcc.dg/cpp/builtin-macro-1.c: New test case.
+
+2015-02-02  Jan Hubicka  <hubicka@ucw.cz>
+
+	* g++.dg/ipa/devirt-37.C: Disable early inlining.
+
+2015-02-02  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/arm-neon-ref.h
+	(_ARM_FPSRC): Add DN and AHP fields.
+	(clean_results): Force DN=1 on AArch64.
+	* gcc.target/aarch64/advsimd-intrinsics/binary_op_no64.inc: New file.
+	* gcc.target/aarch64/advsimd-intrinsics/vhadd.c: New file.
+	* gcc.target/aarch64/advsimd-intrinsics/vhsub.c: New file.
+	* gcc.target/aarch64/advsimd-intrinsics/vmax.c: New file.
+	* gcc.target/aarch64/advsimd-intrinsics/vmin.c: New file.
+	* gcc.target/aarch64/advsimd-intrinsics/vrhadd.c: New file.
+
+2015-02-02  Alan Modra  <amodra@gmail.com>
+
+	* gcc.target/powerpc/cprophard.c: New.
+
+2015-02-01  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* gfortran.dg/enum_9.f90: Use arm_eabi instead of arm*-*-linux*.
+	* gfortran.dg/enum_10.f90: Likewise. Reorder dg-additional-sources.
+
+2015-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/64817
+	* gcc.dg/pr64817-1.c: New test.
+	* gcc.dg/pr64817-2.c: New test.
+
+2015-02-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/64851
+	* gcc.target/sh/pr64851-0.h: New
+	* gcc.target/sh/pr64851-1.c: New
+	* gcc.target/sh/pr64851-2.c: New
+	* gcc.target/sh/pr64851-3.c: New
+	* gcc.target/sh/pr64851-4.c: New
+
+2015-01-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/64882
+	* gcc.dg/torture/pr64882.c: New test.
+
+2015-01-31  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/64159
+	* gcc.dg/tree-ssa/ssa-dom-cse-2.c: Add XFAIL for powerpc*-*-* and
+	sparc*-*-*.
+
+2015-01-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/ipa/pr64146.C (dg-final): Cleanup icf ipa dump.
+	* gcc.target/i386/chkp-builtins-1.c (dg-final): Cleanup chkp tree dump.
+	* gcc.target/i386/chkp-builtins-2.c (dg-final): Ditto.
+	* gcc.target/i386/chkp-builtins-3.c (dg-final): Ditto.
+	* gcc.target/i386/chkp-builtins-4.c (dg-final): Ditto.
+	* gcc.target/i386/chkp-const-check-1.c (dg-final): Cleanup chkopt
+	tree dump.
+	* gcc.target/i386/chkp-lifetime-1.c (dg-final): Ditto.
+	* gcc.target/i386/chkp-remove-bndint-1.c (dg-final): Cleanup optimized
+	tree dump.
+	* gcc.target/i386/chkp-remove-bndint-2.c (dg-final): Ditto.
+	* gfortran.dg/goacc/private-1.f95 (dg-final): Cleanup omplower
+	tree dump.
+
+2015-01-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/64688
+	* g++.dg/pr64688-2.C: New.
+
+2015-01-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/fuse-caller-save-rec.c: Require nonpic target.
+	* gcc.target/i386/fuse-caller-save-xmm.c: Ditto.
+	* gcc.target/i386/fuse-caller-save.c: Ditto.
+	* gcc.target/i386/headmerge-1.c: Ditto.
+	* gcc.target/i386/headmerge-2.c: Ditto.
+	* gcc.target/i386/sibcall-6.c: Ditto.
+
+2015-01-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/64617
+	* gcc.target/i386/pr64617.c: New test.
+
+2015-01-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/15184
+	* gcc.target/i386/pr15184-1.c: Compile for ia32 target only.
+	(dg-options): Remove -m32.
+	(dg-final): Scan for "movb %al" only.
+	* gcc.target/i386/pr15184-2.c: Ditto.
+
+2015-01-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64829
+	* gcc.dg/vect/pr64829.c: New testcase.
+
+2015-01-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64709
+	* gcc.dg/pr64709.c: New test.
+
+2015-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/64717
+	* g++.dg/ubsan/pr64717-1.C: New test.
+	* g++.dg/ubsan/pr64717-2.C: New test.
+
+2015-01-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/tree-ssa/pr64801.c: Fix scan-tree-dump-not directive.
+
+2015-01-29  Jeff Law  <law@redhat.com>
+
+	PR target/15184
+	* gcc.target/i386/pr15184-1.c: New test.
+	* gcc.target/i386/pr15184-2.c: New test.
+
+2015-01-29  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/64746
+	* gcc.target/i386/avx2-vect-aggressive-1.c: New test.
+
+2015-01-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64853
+	* gcc.dg/torture/pr64853.c: New testcase.
+
+2015-01-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64844
+	* gcc.dg/vect/pr64844.c: New testcase.
+
+2015-01-29  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR middle-end/64809
+	* gcc.dg/pr64809.c: Delete.
+
+2015-01-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/64805
+	* gcc.target/i386/pr64805.c: New.
+
+2015-01-29  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/guality/guality.h (main): Add argv[0] to
+	guality_gdb_command.
+
 2015-01-29  Jan Hubicka  <hubicka@ucw.cz>
 
 	PR ipa/64801
@@ -383,7 +538,7 @@
 	PR middle-end/64728
 	* gcc.dg/torture/pr64728.c: New testcase.
 
-2015-22-01  Uros Bizjak  <ubizjak@gmail.com>
+2015-01-22  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/64688
 	* g++.dg/pr64688.C: New test.
