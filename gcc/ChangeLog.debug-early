@@ -1,30 +1,5 @@
 2015-01-27  Aldy Hernandez  <aldyh@redhat.com>
 
-	* cgraphunit.c (symbol_table::finalize_compilation_unit): Emit
-	early debug for clones.
-	* cp/decl2.c (emit_debug_for_namespace): Add FIXME note for
-	templates.
-	* dbxout.c (dbx_debug_hooks): Add early_finish field.
-	* sdbout.c (sdb_debug_hooks): Same.
-	* vmsdbgout.c (vmsdbg_debug_hooks): Same.
-	* debug.h (gcc_debug_hooks): Same.
-	* dwarf2out.c (dwarf2_debug_hooks): Same.
-	(new_die): Inhibit limbo dies unless generating early dwarf.
-	Set tmp_created_for field.
-	(gen_subprogram_die): Do not create a new DIE if we have an
-	old DIE and it has DW_AT_abstract_origin set.
-	Do not reset origin.
-	(struct die_struct): Add tmp_created_for field.
-	(optimize_location_lists): Abstract flushing of limbo list to...
-	(dwarf2out_early_finish): ...here. New function.
-	(print_die): Output tmp_created_for field.
-	(dwarf2out_abstract_function): Do not call recursively set
-	DECL_ABSTRACT_P if the parent was already an abstract.
-	* toplev.c (toplev::main): Add temporary debugging aid.
-	* tree.c (free_lang_data): Call debug_hooks->early_finish.
-
-2015-01-27  Aldy Hernandez  <aldyh@redhat.com>
-
 	* dwarf2out.c (file_table_last_lookup): Remove unset variable.
 	(lookup_filename): Remove file_table_last_lookup use.
 	(dwarf2out_c_finalize): Same.
