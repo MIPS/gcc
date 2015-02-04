@@ -5,7 +5,7 @@ template<typename T>
 
 template<typename T>
   struct S1 {
-    S1() requires C<T>() { }
+    S1(double) requires C<T>() { }
   };
 
 template<typename T>
@@ -14,5 +14,5 @@ template<typename T>
   };
 
 int main() {
-  S2<int> s; // { dg-error "deleted" }
+  S2<int> s; // { dg-error "deleted function" }
 }

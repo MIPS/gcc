@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "print-tree.h"
 #include "tree-hasher.h"
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -2603,6 +2604,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	snode->remove ();
     }
 
+  // Remove the associated constraints for newdecl, if any, before
+  // explicitly reclaiming memory.
+  remove_constraints (newdecl);
+
   ggc_free (newdecl);
 
   return olddecl;
@@ -4520,6 +4525,17 @@ check_tag_decl (cp_decl_specifier_seq *declspecs,
     }
 
   return declared_type;
+}
+
+// True if the type T is a class template or a class template 
+// specialization (either explicit or partial).
+static inline bool
+is_class_template_or_specialization (tree t)
+{
+  if (CLASS_TYPE_P (t) 
+      && (CLASSTYPE_IS_TEMPLATE (t) || CLASSTYPE_TEMPLATE_SPECIALIZATION (t)))
+    return true;
+  return false;
 }
 
 /* Called when a declaration is seen that contains no names to declare.
@@ -7600,88 +7616,6 @@ declare_simd_adjust_this (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-// Returns the leading template requirements if they exist.
-static inline tree
-get_leading_constraints ()
-{
-  return current_template_reqs ?
-    CI_LEADING_REQS (current_template_reqs) : NULL_TREE;
-}
-
-// When defining an out-of-class template, we want to adjust the
-// current template requirements by adding any template requirements
-// declared by the innermost template parameter list. For example:
-//
-//    template<typename T>
-//    struct S { template<C U> void f(); };
-//
-//    template<typename T>
-//    template<C U>
-//    void S<T>::f() { }  // #2
-//
-// When grokking #2, the constraints introduced by C are not
-// in the current_template_reqs; they are attached to the innermost
-// parameter list. The adjustment makes them part of the current
-// template requirements.
-static void
-adjust_fn_constraints (tree ctype)
-{
-  // When grokking a member function template, we are processing
-  // template decl at a depth greater than that of the member's
-  // enclosing class. That is, this case corresponds to the
-  // following declarations:
-  //
-  //    template<C T>
-  //    struct S {
-  //      template<D U> void f(U);
-  //    };
-  //
-  //    template<C T> template <D U> void S<T>::f(U) { }
-  //
-  // In both decls, the constraint D<U> is not the current leading
-  // constraint. Make it so.
-  //
-  // Note that for normal member functions, there are no leading
-  // requirements we need to gather.
-  if (ctype && processing_template_decl > template_class_depth (ctype))
-    {
-      if (tree ci = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms))
-        {
-          // TODO: When do I ever have leading requirements for a
-          // member function template?
-          tree reqs = CI_LEADING_REQS (ci);
-          if (reqs && !get_leading_constraints ())
-            current_template_reqs = save_leading_constraints (reqs);
-        }
-    }
-
-  // Otherwise, this is just a regular function template. Like so:
-  //
-  //    template<C T> void f();
-  //
-  // Note that the constraint C<T> is not the current leading requirement
-  // at this point; it was stashed before the declarator was parsed.
-  // Make it the leading constraint.
-  else if (!ctype && current_template_parms)
-  {
-    if (tree ci = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms))
-      {
-        tree r1 = CI_LEADING_REQS (ci);
-        if (current_template_reqs)
-          {
-            // TODO: As with above, when do I ever have leading
-            // requirements that aren't part of the template
-            // constraint.
-            tree r2 = CI_LEADING_REQS (current_template_reqs);
-            CI_LEADING_REQS (current_template_reqs) =
-                conjoin_constraints (r1, r2);
-          }
-        else
-          current_template_reqs = save_leading_constraints (r1);
-      }
-  }
-}
-
 /* CTYPE is class type, or null if non-class.
    TYPE is type this FUNCTION_DECL should have, either FUNCTION_TYPE
    or METHOD_TYPE.
@@ -7706,6 +7640,7 @@ grokfndecl (tree ctype,
 	    tree declarator,
 	    tree parms,
 	    tree orig_declarator,
+	    tree decl_reqs,
 	    int virtualp,
 	    enum overload_flags flags,
 	    cp_cv_quals quals,
@@ -7743,24 +7678,14 @@ grokfndecl (tree ctype,
 
   decl = build_lang_decl (FUNCTION_DECL, declarator, type);
 
-  // Possibly adjust the template requirements for out-of-class
-  // function definitions. This guarantees that current_template_reqs
-  // will be fully completed before calling finish_template_constraints.
+  // Set the constraints on the declaration.
   if (flag_concepts)
-    adjust_fn_constraints (ctype);
-
-  // Check and normalize the template requirements for the declared
-  // function. Note that these constraints are multiply associated
-  // with both the template-decl and the function-decl.
-  if (current_template_reqs)
     {
-      current_template_reqs
-        = finish_template_constraints (current_template_reqs);
-      set_constraints (decl, current_template_reqs);
-
-      // TODO: Disallow these until we resolve the linking issue.
-      if (current_template_reqs && !current_template_parms)
-        sorry("constrained regular function");
+      tree temp_reqs = NULL_TREE;
+      if (processing_template_decl > template_class_depth (ctype))
+        temp_reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
+      tree ci = build_constraints (temp_reqs, decl_reqs);
+      set_constraints (decl, ci);
     }
 
   /* If we have an explicit location, use it, otherwise use whatever
@@ -7830,12 +7755,16 @@ grokfndecl (tree ctype,
           // specializations. They cannot be instantiated since they
           // must match a fully instantiated function, and non-dependent
           // functions cannot be constrained.
-          if (current_template_reqs)
-            {
-              error ("constraints are not allowed in declaration "
-                     "of friend template specialization %qD", decl);
-              return NULL_TREE;
-            }
+          //
+          // FIXME [concepts] This is no longer correct. We do disallow
+          // constraints on friend function template specializations.
+          //             
+          // if (current_template_reqs)
+          //   {
+          //     error ("constraints are not allowed in declaration "
+          //            "of friend template specialization %qD", decl);
+          //     return NULL_TREE;
+          //   }
 
 	  /* A friend declaration of the form friend void f<>().  Record
 	     the information in the TEMPLATE_ID_EXPR.  */
@@ -9002,6 +8931,18 @@ check_var_type (tree identifier, tree type)
   return type;
 }
 
+// Return a trailing requires clause for a function declarator, or
+// NULL_TREE if there is no trailing requires clause or the declarator
+// is some other kind.
+static inline tree
+get_trailing_requires_clause (const cp_declarator *declarator)
+{
+  if (declarator && declarator->kind == cdk_function)
+    return declarator->u.function.requires_clause;
+  else
+    return NULL_TREE;
+}
+
 /* Given declspecs and a declarator (abstract or otherwise), determine
    the name and type of the object declared and construct a DECL node
    for it.
@@ -9131,6 +9072,9 @@ grokdeclarator (const cp_declarator *declarator,
   longlong = decl_spec_seq_has_spec_p (declspecs, ds_long_long);
   explicit_intN = declspecs->explicit_intN_p;
   thread_p = decl_spec_seq_has_spec_p (declspecs, ds_thread);
+
+  // Get a requires-clause attached to the declarator.
+  tree reqs = get_trailing_requires_clause (declarator);
 
   // Was concept_p specified? Note that ds_concept
   // implies ds_constexpr!
@@ -10960,6 +10904,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       ? unqualified_id : dname,
 			       parms,
 			       unqualified_id,
+			       reqs,
 			       virtualp, flags, memfn_quals, rqual, raises,
 			       friendp ? -1 : 0, friendp, publicp,
                                inlinep | (2 * constexpr_p) | (4 * concept_p),
@@ -11188,7 +11133,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  TYPE_HAS_LATE_RETURN_TYPE (type) = 1;
 
 	decl = grokfndecl (ctype, type, original_name, parms, unqualified_id,
-			   virtualp, flags, memfn_quals, rqual, raises,
+                           reqs, virtualp, flags, memfn_quals, rqual, raises,
 			   1, friendp,
 			   publicp,
                            inlinep | (2 * constexpr_p) | (4 * concept_p),
@@ -12578,13 +12523,11 @@ xref_tag_1 (enum tag_types tag_code, tree name,
     {
       if (template_header_p && MAYBE_CLASS_TYPE_P (t))
         {
-	  // It's safe to finish the current template requirements here
-	  // since a class doesn't have trailing requirements.
-	  if (current_template_reqs)
-	    current_template_reqs =
-		finish_template_constraints (current_template_reqs);
-	  if (!redeclare_class_template (t, current_template_parms,
-					 current_template_reqs))
+          // Check that we aren't trying to overload a class with
+          // different constraints.
+          tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
+          tree constr = build_constraints (reqs, NULL_TREE);
+	  if (!redeclare_class_template (t, current_template_parms, constr))
 	    return error_mark_node;
         }
       else if (!processing_template_decl

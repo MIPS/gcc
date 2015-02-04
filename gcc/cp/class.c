@@ -4424,6 +4424,14 @@ build_clone (tree fn, tree name)
       TREE_TYPE (clone) = TREE_TYPE (result);
       return clone;
     }
+  else
+    {
+      // Clone constraints
+      if (flag_concepts)
+        if (tree ci = get_constraints (fn))
+          set_constraints (clone, copy_node (ci));
+    }
+
 
   SET_DECL_ASSEMBLER_NAME (clone, NULL_TREE);
   DECL_CLONED_FUNCTION (clone) = fn;

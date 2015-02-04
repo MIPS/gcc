@@ -825,26 +825,23 @@ struct GTY(()) tree_template_info {
 // Constraint information for a C++ declaration. Constraint information is
 // comprised of:
 //
-// - leading requirements (possibly null), which are introduced by the
-//   template header and constrained-type-specifiers in a parameter
-//   declaration clause
-// - trailing requirements (possibly null), which are introduced by the
-//   a requires-clause following a declarator in a function declaration,
-//   member declaration, or function definition.
-// - associated requirements (should never be null), which is the conjunction
-//   of leading and trailing requirements (in that order), and
-// - assumptions which is the result of analyzed and decomposed template
-//   requirements.
+// - a constraint expression introduced by the template header
+// - a constraint expression introduced by a function declarator
+// - the associated constraints, which are the conjunction of those,
+//   and used for declaration matching
+// - the cached normalized associated constraints which are used
+//   to support satisfaction and subsumption.
+// - assumptions which is the result of decomposing the normalized
+//   constraints.
 //
-// The leading and trailing requirements are kept to support pretty printing
-// constrained declarations. The associated requirements are used for
-// declaration matching, and the assumptions are computed to support
-// partial ordering of constraints.
+// The template and declarator requirements are kept to support pretty 
+// printing constrained declarations.
 struct GTY(()) tree_constraint_info {
   struct tree_base base;
-  tree leading_reqs;
-  tree trailing_reqs;
-  tree associated_reqs;
+  tree template_reqs;
+  tree declarator_reqs;
+  tree associated_constr;
+  tree normalized_constr;
   tree assumptions;
 };
 
@@ -861,21 +858,23 @@ check_constraint_info (tree t)
 // null if no constraints were introduced in the template parameter list,
 // a requirements clause after the template parameter list, or constraints
 // through a constrained-type-specifier.
-#define CI_LEADING_REQS(NODE) \
-  check_constraint_info (check_nonnull(NODE))->leading_reqs
+#define CI_TEMPLATE_REQS(NODE) \
+  check_constraint_info (check_nonnull(NODE))->template_reqs
 
 // Access the expression describing the trailing constraints. This is non-null
 // for any implicit instantiation of a constrained declaration. For a
 // templated declaration it is non-null only when a trailing requires-clause
 // was specified.
-#define CI_TRAILING_REQS(NODE) \
-  check_constraint_info (check_nonnull(NODE))->trailing_reqs
+#define CI_DECLARATOR_REQS(NODE) \
+  check_constraint_info (check_nonnull(NODE))->declarator_reqs
 
-// Access the expression describing the associated constraints of a
-// declaration. This is the conjunction of leading and trailing
-// requirements.
-#define CI_ASSOCIATED_REQS(NODE) \
-  check_constraint_info (check_nonnull(NODE))->associated_reqs
+// The computed associated constraint expression for a declaration.
+#define CI_ASSOCIATED_CONSTRAINTS(NODE) \
+  check_constraint_info (check_nonnull(NODE))->associated_constr
+
+// The normalized associated constraints.
+#define CI_NORMALIZED_CONSTRAINTS(NODE) \
+  check_constraint_info (check_nonnull(NODE))->normalized_constr
 
 // Get the set of assumptions associated with the constraint info node.
 #define CI_ASSUMPTIONS(NODE) \
@@ -1141,7 +1140,6 @@ struct GTY(()) saved_scope {
   vec<tree, va_gc> *lang_base;
   tree lang_name;
   tree template_parms;
-  tree template_reqs;
   cp_binding_level *x_previous_class_level;
   tree x_saved_tree;
 
@@ -1207,11 +1205,6 @@ struct GTY(()) saved_scope {
    stored in the TREE_VALUE.  */
 
 #define current_template_parms scope_chain->template_parms
-
-// When parsing a template declaration this node represents the
-// active template requirements. This includes the lists of
-// actual assumptions in the current scope.
-#define current_template_reqs scope_chain->template_reqs
 
 #define processing_template_decl scope_chain->x_processing_template_decl
 #define processing_specialization scope_chain->x_processing_specialization
@@ -2103,10 +2096,6 @@ struct GTY(()) lang_decl_min {
      VAR_DECL, TYPE_DECL, or TEMPLATE_DECL, this is
      DECL_TEMPLATE_INFO.  */
   tree template_info;
-
-  // The constraint info maintains information about constraints
-  // associated with the declaration.
-  tree constraint_info;
 
   union lang_decl_u2 {
     /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
@@ -5152,6 +5141,8 @@ struct cp_declarator {
       tree exception_specification;
       /* The late-specified return type, if any.  */
       tree late_return_type;
+      /* The trailing requires-clause, if any. */
+      tree requires_clause;
     } function;
     /* For arrays.  */
     struct {
@@ -6473,6 +6464,9 @@ extern tree conjoin_constraints                 (tree, tree);
 extern tree conjoin_constraints                 (tree);
 extern tree get_constraints                     (tree);
 extern void set_constraints                     (tree, tree);
+extern void remove_constraints                  (tree);
+extern tree associate_classtype_constraints     (tree);
+extern tree build_constraints                   (tree, tree);
 extern tree get_shorthand_constraints           (tree);
 
 extern tree build_concept_check                 (tree, tree, tree = NULL_TREE);

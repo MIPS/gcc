@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "intl.h"
 #include "cp-tree.h"
+#include "print-tree.h"
 #include "cxx-pretty-print.h"
 #include "tree-pretty-print.h"
 
@@ -1615,12 +1616,28 @@ cxx_pretty_printer::direct_declarator (tree t)
 
 /* declarator:
    direct-declarator
-   ptr-operator declarator  */
+   ptr-operator declarator  
+
+   Concepts:
+
+   declarator:
+     basic-declarator requires-clause(opt)
+
+   basic-declarator:
+     direct-declarator
+     ptr-operator declarator
+   */
 
 void
 cxx_pretty_printer::declarator (tree t)
 {
   direct_declarator (t);
+
+  // Print a requires clause.
+  if (flag_concepts)
+    if (tree ci = get_constraints (t))
+      if (tree reqs = CI_DECLARATOR_REQS (ci))
+        pp_cxx_requires_clause (this, reqs);
 }
 
 /* ctor-initializer:
@@ -1671,12 +1688,6 @@ pp_cxx_function_definition (cxx_pretty_printer *pp, tree t)
   tree saved_scope = pp->enclosing_scope;
   pp->declaration_specifiers (t);
   pp->declarator (t);
-
-  // Print a requires clause.
-  if (flag_concepts)
-    if (tree ci = get_constraints (t))
-      pp_cxx_requires_clause (pp, CI_TRAILING_REQS (ci));
-
   pp_needs_newline (pp) = true;
   pp->enclosing_scope = DECL_CONTEXT (t);
   if (DECL_SAVED_TREE (t))
@@ -2128,12 +2139,6 @@ pp_cxx_init_declarator (cxx_pretty_printer *pp, tree t)
 {
   pp->declarator (t);
 
-  // If there's a trailing requires clause, print it here.
-  if (flag_concepts) {
-    if (tree ci = get_constraints (t))
-      pp_cxx_requires_clause (pp, CI_TRAILING_REQS (ci));
-  }
-
   /* We don't want to output function definitions here.  There are handled
      elsewhere (and the syntactic form is bogus anyway).  */
   if (TREE_CODE (t) != FUNCTION_DECL && DECL_INITIAL (t))
@@ -2278,10 +2283,11 @@ pp_cxx_template_declaration (cxx_pretty_printer *pp, tree t)
 
   if (flag_concepts)
     if (tree ci = get_constraints (t))
-       {
-          pp_cxx_requires_clause (pp, CI_LEADING_REQS (ci));
-          pp_newline_and_indent (pp, 6);
-       }
+      if (tree reqs = CI_TEMPLATE_REQS (ci))
+         {
+            pp_cxx_requires_clause (pp, reqs);
+            pp_newline_and_indent (pp, 6);
+         }
 
   if (TREE_CODE (t) == FUNCTION_DECL && DECL_SAVED_TREE (t))
     pp_cxx_function_definition (pp, t);

@@ -11,9 +11,9 @@ template<typename T>
 // of whether or not they are dependent. This causes T* to be substituted
 // without acutally checking the constraints.
 template<typename T>
-  using Y = X<T>; // { dg-error "constraints"}
+  using Y = X<T>;
 
 int main()
 {
-  Y<int> y1; // { dg-error "invalid" }
+  Y<int> y1; // { dg-error "" "" { xfail *-*-* } }
 }

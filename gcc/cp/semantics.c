@@ -2439,6 +2439,8 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	  else
 	    {
 	      next = OVL_CHAIN (fn);
+              if (flag_concepts)
+                remove_constraints (fn);
 	      ggc_free (fn);
 	    }
 	}
@@ -2730,7 +2732,12 @@ finish_template_template_parm (tree aggr, tree identifier)
   DECL_TEMPLATE_PARMS (tmpl) = current_template_parms;
   DECL_TEMPLATE_RESULT (tmpl) = decl;
   DECL_ARTIFICIAL (decl) = 1;
-  set_constraints (tmpl, finish_template_constraints (current_template_reqs));
+  
+  // Associate the constraints with the underlying declaration,
+  // not the template.
+  tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
+  tree constr = build_constraints (reqs, NULL_TREE);
+  set_constraints (decl, constr);
 
   end_template_decl ();
 

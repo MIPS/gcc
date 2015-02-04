@@ -2948,7 +2948,8 @@ cp_tree_equal (tree t1, tree t2)
 	      && cp_tree_equal (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 1)));
 
     case CONSTRAINT_INFO:
-      return cp_tree_equal (CI_ASSOCIATED_REQS (t1), CI_ASSOCIATED_REQS (t2));
+      return cp_tree_equal (CI_ASSOCIATED_CONSTRAINTS (t1), 
+                            CI_ASSOCIATED_CONSTRAINTS (t2));
 
     case TREE_VEC:
       {

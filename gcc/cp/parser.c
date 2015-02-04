@@ -9077,9 +9077,6 @@ cp_parser_lambda_expression (cp_parser* parser)
     parser->implicit_template_scope = 0;
     parser->auto_is_implicit_function_template_parm_p = false;
 
-    // Reset the current requirements also.
-    tree saved_template_reqs = release (current_template_reqs);
-
     /* By virtue of defining a local class, a lambda expression has access to
        the private variables of enclosing classes.  */
 
@@ -9117,9 +9114,6 @@ cp_parser_lambda_expression (cp_parser* parser)
     parser->implicit_template_scope = implicit_template_scope;
     parser->auto_is_implicit_function_template_parm_p
 	= auto_is_implicit_function_template_parm_p;
-
-    // Restore requirements.
-    current_template_reqs = saved_template_reqs;
   }
 
   pop_deferring_access_checks ();
@@ -13443,7 +13437,7 @@ cp_parser_check_constrained_type_parm (cp_parser *parser,
   return true;
 }
 
-// Finish parsing/processing a template type parameter and chekcing
+// Finish parsing/processing a template type parameter and checking
 // various restrictions.
 static inline tree
 cp_parser_constrained_type_template_parm (cp_parser *parser,
@@ -13476,6 +13470,7 @@ cp_parser_constrained_template_template_parm (cp_parser *parser,
 
   tree parm = finish_template_template_parm (class_type_node, id);
   current_template_parms = saved_parms;
+
   return parm;
 }
 
@@ -13905,10 +13900,6 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 	tree identifier;
 	tree default_argument;
 
-        // Save the current requirements before parsing the
-        // template parameter list.
-        tree saved_template_reqs = release (current_template_reqs);
-
 	/* Look for the `<'.  */
 	cp_parser_require (parser, CPP_LESS, RT_LESS);
 	/* Parse the template-parameter-list.  */
@@ -13922,11 +13913,7 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
             tree reqs = get_shorthand_constraints (current_template_parms);
             if (tree r = cp_parser_requires_clause_opt (parser))
               reqs = conjoin_constraints (reqs, r);
-            current_template_reqs = save_leading_constraints (reqs);
-
-            // Attach the constraints to the parameter list.
-            TEMPLATE_PARMS_CONSTRAINTS (current_template_parms)
-              = current_template_reqs;
+            TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = reqs;
           }
 
 	/* Look for the `class' or 'typename' keywords.  */
@@ -13960,9 +13947,6 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 	/* Create the template parameter.  */
 	parameter = finish_template_template_parm (class_type_node,
 						   identifier);
-
-        // Restore the saved constraints.
-        current_template_reqs = saved_template_reqs;
 
 	/* If the next token is an `=', then there is a
 	   default-argument.  */
@@ -14222,6 +14206,7 @@ cp_parser_template_id (cp_parser *parser,
     }
 
   pop_to_parent_deferring_access_checks ();
+
   return template_id;
 }
 
@@ -14478,6 +14463,11 @@ cp_parser_template_argument_list (cp_parser* parser)
              EXPR_PACK_EXPANSION. */
           argument = make_pack_expansion (argument);
         }
+
+      // If we end up with a template decl argument, check if this is actually
+      // a template template parameter and drop the outer wrapping.
+      if (DECL_TEMPLATE_TEMPLATE_PARM_P (argument))
+	argument = TREE_TYPE (argument);
 
       if (n_args == alloced)
 	{
@@ -17057,6 +17047,14 @@ cp_parser_alias_declaration (cp_parser* parser)
   if (decl == error_mark_node)
     return decl;
 
+  // Attach constraints to the alias declaration.
+  if (flag_concepts)
+    {
+      tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
+      tree constr = build_constraints (reqs, NULL_TREE);
+      set_constraints (decl, constr);
+    }
+
   cp_finish_decl (decl, NULL_TREE, 0, NULL_TREE, 0);
 
   if (pushed_scope)
@@ -17310,51 +17308,6 @@ cp_parser_asm_definition (cp_parser* parser)
     }
 }
 
-// An RAII guard that manages the current template requirements. The
-// constructor takes a boolean value, SAVE that, when true, resets
-// the current template requirements on construction. Otherwise, no change
-// is made. When the destructor is invoked, the current template requirements
-// are reset (made null) preventing subsequent parsing routines from using
-// them.
-struct cp_manage_requirements {
-  bool save;
-  tree reqs;
-
-  // Construct the guard. If SAVE is true, the current requirements
-  // saved and reset. Otherwise, no action is taken.
-  cp_manage_requirements (bool save)
-    : save (save), reqs (save ? release (current_template_reqs) : NULL_TREE)
-  { }
-
-  ~cp_manage_requirements ()
-  {
-    current_template_reqs = reqs;
-  }
-};
-
-// A DECLARATOR may have a trailing requires clause; it may also have
-// requirements introduced through the use of terse notation in the
-// declaration of function parameters. Returns the parsed and analyzed
-// template requirements.
-static tree
-cp_parser_trailing_requirements (cp_parser *parser, cp_declarator *decl)
-{
-  if (function_declarator_p (decl))
-    {
-      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
-        {
-          ++cp_unevaluated_operand;
-          push_function_parms (decl);
-          cp_lexer_consume_token (parser->lexer);
-          tree reqs = cp_parser_requires_clause (parser);
-          current_template_reqs = save_trailing_constraints (reqs);
-          finish_scope();
-          --cp_unevaluated_operand;
-        }
-    }
-  return current_template_reqs;
-}
-
 /* Declarators [gram.dcl.decl] */
 
 /* Parse an init-declarator.
@@ -17456,23 +17409,6 @@ cp_parser_init_declarator (cp_parser* parser,
      declared.  */
   resume_deferring_access_checks ();
 
-  // If scope is non-null, then we're parsing a declarator with
-  // a nested-name specifier. It's possible that some component of
-  // that specifier is bringing template constraints with it, which
-  // we need to suppress for for the time being. For example:
-  //
-  //    template<typename T>
-  //      requires C<T>()
-  //        void S<T>::f() requires D<T>() { ... }
-  //
-  // At the point we parse the 2nd requires clause, the previous the
-  // current constraints will have been used to resolve the enclosing
-  // class S<T>. The D<T>() requirement applies only to the definition
-  // of f and do not include C<T>().
-  //
-  // Save requirements, resetting them if the scope was established.
-  cp_manage_requirements saved_requirements (true);
-
   /* Parse the declarator.  */
   token = cp_lexer_peek_token (parser->lexer);
   declarator
@@ -17526,8 +17462,6 @@ cp_parser_init_declarator (cp_parser* parser,
   attributes = cp_parser_attributes_opt (parser);
 
   // Parse an optional trailing requires clause for the parsed declarator.
-  if (flag_concepts)
-    cp_parser_trailing_requirements (parser, declarator);
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -17866,7 +17800,7 @@ cp_parser_init_declarator (cp_parser* parser,
    FRIEND_P is true iff this declarator is a friend.  */
 
 static cp_declarator *
-cp_parser_declarator (cp_parser* parser,
+cp_parser_basic_declarator (cp_parser* parser,
 		      cp_parser_declarator_kind dcl_kind,
 		      int* ctor_dtor_or_conv_p,
 		      bool* parenthesized_p,
@@ -17907,7 +17841,7 @@ cp_parser_declarator (cp_parser* parser,
 	cp_parser_parse_tentatively (parser);
 
       /* Parse the dependent declarator.  */
-      declarator = cp_parser_declarator (parser, dcl_kind,
+      declarator = cp_parser_basic_declarator (parser, dcl_kind,
 					 /*ctor_dtor_or_conv_p=*/NULL,
 					 /*parenthesized_p=*/NULL,
 					 /*member_p=*/false,
@@ -17938,6 +17872,75 @@ cp_parser_declarator (cp_parser* parser,
 
   return declarator;
 }
+
+
+// A declarator may have a trailing requires clause. Because the
+// requires clause is part of the declarator the function parameters
+// are visibile in that expression.
+static tree
+cp_parser_trailing_requires_clause (cp_parser *parser, cp_declarator *decl)
+{
+  tree reqs = NULL_TREE;
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
+    {
+      cp_lexer_consume_token (parser->lexer);
+      push_function_parms (decl);
+      ++cp_unevaluated_operand;
+      reqs = cp_parser_requires_clause (parser);
+      --cp_unevaluated_operand;
+      finish_scope();
+    }
+  return reqs;
+}
+
+/* Parse a declarator. See cp_parser_basic_declarator for details.
+
+   In concepts, we allow a requires-clause to be parsed at
+   after a function declarator. The program is ill-formed for
+   any other kind of declarator.
+
+     declarator:
+       basic-declarator requires-clause [opt]   
+
+     basic-declarator:
+       direct-declarator
+       ptr-operator-declarator */
+
+static cp_declarator *
+cp_parser_declarator (cp_parser* parser,
+          cp_parser_declarator_kind dcl_kind,
+          int* ctor_dtor_or_conv_p,
+          bool* parenthesized_p,
+          bool member_p, bool friend_p)
+{
+  cp_declarator *declarator = 
+    cp_parser_basic_declarator (parser, dcl_kind, 
+                            ctor_dtor_or_conv_p, 
+                            parenthesized_p,
+                            member_p,
+                            friend_p);
+  if (!declarator)
+    return declarator;
+
+  // Parse the optional trailing requires clause. Note that
+  // the requires clause is only valid for function declarators.
+  if (flag_concepts)
+    {
+      if (declarator->kind == cdk_function)
+        {
+          declarator->u.function.requires_clause
+            = cp_parser_trailing_requires_clause (parser, declarator);
+        }
+      else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
+        {
+          error ("requires clause after non-function declaration");
+          cp_parser_skip_to_end_of_statement (parser);
+        }
+    }    
+  return declarator;
+}
+
+
 
 /* Parse a direct-declarator or direct-abstract-declarator.
 
@@ -20308,6 +20311,7 @@ cp_parser_class_specifier_1 (cp_parser* parser)
   /* Parse the class-head.  */
   type = cp_parser_class_head (parser,
 			       &nested_name_specifier_p);
+
   /* If the class-head was a semantic disaster, skip the entire body
      of the class.  */
   if (!type)
@@ -20348,6 +20352,10 @@ cp_parser_class_specifier_1 (cp_parser* parser)
   saved_in_unbraced_linkage_specification_p
     = parser->in_unbraced_linkage_specification_p;
   parser->in_unbraced_linkage_specification_p = false;
+
+  // Associate constraints with the type.
+  if (flag_concepts)
+    type = associate_classtype_constraints (type);
 
   /* Start the class.  */
   if (nested_name_specifier_p)
@@ -21489,10 +21497,6 @@ cp_parser_member_declaration (cp_parser* parser)
 	      tree asm_specification;
 	      int ctor_dtor_or_conv_p;
 
-              // Save off the requirements, creating a new context
-              // for constraints.
-              cp_manage_requirements saved_requirements (true);
-
 	      /* Parse the declarator.  */
 	      declarator
 		= cp_parser_declarator (parser, CP_PARSER_DECLARATOR_NAMED,
@@ -21593,11 +21597,6 @@ cp_parser_member_declaration (cp_parser* parser)
 	      else
 		initializer = NULL_TREE;
 
-              // Save and reset the current template requirements. Handle
-              // the trailing requirements, if there are any.
-              if (flag_concepts)
-                cp_parser_trailing_requirements (parser, declarator);
-
 	      /* See if we are probably looking at a function
 		 definition.  We are certainly not looking at a
 		 member-declarator.  Calling `grokfield' has
@@ -21623,9 +21622,6 @@ cp_parser_member_declaration (cp_parser* parser)
 		  /* If the member was not a friend, declare it here.  */
 		  if (!friend_p)
 		    finish_member_declaration (decl);
-
-                  if (friend_p)
-                     check_constrained_friend (decl, current_template_reqs);
 
 		  /* Peek at the next token.  */
 		  token = cp_lexer_peek_token (parser->lexer);
@@ -24432,8 +24428,9 @@ cp_parser_template_introduction (cp_parser* parser)
     }
 
   // Build and associate the constraint.
-  if (tree p = finish_concept_introduction (tmpl_decl, introduction_list))
-    return p;
+  tree parms = finish_concept_introduction (tmpl_decl, introduction_list);
+  if (parms)
+    return parms;
 
   error_at (token->location, "no matching concept for introduction-list");
   return error_mark_node;
@@ -24452,7 +24449,6 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
   bool friend_p = false;
   bool need_lang_pop;
   cp_token *token;
-  tree saved_template_reqs;
 
   /* Look for the `template' keyword.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -24495,9 +24491,6 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 	 cannot check the decl-specifier list.  */
       push_deferring_access_checks (dk_deferred);
 
-      // Save the current template requirements.
-      saved_template_reqs = release (current_template_reqs);
-
       /* If the next token is `>', then we have an invalid
          specialization.  Rather than complain about an invalid template
          parameter, issue an error message here.  */
@@ -24528,20 +24521,13 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 	  tree reqs = get_shorthand_constraints (current_template_parms);
 	  if (tree r = cp_parser_requires_clause_opt (parser))
 	    reqs = conjoin_constraints (reqs, r);
-	  current_template_reqs = save_leading_constraints (reqs);
-
-	  // Attach the constraints to the template parameter list.
-	  // This is used to pass template requirements to out-of-class
-	  // member definitions.
-	  TEMPLATE_PARMS_CONSTRAINTS (current_template_parms)
-	    = current_template_reqs;
+          TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = reqs;
 	}
     }
   else if (flag_concepts)
     {
       need_lang_pop = false;
       checks = NULL;
-      saved_template_reqs = release (current_template_reqs);
 
       // Scope may be changed by a nested-name-specifier.
       tree saved_scope = parser->scope;
@@ -24552,14 +24538,15 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       parameter_list = cp_parser_template_introduction (parser);
       if (parameter_list == error_mark_node)
         {
-	  current_template_reqs = saved_template_reqs;
           pop_deferring_access_checks ();
-	  return;
+          cp_parser_skip_to_end_of_statement (parser);
+          return;
         }
 
       parser->scope = saved_scope;
       parser->qualifying_scope = saved_qualifying_scope;
       parser->object_scope = saved_object_scope;
+
     }
   else
     {
@@ -24615,9 +24602,6 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
   /* Finish up.  */
   finish_template_decl (parameter_list);
 
-  // Restore the current template requirements.
-  current_template_reqs = saved_template_reqs;
-
   /* Check the template arguments for a literal operator template.  */
   if (decl
       && DECL_DECLARES_FUNCTION_P (decl)
@@ -24663,6 +24647,7 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 		   decl);
 	}
     }
+
   /* Register member declarations.  */
   if (member_p && !friend_p && decl && !DECL_CLASS_TEMPLATE_P (decl))
     finish_member_declaration (decl);
@@ -24745,7 +24730,13 @@ cp_parser_single_declaration (cp_parser* parser,
     {
       if (cp_parser_declares_only_class_p (parser))
 	{
-	  decl = shadow_tag (&decl_specifiers);
+          // If this is a declaration, but not a definition, associate
+          // any constraints with the type declaration. Constraints
+          // are associated with definitions in cp_parser_class_specifier.
+          if (declares_class_or_enum == 1)
+            associate_classtype_constraints (decl_specifiers.type);
+
+          decl = shadow_tag (&decl_specifiers);
 
 	  /* In this case:
 
@@ -25112,11 +25103,6 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
   /* Make sure that any template parameters are in scope.  */
   maybe_begin_member_template_processing (member_function);
 
-  // Restore the declaration's requirements for the parsing of
-  // the definition.
-  tree saved_template_reqs = release (current_template_reqs);
-  current_template_reqs = get_constraints (member_function);
-
   /* If the body of the function has not yet been parsed, parse it
      now.  */
   if (DECL_PENDING_INLINE_P (member_function))
@@ -25171,9 +25157,6 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 
   /* Remove any template parameters from the symbol table.  */
   maybe_end_member_template_processing ();
-
-  // Restore the template requirements.
-  current_template_reqs = saved_template_reqs;
 
   /* Restore the queue.  */
   pop_unparsed_function_queues (parser);
@@ -33802,10 +33785,6 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
 			     /*non_type=*/false,
 			     /*param_pack=*/false);
 
-  // If the invented parameter was constrained, save the constraint.
-  if (tree reqs = TEMPLATE_PARM_CONSTRAINTS (tree_last (new_parm)))
-    current_template_reqs = save_leading_constraints (reqs);
-
   // Chain the new parameter to the list of implicit parameters.
   if (parser->implicit_template_parms)
     parser->implicit_template_parms
@@ -33834,6 +33813,15 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
       int new_parm_idx = TREE_VEC_LENGTH (new_parms);
       new_parms = grow_tree_vec (new_parms, new_parm_idx + 1);
       TREE_VEC_ELT (new_parms, new_parm_idx) = parser->implicit_template_parms;
+    }
+
+  // If the new parameter was constrained, we need to add that to the
+  // constraints in the tmeplate parameter list.
+  if (tree req = TEMPLATE_PARM_CONSTRAINTS (tree_last (new_parm)))
+    {
+      tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
+      reqs = conjoin_constraints (reqs, req);
+      TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = reqs;
     }
 
   current_binding_level = entry_scope;

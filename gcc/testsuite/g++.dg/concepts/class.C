@@ -49,12 +49,4 @@ static_assert(S2<char>::value == 0, "");
 static_assert(S2<one_type>::value == 1, "");
 static_assert(S2<two_type>::value == 2, "");
 
-// Check that there is no ecsacpe hatch
-template<Two T> struct S4 { };
-template<One T> struct S4<T> { }; // Should never be usable.
-
-S4<two_type>* x4a;
-// S4<one_type>* x4b; // Not suficiently strict
-
-
 int main() { }

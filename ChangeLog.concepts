@@ -1,3 +1,105 @@
+2015-02-03  Braden Obrzut  <admin@maniacsvault.net>
+
+	* gcc/cp/class.c (build_clone): Clone constraints.
+	* gcc/cp/constraint.cc (normalize_atom): Update diagnostic.
+	(normalize_constraints): Return error_mark_node if normalization fails.
+	(get_constraints): Access constraints through hash map.
+	(set_constraints): Set constraints through hash map.
+	(remove_constraints): Access constraints through hash map.
+	(associate_classtype_constraints): New.
+	(init_leading_requirements): Removed.
+	(init_trailing_requirements): Removed.
+	(update_leadng_requirements): Removed.
+	(update_trailing_requirements): Removed.
+	(save_leading_constraints): Removed.
+	(save_trailing_constraints): Removed.
+	(finish_template_constraints): Removed.
+	(build_constraints): New. Builds CONSTRAINT_INFO from requirements.
+	(finish_concept_introduction): Check generated parameters for errors.
+	(tsubst_constraint_info): Update implementation.
+	(equivalent_constraints): Check input types.
+	(subsumes_constraints): Update implementation.
+	(at_least_as_constrained): New. Check if a decl's constraints subsumes
+	another.
+	(diagnose_constraints): Temporarily simplify diagnostics.
+	* gcc/cp/cp-tree.h (tree_constraint_info): Refactor the way constraints
+	are stored.
+	(CI_TEMPLATE_REQS): Renamed from CI_LEADING_REQS.
+	(CI_DECLARATOR_REQS): Renamed from CI_TRAILING_REQS.
+	(CI_ASSOCIATED_CONSTRAINTS): New.
+	(CI_NORMALIZED_CONSTRAINTS): New.
+	(CI_ASSOCIATED_REQS): Removed.
+	(saved_scope): Save template requirements.
+	(current_template_reqs): Removed.
+	(lang_decl_min): Replace requires_clause (trailing requirements) with
+	more generic constraint_info.
+	* gcc/cp/cxx-pretty-print.c (cxx_pretty_printer::declarator): Print
+	requires clause.
+	(pp_cxx_function_definition): Moved requires clause printing to above.
+	(pp_cxx_init_declarator): Likewise.
+	(pp_cxx_template_declaration): Update implementation to get
+	requirements from CONSTRAINT_INFO.
+	* gcc/cp/decl.c (duplicate_decls): Remove constraints before reclaiming
+	memory.
+	(is_class_template_or_specialization): New.
+	(get_leading_constraints): Removed.
+	(adjust_fn_constraints): Removed.
+	(grokfndecl): Update implementation to other changes.
+	(get_trailing_requires_clause): New.
+	(grokdeclarator): Pass trailing requires clause to grokfndecl.
+	(xref_tag_1): Check overload constraints.
+	* gcc/cp/error.c (dump_template_decl): Print requires clause.
+	(dump_function_decl): Update implementation for accessing requirements.
+	* gcc/cp/logic.cc (subsumes_constraints_nonnull): Update
+	CI_ASSOCIATED_REQS usage.
+	* gcc/cp/method.c (implicitly_declare_fn): Copy constraints of
+	inherited constructors.
+	* gcc/cp/parser.c (cp_parser_lambda_expression): Remove now unneeded
+	template requirements saving.
+	(cp_parser_type_parameter): Likewise.
+	(cp_parser_template_argument_list): Unwrap template_template_parms when
+	produced by short hand notation with function concepts.
+	(cp_parser_alias_declaration): Attach constraints to aliases.
+	(cp_manage_requirements): Removed.
+	(cp_parser_trailing_requirements_clause): Renamed from
+	cp_parser_trailing_requirements.
+	(cp_parser_init_declarator): Removed now unneeded requirements saving.
+	(cp_parser_basic_declarator): Separated from cp_parser_declarator.
+	(cp_parser_declarator): Parses trailing requires clause if
+	cp_parser_basic_declarator succeeds.
+	(cp_parser_class_specifier_1): Associate constaints with type.
+	(cp_parser_member_declaration): Remove unneeded template requirement
+	saving.
+	(cp_parser_template_declaration_after_export): Likewise.
+	(cp_parser_single_declaration): Associate constraints.
+	(cp_parser_late_parsing_for_member): Remove unneeded template
+	requirement saving.
+	(synthesize_implicit_template_parm): Likewise.
+	* gcc/cp/pt.c (maybe_new_partial_specialization): Update
+	implementation.
+	(process_template_parm): Removed unneeded template requirement saving.
+	(build_template_decl): Handle constraints.
+	(process_partial_specialization): Update constraint access and check
+	that specialization is more specialized.
+	(push_template_decl_real): Update constraint access.
+	(add_inherited_template_parms): Removed constraint handling.
+	(tsubst_pack_conjuction): Update implemenation.
+	(tsubst_decl): Changed constraint propagation.
+	(more_specialized_fn): Update constraint access.
+	(most_specialized_partial_spec): Update constraint access.
+	* gcc/cp/ptree.c (cxx_print_xnode): Update constraint access.
+	* gcc/cp/semantics.c (finish_call_expr): Remove constraints.
+	(finish_template_template_parm): Update constraint access.
+	* gcc/testsuite/g++.dg/concepts/alias4.C: Mark xfail.
+	* gcc/testsuite/g++.dg/concepts/class.C: Check for escape hatch.
+	* gcc/testsuite/g++.dg/concepts/class6.C: Added diagnostic.
+	* gcc/testsuite/g++.dg/concepts/inherit-ctor1.C: Improved test case.
+	* gcc/testsuite/g++.dg/concepts/inherit-ctor2.C: Updated diagnostic.
+	* gcc/testsuite/g++.dg/concepts/inherit-ctor4.C: Updated diagnostic.
+	* gcc/testsuite/g++.dg/concepts/intro4.C: Updated diagnostics.
+	* gcc/testsuite/g++.dg/concepts/req4.C: Updated diagnostic.
+	* gcc/testsuite/g++.dg/concepts/req5.C: Updated diagnostic.
+
 2014-12-29  Jason Merrill  <jason@redhat.com>
 
 	* gcc/cp/pt.c (type_dependent_expression_p): Remove obsolete use of

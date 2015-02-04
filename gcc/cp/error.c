@@ -1320,9 +1320,6 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
 	    }
 	  pp_cxx_end_template_argument_list (pp);
 
-	  if (flag_concepts)
-	    if (tree ci = get_constraints (t))
-	      pp_cxx_requires_clause (pp, CI_LEADING_REQS (ci));
 
 	  pp_cxx_whitespace (pp);
 	}
@@ -1338,6 +1335,15 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
 	    pp_cxx_ws_string (pp, "...");
 	}
     }
+
+  if (flag_concepts)
+    if (tree ci = get_constraints (t))
+      if (check_constraint_info (ci))
+        if (tree reqs = CI_TEMPLATE_REQS (ci))
+	  {
+	    pp_cxx_requires_clause (pp, reqs);
+	    pp_cxx_whitespace (pp);
+	  }
 
   if (DECL_CLASS_TEMPLATE_P (t))
     dump_type (pp, TREE_TYPE (t),
@@ -1572,7 +1578,8 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
 
       if (flag_concepts)
         if (tree ci = get_constraints (t))
-          pp_cxx_requires_clause (pp, CI_TRAILING_REQS (ci));
+          if (tree reqs = CI_DECLARATOR_REQS (ci))
+            pp_cxx_requires_clause (pp, reqs);
 
       dump_substitution (pp, t, template_parms, template_args, flags);
     }

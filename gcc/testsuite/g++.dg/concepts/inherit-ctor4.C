@@ -14,5 +14,5 @@ template<typename T>
   };
 
 int main() {
-  S2<int> s(0); // { dg-error "matching" }
+  S2<int> s(0); // { dg-error "no matching function" }
 }

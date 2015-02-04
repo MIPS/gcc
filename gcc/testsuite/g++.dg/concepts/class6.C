@@ -8,7 +8,7 @@ template<typename T>
 
 // Check that there is no ecsacpe hatch
 template<Two T> struct S4 { };
-template<One T> struct S4<T> { }; // Should never be usable.
+template<One T> struct S4<T> { }; // { dg-error "not more specialized" }
 
 struct one_type { char x[4]; };
 
