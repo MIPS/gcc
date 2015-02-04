@@ -4709,7 +4709,6 @@ gfc_emit_parameter_debug_info (gfc_symbol *sym)
 					      TREE_TYPE (decl),
 					      sym->attr.dimension,
 					      false, false);
-  debug_hooks->early_global_decl (decl);
 }
 
 

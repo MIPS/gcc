@@ -4333,11 +4333,10 @@ dump_tu (void)
     }
 }
 
-/* Issue warnings for globals in NAME_SPACE (unused statics, etc) and
-   generate debug information for said globals.  */
+/* Issue warnings for globals in NAME_SPACE (unused statics, etc).  */
 
 static int
-emit_debug_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
+check_statics_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
 {
   cp_binding_level *level = NAMESPACE_LEVEL (name_space);
   vec<tree, va_gc> *statics = level->static_decls;
@@ -4345,12 +4344,6 @@ emit_debug_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
   int len = statics->length ();
 
   check_global_declarations (vec, len);
-
-  /* FIXME: What does this do for templates?  I think we don't want to
-     send a template off to early_global_decl, but rather walk through
-     its specializations and emit them.  */
-  for (tree t = level->names; t; t = TREE_CHAIN(t))
-    debug_hooks->early_global_decl (t);
 
   return 0;
 }
@@ -4740,15 +4733,10 @@ c_parse_final_cleanups (void)
      generate initial debug information.  */
   timevar_stop (TV_PHASE_PARSING);
   timevar_start (TV_PHASE_DBGINFO);
-  walk_namespaces (emit_debug_for_namespace, 0);
+  walk_namespaces (check_statics_for_namespace, 0);
   if (vec_safe_length (pending_statics) != 0)
-    {
-      check_global_declarations (pending_statics->address (),
-				 pending_statics->length ());
-      emit_debug_global_declarations (pending_statics->address (),
-				      pending_statics->length (),
-				      EMIT_DEBUG_EARLY);
-    }
+    check_global_declarations (pending_statics->address (),
+			       pending_statics->length ());
 
   perform_deferred_noexcept_checks ();
 

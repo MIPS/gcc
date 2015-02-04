@@ -2326,9 +2326,36 @@ symbol_table::finalize_compilation_unit (void)
   if (flag_dump_passes)
     dump_passes ();
 
+  /* Unfortunately, we need to iterate through the symbols twice to
+     generate early debug information for them.  Once to pick up
+     global statics that may be (later) removed by the reachability
+     code.  And once more, after build_cgraph_edges() discovers
+     static symbols hidden within functions.  */
+  symtab_node *snode;
+  FOR_EACH_SYMBOL (snode)
+    if (TREE_CODE (snode->decl) != FUNCTION_DECL
+	&& DECL_CONTEXT (snode->decl)
+	/* Anything who's context is not a TRANSLATION_UNIT_DECL will
+	   be handled by either handling reachable functions below, or
+	   by generating DIEs for types.  */
+	&& TREE_CODE (DECL_CONTEXT (snode->decl)) == TRANSLATION_UNIT_DECL)
+      (*debug_hooks->early_global_decl) (snode->decl);
+
   /* Gimplify and lower all functions, compute reachability and
      remove unreachable nodes.  */
   analyze_functions ();
+
+  /* This is the second iteration through the global symbols.  Here we
+     pick up function statics that have been discovered by the call to
+     analyze_functions() above.  */
+  FOR_EACH_SYMBOL (snode)
+    if (TREE_CODE (snode->decl) != FUNCTION_DECL
+	&& DECL_CONTEXT (snode->decl)
+	/* Anything who's context is not a TRANSLATION_UNIT_DECL will
+	   be handled by either handling reachable functions below, or
+	   by generating DIEs for types.  */
+	&& TREE_CODE (DECL_CONTEXT (snode->decl)) == TRANSLATION_UNIT_DECL)
+      (*debug_hooks->early_global_decl) (snode->decl);
 
   /* Mark alias targets necessary and emit diagnostics.  */
   handle_alias_pairs ();
@@ -2336,18 +2363,19 @@ symbol_table::finalize_compilation_unit (void)
   /* Gimplify and lower thunks.  */
   analyze_functions ();
 
-  /* Emit early dwarf information for clones now that we know which
-     ones are actually needed.  This is especially useful for C++
-     clones which have been skipped in gen_member_die().  */
-  cgraph_node *node;
-  FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
-    if (DECL_ABSTRACT_ORIGIN (node->decl))
-      {
-	tree save_fndecl = current_function_decl;
-	current_function_decl = node->decl;
-	(*debug_hooks->early_global_decl) (current_function_decl);
-	current_function_decl = save_fndecl;
-      }
+  /* Emit early debug for reachable functions.  */
+  struct cgraph_node *cnode;
+  FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (cnode)
+    if (DECL_CONTEXT (cnode->decl)
+	/* Anything who's context is not a TRANSLATION_UNIT_DECL will
+	   be handled by generating DIEs for types (or declaring
+	   things in their namespace).  */
+	&& TREE_CODE (DECL_CONTEXT (cnode->decl)) == TRANSLATION_UNIT_DECL)
+      (*debug_hooks->early_global_decl) (cnode->decl);
+
+  /* Clean up anything that needs cleaning up after initial debug
+     generation.  */
+  (*debug_hooks->early_finish) ();
 
   /* Finally drive the pass manager.  */
   compile ();

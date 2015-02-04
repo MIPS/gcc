@@ -5433,7 +5433,8 @@ print_die (dw_die_ref die, FILE *outfile)
   if (die->tmp_created_for
       && DECL_P (die->tmp_created_for)
       && CODE_CONTAINS_STRUCT
-           (TREE_CODE (die->tmp_created_for), TS_DECL_WITH_VIS))
+           (TREE_CODE (die->tmp_created_for), TS_DECL_WITH_VIS)
+      && DECL_ASSEMBLER_NAME_SET_P (die->tmp_created_for))
     fprintf (outfile, "(mangle: %s)",
 	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (die->tmp_created_for)));
   fputc ('\n', outfile);
@@ -18441,6 +18442,88 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   tree origin = decl_ultimate_origin (decl);
   dw_die_ref subr_die;
   dw_die_ref old_die = lookup_decl_die (decl);
+
+  /* This function gets called multiple times for different stages of
+     the debug process.  For example, for func() in this code:
+
+	namespace S
+	{
+	  void func() { ... }
+	}
+
+     ...we get called 4 times.  Twice in early debug and twice in
+     late debug:
+
+     Early debug
+     -----------
+
+       1. Once while generating func() within the namespace.  This is
+          the declaration.  The declaration bit below is set, as the
+          context is the namespace.
+
+	  A new DIE will be generated with DW_AT_declaration set.
+
+       2. Once for func() itself.  This is the specification.  The
+          declaration bit below is clear as the context is the CU.
+
+	  We will use the cached DIE from (1) to create a new DIE with
+	  DW_AT_specification pointing to the declaration in (1).
+
+     Late debug via rest_of_handle_final()
+     -------------------------------------
+
+       3. Once generating func() within the namespace.  This is also the
+          declaration, as in (1), but this time we will early exit below
+          as we have a cached DIE and a declaration needs no additional
+          annotations (no locations), as the source declaration line
+          info is enough.
+
+       4. Once for func() itself.  As in (2), this is the specification,
+          but this time we will re-use the cached DIE, and just annotate
+          it with the location information that should now be available.
+
+     For something without namespaces, but with abstract instances, we
+     are also called a multiple times:
+
+        class Base
+	{
+	public:
+	  Base ();	  // constructor declaration (1)
+	};
+
+	Base::Base () { } // constructor specification (2)
+
+    Early debug
+    -----------
+
+       1. Once for the Base() constructor by virtue of it being a
+          member of the Base class.  This is done via
+          rest_of_type_compilation.
+
+	  This is a declaration, so a new DIE will be created with
+	  DW_AT_declaration.
+
+       2. Once for the Base() constructor definition, but this time
+          while generating the abstract instance of the base
+          constructor (__base_ctor) which is being generated via early
+          debug of reachable functions.
+
+	  Even though we have a cached version of the declaration (1),
+	  we will create a DW_AT_specification of the declaration DIE
+	  in (1).
+
+       3. Once for the __base_ctor itself, but this time, we generate
+          an DW_AT_abstract_origin version of the DW_AT_specification in
+	  (2).
+
+    Late debug via rest_of_handle_final
+    -----------------------------------
+
+       4. One final time for the __base_ctor (which will have a cached
+          DIE with DW_AT_abstract_origin created in (3).  This time,
+          we will just annotate the location information now
+          available.
+  */
   int declaration = (current_function_decl != decl
 		     || class_or_namespace_scope_p (context_die));
 
@@ -18530,24 +18613,13 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	{
 	  subr_die = old_die;
 
-	  /* ??? Hmmm, early dwarf generation happened earlier, so no
-	     sense in removing the parameters.  Let's keep them and
-	     augment them with location information later.  */
-#if 0
-	  /* Clear out the declaration attribute and the formal parameters.
-	     Do not remove all children, because it is possible that this
-	     declaration die was forced using force_decl_die(). In such
-	     cases die that forced declaration die (e.g. TAG_imported_module)
-	     is one of the children that we do not want to remove.  */
+	  /* Clear out the declaration attribute, but leave the
+	     parameters so they can be augmented with location
+	     information later.  */
 	  remove_AT (subr_die, DW_AT_declaration);
-	  remove_AT (subr_die, DW_AT_object_pointer);
-	  remove_child_TAG (subr_die, DW_TAG_formal_parameter);
-#else
-	  /* We don't need the DW_AT_declaration the second or third
-	     time around anyhow.  */
-	  remove_AT (subr_die, DW_AT_declaration);
-#endif
 	}
+      /* Make a specification pointing to the previously built
+	 declaration.  */
       else
 	{
 	  subr_die = new_die (DW_TAG_subprogram, context_die, decl);
@@ -21352,8 +21424,24 @@ dwarf2out_late_global_decl (tree decl)
 static void
 dwarf2out_type_decl (tree decl, int local)
 {
+  /* ?? Technically, we shouldn't need this hook at all, as all
+     symbols (and by consequence their types) will be outputed from
+     finalize_compilation_unit.  However,
+     dwarf2out_imported_module_or_decl_1() needs FIELD_DECLs belonging
+     to a type to be previously available (at_import_die).
+
+     For now, output DIEs for types here, but eventually we should
+     beat dwarf2out_imported_module_or_decl_1 into submission (either
+     by calling it after early debug has run in
+     finalize_compilation_unit(), or by lazily creating the FIELD_DECL
+     DIEs from within dwarf2out_imported_module_or_decl_1.  */
   if (!local)
-    dwarf2out_decl (decl);
+    {
+      bool t = early_dwarf_dumping;
+      early_dwarf_dumping = true;
+      dwarf2out_decl (decl);
+      early_dwarf_dumping = t;
+    }
 }
 
 /* Output debug information for imported module or decl DECL.
@@ -21670,7 +21758,10 @@ dwarf2out_decl (tree decl)
   /* If we early created a DIE, make sure it didn't get re-created by
      mistake.  */
   if (early_die && early_die->dumped_early)
-    gcc_assert (early_die == die);
+    gcc_assert (early_die == die
+		/* We can have a differing DIE if and only if, the
+		   new one is a specification of the old one.  */
+		|| get_AT_ref (die, DW_AT_specification) == early_die);
 #endif
   return die;
 }
@@ -21766,6 +21857,9 @@ static struct dwarf_file_data *
 lookup_filename (const char *file_name)
 {
   struct dwarf_file_data * created;
+
+  if (!file_name)
+    return NULL;
 
   dwarf_file_data **slot
     = file_table->find_slot_with_hash (file_name, htab_hash_string (file_name),
@@ -24768,7 +24862,8 @@ dwarf2out_finish (const char *filename)
      dwarf pass, should have parents and should never be in the limbo
      list this late.  */
   for (limbo_die_node *node = limbo_die_list; node; node = node->next)
-    gcc_assert (!node->die->dumped_early);
+    gcc_assert (node->die->die_tag == DW_TAG_compile_unit
+		|| !node->die->dumped_early);
 
   /* Flush out any latecomers to the limbo party.  */
   dwarf2out_early_finish();

@@ -306,12 +306,12 @@ lhd_decl_ok_for_sibcall (const_tree decl ATTRIBUTE_UNUSED)
   return true;
 }
 
-/* Generic global declaration processing and early debug generation.
-   This is meant to be called by the front-ends at the end of parsing.
-   C/C++ do their own thing, but other front-ends may call this.  */
+/* Generic global declaration processing.  This is meant to be called
+   by the front-ends at the end of parsing.  C/C++ do their own thing,
+   but other front-ends may call this.  */
 
 void
-global_decl_processing_and_early_debug (void)
+global_decl_processing (void)
 {
   tree globals, decl, *vec;
   int len, i;
@@ -335,10 +335,6 @@ global_decl_processing_and_early_debug (void)
   wrapup_global_declarations (vec, len);
   check_global_declarations (vec, len);
   timevar_stop (TV_PHASE_DEFERRED);
-
-  timevar_start (TV_PHASE_DBGINFO);
-  emit_debug_global_declarations (vec, len, EMIT_DEBUG_EARLY);
-  timevar_stop (TV_PHASE_DBGINFO);
 
   timevar_start (TV_PHASE_PARSING);
   free (vec);

@@ -60,13 +60,9 @@ extern bool wrapup_global_declarations (tree *, int);
 extern void check_global_declaration_1 (tree);
 extern void check_global_declarations (tree *, int);
 
-enum emit_debug {
-  EMIT_DEBUG_EARLY,
-  EMIT_DEBUG_LATE
-};
-extern void emit_debug_global_declarations (tree *, int, enum emit_debug);
+extern void emit_debug_global_declarations (tree *, int);
 
-extern void global_decl_processing_and_early_debug (void);
+extern void global_decl_processing (void);
 
 extern void dump_memory_report (bool);
 extern void dump_profile_report (void);

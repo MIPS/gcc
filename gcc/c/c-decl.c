@@ -10657,10 +10657,7 @@ c_write_global_declarations_1 (tree globals)
      here, and start the TV_PHASE_DBGINFO timer.  Is it worth it, or
      would it convolute things?  */
   for (decl = globals; decl; decl = DECL_CHAIN (decl))
-    {
-      check_global_declaration_1 (decl);
-      debug_hooks->early_global_decl (decl);
-    }
+    check_global_declaration_1 (decl);
   /* ?? Similarly here. Stop TV_PHASE_DBGINFO and start
      TV_PHASE_DEFERRED again.  */
 }

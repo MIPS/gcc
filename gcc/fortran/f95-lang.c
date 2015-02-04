@@ -242,8 +242,7 @@ gfc_be_parse_file (void)
      diagnostics before gfc_finish().  */
   gfc_diagnostics_finish ();
 
-  /* Do the debug dance.  */
-  global_decl_processing_and_early_debug ();
+  global_decl_processing ();
 }
 
 

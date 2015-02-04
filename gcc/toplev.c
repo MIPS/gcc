@@ -538,13 +538,11 @@ check_global_declarations (tree *v, int len)
     check_global_declaration_1 (v[i]);
 }
 
-/* Emit debugging information for all global declarations in VEC.
-   WHEN is either EMIT_DEBUG_EARLY or EMIT_DEBUG_LATE depending on if
-   we are generating early debug (at the end of parsing), or the late
-   (post compilation) version.  */
+/* Emit late debugging information (post compilation) for all global
+   declarations in VEC.  */
 
 void
-emit_debug_global_declarations (tree *vec, int len, enum emit_debug when)
+emit_debug_global_declarations (tree *vec, int len)
 {
   int i;
 
@@ -554,14 +552,7 @@ emit_debug_global_declarations (tree *vec, int len, enum emit_debug when)
 
   timevar_push (TV_SYMOUT);
   for (i = 0; i < len; i++)
-    {
-      if (when == EMIT_DEBUG_EARLY)
-	debug_hooks->early_global_decl (vec[i]);
-      else if (when == EMIT_DEBUG_LATE)
-	debug_hooks->late_global_decl (vec[i]);
-      else
-	gcc_unreachable ();
-    }
+    debug_hooks->late_global_decl (vec[i]);
   timevar_pop (TV_SYMOUT);
 }
 

@@ -3000,8 +3000,6 @@ Gcc_backend::write_global_definitions(
 
   wrapup_global_declarations(defs, i);
 
-  emit_debug_global_declarations (defs, i, EMIT_DEBUG_EARLY);
-
   /* ?? Can we leave this call here, thus getting called before
      finalize_compilation_unit?
 

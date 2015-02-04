@@ -1194,8 +1194,6 @@ extern void rewrite_reflection_indexes (void *);
 
 int cxx_keyword_p (const char *name, int length);
 
-extern GTY(()) vec<tree, va_gc> *pending_static_fields;
-
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
 /* Access flags etc for a method (a FUNCTION_DECL): */
