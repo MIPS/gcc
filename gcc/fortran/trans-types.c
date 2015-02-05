@@ -1290,9 +1290,10 @@ gfc_is_nodesc_array (gfc_symbol * sym)
 {
   symbol_attribute *array_attr;
   gfc_array_spec *as;
+  bool is_classarray = IS_CLASS_ARRAY (sym);
 
-  array_attr = &sym->attr;
-  as = sym->as;
+  array_attr = is_classarray ? &CLASS_DATA (sym)->attr : &sym->attr;
+  as = is_classarray ? CLASS_DATA (sym)->as : sym->as;
 
   gcc_assert (array_attr->dimension || array_attr->codimension);
 

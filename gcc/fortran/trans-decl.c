@@ -813,10 +813,11 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
   gfc_namespace* procns;
   symbol_attribute *array_attr;
   gfc_array_spec *as;
+  bool is_classarray = IS_CLASS_ARRAY (sym);
 
   type = TREE_TYPE (decl);
-  array_attr = &sym->attr;
-  as = sym->as;
+  array_attr = is_classarray ? &CLASS_DATA (sym)->attr : &sym->attr;
+  as = is_classarray ? CLASS_DATA (sym)->as : sym->as;
 
   /* We just use the descriptor, if there is one.  */
   if (GFC_DESCRIPTOR_TYPE_P (type))
@@ -1022,10 +1023,11 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   gfc_packed packed;
   int n;
   bool known_size;
+  bool is_classarray = IS_CLASS_ARRAY (sym);
 
   /* Use the array as and attr.  */
-  as = sym->as;
-  array_attr = &sym->attr;
+  as = is_classarray ? CLASS_DATA (sym)->as : sym->as;
+  array_attr = is_classarray ? &CLASS_DATA (sym)->attr : &sym->attr;
 
   /* The pointer attribute is always set on a _data component, therefore check
      the sym's attribute only.  */
@@ -1038,24 +1040,27 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   if (sym->attr.result || sym->attr.dummy)
     gfc_defer_symbol_init (sym);
 
-  type = TREE_TYPE (dummy);
+  /* For a class array the array descriptor is in the _data component, while
+     for a regular array the TREE_TYPE of the dummy is a pointer to the
+     descriptor.  */
+  type = TREE_TYPE (is_classarray ? gfc_class_data_get (dummy)
+				  : TREE_TYPE(dummy));
+  /* type now is the array descriptor w/o any indirection.  */
   gcc_assert (TREE_CODE (dummy) == PARM_DECL
-	  && POINTER_TYPE_P (type));
+	  && POINTER_TYPE_P (TREE_TYPE (dummy)));
 
   /* Do we know the element size?  */
   known_size = sym->ts.type != BT_CHARACTER
 	  || INTEGER_CST_P (sym->ts.u.cl->backend_decl);
 
-  if (known_size && !GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (type)))
+  if (known_size && !GFC_DESCRIPTOR_TYPE_P (type))
     {
       /* For descriptorless arrays with known element size the actual
          argument is sufficient.  */
-      gcc_assert (GFC_ARRAY_TYPE_P (type));
       gfc_build_qualified_array (dummy, sym);
       return dummy;
     }
 
-  type = TREE_TYPE (type);
   if (GFC_DESCRIPTOR_TYPE_P (type))
     {
       /* Create a descriptorless array pointer.  */
@@ -1089,7 +1094,10 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
 	    packed = PACKED_PARTIAL;
 	}
 
-      type = gfc_typenode_for_spec (&sym->ts);
+      /* For classarrays the element type is required, but
+         gfc_typenode_for_spec () returns the array descriptor.  */
+      type = is_classarray ? gfc_get_element_type (type)
+			   : gfc_typenode_for_spec (&sym->ts);
       type = gfc_get_nodesc_array_type (type, as, packed,
 					!sym->attr.target);
     }
@@ -1439,13 +1447,28 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	  sym->backend_decl = decl;
 	}
 
+      /* Returning the descriptor for dummy class arrays is hazardous, because
+	 some caller is expecting an expression to apply the component refs to.
+	 Therefore the descriptor is only created and stored in
+	 sym->backend_decl's GFC_DECL_SAVED_DESCRIPTOR. The caller then is
+	 responsible to extract it from there, when the descriptor is
+	 desired. */
+      if (IS_CLASS_ARRAY (sym) && !TREE_USED (sym->backend_decl))
+	{
+	  decl = gfc_build_dummy_array_decl (sym, sym->backend_decl);
+	  /* Prevent the dummy from being detected as unused if it is copied.  */
+	  if (sym->backend_decl != NULL && decl != sym->backend_decl)
+	    DECL_ARTIFICIAL (sym->backend_decl) = 1;
+	  sym->backend_decl = decl;
+	}
+
       TREE_USED (sym->backend_decl) = 1;
       if (sym->attr.assign && GFC_DECL_ASSIGN (sym->backend_decl) == 0)
 	{
 	  gfc_add_assign_aux_vars (sym);
 	}
 
-      if (sym->attr.dimension
+      if ((sym->attr.dimension || IS_CLASS_ARRAY (sym))
 	  && DECL_LANG_SPECIFIC (sym->backend_decl)
 	  && GFC_DECL_SAVED_DESCRIPTOR (sym->backend_decl)
 	  && DECL_CONTEXT (sym->backend_decl) != current_function_decl)
@@ -3982,11 +4005,17 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		= gfc_class_set_static_fields (sym->backend_decl, vptr, tmp);
 	  TREE_CONSTANT (DECL_INITIAL (sym->backend_decl)) = 1;
 	}
-      else if (sym->attr.dimension || sym->attr.codimension)
+      else if (sym->attr.dimension || sym->attr.codimension
+	       || (IS_CLASS_ARRAY (sym) && !CLASS_DATA (sym)->attr.allocatable))
 	{
+	  bool is_classarray = IS_CLASS_ARRAY (sym);
+	  symbol_attribute *array_attr;
+	  gfc_array_spec *as;
+	  array_attr = is_classarray ? &CLASS_DATA (sym)->attr : &sym->attr;
+	  as = is_classarray ? CLASS_DATA (sym)->as : sym->as;
 	  /* Assumed-size Cray pointees need to be treated as AS_EXPLICIT.  */
-	  array_type tmp = sym->as->type;
-	  if (tmp == AS_ASSUMED_SIZE && sym->as->cp_was_assumed)
+	  array_type tmp = as->type;
+	  if (tmp == AS_ASSUMED_SIZE && as->cp_was_assumed)
 	    tmp = AS_EXPLICIT;
 	  switch (tmp)
 	    {
@@ -3996,7 +4025,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	      /* In a class array the _data component always has the pointer
 		 attribute set.  Therefore only check for allocatable in the
 		 array attributes and for pointer in the symbol.  */
-	      else if (sym->attr.pointer || sym->attr.allocatable)
+	      else if (sym->attr.pointer || array_attr->allocatable)
 		{
 		  if (TREE_STATIC (sym->backend_decl))
 		    {
@@ -4051,7 +4080,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 
 	    case AS_ASSUMED_SIZE:
 	      /* Must be a dummy parameter.  */
-	      gcc_assert (sym->attr.dummy || sym->as->cp_was_assumed);
+	      gcc_assert (sym->attr.dummy || as->cp_was_assumed);
 
 	      /* We should always pass assumed size arrays the g77 way.  */
 	      if (sym->attr.dummy)

@@ -798,7 +798,11 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
   tmp = NULL_TREE;
   if (class_ref == NULL
 	&& e->symtree && e->symtree->n.sym->ts.type == BT_CLASS)
-    tmp = e->symtree->n.sym->backend_decl;
+    {
+      tmp = e->symtree->n.sym->backend_decl;
+      if (DECL_LANG_SPECIFIC (tmp) && GFC_DECL_SAVED_DESCRIPTOR (tmp))
+	tmp = GFC_DECL_SAVED_DESCRIPTOR (tmp);
+    }
   else
     {
       /* Remove everything after the last class reference, convert the
@@ -2142,9 +2146,27 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	}
       else if (!sym->attr.value)
 	{
+	  /* Dereference class array dummy arguments and skip ref evaluation,
+	     when the backend_decl is the array descriptor.  */
+	  if (sym->attr.dummy && IS_CLASS_ARRAY (sym)
+	      && GFC_ARRAY_TYPE_P (TREE_TYPE (se->expr)))
+	    {
+	      if (!se->descriptor_only && !se->want_pointer)
+		{
+		  se->expr = build_fold_indirect_ref_loc (input_location,
+							  se->expr);
+		  return;
+		}
+	      se->expr = GFC_DECL_SAVED_DESCRIPTOR (se->expr);
+	      if (se->want_pointer)
+		se->expr = build_fold_indirect_ref_loc (input_location,
+							se->expr);
+	    }
+
 	  /* Dereference non-character scalar dummy arguments.  */
 	  if (sym->attr.dummy && !sym->attr.dimension
-	      && !(sym->attr.codimension && sym->attr.allocatable))
+	      && !(sym->attr.codimension && sym->attr.allocatable)
+	      && !IS_CLASS_ARRAY (sym))
 	    se->expr = build_fold_indirect_ref_loc (input_location,
 						se->expr);
 

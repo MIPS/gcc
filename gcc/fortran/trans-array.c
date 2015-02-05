@@ -3019,7 +3019,14 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
       decl = gfc_get_fake_result_decl (expr->symtree->n.sym, 0);
     }
   else if (class_ref == NULL)
-    decl = expr->symtree->n.sym->backend_decl;
+    {
+      decl = expr->symtree->n.sym->backend_decl;
+      /* For class arrays the tree containing the class is stored in
+	 GFC_DECL_SAVED_DESCRIPTOR of the sym's backend_decl.
+	 For all others it's sym's backend_decl directly.  */
+      if (DECL_LANG_SPECIFIC (decl) && GFC_DECL_SAVED_DESCRIPTOR (decl))
+	decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
+    }
   else
     {
       /* Remove everything after the last class reference, convert the
@@ -5535,7 +5542,7 @@ gfc_trans_array_cobounds (tree type, stmtblock_t * pblock,
   gfc_se se;
   gfc_array_spec *as;
 
-  as = sym->as;
+  as = IS_CLASS_ARRAY (sym) ? CLASS_DATA (sym)->as : sym->as;
 
   for (dim = as->rank; dim < as->rank + as->corank; dim++)
     {
@@ -5866,9 +5873,11 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
   int no_repack;
   bool optional_arg;
   gfc_array_spec *as;
+  bool is_classarray = IS_CLASS_ARRAY (sym);
 
   /* Do nothing for pointer and allocatable arrays.  */
-  if (sym->attr.pointer || sym->attr.allocatable)
+  if (sym->attr.pointer || sym->attr.allocatable
+      || (is_classarray && CLASS_DATA (sym)->attr.allocatable))
     return;
 
   if (sym->attr.dummy && gfc_is_nodesc_array (sym))
@@ -5884,8 +5893,13 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
   type = TREE_TYPE (tmpdesc);
   gcc_assert (GFC_ARRAY_TYPE_P (type));
   dumdesc = GFC_DECL_SAVED_DESCRIPTOR (tmpdesc);
-  dumdesc = build_fold_indirect_ref_loc (input_location, dumdesc);
-  as = sym->as;
+  if (is_classarray)
+    /* For a class array the dummy array descriptor is in the _class
+       component.  */
+    dumdesc = gfc_class_data_get (dumdesc);
+  else
+    dumdesc = build_fold_indirect_ref_loc (input_location, dumdesc);
+  as = IS_CLASS_ARRAY (sym) ? CLASS_DATA (sym)->as : sym->as;
   gfc_start_block (&init);
 
   if (sym->ts.type == BT_CHARACTER

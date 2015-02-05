@@ -3193,6 +3193,11 @@ bool gfc_is_finalizable (gfc_symbol *, gfc_expr **);
 	 && CLASS_DATA (sym) \
 	 && CLASS_DATA (sym)->ts.u.derived \
 	 && CLASS_DATA (sym)->ts.u.derived->attr.unlimited_polymorphic)
+#define IS_CLASS_ARRAY(sym) \
+	(sym->ts.type == BT_CLASS \
+	 && CLASS_DATA (sym) \
+	 && CLASS_DATA (sym)->attr.dimension \
+	 && !CLASS_DATA (sym)->attr.class_pointer)
 
 /* frontend-passes.c */
 
