@@ -6802,13 +6802,101 @@ resolution_local_p (enum ld_plugin_symbol_resolution resolution)
 	  || resolution == LDPR_RESOLVED_EXEC);
 }
 
+static bool
+default_binds_local_p_2 (const_tree exp, int shlib)
+{
+  bool local_p;
+  bool resolved_locally = false;
+  bool resolved_to_local_def = false;
+
+  /* With resolution file in hands, take look into resolutions.
+     We can't just return true for resolved_locally symbols,
+     because dynamic linking might overwrite symbols
+     in shared libraries.  */
+  if (TREE_CODE (exp) == VAR_DECL && TREE_PUBLIC (exp)
+      && (TREE_STATIC (exp) || DECL_EXTERNAL (exp)))
+    {
+      varpool_node *vnode = varpool_node::get (exp);
+      /* If not building shared library, common or initialized symbols
+	 are also resolved locally, regardless they are weak or not.  */
+      if (vnode)
+	{
+	  if ((!shlib && vnode->definition)
+	      || vnode->in_other_partition
+	      || resolution_local_p (vnode->resolution))
+	    resolved_locally = true;
+	  if (resolution_to_local_definition_p (vnode->resolution))
+	    resolved_to_local_def = true;
+	}
+    }
+  else if (TREE_CODE (exp) == FUNCTION_DECL && TREE_PUBLIC (exp))
+    {
+      struct cgraph_node *node = cgraph_node::get (exp);
+      if (node
+	  && (resolution_local_p (node->resolution) || node->in_other_partition))
+	resolved_locally = true;
+      if (node
+	  && resolution_to_local_definition_p (node->resolution))
+	resolved_to_local_def = true;
+    }
+
+  /* A non-decl is an entry in the constant pool.  */
+  if (!DECL_P (exp))
+    local_p = true;
+  /* Weakrefs may not bind locally, even though the weakref itself is always
+     static and therefore local.  Similarly, the resolver for ifunc functions
+     might resolve to a non-local function.
+     FIXME: We can resolve the weakref case more curefuly by looking at the
+     weakref alias.  */
+  else if (lookup_attribute ("weakref", DECL_ATTRIBUTES (exp))
+	   || (TREE_CODE (exp) == FUNCTION_DECL
+	       && lookup_attribute ("ifunc", DECL_ATTRIBUTES (exp))))
+    local_p = false;
+  /* Static variables are always local.  */
+  else if (! TREE_PUBLIC (exp))
+    local_p = true;
+  /* A variable is local if the user has said explicitly that it will
+     be and it is resolved or defined locally, not compiling for PIC or
+     not weak.  */
+  else if ((DECL_VISIBILITY_SPECIFIED (exp)
+	    || resolved_to_local_def)
+	   && (resolved_locally
+	       || !flag_pic
+	       || !DECL_EXTERNAL (exp)
+	       || !DECL_WEAK (exp))
+	   && DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
+    local_p = true;
+  /* Variables defined outside this object might not be local.  */
+  else if (DECL_EXTERNAL (exp) && !resolved_locally)
+    local_p = false;
+  /* If defined in this object and visibility is not default, must be
+     local.  */
+  else if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
+    local_p = true;
+  /* Default visibility weak data can be overridden by a strong symbol
+     in another module and so are not local.  */
+  else if (DECL_WEAK (exp)
+	   && !resolved_locally)
+    local_p = false;
+  /* If PIC, then assume that any global name can be overridden by
+     symbols resolved from other modules.  */
+  else if (shlib)
+    local_p = false;
+  /* Otherwise we're left with initialized (or non-common) global data
+     which is of necessity defined locally.  */
+  else
+    local_p = true;
+
+  return local_p;
+}
+
 /* Assume ELF-ish defaults, since that's pretty much the most liberal
    wrt cross-module name binding.  */
 
 bool
 default_binds_local_p (const_tree exp)
 {
-  return default_binds_local_p_1 (exp, flag_shlib);
+  return default_binds_local_p_2 (exp, flag_shlib);
 }
 
 bool
@@ -7449,9 +7537,10 @@ default_elf_asm_output_external (FILE *file ATTRIBUTE_UNUSED,
 {
   /* We output the name if and only if TREE_SYMBOL_REFERENCED is
      set in order to avoid putting out names that are never really
-     used. */
+     used.   Always output visibility specified in the source.  */
   if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
-      && targetm.binds_local_p (decl))
+      && (DECL_VISIBILITY_SPECIFIED (decl)
+	  || targetm.binds_local_p (decl)))
     maybe_assemble_visibility (decl);
 }
 
