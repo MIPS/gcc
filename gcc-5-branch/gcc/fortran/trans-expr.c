@@ -660,26 +660,26 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
 	 expression can be evaluated to a constant one.  */
       else
         {
-          /* Try to simplify the expression.  */
-          gfc_simplify_expr (e, 0);
-          if (e->expr_type == EXPR_CONSTANT && !e->ts.u.cl->resolved)
-            {
-              /* Amazingly all data is present to compute the length of a
-                 constant string, but the expression is not yet there.  */
-              e->ts.u.cl->length = gfc_get_constant_expr (BT_INTEGER, 1,
-                                                          &e->where);
-              mpz_set_ui (e->ts.u.cl->length->value.integer,
-                          e->value.character.length);
-              gfc_conv_const_charlen (e->ts.u.cl);
-              e->ts.u.cl->resolved = 1;
-              gfc_add_modify (&parmse->pre, ctree, e->ts.u.cl->backend_decl);
-            }
-          else
-            {
-              gfc_error ("Can't compute the length of the char array at %L.",
-                         &e->where);
-            }
-        }
+	  /* Try to simplify the expression.  */
+	  gfc_simplify_expr (e, 0);
+	  if (e->expr_type == EXPR_CONSTANT && !e->ts.u.cl->resolved)
+	    {
+	      /* Amazingly all data is present to compute the length of a
+		 constant string, but the expression is not yet there.  */
+	      e->ts.u.cl->length = gfc_get_constant_expr (BT_INTEGER, 4,
+							  &e->where);
+	      mpz_set_ui (e->ts.u.cl->length->value.integer,
+			  e->value.character.length);
+	      gfc_conv_const_charlen (e->ts.u.cl);
+	      e->ts.u.cl->resolved = 1;
+	      gfc_add_modify (&parmse->pre, ctree, e->ts.u.cl->backend_decl);
+	    }
+	  else
+	    {
+	      gfc_error ("Can't compute the length of the char array at %L.",
+			 &e->where);
+	    }
+	}
     }
   /* Pass the address of the class object.  */
   parmse->expr = gfc_build_addr_expr (NULL_TREE, var);
@@ -6211,6 +6211,20 @@ gfc_trans_alloc_subarray_assign (tree dest, gfc_component * cm,
     tmp = gfc_copy_alloc_comp (cm->ts.u.derived,
 			       se.expr, dest,
 			       cm->as->rank);
+  else if (cm->ts.type == BT_CLASS && expr->ts.type == BT_DERIVED
+	   && CLASS_DATA(cm)->attr.allocatable)
+    {
+      if (cm->ts.u.derived->attr.alloc_comp)
+	tmp = gfc_copy_alloc_comp (expr->ts.u.derived,
+				   se.expr, dest,
+				   expr->rank);
+      else
+	{
+	  tmp = TREE_TYPE (dest);
+	  tmp = gfc_duplicate_allocatable (dest, se.expr,
+					   tmp, expr->rank);
+	}
+    }
   else
     tmp = gfc_duplicate_allocatable (dest, se.expr,
 				     TREE_TYPE(cm->backend_decl),
@@ -6335,6 +6349,7 @@ alloc_scalar_allocatable_for_subcomponent_assignment (stmtblock_t *block,
 						      gfc_symbol *sym)
 {
   tree tmp;
+  tree ptr;
   tree size;
   tree size_in_bytes;
   tree lhs_cl_size = NULL_TREE;
@@ -6400,8 +6415,12 @@ alloc_scalar_allocatable_for_subcomponent_assignment (stmtblock_t *block,
       tmp = build_call_expr_loc (input_location,
 				 builtin_decl_explicit (BUILT_IN_MALLOC),
 				 1, size_in_bytes);
-      tmp = fold_convert (TREE_TYPE (comp), tmp);
-      gfc_add_modify (block, comp, tmp);
+      if (GFC_CLASS_TYPE_P (TREE_TYPE (comp)))
+	ptr = gfc_class_data_get (comp);
+      else
+	ptr = comp;
+      tmp = fold_convert (TREE_TYPE (ptr), tmp);
+      gfc_add_modify (block, ptr, tmp);
     }
 
   if (cm->ts.type == BT_CHARACTER && cm->ts.deferred)
@@ -6420,6 +6439,7 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
   gfc_se lse;
   stmtblock_t block;
   tree tmp;
+  tree vtab;
 
   gfc_start_block (&block);
 
@@ -6483,6 +6503,20 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
 	  gfc_add_expr_to_block (&block, tmp);
 	}
     }
+  else if (cm->ts.type == BT_CLASS
+	   && CLASS_DATA (cm)->attr.dimension
+	   && CLASS_DATA (cm)->attr.allocatable
+	   && expr->ts.type == BT_DERIVED)
+    {
+      vtab = gfc_get_symbol_decl (gfc_find_vtab (&expr->ts));
+      vtab = gfc_build_addr_expr (NULL_TREE, vtab);
+      tmp = gfc_class_vptr_get (dest);
+      gfc_add_modify (&block, tmp,
+		      fold_convert (TREE_TYPE (tmp), vtab));
+      tmp = gfc_class_data_get (dest);
+      tmp = gfc_trans_alloc_subarray_assign (tmp, cm, expr);
+      gfc_add_expr_to_block (&block, tmp);
+    }
   else if (init && (cm->attr.allocatable
 	   || (cm->ts.type == BT_CLASS && CLASS_DATA (cm)->attr.allocatable)))
     {
@@ -6504,7 +6538,19 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
       if (expr->symtree && expr->symtree->n.sym->attr.proc_pointer
 	  && expr->symtree->n.sym->attr.dummy)
 	se.expr = build_fold_indirect_ref_loc (input_location, se.expr);
-      tmp = build_fold_indirect_ref_loc (input_location, dest);
+
+      if (cm->ts.type == BT_CLASS && expr->ts.type == BT_DERIVED)
+	{
+	  tmp = gfc_class_data_get (dest);
+	  tmp = build_fold_indirect_ref_loc (input_location, tmp);
+	  vtab = gfc_get_symbol_decl (gfc_find_vtab (&expr->ts));
+	  vtab = gfc_build_addr_expr (NULL_TREE, vtab);
+	  gfc_add_modify (&block, gfc_class_vptr_get (dest),
+		 fold_convert (TREE_TYPE (gfc_class_vptr_get (dest)), vtab));
+	}
+      else
+	tmp = build_fold_indirect_ref_loc (input_location, dest);
+
       /* For deferred strings insert a memcpy.  */
       if (cm->ts.type == BT_CHARACTER && cm->ts.deferred)
 	{

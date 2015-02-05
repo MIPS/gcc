@@ -25537,7 +25537,7 @@ rs6000_output_function_epilogue (FILE *file,
 	  || ! strcmp (language_string, "libgccjit"))
 	i = 0;
       else if (! strcmp (language_string, "GNU F77")
-	       || ! strcmp (language_string, "GNU Fortran"))
+	       || lang_GNU_Fortran ())
 	i = 1;
       else if (! strcmp (language_string, "GNU Pascal"))
 	i = 2;
@@ -32642,7 +32642,7 @@ rs6000_set_current_function (tree fndecl)
       if (old_tree == new_tree)
 	;
 
-      else if (new_tree)
+      else if (new_tree && new_tree != target_option_default_node)
 	{
 	  cl_target_option_restore (&global_options,
 				    TREE_TARGET_OPTION (new_tree));
@@ -32653,7 +32653,7 @@ rs6000_set_current_function (tree fndecl)
 	      = save_target_globals_default_opts ();
 	}
 
-      else if (old_tree)
+      else if (old_tree && old_tree != target_option_default_node)
 	{
 	  new_tree = target_option_current_node;
 	  cl_target_option_restore (&global_options,
@@ -32968,7 +32968,10 @@ rs6000_call_aix (rtx value, rtx func_desc, rtx flag, rtx cookie)
       rtx stack_toc_mem = gen_frame_mem (Pmode,
 					 gen_rtx_PLUS (Pmode, stack_ptr,
 						       stack_toc_offset));
-      toc_restore = gen_rtx_SET (VOIDmode, toc_reg, stack_toc_mem);
+      rtx stack_toc_unspec = gen_rtx_UNSPEC (Pmode,
+					     gen_rtvec (1, stack_toc_offset),
+					     UNSPEC_TOCSLOT);
+      toc_restore = gen_rtx_SET (VOIDmode, toc_reg, stack_toc_unspec);
 
       /* Can we optimize saving the TOC in the prologue or
 	 do we need to do it at every call?  */
