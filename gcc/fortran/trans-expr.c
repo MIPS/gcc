@@ -2151,7 +2151,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  if (sym->attr.dummy && IS_CLASS_ARRAY (sym)
 	      && GFC_ARRAY_TYPE_P (TREE_TYPE (se->expr)))
 	    {
-	      if (!se->descriptor_only && !se->want_pointer)
+	      if (!se->descriptor_only)
 		{
 		  se->expr = build_fold_indirect_ref_loc (input_location,
 							  se->expr);
