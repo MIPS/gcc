@@ -1027,7 +1027,9 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   as = sym->as;
   array_attr = &sym->attr;
 
-  if (array_attr->pointer || array_attr->allocatable
+  /* The pointer attribute is always set on a _data component, therefore check
+     the sym's attribute only.  */
+  if (sym->attr.pointer || array_attr->allocatable
       || (as && as->type == AS_ASSUMED_RANK))
     return dummy;
 
