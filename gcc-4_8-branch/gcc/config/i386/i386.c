@@ -5539,7 +5539,18 @@ ix86_function_type_abi (const_tree fntype)
       if (abi == SYSV_ABI)
 	{
 	  if (lookup_attribute ("ms_abi", TYPE_ATTRIBUTES (fntype)))
-	    abi = MS_ABI;
+	    {
+	      if (TARGET_X32)
+		{
+		  static bool warned = false;
+		  if (!warned)
+		    {
+		      error ("X32 does not support ms_abi attribute");
+		      warned = true;
+		    }
+		}
+	      abi = MS_ABI;
+	    }
 	}
       else if (lookup_attribute ("sysv_abi", TYPE_ATTRIBUTES (fntype)))
 	abi = SYSV_ABI;
@@ -10483,6 +10494,10 @@ ix86_expand_prologue (void)
 	      if (sp_is_cfa_reg)
 		m->fs.cfa_offset += UNITS_PER_WORD;
 	      RTX_FRAME_RELATED_P (insn) = 1;
+	      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+			    gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+					 plus_constant (Pmode, stack_pointer_rtx,
+							-UNITS_PER_WORD)));
 	    }
 	}
 
@@ -10496,6 +10511,10 @@ ix86_expand_prologue (void)
 	      if (sp_is_cfa_reg)
 		m->fs.cfa_offset += UNITS_PER_WORD;
 	      RTX_FRAME_RELATED_P (insn) = 1;
+	      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+			    gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+					 plus_constant (Pmode, stack_pointer_rtx,
+							-UNITS_PER_WORD)));
 	    }
 	}
 
@@ -13800,7 +13819,7 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, bool reverse,
       if (mode == CCmode)
 	suffix = "b";
       else if (mode == CCCmode)
-	suffix = "c";
+	suffix = fp ? "b" : "c";
       else
 	gcc_unreachable ();
       break;
@@ -13823,9 +13842,9 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, bool reverse,
       break;
     case GEU:
       if (mode == CCmode)
-	suffix = fp ? "nb" : "ae";
+	suffix = "nb";
       else if (mode == CCCmode)
-	suffix = "nc";
+	suffix = fp ? "nb" : "nc";
       else
 	gcc_unreachable ();
       break;
