@@ -52,7 +52,7 @@ func MakeFunc(typ Type, fn func(args []Value) (results []Value)) Value {
 	}
 
 	switch runtime.GOARCH {
-	case "amd64", "386":
+	case "amd64", "386", "ppc64", "ppc64le":
 	default:
 		panic("reflect.MakeFunc not implemented for " + runtime.GOARCH)
 	}
@@ -91,7 +91,7 @@ func makeMethodValue(op string, v Value) Value {
 	}
 
 	switch runtime.GOARCH {
-	case "amd64", "386":
+	case "amd64", "386", "ppc64", "ppc64le":
 	default:
 		panic("reflect.makeMethodValue not implemented for " + runtime.GOARCH)
 	}
@@ -138,7 +138,7 @@ func makeValueMethod(v Value) Value {
 	}
 
 	switch runtime.GOARCH {
-	case "amd64", "386":
+	case "amd64", "386", "ppc64", "ppc64le":
 	default:
 		panic("reflect.makeValueMethod not implemented for " + runtime.GOARCH)
 	}
