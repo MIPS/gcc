@@ -1,3 +1,43 @@
+2015-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/64957
+	PR debug/64817
+	* gcc.c-torture/execute/pr64957.c: New test.
+
+2015-02-05  Jeff Law  <law@redhat.com>
+
+	PR target/17306
+	* gcc.target/h8300/pr17306-1.c: New test.
+	* gcc.target/h8300/pr17306-2.c: New test.
+
+2015-02-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/64943
+	* gfortran.dg/structure_constructor_12.f90: New.
+
+2015-02-05  Jeff Law  <law@redhat.com>
+
+	PR target/58400
+	gcc.target/h8300/pr58400.c: New test.
+
+2015-02-05  Mantas Mikaitis  <mantas.mikaitis@arm.com>
+
+	* gcc.target/arm/macro_defs0.c: New test.
+	* gcc.target/arm/macro_defs1.c: New test.
+	* gcc.target/arm/macro_defs2.c: New test.
+
+2015-02-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/64905
+	* gcc.target/i386/pr64905.c: Require nonpic target.
+	(dg-options): Add -fomit-frame-pointer.
+	(main): Remove.
+
+2014-02-05  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.dg/tree-ssa/foldconst-6.c: Change expected pattern for
+	tree dump scanning.
+
 2015-02-05  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/64757

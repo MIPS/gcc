@@ -1,3 +1,54 @@
+2015-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/64957
+	PR debug/64817
+	* simplify-rtx.c (simplify_binary_operation_1): Use ~cval for
+	IOR rather than for AND.
+
+2015-02-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/62631
+	* tree-ssa-loop-ivopts.c (get_shiftadd_cost): Use the mininum of costs
+	of shift-add and (add + shift) operations.  Rename local variable.
+
+2015-02-05  Jeff Law  <law@redhat.com>
+
+	PR target/17306
+	* config/h8300/constraints.md (U): Correctly dectect
+	"eightbit_data" memory addresses.
+	* config/h8300/h8300.c (eightbit_constant_address_p): Also
+	handle (const (plus (symbol_ref (x)))) where x is declared
+	as an 8-bit data memory address.
+	* config/h8300/h8300.md (call, call_value): Correctly detect
+	"funcvec" functions.
+
+	PR target/43264
+	* config/h8300/h8300.c (get_shift_alg): Fix ASHIFTRT by
+	24 to 28 bits for the H8/300.
+
+2015-02-06  Alan Modra  <amodra@gmail.com>
+
+	PR target/64876
+	* config/rs6000/rs6000.c (chain_already_loaded): New function.
+	(rs6000_call_aix): Use it.
+
+2015-02-05  Jan Hubicka <hubicka@ucw.cz>
+
+	* ipa-cp.c (ipa_value_from_jfunc, ipa_context_from_jfunc): Add bounds
+	check.
+
+2015-02-05  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/h8300/constraints.md ("U" constraint): Use strict
+	variant of REG_OK_FOR_BASE_P after reload has started.
+
+2015-02-04  Mantas Mikaitis  <mantas.mikaitis@arm.com>
+
+	* config/arm/arm.h (TARGET_NEON_FP): Removed conditional definition,
+	define to zero if !TARGET_NEON.
+	(TARGET_CPU_CPP_BUILTINS): Added second condition before defining
+	__ARM_FP macro.
+
 2015-02-04  Jan Hubicka  <hubicka@ucw.cz>
 	    Trevor Saunders  <tsaunders@mozilla.com>
 
