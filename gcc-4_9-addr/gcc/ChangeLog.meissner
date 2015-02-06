@@ -1,5 +1,15 @@
 2015-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Back port from trunk:
+	2015-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/64205
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Do not
+	add a general secondary reload handler for SDmode, unless we have
+	both read/write support for SDmode.
+
+2015-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to ibm/gcc-4_9-branch, subversion id 220484.
 	* REVISION: Update subversion id.
 
