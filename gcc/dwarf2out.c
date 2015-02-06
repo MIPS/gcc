@@ -18312,7 +18312,8 @@ dwarf2out_abstract_function (tree decl)
   current_function_decl = decl;
 
   was_abstract = DECL_ABSTRACT_P (decl);
-  set_decl_abstract_flags (decl, 1);
+  if (!was_abstract)
+    set_decl_abstract_flags (decl, 1);
   dwarf2out_decl (decl);
   if (! was_abstract)
     set_decl_abstract_flags (decl, 0);

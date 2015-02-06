@@ -3860,7 +3860,6 @@ do_namespace_alias (tree alias, tree name_space)
   DECL_CONTEXT (alias) = FROB_CONTEXT (current_scope ());
   pushdecl (alias);
 
-  // ?? Do we need this?
   /* Emit debug info for namespace alias.  */
   if (!building_stmt_list_p ())
     (*debug_hooks->early_global_decl) (alias);

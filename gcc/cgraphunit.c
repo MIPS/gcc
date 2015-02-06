@@ -2326,36 +2326,20 @@ symbol_table::finalize_compilation_unit (void)
   if (flag_dump_passes)
     dump_passes ();
 
-  /* Unfortunately, we need to iterate through the symbols twice to
-     generate early debug information for them.  Once to pick up
-     global statics that may be (later) removed by the reachability
-     code.  And once more, after build_cgraph_edges() discovers
-     static symbols hidden within functions.  */
+  /* Generate early debug for global symbols.  Anything local will be
+     handled by either handling reachable functions further down (and
+     by consequence, locally scoped symbols), or by generating DIEs
+     for types.  */
   symtab_node *snode;
   FOR_EACH_SYMBOL (snode)
     if (TREE_CODE (snode->decl) != FUNCTION_DECL
 	&& DECL_CONTEXT (snode->decl)
-	/* Anything who's context is not a TRANSLATION_UNIT_DECL will
-	   be handled by either handling reachable functions below, or
-	   by generating DIEs for types.  */
-	&& TREE_CODE (DECL_CONTEXT (snode->decl)) == TRANSLATION_UNIT_DECL)
+	&& TREE_CODE (DECL_CONTEXT (snode->decl)) != FUNCTION_DECL)
       (*debug_hooks->early_global_decl) (snode->decl);
 
   /* Gimplify and lower all functions, compute reachability and
      remove unreachable nodes.  */
   analyze_functions ();
-
-  /* This is the second iteration through the global symbols.  Here we
-     pick up function statics that have been discovered by the call to
-     analyze_functions() above.  */
-  FOR_EACH_SYMBOL (snode)
-    if (TREE_CODE (snode->decl) != FUNCTION_DECL
-	&& DECL_CONTEXT (snode->decl)
-	/* Anything who's context is not a TRANSLATION_UNIT_DECL will
-	   be handled by either handling reachable functions below, or
-	   by generating DIEs for types.  */
-	&& TREE_CODE (DECL_CONTEXT (snode->decl)) == TRANSLATION_UNIT_DECL)
-      (*debug_hooks->early_global_decl) (snode->decl);
 
   /* Mark alias targets necessary and emit diagnostics.  */
   handle_alias_pairs ();
@@ -2363,14 +2347,12 @@ symbol_table::finalize_compilation_unit (void)
   /* Gimplify and lower thunks.  */
   analyze_functions ();
 
-  /* Emit early debug for reachable functions.  */
+  /* Emit early debug for reachable functions, and by consequence,
+     locally scoped symbols.  */
   struct cgraph_node *cnode;
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (cnode)
     if (DECL_CONTEXT (cnode->decl)
-	/* Anything who's context is not a TRANSLATION_UNIT_DECL will
-	   be handled by generating DIEs for types (or declaring
-	   things in their namespace).  */
-	&& TREE_CODE (DECL_CONTEXT (cnode->decl)) == TRANSLATION_UNIT_DECL)
+	&& TREE_CODE (DECL_CONTEXT (cnode->decl)) != FUNCTION_DECL)
       (*debug_hooks->early_global_decl) (cnode->decl);
 
   /* Clean up anything that needs cleaning up after initial debug
