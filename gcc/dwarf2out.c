@@ -2614,8 +2614,9 @@ typedef struct GTY((chain_circular ("%h.die_sib"), for_user)) die_struct {
   int die_mark;
   unsigned int decl_id;
   enum dwarf_tag die_tag;
-  /* No one should depend on this, as it is a temporary debugging aid
-     to indicate the DECL for which this DIE was created for.  */
+  /* FIXME: No one should depend on this, as it is a temporary
+     debugging aid to indicate the DECL for which this DIE was created
+     for.  Remove this at merge time!!  */
   tree tmp_created_for;
   /* Die is used and must not be pruned as unused.  */
   BOOL_BITFIELD die_perennial_p : 1;
