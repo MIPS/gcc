@@ -2041,8 +2041,11 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
   bool return_value;
   bool alternate_entry;
   bool entry_master;
+  bool is_classarray;
+  bool first_time = true;
 
   sym = expr->symtree->n.sym;
+  is_classarray = IS_CLASS_ARRAY (sym);
   ss = se->ss;
   if (ss != NULL)
     {
@@ -2148,25 +2151,26 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	{
 	  /* Dereference class array dummy arguments and skip ref evaluation,
 	     when the backend_decl is the array descriptor.  */
-	  if (sym->attr.dummy && IS_CLASS_ARRAY (sym)
+	  if (sym->attr.dummy && is_classarray
 	      && GFC_ARRAY_TYPE_P (TREE_TYPE (se->expr)))
 	    {
+//	      if (!se->descriptor_only)
+//		{
+//		  se->expr = build_fold_indirect_ref_loc (input_location,
+//							  se->expr);
+//		  return;
+//		}
 	      if (!se->descriptor_only)
-		{
-		  se->expr = build_fold_indirect_ref_loc (input_location,
-							  se->expr);
-		  return;
-		}
-	      se->expr = GFC_DECL_SAVED_DESCRIPTOR (se->expr);
-	      if (se->want_pointer)
-		se->expr = build_fold_indirect_ref_loc (input_location,
-							se->expr);
+		se->expr = GFC_DECL_SAVED_DESCRIPTOR (se->expr);
+//	      if (se->want_pointer)
+	      se->expr = build_fold_indirect_ref_loc (input_location,
+						      se->expr);
 	    }
 
 	  /* Dereference non-character scalar dummy arguments.  */
 	  if (sym->attr.dummy && !sym->attr.dimension
 	      && !(sym->attr.codimension && sym->attr.allocatable)
-	      && !IS_CLASS_ARRAY (sym))
+	      && !is_classarray)
 	    se->expr = build_fold_indirect_ref_loc (input_location,
 						se->expr);
 
@@ -2227,6 +2231,12 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  break;
 
 	case REF_COMPONENT:
+	  if (first_time && is_classarray && se->descriptor_only
+	      && strcmp ("_data", ref->u.c.component->name) == 0)
+	    /* Skip the first ref of a _data component, because for class
+	       arrays that one is already done.  */
+	    break;
+
 	  if (ref->u.c.sym->attr.extension)
 	    conv_parent_component_references (se, ref);
 
@@ -2246,6 +2256,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  gcc_unreachable ();
 	  break;
 	}
+      first_time = false;
       ref = ref->next;
     }
   /* Pointer assignment, allocation or pass by reference.  Arrays are handled
