@@ -479,12 +479,7 @@
   "ISA_HAS_MSA
    && (GET_MODE_NUNITS (<MSA:MODE>mode) == GET_MODE_NUNITS (<IMSA:MODE>mode))"
 {
-  mips_expand_vec_cond_expr (<MSA:MODE>mode,
-			     <MSA:VIMODE>mode,
-			     operands,
-			     gen_and<MSA:mode_i>3,
-			     gen_msa_nor_v_<MSA:msafmt>,
-			     gen_ior<MSA:mode_i>3);
+  mips_expand_vec_cond_expr (<MSA:MODE>mode, <MSA:VIMODE>mode, operands);
   DONE;
 })
 
@@ -499,12 +494,7 @@
   "ISA_HAS_MSA
    && (GET_MODE_NUNITS (<MSA:MODE>mode) == GET_MODE_NUNITS (<MSA:MODE>mode))"
 {
-  mips_expand_vec_cond_expr (<MSA:MODE>mode,
-			     <MSA:VIMODE>mode,
-			     operands,
-			     gen_and<MSA:mode_i>3,
-			     gen_msa_nor_v_<MSA:msafmt>,
-			     gen_ior<MSA:mode_i>3);
+  mips_expand_vec_cond_expr (<MSA:MODE>mode, <MSA:VIMODE>mode, operands);
   DONE;
 })
 

@@ -382,11 +382,6 @@ typedef rtx (*mulsidi3_gen_fn) (rtx, rtx, rtx);
 extern mulsidi3_gen_fn mips_mulsidi3_gen_fn (enum rtx_code);
 #endif
 
-extern void mips_expand_vec_cond_expr (machine_mode,
-				       machine_mode,
-				       rtx *,
-				       rtx (*)(rtx, rtx, rtx),
-				       rtx (*)(rtx, rtx, rtx),
-				       rtx (*)(rtx, rtx, rtx));
+extern void mips_expand_vec_cond_expr (machine_mode, machine_mode, rtx *);
 
 #endif /* ! GCC_MIPS_PROTOS_H */
