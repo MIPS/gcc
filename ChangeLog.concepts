@@ -1,3 +1,13 @@
+2015-02-05  Braden Obrzut  <admin@maniacsvault.net>
+
+	* gcc/cp/constexpr.c (potential_constant_expression_1): Readded missing
+	cases from previous merge from trunk.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_trait_expression): Restored
+	CPTK_IS_CONVERTIBLE_TO for the time being since the constraint code
+	relies on it.
+	* gcc/cp/semantics.c (finish_trait_expr): Likewise.
+	* gcc/testsuite/g++.dg/concepts/req9.C: New test.
+
 2015-02-03  Braden Obrzut  <admin@maniacsvault.net>
 
 	* gcc/cp/class.c (build_clone): Clone constraints.

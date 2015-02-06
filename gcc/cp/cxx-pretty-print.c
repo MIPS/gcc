@@ -2490,6 +2490,9 @@ pp_cxx_trait_expression (cxx_pretty_printer *pp, tree t)
     case CPTK_IS_CLASS:
       pp_cxx_ws_string (pp, "__is_class");
       break;
+    case CPTK_IS_CONVERTIBLE_TO:
+      pp_cxx_ws_string (pp, "__is_convertible_to");
+      break;
     case CPTK_IS_EMPTY:
       pp_cxx_ws_string (pp, "__is_empty");
       break;

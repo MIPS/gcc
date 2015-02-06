@@ -3021,6 +3021,13 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
     case PARM_DECL:
     case USING_DECL:
     case PLACEHOLDER_EXPR:
+    case REQUIRES_EXPR:
+    case EXPR_REQ:
+    case TYPE_REQ:
+    case NESTED_REQ:
+    case VALIDEXPR_EXPR:
+    case VALIDTYPE_EXPR:
+    case CONSTEXPR_EXPR:
       return true;
 
     case AGGR_INIT_EXPR:
