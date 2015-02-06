@@ -20832,261 +20832,78 @@ mips_hard_regno_caller_save_mode (unsigned int regno,
     return mode;
 }
 
-static void
-mips_expand_msa_one_cmpl (rtx dest, rtx src)
-{
-  machine_mode mode = GET_MODE (dest);
-  switch (mode)
-    {
-    case V16QImode:
-      emit_insn (gen_msa_nor_v_b (dest, src, src));
-      break;
-    case V8HImode:
-      emit_insn (gen_msa_nor_v_h (dest, src, src));
-      break;
-    case V4SImode:
-      emit_insn (gen_msa_nor_v_w (dest, src, src));
-      break;
-    case V2DImode:
-      emit_insn (gen_msa_nor_v_d (dest, src, src));
-      break;
-    default:
-      gcc_unreachable ();
-    }
-}
+/* Generate RTL for comparing CMP_OP0 and CMP_OP1 using condition COND and
+   store the result -1 or 0 in DEST.  */
 
 static void
 mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
 {
   machine_mode cmp_mode = GET_MODE (op0);
+  int unspec = -1;
+  bool negate = false;
 
   switch (cmp_mode)
     {
     case V16QImode:
-      switch (cond)
-	{
-	case EQ:
-	  emit_insn (gen_msa_ceq_b (dest, op0, op1));
-	  break;
-	case LT:
-	  emit_insn (gen_msa_clt_s_b (dest, op0, op1));
-	  break;
-	case LE:
-	  emit_insn (gen_msa_cle_s_b (dest, op0, op1));
-	  break;
-	case LTU:
-	  emit_insn (gen_msa_clt_u_b (dest, op0, op1));
-	  break;
-	case LEU:
-	  emit_insn (gen_msa_cle_u_b (dest, op0, op1));
-	  break;
-	case GE: // swap
-	  emit_insn (gen_msa_cle_s_b (dest, op1, op0));
-	  break;
-	case GT: // swap
-	  emit_insn (gen_msa_clt_s_b (dest, op1, op0));
-	  break;
-	case GEU: // swap
-	  emit_insn (gen_msa_cle_u_b (dest, op1, op0));
-	  break;
-	case GTU: // swap
-	  emit_insn (gen_msa_clt_u_b (dest, op1, op0));
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      break;
-
     case V8HImode:
-      switch (cond)
-	{
-	case EQ:
-	  emit_insn (gen_msa_ceq_h (dest, op0, op1));
-	  break;
-	case LT:
-	  emit_insn (gen_msa_clt_s_h (dest, op0, op1));
-	  break;
-	case LE:
-	  emit_insn (gen_msa_cle_s_h (dest, op0, op1));
-	  break;
-	case LTU:
-	  emit_insn (gen_msa_clt_u_h (dest, op0, op1));
-	  break;
-	case LEU:
-	  emit_insn (gen_msa_cle_u_h (dest, op0, op1));
-	  break;
-	case GE: // swap
-	  emit_insn (gen_msa_cle_s_h (dest, op1, op0));
-	  break;
-	case GT: // swap
-	  emit_insn (gen_msa_clt_s_h (dest, op1, op0));
-	  break;
-	case GEU: // swap
-	  emit_insn (gen_msa_cle_u_h (dest, op1, op0));
-	  break;
-	case GTU: // swap
-	  emit_insn (gen_msa_clt_u_h (dest, op1, op0));
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      break;
-
     case V4SImode:
-      switch (cond)
-	{
-	case EQ:
-	  emit_insn (gen_msa_ceq_w (dest, op0, op1));
-	  break;
-	case LT:
-	  emit_insn (gen_msa_clt_s_w (dest, op0, op1));
-	  break;
-	case LE:
-	  emit_insn (gen_msa_cle_s_w (dest, op0, op1));
-	  break;
-	case LTU:
-	  emit_insn (gen_msa_clt_u_w (dest, op0, op1));
-	  break;
-	case LEU:
-	  emit_insn (gen_msa_cle_u_w (dest, op0, op1));
-	  break;
-	case GE: // swap
-	  emit_insn (gen_msa_cle_s_w (dest, op1, op0));
-	  break;
-	case GT: // swap
-	  emit_insn (gen_msa_clt_s_w (dest, op1, op0));
-	  break;
-	case GEU: // swap
-	  emit_insn (gen_msa_cle_u_w (dest, op1, op0));
-	  break;
-	case GTU: // swap
-	  emit_insn (gen_msa_clt_u_w (dest, op1, op0));
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      break;
-
     case V2DImode:
       switch (cond)
 	{
+	case NE:
+	  cond = reverse_condition (cond);
+	  negate = true;
+	  break;
 	case EQ:
-	  emit_insn (gen_msa_ceq_d (dest, op0, op1));
-	  break;
 	case LT:
-	  emit_insn (gen_msa_clt_s_d (dest, op0, op1));
-	  break;
 	case LE:
-	  emit_insn (gen_msa_cle_s_d (dest, op0, op1));
-	  break;
 	case LTU:
-	  emit_insn (gen_msa_clt_u_d (dest, op0, op1));
-	  break;
 	case LEU:
-	  emit_insn (gen_msa_cle_u_d (dest, op0, op1));
 	  break;
-	case GE: // swap
-	  emit_insn (gen_msa_cle_s_d (dest, op1, op0));
-	  break;
-	case GT: // swap
-	  emit_insn (gen_msa_clt_s_d (dest, op1, op0));
-	  break;
-	case GEU: // swap
-	  emit_insn (gen_msa_cle_u_d (dest, op1, op0));
-	  break;
-	case GTU: // swap
-	  emit_insn (gen_msa_clt_u_d (dest, op1, op0));
+	case GE:
+	case GT:
+	case GEU:
+	case GTU:
+	  std::swap (op0, op1);
+	  cond = swap_condition (cond);
 	  break;
 	default:
 	  gcc_unreachable ();
 	}
+      mips_emit_binary (cond, dest, op0, op1);
+      if (negate)
+	emit_move_insn (dest, gen_rtx_NOT (GET_MODE (dest), dest));
       break;
 
     case V4SFmode:
-      switch (cond)
-	{
-	case UNORDERED:
-	  emit_insn (gen_msa_fcun_w (dest, op0, op1));
-	  break;
-	case EQ:
-	  emit_insn (gen_msa_fceq_w (dest, op0, op1));
-	  break;
-	case NE:
-	  emit_insn (gen_msa_fcne_w (dest, op0, op1));
-	  break;
-	case LTGT:
-	  emit_insn (gen_msa_fcne_w (dest, op0, op1));
-	  break;
-	case GT: // use slt, swap op0 and op1
-	  emit_insn (gen_msa_fslt_w (dest, op1, op0));
-	  break;
-	case GE: // use sle, swap op0 and op1
-	  emit_insn (gen_msa_fsle_w (dest, op1, op0));
-	  break;
-	case LT: // use slt
-	  emit_insn (gen_msa_fslt_w (dest, op0, op1));
-	  break;
-	case LE: // use sle
-	  emit_insn (gen_msa_fsle_w (dest, op0, op1));
-	  break;
-	case UNGE: // use cule, swap op0 and op1
-	  emit_insn (gen_msa_fcule_w (dest, op1, op0));
-	  break;
-	case UNGT: // use cult, swap op0 and op1
-	  emit_insn (gen_msa_fcult_w (dest, op1, op0));
-	  break;
-	case UNLE:
-	  emit_insn (gen_msa_fcule_w (dest, op0, op1));
-	  break;
-	case UNLT:
-	  emit_insn (gen_msa_fcult_w (dest, op0, op1));
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      break;
-
     case V2DFmode:
       switch (cond)
 	{
 	case UNORDERED:
-	  emit_insn (gen_msa_fcun_d (dest, op0, op1));
-	  break;
+	case ORDERED:
 	case EQ:
-	  emit_insn (gen_msa_fceq_d (dest, op0, op1));
-	  break;
 	case NE:
-	  emit_insn (gen_msa_fcne_d (dest, op0, op1));
-	  break;
-	case LTGT:
-	  emit_insn (gen_msa_fcne_d (dest, op0, op1));
-	  break;
-	case GT: // use slt, swap op0 and op1
-	  emit_insn (gen_msa_fslt_d (dest, op1, op0));
-	  break;
-	case GE: // use sle, swap op0 and op1
-	  emit_insn (gen_msa_fsle_d (dest, op1, op0));
-	  break;
-	case LT: // use slt
-	  emit_insn (gen_msa_fslt_d (dest, op0, op1));
-	  break;
-	case LE: // use sle
-	  emit_insn (gen_msa_fsle_d (dest, op0, op1));
-	  break;
-	case UNGE: // use cule, swap op0 and op1
-	  emit_insn (gen_msa_fcule_d (dest, op1, op0));
-	  break;
-	case UNGT: // use uclt, swap op0 and op1
-	  emit_insn (gen_msa_fcult_d (dest, op1, op0));
-	  break;
+	case UNEQ:
 	case UNLE:
-	  emit_insn (gen_msa_fcule_d (dest, op0, op1));
-	  break;
 	case UNLT:
-	  emit_insn (gen_msa_fcult_d (dest, op0, op1));
 	  break;
+	case LTGT: cond = NE; break;
+	case UNGE: cond = UNLE; std::swap (op0, op1); break;
+	case UNGT: cond = UNLT; std::swap (op0, op1); break;
+	case LE: unspec = UNSPEC_MSA_FSLE; break;
+	case LT: unspec = UNSPEC_MSA_FSLT; break;
+	case GE: unspec = UNSPEC_MSA_FSLE; std::swap (op0, op1); break;
+	case GT: unspec = UNSPEC_MSA_FSLT; std::swap (op0, op1); break;
 	default:
 	  gcc_unreachable ();
+	}
+      if (unspec < 0)
+	mips_emit_binary (cond, dest, op0, op1);
+      else
+	{
+	  rtx x = gen_rtx_UNSPEC (GET_MODE (dest),
+				  gen_rtvec (2, op0, op1), unspec);
+	  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
 	}
       break;
 
@@ -21096,163 +20913,77 @@ mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
     }
 }
 
-static bool
-mips_msa_reversed_int_cond (enum rtx_code *cond)
-{
-  switch (*cond)
-    {
-    case NE:
-      *cond = EQ;
-      return true;
-
-    default:
-      return false;
-    }
-}
-
-static bool
-mips_msa_reversed_fp_cond (enum rtx_code *code)
-{
-  switch (*code)
-    {
-    case ORDERED:
-    case UNEQ:
-      *code = reverse_condition_maybe_unordered (*code);
-      return true;
-
-    default:
-      return false;
-    }
-}
-
-/* Generate RTL for comparing CMP_OP0, CMP_OP1 using condition COND
-   and store the result -1 or 0 in DEST.  TRUE_SRC and FALSE_SRC
-   must be -1 and 0 respectively.  */
-
-static void
-mips_expand_msa_vcond (rtx dest, rtx true_src, rtx false_src,
-		       enum rtx_code cond, rtx cmp_op0, rtx cmp_op1)
-{
-  machine_mode dest_mode = GET_MODE (dest);
-  machine_mode cmp_mode = GET_MODE (cmp_op0);
-  bool reversed_p;
-
-  if (FLOAT_MODE_P (cmp_mode))
-    reversed_p = mips_msa_reversed_fp_cond (&cond);
-  else
-    reversed_p = mips_msa_reversed_int_cond (&cond);
-
-  mips_expand_msa_cmp (dest, cond, cmp_op0, cmp_op1);
-  if (reversed_p)
-    mips_expand_msa_one_cmpl (dest, dest);
-
-  /* MSA vcond only produces result -1 and 0 for true and false.  */
-  gcc_assert ((true_src == CONSTM1_RTX (dest_mode))
-	      && (false_src == CONST0_RTX (dest_mode)));
-}
-
 /* Expand VEC_COND_EXPR, where:
    MODE is mode of the result
    VIMODE equivalent integer mode
-   OPERANDS operands of VEC_COND_EXPR
-   gen_msa_and_fn used to generate a VIMODE vector msa AND
-   gen_msa_nor_fn used to generate a VIMODE vector msa NOR
-   gen_msa_ior_fn used to generate a VIMODE vector msa IOR.  */
+   OPERANDS operands of VEC_COND_EXPR.  */
 
 void
-mips_expand_vec_cond_expr (machine_mode mode,
-			   machine_mode vimode,
-			   rtx *operands,
-			   rtx (*gen_msa_and_fn)(rtx, rtx, rtx),
-			   rtx (*gen_msa_nor_fn)(rtx, rtx, rtx),
-			   rtx (*gen_msa_ior_fn)(rtx, rtx, rtx))
+mips_expand_vec_cond_expr (machine_mode mode, machine_mode vimode,
+			   rtx *operands)
 {
-  rtx true_val = CONSTM1_RTX (vimode);
-  rtx false_val = CONST0_RTX (vimode);
+  rtx cond = operands[3];
+  rtx cmp_op0 = operands[4];
+  rtx cmp_op1 = operands[5];
+  rtx cmp_res = gen_reg_rtx (vimode);
 
-  if (operands[1] == true_val && operands[2] == false_val)
-    mips_expand_msa_vcond (operands[0], operands[1], operands[2],
-			   GET_CODE (operands[3]), operands[4], operands[5]);
+  mips_expand_msa_cmp (cmp_res, GET_CODE (cond), cmp_op0, cmp_op1);
+
+  /* We handle the following cases:
+     1) r = a CMP b ? -1 : 0
+     2) r = a CMP b ? -1 : v
+     3) r = a CMP b ?  v : 0
+     4) r = a CMP b ? v1 : v2  */
+
+  /* Case (1) above.  We only move the results.  */
+  if (operands[1] == CONSTM1_RTX (vimode)
+      && operands[2] == CONST0_RTX (vimode))
+    emit_move_insn (operands[0], cmp_res);
   else
     {
-      rtx res = gen_reg_rtx (vimode);
-      rtx temp1 = gen_reg_rtx (vimode);
-      rtx temp2 = gen_reg_rtx (vimode);
-      rtx xres = gen_reg_rtx (vimode);
+      rtx src1 = gen_reg_rtx (vimode);
+      rtx src2 = gen_reg_rtx (vimode);
+      rtx mask = gen_reg_rtx (vimode);
+      rtx bsel;
 
-      mips_expand_msa_vcond (res, true_val, false_val,
-			     GET_CODE (operands[3]), operands[4], operands[5]);
+      /* Move the vector result to use it as a mask.  */
+      emit_move_insn (mask, cmp_res);
 
-      /* This results in a vector result with whose T/F elements having
-	 the value -1 or 0 for (T/F repectively).  This result may need
-	 adjusting if needed results operands[]/operands[1] are different.  */
-
-      /* Adjust True elements to be operand[1].  */
-      emit_move_insn (xres, res);
-      if (operands[1] != true_val)
+      if (register_operand (operands[1], mode))
 	{
-	  rtx xop1 = operands[1]; /* Assume we can use operands[1].  */
-
+	  rtx xop1 = operands[1];
 	  if (mode != vimode)
 	    {
 	      xop1 = gen_reg_rtx (vimode);
-	      if (GET_CODE (operands[1]) == CONST_VECTOR)
-		{
-		  rtx xtemp = gen_reg_rtx (mode);
-		  emit_move_insn (xtemp, operands[1]);
-		  emit_move_insn (xop1,
-				  gen_rtx_SUBREG (vimode, xtemp, 0));
-		}
-	      else
-		emit_move_insn (xop1,
-				gen_rtx_SUBREG (vimode, operands[1], 0));
+	      emit_move_insn (xop1, gen_rtx_SUBREG (vimode, operands[1], 0));
 	    }
-	  else if (GET_CODE (operands[1]) == CONST_VECTOR)
-	    {
-	      xop1 = gen_reg_rtx (mode);
-	      emit_move_insn (xop1, operands[1]);
-	    }
-
-	  emit_insn (gen_msa_and_fn (temp1, xres, xop1));
+	  emit_move_insn (src1, xop1);
 	}
       else
-	emit_move_insn (temp1, xres);
+	/* Case (2) if the below doesn't move the mask to src2.  */
+	emit_move_insn (src1, mask);
 
-      /* Adjust False elements to be operand[0].  */
-      emit_insn (gen_msa_nor_fn (temp2, xres, xres));
-      if (operands[2] != false_val)
+      if (register_operand (operands[2], mode))
 	{
-	  rtx xop2 = operands[2]; ; /* Assume we can use operands[2].  */
-
+	  rtx xop2 = operands[2];
 	  if (mode != vimode)
 	    {
 	      xop2 = gen_reg_rtx (vimode);
-	      if (GET_CODE (operands[2]) == CONST_VECTOR)
-		{
-		  rtx xtemp = gen_reg_rtx (mode);
-		  emit_move_insn (xtemp, operands[2]);
-		  emit_move_insn (xop2,
-				  gen_rtx_SUBREG (vimode, xtemp, 0));
-		}
-	      else
-		emit_move_insn (xop2,
-				gen_rtx_SUBREG (vimode, operands[2], 0));
+	      emit_move_insn (xop2, gen_rtx_SUBREG (vimode, operands[2], 0));
 	    }
-	  else if (GET_CODE (operands[2]) == CONST_VECTOR)
-	    {
-	      xop2 = gen_reg_rtx (mode);
-	      emit_move_insn (xop2, operands[2]);
-	    }
-
-	  emit_insn (gen_msa_and_fn (temp2, temp2, xop2));
+	  emit_move_insn (src2, xop2);
 	}
       else
-	emit_insn (gen_msa_and_fn (temp2, temp2, xres));
+	/* Case (3) if the above didn't move the mask to src1.  */
+	emit_move_insn (src2, mask);
 
-      /* Combine together into result.  */
-      emit_insn (gen_msa_ior_fn (xres, temp1, temp2));
-      emit_move_insn (operands[0],
-		      gen_rtx_SUBREG (mode, xres, 0));
+      /* We deal with case (4) if the mask wasn't moved to either src1 or src2.
+	 In any case, we eventually do vector mask-based copy.  */
+      bsel = gen_rtx_UNSPEC (vimode, gen_rtvec (3, mask, src2, src1),
+			     UNSPEC_MSA_BSEL_V);
+      /* The result is placed back to a register with the mask.  */
+      emit_insn (gen_rtx_SET (VOIDmode, mask, bsel));
+      emit_move_insn (operands[0], gen_rtx_SUBREG (mode, mask, 0));
     }
 }
 
