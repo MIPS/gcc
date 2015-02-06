@@ -21424,17 +21424,6 @@ dwarf2out_late_global_decl (tree decl)
 static void
 dwarf2out_type_decl (tree decl, int local)
 {
-  /* ?? Technically, we shouldn't need this hook at all, as all
-     symbols (and by consequence their types) will be outputed from
-     finalize_compilation_unit.  However,
-     dwarf2out_imported_module_or_decl_1() needs FIELD_DECLs belonging
-     to a type to be previously available (at_import_die).
-
-     For now, output DIEs for types here, but eventually we should
-     beat dwarf2out_imported_module_or_decl_1 into submission (either
-     by calling it after early debug has run in
-     finalize_compilation_unit(), or by lazily creating the FIELD_DECL
-     DIEs from within dwarf2out_imported_module_or_decl_1.  */
   if (!local)
     {
       bool t = early_dwarf_dumping;
