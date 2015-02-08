@@ -1,3 +1,96 @@
+2015-02-08  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/63744
+	gfortran.dg/use_rename_8.f90: New.
+
+2015-02-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/addr7.ad[sb]: New test.
+	* gnat.dg/addr8.ad[sb]: Likewise.
+
+2015-02-06  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/64752
+	* jit.dg/create-code-for-hello-world-executable.h: New file, taken
+	from jit.dg/test-compile-to-executable.c's create_code, with a
+	clarification of the output message.
+	* jit.dg/harness.h (CHECK_NO_ERRORS): Add test and __func__ to the
+	pass/fail message.
+	(test_jit): Use CHECK_NO_ERRORS when calling
+	gcc_jit_context_compile_to_file.
+	* jit.dg/jit.exp (jit-dg-test): Update grep for rename of
+	jit-verify-compile-to-file to jit-verify-output-file-was-created.
+	(jit-setup-compile-to-file): Likewise.  Add a verbose comment
+	about deletions that are attempted.
+	(jit-verify-compile-to-file): Rename to...
+	(jit-verify-output-file-was-created): ...this, and drop the
+	attempt to run "file" and verify the output.
+	(jit-verify-assembler): New function.
+	(jit-verify-object): New function.
+	(jit-verify-dynamic-library): New function.
+	* jit.dg/test-compile-to-assembler.c (create_code): Eliminate in
+	favor of an implementation from new file
+	create-code-for-hello-world-executable.h, which also adds a
+	"main".
+	(dg-final): Replace jit-verify-compile-to-file with
+	jit-verify-output-file-was-created, and invoke new function
+	jit-verify-assembler.
+	* jit.dg/test-compile-to-dynamic-library.c (create_code): Clarify
+	the output message.
+	(dg-final): Replace jit-verify-compile-to-file with
+	jit-verify-output-file-was-created, and invoke new function
+	jit-verify-dynamic-library.
+	* jit.dg/test-compile-to-executable.c (create_code): Eliminate in
+	favor of an implementation from new file
+	create-code-for-hello-world-executable.h, which also adds a
+	"main".
+	(dg-final): Replace jit-verify-compile-to-file with
+	jit-verify-output-file-was-created.  Strengthen the expected stdout
+	from the built executable.
+	* jit.dg/test-compile-to-object.c (create_code): Eliminate in
+	favor of an implementation from new file
+	create-code-for-hello-world-executable.h, which also adds a
+	"main".
+	(dg-final): Replace jit-verify-compile-to-file with
+	jit-verify-output-file-was-created, and invoke new function
+	jit-verify-object.
+	* jit.dg/verify-dynamic-library.c: New source file.
+
+2015-02-06  Sebastian Pop  <s.pop@samsung.com>
+	    Brian Rzycki  <b.rzycki@samsung.com>
+
+	PR tree-optimization/64878
+	* testsuite/gcc.dg/tree-ssa/ssa-dom-thread-8.c: New.
+
+2015-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/64896
+	* g++.dg/ipa/pr64896.C: New test.
+
+2015-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/64205
+	* gcc.target/powerpc/pr64205.c: New file.
+
+2015-02-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/pr64317.c: Compile for 32bit *-*-linux* targets.
+	(dg-options): Use -fpie instead of -fPIE -pie.
+
+2015-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/64937
+	* g++.dg/asan/pr64937.C: New test.
+
+2015-02-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/63205
+	* gfortran.dg/class_to_type_4.f90: New test
+
+2015-01-29  Andre Vehreschild  <vehre@gmx.de>
+
+	* gfortran.dg/unlimited_polymorphic_22.f90: New test.
+
 2015-02-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/64957
