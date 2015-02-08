@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
@@ -585,10 +586,10 @@ too_large (int block, int *num_bbs, int *num_insns)
   if (max_hdr[blk] == -1)			\
     max_hdr[blk] = hdr;				\
   else if (dfs_nr[max_hdr[blk]] > dfs_nr[hdr])	\
-    bitmap_clear_bit (inner, hdr);			\
+    inner[hdr] = false;			\
   else if (dfs_nr[max_hdr[blk]] < dfs_nr[hdr])	\
     {						\
-      bitmap_clear_bit (inner,max_hdr[blk]);		\
+      inner[max_hdr[blk]] = false;		\
       max_hdr[blk] = hdr;			\
     }						\
 }
@@ -636,18 +637,6 @@ haifa_find_rgns (void)
   int too_large_failure;
   basic_block bb;
 
-  /* Note if a block is a natural loop header.  */
-  sbitmap header;
-
-  /* Note if a block is a natural inner loop header.  */
-  sbitmap inner;
-
-  /* Note if a block is in the block queue.  */
-  sbitmap in_queue;
-
-  /* Note if a block is in the block queue.  */
-  sbitmap in_stack;
-
   /* Perform a DFS traversal of the cfg.  Identify loop headers, inner loops
      and a mapping from block to its loop header (if the block is contained
      in a loop, else -1).
@@ -662,17 +651,18 @@ haifa_find_rgns (void)
   dfs_nr = XCNEWVEC (int, last_basic_block_for_fn (cfun));
   stack = XNEWVEC (edge_iterator, n_edges_for_fn (cfun));
 
-  inner = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_ones (inner);
+  /* Note if a block is a natural inner loop header.  */
+  stack_bitvec inner (last_basic_block_for_fn (cfun));
+  inner.set ();
 
-  header = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (header);
+  /* Note if a block is a natural loop header.  */
+  bitvec header (last_basic_block_for_fn (cfun));
 
-  in_queue = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (in_queue);
+  /* Note if a block is in the block queue.  */
+  stack_bitvec in_queue (last_basic_block_for_fn (cfun));
 
-  in_stack = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (in_stack);
+  /* Note if a block is in the block queue.  */
+  stack_bitvec in_stack (last_basic_block_for_fn (cfun));
 
   for (i = 0; i < last_basic_block_for_fn (cfun); i++)
     max_hdr[i] = -1;
@@ -700,8 +690,8 @@ haifa_find_rgns (void)
 	      gcc_assert (node != ENTRY_BLOCK);
 	      child = ei_edge (current_edge)->dest->index;
 	      gcc_assert (child != EXIT_BLOCK);
-	      bitmap_clear_bit (in_stack, child);
-	      if (max_hdr[child] >= 0 && bitmap_bit_p (in_stack, max_hdr[child]))
+	      in_stack[child] = false;
+	      if (max_hdr[child] >= 0 && in_stack[max_hdr[child]])
 		UPDATE_LOOP_RELATIONS (node, max_hdr[child]);
 	      ei_next (&current_edge);
 	    }
@@ -717,7 +707,7 @@ haifa_find_rgns (void)
       /* Process a node.  */
       node = ei_edge (current_edge)->src->index;
       gcc_assert (node != ENTRY_BLOCK);
-      bitmap_set_bit (in_stack, node);
+      in_stack[node] = true;
       dfs_nr[node] = ++count;
 
       /* We don't traverse to the exit block.  */
@@ -732,10 +722,10 @@ haifa_find_rgns (void)
       /* If the successor is in the stack, then we've found a loop.
 	 Mark the loop, if it is not a natural loop, then it will
 	 be rejected during the second traversal.  */
-      if (bitmap_bit_p (in_stack, child))
+      if (in_stack[child])
 	{
 	  no_loops = 0;
-	  bitmap_set_bit (header, child);
+	  header[child] = true;
 	  UPDATE_LOOP_RELATIONS (node, child);
 	  SET_EDGE_PASSED (current_edge);
 	  ei_next (&current_edge);
@@ -747,7 +737,7 @@ haifa_find_rgns (void)
 	 with a new edge.  */
       if (dfs_nr[child])
 	{
-	  if (max_hdr[child] >= 0 && bitmap_bit_p (in_stack, max_hdr[child]))
+	  if (max_hdr[child] >= 0 && in_stack[max_hdr[child]])
 	    UPDATE_LOOP_RELATIONS (node, max_hdr[child]);
 	  SET_EDGE_PASSED (current_edge);
 	  ei_next (&current_edge);
@@ -801,11 +791,11 @@ haifa_find_rgns (void)
 	 there basic blocks, which are forced to be region heads.
 	 This is done to try to assemble few smaller regions
 	 from a too_large region.  */
-      sbitmap extended_rgn_header = NULL;
+      bitvec extended_rgn_header;
       bool extend_regions_p;
 
       if (no_loops)
-	bitmap_set_bit (header, 0);
+	header[0] = true;
 
       /* Second traversal:find reducible inner loops and topologically sort
 	 block of each region.  */
@@ -816,16 +806,14 @@ haifa_find_rgns (void)
       if (extend_regions_p)
         {
           degree1 = XNEWVEC (int, last_basic_block_for_fn (cfun));
-          extended_rgn_header =
-	    sbitmap_alloc (last_basic_block_for_fn (cfun));
-          bitmap_clear (extended_rgn_header);
+	  extended_rgn_header.grow (last_basic_block_for_fn (cfun));
 	}
 
       /* Find blocks which are inner loop headers.  We still have non-reducible
 	 loops to consider at this point.  */
       FOR_EACH_BB_FN (bb, cfun)
 	{
-	  if (bitmap_bit_p (header, bb->index) && bitmap_bit_p (inner, bb->index))
+	  if (header[bb->index] && inner[bb->index])
 	    {
 	      edge e;
 	      edge_iterator ei;
@@ -897,7 +885,7 @@ haifa_find_rgns (void)
 			&& single_succ (jbb) == EXIT_BLOCK_PTR_FOR_FN (cfun))
 		      {
 			queue[++tail] = jbb->index;
-			bitmap_set_bit (in_queue, jbb->index);
+			in_queue[jbb->index] = true;
 
 			if (too_large (jbb->index, &num_bbs, &num_insns))
 			  {
@@ -921,7 +909,7 @@ haifa_find_rgns (void)
 			{
 			  /* This is a loop latch.  */
 			  queue[++tail] = node;
-			  bitmap_set_bit (in_queue, node);
+			  in_queue[node] = true;
 
 			  if (too_large (node, &num_bbs, &num_insns))
 			    {
@@ -980,10 +968,10 @@ haifa_find_rgns (void)
 			  tail = -1;
 			  break;
 			}
-		      else if (!bitmap_bit_p (in_queue, node) && node != bb->index)
+		      else if (!in_queue[node] && node != bb->index)
 			{
 			  queue[++tail] = node;
-			  bitmap_set_bit (in_queue, node);
+			  in_queue[node] = true;
 
 			  if (too_large (node, &num_bbs, &num_insns))
 			    {
@@ -1049,7 +1037,7 @@ haifa_find_rgns (void)
 		     of one too_large region.  */
                   FOR_EACH_EDGE (e, ei, bb->succs)
 		    if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
-                      bitmap_set_bit (extended_rgn_header, e->dest->index);
+		      extended_rgn_header[e->dest->index] = true;
                 }
 	    }
 	}
@@ -1059,10 +1047,9 @@ haifa_find_rgns (void)
         {
           free (degree1);
 
-          bitmap_ior (header, header, extended_rgn_header);
-          sbitmap_free (extended_rgn_header);
+	  header |= extended_rgn_header;
 
-          extend_rgns (degree, &idx, header, max_hdr);
+	  extend_rgns (degree, &idx, &header, max_hdr);
         }
     }
 
@@ -1083,10 +1070,6 @@ haifa_find_rgns (void)
   free (max_hdr);
   free (degree);
   free (stack);
-  sbitmap_free (header);
-  sbitmap_free (inner);
-  sbitmap_free (in_queue);
-  sbitmap_free (in_stack);
 }
 
 
@@ -1172,7 +1155,7 @@ print_region_statistics (int *s1, int s1_sz, int *s2, int s2_sz)
    (two blocks can reside within one region if they have
    the same loop header).  */
 void
-extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
+extend_rgns (int *degree, int *idxp, bitvec *header, int *loop_hdr)
 {
   int *order, i, rescan = 0, idx = *idxp, iter = 0, max_iter, *max_hdr;
   int nblocks = n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS;
@@ -1218,7 +1201,7 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 	  edge_iterator ei;
 	  int bbn = order[i];
 
-	  if (max_hdr[bbn] != -1 && !bitmap_bit_p (header, bbn))
+	  if (max_hdr[bbn] != -1 && !(*header)[bbn])
 	    {
 	      int hdr = -1;
 
@@ -1257,7 +1240,7 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 		{
 		  /* If BB start its own region,
 		     update set of headers with BB.  */
-		  bitmap_set_bit (header, bbn);
+		  (*header)[bbn] = true;
 		  rescan = 1;
 		}
 	      else
@@ -1509,7 +1492,6 @@ compute_trg_info (int trg)
   edgelst el = { NULL, 0 };
   int i, j, k, update_idx;
   basic_block block;
-  sbitmap visited;
   edge_iterator ei;
   edge e;
 
@@ -1532,7 +1514,7 @@ compute_trg_info (int trg)
   sp->is_speculative = 0;
   sp->src_prob = REG_BR_PROB_BASE;
 
-  visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  stack_bitvec visited (last_basic_block_for_fn (cfun));
 
   for (i = trg + 1; i < current_nr_blocks; i++)
     {
@@ -1574,13 +1556,13 @@ compute_trg_info (int trg)
 	     overrunning the end of the bblst_table.  */
 
 	  update_idx = 0;
-	  bitmap_clear (visited);
+	  visited.clear ();
 	  for (j = 0; j < el.nr_members; j++)
 	    {
 	      block = el.first_member[j]->src;
 	      FOR_EACH_EDGE (e, ei, block->succs)
 		{
-		  if (!bitmap_bit_p (visited, e->dest->index))
+		  if (!visited[e->dest->index])
 		    {
 		      for (k = 0; k < el.nr_members; k++)
 			if (e == el.first_member[k])
@@ -1589,7 +1571,7 @@ compute_trg_info (int trg)
 		      if (k >= el.nr_members)
 			{
 			  bblst_table[bblst_last++] = e->dest;
-			  bitmap_set_bit (visited, e->dest->index);
+			  visited[e->dest->index] = true;
 			  update_idx++;
 			}
 		    }
@@ -1608,8 +1590,6 @@ compute_trg_info (int trg)
 	  sp->src_prob = 0;
 	}
     }
-
-  sbitmap_free (visited);
 }
 
 /* Free the computed target info.  */
@@ -2447,7 +2427,7 @@ sets_likely_spilled_1 (rtx x, const_rtx pat, void *data)
 
 /* A bitmap to note insns that participate in any dependency.  Used in
    add_branch_dependences.  */
-static sbitmap insn_referenced;
+static bitvec insn_referenced;
 
 /* Add dependences so that branches are scheduled to run last in their
    block.  */
@@ -2502,7 +2482,7 @@ add_branch_dependences (rtx_insn *head, rtx_insn *tail)
 	    {
 	      if (! sched_insns_conditions_mutex_p (last, insn))
 		add_dependence (last, insn, REG_DEP_ANTI);
-	      bitmap_set_bit (insn_referenced, INSN_LUID (insn));
+	      insn_referenced[INSN_LUID (insn)] = true;
 	    }
 
 	  CANT_MOVE (insn) = 1;
@@ -2526,7 +2506,7 @@ add_branch_dependences (rtx_insn *head, rtx_insn *tail)
       {
 	insn = prev_nonnote_insn (insn);
 
-	if (bitmap_bit_p (insn_referenced, INSN_LUID (insn))
+	if (insn_referenced[INSN_LUID (insn)]
 	    || DEBUG_INSN_P (insn))
 	  continue;
 
@@ -3264,14 +3244,13 @@ sched_rgn_compute_dependencies (int rgn)
 	init_deps (bb_deps + bb, false);
 
       /* Initialize bitmap used in add_branch_dependences.  */
-      insn_referenced = sbitmap_alloc (sched_max_luid);
-      bitmap_clear (insn_referenced);
+      insn_referenced.grow (sched_max_luid);
 
       /* Compute backward dependencies.  */
       for (bb = 0; bb < current_nr_blocks; bb++)
 	compute_block_dependences (bb);
 
-      sbitmap_free (insn_referenced);
+      insn_referenced.clear_and_release ();
       free_pending_lists ();
       finish_deps_global ();
       free (bb_deps);

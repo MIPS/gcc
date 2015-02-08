@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "rtl.h"
 #include "hash-set.h"
@@ -493,7 +494,6 @@ unroll_loop_constant_iterations (struct loop *loop)
 {
   unsigned HOST_WIDE_INT niter;
   unsigned exit_mod;
-  sbitmap wont_exit;
   unsigned i;
   edge e;
   unsigned max_unroll = loop->lpt_decision.times;
@@ -509,8 +509,8 @@ unroll_loop_constant_iterations (struct loop *loop)
 
   exit_mod = niter % (max_unroll + 1);
 
-  wont_exit = sbitmap_alloc (max_unroll + 1);
-  bitmap_ones (wont_exit);
+  stack_bitvec wont_exit (max_unroll + 1);
+  wont_exit.set ();
 
   auto_vec<edge> remove_edges;
   if (flag_split_ivs_in_unroller
@@ -527,9 +527,9 @@ unroll_loop_constant_iterations (struct loop *loop)
 	fprintf (dump_file, ";; Condition at beginning of loop.\n");
 
       /* Peel exit_mod iterations.  */
-      bitmap_clear_bit (wont_exit, 0);
+      wont_exit[0] = false;
       if (desc->noloop_assumptions)
-	bitmap_clear_bit (wont_exit, 1);
+	wont_exit[1] = false;
 
       if (exit_mod)
 	{
@@ -557,7 +557,7 @@ unroll_loop_constant_iterations (struct loop *loop)
 	    loop->any_estimate = false;
 	}
 
-      bitmap_set_bit (wont_exit, 1);
+      wont_exit[1] = true;
     }
   else
     {
@@ -573,9 +573,9 @@ unroll_loop_constant_iterations (struct loop *loop)
       if (exit_mod != max_unroll
 	  || desc->noloop_assumptions)
 	{
-	  bitmap_clear_bit (wont_exit, 0);
+	  wont_exit[0] = false;
 	  if (desc->noloop_assumptions)
-	    bitmap_clear_bit (wont_exit, 1);
+	    wont_exit[1] = false;
 
           opt_info_start_duplication (opt_info);
 	  ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
@@ -600,11 +600,11 @@ unroll_loop_constant_iterations (struct loop *loop)
 	    loop->any_estimate = false;
 	  desc->noloop_assumptions = NULL_RTX;
 
-	  bitmap_set_bit (wont_exit, 0);
-	  bitmap_set_bit (wont_exit, 1);
+	  wont_exit[0] = true;
+	  wont_exit[1] = true;
 	}
 
-      bitmap_clear_bit (wont_exit, max_unroll);
+      wont_exit[max_unroll] = false;
     }
 
   /* Now unroll the loop.  */
@@ -625,8 +625,6 @@ unroll_loop_constant_iterations (struct loop *loop)
       apply_opt_in_copies (opt_info, max_unroll, true, true);
       free_opt_info (opt_info);
     }
-
-  free (wont_exit);
 
   if (exit_at_end)
     {
@@ -881,7 +879,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
   rtx_insn *init_code, *branch_code;
   unsigned i, j, p;
   basic_block preheader, *body, swtch, ezc_swtch;
-  sbitmap wont_exit;
   int may_exit_copy;
   unsigned n_peel;
   edge e;
@@ -956,16 +953,15 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
   auto_vec<edge> remove_edges;
 
-  wont_exit = sbitmap_alloc (max_unroll + 2);
+  stack_bitvec wont_exit (max_unroll + 2);
 
   /* Peel the first copy of loop body (almost always we must leave exit test
      here; the only exception is when we have extra zero check and the number
      of iterations is reliable.  Also record the place of (possible) extra
      zero check.  */
-  bitmap_clear (wont_exit);
   if (extra_zero_check
       && !desc->noloop_assumptions)
-    bitmap_set_bit (wont_exit, 1);
+    wont_exit[1] = true;
   ezc_swtch = loop_preheader_edge (loop)->src;
   ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 				      1, wont_exit, desc->out_edge,
@@ -979,9 +975,9 @@ unroll_loop_runtime_iterations (struct loop *loop)
   for (i = 0; i < n_peel; i++)
     {
       /* Peel the copy.  */
-      bitmap_clear (wont_exit);
+      wont_exit.clear ();
       if (i != n_peel - 1 || !last_may_exit)
-	bitmap_set_bit (wont_exit, 1);
+	wont_exit[1] = true;
       ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					  1, wont_exit, desc->out_edge,
 					  &remove_edges,
@@ -1035,8 +1031,8 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
   /* And unroll loop.  */
 
-  bitmap_ones (wont_exit);
-  bitmap_clear_bit (wont_exit, may_exit_copy);
+  wont_exit.set ();
+  wont_exit[may_exit_copy] = false;
   opt_info_start_duplication (opt_info);
 
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
@@ -1054,8 +1050,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
       apply_opt_in_copies (opt_info, max_unroll, true, true);
       free_opt_info (opt_info);
     }
-
-  free (wont_exit);
 
   if (exit_at_end)
     {
@@ -1213,7 +1207,6 @@ decide_unroll_stupid (struct loop *loop, int flags)
 static void
 unroll_loop_stupid (struct loop *loop)
 {
-  sbitmap wont_exit;
   unsigned nunroll = loop->lpt_decision.times;
   struct niter_desc *desc = get_simple_loop_desc (loop);
   struct opt_info *opt_info = NULL;
@@ -1224,8 +1217,7 @@ unroll_loop_stupid (struct loop *loop)
     opt_info = analyze_insns_in_loop (loop);
 
 
-  wont_exit = sbitmap_alloc (nunroll + 1);
-  bitmap_clear (wont_exit);
+  stack_bitvec wont_exit (nunroll + 1);
   opt_info_start_duplication (opt_info);
 
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
@@ -1242,8 +1234,6 @@ unroll_loop_stupid (struct loop *loop)
       apply_opt_in_copies (opt_info, nunroll, true, true);
       free_opt_info (opt_info);
     }
-
-  free (wont_exit);
 
   if (desc->simple_p)
     {

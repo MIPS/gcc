@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.	If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
@@ -1047,50 +1048,42 @@ remove_some_program_points_and_update_live_ranges (void)
   int n, max_regno;
   int *map;
   lra_live_range_t r, prev_r, next_r;
-  sbitmap born_or_dead, born, dead;
-  sbitmap_iterator sbi;
   bool born_p, dead_p, prev_born_p, prev_dead_p;
 
-  born = sbitmap_alloc (lra_live_max_point);
-  dead = sbitmap_alloc (lra_live_max_point);
-  bitmap_clear (born);
-  bitmap_clear (dead);
+  stack_bitvec born (lra_live_max_point), dead (lra_live_max_point);
   max_regno = max_reg_num ();
   for (i = FIRST_PSEUDO_REGISTER; i < (unsigned) max_regno; i++)
     {
       for (r = lra_reg_info[i].live_ranges; r != NULL; r = r->next)
 	{
 	  lra_assert (r->start <= r->finish);
-	  bitmap_set_bit (born, r->start);
-	  bitmap_set_bit (dead, r->finish);
+	  born[r->start] = true;
+	  dead[r->finish] = true;
 	}
     }
-  born_or_dead = sbitmap_alloc (lra_live_max_point);
-  bitmap_ior (born_or_dead, born, dead);
+  stack_bitvec born_or_dead = born | dead;
   map = XCNEWVEC (int, lra_live_max_point);
   n = -1;
   prev_born_p = prev_dead_p = false;
-  EXECUTE_IF_SET_IN_BITMAP (born_or_dead, 0, i, sbi)
-    {
-      born_p = bitmap_bit_p (born, i);
-      dead_p = bitmap_bit_p (dead, i);
-      if ((prev_born_p && ! prev_dead_p && born_p && ! dead_p)
-	  || (prev_dead_p && ! prev_born_p && dead_p && ! born_p))
-	{
-	  map[i] = n;
-	  lra_point_freq[n] = MAX (lra_point_freq[n], lra_point_freq[i]);
-	}
-      else
-	{
-	  map[i] = ++n;
-	  lra_point_freq[n] = lra_point_freq[i];
-	}
-      prev_born_p = born_p;
-      prev_dead_p = dead_p;
-    }
-  sbitmap_free (born_or_dead);
-  sbitmap_free (born);
-  sbitmap_free (dead);
+  for (size_t i = born_or_dead.begin (); i < born_or_dead.end (); i++)
+    if (born_or_dead[i])
+      {
+	born_p = born[i];
+	dead_p = dead[i];
+	if ((prev_born_p && ! prev_dead_p && born_p && ! dead_p)
+	    || (prev_dead_p && ! prev_born_p && dead_p && ! born_p))
+	  {
+	    map[i] = n;
+	    lra_point_freq[n] = MAX (lra_point_freq[n], lra_point_freq[i]);
+	  }
+	else
+	  {
+	    map[i] = ++n;
+	    lra_point_freq[n] = lra_point_freq[i];
+	  }
+	prev_born_p = born_p;
+	prev_dead_p = dead_p;
+      }
   n++;
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file, "Compressing live ranges: from %d to %d - %d%%\n",

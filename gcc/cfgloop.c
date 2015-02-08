@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "bitvec.h"
 #include "hashtab.h"
 #include "hash-set.h"
 #include "vec.h"
@@ -1325,7 +1326,6 @@ DEBUG_FUNCTION void
 verify_loop_structure (void)
 {
   unsigned *sizes, i, j;
-  sbitmap irreds;
   basic_block bb, *bbs;
   struct loop *loop;
   int err = 0;
@@ -1333,7 +1333,6 @@ verify_loop_structure (void)
   unsigned num = number_of_loops (cfun);
   struct loop_exit *exit, *mexit;
   bool dom_available = dom_info_available_p (CDI_DOMINATORS);
-  sbitmap visited;
 
   if (loops_state_satisfies_p (LOOPS_NEED_FIXUP))
     {
@@ -1369,8 +1368,7 @@ verify_loop_structure (void)
       }
 
   /* Check the recorded loop father and sizes of loops.  */
-  visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (visited);
+  stack_bitvec visited (last_basic_block_for_fn (cfun));
   bbs = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun));
   FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
@@ -1403,9 +1401,9 @@ verify_loop_structure (void)
 	    }
 
 	  /* Ignore this block if it is in an inner loop.  */
-	  if (bitmap_bit_p (visited, bb->index))
+	  if (visited[bb->index])
 	    continue;
-	  bitmap_set_bit (visited, bb->index);
+	  visited[bb->index] = true;
 
 	  if (bb->loop_father != loop)
 	    {
@@ -1416,7 +1414,6 @@ verify_loop_structure (void)
 	}
     }
   free (bbs);
-  sbitmap_free (visited);
 
   /* Check headers and latches.  */
   FOR_EACH_LOOP (loop, 0)
@@ -1483,14 +1480,14 @@ verify_loop_structure (void)
   if (loops_state_satisfies_p (LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS))
     {
       /* Record old info.  */
-      irreds = sbitmap_alloc (last_basic_block_for_fn (cfun));
+      stack_bitvec irreds (last_basic_block_for_fn (cfun));
       FOR_EACH_BB_FN (bb, cfun)
 	{
 	  edge_iterator ei;
 	  if (bb->flags & BB_IRREDUCIBLE_LOOP)
-	    bitmap_set_bit (irreds, bb->index);
+	    irreds[bb->index] = true;
 	  else
-	    bitmap_clear_bit (irreds, bb->index);
+	    irreds[bb->index] = false;
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if (e->flags & EDGE_IRREDUCIBLE_LOOP)
 	      e->flags |= EDGE_ALL_FLAGS + 1;
@@ -1505,13 +1502,13 @@ verify_loop_structure (void)
 	  edge_iterator ei;
 
 	  if ((bb->flags & BB_IRREDUCIBLE_LOOP)
-	      && !bitmap_bit_p (irreds, bb->index))
+	      && !irreds[bb->index])
 	    {
 	      error ("basic block %d should be marked irreducible", bb->index);
 	      err = 1;
 	    }
 	  else if (!(bb->flags & BB_IRREDUCIBLE_LOOP)
-	      && bitmap_bit_p (irreds, bb->index))
+	      && irreds[bb->index])
 	    {
 	      error ("basic block %d should not be marked irreducible", bb->index);
 	      err = 1;
@@ -1535,7 +1532,6 @@ verify_loop_structure (void)
 	      e->flags &= ~(EDGE_ALL_FLAGS + 1);
 	    }
 	}
-      free (irreds);
     }
 
   /* Check the recorded loop exits.  */

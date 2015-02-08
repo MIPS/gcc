@@ -90,6 +90,7 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -6985,7 +6986,7 @@ vt_find_locations (void)
   bb_heap_t *worklist = new bb_heap_t (LONG_MIN);
   bb_heap_t *pending = new bb_heap_t (LONG_MIN);
   bb_heap_t *fibheap_swap = NULL;
-  sbitmap visited, in_worklist, in_pending, sbitmap_swap;
+  sbitmap in_worklist, in_pending, sbitmap_swap;
   basic_block bb;
   edge e;
   int *bb_order;
@@ -7005,7 +7006,7 @@ vt_find_locations (void)
     bb_order[rc_order[i]] = i;
   free (rc_order);
 
-  visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  stack_bitvec visited (last_basic_block_for_fn (cfun));
   in_worklist = sbitmap_alloc (last_basic_block_for_fn (cfun));
   in_pending = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (in_worklist);
@@ -7023,20 +7024,20 @@ vt_find_locations (void)
       in_pending = in_worklist;
       in_worklist = sbitmap_swap;
 
-      bitmap_clear (visited);
+      visited.clear ();
 
       while (!worklist->empty ())
 	{
 	  bb = worklist->extract_min ();
 	  bitmap_clear_bit (in_worklist, bb->index);
-	  gcc_assert (!bitmap_bit_p (visited, bb->index));
-	  if (!bitmap_bit_p (visited, bb->index))
+	  gcc_assert (!visited[bb->index]);
+	  if (!visited[bb->index])
 	    {
 	      bool changed;
 	      edge_iterator ei;
 	      int oldinsz, oldoutsz;
 
-	      bitmap_set_bit (visited, bb->index);
+	      visited[bb->index] = true;
 
 	      if (VTI (bb)->in.vars)
 		{
@@ -7128,7 +7129,7 @@ vt_find_locations (void)
 		      if (e->dest == EXIT_BLOCK_PTR_FOR_FN (cfun))
 			continue;
 
-		      if (bitmap_bit_p (visited, e->dest->index))
+		      if (visited[e->dest->index])
 			{
 			  if (!bitmap_bit_p (in_pending, e->dest->index))
 			    {
@@ -7177,7 +7178,6 @@ vt_find_locations (void)
   free (bb_order);
   delete worklist;
   delete pending;
-  sbitmap_free (visited);
   sbitmap_free (in_worklist);
   sbitmap_free (in_pending);
 

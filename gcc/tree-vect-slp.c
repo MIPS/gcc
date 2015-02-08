@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "dumpfile.h"
 #include "tm.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -1194,7 +1195,6 @@ vect_supported_load_permutation_p (slp_instance slp_instn)
 {
   unsigned int group_size = SLP_INSTANCE_GROUP_SIZE (slp_instn);
   unsigned int i, j, k, next;
-  sbitmap load_index;
   slp_tree node;
   gimple stmt, load, next_load, first_load;
   struct data_reference *dr;
@@ -1228,6 +1228,8 @@ vect_supported_load_permutation_p (slp_instance slp_instn)
   node = SLP_INSTANCE_TREE (slp_instn);
   stmt = SLP_TREE_SCALAR_STMTS (node)[0];
 
+  stack_bitvec load_index (group_size);
+
   /* Reduction (there are no data-refs in the root).
      In reduction chain the order of the loads is important.  */
   if (!STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt))
@@ -1252,24 +1254,15 @@ vect_supported_load_permutation_p (slp_instance slp_instn)
 
       /* Check that the loads in the first sequence are different and there
 	 are no gaps between them.  */
-      load_index = sbitmap_alloc (group_size);
-      bitmap_clear (load_index);
       FOR_EACH_VEC_ELT (node->load_permutation, i, lidx)
 	{
-	  if (bitmap_bit_p (load_index, lidx))
-	    {
-	      sbitmap_free (load_index);
-	      return false;
-	    }
-	  bitmap_set_bit (load_index, lidx);
+	  if (load_index[lidx])
+	    return false;
+	  load_index[lidx] = true;
 	}
       for (i = 0; i < group_size; i++)
-	if (!bitmap_bit_p (load_index, i))
-	  {
-	    sbitmap_free (load_index);
-	    return false;
-	  }
-      sbitmap_free (load_index);
+	if (!load_index[i])
+	  return false;
 
       /* This permutation is valid for reduction.  Since the order of the
 	 statements in the nodes is not important unless they are memory
@@ -1343,31 +1336,20 @@ vect_supported_load_permutation_p (slp_instance slp_instn)
     if (!node->load_permutation.exists ())
       return false;
 
-  load_index = sbitmap_alloc (group_size);
-  bitmap_clear (load_index);
+  load_index.clear ();
   FOR_EACH_VEC_ELT (SLP_INSTANCE_LOADS (slp_instn), i, node)
     {
       unsigned int lidx = node->load_permutation[0];
-      if (bitmap_bit_p (load_index, lidx))
-	{
-	  sbitmap_free (load_index);
-	  return false;
-	}
-      bitmap_set_bit (load_index, lidx);
+      if (load_index[lidx])
+	return false;
+      load_index[lidx] = true;
       FOR_EACH_VEC_ELT (node->load_permutation, j, k)
 	if (k != lidx)
-	  {
-	    sbitmap_free (load_index);
-	    return false;
-	  }
+	  return false;
     }
   for (i = 0; i < group_size; i++)
-    if (!bitmap_bit_p (load_index, i))
-      {
-	sbitmap_free (load_index);
-	return false;
-      }
-  sbitmap_free (load_index);
+    if (!load_index[i])
+      return false;
 
   FOR_EACH_VEC_ELT (SLP_INSTANCE_LOADS (slp_instn), i, node)
     if (node->load_permutation.exists ()

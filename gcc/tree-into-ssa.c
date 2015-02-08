@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -135,7 +136,7 @@ static sbitmap old_ssa_names;
    the operations done on them are presence tests.  */
 static sbitmap new_ssa_names;
 
-static sbitmap interesting_blocks;
+static bitvec interesting_blocks;
 
 /* Set of SSA names that have been marked to be released after they
    were registered in the replacement table.  They will be finally
@@ -715,7 +716,7 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
 	  set_rewrite_uses (stmt, true);
 	}
       if (rewrite_uses_p (stmt))
-	bitmap_set_bit (interesting_blocks, bb->index);
+	interesting_blocks[bb->index] = true;
       return;
     }
 
@@ -743,7 +744,7 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
   /* If we found the statement interesting then also mark the block BB
      as interesting.  */
   if (rewrite_uses_p (stmt) || register_defs_p (stmt))
-    bitmap_set_bit (interesting_blocks, bb->index);
+    interesting_blocks[bb->index] = true;
 }
 
 /* Structure used by prune_unused_phi_nodes to record bounds of the intervals
@@ -1480,7 +1481,7 @@ rewrite_dom_walker::before_dom_children (basic_block bb)
   /* Step 2.  Rewrite every variable used in each statement in the block
      with its immediate reaching definitions.  Update the current definition
      of a variable when a new real or virtual definition is found.  */
-  if (bitmap_bit_p (interesting_blocks, bb->index))
+  if (interesting_blocks[bb->index])
     for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
 	 gsi_next (&gsi))
       rewrite_stmt (&gsi);
@@ -2179,7 +2180,7 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
     }
 
   /* Step 2.  Rewrite every variable used in each statement in the block.  */
-  if (bitmap_bit_p (interesting_blocks, bb->index))
+  if (interesting_blocks[bb->index])
     {
       gcc_checking_assert (bitmap_bit_p (blocks_to_update, bb->index));
       for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
@@ -2396,8 +2397,7 @@ pass_build_ssa::execute (function *fun)
   /* Initialize the set of interesting blocks.  The callback
      mark_def_sites will add to this set those blocks that the renamer
      should process.  */
-  interesting_blocks = sbitmap_alloc (last_basic_block_for_fn (fun));
-  bitmap_clear (interesting_blocks);
+  interesting_blocks.grow (last_basic_block_for_fn (fun));
 
   /* Initialize dominance frontier.  */
   dfs = XNEWVEC (bitmap_head, last_basic_block_for_fn (fun));
@@ -2422,7 +2422,7 @@ pass_build_ssa::execute (function *fun)
     bitmap_clear (&dfs[bb->index]);
   free (dfs);
 
-  sbitmap_free (interesting_blocks);
+  interesting_blocks.clear_and_release ();
 
   fini_ssa_renamer ();
 
@@ -3399,14 +3399,13 @@ update_ssa (unsigned update_flags)
     get_var_info (sym)->info.current_def = NULL_TREE;
 
   /* Now start the renaming process at START_BB.  */
-  interesting_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (interesting_blocks);
+  interesting_blocks.grow (last_basic_block_for_fn (cfun));
   EXECUTE_IF_SET_IN_BITMAP (blocks_to_update, 0, i, bi)
-    bitmap_set_bit (interesting_blocks, i);
+    interesting_blocks[i] = true;
 
   rewrite_blocks (start_bb, REWRITE_UPDATE);
 
-  sbitmap_free (interesting_blocks);
+  interesting_blocks.clear_and_release ();
 
   /* Debugging dumps.  */
   if (dump_file)

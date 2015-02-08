@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
@@ -86,7 +87,7 @@ struct loop *current_loop_nest;
 static vec<loop_p> loop_nests = vNULL;
 
 /* Saves blocks already in loop regions, indexed by bb->index.  */
-static sbitmap bbs_in_loop_rgns = NULL;
+static bitvec bbs_in_loop_rgns;
 
 /* CFG hooks that are saved before changing create_basic_block hook.  */
 static struct cfg_hooks orig_cfg_hooks;
@@ -6041,7 +6042,7 @@ make_region_from_loop (struct loop *loop)
   new_rgn_number = sel_create_new_region ();
 
   sel_add_block_to_region (preheader_block, &bb_ord_index, new_rgn_number);
-  bitmap_set_bit (bbs_in_loop_rgns, preheader_block->index);
+  bbs_in_loop_rgns[preheader_block->index] = true;
 
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -6052,11 +6053,11 @@ make_region_from_loop (struct loop *loop)
 
       gcc_assert (new_rgn_number >= 0);
 
-      if (! bitmap_bit_p (bbs_in_loop_rgns, loop_blocks[i]->index))
+      if (! bbs_in_loop_rgns[loop_blocks[i]->index])
 	{
 	  sel_add_block_to_region (loop_blocks[i], &bb_ord_index,
                                    new_rgn_number);
-	  bitmap_set_bit (bbs_in_loop_rgns, loop_blocks[i]->index);
+	  bbs_in_loop_rgns[loop_blocks[i]->index] = true;
 	}
     }
 
@@ -6101,7 +6102,7 @@ make_regions_from_loop_nest (struct loop *loop)
 
   /* Traverse all inner nodes of the loop.  */
   for (cur_loop = loop->inner; cur_loop; cur_loop = cur_loop->next)
-    if (! bitmap_bit_p (bbs_in_loop_rgns, cur_loop->header->index))
+    if (! bbs_in_loop_rgns[cur_loop->header->index])
       return false;
 
   /* At this moment all regular inner loops should have been pipelined.
@@ -6126,8 +6127,7 @@ sel_init_pipelining (void)
 		       | LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS);
   current_loop_nest = NULL;
 
-  bbs_in_loop_rgns = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (bbs_in_loop_rgns);
+  bbs_in_loop_rgns.grow (last_basic_block_for_fn (cfun));
 
   recompute_rev_top_order ();
 }
@@ -6215,17 +6215,17 @@ make_regions_from_the_rest (void)
     {
       degree[bb->index] = 0;
 
-      if (!bitmap_bit_p (bbs_in_loop_rgns, bb->index))
+      if (!bbs_in_loop_rgns[bb->index])
 	{
 	  FOR_EACH_EDGE (e, ei, bb->preds)
-	    if (!bitmap_bit_p (bbs_in_loop_rgns, e->src->index))
+	    if (!bbs_in_loop_rgns[e->src->index])
 	      degree[bb->index]++;
 	}
       else
 	degree[bb->index] = -1;
     }
 
-  extend_rgns (degree, &cur_rgn_blocks, bbs_in_loop_rgns, loop_hdr);
+  extend_rgns (degree, &cur_rgn_blocks, &bbs_in_loop_rgns, loop_hdr);
 
   /* Any block that did not end up in a region is placed into a region
      by itself.  */
@@ -6286,8 +6286,7 @@ sel_find_rgns (void)
   make_regions_from_the_rest ();
 
   /* We don't need bbs_in_loop_rgns anymore.  */
-  sbitmap_free (bbs_in_loop_rgns);
-  bbs_in_loop_rgns = NULL;
+  bbs_in_loop_rgns.clear_and_release ();
 }
 
 /* Add the preheader blocks from previous loop to current region taking

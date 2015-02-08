@@ -22,6 +22,7 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -45,7 +46,6 @@
 #include "gimple-pretty-print.h"
 #include "dumpfile.h"
 #include "bitmap.h"
-#include "sbitmap.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -157,7 +157,7 @@ static ssa_prop_visit_phi_fn ssa_prop_visit_phi;
 #define STMT_IN_SSA_EDGE_WORKLIST	GF_PLF_1
 
 /* A bitmap to keep track of executable blocks in the CFG.  */
-static sbitmap executable_blocks;
+static bitvec executable_blocks;
 
 /* Array of control flow edges on the worklist.  */
 static vec<basic_block> cfg_blocks;
@@ -166,7 +166,7 @@ static unsigned int cfg_blocks_num = 0;
 static int cfg_blocks_tail;
 static int cfg_blocks_head;
 
-static sbitmap bb_in_list;
+static bitvec bb_in_list;
 
 /* Worklist of SSA edges which will need reexamination as their
    definition has changed.  SSA edges are def-use edges in the SSA
@@ -210,7 +210,7 @@ cfg_blocks_add (basic_block bb)
 
   gcc_assert (bb != ENTRY_BLOCK_PTR_FOR_FN (cfun)
 	      && bb != EXIT_BLOCK_PTR_FOR_FN (cfun));
-  gcc_assert (!bitmap_bit_p (bb_in_list, bb->index));
+  gcc_assert (!bb_in_list[bb->index]);
 
   if (cfg_blocks_empty_p ())
     {
@@ -247,7 +247,7 @@ cfg_blocks_add (basic_block bb)
     }
 
   cfg_blocks[head ? cfg_blocks_head : cfg_blocks_tail] = bb;
-  bitmap_set_bit (bb_in_list, bb->index);
+  bb_in_list[bb->index] = true;
 }
 
 
@@ -265,7 +265,7 @@ cfg_blocks_get (void)
 
   cfg_blocks_head = ((cfg_blocks_head + 1) % cfg_blocks.length ());
   --cfg_blocks_num;
-  bitmap_clear_bit (bb_in_list, bb->index);
+  bb_in_list[bb->index] = false;
 
   return bb;
 }
@@ -314,7 +314,7 @@ add_control_edge (edge e)
   e->flags |= EDGE_EXECUTABLE;
 
   /* If the block is already in the list, we're done.  */
-  if (bitmap_bit_p (bb_in_list, bb->index))
+  if (bb_in_list[bb->index])
     return;
 
   cfg_blocks_add (bb);
@@ -418,7 +418,7 @@ process_ssa_edge_worklist (vec<gimple> *worklist)
 	 the destination block is executable.  Otherwise, visit the
 	 statement only if its block is marked executable.  */
       if (gimple_code (stmt) == GIMPLE_PHI
-	  || bitmap_bit_p (executable_blocks, bb->index))
+	  || executable_blocks[bb->index])
 	simulate_stmt (stmt);
     }
 }
@@ -446,7 +446,7 @@ simulate_block (basic_block block)
 
   /* If this is the first time we've simulated this block, then we
      must simulate each of its statements.  */
-  if (!bitmap_bit_p (executable_blocks, block->index))
+  if (!executable_blocks[block->index])
     {
       gimple_stmt_iterator j;
       unsigned int normal_edge_count;
@@ -454,7 +454,7 @@ simulate_block (basic_block block)
       edge_iterator ei;
 
       /* Note that we have simulated this block.  */
-      bitmap_set_bit (executable_blocks, block->index);
+      executable_blocks[block->index] = true;
 
       for (j = gsi_start_bb (block); !gsi_end_p (j); gsi_next (&j))
 	{
@@ -514,11 +514,9 @@ ssa_prop_init (void)
   interesting_ssa_edges.create (20);
   varying_ssa_edges.create (20);
 
-  executable_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (executable_blocks);
+  executable_blocks.grow (last_basic_block_for_fn (cfun));
 
-  bb_in_list = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (bb_in_list);
+  bb_in_list.grow (last_basic_block_for_fn (cfun));
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_immediate_uses (dump_file);
@@ -557,8 +555,8 @@ ssa_prop_fini (void)
   interesting_ssa_edges.release ();
   varying_ssa_edges.release ();
   cfg_blocks.release ();
-  sbitmap_free (bb_in_list);
-  sbitmap_free (executable_blocks);
+  bb_in_list.clear_and_release ();
+  executable_blocks.clear_and_release ();
 }
 
 

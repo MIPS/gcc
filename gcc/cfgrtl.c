@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -4312,18 +4313,16 @@ cfg_layout_initialize (unsigned int flags)
 void
 break_superblocks (void)
 {
-  sbitmap superblocks;
   bool need = false;
   basic_block bb;
 
-  superblocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (superblocks);
+  stack_bitvec superblocks (last_basic_block_for_fn (cfun));
 
   FOR_EACH_BB_FN (bb, cfun)
     if (bb->flags & BB_SUPERBLOCK)
       {
 	bb->flags &= ~BB_SUPERBLOCK;
-	bitmap_set_bit (superblocks, bb->index);
+	superblocks[bb->index] = true;
 	need = true;
       }
 
@@ -4332,8 +4331,6 @@ break_superblocks (void)
       rebuild_jump_labels (get_insns ());
       find_many_sub_basic_blocks (superblocks);
     }
-
-  free (superblocks);
 }
 
 /* Finalize the changes: reorder insn list according to the sequence specified

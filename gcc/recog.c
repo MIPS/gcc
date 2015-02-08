@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -2969,12 +2970,10 @@ split_insn (rtx_insn *insn)
 void
 split_all_insns (void)
 {
-  sbitmap blocks;
   bool changed;
   basic_block bb;
 
-  blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (blocks);
+  stack_bitvec blocks (last_basic_block_for_fn (cfun));
   changed = false;
 
   FOR_EACH_BB_REVERSE_FN (bb, cfun)
@@ -3010,7 +3009,7 @@ split_all_insns (void)
 		{
 		  if (split_insn (insn))
 		    {
-		      bitmap_set_bit (blocks, bb->index);
+		      blocks[bb->index] = true;
 		      changed = true;
 		    }
 		}
@@ -3025,8 +3024,6 @@ split_all_insns (void)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-
-  sbitmap_free (blocks);
 }
 
 /* Same as split_all_insns, but do not expect CFG to be available.

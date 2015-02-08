@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
@@ -870,7 +871,7 @@ remove_reachable_equiv_notes (basic_block bb, struct st_expr *smexpr)
   edge_iterator *stack, ei;
   int sp;
   edge act;
-  sbitmap visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  stack_bitvec visited (last_basic_block_for_fn (cfun));
   rtx last, note;
   rtx_insn *insn;
   rtx mem = smexpr->pattern;
@@ -878,8 +879,6 @@ remove_reachable_equiv_notes (basic_block bb, struct st_expr *smexpr)
   stack = XNEWVEC (edge_iterator, n_basic_blocks_for_fn (cfun));
   sp = 0;
   ei = ei_start (bb->succs);
-
-  bitmap_clear (visited);
 
   act = (EDGE_COUNT (ei_container (ei)) > 0 ? EDGE_I (ei_container (ei), 0) : NULL);
   while (1)
@@ -889,7 +888,6 @@ remove_reachable_equiv_notes (basic_block bb, struct st_expr *smexpr)
 	  if (!sp)
 	    {
 	      free (stack);
-	      sbitmap_free (visited);
 	      return;
 	    }
 	  act = ei_edge (stack[--sp]);
@@ -897,14 +895,14 @@ remove_reachable_equiv_notes (basic_block bb, struct st_expr *smexpr)
       bb = act->dest;
 
       if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
-	  || bitmap_bit_p (visited, bb->index))
+	  || visited[bb->index])
 	{
 	  if (!ei_end_p (ei))
 	      ei_next (&ei);
 	  act = (! ei_end_p (ei)) ? ei_edge (ei) : NULL;
 	  continue;
 	}
-      bitmap_set_bit (visited, bb->index);
+      visited[bb->index] = true;
 
       if (bitmap_bit_p (st_antloc[bb->index], smexpr->index))
 	{

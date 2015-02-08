@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "hash-table.h"
 #include "tm.h"
 #include "rtl.h"
@@ -1439,9 +1440,7 @@ undistribute_ops_list (enum tree_code opcode,
   unsigned int length = ops->length ();
   operand_entry_t oe1;
   unsigned i, j;
-  sbitmap candidates, candidates2;
   unsigned nr_candidates, nr_candidates2;
-  sbitmap_iterator sbi0;
   vec<operand_entry_t> *subops;
   bool changed = false;
   int next_oecount_id = 0;
@@ -1451,8 +1450,7 @@ undistribute_ops_list (enum tree_code opcode,
     return false;
 
   /* Build a list of candidates to process.  */
-  candidates = sbitmap_alloc (length);
-  bitmap_clear (candidates);
+  stack_bitvec candidates (length);
   nr_candidates = 0;
   FOR_EACH_VEC_ELT (*ops, i, oe1)
     {
@@ -1470,21 +1468,18 @@ undistribute_ops_list (enum tree_code opcode,
 	  || !is_reassociable_op (oe1def, dcode, loop))
 	continue;
 
-      bitmap_set_bit (candidates, i);
+      candidates[i] = true;
       nr_candidates++;
     }
 
   if (nr_candidates < 2)
-    {
-      sbitmap_free (candidates);
-      return false;
-    }
+    return false;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "searching for un-distribute opportunities ");
       print_generic_expr (dump_file,
-	(*ops)[bitmap_first_set_bit (candidates)]->op, 0);
+	(*ops)[candidates.first_set_bit ()]->op, 0);
       fprintf (dump_file, " %d\n", nr_candidates);
     }
 
@@ -1497,40 +1492,41 @@ undistribute_ops_list (enum tree_code opcode,
      them.  This typedef is needed to workaround that limitation.  */
   typedef vec<operand_entry_t> vec_operand_entry_t_heap;
   subops = XCNEWVEC (vec_operand_entry_t_heap, ops->length ());
-  EXECUTE_IF_SET_IN_BITMAP (candidates, 0, i, sbi0)
-    {
-      gimple oedef;
-      enum tree_code oecode;
-      unsigned j;
+  for (size_t i = candidates.begin (); i < candidates.end (); i++)
+    if (candidates[i])
+      {
+	gimple oedef;
+	enum tree_code oecode;
+	unsigned j;
 
-      oedef = SSA_NAME_DEF_STMT ((*ops)[i]->op);
-      oecode = gimple_assign_rhs_code (oedef);
-      linearize_expr_tree (&subops[i], oedef,
-			   associative_tree_code (oecode), false);
+	oedef = SSA_NAME_DEF_STMT ((*ops)[i]->op);
+	oecode = gimple_assign_rhs_code (oedef);
+	linearize_expr_tree (&subops[i], oedef,
+			     associative_tree_code (oecode), false);
 
-      FOR_EACH_VEC_ELT (subops[i], j, oe1)
-	{
-	  oecount c;
-	  int *slot;
-	  int idx;
-	  c.oecode = oecode;
-	  c.cnt = 1;
-	  c.id = next_oecount_id++;
-	  c.op = oe1->op;
-	  cvec.safe_push (c);
-	  idx = cvec.length () + 41;
-	  slot = ctable.find_slot (idx, INSERT);
-	  if (!*slot)
-	    {
-	      *slot = idx;
-	    }
-	  else
-	    {
-	      cvec.pop ();
-	      cvec[*slot - 42].cnt++;
-	    }
-	}
-    }
+	FOR_EACH_VEC_ELT (subops[i], j, oe1)
+	  {
+	    oecount c;
+	    int *slot;
+	    int idx;
+	    c.oecode = oecode;
+	    c.cnt = 1;
+	    c.id = next_oecount_id++;
+	    c.op = oe1->op;
+	    cvec.safe_push (c);
+	    idx = cvec.length () + 41;
+	    slot = ctable.find_slot (idx, INSERT);
+	    if (!*slot)
+	      {
+		*slot = idx;
+	      }
+	    else
+	      {
+		cvec.pop ();
+		cvec[*slot - 42].cnt++;
+	      }
+	  }
+      }
 
   /* Sort the counting table.  */
   cvec.qsort (oecount_cmp);
@@ -1550,7 +1546,7 @@ undistribute_ops_list (enum tree_code opcode,
     }
 
   /* Process the (operand, code) pairs in order of most occurrence.  */
-  candidates2 = sbitmap_alloc (length);
+  stack_bitvec candidates2 (length);
   while (!cvec.is_empty ())
     {
       oecount *c = &cvec.last ();
@@ -1559,41 +1555,42 @@ undistribute_ops_list (enum tree_code opcode,
 
       /* Now collect the operands in the outer chain that contain
          the common operand in their inner chain.  */
-      bitmap_clear (candidates2);
+      candidates2.clear ();
       nr_candidates2 = 0;
-      EXECUTE_IF_SET_IN_BITMAP (candidates, 0, i, sbi0)
-	{
-	  gimple oedef;
-	  enum tree_code oecode;
-	  unsigned j;
-	  tree op = (*ops)[i]->op;
+      for (size_t i = candidates.begin (); i < candidates.end (); i++)
+	if (candidates[i])
+	  {
+	    gimple oedef;
+	    enum tree_code oecode;
+	    unsigned j;
+	    tree op = (*ops)[i]->op;
 
-	  /* If we undistributed in this chain already this may be
-	     a constant.  */
-	  if (TREE_CODE (op) != SSA_NAME)
-	    continue;
+	    /* If we undistributed in this chain already this may be
+	       a constant.  */
+	    if (TREE_CODE (op) != SSA_NAME)
+	      continue;
 
-	  oedef = SSA_NAME_DEF_STMT (op);
-	  oecode = gimple_assign_rhs_code (oedef);
-	  if (oecode != c->oecode)
-	    continue;
+	    oedef = SSA_NAME_DEF_STMT (op);
+	    oecode = gimple_assign_rhs_code (oedef);
+	    if (oecode != c->oecode)
+	      continue;
 
-	  FOR_EACH_VEC_ELT (subops[i], j, oe1)
-	    {
-	      if (oe1->op == c->op)
-		{
-		  bitmap_set_bit (candidates2, i);
-		  ++nr_candidates2;
-		  break;
-		}
-	    }
-	}
+	    FOR_EACH_VEC_ELT (subops[i], j, oe1)
+	      {
+		if (oe1->op == c->op)
+		  {
+		    candidates2[i] = true;
+		    ++nr_candidates2;
+		    break;
+		  }
+	      }
+	  }
 
       if (nr_candidates2 >= 2)
 	{
 	  operand_entry_t oe1, oe2;
 	  gimple prod;
-	  int first = bitmap_first_set_bit (candidates2);
+	  ssize_t first = candidates2.first_set_bit ();
 
 	  /* Build the new addition chain.  */
 	  oe1 = (*ops)[first];
@@ -1603,22 +1600,23 @@ undistribute_ops_list (enum tree_code opcode,
 	      print_generic_expr (dump_file, oe1->op, 0);
 	    }
 	  zero_one_operation (&oe1->op, c->oecode, c->op);
-	  EXECUTE_IF_SET_IN_BITMAP (candidates2, first+1, i, sbi0)
-	    {
-	      gimple sum;
-	      oe2 = (*ops)[i];
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  fprintf (dump_file, " + ");
-		  print_generic_expr (dump_file, oe2->op, 0);
-		}
-	      zero_one_operation (&oe2->op, c->oecode, c->op);
-	      sum = build_and_add_sum (TREE_TYPE (oe1->op),
-				       oe1->op, oe2->op, opcode);
-	      oe2->op = build_zero_cst (TREE_TYPE (oe2->op));
-	      oe2->rank = 0;
-	      oe1->op = gimple_get_lhs (sum);
-	    }
+	  for (size_t i = first + 1; i < candidates2.end (); i++)
+	    if (candidates2[i])
+	      {
+		gimple sum;
+		oe2 = (*ops)[i];
+		if (dump_file && (dump_flags & TDF_DETAILS))
+		  {
+		    fprintf (dump_file, " + ");
+		    print_generic_expr (dump_file, oe2->op, 0);
+		  }
+		zero_one_operation (&oe2->op, c->oecode, c->op);
+		sum = build_and_add_sum (TREE_TYPE (oe1->op),
+					 oe1->op, oe2->op, opcode);
+		oe2->op = build_zero_cst (TREE_TYPE (oe2->op));
+		oe2->rank = 0;
+		oe1->op = gimple_get_lhs (sum);
+	      }
 
 	  /* Apply the multiplication/division.  */
 	  prod = build_and_add_sum (TREE_TYPE (oe1->op),
@@ -1646,8 +1644,6 @@ undistribute_ops_list (enum tree_code opcode,
     subops[i].release ();
   free (subops);
   cvec.release ();
-  sbitmap_free (candidates);
-  sbitmap_free (candidates2);
 
   return changed;
 }

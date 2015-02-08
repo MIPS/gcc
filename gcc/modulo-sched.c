@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
@@ -230,7 +231,7 @@ static void reset_partial_schedule (partial_schedule_ptr, int new_ii);
 void print_partial_schedule (partial_schedule_ptr, FILE *);
 static void verify_partial_schedule (partial_schedule_ptr, sbitmap);
 static ps_insn_ptr ps_add_node_check_conflicts (partial_schedule_ptr,
-						int, int, sbitmap, sbitmap);
+						int, int, sbitmap, bitvec *);
 static void rotate_partial_schedule (partial_schedule_ptr, int);
 void set_row_column_for_ps (partial_schedule_ptr);
 static void ps_insert_empty_row (partial_schedule_ptr, int, sbitmap);
@@ -248,11 +249,11 @@ static void generate_prolog_epilog (partial_schedule_ptr, struct loop *,
                                     rtx, rtx);
 static int calculate_stage_count (partial_schedule_ptr, int);
 static void calculate_must_precede_follow (ddg_node_ptr, int, int,
-					   int, int, sbitmap, sbitmap, sbitmap);
+					   int, int, sbitmap, sbitmap, bitvec *);
 static int get_sched_window (partial_schedule_ptr, ddg_node_ptr, 
 			     sbitmap, int, int *, int *, int *);
 static bool try_scheduling_node_in_cycle (partial_schedule_ptr, int, int,
-					  sbitmap, int *, sbitmap, sbitmap);
+					  sbitmap, int *, sbitmap, bitvec *);
 static void remove_node_from_ps (partial_schedule_ptr, ps_insn_ptr);
 
 #define NODE_ASAP(node) ((node)->aux.count)
@@ -577,7 +578,7 @@ set_columns_for_ps (partial_schedule_ptr ps)
    Return true on success.  */
 static bool
 schedule_reg_move (partial_schedule_ptr ps, int i_reg_move,
-		   sbitmap distance1_uses, sbitmap must_follow)
+		   sbitmap distance1_uses, bitvec *must_follow)
 {
   unsigned int u;
   int this_time, this_distance, this_start, this_end, this_latency;
@@ -668,8 +669,8 @@ schedule_reg_move (partial_schedule_ptr ps, int i_reg_move,
       fprintf (dump_file, "%11d %11d %5s %s\n", start, end, "", "(max, min)");
     }
 
-  bitmap_clear (must_follow);
-  bitmap_set_bit (must_follow, move->def);
+  must_follow->clear ();
+  (*must_follow)[move->def] = true;
 
   start = MAX (start, end - (ii - 1));
   for (c = end; c >= start; c--)
@@ -719,7 +720,6 @@ schedule_reg_moves (partial_schedule_ptr ps)
       rtx prev_reg, old_reg;
       int first_move;
       int distances[2];
-      sbitmap must_follow;
       sbitmap distance1_uses;
       rtx set = single_set (u->insn);
       
@@ -830,12 +830,11 @@ schedule_reg_moves (partial_schedule_ptr ps)
 	      }
 	  }
 
-      must_follow = sbitmap_alloc (first_move + nreg_moves);
+      stack_bitvec must_follow (first_move + nreg_moves);
       for (i_reg_move = 0; i_reg_move < nreg_moves; i_reg_move++)
 	if (!schedule_reg_move (ps, first_move + i_reg_move,
-				distance1_uses, must_follow))
+				distance1_uses, &must_follow))
 	  break;
-      sbitmap_free (must_follow);
       if (distance1_uses)
 	sbitmap_free (distance1_uses);
       if (i_reg_move < nreg_moves)
@@ -934,7 +933,7 @@ permute_partial_schedule (partial_schedule_ptr ps, rtx_insn *last)
    window boundaries marked by START and END cycles.  STEP is the
    direction of the window.  */
 static inline void
-set_must_precede_follow (sbitmap *tmp_follow, sbitmap must_follow,
+set_must_precede_follow (bitvec **tmp_follow, bitvec *must_follow,
 			 sbitmap *tmp_precede, sbitmap must_precede, int c,
 			 int start, int end, int step)
 {
@@ -1022,7 +1021,8 @@ optimize_sc (partial_schedule_ptr ps, ddg_ptr g)
       int branch_cycle = SCHED_TIME (g->closing_branch->cuid);
       int row = SMODULO (branch_cycle, ps->ii);
       int num_splits = 0;
-      sbitmap must_precede, must_follow, tmp_precede, tmp_follow;
+      sbitmap must_precede, tmp_precede;
+      bitvec *tmp_follow;
       int c;
 
       if (dump_file)
@@ -1061,14 +1061,14 @@ optimize_sc (partial_schedule_ptr ps, ddg_ptr g)
 	}
 
       must_precede = sbitmap_alloc (g->num_nodes);
-      must_follow = sbitmap_alloc (g->num_nodes);
+      stack_bitvec must_follow (g->num_nodes);
 
       /* Try to schedule the branch is it's new cycle.  */
       calculate_must_precede_follow (g->closing_branch, start, end,
 				     step, ii, sched_nodes,
-				     must_precede, must_follow);
+				     must_precede, &must_follow);
 
-      set_must_precede_follow (&tmp_follow, must_follow, &tmp_precede,
+      set_must_precede_follow (&tmp_follow, &must_follow, &tmp_precede,
 			       must_precede, c, start, end, step);
 
       /* Find the element in the partial schedule related to the closing
@@ -1094,7 +1094,7 @@ optimize_sc (partial_schedule_ptr ps, ddg_ptr g)
 	  /* The branch was failed to be placed in row ii - 1.
 	     Put it back in it's original place in the partial
 	     schedualing.  */
-	  set_must_precede_follow (&tmp_follow, must_follow, &tmp_precede,
+	  set_must_precede_follow (&tmp_follow, &must_follow, &tmp_precede,
 				   must_precede, branch_cycle, start, end,
 				   step);
 	  success =
@@ -1118,7 +1118,6 @@ optimize_sc (partial_schedule_ptr ps, ddg_ptr g)
 	}
 
       free (must_precede);
-      free (must_follow);
     }
 
 clear:
@@ -2062,7 +2061,7 @@ get_sched_window (partial_schedule_ptr ps, ddg_node_ptr u_node,
 static void
 calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
 			       int step, int ii, sbitmap sched_nodes,
-			       sbitmap must_precede, sbitmap must_follow)
+			       sbitmap must_precede, bitvec *must_follow)
 {
   ddg_edge_ptr e;
   int first_cycle_in_window, last_cycle_in_window;
@@ -2080,7 +2079,7 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
   last_cycle_in_window = (step == 1) ? end - step : start;
 
   bitmap_clear (must_precede);
-  bitmap_clear (must_follow);
+  must_follow->clear ();
 
   if (dump_file)
     fprintf (dump_file, "\nmust_precede: ");
@@ -2129,7 +2128,7 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
 	if (dump_file)
 	  fprintf (dump_file, "%d ", e->dest->cuid);
 
-	bitmap_set_bit (must_follow, e->dest->cuid);
+	(*must_follow)[e->dest->cuid] = true;
       }
 
   if (dump_file)
@@ -2150,7 +2149,7 @@ static bool
 try_scheduling_node_in_cycle (partial_schedule_ptr ps,
 			      int u, int cycle, sbitmap sched_nodes,
 			      int *num_splits, sbitmap must_precede,
-			      sbitmap must_follow)
+			      bitvec *must_follow)
 {
   ps_insn_ptr psi;
   bool success = 0;
@@ -2183,7 +2182,7 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
   int start, end, step; /* Place together into one struct?  */
   sbitmap sched_nodes = sbitmap_alloc (num_nodes);
   sbitmap must_precede = sbitmap_alloc (num_nodes);
-  sbitmap must_follow = sbitmap_alloc (num_nodes);
+  stack_bitvec must_follow (num_nodes);
   sbitmap tobe_scheduled = sbitmap_alloc (num_nodes);
 
   partial_schedule_ptr ps = create_partial_schedule (ii, g, DFA_HISTORY);
@@ -2229,13 +2228,14 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
 
               calculate_must_precede_follow (u_node, start, end, step, ii,
                                              sched_nodes, must_precede,
-                                             must_follow);
+					     &must_follow);
 
               for (c = start; c != end; c += step)
                 {
-		  sbitmap tmp_precede, tmp_follow;
+		  sbitmap tmp_precede;
+		  bitvec *tmp_follow;
 
-                  set_must_precede_follow (&tmp_follow, must_follow, 
+		  set_must_precede_follow (&tmp_follow, &must_follow,
 		                           &tmp_precede, must_precede, 
                                            c, start, end, step);
                   success =
@@ -2297,7 +2297,6 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
 
   sbitmap_free (sched_nodes);
   sbitmap_free (must_precede);
-  sbitmap_free (must_follow);
   sbitmap_free (tobe_scheduled);
 
   return ps;
@@ -2509,9 +2508,7 @@ static void
 check_nodes_order (int *node_order, int num_nodes)
 {
   int i;
-  sbitmap tmp = sbitmap_alloc (num_nodes);
-
-  bitmap_clear (tmp);
+  stack_bitvec tmp (num_nodes);
 
   if (dump_file)
     fprintf (dump_file, "SMS final nodes order: \n");
@@ -2522,15 +2519,13 @@ check_nodes_order (int *node_order, int num_nodes)
 
       if (dump_file)
         fprintf (dump_file, "%d ", u);
-      gcc_assert (u < num_nodes && u >= 0 && !bitmap_bit_p (tmp, u));
+      gcc_assert (u < num_nodes && u >= 0 && !tmp[u]);
 
-      bitmap_set_bit (tmp, u);
+      tmp[u] = true;
     }
 
   if (dump_file)
     fprintf (dump_file, "\n");
-
-  sbitmap_free (tmp);
 }
 
 /* Order the nodes of G for scheduling and pass the result in
@@ -3027,7 +3022,7 @@ remove_node_from_ps (partial_schedule_ptr ps, ps_insn_ptr ps_i)
    instructions and find the first possible column to put it in.  */
 static bool
 ps_insn_find_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
-		     sbitmap must_precede, sbitmap must_follow)
+		     sbitmap must_precede, bitvec *must_follow)
 {
   ps_insn_ptr next_ps_i;
   ps_insn_ptr first_must_follow = NULL;
@@ -3048,7 +3043,7 @@ ps_insn_find_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
        next_ps_i = next_ps_i->next_in_row)
     {
       if (must_follow
-	  && bitmap_bit_p (must_follow, next_ps_i->id)
+	  && (*must_follow)[next_ps_i->id]
 	  && ! first_must_follow)
         first_must_follow = next_ps_i;
       if (must_precede && bitmap_bit_p (must_precede, next_ps_i->id))
@@ -3119,7 +3114,7 @@ ps_insn_find_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
    PS_I when scheduled in the same cycle.  */
 static int
 ps_insn_advance_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
-			sbitmap must_follow)
+			const bitvec *must_follow)
 {
   ps_insn_ptr prev, next;
   int row;
@@ -3134,7 +3129,7 @@ ps_insn_advance_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
 
   /* Check if next_in_row is dependent on ps_i, both having same sched
      times (typically ANTI_DEP).  If so, ps_i cannot skip over it.  */
-  if (must_follow && bitmap_bit_p (must_follow, ps_i->next_in_row->id))
+  if (must_follow && (*must_follow)[ps_i->next_in_row->id])
     return false;
 
   /* Advance PS_I over its next_in_row in the doubly linked list.  */
@@ -3166,7 +3161,7 @@ ps_insn_advance_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
    in the same cycle.  */
 static ps_insn_ptr
 add_node_to_ps (partial_schedule_ptr ps, int id, int cycle,
-		sbitmap must_precede, sbitmap must_follow)
+		sbitmap must_precede, bitvec *must_follow)
 {
   ps_insn_ptr ps_i;
   int row = SMODULO (cycle, ps->ii);
@@ -3265,7 +3260,7 @@ ps_has_conflicts (partial_schedule_ptr ps, int from, int to)
 ps_insn_ptr
 ps_add_node_check_conflicts (partial_schedule_ptr ps, int n,
    			     int c, sbitmap must_precede,
-			     sbitmap must_follow)
+			     bitvec *must_follow)
 {
   int has_conflicts = 0;
   ps_insn_ptr ps_i;

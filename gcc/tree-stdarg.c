@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "sbitmap.h"
+#include "bitvec.h"
 #include "tree-pass.h"
 #include "tree-stdarg.h"
 
@@ -78,7 +79,6 @@ reachable_at_most_once (basic_block va_arg_bb, basic_block va_start_bb)
   vec<edge> stack = vNULL;
   edge e;
   edge_iterator ei;
-  sbitmap visited;
   bool ret;
 
   if (va_arg_bb == va_start_bb)
@@ -87,8 +87,7 @@ reachable_at_most_once (basic_block va_arg_bb, basic_block va_start_bb)
   if (! dominated_by_p (CDI_DOMINATORS, va_arg_bb, va_start_bb))
     return false;
 
-  visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (visited);
+  stack_bitvec visited (last_basic_block_for_fn (cfun));
   ret = true;
 
   FOR_EACH_EDGE (e, ei, va_arg_bb->preds)
@@ -119,16 +118,15 @@ reachable_at_most_once (basic_block va_arg_bb, basic_block va_start_bb)
 
       gcc_assert (src != ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
-      if (! bitmap_bit_p (visited, src->index))
+      if (! visited[src->index])
 	{
-	  bitmap_set_bit (visited, src->index);
+	  visited[src->index] = true;
 	  FOR_EACH_EDGE (e, ei, src->preds)
 	    stack.safe_push (e);
 	}
     }
 
   stack.release ();
-  sbitmap_free (visited);
   return ret;
 }
 

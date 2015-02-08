@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic-core.h" /* for fatal_error */
-#include "sbitmap.h"
+#include "bitvec.h"
 #include "predict.h"
 #include "vec.h"
 #include "hashtab.h"
@@ -167,10 +167,8 @@ draw_cfg_nodes_no_loops (pretty_printer *pp, struct function *fun)
 {
   int *rpo = XNEWVEC (int, n_basic_blocks_for_fn (fun));
   int i, n;
-  sbitmap visited;
 
-  visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (visited);
+  stack_bitvec visited (last_basic_block_for_fn (cfun));
 
   n = pre_and_rev_post_order_compute_fn (fun, NULL, rpo, true);
   for (i = n_basic_blocks_for_fn (fun) - n;
@@ -178,7 +176,7 @@ draw_cfg_nodes_no_loops (pretty_printer *pp, struct function *fun)
     {
       basic_block bb = BASIC_BLOCK_FOR_FN (cfun, rpo[i]);
       draw_cfg_node (pp, fun->funcdef_no, bb);
-      bitmap_set_bit (visited, bb->index);
+      visited[bb->index] = true;
     }
   free (rpo);
 
@@ -187,11 +185,9 @@ draw_cfg_nodes_no_loops (pretty_printer *pp, struct function *fun)
       /* Some blocks are unreachable.  We still want to dump them.  */
       basic_block bb;
       FOR_ALL_BB_FN (bb, fun)
-	if (! bitmap_bit_p (visited, bb->index))
+	if (! visited[bb->index])
 	  draw_cfg_node (pp, fun->funcdef_no, bb);
     }
-
-  sbitmap_free (visited);
 }
 
 /* Draw all the basic blocks in LOOP.  Print the blocks in breath-first

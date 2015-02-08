@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "hashtab.h"
 
+class bitvec;
 struct function;
 struct eh_region_d;
 
@@ -228,7 +229,7 @@ extern void init_eh_for_function (void);
 
 extern void remove_eh_landing_pad (eh_landing_pad);
 extern void remove_eh_handler (eh_region);
-extern void remove_unreachable_eh_regions (sbitmap);
+extern void remove_unreachable_eh_regions (const bitvec &);
 
 extern bool current_function_has_exception_handlers (void);
 extern void output_function_exception_table (const char *);

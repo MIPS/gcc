@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl-error.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -6109,17 +6110,13 @@ epilogue_done:
 
   if (inserted)
     {
-      sbitmap blocks;
-
       commit_edge_insertions ();
 
       /* Look for basic blocks within the prologue insns.  */
-      blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
-      bitmap_clear (blocks);
-      bitmap_set_bit (blocks, entry_edge->dest->index);
-      bitmap_set_bit (blocks, orig_entry_edge->dest->index);
+      stack_bitvec blocks (last_basic_block_for_fn (cfun));
+      blocks[entry_edge->dest->index] = true;
+      blocks[orig_entry_edge->dest->index] = true;
       find_many_sub_basic_blocks (blocks);
-      sbitmap_free (blocks);
 
       /* The epilogue insns we inserted may cause the exit edge to no longer
 	 be fallthru.  */

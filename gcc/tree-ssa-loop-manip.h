@@ -20,6 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TREE_SSA_LOOP_MANIP_H
 #define GCC_TREE_SSA_LOOP_MANIP_H
 
+class bitvec;
+
 typedef void (*transform_callback)(struct loop *, void *);
 
 extern void create_iv (tree, tree, tree, struct loop *, gimple_stmt_iterator *,
@@ -32,7 +34,7 @@ extern basic_block ip_normal_pos (struct loop *);
 extern void standard_iv_increment_position (struct loop *,
 					    gimple_stmt_iterator *, bool *);
 extern bool gimple_duplicate_loop_to_header_edge (struct loop *, edge,
-						  unsigned int, sbitmap,
+						  unsigned int, const bitvec &,
 						  edge, vec<edge> *,
 						  int);
 extern bool can_unroll_loop_p (struct loop *loop, unsigned factor,

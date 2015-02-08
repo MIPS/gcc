@@ -1220,7 +1220,7 @@ lv_flush_pending_stmts (edge e)
 bool
 cfg_hook_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 					unsigned int ndupl,
-					sbitmap wont_exit, edge orig,
+					const bitvec &wont_exit, edge orig,
 					vec<edge> *to_remove,
 					int flags)
 {

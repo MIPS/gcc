@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
@@ -5922,7 +5923,6 @@ unsigned int
 pass_expand::execute (function *fun)
 {
   basic_block bb, init_block;
-  sbitmap blocks;
   edge_iterator ei;
   edge e;
   rtx_insn *var_seq, *var_ret_seq;
@@ -6229,10 +6229,9 @@ pass_expand::execute (function *fun)
 	}
     }
 
-  blocks = sbitmap_alloc (last_basic_block_for_fn (fun));
-  bitmap_ones (blocks);
+  stack_bitvec blocks (last_basic_block_for_fn (fun));
+  blocks.set ();
   find_many_sub_basic_blocks (blocks);
-  sbitmap_free (blocks);
   purge_all_dead_edges ();
 
   expand_stack_alignment ();

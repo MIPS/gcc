@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "flags.h"
 #include "hash-set.h"
@@ -124,15 +125,15 @@ typedef struct value_range_d value_range_t;
 
 /* Set of SSA names found live during the RPO traversal of the function
    for still active basic-blocks.  */
-static sbitmap *live;
+static bitvec *live;
 
 /* Return true if the SSA name NAME is live on the edge E.  */
 
 static bool
 live_on_edge (edge e, tree name)
 {
-  return (live[e->dest->index]
-	  && bitmap_bit_p (live[e->dest->index], SSA_NAME_VERSION (name)));
+  return (live[e->dest->index].size ()
+	  && live[e->dest->index][SSA_NAME_VERSION (name)]);
 }
 
 /* Local functions.  */
@@ -6120,7 +6121,7 @@ find_switch_asserts (basic_block bb, gswitch *last)
    P_4 will receive an ASSERT_EXPR.  */
 
 static void
-find_assert_locations_1 (basic_block bb, sbitmap live)
+find_assert_locations_1 (basic_block bb, bitvec *live)
 {
   gimple last;
 
@@ -6163,7 +6164,7 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
 
 	  /* If op is not live beyond this stmt, do not bother to insert
 	     asserts for it.  */
-	  if (!bitmap_bit_p (live, SSA_NAME_VERSION (op)))
+	  if (!(*live)[SSA_NAME_VERSION (op)])
 	    continue;
 
 	  /* If OP is used in such a way that we can infer a value
@@ -6208,9 +6209,9 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
 
       /* Update live.  */
       FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_USE)
-	bitmap_set_bit (live, SSA_NAME_VERSION (op));
+	(*live)[SSA_NAME_VERSION (op)] = true;
       FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_DEF)
-	bitmap_clear_bit (live, SSA_NAME_VERSION (op));
+	(*live)[SSA_NAME_VERSION (op)] = false;
     }
 
   /* Traverse all PHI nodes in BB, updating live.  */
@@ -6229,10 +6230,10 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
 	{
 	  tree arg = USE_FROM_PTR (arg_p);
 	  if (TREE_CODE (arg) == SSA_NAME)
-	    bitmap_set_bit (live, SSA_NAME_VERSION (arg));
+	    (*live)[SSA_NAME_VERSION (arg)] = true;
 	}
 
-      bitmap_clear_bit (live, SSA_NAME_VERSION (res));
+      (*live)[SSA_NAME_VERSION (res)] = false;
     }
 }
 
@@ -6247,7 +6248,7 @@ find_assert_locations (void)
   int *last_rpo = XCNEWVEC (int, last_basic_block_for_fn (cfun));
   int rpo_cnt, i;
 
-  live = XCNEWVEC (sbitmap, last_basic_block_for_fn (cfun));
+  live = new bitvec[last_basic_block_for_fn (cfun)];
   rpo_cnt = pre_and_rev_post_order_compute (NULL, rpo, false);
   for (i = 0; i < rpo_cnt; ++i)
     bb_rpo[rpo[i]] = i;
@@ -6269,12 +6270,10 @@ find_assert_locations (void)
 	  tree arg = gimple_phi_arg_def (phi, j);
 	  if (TREE_CODE (arg) == SSA_NAME)
 	    {
-	      if (live[i] == NULL)
-		{
-		  live[i] = sbitmap_alloc (num_ssa_names);
-		  bitmap_clear (live[i]);
-		}
-	      bitmap_set_bit (live[i], SSA_NAME_VERSION (arg));
+	      if (live[i].size () == 0)
+		live[i].grow (num_ssa_names);
+
+	      live[i][SSA_NAME_VERSION (arg)] = true;
 	    }
 	}
     }
@@ -6285,18 +6284,15 @@ find_assert_locations (void)
       edge e;
       edge_iterator ei;
 
-      if (!live[rpo[i]])
-	{
-	  live[rpo[i]] = sbitmap_alloc (num_ssa_names);
-	  bitmap_clear (live[rpo[i]]);
-	}
+      if (!live[rpo[i]].size ())
+	live[rpo[i]].grow (num_ssa_names);
 
       /* Process BB and update the live information with uses in
          this block.  */
-      find_assert_locations_1 (bb, live[rpo[i]]);
+      find_assert_locations_1 (bb, &live[rpo[i]]);
 
       /* Merge liveness into the predecessor blocks and free it.  */
-      if (!bitmap_empty_p (live[rpo[i]]))
+      if (live[rpo[i]].any_set_bits ())
 	{
 	  int pred_rpo = i;
 	  FOR_EACH_EDGE (e, ei, bb->preds)
@@ -6305,12 +6301,10 @@ find_assert_locations (void)
 	      if ((e->flags & EDGE_DFS_BACK) || pred == ENTRY_BLOCK)
 		continue;
 
-	      if (!live[pred])
-		{
-		  live[pred] = sbitmap_alloc (num_ssa_names);
-		  bitmap_clear (live[pred]);
-		}
-	      bitmap_ior (live[pred], live[pred], live[rpo[i]]);
+	      if (!live[pred].size ())
+		live[pred].grow (num_ssa_names);
+
+	      live[pred] |= live[rpo[i]];
 
 	      if (bb_rpo[pred] < pred_rpo)
 		pred_rpo = bb_rpo[pred];
@@ -6321,29 +6315,19 @@ find_assert_locations (void)
 	  last_rpo[rpo[i]] = pred_rpo;
 	}
       else
-	{
-	  sbitmap_free (live[rpo[i]]);
-	  live[rpo[i]] = NULL;
-	}
+	live[rpo[i]].clear_and_release ();
 
       /* We can free all successors live bitmaps if all their
          predecessors have been visited already.  */
       FOR_EACH_EDGE (e, ei, bb->succs)
-	if (last_rpo[e->dest->index] == i
-	    && live[e->dest->index])
-	  {
-	    sbitmap_free (live[e->dest->index]);
-	    live[e->dest->index] = NULL;
-	  }
+	if (last_rpo[e->dest->index] == i)
+	  live[e->dest->index].clear_and_release ();
     }
 
   XDELETEVEC (rpo);
   XDELETEVEC (bb_rpo);
   XDELETEVEC (last_rpo);
-  for (i = 0; i < last_basic_block_for_fn (cfun); ++i)
-    if (live[i])
-      sbitmap_free (live[i]);
-  XDELETEVEC (live);
+  delete[] live;
 }
 
 /* Create an ASSERT_EXPR for NAME and insert it in the location

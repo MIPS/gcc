@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -304,7 +305,7 @@ static GTY(()) vec<rtx, va_gc> *reg_known_value;
    REG_EQUIV notes.  One could argue that the REG_EQUIV notes are
    wrong, but solving the problem in the scheduler will likely give
    better code, so we do it here.  */
-static sbitmap reg_known_equiv_p;
+static bitvec reg_known_equiv_p;
 
 /* True when scanning insns from the start of the rtl to the
    NOTE_INSN_FUNCTION_BEG note.  */
@@ -1284,7 +1285,7 @@ find_base_value (rtx src)
 
 /* While scanning insns to find base values, reg_seen[N] is nonzero if
    register N has been set in this function.  */
-static sbitmap reg_seen;
+static bitvec reg_seen;
 
 static void
 record_set (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
@@ -1310,7 +1311,7 @@ record_set (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
     {
       while (--n >= 0)
 	{
-	  bitmap_set_bit (reg_seen, regno + n);
+	  reg_seen[regno + n] = true;
 	  new_reg_base_value[regno + n] = 0;
 	}
       return;
@@ -1331,12 +1332,12 @@ record_set (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
   else
     {
       /* There's a REG_NOALIAS note against DEST.  */
-      if (bitmap_bit_p (reg_seen, regno))
+      if (reg_seen[regno])
 	{
 	  new_reg_base_value[regno] = 0;
 	  return;
 	}
-      bitmap_set_bit (reg_seen, regno);
+      reg_seen[regno] = true;
       new_reg_base_value[regno] = unique_base_value (unique_id++);
       return;
     }
@@ -1392,10 +1393,10 @@ record_set (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
       }
   /* If this is the first set of a register, record the value.  */
   else if ((regno >= FIRST_PSEUDO_REGISTER || ! fixed_regs[regno])
-	   && ! bitmap_bit_p (reg_seen, regno) && new_reg_base_value[regno] == 0)
+	   && ! reg_seen[regno] && new_reg_base_value[regno] == 0)
     new_reg_base_value[regno] = find_base_value (src);
 
-  bitmap_set_bit (reg_seen, regno);
+  reg_seen[regno] = true;
 }
 
 /* Return REG_BASE_VALUE for REGNO.  Selective scheduler uses this to avoid
@@ -1442,7 +1443,7 @@ get_reg_known_equiv_p (unsigned int regno)
     {
       regno -= FIRST_PSEUDO_REGISTER;
       if (regno < vec_safe_length (reg_known_value))
-	return bitmap_bit_p (reg_known_equiv_p, regno);
+	return reg_known_equiv_p[regno];
     }
   return false;
 }
@@ -1454,12 +1455,7 @@ set_reg_known_equiv_p (unsigned int regno, bool val)
     {
       regno -= FIRST_PSEUDO_REGISTER;
       if (regno < vec_safe_length (reg_known_value))
-	{
-	  if (val)
-	    bitmap_set_bit (reg_known_equiv_p, regno);
-	  else
-	    bitmap_clear_bit (reg_known_equiv_p, regno);
-	}
+	reg_known_equiv_p[regno] = val;
     }
 }
 
@@ -2848,8 +2844,8 @@ init_alias_analysis (void)
   timevar_push (TV_ALIAS_ANALYSIS);
 
   vec_safe_grow_cleared (reg_known_value, maxreg - FIRST_PSEUDO_REGISTER);
-  reg_known_equiv_p = sbitmap_alloc (maxreg - FIRST_PSEUDO_REGISTER);
-  bitmap_clear (reg_known_equiv_p);
+  reg_known_equiv_p.grow (maxreg - FIRST_PSEUDO_REGISTER);
+  reg_known_equiv_p.clear ();
 
   /* If we have memory allocated from the previous run, use it.  */
   if (old_reg_base_value)
@@ -2861,7 +2857,7 @@ init_alias_analysis (void)
   vec_safe_grow_cleared (reg_base_value, maxreg);
 
   new_reg_base_value = XNEWVEC (rtx, maxreg);
-  reg_seen = sbitmap_alloc (maxreg);
+  reg_seen.grow (maxreg);
 
   /* The basic idea is that each pass through this loop will use the
      "constant" information from the previous pass to propagate alias
@@ -2906,14 +2902,14 @@ init_alias_analysis (void)
       memset (new_reg_base_value, 0, maxreg * sizeof (rtx));
 
       /* Wipe the reg_seen array clean.  */
-      bitmap_clear (reg_seen);
+      reg_seen.clear ();
 
       /* Initialize the alias information for this pass.  */
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (static_reg_base_value[i])
 	  {
 	    new_reg_base_value[i] = static_reg_base_value[i];
-	    bitmap_set_bit (reg_seen, i);
+	    reg_seen[i] = true;
 	  }
 
       /* Walk the insns adding values to the new_reg_base_value array.  */
@@ -3025,8 +3021,7 @@ init_alias_analysis (void)
   /* Clean up.  */
   free (new_reg_base_value);
   new_reg_base_value = 0;
-  sbitmap_free (reg_seen);
-  reg_seen = 0;
+  reg_seen.clear_and_release ();
   timevar_pop (TV_ALIAS_ANALYSIS);
 }
 
@@ -3044,7 +3039,7 @@ end_alias_analysis (void)
 {
   old_reg_base_value = reg_base_value;
   vec_free (reg_known_value);
-  sbitmap_free (reg_known_equiv_p);
+  reg_known_equiv_p.clear_and_release ();
 }
 
 #include "gt-alias.h"

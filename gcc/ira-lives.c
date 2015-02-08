@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "df.h"
 #include "sbitmap.h"
+#include "bitvec.h"
 #include "sparseset.h"
 #include "ira-int.h"
 
@@ -1418,48 +1419,40 @@ ira_rebuild_start_finish_chains (void)
 static void
 remove_some_program_points_and_update_live_ranges (void)
 {
-  unsigned i;
   int n;
   int *map;
   ira_object_t obj;
   ira_object_iterator oi;
   live_range_t r, prev_r, next_r;
-  sbitmap born_or_dead, born, dead;
-  sbitmap_iterator sbi;
   bool born_p, dead_p, prev_born_p, prev_dead_p;
   
-  born = sbitmap_alloc (ira_max_point);
-  dead = sbitmap_alloc (ira_max_point);
-  bitmap_clear (born);
-  bitmap_clear (dead);
+  stack_bitvec born (ira_max_point), dead (ira_max_point);
   FOR_EACH_OBJECT (obj, oi)
     for (r = OBJECT_LIVE_RANGES (obj); r != NULL; r = r->next)
       {
 	ira_assert (r->start <= r->finish);
-	bitmap_set_bit (born, r->start);
-	bitmap_set_bit (dead, r->finish);
+	born[r->start] = true;
+	dead[r->finish] = true;
       }
 
-  born_or_dead = sbitmap_alloc (ira_max_point);
-  bitmap_ior (born_or_dead, born, dead);
+  stack_bitvec born_or_dead (born | dead);
   map = (int *) ira_allocate (sizeof (int) * ira_max_point);
   n = -1;
   prev_born_p = prev_dead_p = false;
-  EXECUTE_IF_SET_IN_BITMAP (born_or_dead, 0, i, sbi)
-    {
-      born_p = bitmap_bit_p (born, i);
-      dead_p = bitmap_bit_p (dead, i);
-      if ((prev_born_p && ! prev_dead_p && born_p && ! dead_p)
-	  || (prev_dead_p && ! prev_born_p && dead_p && ! born_p))
-	map[i] = n;
-      else
-	map[i] = ++n;
-      prev_born_p = born_p;
-      prev_dead_p = dead_p;
-    }
-  sbitmap_free (born_or_dead);
-  sbitmap_free (born);
-  sbitmap_free (dead);
+  for (size_t i = born_or_dead.begin (); i < born_or_dead.end (); i++)
+    if (born_or_dead[i])
+      {
+	born_p = born[i];
+	dead_p = dead[i];
+	if ((prev_born_p && ! prev_dead_p && born_p && ! dead_p)
+	    || (prev_dead_p && ! prev_born_p && dead_p && ! born_p))
+	  map[i] = n;
+	else
+	  map[i] = ++n;
+	prev_born_p = born_p;
+	prev_dead_p = dead_p;
+      }
+
   n++;
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "Compressing live ranges: from %d to %d - %d%%\n",

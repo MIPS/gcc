@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "predict.h"
 #include "vec.h"
+#include "bitvec.h"
 #include "hashtab.h"
 #include "hash-set.h"
 #include "symtab.h"
@@ -198,7 +199,6 @@ fix_bb_placements (basic_block from,
 		   bool *irred_invalidated,
 		   bitmap loop_closed_ssa_invalidated)
 {
-  sbitmap in_queue;
   basic_block *queue, *qtop, *qbeg, *qend;
   struct loop *base_loop, *target_loop;
   edge e;
@@ -218,11 +218,10 @@ fix_bb_placements (basic_block from,
       || from == base_loop->header)
     return;
 
-  in_queue = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (in_queue);
-  bitmap_set_bit (in_queue, from->index);
+  stack_bitvec in_queue (last_basic_block_for_fn (cfun));
+  in_queue[from->index] = true;
   /* Prevent us from going out of the base_loop.  */
-  bitmap_set_bit (in_queue, base_loop->header->index);
+  in_queue[base_loop->header->index] = true;
 
   queue = XNEWVEC (basic_block, base_loop->num_nodes + 1);
   qtop = queue + base_loop->num_nodes + 1;
@@ -237,7 +236,7 @@ fix_bb_placements (basic_block from,
       qbeg++;
       if (qbeg == qtop)
 	qbeg = queue;
-      bitmap_clear_bit (in_queue, from->index);
+      in_queue[from->index] = false;
 
       if (from->loop_father->header == from)
 	{
@@ -278,7 +277,7 @@ fix_bb_placements (basic_block from,
 	  if (e->flags & EDGE_IRREDUCIBLE_LOOP)
 	    *irred_invalidated = true;
 
-	  if (bitmap_bit_p (in_queue, pred->index))
+	  if (in_queue[pred->index])
 	    continue;
 
 	  /* If it is subloop, then it either was not moved, or
@@ -298,7 +297,7 @@ fix_bb_placements (basic_block from,
 	      continue;
 	    }
 
-	  if (bitmap_bit_p (in_queue, pred->index))
+	  if (in_queue[pred->index])
 	    continue;
 
 	  /* Schedule the basic block.  */
@@ -306,10 +305,9 @@ fix_bb_placements (basic_block from,
 	  qend++;
 	  if (qend == qtop)
 	    qend = queue;
-	  bitmap_set_bit (in_queue, pred->index);
+	  in_queue[pred->index] = true;
 	}
     }
-  free (in_queue);
   free (queue);
 }
 
@@ -323,7 +321,6 @@ remove_path (edge e)
   basic_block *rem_bbs, *bord_bbs, from, bb;
   vec<basic_block> dom_bbs;
   int i, nrem, n_bord_bbs;
-  sbitmap seen;
   bool irred_invalidated = false;
   edge_iterator ei;
   struct loop *l, *f;
@@ -362,16 +359,15 @@ remove_path (edge e)
 
   n_bord_bbs = 0;
   bord_bbs = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun));
-  seen = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (seen);
+  stack_bitvec seen (last_basic_block_for_fn (cfun));
 
   /* Find "border" hexes -- i.e. those with predecessor in removed path.  */
   for (i = 0; i < nrem; i++)
-    bitmap_set_bit (seen, rem_bbs[i]->index);
+    seen[rem_bbs[i]->index] = true;
   if (!irred_invalidated)
     FOR_EACH_EDGE (ae, ei, e->src->succs)
       if (ae != e && ae->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
-	  && !bitmap_bit_p (seen, ae->dest->index)
+	  && !seen[ae->dest->index]
 	  && ae->flags & EDGE_IRREDUCIBLE_LOOP)
 	{
 	  irred_invalidated = true;
@@ -383,9 +379,9 @@ remove_path (edge e)
       bb = rem_bbs[i];
       FOR_EACH_EDGE (ae, ei, rem_bbs[i]->succs)
 	if (ae->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
-	    && !bitmap_bit_p (seen, ae->dest->index))
+	    && !seen[ae->dest->index])
 	  {
-	    bitmap_set_bit (seen, ae->dest->index);
+	    seen[ae->dest->index] = true;
 	    bord_bbs[n_bord_bbs++] = ae->dest;
 
 	    if (ae->flags & EDGE_IRREDUCIBLE_LOOP)
@@ -407,15 +403,15 @@ remove_path (edge e)
   free (rem_bbs);
 
   /* Find blocks whose dominators may be affected.  */
-  bitmap_clear (seen);
+  seen.clear ();
   for (i = 0; i < n_bord_bbs; i++)
     {
       basic_block ldom;
 
       bb = get_immediate_dominator (CDI_DOMINATORS, bord_bbs[i]);
-      if (bitmap_bit_p (seen, bb->index))
+      if (seen[bb->index])
 	continue;
-      bitmap_set_bit (seen, bb->index);
+      seen[bb->index] = true;
 
       for (ldom = first_dom_son (CDI_DOMINATORS, bb);
 	   ldom;
@@ -424,7 +420,6 @@ remove_path (edge e)
 	  dom_bbs.safe_push (ldom);
     }
 
-  free (seen);
 
   /* Recount dominators.  */
   iterate_fix_dominators (CDI_DOMINATORS, dom_bbs, true);
@@ -633,16 +628,14 @@ static void
 update_dominators_in_loop (struct loop *loop)
 {
   vec<basic_block> dom_bbs = vNULL;
-  sbitmap seen;
   basic_block *body;
   unsigned i;
 
-  seen = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (seen);
+  stack_bitvec seen (last_basic_block_for_fn (cfun));
   body = get_loop_body (loop);
 
   for (i = 0; i < loop->num_nodes; i++)
-    bitmap_set_bit (seen, body[i]->index);
+    seen[body[i]->index] = true;
 
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -651,16 +644,15 @@ update_dominators_in_loop (struct loop *loop)
       for (ldom = first_dom_son (CDI_DOMINATORS, body[i]);
 	   ldom;
 	   ldom = next_dom_son (CDI_DOMINATORS, ldom))
-	if (!bitmap_bit_p (seen, ldom->index))
+	if (!seen[ldom->index])
 	  {
-	    bitmap_set_bit (seen, ldom->index);
+	    seen[ldom->index] = true;
 	    dom_bbs.safe_push (ldom);
 	  }
     }
 
   iterate_fix_dominators (CDI_DOMINATORS, dom_bbs, false);
   free (body);
-  free (seen);
   dom_bbs.release ();
 }
 
@@ -1160,7 +1152,7 @@ set_zero_probability (edge e)
 
 bool
 duplicate_loop_to_header_edge (struct loop *loop, edge e,
-			       unsigned int ndupl, sbitmap wont_exit,
+			       unsigned int ndupl, const bitvec &wont_exit,
 			       edge orig, vec<edge> *to_remove,
 			       int flags)
 {
@@ -1253,7 +1245,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       scale_step = XNEWVEC (int, ndupl);
 
       for (i = 1; i <= ndupl; i++)
-	scale_step[i - 1] = bitmap_bit_p (wont_exit, i)
+	scale_step[i - 1] = wont_exit[i]
 				? prob_pass_wont_exit
 				: prob_pass_thru;
 
@@ -1280,7 +1272,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	}
       else if (is_latch)
 	{
-	  prob_pass_main = bitmap_bit_p (wont_exit, 0)
+	  prob_pass_main = wont_exit[0]
 				? prob_pass_wont_exit
 				: prob_pass_thru;
 	  p = prob_pass_main;
@@ -1389,7 +1381,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	}
 
       /* Record exit edge in this copy.  */
-      if (orig && bitmap_bit_p (wont_exit, j + 1))
+      if (orig && wont_exit[j + 1])
 	{
 	  if (to_remove)
 	    to_remove->safe_push (new_spec_edges[SE_ORIG]);
@@ -1425,7 +1417,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   free (orig_loops);
 
   /* Record the exit edge in the original loop body, and update the frequencies.  */
-  if (orig && bitmap_bit_p (wont_exit, 0))
+  if (orig && wont_exit[0])
     {
       if (to_remove)
 	to_remove->safe_push (orig);
@@ -1726,8 +1718,9 @@ loop_version (struct loop *loop,
   first_head = entry->dest;
 
   /* Duplicate loop.  */
+  stack_bitvec dummy;
   if (!cfg_hook_duplicate_loop_to_header_edge (loop, entry, 1,
-					       NULL, NULL, NULL, 0))
+					       dummy, NULL, NULL, 0))
     {
       entry->flags |= irred_flag;
       return NULL;

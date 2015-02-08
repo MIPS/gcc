@@ -40,6 +40,7 @@ extern "C" {
 
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -373,13 +374,13 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
    be handled after BB.  */
 
 static bool
-all_non_dominated_preds_marked_p (basic_block bb, sbitmap map)
+all_non_dominated_preds_marked_p (basic_block bb, const bitvec *map)
 {
   edge e;
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, bb->preds)
-    if (!bitmap_bit_p (map, e->src->index)
+    if (!(*map)[e->src->index]
 	&& !dominated_by_p (CDI_DOMINATORS, e->src, bb))
 	return false;
 
@@ -417,19 +418,19 @@ graphite_sort_dominated_info (vec<basic_block> dom)
 /* Recursive helper function for build_scops_bbs.  */
 
 static void
-build_scop_bbs_1 (scop_p scop, sbitmap visited, basic_block bb)
+build_scop_bbs_1 (scop_p scop, bitvec *visited, basic_block bb)
 {
   sese region = SCOP_REGION (scop);
   vec<basic_block> dom;
   poly_bb_p pbb;
 
-  if (bitmap_bit_p (visited, bb->index)
+  if ((*visited)[bb->index]
       || !bb_in_sese_p (bb, region))
     return;
 
   pbb = new_poly_bb (scop, try_generate_gimple_bb (scop, bb));
   SCOP_BBS (scop).safe_push (pbb);
-  bitmap_set_bit (visited, bb->index);
+  (*visited)[bb->index] = true;
 
   dom = get_dominated_by (CDI_DOMINATORS, bb);
 
@@ -460,12 +461,10 @@ build_scop_bbs_1 (scop_p scop, sbitmap visited, basic_block bb)
 static void
 build_scop_bbs (scop_p scop)
 {
-  sbitmap visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  stack_bitvec visited (last_basic_block_for_fn (cfun));
   sese region = SCOP_REGION (scop);
 
-  bitmap_clear (visited);
-  build_scop_bbs_1 (scop, visited, SESE_ENTRY_BB (region));
-  sbitmap_free (visited);
+  build_scop_bbs_1 (scop, &visited, SESE_ENTRY_BB (region));
 }
 
 /* Return an ISL identifier for the polyhedral basic block PBB.  */

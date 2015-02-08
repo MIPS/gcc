@@ -377,6 +377,7 @@ are write-only operations.
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -397,7 +398,6 @@ are write-only operations.
 #include "cfg.h"
 #include "cfganal.h"
 #include "basic-block.h"
-#include "sbitmap.h"
 #include "bitmap.h"
 #include "df.h"
 #include "tree-pass.h"
@@ -927,7 +927,7 @@ df_worklist_propagate_forward (struct dataflow *dataflow,
                                unsigned bb_index,
                                unsigned *bbindex_to_postorder,
                                bitmap pending,
-                               sbitmap considered,
+			       const bitvec &considered,
 			       ptrdiff_t age)
 {
   edge e;
@@ -940,7 +940,7 @@ df_worklist_propagate_forward (struct dataflow *dataflow,
     FOR_EACH_EDGE (e, ei, bb->preds)
       {
         if (age <= BB_LAST_CHANGE_AGE (e->src)
-	    && bitmap_bit_p (considered, e->src->index))
+	    && considered[e->src->index])
           changed |= dataflow->problem->con_fun_n (e);
       }
   else if (dataflow->problem->con_fun_0)
@@ -955,7 +955,7 @@ df_worklist_propagate_forward (struct dataflow *dataflow,
         {
           unsigned ob_index = e->dest->index;
 
-          if (bitmap_bit_p (considered, ob_index))
+	  if (considered[ob_index])
             bitmap_set_bit (pending, bbindex_to_postorder[ob_index]);
         }
       return true;
@@ -972,7 +972,7 @@ df_worklist_propagate_backward (struct dataflow *dataflow,
                                 unsigned bb_index,
                                 unsigned *bbindex_to_postorder,
                                 bitmap pending,
-                                sbitmap considered,
+				const bitvec &considered,
 			        ptrdiff_t age)
 {
   edge e;
@@ -985,7 +985,7 @@ df_worklist_propagate_backward (struct dataflow *dataflow,
     FOR_EACH_EDGE (e, ei, bb->succs)
       {
         if (age <= BB_LAST_CHANGE_AGE (e->dest)
-	    && bitmap_bit_p (considered, e->dest->index))
+	    && considered[e->dest->index])
           changed |= dataflow->problem->con_fun_n (e);
       }
   else if (dataflow->problem->con_fun_0)
@@ -1000,7 +1000,7 @@ df_worklist_propagate_backward (struct dataflow *dataflow,
         {
           unsigned ob_index = e->src->index;
 
-          if (bitmap_bit_p (considered, ob_index))
+	  if (considered[ob_index])
             bitmap_set_bit (pending, bbindex_to_postorder[ob_index]);
         }
       return true;
@@ -1030,7 +1030,7 @@ df_worklist_propagate_backward (struct dataflow *dataflow,
 static void
 df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
 			  	  bitmap pending,
-                                  sbitmap considered,
+				  const bitvec &considered,
                                   int *blocks_in_postorder,
 				  unsigned *bbindex_to_postorder,
 				  int n_blocks)
@@ -1100,7 +1100,7 @@ df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
 	     dcount, dcount / (float)n_basic_blocks_for_fn (cfun));
 }
 
-/* Worklist-based dataflow solver. It uses sbitmap as a worklist,
+/* Worklist-based dataflow solver. It uses bitvec as a worklist,
    with "n"-th bit representing the n-th block in the reverse-postorder order.
    The solver is a double-queue algorithm similar to the "double stack" solver
    from Cooper, Harvey and Kennedy, "Iterative data-flow analysis, Revisited".
@@ -1114,7 +1114,6 @@ df_worklist_dataflow (struct dataflow *dataflow,
                       int n_blocks)
 {
   bitmap pending = BITMAP_ALLOC (&df_bitmap_obstack);
-  sbitmap considered = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_iterator bi;
   unsigned int *bbindex_to_postorder;
   int i;
@@ -1131,11 +1130,10 @@ df_worklist_dataflow (struct dataflow *dataflow,
   for (i = 0; i < last_basic_block_for_fn (cfun); i++)
     bbindex_to_postorder[i] = last_basic_block_for_fn (cfun);
 
-  /* Initialize the considered map.  */
-  bitmap_clear (considered);
+  stack_bitvec considered (last_basic_block_for_fn (cfun));
   EXECUTE_IF_SET_IN_BITMAP (blocks_to_consider, 0, index, bi)
     {
-      bitmap_set_bit (considered, index);
+      considered[index] = true;
     }
 
   /* Initialize the mapping of block index to postorder.  */
@@ -1155,7 +1153,6 @@ df_worklist_dataflow (struct dataflow *dataflow,
 				    blocks_in_postorder,
 				    bbindex_to_postorder,
 				    n_blocks);
-  sbitmap_free (considered);
   free (bbindex_to_postorder);
 }
 

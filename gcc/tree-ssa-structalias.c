@@ -24,6 +24,7 @@
 #include "tm.h"
 #include "obstack.h"
 #include "bitmap.h"
+#include "bitvec.h"
 #include "sbitmap.h"
 #include "flags.h"
 #include "predict.h"
@@ -618,7 +619,7 @@ struct constraint_graph
 
   /* Bitmap of nodes where the bit is set if the node is a direct
      node.  Used for variable substitution.  */
-  sbitmap direct_nodes;
+  bitvec direct_nodes;
 
   /* Bitmap of nodes where the bit is set if the node is address
      taken.  Used for variable substitution.  */
@@ -1254,14 +1255,13 @@ build_pred_graph (void)
   graph->pointed_by = XCNEWVEC (bitmap, graph->size);
   graph->points_to = XCNEWVEC (bitmap, graph->size);
   graph->eq_rep = XNEWVEC (int, graph->size);
-  graph->direct_nodes = sbitmap_alloc (graph->size);
+  new (&graph->direct_nodes) bitvec (graph->size);
   graph->address_taken = BITMAP_ALLOC (&predbitmap_obstack);
-  bitmap_clear (graph->direct_nodes);
 
   for (j = 1; j < FIRST_REF_NODE; j++)
     {
       if (!get_varinfo (j)->is_special_var)
-	bitmap_set_bit (graph->direct_nodes, j);
+	graph->direct_nodes[j] = true;
     }
 
   for (j = 0; j < graph->size; j++)
@@ -1289,7 +1289,7 @@ build_pred_graph (void)
 	  if (rhs.offset == 0 && lhs.offset == 0 && lhs.type == SCALAR)
 	    add_pred_graph_edge (graph, lhsvar, FIRST_REF_NODE + rhsvar);
 	  else
-	    bitmap_clear_bit (graph->direct_nodes, lhsvar);
+	    graph->direct_nodes[lhsvar] = false;
 	}
       else if (rhs.type == ADDRESSOF)
 	{
@@ -1308,14 +1308,14 @@ build_pred_graph (void)
 	  add_implicit_graph_edge (graph, FIRST_REF_NODE + lhsvar, rhsvar);
 
 	  /* All related variables are no longer direct nodes.  */
-	  bitmap_clear_bit (graph->direct_nodes, rhsvar);
+	  graph->direct_nodes[rhsvar] = false;
           v = get_varinfo (rhsvar);
           if (!v->is_full_var)
             {
               v = get_varinfo (v->head);
               do
                 {
-                  bitmap_clear_bit (graph->direct_nodes, v->id);
+		  graph->direct_nodes[v->id] = false;
                   v = vi_next (v);
                 }
               while (v != NULL);
@@ -1334,9 +1334,9 @@ build_pred_graph (void)
       else if (lhs.offset != 0 || rhs.offset != 0)
 	{
 	  if (rhs.offset != 0)
-	    bitmap_clear_bit (graph->direct_nodes, lhs.var);
+	    graph->direct_nodes[lhs.var] = false;
 	  else if (lhs.offset != 0)
-	    bitmap_clear_bit (graph->direct_nodes, rhs.var);
+	    graph->direct_nodes[rhs.var] = false;
 	}
     }
 }
@@ -1392,7 +1392,7 @@ build_succ_graph (void)
   t = find (storedanything_id);
   for (i = integer_id + 1; i < FIRST_REF_NODE; ++i)
     {
-      if (!bitmap_bit_p (graph->direct_nodes, i)
+      if (!graph->direct_nodes[i]
 	  && get_varinfo (i)->may_have_pointers)
 	add_graph_edge (graph, find (i), t);
     }
@@ -1409,8 +1409,8 @@ static bitmap changed;
 
 struct scc_info
 {
-  sbitmap visited;
-  sbitmap deleted;
+  bitvec visited;
+  bitvec deleted;
   unsigned int *dfs;
   unsigned int *node_mapping;
   int current_index;
@@ -1436,7 +1436,7 @@ scc_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
   bitmap_iterator bi;
   unsigned int my_dfs;
 
-  bitmap_set_bit (si->visited, n);
+  si->visited[n] = true;
   si->dfs[n] = si->current_index ++;
   my_dfs = si->dfs[n];
 
@@ -1449,10 +1449,10 @@ scc_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 	break;
 
       w = find (i);
-      if (bitmap_bit_p (si->deleted, w))
+      if (si->deleted[w])
 	continue;
 
-      if (!bitmap_bit_p (si->visited, w))
+      if (!si->visited[w])
 	scc_visit (graph, si, w);
 
       unsigned int t = find (w);
@@ -1500,7 +1500,7 @@ scc_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 		}
 	    }
 	}
-      bitmap_set_bit (si->deleted, n);
+      si->deleted[n] = true;
     }
   else
     si->scc_stack.safe_push (n);
@@ -1566,8 +1566,8 @@ unify_nodes (constraint_graph_t graph, unsigned int to, unsigned int from,
 
 struct topo_info
 {
-  /* sbitmap of visited nodes.  */
-  sbitmap visited;
+  /* bitvec of visited nodes.  */
+  bitvec visited;
   /* Array that stores the topological order of the graph, *in
      reverse*.  */
   vec<unsigned> topo_order;
@@ -1581,8 +1581,7 @@ init_topo_info (void)
 {
   size_t size = graph->size;
   struct topo_info *ti = XNEW (struct topo_info);
-  ti->visited = sbitmap_alloc (size);
-  bitmap_clear (ti->visited);
+  new (&ti->visited) bitvec (size);
   ti->topo_order.create (1);
   return ti;
 }
@@ -1593,7 +1592,7 @@ init_topo_info (void)
 static void
 free_topo_info (struct topo_info *ti)
 {
-  sbitmap_free (ti->visited);
+  ti->visited.~bitvec ();
   ti->topo_order.release ();
   free (ti);
 }
@@ -1608,12 +1607,12 @@ topo_visit (constraint_graph_t graph, struct topo_info *ti,
   bitmap_iterator bi;
   unsigned int j;
 
-  bitmap_set_bit (ti->visited, n);
+  ti->visited[n] = true;
 
   if (graph->succs[n])
     EXECUTE_IF_SET_IN_BITMAP (graph->succs[n], 0, j, bi)
       {
-	if (!bitmap_bit_p (ti->visited, j))
+	if (!ti->visited[j])
 	  topo_visit (graph, ti, j);
       }
 
@@ -1861,10 +1860,8 @@ init_scc_info (size_t size)
   size_t i;
 
   si->current_index = 0;
-  si->visited = sbitmap_alloc (size);
-  bitmap_clear (si->visited);
-  si->deleted = sbitmap_alloc (size);
-  bitmap_clear (si->deleted);
+  new (&si->visited) bitvec (size);
+  new (&si->deleted) bitvec (size);
   si->node_mapping = XNEWVEC (unsigned int, size);
   si->dfs = XCNEWVEC (unsigned int, size);
 
@@ -1880,8 +1877,8 @@ init_scc_info (size_t size)
 static void
 free_scc_info (struct scc_info *si)
 {
-  sbitmap_free (si->visited);
-  sbitmap_free (si->deleted);
+  si->visited.~bitvec ();
+  si->deleted.~bitvec ();
   free (si->node_mapping);
   free (si->dfs);
   si->scc_stack.release ();
@@ -1904,7 +1901,7 @@ find_indirect_cycles (constraint_graph_t graph)
   struct scc_info *si = init_scc_info (size);
 
   for (i = 0; i < MIN (LAST_REF_NODE, size); i ++ )
-    if (!bitmap_bit_p (si->visited, i) && find (i) == i)
+    if (!si->visited[i] && find (i) == i)
       scc_visit (graph, si, i);
 
   free_scc_info (si);
@@ -1921,7 +1918,7 @@ compute_topo_order (constraint_graph_t graph,
   unsigned int size = graph->size;
 
   for (i = 0; i != size; ++i)
-    if (!bitmap_bit_p (ti->visited, i) && find (i) == i)
+    if (!ti->visited[i] && find (i) == i)
       topo_visit (graph, ti, i);
 }
 
@@ -2056,7 +2053,7 @@ condense_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
   unsigned int my_dfs;
 
   gcc_checking_assert (si->node_mapping[n] == n);
-  bitmap_set_bit (si->visited, n);
+  si->visited[n] = true;
   si->dfs[n] = si->current_index ++;
   my_dfs = si->dfs[n];
 
@@ -2065,10 +2062,10 @@ condense_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
     {
       unsigned int w = si->node_mapping[i];
 
-      if (bitmap_bit_p (si->deleted, w))
+      if (si->deleted[w])
 	continue;
 
-      if (!bitmap_bit_p (si->visited, w))
+      if (!si->visited[w])
 	condense_visit (graph, si, w);
 
       unsigned int t = si->node_mapping[w];
@@ -2082,10 +2079,10 @@ condense_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
     {
       unsigned int w = si->node_mapping[i];
 
-      if (bitmap_bit_p (si->deleted, w))
+      if (si->deleted[w])
 	continue;
 
-      if (!bitmap_bit_p (si->visited, w))
+      if (!si->visited[w])
 	condense_visit (graph, si, w);
 
       unsigned int t = si->node_mapping[w];
@@ -2103,8 +2100,8 @@ condense_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 	  unsigned int w = si->scc_stack.pop ();
 	  si->node_mapping[w] = n;
 
-	  if (!bitmap_bit_p (graph->direct_nodes, w))
-	    bitmap_clear_bit (graph->direct_nodes, n);
+	  if (!graph->direct_nodes[w])
+	    graph->direct_nodes[n] = false;
 
 	  /* Unify our nodes.  */
 	  if (graph->preds[w])
@@ -2128,7 +2125,7 @@ condense_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 			       graph->points_to[w]);
 	    }
 	}
-      bitmap_set_bit (si->deleted, n);
+      si->deleted[n] = true;
     }
   else
     si->scc_stack.safe_push (n);
@@ -2159,14 +2156,14 @@ label_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
   unsigned int i, first_pred;
   bitmap_iterator bi;
 
-  bitmap_set_bit (si->visited, n);
+  si->visited[n] = true;
 
   /* Label and union our incoming edges's points to sets.  */
   first_pred = -1U;
   EXECUTE_IF_IN_NONNULL_BITMAP (graph->preds[n], 0, i, bi)
     {
       unsigned int w = si->node_mapping[i];
-      if (!bitmap_bit_p (si->visited, w))
+      if (!si->visited[w])
 	label_visit (graph, si, w);
 
       /* Skip unused edges  */
@@ -2193,7 +2190,7 @@ label_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
     }
 
   /* Indirect nodes get fresh variables and a new pointer equiv class.  */
-  if (!bitmap_bit_p (graph->direct_nodes, n))
+  if (!graph->direct_nodes[n])
     {
       if (!graph->points_to[n])
 	{
@@ -2329,7 +2326,7 @@ perform_var_substitution (constraint_graph_t graph)
   /* Condense the nodes, which means to find SCC's, count incoming
      predecessors, and unite nodes in SCC's.  */
   for (i = 1; i < FIRST_REF_NODE; i++)
-    if (!bitmap_bit_p (si->visited, si->node_mapping[i]))
+    if (!si->visited[si->node_mapping[i]])
       condense_visit (graph, si, si->node_mapping[i]);
 
   if (dump_file && (dump_flags & TDF_GRAPH))
@@ -2340,10 +2337,10 @@ perform_var_substitution (constraint_graph_t graph)
       fprintf (dump_file, "\n\n");
     }
 
-  bitmap_clear (si->visited);
+  si->visited.clear ();
   /* Actually the label the nodes for pointer equivalences  */
   for (i = 1; i < FIRST_REF_NODE; i++)
-    if (!bitmap_bit_p (si->visited, si->node_mapping[i]))
+    if (!si->visited[si->node_mapping[i]])
       label_visit (graph, si, si->node_mapping[i]);
 
   /* Calculate location equivalence labels.  */
@@ -2391,7 +2388,7 @@ perform_var_substitution (constraint_graph_t graph)
 	if (j != i)
 	  {
 	    fprintf (dump_file, "%s node id %d ",
-		     bitmap_bit_p (graph->direct_nodes, i)
+		     graph->direct_nodes[i]
 		     ? "Direct" : "Indirect", i);
 	    if (i < FIRST_REF_NODE)
 	      fprintf (dump_file, "\"%s\"", get_varinfo (i)->name);
@@ -2409,7 +2406,7 @@ perform_var_substitution (constraint_graph_t graph)
 	  {
 	    fprintf (dump_file,
 		     "Equivalence classes for %s node id %d ",
-		     bitmap_bit_p (graph->direct_nodes, i)
+		     graph->direct_nodes[i]
 		     ? "direct" : "indirect", i);
 	    if (i < FIRST_REF_NODE)
 	      fprintf (dump_file, "\"%s\"", get_varinfo (i)->name);
@@ -2454,7 +2451,7 @@ free_var_substitution_info (struct scc_info *si)
   free (graph->pointed_by);
   free (graph->points_to);
   free (graph->eq_rep);
-  sbitmap_free (graph->direct_nodes);
+  graph->direct_nodes.~bitvec ();
   delete pointer_equiv_class_table;
   pointer_equiv_class_table = NULL;
   delete location_equiv_class_table;

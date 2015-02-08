@@ -1494,7 +1494,7 @@ extern void debug_rgn_dependencies (int);
 extern void debug_dependencies (rtx_insn *, rtx_insn *);
 extern void free_rgn_deps (void);
 extern int contributes_to_priority (rtx_insn *, rtx_insn *);
-extern void extend_rgns (int *, int *, sbitmap, int *);
+extern void extend_rgns (int *, int *, bitvec *, int *);
 extern void deps_join (struct deps_desc *, struct deps_desc *);
 
 extern void rgn_setup_common_sched_info (void);

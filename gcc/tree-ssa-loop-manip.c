@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "hash-set.h"
 #include "machmode.h"
@@ -769,7 +770,8 @@ copy_phi_node_args (unsigned first_new_block)
 
 bool
 gimple_duplicate_loop_to_header_edge (struct loop *loop, edge e,
-				    unsigned int ndupl, sbitmap wont_exit,
+				    unsigned int ndupl,
+				    const bitvec &wont_exit,
 				    edge orig, vec<edge> *to_remove,
 				    int flags)
 {
@@ -1055,7 +1057,6 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
   unsigned est_niter, prob_entry, scale_unrolled, scale_rest, freq_e, freq_h;
   unsigned new_est_niter, i, prob;
   unsigned irr = loop_preheader_edge (loop)->flags & EDGE_IRREDUCIBLE_LOOP;
-  sbitmap wont_exit;
   auto_vec<edge> to_remove;
 
   est_niter = expected_loop_iterations (loop);
@@ -1189,14 +1190,13 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 
   /* Unroll the loop and remove the exits in all iterations except for the
      last one.  */
-  wont_exit = sbitmap_alloc (factor);
-  bitmap_ones (wont_exit);
-  bitmap_clear_bit (wont_exit, factor - 1);
+  stack_bitvec wont_exit (factor);
+  wont_exit.set ();
+  wont_exit[factor - 1] = false;
 
   ok = gimple_duplicate_loop_to_header_edge
 	  (loop, loop_latch_edge (loop), factor - 1,
 	   wont_exit, new_exit, &to_remove, DLTHE_FLAG_UPDATE_FREQ);
-  free (wont_exit);
   gcc_assert (ok);
 
   FOR_EACH_VEC_ELT (to_remove, i, e)

@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "hash-set.h"
 #include "machmode.h"
@@ -745,7 +746,6 @@ try_unroll_loop_completely (struct loop *loop,
 
   if (n_unroll)
     {
-      sbitmap wont_exit;
       edge e;
       unsigned i;
       bool large;
@@ -859,9 +859,9 @@ try_unroll_loop_completely (struct loop *loop,
                        "loop turned into non-loop; it never loops.\n");
 
       initialize_original_copy_tables ();
-      wont_exit = sbitmap_alloc (n_unroll + 1);
-      bitmap_ones (wont_exit);
-      bitmap_clear_bit (wont_exit, 0);
+      stack_bitvec wont_exit (n_unroll + 1);
+      wont_exit.set ();
+      wont_exit[0] = false;
 
       if (!gimple_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 						 n_unroll, wont_exit,
@@ -870,7 +870,6 @@ try_unroll_loop_completely (struct loop *loop,
 						 | DLTHE_FLAG_COMPLETTE_PEEL))
 	{
           free_original_copy_tables ();
-	  free (wont_exit);
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "Failed to duplicate the loop\n");
 	  return false;
@@ -883,7 +882,6 @@ try_unroll_loop_completely (struct loop *loop,
 	}
 
       to_remove.release ();
-      free (wont_exit);
       free_original_copy_tables ();
     }
 
@@ -961,7 +959,6 @@ try_peel_loop (struct loop *loop,
   int npeel;
   struct loop_size size;
   int peeled_size;
-  sbitmap wont_exit;
   unsigned i;
   vec<edge> to_remove = vNULL;
   edge e;
@@ -1032,9 +1029,9 @@ try_peel_loop (struct loop *loop,
 
   /* Duplicate possibly eliminating the exits.  */
   initialize_original_copy_tables ();
-  wont_exit = sbitmap_alloc (npeel + 1);
-  bitmap_ones (wont_exit);
-  bitmap_clear_bit (wont_exit, 0);
+  stack_bitvec wont_exit (npeel + 1);
+  wont_exit.set ();
+  wont_exit[0] = false;
   if (!gimple_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					     npeel, wont_exit,
 					     exit, &to_remove,
@@ -1042,7 +1039,6 @@ try_peel_loop (struct loop *loop,
 					     | DLTHE_FLAG_COMPLETTE_PEEL))
     {
       free_original_copy_tables ();
-      free (wont_exit);
       return false;
     }
   FOR_EACH_VEC_ELT (to_remove, i, e)
@@ -1050,7 +1046,6 @@ try_peel_loop (struct loop *loop,
       bool ok = remove_path (e);
       gcc_assert (ok);
     }
-  free (wont_exit);
   free_original_copy_tables ();
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

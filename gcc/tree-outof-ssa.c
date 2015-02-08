@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -175,7 +176,7 @@ typedef struct _elim_graph {
   vec<source_location> edge_locus;
 
   /* Visited vector.  */
-  sbitmap visited;
+  bitvec visited;
 
   /* Stack for visited nodes.  */
   vec<int> stack;
@@ -445,7 +446,7 @@ new_elim_graph (int size)
   g->edge_locus.create (10);
   g->stack.create (30);
 
-  g->visited = sbitmap_alloc (size);
+  new (&g->visited) bitvec (size);
 
   return g;
 }
@@ -467,7 +468,7 @@ clear_elim_graph (elim_graph g)
 static inline void
 delete_elim_graph (elim_graph g)
 {
-  sbitmap_free (g->visited);
+  g->visited.~bitvec ();
   g->stack.release ();
   g->edge_list.release ();
   g->const_copies.release ();
@@ -662,10 +663,10 @@ elim_forward (elim_graph g, int T)
   int S;
   source_location locus;
 
-  bitmap_set_bit (g->visited, T);
+  g->visited[T] = true;
   FOR_EACH_ELIM_GRAPH_SUCC (g, T, S, locus,
     {
-      if (!bitmap_bit_p (g->visited, S))
+      if (!g->visited[S])
         elim_forward (g, S);
     });
   g->stack.safe_push (T);
@@ -682,7 +683,7 @@ elim_unvisited_predecessor (elim_graph g, int T)
 
   FOR_EACH_ELIM_GRAPH_PRED (g, T, P, locus,
     {
-      if (!bitmap_bit_p (g->visited, P))
+      if (!g->visited[P])
         return 1;
     });
   return 0;
@@ -696,10 +697,10 @@ elim_backward (elim_graph g, int T)
   int P;
   source_location locus;
 
-  bitmap_set_bit (g->visited, T);
+  g->visited[T] = true;
   FOR_EACH_ELIM_GRAPH_PRED (g, T, P, locus,
     {
-      if (!bitmap_bit_p (g->visited, P))
+      if (!g->visited[P])
         {
 	  elim_backward (g, P);
 	  insert_partition_copy_on_edge (g->e, P, T, locus);
@@ -741,7 +742,7 @@ elim_create (elim_graph g, int T)
       insert_part_to_rtx_on_edge (g->e, U, T, UNKNOWN_LOCATION);
       FOR_EACH_ELIM_GRAPH_PRED (g, T, P, locus,
 	{
-	  if (!bitmap_bit_p (g->visited, P))
+	  if (!g->visited[P])
 	    {
 	      elim_backward (g, P);
 	      insert_rtx_to_part_on_edge (g->e, P, U, unsignedsrcp, locus);
@@ -753,7 +754,7 @@ elim_create (elim_graph g, int T)
       S = elim_graph_remove_succ_edge (g, T, &locus);
       if (S != -1)
 	{
-	  bitmap_set_bit (g->visited, T);
+	  g->visited[T] = true;
 	  insert_partition_copy_on_edge (g->e, T, S, locus);
 	}
     }
@@ -782,20 +783,20 @@ eliminate_phi (edge e, elim_graph g)
     {
       int part;
 
-      bitmap_clear (g->visited);
+      g->visited.clear ();
       g->stack.truncate (0);
 
       FOR_EACH_VEC_ELT (g->nodes, x, part)
         {
-	  if (!bitmap_bit_p (g->visited, part))
+	  if (!g->visited[part])
 	    elim_forward (g, part);
 	}
 
-      bitmap_clear (g->visited);
+      g->visited.clear ();
       while (g->stack.length () > 0)
 	{
 	  x = g->stack.pop ();
-	  if (!bitmap_bit_p (g->visited, x))
+	  if (!g->visited[x])
 	    elim_create (g, x);
 	}
     }

@@ -20,6 +20,7 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -1242,13 +1243,11 @@ pass_cprop_hardreg::execute (function *fun)
 {
   struct value_data *all_vd;
   basic_block bb;
-  sbitmap visited;
   bool analyze_called = false;
 
   all_vd = XNEWVEC (struct value_data, last_basic_block_for_fn (fun));
 
-  visited = sbitmap_alloc (last_basic_block_for_fn (fun));
-  bitmap_clear (visited);
+  stack_bitvec visited (last_basic_block_for_fn (fun));
 
   if (MAY_HAVE_DEBUG_INSNS)
     debug_insn_changes_pool
@@ -1257,14 +1256,14 @@ pass_cprop_hardreg::execute (function *fun)
 
   FOR_EACH_BB_FN (bb, fun)
     {
-      bitmap_set_bit (visited, bb->index);
+      visited[bb->index] = true;
 
       /* If a block has a single predecessor, that we've already
 	 processed, begin with the value data that was live at
 	 the end of the predecessor block.  */
       /* ??? Ought to use more intelligent queuing of blocks.  */
       if (single_pred_p (bb)
-	  && bitmap_bit_p (visited, single_pred (bb)->index)
+	  && visited[single_pred (bb)->index]
 	  && ! (single_pred_edge (bb)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH)))
 	{
 	  all_vd[bb->index] = all_vd[single_pred (bb)->index];
@@ -1292,7 +1291,7 @@ pass_cprop_hardreg::execute (function *fun)
   if (MAY_HAVE_DEBUG_INSNS)
     {
       FOR_EACH_BB_FN (bb, fun)
-	if (bitmap_bit_p (visited, bb->index)
+	if (visited[bb->index]
 	    && all_vd[bb->index].n_debug_insn_changes)
 	  {
 	    unsigned int regno;
@@ -1317,7 +1316,6 @@ pass_cprop_hardreg::execute (function *fun)
       free_alloc_pool (debug_insn_changes_pool);
     }
 
-  sbitmap_free (visited);
   free (all_vd);
   return 0;
 }

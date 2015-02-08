@@ -20,6 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CFGLOOPMANIP_H
 #define GCC_CFGLOOPMANIP_H
 
+class bitvec;
+
 enum
 {
   CP_SIMPLE_PREHEADERS = 1,
@@ -51,7 +53,7 @@ extern struct loop * duplicate_loop (struct loop *, struct loop *);
 extern void duplicate_subloops (struct loop *, struct loop *);
 extern bool can_duplicate_loop_p (const struct loop *loop);
 extern bool duplicate_loop_to_header_edge (struct loop *, edge,
-					   unsigned, sbitmap, edge,
+					   unsigned, const bitvec &, edge,
  					   vec<edge> *, int);
 extern bool mfb_keep_just (edge);
 basic_block create_preheader (struct loop *, int);

@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "hashtab.h"
 #include "tm.h"
 #include "rtl.h"
@@ -70,7 +71,7 @@ static bool can_alter_cfg = false;
 static vec<rtx_insn *> worklist;
 
 /* Bitmap of instructions marked as needed indexed by INSN_UID.  */
-static sbitmap marked;
+static bitvec marked;
 
 /* Bitmap obstacks used for block processing by the fast algorithm.  */
 static bitmap_obstack dce_blocks_bitmap_obstack;
@@ -190,7 +191,7 @@ marked_insn_p (rtx_insn *insn)
   /* Artificial defs are always needed and they do not have an insn.
      We should never see them here.  */
   gcc_assert (insn);
-  return bitmap_bit_p (marked, INSN_UID (insn));
+  return marked[INSN_UID (insn)];
 }
 
 
@@ -204,7 +205,7 @@ mark_insn (rtx_insn *insn, bool fast)
     {
       if (!fast)
 	worklist.safe_push (insn);
-      bitmap_set_bit (marked, INSN_UID (insn));
+      marked[INSN_UID (insn)] = true;
       if (dump_file)
 	fprintf (dump_file, "  Adding insn %d to worklist\n", INSN_UID (insn));
       if (CALL_P (insn)
@@ -746,8 +747,7 @@ init_dce (bool fast)
   else
     can_alter_cfg = true;
 
-  marked = sbitmap_alloc (get_max_uid () + 1);
-  bitmap_clear (marked);
+  marked.grow (get_max_uid () + 1);
 }
 
 
@@ -756,7 +756,7 @@ init_dce (bool fast)
 static void
 fini_dce (bool fast)
 {
-  sbitmap_free (marked);
+  marked.clear_and_release ();
 
   if (fast)
     {
@@ -1126,7 +1126,7 @@ fast_dce (bool word_level)
 	  /* So something was deleted that requires a redo.  Do it on
 	     the cheap.  */
 	  delete_unmarked_insns ();
-	  bitmap_clear (marked);
+	  marked.clear ();
 	  bitmap_clear (processed);
 	  bitmap_clear (redo_out);
 

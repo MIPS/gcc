@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -565,7 +566,7 @@ static bitmap cse_ebb_live_in, cse_ebb_live_out;
 
 /* A simple bitmap to track which basic blocks have been visited
    already as part of an already processed extended basic block.  */
-static sbitmap cse_visited_basic_blocks;
+static bitvec cse_visited_basic_blocks;
 
 static bool fixed_base_plus_p (rtx x);
 static int notreg_cost (rtx, enum rtx_code, int);
@@ -6242,7 +6243,7 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
   edge e;
   int path_size;
 
-  bitmap_set_bit (cse_visited_basic_blocks, first_bb->index);
+  cse_visited_basic_blocks[first_bb->index] = true;
 
   /* See if there is a previous path.  */
   path_size = data->path_size;
@@ -6299,9 +6300,9 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
 
 		     We still want to visit each basic block only once, so
 		     halt the path here if we have already visited BB.  */
-		  && !bitmap_bit_p (cse_visited_basic_blocks, bb->index))
+		  && !cse_visited_basic_blocks[bb->index])
 		{
-		  bitmap_set_bit (cse_visited_basic_blocks, bb->index);
+		  cse_visited_basic_blocks[bb->index] = true;
 		  data->path[path_size++].bb = bb;
 		  break;
 		}
@@ -6344,10 +6345,10 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
 	      && single_pred_p (e->dest)
 	      /* Avoid visiting basic blocks twice.  The large comment
 		 above explains why this can happen.  */
-	      && !bitmap_bit_p (cse_visited_basic_blocks, e->dest->index))
+	      && !cse_visited_basic_blocks[e->dest->index])
 	    {
 	      basic_block bb2 = e->dest;
-	      bitmap_set_bit (cse_visited_basic_blocks, bb2->index);
+	      cse_visited_basic_blocks[bb2->index] = true;
 	      data->path[path_size++].bb = bb2;
 	      bb = bb2;
 	    }
@@ -6582,8 +6583,8 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 		  /* If we truncate the path, we must also reset the
 		     visited bit on the remaining blocks in the path,
 		     or we will never visit them at all.  */
-		  bitmap_clear_bit (cse_visited_basic_blocks,
-			     ebb_data->path[path_size].bb->index);
+		  cse_visited_basic_blocks[ebb_data->path[path_size].bb->index]
+		    = false;
 		  ebb_data->path[path_size].bb = NULL;
 		}
 	      while (path_size - 1 != path_entry);
@@ -6660,8 +6661,7 @@ cse_main (rtx_insn *f ATTRIBUTE_UNUSED, int nregs)
   reg_eqv_table = XNEWVEC (struct reg_eqv_elem, nregs);
 
   /* Set up the table of already visited basic blocks.  */
-  cse_visited_basic_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (cse_visited_basic_blocks);
+  new (&cse_visited_basic_blocks) bitvec (last_basic_block_for_fn (cfun));
 
   /* Loop over basic blocks in reverse completion order (RPO),
      excluding the ENTRY and EXIT blocks.  */
@@ -6675,7 +6675,7 @@ cse_main (rtx_insn *f ATTRIBUTE_UNUSED, int nregs)
 	{
 	  bb = BASIC_BLOCK_FOR_FN (cfun, rc_order[i++]);
 	}
-      while (bitmap_bit_p (cse_visited_basic_blocks, bb->index)
+      while (cse_visited_basic_blocks[bb->index]
 	     && i < n_blocks);
 
       /* Find all paths starting with BB, and process them.  */
@@ -6705,7 +6705,7 @@ cse_main (rtx_insn *f ATTRIBUTE_UNUSED, int nregs)
   end_alias_analysis ();
   free (reg_eqv_table);
   free (ebb_data.path);
-  sbitmap_free (cse_visited_basic_blocks);
+  cse_visited_basic_blocks.clear_and_release ();
   free (rc_order);
   rtl_hooks = general_rtl_hooks;
 

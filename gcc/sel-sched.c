@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "rtl-error.h"
 #include "tm_p.h"
@@ -6759,14 +6760,14 @@ static int cur_seqno;
    compute seqnos for visited insns, marking visited bbs in VISITED_BBS.
    Clear visited blocks from BLOCKS_TO_RESCHEDULE.  */
 static void
-init_seqno_1 (basic_block bb, sbitmap visited_bbs, bitmap blocks_to_reschedule)
+init_seqno_1 (basic_block bb, bitvec *visited_bbs, bitmap blocks_to_reschedule)
 {
   int bbi = BLOCK_TO_BB (bb->index);
   insn_t insn, note = bb_note (bb);
   insn_t succ_insn;
   succ_iterator si;
 
-  bitmap_set_bit (visited_bbs, bbi);
+  (*visited_bbs)[bbi] = true;
   if (blocks_to_reschedule)
     bitmap_clear_bit (blocks_to_reschedule, bb->index);
 
@@ -6778,7 +6779,7 @@ init_seqno_1 (basic_block bb, sbitmap visited_bbs, bitmap blocks_to_reschedule)
 
       gcc_assert (in_current_region_p (succ));
 
-      if (!bitmap_bit_p (visited_bbs, succ_bbi))
+      if (!(*visited_bbs)[succ_bbi])
 	{
 	  gcc_assert (succ_bbi > bbi);
 
@@ -6801,36 +6802,34 @@ init_seqno_1 (basic_block bb, sbitmap visited_bbs, bitmap blocks_to_reschedule)
 static int
 init_seqno (bitmap blocks_to_reschedule, basic_block from)
 {
-  sbitmap visited_bbs;
   bitmap_iterator bi;
   unsigned bbi;
 
-  visited_bbs = sbitmap_alloc (current_nr_blocks);
+  stack_bitvec visited_bbs (current_nr_blocks);
 
   if (blocks_to_reschedule)
     {
-      bitmap_ones (visited_bbs);
+      visited_bbs.set ();
       EXECUTE_IF_SET_IN_BITMAP (blocks_to_reschedule, 0, bbi, bi)
         {
 	  gcc_assert (BLOCK_TO_BB (bbi) < current_nr_blocks);
-          bitmap_clear_bit (visited_bbs, BLOCK_TO_BB (bbi));
+	  visited_bbs[BLOCK_TO_BB (bbi)] = false;
 	}
     }
   else
     {
-      bitmap_clear (visited_bbs);
+      visited_bbs.clear ();
       from = EBB_FIRST_BB (0);
     }
 
   cur_seqno = sched_max_luid - 1;
-  init_seqno_1 (from, visited_bbs, blocks_to_reschedule);
+  init_seqno_1 (from, &visited_bbs, blocks_to_reschedule);
 
   /* cur_seqno may be positive if the number of instructions is less than
      sched_max_luid - 1 (when rescheduling or if some instructions have been
      removed by the call to purge_empty_blocks in sel_sched_region_1).  */
   gcc_assert (cur_seqno >= 0);
 
-  sbitmap_free (visited_bbs);
   return sched_max_luid - 1;
 }
 

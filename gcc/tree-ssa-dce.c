@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -118,11 +119,11 @@ static vec<gimple> worklist;
 
 /* Vector indicating an SSA name has already been processed and marked
    as necessary.  */
-static sbitmap processed;
+static bitvec processed;
 
 /* Vector indicating that the last statement of a basic block has already
    been marked as necessary.  */
-static sbitmap last_stmt_necessary;
+static bitvec last_stmt_necessary;
 
 /* Vector indicating that BB contains statements that are live.  */
 static sbitmap bb_contains_live_stmts;
@@ -138,7 +139,7 @@ static control_dependences *cd;
 
 /* Vector indicating that a basic block has already had all the edges
    processed that it is control dependent on.  */
-static sbitmap visited_control_parents;
+static bitvec visited_control_parents;
 
 /* TRUE if this pass alters the CFG (by removing control statements).
    FALSE otherwise.
@@ -185,14 +186,14 @@ mark_operand_necessary (tree op)
   gcc_assert (op);
 
   ver = SSA_NAME_VERSION (op);
-  if (bitmap_bit_p (processed, ver))
+  if (processed[ver])
     {
       stmt = SSA_NAME_DEF_STMT (op);
       gcc_assert (gimple_nop_p (stmt)
 		  || gimple_plf (stmt, STMT_NECESSARY));
       return;
     }
-  bitmap_set_bit (processed, ver);
+  processed[ver] = true;
 
   stmt = SSA_NAME_DEF_STMT (op);
   gcc_assert (stmt);
@@ -342,7 +343,7 @@ mark_last_stmt_necessary (basic_block bb)
 {
   gimple stmt = last_stmt (bb);
 
-  bitmap_set_bit (last_stmt_necessary, bb->index);
+  last_stmt_necessary[bb->index] = true;
   bitmap_set_bit (bb_contains_live_stmts, bb->index);
 
   /* We actually mark the statement only if it is a control statement.  */
@@ -379,12 +380,12 @@ mark_control_dependent_edges_necessary (basic_block bb, bool ignore_self)
 	  continue;
 	}
 
-      if (!bitmap_bit_p (last_stmt_necessary, cd_bb->index))
+      if (!last_stmt_necessary[cd_bb->index])
 	mark_last_stmt_necessary (cd_bb);
     }
 
   if (!skipped)
-    bitmap_set_bit (visited_control_parents, bb->index);
+    visited_control_parents[bb->index] = true;
 }
 
 
@@ -577,7 +578,7 @@ mark_all_reaching_defs_necessary_1 (ao_ref *ref ATTRIBUTE_UNUSED,
   /* We have to skip already visited (and thus necessary) statements
      to make the chaining work after we dropped back to simple mode.  */
   if (chain_ovfl
-      && bitmap_bit_p (processed, SSA_NAME_VERSION (vdef)))
+      && processed[SSA_NAME_VERSION (vdef)])
     {
       gcc_assert (gimple_nop_p (def_stmt)
 		  || gimple_plf (def_stmt, STMT_NECESSARY));
@@ -673,7 +674,7 @@ propagate_necessity (bool aggressive)
 	     already done so.  */
 	  basic_block bb = gimple_bb (stmt);
 	  if (bb != ENTRY_BLOCK_PTR_FOR_FN (cfun)
-	      && !bitmap_bit_p (visited_control_parents, bb->index))
+	      && !visited_control_parents[bb->index])
 	    mark_control_dependent_edges_necessary (bb, false);
 	}
 
@@ -776,12 +777,11 @@ propagate_necessity (bool aggressive)
 		  if (gimple_bb (stmt)
 		      != get_immediate_dominator (CDI_POST_DOMINATORS, arg_bb))
 		    {
-		      if (!bitmap_bit_p (last_stmt_necessary, arg_bb->index))
+		      if (!last_stmt_necessary[arg_bb->index])
 			mark_last_stmt_necessary (arg_bb);
 		    }
 		  else if (arg_bb != ENTRY_BLOCK_PTR_FOR_FN (cfun)
-		           && !bitmap_bit_p (visited_control_parents,
-					 arg_bb->index))
+			   && !visited_control_parents[arg_bb->index])
 		    mark_control_dependent_edges_necessary (arg_bb, true);
 		}
 	    }
@@ -1387,7 +1387,7 @@ eliminate_unnecessary_stmts (void)
 		    {
 		      tree name = USE_FROM_PTR (use_p);
 		      if (!SSA_NAME_IS_DEFAULT_DEF (name)
-			  && !bitmap_bit_p (processed, SSA_NAME_VERSION (name)))
+			  && !processed[SSA_NAME_VERSION (name)])
 			{
 			  dead = true;
 			  break;
@@ -1410,7 +1410,7 @@ eliminate_unnecessary_stmts (void)
 		 call (); saving one operand.  */
 	      if (name
 		  && TREE_CODE (name) == SSA_NAME
-		  && !bitmap_bit_p (processed, SSA_NAME_VERSION (name))
+		  && !processed[SSA_NAME_VERSION (name)]
 		  /* Avoid doing so for allocation calls which we
 		     did not mark as necessary, it will confuse the
 		     special logic we apply to malloc/free pair removal.  */
@@ -1576,14 +1576,12 @@ tree_dce_init (bool aggressive)
 
   if (aggressive)
     {
-      last_stmt_necessary = sbitmap_alloc (last_basic_block_for_fn (cfun));
-      bitmap_clear (last_stmt_necessary);
+      last_stmt_necessary.grow (last_basic_block_for_fn (cfun));
       bb_contains_live_stmts = sbitmap_alloc (last_basic_block_for_fn (cfun));
       bitmap_clear (bb_contains_live_stmts);
     }
 
-  processed = sbitmap_alloc (num_ssa_names + 1);
-  bitmap_clear (processed);
+  processed.grow (num_ssa_names + 1);
 
   worklist.create (64);
   cfg_altered = false;
@@ -1597,13 +1595,13 @@ tree_dce_done (bool aggressive)
   if (aggressive)
     {
       delete cd;
-      sbitmap_free (visited_control_parents);
-      sbitmap_free (last_stmt_necessary);
+      visited_control_parents.clear_and_release ();
+      last_stmt_necessary.clear_and_release ();
       sbitmap_free (bb_contains_live_stmts);
       bb_contains_live_stmts = NULL;
     }
 
-  sbitmap_free (processed);
+  processed.clear_and_release ();
 
   worklist.release ();
 }
@@ -1644,9 +1642,7 @@ perform_tree_ssa_dce (bool aggressive)
       calculate_dominance_info (CDI_POST_DOMINATORS);
       cd = new control_dependences (create_edge_list ());
 
-      visited_control_parents =
-	sbitmap_alloc (last_basic_block_for_fn (cfun));
-      bitmap_clear (visited_control_parents);
+      visited_control_parents.grow (last_basic_block_for_fn (cfun));
 
       mark_dfs_back_edges ();
     }

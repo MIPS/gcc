@@ -2127,7 +2127,7 @@ pad_bb(void)
 
 static void
 spu_emit_branch_hint (rtx_insn *before, rtx_insn *branch, rtx target,
-		      int distance, sbitmap blocks)
+		      int distance, bitvec *blocks)
 {
   rtx branch_label = 0;
   rtx_insn *hint;
@@ -2151,7 +2151,7 @@ spu_emit_branch_hint (rtx_insn *before, rtx_insn *branch, rtx target,
   LABEL_PRESERVE_P (branch_label) = 1;
   insn = emit_label_before (branch_label, branch);
   branch_label = gen_rtx_LABEL_REF (VOIDmode, branch_label);
-  bitmap_set_bit (blocks, BLOCK_FOR_INSN (branch)->index);
+  (*blocks)[BLOCK_FOR_INSN (branch)->index] = true;
 
   hint = emit_insn_before (gen_hbr (branch_label, target), before);
   recog_memoized (hint);
@@ -2477,7 +2477,6 @@ spu_var_tracking (void)
 static void
 spu_machine_dependent_reorg (void)
 {
-  sbitmap blocks;
   basic_block bb;
   rtx_insn *branch, *insn;
   rtx branch_target = 0;
@@ -2497,8 +2496,7 @@ spu_machine_dependent_reorg (void)
       return;
     }
 
-  blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (blocks);
+  stack_bitvec blocks (last_basic_block_for_fn (cfun));
 
   in_spu_reorg = 1;
   compute_bb_for_insn ();
@@ -2562,7 +2560,7 @@ spu_machine_dependent_reorg (void)
 				 INSN_UID (branch), bb->index,
 				 INSN_UID (next));
 		      spu_emit_branch_hint (next, branch, branch_target,
-					    branch_addr - next_addr, blocks);
+					    branch_addr - next_addr, &blocks);
 		    }
 		  branch = 0;
 		}
@@ -2662,14 +2660,14 @@ spu_machine_dependent_reorg (void)
 			 INSN_UID (branch), bb->index,
 			 INSN_UID (NEXT_INSN (insn)));
 	      spu_emit_branch_hint (NEXT_INSN (insn), branch, branch_target,
-				    branch_addr - next_addr, blocks);
+				    branch_addr - next_addr, &blocks);
 	    }
 	  branch = 0;
 	}
     }
   free (spu_bb_info);
 
-  if (!bitmap_empty_p (blocks))
+  if (blocks.any_set_bits ())
     find_many_sub_basic_blocks (blocks);
 
   /* We have to schedule to make sure alignment is ok. */

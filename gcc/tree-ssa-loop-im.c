@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
+#include "bitvec.h"
 #include "double-int.h"
 #include "input.h"
 #include "alias.h"
@@ -2366,7 +2367,7 @@ store_motion (void)
    blocks that contain a nonpure call.  */
 
 static void
-fill_always_executed_in_1 (struct loop *loop, sbitmap contains_call)
+fill_always_executed_in_1 (struct loop *loop, const bitvec &contains_call)
 {
   basic_block bb = NULL, *bbs, last = NULL;
   unsigned i;
@@ -2385,7 +2386,7 @@ fill_always_executed_in_1 (struct loop *loop, sbitmap contains_call)
 	  if (dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
 	    last = bb;
 
-	  if (bitmap_bit_p (contains_call, bb->index))
+	  if (contains_call[bb->index])
 	    break;
 
 	  FOR_EACH_EDGE (e, ei, bb->succs)
@@ -2435,11 +2436,10 @@ fill_always_executed_in_1 (struct loop *loop, sbitmap contains_call)
 static void
 fill_always_executed_in (void)
 {
-  sbitmap contains_call = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  stack_bitvec contains_call (last_basic_block_for_fn (cfun));
   basic_block bb;
   struct loop *loop;
 
-  bitmap_clear (contains_call);
   FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
@@ -2450,13 +2450,11 @@ fill_always_executed_in (void)
 	}
 
       if (!gsi_end_p (gsi))
-	bitmap_set_bit (contains_call, bb->index);
+	contains_call[bb->index] = true;
     }
 
   for (loop = current_loops->tree_root->inner; loop; loop = loop->next)
     fill_always_executed_in_1 (loop, contains_call);
-
-  sbitmap_free (contains_call);
 }
 
 

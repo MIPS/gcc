@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "hash-table.h"
 #include "tm.h"
 #include "rtl.h"
@@ -3297,14 +3298,14 @@ dse_step3_exit_block_scan (bb_info_t bb_info)
    have their bits set in UNREACHABLE_BLOCKS.  */
 
 static void
-mark_reachable_blocks (sbitmap unreachable_blocks, basic_block bb)
+mark_reachable_blocks (bitvec *unreachable_blocks, basic_block bb)
 {
   edge e;
   edge_iterator ei;
 
-  if (bitmap_bit_p (unreachable_blocks, bb->index))
+  if ((*unreachable_blocks)[bb->index])
     {
-      bitmap_clear_bit (unreachable_blocks, bb->index);
+      (*unreachable_blocks)[bb->index] = false;
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  mark_reachable_blocks (unreachable_blocks, e->src);
@@ -3318,12 +3319,10 @@ static void
 dse_step3 (bool for_spills)
 {
   basic_block bb;
-  sbitmap unreachable_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  sbitmap_iterator sbi;
+  stack_bitvec unreachable_blocks (last_basic_block_for_fn (cfun));
   bitmap all_ones = NULL;
-  unsigned int i;
 
-  bitmap_ones (unreachable_blocks);
+  unreachable_blocks.set ();
 
   FOR_ALL_BB_FN (bb, cfun)
     {
@@ -3340,7 +3339,7 @@ dse_step3 (bool for_spills)
       else
 	dse_step3_scan (for_spills, bb);
       if (EDGE_COUNT (bb->succs) == 0)
-	mark_reachable_blocks (unreachable_blocks, bb);
+	mark_reachable_blocks (&unreachable_blocks, bb);
 
       /* If this is the second time dataflow is run, delete the old
 	 sets.  */
@@ -3353,9 +3352,8 @@ dse_step3 (bool for_spills)
   /* For any block in an infinite loop, we must initialize the out set
      to all ones.  This could be expensive, but almost never occurs in
      practice. However, it is common in regression tests.  */
-  EXECUTE_IF_SET_IN_BITMAP (unreachable_blocks, 0, i, sbi)
-    {
-      if (bitmap_bit_p (all_blocks, i))
+  for (size_t i = 0; i < unreachable_blocks.end (); i++)
+      if (unreachable_blocks[i] && bitmap_bit_p (all_blocks, i))
 	{
 	  bb_info_t bb_info = bb_table[i];
 	  if (!all_ones)
@@ -3373,11 +3371,9 @@ dse_step3 (bool for_spills)
 	      bitmap_copy (bb_info->out, all_ones);
 	    }
 	}
-    }
 
   if (all_ones)
     BITMAP_FREE (all_ones);
-  sbitmap_free (unreachable_blocks);
 }
 
 

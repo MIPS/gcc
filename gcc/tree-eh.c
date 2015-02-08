@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "hash-table.h"
 #include "tm.h"
 #include "hash-set.h"
@@ -3810,25 +3811,16 @@ make_pass_lower_eh_dispatch (gcc::context *ctxt)
    The caller is responsible for freeing the returned sbitmaps.  */
 
 static void
-mark_reachable_handlers (sbitmap *r_reachablep, sbitmap *lp_reachablep)
+mark_reachable_handlers (bitvec *r_reachable, bitvec *lp_reachable)
 {
-  sbitmap r_reachable, lp_reachable;
   basic_block bb;
-  bool mark_landing_pads = (lp_reachablep != NULL);
-  gcc_checking_assert (r_reachablep != NULL);
+  bool mark_landing_pads = (lp_reachable != NULL);
+  gcc_checking_assert (r_reachable != NULL);
 
-  r_reachable = sbitmap_alloc (cfun->eh->region_array->length ());
-  bitmap_clear (r_reachable);
-  *r_reachablep = r_reachable;
+  r_reachable->grow (cfun->eh->region_array->length ());
 
   if (mark_landing_pads)
-    {
-      lp_reachable = sbitmap_alloc (cfun->eh->lp_array->length ());
-      bitmap_clear (lp_reachable);
-      *lp_reachablep = lp_reachable;
-    }
-  else
-    lp_reachable = NULL;
+    lp_reachable->grow (cfun->eh->lp_array->length ());
 
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -3845,15 +3837,15 @@ mark_reachable_handlers (sbitmap *r_reachablep, sbitmap *lp_reachablep)
 	      /* Negative LP numbers are MUST_NOT_THROW regions which
 		 are not considered BB enders.  */
 	      if (lp_nr < 0)
-		bitmap_set_bit (r_reachable, -lp_nr);
+		(*r_reachable)[-lp_nr] = true;
 
 	      /* Positive LP numbers are real landing pads, and BB enders.  */
 	      else if (lp_nr > 0)
 		{
 		  gcc_assert (gsi_one_before_end_p (gsi));
 		  eh_region region = get_eh_region_from_lp_number (lp_nr);
-		  bitmap_set_bit (r_reachable, region->index);
-		  bitmap_set_bit (lp_reachable, lp_nr);
+		  (*r_reachable)[region->index] = true;
+		  (*lp_reachable)[lp_nr] = true;
 		}
 	    }
 
@@ -3861,13 +3853,12 @@ mark_reachable_handlers (sbitmap *r_reachablep, sbitmap *lp_reachablep)
 	  switch (gimple_code (stmt))
 	    {
 	    case GIMPLE_RESX:
-	      bitmap_set_bit (r_reachable,
-			      gimple_resx_region (as_a <gresx *> (stmt)));
+	      (*r_reachable)[gimple_resx_region (as_a <gresx *> (stmt))]
+		= true;
 	      break;
 	    case GIMPLE_EH_DISPATCH:
-	      bitmap_set_bit (r_reachable,
-			      gimple_eh_dispatch_region (
-                                as_a <geh_dispatch *> (stmt)));
+	      (*r_reachable)[gimple_eh_dispatch_region (as_a <geh_dispatch *>
+							(stmt))] = true;
 	      break;
 	    case GIMPLE_CALL:
 	      if (gimple_call_builtin_p (stmt, BUILT_IN_EH_COPY_VALUES))
@@ -3877,7 +3868,7 @@ mark_reachable_handlers (sbitmap *r_reachablep, sbitmap *lp_reachablep)
 		    HOST_WIDE_INT ri = tree_to_shwi (rt);
 
 		    gcc_assert (ri = (int)ri);
-		    bitmap_set_bit (r_reachable, ri);
+		    (*r_reachable)[ri] = true;
 		  }
 	      break;
 	    default:
@@ -3892,7 +3883,7 @@ mark_reachable_handlers (sbitmap *r_reachablep, sbitmap *lp_reachablep)
 static void
 remove_unreachable_handlers (void)
 {
-  sbitmap r_reachable, lp_reachable;
+  stack_bitvec r_reachable, lp_reachable;
   eh_region region;
   eh_landing_pad lp;
   unsigned i;
@@ -3904,15 +3895,15 @@ remove_unreachable_handlers (void)
       fprintf (dump_file, "Before removal of unreachable regions:\n");
       dump_eh_tree (dump_file, cfun);
       fprintf (dump_file, "Reachable regions: ");
-      dump_bitmap_file (dump_file, r_reachable);
+      r_reachable.dump (dump_file);
       fprintf (dump_file, "Reachable landing pads: ");
-      dump_bitmap_file (dump_file, lp_reachable);
+      lp_reachable.dump (dump_file);
     }
 
   if (dump_file)
     {
       FOR_EACH_VEC_SAFE_ELT (cfun->eh->region_array, i, region)
-	if (region && !bitmap_bit_p (r_reachable, region->index))
+	if (region && !r_reachable[region->index])
 	  fprintf (dump_file,
 		   "Removing unreachable region %d\n",
 		   region->index);
@@ -3921,7 +3912,7 @@ remove_unreachable_handlers (void)
   remove_unreachable_eh_regions (r_reachable);
 
   FOR_EACH_VEC_SAFE_ELT (cfun->eh->lp_array, i, lp)
-    if (lp && !bitmap_bit_p (lp_reachable, lp->index))
+    if (lp && !lp_reachable[lp->index])
       {
 	if (dump_file)
 	  fprintf (dump_file,
@@ -3936,9 +3927,6 @@ remove_unreachable_handlers (void)
       dump_eh_tree (dump_file, cfun);
       fprintf (dump_file, "\n\n");
     }
-
-  sbitmap_free (r_reachable);
-  sbitmap_free (lp_reachable);
 
 #ifdef ENABLE_CHECKING
   verify_eh_tree (cfun);
@@ -3980,7 +3968,7 @@ static void
 remove_unreachable_handlers_no_lp (void)
 {
   eh_region region;
-  sbitmap r_reachable;
+  stack_bitvec r_reachable;
   unsigned i;
 
   mark_reachable_handlers (&r_reachable, /*lp_reachablep=*/NULL);
@@ -3992,18 +3980,16 @@ remove_unreachable_handlers_no_lp (void)
 
       if (region->landing_pads != NULL
 	  || region->type == ERT_MUST_NOT_THROW)
-	bitmap_set_bit (r_reachable, region->index);
+	r_reachable[region->index] = true;
 
       if (dump_file
-	  && !bitmap_bit_p (r_reachable, region->index))
+	  && !r_reachable[region->index])
 	fprintf (dump_file,
 		 "Removing unreachable region %d\n",
 		 region->index);
     }
 
   remove_unreachable_eh_regions (r_reachable);
-
-  sbitmap_free (r_reachable);
 }
 
 /* Undo critical edge splitting on an EH landing pad.  Earlier, we

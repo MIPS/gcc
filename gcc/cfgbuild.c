@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -614,13 +615,12 @@ compute_outgoing_frequencies (basic_block b)
    and create edges.  */
 
 void
-find_many_sub_basic_blocks (sbitmap blocks)
+find_many_sub_basic_blocks (const bitvec &blocks)
 {
   basic_block bb, min, max;
 
   FOR_EACH_BB_FN (bb, cfun)
-    SET_STATE (bb,
-	       bitmap_bit_p (blocks, bb->index) ? BLOCK_TO_SPLIT : BLOCK_ORIGINAL);
+    SET_STATE (bb, blocks[bb->index] ? BLOCK_TO_SPLIT : BLOCK_ORIGINAL);
 
   FOR_EACH_BB_FN (bb, cfun)
     if (STATE (bb) == BLOCK_TO_SPLIT)

@@ -113,6 +113,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "cp-tree.h"
 #include "output.h"
 #include "hash-map.h"
@@ -333,11 +334,11 @@ init_functions (void)
 
 static void
 add_to_worklist (struct work_node **worklist, struct vtv_graph_node *node,
-                 sbitmap inserted)
+		 bitvec *inserted)
 {
   struct work_node *new_work_node;
 
-  if (bitmap_bit_p (inserted, node->class_uid))
+  if ((*inserted)[node->class_uid])
     return;
 
   new_work_node = XNEW (struct work_node);
@@ -345,7 +346,7 @@ add_to_worklist (struct work_node **worklist, struct vtv_graph_node *node,
   new_work_node->node = node;
   *worklist = new_work_node;
 
-  bitmap_set_bit (inserted, node->class_uid);
+  (*inserted)[node->class_uid] = true;
 }
 
 /* This is a helper function for
@@ -392,7 +393,6 @@ void
 vtv_compute_class_hierarchy_transitive_closure (void)
 {
   struct work_node *worklist = NULL;
-  sbitmap inserted = sbitmap_alloc (num_vtable_map_nodes);
   unsigned i;
   unsigned j;
 
@@ -405,14 +405,14 @@ vtv_compute_class_hierarchy_transitive_closure (void)
 
   /* Set-up:                                                                */
   /* Find all the "leaf" nodes in the graph, and add them to the worklist.  */
-  bitmap_clear (inserted);
+  stack_bitvec inserted (num_vtable_map_nodes);
   for (j = 0; j < num_vtable_map_nodes; ++j)
     {
       struct vtbl_map_node *cur = vtbl_map_nodes_vec[j];
       if (cur->class_info
           && ((cur->class_info->children).length() == 0)
-          && ! (bitmap_bit_p (inserted, cur->class_info->class_uid)))
-        add_to_worklist (&worklist, cur->class_info, inserted);
+	  && ! (inserted[cur->class_info->class_uid]))
+	add_to_worklist (&worklist, cur->class_info, &inserted);
     }
 
   /* Main work: pull next leaf node off work list, process it, add its
@@ -434,8 +434,8 @@ vtv_compute_class_hierarchy_transitive_closure (void)
         {
           temp_node->parents[i]->num_processed_children =
                     temp_node->parents[i]->num_processed_children + 1;
-          if (!bitmap_bit_p (inserted, temp_node->parents[i]->class_uid))
-            add_to_worklist (&worklist, temp_node->parents[i], inserted);
+	  if (!inserted[temp_node->parents[i]->class_uid])
+	    add_to_worklist (&worklist, temp_node->parents[i], &inserted);
         }
     }
 }

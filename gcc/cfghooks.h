@@ -21,6 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CFGHOOKS_H
 #define GCC_CFGHOOKS_H
 
+class bitvec;
+
 /* Only basic-block.h includes this.  */
 
 /* Structure to gather statistic about profile consistency, per pass.
@@ -153,7 +155,7 @@ struct cfg_hooks
   /* A hook for duplicating loop in CFG, currently this is used
      in loop versioning.  */
   bool (*cfg_hook_duplicate_loop_to_header_edge) (struct loop *, edge,
-						  unsigned, sbitmap,
+						  unsigned, const bitvec &,
 						  edge, vec<edge> *,
 						  int);
 
@@ -223,7 +225,7 @@ extern void execute_on_growing_pred (edge);
 extern void execute_on_shrinking_pred (edge);
 extern bool cfg_hook_duplicate_loop_to_header_edge (struct loop *loop, edge,
 						    unsigned int ndupl,
-						    sbitmap wont_exit,
+						    const bitvec &wont_exit,
 						    edge orig,
 						    vec<edge> *to_remove,
 						    int flags);

@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
 #include "sbitmap.h"
+#include "bitvec.h"
 #include "predict.h"
 #include "hard-reg-set.h"
 #include "function.h"
@@ -1051,7 +1052,7 @@ delete_tree_live_info (tree_live_info_p live)
    it each time.  */
 
 static void
-loe_visit_block (tree_live_info_p live, basic_block bb, sbitmap visited)
+loe_visit_block (tree_live_info_p live, basic_block bb, bitvec *visited)
 {
   edge e;
   bool change;
@@ -1059,8 +1060,8 @@ loe_visit_block (tree_live_info_p live, basic_block bb, sbitmap visited)
   basic_block pred_bb;
   bitmap loe;
 
-  gcc_checking_assert (!bitmap_bit_p (visited, bb->index));
-  bitmap_set_bit (visited, bb->index);
+  gcc_checking_assert (!(*visited)[bb->index]);
+  (*visited)[bb->index] = true;
 
   loe = live_on_entry (live, bb);
 
@@ -1078,10 +1079,9 @@ loe_visit_block (tree_live_info_p live, basic_block bb, sbitmap visited)
 	 revisit stack.  */
       change = bitmap_ior_and_compl_into (live_on_entry (live, pred_bb),
 					  loe, &live->liveout[pred_bb->index]);
-      if (change
-	  && bitmap_bit_p (visited, pred_bb->index))
+      if ((*visited)[pred_bb->index] && change)
 	{
-	  bitmap_clear_bit (visited, pred_bb->index);
+	  (*visited)[pred_bb->index] = false;
 	  *(live->stack_top)++ = pred_bb->index;
 	}
     }
@@ -1096,23 +1096,19 @@ live_worklist (tree_live_info_p live)
 {
   unsigned b;
   basic_block bb;
-  sbitmap visited = sbitmap_alloc (last_basic_block_for_fn (cfun) + 1);
-
-  bitmap_clear (visited);
+  stack_bitvec visited (last_basic_block_for_fn (cfun) + 1);
 
   /* Visit all the blocks in reverse order and propagate live on entry values
      into the predecessors blocks.  */
   FOR_EACH_BB_REVERSE_FN (bb, cfun)
-    loe_visit_block (live, bb, visited);
+    loe_visit_block (live, bb, &visited);
 
   /* Process any blocks which require further iteration.  */
   while (live->stack_top != live->work_stack)
     {
       b = *--(live->stack_top);
-      loe_visit_block (live, BASIC_BLOCK_FOR_FN (cfun, b), visited);
+      loe_visit_block (live, BASIC_BLOCK_FOR_FN (cfun, b), &visited);
     }
-
-  sbitmap_free (visited);
 }
 
 

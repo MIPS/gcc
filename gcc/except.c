@@ -112,6 +112,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 #include "rtl.h"
 #include "hash-set.h"
@@ -679,30 +680,26 @@ eh_region
 eh_region_outermost (struct function *ifun, eh_region region_a,
 		     eh_region region_b)
 {
-  sbitmap b_outer;
-
   gcc_assert (ifun->eh->region_array);
   gcc_assert (ifun->eh->region_tree);
 
-  b_outer = sbitmap_alloc (ifun->eh->region_array->length ());
-  bitmap_clear (b_outer);
+  stack_bitvec b_outer (ifun->eh->region_array->length ());
 
   do
     {
-      bitmap_set_bit (b_outer, region_b->index);
+      b_outer[region_b->index] = true;
       region_b = region_b->outer;
     }
   while (region_b);
 
   do
     {
-      if (bitmap_bit_p (b_outer, region_a->index))
+      if (b_outer[region_a->index])
 	break;
       region_a = region_a->outer;
     }
   while (region_a);
 
-  sbitmap_free (b_outer);
   return region_a;
 }
 
@@ -1630,13 +1627,13 @@ remove_eh_handler (eh_region region)
    preserved.  */
 
 static void
-remove_unreachable_eh_regions_worker (eh_region *pp, sbitmap r_reachable)
+remove_unreachable_eh_regions_worker (eh_region *pp, const bitvec &r_reachable)
 {
   while (*pp)
     {
       eh_region region = *pp;
       remove_unreachable_eh_regions_worker (&region->inner, r_reachable);
-      if (!bitmap_bit_p (r_reachable, region->index))
+      if (!r_reachable[region->index])
 	remove_eh_handler_splicer (pp);
       else
 	pp = &region->next_peer;
@@ -1649,7 +1646,7 @@ remove_unreachable_eh_regions_worker (eh_region *pp, sbitmap r_reachable)
    searches in the region tree.  */
 
 void
-remove_unreachable_eh_regions (sbitmap r_reachable)
+remove_unreachable_eh_regions (const bitvec &r_reachable)
 {
   remove_unreachable_eh_regions_worker (&cfun->eh->region_tree, r_reachable);
 }

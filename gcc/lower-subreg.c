@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "machmode.h"
 #include "tm.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "vec.h"
 #include "double-int.h"
@@ -1543,16 +1544,12 @@ decompose_multiword_subregs (bool decompose_copies)
   bitmap_and_compl_into (decomposable_context, non_decomposable_context);
   if (!bitmap_empty_p (decomposable_context))
     {
-      sbitmap sub_blocks;
-      unsigned int i;
-      sbitmap_iterator sbi;
       bitmap_iterator iter;
       unsigned int regno;
 
       propagate_pseudo_copies ();
 
-      sub_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
-      bitmap_clear (sub_blocks);
+      stack_bitvec sub_blocks (last_basic_block_for_fn (cfun));
 
       EXECUTE_IF_SET_IN_BITMAP (decomposable_context, 0, regno, iter)
 	decompose_register (regno);
@@ -1611,7 +1608,7 @@ decompose_multiword_subregs (bool decompose_copies)
 			  extract_insn (insn);
 
 			  if (cfi)
-			    bitmap_set_bit (sub_blocks, bb->index);
+			    sub_blocks[bb->index] = true;
 			}
 		    }
 		  else
@@ -1654,33 +1651,32 @@ decompose_multiword_subregs (bool decompose_copies)
 	 of a basic block, split those blocks now.  Note that we only handle
 	 the case where splitting a load has caused multiple possibly trapping
 	 loads to appear.  */
-      EXECUTE_IF_SET_IN_BITMAP (sub_blocks, 0, i, sbi)
-	{
-	  rtx_insn *insn, *end;
-	  edge fallthru;
+      for (size_t i = sub_blocks.begin (); i < sub_blocks.end (); i++)
+	if (sub_blocks[i])
+	  {
+	    rtx_insn *insn, *end;
+	    edge fallthru;
 
-	  bb = BASIC_BLOCK_FOR_FN (cfun, i);
-	  insn = BB_HEAD (bb);
-	  end = BB_END (bb);
+	    bb = BASIC_BLOCK_FOR_FN (cfun, i);
+	    insn = BB_HEAD (bb);
+	    end = BB_END (bb);
 
-	  while (insn != end)
-	    {
-	      if (control_flow_insn_p (insn))
-		{
-		  /* Split the block after insn.  There will be a fallthru
-		     edge, which is OK so we keep it.  We have to create the
-		     exception edges ourselves.  */
-		  fallthru = split_block (bb, insn);
-		  rtl_make_eh_edge (NULL, bb, BB_END (bb));
-		  bb = fallthru->dest;
-		  insn = BB_HEAD (bb);
-		}
-	      else
-	        insn = NEXT_INSN (insn);
-	    }
-	}
-
-      sbitmap_free (sub_blocks);
+	    while (insn != end)
+	      {
+		if (control_flow_insn_p (insn))
+		  {
+		    /* Split the block after insn.  There will be a fallthru
+		       edge, which is OK so we keep it.  We have to create the
+		       exception edges ourselves.  */
+		    fallthru = split_block (bb, insn);
+		    rtl_make_eh_edge (NULL, bb, BB_END (bb));
+		    bb = fallthru->dest;
+		    insn = BB_HEAD (bb);
+		  }
+		else
+		  insn = NEXT_INSN (insn);
+	      }
+	  }
     }
 
   {

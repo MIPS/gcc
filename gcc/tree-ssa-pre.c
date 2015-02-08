@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "bitvec.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -2110,12 +2111,12 @@ prune_clobbered_mems (bitmap_set_t set, basic_block block)
     }
 }
 
-static sbitmap has_abnormal_preds;
+static bitvec has_abnormal_preds;
 
 /* List of blocks that may have changed during ANTIC computation and
    thus need to be iterated over.  */
 
-static sbitmap changed_blocks;
+static bitvec changed_blocks;
 
 /* Compute the ANTIC set for BLOCK.
 
@@ -2219,12 +2220,12 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
   if (!bitmap_set_equal (old, ANTIC_IN (block)))
     {
       changed = true;
-      bitmap_set_bit (changed_blocks, block->index);
+      changed_blocks[block->index] = true;
       FOR_EACH_EDGE (e, ei, block->preds)
-	bitmap_set_bit (changed_blocks, e->src->index);
+	changed_blocks[e->src->index] = true;
     }
   else
-    bitmap_clear_bit (changed_blocks, block->index);
+    changed_blocks[block->index] = false;
 
  maybe_dump_sets:
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2365,12 +2366,12 @@ compute_partial_antic_aux (basic_block block,
   if (!bitmap_set_equal (old_PA_IN, PA_IN (block)))
     {
       changed = true;
-      bitmap_set_bit (changed_blocks, block->index);
+      changed_blocks[block->index] = true;
       FOR_EACH_EDGE (e, ei, block->preds)
-	bitmap_set_bit (changed_blocks, e->src->index);
+	changed_blocks[e->src->index] = true;
     }
   else
-    bitmap_clear_bit (changed_blocks, block->index);
+    changed_blocks[block->index] = false;
 
  maybe_dump_sets:
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2399,8 +2400,7 @@ compute_antic (void)
 
   /* If any predecessor edges are abnormal, we punt, so antic_in is empty.
      We pre-build the map of blocks with incoming abnormal edges here.  */
-  has_abnormal_preds = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  bitmap_clear (has_abnormal_preds);
+  has_abnormal_preds.grow (last_basic_block_for_fn (cfun));
 
   FOR_ALL_BB_FN (block, cfun)
     {
@@ -2412,7 +2412,7 @@ compute_antic (void)
 	  e->flags &= ~EDGE_DFS_BACK;
 	  if (e->flags & EDGE_ABNORMAL)
 	    {
-	      bitmap_set_bit (has_abnormal_preds, block->index);
+	      has_abnormal_preds[block->index] = true;
 	      break;
 	    }
 	}
@@ -2427,8 +2427,8 @@ compute_antic (void)
   /* At the exit block we anticipate nothing.  */
   BB_VISITED (EXIT_BLOCK_PTR_FOR_FN (cfun)) = 1;
 
-  changed_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun) + 1);
-  bitmap_ones (changed_blocks);
+  changed_blocks.grow (last_basic_block_for_fn (cfun) + 1);
+  changed_blocks.set ();
   while (changed)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2441,12 +2441,11 @@ compute_antic (void)
       changed = false;
       for (i = postorder_num - 1; i >= 0; i--)
 	{
-	  if (bitmap_bit_p (changed_blocks, postorder[i]))
+	  if (changed_blocks[postorder[i]])
 	    {
 	      basic_block block = BASIC_BLOCK_FOR_FN (cfun, postorder[i]);
 	      changed |= compute_antic_aux (block,
-					    bitmap_bit_p (has_abnormal_preds,
-						      block->index));
+					    has_abnormal_preds[block->index]);
 	    }
 	}
       /* Theoretically possible, but *highly* unlikely.  */
@@ -2458,7 +2457,7 @@ compute_antic (void)
 
   if (do_partial_partial)
     {
-      bitmap_ones (changed_blocks);
+      changed_blocks.set ();
       mark_dfs_back_edges ();
       num_iterations = 0;
       changed = true;
@@ -2470,13 +2469,11 @@ compute_antic (void)
 	  changed = false;
 	  for (i = postorder_num - 1 ; i >= 0; i--)
 	    {
-	      if (bitmap_bit_p (changed_blocks, postorder[i]))
+	      if (changed_blocks[postorder[i]])
 		{
 		  basic_block block = BASIC_BLOCK_FOR_FN (cfun, postorder[i]);
-		  changed
-		    |= compute_partial_antic_aux (block,
-						  bitmap_bit_p (has_abnormal_preds,
-							    block->index));
+		  changed |= compute_partial_antic_aux
+		    (block, has_abnormal_preds[block->index]);
 		}
 	    }
 	  /* Theoretically possible, but *highly* unlikely.  */
@@ -2485,8 +2482,8 @@ compute_antic (void)
       statistics_histogram_event (cfun, "compute_partial_antic iterations",
 				  num_iterations);
     }
-  sbitmap_free (has_abnormal_preds);
-  sbitmap_free (changed_blocks);
+  has_abnormal_preds.clear_and_release ();
+  changed_blocks.clear_and_release ();
 }
 
 

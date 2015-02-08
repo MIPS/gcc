@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "bitvec.h"
 #include "tm.h"
 
 #include "machmode.h"
@@ -1337,11 +1338,9 @@ reload (rtx_insn *first, int global)
   /* We've possibly turned single trapping insn into multiple ones.  */
   if (cfun->can_throw_non_call_exceptions)
     {
-      sbitmap blocks;
-      blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
-      bitmap_ones (blocks);
+      stack_bitvec blocks (last_basic_block_for_fn (cfun));
+      blocks.set ();
       find_many_sub_basic_blocks (blocks);
-      sbitmap_free (blocks);
     }
 
   if (inserted)
