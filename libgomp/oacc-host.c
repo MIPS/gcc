@@ -33,31 +33,30 @@
 static struct gomp_device_descr host_dispatch =
   {
     .name = "host",
-
-    .type = OFFLOAD_TARGET_TYPE_HOST,
     .capabilities = (GOMP_OFFLOAD_CAP_OPENACC_200
 		     | GOMP_OFFLOAD_CAP_NATIVE_EXEC
 		     | GOMP_OFFLOAD_CAP_SHARED_MEM),
-
-    .is_initialized = false,
-    .offload_regions_registered = false,
+    .target_id = 0,
+    .type = OFFLOAD_TARGET_TYPE_HOST,
 
     .get_name_func = GOMP_OFFLOAD_get_name,
-    .get_type_func = GOMP_OFFLOAD_get_type,
     .get_caps_func = GOMP_OFFLOAD_get_caps,
-
-    .init_device_func = GOMP_OFFLOAD_init_device,
-    .fini_device_func = GOMP_OFFLOAD_fini_device,
+    .get_type_func = GOMP_OFFLOAD_get_type,
     .get_num_devices_func = GOMP_OFFLOAD_get_num_devices,
     .register_image_func = GOMP_OFFLOAD_register_image,
+    .init_device_func = GOMP_OFFLOAD_init_device,
+    .fini_device_func = GOMP_OFFLOAD_fini_device,
     .get_table_func = GOMP_OFFLOAD_get_table,
-
     .alloc_func = GOMP_OFFLOAD_alloc,
     .free_func = GOMP_OFFLOAD_free,
-    .host2dev_func = GOMP_OFFLOAD_host2dev,
     .dev2host_func = GOMP_OFFLOAD_dev2host,
-
+    .host2dev_func = GOMP_OFFLOAD_host2dev,
     .run_func = GOMP_OFFLOAD_run,
+
+    .mem_map.is_initialized = false,
+    .mem_map.splay_tree.root = NULL,
+    .is_initialized = false,
+    .offload_regions_registered = false,
 
     .openacc = {
       .open_device_func = GOMP_OFFLOAD_openacc_open_device,

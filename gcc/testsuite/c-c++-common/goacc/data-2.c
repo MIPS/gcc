@@ -5,7 +5,7 @@ foo (void)
   int n;
 #pragma acc enter data copyin (a, b) async wait
 #pragma acc enter data create (b[20:30]) async wait
-#pragma acc enter data (a) /* { dg-error "expected clause before '\\\(' token" } */
+#pragma acc enter data (a) /* { dg-error "expected '#pragma acc' clause before '\\\(' token" } */
 #pragma acc enter data create (b(1:10)) /* { dg-error "expected '\\\)' before '\\\(' token" } */
 #pragma acc exit data delete (a) if (0)
 #pragma acc exit data copyout (b) if (a)

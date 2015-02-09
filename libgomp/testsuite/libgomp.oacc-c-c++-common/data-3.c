@@ -140,7 +140,7 @@ main (int argc, char **argv)
     e[ii] = a[ii] + b[ii] + c[ii] + d[ii];
 
 #pragma acc exit data copyout (a[0:N]) copyout (b[0:N]) copyout (c[0:N]) copyout (d[0:N]) copyout (e[0:N]) wait (1, 2, 3, 4) async (1)
-#pragma acc delete (N)
+#pragma acc exit data delete (N)
 #pragma acc wait (1)
 
 

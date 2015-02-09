@@ -53,7 +53,7 @@ void
 GOMP_PLUGIN_debug (int kind, const char *msg, ...)
 {
   va_list ap;
-  
+
   va_start (ap, msg);
   gomp_debug (kind, msg, ap);
   va_end (ap);
@@ -63,7 +63,7 @@ void
 GOMP_PLUGIN_error (const char *msg, ...)
 {
   va_list ap;
-  
+
   va_start (ap, msg);
   gomp_verror (msg, ap);
   va_end (ap);
@@ -73,11 +73,8 @@ void
 GOMP_PLUGIN_fatal (const char *msg, ...)
 {
   va_list ap;
-  
+
   va_start (ap, msg);
   gomp_vfatal (msg, ap);
   va_end (ap);
-  
-  /* Unreachable.  */
-  abort ();
 }

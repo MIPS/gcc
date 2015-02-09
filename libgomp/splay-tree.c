@@ -26,14 +26,7 @@
 
 /* The splay tree code copied from include/splay-tree.h and adjusted,
    so that all the data lives directly in splay_tree_node_s structure
-   and no extra allocations are needed.
-
-   Files including this header should before including it add:
-typedef struct splay_tree_node_s *splay_tree_node;
-typedef struct splay_tree_s *splay_tree;
-typedef struct splay_tree_key_s *splay_tree_key;
-   define splay_tree_key_s structure, and define
-   splay_compare inline function.  */
+   and no extra allocations are needed.  */
 
 /* For an easily readable description of splay-trees, see:
 

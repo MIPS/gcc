@@ -34,7 +34,7 @@ void
 GOMP_PLUGIN_async_unmap_vars (void *ptr)
 {
   struct target_mem_desc *tgt = ptr;
-  
+
   gomp_unmap_vars (tgt, false);
 }
 

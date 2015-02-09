@@ -318,7 +318,6 @@ GOACC_2.0 {
 	GOACC_data_end;
 	GOACC_data_start;
 	GOACC_enter_exit_data;
-	GOACC_kernels;
 	GOACC_parallel;
 	GOACC_update;
 	GOACC_wait;
@@ -326,13 +325,18 @@ GOACC_2.0 {
 	GOACC_get_num_threads;
 };
 
+GOACC_2.0.GOMP_4_BRANCH {
+  global:
+	GOACC_kernels;
+} GOACC_2.0;
+
 GOMP_PLUGIN_1.0 {
   global:
 	GOMP_PLUGIN_malloc;
 	GOMP_PLUGIN_malloc_cleared;
 	GOMP_PLUGIN_realloc;
-	GOMP_PLUGIN_error;
 	GOMP_PLUGIN_debug;
+	GOMP_PLUGIN_error;
 	GOMP_PLUGIN_fatal;
 	GOMP_PLUGIN_async_unmap_vars;
 	GOMP_PLUGIN_acc_thread;

@@ -35,8 +35,8 @@
    that are part of the external ABI, and the lower case prefix "goacc"
    is used group items that are completely private to the library.  */
 
-#ifndef _OACC_INT_H
-#define _OACC_INT_H 1
+#ifndef OACC_INT_H
+#define OACC_INT_H 1
 
 #include "openacc.h"
 #include "config.h"
@@ -58,16 +58,16 @@ struct goacc_thread
 {
   /* The device for the current thread.  */
   struct gomp_device_descr *dev;
-  
+
   struct gomp_device_descr *saved_bound_dev;
 
   /* This is a linked list of data mapped by the "acc data" pragma, following
      strictly push/pop semantics according to lexical scope.  */
   struct target_mem_desc *mapped_data;
-    
+
   /* These structures form a list: this is the next thread in that list.  */
   struct goacc_thread *next;
-  
+
   /* Target-specific data (used by plugin).  */
   void *target_tls;
 };
@@ -88,8 +88,6 @@ goacc_thread (void)
 }
 #endif
 
-struct gomp_device_descr;
-
 void goacc_register (struct gomp_device_descr *) __GOACC_NOTHROW;
 
 /* Current dispatcher.  */
@@ -104,4 +102,4 @@ void goacc_lazy_initialize (void);
 # pragma GCC visibility pop
 #endif
 
-#endif /* _OACC_INT_H */
+#endif

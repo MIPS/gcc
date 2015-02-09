@@ -38,7 +38,7 @@
 
 #undef gomp_vdebug
 void
-gomp_vdebug (int kind __attribute__((unused)), const char *msg, va_list list)
+gomp_vdebug (int kind __attribute__ ((unused)), const char *msg, va_list list)
 {
   if (gomp_debug_var)
     vfprintf (stderr, msg, list);

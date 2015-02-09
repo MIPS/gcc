@@ -55,10 +55,6 @@
 #define SELF "host: "
 #endif
 
-#ifndef HOST_NONSHM_PLUGIN
-static struct gomp_device_descr host_dispatch;
-#endif
-
 STATIC const char *
 GOMP_OFFLOAD_get_name (void)
 {
@@ -99,24 +95,24 @@ GOMP_OFFLOAD_get_num_devices (void)
 }
 
 STATIC void
-GOMP_OFFLOAD_register_image (void *host_table __attribute__((unused)),
-			     void *target_data __attribute__((unused)))
+GOMP_OFFLOAD_register_image (void *host_table __attribute__ ((unused)),
+			     void *target_data __attribute__ ((unused)))
 {
 }
 
 STATIC void
-GOMP_OFFLOAD_init_device (int n __attribute__((unused)))
+GOMP_OFFLOAD_init_device (int n __attribute__ ((unused)))
 {
 }
 
 STATIC void
-GOMP_OFFLOAD_fini_device (int n __attribute__((unused)))
+GOMP_OFFLOAD_fini_device (int n __attribute__ ((unused)))
 {
 }
 
 STATIC int
-GOMP_OFFLOAD_get_table (int n __attribute__((unused)),
-			struct mapping_table **table __attribute__((unused)))
+GOMP_OFFLOAD_get_table (int n __attribute__ ((unused)),
+			struct mapping_table **table __attribute__ ((unused)))
 {
   return 0;
 }
@@ -143,23 +139,23 @@ STATIC void
 GOMP_OFFLOAD_openacc_set_device_num (int n)
 {
   if (n > 0)
-    GOMP(fatal) ("device number %u out of range for host execution", n);
+    GOMP (fatal) ("device number %u out of range for host execution", n);
 }
 
 STATIC void *
-GOMP_OFFLOAD_alloc (int n __attribute__((unused)), size_t s)
+GOMP_OFFLOAD_alloc (int n __attribute__ ((unused)), size_t s)
 {
-  return GOMP(malloc) (s);
+  return GOMP (malloc) (s);
 }
 
 STATIC void
-GOMP_OFFLOAD_free (int n __attribute__((unused)), void *p)
+GOMP_OFFLOAD_free (int n __attribute__ ((unused)), void *p)
 {
   free (p);
 }
 
 STATIC void *
-GOMP_OFFLOAD_host2dev (int n __attribute__((unused)), void *d, const void *h,
+GOMP_OFFLOAD_host2dev (int n __attribute__ ((unused)), void *d, const void *h,
 		       size_t s)
 {
 #ifdef HOST_NONSHM_PLUGIN
@@ -170,7 +166,7 @@ GOMP_OFFLOAD_host2dev (int n __attribute__((unused)), void *d, const void *h,
 }
 
 STATIC void *
-GOMP_OFFLOAD_dev2host (int n __attribute__((unused)), void *h, const void *d,
+GOMP_OFFLOAD_dev2host (int n __attribute__ ((unused)), void *h, const void *d,
 		       size_t s)
 {
 #ifdef HOST_NONSHM_PLUGIN
@@ -181,7 +177,7 @@ GOMP_OFFLOAD_dev2host (int n __attribute__((unused)), void *h, const void *d,
 }
 
 STATIC void
-GOMP_OFFLOAD_run (int n __attribute__((unused)), void *fn_ptr, void *vars)
+GOMP_OFFLOAD_run (int n __attribute__ ((unused)), void *fn_ptr, void *vars)
 {
   void (*fn)(void *) = (void (*)(void *)) fn_ptr;
 
@@ -190,16 +186,16 @@ GOMP_OFFLOAD_run (int n __attribute__((unused)), void *fn_ptr, void *vars)
 
 STATIC void
 GOMP_OFFLOAD_openacc_parallel (void (*fn) (void *),
-			       size_t mapnum __attribute__((unused)),
-			       void **hostaddrs __attribute__((unused)),
-			       void **devaddrs __attribute__((unused)),
-			       size_t *sizes __attribute__((unused)),
-			       unsigned short *kinds __attribute__((unused)),
-			       int num_gangs __attribute__((unused)),
-			       int num_workers __attribute__((unused)),
-			       int vector_length __attribute__((unused)),
-			       int async __attribute__((unused)),
-			       void *targ_mem_desc __attribute__((unused)))
+			       size_t mapnum __attribute__ ((unused)),
+			       void **hostaddrs __attribute__ ((unused)),
+			       void **devaddrs __attribute__ ((unused)),
+			       size_t *sizes __attribute__ ((unused)),
+			       unsigned short *kinds __attribute__ ((unused)),
+			       int num_gangs __attribute__ ((unused)),
+			       int num_workers __attribute__ ((unused)),
+			       int vector_length __attribute__ ((unused)),
+			       int async __attribute__ ((unused)),
+			       void *targ_mem_desc __attribute__ ((unused)))
 {
 #ifdef HOST_NONSHM_PLUGIN
   fn (devaddrs);
@@ -219,12 +215,12 @@ GOMP_OFFLOAD_openacc_register_async_cleanup (void *targ_mem_desc)
 }
 
 STATIC void
-GOMP_OFFLOAD_openacc_async_set_async (int async __attribute__((unused)))
+GOMP_OFFLOAD_openacc_async_set_async (int async __attribute__ ((unused)))
 {
 }
 
 STATIC int
-GOMP_OFFLOAD_openacc_async_test (int async __attribute__((unused)))
+GOMP_OFFLOAD_openacc_async_test (int async __attribute__ ((unused)))
 {
   return 1;
 }
@@ -236,7 +232,7 @@ GOMP_OFFLOAD_openacc_async_test_all (void)
 }
 
 STATIC void
-GOMP_OFFLOAD_openacc_async_wait (int async __attribute__((unused)))
+GOMP_OFFLOAD_openacc_async_wait (int async __attribute__ ((unused)))
 {
 }
 
@@ -246,25 +242,25 @@ GOMP_OFFLOAD_openacc_async_wait_all (void)
 }
 
 STATIC void
-GOMP_OFFLOAD_openacc_async_wait_async (int async1 __attribute__((unused)),
-				       int async2 __attribute__((unused)))
+GOMP_OFFLOAD_openacc_async_wait_async (int async1 __attribute__ ((unused)),
+				       int async2 __attribute__ ((unused)))
 {
 }
 
 STATIC void
-GOMP_OFFLOAD_openacc_async_wait_all_async (int async __attribute__((unused)))
+GOMP_OFFLOAD_openacc_async_wait_all_async (int async __attribute__ ((unused)))
 {
 }
 
 STATIC void *
 GOMP_OFFLOAD_openacc_create_thread_data (void *targ_data
-					 __attribute__((unused)))
+					 __attribute__ ((unused)))
 {
   return NULL;
 }
 
 STATIC void
 GOMP_OFFLOAD_openacc_destroy_thread_data (void *tls_data
-					  __attribute__((unused)))
+					  __attribute__ ((unused)))
 {
 }

@@ -62,16 +62,16 @@ struct mapping_table
 };
 
 /* Miscellaneous functions.  */
-extern void *GOMP_PLUGIN_malloc (size_t) __attribute__((malloc));
-extern void *GOMP_PLUGIN_malloc_cleared (size_t) __attribute__((malloc));
+extern void *GOMP_PLUGIN_malloc (size_t) __attribute__ ((malloc));
+extern void *GOMP_PLUGIN_malloc_cleared (size_t) __attribute__ ((malloc));
 extern void *GOMP_PLUGIN_realloc (void *, size_t);
 
 extern void GOMP_PLUGIN_debug (int, const char *, ...)
-	__attribute__((format (printf, 2, 3)));
+	__attribute__ ((format (printf, 2, 3)));
 extern void GOMP_PLUGIN_error (const char *, ...)
-	__attribute__((format (printf, 1, 2)));
+	__attribute__ ((format (printf, 1, 2)));
 extern void GOMP_PLUGIN_fatal (const char *, ...)
-	__attribute__((noreturn, format (printf, 1, 2)));
+	__attribute__ ((noreturn, format (printf, 1, 2)));
 
 #ifdef __cplusplus
 }

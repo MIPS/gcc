@@ -46,27 +46,6 @@ typedef struct splay_tree_key_s *splay_tree_key;
 #ifndef _SPLAY_TREE_H
 #define _SPLAY_TREE_H 1
 
-typedef struct splay_tree_node_s *splay_tree_node;
-typedef struct splay_tree_s *splay_tree;
-typedef struct splay_tree_key_s *splay_tree_key;
-
-struct splay_tree_key_s {
-  /* Address of the host object.  */
-  uintptr_t host_start;
-  /* Address immediately after the host object.  */
-  uintptr_t host_end;
-  /* Descriptor of the target memory.  */
-  struct target_mem_desc *tgt;
-  /* Offset from tgt->tgt_start to the start of the target object.  */
-  uintptr_t tgt_offset;
-  /* Reference count.  */
-  uintptr_t refcount;
-  /* Asynchronous reference count.  */
-  uintptr_t async_refcount;
-  /* True if data should be copied from device to host at the end.  */
-  bool copy_from;
-};
-
 /* The nodes in the splay tree.  */
 struct splay_tree_node_s {
   struct splay_tree_key_s key;

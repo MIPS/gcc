@@ -538,7 +538,76 @@ main(int argc, char **argv)
     {
         if (b[i] != 18.0)
             abort ();
-	}
+    }
+
+#pragma acc enter data copyin (b[0:N]) if (0)
+
+#if !ACC_MEM_SHARED
+    if (acc_is_present (b, N * sizeof (float)))
+	abort ();
+#endif
+
+#pragma acc exit data delete (b[0:N]) if (0)
+
+#pragma acc enter data copyin (b[0:N]) if (1)
+
+#if !ACC_MEM_SHARED
+    if (!acc_is_present (b, N * sizeof (float)))
+	abort ();
+#endif
+
+#pragma acc exit data delete (b[0:N]) if (1)
+
+#if !ACC_MEM_SHARED
+    if (acc_is_present (b, N * sizeof (float)))
+	abort ();
+#endif
+
+#pragma acc enter data copyin (b[0:N]) if (zero)
+
+#if !ACC_MEM_SHARED
+    if (acc_is_present (b, N * sizeof (float)))
+	abort ();
+#endif
+
+#pragma acc exit data delete (b[0:N]) if (zero)
+
+#pragma acc enter data copyin (b[0:N]) if (one)
+
+#if !ACC_MEM_SHARED
+    if (!acc_is_present (b, N * sizeof (float)))
+	abort ();
+#endif
+
+#pragma acc exit data delete (b[0:N]) if (one)
+
+#if !ACC_MEM_SHARED
+    if (acc_is_present (b, N * sizeof (float)))
+	abort ();
+#endif
+
+#pragma acc enter data copyin (b[0:N]) if (one == 0)
+
+#if !ACC_MEM_SHARED
+    if (acc_is_present (b, N * sizeof (float)))
+	abort ();
+#endif
+
+#pragma acc exit data delete (b[0:N]) if (one == 0)
+
+#pragma acc enter data copyin (b[0:N]) if (one == 1)
+
+#if !ACC_MEM_SHARED
+    if (!acc_is_present (b, N * sizeof (float)))
+	abort ();
+#endif
+
+#pragma acc exit data delete (b[0:N]) if (one == 1)
+
+#if !ACC_MEM_SHARED
+    if (acc_is_present (b, N * sizeof (float)))
+	abort ();
+#endif
 
     return 0;
 }

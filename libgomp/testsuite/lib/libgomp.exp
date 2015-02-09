@@ -36,12 +36,17 @@ load_gcc_lib fortran-modules.exp
 load_file libgomp-test-support.exp
 
 # Populate offload_targets_s (offloading targets separated by a space), and
-# offload_targets_s_openacc (the same, but with OpenACC names).
+# offload_targets_s_openacc (the same, but with OpenACC names; OpenACC spells
+# some of them a little differently).
 set offload_targets_s [split $offload_targets ","]
-# OpenACC spells some of them a little differently.
 set offload_targets_s_openacc {}
 foreach offload_target_openacc $offload_targets_s {
     switch $offload_target_openacc {
+	intelmic {
+	    # TODO.  Skip; will all FAIL because of missing
+	    # GOMP_OFFLOAD_CAP_OPENACC_200.
+	    continue
+	}
 	nvptx {
 	    set offload_target_openacc "nvidia"
 	}

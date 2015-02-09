@@ -31,15 +31,13 @@
 #include "libgomp.h"
 #include "gomp-constants.h"
 #include "oacc-int.h"
-#include <stdio.h>
+#include "splay-tree.h"
 #include <stdint.h>
 #include <assert.h>
 
-#include "splay-tree.h"
-
 /* Return block containing [H->S), or NULL if not contained.  */
 
-attribute_hidden splay_tree_key
+static splay_tree_key
 lookup_host (struct gomp_memory_mapping *mem_map, void *h, size_t s)
 {
   struct splay_tree_key_s node;
@@ -342,11 +340,11 @@ acc_unmap_data (void *h)
   gomp_unmap_vars (t, true);
 }
 
-#define PCC_Present (1 << 0)
-#define PCC_Create (1 << 1)
-#define PCC_Copy (1 << 2)
+#define FLAG_PRESENT (1 << 0)
+#define FLAG_CREATE (1 << 1)
+#define FLAG_COPY (1 << 2)
 
-attribute_hidden void *
+static void *
 present_create_copy (unsigned f, void *h, size_t s)
 {
   void *d;
@@ -366,13 +364,13 @@ present_create_copy (unsigned f, void *h, size_t s)
       /* Present. */
       d = (void *) (n->tgt->tgt_start + n->tgt_offset);
 
-      if (!(f & PCC_Present))
+      if (!(f & FLAG_PRESENT))
         gomp_fatal ("[%p,+%d] already mapped to [%p,+%d]",
             (void *)h, (int)s, (void *)d, (int)s);
       if ((h + s) > (void *)n->host_end)
         gomp_fatal ("[%p,+%d] not mapped", (void *)h, (int)s);
     }
-  else if (!(f & PCC_Create))
+  else if (!(f & FLAG_CREATE))
     {
       gomp_fatal ("[%p,+%d] not mapped", (void *)h, (int)s);
     }
@@ -383,7 +381,7 @@ present_create_copy (unsigned f, void *h, size_t s)
       unsigned short kinds;
       void *hostaddrs = h;
 
-      if (f & PCC_Copy)
+      if (f & FLAG_COPY)
 	kinds = GOMP_MAP_TO;
       else
 	kinds = GOMP_MAP_ALLOC;
@@ -406,28 +404,28 @@ present_create_copy (unsigned f, void *h, size_t s)
 void *
 acc_create (void *h, size_t s)
 {
-  return present_create_copy (PCC_Create, h, s);
+  return present_create_copy (FLAG_CREATE, h, s);
 }
 
 void *
 acc_copyin (void *h, size_t s)
 {
-  return present_create_copy (PCC_Create | PCC_Copy, h, s);
+  return present_create_copy (FLAG_CREATE | FLAG_COPY, h, s);
 }
 
 void *
 acc_present_or_create (void *h, size_t s)
 {
-  return present_create_copy (PCC_Present | PCC_Create, h, s);
+  return present_create_copy (FLAG_PRESENT | FLAG_CREATE, h, s);
 }
 
 void *
 acc_present_or_copyin (void *h, size_t s)
 {
-  return present_create_copy (PCC_Present | PCC_Create | PCC_Copy, h, s);
+  return present_create_copy (FLAG_PRESENT | FLAG_CREATE | FLAG_COPY, h, s);
 }
 
-#define DC_Copyout (1 << 0)
+#define FLAG_COPYOUT (1 << 0)
 
 static void
 delete_copyout (unsigned f, void *h, size_t s)
@@ -454,7 +452,7 @@ delete_copyout (unsigned f, void *h, size_t s)
     gomp_fatal ("[%p,%d] surrounds2 [%p,+%d]",
 		(void *) n->host_start, (int) host_size, (void *) h, (int) s);
 
-  if (f & DC_Copyout)
+  if (f & FLAG_COPYOUT)
     acc_dev->dev2host_func (acc_dev->target_id, h, d, s);
 
   acc_unmap_data (h);
@@ -470,7 +468,7 @@ acc_delete (void *h , size_t s)
 
 void acc_copyout (void *h, size_t s)
 {
-  delete_copyout (DC_Copyout, h, s);
+  delete_copyout (FLAG_COPYOUT, h, s);
 }
 
 static void

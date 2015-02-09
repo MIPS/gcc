@@ -1,224 +1,159 @@
-/* { dg-skip-if "not yet" { c++ } } */
-
-#include <stdlib.h>
-
-int
-main (int argc, char **argv)
+void
+f (int N, float *a, float *b)
 {
-    int N = 64;
-    float *a, *b;
-    int i;
-
-    a = (float *) malloc (N * sizeof (float));
-    b = (float *) malloc (N * sizeof (float));
-
-    for (i = 0; i < N; i++)
-    {
-        a[i] = 3.0;
-        b[i] = 0.0;
-    }
+    int ii;
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async (1 2) /* { dg-error "expected '\\)' before numeric constant" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async (1,) /* { dg-error "expected (primary-|)expression before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async (,1) /* { dg-error "expected (primary-|)expression before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async (1,2,) /* { dg-error "expected (primary-|)expression before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async (1,2 3) /* { dg-error "expected '\\)' before numeric constant" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async (1,2,,) /* { dg-error "expected (primary-|)expression before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async (1 /* { dg-error "expected '\\)' before end of line" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async (*) /* { dg-error "expected (primary-|)expression before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async (a)
-	/* { dg-error "expected integer expression before" "" { target c } 85 } */
-	/* { dg-error "'async' expression must be integral" "" { target c++ } 85 } */
+	/* { dg-error "expected integer expression before" "" { target c } 54 } */
+	/* { dg-error "'async' expression must be integral" "" { target c++ } 54 } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async (1.0)
-	/* { dg-error "expected integer expression before" "" { target c } 95 } */
-	/* { dg-error "'async' expression must be integral" "" { target c++ } 95 } */
+	/* { dg-error "expected integer expression before" "" { target c } 62 } */
+	/* { dg-error "'async' expression must be integral" "" { target c++ } 62 } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async () /* { dg-error "expected (primary-|)expression before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) async
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait (1 2) /* { dg-error "expected '\\)' before numeric constant" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait (1,) /* { dg-error "expected (primary-|)expression before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait (,1) /* { dg-error "expected (primary-|)expression before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait (1,2,) /* { dg-error "expected (primary-|)expression before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait (1,2 3) /* { dg-error "expected '\\)' before numeric constant" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait (1,2,,) /* { dg-error "expected (primary-|)expression before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait (1 /* { dg-error "expected '\\\)' before end of line" } */
+    /* { dg-error "expected integer expression before '\\\)'" "" { target c++ } 118 } */
     {
-	/* { dg-error "expected integer expression list before" "" { target c++ } 169 } */
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait (1,*) /* { dg-error "expected (primary-|)expression before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait (1,a) /*{ dg-error "must be integral" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait (a) /* { dg-error "must be integral" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait (1.0) /* { dg-error "must be integral" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait () /* { dg-error "expected (integer |)expression (list |)before" } */
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
 
 #pragma acc parallel copyin (a[0:N]) copy (b[0:N]) wait
     {
-        int ii;
-
         for (ii = 0; ii < N; ii++)
             b[ii] = a[ii];
     }
@@ -236,7 +171,7 @@ main (int argc, char **argv)
 #pragma acc wait (1,2,,) /* { dg-error "expected (primary-|)expression before" } */
 
 #pragma acc wait (1 /* { dg-error "expected '\\\)' before end of line" } */
-    /* { dg-error "expected integer expression list before" "" { target c++ } 238 } */
+    /* { dg-error "expected integer expression before '\\\)'" "" { target c++ } 173 } */
 
 #pragma acc wait (1,*) /* { dg-error "expected (primary-|)expression before" } */
 
@@ -246,9 +181,9 @@ main (int argc, char **argv)
 
 #pragma acc wait (1.0) /* { dg-error "expression must be integral" } */
 
-#pragma acc wait 1 /* { dg-error "expected clause before numeric constant" } */
+#pragma acc wait 1 /* { dg-error "expected '#pragma acc' clause before numeric constant" } */
 
-#pragma acc wait N /* { dg-error "expected clause before 'N'" } */
+#pragma acc wait N /* { dg-error "expected '#pragma acc' clause before 'N'" } */
 
 #pragma acc wait async (1 2) /* { dg-error "expected '\\)' before numeric constant" } */
 
@@ -269,12 +204,10 @@ main (int argc, char **argv)
 #pragma acc wait async (*) /* { dg-error "expected (primary-|)expression before " } */
 
 #pragma acc wait async (a)
-    /* { dg-error "expected integer expression before" "" { target c } 271 } */
-    /* { dg-error "expression must be integral" "" { target c++ } 271 } */
+    /* { dg-error "expected integer expression before" "" { target c } 206 } */
+    /* { dg-error "expression must be integral" "" { target c++ } 206 } */
 
 #pragma acc wait async (1.0)
-   /* { dg-error "expected integer expression before" "" { target c } 275 } */
-   /* { dg-error "expression must be integral" "" { target c++ } 275 } */
-
-    return 0;
+   /* { dg-error "expected integer expression before" "" { target c } 210 } */
+   /* { dg-error "expression must be integral" "" { target c++ } 210 } */
 }

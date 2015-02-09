@@ -1895,6 +1895,10 @@ Programming Interface v2.0 @w{@uref{http://www.openacc.org/}}.  This option
 implies @option{-pthread}, and thus is only supported on targets that
 have support for @option{-pthread}.
 
+Note that this is an experimental feature, incomplete, and subject to
+change in future versions of GCC.  See
+@w{@uref{https://gcc.gnu.org/wiki/OpenACC}} for more information.
+
 @item -fopenmp
 @opindex fopenmp
 @cindex OpenMP parallel

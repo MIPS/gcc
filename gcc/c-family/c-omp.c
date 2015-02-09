@@ -714,7 +714,6 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
   enum c_omp_clause_split s;
   int i;
 
-  gcc_assert (code != OACC_PARALLEL);
   for (i = 0; i < C_OMP_CLAUSE_SPLIT_COUNT; i++)
     cclauses[i] = NULL;
   /* Add implicit nowait clause on

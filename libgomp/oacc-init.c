@@ -33,13 +33,12 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <string.h>
 
 static gomp_mutex_t acc_device_lock;
 
 /* The dispatch table for the current accelerator device.  This is global, so
-   you can only have one type of device open at any given time in a program. 
+   you can only have one type of device open at any given time in a program.
    This is the "base" device in that several devices that use the same
    dispatch table may be active concurrently: this one (the "zeroth") is used
    for overall initialisation/shutdown, and other instances -- not necessarily
@@ -129,7 +128,7 @@ resolve_device (acc_device_t d)
 	if (dispatchers[d] && dispatchers[d]->get_num_devices_func () > 0)
 	  goto found;
       if (d_arg == acc_device_default)
-	{	  
+	{
 	  d = acc_device_host;
 	  goto found;
 	}
@@ -171,7 +170,7 @@ acc_init_1 (acc_device_t d)
     gomp_fatal ("device already active");
 
   /* We need to remember what we were intialized as, to check shutdown etc.  */
-  init_key = d;  
+  init_key = d;
 
   gomp_init_device (acc_dev);
 
@@ -203,9 +202,9 @@ static void
 goacc_destroy_thread (void *data)
 {
   struct goacc_thread *thr = data, *walk, *prev;
-  
+
   gomp_mutex_lock (&goacc_thread_lock);
-  
+
   if (thr)
     {
       if (base_dev && thr->target_tls)
@@ -500,7 +499,7 @@ acc_get_device_num (acc_device_t d)
   num = dev->openacc.get_device_num_func ();
   if (num < 0)
     num = goacc_device_num;
-  
+
   return num;
 }
 
@@ -514,11 +513,11 @@ acc_set_device_num (int n, acc_device_t d)
 
   if (!base_dev)
     gomp_init_targets_once ();
-  
+
   if ((int) d == 0)
     {
       int i;
-      
+
       /* A device setting of zero sets all device types on the system to use
          the Nth instance of that device type.  Only attempt it for initialized
 	 devices though.  */
@@ -571,6 +570,7 @@ acc_on_device (acc_device_t dev)
   /* Just rely on the compiler builtin.  */
   return __builtin_acc_on_device (dev);
 }
+
 ialias (acc_on_device)
 
 attribute_hidden void

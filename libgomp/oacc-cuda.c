@@ -74,7 +74,7 @@ acc_set_cuda_stream (int async, void *stream)
 
   if (async < 0 || stream == NULL)
     return 0;
-  
+
   goacc_lazy_initialize ();
 
   if (base_dev && base_dev->openacc.cuda.set_stream_func)

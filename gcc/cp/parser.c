@@ -27653,8 +27653,6 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	  else if (!strcmp ("present_or_create", p)
 		   || !strcmp ("pcreate", p))
 	    result = PRAGMA_OACC_CLAUSE_PRESENT_OR_CREATE;
-	  else if (!strcmp ("private", p))
-	    result = PRAGMA_OMP_CLAUSE_PRIVATE;
 	  else if (!strcmp ("proc_bind", p))
 	    result = PRAGMA_OMP_CLAUSE_PROC_BIND;
 	  break;
@@ -29236,8 +29234,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "self";
 	  break;
 	case PRAGMA_OACC_CLAUSE_VECTOR_LENGTH:
-	  clauses =
-		cp_parser_oacc_clause_vector_length (parser, clauses);
+	  clauses = cp_parser_oacc_clause_vector_length (parser, clauses);
 	  c_name = "vector_length";
 	  break;
 	case PRAGMA_OACC_CLAUSE_WAIT:
@@ -29245,7 +29242,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "wait";
 	  break;
 	default:
-	  cp_parser_error (parser, "expected clause");
+	  cp_parser_error (parser, "expected %<#pragma acc%> clause");
 	  goto saw_error;
 	}
 
@@ -29496,7 +29493,7 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "simdlen";
 	  break;
 	default:
-	  cp_parser_error (parser, "expected clause");
+	  cp_parser_error (parser, "expected %<#pragma omp%> clause");
 	  goto saw_error;
 	}
 

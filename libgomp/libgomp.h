@@ -260,7 +260,7 @@ extern void **gomp_places_list;
 extern unsigned long gomp_places_list_len;
 extern int gomp_debug_var;
 extern int goacc_device_num;
-extern char* goacc_device_type;
+extern char *goacc_device_type;
 
 enum gomp_task_kind
 {
@@ -542,7 +542,7 @@ extern void *gomp_realloc (void *, size_t);
 
 extern void gomp_vdebug (int, const char *, va_list);
 extern void gomp_debug (int, const char *, ...)
-	__attribute__((format (printf, 2, 3)));
+	__attribute__ ((format (printf, 2, 3)));
 #define gomp_vdebug(KIND, FMT, VALIST) \
   do { \
     if (__builtin_expect (gomp_debug_var, 0)) \
@@ -555,11 +555,11 @@ extern void gomp_debug (int, const char *, ...)
   } while (0)
 extern void gomp_verror (const char *, va_list);
 extern void gomp_error (const char *, ...)
-	__attribute__((format (printf, 1, 2)));
+	__attribute__ ((format (printf, 1, 2)));
 extern void gomp_vfatal (const char *, va_list)
-	__attribute__((noreturn));
+	__attribute__ ((noreturn));
 extern void gomp_fatal (const char *, ...)
-	__attribute__((noreturn, format (printf, 1, 2)));
+	__attribute__ ((noreturn, format (printf, 1, 2)));
 
 /* iter.c */
 
@@ -633,7 +633,9 @@ extern void gomp_free_thread (void *);
 extern void gomp_init_targets_once (void);
 extern int gomp_get_num_devices (void);
 
-#include "splay-tree.h"
+typedef struct splay_tree_node_s *splay_tree_node;
+typedef struct splay_tree_s *splay_tree;
+typedef struct splay_tree_key_s *splay_tree_key;
 
 struct target_mem_desc {
   /* Reference count.  */
@@ -662,18 +664,37 @@ struct target_mem_desc {
   splay_tree_key list[];
 };
 
+struct splay_tree_key_s {
+  /* Address of the host object.  */
+  uintptr_t host_start;
+  /* Address immediately after the host object.  */
+  uintptr_t host_end;
+  /* Descriptor of the target memory.  */
+  struct target_mem_desc *tgt;
+  /* Offset from tgt->tgt_start to the start of the target object.  */
+  uintptr_t tgt_offset;
+  /* Reference count.  */
+  uintptr_t refcount;
+  /* Asynchronous reference count.  */
+  uintptr_t async_refcount;
+  /* True if data should be copied from device to host at the end.  */
+  bool copy_from;
+};
+
+#include "splay-tree.h"
+
 /* Information about mapped memory regions (per device/context).  */
 
 struct gomp_memory_mapping
 {
-  /* Splay tree containing information about mapped memory regions.  */
-  struct splay_tree_s splay_tree;
-
   /* Mutex for operating with the splay tree and other shared structures.  */
   gomp_mutex_t lock;
 
   /* True when tables have been added to this memory map.  */
   bool is_initialized;
+
+  /* Splay tree containing information about mapped memory regions.  */
+  struct splay_tree_s splay_tree;
 };
 
 typedef struct acc_dispatch_t
@@ -747,12 +768,6 @@ struct gomp_device_descr
   /* This is the TYPE of device.  */
   enum offload_target_type type;
 
-  /* Set to true when device is initialized.  */
-  bool is_initialized;
-
-  /* True when offload regions have been registered with this device.  */
-  bool offload_regions_registered;
-
   /* Function handlers.  */
   const char *(*get_name_func) (void);
   unsigned int (*get_caps_func) (void);
@@ -768,17 +783,23 @@ struct gomp_device_descr
   void *(*host2dev_func) (int, void *, const void *, size_t);
   void (*run_func) (int, void *, void *);
 
-  /* OpenACC-specific functions.  */
-  /* This is mutable because of its mutable data_environ and target_data
-     members.  */
-  acc_dispatch_t openacc;
-
   /* Memory-mapping info for this device instance.  */
   /* Uses a separate lock.  */
   struct gomp_memory_mapping mem_map;
 
   /* Mutex for the mutable data.  */
   gomp_mutex_t lock;
+
+  /* Set to true when device is initialized.  */
+  bool is_initialized;
+
+  /* True when offload regions have been registered with this device.  */
+  bool offload_regions_registered;
+
+  /* OpenACC-specific data and functions.  */
+  /* This is mutable because of its mutable data_environ and target_data
+     members.  */
+  acc_dispatch_t openacc;
 };
 
 extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *);
@@ -787,18 +808,12 @@ extern void gomp_acc_remove_pointer (void *, bool, int, int);
 extern struct target_mem_desc *gomp_map_vars (struct gomp_device_descr *,
 					      size_t, void **, void **,
 					      size_t *, void *, bool, bool);
-
 extern void gomp_copy_from_async (struct target_mem_desc *);
-
 extern void gomp_unmap_vars (struct target_mem_desc *, bool);
-
 extern void gomp_init_device (struct gomp_device_descr *);
-
 extern void gomp_init_tables (struct gomp_device_descr *,
 			      struct gomp_memory_mapping *);
-
 extern void gomp_free_memmap (struct gomp_memory_mapping *);
-
 extern void gomp_fini_device (struct gomp_device_descr *);
 
 /* work.c */

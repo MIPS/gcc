@@ -24,10 +24,10 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-#ifndef _OACC_PLUGIN_H
-#define _OACC_PLUGIN_H 1
+#ifndef OACC_PLUGIN_H
+#define OACC_PLUGIN_H 1
 
-extern void GOMP_PLUGIN_async_unmap_vars (void *ptr);
+extern void GOMP_PLUGIN_async_unmap_vars (void *);
 extern void *GOMP_PLUGIN_acc_thread (void);
 
 #endif

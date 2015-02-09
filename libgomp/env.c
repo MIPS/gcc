@@ -79,8 +79,8 @@ unsigned long gomp_bind_var_list_len;
 void **gomp_places_list;
 unsigned long gomp_places_list_len;
 int gomp_debug_var;
+char *goacc_device_type;
 int goacc_device_num;
-char* goacc_device_type;
 
 /* Parse the OMP_SCHEDULE environment variable.  */
 
@@ -1017,10 +1017,10 @@ parse_affinity (bool ignore)
 }
 
 static void
-goacc_parse_device_type (void)
+parse_acc_device_type (void)
 {
   const char *env = getenv ("ACC_DEVICE_TYPE");
-  
+
   if (env && *env != '\0')
     goacc_device_type = strdup (env);
   else
@@ -1287,14 +1287,14 @@ initialize_env (void)
     }
 
   handle_omp_display_env (stacksize, wait_policy);
-  
-  /* Look for OpenACC-specific environment variables.  */
+
+  /* OpenACC.  */
+
   if (!parse_int ("ACC_DEVICE_NUM", &goacc_device_num, true))
     goacc_device_num = 0;
 
-  goacc_parse_device_type ();
+  parse_acc_device_type ();
 
-  /* Initialize OpenACC-specific internal state.  */
   goacc_runtime_initialize ();
 }
 

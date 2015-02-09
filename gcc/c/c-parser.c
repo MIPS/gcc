@@ -1250,11 +1250,11 @@ static vec<tree, va_gc> *c_parser_expr_list (c_parser *, bool, bool,
 					     vec<tree, va_gc> **, location_t *,
 					     tree *, vec<location_t> *,
 					     unsigned int * = NULL);
+static void c_parser_oacc_enter_exit_data (c_parser *, bool);
+static void c_parser_oacc_update (c_parser *);
 static tree c_parser_oacc_loop (location_t, c_parser *, char *);
 static void c_parser_omp_construct (c_parser *);
 static void c_parser_omp_threadprivate (c_parser *);
-static void c_parser_oacc_enter_exit_data (c_parser *, bool);
-static void c_parser_oacc_update (c_parser *);
 static void c_parser_omp_barrier (c_parser *);
 static void c_parser_omp_flush (c_parser *);
 static tree c_parser_omp_for_loop (location_t, c_parser *, enum tree_code,
@@ -11699,7 +11699,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "wait";
 	  break;
 	default:
-	  c_parser_error (parser, "expected clause");
+	  c_parser_error (parser, "expected %<#pragma acc%> clause");
 	  goto saw_error;
 	}
 
@@ -11928,7 +11928,7 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "simdlen";
 	  break;
 	default:
-	  c_parser_error (parser, "expected clause");
+	  c_parser_error (parser, "expected %<#pragma omp%> clause");
 	  goto saw_error;
 	}
 
@@ -13046,7 +13046,6 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 	  if (cclauses != NULL
 	      && cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL] != NULL)
 	    {
-	      gcc_assert (code != OACC_LOOP);
 	      tree *c;
 	      for (c = &cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL]; *c ; )
 		if (OMP_CLAUSE_CODE (*c) != OMP_CLAUSE_FIRSTPRIVATE

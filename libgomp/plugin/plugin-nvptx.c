@@ -738,7 +738,7 @@ link_ptx (CUmodule *module, char *ptx_code)
   CUlinkState linkstate;
   CUresult r;
   void *linkout;
-  size_t linkoutsize __attribute__((unused));
+  size_t linkoutsize __attribute__ ((unused));
 
   GOMP_PLUGIN_debug (0, "attempting to load:\n---\n%s\n---\n", ptx_code);
 
@@ -1518,19 +1518,19 @@ GOMP_OFFLOAD_register_image (void *host_table, void *target_data)
 }
 
 void
-GOMP_OFFLOAD_init_device (int n __attribute__((unused)))
+GOMP_OFFLOAD_init_device (int n __attribute__ ((unused)))
 {
   (void) nvptx_init ();
 }
 
 void
-GOMP_OFFLOAD_fini_device (int n __attribute__((unused)))
+GOMP_OFFLOAD_fini_device (int n __attribute__ ((unused)))
 {
   nvptx_fini ();
 }
 
 int
-GOMP_OFFLOAD_get_table (int n __attribute__((unused)),
+GOMP_OFFLOAD_get_table (int n __attribute__ ((unused)),
 			struct mapping_table **tablep)
 {
   CUmodule module;
@@ -1589,26 +1589,26 @@ GOMP_OFFLOAD_get_table (int n __attribute__((unused)),
 }
 
 void *
-GOMP_OFFLOAD_alloc (int n __attribute__((unused)), size_t size)
+GOMP_OFFLOAD_alloc (int n __attribute__ ((unused)), size_t size)
 {
   return nvptx_alloc (size);
 }
 
 void
-GOMP_OFFLOAD_free (int n __attribute__((unused)), void *ptr)
+GOMP_OFFLOAD_free (int n __attribute__ ((unused)), void *ptr)
 {
   nvptx_free (ptr);
 }
 
 void *
-GOMP_OFFLOAD_dev2host (int ord __attribute__((unused)), void *dst,
+GOMP_OFFLOAD_dev2host (int ord __attribute__ ((unused)), void *dst,
 		       const void *src, size_t n)
 {
   return nvptx_dev2host (dst, src, n);
 }
 
 void *
-GOMP_OFFLOAD_host2dev (int ord __attribute__((unused)), void *dst,
+GOMP_OFFLOAD_host2dev (int ord __attribute__ ((unused)), void *dst,
 		       const void *src, size_t n)
 {
   return nvptx_host2dev (dst, src, n);

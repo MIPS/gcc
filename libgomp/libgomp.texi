@@ -143,6 +143,11 @@ A complete description of all OpenACC directives accepted may be found in
 the @uref{http://www.openacc.org/, OpenMP Application Programming
 Interface} manual, version 2.0.
 
+Note that this is an experimental feature, incomplete, and subject to
+change in future versions of GCC.  See
+@uref{https://gcc.gnu.org/wiki/OpenACC} for more information.
+
+
 
 @c ---------------------------------------------------------------------
 @c OpenACC Runtime Library Routines

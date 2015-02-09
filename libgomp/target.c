@@ -34,7 +34,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <assert.h>
 
 #ifdef PLUGIN_SUPPORT
@@ -168,6 +167,7 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
       tgt_align = align;
       tgt_size = mapnum * sizeof (void *);
     }
+
   gomp_mutex_lock (&mm->lock);
 
   for (i = 0; i < mapnum; i++)
@@ -288,9 +288,7 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		tgt->refcount++;
 		array->left = NULL;
 		array->right = NULL;
-
 		splay_tree_insert (&mm->splay_tree, array);
-
 		switch (kind & typemask)
 		  {
 		  case GOMP_MAP_ALLOC:
@@ -302,7 +300,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		  case GOMP_MAP_TOFROM:
 		  case GOMP_MAP_FORCE_TO:
 		  case GOMP_MAP_FORCE_TOFROM:
-		    /* Copy from host to device memory.  */
 		    /* FIXME: Perhaps add some smarts, like if copying
 		       several adjacent fields from host to target, use some
 		       host buffer to avoid sending each var individually.  */
@@ -318,7 +315,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		    if (cur_node.host_start == (uintptr_t) NULL)
 		      {
 			cur_node.tgt_offset = (uintptr_t) NULL;
-			/* Copy from host to device memory.  */
 			/* FIXME: see above FIXME comment.  */
 			devicep->host2dev_func (devicep->target_id,
 						(void *) (tgt->tgt_start
@@ -346,7 +342,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		    if (n == NULL)
 		      gomp_fatal ("Pointer target of array section "
 				  "wasn't mapped");
-
 		    cur_node.host_start -= n->host_start;
 		    cur_node.tgt_offset = n->tgt->tgt_start + n->tgt_offset
 					  + cur_node.host_start;
@@ -354,7 +349,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		       array section.  Now subtract bias to get what we want
 		       to initialize the pointer with.  */
 		    cur_node.tgt_offset -= sizes[i];
-		    /* Copy from host to device memory.  */
 		    /* FIXME: see above FIXME comment.  */
 		    devicep->host2dev_func (devicep->target_id,
 					    (void *) (tgt->tgt_start
@@ -363,7 +357,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 					    sizeof (void *));
 		    break;
 		  case GOMP_MAP_TO_PSET:
-		    /* Copy from host to device memory.  */
 		    /* FIXME: see above FIXME comment.  */
 		    devicep->host2dev_func (devicep->target_id,
 					    (void *) (tgt->tgt_start
@@ -388,7 +381,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 			  if (cur_node.host_start == (uintptr_t) NULL)
 			    {
 			      cur_node.tgt_offset = (uintptr_t) NULL;
-			      /* Copy from host to device memory.  */
 			      /* FIXME: see above FIXME comment.  */
 			      devicep->host2dev_func (devicep->target_id,
 				 (void *) (tgt->tgt_start + k->tgt_offset
@@ -428,7 +420,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 			     array section.  Now subtract bias to get what we
 			     want to initialize the pointer with.  */
 			  cur_node.tgt_offset -= sizes[j];
-			  /* Copy from host to device memory.  */
 			  /* FIXME: see above FIXME comment.  */
 			  devicep->host2dev_func (devicep->target_id,
 			     (void *) (tgt->tgt_start + k->tgt_offset
@@ -476,7 +467,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	  else
 	    cur_node.tgt_offset = tgt->list[i]->tgt->tgt_start
 				  + tgt->list[i]->tgt_offset;
-	  /* Copy from host to device memory.  */
 	  /* FIXME: see above FIXME comment.  */
 	  devicep->host2dev_func (devicep->target_id,
 				  (void *) (tgt->tgt_start
@@ -528,7 +518,6 @@ gomp_copy_from_async (struct target_mem_desc *tgt)
       {
 	splay_tree_key k = tgt->list[i];
 	if (k->copy_from)
-	  /* Copy from device to host memory.  */
 	  devicep->dev2host_func (devicep->target_id, (void *) k->host_start,
 				  (void *) (k->tgt->tgt_start + k->tgt_offset),
 				  k->host_end - k->host_start);
@@ -567,7 +556,6 @@ gomp_unmap_vars (struct target_mem_desc *tgt, bool do_copyfrom)
       {
 	splay_tree_key k = tgt->list[i];
 	if (k->copy_from && do_copyfrom)
-	  /* Copy from device to host memory.  */
 	  devicep->dev2host_func (devicep->target_id, (void *) k->host_start,
 				  (void *) (k->tgt->tgt_start + k->tgt_offset),
 				  k->host_end - k->host_start);
@@ -621,7 +609,6 @@ gomp_update (struct gomp_device_descr *devicep, struct gomp_memory_mapping *mm,
 			  (void *) n->host_start,
 			  (void *) n->host_end);
 	    if (GOMP_MAP_COPY_TO_P (kind & typemask))
-	      /* Copy from host to device memory.  */
 	      devicep->host2dev_func (devicep->target_id,
 				      (void *) (n->tgt->tgt_start
 						+ n->tgt_offset
@@ -630,7 +617,6 @@ gomp_update (struct gomp_device_descr *devicep, struct gomp_memory_mapping *mm,
 				      (void *) cur_node.host_start,
 				      cur_node.host_end - cur_node.host_start);
 	    if (GOMP_MAP_COPY_FROM_P (kind & typemask))
-	      /* Copy from device to host memory.  */
 	      devicep->dev2host_func (devicep->target_id,
 				      (void *) cur_node.host_start,
 				      (void *) (n->tgt->tgt_start
@@ -647,9 +633,6 @@ gomp_update (struct gomp_device_descr *devicep, struct gomp_memory_mapping *mm,
   gomp_mutex_unlock (&mm->lock);
 }
 
-static void gomp_register_image_for_device (struct gomp_device_descr *device,
-					    struct offload_image_descr *image);
-
 /* This function should be called from every offload image.
    It gets the descriptor of the host func and var tables HOST_TABLE, TYPE of
    the target, and TARGET_DATA needed by target plugin.  */
@@ -661,9 +644,6 @@ GOMP_offload_register (void *host_table, enum offload_target_type target_type,
   offload_images = gomp_realloc (offload_images,
 				 (num_offload_images + 1)
 				 * sizeof (struct offload_image_descr));
-
-  if (offload_images == NULL)
-    return;
 
   offload_images[num_offload_images].type = target_type;
   offload_images[num_offload_images].host_table = host_table;
@@ -691,9 +671,10 @@ gomp_init_tables (struct gomp_device_descr *devicep,
 {
   /* Get address mapping table for device.  */
   struct mapping_table *table = NULL;
-  int i, num_entries = devicep->get_table_func (devicep->target_id, &table);
+  int num_entries = devicep->get_table_func (devicep->target_id, &table);
 
   /* Insert host-target address mapping into dev_splay_tree.  */
+  int i;
   for (i = 0; i < num_entries; i++)
     {
       struct target_mem_desc *tgt = gomp_malloc (sizeof (*tgt));
@@ -1116,12 +1097,13 @@ gomp_target_init (void)
 		    break;
 		  }
 
-		current_device.type = current_device.get_type_func ();
 		current_device.name = current_device.get_name_func ();
+		/* current_device.capabilities has already been set.  */
+		current_device.type = current_device.get_type_func ();
+		current_device.mem_map.is_initialized = false;
+		current_device.mem_map.splay_tree.root = NULL;
 		current_device.is_initialized = false;
 		current_device.offload_regions_registered = false;
-		current_device.mem_map.splay_tree.root = NULL;
-		current_device.mem_map.is_initialized = false;
 		current_device.openacc.data_environ = NULL;
 		current_device.openacc.target_data = NULL;
 		for (i = 0; i < new_num_devices; i++)
