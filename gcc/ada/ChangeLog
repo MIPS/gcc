@@ -1,3 +1,30 @@
+2015-02-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_param): Do not strip the padding
+	if the parameter either is passed by reference or if the alignment
+	would be lowered.
+
+2015-02-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (is_cplusplus_method): Use Is_Primitive flag to
+	detect primitive operations of tagged and untagged types.
+
+2015-02-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Do not bother about alias
+	sets in presence of derivation for subprogram types.
+
+2015-02-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (begin_subprog_body): Assert that the body is
+	present in the same context as the declaration.
+
+2015-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/64340
+	* gcc-interface/trans.c (gigi): Recreate optimization_default_node
+	and optimization_current_node after tweaking global_options.
+
 2015-02-05  Robert Dewar  <dewar@adacore.com>
 
 	* prj-proc.adb, sem_aux.adb, exp_ch9.adb, errout.adb, prj-dect.adb,
