@@ -1,3 +1,130 @@
+2015-02-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54000
+	* tree-ssa-looo-ivopts.c: Include tree-vectorizer.h.
+	(struct ivopts_data): Add loop_loc member.
+	(tree_ssa_iv_optimize_loop): Dump loop location.
+	(create_new_ivs): Likewise, also dump number of IVs generated.
+
+2015-02-09  Martin Liska  <mliska@suse.cz>
+
+	* ipa-icf.c (sem_item_optimizer::register_hooks): Register hooks
+	just if not yet registered.
+	(ipa_icf_generate_summary): Register callgraph hooks.
+
+2015-02-08  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.c (gty_dummy): Delete.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/63566 
+	* ipa-visibility.c (cgraph_node::non_local_p): Accept aliases.
+	(cgraph_node::local_p): Remove thunk related FIXME.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/63566 
+	* i386.c (ix86_function_regparm): Look through aliases to see if callee
+	is local and optimized.
+	(ix86_function_sseregparm): Likewise; also use target's SSE math
+	settings; error out instead of silently generating wrong code
+	on mismatches.
+	(init_cumulative_args): Look through aliases.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/63566 
+	* ipa-split.c (execute_split_functions): Split if function has aliases.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/63566 
+	* cgraphunit.c (cgraph_node::analyze): Be sure target of thunk is
+	aliases before trying to expand it.
+	(cgraph_node::expand_thunk): Fix formating.
+
+2015-02-07  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/extend.texi (Function Attributes [naked]): Copy-edit.
+	(Using Assembly Language with C): Expand introduction.
+	(Basic Asm): Copy-edit.  Add more information about uses of
+	basic asm.
+	(Extended Asm): Copy-edit.  Document new escape syntax and
+	%l[label] syntax.
+	(Global Reg Vars): Copy-edit.
+	(Local Reg Vars): Likewise.
+
+2015-02-06  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR debug/2714
+	PR bootstrap/64256
+	* xcoffout.h (DBX_CONTIN_LENGTH): Define as 16384.
+	(DBX_CONTIN_CHAR): Define.
+
+2015-02-06  Sebastian Pop  <s.pop@samsung.com>
+	    Brian Rzycki  <b.rzycki@samsung.com>
+
+	PR tree-optimization/64878
+	* tree-ssa-threadedge.c: Include tree-ssa-loop.h.
+	(fsm_find_control_statement_thread_paths): Add parameter seen_loop_phi.
+	Stop recursion at loop phi nodes after having visited a loop phi node.
+
+2015-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* toplev.c (process_options): Change flag_ipa_ra before creating
+	optimization_{default,current}_node.
+
+	PR ipa/64896
+	* cgraphunit.c (cgraph_node::expand_thunk): If
+	restype is not is_gimple_reg_type nor the thunk_fndecl
+	returns aggregate_value_p, set restmp to a temporary variable
+	instead of resdecl.
+
+2015-02-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (lra_emit_add): Fix a typo in using disp instead of base.
+
+2015-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/64205
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Do not
+	add a general secondary reload handler for SDmode, unless we have
+	both read/write support for SDmode.
+
+2015-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/64937
+	* dwarf2out.c (set_block_abstract_flags, set_decl_abstract_flags):
+	Replace setting argument with abstract_vec, always set BLOCK_ABSTRACT
+	or DECL_ABSTRACT_P flags to 1 rather than to setting, and if it wasn't
+	1 before, push it to abstract_vec.
+	(dwarf2out_abstract_function): Adjust caller.  Don't call
+	set_decl_abstract_flags second time, instead clear BLOCK_ABSTRACT or
+	DECL_ABSTRACT_P flags for all abstract_vec elts.
+
+2015-02-06  Renlin Li  <renlin.li@arm.com>
+
+	* tree-ssa-forwprop.c (execute): Keep location info while rewrite
+	complex gimple.
+	* tree-ssa.c (execute_update_addresses_taken): Likewise.
+
+2015-02-06  Jeff Law  <law@redhat.com>
+
+	PR target/64889
+	* config/h8300/h8300.c (push): New argument "in_prologue".
+	Pass "in_prologue" along to "F".
+	(h8300_push_pop): Corresponding changes.
+	(h8300_expand_prologue): Likewise.
+	(h8300_swap_into_er6): Likewise.  Do not set RTX_FRAME_RELATED_P.
+
+2015-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/64957
+	PR debug/64817
+	* simplify-rtx.c (simplify_binary_operation_1): Use ~cval for
+	IOR rather than for AND.
+
 2015-02-06  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR target/62631
@@ -1290,8 +1417,7 @@
 
 2015-01-22  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
-	* config/s390/s390.md (atomic code attribute): Fix typo "ior" ->
-	"or".
+	* config/s390/s390.md (atomic code attribute): Fix typo "ior" -> "or".
 
 2015-01-22  Max Ostapenko  <m.ostapenko@partner.samsung.com>
 
