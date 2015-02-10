@@ -1,3 +1,19 @@
+2015-02-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64994
+	* constexpr.c (cxx_eval_call_expression): Walk the clone list.
+
+2015-02-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/64982
+	* method.c (use_thunk): Do not check for stdarg thunks.
+
+2015-02-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64899
+	* init.c (build_vec_init): Handle default-initialized array with
+	constexpr default constructor.
+
 2015-02-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/64824

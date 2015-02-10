@@ -1,7 +1,87 @@
+2015-02-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64995
+	* g++.dg/torture/pr64995.C: New testcase.
+
+2015-02-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64909
+	* gcc.dg/vect/costmodel/x86_64/costmodel-pr64909.c: New testcase.
+
+2015-02-10  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/signbit-sa.c: New test.
+
+2015-02-10  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/57822
+	* gfortran/fmt_g0_7.f08: New test.
+
+2015-02-10  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/43378
+	* gcc.dg/tree-ssa/pr43378.c: New test.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/64978
+	* g++.dg/torture/pr64978.C: New testcase.
+
+2015-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/64981
+	* gcc.dg/asan/pr64981.c: New test.
+
+2015-02-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64856
+	* gcc.dg/pr64856.c: New test.
+
+2015-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/64979
+	* gcc.dg/tree-ssa/stdarg-7.c: New test.
+	* gcc.c-torture/execute/pr64979.c: New test.
+
+2015-02-09  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/arm/macro_defs0.c: Remove extraneous "target"
+
+2015-02-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/tree-ssa/ssa-dom-cse-2.c: Xfail scan-tree-dump for alpha*-*-*.
+	* gcc.dg/tree-ssa/pr42585.c: Xfail scan-tree-dump-times for alpha*-*-*.
+
+2015-02-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/58757
+	* gcc.dg/c11-true_min-1.c: Xfail execution for alpha*-*-*.
+
+2015-02-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54000
+	* g++.dg/tree-ssa/ivopts-3.C: New testcase.
+
+2015-02-09  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/graphite/scop-19.c: Fix scan-tree-dump for fpic.
+
+2015-02-09  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/ipa/pr64858.C: New test.
+
+2015-02-09  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/uninit-19.c: Fix warning line for fpic.
+
+2015-02-08  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc.dg/tree-ssa/ssa-dom-cse-2.c: xfail for AARCH64 also.
+
 2015-02-08  Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/63744
-	gfortran.dg/use_rename_8.f90: New.
+	* gfortran.dg/use_rename_8.f90: New.
 
 2015-02-08  Eric Botcazou  <ebotcazou@adacore.com>
 

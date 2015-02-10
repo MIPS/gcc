@@ -1,3 +1,205 @@
+2015-02-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.md (reload_out<mode>_aligned): Make operands 2
+	and 3 earlyclobber operands.
+
+2015-02-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* common.opt (fstack-reuse): Mark as optimization.
+
+2015-02-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/64982
+	* cgraphunit.c (cgraph_node::expand_thunk): Look for stdarg thunks.
+
+2015-02-10  Trevor Saunders  <tsaunders@mozilla.com>
+
+	PR tree-optimization/64326
+	* cfghooks.c (make_forwarder_block): Cap frequency of created block.
+
+2015-02-10  Rainer Emrich  <rainer@emrich-ebersheim.de>
+
+	PR gcov-profile/61889
+	* gcov-tool.c: Remove wrong #if !defined(_WIN32)
+
+2015-02-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64995
+	* tree-ssa-sccvn.c (set_ssa_val_to): Assert that the
+	value we use is final.
+	(visit_reference_op_store): Always valueize op.
+	(visit_use): Properly valueize vuses.
+
+2015-02-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64909
+	* tree-vect-loop.c (vect_estimate_min_profitable_iters): Properly
+	pass a scalar-stmt count estimate to the cost model.
+	* tree-vect-data-refs.c (vect_peeling_hash_get_lowest_cost): Likewise.
+
+2015-02-10  Alexander Monakov  <amonakov@ispras.ru>
+
+	* doc/invoke.texi (-fvar-tracking-assignments): Clarify that VTA is
+	enabled by default together with var-tracking.
+
+2015-02-10  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78.c: Remove DIV attribute code accidentally
+	included in previous rl78 commit.
+
+2015-02-10  Richard Biener  <rguenther@suse.de>
+
+	* tree-streamer.h (streamer_read_tree_bitfields): Adjust.
+	* tree-streamer-in.c (streamer_read_tree_bitfields): Do not
+	return the bitpack.
+
+2015-02-09  Trevor Saunders  <tsaunders@mozilla.com>
+
+	PR gcov-profile/61889
+	* config.in: regenerate.
+	* configure.in: Likewise.
+	* configure.ac: Check for ftw.h.
+	* gcov-tool.c: Check for ftw.h before using nftw.
+
+2015-02-09  Trevor Saunders  <tsaunders@mozilla.com>
+
+	PR lto/64076
+	* ipa-visibility.c (update_visibility_by_resolution_info): Only
+	assert when not in lto mode.
+
+2015-02-09  Zhouyi Zhou   <yizhouzhou@ict.ac.cn>
+
+	* ira-color.c (setup_left_conflict_sizes_p): Simplify
+	initialization/assignment of conflict_size.
+
+2015-02-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/64978
+	* ipa-cp.c (gather_caller_stats): Skip thunks.
+	(propagate_constants_topo): Skip aliases.
+
+2015-02-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/64761
+	* config/sh/sh.c (sh_option_override): Don't change
+	-freorder-blocks-and-partition to -freorder-blocks even when
+	unwinding is enabled.
+	(sh_can_follow_jump): Return false if the followee jump is
+	a crossing jump when -freorder-blocks-and-partition is specified.
+	* config/sh/sh.md (*jump_compact_crossing): New insn.
+
+2015-02-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+	    Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/64761
+	* config/sh/sh-protos.h (sh_can_redirect_branch): Don't declare.
+	* config/sh/sh.c (TARGET_CAN_FOLLOW_JUMP): Redefine.
+	(sh_can_redirect_branch): Rename to ...
+	(sh_can_follow_jump): ... this.  Constify argument types.
+	* config/sh/sh.h (MD_CAN_REDIRECT_BRANCH): Don't define.
+	* doc/tm.texi.in (MD_CAN_REDIRECT_BRANCH): Remove documentation.
+	* reorg.c (steal_delay_list_from_target): Use targetm.can_follow_jump.
+	* doc/tm.texi: Regenerate.
+
+2015-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/64981
+	* builtins.c (expand_builtin): Call targetm.expand_builtin
+	for BUILT_IN_MD builtins regardless of asan_intercepted_p.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/61548
+	* tree-emutls.c (ipa_lower_emutls): Avoid duplicates in TLS_VARS.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/63566
+	* ipa-icf.c (set_local): New function.
+	(sem_function::merge): Use it.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-devirt.c (odr_types_equivalent_p): Fix formating.
+	(add_type_duplicate): Fix comparison of BINFOs.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-polymorphic-call.c (ipa_polymorphic_call_context): Avoid ICE
+	on getting VOID pointer.
+
+2015-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/64979
+	* tree-stdarg.c (pass_stdarg::execute): Scan phi node args for
+	va_list escapes.
+
+2015-02-09  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (replace_id): Copy expr_type.
+
+2015-02-09  Richard Biener  <rguenther@suse.de>
+
+	* tree-streamer.h (streamer_pack_tree_bitfields): Remove.
+	(streamer_write_tree_bitfields): Declare.
+	* tree-streamer-in.c (unpack_ts_base_value_fields): Inline,
+	properly unpack padding.
+	(unpack_value_fields): Inline ...
+	(streamer_read_tree_bitfields): ... here.
+	* tree-streamer-out.c (pack_ts_base_value_fields): Inline
+	and properly add padding bits.
+	(streamer_pack_tree_bitfields): Fold into ...
+	(streamer_write_tree_bitfields): ... this new function,
+	exposing the bitpack object.
+	* lto-streamer-out.c (lto_write_tree_1): Call
+	streamer_write_tree_bitfields.
+
+2015-02-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54000
+	* tree-ssa-looo-ivopts.c: Include tree-vectorizer.h.
+	(struct ivopts_data): Add loop_loc member.
+	(tree_ssa_iv_optimize_loop): Dump loop location.
+	(create_new_ivs): Likewise, also dump number of IVs generated.
+
+2015-02-09  Martin Liska  <mliska@suse.cz>
+
+	* ipa-icf.c (sem_item_optimizer::register_hooks): Register hooks
+	just if not yet registered.
+	(ipa_icf_generate_summary): Register callgraph hooks.
+
+2015-02-08  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.c (gty_dummy): Delete.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/63566
+	* ipa-visibility.c (cgraph_node::non_local_p): Accept aliases.
+	(cgraph_node::local_p): Remove thunk related FIXME.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/63566
+	* i386.c (ix86_function_regparm): Look through aliases to see if callee
+	is local and optimized.
+	(ix86_function_sseregparm): Likewise; also use target's SSE math
+	settings; error out instead of silently generating wrong code
+	on mismatches.
+	(init_cumulative_args): Look through aliases.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/63566
+	* ipa-split.c (execute_split_functions): Split if function has aliases.
+
+2015-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/63566
+	* cgraphunit.c (cgraph_node::analyze): Be sure target of thunk is
+	aliases before trying to expand it.
+	(cgraph_node::expand_thunk): Fix formating.
+
 2015-02-07  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* doc/extend.texi (Function Attributes [naked]): Copy-edit.
