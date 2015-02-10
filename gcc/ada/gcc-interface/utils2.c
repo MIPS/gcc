@@ -1868,7 +1868,7 @@ gnat_build_constructor (tree type, vec<constructor_elt, va_gc> *v)
   bool allconstant = (TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST);
   bool read_only = true;
   bool side_effects = false;
-  tree result, obj, val;
+  tree result, obj, val, reloc;
   unsigned int n_elmts;
 
   /* Scan the elements to see if they are all constant or if any has side
@@ -1881,7 +1881,11 @@ gnat_build_constructor (tree type, vec<constructor_elt, va_gc> *v)
 	  || (TREE_CODE (type) == RECORD_TYPE
 	      && CONSTRUCTOR_BITFIELD_P (obj)
 	      && !initializer_constant_valid_for_bitfield_p (val))
-	  || !initializer_constant_valid_p (val, TREE_TYPE (val)))
+	  || !(reloc = initializer_constant_valid_p (val, TREE_TYPE (val)))
+	  /* An absolute value is required with reverse SSO.  */
+	  || (reloc != null_pointer_node
+	      && TYPE_REVERSE_STORAGE_ORDER (type)
+	      && !AGGREGATE_TYPE_P (TREE_TYPE (val))))
 	allconstant = false;
 
       if (!TREE_READONLY (val))

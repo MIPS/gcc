@@ -4315,7 +4315,11 @@ initializer_constant_valid_p_1 (tree value, tree endtype, tree *cache)
 	      tree reloc;
 	      reloc = initializer_constant_valid_p_1 (elt, TREE_TYPE (elt),
 						      NULL);
-	      if (!reloc)
+	      if (!reloc
+		  /* An absolute value is required with reverse SSO.  */
+		  || (reloc != null_pointer_node
+		      && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (value))
+		      && !AGGREGATE_TYPE_P (TREE_TYPE (elt))))
 		{
 		  if (cache)
 		    {
