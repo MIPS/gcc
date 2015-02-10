@@ -1562,9 +1562,13 @@ const_binop (enum tree_code code, tree type, tree arg1, tree arg2)
     default:;
     }
 
+  if (TREE_CODE_CLASS (code) != tcc_binary)
+    return NULL_TREE;
+
   /* Make sure type and arg0 have the same saturating flag.  */
   gcc_checking_assert (TYPE_SATURATING (type)
 		       == TYPE_SATURATING (TREE_TYPE (arg1)));
+
   return const_binop (code, arg1, arg2);
 }
 
@@ -3028,6 +3032,11 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
       switch (TREE_CODE (arg0))
 	{
 	case CALL_EXPR:
+	  /* Handle internal_fns conservatively.  */
+	  if (CALL_EXPR_FN (arg0) == NULL_TREE
+	      || CALL_EXPR_FN (arg1) == NULL_TREE)
+	    return 0;
+
 	  /* If the CALL_EXPRs call different functions, then they
 	     clearly can not be equal.  */
 	  if (! operand_equal_p (CALL_EXPR_FN (arg0), CALL_EXPR_FN (arg1),
@@ -14073,11 +14082,12 @@ fold_checksum_tree (const_tree expr, struct md5_ctx *ctx,
   *slot = expr;
   code = TREE_CODE (expr);
   if (TREE_CODE_CLASS (code) == tcc_declaration
-      && DECL_ASSEMBLER_NAME_SET_P (expr))
+      && HAS_DECL_ASSEMBLER_NAME_P (expr))
     {
-      /* Allow DECL_ASSEMBLER_NAME to be modified.  */
+      /* Allow DECL_ASSEMBLER_NAME and symtab_node to be modified.  */
       memcpy ((char *) &buf, expr, tree_size (expr));
       SET_DECL_ASSEMBLER_NAME ((tree)&buf, NULL);
+      buf.decl_with_vis.symtab_node = NULL;
       expr = (tree) &buf;
     }
   else if (TREE_CODE_CLASS (code) == tcc_type

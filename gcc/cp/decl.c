@@ -1813,6 +1813,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       DECL_PURE_VIRTUAL_P (newdecl) |= DECL_PURE_VIRTUAL_P (olddecl);
       DECL_VIRTUAL_P (newdecl) |= DECL_VIRTUAL_P (olddecl);
       DECL_INVALID_OVERRIDER_P (newdecl) |= DECL_INVALID_OVERRIDER_P (olddecl);
+      DECL_FINAL_P (newdecl) |= DECL_FINAL_P (olddecl);
+      DECL_OVERRIDE_P (newdecl) |= DECL_OVERRIDE_P (olddecl);
       DECL_THIS_STATIC (newdecl) |= DECL_THIS_STATIC (olddecl);
       if (DECL_OVERLOADED_OPERATOR_P (olddecl) != ERROR_MARK)
 	SET_OVERLOADED_OPERATOR_CODE
@@ -2309,6 +2311,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		    set_builtin_decl_implicit_p (fncode, true);
 		  break;
 		default:
+		  if (builtin_decl_explicit_p (fncode))
+		    set_builtin_decl_declared_p (fncode, true);
 		  break;
 		}
 	    }

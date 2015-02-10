@@ -756,7 +756,7 @@ pass_stdarg::execute (function *fun)
 	      tree type = TREE_TYPE (TREE_TYPE (gimple_call_arg (stmt, 1)));
 	      tree ap;
 	      tree expr;
-	      gimple g;
+	      tree lhs = gimple_call_lhs (stmt);
 
 	      ap = gimple_call_arg (stmt, 0);
 	      ap = build_fold_indirect_ref (ap);
@@ -765,13 +765,18 @@ pass_stdarg::execute (function *fun)
 	      expr = gimplify_va_arg_internal (ap, type, gimple_location (stmt),
 					       &pre, &post);
 
-	      if (gimple_call_lhs (stmt))
+	      if (lhs != NULL_TREE)
 		{
-		  gcc_assert (useless_type_conversion_p (TREE_TYPE (gimple_call_lhs (stmt)), type));
-		  gimplify_expr (&expr, &pre, &post, is_gimple_val, fb_rvalue);
-		  g = gimple_build_assign (gimple_call_lhs (stmt), expr);
-		  gimple_set_location (g, gimple_location (stmt));
-		  gimple_seq_add_stmt (&pre, g);
+		  gcc_assert (useless_type_conversion_p (TREE_TYPE (lhs), type));
+
+		  /* We've transported the size of with WITH_SIZE_EXPR here as
+		     the 3rd argument of the internal fn call.  Now reinstate
+		     it.  */
+		  if (gimple_call_num_args (stmt) == 3)
+		    expr = build2 (WITH_SIZE_EXPR, TREE_TYPE (expr), expr,
+				   gimple_call_arg (stmt, 2));
+
+		  gimplify_assign (lhs, expr, &pre);
 		}
 
 	      pop_gimplify_context (NULL);

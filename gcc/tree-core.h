@@ -158,10 +158,14 @@ enum built_in_function {
   BEGIN_CHKP_BUILTINS,
 
 #undef DEF_BUILTIN
-#define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND) ENUM##_CHKP,
+#define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND)
+#undef DEF_BUILTIN_CHKP
+#define DEF_BUILTIN_CHKP(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND) \
+  ENUM##_CHKP = ENUM + BEGIN_CHKP_BUILTINS + 1,
 #include "builtins.def"
+#undef DEF_BUILTIN_CHKP
 
-  END_CHKP_BUILTINS,
+  END_CHKP_BUILTINS = BEGIN_CHKP_BUILTINS * 2 + 1,
 
   /* Complex division routines in libgcc.  These are done via builtins
      because emit_library_call_value can't handle complex values.  */
@@ -1853,11 +1857,14 @@ struct const_call_expr_arg_iterator {
 };
 
 /* The builtin_info structure holds the FUNCTION_DECL of the standard builtin
-   function, and a flag that says if the function is available implicitly, or
-   whether the user has to code explicit calls to __builtin_<xxx>.  */
+   function, and flags.  */
 struct GTY(()) builtin_info_type {
-  tree decl[(int)END_BUILTINS];
-  bool implicit_p[(int)END_BUILTINS];
+  tree decl;
+  /* Whether the user can use <xxx> instead of explicitly using calls
+     to __builtin_<xxx>.  */
+  unsigned implicit_p : 1;
+  /* Whether the user has provided a declaration of <xxx>.  */
+  unsigned declared_p : 1;
 };
 
 
@@ -1913,7 +1920,7 @@ extern int tree_node_sizes[];
 extern bool in_gimple_form;
 
 /* Functional interface to the builtin functions.  */
-extern GTY(()) builtin_info_type builtin_info;
+extern GTY(()) builtin_info_type builtin_info[(int)END_BUILTINS];
 
 /* If nonzero, an upper limit on alignment of structure fields, in bits,  */
 extern unsigned int maximum_field_alignment;

@@ -4564,6 +4564,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   gimple assign;
   location_t loc = EXPR_LOCATION (*expr_p);
   gimple_stmt_iterator gsi;
+  tree ap = NULL_TREE, ap_copy = NULL_TREE;
 
   gcc_assert (TREE_CODE (*expr_p) == MODIFY_EXPR
 	      || TREE_CODE (*expr_p) == INIT_EXPR);
@@ -4640,6 +4641,27 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   if (ret == GS_ERROR)
     return ret;
 
+  /* In case of va_arg internal fn wrappped in a WITH_SIZE_EXPR, add the type
+     size as argument to the the call.  */
+  if (TREE_CODE (*from_p) == WITH_SIZE_EXPR)
+    {
+      tree call = TREE_OPERAND (*from_p, 0);
+      tree vlasize = TREE_OPERAND (*from_p, 1);
+
+      if (TREE_CODE (call) == CALL_EXPR
+	  && CALL_EXPR_IFN (call) == IFN_VA_ARG)
+	{
+	  tree type = TREE_TYPE (call);
+	  tree ap = CALL_EXPR_ARG (call, 0);
+	  tree tag = CALL_EXPR_ARG (call, 1);
+	  tree newcall = build_call_expr_internal_loc (EXPR_LOCATION (call),
+						       IFN_VA_ARG, type, 3, ap,
+						       tag, vlasize);
+	  tree *call_p = &(TREE_OPERAND (*from_p, 0));
+	  *call_p = newcall;
+	}
+    }
+
   /* Now see if the above changed *from_p to something we handle specially.  */
   ret = gimplify_modify_expr_rhs (expr_p, from_p, to_p, pre_p, post_p,
 				  want_value);
@@ -4703,12 +4725,16 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  enum internal_fn ifn = CALL_EXPR_IFN (*from_p);
 	  auto_vec<tree> vargs (nargs);
 
+	  if (ifn == IFN_VA_ARG)
+	    ap = unshare_expr (CALL_EXPR_ARG (*from_p, 0));
 	  for (i = 0; i < nargs; i++)
 	    {
 	      gimplify_arg (&CALL_EXPR_ARG (*from_p, i), pre_p,
 			    EXPR_LOCATION (*from_p));
 	      vargs.quick_push (CALL_EXPR_ARG (*from_p, i));
 	    }
+	  if (ifn == IFN_VA_ARG)
+	    ap_copy = CALL_EXPR_ARG (*from_p, 0);
 	  call_stmt = gimple_build_call_internal_vec (ifn, vargs);
 	  gimple_set_location (call_stmt, EXPR_LOCATION (*expr_p));
 	}
@@ -4752,6 +4778,17 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   gimplify_seq_add_stmt (pre_p, assign);
   gsi = gsi_last (*pre_p);
   maybe_fold_stmt (&gsi);
+
+  /* When gimplifying the &ap argument of va_arg, we might end up with
+       ap.1 = ap
+       va_arg (&ap.1, 0B)
+     We need to assign ap.1 back to ap, otherwise va_arg has no effect on
+     ap.  */
+  if (ap != NULL_TREE
+      && TREE_CODE (ap) == ADDR_EXPR
+      && TREE_CODE (ap_copy) == ADDR_EXPR
+      && TREE_OPERAND (ap, 0) != TREE_OPERAND (ap_copy, 0))
+    gimplify_assign (TREE_OPERAND (ap, 0), TREE_OPERAND (ap_copy, 0), pre_p);
 
   if (want_value)
     {
@@ -4956,6 +4993,14 @@ gimplify_addr_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       break;
 
     default:
+      /* If we see a call to a declared builtin or see its address
+	 being taken (we can unify those cases here) then we can mark
+	 the builtin for implicit generation by GCC.  */
+      if (TREE_CODE (op0) == FUNCTION_DECL
+	  && DECL_BUILT_IN_CLASS (op0) == BUILT_IN_NORMAL
+	  && builtin_decl_declared_p (DECL_FUNCTION_CODE (op0)))
+	set_builtin_decl_implicit_p (DECL_FUNCTION_CODE (op0), true);
+
       /* We use fb_either here because the C frontend sometimes takes
 	 the address of a call that returns a struct; see
 	 gcc.dg/c99-array-lval-1.c.  The gimplifier will correctly make
@@ -9250,7 +9295,8 @@ gimplify_function_tree (tree fndecl)
       bind = new_bind;
     }
 
-  if (flag_sanitize & SANITIZE_THREAD)
+  if ((flag_sanitize & SANITIZE_THREAD) != 0
+      && !lookup_attribute ("no_sanitize_thread", DECL_ATTRIBUTES (fndecl)))
     {
       gcall *call = gimple_build_call_internal (IFN_TSAN_FUNC_EXIT, 0);
       gimple tf = gimple_build_try (seq, call, GIMPLE_TRY_FINALLY);
@@ -9289,7 +9335,10 @@ gimplify_va_arg_internal (tree valist, tree type, location_t loc,
 			  gimple_seq *pre_p, gimple_seq *post_p)
 {
   tree have_va_type = TREE_TYPE (valist);
-  have_va_type = targetm.canonical_va_list_type (have_va_type);
+  tree cano_type = targetm.canonical_va_list_type (have_va_type);
+
+  if (cano_type != NULL_TREE)
+    have_va_type = cano_type;
 
   /* Make it easier for the backends by protecting the valist argument
      from multiple evaluations.  */
@@ -9376,31 +9425,12 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
     }
   else if (optimize && !optimize_debug)
     {
-      tree tmp, tmp2, tag;
-      gimple call, assign;
-      tmp = build_fold_addr_expr_loc (loc, valist);
-      if (gimplify_arg (&tmp, pre_p, loc) == GS_ERROR)
-	return GS_ERROR;
-      tag = build_int_cst (build_pointer_type (type), 0);
-      call = gimple_build_call_internal (IFN_VA_ARG, 2, tmp, tag);
-      gimple_seq_add_stmt (pre_p, call);
-      if (VOID_TYPE_P (type))
-	{
-	  *expr_p = NULL;
-	  return GS_ALL_DONE;
-	}
-      tmp2 = create_tmp_var (type, NULL);
-      gimple_set_lhs (call, tmp2);
-      *expr_p = tmp2;
+      tree ap, tag;
 
-      if (TREE_CODE (tmp) == ADDR_EXPR
-	  && TREE_OPERAND (tmp, 0) != valist)
-	{
-	  /* If we're passing the address of a temp, instead of the addres of
-	     valist, we need to copy back the value of the temp to valist.  */
-	  assign = gimple_build_assign (valist, TREE_OPERAND (tmp, 0));
-	  gimple_seq_add_stmt (pre_p, assign);
-	}
+      /* Transform a VA_ARG_EXPR into an VA_ARG internal function.  */
+      ap = build_fold_addr_expr_loc (loc, valist);
+      tag = build_int_cst (build_pointer_type (type), 0);
+      *expr_p = build_call_expr_internal_loc (loc, IFN_VA_ARG, type, 2, ap, tag);
     }
   else
     *expr_p = gimplify_va_arg_internal (valist, type, loc, pre_p, post_p);

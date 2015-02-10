@@ -1975,6 +1975,7 @@ expand_BUILTIN_EXPECT (gcall *stmt)
 static void
 expand_VA_ARG (gcall *stmt ATTRIBUTE_UNUSED)
 {
+  gcc_unreachable ();
 }
 
 /* Routines to expand each internal function, indexed by function number.

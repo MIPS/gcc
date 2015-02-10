@@ -1,3 +1,33 @@
+2015-02-02  Ian Lance Taylor  <iant@google.com>
+
+	PR go/64836
+	PR go/64838
+	* go-gcc.cc (Gcc_backend::type_size): Change return type to
+	int64_t.
+	(Gcc_backend::type_alignment): Likewise.
+	(Gcc_backend::type_field_alignment): Likewise.
+	(Gcc_backend::type_field_offset): Likewise.
+	(Gcc_backend::implicit_variable): Change alignment parameter type
+	to int64_t.
+
+2015-01-23  Ian Lance Taylor  <iant@google.com>
+
+	PR go/63565
+	* gccgo.texi (Invoking gccgo): Mention that Go programs should not
+	be stripped.
+
+	* gccgo.texi (C Interoperability): Mention that people should use
+	cgo.
+
+2015-01-23  Ian Lance Taylor  <iant@google.com>
+
+	PR go/64595
+	* go-lang.c (go_langhook_init_options_struct): Set default
+	debug_info_level.
+	(go_langhook_post_options): If debug_info_level is still the
+	default, make sure write_symbols is set.
+	* gccgo.texi (Invoking gccgo): Document that -g1 is the default.
+
 2015-01-16  Richard Henderson  <rth@redhat.com>
 
 	* go-gcc.cc (Gcc_backend::call_expression): Add chain_expr argument.

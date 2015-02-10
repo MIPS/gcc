@@ -38,6 +38,7 @@
 
 #ifdef PLUGIN_SUPPORT
 #include <dlfcn.h>
+#include "plugin-suffix.h"
 #endif
 
 static void gomp_target_init (void);
@@ -738,15 +739,14 @@ gomp_fini_device (struct gomp_device_descr *devicep)
    is GOMP_DEVICE_ICV, it means use device-var ICV.  If it is
    GOMP_DEVICE_HOST_FALLBACK (or any value
    larger than last available hw device), use host fallback.
-   FN is address of host code, OFFLOAD_TABLE contains value of the
-   __OFFLOAD_TABLE__ symbol in the shared library or binary that invokes
-   GOMP_target.  HOSTADDRS, SIZES and KINDS are arrays
+   FN is address of host code, UNUSED is part of the current ABI, but
+   we're not actually using it.  HOSTADDRS, SIZES and KINDS are arrays
    with MAPNUM entries, with addresses of the host objects,
    sizes of the host objects (resp. for pointer kind pointer bias
    and assumed sizeof (void *) size) and kinds.  */
 
 void
-GOMP_target (int device, void (*fn) (void *), const void *offload_table,
+GOMP_target (int device, void (*fn) (void *), const void *unused,
 	     size_t mapnum, void **hostaddrs, size_t *sizes,
 	     unsigned char *kinds)
 {
@@ -817,7 +817,7 @@ GOMP_target (int device, void (*fn) (void *), const void *offload_table,
 }
 
 void
-GOMP_target_data (int device, const void *offload_table, size_t mapnum,
+GOMP_target_data (int device, const void *unused, size_t mapnum,
 		  void **hostaddrs, size_t *sizes, unsigned char *kinds)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
@@ -873,7 +873,7 @@ GOMP_target_end_data (void)
 }
 
 void
-GOMP_target_update (int device, const void *offload_table, size_t mapnum,
+GOMP_target_update (int device, const void *unused, size_t mapnum,
 		    void **hostaddrs, size_t *sizes, unsigned char *kinds)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
@@ -1055,7 +1055,7 @@ static void
 gomp_target_init (void)
 {
   const char *prefix ="libgomp-plugin-";
-  const char *suffix = ".so.1";
+  const char *suffix = SONAME_SUFFIX (1);
   const char *cur, *next;
   char *plugin_name;
   int i, new_num_devices;
