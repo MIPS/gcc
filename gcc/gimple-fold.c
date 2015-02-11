@@ -3120,6 +3120,7 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 			}
 		      gimple_call_set_lhs (stmt, NULL_TREE);
 		    }
+		  maybe_remove_unused_call_args (cfun, stmt);
 		}
 	      else
 		{
@@ -5649,7 +5650,6 @@ gimple_get_virt_method_for_vtable (HOST_WIDE_INT token,
   if (TREE_CODE (v) != VAR_DECL
       || !DECL_VIRTUAL_P (v))
     {
-      gcc_assert (in_lto_p);
       /* Pass down that we lost track of the target.  */
       if (can_refer)
 	*can_refer = false;

@@ -105,9 +105,9 @@ const char * built_in_names[(int) END_BUILTINS] =
 };
 #undef DEF_BUILTIN
 
-/* Setup an array of _DECL trees, make sure each element is
+/* Setup an array of builtin_info_type, make sure each element decl is
    initialized to NULL_TREE.  */
-builtin_info_type builtin_info;
+builtin_info_type builtin_info[(int)END_BUILTINS];
 
 /* Non-zero if __builtin_constant_p should be folded right away.  */
 bool force_folding_builtin_constant_p;
@@ -5930,7 +5930,7 @@ expand_builtin_acc_on_device (tree exp, rtx target)
   v2 = GEN_INT (GOMP_DEVICE_HOST);
 #endif
   machine_mode target_mode = TYPE_MODE (integer_type_node);
-  if (!REG_P (target) || GET_MODE (target) != target_mode)
+  if (!target || !register_operand (target, target_mode))
     target = gen_reg_rtx (target_mode);
   emit_move_insn (target, const1_rtx);
   rtx_code_label *done_label = gen_label_rtx ();
@@ -5960,6 +5960,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
   machine_mode target_mode = TYPE_MODE (TREE_TYPE (exp));
   int flags;
 
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+    return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
+
   /* When ASan is enabled, we don't want to expand some memory/string
      builtins and rely on libsanitizer's hooks.  This allows us to avoid
      redundant checks and be sure, that possible overflow will be detected
@@ -5967,9 +5970,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
 
   if ((flag_sanitize & SANITIZE_ADDRESS) && asan_intercepted_p (fcode))
     return expand_call (exp, target, ignore);
-
-  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
-    return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
 
   /* When not optimizing, generate calls to library functions for a certain
      set of builtins.  */

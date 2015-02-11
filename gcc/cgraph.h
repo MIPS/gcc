@@ -1296,6 +1296,8 @@ public:
      other operation that could make previously non-trapping memory
      accesses trapping.  */
   unsigned nonfreeing_fn : 1;
+  /* True if there was multiple COMDAT bodies merged by lto-symtab.  */
+  unsigned merged : 1;
 };
 
 /* A cgraph node set is a collection of cgraph nodes.  A cgraph node
@@ -2194,7 +2196,7 @@ void cgraphunit_c_finalize (void);
 
 /*  Initialize datastructures so DECL is a function in lowered gimple form.
     IN_SSA is true if the gimple is in SSA.  */
-basic_block init_lowered_empty_function (tree, bool);
+basic_block init_lowered_empty_function (tree, bool, gcov_type);
 
 /* In cgraphclones.c  */
 

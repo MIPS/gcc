@@ -1686,9 +1686,8 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_OBJECT_SIZE)
     return;
 
-  /* Do nothing for calls to legacy functions.  */
-  if (fndecl
-      && lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl)))
+  /* Do nothing for calls to not instrumentable functions.  */
+  if (fndecl && !chkp_instrumentable_p (fndecl))
     return;
 
   /* Ignore CHKP_INIT_PTR_BOUNDS, CHKP_NULL_PTR_BOUNDS
@@ -2114,13 +2113,19 @@ chkp_call_returns_bounds_p (gcall *call)
   if (gimple_call_internal_p (call))
     return false;
 
+  if (gimple_call_builtin_p (call, BUILT_IN_CHKP_NARROW_PTR_BOUNDS)
+      || chkp_gimple_call_builtin_p (call, BUILT_IN_CHKP_NARROW))
+    return true;
+
+  if (gimple_call_with_bounds_p (call))
+    return true;
+
   tree fndecl = gimple_call_fndecl (call);
 
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return false;
 
-  if (fndecl
-      && lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl)))
+  if (fndecl && !chkp_instrumentable_p (fndecl))
     return false;
 
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)

@@ -137,7 +137,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include <new>
 
-static void general_init (const char *);
+static void general_init (const char *, bool);
 static void do_compile ();
 static void process_options (void);
 static void backend_init (void);
@@ -295,7 +295,9 @@ init_local_tick (void)
       int fd = open ("/dev/urandom", O_RDONLY);
       if (fd >= 0)
         {
-          read (fd, &random_seed, sizeof (random_seed));
+          if (read (fd, &random_seed, sizeof (random_seed))
+              != sizeof (random_seed))
+            random_seed = 0;
           close (fd);
         }
 
@@ -726,10 +728,19 @@ compile_file (void)
 
 /* Print version information to FILE.
    Each line begins with INDENT (for the case where FILE is the
-   assembler output file).  */
+   assembler output file).
+
+   If SHOW_GLOBAL_STATE is true (for cc1 etc), we are within the compiler
+   proper and can print pertinent state (e.g. params and plugins).
+
+   If SHOW_GLOBAL_STATE is false (for use by libgccjit), we are outside the
+   compiler, and we don't hold the mutex on the compiler's global state:
+   we can't print params and plugins, since they might not be initialized,
+   or might be being manipulated by a compile running in another
+   thread.  */
 
 void
-print_version (FILE *file, const char *indent)
+print_version (FILE *file, const char *indent, bool show_global_state)
 {
   static const char fmt1[] =
 #ifdef __GNUC__
@@ -789,12 +800,16 @@ print_version (FILE *file, const char *indent)
 	     file == stderr ? _(fmt3) : fmt3,
 	     indent, *indent != 0 ? " " : "",
 	     "MPC", MPC_VERSION_STRING, mpc_get_version ());
-  fprintf (file,
-	   file == stderr ? _(fmt4) : fmt4,
-	   indent, *indent != 0 ? " " : "",
-	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 
-  print_plugins_versions (file, indent);
+  if (show_global_state)
+    {
+      fprintf (file,
+	       file == stderr ? _(fmt4) : fmt4,
+	       indent, *indent != 0 ? " " : "",
+	       PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
+
+      print_plugins_versions (file, indent);
+    }
 }
 
 static int
@@ -971,8 +986,8 @@ init_asm_output (const char *name)
 	       || !strcmp (asm_file_name, HOST_BIT_BUCKET))
 	asm_out_file = fopen (asm_file_name, "w");
       else
-	/* Use fatal_error (UNKOWN_LOCATION) instead of just fatal_error to
-	   prevent gcc from printing the first line in the current file. */
+	/* Use UNKOWN_LOCATION to prevent gcc from printing the first
+	   line in the current file. */
 	fatal_error (UNKNOWN_LOCATION,
 		     "input file %qs is the same as output file",
 		     asm_file_name);
@@ -1006,7 +1021,7 @@ init_asm_output (const char *name)
 	{
 	  /* Print the list of switches in effect
 	     into the assembler file as comments.  */
-	  print_version (asm_out_file, ASM_COMMENT_START);
+	  print_version (asm_out_file, ASM_COMMENT_START, true);
 	  print_switch_values (print_to_asm_out_file);
 	  putc ('\n', asm_out_file);
 	}
@@ -1140,7 +1155,7 @@ open_auxiliary_file (const char *ext)
   filename = concat (aux_base_name, ".", ext, NULL);
   file = fopen (filename, "w");
   if (!file)
-    fatal_error ("can%'t open %s for writing: %m", filename);
+    fatal_error (input_location, "can%'t open %s for writing: %m", filename);
   free (filename);
   return file;
 }
@@ -1149,7 +1164,7 @@ open_auxiliary_file (const char *ext)
    options are parsed.  Signal handlers, internationalization etc.
    ARGV0 is main's argv[0].  */
 static void
-general_init (const char *argv0)
+general_init (const char *argv0, bool init_signals)
 {
   const char *p;
 
@@ -1188,28 +1203,31 @@ general_init (const char *argv0)
   global_dc->option_state = &global_options;
   global_dc->option_name = option_name;
 
-  /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
+  if (init_signals)
+    {
+      /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
 #ifdef SIGSEGV
-  signal (SIGSEGV, crash_signal);
+      signal (SIGSEGV, crash_signal);
 #endif
 #ifdef SIGILL
-  signal (SIGILL, crash_signal);
+      signal (SIGILL, crash_signal);
 #endif
 #ifdef SIGBUS
-  signal (SIGBUS, crash_signal);
+      signal (SIGBUS, crash_signal);
 #endif
 #ifdef SIGABRT
-  signal (SIGABRT, crash_signal);
+      signal (SIGABRT, crash_signal);
 #endif
 #if defined SIGIOT && (!defined SIGABRT || SIGABRT != SIGIOT)
-  signal (SIGIOT, crash_signal);
+      signal (SIGIOT, crash_signal);
 #endif
 #ifdef SIGFPE
-  signal (SIGFPE, crash_signal);
+      signal (SIGFPE, crash_signal);
 #endif
 
-  /* Other host-specific signal setup.  */
-  (*host_hooks.extra_signals)();
+      /* Other host-specific signal setup.  */
+      (*host_hooks.extra_signals)();
+  }
 
   /* Initialize the garbage-collector, string pools and tree type hash
      table.  */
@@ -1421,7 +1439,7 @@ process_options (void)
      option flags in use.  */
   if (version_flag)
     {
-      print_version (stderr, "");
+      print_version (stderr, "", true);
       if (! quiet_flag)
 	print_switch_values (print_to_stderr);
     }
@@ -1558,7 +1576,7 @@ process_options (void)
     {
       aux_info_file = fopen (aux_info_file_name, "w");
       if (aux_info_file == 0)
-	fatal_error ("can%'t open %s: %m", aux_info_file_name);
+	fatal_error (input_location, "can%'t open %s: %m", aux_info_file_name);
     }
 
   if (!targetm_common.have_named_sections)
@@ -1644,6 +1662,11 @@ process_options (void)
       flag_sanitize &= ~SANITIZE_ADDRESS;
     }
 
+ /* Do not use IPA optimizations for register allocation if profiler is active
+    or port does not emit prologue and epilogue as RTL.  */
+  if (profile_flag || !HAVE_prologue || !HAVE_epilogue)
+    flag_ipa_ra = 0;
+
   /* Enable -Werror=coverage-mismatch when -Werror and -Wno-error
      have not been set.  */
   if (!global_options_set.x_warnings_are_errors
@@ -1657,10 +1680,8 @@ process_options (void)
   optimization_default_node = build_optimization_node (&global_options);
   optimization_current_node = optimization_default_node;
 
- /* Disable use caller save optimization if profiler is active or port
-    does not emit prologue and epilogue as RTL.  */
-  if (profile_flag || !HAVE_prologue || !HAVE_epilogue)
-    flag_ipa_ra = 0;
+  /* Please don't change global_options after this point, those changes won't
+     be reflected in optimization_{default,current}_node.  */
 }
 
 /* This function can be called multiple times to reinitialize the compiler
@@ -1952,9 +1973,9 @@ finalize (bool no_backend)
   if (asm_out_file)
     {
       if (ferror (asm_out_file) != 0)
-	fatal_error ("error writing to %s: %m", asm_file_name);
+	fatal_error (input_location, "error writing to %s: %m", asm_file_name);
       if (fclose (asm_out_file) != 0)
-	fatal_error ("error closing %s: %m", asm_file_name);
+	fatal_error (input_location, "error closing %s: %m", asm_file_name);
     }
 
   if (stack_usage_file)
@@ -2057,8 +2078,9 @@ do_compile ()
     }
 }
 
-toplev::toplev (bool use_TV_TOTAL)
-  : m_use_TV_TOTAL (use_TV_TOTAL)
+toplev::toplev (bool use_TV_TOTAL, bool init_signals)
+  : m_use_TV_TOTAL (use_TV_TOTAL),
+    m_init_signals (init_signals)
 {
   if (!m_use_TV_TOTAL)
     start_timevars ();
@@ -2095,7 +2117,7 @@ toplev::main (int argc, char **argv)
   expandargv (&argc, &argv);
 
   /* Initialization of GCC's environment, and diagnostics.  */
-  general_init (argv[0]);
+  general_init (argv[0], m_init_signals);
 
   /* One-off initialization of options that does not need to be
      repeated when options are added for particular functions.  */
@@ -2129,7 +2151,7 @@ toplev::main (int argc, char **argv)
   initialize_plugins ();
 
   if (version_flag)
-    print_version (stderr, "");
+    print_version (stderr, "", true);
 
   if (help_flag)
     print_plugins_help (stderr, "");

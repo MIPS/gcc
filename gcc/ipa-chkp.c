@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 #include "cgraph.h"
 #include "tree-chkp.h"
+#include "tree-inline.h"
 #include "ipa-chkp.h"
 
 /*  Pointer Bounds Checker has two IPA passes to support code instrumentation.
@@ -401,6 +402,18 @@ chkp_maybe_clone_builtin_fndecl (tree fndecl)
   return clone;
 }
 
+/* Return 1 if function FNDECL should be instrumented.  */
+
+bool
+chkp_instrumentable_p (tree fndecl)
+{
+  struct function *fn = DECL_STRUCT_FUNCTION (fndecl);
+  return (!lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl))
+	  && (!flag_chkp_instrument_marked_only
+	      || lookup_attribute ("bnd_instrument", DECL_ATTRIBUTES (fndecl)))
+	  && (!fn || !copy_forbidden (fn, fndecl)));
+}
+
 /* Return clone created for instrumentation of NODE or NULL.  */
 
 cgraph_node *
@@ -483,10 +496,10 @@ chkp_maybe_create_clone (tree fndecl)
 	{
 	  /* If function will not be instrumented, then it's instrumented
 	     version is a thunk for the original.  */
-	  if (lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl))
-	      || (flag_chkp_instrument_marked_only
-		  && !lookup_attribute ("bnd_instrument", DECL_ATTRIBUTES (fndecl))))
+	  if (!chkp_instrumentable_p (fndecl))
 	    {
+	      clone->remove_callees ();
+	      clone->remove_all_references ();
 	      clone->thunk.thunk_p = true;
 	      clone->thunk.add_pointer_bounds_args = true;
 	      clone->create_edge (node, NULL, 0, CGRAPH_FREQ_BASE);
@@ -532,7 +545,8 @@ chkp_maybe_create_clone (tree fndecl)
 
       /* Clone all thunks.  */
       for (e = node->callers; e; e = e->next_caller)
-	if (e->caller->thunk.thunk_p)
+	if (e->caller->thunk.thunk_p
+	    && !e->caller->thunk.add_pointer_bounds_args)
 	  {
 	    struct cgraph_node *thunk
 	      = chkp_maybe_create_clone (e->caller->decl);
@@ -578,6 +592,7 @@ static unsigned int
 chkp_versioning (void)
 {
   struct cgraph_node *node;
+  const char *reason;
 
   bitmap_obstack_initialize (NULL);
 
@@ -587,14 +602,20 @@ chkp_versioning (void)
 	  && !node->instrumented_version
 	  && !node->alias
 	  && !node->thunk.thunk_p
-	  && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (node->decl))
-	  && (!flag_chkp_instrument_marked_only
-	      || lookup_attribute ("bnd_instrument",
-				   DECL_ATTRIBUTES (node->decl)))
 	  && (!DECL_BUILT_IN (node->decl)
 	      || (DECL_BUILT_IN_CLASS (node->decl) == BUILT_IN_NORMAL
 		  && DECL_FUNCTION_CODE (node->decl) < BEGIN_CHKP_BUILTINS)))
-	chkp_maybe_create_clone (node->decl);
+	{
+	  if (chkp_instrumentable_p (node->decl))
+	    chkp_maybe_create_clone (node->decl);
+	  else if ((reason = copy_forbidden (DECL_STRUCT_FUNCTION (node->decl),
+					     node->decl)))
+	    {
+	      if (warning_at (DECL_SOURCE_LOCATION (node->decl), OPT_Wchkp,
+			      "function cannot be instrumented"))
+		inform (DECL_SOURCE_LOCATION (node->decl), reason, node->decl);
+	    }
+	}
     }
 
   /* Mark all aliases and thunks of functions with no instrumented
@@ -622,7 +643,7 @@ chkp_versioning (void)
    function.  */
 
 static unsigned int
-chkp_produce_thunks (void)
+chkp_produce_thunks (bool early)
 {
   struct cgraph_node *node;
 
@@ -631,7 +652,9 @@ chkp_produce_thunks (void)
       if (!node->instrumentation_clone
 	  && node->instrumented_version
 	  && gimple_has_body_p (node->decl)
-	  && gimple_has_body_p (node->instrumented_version->decl))
+	  && gimple_has_body_p (node->instrumented_version->decl)
+	  && (!lookup_attribute ("always_inline", DECL_ATTRIBUTES (node->decl))
+	      || !early))
 	{
 	  node->release_body ();
 	  node->remove_callees ();
@@ -649,12 +672,15 @@ chkp_produce_thunks (void)
   /* Mark instrumentation clones created for aliases and thunks
      as insttrumented so they could be removed as unreachable
      now.  */
-  FOR_EACH_DEFINED_FUNCTION (node)
+  if (!early)
     {
-      if (node->instrumentation_clone
-	  && (node->alias || node->thunk.thunk_p)
-	  && !chkp_function_instrumented_p (node->decl))
-	chkp_function_mark_instrumented (node->decl);
+      FOR_EACH_DEFINED_FUNCTION (node)
+      {
+	if (node->instrumentation_clone
+	    && (node->alias || node->thunk.thunk_p)
+	    && !chkp_function_instrumented_p (node->decl))
+	  chkp_function_mark_instrumented (node->decl);
+      }
     }
 
   return TODO_remove_functions;
@@ -664,6 +690,19 @@ const pass_data pass_data_ipa_chkp_versioning =
 {
   SIMPLE_IPA_PASS, /* type */
   "chkp_versioning", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0 /* todo_flags_finish */
+};
+
+const pass_data pass_data_ipa_chkp_early_produce_thunks =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "chkp_ecleanup", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_NONE, /* tv_id */
   0, /* properties_required */
@@ -711,6 +750,31 @@ public:
 
 }; // class pass_ipa_chkp_versioning
 
+class pass_ipa_chkp_early_produce_thunks : public simple_ipa_opt_pass
+{
+public:
+  pass_ipa_chkp_early_produce_thunks (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_chkp_early_produce_thunks, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual opt_pass * clone ()
+    {
+      return new pass_ipa_chkp_early_produce_thunks (m_ctxt);
+    }
+
+  virtual bool gate (function *)
+    {
+      return flag_check_pointer_bounds;
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      return chkp_produce_thunks (true);
+    }
+
+}; // class pass_chkp_produce_thunks
+
 class pass_ipa_chkp_produce_thunks : public simple_ipa_opt_pass
 {
 public:
@@ -731,7 +795,7 @@ public:
 
   virtual unsigned int execute (function *)
     {
-      return chkp_produce_thunks ();
+      return chkp_produce_thunks (false);
     }
 
 }; // class pass_chkp_produce_thunks
@@ -740,6 +804,12 @@ simple_ipa_opt_pass *
 make_pass_ipa_chkp_versioning (gcc::context *ctxt)
 {
   return new pass_ipa_chkp_versioning (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_ipa_chkp_early_produce_thunks (gcc::context *ctxt)
+{
+  return new pass_ipa_chkp_early_produce_thunks (ctxt);
 }
 
 simple_ipa_opt_pass *

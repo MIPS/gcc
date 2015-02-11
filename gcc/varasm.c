@@ -2252,6 +2252,33 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 				         | SECTION_LINKONCE,
 			    	         DECL_NAME (decl));
           in_section = sect;
+#elif defined (TARGET_PECOFF)
+          /* Neither OBJECT_FORMAT_PE, nor OBJECT_FORMAT_COFF is set here.
+             Therefore the following check is used.
+             In case a the target is PE or COFF a comdat group section
+             is created, e.g. .vtable_map_vars$foo. The linker places
+             everything in .vtable_map_vars at the end.
+
+             A fix could be made in
+             gcc/config/i386/winnt.c: i386_pe_unique_section. */
+          if (TARGET_PECOFF)
+          {
+            char *name;
+            
+            if (TREE_CODE (DECL_NAME (decl)) == IDENTIFIER_NODE)
+              name = ACONCAT ((sect->named.name, "$",
+                               IDENTIFIER_POINTER (DECL_NAME (decl)), NULL));
+            else
+              name = ACONCAT ((sect->named.name, "$",
+                    IDENTIFIER_POINTER (DECL_COMDAT_GROUP (DECL_NAME (decl))),
+                    NULL));
+
+            targetm.asm_out.named_section (name,
+                                           sect->named.common.flags
+                                           | SECTION_LINKONCE,
+                                           DECL_NAME (decl));
+            in_section = sect;
+        }
 #else
           switch_to_section (sect);
 #endif
@@ -5574,6 +5601,7 @@ do_assemble_alias (tree decl, tree target)
 
   id = DECL_ASSEMBLER_NAME (decl);
   ultimate_transparent_alias_target (&id);
+  ultimate_transparent_alias_target (&target);
 
   /* We must force creation of DECL_RTL for debug info generation, even though
      we don't use it here.  */
@@ -5585,8 +5613,6 @@ do_assemble_alias (tree decl, tree target)
 
   if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
     {
-      ultimate_transparent_alias_target (&target);
-
       if (!TREE_SYMBOL_REFERENCED (target))
 	weakref_targets = tree_cons (decl, target, weakref_targets);
 
@@ -5917,8 +5943,12 @@ default_assemble_visibility (tree decl ATTRIBUTE_UNUSED,
   };
 
   const char *name, *type;
+  tree id;
 
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  id = DECL_ASSEMBLER_NAME (decl);
+  ultimate_transparent_alias_target (&id);
+  name = IDENTIFIER_POINTER (id);
+
   type = visibility_types[vis];
 
   fprintf (asm_out_file, "\t.%s\t", type);

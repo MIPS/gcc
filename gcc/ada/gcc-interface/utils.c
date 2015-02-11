@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -3104,6 +3104,11 @@ begin_subprog_body (tree subprog_decl)
 
   /* This function is being defined.  */
   TREE_STATIC (subprog_decl) = 1;
+
+  /* The failure of this assertion will likely come from a wrong context for
+     the subprogram body, e.g. another procedure for a procedure declared at
+     library level.  */
+  gcc_assert (current_function_decl == decl_function_context (subprog_decl));
 
   current_function_decl = subprog_decl;
 

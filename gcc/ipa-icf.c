@@ -584,6 +584,16 @@ sem_function::equals_private (sem_item *item,
   return result;
 }
 
+/* Set LOCAL_P of NODE to true if DATA is non-NULL.
+   Helper for call_for_symbol_thunks_and_aliases.  */
+
+static bool
+set_local (cgraph_node *node, void *data)
+{
+  node->local.local = data != NULL;
+  return false;
+}
+
 /* Merges instance with an ALIAS_ITEM, where alias, thunk or redirection can
    be applied.  */
 bool
@@ -711,6 +721,10 @@ sem_function::merge (sem_item *alias_item)
 	}
 
       alias->icf_merged = true;
+      if (local_original->lto_file_data
+	  && alias->lto_file_data
+	  && local_original->lto_file_data != alias->lto_file_data)
+      local_original->merged = true;
 
       /* The alias function is removed if symbol address
          does not matter.  */
@@ -725,6 +739,10 @@ sem_function::merge (sem_item *alias_item)
   else if (create_alias)
     {
       alias->icf_merged = true;
+      if (local_original->lto_file_data
+	  && alias->lto_file_data
+	  && local_original->lto_file_data != alias->lto_file_data)
+      local_original->merged = true;
 
       /* Remove the function's body.  */
       ipa_merge_profiles (original, alias);
@@ -735,10 +753,8 @@ sem_function::merge (sem_item *alias_item)
       cgraph_node::create_alias (alias_func->decl, decl);
       alias->resolve_alias (original);
 
-      /* Workaround for PR63566 that forces equal calling convention
-       to be used.  */
-      alias->local.local = false;
-      original->local.local = false;
+      original->call_for_symbol_thunks_and_aliases
+	 (set_local, (void *)(size_t) original->local_p (), true);
 
       if (dump_file)
 	fprintf (dump_file, "Callgraph alias has been created.\n\n");
@@ -762,7 +778,11 @@ sem_function::merge (sem_item *alias_item)
         }
 
       alias->icf_merged = true;
-      ipa_merge_profiles (local_original, alias);
+      if (local_original->lto_file_data
+	  && alias->lto_file_data
+	  && local_original->lto_file_data != alias->lto_file_data)
+      local_original->merged = true;
+      ipa_merge_profiles (local_original, alias, true);
       alias->create_wrapper (local_original);
 
       if (dump_file)
@@ -1550,11 +1570,13 @@ sem_item_optimizer::read_summary (void)
 void
 sem_item_optimizer::register_hooks (void)
 {
-  m_cgraph_node_hooks = symtab->add_cgraph_removal_hook
-			(&sem_item_optimizer::cgraph_removal_hook, this);
+  if (!m_cgraph_node_hooks)
+    m_cgraph_node_hooks = symtab->add_cgraph_removal_hook
+			  (&sem_item_optimizer::cgraph_removal_hook, this);
 
-  m_varpool_node_hooks = symtab->add_varpool_removal_hook
-			 (&sem_item_optimizer::varpool_removal_hook, this);
+  if (!m_varpool_node_hooks)
+    m_varpool_node_hooks = symtab->add_varpool_removal_hook
+			   (&sem_item_optimizer::varpool_removal_hook, this);
 }
 
 /* Unregister callgraph and varpool hooks.  */
@@ -1652,39 +1674,31 @@ sem_item_optimizer::filter_removed_items (void)
     {
       sem_item *item = m_items[i];
 
-      if (!flag_ipa_icf_functions && item->type == FUNC)
-	{
+      if (m_removed_items_set.contains (item->node))
+        {
 	  remove_item (item);
 	  continue;
-	}
-
-      if (!flag_ipa_icf_variables && item->type == VAR)
-	{
-	  remove_item (item);
-	  continue;
-	}
-
-      bool no_body_function = false;
+        }
 
       if (item->type == FUNC)
-	{
+        {
 	  cgraph_node *cnode = static_cast <sem_function *>(item)->get_node ();
 
-	  no_body_function = in_lto_p && (cnode->alias || cnode->body_removed);
-	}
-
-      if(!m_removed_items_set.contains (m_items[i]->node)
-	  && !no_body_function)
-	{
-	  if (item->type == VAR || (!DECL_CXX_CONSTRUCTOR_P (item->decl)
-				    && !DECL_CXX_DESTRUCTOR_P (item->decl)))
-	    {
-	      filtered.safe_push (m_items[i]);
-	      continue;
-	    }
-	}
-
-      remove_item (item);
+	  bool no_body_function = in_lto_p && (cnode->alias || cnode->body_removed);
+	  if (no_body_function || !opt_for_fn (item->decl, flag_ipa_icf_functions)
+	      || DECL_CXX_CONSTRUCTOR_P (item->decl)
+	      || DECL_CXX_DESTRUCTOR_P (item->decl))
+	    remove_item (item);
+	  else
+	    filtered.safe_push (item);
+        }
+      else /* VAR.  */
+        {
+	  if (!flag_ipa_icf_variables)
+	    remove_item (item);
+	  else
+	    filtered.safe_push (item);
+        }
     }
 
   /* Clean-up of released semantic items.  */
@@ -2372,6 +2386,16 @@ sem_item_optimizer::merge_classes (unsigned int prev_class_count)
 			 source->asm_name (), alias->asm_name ());
 	      }
 
+	    if (lookup_attribute ("no_icf", DECL_ATTRIBUTES (alias->decl)))
+	      {
+	        if (dump_file)
+		  fprintf (dump_file,
+			   "Merge operation is skipped due to no_icf "
+			   "attribute.\n\n");
+
+		continue;
+	      }
+
 	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      {
 		source->dump_to_file (dump_file);
@@ -2424,6 +2448,7 @@ ipa_icf_generate_summary (void)
   if (!optimizer)
     optimizer = new sem_item_optimizer ();
 
+  optimizer->register_hooks ();
   optimizer->parse_funcs_and_vars ();
 }
 
@@ -2499,7 +2524,7 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
   {
-    return flag_ipa_icf_variables || flag_ipa_icf_functions;
+    return in_lto_p || flag_ipa_icf_variables || flag_ipa_icf_functions;
   }
 
   virtual unsigned int execute (function *)
