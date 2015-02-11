@@ -29835,6 +29835,7 @@ restart:
 		{
 		case MULT_EXPR:
 		case TRUNC_DIV_EXPR:
+		case RDIV_EXPR:
 		case PLUS_EXPR:
 		case MINUS_EXPR:
 		case LSHIFT_EXPR:
@@ -33165,7 +33166,8 @@ c_parse_file (void)
   static bool already_called = false;
 
   if (already_called)
-    fatal_error ("inter-module optimizations not implemented for C++");
+    fatal_error (input_location,
+		 "inter-module optimizations not implemented for C++");
   already_called = true;
 
   the_parser = cp_parser_new ();

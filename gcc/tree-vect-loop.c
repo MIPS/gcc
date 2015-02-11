@@ -2834,6 +2834,11 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
      statements.  */
 
   scalar_single_iter_cost = vect_get_single_scalar_iteration_cost (loop_vinfo);
+  /* ???  Below we use this cost as number of stmts with scalar_stmt cost,
+     thus divide by that.  This introduces rounding errors, thus better
+     introduce a new cost kind (raw_cost?  scalar_iter_cost?). */
+  int scalar_single_iter_stmts
+    = scalar_single_iter_cost / vect_get_stmt_cost (scalar_stmt);
 
   /* Add additional cost for the peeled instructions in prologue and epilogue
      loop.
@@ -2868,10 +2873,10 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
       /* FORNOW: Don't attempt to pass individual scalar instructions to
 	 the model; just assume linear cost for scalar iterations.  */
       (void) add_stmt_cost (target_cost_data,
-			    peel_iters_prologue * scalar_single_iter_cost,
+			    peel_iters_prologue * scalar_single_iter_stmts,
 			    scalar_stmt, NULL, 0, vect_prologue);
       (void) add_stmt_cost (target_cost_data, 
-			    peel_iters_epilogue * scalar_single_iter_cost,
+			    peel_iters_epilogue * scalar_single_iter_stmts,
 			    scalar_stmt, NULL, 0, vect_epilogue);
     }
   else
@@ -2887,7 +2892,7 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
 
       (void) vect_get_known_peeling_cost (loop_vinfo, peel_iters_prologue,
 					  &peel_iters_epilogue,
-					  scalar_single_iter_cost,
+					  scalar_single_iter_stmts,
 					  &prologue_cost_vec,
 					  &epilogue_cost_vec);
 
@@ -2990,6 +2995,27 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
 
   vec_outside_cost = (int)(vec_prologue_cost + vec_epilogue_cost);
   
+  if (dump_enabled_p ())
+    {
+      dump_printf_loc (MSG_NOTE, vect_location, "Cost model analysis: \n");
+      dump_printf (MSG_NOTE, "  Vector inside of loop cost: %d\n",
+                   vec_inside_cost);
+      dump_printf (MSG_NOTE, "  Vector prologue cost: %d\n",
+                   vec_prologue_cost);
+      dump_printf (MSG_NOTE, "  Vector epilogue cost: %d\n",
+                   vec_epilogue_cost);
+      dump_printf (MSG_NOTE, "  Scalar iteration cost: %d\n",
+                   scalar_single_iter_cost);
+      dump_printf (MSG_NOTE, "  Scalar outside cost: %d\n",
+                   scalar_outside_cost);
+      dump_printf (MSG_NOTE, "  Vector outside cost: %d\n",
+                   vec_outside_cost);
+      dump_printf (MSG_NOTE, "  prologue iterations: %d\n",
+                   peel_iters_prologue);
+      dump_printf (MSG_NOTE, "  epilogue iterations: %d\n",
+                   peel_iters_epilogue);
+    }
+
   /* Calculate number of iterations required to make the vector version
      profitable, relative to the loop bodies only.  The following condition
      must hold true:
@@ -3037,30 +3063,9 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
       return;
     }
 
-  if (dump_enabled_p ())
-    {
-      dump_printf_loc (MSG_NOTE, vect_location, "Cost model analysis: \n");
-      dump_printf (MSG_NOTE, "  Vector inside of loop cost: %d\n",
-                   vec_inside_cost);
-      dump_printf (MSG_NOTE, "  Vector prologue cost: %d\n",
-                   vec_prologue_cost);
-      dump_printf (MSG_NOTE, "  Vector epilogue cost: %d\n",
-                   vec_epilogue_cost);
-      dump_printf (MSG_NOTE, "  Scalar iteration cost: %d\n",
-                   scalar_single_iter_cost);
-      dump_printf (MSG_NOTE, "  Scalar outside cost: %d\n",
-                   scalar_outside_cost);
-      dump_printf (MSG_NOTE, "  Vector outside cost: %d\n",
-                   vec_outside_cost);
-      dump_printf (MSG_NOTE, "  prologue iterations: %d\n",
-                   peel_iters_prologue);
-      dump_printf (MSG_NOTE, "  epilogue iterations: %d\n",
-                   peel_iters_epilogue);
-      dump_printf (MSG_NOTE,
-                   "  Calculated minimum iters for profitability: %d\n",
-                   min_profitable_iters);
-      dump_printf (MSG_NOTE, "\n");
-    }
+  dump_printf (MSG_NOTE,
+	       "  Calculated minimum iters for profitability: %d\n",
+	       min_profitable_iters);
 
   min_profitable_iters =
 	min_profitable_iters < vf ? vf : min_profitable_iters;

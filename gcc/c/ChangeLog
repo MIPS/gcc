@@ -1,3 +1,40 @@
+2015-02-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64856
+	* c-typeck.c (process_init_element): Don't always wrap
+	COMPOUND_LITERAL_EXPR in a SAVE_EXPR in C99 mode when
+	initializing a range of elements.
+
+2015-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64824
+	PR c/64868
+	* c-parser.c (c_parser_omp_atomic): Handle RDIV_EXPR.
+
+2015-02-02  Bruno Loff  <bruno.loff@gmail.com>
+
+	* c-parser.c (c_parser_declspecs): Call invoke_plugin_callbacks after
+	processing enum declaration.
+
+2015-01-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64709
+	* c-typeck.c (pop_init_level): If constructor_elements has
+	exactly one element with integer_zerop value, set constructor_zeroinit
+	to 1.  Remove braces around warning_init call.
+
+2015-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64766
+	* c-typeck.c (store_init_value): Don't overwrite DECL_INITIAL
+	of FUNCTION_DECLs with error_mark_node.
+
+2015-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64778
+	* c-typeck.c (convert_arguments): Return -1 if there are
+	error_args, even if we've diagnosed too many arguments.
+
 2015-01-21  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/64313

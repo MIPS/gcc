@@ -407,11 +407,13 @@ get_base_var (tree t)
 
 
 /* SRC and DST are going to be merged.  Take SRC's profile and merge it into
-   DST so it is not going to be lost.  Destroy SRC's body on the way.  */
+   DST so it is not going to be lost.  Possibly destroy SRC's body on the way
+   unless PRESERVE_BODY is set.  */
 
 void
 ipa_merge_profiles (struct cgraph_node *dst,
-		    struct cgraph_node *src)
+		    struct cgraph_node *src,
+		    bool preserve_body)
 {
   tree oldsrcdecl = src->decl;
   struct function *srccfun, *dstcfun;
@@ -634,7 +636,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 		   speculations when merging.  */
 		gcc_unreachable ();
 	    }
-	  else if (e2->speculative)
+	  else if (e2 && e2->speculative)
 	    {
 	      cgraph_edge *direct, *indirect;
 	      ipa_ref *ref;
@@ -652,7 +654,8 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	      e->frequency = freq;
 	    }
 	}
-      src->release_body ();
+      if (!preserve_body)
+        src->release_body ();
       inline_update_overall_summary (dst);
     }
   /* TODO: if there is no match, we can scale up.  */

@@ -2627,6 +2627,10 @@ arm_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 static void
 arm_option_override (void)
 {
+  arm_selected_arch = NULL;
+  arm_selected_cpu = NULL;
+  arm_selected_tune = NULL;
+
   if (global_options_set.x_arm_arch_option)
     arm_selected_arch = &all_architectures[arm_arch_option];
 
@@ -17293,7 +17297,7 @@ thumb2_reorg (void)
 	      rtx src = XEXP (pat, 1);
 	      rtx op0 = NULL_RTX, op1 = NULL_RTX;
 
-	      if (!OBJECT_P (src))
+	      if (UNARY_P (src) || BINARY_P (src))
 		  op0 = XEXP (src, 0);
 
 	      if (BINARY_P (src))
@@ -20273,11 +20277,10 @@ arm_emit_multi_reg_pop (unsigned long saved_regs_mask)
   rtx par;
   rtx dwarf = NULL_RTX;
   rtx tmp, reg;
-  bool return_in_pc;
+  bool return_in_pc = saved_regs_mask & (1 << PC_REGNUM);
   int offset_adj;
   int emit_update;
 
-  return_in_pc = (saved_regs_mask & (1 << PC_REGNUM)) ? true : false;
   offset_adj = return_in_pc ? 1 : 0;
   for (i = 0; i <= LAST_ARM_REGNUM; i++)
     if (saved_regs_mask & (1 << i))
@@ -20293,10 +20296,7 @@ arm_emit_multi_reg_pop (unsigned long saved_regs_mask)
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (num_regs + emit_update + offset_adj));
 
   if (return_in_pc)
-    {
-      tmp = ret_rtx;
-      XVECEXP (par, 0, 0) = tmp;
-    }
+    XVECEXP (par, 0, 0) = ret_rtx;
 
   if (emit_update)
     {
@@ -20446,9 +20446,8 @@ thumb2_emit_ldrd_pop (unsigned long saved_regs_mask)
   rtx par = NULL_RTX;
   rtx dwarf = NULL_RTX;
   rtx tmp, reg, tmp1;
-  bool return_in_pc;
+  bool return_in_pc = saved_regs_mask & (1 << PC_REGNUM);
 
-  return_in_pc = (saved_regs_mask & (1 << PC_REGNUM)) ? true : false;
   for (i = 0; i <= LAST_ARM_REGNUM; i++)
     if (saved_regs_mask & (1 << i))
       num_regs++;
@@ -25230,7 +25229,7 @@ arm_expand_epilogue (bool really_return)
             arm_emit_multi_reg_pop (saved_regs_mask);
         }
 
-      if (return_in_pc == true)
+      if (return_in_pc)
         return;
     }
 
@@ -25695,8 +25694,9 @@ arm_file_start (void)
 	  fpu_name = arm_fpu_desc->name;
 	  if (arm_fpu_desc->model == ARM_FP_MODEL_VFP)
 	    {
-	      if (TARGET_HARD_FLOAT)
-		arm_emit_eabi_attribute ("Tag_ABI_HardFP_use", 27, 3);
+	      if (TARGET_HARD_FLOAT && TARGET_VFP_SINGLE)
+		arm_emit_eabi_attribute ("Tag_ABI_HardFP_use", 27, 1);
+
 	      if (TARGET_HARD_FLOAT_ABI)
 		arm_emit_eabi_attribute ("Tag_ABI_VFP_args", 28, 1);
 	    }

@@ -1248,7 +1248,7 @@ Common Report Var(flag_forward_propagate) Optimization
 Perform a forward propagation pass on RTL
 
 ffp-contract=
-Common Joined RejectNegative Enum(fp_contract_mode) Var(flag_fp_contract_mode) Init(FP_CONTRACT_FAST)
+Common Joined RejectNegative Enum(fp_contract_mode) Var(flag_fp_contract_mode) Init(FP_CONTRACT_FAST) Optimization
 -ffp-contract=[off|on|fast] Perform floating-point expression contraction.
 
 Enum
@@ -1372,7 +1372,7 @@ Common Report Var(flag_if_conversion2) Optimization
 Perform conversion of conditional jumps to conditional execution
 
 fstack-reuse=
-Common Joined RejectNegative Enum(stack_reuse_level) Var(flag_stack_reuse) Init(SR_ALL)
+Common Joined RejectNegative Enum(stack_reuse_level) Var(flag_stack_reuse) Init(SR_ALL) Optimization
 -fstack-reuse=[all|named_vars|none] Set stack reuse level for local variables.
 
 Enum

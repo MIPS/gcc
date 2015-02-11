@@ -41,7 +41,7 @@
 
   BUILTIN_VDC (COMBINE, combine, 0)
   BUILTIN_VB (BINOP, pmul, 0)
-  BUILTIN_VDQF (UNOP, sqrt, 2)
+  BUILTIN_VDQF_DF (UNOP, sqrt, 2)
   BUILTIN_VD_BHSI (BINOP, addp, 0)
   VAR1 (UNOP, addp, 0, di)
   BUILTIN_VDQ_BHSI (UNOP, clrsb, 2)
@@ -358,7 +358,8 @@
 
   /* Implemented by a mixture of abs2 patterns.  Note the DImode builtin is
      only ever used for the int64x1_t intrinsic, there is no scalar version.  */
-  BUILTIN_VALLDI (UNOP, abs, 2)
+  BUILTIN_VSDQ_I_DI (UNOP, abs, 0)
+  BUILTIN_VDQF (UNOP, abs, 2)
 
   VAR1 (UNOP, vec_unpacks_hi_, 10, v4sf)
   VAR1 (BINOP, float_truncate_hi_, 0, v4sf)

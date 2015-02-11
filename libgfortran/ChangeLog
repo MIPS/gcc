@@ -1,3 +1,43 @@
+2015-02-10 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/57822
+	* io/write_float.def (output_float): Apply fix of previous patch
+	to correctly calculate the exponent number of digits and take
+	care of wide character output.
+
+2015-02-09  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/57822
+	* io/write_float.def (output_float): If doing g0 editing and
+	exponent is zero, do not emit exponent.
+
+2015-02-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/60956
+	* io/fbuf.c (fbuf_flush_list): New function that only flushes
+	if current fbuf position exceeds a limit.
+	* io/fbuf.h: Declare the new function.
+	* io/io.h (enum unit_mode): Add two new modes.
+	* io/list_read.c (list_formatted_read_scalar): Call new function.
+	* io/write.c: Include fbuf.h. (list_formatted_write_scalar):
+	Call new function.
+
+2015-01-24  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/64770
+	* io/unit.c (filename_from_unit): Check that u->filename != NULL
+	before calling strdup.
+
+2015-01-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/61933
+	* io/inquire.c (inquire_via_unit): Set existing to true for
+	any negative unit that is currently connected and any positive
+	units within range of KIND=4 value.  The unit value for any out
+	of range case that may occur if the user is using a KIND=8 will
+	have been set to -2 which is reserved and can never be opened,
+	and therefore the unit does not exist.
+
 2015-01-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libgfortran/61933
