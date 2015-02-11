@@ -9316,8 +9316,7 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
   /* Generate a diagnostic for requesting data of a type that cannot
      be passed through `...' due to type promotion at the call site.  */
-  if ((promoted_type = lang_hooks.types.type_promotes_to (type))
-	   != type)
+  if ((promoted_type = lang_hooks.types.type_promotes_to (type)) != type)
     {
       static bool gave_help;
       bool warned;
