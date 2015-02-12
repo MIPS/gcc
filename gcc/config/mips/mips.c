@@ -5604,21 +5604,24 @@ mips_expand_conditional_branch (rtx *operands)
 void
 mips_expand_msa_branch (rtx *operands, rtx (*gen_fn)(rtx, rtx, rtx))
 {
-  rtx labelT = gen_label_rtx ();
-  rtx labelE = gen_label_rtx ();
-  rtx tmp = gen_fn (labelT, operands[1], const0_rtx);
+  rtx label_true = gen_label_rtx ();
+  rtx label_else = gen_label_rtx ();
+  rtx branch = gen_fn (label_true, operands[1], const0_rtx);
 
-  tmp = emit_jump_insn (tmp);
-  JUMP_LABEL (tmp) = labelT;
+  branch = emit_jump_insn (branch);
+  JUMP_LABEL (branch) = label_true;
+
   emit_move_insn (operands[0], const0_rtx);
-  tmp = emit_jump_insn (gen_jump (labelE));
+  branch = emit_jump_insn (gen_jump (label_else));
   emit_barrier ();
-  JUMP_LABEL (tmp) = labelE;
-  emit_label (labelT);
-  LABEL_NUSES (labelT) = 1;
+  JUMP_LABEL (branch) = label_else;
+
+  emit_label (label_true);
+  LABEL_NUSES (label_true) = 1;
   emit_move_insn (operands[0], const1_rtx);
-  emit_label (labelE);
-  LABEL_NUSES (labelE) = 1;
+
+  emit_label (label_else);
+  LABEL_NUSES (label_else) = 1;
 }
 
 /* Implement:
