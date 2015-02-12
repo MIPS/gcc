@@ -825,7 +825,7 @@ optimize_va_list_gpr_fpr_size (function *fun)
 	 them as assignments for the purpose of escape analysis.  This is
 	 not needed for non-simple va_list because virtual phis don't perform
 	 any real data movement.  */
-      if (va_list_simple_ptr)
+      if (1)
 	{
 	  tree lhs, rhs;
 	  use_operand_p uop;
@@ -843,14 +843,22 @@ optimize_va_list_gpr_fpr_size (function *fun)
 	      FOR_EACH_PHI_ARG (uop, phi, soi, SSA_OP_USE)
 		{
 		  rhs = USE_FROM_PTR (uop);
-		  if (va_list_ptr_read (&si, rhs, lhs))
-		    continue;
-		  else if (va_list_ptr_write (&si, lhs, rhs))
-		    continue;
-		  else
-		    check_va_list_escapes (&si, lhs, rhs);
 
-		  if (si.va_list_escapes)
+		  if (va_list_simple_ptr)
+		    {
+		      if (va_list_ptr_read (&si, rhs, lhs))
+			continue;
+		      else if (va_list_ptr_write (&si, lhs, rhs))
+			continue;
+		      else
+			check_va_list_escapes (&si, lhs, rhs);
+		    }
+
+		  if (si.va_list_escapes
+		      || (!va_list_simple_ptr
+			  && (walk_tree (&rhs, find_va_list_reference, &wi,
+					 NULL)
+			      != NULL_TREE)))
 		    {
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			{
