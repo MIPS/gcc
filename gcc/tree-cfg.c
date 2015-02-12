@@ -1033,6 +1033,42 @@ make_edges (void)
   fold_cond_expr_cond ();
 }
 
+/* TODO: Move to tree-cfg.h.  */
+extern bool gimple_find_sub_bbs (gimple_seq, gimple_stmt_iterator *);
+
+/* Add SEQ after GSI.  Start new bb after GSI, and created further bbs as
+   needed.  Returns true if new bbs were created.  */
+
+bool
+gimple_find_sub_bbs (gimple_seq seq, gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  basic_block bb = gimple_bb (stmt);
+  basic_block lastbb, afterbb;
+  int old_num_bbs = n_basic_blocks_for_fn (cfun);
+  edge e;
+  lastbb = make_blocks_1 (seq, bb);
+  if (old_num_bbs == n_basic_blocks_for_fn (cfun))
+    return false;
+  e = split_block (bb, stmt);
+  /* Move e->dest to come after the new basic blocks.  */
+  afterbb = e->dest;
+  unlink_block (afterbb);
+  link_block (afterbb, lastbb);
+  redirect_edge_succ (e, bb->next_bb);
+  bb = bb->next_bb;
+  while (bb != afterbb)
+    {
+      struct omp_region *cur_region = NULL;
+      int cur_omp_region_idx = 0;
+      int mer = make_edges_bb (bb, &cur_region, &cur_omp_region_idx);
+      gcc_assert (!mer && !cur_region);
+      add_bb_to_loop (bb, afterbb->loop_father);
+      bb = bb->next_bb;
+    }
+  return true;
+}
+
 /* Find the next available discriminator value for LOCUS.  The
    discriminator distinguishes among several basic blocks that
    share a common locus, allowing for more accurate sample-based
