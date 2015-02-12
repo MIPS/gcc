@@ -513,16 +513,15 @@ gimple_call_initialize_ctrl_altering (gimple stmt)
 }
 
 
-/* Build a flowgraph for the sequence of stmts SEQ.  */
+/* Insert SEQ after BB and build a flowgraph.  */
 
-static void
-make_blocks (gimple_seq seq)
+static basic_block
+make_blocks_1 (gimple_seq seq, basic_block bb)
 {
   gimple_stmt_iterator i = gsi_start (seq);
   gimple stmt = NULL;
   bool start_new_block = true;
   bool first_stmt_of_seq = true;
-  basic_block bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
 
   while (!gsi_end_p (i))
     {
@@ -579,8 +578,16 @@ make_blocks (gimple_seq seq)
       gsi_next (&i);
       first_stmt_of_seq = false;
     }
+  return bb;
 }
 
+/* Build a flowgraph for the sequence of stmts SEQ.  */
+
+static void
+make_blocks (gimple_seq seq)
+{
+  make_blocks_1 (seq, ENTRY_BLOCK_PTR_FOR_FN (cfun));
+}
 
 /* Create and return a new empty basic block after bb AFTER.  */
 
