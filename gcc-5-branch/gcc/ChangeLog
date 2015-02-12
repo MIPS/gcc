@@ -1,3 +1,208 @@
+2015-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/65019
+	* ubsan.c (ubsan_expand_objsize_ifn): Always return true.
+
+	PR tree-optimization/65014
+	* fold-const.c (fold_binary_loc): When creating {L,R}ROTATE_EXPR,
+	use original second operand of arg0 or arg1 instead of
+	that adjusted by STRIP_NOPS.
+
+2015-02-11  Jeff Law  <law@redhat.com>
+
+	PR target/63347
+	* haifa-sched.c (prune_ready_list): If we have a SCHED_GROUP_P insn
+	that needs to be queued, just queue it for a single cycle.
+
+2015-02-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa.c (symbol_table::remove_unreachable_nodes): Avoid releasing
+	bodies of thunks; comment on why.
+	* symtab.c (symtab_node::get_partitioning_class): Aliases of extern
+	symbols are extern.
+
+2015-02-11  Richard Henderson  <rth@redhat.com>
+
+	PR sanitize/65000
+	* tree-eh.c (mark_reachable_handlers): Mark source and destination
+	regions of __builtin_eh_copy_values.
+
+2015-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/65003
+	* varasm.c (place_block_symbol): Assert that DECL_RTL of the
+	ultimate alias is MEM with SYMBOL_REF satisfying
+	SYMBOL_REF_HAS_BLOCK_INFO_P as its operand.  Don't pass the MEM
+	to place_block_symbol, but instead pass the SYMBOL_REF operand of it.
+
+2015-02-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/nvptx/mkoffload.c: Include "diagnostic.h" instead of
+	"diagnostic-core.h".
+	(main): Initialize progname, and call diagnostic_initialize.
+
+	* config/nvptx/mkoffload.c (process): Refer to __OFFLOAD_TABLE__
+	instead of __OPENMP_TARGET__.
+
+	* config/nvptx/mkoffload.c: Include "gomp-constants.h".
+	(process): Use its GOMP_DEVICE_NVIDIA_PTX instead of (wrongly)
+	hard-coding PTX_ID.
+
+2015-02-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/sourcebuild.texi (pie_enabled): Document.
+
+2015-02-11  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/64813
+	* cgraphunit.c (cgraph_node::expand_thunk): Do not create
+	a return value for call to a function that is noreturn.
+
+2015-02-11  Richard Biener  <rguenther@suse.de>
+
+	PR lto/65015
+	* dwarf2out.c (gen_producer_string): Drop -fltrans-output-list
+	and -fresolution.
+
+2015-02-11  Andrew Pinski  <apinski@cavium.com>
+
+	PR target/64893
+	* config/aarch64/aarch64-builtins.c (aarch64_init_simd_builtins):
+	Change the first argument type to size_type_node and add another
+	size_type_node.
+	(aarch64_simd_expand_builtin): Handle the new argument to
+	AARCH64_SIMD_BUILTIN_LANE_CHECK and don't ICE but rather
+	print an out when the first two arguments are not
+	nonzero integer constants.
+	* config/aarch64/arm_neon.h (__AARCH64_LANE_CHECK):
+	Pass the sizeof directly to __builtin_aarch64_im_lane_boundsi.
+
+2015-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/61925
+	* config/i386/i386.c (ix86_reset_to_default_globals): Removed.
+	(ix86_reset_previous_fndecl): Restore it here, unconditionally.
+	(ix86_set_current_function): Rewritten.
+	(ix86_add_new_builtins): Temporarily clear current_target_pragma
+	when creating builtin fndecls.
+
+2015-02-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65005
+	* ipa-visibility.c (cgraph_node::non_local_p): Turn into static
+	function.
+	* symtab.c (symtab_node::verify_base): Remove check that non-definitions
+	have no comdat group.
+	* lto-cgraph.c (lto_output_node): Always output thunk and alias info.
+	(lto_output_varpool_node): Always output alias info.
+	(output_refs): Output refs of boundary aliases, too.
+	(compute_ltrans_boundary): Add alias and thunk target into boundaries.
+	(output_symtab): Output call eges in thunks in boundary.
+	(get_alias_symbol): Remove.
+	(input_node, input_varpool_node): Do not special case weakrefs.
+	* ipa.c (symbol_table::remove_unreachable_nodes): Do not remove
+	alias and thunks targets in the boundary; do not take removed symbols
+	from their comdat groups.
+	* cgraph.c (cgraph_node::local_info): Look through aliases and thunks.
+	(cgraph_node::global_info): Remove.
+	(cgraph_node::rtl_info): Look through aliases and thunks.
+	* cgrpah.h (global_info): Remove.
+	(non_local_p): Remove.
+
+2015-02-10  David Wohlferd  <dw@LimeGreenSocks.com>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi (x86 Options [-masm=dialect]): Add cross-references
+	to inline asm.  List dialects in proper order.
+
+2015-02-10  David Wohlferd  <dw@LimeGreenSocks.com>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/extend.texi (Loop-Specific Pragmas): Fix grammar error.
+
+2015-02-10  David Wohlferd  <dw@LimeGreenSocks.com>
+
+	* doc/extend.texi (Symbol-Renaming Pragmas): Restore (slightly
+        modified) reference to Solaris.
+
+2015-02-10  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/extend.texi (Extended Asm): Fix typos.
+
+2015-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/65004
+	* ubsan.c (ubsan_expand_vptr_ifn): Always return true.
+
+2015-02-10  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/64661
+	* config/sh/sh-protos.h (TARGET_ATOMIC_ANY, TARGET_ATOMIC_STRICT,
+	TARGET_ATOMIC_SOFT_GUSA, TARGET_ATOMIC_HARD_LLCS,
+	TARGET_ATOMIC_SOFT_TCB, TARGET_ATOMIC_SOFT_IMASK): Add parentheses.
+	* config/sh/constraints.md (Ara, Add): New constraints.
+	* config/sh/sync.md (atomic_mem_operand_0, atomic_mem_operand_1): New
+	predicates.
+	(atomic_compare_and_swap<mode>, atomic_exchange<mode>): Use
+	atomic_mem_operand_0.  Don't use force_reg on the memory address.
+	(atomic_compare_and_swapsi_hard): Use atomic_mem_operand_0 predicate and
+	Sra constraint.  Convert to insn_and_split.  Add workaround for
+	PR 64974.
+	(atomic_compare_and_swap<mode>_hard): Copy to
+	atomic_compare_and_swap<mode>_hard_1.  Convert to insn_and_split.
+	Use atomic_mem_operand_0 predicate.
+	(atomic_compare_and_swap<mode>_soft_gusa,
+	atomic_exchange<mode>_soft_gusa): Use atomic_mem_operand_0 predicate and
+	AraAdd constraints.
+	(atomic_compare_and_swap<mode>_soft_tcb,
+	atomic_compare_and_swap<mode>_soft_imask,
+	atomic_exchange<mode>_soft_tcb, atomic_exchange<mode>_soft_imask): Use
+	atomic_mem_operand_0 predicate and SraSdd constraints.
+	(atomic_exchangesi_hard) Use atomic_mem_operand_0 predicate and Sra
+	constraint.
+	(atomic_exchange<mode>_hard): Copy to atomic_exchange<mode>_hard_1.
+	Convert to insn_and_split.  Use atomic_mem_operand_0 predicate.
+	(atomic_fetch_<fetchop_name><mode>, atomic_fetch_nand<mode>,
+	atomic_<fetchop_name>_fetch<mode>): Use atomic_mem_operand_1.  Don't use
+	force_reg on the memory address.
+	(atomic_fetch_<fetchop_name>si_hard, atomic_fetch_notsi_hard,
+	atomic_fetch_nandsi_hard, atomic_<fetchop_name>_fetchsi_hard,
+	atomic_not_fetchsi_hard, atomic_nand_fetchsi_hard): Use
+	atomic_mem_operand_1 predicate and Sra constraint.
+	(atomic_fetch_<fetchop_name><mode>_hard): Copy to
+	atomic_fetch_<fetchop_name><mode>_hard_1.  Convert to insn_and_split.
+	Use atomic_mem_operand_1 predicate.
+	(atomic_<fetchop_name><mode>_hard): Copy to
+	atomic_<fetchop_name><mode>_hard_1.  Convert to insn_and_split.
+	Use atomic_mem_operand_1 predicate.
+	(atomic_fetch_nand<mode>_hard): Copy to atomic_fetch_nand<mode>_hard_1.
+	Convert to insn_and_split.  Use atomic_mem_operand_1 predicate.
+	(atomic_nand<mode>_hard): Copy to atomic_nand<mode>_hard_1.  Convert to
+	insn_and_split.  Use atomic_mem_operand_1 predicate.
+	(atomic_<fetchop_name>_fetch<mode>_hard): Copy to
+	atomic_<fetchop_name>_fetch<mode>_hard_1.  Convert to insn_and_split.
+	Use atomic_mem_operand_1 predicate.
+	(atomic_nand_fetch<mode>_hard): Copy to atomic_nand_fetch<mode>_hard_1.
+	Convert to insn_and_split.  Use atomic_mem_operand_1 predicate.
+	(atomic_fetch_not<mode>_hard, atomic_not_fetch<mode>_hard): Replace mems
+	in generated insn with original mem operand before emitting the insn.
+	(atomic_fetch_<fetchop_name><mode>_soft_gusa,
+	atomic_fetch_not<mode>_soft_gusa, atomic_fetch_nand<mode>_soft_gusa,
+	atomic_<fetchop_name>_fetch<mode>_soft_gusa,
+	atomic_not_fetch<mode>_soft_gusa, atomic_nand_fetch<mode>_soft_gusa):
+	Use atomic_mem_operand_1 predicate and AraAdd constraints.
+	(atomic_fetch_<fetchop_name><mode>_soft_tcb,
+	atomic_<fetchop_name><mode>_soft_tcb, atomic_fetch_not<mode>_soft_tcb,
+	atomic_not<mode>_soft_tcb, atomic_fetch_<fetchop_name><mode>_soft_imask,
+	atomic_fetch_not<mode>_soft_imask, atomic_fetch_nand<mode>_soft_tcb,
+	atomic_nand<mode>_soft_tcb, atomic_fetch_nand<mode>_soft_imask,
+	atomic_<fetchop_name>_fetch<mode>_soft_tcb,
+	atomic_not_fetch<mode>_soft_tcb,
+	atomic_<fetchop_name>_fetch<mode>_soft_imask,
+	atomic_not_fetch<mode>_soft_imask, atomic_nand_fetch<mode>,
+	atomic_nand_fetch<mode>_soft_tcb, atomic_nand_fetch<mode>_soft_imask):
+	Use atomic_mem_operand_1 predicate and SraSdd constraints.
+
 2015-02-10  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/alpha/alpha.md (reload_out<mode>_aligned): Make operands 2
