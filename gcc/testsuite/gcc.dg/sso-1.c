@@ -2,7 +2,7 @@
 
 int i;
 
-#ifdef __ORDER_LITTLE_ENDIAN__
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 struct __attribute__((scalar_storage_order("big-endian"))) Rec
 {
   int *p;
