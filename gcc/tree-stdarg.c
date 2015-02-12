@@ -680,150 +680,10 @@ check_all_va_list_escapes (struct stdarg_info *si)
   return false;
 }
 
-
-/* TODO: Move to tree-cfg.h.  */
-extern bool gimple_find_sub_bbs (gimple_seq seq, gimple_stmt_iterator *gsi);
-
-/* TODO: move to gimple-iterator.h.  */
-extern void update_modified_stmts (gimple_seq seq);
-
-/* TODO: move to gimplify.h.  */
-extern tree gimplify_va_arg_internal (tree, tree, location_t, gimple_seq *,
-				      gimple_seq *);
-
-/* Return true if STMT is IFN_VA_ARG.  */
-
-static bool
-gimple_call_ifn_va_arg_p (gimple stmt)
-{
-  return (is_gimple_call (stmt)
-	  && gimple_call_internal_p (stmt)
-	  && gimple_call_internal_fn (stmt) == IFN_VA_ARG);
-}
-
-/* Expand IFN_VA_ARGs in FUN.  */
+/* Optimize FUN->va_list_gpr_size and FUN->va_list_fpr_size.  */
 
 static void
-expand_ifn_va_arg (function *fun)
-{
-  bool modified = false;
-  basic_block bb;
-  gimple_stmt_iterator i;
-
-  FOR_EACH_BB_FN (bb, fun)
-    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
-      {
-	gimple stmt = gsi_stmt (i);
-	tree ap, expr, lhs, type;
-	gimple_seq pre = NULL, post = NULL;
-
-	if (!gimple_call_ifn_va_arg_p (stmt))
-	  continue;
-
-	modified = true;
-
-	type = TREE_TYPE (TREE_TYPE (gimple_call_arg (stmt, 1)));
-	ap = gimple_call_arg (stmt, 0);
-	ap = build_fold_indirect_ref (ap);
-
-	push_gimplify_context (false);
-
-	expr = gimplify_va_arg_internal (ap, type, gimple_location (stmt),
-					 &pre, &post);
-
-	lhs = gimple_call_lhs (stmt);
-	if (lhs != NULL_TREE)
-	  {
-	    gcc_assert (useless_type_conversion_p (TREE_TYPE (lhs), type));
-
-	    if (gimple_call_num_args (stmt) == 3)
-	      {
-		/* We've transported the size of with WITH_SIZE_EXPR here as
-		   the 3rd argument of the internal fn call.  Now reinstate
-		   it.  */
-		tree size = gimple_call_arg (stmt, 2);
-		expr = build2 (WITH_SIZE_EXPR, TREE_TYPE (expr), expr, size);
-	      }
-
-	    /* We use gimplify_assign here, rather than gimple_build_assign,
-	       because gimple_assign knows how to deal with variable-sized
-	       types.*/
-	    gimplify_assign (lhs, expr, &pre);
-	  }
-
-	pop_gimplify_context (NULL);
-
-	gimple_seq_add_seq (&pre, post);
-	update_modified_stmts (pre);
-
-	/* Add the sequence after IFN_VA_ARG.  This splits the bb right
-	   after IFN_VA_ARG, and adds the sequence in one or more new bbs
-	   inbetween.  */
-	gimple_find_sub_bbs (pre, &i);
-
-	/* Remove the IFN_VA_ARG gimple_call. It's the last stmt in the
-	   bb.  */
-	gsi_remove (&i, true);
-	gcc_assert (gsi_end_p (i));
-
-	/* We're walking here into the bbs which contain the expansion of
-	   IFN_VA_ARG, and will not contain another IFN_VA_ARG that needs
-	   expanding.  We could try to skip walking these bbs, perhaps by
-	   walking backwards over gimples and bbs.  */
-	break;
-      }
-
-#if ENABLE_CHECKING
-  FOR_EACH_BB_FN (bb, fun)
-    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
-      gcc_assert (!gimple_call_ifn_va_arg_p (gsi_stmt (i)));
-#endif
-
-  if (modified)
-    {
-      free_dominance_info (CDI_DOMINATORS);
-      update_ssa (TODO_update_ssa);
-    }
-}
-
-namespace {
-
-const pass_data pass_data_stdarg =
-{
-  GIMPLE_PASS, /* type */
-  "stdarg", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  TV_NONE, /* tv_id */
-  ( PROP_cfg | PROP_ssa ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_stdarg : public gimple_opt_pass
-{
-public:
-  pass_stdarg (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_stdarg, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual bool gate (function *)
-    {
-      /* Always run this pass, in order to expand va_arg internal_fns.  We
-	 also need to do that if fun->stdarg == 0, because a va_arg may also
-	 occur in a function without varargs, f.i. if when passing a va_list to
-	 another function.  */
-      return true;
-    }
-
-  virtual unsigned int execute (function *);
-
-}; // class pass_stdarg
-
-unsigned int
-pass_stdarg::execute (function *fun)
+optimize_va_list_gpr_fpr_size (function *fun)
 {
   basic_block bb;
   bool va_list_escapes = false;
@@ -1052,7 +912,7 @@ pass_stdarg::execute (function *fun)
 	 them as assignments for the purpose of escape analysis.  This is
 	 not needed for non-simple va_list because virtual phis don't perform
 	 any real data movement.  */
-      if (va_list_simple_ptr)
+      if (1)
 	{
 	  tree lhs, rhs;
 	  use_operand_p uop;
@@ -1070,14 +930,22 @@ pass_stdarg::execute (function *fun)
 	      FOR_EACH_PHI_ARG (uop, phi, soi, SSA_OP_USE)
 		{
 		  rhs = USE_FROM_PTR (uop);
-		  if (va_list_ptr_read (&si, rhs, lhs))
-		    continue;
-		  else if (va_list_ptr_write (&si, lhs, rhs))
-		    continue;
-		  else
-		    check_va_list_escapes (&si, lhs, rhs);
 
-		  if (si.va_list_escapes)
+		  if (va_list_simple_ptr)
+		    {
+		      if (va_list_ptr_read (&si, rhs, lhs))
+			continue;
+		      else if (va_list_ptr_write (&si, lhs, rhs))
+			continue;
+		      else
+			check_va_list_escapes (&si, lhs, rhs);
+		    }
+
+		  if (si.va_list_escapes
+		      || (!va_list_simple_ptr
+			  && (walk_tree (&rhs, find_va_list_reference, &wi,
+					 NULL)
+			      != NULL_TREE)))
 		    {
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			{
@@ -1224,6 +1092,159 @@ finish:
 	fprintf (dump_file, "%d", cfun->va_list_fpr_size);
       fputs (" FPR units.\n", dump_file);
     }
+}
+
+/* TODO: Move to tree-cfg.h.  */
+extern bool gimple_find_sub_bbs (gimple_seq seq, gimple_stmt_iterator *gsi);
+
+/* TODO: move to gimple-iterator.h.  */
+extern void update_modified_stmts (gimple_seq seq);
+
+/* TODO: move to gimplify.h.  */
+extern tree gimplify_va_arg_internal (tree, tree, location_t, gimple_seq *,
+				      gimple_seq *);
+
+/* Return true if STMT is IFN_VA_ARG.  */
+
+static bool
+gimple_call_ifn_va_arg_p (gimple stmt)
+{
+  return (is_gimple_call (stmt)
+	  && gimple_call_internal_p (stmt)
+	  && gimple_call_internal_fn (stmt) == IFN_VA_ARG);
+}
+
+/* Expand IFN_VA_ARGs in FUN.  */
+
+static void
+expand_ifn_va_arg (function *fun)
+{
+  bool modified = false;
+  basic_block bb;
+  gimple_stmt_iterator i;
+
+  FOR_EACH_BB_FN (bb, fun)
+    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+      {
+	gimple stmt = gsi_stmt (i);
+	tree ap, expr, lhs, type;
+	gimple_seq pre = NULL, post = NULL;
+
+	if (!gimple_call_ifn_va_arg_p (stmt))
+	  continue;
+
+	modified = true;
+
+	type = TREE_TYPE (TREE_TYPE (gimple_call_arg (stmt, 1)));
+	ap = gimple_call_arg (stmt, 0);
+	ap = build_fold_indirect_ref (ap);
+
+	push_gimplify_context (false);
+
+	expr = gimplify_va_arg_internal (ap, type, gimple_location (stmt),
+					 &pre, &post);
+
+	lhs = gimple_call_lhs (stmt);
+	if (lhs != NULL_TREE)
+	  {
+	    gcc_assert (useless_type_conversion_p (TREE_TYPE (lhs), type));
+
+	    if (gimple_call_num_args (stmt) == 3)
+	      {
+		/* We've transported the size of with WITH_SIZE_EXPR here as
+		   the 3rd argument of the internal fn call.  Now reinstate
+		   it.  */
+		tree size = gimple_call_arg (stmt, 2);
+		expr = build2 (WITH_SIZE_EXPR, TREE_TYPE (expr), expr, size);
+	      }
+
+	    /* We use gimplify_assign here, rather than gimple_build_assign,
+	       because gimple_assign knows how to deal with variable-sized
+	       types.*/
+	    gimplify_assign (lhs, expr, &pre);
+	  }
+
+	pop_gimplify_context (NULL);
+
+	gimple_seq_add_seq (&pre, post);
+	update_modified_stmts (pre);
+
+	/* Add the sequence after IFN_VA_ARG.  This splits the bb right
+	   after IFN_VA_ARG, and adds the sequence in one or more new bbs
+	   inbetween.  */
+	gimple_find_sub_bbs (pre, &i);
+
+	/* Remove the IFN_VA_ARG gimple_call. It's the last stmt in the
+	   bb.  */
+	gsi_remove (&i, true);
+	gcc_assert (gsi_end_p (i));
+
+	/* We're walking here into the bbs which contain the expansion of
+	   IFN_VA_ARG, and will not contain another IFN_VA_ARG that needs
+	   expanding.  We could try to skip walking these bbs, perhaps by
+	   walking backwards over gimples and bbs.  */
+	break;
+      }
+
+#if ENABLE_CHECKING
+  FOR_EACH_BB_FN (bb, fun)
+    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+      gcc_assert (!gimple_call_ifn_va_arg_p (gsi_stmt (i)));
+#endif
+
+  if (modified)
+    {
+      free_dominance_info (CDI_DOMINATORS);
+      update_ssa (TODO_update_ssa);
+    }
+}
+
+namespace {
+
+const pass_data pass_data_stdarg =
+{
+  GIMPLE_PASS, /* type */
+  "stdarg", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_stdarg : public gimple_opt_pass
+{
+public:
+  pass_stdarg (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_stdarg, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      /* Always run this pass, in order to expand va_arg internal_fns.  We
+	 also need to do that if fun->stdarg == 0, because a va_arg may also
+	 occur in a function without varargs, f.i. if when passing a va_list to
+	 another function.  */
+      return true;
+    }
+
+  virtual unsigned int execute (function *);
+
+}; // class pass_stdarg
+
+unsigned int
+pass_stdarg::execute (function *fun)
+{
+  expand_ifn_va_arg (fun);
+
+  if (flag_tree_stdarg_opt
+      /* This optimization is only for stdarg functions.  */
+      && fun->stdarg != 0)
+    optimize_va_list_gpr_fpr_size (fun);
+
   return 0;
 }
 
