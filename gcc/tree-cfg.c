@@ -513,7 +513,7 @@ gimple_call_initialize_ctrl_altering (gimple stmt)
 }
 
 
-/* Build a flowgraph for the sequence of stmts SEQ.  */
+/* Insert SEQ after BB and build a flowgraph.  */
 
 static basic_block
 make_blocks_1 (gimple_seq seq, basic_block bb)
@@ -1035,6 +1035,9 @@ make_edges (void)
 
 /* TODO: Move to tree-cfg.h.  */
 extern bool gimple_find_sub_bbs (gimple_seq, gimple_stmt_iterator *);
+
+/* Add SEQ after GSI.  Start new bb after GSI, and created further bbs as
+   needed.  Returns true if new bbs were created.  */
 
 bool
 gimple_find_sub_bbs (gimple_seq seq, gimple_stmt_iterator *gsi)

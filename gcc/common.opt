@@ -2061,7 +2061,7 @@ Optimize conditional patterns using SSA PHI nodes
 ;; Init this flag to zero, as workaround.  The different way of gimplifying
 ;; va_arg breaks this optimization.
 ;; TODO: We should be able to remove this workaround, once we reverse the order
-;; in pass_stdarg of expansion of va_arg builtin and and va_list_gpr/fpr_size
+;; in pass_stdarg of expansion of va_arg builtin and va_list_gpr/fpr_size
 ;; optimization.
 ftree-stdarg-opt
 Common Report Var(flag_tree_stdarg_opt) Init(0) Optimization

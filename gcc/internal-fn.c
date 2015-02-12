@@ -1972,6 +1972,9 @@ expand_BUILTIN_EXPECT (gcall *stmt)
     emit_move_insn (target, val);
 }
 
+/* IFN_VA_ARG is supposed to be expanded at pass_stdarg.  So this dummy function
+   should never be called.  */
+
 static void
 expand_VA_ARG (gcall *stmt ATTRIBUTE_UNUSED)
 {
