@@ -1,5 +1,5 @@
 /* Discovery of auto-inc and auto-dec instructions.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -22,18 +22,42 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "hashtab.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "insn-config.h"
 #include "regs.h"
 #include "flags.h"
-#include "function.h"
 #include "except.h"
 #include "diagnostic-core.h"
 #include "recog.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-pass.h"
 #include "df.h"
@@ -472,7 +496,7 @@ attempt_change (rtx new_addr, rtx inc_reg)
   rtx_insn *mov_insn = NULL;
   int regno;
   rtx mem = *mem_insn.mem_loc;
-  enum machine_mode mode = GET_MODE (mem);
+  machine_mode mode = GET_MODE (mem);
   rtx new_mem;
   int old_cost = 0;
   int new_cost = 0;
@@ -612,7 +636,7 @@ try_merge (void)
   /* The width of the mem being accessed.  */
   int size = GET_MODE_SIZE (GET_MODE (mem));
   rtx_insn *last_insn = NULL;
-  enum machine_mode reg_mode = GET_MODE (inc_reg);
+  machine_mode reg_mode = GET_MODE (inc_reg);
 
   switch (inc_insn.form)
     {

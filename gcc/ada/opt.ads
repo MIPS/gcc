@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -680,10 +680,9 @@ package Opt is
 
    Full_Path_Name_For_Brief_Errors : Boolean := False;
    --  PROJECT MANAGER
-   --  When True, in Brief_Output mode, each error message line
-   --  will start with the full path name of the source.
-   --  When False, only the file name without directory information
-   --  is used.
+   --  When True, in Brief_Output mode, each error message line will start with
+   --  the full path name of the source. When False, only the file name without
+   --  directory information is used.
 
    Full_List : Boolean := False;
    --  GNAT
@@ -697,8 +696,8 @@ package Opt is
 
    Generate_CodePeer_Messages : Boolean := False;
    --  GNAT
-   --  Generate CodePeer messages. Ignored if CodePeer_Mode is false.
-   --  This is turned on by -gnateC.
+   --  Generate CodePeer messages. Ignored if CodePeer_Mode is false. This is
+   --  turned on by -gnateC.
 
    Generate_Processed_File : Boolean := False;
    --  GNAT
@@ -717,18 +716,37 @@ package Opt is
 
    Generate_SCO_Instance_Table : Boolean := False;
    --  GNAT
-   --  True when switch -fdebug-instances is used. When True, a table of
-   --  instances is included in SCOs.
+   --  True when switch -fdump-scos is used. When True, a table of instances is
+   --  included in SCOs.
 
    Generating_Code : Boolean := False;
    --  GNAT
    --  True if the frontend finished its work and has called the backend to
    --  process the tree and generate the object file.
 
+   type Ghost_Mode_Type is (None, Check, Ignore);
+   --  Possible legal modes that can be set by aspect/pragma Ghost as well as
+   --  value None, which indicates that no such aspect/pragma applies.
+
+   Ghost_Mode : Ghost_Mode_Type := None;
+   --  GNAT
+   --  Current Ghost mode setting
+
    Global_Discard_Names : Boolean := False;
    --  GNAT, GNATBIND
    --  True if a pragma Discard_Names appeared as a configuration pragma for
    --  the current compilation unit.
+
+   GNAT_Encodings : Int;
+   pragma Import (C, GNAT_Encodings, "gnat_encodings");
+   --  Constant controlling the balance between GNAT encodings and standard
+   --  DWARF to emit in the debug information. See jmissing.c and aamissing.c
+   --  for definitions for dotnet/jgnat and GNAAMP back ends. It accepts the
+   --  following values.
+
+   DWARF_GNAT_Encodings_All     : constant Int := 0;
+   DWARF_GNAT_Encodings_GDB     : constant Int := 1;
+   DWARF_GNAT_Encodings_Minimal : constant Int := 2;
 
    Identifier_Character_Set : Character;
    --  GNAT
@@ -895,10 +913,9 @@ package Opt is
 
    List_Dependencies : Boolean := False;
    --  GNATMAKE
-   --  When True gnatmake verifies that the objects are up to date and
-   --  outputs the list of object dependencies (-M switch).
-   --  Output depends if -a switch is used or not.
-   --  This list can be used directly in a Makefile.
+   --  When True gnatmake verifies that the objects are up to date and outputs
+   --  the list of object dependencies (-M switch). Output depends if -a switch
+   --  is used or not. This list can be used directly in a Makefile.
 
    List_Representation_Info : Int range 0 .. 3 := 0;
    --  GNAT
@@ -1056,8 +1073,8 @@ package Opt is
 
    No_Run_Time_Mode : Boolean := False;
    --  GNAT, GNATBIND
-   --  This flag is set True if a No_Run_Time pragma is encountered. See
-   --  spec of Rtsfind for a full description of handling of this pragma.
+   --  This flag is set True if a No_Run_Time pragma is encountered. See spec
+   --  of Rtsfind for a full description of handling of this pragma.
 
    No_Split_Units : Boolean := False;
    --  GPRBUILD
@@ -1076,6 +1093,11 @@ package Opt is
    No_Strict_Aliasing : Boolean := False;
    --  GNAT
    --  Set True if pragma No_Strict_Aliasing with no parameters encountered.
+
+   No_Tagged_Streams : Node_Id := Empty;
+   --  GNAT
+   --  If a pragma No_Tagged_Streams is active for the current scope, this
+   --  points to the corresponding pragma.
 
    Normalize_Scalars : Boolean := False;
    --  GNAT, GNATBIND
@@ -1188,15 +1210,18 @@ package Opt is
    --  Set to True if polling for asynchronous abort is enabled by using
    --  the -gnatP option for GNAT.
 
+   Prefix_Exception_Messages : Boolean := False;
+   --  GNAT
+   --  Set True to prefix exception messages with entity-name:
+
    Preprocessing_Data_File : String_Ptr := null;
    --  GNAT
    --  Set by switch -gnatep=. The file name of the preprocessing data file.
 
    Preprocessing_Symbol_Defs : String_List_Access := new String_List (1 .. 4);
    --  An extensible array to temporarily stores symbol definitions specified
-   --  on the command line with -gnateD switches.
-   --  What is this magic constant 4 ???
-   --  What is extensible about this fixed length array ???
+   --  on the command line with -gnateD switches. The value 4 is an arbitrary
+   --  starting point, if more space is needed it is allocated as required.
 
    Preprocessing_Symbol_Last : Natural := 0;
    --  Index of last symbol definition in array Symbol_Definitions
@@ -1241,13 +1266,13 @@ package Opt is
 
    Relaxed_RM_Semantics : Boolean := False;
    --  GNAT
-   --  Set to True to ignore some Ada semantic error to help parse legacy
-   --  Ada code for use in e.g. static analysis (such as CodePeer). This
-   --  deals with cases where other compilers allow illegal constructs. Tools
-   --  such as CodePeer are interested in analyzing code rather than enforcing
-   --  legality rules, so as long as these illegal constructs end up with code
-   --  that can be handled by the tool in question, there is no reason to
-   --  reject the code that is considered correct by the other compiler.
+   --  Set to True to ignore some Ada semantic error to help parse legacy Ada
+   --  code for use in e.g. static analysis (such as CodePeer). This deals
+   --  with cases where other compilers allow illegal constructs. Tools such as
+   --  CodePeer are interested in analyzing code rather than enforcing legality
+   --  rules, so as long as these illegal constructs end up with code that can
+   --  be handled by the tool in question, there is no reason to reject the
+   --  code that is considered correct by the other compiler.
 
    Replace_In_Comments : Boolean := False;
    --  GNATPREP
@@ -1413,6 +1438,16 @@ package Opt is
    --  which writes a target independent information file (see packages
    --  Get_Targ and Set_Targ for full details) using the name given by
    --  this switch. Set to non-null file name by use of the -gnatet switch.
+
+   type Origin_Of_Target is (Unknown, Default, Specified);
+
+   Target_Origin : Origin_Of_Target := Unknown;
+   --  GPRBUILD
+   --  Indicates the origin of attribute Target in project files
+
+   Target_Value : String_Access := null;
+   --  GPRBUILD
+   --  Indicates the value of attribute Target in project files
 
    Task_Dispatching_Policy : Character := ' ';
    --  GNAT, GNATBIND
@@ -1634,6 +1669,13 @@ package Opt is
    --  Set to True to generate warnings for suspicious use of export or
    --  import pragmas. Modified by use of -gnatwx/X.
 
+   Warn_On_Elab_Access : Boolean := False;
+   --  GNAT
+   --  Set to True to generate warnings for P'Access in the case where
+   --  subprogram P is in the same package as the P'Access, and the P'Access is
+   --  evaluated at package elaboration time, and occurs before the body of P
+   --  has been elaborated.
+
    Warn_On_Hiding : Boolean := False;
    --  GNAT
    --  Set to True to generate warnings if a declared entity hides another
@@ -1717,7 +1759,9 @@ package Opt is
    Warn_On_Suspicious_Contract : Boolean := True;
    --  GNAT
    --  Set to True to generate warnings for suspicious contracts expressed as
-   --  pragmas or aspects precondition and postcondition. The default is that
+   --  pragmas or aspects precondition and postcondition, as well as other
+   --  suspicious cases of expressions typically found in contracts like
+   --  quantified expressions and uses of Update attribute. The default is that
    --  this warning is enabled. Modified by use of -gnatw.t/.T.
 
    Warn_On_Suspicious_Modulus_Value : Boolean := True;
@@ -1949,6 +1993,9 @@ package Opt is
    --  further modified by the use of pragma Polling in the gnat.adc file. This
    --  flag is used to set the initial value for Polling_Required at the start
    --  of analyzing each unit.
+
+   Prefix_Exception_Messages_Config : Boolean;
+   --  The setting of Prefix_Exception_Messages from configuration pragmas
 
    SPARK_Mode_Config : SPARK_Mode_Type := None;
    --  GNAT
@@ -2197,6 +2244,7 @@ private
       Optimize_Alignment_Local       : Boolean;
       Persistent_BSS_Mode            : Boolean;
       Polling_Required               : Boolean;
+      Prefix_Exception_Messages      : Boolean;
       SPARK_Mode                     : SPARK_Mode_Type;
       SPARK_Mode_Pragma              : Node_Id;
       Uneval_Old                     : Character;
@@ -2220,7 +2268,4 @@ private
    --  Indicates which version of gcc is in use (3 = 3.x, 4 = 4.x). Note that
    --  gcc 2.8.1 (which used to be a value of 2) is no longer supported.
 
-   -------------------------
-   -- Effect of GNAT_Mode --
-   -------------------------
 end Opt;

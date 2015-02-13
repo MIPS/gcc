@@ -1,6 +1,6 @@
 /* Handle the hair of processing (but not expanding) inline functions.
    Also manage function and variable name overloading.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -25,6 +25,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -35,6 +44,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "diagnostic.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 
 /* Various flags to control the mangling process.  */
@@ -401,20 +417,6 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 				    virtual_offset, alias);
   if (DECL_ONE_ONLY (function))
     thunk_node->add_to_same_comdat_group (funcn);
-
-  if (!this_adjusting
-      || !targetm.asm_out.can_output_mi_thunk (thunk_fndecl, fixed_offset,
-					       virtual_value, alias))
-    {
-      /* If this is a covariant thunk, or we don't have the necessary
-	 code for efficient thunks, generate a thunk function that
-	 just makes a call to the real function.  Unfortunately, this
-	 doesn't work for varargs.  */
-
-      if (varargs_function_p (function))
-	error ("generic thunk code fails for method %q#D which uses %<...%>",
-	       function);
-    }
 
   pop_from_top_level ();
 }
@@ -1077,7 +1079,9 @@ constructible_expr (tree to, tree from)
     }
   else
     {
-      if (TREE_CHAIN (from))
+      if (from == NULL_TREE)
+	return build_value_init (to, tf_none);
+      else if (TREE_CHAIN (from))
 	return error_mark_node; // too many initializers
       from = build_stub_object (TREE_VALUE (from));
       expr = perform_direct_initialization_if_possible (to, from,
@@ -1909,6 +1913,12 @@ implicitly_declare_fn (special_function_kind kind, tree type,
   DECL_DEFAULTED_FN (fn) = 1;
   if (cxx_dialect >= cxx11)
     {
+      /* "The closure type associated with a lambda-expression has a deleted
+	 default constructor and a deleted copy assignment operator."  */
+      if ((kind == sfk_constructor
+	   || kind == sfk_copy_assignment)
+	  && LAMBDA_TYPE_P (type))
+	deleted_p = true;
       DECL_DELETED_FN (fn) = deleted_p;
       DECL_DECLARED_CONSTEXPR_P (fn) = constexpr_p;
     }
@@ -1971,6 +1981,7 @@ defaulted_late_check (tree fn)
      is explicitly defaulted on its first declaration, (...) it is
      implicitly considered to have the same exception-specification as if
      it had been implicitly declared.  */
+  maybe_instantiate_noexcept (fn);
   tree fn_spec = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn));
   if (!fn_spec)
     {

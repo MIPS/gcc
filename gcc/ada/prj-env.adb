@@ -1425,35 +1425,10 @@ package body Prj.Env is
      (Self : Project_Search_Path;
       Name : String) return String_Access
    is
-      function Is_Base_Name (Path : String) return Boolean;
-      --  Returns True if Path has no directory separator
-
-      ------------------
-      -- Is_Base_Name --
-      ------------------
-
-      function Is_Base_Name (Path : String) return Boolean is
-      begin
-         for J in Path'Range loop
-            if Path (J) = Directory_Separator or else Path (J) = '/' then
-               return False;
-            end if;
-         end loop;
-
-         return True;
-      end Is_Base_Name;
-
-      function Find_Rts_In_Path is new Prj.Env.Find_Name_In_Path
-        (Check_Filename => Is_Directory);
-
-      --  Start of processing for Get_Runtime_Path
-
+      function Find_Rts_In_Path is
+        new Prj.Env.Find_Name_In_Path (Check_Filename => Is_Directory);
    begin
-      if not Is_Base_Name (Name) then
-         return Find_Rts_In_Path (Self, Name);
-      else
-         return null;
-      end if;
+      return Find_Rts_In_Path (Self, Name);
    end Get_Runtime_Path;
 
    ----------------
@@ -1898,10 +1873,11 @@ package body Prj.Env is
    -------------------------------------
 
    procedure Initialize_Default_Project_Path
-     (Self        : in out Project_Search_Path;
-      Target_Name : String)
+     (Self         : in out Project_Search_Path;
+      Target_Name  : String;
+      Runtime_Name : String := "")
    is
-      Add_Default_Dir : Boolean := True;
+      Add_Default_Dir : Boolean := Target_Name /= "-";
       First           : Positive;
       Last            : Positive;
 
@@ -1918,6 +1894,30 @@ package body Prj.Env is
       Ada_Prj_Path      : String_Access;
       --  The path name(s) of directories where project files may reside.
       --  May be empty.
+
+      Prefix  : String_Ptr;
+      Runtime : String_Ptr;
+
+      procedure Add_Target;
+      --  Add :<prefix>/<target> to the project path
+
+      ----------------
+      -- Add_Target --
+      ----------------
+
+      procedure Add_Target is
+      begin
+         Add_Str_To_Name_Buffer
+           (Path_Separator & Prefix.all & Target_Name);
+
+         --  Note: Target_Name has a trailing / when it comes from Sdefault
+
+         if Name_Buffer (Name_Len) /= '/' then
+            Add_Char_To_Name_Buffer (Directory_Separator);
+         end if;
+      end Add_Target;
+
+   --  Start of processing for Initialize_Default_Project_Path
 
    begin
       if Is_Initialized (Self) then
@@ -2076,73 +2076,81 @@ package body Prj.Env is
       --  Set the initial value of Current_Project_Path
 
       if Add_Default_Dir then
-         declare
-            Prefix : String_Ptr;
+         if Sdefault.Search_Dir_Prefix = null then
 
-         begin
-            if Sdefault.Search_Dir_Prefix = null then
+            --  gprbuild case
 
-               --  gprbuild case
+            Prefix := new String'(Executable_Prefix_Path);
 
-               Prefix := new String'(Executable_Prefix_Path);
+         else
+            Prefix := new String'(Sdefault.Search_Dir_Prefix.all
+                                  & ".." & Dir_Separator
+                                  & ".." & Dir_Separator
+                                  & ".." & Dir_Separator
+                                  & ".." & Dir_Separator);
+         end if;
 
-            else
-               Prefix := new String'(Sdefault.Search_Dir_Prefix.all
-                                     & ".." & Dir_Separator
-                                     & ".." & Dir_Separator
-                                     & ".." & Dir_Separator
-                                     & ".." & Dir_Separator);
-            end if;
+         if Prefix.all /= "" then
+            if Target_Name /= "" then
 
-            if Prefix.all /= "" then
-               if Target_Name /= "" then
+               if Runtime_Name /= "" then
+                  if Base_Name (Runtime_Name) = Runtime_Name then
 
-                  --  $prefix/$target/lib/gnat
+                     --  $prefix/$target/$runtime/lib/gnat
+                     Add_Target;
+                     Add_Str_To_Name_Buffer
+                       (Runtime_Name & Directory_Separator &
+                          "lib" & Directory_Separator & "gnat");
 
-                  Add_Str_To_Name_Buffer
-                    (Path_Separator & Prefix.all & Target_Name);
+                     --  $prefix/$target/$runtime/share/gpr
+                     Add_Target;
+                     Add_Str_To_Name_Buffer
+                       (Runtime_Name & Directory_Separator &
+                          "share" & Directory_Separator & "gpr");
 
-                  --  Note: Target_Name has a trailing / when it comes from
-                  --  Sdefault.
+                  else
+                     Runtime :=
+                       new String'(Normalize_Pathname (Runtime_Name));
 
-                  if Name_Buffer (Name_Len) /= '/' then
-                     Add_Char_To_Name_Buffer (Directory_Separator);
+                     --  $runtime_dir/lib/gnat
+                     Add_Str_To_Name_Buffer
+                       (Path_Separator & Runtime.all & Directory_Separator &
+                        "lib" & Directory_Separator & "gnat");
+
+                     --  $runtime_dir/share/gpr
+                     Add_Str_To_Name_Buffer
+                       (Path_Separator & Runtime.all & Directory_Separator &
+                        "share" & Directory_Separator & "gpr");
                   end if;
-
-                  Add_Str_To_Name_Buffer
-                    ("lib" & Directory_Separator & "gnat");
-
-                  --  $prefix/$target/share/gpr
-
-                  Add_Str_To_Name_Buffer
-                    (Path_Separator & Prefix.all & Target_Name);
-
-                  --  Note: Target_Name has a trailing / when it comes from
-                  --  Sdefault.
-
-                  if Name_Buffer (Name_Len) /= '/' then
-                     Add_Char_To_Name_Buffer (Directory_Separator);
-                  end if;
-
-                  Add_Str_To_Name_Buffer
-                    ("share" & Directory_Separator & "gpr");
                end if;
 
-               --  $prefix/share/gpr
+               --  $prefix/$target/lib/gnat
 
+               Add_Target;
                Add_Str_To_Name_Buffer
-                 (Path_Separator & Prefix.all &
-                  "share" & Directory_Separator & "gpr");
+                 ("lib" & Directory_Separator & "gnat");
 
-               --  $prefix/lib/gnat
+               --  $prefix/$target/share/gpr
 
+               Add_Target;
                Add_Str_To_Name_Buffer
-                 (Path_Separator & Prefix.all &
-                  "lib" & Directory_Separator & "gnat");
+                 ("share" & Directory_Separator & "gpr");
             end if;
 
-            Free (Prefix);
-         end;
+            --  $prefix/share/gpr
+
+            Add_Str_To_Name_Buffer
+              (Path_Separator & Prefix.all & "share"
+               & Directory_Separator & "gpr");
+
+            --  $prefix/lib/gnat
+
+            Add_Str_To_Name_Buffer
+              (Path_Separator & Prefix.all & "lib"
+               & Directory_Separator & "gnat");
+         end if;
+
+         Free (Prefix);
       end if;
 
       Self.Path := new String'(Name_Buffer (1 .. Name_Len));
@@ -2293,8 +2301,7 @@ package body Prj.Env is
             exit Check_Dot;
          end if;
 
-         exit Check_Dot when File (K) = Directory_Separator
-           or else File (K) = '/';
+         exit Check_Dot when Is_Directory_Separator (File (K));
       end loop Check_Dot;
 
       if not Is_Absolute_Path (File) then

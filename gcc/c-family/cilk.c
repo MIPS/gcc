@@ -1,6 +1,6 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    This file contains the CilkPlus Intrinsics
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
    Intel Corporation
 
@@ -23,7 +23,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "calls.h"
 #include "langhooks.h"
@@ -33,8 +44,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "c-family/c-common.h"
 #include "toplev.h" 
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "diagnostic.h"
+#include "vec.h"
 #include "cilk.h"
 
 enum add_variable_type {
@@ -235,7 +259,7 @@ recognize_spawn (tree exp, tree *exp0)
     }
   /* _Cilk_spawn can't be wrapped in expression such as PLUS_EXPR.  */
   else if (contains_cilk_spawn_stmt (exp))
-    error ("invalid use of %<_Cilk_spawn%>");
+    error_at (EXPR_LOCATION (exp), "invalid use of %<_Cilk_spawn%>");
   return spawn_found;
 }
 
@@ -332,17 +356,39 @@ create_cilk_helper_decl (struct wrapper_data *wd)
   return fndecl;
 }
 
-/* A function used by walk tree to find wrapper parms.  */
+struct cilk_decls
+{
+  tree key;
+  tree *val;
+};
+
+/* A function used by traversal to fill vector of decls for further work.  */
 
 bool
-wrapper_parm_cb (tree const &key0, tree *val0, wrapper_data *wd)
+fill_decls_vec (tree const &key0, tree *val0, auto_vec<struct cilk_decls> *v)
 {
-  tree arg = key0;
+  tree t1 = key0;
+  struct cilk_decls dp;
+
+  if (DECL_P (t1))
+    {
+      dp.key = t1;
+      dp.val = val0;
+      v->safe_push (dp);
+    }
+  return true;
+}
+
+/* Function that actually creates necessary parm lists.  */
+
+static void
+create_parm_list (struct wrapper_data *wd, tree *val0, tree arg)
+{
   tree val = *val0;
   tree parm;
 
   if (val == error_mark_node || val == arg)
-    return true;
+    return;
 
   if (TREE_CODE (val) == PAREN_EXPR)
     {
@@ -360,7 +406,7 @@ wrapper_parm_cb (tree const &key0, tree *val0, wrapper_data *wd)
 	}
       else
 	arg = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (arg)), arg);
-	
+
       val = TREE_OPERAND (val, 0);
       *val0 = val;
       gcc_assert (TREE_CODE (val) == INDIRECT_REF);
@@ -371,9 +417,24 @@ wrapper_parm_cb (tree const &key0, tree *val0, wrapper_data *wd)
     parm = val;
   TREE_CHAIN (parm) = wd->parms;
   wd->parms = parm;
-  wd->argtypes = tree_cons (NULL_TREE, TREE_TYPE (parm), wd->argtypes); 
-  wd->arglist = tree_cons (NULL_TREE, arg, wd->arglist); 
-  return true;
+  wd->argtypes = tree_cons (NULL_TREE, TREE_TYPE (parm), wd->argtypes);
+  wd->arglist = tree_cons (NULL_TREE, arg, wd->arglist);
+}
+
+/* Sorting decls in a vector.  */
+
+static int
+compare_decls (const void *a, const void *b)
+{
+  const struct cilk_decls *t1 = (const struct cilk_decls *) a;
+  const struct cilk_decls *t2 = (const struct cilk_decls *) b;
+
+  if (DECL_UID (t1->key) > DECL_UID (t2->key))
+    return 1;
+  else if (DECL_UID (t1->key) < DECL_UID (t2->key))
+    return -1;
+  else
+    return 0;
 }
 
 /* This function is used to build a wrapper of a certain type.  */
@@ -381,12 +442,19 @@ wrapper_parm_cb (tree const &key0, tree *val0, wrapper_data *wd)
 static void
 build_wrapper_type (struct wrapper_data *wd)
 {
+  unsigned int j;
+  struct cilk_decls * c;
+  auto_vec<struct cilk_decls> vd;
   wd->arglist = NULL_TREE;
   wd->parms = NULL_TREE;
   wd->argtypes = void_list_node;
 
-  wd->decl_map->traverse<wrapper_data *, wrapper_parm_cb> (wd);
   gcc_assert (wd->type != CILK_BLOCK_FOR);
+  wd->decl_map->traverse<auto_vec<struct cilk_decls> *, fill_decls_vec> (&vd);
+  vd.qsort (compare_decls);
+
+  FOR_EACH_VEC_ELT (vd, j, c)
+   create_parm_list (wd, c->val, c->key);
 
   /* Now build a function.
      Its return type is void (all side effects are via explicit parameters).
@@ -448,41 +516,19 @@ copy_decl_for_cilk (tree decl, copy_body_data *id)
     }
 }
 
-/* Copy all local variables.  */
-
-bool
-for_local_cb (tree const &k, tree *vp, copy_body_data *id)
-{
-  tree v = *vp;
-
-  if (v == error_mark_node)
-    *vp = copy_decl_no_change (k, id);
-  return true;
-}
-
-/* Copy all local declarations from a _Cilk_spawned function's body.  */
-
-bool
-wrapper_local_cb (tree const &key, tree *vp, copy_body_data *id)
-{
-  tree val = *vp;
-
-  if (val == error_mark_node)
-    *vp = copy_decl_for_cilk (key, id);
-
-  return true;
-}
-
 /* Alter a tree STMT from OUTER_FN to form the body of INNER_FN.  */
 
 void
 cilk_outline (tree inner_fn, tree *stmt_p, void *w)
 {
   struct wrapper_data *wd = (struct wrapper_data *) w;
-  const tree outer_fn = wd->context;	      
+  const tree outer_fn = wd->context;
   const bool nested = (wd->type == CILK_BLOCK_FOR);
   copy_body_data id;
   bool throws;
+  auto_vec<struct cilk_decls> vd;
+  unsigned int j;
+  struct cilk_decls * c;
 
   DECL_STATIC_CHAIN (outer_fn) = 1;
 
@@ -508,11 +554,13 @@ cilk_outline (tree inner_fn, tree *stmt_p, void *w)
 
   insert_decl_map (&id, wd->block, DECL_INITIAL (inner_fn));
 
+  wd->decl_map->traverse<auto_vec<struct cilk_decls> *, fill_decls_vec> (&vd);
+  vd.qsort (compare_decls);
   /* We don't want the private variables any more.  */
-  if (nested)
-    wd->decl_map->traverse<copy_body_data *, for_local_cb> (&id);
-  else
-    wd->decl_map->traverse<copy_body_data *, wrapper_local_cb> (&id);
+  FOR_EACH_VEC_ELT (vd, j, c)
+   if (*(c->val) == error_mark_node)
+     *(c->val) = nested ? copy_decl_no_change (c->key, &id)
+			: copy_decl_for_cilk (c->key, &id);
 
   walk_tree (stmt_p, copy_tree_body_r, (void *) &id, NULL);
 
@@ -617,7 +665,7 @@ free_wd (struct wrapper_data *wd)
 */
 
 bool
-declare_one_free_variable (tree const &var0, tree *map0, wrapper_data &)
+declare_one_free_variable (tree var0, tree *map0)
 {
   const_tree var = var0;
   tree map = *map0;
@@ -690,6 +738,9 @@ create_cilk_wrapper (tree exp, tree *args_out)
 {
   struct wrapper_data wd;
   tree fndecl;
+  unsigned int j;
+  struct cilk_decls * c;
+  auto_vec<struct cilk_decls> vd;
 
   init_wd (&wd, CILK_BLOCK_SPAWN);
 
@@ -710,7 +761,11 @@ create_cilk_wrapper (tree exp, tree *args_out)
     }
   else
     extract_free_variables (exp, &wd, ADD_READ);
-  wd.decl_map->traverse<wrapper_data &, declare_one_free_variable> (wd);
+  wd.decl_map->traverse<auto_vec<struct cilk_decls> *, fill_decls_vec> (&vd);
+  vd.qsort (compare_decls);
+  FOR_EACH_VEC_ELT (vd, j, c)
+   declare_one_free_variable (c->key, c->val);
+
   wd.block = TREE_BLOCK (exp);
   if (!wd.block)
     wd.block = DECL_INITIAL (current_function_decl);
@@ -780,7 +835,7 @@ gimplify_cilk_spawn (tree *spawn_p)
   tree frame_ptr = build1 (ADDR_EXPR, f_ptr_type, cfun->cilk_frame_decl);
   tree save_fp = build_call_expr (cilk_save_fp_fndecl, 1, frame_ptr);
   append_to_statement_list (save_fp, spawn_p);		  
-  setjmp_value = create_tmp_var (TREE_TYPE (call1), NULL);
+  setjmp_value = create_tmp_var (TREE_TYPE (call1));
   setjmp_expr = fold_build2 (MODIFY_EXPR, void_type_node, setjmp_value, call1);
 
   append_to_statement_list_force (setjmp_expr, spawn_p);
@@ -1311,4 +1366,43 @@ contains_cilk_spawn_stmt (tree expr)
 {
   return walk_tree (&expr, contains_cilk_spawn_stmt_walker, NULL, NULL)
 	 != NULL_TREE;
+}
+
+/* Return a error location for EXPR if LOC is not set.  */
+
+static location_t
+get_error_location (tree expr, location_t loc)
+{
+  if (loc == UNKNOWN_LOCATION)
+    {
+      if (TREE_CODE (expr) == MODIFY_EXPR)
+        expr = TREE_OPERAND (expr, 0);
+      loc = EXPR_LOCATION (expr);
+    }
+  return loc;
+}
+
+/* Check that no array notation or spawn statement is in EXPR.
+   If not true generate an error at LOC for ARRAY_GMSGID or
+   SPAWN_MSGID.  */
+
+bool
+check_no_cilk (tree expr, const char *array_msgid, const char *spawn_msgid,
+	      location_t loc)
+{
+  if (!flag_cilkplus)
+    return false;
+  if (contains_array_notation_expr (expr))
+    {
+      loc = get_error_location (expr, loc);
+      error_at (loc, array_msgid);
+      return true;
+    }
+  if (walk_tree (&expr, contains_cilk_spawn_stmt_walker, NULL, NULL))
+    {
+      loc = get_error_location (expr, loc);
+      error_at (loc, spawn_msgid);
+      return true;
+    }
+  return false;
 }

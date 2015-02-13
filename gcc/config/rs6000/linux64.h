@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -71,11 +71,7 @@ extern int dot_symbols;
 #undef  PROCESSOR_DEFAULT
 #define PROCESSOR_DEFAULT PROCESSOR_POWER7
 #undef  PROCESSOR_DEFAULT64
-#ifdef LINUX64_DEFAULT_ABI_ELFv2
 #define PROCESSOR_DEFAULT64 PROCESSOR_POWER8
-#else
-#define PROCESSOR_DEFAULT64 PROCESSOR_POWER7
-#endif
 
 /* We don't need to generate entries in .fixup, except when
    -mrelocatable or -mrelocatable-lib is given.  */
@@ -557,3 +553,10 @@ extern int dot_symbols;
 #undef TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P
 #define TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P \
   rs6000_linux_float_exceptions_rounding_supported_p
+
+/* Support for TARGET_ATOMIC_ASSIGN_EXPAND_FENV without FPRs depends
+   on glibc 2.19 or greater.  */
+#if TARGET_GLIBC_MAJOR > 2 \
+  || (TARGET_GLIBC_MAJOR == 2 && TARGET_GLIBC_MINOR >= 19)
+#define RS6000_GLIBC_ATOMIC_FENV 1
+#endif

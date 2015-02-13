@@ -1,5 +1,5 @@
 /* Post reload partially redundant load elimination
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,15 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "hash-table.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -32,13 +41,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "basic-block.h"
+#include "predict.h"
 #include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "basic-block.h"
+#include "profile.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "except.h"
 #include "intl.h"
 #include "obstack.h"
-#include "hashtab.h"
 #include "params.h"
 #include "target.h"
 #include "tree-pass.h"
@@ -1003,10 +1027,11 @@ eliminate_partially_redundant_load (basic_block bb, rtx_insn *insn,
 
 	  /* Make sure we can generate a move from register avail_reg to
 	     dest.  */
-	  extract_insn (as_a <rtx_insn *> (
-			  gen_move_insn (copy_rtx (dest),
-					 copy_rtx (avail_reg))));
-	  if (! constrain_operands (1)
+	  rtx_insn *move = as_a <rtx_insn *>
+	    (gen_move_insn (copy_rtx (dest), copy_rtx (avail_reg)));
+	  extract_insn (move);
+	  if (! constrain_operands (1, get_preferred_alternatives (insn,
+								   pred_bb))
 	      || reg_killed_on_edge (avail_reg, pred)
 	      || reg_used_on_edge (dest, pred))
 	    {

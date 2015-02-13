@@ -1,5 +1,5 @@
 /* UndefinedBehaviorSanitizer, undefined behavior detector.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by Marek Polacek <polacek@redhat.com>
 
 This file is part of GCC.
@@ -21,8 +21,30 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "alloc-pool.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "output.h"
 #include "toplev.h"
@@ -104,7 +126,7 @@ ubsan_instrument_division (location_t loc, tree op0, tree op1)
 				     NULL_TREE);
       data = build_fold_addr_expr_loc (loc, data);
       enum built_in_function bcode
-	= flag_sanitize_recover
+	= (flag_sanitize_recover & SANITIZE_DIVIDE)
 	  ? BUILT_IN_UBSAN_HANDLE_DIVREM_OVERFLOW
 	  : BUILT_IN_UBSAN_HANDLE_DIVREM_OVERFLOW_ABORT;
       tt = builtin_decl_explicit (bcode);
@@ -128,19 +150,19 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
   tree op1_utype = unsigned_type_for (type1);
   HOST_WIDE_INT op0_prec = TYPE_PRECISION (type0);
   tree uprecm1 = build_int_cst (op1_utype, op0_prec - 1);
-  tree precm1 = build_int_cst (type1, op0_prec - 1);
 
   t = fold_convert_loc (loc, op1_utype, op1);
   t = fold_build2 (GT_EXPR, boolean_type_node, t, uprecm1);
 
   /* For signed x << y, in C99/C11, the following:
-     (unsigned) x >> (precm1 - y)
+     (unsigned) x >> (uprecm1 - y)
      if non-zero, is undefined.  */
   if (code == LSHIFT_EXPR
       && !TYPE_UNSIGNED (type0)
       && flag_isoc99)
     {
-      tree x = fold_build2 (MINUS_EXPR, integer_type_node, precm1, op1);
+      tree x = fold_build2 (MINUS_EXPR, op1_utype, uprecm1,
+			    fold_convert (op1_utype, op1));
       tt = fold_convert_loc (loc, unsigned_type_for (type0), op0);
       tt = fold_build2 (RSHIFT_EXPR, TREE_TYPE (tt), tt, x);
       tt = fold_build2 (NE_EXPR, boolean_type_node, tt,
@@ -148,13 +170,14 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
     }
 
   /* For signed x << y, in C++11 and later, the following:
-     x < 0 || ((unsigned) x >> (precm1 - y))
+     x < 0 || ((unsigned) x >> (uprecm1 - y))
      if > 1, is undefined.  */
   if (code == LSHIFT_EXPR
       && !TYPE_UNSIGNED (TREE_TYPE (op0))
       && (cxx_dialect >= cxx11))
     {
-      tree x = fold_build2 (MINUS_EXPR, integer_type_node, precm1, op1);
+      tree x = fold_build2 (MINUS_EXPR, op1_utype, uprecm1,
+			    fold_convert (op1_utype, op1));
       tt = fold_convert_loc (loc, unsigned_type_for (type0), op0);
       tt = fold_build2 (RSHIFT_EXPR, TREE_TYPE (tt), tt, x);
       tt = fold_build2 (GT_EXPR, boolean_type_node, tt,
@@ -199,7 +222,7 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
       data = build_fold_addr_expr_loc (loc, data);
 
       enum built_in_function bcode
-	= flag_sanitize_recover
+	= (flag_sanitize_recover & SANITIZE_SHIFT)
 	  ? BUILT_IN_UBSAN_HANDLE_SHIFT_OUT_OF_BOUNDS
 	  : BUILT_IN_UBSAN_HANDLE_SHIFT_OUT_OF_BOUNDS_ABORT;
       tt = builtin_decl_explicit (bcode);
@@ -229,7 +252,7 @@ ubsan_instrument_vla (location_t loc, tree size)
 				     NULL_TREE);
       data = build_fold_addr_expr_loc (loc, data);
       enum built_in_function bcode
-	= flag_sanitize_recover
+	= (flag_sanitize_recover & SANITIZE_VLA)
 	  ? BUILT_IN_UBSAN_HANDLE_VLA_BOUND_NOT_POSITIVE
 	  : BUILT_IN_UBSAN_HANDLE_VLA_BOUND_NOT_POSITIVE_ABORT;
       tt = builtin_decl_explicit (bcode);
@@ -351,9 +374,7 @@ void
 ubsan_maybe_instrument_array_ref (tree *expr_p, bool ignore_off_by_one)
 {
   if (!ubsan_array_ref_instrumented_p (*expr_p)
-      && current_function_decl != NULL_TREE
-      && !lookup_attribute ("no_sanitize_undefined",
-			    DECL_ATTRIBUTES (current_function_decl)))
+      && do_ubsan_in_current_function ())
     {
       tree op0 = TREE_OPERAND (*expr_p, 0);
       tree op1 = TREE_OPERAND (*expr_p, 1);
@@ -370,17 +391,16 @@ ubsan_maybe_instrument_array_ref (tree *expr_p, bool ignore_off_by_one)
 }
 
 static tree
-ubsan_maybe_instrument_reference_or_call (location_t loc, tree op, tree type,
+ubsan_maybe_instrument_reference_or_call (location_t loc, tree op, tree ptype,
 					  enum ubsan_null_ckind ckind)
 {
+  if (!do_ubsan_in_current_function ())
+    return NULL_TREE;
+
+  tree type = TREE_TYPE (ptype);
   tree orig_op = op;
   bool instrument = false;
   unsigned int mina = 0;
-
-  if (current_function_decl == NULL_TREE
-      || lookup_attribute ("no_sanitize_undefined",
-			   DECL_ATTRIBUTES (current_function_decl)))
-    return NULL_TREE;
 
   if (flag_sanitize & SANITIZE_ALIGNMENT)
     {
@@ -418,13 +438,20 @@ ubsan_maybe_instrument_reference_or_call (location_t loc, tree op, tree type,
 	}
       else if (flag_sanitize & SANITIZE_NULL)
 	instrument = true;
-      if (mina && mina > get_pointer_alignment (op) / BITS_PER_UNIT)
-	instrument = true;
+      if (mina && mina > 1)
+	{
+	  if (!POINTER_TYPE_P (TREE_TYPE (op))
+	      || mina > get_pointer_alignment (op) / BITS_PER_UNIT)
+	    instrument = true;
+	}
     }
   if (!instrument)
     return NULL_TREE;
   op = save_expr (orig_op);
-  tree kind = build_int_cst (TREE_TYPE (op), ckind);
+  gcc_assert (POINTER_TYPE_P (ptype));
+  if (TREE_CODE (ptype) == REFERENCE_TYPE)
+    ptype = build_pointer_type (TREE_TYPE (ptype));
+  tree kind = build_int_cst (ptype, ckind);
   tree align = build_int_cst (pointer_sized_int_node, mina);
   tree call
     = build_call_expr_internal_loc (loc, IFN_UBSAN_NULL, void_type_node,
@@ -440,7 +467,7 @@ ubsan_maybe_instrument_reference (tree stmt)
 {
   tree op = TREE_OPERAND (stmt, 0);
   op = ubsan_maybe_instrument_reference_or_call (EXPR_LOCATION (stmt), op,
-						 TREE_TYPE (TREE_TYPE (stmt)),
+						 TREE_TYPE (stmt),
 						 UBSAN_REF_BINDING);
   if (op)
     TREE_OPERAND (stmt, 0) = op;
@@ -458,7 +485,7 @@ ubsan_maybe_instrument_member_call (tree stmt, bool is_ctor)
       || !POINTER_TYPE_P (TREE_TYPE (op)))
     return;
   op = ubsan_maybe_instrument_reference_or_call (EXPR_LOCATION (stmt), op,
-						 TREE_TYPE (TREE_TYPE (op)),
+						 TREE_TYPE (op),
 						 is_ctor ? UBSAN_CTOR_CALL
 						 : UBSAN_MEMBER_CALL);
   if (op)

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -72,11 +72,11 @@ package body ALI is
       --  These two loops are empty and harmless the first time in.
 
       for J in ALIs.First .. ALIs.Last loop
-         Set_Name_Table_Info (ALIs.Table (J).Afile, 0);
+         Set_Name_Table_Int (ALIs.Table (J).Afile, 0);
       end loop;
 
       for J in Units.First .. Units.Last loop
-         Set_Name_Table_Info (Units.Table (J).Uname, 0);
+         Set_Name_Table_Int (Units.Table (J).Uname, 0);
       end loop;
 
       --  Free argument table strings
@@ -111,6 +111,7 @@ package body ALI is
       Locking_Policy_Specified               := ' ';
       No_Normalize_Scalars_Specified         := False;
       No_Object_Specified                    := False;
+      GNATprove_Mode_Specified               := False;
       Normalize_Scalars_Specified            := False;
       Partition_Elaboration_Policy_Specified := ' ';
       Queuing_Policy_Specified               := ' ';
@@ -866,7 +867,7 @@ package body ALI is
 
       ALIs.Increment_Last;
       Id := ALIs.Last;
-      Set_Name_Table_Info (F, Int (Id));
+      Set_Name_Table_Int (F, Int (Id));
 
       ALIs.Table (Id) := (
         Afile                        => F,
@@ -875,6 +876,7 @@ package body ALI is
         First_Sdep                   => No_Sdep_Id,
         First_Specific_Dispatching   => Specific_Dispatching.Last + 1,
         First_Unit                   => No_Unit_Id,
+        GNATprove_Mode               => False,
         Last_Interrupt_State         => Interrupt_States.Last,
         Last_Sdep                    => No_Sdep_Id,
         Last_Specific_Dispatching    => Specific_Dispatching.Last,
@@ -1088,6 +1090,13 @@ package body ALI is
                Partition_Elaboration_Policy_Specified := Getc;
                ALIs.Table (Id).Partition_Elaboration_Policy :=
                  Partition_Elaboration_Policy_Specified;
+
+            --  Processing for GP
+
+            elsif C = 'G' then
+               Checkc ('P');
+               GNATprove_Mode_Specified := True;
+               ALIs.Table (Id).GNATprove_Mode := True;
 
             --  Processing for Lx
 
@@ -1695,6 +1704,7 @@ package body ALI is
             UL.Shared_Passive           := False;
             UL.RCI                      := False;
             UL.Remote_Types             := False;
+            UL.Serious_Errors           := False;
             UL.Has_RACW                 := False;
             UL.Init_Scalars             := False;
             UL.Is_Generic               := False;
@@ -1728,7 +1738,7 @@ package body ALI is
          --  Check for duplicated unit in different files
 
          declare
-            Info : constant Int := Get_Name_Table_Info
+            Info : constant Int := Get_Name_Table_Int
                                      (Units.Table (Units.Last).Uname);
          begin
             if Info /= 0
@@ -1776,7 +1786,7 @@ package body ALI is
             end if;
          end;
 
-         Set_Name_Table_Info
+         Set_Name_Table_Int
            (Units.Table (Units.Last).Uname, Int (Units.Last));
 
          --  Scan out possible version and other parameters
@@ -1947,10 +1957,14 @@ package body ALI is
 
                Check_At_End_Of_Field;
 
+            --  SE/SP/SU parameters
+
             elsif C = 'S' then
                C := Getc;
 
-               if C = 'P' then
+               if C = 'E' then
+                  Units.Table (Units.Last).Serious_Errors := True;
+               elsif C = 'P' then
                   Units.Table (Units.Last).Shared_Passive := True;
                elsif C = 'U' then
                   Units.Table (Units.Last).Unit_Kind := 's';

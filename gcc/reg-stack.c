@@ -1,5 +1,5 @@
 /* Register to Stack convert for GNU compiler.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -153,16 +153,33 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
 #include "rtl-error.h"
 #include "tm_p.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "insn-config.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "flags.h"
 #include "recog.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "reload.h"
 #include "ggc.h"
@@ -469,8 +486,7 @@ check_asm_stack_operands (rtx_insn *insn)
 
   /* Find out what the constraints require.  If no constraint
      alternative matches, this asm is malformed.  */
-  extract_insn (insn);
-  constrain_operands (1);
+  extract_constrain_insn (insn);
 
   preprocess_constraints (insn);
 
@@ -2016,8 +2032,7 @@ subst_asm_stack_regs (rtx_insn *insn, stack_ptr regstack)
   /* Find out what the constraints required.  If no constraint
      alternative matches, that is a compiler bug: we should have caught
      such an insn in check_asm_stack_operands.  */
-  extract_insn (insn);
-  constrain_operands (1);
+  extract_constrain_insn (insn);
 
   preprocess_constraints (insn);
   const operand_alternative *op_alt = which_op_alt ();
@@ -3227,7 +3242,7 @@ reg_to_stack (void)
   /* Create the replacement registers up front.  */
   for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
     {
-      enum machine_mode mode;
+      machine_mode mode;
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
 	   mode != VOIDmode;
 	   mode = GET_MODE_WIDER_MODE (mode))

@@ -1,5 +1,5 @@
 /* Gcc offline profile processing tool support. */
-/* Copyright (C) 2014 Free Software Foundation, Inc.
+/* Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Rong Xu <xur@google.com>.
 
 This file is part of GCC.
@@ -35,10 +35,13 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#if HAVE_FTW_H
 #include <ftw.h>
+#endif
 #include <getopt.h>
 
 extern int gcov_profile_merge (struct gcov_info*, struct gcov_info*, int, int);
+extern int gcov_profile_overlap (struct gcov_info*, struct gcov_info*);
 extern int gcov_profile_normalize (struct gcov_info*, gcov_type);
 extern int gcov_profile_scale (struct gcov_info*, float, int, int);
 extern struct gcov_info* gcov_read_profile_dir (const char*, int);
@@ -47,6 +50,8 @@ extern void gcov_set_verbose (void);
 
 /* Set to verbose output mode.  */
 static bool verbose;
+
+#if HAVE_FTW_H
 
 /* Remove file NAME if it has a gcda suffix. */
 
@@ -64,17 +69,22 @@ unlink_gcda_file (const char *name,
     ret = remove (name);
 
   if (ret)
-    fatal_error ("error in removing %s\n", name);
+    fatal_error (input_location, "error in removing %s\n", name);
 
   return ret;
 }
+#endif
 
 /* Remove the gcda files in PATH recursively.  */
 
 static int
-unlink_profile_dir (const char *path)
+unlink_profile_dir (const char *path ATTRIBUTE_UNUSED)
 {
+#if HAVE_FTW_H
     return nftw(path, unlink_gcda_file, 64, FTW_DEPTH | FTW_PHYS);
+#else
+    return -1;
+#endif
 }
 
 /* Output GCOV_INFO lists PROFILE to directory OUT. Note that
@@ -89,12 +99,8 @@ gcov_output_files (const char *out, struct gcov_info *profile)
   /* Try to make directory if it doesn't already exist.  */
   if (access (out, F_OK) == -1)
     {
-#if !defined(_WIN32)
       if (mkdir (out, S_IRWXU | S_IRWXG | S_IRWXO) == -1 && errno != EEXIST)
-#else
-      if (mkdir (out) == -1 && errno != EEXIST)
-#endif
-        fatal_error ("Cannot make directory %s", out);
+        fatal_error (input_location, "Cannot make directory %s", out);
     } else
       unlink_profile_dir (out);
 
@@ -102,17 +108,17 @@ gcov_output_files (const char *out, struct gcov_info *profile)
   pwd = getcwd (NULL, 0);
 
   if (pwd == NULL)
-    fatal_error ("Cannot get current directory name");
+    fatal_error (input_location, "Cannot get current directory name");
 
   ret = chdir (out);
   if (ret)
-    fatal_error ("Cannot change directory to %s", out);
+    fatal_error (input_location, "Cannot change directory to %s", out);
 
   gcov_do_dump (profile, 0);
 
   ret = chdir (pwd);
   if (ret)
-    fatal_error ("Cannot change directory to %s", pwd);
+    fatal_error (input_location, "Cannot change directory to %s", pwd);
 
   free (pwd);
 }
@@ -206,7 +212,7 @@ do_merge (int argc, char **argv)
         case 'w':
           sscanf (optarg, "%d,%d", &w1, &w2);
           if (w1 < 0 || w2 < 0)
-            fatal_error ("weights need to be non-negative\n");
+            fatal_error (input_location, "weights need to be non-negative\n");
           break;
         default:
           merge_usage ();
@@ -288,7 +294,11 @@ do_rewrite (int argc, char **argv)
   int opt;
   int ret;
   const char *output_dir = 0;
+#ifdef HAVE_LONG_LONG
   long long normalize_val = 0;
+#else
+  int64_t normalize_val = 0;
+#endif
   float scale = 0.0;
   int numerator = 1;
   int denominator = 1;
@@ -308,7 +318,13 @@ do_rewrite (int argc, char **argv)
           break;
         case 'n':
           if (!do_scaling)
-            normalize_val = atoll (optarg);
+#if defined(HAVE_LONG_LONG)
+	    normalize_val = strtoll (optarg, (char **)NULL, 10);
+#elif defined(INT64_T_IS_LONG)
+	    normalize_val = strtol (optarg, (char **)NULL, 10);
+#else
+	    sscanf (optarg, "%" SCNd64, &normalize_val);
+#endif
           else
             fnotice (stderr, "scaling cannot co-exist with normalization,"
                 " skipping\n");
@@ -339,7 +355,7 @@ do_rewrite (int argc, char **argv)
             }
 
           if (scale < 0.0)
-            fatal_error ("scale needs to be non-negative\n");
+            fatal_error (input_location, "scale needs to be non-negative\n");
 
           if (normalize_val != 0)
             {
@@ -368,6 +384,121 @@ do_rewrite (int argc, char **argv)
   return ret;
 }
 
+/* Driver function to computer the overlap score b/w profile D1 and D2.
+   Return 1 on error and 0 if OK.  */
+
+static int
+profile_overlap (const char *d1, const char *d2)
+{
+  struct gcov_info *d1_profile;
+  struct gcov_info *d2_profile;
+
+  d1_profile = gcov_read_profile_dir (d1, 0);
+  if (!d1_profile)
+    return 1;
+
+  if (d2)
+    {
+      d2_profile = gcov_read_profile_dir (d2, 0);
+      if (!d2_profile)
+        return 1;
+
+      return gcov_profile_overlap (d1_profile, d2_profile);
+    }
+
+  return 1;
+}
+
+/* Usage message for profile overlap.  */
+
+static void
+print_overlap_usage_message (int error_p)
+{
+  FILE *file = error_p ? stderr : stdout;
+
+  fnotice (file, "  overlap [options] <dir1> <dir2>       Compute the overlap of two profiles\n");
+  fnotice (file, "    -v, --verbose                       Verbose mode\n");
+  fnotice (file, "    -h, --hotonly                       Only print info for hot objects/functions\n");
+  fnotice (file, "    -f, --function                      Print function level info\n");
+  fnotice (file, "    -F, --fullname                      Print full filename\n");
+  fnotice (file, "    -o, --object                        Print object level info\n");
+  fnotice (file, "    -t <float>, --hot_threshold <float> Set the threshold for hotness\n");
+
+}
+
+static const struct option overlap_options[] =
+{
+  { "verbose",                no_argument,       NULL, 'v' },
+  { "function",               no_argument,       NULL, 'f' },
+  { "fullname",               no_argument,       NULL, 'F' },
+  { "object",                 no_argument,       NULL, 'o' },
+  { "hotonly",                no_argument,       NULL, 'h' },
+  { "hot_threshold",          required_argument, NULL, 't' },
+  { 0, 0, 0, 0 }
+};
+
+/* Print overlap usage and exit.  */
+
+static void
+overlap_usage (void)
+{
+  fnotice (stderr, "Overlap subcomand usage:");
+  print_overlap_usage_message (true);
+  exit (FATAL_EXIT_CODE);
+}
+
+int overlap_func_level;
+int overlap_obj_level;
+int overlap_hot_only;
+int overlap_use_fullname;
+double overlap_hot_threshold = 0.005;
+
+/* Driver for profile overlap sub-command.  */
+
+static int
+do_overlap (int argc, char **argv)
+{
+  int opt;
+  int ret;
+
+  optind = 0;
+  while ((opt = getopt_long (argc, argv, "vfFoht:", overlap_options, NULL)) != -1)
+    {
+      switch (opt)
+        {
+        case 'v':
+          verbose = true;
+          gcov_set_verbose ();
+          break;
+        case 'f':
+          overlap_func_level = 1;
+          break;
+        case 'F':
+          overlap_use_fullname = 1;
+          break;
+        case 'o':
+          overlap_obj_level = 1;
+          break;
+        case 'h':
+          overlap_hot_only = 1;
+          break;
+        case 't':
+          overlap_hot_threshold = atof (optarg);
+          break;
+        default:
+          overlap_usage ();
+        }
+    }
+
+  if (argc - optind == 2)
+    ret = profile_overlap (argv[optind], argv[optind+1]);
+  else
+    overlap_usage ();
+
+  return ret;
+}
+
+
 /* Print a usage message and exit.  If ERROR_P is nonzero, this is an error,
    otherwise the output of --help.  */
 
@@ -383,6 +514,7 @@ print_usage (int error_p)
   fnotice (file, "  -v, --version                         Print version number, then exit\n");
   print_merge_usage_message (error_p);
   print_rewrite_usage_message (error_p);
+  print_overlap_usage_message (error_p);
   fnotice (file, "\nFor bug reporting instructions, please see:\n%s.\n",
            bug_report_url);
   exit (status);
@@ -394,7 +526,7 @@ static void
 print_version (void)
 {
   fnotice (stdout, "%s %s%s\n", progname, pkgversion_string, version_string);
-  fnotice (stdout, "Copyright %s 2014 Free Software Foundation, Inc.\n",
+  fnotice (stdout, "Copyright %s 2014-2015 Free Software Foundation, Inc.\n",
            _("(C)"));
   fnotice (stdout,
            _("This is free software; see the source for copying conditions.\n"
@@ -471,6 +603,8 @@ main (int argc, char **argv)
     return do_merge (argc - optind, argv + optind);
   else if (!strcmp (sub_command, "rewrite"))
     return do_rewrite (argc - optind, argv + optind);
+  else if (!strcmp (sub_command, "overlap"))
+    return do_overlap (argc - optind, argv + optind);
 
   print_usage (true);
 }

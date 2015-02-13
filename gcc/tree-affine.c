@@ -1,5 +1,5 @@
 /* Operations with affine combinations of trees.
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,10 +20,39 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
+#include "hashtab.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-pretty-print.h"
 #include "tree-affine.h"
+#include "predict.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -31,7 +60,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
-#include "flags.h"
 #include "dumpfile.h"
 #include "cfgexpand.h"
 #include "wide-int-print.h"
@@ -264,7 +292,7 @@ tree_to_aff_combination (tree expr, tree type, aff_tree *comb)
   enum tree_code code;
   tree cst, core, toffset;
   HOST_WIDE_INT bitpos, bitsize;
-  enum machine_mode mode;
+  machine_mode mode;
   int unsignedp, volatilep;
 
   STRIP_NOPS (expr);
@@ -639,7 +667,7 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
       type = TREE_TYPE (e);
       name = e;
       /* Look through some conversions.  */
-      if (TREE_CODE (e) == NOP_EXPR
+      if (CONVERT_EXPR_P (e)
           && (TYPE_PRECISION (type)
 	      >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (e, 0)))))
 	name = TREE_OPERAND (e, 0);
@@ -889,7 +917,7 @@ get_inner_reference_aff (tree ref, aff_tree *addr, widest_int *size)
 {
   HOST_WIDE_INT bitsize, bitpos;
   tree toff;
-  enum machine_mode mode;
+  machine_mode mode;
   int uns, vol;
   aff_tree tmp;
   tree base = get_inner_reference (ref, &bitsize, &bitpos, &toff, &mode,

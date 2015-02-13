@@ -1,5 +1,5 @@
 ;;  Machine description the Motorola MCore
-;;  Copyright (C) 1993-2014 Free Software Foundation, Inc.
+;;  Copyright (C) 1993-2015 Free Software Foundation, Inc.
 ;;  Contributed by Motorola.
 
 ;; This file is part of GCC.
@@ -2769,7 +2769,7 @@
 "*
 {
    int ofs;
-   enum machine_mode mode;
+   machine_mode mode;
    rtx base_reg = XEXP (operands[4], 0);
 
    if ((ofs = mcore_byte_offset (INTVAL (operands[3]))) > -1)

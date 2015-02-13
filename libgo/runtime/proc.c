@@ -18,7 +18,6 @@
 #include "arch.h"
 #include "defs.h"
 #include "malloc.h"
-#include "race.h"
 #include "go-type.h"
 #include "go-defer.h"
 
@@ -51,7 +50,7 @@ extern void __splitstack_block_signals_context (void *context[10], int *,
 #if defined(USING_SPLIT_STACK) && defined(LINKER_SUPPORTS_SPLIT_STACK)
 # define StackMin PTHREAD_STACK_MIN
 #else
-# define StackMin 2 * 1024 * 1024
+# define StackMin ((sizeof(char *) < 8) ? 2 * 1024 * 1024 : 4 * 1024 * 1024)
 #endif
 
 uintptr runtime_stacks_sys;
@@ -127,6 +126,30 @@ fixcontext(ucontext_t* c)
 	c->uc_mcontext._mc_tlsbase = tlsbase;
 }
 
+# elif defined(__sparc__)
+
+static inline void
+initcontext(void)
+{
+}
+
+static inline void
+fixcontext(ucontext_t *c)
+{
+	/* ??? Using 
+	     register unsigned long thread __asm__("%g7");
+	     c->uc_mcontext.gregs[REG_G7] = thread;
+	   results in
+	     error: variable ‘thread’ might be clobbered by \
+		‘longjmp’ or ‘vfork’ [-Werror=clobbered]
+	   which ought to be false, as %g7 is a fixed register.  */
+
+	if (sizeof (c->uc_mcontext.gregs[REG_G7]) == 8)
+		asm ("stx %%g7, %0" : "=m"(c->uc_mcontext.gregs[REG_G7]));
+	else
+		asm ("st %%g7, %0" : "=m"(c->uc_mcontext.gregs[REG_G7]));
+}
+
 # else
 
 #  error unknown case for SETCONTEXT_CLOBBERS_TLS
@@ -167,15 +190,11 @@ runtime_setmg(M* mp, G* gp)
 	g = gp;
 }
 
-// The static TLS size.  See runtime_newm.
-static int tlssize;
-
 // Start a new thread.
 static void
 runtime_newosproc(M *mp)
 {
 	pthread_attr_t attr;
-	size_t stacksize;
 	sigset_t clear, old;
 	pthread_t tid;
 	int ret;
@@ -184,19 +203,6 @@ runtime_newosproc(M *mp)
 		runtime_throw("pthread_attr_init");
 	if(pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) != 0)
 		runtime_throw("pthread_attr_setdetachstate");
-
-	stacksize = PTHREAD_STACK_MIN;
-
-	// With glibc before version 2.16 the static TLS size is taken
-	// out of the stack size, and we get an error or a crash if
-	// there is not enough stack space left.  Add it back in if we
-	// can, in case the program uses a lot of TLS space.  FIXME:
-	// This can be disabled in glibc 2.16 and later, if the bug is
-	// indeed fixed then.
-	stacksize += tlssize;
-
-	if(pthread_attr_setstacksize(&attr, stacksize) != 0)
-		runtime_throw("pthread_attr_setstacksize");
 
 	// Block signals during pthread_create so that the new thread
 	// starts with signals disabled.  It will enable them in minit.
@@ -305,43 +311,6 @@ runtime_mcall(void (*pfn)(G*))
 		runtime_throw("runtime: mcall function returned");
 	}
 }
-
-#ifdef HAVE_DL_ITERATE_PHDR
-
-// Called via dl_iterate_phdr.
-
-static int
-addtls(struct dl_phdr_info* info, size_t size __attribute__ ((unused)), void *data)
-{
-	size_t *total = (size_t *)data;
-	unsigned int i;
-
-	for(i = 0; i < info->dlpi_phnum; ++i) {
-		if(info->dlpi_phdr[i].p_type == PT_TLS)
-			*total += info->dlpi_phdr[i].p_memsz;
-	}
-	return 0;
-}
-
-// Set the total TLS size.
-
-static void
-inittlssize()
-{
-	size_t total = 0;
-
-	dl_iterate_phdr(addtls, (void *)&total);
-	tlssize = total;
-}
-
-#else
-
-static void
-inittlssize()
-{
-}
-
-#endif
 
 // Goroutine scheduler
 // The scheduler's job is to distribute ready-to-run goroutines over worker threads.
@@ -481,7 +450,6 @@ runtime_schedinit(void)
 	g->m = m;
 
 	initcontext();
-	inittlssize();
 
 	runtime_sched.maxmcount = 10000;
 	runtime_precisestack = 0;
@@ -517,9 +485,6 @@ runtime_schedinit(void)
 
 	// Can not enable GC until all roots are registered.
 	// mstats.enablegc = 1;
-
-	// if(raceenabled)
-	//	g->racectx = runtime_raceinit();
 }
 
 extern void main_init(void) __asm__ (GOSYM_PREFIX "__go_init_main");
@@ -583,8 +548,6 @@ runtime_main(void* dummy __attribute__((unused)))
 	mstats.enablegc = 1;
 
 	main_main();
-	if(raceenabled)
-		runtime_racefini();
 
 	// Make racy client program work: if panicking on
 	// another goroutine at the same time as main returns,
@@ -1205,6 +1168,7 @@ runtime_needm(void)
 	__splitstack_getcontext(&g->stack_context[0]);
 #else
 	g->gcinitial_sp = &mp;
+	g->gcstack = nil;
 	g->gcstack_size = 0;
 	g->gcnext_sp = &mp;
 #endif
@@ -1306,6 +1270,8 @@ runtime_dropm(void)
 	runtime_setmg(nil, nil);
 
 	mp->curg->status = Gdead;
+	mp->curg->gcstack = nil;
+	mp->curg->gcnext_sp = nil;
 
 	mnext = lockextra(true);
 	mp->schedlink = mnext;
@@ -1900,8 +1866,6 @@ runtime_goexit(void)
 {
 	if(g->status != Grunning)
 		runtime_throw("bad g status");
-	if(raceenabled)
-		runtime_racegoend();
 	runtime_mcall(goexit0);
 }
 
@@ -3368,26 +3332,6 @@ void
 runtime_proc_scan(struct Workbuf** wbufp, void (*enqueue1)(struct Workbuf**, Obj))
 {
 	enqueue1(wbufp, (Obj){(byte*)&runtime_sched, sizeof runtime_sched, 0});
-}
-
-// When a function calls a closure, it passes the closure value to
-// __go_set_closure immediately before the function call.  When a
-// function uses a closure, it calls __go_get_closure immediately on
-// function entry.  This is a hack, but it will work on any system.
-// It would be better to use the static chain register when there is
-// one.  It is also worth considering expanding these functions
-// directly in the compiler.
-
-void
-__go_set_closure(void* v)
-{
-	g->closure = v;
-}
-
-void *
-__go_get_closure(void)
-{
-	return g->closure;
 }
 
 // Return whether we are waiting for a GC.  This gc toolchain uses

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -62,6 +62,15 @@ package body Prj.Proc is
       Hash       => Hash,
       Equal      => "=");
    --  This hash table contains all processed projects
+
+   package Runtime_Defaults is new GNAT.HTable.Simple_HTable
+     (Header_Num => Prj.Header_Num,
+      Element    => Name_Id,
+      No_Element => No_Name,
+      Key        => Name_Id,
+      Hash       => Prj.Hash,
+      Equal      => "=");
+   --  Stores the default values of 'Runtime names for the various languages
 
    procedure Add (To_Exp : in out Name_Id; Str : Name_Id);
    --  Concatenate two strings and returns another string if both
@@ -530,15 +539,15 @@ package body Prj.Proc is
       The_Term := First_Term;
       while Present (The_Term) loop
          The_Current_Term := Current_Term (The_Term, From_Project_Node_Tree);
-         Current_Term_Kind :=
-           Kind_Of (The_Current_Term, From_Project_Node_Tree);
 
-         case Current_Term_Kind is
+         if The_Current_Term /= Empty_Node then
+            Current_Term_Kind :=
+              Kind_Of (The_Current_Term, From_Project_Node_Tree);
+
+            case Current_Term_Kind is
 
             when N_Literal_String =>
-
                case Kind is
-
                   when Undefined =>
 
                      --  Should never happen
@@ -569,7 +578,7 @@ package body Prj.Proc is
                      else
                         Shared.String_Elements.Table
                           (Last).Next := String_Element_Table.Last
-                                       (Shared.String_Elements);
+                                           (Shared.String_Elements);
                      end if;
 
                      Last := String_Element_Table.Last
@@ -577,8 +586,8 @@ package body Prj.Proc is
 
                      Shared.String_Elements.Table (Last) :=
                        (Value         => String_Value_Of
-                                           (The_Current_Term,
-                                            From_Project_Node_Tree),
+                          (The_Current_Term,
+                           From_Project_Node_Tree),
                         Index         => Source_Index_Of
                                            (The_Current_Term,
                                             From_Project_Node_Tree),
@@ -591,7 +600,6 @@ package body Prj.Proc is
                end case;
 
             when N_Literal_String_List =>
-
                declare
                   String_Node : Project_Node_Id :=
                                   First_Expression_In_List
@@ -686,7 +694,6 @@ package body Prj.Proc is
                end;
 
             when N_Variable_Reference | N_Attribute_Reference =>
-
                declare
                   The_Project     : Project_Id  := Project;
                   The_Package     : Package_Id  := Pkg;
@@ -734,7 +741,7 @@ package body Prj.Proc is
                      The_Package := The_Project.Decl.Packages;
                      while The_Package /= No_Package
                        and then Shared.Packages.Table (The_Package).Name /=
-                          The_Name
+                                The_Name
                      loop
                         The_Package :=
                           Shared.Packages.Table (The_Package).Next;
@@ -744,7 +751,7 @@ package body Prj.Proc is
                        (The_Package /= No_Package, "package not found.");
 
                   elsif Kind_Of (The_Current_Term, From_Project_Node_Tree) =
-                                                        N_Attribute_Reference
+                        N_Attribute_Reference
                   then
                      The_Package := No_Package;
                   end if;
@@ -810,11 +817,23 @@ package body Prj.Proc is
 
                      end if;
 
-                     pragma Assert (The_Variable_Id /= No_Variable,
-                                      "variable or attribute not found");
+                     if From_Project_Node_Tree.Incomplete_With then
+                        if The_Variable_Id = No_Variable then
+                           The_Variable := Nil_Variable_Value;
+                        else
+                           The_Variable :=
+                             Shared.Variable_Elements.Table
+                               (The_Variable_Id).Value;
+                        end if;
 
-                     The_Variable :=
-                       Shared.Variable_Elements.Table (The_Variable_Id).Value;
+                     else
+                        pragma Assert (The_Variable_Id /= No_Variable,
+                                       "variable or attribute not found");
+
+                        The_Variable :=
+                          Shared.Variable_Elements.Table
+                            (The_Variable_Id).Value;
+                     end if;
 
                   else
 
@@ -865,8 +884,8 @@ package body Prj.Proc is
 
                         else
                            if Expression_Kind_Of
-                                (The_Current_Term, From_Project_Node_Tree) =
-                                                                        List
+                               (The_Current_Term, From_Project_Node_Tree) =
+                                                                       List
                            then
                               The_Variable :=
                                 (Project  => Project,
@@ -889,16 +908,27 @@ package body Prj.Proc is
 
                   --  Check the defaults
 
-                  if Current_Term_Kind = N_Attribute_Reference
-                    and then The_Variable.Default
-                  then
+                  if Current_Term_Kind = N_Attribute_Reference then
                      declare
                         The_Default : constant Attribute_Default_Value :=
                           Default_Of
                             (The_Current_Term, From_Project_Node_Tree);
 
                      begin
-                        case The_Variable.Kind is
+                        --  Check the special value for 'Target when specified
+
+                        if The_Default = Target_Value
+                          and then Opt.Target_Origin = Specified
+                        then
+                           Name_Len := 0;
+                           Add_Str_To_Name_Buffer (Opt.Target_Value.all);
+                           The_Variable.Value := Name_Find;
+
+                        --  Check the defaults
+
+                        elsif The_Variable.Default then
+                           case The_Variable.Kind is
+
                            when Undefined =>
                               null;
 
@@ -923,25 +953,46 @@ package body Prj.Proc is
                                     goto Object_Dir_Restart;
 
                                  when Target_Value =>
-                                    null;
+                                    if Opt.Target_Value = null then
+                                       The_Variable.Value := Empty_String;
+
+                                    else
+                                       Name_Len := 0;
+                                       Add_Str_To_Name_Buffer
+                                         (Opt.Target_Value.all);
+                                       The_Variable.Value := Name_Find;
+                                    end if;
+
+                                 when Runtime_Value =>
+                                    Get_Name_String (Index);
+                                    To_Lower (Name_Buffer (1 .. Name_Len));
+                                    The_Variable.Value :=
+                                      Runtime_Defaults.Get (Name_Find);
+                                    if The_Variable.Value = No_Name then
+                                       The_Variable.Value := Empty_String;
+                                    end if;
+
                               end case;
 
                            when List =>
                               case The_Default is
-                                 when Read_Only_Value =>
+                                 when Read_Only_Value  =>
                                     null;
 
-                                 when Empty_Value =>
+                                 when Empty_Value      =>
                                     The_Variable.Values := Nil_String;
 
-                                 when Dot_Value =>
+                                 when Dot_Value        =>
                                     The_Variable.Values :=
                                       Shared.Dot_String_List;
 
-                                 when Object_Dir_Value | Target_Value =>
+                                 when Object_Dir_Value |
+                                      Target_Value     |
+                                      Runtime_Value    =>
                                     null;
                               end case;
-                        end case;
+                           end case;
+                        end if;
                      end;
                   end if;
 
@@ -994,8 +1045,8 @@ package body Prj.Proc is
 
                               else
                                  Shared.String_Elements.Table (Last).Next :=
-                                     String_Element_Table.Last
-                                       (Shared.String_Elements);
+                                   String_Element_Table.Last
+                                     (Shared.String_Elements);
                               end if;
 
                               Last :=
@@ -1006,8 +1057,8 @@ package body Prj.Proc is
                                 (Value         => The_Variable.Value,
                                  Display_Value => No_Name,
                                  Location      => Location_Of
-                                                    (The_Current_Term,
-                                                     From_Project_Node_Tree),
+                                                   (The_Current_Term,
+                                                    From_Project_Node_Tree),
                                  Flag          => False,
                                  Next          => Nil_String,
                                  Index         => 0);
@@ -1055,7 +1106,7 @@ package body Prj.Proc is
                                        Index        => 0);
 
                                     The_List := Shared.String_Elements.Table
-                                        (The_List).Next;
+                                                              (The_List).Next;
                                  end loop;
                               end;
                         end case;
@@ -1281,10 +1332,10 @@ package body Prj.Proc is
                                     String_Element_Table.Increment_Last
                                       (Shared.String_Elements);
                                     Shared.String_Elements.Table (Last).Next :=
-                                        String_Element_Table.Last
-                                          (Shared.String_Elements);
+                                         String_Element_Table.Last
+                                           (Shared.String_Elements);
                                     Last := String_Element_Table.Last
-                                        (Shared.String_Elements);
+                                              (Shared.String_Elements);
                                  end if;
                               end loop;
 
@@ -1313,7 +1364,8 @@ package body Prj.Proc is
                   "illegal node kind in an expression");
                raise Program_Error;
 
-         end case;
+            end case;
+         end if;
 
          The_Term := Next_Term (The_Term, From_Project_Node_Tree);
       end loop;
@@ -2267,7 +2319,9 @@ package body Prj.Proc is
                  Name_Of
                    (Project_Node_Of (Variable_Node, Node_Tree), Node_Tree);
                The_Project :=
-                 Imported_Or_Extended_Project_From (Project, Name);
+                 Imported_Or_Extended_Project_From
+                   (Project, Name, No_Extending => True);
+               The_Package := No_Package;
             end if;
 
             --  If a package was specified for the case variable, get its id
@@ -2722,6 +2776,10 @@ package body Prj.Proc is
             Success := not Prj.Tree.No (Loaded_Project);
 
             if Success then
+               if Node_Tree.Incomplete_With then
+                  From_Project_Node_Tree.Incomplete_With := True;
+               end if;
+
                List.Tree := new Project_Tree_Data (Is_Root_Tree => False);
                Prj.Initialize (List.Tree);
                List.Tree.Shared := In_Tree.Shared;
@@ -2885,9 +2943,9 @@ package body Prj.Proc is
             Name : constant Name_Id :=
                      Name_Of (From_Project_Node, From_Project_Node_Tree);
 
-            Name_Node : constant Tree_Private_Part.Project_Name_And_Node :=
-                          Tree_Private_Part.Projects_Htable.Get
-                            (From_Project_Node_Tree.Projects_HT, Name);
+            Display_Name : constant Name_Id :=
+                             Display_Name_Of
+                               (From_Project_Node, From_Project_Node_Tree);
 
          begin
             Project := Processed_Projects.Get (Name);
@@ -2951,7 +3009,8 @@ package body Prj.Proc is
             Processed_Projects.Set (Name, Project);
 
             Project.Name := Name;
-            Project.Display_Name := Name_Node.Display_Name;
+            Project.Display_Name := Display_Name;
+
             Get_Name_String (Name);
 
             --  If name starts with the virtual prefix, flag the project as
@@ -3106,4 +3165,14 @@ package body Prj.Proc is
       end if;
    end Recursive_Process;
 
+   -----------------------------
+   -- Set_Default_Runtime_For --
+   -----------------------------
+
+   procedure Set_Default_Runtime_For (Language : Name_Id; Value : String) is
+   begin
+      Name_Len := Value'Length;
+      Name_Buffer (1 .. Name_Len) := Value;
+      Runtime_Defaults.Set (Language, Name_Find);
+   end Set_Default_Runtime_For;
 end Prj.Proc;

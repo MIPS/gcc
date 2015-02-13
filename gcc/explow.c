@@ -1,5 +1,5 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,17 +24,38 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "except.h"
+#include "hard-reg-set.h"
 #include "function.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "libfuncs.h"
-#include "hard-reg-set.h"
-#include "insn-config.h"
 #include "ggc.h"
 #include "recog.h"
 #include "langhooks.h"
@@ -48,12 +69,13 @@ static rtx break_out_memory_refs (rtx);
 /* Truncate and perhaps sign-extend C as appropriate for MODE.  */
 
 HOST_WIDE_INT
-trunc_int_for_mode (HOST_WIDE_INT c, enum machine_mode mode)
+trunc_int_for_mode (HOST_WIDE_INT c, machine_mode mode)
 {
   int width = GET_MODE_PRECISION (mode);
 
   /* You want to truncate to a _what_?  */
-  gcc_assert (SCALAR_INT_MODE_P (mode));
+  gcc_assert (SCALAR_INT_MODE_P (mode)
+	      || POINTER_BOUNDS_MODE_P (mode));
 
   /* Canonicalize BImode to 0 and STORE_FLAG_VALUE.  */
   if (mode == BImode)
@@ -78,7 +100,7 @@ trunc_int_for_mode (HOST_WIDE_INT c, enum machine_mode mode)
    if it must be treated as immutable.  */
 
 rtx
-plus_constant (enum machine_mode mode, rtx x, HOST_WIDE_INT c,
+plus_constant (machine_mode mode, rtx x, HOST_WIDE_INT c,
 	       bool inplace)
 {
   RTX_CODE code;
@@ -217,58 +239,6 @@ eliminate_constant_term (rtx x, rtx *constptr)
   return x;
 }
 
-/* Returns a tree for the size of EXP in bytes.  */
-
-static tree
-tree_expr_size (const_tree exp)
-{
-  if (DECL_P (exp)
-      && DECL_SIZE_UNIT (exp) != 0)
-    return DECL_SIZE_UNIT (exp);
-  else
-    return size_in_bytes (TREE_TYPE (exp));
-}
-
-/* Return an rtx for the size in bytes of the value of EXP.  */
-
-rtx
-expr_size (tree exp)
-{
-  tree size;
-
-  if (TREE_CODE (exp) == WITH_SIZE_EXPR)
-    size = TREE_OPERAND (exp, 1);
-  else
-    {
-      size = tree_expr_size (exp);
-      gcc_assert (size);
-      gcc_assert (size == SUBSTITUTE_PLACEHOLDER_IN_EXPR (size, exp));
-    }
-
-  return expand_expr (size, NULL_RTX, TYPE_MODE (sizetype), EXPAND_NORMAL);
-}
-
-/* Return a wide integer for the size in bytes of the value of EXP, or -1
-   if the size can vary or is larger than an integer.  */
-
-HOST_WIDE_INT
-int_expr_size (tree exp)
-{
-  tree size;
-
-  if (TREE_CODE (exp) == WITH_SIZE_EXPR)
-    size = TREE_OPERAND (exp, 1);
-  else
-    {
-      size = tree_expr_size (exp);
-      gcc_assert (size);
-    }
-
-  if (size == 0 || !tree_fits_shwi_p (size))
-    return -1;
-
-  return tree_to_shwi (size);
-}
 
 /* Return a copy of X in which all memory references
    and all constants that involve symbol refs
@@ -310,17 +280,19 @@ break_out_memory_refs (rtx x)
    an address in the address space's address mode, or vice versa (TO_MODE says
    which way).  We take advantage of the fact that pointers are not allowed to
    overflow by commuting arithmetic operations over conversions so that address
-   arithmetic insns can be used.  */
+   arithmetic insns can be used. IN_CONST is true if this conversion is inside
+   a CONST.  */
 
-rtx
-convert_memory_address_addr_space (enum machine_mode to_mode ATTRIBUTE_UNUSED,
-				   rtx x, addr_space_t as ATTRIBUTE_UNUSED)
+static rtx
+convert_memory_address_addr_space_1 (machine_mode to_mode ATTRIBUTE_UNUSED,
+				     rtx x, addr_space_t as ATTRIBUTE_UNUSED,
+				     bool in_const ATTRIBUTE_UNUSED)
 {
 #ifndef POINTERS_EXTEND_UNSIGNED
   gcc_assert (GET_MODE (x) == to_mode || GET_MODE (x) == VOIDmode);
   return x;
 #else /* defined(POINTERS_EXTEND_UNSIGNED) */
-  enum machine_mode pointer_mode, address_mode, from_mode;
+  machine_mode pointer_mode, address_mode, from_mode;
   rtx temp;
   enum rtx_code code;
 
@@ -370,32 +342,29 @@ convert_memory_address_addr_space (enum machine_mode to_mode ATTRIBUTE_UNUSED,
 
     case CONST:
       return gen_rtx_CONST (to_mode,
-			    convert_memory_address_addr_space
-			      (to_mode, XEXP (x, 0), as));
+			    convert_memory_address_addr_space_1
+			      (to_mode, XEXP (x, 0), as, true));
       break;
 
     case PLUS:
     case MULT:
-      /* FIXME: For addition, we used to permute the conversion and
-	 addition operation only if one operand is a constant and
-	 converting the constant does not change it or if one operand
-	 is a constant and we are using a ptr_extend instruction
-	 (POINTERS_EXTEND_UNSIGNED < 0) even if the resulting address
-	 may overflow/underflow.  We relax the condition to include
-	 zero-extend (POINTERS_EXTEND_UNSIGNED > 0) since the other
-	 parts of the compiler depend on it.  See PR 49721.
-
+      /* For addition we can safely permute the conversion and addition
+	 operation if one operand is a constant and converting the constant
+	 does not change it or if one operand is a constant and we are
+	 using a ptr_extend instruction  (POINTERS_EXTEND_UNSIGNED < 0).
 	 We can always safely permute them if we are making the address
-	 narrower.  */
+	 narrower. Inside a CONST RTL, this is safe for both pointers
+	 zero or sign extended as pointers cannot wrap. */
       if (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (from_mode)
 	  || (GET_CODE (x) == PLUS
 	      && CONST_INT_P (XEXP (x, 1))
-	      && (POINTERS_EXTEND_UNSIGNED != 0
-		  || XEXP (x, 1) == convert_memory_address_addr_space
-		  			(to_mode, XEXP (x, 1), as))))
+	      && ((in_const && POINTERS_EXTEND_UNSIGNED != 0)
+		  || XEXP (x, 1) == convert_memory_address_addr_space_1
+				     (to_mode, XEXP (x, 1), as, in_const)
+                  || POINTERS_EXTEND_UNSIGNED < 0)))
 	return gen_rtx_fmt_ee (GET_CODE (x), to_mode,
-			       convert_memory_address_addr_space
-				 (to_mode, XEXP (x, 0), as),
+			       convert_memory_address_addr_space_1
+				 (to_mode, XEXP (x, 0), as, in_const),
 			       XEXP (x, 1));
       break;
 
@@ -407,16 +376,29 @@ convert_memory_address_addr_space (enum machine_mode to_mode ATTRIBUTE_UNUSED,
 			x, POINTERS_EXTEND_UNSIGNED);
 #endif /* defined(POINTERS_EXTEND_UNSIGNED) */
 }
+
+/* Given X, a memory address in address space AS' pointer mode, convert it to
+   an address in the address space's address mode, or vice versa (TO_MODE says
+   which way).  We take advantage of the fact that pointers are not allowed to
+   overflow by commuting arithmetic operations over conversions so that address
+   arithmetic insns can be used.  */
+
+rtx
+convert_memory_address_addr_space (machine_mode to_mode, rtx x, addr_space_t as)
+{
+  return convert_memory_address_addr_space_1 (to_mode, x, as, false);
+}
 
+
 /* Return something equivalent to X but valid as a memory address for something
    of mode MODE in the named address space AS.  When X is not itself valid,
    this works by copying X or subexpressions of it into registers.  */
 
 rtx
-memory_address_addr_space (enum machine_mode mode, rtx x, addr_space_t as)
+memory_address_addr_space (machine_mode mode, rtx x, addr_space_t as)
 {
   rtx oldx = x;
-  enum machine_mode address_mode = targetm.addr_space.address_mode (as);
+  machine_mode address_mode = targetm.addr_space.address_mode (as);
 
   x = convert_memory_address_addr_space (address_mode, x, as);
 
@@ -544,7 +526,7 @@ use_anchored_address (rtx x)
 {
   rtx base;
   HOST_WIDE_INT offset;
-  enum machine_mode mode;
+  machine_mode mode;
 
   if (!flag_section_anchors)
     return x;
@@ -623,7 +605,7 @@ copy_addr_to_reg (rtx x)
    in case X is a constant.  */
 
 rtx
-copy_to_mode_reg (enum machine_mode mode, rtx x)
+copy_to_mode_reg (machine_mode mode, rtx x)
 {
   rtx temp = gen_reg_rtx (mode);
 
@@ -647,7 +629,7 @@ copy_to_mode_reg (enum machine_mode mode, rtx x)
    since we mark it as a "constant" register.  */
 
 rtx
-force_reg (enum machine_mode mode, rtx x)
+force_reg (machine_mode mode, rtx x)
 {
   rtx temp, set;
   rtx_insn *insn;
@@ -748,7 +730,7 @@ force_not_mem (rtx x)
    MODE is the mode to use for X in case it is a constant.  */
 
 rtx
-copy_to_suggested_reg (rtx x, rtx target, enum machine_mode mode)
+copy_to_suggested_reg (rtx x, rtx target, machine_mode mode)
 {
   rtx temp;
 
@@ -768,8 +750,8 @@ copy_to_suggested_reg (rtx x, rtx target, enum machine_mode mode)
    FOR_RETURN is nonzero if the caller is promoting the return value
    of FNDECL, else it is for promoting args.  */
 
-enum machine_mode
-promote_function_mode (const_tree type, enum machine_mode mode, int *punsignedp,
+machine_mode
+promote_function_mode (const_tree type, machine_mode mode, int *punsignedp,
 		       const_tree funtype, int for_return)
 {
   /* Called without a type node for a libcall.  */
@@ -799,8 +781,8 @@ promote_function_mode (const_tree type, enum machine_mode mode, int *punsignedp,
    PUNSIGNEDP points to the signedness of the type and may be adjusted
    to show what signedness to use on extension operations.  */
 
-enum machine_mode
-promote_mode (const_tree type ATTRIBUTE_UNUSED, enum machine_mode mode,
+machine_mode
+promote_mode (const_tree type ATTRIBUTE_UNUSED, machine_mode mode,
 	      int *punsignedp ATTRIBUTE_UNUSED)
 {
 #ifdef PROMOTE_MODE
@@ -852,13 +834,13 @@ promote_mode (const_tree type ATTRIBUTE_UNUSED, enum machine_mode mode,
    mode of DECL.  If PUNSIGNEDP is not NULL, store there the unsignedness
    of DECL after promotion.  */
 
-enum machine_mode
+machine_mode
 promote_decl_mode (const_tree decl, int *punsignedp)
 {
   tree type = TREE_TYPE (decl);
   int unsignedp = TYPE_UNSIGNED (type);
-  enum machine_mode mode = DECL_MODE (decl);
-  enum machine_mode pmode;
+  machine_mode mode = DECL_MODE (decl);
+  machine_mode pmode;
 
   if (TREE_CODE (decl) == RESULT_DECL
       || TREE_CODE (decl) == PARM_DECL)
@@ -1003,7 +985,7 @@ emit_stack_save (enum save_level save_level, rtx *psave)
   rtx sa = *psave;
   /* The default is that we use a move insn and save in a Pmode object.  */
   rtx (*fcn) (rtx, rtx) = gen_move_insn;
-  enum machine_mode mode = STACK_SAVEAREA_MODE (save_level);
+  machine_mode mode = STACK_SAVEAREA_MODE (save_level);
 
   /* See if this machine has anything special to do for this kind of save.  */
   switch (save_level)
@@ -1867,7 +1849,7 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
       && GET_MODE (val) == BLKmode)
     {
       unsigned HOST_WIDE_INT bytes = int_size_in_bytes (valtype);
-      enum machine_mode tmpmode;
+      machine_mode tmpmode;
 
       /* int_size_in_bytes can return -1.  We don't need a check here
 	 since the value of bytes will then be large enough that no
@@ -1894,7 +1876,7 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
    in which a scalar value of mode MODE was returned by a library call.  */
 
 rtx
-hard_libcall_value (enum machine_mode mode, rtx fun)
+hard_libcall_value (machine_mode mode, rtx fun)
 {
   return targetm.calls.libcall_value (mode, fun);
 }

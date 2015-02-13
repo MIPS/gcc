@@ -1,5 +1,5 @@
 # Python hooks for gdb for debugging GCC
-# Copyright (C) 2013-2014 Free Software Foundation, Inc.
+# Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 # Contributed by David Malcolm <dmalcolm@redhat.com>
 
@@ -253,6 +253,26 @@ class CGraphNodePrinter:
         return result
 
 ######################################################################
+# Dwarf DIE pretty-printers
+######################################################################
+
+class DWDieRefPrinter:
+    def __init__(self, gdbval):
+        self.gdbval = gdbval
+
+    def to_string (self):
+        if long(self.gdbval) == 0:
+            return '<dw_die_ref 0x0>'
+        result = '<dw_die_ref 0x%x' % long(self.gdbval)
+        result += ' %s' % self.gdbval['die_tag']
+        if long(self.gdbval['die_parent']) != 0:
+            result += ' <parent=0x%x %s>' % (long(self.gdbval['die_parent']),
+                                             self.gdbval['die_parent']['die_tag'])
+                                             
+        result += '>'
+        return result
+
+######################################################################
 
 class GimplePrinter:
     def __init__(self, gdbval):
@@ -455,7 +475,26 @@ def build_pretty_printer():
                              'tree', TreePrinter)
     pp.add_printer_for_types(['cgraph_node *'],
                              'cgraph_node', CGraphNodePrinter)
-    pp.add_printer_for_types(['gimple', 'gimple_statement_base *'],
+    pp.add_printer_for_types(['dw_die_ref'],
+                             'dw_die_ref', DWDieRefPrinter)
+    pp.add_printer_for_types(['gimple', 'gimple_statement_base *',
+
+                              # Keep this in the same order as gimple.def:
+                              'gimple_cond', 'const_gimple_cond',
+                              'gimple_statement_cond *',
+                              'gimple_debug', 'const_gimple_debug',
+                              'gimple_statement_debug *',
+                              'gimple_label', 'const_gimple_label',
+                              'gimple_statement_label *',
+                              'gimple_switch', 'const_gimple_switch',
+                              'gimple_statement_switch *',
+                              'gimple_assign', 'const_gimple_assign',
+                              'gimple_statement_assign *',
+                              'gimple_bind', 'const_gimple_bind',
+                              'gimple_statement_bind *',
+                              'gimple_phi', 'const_gimple_phi',
+                              'gimple_statement_phi *'],
+
                              'gimple',
                              GimplePrinter)
     pp.add_printer_for_types(['basic_block', 'basic_block_def *'],

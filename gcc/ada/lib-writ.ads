@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -192,6 +192,9 @@ package Lib.Writ is
    --              the units in this file, where x is the first character
    --              (upper case) of the policy name (e.g. 'C' for Concurrent).
 
+   --         GP   Set if this compilation was done in GNATprove mode, either
+   --              from direct use of GNATprove, or from use of -gnatdF.
+
    --         Lx   A valid Locking_Policy pragma applies to all the units in
    --              this file, where x is the first character (upper case) of
    --              the policy name (e.g. 'C' for Ceiling_Locking).
@@ -200,7 +203,9 @@ package Lib.Writ is
    --              were not compiled to produce an object. This can occur as a
    --              result of the use of -gnatc, or if no object can be produced
    --              (e.g. when a package spec is compiled instead of the body,
-   --              or a subunit on its own).
+   --              or a subunit on its own). Note that in GNATprove mode, we
+   --              do produce an object. The object is not suitable for binding
+   --              and linking, but we do not set NO, instead we set GP.
 
    --         NR   No_Run_Time. Indicates that a pragma No_Run_Time applies
    --              to all units in the file.
@@ -370,10 +375,10 @@ package Lib.Writ is
 
    --  RN
 
-   --  In named notation, the restrictions are given as a series of lines, one
-   --  per retrictions that is specified or violated (no information is present
-   --  for restrictions that are not specified or violated). In the following
-   --  name is the name of the restriction in all upper case.
+   --  In named notation, the restrictions are given as a series of lines,
+   --  one per restrictions that is specified or violated (no information is
+   --  present for restrictions that are not specified or violated). In the
+   --  following name is the name of the restriction in all upper case.
 
    --  For boolean restrictions, we have only two possibilities. A restrictions
    --  pragma is present, or a violation is detected:
@@ -593,11 +598,15 @@ package Lib.Writ is
 
    --         RT  Unit has pragma Remote_Types
 
-   --         SP  Unit has pragma Shared_Passive.
+   --         SE  Compilation of unit encountered one or more serious errors.
+   --             Normally the generation of an ALI file is suppressed if there
+   --             is a serious error, but this can be overridden with -gnatQ.
+
+   --         SP  Unit has pragma Shared_Passive
 
    --         SU  Unit is a subprogram, rather than a package
 
-   --      The attributes may appear in any order, separated by spaces.
+   --      The attributes may appear in any order, separated by spaces
 
    --  -----------------------------
    --  -- W, Y and Z Withed Units --

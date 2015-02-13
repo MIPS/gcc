@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -415,9 +415,10 @@ package body Exp_Ch6 is
                  and then No (Finalization_Master (Ptr_Typ))
                then
                   Build_Finalization_Master
-                    (Typ        => Ptr_Typ,
-                     Ins_Node   => Associated_Node_For_Itype (Ptr_Typ),
-                     Encl_Scope => Scope (Ptr_Typ));
+                    (Typ            => Ptr_Typ,
+                     For_Anonymous  => True,
+                     Context_Scope  => Scope (Ptr_Typ),
+                     Insertion_Node => Associated_Node_For_Itype (Ptr_Typ));
                end if;
 
                --  Access-to-controlled types should always have a master
@@ -1998,19 +1999,6 @@ package body Exp_Ch6 is
       --  expression for the value of the actual, EF is the entity for the
       --  extra formal.
 
-      procedure Do_Inline (Subp : Entity_Id; Orig_Subp : Entity_Id);
-      --  Check and inline the body of Subp. Invoked when compiling with
-      --  optimizations enabled and Subp has pragma inline or inline always.
-      --  If the subprogram is a renaming, or if it is inherited, then Subp
-      --  references the renamed entity and Orig_Subp is the entity of the
-      --  call node N.
-
-      procedure Do_Inline_Always (Subp : Entity_Id; Orig_Subp : Entity_Id);
-      --  Check and inline the body of Subp. Invoked when compiling without
-      --  optimizations and Subp has pragma inline always. If the subprogram is
-      --  a renaming, or if it is inherited, then Subp references the renamed
-      --  entity and Orig_Subp is the entity of the call node N.
-
       function Inherited_From_Formal (S : Entity_Id) return Entity_Id;
       --  Within an instance, a type derived from an untagged formal derived
       --  type inherits from the original parent, not from the actual. The
@@ -2096,211 +2084,6 @@ package body Exp_Ch6 is
             Set_Is_Accessibility_Actual (Parent (Expr));
          end if;
       end Add_Extra_Actual;
-
-      ----------------
-      --  Do_Inline --
-      ----------------
-
-      procedure Do_Inline (Subp : Entity_Id; Orig_Subp : Entity_Id) is
-         Spec : constant Node_Id := Unit_Declaration_Node (Subp);
-
-         procedure Do_Backend_Inline;
-         --  Check that the call can be safely passed to the backend. If true
-         --  then register the enclosing unit of Subp to Inlined_Bodies so that
-         --  the body of Subp can be retrieved and analyzed by the backend.
-
-         -----------------------
-         -- Do_Backend_Inline --
-         -----------------------
-
-         procedure Do_Backend_Inline is
-         begin
-            --  No extra test needed for init subprograms since we know they
-            --  are available to the backend.
-
-            if Is_Init_Proc (Subp) then
-               Add_Inlined_Body (Subp);
-               Register_Backend_Call (Call_Node);
-
-            --  Verify that if the body to inline is located in the current
-            --  unit the inlining does not occur earlier. This avoids
-            --  order-of-elaboration problems in the back end.
-
-            elsif In_Same_Extended_Unit (Call_Node, Subp)
-              and then Nkind (Spec) = N_Subprogram_Declaration
-              and then Earlier_In_Extended_Unit
-                         (Loc, Sloc (Body_To_Inline (Spec)))
-            then
-               Error_Msg_NE
-                 ("cannot inline& (body not seen yet)??", Call_Node, Subp);
-
-            else
-               declare
-                  Backend_Inline : Boolean := True;
-
-               begin
-                  --  If we are compiling a package body that is not the
-                  --  main unit, it must be for inlining/instantiation
-                  --  purposes, in which case we inline the call to insure
-                  --  that the same temporaries are generated when compiling
-                  --  the body by itself. Otherwise link errors can occur.
-
-                  --  If the function being called is itself in the main
-                  --  unit, we cannot inline, because there is a risk of
-                  --  double elaboration and/or circularity: the inlining
-                  --  can make visible a private entity in the body of the
-                  --  main unit, that gigi will see before its sees its
-                  --  proper definition.
-
-                  if not (In_Extended_Main_Code_Unit (Call_Node))
-                    and then In_Package_Body
-                  then
-                     Backend_Inline :=
-                       not In_Extended_Main_Source_Unit (Subp);
-                  end if;
-
-                  if Backend_Inline then
-                     Add_Inlined_Body (Subp);
-                     Register_Backend_Call (Call_Node);
-                  end if;
-               end;
-            end if;
-         end Do_Backend_Inline;
-
-      --  Start of processing for Do_Inline
-
-      begin
-         --  Verify that the body to inline has already been seen
-
-         if No (Spec)
-           or else Nkind (Spec) /= N_Subprogram_Declaration
-           or else No (Body_To_Inline (Spec))
-         then
-            if Comes_From_Source (Subp)
-              and then Must_Inline (Subp)
-            then
-               Cannot_Inline
-                 ("cannot inline& (body not seen yet)?", Call_Node, Subp);
-
-            --  Let the back end handle it
-
-            else
-               Do_Backend_Inline;
-               return;
-            end if;
-
-         --  If this an inherited function that returns a private type, do not
-         --  inline if the full view is an unconstrained array, because such
-         --  calls cannot be inlined.
-
-         elsif Present (Orig_Subp)
-           and then Is_Array_Type (Etype (Orig_Subp))
-           and then not Is_Constrained (Etype (Orig_Subp))
-         then
-            Cannot_Inline
-              ("cannot inline& (unconstrained array)?", Call_Node, Subp);
-
-         else
-            Expand_Inlined_Call (Call_Node, Subp, Orig_Subp);
-         end if;
-      end Do_Inline;
-
-      ----------------------
-      -- Do_Inline_Always --
-      ----------------------
-
-      procedure Do_Inline_Always (Subp : Entity_Id; Orig_Subp : Entity_Id) is
-         Spec    : constant Node_Id := Unit_Declaration_Node (Subp);
-         Body_Id : Entity_Id;
-
-      begin
-         if No (Spec)
-           or else Nkind (Spec) /= N_Subprogram_Declaration
-           or else No (Body_To_Inline (Spec))
-           or else Serious_Errors_Detected /= 0
-         then
-            return;
-         end if;
-
-         Body_Id := Corresponding_Body (Spec);
-
-         --  Verify that the body to inline has already been seen
-
-         if No (Body_Id)
-           or else not Analyzed (Body_Id)
-         then
-            Set_Is_Inlined (Subp, False);
-
-            if Comes_From_Source (Subp) then
-
-               --  Report a warning only if the call is located in the unit of
-               --  the called subprogram; otherwise it is an error.
-
-               if not In_Same_Extended_Unit (Call_Node, Subp) then
-                  Cannot_Inline
-                    ("cannot inline& (body not seen yet)?", Call_Node, Subp,
-                     Is_Serious => True);
-
-               elsif In_Open_Scopes (Subp) then
-
-                  --  For backward compatibility we generate the same error
-                  --  or warning of the previous implementation. This will
-                  --  be changed when we definitely incorporate the new
-                  --  support ???
-
-                  if Front_End_Inlining
-                    and then Optimization_Level = 0
-                  then
-                     Error_Msg_N
-                       ("call to recursive subprogram cannot be inlined?p?",
-                        N);
-
-                  --  Do not emit error compiling runtime packages
-
-                  elsif Is_Predefined_File_Name
-                    (Unit_File_Name (Get_Source_Unit (Subp)))
-                  then
-                     Error_Msg_N
-                       ("call to recursive subprogram cannot be inlined??",
-                        N);
-
-                  else
-                     Error_Msg_N
-                       ("call to recursive subprogram cannot be inlined",
-                        N);
-                  end if;
-
-               else
-                  Cannot_Inline
-                    ("cannot inline& (body not seen yet)?", Call_Node, Subp);
-               end if;
-            end if;
-
-            return;
-
-         --  If this an inherited function that returns a private type, do not
-         --  inline if the full view is an unconstrained array, because such
-         --  calls cannot be inlined.
-
-         elsif Present (Orig_Subp)
-           and then Is_Array_Type (Etype (Orig_Subp))
-           and then not Is_Constrained (Etype (Orig_Subp))
-         then
-            Cannot_Inline
-              ("cannot inline& (unconstrained array)?", Call_Node, Subp);
-
-         --  If the called subprogram comes from an instance in the same
-         --  unit, and the instance is not yet frozen, inlining might
-         --  trigger order-of-elaboration problems.
-
-         elsif In_Unfrozen_Instance (Scope (Subp)) then
-            Cannot_Inline
-              ("cannot inline& (unfrozen instance)?", Call_Node, Subp);
-
-         else
-            Expand_Inlined_Call (Call_Node, Subp, Orig_Subp);
-         end if;
-      end Do_Inline_Always;
 
       ---------------------------
       -- Inherited_From_Formal --
@@ -3938,42 +3721,25 @@ package body Exp_Ch6 is
                  (Unit_File_Name (Get_Source_Unit (Sloc (Subp))))
               and then In_Extended_Main_Source_Unit (N)
             then
-               Set_Needs_Debug_Info (Subp, False);
+               --  We make an exception for calls to the Ada hierarchy if call
+               --  comes from source, because some user applications need the
+               --  debugging information for such calls.
+
+               if Comes_From_Source (Call_Node)
+                 and then Name_Buffer (1 .. 2) = "a-"
+               then
+                  null;
+               else
+                  Set_Needs_Debug_Info (Subp, False);
+               end if;
             end if;
 
-         --  Frontend expansion of supported functions returning unconstrained
-         --  types and simple renamings inlined by the frontend (see Freeze.
-         --  Build_Renamed_Entity).
+         --  Front end expansion of simple functions returning unconstrained
+         --  types (see Check_And_Split_Unconstrained_Function) and simple
+         --  renamings inlined by the front end (see Build_Renamed_Entity).
 
          else
-            declare
-               Spec : constant Node_Id := Unit_Declaration_Node (Subp);
-
-            begin
-               if Must_Inline (Subp) then
-                  if In_Extended_Main_Code_Unit (Call_Node)
-                    and then In_Same_Extended_Unit (Sloc (Spec), Loc)
-                    and then not Has_Completion (Subp)
-                  then
-                     Cannot_Inline
-                       ("cannot inline& (body not seen yet)?",
-                        Call_Node, Subp);
-
-                  else
-                     Do_Inline_Always (Subp, Orig_Subp);
-                  end if;
-
-               elsif Optimization_Level > 0 then
-                  Do_Inline (Subp, Orig_Subp);
-               end if;
-
-               --  The call may have been inlined or may have been passed to
-               --  the backend. No further action needed if it was inlined.
-
-               if Nkind (N) /= N_Function_Call then
-                  return;
-               end if;
-            end;
+            Expand_Inlined_Call (Call_Node, Subp, Orig_Subp);
          end if;
       end if;
 
@@ -5825,9 +5591,8 @@ package body Exp_Ch6 is
         Defining_Identifier
           (First (Parameter_Specifications (Parent (Corr))));
 
-      if Is_Subprogram (Proc)
-        and then Proc /= Corr
-      then
+      if Is_Subprogram (Proc) and then Proc /= Corr then
+
          --  Protected function or procedure
 
          Set_Entity (Rec, Param);
@@ -6149,6 +5914,12 @@ package body Exp_Ch6 is
 
       elsif Is_Thunk (Current_Scope) and then Is_Interface (Exptyp) then
          null;
+
+      --  If the call is within a thunk and the type is a limited view, the
+      --  backend will eventually see the non-limited view of the type.
+
+      elsif Is_Thunk (Current_Scope) and then Is_Incomplete_Type (Exptyp) then
+         return;
 
       elsif not Requires_Transient_Scope (R_Type) then
 
@@ -8586,33 +8357,6 @@ package body Exp_Ch6 is
 
       Add_Access_Actual_To_Build_In_Place_Call
         (Func_Call, Function_Id, Return_Obj_Actual);
-
-      --  If the build-in-place function call returns a controlled object,
-      --  the finalization master will require a reference to routine
-      --  Finalize_Address of the designated type. Setting this attribute
-      --  is done in the same manner to expansion of allocators.
-
-      if Needs_Finalization (Result_Subt) then
-
-         --  Controlled types with supressed finalization do not need to
-         --  associate the address of their Finalize_Address primitives with
-         --  a master since they do not need a master to begin with.
-
-         if Is_Library_Level_Entity (Acc_Type)
-           and then Finalize_Storage_Only (Result_Subt)
-         then
-            null;
-
-         --  Do not generate the call to Set_Finalize_Address in CodePeer mode
-         --  because Finalize_Address is never built.
-
-         elsif not CodePeer_Mode then
-            Insert_Action (Allocator,
-              Make_Set_Finalize_Address_Call (Loc,
-                Typ     => Etype (Function_Id),
-                Ptr_Typ => Acc_Type));
-         end if;
-      end if;
 
       --  Finally, replace the allocator node with a reference to the temp
 

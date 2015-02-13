@@ -1,4 +1,4 @@
-/* Copyright (C) 2008-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2008-2015 Free Software Foundation, Inc.
    Contributed by Janne Blomqvist
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -161,6 +161,42 @@ fbuf_flush (gfc_unit * u, unit_mode mode)
      of the record. For reading, this also happens if we sread() past
      the record boundary.  */ 
   if (u->fbuf->act > u->fbuf->pos && u->fbuf->pos > 0)
+    memmove (u->fbuf->buf, u->fbuf->buf + u->fbuf->pos, 
+             u->fbuf->act - u->fbuf->pos);
+
+  u->fbuf->act -= u->fbuf->pos;
+  u->fbuf->pos = 0;
+
+  return 0;
+}
+
+
+/* The mode argument is LIST_WRITING for write mode and LIST_READING for
+   read.  This should only be used for list directed  I/O.
+   Return value is 0 for success, -1 on failure.  */
+
+int
+fbuf_flush_list (gfc_unit * u, unit_mode mode)
+{
+  int nwritten;
+
+  if (!u->fbuf)
+    return 0;
+
+  if (u->fbuf->pos < 524288) /* Upper limit for list writing.  */
+    return 0;
+
+  fbuf_debug (u, "fbuf_flush_list with mode %d: ", mode);
+
+  if (mode == LIST_WRITING)
+    {
+      nwritten = swrite (u->s, u->fbuf->buf, u->fbuf->pos);
+      if (nwritten < 0)
+	return -1;
+    }
+
+  /* Salvage remaining bytes for both reading and writing.  */ 
+  if (u->fbuf->act > u->fbuf->pos)
     memmove (u->fbuf->buf, u->fbuf->buf + u->fbuf->pos, 
              u->fbuf->act - u->fbuf->pos);
 

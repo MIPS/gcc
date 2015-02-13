@@ -1,5 +1,5 @@
 /* Part of CPP library.  File handling.
-   Copyright (C) 1986-2014 Free Software Foundation, Inc.
+   Copyright (C) 1986-2015 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -1282,9 +1282,8 @@ _cpp_init_files (cpp_reader *pfile)
   pfile->nonexistent_file_hash = htab_create_alloc (127, htab_hash_string,
 						    nonexistent_file_hash_eq,
 						    NULL, xcalloc, free);
-  _obstack_begin (&pfile->nonexistent_file_ob, 0, 0,
-		  (void *(*) (long)) xmalloc,
-		  (void (*) (void *)) free);
+  obstack_specify_allocation (&pfile->nonexistent_file_ob, 0, 0,
+			      xmalloc, free);
 }
 
 /* Finalize everything in this source file.  */

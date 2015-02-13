@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -128,6 +128,60 @@ package body Rtsfind is
    --  The field First_Implicit_With in the unit table record are used to
    --  avoid creating duplicate with_clauses.
 
+   ----------------------------------------------
+   -- Table of Predefined RE_Id Error Messages --
+   ----------------------------------------------
+
+   --  If an attempt is made to load an entity, given an RE_Id value, and the
+   --  entity is not available in the current configuration, an error message
+   --  is given (see Entity_Not_Defined below). The general form of such an
+   --  error message is for example:
+
+   --    entity "System.Pack_43.Bits_43" not defined
+
+   --  The following table defines a set of RE_Id image values for which this
+   --  error message is specialized and replaced by specific text indicating
+   --  the exact message to be output. For example, in the case above, for the
+   --  RE_Id value RE_Bits_43, we do indeed specialize the message, and the
+   --  above generic message is replaced by:
+
+   --    packed component size of 43 is not supported
+
+   type CString_Ptr is access constant String;
+
+   type PRE_Id_Entry is record
+      Str : CString_Ptr;
+      --  Pointer to string with the RE_Id image. The sequence ?? may appear
+      --  in which case it will match any characters in the RE_Id image value.
+      --  This is used to avoid the need for dozens of entries for RE_Bits_??.
+
+      Msg : CString_Ptr;
+      --  Pointer to string with the corresponding error text. The sequence
+      --  ?? may appear, in which case, it is replaced by the corresponding
+      --  sequence ?? in the Str value (if the first ? is zero, then it is
+      --  omitted from the message).
+   end record;
+
+   Str1 : aliased constant String := "RE_BITS_??";
+   Str2 : aliased constant String := "RE_GET_??";
+   Str3 : aliased constant String := "RE_SET_??";
+   Str4 : aliased constant String := "RE_CALL_SIMPLE";
+
+   MsgPack : aliased constant String :=
+              "packed component size of ?? is not supported";
+   MsgRV   : aliased constant String :=
+              "task rendezvous is not supported";
+
+   PRE_Id_Table : constant array (Natural range <>) of PRE_Id_Entry :=
+                    (1 => (Str1'Access, MsgPack'Access),
+                     2 => (Str2'Access, MsgPack'Access),
+                     3 => (Str3'Access, MsgPack'Access),
+                     4 => (Str4'Access, MsgRV'Access));
+   --  We will add entries to this table as we find cases where it is a good
+   --  idea to do so. By no means all the RE_Id values need entries, because
+   --  the expander often gives clear messages before it makes the Rtsfind
+   --  call expecting to find the entity.
+
    -----------------------
    -- Local Subprograms --
    -----------------------
@@ -141,7 +195,8 @@ package body Rtsfind is
    procedure Entity_Not_Defined (Id : RE_Id);
    --  Outputs error messages for an entity that is not defined in the run-time
    --  library (the form of the error message is tailored for no run time or
-   --  configurable run time mode as required).
+   --  configurable run time mode as required). See also table of pre-defined
+   --  messages for entities above (RE_Id_Messages).
 
    function Get_Unit_Name (U_Id : RTU_Id) return Unit_Name_Type;
    --  Retrieves the Unit Name given a unit id represented by its enumeration
@@ -191,8 +246,7 @@ package body Rtsfind is
 
    procedure Output_Entity_Name (Id : RE_Id; Msg : String);
    --  Output continuation error message giving qualified name of entity
-   --  corresponding to Id, appending the string given by Msg. This call
-   --  is only effective in All_Errors mode.
+   --  corresponding to Id, appending the string given by Msg.
 
    function RE_Chars (E : RE_Id) return Name_Id;
    --  Given a RE_Id value returns the Chars of the corresponding entity
@@ -431,6 +485,54 @@ package body Rtsfind is
       else
          RTE_Error_Msg ("run-time configuration error");
       end if;
+
+      --  See if this entry is to be found in the PRE_Id table that provides
+      --  specialized messages for some RE_Id values.
+
+      for J in PRE_Id_Table'Range loop
+         declare
+            TStr : constant String := PRE_Id_Table (J).Str.all;
+            RStr : constant String := RE_Id'Image (Id);
+            TMsg : String          := PRE_Id_Table (J).Msg.all;
+            LMsg : Natural         := TMsg'Length;
+
+         begin
+            if TStr'Length = RStr'Length then
+               for J in TStr'Range loop
+                  if TStr (J) /= RStr (J) and then TStr (J) /= '?' then
+                     goto Continue;
+                  end if;
+               end loop;
+
+               for J in TMsg'First .. TMsg'Last - 1 loop
+                  if TMsg (J) = '?' then
+                     for K in 1 .. TStr'Last loop
+                        if TStr (K) = '?' then
+                           if RStr (K) = '0' then
+                              TMsg (J) := RStr (K + 1);
+                              TMsg (J + 1 .. LMsg - 1) := TMsg (J + 2 .. LMsg);
+                              LMsg := LMsg - 1;
+                           else
+                              TMsg (J .. J + 1) := RStr (K .. K + 1);
+                           end if;
+
+                           exit;
+                        end if;
+                     end loop;
+                  end if;
+               end loop;
+
+               RTE_Error_Msg (TMsg (1 .. LMsg));
+               return;
+            end if;
+         end;
+
+         <<Continue>> null;
+      end loop;
+
+      --  We did not find an entry in the table, so output the generic entity
+      --  not found message, where the name of the entity corresponds to the
+      --  given RE_Id value.
 
       Output_Entity_Name (Id, "not defined");
    end Entity_Not_Defined;
@@ -821,6 +923,12 @@ package body Rtsfind is
          end loop;
       end Save_Private_Visibility;
 
+      --  Local variables
+
+      GM : constant Ghost_Mode_Type := Ghost_Mode;
+      --  Save the current Ghost mode in effect to ensure a clean environment
+      --  when analyzing the unit.
+
    --  Start of processing for Load_RTU
 
    begin
@@ -829,6 +937,10 @@ package body Rtsfind is
       if Present (U.Entity) then
          return;
       end if;
+
+      --  Provide a clean environment for the unit
+
+      Ghost_Mode := None;
 
       --  Note if secondary stack is used
 
@@ -867,7 +979,7 @@ package body Rtsfind is
 
       if U.Unum = No_Unit then
          Load_Fail ("not found", U_Id, Id);
-      elsif Fatal_Error (U.Unum) then
+      elsif Fatal_Error (U.Unum) = Error_Detected then
          Load_Fail ("had parser errors", U_Id, Id);
       end if;
 
@@ -913,7 +1025,7 @@ package body Rtsfind is
                Semantics (Cunit (U.Unum));
                Restore_Private_Visibility;
 
-               if Fatal_Error (U.Unum) then
+               if Fatal_Error (U.Unum) = Error_Detected then
                   Load_Fail ("had semantic errors", U_Id, Id);
                end if;
             end if;
@@ -930,6 +1042,10 @@ package body Rtsfind is
       if Use_Setting then
          Set_Is_Potentially_Use_Visible (U.Entity, True);
       end if;
+
+      --  Restore the original Ghost mode now that analysis has taken place
+
+      Ghost_Mode := GM;
    end Load_RTU;
 
    --------------------
@@ -1207,7 +1323,7 @@ package body Rtsfind is
            RE_Str (RE_Str'First + 3 .. RE_Str'Last);
 
          Nam := Name_Find;
-         Ent := Entity_Id (Get_Name_Table_Info (Nam));
+         Ent := Entity_Id (Get_Name_Table_Int (Nam));
 
          Name_Len := Save_Nam'Length;
          Name_Buffer (1 .. Name_Len) := Save_Nam;

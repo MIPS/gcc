@@ -1,5 +1,5 @@
 /* RTL dead store elimination.
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
 
    Contributed by Richard Sandiford <rsandifor@codesourcery.com>
    and Kenneth Zadeck <zadeck@naturalbridge.com>
@@ -28,21 +28,48 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "regset.h"
 #include "flags.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "df.h"
 #include "cselib.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
-#include "alias.h"
 #include "insn-config.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "recog.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "dbgcnt.h"
 #include "target.h"
@@ -54,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-ssa.h"
 #include "rtl-iter.h"
+#include "cfgcleanup.h"
 
 /* This file contains three techniques for performing Dead Store
    Elimination (dse).
@@ -365,9 +393,11 @@ struct insn_info
 	either stack pointer or hard frame pointer based.  This means
 	that we have no other choice than also killing all the frame
 	pointer based stores upon encountering a const function call.
-     This field is set after reload for const function calls.  Having
-     this set is less severe than a wild read, it just means that all
-     the frame related stores are killed rather than all the stores.  */
+     This field is set after reload for const function calls and before
+     reload for const tail function calls on targets where arg pointer
+     is the frame pointer.  Having this set is less severe than a wild
+     read, it just means that all the frame related stores are killed
+     rather than all the stores.  */
   bool frame_read;
 
   /* This field is only used for the processing of const functions.
@@ -589,7 +619,7 @@ static htab_t clear_alias_mode_table;
 struct clear_alias_mode_holder
 {
   alias_set_type alias_set;
-  enum machine_mode mode;
+  machine_mode mode;
 };
 
 /* This is true except if cfun->stdarg -- i.e. we cannot do
@@ -1168,7 +1198,7 @@ canon_address (rtx mem,
 	       HOST_WIDE_INT *offset,
 	       cselib_val **base)
 {
-  enum machine_mode address_mode = get_address_mode (mem);
+  machine_mode address_mode = get_address_mode (mem);
   rtx mem_address = XEXP (mem, 0);
   rtx expanded_address, address;
   int expanded;
@@ -1359,7 +1389,7 @@ all_positions_needed_p (store_info_t s_info, int start, int width)
 }
 
 
-static rtx get_stored_val (store_info_t, enum machine_mode, HOST_WIDE_INT,
+static rtx get_stored_val (store_info_t, machine_mode, HOST_WIDE_INT,
 			   HOST_WIDE_INT, basic_block, bool);
 
 
@@ -1545,6 +1575,10 @@ record_store (rtx body, bb_info_t bb_info)
 	    = rtx_group_vec[group_id];
 	  mem_addr = group->canon_base_addr;
 	}
+      /* get_addr can only handle VALUE but cannot handle expr like:
+	 VALUE + OFFSET, so call get_addr to get original addr for
+	 mem_addr before plus_constant.  */
+      mem_addr = get_addr (mem_addr);
       if (offset)
 	mem_addr = plus_constant (get_address_mode (mem), mem_addr, offset);
     }
@@ -1723,11 +1757,11 @@ dump_insn_info (const char * start, insn_info_t insn_info)
 static rtx
 find_shift_sequence (int access_size,
 		     store_info_t store_info,
-		     enum machine_mode read_mode,
+		     machine_mode read_mode,
 		     int shift, bool speed, bool require_cst)
 {
-  enum machine_mode store_mode = GET_MODE (store_info->mem);
-  enum machine_mode new_mode;
+  machine_mode store_mode = GET_MODE (store_info->mem);
+  machine_mode new_mode;
   rtx read_reg = NULL;
 
   /* Some machines like the x86 have shift insns for each size of
@@ -1857,11 +1891,11 @@ look_for_hardregs (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
    if not successful.  If REQUIRE_CST is true, return always constant.  */
 
 static rtx
-get_stored_val (store_info_t store_info, enum machine_mode read_mode,
+get_stored_val (store_info_t store_info, machine_mode read_mode,
 		HOST_WIDE_INT read_begin, HOST_WIDE_INT read_end,
 		basic_block bb, bool require_cst)
 {
-  enum machine_mode store_mode = GET_MODE (store_info->mem);
+  machine_mode store_mode = GET_MODE (store_info->mem);
   int shift;
   int access_size; /* In bytes.  */
   rtx read_reg;
@@ -1961,8 +1995,8 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
 	      read_info_t read_info, insn_info_t read_insn, rtx *loc,
 	      bitmap regs_live)
 {
-  enum machine_mode store_mode = GET_MODE (store_info->mem);
-  enum machine_mode read_mode = GET_MODE (read_info->mem);
+  machine_mode store_mode = GET_MODE (store_info->mem);
+  machine_mode read_mode = GET_MODE (read_info->mem);
   rtx_insn *insns, *this_insn;
   rtx read_reg;
   basic_block bb;
@@ -2158,6 +2192,10 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
 	    = rtx_group_vec[group_id];
 	  mem_addr = group->canon_base_addr;
 	}
+      /* get_addr can only handle VALUE but cannot handle expr like:
+	 VALUE + OFFSET, so call get_addr to get original addr for
+	 mem_addr before plus_constant.  */
+      mem_addr = get_addr (mem_addr);
       if (offset)
 	mem_addr = plus_constant (get_address_mode (mem), mem_addr, offset);
     }
@@ -2386,7 +2424,7 @@ get_call_args (rtx call_insn, tree fn, rtx *args, int nargs)
        arg != void_list_node && idx < nargs;
        arg = TREE_CHAIN (arg), idx++)
     {
-      enum machine_mode mode = TYPE_MODE (TREE_VALUE (arg));
+      machine_mode mode = TYPE_MODE (TREE_VALUE (arg));
       rtx reg, link, tmp;
       reg = targetm.calls.function_arg (args_so_far, mode, NULL_TREE, true);
       if (!reg || !REG_P (reg) || GET_MODE (reg) != mode
@@ -2510,7 +2548,13 @@ scan_insn (bb_info_t bb_info, rtx_insn *insn)
 		     const_call ? "const" : "memset", INSN_UID (insn));
 
 	  /* See the head comment of the frame_read field.  */
-	  if (reload_completed)
+	  if (reload_completed
+	      /* Tail calls are storing their arguments using
+		 arg pointer.  If it is a frame pointer on the target,
+		 even before reload we need to kill frame pointer based
+		 stores.  */
+	      || (SIBLING_CALL_P (insn)
+		  && HARD_FRAME_POINTER_IS_ARG_POINTER))
 	    insn_info->frame_read = true;
 
 	  /* Loop over the active stores and remove those which are
@@ -2584,7 +2628,11 @@ scan_insn (bb_info_t bb_info, rtx_insn *insn)
 		}
 	    }
 	}
-
+      else if (SIBLING_CALL_P (insn) && reload_completed)
+	/* Arguments for a sibling call that are pushed to memory are passed
+	   using the incoming argument pointer of the current function.  After
+	   reload that might be (and likely is) frame pointer based.  */
+	add_wild_read (bb_info);
       else
 	/* Every other call, including pure functions, may read any memory
            that is not relative to the frame.  */
@@ -3707,6 +3755,14 @@ rest_of_handle_dse (void)
   if (dump_file)
     fprintf (dump_file, "dse: local deletions = %d, global deletions = %d, spill deletions = %d\n",
 	     locally_deleted, globally_deleted, spill_deleted);
+
+  /* DSE can eliminate potentially-trapping MEMs.
+     Remove any EH edges associated with them.  */
+  if ((locally_deleted || globally_deleted)
+      && cfun->can_throw_non_call_exceptions
+      && purge_all_dead_edges ())
+    cleanup_cfg (0);
+
   return 0;
 }
 

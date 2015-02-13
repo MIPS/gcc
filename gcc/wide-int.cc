@@ -1,5 +1,5 @@
 /* Operations with very long integers.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -24,6 +24,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "hwint.h"
 #include "wide-int.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "inchash.h"
 #include "tree.h"
 #include "dumpfile.h"
 
@@ -1811,6 +1819,7 @@ wi::divmod_internal (HOST_WIDE_INT *quotient, unsigned int *remainder_len,
 	     divisor_blocks_needed, divisor_prec, sgn);
 
   m = dividend_blocks_needed;
+  b_dividend[m] = 0;
   while (m > 1 && b_dividend[m - 1] == 0)
     m--;
 

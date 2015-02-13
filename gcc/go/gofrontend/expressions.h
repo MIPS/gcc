@@ -8,6 +8,7 @@
 #define GO_EXPRESSIONS_H
 
 #include <mpfr.h>
+#include <mpc.h>
 
 #include "operator.h"
 
@@ -51,6 +52,9 @@ class Temporary_statement;
 class Label;
 class Ast_dump_context;
 class String_dump;
+
+// The precision to use for complex values represented as an mpc_t.
+const int mpc_precision = 256;
 
 // The base class for all expressions.
 
@@ -214,10 +218,25 @@ class Expression
   static Expression*
   make_character(const mpz_t*, Type*, Location);
 
-  // Make a constant integer expression.  TYPE should be NULL for an
-  // abstract type.
+  // Make a constant integer expression from a multi-precision
+  // integer.  TYPE should be NULL for an abstract type.
   static Expression*
-  make_integer(const mpz_t*, Type*, Location);
+  make_integer_z(const mpz_t*, Type*, Location);
+
+  // Make a constant integer expression from an unsigned long.  TYPE
+  // should be NULL for an abstract type.
+  static Expression*
+  make_integer_ul(unsigned long, Type*, Location);
+
+  // Make a constant integer expression from a signed long.  TYPE
+  // should be NULL for an abstract type.
+  static Expression*
+  make_integer_sl(long, Type*, Location);
+
+  // Make a constant integer expression from an int64_t.  TYPE should
+  // be NULL for an abstract type.
+  static Expression*
+  make_integer_int64(int64_t, Type*, Location);
 
   // Make a constant float expression.  TYPE should be NULL for an
   // abstract type.
@@ -227,7 +246,7 @@ class Expression
   // Make a constant complex expression.  TYPE should be NULL for an
   // abstract type.
   static Expression*
-  make_complex(const mpfr_t* real, const mpfr_t* imag, Type*, Location);
+  make_complex(const mpc_t*, Type*, Location);
 
   // Make a nil expression.
   static Expression*
@@ -1617,8 +1636,9 @@ class Call_expression : public Expression
     : Expression(EXPRESSION_CALL, location),
       fn_(fn), args_(args), type_(NULL), results_(NULL), call_(NULL),
       call_temp_(NULL), expected_result_count_(0), is_varargs_(is_varargs),
-      are_hidden_fields_ok_(false), varargs_are_lowered_(false),
-      types_are_determined_(false), is_deferred_(false), issued_error_(false)
+      varargs_are_lowered_(false), types_are_determined_(false),
+      is_deferred_(false), issued_error_(false), is_multi_value_arg_(false),
+      is_flattened_(false)
   { }
 
   // The function to call.
@@ -1669,16 +1689,15 @@ class Call_expression : public Expression
   is_varargs() const
   { return this->is_varargs_; }
 
+  // Return whether varargs have already been lowered.
+  bool
+  varargs_are_lowered() const
+  { return this->varargs_are_lowered_; }
+
   // Note that varargs have already been lowered.
   void
   set_varargs_are_lowered()
   { this->varargs_are_lowered_ = true; }
-
-  // Note that it is OK for this call to set hidden fields when
-  // passing arguments.
-  void
-  set_hidden_fields_are_ok()
-  { this->are_hidden_fields_ok_ = true; }
 
   // Whether this call is being deferred.
   bool
@@ -1694,6 +1713,17 @@ class Call_expression : public Expression
   // we should report it.
   bool
   issue_error();
+
+  // Whether this call returns multiple results that are used as an
+  // multi-valued argument.
+  bool
+  is_multi_value_arg() const
+  { return this->is_multi_value_arg_; }
+
+  // Note this call is used as a multi-valued argument.
+  void
+  set_is_multi_value_arg()
+  { this->is_multi_value_arg_ = true; }
 
  protected:
   int
@@ -1719,14 +1749,7 @@ class Call_expression : public Expression
   do_check_types(Gogo*);
 
   Expression*
-  do_copy()
-  {
-    return Expression::make_call(this->fn_->copy(),
-				 (this->args_ == NULL
-				  ? NULL
-				  : this->args_->copy()),
-				 this->is_varargs_, this->location());
-  }
+  do_copy();
 
   bool
   do_must_eval_in_order() const;
@@ -1788,9 +1811,6 @@ class Call_expression : public Expression
   size_t expected_result_count_;
   // True if the last argument is a varargs argument (f(a...)).
   bool is_varargs_;
-  // True if this statement may pass hidden fields in the arguments.
-  // This is used for generated method stubs.
-  bool are_hidden_fields_ok_;
   // True if varargs have already been lowered.
   bool varargs_are_lowered_;
   // True if types have been determined.
@@ -1801,6 +1821,10 @@ class Call_expression : public Expression
   // results and uses.  This is to avoid producing multiple errors
   // when there are multiple Call_result_expressions.
   bool issued_error_;
+  // True if this call is used as an argument that returns multiple results.
+  bool is_multi_value_arg_;
+  // True if this expression has already been flattened.
+  bool is_flattened_;
 };
 
 // An expression which represents a pointer to a function.
@@ -2392,7 +2416,7 @@ class Interface_field_reference_expression : public Expression
   do_traverse(Traverse* traverse);
 
   Expression*
-  do_lower(Gogo*, Named_object*, Statement_inserter*, int);
+  do_flatten(Gogo*, Named_object*, Statement_inserter*);
 
   Type*
   do_type();
@@ -2584,7 +2608,7 @@ class Numeric_constant
 
   // Set to a complex value.
   void
-  set_complex(Type*, const mpfr_t, const mpfr_t);
+  set_complex(Type*, const mpc_t);
 
   // Classifiers.
   bool
@@ -2616,7 +2640,7 @@ class Numeric_constant
   get_float(mpfr_t*) const;
 
   void
-  get_complex(mpfr_t*, mpfr_t*) const;
+  get_complex(mpc_t*) const;
 
   // Codes returned by to_unsigned_long.
   enum To_unsigned_long
@@ -2652,7 +2676,7 @@ class Numeric_constant
   // If the value can be expressed as a complex, return true and
   // initialize and set VR and VI.
   bool
-  to_complex(mpfr_t* vr, mpfr_t* vi) const;
+  to_complex(mpc_t* val) const;
 
   // Get the type.
   Type*
@@ -2708,11 +2732,7 @@ class Numeric_constant
     // If NC_FLOAT.
     mpfr_t float_val;
     // If NC_COMPLEX.
-    struct
-    {
-      mpfr_t real;
-      mpfr_t imag;
-    } complex_val;
+    mpc_t complex_val;
   } u_;
   // The type if there is one.  This will be NULL for an untyped
   // constant.

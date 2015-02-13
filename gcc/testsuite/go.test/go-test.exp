@@ -1,4 +1,4 @@
-#   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+#   Copyright (C) 2009-2015 Free Software Foundation, Inc.
 #   Written by Ian Lance Taylor <iant@google.com>.
 
 # This program is free software; you can redistribute it and/or modify
@@ -241,8 +241,18 @@ proc go-set-goarch { } {
 	    if [check_effective_target_ilp32] {
 		set goarch "ppc"
 	    } else {
-		set goarch "ppc64"
+		if [istarget "powerpc64le-*-*"] {
+		    set goarch "ppc64le"
+		} else {
+		    set goarch "ppc64"
+		}
 	    }
+	}
+	"s390-*-*" {
+	    set goarch "s390"
+	}
+	"s390x-*-*" {
+	    set goarch "s390x"
 	}
 	"sparc*-*-*" {
 	    if [check_effective_target_ilp32] {
@@ -404,7 +414,8 @@ proc go-gc-tests { } {
 
 	if { ( [file tail $test] == "select2.go" \
 		   || [file tail $test] == "stack.go" \
-		   || [file tail $test] == "peano.go" ) \
+		   || [file tail $test] == "peano.go" \
+		   || [file tail $test] == "nilptr2.go" ) \
 		 && ! [check_effective_target_split_stack] } {
 	    # These tests fails on targets without split stack.
 	    untested $name
@@ -449,13 +460,22 @@ proc go-gc-tests { } {
 	    }
 
 	    if { [ string match "// +build *" $test_line ] } {
-		if { [ string match "*[getenv GOARCH]*" $test_line ] } {
-		    continue
+		set matches_pos 0
+		set matches_neg 0
+		if { [ regexp -line "\[ 	\][getenv GOARCH]\(\[ 	\]\|\$\)" $test_line ] } {
+		    set matches_pos 1
+		} elseif { [ regexp -line "\[ 	\]\![getenv GOARCH]\(\[ 	\]\|\$\)" $test_line ] } {
+		    set matches_neg 1
+		} elseif { [ regexp -line "\[ 	\]linux\(\[ 	\]\|\$\)" $test_line ] } {
+		    set matches_pos 1
+		} elseif { [ regexp -line "\[ 	\]\!linux\(\[ 	\]\|\$\)" $test_line ] } {
+		    set matches_neg 1
+		} elseif { [ regexp -line "\[ 	\]\!windows\(\[ 	\]\|\$\)" $test_line ] } {
+		    set matches_pos 1
+		} elseif { [ regexp -line "\[ 	\]windows\(\[ 	\]\|\$\)" $test_line ] } {
+		    set matches_neg 1
 		}
-		if { [ string match "*linux*" $test_line ] } {
-		    continue
-		}
-		if { [ string match "*!windows*" $test_line ] } {
+		if { $matches_pos == 1 && $matches_neg == 0 } {
 		    continue
 		}
 		close $fd

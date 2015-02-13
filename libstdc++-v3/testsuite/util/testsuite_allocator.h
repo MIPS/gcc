@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Testing allocator for the C++ library testsuite.
 //
-// Copyright (C) 2002-2014 Free Software Foundation, Inc.
+// Copyright (C) 2002-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -209,7 +209,7 @@ namespace __gnu_test
     {
       const Alloc1& alloc1 = lhs;
       const Alloc2& alloc2 = rhs;
-      return lhs == rhs;
+      return alloc1 == alloc2;
     }
 
   template<class T1, class Alloc1, class T2, class Alloc2>

@@ -1,5 +1,5 @@
 /* Pipeline hazard description translator.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
 
    Written by Vladimir Makarov <vmakarov@redhat.com>
 
@@ -1178,7 +1178,7 @@ next_sep_el (const char **pstr, int sep, int par_flag)
 	}
     }
   obstack_1grow (&irp, '\0');
-  out_str = obstack_base (&irp);
+  out_str = (char *) obstack_base (&irp);
   obstack_finish (&irp);
 
   *pstr = p;
@@ -6873,7 +6873,7 @@ regexp_representation (regexp_t regexp)
 {
   form_regexp (regexp);
   obstack_1grow (&irp, '\0');
-  return obstack_base (&irp);
+  return (char *) obstack_base (&irp);
 }
 
 /* The function frees memory allocated for last formed string
@@ -9312,7 +9312,7 @@ initiate_automaton_gen (char **argv)
   obstack_grow (&irp, STANDARD_OUTPUT_DESCRIPTION_FILE_SUFFIX,
 		strlen (STANDARD_OUTPUT_DESCRIPTION_FILE_SUFFIX) + 1);
   obstack_1grow (&irp, '\0');
-  output_description_file_name = obstack_base (&irp);
+  output_description_file_name = (char *) obstack_base (&irp);
   obstack_finish (&irp);
 }
 
@@ -9675,6 +9675,15 @@ main (int argc, char **argv)
 		"#include \"system.h\"\n"
 		"#include \"coretypes.h\"\n"
 		"#include \"tm.h\"\n"
+		"#include \"hash-set.h\"\n"
+		"#include \"machmode.h\"\n"
+		"#include \"vec.h\"\n"
+		"#include \"double-int.h\"\n"
+		"#include \"input.h\"\n"
+		"#include \"alias.h\"\n"
+		"#include \"symtab.h\"\n"
+		"#include \"wide-int.h\"\n"
+		"#include \"inchash.h\"\n"
 		"#include \"tree.h\"\n"
 		"#include \"varasm.h\"\n"
 		"#include \"stor-layout.h\"\n"

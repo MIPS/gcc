@@ -1,5 +1,5 @@
 /* RTL-level loop invariant motion.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -42,13 +42,39 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "obstack.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "cfgloop.h"
+#include "symtab.h"
+#include "flags.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "recog.h"
 #include "target.h"
-#include "function.h"
-#include "flags.h"
 #include "df.h"
 #include "hash-table.h"
 #include "except.h"
@@ -160,7 +186,7 @@ struct invariant_expr_entry
   rtx expr;
 
   /* Its mode.  */
-  enum machine_mode mode;
+  machine_mode mode;
 
   /* Its hash.  */
   hashval_t hash;
@@ -463,7 +489,7 @@ typedef hash_table<invariant_expr_hasher> invariant_htab_type;
    insert INV to the table for this expression and return INV.  */
 
 static struct invariant *
-find_or_insert_inv (invariant_htab_type *eq, rtx expr, enum machine_mode mode,
+find_or_insert_inv (invariant_htab_type *eq, rtx expr, machine_mode mode,
 		    struct invariant *inv)
 {
   hashval_t hash = hash_invariant_expr_1 (inv->insn, expr);
@@ -500,7 +526,7 @@ find_identical_invariants (invariant_htab_type *eq, struct invariant *inv)
   bitmap_iterator bi;
   struct invariant *dep;
   rtx expr, set;
-  enum machine_mode mode;
+  machine_mode mode;
   struct invariant *tmp;
 
   if (inv->eqto != ~0u)
@@ -1258,7 +1284,9 @@ gain_for_invariant (struct invariant *inv, unsigned *regs_needed,
 		    bool speed, bool call_p)
 {
   int comp_cost, size_cost;
-  enum reg_class cl;
+  /* Workaround -Wmaybe-uninitialized false positive during
+     profiledbootstrap by initializing it.  */
+  enum reg_class cl = NO_REGS;
   int ret;
 
   actual_stamp++;

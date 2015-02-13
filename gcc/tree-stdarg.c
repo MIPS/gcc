@@ -1,5 +1,5 @@
 /* Pass computing data for optimizing stdarg functions.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -22,12 +22,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "langhooks.h"
 #include "gimple-pretty-print.h"
 #include "target.h"
 #include "bitmap.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -538,14 +553,13 @@ check_all_va_list_escapes (struct stdarg_info *si)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple_stmt_iterator i;
-
-      for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
+      for (gphi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
+	   gsi_next (&i))
 	{
 	  tree lhs;
 	  use_operand_p uop;
 	  ssa_op_iter soi;
-	  gimple phi = gsi_stmt (i);
+	  gphi *phi = i.phi ();
 
 	  lhs = PHI_RESULT (phi);
 	  if (virtual_operand_p (lhs)
@@ -571,7 +585,8 @@ check_all_va_list_escapes (struct stdarg_info *si)
 	    }
 	}
 
-      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+      for (gimple_stmt_iterator i = gsi_start_bb (bb); !gsi_end_p (i);
+	   gsi_next (&i))
 	{
 	  gimple stmt = gsi_stmt (i);
 	  tree use;
@@ -835,29 +850,29 @@ pass_stdarg::execute (function *fun)
 
   FOR_EACH_BB_FN (bb, fun)
     {
-      gimple_stmt_iterator i;
-
       si.compute_sizes = -1;
       si.bb = bb;
 
       /* For va_list_simple_ptr, we have to check PHI nodes too.  We treat
 	 them as assignments for the purpose of escape analysis.  This is
 	 not needed for non-simple va_list because virtual phis don't perform
-	 any real data movement.  */
-      if (va_list_simple_ptr)
+	 any real data movement.  Also, check PHI nodes for taking address of
+	 the va_list vars.  */
+      tree lhs, rhs;
+      use_operand_p uop;
+      ssa_op_iter soi;
+
+      for (gphi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
+	   gsi_next (&i))
 	{
-	  tree lhs, rhs;
-	  use_operand_p uop;
-	  ssa_op_iter soi;
+	  gphi *phi = i.phi ();
+	  lhs = PHI_RESULT (phi);
 
-	  for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
+	  if (virtual_operand_p (lhs))
+	    continue;
+
+	  if (va_list_simple_ptr)
 	    {
-	      gimple phi = gsi_stmt (i);
-	      lhs = PHI_RESULT (phi);
-
-	      if (virtual_operand_p (lhs))
-		continue;
-
 	      FOR_EACH_PHI_ARG (uop, phi, soi, SSA_OP_USE)
 		{
 		  rhs = USE_FROM_PTR (uop);
@@ -880,9 +895,25 @@ pass_stdarg::execute (function *fun)
 		    }
 		}
 	    }
+
+	  for (unsigned j = 0; !va_list_escapes
+			       && j < gimple_phi_num_args (phi); ++j)
+	    if ((!va_list_simple_ptr
+		 || TREE_CODE (gimple_phi_arg_def (phi, j)) != SSA_NAME)
+		&& walk_tree (gimple_phi_arg_def_ptr (phi, j),
+			      find_va_list_reference, &wi, NULL))
+	      {
+		if (dump_file && (dump_flags & TDF_DETAILS))
+		  {
+		    fputs ("va_list escapes in ", dump_file);
+		    print_gimple_stmt (dump_file, phi, 0, dump_flags);
+		    fputc ('\n', dump_file);
+		  }
+		va_list_escapes = true;
+	      }
 	}
 
-      for (i = gsi_start_bb (bb);
+      for (gimple_stmt_iterator i = gsi_start_bb (bb);
 	   !gsi_end_p (i) && !va_list_escapes;
 	   gsi_next (&i))
 	{
@@ -902,8 +933,8 @@ pass_stdarg::execute (function *fun)
 
 	  if (is_gimple_assign (stmt))
 	    {
-	      tree lhs = gimple_assign_lhs (stmt);
-	      tree rhs = gimple_assign_rhs1 (stmt);
+	      lhs = gimple_assign_lhs (stmt);
+	      rhs = gimple_assign_rhs1 (stmt);
 
 	      if (va_list_simple_ptr)
 		{

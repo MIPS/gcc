@@ -63,7 +63,8 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
 	{
 	  file = fopen(filename, "r");
 	  if (file == NULL)
-	    fatal_error("cannot open %s: %m", filename);
+	    fatal_error(Linemap::unknown_location(),
+			"cannot open %s: %m", filename);
 	}
 
       Lex lexer(filename, file, ::gogo->linemap());
@@ -96,9 +97,6 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
   // Create function descriptors as needed.
   ::gogo->create_function_descriptors();
 
-  // Write out queued up functions for hash and comparison of types.
-  ::gogo->write_specific_type_functions();
-
   // Now that we have seen all the names, verify that types are
   // correct.
   ::gogo->verify_types();
@@ -129,6 +127,9 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
 
   // Convert complicated go and defer statements into simpler ones.
   ::gogo->simplify_thunk_statements();
+
+  // Write out queued up functions for hash and comparison of types.
+  ::gogo->write_specific_type_functions();
 
   // Flatten the parse tree.
   ::gogo->flatten();

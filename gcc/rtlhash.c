@@ -1,5 +1,5 @@
 /* RTL hash functions.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,7 +34,7 @@ void
 add_rtx (const_rtx x, hash &hstate)
 {
   enum rtx_code code;
-  enum machine_mode mode;
+  machine_mode mode;
   int i, j;
   const char *fmt;
 

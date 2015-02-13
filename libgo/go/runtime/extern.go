@@ -39,6 +39,10 @@ a comma-separated list of name=val pairs. Supported names are:
 	gcdead: setting gcdead=1 causes the garbage collector to clobber all stack slots
 	that it thinks are dead.
 
+	memprofilerate:  setting memprofilerate=X changes the setting for
+	runtime.MemProfileRate.  Refer to the description of this variable for how
+	it is used and its default value.
+
 	scheddetail: setting schedtrace=X and scheddetail=1 causes the scheduler to emit
 	detailed multiline info every X milliseconds, describing state of the scheduler,
 	processors, threads and goroutines.
@@ -201,5 +205,8 @@ func Version() string {
 const GOOS string = theGoos
 
 // GOARCH is the running program's architecture target:
-// 386, amd64, arm or arm64.
+// 386, amd64, arm, arm64, ppc64, ppc64le.
 const GOARCH string = theGoarch
+
+// GCCGOTOOLDIR is the Tool Dir for the gccgo build
+const GCCGOTOOLDIR string = theGccgoToolDir

@@ -1,6 +1,6 @@
 ## Makefile for the include subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 2001-2014 Free Software Foundation, Inc.
+## Copyright (C) 2001-2015 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -31,6 +31,7 @@ std_headers = \
 	${std_srcdir}/atomic \
 	${std_srcdir}/bitset \
 	${std_srcdir}/chrono \
+	${std_srcdir}/codecvt \
 	${std_srcdir}/complex \
 	${std_srcdir}/condition_variable \
 	${std_srcdir}/deque \
@@ -83,6 +84,7 @@ bits_headers = \
 	${bits_srcdir}/allocated_ptr.h \
 	${bits_srcdir}/allocator.h \
 	${bits_srcdir}/atomic_base.h \
+	${bits_srcdir}/atomic_futex.h \
 	${bits_srcdir}/basic_ios.h \
 	${bits_srcdir}/basic_ios.tcc \
 	${bits_srcdir}/basic_string.h \
@@ -111,6 +113,7 @@ bits_headers = \
 	${bits_srcdir}/list.tcc \
 	${bits_srcdir}/locale_classes.h \
 	${bits_srcdir}/locale_classes.tcc \
+	${bits_srcdir}/locale_conv.h \
 	${bits_srcdir}/locale_facets.h \
 	${bits_srcdir}/locale_facets.tcc \
 	${bits_srcdir}/locale_facets_nonio.h \
@@ -144,6 +147,7 @@ bits_headers = \
 	${bits_srcdir}/stream_iterator.h \
 	${bits_srcdir}/streambuf_iterator.h \
 	${bits_srcdir}/shared_ptr.h \
+	${bits_srcdir}/shared_ptr_atomic.h \
 	${bits_srcdir}/shared_ptr_base.h \
 	${bits_srcdir}/slice_array.h \
 	${bits_srcdir}/sstream.tcc \
@@ -640,15 +644,22 @@ decimal_headers = \
 experimental_srcdir = ${glibcxx_srcdir}/include/experimental
 experimental_builddir = ./experimental
 experimental_headers = \
+	${experimental_srcdir}/algorithm \
 	${experimental_srcdir}/any \
+	${experimental_srcdir}/chrono \
 	${experimental_srcdir}/filesystem \
 	${experimental_srcdir}/fs_dir.h \
 	${experimental_srcdir}/fs_fwd.h \
 	${experimental_srcdir}/fs_ops.h \
 	${experimental_srcdir}/fs_path.h \
+	${experimental_srcdir}/functional \
 	${experimental_srcdir}/optional \
+	${experimental_srcdir}/ratio \
 	${experimental_srcdir}/string_view \
-	${experimental_srcdir}/string_view.tcc
+	${experimental_srcdir}/system_error \
+	${experimental_srcdir}/string_view.tcc \
+	${experimental_srcdir}/tuple \
+	${experimental_srcdir}/type_traits
 
 # This is the common subset of C++ files that all three "C" header models use.
 c_base_srcdir = $(C_INCLUDE_DIR)
@@ -1127,6 +1138,22 @@ stamp-visibility:
 	echo 0 > stamp-visibility
 endif
 
+if ENABLE_DUAL_ABI
+stamp-dual-abi:
+	echo 1 > stamp-dual-abi
+else
+stamp-dual-abi:
+	echo 0 > stamp-dual-abi
+endif
+
+if ENABLE_CXX11_ABI
+stamp-cxx11-abi:
+	echo 1 > stamp-cxx11-abi
+else
+stamp-cxx11-abi:
+	echo 0 > stamp-cxx11-abi
+endif
+
 # NB: The non-empty default ldbl_compat works around an AIX sed
 # oddity, see libstdc++/31957 for details.
 ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
@@ -1135,11 +1162,15 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 			      ${toplevel_srcdir}/gcc/DATESTAMP \
 			      stamp-namespace-version \
 			      stamp-visibility \
-			      stamp-extern-template
+			      stamp-extern-template \
+			      stamp-dual-abi \
+			      stamp-cxx11-abi
 	@date=`cat ${toplevel_srcdir}/gcc/DATESTAMP` ;\
 	ns_version=`cat stamp-namespace-version` ;\
 	visibility=`cat stamp-visibility` ;\
 	externtemplate=`cat stamp-extern-template` ;\
+	dualabi=`cat stamp-dual-abi` ;\
+	cxx11abi=`cat stamp-cxx11-abi` ;\
 	ldbl_compat='s,g,g,' ;\
 	grep "^[	 ]*#[	 ]*define[	 ][	 ]*_GLIBCXX_LONG_DOUBLE_COMPAT[	 ][	 ]*1[	 ]*$$" \
 	${CONFIG_HEADER} > /dev/null 2>&1 \
@@ -1148,6 +1179,8 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 	-e "s,define _GLIBCXX_INLINE_VERSION, define _GLIBCXX_INLINE_VERSION $$ns_version," \
 	-e "s,define _GLIBCXX_HAVE_ATTRIBUTE_VISIBILITY, define _GLIBCXX_HAVE_ATTRIBUTE_VISIBILITY $$visibility," \
 	-e "s,define _GLIBCXX_EXTERN_TEMPLATE$$, define _GLIBCXX_EXTERN_TEMPLATE $$externtemplate," \
+	-e "s,define _GLIBCXX_USE_DUAL_ABI, define _GLIBCXX_USE_DUAL_ABI $$dualabi," \
+	-e "s,define _GLIBCXX_USE_CXX11_ABI, define _GLIBCXX_USE_CXX11_ABI $$cxx11abi," \
 	-e "$$ldbl_compat" \
 	    < ${glibcxx_srcdir}/include/bits/c++config > $@ ;\
 	sed -e 's/HAVE_/_GLIBCXX_HAVE_/g' \

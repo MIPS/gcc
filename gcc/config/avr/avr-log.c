@@ -1,5 +1,5 @@
 /* Subroutines for log output for Atmel AVR back end.
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Georg-Johann Lay (avr@gjlay.de)
 
    This file is part of GCC.
@@ -23,10 +23,20 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "print-tree.h"
 #include "output.h"
 #include "input.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "tm_p.h"
 #include "tree-pass.h"	/* for current_pass */
@@ -48,7 +58,7 @@
   t: tree
   T: tree (brief)
   C: enum rtx_code
-  m: enum machine_mode
+  m: machine_mode
   R: enum reg_class
   L: insn list
   H: location_t
@@ -233,7 +243,7 @@ avr_log_vadump (FILE *file, const char *fmt, va_list ap)
               break;
 
             case 'm':
-              fputs (GET_MODE_NAME ((enum machine_mode) va_arg (ap, int)),
+              fputs (GET_MODE_NAME ((machine_mode) va_arg (ap, int)),
                      file);
               break;
 
@@ -311,6 +321,9 @@ avr_log_set_avr_log (void)
 {
   bool all = TARGET_ALL_DEBUG != 0;
 
+  if (all)
+    avr_log_details = "all";
+	
   if (all || avr_log_details)
     {
       /* Adding , at beginning and end of string makes searching easier.  */

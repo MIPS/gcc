@@ -1,5 +1,5 @@
 /* go-lang.c -- Go frontend gcc interface.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,8 +22,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "ansidecl.h"
 #include "coretypes.h"
 #include "opts.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
-#include "basic-block.h"
+#include "fold-const.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "stor-layout.h"
@@ -157,6 +171,12 @@ go_langhook_init_options_struct (struct gcc_options *opts)
   /* Exceptions are used to handle recovering from panics.  */
   opts->x_flag_exceptions = 1;
   opts->x_flag_non_call_exceptions = 1;
+
+  /* Go programs expect runtime.Callers to work, and that uses
+     libbacktrace that uses debug info.  Set the debug info level to 1
+     by default.  In post_options we will set the debug type if the
+     debug info level was not set back to 0 on the command line.  */
+  opts->x_debug_info_level = DINFO_LEVEL_TERSE;
 }
 
 /* Infrastructure for a vector of char * pointers.  */
@@ -275,6 +295,12 @@ go_langhook_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   if (!global_options_set.x_flag_optimize_sibling_calls)
     global_options.x_flag_optimize_sibling_calls = 0;
 
+  /* If the debug info level is still 1, as set in init_options, make
+     sure that some debugging type is selected.  */
+  if (global_options.x_debug_info_level == DINFO_LEVEL_TERSE
+      && global_options.x_write_symbols == NO_DEBUG)
+    global_options.x_write_symbols = PREFERRED_DEBUGGING_TYPE;
+
   /* Returning false means that the backend should be used.  */
   return false;
 }
@@ -324,7 +350,7 @@ go_langhook_type_for_size (unsigned int bits, int unsignedp)
 }
 
 static tree
-go_langhook_type_for_mode (enum machine_mode mode, int unsignedp)
+go_langhook_type_for_mode (machine_mode mode, int unsignedp)
 {
   tree type;
   /* Go has no vector types.  Build them here.  FIXME: It does not

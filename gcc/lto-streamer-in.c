@@ -1,6 +1,6 @@
 /* Read the GIMPLE representation from a file stream.
 
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
    Re-implemented by Diego Novillo <dnovillo@google.com>
 
@@ -25,13 +25,39 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "toplev.h"
-#include "tree.h"
-#include "stringpool.h"
-#include "expr.h"
-#include "flags.h"
-#include "params.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
 #include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "stringpool.h"
 #include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
+#include "params.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -46,16 +72,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
-#include "function.h"
 #include "diagnostic.h"
 #include "except.h"
 #include "debug.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "ipa-utils.h"
 #include "data-streamer.h"
 #include "gimple-streamer.h"
 #include "lto-streamer.h"
 #include "tree-streamer.h"
-#include "tree-pass.h"
 #include "streamer-hooks.h"
 #include "cfgloop.h"
 
@@ -787,27 +815,31 @@ fixup_call_stmt_edges_1 (struct cgraph_node *node, gimple *stmts,
   for (cedge = node->callees; cedge; cedge = cedge->next_callee)
     {
       if (gimple_stmt_max_uid (fn) < cedge->lto_stmt_uid)
-        fatal_error ("Cgraph edge statement index out of range");
-      cedge->call_stmt = stmts[cedge->lto_stmt_uid - 1];
+        fatal_error (input_location,
+		     "Cgraph edge statement index out of range");
+      cedge->call_stmt = as_a <gcall *> (stmts[cedge->lto_stmt_uid - 1]);
       if (!cedge->call_stmt)
-        fatal_error ("Cgraph edge statement index not found");
+        fatal_error (input_location,
+		     "Cgraph edge statement index not found");
     }
   for (cedge = node->indirect_calls; cedge; cedge = cedge->next_callee)
     {
       if (gimple_stmt_max_uid (fn) < cedge->lto_stmt_uid)
-        fatal_error ("Cgraph edge statement index out of range");
-      cedge->call_stmt = stmts[cedge->lto_stmt_uid - 1];
+        fatal_error (input_location,
+		     "Cgraph edge statement index out of range");
+      cedge->call_stmt = as_a <gcall *> (stmts[cedge->lto_stmt_uid - 1]);
       if (!cedge->call_stmt)
-        fatal_error ("Cgraph edge statement index not found");
+        fatal_error (input_location, "Cgraph edge statement index not found");
     }
   for (i = 0; node->iterate_reference (i, ref); i++)
     if (ref->lto_stmt_uid)
       {
 	if (gimple_stmt_max_uid (fn) < ref->lto_stmt_uid)
-	  fatal_error ("Reference statement index out of range");
+	  fatal_error (input_location,
+		       "Reference statement index out of range");
 	ref->stmt = stmts[ref->lto_stmt_uid - 1];
 	if (!ref->stmt)
-	  fatal_error ("Reference statement index not found");
+	  fatal_error (input_location, "Reference statement index not found");
       }
 }
 
@@ -892,6 +924,7 @@ input_struct_function_base (struct function *fn, struct data_in *data_in,
   fn->has_simduid_loops = bp_unpack_value (&bp, 1);
   fn->va_list_fpr_size = bp_unpack_value (&bp, 8);
   fn->va_list_gpr_size = bp_unpack_value (&bp, 8);
+  fn->last_clique = bp_unpack_value (&bp, sizeof (short) * 8);
 
   /* Input the function start and end loci.  */
   fn->function_start_locus = stream_input_location (&bp, data_in);

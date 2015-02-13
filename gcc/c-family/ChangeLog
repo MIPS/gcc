@@ -1,3 +1,487 @@
+2015-02-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65040
+	* c-format.c (check_format_types): Don't warn about different
+	signedness if the original value is in the range of WANTED_TYPE.
+
+2015-02-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64956
+	* c-opts.c (c_common_post_options): Change flag_abi_version from 0
+	to the current highest version.
+	* c-cppbuiltin.c (c_cpp_builtins): Assert that it isn't 0.
+
+2015-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64824
+	PR c/64868
+	* c-omp.c (c_finish_omp_atomic): Use TRUNC_DIV_EXPR
+	instead of RDIV_EXPR.  Use build_binary_op instead of
+	build2_loc.
+
+2015-01-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-opts.c, c-pch.c, cppspec.c: All callers of fatal_error changed
+	to pass input_location as first argument.
+
+2015-01-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/64672
+	* c.opt (fopenacc): Mark as LTO option.
+
+2015-01-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/64707
+	* c.opt (fopenmp): Mark as LTO option.
+
+2015-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/63307
+	* cilk.c (fill_decls_vec): Only put decls into vector v.                                                                                   
+	(compare_decls): Fix up formatting.
+
+2015-01-21  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/63307
+	* cilk.c: Include vec.h.
+	(struct cilk_decls): New structure.
+	(wrapper_parm_cb): Split this function to...
+	(fill_decls_vec): ...this...
+	(create_parm_list): ...and this.
+	(compare_decls): New function.
+	(for_local_cb): Remove.
+	(wrapper_local_cb): Ditto.
+	(build_wrapper_type): For now first traverse and fill vector of
+	declarations then sort it and then deal with sorted vector.
+	(cilk_outline): Ditto.
+	(declare_one_free_variable): Ditto.
+
+2015-01-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64629
+	* c-format.c (check_format_arg): Call decl_constant_value.
+
+2015-01-19  Martin Liska  <mliska@suse.cz>
+
+	* c-common.c (handle_noicf_attribute): New function.
+
+2015-01-15  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Ilmir Usmanov  <i.usmanov@samsung.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* c.opt (fopenacc): New option.
+	* c-cppbuiltin.c (c_cpp_builtins): Conditionally define _OPENACC.
+	* c-common.c (DEF_FUNCTION_TYPE_VAR_8, DEF_FUNCTION_TYPE_VAR_12):
+	New macros.
+	* c-common.h (c_finish_oacc_wait): New prototype.
+	* c-omp.c: Include "omp-low.h" and "gomp-constants.h".
+	(c_finish_oacc_wait): New function.
+	* c-pragma.c (oacc_pragmas): New variable.
+	(c_pp_lookup_pragma, init_pragma): Handle it.
+	* c-pragma.h (enum pragma_kind): Add PRAGMA_OACC_CACHE,
+	PRAGMA_OACC_DATA, PRAGMA_OACC_ENTER_DATA, PRAGMA_OACC_EXIT_DATA,
+	PRAGMA_OACC_KERNELS, PRAGMA_OACC_LOOP, PRAGMA_OACC_PARALLEL,
+	PRAGMA_OACC_UPDATE, PRAGMA_OACC_WAIT.
+	(enum pragma_omp_clause): Add PRAGMA_OACC_CLAUSE_ASYNC,
+	PRAGMA_OACC_CLAUSE_AUTO, PRAGMA_OACC_CLAUSE_COLLAPSE,
+	PRAGMA_OACC_CLAUSE_COPY, PRAGMA_OACC_CLAUSE_COPYIN,
+	PRAGMA_OACC_CLAUSE_COPYOUT, PRAGMA_OACC_CLAUSE_CREATE,
+	PRAGMA_OACC_CLAUSE_DELETE, PRAGMA_OACC_CLAUSE_DEVICE,
+	PRAGMA_OACC_CLAUSE_DEVICEPTR, PRAGMA_OACC_CLAUSE_FIRSTPRIVATE,
+	PRAGMA_OACC_CLAUSE_GANG, PRAGMA_OACC_CLAUSE_HOST,
+	PRAGMA_OACC_CLAUSE_IF, PRAGMA_OACC_CLAUSE_NUM_GANGS,
+	PRAGMA_OACC_CLAUSE_NUM_WORKERS, PRAGMA_OACC_CLAUSE_PRESENT,
+	PRAGMA_OACC_CLAUSE_PRESENT_OR_COPY,
+	PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYIN,
+	PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYOUT,
+	PRAGMA_OACC_CLAUSE_PRESENT_OR_CREATE, PRAGMA_OACC_CLAUSE_PRIVATE,
+	PRAGMA_OACC_CLAUSE_REDUCTION, PRAGMA_OACC_CLAUSE_SELF,
+	PRAGMA_OACC_CLAUSE_SEQ, PRAGMA_OACC_CLAUSE_VECTOR,
+	PRAGMA_OACC_CLAUSE_VECTOR_LENGTH, PRAGMA_OACC_CLAUSE_WAIT,
+	PRAGMA_OACC_CLAUSE_WORKER.
+
+2015-01-14  Marcos Diaz <marcos.diaz@tallertechnologies.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): New cpp define __SSP_EXPLICIT__
+	for the new option fstack-protector_explicit.
+	* c-common.c (c_common_attribute_table): Add stack_protect attribute.
+	(handle_stack_protect_attribute): New function.
+
+2015-01-13  Martin Uecker <uecker@eecs.berkeley.edu>
+
+	* c.opt: New option -Warray-bounds=.
+
+2015-01-09  Michael Collison  <michael.collison@linaro.org>
+
+	* array-notation-common.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, and inchash.h due to flattening of tree.h.
+	* c-ada-spec.c: Ditto.
+	* c-cilkplus.c: Ditto.
+	* c-common.c: Include input.h due to flattening of tree.h.
+	Define macro GCC_C_COMMON_C.
+	* c-common.h: Flatten tree.h header files into c-common.h.
+	Remove include of tree-core.h.
+	* c-cppbuiltin.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, and inchash.h due to
+	flattening of tree.h.
+	* c-dump.c: Ditto.
+	* c-format.c: Flatten tree.h header files into c-common.h.
+	* c-cppbuiltin.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, and inchash.h due to
+	flattening of tree.h.
+	* c-dump.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, and inchash.h due to
+	flattening of tree.h.
+	* c-format.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, inchash.h and real.h due to
+	flattening of tree.h.
+	* c-gimplify.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, and inchash.h due to
+	flattening of tree.h.
+	* cilk.c: Ditto.
+	* c-lex.c: Ditto.
+	* c-omp.c: Ditto.
+	* c-opts.c: Ditto.
+	* c-pch.c: Ditto.
+	* c-ppoutput.c: Ditto.
+	* c-pragma.c: Ditto.
+	* c-pretty-print.c: Ditto.
+	* c-semantics.c: Ditto.
+	* c-ubsan.c: Ditto.
+	* stub-objc.c: Ditto.
+
+2015-01-08  Jason Merrill  <jason@redhat.com>
+
+	* c-ubsan.c (ubsan_maybe_instrument_array_ref): Use
+	do_ubsan_in_current_function.
+	(ubsan_maybe_instrument_reference_or_call): Likewise.
+	* c-ubsan.h: Declare it.
+
+2015-01-08  Mike Stump  <mikestump@comcast.net>
+
+	* c-common.c (c_common_attribute_table): Add no_sanitize_thread.
+
+2015-01-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64440
+	* c-common.c (c_fully_fold_internal): Warn for division and modulo
+	if orig_op1 isn't INTEGER_CST, op1 is INTEGER_CST and is zero.
+
+2015-01-05  Trevor Saunders  <tsaunders@mozilla.com>
+
+	PR c++/31397
+	* c.opt (Wsuggest-override): New option.
+
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2015-01-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64423
+	* c-common.c (warn_array_subscript_with_type_char): Add location_t
+	parameter.  Use it.
+	* c-common.h (warn_array_subscript_with_type_char): Update
+	declaration.
+
+2014-12-20  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* c-cppbuiltin.c (__cpp_sized_deallocation): Uncomment and move macro.
+	Control macro with flag_sized_deallocation.
+
+2014-12-20  Martin Uecker <uecker@eecs.berkeley.edu>
+
+	* c.opt (Wdiscarded-array-qualifiers): New option.
+
+2014-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/63831
+	* c-cppbuiltin.c (c_cpp_builtins): Don't define __has_attribute
+	and __has_cpp_attribute here.
+	* c-ppoutput.c (init_pp_output): Set cb->has_attribute to
+	c_common_has_attribute.
+	* c-common.h (c_common_has_attribute): New prototype.
+	* c-lex.c (init_c_lex): Set cb->has_attribute to
+	c_common_has_attribute instead of cb_has_attribute.
+	(get_token_no_padding): New function.
+	(cb_has_attribute): Renamed to ...
+	(c_common_has_attribute): ... this.  No longer static.  Use
+	get_token_no_padding, require ()s, don't build TREE_LIST
+	unnecessarily, fix up formatting, adjust diagnostics, call
+	init_attributes.
+
+2014-12-15  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (-fsized-deallocation, -Wc++14-compat): New.
+	(-Wsized-deallocation): New.
+	* c-opts.c (c_common_post_options): -fsized-deallocation defaults
+	to on in C++14 and up.
+
+2014-12-11  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Enable C++14 __cpp_constexpr.
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_runtime_arrays if
+	we aren't complaining about VLAs.
+
+2014-12-06  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/64183
+	* c-gimplify.c (c_gimplify_expr): Don't convert the RHS of a
+	shift-expression if it is integer_type_node.  Use types_compatible_p.
+
+2014-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.c (convert_vector_to_pointer_for_subscript): Remove NULL
+	last argument from create_tmp_var_raw and create_tmp_var calls.
+	* cilk.c (gimplify_cilk_spawn): Likewise.
+	* c-omp.c (c_finish_omp_atomic): Likewise.
+
+2014-11-28  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_shift): Use op1_utype for MINUS_EXPR
+	instead of unsigned_type_node.
+
+2014-11-28  Marek Polacek  <polacek@redhat.com>
+
+	PR c/63862
+	* c-ubsan.c (ubsan_instrument_shift): Change the type of a MINUS_EXPR
+	to op1_utype.
+	* c-gimplify.c (c_gimplify_expr): Convert right operand of a shift
+	expression to unsigned_type_node.
+
+2014-11-20  Mark Wielaard  <mjw@redhat.com>
+
+	PR debug/38757
+	* c-opts.c (set_std_c89): Set lang_hooks.name.
+	(set_std_c99): Likewise.
+	(set_std_c11): Likewise.
+	(set_std_cxx98): Likewise.
+	(set_std_cxx11): Likewise.
+	(set_std_cxx14): Likewise.
+	(set_std_cxx1z): Likewise.
+
+2014-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/63764
+	* c-common.h (convert_vector_to_pointer_for_subscript): Change
+	return type to bool.
+	* c-common.c: Include gimple-expr.h.
+	(convert_vector_to_pointer_for_subscript): Change return type to
+	bool.  If *vecp is not lvalue_p and has VECTOR_TYPE, return true
+	and copy it into a TARGET_EXPR and use that instead of *vecp
+	directly.
+
+2014-11-19  David Malcolm  <dmalcolm@redhat.com>
+
+	Merger of git branch "gimple-classes-v2-option-3".
+	* ChangeLog.gimple-classes: New.
+	* c-gimplify.c (add_block_to_enclosing): Strengthen local "stack"
+	from being just a vec<gimple> to a vec<gbind *>.
+
+2014-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/63813
+	* c-ubsan.c (ubsan_maybe_instrument_reference_or_call): Change type
+	argument to ptype, set type to TREE_TYPE (ptype).  Don't call
+	get_pointer_alignment for non-pointers.  Use ptype, or if it is
+	reference type, corresponding pointer type, as type of kind
+	argument.
+	(ubsan_maybe_instrument_reference,
+	ubsan_maybe_instrument_member_call): Adjust callers.
+
+2014-11-15  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/63884
+	* array-notation-common.c (is_sec_implicit_index_fn): Return false
+	for NULL fndecl.
+	(extract_array_notation_exprs): Return for NULL node.
+
+2014-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins_optimize_pragma): Define and
+	undefine __NO_MATH_ERRNO__ based on changes to -fmath-errno state.
+
+2014-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/59708
+	* c-common.c (check_builtin_function_arguments): Handle
+	BUILT_IN_{ADD,SUB,MUL}_OVERFLOW.
+
+2014-11-10  Andi Kleen  <ak@linux.intel.com>
+
+	PR c/60804
+	* c-common.h (check_no_cilk): Declare.
+	* cilk.c (get_error_location): New function.
+	(check_no_cilk): Dito.
+
+2014-11-10  Andi Kleen  <ak@linux.intel.com>
+
+	* cilk.c (recognize_spawn): Use expression location
+	for error message.
+
+2014-11-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* c.opt ([Wshift-count-negative, Wshift-count-overflow]): Add.
+
+2014-11-10  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* c-cppbuiltin.c (__has_attribute, __has_cpp_attribute): New macros;
+	(__cpp_rtti, __cpp_exceptions): New macros for C++98;
+	(__cpp_range_based_for, __cpp_initializer_lists,
+	__cpp_delegating_constructors, __cpp_nsdmi,
+	__cpp_inheriting_constructors, __cpp_ref_qualifiers): New macros
+	for C++11; (__cpp_attribute_deprecated): Remove in favor of
+	__has_cpp_attribute.
+	* c-lex.c (cb_has_attribute): New callback CPP function;
+	(init_c_lex): Set has_attribute callback.
+
+2014-11-04  Richard Biener  <rguenther@suse.de>
+
+	* c-common.c (shorten_compare): Do not shorten mixed
+	DFP and non-DFP compares.
+
+2014-11-01  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* g++.dg/cpp1y/feat-cxx11.C: Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx11-neg.C: Add aggregate NSDMI test.
+	Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx14.C: Enable aggregate NSDMI test.
+	Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx98-neg.C: Ditto
+	* g++.dg/cpp1y/feat-cxx98.C: Commentary.
+
+2014-10-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* c-common.c, c-common.h, c-cppbuiltin.c, c-lex.c: Remove redundant
+	enum from machine_mode.
+
+2014-10-28  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-common.c: Adjust include files.
+	* c-gimplify.c: Ditto.
+	* cilk.c: Ditto.
+	* c-pragma.c: Ditto.
+	* c-ubsan.c: Ditto.
+
+2014-10-27  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-gimplify.c: Adjust include files.
+
+2014-10-26  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/53061
+	* c-opts.c (c_common_diagnostics_set_defaults): Renamed from
+	c_common_initialize_diagnostics.
+	* c-common.h: Likewise.
+
+2014-10-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/56980
+	* c-pretty-print.c (c_pretty_printer::simple_type_specifier): Don't
+	print "struct"/"union"/"enum" for typedefed names.
+
+2014-10-23  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_shift): Perform the MINUS_EXPR
+	in unsigned type.
+
+2014-10-22  Jakub Jelinek  <jakub@redhat.com>
+	    Yury Gribov  <y.gribov@samsung.com>
+
+	* c-ubsan.c (ubsan_instrument_division, ubsan_instrument_shift,
+	ubsan_instrument_vla): Check bits in flag_sanitize_recover bitmask
+	instead of flag_sanitize_recover as bool flag.
+
+2014-10-21  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* cilk.c: Revert previous change.
+
+2014-10-20  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/63307
+	* cilk.c: Include vec.h.
+	(struct cilk_decls): New structure.
+	(wrapper_parm_cb): Split this function to...
+	(fill_decls_vec): ...this...
+	(create_parm_list): ...and this.
+	(compare_decls): New function.
+	(for_local_cb): Remove.
+	(wrapper_local_cb): Ditto.
+	(build_wrapper_type): For now first traverse and fill vector of
+	declarations then sort it and then deal with sorted vector.
+	(cilk_outline): Ditto.
+	(declare_one_free_variable): Ditto.
+
+2014-10-17  Marek Polacek  <polacek@redhat.com>
+
+	* c-opts.c (c_common_post_options): Set warn_implicit_int.
+	* c.opt (Wimplicit-int): Initialize to -1.
+
+2014-10-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-pragma.c: Adjust include files.
+	* c-semantics.c: Likewise.
+
+2014-10-16  DJ Delorie  <dj@redhat.com>
+
+	* c-cppbuiltin.c (cpp_atomic_builtins): Don't assume pointers are
+	multiples of bytes.
+
+2014-10-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63455
+	* c-common.h (CPP_PREPARSED_EXPR): New.
+	(N_CP_TTYPES): Adjust.
+
+2014-10-15  Marek Polacek  <polacek@redhat.com>
+
+	* c-opts.c (c_common_init_options): Make -std=gnu11 the default for C.
+
+2014-10-14  DJ Delorie  <dj@redhat.com>
+
+	* c-pretty-print.c (pp_c_integer_constant): Check for all __intN
+	types, not just __int128.
+	* c-cppbuiltin.c (c_cpp_builtins): Add builtins for all __intN
+	types, not just __int128.
+	(cpp_atomic_builtins): Round pointer sizes up.
+	(type_suffix): Use type precision, not specific types.
+	* c-common.c (c_common_reswords): Remove __int128 special case.
+	(c_common_type_for_size): Check for all __intN types, not just
+	__int128.
+	(c_common_type_for_mode): Likewise.
+	(c_common_signed_or_unsigned_type): Likewise.
+	(c_build_bitfield_integer_type): Likewise.
+	(c_common_nodes_and_builtins): Likewise.
+	(keyword_begins_type_specifier): Likewise.
+	* c-common.h (rid): Remove RID_INT128 and add RID_INT_N_* for all
+	__intN variants.
+
+2014-10-12  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* c-common.c: Use hash_table instead of hashtab.
+
+2014-10-06  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* c-cppbuiltin.c: Move __cpp_attribute_deprecated to the
+	C++11 section.
+
+2014-10-03  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/54427
+	PR c++/57198
+	PR c++/58845
+	* c-common.c (warn_logical_operator): Punt for vectors.
+
 2014-10-01  Edward Smith-Rowland  <3dw4rd@verizon.net>
 
 	Implement SD-6: SG10 Feature Test Recommendations
@@ -445,7 +929,7 @@
 
 2014-06-11  Jan Hubicka  <hubicka@ucw.cz>
 
-	* c-family/c-common.c (handle_section_attribute): Update handling for
+	* c-common.c (handle_section_attribute): Update handling for
 	section names that are no longer trees.
 
 2014-06-10  Jakub Jelinek  <jakub@redhat.com>
@@ -1265,8 +1749,8 @@
 
 2013-10-26  Jeff Law  <law@redhat.com>
 
-	* c-family/c-common.c (c_define_builtins): Remove mudflap support.
-	* c-family/c.opt: Ignore and warn for mudflap options.
+	* c-common.c (c_define_builtins): Remove mudflap support.
+	* c.opt: Ignore and warn for mudflap options.
 
 2013-10-24  Tobias Burnus  <burnus@net-b.de>
 
@@ -1667,7 +2151,7 @@
 
 2013-07-08  Graham Stott  <graham.stott@btinternet.com>
 
-	* c-family/array-notation-common.c (length_mismatch_in_expr_p): Delete
+	* array-notation-common.c (length_mismatch_in_expr_p): Delete
 	unused variables l_length and l_node.
 
 2013-07-04  Joern Rennecke  <joern.rennecke@embecosm.com>
@@ -3200,7 +3684,7 @@
 
 2011-03-25  Jeff Law  <law@redhat.com>
 
-	* c-family/c-common.c (def_fn_type): Add missing va_end.
+	* c-common.c (def_fn_type): Add missing va_end.
 
 2011-03-25  Jason Merrill  <jason@redhat.com>
 
@@ -4051,7 +4535,7 @@
 
 2010-07-03  Manuel López-Ibáñez  <manu@gcc.gnu.org>
 
-	* c-family/c-common.c (IN_GCC_FRONTEND): Do not undef.
+	* c-common.c (IN_GCC_FRONTEND): Do not undef.
 	Do not include expr.h
 	(vector_mode_valid_p): Move here.
 
@@ -4232,7 +4716,7 @@
 	* c-common.c: Include gt-c-family-c-common.h.
 	* c-pragma.c: Include gt-c-family-c-pragma.h.
 
-Copyright (C) 2010-2014 Free Software Foundation, Inc.
+Copyright (C) 2010-2015 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for ARM.
-   Copyright (C) 1991-2014 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -29,14 +29,14 @@
 #ifndef GCC_ARM_H
 #define GCC_ARM_H
 
-/* We can't use enum machine_mode inside a generator file because it
+/* We can't use machine_mode inside a generator file because it
    hasn't been created yet; we shouldn't be using any code that
    needs the real definition though, so this ought to be safe.  */
 #ifdef GENERATOR_FILE
 #define MACHMODE int
 #else
 #include "insn-modes.h"
-#define MACHMODE enum machine_mode
+#define MACHMODE machine_mode
 #endif
 
 #include "config/vxworks-dummy.h"
@@ -164,7 +164,12 @@ extern char arm_arch_name[];
 	    builtin_define ("__ARM_EABI__");		\
 	  }						\
 	if (TARGET_IDIV)				\
-	  builtin_define ("__ARM_ARCH_EXT_IDIV__");	\
+         {						\
+            builtin_define ("__ARM_ARCH_EXT_IDIV__");	\
+            builtin_define ("__ARM_FEATURE_IDIV");	\
+         }						\
+	if (inline_asm_unified)				\
+	  builtin_define ("__ARM_ASM_SYNTAX_UNIFIED__");\
     } while (0)
 
 #include "config/arm/arm-opts.h"
@@ -348,8 +353,8 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
        || (!optimize_size && !current_tune->prefer_constant_pool)))
 
 /* We could use unified syntax for arm mode, but for now we just use it
-   for Thumb-2.  */
-#define TARGET_UNIFIED_ASM TARGET_THUMB2
+   for thumb mode.  */
+#define TARGET_UNIFIED_ASM (TARGET_THUMB)
 
 /* Nonzero if this chip provides the DMB instruction.  */
 #define TARGET_HAVE_DMB		(arm_arch6m || arm_arch7)
@@ -759,6 +764,11 @@ extern int arm_arch_crc;
 /* AAPCS requires that structure alignment is affected by bitfields.  */
 #ifndef PCC_BITFIELD_TYPE_MATTERS
 #define PCC_BITFIELD_TYPE_MATTERS TARGET_AAPCS_BASED
+#endif
+
+/* The maximum size of the sync library functions supported.  */
+#ifndef MAX_SYNC_LIBFUNC_SIZE
+#define MAX_SYNC_LIBFUNC_SIZE (2 * UNITS_PER_WORD)
 #endif
 
 
@@ -1277,14 +1287,10 @@ enum reg_class
 /* For the Thumb the high registers cannot be used as base registers
    when addressing quantities in QI or HI mode; if we don't know the
    mode, then we must be conservative.  */
-#define MODE_BASE_REG_CLASS(MODE)					\
-  (arm_lra_flag								\
-   ? (TARGET_32BIT ? CORE_REGS						\
-      : GET_MODE_SIZE (MODE) >= 4 ? BASE_REGS				\
-      : LO_REGS)							\
-   : ((TARGET_ARM || (TARGET_THUMB2 && !optimize_size)) ? CORE_REGS	\
-      : ((MODE) == SImode) ? BASE_REGS					\
-      : LO_REGS))
+#define MODE_BASE_REG_CLASS(MODE)				\
+  (TARGET_32BIT ? CORE_REGS					\
+   : GET_MODE_SIZE (MODE) >= 4 ? BASE_REGS			\
+   : LO_REGS)
 
 /* For Thumb we can not support SP+reg addressing, so we return LO_REGS
    instead of BASE_REGS.  */
@@ -1507,7 +1513,7 @@ typedef struct GTY(()) arm_stack_offsets
 }
 arm_stack_offsets;
 
-#ifndef GENERATOR_FILE
+#if !defined(GENERATOR_FILE) && !defined (USED_FOR_TARGET)
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
 typedef struct GTY(()) machine_function
@@ -1544,7 +1550,7 @@ typedef struct GTY(()) machine_function
   rtx thumb1_cc_op0;
   rtx thumb1_cc_op1;
   /* Also record the CC mode that is supported.  */
-  enum machine_mode thumb1_cc_mode;
+  machine_mode thumb1_cc_mode;
   /* Set to 1 after arm_reorg has started.  */
   int after_arm_reorg;
 }
@@ -1575,6 +1581,7 @@ enum arm_pcs
 /* Default procedure calling standard of current compilation unit. */
 extern enum arm_pcs arm_pcs_default;
 
+#if !defined (USED_FOR_TARGET)
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  */
 typedef struct
@@ -1608,6 +1615,7 @@ typedef struct
   int aapcs_vfp_rcount;
   MACHMODE aapcs_vfp_rmode;
 } CUMULATIVE_ARGS;
+#endif
 
 #define FUNCTION_ARG_PADDING(MODE, TYPE) \
   (arm_pad_arg_upward (MODE, TYPE) ? upward : downward)
@@ -2137,15 +2145,21 @@ extern int making_const_table;
    ? reverse_condition_maybe_unordered (code) \
    : reverse_condition (code))
 
-/* The arm5 clz instruction returns 32.  */
-#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  ((VALUE) = 32, 1)
-#define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  ((VALUE) = 32, 1)
+#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
+  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE), 2)
+#define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
+  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE), 2)
 
 #define CC_STATUS_INIT \
   do { cfun->machine->thumb1_cc_insn = NULL_RTX; } while (0)
 
+#undef ASM_APP_ON
+#define ASM_APP_ON (inline_asm_unified ? "\t.syntax unified\n" : \
+		    "\t.syntax divided\n")
+
 #undef  ASM_APP_OFF
-#define ASM_APP_OFF (TARGET_ARM ? "" : "\t.thumb\n")
+#define ASM_APP_OFF (TARGET_ARM ? "\t.arm\n\t.syntax divided\n" : \
+		     "\t.thumb\n\t.syntax unified\n")
 
 /* Output a push or a pop instruction (only used when profiling).
    We can't push STATIC_CHAIN_REGNUM (r12) directly with Thumb-1.  We know
@@ -2346,17 +2360,17 @@ extern int making_const_table;
    point types.  Where bit 1 indicates 16-bit support, bit 2 indicates
    32-bit support, bit 3 indicates 64-bit support.  */
 #define TARGET_ARM_FP			\
-  (TARGET_VFP_SINGLE ? 4		\
-  		     : (TARGET_VFP_DOUBLE ? (TARGET_FP16 ? 14 : 12) : 0))
+  (!TARGET_SOFT_FLOAT ? (TARGET_VFP_SINGLE ? 4		\
+			: (TARGET_VFP_DOUBLE ? (TARGET_FP16 ? 14 : 12) : 0)) \
+		      : 0)
 
 
 /* Set as a bit mask indicating the available widths of floating point
    types for hardware NEON floating point.  This is the same as
    TARGET_ARM_FP without the 64-bit bit set.  */
-#ifdef TARGET_NEON
-#define TARGET_NEON_FP		\
-  (TARGET_ARM_FP & (0xff ^ 0x08))
-#endif
+#define TARGET_NEON_FP				 \
+  (TARGET_NEON ? (TARGET_ARM_FP & (0xff ^ 0x08)) \
+	       : 0)
 
 /* The maximum number of parallel loads or stores we support in an ldm/stm
    instruction.  */

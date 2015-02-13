@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -62,6 +62,7 @@ with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
 with Sem_Type; use Sem_Type;
 with Sem_Util; use Sem_Util;
+with Sem_Warn;
 with Stand;    use Stand;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
@@ -288,13 +289,13 @@ package body Sem_Attr is
       --  Check that two attribute arguments are present
 
       procedure Check_Enum_Image;
-      --  If the prefix type is an enumeration type, set all its literals
-      --  as referenced, since the image function could possibly end up
-      --  referencing any of the literals indirectly. Same for Enum_Val.
+      --  If the prefix type of 'Image is an enumeration type, set all its
+      --  literals as referenced, since the image function could possibly end
+      --  up referencing any of the literals indirectly. Same for Enum_Val.
       --  Set the flag only if the reference is in the main code unit. Same
       --  restriction when resolving 'Value; otherwise an improperly set
-      --  reference when analyzing an inlined body will lose a proper warning
-      --  on a useless with_clause.
+      --  reference when analyzing an inlined body will lose a proper
+      --  warning on a useless with_clause.
 
       procedure Check_First_Last_Valid;
       --  Perform all checks for First_Valid and Last_Valid attributes
@@ -773,10 +774,6 @@ package body Sem_Attr is
 
             elsif Aname = Name_Unchecked_Access then
                Error_Attr ("attribute% cannot be applied to a subprogram", P);
-
-            elsif Is_Ghost_Subprogram (Entity (P)) then
-               Error_Attr_P
-                 ("prefix of % attribute cannot be a ghost subprogram");
             end if;
 
             --  Issue an error if the prefix denotes an eliminated subprogram
@@ -1041,11 +1038,16 @@ package body Sem_Attr is
          if not Is_Aliased_View (P)
            and then not In_Instance
            and then not In_Inlined_Body
+           and then Comes_From_Source (N)
          then
             --  Here we have a non-aliased view. This is illegal unless we
             --  have the case of Unrestricted_Access, where for now we allow
             --  this (we will reject later if expected type is access to an
             --  unconstrained array with a thin pointer).
+
+            --  No need for an error message on a generated access reference
+            --  for the controlling argument in a dispatching call: error will
+            --  be reported when resolving the call.
 
             if Aname /= Name_Unrestricted_Access then
                Error_Attr_P ("prefix of % attribute must be aliased");
@@ -1509,8 +1511,8 @@ package body Sem_Attr is
                        Is_Empty_List (Static_Discrete_Predicate (P_Type)))
          then
             Error_Attr_P
-              ("prefix of % attribute must be subtype with "
-               & "at least one value");
+              ("prefix of % attribute must be subtype with at least one "
+               & "value");
          end if;
       end Check_First_Last_Valid;
 
@@ -1907,6 +1909,17 @@ package body Sem_Attr is
                Error_Msg_NE
                  ("attribute% for type& is not available", P, P_Type);
             end if;
+         end if;
+
+         --  Check for no stream operations allowed from No_Tagged_Streams
+
+         if Is_Tagged_Type (P_Type)
+           and then Present (No_Tagged_Streams_Pragma (P_Type))
+         then
+            Error_Msg_Sloc := Sloc (No_Tagged_Streams_Pragma (P_Type));
+            Error_Msg_NE
+              ("no stream operations for & (No_Tagged_Streams #)", N, P_Type);
+            return;
          end if;
 
          --  Check restriction violations
@@ -2442,8 +2455,8 @@ package body Sem_Attr is
                        and then Attr_Id /= Attribute_Unrestricted_Access
                      then
                         Error_Msg_N
-                          ("in a constraint the current instance can only"
-                             & " be used with an access attribute", N);
+                          ("in a constraint the current instance can only "
+                           & "be used with an access attribute", N);
                      end if;
                   end if;
                end;
@@ -4560,6 +4573,32 @@ package body Sem_Attr is
             CS := Scope (CS);
          end loop;
 
+         --  Check the legality of attribute 'Old when it appears inside pragma
+         --  Refined_Post. These specialized checks are required only when code
+         --  generation is disabled. In the general case pragma Refined_Post is
+         --  transformed into pragma Check by Process_PPCs which in turn is
+         --  relocated to procedure _Postconditions. From then on the legality
+         --  of 'Old is determined as usual.
+
+         if not Expander_Active and then In_Refined_Post then
+            Preanalyze_And_Resolve (P);
+            Check_References_In_Prefix (CS);
+            P_Type := Etype (P);
+            Set_Etype (N, P_Type);
+
+            if Is_Limited_Type (P_Type) then
+               Error_Attr ("attribute % cannot apply to limited objects", P);
+            end if;
+
+            if Is_Entity_Name (P)
+              and then Is_Constant_Object (Entity (P))
+            then
+               Error_Msg_N
+                 ("??attribute Old applied to constant has no effect", P);
+            end if;
+
+            return;
+
          --  A Contract_Cases, Postcondition or Test_Case pragma is in the
          --  process of being preanalyzed. Perform the semantic checks now
          --  before the pragma is relocated and/or expanded.
@@ -4567,7 +4606,7 @@ package body Sem_Attr is
          --  For a generic subprogram, postconditions are preanalyzed as well
          --  for name capture, and still appear within an aspect spec.
 
-         if In_Spec_Expression or Inside_A_Generic then
+         elsif In_Spec_Expression or Inside_A_Generic then
             Prag := N;
             while Present (Prag)
                and then not Nkind_In (Prag, N_Aspect_Specification,
@@ -4583,7 +4622,8 @@ package body Sem_Attr is
             --  corresponding pragma. Don't issue errors when analyzing aspect.
 
             if Nkind (Prag) = N_Aspect_Specification
-              and then Chars (Identifier (Prag)) = Name_Post
+              and then Nam_In (Chars (Identifier (Prag)), Name_Post,
+                                                          Name_Refined_Post)
             then
                null;
 
@@ -4611,32 +4651,6 @@ package body Sem_Attr is
                        ("% attribute can only appear in postcondition", P);
                end case;
             end if;
-
-         --  Check the legality of attribute 'Old when it appears inside pragma
-         --  Refined_Post. These specialized checks are required only when code
-         --  generation is disabled. In the general case pragma Refined_Post is
-         --  transformed into pragma Check by Process_PPCs which in turn is
-         --  relocated to procedure _Postconditions. From then on the legality
-         --  of 'Old is determined as usual.
-
-         elsif not Expander_Active and then In_Refined_Post then
-            Preanalyze_And_Resolve (P);
-            Check_References_In_Prefix (CS);
-            P_Type := Etype (P);
-            Set_Etype (N, P_Type);
-
-            if Is_Limited_Type (P_Type) then
-               Error_Attr ("attribute % cannot apply to limited objects", P);
-            end if;
-
-            if Is_Entity_Name (P)
-              and then Is_Constant_Object (Entity (P))
-            then
-               Error_Msg_N
-                 ("??attribute Old applied to constant has no effect", P);
-            end if;
-
-            return;
 
          --  Body case, where we must be inside a generated _Postconditions
          --  procedure, or else the attribute use is definitely misplaced. The
@@ -4935,47 +4949,48 @@ package body Sem_Attr is
       ------------
 
       when Attribute_Result => Result : declare
-         CS : Entity_Id;
-         --  The enclosing scope, excluding loops for quantified expressions
-
-         PS : Entity_Id;
-         --  During analysis, CS is the postcondition subprogram and PS the
-         --  source subprogram to which the postcondition applies. During
-         --  pre-analysis, CS is the scope of the subprogram declaration.
+         Post_Id : Entity_Id;
+         --  The entity of the _Postconditions procedure
 
          Prag : Node_Id;
          --  During pre-analysis, Prag is the enclosing pragma node if any
 
+         Subp_Id : Entity_Id;
+         --  The entity of the enclosing subprogram
+
       begin
          --  Find the proper enclosing scope
 
-         CS := Current_Scope;
-         while Present (CS) loop
+         Post_Id := Current_Scope;
+         while Present (Post_Id) loop
 
             --  Skip generated loops
 
-            if Ekind (CS) = E_Loop then
-               CS := Scope (CS);
+            if Ekind (Post_Id) = E_Loop then
+               Post_Id := Scope (Post_Id);
 
             --  Skip the special _Parent scope generated to capture references
             --  to formals during the process of subprogram inlining.
 
-            elsif Ekind (CS) = E_Function
-              and then Chars (CS) = Name_uParent
+            elsif Ekind (Post_Id) = E_Function
+              and then Chars (Post_Id) = Name_uParent
             then
-               CS := Scope (CS);
+               Post_Id := Scope (Post_Id);
+
+            --  Otherwise this must be _Postconditions
+
             else
                exit;
             end if;
          end loop;
 
-         PS := Scope (CS);
+         Subp_Id := Scope (Post_Id);
 
          --  If the enclosing subprogram is always inlined, the enclosing
          --  postcondition will not be propagated to the expanded call.
 
          if not In_Spec_Expression
-           and then Has_Pragma_Inline_Always (PS)
+           and then Has_Pragma_Inline_Always (Subp_Id)
            and then Warn_On_Redundant_Constructs
          then
             Error_Msg_N
@@ -4987,16 +5002,14 @@ package body Sem_Attr is
          --  or test case) pragma, and we just set the proper type. If there is
          --  an error it will be caught when the real Analyze call is done.
 
-         if Ekind (CS) = E_Function
-           and then In_Spec_Expression
-         then
+         if Ekind (Post_Id) = E_Function and then In_Spec_Expression then
+
             --  Check OK prefix
 
-            if Chars (CS) /= Chars (P) then
+            if Chars (Post_Id) /= Chars (P) then
                Error_Msg_Name_1 := Name_Result;
-
                Error_Msg_NE
-                 ("incorrect prefix for % attribute, expected &", P, CS);
+                 ("incorrect prefix for % attribute, expected &", P, Post_Id);
                Error_Attr;
             end if;
 
@@ -5030,7 +5043,6 @@ package body Sem_Attr is
 
             else
                case Get_Pragma_Id (Prag) is
-
                   when Pragma_Test_Case =>
                      declare
                         Arg_Ens : constant Node_Id :=
@@ -5103,13 +5115,13 @@ package body Sem_Attr is
                return;
             end if;
 
-            Set_Etype (N, Etype (CS));
+            Set_Etype (N, Etype (Post_Id));
 
             --  If several functions with that name are visible, the intended
             --  one is the current scope.
 
             if Is_Overloaded (P) then
-               Set_Entity (P, CS);
+               Set_Entity (P, Post_Id);
                Set_Is_Overloaded (P, False);
             end if;
 
@@ -5121,22 +5133,32 @@ package body Sem_Attr is
          --  then on the legality of 'Result is determined as usual.
 
          elsif not Expander_Active and then In_Refined_Post then
-            PS := Current_Scope;
 
-            --  The prefix denotes the proper related function
+            --  Routine _Postconditions has not been generated yet, the nearest
+            --  enclosing subprogram is denoted by the current scope.
+
+            if Ekind (Post_Id) /= E_Procedure
+              or else Chars (Post_Id) /= Name_uPostconditions
+            then
+               Subp_Id := Current_Scope;
+            end if;
+
+            --  The prefix denotes the nearest enclosing function
 
             if Is_Entity_Name (P)
               and then Ekind (Entity (P)) = E_Function
-              and then Entity (P) = PS
+              and then Entity (P) = Subp_Id
             then
                null;
 
+            --  Otherwise the use of 'Result is illegal
+
             else
-               Error_Msg_Name_2 := Chars (PS);
+               Error_Msg_Name_2 := Chars (Subp_Id);
                Error_Attr ("incorrect prefix for % attribute, expected %", P);
             end if;
 
-            Set_Etype (N, Etype (PS));
+            Set_Etype (N, Etype (Subp_Id));
 
          --  Body case, where we must be inside a generated _Postconditions
          --  procedure, and the prefix must be on the scope stack, or else the
@@ -5145,23 +5167,25 @@ package body Sem_Attr is
          --  current one.
 
          else
-            while Present (CS) and then CS /= Standard_Standard loop
-               if Chars (CS) = Name_uPostconditions then
+            while Present (Post_Id)
+              and then Post_Id /= Standard_Standard
+            loop
+               if Chars (Post_Id) = Name_uPostconditions then
                   exit;
                else
-                  CS := Scope (CS);
+                  Post_Id := Scope (Post_Id);
                end if;
             end loop;
 
-            PS := Scope (CS);
+            Subp_Id := Scope (Post_Id);
 
-            if Chars (CS) = Name_uPostconditions
-              and then Ekind (PS) = E_Function
+            if Chars (Post_Id) = Name_uPostconditions
+              and then Ekind (Subp_Id) = E_Function
             then
                --  Check OK prefix
 
                if Nkind_In (P, N_Identifier, N_Operator_Symbol)
-                 and then Chars (P) = Chars (PS)
+                 and then Chars (P) = Chars (Subp_Id)
                then
                   null;
 
@@ -5171,18 +5195,18 @@ package body Sem_Attr is
                elsif Is_Entity_Name (P)
                  and then Ekind (Entity (P)) = E_Function
                  and then Present (Alias (Entity (P)))
-                 and then Chars (Alias (Entity (P))) = Chars (PS)
+                 and then Chars (Alias (Entity (P))) = Chars (Subp_Id)
                then
                   null;
 
                else
-                  Error_Msg_Name_2 := Chars (PS);
+                  Error_Msg_Name_2 := Chars (Subp_Id);
                   Error_Attr
                     ("incorrect prefix for % attribute, expected %", P);
                end if;
 
                Rewrite (N, Make_Identifier (Sloc (N), Name_uResult));
-               Analyze_And_Resolve (N, Etype (PS));
+               Analyze_And_Resolve (N, Etype (Subp_Id));
 
             else
                Error_Attr
@@ -6418,6 +6442,8 @@ package body Sem_Attr is
          --  The type of attribute 'Update is that of the prefix
 
          Set_Etype (N, P_Type);
+
+         Sem_Warn.Warn_On_Suspicious_Update (N);
       end Update;
 
       ---------
@@ -7184,6 +7210,34 @@ package body Sem_Attr is
          return;
       end if;
 
+      --  Attribute 'Img applied to a static enumeration value is static, and
+      --  we will do the folding right here (things get confused if we let this
+      --  case go through the normal circuitry).
+
+      if Attribute_Name (N) = Name_Img
+        and then Is_Entity_Name (P)
+        and then Is_Enumeration_Type (Etype (Entity (P)))
+        and then Is_OK_Static_Expression (P)
+      then
+         declare
+            Lit : constant Entity_Id := Expr_Value_E (P);
+            Str : String_Id;
+
+         begin
+            Start_String;
+            Get_Unqualified_Decoded_Name_String (Chars (Lit));
+            Set_Casing (All_Upper_Case);
+            Store_String_Chars (Name_Buffer (1 .. Name_Len));
+            Str := End_String;
+
+            Rewrite (N, Make_String_Literal (Loc, Strval => Str));
+            Analyze_And_Resolve (N, Standard_String);
+            Set_Is_Static_Expression (N, True);
+         end;
+
+         return;
+      end if;
+
       --  Special processing for cases where the prefix is an object. For
       --  this purpose, a string literal counts as an object (attributes
       --  of string literals can only appear in generated code).
@@ -7347,9 +7401,7 @@ package body Sem_Attr is
 
       --  Second foldable possibility is an array object (RM 4.9(8))
 
-      elsif (Ekind (P_Entity) = E_Variable
-               or else
-             Ekind (P_Entity) = E_Constant)
+      elsif Ekind_In (P_Entity, E_Variable, E_Constant)
         and then Is_Array_Type (Etype (P_Entity))
         and then (not Is_Generic_Type (Etype (P_Entity)))
       then
@@ -7553,15 +7605,17 @@ package body Sem_Attr is
                Static :=
                  Static and then not Is_Constr_Subt_For_U_Nominal (P_Type);
                Set_Is_Static_Expression (N, Static);
-
             end if;
 
             while Present (Nod) loop
                if not Is_Static_Subtype (Etype (Nod)) then
                   Static := False;
                   Set_Is_Static_Expression (N, False);
+
                elsif not Is_OK_Static_Subtype (Etype (Nod)) then
                   Set_Raises_Constraint_Error (N);
+                  Static := False;
+                  Set_Is_Static_Expression (N, False);
                end if;
 
                --  If however the index type is generic, or derived from
@@ -7591,6 +7645,7 @@ package body Sem_Attr is
 
       begin
          E := E1;
+
          while Present (E) loop
 
             --  If expression is not static, then the attribute reference
@@ -7638,6 +7693,7 @@ package body Sem_Attr is
          end loop;
 
          if Raises_Constraint_Error (Prefix (N)) then
+            Set_Is_Static_Expression (N, False);
             return;
          end if;
       end;
@@ -7688,21 +7744,21 @@ package body Sem_Attr is
 
       case Id is
 
-         --  Attributes related to Ada 2012 iterators (placeholder ???)
+      --  Attributes related to Ada 2012 iterators (placeholder ???)
 
-         when Attribute_Constant_Indexing    |
-              Attribute_Default_Iterator     |
-              Attribute_Implicit_Dereference |
-              Attribute_Iterator_Element     |
-              Attribute_Iterable             |
-              Attribute_Variable_Indexing    => null;
+      when Attribute_Constant_Indexing    |
+           Attribute_Default_Iterator     |
+           Attribute_Implicit_Dereference |
+           Attribute_Iterator_Element     |
+           Attribute_Iterable             |
+           Attribute_Variable_Indexing    => null;
 
-         --  Internal attributes used to deal with Ada 2012 delayed aspects.
-         --  These were already rejected by the parser. Thus they shouldn't
-         --  appear here.
+      --  Internal attributes used to deal with Ada 2012 delayed aspects.
+      --  These were already rejected by the parser. Thus they shouldn't
+      --  appear here.
 
-         when Internal_Attribute_Id =>
-            raise Program_Error;
+      when Internal_Attribute_Id =>
+         raise Program_Error;
 
       --------------
       -- Adjacent --
@@ -8108,16 +8164,6 @@ package body Sem_Attr is
                Set_Is_Static_Expression (N, False);
             end;
          end if;
-
-      ---------
-      -- Img --
-      ---------
-
-      --  Img is a scalar attribute, but is never static, because it is
-      --  not a static function (having a non-scalar argument (RM 4.9(22))
-
-      when Attribute_Img =>
-         null;
 
       -------------------
       -- Integer_Value --
@@ -9574,7 +9620,8 @@ package body Sem_Attr is
       --  The following attributes can never be folded, and furthermore we
       --  should not even have entered the case statement for any of these.
       --  Note that in some cases, the values have already been folded as
-      --  a result of the processing in Analyze_Attribute.
+      --  a result of the processing in Analyze_Attribute or earlier in
+      --  this procedure.
 
       when Attribute_Abort_Signal                 |
            Attribute_Access                       |
@@ -9601,6 +9648,7 @@ package body Sem_Attr is
            Attribute_External_Tag                 |
            Attribute_Fast_Math                    |
            Attribute_First_Bit                    |
+           Attribute_Img                          |
            Attribute_Input                        |
            Attribute_Last_Bit                     |
            Attribute_Library_Level                |
@@ -9717,6 +9765,12 @@ package body Sem_Attr is
       --  Error, or warning within an instance, if the static accessibility
       --  rules of 3.10.2 are violated.
 
+      function Declared_Within_Generic_Unit
+        (Entity       : Entity_Id;
+         Generic_Unit : Node_Id) return Boolean;
+      --  Returns True if Declared_Entity is declared within the declarative
+      --  region of Generic_Unit; otherwise returns False.
+
       ---------------------------
       -- Accessibility_Message --
       ---------------------------
@@ -9766,6 +9820,33 @@ package body Sem_Attr is
          end if;
       end Accessibility_Message;
 
+      ----------------------------------
+      -- Declared_Within_Generic_Unit --
+      ----------------------------------
+
+      function Declared_Within_Generic_Unit
+        (Entity       : Entity_Id;
+         Generic_Unit : Node_Id) return Boolean
+      is
+         Generic_Encloser : Node_Id := Enclosing_Generic_Unit (Entity);
+
+      begin
+         while Present (Generic_Encloser) loop
+            if Generic_Encloser = Generic_Unit then
+               return True;
+            end if;
+
+            --  We have to step to the scope of the generic's entity, because
+            --  otherwise we'll just get back the same generic.
+
+            Generic_Encloser :=
+              Enclosing_Generic_Unit
+                (Scope (Defining_Entity (Generic_Encloser)));
+         end loop;
+
+         return False;
+      end Declared_Within_Generic_Unit;
+
    --  Start of processing for Resolve_Attribute
 
    begin
@@ -9809,8 +9890,38 @@ package body Sem_Attr is
 
          Access_Attribute :
          begin
+            --  Note possible modification if we have a variable
+
             if Is_Variable (P) then
-               Note_Possible_Modification (P, Sure => False);
+               declare
+                  PN : constant Node_Id := Parent (N);
+                  Nm : Node_Id;
+
+                  Note : Boolean := True;
+                  --  Skip this for the case of Unrestricted_Access occuring in
+                  --  the context of a Valid check, since this otherwise leads
+                  --  to a missed warning (the Valid check does not really
+                  --  modify!) If this case, Note will be reset to False.
+
+               begin
+                  if Attr_Id = Attribute_Unrestricted_Access
+                    and then Nkind (PN) = N_Function_Call
+                  then
+                     Nm := Name (PN);
+
+                     if Nkind (Nm) = N_Expanded_Name
+                       and then Chars (Nm) = Name_Valid
+                       and then Nkind (Prefix (Nm)) = N_Identifier
+                       and then Chars (Prefix (Nm)) = Name_Attr_Long_Float
+                     then
+                        Note := False;
+                     end if;
+                  end if;
+
+                  if Note then
+                     Note_Possible_Modification (P, Sure => False);
+                  end if;
+               end;
             end if;
 
             --  The following comes from a query concerning improper use of
@@ -9983,11 +10094,11 @@ package body Sem_Attr is
                   --  level of the actual type is not known). This restriction
                   --  does not apply when the attribute type is an anonymous
                   --  access-to-subprogram type. Note that this check was
-                  --  revised by AI-229, because the originally Ada 95 rule
+                  --  revised by AI-229, because the original Ada 95 rule
                   --  was too lax. The original rule only applied when the
                   --  subprogram was declared within the body of the generic,
                   --  which allowed the possibility of dangling references).
-                  --  The rule was also too strict in some case, in that it
+                  --  The rule was also too strict in some cases, in that it
                   --  didn't permit the access to be declared in the generic
                   --  spec, whereas the revised rule does (as long as it's not
                   --  a formal type).
@@ -10031,13 +10142,15 @@ package body Sem_Attr is
                   then
                      --  The attribute type's ultimate ancestor must be
                      --  declared within the same generic unit as the
-                     --  subprogram is declared. The error message is
+                     --  subprogram is declared (including within another
+                     --  nested generic unit). The error message is
                      --  specialized to say "ancestor" for the case where the
                      --  access type is not its own ancestor, since saying
                      --  simply "access type" would be very confusing.
 
-                     if Enclosing_Generic_Unit (Entity (P)) /=
-                          Enclosing_Generic_Unit (Root_Type (Btyp))
+                     if not Declared_Within_Generic_Unit
+                              (Root_Type (Btyp),
+                               Enclosing_Generic_Unit (Entity (P)))
                      then
                         Error_Msg_N
                           ("''Access attribute not allowed in generic body",
@@ -10491,10 +10604,8 @@ package body Sem_Attr is
                   Scop      : constant Entity_Id := Scope (Subp_Id);
                   Subp_Decl : constant Node_Id   :=
                                 Unit_Declaration_Node (Subp_Id);
-
-                  Flag_Id : Entity_Id;
-                  HSS     : Node_Id;
-                  Stmt    : Node_Id;
+                  Flag_Id   : Entity_Id;
+                  Subp_Body : Node_Id;
 
                --  If the access has been taken and the body of the subprogram
                --  has not been see yet, indirect calls must be protected with
@@ -10545,24 +10656,20 @@ package body Sem_Attr is
                   --  generated body is immediately analyzed and the expression
                   --  is automatically frozen.
 
-                  if Ekind (Subp_Id) = E_Function
-                    and then Nkind (Subp_Decl) = N_Subprogram_Declaration
-                    and then Nkind (Original_Node (Subp_Decl)) =
-                                                        N_Expression_Function
+                  if Is_Expression_Function (Subp_Id)
                     and then Present (Corresponding_Body (Subp_Decl))
-                    and then not Analyzed (Corresponding_Body (Subp_Decl))
                   then
-                     HSS :=
-                       Handled_Statement_Sequence
-                         (Unit_Declaration_Node
-                            (Corresponding_Body (Subp_Decl)));
+                     Subp_Body :=
+                       Unit_Declaration_Node (Corresponding_Body (Subp_Decl));
 
-                     if Present (HSS) then
-                        Stmt := First (Statements (HSS));
+                     --  Analyze the body of the expression function to freeze
+                     --  the expression. This takes care of the case where the
+                     --  'Access is part of dispatch table initialization and
+                     --  the generated body of the expression function has not
+                     --  been analyzed yet.
 
-                        if Nkind (Stmt) = N_Simple_Return_Statement then
-                           Freeze_Expression (Expression (Stmt));
-                        end if;
+                     if not Analyzed (Subp_Body) then
+                        Analyze (Subp_Body);
                      end if;
                   end if;
                end;
@@ -11023,11 +11130,18 @@ package body Sem_Attr is
                   Assoc := First (Component_Associations (Aggr));
                   while Present (Assoc) loop
                      Comp := First (Choices (Assoc));
+                     Expr := Expression (Assoc);
 
                      if Nkind (Comp) /= N_Others_Choice
                        and then not Error_Posted (Comp)
                      then
-                        Resolve (Expression (Assoc), Etype (Entity (Comp)));
+                        Resolve (Expr, Etype (Entity (Comp)));
+
+                        if Is_Scalar_Type (Etype (Entity (Comp)))
+                          and then not Is_OK_Static_Expression (Expr)
+                        then
+                           Set_Do_Range_Check (Expr);
+                        end if;
                      end if;
 
                      Next (Assoc);
@@ -11132,7 +11246,16 @@ package body Sem_Attr is
       --  Normally the Freezing is done by Resolve but sometimes the Prefix
       --  is not resolved, in which case the freezing must be done now.
 
-      Freeze_Expression (P);
+      --  For an elaboration check on a subprogram, we do not freeze its type.
+      --  It may be declared in an unrelated scope, in particular in the case
+      --  of a generic function whose type may remain unelaborated.
+
+      if Attr_Id = Attribute_Elaborated then
+         null;
+
+      else
+         Freeze_Expression (P);
+      end if;
 
       --  Finally perform static evaluation on the attribute reference
 

@@ -1,5 +1,5 @@
 ;; e500 SPE description
-;; Copyright (C) 2002-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2002-2015 Free Software Foundation, Inc.
 ;; Contributed by Aldy Hernandez (aldy@quesejoda.com)
 
 ;; This file is part of GCC.
@@ -2421,8 +2421,7 @@
 	it last.  Otherwise, load it first.  Note that we cannot have
 	auto-increment in that case since the address register is
 	known to be dead.  */
-      if (refers_to_regno_p (REGNO (operands[0]), REGNO (operands[0]) + 1,
-			     operands[1], 0))
+      if (refers_to_regno_p (REGNO (operands[0]), operands[1]))
 	{
 	  if (WORDS_BIG_ENDIAN)
 	    return \"lwz %L0,%L1\;lwz %0,%1\";
@@ -2465,8 +2464,7 @@
 	  else
 	    return \"evldd%X1 %Y0,%y1\;evmergehi %Z0,%Y0,%Y0\";
 	}
-      if (refers_to_regno_p (REGNO (operands[0]), REGNO (operands[0]) + 1,
-			     operands[1], 0))
+      if (refers_to_regno_p (REGNO (operands[0]), operands[1]))
 	{
 	  if (WORDS_BIG_ENDIAN)
 	    return \"lwz %Z0,%L1\;lwz %Y0,%1\";
@@ -2519,7 +2517,7 @@
 
 (define_insn_and_split "*mov_si<mode>_e500_subreg0_elf_low_be"
   [(set (subreg:SI (match_operand:SPE64TF 0 "register_operand" "+r") 0)
-	(lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "r")
+	(lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "b")
 		   (match_operand 2 "" "")))]
   "WORDS_BIG_ENDIAN
    && (((TARGET_E500_DOUBLE && (<MODE>mode == DFmode || <MODE>mode == TFmode))
@@ -2538,13 +2536,13 @@
 
 (define_insn "*mov_si<mode>_e500_subreg0_elf_low_le"
   [(set (subreg:SI (match_operand:SPE64TF 0 "register_operand" "+r") 0)
-	(lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "r")
+	(lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "b")
 		   (match_operand 2 "" "")))]
   "!WORDS_BIG_ENDIAN
    && (((TARGET_E500_DOUBLE && (<MODE>mode == DFmode || <MODE>mode == TFmode))
 	|| (TARGET_SPE && <MODE>mode != DFmode && <MODE>mode != TFmode))
        && TARGET_ELF && !TARGET_64BIT)"
-  "addic %0,%1,%K2")
+  "addi %0,%1,%K2")
 
 ;; ??? Could use evstwwe for memory stores in some cases, depending on
 ;; the offset.
@@ -2592,17 +2590,17 @@
 
 (define_insn "*mov_si<mode>_e500_subreg4_elf_low_be"
   [(set (subreg:SI (match_operand:SPE64TF 0 "register_operand" "+r") 4)
-	(lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "r")
+	(lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "b")
 		   (match_operand 2 "" "")))]
   "WORDS_BIG_ENDIAN
-   && (((TARGET_E500_DOUBLE && (<MODE>mode == DFmode || <MODE>mode == TFmode))
-	|| (TARGET_SPE && <MODE>mode != DFmode && <MODE>mode != TFmode))
-       && TARGET_ELF && !TARGET_64BIT)"
-  "addic %0,%1,%K2")
+   && ((TARGET_E500_DOUBLE && (<MODE>mode == DFmode || <MODE>mode == TFmode))
+       || (TARGET_SPE && <MODE>mode != DFmode && <MODE>mode != TFmode))
+   && TARGET_ELF && !TARGET_64BIT"
+  "addi %0,%1,%K2")
 
 (define_insn_and_split "*mov_si<mode>_e500_subreg4_elf_low_le"
   [(set (subreg:SI (match_operand:SPE64TF 0 "register_operand" "+r") 4)
-	(lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "r")
+	(lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "b")
 		   (match_operand 2 "" "")))]
   "!WORDS_BIG_ENDIAN
    && (((TARGET_E500_DOUBLE && (<MODE>mode == DFmode || <MODE>mode == TFmode))

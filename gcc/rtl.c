@@ -1,5 +1,5 @@
 /* RTL utility routines.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -742,7 +742,7 @@ rtl_check_failed_code2 (const_rtx r, enum rtx_code code1, enum rtx_code code2,
 }
 
 void
-rtl_check_failed_code_mode (const_rtx r, enum rtx_code code, enum machine_mode mode,
+rtl_check_failed_code_mode (const_rtx r, enum rtx_code code, machine_mode mode,
 			    bool not_mode, const char *file, int line,
 			    const char *func)
 {

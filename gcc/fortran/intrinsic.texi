@@ -1,5 +1,5 @@
 @ignore
-Copyright (C) 2005-2014 Free Software Foundation, Inc.
+Copyright (C) 2005-2015 Free Software Foundation, Inc.
 This is part of the GNU Fortran manual.   
 For copying conditions, see the file gfortran.texi.
 
@@ -98,6 +98,7 @@ Some basic guidelines for editing this document:
 * @code{CO_BROADCAST}:  CO_BROADCAST, Copy a value to all images the current set of images
 * @code{CO_MAX}:        CO_MAX,    Maximal value on the current set of images
 * @code{CO_MIN}:        CO_MIN,    Minimal value on the current set of images
+* @code{CO_REDUCE}:     CO_REDUCE, Reduction of values on the current set of images
 * @code{CO_SUM}:        CO_SUM,    Sum of values on the current set of images
 * @code{COMMAND_ARGUMENT_COUNT}: COMMAND_ARGUMENT_COUNT, Get number of command line arguments
 * @code{COMPILER_OPTIONS}: COMPILER_OPTIONS, Options passed to the compiler
@@ -2712,7 +2713,7 @@ end program test_btest
 
 @table @asis
 @item @emph{Description}:
-@code{C_ASSOCIATED(c_prt_1[, c_ptr_2])} determines the status of the C pointer
+@code{C_ASSOCIATED(c_ptr_1[, c_ptr_2])} determines the status of the C pointer
 @var{c_ptr_1} or if @var{c_ptr_1} is associated with the target @var{c_ptr_2}.
 
 @item @emph{Standard}:
@@ -2722,7 +2723,7 @@ Fortran 2003 and later
 Inquiry function
 
 @item @emph{Syntax}:
-@code{RESULT = C_ASSOCIATED(c_prt_1[, c_ptr_2])}
+@code{RESULT = C_ASSOCIATED(c_ptr_1[, c_ptr_2])}
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
@@ -3320,7 +3321,7 @@ Collective subroutine
 @item @var{A}            @tab INTENT(INOUT) argument; shall have the same
 dynamic type and type paramters on all images of the current team. If it
 is an array, it shall have the same shape on all images.
-@item @var{SOURCE_IMAGE} @tab (optional) a scalar integer expression.
+@item @var{SOURCE_IMAGE} @tab a scalar integer expression.
 It shall have the same the same value on all images and refer to an
 image of the current team.
 @item @var{STAT}         @tab (optional) a scalar integer variable
@@ -3340,7 +3341,7 @@ end program test
 @end smallexample
 
 @item @emph{See also}:
-@ref{CO_MAX}, @ref{CO_MIN}, @ref{CO_SUM}
+@ref{CO_MAX}, @ref{CO_MIN}, @ref{CO_SUM}, @ref{CO_REDUCE}
 @end table
 
 
@@ -3354,7 +3355,7 @@ end program test
 @item @emph{Description}:
 @code{CO_MAX} determines element-wise the maximal value of @var{A} on all
 images of the current team.  If @var{RESULT_IMAGE} is present, the maximum
-values are returned on in @var{A} on the specified image only and the value
+values are returned in @var{A} on the specified image only and the value
 of @var{A} on the other images become undefined.  If @var{RESULT_IMAGE} is
 not present, the value is returned on all images.  If the execution was
 successful and @var{STAT} is present, it is assigned the value zero.  If the
@@ -3394,7 +3395,7 @@ end program test
 @end smallexample
 
 @item @emph{See also}:
-@ref{CO_MIN}, @ref{CO_SUM}, @ref{CO_BROADCAST}
+@ref{CO_MIN}, @ref{CO_SUM}, @ref{CO_REDUCE}, @ref{CO_BROADCAST}
 @end table
 
 
@@ -3408,7 +3409,7 @@ end program test
 @item @emph{Description}:
 @code{CO_MIN} determines element-wise the minimal value of @var{A} on all
 images of the current team.  If @var{RESULT_IMAGE} is present, the minimal
-values are returned on in @var{A} on the specified image only and the value
+values are returned in @var{A} on the specified image only and the value
 of @var{A} on the other images become undefined.  If @var{RESULT_IMAGE} is
 not present, the value is returned on all images.  If the execution was
 successful and @var{STAT} is present, it is assigned the value zero.  If the
@@ -3448,7 +3449,87 @@ end program test
 @end smallexample
 
 @item @emph{See also}:
-@ref{CO_MAX}, @ref{CO_SUM}, @ref{CO_BROADCAST}
+@ref{CO_MAX}, @ref{CO_SUM}, @ref{CO_REDUCE}, @ref{CO_BROADCAST}
+@end table
+
+
+
+@node CO_REDUCE
+@section @code{CO_REDUCE} --- Reduction of values on the current set of images
+@fnindex CO_REDUCE
+@cindex Collectives, generic reduction
+
+@table @asis
+@item @emph{Description}:
+@code{CO_REDUCE} determines element-wise the reduction of the value of @var{A}
+on all images of the current team.  The pure function passed as @var{OPERATOR}
+is used to pairwise reduce the values of @var{A} by passing either the value
+of @var{A} of different images or the result values of such a reduction as
+argument.  If @var{A} is an array, the deduction is done element wise. If
+@var{RESULT_IMAGE} is present, the result values are returned in @var{A} on
+the specified image only and the value of @var{A} on the other images become
+undefined.  If @var{RESULT_IMAGE} is not present, the value is returned on all
+images.  If the execution was successful and @var{STAT} is present, it is
+assigned the value zero.  If the execution failed, @var{STAT} gets assigned
+a nonzero value and, if present, @var{ERRMSG} gets assigned a value describing
+the occurred error.
+
+@item @emph{Standard}:
+Technical Specification (TS) 18508 or later
+
+@item @emph{Class}:
+Collective subroutine
+
+@item @emph{Syntax}:
+@code{CALL CO_REDUCE(A, OPERATOR, [, RESULT_IMAGE, STAT, ERRMSG])}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{A}            @tab is an @code{INTENT(INOUT)} argument and shall be
+nonpolymorphic. If it is allocatable, it shall be allocated; if it is a pointer,
+it shall be associated.  @var{A} shall have the same type and type parameters on
+all images of the team; if it is an array, it shall have the same shape on all
+images.
+@item @var{OPERATOR}     @tab pure function with two scalar nonallocatable
+arguments, which shall be nonpolymorphic and have the same type and type
+parameters as @var{A}.  The function shall return a nonallocatable scalar of
+the same type and type parameters as @var{A}.  The function shall be the same on
+all images and with regards to the arguments mathematically commutative and
+associative.  Note that @var{OPERATOR} may not be an elemental function, unless
+it is an intrisic function.
+@item @var{RESULT_IMAGE} @tab (optional) a scalar integer expression; if
+present, it shall have the same the same value on all images and refer to an
+image of the current team.
+@item @var{STAT}         @tab (optional) a scalar integer variable
+@item @var{ERRMSG}       @tab (optional) a scalar character variable
+@end multitable
+
+@item @emph{Example}:
+@smallexample
+program test
+  integer :: val
+  val = this_image ()
+  call co_reduce (val, result_image=1, operator=myprod)
+  if (this_image() == 1) then
+    write(*,*) "Product value", val  ! prints num_images() factorial
+  end if
+contains
+  pure function myprod(a, b)
+    integer, value :: a, b
+    integer :: myprod
+    myprod = a * b
+  end function myprod
+end program test
+@end smallexample
+
+@item @emph{Note}:
+While the rules permit in principle an intrinsic function, none of the
+intrinsics in the standard fulfill the criteria of having a specific
+function, which takes two arguments of the same type and returning that
+type as result.
+
+@item @emph{See also}:
+@ref{CO_MIN}, @ref{CO_MAX}, @ref{CO_SUM}, @ref{CO_BROADCAST}
 @end table
 
 
@@ -3462,7 +3543,7 @@ end program test
 @item @emph{Description}:
 @code{CO_SUM} sums up the values of each element of @var{A} on all
 images of the current team.  If @var{RESULT_IMAGE} is present, the summed-up
-values are returned on in @var{A} on the specified image only and the value
+values are returned in @var{A} on the specified image only and the value
 of @var{A} on the other images become undefined.  If @var{RESULT_IMAGE} is
 not present, the value is returned on all images.  If the execution was
 successful and @var{STAT} is present, it is assigned the value zero.  If the
@@ -3502,7 +3583,7 @@ end program test
 @end smallexample
 
 @item @emph{See also}:
-@ref{CO_MAX}, @ref{CO_MIN}, @ref{CO_BROADCAST}
+@ref{CO_MAX}, @ref{CO_MIN}, @ref{CO_REDUCE}, @ref{CO_BROADCAST}
 @end table
 
 
@@ -3671,7 +3752,7 @@ value is of default @code{COMPLEX} type.
 If @var{X} and @var{Y} are of @code{REAL} type, or one is of @code{REAL}
 type and one is of @code{INTEGER} type, then the return value is of
 @code{COMPLEX} type with a kind equal to that of the @code{REAL}
-argument with the highest precision.  
+argument with the highest precision.
 
 @item @emph{Example}:
 @smallexample
@@ -3689,7 +3770,7 @@ end program test_complex
 
 
 @node CONJG
-@section @code{CONJG} --- Complex conjugate function 
+@section @code{CONJG} --- Complex conjugate function
 @fnindex CONJG
 @fnindex DCONJG
 @cindex complex conjugate
@@ -3739,7 +3820,7 @@ end program test_conjg
 
 
 @node COS
-@section @code{COS} --- Cosine function 
+@section @code{COS} --- Cosine function
 @fnindex COS
 @fnindex DCOS
 @fnindex CCOS
@@ -3798,7 +3879,7 @@ Inverse function: @ref{ACOS}
 
 
 @node COSH
-@section @code{COSH} --- Hyperbolic cosine function 
+@section @code{COSH} --- Hyperbolic cosine function
 @fnindex COSH
 @fnindex DCOSH
 @cindex hyperbolic cosine
@@ -4166,7 +4247,7 @@ end program test_time_and_date
 
 
 @node DBLE
-@section @code{DBLE} --- Double conversion function 
+@section @code{DBLE} --- Double conversion function
 @fnindex DBLE
 @cindex conversion, to real
 
@@ -4448,7 +4529,7 @@ end program test_dprod
 @item @emph{Specific names}:
 @multitable @columnfractions .20 .20 .20 .25
 @item Name              @tab Argument               @tab Return type       @tab Standard
-@item @code{DPROD(X,Y)} @tab @code{REAL(4) X, Y}    @tab @code{REAL(4)}    @tab Fortran 77 and later
+@item @code{DPROD(X,Y)} @tab @code{REAL(4) X, Y}    @tab @code{REAL(8)}    @tab Fortran 77 and later
 @end multitable
 
 @end table
@@ -13693,6 +13774,7 @@ Fortran 95 elemental function: @ref{IEOR}
 * ISO_C_BINDING::
 * IEEE modules::
 * OpenMP Modules OMP_LIB and OMP_LIB_KINDS::
+* OpenACC Module OPENACC::
 @end menu
 
 @node ISO_FORTRAN_ENV
@@ -13937,6 +14019,7 @@ with the following options: @code{-fno-unsafe-math-optimizations
 -frounding-math -fsignaling-nans}.
 
 
+
 @node OpenMP Modules OMP_LIB and OMP_LIB_KINDS
 @section OpenMP Modules @code{OMP_LIB} and @code{OMP_LIB_KINDS}
 @table @asis
@@ -13949,7 +14032,8 @@ The OpenMP Fortran runtime library routines are provided both in
 a form of two Fortran 90 modules, named @code{OMP_LIB} and 
 @code{OMP_LIB_KINDS}, and in a form of a Fortran @code{include} file named
 @file{omp_lib.h}. The procedures provided by @code{OMP_LIB} can be found
-in the @ref{Top,,Introduction,libgomp,GNU OpenMP runtime library} manual,
+in the @ref{Top,,Introduction,libgomp,GNU Offloading and Multi
+Processing Runtime Library} manual,
 the named constants defined in the modules are listed
 below.
 
@@ -13992,3 +14076,30 @@ kind @code{omp_proc_bind_kind}:
 @item @code{omp_proc_bind_close}
 @item @code{omp_proc_bind_spread}
 @end table
+
+
+
+@node OpenACC Module OPENACC
+@section OpenACC Module @code{OPENACC}
+@table @asis
+@item @emph{Standard}:
+OpenACC Application Programming Interface v2.0
+@end table
+
+
+The OpenACC Fortran runtime library routines are provided both in a
+form of a Fortran 90 module, named @code{OPENACC}, and in form of a
+Fortran @code{include} file named @file{openacc_lib.h}.  The
+procedures provided by @code{OPENACC} can be found in the
+@ref{Top,,Introduction,libgomp,GNU Offloading and Multi Processing
+Runtime Library} manual, the named constants defined in the modules
+are listed below.
+
+For details refer to the actual
+@uref{http://www.openacc.org/,
+OpenACC Application Programming Interface v2.0}.
+
+@code{OPENACC} provides the scalar default-integer
+named constant @code{openacc_version} with a value of the form
+@var{yyyymm}, where @code{yyyy} is the year and @var{mm} the month
+of the OpenACC version; for OpenACC v2.0 the value is @code{201306}.

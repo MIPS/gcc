@@ -1,5 +1,5 @@
 /* Integrated Register Allocator.  Changing code and generating moves.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -77,7 +77,35 @@ along with GCC; see the file COPYING3.  If not see
 #include "obstack.h"
 #include "bitmap.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfgbuild.h"
 #include "basic-block.h"
+#include "symtab.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "recog.h"
 #include "params.h"
@@ -620,7 +648,10 @@ change_loop (ira_loop_tree_node_t node)
 		  /* don't create copies because reload can spill an
 		     allocno set by copy although the allocno will not
 		     get memory slot.  */
-		  || ira_equiv_no_lvalue_p (regno)))
+		  || ira_equiv_no_lvalue_p (regno)
+		  || (pic_offset_table_rtx != NULL
+		      && (ALLOCNO_REGNO (allocno)
+			  == (int) REGNO (pic_offset_table_rtx)))))
 	    continue;
 	  original_reg = allocno_emit_reg (allocno);
 	  if (parent_allocno == NULL
@@ -774,7 +805,7 @@ modify_move_list (move_t list)
 
   if (list == NULL)
     return NULL;
-  /* Creat move deps.  */
+  /* Create move deps.  */
   curr_tick++;
   for (move = list; move != NULL; move = move->next)
     {
@@ -809,7 +840,7 @@ modify_move_list (move_t list)
 	  move->deps_num = n;
 	}
     }
-  /* Toplogical sorting:  */
+  /* Topological sorting:  */
   move_vec.truncate (0);
   for (move = list; move != NULL; move = move->next)
     traverse_moves (move);
@@ -910,7 +941,7 @@ emit_move_list (move_t list, int freq)
   int to_regno, from_regno, cost, regno;
   rtx_insn *result, *insn;
   rtx set;
-  enum machine_mode mode;
+  machine_mode mode;
   enum reg_class aclass;
 
   grow_reg_equivs ();

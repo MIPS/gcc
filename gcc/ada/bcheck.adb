@@ -170,7 +170,7 @@ package body Bcheck is
                goto Continue;
             end if;
 
-            Src := Source_Id (Get_Name_Table_Info (Sdep.Table (D).Sfile));
+            Src := Source_Id (Get_Name_Table_Int (Sdep.Table (D).Sfile));
 
             --  If the time stamps match, or all checksums match, then we
             --  are OK, otherwise we have a definite error.
@@ -468,12 +468,12 @@ package body Bcheck is
                         WR : With_Record renames Withs.Table (W);
 
                      begin
-                        if Get_Name_Table_Info (WR.Uname) /= 0 then
+                        if Get_Name_Table_Int (WR.Uname) /= 0 then
                            declare
                               WU : Unit_Record renames
                                      Units.Table
                                        (Unit_Id
-                                         (Get_Name_Table_Info (WR.Uname)));
+                                         (Get_Name_Table_Int (WR.Uname)));
 
                            begin
                               --  Case 1. Elaborate_All for with'ed unit
@@ -1048,7 +1048,7 @@ package body Bcheck is
                      if AFN /= No_File then
                         declare
                            WAI : constant ALI_Id :=
-                             ALI_Id (Get_Name_Table_Info (AFN));
+                             ALI_Id (Get_Name_Table_Int (AFN));
                            WTE : ALIs_Record renames ALIs.Table (WAI);
 
                         begin
@@ -1077,16 +1077,28 @@ package body Bcheck is
    -- Check_Consistent_SSO_Default --
    ----------------------------------
 
+   --  This routine checks for a consistent SSO default setting. Note that
+   --  internal units are excluded from this check, since we don't in any
+   --  case allow the pragma to affect types in internal units, and there
+   --  is thus no requirement to recompile the run-time with the default set.
+
    procedure Check_Consistent_SSO_Default is
       Default : Character;
 
    begin
       Default := ALIs.Table (ALIs.First).SSO_Default;
 
+      --  The default must be set from a non-internal unit
+
+      pragma Assert
+        (not Is_Internal_File_Name (ALIs.Table (ALIs.First).Sfile));
+
       --  Check all entries match the default above from the first entry
 
       for A1 in ALIs.First + 1 .. ALIs.Last loop
-         if ALIs.Table (A1).SSO_Default /= Default then
+         if not Is_Internal_File_Name (ALIs.Table (A1).Sfile)
+           and then ALIs.Table (A1).SSO_Default /= Default
+         then
             Default := '?';
             exit;
          end if;
@@ -1132,7 +1144,9 @@ package body Bcheck is
       Write_Eol;
 
       for A1 in ALIs.First .. ALIs.Last loop
-         if ALIs.Table (A1).SSO_Default = ' ' then
+         if not Is_Internal_File_Name (ALIs.Table (A1).Sfile)
+           and then ALIs.Table (A1).SSO_Default = ' '
+         then
             Write_Str ("  ");
             Write_Name (ALIs.Table (A1).Sfile);
             Write_Eol;
@@ -1185,7 +1199,7 @@ package body Bcheck is
 
                declare
                   Unit : constant Unit_Name_Type := Name_Find;
-                  Info : constant Int := Get_Name_Table_Info (Unit);
+                  Info : constant Int := Get_Name_Table_Int (Unit);
 
                begin
                   if Info /= 0 then

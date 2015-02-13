@@ -1,6 +1,6 @@
 # libstdc++ "tool init file" for DejaGNU
 
-# Copyright (C) 2001-2014 Free Software Foundation, Inc.
+# Copyright (C) 2001-2015 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -57,6 +57,7 @@ load_gcc_lib target-libpath.exp
 load_gcc_lib timeout.exp
 load_gcc_lib timeout-dg.exp
 load_gcc_lib wrapper.exp
+load_gcc_lib target-utils.exp
 
 # Useful for debugging.  Pass the name of a variable and the verbosity
 # threshold (number of -v's on the command line).
@@ -65,19 +66,24 @@ proc v3track { var n } {
     verbose "++ $var is $val" $n
 }
 
+# Copy file to the target.
+proc v3-copy-file {src dst} {
+    if { [catch { set symlink [file readlink $src] } x] } then {
+	remote_download target $src $dst
+    } else {
+	if { [regexp "^/" "$symlink"] } then {
+	    remote_download target $symlink $dst
+	} else {
+	    set dirname [file dirname $f]
+	    remote_download target $dirname/$symlink $dst
+	}
+    }
+}
+
 # Called by v3-init below.  "Static" to this file.
 proc v3-copy-files {srcfiles} {
     foreach f $srcfiles {
-        if { [catch { set symlink [file readlink $f] } x] } then {
-	    remote_download target $f
-        } else {
-            if { [regexp "^/" "$symlink"] } then {
-		remote_download target $symlink
-            } else {
-                set dirname [file dirname $f]
-		remote_download target $dirname/$symlink
-            }
-        }
+	v3-copy-file $f [file tail $f]
     }
 }
 
@@ -450,6 +456,7 @@ proc v3_target_compile { source dest type options } {
     global cxxldflags
     global includes
     global STATIC_LIBCXXFLAGS
+    global tool
 
     if { [target_info needs_status_wrapper] != "" && [info exists gluefile] } {
         lappend options "libs=${gluefile}"
@@ -478,7 +485,9 @@ proc v3_target_compile { source dest type options } {
     lappend options "compiler=$cxx_final"
     lappend options "timeout=[timeout_value]"
 
-    return [target_compile $source $dest $type $options]
+    set comp_output [target_compile $source $dest $type $options]
+
+    return $comp_output
 }
 
 
@@ -493,6 +502,7 @@ proc v3_target_compile_as_c { source dest type options } {
     global cc
     global cxxflags
     global STATIC_LIBCXXFLAGS
+    global tool
 
     if { [target_info needs_status_wrapper] != "" && [info exists gluefile] } {
         lappend options "libs=${gluefile}"
@@ -546,7 +556,9 @@ proc v3_target_compile_as_c { source dest type options } {
     lappend options "compiler=$cc_final"
     lappend options "timeout=[timeout_value]"
 
-    return [target_compile $source $dest $type $options]
+    set comp_output [target_compile $source $dest $type $options]
+
+    return $comp_output
 }
 
 # Build the support objects linked in with the libstdc++ tests.  In
@@ -690,8 +702,8 @@ proc check_v3_target_fileio { } {
 	# the file functions
 	set src fileio[pid].cc
 	set exe fileio[pid].x
-	set testfile "cin_unget-1.txt"
-	v3-copy-files "$srcdir/data/$testfile"
+	set testfile "cin_unget-1.[pid].txt"
+	v3-copy-file "$srcdir/data/cin_unget-1.txt" "$testfile"
 
 	set f [open $src "w"]
 	puts $f "#include <sys/types.h>"
@@ -1236,7 +1248,7 @@ proc check_v3_target_atomic_builtins { } {
     } else {
 	set et_atomic_builtins 0
 
-	# Set up and preprocess a C++0x test program that depends
+	# Set up and preprocess a C++11 test program that depends
 	# on the atomic builtin facilities to be available.
 	set src atomic_builtins[pid].cc
 
@@ -1250,7 +1262,7 @@ proc check_v3_target_atomic_builtins { } {
 	close $f
 
 	set cxxflags_saved $cxxflags
-	set cxxflags "$cxxflags $DEFAULT_CXXFLAGS -Werror -std=gnu++0x"
+	set cxxflags "$cxxflags $DEFAULT_CXXFLAGS -Werror -std=gnu++11"
 
 	set lines [v3_target_compile $src /dev/null preprocess ""]
 	set cxxflags $cxxflags_saved

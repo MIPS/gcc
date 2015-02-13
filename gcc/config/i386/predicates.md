@@ -1,5 +1,5 @@
 ;; Predicate definitions for IA-32 and x86-64.
-;; Copyright (C) 2004-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2015 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -123,6 +123,10 @@
   (and (match_code "reg")
        (match_test "TARGET_64BIT")
        (match_test "REGNO (op) > BX_REG")))
+
+;; Return true if VALUE is symbol reference
+(define_predicate "symbol_operand"
+  (match_code "symbol_ref"))
 
 ;; Return true if VALUE can be stored in a sign extended immediate field.
 (define_predicate "x86_64_immediate_operand"
@@ -335,6 +339,14 @@
     }
   return false;
 })
+
+;; Return true if size of VALUE can be stored in a sign
+;; extended immediate field.
+(define_predicate "x86_64_immediate_size_operand"
+  (and (match_code "symbol_ref")
+       (ior (not (match_test "TARGET_64BIT"))
+	    (match_test "ix86_cmodel == CM_SMALL")
+	    (match_test "ix86_cmodel == CM_KERNEL"))))
 
 ;; Return true if OP is general operand representable on x86_64.
 (define_predicate "x86_64_general_operand"
@@ -616,6 +628,15 @@
   if (mode == VOIDmode)
     mode = GET_MODE (op);
   return op == CONST0_RTX (mode);
+})
+
+;; Match -1.
+(define_predicate "constm1_operand"
+  (match_code "const_int,const_double,const_vector")
+{
+  if (mode == VOIDmode)
+    mode = GET_MODE (op);
+  return op == CONSTM1_RTX (mode);
 })
 
 ;; Match one or vector filled with ones.
@@ -945,10 +966,15 @@
 ;; a segment override.  Defined as a special predicate to allow
 ;; mode-less const_int operands pass to address_operand.
 (define_special_predicate "address_no_seg_operand"
-  (match_operand 0 "address_operand")
+  (match_test "address_operand (op, VOIDmode)")
 {
   struct ix86_address parts;
   int ok;
+
+  if (!CONST_INT_P (op)
+      && mode != VOIDmode
+      && GET_MODE (op) != mode)
+    return false;
 
   ok = ix86_decompose_address (op, &parts);
   gcc_assert (ok);
@@ -958,7 +984,7 @@
 ;; Return true if op if a valid base register, displacement or
 ;; sum of base register and displacement for VSIB addressing.
 (define_predicate "vsib_address_operand"
-  (match_operand 0 "address_operand")
+  (match_test "address_operand (op, VOIDmode)")
 {
   struct ix86_address parts;
   int ok;
@@ -997,7 +1023,72 @@
   return true;
 })
 
+;; Return true if op is valid MPX address operand without base
+(define_predicate "address_mpx_no_base_operand"
+  (match_test "address_operand (op, VOIDmode)")
+{
+  struct ix86_address parts;
+  int ok;
+
+  ok = ix86_decompose_address (op, &parts);
+  gcc_assert (ok);
+
+  if (parts.index && parts.base)
+    return false;
+
+  if (parts.seg != SEG_DEFAULT)
+    return false;
+
+  /* Do not support (%rip).  */
+  if (parts.disp && flag_pic && TARGET_64BIT
+      && SYMBOLIC_CONST (parts.disp))
+    {
+      if (GET_CODE (parts.disp) != CONST
+	  || GET_CODE (XEXP (parts.disp, 0)) != PLUS
+	  || GET_CODE (XEXP (XEXP (parts.disp, 0), 0)) != UNSPEC
+	  || !CONST_INT_P (XEXP (XEXP (parts.disp, 0), 1))
+	  || (XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_DTPOFF
+	      && XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_NTPOFF))
+	return false;
+    }
+
+  return true;
+})
+
+;; Return true if op is valid MPX address operand without index
+(define_predicate "address_mpx_no_index_operand"
+  (match_test "address_operand (op, VOIDmode)")
+{
+  struct ix86_address parts;
+  int ok;
+
+  ok = ix86_decompose_address (op, &parts);
+  gcc_assert (ok);
+
+  if (parts.index)
+    return false;
+
+  if (parts.seg != SEG_DEFAULT)
+    return false;
+
+  /* Do not support (%rip).  */
+  if (parts.disp && flag_pic && TARGET_64BIT
+      && SYMBOLIC_CONST (parts.disp)
+      && (GET_CODE (parts.disp) != CONST
+	  || GET_CODE (XEXP (parts.disp, 0)) != PLUS
+	  || GET_CODE (XEXP (XEXP (parts.disp, 0), 0)) != UNSPEC
+	  || !CONST_INT_P (XEXP (XEXP (parts.disp, 0), 1))
+	  || (XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_DTPOFF
+	      && XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_NTPOFF)))
+    return false;
+
+  return true;
+})
+
 (define_predicate "vsib_mem_operator"
+  (match_code "mem"))
+
+(define_predicate "bnd_mem_operator"
   (match_code "mem"))
 
 ;; Return true if the rtx is known to be at least 32 bits aligned.
@@ -1092,43 +1183,6 @@
   return parts.disp != NULL_RTX;
 })
 
-;; Return true if OP is memory operand which will need zero or
-;; one register at most, not counting stack pointer or frame pointer.
-(define_predicate "cmpxchg8b_pic_memory_operand"
-  (match_operand 0 "memory_operand")
-{
-  struct ix86_address parts;
-  int ok;
-
-  if (TARGET_64BIT || !flag_pic)
-    return true;
-
-  ok = ix86_decompose_address (XEXP (op, 0), &parts);
-  gcc_assert (ok);
-
-  if (parts.base && GET_CODE (parts.base) == SUBREG)
-    parts.base = SUBREG_REG (parts.base);
-  if (parts.index && GET_CODE (parts.index) == SUBREG)
-    parts.index = SUBREG_REG (parts.index);
-
-  if (parts.base == NULL_RTX
-      || parts.base == arg_pointer_rtx
-      || parts.base == frame_pointer_rtx
-      || parts.base == hard_frame_pointer_rtx
-      || parts.base == stack_pointer_rtx)
-    return true;
-
-  if (parts.index == NULL_RTX
-      || parts.index == arg_pointer_rtx
-      || parts.index == frame_pointer_rtx
-      || parts.index == hard_frame_pointer_rtx
-      || parts.index == stack_pointer_rtx)
-    return true;
-
-  return false;
-})
-
-
 ;; Return true if OP is memory operand that cannot be represented
 ;; by the modRM array.
 (define_predicate "long_memory_operand"
@@ -1139,7 +1193,7 @@
 (define_predicate "fcmov_comparison_operator"
   (match_operand 0 "comparison_operator")
 {
-  enum machine_mode inmode = GET_MODE (XEXP (op, 0));
+  machine_mode inmode = GET_MODE (XEXP (op, 0));
   enum rtx_code code = GET_CODE (op);
 
   if (inmode == CCFPmode || inmode == CCFPUmode)
@@ -1186,7 +1240,7 @@
 (define_predicate "ix86_comparison_operator"
   (match_operand 0 "comparison_operator")
 {
-  enum machine_mode inmode = GET_MODE (XEXP (op, 0));
+  machine_mode inmode = GET_MODE (XEXP (op, 0));
   enum rtx_code code = GET_CODE (op);
 
   if (inmode == CCFPmode || inmode == CCFPUmode)
@@ -1223,7 +1277,7 @@
 (define_predicate "ix86_carry_flag_operator"
   (match_code "ltu,lt,unlt,gtu,gt,ungt,le,unle,ge,unge,ltgt,uneq")
 {
-  enum machine_mode inmode = GET_MODE (XEXP (op, 0));
+  machine_mode inmode = GET_MODE (XEXP (op, 0));
   enum rtx_code code = GET_CODE (op);
 
   if (inmode == CCFPmode || inmode == CCFPUmode)

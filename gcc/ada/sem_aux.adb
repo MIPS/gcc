@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -282,6 +282,8 @@ package body Sem_Aux is
         (Typ : Entity_Id) return Boolean;
       --  Scans the Discriminants to see whether any are Completely_Hidden
       --  (the mechanism for describing non-specified stored discriminants)
+      --  Note that the entity list for the type may contain anonymous access
+      --  types created by expressions that constrain access discriminants.
 
       ----------------------------------------
       -- Has_Completely_Hidden_Discriminant --
@@ -296,8 +298,17 @@ package body Sem_Aux is
          pragma Assert (Ekind (Typ) = E_Discriminant);
 
          Ent := Typ;
-         while Present (Ent) and then Ekind (Ent) = E_Discriminant loop
-            if Is_Completely_Hidden (Ent) then
+         while Present (Ent) loop
+
+            --  Skip anonymous types that may be created by expressions
+            --  used as discriminant constraints on inherited discriminants.
+
+            if Is_Itype (Ent) then
+               null;
+
+            elsif  Ekind (Ent) = E_Discriminant
+              and then Is_Completely_Hidden (Ent)
+            then
                return True;
             end if;
 
@@ -322,7 +333,8 @@ package body Sem_Aux is
 
       if Has_Completely_Hidden_Discriminant (Ent) then
          while Present (Ent) loop
-            exit when Is_Completely_Hidden (Ent);
+            exit when Ekind (Ent) = E_Discriminant
+              and then Is_Completely_Hidden (Ent);
             Ent := Next_Entity (Ent);
          end loop;
       end if;
@@ -969,6 +981,12 @@ package body Sem_Aux is
       if Is_Type (Ent)
         and then Base_Type (Ent) /= Root_Type (Ent)
         and then not Is_Class_Wide_Type (Ent)
+
+        --  An access_to_subprogram whose result type is a limited view can
+        --  appear in a return statement, without the full view of the result
+        --  type being available. Do not interpret this as a derived type.
+
+        and then Ekind (Ent) /= E_Subprogram_Type
       then
          if not Is_Numeric_Type (Root_Type (Ent)) then
             return True;

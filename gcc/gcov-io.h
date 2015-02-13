@@ -1,5 +1,5 @@
 /* File format for coverage information
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -199,7 +199,7 @@ typedef uint64_t gcov_type_unsigned;
 #define gcov_nonruntime_assert(EXPR) ((void)(0 && (EXPR)))
 #else
 #define gcov_nonruntime_assert(EXPR) gcc_assert (EXPR)
-#define gcov_error(...) fatal_error (__VA_ARGS__)
+#define gcov_error(...) fatal_error (input_location, __VA_ARGS__)
 #endif
 
 /* File suffixes.  */
@@ -244,6 +244,9 @@ typedef uint64_t gcov_type_unsigned;
 #define GCOV_TAG_PROGRAM_SUMMARY ((gcov_unsigned_t)0xa3000000)
 #define GCOV_TAG_SUMMARY_LENGTH(NUM)  \
         (1 + GCOV_COUNTERS_SUMMABLE * (10 + 3 * 2) + (NUM) * 5)
+#define GCOV_TAG_AFDO_FILE_NAMES ((gcov_unsigned_t)0xaa000000)
+#define GCOV_TAG_AFDO_FUNCTION ((gcov_unsigned_t)0xac000000)
+#define GCOV_TAG_AFDO_WORKING_SET ((gcov_unsigned_t)0xaf000000)
 
 
 /* Counters that are collected.  */
@@ -269,6 +272,12 @@ GCOV_COUNTERS
 /* Number of counters used for value profiling.  */
 #define GCOV_N_VALUE_COUNTERS \
   (GCOV_LAST_VALUE_COUNTER - GCOV_FIRST_VALUE_COUNTER + 1)
+
+/* The number of hottest callees to be tracked.  */
+#define GCOV_ICALL_TOPN_VAL  2
+
+/* The number of counter entries per icall callsite.  */
+#define GCOV_ICALL_TOPN_NCOUNTS (1 + GCOV_ICALL_TOPN_VAL * 4)
 
 /* Convert a counter index to a tag.  */
 #define GCOV_TAG_FOR_COUNTER(COUNT)				\

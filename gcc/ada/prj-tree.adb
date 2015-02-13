@@ -110,26 +110,27 @@ package body Prj.Tree is
          Project_Node_Table.Increment_Last (In_Tree.Project_Nodes);
          In_Tree.Project_Nodes.Table
            (Project_Node_Table.Last (In_Tree.Project_Nodes)) :=
-           (Kind      => N_Comment_Zones,
-            Qualifier => Unspecified,
-            Expr_Kind => Undefined,
-            Location  => No_Location,
-            Directory => No_Path,
-            Variables => Empty_Node,
-            Packages  => Empty_Node,
-            Pkg_Id    => Empty_Package,
-            Name      => No_Name,
-            Src_Index => 0,
-            Path_Name => No_Path,
-            Value     => No_Name,
-            Default   => Empty_Value,
-            Field1    => Empty_Node,
-            Field2    => Empty_Node,
-            Field3    => Empty_Node,
-            Field4    => Empty_Node,
-            Flag1     => False,
-            Flag2     => False,
-            Comments  => Empty_Node);
+           (Kind         => N_Comment_Zones,
+            Qualifier    => Unspecified,
+            Expr_Kind    => Undefined,
+            Location     => No_Location,
+            Directory    => No_Path,
+            Variables    => Empty_Node,
+            Packages     => Empty_Node,
+            Pkg_Id       => Empty_Package,
+            Name         => No_Name,
+            Display_Name => No_Name,
+            Src_Index    => 0,
+            Path_Name    => No_Path,
+            Value        => No_Name,
+            Default      => Empty_Value,
+            Field1       => Empty_Node,
+            Field2       => Empty_Node,
+            Field3       => Empty_Node,
+            Field4       => Empty_Node,
+            Flag1        => False,
+            Flag2        => False,
+            Comments     => Empty_Node);
 
          Zone := Project_Node_Table.Last (In_Tree.Project_Nodes);
          In_Tree.Project_Nodes.Table (To).Comments := Zone;
@@ -170,6 +171,7 @@ package body Prj.Tree is
                Packages         => Empty_Node,
                Pkg_Id           => Empty_Package,
                Name             => No_Name,
+               Display_Name     => No_Name,
                Src_Index        => 0,
                Path_Name        => No_Path,
                Value            => Comments.Table (J).Value,
@@ -339,6 +341,7 @@ package body Prj.Tree is
          Packages         => Empty_Node,
          Pkg_Id           => Empty_Package,
          Name             => No_Name,
+         Display_Name     => No_Name,
          Src_Index        => 0,
          Path_Name        => No_Path,
          Value            => No_Name,
@@ -432,6 +435,7 @@ package body Prj.Tree is
          Packages         => Empty_Node,
          Pkg_Id           => Empty_Package,
          Name             => No_Name,
+         Display_Name     => No_Name,
          Src_Index        => 0,
          Path_Name        => No_Path,
          Value            => No_Name,
@@ -469,6 +473,7 @@ package body Prj.Tree is
                Packages         => Empty_Node,
                Pkg_Id           => Empty_Package,
                Name             => No_Name,
+               Display_Name     => No_Name,
                Src_Index        => 0,
                Path_Name        => No_Path,
                Value            => No_Name,
@@ -504,6 +509,7 @@ package body Prj.Tree is
                   Packages         => Empty_Node,
                   Pkg_Id           => Empty_Package,
                   Name             => No_Name,
+                  Display_Name     => No_Name,
                   Src_Index        => 0,
                   Path_Name        => No_Path,
                   Value            => Comments.Table (J).Value,
@@ -1145,6 +1151,7 @@ package body Prj.Tree is
    is
       With_Clause : Project_Node_Id;
       Result      : Project_Node_Id := Empty_Node;
+      Decl        : Project_Node_Id;
 
    begin
       --  First check all the imported projects
@@ -1161,9 +1168,14 @@ package body Prj.Tree is
                return Result;
             end if;
 
-            Result :=
-              Extended_Project_Of
-                (Project_Declaration_Of (Result, In_Tree), In_Tree);
+            Decl := Project_Declaration_Of (Result, In_Tree);
+
+            --  Do not try to check for an extended project, if the project
+            --  does not have yet a project declaration.
+
+            exit when Decl = Empty_Node;
+
+            Result := Extended_Project_Of (Decl, In_Tree);
          end loop;
 
          With_Clause := Next_With_Clause_Of (With_Clause, In_Tree);
@@ -1224,6 +1236,22 @@ package body Prj.Tree is
       pragma Assert (Present (Node));
       return In_Tree.Project_Nodes.Table (Node).Name;
    end Name_Of;
+
+   ---------------------
+   -- Display_Name_Of --
+   ---------------------
+
+   function Display_Name_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref) return Name_Id
+   is
+   begin
+      pragma Assert
+        (Present (Node)
+         and then
+         In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
+      return In_Tree.Project_Nodes.Table (Node).Display_Name;
+   end Display_Name_Of;
 
    --------------------
    -- Next_Case_Item --
@@ -2424,6 +2452,22 @@ package body Prj.Tree is
       In_Tree.Project_Nodes.Table (Node).Name := To;
    end Set_Name_Of;
 
+   -------------------------
+   -- Set_Display_Name_Of --
+   -------------------------
+
+   procedure Set_Display_Name_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref;
+      To      : Name_Id)
+   is
+   begin
+      pragma Assert
+        (Present (Node)
+          and then In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
+      In_Tree.Project_Nodes.Table (Node).Display_Name := To;
+   end Set_Display_Name_Of;
+
    -------------------------------
    -- Set_Next_Declarative_Item --
    -------------------------------
@@ -2949,6 +2993,7 @@ package body Prj.Tree is
    begin
       Project := Default_Project_Node (In_Tree, N_Project);
       Set_Name_Of (Project, In_Tree, Name);
+      Set_Display_Name_Of (Project, In_Tree, Name);
       Set_Directory_Of
         (Project, In_Tree,
          Path_Name_Type (Get_Directory (File_Name_Type (Full_Path))));
@@ -2968,7 +3013,6 @@ package body Prj.Tree is
             Name,
             Prj.Tree.Tree_Private_Part.Project_Name_And_Node'
               (Name           => Name,
-               Display_Name   => Name,
                Resolved_Path  => No_Path,
                Node           => Project,
                Extended       => False,

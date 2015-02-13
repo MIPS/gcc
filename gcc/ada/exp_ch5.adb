@@ -2776,6 +2776,7 @@ package body Exp_Ch5 is
    ----------------------------------
 
    procedure Expand_Formal_Container_Loop (N : Node_Id) is
+      Loc       : constant Source_Ptr := Sloc (N);
       Isc       : constant Node_Id    := Iteration_Scheme (N);
       I_Spec    : constant Node_Id    := Iterator_Specification (Isc);
       Cursor    : constant Entity_Id  := Defining_Identifier (I_Spec);
@@ -2783,6 +2784,7 @@ package body Exp_Ch5 is
       Stats     : constant List_Id    := Statements (N);
 
       Advance  : Node_Id;
+      Blk_Nod  : Node_Id;
       Init     : Node_Id;
       New_Loop : Node_Id;
 
@@ -2801,12 +2803,19 @@ package body Exp_Ch5 is
         (N, Container, Cursor, Init, Advance, New_Loop);
 
       Set_Ekind (Cursor, E_Variable);
-      Insert_Action (N, Init);
-
       Append_To (Stats, Advance);
 
-      Rewrite (N, New_Loop);
-      Analyze (New_Loop);
+      --  Build block to capture declaration of cursor entity.
+
+      Blk_Nod :=
+        Make_Block_Statement (Loc,
+          Declarations               => New_List (Init),
+          Handled_Statement_Sequence =>
+            Make_Handled_Sequence_Of_Statements (Loc,
+              Statements => New_List (New_Loop)));
+
+      Rewrite (N, Blk_Nod);
+      Analyze (N);
    end Expand_Formal_Container_Loop;
 
    ------------------------------------------
@@ -2889,7 +2898,17 @@ package body Exp_Ch5 is
               Statements =>  New_List (New_Loop)));
 
       Rewrite (N, New_Loop);
-      Analyze (New_Loop);
+
+      --  The loop parameter is declared by an object declaration, but within
+      --  the loop we must prevent user assignments to it, so we analyze the
+      --  declaration and reset the entity kind, before analyzing the rest of
+      --  the loop;
+
+      Analyze (Elmt_Decl);
+      Set_Ekind (Defining_Identifier (Elmt_Decl), E_Loop_Parameter);
+      Set_Assignment_OK (Name (Elmt_Ref));
+
+      Analyze (N);
    end Expand_Formal_Container_Element_Loop;
 
    -----------------------------
@@ -3747,14 +3766,10 @@ package body Exp_Ch5 is
          end loop;
       end if;
 
-      --  If original loop has a source name, preserve it so it can be
-      --  recognized by an exit statement in the body of the rewritten loop.
-      --  This only concerns source names: the generated name of an anonymous
-      --  loop will be create again during the subsequent analysis below.
+      --  Inherit the loop identifier from the original loop. This ensures that
+      --  the scope stack is consistent after the rewriting.
 
-      if Present (Identifier (N))
-        and then Comes_From_Source (Identifier (N))
-      then
+      if Present (Identifier (N)) then
          Set_Identifier (Core_Loop, Relocate_Node (Identifier (N)));
       end if;
 
@@ -4105,11 +4120,14 @@ package body Exp_Ch5 is
       --        end loop;
       --     end;
 
+      --  with min-val replaced by max-val and Succ replaced by Pred if the
+      --  loop parameter specification carries a Reverse indicator.
+
       --  To make this a little clearer, let's take a specific example:
 
       --        type Int is range 1 .. 10;
-      --        subtype L is Int with
-      --          predicate => L in 3 | 10 | 5 .. 7;
+      --        subtype StaticP is Int with
+      --          predicate => StaticP in 3 | 10 | 5 .. 7;
       --          ...
       --        for L in StaticP loop
       --           Put_Line ("static:" & J'Img);
@@ -4195,38 +4213,91 @@ package body Exp_Ch5 is
             --  Loop to create branches of case statement
 
             Alts := New_List;
-            P := First (Stat);
-            while Present (P) loop
-               if No (Next (P)) then
-                  S := Make_Exit_Statement (Loc);
-               else
-                  S :=
-                    Make_Assignment_Statement (Loc,
-                      Name       => New_Occurrence_Of (Loop_Id, Loc),
-                      Expression => Lo_Val (Next (P)));
-                  Set_Suppress_Assignment_Checks (S);
-               end if;
 
-               Append_To (Alts,
-                 Make_Case_Statement_Alternative (Loc,
-                   Statements       => New_List (S),
-                   Discrete_Choices => New_List (Hi_Val (P))));
+            if Reverse_Present (LPS) then
 
-               Next (P);
-            end loop;
+               --  Initial value is largest value in predicate.
+
+               D :=
+                 Make_Object_Declaration (Loc,
+                   Defining_Identifier => Loop_Id,
+                   Object_Definition   => New_Occurrence_Of (Ltype, Loc),
+                   Expression          => Hi_Val (Last (Stat)));
+
+               P := Last (Stat);
+               while Present (P) loop
+                  if No (Prev (P)) then
+                     S := Make_Exit_Statement (Loc);
+                  else
+                     S :=
+                       Make_Assignment_Statement (Loc,
+                         Name       => New_Occurrence_Of (Loop_Id, Loc),
+                         Expression => Hi_Val (Prev (P)));
+                     Set_Suppress_Assignment_Checks (S);
+                  end if;
+
+                  Append_To (Alts,
+                    Make_Case_Statement_Alternative (Loc,
+                      Statements       => New_List (S),
+                      Discrete_Choices => New_List (Lo_Val (P))));
+
+                  Prev (P);
+               end loop;
+
+            else
+
+               --  Initial value is smallest value in predicate.
+
+               D :=
+                 Make_Object_Declaration (Loc,
+                   Defining_Identifier => Loop_Id,
+                   Object_Definition   => New_Occurrence_Of (Ltype, Loc),
+                   Expression          => Lo_Val (First (Stat)));
+
+               P := First (Stat);
+               while Present (P) loop
+                  if No (Next (P)) then
+                     S := Make_Exit_Statement (Loc);
+                  else
+                     S :=
+                       Make_Assignment_Statement (Loc,
+                         Name       => New_Occurrence_Of (Loop_Id, Loc),
+                         Expression => Lo_Val (Next (P)));
+                     Set_Suppress_Assignment_Checks (S);
+                  end if;
+
+                  Append_To (Alts,
+                    Make_Case_Statement_Alternative (Loc,
+                      Statements       => New_List (S),
+                      Discrete_Choices => New_List (Hi_Val (P))));
+
+                  Next (P);
+               end loop;
+            end if;
 
             --  Add others choice
 
-            S :=
-               Make_Assignment_Statement (Loc,
-                 Name       => New_Occurrence_Of (Loop_Id, Loc),
-                 Expression =>
-                   Make_Attribute_Reference (Loc,
-                     Prefix => New_Occurrence_Of (Ltype, Loc),
-                     Attribute_Name => Name_Succ,
-                     Expressions    => New_List (
-                       New_Occurrence_Of (Loop_Id, Loc))));
-            Set_Suppress_Assignment_Checks (S);
+            declare
+               Name_Next : Name_Id;
+
+            begin
+               if Reverse_Present (LPS) then
+                  Name_Next := Name_Pred;
+               else
+                  Name_Next := Name_Succ;
+               end if;
+
+               S :=
+                  Make_Assignment_Statement (Loc,
+                    Name       => New_Occurrence_Of (Loop_Id, Loc),
+                    Expression =>
+                      Make_Attribute_Reference (Loc,
+                        Prefix => New_Occurrence_Of (Ltype, Loc),
+                        Attribute_Name => Name_Next,
+                        Expressions    => New_List (
+                          New_Occurrence_Of (Loop_Id, Loc))));
+               Set_Suppress_Assignment_Checks (S);
+            end;
 
             Append_To (Alts,
               Make_Case_Statement_Alternative (Loc,
@@ -4243,11 +4314,6 @@ package body Exp_Ch5 is
 
             --  Rewrite the loop
 
-            D :=
-              Make_Object_Declaration (Loc,
-                Defining_Identifier => Loop_Id,
-                Object_Definition   => New_Occurrence_Of (Ltype, Loc),
-                Expression          => Lo_Val (First (Stat)));
             Set_Suppress_Assignment_Checks (D);
 
             Rewrite (N,

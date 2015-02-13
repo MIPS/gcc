@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -176,6 +176,11 @@ package ALI is
       --  always be set as well in this case. Not set if 'P' appears in
       --  Ignore_Lines.
 
+      GNATprove_Mode : Boolean;
+      --  Set to True if ALI and object file produced in GNATprove_Mode as
+      --  signalled by GP appearing on the P line. Not set if 'P' appears in
+      --  Ignore_Lines.
+
       No_Object : Boolean;
       --  Set to True if no object file generated. Not set if 'P' appears in
       --  Ignore_Lines.
@@ -296,6 +301,10 @@ package ALI is
       Remote_Types : Boolean;
       --  Indicates presence of RT parameter for a package which has a
       --  pragma Remote_Types.
+
+      Serious_Errors : Boolean;
+      --  Indicates presence of SE parameter indicating that compilation of
+      --  the unit encountered as serious error.
 
       Shared_Passive : Boolean;
       --  Indicates presence of SP parameter for a package which has a pragma
@@ -464,6 +473,9 @@ package ALI is
    Dynamic_Elaboration_Checks_Specified : Boolean := False;
    --  Set to False by Initialize_ALI. Set to True if Scan_ALI reads
    --  a unit for which dynamic elaboration checking is enabled.
+
+   GNATprove_Mode_Specified : Boolean := False;
+   --  Set to True if an ali file was produced in GNATprove mode.
 
    Initialize_Scalars_Used : Boolean := False;
    --  Set True if an ali file contains the Initialize_Scalars flag

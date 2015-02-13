@@ -7,25 +7,24 @@
 package reflect
 
 import (
-	"runtime"
 	"unsafe"
 )
 
 // makeFuncImpl is the closure value implementing the function
 // returned by MakeFunc.
 type makeFuncImpl struct {
-	code uintptr
-	typ  *funcType
-	fn   func([]Value) []Value
+	// These first three words are layed out like ffi_go_closure.
+	code    uintptr
+	ffi_cif unsafe.Pointer
+	ffi_fun func(unsafe.Pointer, unsafe.Pointer)
+
+	typ *funcType
+	fn  func([]Value) []Value
 
 	// For gccgo we use the same entry point for functions and for
 	// method values.
 	method int
 	rcvr   Value
-
-	// When using FFI, hold onto the FFI closure for the garbage
-	// collector.
-	ffi *ffiData
 }
 
 // MakeFunc returns a new function of the given Type
@@ -58,36 +57,16 @@ func MakeFunc(typ Type, fn func(args []Value) (results []Value)) Value {
 	t := typ.common()
 	ftyp := (*funcType)(unsafe.Pointer(t))
 
-	var code uintptr
-	var ffi *ffiData
-	switch runtime.GOARCH {
-	case "amd64", "386":
-		// Indirect Go func value (dummy) to obtain actual
-		// code address. (A Go func value is a pointer to a C
-		// function pointer. http://golang.org/s/go11func.)
-		dummy := makeFuncStub
-		code = **(**uintptr)(unsafe.Pointer(&dummy))
-	default:
-		code, ffi = makeFuncFFI(ftyp, fn)
-	}
-
 	impl := &makeFuncImpl{
-		code:   code,
 		typ:    ftyp,
 		fn:     fn,
 		method: -1,
-		ffi:    ffi,
 	}
 
-	return Value{t, unsafe.Pointer(&impl), flag(Func<<flagKindShift) | flagIndir}
-}
+	makeFuncFFI(ftyp, unsafe.Pointer(impl))
 
-// makeFuncStub is an assembly function that is the code half of
-// the function returned from MakeFunc. It expects a *callReflectFunc
-// as its context register, and its job is to invoke callReflect(ctxt, frame)
-// where ctxt is the context register and frame is a pointer to the first
-// word in the passed-in argument frame.
-func makeFuncStub()
+	return Value{t, unsafe.Pointer(&impl), flag(Func) | flagIndir}
+}
 
 // makeMethodValue converts v from the rcvr+method index representation
 // of a method value to an actual method func value, which is
@@ -103,8 +82,8 @@ func makeMethodValue(op string, v Value) Value {
 
 	// Ignoring the flagMethod bit, v describes the receiver, not the method type.
 	fl := v.flag & (flagRO | flagAddr | flagIndir)
-	fl |= flag(v.typ.Kind()) << flagKindShift
-	rcvr := Value{v.typ, v.ptr /* v.scalar, */, fl}
+	fl |= flag(v.typ.Kind())
+	rcvr := Value{v.typ, v.ptr, fl}
 
 	// v.Type returns the actual type of the method value.
 	ft := v.Type().(*rtype)
@@ -117,32 +96,15 @@ func makeMethodValue(op string, v Value) Value {
 	ftyp := (*funcType)(unsafe.Pointer(t))
 	method := int(v.flag) >> flagMethodShift
 
-	var code uintptr
-	var ffi *ffiData
-	switch runtime.GOARCH {
-	case "amd64", "386":
-		// Indirect Go func value (dummy) to obtain actual
-		// code address. (A Go func value is a pointer to a C
-		// function pointer. http://golang.org/s/go11func.)
-		dummy := makeFuncStub
-		code = **(**uintptr)(unsafe.Pointer(&dummy))
-	default:
-		code, ffi = makeFuncFFI(ftyp,
-			func(in []Value) []Value {
-				m := rcvr.Method(method)
-				return m.Call(in)
-			})
-	}
-
 	fv := &makeFuncImpl{
-		code:   code,
 		typ:    ftyp,
 		method: method,
 		rcvr:   rcvr,
-		ffi:    ffi,
 	}
 
-	return Value{ft, unsafe.Pointer(&fv), v.flag&flagRO | flag(Func)<<flagKindShift | flagIndir}
+	makeFuncFFI(ftyp, unsafe.Pointer(fv))
+
+	return Value{ft, unsafe.Pointer(&fv), v.flag&flagRO | flag(Func) | flagIndir}
 }
 
 // makeValueMethod takes a method function and returns a function that
@@ -160,31 +122,15 @@ func makeValueMethod(v Value) Value {
 	t := typ.common()
 	ftyp := (*funcType)(unsafe.Pointer(t))
 
-	var code uintptr
-	var ffi *ffiData
-	switch runtime.GOARCH {
-	case "amd64", "386":
-		// Indirect Go func value (dummy) to obtain actual
-		// code address. (A Go func value is a pointer to a C
-		// function pointer. http://golang.org/s/go11func.)
-		dummy := makeFuncStub
-		code = **(**uintptr)(unsafe.Pointer(&dummy))
-	default:
-		code, ffi = makeFuncFFI(ftyp,
-			func(in []Value) []Value {
-				return v.Call(in)
-			})
-	}
-
 	impl := &makeFuncImpl{
-		code:   code,
 		typ:    ftyp,
 		method: -2,
 		rcvr:   v,
-		ffi:    ffi,
 	}
 
-	return Value{t, unsafe.Pointer(&impl), flag(Func<<flagKindShift) | flagIndir}
+	makeFuncFFI(ftyp, unsafe.Pointer(impl))
+
+	return Value{t, unsafe.Pointer(&impl), v.flag&flagRO | flag(Func) | flagIndir}
 }
 
 // Call the function represented by a makeFuncImpl.
@@ -192,9 +138,17 @@ func (c *makeFuncImpl) call(in []Value) []Value {
 	if c.method == -1 {
 		return c.fn(in)
 	} else if c.method == -2 {
-		return c.rcvr.Call(in)
+		if c.typ.IsVariadic() {
+			return c.rcvr.CallSlice(in)
+		} else {
+			return c.rcvr.Call(in)
+		}
 	} else {
 		m := c.rcvr.Method(c.method)
-		return m.Call(in)
+		if c.typ.IsVariadic() {
+			return m.CallSlice(in)
+		} else {
+			return m.Call(in)
+		}
 	}
 }

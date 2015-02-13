@@ -1,5 +1,5 @@
 /* params.h - Run-time parameters.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -112,6 +112,10 @@ extern void global_init_params (void);
 /* Note that all parameters have been added and all default values
    set.  */
 extern void finish_params (void);
+
+/* Reset all state in params.c  */
+
+extern void params_c_finalize (void);
 
 /* Return the default value of parameter NUM.  */
 

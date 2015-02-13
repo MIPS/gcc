@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999-2014 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
                   Andreas Krebbel (Andreas.Krebbel@de.ibm.com)
@@ -744,24 +744,6 @@ do {									\
 #define MOVE_MAX_PIECES (TARGET_ZARCH ? 8 : 4)
 #define MAX_MOVE_MAX 16
 
-/* Determine whether to use move_by_pieces or block move insn.  */
-#define MOVE_BY_PIECES_P(SIZE, ALIGN)		\
-  ( (SIZE) == 1 || (SIZE) == 2 || (SIZE) == 4	\
-    || (TARGET_ZARCH && (SIZE) == 8) )
-
-/* Determine whether to use clear_by_pieces or block clear insn.  */
-#define CLEAR_BY_PIECES_P(SIZE, ALIGN)		\
-  ( (SIZE) == 1 || (SIZE) == 2 || (SIZE) == 4	\
-    || (TARGET_ZARCH && (SIZE) == 8) )
-
-/* This macro is used to determine whether store_by_pieces should be
-   called to "memcpy" storage when the source is a constant string.  */
-#define STORE_BY_PIECES_P(SIZE, ALIGN) MOVE_BY_PIECES_P (SIZE, ALIGN)
-
-/* Likewise to decide whether to "memset" storage with byte values
-   other than zero.  */
-#define SET_BY_PIECES_P(SIZE, ALIGN) STORE_BY_PIECES_P (SIZE, ALIGN)
-
 /* Don't perform CSE on function addresses.  */
 #define NO_FUNCTION_CSE
 
@@ -891,7 +873,7 @@ do {									\
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
-#define Pmode ((enum machine_mode) (TARGET_64BIT ? DImode : SImode))
+#define Pmode ((machine_mode) (TARGET_64BIT ? DImode : SImode))
 
 /* This is -1 for "pointer mode" extend.  See ptr_extend in s390.md.  */
 #define POINTERS_EXTEND_UNSIGNED -1

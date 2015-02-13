@@ -77,7 +77,8 @@ package Prj is
       Empty_Value,         --  Empty string or empty string list
       Dot_Value,           --  "." or (".")
       Object_Dir_Value,    --  'Object_Dir
-      Target_Value);       --  'Target (special rules)
+      Target_Value,        --  'Target (special rules)
+      Runtime_Value);      --  'Runtime (special rules)
    --  Describe the default values of attributes that are referenced but not
    --  declared.
 
@@ -1892,6 +1893,11 @@ package Prj is
    --       * user project also includes a "with" that can only be resolved
    --         once we have found the gnatls
 
+   procedure Set_Ignore_Missing_With
+     (Flags : in out Processing_Flags;
+      Value : Boolean);
+   --  Set the value of component Ignore_Missing_With in Flags to Value
+
    Gprbuild_Flags   : constant Processing_Flags;
    Gprinstall_Flags : constant Processing_Flags;
    Gprclean_Flags   : constant Processing_Flags;
@@ -2045,6 +2051,11 @@ private
       Allow_Invalid_External     : Error_Warning;
       Missing_Source_Files       : Error_Warning;
       Ignore_Missing_With        : Boolean;
+
+      Incomplete_Withs : Boolean := False;
+      --  This flag is set to True when the projects are parsed while ignoring
+      --  missing withed project and some withed projects are not found.
+
    end record;
 
    Gprbuild_Flags   : constant Processing_Flags :=
@@ -2057,7 +2068,8 @@ private
                          Require_Obj_Dirs           => Error,
                          Allow_Invalid_External     => Error,
                          Missing_Source_Files       => Error,
-                         Ignore_Missing_With        => False);
+                         Ignore_Missing_With        => False,
+                         Incomplete_Withs           => False);
 
    Gprinstall_Flags : constant Processing_Flags :=
                         (Report_Error               => null,
@@ -2069,7 +2081,8 @@ private
                          Require_Obj_Dirs           => Silent,
                          Allow_Invalid_External     => Error,
                          Missing_Source_Files       => Error,
-                         Ignore_Missing_With        => False);
+                         Ignore_Missing_With        => False,
+                         Incomplete_Withs           => False);
 
    Gprclean_Flags   : constant Processing_Flags :=
                         (Report_Error               => null,
@@ -2081,7 +2094,8 @@ private
                          Require_Obj_Dirs           => Warning,
                          Allow_Invalid_External     => Error,
                          Missing_Source_Files       => Error,
-                         Ignore_Missing_With        => False);
+                         Ignore_Missing_With        => False,
+                         Incomplete_Withs           => False);
 
    Gprexec_Flags    : constant Processing_Flags :=
                         (Report_Error               => null,
@@ -2093,7 +2107,8 @@ private
                          Require_Obj_Dirs           => Silent,
                          Allow_Invalid_External     => Error,
                          Missing_Source_Files       => Silent,
-                         Ignore_Missing_With        => False);
+                         Ignore_Missing_With        => False,
+                         Incomplete_Withs           => False);
 
    Gnatmake_Flags   : constant Processing_Flags :=
                         (Report_Error               => null,
@@ -2105,6 +2120,7 @@ private
                          Require_Obj_Dirs           => Error,
                          Allow_Invalid_External     => Error,
                          Missing_Source_Files       => Error,
-                         Ignore_Missing_With        => False);
+                         Ignore_Missing_With        => False,
+                         Incomplete_Withs           => False);
 
 end Prj;

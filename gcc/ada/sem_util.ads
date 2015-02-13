@@ -60,6 +60,7 @@ package Sem_Util is
    --    Depends
    --    Effective_Reads
    --    Effective_Writes
+   --    Extensions_Visible
    --    Global
    --    Initial_Condition
    --    Initializes
@@ -284,10 +285,12 @@ package Sem_Util is
    --  the one containing C2, that is known to refer to the same object (RM
    --  6.4.1(6.17/3)).
 
-   procedure Check_Implicit_Dereference (Nam : Node_Id; Typ : Entity_Id);
+   procedure Check_Implicit_Dereference (N : Node_Id; Typ : Entity_Id);
    --  AI05-139-2: Accessors and iterators for containers. This procedure
    --  checks whether T is a reference type, and if so it adds an interprettion
-   --  to Expr whose type is the designated type of the reference_discriminant.
+   --  to N whose type is the designated type of the reference_discriminant.
+   --  If N is a generalized indexing operation, the interpretation is added
+   --  both to the corresponding function call, and to the indexing node.
 
    procedure Check_Internal_Protected_Use (N : Node_Id; Nam : Entity_Id);
    --  Within a protected function, the current object is a constant, and
@@ -455,7 +458,7 @@ package Sem_Util is
    --
    --  Iterator loops also have a defining entity, which holds the list of
    --  local entities declared during loop expansion. These entities need
-   --  debugging information, generated through QUalify_Entity_Names, and
+   --  debugging information, generated through Qualify_Entity_Names, and
    --  the loop declaration must be placed in the table Name_Qualify_Units.
 
    function Denotes_Discriminant
@@ -490,7 +493,7 @@ package Sem_Util is
    function Designate_Same_Unit
      (Name1 : Node_Id;
       Name2 : Node_Id) return  Boolean;
-   --  Return true if Name1 and Name2 designate the same unit name; each of
+   --  Returns True if Name1 and Name2 designate the same unit name; each of
    --  these names is supposed to be a selected component name, an expanded
    --  name, a defining program unit name or an identifier.
 
@@ -565,6 +568,26 @@ package Sem_Util is
    --  inappropriate use of limited type T. If useful, it adds additional
    --  continuation lines to the message explaining why type T is limited.
    --  Messages are placed at node N.
+
+   type Extensions_Visible_Mode is
+     (Extensions_Visible_None,
+      --  Extensions_Visible does not yield a mode when SPARK_Mode is off. This
+      --  value acts as a default in a non-SPARK compilation.
+
+      Extensions_Visible_False,
+      --  A value of "False" signifies that Extensions_Visible is either
+      --  missing or the pragma is present and the value of its Boolean
+      --  expression is False.
+
+      Extensions_Visible_True);
+      --  A value of "True" signifies that Extensions_Visible is present and
+      --  the value of its Boolean expression is True.
+
+   function Extensions_Visible_Status
+     (Id : Entity_Id) return Extensions_Visible_Mode;
+   --  Given the entity of a subprogram or formal parameter subject to pragma
+   --  Extensions_Visible, return the Boolean value denoted by the expression
+   --  of the pragma.
 
    procedure Find_Actual
      (N      : Node_Id;
@@ -905,8 +928,8 @@ package Sem_Util is
    --  as an access type internally, this function tests only for access types
    --  known to the programmer. See also Has_Tagged_Component.
 
-      function Has_Defaulted_Discriminants (Typ : Entity_Id) return Boolean;
-      --  Simple predicate to test for defaulted discriminants
+   function Has_Defaulted_Discriminants (Typ : Entity_Id) return Boolean;
+   --  Simple predicate to test for defaulted discriminants
 
    type Alignment_Result is (Known_Compatible, Unknown, Known_Incompatible);
    --  Result of Has_Compatible_Alignment test, description found below. Note
@@ -1074,14 +1097,26 @@ package Sem_Util is
    --  package specification. The package must be on the scope stack, and the
    --  corresponding private part must not.
 
-   function Incomplete_Or_Private_View (Typ : Entity_Id) return Entity_Id;
-   --  Given the entity of a type, retrieve the incomplete or private view of
-   --  the same type. Note that Typ may not have a partial view to begin with,
-   --  in that case the function returns Empty.
+   function Incomplete_Or_Partial_View (Id : Entity_Id) return Entity_Id;
+   --  Given the entity of a constant or a type, retrieve the incomplete or
+   --  partial view of the same entity. Note that Id may not have a partial
+   --  view in which case the function returns Empty.
 
    procedure Inherit_Default_Init_Cond_Procedure (Typ : Entity_Id);
    --  Inherit the default initial condition procedure from the parent type of
    --  derived type Typ.
+
+   procedure Inherit_Rep_Item_Chain (Typ : Entity_Id; From_Typ : Entity_Id);
+   --  Inherit the rep item chain of type From_Typ without clobbering any
+   --  existing rep items on Typ's chain. Typ is the destination type.
+
+   procedure Inherit_Subprogram_Contract
+     (Subp      : Entity_Id;
+      From_Subp : Entity_Id);
+   --  Inherit relevant contract items from source subprogram From_Subp. Subp
+   --  denotes the destination subprogram. The inherited items are:
+   --    Extensions_Visible
+   --  ??? it would be nice if this routine handles Pre'Class and Post'Class
 
    procedure Insert_Explicit_Dereference (N : Node_Id);
    --  In a context that requires a composite or subprogram type and where a
@@ -1167,6 +1202,9 @@ package Sem_Util is
    --  First determine whether type T is an interface and then check whether
    --  it is of protected, synchronized or task kind.
 
+   function Is_Declaration (N : Node_Id) return Boolean;
+   --  Determine whether arbitrary node N denotes a declaration
+
    function Is_Delegate (T : Entity_Id) return Boolean;
    --  Returns true if type T represents a delegate. A Delegate is the CIL
    --  object used to represent access-to-subprogram types. This is only
@@ -1203,6 +1241,16 @@ package Sem_Util is
    --  Predicate to determine whether a scope entity comes from a rewritten
    --  expression function call, and should be inlined unconditionally. Also
    --  used to determine that such a call does not constitute a freeze point.
+
+   function Is_EVF_Expression (N : Node_Id) return Boolean;
+   --  Determine whether node N denotes a reference to a formal parameter of
+   --  a specific tagged type whose related subprogram is subject to pragma
+   --  Extensions_Visible with value "False". Several other constructs fall
+   --  under this category:
+   --    1) A qualified expression whose operand is EVF
+   --    2) A type conversion whose operand is EVF
+   --    3) An if expression with at least one EVF dependent_expression
+   --    4) A case expression with at least one EVF dependent_expression
 
    function Is_False (U : Uint) return Boolean;
    pragma Inline (Is_False);
@@ -1340,6 +1388,9 @@ package Sem_Util is
    --  2005. This differs from Is_Object_Reference in that only variables,
    --  constants, formal parameters, and selected_components of those are
    --  valid objects in SPARK 2005.
+
+   function Is_Specific_Tagged_Type (Typ : Entity_Id) return Boolean;
+   --  Determine whether an arbitrary [private] type is specifically tagged
 
    function Is_Statement (N : Node_Id) return Boolean;
    pragma Inline (Is_Statement);
@@ -1493,9 +1544,6 @@ package Sem_Util is
    --  to guarantee this in all cases. Note that it is more possible to give
    --  correct answer if the tree is fully analyzed.
 
-   function Must_Inline (Subp : Entity_Id) return Boolean;
-   --  Return true if Subp must be inlined by the frontend
-
    function Needs_One_Actual (E : Entity_Id) return Boolean;
    --  Returns True if a function has defaults for all but its first
    --  formal. Used in Ada 2005 mode to solve the syntactic ambiguity that
@@ -1634,6 +1682,10 @@ package Sem_Util is
    --  the presence of 'Class, which results in one of the special names
    --  Name_uPre, Name_uPost, Name_uInvariant, or Name_uType_Invariant being
    --  returned to represent the corresponding aspects with x'Class names.
+
+   function Policy_In_Effect (Policy : Name_Id) return Name_Id;
+   --  Given a policy, return the policy identifier associated with it. If no
+   --  such policy is in effect, the value returned is No_Name.
 
    function Predicate_Tests_On_Arguments (Subp : Entity_Id) return Boolean;
    --  Subp is the entity for a subprogram call. This function returns True if

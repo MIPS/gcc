@@ -81,6 +81,8 @@ static const int RUNTIME_TYPE_KIND_STRING = 24;
 static const int RUNTIME_TYPE_KIND_STRUCT = 25;
 static const int RUNTIME_TYPE_KIND_UNSAFE_POINTER = 26;
 
+static const int RUNTIME_TYPE_KIND_DIRECT_IFACE = (1 << 5);
+static const int RUNTIME_TYPE_KIND_GC_PROG = (1 << 6);
 static const int RUNTIME_TYPE_KIND_NO_POINTERS = (1 << 7);
 
 // GC instruction opcodes.  These must match the values in libgo/runtime/mgc0.h.
@@ -384,6 +386,10 @@ class Methods
   find(const std::string& name) const
   { return this->methods_.find(name); }
 
+  bool
+  empty() const
+  { return this->methods_.empty(); }
+
  private:
   Method_map methods_;
 };
@@ -607,26 +613,11 @@ class Type
   static bool
   are_assignable(const Type* lhs, const Type* rhs, std::string* reason);
 
-  // Return true if a value with type RHS is assignable to a variable
-  // with type LHS, ignoring any assignment of hidden fields
-  // (unexported fields of a type imported from another package).
-  // This is like the are_assignable method.
-  static bool
-  are_assignable_hidden_ok(const Type* lhs, const Type* rhs,
-			   std::string* reason);
-
   // Return true if a value with type RHS may be converted to type
   // LHS.  If this returns false, and REASON is not NULL, it sets
   // *REASON.
   static bool
   are_convertible(const Type* lhs, const Type* rhs, std::string* reason);
-
-  // Whether this type has any hidden fields which are not visible in
-  // the current compilation, such as a field whose name begins with a
-  // lower case letter in a struct imported from a different package.
-  // WITHIN is not NULL if we are looking at fields in a named type.
-  bool
-  has_hidden_fields(const Named_type* within, std::string* reason) const;
 
   // Return true if values of this type can be compared using an
   // identity function which gets nothing but a pointer to the value
@@ -951,18 +942,18 @@ class Type
   // in bytes and return true.  Otherwise, return false.  This queries
   // the backend.
   bool
-  backend_type_size(Gogo*, unsigned long* psize);
+  backend_type_size(Gogo*, int64_t* psize);
 
   // If the alignment of the type can be determined, set *PALIGN to
   // the alignment in bytes and return true.  Otherwise, return false.
   bool
-  backend_type_align(Gogo*, unsigned long* palign);
+  backend_type_align(Gogo*, int64_t* palign);
 
   // If the alignment of a struct field of this type can be
   // determined, set *PALIGN to the alignment in bytes and return
   // true.  Otherwise, return false.
   bool
-  backend_type_field_align(Gogo*, unsigned long* palign);
+  backend_type_field_align(Gogo*, int64_t* palign);
 
   // Whether the backend size is known.
   bool
@@ -1156,11 +1147,6 @@ class Type
 	    : NULL);
   }
 
-  // Support for are_assignable and are_assignable_hidden_ok.
-  static bool
-  are_assignable_check_hidden(const Type* lhs, const Type* rhs,
-			      bool check_hidden_fields, std::string* reason);
-
   // Map unnamed types to type descriptor decls.
   typedef Unordered_map_hash(const Type*, Bvariable*, Type_hash_identical,
 			     Type_identical) Type_descriptor_vars;
@@ -1228,24 +1214,24 @@ class Type
   add_methods_for_type(const Type* type, const Method::Field_indexes*,
 		       unsigned int depth, bool, bool,
 		       std::vector<const Named_type*>*,
-		       Methods**);
+		       Methods*);
 
   static void
   add_local_methods_for_type(const Named_type* type,
 			     const Method::Field_indexes*,
-			     unsigned int depth, bool, bool, Methods**);
+			     unsigned int depth, bool, bool, Methods*);
 
   static void
   add_embedded_methods_for_type(const Type* type,
 				const Method::Field_indexes*,
 				unsigned int depth, bool, bool,
 				std::vector<const Named_type*>*,
-				Methods**);
+				Methods*);
 
   static void
   add_interface_methods_for_type(const Type* type,
 				 const Method::Field_indexes*,
-				 unsigned int depth, Methods**);
+				 unsigned int depth, Methods*);
 
   // Build stub methods for a type.
   static void
@@ -2232,12 +2218,6 @@ class Struct_type : public Type
   bool
   is_identical(const Struct_type* t, bool errors_are_identical) const;
 
-  // Whether this struct type has any hidden fields.  This returns
-  // true if any fields have hidden names, or if any non-pointer
-  // anonymous fields have types with hidden fields.
-  bool
-  struct_has_hidden_fields(const Named_type* within, std::string*) const;
-
   // Return whether NAME is a local field which is not exported.  This
   // is only used for better error reporting.
   bool
@@ -2283,7 +2263,7 @@ class Struct_type : public Type
   // determined, set *POFFSET to the offset in bytes and return true.
   // Otherwise, return false.
   bool
-  backend_field_offset(Gogo*, unsigned int index, unsigned int* poffset);
+  backend_field_offset(Gogo*, unsigned int index, int64_t* poffset);
 
   // Finish the backend representation of all the fields.
   void
@@ -2382,7 +2362,8 @@ class Array_type : public Type
  public:
   Array_type(Type* element_type, Expression* length)
     : Type(TYPE_ARRAY),
-      element_type_(element_type), length_(length), blength_(NULL)
+      element_type_(element_type), length_(length), blength_(NULL),
+      issued_length_error_(false)
   { }
 
   // Return the element type.
@@ -2398,11 +2379,6 @@ class Array_type : public Type
   // Whether this type is identical with T.
   bool
   is_identical(const Array_type* t, bool errors_are_identical) const;
-
-  // Whether this type has any hidden fields.
-  bool
-  array_has_hidden_fields(const Named_type* within, std::string* reason) const
-  { return this->element_type_->has_hidden_fields(within, reason); }
 
   // Return an expression for the pointer to the values in an array.
   Expression*
@@ -2506,6 +2482,9 @@ class Array_type : public Type
   // The backend representation of the length.
   // We only want to compute this once.
   Bexpression* blength_;
+  // Whether or not an invalid length error has been issued for this type,
+  // to avoid knock-on errors.
+  mutable bool issued_length_error_;
 };
 
 // The type of a map.
@@ -2953,6 +2932,11 @@ class Named_type : public Type
   bool
   is_alias() const;
 
+  // Whether this named type is valid.  A recursive named type is invalid.
+  bool
+  is_valid() const
+  { return !this->is_error_; }
+
   // Whether this is a circular type: a pointer or function type that
   // refers to itself, which is not possible in C.
   bool
@@ -3032,10 +3016,6 @@ class Named_type : public Type
   // type.
   Expression*
   interface_method_table(Interface_type* interface, bool is_pointer);
-
-  // Whether this type has any hidden fields.
-  bool
-  named_type_has_hidden_fields(std::string* reason) const;
 
   // Note that a type must be converted to the backend representation
   // before we convert this type.
@@ -3156,10 +3136,10 @@ class Named_type : public Type
   bool is_circular_;
   // Whether this type has been verified.
   bool is_verified_;
-  // In a recursive operation such as has_hidden_fields, this flag is
-  // used to prevent infinite recursion when a type refers to itself.
-  // This is mutable because it is always reset to false when the
-  // function exits.
+  // In a recursive operation such as has_pointer, this flag is used
+  // to prevent infinite recursion when a type refers to itself.  This
+  // is mutable because it is always reset to false when the function
+  // exits.
   mutable bool seen_;
   // Like seen_, but used only by do_compare_is_identity.
   bool seen_in_compare_is_identity_;

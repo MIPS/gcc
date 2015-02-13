@@ -1,5 +1,5 @@
 /* Symbol table.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -23,11 +23,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "print-tree.h"
 #include "varasm.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "emit-rtl.h"
+#include "predict.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -36,7 +50,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "tree-inline.h"
 #include "langhooks.h"
-#include "hashtab.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "timevar.h"
@@ -45,7 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "calls.h"
 
-static const char *ipa_ref_use_name[] = {"read","write","addr","alias"};
+static const char *ipa_ref_use_name[] = {"read","write","addr","alias","chkp"};
 
 const char * const ld_plugin_symbol_resolution_names[]=
 {
@@ -82,15 +98,6 @@ symbol_table::decl_assembler_name_hash (const_tree asmname)
   return htab_hash_string (IDENTIFIER_POINTER (asmname));
 }
 
-
-/* Returns a hash code for P.  */
-
-hashval_t
-symbol_table::hash_node_by_assembler_name (const void *p)
-{
-  const symtab_node *n = (const symtab_node *) p;
-  return (hashval_t) decl_assembler_name_hash (DECL_ASSEMBLER_NAME (n->decl));
-}
 
 /* Compare ASMNAME with the DECL_ASSEMBLER_NAME of DECL.  */
 
@@ -150,14 +157,6 @@ symbol_table::decl_assembler_name_equal (tree decl, const_tree asmname)
 
 /* Returns nonzero if P1 and P2 are equal.  */
 
-int
-symbol_table::eq_assembler_name (const void *p1, const void *p2)
-{
-  const symtab_node *n1 = (const symtab_node *) p1;
-  const_tree name = (const_tree)p2;
-  return (decl_assembler_name_equal (n1->decl, name));
-}
-
 /* Insert NODE to assembler name hash.  */
 
 void
@@ -170,19 +169,23 @@ symbol_table::insert_to_assembler_name_hash (symtab_node *node,
 		       && !node->next_sharing_asm_name);
   if (assembler_name_hash)
     {
-      void **aslot;
+      symtab_node **aslot;
       cgraph_node *cnode;
       tree decl = node->decl;
 
       tree name = DECL_ASSEMBLER_NAME (node->decl);
 
-      aslot = htab_find_slot_with_hash (assembler_name_hash, name,
-					decl_assembler_name_hash (name),
-					INSERT);
+      /* C++ FE can produce decls without associated assembler name and insert
+	 them to symtab to hold section or TLS information.  */
+      if (!name)
+	return;
+
+      hashval_t hash = decl_assembler_name_hash (name);
+      aslot = assembler_name_hash->find_slot_with_hash (name, hash, INSERT);
       gcc_assert (*aslot != node);
       node->next_sharing_asm_name = (symtab_node *)*aslot;
       if (*aslot != NULL)
-	((symtab_node *)*aslot)->previous_sharing_asm_name = node;
+	(*aslot)->previous_sharing_asm_name = node;
       *aslot = node;
 
       /* Update also possible inline clones sharing a decl.  */
@@ -217,13 +220,17 @@ symbol_table::unlink_from_assembler_name_hash (symtab_node *node,
       else
 	{
 	  tree name = DECL_ASSEMBLER_NAME (node->decl);
-          void **slot;
-	  slot = htab_find_slot_with_hash (assembler_name_hash, name,
-					   decl_assembler_name_hash (name),
-					   NO_INSERT);
+          symtab_node **slot;
+
+	  if (!name)
+	    return;
+
+	  hashval_t hash = decl_assembler_name_hash (name);
+	  slot = assembler_name_hash->find_slot_with_hash (name, hash,
+							   NO_INSERT);
 	  gcc_assert (*slot == node);
 	  if (!node->next_sharing_asm_name)
-	    htab_clear_slot (assembler_name_hash, slot);
+	    assembler_name_hash->clear_slot (slot);
 	  else
 	    *slot = node->next_sharing_asm_name;
 	}
@@ -256,9 +263,7 @@ symbol_table::symtab_initialize_asm_name_hash (void)
   symtab_node *node;
   if (!assembler_name_hash)
     {
-      assembler_name_hash =
-	htab_create_ggc (10, hash_node_by_assembler_name, eq_assembler_name,
-			 NULL);
+      assembler_name_hash = hash_table<asmname_hasher>::create_ggc (10);
       FOR_EACH_SYMBOL (node)
 	insert_to_assembler_name_hash (node, false);
     }
@@ -322,20 +327,17 @@ resolution_used_from_other_file_p (enum ld_plugin_symbol_resolution resolution)
 
 /* Hash sections by their names.  */
 
-static hashval_t
-hash_section_hash_entry (const void *p)
+hashval_t
+section_name_hasher::hash (section_hash_entry *n)
 {
-  const section_hash_entry *n = (const section_hash_entry *) p;
   return htab_hash_string (n->name);
 }
 
 /* Return true if section P1 name equals to P2.  */
 
-static int
-eq_sections (const void *p1, const void *p2)
+bool
+section_name_hasher::equal (section_hash_entry *n1, const char *name)
 {
-  const section_hash_entry *n1 = (const section_hash_entry *) p1;
-  const char *name = (const char *)p2;
   return n1->name == name || !strcmp (n1->name, name);
 }
 
@@ -936,16 +938,16 @@ symtab_node *
 symtab_node::get_for_asmname (const_tree asmname)
 {
   symtab_node *node;
-  void **slot;
 
   symtab->symtab_initialize_asm_name_hash ();
-  slot = htab_find_slot_with_hash (symtab->assembler_name_hash, asmname,
-				   symtab->decl_assembler_name_hash (asmname),
-				   NO_INSERT);
+  hashval_t hash = symtab->decl_assembler_name_hash (asmname);
+  symtab_node **slot
+    = symtab->assembler_name_hash->find_slot_with_hash (asmname, hash,
+							NO_INSERT);
 
   if (slot)
     {
-      node = (symtab_node *) *slot;
+      node = *slot;
       return node;
     }
   return NULL;
@@ -1068,11 +1070,6 @@ symtab_node::verify_base (void)
 	  error ("same_comdat_group list across different groups");
 	  error_found = true;
 	}
-      if (!n->definition)
-	{
-	  error ("Node has same_comdat_group but it is not a definition");
-	  error_found = true;
-	}
       if (n->type != type)
 	{
 	  error ("mixing different types of symbol in same comdat groups is not supported");
@@ -1116,7 +1113,8 @@ symtab_node::verify_base (void)
       error_found = true;
     }
   if (get_section () && get_comdat_group ()
-      && !implicit_section)
+      && !implicit_section
+      && !lookup_attribute ("section", DECL_ATTRIBUTES (decl)))
     {
       error ("Both section and comdat group is set");
       error_found = true;
@@ -1382,7 +1380,7 @@ void
 symtab_node::set_section_for_node (const char *section)
 {
   const char *current = get_section ();
-  void **slot;
+  section_hash_entry **slot;
 
   if (current == section
       || (current && section
@@ -1394,11 +1392,11 @@ symtab_node::set_section_for_node (const char *section)
       x_section->ref_count--;
       if (!x_section->ref_count)
 	{
-	  slot = htab_find_slot_with_hash (symtab->section_hash, x_section->name,
-					   htab_hash_string (x_section->name),
-					   INSERT);
+	  hashval_t hash = htab_hash_string (x_section->name);
+	  slot = symtab->section_hash->find_slot_with_hash (x_section->name,
+							    hash, INSERT);
 	  ggc_free (x_section);
-	  htab_clear_slot (symtab->section_hash, slot);
+	  symtab->section_hash->clear_slot (slot);
 	}
       x_section = NULL;
     }
@@ -1408,11 +1406,10 @@ symtab_node::set_section_for_node (const char *section)
       return;
     }
   if (!symtab->section_hash)
-    symtab->section_hash = htab_create_ggc (10, hash_section_hash_entry,
-				    eq_sections, NULL);
-  slot = htab_find_slot_with_hash (symtab->section_hash, section,
-				   htab_hash_string (section),
-				   INSERT);
+    symtab->section_hash = hash_table<section_name_hasher>::create_ggc (10);
+  slot = symtab->section_hash->find_slot_with_hash (section,
+						    htab_hash_string (section),
+						    INSERT);
   if (*slot)
     x_section = (section_hash_entry *)*slot;
   else
@@ -1782,6 +1779,8 @@ symtab_node::get_partitioning_class (void)
 
   if (varpool_node *vnode = dyn_cast <varpool_node *> (this))
     {
+      if (alias && definition && !ultimate_alias_target ()->definition)
+	return SYMBOL_EXTERNAL;
       /* Constant pool references use local symbol names that can not
          be promoted global.  We should never put into a constant pool
          objects that can not be duplicated across partitions.  */
@@ -1793,7 +1792,7 @@ symtab_node::get_partitioning_class (void)
      Handle them as external; compute_ltrans_boundary take care to make
      proper things to happen (i.e. to make them appear in the boundary but
      with body streamed, so clone can me materialized).  */
-  else if (!dyn_cast <cgraph_node *> (this)->definition)
+  else if (!dyn_cast <cgraph_node *> (this)->function_symbol ()->definition)
     return SYMBOL_EXTERNAL;
 
   /* Linker discardable symbols are duplicated to every use unless they are
@@ -1874,4 +1873,91 @@ symtab_node::nonzero_address ()
       && flag_delete_null_pointer_checks)
     return true;
   return false;
+}
+
+/* Return 0 if symbol is known to have different address than S2,
+   Return 1 if symbol is known to have same address as S2,
+   return 2 otherwise.   */
+int
+symtab_node::equal_address_to (symtab_node *s2)
+{
+  enum availability avail1, avail2;
+
+  /* A Shortcut: equivalent symbols are always equivalent.  */
+  if (this == s2)
+    return 1;
+
+  /* For non-interposable aliases, lookup and compare their actual definitions.
+     Also check if the symbol needs to bind to given definition.  */
+  symtab_node *rs1 = ultimate_alias_target (&avail1);
+  symtab_node *rs2 = s2->ultimate_alias_target (&avail2);
+  bool binds_local1 = rs1->analyzed && decl_binds_to_current_def_p (this->decl);
+  bool binds_local2 = rs2->analyzed && decl_binds_to_current_def_p (s2->decl);
+  bool really_binds_local1 = binds_local1;
+  bool really_binds_local2 = binds_local2;
+
+  /* Addresses of vtables and virtual functions can not be used by user
+     code and are used only within speculation.  In this case we may make
+     symbol equivalent to its alias even if interposition may break this
+     rule.  Doing so will allow us to turn speculative inlining into
+     non-speculative more agressively.  */
+  if (DECL_VIRTUAL_P (this->decl) && avail1 >= AVAIL_AVAILABLE)
+    binds_local1 = true;
+  if (DECL_VIRTUAL_P (s2->decl) && avail2 >= AVAIL_AVAILABLE)
+    binds_local2 = true;
+
+  /* If both definitions are available we know that even if they are bound
+     to other unit they must be defined same way and therefore we can use
+     equivalence test.  */
+  if (rs1 != rs2 && avail1 >= AVAIL_AVAILABLE && avail2 >= AVAIL_AVAILABLE)
+    binds_local1 = binds_local2 = true;
+
+  if ((binds_local1 ? rs1 : this)
+       == (binds_local2 ? rs2 : s2))
+    {
+      /* We made use of the fact that alias is not weak.  */
+      if (binds_local1 && rs1 != this)
+        refuse_visibility_changes = true;
+      if (binds_local2 && rs2 != s2)
+        s2->refuse_visibility_changes = true;
+      return 1;
+    }
+
+  /* If both symbols may resolve to NULL, we can not really prove them different.  */
+  if (!nonzero_address () && !s2->nonzero_address ())
+    return 2;
+
+  /* Except for NULL, functions and variables never overlap.  */
+  if (TREE_CODE (decl) != TREE_CODE (s2->decl))
+    return 0;
+
+  /* If one of the symbols is unresolved alias, punt.  */
+  if (rs1->alias || rs2->alias)
+    return 2;
+
+  /* If we have a non-interposale definition of at least one of the symbols
+     and the other symbol is different, we know other unit can not interpose
+     it to the first symbol; all aliases of the definition needs to be 
+     present in the current unit.  */
+  if (((really_binds_local1 || really_binds_local2)
+      /* If we have both definitions and they are different, we know they
+	 will be different even in units they binds to.  */
+       || (binds_local1 && binds_local2))
+      && rs1 != rs2)
+    {
+      /* We make use of the fact that one symbol is not alias of the other
+	 and that the definition is non-interposable.  */
+      refuse_visibility_changes = true;
+      s2->refuse_visibility_changes = true;
+      rs1->refuse_visibility_changes = true;
+      rs2->refuse_visibility_changes = true;
+      return 0;
+    }
+
+  /* TODO: Alias oracle basically assume that addresses of global variables
+     are different unless they are declared as alias of one to another.
+     We probably should be consistent and use this fact here, too, and update
+     alias oracle to use this predicate.  */
+
+  return 2;
 }

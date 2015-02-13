@@ -70,13 +70,13 @@ LIST = aarch64-elf aarch64-linux-gnu \
   sparc64-netbsd sparc64-openbsd spu-elf \
   tilegx-linux-gnu tilegxbe-linux-gnu tilepro-linux-gnu \
   v850e-elf v850-elf v850-rtems vax-linux-gnu \
-  vax-netbsdelf vax-openbsd x86_64-apple-darwin \
+  vax-netbsdelf vax-openbsd visium-elf x86_64-apple-darwin \
   x86_64-pc-linux-gnuOPT-with-fpmath=avx \
   x86_64-elfOPT-with-fpmath=sse x86_64-freebsd6 x86_64-netbsd \
   x86_64-knetbsd-gnu x86_64-w64-mingw32 \
   x86_64-mingw32OPT-enable-sjlj-exceptions=yes xstormy16-elf xtensa-elf \
   xtensa-linux \
-  i686-interix3OPT-enable-obsolete score-elfOPT-enable-obsolete
+  i686-interix3OPT-enable-obsolete
 
 LOGFILES = $(patsubst %,log/%-make.out,$(LIST))
 all: $(LOGFILES)
@@ -95,11 +95,23 @@ make-log-dir: ../gcc/MAINTAINERS
 
 $(LIST): make-log-dir
 	-mkdir $@
-	(cd $@ && \
-	../../gcc/configure \
-	--target=$(subst SCRIPTS,`pwd`/../scripts/,$(subst OPT,$(empty) -,$@)) \
-	--enable-werror-always ${host_options} --enable-languages=all,ada,go) \
-	> log/$@-config.out 2>&1
+	(											\
+		cd $@ &&									\
+		TGT=`echo $@ | awk 'BEGIN { FS = "OPT" }; { print $$1 }'` &&			\
+		TGT=`../../gcc/config.sub $$TGT` &&						\
+		case $$TGT in									\
+			*-*-darwin* | *-*-cygwin* | *-*-mingw* | *-*-aix*)			\
+				ADDITIONAL_LANGUAGES="";					\
+				;;								\
+			*)									\
+				ADDITIONAL_LANGUAGES=",go";					\
+				;;								\
+		esac &&										\
+		../../gcc/configure								\
+			--target=$(subst SCRIPTS,`pwd`/../scripts/,$(subst OPT,$(empty) -,$@))	\
+			--enable-werror-always ${host_options}					\
+			--enable-languages=all,ada$$ADDITIONAL_LANGUAGES;			\
+	) > log/$@-config.out 2>&1
 
 $(LOGFILES) : log/%-make.out : %
 	-$(MAKE) -C $< $(TEST) > $@ 2>&1 && rm -rf $<

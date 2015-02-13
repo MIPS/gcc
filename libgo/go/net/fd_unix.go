@@ -68,16 +68,19 @@ func (fd *netFD) name() string {
 	return fd.net + ":" + ls + "->" + rs
 }
 
-func (fd *netFD) connect(la, ra syscall.Sockaddr) error {
+func (fd *netFD) connect(la, ra syscall.Sockaddr, deadline time.Time) error {
 	// Do not need to call fd.writeLock here,
 	// because fd is not yet accessible to user,
 	// so no concurrent operations are possible.
-	if err := fd.pd.PrepareWrite(); err != nil {
-		return err
-	}
 	switch err := syscall.Connect(fd.sysfd, ra); err {
 	case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
 	case nil, syscall.EISCONN:
+		if !deadline.IsZero() && deadline.Before(time.Now()) {
+			return errTimeout
+		}
+		if err := fd.init(); err != nil {
+			return err
+		}
 		return nil
 	case syscall.EINVAL:
 		// On Solaris we can see EINVAL if the socket has
@@ -91,6 +94,13 @@ func (fd *netFD) connect(la, ra syscall.Sockaddr) error {
 		fallthrough
 	default:
 		return err
+	}
+	if err := fd.init(); err != nil {
+		return err
+	}
+	if !deadline.IsZero() {
+		fd.setWriteDeadline(deadline)
+		defer fd.setWriteDeadline(noDeadline)
 	}
 	for {
 		// Performing multiple connect system calls on a
@@ -391,7 +401,7 @@ func (fd *netFD) writeMsg(p []byte, oob []byte, sa syscall.Sockaddr) (n int, oob
 	return
 }
 
-func (fd *netFD) accept(toAddr func(syscall.Sockaddr) Addr) (netfd *netFD, err error) {
+func (fd *netFD) accept() (netfd *netFD, err error) {
 	if err := fd.readLock(); err != nil {
 		return nil, err
 	}
@@ -428,7 +438,7 @@ func (fd *netFD) accept(toAddr func(syscall.Sockaddr) Addr) (netfd *netFD, err e
 		return nil, err
 	}
 	lsa, _ := syscall.Getsockname(netfd.sysfd)
-	netfd.setAddr(toAddr(lsa), toAddr(rsa))
+	netfd.setAddr(netfd.addrFunc()(lsa), netfd.addrFunc()(rsa))
 	return netfd, nil
 }
 

@@ -1,5 +1,5 @@
 /* Optimize jump instructions, for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -45,13 +45,37 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "recog.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
+#include "symtab.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "except.h"
 #include "diagnostic-core.h"
 #include "reload.h"
-#include "predict.h"
 #include "tree-pass.h"
 #include "target.h"
 #include "rtl-iter.h"
@@ -144,7 +168,30 @@ cleanup_barriers (void)
 	  if (BARRIER_P (prev))
 	    delete_insn (insn);
 	  else if (prev != PREV_INSN (insn))
-	    reorder_insns_nobb (insn, insn, prev);
+	    {
+	      basic_block bb = BLOCK_FOR_INSN (prev);
+	      rtx_insn *end = PREV_INSN (insn);
+	      reorder_insns_nobb (insn, insn, prev);
+	      if (bb)
+		{
+		  /* If the backend called in machine reorg compute_bb_for_insn
+		     and didn't free_bb_for_insn again, preserve basic block
+		     boundaries.  Move the end of basic block to PREV since
+		     it is followed by a barrier now, and clear BLOCK_FOR_INSN
+		     on the following notes.
+		     ???  Maybe the proper solution for the targets that have
+		     cfg around after machine reorg is not to run cleanup_barriers
+		     pass at all.  */
+		  BB_END (bb) = prev;
+		  do
+		    {
+		      prev = NEXT_INSN (prev);
+		      if (prev != insn && BLOCK_FOR_INSN (prev) == bb)
+			BLOCK_FOR_INSN (prev) = NULL;
+		    }
+		  while (prev != end);
+		}
+	    }
 	}
     }
   return 0;
@@ -343,7 +390,7 @@ enum rtx_code
 reversed_comparison_code_parts (enum rtx_code code, const_rtx arg0,
 				const_rtx arg1, const_rtx insn)
 {
-  enum machine_mode mode;
+  machine_mode mode;
 
   /* If this is not actually a comparison, we can't reverse it.  */
   if (GET_RTX_CLASS (code) != RTX_COMPARE
@@ -470,7 +517,7 @@ reversed_comparison_code (const_rtx comparison, const_rtx insn)
 /* Return comparison with reversed code of EXP.
    Return NULL_RTX in case we fail to do the reversal.  */
 rtx
-reversed_comparison (const_rtx exp, enum machine_mode mode)
+reversed_comparison (const_rtx exp, machine_mode mode)
 {
   enum rtx_code reversed_code = reversed_comparison_code (exp, NULL_RTX);
   if (reversed_code == UNKNOWN)

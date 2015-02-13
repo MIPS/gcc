@@ -1,5 +1,5 @@
 /* IPA visibility pass
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -76,7 +76,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
 #include "calls.h"
@@ -85,17 +101,18 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Return true when NODE can not be local. Worker for cgraph_local_node_p.  */
 
-bool
-cgraph_node::non_local_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
+static bool
+non_local_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 {
-   /* FIXME: Aliases can be local, but i386 gets thunks wrong then.  */
-   return !(node->only_called_directly_or_aliased_p ()
-	    && !node->has_aliases_p ()
-	    && node->definition
-	    && !DECL_EXTERNAL (node->decl)
-	    && !node->externally_visible
-	    && !node->used_from_other_partition
-	    && !node->in_other_partition);
+  return !(node->only_called_directly_or_aliased_p ()
+	   /* i386 would need update to output thunk with locak calling
+	      ocnvetions.  */
+	   && !node->thunk.thunk_p
+	   && node->definition
+	   && !DECL_EXTERNAL (node->decl)
+	   && !node->externally_visible
+	   && !node->used_from_other_partition
+	   && !node->in_other_partition);
 }
 
 /* Return true when function can be marked local.  */
@@ -105,12 +122,10 @@ cgraph_node::local_p (void)
 {
    cgraph_node *n = ultimate_alias_target ();
 
-   /* FIXME: thunks can be considered local, but we need prevent i386
-      from attempting to change calling convention of them.  */
    if (n->thunk.thunk_p)
-     return false;
-   return !n->call_for_symbol_thunks_and_aliases (cgraph_node::non_local_p,
-						NULL, true);
+     return n->callees->callee->local_p ();
+   return !n->call_for_symbol_thunks_and_aliases (non_local_p,
+						  NULL, true);
 					
 }
 
@@ -259,6 +274,10 @@ cgraph_externally_visible_p (struct cgraph_node *node,
   if (MAIN_NAME_P (DECL_NAME (node->decl)))
     return true;
 
+  if (node->instrumentation_clone
+      && MAIN_NAME_P (DECL_NAME (node->orig_decl)))
+    return true;
+
   return false;
 }
 
@@ -405,11 +424,19 @@ update_visibility_by_resolution_info (symtab_node * node)
   if (node->same_comdat_group)
     for (symtab_node *next = node->same_comdat_group;
 	 next != node; next = next->same_comdat_group)
-      gcc_assert (!next->externally_visible
-		  || define == (next->resolution == LDPR_PREVAILING_DEF_IRONLY
-			        || next->resolution == LDPR_PREVAILING_DEF
-			        || next->resolution == LDPR_UNDEF
-			        || next->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP));
+      {
+	if (!next->externally_visible)
+	  continue;
+
+	bool same_def
+	  = define == (next->resolution == LDPR_PREVAILING_DEF_IRONLY
+		       || next->resolution == LDPR_PREVAILING_DEF
+		       || next->resolution == LDPR_UNDEF
+		       || next->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP);
+	gcc_assert (in_lto_p || same_def);
+	if (!same_def)
+	  return;
+      }
 
   if (node->same_comdat_group)
     for (symtab_node *next = node->same_comdat_group;
@@ -543,6 +570,7 @@ function_and_variable_visibility (bool whole_program)
 	}
 
       if (node->thunk.thunk_p
+	  && !node->thunk.add_pointer_bounds_args
 	  && TREE_PUBLIC (node->decl))
 	{
 	  struct cgraph_node *decl_node = node;

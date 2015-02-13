@@ -1,5 +1,5 @@
 /* Analyze RTL for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,8 +32,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "flags.h"
 #include "regs.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "df.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
 #include "addresses.h"
@@ -46,21 +56,17 @@ static bool covers_regno_no_parallel_p (const_rtx, unsigned int);
 static int computed_jump_p_1 (const_rtx);
 static void parms_set (rtx, const_rtx, void *);
 
-static unsigned HOST_WIDE_INT cached_nonzero_bits (const_rtx, enum machine_mode,
-                                                   const_rtx, enum machine_mode,
+static unsigned HOST_WIDE_INT cached_nonzero_bits (const_rtx, machine_mode,
+                                                   const_rtx, machine_mode,
                                                    unsigned HOST_WIDE_INT);
-static unsigned HOST_WIDE_INT nonzero_bits1 (const_rtx, enum machine_mode,
-					     const_rtx, enum machine_mode,
+static unsigned HOST_WIDE_INT nonzero_bits1 (const_rtx, machine_mode,
+					     const_rtx, machine_mode,
                                              unsigned HOST_WIDE_INT);
-static unsigned int cached_num_sign_bit_copies (const_rtx, enum machine_mode, const_rtx,
-                                                enum machine_mode,
+static unsigned int cached_num_sign_bit_copies (const_rtx, machine_mode, const_rtx,
+                                                machine_mode,
                                                 unsigned int);
-static unsigned int num_sign_bit_copies1 (const_rtx, enum machine_mode, const_rtx,
-                                          enum machine_mode, unsigned int);
-
-/* Offset of the first 'e', 'E' or 'V' operand for each rtx code, or
-   -1 if a code has no such operand.  */
-static int non_rtx_starting_operands[NUM_RTX_CODE];
+static unsigned int num_sign_bit_copies1 (const_rtx, machine_mode, const_rtx,
+                                          machine_mode, unsigned int);
 
 rtx_subrtx_bound_info rtx_all_subrtx_bounds[NUM_RTX_CODE];
 rtx_subrtx_bound_info rtx_nonconst_subrtx_bounds[NUM_RTX_CODE];
@@ -128,29 +134,58 @@ generic_subrtx_iterator <T>::add_subrtxes_to_queue (array_type &array,
 						    value_type *base,
 						    size_t end, rtx_type x)
 {
-  const char *format = GET_RTX_FORMAT (GET_CODE (x));
+  enum rtx_code code = GET_CODE (x);
+  const char *format = GET_RTX_FORMAT (code);
   size_t orig_end = end;
-  for (int i = 0; format[i]; ++i)
-    if (format[i] == 'e')
-      {
-	value_type subx = T::get_value (x->u.fld[i].rt_rtx);
-	if (__builtin_expect (end < LOCAL_ELEMS, true))
-	  base[end++] = subx;
-	else
-	  base = add_single_to_queue (array, base, end++, subx);
-      }
-    else if (format[i] == 'E')
-      {
-	int length = GET_NUM_ELEM (x->u.fld[i].rt_rtvec);
-	rtx *vec = x->u.fld[i].rt_rtvec->elem;
-	if (__builtin_expect (end + length <= LOCAL_ELEMS, true))
-	  for (int j = 0; j < length; j++)
-	    base[end++] = T::get_value (vec[j]);
-	else
-	  for (int j = 0; j < length; j++)
-	    base = add_single_to_queue (array, base, end++,
-					T::get_value (vec[j]));
-      }
+  if (__builtin_expect (INSN_P (x), false))
+    {
+      /* Put the pattern at the top of the queue, since that's what
+	 we're likely to want most.  It also allows for the SEQUENCE
+	 code below.  */
+      for (int i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; --i)
+	if (format[i] == 'e')
+	  {
+	    value_type subx = T::get_value (x->u.fld[i].rt_rtx);
+	    if (__builtin_expect (end < LOCAL_ELEMS, true))
+	      base[end++] = subx;
+	    else
+	      base = add_single_to_queue (array, base, end++, subx);
+	  }
+    }
+  else
+    for (int i = 0; format[i]; ++i)
+      if (format[i] == 'e')
+	{
+	  value_type subx = T::get_value (x->u.fld[i].rt_rtx);
+	  if (__builtin_expect (end < LOCAL_ELEMS, true))
+	    base[end++] = subx;
+	  else
+	    base = add_single_to_queue (array, base, end++, subx);
+	}
+      else if (format[i] == 'E')
+	{
+	  unsigned int length = GET_NUM_ELEM (x->u.fld[i].rt_rtvec);
+	  rtx *vec = x->u.fld[i].rt_rtvec->elem;
+	  if (__builtin_expect (end + length <= LOCAL_ELEMS, true))
+	    for (unsigned int j = 0; j < length; j++)
+	      base[end++] = T::get_value (vec[j]);
+	  else
+	    for (unsigned int j = 0; j < length; j++)
+	      base = add_single_to_queue (array, base, end++,
+					  T::get_value (vec[j]));
+	  if (code == SEQUENCE && end == length)
+	    /* If the subrtxes of the sequence fill the entire array then
+	       we know that no other parts of a containing insn are queued.
+	       The caller is therefore iterating over the sequence as a
+	       PATTERN (...), so we also want the patterns of the
+	       subinstructions.  */
+	    for (unsigned int j = 0; j < length; j++)
+	      {
+		typename T::rtx_type x = T::get_rtx (base[j]);
+		if (INSN_P (x))
+		  base[j] = T::get_value (PATTERN (x));
+	      }
+	}
   return end - orig_end;
 }
 
@@ -321,7 +356,7 @@ rtx_varies_p (const_rtx x, bool for_alias)
 
 static int
 rtx_addr_can_trap_p_1 (const_rtx x, HOST_WIDE_INT offset, HOST_WIDE_INT size,
-		       enum machine_mode mode, bool unaligned_mems)
+		       machine_mode mode, bool unaligned_mems)
 {
   enum rtx_code code = GET_CODE (x);
 
@@ -965,6 +1000,17 @@ reg_set_between_p (const_rtx reg, const rtx_insn *from_insn,
 int
 reg_set_p (const_rtx reg, const_rtx insn)
 {
+  /* After delay slot handling, call and branch insns might be in a
+     sequence.  Check all the elements there.  */
+  if (INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
+    {
+      for (int i = 0; i < XVECLEN (PATTERN (insn), 0); ++i)
+	if (reg_set_p (reg, XVECEXP (PATTERN (insn), 0, i)))
+	  return true;
+
+      return false;
+    }
+
   /* We can be passed an insn or part of one.  If we are passed an insn,
      check if a side-effect of the insn clobbers REG.  */
   if (INSN_P (insn)
@@ -976,7 +1022,7 @@ reg_set_p (const_rtx reg, const_rtx insn)
 					       GET_MODE (reg), REGNO (reg)))
 		  || MEM_P (reg)
 		  || find_reg_fusage (insn, CLOBBER, reg)))))
-    return 1;
+    return true;
 
   return set_of (reg, insn) != NULL_RTX;
 }
@@ -1370,7 +1416,7 @@ noop_move_p (const_rtx insn)
    References contained within the substructure at LOC do not count.
    LOC may be zero, meaning don't ignore anything.  */
 
-int
+bool
 refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 		   rtx *loc)
 {
@@ -1383,7 +1429,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
   /* The contents of a REG_NONNEG note is always zero, so we must come here
      upon repeat in case the last REG_NOTE is a REG_NONNEG note.  */
   if (x == 0)
-    return 0;
+    return false;
 
   code = GET_CODE (x);
 
@@ -1401,7 +1447,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 #endif
 	   || x_regno == FRAME_POINTER_REGNUM)
 	  && regno >= FIRST_VIRTUAL_REGISTER && regno <= LAST_VIRTUAL_REGISTER)
-	return 1;
+	return true;
 
       return endregno > x_regno && regno < END_REGNO (x);
 
@@ -1434,10 +1480,10 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 				     SUBREG_REG (SET_DEST (x)), loc))
 	      || (!REG_P (SET_DEST (x))
 		  && refers_to_regno_p (regno, endregno, SET_DEST (x), loc))))
-	return 1;
+	return true;
 
       if (code == CLOBBER || loc == &SET_SRC (x))
-	return 0;
+	return false;
       x = SET_SRC (x);
       goto repeat;
 
@@ -1459,7 +1505,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 	    }
 	  else
 	    if (refers_to_regno_p (regno, endregno, XEXP (x, i), loc))
-	      return 1;
+	      return true;
 	}
       else if (fmt[i] == 'E')
 	{
@@ -1467,10 +1513,10 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    if (loc != &XVECEXP (x, i, j)
 		&& refers_to_regno_p (regno, endregno, XVECEXP (x, i, j), loc))
-	      return 1;
+	      return true;
 	}
     }
-  return 0;
+  return false;
 }
 
 /* Nonzero if modifying X will affect IN.  If X is a register or a SUBREG,
@@ -2064,7 +2110,7 @@ void
 add_int_reg_note (rtx insn, enum reg_note kind, int datum)
 {
   gcc_checking_assert (int_reg_note_p (kind));
-  REG_NOTES (insn) = gen_rtx_INT_LIST ((enum machine_mode) kind,
+  REG_NOTES (insn) = gen_rtx_INT_LIST ((machine_mode) kind,
 				       datum, REG_NOTES (insn));
 }
 
@@ -2494,7 +2540,7 @@ may_trap_p_1 (const_rtx x, unsigned flags)
     case MOD:
     case UDIV:
     case UMOD:
-      if (HONOR_SNANS (GET_MODE (x)))
+      if (HONOR_SNANS (x))
 	return 1;
       if (SCALAR_FLOAT_MODE_P (GET_MODE (x)))
 	return flag_trapping_math;
@@ -2520,28 +2566,28 @@ may_trap_p_1 (const_rtx x, unsigned flags)
 	 when COMPARE is used, though many targets do make this distinction.
 	 For instance, sparc uses CCFPE for compares which generate exceptions
 	 and CCFP for compares which do not generate exceptions.  */
-      if (HONOR_NANS (GET_MODE (x)))
+      if (HONOR_NANS (x))
 	return 1;
       /* But often the compare has some CC mode, so check operand
 	 modes as well.  */
-      if (HONOR_NANS (GET_MODE (XEXP (x, 0)))
-	  || HONOR_NANS (GET_MODE (XEXP (x, 1))))
+      if (HONOR_NANS (XEXP (x, 0))
+	  || HONOR_NANS (XEXP (x, 1)))
 	return 1;
       break;
 
     case EQ:
     case NE:
-      if (HONOR_SNANS (GET_MODE (x)))
+      if (HONOR_SNANS (x))
 	return 1;
       /* Often comparison is CC mode, so check operand modes.  */
-      if (HONOR_SNANS (GET_MODE (XEXP (x, 0)))
-	  || HONOR_SNANS (GET_MODE (XEXP (x, 1))))
+      if (HONOR_SNANS (XEXP (x, 0))
+	  || HONOR_SNANS (XEXP (x, 1)))
 	return 1;
       break;
 
     case FIX:
       /* Conversion of floating point might trap.  */
-      if (flag_trapping_math && HONOR_NANS (GET_MODE (XEXP (x, 0))))
+      if (flag_trapping_math && HONOR_NANS (XEXP (x, 0)))
 	return 1;
       break;
 
@@ -2984,137 +3030,6 @@ computed_jump_p (const_rtx insn)
   return 0;
 }
 
-/* Optimized loop of for_each_rtx, trying to avoid useless recursive
-   calls.  Processes the subexpressions of EXP and passes them to F.  */
-static int
-for_each_rtx_1 (rtx exp, int n, rtx_function f, void *data)
-{
-  int result, i, j;
-  const char *format = GET_RTX_FORMAT (GET_CODE (exp));
-  rtx *x;
-
-  for (; format[n] != '\0'; n++)
-    {
-      switch (format[n])
-	{
-	case 'e':
-	  /* Call F on X.  */
-	  x = &XEXP (exp, n);
-	  result = (*f) (x, data);
-	  if (result == -1)
-	    /* Do not traverse sub-expressions.  */
-	    continue;
-	  else if (result != 0)
-	    /* Stop the traversal.  */
-	    return result;
-
-	  if (*x == NULL_RTX)
-	    /* There are no sub-expressions.  */
-	    continue;
-
-	  i = non_rtx_starting_operands[GET_CODE (*x)];
-	  if (i >= 0)
-	    {
-	      result = for_each_rtx_1 (*x, i, f, data);
-	      if (result != 0)
-		return result;
-	    }
-	  break;
-
-	case 'V':
-	case 'E':
-	  if (XVEC (exp, n) == 0)
-	    continue;
-	  for (j = 0; j < XVECLEN (exp, n); ++j)
-	    {
-	      /* Call F on X.  */
-	      x = &XVECEXP (exp, n, j);
-	      result = (*f) (x, data);
-	      if (result == -1)
-		/* Do not traverse sub-expressions.  */
-		continue;
-	      else if (result != 0)
-		/* Stop the traversal.  */
-		return result;
-
-	      if (*x == NULL_RTX)
-		/* There are no sub-expressions.  */
-		continue;
-
-	      i = non_rtx_starting_operands[GET_CODE (*x)];
-	      if (i >= 0)
-		{
-		  result = for_each_rtx_1 (*x, i, f, data);
-		  if (result != 0)
-		    return result;
-	        }
-	    }
-	  break;
-
-	default:
-	  /* Nothing to do.  */
-	  break;
-	}
-    }
-
-  return 0;
-}
-
-/* Traverse X via depth-first search, calling F for each
-   sub-expression (including X itself).  F is also passed the DATA.
-   If F returns -1, do not traverse sub-expressions, but continue
-   traversing the rest of the tree.  If F ever returns any other
-   nonzero value, stop the traversal, and return the value returned
-   by F.  Otherwise, return 0.  This function does not traverse inside
-   tree structure that contains RTX_EXPRs, or into sub-expressions
-   whose format code is `0' since it is not known whether or not those
-   codes are actually RTL.
-
-   This routine is very general, and could (should?) be used to
-   implement many of the other routines in this file.  */
-
-int
-for_each_rtx (rtx *x, rtx_function f, void *data)
-{
-  int result;
-  int i;
-
-  /* Call F on X.  */
-  result = (*f) (x, data);
-  if (result == -1)
-    /* Do not traverse sub-expressions.  */
-    return 0;
-  else if (result != 0)
-    /* Stop the traversal.  */
-    return result;
-
-  if (*x == NULL_RTX)
-    /* There are no sub-expressions.  */
-    return 0;
-
-  i = non_rtx_starting_operands[GET_CODE (*x)];
-  if (i < 0)
-    return 0;
-
-  return for_each_rtx_1 (*x, i, f, data);
-}
-
-/* Like "for_each_rtx", but for calling on an rtx_insn **.  */
-
-int
-for_each_rtx_in_insn (rtx_insn **insn, rtx_function f, void *data)
-{
-  rtx insn_as_rtx = *insn;
-  int result;
-
-  result = for_each_rtx (&insn_as_rtx, f, data);
-
-  if (insn_as_rtx != *insn)
-    *insn = safe_as_a <rtx_insn *> (insn_as_rtx);
-
-  return result;
-}
-
 
 
 /* MEM has a PRE/POST-INC/DEC/MODIFY address X.  Extract the operands of
@@ -3358,8 +3273,8 @@ loc_mentioned_in_p (rtx *loc, const_rtx in)
    (counting from the least significant bit of the operand).  */
 
 unsigned int
-subreg_lsb_1 (enum machine_mode outer_mode,
-	      enum machine_mode inner_mode,
+subreg_lsb_1 (machine_mode outer_mode,
+	      machine_mode inner_mode,
 	      unsigned int subreg_byte)
 {
   unsigned int bitpos;
@@ -3425,8 +3340,8 @@ subreg_lsb (const_rtx x)
    use simplify_subreg_regno.  */
 
 void
-subreg_get_info (unsigned int xregno, enum machine_mode xmode,
-		 unsigned int offset, enum machine_mode ymode,
+subreg_get_info (unsigned int xregno, machine_mode xmode,
+		 unsigned int offset, machine_mode ymode,
 		 struct subreg_info *info)
 {
   int nregs_xmode, nregs_ymode;
@@ -3443,7 +3358,7 @@ subreg_get_info (unsigned int xregno, enum machine_mode xmode,
      that it is made up of its units concatenated together.  */
   if (HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode))
     {
-      enum machine_mode xmode_unit;
+      machine_mode xmode_unit;
 
       nregs_xmode = HARD_REGNO_NREGS_WITH_PADDING (xregno, xmode);
       if (GET_MODE_INNER (xmode) == VOIDmode)
@@ -3525,6 +3440,22 @@ subreg_get_info (unsigned int xregno, enum machine_mode xmode,
 	  info->offset = offset / regsize_xmode;
 	  return;
 	}
+      /* Quick exit for the simple and common case of extracting whole
+	 subregisters from a multiregister value.  */
+      /* ??? It would be better to integrate this into the code below,
+	 if we can generalize the concept enough and figure out how
+	 odd-sized modes can coexist with the other weird cases we support.  */
+      if (!rknown
+	  && WORDS_BIG_ENDIAN == REG_WORDS_BIG_ENDIAN
+	  && regsize_xmode == regsize_ymode
+	  && (offset % regsize_ymode) == 0)
+	{
+	  info->representable_p = true;
+	  info->nregs = nregs_ymode;
+	  info->offset = offset / regsize_ymode;
+	  gcc_assert (info->offset + info->nregs <= nregs_xmode);
+	  return;
+	}
     }
 
   /* Lowpart subregs are otherwise valid.  */
@@ -3592,8 +3523,8 @@ subreg_get_info (unsigned int xregno, enum machine_mode xmode,
    ymode  - The mode of a top level SUBREG (or what may become one).
    RETURN - The regno offset which would be used.  */
 unsigned int
-subreg_regno_offset (unsigned int xregno, enum machine_mode xmode,
-		     unsigned int offset, enum machine_mode ymode)
+subreg_regno_offset (unsigned int xregno, machine_mode xmode,
+		     unsigned int offset, machine_mode ymode)
 {
   struct subreg_info info;
   subreg_get_info (xregno, xmode, offset, ymode, &info);
@@ -3608,8 +3539,8 @@ subreg_regno_offset (unsigned int xregno, enum machine_mode xmode,
    ymode  - The mode of a top level SUBREG (or what may become one).
    RETURN - Whether the offset is representable.  */
 bool
-subreg_offset_representable_p (unsigned int xregno, enum machine_mode xmode,
-			       unsigned int offset, enum machine_mode ymode)
+subreg_offset_representable_p (unsigned int xregno, machine_mode xmode,
+			       unsigned int offset, machine_mode ymode)
 {
   struct subreg_info info;
   subreg_get_info (xregno, xmode, offset, ymode, &info);
@@ -3625,8 +3556,8 @@ subreg_offset_representable_p (unsigned int xregno, enum machine_mode xmode,
    XREGNO is a hard register number.  */
 
 int
-simplify_subreg_regno (unsigned int xregno, enum machine_mode xmode,
-		       unsigned int offset, enum machine_mode ymode)
+simplify_subreg_regno (unsigned int xregno, machine_mode xmode,
+		       unsigned int offset, machine_mode ymode)
 {
   struct subreg_info info;
   unsigned int yregno;
@@ -3989,7 +3920,7 @@ get_full_rtx_cost (rtx x, enum rtx_code outer, int opno,
    be returned.  */
 
 int
-address_cost (rtx x, enum machine_mode mode, addr_space_t as, bool speed)
+address_cost (rtx x, machine_mode mode, addr_space_t as, bool speed)
 {
   /* We may be asked for cost of various unusual addresses, such as operands
      of push instruction.  It is not worthwhile to complicate writing
@@ -4004,20 +3935,20 @@ address_cost (rtx x, enum machine_mode mode, addr_space_t as, bool speed)
 /* If the target doesn't override, compute the cost as with arithmetic.  */
 
 int
-default_address_cost (rtx x, enum machine_mode, addr_space_t, bool speed)
+default_address_cost (rtx x, machine_mode, addr_space_t, bool speed)
 {
   return rtx_cost (x, MEM, 0, speed);
 }
 
 
 unsigned HOST_WIDE_INT
-nonzero_bits (const_rtx x, enum machine_mode mode)
+nonzero_bits (const_rtx x, machine_mode mode)
 {
   return cached_nonzero_bits (x, mode, NULL_RTX, VOIDmode, 0);
 }
 
 unsigned int
-num_sign_bit_copies (const_rtx x, enum machine_mode mode)
+num_sign_bit_copies (const_rtx x, machine_mode mode)
 {
   return cached_num_sign_bit_copies (x, mode, NULL_RTX, VOIDmode, 0);
 }
@@ -4027,8 +3958,8 @@ num_sign_bit_copies (const_rtx x, enum machine_mode mode)
    identical subexpressions on the first or the second level.  */
 
 static unsigned HOST_WIDE_INT
-cached_nonzero_bits (const_rtx x, enum machine_mode mode, const_rtx known_x,
-		     enum machine_mode known_mode,
+cached_nonzero_bits (const_rtx x, machine_mode mode, const_rtx known_x,
+		     machine_mode known_mode,
 		     unsigned HOST_WIDE_INT known_ret)
 {
   if (x == known_x && mode == known_mode)
@@ -4080,14 +4011,14 @@ cached_nonzero_bits (const_rtx x, enum machine_mode mode, const_rtx known_x,
    an arithmetic operation, we can do better.  */
 
 static unsigned HOST_WIDE_INT
-nonzero_bits1 (const_rtx x, enum machine_mode mode, const_rtx known_x,
-	       enum machine_mode known_mode,
+nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
+	       machine_mode known_mode,
 	       unsigned HOST_WIDE_INT known_ret)
 {
   unsigned HOST_WIDE_INT nonzero = GET_MODE_MASK (mode);
   unsigned HOST_WIDE_INT inner_nz;
   enum rtx_code code;
-  enum machine_mode inner_mode;
+  machine_mode inner_mode;
   unsigned int mode_width = GET_MODE_PRECISION (mode);
 
   /* For floating-point and vector values, assume all bits are needed.  */
@@ -4435,7 +4366,7 @@ nonzero_bits1 (const_rtx x, enum machine_mode mode, const_rtx known_x,
 	  && INTVAL (XEXP (x, 1)) < HOST_BITS_PER_WIDE_INT
 	  && INTVAL (XEXP (x, 1)) < GET_MODE_PRECISION (GET_MODE (x)))
 	{
-	  enum machine_mode inner_mode = GET_MODE (x);
+	  machine_mode inner_mode = GET_MODE (x);
 	  unsigned int width = GET_MODE_PRECISION (inner_mode);
 	  int count = INTVAL (XEXP (x, 1));
 	  unsigned HOST_WIDE_INT mode_mask = GET_MODE_MASK (inner_mode);
@@ -4538,8 +4469,8 @@ nonzero_bits1 (const_rtx x, enum machine_mode mode, const_rtx known_x,
    first or the second level.  */
 
 static unsigned int
-cached_num_sign_bit_copies (const_rtx x, enum machine_mode mode, const_rtx known_x,
-			    enum machine_mode known_mode,
+cached_num_sign_bit_copies (const_rtx x, machine_mode mode, const_rtx known_x,
+			    machine_mode known_mode,
 			    unsigned int known_ret)
 {
   if (x == known_x && mode == known_mode)
@@ -4589,8 +4520,8 @@ cached_num_sign_bit_copies (const_rtx x, enum machine_mode mode, const_rtx known
    be between 1 and the number of bits in MODE.  */
 
 static unsigned int
-num_sign_bit_copies1 (const_rtx x, enum machine_mode mode, const_rtx known_x,
-		      enum machine_mode known_mode,
+num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
+		      machine_mode known_mode,
 		      unsigned int known_ret)
 {
   enum rtx_code code = GET_CODE (x);
@@ -5017,6 +4948,26 @@ insn_rtx_cost (rtx pat, bool speed)
   return cost > 0 ? cost : COSTS_N_INSNS (1);
 }
 
+/* Returns estimate on cost of computing SEQ.  */
+
+unsigned
+seq_cost (const rtx_insn *seq, bool speed)
+{
+  unsigned cost = 0;
+  rtx set;
+
+  for (; seq; seq = NEXT_INSN (seq))
+    {
+      set = single_set (seq);
+      if (set)
+        cost += set_rtx_cost (set, speed);
+      else
+        cost++;
+    }
+
+  return cost;
+}
+
 /* Given an insn INSN and condition COND, return the condition in a
    canonical form to simplify testing by callers.  Specifically:
 
@@ -5055,7 +5006,7 @@ canonicalize_condition (rtx_insn *insn, rtx cond, int reverse,
   rtx tem;
   rtx op0, op1;
   int reverse_code = 0;
-  enum machine_mode mode;
+  machine_mode mode;
   basic_block bb = BLOCK_FOR_INSN (insn);
 
   code = GET_CODE (cond);
@@ -5138,7 +5089,7 @@ canonicalize_condition (rtx_insn *insn, rtx cond, int reverse,
 	 relevant.  */
       if (set)
 	{
-	  enum machine_mode inner_mode = GET_MODE (SET_DEST (set));
+	  machine_mode inner_mode = GET_MODE (SET_DEST (set));
 #ifdef FLOAT_STORE_FLAG_VALUE
 	  REAL_VALUE_TYPE fsfv;
 #endif
@@ -5352,14 +5303,14 @@ get_condition (rtx_insn *jump, rtx_insn **earliest, int allow_cc_mode,
 static void
 init_num_sign_bit_copies_in_rep (void)
 {
-  enum machine_mode mode, in_mode;
+  machine_mode mode, in_mode;
 
   for (in_mode = GET_CLASS_NARROWEST_MODE (MODE_INT); in_mode != VOIDmode;
        in_mode = GET_MODE_WIDER_MODE (mode))
     for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != in_mode;
 	 mode = GET_MODE_WIDER_MODE (mode))
       {
-	enum machine_mode i;
+	machine_mode i;
 
 	/* Currently, it is assumed that TARGET_MODE_REP_EXTENDED
 	   extends to the next widest mode.  */
@@ -5370,7 +5321,7 @@ init_num_sign_bit_copies_in_rep (void)
 	   have to be copies of the sign-bit.  */
 	for (i = mode; i != in_mode; i = GET_MODE_WIDER_MODE (i))
 	  {
-	    enum machine_mode wider = GET_MODE_WIDER_MODE (i);
+	    machine_mode wider = GET_MODE_WIDER_MODE (i);
 
 	    if (targetm.mode_rep_extended (i, wider) == SIGN_EXTEND
 		/* We can only check sign-bit copies starting from the
@@ -5389,7 +5340,7 @@ init_num_sign_bit_copies_in_rep (void)
    assume it already contains a truncated value of MODE.  */
 
 bool
-truncated_to_mode (enum machine_mode mode, const_rtx x)
+truncated_to_mode (machine_mode mode, const_rtx x)
 {
   /* This register has already been used in MODE without explicit
      truncation.  */
@@ -5440,17 +5391,13 @@ setup_reg_subrtx_bounds (unsigned int code)
   return true;
 }
 
-/* Initialize non_rtx_starting_operands, which is used to speed up
-   for_each_rtx, and rtx_all_subrtx_bounds.  */
+/* Initialize rtx_all_subrtx_bounds.  */
 void
 init_rtlanal (void)
 {
   int i;
   for (i = 0; i < NUM_RTX_CODE; i++)
     {
-      const char *format = GET_RTX_FORMAT (i);
-      const char *first = strpbrk (format, "eEV");
-      non_rtx_starting_operands[i] = first ? first - format : -1;
       if (!setup_reg_subrtx_bounds (i))
 	rtx_all_subrtx_bounds[i].count = UCHAR_MAX;
       if (GET_RTX_CLASS (i) != RTX_CONST_OBJ)
@@ -5473,7 +5420,7 @@ constant_pool_constant_p (rtx x)
    M is used in machine mode MODE.  */
 
 int
-low_bitmask_len (enum machine_mode mode, unsigned HOST_WIDE_INT m)
+low_bitmask_len (machine_mode mode, unsigned HOST_WIDE_INT m)
 {
   if (mode != VOIDmode)
     {
@@ -5487,10 +5434,10 @@ low_bitmask_len (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 
 /* Return the mode of MEM's address.  */
 
-enum machine_mode
+machine_mode
 get_address_mode (rtx mem)
 {
-  enum machine_mode mode;
+  machine_mode mode;
 
   gcc_assert (MEM_P (mem));
   mode = GET_MODE (XEXP (mem, 0));
@@ -5669,7 +5616,7 @@ lsb_bitfield_op_p (rtx x)
 {
   if (GET_RTX_CLASS (GET_CODE (x)) == RTX_BITFIELD_OPS)
     {
-      enum machine_mode mode = GET_MODE (XEXP (x, 0));
+      machine_mode mode = GET_MODE (XEXP (x, 0));
       HOST_WIDE_INT len = INTVAL (XEXP (x, 1));
       HOST_WIDE_INT pos = INTVAL (XEXP (x, 2));
 
@@ -5740,7 +5687,8 @@ get_base_term (rtx *inner)
     inner = strip_address_mutations (&XEXP (*inner, 0));
   if (REG_P (*inner)
       || MEM_P (*inner)
-      || GET_CODE (*inner) == SUBREG)
+      || GET_CODE (*inner) == SUBREG
+      || GET_CODE (*inner) == SCRATCH)
     return inner;
   return 0;
 }
@@ -5756,7 +5704,8 @@ get_index_term (rtx *inner)
     inner = strip_address_mutations (&XEXP (*inner, 0));
   if (REG_P (*inner)
       || MEM_P (*inner)
-      || GET_CODE (*inner) == SUBREG)
+      || GET_CODE (*inner) == SUBREG
+      || GET_CODE (*inner) == SCRATCH)
     return inner;
   return 0;
 }
@@ -5876,7 +5825,7 @@ extract_plus_operands (rtx *loc, rtx **ptr, rtx **end)
    MODE, AS, OUTER_CODE and INDEX_CODE are as for ok_for_base_p_1.  */
 
 static int
-baseness (rtx x, enum machine_mode mode, addr_space_t as,
+baseness (rtx x, machine_mode mode, addr_space_t as,
 	  enum rtx_code outer_code, enum rtx_code index_code)
 {
   /* Believe *_POINTER unless the address shape requires otherwise.  */
@@ -5982,7 +5931,7 @@ decompose_normal_address (struct address_info *info)
    OUTER_CODE is MEM if *LOC is a MEM address and ADDRESS otherwise.  */
 
 void
-decompose_address (struct address_info *info, rtx *loc, enum machine_mode mode,
+decompose_address (struct address_info *info, rtx *loc, machine_mode mode,
 		   addr_space_t as, enum rtx_code outer_code)
 {
   memset (info, 0, sizeof (*info));

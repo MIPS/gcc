@@ -1,5 +1,5 @@
 /* Standard problems for dataflow support routines.
-   Copyright (C) 1999-2014 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -29,11 +29,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "insn-config.h"
 #include "recog.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "regs.h"
 #include "alloc-pool.h"
 #include "flags.h"
-#include "hard-reg-set.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "sbitmap.h"
 #include "bitmap.h"
@@ -2416,7 +2425,7 @@ df_word_lr_mark_ref (df_ref ref, bool is_set, regset live)
 {
   rtx orig_reg = DF_REF_REG (ref);
   rtx reg = orig_reg;
-  enum machine_mode reg_mode;
+  machine_mode reg_mode;
   unsigned regno;
   /* Left at -1 for whole accesses.  */
   int which_subword = -1;

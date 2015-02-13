@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -22,12 +22,30 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
-#include "hashtab.h"
 #include "timevar.h"
 #include "debug.h"
 #include "target.h"
@@ -37,11 +55,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "gimple.h"
 #include "lto-streamer.h"
-#include "hash-set.h"
+#include "context.h"
+#include "omp-low.h"
 
-const char * const tls_model_names[]={"none", "tls-emulated", "tls-real",
-				      "tls-global-dynamic", "tls-local-dynamic",
-				      "tls-initial-exec", "tls-local-exec"};
+const char * const tls_model_names[]={"none", "emulated",
+				      "global-dynamic", "local-dynamic",
+				      "initial-exec", "local-exec"};
 
 /* List of hooks triggered on varpool_node events.  */
 struct varpool_node_hook_list {
@@ -153,6 +172,19 @@ varpool_node::get_create (tree decl)
 
   node = varpool_node::create_empty ();
   node->decl = decl;
+
+  if ((flag_openacc || flag_openmp)
+      && lookup_attribute ("omp declare target", DECL_ATTRIBUTES (decl)))
+    {
+      node->offloadable = 1;
+#ifdef ENABLE_OFFLOADING
+      g->have_offload = true;
+      if (!in_lto_p)
+	vec_safe_push (offload_vars, decl);
+      node->force_output = 1;
+#endif
+    }
+
   node->register_symbol ();
   return node;
 }
@@ -163,7 +195,6 @@ void
 varpool_node::remove (void)
 {
   symtab->call_varpool_removal_hooks (this);
-  unregister ();
 
   /* When streaming we can have multiple nodes associated with decl.  */
   if (symtab->state == LTO_STREAMING)
@@ -173,6 +204,8 @@ varpool_node::remove (void)
   else if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node
 	   && !ctor_useable_for_folding_p ())
     remove_initializer ();
+
+  unregister ();
   ggc_free (this);
 }
 
@@ -210,6 +243,8 @@ varpool_node::dump (FILE *f)
     fprintf (f, " output");
   if (used_by_single_function)
     fprintf (f, " used-by-single-function");
+  if (need_bounds_init)
+    fprintf (f, " need-bounds-init");
   if (TREE_READONLY (decl))
     fprintf (f, " read-only");
   if (ctor_useable_for_folding_p ())
@@ -217,7 +252,7 @@ varpool_node::dump (FILE *f)
   if (writeonly)
     fprintf (f, " write-only");
   if (tls_model)
-    fprintf (f, " %s", tls_model_names [tls_model]);
+    fprintf (f, " tls-%s", tls_model_names [tls_model]);
   fprintf (f, "\n");
 }
 
@@ -282,7 +317,7 @@ varpool_node::get_constructor (void)
   data = lto_get_section_data (file_data, LTO_section_function_body,
 			       name, &len);
   if (!data)
-    fatal_error ("%s: section %s is missing",
+    fatal_error (input_location, "%s: section %s is missing",
 		 file_data->file_name,
 		 name);
 
@@ -377,6 +412,12 @@ ctor_for_folding (tree decl)
 
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != CONST_DECL)
+    return error_mark_node;
+
+  /* Static constant bounds are created to be
+     used instead of constants and therefore
+     do not let folding it.  */
+  if (POINTER_BOUNDS_P (decl))
     return error_mark_node;
 
   if (TREE_CODE (decl) == CONST_DECL
@@ -688,6 +729,9 @@ symbol_table::output_variables (void)
 
   timevar_push (TV_VAROUT);
 
+  FOR_EACH_VARIABLE (node)
+    if (!node->definition)
+      assemble_undefined_decl (node->decl);
   FOR_EACH_DEFINED_VARIABLE (node)
     {
       /* Handled in output_in_order.  */
@@ -716,7 +760,7 @@ add_new_static_var (tree type)
   tree new_decl;
   varpool_node *new_node;
 
-  new_decl = create_tmp_var_raw (type, NULL);
+  new_decl = create_tmp_var_raw (type);
   DECL_NAME (new_decl) = create_tmp_var_name (NULL);
   TREE_READONLY (new_decl) = 0;
   TREE_STATIC (new_decl) = 1;

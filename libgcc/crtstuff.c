@@ -1,6 +1,6 @@
 /* Specialized bits of code needed to support construction and
    destruction of file-scope objects in C++ code.
-   Copyright (C) 1991-2014 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com).
 
 This file is part of GCC.
@@ -393,13 +393,11 @@ __do_global_dtors_aux (void)
     extern func_ptr __DTOR_END__[] __attribute__((visibility ("hidden")));
     static size_t dtor_idx;
     const size_t max_idx = __DTOR_END__ - __DTOR_LIST__ - 1;
-    func_ptr f;
+    func_ptr *dtor_list;
 
+    __asm ("" : "=g" (dtor_list) : "0" (__DTOR_LIST__));
     while (dtor_idx < max_idx)
-      {
-	f = __DTOR_LIST__[++dtor_idx];
-	f ();
-      }
+      dtor_list[++dtor_idx] ();
   }
 #else /* !defined (FINI_ARRAY_SECTION_ASM_OP) */
   {
@@ -582,7 +580,7 @@ __do_global_ctors_1(void)
 #endif
 
 #ifdef __LIBGCC_JCR_SECTION_NAME__
-  void **jcr_list
+  void **jcr_list;
   __asm ("" : "=g" (jcr_list) : "0" (__JCR_LIST__));
   if (__builtin_expect (*jcr_list != NULL, 0))
     {

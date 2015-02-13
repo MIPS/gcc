@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -559,6 +559,12 @@ package body Sem_Disp is
                 ((Nkind (Parent (Current_Scope)) = N_Procedure_Specification
                    and then Null_Present (Parent (Current_Scope)))
                  or else Is_Abstract_Subprogram (Current_Scope))
+            then
+               null;
+
+            elsif Ekind (Current_Scope) = E_Function
+              and then Nkind (Unit_Declaration_Node (Current_Scope)) =
+                                          N_Generic_Subprogram_Declaration
             then
                null;
 
@@ -2098,10 +2104,7 @@ package body Sem_Disp is
                      and then
                        Is_Interface (Find_Dispatching_Type (Parent_Op)));
 
-               if Is_Subprogram         (Parent_Op)
-                    or else
-                  Is_Generic_Subprogram (Parent_Op)
-               then
+               if Is_Subprogram_Or_Generic_Subprogram (Parent_Op) then
                   Store_IS (Parent_Op);
                end if;
             end loop;
@@ -2134,10 +2137,7 @@ package body Sem_Disp is
                      --  The following test eliminates some odd cases in which
                      --  Ekind (Prim) is Void, to be investigated further ???
 
-                     if not (Is_Subprogram         (Prim)
-                                or else
-                             Is_Generic_Subprogram (Prim))
-                     then
+                     if not Is_Subprogram_Or_Generic_Subprogram (Prim) then
                         null;
 
                      --  For [generic] subprogram, look at interface alias
@@ -2168,8 +2168,24 @@ package body Sem_Disp is
    begin
       if Nkind (N) = N_Error then
          return False;
+
+      elsif Present (Find_Controlling_Arg (N)) then
+         return True;
+
+      --  Special cases: entities, and calls that dispatch on result
+
+      elsif Is_Entity_Name (N) then
+         return Is_Class_Wide_Type (Etype (N));
+
+      elsif Nkind (N) = N_Function_Call
+         and then Is_Class_Wide_Type (Etype (N))
+      then
+         return True;
+
+      --  Otherwise check whether call has controlling argument
+
       else
-         return Find_Controlling_Arg (N) /= Empty;
+         return False;
       end if;
    end Is_Dynamically_Tagged;
 

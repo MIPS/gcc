@@ -1,5 +1,5 @@
 /* Prototypes for exported functions of Andes NDS32 cpu for GNU compiler
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Andes Technology Corporation.
 
    This file is part of GCC.
@@ -30,8 +30,8 @@ extern void nds32_init_expanders (void);
 
 /* -- How Values Fit in Registers.  */
 
-extern int nds32_hard_regno_nregs (int, enum machine_mode);
-extern int nds32_hard_regno_mode_ok (int, enum machine_mode);
+extern int nds32_hard_regno_nregs (int, machine_mode);
+extern int nds32_hard_regno_mode_ok (int, machine_mode);
 
 
 /* Register Classes.  */
@@ -58,15 +58,15 @@ extern void nds32_init_cumulative_args (CUMULATIVE_ARGS *,
 /* -- Function Entry and Exit.  */
 
 extern void nds32_expand_prologue (void);
-extern void nds32_expand_epilogue (void);
+extern void nds32_expand_epilogue (bool);
 extern void nds32_expand_prologue_v3push (void);
-extern void nds32_expand_epilogue_v3pop (void);
+extern void nds32_expand_epilogue_v3pop (bool);
 
 /* ------------------------------------------------------------------------ */
 
 /* Auxiliary functions for auxiliary macros in nds32.h.  */
 
-extern bool nds32_ls_333_p (rtx, rtx, rtx, enum machine_mode);
+extern bool nds32_ls_333_p (rtx, rtx, rtx, machine_mode);
 
 /* Auxiliary functions for expanding rtl used in nds32-multiple.md.  */
 
@@ -120,6 +120,10 @@ extern const char *nds32_output_32bit_load_s (rtx *, int);
 extern const char *nds32_output_stack_push (rtx);
 extern const char *nds32_output_stack_pop (rtx);
 
+/* Auxiliary functions to check using return with null epilogue.  */
+
+extern int nds32_can_use_return_insn (void);
+
 /* Auxiliary functions to decide output alignment or not.  */
 
 extern int nds32_target_alignment (rtx);
@@ -128,7 +132,7 @@ extern int nds32_target_alignment (rtx);
 
 extern void nds32_init_builtins_impl (void);
 extern rtx nds32_expand_builtin_impl (tree, rtx, rtx,
-				      enum machine_mode, int);
+				      machine_mode, int);
 
 /* Auxiliary functions for ISR implementation.  */
 
@@ -141,6 +145,6 @@ extern bool nds32_isr_function_p (tree);
 /* Auxiliary functions for cost calculation.  */
 
 extern bool nds32_rtx_costs_impl (rtx, int, int, int, int *, bool);
-extern int nds32_address_cost_impl (rtx, enum machine_mode, addr_space_t, bool);
+extern int nds32_address_cost_impl (rtx, machine_mode, addr_space_t, bool);
 
 /* ------------------------------------------------------------------------ */

@@ -1,5 +1,5 @@
 /* Header file for loop interation estimates.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TREE_SSA_LOOP_NITER_H
 #define GCC_TREE_SSA_LOOP_NITER_H
 
-extern tree expand_simple_operations (tree);
+extern tree expand_simple_operations (tree, tree = NULL);
 extern bool loop_only_exit_p (const struct loop *, const_edge);
 extern bool number_of_iterations_exit (struct loop *, edge,
 				       struct tree_niter_desc *niter, bool,

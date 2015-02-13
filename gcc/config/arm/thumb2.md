@@ -1,5 +1,5 @@
 ;; ARM Thumb-2 Machine Description
-;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2015 Free Software Foundation, Inc.
 ;; Written by CodeSourcery, LLC.
 ;;
 ;; This file is part of GCC.
@@ -267,6 +267,17 @@
    (set_attr "type" "multiple")]
 )
 
+;; Pop a single register as its size is preferred over a post-incremental load
+(define_insn "*thumb2_pop_single"
+  [(set (match_operand:SI 0 "low_register_operand" "=r")
+        (mem:SI (post_inc:SI (reg:SI SP_REGNUM))))]
+  "TARGET_THUMB2 && (reload_in_progress || reload_completed)"
+  "pop\t{%0}"
+  [(set_attr "type" "load1")
+   (set_attr "length" "2")
+   (set_attr "predicable" "yes")]
+)
+
 ;; We have two alternatives here for memory loads (and similarly for stores)
 ;; to reflect the fact that the permissible constant pool ranges differ
 ;; between ldr instructions taking low regs and ldr instructions taking high
@@ -416,7 +427,7 @@
                    (const_int 0)))]
   {
     operands[3] = GEN_INT (~0);
-    enum machine_mode mode = GET_MODE (operands[2]);
+    machine_mode mode = GET_MODE (operands[2]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
     if (mode == CCFPmode || mode == CCFPEmode)
@@ -503,7 +514,7 @@
   [(const_int 0)]
   {
     enum rtx_code rev_code;
-    enum machine_mode mode;
+    machine_mode mode;
     rtx rev_cond;
 
     emit_insn (gen_rtx_COND_EXEC (VOIDmode,
@@ -595,7 +606,7 @@
         (and:SI (match_dup 3) (const_int 1)))
    (cond_exec (match_dup 4) (set (match_dup 0) (const_int 0)))]
   {
-    enum machine_mode mode = GET_MODE (operands[2]);
+    machine_mode mode = GET_MODE (operands[2]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
     if (mode == CCFPmode || mode == CCFPEmode)
@@ -627,7 +638,7 @@
     (cond_exec (match_dup 4) (set (match_dup 0)
                                   (ior:SI (match_dup 3) (const_int 1))))]
   {
-    enum machine_mode mode = GET_MODE (operands[2]);
+    machine_mode mode = GET_MODE (operands[2]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
     operands[4] = gen_rtx_fmt_ee (rc, VOIDmode, operands[2], const0_rtx);
@@ -891,7 +902,7 @@
       {
        /* Emit:  cmp\\t%1, %2\;mvn\\t%0, #0\;it\\t%D3\;mov%D3\\t%0, #0\;*/
        enum rtx_code rc = reverse_condition (GET_CODE (operands[3]));
-       enum machine_mode mode = SELECT_CC_MODE (rc, operands[1], operands[2]);
+       machine_mode mode = SELECT_CC_MODE (rc, operands[1], operands[2]);
        rtx tmp1 = gen_rtx_REG (mode, CC_REGNUM);
 
        emit_insn (gen_rtx_SET (VOIDmode,

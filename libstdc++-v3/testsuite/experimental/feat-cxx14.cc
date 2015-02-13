@@ -78,11 +78,11 @@
 #  error "__cpp_lib_complex_udls != 201309"
 #endif
 
-#ifndef  __cpp_lib_generic_associative_lookup
-#  error "__cpp_lib_generic_associative_lookup"
-#elif  __cpp_lib_generic_associative_lookup != 201304
-#  error "__cpp_lib_generic_associative_lookup != 201304"
-#endif
+//#ifndef  __cpp_lib_generic_associative_lookup
+//#  error "__cpp_lib_generic_associative_lookup"
+//#elif  __cpp_lib_generic_associative_lookup != 201304
+//#  error "__cpp_lib_generic_associative_lookup != 201304"
+//#endif
 
 //#ifndef  __cpp_lib_null_iterators
 //#  error "__cpp_lib_null_iterators"
@@ -106,8 +106,16 @@
 #  error "<shared_mutex>"
 #endif
 
-#ifndef  __cpp_lib_shared_timed_mutex
-#  error "__cpp_lib_shared_timed_mutex"
-#elif  __cpp_lib_shared_timed_mutex != 201402
-#  error "__cpp_lib_shared_timed_mutex != 201402"
+#if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)
+#  ifndef  __cpp_lib_shared_timed_mutex
+#    error "__cpp_lib_shared_timed_mutex"
+#  elif  __cpp_lib_shared_timed_mutex != 201402
+#    error "__cpp_lib_shared_timed_mutex != 201402"
+#  endif
+#endif
+
+#ifndef  __cpp_lib_is_final
+#  error "__cpp_lib_is_final"
+#elif  __cpp_lib_is_final != 201402
+#  error "__cpp_lib_is_final != 201402"
 #endif

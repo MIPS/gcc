@@ -4,6 +4,7 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "gcc-plugin.h"
 #include "tm.h"
 #include "tree.h"
 #include "toplev.h"
@@ -11,7 +12,6 @@
 #include "hash-table.h"
 #include "vec.h"
 #include "ggc.h"
-#include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -22,7 +22,6 @@
 #include "tree.h"
 #include "tree-pass.h"
 #include "intl.h"
-#include "gcc-plugin.h"
 #include "plugin-version.h"
 #include "diagnostic.h"
 

@@ -1,5 +1,5 @@
 /* Implement classes and message passing for Objective C.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
    Contributed by Steve Naroff.
 
 This file is part of GCC.
@@ -22,7 +22,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "attribs.h"
@@ -43,12 +54,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "objc-act.h"
 #include "objc-map.h"
 #include "input.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "toplev.h"
 #include "debug.h"
 #include "c-family/c-target.h"
 #include "diagnostic-core.h"
 #include "intl.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "hash-table.h"
@@ -253,7 +269,7 @@ vec<tree, va_gc> *local_variables_to_volatilize = NULL;
 /* Store all constructed constant strings in a hash table so that
    they get uniqued properly.  */
 
-struct GTY(()) string_descriptor {
+struct GTY((for_user)) string_descriptor {
   /* The literal argument .  */
   tree literal;
 
@@ -261,7 +277,13 @@ struct GTY(()) string_descriptor {
   tree constructor;
 };
 
-static GTY((param_is (struct string_descriptor))) htab_t string_htab;
+struct objc_string_hasher : ggc_hasher<string_descriptor *>
+{
+  static hashval_t hash (string_descriptor *);
+  static bool equal (string_descriptor *, string_descriptor *);
+};
+
+static GTY(()) hash_table<objc_string_hasher> *string_htab;
 
 FILE *gen_declaration_file;
 
@@ -463,7 +485,7 @@ objc_write_global_declarations (void)
 	  char * const dumpname = concat (dump_base_name, ".decl", NULL);
 	  gen_declaration_file = fopen (dumpname, "w");
 	  if (gen_declaration_file == 0)
-	    fatal_error ("can%'t open %s: %m", dumpname);
+	    fatal_error (input_location, "can%'t open %s: %m", dumpname);
 	  free (dumpname);
 	}
 
@@ -2016,7 +2038,8 @@ objc_add_method_declaration (bool is_class_method, tree decl, tree attributes)
 	 impossible to get here.  But it's good to have the check in
 	 case the parser changes.
       */
-      fatal_error ("method declaration not in @interface context");
+      fatal_error (input_location,
+		   "method declaration not in @interface context");
     }
 
   if (flag_objc1_only && attributes)
@@ -2841,7 +2864,7 @@ check_protocol_recursively (tree proto, tree list)
 			      /* definition_required */ false);
 
       if (pp == proto)
-	fatal_error ("protocol %qE has circular dependency",
+	fatal_error (input_location, "protocol %qE has circular dependency",
 		     PROTOCOL_NAME (pp));
       if (pp)
 	check_protocol_recursively (proto, PROTOCOL_LIST (pp));
@@ -3107,10 +3130,10 @@ my_build_string_pointer (int len, const char *str)
   return build1 (ADDR_EXPR, ptrtype, string);
 }
 
-static hashval_t
-string_hash (const void *ptr)
+hashval_t
+objc_string_hasher::hash (string_descriptor *ptr)
 {
-  const_tree const str = ((const struct string_descriptor *)ptr)->literal;
+  const_tree const str = ptr->literal;
   const unsigned char *p = (const unsigned char *) TREE_STRING_POINTER (str);
   int i, len = TREE_STRING_LENGTH (str);
   hashval_t h = len;
@@ -3121,11 +3144,11 @@ string_hash (const void *ptr)
   return h;
 }
 
-static int
-string_eq (const void *ptr1, const void *ptr2)
+bool
+objc_string_hasher::equal (string_descriptor *ptr1, string_descriptor *ptr2)
 {
-  const_tree const str1 = ((const struct string_descriptor *)ptr1)->literal;
-  const_tree const str2 = ((const struct string_descriptor *)ptr2)->literal;
+  const_tree const str1 = ptr1->literal;
+  const_tree const str2 = ptr2->literal;
   int len1 = TREE_STRING_LENGTH (str1);
 
   return (len1 == TREE_STRING_LENGTH (str2)
@@ -3147,7 +3170,6 @@ objc_build_string_object (tree string)
   int length;
   tree addr;
   struct string_descriptor *desc, key;
-  void **loc;
 
   /* We should be passed a STRING_CST.  */
   gcc_checking_assert (TREE_CODE (string) == STRING_CST);
@@ -3198,8 +3220,8 @@ objc_build_string_object (tree string)
 
   /* Perhaps we already constructed a constant string just like this one? */
   key.literal = string;
-  loc = htab_find_slot (string_htab, &key, INSERT);
-  desc = (struct string_descriptor *) *loc;
+  string_descriptor **loc = string_htab->find_slot (&key, INSERT);
+  desc = *loc;
 
   if (!desc)
     {
@@ -5776,8 +5798,7 @@ hash_init (void)
   alias_name_map = objc_map_alloc_ggc (200);
 
   /* Initialize the hash table used to hold the constant string objects.  */
-  string_htab = htab_create_ggc (31, string_hash,
-				   string_eq, NULL);
+  string_htab = hash_table<objc_string_hasher>::create_ggc (31);
 }
 
 /* Use the following to add a method to class_method_map or

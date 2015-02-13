@@ -2663,12 +2663,19 @@ package body Sem_Aggr is
 
       function Valid_Limited_Ancestor (Anc : Node_Id) return Boolean is
       begin
-         if Is_Entity_Name (Anc)
-           and then Is_Type (Entity (Anc))
+         if Is_Entity_Name (Anc) and then Is_Type (Entity (Anc)) then
+            return True;
+
+         --  The ancestor must be a call or an aggregate, but a call may
+         --  have been expanded into a temporary, so check original node.
+
+         elsif Nkind_In (Anc, N_Aggregate,
+                              N_Extension_Aggregate,
+                              N_Function_Call)
          then
             return True;
 
-         elsif Nkind_In (Anc, N_Aggregate, N_Function_Call) then
+         elsif Nkind (Original_Node (Anc)) = N_Function_Call then
             return True;
 
          elsif Nkind (Anc) = N_Attribute_Reference
@@ -3220,17 +3227,48 @@ package body Sem_Aggr is
                         if Present (Others_Etype)
                           and then Base_Type (Others_Etype) /= Base_Type (Typ)
                         then
-                           Error_Msg_N
-                             ("components in OTHERS choice must "
-                              & "have same type", Selector_Name);
+                           --  If the components are of an anonymous access
+                           --  type they are distinct, but this is legal in
+                           --  Ada 2012 as long as designated types match.
+
+                           if (Ekind (Typ) = E_Anonymous_Access_Type
+                                or else Ekind (Typ) =
+                                            E_Anonymous_Access_Subprogram_Type)
+                             and then Designated_Type (Typ) =
+                                            Designated_Type (Others_Etype)
+                           then
+                              null;
+                           else
+                              Error_Msg_N
+                                ("components in OTHERS choice must "
+                                 & "have same type", Selector_Name);
+                           end if;
                         end if;
 
                         Others_Etype := Typ;
 
-                        if Expander_Active then
+                        --  Copy expression so that it is resolved
+                        --  independently for each component, This is needed
+                        --  for accessibility checks on compoents of anonymous
+                        --  access types, even in compile_only mode.
+
+                        if not Inside_A_Generic then
+
+                           --  In ASIS mode, preanalyze the expression in an
+                           --  others association before making copies for
+                           --  separate resolution and accessibility checks.
+                           --  This ensures that the type of the expression is
+                           --  available to ASIS in all cases, in particular if
+                           --  the expression is itself an aggregate.
+
+                           if ASIS_Mode then
+                              Preanalyze_And_Resolve (Expression (Assoc), Typ);
+                           end if;
+
                            return
                              New_Copy_Tree_And_Copy_Dimensions
                                (Expression (Assoc));
+
                         else
                            return Expression (Assoc);
                         end if;
@@ -3946,6 +3984,13 @@ package body Sem_Aggr is
                      Governed_By   => New_Assoc_List,
                      Into          => Components,
                      Report_Errors => Errors_Found);
+
+                  if Errors_Found then
+                     Error_Msg_N
+                       ("discriminant controlling variant part is not static",
+                        N);
+                     return;
+                  end if;
                end if;
             end if;
 

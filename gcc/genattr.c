@@ -1,5 +1,5 @@
 /* Generate attribute information (insn-attr.h) from machine description.
-   Copyright (C) 1991-2014 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -338,7 +338,9 @@ main (int argc, char **argv)
     }
 
   /* Special-purpose attributes should be tested with if, not #ifdef.  */
-  const char * const special_attrs[] = { "length", "enabled", 0 };
+  const char * const special_attrs[] = { "length", "enabled",
+					 "preferred_for_size",
+					 "preferred_for_speed", 0 };
   for (const char * const *p = special_attrs; *p; p++)
     {
       printf ("#ifndef HAVE_ATTR_%s\n"
@@ -355,9 +357,15 @@ main (int argc, char **argv)
 	"#define insn_current_length hook_int_rtx_insn_unreachable\n"
 	"#include \"insn-addr.h\"\n"
 	"#endif\n"
-	"#if !HAVE_ATTR_enabled\n"
 	"extern int hook_int_rtx_1 (rtx);\n"
+	"#if !HAVE_ATTR_enabled\n"
 	"#define get_attr_enabled hook_int_rtx_1\n"
+	"#endif\n"
+	"#if !HAVE_ATTR_preferred_for_size\n"
+	"#define get_attr_preferred_for_size hook_int_rtx_1\n"
+	"#endif\n"
+	"#if !HAVE_ATTR_preferred_for_speed\n"
+	"#define get_attr_preferred_for_speed hook_int_rtx_1\n"
 	"#endif\n");
 
   /* Output flag masks for use by reorg.

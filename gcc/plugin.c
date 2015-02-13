@@ -1,5 +1,5 @@
 /* Support for GCC plugin mechanism.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "hash-table.h"
 #include "diagnostic-core.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "flags.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "tree-pass.h"
 #include "intl.h"
@@ -176,7 +187,8 @@ add_new_plugin (const char* plugin_name)
 			    plugin_name, ".so", NULL);
       if (access (plugin_name, R_OK))
 	fatal_error
-	  ("inaccessible plugin file %s expanded from short plugin name %s: %m",
+	  (input_location,
+	   "inaccessible plugin file %s expanded from short plugin name %s: %m",
 	   plugin_name, base_name);
     }
   else
@@ -420,10 +432,6 @@ register_callback (const char *plugin_name,
 	gcc_assert (!callback);
         ggc_register_root_tab ((const struct ggc_root_tab*) user_data);
 	break;
-      case PLUGIN_REGISTER_GGC_CACHES:
-	gcc_assert (!callback);
-        ggc_register_cache_tab ((const struct ggc_cache_tab*) user_data);
-	break;
       case PLUGIN_EVENT_FIRST_DYNAMIC:
       default:
 	if (event < PLUGIN_EVENT_FIRST_DYNAMIC || event >= event_last)
@@ -546,7 +554,6 @@ invoke_plugin_callbacks_full (int event, void *gcc_data)
 
       case PLUGIN_PASS_MANAGER_SETUP:
       case PLUGIN_REGISTER_GGC_ROOTS:
-      case PLUGIN_REGISTER_GGC_CACHES:
         gcc_assert (false);
     }
 
@@ -589,7 +596,8 @@ try_init_one_plugin (struct plugin_name_args *plugin)
 
   /* Check the plugin license.  */
   if (dlsym (dl_handle, str_license) == NULL)
-    fatal_error ("plugin %s is not licensed under a GPL-compatible license\n"
+    fatal_error (input_location,
+		 "plugin %s is not licensed under a GPL-compatible license\n"
 		 "%s", plugin->full_name, dlerror ());
 
   PTR_UNION_AS_VOID_PTR (plugin_init_union) =
@@ -887,6 +895,7 @@ const char*
 default_plugin_dir_name (void)
 {
   if (!plugindir_string)
-    fatal_error ("-iplugindir <dir> option not passed from the gcc driver");
+    fatal_error (input_location,
+		 "-iplugindir <dir> option not passed from the gcc driver");
   return plugindir_string;
 }

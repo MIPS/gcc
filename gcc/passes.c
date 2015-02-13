@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,7 +28,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "line-map.h"
 #include "input.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -42,7 +51,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "function.h"
 #include "toplev.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
+#include "predict.h"
 #include "basic-block.h"
 #include "intl.h"
 #include "graph.h"
@@ -75,7 +95,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-dump.h"
 #include "df.h"
-#include "predict.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "lto-streamer.h"
 #include "plugin.h"
 #include "ipa-utils.h"
@@ -84,7 +107,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "pass_manager.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
-#include "hash-map.h"
 
 using namespace gcc;
 
@@ -133,7 +155,9 @@ opt_pass::opt_pass (const pass_data &data, context *ctxt)
 void
 pass_manager::execute_early_local_passes ()
 {
-  execute_pass_list (cfun, pass_early_local_passes_1->sub);
+  execute_pass_list (cfun, pass_build_ssa_passes_1->sub);
+  execute_pass_list (cfun, pass_chkp_instrumentation_passes_1->sub);
+  execute_pass_list (cfun, pass_local_optimization_passes_1->sub);
 }
 
 unsigned int
@@ -325,7 +349,7 @@ finish_optimization_passes (void)
 }
 
 static unsigned int
-execute_all_early_local_passes (void)
+execute_build_ssa_passes (void)
 {
   /* Once this pass (and its sub-passes) are complete, all functions
      will be in SSA form.  Technically this state change is happening
@@ -340,10 +364,10 @@ execute_all_early_local_passes (void)
 
 namespace {
 
-const pass_data pass_data_early_local_passes =
+const pass_data pass_data_build_ssa_passes =
 {
   SIMPLE_IPA_PASS, /* type */
-  "early_local_cleanups", /* name */
+  "build_ssa_passes", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_EARLY_LOCAL, /* tv_id */
   0, /* properties_required */
@@ -355,11 +379,11 @@ const pass_data pass_data_early_local_passes =
   0, /* todo_flags_finish */
 };
 
-class pass_early_local_passes : public simple_ipa_opt_pass
+class pass_build_ssa_passes : public simple_ipa_opt_pass
 {
 public:
-  pass_early_local_passes (gcc::context *ctxt)
-    : simple_ipa_opt_pass (pass_data_early_local_passes, ctxt)
+  pass_build_ssa_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_build_ssa_passes, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -371,17 +395,87 @@ public:
 
   virtual unsigned int execute (function *)
     {
-      return execute_all_early_local_passes ();
+      return execute_build_ssa_passes ();
     }
 
-}; // class pass_early_local_passes
+}; // class pass_build_ssa_passes
+
+const pass_data pass_data_chkp_instrumentation_passes =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "chkp_passes", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_chkp_instrumentation_passes : public simple_ipa_opt_pass
+{
+public:
+  pass_chkp_instrumentation_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_chkp_instrumentation_passes, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      /* Don't bother doing anything if the program has errors.  */
+      return (!seen_error () && !in_lto_p);
+    }
+
+}; // class pass_chkp_instrumentation_passes
+
+const pass_data pass_data_local_optimization_passes =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "opt_local_passes", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_local_optimization_passes : public simple_ipa_opt_pass
+{
+public:
+  pass_local_optimization_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_local_optimization_passes, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      /* Don't bother doing anything if the program has errors.  */
+      return (!seen_error () && !in_lto_p);
+    }
+
+}; // class pass_local_optimization_passes
 
 } // anon namespace
 
 simple_ipa_opt_pass *
-make_pass_early_local_passes (gcc::context *ctxt)
+make_pass_build_ssa_passes (gcc::context *ctxt)
 {
-  return new pass_early_local_passes (ctxt);
+  return new pass_build_ssa_passes (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_chkp_instrumentation_passes (gcc::context *ctxt)
+{
+  return new pass_chkp_instrumentation_passes (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_local_optimization_passes (gcc::context *ctxt)
+{
+  return new pass_local_optimization_passes (ctxt);
 }
 
 namespace {
@@ -569,6 +663,44 @@ make_pass_postreload (gcc::context *ctxt)
   return new pass_postreload (ctxt);
 }
 
+namespace {
+
+const pass_data pass_data_late_compilation =
+{
+  RTL_PASS, /* type */
+  "*all-late_compilation", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_LATE_COMPILATION, /* tv_id */
+  PROP_rtl, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_late_compilation : public rtl_opt_pass
+{
+public:
+  pass_late_compilation (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_late_compilation, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+  {
+    return reload_completed || targetm.no_register_allocation;
+  }
+
+}; // class pass_late_compilation
+
+} // anon namespace
+
+static rtl_opt_pass *
+make_pass_late_compilation (gcc::context *ctxt)
+{
+  return new pass_late_compilation (ctxt);
+}
+
 
 
 /* Set the static pass number of pass PASS to ID and record that
@@ -659,7 +791,8 @@ pass_manager::register_one_dump_file (opt_pass *pass)
   if (optgroup_flags == OPTGROUP_NONE)
     optgroup_flags = OPTGROUP_OTHER;
   id = dumps->dump_register (dot_name, flag_name, glob_name, flags,
-			     optgroup_flags);
+			     optgroup_flags,
+			     true);
   set_pass_for_id (id, pass);
   full_name = concat (prefix, pass->name, num, NULL);
   register_pass_name (pass, full_name);
@@ -1322,14 +1455,15 @@ pass_manager::register_pass (struct register_pass_info *pass_info)
      passes should never fail these checks, so we mention plugin in
      the messages.  */
   if (!pass_info->pass)
-      fatal_error ("plugin cannot register a missing pass");
+      fatal_error (input_location, "plugin cannot register a missing pass");
 
   if (!pass_info->pass->name)
-      fatal_error ("plugin cannot register an unnamed pass");
+      fatal_error (input_location, "plugin cannot register an unnamed pass");
 
   if (!pass_info->reference_pass_name)
       fatal_error
-	("plugin cannot register pass %qs without reference pass name",
+	(input_location,
+	 "plugin cannot register pass %qs without reference pass name",
 	 pass_info->pass->name);
 
   /* Try to insert the new pass to the pass lists.  We need to check
@@ -1347,7 +1481,8 @@ pass_manager::register_pass (struct register_pass_info *pass_info)
     success |= position_pass (pass_info, &all_passes);
   if (!success)
     fatal_error
-      ("pass %qs not found but is referenced by new pass %qs",
+      (input_location,
+       "pass %qs not found but is referenced by new pass %qs",
        pass_info->reference_pass_name, pass_info->pass->name);
 
   /* OK, we have successfully inserted the new pass. We need to register
@@ -1410,6 +1545,12 @@ pass_manager::operator new (size_t sz)
   return xcalloc (1, sz);
 }
 
+void
+pass_manager::operator delete (void *ptr)
+{
+  free (ptr);
+}
+
 pass_manager::pass_manager (context *ctxt)
 : all_passes (NULL), all_small_ipa_passes (NULL), all_lowering_passes (NULL),
   all_regular_ipa_passes (NULL),
@@ -1467,6 +1608,36 @@ pass_manager::pass_manager (context *ctxt)
   register_dump_files (all_passes);
 }
 
+static void
+delete_pass_tree (opt_pass *pass)
+{
+  while (pass)
+    {
+      /* Recurse into child passes.  */
+      delete_pass_tree (pass->sub);
+
+      opt_pass *next = pass->next;
+
+      /* Delete this pass.  */
+      delete pass;
+
+      /* Iterate onto sibling passes.  */
+      pass = next;
+    }
+}
+
+pass_manager::~pass_manager ()
+{
+  XDELETEVEC (passes_by_id);
+
+  /* Call delete_pass_tree on each of the pass_lists.  */
+#define DEF_PASS_LIST(LIST) \
+    delete_pass_tree (*pass_lists[PASS_LIST_NO_##LIST]);
+  GCC_PASS_LISTS
+#undef DEF_PASS_LIST
+
+}
+
 /* If we are in IPA mode (i.e., current_function_decl is NULL), call
    function CALLBACK for every function in the call graph.  Otherwise,
    call CALLBACK on the current function.  */
@@ -1492,6 +1663,24 @@ do_per_function (void (*callback) (function *, void *data), void *data)
 static int nnodes;
 static GTY ((length ("nnodes"))) cgraph_node **order;
 
+/* Hook called when NODE is removed and therefore should be
+   excluded from order vector.  DATA is an array of integers.
+   DATA[0] holds max index it may be accessed by.  For cgraph
+   node DATA[node->uid + 1] holds index of this node in order
+   vector.  */
+static void
+remove_cgraph_node_from_order (cgraph_node *node, void *data)
+{
+  int *order_idx = (int *)data;
+
+  if (node->uid >= order_idx[0])
+    return;
+
+  int idx = order_idx[node->uid + 1];
+  if (idx >= 0 && idx < nnodes && order[idx] == node)
+    order[idx] = NULL;
+}
+
 /* If we are in IPA mode (i.e., current_function_decl is NULL), call
    function CALLBACK for every function in the call graph.  Otherwise,
    call CALLBACK on the current function.
@@ -1505,13 +1694,29 @@ do_per_function_toporder (void (*callback) (function *, void *data), void *data)
     callback (cfun, data);
   else
     {
+      cgraph_node_hook_list *hook;
+      int *order_idx;
       gcc_assert (!order);
       order = ggc_vec_alloc<cgraph_node *> (symtab->cgraph_count);
+
+      order_idx = XALLOCAVEC (int, symtab->cgraph_max_uid + 1);
+      memset (order_idx + 1, -1, sizeof (int) * symtab->cgraph_max_uid);
+      order_idx[0] = symtab->cgraph_max_uid;
+
       nnodes = ipa_reverse_postorder (order);
       for (i = nnodes - 1; i >= 0; i--)
-        order[i]->process = 1;
+	{
+	  order[i]->process = 1;
+	  order_idx[order[i]->uid + 1] = i;
+	}
+      hook = symtab->add_cgraph_removal_hook (remove_cgraph_node_from_order,
+					      order_idx);
       for (i = nnodes - 1; i >= 0; i--)
 	{
+	  /* Function could be inlined and removed as unreachable.  */
+	  if (!order[i])
+	    continue;
+
 	  struct cgraph_node *node = order[i];
 
 	  /* Allow possibly removed nodes to be garbage collected.  */
@@ -1520,6 +1725,7 @@ do_per_function_toporder (void (*callback) (function *, void *data), void *data)
 	  if (node->has_gimple_body_p ())
 	    callback (DECL_STRUCT_FUNCTION (node->decl), data);
 	}
+      symtab->remove_cgraph_removal_hook (hook);
     }
   ggc_free (order);
   order = NULL;
@@ -1814,7 +2020,7 @@ execute_todo (unsigned int flags)
   if (flags & TODO_remove_functions)
     {
       gcc_assert (!cfun);
-      symtab->remove_unreachable_nodes (true, dump_file);
+      symtab->remove_unreachable_nodes (dump_file);
     }
 
   if ((flags & TODO_dump_symtab) && dump_file && !current_function_decl)
@@ -1944,6 +2150,7 @@ execute_ipa_summary_passes (ipa_opt_pass_d *ipa_pass)
 	  if (pass->tv_id)
 	    timevar_push (pass->tv_id);
 
+	  current_pass = pass;
 	  ipa_pass->generate_summary ();
 
 	  /* Stop timevar.  */
@@ -2096,36 +2303,6 @@ execute_one_pass (opt_pass *pass)
      executed.  */
   invoke_plugin_callbacks (PLUGIN_PASS_EXECUTION, pass);
 
-  /* SIPLE IPA passes do not handle callgraphs with IPA transforms in it.
-     Apply all trnasforms first.  */
-  if (pass->type == SIMPLE_IPA_PASS)
-    {
-      struct cgraph_node *node;
-      bool applied = false;
-      FOR_EACH_DEFINED_FUNCTION (node)
-	if (node->analyzed
-	    && node->has_gimple_body_p ()
-	    && (!node->clone_of || node->decl != node->clone_of->decl))
-	  {
-	    if (!node->global.inlined_to
-		&& node->ipa_transforms_to_apply.exists ())
-	      {
-		node->get_body ();
-		push_cfun (DECL_STRUCT_FUNCTION (node->decl));
-		execute_all_ipa_transforms ();
-		cgraph_edge::rebuild_edges ();
-		free_dominance_info (CDI_DOMINATORS);
-		free_dominance_info (CDI_POST_DOMINATORS);
-		pop_cfun ();
-		applied = true;
-	      }
-	  }
-      if (applied)
-	symtab->remove_unreachable_nodes (false, dump_file);
-      /* Restore current_pass.  */
-      current_pass = pass;
-    }
-
   if (!quiet_flag && !cfun)
     fprintf (stderr, " <%s>", pass->name ? pass->name : "");
 
@@ -2255,6 +2432,7 @@ ipa_write_summaries_2 (opt_pass *pass, struct lto_out_decl_state *state)
 
           pass_init_dump_file (pass);
 
+	  current_pass = pass;
 	  ipa_pass->write_summary ();
 
           pass_fini_dump_file (pass);
@@ -2305,8 +2483,10 @@ ipa_write_summaries (void)
   struct cgraph_node *node;
   struct cgraph_node **order;
 
-  if (!flag_generate_lto || seen_error ())
+  if ((!flag_generate_lto && !flag_generate_offload) || seen_error ())
     return;
+
+  select_what_to_stream ();
 
   encoder = lto_symtab_encoder_new (false);
 
@@ -2334,15 +2514,16 @@ ipa_write_summaries (void)
 	  renumber_gimple_stmt_uids ();
 	  pop_cfun ();
 	}
-      if (node->definition)
+      if (node->definition && node->need_lto_streaming)
         lto_set_symtab_encoder_in_partition (encoder, node);
     }
 
   FOR_EACH_DEFINED_FUNCTION (node)
-    if (node->alias)
+    if (node->alias && node->need_lto_streaming)
       lto_set_symtab_encoder_in_partition (encoder, node);
   FOR_EACH_DEFINED_VARIABLE (vnode)
-    lto_set_symtab_encoder_in_partition (encoder, vnode);
+    if (vnode->need_lto_streaming)
+      lto_set_symtab_encoder_in_partition (encoder, vnode);
 
   ipa_write_summaries_1 (compute_ltrans_boundary (encoder));
 
@@ -2373,6 +2554,7 @@ ipa_write_optimization_summaries_1 (opt_pass *pass,
 
           pass_init_dump_file (pass);
 
+	  current_pass = pass;
 	  ipa_pass->write_optimization_summary ();
 
           pass_fini_dump_file (pass);
@@ -2453,6 +2635,7 @@ ipa_read_summaries_1 (opt_pass *pass)
 
 	      pass_init_dump_file (pass);
 
+	      current_pass = pass;
 	      ipa_pass->read_summary ();
 
 	      pass_fini_dump_file (pass);
@@ -2503,6 +2686,7 @@ ipa_read_optimization_summaries_1 (opt_pass *pass)
 
 	      pass_init_dump_file (pass);
 
+	      current_pass = pass;
 	      ipa_pass->read_optimization_summary ();
 
 	      pass_fini_dump_file (pass);
@@ -2582,6 +2766,7 @@ execute_ipa_stmt_fixups (opt_pass *pass,
 	      if (pass->tv_id)
 		timevar_push (pass->tv_id);
 
+	      current_pass = pass;
 	      ipa_pass->stmt_fixup (node, stmts);
 
 	      /* Stop timevar.  */

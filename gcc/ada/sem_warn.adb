@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -898,7 +898,7 @@ package body Sem_Warn is
 
       procedure Output_Reference_Error (M : String) is
       begin
-         --  Never issue messages for internal names, nor for renamings
+         --  Never issue messages for internal names or renamings
 
          if Is_Internal_Name (Chars (E1))
            or else Nkind (Parent (E1)) = N_Object_Renaming_Declaration
@@ -2350,6 +2350,13 @@ package body Sem_Warn is
             if Nkind (Item) = N_With_Clause
               and then not Implicit_With (Item)
               and then In_Extended_Main_Source_Unit (Item)
+
+              --  Guard for no entity present. Not clear under what conditions
+              --  this happens, but it does occur, and since this is only a
+              --  warning, we just suppress the warning in this case.
+
+              and then Nkind (Name (Item)) in N_Has_Entity
+              and then Present (Entity (Name (Item)))
             then
                Lunit := Entity (Name (Item));
 
@@ -2450,38 +2457,61 @@ package body Sem_Warn is
                            elsif Check_System_Aux then
                               null;
 
-                           --  Else give the warning
+                           --  Else the warning may be needed
 
                            else
-                              --  Warn if we unreferenced flag set and we have
-                              --  not had serious errors. The reason we inhibit
-                              --  the message if there are errors is to prevent
-                              --  false positives from disabling expansion.
+                              declare
+                                 Eitem : constant Entity_Id :=
+                                           Entity (Name (Item));
 
-                              if not Has_Unreferenced (Entity (Name (Item)))
-                                and then Serious_Errors_Detected = 0
-                              then
-                                 Error_Msg_N -- CODEFIX
-                                   ("?u?no entities of & are referenced!",
-                                    Name (Item));
-                              end if;
+                              begin
+                                 --  Warn if we unreferenced flag set and we
+                                 --  have not had serious errors. The reason we
+                                 --  inhibit the message if there are errors is
+                                 --  to prevent false positives from disabling
+                                 --  expansion.
 
-                              --  Look for renamings of this package, and flag
-                              --  them as well. If the original package has
-                              --  warnings off, we suppress the warning on the
-                              --  renaming as well.
+                                 if not Has_Unreferenced (Eitem)
+                                   and then Serious_Errors_Detected = 0
+                                 then
+                                    --  Get possible package renaming
 
-                              Pack := Find_Package_Renaming (Munite, Lunit);
+                                    Pack :=
+                                      Find_Package_Renaming (Munite, Lunit);
 
-                              if Present (Pack)
-                                and then not Has_Warnings_Off (Lunit)
-                                and then not Has_Unreferenced (Pack)
-                              then
-                                 Error_Msg_NE -- CODEFIX
-                                   ("?u?no entities of & are referenced!",
-                                     Unit_Declaration_Node (Pack),
-                                     Pack);
-                              end if;
+                                    --  No warning if either the package or its
+                                    --  renaming is used as a generic actual.
+
+                                    if Used_As_Generic_Actual (Eitem)
+                                      or else
+                                        (Present (Pack)
+                                          and then
+                                            Used_As_Generic_Actual (Pack))
+                                    then
+                                       exit;
+                                    end if;
+
+                                    --  Here we give the warning
+
+                                    Error_Msg_N -- CODEFIX
+                                      ("?u?no entities of & are referenced!",
+                                       Name (Item));
+
+                                    --  Flag renaming of package as well. If
+                                    --  the original package has warnings off,
+                                    --  we suppress the warning on the renaming
+                                    --  as well.
+
+                                    if Present (Pack)
+                                      and then not Has_Warnings_Off (Lunit)
+                                      and then not Has_Unreferenced (Pack)
+                                    then
+                                       Error_Msg_NE -- CODEFIX
+                                         ("?u?no entities of& are referenced!",
+                                          Unit_Declaration_Node (Pack), Pack);
+                                    end if;
+                                 end if;
+                              end;
                            end if;
 
                            exit;
@@ -3360,18 +3390,22 @@ package body Sem_Warn is
                Cond        : Node_Id := C;
 
             begin
-               if Present (Parent (C)) and then Nkind (Parent (C)) = N_Op_Not
+               if Present (Parent (C))
+                 and then Nkind (Parent (C)) = N_Op_Not
                then
                   True_Branch := not True_Branch;
-                  Cond        := Parent (C);
+                  Cond := Parent (C);
                end if;
+
+               --  Condition always True
 
                if True_Branch then
                   if Is_Entity_Name (Original_Node (C))
                     and then Nkind (Cond) /= N_Op_Not
                   then
                      Error_Msg_NE
-                       ("object & is always True?c?", Cond, Original_Node (C));
+                       ("object & is always True at this point?c?",
+                        Cond, Original_Node (C));
                      Track (Original_Node (C), Cond);
 
                   else
@@ -3379,9 +3413,21 @@ package body Sem_Warn is
                      Track (Cond, Cond);
                   end if;
 
+               --  Condition always False
+
                else
-                  Error_Msg_N ("condition is always False?c?", Cond);
-                  Track (Cond, Cond);
+                  if Is_Entity_Name (Original_Node (C))
+                    and then Nkind (Cond) /= N_Op_Not
+                  then
+                     Error_Msg_NE
+                       ("object & is always False at this point?c?",
+                        Cond, Original_Node (C));
+                     Track (Original_Node (C), Cond);
+
+                  else
+                     Error_Msg_N ("condition is always False?c?", Cond);
+                     Track (Cond, Cond);
+                  end if;
                end if;
             end;
          end if;
@@ -3884,6 +3930,40 @@ package body Sem_Warn is
       end if;
    end Warn_On_Suspicious_Index;
 
+   -------------------------------
+   -- Warn_On_Suspicious_Update --
+   -------------------------------
+
+   procedure Warn_On_Suspicious_Update (N : Node_Id) is
+      Par : constant Node_Id := Parent (N);
+      Arg : Node_Id;
+
+   begin
+      --  Only process if warnings activated
+
+      if Warn_On_Suspicious_Contract then
+         if Nkind_In (Par, N_Op_Eq, N_Op_Ne) then
+            if N = Left_Opnd (Par) then
+               Arg := Right_Opnd (Par);
+            else
+               Arg := Left_Opnd (Par);
+            end if;
+
+            if Same_Object (Prefix (N), Arg) then
+               if Nkind (Par) = N_Op_Eq then
+                  Error_Msg_N
+                    ("suspicious equality test with modified version of "
+                     & "same object?T?", Par);
+               else
+                  Error_Msg_N
+                    ("suspicious inequality test with modified version of "
+                     & "same object?T?", Par);
+               end if;
+            end if;
+         end if;
+      end if;
+   end Warn_On_Suspicious_Update;
+
    --------------------------------------
    -- Warn_On_Unassigned_Out_Parameter --
    --------------------------------------
@@ -3963,6 +4043,7 @@ package body Sem_Warn is
         and then not Has_Pragma_Unreferenced_Check_Spec (E)
         and then not Warnings_Off_Check_Spec (E)
         and then not Has_Junk_Name (Spec_E)
+        and then not Is_Exported (Spec_E)
       then
          case Ekind (E) is
             when E_Variable =>

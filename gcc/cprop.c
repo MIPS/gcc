@@ -1,5 +1,5 @@
 /* Global constant/copy propagation for RTL.
-   Copyright (C) 1997-2014 Free Software Foundation, Inc.
+   Copyright (C) 1997-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,8 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
-
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -32,8 +40,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "basic-block.h"
+#include "predict.h"
+#include "hashtab.h"
 #include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgcleanup.h"
+#include "basic-block.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "except.h"
 #include "params.h"
@@ -41,7 +67,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "obstack.h"
 #include "tree-pass.h"
-#include "hashtab.h"
 #include "df.h"
 #include "dbgcnt.h"
 #include "target.h"
@@ -1296,7 +1321,7 @@ fis_get_condition (rtx_insn *jump)
 static bool
 implicit_set_cond_p (const_rtx cond)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   rtx cst;
 
   /* COND must be either an EQ or NE comparison.  */

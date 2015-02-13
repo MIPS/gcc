@@ -1,5 +1,5 @@
 /* HOST_WIDE_INT definitions for the GNU compiler.
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -262,6 +262,23 @@ zext_hwi (unsigned HOST_WIDE_INT src, unsigned int prec)
       gcc_checking_assert (prec < HOST_BITS_PER_WIDE_INT);
       return src & (((unsigned HOST_WIDE_INT) 1 << prec) - 1);
     }
+}
+
+/* Compute the absolute value of X.  */
+
+inline HOST_WIDE_INT
+abs_hwi (HOST_WIDE_INT x)
+{
+  gcc_checking_assert (x != HOST_WIDE_INT_MIN);
+  return x >= 0 ? x : -x;
+}
+
+/* Compute the absolute value of X as an unsigned type.  */
+
+inline unsigned HOST_WIDE_INT
+absu_hwi (HOST_WIDE_INT x)
+{
+  return x >= 0 ? (unsigned HOST_WIDE_INT)x : -(unsigned HOST_WIDE_INT)x;
 }
 
 #endif /* ! GCC_HWINT_H */

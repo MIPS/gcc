@@ -1,6 +1,6 @@
 ; Options for the MIPS port of the compiler
 ;
-; Copyright (C) 2005-2014 Free Software Foundation, Inc.
+; Copyright (C) 2005-2015 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -196,6 +196,10 @@ FP exceptions are enabled
 mfp32
 Target Report RejectNegative InverseMask(FLOAT64)
 Use 32-bit floating-point registers
+
+mfpxx
+Target Report RejectNegative Mask(FLOATXX)
+Conform to the o32 FPXX ABI
 
 mfp64
 Target Report RejectNegative Mask(FLOAT64)
@@ -407,6 +411,10 @@ Perform VR4130-specific alignment optimizations
 mxgot
 Target Report Var(TARGET_XGOT)
 Lift restrictions on GOT size
+
+modd-spreg
+Target Report Mask(ODD_SPREG)
+Enable use of odd-numbered single-precision registers
 
 noasmopt
 Driver

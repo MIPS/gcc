@@ -1,6 +1,6 @@
 /* Auxiliary functions for output asm template or expand rtl
    pattern of Andes NDS32 cpu for GNU compiler
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Andes Technology Corporation.
 
    This file is part of GCC.
@@ -25,6 +25,15 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -40,9 +49,28 @@
 #include "reload.h"		/* For push_reload().  */
 #include "flags.h"
 #include "function.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "recog.h"
 #include "diagnostic-core.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "df.h"
 #include "tm_p.h"
 #include "tm-constrs.h"
@@ -77,7 +105,7 @@ nds32_byte_to_size (int byte)
 enum nds32_16bit_address_type
 nds32_mem_format (rtx op)
 {
-  enum machine_mode mode_test;
+  machine_mode mode_test;
   int val;
   int regno;
 
@@ -803,7 +831,7 @@ nds32_output_stack_pop (rtx par_rtx ATTRIBUTE_UNUSED)
 const char *
 nds32_output_casesi_pc_relative (rtx *operands)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   rtx diff_vec;
 
   diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[1])));

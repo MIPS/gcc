@@ -1,5 +1,5 @@
 /* Functions related to building resource files.
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,7 +24,18 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "java-tree.h"
@@ -32,9 +43,16 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "parse.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "ggc.h"
 #include "tree-iterator.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 
 /* A list of all the resources files.  */

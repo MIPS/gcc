@@ -1,5 +1,5 @@
 /* Process expressions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,7 +32,18 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 				   MODIFY_JNI_METHOD_CALL and
 				   PARM_BOUNDARY.  */
 				   
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "flags.h"
@@ -46,7 +57,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "ggc.h"
 #include "tree-iterator.h"
 #include "target.h"
-#include "wide-int.h"
 
 static void flush_quick_stack (void);
 static void push_value (tree);
@@ -398,22 +408,19 @@ pop_type (tree type)
 
 /* Return true if two type assertions are equal.  */
 
-static int
-type_assertion_eq (const void * k1_p, const void * k2_p)
+bool
+type_assertion_hasher::equal (type_assertion *k1, type_assertion *k2)
 {
-  const type_assertion k1 = *(const type_assertion *)k1_p;
-  const type_assertion k2 = *(const type_assertion *)k2_p;
-  return (k1.assertion_code == k2.assertion_code
-          && k1.op1 == k2.op1
-	  && k1.op2 == k2.op2);
+  return (k1->assertion_code == k2->assertion_code
+          && k1->op1 == k2->op1
+	  && k1->op2 == k2->op2);
 }
 
 /* Hash a type assertion.  */
 
-static hashval_t
-type_assertion_hash (const void *p)
+hashval_t
+type_assertion_hasher::hash (type_assertion *k_p)
 {
-  const type_assertion *k_p = (const type_assertion *) p;
   hashval_t hash = iterative_hash (&k_p->assertion_code, sizeof
 				   k_p->assertion_code, 0);
 
@@ -449,15 +456,14 @@ type_assertion_hash (const void *p)
 void
 add_type_assertion (tree klass, int assertion_code, tree op1, tree op2)
 {
-  htab_t assertions_htab;
+  hash_table<type_assertion_hasher> *assertions_htab;
   type_assertion as;
-  void **as_pp;
+  type_assertion **as_pp;
 
   assertions_htab = TYPE_ASSERTIONS (klass);
   if (assertions_htab == NULL)
     {
-      assertions_htab = htab_create_ggc (7, type_assertion_hash, 
-					 type_assertion_eq, NULL);
+      assertions_htab = hash_table<type_assertion_hasher>::create_ggc (7);
       TYPE_ASSERTIONS (current_class) = assertions_htab;
     }
 
@@ -465,14 +471,14 @@ add_type_assertion (tree klass, int assertion_code, tree op1, tree op2)
   as.op1 = op1;
   as.op2 = op2;
 
-  as_pp = htab_find_slot (assertions_htab, &as, INSERT);
+  as_pp = assertions_htab->find_slot (&as, INSERT);
 
   /* Don't add the same assertion twice.  */
   if (*as_pp)
     return;
 
   *as_pp = ggc_alloc<type_assertion> ();
-  **(type_assertion **)as_pp = as;
+  **as_pp = as;
 }
 
 
@@ -1946,10 +1952,9 @@ pop_arguments (tree method_type)
 /* Attach to PTR (a block) the declaration found in ENTRY. */
 
 int
-attach_init_test_initialization_flags (void **entry, void *ptr)
+attach_init_test_initialization_flags (treetreehash_entry **slot, tree block)
 {
-  tree block = (tree)ptr;
-  struct treetreehash_entry *ite = (struct treetreehash_entry *) *entry;
+  treetreehash_entry *ite = *slot;
 
   if (block != error_mark_node)
     {
@@ -2248,7 +2253,7 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
 	  if (method == meth)
 	    break;
 	  if (meth == NULL_TREE)
-	    fatal_error ("method '%s' not found in class",
+	    fatal_error (input_location, "method '%s' not found in class",
 			 IDENTIFIER_POINTER (DECL_NAME (method)));
 	  method_index++;
 	}
@@ -2440,7 +2445,7 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
       load_class (self_type, 1);
       safe_layout_class (self_type);
       if (TREE_CODE (TYPE_SIZE (self_type)) == ERROR_MARK)
-	fatal_error ("failed to find class '%s'", self_name);
+	fatal_error (input_location, "failed to find class '%s'", self_name);
     }
   layout_class_methods (self_type);
 

@@ -1,5 +1,5 @@
 /* Perform doloop optimizations
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Based on code by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz)
 
 This file is part of GCC.
@@ -24,15 +24,43 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "flags.h"
-#include "expr.h"
+#include "symtab.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
+#include "input.h"
+#include "function.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfgloop.h"
+#include "cfgrtl.h"
+#include "basic-block.h"
 #include "params.h"
 #include "target.h"
 #include "dumpfile.h"
+#include "loop-unroll.h"
 
 /* This module is used to modify loops with a determinable number of
    iterations to use special low-overhead looping instructions.
@@ -338,7 +366,7 @@ add_test (rtx cond, edge *e, basic_block dest)
 {
   rtx_insn *seq, *jump;
   rtx label;
-  enum machine_mode mode;
+  machine_mode mode;
   rtx op0 = XEXP (cond, 0), op1 = XEXP (cond, 1);
   enum rtx_code code = GET_CODE (cond);
   basic_block bb;
@@ -408,7 +436,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
   int nonneg = 0;
   bool increment_count;
   basic_block loop_end = desc->out_edge->src;
-  enum machine_mode mode;
+  machine_mode mode;
   rtx true_prob_val;
   widest_int iterations;
 
@@ -595,7 +623,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
 static bool
 doloop_optimize (struct loop *loop)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   rtx doloop_seq, doloop_pat, doloop_reg;
   rtx count;
   widest_int iterations, iterations_max;

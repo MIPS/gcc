@@ -1,6 +1,6 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -29,6 +29,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -135,7 +144,7 @@ cxx_readonly_error (tree arg, enum lvalue_use errstring)
 /* Structure that holds information about declarations whose type was
    incomplete and we could not check whether it was abstract or not.  */
 
-struct GTY((chain_next ("%h.next"))) pending_abstract_type {
+struct GTY((chain_next ("%h.next"), for_user)) pending_abstract_type {
   /* Declaration which we are checking for abstractness. It is either
      a DECL node, or an IDENTIFIER_NODE if we do not have a full
      declaration available.  */
@@ -155,15 +164,19 @@ struct GTY((chain_next ("%h.next"))) pending_abstract_type {
   struct pending_abstract_type* next;
 };
 
+struct abstract_type_hasher : ggc_hasher<pending_abstract_type *>
+{
+  typedef tree compare_type;
+  static hashval_t hash (pending_abstract_type *);
+  static bool equal (pending_abstract_type *, tree);
+};
 
 /* Compute the hash value of the node VAL. This function is used by the
    hash table abstract_pending_vars.  */
 
-static hashval_t
-pat_calc_hash (const void* val)
+hashval_t
+abstract_type_hasher::hash (pending_abstract_type *pat)
 {
-  const struct pending_abstract_type *pat =
-     (const struct pending_abstract_type *) val;
   return (hashval_t) TYPE_UID (pat->type);
 }
 
@@ -171,21 +184,16 @@ pat_calc_hash (const void* val)
 /* Compare node VAL1 with the type VAL2. This function is used by the
    hash table abstract_pending_vars.  */
 
-static int
-pat_compare (const void* val1, const void* val2)
+bool
+abstract_type_hasher::equal (pending_abstract_type *pat1, tree type2)
 {
-  const struct pending_abstract_type *const pat1 =
-     (const struct pending_abstract_type *) val1;
-  const_tree const type2 = (const_tree)val2;
-
   return (pat1->type == type2);
 }
 
 /* Hash table that maintains pending_abstract_type nodes, for which we still
    need to check for type abstractness.  The key of the table is the type
    of the declaration.  */
-static GTY ((param_is (struct pending_abstract_type)))
-htab_t abstract_pending_vars = NULL;
+static GTY (()) hash_table<abstract_type_hasher> *abstract_pending_vars = NULL;
 
 static int abstract_virtuals_error_sfinae (tree, tree, abstract_class_use, tsubst_flags_t);
 
@@ -197,7 +205,6 @@ static int abstract_virtuals_error_sfinae (tree, tree, abstract_class_use, tsubs
 void
 complete_type_check_abstract (tree type)
 {
-  void **slot;
   struct pending_abstract_type *pat;
   location_t cur_loc = input_location;
 
@@ -207,11 +214,12 @@ complete_type_check_abstract (tree type)
     return;
 
   /* Retrieve the list of pending declarations for this type.  */
-  slot = htab_find_slot_with_hash (abstract_pending_vars, type,
-				   (hashval_t)TYPE_UID (type), NO_INSERT);
+  pending_abstract_type **slot
+    = abstract_pending_vars->find_slot_with_hash (type, TYPE_UID (type),
+						  NO_INSERT);
   if (!slot)
     return;
-  pat = (struct pending_abstract_type*)*slot;
+  pat = *slot;
   gcc_assert (pat);
 
   /* If the type is not abstract, do not do anything.  */
@@ -244,7 +252,7 @@ complete_type_check_abstract (tree type)
 	}
     }
 
-  htab_clear_slot (abstract_pending_vars, slot);
+  abstract_pending_vars->clear_slot (slot);
 
   input_location = cur_loc;
 }
@@ -282,17 +290,17 @@ abstract_virtuals_error_sfinae (tree decl, tree type, abstract_class_use use,
      name.  */
   if (!COMPLETE_TYPE_P (type) && (complain & tf_error))
     {
-      void **slot;
       struct pending_abstract_type *pat;
 
       gcc_assert (!decl || DECL_P (decl) || identifier_p (decl));
 
       if (!abstract_pending_vars)
-	abstract_pending_vars = htab_create_ggc (31, &pat_calc_hash,
-						&pat_compare, NULL);
+	abstract_pending_vars
+	  = hash_table<abstract_type_hasher>::create_ggc (31);
 
-      slot = htab_find_slot_with_hash (abstract_pending_vars, type,
-				      (hashval_t)TYPE_UID (type), INSERT);
+      pending_abstract_type **slot
+       	= abstract_pending_vars->find_slot_with_hash (type, TYPE_UID (type),
+						      INSERT);
 
       pat = ggc_alloc<pending_abstract_type> ();
       pat->type = type;
@@ -302,7 +310,7 @@ abstract_virtuals_error_sfinae (tree decl, tree type, abstract_class_use use,
 		    ? DECL_SOURCE_LOCATION (decl)
 		    : input_location);
 
-      pat->next = (struct pending_abstract_type *) *slot;
+      pat->next = *slot;
       *slot = pat;
 
       return 0;
@@ -605,6 +613,17 @@ split_nonconstant_init_1 (tree dest, tree init)
     case ARRAY_TYPE:
       inner_type = TREE_TYPE (type);
       array_type_p = true;
+      if ((TREE_SIDE_EFFECTS (init)
+	   && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+	  || array_of_runtime_bound_p (type))
+	{
+	  /* For an array, we only need/want a single cleanup region rather
+	     than one per element.  */
+	  tree code = build_vec_init (dest, NULL_TREE, init, false, 1,
+				      tf_warning_or_error);
+	  add_stmt (code);
+	  return true;
+	}
       /* FALLTHRU */
 
     case RECORD_TYPE:
@@ -634,6 +653,8 @@ split_nonconstant_init_1 (tree dest, tree init)
 
 	      if (!split_nonconstant_init_1 (sub, value))
 		complete_p = false;
+	      else
+		CONSTRUCTOR_ELTS (init)->ordered_remove (idx--);
 	      num_split_elts++;
 	    }
 	  else if (!initializer_constant_valid_p (value, inner_type))
@@ -722,11 +743,13 @@ split_nonconstant_init_1 (tree dest, tree init)
    perform the non-constant part of the initialization to DEST.
    Returns the code for the runtime init.  */
 
-static tree
+tree
 split_nonconstant_init (tree dest, tree init)
 {
   tree code;
 
+  if (TREE_CODE (init) == TARGET_EXPR)
+    init = TARGET_EXPR_INITIAL (init);
   if (TREE_CODE (init) == CONSTRUCTOR)
     {
       code = push_stmt_list ();
@@ -791,14 +814,14 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
 
   value = extend_ref_init_temps (decl, value, cleanups);
 
-  /* In C++0x constant expression is a semantic, not syntactic, property.
+  /* In C++11 constant expression is a semantic, not syntactic, property.
      In C++98, make sure that what we thought was a constant expression at
      template definition time is still constant and otherwise perform this
      as optimization, e.g. to fold SIZEOF_EXPRs in the initializer.  */
   if (decl_maybe_constant_var_p (decl) || TREE_STATIC (decl))
     {
       bool const_init;
-      value = fold_non_dependent_expr (value);
+      value = instantiate_non_dependent_expr (value);
       if (DECL_DECLARED_CONSTEXPR_P (decl)
 	  || DECL_IN_AGGR_P (decl))
 	{
@@ -807,14 +830,22 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
 	      && !require_potential_constant_expression (value))
 	    value = error_mark_node;
 	  else
-	    value = cxx_constant_value (value);
+	    value = cxx_constant_value (value, decl);
 	}
-      value = maybe_constant_init (value);
+      value = maybe_constant_init (value, decl);
+      if (TREE_CODE (value) == CONSTRUCTOR && cp_has_mutable_p (type))
+	/* Poison this CONSTRUCTOR so it can't be copied to another
+	   constexpr variable.  */
+	CONSTRUCTOR_MUTABLE_POISON (value) = true;
       const_init = (reduced_constant_expression_p (value)
 		    || error_operand_p (value));
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = const_init;
       TREE_CONSTANT (decl) = const_init && decl_maybe_constant_var_p (decl);
     }
+
+  if (cxx_dialect >= cxx14)
+    /* Handle aggregate NSDMI in non-constant initializers, too.  */
+    value = replace_placeholders (value, decl);
 
   /* If the initializer is not a constant, fill in DECL_INITIAL with
      the bits that are constant, and then return an expression that
@@ -823,17 +854,7 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
       && (TREE_SIDE_EFFECTS (value)
 	  || array_of_runtime_bound_p (type)
 	  || ! reduced_constant_expression_p (value)))
-    {
-      if (TREE_CODE (type) == ARRAY_TYPE
-	  && (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (type))
-	      || array_of_runtime_bound_p (type)))
-	/* For an array, we only need/want a single cleanup region rather
-	   than one per element.  */
-	return build_vec_init (decl, NULL_TREE, value, false, 1,
-			       tf_warning_or_error);
-      else
-	return split_nonconstant_init (decl, value);
-    }
+    return split_nonconstant_init (decl, value);
   /* If the value is a constant, just put it in DECL_INITIAL.  If DECL
      is an automatic variable, the middle end will turn this into a
      dynamic initialization later.  */
@@ -869,7 +890,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
       return ok;
     }
 
-  init = maybe_constant_value (fold_non_dependent_expr_sfinae (init, tf_none));
+  init = fold_non_dependent_expr (init);
 
   if (TREE_CODE (type) == INTEGER_TYPE
       && TREE_CODE (ftype) == REAL_TYPE)
@@ -1173,7 +1194,7 @@ massage_init_elt (tree type, tree init, tsubst_flags_t complain)
     init = TARGET_EXPR_INITIAL (init);
   /* When we defer constant folding within a statement, we may want to
      defer this folding as well.  */
-  tree t = fold_non_dependent_expr_sfinae (init, complain);
+  tree t = fold_non_dependent_expr (init);
   t = maybe_constant_init (t);
   if (TREE_CONSTANT (t))
     init = t;
@@ -1293,9 +1314,8 @@ process_init_constructor_record (tree type, tree init,
 				 tsubst_flags_t complain)
 {
   vec<constructor_elt, va_gc> *v = NULL;
-  int flags = 0;
   tree field;
-  unsigned HOST_WIDE_INT idx = 0;
+  int skipped = 0;
 
   gcc_assert (TREE_CODE (type) == RECORD_TYPE);
   gcc_assert (!CLASSTYPE_VBASECLASSES (type));
@@ -1303,6 +1323,9 @@ process_init_constructor_record (tree type, tree init,
 	      || !BINFO_N_BASE_BINFOS (TYPE_BINFO (type)));
   gcc_assert (!TYPE_POLYMORPHIC_P (type));
 
+ restart:
+  int flags = 0;
+  unsigned HOST_WIDE_INT idx = 0;
   /* Generally, we will always have an index for each initializer (which is
      a FIELD_DECL, put by reshape_init), but compound literals don't go trough
      reshape_init. So we need to handle both cases.  */
@@ -1346,6 +1369,19 @@ process_init_constructor_record (tree type, tree init,
 	  next = massage_init_elt (type, ce->value, complain);
 	  ++idx;
 	}
+      else if (DECL_INITIAL (field))
+	{
+	  if (skipped > 0)
+	    {
+	      /* We're using an NSDMI past a field with implicit
+	         zero-init.  Go back and make it explicit.  */
+	      skipped = -1;
+	      vec_safe_truncate (v, 0);
+	      goto restart;
+	    }
+	  /* C++14 aggregate NSDMI.  */
+	  next = get_nsdmi (field, /*ctor*/false);
+	}
       else if (type_build_ctor_call (TREE_TYPE (field)))
 	{
 	  /* If this type needs constructors run for
@@ -1388,13 +1424,17 @@ process_init_constructor_record (tree type, tree init,
 	    warning (OPT_Wmissing_field_initializers,
 		     "missing initializer for member %qD", field);
 
-	  if (!zero_init_p (TREE_TYPE (field)))
+	  if (!zero_init_p (TREE_TYPE (field))
+	      || skipped < 0)
 	    next = build_zero_init (TREE_TYPE (field), /*nelts=*/NULL_TREE,
 				    /*static_storage_p=*/false);
 	  else
-	    /* The default zero-initialization is fine for us; don't
-	    add anything to the CONSTRUCTOR.  */
-	    continue;
+	    {
+	      /* The default zero-initialization is fine for us; don't
+		 add anything to the CONSTRUCTOR.  */
+	      skipped = 1;
+	      continue;
+	    }
 	}
 
       /* If this is a bitfield, now convert to the lowered type.  */

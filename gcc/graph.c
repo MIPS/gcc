@@ -1,5 +1,5 @@
 /* Output routines for graphical representation.
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
    Contributed by Ulrich Drepper <drepper@cygnus.com>, 1998.
    Rewritten for DOT output by Steven Bosscher, 2012.
 
@@ -24,6 +24,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "diagnostic-core.h" /* for fatal_error */
 #include "sbitmap.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "graph.h"
@@ -51,7 +63,7 @@ open_graph_file (const char *base, const char *mode)
 
   fp = fopen (buf, mode);
   if (fp == NULL)
-    fatal_error ("can%'t open %s: %m", buf);
+    fatal_error (input_location, "can%'t open %s: %m", buf);
 
   return fp;
 }

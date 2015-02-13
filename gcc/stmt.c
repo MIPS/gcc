@@ -1,5 +1,5 @@
 /* Expands front end tree to back end RTL for GCC
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,7 +29,17 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "tm_p.h"
@@ -37,17 +47,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "function.h"
 #include "insn-config.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "libfuncs.h"
 #include "recog.h"
-#include "machmode.h"
 #include "diagnostic-core.h"
 #include "output.h"
 #include "langhooks.h"
 #include "predict.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "target.h"
-#include "hash-set.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -287,6 +307,7 @@ parse_output_constraint (const char **constraint_p, int operand_num,
 	break;
 
       case '?':  case '!':  case '*':  case '&':  case '#':
+      case '$':  case '^':
       case 'E':  case 'F':  case 'G':  case 'H':
       case 's':  case 'i':  case 'n':
       case 'I':  case 'J':  case 'K':  case 'L':  case 'M':
@@ -377,6 +398,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
 
       case '<':  case '>':
       case '?':  case '!':  case '*':  case '#':
+      case '$':  case '^':
       case 'E':  case 'F':  case 'G':  case 'H':
       case 's':  case 'i':  case 'n':
       case 'I':  case 'J':  case 'K':  case 'L':  case 'M':
@@ -710,7 +732,7 @@ expand_naked_return (void)
 /* Generate code to jump to LABEL if OP0 and OP1 are equal in mode MODE. PROB
    is the probability of jumping to LABEL.  */
 static void
-do_jump_if_equal (enum machine_mode mode, rtx op0, rtx op1, rtx label,
+do_jump_if_equal (machine_mode mode, rtx op0, rtx op1, rtx label,
 		  int unsignedp, int prob)
 {
   gcc_assert (prob <= REG_BR_PROB_BASE);
@@ -881,7 +903,7 @@ emit_case_decision_tree (tree index_expr, tree index_type,
       && ! have_insn_for (COMPARE, GET_MODE (index)))
     {
       int unsignedp = TYPE_UNSIGNED (index_type);
-      enum machine_mode wider_mode;
+      machine_mode wider_mode;
       for (wider_mode = GET_MODE (index); wider_mode != VOIDmode;
 	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	if (have_insn_for (COMPARE, wider_mode))
@@ -1106,7 +1128,7 @@ reset_out_edges_aux (basic_block bb)
    STMT. Record this information in the aux field of the edge.  */
 
 static inline void
-compute_cases_per_edge (gimple stmt)
+compute_cases_per_edge (gswitch *stmt)
 {
   basic_block bb = gimple_bb (stmt);
   reset_out_edges_aux (bb);
@@ -1128,7 +1150,7 @@ compute_cases_per_edge (gimple stmt)
    Generate the code to test it and jump to the right place.  */
 
 void
-expand_case (gimple stmt)
+expand_case (gswitch *stmt)
 {
   tree minval = NULL_TREE, maxval = NULL_TREE, range = NULL_TREE;
   rtx default_label = NULL_RTX;
@@ -1278,7 +1300,7 @@ expand_sjlj_dispatch_table (rtx dispatch_index,
 			    vec<tree> dispatch_table)
 {
   tree index_type = integer_type_node;
-  enum machine_mode index_mode = TYPE_MODE (index_type);
+  machine_mode index_mode = TYPE_MODE (index_type);
 
   int ncases = dispatch_table.length ();
 
@@ -1589,8 +1611,8 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
   int unsignedp = TYPE_UNSIGNED (index_type);
   int probability;
   int prob = node->prob, subtree_prob = node->subtree_prob;
-  enum machine_mode mode = GET_MODE (index);
-  enum machine_mode imode = TYPE_MODE (index_type);
+  machine_mode mode = GET_MODE (index);
+  machine_mode imode = TYPE_MODE (index_type);
 
   /* Handle indices detected as constant during RTL expansion.  */
   if (mode == VOIDmode)
@@ -1700,7 +1722,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 
 	      tree test_label
 		= build_decl (curr_insn_location (),
-			      LABEL_DECL, NULL_TREE, NULL_TREE);
+			      LABEL_DECL, NULL_TREE, void_type_node);
 
               /* The default label could be reached either through the right
                  subtree or the left subtree. Divide the probability
@@ -1859,7 +1881,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 		 Branch to a label where we will handle it later.  */
 
 	      test_label = build_decl (curr_insn_location (),
-				       LABEL_DECL, NULL_TREE, NULL_TREE);
+				       LABEL_DECL, NULL_TREE, void_type_node);
               probability = conditional_probability (
                   node->right->subtree_prob + default_prob/2,
                   subtree_prob + default_prob);
