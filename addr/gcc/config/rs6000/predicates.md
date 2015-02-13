@@ -163,6 +163,12 @@
   (and (match_code "const_int")
        (match_test "satisfies_constraint_K (op)")))
 
+;; Return 1 if op is a constant integer that is a signed 16-bit constant
+;; shifted left 16 bits
+(define_predicate "upper16_cint_operand"
+  (and (match_code "const_int")
+       (match_test "satisfies_constraint_L (op)")))
+
 ;; Return 1 if op is a constant integer that cannot fit in a signed D field.
 (define_predicate "non_short_cint_operand"
   (and (match_code "const_int")
@@ -247,6 +253,19 @@
     return 0;
 
   return (REGNO (op) != FIRST_GPR_REGNO);
+})
+
+;; Return true if this is a traditional floating point register
+(define_predicate "fpr_reg_operand"
+  (match_code "reg,subreg")
+{
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  if (!REG_P (op))
+    return 0;
+
+  return FP_REGNO_P (REGNO (op));
 })
 
 ;; Return 1 if op is a HTM specific SPR register.
@@ -1819,14 +1838,18 @@
   else
     return 0;
 
-  /* Power8 currently will only do the fusion if the top 11 bits of the addis
-     value are all 1's or 0's.  */
   value = INTVAL (int_const);
   if ((value & (HOST_WIDE_INT)0xffff) != 0)
     return 0;
 
   if ((value & (HOST_WIDE_INT)0xffff0000) == 0)
     return 0;
+
+  /* Power8 currently will only do the fusion if the top 11 bits of the addis
+     value are all 1's or 0's.  Ignore this restriction if we are testing
+     advanced fusion.  */
+  if (TARGET_FUSION_EXTRA)
+    return 1;
 
   return (IN_RANGE (value >> 16, -32, 31));
 })
@@ -1893,13 +1916,14 @@
 ;; Match a GPR load (lbz, lhz, lwz, ld) that uses a combined address in the
 ;; memory field with both the addis and the memory offset.  Sign extension
 ;; is not handled here, since lha and lwa are not fused.
-(define_predicate "fusion_gpr_mem_combo"
-  (match_code "mem,zero_extend")
+;; With extended fusion, also match a FPR load (lfd, lfs) and float_extend
+(define_predicate "fusion_addis_mem_combo_load"
+  (match_code "mem,zero_extend,float_extend")
 {
   rtx addr, base, offset;
 
-  /* Handle zero extend.  */
-  if (GET_CODE (op) == ZERO_EXTEND)
+  /* Handle zero/float extend.  */
+  if (GET_CODE (op) == ZERO_EXTEND || GET_CODE (op) == FLOAT_EXTEND)
     {
       op = XEXP (op, 0);
       mode = GET_MODE (op);
@@ -1917,6 +1941,12 @@
 
     case DImode:
       if (!TARGET_POWERPC64)
+	return 0;
+      break;
+
+    case SFmode:
+    case DFmode:
+      if (!TARGET_FUSION_EXTRA)
 	return 0;
       break;
 
@@ -1946,4 +1976,80 @@
     }
 
   return 0;
+})
+
+;; Like fusion_addis_mem_combo_load, but for stores
+(define_predicate "fusion_addis_mem_combo_store"
+  (match_code "mem")
+{
+  rtx addr, base, offset;
+
+  if (!MEM_P (op) || !TARGET_FUSION_EXTRA)
+    return 0;
+
+  switch (mode)
+    {
+    case QImode:
+    case HImode:
+    case SImode:
+      break;
+
+    case DImode:
+      if (!TARGET_POWERPC64)
+	return 0;
+      break;
+
+    case SFmode:
+      if (!TARGET_SF_FPR)
+	return 0;
+      break;
+
+    case DFmode:
+      if (!TARGET_DF_FPR)
+	return 0;
+      break;
+
+    default:
+      return 0;
+    }
+
+  addr = XEXP (op, 0);
+  if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
+    return 0;
+
+  base = XEXP (addr, 0);
+  if (!fusion_gpr_addis (base, GET_MODE (base)))
+    return 0;
+
+  offset = XEXP (addr, 1);
+  if (GET_CODE (addr) == PLUS)
+    return satisfies_constraint_I (offset);
+
+  else if (GET_CODE (addr) == LO_SUM)
+    {
+      if (TARGET_XCOFF || (TARGET_ELF && TARGET_POWERPC64))
+	return small_toc_ref (offset, GET_MODE (offset));
+
+      else if (TARGET_ELF && !TARGET_POWERPC64)
+	return CONSTANT_P (offset);
+    }
+
+  return 0;
+})
+
+;; Return true if the operand is a float_extend or zero extend of an
+;; offsettable memory operand suitable for use in fusion
+(define_predicate "fusion_offsettable_mem_operand"
+  (match_code "mem,zero_extend,float_extend")
+{
+  if (GET_CODE (op) == ZERO_EXTEND || GET_CODE (op) == FLOAT_EXTEND)
+    {
+      op = XEXP (op, 0);
+      mode = GET_MODE (op);
+    }
+
+  if (!memory_operand (op, mode))
+    return 0;
+
+  return offsettable_nonstrict_memref_p (op);
 })

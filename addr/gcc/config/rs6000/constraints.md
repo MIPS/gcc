@@ -125,6 +125,11 @@
   (and (match_code "const_int")
        (match_test "TARGET_VSX && (ival == VECTOR_ELEMENT_SCALAR_64BIT)")))
 
+;; Extended fusion store
+(define_memory_constraint "wF"
+  "Memory operand suitable for extended fusion load/stores"
+  (match_operand 0 "fusion_addis_mem_combo_load"))
+
 ;; Lq/stq validates the address for load/store quad
 (define_memory_constraint "wQ"
   "Memory operand suitable for the load/store quad instructions"

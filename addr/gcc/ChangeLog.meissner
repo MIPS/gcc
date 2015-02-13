@@ -1,3 +1,75 @@
+2015-02-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wF constraint): New constraint for
+	extended fusion load/stores.
+
+	* config/rs6000/predicates.md (upper16_cint_operand): New
+	predicate for a signed 16-bit constant shift left 16 bits.
+	(fpr_reg_operand): New predicate to match FPR registers.
+	(fusion_gpr_addis): If -mfusion-extra, don't limit fusion to 11
+	bits.
+	(fusion_addis_mem_combo_load): Rename fusion_gpr_combo.  Add
+	support for fusing floating point loads.
+	(fusion_gpr_combo): Likewise.
+	(fusion_addis_mem_combo_store): New predicate for extended fusion
+	stores.
+	(fusion_offsettable_mem_operand): New predicate for for an
+	offsettable memory operand possibly combined with zero/float
+	extend for fusion.
+
+	* config/rs6000/rs6000-protos.h (emit_fusion_addis): New function,
+	add declaration.
+	(emit_fusion_load_store): Likewise.
+	(fusion_extra_p): Likewise.
+	(expand_fusion_extra_load): Likewise.
+	(expand_fusion_extra_store): Likewise.
+	(emit_fusion_extra_load): Likewise.
+	(emit_fusion_extra_store): Likewise.
+
+	* config/rs6000/rs6000.opt (-mfusion-extra): New option.
+
+	* config/rs6000/rs6000.c (struct rs6000_reg_addr): Add fields for
+	doing extended fusion in secondary reload rather than at peephole2
+	time.
+	(rs6000_debug_print_mode): Add extended fusion debugging.
+	(rs6000_debug_reg_global): Likewise.
+	(rs6000_setup_reg_addr_masks): Run GET_MODE_SIZE just once and
+	store it in a variable.
+	(rs6000_init_hard_regno_mode_ok): Set up extended/p8 fusion
+	secondary reload functions.
+	(emit_fusion_addis): Split the addis portion off of
+	emit_fusion_gpr_load so that we can do load/store fusion with
+	floating point registers and gpr stores.
+	(emit_fusion_load_store): Likewise.
+	(emit_fusion_gpr_load): Call emit_fusion_addis and
+	emit_fusion_load_store.
+	(fusion_extra_p): Return true if this is an extended fusion
+	operation.
+	(expand_fusion_extra_load): New support for extended fusion
+	operations.
+	(expand_fusion_extra_store): Likewise.
+	(emit_fusion_extra_load): Likewise.
+	(emit_fusion_extra_store): Likewise.
+
+	* config/rs6000/rs6000.md (UNSPEC_FUSION_EXTRA): New unspec.
+	(GPR_FUSION): New mode iterator for extended fusion.
+	(FPR_FUSION): Likewise.
+	(Ff): Add DImode.
+	(Fv): Likewise.
+	(fuse_ldf): New mode attribute for extended fusion.
+	(fuse_stf): Likewise.
+	(fusion_gpr_load_<mode>): Use fusion_addis_combo_load.
+	(FPR load/store fusion peephole2): New peephole2's for extended
+	fusion.
+	(fusion_gpr_<P:mode>_<GPR_FUSION:mode>_load): New secondary reload
+	and peephole2 insns for extended fusion.
+	(fusion_gpr_<P:mode>_<GPR_FUSION:mode>_store): Likewise.
+	(fusion_fpr_<P:mode>_<FPR_FUSION:mode>_load): Likewise.
+	(fusion_fpr_<P:mode>_<FPR_FUSION:mode>_store): Likewise.
+	(fusion_extra_<mode>_constant): Likewise.
+
+	* doc/md.texi (RS/6000 constraints): Document wF.
+
 2015-02-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* configure.ac (--with-extra-prefix=): Add configure time switches
