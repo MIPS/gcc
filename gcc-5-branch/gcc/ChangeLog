@@ -1,3 +1,143 @@
+2015-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/62209
+	* tree-ssa-reassoc.c (update_range_test): If stmt is a PHI and
+	op == range->exp, insert seq and gimplified code after labels
+	instead of after the phi.
+
+2015-02-13  Jeff Law  <law@redhat.com>
+
+	PR bootstrap/65060
+	Revert my change for tree-optimization/64823.
+
+2015-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65053
+	* tree-ssa-phiopt.c (value_replacement): When moving assign before
+	cond, either reset VR on lhs or set it to phi result VR.
+
+2015-02-13  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/64823
+	* tree-vrp.c (identify_jump_threads): Handle blocks with no statements.
+	* tree-ssa-threadedge.c (potentially_threadable_block): Allow
+	threading through blocks with PHIs, but no statements.
+	(thread_through_normal_block): Distinguish between blocks where
+	we did not process all the statements and blocks with no statements.
+
+	PR rtl-optimization/47477
+	* match.pd (convert (plus/minus (convert @0) (convert @1): New
+	simplifier to narrow arithmetic.
+
+2015-02-13  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65028
+	* ipa-prop.c (update_indirect_edges_after_inlining): Do not drop
+	polymorphic call info when type is not known to be preserved.
+
+2015-02-13  Maritn Jambor  <mjambor@suse.cz>
+
+	PR ipa/65028
+	* ipa-inline-transform.c (mark_all_inlined_calls_cdtor): New function.
+	(inline_call): Use it.
+	
+2015-02-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/nvptx/offload.h (ACCEL_COMPILER_acc_device): Define to
+	GOMP_DEVICE_NVIDIA_PTX.
+
+2015-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/65034
+	* stmt.c (emit_case_nodes): Use void_type_node instead of
+	NULL_TREE as LABEL_DECL type.
+
+2015-02-13  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/constraints.md: Change "Q" and "T" constraints to memory
+	constraints.
+	* config/pa/pa.c (pa_cannot_force_const_mem): Don't allow constant
+	symbolic references to data to be forced to constant memory on the
+	SOM target.
+
+2015-02-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/65002
+	* tree-cfg.c (pass_data_fixup_cfg): Don't update
+	SSA on start.
+	* tree-sra.c (some_callers_have_no_vuse_p): New.
+	(ipa_early_sra): Reject functions whose callers
+	assume function is read only.
+
+2015-02-13  Richard Biener  <rguenther@suse.de>
+
+	PR lto/65015
+	* dwarf2out.c (dwarf2out_finish): Use <artificial> as DW_AT_name
+	for LTO produced CUs.
+
+2015-02-13  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/64705
+	* tree-ssa-loop-niter.h (expand_simple_operations): New parameter.
+	* tree-ssa-loop-niter.c (expand_simple_operations): New parameter.
+	* tree-ssa-loop-ivopts.c (extract_single_var_from_expr): New.
+	(find_bivs, find_givs_in_stmt_scev): Pass new argument to
+	expand_simple_operations.
+
+2015-02-13  H.J. Lu  <hongjiu.lu@intel.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	PR rtl/32219
+	* cgraphunit.c (cgraph_node::finalize_function): Set definition
+	before notice_global_symbol.
+	(varpool_node::finalize_decl): Likewise.
+	* varasm.c (default_binds_local_p_2): Rename from
+	default_binds_local_p_1, add weak_dominate argument.  Use direct
+	returns instead of assigning to local variable.  Unify varpool and
+	cgraph paths via symtab_node.  Reject undef weak variables before
+	testing visibility.  Reorder tests for simplicity.
+	(default_binds_local_p): Use default_binds_local_p_2.
+	(default_binds_local_p_1): Likewise.
+	(decl_binds_to_current_def_p): Unify varpool and cgraph paths
+	via symtab_node.
+	(default_elf_asm_output_external): Emit visibility when specified.
+
+2015-02-13  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_epilogue): Fix typo in
+	code setting up r11 for out-of-line fp restore.
+
+2015-02-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/visium/visium.opt (msv-mode): Add RejectNegative and Report.
+	(muser-mode): Likewise.
+
+2015-02-13  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_epilogue): Use addsi3_carry
+	or adddi3_carry when restoring frame_reg_rtx from r0 after restvr.
+
+2015-02-12  David Howells  <dhowells@redhat.com>
+
+	* tree-sra.c (dump_dereferences_table): Avoid -Wformat-security
+	warning.
+	* tree-ssa-uninit.c (dump_predicates): Likewise.
+	* opts.c (print_filtered_help): Likewise.
+
+2015-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (output_die): Use "%s", name instead of name to
+	avoid -Wformat-security warning.
+
+	* dwarf2asm.c (dw2_asm_output_vms_delta): Only define
+	if ASM_OUTPUT_DWARF_VMS_DELTA is defined.
+	* dwarf2out.c (output_die): Use dw2_asm_output_vms_delta
+	only if ASM_OUTPUT_DWARF_VMS_DELTA is defined.
+
+2015-02-12  Jason Merrill  <jason@redhat.com>
+
+	* common.opt (-flifetime-dse): New.
+
 2015-02-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR sanitizer/65019
