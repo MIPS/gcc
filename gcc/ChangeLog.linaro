@@ -1,3 +1,8 @@
+2015-02-12  Michael Collison  <michael.collison@linaro.org>
+
+        GCC Linaro 4.8-2015.02 released.
+        * LINARO-VERSION: Update.
+
 2014-11-14  Yvan Roux  <yvan.roux@linaro.org>
 
 	* LINARO-VERSION: Bump version.
