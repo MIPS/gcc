@@ -512,7 +512,7 @@
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
-;; Expand builtin catoring for HImode and QImode which take SImode.
+;; Expand builtin for HImode and QImode which takes SImode.
 (define_expand "msa_insert_<msafmt>"
   [(match_operand:IMSA 0 "register_operand")
    (match_operand:IMSA 1 "register_operand")
@@ -1954,7 +1954,7 @@
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
 
-;; Expand builtin catoring for HImode and QImode which take SImode.
+;; Expand builtin for HImode and QImode which takes SImode.
 (define_expand "msa_fill_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand")
 	(vec_duplicate:IMSA
@@ -2154,17 +2154,11 @@
    (set_attr "mode" "DF")
    (set_attr "msa_execunit" "msa_eu_float4")])
 
-(define_mode_iterator IZMODE [V8HI V4SI V2DI])
-(define_mode_attr IZDOUBLE
-  [(V8HI  "V16QI")
-   (V4SI  "V8HI")
-   (V2DI  "V4SI")])
-
 (define_insn "msa_hadd_s_<msafmt>"
-  [(set (match_operand:IZMODE 0 "register_operand" "=f")
-	(unspec:IZMODE [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
-			(match_operand:<IZDOUBLE> 2 "register_operand" "f")]
-		       UNSPEC_MSA_HADD_S))]
+  [(set (match_operand:IMSA_DWH 0 "register_operand" "=f")
+	(unspec:IMSA_DWH [(match_operand:<VHMODE> 1 "register_operand" "f")
+			  (match_operand:<VHMODE> 2 "register_operand" "f")]
+			 UNSPEC_MSA_HADD_S))]
   "ISA_HAS_MSA"
   "hadd_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type" "arith")
@@ -2172,10 +2166,10 @@
    (set_attr "msa_execunit" "msa_eu_int_add")])
 
 (define_insn "msa_hadd_u_<msafmt>"
-  [(set (match_operand:IZMODE 0 "register_operand" "=f")
-	(unspec:IZMODE [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
-			(match_operand:<IZDOUBLE> 2 "register_operand" "f")]
-		       UNSPEC_MSA_HADD_U))]
+  [(set (match_operand:IMSA_DWH 0 "register_operand" "=f")
+	(unspec:IMSA_DWH [(match_operand:<VHMODE> 1 "register_operand" "f")
+			  (match_operand:<VHMODE> 2 "register_operand" "f")]
+			 UNSPEC_MSA_HADD_U))]
   "ISA_HAS_MSA"
   "hadd_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type" "arith")
@@ -2183,10 +2177,10 @@
    (set_attr "msa_execunit" "msa_eu_int_add")])
 
 (define_insn "msa_hsub_s_<msafmt>"
-  [(set (match_operand:IZMODE 0 "register_operand" "=f")
-	(unspec:IZMODE [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
-			(match_operand:<IZDOUBLE> 2 "register_operand" "f")]
-		       UNSPEC_MSA_HSUB_S))]
+  [(set (match_operand:IMSA_DWH 0 "register_operand" "=f")
+	(unspec:IMSA_DWH [(match_operand:<VHMODE> 1 "register_operand" "f")
+			  (match_operand:<VHMODE> 2 "register_operand" "f")]
+			 UNSPEC_MSA_HSUB_S))]
   "ISA_HAS_MSA"
   "hsub_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type" "arith")
@@ -2194,10 +2188,10 @@
    (set_attr "msa_execunit" "msa_eu_int_add")])
 
 (define_insn "msa_hsub_u_<msafmt>"
-  [(set (match_operand:IZMODE 0 "register_operand" "=f")
-	(unspec:IZMODE [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
-			(match_operand:<IZDOUBLE> 2 "register_operand" "f")]
-		       UNSPEC_MSA_HSUB_U))]
+  [(set (match_operand:IMSA_DWH 0 "register_operand" "=f")
+	(unspec:IMSA_DWH [(match_operand:<VHMODE> 1 "register_operand" "f")
+			  (match_operand:<VHMODE> 2 "register_operand" "f")]
+			 UNSPEC_MSA_HSUB_U))]
   "ISA_HAS_MSA"
   "hsub_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type" "arith")
