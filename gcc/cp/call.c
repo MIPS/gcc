@@ -597,9 +597,9 @@ null_member_pointer_value_p (tree t)
     return false;
   else if (TYPE_PTRMEMFUNC_P (type))
     return (TREE_CODE (t) == CONSTRUCTOR
-	    && integer_zerop (CONSTRUCTOR_ELT (t, 0)->value));
+	    && integer_zerop (fold (CONSTRUCTOR_ELT (t, 0)->value)));
   else if (TYPE_PTRDATAMEM_P (type))
-    return integer_all_onesp (t);
+    return integer_all_onesp (fold (t));
   else
     return false;
 }
@@ -4698,7 +4698,7 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
       if (!COMPARISON_CLASS_P (arg1))
 	arg1 = cp_build_binary_op (loc, NE_EXPR, arg1,
 				   build_zero_cst (arg1_type), complain);
-      return fold_build3 (VEC_COND_EXPR, arg2_type, arg1, arg2, arg3);
+      return build3 (VEC_COND_EXPR, arg2_type, arg1, arg2, arg3);
     }
 
   /* [expr.cond]
@@ -5102,9 +5102,6 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 
  valid_operands:
   result = build3 (COND_EXPR, result_type, arg1, arg2, arg3);
-  if (!cp_unevaluated_operand)
-    /* Avoid folding within decltype (c++/42013) and noexcept.  */
-    result = fold_if_not_in_template (result);
 
   /* We can't use result_type below, as fold might have returned a
      throw_expr.  */
@@ -5640,8 +5637,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 		 decaying an enumerator to its value.  */
 	      if (complain & tf_warning)
 		warn_logical_operator (loc, code, boolean_type_node,
-				       code_orig_arg1, arg1,
-				       code_orig_arg2, arg2);
+				       code_orig_arg1, fold (arg1),
+				       code_orig_arg2, fold (arg2));
 
 	      arg2 = convert_like (conv, arg2, complain);
 	    }
@@ -5678,7 +5675,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
       warn_logical_operator (loc, code, boolean_type_node,
-			     code_orig_arg1, arg1, code_orig_arg2, arg2);
+			     code_orig_arg1, fold (arg1),
+			     code_orig_arg2, fold (arg2));
       /* Fall through.  */
     case GT_EXPR:
     case LT_EXPR:
@@ -5688,7 +5686,7 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
     case NE_EXPR:
       if ((code_orig_arg1 == BOOLEAN_TYPE)
 	  ^ (code_orig_arg2 == BOOLEAN_TYPE))
-	maybe_warn_bool_compare (loc, code, arg1, arg2);
+	maybe_warn_bool_compare (loc, code, fold (arg1), fold (arg2));
       /* Fall through.  */
     case PLUS_EXPR:
     case MINUS_EXPR:
@@ -6381,7 +6379,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  imag = perform_implicit_conversion (TREE_TYPE (totype),
 					      imag, complain);
 	  expr = build2 (COMPLEX_EXPR, totype, real, imag);
-	  return fold_if_not_in_template (expr);
+	  return expr;
 	}
       expr = reshape_init (totype, expr, complain);
       expr = get_target_expr_sfinae (digest_init (totype, expr, complain),
@@ -7345,8 +7343,13 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 
   gcc_assert (j <= nargs);
   nargs = j;
+  {
+    tree *fargs = (!nargs ? argarray : (tree *) alloca (nargs * sizeof (tree)));
+    for (j = 0; j < nargs; j++)
+      fargs[j] = fold_non_dependent_expr (argarray[j]);
 
-  check_function_arguments (TREE_TYPE (fn), nargs, argarray);
+    check_function_arguments (TREE_TYPE (fn), nargs, fargs);
+  }
 
   /* Avoid actually calling copy constructors and copy assignment operators,
      if possible.  */
@@ -7546,9 +7549,18 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
   /* Check that arguments to builtin functions match the expectations.  */
   if (fndecl
       && DECL_BUILT_IN (fndecl)
-      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
-      && !check_builtin_function_arguments (fndecl, nargs, argarray))
-    return error_mark_node;
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
+    {
+      int i;
+
+      /* We need to take care that values to BUILT_IN_NORMAL
+         are reduced.  */
+      for (i = 0; i < nargs; i++)
+	argarray[i] = maybe_constant_value (argarray[i]);
+
+      if (!check_builtin_function_arguments (fndecl, nargs, argarray))
+	return error_mark_node;
+    }
 
     /* If it is a built-in array notation function, then the return type of
      the function is the element type of the array passed in as array 
@@ -7590,7 +7602,6 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
       && current_function_decl
       && DECL_DECLARED_CONSTEXPR_P (current_function_decl))
     optimize = 1;
-  fn = fold_if_not_in_template (fn);
   optimize = optimize_sav;
 
   if (VOID_TYPE_P (TREE_TYPE (fn)))

@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "hash-set.h"
+#include "hash-map.h"
 #include "machmode.h"
 #include "vec.h"
 #include "double-int.h"
@@ -58,6 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 
 static tree cp_genericize_r (tree *, int *, void *);
 static void cp_genericize_tree (tree*);
+static tree cp_fold (tree, hash_map<tree, tree> *);
 
 /* Local declarations.  */
 
@@ -178,13 +180,13 @@ genericize_eh_spec_block (tree *stmt_p)
 /* Genericize an IF_STMT by turning it into a COND_EXPR.  */
 
 static void
-genericize_if_stmt (tree *stmt_p)
+genericize_if_stmt (tree *stmt_p, hash_map<tree, tree> *fold_hash)
 {
   tree stmt, cond, then_, else_;
   location_t locus = EXPR_LOCATION (*stmt_p);
 
   stmt = *stmt_p;
-  cond = IF_COND (stmt);
+  cond = cp_fold (IF_COND (stmt), fold_hash);
   then_ = THEN_CLAUSE (stmt);
   else_ = ELSE_CLAUSE (stmt);
 
@@ -201,7 +203,8 @@ genericize_if_stmt (tree *stmt_p)
     stmt = build3 (COND_EXPR, void_type_node, cond, then_, else_);
   if (CAN_HAVE_LOCATION_P (stmt) && !EXPR_HAS_LOCATION (stmt))
     SET_EXPR_LOCATION (stmt, locus);
-  *stmt_p = stmt;
+
+  *stmt_p = cp_fold (stmt, fold_hash);
 }
 
 /* Build a generic representation of one of the C loop forms.  COND is the
@@ -534,9 +537,10 @@ int
 cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 {
   int saved_stmts_are_full_exprs_p = 0;
-  enum tree_code code = TREE_CODE (*expr_p);
+  enum tree_code code;
   enum gimplify_status ret;
 
+  code = TREE_CODE (*expr_p);
   if (STATEMENT_CODE_P (code))
     {
       saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();
@@ -546,6 +550,10 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
   switch (code)
     {
+    case SIZEOF_EXPR:
+      *expr_p = maybe_constant_value (*expr_p);
+      ret = GS_OK;
+      break;
     case PTRMEM_CST:
       *expr_p = cplus_expand_constant (*expr_p);
       ret = GS_OK;
@@ -875,6 +883,7 @@ struct cp_genericize_data
   hash_set<tree> *p_set;
   vec<tree> bind_expr_stack;
   struct cp_genericize_omp_taskreg *omp_ctx;
+  hash_map<tree, tree> *fold_hash;
 };
 
 /* Perform any pre-gimplification lowering of C++ front end trees to
@@ -883,9 +892,11 @@ struct cp_genericize_data
 static tree
 cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 {
-  tree stmt = *stmt_p;
+  tree stmt;
   struct cp_genericize_data *wtd = (struct cp_genericize_data *) data;
   hash_set<tree> *p_set = wtd->p_set;
+
+  *stmt_p = stmt = cp_fold (*stmt_p, wtd->fold_hash);
 
   /* If in an OpenMP context, note var uses.  */
   if (__builtin_expect (wtd->omp_ctx != NULL, 0)
@@ -936,7 +947,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       if (__builtin_expect (wtd->omp_ctx != NULL, 0)
 	  && omp_var_to_track (TREE_OPERAND (stmt, 0)))
 	omp_cxx_notice_variable (wtd->omp_ctx, TREE_OPERAND (stmt, 0));
-      *stmt_p = convert (TREE_TYPE (stmt), TREE_OPERAND (stmt, 0));
+      *stmt_p = fold_convert (TREE_TYPE (stmt), TREE_OPERAND (stmt, 0));
       *walk_subtrees = 0;
     }
   else if (TREE_CODE (stmt) == RETURN_EXPR
@@ -1016,7 +1027,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 
   else if (TREE_CODE (stmt) == IF_STMT)
     {
-      genericize_if_stmt (stmt_p);
+      genericize_if_stmt (stmt_p, wtd->fold_hash);
       /* *stmt_p has changed, tail recurse to handle it again.  */
       return cp_genericize_r (stmt_p, walk_subtrees, data);
     }
@@ -1195,6 +1206,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 					      SIZEOF_EXPR, false);
       if (*stmt_p == error_mark_node)
 	*stmt_p = size_one_node;
+      *stmt_p = cp_fold (*stmt_p,  wtd->fold_hash);
       return NULL;
     }    
   else if (flag_sanitize
@@ -1236,10 +1248,12 @@ cp_genericize_tree (tree* t_p)
 {
   struct cp_genericize_data wtd;
 
+  wtd.fold_hash = new hash_map<tree, tree>;
   wtd.p_set = new hash_set<tree>;
   wtd.bind_expr_stack.create (0);
   wtd.omp_ctx = NULL;
   cp_walk_tree (t_p, cp_genericize_r, &wtd, NULL);
+  delete wtd.fold_hash;
   delete wtd.p_set;
   wtd.bind_expr_stack.release ();
   if (flag_sanitize & SANITIZE_VPTR)
@@ -1659,4 +1673,253 @@ cxx_omp_finish_clause (tree c, gimple_seq *)
 
   if (make_shared)
     OMP_CLAUSE_CODE (c) = OMP_CLAUSE_SHARED;
+}
+
+tree
+cp_fully_fold (tree x)
+{
+  hash_map<tree, tree> fold_hash;
+  return cp_fold (x, &fold_hash);
+}
+
+static tree
+cp_fold (tree x, hash_map<tree, tree> *fold_hash)
+{
+  tree org_x = x, r = NULL_TREE;
+  tree *slot;
+
+  if (x == error_mark_node || !x || CONSTANT_CLASS_P (x))
+    return x;
+
+  if (!fold_hash)
+    fold_hash = new hash_map<tree, tree>;
+  slot = fold_hash->get (org_x);
+  if (slot)
+    return *slot;
+  switch (TREE_CODE (x))
+  {
+  case CONVERT_EXPR:
+  case VIEW_CONVERT_EXPR:
+  case NOP_EXPR:
+    if (VOID_TYPE_P (TREE_TYPE (x)))
+      return x;
+  case SIZEOF_EXPR:
+  case ALIGNOF_EXPR:
+  case SAVE_EXPR:
+  case ADDR_EXPR:
+  case REALPART_EXPR:
+  case IMAGPART_EXPR:
+  case CONJ_EXPR:
+  case FIX_TRUNC_EXPR:
+  case FLOAT_EXPR:
+  case NEGATE_EXPR:
+  case ABS_EXPR:
+  case BIT_NOT_EXPR:
+  case TRUTH_NOT_EXPR:
+  case FIXED_CONVERT_EXPR:
+  case UNARY_PLUS_EXPR:
+  case CLEANUP_POINT_EXPR:
+  case INDIRECT_REF:
+  case NON_LVALUE_EXPR:
+  case RETURN_EXPR:
+  case EXPR_STMT:
+  case STMT_EXPR:
+  case GOTO_EXPR:
+  case EXIT_EXPR:
+  case LOOP_EXPR:
+    {
+      location_t loc = EXPR_LOCATION (x);
+      tree op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
+      if (!op0) op0 = TREE_OPERAND (x, 0);
+      if (op0 != TREE_OPERAND (x, 0))
+        r = fold_build1_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0);
+      if (!r)
+	r = fold_unary_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0);
+      if (r)
+	x = r;
+      gcc_assert (TREE_CODE (x) != COND_EXPR || !VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (x, 0))));
+      break;
+    }
+  case PREDECREMENT_EXPR:
+  case PREINCREMENT_EXPR:
+  case POSTDECREMENT_EXPR:
+  case POSTINCREMENT_EXPR:
+  case COMPOUND_EXPR:
+  case POINTER_PLUS_EXPR:
+  case PLUS_EXPR:
+  case MINUS_EXPR:
+  case MULT_EXPR:
+  case TRUNC_DIV_EXPR:
+  case CEIL_DIV_EXPR:
+  case FLOOR_DIV_EXPR:
+  case ROUND_DIV_EXPR:
+  case TRUNC_MOD_EXPR:
+  case CEIL_MOD_EXPR:
+  case ROUND_MOD_EXPR:
+  case RDIV_EXPR:
+  case EXACT_DIV_EXPR:
+  case MIN_EXPR:
+  case MAX_EXPR:
+  case LSHIFT_EXPR:
+  case RSHIFT_EXPR:
+  case LROTATE_EXPR:
+  case RROTATE_EXPR:
+  case BIT_AND_EXPR:
+  case BIT_IOR_EXPR:
+  case BIT_XOR_EXPR:
+  case TRUTH_AND_EXPR:
+  case TRUTH_XOR_EXPR:
+  case LT_EXPR: case LE_EXPR:
+  case GT_EXPR: case GE_EXPR:
+  case EQ_EXPR: case NE_EXPR:
+  case UNORDERED_EXPR: case ORDERED_EXPR:
+  case UNLT_EXPR: case UNLE_EXPR:
+  case UNGT_EXPR: case UNGE_EXPR:
+  case UNEQ_EXPR: case LTGT_EXPR:
+  case RANGE_EXPR: case COMPLEX_EXPR:
+  case MODIFY_EXPR:
+  case INIT_EXPR:
+    {
+      location_t loc = EXPR_LOCATION (x);
+      tree op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
+      tree op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);
+
+      if (!op0) op0 = TREE_OPERAND (x, 0);
+      if (!op1) op1 = TREE_OPERAND (x, 1);
+
+      if (TREE_CODE (x) == COMPOUND_EXPR && op0 == NULL_TREE)
+	op0 = build_empty_stmt (loc);
+
+      if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1))
+        r = fold_build2_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1);
+      if (!r)
+	r = fold_binary_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1);
+      if (r)
+	x = r;
+      if (TREE_CODE (x) == COMPOUND_EXPR && TREE_OPERAND (x, 0) == NULL_TREE)
+	return TREE_OPERAND (x, 1);
+      break;
+    }
+  case VEC_COND_EXPR:
+  case COND_EXPR:
+    {
+      location_t loc = EXPR_LOCATION (x);
+      tree op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
+      if (CONSTANT_CLASS_P (op0))
+	{
+	  if (integer_zerop (op0) && !TREE_SIDE_EFFECTS (TREE_OPERAND (x, 1)))
+	    x = cp_fold (TREE_OPERAND (x, 2), fold_hash);
+	  else if (integer_nonzerop (op0) && !TREE_SIDE_EFFECTS (TREE_OPERAND (x, 2)))
+	    x = cp_fold (TREE_OPERAND (x, 1), fold_hash);
+	  break;
+	}
+
+      if (VOID_TYPE_P (TREE_TYPE (x)))
+	break;
+
+      tree op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);
+      tree op2 = cp_fold (TREE_OPERAND (x, 2), fold_hash);
+
+      if (TREE_CODE (x) == COND_EXPR)
+	{
+	  if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1) || op2 != TREE_OPERAND (x, 2))
+	    x = build3_loc (loc, COND_EXPR, TREE_TYPE (x), op0, op1, op2);
+	  break;
+	}
+      if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1) || op2 != TREE_OPERAND (x, 2))
+        r = fold_build3_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1, op2);
+      if (!r)
+	r = fold_ternary_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1, op2);
+      if (r)
+	x = r;
+      break;
+    }
+  case CALL_EXPR:
+    r = fold (x);
+    if (TREE_CODE (r) != CALL_EXPR)
+      {
+	x = cp_fold (r, fold_hash);
+	break;
+      }
+    {
+      int i, m = call_expr_nargs (x);
+      for (i = 0; i < m; i++)
+        {
+	  CALL_EXPR_ARG (x, i) = cp_fold (CALL_EXPR_ARG (x, i), fold_hash);
+	}
+    }
+    r = fold (x);
+    if (TREE_CODE (r) != CALL_EXPR)
+      {
+	x = cp_fold (r, fold_hash);
+	break;
+      }
+    return org_x;
+
+  case BIND_EXPR:
+    if (TREE_OPERAND (x, 0))
+      TREE_OPERAND (x, 0) = cp_fold (TREE_OPERAND (x, 0), fold_hash);
+    if (TREE_OPERAND (x, 1))
+      TREE_OPERAND (x, 1) = cp_fold (TREE_OPERAND (x, 1), fold_hash);
+    if (TREE_OPERAND (x, 2))
+      TREE_OPERAND (x, 2) = cp_fold (TREE_OPERAND (x, 2), fold_hash);
+    break;
+  case TREE_VEC:
+    {
+      bool changed = false;
+      vec<tree, va_gc> *vec = make_tree_vector ();
+      int i, n = TREE_VEC_LENGTH (x);
+      vec_safe_reserve (vec, n);
+      for (i = 0; i < n; i++)
+        {
+          tree op = cp_fold (TREE_VEC_ELT (x, i), fold_hash);
+          vec->quick_push (op);
+          if (op != TREE_VEC_ELT (x, i))
+            changed = true;
+        }
+      if (changed)
+        {
+          r = copy_node (x);
+          for (i = 0; i < n; i++)
+            TREE_VEC_ELT (r, i) = (*vec)[i];
+	  x = r;
+	}
+      release_tree_vector (vec);
+    }
+    break;
+  case ARRAY_REF:
+  case ARRAY_RANGE_REF:
+    {
+      location_t loc = EXPR_LOCATION (x);
+      tree nop1 = NULL_TREE, op1 = TREE_OPERAND (x, 0);
+      tree nop2 = NULL_TREE, op2 = TREE_OPERAND (x, 1);
+      tree nop3 = NULL_TREE, op3 = TREE_OPERAND (x, 2);
+      tree nop4 = NULL_TREE, op4 = TREE_OPERAND (x, 3);
+      if (op1) nop1 = cp_fold (op1, fold_hash);
+      if (op2) nop2 = cp_fold (op2, fold_hash);
+      if (op3) nop3 = cp_fold (op3, fold_hash);
+      if (op4) nop4 = cp_fold (op4, fold_hash);
+      if (op1 != nop1 || op2 != nop2 || op3 != nop3 || op4 != nop4)
+	x = build4_loc (loc, TREE_CODE (x), TREE_TYPE (x), nop1, nop2, nop3, nop4);
+      r = fold (x);
+      if (r != x)
+	x = r;
+    }
+    break;
+  case DECL_EXPR:
+    if (TREE_OPERAND (x, 0))
+      TREE_OPERAND (x, 0) = cp_fold (TREE_OPERAND (x, 0), fold_hash);
+    break;
+  default:
+    return org_x;
+  }
+  slot = &fold_hash->get_or_insert (org_x);
+  *slot = x;
+  /* Prevent that we try to fold an already folded result again.  */
+  if (x != org_x)
+    {
+      slot = &fold_hash->get_or_insert (x);
+      *slot = x;
+    }
+  return x;
 }

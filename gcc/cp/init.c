@@ -188,9 +188,9 @@ build_zero_init_1 (tree type, tree nelts, bool static_storage_p,
        initialized are initialized to zero.  */
     ;
   else if (TYPE_PTR_OR_PTRMEM_P (type))
-    init = convert (type, nullptr_node);
+    init = fold (convert (type, nullptr_node));
   else if (SCALAR_TYPE_P (type))
-    init = convert (type, integer_zero_node);
+    init = fold_convert (type, integer_zero_node);
   else if (RECORD_OR_UNION_CODE_P (TREE_CODE (type)))
     {
       tree field;
@@ -783,7 +783,8 @@ perform_member_init (tree member, tree init)
 	   in that case.  */
 	init = build_x_compound_expr_from_list (init, ELK_MEM_INIT,
 						tf_warning_or_error);
-
+      if (init)
+	init = fold (init);
       if (init)
 	finish_expr_stmt (cp_build_modify_expr (decl, INIT_EXPR, init,
 						tf_warning_or_error));
@@ -2484,7 +2485,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
       }
       max_outer_nelts_tree = wide_int_to_tree (sizetype, max_outer_nelts);
 
-      size = size_binop (MULT_EXPR, size, convert (sizetype, nelts));
+      size = size_binop (MULT_EXPR, size, fold_convert (sizetype, nelts));
       outer_nelts_check = fold_build2 (LE_EXPR, boolean_type_node,
 				       outer_nelts,
 				       max_outer_nelts_tree);
@@ -2640,7 +2641,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	{
 	  placement_expr = get_target_expr (placement_first);
 	  CALL_EXPR_ARG (alloc_call, 1)
-	    = convert (TREE_TYPE (placement_arg), placement_expr);
+	    = fold_convert (TREE_TYPE (placement_arg), placement_expr);
 	}
     }
 
@@ -3222,7 +3223,7 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 
   /* The below is short by the cookie size.  */
   virtual_size = size_binop (MULT_EXPR, size_exp,
-			     convert (sizetype, maxindex));
+			     fold_convert (sizetype, maxindex));
 
   tbase = create_temporary_var (ptype);
   tbase_init
@@ -3265,7 +3266,7 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 
       /* The below is short by the cookie size.  */
       virtual_size = size_binop (MULT_EXPR, size_exp,
-				 convert (sizetype, maxindex));
+				 fold_convert (sizetype, maxindex));
 
       if (! TYPE_VEC_NEW_USES_COOKIE (type))
 	/* no header */
@@ -3311,8 +3312,8 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
   body = fold_build3_loc (input_location, COND_EXPR, void_type_node,
 		      fold_build2_loc (input_location,
 				   NE_EXPR, boolean_type_node, base,
-				   convert (TREE_TYPE (base),
-					    nullptr_node)),
+				   fold_convert (TREE_TYPE (base),
+						 nullptr_node)),
 		      body, integer_zero_node);
   body = build1 (NOP_EXPR, void_type_node, body);
 

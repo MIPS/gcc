@@ -8522,16 +8522,18 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
       SET_TYPE_STRUCTURAL_EQUALITY (itype);
       return itype;
     }
-  
+
+  /* We need to do fully folding to determine if we have VLA, or not.  */
+  tree size_constant = maybe_constant_value (size);
   /* Normally, the array-bound will be a constant.  */
-  if (TREE_CODE (size) == INTEGER_CST)
+  if (TREE_CODE (size_constant) == INTEGER_CST)
     {
       /* Check to see if the array bound overflowed.  Make that an
 	 error, no matter how generous we're being.  */
-      constant_expression_error (size);
+      constant_expression_error (size_constant);
 
       /* An array must have a positive number of elements.  */
-      if (tree_int_cst_lt (size, integer_zero_node))
+      if (tree_int_cst_lt (size_constant, integer_zero_node))
 	{
 	  if (!(complain & tf_error))
 	    return error_mark_node;
@@ -8542,7 +8544,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	  size = integer_one_node;
 	}
       /* As an extension we allow zero-sized arrays.  */
-      else if (integer_zerop (size))
+      else if (integer_zerop (size_constant))
 	{
 	  if (!(complain & tf_error))
 	    /* We must fail if performing argument deduction (as
@@ -8557,7 +8559,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	    pedwarn (input_location, OPT_Wpedantic, "ISO C++ forbids zero-size array");
 	}
     }
-  else if (TREE_CONSTANT (size)
+  else if (TREE_CONSTANT (size_constant)
 	   /* We don't allow VLAs at non-function scopes, or during
 	      tentative template substitution.  */
 	   || !at_function_scope_p ()
@@ -8571,7 +8573,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	       name);
       else
 	error ("size of array is not an integral constant-expression");
-      size = integer_one_node;
+      size_constant = size = integer_one_node;
     }
   else if (pedantic && warn_vla != 0)
     {
@@ -8590,7 +8592,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
                  "variable length array is used");
     }
 
-  if (processing_template_decl && !TREE_CONSTANT (size))
+  if (processing_template_decl && !TREE_CONSTANT (size_constant))
     /* A variable sized array.  */
     itype = build_min (MINUS_EXPR, sizetype, size, integer_one_node);
   else
@@ -8605,11 +8607,11 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
       processing_template_decl = 0;
       itype = cp_build_binary_op (input_location,
 				  MINUS_EXPR,
-				  cp_convert (ssizetype, size, complain),
+				  cp_convert (ssizetype, size_constant, complain),
 				  cp_convert (ssizetype, integer_one_node,
 					      complain),
 				  complain);
-      itype = fold (itype);
+      itype = maybe_constant_value (itype);
       processing_template_decl = saved_processing_template_decl;
 
       if (!TREE_CONSTANT (itype))
@@ -8626,7 +8628,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	      cp_walk_tree_without_duplicates (&newitype,
 					       fold_sizeof_expr_r, &found);
 	      if (found)
-		itype = variable_size (fold (newitype));
+		itype = variable_size (maybe_constant_value (newitype));
 	    }
 
 	  stabilize_vla_size (itype);
@@ -13107,6 +13109,8 @@ build_enumerator (tree name, tree value, tree enumtype, location_t loc)
   if (value)
     STRIP_TYPE_NOPS (value);
 
+  if (value)
+    value = maybe_constant_value (value);
   if (! processing_template_decl)
     {
       /* Validate and default VALUE.  */
@@ -13217,7 +13221,7 @@ incremented enumerator value is too large for %<long%>");
 		   "type %<%T%>", value, ENUM_UNDERLYING_TYPE (enumtype));
 
           /* Convert the value to the appropriate type.  */
-          value = convert (ENUM_UNDERLYING_TYPE (enumtype), value);
+          value = fold (convert (ENUM_UNDERLYING_TYPE (enumtype), value));
         }
     }
 

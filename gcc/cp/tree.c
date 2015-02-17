@@ -449,7 +449,7 @@ build_aggr_init_expr (tree type, tree init)
   else if (TREE_CODE (init) == AGGR_INIT_EXPR)
     fn = AGGR_INIT_EXPR_FN (init);
   else
-    return convert (type, init);
+    return fold (convert (type, init));
 
   is_ctor = (TREE_CODE (fn) == ADDR_EXPR
 	     && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
@@ -4142,26 +4142,6 @@ stabilize_init (tree init, tree *initp)
   /* The initialization is being performed via a bitwise copy -- and
      the item copied may have side effects.  */
   return !TREE_SIDE_EFFECTS (init);
-}
-
-/* Like "fold", but should be used whenever we might be processing the
-   body of a template.  */
-
-tree
-fold_if_not_in_template (tree expr)
-{
-  /* In the body of a template, there is never any need to call
-     "fold".  We will call fold later when actually instantiating the
-     template.  Integral constant expressions in templates will be
-     evaluated via instantiate_non_dependent_expr, as necessary.  */
-  if (processing_template_decl)
-    return expr;
-
-  /* Fold C++ front-end specific tree codes.  */
-  if (TREE_CODE (expr) == UNARY_PLUS_EXPR)
-    return fold_convert (TREE_TYPE (expr), TREE_OPERAND (expr, 0));
-
-  return fold (expr);
 }
 
 /* Returns true if a cast to TYPE may appear in an integral constant

@@ -7072,7 +7072,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       /* Handle OMP_FOR_COND.  */
       t = TREE_VEC_ELT (OMP_FOR_COND (for_stmt), i);
       gcc_assert (COMPARISON_CLASS_P (t));
-      gcc_assert (TREE_OPERAND (t, 0) == decl);
+      gcc_assert (TREE_OPERAND (t, 0) == decl || TREE_OPERAND (t, 1) == decl);
 
       tret = gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
 			    is_gimple_val, fb_rvalue);

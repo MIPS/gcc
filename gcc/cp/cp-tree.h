@@ -6150,7 +6150,6 @@ extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
 	walk_tree_1 (tp, func, data, pset, cp_walk_subtrees)
 #define cp_walk_tree_without_duplicates(tp,func,data) \
 	walk_tree_without_duplicates_1 (tp, func, data, cp_walk_subtrees)
-extern tree fold_if_not_in_template		(tree);
 extern tree rvalue				(tree);
 extern tree convert_bitfield_to_declared_type   (tree);
 extern tree cp_save_expr			(tree);
@@ -6372,6 +6371,7 @@ extern tree cxx_omp_clause_assign_op		(tree, tree, tree);
 extern tree cxx_omp_clause_dtor			(tree, tree);
 extern void cxx_omp_finish_clause		(tree, gimple_seq *);
 extern bool cxx_omp_privatize_by_reference	(const_tree);
+extern tree cp_fully_fold			(tree);
 
 /* in name-lookup.c */
 extern void suggest_alternatives_for            (location_t, tree);

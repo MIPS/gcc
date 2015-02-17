@@ -603,8 +603,14 @@ ignore_overflows (tree expr, tree orig)
 tree
 cp_fold_convert (tree type, tree expr)
 {
-  tree conv = fold_convert (type, expr);
+  tree conv;
+
+  if (TREE_CODE (expr) == INTEGER_CST)
+    conv = fold_convert (type, expr);
+  else
+    conv = convert (type, expr);
   conv = ignore_overflows (conv, expr);
+
   return conv;
 }
 
@@ -626,12 +632,12 @@ cp_convert (tree type, tree expr, tsubst_flags_t complain)
 tree
 cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
 {
-  tree result;
+  tree result, ret;
 
   if (TREE_TYPE (expr) == type)
     return expr;
   
-  result = cp_convert (type, expr, complain);
+  result = ret = cp_convert (type, expr, complain);
 
   if ((complain & tf_warning)
       && c_inhibit_evaluation_warnings == 0)
@@ -640,6 +646,7 @@ cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
       tree stripped = folded;
       tree folded_result
 	= folded != expr ? cp_convert (type, folded, complain) : result;
+      folded_result = fold (folded_result);
 
       /* maybe_constant_value wraps an INTEGER_CST with TREE_OVERFLOW in a
 	 NOP_EXPR so that it isn't TREE_CONSTANT anymore.  */
@@ -651,7 +658,7 @@ cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
 					folded_result);
     }
 
-  return result;
+  return ret;
 }
 
 /* Conversion...
@@ -702,9 +709,9 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
       /* For complex data types, we need to perform componentwise
 	 conversion.  */
       else if (TREE_CODE (type) == COMPLEX_TYPE)
-	return fold_if_not_in_template (convert_to_complex (type, e));
+	return convert_to_complex (type, e);
       else if (TREE_CODE (type) == VECTOR_TYPE)
-	return fold_if_not_in_template (convert_to_vector (type, e));
+	return convert_to_vector (type, e);
       else if (TREE_CODE (e) == TARGET_EXPR)
 	{
 	  /* Don't build a NOP_EXPR of class type.  Instead, change the
@@ -717,7 +724,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 	  /* We shouldn't be treating objects of ADDRESSABLE type as
 	     rvalues.  */
 	  gcc_assert (!TREE_ADDRESSABLE (type));
-	  return fold_if_not_in_template (build_nop (type, e));
+	  return build_nop (type, e);
 	}
     }
 
@@ -795,7 +802,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 	  return cp_truthvalue_conversion (e);
 	}
 
-      converted = fold_if_not_in_template (convert_to_integer (type, e));
+      converted = convert_to_integer (type, e);
 
       /* Ignore any integer overflow caused by the conversion.  */
       return ignore_overflows (converted, e);
@@ -807,7 +814,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
       return nullptr_node;
     }
   if (POINTER_TYPE_P (type) || TYPE_PTRMEM_P (type))
-    return fold_if_not_in_template (cp_convert_to_pointer (type, e, complain));
+    return cp_convert_to_pointer (type, e, complain);
   if (code == VECTOR_TYPE)
     {
       tree in_vtype = TREE_TYPE (e);
@@ -822,7 +829,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 		      in_vtype, type);
 	  return error_mark_node;
 	}
-      return fold_if_not_in_template (convert_to_vector (type, e));
+      return convert_to_vector (type, e);
     }
   if (code == REAL_TYPE || code == COMPLEX_TYPE)
     {
@@ -838,9 +845,9 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 		      TREE_TYPE (e));
 	}
       if (code == REAL_TYPE)
-	return fold_if_not_in_template (convert_to_real (type, e));
+	return convert_to_real (type, e);
       else if (code == COMPLEX_TYPE)
-	return fold_if_not_in_template (convert_to_complex (type, e));
+	return convert_to_complex (type, e);
     }
 
   /* New C++ semantics:  since assignment is now based on
@@ -1453,7 +1460,7 @@ convert (tree type, tree expr)
   intype = TREE_TYPE (expr);
 
   if (POINTER_TYPE_P (type) && POINTER_TYPE_P (intype))
-    return fold_if_not_in_template (build_nop (type, expr));
+    return build_nop (type, expr);
 
   return ocp_convert (type, expr, CONV_OLD_CONVERT,
 		      LOOKUP_NORMAL|LOOKUP_NO_CONVERSION,
@@ -1471,13 +1478,11 @@ convert_force (tree type, tree expr, int convtype, tsubst_flags_t complain)
   enum tree_code code = TREE_CODE (type);
 
   if (code == REFERENCE_TYPE)
-    return (fold_if_not_in_template
-	    (convert_to_reference (type, e, CONV_C_CAST, 0,
-				   NULL_TREE, complain)));
+    return convert_to_reference (type, e, CONV_C_CAST, 0,
+				 NULL_TREE, complain);
 
   if (code == POINTER_TYPE)
-    return fold_if_not_in_template (convert_to_pointer_force (type, e,
-							      complain));
+    return convert_to_pointer_force (type, e, complain);
 
   /* From typeck.c convert_for_assignment */
   if (((TYPE_PTR_P (TREE_TYPE (e)) && TREE_CODE (e) == ADDR_EXPR
@@ -1523,8 +1528,10 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   tree basetype = TREE_TYPE (expr);
   tree conv = NULL_TREE;
   tree winner = NULL_TREE;
+  tree expr_folded = maybe_constant_value (expr);
 
-  if (expr == null_node
+  STRIP_NOPS (expr_folded);
+  if (expr_folded == null_node
       && (desires & WANT_INT)
       && !(desires & WANT_NULL))
     {
@@ -1542,7 +1549,7 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
     switch (TREE_CODE (basetype))
       {
       case INTEGER_TYPE:
-	if ((desires & WANT_NULL) && null_ptr_cst_p (expr))
+	if ((desires & WANT_NULL) && null_ptr_cst_p (expr_folded))
 	  return expr;
 	/* else fall through...  */
 
