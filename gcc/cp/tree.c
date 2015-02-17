@@ -2745,20 +2745,8 @@ cp_tree_equal (tree t1, tree t2)
   if (!t1 || !t2)
     return false;
 
-  for (code1 = TREE_CODE (t1);
-       CONVERT_EXPR_CODE_P (code1)
-	 || code1 == NON_LVALUE_EXPR;
-       code1 = TREE_CODE (t1))
-    t1 = TREE_OPERAND (t1, 0);
-  for (code2 = TREE_CODE (t2);
-       CONVERT_EXPR_CODE_P (code2)
-	 || code2 == NON_LVALUE_EXPR;
-       code2 = TREE_CODE (t2))
-    t2 = TREE_OPERAND (t2, 0);
-
-  /* They might have become equal now.  */
-  if (t1 == t2)
-    return true;
+  code1 = TREE_CODE (t1);
+  code2 = TREE_CODE (t2);
 
   if (code1 != code2)
     return false;
@@ -2996,6 +2984,9 @@ cp_tree_equal (tree t1, tree t2)
     case DYNAMIC_CAST_EXPR:
     case IMPLICIT_CONV_EXPR:
     case NEW_EXPR:
+    CASE_CONVERT:
+    case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       if (!same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	return false;
       /* Now compare operands as usual.  */
@@ -3501,6 +3492,50 @@ static tree
 handle_abi_tag_attribute (tree* node, tree name, tree args,
 			  int flags, bool* no_add_attrs)
 {
+  for (tree arg = args; arg; arg = TREE_CHAIN (arg))
+    {
+      tree elt = TREE_VALUE (arg);
+      if (TREE_CODE (elt) != STRING_CST
+	  || (!same_type_ignoring_top_level_qualifiers_p
+	      (strip_array_types (TREE_TYPE (elt)),
+	       char_type_node)))
+	{
+	  error ("arguments to the %qE attribute must be narrow string "
+		 "literals", name);
+	  goto fail;
+	}
+      const char *begin = TREE_STRING_POINTER (elt);
+      const char *end = begin + TREE_STRING_LENGTH (elt);
+      for (const char *p = begin; p != end; ++p)
+	{
+	  char c = *p;
+	  if (p == begin)
+	    {
+	      if (!ISALPHA (c) && c != '_')
+		{
+		  error ("arguments to the %qE attribute must contain valid "
+			 "identifiers", name);
+		  inform (input_location, "%<%c%> is not a valid first "
+			  "character for an identifier", c);
+		  goto fail;
+		}
+	    }
+	  else if (p == end - 1)
+	    gcc_assert (c == 0);
+	  else
+	    {
+	      if (!ISALNUM (c) && c != '_')
+		{
+		  error ("arguments to the %qE attribute must contain valid "
+			 "identifiers", name);
+		  inform (input_location, "%<%c%> is not a valid character "
+			  "in an identifier", c);
+		  goto fail;
+		}
+	    }
+	}
+    }
+
   if (TYPE_P (*node))
     {
       if (!OVERLOAD_TYPE_P (*node))

@@ -1106,7 +1106,7 @@ print_filtered_help (unsigned int include_flags,
 		      if (* (const char **) flag_var != NULL)
 			snprintf (new_help + strlen (new_help),
 				  sizeof (new_help) - strlen (new_help),
-				  * (const char **) flag_var);
+				  "%s", * (const char **) flag_var);
 		    }
 		  else if (option->var_type == CLVC_ENUM)
 		    {
@@ -1120,7 +1120,7 @@ print_filtered_help (unsigned int include_flags,
 			arg = _("[default]");
 		      snprintf (new_help + strlen (new_help),
 				sizeof (new_help) - strlen (new_help),
-				arg);
+				"%s", arg);
 		    }
 		  else
 		    sprintf (new_help + strlen (new_help),
@@ -2264,10 +2264,11 @@ setup_core_dumping (diagnostic_context *dc)
   {
     struct rlimit rlim;
     if (getrlimit (RLIMIT_CORE, &rlim) != 0)
-      fatal_error ("getting core file size maximum limit: %m");
+      fatal_error (input_location, "getting core file size maximum limit: %m");
     rlim.rlim_cur = rlim.rlim_max;
     if (setrlimit (RLIMIT_CORE, &rlim) != 0)
-      fatal_error ("setting core file size limit to maximum: %m");
+      fatal_error (input_location,
+		   "setting core file size limit to maximum: %m");
   }
 #endif
   diagnostic_abort_on_error (dc);

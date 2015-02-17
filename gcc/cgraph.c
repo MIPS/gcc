@@ -1324,7 +1324,8 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 		     (int64_t)e->count);
 	  gcc_assert (e2->speculative);
 	  push_cfun (DECL_STRUCT_FUNCTION (e->caller->decl));
-	  new_stmt = gimple_ic (e->call_stmt, dyn_cast<cgraph_node *> (ref->referred),
+	  new_stmt = gimple_ic (e->call_stmt,
+				dyn_cast<cgraph_node *> (ref->referred),
 				e->count || e2->count
 				?  RDIV (e->count * REG_BR_PROB_BASE,
 					 e->count + e2->count)
@@ -1463,6 +1464,9 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
       gimple_call_set_chain (new_stmt, NULL);
       update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), new_stmt);
     }
+
+  maybe_remove_unused_call_args (DECL_STRUCT_FUNCTION (e->caller->decl),
+				 new_stmt);
 
   e->caller->set_call_stmt_including_clones (e->call_stmt, new_stmt, false);
 
@@ -1842,20 +1846,7 @@ cgraph_node::local_info (tree decl)
   cgraph_node *node = get (decl);
   if (!node)
     return NULL;
-  return &node->local;
-}
-
-/* Return global info for the compiled function.  */
-
-cgraph_global_info *
-cgraph_node::global_info (tree decl)
-{
-  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
-    && symtab->global_info_ready);
-  cgraph_node *node = get (decl);
-  if (!node)
-    return NULL;
-  return &node->global;
+  return &node->ultimate_alias_target ()->local;
 }
 
 /* Return local info for the compiled function.  */
@@ -1865,11 +1856,13 @@ cgraph_node::rtl_info (tree decl)
 {
   gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
   cgraph_node *node = get (decl);
-  if (!node
-      || (decl != current_function_decl
-	  && !TREE_ASM_WRITTEN (node->decl)))
+  if (!node)
     return NULL;
-  return &node->rtl;
+  node = node->ultimate_alias_target ();
+  if (node->decl != current_function_decl
+      && !TREE_ASM_WRITTEN (node->decl))
+    return NULL;
+  return &node->ultimate_alias_target ()->rtl;
 }
 
 /* Return a string describing the failure REASON.  */
@@ -1986,6 +1979,18 @@ cgraph_node::dump (FILE *f)
     fprintf (f," static_constructor (priority:%i)", get_init_priority ());
   if (DECL_STATIC_DESTRUCTOR (decl))
     fprintf (f," static_destructor (priority:%i)", get_fini_priority ());
+  if (frequency == NODE_FREQUENCY_HOT)
+    fprintf (f, " hot");
+  if (frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
+    fprintf (f, " unlikely_executed");
+  if (frequency == NODE_FREQUENCY_EXECUTED_ONCE)
+    fprintf (f, " executed_once");
+  if (only_called_at_startup)
+    fprintf (f, " only_called_at_startup");
+  if (only_called_at_exit)
+    fprintf (f, " only_called_at_exit");
+  if (opt_for_fn (decl, optimize_size))
+    fprintf (f, " optimize_size");
 
   fprintf (f, "\n");
 
@@ -2210,33 +2215,6 @@ cgraph_node::call_for_symbol_thunks_and_aliases (bool (*callback)
   return false;
 }
 
-/* Call callback on function and aliases associated to the function.
-   When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
-   skipped.  */
-
-bool
-cgraph_node::call_for_symbol_and_aliases (bool (*callback) (cgraph_node *,
-							    void *),
-					  void *data,
-					  bool include_overwritable)
-{
-  ipa_ref *ref;
-
-  if (callback (this, data))
-    return true;
-
-  FOR_EACH_ALIAS (this, ref)
-    {
-      cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
-      if (include_overwritable
-	  || alias->get_availability () > AVAIL_INTERPOSABLE)
-	if (alias->call_for_symbol_and_aliases (callback, data,
-						include_overwritable))
-	  return true;
-    }
-  return false;
-}
-
 /* Worker to bring NODE local.  */
 
 bool
@@ -2422,37 +2400,6 @@ cgraph_edge::maybe_hot_p (void)
 			   / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION)))
         return false;
     }
-  return true;
-}
-
-/* Return true when function can be removed from callgraph
-   if all direct calls are eliminated.  */
-
-bool
-cgraph_node::can_remove_if_no_direct_calls_and_refs_p (void)
-{
-  gcc_assert (!global.inlined_to);
-  /* Instrumentation clones should not be removed before
-     instrumentation happens.  New callers may appear after
-     instrumentation.  */
-  if (instrumentation_clone
-      && !chkp_function_instrumented_p (decl))
-    return false;
-  /* Extern inlines can always go, we will use the external definition.  */
-  if (DECL_EXTERNAL (decl))
-    return true;
-  /* When function is needed, we can not remove it.  */
-  if (force_output || used_from_other_partition)
-    return false;
-  if (DECL_STATIC_CONSTRUCTOR (decl)
-      || DECL_STATIC_DESTRUCTOR (decl))
-    return false;
-  /* Only COMDAT functions can be removed if externally visible.  */
-  if (externally_visible
-      && (!DECL_COMDAT (decl)
-	  || forced_by_abi
-	  || used_from_object_file_p ()))
-    return false;
   return true;
 }
 
@@ -3176,7 +3123,7 @@ cgraph_node::get_untransformed_body (void)
   data = lto_get_section_data (file_data, LTO_section_function_body,
 			       name, &len);
   if (!data)
-    fatal_error ("%s: section %s is missing",
+    fatal_error (input_location, "%s: section %s is missing",
 		 file_data->file_name,
 		 name);
 
@@ -3358,4 +3305,24 @@ cgraph_c_finalize (void)
   version_info_node = NULL;
 }
 
+/* A wroker for call_for_symbol_and_aliases.  */
+
+bool
+cgraph_node::call_for_symbol_and_aliases_1 (bool (*callback) (cgraph_node *,
+							      void *),
+					    void *data,
+					    bool include_overwritable)
+{
+  ipa_ref *ref;
+  FOR_EACH_ALIAS (this, ref)
+    {
+      cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
+      if (include_overwritable
+	  || alias->get_availability () > AVAIL_INTERPOSABLE)
+	if (alias->call_for_symbol_and_aliases (callback, data,
+						include_overwritable))
+	  return true;
+    }
+  return false;
+}
 #include "gt-cgraph.h"

@@ -762,10 +762,14 @@ else
 if LIBGO_IS_DARWIN
 go_net_tcpsockopt_file = go/net/tcpsockopt_darwin.go
 else
+if LIBGO_IS_SOLARIS
+go_net_tcpsockopt_file = go/net/tcpsockopt_solaris.go
+else
 if LIBGO_IS_DRAGONFLY
 go_net_tcpsockopt_file = go/net/tcpsockopt_dragonfly.go
 else
 go_net_tcpsockopt_file = go/net/tcpsockopt_unix.go
+endif
 endif
 endif
 endif
@@ -934,44 +938,10 @@ go_path_files = \
 	go/path/match.go \
 	go/path/path.go
 
-if LIBGO_IS_X86_64
-go_reflect_makefunc_file = \
-	go/reflect/makefuncgo_amd64.go
-go_reflect_makefunc_s_file = \
-	go/reflect/makefunc_amd64.S
-else
-if LIBGO_IS_386
-go_reflect_makefunc_file = \
-	go/reflect/makefuncgo_386.go
-go_reflect_makefunc_s_file = \
-	go/reflect/makefunc_386.S
-else
-if LIBGO_IS_S390
-go_reflect_makefunc_file = \
-	go/reflect/makefuncgo_s390.go
-go_reflect_makefunc_s_file = \
-	go/reflect/makefunc_s390.c
-else
-if LIBGO_IS_S390X
-go_reflect_makefunc_file = \
-	go/reflect/makefuncgo_s390x.go \
-	go/reflect/makefuncgo_s390.go
-go_reflect_makefunc_s_file = \
-	go/reflect/makefunc_s390.c
-else
-go_reflect_makefunc_file =
-go_reflect_makefunc_s_file = \
-	go/reflect/makefunc_dummy.c
-endif
-endif
-endif
-endif
-
 go_reflect_files = \
 	go/reflect/deepequal.go \
 	go/reflect/makefunc.go \
 	go/reflect/makefunc_ffi.go \
-	$(go_reflect_makefunc_file) \
 	go/reflect/type.go \
 	go/reflect/value.go
 go_reflect_makefunc_c_file = \
@@ -1001,7 +971,7 @@ s-version: Makefile
 	rm -f version.go.tmp
 	echo "package runtime" > version.go.tmp
 	echo 'const defaultGoroot = "$(prefix)"' >> version.go.tmp
-	echo 'const theVersion = "'`$(GOC) --version | sed 1q`'"' >> version.go.tmp
+	echo 'const theVersion = "'`cat $(srcdir)/VERSION | sed 1q`' '`$(GOC) --version | sed 1q`'"' >> version.go.tmp
 	echo 'const theGoarch = "'$(GOARCH)'"' >> version.go.tmp
 	echo 'const theGoos = "'$(GOOS)'"' >> version.go.tmp
 	echo 'const theGccgoToolDir = "$(libexecsubdir)"' >> version.go.tmp
@@ -1893,7 +1863,6 @@ libgo_go_objs = \
 	os.lo \
 	path.lo \
 	reflect-go.lo \
-	reflect/makefunc.lo \
 	reflect/makefunc_ffi_c.lo \
 	regexp.lo \
 	runtime-go.lo \
@@ -2312,9 +2281,6 @@ reflect-go.lo: $(go_reflect_files)
 	$(BUILDPACKAGE)
 reflect/check: $(CHECK_DEPS)
 	@$(CHECK)
-reflect/makefunc.lo: $(go_reflect_makefunc_s_file)
-	@$(MKDIR_P) reflect
-	$(LTCOMPILE) -c -o $@ $<
 reflect/makefunc_ffi_c.lo: $(go_reflect_makefunc_c_file)
 	@$(MKDIR_P) reflect
 	$(LTCOMPILE) -c -o $@ $<

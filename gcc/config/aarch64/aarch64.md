@@ -499,13 +499,17 @@
 		   (const_int 0))
 	     (label_ref (match_operand 2 "" ""))
 	     (pc)))
-   (clobber (match_scratch:DI 3 "=r"))]
+   (clobber (reg:CC CC_REGNUM))]
   ""
-  "*
-  if (get_attr_length (insn) == 8)
-    return \"ubfx\\t%<w>3, %<w>0, %1, #1\;<cbz>\\t%<w>3, %l2\";
-  return \"<tbz>\\t%<w>0, %1, %l2\";
-  "
+  {
+    if (get_attr_length (insn) == 8)
+      {
+	operands[1] = GEN_INT (HOST_WIDE_INT_1U << UINTVAL (operands[1]));
+	return "tst\t%<w>0, %1\;<bcond>\t%l2";
+      }
+    else
+      return "<tbz>\t%<w>0, %1, %l2";
+  }
   [(set_attr "type" "branch")
    (set (attr "length")
 	(if_then_else (and (ge (minus (match_dup 2) (pc)) (const_int -32768))
@@ -519,13 +523,21 @@
 				 (const_int 0))
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))
-   (clobber (match_scratch:DI 2 "=r"))]
+   (clobber (reg:CC CC_REGNUM))]
   ""
-  "*
-  if (get_attr_length (insn) == 8)
-    return \"ubfx\\t%<w>2, %<w>0, <sizem1>, #1\;<cbz>\\t%<w>2, %l1\";
-  return \"<tbz>\\t%<w>0, <sizem1>, %l1\";
-  "
+  {
+    if (get_attr_length (insn) == 8)
+      {
+	char buf[64];
+	uint64_t val = ((uint64_t ) 1)
+			<< (GET_MODE_SIZE (<MODE>mode) * BITS_PER_UNIT - 1);
+	sprintf (buf, "tst\t%%<w>0, %"PRId64, val);
+	output_asm_insn (buf, operands);
+	return "<bcond>\t%l1";
+      }
+    else
+      return "<tbz>\t%<w>0, <sizem1>, %l1";
+  }
   [(set_attr "type" "branch")
    (set (attr "length")
 	(if_then_else (and (ge (minus (match_dup 1) (pc)) (const_int -32768))
@@ -859,7 +871,8 @@
    fmov\\t%s0, %w1
    fmov\\t%w0, %s1
    fmov\\t%s0, %s1"
-   "CONST_INT_P (operands[1]) && !aarch64_move_imm (INTVAL (operands[1]), SImode)"
+   "CONST_INT_P (operands[1]) && !aarch64_move_imm (INTVAL (operands[1]), SImode)
+    && GP_REGNUM_P (REGNO (operands[0]))"
    [(const_int 0)]
    "{
        aarch64_expand_mov_immediate (operands[0], operands[1]);
@@ -891,7 +904,8 @@
    fmov\\t%x0, %d1
    fmov\\t%d0, %d1
    movi\\t%d0, %1"
-   "(CONST_INT_P (operands[1]) && !aarch64_move_imm (INTVAL (operands[1]), DImode))"
+   "(CONST_INT_P (operands[1]) && !aarch64_move_imm (INTVAL (operands[1]), DImode))
+    && GP_REGNUM_P (REGNO (operands[0]))"
    [(const_int 0)]
    "{
        aarch64_expand_mov_immediate (operands[0], operands[1]);
@@ -3281,6 +3295,8 @@
 	    DONE;
           }
       }
+    else
+      FAIL;
   }
 )
 
@@ -3502,15 +3518,6 @@
 	 (match_operand:QI 2 "aarch64_reg_or_shift_imm_si" "rUss"))))]
   ""
   "<shift>\\t%w0, %w1, %w2"
-  [(set_attr "type" "shift_reg")]
-)
-
-(define_insn "*ashl<mode>3_insn"
-  [(set (match_operand:SHORT 0 "register_operand" "=r")
-	(ashift:SHORT (match_operand:SHORT 1 "register_operand" "r")
-		      (match_operand:QI 2 "aarch64_reg_or_shift_imm_si" "rUss")))]
-  ""
-  "lsl\\t%<w>0, %<w>1, %<w>2"
   [(set_attr "type" "shift_reg")]
 )
 
@@ -4229,7 +4236,7 @@
                    (match_operand 2 "aarch64_tls_le_symref" "S")]
 		   UNSPEC_GOTSMALLTLS))]
   ""
-  "add\\t%<w>0, %<w>1, #%G2\;add\\t%<w>0, %<w>0, #%L2"
+  "add\\t%<w>0, %<w>1, #%G2, lsl #12\;add\\t%<w>0, %<w>0, #%L2"
   [(set_attr "type" "alu_sreg")
    (set_attr "length" "8")]
 )

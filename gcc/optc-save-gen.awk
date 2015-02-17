@@ -84,16 +84,17 @@ print "void";
 print "cl_optimization_save (struct cl_optimization *ptr, struct gcc_options *opts)";
 print "{";
 
-n_opt_char = 2;
+n_opt_char = 3;
 n_opt_short = 0;
 n_opt_int = 0;
-n_opt_enum = 1;
+n_opt_enum = 0;
 n_opt_other = 0;
 var_opt_char[0] = "optimize";
 var_opt_char[1] = "optimize_size";
+var_opt_char[2] = "optimize_debug";
 var_opt_range["optimize"] = "0, 255";
-var_opt_range["optimize_size"] = "0, 255";
-var_opt_enum[0] = "flag_fp_contract_mode";
+var_opt_range["optimize_size"] = "0, 1";
+var_opt_range["optimize_debug"] = "0, 1";
 
 # Sort by size to mimic how the structure is laid out to be friendlier to the
 # cache.
@@ -505,9 +506,9 @@ print "";
 print "/* Print different target option variables from structures provided as arguments.  */";
 print "void";
 print "cl_target_option_print_diff (FILE *file,";
-print "                             int indent,";
-print "                             struct cl_target_option *ptr1,";
-print "                             struct cl_target_option *ptr2)";
+print "                             int indent ATTRIBUTE_UNUSED,";
+print "                             struct cl_target_option *ptr1 ATTRIBUTE_UNUSED,";
+print "                             struct cl_target_option *ptr2 ATTRIBUTE_UNUSED)";
 print "{";
 
 print "  fputs (\"\\n\", file);";
@@ -734,11 +735,13 @@ for (i = 0; i < n_target_val; i++) {
 
 print "}";
 
-n_opt_val = 2;
+n_opt_val = 3;
 var_opt_val[0] = "x_optimize"
 var_opt_val_type[0] = "char "
 var_opt_val[1] = "x_optimize_size"
+var_opt_val[2] = "x_optimize_debug"
 var_opt_val_type[1] = "char "
+var_opt_val_type[2] = "char "
 for (i = 0; i < n_opts; i++) {
 	if (flag_set_p("Optimization", flags[i])) {
 		name = var_name(flags[i])

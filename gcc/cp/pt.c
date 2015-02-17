@@ -7324,7 +7324,22 @@ template_args_equal (tree ot, tree nt)
   else if (TREE_CODE (ot) == TREE_VEC || TYPE_P (ot))
     return 0;
   else
-    return cp_tree_equal (ot, nt);
+    {
+      /* Try to treat a template non-type argument that has been converted
+	 to the parameter type as equivalent to one that hasn't yet.  */
+      for (enum tree_code code1 = TREE_CODE (ot);
+	   CONVERT_EXPR_CODE_P (code1)
+	     || code1 == NON_LVALUE_EXPR;
+	   code1 = TREE_CODE (ot))
+	ot = TREE_OPERAND (ot, 0);
+      for (enum tree_code code2 = TREE_CODE (nt);
+	   CONVERT_EXPR_CODE_P (code2)
+	     || code2 == NON_LVALUE_EXPR;
+	   code2 = TREE_CODE (nt))
+	nt = TREE_OPERAND (nt, 0);
+
+      return cp_tree_equal (ot, nt);
+    }
 }
 
 /* Returns 1 iff the OLDARGS and NEWARGS are in fact identical sets of
@@ -8091,13 +8106,28 @@ tree
 lookup_template_variable (tree templ, tree arglist)
 {
   tree type = unknown_type_node;
-  tsubst_flags_t complain = tf_warning_or_error;
-  tree parms = INNERMOST_TEMPLATE_PARMS (DECL_TEMPLATE_PARMS (templ));
-  arglist = coerce_template_parms (parms, arglist, templ, complain,
-				   /*req_all*/true, /*use_default*/true);
   return build2 (TEMPLATE_ID_EXPR, type, templ, arglist);
 }
 
+/* Instantiate a variable declaration from a TEMPLATE_ID_EXPR for use. */
+
+tree
+finish_template_variable (tree var)
+{
+  tree templ = TREE_OPERAND (var, 0);
+
+  tree arglist = TREE_OPERAND (var, 1);
+  tree tmpl_args = DECL_TI_ARGS (DECL_TEMPLATE_RESULT (templ));
+  arglist = add_outermost_template_args (tmpl_args, arglist);
+
+  tree parms = DECL_TEMPLATE_PARMS (templ);
+  tsubst_flags_t complain = tf_warning_or_error;
+  arglist = coerce_innermost_template_parms (parms, arglist, templ, complain,
+					     /*req_all*/true,
+					     /*use_default*/true);
+
+  return instantiate_template (templ, arglist, complain);
+}
 
 struct pair_fn_data
 {
@@ -8467,7 +8497,8 @@ push_tinst_level_loc (tree d, location_t loc)
 
   if (tinst_depth >= max_tinst_depth)
     {
-      fatal_error ("template instantiation depth exceeds maximum of %d"
+      fatal_error (input_location,
+		   "template instantiation depth exceeds maximum of %d"
                    " (use -ftemplate-depth= to increase the maximum)",
                    max_tinst_depth);
       return false;
@@ -20440,7 +20471,8 @@ instantiate_pending_templates (int retries)
     {
       tree decl = pending_templates->tinst->decl;
 
-      fatal_error ("template instantiation depth exceeds maximum of %d"
+      fatal_error (input_location,
+		   "template instantiation depth exceeds maximum of %d"
                    " instantiating %q+D, possibly from virtual table generation"
                    " (use -ftemplate-depth= to increase the maximum)",
                    max_tinst_depth, decl);

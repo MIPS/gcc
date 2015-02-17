@@ -22,25 +22,6 @@
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
-;; Beware of splitting Thumb1 patterns that output multiple
-;; assembly instructions, in particular instruction such as SBC and
-;; ADC which consume flags.  For example, in the pattern thumb_subdi3
-;; below, the output SUB implicitly sets the flags (assembled to SUBS)
-;; and then the Carry flag is used by SBC to compute the correct
-;; result.  If we split thumb_subdi3 pattern into two separate RTL
-;; insns (using define_insn_and_split), the scheduler might place
-;; other RTL insns between SUB and SBC, possibly modifying the Carry
-;; flag used by SBC.  This might happen because most Thumb1 patterns
-;; for flag-setting instructions do not have explicit RTL for setting
-;; or clobbering the flags.  Instead, they have the attribute "conds"
-;; with value "set" or "clob".  However, this attribute is not used to
-;; identify dependencies and therefore the scheduler might reorder
-;; these instruction.  Currenly, this problem cannot happen because
-;; there are no separate Thumb1 patterns for individual instruction
-;; that consume flags (except conditional execution, which is treated
-;; differently).  In particular there is no Thumb1 armv6-m pattern for
-;; sbc or adc.
-
 
 ;;---------------------------------------------------------------------------
 ;; Constants
@@ -391,8 +372,8 @@
                                 arm926ejs,arm1020e,arm1026ejs,arm1136js,\
                                 arm1136jfs,cortexa5,cortexa7,cortexa8,\
                                 cortexa9,cortexa12,cortexa15,cortexa17,\
-                                cortexa53,cortexm4,cortexm7,marvell_pj4,\
-				xgene1")
+                                cortexa53,cortexa57,cortexm4,cortexm7,\
+				marvell_pj4,xgene1")
 	       (eq_attr "tune_cortexr4" "yes"))
           (const_string "no")
           (const_string "yes"))))
@@ -425,6 +406,7 @@
 (include "cortex-a15.md")
 (include "cortex-a17.md")
 (include "cortex-a53.md")
+(include "cortex-a57.md")
 (include "cortex-r4.md")
 (include "cortex-r4f.md")
 (include "cortex-m7.md")

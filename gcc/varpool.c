@@ -58,9 +58,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "omp-low.h"
 
-const char * const tls_model_names[]={"none", "tls-emulated", "tls-real",
-				      "tls-global-dynamic", "tls-local-dynamic",
-				      "tls-initial-exec", "tls-local-exec"};
+const char * const tls_model_names[]={"none", "emulated",
+				      "global-dynamic", "local-dynamic",
+				      "initial-exec", "local-exec"};
 
 /* List of hooks triggered on varpool_node events.  */
 struct varpool_node_hook_list {
@@ -195,7 +195,6 @@ void
 varpool_node::remove (void)
 {
   symtab->call_varpool_removal_hooks (this);
-  unregister ();
 
   /* When streaming we can have multiple nodes associated with decl.  */
   if (symtab->state == LTO_STREAMING)
@@ -205,6 +204,8 @@ varpool_node::remove (void)
   else if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node
 	   && !ctor_useable_for_folding_p ())
     remove_initializer ();
+
+  unregister ();
   ggc_free (this);
 }
 
@@ -251,7 +252,7 @@ varpool_node::dump (FILE *f)
   if (writeonly)
     fprintf (f, " write-only");
   if (tls_model)
-    fprintf (f, " %s", tls_model_names [tls_model]);
+    fprintf (f, " tls-%s", tls_model_names [tls_model]);
   fprintf (f, "\n");
 }
 
@@ -316,7 +317,7 @@ varpool_node::get_constructor (void)
   data = lto_get_section_data (file_data, LTO_section_function_body,
 			       name, &len);
   if (!data)
-    fatal_error ("%s: section %s is missing",
+    fatal_error (input_location, "%s: section %s is missing",
 		 file_data->file_name,
 		 name);
 
@@ -816,28 +817,23 @@ varpool_node::create_extra_name_alias (tree alias, tree decl)
   return alias_node;
 }
 
-/* Call calback on varpool symbol and aliases associated to varpool symbol.
-   When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
-   skipped. */
+/* Worker for call_for_symbol_and_aliases.  */
 
 bool
-varpool_node::call_for_node_and_aliases (bool (*callback) (varpool_node *,
-							   void *),
-					 void *data,
-					 bool include_overwritable)
+varpool_node::call_for_symbol_and_aliases_1 (bool (*callback) (varpool_node *,
+							       void *),
+					     void *data,
+					     bool include_overwritable)
 {
   ipa_ref *ref;
-
-  if (callback (this, data))
-    return true;
 
   FOR_EACH_ALIAS (this, ref)
     {
       varpool_node *alias = dyn_cast <varpool_node *> (ref->referring);
       if (include_overwritable
 	  || alias->get_availability () > AVAIL_INTERPOSABLE)
-	if (alias->call_for_node_and_aliases (callback, data,
-					      include_overwritable))
+	if (alias->call_for_symbol_and_aliases (callback, data,
+					        include_overwritable))
 	  return true;
     }
   return false;

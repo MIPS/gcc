@@ -847,6 +847,23 @@ update_value_range (const_tree var, value_range_t *new_vr)
   value_range_t *old_vr;
   bool is_new;
 
+  /* If there is a value-range on the SSA name from earlier analysis
+     factor that in.  */
+  if (INTEGRAL_TYPE_P (TREE_TYPE (var)))
+    {
+      wide_int min, max;
+      value_range_type rtype = get_range_info (var, &min, &max);
+      if (rtype == VR_RANGE || rtype == VR_ANTI_RANGE)
+	{
+	  value_range_d nr;
+	  nr.type = rtype;
+	  nr.min = wide_int_to_tree (TREE_TYPE (var), min);
+	  nr.max = wide_int_to_tree (TREE_TYPE (var), max);
+	  nr.equiv = NULL;
+	  vrp_intersect_ranges (new_vr, &nr);
+	}
+    }
+
   /* Update the value range, if necessary.  */
   old_vr = get_value_range (var);
   is_new = old_vr->type != new_vr->type
@@ -7075,15 +7092,16 @@ vrp_valueize_1 (tree name)
 {
   if (TREE_CODE (name) == SSA_NAME)
     {
-      value_range_t *vr = get_value_range (name);
-      if (range_int_cst_singleton_p (vr))
-	return vr->min;
       /* If the definition may be simulated again we cannot follow
          this SSA edge as the SSA propagator does not necessarily
 	 re-visit the use.  */
       gimple def_stmt = SSA_NAME_DEF_STMT (name);
-      if (prop_simulate_again_p (def_stmt))
+      if (!gimple_nop_p (def_stmt)
+	  && prop_simulate_again_p (def_stmt))
 	return NULL_TREE;
+      value_range_t *vr = get_value_range (name);
+      if (range_int_cst_singleton_p (vr))
+	return vr->min;
     }
   return name;
 }
@@ -10158,13 +10176,20 @@ identify_jump_threads (void)
       /* We only care about blocks ending in a COND_EXPR.  While there
 	 may be some value in handling SWITCH_EXPR here, I doubt it's
 	 terribly important.  */
-      last = gsi_stmt (gsi_last_bb (bb));
+      last = gsi_stmt (gsi_last_nondebug_bb (bb));
 
       /* We're basically looking for a switch or any kind of conditional with
 	 integral or pointer type arguments.  Note the type of the second
 	 argument will be the same as the first argument, so no need to
-	 check it explicitly.  */
-      if (gimple_code (last) == GIMPLE_SWITCH
+	 check it explicitly. 
+
+	 We also handle the case where there are no statements in the
+	 block.  This come up with forwarder blocks that are not
+	 optimized away because they lead to a loop header.  But we do
+	 want to thread through them as we can sometimes thread to the
+	 loop exit which is obviously profitable.  */
+      if (!last
+	  || gimple_code (last) == GIMPLE_SWITCH
 	  || (gimple_code (last) == GIMPLE_COND
       	      && TREE_CODE (gimple_cond_lhs (last)) == SSA_NAME
 	      && (INTEGRAL_TYPE_P (TREE_TYPE (gimple_cond_lhs (last)))
@@ -10229,7 +10254,7 @@ vrp_finalize (void)
   substitute_and_fold (op_with_constant_singleton_value_range,
 		       vrp_fold_stmt, false);
 
-  if (warn_array_bounds)
+  if (warn_array_bounds && first_pass_instance)
     check_all_array_refs ();
 
   /* We must identify jump threading opportunities before we release

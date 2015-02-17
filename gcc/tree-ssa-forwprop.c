@@ -2230,6 +2230,8 @@ pass_forwprop::execute (function *fun)
 	  else if (TREE_CODE (TREE_TYPE (lhs)) == COMPLEX_TYPE
 		   && gimple_assign_load_p (stmt)
 		   && !gimple_has_volatile_ops (stmt)
+		   && (TREE_CODE (gimple_assign_rhs1 (stmt))
+		       != TARGET_MEM_REF)
 		   && !stmt_can_throw_internal (stmt))
 	    {
 	      /* Rewrite loads used only in real/imagpart extractions to
@@ -2272,6 +2274,8 @@ pass_forwprop::execute (function *fun)
 			= gimple_build_assign (gimple_assign_lhs (use_stmt),
 					       new_rhs);
 
+		      location_t loc = gimple_location (use_stmt);
+		      gimple_set_location (new_stmt, loc);
 		      gimple_stmt_iterator gsi2 = gsi_for_stmt (use_stmt);
 		      unlink_stmt_vdef (use_stmt);
 		      gsi_remove (&gsi2, true);
@@ -2303,6 +2307,8 @@ pass_forwprop::execute (function *fun)
 					 TREE_TYPE (TREE_TYPE (use_lhs)),
 					 unshare_expr (use_lhs));
 		  gimple new_stmt = gimple_build_assign (new_lhs, rhs);
+		  location_t loc = gimple_location (use_stmt);
+		  gimple_set_location (new_stmt, loc);
 		  gimple_set_vuse (new_stmt, gimple_vuse (use_stmt));
 		  gimple_set_vdef (new_stmt, make_ssa_name (gimple_vop (cfun)));
 		  SSA_NAME_DEF_STMT (gimple_vdef (new_stmt)) = new_stmt;

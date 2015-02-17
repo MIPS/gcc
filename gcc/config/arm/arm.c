@@ -97,6 +97,7 @@
 #include "builtins.h"
 #include "tm-constrs.h"
 #include "rtl-iter.h"
+#include "sched-int.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -111,7 +112,6 @@ struct four_ints
 
 /* Forward function declarations.  */
 static bool arm_const_not_ok_for_debug_p (rtx);
-static bool arm_lra_p (void);
 static bool arm_needs_doubleword_align (machine_mode, const_tree);
 static int arm_compute_static_chain_stack_bytes (void);
 static arm_stack_offsets *arm_get_frame_offsets (void);
@@ -268,6 +268,8 @@ static unsigned HOST_WIDE_INT arm_shift_truncation_mask (machine_mode);
 static bool arm_macro_fusion_p (void);
 static bool arm_cannot_copy_insn_p (rtx_insn *);
 static int arm_issue_rate (void);
+static int arm_first_cycle_multipass_dfa_lookahead (void);
+static int arm_first_cycle_multipass_dfa_lookahead_guard (rtx_insn *, int);
 static void arm_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static bool arm_output_addr_const_extra (FILE *, rtx);
 static bool arm_allocate_stack_slots_for_args (void);
@@ -379,7 +381,7 @@ static const struct attribute_spec arm_attribute_table[] =
 #define TARGET_LEGITIMIZE_ADDRESS arm_legitimize_address
 
 #undef TARGET_LRA_P
-#define TARGET_LRA_P arm_lra_p
+#define TARGET_LRA_P hook_bool_void_true
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE arm_attribute_table
@@ -623,6 +625,14 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE arm_issue_rate
+
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
+  arm_first_cycle_multipass_dfa_lookahead
+
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD \
+  arm_first_cycle_multipass_dfa_lookahead_guard
 
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE arm_mangle_type
@@ -1685,7 +1695,8 @@ const struct tune_params arm_slowmul_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_fastmul_tune =
@@ -1705,7 +1716,8 @@ const struct tune_params arm_fastmul_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 /* StrongARM has early execution of branches, so a sequence that is worth
@@ -1728,7 +1740,8 @@ const struct tune_params arm_strongarm_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_xscale_tune =
@@ -1748,7 +1761,8 @@ const struct tune_params arm_xscale_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_9e_tune =
@@ -1768,7 +1782,8 @@ const struct tune_params arm_9e_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_v6t2_tune =
@@ -1788,7 +1803,8 @@ const struct tune_params arm_v6t2_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 /* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
@@ -1809,7 +1825,8 @@ const struct tune_params arm_cortex_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_cortex_a8_tune =
@@ -1829,7 +1846,8 @@ const struct tune_params arm_cortex_a8_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   true,						/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_cortex_a7_tune =
@@ -1849,7 +1867,8 @@ const struct tune_params arm_cortex_a7_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   true,						/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_cortex_a15_tune =
@@ -1869,7 +1888,8 @@ const struct tune_params arm_cortex_a15_tune =
   true, true,                                   /* Prefer 32-bit encodings.  */
   true,						/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_FULL			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_cortex_a53_tune =
@@ -1887,9 +1907,10 @@ const struct tune_params arm_cortex_a53_tune =
   &arm_default_vec_cost,			/* Vectorizer costs.  */
   false,					/* Prefer Neon for 64-bits bitops.  */
   false, false,                                 /* Prefer 32-bit encodings.  */
-  false,					/* Prefer Neon for stringops.  */
+  true,						/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_MOVW_MOVT				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_MOVW_MOVT,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_cortex_a57_tune =
@@ -1907,9 +1928,10 @@ const struct tune_params arm_cortex_a57_tune =
   &arm_default_vec_cost,                       /* Vectorizer costs.  */
   false,                                       /* Prefer Neon for 64-bits bitops.  */
   true, true,                                  /* Prefer 32-bit encodings.  */
-  false,					/* Prefer Neon for stringops.  */
+  true,						/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_MOVW_MOVT				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_MOVW_MOVT,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_FULL			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_xgene1_tune =
@@ -1929,7 +1951,8 @@ const struct tune_params arm_xgene1_tune =
   true, true,                                  /* Prefer 32-bit encodings.  */
   false,				       /* Prefer Neon for stringops.  */
   32,					       /* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 /* Branches can be dual-issued on Cortex-A5, so conditional execution is
@@ -1952,7 +1975,8 @@ const struct tune_params arm_cortex_a5_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   true,						/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_cortex_a9_tune =
@@ -1972,7 +1996,8 @@ const struct tune_params arm_cortex_a9_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_cortex_a12_tune =
@@ -1992,7 +2017,8 @@ const struct tune_params arm_cortex_a12_tune =
   true, true,                                   /* Prefer 32-bit encodings.  */
   true,						/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_MOVW_MOVT				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_MOVW_MOVT,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 /* armv7m tuning.  On Cortex-M4 cores for example, MOVW/MOVT take a single
@@ -2019,7 +2045,8 @@ const struct tune_params arm_v7m_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 /* Cortex-M7 tuning.  */
@@ -2041,7 +2068,8 @@ const struct tune_params arm_cortex_m7_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 /* The arm_v6m_tune is duplicated from arm_cortex_tune, rather than
@@ -2063,7 +2091,8 @@ const struct tune_params arm_v6m_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 const struct tune_params arm_fa726te_tune =
@@ -2083,7 +2112,8 @@ const struct tune_params arm_fa726te_tune =
   false, false,                                 /* Prefer 32-bit encodings.  */
   false,					/* Prefer Neon for stringops.  */
   8,						/* Maximum insns to inline memset.  */
-  ARM_FUSE_NOTHING				/* Fuseable pairs of instructions.  */
+  ARM_FUSE_NOTHING,				/* Fuseable pairs of instructions.  */
+  ARM_SCHED_AUTOPREF_OFF			/* Sched L2 autopref.  */
 };
 
 
@@ -2597,6 +2627,10 @@ arm_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 static void
 arm_option_override (void)
 {
+  arm_selected_arch = NULL;
+  arm_selected_cpu = NULL;
+  arm_selected_tune = NULL;
+
   if (global_options_set.x_arm_arch_option)
     arm_selected_arch = &all_architectures[arm_arch_option];
 
@@ -3136,6 +3170,22 @@ arm_option_override (void)
 
   /* Use the alternative scheduling-pressure algorithm by default.  */
   maybe_set_param_value (PARAM_SCHED_PRESSURE_ALGORITHM, SCHED_PRESSURE_MODEL,
+                         global_options.x_param_values,
+                         global_options_set.x_param_values);
+
+  /* Look through ready list and all of queue for instructions
+     relevant for L2 auto-prefetcher.  */
+  int param_sched_autopref_queue_depth;
+  if (current_tune->sched_autopref == ARM_SCHED_AUTOPREF_OFF)
+    param_sched_autopref_queue_depth = -1;
+  else if (current_tune->sched_autopref == ARM_SCHED_AUTOPREF_RANK)
+    param_sched_autopref_queue_depth = 0;
+  else if (current_tune->sched_autopref == ARM_SCHED_AUTOPREF_FULL)
+    param_sched_autopref_queue_depth = max_insn_queue_index + 1;
+  else
+    gcc_unreachable ();
+  maybe_set_param_value (PARAM_SCHED_AUTOPREF_QUEUE_DEPTH,
+			 param_sched_autopref_queue_depth,
                          global_options.x_param_values,
                          global_options_set.x_param_values);
 
@@ -5959,13 +6009,6 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
       if (! pcum->named_count)
 	pcum->named_count = INT_MAX;
     }
-}
-
-/* Return true if we use LRA instead of reload pass.  */
-static bool
-arm_lra_p (void)
-{
-  return arm_lra_flag;
 }
 
 /* Return true if mode/type need doubleword alignment.  */
@@ -17254,7 +17297,7 @@ thumb2_reorg (void)
 	      rtx src = XEXP (pat, 1);
 	      rtx op0 = NULL_RTX, op1 = NULL_RTX;
 
-	      if (!OBJECT_P (src))
+	      if (UNARY_P (src) || BINARY_P (src))
 		  op0 = XEXP (src, 0);
 
 	      if (BINARY_P (src))
@@ -20234,11 +20277,10 @@ arm_emit_multi_reg_pop (unsigned long saved_regs_mask)
   rtx par;
   rtx dwarf = NULL_RTX;
   rtx tmp, reg;
-  bool return_in_pc;
+  bool return_in_pc = saved_regs_mask & (1 << PC_REGNUM);
   int offset_adj;
   int emit_update;
 
-  return_in_pc = (saved_regs_mask & (1 << PC_REGNUM)) ? true : false;
   offset_adj = return_in_pc ? 1 : 0;
   for (i = 0; i <= LAST_ARM_REGNUM; i++)
     if (saved_regs_mask & (1 << i))
@@ -20254,10 +20296,7 @@ arm_emit_multi_reg_pop (unsigned long saved_regs_mask)
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (num_regs + emit_update + offset_adj));
 
   if (return_in_pc)
-    {
-      tmp = ret_rtx;
-      XVECEXP (par, 0, 0) = tmp;
-    }
+    XVECEXP (par, 0, 0) = ret_rtx;
 
   if (emit_update)
     {
@@ -20407,9 +20446,8 @@ thumb2_emit_ldrd_pop (unsigned long saved_regs_mask)
   rtx par = NULL_RTX;
   rtx dwarf = NULL_RTX;
   rtx tmp, reg, tmp1;
-  bool return_in_pc;
+  bool return_in_pc = saved_regs_mask & (1 << PC_REGNUM);
 
-  return_in_pc = (saved_regs_mask & (1 << PC_REGNUM)) ? true : false;
   for (i = 0; i <= LAST_ARM_REGNUM; i++)
     if (saved_regs_mask & (1 << i))
       num_regs++;
@@ -25191,7 +25229,7 @@ arm_expand_epilogue (bool really_return)
             arm_emit_multi_reg_pop (saved_regs_mask);
         }
 
-      if (return_in_pc == true)
+      if (return_in_pc)
         return;
     }
 
@@ -25656,8 +25694,9 @@ arm_file_start (void)
 	  fpu_name = arm_fpu_desc->name;
 	  if (arm_fpu_desc->model == ARM_FP_MODEL_VFP)
 	    {
-	      if (TARGET_HARD_FLOAT)
-		arm_emit_eabi_attribute ("Tag_ABI_HardFP_use", 27, 3);
+	      if (TARGET_HARD_FLOAT && TARGET_VFP_SINGLE)
+		arm_emit_eabi_attribute ("Tag_ABI_HardFP_use", 27, 1);
+
 	      if (TARGET_HARD_FLOAT_ABI)
 		arm_emit_eabi_attribute ("Tag_ABI_VFP_args", 28, 1);
 	    }
@@ -27136,6 +27175,23 @@ arm_issue_rate (void)
     default:
       return 1;
     }
+}
+
+/* Return how many instructions should scheduler lookahead to choose the
+   best one.  */
+static int
+arm_first_cycle_multipass_dfa_lookahead (void)
+{
+  int issue_rate = arm_issue_rate ();
+
+  return issue_rate > 1 && !sched_fusion ? issue_rate : 0;
+}
+
+/* Enable modeling of L2 auto-prefetcher.  */
+static int
+arm_first_cycle_multipass_dfa_lookahead_guard (rtx_insn *insn, int ready_index)
+{
+  return autopref_multipass_dfa_lookahead_guard (insn, ready_index);
 }
 
 const char *
