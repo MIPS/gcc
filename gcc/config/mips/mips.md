@@ -592,6 +592,24 @@
 	  ;; using la/jr in this case too, but we do not do so at
 	  ;; present.
 	  ;;
+	  ;; The compact branch case is slightly different again:
+	  ;;
+	  ;;	bnec	r1,r2,target
+	  ;;
+	  ;; for PIC becomes:
+	  ;;
+	  ;;	beqc	r1,r2,1f
+	  ;;	la	$at,target
+	  ;;	jrc	$at
+	  ;; 1: 
+	  ;;
+	  ;; for non-PIC becomes:
+	  ;;
+	  ;;	beqc    r1,r2,1f
+	  ;;	nop
+	  ;;	bc	target
+	  ;; 1:
+	  ;;
 	  ;; The value we specify here does not account for the delay slot
 	  ;; instruction, whose length is added separately.  If the RTL
 	  ;; pattern has no explicit delay slot, mips_adjust_insn_length
@@ -616,9 +634,17 @@
 		      	   (le (minus (pc) (match_dup 0)) (const_int 131068))))
 		   (const_int 4)
 
-		 ;; The non-PIC case: branch, first delay slot, and J.
+		 ;; The 23-bit range is OK for BEQZC and BNEZC
+		 (and (match_test "TARGET_CB_ALWAYS")
+		      (or (match_test "GET_CODE (operands[1]) == EQ")
+			  (match_test "GET_CODE (operands[1]) == NE")
+		      (match_test "operands[3] == const0_rtx"))
+		   (const_int 4)
+
+		 ;; The non-PIC case: branch, first delay slot or forbidden
+		 ;; slot, and J.
 		 (match_test "TARGET_ABSOLUTE_JUMPS")
-		   (const_int 12)]
+		   (const_int 12)
 
 		 ;; Use MAX_PIC_BRANCH_LENGTH as a (gross) overestimate.
 		 ;; mips_adjust_insn_length substitutes the correct length.

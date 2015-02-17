@@ -13445,9 +13445,19 @@ mips_adjust_insn_length (rtx insn, int length)
       && INSN_CODE (insn) >= 0
       && get_attr_type (insn) == TYPE_BRANCH)
     {
-      /* Add the branch-over instruction and its delay slot, if this
-	 is a conditional branch.  */
-      length = simplejump_p (insn) ? 0 : 8;
+      length = 0
+
+      /* If this is a conditional branch, add the branch-over instruction
+         (and its delay slot if it is not guaranteed to be a compact
+	 branch). */
+      if (!simplejump_p (insn))
+	{
+	  if (TARGET_CB_ALWAYS
+	      && get_attr_compact_form != COMPACT_FORM_NEVER)
+	    length = 4;
+	  else
+	    length = 8;
+	}
 
       /* Add the size of a load into $AT.  */
       length += BASE_INSN_LENGTH * mips_load_label_num_insns ();
