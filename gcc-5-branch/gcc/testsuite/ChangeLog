@@ -1,3 +1,57 @@
+2015-02-17  Paolo Carlini  <paolo.carlini@oracle.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/65075
+	* g++.dg/cpp0x/pr65075.C: New test.
+
+2015-02-16  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/65058
+	* gcc.target/powerpc/pr65058.c: New test.
+
+2015-02-16  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/64823
+	* gcc.dg/uninit-20.c: New test.
+
+2015-02-16  Jakub Jelinek  <jakub@redhat.com>
+	    James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR ipa/64963
+	* gcc.dg/ipa/ipa-clone-1.c: New test.
+
+2015-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/65077
+	* gcc.dg/torture/pr65077.c: New testcase.
+
+2015-02-16  Alex Velenko  <Alex.Velenko@arm.com>
+
+	* gcc.target/aarch64/atomic-op-consume.c (scan-assember-times):
+	Directive adjusted to scan for ldaxr.
+	* gcc.target/arm/atomic-op-consume.c (scan-assember-times): Directive
+	adjusted to scan for ldaex.
+
+2015-02-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/65080
+	* g++.dg/cpp0x/constexpr-65080.C: New.
+
+2015-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63593
+	* gcc.dg/pr63593.c: New testcase.
+
+2015-02-16  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65066
+	* gcc.dg/pr65066.c: New test.
+
+2015-02-16  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.dg/pr65002.C: Move ...
+	* g++.dg/ipa/pr65002.C: ... here.
+
 2015-02-14  David Edelsohn  <dje.gcc@gmail.com>
 
 	* gcc.target/powerpc/pr64205.c: Skip on AIX.

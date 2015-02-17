@@ -1,3 +1,84 @@
+2015-02-17  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* haifa-sched.c (recompute_todo_spec): Treat SCHED_GROUP_P
+	as forcing a HARD_DEP between instructions, thereby
+	disallowing rewriting to break dependencies.
+
+2015-02-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* symtab.c (symtab_node::verify_base): Verify body_removed->!definiton
+	* lto-cgraph.c (lto_output_varpool_node): Do not keep definition of
+	variables in boundary that have no inlitalizer encoded and are
+	not aliases.
+	* varasm.c (default_binds_local_p_2): External definitions do not
+	count as definitions here.
+
+2015-02-16  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/64823
+	* tree-vrp.c (identify_jump_threads): Handle blocks with no real
+	statements.
+	* tree-ssa-threadedge.c (potentially_threadable_block): Allow
+	threading through blocks with PHIs, but no statements.
+	(thread_through_normal_block): Distinguish between blocks where
+	we did not process all the statements and blocks with no statements.
+
+2015-02-16  Jakub Jelinek  <jakub@redhat.com>
+	    James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR ipa/64963
+	* cgraphclones.c (cgraph_node::create_virtual_clone): Copy
+	section if not linkonce.  Fix up formatting.
+	(cgraph_node::create_version_clone_with_body): Copy section.
+	* trans-mem.c (ipa_tm_create_version): Likewise.
+
+2015-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/65077
+	* tree-ssa-structalias.c (get_constraint_for_1): Handle
+	IMAGPART_EXPR, REALPART_EXPR and BIT_FIELD_REF.
+	(find_func_aliases): Allow float values to carry pointers again.
+
+2015-02-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* doc/install.texi (Specific): Reorder targets list to put
+	aarch64 in alphabetical order.  Add a link to aarch64*-*-*
+	from the top menu.
+
+2015-02-16  Michael Haubenwallner  <michael.haubenwallner@ssi-schaefer.com>
+	    David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/65058
+	* config/rs6000/rs6000.c (rs6000_output_symbol_ref): Append storage
+	mapping class to external variable or function reference.
+	* config/rs6000/xcoff.h (ASM_OUTPUT_EXTERNAL): Do not append storage
+	mapping class.
+
+2015-02-16  David Eelsohn  <dje.gcc@gmail.com>
+
+	PR target/53348
+	* config/rs6000/rs6000.c (rs6000_declare_alias): Only use
+	ASM_WEAKEN_DECL if defined.
+
+2015-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR lto/65015
+	* varasm.c (default_file_start): For LTO produced units
+	emit <artificial> as file directive.
+
+2015-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63593
+	* tree-predcom.c (execute_pred_commoning_chain): Delay removing
+	stmts and releasing SSA names until...
+	(execute_pred_commoning): ... after processing all chains.
+
+2015-02-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65059
+	* ipa-comdats.c (ipa_comdats): Do not categorize thunks to
+	external functions.
+
 2015-02-15  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* doc/bugreport.texi: Adjust section titles throughout the file
