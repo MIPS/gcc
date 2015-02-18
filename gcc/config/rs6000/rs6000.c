@@ -24966,7 +24966,7 @@ rs6000_emit_epilogue (int sibcall)
 		  bool lr = !(strategy & REST_NOINLINE_FPRS_DOESNT_RESTORE_LR);
 		  int sel = SAVRES_FPR | (lr ? SAVRES_LR : 0);
 		  newptr_regno = ptr_regno_for_savres (sel);
-		  end_save = info->gp_save_offset + info->gp_size;
+		  end_save = info->fp_save_offset + info->fp_size;
 		}
 
 	      if (newptr_regno != 1 && REGNO (frame_reg_rtx) != newptr_regno)
@@ -24977,7 +24977,12 @@ rs6000_emit_epilogue (int sibcall)
 		  rtx offset = GEN_INT (end_save + ptr_off);
 
 		  frame_off = -end_save;
-		  emit_insn (gen_add3_insn (frame_reg_rtx, ptr_reg, offset));
+		  if (TARGET_32BIT)
+		    emit_insn (gen_addsi3_carry (frame_reg_rtx,
+						 ptr_reg, offset));
+		  else
+		    emit_insn (gen_adddi3_carry (frame_reg_rtx,
+						 ptr_reg, offset));
 		}
 	      else
 		{
@@ -26024,6 +26029,20 @@ rs6000_output_symbol_ref (FILE *file, rtx x)
      we emit the TOC reference to reference the symbol and not the
      section.  */
   const char *name = XSTR (x, 0);
+
+  tree decl = SYMBOL_REF_DECL (x);
+  if (decl /* sync condition with assemble_external () */
+      && DECL_P (decl) && DECL_EXTERNAL (decl) && TREE_PUBLIC (decl)
+      && (TREE_CODE (decl) == VAR_DECL
+	  || TREE_CODE (decl) == FUNCTION_DECL)
+      && name[strlen (name) - 1] != ']')
+    {
+      name = concat (name,
+		     (TREE_CODE (decl) == FUNCTION_DECL
+		      ? "[DS]" : "[UA]"),
+		     NULL);
+      XSTR (x, 0) = name;
+    }
 
   if (VTABLE_NAME_P (name))
     {
@@ -30076,8 +30095,10 @@ rs6000_declare_alias (struct symtab_node *n, void *d)
 	  RS6000_OUTPUT_BASENAME (data->file, buffer);
 	  putc ('\n', data->file);
 	}
+#ifdef ASM_WEAKEN_DECL
       else if (DECL_WEAK (n->decl) && !data->function_descriptor)
 	ASM_WEAKEN_DECL (data->file, n->decl, name, NULL);
+#endif
     }
   else
     {

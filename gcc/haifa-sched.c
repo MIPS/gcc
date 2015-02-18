@@ -1233,6 +1233,11 @@ recompute_todo_spec (rtx_insn *next, bool for_backtrack)
   if (!sd_lists_empty_p (next, SD_LIST_HARD_BACK))
     return HARD_DEP;
 
+  /* If NEXT is intended to sit adjacent to this instruction, we don't
+     want to try to break any dependencies.  Treat it as a HARD_DEP.  */
+  if (SCHED_GROUP_P (next))
+    return HARD_DEP;
+
   /* Now we've got NEXT with speculative deps only.
      1. Look at the deps to see what we have to do.
      2. Check if we can do 'todo'.  */
@@ -6291,7 +6296,15 @@ prune_ready_list (state_t temp_state, bool first_cycle_insn_p,
 	      if (SCHED_GROUP_P (insn) && cost > min_cost_group)
 		min_cost_group = cost;
 	      ready_remove (&ready, i);
-	      queue_insn (insn, cost, reason);
+	      /* Normally we'd want to queue INSN for COST cycles.  However,
+		 if SCHED_GROUP_P is set, then we must ensure that nothing
+		 else comes between INSN and its predecessor.  If there is
+		 some other insn ready to fire on the next cycle, then that
+		 invariant would be broken.
+
+		 So when SCHED_GROUP_P is set, just queue this insn for a
+		 single cycle.  */
+	      queue_insn (insn, SCHED_GROUP_P (insn) ? 1 : cost, reason);
 	      if (i + 1 < n)
 		break;
 	    }
