@@ -244,28 +244,60 @@
 
 ;; Like int_reg_operand, but only return true for base registers
 (define_predicate "base_reg_operand"
-  (match_operand 0 "int_reg_operand")
+  (match_operand 0 "register_operand")
 {
+  HOST_WIDE_INT r;
+
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
 
   if (!REG_P (op))
     return 0;
 
-  return (REGNO (op) != FIRST_GPR_REGNO);
+  r = REGNO (op);
+  if (r >= FIRST_PSEUDO_REGISTER)
+    return 1;
+
+  return (INT_REGNO_P (r) && (REGNO (op) != FIRST_GPR_REGNO));
 })
 
 ;; Return true if this is a traditional floating point register
 (define_predicate "fpr_reg_operand"
   (match_code "reg,subreg")
 {
+  HOST_WIDE_INT r;
+
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
 
   if (!REG_P (op))
     return 0;
 
-  return FP_REGNO_P (REGNO (op));
+  r = REGNO (op);
+  if (r >= FIRST_PSEUDO_REGISTER)
+    return 1;
+
+  return FP_REGNO_P (r);
+})
+
+;; Return true if this is a register that can has D-form addressing (GPR and
+;; traditional FPR registers for scalars)
+(define_predicate "offsettable_reg_operand"
+  (match_code "reg,subreg")
+{
+  HOST_WIDE_INT r;
+
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  if (!REG_P (op))
+    return 0;
+
+  r = REGNO (op);
+  if (r >= FIRST_PSEUDO_REGISTER)
+    return 1;
+
+  return (INT_REGNO_P (r) || FP_REGNO_P (r));
 })
 
 ;; Return 1 if op is a HTM specific SPR register.
@@ -1822,8 +1854,7 @@
 (define_predicate "fusion_toc_mem_raw"
   (match_code "mem")
 {
-  if (!TARGET_FUSION_TOC || !TARGET_POWERPC64 || (TARGET_CMODEL == CMODEL_SMALL)
-      || !can_create_pseudo_p ())
+  if (!TARGET_FUSION_TOC_INT || !can_create_pseudo_p ())
     return false;
 
   return small_toc_ref (XEXP (op, 0), Pmode);
@@ -1836,8 +1867,7 @@
 {
   rtx addr;
 
-  if (!TARGET_FUSION_TOC || !TARGET_POWERPC64
-      || (TARGET_CMODEL == CMODEL_SMALL))
+  if (!TARGET_FUSION_TOC_INT)
     return false;
 
   if (!MEM_P (op))
@@ -1846,7 +1876,6 @@
   addr = XEXP (op, 0);
   return (GET_CODE (addr) == UNSPEC && XINT (addr, 1) == UNSPEC_FUSION_ADDIS);
 })
-
 
 ;; Match the first insn (addis) in fusing the combination of addis and loads to
 ;; GPR registers on power8.

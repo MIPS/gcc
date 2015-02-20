@@ -130,6 +130,11 @@
   "Memory operand suitable for extended fusion load/stores"
   (match_operand 0 "fusion_addis_mem_combo_load"))
 
+;; Fusion gpr load.
+(define_memory_constraint "wG"
+  "Memory operand suitable for TOC fusion memory references"
+  (match_operand 0 "fusion_toc_mem_wrapped"))
+
 ;; Lq/stq validates the address for load/store quad
 (define_memory_constraint "wQ"
   "Memory operand suitable for the load/store quad instructions"

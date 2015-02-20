@@ -1,5 +1,44 @@
 2015-02-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/constraints.md (wG constraint): New constraint.
+
+	* config/rs6000/predicates.md (base_reg_operand): Recode function
+	so it doesn't assume int_reg_operand was called, and you can call
+	it from the debugger.
+	(fpr_reg_operand): Allow pseudo registers.
+	(offsettable_reg_operand): New predicate to return true for GPR
+	and FPR registers that allow register+offset addressing.
+	(fusion_toc_mem_raw): Use TARGET_FUSION_TOC_INT instead of
+	separate tests.
+	(fusion_toc_mem_wrapped): Likewise.
+
+	* config/rs6000/rs6000-protos.h (fusion_wrap_memory_address): Add
+	declaration.
+
+	* config/rs6000/rs6000.c (rs6000_debug_print_mode): Print if mode
+	supports fused TOCs.
+	(fusion_wrap_memory_address): Create fused TOC address wrapper.
+	(fusion_split_address): Split both fused TOC and peephole
+	addresses into the addis and load/store offset parts.
+	(emit_fusion_gpr_load): Use fusion_split_address.
+	(emit_fusion_extra_load): Likewise.
+	(emit_fusion_extra_store): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_FUSION_TOC_INT): New macros for
+	all of the pre-conditions for fused TOC support for both integer
+	and floating point.
+	(TARGET_FUSION_TOC_FP): Likewise.
+
+	* config/rs6000/rs6000.md (QHSI): New mode iterator.
+	(fused toc define_split): Use define splits to recognize memory
+	addresses involving TOC addresses for medium/large code models,
+	and rewrite the insn so that can expose the ADDIS temporary
+	register to register allocation, and fuse the operations.
+	(fusion_tocload_<mode>): Likewise.
+	(fusion_tocload_di): Likewise.
+	(fusion3 patterns): Remove old patterns from fusion3 branch that
+	are commented out.
+
 	* config/rs6000/predicates.md (fusion_toc_mem_raw): New predicates
 	to match fused TOC entries.
 	(fusion_toc_mem_wrapped): Likewise.

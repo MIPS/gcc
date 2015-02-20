@@ -2037,7 +2037,8 @@ rs6000_debug_print_mode (ssize_t m)
   else
     spaces += sizeof ("  Upper=y");
 
-  fuse_extra_p = (reg_addr[m].fusion_gpr_ld != CODE_FOR_nothing);
+  fuse_extra_p = ((reg_addr[m].fusion_gpr_ld != CODE_FOR_nothing)
+		  || reg_addr[m].fused_toc);
   if (!fuse_extra_p)
     {
       for (rc = 0; rc < N_RELOAD_REG; rc++)
@@ -2100,14 +2101,22 @@ rs6000_debug_print_mode (ssize_t m)
 	}
       else
 	spaces += sizeof (" P8gpr") - 1;
+
+      if (reg_addr[m].fused_toc)
+	{
+	  fprintf (stderr, "%*sToc", (spaces + 1), "");
+	  spaces = 0;
+	}
+      else
+	spaces += sizeof (" Toc") - 1;
     }
   else
-    spaces += sizeof ("  Fuse: g=ls f=ls v=ls P8gpr") - 1;
+    spaces += sizeof ("  Fuse: g=ls f=ls v=ls P8gpr Toc") - 1;
 
   if (rs6000_vector_unit[m] != VECTOR_NONE
       || rs6000_vector_mem[m] != VECTOR_NONE)
     {
-      fprintf (stderr, "%*s  vector: arith=%-10s mem=%-10s",
+      fprintf (stderr, "%*s  vector: arith=%-10s mem=%s",
 	       spaces, "",
 	       rs6000_debug_vector_unit (rs6000_vector_unit[m]),
 	       rs6000_debug_vector_unit (rs6000_vector_mem[m]));
@@ -34039,10 +34048,55 @@ emit_fusion_load_store (rtx load_store_reg, rtx addis_reg, rtx offset,
   return;
 }
 
+/* Wrap a TOC address that can be fused to indicate that special fusion
+   processing is needed.  */
+
+rtx
+fusion_wrap_memory_address (rtx old_mem)
+{
+  rtx old_addr = XEXP (old_mem, 0);
+  rtvec v = gen_rtvec (1, old_addr);
+  rtx new_addr = gen_rtx_UNSPEC (Pmode, v, UNSPEC_FUSION_ADDIS);
+  return replace_equiv_address_nv (old_mem, new_addr, false);
+}
+
+/* Given an address, convert it into the addis and load offset parts.  Addresses
+   created during the peephole2 process look like:
+	(lo_sum (high (unspec [(sym)] UNSPEC_TOCREL))
+		(unspec [(...)] UNSPEC_TOCREL))
+
+   Addresses created via toc fusion look like:
+	(unspec [(unspec [(...)] UNSPEC_TOCREL)] UNSPEC_FUSION_ADDIS))  */
+
+static void
+fusion_split_address (rtx addr, rtx *p_hi, rtx *p_lo)
+{
+  rtx hi, lo;
+
+  if (GET_CODE (addr) == UNSPEC && XINT (addr, 1) == UNSPEC_FUSION_ADDIS)
+    {
+      lo = XVECEXP (addr, 0, 0);
+      hi = gen_rtx_HIGH (Pmode, lo);
+    }
+  else if (GET_CODE (addr) == PLUS || GET_CODE (addr) == LO_SUM)
+    {
+      hi = XEXP (addr, 0);
+      lo = XEXP (addr, 1);
+    }
+  else
+    gcc_unreachable ();
+
+  *p_hi = hi;
+  *p_lo = lo;
+}
+
 /* Return a string to fuse an addis instruction with a gpr load to the same
    register that we loaded up the addis instruction.  The address that is used
    is the logical address that was formed during peephole2:
 	(lo_sum (high) (low-part))
+
+   Or the address is the TOC address that is wrapped before register allocation:
+	(unspec [(addr) (toc-reg)] UNSPEC_FUSION_ADDIS)
 
    The code is complicated, so we call output_asm_insn directly, and just
    return "".  */
@@ -34063,11 +34117,7 @@ emit_fusion_gpr_load (rtx target, rtx mem)
   gcc_assert (REG_P (target) && MEM_P (mem));
 
   addr = XEXP (mem, 0);
-  if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
-    gcc_unreachable ();
-
-  addis_value = XEXP (addr, 0);
-  load_offset = XEXP (addr, 1);
+  fusion_split_address (addr, &addis_value, &load_offset);
 
   /* Now emit the load instruction to the same register.  */
   mode = GET_MODE (mem);
@@ -34323,11 +34373,7 @@ emit_fusion_extra_load (rtx reg, rtx mem, rtx tmp_reg)
     fatal_insn ("emit_fusion_extra_load not MEM", mem);
 
   addr = XEXP (mem, 0);
-  if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
-    fatal_insn ("emit_fusion_extra_load not PLUS/LO_SUM", mem);
-
-  hi = XEXP (addr, 0);
-  lo = XEXP (addr, 1);
+  fusion_split_address (addr, &hi, &lo);
 
   /* Emit the addis instruction.  */
   emit_fusion_addis (tmp_reg, hi, "extra load fusion", GET_MODE_NAME (mode));
@@ -34394,11 +34440,7 @@ emit_fusion_extra_store (rtx mem, rtx reg, rtx tmp_reg)
     fatal_insn ("emit_fusion_extra_store not MEM", mem);
 
   addr = XEXP (mem, 0);
-  if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
-    fatal_insn ("emit_fusion_extra_store not PLUS/LO_SUM", mem);
-
-  hi = XEXP (addr, 0);
-  lo = XEXP (addr, 1);
+  fusion_split_address (addr, &hi, &lo);
 
   /* Emit the addis instruction.  */
   emit_fusion_addis (tmp_reg, hi, "extra store fusion", GET_MODE_NAME (mode));
