@@ -4013,10 +4013,12 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	  bool is_classarray = IS_CLASS_ARRAY (sym);
 	  symbol_attribute *array_attr;
 	  gfc_array_spec *as;
+	  array_type tmp;
+
 	  array_attr = is_classarray ? &CLASS_DATA (sym)->attr : &sym->attr;
 	  as = is_classarray ? CLASS_DATA (sym)->as : sym->as;
 	  /* Assumed-size Cray pointees need to be treated as AS_EXPLICIT.  */
-	  array_type tmp = as->type;
+	  tmp = as->type;
 	  if (tmp == AS_ASSUMED_SIZE && as->cp_was_assumed)
 	    tmp = AS_EXPLICIT;
 	  switch (tmp)
