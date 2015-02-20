@@ -3216,6 +3216,10 @@ package body Sem_Prag is
       --  Suppress_Case is True for the Suppress case, and False for the
       --  Unsuppress case.
 
+      procedure Record_Independence_Check (N : Node_Id; E : Entity_Id);
+      --  Subsidiary to the analysis of pragmas Independent[_Components].
+      --  Record such a pragma N applied to entity E for future checks.
+
       procedure Set_Exported (E : Entity_Id; Arg : Node_Id);
       --  This procedure sets the Is_Exported flag for the given entity,
       --  checking that the entity was not previously imported. Arg is
@@ -5914,6 +5918,17 @@ package body Sem_Prag is
             --  Get name from corresponding aspect
 
             Error_Msg_Name_1 := Original_Aspect_Name (N);
+
+            if Class_Present (N) then
+
+               --  Replace the name with a leading underscore used
+               --  internally, with a name that is more user-friendly.
+
+               if Error_Msg_Name_1 = Name_uType_Invariant then
+                  Error_Msg_Name_1 := Name_Type_Invariant_Class;
+               end if;
+            end if;
+
          end if;
 
          --  Return possibly modified message
@@ -6232,7 +6247,7 @@ package body Sem_Prag is
                Set_Is_Independent (Base_Type (E));
 
                if Prag_Id = Pragma_Independent then
-                  Independence_Checks.Append ((N, Base_Type (E)));
+                  Record_Independence_Check (N, Base_Type (E));
                end if;
             end if;
 
@@ -6307,7 +6322,7 @@ package body Sem_Prag is
                Set_Is_Independent (E);
 
                if Prag_Id = Pragma_Independent then
-                  Independence_Checks.Append ((N, E));
+                  Record_Independence_Check (N, E);
                end if;
             end if;
 
@@ -8204,12 +8219,6 @@ package body Sem_Prag is
                Applies := True;
                return;
 
-            --  Ignore if all inlining is suppressed
-
-            elsif Suppress_All_Inlining then
-               Applies := True;
-               return;
-
             --  If inlining is not possible, for now do not treat as an error
 
             elsif Status /= Suppressed
@@ -9199,6 +9208,21 @@ package body Sem_Prag is
             end loop;
          end if;
       end Process_Suppress_Unsuppress;
+
+      -------------------------------
+      -- Record_Independence_Check --
+      -------------------------------
+
+      procedure Record_Independence_Check (N : Node_Id; E : Entity_Id) is
+      begin
+         --  For GCC back ends the validation is done a priori
+
+         if VM_Target = No_VM and then not AAMP_On_Target then
+            return;
+         end if;
+
+         Independence_Checks.Append ((N, E));
+      end Record_Independence_Check;
 
       ------------------
       -- Set_Exported --
@@ -15001,7 +15025,7 @@ package body Sem_Prag is
               and then (Is_Array_Type (E) or else Is_Record_Type (E))
             then
                Set_Has_Independent_Components (Base_Type (E));
-               Independence_Checks.Append ((N, Base_Type (E)));
+               Record_Independence_Check (N, Base_Type (E));
 
                --  For record type, set all components independent
 
@@ -15019,7 +15043,7 @@ package body Sem_Prag is
                                            N_Constrained_Array_Definition
             then
                Set_Has_Independent_Components (E);
-               Independence_Checks.Append ((N, E));
+               Record_Independence_Check (N, E);
 
             else
                Error_Pragma_Arg ("inappropriate entity for pragma%", Arg1);
