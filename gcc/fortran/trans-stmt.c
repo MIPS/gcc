@@ -1278,10 +1278,22 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
       se.descriptor_only = 1;
       gfc_conv_expr (&se, e);
 
-      gcc_assert (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr)));
+      gcc_assert (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr))
+		  || GFC_ARRAY_TYPE_P (TREE_TYPE (se.expr)));
       gcc_assert (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (sym->backend_decl)));
 
-      gfc_add_modify (&se.pre, sym->backend_decl, se.expr);
+      if (GFC_ARRAY_TYPE_P (TREE_TYPE (se.expr)))
+	{
+	  if (INDIRECT_REF_P (se.expr))
+	    tmp = TREE_OPERAND (se.expr, 0);
+	  else
+	    tmp = se.expr;
+
+	  gfc_add_modify (&se.pre, sym->backend_decl,
+			  gfc_class_data_get (GFC_DECL_SAVED_DESCRIPTOR (tmp)));
+	}
+      else
+	gfc_add_modify (&se.pre, sym->backend_decl, se.expr);
 
       if (unlimited)
 	{
@@ -1309,11 +1321,8 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	 unconditionally associate pointers and the symbol is scalar.  */
       if (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->attr.dimension)
 	{
-	  tree target_expr;
 	  /* For a class array we need a descriptor for the selector.  */
 	  gfc_conv_expr_descriptor (&se, e);
-	  /* Needed to get/set the _len component below.  */
-	  target_expr = se.expr;
 
 	  /* Obtain a temporary class container for the result.  */
 	  gfc_conv_class_to_class (&se, e, sym->ts, false, true, false, false);
@@ -1335,9 +1344,10 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	    }
 	  if (need_len_assign)
 	    {
-	      /* Get the _len comp from the target expr by stripping _data
-		 from it and adding component-ref to _len.  */
-	      tmp = gfc_class_len_get (TREE_OPERAND (target_expr, 0));
+	      /* Get the _len comp from the target expr's saved descriptor and
+		 adding component-ref to _len.  */
+	      tmp = gfc_class_len_get (
+		   GFC_DECL_SAVED_DESCRIPTOR (e->symtree->n.sym->backend_decl));
 	      /* Get the component-ref for the temp structure's _len comp.  */
 	      charlen = gfc_class_len_get (se.expr);
 	      /* Add the assign to the beginning of the the block...  */

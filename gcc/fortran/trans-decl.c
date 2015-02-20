@@ -1453,7 +1453,9 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	 sym->backend_decl's GFC_DECL_SAVED_DESCRIPTOR. The caller then is
 	 responsible to extract it from there, when the descriptor is
 	 desired. */
-      if (IS_CLASS_ARRAY (sym) && !TREE_USED (sym->backend_decl))
+      if (IS_CLASS_ARRAY (sym)
+	  && (!DECL_LANG_SPECIFIC (sym->backend_decl)
+	      || !GFC_DECL_SAVED_DESCRIPTOR (sym->backend_decl)))
 	{
 	  decl = gfc_build_dummy_array_decl (sym, sym->backend_decl);
 	  /* Prevent the dummy from being detected as unused if it is copied.  */
@@ -4142,6 +4144,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		}
 	      else
 		{
+		  se.descriptor_only = 1;
 		  gfc_conv_expr (&se, e);
 		  descriptor = se.expr;
 		  se.expr = gfc_conv_descriptor_data_addr (se.expr);

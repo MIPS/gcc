@@ -149,6 +149,11 @@ tree
 gfc_class_vptr_get (tree decl)
 {
   tree vptr;
+  /* For class arrays decl may be a temporary array handle, the vptr then is
+     available through the saved descriptor.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_LANG_SPECIFIC (decl)
+      && GFC_DECL_SAVED_DESCRIPTOR (decl))
+    decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
   if (POINTER_TYPE_P (TREE_TYPE (decl)))
     decl = build_fold_indirect_ref_loc (input_location, decl);
   vptr = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (decl)),
@@ -163,6 +168,11 @@ tree
 gfc_class_len_get (tree decl)
 {
   tree len;
+  /* For class arrays decl may be a temporary array handle, the vptr then is
+     available through the saved descriptor.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_LANG_SPECIFIC (decl)
+      && GFC_DECL_SAVED_DESCRIPTOR (decl))
+    decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
   if (POINTER_TYPE_P (TREE_TYPE (decl)))
     decl = build_fold_indirect_ref_loc (input_location, decl);
   len = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (decl)),
@@ -837,6 +847,11 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
       tree tmp2;
 
       cond = gfc_conv_expr_present (e->symtree->n.sym);
+      /* parmse->pre may contain some temporary array instructions, that need to
+	 be guard for NULL-deref.  */
+      gfc_add_block_to_block (&parmse->pre, &block);
+      block.head = parmse->pre.head;
+      parmse->pre.head = NULL_TREE;
       tmp = gfc_finish_block (&block);
 
       if (optional_alloc_ptr)
@@ -2149,20 +2164,13 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	}
       else if (!sym->attr.value)
 	{
-	  /* Dereference class array dummy arguments and skip ref evaluation,
-	     when the backend_decl is the array descriptor.  */
+	  /* Dereference temporaries for class array dummy arguments.  */
 	  if (sym->attr.dummy && is_classarray
 	      && GFC_ARRAY_TYPE_P (TREE_TYPE (se->expr)))
 	    {
-//	      if (!se->descriptor_only)
-//		{
-//		  se->expr = build_fold_indirect_ref_loc (input_location,
-//							  se->expr);
-//		  return;
-//		}
 	      if (!se->descriptor_only)
 		se->expr = GFC_DECL_SAVED_DESCRIPTOR (se->expr);
-//	      if (se->want_pointer)
+
 	      se->expr = build_fold_indirect_ref_loc (input_location,
 						      se->expr);
 	    }
@@ -2170,7 +2178,10 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  /* Dereference non-character scalar dummy arguments.  */
 	  if (sym->attr.dummy && !sym->attr.dimension
 	      && !(sym->attr.codimension && sym->attr.allocatable)
-	      && !is_classarray)
+	      && (sym->ts.type != BT_CLASS
+		  || (!CLASS_DATA (sym)->attr.dimension
+		      && !(CLASS_DATA (sym)->attr.codimension
+			   && CLASS_DATA (sym)->attr.allocatable))))
 	    se->expr = build_fold_indirect_ref_loc (input_location,
 						se->expr);
 
@@ -2182,16 +2193,38 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	    se->expr = build_fold_indirect_ref_loc (input_location,
 						se->expr);
 
-	  /* Dereference non-character pointer variables.
+	  /* Dereference non-character, non-class pointer variables.
 	     These must be dummies, results, or scalars.  */
-	  if ((sym->attr.pointer || sym->attr.allocatable
-	       || gfc_is_associate_pointer (sym)
-	       || (sym->as && sym->as->type == AS_ASSUMED_RANK))
+	  if (!is_classarray
+	      && (sym->attr.pointer || sym->attr.allocatable
+		  || gfc_is_associate_pointer (sym)
+		  || (sym->as && sym->as->type == AS_ASSUMED_RANK))
 	      && (sym->attr.dummy
 		  || sym->attr.function
 		  || sym->attr.result
 		  || (!sym->attr.dimension
 		      && (!sym->attr.codimension || !sym->attr.allocatable))))
+	    se->expr = build_fold_indirect_ref_loc (input_location,
+						se->expr);
+	  /* Now treat the class array pointer variables accordingly.  */
+	  else if (sym->ts.type == BT_CLASS
+		   && sym->attr.dummy
+		   && (CLASS_DATA (sym)->attr.dimension
+		       || CLASS_DATA (sym)->attr.codimension)
+		   && ((CLASS_DATA (sym)->as
+			&& CLASS_DATA (sym)->as->type == AS_ASSUMED_RANK)
+		       || CLASS_DATA (sym)->attr.allocatable
+		       || CLASS_DATA (sym)->attr.class_pointer))
+	    se->expr = build_fold_indirect_ref_loc (input_location,
+						se->expr);
+	  else if (sym->ts.type == BT_CLASS
+		   && !sym->attr.dummy
+		   && !sym->attr.function
+		   && !sym->attr.result
+		   && (CLASS_DATA (sym)->attr.dimension
+		       || CLASS_DATA (sym)->attr.codimension)
+		   && !CLASS_DATA (sym)->attr.allocatable
+		   && !CLASS_DATA (sym)->attr.class_pointer)
 	    se->expr = build_fold_indirect_ref_loc (input_location,
 						se->expr);
 	}
@@ -2231,7 +2264,12 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  break;
 
 	case REF_COMPONENT:
-	  if (first_time && is_classarray && se->descriptor_only
+	  if (first_time && is_classarray && sym->attr.dummy
+	      && se->descriptor_only
+	      && !CLASS_DATA (sym)->attr.allocatable
+	      && !CLASS_DATA (sym)->attr.class_pointer
+	      && CLASS_DATA (sym)->as
+	      && CLASS_DATA (sym)->as->type != AS_ASSUMED_RANK
 	      && strcmp ("_data", ref->u.c.component->name) == 0)
 	    /* Skip the first ref of a _data component, because for class
 	       arrays that one is already done.  */

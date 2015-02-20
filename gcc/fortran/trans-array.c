@@ -3166,26 +3166,41 @@ build_array_ref (tree desc, tree offset, tree decl)
 {
   tree tmp;
   tree type;
+  tree cdecl;
+  bool classarray = false;
+
+  /* For class arrays the type desired may be stored in the saved
+     descriptor.  */
+  if (INDIRECT_REF_P (desc)
+      && DECL_LANG_SPECIFIC (TREE_OPERAND (desc, 0))
+      && GFC_DECL_SAVED_DESCRIPTOR (TREE_OPERAND (desc, 0)))
+    cdecl = gfc_class_data_get (GFC_DECL_SAVED_DESCRIPTOR (
+				  TREE_OPERAND (desc, 0)));
+  else
+    cdecl = desc;
 
   /* Class container types do not always have the GFC_CLASS_TYPE_P
      but the canonical type does.  */
-  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (desc))
-      && TREE_CODE (desc) == COMPONENT_REF)
+  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (cdecl))
+      && TREE_CODE (cdecl) == COMPONENT_REF)
     {
-      type = TREE_TYPE (TREE_OPERAND (desc, 0));
+      type = TREE_TYPE (TREE_OPERAND (cdecl, 0));
       if (TYPE_CANONICAL (type)
 	  && GFC_CLASS_TYPE_P (TYPE_CANONICAL (type)))
-	type = TYPE_CANONICAL (type);
+	{
+	  type = TREE_TYPE (desc);
+	  classarray = true;
+	}
     }
   else
     type = NULL;
 
   /* Class array references need special treatment because the assigned
      type size needs to be used to point to the element.  */
-  if (type && GFC_CLASS_TYPE_P (type))
+  if (classarray)
     {
-      type = gfc_get_element_type (TREE_TYPE (desc));
-      tmp = TREE_OPERAND (desc, 0);
+      type = gfc_get_element_type (type);
+      tmp = TREE_OPERAND (cdecl, 0);
       tmp = gfc_get_class_array_ref (offset, tmp);
       tmp = fold_convert (build_pointer_type (type), tmp);
       tmp = build_fold_indirect_ref_loc (input_location, tmp);
@@ -5618,7 +5633,7 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
 
   int dim;
 
-  as = sym->as;
+  as = IS_CLASS_ARRAY (sym) ? CLASS_DATA (sym)->as : sym->as;
 
   size = gfc_index_one_node;
   offset = gfc_index_zero_node;
@@ -5913,7 +5928,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
       || (is_classarray && CLASS_DATA (sym)->attr.allocatable))
     return;
 
-  if (sym->attr.dummy && gfc_is_nodesc_array (sym))
+  if (!is_classarray && sym->attr.dummy && gfc_is_nodesc_array (sym))
     {
       gfc_trans_g77_array (sym, block);
       return;

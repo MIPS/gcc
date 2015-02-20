@@ -1135,6 +1135,7 @@ gfc_conv_intrinsic_caf_get (gfc_se *se, gfc_expr *expr, tree lhs, tree lhs_kind,
   vec = null_pointer_node;
 
   gfc_init_se (&argse, NULL);
+  argse.descriptor_only = 1;
   if (array_expr->rank == 0)
     {
       symbol_attribute attr;
@@ -5863,8 +5864,15 @@ gfc_conv_intrinsic_sizeof (gfc_se *se, gfc_expr *expr)
     }
   else if (arg->ts.type == BT_CLASS)
     {
-      if (arg->rank)
+      /* For deferred length arrays, conv_expr_descriptor returns an
+	 indirect_ref to the component.  */
+      if (arg->rank < 0)
 	byte_size = gfc_vtable_size_get (TREE_OPERAND (argse.expr, 0));
+      else if (arg->rank > 0)
+	/* The scalarizer added an additional temp.  To get the class' vptr
+	   one has to look at the original backend_decl.  */
+	byte_size = gfc_vtable_size_get (
+	      GFC_DECL_SAVED_DESCRIPTOR (arg->symtree->n.sym->backend_decl));
       else
 	byte_size = gfc_vtable_size_get (argse.expr);
     }
@@ -5995,7 +6003,11 @@ gfc_conv_intrinsic_storage_size (gfc_se *se, gfc_expr *expr)
       gfc_conv_expr_descriptor (&argse, arg);
       if (arg->ts.type == BT_CLASS)
 	{
-	  tmp = gfc_vtable_size_get (TREE_OPERAND (argse.expr, 0));
+	  if (arg->rank > 0)
+	    tmp = gfc_vtable_size_get (
+		 GFC_DECL_SAVED_DESCRIPTOR (arg->symtree->n.sym->backend_decl));
+	  else
+	    tmp = gfc_vtable_size_get (TREE_OPERAND (argse.expr, 0));
 	  tmp = fold_convert (result_type, tmp);
 	  goto done;
 	}
