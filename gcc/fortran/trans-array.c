@@ -3169,7 +3169,7 @@ build_array_ref (tree desc, tree offset, tree decl)
   tree cdecl;
   bool classarray = false;
 
-  /* For class arrays the type desired may be stored in the saved
+  /* For class arrays the class declaration is stored in the saved
      descriptor.  */
   if (INDIRECT_REF_P (desc)
       && DECL_LANG_SPECIFIC (TREE_OPERAND (desc, 0))

@@ -847,8 +847,9 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
       tree tmp2;
 
       cond = gfc_conv_expr_present (e->symtree->n.sym);
-      /* parmse->pre may contain some temporary array instructions, that need to
-	 be guard for NULL-deref.  */
+      /* parmse->pre may contain some temporary array instructions.  Those must
+	 only be executed when the optional argument is set, therefore add them
+	 to block.  */
       gfc_add_block_to_block (&parmse->pre, &block);
       block.head = parmse->pre.head;
       parmse->pre.head = NULL_TREE;
@@ -2217,6 +2218,11 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 		       || CLASS_DATA (sym)->attr.class_pointer))
 	    se->expr = build_fold_indirect_ref_loc (input_location,
 						se->expr);
+	  /* And the case where a non-dummy, non-result, non-function,
+	     non-allotable and non-pointer classarray is present.  This case was
+	     previously covered by the first if, but with introducing the
+	     check non-classarray falls out there and has to be covered here
+	     explicilty.  */
 	  else if (sym->ts.type == BT_CLASS
 		   && !sym->attr.dummy
 		   && !sym->attr.function
@@ -2272,7 +2278,8 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	      && CLASS_DATA (sym)->as->type != AS_ASSUMED_RANK
 	      && strcmp ("_data", ref->u.c.component->name) == 0)
 	    /* Skip the first ref of a _data component, because for class
-	       arrays that one is already done.  */
+	       arrays that one is already done by introducing a temporary
+	       array descriptor.  */
 	    break;
 
 	  if (ref->u.c.sym->attr.extension)
