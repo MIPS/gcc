@@ -80,18 +80,23 @@ struct hsa_op_base
   BrigKinds16_t kind;
 };
 
+/* Common abstract ancestor for operands which have a type.  */
+
+struct hsa_op_with_type : public hsa_op_base
+{
+  /* The type.  */
+  BrigType16_t type;
+};
+
 /* An immediate HSA operand.  */
 
-struct hsa_op_immed : public hsa_op_base
+struct hsa_op_immed : public hsa_op_with_type
 {
-  /* Type of the. */
-  BrigType16_t type;
-
   /* Value as represented by middle end.  */
   tree value;
 };
 
-/* Report whether or not P is a na immediate operand.  */
+/* Report whether or not P is a an immediate operand.  */
 
 template <>
 template <>
@@ -103,7 +108,7 @@ is_a_helper <hsa_op_immed *>::test (hsa_op_base *p)
 
 /* HSA register operand.  */
 
-struct hsa_op_reg : public hsa_op_base
+struct hsa_op_reg : public hsa_op_with_type
 {
   /* Destructor.  */
   ~hsa_op_reg ()
@@ -113,8 +118,7 @@ struct hsa_op_reg : public hsa_op_base
   /* Verify register operand.  */
   void verify ();
 
-  /* If NON-NULL, gimple SSA that we come from.  NULL if none.
-     !!? Do we need it? */
+  /* If NON-NULL, gimple SSA that we come from.  NULL if none.  */
   tree gimple_ssa;
 
   /* Defining instrution while still in the SSA.  */
@@ -130,8 +134,6 @@ struct hsa_op_reg : public hsa_op_base
      allocated.  */
   int order;
 
-  /* Type of data in the register.  */
-  BrigType16_t type;
   /* Zero if the register is not yet allocated.  After, allocation, this must
      be 'c', 's', 'd' or 'q'.  */
   char reg_class;

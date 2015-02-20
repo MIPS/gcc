@@ -1,3 +1,16 @@
+2015-02-20  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_op_with_type): New type.
+	(hsa_op_immed): Base on hsa_op_with_type.
+	(hsa_op_reg): Likewise.  Removed the type field.
+	* hsa-gen.c (hsa_reg_for_gimple_ssa_reqtype): New function.
+	(gen_address_calculation): Likewise.
+	(add_addr_regs_if_needed): Likewise.
+	(process_mem_base): Likewise.
+	(gen_hsa_addr): Reimplemented.
+	(hsa_reg_or_immed_for_gimple_op): Changed return type to
+	hsa_op_with_type.
+
 2015-01-08  Martin Liska  <mliska@suse.cz>
 	    Martin Jambor  <mjambor@suse.cz>
 

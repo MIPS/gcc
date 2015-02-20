@@ -824,11 +824,159 @@ hsa_append_insn (hsa_bb *hbb, hsa_insn_basic *insn)
     hbb->first_insn = insn;
 }
 
-static void gen_hsa_addr_insns (tree val, hsa_op_reg *dest, hsa_bb *hbb,
-				vec <hsa_op_reg_p> ssa_map);
-static hsa_op_base * hsa_reg_or_immed_for_gimple_op (tree op, hsa_bb *hbb,
-						     vec <hsa_op_reg_p> ssa_map,
-						     hsa_insn_basic *new_use);
+/* Lookup or create a HSA pseudo register for a given gimple SSA name and if
+   necessary, convert it to REQTYPE.  SSA_MAP is a vector mapping gimple
+   SSAnames to HSA registers.  Append an new conversion statements to HBB.  */
+
+static hsa_op_reg *
+hsa_reg_for_gimple_ssa_reqtype (tree ssa, vec <hsa_op_reg_p> ssa_map,
+				hsa_bb *hbb, BrigType16_t reqtype)
+{
+  hsa_op_reg *reg = hsa_reg_for_gimple_ssa (ssa, ssa_map);
+  if (hsa_needs_cvt (reqtype, reg->type))
+    {
+      hsa_op_reg *converted = hsa_alloc_reg_op ();
+      converted->type = reqtype;
+      hsa_insn_basic *insn = hsa_alloc_basic_insn ();
+      insn->opcode = BRIG_OPCODE_CVT;
+      insn->type = reqtype;
+      insn->operands[0] = converted;
+      insn->operands[1] = reg;
+      reg->uses.safe_push (insn);
+      hsa_append_insn (hbb, insn);
+      return converted;
+    }
+
+  return reg;
+}
+
+/* Return a register containing the calculated value of EXP which must be an
+   expression conisting of PLUS_EXPRs, MULT_EXPRS, NOP_EXPRs, SSA_NAMEs and
+   integer constants as returned by get_inner_reference.  SSA_MAP is used to
+   lookup HSA equivalent of SSA_NAMEs, newly generated HSA instructions will be
+   appended to hbb.  Perform all calculations in ADDRTYPE.  If NEW_USE is
+   non-NULL, any register result is going to have it appended to the list of
+   uses.  */
+
+static hsa_op_with_type *
+gen_address_calculation (tree exp, hsa_bb *hbb, vec <hsa_op_reg_p> ssa_map,
+			 BrigType16_t addrtype, hsa_insn_basic *new_use)
+{
+  int opcode;
+
+  if (TREE_CODE (exp) == NOP_EXPR)
+    exp =TREE_OPERAND (exp, 0);
+
+  switch (TREE_CODE (exp))
+    {
+    case SSA_NAME:
+      {
+	hsa_op_reg *res = hsa_reg_for_gimple_ssa_reqtype (exp, ssa_map, hbb,
+							  addrtype);
+	if (new_use)
+	  res->uses.safe_push (new_use);
+	return res;
+      }
+
+    case INTEGER_CST:
+      {
+       hsa_op_immed *imm = hsa_alloc_immed_op (exp);
+       if (addrtype != imm->type)
+	 {
+	   gcc_assert (bittype_for_type (addrtype)
+		       > bittype_for_type (imm->type));
+	   imm->type = addrtype;
+	 }
+       return imm;
+      }
+
+    case PLUS_EXPR:
+      opcode = BRIG_OPCODE_ADD;
+      break;
+
+    case MULT_EXPR:
+      opcode = BRIG_OPCODE_MUL;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  hsa_op_reg *res = hsa_alloc_reg_op ();
+  res->type = addrtype;
+  hsa_insn_basic *insn = hsa_alloc_basic_insn ();
+  insn->opcode = opcode;
+  insn->operands[0] = res;
+  set_reg_def (res, insn);
+  insn->type = addrtype;
+
+  hsa_op_with_type *op1 = gen_address_calculation (TREE_OPERAND (exp, 0), hbb,
+						   ssa_map, addrtype, insn);
+  hsa_op_with_type *op2 = gen_address_calculation (TREE_OPERAND (exp, 1), hbb,
+						   ssa_map, addrtype, insn);
+  insn->operands[1] = op1;
+  insn->operands[2] = op2;
+
+  hsa_append_insn (hbb, insn);
+  if (new_use)
+    res->uses.safe_push (new_use);
+  return res;
+}
+
+/* If R1 is NULL, just return R2, otherwise append an instruction adding them
+   to HPP and return the register holding the result.  */
+
+static hsa_op_reg *
+add_addr_regs_if_needed (hsa_op_reg *r1, hsa_op_reg *r2, hsa_bb *hbb)
+{
+  gcc_checking_assert (r2);
+  if (!r1)
+    return r2;
+
+  hsa_op_reg *res = hsa_alloc_reg_op ();
+  gcc_assert (!hsa_needs_cvt (r1->type, r2->type));
+  res->type = r1->type;
+  hsa_insn_basic *insn = hsa_alloc_basic_insn ();
+  insn->opcode = BRIG_OPCODE_ADD;
+  insn->operands[0] = res;
+  set_reg_def (res, insn);
+  insn->type = res->type;
+  insn->operands[1] = r1;
+  r1->uses.safe_push (insn);
+  insn->operands[2] = r2;
+  r2->uses.safe_push (insn);
+  hsa_append_insn (hbb, insn);
+  return res;
+}
+
+/* Helper of gen_hsa_addr.  Update *SYMBOL, *ADDRTYPE, *REG and *OFFSET to
+   reflect BASE which is the first operand of a MEM_REF or a TARGET_MEM_REF.
+   Use SSA_MAP to find registers correspongoing to gimple SSA_NAMEs.  */
+
+static void
+process_mem_base (tree base, hsa_symbol **symbol, BrigType16_t *addrtype,
+		  hsa_op_reg **reg, offset_int *offset, hsa_bb *hbb,
+		  vec <hsa_op_reg_p> ssa_map)
+{
+  if (TREE_CODE (base) == SSA_NAME)
+    {
+      gcc_assert (!*reg);
+      *reg = hsa_reg_for_gimple_ssa_reqtype (base, ssa_map, hbb, *addrtype);
+    }
+  else if (TREE_CODE (base) == ADDR_EXPR)
+    {
+      tree decl = TREE_OPERAND (base, 0);
+
+      gcc_checking_assert (DECL_P (decl));
+      gcc_assert (!*symbol);
+      *symbol = get_symbol_for_decl (decl);
+      *addrtype = hsa_get_segment_addr_type ((*symbol)->segment);
+    }
+  else if (TREE_CODE (base) == INTEGER_CST)
+    *offset += wi::to_offset (base);
+  else
+    gcc_unreachable ();
+}
 
 /* Generate HSA address operand for a given tree memory reference REF.  If
    instructions need to be created to calculate the address, they will be added
@@ -840,267 +988,145 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> ssa_map)
 {
   hsa_symbol *symbol = NULL;
   hsa_op_reg *reg = NULL;
-  hsa_op_reg *reg2 = NULL;
-  HOST_WIDE_INT offset = 0;
+  offset_int offset = 0;
+  tree origref = ref;
+  tree varoffset = NULL_TREE;
+  BrigType16_t addrtype = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
 
-  while (true)
-    switch (TREE_CODE (ref))
-      {
-      case PARM_DECL:
-      case VAR_DECL:
-      case RESULT_DECL:
-	gcc_assert (!symbol);
-	symbol = get_symbol_for_decl (ref);
-	goto done;
-
-      case SSA_NAME:
-	gcc_assert (!reg);
-	reg = hsa_reg_for_gimple_ssa (ref, ssa_map);
-	goto done;
-
-      case MEM_REF:
-	{
-	  tree t0 = TREE_OPERAND (ref, 0);
-
-	  if (!integer_zerop (TREE_OPERAND (ref, 1)))
-	    offset += tree_to_uhwi (TREE_OPERAND (ref, 1));
-
-	  if (TREE_CODE (t0) == SSA_NAME)
-	    {
-	      gcc_assert (!reg);
-	      reg = hsa_reg_for_gimple_ssa (t0, ssa_map);
-	      goto done;
-	    }
-	  ref = t0;
-	  if (TREE_CODE (ref) == ADDR_EXPR)
-	    ref = TREE_OPERAND (ref, 0);
-	  break;
-	}
-
-      case TARGET_MEM_REF:
-	{
-	  hsa_insn_basic *insn;
-	  offset += tree_to_uhwi (TMR_OFFSET (ref));
-	  if (TMR_INDEX (ref))
-	    {
-	      gcc_assert (!reg2);
-	      reg2 = hsa_alloc_reg_op ();
-	      reg2->type = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
-	      insn = hsa_alloc_basic_insn ();
-	      if (TMR_STEP (ref))
-		{
-		  insn->opcode = BRIG_OPCODE_MUL;
-		  insn->operands[0] = reg2;
-		  insn->type = reg2->type;
-		  insn->operands[1] = hsa_reg_for_gimple_ssa (TMR_INDEX (ref), ssa_map);
-		  insn->operands[2] = hsa_alloc_immed_op (TMR_STEP (ref));
-		}
-	      else
-		{
-		  /* XXX shouldn't use MOV, but source is expected of SSA
-		     form, so we can't simply use it as reg2 in case TMR_INDEX2
-		     is also set.  */
-		  insn->opcode = BRIG_OPCODE_MOV;
-		  insn->operands[0] = reg2;
-		  insn->type = reg2->type;
-		  insn->operands[1] = hsa_reg_for_gimple_ssa (TMR_INDEX (ref), ssa_map);
-		}
-	      hsa_append_insn (hbb, insn);
-	    }
-	  if (TMR_INDEX2 (ref))
-	    {
-	      if (reg2)
-		{
-		  insn = hsa_alloc_basic_insn ();
-		  insn->opcode = BRIG_OPCODE_ADD;
-		  insn->operands[0] = reg2;
-		  insn->type = reg2->type;
-		  insn->operands[1] = reg2;
-		  insn->operands[2] = hsa_reg_for_gimple_ssa (TMR_INDEX2 (ref), ssa_map);
-		  hsa_append_insn (hbb, insn);
-		}
-	      else
-		{
-		  reg2 = hsa_alloc_reg_op ();
-		  reg2->type = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
-
-		  hsa_build_append_simple_mov (reg2,
-					       hsa_reg_for_gimple_ssa (TMR_INDEX2 (ref), ssa_map), hbb);
-		}
-	    }
-	  ref = TMR_BASE (ref);
-	  if (TREE_CODE (ref) == SSA_NAME)
-	    {
-	      gcc_assert (!reg);
-	      reg = hsa_reg_for_gimple_ssa (ref, ssa_map);
-	      goto done;
-	    }
-	  if (TREE_CODE (ref) == ADDR_EXPR)
-	    ref = TREE_OPERAND (ref, 0);
-	  break;
-	}
-
-      case COMPONENT_REF:
-	{
-	  tree fld = TREE_OPERAND (ref, 1);
-	  if (DECL_BIT_FIELD (fld))
-	    sorry ("Support for HSA does not implement references to "
-		   "bit fields such as %D", fld);
-	  offset += int_byte_position (fld);
-	  ref = TREE_OPERAND (ref, 0);
-	  break;
-	}
-
-      case ARRAY_REF:
-      case ARRAY_RANGE_REF:
-        {
-	  tree base, varoffset;
-	  HOST_WIDE_INT bitsize, bitpos;
-	  enum machine_mode mode;
-	  int unsignedp, volatilep;
-	  hsa_op_reg *tmp;
-
-	  base = get_inner_reference(ref, &bitsize, &bitpos, &varoffset, &mode,
-				     &unsignedp, &volatilep, false);
-	  gcc_assert ((bitpos % BITS_PER_UNIT) == 0);
-	  tmp = hsa_alloc_reg_op ();
-	  tmp->type = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
-	  gen_hsa_addr_insns (base, tmp, hbb, ssa_map);
-	  offset = bitpos / BITS_PER_UNIT;
-	  if (varoffset)
-	    {
-	      hsa_insn_basic *insn;
-	      if (TREE_CODE (varoffset) == PLUS_EXPR)
-		{
-		  tree op1 = TREE_OPERAND (varoffset, 0);
-		  tree op2 = TREE_OPERAND (varoffset, 1);
-		  if (TREE_CODE (op2) != INTEGER_CST)
-		    {
-		      sorry ("Support for HSA does not handle complex arrray "
-			     "references");
-		      goto done;
-		    }
-		  offset += tree_to_uhwi (op2);
-		  varoffset = op1;
-		}
-	      /* We support only ssa names scaled by constants.  */
-	      if (TREE_CODE (varoffset) == MULT_EXPR)
-		{
-		  hsa_op_reg *tmp2;
-		  hsa_op_base *scale;
-		  tree op1 = TREE_OPERAND (varoffset, 0);
-		  tree op2 = TREE_OPERAND (varoffset, 1);
-		  tree subofs = 0;
-		  tmp2 = hsa_alloc_reg_op ();
-		  tmp2->type = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
-		  if (TREE_CODE (op1) == PLUS_EXPR)
-		    {
-		      subofs = TREE_OPERAND (op1, 1);
-		      op1 = TREE_OPERAND (op1, 0);
-		    }
-		  if (CONVERT_EXPR_P (op1))
-		    {
-		      hsa_op_reg *src;
-		      op1 = TREE_OPERAND (op1, 0);
-		      insn = hsa_alloc_basic_insn ();
-		      insn->operands[0] = tmp2;
-		      insn->type = tmp2->type;
-		      src = hsa_reg_for_gimple_ssa (op1, ssa_map);
-		      insn->operands[1] = src;
-		      if (hsa_needs_cvt (tmp2->type, src->type))
-			insn->opcode = BRIG_OPCODE_CVT;
-		      else
-			insn->opcode = BRIG_OPCODE_MOV;
-		      hsa_append_insn (hbb, insn);
-		      reg = tmp2;
-		    }
-		  if (TREE_CODE (op1) != SSA_NAME)
-		    {
-		      sorry ("Support for HSA does not handle complex arrray "
-			     "references");
-		      goto done;
-		    }
-		  if (subofs)
-		    {
-		      insn = hsa_alloc_basic_insn ();
-		      insn->opcode = BRIG_OPCODE_ADD;
-		      insn->operands[0] = tmp2;
-		      insn->type = tmp2->type;
-		      insn->operands[1] = reg;
-		      if (TREE_CODE (subofs) != SSA_NAME
-			  || ! is_gimple_min_invariant (subofs))
-			{
-			  sorry ("Support for HSA does not handle complex "
-				 "arrray references");
-			  goto done;
-			}
-		      insn->operands[2] = hsa_reg_or_immed_for_gimple_op (subofs, hbb, ssa_map, insn);
-		      hsa_append_insn (hbb, insn);
-		      reg = tmp2;
-		    }
-		  insn = hsa_alloc_basic_insn ();
-		  scale = hsa_reg_or_immed_for_gimple_op (op2, hbb, ssa_map, insn);
-
-		  gcc_assert (tmp2->type == reg->type);
-		  insn->opcode = BRIG_OPCODE_MUL;
-		  insn->operands[0] = tmp2;
-		  insn->type = reg->type;
-		  insn->operands[2] = scale;
-		  insn->operands[1] = reg;
-		  hsa_append_insn (hbb, insn);
-		  reg = tmp2;
-		}
-	      else
-		{
-		  if (CONVERT_EXPR_P (varoffset))
-		    varoffset = TREE_OPERAND (varoffset, 0);
-		  if (TREE_CODE (varoffset) != SSA_NAME)
-		    {
-		      sorry ("Support for HSA does not handle complex arrray "
-			     "references");
-		      goto done;
-		    }
-		  reg = hsa_reg_for_gimple_ssa (varoffset, ssa_map);
-		}
-	      insn = hsa_alloc_basic_insn ();
-	      insn->opcode = BRIG_OPCODE_ADD;
-	      insn->operands[0] = tmp;
-	      insn->type = tmp->type;
-	      insn->operands[2] = reg;
-	      insn->operands[1] = tmp;
-	      hsa_append_insn (hbb, insn);
-	    }
-	  reg = tmp;
-	  goto done;
-	}
-
-      case INTEGER_CST:
-	offset += tree_to_uhwi (ref);
-	goto done;
-
-      default:
-	/* This includes TREE_ADDR on purpose.  */
-	sorry ("Support for HSA does not implement memory access to %E", ref);
-	goto done;
-      }
-
- done:
-  if (!reg)
-    reg = reg2;
-  else if (reg2)
+  if (TREE_CODE (ref) == COMPONENT_REF)
     {
-      hsa_insn_basic *insn;
-      insn = hsa_alloc_basic_insn ();
-      insn->opcode = BRIG_OPCODE_ADD;
-      /* reg2 is always a new temp, so writing to it is okay.  */
-      insn->operands[0] = reg2;
-      insn->type = reg->type;
-      insn->operands[1] = reg;
-      insn->operands[2] = reg2;
-      hsa_append_insn (hbb, insn);
-      reg = reg2;
+      tree fld = TREE_OPERAND (ref, 1);
+      if (DECL_BIT_FIELD (fld))
+	{
+	  sorry ("Support for HSA does not implement references to "
+		 "bit fields such as %D", fld);
+	  goto out;
+	}
     }
-  return hsa_alloc_addr_op (symbol, reg, offset);
+  else if (TREE_CODE (ref) == BIT_FIELD_REF
+	   && ((tree_to_uhwi (TREE_OPERAND (ref, 1)) % BITS_PER_UNIT) != 0
+	       || (tree_to_uhwi (TREE_OPERAND (ref, 2)) % BITS_PER_UNIT) != 0))
+    {
+      sorry ("Support for HSA does not implement bit field references "
+	     "such as %E", ref);
+      goto out;
+    }
+
+  if (handled_component_p (ref))
+    {
+      HOST_WIDE_INT bitsize, bitpos;
+      enum machine_mode mode;
+      int unsignedp, volatilep;
+
+      ref = get_inner_reference (ref, &bitsize, &bitpos, &varoffset, &mode,
+				 &unsignedp, &volatilep, false);
+
+      if ((bitpos % BITS_PER_UNIT) != 0
+	  || (bitsize % BITS_PER_UNIT) != 0)
+	{
+	  sorry ("Support for HSA does not implement bit field references "
+		 "such as %E", origref);
+	  goto out;
+	}
+
+      offset = bitpos;
+      offset = wi::rshift (offset, LOG2_BITS_PER_UNIT, SIGNED);
+    }
+
+  switch (TREE_CODE (ref))
+    {
+    case SSA_NAME:
+      /* THe SSA_NAME and ADDR_EXPR cases cannot occur in a valid gimple memory
+	 reference but we also use this function to generate addresses of
+	 instructions representing operands of atomic memory access builtins
+	 which are just addresses and not references.  */
+      gcc_assert (!reg);
+      reg = hsa_reg_for_gimple_ssa_reqtype (ref, ssa_map, hbb, addrtype);
+      break;
+
+    case ADDR_EXPR:
+      ref = TREE_OPERAND (ref, 0);
+      gcc_assert (DECL_P (ref));
+      /* Fall-through. */
+    case PARM_DECL:
+    case VAR_DECL:
+    case RESULT_DECL:
+      gcc_assert (!symbol);
+      symbol = get_symbol_for_decl (ref);
+      addrtype = hsa_get_segment_addr_type (symbol->segment);
+      break;
+
+    case MEM_REF:
+      process_mem_base (TREE_OPERAND (ref, 0), &symbol, &addrtype, &reg,
+			&offset, hbb, ssa_map);
+
+      if (!integer_zerop (TREE_OPERAND (ref, 1)))
+	offset += wi::to_offset (TREE_OPERAND (ref, 1));
+      break;
+
+    case TARGET_MEM_REF:
+      process_mem_base (TMR_BASE (ref), &symbol, &addrtype, &reg, &offset, hbb,
+			ssa_map);
+      if (TMR_INDEX (ref))
+	{
+	  hsa_op_reg *disp1, *idx;
+	  idx = hsa_reg_for_gimple_ssa_reqtype (TMR_INDEX (ref), ssa_map, hbb,
+						addrtype);
+	  if (TMR_STEP (ref) && !integer_onep (TMR_STEP (ref)))
+	    {
+	      disp1 = hsa_alloc_reg_op ();
+	      disp1->type = addrtype;
+	      hsa_insn_basic *insn = hsa_alloc_basic_insn ();
+	      insn->type = addrtype;
+	      insn->opcode = BRIG_OPCODE_MUL;
+	      insn->operands[0] = disp1;
+	      set_reg_def (disp1, insn);
+	      insn->operands[1] = idx;
+	      idx->uses.safe_push (insn);
+	      insn->operands[2] = hsa_alloc_immed_op (TMR_STEP (ref));
+	      hsa_append_insn (hbb, insn);
+	    }
+	  else
+	    disp1 = idx;
+	  reg = add_addr_regs_if_needed (reg, disp1, hbb);
+	}
+      if (TMR_INDEX2 (ref))
+	{
+	  hsa_op_reg *disp2;
+	  disp2 = hsa_reg_for_gimple_ssa_reqtype (TMR_INDEX2 (ref), ssa_map,
+						  hbb, addrtype);
+	  reg = add_addr_regs_if_needed (reg, disp2, hbb);
+	}
+      offset += wi::to_offset (TMR_OFFSET (ref));
+      break;
+
+    default:
+      sorry ("Support for HSA does not implement memory access to %E", origref);
+      goto out;
+    }
+
+  if (varoffset)
+    {
+      if (TREE_CODE (varoffset) == INTEGER_CST)
+	offset += wi::to_offset (varoffset);
+      else
+	{
+	  hsa_op_base *off_op = gen_address_calculation (varoffset, hbb, ssa_map,
+							 addrtype, NULL);
+	  reg = add_addr_regs_if_needed (reg, as_a <hsa_op_reg *> (off_op), hbb);
+	}
+    }
+
+  gcc_checking_assert ((symbol
+			&& addrtype
+			== hsa_get_segment_addr_type (symbol->segment))
+		       || (!symbol
+			   && addrtype
+			   == hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT)));
+out:
+  HOST_WIDE_INT hwi_offset = offset.to_shwi ();
+
+  return hsa_alloc_addr_op (symbol, reg, hwi_offset);
 }
 
 /* Generate HSA address for a function call argument of given TYPE.
@@ -1187,7 +1213,7 @@ gen_hsa_addr_insns (tree val, hsa_op_reg *dest, hsa_bb *hbb,
    If DEF_INSN is non-NULL, a returned register will have its definition
    already set to DEF_INSN.  */
 
-static hsa_op_base *
+static hsa_op_with_type *
 hsa_reg_or_immed_for_gimple_op (tree op, hsa_bb *hbb,
 				vec <hsa_op_reg_p> ssa_map,
 				hsa_insn_basic *new_use)
