@@ -34349,22 +34349,44 @@ emit_fusion_extra_load (rtx reg, rtx mem, rtx tmp_reg)
   rtx addr;
   const char *load_string;
 
+  if (GET_CODE (mem) == FLOAT_EXTEND || GET_CODE (mem) == ZERO_EXTEND)
+    {
+      mem = XEXP (mem, 0);
+      mode = GET_MODE (mem);
+    }
+
   if (fpr_reg_operand (reg, mode))
     {
       if (mode == SFmode)
 	load_string = "lfs";
-      else if (mode == DFmode)
-	{
-	  if (GET_CODE (mem) == FLOAT_EXTEND)
-	    {
-	      load_string = "lfs";
-	      mem = XEXP (mem, 0);
-	    }
-	  else
-	    load_string = "lfd";
-	}
+      else if (mode == DFmode || mode == DImode)
+	load_string = "lfd";
       else
 	gcc_unreachable ();
+    }
+  else if (int_reg_operand (reg, mode))
+    {
+      switch (mode)
+	{
+	case QImode:
+	  load_string = "lbz";
+	  break;
+	case HImode:
+	  load_string = "lhz";
+	  break;
+	case SImode:
+	case SFmode:
+	  load_string = "lwz";
+	  break;
+	case DImode:
+	case DFmode:
+	  if (!TARGET_POWERPC64)
+	    gcc_unreachable ();
+	  load_string = "ld";
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
     }
   else
     gcc_unreachable ();
