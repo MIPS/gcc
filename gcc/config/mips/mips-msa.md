@@ -1,6 +1,5 @@
 ;; Machine Description for MIPS MSA ASE
 ;; Based on the MIPS MSA spec Revision 1.11 8/4/2014
-;; Contributed by Chao-ying Fu (fu@mips.com), MIPS Technologies, Inc.
 ;;
 ;; Copyright (C) 2014 Free Software Foundation, Inc.
 ;;
