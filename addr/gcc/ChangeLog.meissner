@@ -1,3 +1,21 @@
+2015-02-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (fusion_toc_mem_raw): New predicates
+	to match fused TOC entries.
+	(fusion_toc_mem_wrapped): Likewise.
+
+	* config/rs6000/rs6000.opt (-mfused-toc): New option.
+
+	* config/rs6000/rs6000.c (struct reg_addr): Add fused_toc field.
+	(rs6000_debug_reg_global): Print if -mfused-toc or -mfused-extra.
+	(rs6000_init_hard_regno_mode_ok): Set fused_toc field.
+	(rs6000_option_override_internal): Add support -mfused-toc.  Add
+	checks for -mpower8-fusion-sign, -mfusion-extra, -mfusion-toc.
+	(rs6000_legitimate_address_p): Allow fused toc addresses.
+	(rs6000_opt_masks): Add -mfusion-toc, -mfusion-extra.
+
+	* config/rs6000/rs6000.md (UNSPEC_FUSION_ADDIS): Add unspec.
+
 2015-02-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/constraints.md (wF constraint): New constraint for

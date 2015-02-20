@@ -427,6 +427,7 @@ struct rs6000_reg_addr {
   enum insn_code fusion_addis_st[(int)N_RELOAD_REG];
   addr_mask_type addr_mask[(int)N_RELOAD_REG]; /* Valid address masks.  */
   bool scalar_in_vmx_p;			/* Scalar value can go in VMX.  */
+  bool fused_toc;			/* Mode supports TOC fusion.  */
 };
 
 static struct rs6000_reg_addr reg_addr[NUM_MACHINE_MODES];
@@ -2502,9 +2503,21 @@ rs6000_debug_reg_global (void)
     fprintf (stderr, DEBUG_FMT_S, "lra", "true");
 
   if (TARGET_P8_FUSION)
-    fprintf (stderr, DEBUG_FMT_S,
-	     (TARGET_FUSION_EXTRA) ? "extra fusion" : "p8 fusion",
-	     (TARGET_P8_FUSION_SIGN) ? "zero+sign" : "zero");
+    {
+      char options[80];
+
+      strcpy (options, "power8");
+      if (TARGET_FUSION_TOC)
+	strcat (options, ", toc");
+
+      if (TARGET_FUSION_EXTRA)
+	strcat (options, ", extra");
+
+      if (TARGET_P8_FUSION_SIGN)
+	strcat (options, ", sign");
+
+      fprintf (stderr, DEBUG_FMT_S, "fusion", options);
+    }
 
   fprintf (stderr, DEBUG_FMT_S, "plt-format",
 	   TARGET_SECURE_PLT ? "secure" : "bss");
@@ -3133,6 +3146,24 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
 	  reg_addr[xmode].fusion_addis_ld[rtype] = addis_insns[i].load;
 	  reg_addr[xmode].fusion_addis_st[rtype] = addis_insns[i].store;
+	}
+    }
+
+  /* Note which types we support fusing TOC setup plus memory insn.  We only do
+     fused TOCs for medium/large code models.  */
+  if (TARGET_P8_FUSION && TARGET_FUSION_TOC && TARGET_POWERPC64
+      && (TARGET_CMODEL != CMODEL_SMALL))
+    {
+      reg_addr[QImode].fused_toc = true;
+      reg_addr[HImode].fused_toc = true;
+      reg_addr[SImode].fused_toc = true;
+      reg_addr[DImode].fused_toc = true;
+      if (TARGET_HARD_FLOAT && TARGET_FPRS)
+	{
+	  if (TARGET_SINGLE_FLOAT)
+	    reg_addr[SFmode].fused_toc = true;
+	  if (TARGET_DOUBLE_FLOAT)
+	    reg_addr[DFmode].fused_toc = true;
 	}
     }
 
@@ -3837,6 +3868,49 @@ rs6000_option_override_internal (bool global_init_p)
     rs6000_isa_flags |= (processor_target_table[tune_index].target_enable
 			 & OPTION_MASK_P8_FUSION);
 
+  /* TOC fusion requires 64-bit and medium/large code model.  */
+  if (TARGET_FUSION_TOC && !TARGET_POWERPC64)
+    {
+      rs6000_isa_flags &= ~OPTION_MASK_FUSION_TOC;
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_FUSION_TOC) != 0)
+	warning (0, N_("-mfusion-toc requires 64-bit"));
+    }
+
+  /* Setting additional fusion flags turns on base fusion.  */
+  if (!TARGET_P8_FUSION)
+    {
+      if (!(rs6000_isa_flags_explicit & OPTION_MASK_P8_FUSION))
+	{
+	  if (TARGET_FUSION_TOC || TARGET_P8_FUSION_SIGN || TARGET_FUSION_EXTRA)
+	    rs6000_isa_flags |= TARGET_P8_FUSION;
+	}
+      else
+	{
+	  if (TARGET_P8_FUSION_SIGN)
+	    {
+	      rs6000_isa_flags &= ~OPTION_MASK_P8_FUSION_SIGN;
+	      warning (0, N_("-mpower8-fusion-sign requires -mpower8-fusion"));
+	    }
+
+	  if (TARGET_FUSION_TOC)
+	    {
+	      rs6000_isa_flags &= ~OPTION_MASK_FUSION_TOC;
+	      warning (0, N_("-mfusion-toc requires -mpower8-fusion"));
+	    }
+
+	  if (TARGET_FUSION_EXTRA)
+	    {
+	      rs6000_isa_flags &= ~OPTION_MASK_FUSION_EXTRA;
+	      warning (0, N_("-mfusion-extra requires -mpower8-fusion"));
+	    }
+	}
+    }
+
+  /* Turn on -mfusion-toc by default if p8-fusion and 64-bit.  */
+  if (TARGET_P8_FUSION && !TARGET_FUSION_TOC && TARGET_POWERPC64
+      && !(rs6000_isa_flags_explicit & OPTION_MASK_FUSION_TOC))
+    rs6000_isa_flags |= OPTION_MASK_FUSION_TOC;
+
   /* Power8 does not fuse sign extended loads with the addis.  If we are
      optimizing at high levels for speed, convert a sign extended load into a
      zero extending load, and an explicit sign extension.  */
@@ -3846,6 +3920,7 @@ rs6000_option_override_internal (bool global_init_p)
       && optimize >= 3)
     rs6000_isa_flags |= OPTION_MASK_P8_FUSION_SIGN;
 
+  /* Print the debug options after making the above changes.  */
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
 
@@ -7981,6 +8056,8 @@ rs6000_legitimate_address_p (machine_mode mode, rtx x, bool reg_ok_strict)
   if (reg_offset_p
       && legitimate_constant_pool_address_p (x, mode,
 					     reg_ok_strict || lra_in_progress))
+    return 1;
+  if (reg_offset_p && reg_addr[mode].fused_toc && fusion_toc_mem_wrapped (x, mode))
     return 1;
   /* For TImode, if we have load/store quad and TImode in VSX registers, only
      allow register indirect addresses.  This will allow the values to go in
@@ -32316,6 +32393,8 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "direct-move",		OPTION_MASK_DIRECT_MOVE,	false, true  },
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
+  { "fusion-toc",		OPTION_MASK_FUSION_TOC,		false, true  },
+  { "fusion-extra",		OPTION_MASK_FUSION_EXTRA,	false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
   { "isel",			OPTION_MASK_ISEL,		false, true  },

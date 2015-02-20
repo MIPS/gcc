@@ -1816,6 +1816,38 @@
   return GET_CODE (op) == UNSPEC && XINT (op, 1) == UNSPEC_TOCREL;
 })
 
+;; Match the TOC memory operand that can be fused with an addis instruction.
+;; This is used in matching a potential fused address before register
+;; allocation.
+(define_predicate "fusion_toc_mem_raw"
+  (match_code "mem")
+{
+  if (!TARGET_FUSION_TOC || !TARGET_POWERPC64 || (TARGET_CMODEL == CMODEL_SMALL)
+      || !can_create_pseudo_p ())
+    return false;
+
+  return small_toc_ref (XEXP (op, 0), Pmode);
+})
+
+;; Match the memory operand that has been fused with an addis instruction and
+;; wrapped inside of an (unspec [...] UNSPEC_FUSION_ADDIS) wrapper.
+(define_predicate "fusion_toc_mem_wrapped"
+  (match_code "mem")
+{
+  rtx addr;
+
+  if (!TARGET_FUSION_TOC || !TARGET_POWERPC64
+      || (TARGET_CMODEL == CMODEL_SMALL))
+    return false;
+
+  if (!MEM_P (op))
+    return false;
+
+  addr = XEXP (op, 0);
+  return (GET_CODE (addr) == UNSPEC && XINT (addr, 1) == UNSPEC_FUSION_ADDIS);
+})
+
+
 ;; Match the first insn (addis) in fusing the combination of addis and loads to
 ;; GPR registers on power8.
 (define_predicate "fusion_gpr_addis"
