@@ -883,7 +883,7 @@ make_edges_bb (basic_block bb, struct omp_region **pcur_region, int *pomp_index)
 
     case GIMPLE_ASSIGN:
       /* A GIMPLE_ASSIGN may throw internally and thus be considered
-	 control-altering. */
+	 control-altering.  */
       if (is_ctrl_altering_stmt (last))
 	make_eh_edges (last);
       fallthru = true;
@@ -1034,7 +1034,11 @@ make_edges (void)
 }
 
 /* Add SEQ after GSI.  Start new bb after GSI, and created further bbs as
-   needed.  Returns true if new bbs were created.  */
+   needed.  Returns true if new bbs were created.
+   Note: This is transitional code, and should not be used for new code.  We
+   should be able to get rid of this by rewriting all target va-arg
+   gimplification hooks to use an interface gimple_build_cond_value as described
+   in https://gcc.gnu.org/ml/gcc-patches/2015-02/msg01194.html.  */
 
 bool
 gimple_find_sub_bbs (gimple_seq seq, gimple_stmt_iterator *gsi)

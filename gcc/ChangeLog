@@ -1,3 +1,102 @@
+2015-02-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.md (*aarch64_lshr_sisd_or_int_<mode>3):
+	Mark operand 0 as earlyclobber in 2nd alternative.
+	(1st define_split below *aarch64_lshr_sisd_or_int_<mode>3):
+	Write negated shift amount into QI lowpart operand 0 and use it
+	in the shift step.
+	(2nd define_split below *aarch64_lshr_sisd_or_int_<mode>3): Likewise.
+
+2015-02-20  Bernd Schmidt  <bernds@codesourcery.com>
+
+    	* cgraph.h (clone_function_name_1): Declare.
+    	* cgraphclones.c (clone_function_name_1): New function.
+    	(clone_function_name): Use it.
+    	* lto-partition.c: Include "stringpool.h".
+    	(must_not_rename, maybe_rewrite_identifier,
+    	validize_symbol_for_target): New static functions.
+    	(privatize_symbol_name): Use must_not_rename.
+    	(promote_symbol): Call validize_symbol_for_target.
+    	(lto_promote_cross_file_statics): Likewise.
+    	(lto_promote_statics_nonwpa): Likewise.
+
+2015-02-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/64452
+	* config/avr/avr.md (pushhi_insn): New insn.
+	(push<mode>1): Push virtual regs in one chunk using pushhi1_insn.
+
+2015-02-20  Bernd Schmidt  <bernds@codesourcery.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-streamer.c (preload_common_nodes): Don't preload
+	TI_VA_LIST* for offloading.
+	* tree-stdarg.c (pass_stdarg::gate): Disable for ACCEL_COMPILER
+	in_lto_p.
+
+2015-02-19  John David Anglin  <danlgin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_emit_move_sequence): Always force
+	(const (plus (symbol) (const_int))) to const mem.  Put REG_EQUAL
+	note on insn.
+
+	* config/pa/pa.c (pa_reloc_rw_mask): New function.
+	(TARGET_ASM_RELOC_RW_MASK): Define.
+	(pa_cannot_force_const_mem): Revert previous change.
+
+2015-02-19  Martin Jambor  <mjmabor@suse.cz>
+	    Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65028
+	* ipa-cp.c (propagate_alignment_accross_jump_function): Fix propagation
+	across jump functions.
+
+2015-02-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_in_small_data_p): Reject common symbols.
+
+2015-02-19  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/extend.texi (x86 transactional memory intrinsics): Copy-edit.
+
+2015-02-19  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/65074
+	* varasm.c (default_binds_local_p_2): Don't test node->definition;
+	test DECL_EXTERNAL independent of symtab_node.
+
+2015-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR lto/65012
+	* varpool.c (varpool_node::get_constructor): Return early
+	if this->lto_file_data is NULL.
+
+2015-02-19  Maxim Kuvyrkov  <maxim.kuvyrkov@linaro.org>
+
+	* haifa-sched.c (enum rfs_decision, rfs_str): Remove RFS_DEBUG.
+	(rank_for_schedule_debug): Update.
+	(ready_sort): Make static.  Move sorting logic to ...
+	(ready_sort_debug, ready_sort_real): New static functions.
+	(schedule_block): Sort both debug insns and real insns in preparation
+	for ready list trimming.  Improve debug output.
+	* sched-int.h (ready_sort): Remove global declaration.
+
+2015-02-18  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* ipa-icf.c (sem_function::equals_private): Adjust.
+	(sem_function::bb_dict_test): Take a vec<int> * instead of
+	auto_vec<int>.
+	* ipa-icf.h (bb_dict_test): Likewise.
+
+2015-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR gcov-profile/64634
+	* tree-eh.c (frob_into_branch_around): Fix up typos
+	in function comment.
+	(lower_catch): Put eh_seq resulting from EH lowering of
+	the cleanup sequence after the cleanup rather than before
+	it.
+
 2015-02-18  Tom de Vries  <tom@codesourcery.com>
 
 	* common.opt (fstdarg-opt): New option.
@@ -350,7 +449,7 @@
 	PR ipa/65028
 	* ipa-inline-transform.c (mark_all_inlined_calls_cdtor): New function.
 	(inline_call): Use it.
-	
+
 2015-02-13  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* config/nvptx/offload.h (ACCEL_COMPILER_acc_device): Define to
@@ -573,7 +672,7 @@
 2015-02-10  David Wohlferd  <dw@LimeGreenSocks.com>
 
 	* doc/extend.texi (Symbol-Renaming Pragmas): Restore (slightly
-        modified) reference to Solaris.
+	modified) reference to Solaris.
 
 2015-02-10  Sandra Loosemore  <sandra@codesourcery.com>
 

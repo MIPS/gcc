@@ -9367,12 +9367,13 @@ gimplify_va_arg_internal (tree valist, tree type, location_t loc,
    builtin function, but a very special sort of operator.  */
 
 enum gimplify_status
-gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
+gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p,
+		      gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   tree promoted_type, have_va_type;
   tree valist = TREE_OPERAND (*expr_p, 0);
   tree type = TREE_TYPE (*expr_p);
-  tree t;
+  tree t, tag, ap;
   location_t loc = EXPR_LOCATION (*expr_p);
 
   /* Verify that valist is of the proper type.  */
@@ -9423,17 +9424,12 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       *expr_p = dummy_object (type);
       return GS_ALL_DONE;
     }
-  else if (optimize && !optimize_debug)
-    {
-      tree ap, tag;
 
-      /* Transform a VA_ARG_EXPR into an VA_ARG internal function.  */
-      ap = build_fold_addr_expr_loc (loc, valist);
-      tag = build_int_cst (build_pointer_type (type), 0);
-      *expr_p = build_call_expr_internal_loc (loc, IFN_VA_ARG, type, 2, ap, tag);
-    }
-  else
-    *expr_p = gimplify_va_arg_internal (valist, type, loc, pre_p, post_p);
+  /* Transform a VA_ARG_EXPR into an VA_ARG internal function.  */
+  ap = build_fold_addr_expr_loc (loc, valist);
+  tag = build_int_cst (build_pointer_type (type), 0);
+  *expr_p = build_call_expr_internal_loc (loc, IFN_VA_ARG, type, 2, ap, tag);
+
   return GS_OK;
 }
 

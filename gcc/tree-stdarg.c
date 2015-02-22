@@ -1125,7 +1125,7 @@ gimple_call_ifn_va_arg_p (gimple stmt)
 /* Expand IFN_VA_ARGs in FUN.  */
 
 static void
-expand_ifn_va_arg (function *fun)
+expand_ifn_va_arg_1 (function *fun)
 {
   bool modified = false;
   basic_block bb;
@@ -1168,7 +1168,7 @@ expand_ifn_va_arg (function *fun)
 
 	    /* We use gimplify_assign here, rather than gimple_build_assign,
 	       because gimple_assign knows how to deal with variable-sized
-	       types.*/
+	       types.  */
 	    gimplify_assign (lhs, expr, &pre);
 	  }
 
@@ -1182,7 +1182,7 @@ expand_ifn_va_arg (function *fun)
 	   inbetween.  */
 	gimple_find_sub_bbs (pre, &i);
 
-	/* Remove the IFN_VA_ARG gimple_call. It's the last stmt in the
+	/* Remove the IFN_VA_ARG gimple_call.  It's the last stmt in the
 	   bb.  */
 	gsi_remove (&i, true);
 	gcc_assert (gsi_end_p (i));
@@ -1194,17 +1194,28 @@ expand_ifn_va_arg (function *fun)
 	break;
       }
 
+  if (!modified)
+    return;
+
+  free_dominance_info (CDI_DOMINATORS);
+  update_ssa (TODO_update_ssa);
+}
+
+/* Expand IFN_VA_ARGs in FUN, if necessary.  */
+
+static void
+expand_ifn_va_arg (function *fun)
+{
+  if ((fun->curr_properties & PROP_gimple_lva) == 0)
+    expand_ifn_va_arg_1 (fun);
+
 #if ENABLE_CHECKING
+  basic_block bb;
+  gimple_stmt_iterator i;
   FOR_EACH_BB_FN (bb, fun)
     for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
       gcc_assert (!gimple_call_ifn_va_arg_p (gsi_stmt (i)));
 #endif
-
-  if (modified)
-    {
-      free_dominance_info (CDI_DOMINATORS);
-      update_ssa (TODO_update_ssa);
-    }
 }
 
 namespace {
@@ -1216,7 +1227,7 @@ const pass_data pass_data_stdarg =
   OPTGROUP_NONE, /* optinfo_flags */
   TV_NONE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
-  0, /* properties_provided */
+  PROP_gimple_lva, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
   0, /* todo_flags_finish */
@@ -1246,6 +1257,8 @@ public:
 unsigned int
 pass_stdarg::execute (function *fun)
 {
+  /* TODO: Postpone expand_ifn_va_arg till after
+     optimize_va_list_gpr_fpr_size.  */
   expand_ifn_va_arg (fun);
 
   if (flag_stdarg_opt
@@ -1262,4 +1275,51 @@ gimple_opt_pass *
 make_pass_stdarg (gcc::context *ctxt)
 {
   return new pass_stdarg (ctxt);
+}
+
+namespace {
+
+const pass_data pass_data_lower_vaarg =
+{
+  GIMPLE_PASS, /* type */
+  "lower_vaarg", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  PROP_gimple_lva, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_lower_vaarg : public gimple_opt_pass
+{
+public:
+  pass_lower_vaarg (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_lower_vaarg, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      return (cfun->curr_properties & PROP_gimple_lva) == 0;
+    }
+
+  virtual unsigned int execute (function *);
+
+}; // class pass_lower_vaarg
+
+unsigned int
+pass_lower_vaarg::execute (function *fun)
+{
+  expand_ifn_va_arg (fun);
+  return 0;
+}
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_lower_vaarg (gcc::context *ctxt)
+{
+  return new pass_lower_vaarg (ctxt);
 }
