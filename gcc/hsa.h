@@ -133,6 +133,7 @@ struct hsa_op_reg : public hsa_op_with_type
   /* Number of this register structure in the order in which they were
      allocated.  */
   int order;
+  int lr_begin, lr_end;
 
   /* Zero if the register is not yet allocated.  After, allocation, this must
      be 'c', 's', 'd' or 'q'.  */
@@ -238,6 +239,8 @@ struct hsa_insn_basic
      these should only be BRIG_INST_* values from the BrigOpcode16_t range but
      initially we use negative values for PHI nodes and such.  */
   int opcode;
+
+  int number;
 
   /* Type of the destination of the operations.  */
   BrigType16_t type;
@@ -498,6 +501,8 @@ struct hsa_bb
 
   /* Just a number to construct names from.  */
   int index;
+
+  bitmap liveout, livein;
 };
 
 /* Return the corresponding HSA basic block structure for the given control

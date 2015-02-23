@@ -1,3 +1,25 @@
+2015-02-23  Michael Matz  <matz@suse.de>
+
+	* hsa.h (struct hsa_op_reg): Add members lr_begin, lr_end.
+	(struct hsa_insn_basic): Add member number.
+	(struct hsa_bb): Add members liveout, livein.
+	* hsa-dump.c (dump_hsa_insn): Dump insn number.
+	* hsa-gen.c: Added bitmap.h to includes.
+	(hsa_deinit_data_for_cfun): Deallocate liveness bitmaps.
+	(hsa_init_new_bb): Allocate liveness bitmaps.
+	* hsa-regalloc.c: Add bitmap.h, diagnostic-core.h and cfganal.h.
+	(struct reg_class_desc): Add members used_num, max_used, used.
+	(insn_reg_addr): New function.
+	(stupid_regalloc_bb): Rename to ...
+	(rewrite_code_bb): ... this, and remove allocation code.
+	(hsa_num_def_ops, dump_hsa_cfun_regalloc, try_alloc_reg,
+	free_reg, note_lr_end, note_lr_begin, cmp_begin, cmp_end,
+	expire_old_intervals, spill_at_interval,
+	linear_scan_regalloc): New functions.
+	(stupid_regalloc): Rename to ...
+	(regalloc): ... this and call linear_scan_regalloc.
+	(hsa_regalloc): Adjust calls.
+
 2015-02-20  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa.h (hsa_op_with_type): New type.
@@ -28,8 +50,8 @@
 
 2014-12-12  Martin Liska  <mliska@suse.cz>
 
-        * hsa-brig.c: Add function comments.
-        * hsa-gen.c: Likewise.
+	* hsa-brig.c: Add function comments.
+	* hsa-gen.c: Likewise.
 
 2014-12-12  Martin Liska  <mliska@suse.cz>
 

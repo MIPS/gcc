@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "function.h"
 #include "vec.h"
+#include "bitmap.h"
 #include "dumpfile.h"
 #include "gimple-pretty-print.h"
 #include "diagnostic-core.h"
@@ -199,7 +200,12 @@ hsa_deinit_data_for_cfun (void)
   basic_block bb;
 
   FOR_EACH_BB_FN (bb, cfun)
-    bb->aux = NULL;
+    if (bb->aux)
+      {
+	BITMAP_FREE (hsa_bb_for_bb (bb)->livein);
+	BITMAP_FREE (hsa_bb_for_bb (bb)->liveout);
+	bb->aux = NULL;
+      }
 
   for (unsigned int i = 0; i < hsa_list_operand_code_list.length (); i++)
     hsa_list_operand_code_list[i]->~hsa_op_code_list ();
@@ -2099,6 +2105,8 @@ hsa_init_new_bb (basic_block bb)
   hbb->bb = bb;
   hbb->index = hsa_cfun.hbb_count++;
   hbb->label_ref.kind = BRIG_KIND_OPERAND_CODE_REF;
+  hbb->livein = BITMAP_ALLOC (NULL);
+  hbb->liveout = BITMAP_ALLOC (NULL);
   return hbb;
 }
 

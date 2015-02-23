@@ -716,6 +716,9 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
   gcc_checking_assert (insn);
   indent_stream (f, indent);
 
+  if (insn->number)
+    fprintf (f, "%5d: ", insn->number);
+
   if (is_a <hsa_insn_phi *> (insn))
     {
       hsa_insn_phi *phi = as_a <hsa_insn_phi *> (insn);
