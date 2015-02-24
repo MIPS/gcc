@@ -1,17 +1,17 @@
 // { dg-do compile }
 // { dg-options "-Wall" }
 
-// Check that we don't warn about code that will not be executed.
+// For delayed folding we will warn about code that will not be executed too.
 extern int f2(int);
 void
 f1(int i)
 {
-  f2(1 == 1 ? 0 : f2(i >> -10));
-  f2(1 == 1 ? 0 : f2(i >> 128));
-  f2(1 == 1 ? 0 : f2(i << -10));
-  f2(1 == 1 ? 0 : f2(1 << 128));
-  f2(1 != 1 ? f2(i >> -10) : 0);
-  f2(1 != 1 ? f2(i >> 128) : 0);
-  f2(1 != 1 ? f2(i << -10) : 0);
-  f2(1 != 1 ? f2(1 << 128) : 0);
+  f2(1 == 1 ? 0 : f2(i >> -10)); // { dg-warning "" }
+  f2(1 == 1 ? 0 : f2(i >> 128)); // { dg-warning "" }
+  f2(1 == 1 ? 0 : f2(i << -10)); // { dg-warning "" }
+  f2(1 == 1 ? 0 : f2(1 << 128)); // { dg-warning "" }
+  f2(1 != 1 ? f2(i >> -10) : 0); // { dg-warning "" }
+  f2(1 != 1 ? f2(i >> 128) : 0); // { dg-warning "" }
+  f2(1 != 1 ? f2(i << -10) : 0); // { dg-warning "" }
+  f2(1 != 1 ? f2(1 << 128) : 0); // { dg-warning "" }
 }

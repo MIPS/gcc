@@ -6,29 +6,29 @@ extern void f3();
 void
 f1(int i)
 {
-  if (1 == 1 || f2(i >> -10))
+  if (1 == 1 || f2(i >> -10)) // { dg-warning "" }
     f3();
-  if (1 == 1 || f2(i >> 128))
+  if (1 == 1 || f2(i >> 128)) // { dg-warning "" }
     f3();
-  if (1 == 1 || f2(i << -10))
+  if (1 == 1 || f2(i << -10)) // { dg-warning "" }
     f3();
-  if (1 == 1 || f2(i << 128))
+  if (1 == 1 || f2(i << 128)) // { dg-warning "" }
     f3();
-  if (1 == 1 || i < 0xffffffff)
+  if (1 == 1 || i < 0xffffffff) // { dg-warning "comparison" }
     f3();
-  if (1 == 1 || i >= -0x80000000)
+  if (1 == 1 || i >= -0x80000000) // { dg-warning "comparison" }
     f3();
-  if (1 == 0 && f2(i >> -10))
+  if (1 == 0 && f2(i >> -10)) // { dg-warning "" }
     f3();
-  if (1 == 0 && f2(i >> 128))
+  if (1 == 0 && f2(i >> 128)) // { dg-warning "" }
     f3();
-  if (1 == 0 && f2(i << -10))
+  if (1 == 0 && f2(i << -10)) // { dg-warning "" }
     f3();
-  if (1 == 0 && f2(i << 128))
+  if (1 == 0 && f2(i << 128)) // { dg-warning "" }
     f3();
-  if (1 == 0 && i < 0xffffffff)
+  if (1 == 0 && i < 0xffffffff) // { dg-warning "comparison" }
     f3();
-  if (1 == 0 && i >= -0x80000000)
+  if (1 == 0 && i >= -0x80000000) // { dg-warning "comparison" }
     f3();
   if (1 == 1 && f2(i >> -10))	/* { dg-warning "shift count is negative" } */
     f3();
