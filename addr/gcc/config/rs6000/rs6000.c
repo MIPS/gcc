@@ -34348,6 +34348,7 @@ emit_fusion_extra_load (rtx reg, rtx mem, rtx tmp_reg)
   rtx lo;
   rtx addr;
   const char *load_string;
+  int r;
 
   if (GET_CODE (mem) == FLOAT_EXTEND || GET_CODE (mem) == ZERO_EXTEND)
     {
@@ -34355,7 +34356,17 @@ emit_fusion_extra_load (rtx reg, rtx mem, rtx tmp_reg)
       mode = GET_MODE (mem);
     }
 
-  if (fpr_reg_operand (reg, mode))
+  if (GET_CODE (reg) == SUBREG)
+    {
+      gcc_assert (SUBREG_BYTE (reg) == 0);
+      reg = SUBREG_REG (reg);
+    }
+
+  if (!REG_P (reg))
+    fatal_insn ("emit_fusion_extra_load, bad reg #1", reg);
+
+  r = REGNO (reg);
+  if (FP_REGNO_P (r))
     {
       if (mode == SFmode)
 	load_string = "lfs";
@@ -34364,7 +34375,7 @@ emit_fusion_extra_load (rtx reg, rtx mem, rtx tmp_reg)
       else
 	gcc_unreachable ();
     }
-  else if (int_reg_operand (reg, mode))
+  else if (INT_REGNO_P (r))
     {
       switch (mode)
 	{
@@ -34389,7 +34400,7 @@ emit_fusion_extra_load (rtx reg, rtx mem, rtx tmp_reg)
 	}
     }
   else
-    gcc_unreachable ();
+    fatal_insn ("emit_fusion_extra_load, bad reg #2", reg);
 
   if (!MEM_P (mem))
     fatal_insn ("emit_fusion_extra_load not MEM", mem);
@@ -34421,8 +34432,19 @@ emit_fusion_extra_store (rtx mem, rtx reg, rtx tmp_reg)
   rtx lo;
   rtx addr;
   const char *store_string;
+  int r;
 
-  if (fpr_reg_operand (reg, mode))
+  if (GET_CODE (reg) == SUBREG)
+    {
+      gcc_assert (SUBREG_BYTE (reg) == 0);
+      reg = SUBREG_REG (reg);
+    }
+
+  if (!REG_P (reg))
+    fatal_insn ("emit_fusion_extra_store, bad reg #1", reg);
+
+  r = REGNO (reg);
+  if (FP_REGNO_P (r))
     {
       if (mode == SFmode)
 	store_string = "stfs";
@@ -34431,7 +34453,7 @@ emit_fusion_extra_store (rtx mem, rtx reg, rtx tmp_reg)
       else
 	gcc_unreachable ();
     }
-  else if (int_reg_operand (reg, mode))
+  else if (INT_REGNO_P (r))
     {
       switch (mode)
 	{
@@ -34456,7 +34478,7 @@ emit_fusion_extra_store (rtx mem, rtx reg, rtx tmp_reg)
 	}
     }
   else
-    gcc_unreachable ();
+    fatal_insn ("emit_fusion_extra_store, bad reg #2", reg);
 
   if (!MEM_P (mem))
     fatal_insn ("emit_fusion_extra_store not MEM", mem);
