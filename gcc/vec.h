@@ -486,7 +486,7 @@ public:
   void splice (vec &);
   void splice (vec *src);
   T *quick_push (const T &);
-  T &pop (void);
+  T pop (void);
   void truncate (unsigned);
   void quick_insert (unsigned, const T &);
   void ordered_remove (unsigned);
@@ -874,7 +874,7 @@ vec<T, A, vl_embed>::quick_push (const T &obj)
 /* Pop and return the last element off the end of the vector.  */
 
 template<typename T, typename A>
-inline T &
+inline T
 vec<T, A, vl_embed>::pop (void)
 {
   gcc_checking_assert (length () > 0);
@@ -1216,7 +1216,7 @@ public:
   void safe_splice (vec & CXX_MEM_STAT_INFO);
   T *quick_push (const T &);
   T *safe_push (const T &CXX_MEM_STAT_INFO);
-  T &pop (void);
+  T pop (void);
   void truncate (unsigned);
   void safe_grow (unsigned CXX_MEM_STAT_INFO);
   void safe_grow_cleared (unsigned CXX_MEM_STAT_INFO);
@@ -1542,7 +1542,7 @@ vec<T, va_heap, vl_ptr>::safe_push (const T &obj MEM_STAT_DECL)
 /* Pop and return the last element off the end of the vector.  */
 
 template<typename T>
-inline T &
+inline T
 vec<T, va_heap, vl_ptr>::pop (void)
 {
   return m_vec->pop ();
