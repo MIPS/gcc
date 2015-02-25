@@ -745,6 +745,10 @@ regalloc (void)
   basic_block bb;
   reg_class_desc classes[4];
 
+  /* If there are no registers used in the function, exit right away. */
+  if (hsa_cfun.reg_count == 0)
+    return;
+
   memset (classes, 0, sizeof (classes));
   classes[0].next_avail = 0;
   classes[0].max_num = 7;
