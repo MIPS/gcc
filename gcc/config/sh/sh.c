@@ -10245,11 +10245,10 @@ sh_insn_length_adjustment (rtx_insn *insn)
       && get_attr_needs_delay_slot (insn) == NEEDS_DELAY_SLOT_YES)
     return 2;
 
-  /* SH2e has a bug that prevents the use of annulled branches, so if
-     the delay slot is not filled, we'll have to put a NOP in it.  */
-  if (sh_cpu_attr == CPU_SH2E
-      && JUMP_P (insn)
-      && get_attr_type (insn) == TYPE_CBRANCH
+  /* Increase the insn length of a cbranch without a delay slot insn to
+     force a delay slot which will be stuffed with a nop.  */
+  if (TARGET_CBRANCH_FORCE_DELAY_SLOT && TARGET_SH2
+      && JUMP_P (insn) && get_attr_type (insn) == TYPE_CBRANCH
       && ! sequence_insn_p (insn))
     return 2;
 
@@ -13014,146 +13013,6 @@ sh_init_cumulative_args (CUMULATIVE_ARGS *  pcum,
 	  pcum->force_mem = FALSE;
 	}
     }
-}
-
-/* Replace any occurrence of FROM(n) in X with TO(n).  The function does
-   not enter into CONST_DOUBLE for the replace.
-
-   Note that copying is not done so X must not be shared unless all copies
-   are to be modified.
-
-   This is like replace_rtx, except that we operate on N_REPLACEMENTS
-   replacements simultaneously - FROM(n) is replacements[n*2] and to(n) is
-   replacements[n*2+1] - and that we take mode changes into account.
-
-   If a replacement is ambiguous, return NULL_RTX.
-
-   If MODIFY is zero, don't modify any rtl in place,
-   just return zero or nonzero for failure / success.  */
-rtx
-replace_n_hard_rtx (rtx x, rtx *replacements, int n_replacements, int modify)
-{
-  int i, j;
-  const char *fmt;
-
-  /* The following prevents loops occurrence when we change MEM in
-     CONST_DOUBLE onto the same CONST_DOUBLE.  */
-  if (x != NULL_RTX && GET_CODE (x) == CONST_DOUBLE)
-    return x;
-
-  for (i = n_replacements - 1; i >= 0 ; i--)
-  if (x == replacements[i*2] && GET_MODE (x) == GET_MODE (replacements[i*2+1]))
-    return replacements[i*2+1];
-
-  /* Allow this function to make replacements in EXPR_LISTs.  */
-  if (x == NULL_RTX)
-    return NULL_RTX;
-
-  if (GET_CODE (x) == SUBREG)
-    {
-      rtx new_rtx = replace_n_hard_rtx (SUBREG_REG (x), replacements,
-				    n_replacements, modify);
-
-      if (CONST_INT_P (new_rtx))
-	{
-	  x = simplify_subreg (GET_MODE (x), new_rtx,
-			       GET_MODE (SUBREG_REG (x)),
-			       SUBREG_BYTE (x));
-	  if (! x)
-	    abort ();
-	}
-      else if (modify)
-	SUBREG_REG (x) = new_rtx;
-
-      return x;
-    }
-  else if (REG_P (x))
-    {
-      unsigned regno = REGNO (x);
-      unsigned nregs = (regno < FIRST_PSEUDO_REGISTER
-			? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
-      rtx result = NULL_RTX;
-
-      for (i = n_replacements - 1; i >= 0; i--)
-	{
-	  rtx from = replacements[i*2];
-	  rtx to = replacements[i*2+1];
-	  unsigned from_regno, from_nregs, to_regno, new_regno;
-
-	  if (!REG_P (from))
-	    continue;
-	  from_regno = REGNO (from);
-	  from_nregs = (from_regno < FIRST_PSEUDO_REGISTER
-			? HARD_REGNO_NREGS (from_regno, GET_MODE (from)) : 1);
-	  if (regno < from_regno + from_nregs && regno + nregs > from_regno)
-	    {
-	      if (regno < from_regno
-		  || regno + nregs > from_regno + nregs
-		  || !REG_P (to)
-		  || result)
-		return NULL_RTX;
-	      to_regno = REGNO (to);
-	      if (to_regno < FIRST_PSEUDO_REGISTER)
-		{
-		  new_regno = regno + to_regno - from_regno;
-		  if ((unsigned) HARD_REGNO_NREGS (new_regno, GET_MODE (x))
-		      != nregs)
-		    return NULL_RTX;
-		  result = gen_rtx_REG (GET_MODE (x), new_regno);
-		}
-	      else if (GET_MODE (x) <= GET_MODE (to))
-		result = gen_lowpart_common (GET_MODE (x), to);
-	      else
-		result = gen_lowpart_SUBREG (GET_MODE (x), to);
-	    }
-	}
-      return result ? result : x;
-    }
-  else if (GET_CODE (x) == ZERO_EXTEND)
-    {
-      rtx new_rtx = replace_n_hard_rtx (XEXP (x, 0), replacements,
-				    n_replacements, modify);
-
-      if (CONST_INT_P (new_rtx))
-	{
-	  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
-					new_rtx, GET_MODE (XEXP (x, 0)));
-	  if (! x)
-	    abort ();
-	}
-      else if (modify)
-	XEXP (x, 0) = new_rtx;
-
-      return x;
-    }
-
-  fmt = GET_RTX_FORMAT (GET_CODE (x));
-  for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
-    {
-      rtx new_rtx;
-
-      if (fmt[i] == 'e')
-	{
-	  new_rtx = replace_n_hard_rtx (XEXP (x, i), replacements,
-				    n_replacements, modify);
-	  if (!new_rtx)
-	    return NULL_RTX;
-	  if (modify)
-	    XEXP (x, i) = new_rtx;
-	}
-      else if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  {
-	    new_rtx = replace_n_hard_rtx (XVECEXP (x, i, j), replacements,
-				      n_replacements, modify);
-	  if (!new_rtx)
-	    return NULL_RTX;
-	    if (modify)
-	      XVECEXP (x, i, j) = new_rtx;
-	  }
-    }
-
-  return x;
 }
 
 rtx
