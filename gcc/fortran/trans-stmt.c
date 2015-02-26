@@ -1321,8 +1321,11 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	 unconditionally associate pointers and the symbol is scalar.  */
       if (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->attr.dimension)
 	{
+	  tree target_expr;
 	  /* For a class array we need a descriptor for the selector.  */
 	  gfc_conv_expr_descriptor (&se, e);
+	  /* Needed to get/set the _len component below.  */
+	  target_expr = se.expr;
 
 	  /* Obtain a temporary class container for the result.  */
 	  gfc_conv_class_to_class (&se, e, sym->ts, false, true, false, false);
@@ -1344,10 +1347,18 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	    }
 	  if (need_len_assign)
 	    {
-	      /* Get the _len comp from the target expr's saved descriptor and
-		 adding component-ref to _len.  */
-	      tmp = gfc_class_len_get (
-		   GFC_DECL_SAVED_DESCRIPTOR (e->symtree->n.sym->backend_decl));
+	      if (e->symtree
+		  && DECL_LANG_SPECIFIC (e->symtree->n.sym->backend_decl)
+		 && GFC_DECL_SAVED_DESCRIPTOR (e->symtree->n.sym->backend_decl))
+		/* Use the original class descriptor stored in the saved
+		   descriptor to get the target_expr.  */
+		target_expr =
+		    GFC_DECL_SAVED_DESCRIPTOR (e->symtree->n.sym->backend_decl);
+	      else
+		/* Strip the _data component from the target_expr.  */
+		target_expr = TREE_OPERAND (target_expr, 0);
+	      /* Add a reference to the _len comp to the target expr.  */
+	      tmp = gfc_class_len_get (target_expr);
 	      /* Get the component-ref for the temp structure's _len comp.  */
 	      charlen = gfc_class_len_get (se.expr);
 	      /* Add the assign to the beginning of the the block...  */
