@@ -1135,7 +1135,6 @@ gfc_conv_intrinsic_caf_get (gfc_se *se, gfc_expr *expr, tree lhs, tree lhs_kind,
   vec = null_pointer_node;
 
   gfc_init_se (&argse, NULL);
-  argse.descriptor_only = 1;
   if (array_expr->rank == 0)
     {
       symbol_attribute attr;

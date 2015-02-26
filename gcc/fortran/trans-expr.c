@@ -1059,6 +1059,8 @@ gfc_trans_class_init_assign (gfc_code *code)
      been referenced.  */
   gfc_get_derived_type (rhs->ts.u.derived);
   gfc_add_def_init_component (rhs);
+  /* The _def_init is always scalar.  */
+  rhs->rank = 0;
 
   if (code->expr1->ts.type == BT_CLASS
 	&& CLASS_DATA (code->expr1)->attr.dimension)
@@ -4432,7 +4434,19 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_init_se (&parmse, se);
 	  parm_kind = ELEMENTAL;
 
-	  if (fsym && fsym->attr.value)
+	  /* For all value functions or polymorphic scalar non-pointer
+	     non-allocatable variables use the expression in e directly.  This
+	     ensures, that initializers of polymorphic entities are correctly
+	     copied.  */
+	  if (fsym && (fsym->attr.value
+		       || (e->expr_type == EXPR_VARIABLE
+			   && fsym->ts.type == BT_DERIVED
+			   && e->ts.type == BT_DERIVED
+			   && !e->ts.u.derived->attr.dimension
+			   && !e->rank
+			   && (!e->symtree
+			       || (!e->symtree->n.sym->attr.allocatable
+				   && !e->symtree->n.sym->attr.pointer)))))
 	    gfc_conv_expr (&parmse, e);
 	  else
 	    gfc_conv_expr_reference (&parmse, e);

@@ -2495,11 +2495,14 @@ gfc_add_loop_ss_code (gfc_loopinfo * loop, gfc_ss * ss, bool subscript,
 	case GFC_SS_REFERENCE:
 	  /* Scalar argument to elemental procedure.  */
 	  gfc_init_se (&se, NULL);
-	  if (ss_info->can_be_null_ref)
+	  if (ss_info->can_be_null_ref || (expr->symtree
+			     && (expr->symtree->n.sym->ts.type == BT_DERIVED
+				 || expr->symtree->n.sym->ts.type == BT_CLASS)))
 	    {
 	      /* If the actual argument can be absent (in other words, it can
 		 be a NULL reference), don't try to evaluate it; pass instead
-		 the reference directly.  */
+		 the reference directly.  The reference is also needed when
+		 expr is of type class or derived.  */
 	      gfc_conv_expr_reference (&se, expr);
 	    }
 	  else
@@ -6818,6 +6821,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       tree from;
       tree to;
       tree base;
+      bool onebased = false;
 
       ndim = info->ref ? info->ref->u.ar.dimen : ss->dimen;
 
@@ -6959,6 +6963,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 				    gfc_array_index_type, to, tmp);
 	      from = gfc_index_one_node;
 	    }
+	  onebased = integer_onep (from);
 	  gfc_conv_descriptor_lbound_set (&loop.pre, parm,
 					  gfc_rank_cst[dim], from);
 
@@ -7015,13 +7020,27 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	gfc_get_dataptr_offset (&loop.pre, parm, desc, offset,
 				subref_array_target, expr);
 
-      if (((se->direct_byref || GFC_ARRAY_TYPE_P (TREE_TYPE (desc)))
-	   && !se->data_not_needed)
-	  || (se->use_offset && base != NULL_TREE))
+      /* Force the offset to be -1, when the lower bound of the highest
+	 dimension is one and the symbol is present and is not a
+	 pointer/allocatable or associated.  */
+      if (onebased && se->use_offset
+	  && expr->symtree
+	  && !expr->symtree->n.sym->attr.allocatable
+	  && !expr->symtree->n.sym->attr.pointer
+	  && !expr->symtree->n.sym->attr.host_assoc
+	  && !expr->symtree->n.sym->attr.use_assoc)
 	{
-	  /* Set the offset.  */
-	  gfc_conv_descriptor_offset_set (&loop.pre, parm, base);
+	  /* Set the offset to -1.  */
+	  mpz_t minus_one;
+	  mpz_init_set_si (minus_one, -1);
+	  tmp = gfc_conv_mpz_to_tree (minus_one, gfc_index_integer_kind);
+	  gfc_conv_descriptor_offset_set (&loop.pre, parm, tmp);
 	}
+      else if (((se->direct_byref || GFC_ARRAY_TYPE_P (TREE_TYPE (desc)))
+		&& !se->data_not_needed)
+	       || (se->use_offset && base != NULL_TREE))
+	/* Set the offset depending on base.  */
+	gfc_conv_descriptor_offset_set (&loop.pre, parm, base);
       else
 	{
 	  /* Only the callee knows what the correct offset it, so just set
