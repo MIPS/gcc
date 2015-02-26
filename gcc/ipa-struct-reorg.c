@@ -52,7 +52,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "gimple-pretty-print.h"
 #include "tree-cfg.h"
-#include  "tree-ssanames.h"
+#include "tree-ssanames.h"
+#include "gimple-walk.h"
 
 typedef enum escape_type {
   NONESCAPE = 0,
@@ -93,10 +94,14 @@ struct_reorg_give_up = (1 << STRUCT_REORG_DO_NOT_GIVE_UP);
    This structure is used to define visibility of structure types. */
 
 struct struct_symbols_d {
-  tree struct_decl;
 
+  /* The following fields are part of serialization.  */
+
+  tree struct_decl;
   unsigned int  escape;
   vec<symtab_node *> symbols; 
+
+  /* The fields below do not participate in serialization.  */
 
   /* Number of fields in the structure.  */
   int num_fields;
@@ -106,6 +111,9 @@ struct struct_symbols_d {
 
   /* A data structure representing a reorganization decision.  */
   struct field_cluster *struct_clustering;
+
+  /* Non-field accesses of the structure.  */
+  htab_t accs;
 
   /* New types to replace the original structure type.  */
   vec<tree> new_types;
@@ -248,6 +256,11 @@ is_in_new_vars_htab (tree var, htab_t new_vars_htab)
     return (new_var) htab_find_with_hash (new_vars_htab, var,
 					  DECL_UID (var));
 }
+
+
+/* Non-field accesses of the structures.  */
+htab_t accs;
+
 
 /* This function returns type of VAR.  */
 
@@ -705,6 +718,7 @@ add_struct_to_struct_symbols_vec (tree type)
   symbs->num_fields = 0;
   symbs->struct_clustering = 0;
   symbs->fields = 0;
+  symbs->accs = NULL;
   symbs->escape = (1 << NONESCAPE);
   if (!struct_symbols_vec.exists ())
     struct_symbols_vec.create (0);
@@ -875,7 +889,7 @@ get_fields (tree struct_decl, int num_fields)
       {
 	list[idx].index = idx;
 	list[idx].decl = t;
-	list[idx].acc_sites = 0; //htab_create (32, field_acc_hash, field_acc_eq, NULL);
+	list[idx].acc_sites = 0; 
 	list[idx].count = 0;
 	list[idx].field_mapping = NULL_TREE;
       }
@@ -2483,7 +2497,7 @@ free_new_var (void **slot, void *data ATTRIBUTE_UNUSED)
   new_var n_var = *(new_var *) slot;
 
   /* Free vector of new_vars.  */
-  n_var->new_vars.release ();
+  (n_var->new_vars).release ();
   free (n_var);
   return 1;
 }
@@ -2941,6 +2955,975 @@ create_new_alloc_sites (struct cgraph_node *node)
   create_new_alloc_sites_1 (node->decl);
 }
 
+/* Hash value for field_access_site.  */
+
+static hashval_t
+field_acc_hash (const void *x)
+{
+  return htab_hash_pointer (((const struct field_access_site *)x)->stmt);
+}
+
+/* This function returns nonzero if stmt of field_access_site X
+   is equal to Y.  */
+
+static int
+field_acc_eq (const void *x, const void *y)
+{
+  return ((const struct field_access_site *)x)->stmt == (const_gimple)y;
+}
+
+/* Hash value for access_site.  */
+
+static hashval_t
+acc_hash (const void *x)
+{
+  return htab_hash_pointer (((const struct access_site *)x)->stmt);
+}
+
+/* Return nonzero if stmt of access_site X is equal to Y.  */
+
+static int
+acc_eq (const void *x, const void *y)
+{
+  return ((const struct access_site *)x)->stmt == (const_gimple)y;
+}
+
+/* Given structure type SRT_TYPE and field FIELD,
+   this function is looking for a field with the same name
+   and type as FIELD in STR_TYPE. It returns it if found,
+   or NULL_TREE otherwise.  */
+
+static tree
+find_field_in_struct_1 (tree str_type, tree field)
+{
+  tree str_field;
+
+  if (!DECL_NAME (field))
+    return NULL;
+
+  for (str_field = TYPE_FIELDS (str_type); str_field;
+       str_field = TREE_CHAIN (str_field))
+    {
+
+      if (!DECL_NAME (str_field))
+	continue;
+
+      if (compare_fields (field, str_field))
+	return str_field;
+    }
+
+  return NULL_TREE;
+}
+
+/* Given a field declaration FIELD_DECL, this function
+   returns corresponding field entry in structure STR.  */
+
+static struct field_entry *
+find_field_in_struct (struct_symbols str, tree field_decl)
+{
+  int i;
+
+  tree field = find_field_in_struct_1 (str->struct_decl, field_decl);
+
+  for (i = 0; i < str->num_fields; i++)
+    if (str->fields[i].decl == field)
+      return &(str->fields[i]);
+
+  return NULL;
+}
+
+/* This function returns the structure field access, defined by STMT,
+   if it is already in hashtable of accesses F_ACCS.  */
+
+static struct field_access_site *
+is_in_field_accs (gimple stmt, htab_t f_accs)
+{
+  return (struct field_access_site *)
+    htab_find_with_hash (f_accs, stmt, htab_hash_pointer (stmt));
+}
+
+/* This function adds an access ACC to the hashtable
+   of FIELD access sites.  */
+
+static void
+add_field_acc_to_acc_sites (struct field_access_site *acc,
+			    struct field_entry *field)
+{
+  void **slot;
+
+  if (!field->acc_sites)
+    field->acc_sites = htab_create (32, field_acc_hash, field_acc_eq, NULL);
+
+  gcc_assert (!is_in_field_accs (acc->stmt, field->acc_sites));
+  slot = htab_find_slot_with_hash (field->acc_sites, acc->stmt,
+				   htab_hash_pointer (acc->stmt),
+				   INSERT);
+  *slot = acc;
+}
+
+/* This function adds the VAR to vector of variables of
+   an access site defined by statement STMT. If access entry
+   with statement STMT does not exist in hashtable of
+   accesses ACCS, this function creates it.  */
+
+static void
+add_access_to_acc_sites (gimple stmt, tree var, struct_symbols str)
+{
+   struct access_site *acc;
+
+   if (!str->accs)
+     str->accs = htab_create (32, acc_hash, acc_eq, NULL);
+   
+   acc = (struct access_site *)
+     htab_find_with_hash (str->accs, stmt, htab_hash_pointer (stmt));
+
+   if (!acc)
+     {
+       void **slot;
+
+       acc = XNEW (struct access_site);
+       acc->stmt = stmt;
+       if (!is_gimple_debug (stmt))
+	 (acc->vars).create (0);
+       slot = htab_find_slot_with_hash (str->accs, stmt,
+					htab_hash_pointer (stmt), INSERT);
+       *slot = acc;
+     }
+   if (!is_gimple_debug (stmt))
+     (acc->vars).safe_push (var);
+}
+
+/* This function creates empty field_access_site node.  */
+
+static inline struct field_access_site *
+make_field_acc_node (void)
+{
+  return XCNEW (struct field_access_site);
+}
+
+/* This function returns true if access ACC corresponds to the pattern
+   generated by compiler when an address of element i of an array
+   of structures STR_DECL (pointed by p) is calculated (p[i]). If this
+   pattern is recognized correctly, this function returns true
+   and fills missing fields in ACC. Otherwise it returns false.  */
+
+static bool
+decompose_indirect_ref_acc (tree str_decl, struct field_access_site *acc)
+{
+  tree ref_var, ref_offset;
+  tree struct_size, op0, op1;
+  /* tree before_cast; */
+  enum tree_code rhs_code;
+  tree op0type, op1type;
+  gimple ref_def_stmt;
+
+  ref_var = TREE_OPERAND (acc->ref, 0);
+  ref_offset = TREE_OPERAND (acc->ref, 1);
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "  ref_var = ");
+      print_generic_expr (dump_file, ref_var, 0);      
+      fprintf (dump_file, " is %s tree code ", 
+	       get_tree_code_name (TREE_CODE (ref_var)));
+
+      fprintf (dump_file, "  ref_offset = ");
+      print_generic_expr (dump_file, ref_offset, 0);      
+      fprintf (dump_file, " is %s tree code ", 
+	       get_tree_code_name (TREE_CODE (ref_offset)));
+    }
+
+  /* Check offset if it's present inside reference.  */
+  if (TREE_CODE (ref_offset) != INTEGER_CST 
+      || (TREE_INT_CST_LOW (ref_offset) % 
+	  TREE_INT_CST_LOW (TYPE_SIZE_UNIT (str_decl))))
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "   ref_offset =  %lu", 
+		   TREE_INT_CST_LOW(ref_offset));
+	  fprintf (dump_file, "   struct_size =  %lu", 
+		   TREE_INT_CST_LOW(TYPE_SIZE_UNIT(str_decl)));
+	  fprintf (dump_file, "   ref_offset mod struct_size =  %lu", 
+		   (TREE_INT_CST_LOW (ref_offset) 
+		    % TREE_INT_CST_LOW (TYPE_SIZE_UNIT (str_decl))));	  
+	  fprintf (dump_file, "   offset ");
+	  print_generic_expr (dump_file, ref_offset, 0);      
+	  fprintf (dump_file, "   does not fit.");
+	}
+      return false;
+    }
+  else if (!integer_zerop (ref_offset))
+    {
+      /* Memory access is base plus constant: 
+	 MEM[(struct my_struct *)_32 + 8B].a */
+      acc->base = ref_var;
+      acc->offset = ref_offset;
+      return true;
+    }
+
+  if (TREE_CODE (ref_var) != SSA_NAME)
+    {
+      if (dump_file)
+	fprintf (dump_file, "  rev_var is not SSA_NAME ");
+
+      return false;
+    }
+
+  ref_def_stmt = SSA_NAME_DEF_STMT (ref_var);
+
+  if (!(ref_def_stmt)
+      || (gimple_code (ref_def_stmt) != GIMPLE_ASSIGN))
+    {
+      if (dump_file)
+	fprintf (dump_file, "  ref_def_stmt is not GIMPLE_ASSIGN ");
+      gcc_assert (SSA_NAME_VAR (ref_var));
+      if (is_global_var (SSA_NAME_VAR (ref_var)))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "  is global ");
+	  return true;
+	}
+      else if (TREE_CODE (SSA_NAME_VAR (ref_var)) == PARM_DECL)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "  is PARM_DECL ");
+	  return true;
+	}
+      else
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "  is neither global nor PARM_DECL");
+	  return false;
+	}
+    }
+  else
+      if (dump_file)
+	{
+	  fprintf (dump_file, "  ref_var_def_stmt = ");
+	  print_gimple_stmt (dump_file, acc->ref_def_stmt, 0, 0);      
+	}
+
+
+  rhs_code = gimple_assign_rhs_code (ref_def_stmt);
+
+  if (rhs_code == PLUS_EXPR
+      || rhs_code == MINUS_EXPR
+      || rhs_code == POINTER_PLUS_EXPR)
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "  Tree cpde of rhs of def is %s ", 
+		   get_tree_code_name (rhs_code));
+	}
+
+      op0 = gimple_assign_rhs1 (ref_def_stmt);
+      op1 = gimple_assign_rhs2 (ref_def_stmt);
+  
+      if (dump_file)
+	{
+	  fprintf (dump_file, "  Tree code of op0 is  %s ", 
+		   get_tree_code_name (TREE_CODE (op0)));
+	  fprintf (dump_file, "  Tree code of op1 is %s ", 
+		   get_tree_code_name (TREE_CODE (op1)));
+	}
+
+      op0type = TYPE_MAIN_VARIANT (TREE_TYPE (op0));
+      op1type = TYPE_MAIN_VARIANT (TREE_TYPE (op1));
+
+      /* One of op0 and op1 is of pointer type and the other is numerical.  */
+      if (POINTER_TYPE_P (op0type) && NUMERICAL_TYPE_CHECK (op1type))
+	{
+	  acc->base = op0;
+	  acc->offset = op1;
+	  if (dump_file)
+	    fprintf (dump_file, "\nop1 is base and op2 is offset.\n");
+	}
+      else if (POINTER_TYPE_P (op1type) && NUMERICAL_TYPE_CHECK (op0type))
+	{
+	  acc->base = op1;
+	  acc->offset = op0;
+	  if (dump_file)
+	    fprintf (dump_file, "\nop0 is base and op1 is offset.\n");
+	}
+      else 
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "\nop1 and op2 are not pointer plus number.\n");
+	  return false;	      
+	}
+
+      /* if (!is_array_access_through_pointer_and_index (rhs_code, op0, op1,
+	 &acc->base, &acc->offset,
+	 &acc->cast_stmt))
+	 return false; */
+
+      /* 
+	 if (acc->cast_stmt)
+	 before_cast = SINGLE_SSA_TREE_OPERAND (acc->cast_stmt, SSA_OP_USE);
+	 else
+	 before_cast = acc->offset;
+
+	 if (!before_cast)
+	 return false;
+
+
+	 if (SSA_NAME_IS_DEFAULT_DEF (before_cast))
+	 return false;
+
+      */
+
+      /* We care about def stmt ouly when it is a calculation of offset.
+	 Otherwise it should be NULL. */
+      acc->ref_def_stmt = SSA_NAME_DEF_STMT (ref_var);
+      
+      struct_size = TYPE_SIZE_UNIT (str_decl);
+      if (!is_result_of_mult (acc->offset, &acc->num, struct_size))
+	return false; 
+    }
+    
+  return true;
+} 
+
+/* This function checks whether the access ACC of structure type STR
+   is of the form suitable for transformation. If yes, it returns true.
+   False otherwise.  */
+
+static bool
+decompose_access (tree str_decl, struct field_access_site *acc)
+{
+  gcc_assert (acc->ref);
+
+  if (TREE_CODE (acc->ref) == MEM_REF)
+    {
+      if (dump_file)
+	fprintf (dump_file, "  MEM_REF\n");
+      return decompose_indirect_ref_acc (str_decl, acc);
+    }
+  else if (TREE_CODE (acc->ref) == ARRAY_REF)
+    {
+      if (dump_file)
+	fprintf (dump_file, "  ARRAY_REF\n");
+      return true;
+    }
+  else if (TREE_CODE (acc->ref) == VAR_DECL)
+    {
+      if (dump_file)
+	fprintf (dump_file, "  VAR_DECL\n");
+      return true;
+    }
+
+
+  if (dump_file)
+    fprintf (dump_file, "  NON_OF_DEFINED\n");
+  return false;
+}
+
+/* Callback function for walk_tree called from collect_accesses_in_bb
+   function. DATA is the statement which is analyzed.  */
+
+static tree
+get_stmt_accesses (tree *tp, int *walk_subtrees, void *data)
+{
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  gimple stmt = (gimple) wi->info;
+  tree t = *tp;
+
+  if (!t)
+    return NULL;
+  else
+    {
+      if (dump_file)
+	{	  
+	  fprintf (dump_file, "\nTREE_CODE (");
+	  print_generic_expr (dump_file, t, 0);
+	  fprintf (dump_file, " ) is %s in stmt ", get_tree_code_name (TREE_CODE (t)));
+	  print_gimple_stmt (dump_file, stmt, 0, 0);
+	}
+      *walk_subtrees = 1;
+    }
+
+  switch (TREE_CODE (t))
+    {
+      /* case BIT_FIELD_REF:
+      {
+	tree var = TREE_OPERAND(t, 0);
+	tree type = TYPE_MAIN_VARIANT (strip_type (get_type_of_var (var)));
+	unsigned i = find_structure (type);
+
+	if (i != VEC_length (structure, structures))
+	  {
+	    if (is_gimple_debug (stmt))
+	      {
+		d_str str;
+
+		str = VEC_index (structure, structures, i);
+		add_access_to_acc_sites (stmt, NULL, str->accs);
+		*walk_subtrees = 0;
+		break;
+	      }
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "\nThe type ");
+		print_generic_expr (dump_file, type, 0);
+		fprintf (dump_file, " has bitfield.");
+	      }
+	    remove_structure (i);
+	  }
+      }
+      break; */
+
+    case COMPONENT_REF:
+      {
+	tree ref = TREE_OPERAND (t, 0);
+	tree field_decl = TREE_OPERAND (t, 1);
+
+
+	if ((TREE_CODE (ref) == MEM_REF
+	     || TREE_CODE (ref) == ARRAY_REF
+	     || TREE_CODE (ref) == VAR_DECL)
+	    && TREE_CODE (field_decl) == FIELD_DECL)
+	  {
+	    tree type = TYPE_MAIN_VARIANT (TREE_TYPE (ref));
+	    int i = is_in_struct_symbols_vec (type);
+	    struct_symbols str;
+
+	    if (i != -1)
+	      {
+		str = struct_symbols_vec[i];
+
+		struct field_entry * field =
+		  find_field_in_struct (str, field_decl);
+
+		if (is_gimple_debug (stmt))
+		  {
+		    add_access_to_acc_sites (stmt, NULL, str);
+		    *walk_subtrees = 0;
+		    break;
+		  }
+
+		if (field)
+		  {
+		    struct field_access_site *acc = make_field_acc_node ();
+
+		    gcc_assert (acc);
+
+		    acc->stmt = stmt;
+		    acc->comp_ref = t;
+		    acc->ref = ref;
+		    acc->field_decl = field_decl;
+		    acc->cast_stmt = NULL;
+		    acc->num = NULL_TREE;
+		    acc->base = NULL_TREE;
+		    acc->offset = NULL_TREE;
+		    acc->ref_def_stmt = NULL;
+
+		    /* Check whether the access is of the form
+		       we can deal with.  */
+		    if (!decompose_access (str->struct_decl, acc))
+		      {
+			if (dump_file)
+			  {
+			    fprintf (dump_file, "\nThe type ");
+			    print_generic_expr (dump_file, type, 0);
+			    fprintf (dump_file,
+				     " has complicate access in statement ");
+			    print_gimple_stmt (dump_file, stmt, 0, 0);
+			  }
+
+			//remove_structure (i);
+			free (acc);
+			gcc_assert (0);
+		      }
+		    else
+		      {
+			/* Increase count of field.  */
+			 basic_block bb = gimple_bb (stmt);
+			 field->count += bb->count; 
+
+			/* Add stmt to the acc_sites of field.  */
+			add_field_acc_to_acc_sites (acc, field);
+		      }
+		    *walk_subtrees = 0;
+		  }
+	      }
+	  }
+      }
+      break;
+
+    case COND_EXPR:
+      {
+	tree cond = COND_EXPR_COND (t);
+	int i;
+	for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (cond)); i++)
+	  {
+	    tree t = TREE_OPERAND (cond, i);
+
+	    *walk_subtrees = 1;
+	    walk_tree (&t, get_stmt_accesses, data, NULL);
+	  }
+	*walk_subtrees = 0;
+      }
+      break;
+
+    case VAR_DECL:
+    case SSA_NAME:
+      {
+	int i;
+
+	if (TREE_CODE (t) == SSA_NAME)
+	  if (SSA_NAME_VAR (t))	    
+	    t = SSA_NAME_VAR (t);
+
+	i = is_in_struct_symbols_vec (strip_type (get_type_of_var (t)));
+
+	if (i != -1)
+	  {
+	    struct_symbols str;
+
+	    str = struct_symbols_vec[i];
+	    add_access_to_acc_sites (stmt, t, str);
+	  }
+	*walk_subtrees = 0;
+      }
+      break;
+
+    default:
+      return NULL;
+      } 
+
+  return NULL;
+}
+
+/* Collect accesses to the structure types that appear in basic block BB.  */
+
+static void
+collect_accesses_in_bb (basic_block bb)
+{
+  gimple_stmt_iterator bsi;
+  struct walk_stmt_info wi;
+
+  memset (&wi, 0, sizeof (wi));
+
+  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+    {
+      gimple stmt = gsi_stmt (bsi);
+
+      wi.info = (void *) stmt;
+      walk_gimple_op (stmt, get_stmt_accesses, &wi);
+    }
+}
+
+/* This function prints a field access site, defined by SLOT.  */
+
+static int
+dump_field_acc (void **slot, void *data ATTRIBUTE_UNUSED)
+{
+  struct field_access_site *f_acc =
+    *(struct field_access_site **) slot;
+
+  if (f_acc->stmt)
+    {
+      fprintf(dump_file, "\nstmt: ");
+      print_gimple_stmt (dump_file, f_acc->stmt, 0, 0);
+    }
+  if (f_acc->ref_def_stmt)
+    {
+      fprintf(dump_file, "\nref_def_stmt: ");      
+      print_gimple_stmt (dump_file, f_acc->ref_def_stmt, 0, 0);
+    }
+  if (f_acc->cast_stmt)
+    {
+      fprintf(dump_file, "\ncast_stmt: ");      
+      print_gimple_stmt (dump_file, f_acc->cast_stmt, 0, 0);
+    }
+  if (f_acc->comp_ref)
+    {
+      fprintf(dump_file, "\ncomp_ref: ");      
+      print_generic_expr (dump_file, f_acc->comp_ref, 0);
+    }
+  if (f_acc->field_decl)
+    {
+      fprintf(dump_file, "\nfield_decl: ");      
+      print_generic_expr (dump_file, f_acc->field_decl, 0);
+    }
+  if (f_acc->ref)
+    {
+      fprintf(dump_file, "\nref: ");      
+      print_generic_expr (dump_file, f_acc->ref, 0);
+    }
+  if (f_acc->num)
+    {
+      fprintf(dump_file, "\nnum: ");      
+      print_generic_expr (dump_file, f_acc->num, 0);
+    }
+  if (f_acc->offset)
+    {
+      fprintf(dump_file, "\noffset: ");      
+      print_generic_expr (dump_file, f_acc->offset, 0);
+    }
+  if (f_acc->base)
+    {
+      fprintf(dump_file, "\nbase: ");      
+      print_generic_expr (dump_file, f_acc->base, 0);
+    }
+
+  return 1;
+}
+
+/* Print field accesses from hashtable F_ACCS.  */
+
+static void
+dump_field_acc_sites (htab_t f_accs)
+{
+  if (!dump_file)
+    return;
+
+  if (f_accs)
+    htab_traverse (f_accs, dump_field_acc, NULL);
+}
+
+/* This function prints an access site, defined by SLOT.  */
+
+static int
+dump_acc (void **slot, void *data ATTRIBUTE_UNUSED)
+{
+  struct access_site *acc = *(struct access_site **) slot;
+  tree var;
+  unsigned i;
+
+  fprintf(dump_file, "\n");
+  if (acc->stmt)
+    print_gimple_stmt (dump_file, acc->stmt, 0, 0);
+  fprintf(dump_file, " : ");
+
+  if (acc->vars.exists ())
+    {
+      FOR_EACH_VEC_ELT (acc->vars, i, var)
+	{
+	  print_generic_expr (dump_file, var, 0);
+	  fprintf(dump_file, ", ");
+	}
+    }
+  return 1;
+}
+
+/* Print non-field accesses from hashtable ACCS of structure.  */
+
+static void
+dump_access_sites (htab_t accs)
+{
+  if (!dump_file)
+    return;
+
+  if (accs)
+    htab_traverse (accs, dump_acc, NULL);
+}
+
+
+/* This function prints non-field and field accesses
+   of the structure STR.  */
+
+static void
+dump_accs (struct_symbols str)
+{
+  int i;
+
+  fprintf (dump_file, "\nAccess sites of struct ");
+  print_generic_expr (dump_file, str->struct_decl, 0);
+
+  for (i = 0; i < str->num_fields; i++)
+    {
+      fprintf (dump_file, "\nAccess site of field ");
+      print_generic_expr (dump_file, str->fields[i].decl, 0);
+      dump_field_acc_sites (str->fields[i].acc_sites);
+      fprintf (dump_file, ":\n");
+    }
+  fprintf (dump_file, "\nGeneral access sites\n");
+  dump_access_sites (str->accs);
+}
+
+/* Print collected accesses.  */
+
+static void
+dump_accesses (void)
+{
+  struct_symbols str;
+  unsigned i;
+
+  if (!dump_file)
+    return;
+
+  if (struct_symbols_vec.exists ())
+    {   
+      FOR_EACH_VEC_ELT (struct_symbols_vec, i, str)
+	dump_accs (str);
+    }
+}
+/* Auxiliary structure for a lookup over field accesses. */
+struct find_stmt_data
+{
+  bool found;
+  gimple stmt;
+};
+
+/* This function looks for DATA->stmt among
+   the statements involved in the field access,
+   defined by SLOT. It stops when it's found. */
+
+static int
+find_in_field_accs (void **slot, void *data)
+{
+  struct field_access_site *f_acc = *(struct field_access_site **) slot;
+  gimple stmt = ((struct find_stmt_data *)data)->stmt;
+
+  if (f_acc->stmt == stmt
+      || f_acc->ref_def_stmt == stmt
+      || f_acc->cast_stmt == stmt)
+    {
+      ((struct find_stmt_data *)data)->found = true;
+      return 0;
+    }
+  else
+    return 1;
+}
+
+/* This function checks whether STMT is part of field
+   accesses of structure STR. It returns true, if found,
+   and false otherwise.  */
+
+static bool
+is_part_of_field_access (gimple stmt, struct_symbols str)
+{
+  int i;
+
+  for (i = 0; i < str->num_fields; i++)
+    {
+      struct find_stmt_data data;
+      data.found = false;
+      data.stmt = stmt;
+
+      if (str->fields[i].acc_sites)
+	htab_traverse (str->fields[i].acc_sites, find_in_field_accs, &data);
+
+      if (data.found)
+	return true;
+    }
+
+  return false;
+}
+
+/* If ALLOC_STMT is D.2225_7 = <alloc_func> (D.2224_6);
+   and it is a part of allocation of a structure,
+   then it is usually followed by a cast stmt
+   p_8 = (struct str_t *) D.2225_7, or simply 
+   p_8 = D.2225_7; 
+   We check whether STMT is of this kind, and return 
+   true if it is.  */
+
+static bool
+is_final_alloc_stmt (gimple alloc_stmt, gimple stmt)
+{
+  tree alloc_res;
+  imm_use_iterator imm_iter;
+  gimple use_stmt;
+  bool res = false;
+
+
+  if (!alloc_stmt)
+    return NULL;
+
+  if (!is_gimple_call (alloc_stmt))
+    return NULL;
+
+  alloc_res = gimple_get_lhs (alloc_stmt);
+
+  if (TREE_CODE (alloc_res) != SSA_NAME)
+    return NULL;
+
+  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, alloc_res)
+    {
+      if (use_stmt == stmt)
+	res=true;
+    }
+
+  return res;
+}
+
+/* This function returns true if STMT is one of allocation
+   sites. It returns false otherwise.  */
+
+static bool
+is_part_of_malloc (gimple stmt)
+{
+  if (alloc_sites.exists ())
+    {
+      alloc_site_p call;
+      unsigned i;
+
+      FOR_EACH_VEC_ELT (alloc_sites, i, call)
+	{
+	  if (call->stmt == stmt
+	      || is_final_alloc_stmt (call->stmt, stmt))
+	    return true;
+	}
+    }
+  return false;
+}
+
+/* This function excludes statements, that are
+   part of allocation sites or field accesses, from the
+   hashtable of general accesses. SLOT represents general
+   access that will be checked. DATA is en entry 
+   in struct_symbols vector. */
+
+static int
+exclude_from_accs (void **slot, void *data)
+{
+  struct access_site *acc = *(struct access_site **) slot;
+  struct_symbols str = (struct_symbols)data;
+
+  if (is_part_of_malloc (acc->stmt)
+      || is_part_of_field_access (acc->stmt, str))
+    {
+      (acc->vars).release ();
+      free (acc);
+      htab_clear_slot (str->accs, slot);
+    }
+  return 1;
+}
+
+/* This function excludes statements that are part of allocation sites or
+   field accesses from the hashtable of general accesses of the structure
+   type STR.  */
+
+static void
+exclude_acc_dupls_1 (struct_symbols str)
+{
+  struct_symbols dt = str;
+
+  if (str->accs)
+    htab_traverse (str->accs, exclude_from_accs, dt);
+}
+
+/* We exclude from non-field accesses of the structure
+   all statements that will be treated as part of the structure
+   allocation sites or field accesses.  */
+
+static void
+exclude_acc_dupls (void)
+{
+  struct_symbols str;
+  unsigned i;
+
+  if (struct_symbols_vec.exists ())
+    {   
+      FOR_EACH_VEC_ELT (struct_symbols_vec, i, str)
+	exclude_acc_dupls_1 (str);
+    }
+}
+
+/* This function collects accesses of structures in current function.  */
+
+static void
+collect_data_accesses (void)
+{
+  basic_block bb;
+
+  if (!cfun)
+    return;
+
+  /* Collect accesses for each basic blocks separately.  */
+  FOR_EACH_BB_FN (bb, cfun)
+    collect_accesses_in_bb (bb);
+  exclude_acc_dupls ();
+
+  dump_accesses ();
+}
+
+/* This function is a callback for traversal over a structure accesses.
+   It frees an access represented by SLOT.  */
+
+static int
+free_accs (void **slot, void *data ATTRIBUTE_UNUSED)
+{
+  struct access_site * acc = *(struct access_site **) slot;
+
+  (acc->vars).release ();
+  free (acc);
+  return 1;
+}
+
+/* This is a callback function for traversal over field accesses.
+   It frees a field access represented by SLOT.  */
+
+static int
+free_field_accs (void **slot, void *data ATTRIBUTE_UNUSED)
+{
+  struct field_access_site *f_acc = *(struct field_access_site **) slot;
+
+  free (f_acc);
+  return 1;
+}
+
+/* This function free non-field accesses from hashtable ACCS.  */
+
+static void
+free_accesses (htab_t accs)
+{
+  if (accs)
+    {
+      htab_traverse (accs, free_accs, NULL);
+      htab_delete (accs);
+    }
+}
+
+/* This function free field accesses hashtable F_ACCS.  */
+
+static void
+free_field_accesses (htab_t f_accs)
+{
+  if (f_accs)
+    {
+      htab_traverse (f_accs, free_field_accs, NULL);
+      htab_delete (f_accs);
+    }
+}
+
+/* This function free non-field and field access of all structures, 
+   allocated for current function.  */
+
+static void
+free_data_accesses (void)
+{
+
+  struct_symbols str;
+  unsigned i;
+  int j;
+
+  if (struct_symbols_vec.exists () && !struct_symbols_vec.is_empty ())
+    {
+      FOR_EACH_VEC_ELT (struct_symbols_vec, i, str)
+	{
+
+	  if (str->fields)
+	    {
+	      for (j = 0; j < str->num_fields; j++)
+		{
+		  free_field_accesses (str->fields[j].acc_sites);
+		  str->fields[j].acc_sites = 0;
+		}
+	    }
+
+	  if (str->accs)
+	    {
+	      free_accesses (str->accs);
+	      str->accs = NULL;
+	    }	  
+	}
+    }
+}
+
 /* Do struct-reorg transformation for individual function
    represented by NODE. All structure types relevant
    for this function are transformed.  */
@@ -2952,6 +3935,7 @@ do_reorg_for_func (struct cgraph_node *node)
   create_new_tmp_vars ();
   collect_alloc_sites (node);
   create_new_alloc_sites (node);
+  collect_data_accesses ();
   /* create_new_accesses_for_func (); */
   update_ssa (TODO_update_ssa);
   /* cleanup_tree_cfg ();
@@ -2961,6 +3945,7 @@ do_reorg_for_func (struct cgraph_node *node)
   free_alloc_sites ();
   free_new_vars_htab (new_local_vars);
   free_new_vars_htab (new_tmp_vars);
+  free_data_accesses ();
 }
 
 /* Implementation of function_transform function for struct-reorg.  */

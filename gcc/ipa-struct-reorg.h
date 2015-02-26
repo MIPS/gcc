@@ -54,7 +54,7 @@ struct access_site
   /* A statement in which the access site occurs.  */
   gimple stmt;
   /* A list of structure variables in the access site.  */
-  vec<tree, va_heap, vl_ptr> *vars;
+  vec<tree> vars;
 };
 
 /* A field of the structure.  */
