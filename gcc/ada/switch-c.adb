@@ -219,10 +219,8 @@ package body Switch.C is
                        (Switch_Chars (Ptr + 4 .. Max))
                   then
                      Runtime_Dir :=
-                       new String'
-                         (System.OS_Lib.Normalize_Pathname
-                            (Switch_Chars (Ptr + 4 .. Max)));
-
+                       new String'(System.OS_Lib.Normalize_Pathname
+                                      (Switch_Chars (Ptr + 4 .. Max)));
                   else
                      Runtime_Dir :=
                        new String'(Switch_Chars (Ptr + 4 .. Max));
@@ -823,6 +821,7 @@ package body Switch.C is
             when 'g' =>
                Ptr := Ptr + 1;
                GNAT_Mode := True;
+               GNAT_Mode_Config := True;
                Identifier_Character_Set := 'n';
                System_Extend_Unit := Empty;
                Warning_Mode := Treat_As_Error;
