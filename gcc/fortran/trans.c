@@ -372,9 +372,9 @@ gfc_build_array_ref (tree base, tree offset, tree decl)
 	      if (POINTER_TYPE_P (TREE_TYPE (decl)))
 		decl = build_fold_indirect_ref_loc (input_location, decl);
 
-	      /* Check if '_data' is an array descriptor. If it is not,
-	     the array must be one of the components of the class object,
-	     so return a normal array reference.  */
+	      /* Check if '_data' is an array descriptor.  If it is not,
+		 the array must be one of the components of the class object,
+		 so return a normal array reference.  */
 	      if (!GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (gfc_class_data_get (decl))))
 		return build4_loc (input_location, ARRAY_REF, type, base,
 				   offset, NULL_TREE, NULL_TREE);

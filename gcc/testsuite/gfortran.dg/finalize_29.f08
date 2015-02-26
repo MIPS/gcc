@@ -59,7 +59,7 @@ module module_finalize_29
     final :: tgn_scalar_fin, tgn_array_fin
   end type tgn
 
-  integer :: ten_fin_counts, tee_fin_counts, tne_fin_counts, tnn_fin_counts 
+  integer :: ten_fin_counts, tee_fin_counts, tne_fin_counts, tnn_fin_counts
   integer :: tae_fin_counts, tan_fin_counts
   integer :: tge_scalar_fin_counts, tge_array_fin_counts
   integer :: tgn_scalar_fin_counts, tgn_array_fin_counts
@@ -172,15 +172,15 @@ program finalize_29
   type(tgn), allocatable :: x_tgn(:,:)
 
   ! Set the global counts to zero.
-  ten_fin_counts = 0 
+  ten_fin_counts = 0
   tee_fin_counts = 0
-  tne_fin_counts = 0 
+  tne_fin_counts = 0
   tnn_fin_counts = 0
-  tae_fin_counts = 0 
+  tae_fin_counts = 0
   tan_fin_counts = 0
-  tge_scalar_fin_counts = 0 
+  tge_scalar_fin_counts = 0
   tge_array_fin_counts = 0
-  tgn_scalar_fin_counts = 0 
+  tgn_scalar_fin_counts = 0
   tgn_array_fin_counts = 0
 
   allocate(ten :: x_ten(5,5))

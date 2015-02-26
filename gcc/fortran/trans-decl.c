@@ -1044,7 +1044,7 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
      for a regular array the TREE_TYPE of the dummy is a pointer to the
      descriptor.  */
   type = TREE_TYPE (is_classarray ? gfc_class_data_get (dummy)
-				  : TREE_TYPE(dummy));
+				  : TREE_TYPE (dummy));
   /* type now is the array descriptor w/o any indirection.  */
   gcc_assert (TREE_CODE (dummy) == PARM_DECL
 	  && POINTER_TYPE_P (TREE_TYPE (dummy)));
@@ -1095,7 +1095,7 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
 	}
 
       /* For classarrays the element type is required, but
-         gfc_typenode_for_spec () returns the array descriptor.  */
+	 gfc_typenode_for_spec () returns the array descriptor.  */
       type = is_classarray ? gfc_get_element_type (type)
 			   : gfc_typenode_for_spec (&sym->ts);
       type = gfc_get_nodesc_array_type (type, as, packed,
@@ -1450,9 +1450,9 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       /* Returning the descriptor for dummy class arrays is hazardous, because
 	 some caller is expecting an expression to apply the component refs to.
 	 Therefore the descriptor is only created and stored in
-	 sym->backend_decl's GFC_DECL_SAVED_DESCRIPTOR. The caller then is
+	 sym->backend_decl's GFC_DECL_SAVED_DESCRIPTOR.  The caller then is
 	 responsible to extract it from there, when the descriptor is
-	 desired. */
+	 desired.  */
       if (IS_CLASS_ARRAY (sym)
 	  && (!DECL_LANG_SPECIFIC (sym->backend_decl)
 	      || !GFC_DECL_SAVED_DESCRIPTOR (sym->backend_decl)))
