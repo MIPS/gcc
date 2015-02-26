@@ -1,11 +1,11 @@
 ! {dg-do run}
-! 
+!
 ! Test contributed by Thomas L. Clune via pr60322
 !                  and Antony Lewis via pr64692
 
 program class_array_20
   implicit none
-   
+
   type Foo
   end type
 

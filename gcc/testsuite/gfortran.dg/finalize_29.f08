@@ -58,7 +58,7 @@ module module_finalize_29
   contains
     final :: tgn_scalar_fin, tgn_array_fin
   end type tgn
-  
+
   integer :: ten_fin_counts, tee_fin_counts, tne_fin_counts, tnn_fin_counts 
   integer :: tae_fin_counts, tan_fin_counts
   integer :: tge_scalar_fin_counts, tge_array_fin_counts
@@ -210,7 +210,7 @@ program finalize_29
   ten_fin_counts = 0
 
   call tee_init(x_tee(::2, ::3))
-  
+
   if (tee_fin_counts /= 6) call abort()
   if (ten_fin_counts + tne_fin_counts + tnn_fin_counts + tae_fin_counts + &
         tan_fin_counts + tge_scalar_fin_counts + tge_array_fin_counts + &
@@ -218,7 +218,7 @@ program finalize_29
   tee_fin_counts = 0
 
   call tne_init(x_tne(::2, ::3))
-  
+
   if (tne_fin_counts /= 6) call abort()
   if (ten_fin_counts + tee_fin_counts + tnn_fin_counts + tae_fin_counts + &
         tan_fin_counts + tge_scalar_fin_counts + tge_array_fin_counts + &
@@ -226,21 +226,21 @@ program finalize_29
   tne_fin_counts = 0
 
   call tnn_init(x_tnn(::2, ::3))
-  
+
   if (tnn_fin_counts /= 0) call abort()
   if (ten_fin_counts + tee_fin_counts + tne_fin_counts + tae_fin_counts + &
         tan_fin_counts + tge_scalar_fin_counts + tge_array_fin_counts + &
         tgn_scalar_fin_counts + tgn_array_fin_counts /= 0) call abort()
 
   call tae_init(x_tae(::2, ::3))
-  
+
   if (tae_fin_counts /= 0) call abort()
   if (ten_fin_counts + tee_fin_counts + tne_fin_counts + tnn_fin_counts + &
         tan_fin_counts + tge_scalar_fin_counts + tge_array_fin_counts + &
         tgn_scalar_fin_counts + tgn_array_fin_counts /= 0) call abort()
 
   call tan_init(x_tan(::2, ::3))
-  
+
   if (tan_fin_counts /= 1) call abort()
   if (ten_fin_counts + tee_fin_counts + tne_fin_counts + tnn_fin_counts + &
         tae_fin_counts + tge_scalar_fin_counts + tge_array_fin_counts + &
@@ -248,7 +248,7 @@ program finalize_29
   tan_fin_counts = 0
 
   call tge_init(x_tge(::2, ::3))
-  
+
   if (tge_scalar_fin_counts /= 6) call abort()
   if (ten_fin_counts + tee_fin_counts + tne_fin_counts + tnn_fin_counts + &
         tae_fin_counts + tan_fin_counts + tgn_array_fin_counts + &
@@ -256,7 +256,7 @@ program finalize_29
   tge_scalar_fin_counts = 0
 
   call tgn_init(x_tgn(::2, ::3))
-  
+
   if (tgn_array_fin_counts /= 1) call abort()
   if (ten_fin_counts + tee_fin_counts + tne_fin_counts + tnn_fin_counts + &
         tae_fin_counts + tan_fin_counts + tge_scalar_fin_counts + &
