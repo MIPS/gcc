@@ -1,3 +1,110 @@
+2015-02-26  Marek Polacek  <polacek@redhat.com>
+
+	PR ipa/65008
+	* g++.dg/ipa/pr65008.C: New test.
+
+2015-02-26  Tom de Vries  <tom@codesourcery.com>
+
+	* lib/profopt.exp (profopt-target-cleanup): New proc.
+	(profopt-execute): Use profopt-target-cleanup to handle cleanup of
+	files from sources from dg-additional-sources.
+
+2015-02-26  Tom de Vries  <tom@codesourcery.com>
+
+	* lib/gcov.exp: Cleanup in case of xfail.
+
+2015-02-26  Sebastian Pop  <s.pop@samsung.com>
+
+	* gcc.dg/tree-ssa/ssa-dom-thread-9.c: Fix warning due to missing type.
+
+2015-02-25  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR debug/46102
+	* g++.dg/debug/dwarf2-1.C: XFAIL and move...
+	* g++.dg/debug/dwarf2/dwarf2-1.C: ...here.
+	* g++.dg/debug/dwarf2-2.C: XFAIL and move...
+	* g++.dg/debug/dwarf2/dwarf2-2.C: ...here.
+	* g++.dg/debug/dwarf2/typedef5.C: XFAIL.
+	* g++.dg/debug/pr46123.C: XFAIL and move...
+	* g++.dg/debug/dwarf2/pr46123-2.C: ...here.
+	* gcc.dg/debug/dwarf2-3.c: Move...
+	* gcc.dg/debug/dwarf2/dwarf2-3.c: ...here.
+
+2015-02-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65202
+	* g++.dg/cpp1y/pr65202.C: New test.
+
+2015-02-26  Tom de Vries  <tom@codesourcery.com>
+
+	* g++.dg/gcov/gcov-14.C: Add cleanup of iostream.gcov, ostream.gcov and
+	locale_facets.h.gcov.
+
+2015-02-26  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.target/i386/mcount_pic.c: Add missing cleanup-profile-file.
+
+2015-02-26  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/aru-2.c: Add missing cleanup-profile-file.
+
+2015-02-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/65217
+	* gcc.target/i386/pr65217.c: New.
+
+2015-02-26  Tom de Vries  <tom@codesourcery.com>
+
+	* lib/dg-pch.exp (pch-init): Add missing cleanup of pchtest<n>.o.
+
+2015-02-26  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.misc-tests/godump-1.c: Add missing cleanup of godump-1.out.
+
+2015-02-26  Sebastian Pop  <s.pop@samsung.com>
+
+	PR tree-optimization/65048
+	* gcc.dg/tree-ssa/ssa-dom-thread-9.c: New.
+
+2015-02-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lib/gcc-dg.exp (cleanup-final-insns-dump): New procedure.
+	* g++.dg/opt/dump1.C (dg-final): Call cleanup-final-insns-dump.
+
+2015-02-26  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR target/65161
+	* gcc.target/i386/pr65161.c: New test.
+
+2015-02-26  Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/no-volatile-in-it.c: New test.
+
+2015-02-25  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/htm-builtin-1.c (dg-do) Change to assemble.
+	(dg-options): Add -save-temps.
+	(dg-final): Add cleanup-saved-temps.
+
+2015-02-25  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/htm-builtin-1.c: Fix tcheck expect value.
+
+2015-02-25  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/direct-move.h: Include string.h/stdlib.h.
+	* gcc.target/powerpc/pack01.c: Include string.h.
+
+2015-02-25  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/65167
+	* gcc.target/i386/pr65167.c: New.
+
+2015-02-25  Kai Tietz  <ktietz@redhat.com>
+
+	PR tree-optimization/61917
+	* gcc.dg/vect/vect-pr61917.c: New file.
+
 2015-02-24  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/65170
@@ -175,7 +282,7 @@
 
 2015-02-19  Maxim Kuvyrkov  <maxim.kuvyrkov@linaro.org>
 
-	* testsuite/lib/target-supports.exp (check_compile): Save/restore
+	* lib/target-supports.exp (check_compile): Save/restore
 	additional_sources that may belong to an actual test.
 
 2015-02-18  Jakub Jelinek  <jakub@redhat.com>
@@ -661,7 +768,7 @@
 	    Brian Rzycki  <b.rzycki@samsung.com>
 
 	PR tree-optimization/64878
-	* testsuite/gcc.dg/tree-ssa/ssa-dom-thread-8.c: New.
+	* gcc.dg/tree-ssa/ssa-dom-thread-8.c: New.
 
 2015-02-06  Jakub Jelinek  <jakub@redhat.com>
 
@@ -1403,7 +1510,7 @@
 
 2015-01-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
 
-	* gcc/testsuite/c-c++-common/tsan/step.c: New testcase.
+	* c-c++-common/tsan/step.c: New testcase.
 
 2015-01-21  Christophe Lyon  <christophe.lyon@linaro.org>
 
