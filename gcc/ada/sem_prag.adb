@@ -5918,17 +5918,6 @@ package body Sem_Prag is
             --  Get name from corresponding aspect
 
             Error_Msg_Name_1 := Original_Aspect_Name (N);
-
-            if Class_Present (N) then
-
-               --  Replace the name with a leading underscore used
-               --  internally, with a name that is more user-friendly.
-
-               if Error_Msg_Name_1 = Name_uType_Invariant then
-                  Error_Msg_Name_1 := Name_Type_Invariant_Class;
-               end if;
-            end if;
-
          end if;
 
          --  Return possibly modified message
@@ -15730,9 +15719,10 @@ package body Sem_Prag is
                  ("pragma% only allowed for private type", Arg1);
             end if;
 
-            --  Not allowed for abstract type
+            --  Not allowed for abstract type in the non-class case (it is
+            --  allowed to use Invariant'Class for abstract types).
 
-            if Is_Abstract_Type (Typ) then
+            if Is_Abstract_Type (Typ) and then not Class_Present (N) then
                Error_Pragma_Arg
                  ("pragma% not allowed for abstract type", Arg1);
             end if;
@@ -17243,13 +17233,16 @@ package body Sem_Prag is
                   end;
                end if;
 
-            --  Cases where we must follow a declaration
+            --  Cases where we must follow a declaration, including an
+            --  abstract subprogram declaration, which is not in the
+            --  other node subtypes.
 
             else
                if         Nkind (Decl) not in N_Declaration
                  and then Nkind (Decl) not in N_Later_Decl_Item
                  and then Nkind (Decl) not in N_Generic_Declaration
                  and then Nkind (Decl) not in N_Renaming_Declaration
+                 and then Nkind (Decl) /= N_Abstract_Subprogram_Declaration
                then
                   Error_Pragma
                     ("pragma% misplaced, "
@@ -21896,16 +21889,9 @@ package body Sem_Prag is
                --  Pre'Class/Post'Class aspect cases
 
                if From_Aspect_Specification (Prag) then
-                  if Nam = Name_uPre then
-                     Error_Msg_Name_1 := Name_Pre;
-                  else
-                     Error_Msg_Name_1 := Name_Post;
-                  end if;
-
-                  Error_Msg_Name_2 := Name_Class;
-
+                  Error_Msg_Name_1 := Nam;
                   Error_Msg_N
-                    ("aspect `%''%` can only be specified for a primitive "
+                    ("aspect% can only be specified for a primitive "
                      & "operation of a tagged type",
                      Corresponding_Aspect (Prag));
 

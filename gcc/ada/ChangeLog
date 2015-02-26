@@ -1,3 +1,147 @@
+2015-02-24  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR libgomp/64625
+	* gcc-interface/utils.c (DEF_FUNCTION_TYPE_VAR_8): Remove.
+	(DEF_FUNCTION_TYPE_VAR_12): Likewise.
+	(DEF_FUNCTION_TYPE_VAR_7, DEF_FUNCTION_TYPE_VAR_11): New macros.
+
+2015-02-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gcc-interface/utils.c (DEF_FUNCTION_TYPE_VAR_8): Fix number of
+	arguments parameter.
+	(DEF_FUNCTION_TYPE_VAR_12): Likewise.
+
+2015-02-22  Arnaud Charlet  <charlet@adacore.com>
+
+	* doc/Makefile: postprocess texinfo files to update @dircategory
+	and update texi files under gcc/ada.
+	* gnat_ugn.texi, gnat_rm.texi: Regenerated.
+
+2015-02-22  Arnaud Charlet  <charlet@adacore.com>
+
+	* doc/gnat_ugn/project-manager-figure.png,
+	doc/gnat_ugn/rtlibrary-structure.png: New.
+
+2015-02-22  Tom de Vries  <tom@codesourcery.com>
+
+	PR ada/65100
+	* gnat-style.texi (@subsection Loop Statements): Replace @noindent by
+	@item, and fix warning '@itemize has text but no @item'.
+
+2015-02-20  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_prag.adb (Analyze_Pragma, case Obsolescent): Pragma
+	legally applies to an abstract subprogram declaration.
+	* freeze.adb: Minor comment addition.
+
+2015-02-20  Robert Dewar  <dewar@adacore.com>
+
+	* errout.ads: Document replacement of Name_uPre/Post/Type_Invariant.
+	* erroutc.adb (Set_Msg_Str): Replace _xxx.
+	(Pre/Post/Type_Invariant) by xxx'Class.
+	* erroutc.ads (Set_Msg_Str): Replace _xxx.
+	(Pre/Post/Type_Invariant) by xxx'Class.
+	* sem_prag.adb (Fix_Error): Remove special casing of
+	Name_uType_Invariant.
+	(Analyze_Pre_Post_Condition_In_Decl_Part): Remove special casing of
+	Name_uPre and Name_uPost in aspect case (done in Errout now).
+
+2015-02-20  Robert Dewar  <dewar@adacore.com>
+
+	* g-alveop.adb: Minor style fixes.
+
+2015-02-20  Robert Dewar  <dewar@adacore.com>
+
+	* freeze.adb (Warn_Overlay): Guard against blow up with address
+	clause.
+
+2015-02-20  Bob Duff  <duff@adacore.com>
+
+	* exp_attr.adb (May_Be_External_Call): Remove this. There is no need
+	for the compiler to guess whether the call is internal or external --
+	it is always external.
+	(Expand_Access_To_Protected_Op): For P'Access, where P
+	is a protected subprogram, always create a pointer to the
+	External_Subprogram.
+
+2015-02-20  Robert Dewar  <dewar@adacore.com>
+
+	* a-dispat.adb, a-stcoed.ads: Minor reformatting.
+
+2015-02-20  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch13.adb (Build_Discrete_Static_Predicate): Allow static
+	predicate for non-static subtype.
+	(Build_Predicate_Functions): Do not assume subtype associated with a
+	static predicate must be static.
+
+2015-02-20  Robert Dewar  <dewar@adacore.com>
+
+	* errout.adb (Set_Msg_Node): Better handling of internal names
+	(Set_Msg_Node): Kill message when we cannot eliminate internal name.
+	* errout.ads: Document additional case of message deletion.
+	* namet.adb (Is_Internal_Name): Refined to consider wide
+	strings in brackets notation and character literals not to be
+	internal names.
+	* sem_ch8.adb (Find_Selected_Component): Give additional error
+	when selector name is a subprogram whose first parameter has
+	the same type as the prefix, but that type is untagged.
+
+2015-02-20  Robert Dewar  <dewar@adacore.com>
+
+	* g-allein.ads, g-alveop.adb, g-alveop.ads, opt.ads: Minor reformatting
+
+2015-02-20  Tristan Gingold  <gingold@adacore.com>
+
+	* opt.ads (GNAT_Mode_Config): New variable.
+	* opt.adb (Set_Opt_Config_Switches): Consider GNAT_Mode_Config
+	to set Assertions_Enabled.
+	* switch-c.adb (Scan_Front_End_Switches): Set GNAT_Mode_Config
+	for -gnatg.
+
+2015-02-20  Robert Dewar  <dewar@adacore.com>
+
+	* s-valllu.ads (Scan_Raw_Long_Long_Unsigned): Add an additional
+	comment regarding the handling of unterminated fixed-point
+	constants.
+	* s-valuns.ads (Scan_Raw_Unsigned): Add comments
+	corresponding to those previously added for
+	System.Val_LLU.Scan_Raw_Long_Long_Unsigned.
+
+2015-02-20  Olivier Hainque  <hainque@adacore.com>
+
+	* g-allein.ads, g-alveop.ads, g-alveop.adb: Code clean ups.
+
+2015-02-20  Robert Dewar  <dewar@adacore.com>
+
+	* sem_prag.adb: Minor comment clarification.
+
+2015-02-20  Olivier Hainque  <hainque@adacore.com>
+
+	* g-allein.ads (vec_ctf, vec_vcsfx, vec_vcfux): Remove.
+	* g-alleve.ads, g-alleva.adb (vcfux): Likewise.
+	* g-alveop.ads (vec_vcfsx, vec_vcfux): Just rename the ll versions.
+	(vec_ctf): Now renamings as well.
+
+2015-02-20  Robert Dewar  <dewar@adacore.com>
+
+	* switch-c.adb, bindgen.adb: Minor reformatting.
+
+2015-02-20  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_prag.adb (Analyze_Pragma, case Type_Invariant):
+	Invariant'class is allowed on an abstract type.
+
+2015-02-20  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Access_Definition): If the access definition is
+	for a protected component and defines an access to protected
+	subprogram, do not create an itype reference for it because a
+	full type declaration will be built in order to generate the
+	proper equivalent type.
+	(Analyze_Subtype_Declaration): Add information of incomplete
+	subtypes, for Ada 2012 extended uses of incomplete types.
+
 2015-02-20  Gary Dismukes  <dismukes@adacore.com>
 
 	* sem_res.adb: Minor reformatting.
