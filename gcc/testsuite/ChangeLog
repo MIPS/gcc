@@ -1,3 +1,176 @@
+2015-02-26  Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/no-volatile-in-it.c: New test.
+
+2015-02-25  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/htm-builtin-1.c (dg-do) Change to assemble.
+	(dg-options): Add -save-temps.
+	(dg-final): Add cleanup-saved-temps.
+
+2015-02-25  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/htm-builtin-1.c: Fix tcheck expect value.
+
+2015-02-25  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/direct-move.h: Include string.h/stdlib.h.
+	* gcc.target/powerpc/pack01.c: Include string.h.
+
+2015-02-25  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/65167
+	* gcc.target/i386/pr65167.c: New.
+
+2015-02-25  Kai Tietz  <ktietz@redhat.com>
+
+	PR tree-optimization/61917
+	* gcc.dg/vect/vect-pr61917.c: New file.
+
+2015-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65170
+	* gcc.c-torture/execute/pr65170.c: New test.
+	* gcc.dg/tree-ssa/vrp96.c: New test.
+
+2015-02-24  Tom de Vries  <tom@codesourcery.com>
+
+	* gfortran.dg/readwrite_unf_direct_eor_1.f90: Add missing close.
+
+2015-02-24  Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/65126
+	* lib/gcc-defs.exp (additional_sources_used): Add new var.
+	(dg-additional-files-options): Copy additional_sources to
+	additional_sources_used before emptying additional_sources.
+	* lib/gcc-dg.exp (cleanup-coverage-files, cleanup-repo-files)
+	(cleanup-stack-usage, cleanup-ada-spec, cleanup-dump)
+	(cleanup-saved-temps): Use additional_sources_used instead of
+	additional_sources.
+	(dg-test): Reset additional_sources_used.
+
+2015-02-23  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR fortran/63427
+	* gfortran.dg/integer_exponentiation_6.F90: New test.
+
+2015-02-23  Martin Sebor  <msebor@redhat.com>
+
+	PR target/65109
+	* gcc.target/powerpc/ppc64-abi-1.c: Split test functions into
+	two parts.  One to save registers, the other to verify the
+	registers have the right values.  Save register state into
+	static data rather than on the stack.
+
+2015-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/63888
+	* c-c++-common/asan/pr63888.c: New test.
+
+2015-02-23  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/65163
+	* gcc.c-torture/compile/pr65163.c: New.
+
+2015-02-23  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.dg/hoist-register-pressure-1.c: Make S/390 target check work
+	with -m31 on 64 bit.
+	* gcc.dg/hoist-register-pressure-2.c: Likewise.
+	* gcc.dg/hoist-register-pressure-3.c: Likewise.
+
+2015-02-23  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/20090223-1.c: Add
+	-Wno-implicit-function-declaration option.
+	* gcc.target/s390/pr42224.c: Likewise.
+	* gcc.target/s390/pr55718.c: Likewise.
+
+2015-02-23  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/hotpatch-1.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-10.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-11.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-12.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-13.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-14.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-15.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-16.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-17.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-18.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-19.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-2.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-20.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-3.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-4.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-5.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-6.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-7.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-8.c: Remove --save-temps option.
+	* gcc.target/s390/hotpatch-9.c: Remove --save-temps option.
+	* gcc.target/s390/htm-nofloat-1.c: Cleanup --save-temps files.
+
+2015-02-23  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/hotpatch-8.c: Add -march=g5.
+	* gcc.target/s390/hotpatch-9.c: Add -march=g5.
+	* gcc.target/s390/hotpatch-compile-1.c: Fix error message.
+	* gcc.target/s390/hotpatch-compile-10.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-11.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-12.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-13.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-14.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-2.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-3.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-4.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-5.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-6.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-7.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-8.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-9.c: Likewise.
+
+2015-02-22  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR fortran/64980
+	PR fortran/61960
+	* gfortran.dg/pr61960.f90: New.
+	* gfortran.dg/pr64230.f90: New.
+	* gfortran.dg/pr64980.f03: New.
+
+2015-02-22  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/pr30957-1.c: Make pr30957-1.c pass rather xfail.
+
+2015-02-21  Arnaud Charlet  <charlet@adacore.com>
+
+	PR ada/65156
+	* gnat.dg/timing_events.adb: Removed, invalid test.
+
+2015-02-20  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR debug/58123
+	* g++.dg/debug/dwarf2/deallocator.C: Adjust for correct try
+	location.
+	* g++.dg/gcov/gcov-2.C: Likewise.
+
+2015-02-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/65136
+	* gcc.dg/tree-ssa/pr65136.c: New testcase.
+
+2015-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/64158
+	* gcc.dg/pr44194-1.c: Add two extra {} pairs to fix up powerpc*-*-linux*
+	and nvptx-*-* blacklisting.
+
+	* gcc.dg/sibcall-9.c: New test.
+	* gcc.dg/sibcall-10.c: New test.
+
+2015-02-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/sisd-shft-neg_1.c: New test.
+
 2015-02-20  Georg-Johann Lay  <avr@gjlay.de>
 
 	PR target/64452
