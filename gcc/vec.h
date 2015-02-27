@@ -1249,6 +1249,7 @@ public:
   void qsort (int (*) (const void *, const void *));
   T *bsearch (const void *key, int (*compar)(const void *, const void *));
   unsigned lower_bound (T, bool (*)(const T &, const T &)) const;
+  void swap (vec &other);
 
   bool using_auto_storage () const;
 
@@ -1274,6 +1275,33 @@ public:
     this->m_vec = &m_auto;
   }
 
+  explicit auto_vec (const auto_vec &other)
+  {
+      if (other.length () <= N)
+	{
+	  m_auto.embedded_init (MAX (N, 2), other.length (), 1);
+	  this->m_vec = &m_auto;
+	  if (other.length ())
+	    memcpy (this->address (), other.address (),
+		    other.length () * sizeof (T));
+	  return;
+	}
+
+      this->m_vec = other.m_vec->copy ();
+    }
+
+  auto_vec &
+  operator= (const auto_vec &other)
+  {
+    this->truncate (0);
+    this->safe_grow (other.length ());
+
+	if (this->length ())
+	  memcpy (this->address (), other.address (),
+		  this->length () * sizeof (T));
+	return *this;
+      }
+
   ~auto_vec ()
   {
     this->release ();
@@ -1291,7 +1319,23 @@ class auto_vec<T, 0> : public vec<T, va_heap>
 {
 public:
   auto_vec () { this->m_vec = NULL; }
-  auto_vec (size_t n) { this->create (n); }
+  explicit auto_vec (size_t n) { this->create (n); }
+  explicit auto_vec (const auto_vec &other)
+  {
+    this->m_vec = other.copy ().m_vec;
+    }
+  auto_vec &
+  operator= (const auto_vec &other)
+    {
+      this->truncate (0);
+      this->safe_grow (other.length ());
+
+      if (this->length ())
+	memcpy (this->address (), other.address (),
+		this->length () * sizeof (T));
+      return *this;
+    }
+
   ~auto_vec () { this->release (); }
 };
 
@@ -1740,6 +1784,42 @@ vec<T, va_heap, vl_ptr>::lower_bound (T obj,
 }
 
 template<typename T>
+void
+vec<T, va_heap, vl_ptr>::swap (vec<T> &other)
+{
+  std::swap (m_vec, other.m_vec);
+
+  if (!using_auto_storage () && !other.using_auto_storage ())
+    return;
+
+  if (!using_auto_storage ())
+    {
+      other.m_vec = other.m_vec->copy ();
+      return;
+    }
+
+  if (!other.using_auto_storage ())
+    {
+      m_vec = m_vec->copy ();
+      return;
+    }
+
+  if (m_vec->allocated () != other.m_vec->allocated ())
+    {
+      m_vec = m_vec->copy ();
+      other.m_vec = other.m_vec->copy ();
+      return;
+    }
+
+  std::swap (m_vec->m_alloc, other.m_vec->m_alloc);
+  std::swap (m_vec->m_num, other.m_vec->m_num);
+
+  size_t alloc = m_vec->allocated ();
+  for (size_t i = 0; i < alloc; i++)
+    std::swap ((*m_vec)[i], (*other.m_vec)[i]);
+}
+
+template<typename T>
 inline bool
 vec<T, va_heap, vl_ptr>::using_auto_storage () const
 {
@@ -1747,7 +1827,7 @@ vec<T, va_heap, vl_ptr>::using_auto_storage () const
 }
 
 #if (GCC_VERSION >= 3000)
-# pragma GCC poison m_vec m_vecpfx m_vecdata
+# pragma GCC poison m_vecpfx m_vecdata
 #endif
 
 #endif // GCC_VEC_H
