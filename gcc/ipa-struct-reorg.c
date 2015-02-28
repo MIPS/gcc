@@ -3823,6 +3823,87 @@ exclude_acc_dupls (void)
     }
 }
 
+/* Currently we support only EQ_EXPR or NE_EXPR conditions.
+   COND_STMT is a condition statement to check.  */
+
+static bool
+is_safe_cond_expr (gimple cond_stmt)
+{
+  tree arg0, arg1;
+  int str0, str1;
+  bool s0, s1;
+
+  if (gimple_cond_code (cond_stmt) != EQ_EXPR
+      && gimple_cond_code (cond_stmt) != NE_EXPR)
+    return false;
+
+  arg0 = gimple_cond_lhs (cond_stmt);
+  arg1 = gimple_cond_rhs (cond_stmt);
+
+  str0 = is_in_struct_symbols_vec (strip_type (get_type_of_var (arg0)));
+  str1 = is_in_struct_symbols_vec (strip_type (get_type_of_var (arg1)));
+
+  s0 = (str0 != -1) ? true : false;
+  s1 = (str1 != -1) ? true : false;
+
+  if (!s0 && !s1)
+    return false;
+
+  /* For now we allow only comparison with 0 or NULL.  */
+  if (!integer_zerop (arg0) && !integer_zerop (arg1))
+    return false;
+
+  return true;
+}
+
+/* This function checks whether an access statement, pointed by SLOT,
+   is a condition we are capable to transform.  It returns false if not,
+   setting bool *DATA to false.  */
+
+static int
+safe_cond_expr_check (void **slot, void *data)
+{
+  struct access_site *acc = *(struct access_site **) slot;
+
+  if (gimple_code (acc->stmt) == GIMPLE_COND
+      && !is_safe_cond_expr (acc->stmt))
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nUnsafe conditional statement ");
+	  print_gimple_stmt (dump_file, acc->stmt, 0, 0);
+	}
+      *(bool *) data = false;
+      return 0;
+    }
+  return 1;
+}
+
+/* This function checks whether the accesses of structures in conditional
+   expressions are of the kind we are capable to transform.
+   If not, such structures are removed from the vector of structures.  */
+
+static void
+check_cond_exprs (void)
+{
+  struct_symbols str;
+  unsigned i;
+
+  if (struct_symbols_vec.exists ())
+    {   
+      bool safe_p = true;
+
+      FOR_EACH_VEC_ELT (struct_symbols_vec, i, str)
+	{
+	  if (str->accs)
+	    htab_traverse (str->accs, safe_cond_expr_check, &safe_p);
+	  /* Conditional stmt is of the form we cannot tranform.  */
+	  if (!safe_p)	    
+	    gcc_assert (0);
+	}
+    }
+}
+
 /* This function collects accesses of structures in current function.  */
 
 static void
@@ -3837,7 +3918,7 @@ collect_data_accesses (void)
   FOR_EACH_BB_FN (bb, cfun)
     collect_accesses_in_bb (bb);
   exclude_acc_dupls ();
-
+  check_cond_exprs ();
   dump_accesses ();
 }
 
