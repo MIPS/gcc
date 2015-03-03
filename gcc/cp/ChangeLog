@@ -1,4 +1,21 @@
+2015-03-03  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR c++/65295
+	* constexpr.c (cxx_eval_constant_expression): Remove assert in
+	RESULT_DECL handling.
+
+2015-02-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65202
+	* constexpr.c (cxx_eval_constant_expression): Don't evaluate
+	a RETURN_EXPR if its operand is null.
+
 2015-02-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65209
+	* decl2.c (constrain_visibility) [VISIBILITY_ANON]: Clear
+	DECL_COMDAT.
+	(constrain_visibility_for_template): Handle reference arguments.
 
 	PR debug/58315
 	* decl.c (start_preparsed_function): Use create_artificial_label
