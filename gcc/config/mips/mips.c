@@ -3690,14 +3690,17 @@ mips_legitimize_const_move (machine_mode mode, rtx dest, rtx src)
 bool
 mips_legitimize_move (machine_mode mode, rtx dest, rtx src)
 {
-  if (!register_operand (dest, mode) && !register_operand (src, mode))
+  /* Both src and dest are non-registers;  one special case is supported where
+     the source is (const_int 0) and the store can source the zero register.
+     MIPS16 and MSA are never able to source the zero register directly in
+     memory operations.  */
+  if (!register_operand (dest, mode)
+      && !register_operand (src, mode)
+      && (TARGET_MIPS16 || !const_0_operand (src, mode)
+          || MSA_SUPPORTED_MODE_P (mode)))
     {
-      if (TARGET_MIPS16 || !const_0_operand (src, mode)
-	  || MSA_SUPPORTED_MODE_P (mode))
-      {
-	mips_emit_move (dest, force_reg (mode, src));
-	return true;
-      }
+      mips_emit_move (dest, force_reg (mode, src));
+      return true;
     }
 
   /* We need to deal with constants that would be legitimate
