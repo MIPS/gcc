@@ -7914,6 +7914,11 @@ ix86_pass_by_reference (cumulative_args_t cum_v, machine_mode mode,
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
 
+  /* Bounds are never passed by reference.  */
+  if ((type && POINTER_BOUNDS_TYPE_P (type))
+      || POINTER_BOUNDS_MODE_P (mode))
+    return false;
+
   /* See Windows x64 Software Convention.  */
   if (TARGET_64BIT && (cum ? cum->call_abi : ix86_abi) == MS_ABI)
     {
@@ -26792,7 +26797,11 @@ ix86_sched_reorder (FILE *dump, int sched_verbose, rtx_insn **ready,
       ready[n_ready - 1] = insn;
       return issue_rate;
     }
-  if (clock_var != 0 && swap_top_of_ready_list (ready, n_ready))
+
+  /* Skip selective scheduling since HID is not populated in it.  */
+  if (clock_var != 0
+      && !sel_sched_p ()
+      && swap_top_of_ready_list (ready, n_ready))
     {
       if (sched_verbose > 1)
 	fprintf (dump, ";;\tslm sched_reorder: swap %d and %d insns\n",
