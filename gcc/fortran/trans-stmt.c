@@ -1276,7 +1276,12 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 
       gfc_init_se (&se, NULL);
       se.descriptor_only = 1;
-      gfc_conv_expr (&se, e);
+      /* In a select type the (temporary) associate variable shall point to
+	 a standart fortran array (lower bound == 1), but conv_expr ()
+	 just maps to the input array in the class object, whose lbound may
+	 be arbitrary.  conv_expr_descriptor solves this by inserting a
+	 temporary array.  */
+      gfc_conv_expr_descriptor (&se, e);
 
       gcc_assert (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr))
 		  || GFC_ARRAY_TYPE_P (TREE_TYPE (se.expr)));
@@ -1304,7 +1309,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 			  gfc_get_dtype (TREE_TYPE (sym->backend_decl)));
 	}
 
-      gfc_add_init_cleanup (block, gfc_finish_block( &se.pre),
+      gfc_add_init_cleanup (block, gfc_finish_block (&se.pre),
 			    gfc_finish_block (&se.post));
     }
 
