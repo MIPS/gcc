@@ -90,7 +90,8 @@ contains
     if (any (lbound(ar) /= [1, 1])) call abort()
     select type (ar)
       type is (integer)
-        if (any (reshape(ar(1:2,1:3), [6]) .ne. [3, 4, 5, 5, 6, 7])) call abort()
+        if (any (reshape(ar(1:2,1:3), [6]) .ne. [3, 4, 5, 5, 6, 7])) &
+        call abort()
       class default
         call abort()
     end select
