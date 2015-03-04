@@ -1291,7 +1291,8 @@ inline_summary_t::duplicate (cgraph_node *src,
 	  set_hint_predicate (&info->array_index, p);
 	}
     }
-  inline_update_overall_summary (dst);
+  if (!dst->global.inlined_to)
+    inline_update_overall_summary (dst);
 }
 
 
@@ -3924,10 +3925,11 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
           continue;
 	}
 
-      if (e->caller == d->node
-	  || (e->caller->global.inlined_to
-	      && e->caller->global.inlined_to == d->node))
-	d->self_recursive = true;
+      if (e->recursive_p ())
+	{
+	  d->self_recursive = true;
+	  continue;
+	}
       d->growth += estimate_edge_growth (e);
     }
   return false;
@@ -4190,7 +4192,8 @@ inline_read_section (struct lto_file_decl_data *file_data, const char *data,
   unsigned int i, count2, j;
   unsigned int f_count;
 
-  lto_input_block ib ((const char *) data + main_offset, header->main_size);
+  lto_input_block ib ((const char *) data + main_offset, header->main_size,
+		      file_data->mode_table);
 
   data_in =
     lto_data_in_create (file_data, (const char *) data + string_offset,
