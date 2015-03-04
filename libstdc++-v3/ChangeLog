@@ -1,3 +1,31 @@
+2015-03-03  Iain Sandoe  <iain@codesourcery.com>
+
+	PR libstdc++/64883
+	* testsuite/17_intro/headers/c++1998/all_attributes.cc: Don't check
+	visibility for Darwin.
+	* testsuite/17_intro/headers/c++200x/all_attributes.cc: Likewise, and
+	also deprecated.
+	* testsuite/17_intro/headers/c++2014/all_attributes.cc: Likewise.
+
+2015-03-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/65279
+	* include/std/scoped_allocator (__inner_type_impl,
+	scoped_allocator_adaptor): Add defaulted copy assignment and move
+	assignment operators.
+	* testsuite/20_util/scoped_allocator/65279.cc: New.
+
+2015-03-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64367
+	* include/std/stdexcept (__sso_string): Don't use non-static member
+	in sizeof.
+
+2015-02-28  Matthias Klose  <doko@ubuntu.com>
+
+	PR libstdc++/65246
+	* python/libstdcxx/v6/__init__.py: Use explicit relative imports.
+
 2015-02-22  Jonathan Wakely  <jwakely@redhat.com>
 
 	* doc/xml/manual/status_cxx2011.xml: Remove duplicated information.
