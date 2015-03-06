@@ -149,8 +149,8 @@ tree
 gfc_class_vptr_get (tree decl)
 {
   tree vptr;
-  /* For class arrays decl may be a temporary array handle, the vptr then is
-     available through the saved descriptor.  */
+  /* For class arrays decl may be a temporary descriptor handle, the vptr is
+     then available through the saved descriptor.  */
   if (TREE_CODE (decl) == VAR_DECL && DECL_LANG_SPECIFIC (decl)
       && GFC_DECL_SAVED_DESCRIPTOR (decl))
     decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
@@ -168,8 +168,8 @@ tree
 gfc_class_len_get (tree decl)
 {
   tree len;
-  /* For class arrays decl may be a temporary array handle, the vptr then is
-     available through the saved descriptor.  */
+  /* For class arrays decl may be a temporary descriptor handle, the len is 
+     then available through the saved descriptor.  */
   if (TREE_CODE (decl) == VAR_DECL && DECL_LANG_SPECIFIC (decl)
       && GFC_DECL_SAVED_DESCRIPTOR (decl))
     decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
@@ -847,9 +847,10 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
       tree tmp2;
 
       cond = gfc_conv_expr_present (e->symtree->n.sym);
-      /* parmse->pre may contain some temporary array instructions.  Those must
-	 only be executed when the optional argument is set, therefore add them
-	 to block.  */
+      /* parmse->pre may contain some preparatory instructions for the
+ 	 temporary array descriptor.  Those may only be executed when the
+	 optional argument is set, therefore add parmse->pre's instructions
+	 to block, which is later guarded by an if (optional_arg_given).  */
       gfc_add_block_to_block (&parmse->pre, &block);
       block.head = parmse->pre.head;
       parmse->pre.head = NULL_TREE;
@@ -2223,8 +2224,8 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  /* And the case where a non-dummy, non-result, non-function,
 	     non-allotable and non-pointer classarray is present.  This case was
 	     previously covered by the first if, but with introducing the
-	     check non-classarray falls out there and has to be covered here
-	     explicilty.  */
+	     condition !is_classarray there, that case has to be covered
+	     explicitly.  */
 	  else if (sym->ts.type == BT_CLASS
 		   && !sym->attr.dummy
 		   && !sym->attr.function

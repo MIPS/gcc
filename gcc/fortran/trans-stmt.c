@@ -1280,7 +1280,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	 a standart fortran array (lower bound == 1), but conv_expr ()
 	 just maps to the input array in the class object, whose lbound may
 	 be arbitrary.  conv_expr_descriptor solves this by inserting a
-	 temporary array.  */
+	 temporary array descriptor.  */
       gfc_conv_expr_descriptor (&se, e);
 
       gcc_assert (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr))
