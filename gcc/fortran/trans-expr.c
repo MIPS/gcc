@@ -168,7 +168,7 @@ tree
 gfc_class_len_get (tree decl)
 {
   tree len;
-  /* For class arrays decl may be a temporary descriptor handle, the len is 
+  /* For class arrays decl may be a temporary descriptor handle, the len is
      then available through the saved descriptor.  */
   if (TREE_CODE (decl) == VAR_DECL && DECL_LANG_SPECIFIC (decl)
       && GFC_DECL_SAVED_DESCRIPTOR (decl))
