@@ -41,19 +41,29 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    object constructed before entering `main'.  */
 
 #if defined HAVE_LD_PIE
-#define GNU_USER_TARGET_STARTFILE_SPEC \
-  "%{!shared: %{pg|p|profile:gcrt1.o%s;pie:Scrt1.o%s;:crt1.o%s}} \
-   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s} \
-   %{fvtable-verify=none:%s; \
+#define FVTABLE_VERIFY_SPEC \
+  "%{fvtable-verify=none:%s; \
      fvtable-verify=preinit:vtv_start_preinit.o%s; \
      fvtable-verify=std:vtv_start.o%s}"
+#if defined ENABLE_DEFAULT_PIE
+#define GNU_USER_TARGET_STARTFILE_SPEC \
+  "%{!shared: %{pg|p|profile:gcrt1.o%s;: \
+    %{" PIE_SPEC ":Scrt1.o%s} %{" NO_PIE_SPEC ":crt1.o%s}}} \
+   crti.o%s %{static:crtbeginT.o%s;: %{shared:crtbeginS.o%s} \
+	      %{" PIE_SPEC ":crtbeginS.o%s} \
+	      %{" NO_PIE_SPEC ":crtbegin.o%s}}" \
+   FVTABLE_VERIFY_SPEC
+#else
+#define GNU_USER_TARGET_STARTFILE_SPEC \
+  "%{!shared: %{pg|p|profile:gcrt1.o%s;pie:Scrt1.o%s;:crt1.o%s}} \
+   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}" \
+   FVTABLE_VERIFY_SPEC
+#endif
 #else
 #define GNU_USER_TARGET_STARTFILE_SPEC \
   "%{!shared: %{pg|p|profile:gcrt1.o%s;:crt1.o%s}} \
-   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s} \
-   %{fvtable-verify=none:%s; \
-     fvtable-verify=preinit:vtv_start_preinit.o%s; \
-     fvtable-verify=std:vtv_start.o%s}"
+   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}" \
+   FVTABLE_VERIFY_SPEC
 #endif
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC GNU_USER_TARGET_STARTFILE_SPEC

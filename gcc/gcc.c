@@ -676,12 +676,20 @@ proper position among the other output files.  */
 #endif
 #endif
 
+#ifdef ENABLE_DEFAULT_PIE
+#define NO_PIE_SPEC	"no-pie|static"
+#define PIE_SPEC	NO_PIE_SPEC "|r|shared:;"
+#else
+#define PIE_SPEC "pie"
+#endif
+
 #ifndef LINK_PIE_SPEC
 #ifdef HAVE_LD_PIE
-#define LINK_PIE_SPEC "%{pie:-pie} "
+#define LD_PIE_SPEC "-pie"
 #else
-#define LINK_PIE_SPEC "%{pie:} "
+#define LD_PIE_SPEC ""
 #endif
+#define LINK_PIE_SPEC "%{no-pie:} " "%{" PIE_SPEC ":" LD_PIE_SPEC "} "
 #endif
 
 #ifndef LINK_BUILDID_SPEC
