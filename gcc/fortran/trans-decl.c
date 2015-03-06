@@ -1450,7 +1450,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       /* Returning the descriptor for dummy class arrays is hazardous, because
 	 some caller is expecting an expression to apply the component refs to.
 	 Therefore the descriptor is only created and stored in
-	 sym->backend_decl's GFC_DECL_SAVED_DESCRIPTOR.  The caller then is
+	 sym->backend_decl's GFC_DECL_SAVED_DESCRIPTOR.  The caller is then
 	 responsible to extract it from there, when the descriptor is
 	 desired.  */
       if (IS_CLASS_ARRAY (sym)
