@@ -4968,6 +4968,57 @@ gfc_trans_exit (gfc_code * code)
 }
 
 
+/* Search for the last _class ref in the chain of references of this expression
+   and cut the chain there.  After that copy the cut down expression to CUT.  */
+
+gfc_expr *
+find_and_cut_at_last_class_ref (gfc_expr *e)
+{
+  gfc_expr *base_expr;
+  gfc_ref *ref, *class_ref, *tail;
+
+  /* Find the last class reference.  */
+  class_ref = NULL;
+  for (ref = e->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_COMPONENT
+	  && ref->u.c.component->ts.type == BT_CLASS)
+	class_ref = ref;
+
+      if (ref->next == NULL)
+	break;
+    }
+
+  /* Remove and store all subsequent references after the
+   CLASS reference.  */
+  if (class_ref)
+    {
+      tail = class_ref->next;
+      class_ref->next = NULL;
+    }
+  else
+    {
+      tail = e->ref;
+      e->ref = NULL;
+    }
+
+  base_expr = gfc_expr_to_initialize (e);
+
+  /* Restore the original tail expression.  */
+  if (class_ref)
+    {
+      gfc_free_ref_list (class_ref->next);
+      class_ref->next = tail;
+    }
+  else
+    {
+      gfc_free_ref_list (e->ref);
+      e->ref = tail;
+    }
+  return base_expr;
+}
+
+
 /* Translate the ALLOCATE statement.  */
 
 tree
@@ -4987,9 +5038,9 @@ gfc_trans_allocate (gfc_code * code)
   tree memsz;
   tree expr3;
   tree slen3;
+  tree al_vptr, al_len;
   stmtblock_t block;
   stmtblock_t post;
-  gfc_expr *sz;
   gfc_se se_sz;
   tree class_expr;
   tree nelems;
@@ -4999,7 +5050,7 @@ gfc_trans_allocate (gfc_code * code)
   if (!code->ext.alloc.list)
     return NULL_TREE;
 
-  stat = tmp = memsz = NULL_TREE;
+  stat = tmp = memsz = al_vptr = al_len = NULL_TREE;
   label_errmsg = label_finish = errmsg = errlen = NULL_TREE;
 
   gfc_init_block (&block);
@@ -5039,11 +5090,38 @@ gfc_trans_allocate (gfc_code * code)
   for (al = code->ext.alloc.list; al != NULL; al = al->next)
     {
       expr = gfc_copy_expr (al->expr);
-
-      if (expr->ts.type == BT_CLASS)
-	gfc_add_data_component (expr);
-
       gfc_init_se (&se, NULL);
+
+      /* For class types prepare the expressions to ref the _vptr
+	 and the _len component.  The latter for unlimited polymorphic types
+	 only.  */
+      if (expr->ts.type == BT_CLASS)
+	{
+	  gfc_expr *expr_ref_vptr, *expr_ref_len;
+	  gfc_add_data_component (expr);
+	  /* Prep the vptr handle.  */
+	  expr_ref_vptr = gfc_copy_expr (al->expr);
+	  gfc_add_vptr_component (expr_ref_vptr);
+	  se.want_pointer = 1;
+	  gfc_conv_expr (&se, expr_ref_vptr);
+	  al_vptr = se.expr;
+	  se.want_pointer = 0;
+	  gfc_free_expr (expr_ref_vptr);
+	  /* Allocated unlimited polymorphic objects always have a _len
+	     component.  */
+	  if (UNLIMITED_POLY (al->expr))
+	    {
+	      expr_ref_len = gfc_copy_expr (al->expr);
+	      gfc_add_len_component (expr_ref_len);
+	      gfc_conv_expr (&se, expr_ref_len);
+	      al_len = se.expr;
+	      gfc_free_expr (expr_ref_len);
+	    }
+	  else
+	    al_len = NULL_TREE;
+	}
+      else
+	al_vptr = al_len = NULL_TREE;
 
       se.want_pointer = 1;
       se.descriptor_only = 1;
@@ -5094,13 +5172,37 @@ gfc_trans_allocate (gfc_code * code)
 	    {
 	      if (code->expr3->ts.type == BT_CLASS)
 		{
-		  sz = gfc_copy_expr (code->expr3);
-		  gfc_add_vptr_component (sz);
-		  gfc_add_size_component (sz);
+		  gfc_expr *e3;
+		  tree element_size;
+
+		  e3 = gfc_copy_expr (code->expr3);
+		  gfc_add_vptr_component (e3);
+		  gfc_add_size_component (e3);
 		  gfc_init_se (&se_sz, NULL);
-		  gfc_conv_expr (&se_sz, sz);
-		  gfc_free_expr (sz);
-		  memsz = se_sz.expr;
+		  gfc_conv_expr (&se_sz, e3);
+		  gfc_free_expr (e3);
+		  element_size = se_sz.expr;
+		  /* For unlimited polymorphic sources transporting a character
+		     array, i.e., expr3%_len != 0, the memsz is to be computed
+		     as expr3%_vptr%size * expr3%_len.  */
+		  if (UNLIMITED_POLY (code->expr3))
+		    {
+		      e3 = gfc_copy_expr (code->expr3);
+		      gfc_add_len_component (e3);
+		      gfc_conv_expr (&se_sz, e3);
+		      gfc_free_expr (e3);
+		      memsz = se_sz.expr;
+		      tmp = fold_build2_loc (input_location, MULT_EXPR,
+					     TREE_TYPE (element_size), memsz,
+					     element_size);
+		      memsz = fold_build3_loc (input_location, COND_EXPR,
+					       TREE_TYPE (element_size),
+					       fold_convert (boolean_type_node,
+							     memsz),
+					       tmp, element_size);
+		    }
+		  else
+		    memsz = element_size;
 		}
 	      else
 		memsz = TYPE_SIZE_UNIT (gfc_typenode_for_spec (&code->expr3->ts));
@@ -5167,10 +5269,9 @@ gfc_trans_allocate (gfc_code * code)
 			|| al->expr->ts.type == BT_CLASS)
 		       && expr->ts.u.derived->attr.unlimited_polymorphic)
 		{
-		  tmp = gfc_class_len_get (al->expr->symtree->n.sym->backend_decl);
-		  gfc_add_modify (&se.pre, tmp,
-				  fold_convert (TREE_TYPE (tmp),
-						memsz));
+		  gcc_assert (al_len);
+		  gfc_add_modify (&se.pre, al_len,
+				  fold_convert (TREE_TYPE (al_len), memsz));
 		}
 
 	      /* Convert to size in bytes, using the character KIND.  */
@@ -5264,50 +5365,16 @@ gfc_trans_allocate (gfc_code * code)
       e = gfc_copy_expr (al->expr);
       if (e->ts.type == BT_CLASS)
 	{
-	  gfc_expr *lhs, *rhs;
+	  gfc_expr *lhs, *rhs, *len_lhs = NULL;
 	  gfc_se lse;
-	  gfc_ref *ref, *class_ref, *tail;
 
-	  /* Find the last class reference.  */
-	  class_ref = NULL;
-	  for (ref = e->ref; ref; ref = ref->next)
+	  lhs = find_and_cut_at_last_class_ref (e);
+	  if (UNLIMITED_POLY (al->expr))
 	    {
-	      if (ref->type == REF_COMPONENT
-		  && ref->u.c.component->ts.type == BT_CLASS)
-		class_ref = ref;
-
-	      if (ref->next == NULL)
-		break;
+	      len_lhs = gfc_copy_expr (lhs);
+	      gfc_add_len_component (len_lhs);
 	    }
-
-	  /* Remove and store all subsequent references after the
-	     CLASS reference.  */
-	  if (class_ref)
-	    {
-	      tail = class_ref->next;
-	      class_ref->next = NULL;
-	    }
-	  else
-	    {
-	      tail = e->ref;
-	      e->ref = NULL;
-	    }
-
-	  lhs = gfc_expr_to_initialize (e);
 	  gfc_add_vptr_component (lhs);
-
-	  /* Remove the _vptr component and restore the original tail
-	     references.  */
-	  if (class_ref)
-	    {
-	      gfc_free_ref_list (class_ref->next);
-	      class_ref->next = tail;
-	    }
-	  else
-	    {
-	      gfc_free_ref_list (e->ref);
-	      e->ref = tail;
-	    }
 
 	  if (class_expr != NULL_TREE)
 	    {
@@ -5318,6 +5385,16 @@ gfc_trans_allocate (gfc_code * code)
 	      tmp = gfc_class_vptr_get (class_expr);
 	      gfc_add_modify (&block, lse.expr,
 			fold_convert (TREE_TYPE (lse.expr), tmp));
+	      /* Now add the al%_len = */
+	      if (len_lhs)
+		{
+		  gfc_se len_lse;
+		  gfc_init_se (&len_lse, NULL);
+		  gfc_conv_expr (&len_lse, len_lhs);
+		  tmp = gfc_class_len_get (class_expr);
+		  gfc_add_modify (&block, len_lse.expr,
+			    fold_convert (TREE_TYPE (len_lse.expr), tmp));
+		}
 	    }
 	  else if (code->expr3 && code->expr3->ts.type == BT_CLASS)
 	    {
@@ -5358,6 +5435,7 @@ gfc_trans_allocate (gfc_code * code)
 			fold_convert (TREE_TYPE (lse.expr), tmp));
 		}
 	    }
+	  gfc_free_expr (len_lhs);
 	  gfc_free_expr (lhs);
 	}
 
