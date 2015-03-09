@@ -18389,8 +18389,22 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
   /* Insert the nops between this instruction and the previous one.
      Each new nop takes us further from the last hilo hazard.  */
   *hilo_delay += nops;
-  while (nops-- > 0)
-    emit_insn_after (gen_hazard_nop (), after);
+  if (nops > 0)
+    {
+      while (after)
+	{
+	  rtx new_insn = NEXT_INSN (after);
+	  if (new_insn == 0
+	      || (!NOTE_P (new_insn) && !DEBUG_INSN_P (new_insn)
+		  && !BARRIER_P (new_insn))
+	      || NOTE_INSN_BASIC_BLOCK_P (new_insn))
+	    break;
+	  after = new_insn;
+	}
+
+      while (nops-- > 0)
+	emit_insn_after (gen_hazard_nop (), after);
+    }
 
   /* Set up the state for the next instruction.  */
   *hilo_delay += ninsns;

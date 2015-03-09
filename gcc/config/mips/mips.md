@@ -744,7 +744,12 @@
 
 	 (and (eq_attr "type" "mfhi,mflo")
 	      (not (match_test "ISA_HAS_HILO_INTERLOCKS")))
-	 (const_string "hilo")]
+	 (const_string "hilo")
+
+	 (and (eq_attr "type" "branch,jump,call")
+	      (not (match_test "TARGET_CB_NEVER"))
+	      (match_test "TARGET_FS"))
+	 (const_string "forbidden_slot")]
 	(const_string "none")))
 
 ;; Can the instruction be put into a delay slot?

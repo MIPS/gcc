@@ -477,3 +477,7 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
+
+mfs
+Target Report Var(TARGET_FS) Init(1)
+Force forbidden slot semantics on all branches
