@@ -20,6 +20,6 @@ template<typename Seq, typename Fn>
     }
 
 int main() {
-  all(vector<int>{0, 2}, true); // { dg-error "cannot call" }
+  all(vector<int>{0, 2}, true); // { dg-error "not|bool" }
 }
 

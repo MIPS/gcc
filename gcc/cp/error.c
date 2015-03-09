@@ -2696,28 +2696,37 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       pp_cxx_requires_expr (cxx_pp, t);
       break;
 
-    case EXPR_REQ:
-      pp_cxx_expr_requirement (cxx_pp, t);
+    case SIMPLE_REQ:
+      pp_cxx_simple_requirement (cxx_pp, t);
       break;
 
     case TYPE_REQ:
       pp_cxx_type_requirement (cxx_pp, t);
       break;
 
+    case COMPOUND_REQ:
+      pp_cxx_compound_requirement (cxx_pp, t);
+      break;
+
     case NESTED_REQ:
       pp_cxx_nested_requirement (cxx_pp, t);
       break;
 
-    case VALIDEXPR_EXPR:
-      pp_cxx_validexpr_expr (cxx_pp, t);
+    case PRED_CONSTR:
+      pp_cxx_ws_string (cxx_pp, "__pred");
+      dump_expr (cxx_pp, TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
       break;
 
-    case VALIDTYPE_EXPR:
-      pp_cxx_validtype_expr (cxx_pp, t);
+    case EXPR_CONSTR:
+    case TYPE_CONSTR:
+    case ICONV_CONSTR:
+    case DEDUCT_CONSTR:
+    case EXCEPT_CONSTR:
+    case PARM_CONSTR:
+    case CONJ_CONSTR:
+    case DISJ_CONSTR:
+      pp_cxx_constraint (cxx_pp, t);
       break;
-
-    case CONSTEXPR_EXPR:
-      pp_cxx_constexpr_expr (cxx_pp, t);
 
     case PLACEHOLDER_EXPR:
       pp_string (pp, M_("*this"));

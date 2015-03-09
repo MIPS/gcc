@@ -1,7 +1,5 @@
 // { dg-options "-std=c++1z" }
 
-#include <cassert>
-
 template<typename T>
   concept bool C() { return __is_class(T); }
 

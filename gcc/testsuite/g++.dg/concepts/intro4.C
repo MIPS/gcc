@@ -18,9 +18,9 @@ template<typename T, typename U = int>
   concept bool C5() { return __is_class(U); }
 
 C1{...A, B} void f1() {}; // { dg-error "no matching|wrong number" }
-C1{A} void f2() {} // { dg-error "match pack" }
-C2{A, B} void f3() {}; // { dg-error "match pack" }
-C3{...A} void f4() {}; // { dg-error "match pack" }
+C1{A} void f2() {} // { dg-error "cannot match pack|no matching concept" }
+C2{A, B} void f3() {}; // { dg-error "cannot match pack|no matching concept" }
+C3{...A} void f4() {}; // { dg-error "cannot match pack|no matching concept" }
 C4{A} void f5() {}; // { dg-error "no matching concept" }
 C5{A, B} void f6() {};
 

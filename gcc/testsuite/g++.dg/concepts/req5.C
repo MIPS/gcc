@@ -9,10 +9,10 @@ template<typename T> constexpr fool p1() { return {}; }
 template<typename T> constexpr fool p2() { return {}; }
 
 template<typename T>
-  concept bool C() { return p1<T>() && p2<T>(); }
+  concept bool C() { return p1<T>() && p2<T>(); } 
 
-template<C T> void f(T x) { }
+template<C T> void f(T x) { } // { dg-error "user-defined operator" }
 
 int main() {
-  f(0); // { dg-error "cannot call|predicate constraint" }
+  f(0); // { dg-error "not|bool" }
 }

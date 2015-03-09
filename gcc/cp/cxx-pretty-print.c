@@ -453,30 +453,6 @@ cxx_pretty_printer::primary_expression (tree t)
       pp_cxx_requires_expr (this, t);
       break;
 
-    case EXPR_REQ:
-      pp_cxx_expr_requirement (this, t);
-      break;
-
-    case TYPE_REQ:
-      pp_cxx_type_requirement (this, t);
-      break;
-
-    case NESTED_REQ:
-      pp_cxx_nested_requirement (this, t);
-      break;
-
-    case VALIDEXPR_EXPR:
-      pp_cxx_validexpr_expr (this, t);
-      break;
-
-    case VALIDTYPE_EXPR:
-      pp_cxx_validtype_expr (this, t);
-      break;
-
-    case CONSTEXPR_EXPR:
-      pp_cxx_constexpr_expr (this, t);
-      break;
-
     default:
       c_pretty_printer::primary_expression (t);
       break;
@@ -1091,9 +1067,6 @@ cxx_pretty_printer::expression (tree t)
     case TEMPLATE_TEMPLATE_PARM:
     case STMT_EXPR:
     case REQUIRES_EXPR:
-    case EXPR_REQ:
-    case TYPE_REQ:
-    case NESTED_REQ:
       primary_expression (t);
       break;
 
@@ -1186,6 +1159,18 @@ cxx_pretty_printer::expression (tree t)
       
     case LAMBDA_EXPR:
       pp_cxx_ws_string (this, "<lambda>");
+      break;
+
+    case PRED_CONSTR:
+    case EXPR_CONSTR:
+    case TYPE_CONSTR:
+    case ICONV_CONSTR:
+    case DEDUCT_CONSTR:
+    case EXCEPT_CONSTR:
+    case PARM_CONSTR:
+    case CONJ_CONSTR:
+    case DISJ_CONSTR:
+      pp_cxx_constraint (this, t);
       break;
 
     case PAREN_EXPR:
@@ -2549,24 +2534,60 @@ pp_cxx_trait_expression (cxx_pretty_printer *pp, tree t)
   pp_cxx_right_paren (pp);
 }
 
+// requires-clause:
+//    'requires' logical-or-expression
+void
+pp_cxx_requires_clause (cxx_pretty_printer *pp, tree t)
+{
+  if (!t)
+    return;
+  pp->padding = pp_before;
+  pp_cxx_ws_string (pp, "requires");
+  pp_space (pp);
+  pp->expression (t);
+}
+
+/* requirement:
+     simple-requirement
+     compound-requirement
+     type-requirement
+     nested-requirement */
+static void
+pp_cxx_requirement (cxx_pretty_printer *pp, tree t)
+{
+  switch (TREE_CODE (t))
+    {
+    case SIMPLE_REQ:
+      pp_cxx_simple_requirement (pp, t);
+      break;
+
+    case TYPE_REQ:
+      pp_cxx_type_requirement (pp, t);
+      break;
+
+    case COMPOUND_REQ:
+      pp_cxx_compound_requirement (pp, t);
+
+    case NESTED_REQ:
+      pp_cxx_nested_requirement (pp, t);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 // requirement-list:
 //    requirement
 //    requirement-list ';' requirement[opt]
 //
-// requirement:
-//    simple-requirement
-//    compound-requirement
-//    type-requirement
-//    nested-requirement
 static void
 pp_cxx_requirement_list (cxx_pretty_printer *pp, tree t)
 {
-  int n = 3;
   for (; t; t = TREE_CHAIN (t))
     {
-      pp_newline_and_indent (pp, n);
-      pp->expression (TREE_VALUE (t));
-      n = 0;
+      pp_newline_and_indent (pp, 3);
+      pp_cxx_requirement (pp, TREE_VALUE (t));
     }
   pp_newline_and_indent (pp, -3);
 }
@@ -2581,19 +2602,6 @@ pp_cxx_requirement_body (cxx_pretty_printer *pp, tree t)
   pp_cxx_right_brace (pp);
 }
 
-// requires-clause:
-//    'requires' logical-or-expression
-void
-pp_cxx_requires_clause (cxx_pretty_printer *pp, tree t)
-{
-  if (!t)
-    return;
-  pp->padding = pp_before;
-  pp_cxx_ws_string (pp, "requires");
-  pp_space (pp);
-  pp->expression (t);
-}
-
 // requires-expression:
 //    'requires' requirement-parameter-list requirement-body
 void
@@ -2601,108 +2609,51 @@ pp_cxx_requires_expr (cxx_pretty_printer *pp, tree t)
 {
   pp_cxx_ws_string (pp, "requires");
   pp_space (pp);
-  pp_cxx_parameter_declaration_clause (pp, TREE_OPERAND (t, 0));
+  if (TREE_OPERAND (t, 0))
+    pp_cxx_parameter_declaration_clause (pp, TREE_OPERAND (t, 0));
   pp_space (pp);
   pp_cxx_requirement_body (pp, TREE_OPERAND (t, 1));
 }
 
-// constraint-specifier:
-//    noexcept
-//    constexpr
-static void
-pp_cxx_constraint_specifier (cxx_pretty_printer *pp, tree t)
+/* simple-requirement:
+     expression ';' */
+void
+pp_cxx_simple_requirement (cxx_pretty_printer *pp, tree t)
 {
-  if (TREE_CODE (t) == NOEXCEPT_EXPR)
-    pp_cxx_ws_string (pp, "noexcept");
-  else if (TREE_CODE (t) == CONSTEXPR_EXPR)
-    pp_cxx_ws_string (pp, "constexpr");
-  else
-    gcc_unreachable ();
+  pp->expression (TREE_OPERAND (t, 0));
+  pp_cxx_semicolon (pp);
 }
 
-// compound-requirement:
-//    '{' expression '}' trailing-constraint-specifiers
-//
-// trailing-constraint-specifiers:
-//    constraint-specifiers-seq[opt] result-type-requirement[opt]
-//
-// result-type-requirement:
-//    '->' type-id
-static void
+/* type-requirement:
+     typename type-name ';' */
+void
+pp_cxx_type_requirement (cxx_pretty_printer *pp, tree t)
+{
+  pp->type_id (TREE_OPERAND (t, 0));
+  pp_cxx_semicolon (pp);
+}
+
+/* compound-requirement:
+     '{' expression '}' 'noexcept' [opt] trailing-return-type [opt] */
+void
 pp_cxx_compound_requirement (cxx_pretty_printer *pp, tree t)
 {
-  // Get the expression requirement.
-  tree ereq = TREE_OPERAND (t, 0);
-
-  // Find the tree node containing the result type requirement.
-  // Note that validtype requirements are implicit.
-  tree treq = TREE_CHAIN (ereq);
-  if (TREE_CODE (TREE_VALUE (treq)) == VALIDTYPE_EXPR)
-    treq = TREE_CHAIN (treq);
-
-  // Find tree nodes for any additional constraint specifiers.
-  tree spec1 = TREE_CHAIN (treq);
-  tree spec2 = spec1 ? TREE_CHAIN (spec1) : NULL_TREE;
-
-  // Pretty print the {expr} requirement
-  tree expr = TREE_OPERAND (TREE_VALUE (ereq), 0);
   pp_cxx_left_brace (pp);
-  pp->expression (expr);
+  pp->expression (TREE_OPERAND (t, 0));
   pp_cxx_right_brace (pp);
 
-  // Pretty constraint specifiers, if any.
-  if (spec1)
-    {
-      pp_space (pp);
-      pp_cxx_constraint_specifier (pp, TREE_VALUE (spec1));
-      if (spec2)
-        pp_cxx_constraint_specifier (pp, TREE_VALUE (spec2));
-    }
+  if (COMPOUND_REQ_NOEXCEPT_P (t))
+    pp_cxx_ws_string (pp, "noexcept");
 
-  // Pretty print the '-> type-id' part of the expression.
-  // Note that treq will contain a TRAIT_EXPR.
-  if (treq)
+  if (tree type = TREE_OPERAND (t, 1))
     {
-      tree type = TRAIT_EXPR_TYPE2 (TREE_VALUE (treq));
-      pp_space (pp);
-      pp_cxx_arrow (pp);
-      pp_space (pp);
+      pp_cxx_ws_string (pp, "->");
       pp->type_id (type);
     }
 }
 
-// simple-requirement:
-//    expression
-static void
-pp_cxx_simple_requirement (cxx_pretty_printer *pp, tree t)
-{
-  tree req = TREE_OPERAND (t, 0);
-  pp->expression (TREE_OPERAND (req, 0));
-}
-
-void
-pp_cxx_expr_requirement (cxx_pretty_printer *pp, tree t)
-{
-  tree reqs = TREE_OPERAND (t, 0);
-  if (TREE_CODE (reqs) == TREE_LIST)
-    pp_cxx_compound_requirement (pp, t);
-  else
-    pp_cxx_simple_requirement (pp, t);
-  pp_cxx_semicolon (pp);
-}
-
-// type-requirement:
-//    type-id
-void
-pp_cxx_type_requirement (cxx_pretty_printer *pp, tree t)
-{
-  tree req = TREE_OPERAND (t, 0);
-  pp->type_id (TREE_OPERAND (req, 0));
-  pp_cxx_semicolon (pp);
-}
-
-// nested requirement:
-//    'requires' logical-or-expression
+/* nested requirement:
+     'requires' constraint-expression */
 void
 pp_cxx_nested_requirement (cxx_pretty_printer *pp, tree t)
 {
@@ -2712,31 +2663,132 @@ pp_cxx_nested_requirement (cxx_pretty_printer *pp, tree t)
 }
 
 void
-pp_cxx_validexpr_expr (cxx_pretty_printer *pp, tree t)
+pp_cxx_predicate_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "__is_valid_expr");
-  pp_cxx_left_paren (pp);
+  pp_cxx_ws_string (pp, "__pred");
   pp->expression (TREE_OPERAND (t, 0));
-  pp_cxx_right_paren (pp);
 }
 
 void
-pp_cxx_validtype_expr (cxx_pretty_printer *pp, tree t)
+pp_cxx_expression_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "__is_valid_expr");
-  pp_cxx_left_paren (pp);
-  pp->type_id(TREE_OPERAND (t, 0));
-  pp_cxx_right_paren (pp);
+  pp_cxx_ws_string (pp, "__is_valid ");
+  pp_left_paren (pp);
+  pp->expression (TREE_OPERAND (t, 0)); 
+  pp_right_paren (pp);
 }
 
 void
-pp_cxx_constexpr_expr (cxx_pretty_printer *pp, tree t)
+pp_cxx_type_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "__is_valid_expr");
-  pp_cxx_left_paren (pp);
-  pp->expression (TREE_OPERAND (t, 0));
-  pp_cxx_right_paren (pp);
+  pp_cxx_ws_string (pp, "__is_valid ");
+  pp_left_paren (pp);
+  pp->expression (TREE_OPERAND (t, 0)); 
+  pp_right_paren (pp);
 }
+
+void
+pp_cxx_implicit_conversion_constraint (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_ws_string (pp, "__implicitly_convertible");
+  pp_left_paren (pp);
+  pp->expression (ICONV_CONSTR_EXPR (t));
+  pp->expression (ICONV_CONSTR_TYPE (t));
+  pp_right_paren (pp);
+}
+
+void
+pp_cxx_argument_deduction_constraint (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_ws_string (pp, "__deducible");
+  pp_left_paren (pp);
+  pp->expression (DEDUCT_CONSTR_EXPR (t));
+  pp->expression (DEDUCT_CONSTR_PATTERN (t));
+  pp_right_paren (pp);
+}
+
+void
+pp_cxx_exception_constraint (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_ws_string (pp, "noexcept");
+  pp_left_paren (pp);
+  pp->expression (TREE_OPERAND (t, 0));
+  pp_right_paren (pp);
+}
+
+void
+pp_cxx_parameterized_constraint (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_ws_string (pp, "\\...");
+  pp_left_paren (pp);
+  pp_cxx_parameter_declaration_clause (pp, PARM_CONSTR_PARMS (t));
+  pp_cxx_whitespace (pp);
+  pp_cxx_constraint (pp, PARM_CONSTR_OPERAND (t));
+  pp_right_paren (pp);
+}
+
+void
+pp_cxx_conjunction (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_constraint (pp, TREE_OPERAND (t, 0));
+  pp_cxx_ws_string (pp, "and");
+  pp_cxx_constraint (pp, TREE_OPERAND (t, 1));
+}
+
+void
+pp_cxx_disjunction (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_constraint (pp, TREE_OPERAND (t, 0));
+  pp_cxx_ws_string (pp, "or");
+  pp_cxx_constraint (pp, TREE_OPERAND (t, 1));
+}
+
+void
+pp_cxx_constraint (cxx_pretty_printer *pp, tree t)
+{
+  switch (TREE_CODE (t))
+    {
+    case PRED_CONSTR:
+      pp_cxx_predicate_constraint (pp, t);
+      break;
+
+    case EXPR_CONSTR:
+      pp_cxx_expression_constraint (pp, t);
+      break;
+
+    case TYPE_CONSTR:
+      pp_cxx_type_constraint (pp, t);
+      break;
+
+    case ICONV_CONSTR:
+      pp_cxx_implicit_conversion_constraint (pp, t);
+      break;
+
+    case DEDUCT_CONSTR:
+      pp_cxx_argument_deduction_constraint (pp, t);
+      break;
+
+    case EXCEPT_CONSTR:
+      pp_cxx_exception_constraint (pp, t);
+      break;
+
+    case PARM_CONSTR:
+      pp_cxx_parameterized_constraint (pp, t);
+      break;
+
+    case CONJ_CONSTR:
+      pp_cxx_conjunction (pp, t);
+      break;
+
+    case DISJ_CONSTR:
+      pp_cxx_disjunction (pp, t);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 
 
 typedef c_pretty_print_fn pp_fun;

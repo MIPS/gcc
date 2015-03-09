@@ -7,7 +7,7 @@ template<typename T>
   concept bool C1() { return X(); }
 
 template<C1 T>
-  void h(T) { } // { dg-error "not convertible" }
+  void h(T) { } // { dg-error "not|bool" }
 
 template<typename T>
   concept bool C2() { return X() == X(); } // OK

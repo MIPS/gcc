@@ -12,11 +12,11 @@ template<typename T>
 
 template<typename U>
   requires C1<U>()
-  void f1(U) { } // { dg-error "invalid constraint" }
+  void f1(U) { } // { dg-error "function call" }
 
 template<typename U>
   requires C2<U>
-  void f2(U) { } // { dg-error "invalid constraint" }
+  void f2(U) { } // { dg-error "invalid reference" }
 
 template<C3 T>  // { dg-error "not a type" }
   void f(T) { } // { dg-error "declared void" }

@@ -2440,7 +2440,7 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	    {
 	      next = OVL_CHAIN (fn);
               if (flag_concepts)
-                remove_constraints (fn);
+                remove_constraints (OVL_FUNCTION (fn));
 	      ggc_free (fn);
 	    }
 	}
@@ -2454,11 +2454,24 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 tree
 finish_template_variable (tree var)
 {
+  gcc_assert (TREE_CODE (var) == TEMPLATE_ID_EXPR);
   if (processing_template_decl)
     return var;
 
-  return instantiate_template (TREE_OPERAND (var, 0), TREE_OPERAND (var, 1),
-                               tf_error);
+  /* If a template-id refers to a specialization of a variable
+     concept, then the expression is true if and only if the
+     concept's constraints are satisfied by the given template
+     arguments.
+
+     NOTE: This is an extension of Concepts Lite TS that
+     allows constraints to be used in expressions. */
+  tree tmpl = TREE_OPERAND (var, 0);
+  tree args = TREE_OPERAND (var, 1);
+  tree decl = DECL_TEMPLATE_RESULT (tmpl);
+  if (flag_concepts && DECL_DECLARED_CONCEPT_P (decl))
+    return evaluate_variable_concept (decl, args);
+
+  return instantiate_template (tmpl, args, tf_error);
 }
 
 /* Finish a call to a postfix increment or decrement or EXPR.  (Which

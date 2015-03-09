@@ -1994,17 +1994,16 @@ add_function_candidate (struct z_candidate **candidates,
       reason = arity_rejection (first_arg, i + remaining, len);
     }
 
-  // Second, a constrained function is not viable if its constraints are not
-  // satisfied.
-  if (viable && flag_concepts) {
-    if (tree ci = get_constraints (fn)) {
-      if (!check_constraints (ci))
+  /* Second, for a function to be viable, it's constraints must be
+     satisfied. */
+  if (flag_concepts && viable) 
+    {
+      if (!constraints_satisfied_p (fn))
         {
           reason = constraint_failure (fn);
           viable = false;
         }
     }
-  }
 
   /* When looking for a function from a subobject from an implicit
      copy/move constructor/operator=, don't consider anything that takes (a
@@ -4124,7 +4123,29 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args, bool koenig_p,
          through flags so that later we can use it to decide whether to warn
          about peculiar null pointer conversion.  */
       if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
-        flags |= LOOKUP_EXPLICIT_TMPL_ARGS;
+        {
+          /* If overload resolution selects a specialization of a
+             function concept, the expression is true if the
+             constraints are satisfied and false otherwise. 
+
+             NOTE: This is an extension of Concepts Lite TS that
+             allows constraints to be used in expressions. */
+          if (flag_concepts)
+            {
+              tree tmpl = DECL_TI_TEMPLATE (cand->fn);
+              tree decl = DECL_TEMPLATE_RESULT (tmpl);
+              if (DECL_DECLARED_CONCEPT_P (decl))
+                {
+                  tree targs = DECL_TI_ARGS (cand->fn);
+                  tree eval = evaluate_function_concept (decl, targs);
+                  return eval;
+                }
+            }
+
+
+          flags |= LOOKUP_EXPLICIT_TMPL_ARGS;
+        }
+
       result = build_over_call (cand, flags, complain);
     }
 

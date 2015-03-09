@@ -1,3 +1,141 @@
+2015-03-03  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Rewrite to use new constraint model.
+	* gcc/cp/call.c (add_function_candidate): Use new constraint
+	checking interface.
+	(build_new_function_call): Evaluate concepts when selected
+	by overload resolution.
+	* gcc/cp/class.c (resolve_address_of_overloaded_function):
+	Use new constraint interface.
+	* gcc/cp/constexpr.c (cxx_eval_constant_expression): Don't 
+	try to constexpr evaluate a requires-expression.
+	(potential_constant_expression_1): Stop using old
+	requires/constraint features.
+	gcc/cp/constraint.cc: Much rewriting, reorganization, refactoring
+	to support new constraint/requirement terms.
+	(lift_function_definition): New. Factor lifting code out of
+	lift_call for reuse in evaluate_function_concept.
+	(lift_variable_intializer): New. Factor lifting code out of
+	lift_var for reuse in evaluate_variable_concept.
+	(lift_template_id): Restore checking code for mis-written
+	variable concepts.
+	(lift_requires_expr): Handle these separately.
+	(xform_*_requirement): New. Transform requires-expressions
+	into constraints.
+	(get/set/remove_constraints, decl_constraints): Move to
+	pt.c to allow for garbage collection.
+	(processing_constraint): Kill this global.
+	(diagnose_*): Update diagnostics to use the new constraint
+	interface.
+	* gcc/cp/cp-objcp-common.c (cp_common_init_ts): Remove typing
+	of old nodes.
+	* gcc/cp/cp-tree.def: Add new nodes for requirements and
+	constraints. Remove previous constraint/req nodes.
+	gcc/cp/cp-tree.h (COMPOUND_REQ_NOEXCEPT_P): New.
+	(ICONV_CONSTR_EXPR, ICONV_CONSTR_TYPE): Fix operands.
+	(constraint_p, make_predicate_constraint_p, valid_constraints_p): New.
+	(misc): Remove unused declarations.
+	gcc/cp/cxx-pretty-print.c: Reorganize/rewrite for new constraint
+	model.
+	(primary_expression, expression): Remove unused nodes, add options 
+	for constraints
+	gcc/cp/cxx-pretty-print.h: Declare new functions for pretty
+	printing.
+	gcc/cp/decl.c (duplicate_decls): Only reclaim when flag_concepts
+	is on.
+	(grokfndecl): Associate predicate constraints.
+	gcc/cp/decl2.c (mark_used): Don't instantiate concepts.
+	gcc/cp/error.c (dump_expr): Handle new constraints.
+	gcc/cp/method.c (implicitly_declare_fn): Use new constraint
+	interface.
+	gcc/cp/parser.c (make_call_declarator): Pass a requires-clause for
+	call declarators.
+	(cp_parser_type_name): Take a flag to indicate the presence of
+	a pre-parsed 'typename'.
+	(cp_parser_requires_expression): Move sentinel into function.
+	(cp_parser_type_requirement): Parse type requirements in accordance
+	with Concepts TS.
+	(cp_parser_compound_requirement): Parse compound requirements in
+	accordance with Concepts TS. Remove constexpr requirements.
+	(cp_parser_template_declaration_after_export): Associate
+	predicate constraints.
+	gcc/cp/pt.c (get_template_for_ordering): New. Extract a template
+	decl from a list of candidates.
+	(lookup_template_class_1): Use new constraint interface.
+	(tsubst_pack_conjunction): Build an expression, not constraints.
+	(tsubst_decl): Only associate constraints when substituting
+	through members.
+	(tsubst): Kill subst rules for old nodes.
+	(most_specialized_partial_spec): Save candidates correctly
+	in the presence of constraints.
+	(always_instantiate_p): Never always instantiate a concept.
+	(type_dependent_expression_p): Requires expressions have type bool.
+	(decl_constraints): Moved from constraint.cc, use hash_table
+	instead of hash_map.
+	gcc/cp/semantics.c (finish_call_expr): Remove constraints from
+	functions, not overload sets.
+	(finish_template_variable): Evaluate variable concepts by
+	determining satisfaction.
+	gcc/cp/typeck.c (cp_build_function_call_vec): Use new concept 
+	interface.
+	gcc/cp/testsuite/g++.dg/concepts/*: Update tests to match syntax,
+	diagnostics.
+	gcc/cp/testsuite/g++.dg/concepts/req1.C: Test requires-expression
+	with no parens.
+
+2015-02-25  Braden Obrzut  <admin@maniacsvault.net>
+
+	* gcc/cp/constraint.cc (lift_operands): New.
+	(lift_call): Lift operands on function calls and don't use
+	tsubst_constraint_expr.
+	(lift_var): Don't use tsubst_constraint_expr.
+	(lift_constraints): Use the returned number of operands for most nodes
+	and also lift from TREE_LISTs.
+
+2015-02-17  Braden Obrzut  <admin@maniacsvault.net>
+
+	* gcc/cp/constraint.cc (lift_call): Converted from normalize_call.
+	(lift_var): Converted from normalize_var.
+	(lift_template_id): Converted from normalize_template_id.
+	(lift_constraints): Implemented.
+
+2015-02-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* gcc/cp/cp-tree.h: (EXPR_CONSTR_EXPR, TYPE_CONSTR_TYPE): Fix 
+	typos in macro names.
+	* gcc/cp/constraint.cc: (check_constraint*): New. Rewrite the
+	constraint checking implementation so that it matches the
+	wording and rules in n4377.
+
+2015-02-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* gcc/cp/logic.cc: Rewrite to use new constraint model and
+	update formatting.
+	* gcc/cp/constraint.cc: Documentation and organization.
+
+2015-02-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* gcc/cp/cp-tree.h (is_constraint): Make static.
+
+2015-02-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Rewrite normalization in terms of constraints.
+	* gcc/cp/cp-tree.h (is_constraint): New.
+	* gcc/cp/constraint.cc (normalize_*): Rewrite the previous normalization
+	model so that it conforms with the specification. Normalization applies
+	to constraints. Transformation of expressions into constraints now
+	happens in two phases: lifting concept definitions, and the actual
+	transformation.
+	(tranform_expression, xform_*): New. Define transformation of 
+	expressions into constraints.
+	(lift_constraints): New. Stubbed out inlining function.
+
+2015-02-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Start refactoring constraints to match the specification.
+	* gcc/cp/cp-tree.def: Add new TREECODEs for constraints.
+	* gcc/cp/cp-tree.h: Add accessor macros for constraint operands.
+
 2015-02-05  Braden Obrzut  <admin@maniacsvault.net>
 
 	* gcc/cp/constexpr.c (potential_constant_expression_1): Readded missing

@@ -2730,6 +2730,15 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	}
       break;
 
+    case REQUIRES_EXPR:
+      /* A requires-expression appearing as the initializer of
+         variable concept is evaluated as a constant expression.
+         We can't actually evaluate it because we've defined
+         those to be instantiation dependent. */
+      gcc_assert (processing_template_decl);
+      *non_constant_p = true;
+      return t;
+
     default:
       internal_error ("unexpected expression %qE of kind %s", t,
 		      get_tree_code_name (TREE_CODE (t)));
@@ -3022,12 +3031,6 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
     case USING_DECL:
     case PLACEHOLDER_EXPR:
     case REQUIRES_EXPR:
-    case EXPR_REQ:
-    case TYPE_REQ:
-    case NESTED_REQ:
-    case VALIDEXPR_EXPR:
-    case VALIDTYPE_EXPR:
-    case CONSTEXPR_EXPR:
       return true;
 
     case AGGR_INIT_EXPR:

@@ -2604,9 +2604,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	snode->remove ();
     }
 
-  // Remove the associated constraints for newdecl, if any, before
-  // explicitly reclaiming memory.
-  remove_constraints (newdecl);
+  /* Remove the associated constraints for newdecl, if any, before
+     reclaiming memory. */
+  if (flag_concepts)
+    remove_constraints (newdecl);
 
   ggc_free (newdecl);
 
@@ -7678,13 +7679,18 @@ grokfndecl (tree ctype,
 
   decl = build_lang_decl (FUNCTION_DECL, declarator, type);
 
-  // Set the constraints on the declaration.
+  /* Set the constraints on the declaration. */
   if (flag_concepts)
     {
-      tree temp_reqs = NULL_TREE;
+      tree tmpl_reqs = NULL_TREE;
       if (processing_template_decl > template_class_depth (ctype))
-        temp_reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
-      tree ci = build_constraints (temp_reqs, decl_reqs);
+        tmpl_reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
+
+      /* Adjust the required expression into a constraint. */
+      if (decl_reqs)
+        decl_reqs = make_predicate_constraint (decl_reqs);
+
+      tree ci = build_constraints (tmpl_reqs, decl_reqs);
       set_constraints (decl, ci);
     }
 

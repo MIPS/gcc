@@ -1,7 +1,5 @@
 // { dg-options "-std=c++1z" }
 
-#include <cassert>
-
 template<typename T>
   concept bool Class () { return __is_class(T); }
 
@@ -19,3 +17,5 @@ int main() {
   f1(0); // { dg-error "cannot call" }
   f2((void*)0); // { dg-error "cannot call" }
 }
+
+// { dg-excess-errors "x|with" }
