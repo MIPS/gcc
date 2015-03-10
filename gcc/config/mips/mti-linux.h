@@ -18,16 +18,19 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 /* This target is a multilib target, specify the sysroot paths.  */
+
+#define MIPS_SYSVERSION_SPEC \
+    "%{mips32:r1}%{mips64:r1}%{mips32r2:r2}%{mips64r2:r2}%{mips32r6:r6}%{mips64r6:r6}%{mips16:-mips16}"
+
 #undef SYSROOT_SUFFIX_SPEC
-#if MIPS_ISA_DEFAULT == 33 /* mips32r2 is the default */
 #define SYSROOT_SUFFIX_SPEC \
-    "%{muclibc:/uclibc}%{mips32:/mips32}%{mips64:/mips64}%{mips64r2:/mips64r2}%{mips32r6:/mips32r6}%{mips64r6:/mips64r6}%{mips16:/mips16}%{mmicromips:/micromips}%{mabi=64:/64}%{mel|EL:/el}%{msoft-float:/sof}%{!mips32r6:%{!mips64r6:%{mnan=2008:/nan2008}}}"
-#elif MIPS_ISA_DEFAULT == 37 /* mips32r6 is the default */
-#define SYSROOT_SUFFIX_SPEC \
-    "%{muclibc:/uclibc}%{mips32:/mips32}%{mips64:/mips64}%{mips32r2:/mips32r2}%{mips64r2:/mips64r2}%{mips64r6:/mips64r6}%{mips16:/mips16}%{mmicromips:/micromips}%{mabi=64:/64}%{mel|EL:/el}%{msoft-float:/sof}%{!mips32r6:%{!mips64r6:%{mnan=2008:/nan2008}}}"
-#else /* Unexpected default ISA.  */
-#error No SYSROOT_SUFFIX_SPEC exists for this default ISA
-#endif
+    "/%{mmicromips:micro}mips%{mel|EL:el}-"MIPS_SYSVERSION_SPEC"%{msoft-float:-soft;:-hard}%{!mips32r6:%{!mips64r6:%{mnan=2008:-nan2008}}}
+
+#undef STARTFILE_PREFIX_SPEC
+#define STARTFILE_PREFIX_SPEC				\
+  "%{mabi=32: /usr/local/lib/ /lib/ /usr/lib/}		\
+   %{mabi=n32: /usr/local/lib32/ /lib32/ /usr/lib32/}	\
+   %{mabi=64: /usr/local/lib64/ /lib64/ /usr/lib64/}"
 
 #define SYSROOT_HEADERS_SUFFIX_SPEC "%{muclibc:/uclibc}"
 
