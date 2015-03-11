@@ -1,3 +1,12 @@
+2015-03-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from trunk:
+	2015-03-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/65242
+	* config/rs6000/rs6000.c (rs6000_preferred_reload_class): Do not
+	allow reloads of PLUS in floating point/VSX registers.
+
 2015-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Back port from trunk:
