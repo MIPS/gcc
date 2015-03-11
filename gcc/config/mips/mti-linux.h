@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef SYSROOT_SUFFIX_SPEC
 #define SYSROOT_SUFFIX_SPEC \
-    "/%{mmicromips:micro}mips%{mel|EL:el}-"MIPS_SYSVERSION_SPEC"%{msoft-float:-soft;:-hard}%{!mips32r6:%{!mips64r6:%{mnan=2008:-nan2008}}}
+    "/%{mmicromips:micro}mips%{mel|EL:el}-"MIPS_SYSVERSION_SPEC"%{msoft-float:-soft;:-hard}%{!mips32r6:%{!mips64r6:%{mnan=2008:-nan2008}}}"
 
 #undef STARTFILE_PREFIX_SPEC
 #define STARTFILE_PREFIX_SPEC				\
