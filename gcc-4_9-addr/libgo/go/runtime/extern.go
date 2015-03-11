@@ -187,3 +187,8 @@ const GOOS string = theGoos
 // GOARCH is the running program's architecture target:
 // 386, amd64, arm or arm64.
 const GOARCH string = theGoarch
+
+// GCCGOTOOLDIR is the path to the Tool Dir when built 
+// using gccgo
+const GCCGOTOOLDIR = theGccgoToolDir
+
