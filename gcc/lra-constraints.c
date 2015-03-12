@@ -1243,6 +1243,10 @@ static bool no_input_reloads_p, no_output_reloads_p;
    insn.  */
 static int curr_swapped;
 
+/* True if the current insn was changed because of equivalence
+   substitution.  */
+static bool curr_subst;
+
 /* Arrange for address element *LOC to be a register of class CL.
    Add any input reloads to list BEFORE.  AFTER is nonnull if *LOC is an
    automodified value; handle that case by adding the required output
@@ -2561,7 +2565,8 @@ process_alt_operands (int only_alternative)
 		  /* If it is a result of recent elimination in move
 		     insn we can transform it into an add still by
 		     using this alternative.  */
-		  && GET_CODE (no_subreg_reg_operand[1]) != PLUS)))
+		  && GET_CODE (no_subreg_reg_operand[1]) != PLUS
+		  && ! curr_subst)))
 	{
 	  /* We have a move insn and a new reload insn will be similar
 	     to the current insn.  We should avoid such situation as it
@@ -3370,6 +3375,7 @@ curr_insn_transform (void)
   best_reload_sum = 0;
 
   curr_swapped = false;
+  curr_subst = false;
   goal_alt_swapped = false;
 
   /* Make equivalence substitution and memory subreg elimination
@@ -3400,7 +3406,7 @@ curr_insn_transform (void)
 	      dump_value_slim (lra_dump_file, subst, 1);
 	      fprintf (lra_dump_file, "\n");
 	    }
-	  op_change_p = change_p = true;
+	  op_change_p = change_p = curr_subst = true;
 	}
       if (simplify_operand_subreg (i, GET_MODE (old)) || op_change_p)
 	{
