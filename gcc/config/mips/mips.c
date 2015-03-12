@@ -12976,7 +12976,7 @@ mips_move_to_gpr_cost (machine_mode mode, reg_class_t from)
 
     case FP_REGS:
       /* MFC1, etc.  */
-      return 4;
+      return INTEGRAL_MODE_P (mode) ? mips_cost->memory_latency + 1 : 4;
 
     case COP0_REGS:
     case COP2_REGS:
@@ -13009,7 +13009,7 @@ mips_move_from_gpr_cost (machine_mode mode, reg_class_t to)
 
     case FP_REGS:
       /* MTC1, etc.  */
-      return 4;
+      return INTEGRAL_MODE_P (mode) ? mips_cost->memory_latency + 1 : 4;
 
     case COP0_REGS:
     case COP2_REGS:
