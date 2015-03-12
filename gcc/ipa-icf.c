@@ -345,6 +345,20 @@ sem_item::compare_cgraph_references (
 {
   enum availability avail1, avail2;
 
+  if (n1 == n2)
+    return true;
+
+  /* Merging two definitions with a reference to equivalent vtables, but
+     belonging to a different type may result in ipa-polymorphic-call analysis
+     giving a wrong answer about the dynamic type of instance.  */
+  if (is_a <varpool_node *> (n1)
+      && (DECL_VIRTUAL_P (n1->decl) || DECL_VIRTUAL_P (n2->decl))
+      && (DECL_VIRTUAL_P (n1->decl) != DECL_VIRTUAL_P (n2->decl)
+	  || !types_must_be_same_for_odr (DECL_CONTEXT (n1->decl),
+					  DECL_CONTEXT (n2->decl))))
+    return return_false_with_msg
+	     ("references to virtual tables can not be merged");
+
   if (address && n1->equal_address_to (n2) == 1)
     return true;
   if (!address && n1->semantically_equivalent_p (n2))
@@ -392,6 +406,66 @@ sem_function::equals_wpa (sem_item *item,
   if (arg_types.length () != m_compared_func->arg_types.length ())
     return return_false_with_msg ("different number of arguments");
 
+  /* Compare special function DECL attributes.  */
+  if (DECL_FUNCTION_PERSONALITY (decl)
+      != DECL_FUNCTION_PERSONALITY (item->decl))
+    return return_false_with_msg ("function personalities are different");
+
+  if (DECL_DISREGARD_INLINE_LIMITS (decl)
+      != DECL_DISREGARD_INLINE_LIMITS (item->decl))
+    return return_false_with_msg ("DECL_DISREGARD_INLINE_LIMITS are different");
+
+  if (DECL_DECLARED_INLINE_P (decl) != DECL_DECLARED_INLINE_P (item->decl))
+    return return_false_with_msg ("inline attributes are different");
+
+  if (DECL_IS_OPERATOR_NEW (decl) != DECL_IS_OPERATOR_NEW (item->decl))
+    return return_false_with_msg ("operator new flags are different");
+
+  if (DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl)
+       != DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (item->decl))
+    return return_false_with_msg ("intrument function entry exit "
+				  "attributes are different");
+
+  if (DECL_NO_LIMIT_STACK (decl) != DECL_NO_LIMIT_STACK (item->decl))
+    return return_false_with_msg ("no stack limit attributes are different");
+
+  if (flags_from_decl_or_type (decl) != flags_from_decl_or_type (item->decl))
+    return return_false_with_msg ("decl_or_type flags are different");
+
+  /* Checking function TARGET and OPTIMIZATION flags.  */
+  cl_target_option *tar1 = target_opts_for_fn (decl);
+  cl_target_option *tar2 = target_opts_for_fn (item->decl);
+
+  if (tar1 != tar2 && !cl_target_option_eq (tar1, tar2))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "target flags difference");
+	  cl_target_option_print_diff (dump_file, 2, tar1, tar2);
+	}
+
+      return return_false_with_msg ("Target flags are different");
+    }
+
+  cl_optimization *opt1 = opts_for_fn (decl);
+  cl_optimization *opt2 = opts_for_fn (item->decl);
+
+  if (opt1 != opt2 && memcmp (opt1, opt2, sizeof(cl_optimization)))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "optimization flags difference");
+	  cl_optimization_print_diff (dump_file, 2, opt1, opt2);
+	}
+
+      return return_false_with_msg ("optimization flags are different");
+    }
+
+  /* Result type checking.  */
+  if (!func_checker::compatible_types_p (result_type,
+					 m_compared_func->result_type))
+    return return_false_with_msg ("result types are different");
+
   /* Checking types of arguments.  */
   for (unsigned i = 0; i < arg_types.length (); i++)
     {
@@ -407,15 +481,18 @@ sem_function::equals_wpa (sem_item *item,
 					     m_compared_func->arg_types[i],
 					     is_not_leaf, i == 0))
 	return return_false_with_msg ("argument type is different");
+      if (POINTER_TYPE_P (arg_types[i])
+	  && (TYPE_RESTRICT (arg_types[i])
+	      != TYPE_RESTRICT (m_compared_func->arg_types[i])))
+	return return_false_with_msg ("argument restrict flag mismatch");
     }
-
-  /* Result type checking.  */
-  if (!func_checker::compatible_types_p (result_type,
-					 m_compared_func->result_type))
-    return return_false_with_msg ("result types are different");
 
   if (node->num_references () != item->node->num_references ())
     return return_false_with_msg ("different number of references");
+
+  if (comp_type_attributes (TREE_TYPE (decl),
+			    TREE_TYPE (item->decl)) != 1)
+    return return_false_with_msg ("different type attributes");
 
   ipa_ref *ref = NULL, *ref2 = NULL;
   for (unsigned i = 0; node->iterate_reference (i, ref); i++)
@@ -497,45 +574,6 @@ sem_function::equals_private (sem_item *item,
 
   if (!equals_wpa (item, ignored_nodes))
     return false;
-
-  /* Checking function TARGET and OPTIMIZATION flags.  */
-  cl_target_option *tar1 = target_opts_for_fn (decl);
-  cl_target_option *tar2 = target_opts_for_fn (m_compared_func->decl);
-
-  if (tar1 != NULL && tar2 != NULL)
-    {
-      if (!cl_target_option_eq (tar1, tar2))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "target flags difference");
-	      cl_target_option_print_diff (dump_file, 2, tar1, tar2);
-	    }
-
-	  return return_false_with_msg ("Target flags are different");
-	}
-    }
-  else if (tar1 != NULL || tar2 != NULL)
-    return return_false_with_msg ("Target flags are different");
-
-  cl_optimization *opt1 = opts_for_fn (decl);
-  cl_optimization *opt2 = opts_for_fn (m_compared_func->decl);
-
-  if (opt1 != NULL && opt2 != NULL)
-    {
-      if (memcmp (opt1, opt2, sizeof(cl_optimization)))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "optimization flags difference");
-	      cl_optimization_print_diff (dump_file, 2, opt1, opt2);
-	    }
-
-	  return return_false_with_msg ("optimization flags are different");
-	}
-    }
-  else if (opt1 != NULL || opt2 != NULL)
-    return return_false_with_msg ("optimization flags are different");
 
   /* Checking function arguments.  */
   tree decl1 = DECL_ATTRIBUTES (decl);
@@ -631,30 +669,6 @@ sem_function::equals_private (sem_item *item,
   for (unsigned i = 0; i < bb_sorted.length (); i++)
     if (!compare_phi_node (bb_sorted[i]->bb, m_compared_func->bb_sorted[i]->bb))
       return return_false_with_msg ("PHI node comparison returns false");
-
-  /* Compare special function DECL attributes.  */
-  if (DECL_FUNCTION_PERSONALITY (decl) != DECL_FUNCTION_PERSONALITY (item->decl))
-    return return_false_with_msg ("function personalities are different");
-
-  if (DECL_DISREGARD_INLINE_LIMITS (decl) != DECL_DISREGARD_INLINE_LIMITS (item->decl))
-    return return_false_with_msg ("DECL_DISREGARD_INLINE_LIMITS are different");
-
-  if (DECL_DECLARED_INLINE_P (decl) != DECL_DECLARED_INLINE_P (item->decl))
-    return return_false_with_msg ("inline attributes are different");
-
-  if (DECL_IS_OPERATOR_NEW (decl) != DECL_IS_OPERATOR_NEW (item->decl))
-    return return_false_with_msg ("operator new flags are different");
-
-  if (DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl)
-       != DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (item->decl))
-    return return_false_with_msg ("intrument function entry exit "
-				  "attributes are different");
-
-  if (DECL_NO_LIMIT_STACK (decl) != DECL_NO_LIMIT_STACK (item->decl))
-    return return_false_with_msg ("no stack limit attributes are different");
-
-  if (flags_from_decl_or_type (decl) != flags_from_decl_or_type (item->decl))
-    return return_false_with_msg ("decl_or_type flags are different");
 
   return result;
 }
@@ -1458,6 +1472,18 @@ sem_variable::equals_wpa (sem_item *item,
 				      ref->referred, ref2->referred,
 				      ref->address_matters_p ()))
 	return false;
+
+      /* DECL_FINAL_P flag on methods referred by virtual tables is used
+	 to decide on completeness possible_polymorphic_call_targets lists
+	 and therefore it must match.  */
+      if ((DECL_VIRTUAL_P (decl) || DECL_VIRTUAL_P (item->decl))
+	  && (DECL_VIRTUAL_P (ref->referred->decl)
+	      || DECL_VIRTUAL_P (ref2->referred->decl))
+	  && ((DECL_VIRTUAL_P (ref->referred->decl)
+	       != DECL_VIRTUAL_P (ref2->referred->decl))
+	      || (DECL_FINAL_P (ref->referred->decl)
+		  != DECL_FINAL_P (ref2->referred->decl))))
+        return return_false_with_msg ("virtual or final flag mismatch");
     }
 
   return true;
@@ -1478,6 +1504,11 @@ sem_variable::equals (sem_item *item,
     dyn_cast <varpool_node *>(node)->get_constructor ();
   if (DECL_INITIAL (item->decl) == error_mark_node && in_lto_p)
     dyn_cast <varpool_node *>(item->node)->get_constructor ();
+
+  /* As seen in PR ipa/65303 we have to compare variables types.  */
+  if (!func_checker::compatible_types_p (TREE_TYPE (decl),
+					 TREE_TYPE (item->decl)))
+    return return_false_with_msg ("variables types are different");
 
   ret = sem_variable::equals (DECL_INITIAL (decl),
 			      DECL_INITIAL (item->node->decl));
