@@ -357,9 +357,12 @@ tree gfc_vtable_extends_get (tree);
 tree gfc_vtable_def_init_get (tree);
 tree gfc_vtable_copy_get (tree);
 tree gfc_vtable_final_get (tree);
+/* No gfc_vtab_* () access a vtab and not the class%_vptr's vtab.  These
+   routines are usefull, when a vtab is already present.  */
+tree gfc_vtab_size_get (tree vtab);
 tree gfc_get_vptr_from_expr (tree);
 tree gfc_get_class_array_ref (tree, tree);
-tree gfc_copy_class_to_class (tree, tree, tree);
+tree gfc_copy_class_to_class (tree, tree, tree, bool unlimited);
 bool gfc_add_finalizer_call (stmtblock_t *, gfc_expr *);
 bool gfc_add_comp_finalizer_call (stmtblock_t *, tree, gfc_component *, bool);
 

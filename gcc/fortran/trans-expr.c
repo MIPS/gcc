@@ -184,11 +184,9 @@ gfc_class_len_get (tree decl)
 
 
 static tree
-gfc_vtable_field_get (tree decl, int field)
+gfc_vtab_field_get (tree vptr, int field)
 {
   tree size;
-  tree vptr;
-  vptr = gfc_class_vptr_get (decl);
   vptr = build_fold_indirect_ref_loc (input_location, vptr);
   size = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (vptr)),
 			    field);
@@ -203,45 +201,61 @@ gfc_vtable_field_get (tree decl, int field)
 }
 
 
+static tree
+gfc_class_vptr_field_get (tree decl, int field)
+{
+  tree vptr;
+  vptr = gfc_class_vptr_get (decl);
+  return gfc_vtab_field_get (vptr, field);
+}
+
+
 tree
 gfc_vtable_hash_get (tree decl)
 {
-  return gfc_vtable_field_get (decl, VTABLE_HASH_FIELD);
+  return gfc_class_vptr_field_get (decl, VTABLE_HASH_FIELD);
 }
 
 
 tree
 gfc_vtable_size_get (tree decl)
 {
-  return gfc_vtable_field_get (decl, VTABLE_SIZE_FIELD);
+  return gfc_class_vptr_field_get (decl, VTABLE_SIZE_FIELD);
 }
 
 
 tree
 gfc_vtable_extends_get (tree decl)
 {
-  return gfc_vtable_field_get (decl, VTABLE_EXTENDS_FIELD);
+  return gfc_class_vptr_field_get (decl, VTABLE_EXTENDS_FIELD);
 }
 
 
 tree
 gfc_vtable_def_init_get (tree decl)
 {
-  return gfc_vtable_field_get (decl, VTABLE_DEF_INIT_FIELD);
+  return gfc_class_vptr_field_get (decl, VTABLE_DEF_INIT_FIELD);
 }
 
 
 tree
 gfc_vtable_copy_get (tree decl)
 {
-  return gfc_vtable_field_get (decl, VTABLE_COPY_FIELD);
+  return gfc_class_vptr_field_get (decl, VTABLE_COPY_FIELD);
 }
 
 
 tree
 gfc_vtable_final_get (tree decl)
 {
-  return gfc_vtable_field_get (decl, VTABLE_FINAL_FIELD);
+  return gfc_class_vptr_field_get (decl, VTABLE_FINAL_FIELD);
+}
+
+
+tree
+gfc_vtab_size_get (tree vtab)
+{
+  return gfc_vtab_field_get (vtab, VTABLE_SIZE_FIELD);
 }
 
 
@@ -912,22 +926,25 @@ gfc_get_class_array_ref (tree index, tree class_decl)
    that the _vptr is set.  */
 
 tree
-gfc_copy_class_to_class (tree from, tree to, tree nelems)
+gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 {
   tree fcn;
   tree fcn_type;
   tree from_data;
+  tree from_len;
   tree to_data;
+  tree to_len;
   tree to_ref;
   tree from_ref;
   vec<tree, va_gc> *args;
   tree tmp;
+  tree stdcopy;
+  tree extcopy;
   tree index;
-  stmtblock_t loopbody;
-  stmtblock_t body;
-  gfc_loopinfo loop;
 
   args = NULL;
+  /* To prevent warnings for uninitialization.  */
+  from_len = to_len = NULL_TREE;
 
   if (from != NULL_TREE)
     fcn = gfc_vtable_copy_get (from);
@@ -937,14 +954,36 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems)
   fcn_type = TREE_TYPE (TREE_TYPE (fcn));
 
   if (from != NULL_TREE)
-    from_data = gfc_class_data_get (from);
+      from_data = gfc_class_data_get (from);
   else
     from_data = gfc_vtable_def_init_get (to);
 
+  if (unlimited)
+    {
+      if (from != NULL_TREE && unlimited)
+	from_len = gfc_class_len_get (from);
+      else
+	{
+	  mpz_t len_zero;
+
+	  mpz_init (len_zero);
+	  mpz_set_ui (len_zero, 0);
+	  from_len = gfc_conv_mpz_to_tree (len_zero, gfc_index_integer_kind);
+	  mpz_clear (len_zero);
+	}
+    }
+
   to_data = gfc_class_data_get (to);
+  if (unlimited)
+    to_len = gfc_class_len_get (to);
 
   if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (to_data)))
     {
+      stmtblock_t loopbody;
+      stmtblock_t body;
+      stmtblock_t ifbody;
+      gfc_loopinfo loop;
+
       gfc_init_block (&body);
       tmp = fold_build2_loc (input_location, MINUS_EXPR,
 			     gfc_array_index_type, nelems,
@@ -976,8 +1015,41 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems)
       loop.loopvar[0] = index;
       loop.to[0] = nelems;
       gfc_trans_scalarizing_loops (&loop, &loopbody);
-      gfc_add_block_to_block (&body, &loop.pre);
-      tmp = gfc_finish_block (&body);
+      gfc_init_block (&ifbody);
+      gfc_add_block_to_block (&ifbody, &loop.pre);
+      stdcopy = gfc_finish_block (&ifbody);
+      if (unlimited)
+	{
+	  vec_safe_push (args, from_len);
+	  vec_safe_push (args, to_len);
+	  tmp = build_call_vec (fcn_type, fcn, args);
+	  /* Build the body of the loop.  */
+	  gfc_init_block (&loopbody);
+	  gfc_add_expr_to_block (&loopbody, tmp);
+
+	  /* Build the loop and return.  */
+	  gfc_init_loopinfo (&loop);
+	  loop.dimen = 1;
+	  loop.from[0] = gfc_index_zero_node;
+	  loop.loopvar[0] = index;
+	  loop.to[0] = nelems;
+	  gfc_trans_scalarizing_loops (&loop, &loopbody);
+	  gfc_init_block (&ifbody);
+	  gfc_add_block_to_block (&ifbody, &loop.pre);
+	  extcopy = gfc_finish_block (&ifbody);
+
+	  tmp = fold_build2_loc (input_location, GT_EXPR, boolean_type_node,
+				 from_len, integer_zero_node);
+	  tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node,
+				 tmp, extcopy, stdcopy);
+	  gfc_add_expr_to_block (&body, tmp);
+	  tmp = gfc_finish_block (&body);
+	}
+      else
+	{
+	  gfc_add_expr_to_block (&body, stdcopy);
+	  tmp = gfc_finish_block (&body);
+	}
       gfc_cleanup_loop (&loop);
     }
   else
@@ -985,7 +1057,20 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems)
       gcc_assert (!GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (from_data)));
       vec_safe_push (args, from_data);
       vec_safe_push (args, to_data);
-      tmp = build_call_vec (fcn_type, fcn, args);
+      stdcopy = build_call_vec (fcn_type, fcn, args);
+
+      if (unlimited)
+	{
+	  vec_safe_push (args, from_len);
+	  vec_safe_push (args, to_len);
+	  extcopy = build_call_vec (fcn_type, fcn, args);
+	  tmp = fold_build2_loc (input_location, GT_EXPR, boolean_type_node,
+				 from_len, integer_zero_node);
+	  tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node,
+				 tmp, extcopy, stdcopy);
+	}
+      else
+	tmp = stdcopy;
     }
 
   return tmp;

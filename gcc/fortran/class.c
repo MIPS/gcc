@@ -2562,13 +2562,19 @@ find_intrinsic_vtab (gfc_typespec *ts)
 	      c->attr.access = ACCESS_PRIVATE;
 
 	      /* Build a minimal expression to make use of
-		 target-memory.c/gfc_element_size for 'size'.  */
+		 target-memory.c/gfc_element_size for 'size'.  Special handling
+		 for character arrays, that are not constant sized: to support
+		 len(str)*kind, only the kind information is stored in the
+		 vtab.  */
 	      e = gfc_get_expr ();
 	      e->ts = *ts;
 	      e->expr_type = EXPR_VARIABLE;
 	      c->initializer = gfc_get_int_expr (gfc_default_integer_kind,
 						 NULL,
-						 (int)gfc_element_size (e));
+						 ts->type == BT_CHARACTER
+						 && charlen == 0 ?
+						   ts->kind :
+						   (int)gfc_element_size (e));
 	      gfc_free_expr (e);
 
 	      /* Add component _extends.  */
