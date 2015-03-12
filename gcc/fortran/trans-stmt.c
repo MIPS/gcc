@@ -5579,7 +5579,7 @@ gfc_trans_allocate (gfc_code * code)
 		 block, because al is unlimited polymorphic or a deferred length
 		 char array, whose copy routine needs the array length's as
 		 third and fourth arguments.  */
-	      if (al_len)
+	      if (al_len && UNLIMITED_POLY (code->expr3))
 		{
 		  tree stdcopy, extcopy;
 		  /* Add al%_len.  */
@@ -5590,8 +5590,8 @@ gfc_trans_allocate (gfc_code * code)
 		  /* Add expr3's length.  */
 		  last_arg->next = gfc_get_actual_arglist ();
 		  last_arg = last_arg->next;
-		  if (code->expr3->ts.type == BT_CLASS
-		      || code->expr3->ts.type == BT_DERIVED)
+		  if (code->expr3->ts.type == BT_CLASS/*
+		      || code->expr3->ts.type == BT_DERIVED*/)
 		    {
 		      last_arg->expr =
 			  find_and_cut_at_last_class_ref (code->expr3);
