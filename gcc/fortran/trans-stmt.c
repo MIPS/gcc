@@ -5598,10 +5598,8 @@ gfc_trans_allocate (gfc_code * code)
 		      gfc_add_len_component (last_arg->expr);
 		    }
 		  else if (code->expr3->ts.type == BT_CHARACTER)
-		    {
-		      /* Implementation missing !!!  */
-		      gcc_unreachable ();
-		    }
+		      last_arg->expr =
+			  gfc_copy_expr (code->expr3->ts.u.cl->length);
 		  else
 		    gcc_unreachable ();
 
