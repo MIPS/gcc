@@ -12,7 +12,7 @@ program test
 contains
 
   function convertType(in)
-    class(*), intent(in) :: in ! { dg-error "CLASS variable 'converttype' at \\(1\\) must be dummy, allocatable or pointer" }
+    class(*), intent(in) :: in ! { dg-error "must be dummy, allocatable or pointer" }
     class(*) :: convertType
   end function
 end program test
