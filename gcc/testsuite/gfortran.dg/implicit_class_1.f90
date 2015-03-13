@@ -4,6 +4,10 @@
 !
 ! Contributed by Reinhold Bader <Reinhold.Bader@lrz.de>
 
+! Add dump-tree-original to check, if the patch preventing a gfortran
+! segfault is working correctly.
+! { dg-options "-fdump-tree-original" }
+
 program upimp
   implicit class(foo) (a-b)
   implicit class(*) (c)
@@ -33,3 +37,5 @@ contains
     implicit class(*) (a-z)
   end
 end program
+
+! { dg-final { cleanup-tree-dump "original" } }
