@@ -1,3 +1,10 @@
+2015-03-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.fortran/fortran.exp (DG_TORTURE_OPTIONS): Add
+	-fno-var-tracking next to any -g usage.
+	* testsuite/libgomp.oacc-fortran/fortran.exp (DG_TORTURE_OPTIONS):
+	Likewise.
+
 2015-01-12  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* plugin/plugin-host.c [HOST_NONSHM_PLUGIN]: Don't include "libgomp.h".

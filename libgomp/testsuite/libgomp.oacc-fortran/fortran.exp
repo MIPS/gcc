@@ -23,6 +23,10 @@ dg-init
 # Turn on OpenACC.
 lappend ALWAYS_CFLAGS "additional_flags=-fopenacc"
 
+# TODO: for -g torture testing, disable variable tracking.
+# <http://news.gmane.org/find-root.php?message_id=%3C87mw429tfn.fsf%40kepler.schwinge.homeip.net%3E>.
+regsub -all -- { -g[^ ]*} $DG_TORTURE_OPTIONS {& -fno-var-tracking} DG_TORTURE_OPTIONS
+
 if { $blddir != "" } {
     set lang_source_re {^.*\.[fF](|90|95|03|08)$}
     set lang_include_flags "-fintrinsic-modules-path=${blddir}"
