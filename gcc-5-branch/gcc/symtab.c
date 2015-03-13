@@ -1156,7 +1156,11 @@ symtab_node::make_decl_local (void)
     return;
 
   if (TREE_CODE (decl) == VAR_DECL)
-    DECL_COMMON (decl) = 0;
+    {
+      DECL_COMMON (decl) = 0;
+      /* ADDRESSABLE flag is not defined for public symbols.  */
+      TREE_ADDRESSABLE (decl) = 1;
+    }
   else gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
 
   DECL_COMDAT (decl) = 0;
@@ -1513,6 +1517,19 @@ symtab_node::resolve_alias (symtab_node *target)
   /* If alias has address taken, so does the target.  */
   if (address_taken)
     target->ultimate_alias_target ()->address_taken = true;
+
+  /* All non-weakref aliases of THIS are now in fact aliases of TARGET.  */
+  ipa_ref *ref;
+  for (unsigned i = 0; iterate_direct_aliases (i, ref);)
+    {
+      struct symtab_node *alias_alias = ref->referring;
+      if (!alias_alias->weakref)
+	{
+	  alias_alias->remove_all_references ();
+	  alias_alias->create_reference (target, IPA_REF_ALIAS, NULL);
+	}
+      else i++;
+    }
   return true;
 }
 
@@ -1862,4 +1879,135 @@ symtab_node::call_for_symbol_and_aliases_1 (bool (*callback) (symtab_node *,
 	  return true;
     }
   return false;
+}
+
+/* Return ture if address of N is possibly compared.  */
+
+static bool
+address_matters_1 (symtab_node *n, void *)
+{
+  struct ipa_ref *ref;
+
+  if (!n->address_can_be_compared_p ())
+    return false;
+  if (n->externally_visible || n->force_output)
+    return true;
+
+  for (unsigned int i = 0; n->iterate_referring (i, ref); i++)
+    if (ref->address_matters_p ())
+      return true;
+  return false;
+}
+
+/* Return true if symbol's address may possibly be compared to other
+   symbol's address.  */
+
+bool
+symtab_node::address_matters_p ()
+{
+  gcc_assert (!alias);
+  return call_for_symbol_and_aliases (address_matters_1, NULL, true);
+}
+
+/* Return ture if symbol's alignment may be increased.  */
+
+bool
+symtab_node::can_increase_alignment_p (void)
+{
+  symtab_node *target = ultimate_alias_target ();
+
+  /* For now support only variables.  */
+  if (TREE_CODE (decl) != VAR_DECL)
+    return false;
+
+  /* With -fno-toplevel-reorder we may have already output the constant.  */
+  if (TREE_ASM_WRITTEN (target->decl))
+    return false;
+
+  /* If target is already placed in an anchor, we can not touch its
+     alignment.  */
+  if (DECL_RTL_SET_P (target->decl)
+      && MEM_P (DECL_RTL (target->decl))
+      && SYMBOL_REF_HAS_BLOCK_INFO_P (XEXP (DECL_RTL (target->decl), 0)))
+    return false;
+
+  /* Constant pool entries may be shared.  */
+  if (DECL_IN_CONSTANT_POOL (target->decl))
+    return false;
+
+  /* We cannot change alignment of symbols that may bind to symbols
+     in other translation unit that may contain a definition with lower
+     alignment.  */
+  if (!decl_binds_to_current_def_p (decl))
+    return false;
+
+  /* When compiling partition, be sure the symbol is not output by other
+     partition.  */
+  if (flag_ltrans
+      && (target->in_other_partition
+	  || target->get_partitioning_class () == SYMBOL_DUPLICATE))
+    return false;
+
+  /* Do not override the alignment as specified by the ABI when the used
+     attribute is set.  */
+  if (DECL_PRESERVE_P (decl) || DECL_PRESERVE_P (target->decl))
+    return false;
+
+  /* Do not override explicit alignment set by the user when an explicit
+     section name is also used.  This is a common idiom used by many
+     software projects.  */
+  if (DECL_SECTION_NAME (target->decl) != NULL && !target->implicit_section)
+    return false;
+
+  return true;
+}
+
+/* Worker for symtab_node::increase_alignment.  */
+
+static bool
+increase_alignment_1 (symtab_node *n, void *v)
+{
+  unsigned int align = (size_t)v;
+  if (DECL_ALIGN (n->decl) < align
+      && n->can_increase_alignment_p ())
+    {
+      DECL_ALIGN (n->decl) = align;
+      DECL_USER_ALIGN (n->decl) = 1;
+    }
+  return false;
+}
+
+/* Increase alignment of THIS to ALIGN.  */
+
+void
+symtab_node::increase_alignment (unsigned int align)
+{
+  gcc_assert (can_increase_alignment_p () && align < MAX_OFILE_ALIGNMENT);
+  ultimate_alias_target()->call_for_symbol_and_aliases (increase_alignment_1,
+						        (void *)(size_t) align,
+						        true);
+  gcc_assert (DECL_ALIGN (decl) >= align);
+}
+
+/* Helper for symtab_node::definition_alignment.  */
+
+static bool
+get_alignment_1 (symtab_node *n, void *v)
+{
+  *((unsigned int *)v) = MAX (*((unsigned int *)v), DECL_ALIGN (n->decl));
+  return false;
+}
+
+/* Return desired alignment of the definition.  This is NOT alignment useful
+   to access THIS, because THIS may be interposable and DECL_ALIGN should
+   be used instead.  It however must be guaranteed when output definition
+   of THIS.  */
+
+unsigned int
+symtab_node::definition_alignment ()
+{
+  unsigned int align = 0;
+  gcc_assert (!alias);
+  call_for_symbol_and_aliases (get_alignment_1, &align, true);
+  return align;
 }

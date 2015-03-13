@@ -258,8 +258,8 @@ public:
      When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
      skipped.  */
   bool call_for_symbol_and_aliases (bool (*callback) (symtab_node *, void *),
-				  void *data,
-				  bool include_overwrite);
+				    void *data,
+				    bool include_overwrite);
 
   /* If node can not be interposable by static or dynamic linker to point to
      different definition, return this symbol. Otherwise look for alias with
@@ -288,6 +288,18 @@ public:
 
   /* Make DECL local.  */
   void make_decl_local (void);
+
+  /* Return desired alignment of the definition.  This is NOT alignment useful
+     to access THIS, because THIS may be interposable and DECL_ALIGN should
+     be used instead.  It however must be guaranteed when output definition
+     of THIS.  */
+  unsigned int definition_alignment ();
+
+  /* Return true if alignment can be increased.  */
+  bool can_increase_alignment_p ();
+
+  /* Increase alignment of symbol to ALIGN.  */
+  void increase_alignment (unsigned int align);
 
   /* Return true if list contains an alias.  */
   bool has_aliases_p (void);
@@ -326,9 +338,6 @@ public:
   /* Return true if ONE and TWO are part of the same COMDAT group.  */
   inline bool in_same_comdat_group_p (symtab_node *target);
 
-  /* Return true when there is a reference to node and it is not vtable.  */
-  bool address_taken_from_non_vtable_p (void);
-
   /* Return true if symbol is known to be nonzero.  */
   bool nonzero_address ();
 
@@ -336,6 +345,15 @@ public:
      Return 1 if symbol is known to have same address as S2,
      return 2 otherwise.   */
   int equal_address_to (symtab_node *s2);
+
+  /* Return true if symbol's address may possibly be compared to other
+     symbol's address.  */
+  bool address_matters_p ();
+
+  /* Return true if NODE's address can be compared.  This use properties
+     of NODE only and does not look if the address is actually taken in
+     interesting way.  For that use ADDRESS_MATTERS_P instead.  */
+  bool address_can_be_compared_p (void);
 
   /* Return symbol table node associated with DECL, if any,
      and NULL otherwise.  */
@@ -770,6 +788,7 @@ struct cgraph_edge_hasher : ggc_hasher<cgraph_edge *>
   typedef gimple compare_type;
 
   static hashval_t hash (cgraph_edge *);
+  static hashval_t hash (gimple);
   static bool equal (cgraph_edge *, gimple);
 };
 
@@ -1092,16 +1111,23 @@ public:
      all uses of COMDAT function does not make it necessarily disappear from
      the program unless we are compiling whole program or we do LTO.  In this
      case we know we win since dynamic linking will not really discard the
-     linkonce section.  */
-  bool will_be_removed_from_program_if_no_direct_calls_p (void);
+     linkonce section.  
+
+     If WILL_INLINE is true, assume that function will be inlined into all the
+     direct calls.  */
+  bool will_be_removed_from_program_if_no_direct_calls_p
+	 (bool will_inline = false);
 
   /* Return true when function can be removed from callgraph
-     if all direct calls are eliminated.  */
+     if all direct calls and references are eliminated.  The function does
+     not take into account comdat groups.  */
   bool can_remove_if_no_direct_calls_and_refs_p (void);
 
   /* Return true when function cgraph_node and its aliases can be removed from
-     callgraph if all direct calls are eliminated.  */
-  bool can_remove_if_no_direct_calls_p (void);
+     callgraph if all direct calls are eliminated. 
+     If WILL_INLINE is true, assume that function will be inlined into all the
+     direct calls.  */
+  bool can_remove_if_no_direct_calls_p (bool will_inline = false);
 
   /* Return true when callgraph node is a function with Gimple body defined
      in current unit.  Functions can also be define externally or they
@@ -1181,12 +1207,6 @@ public:
      returns cgraph_node::get (DECL).  */
   static cgraph_node * create_same_body_alias (tree alias, tree decl);
 
-  /* Worker for cgraph_can_remove_if_no_direct_calls_p.  */
-  static bool used_from_object_file_p_worker (cgraph_node *node, void *)
-  {
-    return node->used_from_object_file_p ();
-  }
-
   /* Verify whole cgraph structure.  */
   static void DEBUG_FUNCTION verify_cgraph_nodes (void);
 
@@ -1197,6 +1217,9 @@ public:
      the function body is associated
      with (not necessarily cgraph_node (DECL).  */
   static cgraph_node *create_alias (tree alias, tree target);
+
+  /* Return true if NODE has thunk.  */
+  static bool has_thunk_p (cgraph_node *node, void *);
 
   cgraph_edge *callees;
   cgraph_edge *callers;
@@ -2727,6 +2750,7 @@ cgraph_node::only_called_directly_or_aliased_p (void)
 	  && !DECL_VIRTUAL_P (decl)
 	  && !DECL_STATIC_CONSTRUCTOR (decl)
 	  && !DECL_STATIC_DESTRUCTOR (decl)
+	  && !used_from_object_file_p ()
 	  && !externally_visible);
 }
 
@@ -3020,6 +3044,43 @@ varpool_node::call_for_symbol_and_aliases (bool (*callback) (varpool_node *,
   if (has_aliases_p ())
     return call_for_symbol_and_aliases_1 (callback, data, include_overwritable);
   return false;
+}
+
+/* Return true if NODE's address can be compared.  */
+
+inline bool
+symtab_node::address_can_be_compared_p ()
+{
+  /* Address of virtual tables and functions is never compared.  */
+  if (DECL_VIRTUAL_P (decl))
+    return false;
+  /* Address of C++ cdtors is never compared.  */
+  if (is_a <cgraph_node *> (this)
+      && (DECL_CXX_CONSTRUCTOR_P (decl)
+	  || DECL_CXX_DESTRUCTOR_P (decl)))
+    return false;
+  /* Constant pool symbols addresses are never compared.
+     flag_merge_constants permits us to assume the same on readonly vars.  */
+  if (is_a <varpool_node *> (this)
+      && (DECL_IN_CONSTANT_POOL (decl)
+	  || (flag_merge_constants >= 2
+	      && TREE_READONLY (decl) && !TREE_THIS_VOLATILE (decl))))
+    return false;
+  return true;
+}
+
+/* Return true if refernece may be used in address compare.  */
+
+inline bool
+ipa_ref::address_matters_p ()
+{
+  if (use != IPA_REF_ADDR)
+    return false;
+  /* Addresses taken from virtual tables are never compared.  */
+  if (is_a <varpool_node *> (referring)
+      && DECL_VIRTUAL_P (referring->decl))
+    return false;
+  return referred->address_can_be_compared_p ();
 }
 
 /* Build polymorphic call context for indirect call E.  */

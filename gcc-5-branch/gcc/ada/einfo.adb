@@ -79,7 +79,6 @@ package body Einfo is
    --    Hiding_Loop_Variable            Node8
    --    Mechanism                       Uint8 (but returns Mechanism_Type)
    --    Normalized_First_Bit            Uint8
-   --    Postcondition_Proc              Node8
    --    Refinement_Constituents         Elist8
    --    Return_Applies_To               Node8
    --    First_Exit_Statement            Node8
@@ -116,6 +115,7 @@ package body Einfo is
 
    --    Alignment                       Uint14
    --    Normalized_Position             Uint14
+   --    Postconditions_Proc             Node14
    --    Shadow_Entities                 List14
 
    --    Discriminant_Number             Uint15
@@ -213,6 +213,8 @@ package body Einfo is
    --    Stored_Constraint               Elist23
 
    --    Related_Expression              Node24
+   --    Uplevel_References              Elist24
+   --    Subps_Index                     Uint24
 
    --    Interface_Alias                 Node25
    --    Interfaces                      Elist25
@@ -250,6 +252,7 @@ package body Einfo is
 
    --    Derived_Type_Link               Node31
    --    Thunk_Entity                    Node31
+   --    Activation_Record_Component     Node31
 
    --    SPARK_Pragma                    Node32
    --    No_Tagged_Streams_Pragma        Node32
@@ -505,7 +508,7 @@ package body Einfo is
    --    Has_Pragma_Unreferenced_Objects Flag212
    --    Requires_Overriding             Flag213
    --    Has_RACW                        Flag214
-   --    Has_Up_Level_Access             Flag215
+   --    Has_Uplevel_Reference           Flag215
    --    Universal_Aliasing              Flag216
    --    Suppress_Value_Tracking_On_Call Flag217
    --    Is_Primitive                    Flag218
@@ -532,7 +535,7 @@ package body Einfo is
    --    Warnings_Off_Used_Unmodified    Flag237
    --    Warnings_Off_Used_Unreferenced  Flag238
    --    OK_To_Reorder_Components        Flag239
-   --    Has_Postconditions              Flag240
+   --    Has_Expanded_Contract           Flag240
 
    --    Optimize_Alignment_Space        Flag241
    --    Optimize_Alignment_Time         Flag242
@@ -578,14 +581,29 @@ package body Einfo is
    --    Contains_Ignored_Ghost_Code     Flag279
    --    Partial_View_Has_Unknown_Discr  Flag280
 
-   --    (unused)                        Flag281
-   --    (unused)                        Flag282
-   --    (unused)                        Flag283
+   --    Is_Static_Type                  Flag281
+   --    Has_Nested_Subprogram           Flag282
+   --    Uplevel_Reference_Noted         Flag283
+
    --    (unused)                        Flag284
    --    (unused)                        Flag285
    --    (unused)                        Flag286
+   --    (unused)                        Flag287
+   --    (unused)                        Flag288
+   --    (unused)                        Flag289
+   --    (unused)                        Flag300
 
-   --  Note: Flag287-317 are defined in atree.ads/adb, but not yet in atree.h
+   --    (unused)                        Flag301
+   --    (unused)                        Flag302
+   --    (unused)                        Flag303
+   --    (unused)                        Flag304
+   --    (unused)                        Flag305
+   --    (unused)                        Flag306
+   --    (unused)                        Flag307
+   --    (unused)                        Flag308
+   --    (unused)                        Flag309
+
+   --  Note: Flag310-317 are defined in atree.ads/adb, but not yet in atree.h
 
    -----------------------
    -- Local subprograms --
@@ -686,6 +704,17 @@ package body Einfo is
                                    E_Record_Subtype));
       return Elist16 (Implementation_Base_Type (Id));
    end Access_Disp_Table;
+
+   function Activation_Record_Component (Id : E) return E is
+   begin
+      pragma Assert (Ekind_In (Id, E_Constant,
+                                   E_In_Parameter,
+                                   E_In_Out_Parameter,
+                                   E_Loop_Parameter,
+                                   E_Out_Parameter,
+                                   E_Variable));
+      return Node31 (Id);
+   end Activation_Record_Component;
 
    function Actual_Subtype (Id : E) return E is
    begin
@@ -1456,6 +1485,12 @@ package body Einfo is
       return Flag47 (Id);
    end Has_Exit;
 
+   function Has_Expanded_Contract (Id : E) return B is
+   begin
+      pragma Assert (Is_Subprogram (Id));
+      return Flag240 (Id);
+   end Has_Expanded_Contract;
+
    function Has_Forward_Instantiation (Id : E) return B is
    begin
       return Flag175 (Id);
@@ -1538,6 +1573,12 @@ package body Einfo is
       return Flag101 (Id);
    end Has_Nested_Block_With_Handler;
 
+   function Has_Nested_Subprogram (Id : E) return B is
+   begin
+      pragma Assert (Is_Subprogram (Id));
+      return Flag282 (Id);
+   end Has_Nested_Subprogram;
+
    function Has_Non_Standard_Rep (Id : E) return B is
    begin
       return Flag75 (Implementation_Base_Type (Id));
@@ -1559,12 +1600,6 @@ package body Einfo is
    begin
       return Flag154 (Id);
    end Has_Per_Object_Constraint;
-
-   function Has_Postconditions (Id : E) return B is
-   begin
-      pragma Assert (Is_Subprogram (Id));
-      return Flag240 (Id);
-   end Has_Postconditions;
 
    function Has_Pragma_Controlled (Id : E) return B is
    begin
@@ -1786,12 +1821,10 @@ package body Einfo is
       return Flag72 (Id);
    end Has_Unknown_Discriminants;
 
-   function Has_Up_Level_Access (Id : E) return B is
+   function Has_Uplevel_Reference (Id : E) return B is
    begin
-      pragma Assert
-        (Ekind_In (Id, E_Variable, E_Constant, E_Loop_Parameter));
       return Flag215 (Id);
-   end Has_Up_Level_Access;
+   end Has_Uplevel_Reference;
 
    function Has_Visible_Refinement (Id : E) return B is
    begin
@@ -2376,6 +2409,12 @@ package body Einfo is
       return Flag60 (Id);
    end Is_Shared_Passive;
 
+   function Is_Static_Type (Id : E) return B is
+   begin
+      pragma Assert (Is_Type (Id));
+      return Flag281 (Id);
+   end Is_Static_Type;
+
    function Is_Statically_Allocated (Id : E) return B is
    begin
       return Flag28 (Id);
@@ -2750,11 +2789,14 @@ package body Einfo is
       return Elist15 (Id);
    end Pending_Access_Types;
 
-   function Postcondition_Proc (Id : E) return E is
+   function Postconditions_Proc (Id : E) return E is
    begin
-      pragma Assert (Ekind (Id) = E_Procedure);
-      return Node8 (Id);
-   end Postcondition_Proc;
+      pragma Assert (Ekind_In (Id, E_Entry,
+                                   E_Entry_Family,
+                                   E_Function,
+                                   E_Procedure));
+      return Node14 (Id);
+   end Postconditions_Proc;
 
    function PPC_Wrapper (Id : E) return E is
    begin
@@ -3124,6 +3166,12 @@ package body Einfo is
       return Node29 (Id);
    end Subprograms_For_Type;
 
+   function Subps_Index (Id : E) return U is
+   begin
+      pragma Assert (Is_Subprogram (Id));
+      return Uint24 (Id);
+   end Subps_Index;
+
    function Suppress_Elaboration_Warnings (Id : E) return B is
    begin
       return Flag148 (Id);
@@ -3184,6 +3232,17 @@ package body Einfo is
    begin
       return Node16 (Id);
    end Unset_Reference;
+
+   function Uplevel_Reference_Noted (Id : E) return B is
+   begin
+      return Flag283 (Id);
+   end Uplevel_Reference_Noted;
+
+   function Uplevel_References (Id : E) return L is
+   begin
+      pragma Assert (Is_Subprogram (Id));
+      return Elist24 (Id);
+   end Uplevel_References;
 
    function Used_As_Generic_Actual (Id : E) return B is
    begin
@@ -3506,6 +3565,17 @@ package body Einfo is
       pragma Assert (Is_Access_Type (Id) and then Is_Base_Type (Id));
       Set_Node22 (Id, V);
    end Set_Associated_Storage_Pool;
+
+   procedure Set_Activation_Record_Component (Id : E; V : E) is
+   begin
+      pragma Assert (Ekind_In (Id, E_Constant,
+                                   E_In_Parameter,
+                                   E_In_Out_Parameter,
+                                   E_Loop_Parameter,
+                                   E_Out_Parameter,
+                                   E_Variable));
+      Set_Node31 (Id, V);
+   end Set_Activation_Record_Component;
 
    procedure Set_Actual_Subtype (Id : E; V : E) is
    begin
@@ -4276,6 +4346,15 @@ package body Einfo is
       Set_Flag47 (Id, V);
    end Set_Has_Exit;
 
+   procedure Set_Has_Expanded_Contract (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind_In (Id, E_Entry,
+                                   E_Entry_Family,
+                                   E_Function,
+                                   E_Procedure));
+      Set_Flag240 (Id, V);
+   end Set_Has_Expanded_Contract;
+
    procedure Set_Has_Forward_Instantiation (Id : E; V : B := True) is
    begin
       Set_Flag175 (Id, V);
@@ -4359,11 +4438,16 @@ package body Einfo is
       Set_Flag101 (Id, V);
    end Set_Has_Nested_Block_With_Handler;
 
-   procedure Set_Has_Up_Level_Access (Id : E; V : B := True) is
+   procedure Set_Has_Nested_Subprogram (Id : E; V : B := True) is
    begin
-      pragma Assert (Ekind_In (Id, E_Variable, E_Constant, E_Loop_Parameter));
+      pragma Assert (Is_Subprogram (Id));
+      Set_Flag282 (Id, V);
+   end Set_Has_Nested_Subprogram;
+
+   procedure Set_Has_Uplevel_Reference (Id : E; V : B := True) is
+   begin
       Set_Flag215 (Id, V);
-   end Set_Has_Up_Level_Access;
+   end Set_Has_Uplevel_Reference;
 
    procedure Set_Has_Non_Standard_Rep (Id : E; V : B := True) is
    begin
@@ -4387,12 +4471,6 @@ package body Einfo is
    begin
       Set_Flag154 (Id, V);
    end Set_Has_Per_Object_Constraint;
-
-   procedure Set_Has_Postconditions (Id : E; V : B := True) is
-   begin
-      pragma Assert (Is_Subprogram (Id));
-      Set_Flag240 (Id, V);
-   end Set_Has_Postconditions;
 
    procedure Set_Has_Pragma_Controlled (Id : E; V : B := True) is
    begin
@@ -5264,6 +5342,12 @@ package body Einfo is
       Set_Flag60 (Id, V);
    end Set_Is_Shared_Passive;
 
+   procedure Set_Is_Static_Type (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Type (Id));
+      Set_Flag281 (Id, V);
+   end Set_Is_Static_Type;
+
    procedure Set_Is_Statically_Allocated (Id : E; V : B := True) is
    begin
       pragma Assert
@@ -5649,11 +5733,14 @@ package body Einfo is
       Set_Elist15 (Id, V);
    end Set_Pending_Access_Types;
 
-   procedure Set_Postcondition_Proc (Id : E; V : E) is
+   procedure Set_Postconditions_Proc (Id : E; V : E) is
    begin
-      pragma Assert (Ekind (Id) = E_Procedure);
-      Set_Node8 (Id, V);
-   end Set_Postcondition_Proc;
+      pragma Assert (Ekind_In (Id, E_Entry,
+                                   E_Entry_Family,
+                                   E_Function,
+                                   E_Procedure));
+      Set_Node14 (Id, V);
+   end Set_Postconditions_Proc;
 
    procedure Set_PPC_Wrapper (Id : E; V : E) is
    begin
@@ -6048,6 +6135,12 @@ package body Einfo is
       Set_Node29 (Id, V);
    end Set_Subprograms_For_Type;
 
+   procedure Set_Subps_Index (Id : E; V : U) is
+   begin
+      pragma Assert (Is_Subprogram (Id));
+      Set_Uint24 (Id, V);
+   end Set_Subps_Index;
+
    procedure Set_Suppress_Elaboration_Warnings (Id : E; V : B := True) is
    begin
       Set_Flag148 (Id, V);
@@ -6109,6 +6202,17 @@ package body Einfo is
    begin
       Set_Node16 (Id, V);
    end Set_Unset_Reference;
+
+   procedure Set_Uplevel_Reference_Noted (Id : E; V : B := True) is
+   begin
+      Set_Flag283 (Id, V);
+   end Set_Uplevel_Reference_Noted;
+
+   procedure Set_Uplevel_References (Id : E; V : L) is
+   begin
+      pragma Assert (Is_Subprogram (Id));
+      Set_Elist24 (Id, V);
+   end Set_Uplevel_References;
 
    procedure Set_Used_As_Generic_Actual (Id : E; V : B := True) is
    begin
@@ -6685,7 +6789,8 @@ package body Einfo is
 
    begin
       pragma Assert
-        (Is_Overloadable (Id)
+        (Is_Generic_Subprogram (Id)
+           or else Is_Overloadable (Id)
            or else Ekind_In (Id, E_Entry_Family,
                                  E_Subprogram_Body,
                                  E_Subprogram_Type));
@@ -6695,6 +6800,16 @@ package body Einfo is
 
       else
          Formal := First_Entity (Id);
+
+         --  The first/next entity chain of a generic subprogram contains all
+         --  generic formal parameters, followed by the formal parameters. Go
+         --  directly to the parameters by skipping the formal part.
+
+         if Is_Generic_Subprogram (Id) then
+            while Present (Formal) and then not Is_Formal (Formal) loop
+               Next_Entity (Formal);
+            end loop;
+         end if;
 
          if Present (Formal) and then Is_Formal (Formal) then
             return Formal;
@@ -6713,7 +6828,8 @@ package body Einfo is
 
    begin
       pragma Assert
-        (Is_Overloadable (Id)
+        (Is_Generic_Subprogram (Id)
+           or else Is_Overloadable (Id)
            or else Ekind_In (Id, E_Entry_Family,
                                  E_Subprogram_Body,
                                  E_Subprogram_Type));
@@ -6723,6 +6839,16 @@ package body Einfo is
 
       else
          Formal := First_Entity (Id);
+
+         --  The first/next entity chain of a generic subprogram contains all
+         --  generic formal parameters, followed by the formal parameters. Go
+         --  directly to the parameters by skipping the formal part.
+
+         if Is_Generic_Subprogram (Id) then
+            while Present (Formal) and then not Is_Formal (Formal) loop
+               Next_Entity (Formal);
+            end loop;
+         end if;
 
          if Present (Formal) and then Is_Formal (Formal) then
             return Formal;
@@ -7672,7 +7798,7 @@ package body Einfo is
 
       P := Id;
       loop
-         P := Next_Entity (P);
+         Next_Entity (P);
 
          if No (P) or else Is_Formal (P) then
             return P;
@@ -7754,8 +7880,8 @@ package body Einfo is
    --------------------
 
    function Number_Entries (Id : E) return Nat is
-      N      : Int;
-      Ent    : Entity_Id;
+      N   : Int;
+      Ent : Entity_Id;
 
    begin
       pragma Assert (Is_Concurrent_Type (Id));
@@ -8470,6 +8596,7 @@ package body Einfo is
       W ("Has_Dynamic_Predicate_Aspect",    Flag258 (Id));
       W ("Has_Enumeration_Rep_Clause",      Flag66  (Id));
       W ("Has_Exit",                        Flag47  (Id));
+      W ("Has_Expanded_Contract",           Flag240 (Id));
       W ("Has_Forward_Instantiation",       Flag175 (Id));
       W ("Has_Fully_Qualified_Name",        Flag173 (Id));
       W ("Has_Gigi_Rep_Item",               Flag82  (Id));
@@ -8485,11 +8612,11 @@ package body Einfo is
       W ("Has_Master_Entity",               Flag21  (Id));
       W ("Has_Missing_Return",              Flag142 (Id));
       W ("Has_Nested_Block_With_Handler",   Flag101 (Id));
+      W ("Has_Nested_Subprogram",           Flag282 (Id));
       W ("Has_Non_Standard_Rep",            Flag75  (Id));
       W ("Has_Out_Or_In_Out_Parameter",     Flag110 (Id));
       W ("Has_Object_Size_Clause",          Flag172 (Id));
       W ("Has_Per_Object_Constraint",       Flag154 (Id));
-      W ("Has_Postconditions",              Flag240 (Id));
       W ("Has_Pragma_Controlled",           Flag27  (Id));
       W ("Has_Pragma_Elaborate_Body",       Flag150 (Id));
       W ("Has_Pragma_Inline",               Flag157 (Id));
@@ -8530,7 +8657,7 @@ package body Einfo is
       W ("Has_Thunks",                      Flag228 (Id));
       W ("Has_Unchecked_Union",             Flag123 (Id));
       W ("Has_Unknown_Discriminants",       Flag72  (Id));
-      W ("Has_Up_Level_Access",             Flag215 (Id));
+      W ("Has_Uplevel_Reference",           Flag215 (Id));
       W ("Has_Visible_Refinement",          Flag263 (Id));
       W ("Has_Volatile_Components",         Flag87  (Id));
       W ("Has_Xref_Entry",                  Flag182 (Id));
@@ -8631,6 +8758,7 @@ package body Einfo is
       W ("Is_Return_Object",                Flag209 (Id));
       W ("Is_Safe_To_Reevaluate",           Flag249 (Id));
       W ("Is_Shared_Passive",               Flag60  (Id));
+      W ("Is_Static_Type",                  Flag281 (Id));
       W ("Is_Statically_Allocated",         Flag28  (Id));
       W ("Is_Tag",                          Flag78  (Id));
       W ("Is_Tagged_Type",                  Flag55  (Id));
@@ -8697,6 +8825,7 @@ package body Einfo is
       W ("Suppress_Value_Tracking_On_Call", Flag217 (Id));
       W ("Treat_As_Volatile",               Flag41  (Id));
       W ("Universal_Aliasing",              Flag216 (Id));
+      W ("Uplevel_Reference_Noted",         Flag283 (Id));
       W ("Used_As_Generic_Actual",          Flag222 (Id));
       W ("Uses_Sec_Stack",                  Flag95  (Id));
       W ("Warnings_Off",                    Flag96  (Id));
@@ -8881,9 +9010,6 @@ package body Einfo is
          when E_Component                                  |
               E_Discriminant                               =>
             Write_Str ("Normalized_First_Bit");
-
-         when E_Procedure                                  =>
-            Write_Str ("Postcondition_Proc");
 
          when E_Abstract_State                             =>
             Write_Str ("Refinement_Constituents");
@@ -9083,16 +9209,22 @@ package body Einfo is
               Formal_Kind                                  |
               E_Constant                                   |
               E_Exception                                  |
-              E_Variable                                   |
-              E_Loop_Parameter                             =>
+              E_Loop_Parameter                             |
+              E_Variable                                   =>
             Write_Str ("Alignment");
 
          when E_Component                                  |
               E_Discriminant                               =>
             Write_Str ("Normalized_Position");
 
-         when E_Package                                    |
-              E_Generic_Package                            =>
+         when E_Entry                                      |
+              E_Entry_Family                               |
+              E_Function                                   |
+              E_Procedure                                  =>
+            Write_Str ("Postconditions_Proc");
+
+         when E_Generic_Package                            |
+              E_Package                                    =>
             Write_Str ("Shadow_Entities");
 
          when others                                       =>
@@ -9604,6 +9736,15 @@ package body Einfo is
               Type_Kind                                    =>
             Write_Str ("Related_Expression");
 
+         when E_Function                                   |
+              E_Operator                                   |
+              E_Procedure                                  =>
+            if Field24 (Id) in Uint_Range then
+               Write_Str ("Subps_Index");
+            else
+               Write_Str ("Uplevel_References");
+            end if;
+
          when others                                       =>
             Write_Str ("Field24???");
       end case;
@@ -9811,6 +9952,14 @@ package body Einfo is
 
          when Type_Kind                                    =>
             Write_Str ("Derived_Type_Link");
+
+         when E_Constant                                   |
+              E_In_Parameter                               |
+              E_In_Out_Parameter                           |
+              E_Loop_Parameter                             |
+              E_Out_Parameter                              |
+              E_Variable                                   =>
+            Write_Str ("Activation_Record_Component");
 
          when others                                       =>
             Write_Str ("Field31??");
