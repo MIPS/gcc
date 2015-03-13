@@ -3211,6 +3211,10 @@ rs6000_option_override_internal (bool global_init_p)
     = ((global_init_p || target_option_default_node == NULL)
        ? NULL : TREE_TARGET_OPTION (target_option_default_node));
 
+  /* Print defaults.  */
+  if ((TARGET_DEBUG_REG || TARGET_DEBUG_TARGET) && global_init_p)
+    rs6000_print_isa_options (stderr, 0, "TARGET_DEFAULT", TARGET_DEFAULT);
+
   /* Remember the explicit arguments.  */
   if (global_init_p)
     rs6000_isa_flags_explicit = global_options_set.x_rs6000_isa_flags;
@@ -3287,7 +3291,13 @@ rs6000_option_override_internal (bool global_init_p)
     }
   else
     {
-      const char *default_cpu = (TARGET_POWERPC64 ? "powerpc64" : "powerpc");
+      /* PowerPC 64-bit LE requires at least ISA 2.07.  */
+      const char *default_cpu = ((!TARGET_POWERPC64)
+				 ? "powerpc"
+				 : ((BYTES_BIG_ENDIAN)
+				    ? "powerpc64"
+				    : "powerpc64le"));
+
       rs6000_cpu_index = cpu_index = rs6000_cpu_name_lookup (default_cpu);
       have_cpu = false;
     }
@@ -3306,15 +3316,18 @@ rs6000_option_override_internal (bool global_init_p)
 			   & set_masks);
     }
   else
-    rs6000_isa_flags |= (processor_target_table[cpu_index].target_enable
-			 & ~rs6000_isa_flags_explicit);
+    {
+      /* If no -mcpu=<xxx>, inherit any default options that were cleared via
+	 POWERPC_MASKS.  Originally, TARGET_DEFAULT was used to initialize
+	 target_flags via the TARGET_DEFAULT_TARGET_FLAGS hook.  When we switched
+	 to using rs6000_isa_flags, we need to do the initialization here.
 
-  /* If no -mcpu=<xxx>, inherit any default options that were cleared via
-     POWERPC_MASKS.  Originally, TARGET_DEFAULT was used to initialize
-     target_flags via the TARGET_DEFAULT_TARGET_FLAGS hook.  When we switched
-     to using rs6000_isa_flags, we need to do the initialization here.  */
-  if (!have_cpu)
-    rs6000_isa_flags |= (TARGET_DEFAULT & ~rs6000_isa_flags_explicit);
+	 If there is a TARGET_DEFAULT, use that.  Otherwise fall back to using
+	 -mcpu=powerpc, -mcpu=powerpc64, or -mcpu=powerpc64le defaults.  */
+      HOST_WIDE_INT flags = ((TARGET_DEFAULT) ? TARGET_DEFAULT
+			     : processor_target_table[cpu_index].target_enable);
+      rs6000_isa_flags |= (flags & ~rs6000_isa_flags_explicit);
+    }
 
   if (rs6000_tune_index >= 0)
     tune_index = rs6000_tune_index;
@@ -4214,12 +4227,8 @@ rs6000_option_override_internal (bool global_init_p)
      target_flags.  */
   rs6000_builtin_mask = rs6000_builtin_mask_calculate ();
   if (TARGET_DEBUG_BUILTIN || TARGET_DEBUG_TARGET)
-    {
-      fprintf (stderr,
-	       "new builtin mask = " HOST_WIDE_INT_PRINT_HEX ", ",
-	       rs6000_builtin_mask);
-      rs6000_print_builtin_options (stderr, 0, NULL, rs6000_builtin_mask);
-    }
+    rs6000_print_builtin_options (stderr, 0, "builtin mask",
+				  rs6000_builtin_mask);
 
   /* Initialize all of the registers.  */
   rs6000_init_hard_regno_mode_ok (global_init_p);
@@ -17636,8 +17645,10 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
   machine_mode mode = GET_MODE (x);
   bool is_constant = CONSTANT_P (x);
 
-  /* Do VSX tests before handling traditional floaitng point registers.  */
-  if (TARGET_VSX && VSX_REG_CLASS_P (rclass))
+  /* For VSX, see if we should prefer FLOAT_REGS or ALTIVEC_REGS.  Do not allow
+     the reloading of address expressions using PLUS into floating point
+     registers.  */
+  if (TARGET_VSX && VSX_REG_CLASS_P (rclass) && GET_CODE (x) != PLUS)
     {
       if (is_constant)
 	{
@@ -27172,25 +27183,21 @@ get_memref_parts (rtx mem, rtx *base, HOST_WIDE_INT *offset,
   else
     return false;
 
-  if (GET_CODE (XEXP (mem, 0)) == PRE_MODIFY)
-    addr_rtx = XEXP (XEXP (mem, 0), 1);
-  else
-    addr_rtx = (XEXP (mem, 0));
+  addr_rtx = (XEXP (mem, 0));
+  if (GET_CODE (addr_rtx) == PRE_MODIFY)
+    addr_rtx = XEXP (addr_rtx, 1);
 
-  if (GET_CODE (addr_rtx) == REG)
+  *offset = 0;
+  while (GET_CODE (addr_rtx) == PLUS
+	 && CONST_INT_P (XEXP (addr_rtx, 1)))
     {
-      *base = addr_rtx;
-      *offset = 0;
+      *offset += INTVAL (XEXP (addr_rtx, 1));
+      addr_rtx = XEXP (addr_rtx, 0);
     }
-  else if (GET_CODE (addr_rtx) == PLUS
-	   && CONST_INT_P (XEXP (addr_rtx, 1)))
-    {
-      *base = XEXP (addr_rtx, 0);
-      *offset = INTVAL (XEXP (addr_rtx, 1));
-    }
-  else
+  if (!REG_P (addr_rtx))
     return false;
 
+  *base = addr_rtx;
   return true;
 }
 
@@ -34785,7 +34792,7 @@ rs6000_analyze_swaps (function *fun)
 		    mode = V4SImode;
 		}
 
-	      if (VECTOR_MODE_P (mode))
+	      if (VECTOR_MODE_P (mode) || mode == TImode)
 		{
 		  insn_entry[uid].is_relevant = 1;
 		  if (mode == TImode || mode == V1TImode)
@@ -34812,7 +34819,7 @@ rs6000_analyze_swaps (function *fun)
 		  && VECTOR_MODE_P (GET_MODE (SET_DEST (insn))))
 		mode = GET_MODE (SET_DEST (insn));
 
-	      if (VECTOR_MODE_P (mode))
+	      if (VECTOR_MODE_P (mode) || mode == TImode)
 		{
 		  insn_entry[uid].is_relevant = 1;
 		  if (mode == TImode || mode == V1TImode)

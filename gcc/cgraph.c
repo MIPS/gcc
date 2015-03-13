@@ -663,7 +663,19 @@ cgraph_node::get_for_asmname (tree asmname)
 hashval_t
 cgraph_edge_hasher::hash (cgraph_edge *e)
 {
-  return htab_hash_pointer (e->call_stmt);
+  /* This is a really poor hash function, but it is what htab_hash_pointer
+     uses.  */
+  return (hashval_t) ((intptr_t)e->call_stmt >> 3);
+}
+
+/* Returns a hash value for X (which really is a cgraph_edge).  */
+
+hashval_t
+cgraph_edge_hasher::hash (gimple call_stmt)
+{
+  /* This is a really poor hash function, but it is what htab_hash_pointer
+     uses.  */
+  return (hashval_t) ((intptr_t)call_stmt >> 3);
 }
 
 /* Return nonzero if the call_stmt of of cgraph_edge X is stmt *Y.  */
@@ -680,9 +692,8 @@ static inline void
 cgraph_update_edge_in_call_site_hash (cgraph_edge *e)
 {
   gimple call = e->call_stmt;
-  *e->caller->call_site_hash->find_slot_with_hash (call,
-						   htab_hash_pointer (call),
-						   INSERT) = e;
+  *e->caller->call_site_hash->find_slot_with_hash
+      (call, cgraph_edge_hasher::hash (call), INSERT) = e;
 }
 
 /* Add call graph edge E to call site hash of its caller.  */
@@ -695,8 +706,7 @@ cgraph_add_edge_to_call_site_hash (cgraph_edge *e)
   if (e->speculative && e->indirect_unknown_callee)
     return;
   cgraph_edge **slot = e->caller->call_site_hash->find_slot_with_hash
-				   (e->call_stmt,
-				    htab_hash_pointer (e->call_stmt), INSERT);
+      (e->call_stmt, cgraph_edge_hasher::hash (e->call_stmt), INSERT);
   if (*slot)
     {
       gcc_assert (((cgraph_edge *)*slot)->speculative);
@@ -718,8 +728,8 @@ cgraph_node::get_edge (gimple call_stmt)
   int n = 0;
 
   if (call_site_hash)
-    return call_site_hash->find_with_hash (call_stmt,
-					   htab_hash_pointer (call_stmt));
+    return call_site_hash->find_with_hash
+	(call_stmt, cgraph_edge_hasher::hash (call_stmt));
 
   /* This loop may turn out to be performance problem.  In such case adding
      hashtables into call nodes with very many edges is probably best
@@ -782,7 +792,7 @@ cgraph_edge::set_call_stmt (gcall *new_stmt, bool update_speculative)
       && (!speculative || !indirect_unknown_callee))
     {
       caller->call_site_hash->remove_elt_with_hash
-	(call_stmt, htab_hash_pointer (call_stmt));
+	(call_stmt, cgraph_edge_hasher::hash (call_stmt));
     }
 
   cgraph_edge *e = this;
@@ -987,8 +997,8 @@ cgraph_edge::remove_caller (void)
 	caller->callees = next_callee;
     }
   if (caller->call_site_hash)
-    caller->call_site_hash->remove_elt_with_hash (call_stmt,
-						  htab_hash_pointer (call_stmt));
+    caller->call_site_hash->remove_elt_with_hash
+	(call_stmt, cgraph_edge_hasher::hash (call_stmt));
 }
 
 /* Put the edge onto the free list.  */
@@ -2411,18 +2421,64 @@ nonremovable_p (cgraph_node *node, void *)
   return !node->can_remove_if_no_direct_calls_and_refs_p ();
 }
 
-/* Return true when function cgraph_node and its aliases can be removed from
-   callgraph if all direct calls are eliminated.  */
+/* Return true if whole comdat group can be removed if there are no direct
+   calls to THIS.  */
 
 bool
-cgraph_node::can_remove_if_no_direct_calls_p (void)
+cgraph_node::can_remove_if_no_direct_calls_p (bool will_inline)
 {
-  /* Extern inlines can always go, we will use the external definition.  */
-  if (DECL_EXTERNAL (decl))
-    return true;
-  if (address_taken)
+  struct ipa_ref *ref;
+
+  /* For local symbols or non-comdat group it is the same as 
+     can_remove_if_no_direct_calls_p.  */
+  if (!externally_visible || !same_comdat_group)
+    {
+      if (DECL_EXTERNAL (decl))
+	return true;
+      if (address_taken)
+	return false;
+      return !call_for_symbol_and_aliases (nonremovable_p, NULL, true);
+    }
+
+  if (will_inline && address_taken)
     return false;
-  return !call_for_symbol_and_aliases (nonremovable_p, NULL, true);
+
+  /* Otheriwse check if we can remove the symbol itself and then verify
+     that only uses of the comdat groups are direct call to THIS
+     or its aliases.   */
+  if (!can_remove_if_no_direct_calls_and_refs_p ())
+    return false;
+
+  /* Check that all refs come from within the comdat group.  */
+  for (int i = 0; iterate_referring (i, ref); i++)
+    if (ref->referring->get_comdat_group () != get_comdat_group ())
+      return false;
+
+  struct cgraph_node *target = ultimate_alias_target ();
+  for (cgraph_node *next = dyn_cast<cgraph_node *> (same_comdat_group);
+       next != this; next = dyn_cast<cgraph_node *> (next->same_comdat_group))
+    {
+      if (!externally_visible)
+	continue;
+      if (!next->alias
+	  && !next->can_remove_if_no_direct_calls_and_refs_p ())
+	return false;
+
+      /* If we see different symbol than THIS, be sure to check calls.  */
+      if (next->ultimate_alias_target () != target)
+	for (cgraph_edge *e = next->callers; e; e = e->next_caller)
+	  if (e->caller->get_comdat_group () != get_comdat_group ()
+	      || will_inline)
+	    return false;
+
+      /* If function is not being inlined, we care only about
+	 references outside of the comdat group.  */
+      if (!will_inline)
+        for (int i = 0; next->iterate_referring (i, ref); i++)
+	  if (ref->referring->get_comdat_group () != get_comdat_group ())
+	    return false;
+    }
+  return true;
 }
 
 /* Return true when function cgraph_node can be expected to be removed
@@ -2440,21 +2496,49 @@ cgraph_node::can_remove_if_no_direct_calls_p (void)
    linkonce section.  */
 
 bool
-cgraph_node::will_be_removed_from_program_if_no_direct_calls_p (void)
+cgraph_node::will_be_removed_from_program_if_no_direct_calls_p
+	 (bool will_inline)
 {
   gcc_assert (!global.inlined_to);
+  if (DECL_EXTERNAL (decl))
+    return true;
 
-  if (call_for_symbol_and_aliases (used_from_object_file_p_worker,
-				   NULL, true))
-    return false;
   if (!in_lto_p && !flag_whole_program)
-    return only_called_directly_p ();
-  else
     {
-       if (DECL_EXTERNAL (decl))
-         return true;
-      return can_remove_if_no_direct_calls_p ();
+      /* If the symbol is in comdat group, we need to verify that whole comdat
+	 group becomes unreachable.  Technically we could skip references from
+	 within the group, too.  */
+      if (!only_called_directly_p ())
+	return false;
+      if (same_comdat_group && externally_visible)
+	{
+	  struct cgraph_node *target = ultimate_alias_target ();
+
+	  if (will_inline && address_taken)
+	    return true;
+	  for (cgraph_node *next = dyn_cast<cgraph_node *> (same_comdat_group);
+	       next != this;
+	       next = dyn_cast<cgraph_node *> (next->same_comdat_group))
+	    {
+	      if (!externally_visible)
+		continue;
+	      if (!next->alias
+		  && !next->only_called_directly_p ())
+		return false;
+
+	      /* If we see different symbol than THIS,
+		 be sure to check calls.  */
+	      if (next->ultimate_alias_target () != target)
+		for (cgraph_edge *e = next->callers; e; e = e->next_caller)
+		  if (e->caller->get_comdat_group () != get_comdat_group ()
+		      || will_inline)
+		    return false;
+	    }
+	}
+      return true;
     }
+  else
+    return can_remove_if_no_direct_calls_p (will_inline);
 }
 
 
@@ -2630,7 +2714,7 @@ cgraph_edge::verify_corresponds_to_fndecl (tree decl)
   if (!node
       || node->body_removed
       || node->in_other_partition
-      || node->icf_merged
+      || callee->icf_merged
       || callee->in_other_partition)
     return false;
 
@@ -3325,4 +3409,16 @@ cgraph_node::call_for_symbol_and_aliases_1 (bool (*callback) (cgraph_node *,
     }
   return false;
 }
+
+/* Return true if NODE has thunk.  */
+
+bool
+cgraph_node::has_thunk_p (cgraph_node *node, void *)
+{
+  for (cgraph_edge *e = node->callers; e; e = e->next_caller)
+    if (e->caller->thunk.thunk_p)
+      return true;
+  return false;
+}
+
 #include "gt-cgraph.h"

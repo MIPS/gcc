@@ -866,6 +866,9 @@ int arm_arch_thumb2;
 int arm_arch_arm_hwdiv;
 int arm_arch_thumb_hwdiv;
 
+/* Nonzero if chip disallows volatile memory access in IT block.  */
+int arm_arch_no_volatile_ce;
+
 /* Nonzero if we should use Neon to handle 64-bits operations rather
    than core registers.  */
 int prefer_neon_for_64bits = 0;
@@ -2859,6 +2862,7 @@ arm_option_override (void)
   arm_arch_iwmmxt2 = (insn_flags & FL_IWMMXT2) != 0;
   arm_arch_thumb_hwdiv = (insn_flags & FL_THUMB_DIV) != 0;
   arm_arch_arm_hwdiv = (insn_flags & FL_ARM_DIV) != 0;
+  arm_arch_no_volatile_ce = (insn_flags & FL_NO_VOLATILE_CE) != 0;
   arm_tune_cortex_a9 = (arm_tune == cortexa9) != 0;
   arm_arch_crc = (insn_flags & FL_CRC32) != 0;
   arm_m_profile_small_mul = (insn_flags & FL_SMALLMUL) != 0;
@@ -6392,14 +6396,8 @@ arm_set_default_type_attributes (tree type)
 static bool
 arm_function_in_section_p (tree decl, section *section)
 {
-  /* We can only be certain about functions defined in the same
-     compilation unit.  */
-  if (!TREE_STATIC (decl))
-    return false;
-
-  /* Make sure that SYMBOL always binds to the definition in this
-     compilation unit.  */
-  if (!targetm.binds_local_p (decl))
+  /* We can only be certain about the prevailing symbol definition.  */
+  if (!decl_binds_to_current_def_p (decl))
     return false;
 
   /* If DECL_SECTION_NAME is set, assume it is trustworthy.  */

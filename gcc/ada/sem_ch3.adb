@@ -2471,6 +2471,7 @@ package body Sem_Ch3 is
             Analyze_Object_Contract (Defining_Entity (Decl));
 
          elsif Nkind_In (Decl, N_Abstract_Subprogram_Declaration,
+                               N_Generic_Subprogram_Declaration,
                                N_Subprogram_Declaration)
          then
             Analyze_Subprogram_Contract (Defining_Entity (Decl));
@@ -4116,8 +4117,6 @@ package body Sem_Ch3 is
          if Present (E) then
             Set_Has_Initial_Value (Id);
          end if;
-
-         Set_Contract (Id, Make_Contract (Sloc (Id)));
       end if;
 
       --  Initialize alignment and size and capture alignment setting
@@ -8639,6 +8638,36 @@ package body Sem_Ch3 is
                           (Defining_Identifier (Def), Ifaces_List);
                      end if;
                   end;
+               end if;
+
+               --  Propagate inherited invariant information of parents
+               --  and progenitors
+
+               if Ada_Version >= Ada_2012
+                 and then not Is_Interface (Derived_Type)
+               then
+                  if Has_Inheritable_Invariants (Parent_Type) then
+                     Set_Has_Invariants (Derived_Type);
+                     Set_Has_Inheritable_Invariants (Derived_Type);
+
+                  elsif not Is_Empty_Elmt_List (Ifaces_List) then
+                     declare
+                        AI : Elmt_Id;
+
+                     begin
+                        AI := First_Elmt (Ifaces_List);
+                        while Present (AI) loop
+                           if Has_Inheritable_Invariants (Node (AI)) then
+                              Set_Has_Invariants (Derived_Type);
+                              Set_Has_Inheritable_Invariants (Derived_Type);
+
+                              exit;
+                           end if;
+
+                           Next_Elmt (AI);
+                        end loop;
+                     end;
+                  end if;
                end if;
 
                --  A type extension is automatically Ghost when one of its
@@ -14486,7 +14515,6 @@ package body Sem_Ch3 is
    begin
       New_Subp := New_Entity (Nkind (Parent_Subp), Sloc (Derived_Type));
       Set_Ekind (New_Subp, Ekind (Parent_Subp));
-      Set_Contract (New_Subp, Make_Contract (Sloc (New_Subp)));
 
       --  Check whether the inherited subprogram is a private operation that
       --  should be inherited but not yet made visible. Such subprograms can
@@ -14813,7 +14841,7 @@ package body Sem_Ch3 is
 
          if Present (DTC_Entity (Actual_Subp)) then
             Set_DTC_Entity (New_Subp, DTC_Entity (Actual_Subp));
-            Set_DT_Position (New_Subp, DT_Position (Actual_Subp));
+            Set_DT_Position_Value (New_Subp, DT_Position (Actual_Subp));
          end if;
       end if;
 
@@ -19445,7 +19473,7 @@ package body Sem_Ch3 is
               and then Limited_Present (Type_Definition (Orig_Decl))
             then
                Error_Msg_N
-                ("full view of non-limited extension cannot be limited", N);
+                 ("full view of non-limited extension cannot be limited", N);
 
             --  Conversely, if the partial view carries the limited keyword,
             --  the full view must as well, even if it may be redundant.
@@ -19454,8 +19482,8 @@ package body Sem_Ch3 is
               and then not Limited_Present (Type_Definition (Orig_Decl))
             then
                Error_Msg_N
-                ("full view of limited extension must be explicitly limited",
-                 N);
+                 ("full view of limited extension must be explicitly limited",
+                  N);
             end if;
          end if;
       end;
@@ -19683,7 +19711,7 @@ package body Sem_Ch3 is
                         if not Is_Dispatching_Operation (Prim) then
                            Append_Elmt (Prim, Full_List);
                            Set_Is_Dispatching_Operation (Prim, True);
-                           Set_DT_Position (Prim, No_Uint);
+                           Set_DT_Position_Value (Prim, No_Uint);
                         end if;
 
                      elsif Is_Dispatching_Operation (Prim)
@@ -19837,6 +19865,34 @@ package body Sem_Ch3 is
 
       if Has_Inheritable_Invariants (Priv_T) then
          Set_Has_Inheritable_Invariants (Full_T);
+      end if;
+
+      --  Check hidden inheritance of class-wide type invariants
+
+      if Ada_Version >= Ada_2012
+        and then not Has_Inheritable_Invariants (Full_T)
+        and then In_Private_Part (Current_Scope)
+        and then Has_Interfaces (Full_T)
+      then
+         declare
+            Ifaces : Elist_Id;
+            AI     : Elmt_Id;
+
+         begin
+            Collect_Interfaces (Full_T, Ifaces, Exclude_Parents => True);
+
+            AI := First_Elmt (Ifaces);
+            while Present (AI) loop
+               if Has_Inheritable_Invariants (Node (AI)) then
+                  Error_Msg_N
+                    ("hidden inheritance of class-wide type invariants " &
+                     "not allowed", N);
+                  exit;
+               end if;
+
+               Next_Elmt (AI);
+            end loop;
+         end;
       end if;
 
       --  Propagate predicates to full type, and predicate function if already

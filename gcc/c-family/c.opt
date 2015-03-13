@@ -456,7 +456,7 @@ C ObjC C++ ObjC++ Var(warn_format_security) Warning LangEnabledBy(C ObjC C++ Obj
 Warn about possible security problems with format functions
 
 Wformat-signedness
-C ObjC C++ ObjC++ Var(warn_format_signedness) Warning LangEnabledBy(C ObjC C++ ObjC++,Wformat=, warn_format >= 2, 0)
+C ObjC C++ ObjC++ Var(warn_format_signedness) Warning
 Warn about sign differences with format functions
 
 Wformat-y2k
@@ -1040,6 +1040,16 @@ Generate bounds passing for calls.
 fchkp-instrument-marked-only
 C ObjC C++ ObjC++ LTO Report Var(flag_chkp_instrument_marked_only) Init(0)
 Instrument only functions marked with bnd_instrument attribute.
+
+fchkp-use-wrappers
+C ObjC C++ ObjC++ LTO Report Var(flag_chkp_use_wrappers) Init(1)
+Transform instrumented builtin calls into calls to wrappers.
+
+static-libmpx
+Driver
+
+static-libmpxwrappers
+Driver
 
 fcilkplus
 C ObjC C++ ObjC++ LTO Report Var(flag_cilkplus) Init(0)
