@@ -11,8 +11,8 @@ program test
 
 contains
 
-  function convertType(in)
-    class(*), intent(in) :: in ! { dg-error "must be dummy, allocatable or pointer" }
+  function convertType(in) ! { dg-error "must be dummy, allocatable or pointer" }
+    class(*), intent(in) :: in
     class(*) :: convertType
   end function
 end program test
