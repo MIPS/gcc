@@ -181,6 +181,8 @@ struct dr_with_seg_len
       offset (size_binop (PLUS_EXPR, DR_OFFSET (d), DR_INIT (d))),
       seg_len (len) {}
 
+  dr_with_seg_len () {}
+
   data_reference_p dr;
   tree offset;
   tree seg_len;
@@ -194,6 +196,8 @@ struct dr_with_seg_len_pair_t
   dr_with_seg_len_pair_t (const dr_with_seg_len& d1,
 			       const dr_with_seg_len& d2)
     : first (d1), second (d2) {}
+
+  dr_with_seg_len_pair_t () {}
 
   dr_with_seg_len first;
   dr_with_seg_len second;

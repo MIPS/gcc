@@ -485,6 +485,7 @@ struct c_expr : public operand
     const char *id;
     const char *oper;
     id_tab (const char *id_, const char *oper_): id (id_), oper (oper_) {}
+    id_tab () {}
   };
 
   c_expr (cpp_reader *r_, vec<cpp_token> code_, unsigned nr_stmts_,
@@ -557,6 +558,9 @@ struct if_or_with
 {
   if_or_with (operand *cexpr_, source_location location_, bool is_with_)
       : location (location_), cexpr (cexpr_), is_with (is_with_) {}
+
+  if_or_with () {}
+
   source_location location;
   operand *cexpr;
   bool is_with;

@@ -356,6 +356,8 @@ typedef struct page_table_chain
 class finalizer
 {
 public:
+  finalizer () : m_addr (NULL), m_function (NULL) {}
+
   finalizer (void *addr, void (*f)(void *)) : m_addr (addr), m_function (f) {}
 
   void *addr () const { return m_addr; }
@@ -370,6 +372,9 @@ private:
 class vec_finalizer
 {
 public:
+  vec_finalizer () :
+    m_addr (0), m_function (NULL), m_object_size (0), m_n_objects (0) {}
+
   vec_finalizer (uintptr_t addr, void (*f)(void *), size_t s, size_t n) :
     m_addr (addr), m_function (f), m_object_size (s), m_n_objects (n) {}
 
