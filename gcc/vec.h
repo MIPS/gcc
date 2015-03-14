@@ -308,7 +308,10 @@ va_heap::reserve (vec<T, va_heap, vl_embed> *&v, unsigned reserve, bool exact
   size_t size = vec<T, va_heap, vl_embed>::embedded_size (alloc);
   unsigned nelem = v ? v->length () : 0;
   v = static_cast <vec<T, va_heap, vl_embed> *> (xrealloc (v, size));
-  v->embedded_init (alloc, nelem);
+  if (nelem)
+    v->m_vecpfx.m_alloc = alloc;
+  else
+    v->embedded_init (alloc, nelem);
 
   if (GATHER_STATISTICS)
     v->m_vecpfx.register_overhead (size FINAL_PASS_MEM_STAT);
@@ -878,7 +881,10 @@ inline T
 vec<T, A, vl_embed>::pop (void)
 {
   gcc_checking_assert (length () > 0);
-  return m_vecdata[--m_vecpfx.m_num];
+  m_vecpfx.m_num--;
+  T ret = m_vecdata[m_vecpfx.m_num];
+  m_vecdata[m_vecpfx.m_num].~T ();
+  return ret;
 }
 
 
@@ -889,7 +895,11 @@ template<typename T, typename A>
 inline void
 vec<T, A, vl_embed>::truncate (unsigned size)
 {
-  gcc_checking_assert (length () >= size);
+  unsigned int len = length ();
+  gcc_checking_assert (len >= size);
+  for (unsigned int i = size; i < len; i++)
+    m_vecdata[i].~T ();
+
   m_vecpfx.m_num = size;
 }
 
@@ -919,6 +929,7 @@ vec<T, A, vl_embed>::ordered_remove (unsigned ix)
 {
   gcc_checking_assert (ix < length ());
   T *slot = &m_vecdata[ix];
+  slot->~T ();
   memmove (slot, slot + 1, (--m_vecpfx.m_num - ix) * sizeof (T));
 }
 
@@ -944,6 +955,9 @@ vec<T, A, vl_embed>::block_remove (unsigned ix, unsigned len)
 {
   gcc_checking_assert (ix + len <= length ());
   T *slot = &m_vecdata[ix];
+  for (unsigned int i = 0; i < len; i++)
+    m_vecdata[ix + i].~T ();
+
   m_vecpfx.m_num -= len;
   memmove (slot, slot + len, (m_vecpfx.m_num - ix) * sizeof (T));
 }
@@ -1059,6 +1073,8 @@ vec<T, A, vl_embed>::embedded_init (unsigned alloc, unsigned num, unsigned aut)
   m_vecpfx.m_alloc = alloc;
   m_vecpfx.m_using_auto_storage = aut;
   m_vecpfx.m_num = num;
+  for (unsigned int i = 0; i < num; i++)
+    new (&m_vecdata[i]) T;
 }
 
 
@@ -1070,6 +1086,9 @@ inline void
 vec<T, A, vl_embed>::quick_grow (unsigned len)
 {
   gcc_checking_assert (length () <= len && len <= m_vecpfx.m_alloc);
+  for (unsigned int i = length (); i < len; i++)
+    new (&m_vecdata[i]) T;
+
   m_vecpfx.m_num = len;
 }
 
@@ -1472,6 +1491,9 @@ vec<T, va_heap, vl_ptr>::release (void)
 {
   if (!m_vec)
     return;
+
+  for (unsigned int i = 0; i < length (); i++)
+    (*m_vec)[i].~T ();
 
   if (using_auto_storage ())
     {
