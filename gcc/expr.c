@@ -9329,6 +9329,21 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
       target = expand_vec_cond_expr (type, treeop0, treeop1, treeop2, target);
       return target;
 
+    case SEXT_EXPR:
+	{
+	  rtx op0 = expand_normal (treeop0);
+	  rtx temp;
+	  if (!target)
+	    target = gen_reg_rtx (TYPE_MODE (TREE_TYPE (treeop0)));
+
+	  machine_mode inner_mode = smallest_mode_for_size (tree_to_shwi (treeop1),
+							    MODE_INT);
+	  temp = convert_modes (inner_mode,
+				TYPE_MODE (TREE_TYPE (treeop0)), op0, 0);
+	  convert_move (target, temp, 0);
+	  return target;
+	}
+
     default:
       gcc_unreachable ();
     }

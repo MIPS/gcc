@@ -2354,6 +2354,7 @@ extract_range_from_multiplicative_op_1 (value_range_t *vr,
     set_value_range (vr, type, min, max, NULL);
 }
 
+void debug_value_range (value_range_t *);
 /* Extract range information from a binary operation CODE based on
    the ranges of each of its operands *VR0 and *VR1 with resulting
    type EXPR_TYPE.  The resulting range is stored in *VR.  */
@@ -2392,6 +2393,7 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
       && code != LSHIFT_EXPR
       && code != MIN_EXPR
       && code != MAX_EXPR
+      && code != SEXT_EXPR
       && code != BIT_AND_EXPR
       && code != BIT_IOR_EXPR
       && code != BIT_XOR_EXPR)
@@ -2967,6 +2969,49 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
 
       extract_range_from_multiplicative_op_1 (vr, code, &vr0, &vr1);
       return;
+    }
+  else if (code == SEXT_EXPR)
+    {
+      gcc_assert (range_int_cst_p (&vr1));
+      unsigned int prec = tree_to_uhwi (vr1.min);
+      type = vr0.type;
+      wide_int tmin, tmax;
+      wide_int type_min, type_max;
+      wide_int may_be_nonzero, must_be_nonzero;
+
+      gcc_assert (!TYPE_UNSIGNED (expr_type));
+      type_min = wi::shwi (1 << (prec - 1),
+			   TYPE_PRECISION (TREE_TYPE (vr0.min)));
+      type_max = wi::shwi (((1 << (prec - 1)) - 1),
+			   TYPE_PRECISION (TREE_TYPE (vr0.max)));
+      if (zero_nonzero_bits_from_vr (expr_type, &vr0,
+				     &may_be_nonzero,
+				     &must_be_nonzero))
+	{
+	  HOST_WIDE_INT _may_be_nonzero = may_be_nonzero.to_uhwi ();
+
+	  if (_may_be_nonzero & (1 << (prec - 1)))
+	    {
+	      /* If to-be-extended sign bit can be one.  */
+	      tmin = type_min;
+	      tmax = may_be_nonzero & type_max;
+	    }
+	  else
+	    {
+	      /* If to-be-extended sign bit is zero.  */
+	      tmin = must_be_nonzero;
+	      tmax = may_be_nonzero;
+	    }
+	}
+      else
+	{
+	  tmin = type_min;
+	  tmax = type_max;
+	}
+      tmin = wi::sext (tmin, prec);
+      tmax = wi::sext (tmax, prec);
+      min = wide_int_to_tree (expr_type, tmin);
+      max = wide_int_to_tree (expr_type, tmax);
     }
   else if (code == RSHIFT_EXPR
 	   || code == LSHIFT_EXPR)

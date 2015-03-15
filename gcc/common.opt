@@ -2351,6 +2351,10 @@ ftree-vrp
 Common Report Var(flag_tree_vrp) Init(0) Optimization
 Perform Value Range Propagation on trees
 
+ftree-type-promote
+Common Report Var(flag_tree_type_promote) Init(1) Optimization
+Perform Type Promotion on trees
+
 funit-at-a-time
 Common Report Var(flag_unit_at_a_time) Init(1)
 Compile whole compilation unit at a time

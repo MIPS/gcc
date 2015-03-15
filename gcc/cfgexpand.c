@@ -4872,6 +4872,10 @@ expand_debug_expr (tree exp)
     case FMA_EXPR:
       return simplify_gen_ternary (FMA, mode, inner_mode, op0, op1, op2);
 
+    case SEXT_EXPR:
+      return op0;
+
+
     default:
     flag_unsupported:
 #ifdef ENABLE_CHECKING
