@@ -5124,7 +5124,7 @@ gfc_trans_allocate (gfc_code * code)
 	      gfc_free_expr (rhs);
 	    }
 	  /* Set the element size.  */
-	  expr3_esize = gfc_vtab_size_get (tmp);
+	  expr3_esize = gfc_vptr_size_get (tmp);
 	  if (vtab_needed)
 	    expr3_vptr = tmp;
 	  /* Initialize the ref to the _len component.  */
