@@ -5277,7 +5277,7 @@ gfc_trans_allocate (gfc_code * code)
       if (!gfc_array_allocate (&se, expr, stat, errmsg, errlen, label_finish,
 			       expr3_esize, &nelems, code->expr3))
 	{
-	  /* A scalar or derived type. First compute the size to allocate.  */
+	  /* A scalar or derived type.  First compute the size to allocate.  */
 
 	  /* expr3_len is set when expr3 is unlimited polymorphic object or
 	     a deferred length string.  */
@@ -5293,7 +5293,7 @@ gfc_trans_allocate (gfc_code * code)
 	      else
 		{
 		  /* For unlimited polymorphic enties build
-		          (len > 0) ? element_size * len : element_size
+			  (len > 0) ? element_size * len : element_size
 		     to compute the number of bytes to allocate.  This allows
 		     allocating of unlimited polymorphic objects from an expr3
 		     that is unlimited polymorphic, too, and stores a _len
@@ -5336,7 +5336,7 @@ gfc_trans_allocate (gfc_code * code)
 	      /* Compute the number of bytes needed to allocate a fixed length
 		 char array.  */
 	      gcc_assert (se.string_length != NULL_TREE);
-	      tmp = TYPE_SIZE_UNIT (gfc_get_char_type(expr->ts.kind));
+	      tmp = TYPE_SIZE_UNIT (gfc_get_char_type (expr->ts.kind));
 	      memsz = fold_build2_loc (input_location, MULT_EXPR,
 				       TREE_TYPE (tmp), tmp,
 				       fold_convert (TREE_TYPE (tmp),
@@ -5429,9 +5429,9 @@ gfc_trans_allocate (gfc_code * code)
 		 prevent setting incorrect len information in future loop
 		 iterations.  */
 	      if (tmp_expr3_len_flag)
-		expr3_len = NULL_TREE;
-	        /* No need to reset tmp_expr3_len_flag, because the presence of
+		/* No need to reset tmp_expr3_len_flag, because the presence of
 		   an expr3 can not change within in the loop.  */
+		expr3_len = NULL_TREE;
 	    }
 	  else if (code->ext.alloc.ts.type == BT_CHARACTER
 		   && code->ext.alloc.ts.u.cl->length)
@@ -5550,7 +5550,7 @@ gfc_trans_allocate (gfc_code * code)
 		 of arrays in gfc_trans_call.  */
 	      tmp = gfc_trans_call (ppc_code, true, NULL, NULL, false);
 	      /* We need to add the
-	           if (al_len > 0)
+		   if (al_len > 0)
 		     al_vptr->copy (expr3_data, al_data, expr3_len, al_len);
 		   else
 		     al_vptr->copy (expr3_data, al_data);
@@ -5563,13 +5563,13 @@ gfc_trans_allocate (gfc_code * code)
 		  /* Add al%_len.  */
 		  last_arg->next = gfc_get_actual_arglist ();
 		  last_arg = last_arg->next;
-		  last_arg->expr = gfc_find_and_cut_at_last_class_ref(al->expr);
+		  last_arg->expr = gfc_find_and_cut_at_last_class_ref (
+			al->expr);
 		  gfc_add_component_ref (last_arg->expr, "_len");
 		  /* Add expr3's length.  */
 		  last_arg->next = gfc_get_actual_arglist ();
 		  last_arg = last_arg->next;
-		  if (code->expr3->ts.type == BT_CLASS/*
-		      || code->expr3->ts.type == BT_DERIVED*/)
+		  if (code->expr3->ts.type == BT_CLASS)
 		    {
 		      last_arg->expr =
 			  gfc_find_and_cut_at_last_class_ref (code->expr3);
