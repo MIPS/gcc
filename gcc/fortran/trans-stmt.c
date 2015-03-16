@@ -5437,7 +5437,7 @@ gfc_trans_allocate (gfc_code * code)
 		   && code->ext.alloc.ts.u.cl->length)
 	    {
 	      /* The length of the string in characters is needed.  expr3_esize
-	         contains the number of bytes needed for the string to pass
+		 contains the number of bytes needed for the string to pass
 		 to gfc_array_allocate (), therefore can not be resused
 		 here.  */
 	      gfc_init_se (&se_sz, NULL);
