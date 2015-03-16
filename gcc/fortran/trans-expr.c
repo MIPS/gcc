@@ -241,7 +241,9 @@ gfc_class_vtab_size_get (tree cl)
   tree size;
   size = class_vtab_field_get (cl, VTABLE_SIZE_FIELD);
   /* Always return size as an array index type.  */
-  return fold_convert (gfc_array_index_type, size);
+  size = fold_convert (gfc_array_index_type, size);
+  gcc_assert (size);
+  return size;
 }
 
 tree
@@ -250,7 +252,9 @@ gfc_vptr_size_get (tree vptr)
   tree size;
   size = vptr_field_get (vptr, VTABLE_SIZE_FIELD);
   /* Always return size as an array index type.  */
-  return fold_convert (gfc_array_index_type, size);
+  size = fold_convert (gfc_array_index_type, size);
+  gcc_assert (size);
+  return size;
 }
 
 
