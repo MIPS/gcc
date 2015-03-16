@@ -1,5 +1,5 @@
 ;; Predicate definitions for Renesas / SuperH SH.
-;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2015 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -179,6 +179,19 @@
       && GET_MODE (XEXP (SUBREG_REG (op), 0)) == SImode
       && GET_CODE (XEXP (SUBREG_REG (op), 0)) != SUBREG)
     return register_operand (XEXP (SUBREG_REG (op), 0), VOIDmode);
+  return 0;
+})
+
+;; Likewise arith_operand but always permits const_int.
+(define_predicate "arith_or_int_operand"
+  (match_code "subreg,reg,const_int,const_vector")
+{
+  if (arith_operand (op, mode))
+    return 1;
+
+  if (CONST_INT_P (op))
+    return 1;
+
   return 0;
 })
 
@@ -443,17 +456,17 @@
 
 ;; Returns 1 if the operand can be used in an SH2A movu.{b|w} insn.
 (define_predicate "zero_extend_movu_operand"
-  (and (match_operand 0 "displacement_mem_operand")
-       (match_test "GET_MODE (op) == QImode || GET_MODE (op) == HImode")))
+  (and (ior (match_operand 0 "displacement_mem_operand")
+	    (match_operand 0 "simple_mem_operand"))
+       (ior (match_test "GET_MODE (op) == QImode")
+	    (match_test "GET_MODE (op) == HImode"))))
 
 ;; Returns 1 if the operand can be used in a zero_extend.
 (define_predicate "zero_extend_operand"
   (ior (and (match_test "TARGET_SHMEDIA")
 	    (match_operand 0 "general_extend_operand"))
        (and (match_test "! TARGET_SHMEDIA")
-	    (match_operand 0 "arith_reg_operand"))
-       (and (match_test "TARGET_SH2A")
-	    (match_operand 0 "zero_extend_movu_operand"))))
+	    (match_operand 0 "arith_reg_operand"))))
 
 ;; Returns 1 if OP can be source of a simple move operation. Same as
 ;; general_operand, but a LABEL_REF is valid, PRE_DEC is invalid as
@@ -510,7 +523,25 @@
 	  && GET_CODE (x) == PLUS && REG_P (XEXP (x, 0)) && REG_P (XEXP (x, 1)))
 	return false;
 
-      if ((mode == QImode || mode == HImode)
+      if (GET_CODE (x) == PLUS)
+	{
+	  rtx y = XEXP (x, 0);
+
+	  if (! REG_P (y)
+	      && ! (GET_CODE (y) == SUBREG && REG_P (SUBREG_REG (y))))
+	    return false;
+	  y = XEXP (x, 1);
+	  if (! REG_P (y)
+	      && ! (GET_CODE (y) == SUBREG && REG_P (SUBREG_REG (y)))
+	      && ! CONST_INT_P (y))
+	    return false;
+	}
+
+      /* LRA will try to satisfy the constraints for the memory displacements
+	 and thus we must not reject invalid displacements in the predicate,
+	 or else LRA will bail out.
+	 FIXME: maybe remove this check completely?  */
+      if (!lra_in_progress && (mode == QImode || mode == HImode)
 	  && GET_CODE (x) == PLUS
 	  && REG_P (XEXP (x, 0))
 	  && CONST_INT_P (XEXP (x, 1)))
@@ -595,7 +626,25 @@
 	  && GET_CODE (x) == PLUS && REG_P (XEXP (x, 0)) && REG_P (XEXP (x, 1)))
 	return false;
 
-      if ((mode == QImode || mode == HImode)
+      if (GET_CODE (x) == PLUS)
+	{
+	  rtx y = XEXP (x, 0);
+
+	  if (! REG_P (y)
+	      && ! (GET_CODE (y) == SUBREG && REG_P (SUBREG_REG (y))))
+	    return false;
+	  y = XEXP (x, 1);
+	  if (! REG_P (y)
+	      && ! (GET_CODE (y) == SUBREG && REG_P (SUBREG_REG (y)))
+	      && ! CONST_INT_P (y))
+	    return false;
+	}
+
+      /* LRA will try to satisfy the constraints for the memory displacements
+	 and thus we must not reject invalid displacements in the predicate,
+	 or else LRA will bail out.
+	 FIXME: maybe remove this check completely?  */
+      if (!lra_in_progress && (mode == QImode || mode == HImode)
 	  && GET_CODE (x) == PLUS
 	  && REG_P (XEXP (x, 0))
 	  && CONST_INT_P (XEXP (x, 1)))
@@ -748,6 +797,12 @@
 
   return 0;
 })
+
+;; Returns true if OP is a valid constant source operand for a logical
+;; operations tst/and/or/xor #imm,r0.
+(define_predicate "const_logical_operand"
+  (and (match_code "const_int")
+       (match_test "satisfies_constraint_K08 (op)")))
 
 ;; Like logical_operand but allows additional constant values which can be
 ;; done with zero extensions.  Used for the second operand of and insns.
@@ -1085,23 +1140,17 @@
   return 0;
 })
 
-;; The atomic_* operand predicates are used for the atomic patterns.
-;; Depending on the particular pattern some operands can be immediate
-;; values.  Using these predicates avoids the usage of 'force_reg' in the
-;; expanders.
-(define_predicate "atomic_arith_operand"
-  (ior (match_code "subreg,reg")
-       (and (match_test "satisfies_constraint_I08 (op)")
-	    (match_test "mode != QImode")
-	    (match_test "mode != HImode")
-	    (match_test "TARGET_SH4A"))))
+;; A predicate that matches any expression for which there is an
+;; insn pattern that sets the T bit.
+(define_predicate "treg_set_expr"
+  (match_test "sh_recog_treg_set_expr (op, mode)"))
 
-(define_predicate "atomic_logical_operand"
-  (ior (match_code "subreg,reg")
-       (and (match_test "satisfies_constraint_K08 (op)")
-	    (match_test "mode != QImode")
-	    (match_test "mode != HImode")
-	    (match_test "TARGET_SH4A"))))
+;; Same as treg_set_expr but disallow constants 0 and 1 which can be loaded
+;; into the T bit.
+(define_predicate "treg_set_expr_not_const01"
+  (and (match_test "op != const0_rtx")
+       (match_test "op != const1_rtx")
+       (match_operand 0 "treg_set_expr")))
 
 ;; A predicate describing the T bit register in any form.
 (define_predicate "t_reg_operand"
@@ -1117,6 +1166,8 @@
 
       case ZERO_EXTEND:
       case SIGN_EXTEND:
+        if (REG_P (XEXP (op, 0)) && REGNO (XEXP (op, 0)) == T_REG)
+	  return true;
 	return GET_CODE (XEXP (op, 0)) == SUBREG
 	       && REG_P (SUBREG_REG (XEXP (op, 0)))
 	       && REGNO (SUBREG_REG (XEXP (op, 0))) == T_REG;
@@ -1154,6 +1205,10 @@
 (define_predicate "arith_reg_or_t_reg_operand"
   (ior (match_operand 0 "arith_reg_operand")
        (match_operand 0 "t_reg_operand")))
+
+(define_predicate "arith_reg_or_treg_set_expr"
+  (ior (match_operand 0 "arith_reg_operand")
+       (match_operand 0 "treg_set_expr")))
 
 ;; A predicate describing the negated value of the T bit register shifted
 ;; left by 31.

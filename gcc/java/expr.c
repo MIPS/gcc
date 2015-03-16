@@ -1,5 +1,5 @@
 /* Process expressions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,7 +32,18 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 				   MODIFY_JNI_METHOD_CALL and
 				   PARM_BOUNDARY.  */
 				   
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "flags.h"
@@ -46,7 +57,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "ggc.h"
 #include "tree-iterator.h"
 #include "target.h"
-#include "wide-int.h"
 
 static void flush_quick_stack (void);
 static void push_value (tree);
@@ -2243,7 +2253,7 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
 	  if (method == meth)
 	    break;
 	  if (meth == NULL_TREE)
-	    fatal_error ("method '%s' not found in class",
+	    fatal_error (input_location, "method '%s' not found in class",
 			 IDENTIFIER_POINTER (DECL_NAME (method)));
 	  method_index++;
 	}
@@ -2435,7 +2445,7 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
       load_class (self_type, 1);
       safe_layout_class (self_type);
       if (TREE_CODE (TYPE_SIZE (self_type)) == ERROR_MARK)
-	fatal_error ("failed to find class '%s'", self_name);
+	fatal_error (input_location, "failed to find class '%s'", self_name);
     }
   layout_class_methods (self_type);
 

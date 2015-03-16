@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -412,9 +412,6 @@ package body Exp_Util is
       Proc_To_Call : Node_Id := Empty;
       Ptr_Typ      : Entity_Id;
 
-      function Find_Finalize_Address (Typ : Entity_Id) return Entity_Id;
-      --  Locate TSS primitive Finalize_Address in type Typ
-
       function Find_Object (E : Node_Id) return Node_Id;
       --  Given an arbitrary expression of an allocator, try to find an object
       --  reference in it, otherwise return the original expression.
@@ -422,82 +419,6 @@ package body Exp_Util is
       function Is_Allocate_Deallocate_Proc (Subp : Entity_Id) return Boolean;
       --  Determine whether subprogram Subp denotes a custom allocate or
       --  deallocate.
-
-      ---------------------------
-      -- Find_Finalize_Address --
-      ---------------------------
-
-      function Find_Finalize_Address (Typ : Entity_Id) return Entity_Id is
-         Utyp : Entity_Id := Typ;
-
-      begin
-         --  Handle protected class-wide or task class-wide types
-
-         if Is_Class_Wide_Type (Utyp) then
-            if Is_Concurrent_Type (Root_Type (Utyp)) then
-               Utyp := Root_Type (Utyp);
-
-            elsif Is_Private_Type (Root_Type (Utyp))
-              and then Present (Full_View (Root_Type (Utyp)))
-              and then Is_Concurrent_Type (Full_View (Root_Type (Utyp)))
-            then
-               Utyp := Full_View (Root_Type (Utyp));
-            end if;
-         end if;
-
-         --  Handle private types
-
-         if Is_Private_Type (Utyp) and then Present (Full_View (Utyp)) then
-            Utyp := Full_View (Utyp);
-         end if;
-
-         --  Handle protected and task types
-
-         if Is_Concurrent_Type (Utyp)
-           and then Present (Corresponding_Record_Type (Utyp))
-         then
-            Utyp := Corresponding_Record_Type (Utyp);
-         end if;
-
-         Utyp := Underlying_Type (Base_Type (Utyp));
-
-         --  Deal with untagged derivation of private views. If the parent is
-         --  now known to be protected, the finalization routine is the one
-         --  defined on the corresponding record of the ancestor (corresponding
-         --  records do not automatically inherit operations, but maybe they
-         --  should???)
-
-         if Is_Untagged_Derivation (Typ) then
-            if Is_Protected_Type (Typ) then
-               Utyp := Corresponding_Record_Type (Root_Type (Base_Type (Typ)));
-            else
-               Utyp := Underlying_Type (Root_Type (Base_Type (Typ)));
-
-               if Is_Protected_Type (Utyp) then
-                  Utyp := Corresponding_Record_Type (Utyp);
-               end if;
-            end if;
-         end if;
-
-         --  If the underlying_type is a subtype, we are dealing with the
-         --  completion of a private type. We need to access the base type and
-         --  generate a conversion to it.
-
-         if Utyp /= Base_Type (Utyp) then
-            pragma Assert (Is_Private_Type (Typ));
-
-            Utyp := Base_Type (Utyp);
-         end if;
-
-         --  When dealing with an internally built full view for a type with
-         --  unknown discriminants, use the original record type.
-
-         if Is_Underlying_Record_View (Utyp) then
-            Utyp := Etype (Utyp);
-         end if;
-
-         return TSS (Utyp, TSS_Finalize_Address);
-      end Find_Finalize_Address;
 
       -----------------
       -- Find_Object --
@@ -764,7 +685,7 @@ package body Exp_Util is
             --  since it contains an Unchecked_Conversion.
 
             if Needs_Finalization (Desig_Typ) and then not CodePeer_Mode then
-               Fin_Addr_Id := Find_Finalize_Address (Desig_Typ);
+               Fin_Addr_Id := Finalize_Address (Desig_Typ);
                pragma Assert (Present (Fin_Addr_Id));
 
                Append_To (Actuals,
@@ -2443,6 +2364,83 @@ package body Exp_Util is
       end if;
    end Expand_Subtype_From_Expr;
 
+   ----------------------
+   -- Finalize_Address --
+   ----------------------
+
+   function Finalize_Address (Typ : Entity_Id) return Entity_Id is
+      Utyp : Entity_Id := Typ;
+
+   begin
+      --  Handle protected class-wide or task class-wide types
+
+      if Is_Class_Wide_Type (Utyp) then
+         if Is_Concurrent_Type (Root_Type (Utyp)) then
+            Utyp := Root_Type (Utyp);
+
+         elsif Is_Private_Type (Root_Type (Utyp))
+           and then Present (Full_View (Root_Type (Utyp)))
+           and then Is_Concurrent_Type (Full_View (Root_Type (Utyp)))
+         then
+            Utyp := Full_View (Root_Type (Utyp));
+         end if;
+      end if;
+
+      --  Handle private types
+
+      if Is_Private_Type (Utyp) and then Present (Full_View (Utyp)) then
+         Utyp := Full_View (Utyp);
+      end if;
+
+      --  Handle protected and task types
+
+      if Is_Concurrent_Type (Utyp)
+        and then Present (Corresponding_Record_Type (Utyp))
+      then
+         Utyp := Corresponding_Record_Type (Utyp);
+      end if;
+
+      Utyp := Underlying_Type (Base_Type (Utyp));
+
+      --  Deal with untagged derivation of private views. If the parent is
+      --  now known to be protected, the finalization routine is the one
+      --  defined on the corresponding record of the ancestor (corresponding
+      --  records do not automatically inherit operations, but maybe they
+      --  should???)
+
+      if Is_Untagged_Derivation (Typ) then
+         if Is_Protected_Type (Typ) then
+            Utyp := Corresponding_Record_Type (Root_Type (Base_Type (Typ)));
+
+         else
+            Utyp := Underlying_Type (Root_Type (Base_Type (Typ)));
+
+            if Is_Protected_Type (Utyp) then
+               Utyp := Corresponding_Record_Type (Utyp);
+            end if;
+         end if;
+      end if;
+
+      --  If the underlying_type is a subtype, we are dealing with the
+      --  completion of a private type. We need to access the base type and
+      --  generate a conversion to it.
+
+      if Utyp /= Base_Type (Utyp) then
+         pragma Assert (Is_Private_Type (Typ));
+
+         Utyp := Base_Type (Utyp);
+      end if;
+
+      --  When dealing with an internally built full view for a type with
+      --  unknown discriminants, use the original record type.
+
+      if Is_Underlying_Record_View (Utyp) then
+         Utyp := Etype (Utyp);
+      end if;
+
+      return TSS (Utyp, TSS_Finalize_Address);
+   end Finalize_Address;
+
    ------------------------
    -- Find_Interface_ADT --
    ------------------------
@@ -2961,9 +2959,9 @@ package body Exp_Util is
 
    begin
       --  If parser detected no address clause for the identifier in question,
-      --  then then answer is a quick NO, without the need for a search.
+      --  then the answer is a quick NO, without the need for a search.
 
-      if not Get_Name_Table_Boolean (Chars (Id)) then
+      if not Get_Name_Table_Boolean1 (Chars (Id)) then
          return Empty;
       end if;
 
@@ -2998,9 +2996,22 @@ package body Exp_Util is
    -- Force_Evaluation --
    ----------------------
 
-   procedure Force_Evaluation (Exp : Node_Id; Name_Req : Boolean := False) is
+   procedure Force_Evaluation
+     (Exp           : Node_Id;
+      Name_Req      : Boolean   := False;
+      Related_Id    : Entity_Id := Empty;
+      Is_Low_Bound  : Boolean   := False;
+      Is_High_Bound : Boolean   := False)
+   is
    begin
-      Remove_Side_Effects (Exp, Name_Req, Variable_Ref => True);
+      Remove_Side_Effects
+        (Exp           => Exp,
+         Name_Req      => Name_Req,
+         Variable_Ref  => True,
+         Renaming_Req  => False,
+         Related_Id    => Related_Id,
+         Is_Low_Bound  => Is_Low_Bound,
+         Is_High_Bound => Is_High_Bound);
    end Force_Evaluation;
 
    ---------------------------------
@@ -5699,6 +5710,11 @@ package body Exp_Util is
       elsif Is_Entity_Name (N) and then Is_Type (Entity (N)) then
          return False;
 
+      --  Never true for a compile time known constant
+
+      elsif Compile_Time_Known_Value (N) then
+         return False;
+
       --  True if object reference with volatile type
 
       elsif Is_Volatile_Object (N) then
@@ -6074,6 +6090,16 @@ package body Exp_Util is
         or else Is_Constrained (Root_Typ)
       then
          Constr_Root := Root_Typ;
+
+         --  At this point in the expansion, non-limited view of the type
+         --  must be available, otherwise the error will be reported later.
+
+         if From_Limited_With (Constr_Root)
+           and then Present (Non_Limited_View (Constr_Root))
+         then
+            Constr_Root := Non_Limited_View (Constr_Root);
+         end if;
+
       else
          Constr_Root := Make_Temporary (Loc, 'R');
 
@@ -6930,6 +6956,13 @@ package body Exp_Util is
 
    function Possible_Bit_Aligned_Component (N : Node_Id) return Boolean is
    begin
+      --  Do not process an unanalyzed node because it is not yet decorated and
+      --  most checks performed below will fail.
+
+      if not Analyzed (N) then
+         return False;
+      end if;
+
       case Nkind (N) is
 
          --  Case of indexed component
@@ -7307,8 +7340,9 @@ package body Exp_Util is
         (Loc         : Source_Ptr;
          Id          : Character;
          Related_Nod : Node_Id := Empty) return Entity_Id;
-      --  Create an external symbol of the form xxx_FIRST/_LAST if Related_Id
-      --  is present, otherwise it generates an internal temporary.
+      --  Create an external symbol of the form xxx_FIRST/_LAST if Related_Nod
+      --  is present (xxx is taken from the Chars field of Related_Nod),
+      --  otherwise it generates an internal temporary.
 
       ---------------------
       -- Build_Temporary --
@@ -7830,13 +7864,19 @@ package body Exp_Util is
          if Nkind (Decl) = N_Full_Type_Declaration then
             Typ := Defining_Identifier (Decl);
 
-            if Is_Tagged_Type (Typ)
+            --  Ignored Ghost types do not need any cleanup actions because
+            --  they will not appear in the final tree.
+
+            if Is_Ignored_Ghost_Entity (Typ) then
+               null;
+
+            elsif Is_Tagged_Type (Typ)
               and then Is_Library_Level_Entity (Typ)
               and then Convention (Typ) = Convention_Ada
               and then Present (Access_Disp_Table (Typ))
               and then RTE_Available (RE_Unregister_Tag)
-              and then not No_Run_Time_Mode
               and then not Is_Abstract_Type (Typ)
+              and then not No_Run_Time_Mode
             then
                return True;
             end if;
@@ -7860,6 +7900,12 @@ package body Exp_Util is
             --  Objects.
 
             elsif Is_Processed_Transient (Obj_Id) then
+               null;
+
+            --  Ignored Ghost objects do not need any cleanup actions because
+            --  they will not appear in the final tree.
+
+            elsif Is_Ignored_Ghost_Entity (Obj_Id) then
                null;
 
             --  The object is of the form:
@@ -7940,6 +7986,12 @@ package body Exp_Util is
             if Lib_Level and then Finalize_Storage_Only (Obj_Typ) then
                null;
 
+            --  Ignored Ghost object renamings do not need any cleanup actions
+            --  because they will not appear in the final tree.
+
+            elsif Is_Ignored_Ghost_Entity (Obj_Id) then
+               null;
+
             --  Return object of a build-in-place function. This case is
             --  recognized and marked by the expansion of an extended return
             --  statement (see Expand_N_Extended_Return_Statement).
@@ -7981,11 +8033,17 @@ package body Exp_Util is
          then
             Typ := Entity (Decl);
 
-            if ((Is_Access_Type (Typ)
-                  and then not Is_Access_Subprogram_Type (Typ)
-                  and then Needs_Finalization
-                             (Available_View (Designated_Type (Typ))))
-                or else (Is_Type (Typ) and then Needs_Finalization (Typ)))
+            --  Freeze nodes for ignored Ghost types do not need cleanup
+            --  actions because they will never appear in the final tree.
+
+            if Is_Ignored_Ghost_Entity (Typ) then
+               null;
+
+            elsif ((Is_Access_Type (Typ)
+                      and then not Is_Access_Subprogram_Type (Typ)
+                      and then Needs_Finalization
+                                 (Available_View (Designated_Type (Typ))))
+                    or else (Is_Type (Typ) and then Needs_Finalization (Typ)))
               and then Requires_Cleanup_Actions
                          (Actions (Decl), Lib_Level, Nested_Constructs)
             then
@@ -7997,15 +8055,17 @@ package body Exp_Util is
          elsif Nested_Constructs
            and then Nkind (Decl) = N_Package_Declaration
          then
-            Pack_Id := Defining_Unit_Name (Specification (Decl));
+            Pack_Id := Defining_Entity (Decl);
 
-            if Nkind (Pack_Id) = N_Defining_Program_Unit_Name then
-               Pack_Id := Defining_Identifier (Pack_Id);
-            end if;
+            --  Do not inspect an ignored Ghost package because all code found
+            --  within will not appear in the final tree.
 
-            if Ekind (Pack_Id) /= E_Generic_Package
-              and then
-                Requires_Cleanup_Actions (Specification (Decl), Lib_Level)
+            if Is_Ignored_Ghost_Entity (Pack_Id) then
+               null;
+
+            elsif Ekind (Pack_Id) /= E_Generic_Package
+              and then Requires_Cleanup_Actions
+                         (Specification (Decl), Lib_Level)
             then
                return True;
             end if;
@@ -8013,11 +8073,37 @@ package body Exp_Util is
          --  Nested package bodies
 
          elsif Nested_Constructs and then Nkind (Decl) = N_Package_Body then
-            Pack_Id := Corresponding_Spec (Decl);
 
-            if Ekind (Pack_Id) /= E_Generic_Package
+            --  Do not inspect an ignored Ghost package body because all code
+            --  found within will not appear in the final tree.
+
+            if Is_Ignored_Ghost_Entity (Defining_Entity (Decl)) then
+               null;
+
+            elsif Ekind (Corresponding_Spec (Decl)) /= E_Generic_Package
               and then Requires_Cleanup_Actions (Decl, Lib_Level)
             then
+               return True;
+            end if;
+
+         elsif Nkind (Decl) = N_Block_Statement
+           and then
+
+           --  Handle a rare case caused by a controlled transient variable
+           --  created as part of a record init proc. The variable is wrapped
+           --  in a block, but the block is not associated with a transient
+           --  scope.
+
+           (Inside_Init_Proc
+
+           --  Handle the case where the original context has been wrapped in
+           --  a block to avoid interference between exception handlers and
+           --  At_End handlers. Treat the block as transparent and process its
+           --  contents.
+
+             or else Is_Finalization_Wrapper (Decl))
+         then
+            if Requires_Cleanup_Actions (Decl, Lib_Level) then
                return True;
             end if;
          end if;

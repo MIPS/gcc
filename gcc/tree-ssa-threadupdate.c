@@ -1,5 +1,5 @@
 /* Thread edges through blocks and update the control flow and SSA graphs.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,13 +20,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
-#include "flags.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "flags.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -189,6 +196,9 @@ dump_jump_thread_path (FILE *dump_file, vec<jump_thread_edge *> path,
 		 path[i]->e->src->index, path[i]->e->dest->index);
       if (path[i]->type == EDGE_NO_COPY_SRC_BLOCK)
        fprintf (dump_file, " (%d, %d) nocopy;",
+		 path[i]->e->src->index, path[i]->e->dest->index);
+      if (path[0]->type == EDGE_FSM_THREAD)
+	fprintf (dump_file, " (%d, %d) ",
 		 path[i]->e->src->index, path[i]->e->dest->index);
     }
   fputc ('\n', dump_file);
@@ -2364,7 +2374,7 @@ duplicate_seme_region (edge entry, edge exit,
 		       basic_block *region_copy)
 {
   unsigned i;
-  bool free_region_copy = false, copying_header = false;
+  bool free_region_copy = false;
   struct loop *loop = entry->dest->loop_father;
   edge exit_copy;
   edge redirected;
@@ -2388,10 +2398,7 @@ duplicate_seme_region (edge entry, edge exit,
 
   initialize_original_copy_tables ();
 
-  if (copying_header)
-    set_loop_copy (loop, loop_outer (loop));
-  else
-    set_loop_copy (loop, loop);
+  set_loop_copy (loop, loop);
 
   if (!region_copy)
     {
@@ -2453,6 +2460,8 @@ duplicate_seme_region (edge entry, edge exit,
   }
 
   /* Redirect the entry and add the phi node arguments.  */
+  if (entry->dest == loop->header)
+    mark_loop_for_removal (loop);
   redirected = redirect_edge_and_branch (entry, get_bb_copy (entry->dest));
   gcc_assert (redirected != NULL);
   flush_pending_stmts (entry);
@@ -2464,6 +2473,21 @@ duplicate_seme_region (edge entry, edge exit,
     free (region_copy);
 
   free_original_copy_tables ();
+  return true;
+}
+
+/* Return true when PATH is a valid jump-thread path.  */
+
+static bool
+valid_jump_thread_path (vec<jump_thread_edge *> *path)
+{
+  unsigned len = path->length ();
+
+  /* Check that the path is connected.  */
+  for (unsigned int j = 0; j < len - 1; j++)
+    if ((*path)[j]->e->dest != (*path)[j+1]->e->src)
+      return false;
+
   return true;
 }
 
@@ -2499,12 +2523,25 @@ thread_through_all_blocks (bool may_peel_loop_headers)
       vec<jump_thread_edge *> *path = paths[i];
       edge entry = (*path)[0]->e;
 
-      if ((*path)[0]->type != EDGE_FSM_THREAD
-	  /* Do not jump-thread twice from the same block.  */
-	  || bitmap_bit_p (threaded_blocks, entry->src->index)) {
-	i++;
-	continue;
-      }
+      /* Only code-generate FSM jump-threads in this loop.  */
+      if ((*path)[0]->type != EDGE_FSM_THREAD)
+	{
+	  i++;
+	  continue;
+	}
+
+      /* Do not jump-thread twice from the same block.  */
+      if (bitmap_bit_p (threaded_blocks, entry->src->index)
+	  /* Verify that the jump thread path is still valid: a
+	     previous jump-thread may have changed the CFG, and
+	     invalidated the current path.  */
+	  || !valid_jump_thread_path (path))
+	{
+	  /* Remove invalid FSM jump-thread paths.  */
+	  delete_jump_thread_path (path);
+	  paths.unordered_remove (i);
+	  continue;
+	}
 
       unsigned len = path->length ();
       edge exit = (*path)[len - 1]->e;

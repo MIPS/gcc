@@ -1,5 +1,5 @@
 /* Utilities for ipa analysis.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -44,7 +44,7 @@ bool ipa_edge_within_scc (struct cgraph_edge *);
 int ipa_reverse_postorder (struct cgraph_node **);
 tree get_base_var (tree);
 void ipa_merge_profiles (struct cgraph_node *dst,
-			 struct cgraph_node *src);
+			 struct cgraph_node *src, bool preserve_body = false);
 bool recursive_call_p (tree, tree);
 
 /* In ipa-profile.c  */
@@ -80,7 +80,7 @@ bool type_known_to_have_no_deriavations_p (tree);
 bool contains_polymorphic_type_p (const_tree);
 void register_odr_type (tree);
 bool types_must_be_same_for_odr (tree, tree);
-bool types_odr_comparable (tree, tree);
+bool types_odr_comparable (tree, tree, bool strict = false);
 cgraph_node *try_speculative_devirtualization (tree, HOST_WIDE_INT,
 					       ipa_polymorphic_call_context);
 

@@ -1,6 +1,6 @@
 /* Gimple walk support.
 
-   Copyright (C) 2007-2014 Free Software Foundation, Inc.
+   Copyright (C) 2007-2015 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
@@ -23,13 +23,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
-#include "stmt.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "stmt.h"
+#include "predict.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -321,11 +327,13 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_CRITICAL:
-      ret = walk_tree (gimple_omp_critical_name_ptr (
-			 as_a <gomp_critical *> (stmt)),
-		       callback_op, wi, pset);
-      if (ret)
-	return ret;
+      {
+	gomp_critical *omp_stmt = as_a <gomp_critical *> (stmt);
+	ret = walk_tree (gimple_omp_critical_name_ptr (omp_stmt),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+      }
       break;
 
     case GIMPLE_OMP_FOR:
@@ -349,9 +357,9 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	    return ret;
 	  ret = walk_tree (gimple_omp_for_incr_ptr (stmt, i), callback_op,
 			   wi, pset);
+	  if (ret)
+	    return ret;
 	}
-      if (ret)
-	return ret;
       break;
 
     case GIMPLE_OMP_PARALLEL:
@@ -404,7 +412,6 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 		       wi, pset);
       if (ret)
 	return ret;
-
       ret = walk_tree (gimple_omp_sections_control_ptr (stmt), callback_op,
 		       wi, pset);
       if (ret)
@@ -420,10 +427,21 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_TARGET:
-      ret = walk_tree (gimple_omp_target_clauses_ptr (stmt), callback_op, wi,
-		       pset);
-      if (ret)
-	return ret;
+      {
+	gomp_target *omp_stmt = as_a <gomp_target *> (stmt);
+	ret = walk_tree (gimple_omp_target_clauses_ptr (omp_stmt),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+	ret = walk_tree (gimple_omp_target_child_fn_ptr (omp_stmt),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+	ret = walk_tree (gimple_omp_target_data_arg_ptr (omp_stmt),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+      }
       break;
 
     case GIMPLE_OMP_TEAMS:
@@ -440,7 +458,6 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 			 callback_op, wi, pset);
 	if (ret)
 	  return ret;
-
 	ret = walk_tree (gimple_omp_atomic_load_rhs_ptr (omp_stmt),
 			 callback_op, wi, pset);
 	if (ret)
@@ -449,11 +466,13 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_ATOMIC_STORE:
-      ret = walk_tree (gimple_omp_atomic_store_val_ptr (
-		         as_a <gomp_atomic_store *> (stmt)),
-		       callback_op, wi, pset);
-      if (ret)
-	return ret;
+      {
+	gomp_atomic_store *omp_stmt = as_a <gomp_atomic_store *> (stmt);
+	ret = walk_tree (gimple_omp_atomic_store_val_ptr (omp_stmt),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+      }
       break;
 
     case GIMPLE_TRANSACTION:

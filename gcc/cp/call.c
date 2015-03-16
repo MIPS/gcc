@@ -1,5 +1,5 @@
 /* Functions related to invoking methods and overloaded functions.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -26,6 +26,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "trans-mem.h"
@@ -43,16 +52,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "wide-int.h"
+#include "internal-fn.h"
 
 /* The various kinds of conversion.  */
 
@@ -333,13 +339,16 @@ build_call_n (tree function, int n, ...)
 void
 set_flags_from_callee (tree call)
 {
-  int nothrow;
+  bool nothrow;
   tree decl = get_callee_fndecl (call);
 
   /* We check both the decl and the type; a function may be known not to
      throw without being declared throw().  */
-  nothrow = ((decl && TREE_NOTHROW (decl))
-	     || TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (call)))));
+  nothrow = decl && TREE_NOTHROW (decl);
+  if (CALL_EXPR_FN (call))
+    nothrow |= TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (call))));
+  else if (internal_fn_flags (CALL_EXPR_IFN (call)) & ECF_NOTHROW)
+    nothrow = true;
 
   if (!nothrow && at_function_scope_p () && cfun && cp_function_chain)
     cp_function_chain->can_throw = 1;
@@ -1684,6 +1693,19 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
      of the underlying type with the argument expression.  Any
      difference in top-level cv-qualification is subsumed by the
      initialization itself and does not constitute a conversion.  */
+
+  /* [dcl.init.ref]
+
+     Otherwise, the reference shall be an lvalue reference to a
+     non-volatile const type, or the reference shall be an rvalue
+     reference.
+
+     We try below to treat this as a bad conversion to improve diagnostics,
+     but if TO is an incomplete class, we need to reject this conversion
+     now to avoid unnecessary instantiation.  */
+  if (!CP_TYPE_CONST_NON_VOLATILE_P (to) && !TYPE_REF_IS_RVALUE (rto)
+      && !COMPLETE_TYPE_P (to))
+    return NULL;
 
   /* We're generating a temporary now, but don't bind any more in the
      conversion (specifically, don't slice the temporary returned by a
@@ -5733,7 +5755,7 @@ build_new_op (location_t loc, enum tree_code code, int flags,
 /* Returns true iff T, an element of an OVERLOAD chain, is a usual
    deallocation function (3.7.4.2 [basic.stc.dynamic.deallocation]).  */
 
-static bool
+bool
 non_placement_deallocation_fn_p (tree t)
 {
   /* A template instance is never a usual deallocation function,
@@ -5749,9 +5771,11 @@ non_placement_deallocation_fn_p (tree t)
      function named operator delete with exactly two parameters, the second
      of which has type std::size_t (18.2), then this function is a usual
      deallocation function.  */
+  bool global = DECL_NAMESPACE_SCOPE_P (t);
   t = FUNCTION_ARG_CHAIN (t);
   if (t == void_list_node
       || (t && same_type_p (TREE_VALUE (t), size_type_node)
+	  && (!global || flag_sized_deallocation)
 	  && TREE_CHAIN (t) == void_list_node))
     return true;
   return false;
@@ -5883,9 +5907,39 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	       which has type std::size_t (18.2), then this function is a
 	       usual deallocation function."
 
-	       So (void*) beats (void*, size_t).  */
-	    if (FUNCTION_ARG_CHAIN (fn) == void_list_node)
-	      break;
+	       So in a class (void*) beats (void*, size_t).  */
+	    if (DECL_CLASS_SCOPE_P (fn))
+	      {
+		if (FUNCTION_ARG_CHAIN (fn) == void_list_node)
+		  break;
+	      }
+	    /* At global scope (in C++14 and above) the rules are different:
+
+	       If deallocation function lookup finds both a usual
+	       deallocation function with only a pointer parameter and a
+	       usual deallocation function with both a pointer parameter
+	       and a size parameter, the function to be called is selected
+	       as follows:
+
+	       * If the type is complete and if, for the second alternative
+	       (delete array) only, the operand is a pointer to a class
+	       type with a non-trivial destructor or a (possibly
+	       multi-dimensional) array thereof, the function with two
+	       parameters is selected.
+
+	       * Otherwise, it is unspecified which of the two deallocation
+	       functions is selected. */
+	    else
+	      {
+		bool want_size = COMPLETE_TYPE_P (type);
+		if (code == VEC_DELETE_EXPR
+		    && !TYPE_VEC_NEW_USES_COOKIE (type))
+		  /* We need a cookie to determine the array size.  */
+		  want_size = false;
+		bool have_size = (FUNCTION_ARG_CHAIN (fn) != void_list_node);
+		if (want_size == have_size)
+		  break;
+	      }
 	  }
       }
 
@@ -7966,7 +8020,11 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
      that would be captured if the call turns out to be to a
      non-static member function.  Do not actually capture it at this
      point.  */
-  first_mem_arg = maybe_resolve_dummy (instance, false);
+  if (DECL_CONSTRUCTOR_P (fn))
+    /* Constructors don't use the enclosing 'this'.  */
+    first_mem_arg = instance;
+  else
+    first_mem_arg = maybe_resolve_dummy (instance, false);
 
   /* Get the high-water mark for the CONVERSION_OBSTACK.  */
   p = conversion_obstack_alloc (0);
@@ -9574,7 +9632,7 @@ set_up_extended_ref_temp (tree decl, tree expr, vec<tree, va_gc> **cleanups,
   else
     /* Create the INIT_EXPR that will initialize the temporary
        variable.  */
-    init = build2 (INIT_EXPR, type, var, expr);
+    init = split_nonconstant_init (var, expr);
   if (at_function_scope_p ())
     {
       add_decl_expr (var);

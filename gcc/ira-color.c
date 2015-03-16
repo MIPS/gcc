@@ -1,5 +1,5 @@
 /* IRA allocation based on graph coloring.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -41,6 +41,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
+#include "symtab.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "reload.h"
@@ -841,7 +858,6 @@ setup_left_conflict_sizes_p (ira_allocno_t a)
   HARD_REG_SET node_set;
 
   nobj = ALLOCNO_NUM_OBJECTS (a);
-  conflict_size = 0;
   data = ALLOCNO_COLOR_DATA (a);
   subnodes = allocno_hard_regs_subnodes + data->hard_regs_subnodes_start;
   COPY_HARD_REG_SET (profitable_hard_regs, data->profitable_hard_regs);
@@ -942,9 +958,9 @@ setup_left_conflict_sizes_p (ira_allocno_t a)
     }
   left_conflict_subnodes_size = subnodes[0].left_conflict_subnodes_size;
   conflict_size
-    += (left_conflict_subnodes_size
-	+ MIN (subnodes[0].max_node_impact - left_conflict_subnodes_size,
-	       subnodes[0].left_conflict_size));
+    = (left_conflict_subnodes_size
+       + MIN (subnodes[0].max_node_impact - left_conflict_subnodes_size,
+	      subnodes[0].left_conflict_size));
   conflict_size += ira_reg_class_max_nregs[ALLOCNO_CLASS (a)][ALLOCNO_MODE (a)];
   data->colorable_p = conflict_size <= data->available_regs_num;
   return data->colorable_p;
@@ -3258,7 +3274,11 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	       && (loop_tree_node->reg_pressure[pclass]
 		   <= ira_class_hard_regs_num[pclass]))
 	      || (pic_offset_table_rtx != NULL
-		  && regno == (int) REGNO (pic_offset_table_rtx)))
+		  && regno == (int) REGNO (pic_offset_table_rtx))
+	      /* Avoid overlapped multi-registers. Moves between them
+		 might result in wrong code generation.  */
+	      || (hard_regno >= 0
+		  && ira_reg_class_max_nregs[pclass][mode] > 1))
 	    {
 	      if (! ALLOCNO_ASSIGNED_P (subloop_allocno))
 		{

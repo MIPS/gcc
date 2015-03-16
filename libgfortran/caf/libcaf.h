@@ -1,5 +1,5 @@
 /* Common declarations for all of GNU Fortran libcaf implementations.
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Tobias Burnus <burnus@net-b.de>
 
 This file is part of the GNU Fortran Coarray Runtime Library (libcaf).
@@ -100,6 +100,7 @@ void *_gfortran_caf_register (size_t, caf_register_t, caf_token_t *, int *,
 void _gfortran_caf_deregister (caf_token_t *, int *, char *, int);
 
 void _gfortran_caf_sync_all (int *, char *, int);
+void _gfortran_caf_sync_memory (int *, char *, int);
 void _gfortran_caf_sync_images (int, int[], int *, char *, int);
 
 void _gfortran_caf_error_stop_str (const char *, int32_t)
@@ -110,6 +111,8 @@ void _gfortran_caf_co_broadcast (gfc_descriptor_t *, int, int *, char *, int);
 void _gfortran_caf_co_sum (gfc_descriptor_t *, int, int *, char *, int);
 void _gfortran_caf_co_min (gfc_descriptor_t *, int, int *, char *, int, int);
 void _gfortran_caf_co_max (gfc_descriptor_t *, int, int *, char *, int, int);
+void _gfortran_caf_co_reduce (gfc_descriptor_t *, void* (*) (void *, void*),
+			      int, int, int *, char *, int, int);
 
 void _gfortran_caf_get (caf_token_t, size_t, int, gfc_descriptor_t *,
                         caf_vector_t *, gfc_descriptor_t *, int, int, bool);

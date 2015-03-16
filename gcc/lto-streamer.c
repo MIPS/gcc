@@ -1,7 +1,7 @@
 /* Miscellaneous utilities for GIMPLE streaming.  Things that are used
    in both input and output are here.
 
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Doug Kwan <dougkwan@google.com>
 
 This file is part of GCC.
@@ -26,12 +26,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "toplev.h"
 #include "flags.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -61,6 +67,8 @@ static bitmap_obstack lto_obstack;
 static bool lto_obstack_initialized;
 
 const char *section_name_prefix = LTO_SECTION_NAME_PREFIX;
+/* Set when streaming LTO for offloading compiler.  */
+bool lto_stream_offload_p;
 
 /* Return a string representing LTO tag TAG.  */
 
@@ -311,11 +319,13 @@ static hash_table<tree_hash_entry> *tree_htab;
 void
 lto_streamer_init (void)
 {
+#ifdef ENABLE_CHECKING
   /* Check that all the TS_* handled by the reader and writer routines
      match exactly the structures defined in treestruct.def.  When a
      new TS_* astructure is added, the streamer should be updated to
      handle it.  */
   streamer_check_handled_ts_structures ();
+#endif
 
 #ifdef LTO_STREAMER_DEBUG
   tree_htab = new hash_table<tree_hash_entry> (31);
@@ -398,7 +408,8 @@ void
 lto_check_version (int major, int minor)
 {
   if (major != LTO_major_version || minor != LTO_minor_version)
-    fatal_error ("bytecode stream generated with LTO version %d.%d instead "
+    fatal_error (input_location,
+		 "bytecode stream generated with LTO version %d.%d instead "
 	         "of the expected %d.%d",
 		 major, minor,
 		 LTO_major_version, LTO_minor_version);

@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999-2014 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -33,6 +33,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "diagnostic-color.h"
 
+#ifdef HAVE_TERMIOS_H
+# include <termios.h>
+#endif
+
+#ifdef GWINSZ_IN_SYS_IOCTL
+# include <sys/ioctl.h>
+#endif
+
 #include <new>                     // For placement new.
 
 #define pedantic_warning_kind(DC)			\
@@ -43,8 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 /* Prototypes.  */
 static void error_recursion (diagnostic_context *) ATTRIBUTE_NORETURN;
 
-static void diagnostic_action_after_output (diagnostic_context *,
-					    diagnostic_info *);
 static void real_abort (void) ATTRIBUTE_NORETURN;
 
 /* Name of program invoked, sans directories.  */
@@ -64,7 +70,7 @@ build_message_string (const char *msg, ...)
   va_list ap;
 
   va_start (ap, msg);
-  vasprintf (&str, msg, ap);
+  str = xvasprintf (msg, ap);
   va_end (ap);
 
   return str;
@@ -83,9 +89,10 @@ file_name_as_prefix (diagnostic_context *context, const char *f)
 
 
 /* Return the value of the getenv("COLUMNS") as an integer. If the
-   value is not set to a positive integer, then return INT_MAX.  */
-static int
-getenv_columns (void)
+   value is not set to a positive integer, use ioctl to get the
+   terminal width. If it fails, return INT_MAX.  */
+int
+get_terminal_width (void)
 {
   const char * s = getenv ("COLUMNS");
   if (s != NULL) {
@@ -93,6 +100,14 @@ getenv_columns (void)
     if (n > 0)
       return n;
   }
+
+#ifdef TIOCGWINSZ
+  struct winsize w;
+  w.ws_col = 0;
+  if (ioctl (0, TIOCGWINSZ, &w) == 0 && w.ws_col > 0)
+    return w.ws_col;
+#endif
+
   return INT_MAX;
 }
 
@@ -103,7 +118,7 @@ diagnostic_set_caret_max_width (diagnostic_context *context, int value)
   /* One minus to account for the leading empty space.  */
   value = value ? value - 1 
     : (isatty (fileno (pp_buffer (context->printer)->stream))
-       ? getenv_columns () - 1: INT_MAX);
+       ? get_terminal_width () - 1: INT_MAX);
   
   if (value <= 0) 
     value = INT_MAX;
@@ -466,11 +481,11 @@ bt_err_callback (void *data ATTRIBUTE_UNUSED, const char *msg, int errnum)
 
 /* Take any action which is expected to happen after the diagnostic
    is written out.  This function does not always return.  */
-static void
+void
 diagnostic_action_after_output (diagnostic_context *context,
-				diagnostic_info *diagnostic)
+				diagnostic_t diag_kind)
 {
-  switch (diagnostic->kind)
+  switch (diag_kind)
     {
     case DK_DEBUG:
     case DK_NOTE:
@@ -490,7 +505,8 @@ diagnostic_action_after_output (diagnostic_context *context,
 	}
       if (context->max_errors != 0
 	  && ((unsigned) (diagnostic_kind_count (context, DK_ERROR)
-			  + diagnostic_kind_count (context, DK_SORRY))
+			  + diagnostic_kind_count (context, DK_SORRY)
+			  + diagnostic_kind_count (context, DK_WERROR))
 	      >= context->max_errors))
 	{
 	  fnotice (stderr,
@@ -502,9 +518,11 @@ diagnostic_action_after_output (diagnostic_context *context,
       break;
 
     case DK_ICE:
+    case DK_ICE_NOBT:
       {
-	struct backtrace_state *state =
-	  backtrace_create_state (NULL, 0, bt_err_callback, NULL);
+	struct backtrace_state *state = NULL;
+	if (diag_kind == DK_ICE)
+	  state = backtrace_create_state (NULL, 0, bt_err_callback, NULL);
 	int count = 0;
 	if (state != NULL)
 	  backtrace_full (state, 2, bt_callback, bt_err_callback,
@@ -723,7 +741,8 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       /* If we're reporting an ICE in the middle of some other error,
 	 try to flush out the previous error, then let this one
 	 through.  Don't do this more than once.  */
-      if (diagnostic->kind == DK_ICE && context->lock == 1)
+      if ((diagnostic->kind == DK_ICE || diagnostic->kind == DK_ICE_NOBT)
+	  && context->lock == 1)
 	pp_newline_and_flush (context->printer);
       else
 	error_recursion (context);
@@ -796,7 +815,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
 
   context->lock++;
 
-  if (diagnostic->kind == DK_ICE)
+  if (diagnostic->kind == DK_ICE || diagnostic->kind == DK_ICE_NOBT)
     {
 #ifndef ENABLE_CHECKING
       /* When not checking, ICEs are converted to fatal errors when an
@@ -847,7 +866,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
   (*diagnostic_starter (context)) (context, diagnostic);
   pp_output_formatted_text (context->printer);
   (*diagnostic_finalizer (context)) (context, diagnostic);
-  diagnostic_action_after_output (context, diagnostic);
+  diagnostic_action_after_output (context, diagnostic->kind);
   diagnostic->message.format_spec = saved_format_spec;
   diagnostic->x_data = NULL;
 
@@ -1176,23 +1195,6 @@ seen_error (void)
    continue.  Do not use this for internal consistency checks; that's
    internal_error.  Use of this function should be rare.  */
 void
-fatal_error (const char *gmsgid, ...)
-{
-  diagnostic_info diagnostic;
-  va_list ap;
-
-  va_start (ap, gmsgid);
-  diagnostic_set_info (&diagnostic, gmsgid, &ap, input_location, DK_FATAL);
-  report_diagnostic (&diagnostic);
-  va_end (ap);
-
-  gcc_unreachable ();
-}
-
-/* An error which is severe enough that we make no attempt to
-   continue.  Do not use this for internal consistency checks; that's
-   internal_error.  Use of this function should be rare.  */
-void
 fatal_error (location_t loc, const char *gmsgid, ...)
 {
   diagnostic_info diagnostic;
@@ -1223,6 +1225,23 @@ internal_error (const char *gmsgid, ...)
 
   gcc_unreachable ();
 }
+
+/* Like internal_error, but no backtrace will be printed.  Used when
+   the internal error does not happen at the current location, but happened
+   somewhere else.  */
+void
+internal_error_no_backtrace (const char *gmsgid, ...)
+{
+  diagnostic_info diagnostic;
+  va_list ap;
+
+  va_start (ap, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &ap, input_location, DK_ICE_NOBT);
+  report_diagnostic (&diagnostic);
+  va_end (ap);
+
+  gcc_unreachable ();
+}
 
 /* Special case error functions.  Most are implemented in terms of the
    above, or should be.  */
@@ -1247,8 +1266,6 @@ fnotice (FILE *file, const char *cmsgid, ...)
 static void
 error_recursion (diagnostic_context *context)
 {
-  diagnostic_info diagnostic;
-
   if (context->lock < 3)
     pp_newline_and_flush (context->printer);
 
@@ -1256,9 +1273,8 @@ error_recursion (diagnostic_context *context)
 	   "Internal compiler error: Error reporting routines re-entered.\n");
 
   /* Call diagnostic_action_after_output to get the "please submit a bug
-     report" message.  It only looks at the kind field of diagnostic_info.  */
-  diagnostic.kind = DK_ICE;
-  diagnostic_action_after_output (context, &diagnostic);
+     report" message.  */
+  diagnostic_action_after_output (context, DK_ICE);
 
   /* Do not use gcc_unreachable here; that goes through internal_error
      and therefore would cause infinite recursion.  */

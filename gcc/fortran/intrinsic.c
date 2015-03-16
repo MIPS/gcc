@@ -1,6 +1,6 @@
 /* Build up a list of intrinsic subroutines and functions for the
    name-resolution stage.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -3815,7 +3815,7 @@ sort_actual (const char *name, gfc_actual_arglist **ap,
   if (a == NULL)
     goto do_sort;
 
-  gfc_error ("Too many arguments in call to '%s' at %L", name, where);
+  gfc_error ("Too many arguments in call to %qs at %L", name, where);
   return false;
 
 keywords:
@@ -3833,14 +3833,14 @@ keywords:
 	    gfc_error ("The argument list functions %%VAL, %%LOC or %%REF "
 		       "are not allowed in this context at %L", where);
 	  else
-	    gfc_error ("Can't find keyword named '%s' in call to '%s' at %L",
+	    gfc_error ("Can't find keyword named %qs in call to %qs at %L",
 		       a->name, name, where);
 	  return false;
 	}
 
       if (f->actual != NULL)
 	{
-	  gfc_error ("Argument '%s' appears twice in call to '%s' at %L",
+	  gfc_error ("Argument %qs appears twice in call to %qs at %L",
 		     f->name, name, where);
 	  return false;
 	}
@@ -3854,7 +3854,7 @@ optional:
     {
       if (f->actual == NULL && f->optional == 0)
 	{
-	  gfc_error ("Missing actual argument '%s' in call to '%s' at %L",
+	  gfc_error ("Missing actual argument %qs in call to %qs at %L",
 		     f->name, name, where);
 	  return false;
 	}
@@ -3926,7 +3926,7 @@ check_arglist (gfc_actual_arglist **ap, gfc_intrinsic_sym *sym,
       if (!gfc_compare_types (&ts, &actual->expr->ts))
 	{
 	  if (error_flag)
-	    gfc_error ("Type of argument '%s' in call to '%s' at %L should "
+	    gfc_error ("Type of argument %qs in call to %qs at %L should "
 		       "be %s, not %s", gfc_current_intrinsic_arg[i]->name,
 		       gfc_current_intrinsic, &actual->expr->where,
 		       gfc_typename (&formal->ts),
@@ -4264,7 +4264,7 @@ gfc_check_intrinsic_standard (const gfc_intrinsic_sym* isym,
   const char* symstd_msg;
 
   /* For -fall-intrinsics, just succeed.  */
-  if (gfc_option.flag_all_intrinsics)
+  if (flag_all_intrinsics)
     return true;
 
   /* Find the symbol's standard message for later usage.  */
@@ -4316,7 +4316,7 @@ gfc_check_intrinsic_standard (const gfc_intrinsic_sym* isym,
     {
       /* Do only print a warning if not a GNU extension.  */
       if (!silent && isym->standard != GFC_STD_GNU)
-	gfc_warning ("Intrinsic %qs (is %s) is used at %L",
+	gfc_warning (0, "Intrinsic %qs (is %s) is used at %L",
 		     isym->name, _(symstd_msg), &where);
 
       return true;
@@ -4387,7 +4387,7 @@ gfc_intrinsic_func_interface (gfc_expr *expr, int error_flag)
   if ((isym->id == GFC_ISYM_REAL || isym->id == GFC_ISYM_DBLE
        || isym->id == GFC_ISYM_CMPLX)
       && gfc_init_expr_flag
-      && !gfc_notify_std (GFC_STD_F2003, "Function '%s' as initialization "
+      && !gfc_notify_std (GFC_STD_F2003, "Function %qs as initialization "
 			  "expression at %L", name, &expr->where))
     {
       if (!error_flag)
@@ -4534,14 +4534,14 @@ gfc_intrinsic_sub_interface (gfc_code *c, int error_flag)
 
   if (gfc_do_concurrent_flag && !isym->pure)
     {
-      gfc_error ("Subroutine call to intrinsic '%s' in DO CONCURRENT "
+      gfc_error ("Subroutine call to intrinsic %qs in DO CONCURRENT "
 		 "block at %L is not PURE", name, &c->loc);
       return MATCH_ERROR;
     }
 
   if (!isym->pure && gfc_pure (NULL))
     {
-      gfc_error ("Subroutine call to intrinsic '%s' at %L is not PURE", name,
+      gfc_error ("Subroutine call to intrinsic %qs at %L is not PURE", name,
 		 &c->loc);
       return MATCH_ERROR;
     }
@@ -4617,14 +4617,13 @@ gfc_convert_type_warn (gfc_expr *expr, gfc_typespec *ts, int eflag, int wflag)
   /* At this point, a conversion is necessary. A warning may be needed.  */
   if ((gfc_option.warn_std & sym->standard) != 0)
     {
-      gfc_warning_now ("Extension: Conversion from %s to %s at %L",
+      gfc_warning_now (0, "Extension: Conversion from %s to %s at %L",
 		       gfc_typename (&from_ts), gfc_typename (ts),
 		       &expr->where);
     }
   else if (wflag)
     {
-      if (gfc_option.flag_range_check
-	  && expr->expr_type == EXPR_CONSTANT
+      if (flag_range_check && expr->expr_type == EXPR_CONSTANT
 	  && from_ts.type == ts->type)
 	{
 	  /* Do nothing. Constants of the same type are range-checked

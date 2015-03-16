@@ -1,6 +1,6 @@
 # Makefile.in
 
-# Copyright (C) 2005-2014 Free Software Foundation, Inc.
+# Copyright (C) 2005-2015 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -42,6 +42,7 @@ decimal_float = @decimal_float@
 enable_vtable_verify = @enable_vtable_verify@
 enable_decimal_float = @enable_decimal_float@
 fixed_point = @fixed_point@
+with_aix_soname = @with_aix_soname@
 
 host_noncanonical = @host_noncanonical@
 target_noncanonical = @target_noncanonical@
@@ -1002,6 +1003,7 @@ crtoffloadbegin$(objext): $(srcdir)/offloadstuff.c
 
 crtoffloadend$(objext): $(srcdir)/offloadstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS) -c $< -DCRT_END
+endif
 
 ifeq ($(enable_vtable_verify),yes)
 # These are used in vtable verification; see comments in source files for
@@ -1017,7 +1019,6 @@ vtv_start_preinit$(objext): $(srcdir)/vtv_start_preinit.c
 
 vtv_end_preinit$(objext): $(srcdir)/vtv_end_preinit.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) -c $(srcdir)/vtv_end_preinit.c
-endif
 endif
 
 ifeq ($(CUSTOM_CRTIN),)

@@ -1,5 +1,5 @@
 /* Functions to determine/estimate number of iterations of a loop.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,18 +21,36 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "calls.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
@@ -58,7 +76,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-data-ref.h"
 #include "params.h"
-#include "flags.h"
 #include "diagnostic-core.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
@@ -1546,10 +1563,11 @@ simplify_replace_tree (tree expr, tree old, tree new_tree)
 }
 
 /* Expand definitions of ssa names in EXPR as long as they are simple
-   enough, and return the new expression.  */
+   enough, and return the new expression.  If STOP is specified, stop
+   expanding if EXPR equals to it.  */
 
 tree
-expand_simple_operations (tree expr)
+expand_simple_operations (tree expr, tree stop)
 {
   unsigned i, n;
   tree ret = NULL_TREE, e, ee, e1;
@@ -1569,7 +1587,7 @@ expand_simple_operations (tree expr)
       for (i = 0; i < n; i++)
 	{
 	  e = TREE_OPERAND (expr, i);
-	  ee = expand_simple_operations (e);
+	  ee = expand_simple_operations (e, stop);
 	  if (e == ee)
 	    continue;
 
@@ -1588,7 +1606,8 @@ expand_simple_operations (tree expr)
       return ret;
     }
 
-  if (TREE_CODE (expr) != SSA_NAME)
+  /* Stop if it's not ssa name or the one we don't want to expand.  */
+  if (TREE_CODE (expr) != SSA_NAME || expr == stop)
     return expr;
 
   stmt = SSA_NAME_DEF_STMT (expr);
@@ -1608,7 +1627,7 @@ expand_simple_operations (tree expr)
 	  && src->loop_father != dest->loop_father)
 	return expr;
 
-      return expand_simple_operations (e);
+      return expand_simple_operations (e, stop);
     }
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return expr;
@@ -1628,7 +1647,7 @@ expand_simple_operations (tree expr)
 	return e;
 
       if (code == SSA_NAME)
-	return expand_simple_operations (e);
+	return expand_simple_operations (e, stop);
 
       return expr;
     }
@@ -1637,12 +1656,13 @@ expand_simple_operations (tree expr)
     {
     CASE_CONVERT:
       /* Casts are simple.  */
-      ee = expand_simple_operations (e);
+      ee = expand_simple_operations (e, stop);
       return fold_build1 (code, TREE_TYPE (expr), ee);
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      if (TYPE_OVERFLOW_TRAPS (TREE_TYPE (expr)))
+      if (ANY_INTEGRAL_TYPE_P (TREE_TYPE (expr))
+	  && TYPE_OVERFLOW_TRAPS (TREE_TYPE (expr)))
 	return expr;
       /* Fallthru.  */
     case POINTER_PLUS_EXPR:
@@ -1651,7 +1671,7 @@ expand_simple_operations (tree expr)
       if (!is_gimple_min_invariant (e1))
 	return expr;
 
-      ee = expand_simple_operations (e);
+      ee = expand_simple_operations (e, stop);
       return fold_build2 (code, TREE_TYPE (expr), ee, e1);
 
     default:
@@ -2736,6 +2756,7 @@ record_nonwrapping_iv (struct loop *loop, tree base, tree step, gimple stmt,
 {
   tree niter_bound, extreme, delta;
   tree type = TREE_TYPE (base), unsigned_type;
+  tree orig_base = base;
 
   if (TREE_CODE (step) != INTEGER_CST || integer_zerop (step))
     return;
@@ -2759,16 +2780,30 @@ record_nonwrapping_iv (struct loop *loop, tree base, tree step, gimple stmt,
 
   if (tree_int_cst_sign_bit (step))
     {
+      wide_int min, max;
       extreme = fold_convert (unsigned_type, low);
-      if (TREE_CODE (base) != INTEGER_CST)
+      if (TREE_CODE (orig_base) == SSA_NAME
+	  && TREE_CODE (high) == INTEGER_CST
+	  && INTEGRAL_TYPE_P (TREE_TYPE (orig_base))
+	  && get_range_info (orig_base, &min, &max) == VR_RANGE
+	  && wi::gts_p (high, max))
+	base = wide_int_to_tree (unsigned_type, max);
+      else if (TREE_CODE (base) != INTEGER_CST)
 	base = fold_convert (unsigned_type, high);
       delta = fold_build2 (MINUS_EXPR, unsigned_type, base, extreme);
       step = fold_build1 (NEGATE_EXPR, unsigned_type, step);
     }
   else
     {
+      wide_int min, max;
       extreme = fold_convert (unsigned_type, high);
-      if (TREE_CODE (base) != INTEGER_CST)
+      if (TREE_CODE (orig_base) == SSA_NAME
+	  && TREE_CODE (low) == INTEGER_CST
+	  && INTEGRAL_TYPE_P (TREE_TYPE (orig_base))
+	  && get_range_info (orig_base, &min, &max) == VR_RANGE
+	  && wi::gts_p (min, low))
+	base = wide_int_to_tree (unsigned_type, min);
+      else if (TREE_CODE (base) != INTEGER_CST)
 	base = fold_convert (unsigned_type, low);
       delta = fold_build2 (MINUS_EXPR, unsigned_type, extreme, base);
     }

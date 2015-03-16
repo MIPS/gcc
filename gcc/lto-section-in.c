@@ -1,6 +1,6 @@
 /* Input functions for reading LTO sections.
 
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -23,14 +23,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
-#include "hard-reg-set.h"
+#include "vec.h"
+#include "double-int.h"
 #include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
@@ -38,8 +43,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
-#include "expr.h"
+#include "hashtab.h"
+#include "rtl.h"
 #include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
 #include "params.h"
 #include "diagnostic-core.h"
 #include "except.h"
@@ -71,7 +89,8 @@ const char *lto_section_name[LTO_N_SECTION_TYPES] =
   "inline",
   "ipcp_trans",
   "icf",
-  "offload_table"
+  "offload_table",
+  "mode_table"
 };
 
 
@@ -244,7 +263,8 @@ lto_create_simple_input_block (struct lto_file_decl_data *file_data,
     return NULL;
 
   *datar = data;
-  return new lto_input_block (data + main_offset, header->main_size);
+  return new lto_input_block (data + main_offset, header->main_size,
+			      file_data->mode_table);
 }
 
 
@@ -439,7 +459,7 @@ lto_free_function_in_decl_state_for_node (symtab_node *node)
 void
 lto_section_overrun (struct lto_input_block *ib)
 {
-  fatal_error ("bytecode stream: trying to read %d bytes "
+  fatal_error (input_location, "bytecode stream: trying to read %d bytes "
 	       "after the end of the input buffer", ib->p - ib->len);
 }
 
@@ -449,6 +469,7 @@ void
 lto_value_range_error (const char *purpose, HOST_WIDE_INT val,
 		       HOST_WIDE_INT min, HOST_WIDE_INT max)
 {
-  fatal_error ("%s out of range: Range is %i to %i, value is %i",
+  fatal_error (input_location,
+	       "%s out of range: Range is %i to %i, value is %i",
 	       purpose, (int)min, (int)max, (int)val);
 }

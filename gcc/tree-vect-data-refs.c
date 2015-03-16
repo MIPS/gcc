@@ -1,5 +1,5 @@
 /* Data References Analysis and Manipulation Utilities for Vectorization.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
 
@@ -24,17 +24,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "dumpfile.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "target.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -57,7 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop.h"
-#include "dumpfile.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
@@ -68,11 +72,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "cgraph.h"
 /* Need to include rtl.h, expr.h, etc. for optabs.  */
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "builtins.h"
-#include "varasm.h"
 
 /* Return true if load- or store-lanes optab OPTAB is implemented for
    COUNT vectors of type VECTYPE.  NAME is the name of OPTAB.  */
@@ -633,7 +650,8 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   tree base, base_addr;
   bool base_aligned;
   tree misalign;
-  tree aligned_to, alignment;
+  tree aligned_to;
+  unsigned HOST_WIDE_INT alignment;
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
@@ -703,42 +721,44 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	}
     }
 
-  base = build_fold_indirect_ref (base_addr);
-  alignment = ssize_int (TYPE_ALIGN (vectype)/BITS_PER_UNIT);
+  alignment = TYPE_ALIGN_UNIT (vectype);
 
-  if ((aligned_to && tree_int_cst_compare (aligned_to, alignment) < 0)
+  if ((compare_tree_int (aligned_to, alignment) < 0)
       || !misalign)
     {
       if (dump_enabled_p ())
 	{
 	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 	                   "Unknown alignment for access: ");
-	  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, base);
+	  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, ref);
 	  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 	}
       return true;
     }
 
-  if ((DECL_P (base)
-       && tree_int_cst_compare (ssize_int (DECL_ALIGN_UNIT (base)),
-				alignment) >= 0)
-      || (TREE_CODE (base_addr) == SSA_NAME
-	  && tree_int_cst_compare (ssize_int (TYPE_ALIGN_UNIT (TREE_TYPE (
-						      TREE_TYPE (base_addr)))),
-				   alignment) >= 0)
-      || (get_pointer_alignment (base_addr) >= TYPE_ALIGN (vectype)))
+  /* To look at alignment of the base we have to preserve an inner MEM_REF
+     as that carries alignment information of the actual access.  */
+  base = ref;
+  while (handled_component_p (base))
+    base = TREE_OPERAND (base, 0);
+  if (TREE_CODE (base) == MEM_REF)
+    base = build2 (MEM_REF, TREE_TYPE (base), base_addr,
+		   build_int_cst (TREE_TYPE (TREE_OPERAND (base, 1)), 0));
+
+  if (get_object_alignment (base) >= TYPE_ALIGN (vectype))
     base_aligned = true;
   else
     base_aligned = false;
 
   if (!base_aligned)
     {
-      /* Do not change the alignment of global variables here if
-	 flag_section_anchors is enabled as we already generated
-	 RTL for other functions.  Most global variables should
-	 have been aligned during the IPA increase_alignment pass.  */
-      if (!vect_can_force_dr_alignment_p (base, TYPE_ALIGN (vectype))
-	  || (TREE_STATIC (base) && flag_section_anchors))
+      /* Strip an inner MEM_REF to a bare decl if possible.  */
+      if (TREE_CODE (base) == MEM_REF
+	  && integer_zerop (TREE_OPERAND (base, 1))
+	  && TREE_CODE (TREE_OPERAND (base, 0)) == ADDR_EXPR)
+	base = TREE_OPERAND (TREE_OPERAND (base, 0), 0);
+
+      if (!vect_can_force_dr_alignment_p (base, TYPE_ALIGN (vectype)))
 	{
 	  if (dump_enabled_p ())
 	    {
@@ -767,7 +787,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   /* If this is a backward running DR then first access in the larger
      vectype actually is N-1 elements before the address in the DR.
      Adjust misalign accordingly.  */
-  if (tree_int_cst_compare (DR_STEP (dr), size_zero_node) < 0)
+  if (tree_int_cst_sgn (DR_STEP (dr)) < 0)
     {
       tree offset = ssize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
       /* DR_STEP(dr) is the same as -TYPE_SIZE of the scalar type,
@@ -777,19 +797,8 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       misalign = size_binop (PLUS_EXPR, misalign, offset);
     }
 
-  /* Modulo alignment.  */
-  misalign = size_binop (FLOOR_MOD_EXPR, misalign, alignment);
-
-  if (!tree_fits_uhwi_p (misalign))
-    {
-      /* Negative or overflowed misalignment value.  */
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-	                 "unexpected misalign value\n");
-      return false;
-    }
-
-  SET_DR_MISALIGNMENT (dr, tree_to_uhwi (misalign));
+  SET_DR_MISALIGNMENT (dr,
+		       wi::mod_floor (misalign, alignment, SIGNED).to_uhwi ());
 
   if (dump_enabled_p ())
     {
@@ -1167,10 +1176,13 @@ vect_peeling_hash_get_lowest_cost (_vect_peel_info **slot,
     }
 
   single_iter_cost = vect_get_single_scalar_iteration_cost (loop_vinfo);
-  outside_cost += vect_get_known_peeling_cost (loop_vinfo, elem->npeel,
-					       &dummy, single_iter_cost,
-					       &prologue_cost_vec,
-					       &epilogue_cost_vec);
+  outside_cost += vect_get_known_peeling_cost
+    (loop_vinfo, elem->npeel, &dummy,
+     /* ???  We use this cost as number of stmts with scalar_stmt cost,
+	thus divide by that.  This introduces rounding errors, thus better 
+	introduce a new cost kind (raw_cost?  scalar_iter_cost?). */
+     single_iter_cost / vect_get_stmt_cost (scalar_stmt),
+     &prologue_cost_vec, &epilogue_cost_vec);
 
   /* Prologue and epilogue costs are added to the target model later.
      These costs depend only on the scalar iteration cost, the
@@ -1746,9 +1758,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
       if (do_peeling)
         {
-	  stmt_info_for_cost *si;
-	  void *data = LOOP_VINFO_TARGET_COST_DATA (loop_vinfo);
-
           /* (1.2) Update the DR_MISALIGNMENT of each data reference DR_i.
              If the misalignment of DR_i is identical to that of dr0 then set
              DR_MISALIGNMENT (DR_i) to zero.  If the misalignment of DR_i and
@@ -1774,20 +1783,10 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
               dump_printf_loc (MSG_NOTE, vect_location,
                                "Peeling for alignment will be applied.\n");
             }
-	  /* We've delayed passing the inside-loop peeling costs to the
-	     target cost model until we were sure peeling would happen.
-	     Do so now.  */
-	  if (body_cost_vec.exists ())
-	    {
-	      FOR_EACH_VEC_ELT (body_cost_vec, i, si)
-		{
-		  struct _stmt_vec_info *stmt_info
-		    = si->stmt ? vinfo_for_stmt (si->stmt) : NULL;
-		  (void) add_stmt_cost (data, si->count, si->kind, stmt_info,
-					si->misalign, vect_body);
-		}
-	      body_cost_vec.release ();
-	    }
+	  /* The inside-loop cost will be accounted for in vectorizable_load
+	     and vectorizable_store correctly with adjusted alignments.
+	     Drop the body_cst_vec on the floor here.  */
+	  body_cost_vec.release ();
 
 	  stat = vect_verify_datarefs_alignment (loop_vinfo, NULL);
 	  gcc_assert (stat);
@@ -4397,9 +4396,9 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
 
   name = get_name (scalar_dest);
   if (name)
-    asprintf (&new_name, "%s_%u", name, SSA_NAME_VERSION (scalar_dest));
+    new_name = xasprintf ("%s_%u", name, SSA_NAME_VERSION (scalar_dest));
   else
-    asprintf (&new_name, "_%u", SSA_NAME_VERSION (scalar_dest));
+    new_name = xasprintf ("_%u", SSA_NAME_VERSION (scalar_dest));
   vec_dest = vect_get_new_vect_var (type, kind, new_name);
   free (new_name);
 
@@ -5699,57 +5698,9 @@ vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
   if (TREE_CODE (decl) != VAR_DECL)
     return false;
 
-  /* With -fno-toplevel-reorder we may have already output the constant.  */
-  if (TREE_ASM_WRITTEN (decl))
+  if (decl_in_symtab_p (decl)
+      && !symtab_node::get (decl)->can_increase_alignment_p ())
     return false;
-
-  /* Constant pool entries may be shared and not properly merged by LTO.  */
-  if (DECL_IN_CONSTANT_POOL (decl))
-    return false;
-
-  if (TREE_PUBLIC (decl) || DECL_EXTERNAL (decl))
-    {
-      symtab_node *snode;
-
-      /* We cannot change alignment of symbols that may bind to symbols
-	 in other translation unit that may contain a definition with lower
-	 alignment.  */
-      if (!decl_binds_to_current_def_p (decl))
-	return false;
-
-      /* When compiling partition, be sure the symbol is not output by other
-	 partition.  */
-      snode = symtab_node::get (decl);
-      if (flag_ltrans
-	  && (snode->in_other_partition
-	      || snode->get_partitioning_class () == SYMBOL_DUPLICATE))
-	return false;
-    }
-
-  /* Do not override the alignment as specified by the ABI when the used
-     attribute is set.  */
-  if (DECL_PRESERVE_P (decl))
-    return false;
-
-  /* Do not override explicit alignment set by the user when an explicit
-     section name is also used.  This is a common idiom used by many
-     software projects.  */
-  if (TREE_STATIC (decl) 
-      && DECL_SECTION_NAME (decl) != NULL
-      && !symtab_node::get (decl)->implicit_section)
-    return false;
-
-  /* If symbol is an alias, we need to check that target is OK.  */
-  if (TREE_STATIC (decl))
-    {
-      tree target = symtab_node::get (decl)->ultimate_alias_target ()->decl;
-      if (target != decl)
-	{
-	  if (DECL_PRESERVE_P (target))
-	    return false;
-	  decl = target;
-	}
-    }
 
   if (TREE_STATIC (decl))
     return (alignment <= MAX_OFILE_ALIGNMENT);

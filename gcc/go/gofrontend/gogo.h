@@ -276,6 +276,7 @@ class Gogo
   add_imported_package(const std::string& real_name, const std::string& alias,
 		       bool is_alias_exported,
 		       const std::string& pkgpath,
+		       const std::string& pkgpath_symbol,
 		       Location location,
 		       bool* padd_to_globals);
 
@@ -283,7 +284,8 @@ class Gogo
   // This returns the Package structure for the package, creating if
   // it necessary.
   Package*
-  register_package(const std::string& pkgpath, Location);
+  register_package(const std::string& pkgpath,
+		   const std::string& pkgpath_symbol, Location);
 
   // Start compiling a function.  ADD_METHOD_TO_TYPE is true if a
   // method function should be added to the type of its receiver.
@@ -744,9 +746,9 @@ class Gogo
   // The special zero value variable.
   Named_object* zero_value_;
   // The size of the zero value variable.
-  unsigned long zero_value_size_;
+  int64_t zero_value_size_;
   // The alignment of the zero value variable, in bytes.
-  unsigned long zero_value_align_;
+  int64_t zero_value_align_;
   // Whether pkgpath_ has been set.
   bool pkgpath_set_;
   // Whether an explicit package path was set by -fgo-pkgpath.
@@ -1071,6 +1073,18 @@ class Function
   set_calls_defer_retaddr()
   { this->calls_defer_retaddr_ = true; }
 
+  // Whether this is a type hash or equality function created by the
+  // compiler.
+  bool
+  is_type_specific_function()
+  { return this->is_type_specific_function_; }
+
+  // Record that this function is a type hash or equality function
+  // created by the compiler.
+  void
+  set_is_type_specific_function()
+  { this->is_type_specific_function_ = true; }
+
   // Mark the function as going into a unique section.
   void
   set_in_unique_section()
@@ -1199,6 +1213,9 @@ class Function
   // True if this is a thunk built for a defer statement that calls
   // the __go_set_defer_retaddr runtime function.
   bool calls_defer_retaddr_ : 1;
+  // True if this is a function built by the compiler to as a hash or
+  // equality function for some type.
+  bool is_type_specific_function_ : 1;
   // True if this function should be put in a unique section.  This is
   // turned on for field tracking.
   bool in_unique_section_ : 1;
@@ -1348,6 +1365,18 @@ class Variable
   bool
   is_parameter() const
   { return this->is_parameter_; }
+
+  // Return whether this is a closure (static chain) parameter.
+  bool
+  is_closure() const
+  { return this->is_closure_; }
+
+  // Change this parameter to be a closure.
+  void
+  set_is_closure()
+  {
+    this->is_closure_ = true;
+  }
 
   // Return whether this is the receiver parameter of a method.
   bool
@@ -1570,6 +1599,8 @@ class Variable
   bool is_global_ : 1;
   // Whether this is a function parameter.
   bool is_parameter_ : 1;
+  // Whether this is a closure parameter.
+  bool is_closure_ : 1;
   // Whether this is the receiver parameter of a method.
   bool is_receiver_ : 1;
   // Whether this is the varargs parameter of a function.
@@ -2593,7 +2624,8 @@ class Unnamed_label
 class Package
 {
  public:
-  Package(const std::string& pkgpath, Location location);
+  Package(const std::string& pkgpath, const std::string& pkgpath_symbol,
+	  Location location);
 
   // Get the package path used for all symbols exported from this
   // package.
@@ -2602,9 +2634,12 @@ class Package
   { return this->pkgpath_; }
 
   // Return the package path to use for a symbol name.
-  const std::string&
-  pkgpath_symbol() const
-  { return this->pkgpath_symbol_; }
+  std::string
+  pkgpath_symbol() const;
+
+  // Set the package path symbol.
+  void
+  set_pkgpath_symbol(const std::string&);
 
   // Return the location of the import statement.
   Location

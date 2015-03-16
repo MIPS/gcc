@@ -1,5 +1,5 @@
 /* Localize comdats.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -52,14 +52,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
 #include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -322,12 +328,24 @@ ipa_comdats (void)
 
   FOR_EACH_DEFINED_SYMBOL (symbol)
     {
+      struct cgraph_node *fun;
       symbol->aux = NULL; 
       if (!symbol->get_comdat_group ()
 	  && !symbol->alias
+	  /* Thunks to external functions do not need to be categorized.  */
+	  && (!(fun = dyn_cast <cgraph_node *> (symbol))
+	      || !fun->thunk.thunk_p
+	      || fun->function_symbol ()->definition)
 	  && symbol->real_symbol_p ())
 	{
-	  tree group = *map.get (symbol);
+	  tree *val = map.get (symbol);
+
+	  /* A NULL here means that SYMBOL is unreachable in the definition
+	     of ipa-comdats. Either ipa-comdats is wrong about this or someone
+	     forgot to cleanup and remove unreachable functions earlier.  */
+	  gcc_assert (val);
+
+	  tree group = *val;
 
 	  if (group == error_mark_node)
 	    continue;

@@ -1,7 +1,7 @@
 /* Data structures and declarations used for reading and writing
    GIMPLE to a file stream.
 
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Doug Kwan <dougkwan@google.com>
 
 This file is part of GCC.
@@ -248,6 +248,7 @@ enum lto_section_type
   LTO_section_ipcp_transform,
   LTO_section_ipa_icf,
   LTO_section_offload_table,
+  LTO_section_mode_table,
   LTO_N_SECTION_TYPES		/* Must be last.  */
 };
 
@@ -312,12 +313,15 @@ class lto_input_block
 public:
   /* Special constructor for the string table, it abuses this to
      do random access but use the uhwi decoder.  */
-  lto_input_block (const char *data_, unsigned int p_, unsigned int len_)
-      : data (data_), p (p_), len (len_) {}
-  lto_input_block (const char *data_, unsigned int len_)
-      : data (data_), p (0), len (len_) {}
+  lto_input_block (const char *data_, unsigned int p_, unsigned int len_,
+		   const unsigned char *mode_table_)
+      : data (data_), mode_table (mode_table_), p (p_), len (len_) {}
+  lto_input_block (const char *data_, unsigned int len_,
+		   const unsigned char *mode_table_)
+      : data (data_), mode_table (mode_table_), p (0), len (len_) {}
 
   const char *data;
+  const unsigned char *mode_table;
   unsigned int p;
   unsigned int len;
 };
@@ -527,6 +531,9 @@ struct GTY(()) lto_file_decl_data
 
   /* Map assigning declarations their resolutions.  */
   hash_map<tree, ld_plugin_symbol_resolution> * GTY((skip)) resolution_map;
+
+  /* Mode translation table.  */
+  const unsigned char *mode_table;
 };
 
 typedef struct lto_file_decl_data *lto_file_decl_data_ptr;
@@ -744,6 +751,10 @@ extern void lto_append_block (struct lto_output_stream *);
 
 
 /* In lto-streamer.c.  */
+
+/* Set when streaming LTO for offloading compiler.  */
+extern bool lto_stream_offload_p;
+
 extern const char *lto_tag_name (enum LTO_tags);
 extern bitmap lto_bitmap_alloc (void);
 extern void lto_bitmap_free (bitmap);
@@ -771,6 +782,7 @@ extern void lto_input_variable_constructor (struct lto_file_decl_data *,
 extern void lto_input_constructors_and_inits (struct lto_file_decl_data *,
 					      const char *);
 extern void lto_input_toplevel_asms (struct lto_file_decl_data *, int);
+extern void lto_input_mode_table (struct lto_file_decl_data *);
 extern struct data_in *lto_data_in_create (struct lto_file_decl_data *,
 				    const char *, unsigned,
 				    vec<ld_plugin_symbol_resolution_t> );
@@ -803,6 +815,7 @@ void lto_output_decl_state_refs (struct output_block *,
 			         struct lto_output_stream *,
 			         struct lto_out_decl_state *);
 void lto_output_location (struct output_block *, struct bitpack_d *, location_t);
+void lto_output_init_mode_table (void);
 
 
 /* In lto-cgraph.c  */
@@ -833,7 +846,7 @@ bool referenced_from_this_partition_p (symtab_node *,
 bool reachable_from_this_partition_p (struct cgraph_node *,
 				      lto_symtab_encoder_t);
 lto_symtab_encoder_t compute_ltrans_boundary (lto_symtab_encoder_t encoder);
-void select_what_to_stream (bool);
+void select_what_to_stream (void);
 
 /* In options-save.c.  */
 void cl_target_option_stream_out (struct output_block *, struct bitpack_d *,

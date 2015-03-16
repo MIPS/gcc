@@ -1,5 +1,5 @@
 /* LTO symbol table.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -22,12 +22,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic-core.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -45,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 #include "ipa-utils.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "builtins.h"
@@ -80,6 +88,8 @@ lto_cgraph_replace_node (struct cgraph_node *node,
       gcc_assert (!prevailing_node->global.inlined_to);
       prevailing_node->mark_address_taken ();
     }
+  if (node->definition && prevailing_node->definition)
+    prevailing_node->merged = true;
 
   /* Redirect all incoming edges.  */
   compatible_p
@@ -98,6 +108,20 @@ lto_cgraph_replace_node (struct cgraph_node *node,
     }
   /* Redirect incomming references.  */
   prevailing_node->clone_referring (node);
+
+  /* Fix instrumentation references.  */
+  if (node->instrumented_version)
+    {
+      gcc_assert (node->instrumentation_clone
+		  == prevailing_node->instrumentation_clone);
+      node->instrumented_version->instrumented_version = prevailing_node;
+      if (!prevailing_node->instrumented_version)
+	prevailing_node->instrumented_version = node->instrumented_version;
+      /* Need to reset node->instrumented_version to NULL,
+	 otherwise node removal code would reset
+	 node->instrumented_version->instrumented_version.  */
+      node->instrumented_version = NULL;
+    }
 
   ipa_merge_profiles (prevailing_node, node);
   lto_free_function_in_decl_state_for_node (node);
@@ -136,11 +160,44 @@ lto_varpool_replace_node (varpool_node *vnode,
 
   if (vnode->tls_model != prevailing_node->tls_model)
     {
-      error_at (DECL_SOURCE_LOCATION (vnode->decl),
-		"%qD is defined as %s", vnode->decl, tls_model_names [vnode->tls_model]);
-      inform (DECL_SOURCE_LOCATION (prevailing_node->decl),
-	      "previously defined here as %s",
-	      tls_model_names [prevailing_node->tls_model]);
+      bool error = false;
+
+      /* Non-TLS and TLS never mix together.  Also emulated model is not
+	 compatible with anything else.  */
+      if (prevailing_node->tls_model == TLS_MODEL_NONE
+	  || prevailing_node->tls_model == TLS_MODEL_EMULATED
+	  || vnode->tls_model == TLS_MODEL_NONE
+	  || vnode->tls_model == TLS_MODEL_EMULATED)
+	error = true;
+      /* Linked is silently supporting transitions
+	 GD -> IE, GD -> LE, LD -> LE, IE -> LE, LD -> IE.
+	 Do the same transitions and error out on others.  */
+      else if ((prevailing_node->tls_model == TLS_MODEL_REAL
+		|| prevailing_node->tls_model == TLS_MODEL_LOCAL_DYNAMIC)
+	       && (vnode->tls_model == TLS_MODEL_INITIAL_EXEC
+		   || vnode->tls_model == TLS_MODEL_LOCAL_EXEC))
+	prevailing_node->tls_model = vnode->tls_model;
+      else if ((vnode->tls_model == TLS_MODEL_REAL
+		|| vnode->tls_model == TLS_MODEL_LOCAL_DYNAMIC)
+	       && (prevailing_node->tls_model == TLS_MODEL_INITIAL_EXEC
+		   || prevailing_node->tls_model == TLS_MODEL_LOCAL_EXEC))
+	;
+      else if (prevailing_node->tls_model == TLS_MODEL_INITIAL_EXEC
+	       && vnode->tls_model == TLS_MODEL_LOCAL_EXEC)
+	prevailing_node->tls_model = vnode->tls_model;
+      else if (vnode->tls_model == TLS_MODEL_INITIAL_EXEC
+	       && prevailing_node->tls_model == TLS_MODEL_LOCAL_EXEC)
+	;
+      else
+	error = true;
+      if (error)
+	{
+	  error_at (DECL_SOURCE_LOCATION (vnode->decl),
+		    "%qD is defined with tls model %s", vnode->decl, tls_model_names [vnode->tls_model]);
+	  inform (DECL_SOURCE_LOCATION (prevailing_node->decl),
+		  "previously defined here as %s",
+		  tls_model_names [prevailing_node->tls_model]);
+	}
     }
   /* Finally remove the replaced node.  */
   vnode->remove ();
@@ -327,7 +384,7 @@ lto_symtab_resolve_symbols (symtab_node *first)
 	    && (e->resolution == LDPR_PREVAILING_DEF_IRONLY
 		|| e->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP
 		|| e->resolution == LDPR_PREVAILING_DEF))
-	  fatal_error ("multiple prevailing defs for %qE",
+	  fatal_error (input_location, "multiple prevailing defs for %qE",
 		       DECL_NAME (prevailing->decl));
       return prevailing;
     }

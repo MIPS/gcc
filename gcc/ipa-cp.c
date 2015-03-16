@@ -1,5 +1,5 @@
 /* Interprocedural constant propagation
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
 
    Contributed by Razya Ladelsky <RAZYA@il.ibm.com> and Martin Jambor
    <mjambor@suse.cz>
@@ -103,19 +103,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "hash-map.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "gimple-fold.h"
 #include "gimple-expr.h"
 #include "target.h"
 #include "predict.h"
 #include "basic-block.h"
-#include "vec.h"
-#include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -123,6 +130,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "bitmap.h"
 #include "tree-pass.h"
@@ -552,10 +560,7 @@ gather_caller_stats (struct cgraph_node *node, void *data)
   struct cgraph_edge *cs;
 
   for (cs = node->callers; cs; cs = cs->next_caller)
-    if (cs->caller->thunk.thunk_p)
-      cs->caller->call_for_symbol_thunks_and_aliases (gather_caller_stats,
-						    stats, false);
-    else
+    if (!cs->caller->thunk.thunk_p)
       {
 	stats->count_sum += cs->count;
 	stats->freq_sum += cs->frequency;
@@ -597,7 +602,7 @@ ipcp_cloning_candidate_p (struct cgraph_node *node)
   init_caller_stats (&stats);
   node->call_for_symbol_thunks_and_aliases (gather_caller_stats, &stats, false);
 
-  if (inline_summary (node)->self_size < stats.n_calls)
+  if (inline_summaries->get (node)->self_size < stats.n_calls)
     {
       if (dump_file)
         fprintf (dump_file, "Considering %s for cloning; code might shrink.\n",
@@ -934,7 +939,8 @@ ipa_value_from_jfunc (struct ipa_node_params *info, struct ipa_jump_func *jfunc)
 	{
 	  ipcp_lattice<tree> *lat;
 
-	  if (!info->lattices)
+	  if (!info->lattices
+	      || idx >= ipa_get_param_count (info))
 	    return NULL_TREE;
 	  lat = ipa_get_scalar_lat (info, idx);
 	  if (!lat->is_single_const ())
@@ -996,7 +1002,8 @@ ipa_context_from_jfunc (ipa_node_params *info, cgraph_edge *cs, int csidx,
 	}
       else
 	{
-	  if (!info->lattices)
+	  if (!info->lattices
+	      || srcidx >= ipa_get_param_count (info))
 	    return ctx;
 	  ipcp_lattice<ipa_polymorphic_call_context> *lat;
 	  lat = ipa_get_poly_ctx_lat (info, srcidx);
@@ -1431,8 +1438,7 @@ propagate_alignment_accross_jump_function (struct cgraph_edge *cs,
 	  if (op != NOP_EXPR)
 	    {
 	      if (op != POINTER_PLUS_EXPR
-		  && op != PLUS_EXPR
-		  && op != MINUS_EXPR)
+		  && op != PLUS_EXPR)
 		goto prop_fail;
 	      tree operand = ipa_get_jf_pass_through_operand (jfunc);
 	      if (!tree_fits_shwi_p (operand))
@@ -1444,7 +1450,7 @@ propagate_alignment_accross_jump_function (struct cgraph_edge *cs,
       else
 	{
 	  src_idx = ipa_get_jf_ancestor_formal_id (jfunc);
-	  offset = ipa_get_jf_ancestor_offset (jfunc);
+	  offset = ipa_get_jf_ancestor_offset (jfunc) / BITS_PER_UNIT;;
 	}
 
       src_lats = ipa_get_parm_lattices (caller_info, src_idx);
@@ -1967,8 +1973,13 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 	}
     }
   else if (t)
-    context = ipa_polymorphic_call_context (t, ie->indirect_info->otr_type,
-					    anc_offset);
+    {
+      context = ipa_polymorphic_call_context (t, ie->indirect_info->otr_type,
+					      anc_offset);
+      if (ie->indirect_info->vptr_changed)
+	context.possible_dynamic_type_change (ie->in_polymorphic_cdtor,
+					      ie->indirect_info->otr_type);
+    }
   else
     return NULL_TREE;
 
@@ -2063,7 +2074,7 @@ devirtualization_time_bonus (struct cgraph_node *node,
       callee = callee->function_symbol (&avail);
       if (avail < AVAIL_AVAILABLE)
 	continue;
-      isummary = inline_summary (callee);
+      isummary = inline_summaries->get (callee);
       if (!isummary->inlinable)
 	continue;
 
@@ -2310,7 +2321,7 @@ estimate_local_effects (struct cgraph_node *node)
   vec<ipa_agg_jump_function> known_aggs;
   vec<ipa_agg_jump_function_p> known_aggs_ptrs;
   bool always_const;
-  int base_time = inline_summary (node)->time;
+  int base_time = inline_summaries->get (node)->time;
   int removable_params_cost;
 
   if (!count || !ipcp_versionable_function_p (node))
@@ -2628,7 +2639,7 @@ propagate_constants_topo (struct ipa_topo_info *topo)
 	  for (cs = v->callees; cs; cs = cs->next_callee)
 	    if (ipa_edge_within_scc (cs)
 		&& propagate_constants_accross_call (cs))
-	      push_node_to_stack (topo, cs->callee);
+	      push_node_to_stack (topo, cs->callee->function_symbol ());
 	  v = pop_node_from_stack (topo);
 	}
 
@@ -2727,7 +2738,7 @@ ipcp_propagate_stage (struct ipa_topo_info *topo)
 	initialize_node_lattices (node);
       }
     if (node->definition && !node->alias)
-      overall_size += inline_summary (node)->self_size;
+      overall_size += inline_summaries->get (node)->self_size;
     if (node->count > max_count)
       max_count = node->count;
   }
@@ -3907,9 +3918,9 @@ perhaps_add_new_callers (cgraph_node *node, ipcp_value<valtype> *val)
 	      if (dump_file)
 		fprintf (dump_file, " - adding an extra caller %s/%i"
 			 " of %s/%i\n",
-			 xstrdup (cs->caller->name ()),
+			 xstrdup_for_dump (cs->caller->name ()),
 			 cs->caller->order,
-			 xstrdup (val->spec_node->name ()),
+			 xstrdup_for_dump (val->spec_node->name ()),
 			 val->spec_node->order);
 
 	      cs->redirect_callee_duplicating_thunks (val->spec_node);
@@ -4310,6 +4321,15 @@ ipcp_store_alignment_results (void)
     ipa_node_params *info = IPA_NODE_REF (node);
     bool dumped_sth = false;
     bool found_useful_result = false;
+
+    if (!opt_for_fn (node->decl, flag_ipa_cp_alignment))
+      {
+	if (dump_file)
+	  fprintf (dump_file, "Not considering %s for alignment discovery "
+		   "and propagate; -fipa-cp-alignment: disabled.\n",
+		   node->name ());
+	continue;
+      }
 
    if (info->ipcp_orig_node)
       info = IPA_NODE_REF (info->ipcp_orig_node);

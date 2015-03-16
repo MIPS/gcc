@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -231,7 +231,7 @@ typedef enum
 unit_advance;
 
 typedef enum
-{READING, WRITING}
+{READING, WRITING, LIST_READING, LIST_WRITING}
 unit_mode;
 
 typedef enum

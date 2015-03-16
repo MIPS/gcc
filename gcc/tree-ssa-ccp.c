@@ -1,5 +1,5 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Adapted from original RTL SSA-CCP by Daniel Berlin <dberlin@dberlin.org>
    Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
 
@@ -122,15 +122,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -458,13 +465,13 @@ valid_lattice_transition (ccp_prop_value_t old_val, ccp_prop_value_t new_val)
      to non-NaN.  */
   tree type = TREE_TYPE (new_val.value);
   if (SCALAR_FLOAT_TYPE_P (type)
-      && !HONOR_NANS (TYPE_MODE (type)))
+      && !HONOR_NANS (type))
     {
       if (REAL_VALUE_ISNAN (TREE_REAL_CST (old_val.value)))
 	return true;
     }
   else if (VECTOR_FLOAT_TYPE_P (type)
-	   && !HONOR_NANS (TYPE_MODE (TREE_TYPE (type))))
+	   && !HONOR_NANS (type))
     {
       for (unsigned i = 0; i < VECTOR_CST_NELTS (old_val.value); ++i)
 	if (!REAL_VALUE_ISNAN
@@ -475,7 +482,7 @@ valid_lattice_transition (ccp_prop_value_t old_val, ccp_prop_value_t new_val)
       return true;
     }
   else if (COMPLEX_FLOAT_TYPE_P (type)
-	   && !HONOR_NANS (TYPE_MODE (TREE_TYPE (type))))
+	   && !HONOR_NANS (type))
     {
       if (!REAL_VALUE_ISNAN (TREE_REAL_CST (TREE_REALPART (old_val.value)))
 	  && !operand_equal_p (TREE_REALPART (old_val.value),
@@ -1134,15 +1141,16 @@ valueize_op_1 (tree op)
 {
   if (TREE_CODE (op) == SSA_NAME)
     {
-      tree tem = get_constant_value (op);
-      if (tem)
-	return tem;
       /* If the definition may be simulated again we cannot follow
          this SSA edge as the SSA propagator does not necessarily
 	 re-visit the use.  */
       gimple def_stmt = SSA_NAME_DEF_STMT (op);
-      if (prop_simulate_again_p (def_stmt))
+      if (!gimple_nop_p (def_stmt)
+	  && prop_simulate_again_p (def_stmt))
 	return NULL_TREE;
+      tree tem = get_constant_value (op);
+      if (tem)
+	return tem;
     }
   return op;
 }

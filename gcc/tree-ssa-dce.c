@@ -1,5 +1,5 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
    Adapted to use control dependence by Steven Bosscher, SUSE Labs.
@@ -46,17 +46,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "calls.h"
 #include "gimple-pretty-print.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -78,10 +82,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-into-ssa.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-pass.h"
-#include "flags.h"
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
 #include "tree-chkp.h"
@@ -292,8 +308,7 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
       break;
 
     case GIMPLE_ASSIGN:
-      if (TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME
-	  && TREE_CLOBBER_P (gimple_assign_rhs1 (stmt)))
+      if (gimple_clobber_p (stmt))
 	return;
       break;
 
@@ -1362,6 +1377,25 @@ eliminate_unnecessary_stmts (void)
 	  /* If GSI is not necessary then remove it.  */
 	  if (!gimple_plf (stmt, STMT_NECESSARY))
 	    {
+	      /* Keep clobbers that we can keep live live.  */
+	      if (gimple_clobber_p (stmt))
+		{
+		  ssa_op_iter iter;
+		  use_operand_p use_p;
+		  bool dead = false;
+		  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+		    {
+		      tree name = USE_FROM_PTR (use_p);
+		      if (!SSA_NAME_IS_DEFAULT_DEF (name)
+			  && !bitmap_bit_p (processed, SSA_NAME_VERSION (name)))
+			{
+			  dead = true;
+			  break;
+			}
+		    }
+		  if (!dead)
+		    continue;
+		}
 	      if (!is_gimple_debug (stmt))
 		something_changed = true;
 	      remove_dead_stmt (&gsi, bb);

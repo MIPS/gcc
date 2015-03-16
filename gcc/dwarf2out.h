@@ -1,5 +1,5 @@
 /* dwarf2out.h - Various declarations for functions found in dwarf2out.c
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -205,7 +205,7 @@ struct GTY(()) dw_val_node {
 /* Locations in memory are described using a sequence of stack machine
    operations.  */
 
-struct GTY(()) dw_loc_descr_node {
+struct GTY((chain_next ("%h.dw_loc_next"))) dw_loc_descr_node {
   dw_loc_descr_ref dw_loc_next;
   ENUM_BITFIELD (dwarf_location_atom) dw_loc_opc : 8;
   /* Used to distinguish DW_OP_addr with a direct symbol relocation
@@ -254,6 +254,7 @@ extern void dwarf2out_emit_cfi (dw_cfi_ref cfi);
 extern void debug_dwarf (void);
 struct die_struct;
 extern void debug_dwarf_die (struct die_struct *);
+extern void debug_dwarf_loc_descr (dw_loc_descr_ref);
 extern void debug (die_struct &ref);
 extern void debug (die_struct *ptr);
 extern void dwarf2out_set_demangle_name_func (const char *(*) (const char *));
@@ -261,9 +262,17 @@ extern void dwarf2out_set_demangle_name_func (const char *(*) (const char *));
 extern void dwarf2out_vms_debug_main_pointer (void);
 #endif
 
+enum array_descr_ordering
+{
+  array_descr_ordering_default,
+  array_descr_ordering_row_major,
+  array_descr_ordering_column_major
+};
+
 struct array_descr_info
 {
   int ndimensions;
+  enum array_descr_ordering ordering;
   tree element_type;
   tree base_decl;
   tree data_location;
@@ -271,6 +280,10 @@ struct array_descr_info
   tree associated;
   struct array_descr_dimen
     {
+      /* GCC uses sizetype for array indices, so lower_bound and upper_bound
+	 will likely be "sizetype" values. However, bounds may have another
+	 type in the original source code.  */
+      tree bounds_type;
       tree lower_bound;
       tree upper_bound;
       tree stride;

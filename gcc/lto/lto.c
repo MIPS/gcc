@@ -1,5 +1,5 @@
 /* Top-level LTO routines.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -23,7 +23,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "opts.h"
 #include "toplev.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
+#include "fixed-value.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "diagnostic-core.h"
 #include "tm.h"
@@ -32,10 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -47,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "inchash.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "common.h"
 #include "debug.h"
@@ -67,12 +77,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "params.h"
 #include "ipa-utils.h"
+#include "gomp-constants.h"
 
 
 /* Number of parallel tasks to run, -1 if we want to use GNU Make jobserver.  */
 static int lto_parallelism;
 
 static GTY(()) tree first_personality_decl;
+
+static GTY(()) const unsigned char *lto_mode_identity_table;
 
 /* Returns a hash code for P.  */
 
@@ -1556,8 +1569,8 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       compare_tree_edges (DECL_FUNCTION_PERSONALITY (t1),
 			  DECL_FUNCTION_PERSONALITY (t2));
       compare_tree_edges (DECL_VINDEX (t1), DECL_VINDEX (t2));
-      /* DECL_FUNCTION_SPECIFIC_TARGET is not yet created.  We compare
-         the attribute list instead.  */
+      compare_tree_edges (DECL_FUNCTION_SPECIFIC_TARGET (t1),
+			  DECL_FUNCTION_SPECIFIC_TARGET (t2));
       compare_tree_edges (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (t1),
 			  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (t2));
     }
@@ -1866,7 +1879,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   uint32_t num_decl_states;
 
   lto_input_block ib_main ((const char *) data + main_offset,
-			   header->main_size);
+			   header->main_size, decl_data->mode_table);
 
   data_in = lto_data_in_create (decl_data, (const char *) data + string_offset,
 				header->string_size, resolutions);
@@ -2208,6 +2221,11 @@ lto_file_finalize (struct lto_file_decl_data *file_data, lto_file *file)
 
   file_data->renaming_hash_table = lto_create_renaming_table ();
   file_data->file_name = file->filename;
+#ifdef ACCEL_COMPILER
+  lto_input_mode_table (file_data);
+#else
+  file_data->mode_table = lto_mode_identity_table;
+#endif
   data = lto_get_section_data (file_data, LTO_section_decls, NULL, &len);
   if (data == NULL)
     {
@@ -2317,7 +2335,7 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
       fd = open (file_data->file_name, O_RDONLY|O_BINARY);
       if (fd == -1)
         {
-	  fatal_error ("Cannot open %s", file_data->file_name);
+	  fatal_error (input_location, "Cannot open %s", file_data->file_name);
 	  return NULL;
         }
       fd_name = xstrdup (file_data->file_name);
@@ -2338,7 +2356,7 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
 			  fd, computed_offset);
   if (result == MAP_FAILED)
     {
-      fatal_error ("Cannot map %s", file_data->file_name);
+      fatal_error (input_location, "Cannot map %s", file_data->file_name);
       return NULL;
     }
 
@@ -2349,7 +2367,7 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
       || read (fd, result, len) != (ssize_t) len)
     {
       free (result);
-      fatal_error ("Cannot read %s", file_data->file_name);
+      fatal_error (input_location, "Cannot read %s", file_data->file_name);
       result = NULL;
     }
 #ifdef __MINGW32__
@@ -2463,7 +2481,7 @@ do_stream_out (char *temp_filename, lto_symtab_encoder_t encoder)
 {
   lto_file *file = lto_obj_file_open (temp_filename, true);
   if (!file)
-    fatal_error ("lto_obj_file_open() failed");
+    fatal_error (input_location, "lto_obj_file_open() failed");
   lto_set_current_out_file (file);
 
   ipa_write_optimization_summaries (encoder);
@@ -2486,12 +2504,13 @@ wait_for_child ()
 #endif
       int w = waitpid (0, &status, WUNTRACED | WCONTINUED);
       if (w == -1)
-	fatal_error ("waitpid failed");
+	fatal_error (input_location, "waitpid failed");
 
       if (WIFEXITED (status) && WEXITSTATUS (status))
-	fatal_error ("streaming subprocess failed");
+	fatal_error (input_location, "streaming subprocess failed");
       else if (WIFSIGNALED (status))
-	fatal_error ("streaming subprocess was killed by signal");
+	fatal_error (input_location,
+		     "streaming subprocess was killed by signal");
     }
   while (!WIFEXITED (status) && !WIFSIGNALED (status));
 }
@@ -2567,7 +2586,7 @@ lto_wpa_write_files (void)
 
   /* Open the LTRANS output list.  */
   if (!ltrans_output_list)
-    fatal_error ("no LTRANS output list filename provided");
+    fatal_error (input_location, "no LTRANS output list filename provided");
 
   timevar_push (TV_WHOPR_WPA);
 
@@ -2654,13 +2673,14 @@ lto_wpa_write_files (void)
     }
   ltrans_output_list_stream = fopen (ltrans_output_list, "w");
   if (ltrans_output_list_stream == NULL)
-    fatal_error ("opening LTRANS output list %s: %m", ltrans_output_list);
+    fatal_error (input_location,
+		 "opening LTRANS output list %s: %m", ltrans_output_list);
   for (i = 0; i < n_sets; i++)
     {
       unsigned int len = strlen (temp_filenames[i]);
       if (fwrite (temp_filenames[i], 1, len, ltrans_output_list_stream) < len
 	  || fwrite ("\n", 1, 1, ltrans_output_list_stream) < 1)
-	fatal_error ("writing to LTRANS output list %s: %m",
+	fatal_error (input_location, "writing to LTRANS output list %s: %m",
 		     ltrans_output_list);
      free (temp_filenames[i]);
     }
@@ -2670,7 +2690,8 @@ lto_wpa_write_files (void)
 
   /* Close the LTRANS output list.  */
   if (fclose (ltrans_output_list_stream))
-    fatal_error ("closing LTRANS output list %s: %m", ltrans_output_list);
+    fatal_error (input_location,
+		 "closing LTRANS output list %s: %m", ltrans_output_list);
 
   free_ltrans_partitions();
   free (temp_filename);
@@ -2899,7 +2920,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   timevar_push (TV_IPA_LTO_DECL_IN);
 
 #ifdef ACCEL_COMPILER
-    section_name_prefix = OFFLOAD_SECTION_NAME_PREFIX;
+  section_name_prefix = OFFLOAD_SECTION_NAME_PREFIX;
+  lto_stream_offload_p = true;
 #endif
 
   real_file_decl_data
@@ -2915,7 +2937,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 
       resolution = fopen (resolution_file_name, "r");
       if (resolution == NULL)
-	fatal_error ("could not open symbol resolution file: %m");
+	fatal_error (input_location,
+		     "could not open symbol resolution file: %m");
 
       t = fscanf (resolution, "%u", &num_objects);
       gcc_assert (t == 1);
@@ -2926,8 +2949,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   symtab->state = LTO_STREAMING;
 
   canonical_type_hash_cache = new hash_map<const_tree, hashval_t> (251);
-  gimple_canonical_types = htab_create_ggc (16381, gimple_canonical_type_hash,
-					    gimple_canonical_type_eq, 0);
+  gimple_canonical_types = htab_create (16381, gimple_canonical_type_hash,
+					gimple_canonical_type_eq, NULL);
   gcc_obstack_init (&tree_scc_hash_obstack);
   tree_scc_hash = new hash_table<tree_scc_hasher> (4096);
 
@@ -3055,7 +3078,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       /* If there were errors during symbol merging bail out, we have no
 	 good way to recover here.  */
       if (seen_error ())
-	fatal_error ("errors during merging of translation units");
+	fatal_error (input_location,
+		     "errors during merging of translation units");
 
       /* Fixup all decls.  */
       lto_fixup_decls (all_file_decl_data);
@@ -3094,13 +3118,20 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       fprintf (symtab->dump_file, "Before merging:\n");
       symtab_node::dump_table (symtab->dump_file);
     }
-  lto_symtab_merge_symbols ();
-  /* Removal of unreachable symbols is needed to make verify_symtab to pass;
-     we are still having duplicated comdat groups containing local statics.
-     We could also just remove them while merging.  */
-  symtab->remove_unreachable_nodes (true, dump_file);
+  if (!flag_ltrans)
+    {
+      lto_symtab_merge_symbols ();
+      /* Removal of unreachable symbols is needed to make verify_symtab to pass;
+	 we are still having duplicated comdat groups containing local statics.
+	 We could also just remove them while merging.  */
+      symtab->remove_unreachable_nodes (dump_file);
+    }
   ggc_collect ();
   symtab->state = IPA_SSA;
+  /* FIXME: Technically all node removals happening here are useless, because
+     WPA should not stream them.  */
+  if (flag_ltrans)
+    symtab->remove_unreachable_nodes (dump_file);
 
   timevar_pop (TV_IPA_LTO_CGRAPH_MERGE);
 
@@ -3255,7 +3286,6 @@ do_whole_program_analysis (void)
   symtab->state = IPA_SSA;
 
   execute_ipa_pass_list (g->get_passes ()->all_regular_ipa_passes);
-  symtab->remove_unreachable_nodes (false, dump_file);
 
   if (symtab->dump_file)
     {
@@ -3378,6 +3408,13 @@ lto_init (void)
   memset (&lto_stats, 0, sizeof (lto_stats));
   bitmap_obstack_initialize (NULL);
   gimple_register_cfg_hooks ();
+#ifndef ACCEL_COMPILER
+  unsigned char *table
+    = ggc_vec_alloc<unsigned char> (MAX_MACHINE_MODE);
+  for (int m = 0; m < MAX_MACHINE_MODE; m++)
+    table[m] = m;
+  lto_mode_identity_table = table;
+#endif
 }
 
 

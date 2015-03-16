@@ -1,5 +1,5 @@
 /* Handle initialization things in C++.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -24,6 +24,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -32,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "gimplify.h"
 #include "wide-int.h"
+#include "c-family/c-ubsan.h"
 
 static bool begin_init_stmts (tree *, tree *);
 static tree finish_init_stmts (bool, tree, tree);
@@ -39,7 +49,6 @@ static void construct_virtual_base (tree, tree);
 static void expand_aggr_init_1 (tree, tree, tree, tree, int, tsubst_flags_t);
 static void expand_default_init (tree, tree, tree, tree, int, tsubst_flags_t);
 static void perform_member_init (tree, tree);
-static tree build_builtin_delete_call (tree);
 static int member_init_ok_or_else (tree, tree, tree);
 static void expand_virtual_init (tree, tree);
 static tree sort_mem_initializers (tree, tree);
@@ -2094,15 +2103,6 @@ decl_constant_value (tree decl)
 }
 
 /* Common subroutines of build_new and build_vec_delete.  */
-
-/* Call the global __builtin_delete to delete ADDR.  */
-
-static tree
-build_builtin_delete_call (tree addr)
-{
-  mark_used (global_delete_fndecl);
-  return build_call_n (global_delete_fndecl, 1, addr);
-}
 
 /* Build and return a NEW_EXPR.  If NELTS is non-NULL, TYPE[NELTS] is
    the type of the object being allocated; otherwise, it's just TYPE.
@@ -2246,20 +2246,6 @@ throw_bad_array_new_length (void)
   tree fn = get_identifier ("__cxa_throw_bad_array_new_length");
   if (!get_global_value_if_present (fn, &fn))
     fn = push_throw_library_fn (fn, build_function_type_list (sizetype,
-							      NULL_TREE));
-
-  return build_cxx_call (fn, 0, NULL, tf_warning_or_error);
-}
-
-/* Call __cxa_bad_array_length to indicate that there were too many
-   initializers.  */
-
-tree
-throw_bad_array_length (void)
-{
-  tree fn = get_identifier ("__cxa_throw_bad_array_length");
-  if (!get_global_value_if_present (fn, &fn))
-    fn = push_throw_library_fn (fn, build_function_type_list (void_type_node,
 							      NULL_TREE));
 
   return build_cxx_call (fn, 0, NULL, tf_warning_or_error);
@@ -3211,7 +3197,9 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
                  "class-specific operator delete [] will be called, "
                  "even if they are declared when the class is defined");
        }
-      return build_builtin_delete_call (base);
+      /* This size won't actually be used.  */
+      size_exp = size_one_node;
+      goto no_destructor;
     } 
 
   size_exp = size_in_bytes (type);
@@ -3427,7 +3415,6 @@ build_vec_init (tree base, tree maxindex, tree init,
   tree obase = base;
   bool xvalue = false;
   bool errors = false;
-  tree length_check = NULL_TREE;
 
   if (TREE_CODE (atype) == ARRAY_TYPE && TYPE_DOMAIN (atype))
     maxindex = array_type_nelts (atype);
@@ -3448,12 +3435,9 @@ build_vec_init (tree base, tree maxindex, tree init,
 
   /* If we have a braced-init-list, make sure that the array
      is big enough for all the initializers.  */
-  if (init && TREE_CODE (init) == CONSTRUCTOR
-      && CONSTRUCTOR_NELTS (init) > 0
-      && !TREE_CONSTANT (maxindex)
-      && flag_exceptions)
-    length_check = fold_build2 (LT_EXPR, boolean_type_node, maxindex,
-				size_int (CONSTRUCTOR_NELTS (init) - 1));
+  bool length_check = (init && TREE_CODE (init) == CONSTRUCTOR
+		       && CONSTRUCTOR_NELTS (init) > 0
+		       && !TREE_CONSTANT (maxindex));
 
   if (init
       && TREE_CODE (atype) == ARRAY_TYPE
@@ -3476,10 +3460,6 @@ build_vec_init (tree base, tree maxindex, tree init,
       if (BRACE_ENCLOSED_INITIALIZER_P (init))
 	init = digest_init (atype, init, complain);
       stmt_expr = build2 (INIT_EXPR, atype, base, init);
-      if (length_check)
-	stmt_expr = build3 (COND_EXPR, atype, length_check,
-			    throw_bad_array_length (),
-			    stmt_expr);
       return stmt_expr;
     }
 
@@ -3559,7 +3539,9 @@ build_vec_init (tree base, tree maxindex, tree init,
   /* Should we try to create a constant initializer?  */
   bool try_const = (TREE_CODE (atype) == ARRAY_TYPE
 		    && TREE_CONSTANT (maxindex)
-		    && init && TREE_CODE (init) == CONSTRUCTOR
+		    && (init ? TREE_CODE (init) == CONSTRUCTOR
+			: (type_has_constexpr_default_constructor
+			   (inner_elt_type)))
 		    && (literal_type_p (inner_elt_type)
 			|| TYPE_HAS_CONSTEXPR_CTOR (inner_elt_type)));
   vec<constructor_elt, va_gc> *const_vec = NULL;
@@ -3590,14 +3572,27 @@ build_vec_init (tree base, tree maxindex, tree init,
 
       if (length_check)
 	{
-	  tree throw_call;
-	  if (array_of_runtime_bound_p (atype))
-	    throw_call = throw_bad_array_length ();
-	  else
-	    throw_call = throw_bad_array_new_length ();
-	  length_check = build3 (COND_EXPR, void_type_node, length_check,
-				 throw_call, void_node);
-	  finish_expr_stmt (length_check);
+	  tree nelts = size_int (CONSTRUCTOR_NELTS (init) - 1);
+	  if (TREE_CODE (atype) != ARRAY_TYPE)
+	    {
+	      if (flag_exceptions)
+		{
+		  tree c = fold_build2 (LT_EXPR, boolean_type_node, iterator,
+					nelts);
+		  c = build3 (COND_EXPR, void_type_node, c,
+			      throw_bad_array_new_length (), void_node);
+		  finish_expr_stmt (c);
+		}
+	      /* Don't check an array new when -fno-exceptions.  */
+	    }
+	  else if (flag_sanitize & SANITIZE_BOUNDS
+		   && do_ubsan_in_current_function ())
+	    {
+	      /* Make sure the last element of the initializer is in bounds. */
+	      finish_expr_stmt
+		(ubsan_instrument_bounds
+		 (input_location, obase, &nelts, /*ignore_off_by_one*/false));
+	    }
 	}
 
       if (try_const)
@@ -3684,6 +3679,12 @@ build_vec_init (tree base, tree maxindex, tree init,
 
      We do need to keep going if we're copying an array.  */
 
+  if (try_const && !init)
+    /* With a constexpr default constructor, which we checked for when
+       setting try_const above, default-initialization is equivalent to
+       value-initialization, and build_value_init gives us something more
+       friendly to maybe_constant_init.  */
+    explicit_value_init_p = true;
   if (from_array
       || ((type_build_ctor_call (type) || init || explicit_value_init_p)
 	  && ! (tree_fits_shwi_p (maxindex)
@@ -3788,6 +3789,7 @@ build_vec_init (tree base, tree maxindex, tree init,
 
       if (try_const)
 	{
+	  /* FIXME refs to earlier elts */
 	  tree e = maybe_constant_init (elt_init);
 	  if (reduced_constant_expression_p (e))
 	    {
@@ -3802,6 +3804,8 @@ build_vec_init (tree base, tree maxindex, tree init,
 	      saw_non_const = true;
 	      if (do_static_init)
 		e = build_zero_init (TREE_TYPE (e), NULL_TREE, true);
+	      else
+		e = NULL_TREE;
 	    }
 
 	  if (e)
@@ -3970,8 +3974,6 @@ build_delete (tree otype, tree addr, special_function_kind auto_delete,
 
   if (TYPE_PTR_P (otype))
     {
-      bool complete_p = true;
-
       addr = mark_rvalue_use (addr);
 
       /* We don't want to warn about delete of void*, only other
@@ -3996,7 +3998,6 @@ build_delete (tree otype, tree addr, special_function_kind auto_delete,
 			  "operator delete will be called, even if they are "
 			  "declared when the class is defined");
 		}
-	      complete_p = false;
 	    }
 	  else if (auto_delete == sfk_deleting_destructor && warn_delnonvdtor
 	           && MAYBE_CLASS_TYPE_P (type) && !CLASSTYPE_FINAL (type)
@@ -4019,9 +4020,6 @@ build_delete (tree otype, tree addr, special_function_kind auto_delete,
 		}
 	    }
 	}
-      if (VOID_TYPE_P (type) || !complete_p || !MAYBE_CLASS_TYPE_P (type))
-	/* Call the builtin operator delete.  */
-	return build_builtin_delete_call (addr);
       if (TREE_SIDE_EFFECTS (addr))
 	addr = save_expr (addr);
 
@@ -4082,7 +4080,13 @@ build_delete (tree otype, tree addr, special_function_kind auto_delete,
 	  addr = save_expr (addr);
 	  head = get_target_expr (build_headof (addr));
 	  /* Delete the object.  */
-	  do_delete = build_builtin_delete_call (head);
+	  do_delete = build_op_delete_call (DELETE_EXPR,
+					    head,
+					    cxx_sizeof_nowarn (type),
+					    /*global_p=*/true,
+					    /*placement=*/NULL_TREE,
+					    /*alloc_fn=*/NULL_TREE,
+					    complain);
 	  /* Otherwise, treat this like a complete object destructor
 	     call.  */
 	  auto_delete = sfk_complete_destructor;

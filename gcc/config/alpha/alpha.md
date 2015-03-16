@@ -1,5 +1,5 @@
 ;; Machine description for DEC Alpha for GNU C compiler
-;; Copyright (C) 1992-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1992-2015 Free Software Foundation, Inc.
 ;; Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 ;;
 ;; This file is part of GCC.
@@ -4496,8 +4496,8 @@
 (define_insn_and_split "reload_out<mode>_aligned"
   [(set (match_operand:I12MODE 0 "memory_operand" "=m")
         (match_operand:I12MODE 1 "register_operand" "r"))
-   (clobber (match_operand:SI 2 "register_operand" "=r"))
-   (clobber (match_operand:SI 3 "register_operand" "=r"))]
+   (clobber (match_operand:SI 2 "register_operand" "=&r"))
+   (clobber (match_operand:SI 3 "register_operand" "=&r"))]
   "!TARGET_BWX && (reload_in_progress || reload_completed)"
   "#"
   "!TARGET_BWX && reload_completed"

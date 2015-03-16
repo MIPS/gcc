@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -390,6 +390,11 @@ package body Bindgen is
          Write_Statement_Buffer;
       end if;
 
+      WBI ("");
+      WBI ("      procedure Runtime_Finalize;");
+      WBI ("      pragma Import (C, Runtime_Finalize, " &
+             """__gnat_runtime_finalize"");");
+      WBI ("");
       WBI ("   begin");
 
       if not CodePeer_Mode then
@@ -398,6 +403,8 @@ package body Bindgen is
          WBI ("      end if;");
          WBI ("      Is_Elaborated := False;");
       end if;
+
+      WBI ("      Runtime_Finalize;");
 
       --  On non-virtual machine targets, finalization is done differently
       --  depending on whether this is the main program or a library.
@@ -599,13 +606,10 @@ package body Bindgen is
          --  installation, and indication of if it's been called previously.
 
          WBI ("");
-         WBI ("      procedure Install_Handler;");
-         WBI ("      pragma Import (C, Install_Handler, " &
-              """__gnat_install_handler"");");
-         WBI ("");
-         WBI ("      Handler_Installed : Integer;");
-         WBI ("      pragma Import (C, Handler_Installed, " &
-              """__gnat_handler_installed"");");
+         WBI ("      procedure Runtime_Initialize " &
+              "(Install_Handler : Integer);");
+         WBI ("      pragma Import (C, Runtime_Initialize, " &
+              """__gnat_runtime_initialize"");");
 
          --  Import handlers attach procedure for sequential elaboration policy
 
@@ -835,13 +839,14 @@ package body Bindgen is
          --  In .NET, when binding with -z, we don't install the signal handler
          --  to let the caller handle the last exception handler.
 
+         WBI ("");
+
          if VM_Target /= CLI_Target
            or else Bind_Main_Program
          then
-            WBI ("");
-            WBI ("      if Handler_Installed = 0 then");
-            WBI ("         Install_Handler;");
-            WBI ("      end if;");
+            WBI ("      Runtime_Initialize (1);");
+         else
+            WBI ("      Runtime_Initialize (0);");
          end if;
       end if;
 
@@ -936,7 +941,7 @@ package body Bindgen is
          WBI ("      System.Elaboration_Allocators.Mark_End_Of_Elaboration;");
       end if;
 
-      --  From this point, no new dispatching domain can be created.
+      --  From this point, no new dispatching domain can be created
 
       if Dispatching_Domains_Used then
          WBI ("      Freeze_Dispatching_Domains;");
@@ -1974,6 +1979,7 @@ package body Bindgen is
       end if;
 
       --  Add a "-Ldir" for each directory in the object path
+
       if VM_Target /= CLI_Target then
          for J in 1 .. Nb_Dir_In_Obj_Search_Path loop
             declare
@@ -1985,6 +1991,21 @@ package body Bindgen is
                Write_Linker_Option;
             end;
          end loop;
+      end if;
+
+      if not (Opt.No_Run_Time_Mode or Opt.No_Stdlib) then
+         Name_Len := 0;
+
+         if Opt.Shared_Libgnat then
+            Add_Str_To_Name_Buffer ("-shared");
+         else
+            Add_Str_To_Name_Buffer ("-static");
+         end if;
+
+         --  Write directly to avoid inclusion in -K output as -static and
+         --  -shared are not usually specified linker options.
+
+         WBI ("   --   " & Name_Buffer (1 .. Name_Len));
       end if;
 
       --  Sort linker options
@@ -2045,18 +2066,6 @@ package body Bindgen is
       --  linking (not clear if this is still the case, but it is harmless).
 
       if not (Opt.No_Run_Time_Mode or else Opt.No_Stdlib) then
-         Name_Len := 0;
-
-         if Opt.Shared_Libgnat then
-            Add_Str_To_Name_Buffer ("-shared");
-         else
-            Add_Str_To_Name_Buffer ("-static");
-         end if;
-
-         --  Write directly to avoid -K output (why???)
-
-         WBI ("   --   " & Name_Buffer (1 .. Name_Len));
-
          if With_GNARL then
             Name_Len := 0;
 
@@ -2918,7 +2927,7 @@ package body Bindgen is
          end if;
       end Check_Package;
 
-   --  Start of processing for Check_Package
+   --  Start of processing for Resolve_Binder_Options
 
    begin
       for E in Elab_Order.First .. Elab_Order.Last loop

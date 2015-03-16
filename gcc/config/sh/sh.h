@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
-   Copyright (C) 1993-2014 Free Software Foundation, Inc.
+   Copyright (C) 1993-2015 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -904,6 +904,10 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
        && (TARGET_SHMEDIA ? ((GET_MODE_SIZE (MODE1) <= 4) \
 			      && (GET_MODE_SIZE (MODE2) <= 4)) \
 			  : ((MODE1) != SFmode && (MODE2) != SFmode))))
+
+/* Specify the modes required to caller save a given hard regno.  */
+#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)	\
+  sh_hard_regno_caller_save_mode ((REGNO), (NREGS), (MODE))
 
 /* A C expression that is nonzero if hard register NEW_REG can be
    considered for use as a rename register for OLD_REG register */
@@ -2240,9 +2244,6 @@ extern int current_function_interrupt;
 
 #define EPILOGUE_USES(REGNO) ((TARGET_SH2E || TARGET_SH4) \
 			      && (REGNO) == FPSCR_REG)
-
-#define MD_CAN_REDIRECT_BRANCH(INSN, SEQ) \
-  sh_can_redirect_branch ((INSN), (SEQ))
 
 #define DWARF_FRAME_RETURN_COLUMN \
   (TARGET_SH5 ? DWARF_FRAME_REGNUM (PR_MEDIA_REG) : DWARF_FRAME_REGNUM (PR_REG))

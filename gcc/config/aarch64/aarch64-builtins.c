@@ -1,5 +1,5 @@
 /* Builtins' description for AArch64 SIMD architecture.
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -23,10 +23,34 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "calls.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tm_p.h"
 #include "recog.h"
@@ -35,15 +59,8 @@
 #include "insn-codes.h"
 #include "optabs.h"
 #include "hash-table.h"
-#include "vec.h"
 #include "ggc.h"
 #include "predict.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfgrtl.h"
@@ -128,11 +145,9 @@ typedef struct
   enum aarch64_type_qualifiers *qualifiers;
 } aarch64_simd_builtin_datum;
 
-/*  The qualifier_internal allows generation of a unary builtin from
-    a pattern with a third pseudo-operand such as a match_scratch.  */
 static enum aarch64_type_qualifiers
 aarch64_types_unop_qualifiers[SIMD_MAX_BUILTIN_ARGS]
-  = { qualifier_none, qualifier_none, qualifier_internal };
+  = { qualifier_none, qualifier_none };
 #define TYPES_UNOP (aarch64_types_unop_qualifiers)
 static enum aarch64_type_qualifiers
 aarch64_types_unopu_qualifiers[SIMD_MAX_BUILTIN_ARGS]
@@ -142,10 +157,6 @@ static enum aarch64_type_qualifiers
 aarch64_types_binop_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_maybe_immediate };
 #define TYPES_BINOP (aarch64_types_binop_qualifiers)
-static enum aarch64_type_qualifiers
-aarch64_types_binopv_qualifiers[SIMD_MAX_BUILTIN_ARGS]
-  = { qualifier_void, qualifier_none, qualifier_none };
-#define TYPES_BINOPV (aarch64_types_binopv_qualifiers)
 static enum aarch64_type_qualifiers
 aarch64_types_binopu_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_unsigned, qualifier_unsigned, qualifier_unsigned };
@@ -344,9 +355,12 @@ enum aarch64_builtins
   AARCH64_BUILTIN_SET_FPSR,
 
   AARCH64_SIMD_BUILTIN_BASE,
+  AARCH64_SIMD_BUILTIN_LANE_CHECK,
 #include "aarch64-simd-builtins.def"
-  AARCH64_SIMD_BUILTIN_MAX = AARCH64_SIMD_BUILTIN_BASE
-			      + ARRAY_SIZE (aarch64_simd_builtin_data),
+  /* The first enum element which is based on an insn_data pattern.  */
+  AARCH64_SIMD_PATTERN_START = AARCH64_SIMD_BUILTIN_LANE_CHECK + 1,
+  AARCH64_SIMD_BUILTIN_MAX = AARCH64_SIMD_PATTERN_START
+			      + ARRAY_SIZE (aarch64_simd_builtin_data) - 1,
   AARCH64_CRC32_BUILTIN_BASE,
   AARCH64_CRC32_BUILTINS
   AARCH64_CRC32_BUILTIN_MAX,
@@ -687,7 +701,7 @@ aarch64_init_simd_builtin_scalar_types (void)
 static void
 aarch64_init_simd_builtins (void)
 {
-  unsigned int i, fcode = AARCH64_SIMD_BUILTIN_BASE + 1;
+  unsigned int i, fcode = AARCH64_SIMD_PATTERN_START;
 
   aarch64_init_simd_builtin_types ();
 
@@ -697,6 +711,16 @@ aarch64_init_simd_builtins (void)
      system.  */
   aarch64_init_simd_builtin_scalar_types ();
  
+  tree lane_check_fpr = build_function_type_list (void_type_node,
+						  size_type_node,
+						  size_type_node,
+						  intSI_type_node,
+						  NULL);
+  aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_LANE_CHECK] =
+      add_builtin_function ("__builtin_aarch64_im_lane_boundsi", lane_check_fpr,
+			    AARCH64_SIMD_BUILTIN_LANE_CHECK, BUILT_IN_MD,
+			    NULL, NULL_TREE);
+
   for (i = 0; i < ARRAY_SIZE (aarch64_simd_builtin_data); i++, fcode++)
     {
       bool print_type_signature_p = false;
@@ -920,8 +944,8 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 	      if (!(*insn_data[icode].operand[opc].predicate)
 		  (op[opc], mode))
 	      {
-		error_at (EXPR_LOCATION (exp), "incompatible type for argument %d, "
-		       "expected %<const int%>", opc + 1);
+		error ("%Kargument %d must be a constant immediate",
+		       exp, opc + 1 - have_retval);
 		return const0_rtx;
 	      }
 	      break;
@@ -976,8 +1000,30 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 rtx
 aarch64_simd_expand_builtin (int fcode, tree exp, rtx target)
 {
+  if (fcode == AARCH64_SIMD_BUILTIN_LANE_CHECK)
+    {
+      rtx totalsize = expand_normal (CALL_EXPR_ARG (exp, 0));
+      rtx elementsize = expand_normal (CALL_EXPR_ARG (exp, 1));
+      if (CONST_INT_P (totalsize) && CONST_INT_P (elementsize)
+	  && UINTVAL (elementsize) != 0
+	  && UINTVAL (totalsize) != 0)
+	{
+	  rtx lane_idx = expand_normal (CALL_EXPR_ARG (exp, 2));
+          if (CONST_INT_P (lane_idx))
+	    aarch64_simd_lane_bounds (lane_idx, 0,
+				      UINTVAL (totalsize)
+				       / UINTVAL (elementsize),
+				      exp);
+          else
+	    error ("%Klane index must be a constant immediate", exp);
+	}
+      else
+	error ("%Ktotal size and element size must be a non-zero constant immediate", exp);
+      /* Don't generate any RTL.  */
+      return const0_rtx;
+    }
   aarch64_simd_builtin_datum *d =
-		&aarch64_simd_builtin_data[fcode - (AARCH64_SIMD_BUILTIN_BASE + 1)];
+		&aarch64_simd_builtin_data[fcode - AARCH64_SIMD_PATTERN_START];
   enum insn_code icode = d->code;
   builtin_simd_arg args[SIMD_MAX_BUILTIN_ARGS];
   int num_args = insn_data[d->code].n_operands;
@@ -1282,7 +1328,7 @@ aarch64_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED, tree *args,
 
   switch (fcode)
     {
-      BUILTIN_VALLDI (UNOP, abs, 2)
+      BUILTIN_VDQF (UNOP, abs, 2)
 	return fold_build1 (ABS_EXPR, type, args[0]);
 	break;
       VAR1 (UNOP, floatv2si, 2, v2sf)

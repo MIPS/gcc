@@ -1,4 +1,4 @@
-#   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+#   Copyright (C) 2009-2015 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -62,6 +62,7 @@ set plugin_test_list [list \
     { sreal_plugin.c sreal-test-1.c } \
     { start_unit_plugin.c start_unit-test-1.c } \
     { finish_unit_plugin.c finish_unit-test-1.c } \
+    { wide-int_plugin.c wide-int-test-1.c } \
 ]
 
 foreach plugin_test $plugin_test_list {

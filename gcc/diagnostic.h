@@ -1,5 +1,5 @@
 /* Various declarations for language-independent diagnostics subroutines.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -294,8 +294,11 @@ extern char *diagnostic_build_prefix (diagnostic_context *, const diagnostic_inf
 void default_diagnostic_starter (diagnostic_context *, diagnostic_info *);
 void default_diagnostic_finalizer (diagnostic_context *, diagnostic_info *);
 void diagnostic_set_caret_max_width (diagnostic_context *context, int value);
+void diagnostic_action_after_output (diagnostic_context *, diagnostic_t);
 
 void diagnostic_file_cache_fini (void);
+
+int get_terminal_width (void);
 
 /* Expand the location of this diagnostic. Use this function for consistency. */
 

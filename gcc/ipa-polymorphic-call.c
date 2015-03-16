@@ -1,5 +1,5 @@
 /* Analysis of polymorphic call context.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -22,27 +22,43 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "print-tree.h"
 #include "calls.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "hash-set.h"
 #include "target.h"
-#include "hash-table.h"
-#include "inchash.h"
 #include "tree-pretty-print.h"
 #include "predict.h"
 #include "basic-block.h"
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-utils.h"
@@ -52,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimple.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "diagnostic.h"
@@ -64,6 +81,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "data-streamer.h"
 #include "lto-streamer.h"
 #include "streamer-hooks.h"
+#include "tree-ssa-operands.h"
+#include "tree-into-ssa.h"
 
 /* Return true when TYPE contains an polymorphic type and thus is interesting
    for devirtualization machinery.  */
@@ -787,7 +806,9 @@ walk_ssa_copies (tree op, hash_set<tree> **global_visited = NULL)
   STRIP_NOPS (op);
   while (TREE_CODE (op) == SSA_NAME
 	 && !SSA_NAME_IS_DEFAULT_DEF (op)
-	 && SSA_NAME_DEF_STMT (op)
+	 /* We might be called via fold_stmt during cfgcleanup where
+	    SSA form need not be up-to-date.  */
+	 && !name_registered_for_update_p (op) 
 	 && (gimple_assign_single_p (SSA_NAME_DEF_STMT (op))
 	     || gimple_code (SSA_NAME_DEF_STMT (op)) == GIMPLE_PHI))
     {
@@ -1047,7 +1068,8 @@ ipa_polymorphic_call_context::ipa_polymorphic_call_context (tree fndecl,
 
   if (TREE_CODE (base_pointer) == SSA_NAME
       && SSA_NAME_IS_DEFAULT_DEF (base_pointer)
-      && TREE_CODE (SSA_NAME_VAR (base_pointer)) != PARM_DECL)
+      && !(TREE_CODE (SSA_NAME_VAR (base_pointer)) == PARM_DECL
+	   || TREE_CODE (SSA_NAME_VAR (base_pointer)) == RESULT_DECL))
     {
       invalid = true;
       if (instance)
@@ -1060,7 +1082,7 @@ ipa_polymorphic_call_context::ipa_polymorphic_call_context (tree fndecl,
     base_type = TREE_TYPE (gimple_assign_rhs1
 			    (SSA_NAME_DEF_STMT (base_pointer)));
  
-  if (POINTER_TYPE_P (base_type))
+  if (base_type && POINTER_TYPE_P (base_type))
     combine_speculation_with (TYPE_MAIN_VARIANT (TREE_TYPE (base_type)),
 			      offset,
 			      true, NULL /* Do not change type here */);
