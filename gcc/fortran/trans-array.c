@@ -1196,7 +1196,7 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post, gfc_ss * ss,
 	elemsize = fold_convert (gfc_array_index_type,
 			TYPE_SIZE_UNIT (gfc_get_element_type (type)));
       else
-	elemsize = gfc_vtable_size_get (class_expr);
+	elemsize = gfc_class_vtab_size_get (class_expr);
 
       size = fold_build2_loc (input_location, MULT_EXPR, gfc_array_index_type,
 			      size, elemsize);
@@ -3076,7 +3076,7 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
   if (!GFC_CLASS_TYPE_P (TREE_TYPE (decl)))
     return false;
 
-  size = gfc_vtable_size_get (decl);
+  size = gfc_class_vtab_size_get (decl);
 
   /* Build the address of the element.  */
   type = TREE_TYPE (TREE_TYPE (base));
@@ -7982,7 +7982,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 
 	      dst_data = gfc_class_data_get (dcmp);
 	      src_data = gfc_class_data_get (comp);
-	      size = fold_convert (size_type_node, gfc_vtable_size_get (comp));
+	      size = fold_convert (size_type_node,
+				   gfc_class_vtab_size_get (comp));
 
 	      if (CLASS_DATA (c)->attr.dimension)
 		{

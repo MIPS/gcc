@@ -5205,9 +5205,11 @@ gfc_trans_allocate (gfc_code * code)
 	  gfc_conv_expr (&se_sz, sz);
 	  gfc_free_expr (sz);
 	  tmp = TYPE_SIZE_UNIT (gfc_get_char_type (code->ext.alloc.ts.kind));
-	  expr3_esize = fold_build2_loc (input_location, MULT_EXPR, TREE_TYPE (se_sz.expr),
-				 fold_convert (TREE_TYPE (se_sz.expr), tmp),
-				 se_sz.expr);
+	  expr3_esize = fold_build2_loc (input_location, MULT_EXPR,
+					 TREE_TYPE (se_sz.expr),
+					 fold_convert (TREE_TYPE (se_sz.expr),
+						       tmp),
+					 se_sz.expr);
 	}
     }
 

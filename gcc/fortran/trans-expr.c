@@ -176,86 +176,85 @@ gfc_class_len_get (tree decl)
   if (POINTER_TYPE_P (TREE_TYPE (decl)))
     decl = build_fold_indirect_ref_loc (input_location, decl);
   len = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (decl)),
-			    CLASS_LEN_FIELD);
+			   CLASS_LEN_FIELD);
   return fold_build3_loc (input_location, COMPONENT_REF,
 			  TREE_TYPE (len), decl, len,
 			  NULL_TREE);
 }
 
 
+/* Get the specified FIELD from the VPTR.  */
+
 static tree
-gfc_vtab_field_get (tree vptr, int field)
+vptr_field_get (tree vptr, int fieldno)
+{
+  tree field;
+  vptr = build_fold_indirect_ref_loc (input_location, vptr);
+  field = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (vptr)),
+			     fieldno);
+  field = fold_build3_loc (input_location, COMPONENT_REF,
+			   TREE_TYPE (field), vptr, field,
+			   NULL_TREE);
+  gcc_assert (field);
+  return field;
+}
+
+
+/* Get the field from the class' vptr.  */
+
+static tree
+class_vtab_field_get (tree decl, int fieldno)
+{
+  tree vptr;
+  vptr = gfc_class_vptr_get (decl);
+  return vptr_field_get (vptr, fieldno);
+}
+
+
+/* Define a macro for creating the class_vtab_* and vptr_* accessors in
+   unison.  */
+#define VTAB_GET_FIELD_GEN(name, field) tree \
+gfc_class_vtab_## name ##_get (tree cl) \
+{ \
+  return class_vtab_field_get (cl, field); \
+} \
+ \
+tree \
+gfc_vptr_## name ##_get (tree vptr) \
+{ \
+  return vptr_field_get (vptr, field); \
+}
+
+VTAB_GET_FIELD_GEN (hash, VTABLE_HASH_FIELD)
+VTAB_GET_FIELD_GEN (extends, VTABLE_EXTENDS_FIELD)
+VTAB_GET_FIELD_GEN (def_init, VTABLE_DEF_INIT_FIELD)
+VTAB_GET_FIELD_GEN (copy, VTABLE_COPY_FIELD)
+VTAB_GET_FIELD_GEN (final, VTABLE_FINAL_FIELD)
+
+
+/* The size field is returned as an array index.  Therefore treat it and only
+   it specially.  */
+
+tree
+gfc_class_vtab_size_get (tree cl)
 {
   tree size;
-  vptr = build_fold_indirect_ref_loc (input_location, vptr);
-  size = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (vptr)),
-			    field);
-  size = fold_build3_loc (input_location, COMPONENT_REF,
-			  TREE_TYPE (size), vptr, size,
-			  NULL_TREE);
+  size = class_vtab_field_get (cl, VTABLE_SIZE_FIELD);
   /* Always return size as an array index type.  */
-  if (field == VTABLE_SIZE_FIELD)
-    size = fold_convert (gfc_array_index_type, size);
+  size = fold_convert (gfc_array_index_type, size);
   gcc_assert (size);
   return size;
 }
 
-
-static tree
-gfc_class_vptr_field_get (tree decl, int field)
-{
-  tree vptr;
-  vptr = gfc_class_vptr_get (decl);
-  return gfc_vtab_field_get (vptr, field);
-}
-
-
 tree
-gfc_vtable_hash_get (tree decl)
+gfc_vptr_size_get (tree vptr)
 {
-  return gfc_class_vptr_field_get (decl, VTABLE_HASH_FIELD);
-}
-
-
-tree
-gfc_vtable_size_get (tree decl)
-{
-  return gfc_class_vptr_field_get (decl, VTABLE_SIZE_FIELD);
-}
-
-
-tree
-gfc_vtable_extends_get (tree decl)
-{
-  return gfc_class_vptr_field_get (decl, VTABLE_EXTENDS_FIELD);
-}
-
-
-tree
-gfc_vtable_def_init_get (tree decl)
-{
-  return gfc_class_vptr_field_get (decl, VTABLE_DEF_INIT_FIELD);
-}
-
-
-tree
-gfc_vtable_copy_get (tree decl)
-{
-  return gfc_class_vptr_field_get (decl, VTABLE_COPY_FIELD);
-}
-
-
-tree
-gfc_vtable_final_get (tree decl)
-{
-  return gfc_class_vptr_field_get (decl, VTABLE_FINAL_FIELD);
-}
-
-
-tree
-gfc_vtab_size_get (tree vtab)
-{
-  return gfc_vtab_field_get (vtab, VTABLE_SIZE_FIELD);
+  tree size;
+  size = vptr_field_get (vptr, VTABLE_SIZE_FIELD);
+  /* Always return size as an array index type.  */
+  size = fold_convert (gfc_array_index_type, size);
+  gcc_assert (size);
+  return size;
 }
 
 
@@ -975,7 +974,7 @@ tree
 gfc_get_class_array_ref (tree index, tree class_decl)
 {
   tree data = gfc_class_data_get (class_decl);
-  tree size = gfc_vtable_size_get (class_decl);
+  tree size = gfc_class_vtab_size_get (class_decl);
   tree offset = fold_build2_loc (input_location, MULT_EXPR,
 				 gfc_array_index_type,
 				 index, size);
@@ -1014,16 +1013,16 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
   from_len = to_len = NULL_TREE;
 
   if (from != NULL_TREE)
-    fcn = gfc_vtable_copy_get (from);
+    fcn = gfc_class_vtab_copy_get (from);
   else
-    fcn = gfc_vtable_copy_get (to);
+    fcn = gfc_class_vtab_copy_get (to);
 
   fcn_type = TREE_TYPE (TREE_TYPE (fcn));
 
   if (from != NULL_TREE)
       from_data = gfc_class_data_get (from);
   else
-    from_data = gfc_vtable_def_init_get (to);
+    from_data = gfc_class_vtab_def_init_get (to);
 
   if (unlimited)
     {
@@ -5883,7 +5882,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 			CLASS_DATA (expr->value.function.esym->result)->attr);
 	    }
 
-	  final_fndecl = gfc_vtable_final_get (se->expr);
+	  final_fndecl = gfc_class_vtab_final_get (se->expr);
 	  is_final = fold_build2_loc (input_location, NE_EXPR,
 				      boolean_type_node,
  			    	      final_fndecl,
@@ -5894,7 +5893,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
  	  tmp = build_call_expr_loc (input_location,
 				     final_fndecl, 3,
 				     gfc_build_addr_expr (NULL, tmp),
-				     gfc_vtable_size_get (se->expr),
+				     gfc_class_vtab_size_get (se->expr),
 				     boolean_false_node);
  	  tmp = fold_build3_loc (input_location, COND_EXPR,
 				 void_type_node, is_final, tmp,
@@ -7580,6 +7579,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 					       bound, bound, 0,
 					       GFC_ARRAY_POINTER_CONT, false);
 	      tmp = gfc_create_var (tmp, "ptrtemp");
+	      lse.descriptor_only = 0;
 	      lse.expr = tmp;
 	      lse.direct_byref = 1;
 	      gfc_conv_expr_descriptor (&lse, expr2);
@@ -7595,6 +7595,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
       else if (expr2->expr_type == EXPR_VARIABLE)
 	{
 	  /* Assign directly to the LHS's descriptor.  */
+	  lse.descriptor_only = 0;
 	  lse.direct_byref = 1;
 	  gfc_conv_expr_descriptor (&lse, expr2);
 	  strlen_rhs = lse.string_length;
@@ -7646,6 +7647,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 	  /* Assign to a temporary descriptor and then copy that
 	     temporary to the pointer.  */
 	  tmp = gfc_create_var (TREE_TYPE (desc), "ptrtemp");
+	  lse.descriptor_only = 0;
 	  lse.expr = tmp;
 	  lse.direct_byref = 1;
 	  gfc_conv_expr_descriptor (&lse, expr2);
