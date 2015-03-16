@@ -176,7 +176,7 @@ gfc_class_len_get (tree decl)
   if (POINTER_TYPE_P (TREE_TYPE (decl)))
     decl = build_fold_indirect_ref_loc (input_location, decl);
   len = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (decl)),
-			    CLASS_LEN_FIELD);
+			   CLASS_LEN_FIELD);
   return fold_build3_loc (input_location, COMPONENT_REF,
 			  TREE_TYPE (len), decl, len,
 			  NULL_TREE);
@@ -191,10 +191,10 @@ vptr_field_get (tree vptr, int fieldno)
   tree field;
   vptr = build_fold_indirect_ref_loc (input_location, vptr);
   field = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (vptr)),
-			    fieldno);
+			     fieldno);
   field = fold_build3_loc (input_location, COMPONENT_REF,
-			  TREE_TYPE (field), vptr, field,
-			  NULL_TREE);
+			   TREE_TYPE (field), vptr, field,
+			   NULL_TREE);
   gcc_assert (field);
   return field;
 }
