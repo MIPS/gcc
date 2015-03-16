@@ -183,65 +183,74 @@ gfc_class_len_get (tree decl)
 }
 
 
+/* Get the specified FIELD from the VPTR.  */
+
 static tree
-gfc_vtable_field_get (tree decl, int field)
+vptr_field_get (tree vptr, int fieldno)
 {
-  tree size;
+  tree field;
+  vptr = build_fold_indirect_ref_loc (input_location, vptr);
+  field = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (vptr)),
+			    fieldno);
+  field = fold_build3_loc (input_location, COMPONENT_REF,
+			  TREE_TYPE (field), vptr, field,
+			  NULL_TREE);
+  gcc_assert (field);
+  return field;
+}
+
+
+/* Get the field from the class' vptr.  */
+
+static tree
+class_vtab_field_get (tree decl, int fieldno)
+{
   tree vptr;
   vptr = gfc_class_vptr_get (decl);
-  vptr = build_fold_indirect_ref_loc (input_location, vptr);
-  size = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (vptr)),
-			    field);
-  size = fold_build3_loc (input_location, COMPONENT_REF,
-			  TREE_TYPE (size), vptr, size,
-			  NULL_TREE);
+  return vptr_field_get (vptr, fieldno);
+}
+
+
+/* Define a macro for creating the class_vtab_* and vptr_* accessors in
+   unison.  */
+#define VTAB_GET_FIELD_GEN(name, field) tree \
+gfc_class_vtab_## name ##_get (tree cl) \
+{ \
+  return class_vtab_field_get (cl, field); \
+} \
+ \
+tree \
+gfc_vptr_## name ##_get (tree vptr) \
+{ \
+  return vptr_field_get (vptr, field); \
+}
+
+VTAB_GET_FIELD_GEN (hash, VTABLE_HASH_FIELD)
+VTAB_GET_FIELD_GEN (extends, VTABLE_EXTENDS_FIELD)
+VTAB_GET_FIELD_GEN (def_init, VTABLE_DEF_INIT_FIELD)
+VTAB_GET_FIELD_GEN (copy, VTABLE_COPY_FIELD)
+VTAB_GET_FIELD_GEN (final, VTABLE_FINAL_FIELD)
+
+
+/* The size field is returned as an array index.  Therefore treat it and only
+   it specially.  */
+
+tree
+gfc_class_vtab_size_get (tree cl)
+{
+  tree size;
+  size = class_vtab_field_get (cl, VTABLE_SIZE_FIELD);
   /* Always return size as an array index type.  */
-  if (field == VTABLE_SIZE_FIELD)
-    size = fold_convert (gfc_array_index_type, size);
-  gcc_assert (size);
-  return size;
+  return fold_convert (gfc_array_index_type, size);
 }
 
-
 tree
-gfc_vtable_hash_get (tree decl)
+gfc_vptr_size_get (tree vptr)
 {
-  return gfc_vtable_field_get (decl, VTABLE_HASH_FIELD);
-}
-
-
-tree
-gfc_vtable_size_get (tree decl)
-{
-  return gfc_vtable_field_get (decl, VTABLE_SIZE_FIELD);
-}
-
-
-tree
-gfc_vtable_extends_get (tree decl)
-{
-  return gfc_vtable_field_get (decl, VTABLE_EXTENDS_FIELD);
-}
-
-
-tree
-gfc_vtable_def_init_get (tree decl)
-{
-  return gfc_vtable_field_get (decl, VTABLE_DEF_INIT_FIELD);
-}
-
-
-tree
-gfc_vtable_copy_get (tree decl)
-{
-  return gfc_vtable_field_get (decl, VTABLE_COPY_FIELD);
-}
-
-
-tree
-gfc_vtable_final_get (tree decl)
-{
-  return gfc_vtable_field_get (decl, VTABLE_FINAL_FIELD);
+  tree size;
+  size = vptr_field_get (vptr, VTABLE_SIZE_FIELD);
+  /* Always return size as an array index type.  */
+  return fold_convert (gfc_array_index_type, size);
 }
 
 
