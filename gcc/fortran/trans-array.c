@@ -4975,8 +4975,7 @@ static tree
 gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 		     gfc_expr ** lower, gfc_expr ** upper, stmtblock_t * pblock,
 		     stmtblock_t * descriptor_block, tree * overflow,
-		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3,
-		     gfc_typespec *ts)
+		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3)
 {
   tree type;
   tree tmp;
@@ -5156,9 +5155,6 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 	  tmp = TYPE_SIZE_UNIT (tmp);
 	}
     }
-  else if (ts->type != BT_UNKNOWN && ts->type != BT_CHARACTER)
-    /* FIXME: Properly handle characters.  See PR 57456.  */
-    tmp = TYPE_SIZE_UNIT (gfc_typenode_for_spec (ts));
   else
     tmp = TYPE_SIZE_UNIT (gfc_get_element_type (type));
 
@@ -5230,7 +5226,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 bool
 gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 		    tree errlen, tree label_finish, tree expr3_elem_size,
-		    tree *nelems, gfc_expr *expr3, gfc_typespec *ts)
+		    tree *nelems, gfc_expr *expr3)
 {
   tree tmp;
   tree pointer;
@@ -5315,7 +5311,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   size = gfc_array_init_size (se->expr, ref->u.ar.as->rank,
 			      ref->u.ar.as->corank, &offset, lower, upper,
 			      &se->pre, &set_descriptor_block, &overflow,
-			      expr3_elem_size, nelems, expr3, ts);
+			      expr3_elem_size, nelems, expr3);
 
   if (dimension)
     {

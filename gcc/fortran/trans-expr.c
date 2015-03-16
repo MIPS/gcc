@@ -269,6 +269,57 @@ gfc_vtab_size_get (tree vtab)
 #undef VTABLE_FINAL_FIELD
 
 
+/* Search for the last _class ref in the chain of references of this expression
+   and cut the chain there.  After that copy the cut down expression to CUT.  */
+
+gfc_expr *
+gfc_find_and_cut_at_last_class_ref (gfc_expr *e)
+{
+  gfc_expr *base_expr;
+  gfc_ref *ref, *class_ref, *tail;
+
+  /* Find the last class reference.  */
+  class_ref = NULL;
+  for (ref = e->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_COMPONENT
+	  && ref->u.c.component->ts.type == BT_CLASS)
+	class_ref = ref;
+
+      if (ref->next == NULL)
+	break;
+    }
+
+  /* Remove and store all subsequent references after the
+   CLASS reference.  */
+  if (class_ref)
+    {
+      tail = class_ref->next;
+      class_ref->next = NULL;
+    }
+  else
+    {
+      tail = e->ref;
+      e->ref = NULL;
+    }
+
+  base_expr = gfc_expr_to_initialize (e);
+
+  /* Restore the original tail expression.  */
+  if (class_ref)
+    {
+      gfc_free_ref_list (class_ref->next);
+      class_ref->next = tail;
+    }
+  else
+    {
+      gfc_free_ref_list (e->ref);
+      e->ref = tail;
+    }
+  return base_expr;
+}
+
+
 /* Reset the vptr to the declared type, e.g. after deallocation.  */
 
 void
@@ -317,6 +368,22 @@ gfc_reset_vptr (stmtblock_t *block, gfc_expr *e)
   gfc_free_expr (rhs);
 }
 
+
+/* Reset the len for unlimited polymorphic objects.  */
+
+void
+gfc_reset_len (stmtblock_t *block, gfc_expr *expr)
+{
+  gfc_expr *e;
+  gfc_se se_len;
+  e = gfc_find_and_cut_at_last_class_ref (expr);
+  gfc_add_len_component (e);
+  gfc_init_se (&se_len, NULL);
+  gfc_conv_expr (&se_len, e);
+  gfc_add_modify (block, se_len.expr,
+		  fold_convert (TREE_TYPE (se_len.expr), integer_zero_node));
+  gfc_free_expr (e);
+}
 
 /* Obtain the vptr of the last class reference in an expression.
    Return NULL_TREE if no class reference is found.  */

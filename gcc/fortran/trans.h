@@ -349,7 +349,9 @@ gfc_wrapped_block;
 tree gfc_class_data_get (tree);
 tree gfc_class_vptr_get (tree);
 tree gfc_class_len_get (tree);
+gfc_expr * gfc_find_and_cut_at_last_class_ref (gfc_expr *);
 void gfc_reset_vptr (stmtblock_t *, gfc_expr *);
+void gfc_reset_len (stmtblock_t *, gfc_expr *);
 tree gfc_class_set_static_fields (tree, tree, tree);
 tree gfc_vtable_hash_get (tree);
 tree gfc_vtable_size_get (tree);
@@ -362,7 +364,7 @@ tree gfc_vtable_final_get (tree);
 tree gfc_vtab_size_get (tree vtab);
 tree gfc_get_vptr_from_expr (tree);
 tree gfc_get_class_array_ref (tree, tree);
-tree gfc_copy_class_to_class (tree, tree, tree, bool unlimited);
+tree gfc_copy_class_to_class (tree, tree, tree, bool);
 bool gfc_add_finalizer_call (stmtblock_t *, gfc_expr *);
 bool gfc_add_comp_finalizer_call (stmtblock_t *, tree, gfc_component *, bool);
 
