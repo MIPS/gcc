@@ -5049,7 +5049,7 @@ gfc_trans_allocate (gfc_code * code)
 	  classexpr = build_fold_indirect_ref_loc (input_location,
 						   se_sz.expr);
 	  classexpr = gfc_evaluate_now (classexpr, &se.pre);
-	  memsize = gfc_vtable_size_get (classexpr);
+	  memsize = gfc_class_vtab_size_get (classexpr);
 	  memsize = fold_convert (sizetype, memsize);
 	}
 

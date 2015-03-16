@@ -907,7 +907,7 @@ tree
 gfc_get_class_array_ref (tree index, tree class_decl)
 {
   tree data = gfc_class_data_get (class_decl);
-  tree size = gfc_vtable_size_get (class_decl);
+  tree size = gfc_class_vtab_size_get (class_decl);
   tree offset = fold_build2_loc (input_location, MULT_EXPR,
 				 gfc_array_index_type,
 				 index, size);
@@ -943,16 +943,16 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems)
   args = NULL;
 
   if (from != NULL_TREE)
-    fcn = gfc_vtable_copy_get (from);
+    fcn = gfc_class_vtab_copy_get (from);
   else
-    fcn = gfc_vtable_copy_get (to);
+    fcn = gfc_class_vtab_copy_get (to);
 
   fcn_type = TREE_TYPE (TREE_TYPE (fcn));
 
   if (from != NULL_TREE)
     from_data = gfc_class_data_get (from);
   else
-    from_data = gfc_vtable_def_init_get (to);
+    from_data = gfc_class_vtab_def_init_get (to);
 
   to_data = gfc_class_data_get (to);
 
@@ -5744,7 +5744,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 			CLASS_DATA (expr->value.function.esym->result)->attr);
 	    }
 
-	  final_fndecl = gfc_vtable_final_get (se->expr);
+	  final_fndecl = gfc_class_vtab_final_get (se->expr);
 	  is_final = fold_build2_loc (input_location, NE_EXPR,
 				      boolean_type_node,
  			    	      final_fndecl,
@@ -5755,7 +5755,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
  	  tmp = build_call_expr_loc (input_location,
 				     final_fndecl, 3,
 				     gfc_build_addr_expr (NULL, tmp),
-				     gfc_vtable_size_get (se->expr),
+				     gfc_class_vtab_size_get (se->expr),
 				     boolean_false_node);
  	  tmp = fold_build3_loc (input_location, COND_EXPR,
 				 void_type_node, is_final, tmp,

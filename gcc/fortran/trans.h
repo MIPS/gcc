@@ -350,12 +350,6 @@ tree gfc_class_set_static_fields (tree, tree, tree);
 tree gfc_class_data_get (tree);
 tree gfc_class_vptr_get (tree);
 tree gfc_class_len_get (tree);
-#define gfc_vtable_hash_get gfc_class_vtab_hash_get
-#define gfc_vtable_size_get gfc_class_vtab_size_get
-#define gfc_vtable_extends_get gfc_class_vtab_extends_get
-#define gfc_vtable_def_init_get gfc_class_vtab_def_init_get
-#define gfc_vtable_copy_get gfc_class_vtab_copy_get
-#define gfc_vtable_final_get gfc_class_vtab_final_get
 /* Get an accessor to the class' vtab's * field, when a class handle is
    available.  */
 tree gfc_class_vtab_hash_get (tree);
