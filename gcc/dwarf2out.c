@@ -18809,6 +18809,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		add_type_attribute (subr_die, TREE_TYPE (TREE_TYPE (decl)),
 				    TYPE_UNQUALIFIED, context_die);
 	    }
+	  if (early_dwarf_dumping)
+	    equate_decl_number_to_die (decl, subr_die);
 	}
     }
   /* Anything else... create a brand new DIE.  */
