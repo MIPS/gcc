@@ -4943,6 +4943,7 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 	 because the limbo list should not persist past LTO
 	 streaming.  */
       if (tag_value != DW_TAG_compile_unit
+	  && tag_value != DW_TAG_type_unit
 	  && !early_dwarf_dumping
 	  /* Allow nested functions to live in limbo because they will
 	     only temporarily live there, as decls_for_scope will fix
