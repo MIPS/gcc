@@ -64,20 +64,10 @@ constraint_p (tree t)
   return constraint_p (TREE_CODE (t));
 }
 
-/* Returns true if T can be used as  a predicate constraint. */
-static inline bool
-valid_predicate_p (tree t)
-{
-  return CONSTANT_CLASS_P (t) || EXPR_P (t) || t == error_mark_node;
-}
-
 /* Make a predicate constraint from the given expression. */
 tree
 make_predicate_constraint (tree expr)
 {
-  if (!valid_predicate_p (expr))
-    debug_tree (expr);
-  gcc_assert(valid_predicate_p (expr));
   return build_nt (PRED_CONSTR, expr);
 }
 
@@ -315,6 +305,21 @@ lift_operands (tree t)
   return t;
 }
 
+/* Recursively lift all operands of the function call. Also, check
+   that the call target is not accidentally a variable concept
+   since that's ill-formed.  */
+tree
+lift_function_call (tree t)
+{
+  gcc_assert (TREE_CODE (t) == CALL_EXPR);
+  tree target = CALL_EXPR_FN (t);
+  if (VAR_P (target)) {
+    error ("%qE cannot be used as a function", target);
+    return error_mark_node;
+  }
+  return lift_operands (t);
+}
+
 /* Inline a function (concept) definition by substituting
    ARGS into its body. */
 tree
@@ -348,13 +353,13 @@ lift_function_definition (tree fn, tree args)
 
 /* Inline a reference to a function concept.  */
 tree
-lift_call (tree t)
+lift_call_expression (tree t)
 {
   /* Try to resolve this function call as a concept.  If not, then 
      it can be returned as-is.  */
   tree check = resolve_constraint_check (t);
   if (!check)
-      return lift_operands (t);
+    return lift_function_call (t);
   if (check == error_mark_node)
     return error_mark_node;
 
@@ -381,22 +386,26 @@ lift_variable_initializer (tree var, tree args)
 
 /* Inline a reference to a variable concept.  */
 tree
-lift_var (tree t)
+lift_variable_concept (tree t)
 {
   tree tmpl = TREE_OPERAND (t, 0);
   tree args = TREE_OPERAND (t, 1);
   tree decl = DECL_TEMPLATE_RESULT (tmpl);
-  if (!DECL_DECLARED_CONCEPT_P (decl))
-    return t;
+  gcc_assert (DECL_DECLARED_CONCEPT_P (decl));
   return lift_variable_initializer (decl, args);
 }
 
-/* Determine if a template-id is a variable concept and inline.  */
+/* Determine if a template-id is a variable concept and inline.  
+
+   TODO: I don't think that we get template-ids for variable 
+   templates any more. They tend to be transformed into var-decl
+   specializations when an id-expression is parsed.
+*/
 tree
 lift_template_id (tree t)
 {
   if (variable_concept_p (TREE_OPERAND (t, 0)))
-    return lift_var (t);
+    return lift_variable_concept (t);
 
   /* Check that we didn't refer to a function concept like
       a variable.
@@ -414,6 +423,22 @@ lift_template_id (tree t)
         }
     }
 
+  return t;
+}
+
+/* If the variable declaration is a specialization of a concept
+   declaration, then inline it's initializer. */
+tree
+lift_variable (tree t)
+{
+  if (tree ti = DECL_TEMPLATE_INFO (t)) 
+    {
+      tree tmpl = TI_TEMPLATE (ti);
+      tree args = TI_ARGS (ti);
+      tree decl = DECL_TEMPLATE_RESULT (tmpl);
+      if (DECL_DECLARED_CONCEPT_P (decl))
+        return lift_variable_initializer (decl, args);
+    }
   return t;
 }
 
@@ -453,10 +478,13 @@ lift_constraints (tree t)
   switch (TREE_CODE (t))
     {
     case CALL_EXPR:
-      return lift_call (t);
+      return lift_call_expression (t);
     
     case TEMPLATE_ID_EXPR:
       return lift_template_id (t);
+
+    case VAR_DECL:
+      return lift_variable (t);
     
     case REQUIRES_EXPR:
       return lift_requires_expr (t);

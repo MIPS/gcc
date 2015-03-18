@@ -12,7 +12,7 @@ template<typename T>
 
 template<typename U>
   requires C1<U>()
-  void f1(U) { } // { dg-error "function call" }
+  void f1(U) { } // { dg-error "cannot be used" }
 
 template<typename U>
   requires C2<U>

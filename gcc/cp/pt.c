@@ -8582,11 +8582,12 @@ finish_template_variable (tree var)
 
      NOTE: This is an extension of Concepts Lite TS that
      allows constraints to be used in expressions. */
-  tree tmpl = TREE_OPERAND (var, 0);
-  tree args = TREE_OPERAND (var, 1);
-  tree decl = DECL_TEMPLATE_RESULT (tmpl);
-  if (flag_concepts && DECL_DECLARED_CONCEPT_P (decl))
-    return evaluate_variable_concept (decl, args);
+  if (flag_concepts)
+    if (variable_concept_p (templ) && !uses_template_parms (arglist))
+      {
+        tree decl = DECL_TEMPLATE_RESULT (templ);
+        return evaluate_variable_concept (decl, arglist);
+      }
 
   return instantiate_template (templ, arglist, complain);
 }
@@ -23197,8 +23198,6 @@ set_constraints (tree t, tree ci)
 void
 remove_constraints (tree t)
 {
-  if (!DECL_P (t))
-    debug_tree (t);
   gcc_assert (DECL_P (t));
   if (TREE_CODE (t) == TEMPLATE_DECL)
     t = DECL_TEMPLATE_RESULT (t);
