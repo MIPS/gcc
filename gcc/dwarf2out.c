@@ -19725,14 +19725,20 @@ static void
 gen_label_die (tree decl, dw_die_ref context_die)
 {
   tree origin = decl_ultimate_origin (decl);
-  dw_die_ref lbl_die = new_die (DW_TAG_label, context_die, decl);
+  dw_die_ref lbl_die = lookup_decl_die (decl);
   rtx insn;
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
-  if (origin != NULL)
-    add_abstract_origin_attribute (lbl_die, origin);
-  else
-    add_name_and_src_coords_attributes (lbl_die, decl);
+  if (!lbl_die)
+    {
+      lbl_die = new_die (DW_TAG_label, context_die, decl);
+      equate_decl_number_to_die (decl, lbl_die);
+
+      if (origin != NULL)
+	add_abstract_origin_attribute (lbl_die, origin);
+      else
+	add_name_and_src_coords_attributes (lbl_die, decl);
+    }
 
   if (DECL_ABSTRACT_P (decl))
     equate_decl_number_to_die (decl, lbl_die);
