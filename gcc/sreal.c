@@ -1,5 +1,5 @@
-/* Simple data type for positive real numbers for the GNU compiler.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+/* Simple data type for real numbers for the GNU compiler.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-/* This library supports positive real numbers and 0;
+/* This library supports real numbers;
    inf and nan are NOT supported.
    It is written to be simple and fast.
 
@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include <math.h>
 #include "coretypes.h"
 #include "sreal.h"
 
@@ -57,17 +58,17 @@ along with GCC; see the file COPYING3.  If not see
 void
 sreal::dump (FILE *file) const
 {
-  fprintf (file, "(%" PRIu64 " * 2^%d)", m_sig, m_exp);
+  fprintf (file, "(%" PRIi64 " * 2^%d)", m_sig, m_exp);
 }
 
 DEBUG_FUNCTION void
-debug (sreal &ref)
+debug (const sreal &ref)
 {
   ref.dump (stderr);
 }
 
 DEBUG_FUNCTION void
-debug (sreal *ptr)
+debug (const sreal *ptr)
 {
   if (ptr)
     debug (*ptr);
@@ -82,70 +83,17 @@ debug (sreal *ptr)
 void
 sreal::shift_right (int s)
 {
-  gcc_assert (s > 0);
-  gcc_assert (s <= SREAL_BITS);
+  gcc_checking_assert (s > 0);
+  gcc_checking_assert (s <= SREAL_BITS);
   /* Exponent should never be so large because shift_right is used only by
      sreal_add and sreal_sub ant thus the number cannot be shifted out from
      exponent range.  */
-  gcc_assert (m_exp + s <= SREAL_MAX_EXP);
+  gcc_checking_assert (m_exp + s <= SREAL_MAX_EXP);
 
   m_exp += s;
 
-  m_sig += (uint64_t) 1 << (s - 1);
+  m_sig += (int64_t) 1 << (s - 1);
   m_sig >>= s;
-}
-
-/* Normalize *this.  */
-
-void
-sreal::normalize ()
-{
-  if (m_sig == 0)
-    {
-      m_exp = -SREAL_MAX_EXP;
-    }
-  else if (m_sig < SREAL_MIN_SIG)
-    {
-      do
-	{
-	  m_sig <<= 1;
-	  m_exp--;
-	}
-      while (m_sig < SREAL_MIN_SIG);
-
-      /* Check underflow.  */
-      if (m_exp < -SREAL_MAX_EXP)
-	{
-	  m_exp = -SREAL_MAX_EXP;
-	  m_sig = 0;
-	}
-    }
-  else if (m_sig > SREAL_MAX_SIG)
-    {
-      int last_bit;
-      do
-	{
-	  last_bit = m_sig & 1;
-	  m_sig >>= 1;
-	  m_exp++;
-	}
-      while (m_sig > SREAL_MAX_SIG);
-
-      /* Round the number.  */
-      m_sig += last_bit;
-      if (m_sig > SREAL_MAX_SIG)
-	{
-	  m_sig >>= 1;
-	  m_exp++;
-	}
-
-      /* Check overflow.  */
-      if (m_exp > SREAL_MAX_EXP)
-	{
-	  m_exp = SREAL_MAX_EXP;
-	  m_sig = SREAL_MAX_SIG;
-	}
-    }
 }
 
 /* Return integer value of *this.  */
@@ -153,15 +101,29 @@ sreal::normalize ()
 int64_t
 sreal::to_int () const
 {
+  int64_t sign = m_sig < 0 ? -1 : 1;
+
   if (m_exp <= -SREAL_BITS)
     return 0;
   if (m_exp >= SREAL_PART_BITS)
-    return INTTYPE_MAXIMUM (int64_t);
+    return sign * INTTYPE_MAXIMUM (int64_t);
   if (m_exp > 0)
     return m_sig << m_exp;
   if (m_exp < 0)
     return m_sig >> -m_exp;
   return m_sig;
+}
+
+/* Return value of *this as double.
+   This should be used for debug output only.  */
+
+double
+sreal::to_double () const
+{
+  double val = m_sig;
+  if (m_exp)
+    val = ldexp (val, m_exp);
+  return val;
 }
 
 /* Return *this + other.  */
@@ -171,15 +133,11 @@ sreal::operator+ (const sreal &other) const
 {
   int dexp;
   sreal tmp, r;
-const sreal *a_p = this, *b_p = &other, *bb;
 
-  if (*a_p < *b_p)
-    {
-      const sreal *swap;
-      swap = a_p;
-      a_p = b_p;
-      b_p = swap;
-    }
+  const sreal *a_p = this, *b_p = &other, *bb;
+
+  if (a_p->m_exp < b_p->m_exp)
+    std::swap (a_p, b_p);
 
   dexp = a_p->m_exp - b_p->m_exp;
   r.m_exp = a_p->m_exp;
@@ -203,6 +161,7 @@ const sreal *a_p = this, *b_p = &other, *bb;
   return r;
 }
 
+
 /* Return *this - other.  */
 
 sreal
@@ -211,26 +170,32 @@ sreal::operator- (const sreal &other) const
   int dexp;
   sreal tmp, r;
   const sreal *bb;
+  const sreal *a_p = this, *b_p = &other;
 
-  gcc_assert (*this >= other);
+  int64_t sign = 1;
+  if (a_p->m_exp < b_p->m_exp)
+    {
+      sign = -1;
+      std::swap (a_p, b_p);
+    }
 
-  dexp = m_exp - other.m_exp;
-  r.m_exp = m_exp;
+  dexp = a_p->m_exp - b_p->m_exp;
+  r.m_exp = a_p->m_exp;
   if (dexp > SREAL_BITS)
     {
-      r.m_sig = m_sig;
+      r.m_sig = sign * a_p->m_sig;
       return r;
     }
   if (dexp == 0)
-    bb = &other;
+    bb = b_p;
   else
     {
-      tmp = other;
+      tmp = *b_p;
       tmp.shift_right (dexp);
       bb = &tmp;
     }
 
-  r.m_sig = m_sig - bb->m_sig;
+  r.m_sig = sign * (a_p->m_sig - bb->m_sig);
   r.normalize ();
   return r;
 }
@@ -240,8 +205,8 @@ sreal::operator- (const sreal &other) const
 sreal
 sreal::operator* (const sreal &other) const
 {
-sreal r;
-  if (m_sig < SREAL_MIN_SIG || other.m_sig < SREAL_MIN_SIG)
+  sreal r;
+  if (absu_hwi (m_sig) < SREAL_MIN_SIG || absu_hwi (other.m_sig) < SREAL_MIN_SIG)
     {
       r.m_sig = 0;
       r.m_exp = -SREAL_MAX_EXP;
@@ -252,6 +217,7 @@ sreal r;
       r.m_exp = m_exp + other.m_exp;
       r.normalize ();
     }
+
   return r;
 }
 
@@ -260,8 +226,8 @@ sreal r;
 sreal
 sreal::operator/ (const sreal &other) const
 {
-  gcc_assert (other.m_sig != 0);
-sreal r;
+  gcc_checking_assert (other.m_sig != 0);
+  sreal r;
   r.m_sig = (m_sig << SREAL_PART_BITS) / other.m_sig;
   r.m_exp = m_exp - other.m_exp - SREAL_PART_BITS;
   r.normalize ();

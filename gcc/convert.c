@@ -1,5 +1,5 @@
 /* Utility routines for data type conversion for GCC.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,7 +25,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
+#include "fixed-value.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
 #include "convert.h"
@@ -98,6 +110,15 @@ convert_to_real (tree type, tree expr)
 {
   enum built_in_function fcode = builtin_mathfn_code (expr);
   tree itype = TREE_TYPE (expr);
+
+  if (TREE_CODE (expr) == COMPOUND_EXPR)
+    {
+      tree t = convert_to_real (type, TREE_OPERAND (expr, 1));
+      if (t == TREE_OPERAND (expr, 1))
+	return expr;
+      return build2_loc (EXPR_LOCATION (expr), COMPOUND_EXPR, TREE_TYPE (t),
+			 TREE_OPERAND (expr, 0), t);
+    }    
 
   /* Disable until we figure out how to decide whether the functions are
      present in runtime.  */
@@ -405,6 +426,15 @@ convert_to_integer (tree type, tree expr)
       error ("conversion to incomplete type");
       return error_mark_node;
     }
+
+  if (ex_form == COMPOUND_EXPR)
+    {
+      tree t = convert_to_integer (type, TREE_OPERAND (expr, 1));
+      if (t == TREE_OPERAND (expr, 1))
+	return expr;
+      return build2_loc (EXPR_LOCATION (expr), COMPOUND_EXPR, TREE_TYPE (t),
+			 TREE_OPERAND (expr, 0), t);
+    }    
 
   /* Convert e.g. (long)round(d) -> lround(d).  */
   /* If we're converting to char, we may encounter differing behavior
@@ -867,12 +897,10 @@ convert_to_integer (tree type, tree expr)
 
     case REAL_TYPE:
       if (flag_sanitize & SANITIZE_FLOAT_CAST
-	  && current_function_decl != NULL_TREE
-	  && !lookup_attribute ("no_sanitize_undefined",
-				DECL_ATTRIBUTES (current_function_decl)))
+	  && do_ubsan_in_current_function ())
 	{
 	  expr = save_expr (expr);
-	  tree check = ubsan_instrument_float_cast (loc, type, expr);
+	  tree check = ubsan_instrument_float_cast (loc, type, expr, expr);
 	  expr = build1 (FIX_TRUNC_EXPR, type, expr);
 	  if (check == NULL)
 	    return expr;
@@ -926,6 +954,14 @@ convert_to_complex (tree type, tree expr)
 
 	if (TYPE_MAIN_VARIANT (elt_type) == TYPE_MAIN_VARIANT (subtype))
 	  return expr;
+	else if (TREE_CODE (expr) == COMPOUND_EXPR)
+	  {
+	    tree t = convert_to_complex (type, TREE_OPERAND (expr, 1));
+	    if (t == TREE_OPERAND (expr, 1))
+	      return expr;
+	    return build2_loc (EXPR_LOCATION (expr), COMPOUND_EXPR,
+			       TREE_TYPE (t), TREE_OPERAND (expr, 0), t);
+	  }    
 	else if (TREE_CODE (expr) == COMPLEX_EXPR)
 	  return fold_build2 (COMPLEX_EXPR, type,
 			      convert (subtype, TREE_OPERAND (expr, 0)),

@@ -645,6 +645,9 @@ GLIBCXX_LDBL_COMPAT_FALSE
 GLIBCXX_LDBL_COMPAT_TRUE
 ENABLE_CXX11_ABI_FALSE
 ENABLE_CXX11_ABI_TRUE
+glibcxx_cxx98_abi
+ENABLE_DUAL_ABI_FALSE
+ENABLE_DUAL_ABI_TRUE
 ENABLE_VISIBILITY_FALSE
 ENABLE_VISIBILITY_TRUE
 libtool_VERSION
@@ -668,6 +671,8 @@ SECTION_LDFLAGS
 GLIBCXX_LIBS
 ENABLE_VTABLE_VERIFY_FALSE
 ENABLE_VTABLE_VERIFY_TRUE
+VTV_CYGMIN_FALSE
+VTV_CYGMIN_TRUE
 VTV_CXXLINKFLAGS
 VTV_PCH_CXXFLAGS
 VTV_CXXFLAGS
@@ -882,7 +887,8 @@ with_system_libunwind
 enable_linux_futex
 enable_symvers
 enable_libstdcxx_visibility
-enable_libstdcxx_cxx11_abi
+enable_libstdcxx_dual_abi
+with_default_libstdcxx_abi
 enable_libstdcxx_threads
 with_gxx_include_dir
 enable_version_specific_runtime_libs
@@ -1578,8 +1584,8 @@ Optional Features:
                           [default=yes]
   --enable-libstdcxx-visibility
                           enables visibility safe usage [default=yes]
-  --disable-libstdcxx-cxx11-abi
-                          disable the C++11-conforming ABI
+  --enable-libstdcxx-dual-abi
+                          support two versions of std::string [default=yes]
   --enable-libstdcxx-threads
                           enable C++11 threads support [default=auto]
   --enable-version-specific-runtime-libs
@@ -1602,6 +1608,8 @@ Optional Packages:
   --with-libiconv-prefix[=DIR]  search for libiconv in DIR/include and DIR/lib
   --without-libiconv-prefix     don't search for libiconv in includedir and libdir
   --with-system-libunwind use installed libunwind
+  --with-default-libstdcxx-abi
+                          set the std::string ABI to use by default
   --with-gxx-include-dir=DIR
                           installation directory for include files
 
@@ -2490,6 +2498,60 @@ $as_echo "$ac_res" >&6; }
   eval $as_lineno_stack; test "x$as_lineno_stack" = x && { as_lineno=; unset as_lineno;}
 
 } # ac_fn_c_check_type
+
+# ac_fn_cxx_check_type LINENO TYPE VAR INCLUDES
+# ---------------------------------------------
+# Tests whether TYPE exists after having included INCLUDES, setting cache
+# variable VAR accordingly.
+ac_fn_cxx_check_type ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+$as_echo_n "checking for $2... " >&6; }
+if { as_var=$3; eval "test \"\${$as_var+set}\" = set"; }; then :
+  $as_echo_n "(cached) " >&6
+else
+  eval "$3=no"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$4
+int
+main ()
+{
+if (sizeof ($2))
+	 return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$4
+int
+main ()
+{
+if (sizeof (($2)))
+	    return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+
+else
+  eval "$3=yes"
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+eval ac_res=\$$3
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+  eval $as_lineno_stack; test "x$as_lineno_stack" = x && { as_lineno=; unset as_lineno;}
+
+} # ac_fn_cxx_check_type
 cat >config.log <<_ACEOF
 This file contains any messages produced by compilers while
 running configure, to aid debugging if configure makes a mistake.
@@ -9294,7 +9356,7 @@ _LT_EOF
       if $LD --help 2>&1 | $EGREP ': supported targets:.* elf' > /dev/null \
 	 && test "$tmp_diet" = no
       then
-	tmp_addflag=
+	tmp_addflag=' $pic_flag'
 	tmp_sharedflag='-shared'
 	case $cc_basename,$host_cpu in
         pgcc*)				# Portland Group C compiler
@@ -11531,7 +11593,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11534 "configure"
+#line 11596 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11637,7 +11699,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11640 "configure"
+#line 11702 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -12232,8 +12294,8 @@ with_gnu_ld=$lt_cv_prog_gnu_ld
       # Check if GNU C++ uses GNU ld as the underlying linker, since the
       # archiving commands below assume that GNU ld is being used.
       if test "$with_gnu_ld" = yes; then
-        archive_cmds_CXX='$CC -shared -nostdlib $predep_objects $libobjs $deplibs $postdep_objects $compiler_flags ${wl}-soname $wl$soname -o $lib'
-        archive_expsym_cmds_CXX='$CC -shared -nostdlib $predep_objects $libobjs $deplibs $postdep_objects $compiler_flags ${wl}-soname $wl$soname ${wl}-retain-symbols-file $wl$export_symbols -o $lib'
+        archive_cmds_CXX='$CC $pic_flag -shared -nostdlib $predep_objects $libobjs $deplibs $postdep_objects $compiler_flags ${wl}-soname $wl$soname -o $lib'
+        archive_expsym_cmds_CXX='$CC $pic_flag -shared -nostdlib $predep_objects $libobjs $deplibs $postdep_objects $compiler_flags ${wl}-soname $wl$soname ${wl}-retain-symbols-file $wl$export_symbols -o $lib'
 
         hardcode_libdir_flag_spec_CXX='${wl}-rpath ${wl}$libdir'
         export_dynamic_flag_spec_CXX='${wl}--export-dynamic'
@@ -15057,7 +15119,7 @@ fi
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 15060 "configure"
+#line 15122 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -15409,7 +15471,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15412 "configure"
+#line 15474 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15444,7 +15506,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15447 "configure"
+#line 15509 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15479,7 +15541,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15482 "configure"
+#line 15544 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15515,7 +15577,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15518 "configure"
+#line 15580 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15594,7 +15656,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15597 "configure"
+#line 15659 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15636,7 +15698,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15639 "configure"
+#line 15701 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15670,7 +15732,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15673 "configure"
+#line 15735 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15710,6 +15772,9 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
+if test "$enable_float128" = yes; then
+  port_specific_symbol_files="$port_specific_symbol_files \$(top_srcdir)/config/abi/pre/float128.ver"
+fi
 
 # Checks for compiler support that doesn't require linking.
 
@@ -17448,8 +17513,17 @@ $as_echo_n "checking for vtable verify support... " >&6; }
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_vtable_verify" >&5
 $as_echo "$enable_vtable_verify" >&6; }
 
+  vtv_cygmin=no
   if test $enable_vtable_verify = yes; then
-    VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+    case ${target_os} in
+      cygwin*|mingw32*)
+        VTV_CXXFLAGS="-fvtable-verify=std -Wl,-lvtv,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+        vtv_cygmin=yes
+        ;;
+      *)
+        VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+        ;;
+    esac
     VTV_PCH_CXXFLAGS="-fvtable-verify=std"
     VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,--rpath -Wl,${toplevel_builddir}/libvtv/.libs"
   else
@@ -17460,6 +17534,14 @@ $as_echo "$enable_vtable_verify" >&6; }
 
 
 
+
+   if test x$vtv_cygmin = xyes; then
+  VTV_CYGMIN_TRUE=
+  VTV_CYGMIN_FALSE='#'
+else
+  VTV_CYGMIN_TRUE='#'
+  VTV_CYGMIN_FALSE=
+fi
 
 
 
@@ -19207,7 +19289,7 @@ $as_echo "#define _GLIBCXX_USE_C99_INTTYPES_TR1 1" >>confdefs.h
 
   fi
 
-  # Check for the existence of whcar_t <inttypes.h> functions (NB: doesn't
+  # Check for the existence of wchar_t <inttypes.h> functions (NB: doesn't
   # make sense if the glibcxx_cv_c99_stdint_tr1 check fails, per C99, 7.8/1).
   ac_c99_inttypes_wchar_t_tr1=no;
   if test x"$glibcxx_cv_c99_stdint_tr1" = x"yes"; then
@@ -19523,7 +19605,7 @@ $as_echo "$glibcxx_glibc217" >&6; }
         ac_has_nanosleep=yes
         ac_has_sched_yield=yes
         ;;
-      freebsd*|netbsd*)
+      freebsd*|netbsd*|dragonfly*)
         ac_has_clock_monotonic=yes
         ac_has_clock_realtime=yes
         ac_has_nanosleep=yes
@@ -78163,17 +78245,53 @@ $as_echo "$as_me: visibility supported: $enable_libstdcxx_visibility" >&6;}
 
 
 
-  # Check whether --enable-libstdcxx-cxx11-abi was given.
-if test "${enable_libstdcxx_cxx11_abi+set}" = set; then :
-  enableval=$enable_libstdcxx_cxx11_abi;
+   # Check whether --enable-libstdcxx-dual-abi was given.
+if test "${enable_libstdcxx_dual_abi+set}" = set; then :
+  enableval=$enable_libstdcxx_dual_abi;
+      case "$enableval" in
+       yes|no) ;;
+       *) as_fn_error "Argument to enable/disable libstdcxx-dual-abi must be yes or no" "$LINENO" 5 ;;
+      esac
+
 else
-  enable_libstdcxx_cxx11_abi=yes
+  enable_libstdcxx_dual_abi=yes
 fi
 
-  if test x"$enable_libstdcxx_cxx11_abi" != xyes; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: C++11-conforming ABI is disabled" >&5
-$as_echo "$as_me: C++11-conforming ABI is disabled" >&6;}
+
+  if test x"$enable_libstdcxx_dual_abi" != xyes; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: dual ABI is disabled" >&5
+$as_echo "$as_me: dual ABI is disabled" >&6;}
+    default_libstdcxx_abi="c++98"
   fi
+
+
+
+  if test x$enable_libstdcxx_dual_abi = xyes; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for default std::string ABI to use" >&5
+$as_echo_n "checking for default std::string ABI to use... " >&6; }
+
+# Check whether --with-default-libstdcxx-abi was given.
+if test "${with_default_libstdcxx_abi+set}" = set; then :
+  withval=$with_default_libstdcxx_abi; case "$withval" in
+      c++98|gnu++98|c++03|gnu++03)  default_libstdcxx_abi="c++98" ;;
+      c++1?|gnu++1?)  default_libstdcxx_abi="c++11" ;;
+      *)  as_fn_error "Invalid argument for --with-default-libstdcxx-abi" "$LINENO" 5 ;;
+     esac
+else
+  default_libstdcxx_abi="c++11"
+fi
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: ${default_libstdcxx_abi}" >&5
+$as_echo "${default_libstdcxx_abi}" >&6; }
+  fi
+  if test $default_libstdcxx_abi = "c++11"; then
+    glibcxx_cxx11_abi=1
+    glibcxx_cxx98_abi=0
+  else
+    glibcxx_cxx11_abi=0
+    glibcxx_cxx98_abi=1
+  fi
+
 
 
 
@@ -78721,6 +78839,16 @@ $as_echo "$ac_has_gthreads" >&6; }
   if test x"$ac_has_gthreads" = x"yes"; then
 
 $as_echo "#define _GLIBCXX_HAS_GTHREADS 1" >>confdefs.h
+
+
+    # Also check for pthread_rwlock_t for std::shared_timed_mutex in C++14
+    ac_fn_cxx_check_type "$LINENO" "pthread_rwlock_t" "ac_cv_type_pthread_rwlock_t" "#include \"gthr.h\"
+"
+if test "x$ac_cv_type_pthread_rwlock_t" = x""yes; then :
+
+$as_echo "#define _GLIBCXX_USE_PTHREAD_RWLOCK_T 1" >>confdefs.h
+
+fi
 
   fi
 
@@ -79329,7 +79457,16 @@ else
 fi
 
 
-    if test $enable_libstdcxx_cxx11_abi = yes; then
+    if test $enable_libstdcxx_dual_abi = yes; then
+  ENABLE_DUAL_ABI_TRUE=
+  ENABLE_DUAL_ABI_FALSE='#'
+else
+  ENABLE_DUAL_ABI_TRUE='#'
+  ENABLE_DUAL_ABI_FALSE=
+fi
+
+
+    if test $glibcxx_cxx11_abi = 1; then
   ENABLE_CXX11_ABI_TRUE=
   ENABLE_CXX11_ABI_FALSE='#'
 else
@@ -79727,6 +79864,10 @@ if test -z "${ENABLE_WERROR_TRUE}" && test -z "${ENABLE_WERROR_FALSE}"; then
   as_fn_error "conditional \"ENABLE_WERROR\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
+if test -z "${VTV_CYGMIN_TRUE}" && test -z "${VTV_CYGMIN_FALSE}"; then
+  as_fn_error "conditional \"VTV_CYGMIN\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
 if test -z "${ENABLE_VTABLE_VERIFY_TRUE}" && test -z "${ENABLE_VTABLE_VERIFY_FALSE}"; then
   as_fn_error "conditional \"ENABLE_VTABLE_VERIFY\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
@@ -79753,6 +79894,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ENABLE_VISIBILITY_TRUE}" && test -z "${ENABLE_VISIBILITY_FALSE}"; then
   as_fn_error "conditional \"ENABLE_VISIBILITY\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ENABLE_DUAL_ABI_TRUE}" && test -z "${ENABLE_DUAL_ABI_FALSE}"; then
+  as_fn_error "conditional \"ENABLE_DUAL_ABI\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ENABLE_CXX11_ABI_TRUE}" && test -z "${ENABLE_CXX11_ABI_FALSE}"; then

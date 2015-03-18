@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -61,16 +61,18 @@ generic
    with function "=" (Left, Right : Element_Type)
                       return Boolean is <>;
 
-package Ada.Containers.Formal_Doubly_Linked_Lists is
+package Ada.Containers.Formal_Doubly_Linked_Lists with
+  Pure,
+  SPARK_Mode
+is
    pragma Annotate (GNATprove, External_Axiomatization);
-   pragma Pure;
 
    type List (Capacity : Count_Type) is private with
      Iterable => (First       => First,
                   Next        => Next,
                   Has_Element => Has_Element,
                   Element     => Element),
-     Default_Initial_Condition;
+     Default_Initial_Condition => Is_Empty (List);
    pragma Preelaborable_Initialization (List);
 
    type Cursor is private;
@@ -337,6 +339,7 @@ package Ada.Containers.Formal_Doubly_Linked_Lists is
    --  scanned yet.
 
 private
+   pragma SPARK_Mode (Off);
 
    type Node_Type is record
       Prev    : Count_Type'Base := -1;

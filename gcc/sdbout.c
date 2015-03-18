@@ -1,5 +1,5 @@
 /* Output sdb-format symbol table information from GNU compiler.
-   Copyright (C) 1988-2014 Free Software Foundation, Inc.
+   Copyright (C) 1988-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -44,6 +44,15 @@ AT&T C compiler.  From the example below I would conclude the following:
 #include "coretypes.h"
 #include "tm.h"
 #include "debug.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
 #include "stor-layout.h"
@@ -739,13 +748,16 @@ sdbout_symbol (tree decl, int local)
       if (!DECL_RTL_SET_P (decl))
 	return;
 
-      SET_DECL_RTL (decl,
-		    eliminate_regs (DECL_RTL (decl), VOIDmode, NULL_RTX));
+      value = DECL_RTL (decl);
+
+      if (!is_global_var (decl))
+	value = eliminate_regs (value, VOIDmode, NULL_RTX);
+
+      SET_DECL_RTL (decl, value);
 #ifdef LEAF_REG_REMAP
       if (crtl->uses_only_leaf_regs)
-	leaf_renumber_regs_insn (DECL_RTL (decl));
+	leaf_renumber_regs_insn (value);
 #endif
-      value = DECL_RTL (decl);
 
       /* Don't mention a variable at all
 	 if it was completely optimized into nothingness.

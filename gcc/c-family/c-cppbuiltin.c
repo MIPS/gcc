@@ -1,5 +1,5 @@
 /* Define builtin-in macros for the C family front ends.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "stringpool.h"
@@ -800,11 +809,6 @@ c_cpp_builtins (cpp_reader *pfile)
   cpp_define (pfile, "__has_include(STR)=__has_include__(STR)");
   cpp_define (pfile, "__has_include_next(STR)=__has_include_next__(STR)");
 
-  /* Set attribute test macros for all C/C++ (not for just C++11 etc.)
-     The builtin __has_attribute__ is defined in libcpp.  */
-  cpp_define (pfile, "__has_attribute(STR)=__has_attribute__(STR)");
-  cpp_define (pfile, "__has_cpp_attribute(STR)=__has_attribute__(STR)");
-
   if (c_dialect_cxx ())
     {
       if (flag_weak && SUPPORTS_ONE_ONLY)
@@ -828,6 +832,15 @@ c_cpp_builtins (cpp_reader *pfile)
 	 and were standardized for C++14.  */
       if (!pedantic || cxx_dialect > cxx11)
 	cpp_define (pfile, "__cpp_binary_literals=201304");
+
+      /* Arrays of runtime bound were removed from C++14, but we still
+	 support GNU VLAs.  Let's define this macro to a low number
+	 (corresponding to the initial test release of GNU C++) if we won't
+	 complain about use of VLAs.  */
+      if (c_dialect_cxx ()
+	  && (pedantic ? warn_vla == 0 : warn_vla <= 0))
+	cpp_define (pfile, "__cpp_runtime_arrays=198712");
+
       if (cxx_dialect >= cxx11)
 	{
 	  /* Set feature test macros for C++11  */
@@ -836,7 +849,8 @@ c_cpp_builtins (cpp_reader *pfile)
 	  cpp_define (pfile, "__cpp_unicode_literals=200710");
 	  cpp_define (pfile, "__cpp_user_defined_literals=200809");
 	  cpp_define (pfile, "__cpp_lambdas=200907");
-	  cpp_define (pfile, "__cpp_constexpr=200704");
+	  if (cxx_dialect == cxx11)
+	    cpp_define (pfile, "__cpp_constexpr=200704");
 	  cpp_define (pfile, "__cpp_range_based_for=200907");
 	  cpp_define (pfile, "__cpp_static_assert=200410");
 	  cpp_define (pfile, "__cpp_decltype=200707");
@@ -856,17 +870,14 @@ c_cpp_builtins (cpp_reader *pfile)
 	  cpp_define (pfile, "__cpp_return_type_deduction=201304");
 	  cpp_define (pfile, "__cpp_init_captures=201304");
 	  cpp_define (pfile, "__cpp_generic_lambdas=201304");
-	  //cpp_undef (pfile, "__cpp_constexpr");
-	  //cpp_define (pfile, "__cpp_constexpr=201304");
+	  cpp_define (pfile, "__cpp_constexpr=201304");
 	  cpp_define (pfile, "__cpp_decltype_auto=201304");
 	  cpp_define (pfile, "__cpp_aggregate_nsdmi=201304");
 	  cpp_define (pfile, "__cpp_variable_templates=201304");
 	  cpp_define (pfile, "__cpp_digit_separators=201309");
-	  //cpp_define (pfile, "__cpp_sized_deallocation=201309");
-	  /* We'll have to see where runtime arrays wind up.
-	     Let's put it in C++14 for now.  */
-	  cpp_define (pfile, "__cpp_runtime_arrays=201304");
 	}
+      if (flag_sized_deallocation)
+	cpp_define (pfile, "__cpp_sized_deallocation=201309");
     }
   /* Note that we define this for C as well, so that we know if
      __attribute__((cleanup)) will interface with EH.  */
@@ -880,14 +891,8 @@ c_cpp_builtins (cpp_reader *pfile)
   /* Represents the C++ ABI version, always defined so it can be used while
      preprocessing C and assembler.  */
   if (flag_abi_version == 0)
-    /* Use a very large value so that:
-
-	 #if __GXX_ABI_VERSION >= <value for version X>
-
-       will work whether the user explicitly says "-fabi-version=x" or
-       "-fabi-version=0".  Do not use INT_MAX because that will be
-       different from system to system.  */
-    builtin_define_with_int_value ("__GXX_ABI_VERSION", 999999);
+    /* We should have set this to something real in c_common_post_options.  */
+    gcc_unreachable ();
   else if (flag_abi_version == 1)
     /* Due to a historical accident, this version had the value
        "102".  */
@@ -1201,12 +1206,17 @@ c_cpp_builtins (cpp_reader *pfile)
   /* Make the choice of the stack protector runtime visible to source code.
      The macro names and values here were chosen for compatibility with an
      earlier implementation, i.e. ProPolice.  */
+  if (flag_stack_protect == 4)
+    cpp_define (pfile, "__SSP_EXPLICIT__=4");
   if (flag_stack_protect == 3)
     cpp_define (pfile, "__SSP_STRONG__=3");
   if (flag_stack_protect == 2)
     cpp_define (pfile, "__SSP_ALL__=2");
   else if (flag_stack_protect == 1)
     cpp_define (pfile, "__SSP__=1");
+
+  if (flag_openacc)
+    cpp_define (pfile, "_OPENACC=201306");
 
   if (flag_openmp)
     cpp_define (pfile, "_OPENMP=201307");

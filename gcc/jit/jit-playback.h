@@ -1,5 +1,5 @@
 /* Internals of libgccjit: classes for playing back recorded API calls.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by David Malcolm <dmalcolm@redhat.com>.
 
 This file is part of GCC.
@@ -23,6 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #include <utility> // for std::pair
 
+#include "timevar.h"
+
 #include "jit-recording.h"
 
 namespace gcc {
@@ -35,7 +37,13 @@ namespace jit {
 
 namespace playback {
 
-class context
+/* playback::context is an abstract base class.
+
+   The two concrete subclasses are:
+   - playback::compile_to_memory
+   - playback::compile_to_file.  */
+
+class context : public log_user
 {
 public:
   context (::gcc::jit::recording::context *ctxt);
@@ -71,7 +79,7 @@ public:
 
   type *
   new_function_type (type *return_type,
-		     vec<type *> *param_types,
+		     const auto_vec<type *> *param_types,
 		     int is_variadic);
 
   param *
@@ -84,26 +92,20 @@ public:
 		enum gcc_jit_function_kind kind,
 		type *return_type,
 		const char *name,
-		vec<param *> *params,
+		const auto_vec<param *> *params,
 		int is_variadic,
 		enum built_in_function builtin_id);
 
   lvalue *
   new_global (location *loc,
+	      enum gcc_jit_global_kind kind,
 	      type *type,
 	      const char *name);
 
+  template <typename HOST_TYPE>
   rvalue *
-  new_rvalue_from_int (type *type,
-		       int value);
-
-  rvalue *
-  new_rvalue_from_double (type *type,
-			  double value);
-
-  rvalue *
-  new_rvalue_from_ptr (type *type,
-		       void *value);
+  new_rvalue_from_const (type *type,
+			 HOST_TYPE value);
 
   rvalue *
   new_string_literal (const char *value);
@@ -128,12 +130,12 @@ public:
   rvalue *
   new_call (location *loc,
 	    function *func,
-	    vec<rvalue *> args);
+	    const auto_vec<rvalue *> *args);
 
   rvalue *
   new_call_through_ptr (location *loc,
 			rvalue *fn_ptr,
-			vec<rvalue *> args);
+			const auto_vec<rvalue *> *args);
 
   rvalue *
   new_cast (location *loc,
@@ -175,7 +177,12 @@ public:
     return m_recording_ctxt->get_bool_option (opt);
   }
 
-  result *
+  builtins_manager *get_builtins_manager () const
+  {
+    return m_recording_ctxt->get_builtins_manager ();
+  }
+
+  void
   compile ();
 
   void
@@ -208,13 +215,17 @@ public:
     return m_recording_ctxt->errors_occurred ();
   }
 
+  /* For use by jit_langhook_write_globals.  */
+  void write_global_decls_1 ();
+  void write_global_decls_2 ();
+
 private:
   void dump_generated_code ();
 
   rvalue *
   build_call (location *loc,
 	      tree fn_ptr,
-	      vec<rvalue *> args);
+	      const auto_vec<rvalue *> *args);
 
   tree
   build_cast (location *loc,
@@ -226,29 +237,94 @@ private:
 
   void handle_locations ();
 
+  const char * get_path_c_file () const;
+  const char * get_path_s_file () const;
+  const char * get_path_so_file () const;
+
+private:
+
+  /* Functions for implementing "compile".  */
+
+  void acquire_mutex ();
+  void release_mutex ();
+
+  void
+  make_fake_args (vec <char *> *argvec,
+		  const char *ctxt_progname,
+		  vec <recording::requested_dump> *requested_dumps);
+
+  void
+  extract_any_requested_dumps
+    (vec <recording::requested_dump> *requested_dumps);
+
+  char *
+  read_dump_file (const char *path);
+
+  virtual void postprocess (const char *ctxt_progname) = 0;
+
+protected:
+  tempdir *get_tempdir () { return m_tempdir; }
+
+  void
+  convert_to_dso (const char *ctxt_progname);
+
+  void
+  invoke_driver (const char *ctxt_progname,
+		 const char *input_file,
+		 const char *output_file,
+		 timevar_id_t tv_id,
+		 bool shared,
+		 bool run_linker);
+
+  result *
+  dlopen_built_dso ();
+
 private:
   ::gcc::jit::recording::context *m_recording_ctxt;
 
-  /* Allocated using xmalloc (by xstrdup).  */
-  char *m_path_template;
+  tempdir *m_tempdir;
 
-  /* This either aliases m_path_template, or is NULL.  */
-  char *m_path_tempdir;
-
-  /* The following are allocated using xmalloc.  */
-  char *m_path_c_file;
-  char *m_path_s_file;
-  char *m_path_so_file;
-
-  vec<function *> m_functions;
+  auto_vec<function *> m_functions;
+  auto_vec<tree> m_globals;
   tree m_char_array_type_node;
   tree m_const_char_ptr;
 
   /* Source location handling.  */
-  vec<source_file *> m_source_files;
+  auto_vec<source_file *> m_source_files;
 
-  vec<std::pair<tree, location *> > m_cached_locations;
+  auto_vec<std::pair<tree, location *> > m_cached_locations;
 };
+
+class compile_to_memory : public context
+{
+ public:
+  compile_to_memory (recording::context *ctxt);
+  void postprocess (const char *ctxt_progname);
+
+  result *get_result_obj () const { return m_result; }
+
+ private:
+  result *m_result;
+};
+
+class compile_to_file : public context
+{
+ public:
+  compile_to_file (recording::context *ctxt,
+		   enum gcc_jit_output_kind output_kind,
+		   const char *output_path);
+  void postprocess (const char *ctxt_progname);
+
+ private:
+  void
+  copy_file (const char *src_path,
+	     const char *dst_path);
+
+ private:
+  enum gcc_jit_output_kind m_output_kind;
+  const char *m_output_path;
+};
+
 
 /* A temporary wrapper object.
    These objects are (mostly) only valid during replay.
@@ -262,6 +338,10 @@ class wrapper
 public:
   /* Allocate in the GC heap.  */
   void *operator new (size_t sz);
+
+  /* Some wrapper subclasses contain vec<> and so need to
+     release them when they are GC-ed.  */
+  virtual void finalizer () { }
 
 };
 
@@ -297,7 +377,7 @@ public:
     : type (inner)
   {}
 
-  void set_fields (const vec<field *> &fields);
+  void set_fields (const auto_vec<field *> *fields);
 };
 
 class field : public wrapper
@@ -319,6 +399,7 @@ public:
   function(context *ctxt, tree fndecl, enum gcc_jit_function_kind kind);
 
   void gt_ggc_mx ();
+  void finalizer ();
 
   tree get_return_type_as_tree () const;
 
@@ -365,6 +446,8 @@ class block : public wrapper
 public:
   block (function *func,
 	 const char *name);
+
+  void finalizer ();
 
   tree as_label_decl () const { return m_label_decl; }
 
@@ -500,6 +583,7 @@ class source_file : public wrapper
 {
 public:
   source_file (tree filename);
+  void finalizer ();
 
   source_line *
   get_source_line (int line_num);
@@ -520,6 +604,7 @@ class source_line : public wrapper
 {
 public:
   source_line (source_file *file, int line_num);
+  void finalizer ();
 
   location *
   get_location (recording::location *rloc, int column_num);

@@ -250,7 +250,7 @@ class Statement
 
   // Make a type switch statement.
   static Type_switch_statement*
-  make_type_switch_statement(Named_object* var, Expression*, Location);
+  make_type_switch_statement(const std::string&, Expression*, Location);
 
   // Make a send statement.
   static Send_statement*
@@ -550,6 +550,9 @@ class Temporary_statement : public Statement
   void
   do_check_types(Gogo*);
 
+  Statement*
+  do_flatten(Gogo*, Named_object*, Block*, Statement_inserter*);
+
   Bstatement*
   do_get_backend(Translate_context*);
 
@@ -703,6 +706,9 @@ class Send_statement : public Statement
 
   void
   do_check_types(Gogo*);
+
+  Statement*
+  do_flatten(Gogo*, Named_object*, Block*, Statement_inserter*);
 
   Bstatement*
   do_get_backend(Translate_context*);
@@ -985,6 +991,10 @@ class Thunk_statement : public Statement
   bool
   simplify_statement(Gogo*, Named_object*, Block*);
 
+  // Return whether ST is a type created to hold thunk parameters.
+  static bool
+  is_thunk_struct(const Struct_type *st);
+
  protected:
   int
   do_traverse(Traverse* traverse);
@@ -1022,6 +1032,9 @@ class Thunk_statement : public Statement
   // Set the name to use for thunk field N.
   void
   thunk_field_param(int n, char* buf, size_t buflen);
+
+  // A list of all the struct types created for thunk statements.
+  static Unordered_set(const Struct_type*) thunk_types;
 
   // The function call to be executed in a separate thread (go) or
   // later (defer).
@@ -1594,11 +1607,11 @@ class Type_case_clauses
 class Type_switch_statement : public Statement
 {
  public:
-  Type_switch_statement(Named_object* var, Expression* expr,
+  Type_switch_statement(const std::string& name, Expression* expr,
 			Location location)
     : Statement(STATEMENT_TYPE_SWITCH, location),
-      var_(var), expr_(expr), clauses_(NULL), break_label_(NULL)
-  { go_assert(var == NULL || expr == NULL); }
+      name_(name), expr_(expr), clauses_(NULL), break_label_(NULL)
+  { }
 
   // Add the clauses.
   void
@@ -1630,8 +1643,9 @@ class Type_switch_statement : public Statement
   do_may_fall_through() const;
 
  private:
-  // The variable holding the value we are switching on.
-  Named_object* var_;
+  // The name of the variable declared in the type switch guard.  Empty if there
+  // is no variable declared.
+  std::string name_;
   // The expression we are switching on if there is no variable.
   Expression* expr_;
   // The type case clauses.

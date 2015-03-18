@@ -1,5 +1,5 @@
 /* Callgraph clones
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -69,12 +69,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "tree.h"
-#include "stringpool.h"
-#include "hashtab.h"
 #include "hash-set.h"
-#include "vec.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "stringpool.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -103,6 +109,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "tree-iterator.h"
 #include "tree-dump.h"
@@ -117,7 +124,7 @@ along with GCC; see the file COPYING3.  If not see
    the callgraph.  */
 
 cgraph_edge *
-cgraph_edge::clone (cgraph_node *n, gimple call_stmt, unsigned stmt_uid,
+cgraph_edge::clone (cgraph_node *n, gcall *call_stmt, unsigned stmt_uid,
 		    gcov_type count_scale, int freq_scale, bool update_original)
 {
   cgraph_edge *new_edge;
@@ -307,7 +314,7 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
     node = duplicate_thunk_for_node (thunk_of, node);
 
   if (!DECL_ARGUMENTS (thunk->decl))
-    thunk->get_body ();
+    thunk->get_untransformed_body ();
 
   cgraph_edge *cs;
   for (cs = node->callers; cs; cs = cs->next_caller)
@@ -370,28 +377,47 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
 						  CGRAPH_FREQ_BASE);
   e->call_stmt_cannot_inline_p = true;
   symtab->call_edge_duplication_hooks (thunk->callees, e);
-  if (new_thunk->expand_thunk (false, false))
-    {
-      new_thunk->thunk.thunk_p = false;
-      new_thunk->analyze ();
-    }
-
   symtab->call_cgraph_duplication_hooks (thunk, new_thunk);
   return new_thunk;
 }
 
 /* If E does not lead to a thunk, simply redirect it to N.  Otherwise create
    one or more equivalent thunks for N and redirect E to the first in the
-   chain.  */
+   chain.  Note that it is then necessary to call
+   n->expand_all_artificial_thunks once all callers are redirected.  */
 
 void
-redirect_edge_duplicating_thunks (cgraph_edge *e, cgraph_node *n)
+cgraph_edge::redirect_callee_duplicating_thunks (cgraph_node *n)
 {
-  cgraph_node *orig_to = e->callee->ultimate_alias_target ();
+  cgraph_node *orig_to = callee->ultimate_alias_target ();
   if (orig_to->thunk.thunk_p)
     n = duplicate_thunk_for_node (orig_to, n);
 
-  e->redirect_callee (n);
+  redirect_callee (n);
+}
+
+/* Call expand_thunk on all callers that are thunks and if analyze those nodes
+   that were expanded.  */
+
+void
+cgraph_node::expand_all_artificial_thunks ()
+{
+  cgraph_edge *e;
+  for (e = callers; e;)
+    if (e->caller->thunk.thunk_p)
+      {
+	cgraph_node *thunk = e->caller;
+
+	e = e->next_caller;
+	if (thunk->expand_thunk (false, false))
+	  {
+	    thunk->thunk.thunk_p = false;
+	    thunk->analyze ();
+	  }
+	thunk->expand_all_artificial_thunks ();
+      }
+    else
+      e = e->next_caller;
 }
 
 /* Create node representing clone of N executed COUNT times.  Decrease
@@ -445,6 +471,8 @@ cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
   new_node->frequency = frequency;
   new_node->tp_first_run = tp_first_run;
   new_node->tm_clone = tm_clone;
+  new_node->icf_merged = icf_merged;
+  new_node->merged = merged;
 
   new_node->clone.tree_map = NULL;
   new_node->clone.args_to_skip = args_to_skip;
@@ -483,8 +511,9 @@ cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
       if (!e->callee
 	  || DECL_BUILT_IN_CLASS (e->callee->decl) != BUILT_IN_NORMAL
 	  || DECL_FUNCTION_CODE (e->callee->decl) != BUILT_IN_UNREACHABLE)
-        redirect_edge_duplicating_thunks (e, new_node);
+        e->redirect_callee_duplicating_thunks (new_node);
     }
+  new_node->expand_all_artificial_thunks ();
 
   for (e = callees;e; e=e->next_callee)
     e->clone (new_node, e->call_stmt, e->lto_stmt_uid, count_scale,
@@ -506,19 +535,19 @@ cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
   return new_node;
 }
 
-/* Return a new assembler name for a clone of DECL with SUFFIX.  */
-
 static GTY(()) unsigned int clone_fn_id_num;
 
+/* Return a new assembler name for a clone with SUFFIX of a decl named
+   NAME.  */
+
 tree
-clone_function_name (tree decl, const char *suffix)
+clone_function_name_1 (const char *name, const char *suffix)
 {
-  tree name = DECL_ASSEMBLER_NAME (decl);
-  size_t len = IDENTIFIER_LENGTH (name);
+  size_t len = strlen (name);
   char *tmp_name, *prefix;
 
   prefix = XALLOCAVEC (char, len + strlen (suffix) + 2);
-  memcpy (prefix, IDENTIFIER_POINTER (name), len);
+  memcpy (prefix, name, len);
   strcpy (prefix + len + 1, suffix);
 #ifndef NO_DOT_IN_LABEL
   prefix[len] = '.';
@@ -530,6 +559,16 @@ clone_function_name (tree decl, const char *suffix)
   ASM_FORMAT_PRIVATE_NAME (tmp_name, prefix, clone_fn_id_num++);
   return get_identifier (tmp_name);
 }
+
+/* Return a new assembler name for a clone of DECL with SUFFIX.  */
+
+tree
+clone_function_name (tree decl, const char *suffix)
+{
+  tree name = DECL_ASSEMBLER_NAME (decl);
+  return clone_function_name_1 (IDENTIFIER_POINTER (name), suffix);
+}
+
 
 /* Create callgraph node clone with new declaration.  The actual body will
    be copied later at compilation stage.
@@ -550,7 +589,7 @@ cgraph_node::create_virtual_clone (vec<cgraph_edge *> redirect_callers,
   char *name;
 
   if (!in_lto_p)
-    gcc_checking_assert  (tree_versionable_function_p (old_decl));
+    gcc_checking_assert (tree_versionable_function_p (old_decl));
 
   gcc_assert (local.can_change_signature || !args_to_skip);
 
@@ -590,6 +629,8 @@ cgraph_node::create_virtual_clone (vec<cgraph_edge *> redirect_callers,
      ABI support for this.  */
   set_new_clone_decl_and_node_flags (new_node);
   new_node->clone.tree_map = tree_map;
+  if (!implicit_section)
+    new_node->set_section (get_section ());
 
   /* Clones of global symbols or symbols with unique names are unique.  */
   if ((TREE_PUBLIC (old_decl)
@@ -702,7 +743,8 @@ cgraph_node::find_replacement (void)
    call.  */
 
 void
-cgraph_node::set_call_stmt_including_clones (gimple old_stmt, gimple new_stmt,
+cgraph_node::set_call_stmt_including_clones (gimple old_stmt,
+					     gcall *new_stmt,
 					     bool update_speculative)
 {
   cgraph_node *node;
@@ -757,7 +799,7 @@ cgraph_node::set_call_stmt_including_clones (gimple old_stmt, gimple new_stmt,
 
 void
 cgraph_node::create_edge_including_clones (cgraph_node *callee,
-					   gimple old_stmt, gimple stmt,
+					   gimple old_stmt, gcall *stmt,
 					   gcov_type count,
 					   int freq,
 					   cgraph_inline_failed_t reason)
@@ -981,6 +1023,8 @@ cgraph_node::create_version_clone_with_body
   new_version_node->externally_visible = 0;
   new_version_node->local.local = 1;
   new_version_node->lowered = true;
+  if (!implicit_section)
+    new_version_node->set_section (get_section ());
   /* Clones of global symbols or symbols with unique names are unique.  */
   if ((TREE_PUBLIC (old_decl)
        && !DECL_EXTERNAL (old_decl)
@@ -1067,14 +1111,14 @@ symbol_table::materialize_all_clones (void)
 	      && !gimple_has_body_p (node->decl))
 	    {
 	      if (!node->clone_of->clone_of)
-		node->clone_of->get_body ();
+		node->clone_of->get_untransformed_body ();
 	      if (gimple_has_body_p (node->clone_of->decl))
 	        {
 		  if (symtab->dump_file)
 		    {
 		      fprintf (symtab->dump_file, "cloning %s to %s\n",
-			       xstrdup (node->clone_of->name ()),
-			       xstrdup (node->name ()));
+			       xstrdup_for_dump (node->clone_of->name ()),
+			       xstrdup_for_dump (node->name ()));
 		      if (node->clone.tree_map)
 		        {
 			  unsigned int i;
@@ -1125,7 +1169,7 @@ symbol_table::materialize_all_clones (void)
 #ifdef ENABLE_CHECKING
   cgraph_node::verify_cgraph_nodes ();
 #endif
-  symtab->remove_unreachable_nodes (false, symtab->dump_file);
+  symtab->remove_unreachable_nodes (symtab->dump_file);
 }
 
 #include "gt-cgraphclones.h"

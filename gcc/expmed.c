@@ -1,6 +1,6 @@
 /* Medium-level subroutines: convert bit-field store and extract
    and shifts, multiplies and divides to rtl instructions.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,11 +25,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "insn-config.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -39,7 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "df.h"
 #include "target.h"
-#include "expmed.h"
 
 struct target_expmed default_target_expmed;
 #if SWITCHABLE_TARGET
@@ -535,6 +557,21 @@ store_bit_field_using_insv (const extraction_insn *insv, rtx op0,
       copy_back = true;
     }
 
+  /* There are similar overflow check at the start of store_bit_field_1,
+     but that only check the situation where the field lies completely
+     outside the register, while there do have situation where the field
+     lies partialy in the register, we need to adjust bitsize for this
+     partial overflow situation.  Without this fix, pr48335-2.c on big-endian
+     will broken on those arch support bit insert instruction, like arm, aarch64
+     etc.  */
+  if (bitsize + bitnum > unit && bitnum < unit)
+    {
+      warning (OPT_Wextra, "write of %wu-bit data outside the bound of "
+	       "destination object, data truncated into %wu-bit",
+	       bitsize, unit - bitnum);
+      bitsize = unit - bitnum;
+    }
+
   /* If BITS_BIG_ENDIAN is zero on a BYTES_BIG_ENDIAN machine, we count
      "backwards" from the size of the unit we are inserting into.
      Otherwise, we count bits from the most significant on a
@@ -939,7 +976,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       /* Storing any naturally aligned field can be done with a simple
 	 store.  For targets that support fast unaligned memory, any
 	 naturally sized, unit aligned field can be done directly.  */
-      if (simple_mem_bitfield_p (str_rtx, bitsize, bitnum, fieldmode))
+      if (bitsize == GET_MODE_BITSIZE (fieldmode))
 	{
 	  str_rtx = adjust_bitfield_address (str_rtx, fieldmode,
 					     bitnum / BITS_PER_UNIT);
@@ -947,12 +984,16 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	}
       else
 	{
+	  rtx temp;
+
 	  str_rtx = narrow_bit_field_mem (str_rtx, fieldmode, bitsize, bitnum,
 					  &bitnum);
-	  /* Explicitly override the C/C++ memory model; ignore the
-	     bit range so that we can do the access in the mode mandated
-	     by -fstrict-volatile-bitfields instead.  */
-	  store_fixed_bit_field_1 (str_rtx, bitsize, bitnum, value);
+	  temp = copy_to_reg (str_rtx);
+	  if (!store_bit_field_1 (temp, bitsize, bitnum, 0, 0,
+				  fieldmode, value, true))
+	    gcc_unreachable ();
+
+	  emit_move_insn (str_rtx, temp);
 	}
 
       return;
@@ -1749,24 +1790,20 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
   if (strict_volatile_bitfield_p (str_rtx, bitsize, bitnum, mode1, 0, 0))
     {
-      rtx result;
-
       /* Extraction of a full MODE1 value can be done with a load as long as
 	 the field is on a byte boundary and is sufficiently aligned.  */
-      if (simple_mem_bitfield_p (str_rtx, bitsize, bitnum, mode1))
-	result = adjust_bitfield_address (str_rtx, mode1,
-					  bitnum / BITS_PER_UNIT);
-      else
+      if (bitsize == GET_MODE_BITSIZE(mode1))
 	{
-	  str_rtx = narrow_bit_field_mem (str_rtx, mode1, bitsize, bitnum,
-					  &bitnum);
-	  result = extract_fixed_bit_field_1 (mode, str_rtx, bitsize, bitnum,
-					      target, unsignedp);
+	  rtx result = adjust_bitfield_address (str_rtx, mode1,
+						bitnum / BITS_PER_UNIT);
+	  return convert_extracted_bit_field (result, mode, tmode, unsignedp);
 	}
 
-      return convert_extracted_bit_field (result, mode, tmode, unsignedp);
+      str_rtx = narrow_bit_field_mem (str_rtx, mode1, bitsize, bitnum,
+				      &bitnum);
+      str_rtx = copy_to_reg (str_rtx);
     }
-  
+
   return extract_bit_field_1 (str_rtx, bitsize, bitnum, unsignedp,
 			      target, mode, tmode, true);
 }
@@ -2514,9 +2551,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_shift;
 	    }
@@ -2545,9 +2581,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	      alg_in->cost.latency += op_cost;
 	      if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 		{
-		  struct algorithm *x;
 		  best_cost = alg_in->cost;
-		  x = alg_in, alg_in = best_alg, best_alg = x;
+		  std::swap (alg_in, best_alg);
 		  best_alg->log[best_alg->ops] = m;
 		  best_alg->op[best_alg->ops] = alg_shift;
 		}
@@ -2587,9 +2622,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = 0;
 	      best_alg->op[best_alg->ops] = alg_sub_t_m2;
 	    }
@@ -2607,9 +2641,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = 0;
 	      best_alg->op[best_alg->ops] = alg_add_t_m2;
 	    }
@@ -2630,9 +2663,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_sub_t_m2;
 	    }
@@ -2686,9 +2718,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	    alg_in->cost.latency = op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_add_factor;
 	    }
@@ -2725,9 +2756,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	    alg_in->cost.latency = op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_sub_factor;
 	    }
@@ -2756,9 +2786,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_add_t2_m;
 	    }
@@ -2781,9 +2810,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_sub_t2_m;
 	    }
@@ -3087,11 +3115,7 @@ expand_mult (machine_mode mode, rtx op0, rtx op1, rtx target,
   bool do_trapv = flag_trapv && SCALAR_INT_MODE_P (mode) && !unsignedp;
 
   if (CONSTANT_P (op0))
-    {
-      rtx temp = op0;
-      op0 = op1;
-      op1 = temp;
-    }
+    std::swap (op0, op1);
 
   /* For vectors, there are several simplifications that can be made if
      all elements of the vector constant are identical.  */
@@ -3288,6 +3312,9 @@ expand_widening_mult (machine_mode mode, rtx op0, rtx op1, rtx target,
       int max_cost;
       enum mult_variant variant;
       struct algorithm algorithm;
+
+      if (coeff == 0)
+	return CONST0_RTX (mode);
 
       /* Special case powers of two.  */
       if (EXACT_POWER_OF_2_OR_ZERO_P (coeff))
@@ -5109,7 +5136,7 @@ expand_and (machine_mode mode, rtx op0, rtx op1, rtx target)
 }
 
 /* Helper function for emit_store_flag.  */
-static rtx
+rtx
 emit_cstore (rtx target, enum insn_code icode, enum rtx_code code,
 	     machine_mode mode, machine_mode compare_mode,
 	     int unsignedp, rtx x, rtx y, int normalizep,

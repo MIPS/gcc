@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -285,17 +285,6 @@ package Sem_Util is
    --  the one containing C2, that is known to refer to the same object (RM
    --  6.4.1(6.17/3)).
 
-   procedure Check_Ghost_Completion
-     (Partial_View : Entity_Id;
-      Full_View    : Entity_Id);
-   --  Verify that the Ghost policy of a full view or a completion is the same
-   --  as the Ghost policy of the partial view. Emit an error if this is not
-   --  the case.
-
-   procedure Check_Ghost_Derivation (Typ : Entity_Id);
-   --  Verify that the parent type and all progenitors of derived type or type
-   --  extension Typ are Ghost. If this is not the case, issue an error.
-
    procedure Check_Implicit_Dereference (N : Node_Id; Typ : Entity_Id);
    --  AI05-139-2: Accessors and iterators for containers. This procedure
    --  checks whether T is a reference type, and if so it adds an interprettion
@@ -319,10 +308,12 @@ package Sem_Util is
    --  remains in the Examiner (JB01-005). Note that the Examiner does not
    --  count package declarations in later declarative items.
 
-   procedure Check_Nested_Access (Ent : Entity_Id);
+   procedure Check_Nested_Access (N : Node_Id; Ent : Entity_Id);
    --  Check whether Ent denotes an entity declared in an uplevel scope, which
-   --  is accessed inside a nested procedure, and set Has_Up_Level_Access flag
-   --  accordingly. This is currently only enabled for VM_Target /= No_VM.
+   --  is accessed inside a nested procedure, and set the Has_Uplevel_Reference
+   --  flag accordingly. This is currently only enabled for if on a VM target,
+   --  or if Opt.Unnest_Subprogram_Mode is active. N is the node for the
+   --  possible uplevel reference.
 
    procedure Check_No_Hidden_State (Id : Entity_Id);
    --  Determine whether object or state Id introduces a hidden state. If this
@@ -332,13 +323,10 @@ package Sem_Util is
    --  N is one of the statement forms that is a potentially blocking
    --  operation. If it appears within a protected action, emit warning.
 
-   procedure Check_Result_And_Post_State
-     (Prag        : Node_Id;
-      Result_Seen : in out Boolean);
-   --  Determine whether pragma Prag mentions attribute 'Result and whether
-   --  the pragma contains an expression that evaluates differently in pre-
-   --  and post-state. Prag is a [refined] postcondition or a contract-cases
-   --  pragma. Result_Seen is set when the pragma mentions attribute 'Result.
+   procedure Check_Result_And_Post_State (Subp_Id : Entity_Id);
+   --  Determine whether the contract of subprogram Subp_Id mentions attribute
+   --  'Result and it contains an expression that evaluates differently in pre-
+   --  and post-state.
 
    procedure Check_Unprotected_Access
      (Context : Node_Id;
@@ -430,6 +418,11 @@ package Sem_Util is
    --  attribute, except in the case of formal private and derived types.
    --  Possible optimization???
 
+   function Corresponding_Spec_Of (Subp_Decl : Node_Id) return Entity_Id;
+   --  Return the corresponding spec of Subp_Decl when it denotes a body [stub]
+   --  or the defining entity of subprogram declaration Subp_Decl in all other
+   --  cases.
+
    function Current_Entity (N : Node_Id) return Entity_Id;
    pragma Inline (Current_Entity);
    --  Find the currently visible definition for a given identifier, that is to
@@ -469,7 +462,7 @@ package Sem_Util is
    --
    --  Iterator loops also have a defining entity, which holds the list of
    --  local entities declared during loop expansion. These entities need
-   --  debugging information, generated through QUalify_Entity_Names, and
+   --  debugging information, generated through Qualify_Entity_Names, and
    --  the loop declaration must be placed in the table Name_Qualify_Units.
 
    function Denotes_Discriminant
@@ -504,7 +497,7 @@ package Sem_Util is
    function Designate_Same_Unit
      (Name1 : Node_Id;
       Name2 : Node_Id) return  Boolean;
-   --  Return true if Name1 and Name2 designate the same unit name; each of
+   --  Returns True if Name1 and Name2 designate the same unit name; each of
    --  these names is supposed to be a selected component name, an expanded
    --  name, a defining program unit name or an identifier.
 
@@ -830,10 +823,6 @@ package Sem_Util is
    --  If expression N references a part of an object, return this object.
    --  Otherwise return Empty. Expression N should have been resolved already.
 
-   function Get_Ensures_From_CTC_Pragma (N : Node_Id) return Node_Id;
-   --  Return the Ensures component of Test_Case pragma N, or Empty otherwise
-   --  Bad name now that this no longer applies to Contract_Case ???
-
    function Get_Generic_Entity (N : Node_Id) return Entity_Id;
    --  Returns the true generic entity in an instantiation. If the name in the
    --  instantiation is a renaming, the function returns the renamed generic.
@@ -910,10 +899,6 @@ package Sem_Util is
    --  not a renamed entity, returns its argument. It is an error to call this
    --  with any other kind of entity.
 
-   function Get_Requires_From_CTC_Pragma (N : Node_Id) return Node_Id;
-   --  Return the Requires component of Test_Case pragma N, or Empty otherwise
-   --  Bad name now that this no longer applies to Contract_Case ???
-
    function Get_Subprogram_Entity (Nod : Node_Id) return Entity_Id;
    --  Nod is either a procedure call statement, or a function call, or an
    --  accept statement node. This procedure finds the Entity_Id of the related
@@ -939,8 +924,8 @@ package Sem_Util is
    --  as an access type internally, this function tests only for access types
    --  known to the programmer. See also Has_Tagged_Component.
 
-      function Has_Defaulted_Discriminants (Typ : Entity_Id) return Boolean;
-      --  Simple predicate to test for defaulted discriminants
+   function Has_Defaulted_Discriminants (Typ : Entity_Id) return Boolean;
+   --  Simple predicate to test for defaulted discriminants
 
    type Alignment_Result is (Known_Compatible, Unknown, Known_Incompatible);
    --  Result of Has_Compatible_Alignment test, description found below. Note
@@ -1021,6 +1006,11 @@ package Sem_Util is
    function Has_Signed_Zeros (E : Entity_Id) return Boolean;
    --  Determines if the floating-point type E supports signed zeros.
    --  Returns False if E is not a floating-point type.
+
+   function Has_Significant_Contract (Subp_Id : Entity_Id) return Boolean;
+   --  Determine whether subprogram [body] Subp_Id has a significant contract.
+   --  All subprograms have a N_Contract node, but this does not mean that the
+   --  contract is useful.
 
    function Has_Static_Array_Bounds (Typ : Node_Id) return Boolean;
    --  Return whether an array type has static bounds
@@ -1139,6 +1129,10 @@ package Sem_Util is
    --  whether they have been completed by a full constant declaration or an
    --  Import pragma. Emit the error message if that is not the case.
 
+   procedure Install_Generic_Formals (Subp_Id : Entity_Id);
+   --  Install both the generic formal parameters and the formal parameters of
+   --  generic subprogram Subp_Id into visibility.
+
    function Is_Actual_Out_Parameter (N : Node_Id) return Boolean;
    --  Determines if N is an actual parameter of out mode in a subprogram call
 
@@ -1213,6 +1207,9 @@ package Sem_Util is
    --  First determine whether type T is an interface and then check whether
    --  it is of protected, synchronized or task kind.
 
+   function Is_Declaration (N : Node_Id) return Boolean;
+   --  Determine whether arbitrary node N denotes a declaration
+
    function Is_Delegate (T : Entity_Id) return Boolean;
    --  Returns true if type T represents a delegate. A Delegate is the CIL
    --  object used to represent access-to-subprogram types. This is only
@@ -1278,18 +1275,6 @@ package Sem_Util is
    --  warnings for objects that are potentially referenced uninitialized. This
    --  means that the result returned is not crucial, but should err on the
    --  side of thinking things are fully initialized if it does not know.
-
-   function Is_Ghost_Entity (Id : Entity_Id) return Boolean;
-   --  Determine whether entity Id is Ghost. To qualify as such, the entity
-   --  must be subject to Convention Ghost.
-
-   function Is_Ghost_Statement_Or_Pragma (N : Node_Id) return Boolean;
-   --  Determine whether statement or pragma N is ghost. To qualify as such, N
-   --  must either
-   --    1) Occur within a ghost subprogram or package
-   --    2) Denote a call to a ghost procedure
-   --    3) Denote an assignment statement whose target is a ghost variable
-   --    4) Denote a pragma that mentions a ghost entity
 
    function Is_Inherited_Operation (E : Entity_Id) return Boolean;
    --  E is a subprogram. Return True is E is an implicit operation inherited
@@ -1418,12 +1403,6 @@ package Sem_Util is
    --  the case of procedure call statements (unlike the direct use of
    --  the N_Statement_Other_Than_Procedure_Call subtype from Sinfo).
    --  Note that a label is *not* a statement, and will return False.
-
-   function Is_Subject_To_Ghost (N : Node_Id) return Boolean;
-   --  Determine whether declarative node N is subject to aspect or pragma
-   --  Ghost. Use this routine in cases where [source] pragma Ghost has not
-   --  been analyzed yet, but the context needs to establish the "ghostness"
-   --  of N.
 
    function Is_Subprogram_Stub_Without_Prior_Declaration
      (N : Node_Id) return Boolean;
@@ -1699,15 +1678,17 @@ package Sem_Util is
    --  corresponding operation of S is the original corresponding operation of
    --  S2. Otherwise, it is S itself.
 
-   function Original_Aspect_Name (N : Node_Id) return Name_Id;
-   --  N is a pragma node or aspect specification node. This function returns
-   --  the name of the pragma or aspect in original source form, taking into
-   --  account possible rewrites, and also cases where a pragma comes from an
-   --  aspect (in such cases, the name can be different from the pragma name,
-   --  e.g. a Pre aspect generates a Precondition pragma). This also deals with
-   --  the presence of 'Class, which results in one of the special names
-   --  Name_uPre, Name_uPost, Name_uInvariant, or Name_uType_Invariant being
-   --  returned to represent the corresponding aspects with x'Class names.
+   function Original_Aspect_Pragma_Name (N : Node_Id) return Name_Id;
+   --  Retrieve the name of aspect or pragma N taking into account a possible
+   --  rewrite and whether the pragma is generated from an aspect as the names
+   --  may be different. The routine also deals with 'Class in which case it
+   --  returns the following values:
+   --
+   --    Invariant            -> Name_uInvariant
+   --    Post'Class           -> Name_uPost
+   --    Pre'Class            -> Name_uPre
+   --    Type_Invariant       -> Name_uType_Invariant
+   --    Type_Invariant'Class -> Name_uType_Invariant
 
    function Policy_In_Effect (Policy : Name_Id) return Name_Id;
    --  Given a policy, return the policy identifier associated with it. If no
@@ -1914,10 +1895,6 @@ package Sem_Util is
    --    If restriction No_Implementation_Identifiers is set, then it checks
    --    that the entity is not implementation defined.
 
-   procedure Set_Is_Ghost_Entity (Id : Entity_Id);
-   --  Set the relevant ghost attribute of entity Id depending on the current
-   --  Ghost assertion policy in effect.
-
    procedure Set_Name_Entity_Id (Id : Name_Id; Val : Entity_Id);
    pragma Inline (Set_Name_Entity_Id);
    --  Sets the Entity_Id value associated with the given name, which is the
@@ -2044,12 +2021,6 @@ package Sem_Util is
    --  of private parents and progenitors is available then it is used to
    --  generate the list of visible ancestors; otherwise their partial
    --  view is added to the resulting list.
-
-   function Within_Ghost_Scope
-     (Id : Entity_Id := Current_Scope) return Boolean;
-   --  Determine whether an arbitrary entity is either a scope or within a
-   --  scope subject to convention Ghost or one that inherits "ghostness" from
-   --  an enclosing construct.
 
    function Within_Init_Proc return Boolean;
    --  Determines if Current_Scope is within an init proc

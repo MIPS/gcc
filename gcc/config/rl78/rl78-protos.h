@@ -1,5 +1,5 @@
 /* Prototypes for Renesas RL78 processors
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -21,7 +21,7 @@
 void		rl78_emit_eh_epilogue (rtx);
 void		rl78_expand_compare (rtx *);
 void		rl78_expand_movsi (rtx *);
-void		rl78_split_movsi (rtx *);
+void		rl78_split_movsi (rtx *, enum machine_mode);
 int		rl78_force_nonfar_2 (rtx *, rtx (*gen)(rtx,rtx));
 int		rl78_force_nonfar_3 (rtx *, rtx (*gen)(rtx,rtx,rtx));
 void		rl78_expand_eh_epilogue (rtx);
@@ -45,3 +45,11 @@ bool		rl78_virt_insns_ok (void);
 
 bool		rl78_es_addr (rtx);
 rtx		rl78_es_base (rtx);
+
+bool		rl78_flags_already_set (rtx, rtx);
+void		rl78_output_symbol_ref (FILE *, rtx);
+void		rl78_output_labelref (FILE *, const char *);
+int		rl78_saddr_p (rtx x);
+int		rl78_sfr_p (rtx x);
+void		rl78_output_aligned_common (FILE *, tree, const char *,
+					    int, int, int);

@@ -1,5 +1,5 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,22 +32,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "attribs.h"
 #include "varasm.h"
 #include "tm_p.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "obstack.h"
 #include "toplev.h" /* get_random_seed */
-#include "inchash.h"
 #include "filenames.h"
 #include "output.h"
 #include "target.h"
@@ -75,6 +80,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-phinodes.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "params.h"
@@ -86,7 +101,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "debug.h"
 #include "intl.h"
-#include "wide-int.h"
 #include "builtins.h"
 
 /* Tree code classes.  */
@@ -185,13 +199,31 @@ static GTY(()) int next_debug_decl_uid;
 /* Since we cannot rehash a type after it is in the table, we have to
    keep the hash code.  */
 
-struct GTY(()) type_hash {
+struct GTY((for_user)) type_hash {
   unsigned long hash;
   tree type;
 };
 
 /* Initial size of the hash table (rounded to next prime).  */
 #define TYPE_HASH_INITIAL_SIZE 1000
+
+struct type_cache_hasher : ggc_cache_hasher<type_hash *>
+{
+  static hashval_t hash (type_hash *t) { return t->hash; }
+  static bool equal (type_hash *a, type_hash *b);
+
+  static void
+  handle_cache_entry (type_hash *&t)
+  {
+    extern void gt_ggc_mx (type_hash *&);
+    if (t == HTAB_DELETED_ENTRY || t == HTAB_EMPTY_ENTRY)
+      return;
+    else if (ggc_marked_p (t->type))
+      gt_ggc_mx (t);
+    else
+      t = static_cast<type_hash *> (HTAB_DELETED_ENTRY);
+  }
+};
 
 /* Now here is the hash table.  When recording a type, it is added to
    the slot whose index is the hash code.  Note that the hash table is
@@ -200,13 +232,18 @@ struct GTY(()) type_hash {
    same table, they are completely independent, and the hash code is
    computed differently for each of these.  */
 
-static GTY ((if_marked ("type_hash_marked_p"), param_is (struct type_hash)))
-     htab_t type_hash_table;
+static GTY ((cache)) hash_table<type_cache_hasher> *type_hash_table;
 
 /* Hash table and temporary node for larger integer const values.  */
 static GTY (()) tree int_cst_node;
-static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
-     htab_t int_cst_hash_table;
+
+struct int_cst_hasher : ggc_cache_hasher<tree>
+{
+  static hashval_t hash (tree t);
+  static bool equal (tree x, tree y);
+};
+
+static GTY ((cache)) hash_table<int_cst_hasher> *int_cst_hash_table;
 
 /* Hash table for optimization flags and target option flags.  Use the same
    hash table for both sets of options.  Nodes for building the current
@@ -215,32 +252,54 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
    allocating and freeing up a node repeatably.  */
 static GTY (()) tree cl_optimization_node;
 static GTY (()) tree cl_target_option_node;
-static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
-     htab_t cl_option_hash_table;
+
+struct cl_option_hasher : ggc_cache_hasher<tree>
+{
+  static hashval_t hash (tree t);
+  static bool equal (tree x, tree y);
+};
+
+static GTY ((cache)) hash_table<cl_option_hasher> *cl_option_hash_table;
 
 /* General tree->tree mapping  structure for use in hash tables.  */
 
 
-static GTY ((if_marked ("tree_decl_map_marked_p"), param_is (struct tree_decl_map)))
-     htab_t debug_expr_for_decl;
+static GTY ((cache))
+     hash_table<tree_decl_map_cache_hasher> *debug_expr_for_decl;
 
-static GTY ((if_marked ("tree_decl_map_marked_p"), param_is (struct tree_decl_map)))
-     htab_t value_expr_for_decl;
+static GTY ((cache))
+     hash_table<tree_decl_map_cache_hasher> *value_expr_for_decl;
 
-static GTY ((if_marked ("tree_vec_map_marked_p"), param_is (struct tree_vec_map)))
-     htab_t debug_args_for_decl;
+     struct tree_vec_map_cache_hasher : ggc_cache_hasher<tree_vec_map *>
+{
+  static hashval_t hash (tree_vec_map *m) { return DECL_UID (m->base.from); }
+
+  static bool
+  equal (tree_vec_map *a, tree_vec_map *b)
+  {
+    return a->base.from == b->base.from;
+  }
+
+  static void
+  handle_cache_entry (tree_vec_map *&m)
+  {
+    extern void gt_ggc_mx (tree_vec_map *&);
+    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
+      return;
+    else if (ggc_marked_p (m->base.from))
+      gt_ggc_mx (m);
+    else
+      m = static_cast<tree_vec_map *> (HTAB_DELETED_ENTRY);
+  }
+};
+
+static GTY ((cache))
+     hash_table<tree_vec_map_cache_hasher> *debug_args_for_decl;
 
 static void set_type_quals (tree, int);
-static int type_hash_eq (const void *, const void *);
-static hashval_t type_hash_hash (const void *);
-static hashval_t int_cst_hash_hash (const void *);
-static int int_cst_hash_eq (const void *, const void *);
-static hashval_t cl_option_hash_hash (const void *);
-static int cl_option_hash_eq (const void *, const void *);
 static void print_type_hash_statistics (void);
 static void print_debug_expr_statistics (void);
 static void print_value_expr_statistics (void);
-static int type_hash_marked_p (const void *);
 static void type_hash_list (const_tree, inchash::hash &);
 static void attribute_hash_list (const_tree, inchash::hash &);
 
@@ -270,6 +329,14 @@ unsigned const char omp_clause_num_ops[] =
   2, /* OMP_CLAUSE_FROM  */
   2, /* OMP_CLAUSE_TO  */
   2, /* OMP_CLAUSE_MAP  */
+  2, /* OMP_CLAUSE__CACHE_  */
+  1, /* OMP_CLAUSE_DEVICE_RESIDENT  */
+  1, /* OMP_CLAUSE_USE_DEVICE  */
+  2, /* OMP_CLAUSE_GANG  */
+  1, /* OMP_CLAUSE_ASYNC  */
+  1, /* OMP_CLAUSE_WAIT  */
+  0, /* OMP_CLAUSE_AUTO  */
+  0, /* OMP_CLAUSE_SEQ  */
   1, /* OMP_CLAUSE__LOOPTEMP_  */
   1, /* OMP_CLAUSE_IF  */
   1, /* OMP_CLAUSE_NUM_THREADS  */
@@ -296,6 +363,12 @@ unsigned const char omp_clause_num_ops[] =
   0, /* OMP_CLAUSE_TASKGROUP  */
   1, /* OMP_CLAUSE__SIMDUID_  */
   1, /* OMP_CLAUSE__CILK_FOR_COUNT_  */
+  0, /* OMP_CLAUSE_INDEPENDENT  */
+  1, /* OMP_CLAUSE_WORKER  */
+  1, /* OMP_CLAUSE_VECTOR  */
+  1, /* OMP_CLAUSE_NUM_GANGS  */
+  1, /* OMP_CLAUSE_NUM_WORKERS  */
+  1, /* OMP_CLAUSE_VECTOR_LENGTH  */
 };
 
 const char * const omp_clause_code_name[] =
@@ -315,6 +388,14 @@ const char * const omp_clause_code_name[] =
   "from",
   "to",
   "map",
+  "_cache_",
+  "device_resident",
+  "use_device",
+  "gang",
+  "async",
+  "wait",
+  "auto",
+  "seq",
   "_looptemp_",
   "if",
   "num_threads",
@@ -340,7 +421,13 @@ const char * const omp_clause_code_name[] =
   "sections",
   "taskgroup",
   "_simduid_",
-  "_Cilk_for_count_"
+  "_Cilk_for_count_",
+  "independent",
+  "worker",
+  "vector",
+  "num_gangs",
+  "num_workers",
+  "vector_length"
 };
 
 
@@ -576,22 +663,20 @@ void
 init_ttree (void)
 {
   /* Initialize the hash table of types.  */
-  type_hash_table = htab_create_ggc (TYPE_HASH_INITIAL_SIZE, type_hash_hash,
-				     type_hash_eq, 0);
+  type_hash_table
+    = hash_table<type_cache_hasher>::create_ggc (TYPE_HASH_INITIAL_SIZE);
 
-  debug_expr_for_decl = htab_create_ggc (512, tree_decl_map_hash,
-					 tree_decl_map_eq, 0);
+  debug_expr_for_decl
+    = hash_table<tree_decl_map_cache_hasher>::create_ggc (512);
 
-  value_expr_for_decl = htab_create_ggc (512, tree_decl_map_hash,
-					 tree_decl_map_eq, 0);
+  value_expr_for_decl
+    = hash_table<tree_decl_map_cache_hasher>::create_ggc (512);
 
-  int_cst_hash_table = htab_create_ggc (1024, int_cst_hash_hash,
-					int_cst_hash_eq, NULL);
+  int_cst_hash_table = hash_table<int_cst_hasher>::create_ggc (1024);
 
   int_cst_node = make_int_cst (1, 1);
 
-  cl_option_hash_table = htab_create_ggc (64, cl_option_hash_hash,
-					  cl_option_hash_eq, NULL);
+  cl_option_hash_table = hash_table<cl_option_hasher>::create_ggc (64);
 
   cl_optimization_node = make_node (OPTIMIZATION_NODE);
   cl_target_option_node = make_node (TARGET_OPTION_NODE);
@@ -1256,11 +1341,11 @@ force_fit_type (tree type, const wide_int_ref &cst,
 
 /* Return the hash code code X, an INTEGER_CST.  */
 
-static hashval_t
-int_cst_hash_hash (const void *x)
+hashval_t
+int_cst_hasher::hash (tree x)
 {
-  const_tree const t = (const_tree) x;
-  hashval_t code = htab_hash_pointer (TREE_TYPE (t));
+  const_tree const t = x;
+  hashval_t code = TYPE_UID (TREE_TYPE (t));
   int i;
 
   for (i = 0; i < TREE_INT_CST_NUNITS (t); i++)
@@ -1272,11 +1357,11 @@ int_cst_hash_hash (const void *x)
 /* Return nonzero if the value represented by *X (an INTEGER_CST tree node)
    is the same as that given by *Y, which is the same.  */
 
-static int
-int_cst_hash_eq (const void *x, const void *y)
+bool
+int_cst_hasher::equal (tree x, tree y)
 {
-  const_tree const xt = (const_tree) x;
-  const_tree const yt = (const_tree) y;
+  const_tree const xt = x;
+  const_tree const yt = y;
 
   if (TREE_TYPE (xt) != TREE_TYPE (yt)
       || TREE_INT_CST_NUNITS (xt) != TREE_INT_CST_NUNITS (yt)
@@ -1408,13 +1493,12 @@ wide_int_to_tree (tree type, const wide_int_ref &pcst)
 	{
 	  /* Use the cache of larger shared ints, using int_cst_node as
 	     a temporary.  */
-	  void **slot;
 
 	  TREE_INT_CST_ELT (int_cst_node, 0) = hwi;
 	  TREE_TYPE (int_cst_node) = type;
 
-	  slot = htab_find_slot (int_cst_hash_table, int_cst_node, INSERT);
-	  t = (tree) *slot;
+	  tree *slot = int_cst_hash_table->find_slot (int_cst_node, INSERT);
+	  t = *slot;
 	  if (!t)
 	    {
 	      /* Insert this one into the hash table.  */
@@ -1430,11 +1514,10 @@ wide_int_to_tree (tree type, const wide_int_ref &pcst)
       /* The value either hashes properly or we drop it on the floor
 	 for the gc to take care of.  There will not be enough of them
 	 to worry about.  */
-      void **slot;
 
       tree nt = build_new_int_cst (type, cst);
-      slot = htab_find_slot (int_cst_hash_table, nt, INSERT);
-      t = (tree) *slot;
+      tree *slot = int_cst_hash_table->find_slot (nt, INSERT);
+      t = *slot;
       if (!t)
 	{
 	  /* Insert this one into the hash table.  */
@@ -1539,9 +1622,7 @@ cache_integer_cst (tree t)
   else
     {
       /* Use the cache of larger shared ints.  */
-      void **slot;
-
-      slot = htab_find_slot (int_cst_hash_table, t, INSERT);
+      tree *slot = int_cst_hash_table->find_slot (t, INSERT);
       /* If there is already an entry for the number verify it's the
          same.  */
       if (*slot)
@@ -2273,6 +2354,20 @@ integer_nonzerop (const_tree expr)
 	  || (TREE_CODE (expr) == COMPLEX_CST
 	      && (integer_nonzerop (TREE_REALPART (expr))
 		  || integer_nonzerop (TREE_IMAGPART (expr)))));
+}
+
+/* Return 1 if EXPR is the integer constant one.  For vector,
+   return 1 if every piece is the integer constant minus one
+   (representing the value TRUE).  */
+
+int
+integer_truep (const_tree expr)
+{
+  STRIP_NOPS (expr);
+
+  if (TREE_CODE (expr) == VECTOR_CST)
+    return integer_all_onesp (expr);
+  return integer_onep (expr);
 }
 
 /* Return 1 if EXPR is the fixed-point constant zero.  */
@@ -4305,12 +4400,24 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   PROCESS_ARG (0);
   PROCESS_ARG (1);
 
-  TREE_READONLY (t) = read_only;
-  TREE_CONSTANT (t) = constant;
   TREE_SIDE_EFFECTS (t) = side_effects;
-  TREE_THIS_VOLATILE (t)
-    = (TREE_CODE_CLASS (code) == tcc_reference
-       && arg0 && TREE_THIS_VOLATILE (arg0));
+  if (code == MEM_REF)
+    {
+      if (arg0 && TREE_CODE (arg0) == ADDR_EXPR)
+	{
+	  tree o = TREE_OPERAND (arg0, 0);
+	  TREE_READONLY (t) = TREE_READONLY (o);
+	  TREE_THIS_VOLATILE (t) = TREE_THIS_VOLATILE (o);
+	}
+    }
+  else
+    {
+      TREE_READONLY (t) = read_only;
+      TREE_CONSTANT (t) = constant;
+      TREE_THIS_VOLATILE (t)
+	= (TREE_CODE_CLASS (code) == tcc_reference
+	   && arg0 && TREE_THIS_VOLATILE (arg0));
+    }
 
   return t;
 }
@@ -4405,9 +4512,19 @@ build5_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
   PROCESS_ARG (4);
 
   TREE_SIDE_EFFECTS (t) = side_effects;
-  TREE_THIS_VOLATILE (t)
-    = (TREE_CODE_CLASS (code) == tcc_reference
-       && arg0 && TREE_THIS_VOLATILE (arg0));
+  if (code == TARGET_MEM_REF)
+    {
+      if (arg0 && TREE_CODE (arg0) == ADDR_EXPR)
+	{
+	  tree o = TREE_OPERAND (arg0, 0);
+	  TREE_READONLY (t) = TREE_READONLY (o);
+	  TREE_THIS_VOLATILE (t) = TREE_THIS_VOLATILE (o);
+	}
+    }
+  else
+    TREE_THIS_VOLATILE (t)
+      = (TREE_CODE_CLASS (code) == tcc_reference
+	 && arg0 && TREE_THIS_VOLATILE (arg0));
 
   return t;
 }
@@ -4962,7 +5079,20 @@ free_lang_data_in_type (tree type)
 
       TYPE_METHODS (type) = NULL_TREE;
       if (TYPE_BINFO (type))
-	free_lang_data_in_binfo (TYPE_BINFO (type));
+	{
+	  free_lang_data_in_binfo (TYPE_BINFO (type));
+	  /* We need to preserve link to bases and virtual table for all
+	     polymorphic types to make devirtualization machinery working.
+	     Debug output cares only about bases, but output also
+	     virtual table pointers so merging of -fdevirtualize and
+	     -fno-devirtualize units is easier.  */
+	  if ((!BINFO_VTABLE (TYPE_BINFO (type))
+	       || !flag_devirtualize)
+	      && ((!BINFO_N_BASE_BINFOS (TYPE_BINFO (type))
+		   && !BINFO_VTABLE (TYPE_BINFO (type)))
+		  || debug_info_level != DINFO_LEVEL_NONE))
+	    TYPE_BINFO (type) = NULL;
+	}
     }
   else
     {
@@ -5115,6 +5245,12 @@ free_lang_data_in_decl (tree decl)
 	     the PARM_DECL will be used in the function's body).  */
 	  for (t = DECL_ARGUMENTS (decl); t; t = TREE_CHAIN (t))
 	    DECL_CONTEXT (t) = decl;
+	  if (!DECL_FUNCTION_SPECIFIC_TARGET (decl))
+	    DECL_FUNCTION_SPECIFIC_TARGET (decl)
+	      = target_option_default_node;
+	  if (!DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl))
+	    DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl)
+	      = optimization_default_node;
 	}
 
       /* DECL_SAVED_TREE holds the GENERIC representation for DECL.
@@ -5518,12 +5654,13 @@ find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
   /* Traverse every statement in FN.  */
   FOR_EACH_BB_FN (bb, fn)
     {
+      gphi_iterator psi;
       gimple_stmt_iterator si;
       unsigned i;
 
-      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+      for (psi = gsi_start_phis (bb); !gsi_end_p (psi); gsi_next (&psi))
 	{
-	  gimple phi = gsi_stmt (si);
+	  gphi *phi = psi.phi ();
 
 	  for (i = 0; i < gimple_phi_num_args (phi); i++)
 	    {
@@ -5663,7 +5800,7 @@ free_lang_data (void)
 
   /* If we are the LTO frontend we have freed lang-specific data already.  */
   if (in_lto_p
-      || !flag_generate_lto)
+      || (!flag_generate_lto && !flag_generate_offload))
     return 0;
 
   /* Allocate and assign alias sets to the standard integer types
@@ -6543,9 +6680,9 @@ static void
 print_debug_expr_statistics (void)
 {
   fprintf (stderr, "DECL_DEBUG_EXPR  hash: size %ld, %ld elements, %f collisions\n",
-	   (long) htab_size (debug_expr_for_decl),
-	   (long) htab_elements (debug_expr_for_decl),
-	   htab_collisions (debug_expr_for_decl));
+	   (long) debug_expr_for_decl->size (),
+	   (long) debug_expr_for_decl->elements (),
+	   debug_expr_for_decl->collisions ());
 }
 
 /* Print out the statistics for the DECL_VALUE_EXPR hash table.  */
@@ -6554,9 +6691,9 @@ static void
 print_value_expr_statistics (void)
 {
   fprintf (stderr, "DECL_VALUE_EXPR  hash: size %ld, %ld elements, %f collisions\n",
-	   (long) htab_size (value_expr_for_decl),
-	   (long) htab_elements (value_expr_for_decl),
-	   htab_collisions (value_expr_for_decl));
+	   (long) value_expr_for_decl->size (),
+	   (long) value_expr_for_decl->elements (),
+	   value_expr_for_decl->collisions ());
 }
 
 /* Lookup a debug expression for FROM, and return it if we find one.  */
@@ -6567,8 +6704,7 @@ decl_debug_expr_lookup (tree from)
   struct tree_decl_map *h, in;
   in.base.from = from;
 
-  h = (struct tree_decl_map *)
-      htab_find_with_hash (debug_expr_for_decl, &in, DECL_UID (from));
+  h = debug_expr_for_decl->find_with_hash (&in, DECL_UID (from));
   if (h)
     return h->to;
   return NULL_TREE;
@@ -6580,14 +6716,11 @@ void
 decl_debug_expr_insert (tree from, tree to)
 {
   struct tree_decl_map *h;
-  void **loc;
 
   h = ggc_alloc<tree_decl_map> ();
   h->base.from = from;
   h->to = to;
-  loc = htab_find_slot_with_hash (debug_expr_for_decl, h, DECL_UID (from),
-				  INSERT);
-  *(struct tree_decl_map **) loc = h;
+  *debug_expr_for_decl->find_slot_with_hash (h, DECL_UID (from), INSERT) = h;
 }
 
 /* Lookup a value expression for FROM, and return it if we find one.  */
@@ -6598,8 +6731,7 @@ decl_value_expr_lookup (tree from)
   struct tree_decl_map *h, in;
   in.base.from = from;
 
-  h = (struct tree_decl_map *)
-      htab_find_with_hash (value_expr_for_decl, &in, DECL_UID (from));
+  h = value_expr_for_decl->find_with_hash (&in, DECL_UID (from));
   if (h)
     return h->to;
   return NULL_TREE;
@@ -6611,14 +6743,11 @@ void
 decl_value_expr_insert (tree from, tree to)
 {
   struct tree_decl_map *h;
-  void **loc;
 
   h = ggc_alloc<tree_decl_map> ();
   h->base.from = from;
   h->to = to;
-  loc = htab_find_slot_with_hash (value_expr_for_decl, h, DECL_UID (from),
-				  INSERT);
-  *(struct tree_decl_map **) loc = h;
+  *value_expr_for_decl->find_slot_with_hash (h, DECL_UID (from), INSERT) = h;
 }
 
 /* Lookup a vector of debug arguments for FROM, and return it if we
@@ -6633,8 +6762,7 @@ decl_debug_args_lookup (tree from)
     return NULL;
   gcc_checking_assert (debug_args_for_decl != NULL);
   in.base.from = from;
-  h = (struct tree_vec_map *)
-      htab_find_with_hash (debug_args_for_decl, &in, DECL_UID (from));
+  h = debug_args_for_decl->find_with_hash (&in, DECL_UID (from));
   if (h)
     return &h->to;
   return NULL;
@@ -6647,19 +6775,17 @@ vec<tree, va_gc> **
 decl_debug_args_insert (tree from)
 {
   struct tree_vec_map *h;
-  void **loc;
+  tree_vec_map **loc;
 
   if (DECL_HAS_DEBUG_ARGS_P (from))
     return decl_debug_args_lookup (from);
   if (debug_args_for_decl == NULL)
-    debug_args_for_decl = htab_create_ggc (64, tree_vec_map_hash,
-					   tree_vec_map_eq, 0);
+    debug_args_for_decl = hash_table<tree_vec_map_cache_hasher>::create_ggc (64);
   h = ggc_alloc<tree_vec_map> ();
   h->base.from = from;
   h->to = NULL;
-  loc = htab_find_slot_with_hash (debug_args_for_decl, h, DECL_UID (from),
-				  INSERT);
-  *(struct tree_vec_map **) loc = h;
+  loc = debug_args_for_decl->find_slot_with_hash (h, DECL_UID (from), INSERT);
+  *loc = h;
   DECL_HAS_DEBUG_ARGS_P (from) = 1;
   return &h->to;
 }
@@ -6685,12 +6811,9 @@ type_hash_list (const_tree list, inchash::hash &hstate)
 
 /* Returns true iff the types are equivalent.  */
 
-static int
-type_hash_eq (const void *va, const void *vb)
+bool
+type_cache_hasher::equal (type_hash *a, type_hash *b)
 {
-  const struct type_hash *const a = (const struct type_hash *) va,
-    *const b = (const struct type_hash *) vb;
-
   /* First test the things that are the same for all types.  */
   if (a->hash != b->hash
       || TREE_CODE (a->type) != TREE_CODE (b->type)
@@ -6797,14 +6920,6 @@ type_hash_eq (const void *va, const void *vb)
   return 1;
 }
 
-/* Return the cached hash value.  */
-
-static hashval_t
-type_hash_hash (const void *item)
-{
-  return ((const struct type_hash *) item)->hash;
-}
-
 /* Given TYPE, and HASHCODE its hash code, return the canonical
    object for an identical type if one already exists.
    Otherwise, return TYPE, and record it as the canonical object.
@@ -6818,7 +6933,7 @@ tree
 type_hash_canon (unsigned int hashcode, tree type)
 {
   type_hash in;
-  void **loc;
+  type_hash **loc;
 
   /* The hash table only contains main variants, so ensure that's what we're
      being passed.  */
@@ -6831,7 +6946,7 @@ type_hash_canon (unsigned int hashcode, tree type)
   in.hash = hashcode;
   in.type = type;
 
-  loc = htab_find_slot_with_hash (type_hash_table, &in, hashcode, INSERT);
+  loc = type_hash_table->find_slot_with_hash (&in, hashcode, INSERT);
   if (*loc)
     {
       tree t1 = ((type_hash *) *loc)->type;
@@ -6851,31 +6966,19 @@ type_hash_canon (unsigned int hashcode, tree type)
       h = ggc_alloc<type_hash> ();
       h->hash = hashcode;
       h->type = type;
-      *loc = (void *)h;
+      *loc = h;
 
       return type;
     }
-}
-
-/* See if the data pointed to by the type hash table is marked.  We consider
-   it marked if the type is marked or if a debug type number or symbol
-   table entry has been made for the type.  */
-
-static int
-type_hash_marked_p (const void *p)
-{
-  const_tree const type = ((const struct type_hash *) p)->type;
-
-  return ggc_marked_p (type);
 }
 
 static void
 print_type_hash_statistics (void)
 {
   fprintf (stderr, "Type hash: size %ld, %ld elements, %f collisions\n",
-	   (long) htab_size (type_hash_table),
-	   (long) htab_elements (type_hash_table),
-	   htab_collisions (type_hash_table));
+	   (long) type_hash_table->size (),
+	   (long) type_hash_table->elements (),
+	   type_hash_table->collisions ());
 }
 
 /* Compute a hash code for a list of attributes (chain of TREE_LIST nodes
@@ -9935,7 +10038,7 @@ build_common_builtin_nodes (void)
       local_define_builtin ("__builtin_unreachable", ftype, BUILT_IN_UNREACHABLE,
 			    "__builtin_unreachable",
 			    ECF_NOTHROW | ECF_LEAF | ECF_NORETURN
-			    | ECF_CONST | ECF_LEAF);
+			    | ECF_CONST);
     }
 
   if (!builtin_decl_explicit_p (BUILT_IN_MEMCPY)
@@ -10330,6 +10433,8 @@ initializer_zerop (const_tree init)
       {
 	unsigned HOST_WIDE_INT idx;
 
+	if (TREE_CLOBBER_P (init))
+	  return false;
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), idx, elt)
 	  if (!initializer_zerop (elt))
 	    return false;
@@ -10556,7 +10661,7 @@ build_call_expr_loc_array (location_t loc, tree fndecl, int n, tree *argarray)
   tree fntype = TREE_TYPE (fndecl);
   tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
  
-  return fold_builtin_call_array (loc, TREE_TYPE (fntype), fn, n, argarray);
+  return fold_build_call_array_loc (loc, TREE_TYPE (fntype), fn, n, argarray);
 }
 
 /* Conveniently construct a function call expression.  FNDECL names the
@@ -11096,6 +11201,19 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
     case OMP_CLAUSE:
       switch (OMP_CLAUSE_CODE (*tp))
 	{
+	case OMP_CLAUSE_GANG:
+	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 1));
+	  /* FALLTHRU */
+
+	case OMP_CLAUSE_DEVICE_RESIDENT:
+	case OMP_CLAUSE_USE_DEVICE:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WAIT:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_NUM_GANGS:
+	case OMP_CLAUSE_NUM_WORKERS:
+	case OMP_CLAUSE_VECTOR_LENGTH:
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_SHARED:
 	case OMP_CLAUSE_FIRSTPRIVATE:
@@ -11119,6 +11237,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 0));
 	  /* FALLTHRU */
 
+	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
@@ -11131,6 +11250,8 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_PARALLEL:
 	case OMP_CLAUSE_SECTIONS:
 	case OMP_CLAUSE_TASKGROUP:
+	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_SEQ:
 	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 
 	case OMP_CLAUSE_LASTPRIVATE:
@@ -11156,6 +11277,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_FROM:
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_MAP:
+	case OMP_CLAUSE__CACHE_:
 	  WALK_SUBTREE (OMP_CLAUSE_DECL (*tp));
 	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 1));
 	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
@@ -11468,10 +11590,10 @@ tree_nonartificial_location (tree exp)
 
 /* Return the hash code code X, an OPTIMIZATION_NODE or TARGET_OPTION code.  */
 
-static hashval_t
-cl_option_hash_hash (const void *x)
+hashval_t
+cl_option_hasher::hash (tree x)
 {
-  const_tree const t = (const_tree) x;
+  const_tree const t = x;
   const char *p;
   size_t i;
   size_t len = 0;
@@ -11484,10 +11606,7 @@ cl_option_hash_hash (const void *x)
     }
 
   else if (TREE_CODE (t) == TARGET_OPTION_NODE)
-    {
-      p = (const char *)TREE_TARGET_OPTION (t);
-      len = sizeof (struct cl_target_option);
-    }
+    return cl_target_option_hash (TREE_TARGET_OPTION (t));
 
   else
     gcc_unreachable ();
@@ -11505,11 +11624,11 @@ cl_option_hash_hash (const void *x)
    TARGET_OPTION tree node) is the same as that given by *Y, which is the
    same.  */
 
-static int
-cl_option_hash_eq (const void *x, const void *y)
+bool
+cl_option_hasher::equal (tree x, tree y)
 {
-  const_tree const xt = (const_tree) x;
-  const_tree const yt = (const_tree) y;
+  const_tree const xt = x;
+  const_tree const yt = y;
   const char *xp;
   const char *yp;
   size_t len;
@@ -11526,9 +11645,8 @@ cl_option_hash_eq (const void *x, const void *y)
 
   else if (TREE_CODE (xt) == TARGET_OPTION_NODE)
     {
-      xp = (const char *)TREE_TARGET_OPTION (xt);
-      yp = (const char *)TREE_TARGET_OPTION (yt);
-      len = sizeof (struct cl_target_option);
+      return cl_target_option_eq (TREE_TARGET_OPTION (xt),
+				  TREE_TARGET_OPTION (yt));
     }
 
   else
@@ -11543,15 +11661,14 @@ tree
 build_optimization_node (struct gcc_options *opts)
 {
   tree t;
-  void **slot;
 
   /* Use the cache of optimization nodes.  */
 
   cl_optimization_save (TREE_OPTIMIZATION (cl_optimization_node),
 			opts);
 
-  slot = htab_find_slot (cl_option_hash_table, cl_optimization_node, INSERT);
-  t = (tree) *slot;
+  tree *slot = cl_option_hash_table->find_slot (cl_optimization_node, INSERT);
+  t = *slot;
   if (!t)
     {
       /* Insert this one into the hash table.  */
@@ -11571,15 +11688,14 @@ tree
 build_target_option_node (struct gcc_options *opts)
 {
   tree t;
-  void **slot;
 
   /* Use the cache of optimization nodes.  */
 
   cl_target_option_save (TREE_TARGET_OPTION (cl_target_option_node),
 			 opts);
 
-  slot = htab_find_slot (cl_option_hash_table, cl_target_option_node, INSERT);
-  t = (tree) *slot;
+  tree *slot = cl_option_hash_table->find_slot (cl_target_option_node, INSERT);
+  t = *slot;
   if (!t)
     {
       /* Insert this one into the hash table.  */
@@ -11593,26 +11709,16 @@ build_target_option_node (struct gcc_options *opts)
   return t;
 }
 
-/* Reset TREE_TARGET_GLOBALS cache for TARGET_OPTION_NODE.
-   Called through htab_traverse.  */
-
-static int
-prepare_target_option_node_for_pch (void **slot, void *)
-{
-  tree node = (tree) *slot;
-  if (TREE_CODE (node) == TARGET_OPTION_NODE)
-    TREE_TARGET_GLOBALS (node) = NULL;
-  return 1;
-}
-
 /* Clear TREE_TARGET_GLOBALS of all TARGET_OPTION_NODE trees,
    so that they aren't saved during PCH writing.  */
 
 void
 prepare_target_option_nodes_for_pch (void)
 {
-  htab_traverse (cl_option_hash_table, prepare_target_option_node_for_pch,
-		 NULL);
+  hash_table<cl_option_hasher>::iterator iter = cl_option_hash_table->begin ();
+  for (; iter != cl_option_hash_table->end (); ++iter)
+    if (TREE_CODE (*iter) == TARGET_OPTION_NODE)
+      TREE_TARGET_GLOBALS (*iter) = NULL;
 }
 
 /* Determine the "ultimate origin" of a block.  The block may be an inlined
@@ -11845,12 +11951,17 @@ virtual_method_call_p (tree target)
 {
   if (TREE_CODE (target) != OBJ_TYPE_REF)
     return false;
-  target = TREE_TYPE (target);
-  gcc_checking_assert (TREE_CODE (target) == POINTER_TYPE);
-  target = TREE_TYPE (target);
-  if (TREE_CODE (target) == FUNCTION_TYPE)
+  tree t = TREE_TYPE (target);
+  gcc_checking_assert (TREE_CODE (t) == POINTER_TYPE);
+  t = TREE_TYPE (t);
+  if (TREE_CODE (t) == FUNCTION_TYPE)
     return false;
-  gcc_checking_assert (TREE_CODE (target) == METHOD_TYPE);
+  gcc_checking_assert (TREE_CODE (t) == METHOD_TYPE);
+  /* If we do not have BINFO associated, it means that type was built
+     without devirtualization enabled.  Do not consider this a virtual
+     call.  */
+  if (!TYPE_BINFO (obj_type_ref_class (target)))
+    return false;
   return true;
 }
 
@@ -11885,6 +11996,23 @@ type_in_anonymous_namespace_p (const_tree t)
   return (TYPE_STUB_DECL (t) && !TREE_PUBLIC (TYPE_STUB_DECL (t)));
 }
 
+/* Lookup sub-BINFO of BINFO of TYPE at offset POS.  */
+
+static tree
+lookup_binfo_at_offset (tree binfo, tree type, HOST_WIDE_INT pos)
+{
+  unsigned int i;
+  tree base_binfo, b;
+
+  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+    if (pos == tree_to_shwi (BINFO_OFFSET (base_binfo))
+	&& types_same_for_odr (TREE_TYPE (base_binfo), type))
+      return base_binfo;
+    else if ((b = lookup_binfo_at_offset (base_binfo, type, pos)) != NULL)
+      return b;
+  return NULL;
+}
+
 /* Try to find a base info of BINFO that would have its field decl at offset
    OFFSET within the BINFO type and which is of EXPECTED_TYPE.  If it can be
    found, return, otherwise return NULL_TREE.  */
@@ -11907,7 +12035,7 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
 
       for (fld = TYPE_FIELDS (type); fld; fld = DECL_CHAIN (fld))
 	{
-	  if (TREE_CODE (fld) != FIELD_DECL)
+	  if (TREE_CODE (fld) != FIELD_DECL || !DECL_ARTIFICIAL (fld))
 	    continue;
 
 	  pos = int_bit_position (fld);
@@ -11918,51 +12046,29 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
       if (!fld || TREE_CODE (TREE_TYPE (fld)) != RECORD_TYPE)
 	return NULL_TREE;
 
-      if (!DECL_ARTIFICIAL (fld))
-	{
-	  binfo = TYPE_BINFO (TREE_TYPE (fld));
-	  if (!binfo)
-	    return NULL_TREE;
-	}
       /* Offset 0 indicates the primary base, whose vtable contents are
 	 represented in the binfo for the derived class.  */
       else if (offset != 0)
 	{
-	  tree base_binfo, binfo2 = binfo;
+	  tree found_binfo = NULL, base_binfo;
+	  /* Offsets in BINFO are in bytes relative to the whole structure
+	     while POS is in bits relative to the containing field.  */
+	  int binfo_offset = (tree_to_shwi (BINFO_OFFSET (binfo)) + pos
+			     / BITS_PER_UNIT);
 
-	  /* Find BINFO corresponding to FLD.  This is bit harder
-	     by a fact that in virtual inheritance we may need to walk down
-	     the non-virtual inheritance chain.  */
-	  while (true)
-	    {
-	      tree containing_binfo = NULL, found_binfo = NULL;
-	      for (i = 0; BINFO_BASE_ITERATE (binfo2, i, base_binfo); i++)
-		if (types_same_for_odr (TREE_TYPE (base_binfo), TREE_TYPE (fld)))
-		  {
-		    found_binfo = base_binfo;
-		    break;
-		  }
-		else
-		  if ((tree_to_shwi (BINFO_OFFSET (base_binfo)) 
-		       - tree_to_shwi (BINFO_OFFSET (binfo)))
-		      * BITS_PER_UNIT < pos
-		      /* Rule out types with no virtual methods or we can get confused
-			 here by zero sized bases.  */
-		      && BINFO_VTABLE (TYPE_BINFO (BINFO_TYPE (base_binfo)))
-		      && (!containing_binfo
-			  || (tree_to_shwi (BINFO_OFFSET (containing_binfo))
-			      < tree_to_shwi (BINFO_OFFSET (base_binfo)))))
-		    containing_binfo = base_binfo;
-	      if (found_binfo)
-		{
-		  binfo = found_binfo;
-		  break;
-		}
-	      if (!containing_binfo)
-		return NULL_TREE;
-	      binfo2 = containing_binfo;
-	    }
-	}
+	  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	    if (tree_to_shwi (BINFO_OFFSET (base_binfo)) == binfo_offset
+		&& types_same_for_odr (TREE_TYPE (base_binfo), TREE_TYPE (fld)))
+	      {
+		found_binfo = base_binfo;
+		break;
+	      }
+	  if (found_binfo)
+	    binfo = found_binfo;
+	  else
+	    binfo = lookup_binfo_at_offset (binfo, TREE_TYPE (fld),
+					    binfo_offset);
+	 }
 
       type = TREE_TYPE (fld);
       offset -= pos;
@@ -12016,17 +12122,17 @@ warn_deprecated_use (tree node, tree attr)
   else
     msg = NULL;
 
+  bool w;
   if (DECL_P (node))
     {
-      expanded_location xloc = expand_location (DECL_SOURCE_LOCATION (node));
       if (msg)
-	warning (OPT_Wdeprecated_declarations,
-		 "%qD is deprecated (declared at %r%s:%d%R): %s",
-		 node, "locus", xloc.file, xloc.line, msg);
+	w = warning (OPT_Wdeprecated_declarations,
+		     "%qD is deprecated: %s", node, msg);
       else
-	warning (OPT_Wdeprecated_declarations,
-		 "%qD is deprecated (declared at %r%s:%d%R)",
-		 node, "locus", xloc.file, xloc.line);
+	w = warning (OPT_Wdeprecated_declarations,
+		     "%qD is deprecated", node);
+      if (w)
+	inform (DECL_SOURCE_LOCATION (node), "declared here");
     }
   else if (TYPE_P (node))
     {
@@ -12044,30 +12150,26 @@ warn_deprecated_use (tree node, tree attr)
 
       if (decl)
 	{
-	  expanded_location xloc
-	    = expand_location (DECL_SOURCE_LOCATION (decl));
 	  if (what)
 	    {
 	      if (msg)
-		warning (OPT_Wdeprecated_declarations,
-			 "%qE is deprecated (declared at %r%s:%d%R): %s",
-			 what, "locus", xloc.file, xloc.line, msg);
+		w = warning (OPT_Wdeprecated_declarations,
+			     "%qE is deprecated: %s", what, msg);
 	      else
-		warning (OPT_Wdeprecated_declarations,
-			 "%qE is deprecated (declared at %r%s:%d%R)",
-			 what, "locus", xloc.file, xloc.line);
+		w = warning (OPT_Wdeprecated_declarations,
+			     "%qE is deprecated", what);
 	    }
 	  else
 	    {
 	      if (msg)
-		warning (OPT_Wdeprecated_declarations,
-			 "type is deprecated (declared at %r%s:%d%R): %s",
-			 "locus", xloc.file, xloc.line, msg);
+		w = warning (OPT_Wdeprecated_declarations,
+			     "type is deprecated: %s", msg);
 	      else
-		warning (OPT_Wdeprecated_declarations,
-			 "type is deprecated (declared at %r%s:%d%R)",
-			 "locus", xloc.file, xloc.line);
+		w = warning (OPT_Wdeprecated_declarations,
+			     "type is deprecated");
 	    }
+	  if (w)
+	    inform (DECL_SOURCE_LOCATION (decl), "declared here");
 	}
       else
 	{
@@ -12304,6 +12406,20 @@ get_base_address (tree t)
     return NULL_TREE;
 
   return t;
+}
+
+/* Return the machine mode of T.  For vectors, returns the mode of the
+   inner type.  The main use case is to feed the result to HONOR_NANS,
+   avoiding the BLKmode that a direct TYPE_MODE (T) might return.  */
+
+machine_mode
+element_mode (const_tree t)
+{
+  if (!TYPE_P (t))
+    t = TREE_TYPE (t);
+  if (VECTOR_TYPE_P (t) || TREE_CODE (t) == COMPLEX_TYPE)
+    t = TREE_TYPE (t);
+  return TYPE_MODE (t);
 }
 
 #include "gt-tree.h"

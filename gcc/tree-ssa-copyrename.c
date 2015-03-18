@@ -1,5 +1,5 @@
 /* Rename SSA copies.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -22,14 +22,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
-#include "hard-reg-set.h"
+#include "vec.h"
+#include "double-int.h"
 #include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -46,6 +51,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-inline.h"
@@ -347,9 +365,8 @@ pass_rename_ssa_copies::execute (function *fun)
 {
   var_map map;
   basic_block bb;
-  gimple_stmt_iterator gsi;
   tree var, part_var;
-  gimple stmt, phi;
+  gimple stmt;
   unsigned x;
   FILE *debug;
 
@@ -365,7 +382,8 @@ pass_rename_ssa_copies::execute (function *fun)
   FOR_EACH_BB_FN (bb, fun)
     {
       /* Scan for real copies.  */
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
 	{
 	  stmt = gsi_stmt (gsi);
 	  if (gimple_assign_ssa_name_copy_p (stmt))
@@ -381,12 +399,12 @@ pass_rename_ssa_copies::execute (function *fun)
   FOR_EACH_BB_FN (bb, fun)
     {
       /* Treat PHI nodes as copies between the result and each argument.  */
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
         {
           size_t i;
 	  tree res;
-
-	  phi = gsi_stmt (gsi);
+	  gphi *phi = gsi.phi ();
 	  res = gimple_phi_result (phi);
 
 	  /* Do not process virtual SSA_NAMES.  */

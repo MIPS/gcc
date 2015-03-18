@@ -1,5 +1,5 @@
 /* Output dbx-format symbol table information from GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -70,8 +70,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "rtl.h"
@@ -87,22 +96,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "debug.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "obstack.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
+#include "stringpool.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -946,14 +961,13 @@ static unsigned int ATTRIBUTE_UNUSED
 get_lang_number (void)
 {
   const char *language_string = lang_hooks.name;
-
-  if (strcmp (language_string, "GNU C") == 0)
+  if (lang_GNU_C ())
     return N_SO_C;
-  else if (strcmp (language_string, "GNU C++") == 0)
+  else if (lang_GNU_CXX ())
     return N_SO_CC;
   else if (strcmp (language_string, "GNU F77") == 0)
     return N_SO_FORTRAN;
-  else if (strcmp (language_string, "GNU Fortran") == 0)
+  else if (lang_GNU_Fortran ())
     return N_SO_FORTRAN90; /* CHECKME */
   else if (strcmp (language_string, "GNU Pascal") == 0)
     return N_SO_PASCAL;
@@ -2167,7 +2181,7 @@ dbxout_type (tree type, int full)
 				   access == access_protected_node
 				   ? '1' :'0');
 		    if (BINFO_VIRTUAL_P (child)
-			&& (strcmp (lang_hooks.name, "GNU C++") == 0
+			&& (lang_GNU_CXX ()
 			    || strcmp (lang_hooks.name, "GNU Objective-C++") == 0))
 		      /* For a virtual base, print the (negative)
 		     	 offset within the vtable where we must look
@@ -2330,6 +2344,17 @@ dbxout_type (tree type, int full)
       break;
 
     default:
+      /* A C++ function with deduced return type can have a TEMPLATE_TYPE_PARM
+	 named 'auto' in its type.
+	 No debug info for TEMPLATE_TYPE_PARM type supported yet.  */
+      if (lang_GNU_CXX ())
+	{
+	  tree name = TYPE_IDENTIFIER (type);
+	  if (name == get_identifier ("auto")
+	      || name == get_identifier ("decltype(auto)"))
+	    break;
+	}
+
       gcc_unreachable ();
     }
 }
@@ -3028,7 +3053,7 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	     we rely on the fact that error_mark_node initializers always
 	     end up in bss for C++ and never end up in bss for C.  */
 	  if (DECL_INITIAL (decl) == 0
-	      || (!strcmp (lang_hooks.name, "GNU C++")
+	      || (lang_GNU_CXX ()
 		  && DECL_INITIAL (decl) == error_mark_node))
 	    {
 	      int offs;

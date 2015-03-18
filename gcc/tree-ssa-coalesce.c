@@ -1,5 +1,5 @@
 /* Coalesce SSA_NAMES together for the out-of-ssa pass.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -22,17 +22,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "flags.h"
 #include "tree-pretty-print.h"
 #include "bitmap.h"
 #include "dumpfile.h"
 #include "hash-table.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -53,6 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-live.h"
 #include "tree-ssa-coalesce.h"
 #include "diagnostic-core.h"
+#include "timevar.h"
 
 
 /* This set of routines implements a coalesce_list.  This is an object which
@@ -834,12 +841,11 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple_stmt_iterator gsi;
-
       /* Start with live on exit temporaries.  */
       live_track_init (live, live_on_exit (liveinfo, bb));
 
-      for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
+      for (gimple_stmt_iterator gsi = gsi_last_bb (bb); !gsi_end_p (gsi);
+	   gsi_prev (&gsi))
         {
 	  tree var;
 	  gimple stmt = gsi_stmt (gsi);
@@ -876,9 +882,10 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 	 There must be a conflict recorded between the result of the PHI and
 	 any variables that are live.  Otherwise the out-of-ssa translation
 	 may create incorrect code.  */
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gphi *phi = gsi.phi ();
 	  tree result = PHI_RESULT (phi);
 	  if (live_track_live_p (live, result))
 	    live_track_process_def (live, result, graph);
@@ -944,9 +951,11 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
     {
       tree arg;
 
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gphi_iterator gpi = gsi_start_phis (bb);
+	   !gsi_end_p (gpi);
+	   gsi_next (&gpi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gphi *phi = gpi.phi ();
 	  size_t i;
 	  int ver;
 	  tree res;
@@ -1018,15 +1027,16 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 
 	    case GIMPLE_ASM:
 	      {
+		gasm *asm_stmt = as_a <gasm *> (stmt);
 		unsigned long noutputs, i;
 		unsigned long ninputs;
 		tree *outputs, link;
-		noutputs = gimple_asm_noutputs (stmt);
-		ninputs = gimple_asm_ninputs (stmt);
+		noutputs = gimple_asm_noutputs (asm_stmt);
+		ninputs = gimple_asm_ninputs (asm_stmt);
 		outputs = (tree *) alloca (noutputs * sizeof (tree));
 		for (i = 0; i < noutputs; ++i)
 		  {
-		    link = gimple_asm_output_op (stmt, i);
+		    link = gimple_asm_output_op (asm_stmt, i);
 		    outputs[i] = TREE_VALUE (link);
 		  }
 
@@ -1037,7 +1047,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		    char *end;
 		    unsigned long match;
 
-		    link = gimple_asm_input_op (stmt, i);
+		    link = gimple_asm_input_op (asm_stmt, i);
 		    constraint
 		      = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
 		    input = TREE_VALUE (link);
@@ -1112,8 +1122,8 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 
 
 /* Attempt to coalesce ssa versions X and Y together using the partition
-   mapping in MAP and checking conflicts in GRAPH.  Output any debug info to
-   DEBUG, if it is nun-NULL.  */
+   mapping in MAP and checking conflicts in GRAPH if not NULL.
+   Output any debug info to DEBUG, if it is nun-NULL.  */
 
 static inline bool
 attempt_coalesce (var_map map, ssa_conflicts_p graph, int x, int y,
@@ -1145,7 +1155,8 @@ attempt_coalesce (var_map map, ssa_conflicts_p graph, int x, int y,
     fprintf (debug, " [map: %d, %d] ", p1, p2);
 
 
-  if (!ssa_conflicts_test_p (graph, p1, p2))
+  if (!graph
+      || !ssa_conflicts_test_p (graph, p1, p2))
     {
       var1 = partition_to_var (map, p1);
       var2 = partition_to_var (map, p2);
@@ -1159,10 +1170,13 @@ attempt_coalesce (var_map map, ssa_conflicts_p graph, int x, int y,
 
       /* z is the new combined partition.  Remove the other partition from
 	 the list, and merge the conflicts.  */
-      if (z == p1)
-	ssa_conflicts_merge (graph, p1, p2);
-      else
-	ssa_conflicts_merge (graph, p2, p1);
+      if (graph)
+	{
+	  if (z == p1)
+	    ssa_conflicts_merge (graph, p1, p2);
+	  else
+	    ssa_conflicts_merge (graph, p2, p1);
+	}
 
       if (debug)
 	fprintf (debug, ": Success -> %d\n", z);
@@ -1176,6 +1190,46 @@ attempt_coalesce (var_map map, ssa_conflicts_p graph, int x, int y,
 }
 
 
+/* Perform all abnormal coalescing on MAP.
+   Debug output is sent to DEBUG if it is non-NULL.  */
+
+static void
+perform_abnormal_coalescing (var_map map, FILE *debug)
+{
+  basic_block bb;
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_BB_FN (bb, cfun)
+    {
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (e->flags & EDGE_ABNORMAL)
+	  {
+	    gphi_iterator gsi;
+	    for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+		 gsi_next (&gsi))
+	      {
+		gphi *phi = gsi.phi ();
+		tree arg = PHI_ARG_DEF (phi, e->dest_idx);
+		if (SSA_NAME_IS_DEFAULT_DEF (arg)
+		    && (!SSA_NAME_VAR (arg)
+			|| TREE_CODE (SSA_NAME_VAR (arg)) != PARM_DECL))
+		  continue;
+
+		tree res = PHI_RESULT (phi);
+		int v1 = SSA_NAME_VERSION (res);
+		int v2 = SSA_NAME_VERSION (arg);
+
+		if (debug)
+		  fprintf (debug, "Abnormal coalesce: ");
+
+		if (!attempt_coalesce (map, NULL, v1, v2, debug))
+		  fail_abnormal_edge_coalesce (v1, v2);
+	      }
+	  }
+    }
+}
+
 /* Attempt to Coalesce partitions in MAP which occur in the list CL using
    GRAPH.  Debug output is sent to DEBUG if it is non-NULL.  */
 
@@ -1186,37 +1240,6 @@ coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl,
   int x = 0, y = 0;
   tree var1, var2;
   int cost;
-  basic_block bb;
-  edge e;
-  edge_iterator ei;
-
-  /* First, coalesce all the copies across abnormal edges.  These are not placed
-     in the coalesce list because they do not need to be sorted, and simply
-     consume extra memory/compilation time in large programs.  */
-
-  FOR_EACH_BB_FN (bb, cfun)
-    {
-      FOR_EACH_EDGE (e, ei, bb->preds)
-	if (e->flags & EDGE_ABNORMAL)
-	  {
-	    gimple_stmt_iterator gsi;
-	    for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
-		 gsi_next (&gsi))
-	      {
-		gimple phi = gsi_stmt (gsi);
-		tree res = PHI_RESULT (phi);
-	        tree arg = PHI_ARG_DEF (phi, e->dest_idx);
-		int v1 = SSA_NAME_VERSION (res);
-		int v2 = SSA_NAME_VERSION (arg);
-
-		if (debug)
-		  fprintf (debug, "Abnormal coalesce: ");
-
-		if (!attempt_coalesce (map, graph, v1, v2, debug))
-		  fail_abnormal_edge_coalesce (v1, v2);
-	      }
-	  }
-    }
 
   /* Now process the items in the coalesce list.  */
 
@@ -1270,6 +1293,11 @@ coalesce_ssa_name (void)
   bitmap used_in_copies = BITMAP_ALLOC (NULL);
   var_map map;
   unsigned int i;
+
+#ifdef ENABLE_CHECKING
+  /* Verify we can perform all must coalesces.  */
+  verify_ssa_coalescing ();
+#endif
 
   cl = create_coalesce_list ();
   map = create_outofssa_var_map (cl, used_in_copies);
@@ -1327,10 +1355,19 @@ coalesce_ssa_name (void)
       return map;
     }
 
+  /* First, coalesce all the copies across abnormal edges.  These are not placed
+     in the coalesce list because they do not need to be sorted, and simply
+     consume extra memory/compilation time in large programs.
+     Performing abnormal coalescing also needs no live/conflict computation
+     because it must succeed (but we lose checking that it indeed does).
+     Still for PR63155 this reduces memory usage from 10GB to zero.  */
+  perform_abnormal_coalescing (map,
+			       ((dump_flags & TDF_DETAILS) ? dump_file : NULL));
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_var_map (dump_file, map);
 
-  liveinfo = calculate_live_ranges (map);
+  liveinfo = calculate_live_ranges (map, false);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_live_info (dump_file, liveinfo, LIVEDUMP_ENTRY);
@@ -1357,11 +1394,100 @@ coalesce_ssa_name (void)
 
   /* Now coalesce everything in the list.  */
   coalesce_partitions (map, graph, cl,
-		       ((dump_flags & TDF_DETAILS) ? dump_file
-						   : NULL));
+		       ((dump_flags & TDF_DETAILS) ? dump_file : NULL));
 
   delete_coalesce_list (cl);
   ssa_conflicts_delete (graph);
 
   return map;
+}
+
+
+/* Helper for verify_ssa_coalescing.  Operates in two modes:
+   1) scan the function for coalesces we must perform and store the
+      SSA names participating in USED_IN_COPIES
+   2) scan the function for coalesces and verify they can be performed
+      under the constraints of GRAPH updating MAP in the process
+   FIXME:  This can be extended to verify that the virtual operands
+   form a factored use-def chain (coalescing the active virtual use
+   with the virtual def at virtual def point).  */
+
+static void
+verify_ssa_coalescing_worker (bitmap used_in_copies,
+			      var_map map, ssa_conflicts_p graph)
+{
+  basic_block bb;
+
+  FOR_EACH_BB_FN (bb, cfun)
+    {
+      edge e;
+      edge_iterator ei;
+
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (e->flags & EDGE_ABNORMAL)
+	  {
+	    gphi_iterator gsi;
+	    for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+		 gsi_next (&gsi))
+	      {
+		gphi *phi = gsi.phi ();
+		tree arg = PHI_ARG_DEF (phi, e->dest_idx);
+		if (SSA_NAME_IS_DEFAULT_DEF (arg)
+		    && (!SSA_NAME_VAR (arg)
+			|| TREE_CODE (SSA_NAME_VAR (arg)) != PARM_DECL))
+		  continue;
+
+		tree res = PHI_RESULT (phi);
+
+		int v1 = SSA_NAME_VERSION (res);
+		int v2 = SSA_NAME_VERSION (arg);
+		if (used_in_copies)
+		  {
+		    bitmap_set_bit (used_in_copies, v1);
+		    bitmap_set_bit (used_in_copies, v2);
+		  }
+		else
+		  {
+		    int p1 = var_to_partition (map, res);
+		    int p2 = var_to_partition (map, arg);
+		    if (p1 != p2)
+		      {
+			if (ssa_conflicts_test_p (graph, p1, p2))
+			  fail_abnormal_edge_coalesce (v1, v2);
+			int z = var_union (map,
+					   partition_to_var (map, p1),
+					   partition_to_var (map, p2));
+			if (z == p1)
+			  ssa_conflicts_merge (graph, p1, p2);
+			else
+			  ssa_conflicts_merge (graph, p2, p1);
+		      }
+		  }
+	      }
+	  }
+    }
+}
+
+/* Verify that we can coalesce SSA names we must coalesce.  */
+
+DEBUG_FUNCTION void
+verify_ssa_coalescing (void)
+{
+  auto_timevar tv (TV_TREE_SSA_VERIFY);
+  bitmap used_in_copies = BITMAP_ALLOC (NULL);
+  verify_ssa_coalescing_worker (used_in_copies, NULL, NULL);
+  if (bitmap_empty_p (used_in_copies))
+    {
+      BITMAP_FREE (used_in_copies);
+      return;
+    }
+  var_map map = init_var_map (num_ssa_names);
+  partition_view_bitmap (map, used_in_copies, true);
+  BITMAP_FREE (used_in_copies);
+  tree_live_info_p liveinfo = calculate_live_ranges (map, false);
+  ssa_conflicts_p graph = build_ssa_conflict_graph (liveinfo);
+  delete_tree_live_info (liveinfo);
+  verify_ssa_coalescing_worker (NULL, map, graph);
+  ssa_conflicts_delete (graph);
+  delete_var_map (map);
 }

@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2014 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -956,6 +956,8 @@ Biggest alignment that any data type can require on this machine, in
 bits.  Note that this is not the biggest alignment that is supported,
 just the biggest alignment that, when violated, may cause a fault.
 @end defmac
+
+@hook TARGET_ABSOLUTE_BIGGEST_ALIGNMENT
 
 @defmac MALLOC_ABI_ALIGNMENT
 Alignment, in bits, a C conformant malloc implementation has to
@@ -2481,6 +2483,10 @@ as below:
 
 @hook TARGET_DIFFERENT_ADDR_DISPLACEMENT_P
 
+@hook TARGET_CANNOT_SUBSTITUTE_MEM_EQUIV_P
+
+@hook TARGET_LEGITIMIZE_ADDRESS_DISPLACEMENT
+
 @hook TARGET_SPILL_CLASS
 
 @hook TARGET_CSTORE_MODE
@@ -2644,7 +2650,7 @@ A C expression whose value is RTL representing the value of the return
 address for the frame @var{count} steps up from the current frame, after
 the prologue.  @var{frameaddr} is the frame pointer of the @var{count}
 frame, or the frame pointer of the @var{count} @minus{} 1 frame if
-@code{RETURN_ADDR_IN_PREVIOUS_FRAME} is defined.
+@code{RETURN_ADDR_IN_PREVIOUS_FRAME} is nonzero.
 
 The value of the expression must always be the correct address when
 @var{count} is zero, but may be @code{NULL_RTX} if there is no way to
@@ -2652,8 +2658,9 @@ determine the return address of other frames.
 @end defmac
 
 @defmac RETURN_ADDR_IN_PREVIOUS_FRAME
-Define this if the return address of a particular stack frame is accessed
-from the frame pointer of the previous stack frame.
+Define this macro to nonzero value if the return address of a particular
+stack frame is accessed from the frame pointer of the previous stack
+frame.  The zero default for this macro is suitable for most ports.
 @end defmac
 
 @defmac INCOMING_RETURN_ADDR_RTX
@@ -3507,8 +3514,6 @@ stack.
 @hook TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P
 
 @hook TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P
-
-@hook TARGET_FLAGS_REGNUM
 
 @node Scalar Return
 @subsection How Scalar Function Values Are Returned
@@ -4441,10 +4446,11 @@ for comparisons whose argument is a @code{plus}:
 
 @smallexample
 #define SELECT_CC_MODE(OP,X,Y) \
-  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT          \
-   ? ((OP == EQ || OP == NE) ? CCFPmode : CCFPEmode)    \
-   : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS    \
-       || GET_CODE (X) == NEG) \
+  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT           \
+   ? ((OP == LT || OP == LE || OP == GT || OP == GE)     \
+      ? CCFPEmode : CCFPmode)                            \
+   : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS     \
+       || GET_CODE (X) == NEG || GET_CODE (x) == ASHIFT) \
       ? CC_NOOVmode : CCmode))
 @end smallexample
 
@@ -4467,10 +4473,11 @@ then @code{REVERSIBLE_CC_MODE (@var{mode})} must be zero.
 You need not define this macro if it would always returns zero or if the
 floating-point format is anything other than @code{IEEE_FLOAT_FORMAT}.
 For example, here is the definition used on the SPARC, where floating-point
-inequality comparisons are always given @code{CCFPEmode}:
+inequality comparisons are given either @code{CCFPEmode} or @code{CCFPmode}:
 
 @smallexample
-#define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)
+#define REVERSIBLE_CC_MODE(MODE) \
+   ((MODE) != CCFPEmode && (MODE) != CCFPmode)
 @end smallexample
 @end defmac
 
@@ -4480,7 +4487,7 @@ comparison done in CC_MODE @var{mode}.  The macro is used only in case
 @code{REVERSIBLE_CC_MODE (@var{mode})} is nonzero.  Define this macro in case
 machine has some non-standard way how to reverse certain conditionals.  For
 instance in case all floating point conditions are non-trapping, compiler may
-freely convert unordered compares to ordered one.  Then definition may look
+freely convert unordered compares to ordered ones.  Then definition may look
 like:
 
 @smallexample
@@ -4493,6 +4500,8 @@ like:
 @hook TARGET_FIXED_CONDITION_CODE_REGS
 
 @hook TARGET_CC_MODES_COMPATIBLE
+
+@hook TARGET_FLAGS_REGNUM
 
 @node Costs
 @section Describing Relative Costs of Operations
@@ -4808,6 +4817,8 @@ them: try the first ones in this list first.
 @hook TARGET_SCHED_EXPOSED_PIPELINE
 
 @hook TARGET_SCHED_REASSOCIATION_WIDTH
+
+@hook TARGET_SCHED_FUSION_PRIORITY
 
 @node Sections
 @section Dividing the Output into Sections (Texts, Data, @dots{})
@@ -7241,6 +7252,8 @@ on this implementation detail.
 
 @hook TARGET_OPTION_RESTORE
 
+@hook TARGET_OPTION_POST_STREAM_IN
+
 @hook TARGET_OPTION_PRINT
 
 @hook TARGET_OPTION_PRAGMA_PARSE
@@ -7974,17 +7987,6 @@ to by @var{ce_info}.
 
 @hook TARGET_LEGITIMATE_COMBINED_INSN
 
-@defmac MD_CAN_REDIRECT_BRANCH (@var{branch1}, @var{branch2})
-
-Take a branch insn in @var{branch1} and another in @var{branch2}.
-Return true if redirecting @var{branch1} to the destination of
-@var{branch2} is possible.
-
-On some targets, branches may have a limited range.  Optimizing the
-filling of delay slots can result in branches being redirected, and this
-may in turn cause a branch offset to overflow.
-@end defmac
-
 @hook TARGET_CAN_FOLLOW_JUMP
 
 @hook TARGET_COMMUTATIVE_P
@@ -8039,6 +8041,10 @@ build_type_attribute_variant (@var{mdecl},
 @hook TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED
 
 @hook TARGET_HAVE_CONDITIONAL_EXECUTION
+
+@hook TARGET_GEN_CCMP_FIRST
+
+@hook TARGET_GEN_CCMP_NEXT
 
 @hook TARGET_LOOP_UNROLL_ADJUST
 
@@ -8166,6 +8172,10 @@ and the associated definitions of those functions.
 @hook TARGET_ATOMIC_ALIGN_FOR_MODE
 
 @hook TARGET_ATOMIC_ASSIGN_EXPAND_FENV
+
+@hook TARGET_RECORD_OFFLOAD_SYMBOL
+
+@hook TARGET_OFFLOAD_OPTIONS
 
 @defmac TARGET_SUPPORTS_WIDE_INT
 

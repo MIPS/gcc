@@ -1,5 +1,5 @@
 /* Process declarations and variables for C++ compiler.
-   Copyright (C) 1988-2014 Free Software Foundation, Inc.
+   Copyright (C) 1988-2015 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -30,6 +30,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -48,10 +57,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -1209,9 +1214,9 @@ is_late_template_attribute (tree attr, tree decl)
       /* Also defer most attributes on dependent types.  This is not
 	 necessary in all cases, but is the better default.  */
       else if (dependent_type_p (type)
-	       /* But attributes abi_tag and visibility specifically apply
-		  to templates.  */
+	       /* But some attributes specifically apply to templates.  */
 	       && !is_attribute_p ("abi_tag", name)
+	       && !is_attribute_p ("deprecated", name)
 	       && !is_attribute_p ("visibility", name))
 	return true;
       else
@@ -1479,7 +1484,7 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
     {
       attributes
 	= decl_attributes (decl, attributes, flags | ATTR_FLAG_FUNCTION_NEXT);
-      decl_attributes (&TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (*decl)),
+      decl_attributes (&TYPE_PTRMEMFUNC_FN_TYPE_RAW (TREE_TYPE (*decl)),
 		       attributes, flags);
     }
   else
@@ -1487,6 +1492,17 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 
   if (TREE_CODE (*decl) == TYPE_DECL)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (*decl), TREE_TYPE (*decl));
+
+  /* Propagate deprecation out to the template.  */
+  if (TREE_DEPRECATED (*decl))
+    if (tree ti = get_template_info (*decl))
+      {
+	tree tmpl = TI_TEMPLATE (ti);
+	tree pattern = (TYPE_P (*decl) ? TREE_TYPE (tmpl)
+			: DECL_TEMPLATE_RESULT (tmpl));
+	if (*decl == pattern)
+	  TREE_DEPRECATED (tmpl) = true;
+      }
 }
 
 /* Walks through the namespace- or function-scope anonymous union
@@ -1990,19 +2006,30 @@ decl_needed_p (tree decl)
      COMDAT until that point.  */
   gcc_assert (at_eof);
 
-  /* All entities with external linkage that are not COMDAT should be
+  /* All entities with external linkage that are not COMDAT/EXTERN should be
      emitted; they may be referred to from other object files.  */
-  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl))
+  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_REALLY_EXTERN (decl))
     return true;
-  /* If this entity was used, let the back end see it; it will decide
-     whether or not to emit it into the object file.  */
-  if (TREE_USED (decl))
-      return true;
   /* Functions marked "dllexport" must be emitted so that they are
      visible to other DLLs.  */
   if (flag_keep_inline_dllexport
       && lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl)))
     return true;
+
+  /* When not optimizing, do not bother to produce definitions for extern
+     symbols.  */
+  if (DECL_REALLY_EXTERN (decl)
+      && ((TREE_CODE (decl) != FUNCTION_DECL
+	   && !optimize)
+	  || (TREE_CODE (decl) == FUNCTION_DECL
+	      && !opt_for_fn (decl, optimize)))
+      && !lookup_attribute ("always_inline", decl))
+    return false;
+
+  /* If this entity was used, let the back end see it; it will decide
+     whether or not to emit it into the object file.  */
+  if (TREE_USED (decl))
+      return true;
   /* Virtual functions might be needed for devirtualization.  */
   if (flag_devirtualize
       && TREE_CODE (decl) == FUNCTION_DECL
@@ -2153,6 +2180,7 @@ constrain_visibility (tree decl, int visibility, bool tmpl)
 	  TREE_PUBLIC (decl) = 0;
 	  DECL_WEAK (decl) = 0;
 	  DECL_COMMON (decl) = 0;
+	  DECL_COMDAT (decl) = false;
 	  if (TREE_CODE (decl) == FUNCTION_DECL
 	      || TREE_CODE (decl) == VAR_DECL)
 	    {
@@ -2193,9 +2221,12 @@ constrain_visibility_for_template (tree decl, tree targs)
       tree arg = TREE_VEC_ELT (args, i-1);
       if (TYPE_P (arg))
 	vis = type_visibility (arg);
-      else if (TREE_TYPE (arg) && POINTER_TYPE_P (TREE_TYPE (arg)))
+      else
 	{
-	  STRIP_NOPS (arg);
+	  if (REFERENCE_REF_P (arg))
+	    arg = TREE_OPERAND (arg, 0);
+	  if (TREE_TYPE (arg))
+	    STRIP_NOPS (arg);
 	  if (TREE_CODE (arg) == ADDR_EXPR)
 	    arg = TREE_OPERAND (arg, 0);
 	  if (VAR_OR_FUNCTION_DECL_P (arg))
@@ -3072,8 +3103,11 @@ var_defined_without_dynamic_init (tree var)
      counts as dynamic initialization.  */
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (var)))
     return false;
-  /* If it's in this TU, its initializer has been processed.  */
-  gcc_assert (DECL_INITIALIZED_P (var));
+  /* If it's in this TU, its initializer has been processed, unless
+     it's a case of self-initialization, then DECL_INITIALIZED_P is
+     false while the initializer is handled by finish_id_expression.  */
+  if (!DECL_INITIALIZED_P (var))
+    return false;
   /* If it has no initializer or a constant one, it's not dynamic.  */
   return (!DECL_NONTRIVIALLY_INITIALIZED_P (var)
 	  || DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (var));
@@ -4302,6 +4336,47 @@ dump_tu (void)
     }
 }
 
+/* Check the deallocation functions for CODE to see if we want to warn that
+   only one was defined.  */
+
+static void
+maybe_warn_sized_delete (enum tree_code code)
+{
+  tree sized = NULL_TREE;
+  tree unsized = NULL_TREE;
+
+  for (tree ovl = IDENTIFIER_GLOBAL_VALUE (ansi_opname (code));
+       ovl; ovl = OVL_NEXT (ovl))
+    {
+      tree fn = OVL_CURRENT (ovl);
+      /* We're only interested in usual deallocation functions.  */
+      if (!non_placement_deallocation_fn_p (fn))
+	continue;
+      if (FUNCTION_ARG_CHAIN (fn) == void_list_node)
+	unsized = fn;
+      else
+	sized = fn;
+    }
+  if (DECL_INITIAL (unsized) && !DECL_INITIAL (sized))
+    warning_at (DECL_SOURCE_LOCATION (unsized), OPT_Wsized_deallocation,
+		"the program should also define %qD", sized);
+  else if (!DECL_INITIAL (unsized) && DECL_INITIAL (sized))
+    warning_at (DECL_SOURCE_LOCATION (sized), OPT_Wsized_deallocation,
+		"the program should also define %qD", unsized);
+}
+
+/* Check the global deallocation functions to see if we want to warn about
+   defining unsized without sized (or vice versa).  */
+
+static void
+maybe_warn_sized_delete ()
+{
+  if (!flag_sized_deallocation || !warn_sized_deallocation)
+    return;
+  maybe_warn_sized_delete (DELETE_EXPR);
+  maybe_warn_sized_delete (VEC_DELETE_EXPR);
+}
+
 /* This routine is called at the end of compilation.
    Its job is to create all the code needed to initialize and
    destroy the global aggregates.  We do the destruction
@@ -4632,6 +4707,8 @@ cp_write_global_declarations (void)
   FOR_EACH_VEC_SAFE_ELT (no_linkage_decls, i, decl)
     no_linkage_error (decl);
 
+  maybe_warn_sized_delete ();
+
   /* Then, do the Objective-C stuff.  This is where all the
      Objective-C module stuff gets generated (symtab,
      class/protocol/selector lists etc).  This must be done after C++
@@ -4896,6 +4973,10 @@ mark_used (tree decl, tsubst_flags_t complain)
       return false;
     }
 
+  if (TREE_DEPRECATED (decl) && (complain & tf_warning)
+      && deprecated_state != DEPRECATED_SUPPRESS)
+    warn_deprecated_use (decl, NULL_TREE);
+
   /* We can only check DECL_ODR_USED on variables or functions with
      DECL_LANG_SPECIFIC set, and these are also the only decls that we
      might need special handling for.  */
@@ -4954,15 +5035,20 @@ mark_used (tree decl, tsubst_flags_t complain)
       --function_depth;
     }
 
-  if (processing_template_decl)
+  if (processing_template_decl || in_template_function ())
     return true;
 
-  /* Check this too in case we're within fold_non_dependent_expr.  */
+  /* Check this too in case we're within instantiate_non_dependent_expr.  */
   if (DECL_TEMPLATE_INFO (decl)
       && uses_template_parms (DECL_TI_ARGS (decl)))
     return true;
 
-  require_deduced_type (decl);
+  if (undeduced_auto_decl (decl))
+    {
+      if (complain & tf_error)
+	error ("use of %qD before deduction of %<auto%>", decl);
+      return false;
+    }
 
   /* If we don't need a value, then we don't need to synthesize DECL.  */
   if (cp_unevaluated_operand != 0)

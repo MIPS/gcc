@@ -1,5 +1,5 @@
 /* Utilities for ipa analysis.
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -22,12 +22,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -55,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "lto-streamer.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 
@@ -399,11 +407,13 @@ get_base_var (tree t)
 
 
 /* SRC and DST are going to be merged.  Take SRC's profile and merge it into
-   DST so it is not going to be lost.  Destroy SRC's body on the way.  */
+   DST so it is not going to be lost.  Possibly destroy SRC's body on the way
+   unless PRESERVE_BODY is set.  */
 
 void
 ipa_merge_profiles (struct cgraph_node *dst,
-		    struct cgraph_node *src)
+		    struct cgraph_node *src,
+		    bool preserve_body)
 {
   tree oldsrcdecl = src->decl;
   struct function *srccfun, *dstcfun;
@@ -427,8 +437,8 @@ ipa_merge_profiles (struct cgraph_node *dst,
   if (symtab->dump_file)
     {
       fprintf (symtab->dump_file, "Merging profiles of %s/%i to %s/%i\n",
-	       xstrdup (src->name ()), src->order,
-	       xstrdup (dst->name ()), dst->order);
+	       xstrdup_for_dump (src->name ()), src->order,
+	       xstrdup_for_dump (dst->name ()), dst->order);
     }
   dst->count += src->count;
 
@@ -438,17 +448,17 @@ ipa_merge_profiles (struct cgraph_node *dst,
      temporarily inconsistent.  */
   if (src->decl == dst->decl)
     {
-      void **slot;
       struct lto_in_decl_state temp;
       struct lto_in_decl_state *state;
 
       /* We are going to move the decl, we want to remove its file decl data.
 	 and link these with the new decl. */
       temp.fn_decl = src->decl;
-      slot = htab_find_slot (src->lto_file_data->function_decl_states,
-			     &temp, NO_INSERT);
-      state = (lto_in_decl_state *)*slot;
-      htab_clear_slot (src->lto_file_data->function_decl_states, slot);
+      lto_in_decl_state **slot
+	= src->lto_file_data->function_decl_states->find_slot (&temp,
+							       NO_INSERT);
+      state = *slot;
+      src->lto_file_data->function_decl_states->clear_slot (slot);
       gcc_assert (state);
 
       /* Duplicate the decl and be sure it does not link into body of DST.  */
@@ -461,13 +471,13 @@ ipa_merge_profiles (struct cgraph_node *dst,
       /* Associate the decl state with new declaration, so LTO streamer
  	 can look it up.  */
       state->fn_decl = src->decl;
-      slot = htab_find_slot (src->lto_file_data->function_decl_states,
-			     state, INSERT);
+      slot
+	= src->lto_file_data->function_decl_states->find_slot (state, INSERT);
       gcc_assert (!*slot);
       *slot = state;
     }
-  src->get_body ();
-  dst->get_body ();
+  src->get_untransformed_body ();
+  dst->get_untransformed_body ();
   srccfun = DECL_STRUCT_FUNCTION (src->decl);
   dstcfun = DECL_STRUCT_FUNCTION (dst->decl);
   if (n_basic_blocks_for_fn (srccfun)
@@ -531,7 +541,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
     }
   if (match)
     {
-      struct cgraph_edge *e;
+      struct cgraph_edge *e, *e2;
       basic_block srcbb, dstbb;
 
       /* TODO: merge also statement histograms.  */
@@ -554,21 +564,98 @@ ipa_merge_profiles (struct cgraph_node *dst,
       pop_cfun ();
       for (e = dst->callees; e; e = e->next_callee)
 	{
-	  gcc_assert (!e->speculative);
+	  if (e->speculative)
+	    continue;
 	  e->count = gimple_bb (e->call_stmt)->count;
 	  e->frequency = compute_call_stmt_bb_frequency
 			     (dst->decl,
 			      gimple_bb (e->call_stmt));
 	}
-      for (e = dst->indirect_calls; e; e = e->next_callee)
+      for (e = dst->indirect_calls, e2 = src->indirect_calls; e;
+	   e2 = (e2 ? e2->next_callee : NULL), e = e->next_callee)
 	{
-	  gcc_assert (!e->speculative);
-	  e->count = gimple_bb (e->call_stmt)->count;
-	  e->frequency = compute_call_stmt_bb_frequency
-			     (dst->decl,
-			      gimple_bb (e->call_stmt));
+	  gcov_type count = gimple_bb (e->call_stmt)->count;
+	  int freq = compute_call_stmt_bb_frequency
+			(dst->decl,
+			 gimple_bb (e->call_stmt));
+	  /* When call is speculative, we need to re-distribute probabilities
+	     the same way as they was.  This is not really correct because
+	     in the other copy the speculation may differ; but probably it
+	     is not really worth the effort.  */
+	  if (e->speculative)
+	    {
+	      cgraph_edge *direct, *indirect;
+	      cgraph_edge *direct2 = NULL, *indirect2 = NULL;
+	      ipa_ref *ref;
+
+	      e->speculative_call_info (direct, indirect, ref);
+	      gcc_assert (e == indirect);
+	      if (e2 && e2->speculative)
+	        e2->speculative_call_info (direct2, indirect2, ref);
+	      if (indirect->count || direct->count)
+		{
+		  /* We should mismatch earlier if there is no matching
+		     indirect edge.  */
+		  if (!e2)
+		    {
+		      if (dump_file)
+		        fprintf (dump_file,
+				 "Mismatch in merging indirect edges\n");
+		    }
+		  else if (!e2->speculative)
+		    indirect->count += e2->count;
+		  else if (e2->speculative)
+		    {
+		      if (DECL_ASSEMBLER_NAME (direct2->callee->decl)
+			  != DECL_ASSEMBLER_NAME (direct->callee->decl))
+			{
+			  if (direct2->count >= direct->count)
+			    {
+			      direct->redirect_callee (direct2->callee);
+			      indirect->count += indirect2->count
+						 + direct->count;
+			      direct->count = direct2->count;
+			    }
+			  else
+			    indirect->count += indirect2->count + direct2->count;
+			}
+		      else
+			{
+			   direct->count += direct2->count;
+			   indirect->count += indirect2->count;
+			}
+		    }
+		  int  prob = RDIV (direct->count * REG_BR_PROB_BASE ,
+				    direct->count + indirect->count);
+		  direct->frequency = RDIV (freq * prob, REG_BR_PROB_BASE);
+		  indirect->frequency = RDIV (freq * (REG_BR_PROB_BASE - prob),
+					      REG_BR_PROB_BASE);
+		}
+	      else
+		/* At the moment we should have only profile feedback based
+		   speculations when merging.  */
+		gcc_unreachable ();
+	    }
+	  else if (e2 && e2->speculative)
+	    {
+	      cgraph_edge *direct, *indirect;
+	      ipa_ref *ref;
+
+	      e2->speculative_call_info (direct, indirect, ref);
+	      e->count = count;
+	      e->frequency = freq;
+	      int prob = RDIV (direct->count * REG_BR_PROB_BASE, e->count);
+	      e->make_speculative (direct->callee, direct->count,
+				   RDIV (freq * prob, REG_BR_PROB_BASE));
+	    }
+	  else
+	    {
+	      e->count = count;
+	      e->frequency = freq;
+	    }
 	}
-      src->release_body ();
+      if (!preserve_body)
+        src->release_body ();
       inline_update_overall_summary (dst);
     }
   /* TODO: if there is no match, we can scale up.  */

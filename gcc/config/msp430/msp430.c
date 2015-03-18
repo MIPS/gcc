@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on TI MSP430 processors.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -22,7 +22,17 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "rtl.h"
@@ -33,12 +43,17 @@
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -976,7 +991,7 @@ msp430_asm_integer (rtx x, unsigned int size, int aligned_p)
 #undef  TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA
 #define TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA msp430_asm_output_addr_const_extra
 static bool
-msp430_asm_output_addr_const_extra (FILE *file, rtx x)
+msp430_asm_output_addr_const_extra (FILE *file ATTRIBUTE_UNUSED, rtx x)
 {
   debug_rtx(x);
   return false;
@@ -2186,6 +2201,10 @@ msp430_use_f5_series_hwmult (void)
 
   if (strncasecmp (target_mcu, "msp430f5", 8) == 0)
     return cached_result = true;
+  if (strncasecmp (target_mcu, "msp430fr5", 9) == 0)
+    return cached_result = true;
+  if (strncasecmp (target_mcu, "msp430f6", 8) == 0)
+    return cached_result = true;
 
   static const char * known_f5_mult_mcus [] =
     {
@@ -2194,7 +2213,8 @@ msp430_use_f5_series_hwmult (void)
       "cc430f5145",	"cc430f5147",	"cc430f6125",
       "cc430f6126",	"cc430f6127",	"cc430f6135",
       "cc430f6137",	"cc430f6143",	"cc430f6145",
-      "cc430f6147",	"msp430bt5190",	"msp430sl5438a"
+      "cc430f6147",	"msp430bt5190",	"msp430sl5438a",
+      "msp430xgeneric"
     };
   int i;
 

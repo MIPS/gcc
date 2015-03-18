@@ -13,7 +13,19 @@
 
 #include "sanitizer_platform.h"
 #if SANITIZER_LINUX || SANITIZER_FREEBSD || SANITIZER_MAC
-
+// Tests in this file assume that off_t-dependent data structures match the
+// libc ABI. For example, struct dirent here is what readdir() function (as
+// exported from libc) returns, and not the user-facing "dirent", which
+// depends on _FILE_OFFSET_BITS setting.
+// To get this "true" dirent definition, we undefine _FILE_OFFSET_BITS below.
+#ifdef _FILE_OFFSET_BITS
+#undef _FILE_OFFSET_BITS
+#endif
+#if SANITIZER_FREEBSD
+#define _WANT_RTENTRY
+#include <sys/param.h>
+#include <sys/socketvar.h>
+#endif
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <errno.h>
@@ -551,7 +563,9 @@ namespace __sanitizer {
   unsigned IOCTL_PPPIOCSMAXCID = PPPIOCSMAXCID;
   unsigned IOCTL_PPPIOCSMRU = PPPIOCSMRU;
   unsigned IOCTL_PPPIOCSXASYNCMAP = PPPIOCSXASYNCMAP;
+  unsigned IOCTL_SIOCADDRT = SIOCADDRT;
   unsigned IOCTL_SIOCDARP = SIOCDARP;
+  unsigned IOCTL_SIOCDELRT = SIOCDELRT;
   unsigned IOCTL_SIOCDRARP = SIOCDRARP;
   unsigned IOCTL_SIOCGARP = SIOCGARP;
   unsigned IOCTL_SIOCGIFENCAP = SIOCGIFENCAP;
@@ -637,8 +651,6 @@ namespace __sanitizer {
 #if SANITIZER_LINUX || SANITIZER_FREEBSD
   unsigned IOCTL_MTIOCGET = MTIOCGET;
   unsigned IOCTL_MTIOCTOP = MTIOCTOP;
-  unsigned IOCTL_SIOCADDRT = SIOCADDRT;
-  unsigned IOCTL_SIOCDELRT = SIOCDELRT;
   unsigned IOCTL_SNDCTL_DSP_GETBLKSIZE = SNDCTL_DSP_GETBLKSIZE;
   unsigned IOCTL_SNDCTL_DSP_GETFMTS = SNDCTL_DSP_GETFMTS;
   unsigned IOCTL_SNDCTL_DSP_NONBLOCK = SNDCTL_DSP_NONBLOCK;
@@ -991,8 +1003,12 @@ CHECK_SIZE_AND_OFFSET(__sysctl_args, newlen);
 
 CHECK_TYPE_SIZE(__kernel_uid_t);
 CHECK_TYPE_SIZE(__kernel_gid_t);
+
+#if !defined(__aarch64__)
 CHECK_TYPE_SIZE(__kernel_old_uid_t);
 CHECK_TYPE_SIZE(__kernel_old_gid_t);
+#endif
+
 CHECK_TYPE_SIZE(__kernel_off_t);
 CHECK_TYPE_SIZE(__kernel_loff_t);
 CHECK_TYPE_SIZE(__kernel_fd_set);
@@ -1043,7 +1059,13 @@ CHECK_SIZE_AND_OFFSET(ipc_perm, uid);
 CHECK_SIZE_AND_OFFSET(ipc_perm, gid);
 CHECK_SIZE_AND_OFFSET(ipc_perm, cuid);
 CHECK_SIZE_AND_OFFSET(ipc_perm, cgid);
+#ifndef __GLIBC_PREREQ
+#define __GLIBC_PREREQ(x, y) 0
+#endif
+#if !defined(__aarch64__) || !SANITIZER_LINUX || __GLIBC_PREREQ (2, 21)
+/* On aarch64 glibc 2.20 and earlier provided incorrect mode field.  */
 CHECK_SIZE_AND_OFFSET(ipc_perm, mode);
+#endif
 
 CHECK_TYPE_SIZE(shmid_ds);
 CHECK_SIZE_AND_OFFSET(shmid_ds, shm_perm);

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -559,6 +559,12 @@ package body Sem_Disp is
                 ((Nkind (Parent (Current_Scope)) = N_Procedure_Specification
                    and then Null_Present (Parent (Current_Scope)))
                  or else Is_Abstract_Subprogram (Current_Scope))
+            then
+               null;
+
+            elsif Ekind (Current_Scope) = E_Function
+              and then Nkind (Unit_Declaration_Node (Current_Scope)) =
+                                          N_Generic_Subprogram_Declaration
             then
                null;
 
@@ -1116,7 +1122,7 @@ package body Sem_Disp is
 
                      if Present (DTC_Entity (Old_Subp)) then
                         Set_DTC_Entity (Subp, DTC_Entity (Old_Subp));
-                        Set_DT_Position (Subp, DT_Position (Old_Subp));
+                        Set_DT_Position_Value (Subp, DT_Position (Old_Subp));
 
                         if not Restriction_Active (No_Dispatching_Calls) then
                            if Building_Static_DT (Tagged_Type) then
@@ -1413,7 +1419,7 @@ package body Sem_Disp is
       end if;
 
       if not Body_Is_Last_Primitive then
-         Set_DT_Position (Subp, No_Uint);
+         Set_DT_Position_Value (Subp, No_Uint);
 
       elsif Has_Controlled_Component (Tagged_Type)
         and then Nam_In (Chars (Subp), Name_Initialize,
@@ -1672,7 +1678,7 @@ package body Sem_Disp is
 
                Check_Controlling_Formals (Tagged_Type, Old_Subp);
                Set_Is_Dispatching_Operation (Old_Subp, True);
-               Set_DT_Position (Old_Subp, No_Uint);
+               Set_DT_Position_Value (Old_Subp, No_Uint);
             end if;
 
             --  If the old subprogram is an explicit renaming of some other
@@ -2162,8 +2168,24 @@ package body Sem_Disp is
    begin
       if Nkind (N) = N_Error then
          return False;
+
+      elsif Present (Find_Controlling_Arg (N)) then
+         return True;
+
+      --  Special cases: entities, and calls that dispatch on result
+
+      elsif Is_Entity_Name (N) then
+         return Is_Class_Wide_Type (Etype (N));
+
+      elsif Nkind (N) = N_Function_Call
+         and then Is_Class_Wide_Type (Etype (N))
+      then
+         return True;
+
+      --  Otherwise check whether call has controlling argument
+
       else
-         return Find_Controlling_Arg (N) /= Empty;
+         return False;
       end if;
    end Is_Dynamically_Tagged;
 

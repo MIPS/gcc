@@ -1,5 +1,5 @@
 /* Target code for NVPTX.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
    This file is part of GCC.
@@ -19,15 +19,40 @@
    <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
+#include <sstream>
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "insn-codes.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "regs.h"
 #include "optabs.h"
@@ -37,7 +62,6 @@
 #include "tm_p.h"
 #include "tm-preds.h"
 #include "tm-constrs.h"
-#include "function.h"
 #include "langhooks.h"
 #include "dbxout.h"
 #include "target.h"
@@ -47,21 +71,30 @@
 #include "basic-block.h"
 #include "cfgrtl.h"
 #include "stor-layout.h"
-#include "calls.h"
 #include "df.h"
 #include "builtins.h"
-#include "hashtab.h"
-#include <sstream>
 
 /* Record the function decls we've written, and the libfuncs and function
    decls corresponding to them.  */
 static std::stringstream func_decls;
-static GTY((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
-  htab_t declared_libfuncs_htab;
-static GTY((if_marked ("ggc_marked_p"), param_is (union tree_node)))
-  htab_t declared_fndecls_htab;
-static GTY((if_marked ("ggc_marked_p"), param_is (union tree_node)))
-  htab_t needed_fndecls_htab;
+
+struct declared_libfunc_hasher : ggc_cache_hasher<rtx>
+{
+  static hashval_t hash (rtx x) { return htab_hash_pointer (x); }
+  static bool equal (rtx a, rtx b) { return a == b; }
+};
+
+static GTY((cache))
+  hash_table<declared_libfunc_hasher> *declared_libfuncs_htab;
+
+  struct tree_hasher : ggc_cache_hasher<tree>
+{
+  static hashval_t hash (tree t) { return htab_hash_pointer (t); }
+  static bool equal (tree a, tree b) { return a == b; }
+};
+
+static GTY((cache)) hash_table<tree_hasher> *declared_fndecls_htab;
+static GTY((cache)) hash_table<tree_hasher> *needed_fndecls_htab;
 
 /* Allocate a new, cleared machine_function structure.  */
 
@@ -86,12 +119,10 @@ nvptx_option_override (void)
   write_symbols = NO_DEBUG;
   debug_info_level = DINFO_LEVEL_NONE;
 
-  declared_fndecls_htab
-    = htab_create_ggc (17, htab_hash_pointer, htab_eq_pointer, NULL);
-  needed_fndecls_htab
-    = htab_create_ggc (17, htab_hash_pointer, htab_eq_pointer, NULL);
+  declared_fndecls_htab = hash_table<tree_hasher>::create_ggc (17);
+  needed_fndecls_htab = hash_table<tree_hasher>::create_ggc (17);
   declared_libfuncs_htab
-    = htab_create_ggc (17, htab_hash_pointer, htab_eq_pointer, NULL);
+    = hash_table<declared_libfunc_hasher>::create_ggc (17);
 }
 
 /* Return the mode to be used when declaring a ptx object for OBJ.
@@ -455,7 +486,7 @@ nvptx_record_fndecl (tree decl, bool force = false)
   if (!force && TYPE_ARG_TYPES (TREE_TYPE (decl)) == NULL_TREE)
     return false;
 
-  void **slot = htab_find_slot (declared_fndecls_htab, decl, INSERT);
+  tree *slot = declared_fndecls_htab->find_slot (decl, INSERT);
   if (*slot == NULL)
     {
       *slot = decl;
@@ -476,7 +507,7 @@ nvptx_record_needed_fndecl (tree decl)
   if (nvptx_record_fndecl (decl))
     return;
 
-  void **slot = htab_find_slot (needed_fndecls_htab, decl, INSERT);
+  tree *slot = needed_fndecls_htab->find_slot (decl, INSERT);
   if (*slot == NULL)
     *slot = decl;
 }
@@ -818,7 +849,7 @@ nvptx_expand_call (rtx retval, rtx address)
       && (decl_type == NULL_TREE
 	  || (external_decl && TYPE_ARG_TYPES (decl_type) == NULL_TREE)))
     {
-      void **slot = htab_find_slot (declared_libfuncs_htab, callee, INSERT);
+      rtx *slot = declared_libfuncs_htab->find_slot (callee, INSERT);
       if (*slot == NULL)
 	{
 	  *slot = callee;
@@ -1999,6 +2030,16 @@ nvptx_vector_alignment (const_tree type)
   return MIN (align, BIGGEST_ALIGNMENT);
 }
 
+/* Record a symbol for mkoffload to enter into the mapping table.  */
+
+static void
+nvptx_record_offload_symbol (tree decl)
+{
+  fprintf (asm_out_file, "//:%s_MAP %s\n",
+	   TREE_CODE (decl) == VAR_DECL ? "VAR" : "FUNC",
+	   IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+}
+
 /* Implement TARGET_ASM_FILE_START.  Write the kinds of things ptxas expects
    at the start of a file.  */
 
@@ -2012,25 +2053,15 @@ nvptx_file_start (void)
   fputs ("// END PREAMBLE\n", asm_out_file);
 }
 
-/* Called through htab_traverse; call nvptx_record_fndecl for every
-   SLOT.  */
-
-static int
-write_one_fndecl (void **slot, void *)
-{
-  tree decl = (tree)*slot;
-  nvptx_record_fndecl (decl, true);
-  return 1;
-}
-
 /* Write out the function declarations we've collected.  */
 
 static void
 nvptx_file_end (void)
 {
-  htab_traverse (needed_fndecls_htab,
-		 write_one_fndecl,
-		 NULL);
+  hash_table<tree_hasher>::iterator iter;
+  tree decl;
+  FOR_EACH_HASH_TABLE_ELEMENT (*needed_fndecls_htab, decl, tree, iter)
+    nvptx_record_fndecl (decl, true);
   fputs (func_decls.str().c_str(), asm_out_file);
 }
 
@@ -2111,6 +2142,9 @@ nvptx_file_end (void)
 #define TARGET_MACHINE_DEPENDENT_REORG nvptx_reorg
 #undef TARGET_NO_REGISTER_ALLOCATION
 #define TARGET_NO_REGISTER_ALLOCATION true
+
+#undef TARGET_RECORD_OFFLOAD_SYMBOL
+#define TARGET_RECORD_OFFLOAD_SYMBOL nvptx_record_offload_symbol
 
 #undef TARGET_VECTOR_ALIGNMENT
 #define TARGET_VECTOR_ALIGNMENT nvptx_vector_alignment

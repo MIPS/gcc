@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -386,9 +386,16 @@ hook_tree_tree_tree_tree_3rd_identity (tree a ATTRIBUTE_UNUSED,
   return c;
 }
 
-/* Generic hook that takes no arguments and returns a NULL string.  */
+/* Generic hook that takes no arguments and returns a NULL const string.  */
 const char *
 hook_constcharptr_void_null (void)
+{
+  return NULL;
+}
+
+/* Generic hook that takes no arguments and returns a NULL string.  */
+char *
+hook_charptr_void_null (void)
 {
   return NULL;
 }

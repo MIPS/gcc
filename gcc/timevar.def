@@ -1,6 +1,6 @@
 /* This file contains the definitions for timing variables used to
    measure run-time performance of the compiler.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -237,6 +237,7 @@ DEFTIMEVAR (TV_LRA_INHERITANCE	     , "LRA reload inheritance")
 DEFTIMEVAR (TV_LRA_CREATE_LIVE_RANGES, "LRA create live ranges")
 DEFTIMEVAR (TV_LRA_ASSIGN	     , "LRA hard reg assignment")
 DEFTIMEVAR (TV_LRA_COALESCE	     , "LRA coalesce pseudo regs")
+DEFTIMEVAR (TV_LRA_REMAT	     , "LRA rematerialization")
 DEFTIMEVAR (TV_RELOAD		     , "reload")
 DEFTIMEVAR (TV_RELOAD_CSE_REGS       , "reload CSE regs")
 DEFTIMEVAR (TV_GCSE_AFTER_RELOAD     , "load CSE after reload")
@@ -246,6 +247,7 @@ DEFTIMEVAR (TV_IFCVT2		     , "if-conversion 2")
 DEFTIMEVAR (TV_COMBINE_STACK_ADJUST  , "combine stack adjustments")
 DEFTIMEVAR (TV_PEEPHOLE2             , "peephole 2")
 DEFTIMEVAR (TV_RENAME_REGISTERS      , "rename registers")
+DEFTIMEVAR (TV_SCHED_FUSION          , "scheduling fusion")
 DEFTIMEVAR (TV_CPROP_REGISTERS       , "hard reg cprop")
 DEFTIMEVAR (TV_SCHED2                , "scheduling 2")
 DEFTIMEVAR (TV_MACH_DEP              , "machine dep reorg")

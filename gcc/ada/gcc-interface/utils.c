@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -27,7 +27,17 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "attribs.h"
@@ -45,10 +55,6 @@
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -233,20 +239,23 @@ static GTY(()) vec<tree, va_gc> *global_renaming_pointers;
 /* A chain of unused BLOCK nodes. */
 static GTY((deletable)) tree free_block_chain;
 
-static int pad_type_hash_marked_p (const void *p);
-static hashval_t pad_type_hash_hash (const void *p);
-static int pad_type_hash_eq (const void *p1, const void *p2);
-
 /* A hash table of padded types.  It is modelled on the generic type
    hash table in tree.c, which must thus be used as a reference.  */
-struct GTY(()) pad_type_hash {
+
+struct GTY((for_user)) pad_type_hash {
   unsigned long hash;
   tree type;
 };
 
-static GTY ((if_marked ("pad_type_hash_marked_p"),
-	     param_is (struct pad_type_hash)))
-  htab_t pad_type_hash_table;
+struct pad_type_hasher : ggc_cache_hasher<pad_type_hash *>
+{
+  static inline hashval_t hash (pad_type_hash *t) { return t->hash; }
+  static bool equal (pad_type_hash *a, pad_type_hash *b);
+  static void handle_cache_entry (pad_type_hash *&);
+};
+
+static GTY ((cache))
+  hash_table<pad_type_hasher> *pad_type_hash_table;
 
 static tree merge_sizes (tree, tree, tree, bool, bool);
 static tree compute_related_constant (tree, tree);
@@ -294,8 +303,7 @@ init_gnat_utils (void)
   dummy_node_table = ggc_cleared_vec_alloc<tree> (max_gnat_nodes);
 
   /* Initialize the hash table of padded types.  */
-  pad_type_hash_table
-    = htab_create_ggc (512, pad_type_hash_hash, pad_type_hash_eq, 0);
+  pad_type_hash_table = hash_table<pad_type_hasher>::create_ggc (512);
 }
 
 /* Destroy data structures of the utils.c module.  */
@@ -312,7 +320,7 @@ destroy_gnat_utils (void)
   dummy_node_table = NULL;
 
   /* Destroy the hash table of padded types.  */
-  htab_delete (pad_type_hash_table);
+  pad_type_hash_table->empty ();
   pad_type_hash_table = NULL;
 
   /* Invalidate the global renaming pointers.   */
@@ -765,32 +773,33 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	}
     }
 
-  /* For the declaration of a type, set its name if it either is not already
+  /* For the declaration of a type, set its name either if it isn't already
      set or if the previous type name was not derived from a source name.
      We'd rather have the type named with a real name and all the pointer
-     types to the same object have the same POINTER_TYPE node.  Code in the
-     equivalent function of c-decl.c makes a copy of the type node here, but
-     that may cause us trouble with incomplete types.  We make an exception
-     for fat pointer types because the compiler automatically builds them
-     for unconstrained array types and the debugger uses them to represent
-     both these and pointers to these.  */
+     types to the same object have the same node, except when the names are
+     both derived from source names.  */
   if (TREE_CODE (decl) == TYPE_DECL && DECL_NAME (decl))
     {
       tree t = TREE_TYPE (decl);
 
-      if (!(TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL))
+      if (!(TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL)
+	  && (TREE_CODE (t) != POINTER_TYPE || DECL_ARTIFICIAL (decl)))
 	{
-	  /* Array and pointer types aren't "tagged" types so we force the
-	     type to be associated with its typedef in the DWARF back-end,
-	     in order to make sure that the latter is always preserved.  */
-	  if (!DECL_ARTIFICIAL (decl)
-	      && (TREE_CODE (t) == ARRAY_TYPE
-		  || TREE_CODE (t) == POINTER_TYPE))
+	  /* Array types aren't "tagged" types so we force the type to be
+	     associated with its typedef in the DWARF back-end, in order to
+	     make sure that the latter is always preserved.  We used to do the
+	     same for pointer types, but to have consistent DWARF output we now
+	     create copies for DECL_ORIGINAL_TYPE just like the C front-end
+	     does in c-common.c:set_underlying_type.  */
+	  if (!DECL_ARTIFICIAL (decl) && TREE_CODE (t) == ARRAY_TYPE)
 	    {
 	      tree tt = build_distinct_type_copy (t);
 	      if (TREE_CODE (t) == POINTER_TYPE)
 		TYPE_NEXT_PTR_TO (t) = tt;
-	      TYPE_NAME (tt) = DECL_NAME (decl);
+	      /* Array types need to have a name so that they can be related to
+		 their GNAT encodings.  */
+	      if (TREE_CODE (t) == ARRAY_TYPE)
+		TYPE_NAME (tt) = DECL_NAME (decl);
 	      defer_or_set_type_context (tt,
 					 DECL_CONTEXT (decl),
 					 deferred_decl_context);
@@ -798,32 +807,43 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	      DECL_ORIGINAL_TYPE (decl) = tt;
 	    }
 	}
-      else if (TYPE_IS_FAT_POINTER_P (t))
+      else if (!DECL_ARTIFICIAL (decl)
+	       && (TREE_CODE (t) == POINTER_TYPE || TYPE_IS_FAT_POINTER_P (t)))
 	{
-	  /* We need a variant for the placeholder machinery to work.  */
-	  tree tt = build_variant_type_copy (t);
+	  tree tt;
+	  /* ??? We need a variant for the placeholder machinery to work.  */
+	  if (TYPE_IS_FAT_POINTER_P (t))
+	    tt = build_variant_type_copy (t);
+	  else
+	    tt = build_distinct_type_copy (t);
+	  if (TREE_CODE (t) == POINTER_TYPE)
+	    TYPE_NEXT_PTR_TO (t) = tt;
 	  TYPE_NAME (tt) = decl;
 	  defer_or_set_type_context (tt,
 				     DECL_CONTEXT (decl),
 				     deferred_decl_context);
 	  TREE_USED (tt) = TREE_USED (t);
 	  TREE_TYPE (decl) = tt;
-	  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
+	  if (TYPE_NAME (t) != NULL_TREE
+	      && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL
+	      && DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
 	    DECL_ORIGINAL_TYPE (decl) = DECL_ORIGINAL_TYPE (TYPE_NAME (t));
 	  else
 	    DECL_ORIGINAL_TYPE (decl) = t;
-	  DECL_ARTIFICIAL (decl) = 0;
 	  t = NULL_TREE;
 	}
-      else if (DECL_ARTIFICIAL (TYPE_NAME (t)) && !DECL_ARTIFICIAL (decl))
+      else if (TYPE_NAME (t) != NULL_TREE
+	       && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL
+	       && DECL_ARTIFICIAL (TYPE_NAME (t)) && !DECL_ARTIFICIAL (decl))
 	;
       else
 	t = NULL_TREE;
 
       /* Propagate the name to all the anonymous variants.  This is needed
-	 for the type qualifiers machinery to work properly.  Also propagate
-	 the context to them.  Note that the context will be propagated to all
-	 parallel types too thanks to gnat_set_type_context.  */
+	 for the type qualifiers machinery to work properly (see
+	 check_qualified_type).  Also propagate the context to them.  Note that
+	 the context will be propagated to all parallel types too thanks to
+	 gnat_set_type_context.  */
       if (t)
 	for (t = TYPE_MAIN_VARIANT (t); t; t = TYPE_NEXT_VARIANT (t))
 	  if (!(TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL))
@@ -1155,29 +1175,23 @@ make_type_from_size (tree type, tree size_tree, bool for_biased)
 
 /* See if the data pointed to by the hash table slot is marked.  */
 
-static int
-pad_type_hash_marked_p (const void *p)
+void
+pad_type_hasher::handle_cache_entry (pad_type_hash *&t)
 {
-  const_tree const type = ((const struct pad_type_hash *) p)->type;
-
-  return ggc_marked_p (type);
+  extern void gt_ggc_mx (pad_type_hash *&);
+  if (t == HTAB_EMPTY_ENTRY || t == HTAB_DELETED_ENTRY)
+    return;
+  else if (ggc_marked_p (t->type))
+    gt_ggc_mx (t);
+  else
+    t = static_cast<pad_type_hash *> (HTAB_DELETED_ENTRY);
 }
 
-/* Return the cached hash value.  */
+/* Return true iff the padded types are equivalent.  */
 
-static hashval_t
-pad_type_hash_hash (const void *p)
+bool
+pad_type_hasher::equal (pad_type_hash *t1, pad_type_hash *t2)
 {
-  return ((const struct pad_type_hash *) p)->hash;
-}
-
-/* Return 1 iff the padded types are equivalent.  */
-
-static int
-pad_type_hash_eq (const void *p1, const void *p2)
-{
-  const struct pad_type_hash *const t1 = (const struct pad_type_hash *) p1;
-  const struct pad_type_hash *const t2 = (const struct pad_type_hash *) p2;
   tree type1, type2;
 
   if (t1->hash != t2->hash)
@@ -1204,7 +1218,6 @@ lookup_and_insert_pad_type (tree type)
 {
   hashval_t hashcode;
   struct pad_type_hash in, *h;
-  void **loc;
 
   hashcode
     = iterative_hash_object (TYPE_HASH (TREE_TYPE (TYPE_FIELDS (type))), 0);
@@ -1214,16 +1227,14 @@ lookup_and_insert_pad_type (tree type)
 
   in.hash = hashcode;
   in.type = type;
-  h = (struct pad_type_hash *)
-	htab_find_with_hash (pad_type_hash_table, &in, hashcode);
+  h = pad_type_hash_table->find_with_hash (&in, hashcode);
   if (h)
     return h->type;
 
   h = ggc_alloc<pad_type_hash> ();
   h->hash = hashcode;
   h->type = type;
-  loc = htab_find_slot_with_hash (pad_type_hash_table, h, hashcode, INSERT);
-  *loc = (void *)h;
+  *pad_type_hash_table->find_slot_with_hash (h, hashcode, INSERT) = h;
   return NULL_TREE;
 }
 
@@ -2278,11 +2289,16 @@ create_type_decl (tree type_name, tree type, bool artificial_p,
   /* Add this decl to the current binding level.  */
   gnat_pushdecl (type_decl, gnat_node);
 
-  /* If we're naming the type, equate the TYPE_STUB_DECL to the name.
-     This causes the name to be also viewed as a "tag" by the debug
-     back-end, with the advantage that no DW_TAG_typedef is emitted
-     for artificial "tagged" types in DWARF.  */
-  if (!named)
+  /* If we're naming the type, equate the TYPE_STUB_DECL to the name.  This
+     causes the name to be also viewed as a "tag" by the debug back-end, with
+     the advantage that no DW_TAG_typedef is emitted for artificial "tagged"
+     types in DWARF.
+
+     Note that if "type" is used as a DECL_ORIGINAL_TYPE, it may be referenced
+     from multiple contexts, and "type_decl" references a copy of it: in such a
+     case, do not mess TYPE_STUB_DECL: we do not want to re-use the TYPE_DECL
+     with the mechanism above.  */
+  if (!named && type != DECL_ORIGINAL_TYPE (type_decl))
     TYPE_STUB_DECL (type) = type_decl;
 
   /* Do not generate debug info for UNCONSTRAINED_ARRAY_TYPE that the
@@ -3106,6 +3122,11 @@ begin_subprog_body (tree subprog_decl)
   /* This function is being defined.  */
   TREE_STATIC (subprog_decl) = 1;
 
+  /* The failure of this assertion will likely come from a wrong context for
+     the subprogram body, e.g. another procedure for a procedure declared at
+     library level.  */
+  gcc_assert (current_function_decl == decl_function_context (subprog_decl));
+
   current_function_decl = subprog_decl;
 
   /* Enter a new binding level and show that all the parameters belong to
@@ -3867,8 +3888,7 @@ convert_to_fat_pointer (tree type, tree expr)
 	{
 	  /* The template type can still be dummy at this point so we build an
 	     empty constructor.  The middle-end will fill it in with zeros.  */
-	  t = build_constructor (template_type,
-				 NULL);
+	  t = build_constructor (template_type, NULL);
 	  TREE_CONSTANT (t) = TREE_STATIC (t) = 1;
 	  null_bounds = build_unary_op (ADDR_EXPR, NULL_TREE, t);
 	  SET_TYPE_NULL_BOUNDS (ptr_template_type, null_bounds);
@@ -5213,7 +5233,7 @@ gnat_write_global_declarations (void)
 /* The general scheme is fairly simple:
 
    For each builtin function/type to be declared, gnat_install_builtins calls
-   internal facilities which eventually get to gnat_push_decl, which in turn
+   internal facilities which eventually get to gnat_pushdecl, which in turn
    tracks the so declared builtin function decls in the 'builtin_decls' global
    datastructure. When an Intrinsic subprogram declaration is processed, we
    search this global datastructure to retrieve the associated BUILT_IN DECL
@@ -5340,7 +5360,11 @@ enum c_builtin_type
 #define DEF_FUNCTION_TYPE_VAR_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
 #define DEF_FUNCTION_TYPE_VAR_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
 #define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
-  NAME,
+				NAME,
+#define DEF_FUNCTION_TYPE_VAR_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6, ARG7) NAME,
+#define DEF_FUNCTION_TYPE_VAR_11(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11) NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "builtin-types.def"
 #undef DEF_PRIMITIVE_TYPE
@@ -5359,6 +5383,8 @@ enum c_builtin_type
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
+#undef DEF_FUNCTION_TYPE_VAR_7
+#undef DEF_FUNCTION_TYPE_VAR_11
 #undef DEF_POINTER_TYPE
   BT_LAST
 };
@@ -5464,6 +5490,13 @@ install_builtin_function_types (void)
   def_fn_type (ENUM, RETURN, 1, 4, ARG1, ARG2, ARG3, ARG4);
 #define DEF_FUNCTION_TYPE_VAR_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
   def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5);
+#define DEF_FUNCTION_TYPE_VAR_7(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6, ARG7)				\
+  def_fn_type (ENUM, RETURN, 1, 7, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7);
+#define DEF_FUNCTION_TYPE_VAR_11(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11) \
+  def_fn_type (ENUM, RETURN, 1, 11, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,	\
+	       ARG7, ARG8, ARG9, ARG10, ARG11);
 #define DEF_POINTER_TYPE(ENUM, TYPE) \
   builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
 
@@ -5485,6 +5518,8 @@ install_builtin_function_types (void)
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
+#undef DEF_FUNCTION_TYPE_VAR_7
+#undef DEF_FUNCTION_TYPE_VAR_11
 #undef DEF_POINTER_TYPE
   builtin_types[(int) BT_LAST] = NULL_TREE;
 }

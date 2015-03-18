@@ -1,5 +1,5 @@
 /* Handle errors.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Niels Kristian Bech Jensen
 
 This file is part of GCC.
@@ -30,26 +30,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "gfortran.h"
 
-#ifdef HAVE_TERMIOS_H
-# include <termios.h>
-#endif
-
-#ifdef GWINSZ_IN_SYS_IOCTL
-# include <sys/ioctl.h>
-#endif
-
 #include "diagnostic.h"
 #include "diagnostic-color.h"
 #include "tree-diagnostic.h" /* tree_diagnostics_defaults */
 
+#include <new> /* For placement-new */
+
 static int suppress_errors = 0;
 
-static int warnings_not_errors = 0; 
+static bool warnings_not_errors = false;
 
-static int terminal_width, buffer_flag, errors, warnings;
+static int terminal_width, errors, warnings;
 
 static gfc_error_buf error_buffer, warning_buffer, *cur_error_buffer;
 
+/* True if the error/warnings should be buffered.  */
+static bool buffered_p;
+/* These are always buffered buffers (.flush_p == false) to be used by
+   the pretty-printer.  */
+static output_buffer *pp_error_buffer, *pp_warning_buffer;
+static int warningcount_buffered, werrorcount_buffered;
+
+/* Return true if there output_buffer is empty.  */
+
+static bool
+gfc_output_buffer_empty_p (const output_buffer * buf)
+{
+  return output_buffer_last_position_in_text (buf) == NULL;
+}
 
 /* Go one level deeper suppressing errors.  */
 
@@ -59,6 +67,12 @@ gfc_push_suppress_errors (void)
   gcc_assert (suppress_errors >= 0);
   ++suppress_errors;
 }
+
+static void
+gfc_error (const char *gmsgid, va_list ap)  ATTRIBUTE_GCC_GFC(1,0);
+
+static bool
+gfc_warning (int opt, const char *gmsgid, va_list ap) ATTRIBUTE_GCC_GFC(2,0);
 
 
 /* Leave one level of error suppressing.  */
@@ -74,33 +88,9 @@ gfc_pop_suppress_errors (void)
 /* Determine terminal width (for trimming source lines in output).  */
 
 static int
-get_terminal_width (void)
+gfc_get_terminal_width (void)
 {
-  /* Only limit the width if we're outputting to a terminal.  */
-#ifdef HAVE_UNISTD_H
-  if (!isatty (STDERR_FILENO))
-    return INT_MAX;
-#endif
-  
-  /* Method #1: Use ioctl (not available on all systems).  */
-#ifdef TIOCGWINSZ
-  struct winsize w;
-  w.ws_col = 0;
-  if (ioctl (0, TIOCGWINSZ, &w) == 0 && w.ws_col > 0)
-    return w.ws_col;
-#endif
-
-  /* Method #2: Query environment variable $COLUMNS.  */
-  const char *p = getenv ("COLUMNS");
-  if (p)
-    {
-      int value = atoi (p);
-      if (value > 0)
-	return value;
-    }
-
-  /* If both fail, use reasonable default.  */
-  return 80;
+  return isatty (STDERR_FILENO) ? get_terminal_width () : INT_MAX;
 }
 
 
@@ -109,29 +99,29 @@ get_terminal_width (void)
 void
 gfc_error_init_1 (void)
 {
-  terminal_width = get_terminal_width ();
+  terminal_width = gfc_get_terminal_width ();
   errors = 0;
   warnings = 0;
-  buffer_flag = 0;
+  gfc_buffer_error (false);
 }
 
 
 /* Set the flag for buffering errors or not.  */
 
 void
-gfc_buffer_error (int flag)
+gfc_buffer_error (bool flag)
 {
-  buffer_flag = flag;
+  buffered_p = flag;
 }
 
 
 /* Add a single character to the error buffer or output depending on
-   buffer_flag.  */
+   buffered_p.  */
 
 static void
 error_char (char c)
 {
-  if (buffer_flag)
+  if (buffered_p)
     {
       if (cur_error_buffer->index >= cur_error_buffer->allocated)
 	{
@@ -804,10 +794,25 @@ gfc_increment_error_count (void)
 }
 
 
+/* Clear any output buffered in a pretty-print output_buffer.  */
+
+static void
+gfc_clear_pp_buffer (output_buffer *this_buffer)
+{
+  pretty_printer *pp = global_dc->printer;
+  output_buffer *tmp_buffer = pp->buffer;
+  pp->buffer = this_buffer;
+  pp_clear_output_area (pp);
+  pp->buffer = tmp_buffer;
+}
+
+
 /* Issue a warning.  */
+/* Use gfc_warning instead, unless two locations are used in the same
+   warning or for scanner.c, if the location is not properly set up.  */
 
 void
-gfc_warning (const char *gmsgid, ...)
+gfc_warning_1 (const char *gmsgid, ...)
 {
   va_list argp;
 
@@ -824,12 +829,79 @@ gfc_warning (const char *gmsgid, ...)
 
   error_char ('\0');
 
-  if (buffer_flag == 0)
+  if (!buffered_p)
   {
     warnings++;
     if (warnings_are_errors)
       gfc_increment_error_count();
   }
+}
+
+
+/* This is just a helper function to avoid duplicating the logic of
+   gfc_warning.  */
+
+static bool
+gfc_warning (int opt, const char *gmsgid, va_list ap)
+{
+  va_list argp;
+  va_copy (argp, ap);
+
+  diagnostic_info diagnostic;
+  bool fatal_errors = global_dc->fatal_errors;
+  pretty_printer *pp = global_dc->printer;
+  output_buffer *tmp_buffer = pp->buffer;
+
+  gfc_clear_pp_buffer (pp_warning_buffer);
+
+  if (buffered_p)
+    {
+      pp->buffer = pp_warning_buffer;
+      global_dc->fatal_errors = false;
+      /* To prevent -fmax-errors= triggering.  */
+      --werrorcount;
+    }
+
+  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION,
+		       DK_WARNING);
+  diagnostic.option_index = opt;
+  bool ret = report_diagnostic (&diagnostic);
+
+  if (buffered_p)
+    {
+      pp->buffer = tmp_buffer;
+      global_dc->fatal_errors = fatal_errors;
+
+      warningcount_buffered = 0;
+      werrorcount_buffered = 0;
+      /* Undo the above --werrorcount if not Werror, otherwise
+	 werrorcount is correct already.  */
+      if (!ret)
+	++werrorcount;
+      else if (diagnostic.kind == DK_ERROR)
+	++werrorcount_buffered;
+      else 
+	++werrorcount, --warningcount, ++warningcount_buffered;
+    }
+  
+  va_end (argp);
+  return ret;
+}
+
+/* Issue a warning.  */
+/* This function uses the common diagnostics, but does not support
+   two locations; when being used in scanner.c, ensure that the location
+   is properly setup. Otherwise, use gfc_warning_1.   */
+
+bool
+gfc_warning (int opt, const char *gmsgid, ...)
+{
+  va_list argp;
+
+  va_start (argp, gmsgid);
+  bool ret = gfc_warning (opt, gmsgid, argp);
+  va_end (argp);
+  return ret;
 }
 
 
@@ -855,7 +927,7 @@ gfc_notification_std (int std)
    an error is generated.  */
 
 bool
-gfc_notify_std (int std, const char *gmsgid, ...)
+gfc_notify_std_1 (int std, const char *gmsgid, ...)
 {
   va_list argp;
   bool warning;
@@ -919,7 +991,7 @@ gfc_notify_std (int std, const char *gmsgid, ...)
 
   error_char ('\0');
 
-  if (buffer_flag == 0)
+  if (!buffered_p)
     {
       if (warning && !warnings_are_errors)
 	warnings++;
@@ -932,19 +1004,83 @@ gfc_notify_std (int std, const char *gmsgid, ...)
 }
 
 
-/* Immediate warning (i.e. do not buffer the warning).  */
-
-void
-gfc_warning_now (const char *gmsgid, ...)
+bool
+gfc_notify_std (int std, const char *gmsgid, ...)
 {
   va_list argp;
-  int i;
+  bool warning;
+  const char *msg, *msg2;
+  char *buffer;
+
+  warning = ((gfc_option.warn_std & std) != 0) && !inhibit_warnings;
+  if ((gfc_option.allow_std & std) != 0 && !warning)
+    return true;
+
+  if (suppress_errors)
+    return warning ? true : false;
+
+  switch (std)
+  {
+    case GFC_STD_F2008_TS:
+      msg = "TS 29113/TS 18508:";
+      break;
+    case GFC_STD_F2008_OBS:
+      msg = _("Fortran 2008 obsolescent feature:");
+      break;
+    case GFC_STD_F2008:
+      msg = "Fortran 2008:";
+      break;
+    case GFC_STD_F2003:
+      msg = "Fortran 2003:";
+      break;
+    case GFC_STD_GNU:
+      msg = _("GNU Extension:");
+      break;
+    case GFC_STD_LEGACY:
+      msg = _("Legacy Extension:");
+      break;
+    case GFC_STD_F95_OBS:
+      msg = _("Obsolescent feature:");
+      break;
+    case GFC_STD_F95_DEL:
+      msg = _("Deleted feature:");
+      break;
+    default:
+      gcc_unreachable ();
+  }
+
+  msg2 = _(gmsgid);
+  buffer = (char *) alloca (strlen (msg) + strlen (msg2) + 2);
+  strcpy (buffer, msg);
+  strcat (buffer, " ");
+  strcat (buffer, msg2);
+
+  va_start (argp, gmsgid);
+  if (warning)
+    gfc_warning (0, buffer, argp);
+  else
+    gfc_error (buffer, argp);
+  va_end (argp);
+
+  return (warning && !warnings_are_errors) ? true : false;
+}
+
+
+/* Immediate warning (i.e. do not buffer the warning).  */
+/* Use gfc_warning_now instead, unless two locations are used in the same
+   warning or for scanner.c, if the location is not properly set up.  */
+
+void
+gfc_warning_now_1 (const char *gmsgid, ...)
+{
+  va_list argp;
+  bool buffered_p_saved;
 
   if (inhibit_warnings)
     return;
 
-  i = buffer_flag;
-  buffer_flag = 0;
+  buffered_p_saved = buffered_p;
+  buffered_p = false;
   warnings++;
 
   va_start (argp, gmsgid);
@@ -956,13 +1092,14 @@ gfc_warning_now (const char *gmsgid, ...)
   if (warnings_are_errors)
     gfc_increment_error_count();
 
-  buffer_flag = i;
+  buffered_p = buffered_p_saved;
 }
 
 /* Called from output_format -- during diagnostic message processing
    to handle Fortran specific format specifiers with the following meanings:
 
    %C  Current locus (no argument)
+   %L  Takes locus argument
 */
 static bool
 gfc_format_decoder (pretty_printer *pp,
@@ -973,15 +1110,21 @@ gfc_format_decoder (pretty_printer *pp,
   switch (*spec)
     {
     case 'C':
+    case 'L':
       {
 	static const char *result = "(1)";
-	gcc_assert (gfc_current_locus.nextc - gfc_current_locus.lb->line >= 0);
-	unsigned int c1 = gfc_current_locus.nextc - gfc_current_locus.lb->line;
+	locus *loc;
+	if (*spec == 'C')
+	  loc = &gfc_current_locus;
+	else
+	  loc = va_arg (*text->args_ptr, locus *);
+	gcc_assert (loc->nextc - loc->lb->line >= 0);
+	unsigned int offset = loc->nextc - loc->lb->line;
 	gcc_assert (text->locus);
 	*text->locus
 	  = linemap_position_for_loc_and_offset (line_table,
-						 gfc_current_locus.lb->location,
-						 c1);
+						 loc->lb->location,
+						 offset);
 	global_dc->caret_char = '1';
 	pp_string (pp, result);
 	return true;
@@ -1020,7 +1163,7 @@ gfc_diagnostic_build_prefix (diagnostic_context *context,
 				diagnostic_kind_color[diagnostic->kind]);
       text_ce = colorize_stop (pp_show_color (pp));
     }
-  return build_message_string ("%s%s%s: ", text_cs, text, text_ce);
+  return build_message_string ("%s%s:%s ", text_cs, text, text_ce);
 }
 
 /* Return a malloc'd string describing a location.  The caller is
@@ -1032,10 +1175,7 @@ gfc_diagnostic_build_locus_prefix (diagnostic_context *context,
   pretty_printer *pp = context->printer;
   const char *locus_cs = colorize_start (pp_show_color (pp), "locus");
   const char *locus_ce = colorize_stop (pp_show_color (pp));
-  expanded_location s = expand_location_to_spelling_point (diagnostic->location);
-  if (diagnostic->override_column)
-    s.column = diagnostic->override_column;
-
+  expanded_location s = diagnostic_expand_location (diagnostic);
   return (s.file == NULL
 	  ? build_message_string ("%s%s:%s", locus_cs, progname, locus_ce )
 	  : !strcmp (s.file, N_("<built-in>"))
@@ -1086,9 +1226,12 @@ gfc_diagnostic_finalizer (diagnostic_context *context,
 }
 
 /* Immediate warning (i.e. do not buffer the warning).  */
+/* This function uses the common diagnostics, but does not support
+   two locations; when being used in scanner.c, ensure that the location
+   is properly setup. Otherwise, use gfc_warning_now_1.   */
 
 bool
-gfc_warning_now_2 (int opt, const char *gmsgid, ...)
+gfc_warning_now (int opt, const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
@@ -1103,28 +1246,14 @@ gfc_warning_now_2 (int opt, const char *gmsgid, ...)
   return ret;
 }
 
-/* Immediate warning (i.e. do not buffer the warning).  */
-
-bool
-gfc_warning_now_2 (const char *gmsgid, ...)
-{
-  va_list argp;
-  diagnostic_info diagnostic;
-  bool ret;
-
-  va_start (argp, gmsgid);
-  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION,
-		       DK_WARNING);
-  ret = report_diagnostic (&diagnostic);
-  va_end (argp);
-  return ret;
-}
-
 
 /* Immediate error (i.e. do not buffer).  */
+/* This function uses the common diagnostics, but does not support
+   two locations; when being used in scanner.c, ensure that the location
+   is properly setup. Otherwise, use gfc_error_now_1.   */
 
 void
-gfc_error_now_2 (const char *gmsgid, ...)
+gfc_error_now (const char *gmsgid, ...)
 {
   va_list argp;
   diagnostic_info diagnostic;
@@ -1135,12 +1264,33 @@ gfc_error_now_2 (const char *gmsgid, ...)
   va_end (argp);
 }
 
+
+/* Fatal error, never returns.  */
+
+void
+gfc_fatal_error (const char *gmsgid, ...)
+{
+  va_list argp;
+  diagnostic_info diagnostic;
+
+  va_start (argp, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION, DK_FATAL);
+  report_diagnostic (&diagnostic);
+  va_end (argp);
+
+  gcc_unreachable ();
+}
+
 /* Clear the warning flag.  */
 
 void
 gfc_clear_warning (void)
 {
   warning_buffer.flag = 0;
+
+  gfc_clear_pp_buffer (pp_warning_buffer);
+  warningcount_buffered = 0;
+  werrorcount_buffered = 0;
 }
 
 
@@ -1155,15 +1305,32 @@ gfc_warning_check (void)
       warnings++;
       if (warning_buffer.message != NULL)
 	fputs (warning_buffer.message, stderr);
-      warning_buffer.flag = 0;
+      gfc_clear_warning ();
+    }
+  /* This is for the new diagnostics machinery.  */
+  else if (! gfc_output_buffer_empty_p (pp_warning_buffer))
+    {
+      pretty_printer *pp = global_dc->printer;
+      output_buffer *tmp_buffer = pp->buffer;
+      pp->buffer = pp_warning_buffer;
+      pp_really_flush (pp);
+      warningcount += warningcount_buffered;
+      werrorcount += werrorcount_buffered;
+      gcc_assert (warningcount_buffered + werrorcount_buffered == 1);
+      diagnostic_action_after_output (global_dc, 
+				      warningcount_buffered 
+				      ? DK_WARNING : DK_ERROR);
+      pp->buffer = tmp_buffer;
     }
 }
 
 
 /* Issue an error.  */
+/* Use gfc_error instead, unless two locations are used in the same
+   warning or for scanner.c, if the location is not properly set up.  */
 
 void
-gfc_error (const char *gmsgid, ...)
+gfc_error_1 (const char *gmsgid, ...)
 {
   va_list argp;
 
@@ -1183,7 +1350,7 @@ gfc_error (const char *gmsgid, ...)
 
   error_char ('\0');
 
-  if (buffer_flag == 0)
+  if (!buffered_p)
     gfc_increment_error_count();
 
   return;
@@ -1203,7 +1370,7 @@ warning:
 
   error_char ('\0');
 
-  if (buffer_flag == 0)
+  if (!buffered_p)
   {
     warnings++;
     if (warnings_are_errors)
@@ -1211,21 +1378,85 @@ warning:
   }
 }
 
+/* Issue an error.  */
+/* This function uses the common diagnostics, but does not support
+   two locations; when being used in scanner.c, ensure that the location
+   is properly setup. Otherwise, use gfc_error_1.   */
 
-/* Immediate error.  */
-
-void
-gfc_error_now (const char *gmsgid, ...)
+static void
+gfc_error (const char *gmsgid, va_list ap)
 {
   va_list argp;
-  int i;
+  va_copy (argp, ap);
+
+  if (warnings_not_errors)
+    {
+      gfc_warning (/*opt=*/0, gmsgid, argp);
+      va_end (argp);
+      return;
+    }
+
+  if (suppress_errors)
+    {
+      va_end (argp);
+      return;
+    }
+
+  diagnostic_info diagnostic;
+  bool fatal_errors = global_dc->fatal_errors;
+  pretty_printer *pp = global_dc->printer;
+  output_buffer *tmp_buffer = pp->buffer;
+
+  gfc_clear_pp_buffer (pp_error_buffer);
+
+  if (buffered_p)
+    {
+      pp->buffer = pp_error_buffer;
+      global_dc->fatal_errors = false;
+      /* To prevent -fmax-errors= triggering, we decrease it before
+     report_diagnostic increases it.  */
+      --errorcount;
+    }
+
+  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION, DK_ERROR);
+  report_diagnostic (&diagnostic);
+
+  if (buffered_p)
+    {
+      pp->buffer = tmp_buffer;
+      global_dc->fatal_errors = fatal_errors;
+    }
+
+  va_end (argp);
+}
+
+
+void
+gfc_error (const char *gmsgid, ...)
+{
+  va_list argp;
+  va_start (argp, gmsgid);
+  gfc_error (gmsgid, argp);
+  va_end (argp);
+}
+
+
+/* Immediate error.  */
+/* Use gfc_error_now instead, unless two locations are used in the same
+   warning or for scanner.c, if the location is not properly set up.  */
+
+void
+gfc_error_now_1 (const char *gmsgid, ...)
+{
+  va_list argp;
+  bool buffered_p_saved;
 
   error_buffer.flag = 1;
   error_buffer.index = 0;
   cur_error_buffer = &error_buffer;
 
-  i = buffer_flag;
-  buffer_flag = 0;
+  buffered_p_saved = buffered_p;
+  buffered_p = false;
 
   va_start (argp, gmsgid);
   error_print (_("Error:"), _(gmsgid), argp);
@@ -1235,48 +1466,27 @@ gfc_error_now (const char *gmsgid, ...)
 
   gfc_increment_error_count();
 
-  buffer_flag = i;
+  buffered_p = buffered_p_saved;
 
   if (flag_fatal_errors)
     exit (FATAL_EXIT_CODE);
 }
 
 
-/* Fatal error, never returns.  */
-
-void
-gfc_fatal_error (const char *gmsgid, ...)
-{
-  va_list argp;
-
-  buffer_flag = 0;
-
-  va_start (argp, gmsgid);
-  error_print (_("Fatal Error:"), _(gmsgid), argp);
-  va_end (argp);
-
-  exit (FATAL_EXIT_CODE);
-}
-
-
 /* This shouldn't happen... but sometimes does.  */
 
 void
-gfc_internal_error (const char *format, ...)
+gfc_internal_error (const char *gmsgid, ...)
 {
   va_list argp;
+  diagnostic_info diagnostic;
 
-  buffer_flag = 0;
-
-  va_start (argp, format);
-
-  show_loci (&gfc_current_locus, NULL);
-  error_printf ("Internal Error at (1):");
-
-  error_print ("", format, argp);
+  va_start (argp, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &argp, UNKNOWN_LOCATION, DK_ICE);
+  report_diagnostic (&diagnostic);
   va_end (argp);
 
-  exit (ICE_EXIT_CODE);
+  gcc_unreachable ();
 }
 
 
@@ -1286,62 +1496,97 @@ void
 gfc_clear_error (void)
 {
   error_buffer.flag = 0;
-  warnings_not_errors = 0;
+  warnings_not_errors = false;
+  gfc_clear_pp_buffer (pp_error_buffer);
 }
 
 
 /* Tests the state of error_flag.  */
 
-int
+bool
 gfc_error_flag_test (void)
 {
-  return error_buffer.flag;
+  return error_buffer.flag 
+    || !gfc_output_buffer_empty_p (pp_error_buffer);
 }
 
 
 /* Check to see if any errors have been saved.
    If so, print the error.  Returns the state of error_flag.  */
 
-int
+bool
 gfc_error_check (void)
 {
-  int rc;
+  bool error_raised = (bool) error_buffer.flag;
 
-  rc = error_buffer.flag;
-
-  if (error_buffer.flag)
+  if (error_raised)
     {
       if (error_buffer.message != NULL)
 	fputs (error_buffer.message, stderr);
       error_buffer.flag = 0;
+      gfc_clear_pp_buffer (pp_error_buffer);
 
       gfc_increment_error_count();
 
       if (flag_fatal_errors)
 	exit (FATAL_EXIT_CODE);
     }
+  /* This is for the new diagnostics machinery.  */
+  else if (! gfc_output_buffer_empty_p (pp_error_buffer))
+    {
+      error_raised = true;
+      pretty_printer *pp = global_dc->printer;
+      output_buffer *tmp_buffer = pp->buffer;
+      pp->buffer = pp_error_buffer;
+      pp_really_flush (pp);
+      ++errorcount;
+      gcc_assert (gfc_output_buffer_empty_p (pp_error_buffer));
+      diagnostic_action_after_output (global_dc, DK_ERROR);
+      pp->buffer = tmp_buffer;
+    }
 
-  return rc;
+  return error_raised;
 }
 
+/* Move the text buffered from FROM to TO, then clear
+   FROM. Independently if there was text in FROM, TO is also
+   cleared. */
+
+static void
+gfc_move_output_buffer_from_to (output_buffer *from, output_buffer *to)
+{
+  gfc_clear_pp_buffer (to);
+  /* We make sure this is always buffered.  */
+  to->flush_p = false;
+
+  if (! gfc_output_buffer_empty_p (from))
+    {
+      const char *str = output_buffer_formatted_text (from);
+      output_buffer_append_r (to, str, strlen (str));
+      gfc_clear_pp_buffer (from);
+    }
+}
 
 /* Save the existing error state.  */
 
 void
-gfc_push_error (gfc_error_buf *err)
+gfc_push_error (output_buffer *buffer_err, gfc_error_buf *err)
 {
   err->flag = error_buffer.flag;
   if (error_buffer.flag)
     err->message = xstrdup (error_buffer.message);
 
   error_buffer.flag = 0;
+
+  /* This part uses the common diagnostics.  */
+  gfc_move_output_buffer_from_to (pp_error_buffer, buffer_err);
 }
 
 
 /* Restore a previous pushed error state.  */
 
 void
-gfc_pop_error (gfc_error_buf *err)
+gfc_pop_error (output_buffer *buffer_err, gfc_error_buf *err)
 {
   error_buffer.flag = err->flag;
   if (error_buffer.flag)
@@ -1351,16 +1596,20 @@ gfc_pop_error (gfc_error_buf *err)
       memcpy (error_buffer.message, err->message, len);
       free (err->message);
     }
+  /* This part uses the common diagnostics.  */
+  gfc_move_output_buffer_from_to (buffer_err, pp_error_buffer);
 }
 
 
 /* Free a pushed error state, but keep the current error state.  */
 
 void
-gfc_free_error (gfc_error_buf *err)
+gfc_free_error (output_buffer *buffer_err, gfc_error_buf *err)
 {
   if (err->flag)
     free (err->message);
+
+  gfc_clear_pp_buffer (buffer_err);
 }
 
 
@@ -1370,18 +1619,18 @@ void
 gfc_get_errors (int *w, int *e)
 {
   if (w != NULL)
-    *w = warnings;
+    *w = warnings + warningcount + werrorcount;
   if (e != NULL)
-    *e = errors;
+    *e = errors + errorcount + sorrycount + werrorcount;
 }
 
 
 /* Switch errors into warnings.  */
 
 void
-gfc_errors_to_warnings (int f)
+gfc_errors_to_warnings (bool f)
 {
-  warnings_not_errors = (f == 1) ? 1 : 0;
+  warnings_not_errors = f;
 }
 
 void
@@ -1391,6 +1640,10 @@ gfc_diagnostics_init (void)
   diagnostic_finalizer (global_dc) = gfc_diagnostic_finalizer;
   diagnostic_format_decoder (global_dc) = gfc_format_decoder;
   global_dc->caret_char = '^';
+  pp_warning_buffer = new (XNEW (output_buffer)) output_buffer ();
+  pp_warning_buffer->flush_p = false;
+  pp_error_buffer = new (XNEW (output_buffer)) output_buffer ();
+  pp_error_buffer->flush_p = false;
 }
 
 void

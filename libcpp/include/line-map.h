@@ -1,5 +1,5 @@
 /* Map logical line numbers to (source file, line number) pairs.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -579,6 +579,16 @@ bool linemap_location_from_macro_expansion_p (const struct line_maps *,
     if (! (EXPR))				\
       abort ();					\
   } while (0)
+ 
+/* Assert that becomes a conditional expression when checking is disabled at
+   compilation time.  Use this for conditions that should not happen but if
+   they happen, it is better to handle them gracefully rather than crash
+   randomly later. 
+   Usage:
+
+   if (linemap_assert_fails(EXPR)) handle_error(); */
+#define linemap_assert_fails(EXPR) __extension__ \
+  ({linemap_assert (EXPR); false;}) 
 
 /* Assert that MAP encodes locations of tokens that are not part of
    the replacement-list of a macro expansion.  */
@@ -586,7 +596,9 @@ bool linemap_location_from_macro_expansion_p (const struct line_maps *,
   ({linemap_assert (!linemap_macro_expansion_map_p (LINE_MAP)); \
     (LINE_MAP);})
 #else
-#define linemap_assert(EXPR)
+/* Include EXPR, so that unused variable warnings do not occur.  */
+#define linemap_assert(EXPR) ((void)(0 && (EXPR)))
+#define linemap_assert_fails(EXPR) (! (EXPR))
 #define linemap_check_ordinary(LINE_MAP) (LINE_MAP)
 #endif
 

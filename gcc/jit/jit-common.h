@@ -1,5 +1,5 @@
 /* Core of implementation of libgccjit.so
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by David Malcolm <dmalcolm@redhat.com>.
 
 This file is part of GCC.
@@ -23,6 +23,14 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "libgccjit.h"
 
+#include "hash-set.h"
+#include "input.h"
+#include "vec.h"
+#include "double-int.h"
+#include "alias.h"
+#include "flags.h"
+#include "symtab.h"
+#include "inchash.h"
 #include "tree.h"
 #include "tree-iterator.h"
 
@@ -34,7 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 #endif
 
-const int NUM_GCC_JIT_TYPES = GCC_JIT_TYPE_FILE_PTR + 1;
+const int NUM_GCC_JIT_TYPES = GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE + 1;
 
 /* This comment is included by the docs.
 
@@ -97,6 +105,9 @@ namespace jit {
 
 class result;
 class dump;
+class logger;
+class builtins_manager; // declared within jit-builtins.h
+class tempdir;
 
 namespace recording {
 
@@ -104,7 +115,6 @@ namespace recording {
 
   /* Indentation indicates inheritance: */
   class context;
-  class builtins_manager; // declared within jit-builtins.h
   class memento;
     class string;
     class location;
@@ -158,6 +168,8 @@ public:
 	bool update_locations);
   ~dump ();
 
+  recording::context &get_context () { return m_ctxt; }
+
   void write (const char *fmt, ...)
     GNU_PRINTF(2, 3);
 
@@ -165,6 +177,8 @@ public:
 
   recording::location *
   make_location () const;
+
+  FILE *get_file () const { return m_file; }
 
 private:
   recording::context &m_ctxt;

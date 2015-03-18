@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -52,18 +52,35 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "machmode.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "output.h"
 #include "diagnostic-core.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "target.h"
 #include "tm_p.h"
 #include "target-def.h"
@@ -165,6 +182,14 @@ default_legitimize_address (rtx x, rtx orig_x ATTRIBUTE_UNUSED,
 			    machine_mode mode ATTRIBUTE_UNUSED)
 {
   return x;
+}
+
+bool
+default_legitimize_address_displacement (rtx *disp ATTRIBUTE_UNUSED,
+					 rtx *offset ATTRIBUTE_UNUSED,
+					 machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return false;
 }
 
 rtx
@@ -841,11 +866,8 @@ default_internal_arg_pointer (void)
 }
 
 rtx
-default_static_chain (const_tree fndecl, bool incoming_p)
+default_static_chain (const_tree ARG_UNUSED (fndecl_or_type), bool incoming_p)
 {
-  if (!DECL_STATIC_CHAIN (fndecl))
-    return NULL;
-
   if (incoming_p)
     {
 #ifdef STATIC_CHAIN_INCOMING_REGNUM
@@ -1430,7 +1452,7 @@ get_move_ratio (bool speed_p ATTRIBUTE_UNUSED)
    a call to memcpy emitted.  */
 
 bool
-default_use_by_pieces_infrastructure_p (unsigned int size,
+default_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 					unsigned int alignment,
 					enum by_pieces_operation op,
 					bool speed_p)
@@ -1634,12 +1656,8 @@ default_get_pch_validity (size_t *sz)
 static const char *
 pch_option_mismatch (const char *option)
 {
-  char *r;
-
-  asprintf (&r, _("created and used with differing settings of '%s'"), option);
-  if (r == NULL)
-    return _("out of memory");
-  return r;
+  return xasprintf (_("created and used with differing settings of '%s'"),
+		    option);
 }
 
 /* Default version of pch_valid_p.  */

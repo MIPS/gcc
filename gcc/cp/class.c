@@ -1,5 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -24,6 +24,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tm.h"
 #include "tree.h"
 #include "stringpool.h"
@@ -38,10 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -129,7 +135,7 @@ vec<tree, va_gc> *local_classes;
 static tree get_vfield_name (tree);
 static void finish_struct_anon (tree);
 static tree get_vtable_name (tree);
-static tree get_basefndecls (tree, tree);
+static void get_basefndecls (tree, tree, vec<tree> *);
 static int build_primary_vtable (tree, tree);
 static int build_secondary_vtable (tree);
 static void finish_vtbls (tree);
@@ -359,9 +365,9 @@ build_base_path (enum tree_code code,
 
   /* Don't bother with the calculations inside sizeof; they'll ICE if the
      source type is incomplete and the pointer value doesn't matter.  In a
-     template (even in fold_non_dependent_expr), we don't have vtables set
-     up properly yet, and the value doesn't matter there either; we're just
-     interested in the result of overload resolution.  */
+     template (even in instantiate_non_dependent_expr), we don't have vtables
+     set up properly yet, and the value doesn't matter there either; we're
+     just interested in the result of overload resolution.  */
   if (cp_unevaluated_operand != 0
       || in_template_function ())
     {
@@ -441,10 +447,20 @@ build_base_path (enum tree_code code,
 	  v_offset = cp_build_indirect_ref (v_offset, RO_NULL, complain);
 	}
       else
-	v_offset = build_vfield_ref (cp_build_indirect_ref (expr, RO_NULL,
-                                                            complain),
-				     TREE_TYPE (TREE_TYPE (expr)));
-      
+	{
+	  tree t = expr;
+	  if ((flag_sanitize & SANITIZE_VPTR) && fixed_type_p == 0)
+	    {
+	      t = cp_ubsan_maybe_instrument_cast_to_vbase (input_location,
+							   probe, expr);
+	      if (t == NULL_TREE)
+		t = expr;
+	    }
+	  v_offset = build_vfield_ref (cp_build_indirect_ref (t, RO_NULL,
+							      complain),
+	  TREE_TYPE (TREE_TYPE (expr)));
+	}
+
       if (v_offset == error_mark_node)
 	return error_mark_node;
 
@@ -1352,17 +1368,72 @@ handle_using_decl (tree using_decl, tree t)
     alter_access (t, decl, access);
 }
 
-/* walk_tree callback for check_abi_tags: if the type at *TP involves any
-   types with abi tags, add the corresponding identifiers to the VEC in
-   *DATA and set IDENTIFIER_MARKED.  */
+/* Data structure for find_abi_tags_r, below.  */
 
 struct abi_tag_data
 {
-  tree t;
-  tree subob;
-  // error_mark_node to get diagnostics; otherwise collect missing tags here
-  tree tags;
+  tree t;		// The type that we're checking for missing tags.
+  tree subob;		// The subobject of T that we're getting tags from.
+  tree tags; // error_mark_node for diagnostics, or a list of missing tags.
 };
+
+/* Subroutine of find_abi_tags_r. Handle a single TAG found on the class TP
+   in the context of P.  TAG can be either an identifier (the DECL_NAME of
+   a tag NAMESPACE_DECL) or a STRING_CST (a tag attribute).  */
+
+static void
+check_tag (tree tag, tree *tp, abi_tag_data *p)
+{
+  tree id;
+
+  if (TREE_CODE (tag) == STRING_CST)
+    id = get_identifier (TREE_STRING_POINTER (tag));
+  else
+    {
+      id = tag;
+      tag = NULL_TREE;
+    }
+
+  if (!IDENTIFIER_MARKED (id))
+    {
+      if (!tag)
+	tag = build_string (IDENTIFIER_LENGTH (id) + 1,
+			    IDENTIFIER_POINTER (id));
+      if (p->tags != error_mark_node)
+	{
+	  /* We're collecting tags from template arguments.  */
+	  p->tags = tree_cons (NULL_TREE, tag, p->tags);
+	  ABI_TAG_IMPLICIT (p->tags) = true;
+
+	  /* Don't inherit this tag multiple times.  */
+	  IDENTIFIER_MARKED (id) = true;
+	}
+
+      /* Otherwise we're diagnosing missing tags.  */
+      else if (TYPE_P (p->subob))
+	{
+	  if (warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
+		       "that base %qT has", p->t, tag, p->subob))
+	    inform (location_of (p->subob), "%qT declared here",
+		    p->subob);
+	}
+      else
+	{
+	  if (warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
+		       "that %qT (used in the type of %qD) has",
+		       p->t, tag, *tp, p->subob))
+	    {
+	      inform (location_of (p->subob), "%qD declared here",
+		      p->subob);
+	      inform (location_of (*tp), "%qT declared here", *tp);
+	    }
+	}
+    }
+}
+
+/* walk_tree callback for check_abi_tags: if the type at *TP involves any
+   types with abi tags, add the corresponding identifiers to the VEC in
+   *DATA and set IDENTIFIER_MARKED.  */
 
 static tree
 find_abi_tags_r (tree *tp, int *walk_subtrees, void *data)
@@ -1374,48 +1445,21 @@ find_abi_tags_r (tree *tp, int *walk_subtrees, void *data)
      anyway, but let's make sure of it.  */
   *walk_subtrees = false;
 
+  abi_tag_data *p = static_cast<struct abi_tag_data*>(data);
+
+  for (tree ns = decl_namespace_context (*tp);
+       ns != global_namespace;
+       ns = CP_DECL_CONTEXT (ns))
+    if (NAMESPACE_ABI_TAG (ns))
+      check_tag (DECL_NAME (ns), tp, p);
+
   if (tree attributes = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (*tp)))
     {
-      struct abi_tag_data *p = static_cast<struct abi_tag_data*>(data);
       for (tree list = TREE_VALUE (attributes); list;
 	   list = TREE_CHAIN (list))
 	{
 	  tree tag = TREE_VALUE (list);
-	  tree id = get_identifier (TREE_STRING_POINTER (tag));
-	  if (!IDENTIFIER_MARKED (id))
-	    {
-	      if (p->tags != error_mark_node)
-		{
-		  /* We're collecting tags from template arguments.  */
-		  tree str = build_string (IDENTIFIER_LENGTH (id),
-					   IDENTIFIER_POINTER (id));
-		  p->tags = tree_cons (NULL_TREE, str, p->tags);
-		  ABI_TAG_IMPLICIT (p->tags) = true;
-
-		  /* Don't inherit this tag multiple times.  */
-		  IDENTIFIER_MARKED (id) = true;
-		}
-
-	      /* Otherwise we're diagnosing missing tags.  */
-	      else if (TYPE_P (p->subob))
-		{
-		  if (warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
-			       "that base %qT has", p->t, tag, p->subob))
-		    inform (location_of (p->subob), "%qT declared here",
-			    p->subob);
-		}
-	      else
-		{
-		  if (warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
-			       "that %qT (used in the type of %qD) has",
-			       p->t, tag, *tp, p->subob))
-		    {
-		      inform (location_of (p->subob), "%qD declared here",
-			      p->subob);
-		      inform (location_of (*tp), "%qT declared here", *tp);
-		    }
-		}
-	    }
+	  check_tag (tag, tp, p);
 	}
     }
   return NULL_TREE;
@@ -1427,6 +1471,12 @@ find_abi_tags_r (tree *tp, int *walk_subtrees, void *data)
 static void
 mark_type_abi_tags (tree t, bool val)
 {
+  for (tree ns = decl_namespace_context (t);
+       ns != global_namespace;
+       ns = CP_DECL_CONTEXT (ns))
+    if (NAMESPACE_ABI_TAG (ns))
+      IDENTIFIER_MARKED (DECL_NAME (ns)) = val;
+
   tree attributes = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (t));
   if (attributes)
     {
@@ -2717,16 +2767,16 @@ modify_all_vtables (tree t, tree virtuals)
 /* Get the base virtual function declarations in T that have the
    indicated NAME.  */
 
-static tree
-get_basefndecls (tree name, tree t)
+static void
+get_basefndecls (tree name, tree t, vec<tree> *base_fndecls)
 {
   tree methods;
-  tree base_fndecls = NULL_TREE;
   int n_baseclasses = BINFO_N_BASE_BINFOS (TYPE_BINFO (t));
   int i;
 
   /* Find virtual functions in T with the indicated NAME.  */
   i = lookup_fnfields_1 (t, name);
+  bool found_decls = false;
   if (i != -1)
     for (methods = (*CLASSTYPE_METHOD_VEC (t))[i];
 	 methods;
@@ -2736,20 +2786,20 @@ get_basefndecls (tree name, tree t)
 
 	if (TREE_CODE (method) == FUNCTION_DECL
 	    && DECL_VINDEX (method))
-	  base_fndecls = tree_cons (NULL_TREE, method, base_fndecls);
+	  {
+	    base_fndecls->safe_push (method);
+	    found_decls = true;
+	  }
       }
 
-  if (base_fndecls)
-    return base_fndecls;
+  if (found_decls)
+    return;
 
   for (i = 0; i < n_baseclasses; i++)
     {
       tree basetype = BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (t), i));
-      base_fndecls = chainon (get_basefndecls (name, basetype),
-			      base_fndecls);
+      get_basefndecls (name, basetype, base_fndecls);
     }
-
-  return base_fndecls;
 }
 
 /* If this declaration supersedes the declaration of
@@ -2777,6 +2827,10 @@ check_for_override (tree decl, tree ctype)
     {
       DECL_VINDEX (decl) = decl;
       overrides_found = true;
+      if (warn_override && !DECL_OVERRIDE_P (decl)
+	  && !DECL_DESTRUCTOR_P (decl))
+	warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wsuggest_override,
+		    "%q+D can be marked override", decl);
     }
 
   if (DECL_VIRTUAL_P (decl))
@@ -2811,7 +2865,6 @@ warn_hidden (tree t)
       tree fn;
       tree name;
       tree fndecl;
-      tree base_fndecls;
       tree base_binfo;
       tree binfo;
       int j;
@@ -2820,19 +2873,18 @@ warn_hidden (tree t)
 	 have the same name.  Figure out what name that is.  */
       name = DECL_NAME (OVL_CURRENT (fns));
       /* There are no possibly hidden functions yet.  */
-      base_fndecls = NULL_TREE;
+      auto_vec<tree, 20> base_fndecls;
       /* Iterate through all of the base classes looking for possibly
 	 hidden functions.  */
       for (binfo = TYPE_BINFO (t), j = 0;
 	   BINFO_BASE_ITERATE (binfo, j, base_binfo); j++)
 	{
 	  tree basetype = BINFO_TYPE (base_binfo);
-	  base_fndecls = chainon (get_basefndecls (name, basetype),
-				  base_fndecls);
+	  get_basefndecls (name, basetype, &base_fndecls);
 	}
 
       /* If there are no functions to hide, continue.  */
-      if (!base_fndecls)
+      if (base_fndecls.is_empty ())
 	continue;
 
       /* Remove any overridden functions.  */
@@ -2842,28 +2894,27 @@ warn_hidden (tree t)
 	  if (TREE_CODE (fndecl) == FUNCTION_DECL
 	      && DECL_VINDEX (fndecl))
 	    {
-	      tree *prev = &base_fndecls;
-
-	      while (*prev)
 		/* If the method from the base class has the same
 		   signature as the method from the derived class, it
 		   has been overridden.  */
-		if (same_signature_p (fndecl, TREE_VALUE (*prev)))
-		  *prev = TREE_CHAIN (*prev);
-		else
-		  prev = &TREE_CHAIN (*prev);
+		for (size_t k = 0; k < base_fndecls.length (); k++)
+		if (base_fndecls[k]
+		    && same_signature_p (fndecl, base_fndecls[k]))
+		  base_fndecls[k] = NULL_TREE;
 	    }
 	}
 
       /* Now give a warning for all base functions without overriders,
 	 as they are hidden.  */
-      while (base_fndecls)
-	{
-	  /* Here we know it is a hider, and no overrider exists.  */
-	  warning (OPT_Woverloaded_virtual, "%q+D was hidden", TREE_VALUE (base_fndecls));
-	  warning (OPT_Woverloaded_virtual, "  by %q+D", fns);
-	  base_fndecls = TREE_CHAIN (base_fndecls);
-	}
+      size_t k;
+      tree base_fndecl;
+      FOR_EACH_VEC_ELT (base_fndecls, k, base_fndecl)
+	if (base_fndecl)
+	  {
+	      /* Here we know it is a hider, and no overrider exists.  */
+	      warning (OPT_Woverloaded_virtual, "%q+D was hidden", base_fndecl);
+	      warning (OPT_Woverloaded_virtual, "  by %q+D", fns);
+	  }
     }
 }
 
@@ -3572,13 +3623,15 @@ check_field_decls (tree t, tree *access_decls,
 	  CLASSTYPE_NON_STD_LAYOUT (t) = 1;
 	  if (DECL_INITIAL (x) == NULL_TREE)
 	    SET_CLASSTYPE_REF_FIELDS_NEED_INIT (t, 1);
-
-	  /* ARM $12.6.2: [A member initializer list] (or, for an
-	     aggregate, initialization by a brace-enclosed list) is the
-	     only way to initialize nonstatic const and reference
-	     members.  */
-	  TYPE_HAS_COMPLEX_COPY_ASSIGN (t) = 1;
-	  TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) = 1;
+	  if (cxx_dialect < cxx11)
+	    {
+	      /* ARM $12.6.2: [A member initializer list] (or, for an
+		 aggregate, initialization by a brace-enclosed list) is the
+		 only way to initialize nonstatic const and reference
+		 members.  */
+	      TYPE_HAS_COMPLEX_COPY_ASSIGN (t) = 1;
+	      TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) = 1;
+	    }
 	}
 
       type = strip_array_types (type);
@@ -3680,13 +3733,15 @@ check_field_decls (tree t, tree *access_decls,
 	  C_TYPE_FIELDS_READONLY (t) = 1;
 	  if (DECL_INITIAL (x) == NULL_TREE)
 	    SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT (t, 1);
-
-	  /* ARM $12.6.2: [A member initializer list] (or, for an
-	     aggregate, initialization by a brace-enclosed list) is the
-	     only way to initialize nonstatic const and reference
-	     members.  */
-	  TYPE_HAS_COMPLEX_COPY_ASSIGN (t) = 1;
-	  TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) = 1;
+	  if (cxx_dialect < cxx11)
+	    {
+	      /* ARM $12.6.2: [A member initializer list] (or, for an
+		 aggregate, initialization by a brace-enclosed list) is the
+		 only way to initialize nonstatic const and reference
+		 members.  */
+	      TYPE_HAS_COMPLEX_COPY_ASSIGN (t) = 1;
+	      TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) = 1;
+	    }
 	}
       /* A field that is pseudo-const makes the structure likewise.  */
       else if (CLASS_TYPE_P (type))
@@ -6745,7 +6800,8 @@ finish_struct (tree t, tree attributes)
 	    }
 	}
       if (!ok)
-	fatal_error ("definition of std::initializer_list does not match "
+	fatal_error (input_location,
+		     "definition of std::initializer_list does not match "
 		     "#include <initializer_list>");
     }
 
@@ -6941,7 +6997,8 @@ resolves_to_fixed_type_p (tree instance, int* nonnull)
   tree fixed;
 
   /* processing_template_decl can be false in a template if we're in
-     fold_non_dependent_expr, but we still want to suppress this check.  */
+     instantiate_non_dependent_expr, but we still want to suppress
+     this check.  */
   if (in_template_function ())
     {
       /* In a template we only care about the type of the result.  */

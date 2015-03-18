@@ -1,5 +1,5 @@
 /* Pointer Bounds Checker IPA passes.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Ilya Enkovich (ilya.enkovich@intel.com)
 
 This file is part of GCC.
@@ -21,9 +21,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree-core.h"
-#include "stor-layout.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
+#include "stor-layout.h"
 #include "tree-pass.h"
 #include "stringpool.h"
 #include "bitmap.h"
@@ -40,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 #include "cgraph.h"
 #include "tree-chkp.h"
+#include "tree-inline.h"
 #include "ipa-chkp.h"
 
 /*  Pointer Bounds Checker has two IPA passes to support code instrumentation.
@@ -89,6 +100,44 @@ along with GCC; see the file COPYING3.  If not see
     removed.  */
 
 #define CHKP_BOUNDS_OF_SYMBOL_PREFIX "__chkp_bounds_of_"
+#define CHKP_WRAPPER_SYMBOL_PREFIX "__mpx_wrapper_"
+
+/* Return 1 calls to FNDECL should be replaced with
+   a call to wrapper function.  */
+static bool
+chkp_wrap_function (tree fndecl)
+{
+  if (!flag_chkp_use_wrappers)
+    return false;
+
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
+    {
+      switch (DECL_FUNCTION_CODE (fndecl))
+	{
+	case BUILT_IN_STRLEN:
+	case BUILT_IN_STRCPY:
+	case BUILT_IN_STRNCPY:
+	case BUILT_IN_STPCPY:
+	case BUILT_IN_STPNCPY:
+	case BUILT_IN_STRCAT:
+	case BUILT_IN_STRNCAT:
+	case BUILT_IN_MEMCPY:
+	case BUILT_IN_MEMPCPY:
+	case BUILT_IN_MEMSET:
+	case BUILT_IN_MEMMOVE:
+	case BUILT_IN_BZERO:
+	case BUILT_IN_MALLOC:
+	case BUILT_IN_CALLOC:
+	case BUILT_IN_REALLOC:
+	  return 1;
+
+	default:
+	  return 0;
+	}
+    }
+
+  return false;
+}
 
 /* Build a clone of FNDECL with a modified name.  */
 
@@ -113,11 +162,20 @@ chkp_build_instrumented_fndecl (tree fndecl)
      because it conflicts with decl merging algorithms in LTO.
      Achieve the result by using transparent alias name for the
      instrumented version.  */
-  s = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl));
-  s += ".chkp";
-  new_name = get_identifier (s.c_str ());
-  IDENTIFIER_TRANSPARENT_ALIAS (new_name) = 1;
-  TREE_CHAIN (new_name) = DECL_ASSEMBLER_NAME (fndecl);
+  if (chkp_wrap_function(fndecl))
+    {
+      s = CHKP_WRAPPER_SYMBOL_PREFIX;
+      s += IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl));
+      new_name = get_identifier (s.c_str ());
+    }
+  else
+    {
+      s = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl));
+      s += ".chkp";
+      new_name = get_identifier (s.c_str ());
+      IDENTIFIER_TRANSPARENT_ALIAS (new_name) = 1;
+      TREE_CHAIN (new_name) = DECL_ASSEMBLER_NAME (fndecl);
+    }
   SET_DECL_ASSEMBLER_NAME (new_decl, new_name);
 
   /* For functions with body versioning will make a copy of arguments.
@@ -128,6 +186,16 @@ chkp_build_instrumented_fndecl (tree fndecl)
   /* We are going to modify attributes list and therefore should
      make own copy.  */
   DECL_ATTRIBUTES (new_decl) = copy_list (DECL_ATTRIBUTES (fndecl));
+
+  /* Change builtin function code.  */
+  if (DECL_BUILT_IN (new_decl))
+    {
+      gcc_assert (DECL_BUILT_IN_CLASS (new_decl) == BUILT_IN_NORMAL);
+      gcc_assert (DECL_FUNCTION_CODE (new_decl) < BEGIN_CHKP_BUILTINS);
+      DECL_FUNCTION_CODE (new_decl)
+	= (enum built_in_function)(DECL_FUNCTION_CODE (new_decl)
+				   + BEGIN_CHKP_BUILTINS + 1);
+    }
 
   return new_decl;
 }
@@ -354,6 +422,45 @@ chkp_add_bounds_params_to_function (tree fndecl)
     chkp_copy_function_type_adding_bounds (TREE_TYPE (fndecl));
 }
 
+/* Return an instrumentation clone for builtin function
+   FNDECL.  Create one if needed.  */
+
+tree
+chkp_maybe_clone_builtin_fndecl (tree fndecl)
+{
+  tree clone;
+  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
+
+  gcc_assert (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+	      && fcode < BEGIN_CHKP_BUILTINS);
+
+  fcode = (enum built_in_function) (fcode + BEGIN_CHKP_BUILTINS + 1);
+  clone = builtin_decl_explicit (fcode);
+  if (clone)
+    return clone;
+
+  clone = chkp_build_instrumented_fndecl (fndecl);
+  chkp_add_bounds_params_to_function (clone);
+
+  gcc_assert (DECL_FUNCTION_CODE (clone) == fcode);
+
+  set_builtin_decl (fcode, clone, false);
+
+  return clone;
+}
+
+/* Return 1 if function FNDECL should be instrumented.  */
+
+bool
+chkp_instrumentable_p (tree fndecl)
+{
+  struct function *fn = DECL_STRUCT_FUNCTION (fndecl);
+  return (!lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl))
+	  && (!flag_chkp_instrument_marked_only
+	      || lookup_attribute ("bnd_instrument", DECL_ATTRIBUTES (fndecl)))
+	  && (!fn || !copy_forbidden (fn, fndecl)));
+}
+
 /* Return clone created for instrumentation of NODE or NULL.  */
 
 cgraph_node *
@@ -363,6 +470,54 @@ chkp_maybe_create_clone (tree fndecl)
   cgraph_node *clone = node->instrumented_version;
 
   gcc_assert (!node->instrumentation_clone);
+
+  if (DECL_BUILT_IN (fndecl)
+      && (DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL
+	  || DECL_FUNCTION_CODE (fndecl) >= BEGIN_CHKP_BUILTINS))
+    return NULL;
+
+  clone = node->instrumented_version;
+
+  /* Some instrumented builtin function calls may be optimized and
+     cgraph nodes may be removed as unreachable.  Later optimizations
+     may generate new calls to removed functions and in this case
+     we have to recreate cgraph node.  FUNCTION_DECL for instrumented
+     builtin still exists and should be reused in such case.  */
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && fndecl == builtin_decl_explicit (DECL_FUNCTION_CODE (fndecl))
+      && !clone)
+    {
+      enum built_in_function fncode = DECL_FUNCTION_CODE (fndecl);
+      tree new_decl;
+
+      fncode = (enum built_in_function) (fncode + BEGIN_CHKP_BUILTINS + 1);
+      new_decl = builtin_decl_explicit (fncode);
+
+      /* We've actually already created an instrumented clone once.
+	 Restore it.  */
+      if (new_decl)
+	{
+	  clone = cgraph_node::get (new_decl);
+
+	  if (!clone)
+	    {
+	      gcc_assert (!gimple_has_body_p (fndecl));
+	      clone = cgraph_node::get_create (new_decl);
+	      clone->externally_visible = node->externally_visible;
+	      clone->local = node->local;
+	      clone->address_taken = node->address_taken;
+	      clone->thunk = node->thunk;
+	      clone->alias = node->alias;
+	      clone->weakref = node->weakref;
+	      clone->cpp_implicit_alias = node->cpp_implicit_alias;
+	      clone->orig_decl = fndecl;
+	      clone->instrumentation_clone = true;
+	    }
+
+	  clone->instrumented_version = node;
+	  node->instrumented_version = clone;
+	}
+    }
 
   if (!clone)
     {
@@ -388,10 +543,10 @@ chkp_maybe_create_clone (tree fndecl)
 	{
 	  /* If function will not be instrumented, then it's instrumented
 	     version is a thunk for the original.  */
-	  if (lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl))
-	      || (flag_chkp_instrument_marked_only
-		  && !lookup_attribute ("bnd_instrument", DECL_ATTRIBUTES (fndecl))))
+	  if (!chkp_instrumentable_p (fndecl))
 	    {
+	      clone->remove_callees ();
+	      clone->remove_all_references ();
 	      clone->thunk.thunk_p = true;
 	      clone->thunk.add_pointer_bounds_args = true;
 	      clone->create_edge (node, NULL, 0, CGRAPH_FREQ_BASE);
@@ -408,6 +563,15 @@ chkp_maybe_create_clone (tree fndecl)
 	 actually copies args list from the original decl.  */
       chkp_add_bounds_params_to_function (new_decl);
 
+      /* Remember builtin fndecl.  */
+      if (DECL_BUILT_IN_CLASS (clone->decl) == BUILT_IN_NORMAL
+	  && fndecl == builtin_decl_explicit (DECL_FUNCTION_CODE (fndecl)))
+	{
+	  gcc_assert (!builtin_decl_explicit (DECL_FUNCTION_CODE (clone->decl)));
+	  set_builtin_decl (DECL_FUNCTION_CODE (clone->decl),
+			    clone->decl, false);
+	}
+
       /* Clones have the same comdat group as originals.  */
       if (node->same_comdat_group
 	  || DECL_ONE_ONLY (node->decl))
@@ -417,18 +581,18 @@ chkp_maybe_create_clone (tree fndecl)
 	symtab->call_cgraph_insertion_hooks (clone);
 
       /* Clone all aliases.  */
-      for (i = 0; node->iterate_referring (i, ref); i++)
-	if (ref->use == IPA_REF_ALIAS)
-	  {
-	    struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
-	    struct cgraph_node *chkp_alias
-	      = chkp_maybe_create_clone (alias->decl);
-	    chkp_alias->create_reference (clone, IPA_REF_ALIAS, NULL);
-	  }
+      for (i = 0; node->iterate_direct_aliases (i, ref); i++)
+	{
+	  struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
+	  struct cgraph_node *chkp_alias
+	    = chkp_maybe_create_clone (alias->decl);
+	  chkp_alias->create_reference (clone, IPA_REF_ALIAS, NULL);
+	}
 
       /* Clone all thunks.  */
       for (e = node->callers; e; e = e->next_caller)
-	if (e->caller->thunk.thunk_p)
+	if (e->caller->thunk.thunk_p
+	    && !e->caller->thunk.add_pointer_bounds_args)
 	  {
 	    struct cgraph_node *thunk
 	      = chkp_maybe_create_clone (e->caller->decl);
@@ -474,6 +638,7 @@ static unsigned int
 chkp_versioning (void)
 {
   struct cgraph_node *node;
+  const char *reason;
 
   bitmap_obstack_initialize (NULL);
 
@@ -483,13 +648,20 @@ chkp_versioning (void)
 	  && !node->instrumented_version
 	  && !node->alias
 	  && !node->thunk.thunk_p
-	  && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (node->decl))
-	  && (!flag_chkp_instrument_marked_only
-	      || lookup_attribute ("bnd_instrument",
-				   DECL_ATTRIBUTES (node->decl)))
-	  /* No builtins instrumentation for now.  */
-	  && DECL_BUILT_IN_CLASS (node->decl) == NOT_BUILT_IN)
-	chkp_maybe_create_clone (node->decl);
+	  && (!DECL_BUILT_IN (node->decl)
+	      || (DECL_BUILT_IN_CLASS (node->decl) == BUILT_IN_NORMAL
+		  && DECL_FUNCTION_CODE (node->decl) < BEGIN_CHKP_BUILTINS)))
+	{
+	  if (chkp_instrumentable_p (node->decl))
+	    chkp_maybe_create_clone (node->decl);
+	  else if ((reason = copy_forbidden (DECL_STRUCT_FUNCTION (node->decl),
+					     node->decl)))
+	    {
+	      if (warning_at (DECL_SOURCE_LOCATION (node->decl), OPT_Wchkp,
+			      "function cannot be instrumented"))
+		inform (DECL_SOURCE_LOCATION (node->decl), reason, node->decl);
+	    }
+	}
     }
 
   /* Mark all aliases and thunks of functions with no instrumented
@@ -517,7 +689,7 @@ chkp_versioning (void)
    function.  */
 
 static unsigned int
-chkp_produce_thunks (void)
+chkp_produce_thunks (bool early)
 {
   struct cgraph_node *node;
 
@@ -526,7 +698,9 @@ chkp_produce_thunks (void)
       if (!node->instrumentation_clone
 	  && node->instrumented_version
 	  && gimple_has_body_p (node->decl)
-	  && gimple_has_body_p (node->instrumented_version->decl))
+	  && gimple_has_body_p (node->instrumented_version->decl)
+	  && (!lookup_attribute ("always_inline", DECL_ATTRIBUTES (node->decl))
+	      || !early))
 	{
 	  node->release_body ();
 	  node->remove_callees ();
@@ -544,23 +718,37 @@ chkp_produce_thunks (void)
   /* Mark instrumentation clones created for aliases and thunks
      as insttrumented so they could be removed as unreachable
      now.  */
-  FOR_EACH_DEFINED_FUNCTION (node)
+  if (!early)
     {
-      if (node->instrumentation_clone
-	  && (node->alias || node->thunk.thunk_p)
-	  && !chkp_function_instrumented_p (node->decl))
-	chkp_function_mark_instrumented (node->decl);
+      FOR_EACH_DEFINED_FUNCTION (node)
+      {
+	if (node->instrumentation_clone
+	    && (node->alias || node->thunk.thunk_p)
+	    && !chkp_function_instrumented_p (node->decl))
+	  chkp_function_mark_instrumented (node->decl);
+      }
     }
 
-  symtab->remove_unreachable_nodes (true, dump_file);
-
-  return 0;
+  return TODO_remove_functions;
 }
 
 const pass_data pass_data_ipa_chkp_versioning =
 {
   SIMPLE_IPA_PASS, /* type */
   "chkp_versioning", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0 /* todo_flags_finish */
+};
+
+const pass_data pass_data_ipa_chkp_early_produce_thunks =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "chkp_ecleanup", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_NONE, /* tv_id */
   0, /* properties_required */
@@ -608,6 +796,31 @@ public:
 
 }; // class pass_ipa_chkp_versioning
 
+class pass_ipa_chkp_early_produce_thunks : public simple_ipa_opt_pass
+{
+public:
+  pass_ipa_chkp_early_produce_thunks (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_chkp_early_produce_thunks, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual opt_pass * clone ()
+    {
+      return new pass_ipa_chkp_early_produce_thunks (m_ctxt);
+    }
+
+  virtual bool gate (function *)
+    {
+      return flag_check_pointer_bounds;
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      return chkp_produce_thunks (true);
+    }
+
+}; // class pass_chkp_produce_thunks
+
 class pass_ipa_chkp_produce_thunks : public simple_ipa_opt_pass
 {
 public:
@@ -628,7 +841,7 @@ public:
 
   virtual unsigned int execute (function *)
     {
-      return chkp_produce_thunks ();
+      return chkp_produce_thunks (false);
     }
 
 }; // class pass_chkp_produce_thunks
@@ -637,6 +850,12 @@ simple_ipa_opt_pass *
 make_pass_ipa_chkp_versioning (gcc::context *ctxt)
 {
   return new pass_ipa_chkp_versioning (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_ipa_chkp_early_produce_thunks (gcc::context *ctxt)
+{
+  return new pass_ipa_chkp_early_produce_thunks (ctxt);
 }
 
 simple_ipa_opt_pass *

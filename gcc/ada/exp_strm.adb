@@ -642,12 +642,28 @@ package body Exp_Strm is
          return Res;
 
       else
-         return
-           Unchecked_Convert_To (P_Type,
-             Make_Function_Call (Loc,
-               Name => New_Occurrence_Of (RTE (Lib_RE), Loc),
-               Parameter_Associations => New_List (
-                 Relocate_Node (Strm))));
+         Res :=
+           Make_Function_Call (Loc,
+             Name => New_Occurrence_Of (RTE (Lib_RE), Loc),
+             Parameter_Associations => New_List (
+               Relocate_Node (Strm)));
+
+         --  Now convert to the base type if we do not have a biased type. Note
+         --  that we did not do this in some older versions, and the result was
+         --  losing a required range check in the case where 'Input is being
+         --  called from 'Read.
+
+         if not Has_Biased_Representation (P_Type) then
+            return Unchecked_Convert_To (Base_Type (P_Type), Res);
+
+         --  For the biased case, the conversion to the base type loses the
+         --  biasing, so just convert to Ptype. This is not quite right, and
+         --  for example may lose a corner case CE test, but it is such a
+         --  rare case that for now we ignore it ???
+
+         else
+            return Unchecked_Convert_To (P_Type, Res);
+         end if;
       end if;
    end Build_Elementary_Input_Call;
 
@@ -668,7 +684,6 @@ package body Exp_Strm is
       Libent  : Entity_Id;
 
    begin
-
       --  Compute the size of the stream element. This is either the size of
       --  the first subtype or if given the size of the Stream_Size attribute.
 
@@ -966,10 +981,10 @@ package body Exp_Strm is
         Make_Handled_Sequence_Of_Statements (Loc,
           Statements => Stms));
 
-      --  If Typ has controlled components (i.e. if it is classwide
-      --  or Has_Controlled), or components constrained using the discriminants
-      --  of Typ, then we need to ensure that all component assignments
-      --  are performed on an object that has been appropriately constrained
+      --  If Typ has controlled components (i.e. if it is classwide or
+      --  Has_Controlled), or components constrained using the discriminants
+      --  of Typ, then we need to ensure that all component assignments are
+      --  performed on an object that has been appropriately constrained
       --  prior to being initialized. To this effect, we wrap the component
       --  assignments in a block where V is a constrained temporary.
 
@@ -978,8 +993,8 @@ package body Exp_Strm is
           Defining_Identifier => Tmp,
           Object_Definition   =>
             Make_Subtype_Indication (Loc,
-              Subtype_Mark => New_Occurrence_Of (Typ, Loc),
-              Constraint =>
+              Subtype_Mark => New_Occurrence_Of (Base_Type (Typ), Loc),
+              Constraint   =>
                 Make_Index_Or_Discriminant_Constraint (Loc,
                   Constraints => Cstr))));
 

@@ -1,5 +1,5 @@
 /* Calculate (post)dominators in slightly super-linear time.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Michael Matz (matz@ifh.de).
 
    This file is part of GCC.
@@ -982,7 +982,7 @@ nearest_common_dominator_for_set (enum cdi_direction dir, bitmap blocks)
 
    A_Dominated_by_B (node A, node B)
    {
-     return DFS_Number_In(A) >= DFS_Number_In(A)
+     return DFS_Number_In(A) >= DFS_Number_In(B)
             && DFS_Number_Out (A) <= DFS_Number_Out(B);
    }  */
 

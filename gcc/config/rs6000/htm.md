@@ -1,5 +1,5 @@
 ;; Hardware Transactional Memory (HTM) patterns.
-;; Copyright (C) 2013-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2015 Free Software Foundation, Inc.
 ;; Contributed by Peter Bergner <bergner@vnet.ibm.com>.
 
 ;; This file is part of GCC.
@@ -252,7 +252,7 @@
 	(unspec_volatile:CC [(match_operand 0 "u3bit_cint_operand" "n")]
 			    UNSPECV_HTM_TCHECK))]
   "TARGET_HTM"
-  "tcheck. %0"
+  "tcheck %0"
   [(set_attr "type" "htm")
    (set_attr "length" "4")])
 

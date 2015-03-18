@@ -1,5 +1,5 @@
 /* Part of CPP library.
-   Copyright (C) 1997-2014 Free Software Foundation, Inc.
+   Copyright (C) 1997-2015 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -261,9 +261,6 @@ struct lexer_state
   /* Nonzero if in a __has_include__ or __has_include_next__ statement.  */
   unsigned char in__has_include__;
 
-  /* Nonzero if in a __has_attribute__ statement.  */
-  unsigned char in__has_attribute__;
-
   /* Nonzero if prevent_expansion is true only because output is
      being discarded.  */
   unsigned char discarding_output;
@@ -287,7 +284,6 @@ struct spec_nodes
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
   cpp_hashnode *n__has_include__;	/* __has_include__ operator */
   cpp_hashnode *n__has_include_next__;	/* __has_include_next__ operator */
-  cpp_hashnode *n__has_attribute__;	/* __has_attribute__ operator */
 };
 
 typedef struct _cpp_line_note _cpp_line_note;
@@ -424,6 +420,11 @@ struct cpp_reader
   /* When expanding a macro at top-level, this is the location of the
      macro invocation.  */
   source_location invocation_location;
+
+  /* This is the node representing the macro being expanded at
+     top-level.  The value of this data member is valid iff
+     in_macro_expansion_p() returns TRUE.  */
+  cpp_hashnode *top_most_macro_node;
 
   /* Nonzero if we are about to expand a macro.  Note that if we are
      really expanding a macro, the function macro_of_context returns

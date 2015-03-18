@@ -1,6 +1,6 @@
 /* Handle modules, which amounts to loading and saving symbols and
    their attendant structures.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -73,6 +73,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "parse.h" /* FIXME */
 #include "constructor.h"
 #include "cpp.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "scanner.h"
@@ -82,7 +92,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Don't put any single quote (') in MOD_VERSION, if you want it to be
    recognized.  */
-#define MOD_VERSION "13"
+#define MOD_VERSION "14"
 
 
 /* Structure that describes a position within a module file.  */
@@ -670,7 +680,7 @@ gfc_match_use (void)
 	  if (strcmp (new_use->use_name, use_list->module_name) == 0
 	      || strcmp (new_use->local_name, use_list->module_name) == 0)
 	    {
-	      gfc_error ("The name '%s' at %C has already been used as "
+	      gfc_error ("The name %qs at %C has already been used as "
 			 "an external module name.", use_list->module_name);
 	      goto cleanup;
 	    }
@@ -1054,15 +1064,15 @@ bad_module (const char *msgid)
   switch (iomode)
     {
     case IO_INPUT:
-      gfc_fatal_error ("Reading module %s at line %d column %d: %s",
+      gfc_fatal_error ("Reading module %qs at line %d column %d: %s",
 	  	       module_name, module_line, module_column, msgid);
       break;
     case IO_OUTPUT:
-      gfc_fatal_error ("Writing module %s at line %d column %d: %s",
+      gfc_fatal_error ("Writing module %qs at line %d column %d: %s",
 	  	       module_name, module_line, module_column, msgid);
       break;
     default:
-      gfc_fatal_error ("Module %s at line %d column %d: %s",
+      gfc_fatal_error ("Module %qs at line %d column %d: %s",
 	  	       module_name, module_line, module_column, msgid);
       break;
     }
@@ -1526,7 +1536,10 @@ static void
 write_atom (atom_type atom, const void *v)
 {
   char buffer[20];
-  int i, len;
+
+  /* Workaround -Wmaybe-uninitialized false positive during
+     profiledbootstrap by initializing them.  */
+  int i = 0, len;
   const char *p;
 
   switch (atom)
@@ -4529,71 +4542,6 @@ load_equiv (void)
 }
 
 
-/* This function loads the sym_root of f2k_derived with the extensions to
-   the derived type.  */
-static void
-load_derived_extensions (void)
-{
-  int symbol, j;
-  gfc_symbol *derived;
-  gfc_symbol *dt;
-  gfc_symtree *st;
-  pointer_info *info;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
-  char module[GFC_MAX_SYMBOL_LEN + 1];
-  const char *p;
-
-  mio_lparen ();
-  while (peek_atom () != ATOM_RPAREN)
-    {
-      mio_lparen ();
-      mio_integer (&symbol);
-      info = get_integer (symbol);
-      derived = info->u.rsym.sym;
-
-      /* This one is not being loaded.  */
-      if (!info || !derived)
-	{
-	  while (peek_atom () != ATOM_RPAREN)
-	    skip_list ();
-	  continue;
-	}
-
-      gcc_assert (derived->attr.flavor == FL_DERIVED);
-      if (derived->f2k_derived == NULL)
-	derived->f2k_derived = gfc_get_namespace (NULL, 0);
-
-      while (peek_atom () != ATOM_RPAREN)
-	{
-	  mio_lparen ();
-	  mio_internal_string (name);
-	  mio_internal_string (module);
-
-          /* Only use one use name to find the symbol.  */
-	  j = 1;
-	  p = find_use_name_n (name, &j, false);
-	  if (p)
-	    {
-	      st = gfc_find_symtree (gfc_current_ns->sym_root, p);
-	      dt = st->n.sym;
-	      st = gfc_find_symtree (derived->f2k_derived->sym_root, name);
-	      if (st == NULL)
-		{
-		  /* Only use the real name in f2k_derived to ensure a single
-		    symtree.  */
-		  st = gfc_new_symtree (&derived->f2k_derived->sym_root, name);
-		  st->n.sym = dt;
-		  st->n.sym->refs++;
-		}
-	    }
-	  mio_rparen ();
-	}
-      mio_rparen ();
-    }
-  mio_rparen ();
-}
-
-
 /* This function loads OpenMP user defined reductions.  */
 static void
 load_omp_udrs (void)
@@ -4847,19 +4795,21 @@ read_cleanup (pointer_info *p)
 /* It is not quite enough to check for ambiguity in the symbols by
    the loaded symbol and the new symbol not being identical.  */
 static bool
-check_for_ambiguous (gfc_symbol *st_sym, pointer_info *info)
+check_for_ambiguous (gfc_symtree *st, pointer_info *info)
 {
   gfc_symbol *rsym;
   module_locus locus;
   symbol_attribute attr;
+  gfc_symbol *st_sym;
 
-  if (gfc_current_ns->proc_name && st_sym->name == gfc_current_ns->proc_name->name)
+  if (gfc_current_ns->proc_name && st->name == gfc_current_ns->proc_name->name)
     {
-      gfc_error ("'%s' of module '%s', imported at %C, is also the name of the "
-		 "current program unit", st_sym->name, module_name);
+      gfc_error ("%qs of module %qs, imported at %C, is also the name of the "
+		 "current program unit", st->name, module_name);
       return true;
     }
 
+  st_sym = st->n.sym;
   rsym = info->u.rsym.sym;
   if (st_sym == rsym)
     return false;
@@ -4894,11 +4844,13 @@ check_for_ambiguous (gfc_symbol *st_sym, pointer_info *info)
 static void
 read_module (void)
 {
-  module_locus operator_interfaces, user_operators, extensions, omp_udrs;
+  module_locus operator_interfaces, user_operators, omp_udrs;
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   int i;
-  int ambiguous, j, nuse, symbol;
+  /* Workaround -Wmaybe-uninitialized false positive during
+     profiledbootstrap by initializing them.  */
+  int ambiguous = 0, j, nuse, symbol = 0;
   pointer_info *info, *q;
   gfc_use_rename *u = NULL;
   gfc_symtree *st;
@@ -4911,11 +4863,8 @@ read_module (void)
   skip_list ();
   skip_list ();
 
-  /* Skip commons, equivalences and derived type extensions for now.  */
+  /* Skip commons and equivalences for now.  */
   skip_list ();
-  skip_list ();
-
-  get_module_locus (&extensions);
   skip_list ();
 
   /* Skip OpenMP UDRs.  */
@@ -5090,7 +5039,7 @@ read_module (void)
 	  if (st != NULL)
 	    {
 	      /* Check for ambiguous symbols.  */
-	      if (check_for_ambiguous (st->n.sym, info))
+	      if (check_for_ambiguous (st, info))
 		st->ambiguous = 1;
 	      else
 		info->u.rsym.symtree = st;
@@ -5206,27 +5155,22 @@ read_module (void)
 
       if (u->op == INTRINSIC_NONE)
 	{
-	  gfc_error ("Symbol '%s' referenced at %L not found in module '%s'",
+	  gfc_error ("Symbol %qs referenced at %L not found in module %qs",
 		     u->use_name, &u->where, module_name);
 	  continue;
 	}
 
       if (u->op == INTRINSIC_USER)
 	{
-	  gfc_error ("User operator '%s' referenced at %L not found "
-		     "in module '%s'", u->use_name, &u->where, module_name);
+	  gfc_error ("User operator %qs referenced at %L not found "
+		     "in module %qs", u->use_name, &u->where, module_name);
 	  continue;
 	}
 
-      gfc_error ("Intrinsic operator '%s' referenced at %L not found "
-		 "in module '%s'", gfc_op2string (u->op), &u->where,
+      gfc_error ("Intrinsic operator %qs referenced at %L not found "
+		 "in module %qs", gfc_op2string (u->op), &u->where,
 		 module_name);
     }
-
-  /* Now we should be in a position to fill f2k_derived with derived type
-     extensions, since everything has been loaded.  */
-  set_module_locus (&extensions);
-  load_derived_extensions ();
 
   /* Clean up symbol nodes that were never loaded, create references
      to hidden symbols.  */
@@ -5249,7 +5193,7 @@ check_access (gfc_access specific_access, gfc_access default_access)
   if (specific_access == ACCESS_PRIVATE)
     return FALSE;
 
-  if (gfc_option.flag_module_private)
+  if (flag_module_private)
     return default_access == ACCESS_PUBLIC;
   else
     return default_access != ACCESS_PRIVATE;
@@ -5445,49 +5389,6 @@ write_equiv (void)
 }
 
 
-/* Write derived type extensions to the module.  */
-
-static void
-write_dt_extensions (gfc_symtree *st)
-{
-  if (!gfc_check_symbol_access (st->n.sym))
-    return;
-  if (!(st->n.sym->ns && st->n.sym->ns->proc_name
-	&& st->n.sym->ns->proc_name->attr.flavor == FL_MODULE))
-    return;
-
-  mio_lparen ();
-  mio_pool_string (&st->name);
-  if (st->n.sym->module != NULL)
-    mio_pool_string (&st->n.sym->module);
-  else
-    {
-      char name[GFC_MAX_SYMBOL_LEN + 1];
-      if (iomode == IO_OUTPUT)
-	strcpy (name, module_name);
-      mio_internal_string (name);
-      if (iomode == IO_INPUT)
-	module_name = gfc_get_string (name);
-    }
-  mio_rparen ();
-}
-
-static void
-write_derived_extensions (gfc_symtree *st)
-{
-  if (!((st->n.sym->attr.flavor == FL_DERIVED)
-	  && (st->n.sym->f2k_derived != NULL)
-	  && (st->n.sym->f2k_derived->sym_root != NULL)))
-    return;
-
-  mio_lparen ();
-  mio_symbol_ref (&(st->n.sym));
-  gfc_traverse_symtree (st->n.sym->f2k_derived->sym_root,
-			write_dt_extensions);
-  mio_rparen ();
-}
-
-
 /* Write a symbol to the module.  */
 
 static void
@@ -5496,7 +5397,7 @@ write_symbol (int n, gfc_symbol *sym)
   const char *label;
 
   if (sym->attr.flavor == FL_UNKNOWN || sym->attr.flavor == FL_LABEL)
-    gfc_internal_error ("write_symbol(): bad module symbol '%s'", sym->name);
+    gfc_internal_error ("write_symbol(): bad module symbol %qs", sym->name);
 
   mio_integer (&n);
 
@@ -5885,13 +5786,6 @@ write_module (void)
   write_char ('\n');
 
   mio_lparen ();
-  gfc_traverse_symtree (gfc_current_ns->sym_root,
-			write_derived_extensions);
-  mio_rparen ();
-  write_char ('\n');
-  write_char ('\n');
-
-  mio_lparen ();
   write_omp_udrs (gfc_current_ns->omp_udr_root);
   mio_rparen ();
   write_char ('\n');
@@ -6010,7 +5904,7 @@ gfc_dump_module (const char *name, int dump_flag)
   /* Write the module to the temporary file.  */
   module_fp = gzopen (filename_tmp, "w");
   if (module_fp == NULL)
-    gfc_fatal_error ("Can't open module file '%s' for writing at %C: %s",
+    gfc_fatal_error ("Can't open module file %qs for writing at %C: %s",
 		     filename_tmp, xstrerror (errno));
 
   gzprintf (module_fp, "GFORTRAN module version '%s' created from %s\n",
@@ -6030,7 +5924,7 @@ gfc_dump_module (const char *name, int dump_flag)
   write_char ('\n');
 
   if (gzclose (module_fp))
-    gfc_fatal_error ("Error writing module file '%s' for writing: %s",
+    gfc_fatal_error ("Error writing module file %qs for writing: %s",
 		     filename_tmp, xstrerror (errno));
 
   /* Read the CRC32 from the gzip trailers of the module files and
@@ -6041,16 +5935,16 @@ gfc_dump_module (const char *name, int dump_flag)
     {
       /* Module file have changed, replace the old one.  */
       if (remove (filename) && errno != ENOENT)
-	gfc_fatal_error ("Can't delete module file '%s': %s", filename,
+	gfc_fatal_error ("Can't delete module file %qs: %s", filename,
 			 xstrerror (errno));
       if (rename (filename_tmp, filename))
-	gfc_fatal_error ("Can't rename module file '%s' to '%s': %s",
+	gfc_fatal_error ("Can't rename module file %qs to %qs: %s",
 			 filename_tmp, filename, xstrerror (errno));
     }
   else
     {
       if (remove (filename_tmp))
-	gfc_fatal_error ("Can't delete temporary module file '%s': %s",
+	gfc_fatal_error ("Can't delete temporary module file %qs: %s",
 			 filename_tmp, xstrerror (errno));
     }
 }
@@ -6070,7 +5964,7 @@ create_intrinsic_function (const char *name, int id,
     {
       if (strcmp (modname, tmp_symtree->n.sym->module) == 0)
         return;
-      gfc_error ("Symbol '%s' already declared", name);
+      gfc_error ("Symbol %qs already declared", name);
     }
 
   gfc_get_sym_tree (name, gfc_current_ns, &tmp_symtree, false);
@@ -6248,7 +6142,7 @@ import_iso_c_binding_module (void)
 
 	    if (not_in_std)
 	      {
-		gfc_error ("The symbol '%s', referenced at %L, is not "
+		gfc_error ("The symbol %qs, referenced at %L, is not "
 			   "in the selected standard", name, &u->where);
 		continue;
 	      }
@@ -6376,7 +6270,7 @@ import_iso_c_binding_module (void)
       if (u->found)
 	continue;
 
-      gfc_error ("Symbol '%s' referenced at %L not found in intrinsic "
+      gfc_error ("Symbol %qs referenced at %L not found in intrinsic "
 		 "module ISO_C_BINDING", u->use_name, &u->where);
      }
 }
@@ -6397,7 +6291,7 @@ create_int_parameter (const char *name, int value, const char *modname,
       if (strcmp (modname, tmp_symtree->n.sym->module) == 0)
 	return;
       else
-	gfc_error ("Symbol '%s' already declared", name);
+	gfc_error ("Symbol %qs already declared", name);
     }
 
   gfc_get_sym_tree (name, gfc_current_ns, &tmp_symtree, false);
@@ -6430,7 +6324,7 @@ create_int_parameter_array (const char *name, int size, gfc_expr *value,
       if (strcmp (modname, tmp_symtree->n.sym->module) == 0)
 	return;
       else
-	gfc_error ("Symbol '%s' already declared", name);
+	gfc_error ("Symbol %qs already declared", name);
     }
 
   gfc_get_sym_tree (name, gfc_current_ns, &tmp_symtree, false);
@@ -6472,7 +6366,7 @@ create_derived_type (const char *name, const char *modname,
       if (strcmp (modname, tmp_symtree->n.sym->module) == 0)
 	return;
       else
-	gfc_error ("Symbol '%s' already declared", name);
+	gfc_error ("Symbol %qs already declared", name);
     }
 
   gfc_get_sym_tree (name, gfc_current_ns, &tmp_symtree, false);
@@ -6577,7 +6471,7 @@ use_iso_fortran_env_module (void)
     }
   else
     if (!mod_symtree->n.sym->attr.intrinsic)
-      gfc_error ("Use of intrinsic module '%s' at %C conflicts with "
+      gfc_error ("Use of intrinsic module %qs at %C conflicts with "
 		 "non-intrinsic module name used previously", mod);
 
   /* Generate the symbols for the module integer named constants.  */
@@ -6592,18 +6486,18 @@ use_iso_fortran_env_module (void)
 	      found = true;
 	      u->found = 1;
 
-	      if (!gfc_notify_std (symbol[i].standard, "The symbol '%s', "
+	      if (!gfc_notify_std (symbol[i].standard, "The symbol %qs, "
 				   "referenced at %L, is not in the selected "
 				   "standard", symbol[i].name, &u->where))
 	        continue;
 
-	      if ((gfc_option.flag_default_integer || gfc_option.flag_default_real)
+	      if ((flag_default_integer || flag_default_real)
 		  && symbol[i].id == ISOFORTRANENV_NUMERIC_STORAGE_SIZE)
-		gfc_warning_now ("Use of the NUMERIC_STORAGE_SIZE named "
+		gfc_warning_now (0, "Use of the NUMERIC_STORAGE_SIZE named "
 				 "constant from intrinsic module "
 				 "ISO_FORTRAN_ENV at %L is incompatible with "
-				 "option %s", &u->where,
-				 gfc_option.flag_default_integer
+				 "option %qs", &u->where,
+				 flag_default_integer
 				   ? "-fdefault-integer-8"
 				   : "-fdefault-real-8");
 	      switch (symbol[i].id)
@@ -6664,12 +6558,13 @@ use_iso_fortran_env_module (void)
 	  if ((gfc_option.allow_std & symbol[i].standard) == 0)
 	    continue;
 
-	  if ((gfc_option.flag_default_integer || gfc_option.flag_default_real)
+	  if ((flag_default_integer || flag_default_real)
 	      && symbol[i].id == ISOFORTRANENV_NUMERIC_STORAGE_SIZE)
-	    gfc_warning_now ("Use of the NUMERIC_STORAGE_SIZE named constant "
+	    gfc_warning_now (0,
+			     "Use of the NUMERIC_STORAGE_SIZE named constant "
 			     "from intrinsic module ISO_FORTRAN_ENV at %C is "
 			     "incompatible with option %s",
-			     gfc_option.flag_default_integer
+			     flag_default_integer
 				? "-fdefault-integer-8" : "-fdefault-real-8");
 
 	  switch (symbol[i].id)
@@ -6720,7 +6615,7 @@ use_iso_fortran_env_module (void)
       if (u->found)
 	continue;
 
-      gfc_error ("Symbol '%s' referenced at %L not found in intrinsic "
+      gfc_error ("Symbol %qs referenced at %L not found in intrinsic "
 		     "module ISO_FORTRAN_ENV", u->use_name, &u->where);
     }
 }
@@ -6745,8 +6640,8 @@ gfc_use_module (gfc_use_list *module)
   current_intmod = INTMOD_NONE;
 
   if (!only_flag)
-    gfc_warning_now_2 (OPT_Wuse_without_only,
-		       "USE statement at %C has no ONLY qualifier");
+    gfc_warning_now (OPT_Wuse_without_only,
+		     "USE statement at %C has no ONLY qualifier");
 
   filename = XALLOCAVEC (char, strlen (module_name) + strlen (MODULE_EXTENSION)
 			       + 1);
@@ -6789,7 +6684,7 @@ gfc_use_module (gfc_use_list *module)
       module_fp = gzopen_intrinsic_module (filename);
 
       if (module_fp == NULL && module->intrinsic)
-	gfc_fatal_error ("Can't find an intrinsic module named '%s' at %C",
+	gfc_fatal_error ("Can't find an intrinsic module named %qs at %C",
 			 module_name);
 
       /* Check for the IEEE modules, so we can mark their symbols
@@ -6814,7 +6709,7 @@ gfc_use_module (gfc_use_list *module)
     }
 
   if (module_fp == NULL)
-    gfc_fatal_error ("Can't open module file '%s' for reading at %C: %s",
+    gfc_fatal_error ("Can't open module file %qs for reading at %C: %s",
 		     filename, xstrerror (errno));
 
   /* Check that we haven't already USEd an intrinsic module with the
@@ -6822,7 +6717,7 @@ gfc_use_module (gfc_use_list *module)
 
   mod_symtree = gfc_find_symtree (gfc_current_ns->sym_root, module_name);
   if (mod_symtree && mod_symtree->n.sym->attr.intrinsic)
-    gfc_error ("Use of non-intrinsic module '%s' at %C conflicts with "
+    gfc_error ("Use of non-intrinsic module %qs at %C conflicts with "
 	       "intrinsic module name used previously", module_name);
 
   iomode = IO_INPUT;
@@ -6845,7 +6740,7 @@ gfc_use_module (gfc_use_list *module)
 	parse_name (c);
       if ((start == 1 && strcmp (atom_name, "GFORTRAN") != 0)
 	  || (start == 2 && strcmp (atom_name, " module") != 0))
-	gfc_fatal_error ("File '%s' opened at %C is not a GNU Fortran"
+	gfc_fatal_error ("File %qs opened at %C is not a GNU Fortran"
 			 " module file", filename);
       if (start == 3)
 	{
@@ -6853,7 +6748,7 @@ gfc_use_module (gfc_use_list *module)
 	      || module_char () != ' '
 	      || parse_atom () != ATOM_STRING
 	      || strcmp (atom_string, MOD_VERSION))
-	    gfc_fatal_error ("Cannot read module file '%s' opened at %C,"
+	    gfc_fatal_error ("Cannot read module file %qs opened at %C,"
 			     " because it was created by a different"
 			     " version of GNU Fortran", filename);
 

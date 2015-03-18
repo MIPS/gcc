@@ -1,5 +1,5 @@
 /* Process source files and output type information.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -17,10 +17,11 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
-#ifdef GENERATOR_FILE
-#include "bconfig.h"
-#else
+#ifdef HOST_GENERATOR_FILE
 #include "config.h"
+#define GENERATOR_FILE 1
+#else
+#include "bconfig.h"
 #endif
 #include "system.h"
 #include "gengtype.h"
@@ -537,7 +538,6 @@ nestedptr_optvalue (options_p prev)
 /* One GTY(()) option:
    ID str_optvalue_opt
    | PTR_ALIAS type_optvalue
-   | PARAM_IS type_optvalue
    | NESTED_PTR nestedptr_optvalue
 */
 static options_p
@@ -551,9 +551,6 @@ option (options_p prev)
     case PTR_ALIAS:
       advance ();
       return type_optvalue (prev, "ptr_alias");
-
-    case PARAM_IS:
-      return type_optvalue (prev, advance ());
 
     case NESTED_PTR:
       advance ();

@@ -945,7 +945,7 @@ ifeq ($(strip $(filter-out %86 wrs vxworks vxworks7,$(target_cpu) $(target_vendo
         s-tpopsp.adb<s-tpopsp-vxworks-tls.adb \
         s-vxwext.ads<s-vxwext-kernel.ads \
         s-vxwext.adb<s-vxwext-kernel-smp.adb \
-        system.ads<system-vxworks-x86-kernel.ads
+        system.ads<$(SVX)-x86-kernel.ads
         EXTRA_LIBGNAT_OBJS+=affinity.o
       else
         LIBGNAT_TARGET_PAIRS += \
@@ -970,12 +970,22 @@ ifeq ($(strip $(filter-out %86 wrs vxworks vxworks7,$(target_cpu) $(target_vendo
 
   EXTRA_LIBGNAT_OBJS+=vx_stack_info.o
 
-  GCC_SPEC_FILES+=vxworks-x86-link.spec
-  GCC_SPEC_FILES+=vxworks-smp-x86-link.spec
+  ifneq ($(strip $(filter-out vxworks7%, $(target_os))),)
+    GCC_SPEC_FILES+=vxworks-x86-link.spec
+    GCC_SPEC_FILES+=vxworks-cert-x86-link.spec
+    GCC_SPEC_FILES+=vxworks-smp-x86-link.spec
+  endif
 endif
 
 # ARM VxWorks
 ifeq ($(strip $(filter-out arm% coff wrs vx%,$(target_cpu) $(target_vendor) $(target_os))),)
+
+  ifeq ($(strip $(filter-out vxworks7%, $(target_os))),)
+     SVX=system-vxworks7
+  else
+     SVX=system-vxworks
+  endif
+
   LIBGNAT_TARGET_PAIRS = \
   a-intnam.ads<a-intnam-vxworks.ads \
   a-numaux.ads<a-numaux-vxworks.ads \
@@ -1010,7 +1020,7 @@ ifeq ($(strip $(filter-out arm% coff wrs vx%,$(target_cpu) $(target_vendor) $(ta
     s-vxwext.ads<s-vxwext-rtp.ads \
     s-vxwext.adb<s-vxwext-rtp-smp.adb \
     s-tpopsp.adb<s-tpopsp-vxworks-tls.adb \
-    system.ads<system-vxworks-arm-rtp-smp.ads
+    system.ads<$(SVX)-arm-rtp-smp.ads
 
     EXTRA_LIBGNAT_OBJS+=affinity.o sigtramp-vxworks.o
     EXTRA_LIBGNAT_SRCS+=sigtramp.h
@@ -1669,8 +1679,6 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(target_os))),)
   a-exetim.ads<a-exetim-mingw.ads \
   a-intnam.ads<a-intnam-mingw.ads \
   g-sercom.adb<g-sercom-mingw.adb \
-  s-trasym.adb<s-trasym-dwarf.adb \
-  s-tsmona.adb<s-tsmona-mingw.adb \
   s-interr.adb<s-interr-sigaction.adb \
   s-intman.adb<s-intman-mingw.adb \
   s-mudido.adb<s-mudido-affinity.adb \
@@ -1691,30 +1699,11 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(target_os))),)
       SO_OPTS = -m64 -Wl,-soname,
     endif
   else
-    LIBGNAT_TARGET_PAIRS += \
-    a-exetim.adb<a-exetim-mingw.adb \
-    a-exetim.ads<a-exetim-mingw.ads \
-    a-intnam.ads<a-intnam-mingw.ads \
-    g-sercom.adb<g-sercom-mingw.adb \
-    s-interr.adb<s-interr-sigaction.adb \
-    s-intman.adb<s-intman-mingw.adb \
-    s-mudido.adb<s-mudido-affinity.adb \
-    s-osinte.ads<s-osinte-mingw.ads \
-    s-osprim.adb<s-osprim-mingw.adb \
-    s-taprop.adb<s-taprop-mingw.adb
-
-    ifeq ($(strip $(filter-out x86_64%,$(target_cpu))),)
-      ifeq ($(strip $(MULTISUBDIR)),/32)
-	LIBGNAT_TARGET_PAIRS += \
-	  $(X86_TARGET_PAIRS) \
-	  system.ads<system-mingw.ads
-	SO_OPTS= -m32 -Wl,-soname,
-      else
-	LIBGNAT_TARGET_PAIRS += \
-	  $(X86_64_TARGET_PAIRS) \
-	  system.ads<system-mingw-x86_64.ads
-	SO_OPTS = -m64 -Wl,-soname,
-      endif
+    ifeq ($(strip $(MULTISUBDIR)),/64)
+      LIBGNAT_TARGET_PAIRS += \
+        $(X86_64_TARGET_PAIRS) \
+        system.ads<system-mingw-x86_64.ads
+      SO_OPTS = -m64 -Wl,-soname,
     else
       LIBGNAT_TARGET_PAIRS += \
         $(X86_TARGET_PAIRS) \
@@ -2366,27 +2355,6 @@ ifeq ($(strip $(filter-out darwin%,$(target_os))),)
   GCC_LINK_FLAGS=-static-libstdc++
 endif
 
-# ARM Nucleus
-ifeq ($(strip $(filter-out arm nucleus%,$(target_cpu) $(target_os))),)
-  LIBGNAT_TARGET_PAIRS = \
-  system.ads<system-nucleus-arm.ads \
-  a-numaux.ads<a-numaux-vxworks.ads \
-  a-intnam.ads<a-intnam-nucleus.ads \
-  s-inmaop.adb<s-inmaop-posix.adb \
-  s-intman.adb<s-intman-posix.adb \
-  s-osinte.ads<s-osinte-nucleus.ads \
-  s-osinte.adb<s-osinte-nucleus.adb \
-  s-osprim.adb<s-osprim-nucleus.adb \
-  s-parame.adb<s-parame-vxworks.adb \
-  s-taprop.adb<s-taprop-posix.adb \
-  s-taspri.ads<s-taspri-posix.ads \
-  s-tpopsp.adb<s-tpopsp-posix.adb \
-  $(DUMMY_SOCKETS_TARGET_PAIRS)
-
-  LIBRARY_VERSION := $(LIB_VERSION)
-  GNATRTL_SOCKETS_OBJS =
-endif
-
 ifeq ($(EH_MECHANISM),-gcc)
   LIBGNAT_TARGET_PAIRS += \
     a-exexpr.adb<a-exexpr-gcc.adb \
@@ -2412,7 +2380,7 @@ endif
 # thread.c is special as put into GNATRTL_TASKING_OBJS by Makefile.rtl
 LIBGNAT_OBJS = adadecode.o adaint.o argv.o aux-io.o 			\
   cal.o cio.o cstreams.o ctrl_c.o					\
-  env.o errno.o exit.o expect.o final.o 				\
+  env.o errno.o exit.o expect.o final.o rtfinal.o rtinit.o		\
   init.o initialize.o locales.o mkdir.o					\
   raise.o seh_init.o socket.o sysdep.o					\
   targext.o terminals.o tracebak.o 					\
@@ -2493,9 +2461,16 @@ GCC_LINK=$(CXX) $(GCC_LINK_FLAGS) $(ADA_INCLUDES) $(LDFLAGS)
 # Build directory for the tools. Let's copy the target-dependent
 # sources using the same mechanism as for gnatlib. The other sources are
 # accessed using the vpath directive below
-# Note: dummy target, stamp-tools is mainly handled by gnattools.
 
 ../stamp-tools:
+	-$(RM) tools/*
+	-$(RMDIR) tools
+	-$(MKDIR) tools
+	-(cd tools; $(LN_S) ../sdefault.adb ../snames.ads ../snames.adb .)
+	-$(foreach PAIR,$(TOOLS_TARGET_PAIRS), \
+	          $(RM) tools/$(word 1,$(subst <, ,$(PAIR)));\
+	          $(LN_S) $(fsrcpfx)ada/$(word 2,$(subst <, ,$(PAIR))) \
+	                tools/$(word 1,$(subst <, ,$(PAIR)));)
 	touch ../stamp-tools
 
 # when compiling the tools, the runtime has to be first on the path so that
@@ -3051,6 +3026,8 @@ errno.o   : errno.c
 exit.o    : adaint.h exit.c
 expect.o  : expect.c
 final.o   : final.c
+rtfinal.o : rtfinal.c
+rtinit.o  : rtinit.c
 locales.o : locales.c
 mkdir.o   : mkdir.c
 socket.o  : socket.c gsocket.h

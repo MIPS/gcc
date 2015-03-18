@@ -1,6 +1,6 @@
 /* Prototypes for exported functions defined in avr.c
    
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (chertykov@gmail.com)
 
    This file is part of GCC.
@@ -46,7 +46,6 @@ extern void avr_init_cumulative_args (CUMULATIVE_ARGS*, tree, rtx, tree);
 
 #ifdef RTX_CODE
 extern int avr_hard_regno_call_part_clobbered (unsigned, machine_mode);
-extern bool tiny_valid_direct_memory_access_range(rtx, machine_mode);
 extern const char *output_movqi (rtx_insn *insn, rtx operands[], int *l);
 extern const char *output_movhi (rtx_insn *insn, rtx operands[], int *l);
 extern const char *output_movsisf (rtx_insn *insn, rtx operands[], int *l);
@@ -129,6 +128,15 @@ extern bool avr_load_libgcc_p (rtx);
 extern bool avr_xload_libgcc_p (machine_mode);
 extern rtx avr_eval_addr_attrib (rtx x);
 
+static inline unsigned
+regmask (machine_mode mode, unsigned regno)
+{
+  return ((1u << GET_MODE_SIZE (mode)) - 1) << regno;
+}
+
+extern void avr_fix_inputs (rtx*, unsigned, unsigned);
+extern bool avr_emit3_fix_outputs (rtx (*)(rtx,rtx,rtx), rtx*, unsigned, unsigned);
+
 extern rtx lpm_reg_rtx;
 extern rtx lpm_addr_reg_rtx;
 extern rtx tmp_reg_rtx;
@@ -146,12 +154,11 @@ extern bool avr_have_dimode;
 
 /* From avr-log.c */
 
-#define avr_edump (avr_log_set_caller_e (__FUNCTION__))
-#define avr_fdump (avr_log_set_caller_f (__FUNCTION__))
+#define avr_dump(...) avr_vdump (NULL, __FUNCTION__, __VA_ARGS__)
+#define avr_edump(...) avr_vdump (stderr, __FUNCTION__, __VA_ARGS__)
+#define avr_fdump(FIL, ...) avr_vdump (FIL, __FUNCTION__, __VA_ARGS__)
 
-extern int (*avr_log_set_caller_e (const char*))(const char*, ...);
-extern int (*avr_log_set_caller_f (const char*))(FILE*, const char*, ...);
-
+extern int avr_vdump (FILE*, const char*, ...);
 extern void avr_log_set_avr_log (void);
 
 typedef struct

@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -27,7 +27,17 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "flags.h"
@@ -128,8 +138,35 @@ typedef struct variant_desc_d {
 
 
 /* A hash table used to cache the result of annotate_value.  */
-static GTY ((if_marked ("tree_int_map_marked_p"),
-	     param_is (struct tree_int_map))) htab_t annotate_value_cache;
+
+struct value_annotation_hasher : ggc_cache_hasher<tree_int_map *>
+{
+  static inline hashval_t
+  hash (tree_int_map *m)
+  {
+    return htab_hash_pointer (m->base.from);
+  }
+
+  static inline bool
+  equal (tree_int_map *a, tree_int_map *b)
+  {
+    return a->base.from == b->base.from;
+  }
+
+  static void
+  handle_cache_entry (tree_int_map *&m)
+  {
+    extern void gt_ggc_mx (tree_int_map *&);
+    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
+      return;
+    else if (ggc_marked_p (m->base.from))
+      gt_ggc_mx (m);
+    else
+      m = static_cast<tree_int_map *> (HTAB_DELETED_ENTRY);
+  }
+};
+
+static GTY ((cache)) hash_table<value_annotation_hasher> *annotate_value_cache;
 
 static bool allocatable_size_p (tree, bool);
 static void prepend_one_attribute (struct attrib **,
@@ -145,6 +182,7 @@ static tree gnat_to_gnu_component_type (Entity_Id, bool, bool);
 static tree gnat_to_gnu_param (Entity_Id, Mechanism_Type, Entity_Id, bool,
 			       bool *);
 static tree gnat_to_gnu_field (Entity_Id, tree, int, bool, bool);
+static bool is_from_limited_with_of_main (Entity_Id);
 static tree change_qualified_type (tree, int);
 static bool same_discriminant_p (Entity_Id, Entity_Id);
 static bool array_type_has_nonaliased_component (tree, Entity_Id);
@@ -164,7 +202,7 @@ static vec<variant_desc> build_variant_list (tree,
 static tree validate_size (Uint, tree, Entity_Id, enum tree_code, bool, bool);
 static void set_rm_size (Uint, tree, Entity_Id);
 static unsigned int validate_alignment (Uint, Entity_Id, unsigned int);
-static void check_ok_for_atomic (tree, Entity_Id, bool);
+static void check_ok_for_atomic_type (tree, Entity_Id, bool);
 static tree create_field_decl_from (tree, tree, tree, tree, tree,
 				    vec<subst_pair> );
 static tree create_rep_part (tree, tree, tree);
@@ -843,7 +881,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		   && TYPE_MULTI_ARRAY_P (gnu_inner))
 	      gnu_inner = TREE_TYPE (gnu_inner);
 
-	    check_ok_for_atomic (gnu_inner, gnat_entity, true);
+	    check_ok_for_atomic_type (gnu_inner, gnat_entity, true);
 	  }
 
 	/* Now check if the type of the object allows atomic access.  Note
@@ -853,7 +891,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   always copying via an intermediate value, but it's not clear it's
 	   worth the effort.  */
 	if (Is_Atomic (gnat_entity))
-	  check_ok_for_atomic (gnu_type, gnat_entity, false);
+	  check_ok_for_atomic_type (gnu_type, gnat_entity, false);
 
 	/* If this is an aliased object with an unconstrained nominal subtype,
 	   make a type that includes the template.  */
@@ -1388,6 +1426,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 		gnu_size = NULL_TREE;
 		used_by_ref = true;
+		inner_const_flag = TREE_READONLY (gnu_unc_var);
 		const_flag = true;
 	      }
 
@@ -4127,8 +4166,13 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      ? is_required
 	      : (Is_Inlined (gnat_entity) ? is_enabled : is_disabled);
 	bool public_flag = Is_Public (gnat_entity) || imported_p;
+	/* Subprograms marked both Intrinsic and Always_Inline need not
+	   have a body of their own.  */
 	bool extern_flag
-	  = (Is_Public (gnat_entity) && !definition) || imported_p;
+	  = ((Is_Public (gnat_entity) && !definition)
+	     || imported_p
+	     || (Convention (gnat_entity) == Convention_Intrinsic
+		 && Has_Pragma_Inline_Always (gnat_entity)));
 	bool artificial_flag = !Comes_From_Source (gnat_entity);
        /* The semantics of "pure" in Ada essentially matches that of "const"
           in the back-end.  In particular, both properties are orthogonal to
@@ -4209,11 +4253,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       context may now appear in parameter and result profiles.  If
 	       we are only annotating types, break circularities here.  */
 	    if (type_annotate_only
-		&& IN (Ekind (gnat_return_type), Incomplete_Kind)
-	        && From_Limited_With (gnat_return_type)
-		&& In_Extended_Main_Code_Unit
-		   (Non_Limited_View (gnat_return_type))
-		&& !present_gnu_tree (Non_Limited_View (gnat_return_type)))
+	        && is_from_limited_with_of_main (gnat_return_type))
 	      gnu_return_type = ptr_void_type_node;
 	    else
 	      gnu_return_type = gnat_to_gnu_type (gnat_return_type);
@@ -4322,11 +4362,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       context may now appear in parameter and result profiles.  If
 	       we are only annotating types, break circularities here.  */
 	    if (type_annotate_only
-		&& IN (Ekind (gnat_param_type), Incomplete_Kind)
-	        && From_Limited_With (Etype (gnat_param_type))
-		&& In_Extended_Main_Code_Unit
-		   (Non_Limited_View (gnat_param_type))
-		&& !present_gnu_tree (Non_Limited_View (gnat_param_type)))
+	        && is_from_limited_with_of_main (gnat_param_type))
 	      {
 		gnu_param_type = ptr_void_type_node;
 		fake_param_type = true;
@@ -4757,9 +4793,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
     case E_Abstract_State:
       /* This is a SPARK annotation that only reaches here when compiling in
-	 ASIS mode and has no characteristics to annotate.  */
+	 ASIS mode.  */
       gcc_assert (type_annotate_only);
-      return error_mark_node;
+      gnu_decl = error_mark_node;
+      saved = true;
+      break;
 
     default:
       gcc_unreachable ();
@@ -5008,7 +5046,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    }
 
       if (Is_Atomic (gnat_entity))
-	check_ok_for_atomic (gnu_type, gnat_entity, false);
+	check_ok_for_atomic_type (gnu_type, gnat_entity, false);
 
       /* If this is not an unconstrained array type, set some flags.  */
       if (TREE_CODE (gnu_type) != UNCONSTRAINED_ARRAY_TYPE)
@@ -5100,7 +5138,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	 to conflict with Comp2 and an alias set copy is required.
 
 	 The language rules ensure the parent type is already frozen here.  */
-      if (Is_Derived_Type (gnat_entity) && !type_annotate_only)
+      if (kind != E_Subprogram_Type
+	  && Is_Derived_Type (gnat_entity)
+	  && !type_annotate_only)
 	{
 	  Entity_Id gnat_parent_type = Underlying_Type (Etype (gnat_entity));
 	  /* For constrained packed array subtypes, the implementation type is
@@ -5408,16 +5448,17 @@ is_cplusplus_method (Entity_Id gnat_entity)
   if (Convention (gnat_entity) != Convention_CPP)
     return false;
 
-  /* This is the main case: C++ method imported as a primitive operation.  */
-  if (Is_Dispatching_Operation (gnat_entity))
+  /* This is the main case: C++ method imported as a primitive operation.
+     Note that a C++ class with no virtual functions can be imported as a
+     limited record type so the operation is not necessarily dispatching.  */
+  if (Is_Primitive (gnat_entity))
     return true;
 
   /* A thunk needs to be handled like its associated primitive operation.  */
   if (Is_Subprogram (gnat_entity) && Is_Thunk (gnat_entity))
     return true;
 
-  /* C++ classes with no virtual functions can be imported as limited
-     record types, but we need to return true for the constructors.  */
+  /* A constructor is a method on the C++ side.  */
   if (Is_Constructor (gnat_entity))
     return true;
 
@@ -5521,7 +5562,7 @@ gnat_to_gnu_component_type (Entity_Id gnat_array, bool definition,
     gnu_type = make_packable_type (gnu_type, false);
 
   if (Has_Atomic_Components (gnat_array))
-    check_ok_for_atomic (gnu_type, gnat_array, true);
+    check_ok_for_atomic_type (gnu_type, gnat_array, true);
 
   /* Get and validate any specified Component_Size.  */
   gnu_comp_size
@@ -5618,15 +5659,17 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
     }
 
   /* If this is either a foreign function or if the underlying type won't
-     be passed by reference, strip off possible padding type.  */
+     be passed by reference and is as aligned as the original type, strip
+     off possible padding type.  */
   if (TYPE_IS_PADDING_P (gnu_param_type))
     {
       tree unpadded_type = TREE_TYPE (TYPE_FIELDS (gnu_param_type));
 
-      if (mech == By_Reference
-	  || foreign
+      if (foreign
 	  || (!must_pass_by_ref (unpadded_type)
-	      && (mech == By_Copy || !default_pass_by_ref (unpadded_type))))
+	      && mech != By_Reference
+	      && (mech == By_Copy || !default_pass_by_ref (unpadded_type))
+	      && TYPE_ALIGN (unpadded_type) >= TYPE_ALIGN (gnu_param_type)))
 	gnu_param_type = unpadded_type;
     }
 
@@ -5758,6 +5801,30 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
 
   Set_Mechanism (gnat_param, mech);
   return gnu_param;
+}
+
+/* Return true if GNAT_ENTITY is an incomplete entity coming from a limited
+   with of the main unit and whose full view has not been elaborated yet.  */
+
+static bool
+is_from_limited_with_of_main (Entity_Id gnat_entity)
+{
+  /* Class-wide types are always transformed into their root type.  */
+  if (Ekind (gnat_entity) == E_Class_Wide_Type)
+    gnat_entity = Root_Type (gnat_entity);
+
+  if (IN (Ekind (gnat_entity), Incomplete_Kind)
+      && From_Limited_With (gnat_entity))
+    {
+      Entity_Id gnat_full_view = Non_Limited_View (gnat_entity);
+
+      if (present_gnu_tree (gnat_full_view))
+	return false;
+
+      return In_Extended_Main_Code_Unit (gnat_full_view);
+    }
+
+  return false;
 }
 
 /* Like build_qualified_type, but TYPE_QUALS is added to the existing
@@ -6384,15 +6451,22 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 		   bool definition, bool debug_info_p)
 {
   const Entity_Id gnat_field_type = Etype (gnat_field);
+  const bool is_aliased
+    = Is_Aliased (gnat_field);
+  const bool is_atomic
+    = (Is_Atomic (gnat_field) || Is_Atomic (gnat_field_type));
+  const bool is_independent
+    = (Is_Independent (gnat_field) || Is_Independent (gnat_field_type));
+  const bool is_volatile
+    = (Treat_As_Volatile (gnat_field) || Treat_As_Volatile (gnat_field_type));
+  const bool needs_strict_alignment
+    = (is_aliased
+       || is_independent
+       || is_volatile
+       || Strict_Alignment (gnat_field_type));
   tree gnu_field_type = gnat_to_gnu_type (gnat_field_type);
   tree gnu_field_id = get_entity_name (gnat_field);
   tree gnu_field, gnu_size, gnu_pos;
-  bool is_volatile
-    = (Treat_As_Volatile (gnat_field) || Treat_As_Volatile (gnat_field_type));
-  bool needs_strict_alignment
-    = (is_volatile
-       || Is_Aliased (gnat_field)
-       || Strict_Alignment (gnat_field_type));
 
   /* If this field requires strict alignment, we cannot pack it because
      it would very likely be under-aligned in the record.  */
@@ -6457,10 +6531,11 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
     }
 
   if (Is_Atomic (gnat_field))
-    check_ok_for_atomic (gnu_field_type, gnat_field, false);
+    check_ok_for_atomic_type (gnu_field_type, gnat_field, false);
 
   if (Present (Component_Clause (gnat_field)))
     {
+      Node_Id gnat_clause = Component_Clause (gnat_field);
       Entity_Id gnat_parent
 	= Parent_Subtype (Underlying_Type (Scope (gnat_field)));
 
@@ -6479,91 +6554,102 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 
 	  if (TREE_CODE (TYPE_SIZE (gnu_parent)) == INTEGER_CST
 	      && tree_int_cst_lt (gnu_pos, TYPE_SIZE (gnu_parent)))
-	    {
-	      post_error_ne_tree
-		("offset of& must be beyond parent{, minimum allowed is ^}",
-		 First_Bit (Component_Clause (gnat_field)), gnat_field,
-		 TYPE_SIZE_UNIT (gnu_parent));
-	    }
+	    post_error_ne_tree
+	      ("offset of& must be beyond parent{, minimum allowed is ^}",
+	       Position (gnat_clause), gnat_field, TYPE_SIZE_UNIT (gnu_parent));
 	}
 
-      /* If this field needs strict alignment, check that the record is
-	 sufficiently aligned and that position and size are consistent with
-	 the alignment.  But don't do it if we are just annotating types and
+      /* If this field needs strict alignment, make sure that the record is
+	 sufficiently aligned and that the position and size are consistent
+	 with the type.  But don't do it if we are just annotating types and
 	 the field's type is tagged, since tagged types aren't fully laid out
 	 in this mode.  Also, note that atomic implies volatile so the inner
 	 test sequences ordering is significant here.  */
       if (needs_strict_alignment
 	  && !(type_annotate_only && Is_Tagged_Type (gnat_field_type)))
 	{
-	  TYPE_ALIGN (gnu_record_type)
-	    = MAX (TYPE_ALIGN (gnu_record_type), TYPE_ALIGN (gnu_field_type));
+	  const unsigned int type_align = TYPE_ALIGN (gnu_field_type);
 
-	  if (gnu_size
-	      && !operand_equal_p (gnu_size, TYPE_SIZE (gnu_field_type), 0))
+	  if (TYPE_ALIGN (gnu_record_type) < type_align)
+	    TYPE_ALIGN (gnu_record_type) = type_align;
+
+	  /* If the position is not a multiple of the alignment of the type,
+	     then error out and reset the position.  */
+	  if (!integer_zerop (size_binop (TRUNC_MOD_EXPR, gnu_pos,
+					  bitsize_int (type_align))))
 	    {
-	      if (Is_Atomic (gnat_field) || Is_Atomic (gnat_field_type))
-		post_error_ne_tree
-		  ("atomic field& must be natural size of type{ (^)}",
-		   Last_Bit (Component_Clause (gnat_field)), gnat_field,
-		   TYPE_SIZE (gnu_field_type));
+	      const char *s;
 
+	      if (is_atomic)
+		s = "position of atomic field& must be multiple of ^ bits";
+	      else if (is_aliased)
+		s = "position of aliased field& must be multiple of ^ bits";
+	      else if (is_independent)
+		s = "position of independent field& must be multiple of ^ bits";
 	      else if (is_volatile)
-		post_error_ne_tree
-		  ("volatile field& must be natural size of type{ (^)}",
-		   Last_Bit (Component_Clause (gnat_field)), gnat_field,
-		   TYPE_SIZE (gnu_field_type));
-
-	      else if (Is_Aliased (gnat_field))
-		post_error_ne_tree
-		  ("size of aliased field& must be ^ bits",
-		   Last_Bit (Component_Clause (gnat_field)), gnat_field,
-		   TYPE_SIZE (gnu_field_type));
-
+		s = "position of volatile field& must be multiple of ^ bits";
 	      else if (Strict_Alignment (gnat_field_type))
-		post_error_ne_tree
-		  ("size of & with aliased or tagged components not ^ bits",
-		   Last_Bit (Component_Clause (gnat_field)), gnat_field,
-		   TYPE_SIZE (gnu_field_type));
-
-              else
-		gcc_unreachable ();
-
-	      gnu_size = NULL_TREE;
-	    }
-
-	  if (!integer_zerop (size_binop
-			      (TRUNC_MOD_EXPR, gnu_pos,
-			       bitsize_int (TYPE_ALIGN (gnu_field_type)))))
-	    {
-	      if (Is_Atomic (gnat_field) || Is_Atomic (gnat_field_type))
-		post_error_ne_num
-		  ("position of atomic field& must be multiple of ^ bits",
-		   First_Bit (Component_Clause (gnat_field)), gnat_field,
-		   TYPE_ALIGN (gnu_field_type));
-
-              else if (is_volatile)
-		post_error_ne_num
-		  ("position of volatile field& must be multiple of ^ bits",
-		   First_Bit (Component_Clause (gnat_field)), gnat_field,
-		   TYPE_ALIGN (gnu_field_type));
-
-	      else if (Is_Aliased (gnat_field))
-		post_error_ne_num
-		  ("position of aliased field& must be multiple of ^ bits",
-		   First_Bit (Component_Clause (gnat_field)), gnat_field,
-		   TYPE_ALIGN (gnu_field_type));
-
-	      else if (Strict_Alignment (gnat_field_type))
-		post_error_ne
-		  ("position of & is not compatible with alignment required "
-		   "by its components",
-		    First_Bit (Component_Clause (gnat_field)), gnat_field);
-
+		s = "position of & with aliased or tagged part must be"
+		    " multiple of ^ bits";
 	      else
 		gcc_unreachable ();
 
+	      post_error_ne_num (s, First_Bit (gnat_clause), gnat_field,
+				 type_align);
 	      gnu_pos = NULL_TREE;
+	    }
+
+	  if (gnu_size)
+	    {
+	      tree gnu_type_size = TYPE_SIZE (gnu_field_type);
+	      const int cmp = tree_int_cst_compare (gnu_size, gnu_type_size);
+
+	      /* If the size is lower than that of the type, or greater for
+		 atomic and aliased, then error out and reset the size.  */
+	      if (cmp < 0 || (cmp > 0 && (is_atomic || is_aliased)))
+		{
+		  const char *s;
+
+		  if (is_atomic)
+		    s = "size of atomic field& must be ^ bits";
+		  else if (is_aliased)
+		    s = "size of aliased field& must be ^ bits";
+		  else if (is_independent)
+		    s = "size of independent field& must be at least ^ bits";
+		  else if (is_volatile)
+		    s = "size of volatile field& must be at least ^ bits";
+		  else if (Strict_Alignment (gnat_field_type))
+		    s = "size of & with aliased or tagged part must be"
+			" at least ^ bits";
+		  else
+		    gcc_unreachable ();
+
+		  post_error_ne_tree (s, Last_Bit (gnat_clause), gnat_field,
+				      gnu_type_size);
+		  gnu_size = NULL_TREE;
+		}
+
+	      /* Likewise if the size is not a multiple of a byte,  */
+	      else if (!integer_zerop (size_binop (TRUNC_MOD_EXPR, gnu_size,
+						   bitsize_unit_node)))
+		{
+		  const char *s;
+
+		  if (is_independent)
+		    s = "size of independent field& must be multiple of"
+			" Storage_Unit";
+		  else if (is_volatile)
+		    s = "size of volatile field& must be multiple of"
+			" Storage_Unit";
+		  else if (Strict_Alignment (gnat_field_type))
+		    s = "size of & with aliased or tagged part must be"
+			" multiple of Storage_Unit";
+		  else
+		    gcc_unreachable ();
+
+		  post_error_ne (s, Last_Bit (gnat_clause), gnat_field);
+		  gnu_size = NULL_TREE;
+		}
 	    }
 	}
     }
@@ -7362,7 +7448,7 @@ annotate_value (tree gnu_size)
       struct tree_int_map *e;
 
       in.base.from = gnu_size;
-      e = (struct tree_int_map *) htab_find (annotate_value_cache, &in);
+      e = annotate_value_cache->find (&in);
 
       if (e)
 	return (Node_Ref_Or_Val) e->to;
@@ -7491,8 +7577,7 @@ annotate_value (tree gnu_size)
 	 look up, so we have to search again.  Allocating and inserting an
 	 entry at that point would be an alternative, but then we'd better
 	 discard the entry if we decided not to cache it.  */
-      h = (struct tree_int_map **)
-	    htab_find_slot (annotate_value_cache, &in, INSERT);
+      h = annotate_value_cache->find_slot (&in, INSERT);
       gcc_assert (!*h);
       *h = ggc_alloc<tree_int_map> ();
       (*h)->base.from = gnu_size;
@@ -8062,78 +8147,63 @@ validate_alignment (Uint alignment, Entity_Id gnat_entity, unsigned int align)
   return align;
 }
 
-/* Verify that OBJECT, a type or decl, is something we can implement
-   atomically.  If not, give an error for GNAT_ENTITY.  COMP_P is true
-   if we require atomic components.  */
+/* Verify that TYPE is something we can implement atomically.  If not, issue
+   an error for GNAT_ENTITY.  COMPONENT_P is true if we are being called to
+   process a component type.  */
 
 static void
-check_ok_for_atomic (tree object, Entity_Id gnat_entity, bool comp_p)
+check_ok_for_atomic_type (tree type, Entity_Id gnat_entity, bool component_p)
 {
   Node_Id gnat_error_point = gnat_entity;
   Node_Id gnat_node;
   machine_mode mode;
+  enum mode_class mclass;
   unsigned int align;
   tree size;
 
-  /* There are three case of what OBJECT can be.  It can be a type, in which
-     case we take the size, alignment and mode from the type.  It can be a
-     declaration that was indirect, in which case the relevant values are
-     that of the type being pointed to, or it can be a normal declaration,
-     in which case the values are of the decl.  The code below assumes that
-     OBJECT is either a type or a decl.  */
-  if (TYPE_P (object))
-    {
-      /* If this is an anonymous base type, nothing to check.  Error will be
-	 reported on the source type.  */
-      if (!Comes_From_Source (gnat_entity))
-	return;
-
-      mode = TYPE_MODE (object);
-      align = TYPE_ALIGN (object);
-      size = TYPE_SIZE (object);
-    }
-  else if (DECL_BY_REF_P (object))
-    {
-      mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (object)));
-      align = TYPE_ALIGN (TREE_TYPE (TREE_TYPE (object)));
-      size = TYPE_SIZE (TREE_TYPE (TREE_TYPE (object)));
-    }
-  else
-    {
-      mode = DECL_MODE (object);
-      align = DECL_ALIGN (object);
-      size = DECL_SIZE (object);
-    }
-
-  /* Consider all floating-point types atomic and any types that that are
-     represented by integers no wider than a machine word.  */
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT
-      || ((GET_MODE_CLASS (mode) == MODE_INT
-	   || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
-	  && GET_MODE_BITSIZE (mode) <= BITS_PER_WORD))
+  /* If this is an anonymous base type, nothing to check, the error will be
+     reported on the source type if need be.  */
+  if (!Comes_From_Source (gnat_entity))
     return;
 
-  /* For the moment, also allow anything that has an alignment equal
-     to its size and which is smaller than a word.  */
-  if (size && TREE_CODE (size) == INTEGER_CST
+  mode = TYPE_MODE (type);
+  mclass = GET_MODE_CLASS (mode);
+  align = TYPE_ALIGN (type);
+  size = TYPE_SIZE (type);
+
+  /* Consider all aligned floating-point types atomic and any aligned types
+     that are represented by integers no wider than a machine word.  */
+  if ((mclass == MODE_FLOAT
+       || ((mclass == MODE_INT || mclass == MODE_PARTIAL_INT)
+	   && GET_MODE_BITSIZE (mode) <= BITS_PER_WORD))
+      && align >= GET_MODE_ALIGNMENT (mode))
+    return;
+
+  /* For the moment, also allow anything that has an alignment equal to its
+     size and which is smaller than a word.  */
+  if (size
+      && TREE_CODE (size) == INTEGER_CST
       && compare_tree_int (size, align) == 0
       && align <= BITS_PER_WORD)
     return;
 
-  for (gnat_node = First_Rep_Item (gnat_entity); Present (gnat_node);
+  for (gnat_node = First_Rep_Item (gnat_entity);
+       Present (gnat_node);
        gnat_node = Next_Rep_Item (gnat_node))
-    {
-      if (!comp_p && Nkind (gnat_node) == N_Pragma
-	  && (Get_Pragma_Id (Chars (Pragma_Identifier (gnat_node)))
-              == Pragma_Atomic))
-	gnat_error_point = First (Pragma_Argument_Associations (gnat_node));
-      else if (comp_p && Nkind (gnat_node) == N_Pragma
-	       && (Get_Pragma_Id (Chars (Pragma_Identifier (gnat_node)))
-		   == Pragma_Atomic_Components))
-	gnat_error_point = First (Pragma_Argument_Associations (gnat_node));
-    }
+    if (Nkind (gnat_node) == N_Pragma)
+      {
+	unsigned char pragma_id
+	  = Get_Pragma_Id (Chars (Pragma_Identifier (gnat_node)));
 
-  if (comp_p)
+	if ((pragma_id == Pragma_Atomic && !component_p)
+	    || (pragma_id == Pragma_Atomic_Components && component_p))
+	  {
+	    gnat_error_point = First (Pragma_Argument_Associations (gnat_node));
+	    break;
+	  }
+      }
+
+  if (component_p)
     post_error_ne ("atomic access to component of & cannot be guaranteed",
 		   gnat_error_point, gnat_entity);
   else
@@ -8840,8 +8910,7 @@ void
 init_gnat_decl (void)
 {
   /* Initialize the cache of annotated values.  */
-  annotate_value_cache
-    = htab_create_ggc (512, tree_int_map_hash, tree_int_map_eq, 0);
+  annotate_value_cache = hash_table<value_annotation_hasher>::create_ggc (512);
 }
 
 /* Destroy data structures of the decl.c module.  */
@@ -8850,7 +8919,7 @@ void
 destroy_gnat_decl (void)
 {
   /* Destroy the cache of annotated values.  */
-  htab_delete (annotate_value_cache);
+  annotate_value_cache->empty ();
   annotate_value_cache = NULL;
 }
 

@@ -1,5 +1,5 @@
 /* Expand the basic unary and binary arithmetic operations, for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,6 +28,15 @@ along with GCC; see the file COPYING3.  If not see
    is properly defined.  */
 #include "insn-config.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "tree-hasher.h"
 #include "stor-layout.h"
@@ -35,14 +44,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "except.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -520,9 +534,6 @@ optab_for_tree_code (enum tree_code code, const_tree type,
     case REDUC_PLUS_EXPR:
       return reduc_plus_scal_optab;
 
-    case VEC_RSHIFT_EXPR:
-      return vec_shr_optab;
-
     case VEC_WIDEN_MULT_HI_EXPR:
       return TYPE_UNSIGNED (type) ?
 	vec_widen_umult_hi_optab : vec_widen_smult_hi_optab;
@@ -769,34 +780,6 @@ force_expand_binop (machine_mode mode, optab binoptab,
   if (x != target)
     emit_move_insn (target, x);
   return true;
-}
-
-/* Generate insns for VEC_RSHIFT_EXPR.  */
-
-rtx
-expand_vec_shift_expr (sepops ops, rtx target)
-{
-  struct expand_operand eops[3];
-  enum insn_code icode;
-  rtx rtx_op1, rtx_op2;
-  machine_mode mode = TYPE_MODE (ops->type);
-  tree vec_oprnd = ops->op0;
-  tree shift_oprnd = ops->op1;
-
-  gcc_assert (ops->code == VEC_RSHIFT_EXPR);
-
-  icode = optab_handler (vec_shr_optab, mode);
-  gcc_assert (icode != CODE_FOR_nothing);
-
-  rtx_op1 = expand_normal (vec_oprnd);
-  rtx_op2 = expand_normal (shift_oprnd);
-
-  create_output_operand (&eops[0], target, mode);
-  create_input_operand (&eops[1], rtx_op1, GET_MODE (rtx_op1));
-  create_convert_operand_from_type (&eops[2], rtx_op2, TREE_TYPE (shift_oprnd));
-  expand_insn (icode, 3, eops);
-
-  return eops[0].value;
 }
 
 /* Create a new vector value in VMODE with all elements set to OP.  The
@@ -4198,8 +4181,11 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
 
   if (GET_MODE_CLASS (mode) == MODE_CC)
     {
-      gcc_assert (can_compare_p (comparison, CCmode, ccp_jump));
-      *ptest = gen_rtx_fmt_ee (comparison, VOIDmode, x, y);
+      enum insn_code icode = optab_handler (cbranch_optab, CCmode);
+      test = gen_rtx_fmt_ee (comparison, VOIDmode, x, y);
+      gcc_assert (icode != CODE_FOR_nothing
+                  && insn_operand_matches (icode, 0, test));
+      *ptest = test;
       return;
     }
 
@@ -4308,9 +4294,12 @@ prepare_operand (enum insn_code icode, rtx x, int opnum, machine_mode mode,
 
   if (!insn_operand_matches (icode, opnum, x))
     {
+      machine_mode op_mode = insn_data[(int) icode].operand[opnum].mode;
       if (reload_completed)
 	return NULL_RTX;
-      x = copy_to_mode_reg (insn_data[(int) icode].operand[opnum].mode, x);
+      if (GET_MODE (x) != op_mode && GET_MODE (x) != VOIDmode)
+	return NULL_RTX;
+      x = copy_to_mode_reg (op_mode, x);
     }
 
   return x;
@@ -6482,7 +6471,7 @@ gen_cond_trap (enum rtx_code code, rtx op1, rtx op2, rtx tcode)
 /* Return rtx code for TCODE. Use UNSIGNEDP to select signed
    or unsigned operation code.  */
 
-static enum rtx_code
+enum rtx_code
 get_rtx_code (enum tree_code tcode, bool unsignedp)
 {
   enum rtx_code code;
@@ -6532,6 +6521,14 @@ get_rtx_code (enum tree_code tcode, bool unsignedp)
       code = LTGT;
       break;
 
+    case BIT_AND_EXPR:
+      code = AND;
+      break;
+
+    case BIT_IOR_EXPR:
+      code = IOR;
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -6564,8 +6561,11 @@ vector_compare_rtx (enum tree_code tcode, tree t_op0, tree t_op1,
   return gen_rtx_fmt_ee (rcode, VOIDmode, ops[0].value, ops[1].value);
 }
 
-/* Return true if VEC_PERM_EXPR can be expanded using SIMD extensions
-   of the CPU.  SEL may be NULL, which stands for an unknown constant.  */
+/* Return true if VEC_PERM_EXPR of arbitrary input vectors can be expanded using
+   SIMD extensions of the CPU.  SEL may be NULL, which stands for an unknown
+   constant.  Note that additional permutations representing whole-vector shifts
+   may also be handled via the vec_shr optab, but only where the second input
+   vector is entirely constant zeroes; this case is not dealt with here.  */
 
 bool
 can_vec_perm_p (machine_mode mode, bool variable,
@@ -6618,6 +6618,34 @@ can_vec_perm_p (machine_mode mode, bool variable,
   return true;
 }
 
+/* Checks if vec_perm mask SEL is a constant equivalent to a shift of the first
+   vec_perm operand, assuming the second operand is a constant vector of zeroes.
+   Return the shift distance in bits if so, or NULL_RTX if the vec_perm is not a
+   shift.  */
+static rtx
+shift_amt_for_vec_perm_mask (rtx sel)
+{
+  unsigned int i, first, nelt = GET_MODE_NUNITS (GET_MODE (sel));
+  unsigned int bitsize = GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (sel)));
+
+  if (GET_CODE (sel) != CONST_VECTOR)
+    return NULL_RTX;
+
+  first = INTVAL (CONST_VECTOR_ELT (sel, 0));
+  if (first >= 2*nelt)
+    return NULL_RTX;
+  for (i = 1; i < nelt; i++)
+    {
+      int idx = INTVAL (CONST_VECTOR_ELT (sel, i));
+      unsigned int expected = (i + first) & (2 * nelt - 1);
+      /* Indices into the second vector are all equivalent.  */
+      if (idx < 0 || (MIN (nelt, (unsigned) idx) != MIN (nelt, expected)))
+	return NULL_RTX;
+    }
+
+  return GEN_INT (first * bitsize);
+}
+
 /* A subroutine of expand_vec_perm for expanding one vec_perm insn.  */
 
 static rtx
@@ -6646,6 +6674,17 @@ expand_vec_perm_1 (enum insn_code icode, rtx target,
   else
     {
       create_input_operand (&ops[1], v0, tmode);
+      /* See if this can be handled with a vec_shr.  We only do this if the
+         second vector is all zeroes.  */
+      enum insn_code shift_code = optab_handler (vec_shr_optab, GET_MODE (v0));
+      if (v1 == CONST0_RTX (GET_MODE (v1)) && shift_code)
+	if (rtx shift_amt = shift_amt_for_vec_perm_mask (sel))
+	  {
+	    create_convert_operand_from_type (&ops[2], shift_amt,
+					      sizetype_tab[(int) stk_sizetype]);
+	    if (maybe_expand_insn (shift_code, 3, ops))
+	      return ops[0].value;
+	  }
       create_input_operand (&ops[2], v1, tmode);
     }
 

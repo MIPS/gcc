@@ -1,5 +1,5 @@
 /* Graphite polyhedral representation.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@amd.com> and
    Tobias Grosser <grosser@fim.uni-passau.de>.
 
@@ -348,6 +348,9 @@ struct poly_bb
   /* A copy of the transformed scattering.  */
   poly_scattering_p _saved;
   isl_map *saved;
+
+  /* For tiling, the map for computing the separating class.  */
+  isl_map *map_sepclass;
 
   /* True when this PBB contains only a reduction statement.  */
   bool is_reduction;

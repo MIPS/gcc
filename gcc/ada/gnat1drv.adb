@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,6 +36,7 @@ with Fmap;
 with Fname;    use Fname;
 with Fname.UF; use Fname.UF;
 with Frontend;
+with Ghost;
 with Gnatvsn;  use Gnatvsn;
 with Inline;
 with Lib;      use Lib;
@@ -129,6 +130,12 @@ procedure Gnat1drv is
          Relaxed_RM_Semantics := True;
       end if;
 
+      --  -gnatd.1 enables unnesting of subprograms
+
+      if Debug_Flag_Dot_1 then
+         Unnest_Subprogram_Mode := True;
+      end if;
+
       --  -gnatd.V or -gnatd.u enables special C expansion mode
 
       if Debug_Flag_Dot_VV or Debug_Flag_Dot_U then
@@ -181,6 +188,12 @@ procedure Gnat1drv is
       --  Tune settings for optimal SCIL generation in CodePeer mode
 
       if CodePeer_Mode then
+
+         --  Turn off gnatprove mode (which can be set via e.g. -gnatd.F), not
+         --  compatible with CodePeer mode.
+
+         GNATprove_Mode := False;
+         Debug_Flag_Dot_FF := False;
 
          --  Turn off inlining, confuses CodePeer output and gains nothing
 
@@ -368,11 +381,8 @@ procedure Gnat1drv is
 
          Suppress_Options.Suppress := (others => False);
 
-         --  Turn off dynamic elaboration checks: generates inconsistencies in
-         --  trees between specs compiled as part of a main unit or as part of
-         --  a with-clause.
-
-         --  Comment is incomplete, SPARK semantics rely on static mode no???
+         --  Turn off dynamic elaboration checks. SPARK mode depends on the
+         --  use of the static elaboration mode.
 
          Dynamic_Elaboration_Checks := False;
 
@@ -605,13 +615,9 @@ procedure Gnat1drv is
 
       Back_End_Inlining :=
 
-        --  No back end inlining if inlining is suppressed
-
-        not Suppress_All_Inlining
-
         --  No back end inlining available for VM targets
 
-        and then VM_Target = No_VM
+        VM_Target = No_VM
 
         --  No back end inlining available on AAMP
 
@@ -833,10 +839,14 @@ procedure Gnat1drv is
 
       Sem_Ch13.Validate_Address_Clauses;
 
-      --  Validate independence pragmas (again using values annotated by
-      --  the back end for component layout etc.)
+      --  Validate independence pragmas (again using values annotated by the
+      --  back end for component layout where possible) but only for non-GCC
+      --  back ends, as this is done a priori for GCC back ends.
 
-      Sem_Ch13.Validate_Independence;
+      if VM_Target /= No_VM or else AAMP_On_Target then
+         Sem_Ch13.Validate_Independence;
+      end if;
+
    end Post_Compilation_Validation_Checks;
 
 --  Start of processing for Gnat1drv
@@ -860,7 +870,6 @@ begin
       Lib.Xref.Initialize;
       Scan_Compiler_Arguments;
       Osint.Add_Default_Search_Dirs;
-
       Atree.Initialize;
       Nlists.Initialize;
       Sinput.Initialize;
@@ -873,6 +882,7 @@ begin
       SCOs.Initialize;
       Snames.Initialize;
       Stringt.Initialize;
+      Ghost.Initialize;
       Inline.Initialize;
       Par_SCO.Initialize;
       Sem_Ch8.Initialize;
@@ -1238,8 +1248,8 @@ begin
         and then
           (not (Back_Annotate_Rep_Info or Generate_SCIL or GNATprove_Mode)
             or else Main_Kind = N_Subunit
-            or else Targparm.Frontend_Layout_On_Target
-            or else Targparm.VM_Target /= No_VM)
+            or else Frontend_Layout_On_Target
+            or else VM_Target /= No_VM)
       then
          Post_Compilation_Validation_Checks;
          Errout.Finalize (Last_Call => True);
@@ -1276,17 +1286,25 @@ begin
          Write_ALI (Object => True);
       end if;
 
+      --  Some back ends (for instance Gigi) are known to rely on SCOs for code
+      --  generation. Make sure they are available.
+
+      if Generate_SCO then
+         Par_SCO.SCO_Record_Filtered;
+      end if;
+
       --  Back end needs to explicitly unlock tables it needs to touch
 
       Atree.Lock;
       Elists.Lock;
       Fname.UF.Lock;
+      Ghost.Lock;
       Inline.Lock;
       Lib.Lock;
+      Namet.Lock;
       Nlists.Lock;
       Sem.Lock;
       Sinput.Lock;
-      Namet.Lock;
       Stringt.Lock;
 
       --  Here we call the back end to generate the output code
