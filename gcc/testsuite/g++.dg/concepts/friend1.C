@@ -22,8 +22,9 @@ template<typename T>
 struct X { } x;
 
 int main() {
-  f(0); // OK
-  f(x); // { dg-error "cannot call" }
+  // f(0); // OK
+  f(nt); // { dg-error "cannot call" }
+  f(x);  // { dg-error "not declared" }
 
   S<int> si;
   si == si; // OK

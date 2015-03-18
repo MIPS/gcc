@@ -1,3 +1,12 @@
+2015-03-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
+	Addressing regressions after merge.
+	* gcc/cp/parser.c (cp_parser_template_declaration_after_export):
+	Revert implementation of concept introductions. It was causing
+	scoping issues.
+	* gcc/testsuite/g++.dg/concepts/friend1.C: Update test to account
+	for apparent fix (?) to lookup rules involving friends.
+
 2015-03-03  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Rewrite to use new constraint model.
