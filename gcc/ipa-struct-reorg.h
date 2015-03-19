@@ -43,6 +43,9 @@ struct field_access_site
   tree num;              /* i.6_20  */
   tree offset;           /* D2167_22  */
   tree base;             /* p.5_23  */
+  tree insn_offset;                 
+  tree insn_base;             
+  tree insn_num;              /* i.6_20  */
   gimple ref_def_stmt;   /* D.2168_24 = D.2167_22 + p.5_23;  */
   gimple cast_stmt;      /* D.2167_22 = (struct str_t *) D.2166_21;
                             This statement is not always present.  */
