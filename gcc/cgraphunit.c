@@ -2430,16 +2430,6 @@ symbol_table::finalize_compilation_unit (void)
   if (flag_dump_passes)
     dump_passes ();
 
-  /* Generate early debug for global symbols.  Any local symbols will
-     be handled by either handling reachable functions further down
-     (and by consequence, locally scoped symbols), or by generating
-     DIEs for types.  */
-  symtab_node *snode;
-  FOR_EACH_SYMBOL (snode)
-    if (TREE_CODE (snode->decl) != FUNCTION_DECL
-	&& !decl_function_context (snode->decl))
-      (*debug_hooks->early_global_decl) (snode->decl);
-
   /* Gimplify and lower all functions, compute reachability and
      remove unreachable nodes.  */
   analyze_functions ();

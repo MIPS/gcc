@@ -293,11 +293,16 @@ rest_of_decl_compilation (tree decl,
 	   && TREE_STATIC (decl))
     varpool_node::get_create (decl);
 
-  /* ?? Theoretically, we should be able to to call
-     debug_hooks->early_global_decl() here just as we do for
-     rest_of_type_compilation below.  This would require changing how
-     we're currently calling early_global_decl() in all the
-     front-ends.  Something to look into later.  */
+  /* Generate early debug for global symbols.  Any local symbols will
+     be handled by either handling reachable functions from
+     finalize_compilation_unit (and by consequence, locally scoped
+     symbols), or by rest_of_type_compilation below.  */
+  if (!flag_wpa
+	&& TREE_CODE (decl) != FUNCTION_DECL
+      && !decl_function_context (decl)
+      && !current_function_decl
+      && !decl_type_context (decl))
+    (*debug_hooks->early_global_decl) (decl);
 }
 
 /* Called after finishing a record, union or enumeral type.  */

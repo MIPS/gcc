@@ -21868,17 +21868,6 @@ dwarf2out_decl (tree decl)
       break;
 
     case VAR_DECL:
-      /* Ignore this VAR_DECL if it refers to a file-scope extern data object
-	 declaration and if the declaration was never even referenced from
-	 within this entire compilation unit.  We suppress these DIEs in
-	 order to save space in the .debug section (by eliminating entries
-	 which are probably useless).  Note that we must not suppress
-	 block-local extern declarations (whether used or not) because that
-	 would screw-up the debugger's name lookup mechanism and cause it to
-	 miss things which really ought to be in scope at a given point.  */
-      if (DECL_EXTERNAL (decl) && !TREE_USED (decl))
-	return NULL;
-
       /* For local statics lookup proper context die.  */
       if (local_function_static (decl))
 	context_die = lookup_decl_die (DECL_CONTEXT (decl));
@@ -25109,6 +25098,8 @@ dwarf2out_finish (const char *filename)
 
   if (flag_eliminate_unused_debug_types)
     prune_unused_types ();
+
+  /* FIXME: Prune DIEs for unused decls.  */
 
   /* Generate separate COMDAT sections for type DIEs. */
   if (use_debug_types)
