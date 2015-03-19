@@ -11,6 +11,10 @@ program test
     integer :: string_len = 10 *2
     character(len=:), allocatable, target :: str
     character(len=:,kind=4), allocatable :: str4
+    type T
+        class(*), pointer :: content
+    end type
+    type(T) :: o1, o2
 
     str = "string for test"
     str4 = 4_"string for test"
@@ -171,6 +175,22 @@ program test
     deallocate(P1)
     deallocate(A1)
 
+    allocate(o1%content, source='test string')
+    allocate(o2%content, source=o1%content)
+    select type (c => o1%content)
+      type is (character(*))
+        if (c /= 'test string') call abort ()
+      class default
+        call abort()
+    end select
+    select type (d => o2%content)
+      type is (character(*))
+        if (d /= 'test string') call abort ()
+      class default
+    end select
+
+    call AddCopy ('test string')
+    
 contains
 
   function convertType(in)
@@ -179,4 +199,17 @@ contains
 
     convertType => in
   end function
+
+  subroutine AddCopy(C)
+    class(*), intent(in) :: C
+    class(*), pointer :: P
+    allocate(P, source=C)
+    select type (P)
+      type is (character(*))
+        if (P /= 'test string') call abort()
+      class default
+        call abort()
+    end select
+  end subroutine
+
 end program test

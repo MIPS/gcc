@@ -1009,7 +1009,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
   tree index;
 
   args = NULL;
-  /* To prevent warnings for uninitialization.  */
+  /* To prevent warnings on uninitialized variables.  */
   from_len = to_len = NULL_TREE;
 
   if (from != NULL_TREE)
@@ -8718,7 +8718,7 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
   if (expr1->ts.type == BT_CHARACTER && expr1->ts.deferred)
     {
       cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
-			      expr1->ts.u.cl->backend_decl, size);
+			      lse.string_length, size);
       /* Jump past the realloc if the lengths are the same.  */
       tmp = build3_v (COND_EXPR, cond,
 		      build1_v (GOTO_EXPR, jump_label2),
@@ -8735,10 +8735,7 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
 
       /* Update the lhs character length.  */
       size = string_length;
-      if (TREE_CODE (expr1->ts.u.cl->backend_decl) == VAR_DECL)
-	gfc_add_modify (block, expr1->ts.u.cl->backend_decl, size);
-      else
-	gfc_add_modify (block, lse.string_length, size);
+      gfc_add_modify (block, lse.string_length, size);
     }
 }
 
@@ -9028,7 +9025,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
     {
       /* F2003: Add the code for reallocation on assignment.  */
       if (flag_realloc_lhs && is_scalar_reallocatable_lhs (expr1))
-	alloc_scalar_allocatable_for_assignment (&block, rse.string_length,
+	alloc_scalar_allocatable_for_assignment (&block, string_length,
 						 expr1, expr2);
 
       /* Use the scalar assignment as is.  */
