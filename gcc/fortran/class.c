@@ -234,6 +234,9 @@ gfc_add_component_ref (gfc_expr *e, const char *name)
     }
   if (*tail != NULL && strcmp (name, "_data") == 0)
     next = *tail;
+  else
+    /* Avoid losing memory.  */
+    gfc_free_ref_list (*tail);
   (*tail) = gfc_get_ref();
   (*tail)->next = next;
   (*tail)->type = REF_COMPONENT;

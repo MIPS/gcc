@@ -5034,12 +5034,8 @@ gfc_trans_allocate (gfc_code * code)
       tree expr3_tmp = NULL_TREE;
 
       /* Figure whether we need the vtab from expr3.  */
-      for (al = code->ext.alloc.list; al != NULL; al = al->next)
-	if (al->expr->ts.type == BT_CLASS)
-	  {
-	    vtab_needed = true;
-	    break;
-	  }
+      for (al = code->ext.alloc.list; !vtab_needed && al != NULL; al = al->next)
+	vtab_needed = (al->expr->ts.type == BT_CLASS);
 
       /* A array expr3 needs the scalarizer, therefore do not process it
 	 here.  */

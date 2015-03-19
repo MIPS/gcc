@@ -269,7 +269,11 @@ gfc_vptr_size_get (tree vptr)
 
 
 /* Search for the last _class ref in the chain of references of this expression
-   and cut the chain there.  After that copy the cut down expression to CUT.  */
+   and cut the chain there.  Albeit this routine is similiar to
+   class.c::gfc_add_component_ref (), is there a significant difference:
+   gfc_add_component_ref () concentrates on an array ref to be the last
+   ref in the chain.  This routine is oblivious to the kind of refs
+   following.  */
 
 gfc_expr *
 gfc_find_and_cut_at_last_class_ref (gfc_expr *e)
@@ -1029,14 +1033,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
       if (from != NULL_TREE && unlimited)
 	from_len = gfc_class_len_get (from);
       else
-	{
-	  mpz_t len_zero;
-
-	  mpz_init (len_zero);
-	  mpz_set_ui (len_zero, 0);
-	  from_len = gfc_conv_mpz_to_tree (len_zero, gfc_index_integer_kind);
-	  mpz_clear (len_zero);
-	}
+	from_len = integer_zero_node;
     }
 
   to_data = gfc_class_data_get (to);
