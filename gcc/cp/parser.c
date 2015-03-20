@@ -23569,7 +23569,11 @@ cp_parser_simple_requirement (cp_parser *parser)
 /* Parse a type requirement
 
      type-requirement
-         nested-name-specifier [opt] type-name ';' */
+         nested-name-specifier [opt] required-type-name ';' 
+ 
+     required-type-name:
+         type-name
+         'template' [opt] simple-template-id  */
 static tree
 cp_parser_type_requirement (cp_parser *parser)
 {
@@ -23581,12 +23585,28 @@ cp_parser_type_requirement (cp_parser *parser)
                                        /*check_dependency_p=*/false,
                                        /*type_p=*/true,
                                        /*is_declaration=*/false);
+
+  tree type;
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
+    {
+      cp_lexer_consume_token (parser->lexer);
+      type = cp_parser_template_id (parser, 
+                                    /*template_keyword_p=*/true, 
+                                    /*check_dependency=*/false,
+                                    /*tag_type=*/none_type,
+                                    /*is_declaration=*/false);
+      type = make_typename_type (parser->scope, type, typename_type,
+                                 /*complain=*/tf_error);
+    }
+  else
+   type = cp_parser_type_name (parser, /*typename_keyword_p=*/true);
   
-  tree type = cp_parser_type_name (parser, /*typename_keyword_p=*/true);
   if (type == error_mark_node)
-    return error_mark_node;
+    cp_parser_skip_to_end_of_statement (parser);
 
   if (!cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
+    return error_mark_node;
+  if (type == error_mark_node)
     return error_mark_node;
 
   return finish_type_requirement (type);

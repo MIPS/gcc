@@ -2403,16 +2403,6 @@ determine_specialization (tree template_id,
   else
     *targs_out = TREE_PURPOSE (templates);
 
-  // Associate the deduced constraints with the new declaration.
-  /*
-  tree tmpl = TREE_VALUE (templates);
-  if (tree ci = get_constraints (tmpl))
-    {
-      ci = tsubst_constraint_info (ci, *targs_out, tf_none, NULL_TREE);
-      set_constraints (decl, ci);
-    }
-  */
-
   return TREE_VALUE (templates);
 }
 
@@ -8253,6 +8243,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
               error ("template constraint failure");
               diagnose_constraints (input_location, gen_tmpl, arglist);
             }
+          return error_mark_node;
         }
 
       is_dependent_type = uses_template_parms (arglist);

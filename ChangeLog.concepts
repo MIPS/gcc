@@ -1,5 +1,29 @@
 2015-03-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Fix grammar error type requirements and improve diagnostics
+	for mis-defined function concepts and errors involving pack 
+	expansions.
+	* gcc/cp/pt.c (determine_specialization). Remove dead code.
+	(lookup_template_class_1): Return an error if constraints
+	aren't satisfied.
+	* gcc/cp/constraint.cc (lift_function_definition): Don't
+	re-check for empty/erroneous concept definitions.
+	(lift_pack_expansion): Removed. Don't inline patterns so
+	that we can preserve the syntax beneath them.
+	(lift_expression): Don't do anything with pack expansions.
+	(check_function_concept): Specifically check for empty
+	concept definitions.
+	(diagnose_pack_expansion): Diagnose errors in expansions
+	more thoughtfully by determining which arguments are failing
+	their expanded requirements.
+	gcc/cp/parser.c (cp_parser_type_requirement): Accept an
+	optional template keyword before a template-id and
+	parse that as a special case of required type name.
+	gcc/testsuite/g++.dg/concepts/template-parm11.C: Update test
+	for fixed grammar, diagnostics.
+
+2015-03-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Ensure that empty expansions are satisfied.
 	* gcc/cp/constraint.cc (check_pack_expansion): Empty expansions
 	are satsified.

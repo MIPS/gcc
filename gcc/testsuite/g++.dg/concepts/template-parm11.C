@@ -4,7 +4,7 @@ template<typename T>
 concept bool NameProvider()
 {
   return requires(){
-    T::_name_t::template _member_t<int>;
+    typename T::_name_t::template _member_t<int>;
   };
 }
 
@@ -16,5 +16,3 @@ int f()
 {
   getTable(7, 'a'); // { dg-error "cannot call" }
 };
-
-// { dg-excess-errors "ColSpec|false" }

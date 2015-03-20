@@ -331,16 +331,9 @@ lift_function_definition (tree fn, tree args)
     return error_mark_node;
   if (TREE_CODE (body) == BIND_EXPR)
     body = BIND_EXPR_BODY (body);
-  
-  /* FIXME: Why isn't this being checked at the point of definition? */
   if (TREE_CODE (body) != RETURN_EXPR)
-    {
-      error_at (DECL_SOURCE_LOCATION (fn),
-                "concept definition %qD has multiple statements", fn);
-      return error_mark_node;
-    }
+    return error_mark_node;
 
-  gcc_assert (TREE_CODE (body) == RETURN_EXPR);
   body = TREE_OPERAND (body, 0);
 
   /* Substitute template arguments to produce our inline expression.  */
@@ -463,14 +456,6 @@ lift_requires_expression (tree t)
   return finish_requires_expr (parms, result);
 }
 
-/* Transform the pack expansion by lifting its pattern. */
-tree
-lift_pack_expansion (tree t)
-{
-  TREE_OPERAND (t, 0) = lift_expression (TREE_OPERAND (t, 0));
-  return t;
-}
-
 /* Inline references to specializations of concepts.  */
 tree 
 lift_expression (tree t)
@@ -498,7 +483,11 @@ lift_expression (tree t)
       return lift_requires_expression (t);
 
     case EXPR_PACK_EXPANSION:
-      return lift_pack_expansion (t);
+      /* Defer the lifting of pack expansions until constraint
+         evaluation. We know that we're not going to be doing
+         anything else with this predicate constraint until
+         we expand it. */
+      return t;
 
     case TREE_LIST:
       {
@@ -1962,8 +1951,6 @@ finish_nested_requirement (tree expr)
 tree
 check_function_concept (tree fn)
 {
-  location_t loc = DECL_SOURCE_LOCATION (fn);
-
   // Check that the function is comprised of only a single
   // return statement.
   tree body = DECL_SAVED_TREE (fn);
@@ -1977,9 +1964,15 @@ check_function_concept (tree fn)
   if (TREE_CODE (body) == CLEANUP_POINT_EXPR)
     body = TREE_OPERAND (body, 0);
 
+  /* Check that the definition is written correctly. */
   if (TREE_CODE (body) != RETURN_EXPR)
-    error_at (loc, "function concept definition %qD has multiple statements",
-              fn);
+    {
+      location_t loc = DECL_SOURCE_LOCATION (fn);
+      if (TREE_CODE (body) == STATEMENT_LIST && !STATEMENT_LIST_HEAD (body))
+        error_at (loc, "definition of concept %qD is empty", fn);
+      else
+        error_at (loc, "definition of concept %qD has multiple statements", fn);
+    }
 
   return NULL_TREE;
 }
@@ -2262,6 +2255,43 @@ diagnose_requires_expression (location_t loc, tree t, tree args)
   inform (loc, "requirements not satisfied");
 }
 
+void
+diagnose_pack_expansion (location_t loc, tree t, tree args)
+{
+  if (check_constraint_expression (t, args))
+    return;
+
+  /* Make sure that we don't have naked packs that we don't expect. */
+  if (!same_type_p (TREE_TYPE (t), boolean_type_node)) 
+    {
+      inform (loc, "invalid pack expansion in constraint %qE", t);
+      return;
+    }
+
+  inform (loc, "  in the expansion of %qE", t);
+
+  /* Get the vector of expanded arguments. Note that n must not
+     be 0 since this constraint is not satisfied.  */
+  ++processing_template_decl;
+  tree exprs = tsubst_pack_expansion (t, args, tf_none, NULL_TREE);
+  --processing_template_decl;
+  if (exprs == error_mark_node)
+    {
+      /* TODO: This error message could be better. */
+      inform (loc, "    substitution failure occurred during expansion");
+      return;
+    }
+  
+  /* Check each expanded constraint separately. */
+  int n = TREE_VEC_LENGTH (exprs);
+  for (int i = 0; i < n; ++i)
+    {
+      tree expr = TREE_VEC_ELT (exprs, i);
+      if (!check_constraint_expression (expr, args))
+        inform (loc, "    %qE was not satisfied", expr);
+    }
+}
+
 /* Diagnose an expression that would be characterized as
    a predicate constraint. */
 void
@@ -2299,6 +2329,10 @@ diagnose_expression (location_t loc, tree t, tree args)
 
     case TRAIT_EXPR:
       diagnose_trait_expression (loc, t, args);
+      break;
+
+    case EXPR_PACK_EXPANSION:
+      diagnose_pack_expansion (loc, t, args);
       break;
 
     default:
@@ -2366,6 +2400,5 @@ diagnose_constraints (location_t loc, tree decl, tree args)
     }
 
   /* Recursively diagnose the associated constraints.  */
-  tree assoc = CI_ASSOCIATED_CONSTRAINTS (ci);
-  diagnose_constraint (loc, assoc, args);
+  diagnose_constraint (loc, CI_ASSOCIATED_CONSTRAINTS (ci), args);
 }
