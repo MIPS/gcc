@@ -18735,7 +18735,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
      much as possible.  */
   else if (old_die)
     {
-      dumped_early = old_die && old_die->dumped_early;
+      dumped_early = old_die->dumped_early;
 
       /* A declaration that has been previously dumped needs no
 	 additional information.  */
@@ -18768,13 +18768,23 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	 apply; we just use the old DIE.  */
       expanded_location s = expand_location (DECL_SOURCE_LOCATION (decl));
       struct dwarf_file_data * file_index = lookup_filename (s.file);
-      if (((is_cu_die (old_die->die_parent)
-	    || context_die == NULL
-	    || dumped_early)
+      if ((is_cu_die (old_die->die_parent)
+	   || context_die == NULL
+	   /* For class scoped static functions, the dumped early
+	      version was the declaration, whereas the next time
+	      around with a different context should be the
+	      specification.  In this case, avoid reusing the DIE, but
+	      generate a specification below. E.g.:
+
+	      class C {
+	      public:
+	        static void moo () {}
+	      };  */
+	   || !is_cu_die (context_die))
 	   && (DECL_ARTIFICIAL (decl)
 	       || (get_AT_file (old_die, DW_AT_decl_file) == file_index
 		   && (get_AT_unsigned (old_die, DW_AT_decl_line)
-		       == (unsigned) s.line)))))
+		       == (unsigned) s.line))))
 	{
 	  subr_die = old_die;
 
