@@ -1546,11 +1546,16 @@ check_pack_expansion (tree t, tree args,
   tree exprs = tsubst_pack_expansion (t, args, complain, in_decl);
   if (exprs == error_mark_node)
     return boolean_false_node;
+  int n = TREE_VEC_LENGTH (exprs);
+  
+  /* An empty expansion is inherently satisfied. */
+  if (n == 0)
+    return boolean_true_node;
 
   /* Build a conjunction of constraints from the resulting
      expansions and then check that. */
   tree result = NULL_TREE;
-  for (int i = 0; i < TREE_VEC_LENGTH (exprs); ++i)
+  for (int i = 0; i < n; ++i)
     {
       tree expr = TREE_VEC_ELT (exprs, i);
       tree constr = transform_expression (expr);

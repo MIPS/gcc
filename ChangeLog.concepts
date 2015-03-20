@@ -1,5 +1,12 @@
 2015-03-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Ensure that empty expansions are satisfied.
+	* gcc/cp/constraint.cc (check_pack_expansion): Empty expansions
+	are satsified.
+	* gcc/testsuite/g++.dg/concepts/template-parm11.C: New.
+
+2015-03-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Fix regression in variadic constraint processing.
 	* gcc/cp/pt.c (tsubst_pack_expansion): Expose declaration.
 	* gcc/cp/constraint.cc: Rename lift_constraints to
