@@ -293,7 +293,7 @@ rest_of_decl_compilation (tree decl,
 	   && TREE_STATIC (decl))
     varpool_node::get_create (decl);
 
-  /* Generate early debug for global symbols.  Any local symbols will
+  /* Generate early debug for global variables.  Any local variables will
      be handled by either handling reachable functions from
      finalize_compilation_unit (and by consequence, locally scoped
      symbols), or by rest_of_type_compilation below.  */
