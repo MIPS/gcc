@@ -4950,10 +4950,6 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 	     them up.  */
 	  && (TREE_CODE (t) != FUNCTION_DECL
 	      || !decl_function_context (t))
-	  /* FIXME: Allow types for now.  We are getting some internal
-	     template types from inlining (building libstdc++).
-	     Templates need to be looked at.  */
-	  && !TYPE_P (t)
 	  /* FIXME: Allow late limbo DIE creation for LTO, especially
 	     in the ltrans stage, but once we implement LTO dwarf
 	     streaming, we should remove this exception.  */
