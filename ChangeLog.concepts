@@ -1,3 +1,43 @@
+2015-03-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix regression in variadic constraint processing.
+	* gcc/cp/pt.c (tsubst_pack_expansion): Expose declaration.
+	* gcc/cp/constraint.cc: Rename lift_constraints to
+	lift_expression to better reflect what it does.
+	(lift_pack_expansion): New. Handles naked pack expansions
+	in a constriant.
+	(check_pack_expansion): Special handling for checking naked
+	pack expansions in constraints. This eventually be replaced
+	by similar logic for fold expressions.
+	(check_predicate_constraint): Handle pack expansions.
+	* gcc/cp/cp-tree.h (tsubst_pack_expansion): Make this avaialble
+	to constraints.cc.
+
+2015-03-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update variable concept processing to account for changes
+	in variable template syntax.
+	* gcc/cp/constraint.cc (valid_predicate_p): Remove because of
+	frequent triggers.
+	(make_predicate_constraint): Likewise.
+	(lift_function_call): Check for use of variables in function
+	calls in constraints.
+	(lift_call_expression): Renamed from lift_call. Specifically
+	check function calls before rewriting the node.
+	(lift_variable_concept). Renamed from lift_var. Remove redundant
+	check for concepts.
+	(lift_variable). New. Accommodates new processing rules for
+	variable templates.
+	(lift_constraints). Add variable decls to the switch.
+	* gcc/cp/pt.c (finish_variable_template): Don't evaluate
+	for dependent template arguments.
+	(remove_constraints): Remove debugging code.
+	* gcc/testsuite/g++.dg/concepts/var-concepts1.C: Separate out
+	failing test into equiv2.C.
+	* gcc/testsuite/g++.dg/concepts/var-concepts1.C: Update error
+	messages.
+	* gcc/testsuite/g++.dg/concepts/equiv2.C: New.
+
 2015-03-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	
 	Addressing regressions after merge.

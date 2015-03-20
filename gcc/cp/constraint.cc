@@ -290,7 +290,7 @@ namespace {
                        Lifting of concept definitions
 ---------------------------------------------------------------------------*/
 
-tree lift_constraints (tree);
+tree lift_expression (tree);
 
 /* If the tree T has operands, then lift any concepts out of them.  */
 tree
@@ -300,7 +300,7 @@ lift_operands (tree t)
     {
       t = copy_node (t);
       for (int i = 0; i < n; ++i)
-        TREE_OPERAND (t, i) = lift_constraints (TREE_OPERAND (t, i));
+        TREE_OPERAND (t, i) = lift_expression (TREE_OPERAND (t, i));
     }
   return t;
 }
@@ -348,7 +348,7 @@ lift_function_definition (tree fn, tree args)
   if (result == error_mark_node)
     return error_mark_node;
 
-  return lift_constraints (result);
+  return lift_expression (result);
 }
 
 /* Inline a reference to a function concept.  */
@@ -381,7 +381,7 @@ lift_variable_initializer (tree var, tree args)
   if (result == error_mark_node)
     return error_mark_node;
 
-  return lift_constraints (result);
+  return lift_expression (result);
 }
 
 /* Inline a reference to a variable concept.  */
@@ -445,7 +445,7 @@ lift_variable (tree t)
 /* Lift any constraints appearing in a nested requirement of
    a requires-expression. */
 tree
-lift_requires_expr (tree t)
+lift_requires_expression (tree t)
 {
   tree parms = TREE_OPERAND (t, 0);
   tree reqs = TREE_OPERAND (t, 1);
@@ -455,7 +455,7 @@ lift_requires_expr (tree t)
       tree req = TREE_VALUE (reqs);
       if (TREE_CODE (req) == NESTED_REQ)
         {
-          tree expr = lift_constraints (TREE_OPERAND (req, 0));
+          tree expr = lift_expression (TREE_OPERAND (req, 0));
           req = finish_nested_requirement (expr);
         }
       result = tree_cons (NULL_TREE, req, result);
@@ -463,9 +463,17 @@ lift_requires_expr (tree t)
   return finish_requires_expr (parms, result);
 }
 
+/* Transform the pack expansion by lifting its pattern. */
+tree
+lift_pack_expansion (tree t)
+{
+  TREE_OPERAND (t, 0) = lift_expression (TREE_OPERAND (t, 0));
+  return t;
+}
+
 /* Inline references to specializations of concepts.  */
 tree 
-lift_constraints (tree t)
+lift_expression (tree t)
 {
   if (t == NULL_TREE)
     return NULL_TREE;
@@ -487,13 +495,16 @@ lift_constraints (tree t)
       return lift_variable (t);
     
     case REQUIRES_EXPR:
-      return lift_requires_expr (t);
+      return lift_requires_expression (t);
+
+    case EXPR_PACK_EXPANSION:
+      return lift_pack_expansion (t);
 
     case TREE_LIST:
       {
         t = copy_node (t);
-        TREE_VALUE (t) = lift_constraints (TREE_VALUE (t));
-        TREE_CHAIN (t) = lift_constraints (TREE_CHAIN (t));
+        TREE_VALUE (t) = lift_expression (TREE_VALUE (t));
+        TREE_CHAIN (t) = lift_expression (TREE_CHAIN (t));
         return t;
       }
 
@@ -819,7 +830,7 @@ tree
 normalize_predicate_constraint (tree t)
 {
   tree expr = PRED_CONSTR_EXPR (t);
-  tree lifted = lift_constraints (expr);
+  tree lifted = lift_expression (expr);
   tree constr = transform_expression (lifted);
   return constr;
 }
@@ -1513,6 +1524,41 @@ namespace {
 
 tree check_constraint (tree, tree, tsubst_flags_t, tree);
 
+/* Check the pack expansion by first transforming it into a
+   conjunction of constraints. */
+tree
+check_pack_expansion (tree t, tree args,
+                      tsubst_flags_t complain, tree in_decl)
+{
+  /* Check that somebody isn't arbitrarily expanding packs
+     as part of a predicate. Note that packs are normally
+     untyped, however, we use the type field as a hack to
+     indicate folded boolean expressions generated from a
+     shorthand constraint.  This check should disappear with
+     fold expressions.  */
+  if (!same_type_p (TREE_TYPE (t), boolean_type_node)) 
+    {
+      error ("invalid pack expansion in constraint %qE", t);
+      return boolean_false_node;
+    }
+
+  /* Get the vector of expanded arguments. */
+  tree exprs = tsubst_pack_expansion (t, args, complain, in_decl);
+  if (exprs == error_mark_node)
+    return boolean_false_node;
+
+  /* Build a conjunction of constraints from the resulting
+     expansions and then check that. */
+  tree result = NULL_TREE;
+  for (int i = 0; i < TREE_VEC_LENGTH (exprs); ++i)
+    {
+      tree expr = TREE_VEC_ELT (exprs, i);
+      tree constr = transform_expression (expr);
+      result = conjoin_constraints (result, constr);
+    }
+  return check_constraint (result, args, complain, in_decl);
+}
+
 /* A predicate constraint is satisfied if its expression evaluates
    to true. If substitution into that node fails, the constraint
    is not satisfied ([temp.constr.pred]).
@@ -1524,7 +1570,18 @@ tree
 check_predicate_constraint (tree t, tree args, 
                             tsubst_flags_t complain, tree in_decl)
 {
-  tree expr = tsubst_expr (TREE_OPERAND (t, 0), args, complain, in_decl, false);
+  tree original = TREE_OPERAND (t, 0);
+
+  /* Pack expansions are not transformed during normalization,
+     which means we might have requires-expressions.
+
+     FIXME: We should never have a naked pack expansion in a
+     predicate constraint. When the fold-expression branch is
+     integrated, this same logical will apply to that fold. */
+  if (TREE_CODE (original) == EXPR_PACK_EXPANSION)
+    return check_pack_expansion (original, args, complain, in_decl);
+
+  tree expr = tsubst_expr (original, args, complain, in_decl, false);
   if (expr == error_mark_node)
     return boolean_false_node;
 
@@ -1826,7 +1883,7 @@ tree
 evaluate_constraint_expression (tree expr, tree args)
 {
   ++processing_template_decl;
-  tree constr = transform_expression (lift_constraints (expr));
+  tree constr = transform_expression (lift_expression (expr));
   --processing_template_decl;
   return check_constraint (constr, args, tf_none, NULL_TREE);
 }
