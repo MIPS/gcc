@@ -3084,12 +3084,6 @@ Gcc_backend::write_global_definitions(
 
   wrapup_global_declarations(defs, i);
 
-  /* ?? Can we leave this call here, thus getting called before
-     finalize_compilation_unit?
-
-     Originally this was called *AFTER* finalize_compilation_unit.  If
-     `go' really needs this call after finalize_compilation_unit, we
-     can use LANG_HOOKS_POST_COMPILATION_PARSING_CLEANUPS (yuck).  */
   check_global_declarations(defs, i);
 
   delete[] defs;

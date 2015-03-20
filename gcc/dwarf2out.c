@@ -18040,9 +18040,7 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
 	{
 	  /* Check that parm_die already has the right attributes that
 	     we would have added below.  If any attributes are
-	     missing, fall through to add them.
-
-	     ?? Add more checks here.  */
+	     missing, fall through to add them.  */
 	  if (! DECL_ABSTRACT_P (node_or_origin)
 	      && !get_AT (parm_die, DW_AT_location)
 	      && !get_AT (parm_die, DW_AT_const_value))

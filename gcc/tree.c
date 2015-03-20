@@ -5257,8 +5257,6 @@ free_lang_data_in_decl (tree decl)
 	 At this point, it is not needed anymore.  */
       DECL_SAVED_TREE (decl) = NULL_TREE;
 
-      /* ?? This should be OK to remove now that we are generating dwarf
-	 early.  */
       /* Clear the abstract origin if it refers to a method.  Otherwise
          dwarf2out.c will ICE as we clear TYPE_METHODS and thus the
 	 origin will not be output correctly.  */
