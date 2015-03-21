@@ -1,3 +1,11 @@
+2015-03-21  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2015-03-18  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (parallelize_loops): Make static.
+	* tree-parloops.h (parallelize_loops): Remove extern declaration.
+
 2015-03-11  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* config/nvptx/nvptx.h (LIBSTDCXX): Define to "gcc".
