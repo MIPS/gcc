@@ -11803,8 +11803,14 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		    /* ... unless T is a member template; in which
 		       case our caller can be willing to create a
 		       specialization of that template represented
-		       by T.  */
-		    && !(DECL_TI_TEMPLATE (t)
+		       by T.  
+
+                       NOTE: The extra check for DECL_TEMPLATE_INFO
+                       is apparenly needed when checking constraints
+                       for associated type names when the requirement
+                       is satisfied by an alias declaration.  */
+		    && !(DECL_TEMPLATE_INFO (t)
+                         && DECL_TI_TEMPLATE (t)
 			 && DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (t))))
 		  spec = t;
 	      }

@@ -1,0 +1,41 @@
+// { dg-options "-std=c++1z" }
+
+template<typename T>
+concept bool C1()
+{
+  return requires (T t) { t.f(); };
+}
+
+template<typename T>
+concept bool C2()
+{
+  return requires { typename T::type; }; // { dg-error "context" }
+}
+
+template<typename T>
+  requires C1<T>()
+void f1(T x) { }
+
+template<typename T>
+  requires C2<T>()
+void f2(T x) { }
+
+class S
+{
+  using type = int; // { dg-error "private" }
+  void f() { } // { dg-error "private" }
+} s;
+
+int main()
+{
+  f1(s); // { dg-error "cannot call" }
+  f2(s); // { dg-error "cannot call" }
+  
+  // When used in non-SFINAE contexts, make sure that we fail
+  // the constraint check before emitting the access check
+  // failures. The context is being presented constistently
+  // in both cases.
+  static_assert(C1<S>(), ""); // { dg-error "failed|context" }
+  static_assert(C2<S>(), ""); // { dg-error "failed" }
+}
+

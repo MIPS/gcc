@@ -1607,10 +1607,14 @@ check_expression_constraint (tree t, tree args,
                              tsubst_flags_t complain, tree in_decl)
 {
   cp_unevaluated guard;
+
   tree expr = EXPR_CONSTR_EXPR (t);
   tree check = tsubst_expr (expr, args, complain, in_decl, false);
   if (check == error_mark_node)
+    return boolean_false_node;  
+  if (!perform_deferred_access_checks (tf_none))
     return boolean_false_node;
+
   return boolean_true_node;
 }
 
@@ -1624,6 +1628,9 @@ check_type_constraint (tree t, tree args,
   tree check = tsubst (type, args, complain, in_decl);
   if (check == error_mark_node)
     return boolean_false_node;
+  if (!perform_deferred_access_checks (tf_none))
+    return boolean_false_node;
+
   return boolean_true_node;
 }
 
