@@ -8936,6 +8936,7 @@ expand_omp_target (struct omp_region *region)
       /* Inform the callgraph about the new function.  */
       DECL_STRUCT_FUNCTION (child_fn)->curr_properties = cfun->curr_properties;
       cgraph_node::add_new_function (child_fn, true);
+      cgraph_node::get (child_fn)->parallelized_function = 1;
 
 #ifdef ENABLE_OFFLOADING
       /* Add the new function to the offload table.  */
