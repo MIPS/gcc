@@ -1598,6 +1598,20 @@ check_predicate_constraint (tree t, tree args,
   return cxx_constant_value (result);
 }
 
+/* A sentinel class that ensures that deferred access checks
+   are popped before a function returns.  */
+struct deferring_access_check_sentinel
+{
+  deferring_access_check_sentinel ()
+  {
+    push_deferring_access_checks (dk_deferred);
+  }
+  ~ deferring_access_check_sentinel ()
+  {
+    pop_deferring_access_checks ();
+  }
+};
+
 /* Check an expression constraint. The constraint is satisfied if
    substitution succeeds ([temp.constr.expr]). 
 
@@ -1607,11 +1621,12 @@ check_expression_constraint (tree t, tree args,
                              tsubst_flags_t complain, tree in_decl)
 {
   cp_unevaluated guard;
+  deferring_access_check_sentinel deferring;
 
   tree expr = EXPR_CONSTR_EXPR (t);
   tree check = tsubst_expr (expr, args, complain, in_decl, false);
   if (check == error_mark_node)
-    return boolean_false_node;  
+    return boolean_false_node;
   if (!perform_deferred_access_checks (tf_none))
     return boolean_false_node;
 
@@ -1624,10 +1639,18 @@ inline tree
 check_type_constraint (tree t, tree args, 
                        tsubst_flags_t complain, tree in_decl)
 {
+  deferring_access_check_sentinel deferring;
+
   tree type = TYPE_CONSTR_TYPE (t);
   tree check = tsubst (type, args, complain, in_decl);
   if (check == error_mark_node)
     return boolean_false_node;
+
+  /* FIXME: This is broken for private member types. The
+     substitution above doesn't seem to queue an access
+     check that can be checked here. Unfortunately, it's
+     done elsewhere, so we get errors even when the check
+     is written in a context where it should succeed.  */
   if (!perform_deferred_access_checks (tf_none))
     return boolean_false_node;
 

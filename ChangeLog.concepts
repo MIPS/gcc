@@ -1,11 +1,22 @@
 2015-03-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Completely suppress access violations occurring from
+	constraint checks.
+	* gcc/cp/constraint.cc (deferring_access_check_sentinel): New helper
+	class for managing deferred access checks.
+	(check_expression_constraint): Explicitly defer constraint checks.
+	(check_type_constraint): Explicitly defer constraint checks.
+	* gcc/testsuite/g++.dg/concepts/expression3.C: New.
+
+2015-03-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Fail constraints due to access violations in non-SFINAE
 	contexts.
 	gcc/cp/constraint.cc (check_expression_constraint,
 	check_type_constraint): Check for access violations.
 	gcc/cp/pt.c (tsubst_decl): Make sure that template
 	info exists before dereferencing it.
+	* gcc/testsuite/g++.dg/concepts/expression2.C: New.
 
 2015-03-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
