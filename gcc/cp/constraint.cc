@@ -1335,6 +1335,7 @@ declare_constraint_vars (tree parms, tree vars)
   for (tree p = parms; p && !VOID_TYPE_P (TREE_VALUE (p)); p = TREE_CHAIN (p))
     {
       tree t = TREE_VALUE (p);
+      CONSTRAINT_VAR_P (t) = true;
       if (DECL_PACK_P (t))
         {
           tree pack = extract_fnparm_pack (t, &s);
@@ -1598,19 +1599,6 @@ check_predicate_constraint (tree t, tree args,
   return cxx_constant_value (result);
 }
 
-/* A sentinel class that ensures that deferred access checks
-   are popped before a function returns.  */
-struct deferring_access_check_sentinel
-{
-  deferring_access_check_sentinel ()
-  {
-    push_deferring_access_checks (dk_deferred);
-  }
-  ~ deferring_access_check_sentinel ()
-  {
-    pop_deferring_access_checks ();
-  }
-};
 
 /* Check an expression constraint. The constraint is satisfied if
    substitution succeeds ([temp.constr.expr]). 
@@ -1621,7 +1609,20 @@ check_expression_constraint (tree t, tree args,
                              tsubst_flags_t complain, tree in_decl)
 {
   cp_unevaluated guard;
-  deferring_access_check_sentinel deferring;
+
+  /* A sentinel class that ensures that deferred access checks
+     are popped before a function returns.  */
+  struct deferring_access_check_sentinel
+  {
+    deferring_access_check_sentinel ()
+    {
+      push_deferring_access_checks (dk_deferred);
+    }
+    ~ deferring_access_check_sentinel ()
+    {
+      pop_deferring_access_checks ();
+    }
+  } deferring;
 
   tree expr = EXPR_CONSTR_EXPR (t);
   tree check = tsubst_expr (expr, args, complain, in_decl, false);
@@ -1639,20 +1640,18 @@ inline tree
 check_type_constraint (tree t, tree args, 
                        tsubst_flags_t complain, tree in_decl)
 {
-  deferring_access_check_sentinel deferring;
-
   tree type = TYPE_CONSTR_TYPE (t);
   tree check = tsubst (type, args, complain, in_decl);
   if (check == error_mark_node)
     return boolean_false_node;
 
-  /* FIXME: This is broken for private member types. The
-     substitution above doesn't seem to queue an access
-     check that can be checked here. Unfortunately, it's
-     done elsewhere, so we get errors even when the check
-     is written in a context where it should succeed.  */
+  /* Check any deferred access checks now, and if any fail,
+     pop them so they aren't diagnosed later.  */
   if (!perform_deferred_access_checks (tf_none))
-    return boolean_false_node;
+    {
+      pop_deferring_access_checks ();
+      return boolean_false_node;
+    }
 
   return boolean_true_node;
 }
@@ -1931,9 +1930,14 @@ tree
 finish_requires_expr (tree parms, tree reqs)
 {
   /* Modify the declared parameters by removing their context 
-     so they don't refer to the enclosing scope. */
+     so they don't refer to the enclosing scope and explicitly
+     indicating that they are constraint variables. */
   for (tree p = parms; p && !VOID_TYPE_P (TREE_VALUE (p)); p = TREE_CHAIN (p))
-    DECL_CONTEXT (TREE_VALUE (p)) = NULL_TREE;
+    {
+      tree parm = TREE_VALUE (p);
+      DECL_CONTEXT (parm) = NULL_TREE;
+      CONSTRAINT_VAR_P (parm) = true;
+    }
 
   /* Build the node. */
   tree r = build_min (REQUIRES_EXPR, boolean_type_node, parms, reqs);

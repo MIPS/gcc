@@ -20,6 +20,7 @@ class S
 
 int main()
 {
+  // These should not result in errors.
   static_assert(!C1<S>(), "");
   static_assert(!C2<S>(), "");
 }

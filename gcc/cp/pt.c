@@ -9024,6 +9024,38 @@ outermost_tinst_level (void)
   return level;
 }
 
+/* Returns TRUE if the t is a parameter that will be
+   expanded into a sequence of arguments, when an argument
+   pack is substituted into it.  
+
+   These arise from requires-expressions, where substitution
+   during normalization produces unexpanded parameters.
+   For example:
+
+        template<typename T, typename... Args>
+        concept bool C() { 
+          return requires (T t, Args... args) {
+            t(args...);
+          } 
+        }
+
+        tempate<typename X, typename... As>
+          requires C<X, As...>
+        struct S { };
+
+   When S's constraint is normalized the parameterized expression
+   is a parameter args whose type is the type pack expansion
+   As... When we instantiate S and provide a concrete argument
+   pack, we need to make sure that references to args... are
+   expanded correctly.  */
+
+static inline bool
+pending_expansion_p (tree t)
+{
+  return (TREE_CODE (t) == PARM_DECL && CONSTRAINT_VAR_P (t)
+          && PACK_EXPANSION_P (TREE_TYPE (t)));
+}
+
 /* DECL is a friend FUNCTION_DECL or TEMPLATE_DECL.  ARGS is the
    vector of template arguments, as for tsubst.
 
@@ -10438,6 +10470,19 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
   bool need_local_specializations = false;
   int levels;
 
+  /* If T is a parameter declaration pending expansion by
+     ARGS, substitute through and form an argument pack
+     for the resulting expression. The sequence of 
+     expressions is contained in the argument pack.  */
+  if (pending_expansion_p (t))
+    {
+      tree pack = tsubst_copy_and_build (t, args, complain, in_decl, 
+                                         /*function_p=*/false,
+                                         /*constexpr_p=*/false);
+      gcc_assert (TREE_CODE (pack) == NONTYPE_ARGUMENT_PACK);
+      return TREE_OPERAND (pack, 0);
+    }
+
   gcc_assert (PACK_EXPANSION_P (t));
   pattern = PACK_EXPANSION_PATTERN (t);
 
@@ -11570,12 +11615,6 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
               {
                 /* Get the Ith type.  */
                 type = TREE_VEC_ELT (expanded_types, i);
-
-                // An argument of a function parameter pack is a function
-                // parameter pack if its type is also a pack. This can
-                // happen when instantiating templates with other template
-                // parameters.
-                // DECL_PACK_P (r) = PACK_EXPANSION_P (type);
 
 		/* Rename the parameter to include the index.  */
 		DECL_NAME (r)
@@ -13378,7 +13417,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     {
     case PARM_DECL:
       r = retrieve_local_specialization (t);
-
+      
       if (r == NULL_TREE)
 	{
 	  /* We get here for a use of 'this' in an NSDMI.  */
@@ -15601,13 +15640,13 @@ tsubst_copy_and_build (tree t,
 	  {
 	    tree arg = CALL_EXPR_ARG (t, i);
 
-	    if (!PACK_EXPANSION_P (arg))
+	    if (!PACK_EXPANSION_P (arg) && !pending_expansion_p (arg))
 	      vec_safe_push (call_args, RECUR (CALL_EXPR_ARG (t, i)));
 	    else
 	      {
 		/* Expand the pack expansion and push each entry onto
 		   CALL_ARGS.  */
-		arg = tsubst_pack_expansion (arg, args, complain, in_decl);
+	        arg = tsubst_pack_expansion (arg, args, complain, in_decl);
 		if (TREE_CODE (arg) == TREE_VEC)
 		  {
 		    unsigned int len, j;
@@ -16129,11 +16168,6 @@ tsubst_copy_and_build (tree t,
 	  /* If the original type was a reference, we'll be wrapped in
 	     the appropriate INDIRECT_REF.  */
 	  r = convert_from_reference (r);
-
-        // If the type of the argument is a pack expansion, then
-        // the parameter must also be expanded.
-        if (PACK_EXPANSION_P (TREE_TYPE (r)))
-          r = make_pack_expansion (r);
 
 	RETURN (r);
       }

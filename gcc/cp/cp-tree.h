@@ -173,6 +173,7 @@ c-common.h, not after.
       LABEL_DECL_CONTINUE (in LABEL_DECL)
    2: DECL_THIS_EXTERN (in VAR_DECL or FUNCTION_DECL).
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
+      DECL_CONSTRAINT_VAR_P (in a PARM_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
       DECL_ANON_UNION_VAR_P (in a VAR_DECL)
@@ -942,6 +943,9 @@ check_constraint_info (tree t)
 /* In a parameterized constraint, the operand. */
 #define PARM_CONSTR_OPERAND(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, PARM_CONSTR), 1)
+
+#define CONSTRAINT_VAR_P(NODE) \
+  DECL_LANG_FLAG_2 (TREE_CHECK (NODE, PARM_DECL))
 
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,

@@ -1,3 +1,30 @@
+2015-03-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix regression related to variadic templates, bugs in
+	the handling of access checking, and in the logic solver.
+	* gcc/cp/constraint.cc (declare_constraint_vars): Mark
+	constraint variables.
+	(deferring_access_check_sentinel): Make this a local class
+	of check_expression_constraint.
+	(check_type_constraint): Don't defer access checks. Instead
+	pop deferred access checks if they fail.
+	(finish_requires_expr): Mark constraint variables.
+	* gcc/cp/cp-tree.h (CONSTRAINT_VAR_P): Indicates if a
+	parameter is a constraint variable.
+	* gcc/cp/pt.c (pending_expansion_p): New. Helps determine
+	if a parameter will be expanded during substitution.
+	(tsubst_pack_expansion): For certain expressions pending
+	expansion, do that here.
+	(tsubst_decl): Remove dead code.
+	(tsubst_copy_and_build): Don't add arguments that are
+	pending expansion. Also, don't build expansion when the
+	type is dependent. This was causing a regression in 
+	non-concepts code.
+	* gcc/cp/logic.cc (proof_state::branch): Don't rely on
+	order of operations. This crashed when built with Clang.
+	* gcc/testsuite/g++.dg/concepts/expression2.C: Update to
+	match diagnostics.
+
 2015-03-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Completely suppress access violations occurring from

@@ -9,7 +9,7 @@ concept bool C1()
 template<typename T>
 concept bool C2()
 {
-  return requires { typename T::type; }; // { dg-error "context" }
+  return requires { typename T::type; };
 }
 
 template<typename T>
@@ -22,8 +22,8 @@ void f2(T x) { }
 
 class S
 {
-  using type = int; // { dg-error "private" }
-  void f() { } // { dg-error "private" }
+  using type = int;
+  void f() { }
 } s;
 
 int main()
@@ -35,7 +35,7 @@ int main()
   // the constraint check before emitting the access check
   // failures. The context is being presented constistently
   // in both cases.
-  static_assert(C1<S>(), ""); // { dg-error "failed|context" }
+  static_assert(C1<S>(), ""); // { dg-error "failed" }
   static_assert(C2<S>(), ""); // { dg-error "failed" }
 }
 

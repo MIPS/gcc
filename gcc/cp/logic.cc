@@ -192,7 +192,9 @@ proof_state::proof_state ()
 inline proof_state::iterator
 proof_state::branch (iterator i)
 {
-  return insert (++i, *i);
+  gcc_assert (i != end());
+  proof_goal& g = *i;
+  return insert (++i, g);
 }
 
 /*---------------------------------------------------------------------------
