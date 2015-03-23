@@ -827,6 +827,10 @@ proper position among the other output files.  */
 #endif
 #endif
 
+#ifndef CHKP_SPEC
+#define CHKP_SPEC ""
+#endif
+
 /* -u* was put back because both BSD and SysV seem to support it.  */
 /* %{static:} simply prevents an error message if the target machine
    doesn't handle -static.  */
@@ -848,6 +852,7 @@ proper position among the other output files.  */
    "%X %{o*} %{e*} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}} " VTABLE_VERIFICATION_SPEC " \
     %{static:} %{L*} %(mfwrap) %(link_libgcc) " SANITIZER_EARLY_SPEC " %o\
+    " CHKP_SPEC " \
     %{fopenacc|fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)}\
     %{fcilkplus:%:include(libcilkrts.spec)%(link_cilkrts)}\
     %{fgnu-tm:%:include(libitm.spec)%(link_itm)}\

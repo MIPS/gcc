@@ -1,3 +1,114 @@
+2014-03-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/59198
+	* trans-types.c (gfc_get_derived_type): If an abstract derived
+	type with procedure pointer components has no other type of
+	component, return the backend_decl. Otherwise build the
+	components if any of the non-procedure pointer components have
+	no backend_decl.
+
+2015-03-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/64432
+	*trans-intrinisic.c (conv_intrinsic_system_clock): Check the
+	smallest kind passed in user arguments and hardcode tesults for
+	KIND=1 or KIND=2 to indicate no clock available.
+
+2015-03-16  Andre Vehreschild  <vehre@gmx.de>
+
+	* resolve.c: Prevent segfault on illegal input.
+
+2015-03-14  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/61138
+	* trans-expr.c (gfc_trans_pointer_assignment): Clear DESCRIPTOR_ONLY
+	field before reusing LSE.
+
+2015-03-11  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/65200
+	* gfortran.texi: Document behavior when opening files without
+	explicit ACTION= specifier.
+
+2015-03-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/65024
+	* trans-expr.c (gfc_conv_component_ref): If the component
+	backend declaration is missing and the derived type symbol is
+	available in the reference, call gfc_build_derived_type.
+
+2015-03-10  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	* trans.h (caf_sync_memory): New function decl tree.
+	* trans-decl.c (gfc_build_builtin_function_decls): Define it.
+	(create_main_function): Don't call sync_synchronize and leave
+	it to the CAF library.
+	* trans-stmt.c (gfc_trans_stop): Ditto.
+	(gfc_trans_sync): Ditto; add call library call for sync memory.
+
+2015-03-08  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/60898
+	* resolve.c (resolve_symbol): Check that the symbol found by
+	name lookup really is the current symbol being resolved.
+
+2015-03-02  Tobias Burnus  <burnus@net-b.de>
+
+	* check.c (gfc_check_atomic): Properly check for coarrayness
+	and for being coindexed.
+
+2015-02-26  Martin Liska  <mliska@suse.cz>
+
+	* resolve.c: Rename enum 'comparison' to 'compare_result' as
+	solution for -Wodr issue.
+
+2015-02-24  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR libgomp/64625
+	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_8, DEF_FUNCTION_TYPE_VAR_12):
+	Remove macros.
+	(DEF_FUNCTION_TYPE_VAR_7, DEF_FUNCTION_TYPE_VAR_11): New macros.
+	* types.def (BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR_INT_INT_VAR)
+	(BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR_INT_INT_INT_INT_INT_VAR):
+	Remove function types.
+	(BT_FN_VOID_INT_SIZE_PTR_PTR_PTR)
+	(BT_FN_VOID_INT_SIZE_PTR_PTR_PTR_INT_INT_VAR)
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_INT_INT_INT_INT_INT_VAR):
+	New function types.
+
+2015-02-22  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR fortran/64980
+	PR fortran/61960
+	* trans-expr.c (gfc_apply_interface_mapping_to_expr): Remove mapping
+	for component references to class objects.
+	(gfc_conv_procedure_call): Compare the class by name.
+
+2015-02-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/64506
+	* scanner.c (gfc_next_char_literal): For free form source,
+	check for '!' and if found, clear the comment and go back
+	and get the next character. For fixed form source, skip the
+	rest of the line.
+
+2015-02-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/64932
+	* trans-stmt.c (gfc_trans_deallocate): If a component array
+	expression is not a descriptor type and it is a derived type
+	that has allocatable components and is not finalizable, then
+	deallocate the allocatable components.
+
+2015-02-08  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/63744
+	* module.c (check_for_ambiguous): Change argument type
+	from gfc_symbol to gfc_symtree.  Check local (symtree) name
+	instead of original (symbol) name.
+	(read_module): Update caller.
+
 2015-02-06  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/63205

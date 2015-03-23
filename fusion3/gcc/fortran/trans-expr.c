@@ -1930,10 +1930,12 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
 
   c = ref->u.c.component;
 
-  gcc_assert (c->backend_decl);
+  if (c->backend_decl == NULL_TREE
+      && ref->u.c.sym != NULL)
+    gfc_get_derived_type (ref->u.c.sym);
 
   field = c->backend_decl;
-  gcc_assert (TREE_CODE (field) == FIELD_DECL);
+  gcc_assert (field && TREE_CODE (field) == FIELD_DECL);
   decl = se->expr;
 
   /* Components can correspond to fields of different containing
@@ -3783,10 +3785,6 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
 	  expr->symtree = sym->new_sym;
 	else if (sym->expr)
 	  gfc_replace_expr (expr, gfc_copy_expr (sym->expr));
-	/* Replace base type for polymorphic arguments.  */
-	if (expr->ref && expr->ref->type == REF_COMPONENT
-	    && sym->expr && sym->expr->ts.type == BT_CLASS)
-	  expr->ref->u.c.sym = sym->expr->ts.u.derived;
       }
 
       /* ...and to subexpressions in expr->value.  */
@@ -4541,10 +4539,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 			   && fsym->ts.type == BT_CLASS
 			   && !CLASS_DATA (fsym)->as
 			   && !CLASS_DATA (e)->as
-			   && (CLASS_DATA (fsym)->attr.class_pointer
-			       != CLASS_DATA (e)->attr.class_pointer
-			       || CLASS_DATA (fsym)->attr.allocatable
-				  != CLASS_DATA (e)->attr.allocatable))
+			   && strcmp (fsym->ts.u.derived->name,
+				      e->ts.u.derived->name))
 		    {
 		      type = gfc_typenode_for_spec (&fsym->ts);
 		      var = gfc_create_var (type, fsym->name);
@@ -7339,6 +7335,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 					       bound, bound, 0,
 					       GFC_ARRAY_POINTER_CONT, false);
 	      tmp = gfc_create_var (tmp, "ptrtemp");
+	      lse.descriptor_only = 0;
 	      lse.expr = tmp;
 	      lse.direct_byref = 1;
 	      gfc_conv_expr_descriptor (&lse, expr2);
@@ -7354,6 +7351,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
       else if (expr2->expr_type == EXPR_VARIABLE)
 	{
 	  /* Assign directly to the LHS's descriptor.  */
+	  lse.descriptor_only = 0;
 	  lse.direct_byref = 1;
 	  gfc_conv_expr_descriptor (&lse, expr2);
 	  strlen_rhs = lse.string_length;
@@ -7405,6 +7403,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 	  /* Assign to a temporary descriptor and then copy that
 	     temporary to the pointer.  */
 	  tmp = gfc_create_var (TREE_TYPE (desc), "ptrtemp");
+	  lse.descriptor_only = 0;
 	  lse.expr = tmp;
 	  lse.direct_byref = 1;
 	  gfc_conv_expr_descriptor (&lse, expr2);

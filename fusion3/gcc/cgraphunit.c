@@ -442,8 +442,10 @@ cgraph_node::finalize_function (tree decl, bool no_collect)
       node->local.redefined_extern_inline = true;
     }
 
-  notice_global_symbol (decl);
+  /* Set definition first before calling notice_global_symbol so that
+     it is available to notice_global_symbol.  */
   node->definition = true;
+  notice_global_symbol (decl);
   node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg != NULL;
 
   /* With -fkeep-inline-functions we are keeping all inline functions except
@@ -580,8 +582,19 @@ cgraph_node::analyze (void)
 
   if (thunk.thunk_p)
     {
-      create_edge (cgraph_node::get (thunk.alias),
-		   NULL, 0, CGRAPH_FREQ_BASE);
+      cgraph_node *t = cgraph_node::get (thunk.alias);
+
+      create_edge (t, NULL, 0, CGRAPH_FREQ_BASE);
+      /* Target code in expand_thunk may need the thunk's target
+	 to be analyzed, so recurse here.  */
+      if (!t->analyzed)
+	t->analyze ();
+      if (t->alias)
+	{
+	  t = t->get_alias_target ();
+	  if (!t->analyzed)
+	    t->analyze ();
+	}
       if (!expand_thunk (false, false))
 	{
 	  thunk.alias = NULL;
@@ -792,8 +805,10 @@ varpool_node::finalize_decl (tree decl)
 
   if (node->definition)
     return;
-  notice_global_symbol (decl);
+  /* Set definition first before calling notice_global_symbol so that
+     it is available to notice_global_symbol.  */
   node->definition = true;
+  notice_global_symbol (decl);
   if (TREE_THIS_VOLATILE (decl) || DECL_PRESERVE_P (decl)
       /* Traditionally we do not eliminate static variables when not
 	 optimizing and when not doing toplevel reoder.  */
@@ -1515,7 +1530,8 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       current_function_decl = thunk_fndecl;
 
       /* Ensure thunks are emitted in their correct sections.  */
-      resolve_unique_section (thunk_fndecl, 0, flag_function_sections);
+      resolve_unique_section (thunk_fndecl, 0,
+			      flag_function_sections);
 
       DECL_RESULT (thunk_fndecl)
 	= build_decl (DECL_SOURCE_LOCATION (thunk_fndecl),
@@ -1547,6 +1563,14 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       thunk.thunk_p = false;
       analyzed = false;
     }
+  else if (stdarg_p (TREE_TYPE (thunk_fndecl)))
+    {
+      error ("generic thunk code fails for method %qD which uses %<...%>",
+	     thunk_fndecl);
+      TREE_ASM_WRITTEN (thunk_fndecl) = 1;
+      analyzed = true;
+      return false;
+    }
   else
     {
       tree restype;
@@ -1560,6 +1584,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 
       gcall *call;
       greturn *ret;
+      bool alias_is_noreturn = TREE_THIS_VOLATILE (alias);
 
       if (in_lto_p)
 	get_untransformed_body ();
@@ -1568,7 +1593,8 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       current_function_decl = thunk_fndecl;
 
       /* Ensure thunks are emitted in their correct sections.  */
-      resolve_unique_section (thunk_fndecl, 0, flag_function_sections);
+      resolve_unique_section (thunk_fndecl, 0,
+			      flag_function_sections);
 
       DECL_IGNORED_P (thunk_fndecl) = 1;
       bitmap_obstack_initialize (NULL);
@@ -1595,7 +1621,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       bsi = gsi_start_bb (bb);
 
       /* Build call to the function being thunked.  */
-      if (!VOID_TYPE_P (restype))
+      if (!VOID_TYPE_P (restype) && !alias_is_noreturn)
 	{
 	  if (DECL_BY_REFERENCE (resdecl))
 	    {
@@ -1654,14 +1680,22 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       callees->call_stmt = call;
       gimple_call_set_from_thunk (call, true);
       gimple_call_set_with_bounds (call, instrumentation_clone);
-      if (restmp)
+
+      /* Return slot optimization is always possible and in fact requred to
+         return values with DECL_BY_REFERENCE.  */
+      if (aggregate_value_p (resdecl, TREE_TYPE (thunk_fndecl))
+	  && (!is_gimple_reg_type (TREE_TYPE (resdecl))
+	      || DECL_BY_REFERENCE (resdecl)))
+        gimple_call_set_return_slot_opt (call, true);
+
+      if (restmp && !alias_is_noreturn)
 	{
           gimple_call_set_lhs (call, restmp);
 	  gcc_assert (useless_type_conversion_p (TREE_TYPE (restmp),
 						 TREE_TYPE (TREE_TYPE (alias))));
 	}
       gsi_insert_after (&bsi, call, GSI_NEW_STMT);
-      if (!(gimple_call_flags (call) & ECF_NORETURN))
+      if (!alias_is_noreturn)
 	{
 	  if (restmp && !this_adjusting
 	      && (fixed_offset || virtual_offset))
@@ -2442,6 +2476,7 @@ cgraph_node::create_wrapper (cgraph_node *target)
   release_body (true);
   reset ();
 
+  DECL_UNINLINABLE (decl) = false;
   DECL_RESULT (decl) = decl_result;
   DECL_INITIAL (decl) = NULL;
   allocate_struct_function (decl, false);
@@ -2449,8 +2484,9 @@ cgraph_node::create_wrapper (cgraph_node *target)
 
   /* Turn alias into thunk and expand it into GIMPLE representation.  */
   definition = true;
+
+  memset (&thunk, 0, sizeof (cgraph_thunk_info));
   thunk.thunk_p = true;
-  thunk.this_adjusting = false;
   create_edge (target, NULL, count, CGRAPH_FREQ_BASE);
 
   tree arguments = DECL_ARGUMENTS (decl);
