@@ -560,10 +560,7 @@ gather_caller_stats (struct cgraph_node *node, void *data)
   struct cgraph_edge *cs;
 
   for (cs = node->callers; cs; cs = cs->next_caller)
-    if (cs->caller->thunk.thunk_p)
-      cs->caller->call_for_symbol_thunks_and_aliases (gather_caller_stats,
-						    stats, false);
-    else
+    if (!cs->caller->thunk.thunk_p)
       {
 	stats->count_sum += cs->count;
 	stats->freq_sum += cs->frequency;
@@ -1441,8 +1438,7 @@ propagate_alignment_accross_jump_function (struct cgraph_edge *cs,
 	  if (op != NOP_EXPR)
 	    {
 	      if (op != POINTER_PLUS_EXPR
-		  && op != PLUS_EXPR
-		  && op != MINUS_EXPR)
+		  && op != PLUS_EXPR)
 		goto prop_fail;
 	      tree operand = ipa_get_jf_pass_through_operand (jfunc);
 	      if (!tree_fits_shwi_p (operand))
@@ -1454,7 +1450,7 @@ propagate_alignment_accross_jump_function (struct cgraph_edge *cs,
       else
 	{
 	  src_idx = ipa_get_jf_ancestor_formal_id (jfunc);
-	  offset = ipa_get_jf_ancestor_offset (jfunc);
+	  offset = ipa_get_jf_ancestor_offset (jfunc) / BITS_PER_UNIT;;
 	}
 
       src_lats = ipa_get_parm_lattices (caller_info, src_idx);
@@ -2643,7 +2639,7 @@ propagate_constants_topo (struct ipa_topo_info *topo)
 	  for (cs = v->callees; cs; cs = cs->next_callee)
 	    if (ipa_edge_within_scc (cs)
 		&& propagate_constants_accross_call (cs))
-	      push_node_to_stack (topo, cs->callee);
+	      push_node_to_stack (topo, cs->callee->function_symbol ());
 	  v = pop_node_from_stack (topo);
 	}
 
@@ -4325,6 +4321,15 @@ ipcp_store_alignment_results (void)
     ipa_node_params *info = IPA_NODE_REF (node);
     bool dumped_sth = false;
     bool found_useful_result = false;
+
+    if (!opt_for_fn (node->decl, flag_ipa_cp_alignment))
+      {
+	if (dump_file)
+	  fprintf (dump_file, "Not considering %s for alignment discovery "
+		   "and propagate; -fipa-cp-alignment: disabled.\n",
+		   node->name ());
+	continue;
+      }
 
    if (info->ipcp_orig_node)
       info = IPA_NODE_REF (info->ipcp_orig_node);

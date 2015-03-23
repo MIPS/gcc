@@ -4956,8 +4956,13 @@ ensure_base_align (stmt_vec_info stmt_info, struct data_reference *dr)
       tree vectype = STMT_VINFO_VECTYPE (stmt_info);
       tree base_decl = ((dataref_aux *)dr->aux)->base_decl;
 
-      DECL_ALIGN (base_decl) = TYPE_ALIGN (vectype);
-      DECL_USER_ALIGN (base_decl) = 1;
+      if (decl_in_symtab_p (base_decl))
+	symtab_node::get (base_decl)->increase_alignment (TYPE_ALIGN (vectype));
+      else
+	{
+          DECL_ALIGN (base_decl) = TYPE_ALIGN (vectype);
+          DECL_USER_ALIGN (base_decl) = 1;
+	}
       ((dataref_aux *)dr->aux)->base_misaligned = false;
     }
 }
@@ -6463,9 +6468,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		case dr_explicit_realign:
 		  {
 		    tree ptr, bump;
-		    tree vs_minus_1;
 
-		    vs_minus_1 = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+		    tree vs = size_int (TYPE_VECTOR_SUBPARTS (vectype));
 
 		    if (compute_in_loop)
 		      msq = vect_setup_realignment (first_stmt, gsi,
@@ -6494,8 +6498,9 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		    vect_finish_stmt_generation (stmt, new_stmt, gsi);
 		    msq = new_temp;
 
-		    bump = size_binop (MULT_EXPR, vs_minus_1,
+		    bump = size_binop (MULT_EXPR, vs,
 				       TYPE_SIZE_UNIT (elem_type));
+		    bump = size_binop (MINUS_EXPR, bump, size_one_node);
 		    ptr = bump_vector_ptr (dataref_ptr, NULL, gsi, stmt, bump);
 		    new_stmt = gimple_build_assign
 				 (NULL_TREE, BIT_AND_EXPR, ptr,

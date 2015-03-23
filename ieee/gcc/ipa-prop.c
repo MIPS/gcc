@@ -3143,25 +3143,31 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
       if (jfunc->type == IPA_JF_PASS_THROUGH
           && ipa_get_jf_pass_through_operation (jfunc) == NOP_EXPR)
 	{
-	  if ((ici->agg_contents
-	       && !ipa_get_jf_pass_through_agg_preserved (jfunc))
-	      || (ici->polymorphic
-		  && !ipa_get_jf_pass_through_type_preserved (jfunc)))
+	  if (ici->agg_contents
+	      && !ipa_get_jf_pass_through_agg_preserved (jfunc)
+	      && !ici->polymorphic)
 	    ici->param_index = -1;
 	  else
-	    ici->param_index = ipa_get_jf_pass_through_formal_id (jfunc);
+	    {
+	      ici->param_index = ipa_get_jf_pass_through_formal_id (jfunc);
+	      if (ici->polymorphic
+		  && !ipa_get_jf_pass_through_type_preserved (jfunc))
+		ici->vptr_changed = true;
+	    }
 	}
       else if (jfunc->type == IPA_JF_ANCESTOR)
 	{
-	  if ((ici->agg_contents
-	       && !ipa_get_jf_ancestor_agg_preserved (jfunc))
-	      || (ici->polymorphic
-		  && !ipa_get_jf_ancestor_type_preserved (jfunc)))
+	  if (ici->agg_contents
+	      && !ipa_get_jf_ancestor_agg_preserved (jfunc)
+	      && !ici->polymorphic)
 	    ici->param_index = -1;
 	  else
 	    {
 	      ici->param_index = ipa_get_jf_ancestor_formal_id (jfunc);
 	      ici->offset += ipa_get_jf_ancestor_offset (jfunc);
+	      if (ici->polymorphic
+		  && !ipa_get_jf_ancestor_type_preserved (jfunc))
+		ici->vptr_changed = true;
 	    }
 	}
       else
@@ -4862,7 +4868,7 @@ ipa_prop_read_section (struct lto_file_decl_data *file_data, const char *data,
   unsigned int count;
 
   lto_input_block ib_main ((const char *) data + main_offset,
-			   header->main_size);
+			   header->main_size, file_data->mode_table);
 
   data_in =
     lto_data_in_create (file_data, (const char *) data + string_offset,
@@ -5083,7 +5089,7 @@ read_replacements_section (struct lto_file_decl_data *file_data,
   unsigned int count;
 
   lto_input_block ib_main ((const char *) data + main_offset,
-			   header->main_size);
+			   header->main_size, file_data->mode_table);
 
   data_in = lto_data_in_create (file_data, (const char *) data + string_offset,
 				header->string_size, vNULL);

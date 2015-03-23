@@ -1,3 +1,51 @@
+2015-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/target-10.c: New test.
+	* testsuite/libgomp.c++/target-4.C: New test.
+
+2015-03-13  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* testsuite/libgomp.fortran/declare-target-1.f90: New test.
+	* testsuite/libgomp.fortran/declare-target-2.f90: New file.
+
+2015-03-13  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* configure.tgt (*-*-rtems*): Use local-exec TLS model.
+	* configure.ac (*-*-rtems*): Assume Pthread is supported.
+	(pthread.h): Check for this header file.
+	* configure: Regenerate.
+
+2015-02-25  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/reduction-1.c (DO_PRAGMA)
+	(check_reduction_op, check_reduction_macro, max, min):
+	Declare.
+	(test_reductions_int, test_reductions_minmax, test_reductions_bool): New
+	function.
+	(main): Use new functions.
+
+2015-02-18  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* target.c (gomp_load_plugin_for_device): Use const char * instead of
+	char * for variables holding dlerror return values.
+	(DLSYM_OPT): Ditto.
+
+2015-02-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* libgomp-plugin.c (GOMP_PLUGIN_debug): Fix typo.
+
+2015-02-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* oacc-ptx.h (GOACC_INTERNAL_PTX): Add GOACC_tid, GOACC_ntid,
+	GOACC_ctaid, and GOACC_nctaid routines.
+
+2015-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64824
+	* testsuite/libgomp.c/atomic-18.c: New test.
+	* testsuite/libgomp.c++/atomic-16.C: New test.
+
 2015-02-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/64824

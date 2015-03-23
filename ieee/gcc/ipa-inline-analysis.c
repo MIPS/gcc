@@ -1291,7 +1291,8 @@ inline_summary_t::duplicate (cgraph_node *src,
 	  set_hint_predicate (&info->array_index, p);
 	}
     }
-  inline_update_overall_summary (dst);
+  if (!dst->global.inlined_to)
+    inline_update_overall_summary (dst);
 }
 
 
@@ -3901,6 +3902,7 @@ struct growth_data
 {
   struct cgraph_node *node;
   bool self_recursive;
+  bool uninlinable;
   int growth;
 };
 
@@ -3917,10 +3919,17 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
     {
       gcc_checking_assert (e->inline_failed);
 
-      if (e->caller == d->node
-	  || (e->caller->global.inlined_to
-	      && e->caller->global.inlined_to == d->node))
-	d->self_recursive = true;
+      if (cgraph_inline_failed_type (e->inline_failed) == CIF_FINAL_ERROR)
+	{
+	  d->uninlinable = true;
+          continue;
+	}
+
+      if (e->recursive_p ())
+	{
+	  d->self_recursive = true;
+	  continue;
+	}
       d->growth += estimate_edge_growth (e);
     }
   return false;
@@ -3932,10 +3941,10 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
 int
 estimate_growth (struct cgraph_node *node)
 {
-  struct growth_data d = { node, 0, false };
+  struct growth_data d = { node, false, false, 0 };
   struct inline_summary *info = inline_summaries->get (node);
 
-  node->call_for_symbol_thunks_and_aliases (do_estimate_growth_1, &d, true);
+  node->call_for_symbol_and_aliases (do_estimate_growth_1, &d, true);
 
   /* For self recursive functions the growth estimation really should be
      infinity.  We don't want to return very large values because the growth
@@ -3943,7 +3952,7 @@ estimate_growth (struct cgraph_node *node)
      return zero or negative growths. */
   if (d.self_recursive)
     d.growth = d.growth < info->size ? info->size : d.growth;
-  else if (DECL_EXTERNAL (node->decl))
+  else if (DECL_EXTERNAL (node->decl) || d.uninlinable)
     ;
   else
     {
@@ -3962,6 +3971,31 @@ estimate_growth (struct cgraph_node *node)
   return d.growth;
 }
 
+/* Verify if there are fewer than MAX_CALLERS.  */
+
+static bool
+check_callers (cgraph_node *node, int *max_callers)
+{
+  ipa_ref *ref;
+
+  if (!node->can_remove_if_no_direct_calls_and_refs_p ())
+    return true;
+
+  for (cgraph_edge *e = node->callers; e; e = e->next_caller)
+    {
+      (*max_callers)--;
+      if (!*max_callers
+	  || cgraph_inline_failed_type (e->inline_failed) == CIF_FINAL_ERROR)
+	return true;
+    }
+
+  FOR_EACH_ALIAS (node, ref)
+    if (check_callers (dyn_cast <cgraph_node *> (ref->referring), max_callers))
+      return true;
+
+  return false;
+}
+
 
 /* Make cheap estimation if growth of NODE is likely positive knowing
    EDGE_GROWTH of one particular edge. 
@@ -3969,11 +4003,34 @@ estimate_growth (struct cgraph_node *node)
    and skip computation if there are too many callers.  */
 
 bool
-growth_likely_positive (struct cgraph_node *node, int edge_growth ATTRIBUTE_UNUSED)
+growth_likely_positive (struct cgraph_node *node,
+		        int edge_growth)
 {
   int max_callers;
   struct cgraph_edge *e;
   gcc_checking_assert (edge_growth > 0);
+
+  /* First quickly check if NODE is removable at all.  */
+  if (DECL_EXTERNAL (node->decl))
+    return true;
+  if (!node->can_remove_if_no_direct_calls_and_refs_p ()
+      || node->address_taken)
+    return true;
+
+  max_callers = inline_summaries->get (node)->size * 4 / edge_growth + 2;
+
+  for (e = node->callers; e; e = e->next_caller)
+    {
+      max_callers--;
+      if (!max_callers
+	  || cgraph_inline_failed_type (e->inline_failed) == CIF_FINAL_ERROR)
+	return true;
+    }
+
+  ipa_ref *ref;
+  FOR_EACH_ALIAS (node, ref)
+    if (check_callers (dyn_cast <cgraph_node *> (ref->referring), &max_callers))
+      return true;
 
   /* Unlike for functions called once, we play unsafe with
      COMDATs.  We can allow that since we know functions
@@ -3982,27 +4039,15 @@ growth_likely_positive (struct cgraph_node *node, int edge_growth ATTRIBUTE_UNUS
      functions may or may not disappear when eliminated from
      current unit. With good probability making aggressive
      choice in all units is going to make overall program
-     smaller.
-
-     Consequently we ask cgraph_can_remove_if_no_direct_calls_p
-     instead of
-     cgraph_will_be_removed_from_program_if_no_direct_calls  */
-  if (DECL_EXTERNAL (node->decl)
-      || !node->can_remove_if_no_direct_calls_p ())
-    return true;
-
-  if (!node->will_be_removed_from_program_if_no_direct_calls_p ()
-      && (!DECL_COMDAT (node->decl)
-	  || !node->can_remove_if_no_direct_calls_p ()))
-    return true;
-  max_callers = inline_summaries->get (node)->size * 4 / edge_growth + 2;
-
-  for (e = node->callers; e; e = e->next_caller)
+     smaller.  */
+  if (DECL_COMDAT (node->decl))
     {
-      max_callers--;
-      if (!max_callers)
+      if (!node->can_remove_if_no_direct_calls_p ())
 	return true;
     }
+  else if (!node->will_be_removed_from_program_if_no_direct_calls_p ())
+    return true;
+
   return estimate_growth (node) > 0;
 }
 
@@ -4153,7 +4198,8 @@ inline_read_section (struct lto_file_decl_data *file_data, const char *data,
   unsigned int i, count2, j;
   unsigned int f_count;
 
-  lto_input_block ib ((const char *) data + main_offset, header->main_size);
+  lto_input_block ib ((const char *) data + main_offset, header->main_size,
+		      file_data->mode_table);
 
   data_in =
     lto_data_in_create (file_data, (const char *) data + string_offset,
