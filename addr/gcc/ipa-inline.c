@@ -310,8 +310,17 @@ sanitize_attrs_match_for_inline_p (const_tree caller, const_tree callee)
 
 static bool
 can_inline_edge_p (struct cgraph_edge *e, bool report,
-		   bool disregard_limits = false)
+		   bool disregard_limits = false, bool early = false)
 {
+  gcc_checking_assert (e->inline_failed);
+
+  if (cgraph_inline_failed_type (e->inline_failed) == CIF_FINAL_ERROR)
+    {
+      if (report)
+        report_inline_failed_reason (e);
+      return false;
+    }
+
   bool inlinable = true;
   enum availability avail;
   cgraph_node *callee = e->callee->ultimate_alias_target (&avail);
@@ -323,9 +332,7 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
   struct function *caller_fun = caller->get_fun ();
   struct function *callee_fun = callee ? callee->get_fun () : NULL;
 
-  gcc_assert (e->inline_failed);
-
-  if (!callee || !callee->definition)
+  if (!callee->definition)
     {
       e->inline_failed = CIF_BODY_NOT_AVAILABLE;
       inlinable = false;
@@ -363,8 +370,7 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
     }
   /* TM pure functions should not be inlined into non-TM_pure
      functions.  */
-  else if (is_tm_pure (callee->decl)
-	   && !is_tm_pure (caller->decl))
+  else if (is_tm_pure (callee->decl) && !is_tm_pure (caller->decl))
     {
       e->inline_failed = CIF_UNSPECIFIED;
       inlinable = false;
@@ -409,39 +415,48 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
 	 Not even for always_inline declared functions.  */
       /* Strictly speaking only when the callee contains signed integer
          math where overflow is undefined.  */
-      if ((opt_for_fn (e->caller->decl, flag_strict_overflow)
-	   != opt_for_fn (e->caller->decl, flag_strict_overflow))
-	  || (opt_for_fn (e->caller->decl, flag_wrapv)
-	      != opt_for_fn (e->caller->decl, flag_wrapv))
-	  || (opt_for_fn (e->caller->decl, flag_trapv)
-	      != opt_for_fn (e->caller->decl, flag_trapv))
+      if ((opt_for_fn (caller->decl, flag_strict_overflow)
+	   != opt_for_fn (caller->decl, flag_strict_overflow))
+	  || (opt_for_fn (caller->decl, flag_wrapv)
+	      != opt_for_fn (caller->decl, flag_wrapv))
+	  || (opt_for_fn (caller->decl, flag_trapv)
+	      != opt_for_fn (caller->decl, flag_trapv))
 	  /* Strictly speaking only when the callee contains memory
 	     accesses that are not using alias-set zero anyway.  */
-	  || (opt_for_fn (e->caller->decl, flag_strict_aliasing)
-	      != opt_for_fn (e->caller->decl, flag_strict_aliasing))
+	  || (opt_for_fn (caller->decl, flag_strict_aliasing)
+	      != opt_for_fn (caller->decl, flag_strict_aliasing))
 	  /* Strictly speaking only when the callee uses FP math.  */
-	  || (opt_for_fn (e->caller->decl, flag_rounding_math)
-	      != opt_for_fn (e->caller->decl, flag_rounding_math))
-	  || (opt_for_fn (e->caller->decl, flag_trapping_math)
-	      != opt_for_fn (e->caller->decl, flag_trapping_math))
-	  || (opt_for_fn (e->caller->decl, flag_unsafe_math_optimizations)
-	      != opt_for_fn (e->caller->decl, flag_unsafe_math_optimizations))
-	  || (opt_for_fn (e->caller->decl, flag_finite_math_only)
-	      != opt_for_fn (e->caller->decl, flag_finite_math_only))
-	  || (opt_for_fn (e->caller->decl, flag_signaling_nans)
-	      != opt_for_fn (e->caller->decl, flag_signaling_nans))
-	  || (opt_for_fn (e->caller->decl, flag_cx_limited_range)
-	      != opt_for_fn (e->caller->decl, flag_cx_limited_range))
-	  || (opt_for_fn (e->caller->decl, flag_signed_zeros)
-	      != opt_for_fn (e->caller->decl, flag_signed_zeros))
-	  || (opt_for_fn (e->caller->decl, flag_associative_math)
-	      != opt_for_fn (e->caller->decl, flag_associative_math))
-	  || (opt_for_fn (e->caller->decl, flag_reciprocal_math)
-	      != opt_for_fn (e->caller->decl, flag_reciprocal_math))
+	  || (opt_for_fn (caller->decl, flag_rounding_math)
+	      != opt_for_fn (caller->decl, flag_rounding_math))
+	  || (opt_for_fn (caller->decl, flag_trapping_math)
+	      != opt_for_fn (caller->decl, flag_trapping_math))
+	  || (opt_for_fn (caller->decl, flag_unsafe_math_optimizations)
+	      != opt_for_fn (caller->decl, flag_unsafe_math_optimizations))
+	  || (opt_for_fn (caller->decl, flag_finite_math_only)
+	      != opt_for_fn (caller->decl, flag_finite_math_only))
+	  || (opt_for_fn (caller->decl, flag_signaling_nans)
+	      != opt_for_fn (caller->decl, flag_signaling_nans))
+	  || (opt_for_fn (caller->decl, flag_cx_limited_range)
+	      != opt_for_fn (caller->decl, flag_cx_limited_range))
+	  || (opt_for_fn (caller->decl, flag_signed_zeros)
+	      != opt_for_fn (caller->decl, flag_signed_zeros))
+	  || (opt_for_fn (caller->decl, flag_associative_math)
+	      != opt_for_fn (caller->decl, flag_associative_math))
+	  || (opt_for_fn (caller->decl, flag_reciprocal_math)
+	      != opt_for_fn (caller->decl, flag_reciprocal_math))
 	  /* Strictly speaking only when the callee contains function
 	     calls that may end up setting errno.  */
-	  || (opt_for_fn (e->caller->decl, flag_errno_math)
-	      != opt_for_fn (e->caller->decl, flag_errno_math)))
+	  || (opt_for_fn (caller->decl, flag_errno_math)
+	      != opt_for_fn (caller->decl, flag_errno_math))
+	  /* When devirtualization is diabled for callee, it is not safe
+	     to inline it as we possibly mangled the type info.
+	     Allow early inlining of always inlines.  */
+	  || (opt_for_fn (caller->decl, flag_devirtualize)
+	      && !opt_for_fn (callee->decl, flag_devirtualize)
+	      && (!early
+		  || (!DECL_DISREGARD_INLINE_LIMITS (callee->decl)
+		      || !lookup_attribute ("always_inline",
+				            DECL_ATTRIBUTES (callee->decl))))))
 	{
 	  e->inline_failed = CIF_OPTIMIZATION_MISMATCH;
 	  inlinable = false;
@@ -532,7 +547,7 @@ can_early_inline_edge_p (struct cgraph_edge *e)
 	fprintf (dump_file, "  edge not inlinable: not in SSA form\n");
       return false;
     }
-  if (!can_inline_edge_p (e, true))
+  if (!can_inline_edge_p (e, true, false, true))
     return false;
   return true;
 }
@@ -943,6 +958,8 @@ check_callers (struct cgraph_node *node, void *has_hot_call)
 	 return true;
        if (!can_inline_edge_p (e, true))
          return true;
+       if (e->recursive_p ())
+	 return true;
        if (!(*(bool *)has_hot_call) && e->maybe_hot_p ())
 	 *(bool *)has_hot_call = true;
      }
@@ -975,14 +992,14 @@ want_inline_function_to_all_callers_p (struct cgraph_node *node, bool cold)
   if (node->global.inlined_to)
     return false;
   /* Does it have callers?  */
-  if (!node->call_for_symbol_thunks_and_aliases (has_caller_p, NULL, true))
+  if (!node->call_for_symbol_and_aliases (has_caller_p, NULL, true))
     return false;
   /* Inlining into all callers would increase size?  */
   if (estimate_growth (node) > 0)
     return false;
   /* All inlines must be possible.  */
-  if (node->call_for_symbol_thunks_and_aliases (check_callers, &has_hot_call,
-						true))
+  if (node->call_for_symbol_and_aliases (check_callers, &has_hot_call,
+					 true))
     return false;
   if (!cold && !has_hot_call)
     return false;
@@ -1701,7 +1718,7 @@ inline_small_functions (void)
   FOR_EACH_DEFINED_FUNCTION (node)
     {
       bool update = false;
-      struct cgraph_edge *next;
+      struct cgraph_edge *next = NULL;
       bool has_speculative = false;
 
       if (dump_file)
@@ -2085,6 +2102,15 @@ inline_to_all_callers (struct cgraph_node *node, void *data)
     {
       struct cgraph_node *caller = node->callers->caller;
 
+      if (!can_inline_edge_p (node->callers, true)
+	  || node->callers->recursive_p ())
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "Uninlinable call found; giving up.\n");
+	  *num_calls = 0;
+	  return false;
+	}
+
       if (dump_file)
 	{
 	  fprintf (dump_file,
@@ -2269,7 +2295,22 @@ ipa_inline (void)
   nnodes = ipa_reverse_postorder (order);
 
   FOR_EACH_FUNCTION (node)
-    node->aux = 0;
+    {
+      node->aux = 0;
+
+      /* Recompute the default reasons for inlining because they may have
+	 changed during merging.  */
+      if (in_lto_p)
+	{
+	  for (cgraph_edge *e = node->callees; e; e = e->next_callee)
+	    {
+	      gcc_assert (e->inline_failed);
+	      initialize_inline_failed (e);
+	    }
+	  for (cgraph_edge *e = node->indirect_calls; e; e = e->next_callee)
+	    initialize_inline_failed (e);
+	}
+    }
 
   if (dump_file)
     fprintf (dump_file, "\nFlattening functions:\n");
@@ -2359,9 +2400,9 @@ ipa_inline (void)
 	  if (want_inline_function_to_all_callers_p (node, cold))
 	    {
 	      int num_calls = 0;
-	      node->call_for_symbol_thunks_and_aliases (sum_callers, &num_calls,
-						      true);
-	      while (node->call_for_symbol_thunks_and_aliases
+	      node->call_for_symbol_and_aliases (sum_callers, &num_calls,
+						 true);
+	      while (node->call_for_symbol_and_aliases
 		       (inline_to_all_callers, &num_calls, true))
 		;
 	      remove_functions = true;
@@ -2559,6 +2600,19 @@ early_inliner (function *fun)
 	{
 	  timevar_push (TV_INTEGRATION);
 	  todo |= optimize_inline_calls (current_function_decl);
+	  /* optimize_inline_calls call above might have introduced new
+	     statements that don't have inline parameters computed.  */
+	  for (edge = node->callees; edge; edge = edge->next_callee)
+	    {
+	      if (inline_edge_summary_vec.length () > (unsigned) edge->uid)
+		{
+		  struct inline_edge_summary *es = inline_edge_summary (edge);
+		  es->call_stmt_size
+		    = estimate_num_insns (edge->call_stmt, &eni_size_weights);
+		  es->call_stmt_time
+		    = estimate_num_insns (edge->call_stmt, &eni_time_weights);
+		}
+	    }
 	  inline_update_overall_summary (node);
 	  inlined = false;
 	  timevar_pop (TV_INTEGRATION);

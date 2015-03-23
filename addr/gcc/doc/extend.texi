@@ -786,26 +786,6 @@ evaluated only once when using @code{__auto_type}, but twice if
 @code{typeof} is used.
 @end itemize
 
-@emph{Compatibility Note:} In addition to @code{typeof}, GCC 2 supported
-a more limited extension that permitted one to write
-
-@smallexample
-typedef @var{T} = @var{expr};
-@end smallexample
-
-@noindent
-with the effect of declaring @var{T} to have the type of the expression
-@var{expr}.  This extension does not work with GCC 3 (versions between
-3.0 and 3.2 crash; 3.2.1 and later give an error).  Code that
-relies on it should be rewritten to use @code{typeof}:
-
-@smallexample
-typedef typeof(@var{expr}) @var{T};
-@end smallexample
-
-@noindent
-This works with all versions of GCC@.
-
 @node Conditionals
 @section Conditionals with Omitted Operands
 @cindex conditional expressions, extensions
@@ -845,7 +825,7 @@ the middle operand uses the value already computed without the undesirable
 effects of recomputing it.
 
 @node __int128
-@section 128-bit integers
+@section 128-bit Integers
 @cindex @code{__int128} data types
 
 As an extension the integer scalar type @code{__int128} is supported for
@@ -1498,16 +1478,13 @@ structure or an element of an array.  (However, these uses are
 permitted by GCC as extensions.)
 @end itemize
 
-GCC versions before 3.0 allowed zero-length arrays to be statically
-initialized, as if they were flexible arrays.  In addition to those
-cases that were useful, it also allowed initializations in situations
-that would corrupt later data.  Non-empty initialization of zero-length
-arrays is now treated like any case where there are more initializer
+Non-empty initialization of zero-length
+arrays is treated like any case where there are more initializer
 elements than the array holds, in that a suitable warning about ``excess
 elements in array'' is given, and the excess elements (all of them, in
 this case) are ignored.
 
-Instead GCC allows static initialization of flexible array members.
+GCC allows static initialization of flexible array members.
 This is equivalent to defining a new structure containing the original
 structure followed by an array of sufficient size to contain the data.
 E.g.@: in the following, @code{f1} is constructed as if it were declared
@@ -1548,7 +1525,7 @@ struct foo d[1] = @{ @{ 1, @{ 2, 3, 4 @} @} @};  // @r{Invalid.}
 @end smallexample
 
 @node Empty Structures
-@section Structures With No Members
+@section Structures with No Members
 @cindex empty structures
 @cindex zero-size structures
 
@@ -1729,9 +1706,10 @@ argument, these arguments are not macro expanded.
 @cindex escaped newlines
 @cindex newlines (escaped)
 
-Recently, the preprocessor has relaxed its treatment of escaped
-newlines.  Previously, the newline had to immediately follow a
-backslash.  The current implementation allows whitespace in the form
+The preprocessor treatment of escaped newlines is more relaxed 
+than that specified by the C90 standard, which requires the newline
+to immediately follow a backslash.  
+GCC's implementation allows whitespace in the form
 of spaces, horizontal and vertical tabs, and form feeds between the
 backslash and the subsequent newline.  The preprocessor issues a
 warning, but treats it as a valid escaped newline and combines the two
@@ -1786,7 +1764,7 @@ The option @option{-Wpointer-arith} requests a warning if these extensions
 are used.
 
 @node Pointers to Arrays
-@section Pointers to arrays with qualifiers work as expected
+@section Pointers to Arrays with Qualifiers Work as Expected
 @cindex pointers to arrays
 @cindex const qualifier
 
@@ -1905,12 +1883,12 @@ In C, a compound literal designates an unnamed object with static or
 automatic storage duration.  In C++, a compound literal designates a
 temporary object, which only lives until the end of its
 full-expression.  As a result, well-defined C code that takes the
-address of a subobject of a compound literal can be undefined in C++.
+address of a subobject of a compound literal can be undefined in C++,
+so the C++ compiler rejects the conversion of a temporary array to a pointer.
 For instance, if the array compound literal example above appeared
 inside a function, any subsequent use of @samp{foo} in C++ has
 undefined behavior because the lifetime of the array ends after the
-declaration of @samp{foo}.  As a result, the C++ compiler now rejects
-the conversion of a temporary array to a pointer.
+declaration of @samp{foo}.  
 
 As an optimization, the C++ compiler sometimes gives array compound
 literals longer lifetimes: when the array either appears outside a
@@ -2447,21 +2425,6 @@ function that calls a non-@code{const} function usually must not be
 @code{const}.  It does not make sense for a @code{const} function to
 return @code{void}.
 
-The attribute @code{const} is not implemented in GCC versions earlier
-than 2.5.  An alternative way to declare that a function has no side
-effects, which works in the current version and in some older versions,
-is as follows:
-
-@smallexample
-typedef int intfn ();
-
-extern const intfn square;
-@end smallexample
-
-@noindent
-This approach does not work in GNU C++ from 2.6.0 on, since the language
-specifies that the @samp{const} must be attached to the return value.
-
 @item constructor
 @itemx destructor
 @itemx constructor (@var{priority})
@@ -2536,14 +2499,13 @@ On systems that support the @code{visibility} attribute, this
 attribute also implies ``default'' visibility.  It is an error to
 explicitly specify any other visibility.
 
-In previous versions of GCC, the @code{dllexport} attribute was ignored
-for inlined functions, unless the @option{-fkeep-inline-functions} flag
-had been used.  The default behavior now is to emit all dllexported
-inline functions; however, this can cause object file-size bloat, in
-which case the old behavior can be restored by using
-@option{-fno-keep-inline-dllexport}.
+GCC's default behavior is to emit all inline functions with the
+@code{dllexport} attribute.  Since this can cause object file-size bloat,
+you can use @option{-fno-keep-inline-dllexport}, which tells GCC to
+ignore the attribute for inlined functions unless the 
+@option{-fkeep-inline-functions} flag is used instead.
 
-The attribute is also ignored for undefined symbols.
+The attribute is ignored for undefined symbols.
 
 When applied to C++ classes, the attribute marks defined non-inlined
 member functions and static data members as exports.  Static consts
@@ -2595,8 +2557,7 @@ the current translation unit.
 For Microsoft Windows targets the use of the @code{dllimport}
 attribute on functions is not necessary, but provides a small
 performance benefit by eliminating a thunk in the DLL@.  The use of the
-@code{dllimport} attribute on imported variables was required on older
-versions of the GNU linker, but can now be avoided by passing the
+@code{dllimport} attribute on imported variables can be avoided by passing the
 @option{--enable-auto-import} switch to the GNU linker.  As with
 functions, using the attribute for a variable eliminates a thunk in
 the DLL@.
@@ -2931,8 +2892,8 @@ void *memcpy (void *, const void *, size_t)
      __attribute__ ((ifunc ("resolve_memcpy")));
 @end smallexample
 
-Indirect functions cannot be weak, and require a recent binutils (at
-least version 2.20.1), and GNU C library (at least version 2.11.1).
+Indirect functions cannot be weak.  Binutils version 2.20.1 or higher
+and GNU C Library version 2.11.1 are required to use this feature.
 
 @item interrupt
 @cindex interrupt handler functions
@@ -2985,7 +2946,7 @@ which this handler should be assigned.  If the argument is a name it
 is treated as a symbolic name for the vector slot.  These names should
 match up with appropriate entries in the linker script.  By default
 the names @code{watchdog} for vector 26, @code{nmi} for vector 30 and
-@code{reset} for vector 31 are recognised.
+@code{reset} for vector 31 are recognized.
 
 You can also use the following function attributes to modify how
 normal functions interact with interrupt functions:
@@ -3388,7 +3349,7 @@ the function label.  A second argument can be used to specify the
 number of halfwords to be added after the function label.  For
 both arguments the maximum allowed value is 1000000.
 
-If both ar guments are zero, hotpatching is disabled.
+If both arguments are zero, hotpatching is disabled.
 
 @item naked
 @cindex function without a prologue/epilogue code
@@ -3573,28 +3534,13 @@ restored before calling the @code{noreturn} function.
 It does not make sense for a @code{noreturn} function to have a return
 type other than @code{void}.
 
-The attribute @code{noreturn} is not implemented in GCC versions
-earlier than 2.5.  An alternative way to declare that a function does
-not return, which works in the current version and in some older
-versions, is as follows:
-
-@smallexample
-typedef void voidfn ();
-
-volatile voidfn fatal;
-@end smallexample
-
-@noindent
-This approach does not work in GNU C++.
-
 @item nothrow
 @cindex @code{nothrow} function attribute
 The @code{nothrow} attribute is used to inform the compiler that a
 function cannot throw an exception.  For example, most functions in
 the standard C library can be guaranteed not to throw an exception
 with the notable exceptions of @code{qsort} and @code{bsearch} that
-take function pointer arguments.  The @code{nothrow} attribute is not
-implemented in GCC versions earlier than 3.3.
+take function pointer arguments.
 
 @item nosave_low_regs
 @cindex @code{nosave_low_regs} attribute
@@ -3692,9 +3638,6 @@ Interesting non-pure functions are functions with infinite loops or those
 depending on volatile memory or other system resource, that may change between
 two consecutive calls (such as @code{feof} in a multithreading environment).
 
-The attribute @code{pure} is not implemented in GCC versions earlier
-than 2.96.
-
 @item hot
 @cindex @code{hot} function attribute
 The @code{hot} attribute on a function is used to inform the compiler that
@@ -3705,9 +3648,6 @@ improving locality.
 
 When profile feedback is available, via @option{-fprofile-use}, hot functions
 are automatically detected and this attribute is ignored.
-
-The @code{hot} attribute on functions is not implemented in GCC versions
-earlier than 4.3.
 
 @item cold
 @cindex @code{cold} function attribute
@@ -3723,9 +3663,6 @@ of hot functions that do call marked functions in rare occasions.
 
 When profile feedback is available, via @option{-fprofile-use}, cold functions
 are automatically detected and this attribute is ignored.
-
-The @code{cold} attribute on functions is not implemented in GCC versions
-earlier than 4.3.
 
 @item no_sanitize_address
 @itemx no_address_safety_analysis
@@ -4633,7 +4570,7 @@ This example uses the @code{cold} label attribute to indicate the
 
    asm goto ("some asm" : : : : NoError);
 
-/* This branch (the fallthru from the asm) is less commonly used */
+/* This branch (the fall-through from the asm) is less commonly used */
 ErrorHandling: 
    __attribute__((cold, unused)); /* Semi-colon is required here */
    printf("error\n");
@@ -4660,18 +4597,12 @@ the path following the label is more likely than paths that are not so
 annotated.  This attribute is used in cases where @code{__builtin_expect}
 cannot be used, for instance with computed goto or @code{asm goto}.
 
-The @code{hot} attribute on labels is not implemented in GCC versions
-earlier than 4.8.
-
 @item cold
 @cindex @code{cold} label attribute
 The @code{cold} attribute on labels is used to inform the compiler that
 the path following the label is unlikely to be executed.  This attribute
 is used in cases where @code{__builtin_expect} cannot be used, for instance
 with computed goto or @code{asm goto}.
-
-The @code{cold} attribute on labels is not implemented in GCC versions
-earlier than 4.8.
 
 @end table
 
@@ -5985,7 +5916,7 @@ main (void)
 If you replaced @code{short_a} with @code{short} in the variable
 declaration, the above program would abort when compiled with
 @option{-fstrict-aliasing}, which is on by default at @option{-O2} or
-above in recent GCC versions.
+above.
 
 @item visibility
 In C++, attribute visibility (@pxref{Function Attributes}) can also be
@@ -7063,7 +6994,7 @@ within the same @code{asm} statement can use the same symbolic name.
 When not using an @var{asmSymbolicName}, use the (zero-based) position
 of the operand 
 in the list of operands in the assembler template. For example if there are
-two output opeerands and three inputs,
+two output operands and three inputs,
 use @samp{%2} in the template to refer to the first input operand,
 @samp{%3} for the second, and @samp{%4} for the third. 
 
@@ -7099,7 +7030,7 @@ consecutive colons where the output operands would go:
 @example
 __asm__ ("some instructions"
    : /* No outputs. */
-   : "r" (Offset / 8);
+   : "r" (Offset / 8));
 @end example
 
 @strong{Warning:} Do @emph{not} modify the contents of input-only operands 
@@ -7845,21 +7776,8 @@ static const char __func__[] = "function-name";
 appeared, where function-name is the name of the lexically-enclosing
 function.  This name is the unadorned name of the function.
 
-@code{__FUNCTION__} is another name for @code{__func__}.  Older
-versions of GCC recognize only this name.  However, it is not
-standardized.  For maximum portability, we recommend you use
-@code{__func__}, but provide a fallback definition with the
-preprocessor:
-
-@smallexample
-#if __STDC_VERSION__ < 199901L
-# if __GNUC__ >= 2
-#  define __func__ __FUNCTION__
-# else
-#  define __func__ "<unknown>"
-# endif
-#endif
-@end smallexample
+@code{__FUNCTION__} is another name for @code{__func__}, provided for
+backward compatibility with old versions of GCC.
 
 In C, @code{__PRETTY_FUNCTION__} is yet another name for
 @code{__func__}.  However, in C++, @code{__PRETTY_FUNCTION__} contains
@@ -7897,13 +7815,9 @@ __FUNCTION__ = sub
 __PRETTY_FUNCTION__ = void a::sub(int)
 @end smallexample
 
-These identifiers are not preprocessor macros.  In GCC 3.3 and
-earlier, in C only, @code{__FUNCTION__} and @code{__PRETTY_FUNCTION__}
-were treated as string literals; they could be used to initialize
-@code{char} arrays, and they could be concatenated with other string
-literals.  GCC 3.4 and later treat them as variables, like
-@code{__func__}.  In C++, @code{__FUNCTION__} and
-@code{__PRETTY_FUNCTION__} have always been variables.
+These identifiers are variables, not preprocessor macros, and may not
+be used to initialize @code{char} arrays or be concatenated with other string
+literals.
 
 @node Return Address
 @section Getting the Return or Frame Address of a Function
@@ -8154,7 +8068,7 @@ You cannot operate between vectors of different lengths or different
 signedness without a cast.
 
 @node Offsetof
-@section Offsetof
+@section Support for @code{offsetof}
 @findex __builtin_offsetof
 
 GCC implements for both C and C++ a syntactic extension to implement
@@ -8182,7 +8096,7 @@ may be dependent.  In either case, @var{member} may consist of a single
 identifier, or a sequence of member accesses and array references.
 
 @node __sync Builtins
-@section Legacy __sync Built-in Functions for Atomic Memory Access
+@section Legacy @code{__sync} Built-in Functions for Atomic Memory Access
 
 The following built-in functions
 are intended to be compatible with those described
@@ -8322,7 +8236,7 @@ are not prevented from being speculated to before the barrier.
 @end table
 
 @node __atomic Builtins
-@section Built-in functions for memory model aware atomic operations
+@section Built-in Functions for Memory Model Aware Atomic Operations
 
 The following built-in functions approximately match the requirements for
 C++11 memory model. Many are similar to the @samp{__sync} prefixed built-in
@@ -8591,7 +8505,7 @@ compiler may also ignore this parameter.
 @end deftypefn
 
 @node Integer Overflow Builtins
-@section Built-in functions to perform arithmetics and arithmetic overflow checking.
+@section Built-in Functions to Perform Arithmetic with Overflow Checking
 
 The following built-in functions allow performing simple arithmetic operations
 together with checking whether the operations overflowed.
@@ -8650,7 +8564,7 @@ functions above, except they perform multiplication, instead of addition.
 @end deftypefn
 
 @node x86 specific memory model extensions for transactional memory
-@section x86 specific memory model extensions for transactional memory
+@section x86-Specific Memory Model Extensions for Transactional Memory
 
 The x86 architecture supports additional memory ordering flags
 to mark lock critical sections for hardware lock elision. 
@@ -8986,9 +8900,9 @@ returns -1.
 @end deftypefn
 
 @node Cilk Plus Builtins
-@section Cilk Plus C/C++ language extension Built-in Functions.
+@section Cilk Plus C/C++ Language Extension Built-in Functions
 
-GCC provides support for the following built-in reduction funtions if Cilk Plus
+GCC provides support for the following built-in reduction functions if Cilk Plus
 is enabled. Cilk Plus can be enabled using the @option{-fcilkplus} flag.
 
 @itemize @bullet
@@ -9718,10 +9632,6 @@ not otherwise permitted in a static initializer (for example,
 @code{0 && foo ()}).  GCC must be more conservative about evaluating the
 built-in in this case, because it has no opportunity to perform
 optimization.
-
-Previous versions of GCC did not accept this built-in in data
-initializers.  The earliest version where it is completely safe is
-3.0.1.
 @end deftypefn
 
 @deftypefn {Built-in Function} long __builtin_expect (long @var{exp}, long @var{c})
@@ -10744,7 +10654,7 @@ __v8hi __builtin_arc_vupsbaw (__v8hi)
 __v8hi __builtin_arc_vupsbw (__v8hi)
 @end example
 
-The followign take two @code{int} arguments and return no result:
+The following take two @code{int} arguments and return no result:
 @example
 void __builtin_arc_vdirun (int, int)
 void __builtin_arc_vdorun (int, int)
@@ -10983,11 +10893,11 @@ intrinsics can be found at
 The built-in intrinsics for the Advanced SIMD extension are available when
 NEON is enabled.
 
-Currently, ARM and AArch64 back-ends do not support ACLE 2.0 fully.  Both
-back-ends support CRC32 intrinsics from @file{arm_acle.h}.  The ARM backend's
-16-bit floating-point Advanded SIMD Intrinsics currently comply to ACLE v1.1.
-AArch64's backend does not have support for 16-bit floating point Advanced SIMD
-Intrinsics yet.
+Currently, ARM and AArch64 back ends do not support ACLE 2.0 fully.  Both
+back ends support CRC32 intrinsics from @file{arm_acle.h}.  The ARM back end's
+16-bit floating-point Advanced SIMD intrinsics currently comply to ACLE v1.1.
+AArch64's back end does not have support for 16-bit floating point Advanced SIMD
+intrinsics yet.
 
 See @ref{ARM Options} and @ref{AArch64 Options} for more information on the
 availability of extensions.
@@ -11178,7 +11088,7 @@ number of an IACC register.  See @pxref{Other Built-in Functions}
 for more details.
 
 @node Directly-mapped Integer Functions
-@subsubsection Directly-mapped Integer Functions
+@subsubsection Directly-Mapped Integer Functions
 
 The functions listed below map directly to FR-V I-type instructions.
 
@@ -11217,7 +11127,7 @@ The functions listed below map directly to FR-V I-type instructions.
 @end multitable
 
 @node Directly-mapped Media Functions
-@subsubsection Directly-mapped Media Functions
+@subsubsection Directly-Mapped Media Functions
 
 The functions listed below map directly to FR-V M-type instructions.
 
@@ -11490,7 +11400,7 @@ The functions listed below map directly to FR-V M-type instructions.
 @end multitable
 
 @node Raw read/write Functions
-@subsubsection Raw read/write Functions
+@subsubsection Raw Read/Write Functions
 
 This sections describes built-in functions related to read and write
 instructions to access memory.  These functions generate
@@ -12451,7 +12361,7 @@ unsigned int addg6s (unsigned int, unsigned int);
 @end smallexample
 
 The @code{__builtin_divde}, @code{__builtin_divdeo},
-@code{__builitin_divdeu}, @code{__builtin_divdeou} functions require a
+@code{__builtin_divdeu}, @code{__builtin_divdeou} functions require a
 64-bit environment support ISA 2.06 or later.
 
 The following built-in functions are available for the PowerPC family
@@ -12467,9 +12377,9 @@ _Decimal128 __builtin_denbcdq (int, _Decimal128);
 _Decimal64 __builtin_diex (_Decimal64, _Decimal64);
 _Decimal128 _builtin_diexq (_Decimal128, _Decimal128);
 _Decimal64 __builtin_dscli (_Decimal64, int);
-_Decimal128 __builitn_dscliq (_Decimal128, int);
+_Decimal128 __builtin_dscliq (_Decimal128, int);
 _Decimal64 __builtin_dscri (_Decimal64, int);
-_Decimal128 __builitn_dscriq (_Decimal128, int);
+_Decimal128 __builtin_dscriq (_Decimal128, int);
 unsigned long long __builtin_unpack_dec128 (_Decimal128, int);
 _Decimal128 __builtin_pack_dec128 (unsigned long long, unsigned long long);
 @end smallexample
@@ -15079,7 +14989,7 @@ must be a constant integer in the range of 0 to 15.
 @subsection PowerPC Hardware Transactional Memory Built-in Functions
 GCC provides two interfaces for accessing the Hardware Transactional
 Memory (HTM) instructions available on some of the PowerPC family
-of prcoessors (eg, POWER8).  The two interfaces come in a low level
+of processors (eg, POWER8).  The two interfaces come in a low level
 interface, consisting of built-in functions specific to PowerPC and a
 higher level interface consisting of inline functions that are common
 between PowerPC and S/390.
@@ -17255,12 +17165,13 @@ int __builtin_ia32_xtest ()
 @end smallexample
 
 @node x86 transactional memory intrinsics
-@subsection x86 transaction memory intrinsics
+@subsection x86 Transactional Memory Intrinsics
 
-Hardware transactional memory intrinsics for x86. These allow to use
+These hardware transactional memory intrinsics for x86 allow you to use
 memory transactions with RTM (Restricted Transactional Memory).
-For using HLE (Hardware Lock Elision) see @ref{x86 specific memory model extensions for transactional memory} instead.
 This support is enabled with the @option{-mrtm} option.
+For using HLE (Hardware Lock Elision) see 
+@ref{x86 specific memory model extensions for transactional memory} instead.
 
 A memory transaction commits all changes to memory in an atomic way,
 as visible to other threads. If the transaction fails it is rolled back
@@ -17271,58 +17182,81 @@ and suitable fallback code always needs to be supplied.
 
 @deftypefn {RTM Function} {unsigned} _xbegin ()
 Start a RTM (Restricted Transactional Memory) transaction. 
-Returns _XBEGIN_STARTED when the transaction
+Returns @code{_XBEGIN_STARTED} when the transaction
 started successfully (note this is not 0, so the constant has to be 
-explicitely tested). When the transaction aborts all side effects
-are undone and an abort code is returned. There is no guarantee
-any transaction ever succeeds, so there always needs to be a valid
-tested fallback path.
-@end deftypefn
+explicitly tested).  
 
-@smallexample
-#include <immintrin.h>
-
-if ((status = _xbegin ()) == _XBEGIN_STARTED) @{
-    ... transaction code...
-    _xend ();
-@} else @{
-    ... non transactional fallback path...
-@}
-@end smallexample
-
-Valid abort status bits (when the value is not @code{_XBEGIN_STARTED}) are:
+If the transaction aborts, all side-effects 
+are undone and an abort code encoded as a bit mask is returned.
+The following macros are defined:
 
 @table @code
 @item _XABORT_EXPLICIT
-Transaction explicitely aborted with @code{_xabort}. The parameter passed
-to @code{_xabort} is available with @code{_XABORT_CODE(status)}
+Transaction was explicitly aborted with @code{_xabort}.  The parameter passed
+to @code{_xabort} is available with @code{_XABORT_CODE(status)}.
 @item _XABORT_RETRY
 Transaction retry is possible.
 @item _XABORT_CONFLICT
-Transaction abort due to a memory conflict with another thread
+Transaction abort due to a memory conflict with another thread.
 @item _XABORT_CAPACITY
-Transaction abort due to the transaction using too much memory
+Transaction abort due to the transaction using too much memory.
 @item _XABORT_DEBUG
-Transaction abort due to a debug trap
+Transaction abort due to a debug trap.
 @item _XABORT_NESTED
-Transaction abort in a inner nested transaction
+Transaction abort in an inner nested transaction.
 @end table
 
+There is no guarantee
+any transaction ever succeeds, so there always needs to be a valid
+fallback path.
+@end deftypefn
+
 @deftypefn {RTM Function} {void} _xend ()
-Commit the current transaction. When no transaction is active this will
-fault. All memory side effects of the transactions will become visible
-to other threads in an atomic matter.
+Commit the current transaction. When no transaction is active this faults.
+All memory side-effects of the transaction become visible
+to other threads in an atomic manner.
 @end deftypefn
 
 @deftypefn {RTM Function} {int} _xtest ()
-Return a value not zero when a transaction is currently active, otherwise 0.
+Return a nonzero value if a transaction is currently active, otherwise 0.
 @end deftypefn
 
 @deftypefn {RTM Function} {void} _xabort (status)
 Abort the current transaction. When no transaction is active this is a no-op.
-status must be a 8bit constant, that is included in the status code returned
-by @code{_xbegin}
+The @var{status} is an 8-bit constant; its value is encoded in the return 
+value from @code{_xbegin}.
 @end deftypefn
+
+Here is an example showing handling for @code{_XABORT_RETRY}
+and a fallback path for other failures:
+
+@smallexample
+#include <immintrin.h>
+
+int n_tries, max_tries;
+unsigned status = _XABORT_EXPLICIT;
+...
+
+for (n_tries = 0; n_tries < max_tries; n_tries++) 
+  @{
+    status = _xbegin ();
+    if (status == _XBEGIN_STARTED || !(status & _XABORT_RETRY))
+      break;
+  @}
+if (status == _XBEGIN_STARTED) 
+  @{
+    ... transaction code...
+    _xend ();
+  @} 
+else 
+  @{
+    ... non-transactional fallback path...
+  @}
+@end smallexample
+
+@noindent
+Note that, in most cases, the transactional and non-transactional code
+must synchronize together to ensure consistency.
 
 @node Target Format Checks
 @section Format Checks Specific to Particular Target Machines
@@ -17604,8 +17538,10 @@ adding a call to the @code{.init} section.
 @subsection Symbol-Renaming Pragmas
 
 GCC supports a @code{#pragma} directive that changes the name used in
-assembly for a given declaration. This effect can also be achieved
-using the asm labels extension (@pxref{Asm Labels}).
+assembly for a given declaration. While this pragma is supported on all
+platforms, it is intended primarily to provide compatibility with the
+Solaris system headers. This effect can also be achieved using the asm
+labels extension (@pxref{Asm Labels}).
 
 @table @code
 @item redefine_extname @var{oldname} @var{newname}
@@ -17868,9 +17804,6 @@ if @code{attribute((optimize("STRING")))} was specified for that
 function.  The parenthesis around the options is optional.
 @xref{Function Attributes}, for more information about the
 @code{optimize} attribute and the attribute syntax.
-
-The @samp{#pragma GCC optimize} pragma is not implemented in GCC
-versions earlier than 4.4.
 @end table
 
 @table @code
@@ -17884,9 +17817,6 @@ options.  It is intended for include files where you temporarily want
 to switch to using a different @samp{#pragma GCC target} or
 @samp{#pragma GCC optimize} and then to pop back to the previous
 options.
-
-The @samp{#pragma GCC push_options} and @samp{#pragma GCC pop_options}
-pragmas are not implemented in GCC versions earlier than 4.4.
 @end table
 
 @table @code
@@ -17896,9 +17826,6 @@ pragmas are not implemented in GCC versions earlier than 4.4.
 This pragma clears the current @code{#pragma GCC target} and
 @code{#pragma GCC optimize} to use the default switches as specified
 on the command line.
-
-The @samp{#pragma GCC reset_options} pragma is not implemented in GCC
-versions earlier than 4.4.
 @end table
 
 @node Loop-Specific Pragmas
@@ -17910,8 +17837,8 @@ versions earlier than 4.4.
 @end table
 
 With this pragma, the programmer asserts that there are no loop-carried
-dependencies which would prevent that consecutive iterations of
-the following loop can be executed concurrently with SIMD
+dependencies which would prevent consecutive iterations of
+the following loop from executing concurrently with SIMD
 (single instruction multiple data) instructions.
 
 For example, the compiler can only unconditionally vectorize the following
@@ -17944,7 +17871,7 @@ void ignore_vec_dep (int *a, int k, int c, int m)
 
 
 @node Unnamed Fields
-@section Unnamed struct/union fields within structs/unions
+@section Unnamed Structure and Union Fields
 @cindex @code{struct}
 @cindex @code{union}
 
@@ -18285,7 +18212,7 @@ Non-@code{static} members shall not be @code{__thread}.
 @end itemize
 
 @node Binary constants
-@section Binary constants using the @samp{0b} prefix
+@section Binary Constants using the @samp{0b} Prefix
 @cindex Binary constants using the @samp{0b} prefix
 
 Integer constants can be written as binary constants, consisting of a
@@ -18520,7 +18447,7 @@ almost certainly breaks things.
 another way to control placement of these constructs.
 
 @node C++ Interface
-@section #pragma interface and implementation
+@section C++ Interface and Implementation Pragmas
 
 @cindex interface and implementation headers, C++
 @cindex C++ interface and implementation headers
@@ -18531,14 +18458,11 @@ user with a way of explicitly directing the compiler to emit entities
 with vague linkage (and debugging information) in a particular
 translation unit.
 
-@emph{Note:} As of GCC 2.7.2, these @code{#pragma}s are not useful in
-most cases, because of COMDAT support and the ``key method'' heuristic
+@emph{Note:} These @code{#pragma}s have been superceded as of GCC 2.7.2
+by COMDAT support and the ``key method'' heuristic
 mentioned in @ref{Vague Linkage}.  Using them can actually cause your
 program to grow due to unnecessary out-of-line copies of inline
-functions.  Currently (3.4) the only benefit of these
-@code{#pragma}s is reduced duplication of debugging information, and
-that should be addressed soon on DWARF 2 targets with the use of
-COMDAT groups.
+functions.
 
 @table @code
 @item #pragma interface
@@ -18581,12 +18505,6 @@ suffixes, such as @samp{.h} or @samp{.C} or @samp{.cc}.} as your source
 file.  For example, in @file{allclass.cc}, giving just
 @samp{#pragma implementation}
 by itself is equivalent to @samp{#pragma implementation "allclass.h"}.
-
-In versions of GNU C++ prior to 2.6.0 @file{allclass.h} was treated as
-an implementation file whenever you would include it from
-@file{allclass.cc} even if you never specified @samp{#pragma
-implementation}.  This was deemed to be more trouble than it was worth,
-however, and disabled.
 
 Use the string argument if you want a single implementation file to
 include code from multiple header files.  (You must also use
@@ -18755,7 +18673,7 @@ duplication.
 @end enumerate
 
 @node Bound member functions
-@section Extracting the function pointer from a bound pointer to member function
+@section Extracting the Function Pointer from a Bound Pointer to Member Function
 @cindex pmf
 @cindex pointer to member function
 @cindex bound pointer to member function
@@ -18804,18 +18722,26 @@ Some attributes only make sense for C++ programs.
 @table @code
 @item abi_tag ("@var{tag}", ...)
 @cindex @code{abi_tag} attribute
-The @code{abi_tag} attribute can be applied to a function or class
-declaration.  It modifies the mangled name of the function or class to
+The @code{abi_tag} attribute can be applied to a function, variable, or class
+declaration.  It modifies the mangled name of the entity to
 incorporate the tag name, in order to distinguish the function or
 class from an earlier version with a different ABI; perhaps the class
 has changed size, or the function has a different return type that is
 not encoded in the mangled name.
 
+The attribute can also be applied to an inline namespace, but does not
+affect the mangled name of the namespace; in this case it is only used
+for @option{-Wabi-tag} warnings and automatic tagging of functions and
+variables.  Tagging inline namespaces is generally preferable to
+tagging individual declarations, but the latter is sometimes
+necessary, such as when only certain members of a class need to be
+tagged.
+
 The argument can be a list of strings of arbitrary length.  The
 strings are sorted on output, so the order of the list is
 unimportant.
 
-A redeclaration of a function or class must not add new ABI tags,
+A redeclaration of an entity must not add new ABI tags,
 since doing so would change the mangled name.
 
 The ABI tags apply to a name, so all instantiations and
@@ -18826,6 +18752,13 @@ The @option{-Wabi-tag} flag enables a warning about a class which does
 not have all the ABI tags used by its subobjects and virtual functions; for users with code
 that needs to coexist with an earlier ABI, using this option can help
 to find all affected types that need to be tagged.
+
+When a type involving an ABI tag is used as the type of a variable or
+return type of a function where that tag is not already present in the
+signature of the function, the tag is automatically applied to the
+variable or function.  @option{-Wabi-tag} also warns about this
+situation; this warning can be avoided by explicitly tagging the
+variable or function or moving it into a tagged inline namespace.
 
 @item init_priority (@var{priority})
 @cindex @code{init_priority} attribute
@@ -19252,4 +19185,4 @@ than no arguments, as C++ demands.
 @end table
 
 @c  LocalWords:  emph deftypefn builtin ARCv2EM SIMD builtins msimd
-@c  LocalWords:  typedef v4si v8hi DMA dma vdiwr vdowr followign
+@c  LocalWords:  typedef v4si v8hi DMA dma vdiwr vdowr

@@ -639,17 +639,6 @@ gfc_trans_stop (gfc_code *code, bool error_stop)
   gfc_init_se (&se, NULL);
   gfc_start_block (&se.pre);
 
-  if (flag_coarray == GFC_FCOARRAY_LIB && !error_stop)
-    {
-      /* Per F2008, 8.5.1 STOP implies a SYNC MEMORY.  */
-      tmp = builtin_decl_explicit (BUILT_IN_SYNC_SYNCHRONIZE);
-      tmp = build_call_expr_loc (input_location, tmp, 0);
-      gfc_add_expr_to_block (&se.pre, tmp);
-
-      tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_finalize, 0);
-      gfc_add_expr_to_block (&se.pre, tmp);
-    }
-
   if (code->expr1 == NULL)
     {
       tmp = build_int_cst (gfc_int4_type_node, 0);
@@ -768,8 +757,7 @@ gfc_trans_sync (gfc_code *code, gfc_exec_op type)
   else
     stat = null_pointer_node;
 
-  if (code->expr3 && flag_coarray == GFC_FCOARRAY_LIB
-      && type != EXEC_SYNC_MEMORY)
+  if (code->expr3 && flag_coarray == GFC_FCOARRAY_LIB)
     {
       gcc_assert (code->expr3->expr_type == EXPR_VARIABLE);
       gfc_init_se (&argse, NULL);
@@ -778,7 +766,7 @@ gfc_trans_sync (gfc_code *code, gfc_exec_op type)
       errmsg = gfc_build_addr_expr (NULL, argse.expr);
       errmsglen = argse.string_length;
     }
-  else if (flag_coarray == GFC_FCOARRAY_LIB && type != EXEC_SYNC_MEMORY)
+  else if (flag_coarray == GFC_FCOARRAY_LIB)
     {
       errmsg = null_pointer_node;
       errmsglen = build_int_cst (integer_type_node, 0);
@@ -813,22 +801,13 @@ gfc_trans_sync (gfc_code *code, gfc_exec_op type)
 			       fold_convert (integer_type_node, images));
     }
 
-   /* Per F2008, 8.5.1, a SYNC MEMORY is implied by calling the
-      image control statements SYNC IMAGES and SYNC ALL.  */
-   if (flag_coarray == GFC_FCOARRAY_LIB)
-     {
-       tmp = builtin_decl_explicit (BUILT_IN_SYNC_SYNCHRONIZE);
-       tmp = build_call_expr_loc (input_location, tmp, 0);
-       gfc_add_expr_to_block (&se.pre, tmp);
-     }
-
-  if (flag_coarray != GFC_FCOARRAY_LIB || type == EXEC_SYNC_MEMORY)
+  if (flag_coarray != GFC_FCOARRAY_LIB)
     {
       /* Set STAT to zero.  */
       if (code->expr2)
 	gfc_add_modify (&se.pre, stat, build_int_cst (TREE_TYPE (stat), 0));
     }
-  else if (type == EXEC_SYNC_ALL)
+  else if (type == EXEC_SYNC_ALL || type == EXEC_SYNC_MEMORY)
     {
       /* SYNC ALL           =>   stat == null_pointer_node
 	 SYNC ALL(stat=s)   =>   stat has an integer type
@@ -840,8 +819,13 @@ gfc_trans_sync (gfc_code *code, gfc_exec_op type)
 	  if (TREE_TYPE (stat) == integer_type_node)
 	    stat = gfc_build_addr_expr (NULL, stat);
 
-	  tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_sync_all,
-				     3, stat, errmsg, errmsglen);
+	  if(type == EXEC_SYNC_MEMORY)
+	    tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_sync_memory,
+				       3, stat, errmsg, errmsglen);
+	  else
+	    tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_sync_all,
+				       3, stat, errmsg, errmsglen);
+
 	  gfc_add_expr_to_block (&se.pre, tmp);
 	}
       else
@@ -5575,11 +5559,13 @@ gfc_trans_deallocate (gfc_code *code)
 
       if (expr->rank || gfc_is_coarray (expr))
 	{
+	  gfc_ref *ref;
+
 	  if (expr->ts.type == BT_DERIVED && expr->ts.u.derived->attr.alloc_comp
 	      && !gfc_is_finalizable (expr->ts.u.derived, NULL))
 	    {
-	      gfc_ref *ref;
 	      gfc_ref *last = NULL;
+
 	      for (ref = expr->ref; ref; ref = ref->next)
 		if (ref->type == REF_COMPONENT)
 		  last = ref;
@@ -5590,13 +5576,45 @@ gfc_trans_deallocate (gfc_code *code)
 		    && !(!last && expr->symtree->n.sym->attr.pointer))
 		{
 		  tmp = gfc_deallocate_alloc_comp (expr->ts.u.derived, se.expr,
-						  expr->rank);
+						   expr->rank);
 		  gfc_add_expr_to_block (&se.pre, tmp);
 		}
 	    }
-	  tmp = gfc_array_deallocate (se.expr, pstat, errmsg, errlen,
-				      label_finish, expr);
-	  gfc_add_expr_to_block (&se.pre, tmp);
+
+	  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr)))
+	    {
+	      tmp = gfc_array_deallocate (se.expr, pstat, errmsg, errlen,
+				          label_finish, expr);
+	      gfc_add_expr_to_block (&se.pre, tmp);
+	    }
+	  else if (TREE_CODE (se.expr) == COMPONENT_REF
+		   && TREE_CODE (TREE_TYPE (se.expr)) == ARRAY_TYPE
+		   && TREE_CODE (TREE_TYPE (TREE_TYPE (se.expr)))
+			== RECORD_TYPE)
+	    {
+	      /* class.c(finalize_component) generates these, when a
+		 finalizable entity has a non-allocatable derived type array
+		 component, which has allocatable components. Obtain the
+		 derived type of the array and deallocate the allocatable
+		 components. */
+	      for (ref = expr->ref; ref; ref = ref->next)
+		{
+		  if (ref->u.c.component->attr.dimension
+		      && ref->u.c.component->ts.type == BT_DERIVED)
+		    break;
+		}
+
+	      if (ref && ref->u.c.component->ts.u.derived->attr.alloc_comp
+		  && !gfc_is_finalizable (ref->u.c.component->ts.u.derived,
+					  NULL))
+		{
+		  tmp = gfc_deallocate_alloc_comp
+				(ref->u.c.component->ts.u.derived,
+				 se.expr, expr->rank);
+		  gfc_add_expr_to_block (&se.pre, tmp);
+		}
+	    }
+
 	  if (al->expr->ts.type == BT_CLASS)
 	    gfc_reset_vptr (&se.pre, al->expr);
 	}

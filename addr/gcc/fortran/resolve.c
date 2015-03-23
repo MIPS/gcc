@@ -2639,6 +2639,10 @@ found:
     expr->ts = sym->ts;
   expr->value.function.name = sym->name;
   expr->value.function.esym = sym;
+  /* Prevent crash when sym->ts.u.derived->components is not set due to previous
+     error(s).  */
+  if (sym->ts.type == BT_CLASS && !CLASS_DATA (sym))
+    return MATCH_ERROR;
   if (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->as)
     expr->rank = CLASS_DATA (sym)->as->rank;
   else if (sym->as != NULL)
@@ -3809,11 +3813,11 @@ bad_op:
 
 typedef enum
 { CMP_LT, CMP_EQ, CMP_GT, CMP_UNKNOWN }
-comparison;
+compare_result;
 
 /* Compare two integer expressions.  */
 
-static comparison
+static compare_result
 compare_bound (gfc_expr *a, gfc_expr *b)
 {
   int i;
@@ -3840,7 +3844,7 @@ compare_bound (gfc_expr *a, gfc_expr *b)
 
 /* Compare an integer expression with an integer.  */
 
-static comparison
+static compare_result
 compare_bound_int (gfc_expr *a, int b)
 {
   int i;
@@ -3863,7 +3867,7 @@ compare_bound_int (gfc_expr *a, int b)
 
 /* Compare an integer expression with a mpz_t.  */
 
-static comparison
+static compare_result
 compare_bound_mpz_t (gfc_expr *a, mpz_t b)
 {
   int i;
@@ -4002,7 +4006,7 @@ check_dimension (int i, gfc_array_ref *ar, gfc_array_spec *as)
 #define AR_START (ar->start[i] ? ar->start[i] : as->lower[i])
 #define AR_END (ar->end[i] ? ar->end[i] : as->upper[i])
 
-	comparison comp_start_end = compare_bound (AR_START, AR_END);
+	compare_result comp_start_end = compare_bound (AR_START, AR_END);
 
 	/* Check for zero stride, which is not allowed.  */
 	if (compare_bound_int (ar->stride[i], 0) == CMP_EQ)
@@ -13125,10 +13129,13 @@ resolve_symbol (gfc_symbol *sym)
 	    {
 	      this_symtree = gfc_find_symtree (gfc_current_ns->sym_root,
 					       sym->name);
-	      gfc_release_symbol (sym);
-	      symtree->n.sym->refs++;
-	      this_symtree->n.sym = symtree->n.sym;
-	      return;
+	      if (this_symtree->n.sym == sym)
+		{
+		  symtree->n.sym->refs++;
+		  gfc_release_symbol (sym);
+		  this_symtree->n.sym = symtree->n.sym;
+		  return;
+		}
 	    }
 	}
 

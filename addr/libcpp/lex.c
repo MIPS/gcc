@@ -519,6 +519,7 @@ init_vectorized_lexer (void)
    and VSX unaligned loads (when VSX is available).  This is otherwise
    the same as the pre-GCC 5 version.  */
 
+ATTRIBUTE_NO_SANITIZE_UNDEFINED
 static const uchar *
 search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
 {
@@ -1399,6 +1400,9 @@ lex_number (cpp_reader *pfile, cpp_string *number,
 	  NORMALIZE_STATE_UPDATE_IDNUM (nst, *cur);
 	  cur++;
 	}
+      /* A number can't end with a digit separator.  */
+      while (cur > pfile->buffer->cur && DIGIT_SEP (cur[-1]))
+	--cur;
 
       pfile->buffer->cur = cur;
     }

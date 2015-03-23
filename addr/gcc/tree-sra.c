@@ -1597,7 +1597,7 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
   misalign = (misalign + offset) & (align - 1);
   if (misalign != 0)
     align = (misalign & -misalign);
-  if (align < TYPE_ALIGN (exp_type))
+  if (align != TYPE_ALIGN (exp_type))
     exp_type = build_aligned_type (exp_type, align);
 
   mem_ref = fold_build2_loc (loc, MEM_REF, exp_type, base, off);
@@ -3987,7 +3987,7 @@ dump_dereferences_table (FILE *f, const char *str, HOST_WIDE_INT *table)
 {
   basic_block bb;
 
-  fprintf (dump_file, str);
+  fprintf (dump_file, "%s", str);
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun),
 		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
     {
@@ -4890,6 +4890,20 @@ some_callers_have_mismatched_arguments_p (struct cgraph_node *node,
   return false;
 }
 
+/* Return false if all callers have vuse attached to a call statement.  */
+
+static bool
+some_callers_have_no_vuse_p (struct cgraph_node *node,
+			     void *data ATTRIBUTE_UNUSED)
+{
+  struct cgraph_edge *cs;
+  for (cs = node->callers; cs; cs = cs->next_caller)
+    if (!cs->call_stmt || !gimple_vuse (cs->call_stmt))
+      return true;
+
+  return false;
+}
+
 /* Convert all callers of NODE.  */
 
 static bool
@@ -4933,8 +4947,8 @@ convert_callers (struct cgraph_node *node, tree old_decl,
 {
   basic_block this_block;
 
-  node->call_for_symbol_thunks_and_aliases (convert_callers_for_node,
-					  &adjustments, false);
+  node->call_for_symbol_and_aliases (convert_callers_for_node,
+				     &adjustments, false);
 
   if (!encountered_recursive_call)
     return;
@@ -4995,13 +5009,60 @@ modify_function (struct cgraph_node *node, ipa_parm_adjustment_vec adjustments)
   return cfg_changed;
 }
 
-/* If NODE has a caller, return true.  */
+/* Means of communication between ipa_sra_check_caller and
+   ipa_sra_preliminary_function_checks.  */
+
+struct ipa_sra_check_caller_data
+{
+  bool has_callers;
+  bool bad_arg_alignment;
+  bool has_thunk;
+};
+
+/* If NODE has a caller, mark that fact in DATA which is pointer to
+   ipa_sra_check_caller_data.  Also check all aggregate arguments in all known
+   calls if they are unit aligned and if not, set the appropriate flag in DATA
+   too. */
 
 static bool
-has_caller_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
+ipa_sra_check_caller (struct cgraph_node *node, void *data)
 {
-  if (node->callers)
-    return true;
+  if (!node->callers)
+    return false;
+
+  struct ipa_sra_check_caller_data *iscc;
+  iscc = (struct ipa_sra_check_caller_data *) data;
+  iscc->has_callers = true;
+
+  for (cgraph_edge *cs = node->callers; cs; cs = cs->next_caller)
+    {
+      if (cs->caller->thunk.thunk_p)
+	{
+	  iscc->has_thunk = true;
+	  return true;
+	}
+      gimple call_stmt = cs->call_stmt;
+      unsigned count = gimple_call_num_args (call_stmt);
+      for (unsigned i = 0; i < count; i++)
+	{
+	  tree arg = gimple_call_arg (call_stmt, i);
+	  if (is_gimple_reg (arg))
+	      continue;
+
+	  tree offset;
+	  HOST_WIDE_INT bitsize, bitpos;
+	  machine_mode mode;
+	  int unsignedp, volatilep = 0;
+	  get_inner_reference (arg, &bitsize, &bitpos, &offset, &mode,
+			       &unsignedp, &volatilep, false);
+	  if (bitpos % BITS_PER_UNIT)
+	    {
+	      iscc->bad_arg_alignment = true;
+	      return true;
+	    }
+	}
+    }
+
   return false;
 }
 
@@ -5048,19 +5109,11 @@ ipa_sra_preliminary_function_checks (struct cgraph_node *node)
       return false;
     }
 
-  if ((DECL_COMDAT (node->decl) || DECL_EXTERNAL (node->decl))
+  if ((DECL_ONE_ONLY (node->decl) || DECL_EXTERNAL (node->decl))
       && inline_summaries->get (node)->size >= MAX_INLINE_INSNS_AUTO)
     {
       if (dump_file)
 	fprintf (dump_file, "Function too big to be made truly local.\n");
-      return false;
-    }
-
-  if (!node->call_for_symbol_thunks_and_aliases (has_caller_p, NULL, true))
-    {
-      if (dump_file)
-	fprintf (dump_file,
-		 "Function has no callers in this compilation unit.\n");
       return false;
     }
 
@@ -5079,6 +5132,33 @@ ipa_sra_preliminary_function_checks (struct cgraph_node *node)
       if (dump_file)
 	fprintf (dump_file, "Always inline function will be inlined "
 		 "anyway. \n");
+      return false;
+    }
+
+  struct ipa_sra_check_caller_data iscc;
+  memset (&iscc, 0, sizeof(iscc));
+  node->call_for_symbol_and_aliases (ipa_sra_check_caller, &iscc, true);
+  if (!iscc.has_callers)
+    {
+      if (dump_file)
+	fprintf (dump_file,
+		 "Function has no callers in this compilation unit.\n");
+      return false;
+    }
+
+  if (iscc.bad_arg_alignment)
+    {
+      if (dump_file)
+	fprintf (dump_file,
+		 "A function call has an argument with non-unit alignment.\n");
+      return false;
+    }
+
+  if (iscc.has_thunk)
+    {
+      if (dump_file)
+	fprintf (dump_file,
+		 "A has thunk.\n");
       return false;
     }
 
@@ -5107,12 +5187,21 @@ ipa_early_sra (void)
       goto simple_out;
     }
 
-  if (node->call_for_symbol_thunks_and_aliases
+  if (node->call_for_symbol_and_aliases
        (some_callers_have_mismatched_arguments_p, NULL, true))
     {
       if (dump_file)
 	fprintf (dump_file, "There are callers with insufficient number of "
 		 "arguments or arguments with type mismatches.\n");
+      goto simple_out;
+    }
+
+  if (node->call_for_symbol_and_aliases
+       (some_callers_have_no_vuse_p, NULL, true))
+    {
+      if (dump_file)
+	fprintf (dump_file, "There are callers with no VUSE attached "
+		 "to a call stmt.\n");
       goto simple_out;
     }
 

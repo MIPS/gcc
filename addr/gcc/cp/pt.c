@@ -7324,7 +7324,22 @@ template_args_equal (tree ot, tree nt)
   else if (TREE_CODE (ot) == TREE_VEC || TYPE_P (ot))
     return 0;
   else
-    return cp_tree_equal (ot, nt);
+    {
+      /* Try to treat a template non-type argument that has been converted
+	 to the parameter type as equivalent to one that hasn't yet.  */
+      for (enum tree_code code1 = TREE_CODE (ot);
+	   CONVERT_EXPR_CODE_P (code1)
+	     || code1 == NON_LVALUE_EXPR;
+	   code1 = TREE_CODE (ot))
+	ot = TREE_OPERAND (ot, 0);
+      for (enum tree_code code2 = TREE_CODE (nt);
+	   CONVERT_EXPR_CODE_P (code2)
+	     || code2 == NON_LVALUE_EXPR;
+	   code2 = TREE_CODE (nt))
+	nt = TREE_OPERAND (nt, 0);
+
+      return cp_tree_equal (ot, nt);
+    }
 }
 
 /* Returns 1 iff the OLDARGS and NEWARGS are in fact identical sets of
@@ -20915,7 +20930,13 @@ dependent_type_p_r (tree type)
     return true;
   /* ... or any of the template arguments is a dependent type or
 	an expression that is type-dependent or value-dependent.  */
-  else if (TYPE_TEMPLATE_INFO (type)
+  else if (CLASS_TYPE_P (type) && CLASSTYPE_TEMPLATE_INFO (type)
+	   && (any_dependent_template_arguments_p
+	       (INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (type)))))
+    return true;
+  /* For an alias template specialization, check the arguments both to the
+     class template and the alias template.  */
+  else if (alias_template_specialization_p (type)
 	   && (any_dependent_template_arguments_p
 	       (INNERMOST_TEMPLATE_ARGS (TYPE_TI_ARGS (type)))))
     return true;

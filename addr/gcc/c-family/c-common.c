@@ -1800,6 +1800,12 @@ warn_logical_not_parentheses (location_t location, enum tree_code code,
       || TREE_CODE (TREE_TYPE (rhs)) == BOOLEAN_TYPE)
     return;
 
+  /* Don't warn for !x == 0 or !y != 0, those are equivalent to
+     !(x == 0) or !(y != 0).  */
+  if ((code == EQ_EXPR || code == NE_EXPR)
+      && integer_zerop (rhs))
+    return;
+
   warning_at (location, OPT_Wlogical_not_parentheses,
 	      "logical not is only applied to the left hand side of "
 	      "comparison");
@@ -5236,12 +5242,11 @@ enum c_builtin_type
 #define DEF_FUNCTION_TYPE_VAR_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
 #define DEF_FUNCTION_TYPE_VAR_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
 #define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
-  NAME,
-#define DEF_FUNCTION_TYPE_VAR_8(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-				ARG6, ARG7, ARG8) NAME,
-#define DEF_FUNCTION_TYPE_VAR_12(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11,       \
-				 ARG12) NAME,
+				NAME,
+#define DEF_FUNCTION_TYPE_VAR_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6, ARG7) NAME,
+#define DEF_FUNCTION_TYPE_VAR_11(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11) NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "builtin-types.def"
 #undef DEF_PRIMITIVE_TYPE
@@ -5260,8 +5265,8 @@ enum c_builtin_type
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
-#undef DEF_FUNCTION_TYPE_VAR_8
-#undef DEF_FUNCTION_TYPE_VAR_12
+#undef DEF_FUNCTION_TYPE_VAR_7
+#undef DEF_FUNCTION_TYPE_VAR_11
 #undef DEF_POINTER_TYPE
   BT_LAST
 };
@@ -5354,14 +5359,13 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
   def_fn_type (ENUM, RETURN, 1, 4, ARG1, ARG2, ARG3, ARG4);
 #define DEF_FUNCTION_TYPE_VAR_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
   def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5);
-#define DEF_FUNCTION_TYPE_VAR_8(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-				ARG6, ARG7, ARG8)			    \
-  def_fn_type (ENUM, RETURN, 1, 8, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,      \
-	       ARG7, ARG8);
-#define DEF_FUNCTION_TYPE_VAR_12(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11, ARG12) \
-  def_fn_type (ENUM, RETURN, 1, 12, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,      \
-	       ARG7, ARG8, ARG9, ARG10, ARG11, ARG12);
+#define DEF_FUNCTION_TYPE_VAR_7(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6, ARG7)				\
+  def_fn_type (ENUM, RETURN, 1, 7, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7);
+#define DEF_FUNCTION_TYPE_VAR_11(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11) \
+  def_fn_type (ENUM, RETURN, 1, 11, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,      \
+	       ARG7, ARG8, ARG9, ARG10, ARG11);
 #define DEF_POINTER_TYPE(ENUM, TYPE) \
   builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
 
@@ -5383,8 +5387,8 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
-#undef DEF_FUNCTION_TYPE_VAR_8
-#undef DEF_FUNCTION_TYPE_VAR_12
+#undef DEF_FUNCTION_TYPE_VAR_7
+#undef DEF_FUNCTION_TYPE_VAR_11
 #undef DEF_POINTER_TYPE
   builtin_types[(int) BT_LAST] = NULL_TREE;
 
@@ -5454,11 +5458,10 @@ c_common_nodes_and_builtins (void)
       char name[25];
 
       sprintf (name, "__int%d", int_n_data[i].bitsize);
-      record_builtin_type ((enum rid)(RID_FIRST_INT_N + i), xstrdup (name),
+      record_builtin_type ((enum rid)(RID_FIRST_INT_N + i), name,
 			   int_n_trees[i].signed_type);
       sprintf (name, "__int%d unsigned", int_n_data[i].bitsize);
-      record_builtin_type (RID_MAX, xstrdup (name),
-			   int_n_trees[i].unsigned_type);
+      record_builtin_type (RID_MAX, name, int_n_trees[i].unsigned_type);
     }
 
   if (c_dialect_cxx ())

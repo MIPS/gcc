@@ -416,7 +416,8 @@ check_constexpr_bind_expr_vars (tree t)
 
   for (tree var = BIND_EXPR_VARS (t); var; var = DECL_CHAIN (var))
     if (TREE_CODE (var) == TYPE_DECL
-	&& DECL_IMPLICIT_TYPEDEF_P (var))
+	&& DECL_IMPLICIT_TYPEDEF_P (var)
+	&& !LAMBDA_TYPE_P (TREE_TYPE (var)))
       return false;
   return true;
 }
@@ -2954,8 +2955,8 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       if (lval)
 	return t;
       /* We ask for an rvalue for the RESULT_DECL when indirecting
-	 through an invisible reference.  */
-      gcc_assert (DECL_BY_REFERENCE (t));
+	 through an invisible reference, or in named return value
+	 optimization.  */
       return (*ctx->values->get (t));
 
     case VAR_DECL:
@@ -3112,9 +3113,10 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       break;
 
     case RETURN_EXPR:
-      r = cxx_eval_constant_expression (ctx, TREE_OPERAND (t, 0),
-					lval,
-					non_constant_p, overflow_p);
+      if (TREE_OPERAND (t, 0) != NULL_TREE)
+	r = cxx_eval_constant_expression (ctx, TREE_OPERAND (t, 0),
+					  lval,
+					  non_constant_p, overflow_p);
       *jump_target = t;
       break;
 
@@ -3638,7 +3640,6 @@ maybe_constant_value (tree t, tree decl)
 
   r = cxx_eval_outermost_constant_expr (t, true, true, decl);
 #ifdef ENABLE_CHECKING
-  /* cp_tree_equal looks through NOPs, so allow them.  */
   gcc_assert (r == t
 	      || CONVERT_EXPR_P (t)
 	      || TREE_CODE (t) == VIEW_CONVERT_EXPR

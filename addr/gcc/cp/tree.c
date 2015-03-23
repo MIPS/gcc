@@ -2745,20 +2745,8 @@ cp_tree_equal (tree t1, tree t2)
   if (!t1 || !t2)
     return false;
 
-  for (code1 = TREE_CODE (t1);
-       CONVERT_EXPR_CODE_P (code1)
-	 || code1 == NON_LVALUE_EXPR;
-       code1 = TREE_CODE (t1))
-    t1 = TREE_OPERAND (t1, 0);
-  for (code2 = TREE_CODE (t2);
-       CONVERT_EXPR_CODE_P (code2)
-	 || code2 == NON_LVALUE_EXPR;
-       code2 = TREE_CODE (t2))
-    t2 = TREE_OPERAND (t2, 0);
-
-  /* They might have become equal now.  */
-  if (t1 == t2)
-    return true;
+  code1 = TREE_CODE (t1);
+  code2 = TREE_CODE (t2);
 
   if (code1 != code2)
     return false;
@@ -2996,6 +2984,9 @@ cp_tree_equal (tree t1, tree t2)
     case DYNAMIC_CAST_EXPR:
     case IMPLICIT_CONV_EXPR:
     case NEW_EXPR:
+    CASE_CONVERT:
+    case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       if (!same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	return false;
       /* Now compare operands as usual.  */
@@ -3494,13 +3485,17 @@ check_abi_tag_redeclaration (const_tree decl, const_tree old, const_tree new_)
   return true;
 }
 
-/* Handle an "abi_tag" attribute; arguments as in
-   struct attribute_spec.handler.  */
+/* The abi_tag attribute with the name NAME was given ARGS.  If they are
+   ill-formed, give an error and return false; otherwise, return true.  */
 
-static tree
-handle_abi_tag_attribute (tree* node, tree name, tree args,
-			  int flags, bool* no_add_attrs)
+bool
+check_abi_tag_args (tree args, tree name)
 {
+  if (!args)
+    {
+      error ("the %qE attribute requires arguments", name);
+      return false;
+    }
   for (tree arg = args; arg; arg = TREE_CHAIN (arg))
     {
       tree elt = TREE_VALUE (arg);
@@ -3511,7 +3506,7 @@ handle_abi_tag_attribute (tree* node, tree name, tree args,
 	{
 	  error ("arguments to the %qE attribute must be narrow string "
 		 "literals", name);
-	  goto fail;
+	  return false;
 	}
       const char *begin = TREE_STRING_POINTER (elt);
       const char *end = begin + TREE_STRING_LENGTH (elt);
@@ -3526,7 +3521,7 @@ handle_abi_tag_attribute (tree* node, tree name, tree args,
 			 "identifiers", name);
 		  inform (input_location, "%<%c%> is not a valid first "
 			  "character for an identifier", c);
-		  goto fail;
+		  return false;
 		}
 	    }
 	  else if (p == end - 1)
@@ -3539,11 +3534,23 @@ handle_abi_tag_attribute (tree* node, tree name, tree args,
 			 "identifiers", name);
 		  inform (input_location, "%<%c%> is not a valid character "
 			  "in an identifier", c);
-		  goto fail;
+		  return false;
 		}
 	    }
 	}
     }
+  return true;
+}
+
+/* Handle an "abi_tag" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_abi_tag_attribute (tree* node, tree name, tree args,
+			  int flags, bool* no_add_attrs)
+{
+  if (!check_abi_tag_args (args, name))
+    goto fail;
 
   if (TYPE_P (*node))
     {
@@ -3587,14 +3594,16 @@ handle_abi_tag_attribute (tree* node, tree name, tree args,
     }
   else
     {
-      if (TREE_CODE (*node) != FUNCTION_DECL)
+      if (TREE_CODE (*node) != FUNCTION_DECL
+	  && TREE_CODE (*node) != VAR_DECL)
 	{
-	  error ("%qE attribute applied to non-function %qD", name, *node);
+	  error ("%qE attribute applied to non-function, non-variable %qD",
+		 name, *node);
 	  goto fail;
 	}
       else if (DECL_LANGUAGE (*node) == lang_c)
 	{
-	  error ("%qE attribute applied to extern \"C\" function %qD",
+	  error ("%qE attribute applied to extern \"C\" declaration %qD",
 		 name, *node);
 	  goto fail;
 	}
