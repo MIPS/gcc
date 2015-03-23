@@ -2628,9 +2628,9 @@ typedef struct GTY((chain_circular ("%h.die_sib"), for_user)) die_struct {
   int die_mark;
   unsigned int decl_id;
   enum dwarf_tag die_tag;
-  /* FIXME: No one should depend on this, as it is a temporary
-     debugging aid to indicate the DECL for which this DIE was created
-     for.  Remove this at merge time!!  */
+  /* FIXME debug-early: No one should depend on this, as it is a
+     temporary debugging aid to indicate the DECL for which this DIE
+     was created for.  Remove this at merge time!!  */
   tree tmp_created_for;
   /* Die is used and must not be pruned as unused.  */
   BOOL_BITFIELD die_perennial_p : 1;
@@ -4950,9 +4950,9 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 	     them up.  */
 	  && (TREE_CODE (t) != FUNCTION_DECL
 	      || !decl_function_context (t))
-	  /* FIXME: Allow late limbo DIE creation for LTO, especially
-	     in the ltrans stage, but once we implement LTO dwarf
-	     streaming, we should remove this exception.  */
+	  /* FIXME debug-early: Allow late limbo DIE creation for LTO,
+	     especially in the ltrans stage, but once we implement LTO
+	     dwarf streaming, we should remove this exception.  */
 	  && !in_lto_p)
 	{
 	  fprintf (stderr, "symbol ended up in limbo too late:");
@@ -25093,7 +25093,7 @@ dwarf2out_finish (const char *filename)
   if (flag_eliminate_unused_debug_types)
     prune_unused_types ();
 
-  /* FIXME: Prune DIEs for unused decls.  */
+  /* FIXME debug-early: Prune DIEs for unused decls.  */
 
   /* Generate separate COMDAT sections for type DIEs. */
   if (use_debug_types)
