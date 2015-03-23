@@ -4407,7 +4407,8 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 {
   /* Add implicit "omp declare target" attribute if requested.  */
   if (current_omp_declare_target_attribute
-      && ((TREE_CODE (*node) == VAR_DECL && TREE_STATIC (*node))
+      && ((TREE_CODE (*node) == VAR_DECL
+	   && (TREE_STATIC (*node) || DECL_EXTERNAL (*node)))
 	  || TREE_CODE (*node) == FUNCTION_DECL))
     {
       if (TREE_CODE (*node) == VAR_DECL
@@ -5837,10 +5838,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		    warn_variable_length_array (name, size);
 		    if (flag_sanitize & SANITIZE_VLA
 		        && decl_context == NORMAL
-			&& current_function_decl != NULL_TREE
-			&& !lookup_attribute ("no_sanitize_undefined",
-					      DECL_ATTRIBUTES
-						(current_function_decl)))
+			&& do_ubsan_in_current_function ())
 		      {
 			/* Evaluate the array size only once.  */
 			size = c_save_expr (size);

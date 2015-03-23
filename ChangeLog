@@ -1,3 +1,22 @@
+2015-03-09  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR bootstrap/25672
+	* configure.ac: Do not initialize CFLAGS_FOR_TARGET from CFLAGS if
+	cross-compiling.  Similarly for CXX_FOR_TARGET.
+	* configure: Regenerate.
+
+2015-03-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* Makefile.def: Add libmpx.
+	* configure.ac: Add libmpx.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2015-03-06  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* MAINTAINERS (CPU Port Maintainers): Add myself
+	i386 vector ISA extns mantainer.
+
 2015-03-13  Jeff Law  <law@redhat.com>
 
 	* MAINTAINERS: Remove Paul Brook as a Fortran and ARM
@@ -312,7 +331,6 @@
 
 2014-11-11  Tobias Burnus  <burnus@net-b.de>
 
-	* config/cloog.m4: Remove.
 	* Makefile.def: Remove CLooG.
 	* Makefile.tpl: Ditto.
 	* configure.ac: Ditto.

@@ -976,7 +976,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       /* Storing any naturally aligned field can be done with a simple
 	 store.  For targets that support fast unaligned memory, any
 	 naturally sized, unit aligned field can be done directly.  */
-      if (simple_mem_bitfield_p (str_rtx, bitsize, bitnum, fieldmode))
+      if (bitsize == GET_MODE_BITSIZE (fieldmode))
 	{
 	  str_rtx = adjust_bitfield_address (str_rtx, fieldmode,
 					     bitnum / BITS_PER_UNIT);
@@ -984,12 +984,16 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	}
       else
 	{
+	  rtx temp;
+
 	  str_rtx = narrow_bit_field_mem (str_rtx, fieldmode, bitsize, bitnum,
 					  &bitnum);
-	  /* Explicitly override the C/C++ memory model; ignore the
-	     bit range so that we can do the access in the mode mandated
-	     by -fstrict-volatile-bitfields instead.  */
-	  store_fixed_bit_field_1 (str_rtx, bitsize, bitnum, value);
+	  temp = copy_to_reg (str_rtx);
+	  if (!store_bit_field_1 (temp, bitsize, bitnum, 0, 0,
+				  fieldmode, value, true))
+	    gcc_unreachable ();
+
+	  emit_move_insn (str_rtx, temp);
 	}
 
       return;
@@ -1786,24 +1790,20 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
   if (strict_volatile_bitfield_p (str_rtx, bitsize, bitnum, mode1, 0, 0))
     {
-      rtx result;
-
       /* Extraction of a full MODE1 value can be done with a load as long as
 	 the field is on a byte boundary and is sufficiently aligned.  */
-      if (simple_mem_bitfield_p (str_rtx, bitsize, bitnum, mode1))
-	result = adjust_bitfield_address (str_rtx, mode1,
-					  bitnum / BITS_PER_UNIT);
-      else
+      if (bitsize == GET_MODE_BITSIZE(mode1))
 	{
-	  str_rtx = narrow_bit_field_mem (str_rtx, mode1, bitsize, bitnum,
-					  &bitnum);
-	  result = extract_fixed_bit_field_1 (mode, str_rtx, bitsize, bitnum,
-					      target, unsignedp);
+	  rtx result = adjust_bitfield_address (str_rtx, mode1,
+						bitnum / BITS_PER_UNIT);
+	  return convert_extracted_bit_field (result, mode, tmode, unsignedp);
 	}
 
-      return convert_extracted_bit_field (result, mode, tmode, unsignedp);
+      str_rtx = narrow_bit_field_mem (str_rtx, mode1, bitsize, bitnum,
+				      &bitnum);
+      str_rtx = copy_to_reg (str_rtx);
     }
-  
+
   return extract_bit_field_1 (str_rtx, bitsize, bitnum, unsignedp,
 			      target, mode, tmode, true);
 }
@@ -2551,9 +2551,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_shift;
 	    }
@@ -2582,9 +2581,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	      alg_in->cost.latency += op_cost;
 	      if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 		{
-		  struct algorithm *x;
 		  best_cost = alg_in->cost;
-		  x = alg_in, alg_in = best_alg, best_alg = x;
+		  std::swap (alg_in, best_alg);
 		  best_alg->log[best_alg->ops] = m;
 		  best_alg->op[best_alg->ops] = alg_shift;
 		}
@@ -2613,7 +2611,7 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 		 Thus we prefer addition in that case.  */
 	      && t != 3))
 	{
-	  /* T ends with ...111.  Multiply by (T + 1) and subtract 1.  */
+	  /* T ends with ...111.  Multiply by (T + 1) and subtract T.  */
 
 	  op_cost = add_cost (speed, mode);
 	  new_limit.cost = best_cost.cost - op_cost;
@@ -2624,16 +2622,15 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = 0;
 	      best_alg->op[best_alg->ops] = alg_sub_t_m2;
 	    }
 	}
       else
 	{
-	  /* T ends with ...01 or ...011.  Multiply by (T - 1) and add 1.  */
+	  /* T ends with ...01 or ...011.  Multiply by (T - 1) and add T.  */
 
 	  op_cost = add_cost (speed, mode);
 	  new_limit.cost = best_cost.cost - op_cost;
@@ -2644,9 +2641,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = 0;
 	      best_alg->op[best_alg->ops] = alg_add_t_m2;
 	    }
@@ -2667,9 +2663,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_sub_t_m2;
 	    }
@@ -2723,9 +2718,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	    alg_in->cost.latency = op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_add_factor;
 	    }
@@ -2762,9 +2756,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	    alg_in->cost.latency = op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_sub_factor;
 	    }
@@ -2793,9 +2786,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_add_t2_m;
 	    }
@@ -2818,9 +2810,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_sub_t2_m;
 	    }

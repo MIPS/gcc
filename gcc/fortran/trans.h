@@ -226,6 +226,10 @@ typedef struct gfc_ss_info
   /* Suppresses precalculation of scalars in WHERE assignments.  */
   unsigned where:1;
 
+  /* This set for an elemental function that contains expressions for
+     external arrays, thereby triggering creation of a temporary.  */
+  unsigned array_outer_dependency:1;
+
   /* Tells whether the SS is for an actual argument which can be a NULL
      reference.  In other words, the associated dummy argument is OPTIONAL.
      Used to handle elemental procedures.  */
@@ -731,6 +735,7 @@ extern GTY(()) tree gfor_fndecl_caf_get;
 extern GTY(()) tree gfor_fndecl_caf_send;
 extern GTY(()) tree gfor_fndecl_caf_sendget;
 extern GTY(()) tree gfor_fndecl_caf_sync_all;
+extern GTY(()) tree gfor_fndecl_caf_sync_memory;
 extern GTY(()) tree gfor_fndecl_caf_sync_images;
 extern GTY(()) tree gfor_fndecl_caf_error_stop;
 extern GTY(()) tree gfor_fndecl_caf_error_stop_str;

@@ -6591,7 +6591,17 @@ package body Sem_Prag is
             Set_Convention_From_Pragma (E);
 
             if Is_Type (E) then
-               Check_First_Subtype (Arg2);
+
+               --  The pragma must apply to a first subtype, but it can also
+               --  apply to a generic type in a generic formal part, in which
+               --  case it will also appear in the corresponding instance.
+
+               if Is_Generic_Type (E) or else In_Instance then
+                  null;
+               else
+                  Check_First_Subtype (Arg2);
+               end if;
+
                Set_Convention_From_Pragma (Base_Type (E));
 
                --  For access subprograms, we must set the convention on the
@@ -9526,6 +9536,12 @@ package body Sem_Prag is
             --  visibility chain. Pack_Id denotes the entity or the related
             --  package where pragma Abstract_State appears.
 
+            procedure Malformed_State_Error (State : Node_Id);
+            --  Emit an error concerning the illegal declaration of abstract
+            --  state State. This routine diagnoses syntax errors that lead to
+            --  a different parse tree. The error is issued regardless of the
+            --  SPARK mode in effect.
+
             ----------------------------
             -- Analyze_Abstract_State --
             ----------------------------
@@ -10059,11 +10075,10 @@ package body Sem_Prag is
                      Next (Opt);
                   end loop;
 
-               --  Any other attempt to declare a state is illegal. This is a
-               --  syntax error, always report.
+               --  Any other attempt to declare a state is illegal
 
                else
-                  Error_Msg_N ("malformed abstract state declaration", State);
+                  Malformed_State_Error (State);
                   return;
                end if;
 
@@ -10096,11 +10111,29 @@ package body Sem_Prag is
                end if;
             end Analyze_Abstract_State;
 
+            ---------------------------
+            -- Malformed_State_Error --
+            ---------------------------
+
+            procedure Malformed_State_Error (State : Node_Id) is
+            begin
+               Error_Msg_N ("malformed abstract state declaration", State);
+
+               --  An abstract state with a simple option is being declared
+               --  with "=>" rather than the legal "with". The state appears
+               --  as a component association.
+
+               if Nkind (State) = N_Component_Association then
+                  Error_Msg_N ("\\use WITH to specify simple option", State);
+               end if;
+            end Malformed_State_Error;
+
             --  Local variables
 
             Pack_Decl : Node_Id;
             Pack_Id   : Entity_Id;
             State     : Node_Id;
+            States    : Node_Id;
 
          --  Start of processing for Abstract_State
 
@@ -10137,22 +10170,34 @@ package body Sem_Prag is
                Set_Is_Ghost_Entity (Pack_Id);
             end if;
 
-            State := Expression (Get_Argument (N));
+            States := Expression (Get_Argument (N));
 
             --  Multiple non-null abstract states appear as an aggregate
 
-            if Nkind (State) = N_Aggregate then
-               State := First (Expressions (State));
+            if Nkind (States) = N_Aggregate then
+               State := First (Expressions (States));
                while Present (State) loop
                   Analyze_Abstract_State (State, Pack_Id);
                   Next (State);
                end loop;
 
+               --  An abstract state with a simple option is being illegaly
+               --  declared with "=>" rather than "with". In this case the
+               --  state declaration appears as a component association.
+
+               if Present (Component_Associations (States)) then
+                  State := First (Component_Associations (States));
+                  while Present (State) loop
+                     Malformed_State_Error (State);
+                     Next (State);
+                  end loop;
+               end if;
+
             --  Various forms of a single abstract state. Note that these may
             --  include malformed state declarations.
 
             else
-               Analyze_Abstract_State (State, Pack_Id);
+               Analyze_Abstract_State (States, Pack_Id);
             end if;
 
             --  Save the pragma for retrieval by other tools

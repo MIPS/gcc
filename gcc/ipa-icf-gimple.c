@@ -200,8 +200,22 @@ func_checker::compare_decl (tree t1, tree t2)
       && DECL_BY_REFERENCE (t1) != DECL_BY_REFERENCE (t2))
     return return_false_with_msg ("DECL_BY_REFERENCE flags are different");
 
-  if (!compatible_types_p (TREE_TYPE (t1), TREE_TYPE (t2),
-			   m_compare_polymorphic))
+  if (!compatible_types_p (TREE_TYPE (t1), TREE_TYPE (t2)))
+    return return_false ();
+
+  /* TODO: we are actually too strict here.  We only need to compare if
+     T1 can be used in polymorphic call.  */
+  if (TREE_ADDRESSABLE (t1)
+      && m_compare_polymorphic
+      && !compatible_polymorphic_types_p (TREE_TYPE (t1), TREE_TYPE (t2),
+					  false))
+    return return_false ();
+
+  if ((t == VAR_DECL || t == PARM_DECL || t == RESULT_DECL)
+      && DECL_BY_REFERENCE (t1)
+      && m_compare_polymorphic
+      && !compatible_polymorphic_types_p (TREE_TYPE (t1), TREE_TYPE (t2),
+					  true))
     return return_false ();
 
   bool existed_p;
@@ -215,11 +229,41 @@ func_checker::compare_decl (tree t1, tree t2)
   return true;
 }
 
+/* Return true if T1 and T2 are same for purposes of ipa-polymorphic-call
+   analysis.  COMPARE_PTR indicates if types of pointers needs to be
+   considered.  */
+
+bool
+func_checker::compatible_polymorphic_types_p (tree t1, tree t2,
+					      bool compare_ptr)
+{
+  gcc_assert (TREE_CODE (t1) != FUNCTION_TYPE && TREE_CODE (t1) != METHOD_TYPE);
+
+  /* Pointer types generally give no information.  */
+  if (POINTER_TYPE_P (t1))
+    {
+      if (!compare_ptr)
+	return true;
+      return func_checker::compatible_polymorphic_types_p (TREE_TYPE (t1),
+							   TREE_TYPE (t2),
+							   false);
+    }
+
+  /* If types contain a polymorphic types, match them.  */
+  bool c1 = contains_polymorphic_type_p (t1);
+  bool c2 = contains_polymorphic_type_p (t2);
+  if (!c1 && !c2)
+    return true;
+  if (!c1 || !c2)
+    return return_false_with_msg ("one type is not polymorphic");
+  if (!types_must_be_same_for_odr (t1, t2))
+    return return_false_with_msg ("types are not same for ODR");
+  return true;
+}
+
 /* Return true if types are compatible from perspective of ICF.  */
 bool
-func_checker::compatible_types_p (tree t1, tree t2,
-				  bool compare_polymorphic,
-				  bool first_argument)
+func_checker::compatible_types_p (tree t1, tree t2)
 {
   if (TREE_CODE (t1) != TREE_CODE (t2))
     return return_false_with_msg ("different tree types");
@@ -232,23 +276,6 @@ func_checker::compatible_types_p (tree t1, tree t2,
 
   if (get_alias_set (t1) != get_alias_set (t2))
     return return_false_with_msg ("alias sets are different");
-
-  /* We call contains_polymorphic_type_p with this pointer type.  */
-  if (first_argument && TREE_CODE (t1) == POINTER_TYPE)
-    {
-      t1 = TREE_TYPE (t1);
-      t2 = TREE_TYPE (t2);
-    }
-
-  if (compare_polymorphic)
-    if (contains_polymorphic_type_p (t1) || contains_polymorphic_type_p (t2))
-      {
-	if (!contains_polymorphic_type_p (t1) || !contains_polymorphic_type_p (t2))
-	  return return_false_with_msg ("one type is not polymorphic");
-
-	if (!types_must_be_same_for_odr (t1, t2))
-	  return return_false_with_msg ("types are not same for ODR");
-      }
 
   return true;
 }
@@ -305,6 +332,23 @@ func_checker::compare_memory_operand (tree t1, tree t2)
       get_object_alignment_1 (b2, &align2, &tem);
       if (align1 != align2)
 	return return_false_with_msg ("different access alignment");
+
+      /* Similarly we have to compare dependence info where equality
+         tells us we are safe (even some unequal values would be safe
+	 but then we have to maintain a map of bases and cliques).  */
+      unsigned short clique1 = 0, base1 = 0, clique2 = 0, base2 = 0;
+      if (TREE_CODE (b1) == MEM_REF)
+	{
+	  clique1 = MR_DEPENDENCE_CLIQUE (b1);
+	  base1 = MR_DEPENDENCE_BASE (b1);
+	}
+      if (TREE_CODE (b2) == MEM_REF)
+	{
+	  clique2 = MR_DEPENDENCE_CLIQUE (b2);
+	  base2 = MR_DEPENDENCE_BASE (b2);
+	}
+      if (clique1 != clique2 || base1 != base2)
+	return return_false_with_msg ("different dependence info");
     }
 
   return compare_operand (t1, t2);

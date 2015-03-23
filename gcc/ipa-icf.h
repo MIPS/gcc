@@ -171,18 +171,6 @@ public:
   /* Add reference to a semantic TARGET.  */
   void add_reference (sem_item *target);
 
-  /* Gets symbol name of the item.  */
-  const char *name (void)
-  {
-    return node->name ();
-  }
-
-  /* Gets assembler name of the item.  */
-  const char *asm_name (void)
-  {
-    return node->asm_name ();
-  }
-
   /* Fast equality function based on knowledge known in WPA.  */
   virtual bool equals_wpa (sem_item *item,
 			   hash_map <symtab_node *, sem_item *> &ignored_nodes) = 0;
@@ -200,6 +188,15 @@ public:
 
   /* Dump symbol to FILE.  */
   virtual void dump_to_file (FILE *file) = 0;
+
+  /* Update hash by address sensitive references.  */
+  void update_hash_by_addr_refs (hash_map <symtab_node *,
+				 sem_item *> &m_symtab_node_map);
+
+  /* Update hash by computed local hash values taken from different
+     semantic items.  */
+  void update_hash_by_local_refs (hash_map <symtab_node *,
+				  sem_item *> &m_symtab_node_map);
 
   /* Return base tree that can be used for compatible_types_p and
      contains_polymorphic_type_p comparison.  */
@@ -238,9 +235,13 @@ public:
   /* A set with symbol table references.  */
   hash_set <symtab_node *> refs_set;
 
+  /* Hash of item.  */
+  hashval_t hash;
+
+  /* Temporary hash used where hash values of references are added.  */
+  hashval_t global_hash;
 protected:
   /* Cached, once calculated hash for the item.  */
-  hashval_t hash;
 
   /* Accumulate to HSTATE a hash of constructor expression EXP.  */
   static void add_expr (const_tree exp, inchash::hash &hstate);
@@ -353,11 +354,6 @@ private:
      corresponds to TARGET.  */
   bool bb_dict_test (vec<int> *bb_dict, int source, int target);
 
-  /* Iterates all tree types in T1 and T2 and returns true if all types
-     are compatible. If COMPARE_POLYMORPHIC is set to true,
-     more strict comparison is executed.  */
-  bool compare_type_list (tree t1, tree t2, bool compare_polymorphic);
-
   /* If cgraph edges E1 and E2 are indirect calls, verify that
      ICF flags are the same.  */
   bool compare_edge_flags (cgraph_edge *e1, cgraph_edge *e2);
@@ -415,15 +411,8 @@ public:
   static sem_variable *parse (varpool_node *node, bitmap_obstack *stack);
 
 private:
-  /* Iterates though a constructor and identifies tree references
-     we are interested in semantic function equality.  */
-  void parse_tree_refs (tree t);
-
   /* Compares trees T1 and T2 for semantic equality.  */
   static bool equals (tree t1, tree t2);
-
-  /* Compare that symbol sections are either NULL or have same name.  */
-  bool compare_sections (sem_variable *alias);
 }; // class sem_variable
 
 class sem_item_optimizer;
@@ -517,6 +506,9 @@ public:
       sem_item_type type);
 
 private:
+
+  /* For each semantic item, append hash values of references.  */
+  void update_hash_by_addr_refs ();
 
   /* Congruence classes are built by hash value.  */
   void build_hash_based_classes (void);
