@@ -13214,7 +13214,7 @@ tsubst_baselink (tree baselink, tree object_type,
     if (BASELINK_P (baselink))
       fns = BASELINK_FUNCTIONS (baselink);
     if (!template_id_p && !really_overloaded_fn (fns))
-      mark_used (OVL_CURRENT (fns));
+      mark_used (OVL_CURRENT (fns), complain);
 
     /* Add back the template arguments, if present.  */
     if (BASELINK_P (baselink) && template_id_p)

@@ -1,27 +1,24 @@
 // { dg-options "-std=c++1z" }
 
 template<typename T>
-concept bool C1()
+concept bool C()
 {
-  return requires (T t) { t.f(); };
+  return requires (T& t) { t.~T(); };
 }
 
-template<typename T>
-concept bool C2()
+class S1
 {
-  return requires { typename T::type; };
-}
+  ~S1() { }
+};
 
-class S
+class S2
 {
-  using type = int;
-  void f() { }
-} s;
+  ~S2() = delete;
+};
 
 int main()
 {
-  // These should not result in errors.
-  static_assert(!C1<S>(), "");
-  static_assert(!C2<S>(), "");
+  static_assert(C<S1>(), ""); // { dg-error "failed" }
+  static_assert(C<S2>(), ""); // { dg-error "failed" }
 }
 

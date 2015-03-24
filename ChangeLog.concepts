@@ -1,3 +1,11 @@
+2015-03-23  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Suppress errors regarding deleted functions when
+	checking constriants
+	* gcc/cp/pt.c (tsubst_baselink): Pass complain flags to
+	mark_used.
+	* gcc/testsuite/g++.dg/concepts/expression3.C: New.
+
 2015-03-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fix regression related to variadic templates, bugs in
