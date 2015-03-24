@@ -1335,8 +1335,6 @@ struct GTY(()) tree_block {
   tree fragment_origin;
   tree fragment_chain;
 
-  /* FIXME: When we address LTO streaming of this, it may be worth
-     looking into an on the side tree->hash map.  */
   /* Pointer to the DWARF lexical block.  */
   struct die_struct *die;
 };

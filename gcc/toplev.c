@@ -2187,21 +2187,6 @@ toplev::main (int argc, char **argv)
   if (version_flag)
     print_version (stderr, "", true);
 
-  /* FIXME: Temporary debugging aid to know which LTO phase we are in
-     without having to pass -v to the driver and all its verbosity.  */
-  if (0)
-    {
-      fprintf(stderr, "MAIN: cc1*\n");
-      if (flag_lto)
-	fprintf(stderr, "\tMAIN: flag_lto\n");
-      if (in_lto_p)
-	fprintf(stderr, "\tMAIN: in_lto_p\n");
-      if (flag_wpa)
-	fprintf(stderr, "\tMAIN: flag_wpa\n");
-      if (flag_ltrans)
-	fprintf(stderr, "\tMAIN: flag_ltrans\n");
-    }
-
   if (help_flag)
     print_plugins_help (stderr, "");
 
