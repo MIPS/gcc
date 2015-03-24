@@ -232,8 +232,8 @@ VTAB_GET_FIELD_GEN (copy, VTABLE_COPY_FIELD)
 VTAB_GET_FIELD_GEN (final, VTABLE_FINAL_FIELD)
 
 
-/* The size field is returned as an array index.  Therefore treat it and only
-   it specially.  */
+/* The size field is returned as an array index type.  Therefore treat
+   it and only it specially.  */
 
 tree
 gfc_class_vtab_size_get (tree cl)
@@ -268,12 +268,12 @@ gfc_vptr_size_get (tree vptr)
 #undef VTABLE_FINAL_FIELD
 
 
-/* Search for the last _class ref in the chain of references of this expression
-   and cut the chain there.  Albeit this routine is similiar to
-   class.c::gfc_add_component_ref (), is there a significant difference:
-   gfc_add_component_ref () concentrates on an array ref to be the last
-   ref in the chain.  This routine is oblivious to the kind of refs
-   following.  */
+/* Search for the last _class ref in the chain of references of this
+   expression and cut the chain there.  Albeit this routine is similiar
+   to class.c::gfc_add_component_ref (), is there a significant
+   difference: gfc_add_component_ref () concentrates on an array ref to
+   be the last ref in the chain.  This routine is oblivious to the kind
+   of refs following.  */
 
 gfc_expr *
 gfc_find_and_cut_at_last_class_ref (gfc_expr *e)
@@ -294,7 +294,7 @@ gfc_find_and_cut_at_last_class_ref (gfc_expr *e)
     }
 
   /* Remove and store all subsequent references after the
-   CLASS reference.  */
+     CLASS reference.  */
   if (class_ref)
     {
       tail = class_ref->next;
@@ -387,6 +387,7 @@ gfc_reset_len (stmtblock_t *block, gfc_expr *expr)
 		  fold_convert (TREE_TYPE (se_len.expr), integer_zero_node));
   gfc_free_expr (e);
 }
+
 
 /* Obtain the vptr of the last class reference in an expression.
    Return NULL_TREE if no class reference is found.  */
@@ -1139,10 +1140,11 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 	  gfc_add_block_to_block (&ifbody, &loop.pre);
 	  extcopy = gfc_finish_block (&ifbody);
 
-	  tmp = fold_build2_loc (input_location, GT_EXPR, boolean_type_node,
-				 from_len, integer_zero_node);
-	  tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node,
-				 tmp, extcopy, stdcopy);
+	  tmp = fold_build2_loc (input_location, GT_EXPR,
+				 boolean_type_node, from_len,
+				 integer_zero_node);
+	  tmp = fold_build3_loc (input_location, COND_EXPR,
+				 void_type_node, tmp, extcopy, stdcopy);
 	  gfc_add_expr_to_block (&body, tmp);
 	  tmp = gfc_finish_block (&body);
 	}
@@ -1165,10 +1167,11 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 	  vec_safe_push (args, from_len);
 	  vec_safe_push (args, to_len);
 	  extcopy = build_call_vec (fcn_type, fcn, args);
-	  tmp = fold_build2_loc (input_location, GT_EXPR, boolean_type_node,
-				 from_len, integer_zero_node);
-	  tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node,
-				 tmp, extcopy, stdcopy);
+	  tmp = fold_build2_loc (input_location, GT_EXPR,
+				 boolean_type_node, from_len,
+				 integer_zero_node);
+	  tmp = fold_build3_loc (input_location, COND_EXPR,
+				 void_type_node, tmp, extcopy, stdcopy);
 	}
       else
 	tmp = stdcopy;
@@ -1176,6 +1179,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 
   return tmp;
 }
+
 
 static tree
 gfc_trans_class_array_init_assign (gfc_expr *rhs, gfc_expr *lhs, gfc_expr *obj)
@@ -1707,9 +1711,64 @@ gfc_get_tree_for_caf_expr (gfc_expr *expr)
 {
   tree caf_decl;
   bool found = false;
-  gfc_ref *ref;
+  gfc_ref *ref, *comp_ref = NULL;
 
   gcc_assert (expr && expr->expr_type == EXPR_VARIABLE);
+
+  /* Not-implemented diagnostic.  */
+  for (ref = expr->ref; ref; ref = ref->next)
+    if (ref->type == REF_COMPONENT)
+      {
+        comp_ref = ref;
+	if ((ref->u.c.component->ts.type == BT_CLASS
+	     && !CLASS_DATA (ref->u.c.component)->attr.codimension
+	     && (CLASS_DATA (ref->u.c.component)->attr.pointer
+		 || CLASS_DATA (ref->u.c.component)->attr.allocatable))
+	    || (ref->u.c.component->ts.type != BT_CLASS
+		&& !ref->u.c.component->attr.codimension
+		&& (ref->u.c.component->attr.pointer
+		    || ref->u.c.component->attr.allocatable)))
+	  gfc_error ("Sorry, coindexed access to a pointer or allocatable "
+		     "component of the coindexed coarray at %L is not yet "
+		     "supported", &expr->where);
+      }
+  if ((!comp_ref
+       && ((expr->symtree->n.sym->ts.type == BT_CLASS
+	    && CLASS_DATA (expr->symtree->n.sym)->attr.alloc_comp)
+	   || (expr->symtree->n.sym->ts.type == BT_DERIVED
+	       && expr->symtree->n.sym->ts.u.derived->attr.alloc_comp)))
+      || (comp_ref
+	  && ((comp_ref->u.c.component->ts.type == BT_CLASS
+	       && CLASS_DATA (comp_ref->u.c.component)->attr.alloc_comp)
+	      || (comp_ref->u.c.component->ts.type == BT_DERIVED
+		  && comp_ref->u.c.component->ts.u.derived->attr.alloc_comp))))
+    gfc_error ("Sorry, coindexed coarray at %L with allocatable component is "
+	       "not yet supported", &expr->where);
+
+  if (expr->rank)
+    {
+      /* Without the new array descriptor, access like "caf[i]%a(:)%b" is in
+	 general not possible as the required stride multiplier might be not
+	 a multiple of c_sizeof(b). In case of noncoindexed access, the
+	 scalarizer often takes care of it - for coarrays, it always fails.  */
+      for (ref = expr->ref; ref; ref = ref->next)
+        if (ref->type == REF_COMPONENT
+	    && ((ref->u.c.component->ts.type == BT_CLASS
+		 && CLASS_DATA (ref->u.c.component)->attr.codimension)
+	        || (ref->u.c.component->ts.type != BT_CLASS
+		    && ref->u.c.component->attr.codimension)))
+	  break;
+      if (ref == NULL)
+	ref = expr->ref;
+      for ( ; ref; ref = ref->next)
+	if (ref->type == REF_ARRAY && ref->u.ar.dimen)
+	  break;
+      for ( ; ref; ref = ref->next)
+	if (ref->type == REF_COMPONENT)
+	  gfc_error ("Sorry, coindexed access at %L to a scalar component "
+		     "with an array partref is not yet supported",
+		     &expr->where);
+    }
 
   caf_decl = expr->symtree->n.sym->backend_decl;
   gcc_assert (caf_decl);
