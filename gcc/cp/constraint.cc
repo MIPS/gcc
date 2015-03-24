@@ -1758,10 +1758,10 @@ check_disjunction (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
   tree t0 = check_constraint (TREE_OPERAND (t, 0), args, complain, in_decl);
   if (t0 == boolean_true_node)
-    return t0;
+    return boolean_true_node;
   tree t1 = check_constraint (TREE_OPERAND (t, 1), args, complain, in_decl);
   if (t1 == boolean_true_node)
-    return t0;
+    return boolean_true_node;
   return boolean_false_node;
 }
 

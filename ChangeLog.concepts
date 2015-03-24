@@ -1,5 +1,14 @@
 2015-03-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Fix bug in disjunction processing and fix the pretty
+	printing for __is_same_as trait correct.
+	* gcc/cp/constraint.cc (check_disjunction): Don't return
+	false if the first condition fails and the second succeeds.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_trait_expr): Print the
+	second argument for __is_same_as.
+
+2015-03-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Make implicit conversion constraints handle usual
 	conversions, not just implicit conversions.
 	* gcc/cp/constraint.cc (check_implicit_conversion_constraint): 

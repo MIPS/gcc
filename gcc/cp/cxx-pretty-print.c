@@ -2525,7 +2525,7 @@ pp_cxx_trait_expression (cxx_pretty_printer *pp, tree t)
   pp_cxx_left_paren (pp);
   pp->type_id (TRAIT_EXPR_TYPE1 (t));
 
-  if (kind == CPTK_IS_BASE_OF)
+  if (kind == CPTK_IS_BASE_OF || kind == CPTK_IS_SAME_AS)
     {
       pp_cxx_separate_with (pp, ',');
       pp->type_id (TRAIT_EXPR_TYPE2 (t));
