@@ -2567,7 +2567,7 @@ find_intrinsic_vtab (gfc_typespec *ts)
 	      /* Build a minimal expression to make use of
 		 target-memory.c/gfc_element_size for 'size'.  Special handling
 		 for character arrays, that are not constant sized: to support
-		 len(str)*kind, only the kind information is stored in the
+		 len (str) * kind, only the kind information is stored in the
 		 vtab.  */
 	      e = gfc_get_expr ();
 	      e->ts = *ts;
