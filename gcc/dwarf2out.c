@@ -19080,7 +19080,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       /* XXX */
       if (!lookup_decl_die (decl))
 	equate_decl_number_to_die (decl, subr_die);
-      gen_generic_params_dies (decl);
+      if (early_dwarf_dumping)
+	gen_generic_params_dies (decl);
     }
 
   /* Now output descriptions of the arguments for this function. This gets
@@ -19713,7 +19714,12 @@ gen_const_die (tree decl, dw_die_ref context_die)
   dw_die_ref const_die;
   tree type = TREE_TYPE (decl);
 
+  const_die = lookup_decl_die (decl);
+  if (const_die)
+    return;
+
   const_die = new_die (DW_TAG_constant, context_die, decl);
+  equate_decl_number_to_die (decl, const_die);
   add_name_and_src_coords_attributes (const_die, decl);
   add_type_attribute (const_die, type, TYPE_QUAL_CONST, context_die);
   if (TREE_PUBLIC (decl))
@@ -21018,8 +21024,11 @@ process_scope_var (tree stmt, tree decl, tree origin, dw_die_ref context_die)
   if (die != NULL && die->die_parent == NULL)
     add_child_die (context_die, die);
   else if (TREE_CODE (decl_or_origin) == IMPORTED_DECL)
-    dwarf2out_imported_module_or_decl_1 (decl_or_origin, DECL_NAME (decl_or_origin),
-					 stmt, context_die);
+    {
+      if (early_dwarf_dumping)
+	dwarf2out_imported_module_or_decl_1 (decl_or_origin, DECL_NAME (decl_or_origin),
+					     stmt, context_die);
+    }
   else
     gen_decl_die (decl, origin, context_die);
 }
