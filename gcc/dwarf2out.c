@@ -18792,6 +18792,18 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	     parameters so they can be augmented with location
 	     information later.  */
 	  remove_AT (subr_die, DW_AT_declaration);
+
+	  /* gen_formal_types_die could have created nameless DIEs for
+	     the formal parameters when generating an object's
+	     members.  Remove if early dumping; they will be shortly
+	     recreated correctly.  If we're not early dumping, we
+	     should've already removed them and should have actual
+	     named parameters.  */
+	  if (early_dwarf_dumping)
+	    {
+	      remove_AT (subr_die, DW_AT_object_pointer);
+	      remove_child_TAG (subr_die, DW_TAG_formal_parameter);
+	    }
 	}
       /* Make a specification pointing to the previously built
 	 declaration.  */
