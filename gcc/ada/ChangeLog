@@ -1,3 +1,16 @@
+2015-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/65522
+	* adadecode.c (ada_demangle): Guard with IN_RTS instead of IN_GCC.
+
+2015-03-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/65451
+	* gcc-interface/utils.c (gnat_pushdecl): Tidy up and improve comment.
+	Make sure to chain only main variants through TYPE_NEXT_PTR_TO.
+
+	* gcc-interface/trans.c (Attribute_to_gnu): Revert latest change.
+
 2015-03-16  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/utils2.c (gnat_invariant_expr): Return null if the type
