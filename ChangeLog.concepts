@@ -1,4 +1,13 @@
-2015-03-23  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2015-03-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Make implicit conversion constraints handle usual
+	conversions, not just implicit conversions.
+	* gcc/cp/constraint.cc (check_implicit_conversion_constraint): 
+	Use perform_direct_initialization_if_possible to test for
+	converibility instead of can_convert_arg.
+	* gcc/testsuite/g++.dg/concepts/req10.C: New.
+
+2015-03-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Suppress errors regarding deleted functions when
 	checking constriants

@@ -1656,34 +1656,35 @@ check_type_constraint (tree t, tree args,
   return boolean_true_node;
 }
 
-/* Check an implicit conversion constraint. */
+/* Check an implicit conversion constraint.  */
 tree
 check_implicit_conversion_constraint (tree t, tree args, 
                                       tsubst_flags_t complain, tree in_decl)
 {
-  tree expr = ICONV_CONSTR_EXPR (t);
-
   /* Don't tsubst as if we're processing a template. If we try 
-     to we can end up generating template-like expressions
-     (e.g., modop-exprs) that aren't properly typed. */
+     to we can end up generating template-like expresssions
+     (e.g., modop-exprs) that aren't properly typed.  */
   int saved_template_decl = processing_template_decl;
   processing_template_decl = 0;
-  tree arg = tsubst_expr (expr, args, complain, in_decl, false);
+  tree expr =
+    tsubst_expr (ICONV_CONSTR_EXPR (t), args, complain, in_decl, false);
   processing_template_decl = saved_template_decl;
-
-  if (arg == error_mark_node)
-    return boolean_false_node;
-  tree from = TREE_TYPE (arg);
-
-  tree type = ICONV_CONSTR_TYPE (t);
-  tree to = tsubst (type, args, complain, in_decl);
-  if (to == error_mark_node)
+  if (expr == error_mark_node)
     return boolean_false_node;
 
-  if (can_convert_arg (to, from, arg, LOOKUP_IMPLICIT, complain))
-    return boolean_true_node;
+  /* Get the transformed target type.  */
+  tree type = tsubst (ICONV_CONSTR_TYPE (t), args, complain, in_decl);
+  if (type == error_mark_node)
+    return boolean_false_node;
+
+  /* Attempt the conversion as a direct initialization
+     of the form TYPE <unspecified> = EXPR.  */
+  tree conv = 
+    perform_direct_initialization_if_possible (type, expr, false, complain);
+  if (conv == error_mark_node)
+    return boolean_false_node;
   else
-    return boolean_false_node;
+    return boolean_true_node;
 }
 
 /* Check an argument deduction constraint.
