@@ -232,8 +232,8 @@ VTAB_GET_FIELD_GEN (copy, VTABLE_COPY_FIELD)
 VTAB_GET_FIELD_GEN (final, VTABLE_FINAL_FIELD)
 
 
-/* The size field is returned as an array index.  Therefore treat it and only
-   it specially.  */
+/* The size field is returned as an array index type.  Therefore treat
+   it and only it specially.  */
 
 tree
 gfc_class_vtab_size_get (tree cl)
@@ -266,6 +266,61 @@ gfc_vptr_size_get (tree vptr)
 #undef VTABLE_DEF_INIT_FIELD
 #undef VTABLE_COPY_FIELD
 #undef VTABLE_FINAL_FIELD
+
+
+/* Search for the last _class ref in the chain of references of this
+   expression and cut the chain there.  Albeit this routine is similiar
+   to class.c::gfc_add_component_ref (), is there a significant
+   difference: gfc_add_component_ref () concentrates on an array ref to
+   be the last ref in the chain.  This routine is oblivious to the kind
+   of refs following.  */
+
+gfc_expr *
+gfc_find_and_cut_at_last_class_ref (gfc_expr *e)
+{
+  gfc_expr *base_expr;
+  gfc_ref *ref, *class_ref, *tail;
+
+  /* Find the last class reference.  */
+  class_ref = NULL;
+  for (ref = e->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_COMPONENT
+	  && ref->u.c.component->ts.type == BT_CLASS)
+	class_ref = ref;
+
+      if (ref->next == NULL)
+	break;
+    }
+
+  /* Remove and store all subsequent references after the
+     CLASS reference.  */
+  if (class_ref)
+    {
+      tail = class_ref->next;
+      class_ref->next = NULL;
+    }
+  else
+    {
+      tail = e->ref;
+      e->ref = NULL;
+    }
+
+  base_expr = gfc_expr_to_initialize (e);
+
+  /* Restore the original tail expression.  */
+  if (class_ref)
+    {
+      gfc_free_ref_list (class_ref->next);
+      class_ref->next = tail;
+    }
+  else
+    {
+      gfc_free_ref_list (e->ref);
+      e->ref = tail;
+    }
+  return base_expr;
+}
 
 
 /* Reset the vptr to the declared type, e.g. after deallocation.  */
@@ -314,6 +369,23 @@ gfc_reset_vptr (stmtblock_t *block, gfc_expr *e)
   gfc_add_expr_to_block (block, tmp);
   gfc_free_expr (lhs);
   gfc_free_expr (rhs);
+}
+
+
+/* Reset the len for unlimited polymorphic objects.  */
+
+void
+gfc_reset_len (stmtblock_t *block, gfc_expr *expr)
+{
+  gfc_expr *e;
+  gfc_se se_len;
+  e = gfc_find_and_cut_at_last_class_ref (expr);
+  gfc_add_len_component (e);
+  gfc_init_se (&se_len, NULL);
+  gfc_conv_expr (&se_len, e);
+  gfc_add_modify (block, se_len.expr,
+		  fold_convert (TREE_TYPE (se_len.expr), integer_zero_node));
+  gfc_free_expr (e);
 }
 
 
@@ -907,7 +979,7 @@ tree
 gfc_get_class_array_ref (tree index, tree class_decl)
 {
   tree data = gfc_class_data_get (class_decl);
-  tree size = gfc_vtable_size_get (class_decl);
+  tree size = gfc_class_vtab_size_get (class_decl);
   tree offset = fold_build2_loc (input_location, MULT_EXPR,
 				 gfc_array_index_type,
 				 index, size);
@@ -925,39 +997,57 @@ gfc_get_class_array_ref (tree index, tree class_decl)
    that the _vptr is set.  */
 
 tree
-gfc_copy_class_to_class (tree from, tree to, tree nelems)
+gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 {
   tree fcn;
   tree fcn_type;
   tree from_data;
+  tree from_len;
   tree to_data;
+  tree to_len;
   tree to_ref;
   tree from_ref;
   vec<tree, va_gc> *args;
   tree tmp;
+  tree stdcopy;
+  tree extcopy;
   tree index;
-  stmtblock_t loopbody;
-  stmtblock_t body;
-  gfc_loopinfo loop;
 
   args = NULL;
+  /* To prevent warnings on uninitialized variables.  */
+  from_len = to_len = NULL_TREE;
 
   if (from != NULL_TREE)
-    fcn = gfc_vtable_copy_get (from);
+    fcn = gfc_class_vtab_copy_get (from);
   else
-    fcn = gfc_vtable_copy_get (to);
+    fcn = gfc_class_vtab_copy_get (to);
 
   fcn_type = TREE_TYPE (TREE_TYPE (fcn));
 
   if (from != NULL_TREE)
-    from_data = gfc_class_data_get (from);
+      from_data = gfc_class_data_get (from);
   else
-    from_data = gfc_vtable_def_init_get (to);
+    from_data = gfc_class_vtab_def_init_get (to);
+
+  if (unlimited)
+    {
+      if (from != NULL_TREE && unlimited)
+	from_len = gfc_class_len_get (from);
+      else
+	from_len = integer_zero_node;
+    }
 
   to_data = gfc_class_data_get (to);
+  if (unlimited)
+    to_len = gfc_class_len_get (to);
 
   if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (to_data)))
     {
+      stmtblock_t loopbody;
+      stmtblock_t body;
+      stmtblock_t ifbody;
+      gfc_loopinfo loop;
+
       gfc_init_block (&body);
       tmp = fold_build2_loc (input_location, MINUS_EXPR,
 			     gfc_array_index_type, nelems,
@@ -989,8 +1079,42 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems)
       loop.loopvar[0] = index;
       loop.to[0] = nelems;
       gfc_trans_scalarizing_loops (&loop, &loopbody);
-      gfc_add_block_to_block (&body, &loop.pre);
-      tmp = gfc_finish_block (&body);
+      gfc_init_block (&ifbody);
+      gfc_add_block_to_block (&ifbody, &loop.pre);
+      stdcopy = gfc_finish_block (&ifbody);
+      if (unlimited)
+	{
+	  vec_safe_push (args, from_len);
+	  vec_safe_push (args, to_len);
+	  tmp = build_call_vec (fcn_type, fcn, args);
+	  /* Build the body of the loop.  */
+	  gfc_init_block (&loopbody);
+	  gfc_add_expr_to_block (&loopbody, tmp);
+
+	  /* Build the loop and return.  */
+	  gfc_init_loopinfo (&loop);
+	  loop.dimen = 1;
+	  loop.from[0] = gfc_index_zero_node;
+	  loop.loopvar[0] = index;
+	  loop.to[0] = nelems;
+	  gfc_trans_scalarizing_loops (&loop, &loopbody);
+	  gfc_init_block (&ifbody);
+	  gfc_add_block_to_block (&ifbody, &loop.pre);
+	  extcopy = gfc_finish_block (&ifbody);
+
+	  tmp = fold_build2_loc (input_location, GT_EXPR,
+				 boolean_type_node, from_len,
+				 integer_zero_node);
+	  tmp = fold_build3_loc (input_location, COND_EXPR,
+				 void_type_node, tmp, extcopy, stdcopy);
+	  gfc_add_expr_to_block (&body, tmp);
+	  tmp = gfc_finish_block (&body);
+	}
+      else
+	{
+	  gfc_add_expr_to_block (&body, stdcopy);
+	  tmp = gfc_finish_block (&body);
+	}
       gfc_cleanup_loop (&loop);
     }
   else
@@ -998,11 +1122,26 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems)
       gcc_assert (!GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (from_data)));
       vec_safe_push (args, from_data);
       vec_safe_push (args, to_data);
-      tmp = build_call_vec (fcn_type, fcn, args);
+      stdcopy = build_call_vec (fcn_type, fcn, args);
+
+      if (unlimited)
+	{
+	  vec_safe_push (args, from_len);
+	  vec_safe_push (args, to_len);
+	  extcopy = build_call_vec (fcn_type, fcn, args);
+	  tmp = fold_build2_loc (input_location, GT_EXPR,
+				 boolean_type_node, from_len,
+				 integer_zero_node);
+	  tmp = fold_build3_loc (input_location, COND_EXPR,
+				 void_type_node, tmp, extcopy, stdcopy);
+	}
+      else
+	tmp = stdcopy;
     }
 
   return tmp;
 }
+
 
 static tree
 gfc_trans_class_array_init_assign (gfc_expr *rhs, gfc_expr *lhs, gfc_expr *obj)
@@ -1534,9 +1673,64 @@ gfc_get_tree_for_caf_expr (gfc_expr *expr)
 {
   tree caf_decl;
   bool found = false;
-  gfc_ref *ref;
+  gfc_ref *ref, *comp_ref = NULL;
 
   gcc_assert (expr && expr->expr_type == EXPR_VARIABLE);
+
+  /* Not-implemented diagnostic.  */
+  for (ref = expr->ref; ref; ref = ref->next)
+    if (ref->type == REF_COMPONENT)
+      {
+        comp_ref = ref;
+	if ((ref->u.c.component->ts.type == BT_CLASS
+	     && !CLASS_DATA (ref->u.c.component)->attr.codimension
+	     && (CLASS_DATA (ref->u.c.component)->attr.pointer
+		 || CLASS_DATA (ref->u.c.component)->attr.allocatable))
+	    || (ref->u.c.component->ts.type != BT_CLASS
+		&& !ref->u.c.component->attr.codimension
+		&& (ref->u.c.component->attr.pointer
+		    || ref->u.c.component->attr.allocatable)))
+	  gfc_error ("Sorry, coindexed access to a pointer or allocatable "
+		     "component of the coindexed coarray at %L is not yet "
+		     "supported", &expr->where);
+      }
+  if ((!comp_ref
+       && ((expr->symtree->n.sym->ts.type == BT_CLASS
+	    && CLASS_DATA (expr->symtree->n.sym)->attr.alloc_comp)
+	   || (expr->symtree->n.sym->ts.type == BT_DERIVED
+	       && expr->symtree->n.sym->ts.u.derived->attr.alloc_comp)))
+      || (comp_ref
+	  && ((comp_ref->u.c.component->ts.type == BT_CLASS
+	       && CLASS_DATA (comp_ref->u.c.component)->attr.alloc_comp)
+	      || (comp_ref->u.c.component->ts.type == BT_DERIVED
+		  && comp_ref->u.c.component->ts.u.derived->attr.alloc_comp))))
+    gfc_error ("Sorry, coindexed coarray at %L with allocatable component is "
+	       "not yet supported", &expr->where);
+
+  if (expr->rank)
+    {
+      /* Without the new array descriptor, access like "caf[i]%a(:)%b" is in
+	 general not possible as the required stride multiplier might be not
+	 a multiple of c_sizeof(b). In case of noncoindexed access, the
+	 scalarizer often takes care of it - for coarrays, it always fails.  */
+      for (ref = expr->ref; ref; ref = ref->next)
+        if (ref->type == REF_COMPONENT
+	    && ((ref->u.c.component->ts.type == BT_CLASS
+		 && CLASS_DATA (ref->u.c.component)->attr.codimension)
+	        || (ref->u.c.component->ts.type != BT_CLASS
+		    && ref->u.c.component->attr.codimension)))
+	  break;
+      if (ref == NULL)
+	ref = expr->ref;
+      for ( ; ref; ref = ref->next)
+	if (ref->type == REF_ARRAY && ref->u.ar.dimen)
+	  break;
+      for ( ; ref; ref = ref->next)
+	if (ref->type == REF_COMPONENT)
+	  gfc_error ("Sorry, coindexed access at %L to a scalar component "
+		     "with an array partref is not yet supported",
+		     &expr->where);
+    }
 
   caf_decl = expr->symtree->n.sym->backend_decl;
   gcc_assert (caf_decl);
@@ -5744,7 +5938,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 			CLASS_DATA (expr->value.function.esym->result)->attr);
 	    }
 
-	  final_fndecl = gfc_vtable_final_get (se->expr);
+	  final_fndecl = gfc_class_vtab_final_get (se->expr);
 	  is_final = fold_build2_loc (input_location, NE_EXPR,
 				      boolean_type_node,
  			    	      final_fndecl,
@@ -5755,7 +5949,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
  	  tmp = build_call_expr_loc (input_location,
 				     final_fndecl, 3,
 				     gfc_build_addr_expr (NULL, tmp),
-				     gfc_vtable_size_get (se->expr),
+				     gfc_class_vtab_size_get (se->expr),
 				     boolean_false_node);
  	  tmp = fold_build3_loc (input_location, COND_EXPR,
 				 void_type_node, is_final, tmp,
@@ -8580,7 +8774,7 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
   if (expr1->ts.type == BT_CHARACTER && expr1->ts.deferred)
     {
       cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
-			      expr1->ts.u.cl->backend_decl, size);
+			      lse.string_length, size);
       /* Jump past the realloc if the lengths are the same.  */
       tmp = build3_v (COND_EXPR, cond,
 		      build1_v (GOTO_EXPR, jump_label2),
@@ -8597,10 +8791,7 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
 
       /* Update the lhs character length.  */
       size = string_length;
-      if (TREE_CODE (expr1->ts.u.cl->backend_decl) == VAR_DECL)
-	gfc_add_modify (block, expr1->ts.u.cl->backend_decl, size);
-      else
-	gfc_add_modify (block, lse.string_length, size);
+      gfc_add_modify (block, lse.string_length, size);
     }
 }
 
@@ -8890,7 +9081,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
     {
       /* F2003: Add the code for reallocation on assignment.  */
       if (flag_realloc_lhs && is_scalar_reallocatable_lhs (expr1))
-	alloc_scalar_allocatable_for_assignment (&block, rse.string_length,
+	alloc_scalar_allocatable_for_assignment (&block, string_length,
 						 expr1, expr2);
 
       /* Use the scalar assignment as is.  */

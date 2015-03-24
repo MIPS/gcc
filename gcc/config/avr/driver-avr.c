@@ -24,6 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "tm.h"
 
+// Remove -nodevicelib from the command line if not needed
+#define X_NODEVLIB "%<nodevicelib"
+
 static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
 
 static const char specfiles_doc_url[] =
@@ -46,15 +49,16 @@ avr_diagnose_devicespecs_error (const char *mcu, const char *filename)
   inform (input_location, "you can provide your own specs files, "
           "see <%s> for details", specfiles_doc_url);
 
-  return "";
+  return X_NODEVLIB;
 }
 
 
 /* Implement spec function `device-specs-file´.
 
-   Compose -specs=<specs-file-name>.  If everything went well then argv[0]
-   is the inflated specs directory and argv[1] is a device or core name as
-   supplied to -mmcu=*.  */
+   Compose -specs=<specs-file-name>%s.  If everything went well then argv[0]
+   is the inflated (absolute) specs directory and argv[1] is a device or
+   core name as supplied by -mmcu=*.  When building GCC the path might
+   be relative.  */
 
 const char*
 avr_devicespecs_file (int argc, const char **argv)
@@ -73,19 +77,25 @@ avr_devicespecs_file (int argc, const char **argv)
     case 0:
       fatal_error (input_location,
                    "bad usage of spec function %qs", "device-specs-file");
-      return "";
+      return X_NODEVLIB;
 
     case 1:
       mmcu = AVR_MMCU_DEFAULT;
       break;
 
-    case 2:
-      mmcu = argv[1];
-      break;
-
     default:
-      error ("specified option %qs more than once", "-mmcu=");
-      return "";
+      mmcu = argv[1];
+
+      // Allow specifying the same MCU more than once.
+
+      for (int i = 2; i < argc; i++)
+        if (0 != strcmp (mmcu, argv[i]))
+          {
+            error ("specified option %qs more than once", "-mmcu");
+            return X_NODEVLIB;
+          }
+
+      break;
     }
 
   specfile_name = concat (argv[0], dir_separator_str, "specs-", mmcu, NULL);
@@ -105,7 +115,7 @@ avr_devicespecs_file (int argc, const char **argv)
       {
         error ("strange device name %qs after %qs: bad character %qc",
                mmcu, "-mmcu=", *s);
-        return "";
+        return X_NODEVLIB;
       }
 
   if (/* When building / configuring the compiler we might get a relative path
@@ -117,7 +127,16 @@ avr_devicespecs_file (int argc, const char **argv)
       || (IS_ABSOLUTE_PATH (specfile_name)
           && !access (specfile_name, R_OK)))
     {
-      return concat ("-specs=", specfile_name, NULL);
+      return concat ("-specs=device-specs", dir_separator_str, "specs-", mmcu,
+                     // Use '%s' instead of the expanded specfile_name.  This
+                     // is the easiest way to handle pathes containing spaces.
+                     "%s",
+#if defined (WITH_AVRLIBC)
+                     " %{mmcu=avr*:" X_NODEVLIB "} %{!mmcu=*:" X_NODEVLIB "}",
+#else
+                     " " X_NODEVLIB,
+#endif
+                     NULL);
     }
 
   return avr_diagnose_devicespecs_error (mmcu, specfile_name);
