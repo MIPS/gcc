@@ -1030,9 +1030,13 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   as = is_classarray ? CLASS_DATA (sym)->as : sym->as;
   array_attr = is_classarray ? &CLASS_DATA (sym)->attr : &sym->attr;
 
-  /* The pointer attribute is always set on a _data component, therefore check
-     the sym's attribute only.  */
-  if (sym->attr.pointer || array_attr->allocatable
+  /* The dummy is returned for pointer, allocatable or assumed rank arrays.
+     The check for pointerness needs to be repeated here (it is done in
+     IS_CLASS_ARRAY (), too), because for class arrays that are pointers, as
+     is the one of the sym, which is incorrect here.  */
+  if ((sym->ts.type != BT_CLASS && sym->attr.pointer)
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->attr.class_pointer)
+      || array_attr->allocatable
       || (as && as->type == AS_ASSUMED_RANK))
     return dummy;
 
@@ -4031,10 +4035,12 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	    case AS_EXPLICIT:
 	      if (sym->attr.dummy || sym->attr.result)
 		gfc_trans_dummy_array_bias (sym, sym->backend_decl, block);
-	      /* In a class array the _data component always has the pointer
-		 attribute set.  Therefore only check for allocatable in the
-		 array attributes and for pointer in the symbol.  */
-	      else if (sym->attr.pointer || array_attr->allocatable)
+	      /* Allocatable and pointer arrays need to processed
+		 explicitly.  */
+	      else if ((sym->ts.type != BT_CLASS && sym->attr.pointer)
+		       || (sym->ts.type == BT_CLASS
+			   && CLASS_DATA (sym)->attr.class_pointer)
+		       || array_attr->allocatable)
 		{
 		  if (TREE_STATIC (sym->backend_decl))
 		    {

@@ -5923,7 +5923,9 @@ gfc_conv_intrinsic_sizeof (gfc_se *se, gfc_expr *expr)
     {
       /* For deferred length arrays, conv_expr_descriptor returns an
 	 indirect_ref to the component.  */
-      if (arg->rank < 0)
+      if (arg->rank < 0
+	  || (arg->rank > 0 && !VAR_P (argse.expr)
+	      && GFC_DECL_CLASS (TREE_OPERAND (argse.expr, 0))))
 	byte_size = gfc_class_vtab_size_get (TREE_OPERAND (argse.expr, 0));
       else if (arg->rank > 0)
 	/* The scalarizer added an additional temp.  To get the class' vptr
