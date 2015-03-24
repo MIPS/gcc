@@ -4060,7 +4060,7 @@ gfc_lval_expr_from_sym (gfc_symbol *sym)
   lval->symtree = gfc_find_symtree (sym->ns->sym_root, sym->name);
 
   /* It will always be a full array.  */
-  as = sym->as;
+  as = sym->ts.type == BT_CLASS ? CLASS_DATA (sym)->as : sym->as;
   lval->rank = as ? as->rank : 0;
   if (lval->rank)
     gfc_add_full_array_ref (lval, as);
