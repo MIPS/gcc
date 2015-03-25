@@ -1187,6 +1187,7 @@ is_alloc_of_struct (gimple alloc_stmt, int *i_p)
   *i_p = -1;
   bool res;
   int ii;
+  tree type;
 
   if (!alloc_stmt)
     return false;
@@ -1201,6 +1202,29 @@ is_alloc_of_struct (gimple alloc_stmt, int *i_p)
       if (dump_file)
 	fprintf (dump_file, "\nalloc_res is not ssa_name.");
       return false;
+    }
+
+  /* Check whether result of function call is assigned directly into 
+     struct variable, as in case of builtin alloca.  */
+  type = get_type_of_var (alloc_res);
+
+  if (!type)
+    {
+      if (dump_file)
+	fprintf (dump_file, "\ntype is 0.");
+      return false;
+    }
+
+  if (POINTER_TYPE_P (type)
+      && TREE_CODE (strip_type (type)) == RECORD_TYPE)
+    {
+      ii = is_in_struct_symbols_vec (strip_type (type));
+
+      if (ii != -1)
+	{
+	  *i_p = ii;
+	  return true;
+	}
     }
 
   /* Visit all uses of alloc_res, and check whether 
@@ -1271,7 +1295,10 @@ exclude_custom_malloc (void)
 		    int i;
 
 		    if (dump_file)
-		      print_gimple_stmt (dump_file, stmt, 0, 0);
+		      {
+			fprintf (dump_file, "\nCall stmt is ");
+			print_gimple_stmt (dump_file, stmt, 0, 0);
+		      }
 
 		    if (is_alloc_of_struct (stmt, &i))
 		      {
@@ -1282,7 +1309,9 @@ exclude_custom_malloc (void)
 			gcc_assert (i != -1);
 
 			/* We support only malloc now.  */
-			if (DECL_FUNCTION_CODE (decl) != BUILT_IN_MALLOC)
+			if (DECL_FUNCTION_CODE (decl) != BUILT_IN_MALLOC
+			    && DECL_FUNCTION_CODE (decl) != BUILT_IN_ALLOCA
+			    && DECL_FUNCTION_CODE (decl) != BUILT_IN_ALLOCA_WITH_ALIGN)
 			  {
 			    if (dump_file)
 			      {
@@ -2662,9 +2691,19 @@ gen_num_of_structs_in_malloc (gimple stmt, tree str_decl,
   arg = gimple_call_arg (stmt, 0);
   //debug_tree (arg);
 
+  if (dump_file)
+    {
+      fprintf (dump_file, "\narg is ");
+      print_generic_expr (dump_file, arg, 0);
+    }
+  
   if (TREE_CODE (arg) != SSA_NAME
       && !TREE_CONSTANT (arg))
-    return NULL_TREE;
+    {
+      if (dump_file)
+	fprintf (dump_file, "\nReturning NULL from gen_num.");
+      return NULL_TREE;
+    }
 
   struct_size = TYPE_SIZE_UNIT (str_decl);
   struct_size_int = TREE_INT_CST_LOW (struct_size);
@@ -2852,6 +2891,8 @@ create_new_malloc_stmt (gimple malloc_stmt, tree new_type, gimple_seq *new_stmts
   gimple new_stmt;
   tree malloc_res;
   gimple call_stmt;
+  unsigned args_num;
+  tree lhs, lhs_type;
 
   gcc_assert (num && malloc_stmt && new_type);
   gcc_assert (*new_stmts == NULL); 
@@ -2862,15 +2903,38 @@ create_new_malloc_stmt (gimple malloc_stmt, tree new_type, gimple_seq *new_stmts
   gimple_seq_add_stmt (new_stmts, new_stmt);
 
   /* Generate new call for malloc.  */
-  if (TREE_CODE (gimple_call_lhs (malloc_stmt)) == SSA_NAME)    
-    malloc_res = make_ssa_name (ptr_type_node, NULL);
-  else if (TREE_CODE (gimple_call_lhs (malloc_stmt)) == VAR_DECL)
-    malloc_res = create_tmp_var (ptr_type_node, NULL);
+  
+  lhs = gimple_call_lhs (malloc_stmt);
+  lhs_type = get_type_of_var (lhs);
+  if (lhs_type && POINTER_TYPE_P (lhs_type)
+      && TREE_CODE (strip_type (lhs_type)) == RECORD_TYPE
+      && (is_in_struct_symbols_vec (strip_type (lhs_type)) != -1))
+    malloc_res = find_new_var_of_type (lhs, new_type);
   else
-    gcc_assert (0);
+    {
+      if (TREE_CODE (gimple_call_lhs (malloc_stmt)) == SSA_NAME)    
+	malloc_res = make_ssa_name (ptr_type_node, NULL);
+      else if (TREE_CODE (gimple_call_lhs (malloc_stmt)) == VAR_DECL)
+	malloc_res = create_tmp_var (ptr_type_node, NULL);
+      else
+	gcc_assert (0);
+    }
 
   malloc_fn_decl = gimple_call_fndecl (malloc_stmt);
-  call_stmt = gimple_build_call (malloc_fn_decl, 1, new_malloc_size);
+  args_num = gimple_call_num_args (malloc_stmt);
+  if (dump_file)
+    fprintf (dump_file, "\nNum of alloc args is %u", args_num);
+  if (args_num == 1)
+    /* This is a malloc case.  */
+    call_stmt = gimple_build_call (malloc_fn_decl, 1, new_malloc_size);  
+  else if (args_num == 2)
+    /* This is a case of builtin_alloc*/
+    call_stmt = gimple_build_call (malloc_fn_decl, 2, new_malloc_size,
+				   gimple_call_arg (malloc_stmt, 1));
+  else
+    /* We do not support other cases now.  */
+    gcc_assert (0);
+        
   gimple_call_set_lhs (call_stmt, malloc_res);
   gimple_seq_add_stmt (new_stmts, call_stmt);
   update_stmt (call_stmt);
@@ -2911,8 +2975,7 @@ create_new_alloc_sites_1 (tree context)
 
       num = gen_num_of_structs_in_malloc (stmt, str->struct_decl, &new_stmts);
       if (new_stmts)
-	{
-	  
+	{	  
 	  gimple last_stmt_tmp = gimple_seq_last_stmt (new_stmts);
 	  insert_seq_after_stmt (stmt, new_stmts);
 	  last_stmt = last_stmt_tmp;
@@ -2931,7 +2994,6 @@ create_new_alloc_sites_1 (tree context)
 	  imm_use_iterator imm_iter;
 	  gimple new_stmt;
 	  tree vuse = NULL_TREE, vdef = NULL_TREE;
-	  // gimple last_stmt_tmp = NULL;
 
 	  if (dump_file)
 	    fprintf (dump_file, "\nNew type number %d", i);
@@ -2950,17 +3012,19 @@ create_new_alloc_sites_1 (tree context)
 	    }
 	  
 	  new_malloc_stmt = create_new_malloc_stmt (stmt, type, &new_stmts, num);
-	  if (0)
-	    /* last_stmt_tmp = */gimple_seq_last_stmt (new_stmts);
 	  insert_seq_after_stmt (last_stmt, new_stmts);
 	  update_cgraph_with_malloc_call (new_malloc_stmt, context);
-	  // last_stmt = last_stmt_tmp;
 
 	  /* Create new cast statements. */
-	  
+
+	  malloc_res = gimple_get_lhs (new_malloc_stmt);
+	  /* If result of malloc is already a variable of desired structure type 
+	     (and not pointer to void) we need not fix its uses.  */
+	  if (strip_type (get_type_of_var (malloc_res)) == type)
+	    continue;
+
 	  alloc_res = gimple_get_lhs (stmt);
 	  gcc_assert (TREE_CODE (alloc_res) == SSA_NAME);
-	  malloc_res = gimple_get_lhs (new_malloc_stmt);
 	  
 	  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, alloc_res)
 	    {
