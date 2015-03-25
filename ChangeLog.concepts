@@ -1,3 +1,10 @@
+2015-03-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix scope-squashing error in PR65552.
+	* gcc/cp/parser.C (cp_parser_type_requirement): Save and
+	restore scopes around optional nested name specifier parse.
+	* gcc/testsuite/g++.dg/concepts/pr65552.C: New.
+
 2015-03-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fix bug in disjunction processing and fix the pretty

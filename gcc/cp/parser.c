@@ -2861,6 +2861,7 @@ cp_parser_check_for_invalid_template_id (cp_parser* parser,
 	    error_at (location, "%qE is not a class template", type);
 	  else
 	    error_at (location, "%qE is not a template", type);
+          debug_tree (type);
 	}
       else
 	error_at (location, "invalid template-id");
@@ -23579,6 +23580,10 @@ cp_parser_type_requirement (cp_parser *parser)
 {
   cp_lexer_consume_token (parser->lexer);
 
+  // Save the scope before parsing name specifiers.
+  tree saved_scope = parser->scope;
+  tree saved_object_scope = parser->object_scope;
+  tree saved_qualifying_scope = parser->qualifying_scope;
   cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/true);
   cp_parser_nested_name_specifier_opt (parser,
                                        /*typename_keyword_p=*/true,
@@ -23600,6 +23605,10 @@ cp_parser_type_requirement (cp_parser *parser)
     }
   else
    type = cp_parser_type_name (parser, /*typename_keyword_p=*/true);
+
+  parser->scope = saved_scope;
+  parser->object_scope = saved_object_scope;
+  parser->qualifying_scope = saved_qualifying_scope;
   
   if (type == error_mark_node)
     cp_parser_skip_to_end_of_statement (parser);
