@@ -22,7 +22,7 @@ contains
       class(*),intent(in),target :: e
       class(*),allocatable,target :: tmp(:)
       type(c_ptr) :: dummy
-      
+
       interface
         function memcpy(dest,src,n) bind(C,name="memcpy") result(res)
           import
