@@ -7132,7 +7132,7 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
 	 of EXPR_NULL,... by default, the static nullify is not needed
 	 since this is done every time we come into scope.  */
       if (!c->expr || (cm->attr.allocatable && cm->attr.flavor != FL_PROCEDURE))
-        continue;
+	continue;
 
       if (cm->initializer && cm->initializer->expr_type != EXPR_NULL
 	  && strcmp (cm->name, "_extends") == 0
@@ -7153,13 +7153,9 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
 						val));
 	}
       else if (cm->ts.type == BT_INTEGER && strcmp (cm->name, "_len") == 0)
-        {
-          gfc_expr *e = gfc_get_int_expr (gfc_default_integer_kind, NULL, 0);
-          val = gfc_conv_constant_to_tree (e);
-          CONSTRUCTOR_APPEND_ELT (v, cm->backend_decl,
-                                  fold_convert (TREE_TYPE (cm->backend_decl),
-                                                val));
-        }
+	CONSTRUCTOR_APPEND_ELT (v, cm->backend_decl,
+				fold_convert (TREE_TYPE (cm->backend_decl),
+					      integer_zero_node));
       else
 	{
 	  val = gfc_conv_initializer (c->expr, &cm->ts,
