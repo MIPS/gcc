@@ -98,15 +98,6 @@ program test
     ! Now for kind=4 chars.
 
     allocate(character(len=20,kind=4)::P1)
-<<<<<<< HEAD
-
-    select type(P1)
-        type is (character(len=*,kind=4))
-            P1 ="some test string"
-            if (P1 .ne. 4_"some test string") call abort ()
-            if (len(P1) .ne. 20) call abort ()
-            if (len(P1) .eq. len("some test string")) call abort ()
-=======
 
     select type(P1)
         type is (character(len=*,kind=4))
@@ -120,21 +111,6 @@ program test
             call abort ()
     end select
 
-    allocate(A1, source=P1)
-
-    select type(A1)
-        type is (character(len=*,kind=4))
-            if (A1 .ne. 4_"some test string") call abort ()
-            if (len(A1) .ne. 20) call abort ()
-            if (len(A1) .eq. len("some test string")) call abort ()
->>>>>>> 30b0d8765421a5a3cdeeb78f9d8ecf6117f17ca7
-        type is (character(len=*,kind=1))
-            call abort ()
-        class default
-            call abort ()
-    end select
-
-<<<<<<< HEAD
     allocate(A1, source=P1)
 
     select type(A1)
@@ -172,32 +148,6 @@ program test
 
     allocate(P3, source = convertType(P2))
 
-=======
-    allocate(A2, source = convertType(P1))
-
-    select type(A2)
-        type is (character(len=*, kind=4))
-            if (A2 .ne. 4_"some test string") call abort ()
-            if (len(A2) .ne. 20) call abort ()
-            if (len(A2) .eq. len("some test string")) call abort ()
-        class default
-            call abort ()
-    end select
-
-    allocate(P2, source = str4)
-
-    select type(P2)
-        type is (character(len=*,kind=4))
-            if (P2 .ne. 4_"string for test") call abort ()
-            if (len(P2) .eq. 20) call abort ()
-            if (len(P2) .ne. len("string for test")) call abort ()
-        class default
-            call abort ()
-    end select
-
-    allocate(P3, source = convertType(P2))
-
->>>>>>> 30b0d8765421a5a3cdeeb78f9d8ecf6117f17ca7
     select type(P3)
         type is (character(len=*, kind=4))
             if (P3 .ne. 4_"string for test") call abort ()
@@ -240,11 +190,7 @@ program test
     end select
 
     call AddCopy ('test string')
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> 30b0d8765421a5a3cdeeb78f9d8ecf6117f17ca7
 contains
 
   function convertType(in)
