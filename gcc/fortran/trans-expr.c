@@ -776,6 +776,16 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
 	    }
 	}
     }
+  else if (class_ts.type == BT_CLASS
+	   && class_ts.u.derived->components
+	   && class_ts.u.derived->components->ts.u
+		.derived->attr.unlimited_polymorphic)
+    {
+      ctree = gfc_class_len_get (var);
+      gfc_add_modify (&parmse->pre, ctree,
+		      fold_convert (TREE_TYPE (ctree),
+				    integer_zero_node));
+    }
   /* Pass the address of the class object.  */
   parmse->expr = gfc_build_addr_expr (NULL_TREE, var);
 }
@@ -802,6 +812,7 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
   tree tmp;
   tree vptr;
   tree cond = NULL_TREE;
+  tree slen = NULL_TREE;
   gfc_ref *ref;
   gfc_ref *class_ref;
   stmtblock_t block;
@@ -897,6 +908,7 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
       tmp = e->symtree->n.sym->backend_decl;
       if (DECL_LANG_SPECIFIC (tmp) && GFC_DECL_SAVED_DESCRIPTOR (tmp))
 	tmp = GFC_DECL_SAVED_DESCRIPTOR (tmp);
+      slen = integer_zero_node;
     }
   else
     {
@@ -909,6 +921,7 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
       gfc_conv_expr (&tmpse, e);
       class_ref->next = ref;
       tmp = tmpse.expr;
+      slen = tmpse.string_length;
     }
 
   gcc_assert (tmp != NULL_TREE);
@@ -926,6 +939,26 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
   if (!elemental && full_array && copyback)
     gfc_add_modify (&parmse->post, vptr,
 		    fold_convert (TREE_TYPE (vptr), ctree));
+
+  /* For unlimited polymorphic objects also set the _len component.  */
+  if (class_ts.type == BT_CLASS
+      && class_ts.u.derived->components
+      && class_ts.u.derived->components->ts.u
+		      .derived->attr.unlimited_polymorphic)
+    {
+      ctree = gfc_class_len_get (var);
+      if (UNLIMITED_POLY (e))
+	tmp = gfc_class_len_get (tmp);
+      else if (e->ts.type == BT_CHARACTER)
+	{
+	  gcc_assert (slen != NULL_TREE);
+	  tmp = slen;
+	}
+      else
+	tmp = integer_zero_node;
+      gfc_add_modify (&parmse->pre, ctree,
+		      fold_convert (TREE_TYPE (ctree), tmp));
+    }
 
   if (optional)
     {
@@ -1025,7 +1058,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
   fcn_type = TREE_TYPE (TREE_TYPE (fcn));
 
   if (from != NULL_TREE)
-      from_data = gfc_class_data_get (from);
+    from_data = gfc_class_data_get (from);
   else
     from_data = gfc_class_vtab_def_init_get (to);
 
@@ -1082,7 +1115,8 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
       gfc_init_block (&ifbody);
       gfc_add_block_to_block (&ifbody, &loop.pre);
       stdcopy = gfc_finish_block (&ifbody);
-      if (unlimited)
+      /* In initialization mode from_len is a constant zero.  */
+      if (unlimited && !integer_zerop (from_len))
 	{
 	  vec_safe_push (args, from_len);
 	  vec_safe_push (args, to_len);
@@ -1124,7 +1158,8 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
       vec_safe_push (args, to_data);
       stdcopy = build_call_vec (fcn_type, fcn, args);
 
-      if (unlimited)
+      /* In initialization mode from_len is a constant zero.  */
+      if (unlimited && !integer_zerop (from_len))
 	{
 	  vec_safe_push (args, from_len);
 	  vec_safe_push (args, to_len);
@@ -1137,6 +1172,18 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 	}
       else
 	tmp = stdcopy;
+    }
+
+  /* Only copy _def_init to to_data, when it is not a NULL-pointer.  */
+  if (from == NULL_TREE)
+    {
+      tree cond;
+      cond = fold_build2_loc (input_location, NE_EXPR,
+			      boolean_type_node,
+			      from_data, null_pointer_node);
+      tmp = fold_build3_loc (input_location, COND_EXPR,
+			     void_type_node, cond,
+			     tmp, build_empty_stmt (input_location));
     }
 
   return tmp;
