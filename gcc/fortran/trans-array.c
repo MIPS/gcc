@@ -5929,7 +5929,9 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
   bool is_classarray = IS_CLASS_ARRAY (sym);
 
   /* Do nothing for pointer and allocatable arrays.  */
-  if (sym->attr.pointer || sym->attr.allocatable
+  if ((sym->ts.type != BT_CLASS && sym->attr.pointer)
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->attr.class_pointer)
+      || sym->attr.allocatable
       || (is_classarray && CLASS_DATA (sym)->attr.allocatable))
     return;
 
