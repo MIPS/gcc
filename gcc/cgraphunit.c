@@ -2444,7 +2444,8 @@ symbol_table::finalize_compilation_unit (void)
      locally scoped symbols.  */
   struct cgraph_node *cnode;
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (cnode)
-    (*debug_hooks->early_global_decl) (cnode->decl);
+    if (!decl_function_context (cnode->decl))
+      (*debug_hooks->early_global_decl) (cnode->decl);
 
   /* Clean up anything that needs cleaning up after initial debug
      generation.  */

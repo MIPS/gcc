@@ -3113,7 +3113,7 @@ static inline dw_die_ref get_AT_ref (dw_die_ref, enum dwarf_attribute);
 static bool is_cxx (void);
 static bool is_fortran (void);
 static bool is_ada (void);
-static void remove_AT (dw_die_ref, enum dwarf_attribute);
+static bool remove_AT (dw_die_ref, enum dwarf_attribute);
 static void remove_child_TAG (dw_die_ref, enum dwarf_tag);
 static void add_child_die (dw_die_ref, dw_die_ref);
 static dw_die_ref new_die (enum dwarf_tag, dw_die_ref, tree);
@@ -4752,16 +4752,17 @@ is_ada (void)
   return lang == DW_LANG_Ada95 || lang == DW_LANG_Ada83;
 }
 
-/* Remove the specified attribute if present.  */
+/* Remove the specified attribute if present.  Return TRUE if removal
+   was successful.  */
 
-static void
+static bool
 remove_AT (dw_die_ref die, enum dwarf_attribute attr_kind)
 {
   dw_attr_ref a;
   unsigned ix;
 
   if (! die)
-    return;
+    return false;
 
   FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
     if (a->dw_attr == attr_kind)
@@ -4773,8 +4774,9 @@ remove_AT (dw_die_ref die, enum dwarf_attribute attr_kind)
 	/* vec::ordered_remove should help reduce the number of abbrevs
 	   that are needed.  */
 	die->die_attr->ordered_remove (ix);
-	return;
+	return true;
       }
+  return false;
 }
 
 /* Remove CHILD from its parent.  PREV must have the property that
@@ -18790,17 +18792,12 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
 	  /* Clear out the declaration attribute, but leave the
 	     parameters so they can be augmented with location
-	     information later.  */
-	  remove_AT (subr_die, DW_AT_declaration);
-
-	  /* gen_formal_types_die could have created nameless DIEs for
-	     the formal parameters when generating an object's
-	     members.  Remove if early dumping; they will be shortly
-	     recreated correctly.  If we're not early dumping, we
-	     should've already removed them and should have actual
-	     named parameters.  */
-	  if (early_dwarf_dumping)
+	     information later.  Unless this was a declaration, in
+	     which case, wipe out the nameless parameters and recreate
+	     them further down.  */
+	  if (remove_AT (subr_die, DW_AT_declaration))
 	    {
+
 	      remove_AT (subr_die, DW_AT_object_pointer);
 	      remove_child_TAG (subr_die, DW_TAG_formal_parameter);
 	    }
