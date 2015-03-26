@@ -17623,6 +17623,26 @@ decl_start_label (tree decl)
 }
 #endif
 
+/* For variable-length arrays that have been previously generated, but
+   may be incomplete due to missing subscript info, fill the subscript
+   info.  Return TRUE if this is one of those cases.  */
+static bool
+fill_variable_array_bounds (tree type)
+{
+  if (TREE_ASM_WRITTEN (type)
+      && TREE_CODE (type) == ARRAY_TYPE
+      && TYPE_SIZE (type)
+      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    {
+      dw_die_ref array_die = lookup_type_die (type);
+      if (!array_die)
+	return false;
+      add_subscript_info (array_die, type, !is_ada ());
+      return true;
+    }
+  return false;
+}
+
 /* These routines generate the internal representation of the DIE's for
    the compilation unit.  Debugging information is collected by walking
    the declaration trees passed in from dwarf2out_decl().  */
@@ -17644,22 +17664,8 @@ gen_array_type_die (tree type, dw_die_ref context_die)
 
   bool collapse_nested_arrays = !is_ada ();
 
-  /* For variable-length arrays that have been previously generated,
-     just fill in the possibly missing subscript info.  */
-  if (TREE_ASM_WRITTEN (type)
-      && TREE_CODE (type) == ARRAY_TYPE
-      && TYPE_SIZE (type)
-      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
-    {
-      array_die = lookup_type_die (type);
-      gcc_assert (array_die);
-      /* We could avoid calling add_subscript_info if
-	 DW_AT_{upper,lower}_bound is already present, though it's
-	 probably not worth it since we'll have to recurse through the
-	 DW_TAG_subrange_type anyhow.  */
-      add_subscript_info (array_die, type, collapse_nested_arrays);
-      return;
-    }
+  if (fill_variable_array_bounds (type))
+    return;
 
   dw_die_ref scope_die = scope_die_for (type, context_die);
   tree element_type;
@@ -20583,7 +20589,11 @@ gen_typedef_die (tree decl, dw_die_ref context_die)
   tree origin;
 
   if (TREE_ASM_WRITTEN (decl))
-    return;
+    {
+      if (DECL_ORIGINAL_TYPE (decl))
+	fill_variable_array_bounds (DECL_ORIGINAL_TYPE (decl));
+      return;
+    }
 
   TREE_ASM_WRITTEN (decl) = 1;
   type_die = new_die (DW_TAG_typedef, context_die, decl);
