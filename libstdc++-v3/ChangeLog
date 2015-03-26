@@ -1,3 +1,73 @@
+2015-03-25  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR libstdc++/33394
+	* testsuite/21_strings/basic_string/pthread33394.cc: Use
+	dg-additional-options.
+
+2015-03-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/65543
+	* include/std/istream (operator>>(basic_istream<>&&, _Tp&): Revert
+	thinko in r150387.
+	* include/std/ostream (operator<<(basic_ostream<>&&, const _Tp&):
+	Likewise.
+	* testsuite/27_io/rvalue_streams-2.cc: New.
+
+2015-03-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/33394
+	* testsuite/21_strings/basic_string/pthread33394.cc: Add test.
+
+2015-03-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64967
+	* acinclude.m4: Disable dual ABI when gnu-versioned-namespace in use.
+	* configure: Regenerate.
+	* src/c++11/compatibility-c++0x.cc (error_category), generic_category,
+	system_category): Use macros for versioned namespace.
+	* src/c++11/futex.cc: Add missing end macro for versioned namespace.
+
+2015-03-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* testsuite/17_intro/headers/c++1998/all_attributes.cc: Disable
+	test for unused for ARM.
+	* testsuite/17_intro/headers/c++200x/all_attributes.cc: Likewise.
+	* testsuite/17_intro/headers/c++2014/all_attributes.cc: Likewise.
+
+2015-03-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/c++config (__gnu_cxx::__cxx11): Define new namespace.
+	* include/ext/codecvt_specializations.h (encoding_state,
+	encoding_char_traits): Remove abi-tag and use inline namespace.
+	* testsuite/ext/profile/mutex_extensions_neg.cc: Adjust dg-error line.
+
+2015-03-19  Jason Merrill  <jason@redhat.com>
+
+	* config/locale/gnu/messages_members.cc: Revert abi-tag change.
+	* src/c++11/cxx11-shim_facets.cc: Revert abi-tag change.
+
+2015-03-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/65046
+	* config/locale/gnu/messages_members.cc (Catalog_info, Catalogs,
+	get_catalogs): Add abi-tag.
+	* include/ext/codecvt_specializations.h (encoding_state,
+	encoding_char_traits): Likewise.
+	* src/c++11/cxx11-ios_failure.cc (io_error_category): Likewise.
+	* src/c++11/cxx11-shim_facets.cc (__any_string::operator basic_string,
+	numpunct_shim, collate_shim, time_get_shim, moneypunct_shim,
+	money_get_shim, money_put_shim, messages_shim): Likewise.
+	* src/c++11/future.cc (future_error_category::message): Likewise.
+	* src/c++11/system_error.cc (generic_error_category::message,
+	system_error_category::message): Likewise.
+	(__sso_string): Disable -Wabi-tag warnings.
+
+2015-03-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/13631
+	* config/locale/gnu/messages_members.cc (get_glibc_msg): Fix fallback
+	implementation for old glibc. Fix whitespace.
+
 2015-03-18  Jonathan Wakely  <jwakely@redhat.com>
 	    Torvald Riegel  <triegel@redhat.com>
 
