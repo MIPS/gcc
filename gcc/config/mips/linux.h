@@ -23,3 +23,5 @@ along with GCC; see the file COPYING3.  If not see
 #undef UCLIBC_DYNAMIC_LINKER
 #define UCLIBC_DYNAMIC_LINKER \
   "%{mnan=2008:/lib/ld-uClibc-mipsn8.so.0;:/lib/ld-uClibc.so.0}"
+
+#define MD_HAVE_COMPACT_EH 1

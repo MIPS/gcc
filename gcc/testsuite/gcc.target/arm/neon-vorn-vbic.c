@@ -16,5 +16,5 @@ void bic (int *__restrict__ c, int *__restrict__ a, int *__restrict__ b)
     c[i] = b[i] & (~a[i]);
 }
 
-/* { dg-final { scan-assembler "vorn\\t" } } */
-/* { dg-final { scan-assembler "vbic\\t" } } */
+/* { dg-final { scan-assembler "vorn\\t" { xfail { ! arm_little_endian } } } } */
+/* { dg-final { scan-assembler "vbic\\t" { xfail { ! arm_little_endian } } } } */

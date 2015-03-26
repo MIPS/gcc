@@ -2034,6 +2034,9 @@ extern void protected_set_expr_location (tree, location_t);
 #define DECL_FUNCTION_PERSONALITY(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.personality)
 
+#define DECL_FUNCTION_PERSONALITY2(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.personality2)
+
 /* Nonzero for a given ..._DECL node means that the name of this node should
    be ignored for symbolic debug purposes.  For a TYPE_DECL, this means that
    the associated type should be ignored.  For a FUNCTION_DECL, the body of
@@ -4535,7 +4538,7 @@ extern bool complete_ctor_at_level_p (const_tree, HOST_WIDE_INT, const_tree);
    EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
 extern tree array_ref_up_bound (tree);
 
-extern tree build_personality_function (const char *);
+extern tree build_personality_function (const char *, bool);
 
 /* Given an expression EXP that is a handled_component_p,
    look for the ultimate containing object, which is returned and specify

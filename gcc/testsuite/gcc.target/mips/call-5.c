@@ -1,7 +1,7 @@
 /* Like call-1.c, but for n32.  We cannot use sibling calls for tail and tail2
    in this case (PR target/57260).  */
 /* { dg-options "-mrelax-pic-calls -mshared -foptimize-sibling-calls -mabi=n32" } */
-/* { dg-skip-if "requires -foptimize-sibling-calls" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "requires -foptimize-sibling-calls" { *-*-* } { "-O0" "-Og" } { "" } } */
 /* { dg-final { scan-assembler "\\.reloc\t1f,R_MIPS_JALR,normal\n1:\tjalr\t" } } */
 /* { dg-final { scan-assembler "\\.reloc\t1f,R_MIPS_JALR,normal2\n1:\tjalr\t" } } */
 /* { dg-final { scan-assembler "\\.reloc\t1f,R_MIPS_JALR,staticfunc\n1:\tjalr\t" } } */

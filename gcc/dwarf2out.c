@@ -947,7 +947,7 @@ dwarf2out_do_cfi_startproc (bool second)
 	 handle indirect support ourselves, but PC-relative is done
 	 in the assembler.  Further, the assembler can't handle any
 	 of the weirder relocation types.  */
-      if (enc & DW_EH_PE_indirect)
+      if (enc & DW_EH_PE_indirect && !asm_cfi_special_encoding (enc))
 	ref = dw2_force_const_mem (ref, true);
 
       fprintf (asm_out_file, "\t.cfi_personality %#x,", enc);
@@ -965,7 +965,7 @@ dwarf2out_do_cfi_startproc (bool second)
       ref = gen_rtx_SYMBOL_REF (Pmode, lab);
       SYMBOL_REF_FLAGS (ref) = SYMBOL_FLAG_LOCAL;
 
-      if (enc & DW_EH_PE_indirect)
+      if (enc & DW_EH_PE_indirect && !asm_cfi_special_encoding (enc))
 	ref = dw2_force_const_mem (ref, true);
 
       fprintf (asm_out_file, "\t.cfi_lsda %#x,", enc);
@@ -12561,7 +12561,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	      op1 = mem_loc_descriptor (XEXP (rtl, 1), mode, mem_mode,
 					VAR_INIT_STATUS_INITIALIZED);
 	      if (op1 == 0)
-		break;
+		return NULL;
 	      add_loc_descr (&mem_loc_result, op1);
 	      add_loc_descr (&mem_loc_result,
 			     new_loc_descr (DW_OP_plus, 0, 0));

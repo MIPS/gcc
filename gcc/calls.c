@@ -3178,6 +3178,19 @@ expand_call (tree exp, rtx target, int ignore)
 		   next_arg_reg, valreg, old_inhibit_defer_pop, call_fusage,
 		   flags, args_so_far);
 
+      if (flag_use_caller_save)
+	{
+	  rtx last, datum = NULL_RTX;
+	  if (fndecl != NULL_TREE)
+	    {
+	      datum = XEXP (DECL_RTL (fndecl), 0);
+	      gcc_assert (datum != NULL_RTX
+			  && GET_CODE (datum) == SYMBOL_REF);
+	    }
+	  last = last_call_insn ();
+	  add_reg_note (last, REG_CALL_DECL, datum);
+	}
+
       /* If the call setup or the call itself overlaps with anything
 	 of the argument setup we probably clobbered our call address.
 	 In that case we can't do sibcalls.  */
@@ -4205,6 +4218,14 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	       valreg,
 	       old_inhibit_defer_pop + 1, call_fusage, flags, args_so_far);
 
+  if (flag_use_caller_save)
+    {
+      rtx last, datum = orgfun;
+      gcc_assert (GET_CODE (datum) == SYMBOL_REF);
+      last = last_call_insn ();
+      add_reg_note (last, REG_CALL_DECL, datum);
+    }
+
   /* Right-shift returned value if necessary.  */
   if (!pcc_struct_value
       && TYPE_MODE (tfom) != BLKmode
@@ -4446,8 +4467,17 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	      /* We need to make a save area.  */
 	      unsigned int size = arg->locate.size.constant * BITS_PER_UNIT;
 	      enum machine_mode save_mode = mode_for_size (size, MODE_INT, 1);
-	      rtx adr = memory_address (save_mode, XEXP (arg->stack_slot, 0));
-	      rtx stack_area = gen_rtx_MEM (save_mode, adr);
+	      rtx adr;
+	      rtx stack_area;
+
+	      /* We can only use save_mode if the arg is sufficiently
+	         aligned.  */
+	      if (STRICT_ALIGNMENT
+		  && GET_MODE_ALIGNMENT (save_mode) > arg->locate.boundary)
+		save_mode = BLKmode;
+
+	      adr = memory_address (save_mode, XEXP (arg->stack_slot, 0));
+	      stack_area = gen_rtx_MEM (save_mode, adr);
 
 	      if (save_mode == BLKmode)
 		{

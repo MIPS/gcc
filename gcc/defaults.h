@@ -377,6 +377,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #endif
 #endif
 
+#ifndef TARGET_COMPACT_EH
+#define TARGET_COMPACT_EH 0
+#endif
+
 /* If we have named section and we support weak symbols, then use the
    .jcr section for recording java classes which need to be registered
    at program start-up time.  */
@@ -436,6 +440,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    By default, we just provide columns for all registers.  */
 #ifndef DWARF_FRAME_REGNUM
 #define DWARF_FRAME_REGNUM(REG) DBX_REGISTER_NUMBER (REG)
+#endif
+
+/* The mapping from dwarf CFA reg number to internal dwarf reg numbers.  */
+#ifndef DWARF_REG_TO_UNWIND_COLUMN
+#define DWARF_REG_TO_UNWIND_COLUMN(REGNO) (REGNO)
 #endif
 
 /* Map register numbers held in the call frame info that gcc has

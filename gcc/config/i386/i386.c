@@ -14155,6 +14155,21 @@ output_pic_addr_const (FILE *file, rtx x, int code)
     }
 }
 
+/* Return Dwarf2 tag for calling convention to use for FUNCTION.  */
+
+static int
+ix86_dwarf_calling_convention (const_tree function)
+{
+  unsigned int ccvt = ix86_get_callcvt (function);
+
+  /* This is needed so that the debugger can reliably detect when to use the
+     "thiscall" calling convention to invoke inferior functions/methods.  */
+  if ((ccvt & IX86_CALLCVT_THISCALL) != 0)
+    return DW_CC_GNU_thiscall_i386;
+
+  return DW_CC_normal;
+}
+
 /* This is called from dwarf2out.c via TARGET_ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
 
@@ -46997,6 +47012,9 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #undef TARGET_C_MODE_FOR_SUFFIX
 #define TARGET_C_MODE_FOR_SUFFIX ix86_c_mode_for_suffix
 
+#undef TARGET_DWARF_CALLING_CONVENTION
+#define TARGET_DWARF_CALLING_CONVENTION ix86_dwarf_calling_convention
+
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL i386_output_dwarf_dtprel
@@ -47144,6 +47162,9 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #undef TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P
 #define TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P \
   ix86_float_exceptions_rounding_supported_p
+
+#undef TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
+#define TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

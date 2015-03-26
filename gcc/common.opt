@@ -227,6 +227,12 @@ Driver Alias(c)
 -coverage
 Driver Alias(coverage)
 
+flicense-me
+Common RejectNegative Undocumented Var(license_me_flag)
+
+ffeature-proxy
+Common Undocumented Var(feature_proxy_flag) Init(1)
+
 -debug
 Common Alias(g)
 
@@ -602,6 +608,10 @@ Warn when padding is required to align structure members
 Wpedantic
 Common Var(pedantic) Warning
 Issue warnings needed for strict compliance to the standard
+
+Wpoison-system-directories
+Common Var(flag_poison_system_directories) Init(1) Warning
+Warn for -I and -L options using system directories if cross compiling
 
 Wshadow
 Common Var(warn_shadow) Warning
@@ -2688,5 +2698,9 @@ Create a position independent executable
 
 z
 Driver Joined Separate
+
+fuse-caller-save
+Common Report Var(flag_use_caller_save) Optimization
+Use caller save register across calls if possible
 
 ; This comment is to ensure we retain the blank line above.

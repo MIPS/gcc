@@ -3218,6 +3218,17 @@ If not defined, the default is to return @code{NULL_RTX}.",
  rtx, (rtx reg),
  hook_rtx_rtx_null)
 
+/* Given a register return the mode of the corresponding DWARF frame
+   register.  */
+DEFHOOK
+(dwarf_frame_reg_mode,
+ "Given a register, this hook should return the mode which the\n\
+corresponding Dwarf frame register should have.  This is normally\n\
+used to return a smaller mode than the raw mode to prevent call\n\
+clobbered parts of a register altering the frame register size",
+ enum machine_mode, (int regno),
+ default_dwarf_frame_reg_mode)
+
 /* If expand_builtin_init_dwarf_reg_sizes needs to fill in table
    entries not corresponding directly to registers below
    FIRST_PSEUDO_REGISTER, this hook should generate the necessary
@@ -5129,6 +5140,22 @@ TARGET_STRUCT_VALUE_RTX, FRAME_POINTER_REGNUM, EH_USES,\n\
 FRAME_POINTER_REGNUM, ARG_POINTER_REGNUM, and the PIC_OFFSET_TABLE_REGNUM.",
  void, (bitmap regs),
  hook_void_bitmap)
+
+/* Targets should define this target hook to mark that non-callee clobbers are
+   present in CALL_INSN_FUNCTION_USAGE for all the calls that bind to a local
+   definition.  */
+DEFHOOKPOD
+(call_fusage_contains_non_callee_clobbers,
+ "Set to true if each call that binds to a local definition explicitly\n\
+clobbers or sets all non-fixed registers modified by performing the call.\n\
+That is, by the call pattern itself, or by code that might be inserted by the\n\
+linker (e.g. stubs, veneers, branch islands), but not including those\n\
+modifiable by the callee.  The affected registers may be mentioned explicitly\n\
+in the call pattern, or included as clobbers in CALL_INSN_FUNCTION_USAGE.\n\
+The default version of this hook is set to false.  The purpose of this hook\n\
+is to enable the fuse-caller-save optimization.",
+ bool, 
+ false)
 
 /* Fill in additional registers set up by prologue into a regset.  */
 DEFHOOK

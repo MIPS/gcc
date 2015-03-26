@@ -46,7 +46,7 @@
 (define_insn "*memory_barrier"
   [(set (match_operand:BLK 0 "" "")
 	(unspec:BLK [(match_dup 0)] UNSPEC_MEMORY_BARRIER))]
-  "TARGET_HAVE_MEMORY_BARRIER"
+  "TARGET_HAVE_MEMORY_BARRIER && !TARGET_THUMB2"
   {
     if (TARGET_HAVE_DMB)
       {
@@ -64,6 +64,29 @@
   [(set_attr "length" "4")
    (set_attr "conds" "unconditional")
    (set_attr "predicable" "no")])
+
+;; Thumb-2 version allows conditional execution
+(define_insn "*memory_barrier_t2"
+  [(set (match_operand:BLK 0 "" "")
+	(unspec:BLK [(match_dup 0)] UNSPEC_MEMORY_BARRIER))]
+  "TARGET_HAVE_MEMORY_BARRIER && TARGET_THUMB2"
+  {
+    if (TARGET_HAVE_DMB)
+      {
+	/* Note we issue a system level barrier. We should consider issuing
+	   a inner shareabilty zone barrier here instead, ie. "DMB ISH".  */
+	/* ??? Differentiate based on SEQ_CST vs less strict?  */
+	return "dmb%?\tsy";
+      }
+
+    if (TARGET_HAVE_DMB_MCR)
+      return "mcr%?\tp15, 0, r0, c7, c10, 5";
+
+    gcc_unreachable ();
+  }
+  [(set_attr "length" "4")
+   (set_attr "conds" "nocond")
+   (set_attr "predicable" "yes")])
 
 (define_insn "atomic_load<mode>"
   [(set (match_operand:QHSI 0 "register_operand" "=r")

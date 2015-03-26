@@ -1,0 +1,2225 @@
+2014-11-20  Catherine Moore  <clm@codesourcery.com>
+
+	* release-notes-csl.xml: Update the MIPS R3/R5 release note.
+
+2014-11-19  Catherine Moore  <clm@codesourcery.com>
+
+	* release-notes-csl.xml: New note.
+
+	Backport from mainline:
+
+	2014-06-03  Andrew Bennett  <andrew.bennett@imgtec.com>
+    
+    	* config/mips/mips-cpus.def: Add mips32r3, mips32r5, mips64r3 and
+    	mips64r5.
+    	* config/mips/mips-tables.opt: Regenerate.
+    	* config/mips/mips.c (mips_compute_frame_info): Changed if statement
+    	to use mips_isa_rev rather than ISA_MIPS32R2.
+    	* config/mips/mips.h (ISA_MIPS32R3): New define.
+    	(ISA_MIPS32R5): New define.
+    	(ISA_MIPS64R3): New define.
+    	(ISA_MIPS64R5): New define.
+    	(TARGET_CPU_CPP_BUILTINS): Added support for ISA_MIPS32R3, ISA_MIPS32R5,
+    	ISA_MIPS64R3 and ISA_MIPS64R5.
+    	(MIPS_ISA_LEVEL_SPEC): Added support for mips32r3, mips32r5, mips64r3
+    	and mips64r5.
+    	(MIPS_ISA_SYNCI_SPEC): Likewise.
+    	(ISA_HAS_64BIT_REGS): Added ISA_MIPS64R3 and ISA_MIPS64R5.
+    	(LINK_SPEC): Added mips32r3 and mips32r5.
+    	* config/mips/t-isa3264 (MULTILIB_MATCHES): Map mips32r3 and mips32r5
+    	to mips32r2; and mips64r3 and mips64r5 to mips64r2.
+    	* config/mips/t-mti-elf (MULTILIB_MATCHES): Likewise.
+    	* config/mips/t-mti-linux (MULTILIB_MATCHES): Likewise.
+    	* config/mips/t-sde (MULTILIB_MATCHES): Likewise.
+    	* config/mips/t-sdemtk (MULTILIB_MATCHES): New define.
+    	* doc/invoke.texi: Document mips32r3, mips32r5, mips64r3 and mips64r5.
+    
+2014-11-19  Catherine Moore  <clm@codesourcery.com>
+
+        * release-notes-csl.xml: New note.
+
+        Patch from Radovan Obradovic <Radovan.Obradovic@imgtec.com>
+
+        gcc/
+        * toplev.c (HAVE_epilogue, HAVE_prologue): Provide defaults.
+        (process_options): Disable -fuse-caller-save optimization when
+        profiling.
+
+        gcc/testsuite/
+        * gcc.dg/aru-2.c: New test.
+
+2014-11-17  Joseph Myers  <joseph@codesourcery.com>
+
+	CB-4256
+
+	gcc/
+	* config/arm/t-cs-eabi (MULTILIB_MATCHES): Handle -fpic.
+	(MULTILIB_REUSE): Regenerate with reusecalc.ml.
+
+2014-11-13  Janis Johnson  <janisjo@codesourcery.com>
+
+	CB-4264
+
+	Backport from upstream:
+
+	2014-10-24  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs_internal): Do
+	not allow e500 double in registers not satisyfing
+	SPE_SIMD_REGNO_P.
+
+2014-11-13  Janis Johnson  <janisjo@codesourcery.com>
+
+	CB-4264
+
+	Copy from wrs-linux-4_9-yocto-1.7 branch:
+
+	2014-10-23  Joseph Myers  <joseph@codesourcery.com>
+
+	Apply from <https://gcc.gnu.org/ml/gcc-patches/2014-09/msg02625.html>
+	(not committed upstream):
+
+	2014-09-30  Olivier Hainque  <hainque@adacore.com>
+
+	libgcc/
+	* unwind-dw2.c (DWARF_REG_TO_UNWIND_COLUMN): Move default def to ...
+
+	gcc/
+	* defaults.h: ... here.
+	* dwarf2cfi.c (init_one_dwarf_reg_size): New helper, processing
+	one particular reg for expand_builtin_init_dwarf_reg_sizes. Apply
+	DWARF_REG_TO_UNWIND_COLUMN.
+	(expand_builtin_init_dwarf_reg_sizes): Rework to use helper and
+	account for dwarf register spans.
+
+	Backport from FSF:
+
+	gcc/
+	2014-09-03  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* target.def (TARGET_DWARF_FRAME_REG_MODE): New target hook.
+	* targhooks.c (default_dwarf_frame_reg_mode): New function.
+	* targhooks.h (default_dwarf_frame_reg_mode): New prototype.
+	* doc/tm.texi.in (TARGET_DWARF_FRAME_REG_MODE): Document.
+	* doc/tm.texi: Regenerate.
+	* dwarf2cfi.c (expand_builtin_init_dwarf_reg_sizes): Abstract mode
+	selection logic to default_dwarf_frame_reg_mode.
+
+2014-11-12  Catherine Moore  <clm@codesourcery.com>
+
+	Backport from mainline:
+
+	2014-05-03  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_isa_rev): New variable.
+	(mips_set_architecture): Set it.
+	* config/mips/mips.h (TARGET_CPU_CPP_BUILTINS): Set __mips_isa_rev
+	from mips_isa_rev.
+	(ISA_HAS_MUL3, ISA_HAS_FP_CONDMOVE, ISA_HAS_8CC, ISA_HAS_FP4)
+	(ISA_HAS_PAIRED_SINGLE, ISA_HAS_MADD_MSUB, ISA_HAS_FP_RECIP_RSQRT)
+	(ISA_HAS_CLZ_CLO, ISA_HAS_ROR, ISA_HAS_WSBH, ISA_HAS_PREFETCH)
+	(ISA_HAS_SEB_SEH, ISA_HAS_EXT_INS, ISA_HAS_MXHC1)
+	(ISA_HAS_HILO_INTERLOCKS, ISA_HAS_SYNCI, MIN_FPRS_PER_FMT): Reexpress
+	conditions in terms of mips_isa_rev.
+	(mips_isa_rev): Declare.
+
+2014-11-10  Catherine Moore  <clm@codesourcery.com>
+
+	Issue #16697
+
+	Backport from mainline:
+
+	2014-06-03  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* doc/invoke.texi: Document -mxpa and -mno-xpa MIPS command line
+	options.
+	* config/mips/mips.opt (mxpa): New option.
+	* config/mips/mips.h (ASM_SPEC): Pass mxpa and mno-xpa to the 
+	assembler.
+
+2014-10-29  Kwok Cheung Yeung  <kcy@codesourcery.com>
+
+	CB-4122
+
+	gcc/
+	* configure.ac: Pass the --enable-targets option to the recursive
+	call of configure for the build system.
+	* configure: Regenerate.
+
+2014-10-29  Catherine Moore  <clm@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.target/mips/mips16-attributes.c: Replace brace with bracket.
+
+2014-10-28  Catherine Moore  <clm@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.target/mips/mips16-attributes.c: Supply missing bracket.
+
+2014-10-24  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport commit 216462 from FSF:
+
+	2014-10-20  Alan Modra  <amodra@gmail.com>
+
+	PR debug/60655
+	* simplify-rtx.c (simplify_plus_minus): Delete unused "input_ops".
+	Increase "ops" array size.  Correct array size tests.  Init
+	n_constants in loop.  Break out of innermost loop when finding
+	a trivial CONST expression.
+
+2014-10-24  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Revert http://gcc.gnu.org/ml/gcc-patches/2014-09/msg00704.html:
+
+	2014-09-04  Alan Modra  <amodra@gmail.com>
+
+	PR debug/60655
+	* simplify-rtx.c (simplify_plus_minus): Delete unused "input_ops".
+	Handle CONST wrapped NOT, NEG and MINUS.  Break out of innermost
+	loop when finding a trivial CONST expression.
+	* var-tracking.c (vt_expand_var_loc_chain): Call simplify_rtx.
+
+2014-10-24  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport commit 216437 from FSF:
+
+	2014-10-19  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
+		    David Edelsohn  <dje.gcc@gmail.com>
+
+	gcc/
+	* config/rs6000/rs6000.c (rs6000_atomic_assign_expand_fenv): New
+	function.
+	(TARGET_ATOMIC_ASSIGN_EXPAND_FENV): New define.
+
+	2014-10-19  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
+
+	gcc/testsuite/
+	* gcc.dg/atomic/c11-atomic-exec-5.c
+	(test_main_long_double_add_overflow): Define and run only for
+	LDBL_MANT_DIG != 106.
+	(test_main_complex_long_double_add_overflow): Likewise.
+	(test_main_long_double_sub_overflow): Likewise.
+	(test_main_complex_long_double_sub_overflow): Likewise.
+
+2014-10-24  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Revert http://gcc.gnu.org/ml/gcc-patches/2014-08/msg00745.html:
+
+	2014-08-06  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
+
+	gcc/
+	* config/rs6000/rs6000.c (rs6000_atomic_assign_expand_fenv): New
+	function.
+
+	gcc/testsuite/
+	* gcc.dg/atomic/c11-atomic-exec-5.c
+	(test_main_long_double_add_overflow): Define and run only for
+	LDBL_MANT_DIG != 106.
+	(test_main_complex_long_double_add_overflow): Likewise.
+	(test_main_long_double_sub_overflow): Likewise.
+	(test_main_complex_long_double_sub_overflow): Likewise.
+
+2014-10-16  Nathan sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/arm/t-cs-eabi: New PIC multilibs for ARMv7e variants,
+	because Nucleus.
+	* release-notes-csl.xml: Document
+
+2014-10-16  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	Backport from mainline:
+
+	gcc/
+	2014-08-07  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* config/arm/arm.c (bdesc_2arg): Fix typo.
+	(arm_atomic_assign_expand_fenv): Remove The default implementation.
+
+	2014-06-17  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* config/arm/arm.c (arm_atomic_assign_expand_fenv): call
+	default_atomic_assign_expand_fenv for !TARGET_HARD_FLOAT.
+	(arm_init_builtins) : Initialize builtins __builtins_arm_set_fpscr and
+	__builtins_arm_get_fpscr only when TARGET_HARD_FLOAT.
+	* config/arm/vfp.md (set_fpscr): Make pattern conditional on
+	TARGET_HARD_FLOAT.
+	(get_fpscr) : Likewise.
+
+	2014-05-31  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* config/arm/arm.c (TARGET_ATOMIC_ASSIGN_EXPAND_FENV): New define.
+	(arm_builtins) : Add ARM_BUILTIN_GET_FPSCR and ARM_BUILTIN_SET_FPSCR.
+	(bdesc_2arg) : Add description for builtins __builtins_arm_set_fpscr
+	and __builtins_arm_get_fpscr.
+	(arm_init_builtins) : Initialize builtins __builtins_arm_set_fpscr and
+	__builtins_arm_get_fpscr.
+	(arm_expand_builtin) : Expand builtins __builtins_arm_set_fpscr and
+	__builtins_arm_ldfpscr.
+	(arm_atomic_assign_expand_fenv): New function.
+	* config/arm/vfp.md (set_fpscr): New pattern.
+	(get_fpscr) : Likewise.
+	* config/arm/unspecs.md (unspecv): Add VUNSPEC_GET_FPSCR and
+	VUNSPEC_SET_FPSCR.
+	* doc/extend.texi (AARCH64 Built-in Functions) : Document
+	__builtins_arm_set_fpscr, __builtins_arm_get_fpscr.
+
+2014-10-14  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport commit 216157 from FSF:
+
+	2014-10-13  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	gcc/
+	* config/rs6000/rs6000.h (DBX_REGISTER_NUMBER): Pass format argument
+	to rs6000_dbx_register_number.
+	(DWARF_FRAME_REGNUM): Redefine as identity map.
+	(DWARF2_FRAME_REG_OUT): Call rs6000_dbx_register_number.
+	* config/rs6000/rs6000-protos.h (rs6000_dbx_register_number): Update.
+	* config/rs6000/rs6000.c (rs6000_dbx_register_number): Add format
+	argument to handle .debug_frame and .eh_frame directly.  Always
+	translate SPE high register numbers.  Add special treatment for CR,
+	but only in .debug_frame.  Respect RS6000_USE_DWARF_NUMBERING.
+
+	* config/rs6000/sysv.h (DBX_REGISTER_NUMBER): Do not undefine.
+	* config/rs6000/freebsd.h (DBX_REGISTER_NUMBER): Remove.
+	(RS6000_USE_DWARF_NUMBERING): Define.
+	* config/rs6000/freebsd64.h (DBX_REGISTER_NUMBER): Remove.
+	(RS6000_USE_DWARF_NUMBERING): Define.
+	* config/rs6000/netbsd.h (DBX_REGISTER_NUMBER): Remove.
+	(RS6000_USE_DWARF_NUMBERING): Define.
+	* config/rs6000/lynx.h (DBX_REGISTER_NUMBER): Remove.
+	(RS6000_USE_DWARF_NUMBERING): Define.
+	* config/rs6000/aix.h (RS6000_USE_DWARF_NUMBERING): Define.
+	* config/rs6000/darwin.h (RS6000_USE_DWARF_NUMBERING): Define.
+
+2014-10-09  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Issue #16677
+
+	* release-notes-csl.xml (Windows reserved filename bug fix):
+	New note.
+
+	libiberty/
+	* cygpath.c (windows_reserved_filename_p): New function.
+	(convert_long_path): Don't attempt to canonicalize reserved
+	filenames.
+
+2014-09-29  Sandra Loosemore  <sandra@codesourcery.com>
+
+	gcc/testsuite/
+
+	Backport from FSF mainline:
+
+	2014-07-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61160
+	* g++.dg/ipa/pr61160-2.C (main): Always return zero.
+
+	2014-07-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61160
+	* g++.dg/ipa/pr61160-2.C (main): Always return zero.
+
+2014-09-29  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* release-notes-csl.xml
+	(New 32-bit and 64-bit e6500 Power multilibs): Restrict to
+	product.
+
+2014-09-28  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Reapply commit 202286 from FSF:
+
+	2013-09-05  Peter Bergner  <bergner@vnet.ibm.com>
+
+	gcc/
+	PR target/58139
+	* reginfo.c (choose_hard_reg_mode): Scan through all mode classes
+	looking for widest mode.
+
+2014-09-28  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Reapply commit 199132 from FSF:
+
+	2013-05-21  Christian Bruel  <christian.bruel@st.com>
+
+	* dwarf2out.c (multiple_reg_loc_descriptor): Use dbx_reg_number for
+	spanning registers. LEAF_REG_REMAP is supported only for contiguous
+	registers. Set register size out of the PARALLEL loop.
+
+2014-09-28  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Reapply commit 205468 from FSF:
+
+	2013-11-27   H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/59311
+	* dwarf2cfi.c (dwf_regno): Assert reg isn't pseudo register.
+	* lra-spills.c (spill_pseudos): Handle REG_XXX notes.
+
+2014-09-28  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport commit 213598 from FSF:
+
+	2014-08-04  Rohit  <rohitarulraj@freescale.com>
+
+	gcc/testsuite/
+	PR target/60102
+	* gcc.target/powerpc/pr60102.c: New testcase.
+
+2014-09-28  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport commit 213596 from FSF:
+
+	2014-08-04  Rohit  <rohitarulraj@freescale.com>
+
+	gcc/
+	PR target/60102
+	* config/rs6000/rs6000.c
+	  (rs6000_reg_names) : Add SPE high register names.
+	  (alt_reg_names) : Likewise.
+	  (rs6000_dwarf_register_span) : For SPE high registers, replace
+	  dwarf register numbers with GCC hard register numbers.
+	  (rs6000_init_dwarf_reg_sizes_extra) : Likewise.
+	  (rs6000_dbx_register_number): For SPE high registers, return dwarf
+	  register number for the corresponding GCC hard register number.
+	* config/rs6000/rs6000.h
+	  (FIRST_PSEUDO_REGISTER) : Update based on 32 newly added GCC hard
+	  register numbers for SPE high registers.
+	  (DWARF_FRAME_REGISTERS) :  Likewise.
+	  (DWARF_REG_TO_UNWIND_COLUMN) : Likewise.
+	  (DWARF_FRAME_REGNUM) : Likewise.
+	  (FIXED_REGISTERS) : Likewise.
+	  (CALL_USED_REGISTERS) : Likewise.
+	  (CALL_REALLY_USED_REGISTERS) : Likewise.
+	  (REG_ALLOC_ORDER) : Likewise.
+	  (enum reg_class) : Likewise.
+	  (REG_CLASS_NAMES) : Likewise.
+	  (REG_CLASS_CONTENTS) : Likewise.
+	  (SPE_HIGH_REGNO_P) : New macro to identify SPE high registers.
+
+	2014-08-04  Rohit  <rohitarulraj@freescale.com>
+
+	libgcc/
+	PR target/60102
+	* config/rs6000/linux-unwind.h (ppc_fallback_frame_state): Update
+	  based on change in SPE high register numbers and 3 HTM registers.
+
+2014-09-25  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF mainline:
+
+	2014-09-09  Tony Wang  <tony.wang@arm.com>
+
+	gcc/testsuite/
+	* gcc.target/arm/xordi3-opt.c: Disable this
+	test case for thumb1 target.
+	* gcc.target/arm/iordi3-opt.c: Ditto.
+
+2014-09-25  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF mainline:
+
+	2014-09-25  Sandra Loosemore  <sandra@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/vect/pr56933.c: Don't specify "dg-do run" explicitly.
+	* gcc.dg/vect/pr57705.c: Likewise.
+	* gcc.dg/vect/pr57741-2.c: Likewise.
+	* gcc.dg/vect/pr57741-3.c: Likewise.
+	* gcc.dg/vect/pr59591-1.c: Likewise.
+	* gcc.dg/vect/pr59591-2.c: Likewise.
+	* gcc.dg/vect/pr60276.c: Likewise.
+	* gcc.dg/vect/pr61680.c: Likewise.
+	* gcc.dg/vect/vect-mask-load-1.c: Likewise.
+	* gcc.dg/vect/vect-mask-loadstore-1.c: Likewise.
+	* gcc.dg/vect/vect-nop-move.c: Likewise.
+	* gcc.dg/vect/vect-simd-clone-10.c: Likewise.
+	* gcc.dg/vect/vect-simd-clone-12.c: Likewise.
+
+2014-09-24  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport http://gcc.gnu.org/ml/gcc-patches/2014-09/msg00242.html:
+
+	2014-09-03  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/atomic/c11-atomic-exec-5.c (dg-timeout-factor): New
+	setting.
+
+2014-09-24  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport http://gcc.gnu.org/ml/gcc-patches/2014-08/msg00745.html:
+
+	2014-08-06  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
+
+	gcc/
+        * config/rs6000/rs6000.c (rs6000_atomic_assign_expand_fenv): New
+        function.
+
+	gcc/testsuite/
+        * gcc.dg/atomic/c11-atomic-exec-5.c
+        (test_main_long_double_add_overflow): Define and run only for
+        LDBL_MANT_DIG != 106.
+        (test_main_complex_long_double_add_overflow): Likewise.
+        (test_main_long_double_sub_overflow): Likewise.
+        (test_main_complex_long_double_sub_overflow): Likewise.
+
+2014-09-17  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport http://gcc.gnu.org/ml/gcc-patches/2014-09/msg00704.html:
+
+	2014-09-04  Alan Modra  <amodra@gmail.com>
+
+	PR debug/60655
+	* simplify-rtx.c (simplify_plus_minus): Delete unused "input_ops".
+	Handle CONST wrapped NOT, NEG and MINUS.  Break out of innermost
+	loop when finding a trivial CONST expression.
+	* var-tracking.c (vt_expand_var_loc_chain): Call simplify_rtx.
+
+2014-09-17  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport commit 214899 from FSF:
+
+	2014-09-04  Alan Modra  <amodra@gmail.com>
+
+	PR debug/60655
+	* dwarf2out.c (mem_loc_descriptor <PLUS>): Return NULL if addend
+	can't be output.
+
+2014-09-12  Kwok Cheung Yeung  <kcy@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.target/mips/dpaq_sa_l_w.c, gcc.target/mips/dpsq_sa_l_w.c,
+	gcc.target/mips/dspr2-MULT.c, gcc.target/mips/fix-r4000-2.c,
+	gcc.target/mips/fix-r4000-4.c, gcc.target/mips/fix-r4000-7.c,
+	gcc.target/mips/fix-r4000-9.c: Disable for -Og optimization level.
+	* gcc.target/mips/mips16-attributes.c: Skip if -mmicromips flag
+	present.
+
+2014-09-08  Joseph Myers  <joseph@codesourcery.com>
+
+	CB-2512
+
+	* release-notes-csl.xml (Long path support on Windows hosts): New
+	note.
+
+2014-09-08  Joseph Myers  <joseph@codesourcery.com>
+
+	CB-2512
+
+	libiberty/
+	* cygpath.c: Include <assert.h>, <direct.h> and <wchar.h>.
+	(MAX_WPATH): New macro.  Change all uses of MAX_PATH to MAX_WPATH.
+	(convert_to_wide, convert_long_path): New functions.
+	(fopen): Convert to wide characters and use _wfopen if possible.
+	(open): Convert to wide characters and use _wopen if possible.
+	(set_errno_from_windows_code): Convert ERROR_PATH_NOT_FOUND to
+	ENOENT not ENOTDIR.
+	(filetime_to_time_t, emulate_wstat): New functions.
+	(stat): Convert to wide characters and use _wstat if possible.
+	(access): Convert to wide characters and use _waccess if possible.
+	(rename): Convert to wide characters and use MoveFileExW if
+	possible.
+	(remove): Convert to wide characters and use _wunlink if possible.
+	(chdir): Add comment about not converting to \\?\.
+
+2014-09-04  Catherine Moore  <clm@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.target/mips/madd-1.c: Handle -Og.
+	* gcc.target/mips/msub-4.c: Likewise.
+	* gcc.target/mips/movcc-2.c: Likewise.
+	* gcc.target/mips/mult-9.c: Likewise.
+	* gcc.target/mips/maddu-3.c: Likewise.
+	* gcc.target/mips/madd-2.c: Likewise.
+	* gcc.target/mips/call-1.c: Likewise.
+	* gcc.target/mips/mips-ps-7.c: Likewise.
+	* gcc.target/mips/mult-10.c: Likewise.
+	* gcc.target/mips/mips-ps-type-2.c: Likewise.
+	* gcc.target/mips/movcc-3.c: Likewise.
+	* gcc.target/mips/bswap-1.c: Likewise.
+	* gcc.target/mips/maddu-4.c: Likewise.
+	* gcc.target/mips/mult-11.c: Likewise.
+	* gcc.target/mips/mips-ps-type.c: Likewise.
+	* gcc.target/mips/madd-4.c: Likewise.
+	* gcc.target/mips/bswap-3.c: Likewise.
+	* gcc.target/mips/mult-4.c: Likewise.
+	* gcc.target/mips/msubu-1.c: Likewise.
+	* gcc.target/mips/fuse-caller-save-neg.c: Likewise.
+	* gcc.target/mips/msub-1.c: Likewise.
+	* gcc.target/mips/call-5.c: Likewise.
+	* gcc.target/mips/msubu-2.c: Likewise.
+	* gcc.target/mips/branch-cost-2.c: Likewise.
+	* gcc.target/mips/fuse-caller-save-mips16.c: Likewise.
+	* gcc.target/mips/bswap-5.c: Likewise.
+	* gcc.target/mips/fuse-caller-save.c: Likewise.
+	* gcc.target/mips/fuse-caller-save-micromips-neg.c: Likewise.
+	* gcc.target/mips/msub-2.c: Likewise.
+	* gcc.target/mips/call-6.c: Likewise.
+	* gcc.target/mips/fuse-caller-save-mips16-neg.c: Likewise.
+	* gcc.target/mips/msubu-3.c: Likewise.
+	* gcc.target/mips/maddu-1.c: Likewise.
+	* gcc.target/mips/msub-3.c: Likewise.
+	* gcc.target/mips/mips-ps-5.c: Likewise.
+	* gcc.target/mips/msubu-4.c: Likewise.
+	* gcc.target/mips/fuse-caller-save-micromips.c: Likewise.
+	* gcc.target/mips/mult-16.c: Likewise.
+	* gcc.target/mips/mult-8.c: Likewise.
+	* gcc.target/mips/maddu-2.c: Likewise.
+
+2014-09-01  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport commit 214798 from FSF:
+
+	2014-09-01  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* gcc.dg/tree-ssa/loop-19.c: Exclude classic FPU Power targets.
+
+2014-08-26  Joseph Myers  <joseph@codesourcery.com>
+
+	Issue #16527
+
+	gcc/
+	2014-08-26  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/60606
+	PR target/61330
+	* varasm.c (make_decl_rtl): Clear DECL_ASSEMBLER_NAME and
+	DECL_HARD_REGISTER and return for invalid register specifications.
+	* cfgexpand.c (expand_one_var): If expand_one_hard_reg_var clears
+	DECL_HARD_REGISTER, call expand_one_error_var.
+	* config/arm/arm.c (arm_hard_regno_mode_ok): Do not allow
+	CC_REGNUM with non-MODE_CC modes.
+	(arm_regno_class): Return NO_REGS for PC_REGNUM.
+
+	gcc/testsuite/
+	2014-08-26  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/60606
+	PR target/61330
+	* gcc.dg/torture/pr60606-1.c, gcc.target/arm/pr60606-2.c,
+	gcc.target/arm/pr60606-3.c, gcc.target/arm/pr60606-4.c: New tests.
+
+2014-08-26  Meador Inge  <meadori@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	2014-04-14  Meador Inge  <meadori@codesourcery.com>
+
+	* release-notes-csl.xml: New note.
+
+	gcc/
+	* tree-profile.c (tree_profiling): Skip functions tagged with
+	"no_instrument".
+
+2014-08-21  Sandra Loosemore  <sandra@codesourcery.com>
+
+	gcc/testsuite/
+
+	Backport from FSF mainline:
+
+	2014-07-09  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_logical_op_short_circuit): Add powerpc*-*-*.
+
+	2014-08-21  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_logical_op_short_circuit): Add nios2.
+	* gcc.dg/tree-ssa/reassoc-33.c: Skip for nios2.
+	* gcc.dg/tree-ssa/reassoc-34.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-35.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-36.c: Likewise.
+	* gcc.dg/lto/pr61526_0.c: Require fpic effective target
+	for test using -fPIC.
+
+2014-08-19  Kwok Cheung Yeung  <kcy@codesourcery.com>
+
+	libgcc/
+	* gthr-posix.h (GTHR_ACTIVE_PROXY): Check that __UCLIBC__ is
+	not defined before defining to __gthrw_(__pthread_key_create).
+
+2014-08-18  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Revert:
+
+	2014-08-13  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	gcc/
+	* config/rs6000/t-cs-linux-lite: New, copied from t-cs-linux.
+	* config.gcc <powerpc*-*-linux*>: Use rs6000/t-cs-linux-lite
+	rather than rs6000/t-cs-linux for Lite configurations.
+
+2014-08-15  Joseph Myers  <joseph@codesourcery.com>
+
+	libiberty/
+	* cygpath.c (set_errno_from_windows_code): Move earlier in file.
+
+2014-08-13  Joseph Myers  <joseph@codesourcery.com>
+
+	libiberty/
+	* cygpath.c (msvcrt_stat): Correct stat_type typedef.  Return -1
+	not NULL.
+	(stat): Do not cast msvcrt_stat arguments to struct _stat *.
+	(set_errno_from_windows_code): Use DWORD not int consistently for
+	Windows error code.
+
+2014-08-13  Joseph Myers  <joseph@codesourcery.com>
+
+	libiberty/
+	* cygpath.c: Remove trailing whitespace.
+
+2014-08-13  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	2014-08-13  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	gcc/
+	* config/rs6000/rs6000.opt (te6500): New option.
+	* config/rs6000/cs-linux.h (CC1_EXTRA_SPEC): Handle it.
+	(ASM_DEFAULT_SPEC, SYSROOT_SUFFIX_SPEC): Likewise.
+	(STARTFILE_PREFIX_SPEC): New macro.
+	* config/rs6000/option-defaults.h (OPTION_DEFAULT_SPECS): Handle
+	-te6500.
+	* config/rs6000/t-cs-linux-lite: New, copied from t-cs-linux.
+	* config/rs6000/t-cs-linux: Add te6500 multilibs.
+	* config.gcc <powerpc*-*-linux*>: Use rs6000/t-cs-linux-lite
+	rather than rs6000/t-cs-linux for Lite configurations.
+
+	* release-notes-csl.xml
+	(New 32-bit and 64-bit e6500 Power multilibs): New note.
+
+2014-08-13  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	2014-08-13  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	gcc/
+	* config/rs6000/e500.h (HARD_REGNO_CALLER_SAVE_MODE): Remove
+	macro.
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Handle
+	TARGET_E500_DOUBLE case here.
+
+2014-08-12  Janis Johnson  <janisjo@codesourcery.com>
+
+	Backport from FSF mainline and 4.9:
+
+	gcc/testsuite/
+
+	2014-08-11  Janis Johnson  <janisjo@codesourcery.com>
+
+	* lib/target-supports.exp (check_effective_target_arm_thumb1_ok,
+	check_effective_target_arm_thumb2_ok): Test with code that passes
+	an argument and returns a result.
+
+	* gcc.target/arm/frame-pointer-1.c: Skip if Thumb is not supported.
+	* gcc.target/arm/pr56184.C: Likewise.
+	* gcc.target/arm/pr59896.c: Likewise.
+	* gcc.target/arm/stack-red-zone.c: Likewise.
+	* gcc.target/arm/thumb-find-work-register.c: Likewise.
+
+	gcc/testsuite/
+
+	2014-08-12  Janis Johnson  <janisjo@codesourcery.com>
+
+	* lib/target/supports.exp
+	(check_effective_target_arm_v8_neon_ok_nocache): Check for armv8
+	or later.
+
+	* gcc.dg/pr59418.c: Don't add ARM options for a Thumb1 multilib.
+
+	* gcc.target/arm/neon-vext-execute.c: Skip if the test won't run
+	on Neon hardware.
+
+	* gcc.target/arm/pr48784.c: Skip for thumb1 multilib.
+	* gcc.target/arm/pr59985.c: Likewise.
+
+2014-07-26  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF mainline:
+
+	gcc/testsuite/
+
+	2014-07-17  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/umips-lwp-1.c (foo): Use a shift/add sequence
+	involving both inputs rather than a multiplication involving one.
+	* gcc.target/mips/umips-lwp-2.c (foo): Likewise.
+	* gcc.target/mips/umips-lwp-3.c (foo): Likewise.
+	* gcc.target/mips/umips-lwp-4.c (foo): Likewise.
+
+2014-07-26  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from FSF GCC 4.9.1.
+
+2014-07-15 Tom de Vries  <tom@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	2012-03-30  Tom de Vries  <tom@codesourcery.com>
+	gcc/testsuite/
+	* gcc.target/mips/mips.exp: Add frame-header-opt.
+	* gcc.target/mips/fho-1.c: New test.
+
+	2012-06-23  Maciej W. Rozycki  <macro@codesourcery.com>
+	CB-1282
+	gcc/
+	* config/mips/mips.c (mips_compute_frame_info): Calculate
+	initial frame size.
+	(mips_expand_prologue): Don't call mips_compute_frame_info here,
+	don't calculate initial frame size.
+
+	2011-04-22  Zoran Jovanovic  <zoran.jovanovic@rt-rk.com>
+	gcc/
+	* config/mips/mips.opt (mframe-header-opt): New option.
+	* config/mips/mips.c (struct mips_frame_info): Add
+	skip_stack_frame_allocation_p field.
+	(struct machine_function): Add fields callees_use_frame_header_p,
+	uses_frame_header_p, initial_total_size.
+	(struct frame_header_usage): New struct.
+	(frame_header_usage_htab): New variable.
+	(mips_rest_of_frame_header_opt, frame_header_usage_htab_hash)
+	(frame_header_usage_htab_eq, mips_find_if_frame_header_is_used)
+	(mips_callee_use_frame_header, mips_callees_use_frame_header_p)
+	(mips_cfun_use_frame_header_p): New function.
+	(mips_compute_frame_info): Add parameter recalculate.  Move frame to
+	parameter.  Move cprestore_size init up.  Use recalculate.  Use
+	mips_must_initialize_gp_p.
+	(mips_frame_pointer_required, mips_initial_elimination_offset): Add
+	args to call to mips_compute_frame_info.
+	(mips_expand_prologue): Use mips_compute_frame_info.  Move frame init
+	up.  Set initial_total_size.
+	(mips_gp_expand_needed_p): Factor new function out of
+	mips_expand_ghost_gp_insns.
+	(mips_expand_ghost_gp_insns): Use mips_gp_expand_needed_p.
+	(mips_reorg): Use mips_rest_of_frame_header_opt.
+	(mips_override_options): Switch off flag_frame_header_optimization if
+	flag_exceptions or flag_unwind_tables.
+	(mips_get_updated_offset, mips_skip_stack_frame_alloc)
+	(mips_frame_header_update_insn): New function.
+
+	2012-10-06  Tom de Vries  <tom@codesourcery.com>
+	gcc/testsuite/
+	* lib/target-supports.exp (check_effective_target_mips16)
+	(check_effective_target_micromips, check_effective_target_o32): New
+	proc.
+	* gcc.target/mips/mips.exp: (mips_option_groups): Add -save-temps.
+	* gcc.target/mips/fho-1.c: Improve test.
+
+	2014-02-26  Janis Johnson  <janisjo@codesourcery.com>
+
+	* gcc/testsuite/gcc.target/mips/fho-1.c: Remove option not handled
+	by test infrastructure, skip for irrelevant options.
+
+2014-07-09  Tom de Vries  <tom@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.target/mips/fuse-caller-save.c: Remove test on number of stores.
+	* gcc.target/mips/fuse-caller-save-mips16.c: Same.
+	* gcc.target/mips/fuse-caller-save-micromips.c: Same.
+	* gcc.target/mips/fuse-caller-save-neg.c: New test.
+	* gcc.target/mips/fuse-caller-save-mips16-neg.c: Same.
+	* gcc.target/mips/fuse-caller-save-micromips-neg.c: Same.
+
+2014-07-09  Tom de Vries  <tom@codesourcery.com>
+
+	Backport from mainline:
+
+	2014-06-25  Tom de Vries  <tom@codesourcery.com>
+
+	* config/arm/arm.c (arm_emit_call_insn): Remove clobber of CC_REGNUM.
+
+	2014-06-20  Tom de Vries  <tom@codesourcery.com>
+
+	* target.def (call_fusage_contains_non_callee_clobbers): Update
+	definition.
+	* doc/tm.texi: Regenerate.
+
+	2014-06-20  Tom de Vries  <tom@codesourcery.com>
+
+	* final.c (collect_fn_hard_reg_usage): Add separate IOR_HARD_REG_SET for
+	get_call_reg_set_usage.
+
+	2014-06-20  Tom de Vries  <tom@codesourcery.com>
+
+	* final.c (collect_fn_hard_reg_usage): Don't save function_used_regs if
+	it contains all call_used_regs.
+
+	2014-06-20  Tom de Vries  <tom@codesourcery.com>
+
+	* final.c (collect_fn_hard_reg_usage): Add and use variable
+	function_used_regs.
+
+	2014-06-19  Tom de Vries  <tom@codesourcery.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_emit_call_insn): Change
+	return type to void.
+	* config/aarch64/aarch64.c (aarch64_emit_call_insn): Same.
+
+	2014-06-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/61533
+	* gcc.target/i386/fuse-caller-save.c: Add -fomit-frame-pointer to
+	dg-options.
+
+	2014-06-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/fuse-caller-save.c: Add -mregparm=1 for ia32 target.
+
+	2014-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_emit_call_insn): Declare.
+	* config/aarch64/aarch64.c
+	(TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS): Redefine as true.
+	(aarch64_emit_call_insn): New function.
+	(aarch64_load_symref_appropriately): Use aarch64_emit_call_insn instead
+	of emit_call_insn.
+	* config/aarch64/aarch64.md (define_expand "call_internal")
+	(define_expand "call_value_internal", define_expand "sibcall_internal")
+	(define_expand "sibcall_value_internal"): New.
+	(define_expand "call", define_expand "call_value")
+	(define_expand "sibcall", define_expand "sibcall_value"): Use internal
+	expand variant and aarch64_emit_call_insn.
+
+	* gcc.target/aarch64/fuse-caller-save.c: New test.
+
+	2014-06-18  Radovan Obradovic  <robradovic@mips.com>
+	            Tom de Vries  <tom@codesourcery.com>
+
+	* config/arm/arm-protos.h (arm_emit_call_insn): Add bool parameter.
+	* config/arm/arm.c (TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS):
+	Redefine to true.
+	(arm_emit_call_insn): Add and use sibcall parameter.  Add IP and CC
+	clobbers to CALL_INSN_FUNCTION_USAGE.
+	(define_expand "sibcall_internal")
+	(define_expand "sibcall_value_internal"): New.
+	(define_expand "call", define_expand "call_value"): Add argument to
+	arm_emit_call_insn.
+	(define_expand "sibcall"): Use sibcall_internal and arm_emit_call_insn.
+	(define_expand "sibcall_value"): Use sibcall_value_internal and
+	arm_emit_call_insn.
+
+	* gcc.target/arm/fuse-caller-save.c: New test.
+
+	2014-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	* config/i386/i386.c (TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS):
+	Redefine as true.
+
+	* gcc.target/i386/fuse-caller-save.c: New test.
+	* gcc.dg/ira-shrinkwrap-prep-1.c: Run with -fno-use-caller-save.
+	* gcc.dg/ira-shrinkwrap-prep-2.c: Same.
+
+	2014-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	* lra-int.h (struct lra_reg): Add field actual_call_used_reg_set.
+	* lra.c (initialize_lra_reg_info_element): Add init of
+	actual_call_used_reg_set field.
+	(lra): Call lra_create_live_ranges before lra_inheritance for
+	-fuse-caller-save.
+	* lra-assigns.c (lra_assign): Allow call_used_regs to cross calls for
+	-fuse-caller-save.
+	* lra-constraints.c (need_for_call_save_p): Use actual_call_used_reg_set
+	instead of call_used_reg_set for -fuse-caller-save.
+	* lra-lives.c (process_bb_lives): Calculate actual_call_used_reg_set.
+
+	2014-05-29  Radovan Obradovic  <robradovic@mips.com>
+	            Tom de Vries  <tom@codesourcery.com>
+
+	* config/mips/mips.h (POST_CALL_TMP_REG): Define.
+	* config/mips/mips.c (mips_emit_call_insn): Add POST_CALL_TMP_REG
+	clobber.
+	(mips_split_call): Use POST_CALL_TMP_REG.
+	(TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS): Redefine to true.
+
+	* gcc.target/mips/mips.exp: Add use-caller-save to -ffoo/-fno-foo
+	options.
+	* gcc.target/mips/fuse-caller-save.h: New include file.
+	* gcc.target/mips/fuse-caller-save.c: New test.
+	* gcc.target/mips/fuse-caller-save-mips16.c: Same.
+	* gcc.target/mips/fuse-caller-save-micromips.c: Same.
+
+	2014-05-29  Tom de Vries  <tom@codesourcery.com>
+
+	* final.c (collect_fn_hard_reg_usage): Guard variable declaration
+	with #ifdef STACK_REGS.
+
+	2014-05-28  Radovan Obradovic  <robradovic@mips.com>
+	            Tom de Vries  <tom@codesourcery.com>
+
+	* doc/invoke.texi (@item Optimization Options): Add -fuse-caller-save to
+	gccoptlist.
+	(@item -fuse-caller-save): New item.
+
+	2014-05-28  Radovan Obradovic  <robradovic@mips.com>
+	            Tom de Vries  <tom@codesourcery.com>
+
+	* opts.c (default_options_table): Add OPT_LEVELS_2_PLUS entry with
+	OPT_fuse_caller_save.
+
+	2014-05-28  Radovan Obradovic  <robradovic@mips.com>
+	            Tom de Vries  <tom@codesourcery.com>
+
+	* df-scan.c (df_get_call_refs): Use get_call_reg_set_usage.
+	* caller-save.c (setup_save_areas, save_call_clobbered_regs): Use
+	get_call_reg_set_usage.
+	* resource.c (mark_set_resources, mark_target_live_regs): Use
+	get_call_reg_set_usage.
+	* ira-int.h (struct ira_allocno): Add crossed_calls_clobbered_regs
+	field.
+	(ALLOCNO_CROSSED_CALLS_CLOBBERED_REGS): Define.
+	* ira-lives.c (process_bb_node_lives): Use get_call_reg_set_usage.
+	Calculate ALLOCNO_CROSSED_CALLS_CLOBBERED_REGS.
+	* ira-build.c (ira_create_allocno): Init
+	ALLOCNO_CROSSED_CALLS_CLOBBERED_REGS.
+	(create_cap_allocno, propagate_allocno_info)
+	(propagate_some_info_from_allocno)
+	(copy_info_to_removed_store_destinations): Handle
+	ALLOCNO_CROSSED_CALLS_CLOBBERED_REGS.
+	* ira-costs.c (ira_tune_allocno_costs): Use
+	ALLOCNO_CROSSED_CALLS_CLOBBERED_REGS to adjust costs.
+
+	2014-05-28  Radovan Obradovic  <robradovic@mips.com>
+	            Tom de Vries  <tom@codesourcery.com>
+
+	* cgraph.h (struct cgraph_rtl_info): Add function_used_regs
+	and function_used_regs_valid fields.
+	* final.c: Move include of hard-reg-set.h to before rtl.h to declare
+	find_all_hard_reg_sets.
+	(collect_fn_hard_reg_usage, get_call_fndecl, get_call_cgraph_rtl_info)
+	(get_call_reg_set_usage): New function.
+	(rest_of_handle_final): Use collect_fn_hard_reg_usage.
+	* regs.h (get_call_reg_set_usage): Declare.
+
+	2014-05-05  Radovan Obradovic  <robradovic@mips.com>
+	            Tom de Vries  <tom@codesourcery.com>
+
+	* target.def (call_fusage_contains_non_callee_clobbers): New DEFHOOKPOD.
+	* doc/tm.texi.in (@node Stack and Calling): Add Miscellaneous Register
+	Hooks to @menu.
+	(@node Miscellaneous Register Hooks): New node.
+	(@hook TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS): New hook.
+	* doc/tm.texi: Regenerate.
+
+	2014-04-25  Tom de Vries  <tom@codesourcery.com>
+
+	* expr.c (clobber_reg_mode): New function.
+	* expr.h (clobber_reg): New function.
+
+	2014-04-25  Tom de Vries  <tom@codesourcery.com>
+
+	* rtlanal.c (find_all_hard_reg_sets): Note INSN_CALL_FUNCTION_USAGE
+	clobbers.
+
+	2014-04-25  Radovan Obradovic  <robradovic@mips.com>
+	            Tom de Vries  <tom@codesourcery.com>
+
+	* rtlanal.c (find_all_hard_reg_sets): Add bool implicit parameter and
+	handle.
+	* rtl.h (find_all_hard_reg_sets): Add bool parameter.
+	* haifa-sched.c (recompute_todo_spec, check_clobbered_conditions): Add
+	new argument to find_all_hard_reg_sets call.
+
+	2014-04-24  Radovan Obradovic  <robradovic@mips.com>
+	            Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/fuse-caller-save.c: New test.
+
+	2014-04-24  Radovan Obradovic  <robradovic@mips.com>
+	            Tom de Vries  <tom@codesourcery.com>
+
+	* reg-notes.def (REG_NOTE (CALL_DECL)): New reg-note REG_CALL_DECL.
+	* calls.c (expand_call, emit_library_call_value_1): Add REG_CALL_DECL
+	reg-note.
+	* combine.c (distribute_notes): Handle REG_CALL_DECL reg-note.
+	* emit-rtl.c (try_split): Same.
+
+	2014-04-24  Radovan Obradovic  <robradovic@mips.com>
+	            Tom de Vries  <tom@codesourcery.com>
+
+	* common.opt (fuse-caller-save): New option.
+
+2014-07-08  Meador Inge  <meadori@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	CB-3504
+
+	* release-notes-csl.xml: New note.
+
+	gcc/
+
+	* config/arm/t-cs-eabi (MULTILIB_REUSE): Add support for
+	'-mthumb -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16'
+	multilib.
+	(MULTILIB_OSDIRNAMES): Likewise.
+	(MULTILIB_REQUIRED): Likewise.
+
+2014-07-03  Julian Brown  <julian@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	Issue #16393
+
+	gcc/config/
+	* print-sysroot-suffix.sh: Add MULTILIB_REUSE support.
+	* t-sysroot-suffix: Pass MULTILIB_REUSE argument to script.
+
+2014-07-03  Tom de Vries  <tom@codesourcery.com>
+
+	gcc/
+	* config/arm/vfp.md (define_insn "*divsf3_vfp")
+	(define_insn "*divdf3_vfp"): Replace read/write constraint modifier with
+	output constraint modifier.
+
+2014-06-30  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	Revert:
+
+	2013-08-08  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/neon.md (movmisalign<mode>): Disable when we
+	don't allow unaligned accesses.
+	(*movmisalign<mode>_neon_store): Likewise.
+	(*movmisalign<mode>_neon_load): Likewise.
+	(*movmisalign<mode>_neon_store): Likewise.
+	(*movmisalign<mode>_neon_load): Likewise.
+
+2014-06-30  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	Revert:
+
+	2013-09-05  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/58139
+	* reginfo.c (choose_hard_reg_mode): Scan through all mode classes
+	looking for widest mode.
+
+2014-06-30  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Revert:
+
+	2013-11-27   H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/59311
+	* dwarf2cfi.c (dwf_regno): Assert reg isn't pseudo register.
+	* lra-spills.c (spill_pseudos): Handle REG_XXX notes.
+
+2014-06-30  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Revert:
+
+	2013-05-21  Christian Bruel  <christian.bruel@st.com>
+
+	* dwarf2out.c (multiple_reg_loc_descriptor): Use dbx_reg_number for
+	spanning registers. LEAF_REG_REMAP is supported only for contiguous
+	registers. Set register size out of the PARALLEL loop.
+
+2014-06-30  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	2014-02-17  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	gcc/
+	* config/rs6000/rs6000.c (output_vec_const_move): Handle
+	little-endian code generation.
+	* config/rs6000/spe.md (spe_evmergehi): Rename to...
+	(vec_perm00_v2si): ... this.  Handle little-endian code
+	generation.
+	(spe_evmergehilo): Rename to...
+	(vec_perm01_v2si): ... this.  Handle little-endian code
+	generation.
+	(spe_evmergelo): Rename to...
+	(vec_perm11_v2si): ... this.  Handle little-endian code
+	generation.
+	(spe_evmergelohi): Rename to...
+	(vec_perm10_v2si): ... this.  Handle little-endian code
+	generation.
+	(spe_evmergehi, spe_evmergehilo): New expanders.
+	(spe_evmergelo, spe_evmergelohi): Likewise.
+	(*frob_<SPE64:mode>_<DITI:mode>): Handle little-endian code
+	generation.
+	(*frob_tf_ti): Likewise.
+	(*frob_<mode>_di_2): Likewise.
+	(*frob_tf_di_8_2): Likewise.
+	(*frob_di_<mode>): Likewise.
+	(*frob_ti_tf): Likewise.
+	(*frob_<DITI:mode>_<SPE64:mode>_2): Likewise.
+	(*frob_ti_<mode>_8_2): Likewise.
+	(*frob_ti_tf_2): Likewise.
+	(mov_si<mode>_e500_subreg0): Rename to...
+	(mov_si<mode>_e500_subreg0_be): ... this.  Restrict to the big
+	endianness only.
+	(*mov_si<mode>_e500_subreg0_le): New instruction pattern.
+	(*mov_si<mode>_e500_subreg0_elf_low): Rename to...
+	(*mov_si<mode>_e500_subreg0_elf_low_be): ... this.  Restrict to
+	the big endianness only.
+	(*mov_si<mode>_e500_subreg0_elf_low_le): New instruction pattern.
+	(*mov_si<mode>_e500_subreg0_2): Rename to...
+	(*mov_si<mode>_e500_subreg0_2_be): ... this.  Restrict to the
+	big big endianness only.
+	(*mov_si<mode>_e500_subreg0_2_le): New instruction pattern.
+	(*mov_si<mode>_e500_subreg4): Rename to...
+	(*mov_si<mode>_e500_subreg4_be): ... this.  Restrict to the big
+	endianness only.
+	(mov_si<mode>_e500_subreg4_le): New instruction pattern.
+	(*mov_si<mode>_e500_subreg4_elf_low): Rename to...
+	(*mov_si<mode>_e500_subreg4_elf_low_be): ... this.  Restrict to
+	the big endianness only.
+	(*mov_si<mode>_e500_subreg4_elf_low_le): New instruction/splitter
+	pattern.
+	(*mov_si<mode>_e500_subreg4_2): Rename to...
+	(*mov_si<mode>_e500_subreg4_2_be): ... this.  Restrict to the big
+	endianness only.
+	(*mov_si<mode>_e500_subreg4_2_le): New instruction pattern.
+	(*mov_sitf_e500_subreg8): Rename to...
+	(*mov_sitf_e500_subreg8_be): ... this.  Restrict to the big
+	endianness only.
+	(*mov_sitf_e500_subreg8_le): New instruction pattern.
+	(*mov_sitf_e500_subreg8_2): Rename to...
+	(*mov_sitf_e500_subreg8_2_be): ... this.  Restrict to the big
+	endianness only.
+	(*mov_sitf_e500_subreg8_2_le): New instruction pattern.
+	(*mov_sitf_e500_subreg12): Rename to...
+	(*mov_sitf_e500_subreg12_be): ... this.  Restrict to the big
+	endianness only.
+	(*mov_sitf_e500_subreg12_le): New instruction pattern.
+	(*mov_sitf_e500_subreg12_2): Rename to...
+	(*mov_sitf_e500_subreg12_2_be): ... this.  Restrict to the big
+	endianness only.
+	(*mov_sitf_e500_subreg12_2_le): New instruction pattern.
+
+	gcc/testsuite/
+	* gcc.target/powerpc/spe-evmerge.c: New file.
+
+2014-06-29  Julian Brown  <julian@codesourcery.com>
+	    Meador Inge  <meadori@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (arm_option_override): Emit warning if
+	-mfix-cortex-a9-volatile-hazards is used on an incompatible CPU.
+	(any_volatile_loads_p): New.
+	(arm_cortex_a9_errata_reorg): New.
+	(arm_reorg): Call arm_cortex_a9_errata_reorg.
+	* config/arm/arm.opt (mfix-cortex-a9-volatile-hazards): Add
+	option.
+	* config/arm/sync.md (*memory_barrier): Don't use on Thumb-2.
+	(*memory_barrier_t2): New, allow conditional execution on
+	Thumb-2.
+	* doc/invoke.texi (-mfix-cortex-a9-volatile-hazards): Add
+	documentation.
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_effective_target_arm_dmb): New.
+	* gcc.target/arm/a9-volatile-ordering-erratum-1.c: New test.
+	* gcc.target/arm/a9-volatile-ordering-erratum-2.c: New test.
+	* gcc.target/arm/a9-volatile-ordering-erratum-3.c: New test.
+	* gcc.target/arm/a9-volatile-ordering-erratum-4.c: New test.
+
+2014-06-26  Julian Brown  <julian@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	include/
+	* dwarf2.h (enum dwarf_calling_convention): Add
+	DW_CC_GNU_thiscall_i386.
+
+	gcc/
+	* config/i386/i386.c (ix86_dwarf_calling_convention): New.
+	(TARGET_DWARF_CALLING_CONVENTION): Define, using above.
+
+2014-06-26  Julian Brown  <julian@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	Issue #14520
+
+	gcc/
+	* config/arm/arm.c (arm_array_mode_supported_p): No array modes for
+	big-endian NEON.
+	(arm_preferred_simd_mode): Don't use NEON vectors for
+	autovectorization in big-endian mode.
+	(arm_autovectorize_vector_sizes): Don't iterate over other vector
+	sizes for big-endian NEON.
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_vect_support_and_set_flags): Don't
+	run vect tests for big-endian ARM NEON.
+	* gcc.target/arm/neon/vect-vcvt.c: XFAIL for !arm_little_endian.
+	* gcc.target/arm/neon/vect-vcvtq.c: Likewise.
+	* gcc.target/arm/neon-vshl-imm-1.c: Likewise.
+	* gcc.target/arm/neon-vshr-imm-1.c: Likewise.
+	* gcc.target/arm/neon-vmls-1.c: Likewise.
+	* gcc.target/arm/neon-vmla-1.c: Likewise.
+	* gcc.target/arm/neon-vfma-1.c: Likewise.
+	* gcc.target/arm/neon-vfms-1.c: Likewise.
+	* gcc.target/arm/neon-vorn-vbic.c: Likewise.
+	* gcc.target/arm/neon-vlshr-imm-1.c: Likewise.
+	* gcc.target/arm/neon-vcond-ltgt.c: Likewise.
+	* gcc.target/arm/neon-vcond-gt.c: Likewise.
+	* gcc.target/arm/neon-vcond-unordered.c: Likewise.
+
+2014-06-23  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	2011-10-13  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	Issue #11339
+	Issue #12112
+
+	gcc/
+	* config/arm/arm.md (arch): Add vfp9, notvfp9 values.
+	(arch_enabled): Add cases for vfp9, notvfp9.
+	* config/arm/vfp.md (divsf3_vfp,divdf3_vfp,sqrtsf2_vfp,sqrtdf2_vfp):
+	Add alternative with early clobber destination, enabled by vfp9/notvfp9.
+
+2014-06-23  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	Backport from mainline:
+
+	2014-06-20  Julian Brown  <julian@codesourcery.com>
+	            Chung-Lin Tang  <cltang@codesourcery.com>
+	gcc/
+	* config/arm/arm.c (arm_output_mi_thunk): Fix offset for
+	TARGET_THUMB1_ONLY. Add comments.
+
+2014-06-22  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	2014-06-20  Joseph Myers  <joseph@codesourcery.com>
+
+	Issue CB-3534
+
+	* release-notes-csl.xml (Internal compiler error fix): New note.
+
+	gcc/
+	* var-tracking.c (add_stores): Return instead of asserting if old
+	and new values for conditional store are the same.
+
+2014-06-20  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport commit 211857 from FSF/merge from Sourcery CodeBench 4.8:
+
+	2014-06-20  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	gcc/
+	* config/rs6000/rs6000.md: Append `DONE' to preparation
+	statements of `bswap' pattern splitters.
+
+2014-06-18  Catherine Moore  <clm@codesourcery.com>
+	
+	Merge from Sourcery CodeBench 4.8:
+
+	Paul Brook  <paul@codesourcery.com>
+	Tom de Vries  <tom@codesourcery.com>
+	Catherine Moore  <clm@codesourcery.com>
+	Julian Brown  <julian@codesourcery.com>
+
+	libgcc/
+	* config.host (mips*-sde-elf*): Set md_unwind_header.
+	* Makefile.in (LIB2ADDEH): Add unwind-compact.c.
+	* unwind-dw2-fde-dip.c: Include unwind-compact.h.
+	(_Unwind_Find_registered_Index): Add declaration.
+	(unw_eh_callback_data): Use struct compact_eh_bases.  Add type.
+	(base_from_cb_data): Use data->bases.
+	(_Unwind_IteratePhdrCallback): Search compact frame headers.
+	Use data->bases.  Set data->type.
+	(_Unwind_Find_FDE): Rename...
+	(_Unwind_Find_Index): To this.  Adjust for compact EH.
+	* unwind-compact.c: New file.
+	* unwind-compact.h: New file.
+	* unwind-dw2-fde.c: Include unwind-compact.h.
+	(__register_frame_info_1, __register_frame_info_header_bases): New
+	functions.
+	(__register_frame_info_bases): Use __register_frame_info_1.
+	(search_object): Search compact unwdind table headers.
+	Set bases->entry.  Return entry type.
+	(_Unwind_Find_FDE): Implement as wrapper around _Unwind_Find_Index.
+	(_Unwind_Find_registered_Index): New function.
+	* unwind-dw2-fde.h (object): Add flag for compact frame headers.
+	(__register_frame_info_header_bases): Add prototype.
+	(compact_eh_bases, compact_entry_type): New.
+	(_Unwind_Find_Index): Add prototype.
+	* crtstuff.c (__register_frame_info_header_bases): Declare
+	(__GNU_EH_FRAME_HDR): Declare.
+	(frame_dummy): Register eh_frame_hdr tables.
+	* config/t-eh-dw2-dip (LIB2ADDEH): Add $(srcdir)/unwind-compact.c.
+	* config/mips/mip16.S (CALL_STUB_RET): Don't use unwind info if
+	using compact EH tables.
+	* config/mips/linux-unwind.h: Include mips-unwind.h.
+	* config/mips/mips-unwind.h: New file.
+	* unwind-dw2.c (__gnu_compact_pr1, uw_frame_state_compact):
+	New functions.
+	(__gnu_compact_pr2, __gnu_compact_pr3): Use weak references.
+	(uw_frame_state_for): Handle compact frame entries.
+
+	gcc/
+	* doc/invoke.texi: Document MIPS -mno-compact-eh.
+	* debug.h (asm_cfi_special_encoding): Add prototype.
+	* dwarf2cfi.c (asm_cfi_special_encoding): New.
+	(dwarf2out_do_cfi_asm): Use asm_cfi_special_encoding.
+	* dwarf2out.c (dwarf2out_do_cfi_startproc): Ditto.
+	* configure.ac: Add HAVE_GAS_EH_FRAME_ENTRY check.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/mips/linux.h (MD_HAVE_COMPACT_EH): Define.
+	* config/mips/elf.h (MD_HAVE_COMPACT_EH): Define.
+	* config/mips/sde.h (LINK_EH_SPEC, MIPS_EH_ENCODING): Define.
+	(LINK_SPEC): Use LINK_EH_SPEC.
+	* config/mips/mips.opt: Add -mcompact-eh.
+	* config/mips/mips-protos.h (mips_fixup_cfi_sections): Add
+	prototype.
+	* config/mips/mips.c (done_cfi_sections): New variable.
+	(mips_fixup_cfi_sections, mips_asm_init_sections): New functions.
+	(mips_file_start): Clear done_cfi_sections.
+	(mips_override_options): Disable compact EH if not supported.
+	(TARGET_ASM_INIT_SECTIONS): Define.
+	(TARGET_ASM_FUNCTION_BEGIN_EPILOGUE): Define.
+	(mips_begin_epilogue): New.
+	* config/mips/mips.h (MIPS_CPP_SET_PROCESSOR): Add
+	__GNU_COMPACT_EH__. (ASM_DECLARE_FUNCTION_NAME): Use
+	mips_fixup_cfi_sections. (ASM_PREFERRED_EH_DATA_FORMAT): Define.
+	(ASM_CFI_SPECIAL_ENCODING): New hook.
+	(ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX): Define.
+	(MIPS_EH_ENCODING): Define.
+	(CRT_GET_RFIB_DATA): Define.
+
+	2014-03-26  Maciej W. Rozycki  <macro@codesourcery.com>
+	libgcc/
+	* unwind-dw2-fde.c (_Unwind_Find_registered_Index): Fix
+	uninitialized local variable.
+
+	2013-06-24  Catherine Moore  <clm@codesourcery.com>
+	libgcc/
+	* unwind-compact.h: New file.
+	* unwind-compact.c: New file.
+
+
+	2013-06-26 Catherine Moore  <clm@codesourcery.com>
+	libstdc++-v3/
+	* libsupc++/Makefile.in: Regenerate.
+	* libsupc++/eh_compact_pr.cc: New file.
+	* libsupc++/unwind-cxx.h (__gnu_compact_pr2): Declare.
+	(__gnu_compact_pr3): Declare.
+	* libsupc++/eh_personality.cc (compact_get_ttype_entry): New.
+	(check_compact_exception_spec): New.
+	(__cxa_call_unexpected): Handle compact exception specs.
+	* config/abi/pre/gnu.ver: Add __gnu_compact_pr2 and
+	__gnu_compact_pr3.
+	* config/abi/pre/gnu-versioned-namespace.ver: Likewise.
+
+	libgcc/
+	* unwind-pe.h (DW_EH_PE_udata1): Define.
+	(size_of_encoded_value): Process DW_EH_PE_udata1.
+	(read_encoded_value_with_base): Likewise.
+	* unwind-dw2-fde.h (dwarf_eh_bases): Add field eh_encoding.
+	* crtstuff.c: Don't check for __UCLIBC__.
+	* unwind-generic.h (_Unwind_GetEhEncoding): Declare.
+	* unwind-compat.c (__libunwind_Unwind_GetEhEncoding): Declare.
+	(_Unwind_GetEhEncoding): New.
+	* unwind-dw2.c (u1): New.
+	(_Unwind_GetEhEncoding): New.
+	(uw_frame_state_for): Record encoding.
+	* libgcc-std.ver.in: Add _Unwind_GetEhEncoding and
+	__register_frame_info_header_bases.
+
+	gcc/
+	* dwarf2asm.c (dw2_asm_output_comment): New.
+	(dw2_asm_output_compact_region_length): New.
+	(dw2_asm_output_compact_landing_pad): New.
+	(dw2_asm_output_compact_ac_pair_sleb128): New.
+	* dwarf2asm.h (dw2_asm_output_comment): Declare.
+	(dw2_asm_output_compact_region_length): Declare.
+	(dw2_asm_output_compact_landing_pad): Declare.
+	(dw2_asm_output_compact_ac_pair_sleb128): Declare.
+	* defaults.h (TARGET_COMPACT_EH): Provide default.
+	* tree.c (lhd_gcc_personality): Update arguments to
+	build_personality_function.
+	* tree.h (DECL_FUNCTION_PERSONALITY2): Define.
+	(tree_function_decl): New field personality2.
+	(build_personality_function): Update declaration.
+	* cp/cp-lang.c (cp_eh_personality_decl): Update call
+	to build_personality_function.
+	* expr.c (build_personality_function): Build decls for
+	the compact personality functions.
+	* except.c (using_compact_pr): New.
+	(read_sleb128): New.
+	(func_begin_lab): New.
+	(func_end_lab): New.
+	(region_begin_lab): New.
+	(region_end_lab): New.
+	(chain_t, chain_ref, chains): Declare.
+	(compact_info_t, compact_info_ref, compact_info): Declare.
+	(dummy_info_t, dummy_info_ref, dummy_info): Declare.
+	(compact_create_region_start_label): New.
+	(compact_create_region_end_label): New.
+	(compact_emit_region_header): New.
+	(compact_insert_dummy_nothrow): New.
+	(compact_insert_nothrow): New.
+	(compact_insert_continue): New.
+	(compact_insert_cleanup): New.
+	(compact_link_to_dummy): New.
+	(compact_emit_dummies): New.
+	(compact_find_dummy): New.
+	(compact_chains_match): New.
+	(compact_find_chain): New.
+	(compact_insert_dummy): New.
+	(compact_count_intervening_nocount): New.
+	(compact_merge_nothrows): New.
+	(USE_ACTION_EXTENSION): Define.
+	(output_one_function_compact_eh_table): New.
+	(output_function_exception_table): Build a compact eh table if needed.
+	* except.h (eh_compact_header_type): New.
+
+	gcc/testsuite/
+	* g++.dg/eh/catch6.C: New test.
+
+	2014-04-15  Maciej W. Rozycki  <macro@codesourcery.com>
+	gcc/
+	* dwarf2asm.c (dw2_asm_output_compact_ac_pair_sleb128)
+	[HAVE_AS_LEB128]: Use fprint_whex to output HOST_WIDE_INT
+	values.
+
+	2014-05-08  Catherine Moore  <clm@codesourcery.com>
+	Issue #16265
+	gcc/
+	* dwarf2asm.h (dw2_asm_output_compact_ac_pair_sleb128):
+	Declare arguments as int.
+	* dwarf2asm.c (dw2_asm_output_compact_ac_pair_sleb128):
+	Declare arguments as int.  Remove calls to fprint_whex.
+
+2014-06-17  Catherine Moore  <clm@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	2013-06-27 Catherine Moore  <clm@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/ieee/ieee.exp: Link with floating
+	point emulation for mips-sde-elf targets.
+
+	gcc/testsuite/
+	* gcc.dg/torture/type-generic-1.c: Link with floating point
+	emulation for target mips-sde-elf.
+	* g++.dg/torture/type-generic-1.C: Add options for mips-sde-elf to
+	enable FPU-exception-handling library.
+
+2014-06-15  Iain Sandoe  <iain@codesourcery.com>
+	    Catherine Moore  <clm@codesourcery.com>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+
+	Issue #10284
+
+	gcc/
+	* config/mips/mips.c (mips_set_current_function): Choose
+	function alignment once the current mode is known.
+
+	gcc/testsuite/
+	* gcc.target/mips/umips-align-1.c: New.
+	* gcc.target/mips/umips-align-2.c: New.
+	* gcc.target/mips/umips-align-3.c: New.
+	* gcc.target/mips/mips.exp: Add interlink-compressed to
+	-mfoo/-mno-foo options.
+
+2014-06-05  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF mainline / Merge from Sourcery CodeBench 4.8:
+
+	2014-06-05  Julian Brown  <julian@codesourcery.com>
+		    Sandra Loosemore  <sandra@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.target/arm/pr45094.c: Remove -mcpu=cortex-a8, dg-skip-if
+	options.
+
+2014-05-29  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	gcc/
+	* config/arm/neon-testgen.ml (regexps): Allow any characters
+	in comments after assembly instructions.
+
+	gcc/testsuite/
+	* gcc.target/arm/neon/vfp-shift-a2t2.c: Allow any characters in
+	comments after assembly instructions.
+	* gcc.target/arm/neon/v*.c: Regenerate.
+
+2014-05-28  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	2013-10-23  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	gcc/
+	* config/mips/mips.c (mips16_build_function_stub): Emit source
+	line debug information once the thunk has been produced.
+
+2014-05-28  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8/backport from FSF:
+
+	2014-05-16  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	libgcc/
+	* config/arm/sfp-machine.h (_FP_NANFRAC_H, _FP_NANFRAC_S)
+	(_FP_NANFRAC_D, _FP_NANSIGN_Q): Set the quiet bit.
+
+	* release-notes-csl.xml
+	(GCC ARMv6-M floating-point infinity subtraction bug fix): New.
+
+2014-05-24  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	2011-10-21  Chung-Lin Tang  <cltang@codesourcery.com>
+	gcc/
+	* config/mips/mips.h (CRT_CALL_STATIC_FUNCTION): Define versions
+	for MIPS16 O32.
+
+2014-05-21  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF mainline/ Merge from Sourcery CodeBench 4.8:
+
+	2014-05-21  Cesar Philippidis  <cesar@codesourcery.com>
+		    Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR lto/60179
+ 
+	gcc/testsuite/
+	* lib/scanasm.exp (scan-lto-assembler): New procedure.
+	* gcc.target/nios2/custom-fp-lto.c: New test.
+
+2014-05-20  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF mainline/ Merge from Sourcery CodeBench 4.8:
+
+	2014-05-20  Cesar Philippidis  <cesar@codesourcery.com>
+
+	libstdc++-v3/
+	* scripts/testsuite_flags.in (cxxflags): Remove @CXXFLAGS@ since 
+	libstdc++.exp imports those flags via getenv.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Ensure that 
+	CXXFLAGS contains a '-O' flag. 
+
+2014-05-20  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF mainline/ Merge from Sourcery CodeBench 4.8:
+
+	2014-05-19  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp
+	(check_effective_target_vect_sizes_32B_16B): Return false if
+	128-bit AVX vectors preferred.
+
+2014-05-16  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF mainline/ Merge from Sourcery CodeBench 4.8:
+
+	2014-05-16  Iain Sandoe  <iain@codesourcery.com>
+		    Sandra Loosemore  <sandra@codesourcery.com>
+
+        libstdc++-v3/
+        * testsuite/libstdc++-abi/abi.exp: Defer setting of baseline_subdir
+        until after checking that the test is eligible to be run.
+
+2014-05-14  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	Issue #10598
+
+	gcc/
+	* config/mips/mips.c (mips_order_regs_for_local_alloc): Delete.
+	* config/mips/mips.h (ADJUST_REG_ALLOC_ORDER): Delete.
+	* config/mips/mips-protos.h (mips_order_regs_for_local_alloc): Delete.
+
+2014-05-14  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF:
+
+	* configure.ac (target_makefile_frag): Set for nios2-*-elf*.
+	* configure: Regenerated.
+
+	config/
+	* mt-nios2-elf: New file.
+
+2014-05-14  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* release-notes-csl.xml (Branch optimization bug fix): New note.
+
+	Backport from FSF:
+
+	2014-05-14  Sandra Loosemore  <sandra@codesourcery.com>
+
+	gcc/
+	* config/nios2/nios2.md (nios2_cbranch): Fix paste-o in
+	length attribute computation.
+
+2014-05-13  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF/Merge from Sourcery CodeBench 4.8:
+
+	2014-05-13  Catherine Moore  <clm@cm00re.com>
+
+        * gcc.target/mips/near-far-1.c: Adjust expected output
+        to allow the JALS instruction.
+        * gcc.target/mips/near-far-2.c: Likewise.
+        * gcc.target/mips/near-far-4.c: Likewise.
+
+2014-05-13  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Issue #14263
+
+	Backport from FSF/Merge from Sourcery CodeBench 4.8:
+
+	2014-05-13  Catherine Moore  <clm@codesourcery.com>
+		    Sandra Loosemore  <sandra@codesourcery.com>
+
+	gcc/
+	* configure.ac: Fix assembly for explicit JALR relocation check.
+	* configure: Regenerate.
+
+2014-05-13  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Issue #10782
+
+	Backport from FSF/Merge from Sourcery CodeBench 4.8:
+
+	2014-05-13  Nathan Sidwell  <nathan@codesourcery.com>
+		    Sandra Loosemore  <sandra@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.target/mips/loongson-simd.c: Disable micromips too.
+
+2014-05-12  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	2007-03-30  Paul Brook  <paul@codesourcery.com>
+
+	Issue #8641
+
+	gcc/
+	* calls.c (store_one_arg): Check alignment of mode used for save.
+
+2014-05-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench 4.8:
+
+	Maxim Kuvyrkov  <maxim@codesourcery.com>
+	Issue #10166
+	gcc/
+	* config/mips/linux64.h (GNU_USER_LINK_EMULATION64): Use
+	compatible linker emulation for -mabi=64 -msym32.
+	gcc/testsuite/
+	* gcc.target/mips/mips-nonpic/main-msym32-mplt-1.c: New test.
+
+2014-05-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF:
+
+	gcc/testsuite/
+	2014-05-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.target/i386/avx256-unaligned-load-2.c,
+	gcc.target/i386/pr49002-1.c, gcc.target/i386/pr53712.c,
+	gcc.target/i386/pr53907.c, gcc.target/i386/pr59539-1.c: Allow
+	packed-single instructions.
+
+2014-05-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from FSF:
+
+	gcc/
+	2014-05-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/i386/sse.md (*mov<mode>_internal)
+	(*<sse>_loadu<ssemodesuffix><avxsizesuffix><mask_name>)
+	(*<sse2_avx_avx512f>_loaddqu<mode><mask_name>)
+	(<sse>_andnot<mode>3, <code><mode>3, *andnot<mode>3)
+	(*<code><mode>3, *andnot<mode>3<mask_name>)
+	(<mask_codefor><code><mode>3<mask_name>): Only consider
+	TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL for modes of size 16.
+
+2014-05-07  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	2014-02-04  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/i386/cs-amd-linux.h, config/i386/t-cs-amd-linux: New
+	files.
+	* config.gcc (x86_64-*-linux* | x86_64-*-kfreebsd*-gnu |
+	x86_64-*-knetbsd*-gnu): Handle --enable-extra-sgxxlite-multilibs.
+
+2014-05-07  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	2013-10-15  Sandra Loosemore  <sandra@codesourcery.com>
+
+	gcc/
+	* config/arm/t-cs-altera: New file.
+	* config.gcc: Use it for arm-altera-eabi*.
+
+2014-05-06  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Apply patch from llvm libsanitizer trunk for PR sanitizer/61021:
+
+	libsanitizer/
+	* sanitizer_common/sanitizer_platform_limits_posix.cc
+	(ptrace_getsiginfo, ptrace_setsiginfo): Make references to
+	PTRACE_GETSIGINFO and PTRACE_SETSIGINFO conditional.
+
+2014-05-06  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Revert patch that's no longer necessary:
+
+	2014-05-04  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/ieee/ieee.exp: Link with floating
+	point emulation for mips-sde-elf targets.
+	* gcc.dg/torture/type-generic-1.c: Link with floating point
+	emulation for target mips-sde-elf.
+	* g++.dg/torture/type-generic-1.C: Add options for mips-sde-elf to
+	enable FPU-exception-handling library.
+
+2014-05-06  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Updated version of proposed upstream patch:
+	http://gcc.gnu.org/ml/gcc-patches/2013-06/msg00317.html
+
+	Bernd Schmidt <bernds@codesourcery.com>
+
+    	gcc/
+    	* cgraph.c (cgraph_node): Set ever_was_nested in the node and
+    	its parent when creating a new node.
+    	* cgraph.h (struct cgraph_node): New field ever_was_nested.
+    	* tree-ssa-dse.c: Include "hashtab.h", "gimple-walk.h",
+	"tree-ssa.h", and "cgraph.h"
+    	(struct rls_decl_info, struct rls_stmt_info): New.
+    	(static_variables, defuse_statements, n_statics): New static
+    	variables.
+    	(rls_hash_decl_info, rls_eq_decl_info, rls_free_decl_info,
+    	rls_hash_use_info, rls_eq_use_info, rls_free_use_info, rls_init,
+    	rls_done, note_var_ref, mark_used, remove_local_statics,
+    	find_static_nonvolatile_declarations, maybe_remove_stmt): New static
+    	functions.
+    	(tree_ssa_dse): Call remove_local_statics if appropriate.
+    
+    	gcc/cp/
+    	* decl2.c (mark_used): Mark _DECLs as DECL_NONLOCAL if appropriate.
+    
+    	gcc/testsuite/
+    	* g++.dg/remove-local-statics-1.C: New test.
+    	* g++.dg/remove-local-statics-2.C: New test.
+    	* gcc.dg/remove-local-statics-1.c: New file.
+    	* gcc.dg/remove-local-statics-2.c: New file.
+    	* gcc.dg/remove-local-statics-3.c: New file.
+    	* gcc.dg/remove-local-statics-4.c: New file.
+    	* gcc.dg/remove-local-statics-5.c: New file.
+    	* gcc.dg/remove-local-statics-6.c: New file.
+    	* gcc.dg/remove-local-statics-7.c: New file.
+    	* gcc.dg/remove-local-statics-8.c: New file.
+    	* gcc.dg/remove-local-statics-9.c: New file.
+    	* gcc.dg/remove-local-statics-10.c: New file.
+    	* gcc.dg/remove-local-statics-11.c: New file.
+    	* gcc.dg/remove-local-statics-12.c: New file.
+    	* gcc.dg/remove-local-statics-13.c: New test.
+    	* gcc.dg/remove-local-statics-14.c: New test.
+    	* gcc.dg/remove-local-statics-15.c: New test.
+    	* gcc.dg/remove-local-statics-16.c: New test.
+    	* gcc.dg/remove-local-statics-17.c: New test.
+    	* gcc.dg/remove-local-statics-18.c: New test.
+    	* gcc.dg/tree-ssa/ssa-dse-6.c: Ensure the local variables aren't
+    	optimized away.
+
+2014-05-05  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8 / backport from mainline:
+
+	2014-04-22  Sandra Loosemore  <sandra@codesourcery.com>
+
+	gcc/
+	* config/nios2/nios2.md (UNSPEC_ROUND): New.
+	(lroundsfsi2): New.
+	* config/nios2/nios2.opt (mno-custom-round, mcustom-round=): New.
+	* config/nios2/nios2-opts.h (N2FPU_ALL_CODES): Add round.
+	* config/nios2/nios2.c (N2F_NO_ERRNO): Define.
+	(nios2_fpu_insn): Add entry for round.
+	(N2FPU_NO_ERRNO_P): Define.
+	(nios2_custom_check_insns): Add check for N2F_NO_ERRNO and
+	flag_errno_math.
+	* doc/invoke.texi (Nios II Options): Document -mcustom-round.
+
+	gcc/testsuite/
+	* gcc.target/nios2/custom-fp-conversion.c: Adjust to test that
+	lroundf generates custom round instruction, too.
+
+2014-05-04  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8 / backport from mainline:
+
+	2014-04-16  Catherine Moore  <clm@codesourcery.com>
+
+	gcc/
+	* mips.md (*mov<mode>_internal, *movhi_internal, *movqi_internal):
+	Adjust constraints for microMIPS store patterns.
+
+	testsuite/
+	* gcc.target/mips/umips-store16-2.c: New test.
+
+2014-05-04  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/ieee/ieee.exp: Link with floating
+	point emulation for mips-sde-elf targets.
+	* gcc.dg/torture/type-generic-1.c: Link with floating point
+	emulation for target mips-sde-elf.
+	* g++.dg/torture/type-generic-1.C: Add options for mips-sde-elf to
+	enable FPU-exception-handling library.
+
+2014-05-04  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	2007-09-06  Sandra Loosemore  <sandra@codesourcery.com>
+
+	gcc/
+	* config/mips/mips.opt (mips16e): Add as deprecated alias
+	for -mips16.
+	* doc/invoke.texi (Option Summary, MIPS Options): Document it.
+
+2014-05-04  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8 / backport from mainline:
+
+	2014-04-12  Catherine Moore  <clm@codesourcery.com>
+
+	gcc/
+	* config/mips/constraints.md: Add new register constraint "kb".
+	* config/mips/mips.md (*mov<mode>_internal): Use constraint "kb".
+	(*movhi_internal): Likewise.
+	(*movqi_internal): Likewise.
+	* config/mips/mips.h (M16_STORE_REGS): New register class.
+	(REG_CLASS_NAMES): Add M16_STORE_REGS.
+	(REG_CLASS_CONTENTS): Likewise.
+	* config/mips/mips.c (mips_regno_to_class): Add M16_STORE_REGS.
+
+	gcc/testsuite/
+	* gcc.target/mips/umips-store16-1.c: New test.
+
+2014-05-04  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	2013-08-22  Maciej W. Rozycki  <macro@codesourcery.com>
+ 
+	gcc/
+	* config/mips/mips.opt (mabs2008, mnan2008): New options.
+
+2014-05-03  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	* gcc/config/mips/gnu-user.h (SUBTARGET_OVERRIDE_OPTIONS):
+	Disable thread support for uclibc.
+
+2014-05-03  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	Catherine Moore  <clm@codesourcery.com>
+	Maciej W. Rozycki  <macro@codesourcery.com>
+	Meador Inge  <meadori@codesourcery.com>
+
+	gcc/
+	* config.gcc (mips*-*-linux*):  Enable sgxx multilibs.
+        (mips*-sde-elf*):  Likewise.
+	* config/mips/cs-sgxx-linux.h: New file.
+	* config/mips/cs-sgxxlite-linux.h: New file.
+	* config/mips/t-sgxx-linux: New file.
+	* config/mips/t-sgxxlite-linux: New file.
+        * config/mips/t-sgxx-sde: New file.
+	* config/mips/t-sgxxlite-sde: New file.
+
+2014-05-01  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	Daniel Jacobowitz  <dan@codesourcery.com>
+	Nathan Sidwell  <nathan@codesourcery.com>
+	Nathan Froyd  <froydnj@codesourcery.com>
+	Andrew Stubbs  <ams@codesourcery.com>
+
+	gcc/
+	* config/rs6000/eabi.h (NAME__MAIN, INVOKE__main): Remove.
+	* doc/invoke.texi (PowerPC Options): -meabi option no longer places
+	__eabi function in main.
+
+	libgcc/
+	* config/rs6000/t-ppccomm (eabi.S): Remove rule.
+	* config/rs6000/eabi-ci.asm (__init): Add _init func start.
+	(__fini): Also declare _fini.
+
+2014-05-01  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	Joseph Myers  <joseph@codesourcery.com>
+	Daniel Jacobowitz  <dan@codesourcery.com>
+	Nathan Froyd  <froydnj@codesourcery.com>
+	Andrew Stubbs  <ams@codesourcery.com>
+	Kazu Hirata <kazu@codesourcery.com>
+	Nathan Sidwell  <nathan@codesourcery.com>
+	Julian Brown  <julian@codesourcery.com>
+	Meador Inge  <meadori@codesourcery.com>
+
+	gcc/
+	* config.gcc: Add Power multilib configurations. Use
+	rs6000/t-fprules-softfp and soft-fp/t-softfp.
+	* config/rs6000/t-cs-eabi, config/rs6000/t-cs-linux: New.
+	* config/rs6000/cs-linux.h: New.
+	* config/rs6000/eabi.h (CC1_EXTRA_SPEC, ASM_DEFAULT_SPEC): Define.
+	* config/rs6000/sysv4.h (CC1_EXTRA_SPEC): Define and use.
+	* config/rs6000/option-defaults.h (OPTION_DEFAULT_SPECS): Handle
+	-te500mc, -te500v1, -te500v2 and -te600.
+	* config/rs6000/rs6000.opt (te500mc, te500v1, te500v2, te600): New.
+
+2014-05-01  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	Joseph Myers  <joseph@codesourcery.com>
+	Julian Brown  <julian@codesourcery.com>
+
+	gcc/
+	* config.gcc (i[34567]86-*-linux*): Use extra config files if
+	--enable-extra-sgxx-multilibs.
+	* config/i386/cs-linux.h, config/i386/cs-linux.opt,
+	config/i386/t-cs-linux: New.
+	* configure.ac (gcc_cv_libc_provides_ssp): Set to yes for
+	GNU/Linux targets with libssp disabled.
+	* configure: Regenerate.
+
+2014-04-29  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	Joseph Myers  <joseph@codesourcery.com>
+	Paul Brook  <paul@codesourcery.com>
+	Daniel Gutson  <dgutson@codesourcery.com>
+	Julian Brown  <julian@codesourcery.com>
+	Sandra Loosemore  <sandra@codesourcery.com>
+	Daniel Jacobowitz  <dan@codesourcery.com>
+	Meador Inge  <meadori@codesourcery.com>
+
+	gcc/
+	* config.gcc: Add ARM multilib configurations.
+	* config/arm/nocrt0.h, config/arm/t-cs-eabi,
+	config/arm/t-cs-eabi-lite, config/arm/t-cs-linux,
+	config/arm/t-cs-linux-lite, config/arm/cs-linux.h: New.
+
+2014-04-28  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	libstdc++-v3/
+
+	Merge from WRS Linux 4.4:
+
+	2010-05-18  Joseph Myers  <joseph@codesourcery.com>
+	Issue #5256
+	Issue #5834
+	* config/locale/gnu/c_locale.cc,
+	config/locale/gnu/monetary_members.cc,
+	config/locale/gnu/numeric_members.cc,
+	config/locale/gnu/time_members.cc, src/c++98/codecvt.cc,
+	src/c++98/ctype.cc, src/c++98/locale-inst.cc,
+	src/c++98/wlocale-inst.cc: Add aliases for generic
+	locale symbol names.
+	* config/os/gnu-linux/ctype_configure_char.cc: Likewise.
+
+2014-04-28  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	Issue #9186 - Contents test failure for Python scripts.
+
+	libstdc++-v3/
+	* python/Makefile.am (pythondir): Use $(tooldir)/share.
+	* python/Makefile.in: Regenerate.
+
+2014-04-28  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	2007-03-05  Mark Mitchell  <mark@codesourcery.com>
+	* configure.in (*-*-vxworks*): Remove target-libstdc++-v3 from
+	noconfigdirs.
+	* configure: Regenerated.
+
+2014-04-28  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	2007-03-12  Richard Sandiford  <richard@codesourcery.com>
+	gcc/
+	* config/vx-common.h (TARGET_FLEXLM): Define.
+
+2014-04-28  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	Mark Mitchell  <mark@codesourcery.com>
+
+	Issue #7581
+	libstdc++-v3/
+	* acinclude.m4 (GLIBCXX_WITH_CSLIBC): Define it.
+	* configure.ac (GLIBCXX_WITH_CSLIBC): Use it.
+	* configure: Regenerated.
+	* libsupcc+/Makefile.am (sources): Do not add pure.cc if building
+	for CSLIBC.
+	* libsupc++/Makefile.in: Regenerated.
+
+        Issue #9394
+	libstdc++-v3/
+	* acinclude.m4 (GLIBCXX_WITH_CSLIBC): Define _GLIBCXX_CSLIBC in
+	config.h.
+	* configure: Regenerated.
+	* config.h.in: Likewise.
+	* libsupc++/Makefile.am (sources): Add recursive_init_error.cc.
+	* libsupc++/Makefile.in: Regenerated.
+	* libsupc++/guard.cc (throw_recursive_init_exception): Do not throw an
+	exception when building for CSLIBC.
+
+2014-04-27  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	Daniel Jacobowitz  <dan@codesourcery.com>
+	Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* doc/invoke.texi (-Wno-poison-system-directories): Document.
+	* gcc.c (LINK_COMMAND_SPEC): Pass --no-poison-system-directories
+	if -Wno-poison-system-directories and --error-poison-system-directories
+	if -Werror=poison-system-directories to linker.
+	* incpath.c: Include flags.h. Include toplev.h.
+	(merge_include_chains): If ENABLE_POISON_SYSTEM_DIRECTORIES defined
+	and flag_poison_system_directories is true, warn for use of
+	/usr/include, /usr/local/include or /usr/X11R6/include.
+	* common.opt (--Wno-poison-system-directories): New.
+	* configure.ac (--enable-poison-system-directories): New option.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2014-04-27  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	2009-07-01  Joseph Myers  <joseph@codesourcery.com>
+
+	Issue #4168
+
+	gcc/
+	* gcc.c (using_libgcc, executing_linker): New.
+	(execute): Check that libgcc.a exists in the multilib directory
+	when linking.
+	(process_command): Set using_libgcc to 0 for -nodefaultlibs,
+	-nostdlib and -B options.
+	(main): Set executing_linker when processing spec that may run the
+	linker.
+
+2014-04-27  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	Mark Mitchell  <mark@codesourcery.com>
+	Richard Sandiford  <richard@codesourcery.com>
+	Joseph Myers  <joseph@codesourcery.com>
+	Nathan Sidwell  <nathan@codesourcery.com>
+	Nathan Froyd  <froydnj@codesourcery.com>
+	Julian Brown  <julian@codesourcery.com>
+
+	NOT ASSIGNED TO FSF
+	COPYRIGHT CODESOURCERY
+	
+	gcc/
+	* Makefile.in (CSL_LICENSEINC): Define it.
+	(CSL_LICENSELIB): Likewise.
+	(CSL_LICENSE_PROG): Likewise.
+	(LIBS): Depend on CSL_LICENSELIB.
+	(GCC_PASSES): Depend on CSL_LICENSE_PROG.
+	(INCLUDES): Add CSL_LICENSEINC.
+	* acinclude.m4 (--with-license): New option.
+	(--with-csl-license-feature): Likewise.
+	(--with-csl-license-version): Likewise.
+	* common.opt (flicense-me): Add option.
+	(ffeature-proxy): Likewise.
+	* gcc.c (csl/license.h): Include, if required.
+	(license_checked): New variable.
+	Define license_me_flag 1 if not TARGET_FLEXLM.
+	(driver_handle_option): Handle -flicense-me and -ffeature-proxy.
+	Set license_checked for TARGET_FLEXLM.
+	(do_self_spec): Don't call get_feature for -E or -M.
+	(main): Check licenses.
+	* configure.ac (CSL_AC_LICENSE_VERSION): Use it.
+	(CSL_AC_LICENSE): Likewise.
+	(CSL_AC_LICENSE_FEATURE): Likewise.
+	* config.in: Regenerated.
+	* configure: Regenerated.
+
+2014-04-27  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Merge from Sourcery CodeBench GCC 4.8:
+
+	Mark Mitchell  <mark@codesourcery.com>
+	Vladimir Prus  <vladimir@codesourcery.com>
+	Joseph Myers  <joseph@codesourcery.com>
+	Carlos O'Donell  <carlos@codesourcery.com>
+	Daniel Jacobowitz  <dan@codesourcery.com>
+	Kazu Hirata  <kazu@codesourcery.com>
+	Pedro Alves  <pedro@codesourcery.com>
+
+	libiberty/
+	* configure.ac: Add cygpath for mingw hosts.
+	* configure: Regenerate.
+	* Makefile.in: Add cygpath.
+	* cygpath.c: New.
+	* lrealpath.c (lrealpath): Use cygpath on Windows.
+	* pex-win32.c (pex_win32_open_read, pex_win32_open_write): Use
+	open not _open.
+
+	include/
+	* libiberty.h (cygpath): Declare.
+
+	config/
+	* mh-mingw (CFLAGS, BOOT_CFLAGS): Do not use -D__USE_MINGW_ACCESS.
+	Add a comment.
+
+2014-04-26  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* release-notes-csl.xml: New.

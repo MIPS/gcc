@@ -1,5 +1,5 @@
 /* { dg-options "isa_rev>=2" } */
-/* { dg-skip-if "bswap recognition needs expensive optimizations" { *-*-* } { "-O0" "-O1" } { "" } } */
+/* { dg-skip-if "bswap recognition needs expensive optimizations" { *-*-* } { "-O0" "-O1" "-Og" } { "" } } */
 
 NOMIPS16 unsigned int
 foo (unsigned int x)

@@ -719,6 +719,9 @@
 /* Define to use concept checking code from the boost libraries. */
 #undef _GLIBCXX_CONCEPT_CHECKS
 
+/* Define to 1 if building for use with CSLIBC, or 0 otherwise. */
+#undef _GLIBCXX_CSLIBC
+
 /* Define to 1 if a fully dynamic basic_string is wanted, 0 to disable,
    undefined for platform defaults */
 #undef _GLIBCXX_FULLY_DYNAMIC_STRING

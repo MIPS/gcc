@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* This test requires widening_mul */
 /* { dg-options "-march=vr4130 -mgp32 -fexpensive-optimizations" } */
-/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-Og" } { "" } } */
 /* { dg-final { scan-assembler-times "\tmacc\t\\\$1," 3 } } */
 
 NOMIPS16 long long

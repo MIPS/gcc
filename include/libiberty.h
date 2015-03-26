@@ -609,6 +609,10 @@ extern int pexecute (const char *, char * const *, const char *,
 
 extern int pwait (int, int *, int);
 
+/* Convert a Cygwin path to a Windows path.  */
+
+extern int cygpath (const char *, char []);
+
 #if !HAVE_DECL_ASPRINTF
 /* Like sprintf but provides a pointer to malloc'd storage, which must
    be freed by the caller.  */

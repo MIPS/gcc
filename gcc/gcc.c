@@ -43,6 +43,13 @@ compilation is specified by a string called a "spec".  */
 #include "params.h"
 #include "vec.h"
 #include "filenames.h"
+#ifdef CSL_LICENSE_FEATURE
+#  include <csl/license.h>
+#else
+   /* TARGET_FLEXLM requires the CodeSourcery license library be
+      present.  */
+#  undef TARGET_FLEXLM
+#endif
 
 /* By default there is no special suffix for target executables.  */
 /* FIXME: when autoconf is fixed, remove the host check - dj */
@@ -145,6 +152,28 @@ static enum save_temps {
 /* Output file to use to get the object directory for -save-temps=obj  */
 static char *save_temps_prefix = 0;
 static size_t save_temps_length = 0;
+
+/* Nonzero means that libgcc is being linked automatically by the
+   compiler from its normal installed location; that is, neither -B,
+   -nostdlib nor -nodefaultlibs was passed.  */
+
+static int using_libgcc = 1;
+
+/* Nonzero means that the current spec is executing the linker.  */
+
+static int executing_linker = 0;
+
+#ifdef CSL_LICENSE_FEATURE
+/* 0 if we have not checked for a license, 1 if a license was
+   obtained, -1 if license checkout failed.  */
+   
+static int license_checked = 0;
+
+# ifndef TARGET_FLEXLM
+#  undef license_me_flag
+#  define license_me_flag 1
+# endif /* defined (TARGET_FLELM) */
+#endif /* defined (CSL_LICENSE_FEATURE) */
 
 /* The compiler version.  */
 
@@ -764,6 +793,8 @@ proper position among the other output files.  */
    "%{fuse-ld=*:-fuse-ld=%*}\
     %X %{o*} %{e*} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}} " VTABLE_VERIFICATION_SPEC " \
+    %{Wno-poison-system-directories:--no-poison-system-directories}\
+    %{Werror=poison-system-directories:--error-poison-system-directories}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) " SANITIZER_EARLY_SPEC " %o\
     %{fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)}\
     %{fcilkplus:%:include(libcilkrts.spec)%(link_cilkrts)}\
@@ -2614,6 +2645,29 @@ execute (void)
 
   gcc_assert (!processing_spec_function);
 
+  if (executing_linker && using_libgcc)
+    {
+      const char *libgcc_a_filename;
+
+      /* Verify that the multilib being used is actually installed.  */
+      libgcc_a_filename = (gcc_exec_prefix
+			   ? gcc_exec_prefix
+			   : concat (standard_exec_prefix,
+				     machine_suffix, NULL));
+      if (multilib_dir && strcmp (multilib_dir, ".") != 0)
+	libgcc_a_filename = concat (libgcc_a_filename, multilib_dir,
+				    dir_separator_str, NULL);
+      libgcc_a_filename = concat (libgcc_a_filename, "libgcc.a", NULL);
+      if (access (libgcc_a_filename, R_OK) != 0)
+	{
+	  if (errno == ENOENT)
+	    fatal_error ("selected multilib %qs not installed",
+			 multilib_dir ? multilib_dir : ".");
+	  else
+	    pfatal_with_name (libgcc_a_filename);
+	}
+    }
+
   if (wrapper_string)
     {
       string = find_a_file (&exec_prefixes,
@@ -3593,6 +3647,22 @@ driver_handle_option (struct gcc_options *opts,
       do_save = false;
       break;
 
+#ifdef TARGET_FLEXLM
+    case OPT_flicense_me:
+    case OPT_ffeature_proxy:
+      /* These variables are all set automatically via common.opt.  */
+      do_save = false;
+      break;
+
+      /* WRS LOCAL only invoke get_feature if we are running the
+	 compiler proper.  */
+    case OPT_E:
+    case OPT_M:
+    case OPT_MM:
+      license_checked = 1;
+      break;
+#endif
+
     case OPT_B:
       {
 	size_t len = strlen (arg);
@@ -3621,6 +3691,7 @@ driver_handle_option (struct gcc_options *opts,
 	add_prefix (&include_prefixes, arg, NULL,
 		    PREFIX_PRIORITY_B_OPT, 0, 0);
       }
+      using_libgcc = 0;
       validated = true;
       break;
 
@@ -3660,6 +3731,11 @@ driver_handle_option (struct gcc_options *opts,
 
     case OPT_fwpa:
       flag_wpa = "";
+      break;
+
+    case OPT_nodefaultlibs:
+    case OPT_nostdlib:
+      using_libgcc = 0;
       break;
 
     default:
@@ -6328,6 +6404,10 @@ main (int argc, char **argv)
   char **old_argv = argv;
   struct cl_decoded_option *decoded_options;
   unsigned int decoded_options_count;
+#ifdef CSL_LICENSE_FEATURE
+  csl_license_impl *license_impl = csl_license_subproc;
+  csl_license *license = NULL;
+#endif
 
   p = argv[0] + strlen (argv[0]);
   while (p != argv[0] && !IS_DIR_SEPARATOR (p[-1]))
@@ -7001,7 +7081,59 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		  debug_check_temp_file[1] = NULL;
 		}
 
-	      value = do_spec (input_file_compiler->spec);
+	      value = 0;
+	      
+#ifdef CSL_LICENSE_FEATURE
+	      if (!license_checked)
+		{
+		  const char *subproc, *found_subproc;
+# ifdef TARGET_FLEXLM
+		  const char *subproc_argv[10];
+		  const char **p;
+		  subproc = "get_feature";
+		  p = subproc_argv;
+		  *p++ = subproc;
+		  if (feature_proxy_flag)
+		    *p++ = "-p";
+		  *p++ = "-co";
+		  *p++ = xstrdup (DEFAULT_TARGET_MACHINE);
+		  *p++ = "-v";
+		  *p++ = "3.3";
+		  *p++ = "gnu";
+		  *p++ = infiles[i].language;
+		  *p++ = (license_me_flag ? "-flicense-me" : "");
+		  *p++ = 0;
+# else /* !defined (TARGET_FLEXLM) */
+		  const char **subproc_argv = NULL;
+		  subproc = CSL_LICENSE_PROG;
+# endif /* !defined (TARGET_FLEXLM) */
+		  /* Find the licensing program.  */
+		  found_subproc = find_a_file (&exec_prefixes,
+					       subproc,
+					       X_OK,
+					       /*multilib=*/false);
+		  if (found_subproc)
+		    subproc = found_subproc;
+		  /* Begin checking out the license.  */
+		  license
+		    = csl_subproc_license_new (CSL_LICENSE_FEATURE,
+					       CSL_LICENSE_VERSION,
+					       /*argcp=*/NULL,
+					       /*argvp=*/NULL,
+					       subproc,
+					       subproc_argv);
+		  if (!license)
+		    {
+		      error ("could not invoke license program");
+		      license_checked = -1;
+		    }
+		}
+	      if (license_checked == -1 && license_me_flag)
+		value = -1;
+#endif /* defined (CSL_LICENSE_FEATURE) */
+	      /* Now do the compile.  */
+	      if (!value)
+		value = do_spec (input_file_compiler->spec);
 	      infiles[i].compiled = true;
 	      if (value < 0)
 		this_file_error = 1;
@@ -7038,6 +7170,28 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		  if (compare_files (debug_check_temp_file))
 		    this_file_error = 1;
 		}
+#ifdef CSL_LICENSE_FEATURE
+	      if (!license_checked && license)
+		{
+		  /* Finish checking out the license.  */
+		  const csl_license_status *license_status;
+		  if (!license_impl->license_check (license,
+						    &license_status))
+		    {
+		      if (license_me_flag) /* WRS LOCAL */
+			error ("%s", license_status->msg);
+		      /* Remember that the license check failed so
+			 that we (a) do not check again, and (b) issue
+			 errors about other files as well.  */
+		      license_checked = -1;
+		      if (license_me_flag) /* WRS LOCAL */
+			/* Remove this file.  */
+			this_file_error = 1;
+		    }
+		  else
+		    license_checked = 1;
+		}
+#endif /* defined (CSL_LICENSE_FEATURE) */
 
 	      if (compare_debug)
 		{
@@ -7159,7 +7313,9 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		    " to the linker.\n\n"));
 	  fflush (stdout);
 	}
+      executing_linker = 1;
       value = do_spec (link_command_spec);
+      executing_linker = 0;
       if (value < 0)
 	errorcount = 1;
       linker_was_run = (tmp != execution_count);
@@ -7186,6 +7342,12 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       printf (("\nFor bug reporting instructions, please see:\n"));
       printf ("%s\n", bug_report_url);
     }
+
+#ifdef CSL_LICENSE_FEATURE
+  /* Relinquish the license.  */
+  if (license)
+    license_impl->license_delete (license);
+#endif
 
  out:
   return (signal_count != 0 ? 2

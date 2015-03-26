@@ -3,7 +3,7 @@
 /* { dg-do compile } */
 /* This test requires widening_mul */
 /* { dg-options "-mgp32 -mdspr2 -mtune=74kc -fexpensive-optimizations" } */
-/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-Og" } { "" } } */
 
 /* See PR target/51729 for the reason behind the XFAILs.  */
 /* { dg-final { scan-assembler "\tmult\t" } } */

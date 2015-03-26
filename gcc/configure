@@ -811,6 +811,7 @@ target_subdir
 host_subdir
 build_subdir
 build_libsubdir
+licensedir
 target_noncanonical
 target_os
 target_vendor
@@ -866,6 +867,9 @@ ac_subst_files='option_includes
 language_hooks'
 ac_user_opts='
 enable_option_checking
+with_csl_license_version
+with_license
+with_csl_license_feature
 with_build_libsubdir
 with_local_prefix
 with_gxx_include_dir
@@ -928,6 +932,7 @@ with_system_zlib
 enable_maintainer_mode
 enable_link_mutex
 enable_version_specific_runtime_libs
+enable_poison_system_directories
 enable_plugin
 enable_host_shared
 enable_libquadmath_support
@@ -1648,6 +1653,8 @@ Optional Features:
   --enable-version-specific-runtime-libs
                           specify that runtime libraries should be installed
                           in a compiler-specific directory
+  --enable-poison-system-directories
+                          warn for use of native system header directories
   --enable-plugin         enable plugin support
   --enable-host-shared    build host code as shared libraries
   --disable-libquadmath-support
@@ -1656,6 +1663,11 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-csl-license-version=VERSION
+                          Use VERSION to communicate with the license manager
+  --with-license          the path to the installed license component
+  --with-csl-license-feature=FEATURE
+                          Use FEATURE to communicate with the license manager
   --with-build-libsubdir=DIR  Directory where to find libraries for build system
   --with-local-prefix=DIR specifies directory to put local include
   --with-gxx-include-dir=DIR
@@ -3189,6 +3201,67 @@ esac
 esac
 
 
+
+
+
+
+# Check whether --with-csl-license-version was given.
+if test "${with_csl_license_version+set}" = set; then :
+  withval=$with_csl_license_version; case "$withval" in
+      (yes) as_fn_error "license version not specified" "$LINENO" 5 ;;
+      (no)  CSL_LICENSE_VERSION="" ;;
+      (*)   CSL_LICENSE_VERSION="$withval" ;;
+     esac
+else
+  CSL_LICENSE_VERSION=""
+
+fi
+
+  if test x"$CSL_LICENSE_VERSION" != x; then
+
+cat >>confdefs.h <<_ACEOF
+#define CSL_LICENSE_VERSION "$CSL_LICENSE_VERSION"
+_ACEOF
+
+  fi
+
+
+
+# Check whether --with-license was given.
+if test "${with_license+set}" = set; then :
+  withval=$with_license; case "$withval" in
+     (yes) as_fn_error "license not specified" "$LINENO" 5 ;;
+     (no)  with_license= ;;
+     (*) ;;
+  esac
+else
+  with_license=
+fi
+
+  licensedir=$with_license
+
+
+
+
+# Check whether --with-csl-license-feature was given.
+if test "${with_csl_license_feature+set}" = set; then :
+  withval=$with_csl_license_feature; case "$withval" in
+      (yes) as_fn_error "license feature not specified" "$LINENO" 5 ;;
+      (no)  CSL_LICENSE_FEATURE="" ;;
+      (*)   CSL_LICENSE_FEATURE="$withval" ;;
+     esac
+else
+  CSL_LICENSE_FEATURE=""
+
+fi
+
+  if test x"$CSL_LICENSE_FEATURE" != x; then
+
+cat >>confdefs.h <<_ACEOF
+#define CSL_LICENSE_FEATURE "$CSL_LICENSE_FEATURE"
+_ACEOF
+
+  fi
 
 
 # Determine the target- and build-specific subdirectories
@@ -11291,6 +11364,10 @@ else
 	/* | A-Za-z:\\/* ) realsrcdir=${srcdir};;
 	*) realsrcdir=../${srcdir};;
 	esac
+	if test ${enable_targets}
+	then
+	    enable_targets_opt="--enable-targets=${enable_targets}"
+	fi
 	# Clearing GMPINC is necessary to prevent host headers being
 	# used by the build compiler.  Defining GENERATOR_FILE stops
 	# system.h from including gmp.h.
@@ -11300,6 +11377,7 @@ else
 	GMPINC="" CPPFLAGS="${CPPFLAGS} -DGENERATOR_FILE" \
 	${realsrcdir}/configure \
 		--enable-languages=${enable_languages-all} \
+		$enable_targets_opt \
 		--target=$target_alias --host=$build_alias --build=$build_alias
 
 	# We just finished tests for the build machine, so rename
@@ -17927,7 +18005,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17930 "configure"
+#line 18008 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18033,7 +18111,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18036 "configure"
+#line 18114 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -26232,8 +26310,8 @@ $as_echo_n "checking assembler and linker for explicit JALR relocation... " >&6;
         fi
       elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x -a x$gcc_cv_objdump != x; then
         echo '	.ent x' > conftest.s
-        echo 'x:	ld $2,%got_disp(y)($3)' >> conftest.s
-        echo '	ld $25,%call16(y)($28)' >> conftest.s
+        echo 'x:	lw $2,%got_disp(y)($3)' >> conftest.s
+        echo '	lw $25,%call16(y)($28)' >> conftest.s
         echo '	.reloc	1f,R_MIPS_JALR,y' >> conftest.s
         echo '1:	jalr $25' >> conftest.s
         echo '	.reloc	1f,R_MIPS_JALR,x' >> conftest.s
@@ -26987,6 +27065,37 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_ld_eh_gc_sections_bug" >&5
 $as_echo "$gcc_cv_ld_eh_gc_sections_bug" >&6; }
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for CFI .eh_frame_entry" >&5
+$as_echo_n "checking assembler for CFI .eh_frame_entry... " >&6; }
+if test "${gcc_cv_as_eh_frame_entry+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  gcc_cv_as_eh_frame_entry=no
+  if test x$gcc_cv_as != x; then
+    $as_echo '	.cfi_sections .eh_frame_entry ' > conftest.s
+    if { ac_try='$gcc_cv_as $gcc_cv_as_flags  -o conftest.o conftest.s >&5'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+    then
+	gcc_cv_as_eh_frame_entry=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_as_eh_frame_entry" >&5
+$as_echo "$gcc_cv_as_eh_frame_entry" >&6; }
+if test $gcc_cv_as_eh_frame_entry = yes; then
+
+$as_echo "#define HAVE_GAS_EH_FRAME_ENTRY 1" >>confdefs.h
+
+fi
+
 # --------
 # UNSORTED
 # --------
@@ -27329,6 +27438,9 @@ else
   gcc_cv_libc_provides_ssp=no
     case "$target" in
        *-*-linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu)
+      if test "x$enable_libssp" = "xno"; then
+	gcc_cv_libc_provides_ssp=yes
+      fi
       # glibc 2.4 and later provides __stack_chk_fail and
       # either __stack_chk_guard, or TLS access to stack guard canary.
 
@@ -27729,6 +27841,19 @@ if test "${enable_version_specific_runtime_libs+set}" = set; then :
   enableval=$enable_version_specific_runtime_libs;
 fi
 
+
+# Check whether --enable-poison-system-directories was given.
+if test "${enable_poison_system_directories+set}" = set; then :
+  enableval=$enable_poison_system_directories;
+else
+  enable_poison_system_directories=no
+fi
+
+if test "x${enable_poison_system_directories}" = "xyes"; then
+
+$as_echo "#define ENABLE_POISON_SYSTEM_DIRECTORIES 1" >>confdefs.h
+
+fi
 
 # Substitute configuration variables
 

@@ -38,6 +38,10 @@ AC_CANONICAL_TARGET
 # Determine the noncanonical target name, for directory use.
 ACX_NONCANONICAL_TARGET
 
+CSL_AC_LICENSE_VERSION
+CSL_AC_LICENSE
+CSL_AC_LICENSE_FEATURE
+
 # Determine the target- and build-specific subdirectories
 GCC_TOPLEV_SUBDIRS
 
@@ -1533,6 +1537,10 @@ else
 	/* | [A-Za-z]:[\\/]* ) realsrcdir=${srcdir};;
 	*) realsrcdir=../${srcdir};;
 	esac
+	if test ${enable_targets}
+	then
+	    enable_targets_opt="--enable-targets=${enable_targets}"
+	fi
 	# Clearing GMPINC is necessary to prevent host headers being
 	# used by the build compiler.  Defining GENERATOR_FILE stops
 	# system.h from including gmp.h.
@@ -1542,6 +1550,7 @@ else
 	GMPINC="" CPPFLAGS="${CPPFLAGS} -DGENERATOR_FILE" \
 	${realsrcdir}/configure \
 		--enable-languages=${enable_languages-all} \
+		$enable_targets_opt \
 		--target=$target_alias --host=$build_alias --build=$build_alias
 
 	# We just finished tests for the build machine, so rename
@@ -4268,8 +4277,8 @@ x:
         fi
       elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x -a x$gcc_cv_objdump != x; then
         echo '	.ent x' > conftest.s
-        echo 'x:	ld $2,%got_disp(y)($3)' >> conftest.s
-        echo '	ld $25,%call16(y)($28)' >> conftest.s
+        echo 'x:	lw $2,%got_disp(y)($3)' >> conftest.s
+        echo '	lw $25,%call16(y)($28)' >> conftest.s
         echo '	.reloc	1f,R_MIPS_JALR,y' >> conftest.s
         echo '1:	jalr $25' >> conftest.s
         echo '	.reloc	1f,R_MIPS_JALR,x' >> conftest.s
@@ -4750,6 +4759,13 @@ if test x$gcc_cv_ld_eh_gc_sections_bug = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_ld_eh_gc_sections_bug)
 
+gcc_GAS_CHECK_FEATURE([CFI .eh_frame_entry],
+ gcc_cv_as_eh_frame_entry,
+ ,,
+[	.cfi_sections .eh_frame_entry ],,
+[AC_DEFINE(HAVE_GAS_EH_FRAME_ENTRY, 1,
+[Define if your assembler supports generation of .eh_frame_entry from CFI directives.])])
+
 # --------
 # UNSORTED
 # --------
@@ -5017,6 +5033,9 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
       [gcc_cv_libc_provides_ssp=no
     case "$target" in
        *-*-linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu)
+      if test "x$enable_libssp" = "xno"; then
+	gcc_cv_libc_provides_ssp=yes
+      fi
       # glibc 2.4 and later provides __stack_chk_fail and
       # either __stack_chk_guard, or TLS access to stack guard canary.
       GCC_GLIBC_VERSION_GTE_IFELSE([2], [4], [gcc_cv_libc_provides_ssp=yes], [
@@ -5380,6 +5399,16 @@ AC_ARG_ENABLE(version-specific-runtime-libs,
 [AS_HELP_STRING([--enable-version-specific-runtime-libs],
                 [specify that runtime libraries should be
                  installed in a compiler-specific directory])])
+
+AC_ARG_ENABLE([poison-system-directories],
+	      AS_HELP_STRING([--enable-poison-system-directories],
+			     [warn for use of native system header directories]),,
+	      [enable_poison_system_directories=no])
+if test "x${enable_poison_system_directories}" = "xyes"; then
+  AC_DEFINE([ENABLE_POISON_SYSTEM_DIRECTORIES],
+	    [1],
+	    [Define to warn for use of native system header directories])
+fi
 
 # Substitute configuration variables
 AC_SUBST(subdirs)

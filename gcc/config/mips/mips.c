@@ -71,6 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "tree-pass.h"
 #include "context.h"
+#include "dumpfile.h"
 
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
@@ -368,6 +369,9 @@ struct GTY(())  mips_frame_info {
 
   /* The offset of hard_frame_pointer_rtx from the bottom of the frame.  */
   HOST_WIDE_INT hard_frame_pointer_offset;
+
+  /* Skip stack frame allocation if possible.  */
+  bool skip_stack_frame_allocation_p;
 };
 
 struct GTY(())  machine_function {
@@ -432,6 +436,15 @@ struct GTY(())  machine_function {
   /* True if this is an interrupt handler that should use DERET
      instead of ERET.  */
   bool use_debug_exception_return_p;
+
+  /* True if some of the callees uses its frame header.  */
+  bool callees_use_frame_header_p;
+
+  /* True if current function uses its frame header.  */
+  bool uses_frame_header_p;
+
+  /* Frame size before updated by optimizations.  */
+  HOST_WIDE_INT initial_total_size;
 };
 
 /* Information about a single argument.  */
@@ -532,7 +545,17 @@ struct mips_rtx_cost_data
   unsigned short memory_latency;
 };
 
+/* Stores frame header usage information for all seen functions.  */
+struct GTY (()) mips_frame_header_usage
+{
+  tree fndecl;              /* Function declaration.  */
+  bool frame_header_unused; /* Incoming frame header is unused.  */
+};
+
 /* Global variables for machine-dependent things.  */
+
+/* Frame header usage information for all seen functions.  */
+static GTY ((param_is (struct mips_frame_header_usage))) htab_t frame_header_usage_htab;
 
 /* The -G setting, or the configuration's default small-data limit if
    no -G option is given.  */
@@ -584,6 +607,10 @@ const struct mips_cpu_info *mips_tune_info;
 
 /* The ISA level associated with mips_arch.  */
 int mips_isa;
+
+/* The ISA revision level.  This is 0 for MIPS I to V and N for
+   MIPS{32,64}rN.  */
+int mips_isa_rev;
 
 /* The architecture selected by -mipsN, or null if -mipsN wasn't used.  */
 static const struct mips_cpu_info *mips_isa_option_info;
@@ -646,16 +673,19 @@ static mips_one_only_stub *mips16_rdhwr_stub;
 static mips_one_only_stub *mips16_get_fcsr_stub;
 static mips_one_only_stub *mips16_set_fcsr_stub;
 
+static bool done_cfi_sections;
+
 /* Index R is the smallest register class that contains register R.  */
 const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
-  LEA_REGS,	LEA_REGS,	M16_REGS,	V1_REG,
-  M16_REGS,	M16_REGS,	M16_REGS,	M16_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  M16_REGS,	M16_REGS,	LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  T_REG,	PIC_FN_ADDR_REG, LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
+  LEA_REGS,        LEA_REGS,        M16_STORE_REGS,  V1_REG,
+  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  M16_REGS,        M16_STORE_REGS,  LEA_REGS,        LEA_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  T_REG,           PIC_FN_ADDR_REG, LEA_REGS,        LEA_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
@@ -1176,6 +1206,7 @@ static const struct mips_rtx_cost_data
   }
 };
 
+static void mips_rest_of_frame_header_opt (void);
 static rtx mips_find_pic_call_symbol (rtx, rtx, bool);
 static int mips_register_move_cost (enum machine_mode, reg_class_t,
 				    reg_class_t);
@@ -2842,6 +2873,15 @@ mips_emit_call_insn (rtx pattern, rtx orig_addr, rtx addr, bool lazy_p)
 	       gen_rtx_REG (Pmode, GOT_VERSION_REGNUM));
       emit_insn (gen_update_got_version ());
     }
+
+  if (TARGET_MIPS16
+      && TARGET_EXPLICIT_RELOCS
+      && TARGET_CALL_CLOBBERED_GP)
+    {
+      rtx post_call_tmp_reg = gen_rtx_REG (word_mode, POST_CALL_TMP_REG);
+      clobber_reg (&CALL_INSN_FUNCTION_USAGE (insn), post_call_tmp_reg);
+    }
+
   return insn;
 }
 
@@ -6281,6 +6321,40 @@ mips_start_unique_function (const char *name)
   putc ('\n', asm_out_file);
 }
 
+/* The LTO frontend only enables exceptions when it sees a function that
+   uses it.  This changes the return value of dwarf2out_do_frame, so we
+   have to check before every function.  */
+
+void
+mips_fixup_cfi_sections (void)
+{
+#ifdef MD_HAVE_COMPACT_EH
+  if (done_cfi_sections)
+    return;
+
+  if (!TARGET_COMPACT_EH)
+    return;
+
+  /* Output a .cfi_sections directive.  */
+  if (dwarf2out_do_frame ())
+    {
+      if (flag_unwind_tables || flag_exceptions)
+	{
+	  if (write_symbols == DWARF2_DEBUG
+	      || write_symbols == VMS_AND_DWARF2_DEBUG)
+	    fprintf (asm_out_file,
+		     "\t.cfi_sections .debug_frame, .eh_frame_entry\n");
+	  else
+	    fprintf (asm_out_file, "\t.cfi_sections .eh_frame_entry\n");
+	}
+      else
+	fprintf (asm_out_file, "\t.cfi_sections .debug_frame\n");
+      done_cfi_sections = true;
+    }
+#endif
+}
+
+
 /* Start a definition of function NAME.  MIPS16_P indicates whether the
    function contains MIPS16 code.  */
 
@@ -6652,6 +6726,9 @@ mips16_build_function_stub (void)
      within this file.  */
   ASM_OUTPUT_DEF (asm_out_file, alias_name, fnname);
 
+  debug_hooks->source_line (LOCATION_LINE (prologue_location),
+			    LOCATION_FILE (prologue_location), 0, true);
+
   switch_to_section (function_section (current_function_decl));
 }
 
@@ -6867,20 +6944,7 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
       assemble_start_function (stubdecl, stubname);
       mips_start_function_definition (stubname, false);
 
-      if (fp_ret_p)
-	{
-	  fprintf (asm_out_file, "\t.cfi_startproc\n");
-
-	  /* Create a fake CFA 4 bytes below the stack pointer.
-	     This works around unwinders (like libgcc's) that expect
-	     the CFA for non-signal frames to be unique.  */
-	  fprintf (asm_out_file, "\t.cfi_def_cfa 29,-4\n");
-
-	  /* "Save" $sp in itself so we don't use the fake CFA.
-	     This is: DW_CFA_val_expression r29, { DW_OP_reg29 }.  */
-	  fprintf (asm_out_file, "\t.cfi_escape 0x16,29,1,0x6d\n");
-	}
-      else
+      if (!fp_ret_p)
 	{
 	  /* Load the address of the MIPS16 function into $25.  Do this
 	     first so that targets with coprocessor interlocks can use
@@ -6898,7 +6962,12 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 	 registers.  */
       mips_output_args_xfer (fp_code, 't');
 
-      if (fp_ret_p)
+      if (!fp_ret_p)
+	{
+	  /* Jump to the previously-loaded address.  */
+	  output_asm_insn ("jr\t%^", NULL);
+	}
+      else
 	{
 	  /* Save the return address in $18 and call the non-MIPS16 function.
 	     The stub's caller knows that $18 might be clobbered, even though
@@ -6906,7 +6975,6 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 	  fprintf (asm_out_file, "\tmove\t%s,%s\n",
 		   reg_names[GP_REG_FIRST + 18], reg_names[RETURN_ADDR_REGNUM]);
 	  output_asm_insn (MIPS_CALL ("jal", &fn, 0, -1), &fn);
-	  fprintf (asm_out_file, "\t.cfi_register 31,18\n");
 
 	  /* Move the result from floating-point registers to
 	     general registers.  */
@@ -6959,12 +7027,6 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 	      gcc_unreachable ();
 	    }
 	  fprintf (asm_out_file, "\tjr\t%s\n", reg_names[GP_REG_FIRST + 18]);
-	  fprintf (asm_out_file, "\t.cfi_endproc\n");
-	}
-      else
-	{
-	  /* Jump to the previously-loaded address.  */
-	  output_asm_insn ("jr\t%^", NULL);
 	}
 
 #ifdef ASM_DECLARE_FUNCTION_SIZE
@@ -7098,10 +7160,8 @@ mips_split_call (rtx insn, rtx call_pattern)
 {
   emit_call_insn (call_pattern);
   if (!find_reg_note (insn, REG_NORETURN, 0))
-    /* Pick a temporary register that is suitable for both MIPS16 and
-       non-MIPS16 code.  $4 and $5 are used for returning complex double
-       values in soft-float code, so $6 is the first suitable candidate.  */
-    mips_restore_gp_from_cprestore_slot (gen_rtx_REG (Pmode, GP_ARG_FIRST + 2));
+    mips_restore_gp_from_cprestore_slot (gen_rtx_REG (Pmode,
+						      POST_CALL_TMP_REG));
 }
 
 /* Return true if a call to DECL may need to use JALX.  */
@@ -8482,6 +8542,19 @@ mips_function_rodata_section (tree decl)
   return data_section;
 }
 
+/* Implement TARGET_ASM_INIT_SECTIONS.  */
+
+static void
+mips_asm_init_sections (void)
+{
+  if (TARGET_COMPACT_EH)
+    {
+      /* Let the assembler decide where to put the LSDA.  */
+      exception_section = get_unnamed_section (0, output_section_asm_op,
+					       "\t.cfi_inline_lsda 2");
+    }
+}
+
 /* Implement TARGET_IN_SMALL_DATA_P.  */
 
 static bool
@@ -8654,6 +8727,20 @@ mips_output_filename (FILE *stream, const char *name)
       output_quoted_string (stream, name);
       putc ('\n', stream);
     }
+}
+
+/* Implement TARGET_ASM_FUNCTION_BEGIN_EPILOGUE.  If we're emitting compact EH
+   tables, emit a marker at the start of the epilogue.  */
+
+static void
+mips_begin_epilogue (FILE *f)
+{
+#ifdef MD_HAVE_COMPACT_EH
+  if (TARGET_COMPACT_EH
+      && dwarf2out_do_frame ()
+      && (flag_unwind_tables || flag_exceptions))
+    fprintf (f, "\t.cfi_epilogue_begin\n");
+#endif
 }
 
 /* Implement TARGET_ASM_OUTPUT_DWARF_DTPREL.  */
@@ -8958,6 +9045,8 @@ static void
 mips_file_start (void)
 {
   default_file_start ();
+
+  done_cfi_sections = false;
 
   /* Generate a special section to describe the ABI switches used to
      produce the resultant binary.  */
@@ -9936,6 +10025,144 @@ mips_save_reg_p (unsigned int regno)
   return false;
 }
 
+/* Hash table callbacks for frame_header_usage_htab.  */
+
+static hashval_t
+frame_header_usage_htab_hash (const void *p)
+{
+  /* Function declaration pointer is used as a hash index.  */
+  const struct mips_frame_header_usage *entry =
+    (const struct mips_frame_header_usage *) p;
+  return (hashval_t) (uintptr_t) entry->fndecl;
+}
+
+static int
+frame_header_usage_htab_eq (const void *p1, const void *p2)
+{
+  const struct mips_frame_header_usage *entry1 =
+    (const struct mips_frame_header_usage *) p1;
+  const struct mips_frame_header_usage *entry2 =
+    (const struct mips_frame_header_usage *) p2;
+  return entry1->fndecl == entry2->fndecl;
+}
+
+/* Try to find if function may use its incoming frame header.  */
+
+static bool
+mips_find_if_frame_header_is_used (tree fndecl)
+{
+  void **slot = NULL;
+  struct mips_frame_header_usage tmp_element;
+  tmp_element.fndecl = fndecl;
+
+  if (frame_header_usage_htab)
+    slot = htab_find_slot (frame_header_usage_htab, &tmp_element, NO_INSERT);
+  if (slot && *slot)
+    {
+      struct mips_frame_header_usage *element =
+        (struct mips_frame_header_usage *) *slot;
+      if (element->frame_header_unused)
+        return false;
+    }
+  return true;
+}
+
+/* Return true if the instruction is a call and the called function may use its
+   incoming frame header.  */
+
+static bool
+mips_callee_use_frame_header (rtx insn)
+{
+  rtx call_insn;
+  tree fndecl;
+
+  if (insn == NULL_RTX || !USEFUL_INSN_P (insn))
+    return false;
+
+  /* Handle sequence of instructions.  */
+  if (GET_CODE (PATTERN (insn)) == SEQUENCE)
+    {
+      rtx subinsn;
+      FOR_EACH_SUBINSN (subinsn, insn)
+	if (INSN_P (subinsn) && mips_callee_use_frame_header (subinsn))
+	  return true;
+    }
+
+  if (GET_CODE (insn) != CALL_INSN)
+    return false;
+
+  if (GET_CODE (PATTERN (insn)) != PARALLEL
+      || GET_CODE (XVECEXP (PATTERN (insn), 0, 0)) != SET)
+    return true;
+
+  call_insn = SET_SRC (XVECEXP (PATTERN (insn), 0, 0));
+
+  if (GET_CODE (call_insn) != CALL
+      || GET_CODE (XEXP (call_insn, 0)) != MEM
+      || GET_CODE (XEXP (XEXP (call_insn, 0), 0)) != SYMBOL_REF)
+    return true;
+
+  fndecl = SYMBOL_REF_DECL (XEXP (XEXP (call_insn, 0), 0));
+
+  if (fndecl == current_function_decl)
+    return true;
+
+  return mips_find_if_frame_header_is_used (fndecl);
+}
+
+/* Return true if any of the callee functions may use its incoming frame
+   header.  */
+
+static bool
+mips_callees_use_frame_header_p (void)
+{
+  rtx insn;
+
+  /* Iterate through all instructions in the current function and check whether
+     only already seen functions may be called.  Assume that any unseen function
+     may use its incoming frame header.  */
+  for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
+    if (mips_callee_use_frame_header (insn))
+      return true;
+
+  return false;
+}
+
+/* Return true if the current function may use its incoming frame header.
+   If destination of memory store in format sp + offset and offset is greater
+   or equal than frame->total_size than this function returns true.
+   */
+
+static bool
+mips_cfun_use_frame_header_p (void)
+{
+  rtx insn;
+  struct mips_frame_info *frame;
+
+  frame = &cfun->machine->frame;
+
+  for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
+    {
+      if (insn != NULL_RTX && INSN_P (insn)
+	  && GET_CODE (PATTERN (insn)) == SET
+	  && MEM_P (XEXP (PATTERN (insn), 0)))
+	{
+	  rtx mem_dst = XEXP (XEXP (PATTERN (insn), 0), 0);
+	  if (GET_CODE (mem_dst) == PLUS
+	      && CONST_INT_P (XEXP (mem_dst, 1))
+	      && REG_P (XEXP (mem_dst, 0))
+	      && REGNO (XEXP (mem_dst, 0)) == STACK_POINTER_REGNUM)
+	    {
+	      int offset = INTVAL (XEXP (mem_dst, 1));
+	      if (offset >= cfun->machine->initial_total_size)
+		return true;
+	    }
+	}
+    }
+
+  return false;
+}
+
 /* Populate the current function's mips_frame_info structure.
 
    MIPS stack frames look like:
@@ -10007,17 +10234,16 @@ mips_save_reg_p (unsigned int regno)
    hard_frame_pointer_rtx unchanged.  */
 
 static void
-mips_compute_frame_info (void)
+mips_compute_frame_info (bool recalculate, struct mips_frame_info *frame)
 {
-  struct mips_frame_info *frame;
   HOST_WIDE_INT offset, size;
   unsigned int regno, i;
 
   /* Set this function's interrupt properties.  */
   if (mips_interrupt_type_p (TREE_TYPE (current_function_decl)))
     {
-      if (!ISA_MIPS32R2)
-	error ("the %<interrupt%> attribute requires a MIPS32r2 processor");
+      if (mips_isa_rev < 2)
+	error ("the %<interrupt%> attribute requires a MIPS32r2 processor or greater");
       else if (TARGET_HARD_FLOAT)
 	error ("the %<interrupt%> attribute requires %<-msoft-float%>");
       else if (TARGET_MIPS16)
@@ -10035,11 +10261,11 @@ mips_compute_frame_info (void)
 	}
     }
 
-  frame = &cfun->machine->frame;
   memset (frame, 0, sizeof (*frame));
   size = get_frame_size ();
 
   cfun->machine->global_pointer = mips_global_pointer ();
+  frame->cprestore_size = 0;
 
   /* The first two blocks contain the outgoing argument area and the $gp save
      slot.  This area isn't needed in leaf functions, but if the
@@ -10055,12 +10281,18 @@ mips_compute_frame_info (void)
 	frame->args_size = REG_PARM_STACK_SPACE (cfun->decl);
       else
 	frame->args_size = 0;
-      frame->cprestore_size = 0;
     }
   else
     {
-      frame->args_size = crtl->outgoing_args_size;
-      frame->cprestore_size = MIPS_GP_SAVE_AREA_SIZE;
+      /* If recalculate do not take args_size into account.  */
+      if (recalculate)
+	frame->args_size = 0;
+      else
+	frame->args_size = crtl->outgoing_args_size;
+
+      /* Check if space allocated on stack for gp will be used.  */
+      if (!recalculate || mips_must_initialize_gp_p ())
+	frame->cprestore_size = MIPS_GP_SAVE_AREA_SIZE;
     }
   offset = frame->args_size + frame->cprestore_size;
 
@@ -10184,6 +10416,9 @@ mips_compute_frame_info (void)
      instructions for local variables and incoming arguments.  */
   if (TARGET_MIPS16)
     frame->hard_frame_pointer_offset = frame->args_size;
+
+  if (!recalculate)
+    cfun->machine->initial_total_size = frame->total_size;
 }
 
 /* Return the style of GP load sequence that is being used for the
@@ -10220,7 +10455,7 @@ mips_frame_pointer_required (void)
      without using a second temporary register.  */
   if (TARGET_MIPS16)
     {
-      mips_compute_frame_info ();
+      mips_compute_frame_info (false, &cfun->machine->frame);
       if (!SMALL_OPERAND (cfun->machine->frame.total_size))
 	return true;
     }
@@ -10246,7 +10481,7 @@ mips_initial_elimination_offset (int from, int to)
 {
   HOST_WIDE_INT offset;
 
-  mips_compute_frame_info ();
+  mips_compute_frame_info (false, &cfun->machine->frame);
 
   /* Set OFFSET to the offset from the end-of-prologue stack pointer.  */
   switch (from)
@@ -16339,12 +16574,8 @@ mips_has_long_branch_p (void)
   return false;
 }
 
-/* If we are using a GOT, but have not decided to use a global pointer yet,
-   see whether we need one to implement long branches.  Convert the ghost
-   global-pointer instructions into real ones if so.  */
-
 static bool
-mips_expand_ghost_gp_insns (void)
+mips_gp_expand_needed_p (void)
 {
   /* Quick exit if we already know that we will or won't need a
      global pointer.  */
@@ -16358,10 +16589,26 @@ mips_expand_ghost_gp_insns (void)
     return false;
 
   /* We've now established that we need $gp.  */
-  cfun->machine->must_initialize_gp_p = true;
-  split_all_insns_noflow ();
-
   return true;
+}
+
+
+/* If we are using a GOT, but have not decided to use a global pointer yet,
+   see whether we need one to implement long branches.  Convert the ghost
+   global-pointer instructions into real ones if so.  */
+
+static bool
+mips_expand_ghost_gp_insns (void)
+{
+
+  if (mips_gp_expand_needed_p ())
+    {
+      /* We've now established that we need $gp.  */
+      cfun->machine->must_initialize_gp_p = true;
+      split_all_insns_noflow ();
+      return true;
+    }
+  return false;
 }
 
 /* Subroutine of mips_reorg to manage passes that require DF.  */
@@ -16503,6 +16750,9 @@ mips_reorg (void)
       mips_df_reorg ();
       free_bb_for_insn ();
     }
+
+  if (flag_frame_header_optimization)
+    mips_rest_of_frame_header_opt ();
 }
 
 /* We use a machine specific pass to do a second machine dependent reorg
@@ -16818,6 +17068,13 @@ static void
 mips_set_current_function (tree fndecl)
 {
   mips_set_compression_mode (mips_get_compress_mode (fndecl));
+
+  if (fndecl
+      && TARGET_MICROMIPS
+      && optimize_size
+      && !TARGET_INTERLINK_COMPRESSED
+      && !DECL_USER_ALIGN (fndecl))
+    DECL_ALIGN (fndecl) = 16;
 }
 
 /* Allocate a chunk of memory for per-function machine-dependent data.  */
@@ -16900,6 +17157,10 @@ mips_set_architecture (const struct mips_cpu_info *info)
       mips_arch_info = info;
       mips_arch = info->cpu;
       mips_isa = info->isa;
+      if (mips_isa < 32)
+	mips_isa_rev = 0;
+      else
+	mips_isa_rev = (mips_isa & 31) + 1;
     }
 }
 
@@ -16927,6 +17188,10 @@ mips_option_override (void)
 
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
+#endif
+
+#if !(defined(MD_HAVE_COMPACT_EH) && defined(HAVE_GAS_EH_FRAME_ENTRY))
+  TARGET_COMPACT_EH = 0;
 #endif
 
   /* MIPS16 and microMIPS cannot coexist.  */
@@ -17361,6 +17626,12 @@ mips_option_override (void)
      later if required.  */
   mips_set_compression_mode (0);
 
+  /* Do not do frame header optimizations when exception handling is generated
+     because of unwinding problems.  This should be a temporary solution, since
+     it's a goal of gcc to generate equivalent code for '-Ox' and '-Ox -g'.  */
+  if (flag_exceptions || flag_unwind_tables)
+    flag_frame_header_optimization = false;
+
   /* We register a second machine specific reorg pass after delay slot
      filling.  Registering the pass must be done at start up.  It's
      convenient to do it here.  */
@@ -17498,28 +17769,6 @@ mips_conditional_register_usage (void)
       mips_swap_registers (MD_REG_FIRST);
       for (regno = DSP_ACC_REG_FIRST; regno <= DSP_ACC_REG_LAST; regno += 2)
 	mips_swap_registers (regno);
-    }
-}
-
-/* When generating MIPS16 code, we want to allocate $24 (T_REG) before
-   other registers for instructions for which it is possible.  This
-   encourages the compiler to use CMP in cases where an XOR would
-   require some register shuffling.  */
-
-void
-mips_order_regs_for_local_alloc (void)
-{
-  int i;
-
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    reg_alloc_order[i] = i;
-
-  if (TARGET_MIPS16)
-    {
-      /* It really doesn't matter where we put register 0, since it is
-         a fixed register anyhow.  */
-      reg_alloc_order[0] = 24;
-      reg_alloc_order[24] = 0;
     }
 }
 
@@ -18180,6 +18429,183 @@ mips_prepare_pch_save (void)
      a PCH load.  */
   mips_set_compression_mode (0);
   mips16_globals = 0;
+}
+
+/* Return new offset for stack load/store operations.  */
+
+static int
+mips_get_updated_offset (int old_offset)
+{
+  struct mips_frame_info *frame = &cfun->machine->frame;
+  int res = old_offset;
+  int initial_total_size = cfun->machine->initial_total_size;
+
+  if (old_offset > 0 && old_offset <= frame->gp_sp_offset)
+    /* It should be only gp.  */
+    res = old_offset - (initial_total_size
+			- REG_PARM_STACK_SPACE (cfun->decl));
+  else if (old_offset >= frame->gp_sp_offset
+	   && old_offset <= initial_total_size)
+    /* gp registers, accumulators.  */
+    res = old_offset - (initial_total_size
+			- REG_PARM_STACK_SPACE (cfun->decl));
+  else if (old_offset > initial_total_size)
+    /* Incoming args.  */
+    res = old_offset - initial_total_size;
+
+  return res;
+}
+
+/* Test whether to skip frame header allocation.  TODO: Try to do stack
+   frame allocation removal even if local variables are used.  */
+
+static bool
+mips_skip_stack_frame_alloc (void)
+{
+  struct mips_frame_info *frame = &cfun->machine->frame;
+  struct mips_frame_info opt_frame;
+
+  if (!flag_frame_header_optimization)
+    return false;
+
+  if (cfun->calls_setjmp != 0
+      || cfun->calls_alloca != 0
+      || cfun->stdarg != 0
+      || frame->var_size != 0
+      || frame->args_size > REG_PARM_STACK_SPACE (cfun->decl)
+      || mips_abi != ABI_32
+      || TARGET_MIPS16
+      || TARGET_MICROMIPS
+      || frame_pointer_needed != 0
+      || mips_gp_expand_needed_p ())
+    return false;
+
+  if (mips_callees_use_frame_header_p ())
+    return false;
+
+  mips_compute_frame_info (true, &opt_frame);
+
+  if (opt_frame.total_size > REG_PARM_STACK_SPACE (cfun->decl)
+      || cfun->machine->uses_frame_header_p)
+    return false;
+
+  return true;
+}
+
+/* Update stack related instructions.  */
+
+static void
+mips_frame_header_update_insn (rtx insn, bool inside_seq)
+{
+  rtx set_insn, src, dst;
+
+  if (insn == NULL_RTX || !USEFUL_INSN_P (insn))
+    return;
+
+  set_insn = single_set (insn);
+  if (set_insn == NULL_RTX)
+    return;
+
+  src = SET_SRC (set_insn);
+  dst = SET_DEST (set_insn);
+
+  if (GET_CODE (src) == REG && GET_CODE (dst) == MEM
+      && GET_CODE (XEXP (dst, 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (dst, 0), 0)) == REG
+      && CONST_INT_P (XEXP (XEXP (dst, 0), 1))
+      && (REGNO (XEXP (XEXP (dst, 0), 0))
+          == STACK_POINTER_REGNUM))
+    {
+      /* It is a store through sp - update offset.  */
+      XEXP (XEXP (dst, 0), 1)
+        = GEN_INT (mips_get_updated_offset (INTVAL (XEXP (XEXP (dst, 0), 1))));
+      return;
+    }
+
+  if (GET_CODE (src) == MEM && GET_CODE (dst) == REG
+      && GET_CODE (XEXP (src, 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (src, 0), 0)) == REG
+      && CONST_INT_P (XEXP (XEXP (src, 0), 1))
+      && (REGNO (XEXP (XEXP (src, 0), 0))
+          == STACK_POINTER_REGNUM))
+    {
+      /* It is a load through sp - update offset.  */
+      XEXP (XEXP (src, 0), 1)
+        = GEN_INT (mips_get_updated_offset (INTVAL (XEXP (XEXP (src, 0), 1))));
+      return;
+    }
+
+  if (GET_CODE (src) == PLUS
+      && GET_CODE (XEXP (src, 0)) == REG
+      && CONST_INT_P (XEXP (src, 1))
+      && REGNO (XEXP (src, 0)) == STACK_POINTER_REGNUM
+      && REGNO (SET_DEST (set_insn)) == STACK_POINTER_REGNUM)
+    {
+      /* It is a stack update instruction which can be removed.  */
+      if (inside_seq)
+        {
+          PATTERN (insn) = gen_nop ();
+          INSN_CODE (insn) = CODE_FOR_nop;
+        }
+      else
+        delete_insn (insn);
+    }
+}
+
+/* Entry function for the frame header optimization.  */
+
+static void
+mips_rest_of_frame_header_opt (void)
+{
+  rtx insn;
+  bool skip_stack_frame_alloc;
+  struct mips_frame_info *frame = &cfun->machine->frame;
+
+  cfun->machine->uses_frame_header_p = mips_cfun_use_frame_header_p ();
+  skip_stack_frame_alloc = mips_skip_stack_frame_alloc ();
+
+  /* Check if it is needed to recalculate stack frame info.  */
+  if (skip_stack_frame_alloc)
+    mips_compute_frame_info (true, frame);
+
+  if ((skip_stack_frame_alloc && frame->total_size == 0)
+      || (!skip_stack_frame_alloc && !cfun->machine->uses_frame_header_p
+	  && !cfun->stdarg))
+    {
+      /* Function does not use its incoming frame header.  */
+
+      struct mips_frame_header_usage tmp_element;
+      struct mips_frame_header_usage *element;
+      void **slot;
+
+      if (!frame_header_usage_htab)
+	frame_header_usage_htab
+	  = htab_create_ggc (128, frame_header_usage_htab_hash,
+			     frame_header_usage_htab_eq, NULL);
+
+      tmp_element.fndecl = current_function_decl;
+      slot = htab_find_slot (frame_header_usage_htab, &tmp_element, INSERT);
+      if (*slot == HTAB_EMPTY_ENTRY)
+	{
+	  element = ggc_alloc_mips_frame_header_usage ();
+	  memset (element, 0, sizeof (struct mips_frame_header_usage));
+	  element->fndecl = current_function_decl;
+	  element->frame_header_unused = true;
+	  *slot = element;
+	}
+    }
+
+  if (skip_stack_frame_alloc)
+    {
+      if (dump_file && cfun->machine->initial_total_size > frame->total_size)
+	fprintf (dump_file, "Frame size reduced by frame header optimization"
+		 " from %lld to %lld.\n", cfun->machine->initial_total_size,
+		 frame->total_size);
+
+      /* Update instructions.  */
+      for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
+	mips_frame_header_update_insn (insn, false);
+    }
 }
 
 /* Generate or test for an insn that supports a constant permutation.  */
@@ -18920,6 +19346,8 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #define TARGET_ASM_SELECT_RTX_SECTION mips_select_rtx_section
 #undef TARGET_ASM_FUNCTION_RODATA_SECTION
 #define TARGET_ASM_FUNCTION_RODATA_SECTION mips_function_rodata_section
+#undef TARGET_ASM_INIT_SECTIONS
+#define TARGET_ASM_INIT_SECTIONS mips_asm_init_sections
 
 #undef TARGET_SCHED_INIT
 #define TARGET_SCHED_INIT mips_sched_init
@@ -19119,6 +19547,9 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #undef TARGET_ASM_OUTPUT_SOURCE_FILENAME
 #define TARGET_ASM_OUTPUT_SOURCE_FILENAME mips_output_filename
 
+#undef TARGET_ASM_FUNCTION_BEGIN_EPILOGUE
+#define TARGET_ASM_FUNCTION_BEGIN_EPILOGUE mips_begin_epilogue
+
 #undef TARGET_SHIFT_TRUNCATION_MASK
 #define TARGET_SHIFT_TRUNCATION_MASK mips_shift_truncation_mask
 
@@ -19133,6 +19564,9 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
 #define TARGET_ATOMIC_ASSIGN_EXPAND_FENV mips_atomic_assign_expand_fenv
+
+#undef TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
+#define TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

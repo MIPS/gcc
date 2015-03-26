@@ -2720,6 +2720,7 @@ This describes the stack layout and calling conventions.
 * Profiling::
 * Tail Calls::
 * Stack Smashing Protection::
+* Miscellaneous Register Hooks::
 @end menu
 
 @node Frame Layout
@@ -3991,6 +3992,12 @@ the function prologue.  Normally, the profiling code comes after.
 @hook TARGET_STACK_PROTECT_FAIL
 
 @hook TARGET_SUPPORTS_SPLIT_STACK
+
+@node Miscellaneous Register Hooks
+@subsection Miscellaneous register hooks
+@cindex miscellaneous register hooks
+
+@hook TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
 
 @node Varargs
 @section Implementing the Varargs Macros
@@ -6744,6 +6751,8 @@ the target supports DWARF 2 frame unwind information.
 @hook TARGET_TERMINATE_DW2_EH_FRAME_INFO
 
 @hook TARGET_DWARF_REGISTER_SPAN
+
+@hook TARGET_DWARF_FRAME_REG_MODE
 
 @hook TARGET_INIT_DWARF_REG_SIZES_EXTRA
 

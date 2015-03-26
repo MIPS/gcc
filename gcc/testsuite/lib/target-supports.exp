@@ -942,6 +942,37 @@ proc check_effective_target_mips16_attribute { } {
     } [add_options_for_mips16_attribute ""]]
 }
 
+# Return 1 if the target generates mips16 code by default.
+
+proc check_effective_target_mips16 { } {
+    return [check_no_compiler_messages mips16 assembly {
+	#if !(defined __mips16)
+	#error FOO
+	#endif
+    } ""]
+}
+
+
+# Return 1 if the target generates micromips code by default.
+
+proc check_effective_target_micromips { } {
+    return [check_no_compiler_messages micromips assembly {
+	#if !(defined __mips_micromips)
+	#error FOO
+	#endif
+    } ""]
+}
+
+# Return 1 if the target generates o32 code by default.
+
+proc check_effective_target_o32 { } {
+    return [check_no_compiler_messages o32 assembly {
+	#ifndef _ABIO32
+	#error FOO
+	#endif
+    } ""]
+}
+
 # Return 1 if the target supports long double larger than double when
 # using the new ABI, 0 otherwise.
 
@@ -2564,6 +2595,9 @@ proc check_effective_target_arm_v8_neon_ok_nocache { } {
     if { [check_effective_target_arm32] } {
 	foreach flags {"" "-mfloat-abi=softfp" "-mfpu=neon-fp-armv8" "-mfpu=neon-fp-armv8 -mfloat-abi=softfp"} {
 	    if { [check_no_compiler_messages_nocache arm_v8_neon_ok object {
+		#if __ARM_ARCH < 8
+		#error not armv8 or later
+		#endif
 		#include "arm_neon.h"
 		void
 		foo ()
@@ -2747,6 +2781,7 @@ proc check_effective_target_arm_thumb1_ok { } {
 	#if !defined(__arm__) || !defined(__thumb__) || defined(__thumb2__)
 	#error FOO
 	#endif
+	int foo (int i) { return i; }
     } "-mthumb"]
 }
 
@@ -2758,6 +2793,7 @@ proc check_effective_target_arm_thumb2_ok { } {
 	#if !defined(__thumb2__)
 	#error FOO
 	#endif
+	int foo (int i) { return i; }
     } "-mthumb"]
 }
 
@@ -2807,6 +2843,20 @@ proc check_effective_target_arm_cortex_m { } {
 	#endif
 	int i;
     } "-mthumb"]
+}
+
+# Return 1 if this is an ARM CPU that supports the DMB instruction.
+
+proc check_effective_target_arm_dmb { } {
+    return [check_no_compiler_messages arm_dmb assembly {
+	#if !defined(__ARM_ARCH_7A__) \
+	    && !defined(__ARM_ARCH_7R__) \
+	    && !defined(__ARM_ARCH_7M__) \
+	    && !defined(__ARM_ARCH_6M__)
+	#error FOO
+	#endif
+	int i;
+    } ""]
 }
 
 # Return 1 if the target supports executing NEON instructions, 0
@@ -5277,7 +5327,11 @@ proc check_avx_available { } {
 # Return true if 32- and 16-bytes vectors are available.
 
 proc check_effective_target_vect_sizes_32B_16B { } {
-  return [check_avx_available];
+  if { [check_avx_available] && ![check_prefer_avx128] } {
+     return 1;
+  } else {
+    return 0;
+  }
 }
 
 # Return true if 128-bits vectors are preferred even if 256-bits vectors
@@ -5656,6 +5710,14 @@ proc check_vect_support_and_set_flags { } {
     } elseif [istarget ia64-*-*] {
         set dg-do-what-default run
     } elseif [is-effective-target arm_neon_ok] {
+	# NEON is not used for vectorization in big-endian mode at present.
+	# Some vect tests still pass without NEON support (i.e. using
+	# core registers), but there are too many failures (missed
+	# vectorization opportunities) to make test results meaningful.
+	if ![check_effective_target_arm_little_endian] {
+	    return 0
+	}
+
         eval lappend DEFAULT_VECTCFLAGS [add_options_for_arm_neon ""]
         # NEON does not support denormals, so is not used for vectorization by
         # default to avoid loss of precision.  We must pass -ffast-math to test
@@ -5779,6 +5841,8 @@ proc check_effective_target_logical_op_short_circuit {} {
 	 || [istarget avr*-*-*]
 	 || [istarget crisv32-*-*] || [istarget cris-*-*]
 	 || [istarget s390*-*-*]
+	 || [istarget powerpc*-*-*]
+	 || [istarget nios2*-*-*]
 	 || [check_effective_target_arm_cortex_m] } {
 	return 1
     }

@@ -99,6 +99,10 @@ Enum(mips_code_readable_setting) String(pcrel) Value(CODE_READABLE_PCREL)
 EnumValue
 Enum(mips_code_readable_setting) String(no) Value(CODE_READABLE_NO)
 
+mcompact-eh
+Target Var(TARGET_COMPACT_EH) Init(1)
+Use compact exception unwinding tables.
+
 mdivide-breaks
 Target Report RejectNegative Mask(DIVIDE_BREAKS)
 Use branch-and-break sequences to check for integer divide by zero
@@ -227,6 +231,12 @@ Enum(mips_ieee_754_value) String(2008) Value(MIPS_IEEE_754_2008)
 EnumValue
 Enum(mips_ieee_754_value) String(legacy) Value(MIPS_IEEE_754_LEGACY)
 
+mabs2008
+Target Undocumented Alias(mabs=, 2008, legacy) Warn(%qs is deprecated; use %<-mabs=%> instead)
+
+mnan2008
+Target Undocumented Alias(mnan=, 2008, legacy) Warn(%qs is deprecated; use %<-mnan=%> instead)
+
 mgp32
 Target Report RejectNegative InverseMask(64BIT)
 Use 32-bit general registers
@@ -262,6 +272,10 @@ Target RejectNegative Joined ToLower Enum(mips_mips_opt_value) Var(mips_isa_opti
 mips16
 Target Report RejectNegative Mask(MIPS16)
 Generate MIPS16 code
+
+mips16e
+Target Report RejectNegative Mask(MIPS16) MaskExists
+Deprecated; alias for -mips16
 
 mips3d
 Target Report RejectNegative Var(TARGET_MIPS3D)
@@ -392,6 +406,10 @@ mvirt
 Target Report Var(TARGET_VIRT)
 Use Virtualization Application Specific instructions
 
+mxpa
+Target Report Var(TARGET_XPA)
+Use eXtended Physical Address (XPA) instructions
+
 mvr4130-align
 Target Report Mask(VR4130_ALIGN)
 Perform VR4130-specific alignment optimizations
@@ -399,6 +417,10 @@ Perform VR4130-specific alignment optimizations
 mxgot
 Target Report Var(TARGET_XGOT)
 Lift restrictions on GOT size
+
+mframe-header-opt
+Target Report Var(flag_frame_header_optimization) Optimization
+Optimize frame header
 
 noasmopt
 Driver

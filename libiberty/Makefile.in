@@ -125,7 +125,7 @@ COMPILE.c = $(CC) -c @DEFS@ $(CFLAGS) $(CPPFLAGS) -I. -I$(INCDIR) $(HDEFINES) @a
 CFILES = alloca.c argv.c asprintf.c atexit.c				\
 	basename.c bcmp.c bcopy.c bsearch.c bzero.c			\
 	calloc.c choose-temp.c clock.c concat.c cp-demangle.c		\
-	 cp-demint.c cplus-dem.c crc32.c				\
+	 cp-demint.c cplus-dem.c cygpath.c crc32.c			\
 	dwarfnames.c dyn-string.c					\
 	fdmatch.c ffs.c fibheap.c filename_cmp.c floatformat.c		\
 	fnmatch.c fopen_unlocked.c					\
@@ -199,7 +199,7 @@ CONFIGURED_OFILES = ./asprintf.$(objext) ./atexit.$(objext)		\
 	./basename.$(objext) ./bcmp.$(objext) ./bcopy.$(objext)		\
 	./bsearch.$(objext) ./bzero.$(objext)				\
 	./calloc.$(objext) ./clock.$(objext) ./copysign.$(objext)	\
-	./_doprnt.$(objext)						\
+	./cygpath.$(objext) ./_doprnt.$(objext)				\
 	 ./ffs.$(objext)						\
 	./getcwd.$(objext) ./getpagesize.$(objext)			\
 	 ./gettimeofday.$(objext)					\
@@ -629,6 +629,13 @@ $(CONFIGURED_OFILES): stamp-picdir
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/dwarfnames.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/dwarfnames.c $(OUTPUT_OPTION)
+
+./cygpath.$(objext): $(srcdir)/cygpath.c config.h $(INCDIR)/ansidecl.h \
+	$(INCDIR)/libiberty.h
+	if [ x"$(PICFLAG)" != x ]; then \
+	  $(COMPILE.c) $(PICFLAG) $(srcdir)/cygpath.c -o pic/$@; \
+	else true; fi
+	$(COMPILE.c) $(srcdir)/cygpath.c $(OUTPUT_OPTION)
 
 ./dyn-string.$(objext): $(srcdir)/dyn-string.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/dyn-string.h $(INCDIR)/libiberty.h

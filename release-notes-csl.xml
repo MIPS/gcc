@@ -1,0 +1,185 @@
+<!-- This file contains a series of release note fragments processed
+     by gnu-notes.  To add a note to it, use "gnu-notes -a
+     $release_config gcc".  The TARGET line should contain a
+     list of shell glob patterns for target names to which the note is
+     relevant; it may be removed if it is relevant to all targets.
+ -->
+
+      <!-- UUID: ebfcb7b8-ef70-4629-91fd-a76b113fd2bb -->
+      <!-- TARGET: mips* -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: 16697 -->
+      <formalpara>
+        <title>MIPS new processor support</title>
+        <para>
+          GCC now supports the MIPS32R3, MIPS32R5, MIPS64R3, and MIPS64R5
+	  processors.  You can use the command line options
+	  <option>-march=mips32r3</option>, <option>-march=mips32r5</option>,
+	  <option>-march=mips64r3</option>, and 
+	  <option>-march=mips64r5</option> to enable code generation for
+	  these targets.
+        </para>
+      </formalpara>
+
+      <!-- UUID: 6142a88d-609a-4df3-b7d8-6f2af0a163fc -->
+      <!-- TARGET: mips* -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: -->
+      <formalpara>
+        <title>Bug fix for incorrect code</title>
+        <para>
+          A bug that caused incorrect code to be generated
+	  when compiling with the <option>-pg</option> and 
+	  <option>-fuse-caller-save</option> options has been fixed.
+        </para>
+      </formalpara>
+
+      <!-- UUID: 039bcc88-0fda-4d3e-b2e0-c0232873a815 -->
+      <!-- TARGET: arm-none-eabi -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: -->
+      <formalpara components="license">
+        <title>New Position Indepedent Code multilibs</title>
+        <para>
+          Additional PIC runtimes have been added for ARMv7E Thumb-2
+	  variants.  For more information, refer to
+	  <xref linkend="sec-multilibs"/>.
+        </para>
+      </formalpara>
+
+      <!-- UUID: 72d9a417-f1e3-4621-948c-dc3f52f5a9b7 -->
+      <!-- TARGET: arm-altera-eabi powerpc-lsi-linux-gnu mips-sde-elf -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: 16677 -->
+      <formalpara components="no-license" hosts="i686-mingw32">
+        <title>Windows reserved filename bug fix</title>
+        <para>
+          A bug has been fixed that prevented the compiler
+	  and other tools from recognizing Microsoft Windows
+	  reserved filenames, such as <literal>NUL</literal>.
+        </para>
+      </formalpara>
+
+      <!-- UUID: 0cf37e30-18d0-4ea4-a24b-33a45aef1c6e -->
+      <!-- TARGET: * -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: CB-2512 -->
+      <formalpara hosts="i686-mingw32">
+        <title>Long path support on Windows hosts</title>
+        <para>
+          &csl_prod; on Microsoft Windows hosts now supports source
+          and object files with paths longer than 259 characters.
+          (These were already supported on GNU/Linux hosts.)
+        </para>
+      </formalpara>
+
+      <!-- UUID: 43e02428-3aa8-46b5-9343-8419b5d277ed -->
+      <!-- TARGET: * -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: 16527 -->
+      <formalpara>
+        <title>Internal compiler error fix</title>
+        <para>
+          GCC now issues a diagnostic instead of crashing with an
+          internal compiler error on code using <code>register</code>
+          and <code>asm</code> to assign variables to registers that
+          are reserved for special purposes (such as the program
+          counter) or are otherwise unsuitable for the type of the
+          variable.
+        </para>
+      </formalpara>
+
+      <!-- UUID: 18336f03-3511-4c4f-99bd-eaa551b1bc2b -->
+      <!-- TARGET: * -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: -->
+      <formalpara>
+        <title>Instrumentation bug fix</title>
+        <para>
+          A bug that caused GCC to instrument functions tagged with
+          <literal>__attribute__((no_instrument_function))</literal>
+          when compiling with <option>-fprofile-arcs</option> has been
+          fixed.
+        </para>
+      </formalpara>
+
+      <!-- UUID: daea4526-cc0f-42f1-a4f5-10c7b0d00bca -->
+      <!-- TARGET: powerpc*-linux* -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: -->
+      <formalpara components="license">
+        <title>New 32-bit and 64-bit e6500 Power multilibs</title>
+        <para>
+          New multilibs that are compatible with the e6500 Power processor,
+          and with 32-bit and 64-bit software respectively have been added.
+          For more information, refer to <xref linkend="sec-multilibs"/>.
+        </para>
+      </formalpara>
+
+      <!-- UUID: 725179d5-1d61-426e-bee0-7a3e364d87cd -->
+      <!-- TARGET: arm-none-eabi -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: CB-3504 -->
+      <formalpara components="license">
+        <title>New ARMv7-A Thumb-2 little-endian VFPv3-D16 multilib</title>
+        <para>
+          A new multilib that is compatible with the ARMv7-A Thumb-2
+	  architecture and the VFPv3-D16 hardware floating-point architecture
+	  has been added.  For more information, refer to
+	  <xref linkend="sec-multilibs"/>.
+        </para>
+      </formalpara>
+
+      <!-- UUID: 800dd5a8-664f-42a3-9cde-e56a73516ac2 -->
+      <!-- TARGET: * -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: CB-3534 -->
+      <formalpara>
+        <title>Internal compiler error fix</title>
+        <para>
+          A bug in GCC has been fixed that sometimes caused internal
+          compiler errors in <filename>var-tracking.c</filename> when
+          compiling with optimization and debug information enabled.
+        </para>
+      </formalpara>
+
+      <!-- UUID: eb51f352-0420-45ae-85c8-bf67af12c606 -->
+      <!-- TARGET: arm-none-eabi -->
+      <!-- SORT: gcc -->
+      <formalpara components="license">
+        <title>GCC ARMv6-M floating-point infinity subtraction bug fix</title>
+        <para>
+          A bug in GCC has been fixed that caused floating-point magnitude
+          subtraction of infinities in code built for ARMv6-M to produce
+          an infinity rather than a NaN.
+        </para>
+      </formalpara>
+
+      <!-- UUID: 570c236f-74ed-4dac-86b2-f746984bdb6f -->
+      <!-- TARGET: nios2* -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: -->
+      <formalpara>
+        <title>Branch optimization bug fix</title>
+        <para>
+          A bug has been fixed that caused GCC to unnecessarily
+	  emit long branch sequences instead of more compact PC-relative
+	  branches.
+        </para>
+      </formalpara>
+
+      <!-- UUID: dc43a3d9-c83c-4048-b57e-43e56c962a9b -->
+      <!-- TARGET: * -->
+      <!-- SORT: gcc -->
+      <!-- ISSUE: -->
+      <formalpara>
+        <title>GCC version 4.9.1</title>
+        <para>
+	  &csl_prod; for &csl_target_name; is now based on GCC
+	  version 4.9.1. For more information about changes from GCC
+	  version 4.8 that was included in previous releases, see
+	  <uri>http://gcc.gnu.org/gcc-4.9/changes.html</uri>.
+        </para>
+      </formalpara>
+
+<!-- Release notes end here.  -->

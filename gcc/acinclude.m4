@@ -570,3 +570,53 @@ AC_DEFUN([GCC_GLIBC_VERSION_GTE_IFELSE],
 AS_IF([test $glibc_version_major -gt $1 \
   || ( test $glibc_version_major -eq $1 && test $glibc_version_minor -ge $2 )],
 [$3], [$4])])
+
+# --with-license=PATH
+AC_DEFUN([CSL_AC_LICENSE],[
+  AC_ARG_WITH(license,
+    AC_HELP_STRING([--with-license],
+                   [the path to the installed license component]),
+    [case "$withval" in
+     (yes) AC_MSG_ERROR([license not specified]) ;;
+     (no)  with_license= ;;
+     (*) ;;
+  esac],
+  [with_license=])
+  AC_SUBST(licensedir, $with_license)
+])
+
+# --with-csl-license-feature=FOO
+AC_DEFUN([CSL_AC_LICENSE_FEATURE],[
+  AC_ARG_WITH(csl-license-feature,
+    AC_HELP_STRING([--with-csl-license-feature=FEATURE],
+                   [Use FEATURE to communicate with the license manager]),
+    [case "$withval" in
+      (yes) AC_MSG_ERROR([license feature not specified]) ;;
+      (no)  CSL_LICENSE_FEATURE="" ;; 
+      (*)   CSL_LICENSE_FEATURE="$withval" ;;
+     esac],
+     CSL_LICENSE_FEATURE=""
+  )
+  if test x"$CSL_LICENSE_FEATURE" != x; then
+    AC_DEFINE_UNQUOTED(CSL_LICENSE_FEATURE, "$CSL_LICENSE_FEATURE",
+                       [Required license feature])
+  fi
+])
+
+# --with-csl-license-version=VERSION
+AC_DEFUN([CSL_AC_LICENSE_VERSION],[
+  AC_ARG_WITH(csl-license-version,
+    AC_HELP_STRING([--with-csl-license-version=VERSION],
+                   [Use VERSION to communicate with the license manager]),
+    [case "$withval" in
+      (yes) AC_MSG_ERROR([license version not specified]) ;;
+      (no)  CSL_LICENSE_VERSION="" ;; 
+      (*)   CSL_LICENSE_VERSION="$withval" ;;
+     esac],
+     CSL_LICENSE_VERSION=""
+  )
+  if test x"$CSL_LICENSE_VERSION" != x; then
+    AC_DEFINE_UNQUOTED(CSL_LICENSE_VERSION, "$CSL_LICENSE_VERSION",
+                       [Required license version])
+  fi
+])

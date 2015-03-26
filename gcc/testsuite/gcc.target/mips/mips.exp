@@ -246,6 +246,8 @@ set mips_option_groups {
     small-data "-G[0-9]+"
     warnings "-w"
     dump "-fdump-.*"
+    save_temps "-save-temps"
+    frame-header-opt "-mframe-header-opt|-mno-frame-header-opt"
 }
 
 # Add -mfoo/-mno-foo options to mips_option_groups.
@@ -260,6 +262,7 @@ foreach option {
     fix-r10000
     fix-vr4130
     gpopt
+    interlink-compressed
     local-sdata
     long-calls
     paired-single
@@ -305,6 +308,7 @@ foreach option {
     tree-vectorize
     unroll-all-loops
     unroll-loops
+    use-caller-save
 } {
     lappend mips_option_groups $option "-f(no-|)$option"
 }

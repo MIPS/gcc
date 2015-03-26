@@ -739,6 +739,8 @@ LD
 FGREP
 SED
 LIBTOOL
+GLIBCXX_CSLIBC_FALSE
+GLIBCXX_CSLIBC_TRUE
 EGREP
 GREP
 CPP
@@ -845,6 +847,7 @@ with_target_subdir
 with_cross_host
 with_newlib
 enable_maintainer_mode
+with_cslibc
 enable_shared
 enable_static
 with_pic
@@ -1588,6 +1591,7 @@ Optional Packages:
                           configuring in a subdirectory
   --with-cross-host=HOST  configuring with a cross compiler
   --with-newlib           assume newlib as a system C library
+  --with-cslibc           assume CSLIBC as system C library
   --with-pic              try to use only PIC/non-PIC objects [default=use
                           both]
   --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
@@ -5291,6 +5295,29 @@ rm -f conftest*
 $as_echo "$as_me: CPU config directory is $cpu_include_dir" >&6;}
   { $as_echo "$as_me:${as_lineno-$LINENO}: OS config directory is $os_include_dir" >&5
 $as_echo "$as_me: OS config directory is $os_include_dir" >&6;}
+
+
+
+# Check to see if we are using CSLIBC.
+
+
+# Check whether --with-cslibc was given.
+if test "${with_cslibc+set}" = set; then :
+  withval=$with_cslibc;
+else
+  with_cslibc=no
+fi
+
+  if test "$with_cslibc" = yes; then
+    cslibc_define=1
+  else
+    cslibc_define=0
+  fi
+
+
+cat >>confdefs.h <<_ACEOF
+#define _GLIBCXX_CSLIBC $cslibc_define
+_ACEOF
 
 
 
@@ -11526,7 +11553,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11529 "configure"
+#line 11556 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11632,7 +11659,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11635 "configure"
+#line 11662 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -15052,7 +15079,7 @@ fi
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 15055 "configure"
+#line 15082 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -15404,7 +15431,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15407 "configure"
+#line 15434 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15439,7 +15466,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15442 "configure"
+#line 15469 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15474,7 +15501,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15477 "configure"
+#line 15504 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15510,7 +15537,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15513 "configure"
+#line 15540 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15589,7 +15616,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15592 "configure"
+#line 15619 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15631,7 +15658,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15634 "configure"
+#line 15661 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15665,7 +15692,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15668 "configure"
+#line 15695 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -79160,6 +79187,15 @@ CPU_OPT_BITS_RANDOM=config/${cpu_opt_bits_random}
 # Determine cross-compile flags and AM_CONDITIONALs.
 #AC_SUBST(GLIBCXX_IS_NATIVE)
 #AM_CONDITIONAL(CANADIAN, test $CANADIAN = yes)
+    if test $with_cslibc = yes; then
+  GLIBCXX_CSLIBC_TRUE=
+  GLIBCXX_CSLIBC_FALSE='#'
+else
+  GLIBCXX_CSLIBC_TRUE='#'
+  GLIBCXX_CSLIBC_FALSE=
+fi
+
+
     if test $is_hosted = yes; then
   GLIBCXX_HOSTED_TRUE=
   GLIBCXX_HOSTED_FALSE='#'
@@ -79660,6 +79696,10 @@ fi
 
 if test -z "${MAINTAINER_MODE_TRUE}" && test -z "${MAINTAINER_MODE_FALSE}"; then
   as_fn_error "conditional \"MAINTAINER_MODE\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${GLIBCXX_CSLIBC_TRUE}" && test -z "${GLIBCXX_CSLIBC_FALSE}"; then
+  as_fn_error "conditional \"GLIBCXX_CSLIBC\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${GLIBCXX_HOSTED_TRUE}" && test -z "${GLIBCXX_HOSTED_FALSE}"; then

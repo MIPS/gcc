@@ -142,7 +142,10 @@ cp_eh_personality (void)
   if (!cp_eh_personality_decl)
     {
       const char *lang = (pragma_java_exceptions ? "gcj" : "gxx");
-      cp_eh_personality_decl = build_personality_function (lang);
+      cp_eh_personality_decl = build_personality_function (lang, false);
+      if (TARGET_COMPACT_EH)
+	 DECL_FUNCTION_PERSONALITY2 (current_function_decl) =
+           build_personality_function (lang, true);
     }
 
   return cp_eh_personality_decl;

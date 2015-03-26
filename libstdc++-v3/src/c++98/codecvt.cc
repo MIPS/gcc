@@ -149,3 +149,29 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
+
+#if _GLIBCXX_C_LOCALE_GNU
+/* Because of a bad cross-compilation fallback in a configure test,
+   Sourcery G++ toolchains for GNU/Linux targets formerly used the
+   "generic" locale model in libstdc++.  Improve compatibility with
+   those toolchains by exporting symbol aliases under the "generic"
+   names for the "gnu" functions.  */
+#define _GLIBCXX_LOCALE_COMPAT(generic, gnu) \
+  extern "C" void generic (void) __attribute__ ((alias (#gnu), weak))
+
+#ifdef _GLIBCXX_SIZE_T_IS_UINT
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7codecvtIcc11__mbstate_tEC1EPij, _ZNSt7codecvtIcc11__mbstate_tEC1EP15__locale_structj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7codecvtIcc11__mbstate_tEC2EPij, _ZNSt7codecvtIcc11__mbstate_tEC2EP15__locale_structj);
+#ifdef _GLIBCXX_USE_WCHAR_T
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7codecvtIwc11__mbstate_tEC1EPij, _ZNSt7codecvtIwc11__mbstate_tEC1EP15__locale_structj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7codecvtIwc11__mbstate_tEC2EPij, _ZNSt7codecvtIwc11__mbstate_tEC2EP15__locale_structj);
+#endif
+#else
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7codecvtIcc11__mbstate_tEC1EPim, _ZNSt7codecvtIcc11__mbstate_tEC1EP15__locale_structm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7codecvtIcc11__mbstate_tEC2EPim, _ZNSt7codecvtIcc11__mbstate_tEC2EP15__locale_structm);
+#ifdef _GLIBCXX_USE_WCHAR_T
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7codecvtIwc11__mbstate_tEC1EPim, _ZNSt7codecvtIwc11__mbstate_tEC1EP15__locale_structm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7codecvtIwc11__mbstate_tEC2EPim, _ZNSt7codecvtIwc11__mbstate_tEC2EP15__locale_structm);
+#endif
+#endif
+#endif

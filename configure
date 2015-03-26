@@ -3276,10 +3276,6 @@ esac
 # Allow user to override this if they pass --enable-libstdc++-v3
 if test "${ENABLE_LIBSTDCXX}" = "default" ; then
   case "${target}" in
-    *-*-vxworks*)
-      # VxWorks uses the Dinkumware C++ library.
-      noconfigdirs="$noconfigdirs target-libstdc++-v3"
-      ;;
     arm*-wince-pe*)
       # the C++ libraries don't build on top of CE's C libraries
       noconfigdirs="$noconfigdirs target-libstdc++-v3"
@@ -6991,6 +6987,9 @@ case "${target}" in
     ;;
   mips*-*-*linux* | mips*-*-gnu*)
     target_makefile_frag="config/mt-mips-gnu"
+    ;;
+  nios2-*-elf*)
+    target_makefile_frag="config/mt-nios2-elf"
     ;;
   *-*-linux* | *-*-gnu* | *-*-k*bsd*-gnu | *-*-kopensolaris*-gnu)
     target_makefile_frag="config/mt-gnu"

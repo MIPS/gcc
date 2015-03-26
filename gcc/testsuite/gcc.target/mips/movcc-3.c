@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "isa>=4 -mhard-float" } */
-/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-Og" } { "" } } */
 /* { dg-final { scan-assembler "\tmovt\t" } } */
 /* { dg-final { scan-assembler "\tmovf\t" } } */
 /* { dg-final { scan-assembler "\tmovz.s\t" } } */

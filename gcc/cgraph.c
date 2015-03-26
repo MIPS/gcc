@@ -542,8 +542,10 @@ cgraph_create_node (tree decl)
   if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL)
     {
       node->origin = cgraph_get_create_node (DECL_CONTEXT (decl));
+      node->origin->ever_was_nested = 1;
       node->next_nested = node->origin->nested;
       node->origin->nested = node;
+      node->ever_was_nested = 1;
     }
   return node;
 }

@@ -127,7 +127,7 @@
 ; for ARM or Thumb-2 with arm_arch6, and nov6 for ARM without
 ; arm_arch6.  This attribute is used to compute attribute "enabled",
 ; use type "any" to enable an alternative in all cases.
-(define_attr "arch" "any,a,t,32,t1,t2,v6,nov6,neon_for_64bits,avoid_neon_for_64bits,iwmmxt,iwmmxt2"
+(define_attr "arch" "any,a,t,32,t1,t2,v6,nov6,neon_for_64bits,avoid_neon_for_64bits,iwmmxt,iwmmxt2,vfp9,notvfp9"
   (const_string "any"))
 
 (define_attr "arch_enabled" "no,yes"
@@ -174,6 +174,16 @@
 
 	 (and (eq_attr "arch" "iwmmxt2")
 	      (match_test "TARGET_REALLY_IWMMXT2"))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "vfp9")
+	      (ne (symbol_ref "(TARGET_32BIT && !(arm_arch6 || TARGET_VFP3))")
+		  (const_int 0)))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "notvfp9")
+	      (ne (symbol_ref "(TARGET_32BIT && (arm_arch6 || TARGET_VFP3))")
+		  (const_int 0)))
 	 (const_string "yes")]
 
 	(const_string "no")))
@@ -9076,7 +9086,7 @@
       XEXP (operands[0], 0) = force_reg (Pmode, callee);
 
     pat = gen_call_internal (operands[0], operands[1], operands[2]);
-    arm_emit_call_insn (pat, XEXP (operands[0], 0));
+    arm_emit_call_insn (pat, XEXP (operands[0], 0), false);
     DONE;
   }"
 )
@@ -9186,7 +9196,7 @@
 
     pat = gen_call_value_internal (operands[0], operands[1],
 				   operands[2], operands[3]);
-    arm_emit_call_insn (pat, XEXP (operands[1], 0));
+    arm_emit_call_insn (pat, XEXP (operands[1], 0), false);
     DONE;
   }"
 )
@@ -9336,6 +9346,12 @@
    (set_attr "type" "call")]
 )
 
+(define_expand "sibcall_internal"
+  [(parallel [(call (match_operand 0 "memory_operand" "")
+		    (match_operand 1 "general_operand" ""))
+	      (return)
+	      (use (match_operand 2 "" ""))])])
+
 ;; We may also be able to do sibcalls for Thumb, but it's much harder...
 (define_expand "sibcall"
   [(parallel [(call (match_operand 0 "memory_operand" "")
@@ -9345,14 +9361,27 @@
   "TARGET_32BIT"
   "
   {
+    rtx pat;
+
     if (!REG_P (XEXP (operands[0], 0))
        && (GET_CODE (XEXP (operands[0], 0)) != SYMBOL_REF))
      XEXP (operands[0], 0) = force_reg (SImode, XEXP (operands[0], 0));
 
     if (operands[2] == NULL_RTX)
       operands[2] = const0_rtx;
+
+    pat = gen_sibcall_internal (operands[0], operands[1], operands[2]);
+    arm_emit_call_insn (pat, operands[0], true);
+    DONE;
   }"
 )
+
+(define_expand "sibcall_value_internal"
+  [(parallel [(set (match_operand 0 "" "")
+		   (call (match_operand 1 "memory_operand" "")
+			 (match_operand 2 "general_operand" "")))
+	      (return)
+	      (use (match_operand 3 "" ""))])])
 
 (define_expand "sibcall_value"
   [(parallel [(set (match_operand 0 "" "")
@@ -9363,12 +9392,19 @@
   "TARGET_32BIT"
   "
   {
+    rtx pat;
+
     if (!REG_P (XEXP (operands[1], 0)) &&
        (GET_CODE (XEXP (operands[1],0)) != SYMBOL_REF))
      XEXP (operands[1], 0) = force_reg (SImode, XEXP (operands[1], 0));
 
     if (operands[3] == NULL_RTX)
       operands[3] = const0_rtx;
+
+    pat = gen_sibcall_value_internal (operands[0], operands[1],
+                                      operands[2], operands[3]);
+    arm_emit_call_insn (pat, operands[1], true);
+    DONE;
   }"
 )
 

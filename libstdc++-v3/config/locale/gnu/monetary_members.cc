@@ -934,3 +934,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
+
+/* Because of a bad cross-compilation fallback in a configure test,
+   Sourcery G++ toolchains for GNU/Linux targets formerly used the
+   "generic" locale model in libstdc++.  Improve compatibility with
+   those toolchains by exporting symbol aliases under the "generic"
+   names for the "gnu" functions.  */
+#define _GLIBCXX_LOCALE_COMPAT(generic, gnu) \
+  extern "C" void generic (void) __attribute__ ((alias (#gnu), weak))
+
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIcLb0EE24_M_initialize_moneypunctEPiPKc, _ZNSt10moneypunctIcLb0EE24_M_initialize_moneypunctEP15__locale_structPKc);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIcLb1EE24_M_initialize_moneypunctEPiPKc, _ZNSt10moneypunctIcLb1EE24_M_initialize_moneypunctEP15__locale_structPKc);
+#ifdef _GLIBCXX_USE_WCHAR_T
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIwLb0EE24_M_initialize_moneypunctEPiPKc, _ZNSt10moneypunctIwLb0EE24_M_initialize_moneypunctEP15__locale_structPKc);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIwLb1EE24_M_initialize_moneypunctEPiPKc, _ZNSt10moneypunctIwLb1EE24_M_initialize_moneypunctEP15__locale_structPKc);
+#endif

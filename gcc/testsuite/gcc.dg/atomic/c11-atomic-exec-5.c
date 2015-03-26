@@ -7,6 +7,7 @@
 /* { dg-additional-options "-D_XOPEN_SOURCE=600" { target *-*-solaris2.1[0-9]* } }
 /* { dg-require-effective-target fenv_exceptions } */
 /* { dg-require-effective-target pthread } */
+/* { dg-timeout-factor 2 } */
 
 #include <fenv.h>
 #include <float.h>
@@ -501,23 +502,23 @@ main (void)
   ret |= test_main_int_div_double_inexact ();
   ret |= test_main_complex_double_div_overflow ();
   ret |= test_main_long_double_add_invalid ();
-  ret |= test_main_long_double_add_overflow ();
 #if LDBL_MANT_DIG != 106
+  ret |= test_main_long_double_add_overflow ();
   ret |= test_main_long_double_add_inexact ();
   ret |= test_main_long_double_add_inexact_int ();
   ret |= test_main_long_double_preinc_inexact ();
   ret |= test_main_long_double_postinc_inexact ();
-#endif
   ret |= test_main_complex_long_double_add_overflow ();
+#endif
   ret |= test_main_long_double_sub_invalid ();
-  ret |= test_main_long_double_sub_overflow ();
 #if LDBL_MANT_DIG != 106
+  ret |= test_main_long_double_sub_overflow ();
   ret |= test_main_long_double_sub_inexact ();
   ret |= test_main_long_double_sub_inexact_int ();
   ret |= test_main_long_double_predec_inexact ();
   ret |= test_main_long_double_postdec_inexact ();
-#endif
   ret |= test_main_complex_long_double_sub_overflow ();
+#endif
   ret |= test_main_long_double_mul_invalid ();
   ret |= test_main_long_double_mul_overflow ();
   ret |= test_main_long_double_mul_overflow_float ();

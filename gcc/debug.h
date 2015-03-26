@@ -181,6 +181,7 @@ extern void dwarf2out_frame_finish (void);
 /* Decide whether we want to emit frame unwind information for the current
    translation unit.  */
 extern bool dwarf2out_do_frame (void);
+extern bool asm_cfi_special_encoding (int enc);
 extern bool dwarf2out_do_cfi_asm (void);
 extern void dwarf2out_switch_text_section (void);
 

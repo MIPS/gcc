@@ -715,25 +715,27 @@
 ;; Division insns
 
 (define_insn "*divsf3_vfp"
-  [(set (match_operand:SF	  0 "s_register_operand" "=t")
-	(div:SF (match_operand:SF 1 "s_register_operand" "t")
-		(match_operand:SF 2 "s_register_operand" "t")))]
+  [(set (match_operand:SF	  0 "s_register_operand" "=t,&t")
+	(div:SF (match_operand:SF 1 "s_register_operand" "t,t")
+		(match_operand:SF 2 "s_register_operand" "t,t")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fdivs%?\\t%0, %1, %2"
   [(set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")
-   (set_attr "type" "fdivs")]
+   (set_attr "type" "fdivs")
+   (set_attr "arch" "notvfp9,vfp9")]
 )
 
 (define_insn "*divdf3_vfp"
-  [(set (match_operand:DF	  0 "s_register_operand" "=w")
-	(div:DF (match_operand:DF 1 "s_register_operand" "w")
-		(match_operand:DF 2 "s_register_operand" "w")))]
+  [(set (match_operand:DF	  0 "s_register_operand" "=w,&w")
+	(div:DF (match_operand:DF 1 "s_register_operand" "w,w")
+		(match_operand:DF 2 "s_register_operand" "w,w")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fdivd%?\\t%P0, %P1, %P2"
   [(set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")
-   (set_attr "type" "fdivd")]
+   (set_attr "type" "fdivd")
+   (set_attr "arch" "notvfp9,vfp9")]
 )
 
 
@@ -1071,23 +1073,25 @@
 ;; Sqrt insns.
 
 (define_insn "*sqrtsf2_vfp"
-  [(set (match_operand:SF	   0 "s_register_operand" "=t")
-	(sqrt:SF (match_operand:SF 1 "s_register_operand" "t")))]
+  [(set (match_operand:SF	   0 "s_register_operand" "=t,&t")
+	(sqrt:SF (match_operand:SF 1 "s_register_operand" "t,t")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fsqrts%?\\t%0, %1"
   [(set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")
-   (set_attr "type" "fsqrts")]
+   (set_attr "type" "fsqrts")
+   (set_attr "arch" "notvfp9,vfp9")]
 )
 
 (define_insn "*sqrtdf2_vfp"
-  [(set (match_operand:DF	   0 "s_register_operand" "=w")
-	(sqrt:DF (match_operand:DF 1 "s_register_operand" "w")))]
+  [(set (match_operand:DF	   0 "s_register_operand" "=w,&w")
+	(sqrt:DF (match_operand:DF 1 "s_register_operand" "w,w")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fsqrtd%?\\t%P0, %P1"
   [(set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")
-   (set_attr "type" "fsqrtd")]
+   (set_attr "type" "fsqrtd")
+   (set_attr "arch" "notvfp9,vfp9")]
 )
 
 
@@ -1321,6 +1325,22 @@
   [(set_attr "type" "f_minmax<vfp_type>")
    (set_attr "conds" "unconditional")]
 )
+
+;; Write Floating-point Status and Control Register.
+(define_insn "set_fpscr"
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "r")] VUNSPEC_SET_FPSCR)]
+  "TARGET_VFP && TARGET_HARD_FLOAT"
+  "mcr\\tp10, 7, %0, cr1, cr0, 0\\t @SET_FPSCR"
+  [(set_attr "type" "mrs")])
+
+;; Read Floating-point Status and Control Register.
+(define_insn "get_fpscr"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (unspec_volatile:SI [(const_int 0)] VUNSPEC_GET_FPSCR))]
+  "TARGET_VFP && TARGET_HARD_FLOAT"
+  "mrc\\tp10, 7, %0, cr1, cr0, 0\\t @GET_FPSCR"
+  [(set_attr "type" "mrs")])
+
 
 ;; Unimplemented insns:
 ;; fldm*

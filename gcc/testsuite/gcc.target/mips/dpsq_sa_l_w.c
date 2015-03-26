@@ -1,7 +1,7 @@
 /* { dg-do compile { target { fixed_point } } } */
 /* This test requires widening_mul */
 /* { dg-options "-mgp32 -mdsp -fexpensive-optimizations" } */
-/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-Og" } { "" } } */
 /* { dg-final { scan-assembler-times "\tdpsq_sa.l.w\t\\\$ac" 2 } } */
 
 NOMIPS16 _Sat long long _Fract

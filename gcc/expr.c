@@ -2396,6 +2396,18 @@ use_reg_mode (rtx *call_fusage, rtx reg, enum machine_mode mode)
     = gen_rtx_EXPR_LIST (mode, gen_rtx_USE (VOIDmode, reg), *call_fusage);
 }
 
+/* Add a CLOBBER expression for REG to the (possibly empty) list pointed
+   to by CALL_FUSAGE.  REG must denote a hard register.  */
+
+void
+clobber_reg_mode (rtx *call_fusage, rtx reg, enum machine_mode mode)
+{
+  gcc_assert (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER);
+
+  *call_fusage
+    = gen_rtx_EXPR_LIST (mode, gen_rtx_CLOBBER (VOIDmode, reg), *call_fusage);
+}
+
 /* Add USE expressions to *CALL_FUSAGE for each of NREGS consecutive regs,
    starting at REGNO.  All of these registers must be hard registers.  */
 
@@ -11223,9 +11235,8 @@ const_vector_from_tree (tree exp)
 /* Build a decl for a personality function given a language prefix.  */
 
 tree
-build_personality_function (const char *lang)
+build_personality_function (const char *lang, bool alternative)
 {
-  const char *unwind_and_version;
   tree decl, type;
   char *name;
 
@@ -11234,20 +11245,27 @@ build_personality_function (const char *lang)
     case UI_NONE:
       return NULL;
     case UI_SJLJ:
-      unwind_and_version = "_sj0";
+      name = ACONCAT (("__", lang, "_personality_sj0", NULL));
       break;
     case UI_DWARF2:
     case UI_TARGET:
-      unwind_and_version = "_v0";
+      if (TARGET_COMPACT_EH
+	  && (strcmp (lang_hooks.name, "GNU C++") == 0))
+	{
+	  if (alternative)
+	    name = ACONCAT (("__gnu_compact_pr3", NULL));
+	  else
+	    name = ACONCAT (("__gnu_compact_pr2", NULL));
+	}
+      else
+	name = ACONCAT (("__", lang, "_personality_v0", NULL));
       break;
     case UI_SEH:
-      unwind_and_version = "_seh0";
+      name = ACONCAT (("__", lang, "_personality_seh0", NULL));
       break;
     default:
       gcc_unreachable ();
     }
-
-  name = ACONCAT (("__", lang, "_personality", unwind_and_version, NULL));
 
   type = build_function_type_list (integer_type_node, integer_type_node,
 				   long_long_unsigned_type_node,

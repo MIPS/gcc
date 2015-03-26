@@ -119,7 +119,7 @@ static int
 pex_win32_open_read (struct pex_obj *obj ATTRIBUTE_UNUSED, const char *name,
 		     int binary)
 {
-  return _open (name, _O_RDONLY | (binary ? _O_BINARY : _O_TEXT));
+  return open (name, _O_RDONLY | (binary ? _O_BINARY : _O_TEXT));
 }
 
 /* Open a file for writing.  */
@@ -130,10 +130,10 @@ pex_win32_open_write (struct pex_obj *obj ATTRIBUTE_UNUSED, const char *name,
 {
   /* Note that we can't use O_EXCL here because gcc may have already
      created the temporary file via make_temp_file.  */
-  return _open (name,
-		(_O_WRONLY | _O_CREAT | _O_TRUNC
-		 | (binary ? _O_BINARY : _O_TEXT)),
-		_S_IREAD | _S_IWRITE);
+  return open (name,
+	       (_O_WRONLY | _O_CREAT | _O_TRUNC
+		| (binary ? _O_BINARY : _O_TEXT)),
+	       _S_IREAD | _S_IWRITE);
 }
 
 /* Close a file.  */

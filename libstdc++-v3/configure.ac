@@ -88,6 +88,9 @@ CXXFLAGS="$save_CXXFLAGS"
 # up critical shell variables.
 GLIBCXX_CONFIGURE
 
+# Check to see if we are using CSLIBC.
+GLIBCXX_WITH_CSLIBC
+
 # Libtool setup.
 if test "x${with_newlib}" != "xyes"; then
   AC_LIBTOOL_DLOPEN

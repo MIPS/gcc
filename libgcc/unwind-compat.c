@@ -206,4 +206,14 @@ _Unwind_SetIP (struct _Unwind_Context *context, _Unwind_Ptr val)
   return __libunwind_Unwind_SetIP (context, val);
 }
 symver (_Unwind_SetIP, GCC_3.0);
+
+extern unsigned char __libunwind_Unwind_GetEhEncoding
+  (struct _Unwind_Context *);
+
+unsigned char
+_Unwind_GetEhEncoding (struct _Unwind_Context *context)
+{
+  return __libunwind_Unwind_GetEhEncoding (context, val);
+}
+symver (_Unwind_GetEhEncoding, GCC_3.0);
 #endif

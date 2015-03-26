@@ -277,7 +277,7 @@ let test_intrinsic dir opcode features shape name munge elt_ty =
      intrinsic expands to.  Watch out for any writeback character and
      comments after the instruction.  *)
   let regexps = List.map (fun regexp -> insn_regexp ^ "\\[ \t\\]+" ^ regexp ^
-			  "!?\\(\\[ \t\\]+@\\[a-zA-Z0-9 \\]+\\)?\\n")
+			  "!?\\(\\[ \t\\]+@.*\\)?\\n")
                          (analyze_all_shapes features shape analyze_shape)
   in
   let effective_target = effective_target features

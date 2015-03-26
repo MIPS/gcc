@@ -3,7 +3,7 @@
    multiplication result in $2.  */
 /* This test requires widening_mul */
 /* { dg-options "-mips1 -mfix-r4000 -fno-split-wide-types -dp -EL -fexpensive-optimizations" } */
-/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-Og" } { "" } } */
 typedef int int32_t;
 typedef long long int64_t;
 NOMIPS16 int64_t foo (int32_t x, int32_t y) { return (int64_t) x * y; }

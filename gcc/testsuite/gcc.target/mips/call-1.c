@@ -1,5 +1,5 @@
 /* { dg-options "-mrelax-pic-calls -mshared -foptimize-sibling-calls -mabi=32" } */
-/* { dg-skip-if "requires -foptimize-sibling-calls" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "requires -foptimize-sibling-calls" { *-*-* } { "-O0" "-Og" } { "" } } */
 /* { dg-final { scan-assembler "\\.reloc\t1f,R_MIPS_JALR,normal\n1:\tjalrs?\t" } } */
 /* { dg-final { scan-assembler "\\.reloc\t1f,R_MIPS_JALR,normal2\n1:\tjalrs?\t" } } */
 /* { dg-final { scan-assembler "\\.reloc\t1f,R_MIPS_JALR,staticfunc\n1:\tjalrs?\t" } } */

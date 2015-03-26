@@ -411,6 +411,12 @@
 ;; Subroutine calls and sibcalls
 ;; -------------------------------------------------------------------
 
+(define_expand "call_internal"
+  [(parallel [(call (match_operand 0 "memory_operand" "")
+		    (match_operand 1 "general_operand" ""))
+	      (use (match_operand 2 "" ""))
+	      (clobber (reg:DI LR_REGNUM))])])
+
 (define_expand "call"
   [(parallel [(call (match_operand 0 "memory_operand" "")
 		    (match_operand 1 "general_operand" ""))
@@ -419,7 +425,7 @@
   ""
   "
   {
-    rtx callee;
+    rtx callee, pat;
 
     /* In an untyped call, we can get NULL for operand 2.  */
     if (operands[2] == NULL)
@@ -433,6 +439,10 @@
 	? aarch64_is_long_call_p (callee)
 	: !REG_P (callee))
       XEXP (operands[0], 0) = force_reg (Pmode, callee);
+
+    pat = gen_call_internal (operands[0], operands[1], operands[2]);
+    aarch64_emit_call_insn (pat);
+    DONE;
   }"
 )
 
@@ -457,6 +467,13 @@
   [(set_attr "type" "call")]
 )
 
+(define_expand "call_value_internal"
+  [(parallel [(set (match_operand 0 "" "")
+		   (call (match_operand 1 "memory_operand" "")
+			 (match_operand 2 "general_operand" "")))
+	      (use (match_operand 3 "" ""))
+	      (clobber (reg:DI LR_REGNUM))])])
+
 (define_expand "call_value"
   [(parallel [(set (match_operand 0 "" "")
 		   (call (match_operand 1 "memory_operand" "")
@@ -466,7 +483,7 @@
   ""
   "
   {
-    rtx callee;
+    rtx callee, pat;
 
     /* In an untyped call, we can get NULL for operand 3.  */
     if (operands[3] == NULL)
@@ -480,6 +497,11 @@
 	? aarch64_is_long_call_p (callee)
 	: !REG_P (callee))
       XEXP (operands[1], 0) = force_reg (Pmode, callee);
+
+    pat = gen_call_value_internal (operands[0], operands[1], operands[2],
+                                   operands[3]);
+    aarch64_emit_call_insn (pat);
+    DONE;
   }"
 )
 
@@ -507,6 +529,12 @@
   [(set_attr "type" "call")]
 )
 
+(define_expand "sibcall_internal"
+  [(parallel [(call (match_operand 0 "memory_operand" "")
+		    (match_operand 1 "general_operand" ""))
+	      (return)
+	      (use (match_operand 2 "" ""))])])
+
 (define_expand "sibcall"
   [(parallel [(call (match_operand 0 "memory_operand" "")
 		    (match_operand 1 "general_operand" ""))
@@ -514,10 +542,23 @@
 	      (use (match_operand 2 "" ""))])]
   ""
   {
+    rtx pat;
+
     if (operands[2] == NULL_RTX)
       operands[2] = const0_rtx;
+
+    pat = gen_sibcall_internal (operands[0], operands[1], operands[2]);
+    aarch64_emit_call_insn (pat);
+    DONE;
   }
 )
+
+(define_expand "sibcall_value_internal"
+  [(parallel [(set (match_operand 0 "" "")
+		   (call (match_operand 1 "memory_operand" "")
+			 (match_operand 2 "general_operand" "")))
+	      (return)
+	      (use (match_operand 3 "" ""))])])
 
 (define_expand "sibcall_value"
   [(parallel [(set (match_operand 0 "" "")
@@ -527,8 +568,15 @@
 	      (use (match_operand 3 "" ""))])]
   ""
   {
+    rtx pat;
+
     if (operands[3] == NULL_RTX)
       operands[3] = const0_rtx;
+
+    pat = gen_sibcall_value_internal (operands[0], operands[1], operands[2],
+                                      operands[3]);
+    aarch64_emit_call_insn (pat);
+    DONE;
   }
 )
 

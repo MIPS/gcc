@@ -576,6 +576,10 @@ tree_profiling (void)
       if (!gimple_has_body_p (node->decl))
 	continue;
 
+      /* Don't profile functions that are tagged as "no instrument".  */
+      if (DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (node->decl))
+	continue;
+
       /* Don't profile functions produced for builtin stuff.  */
       if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION)
 	continue;

@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* This test requires widening_mul */
 /* { dg-options "-march=vr4130 -mgp32 -fexpensive-optimizations" } */
-/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-Og" } { "" } } */
 /* { dg-final { scan-assembler-times "\tmaccu\t\\\$1," 3 } } */
 
 typedef unsigned int ui;

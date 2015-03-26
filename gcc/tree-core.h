@@ -1485,6 +1485,11 @@ struct GTY(()) tree_function_decl {
   /* The personality function. Used for stack unwinding. */
   tree personality;
 
+  /* An alternative personality function for the compact-encoding scheme.
+     The decision on whether to use this version will be deferred
+     until final.  */
+  tree personality2;
+
   /* Function specific options that are used by this function.  */
   tree function_specific_target;	/* target options */
   tree function_specific_optimization;	/* optimization options */

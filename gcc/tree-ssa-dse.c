@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "hashtab.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
@@ -45,6 +46,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "langhooks.h"
 #include "tree-cfgcleanup.h"
+#include "gimple-walk.h"
+#include "tree-ssa.h"
+#include "cgraph.h"
 
 /* This file implements dead store elimination.
 
@@ -328,6 +332,310 @@ dse_dom_walker::before_dom_children (basic_block bb)
     }
 }
 
+/* Sub-pass to remove unused assignments to local static variables that
+   are never read.  */
+
+/* Describe a potential candidate variable for the optimization.  */
+struct rls_decl_info
+{
+  /* The variable declaration.  */
+  tree var;
+
+  /* Whether we can optimize this variable.  */
+  bool optimizable_p;
+};
+
+/* Filled with 'struct rls_decl_info'; keyed off VAR.  */
+static htab_t static_variables;
+
+/* Describe a statement assigning to one of our candidate variables.  */
+struct rls_stmt_info
+{
+  /* Information about the variable.  */
+  struct rls_decl_info *info;
+
+  /* The statement in which we found a def or a use of the variable.  */
+  gimple stmt;
+};
+
+/* Filled with 'struct rls_stmt_info'; keyed off STMT.  */
+static htab_t defuse_statements;
+
+/* The number of static variables we found.  */
+static int n_statics;
+
+/* Parameters for the 'static_variables' hash table.  */
+
+static hashval_t
+rls_hash_decl_info (const void *x)
+{
+  return htab_hash_pointer
+    ((const void *) ((const struct rls_decl_info *) x)->var);
+}
+
+static int
+rls_eq_decl_info (const void *x, const void *y)
+{
+  const struct rls_decl_info *a = (const struct rls_decl_info *) x;
+  const struct rls_decl_info *b = (const struct rls_decl_info *) y;
+
+  return a->var == b->var;
+}
+
+static void
+rls_free_decl_info (void *info)
+{
+  free (info);
+}
+
+/* Parameters for the 'defuse_statements' hash table.  */
+
+static hashval_t
+rls_hash_use_info (const void *x)
+{
+  return htab_hash_pointer
+    ((const void *) ((const struct rls_stmt_info *) x)->stmt);
+}
+
+static int
+rls_eq_use_info (const void *x, const void *y)
+{
+  const struct rls_stmt_info *a = (const struct rls_stmt_info *) x;
+  const struct rls_stmt_info *b = (const struct rls_stmt_info *) y;
+
+  return a->stmt == b->stmt;
+}
+
+static void
+rls_free_use_info (void *info)
+{
+  struct rls_stmt_info *stmt_info = (struct rls_stmt_info *) info;
+
+  free (stmt_info);
+}
+
+/* Initialize data structures and statistics.  */
+
+static void
+rls_init (void)
+{
+  /* We expect relatively few static variables, hence the small
+     initial size for the hash table.  */
+  static_variables = htab_create (8, rls_hash_decl_info,
+                                  rls_eq_decl_info, rls_free_decl_info);
+
+  /* We expect quite a few statements.  */
+  defuse_statements = htab_create (128, rls_hash_use_info,
+                                   rls_eq_use_info, rls_free_use_info);
+
+  n_statics = 0;
+}
+
+/* Free data structures.  */
+
+static void
+rls_done (void)
+{
+  htab_delete (static_variables);
+  htab_delete (defuse_statements);
+}
+
+
+/* Doing the initial work to find static variables.  */
+
+/* Examine VAR, known to be a VAR_DECL, and determine whether it is a
+   static variable we could potentially optimize.  If so, stick in it in
+   the 'static_variables' hashtable.
+
+   STMT is the statement in which a definition or use of VAR occurs.
+   USE_P indicates whether VAR is used or defined in STMT.  Enter STMT
+   into 'defuse_statements' as well for use during dataflow
+   analysis.  */
+
+static void
+note_var_ref (tree var, gimple stmt, bool use_p)
+{
+  if (TREE_CODE (var) == VAR_DECL
+      /* We cannot optimize statics that were defined in another
+	 function.  The static may be non-optimizable in its original
+	 function, but optimizable when said function is inlined due to
+	 DCE of its uses.  (e.g. the only use was in a return statement
+	 and the function is inlined in a void context.)  */
+      && DECL_CONTEXT (var) == current_function_decl
+      /* We cannot optimize away a static used in multiple functions (as
+	 might happen in C++).  */
+      && !DECL_NONLOCAL(var)
+      && TREE_STATIC (var)
+      /* We cannot optimize away aggregate statics, as we would have to
+	 prove that definitions of every field of the aggregate dominate
+	 uses.  */
+      && !AGGREGATE_TYPE_P (TREE_TYPE (var))
+      /* GCC doesn't normally treat vectors as aggregates; we need to,
+	 though, since a user could use intrinsics to read/write
+	 particular fields of the vector, thereby treating it as an
+	 array.  */
+      && TREE_CODE (TREE_TYPE (var)) != VECTOR_TYPE
+      && !TREE_ADDRESSABLE (var)
+      && !TREE_THIS_VOLATILE (var))
+    {
+      struct rls_decl_info dummy;
+      void **slot;
+      struct rls_decl_info *info;
+
+      dummy.var = var;
+      slot = htab_find_slot (static_variables, &dummy, INSERT);
+      info = (struct rls_decl_info *)*slot;
+      if (info == NULL)
+        {
+          /* Found a use or a def of a new declaration.  */
+          info = XNEW (struct rls_decl_info);
+
+          info->var = var;
+          info->optimizable_p = !use_p;
+	  if (!use_p)
+	    n_statics++;
+          *slot = (void *) info;
+        }
+      if (use_p)
+	{
+	  if (info->optimizable_p)
+	    n_statics--;
+	  info->optimizable_p = false;
+	  return;
+	}
+
+      /* Enter the statement into DEFUSE_STATEMENTS.  */
+      {
+        struct rls_stmt_info dummy;
+        struct rls_stmt_info *stmt_info;
+
+        dummy.stmt = stmt;
+        slot = htab_find_slot (defuse_statements, &dummy, INSERT);
+
+        /* We should never insert the same statement into the
+           hashtable twice.  */
+        gcc_assert (*slot == NULL);
+
+        stmt_info = XNEW (struct rls_stmt_info);
+        stmt_info->info = info;
+        stmt_info->stmt = stmt;
+        if (dump_file)
+          {
+            fprintf (dump_file, "entering def ");
+            print_gimple_stmt (dump_file, stmt, 0, TDF_DETAILS | TDF_VOPS);
+          }
+        *slot = (void *) stmt_info;
+      }
+    }
+}
+
+/* Helper functions for walk_stmt_load_store_ops.  Used to detect uses
+   of static variables outside of assignments.  */
+
+static bool
+mark_used (gimple stmt ATTRIBUTE_UNUSED, tree t, tree, void *data ATTRIBUTE_UNUSED)
+{
+  note_var_ref (t, stmt, true);
+  return true;
+}
+
+/* Grovel through all the statements in the program, looking for
+   SSA_NAMEs whose SSA_NAME_VAR is a VAR_DECL.  We look at both use and
+   def SSA_NAMEs.  */
+
+static void
+find_static_nonvolatile_declarations (void)
+{
+  basic_block bb;
+
+  FOR_EACH_BB_FN (bb, cfun)
+    {
+      gimple_stmt_iterator i;
+
+      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+        {
+	  gimple stmt = gsi_stmt (i);
+
+	  if (gimple_code (stmt) == GIMPLE_ASM
+	      && gimple_asm_clobbers_memory_p (stmt))
+	    {
+	      /* Abort this optimization if an asm with a memory clobber is
+		 seen; it must be assumed to also read memory.  */
+	      n_statics = 0;
+	      return;
+	    }
+	  /* Static variables usually only occur in plain assignments
+	     that copy to or from a temporary.  */
+	  if (gimple_assign_single_p (stmt))
+	    {
+	      tree lhs = gimple_assign_lhs (stmt);
+	      tree rhs = gimple_assign_rhs1 (stmt);
+	      note_var_ref (lhs, stmt, false);
+	      note_var_ref (rhs, stmt, true);
+	      continue;
+	    }
+
+	  /* If they occur anywhere else, such as in function arguments,
+	     they must not be optimized away.  */
+	  walk_stmt_load_store_ops (stmt, NULL, mark_used, mark_used);
+        }
+    }
+}
+
+/* Traverse the 'defuse_statements' hash table.  For every use,
+   determine if the associated variable is defined along all paths
+   leading to said use.  Remove the associated variable from
+   'static_variables' if it is not.  */
+
+static int
+maybe_remove_stmt (void **slot, void *data ATTRIBUTE_UNUSED)
+{
+  struct rls_stmt_info *info = (struct rls_stmt_info *) *slot;
+
+  if (info->info->optimizable_p)
+    {
+      gimple_stmt_iterator bsi = gsi_for_stmt (info->stmt);
+
+      if (dump_file)
+	{
+	  fprintf (dump_file, "removing stmt ");
+	  print_gimple_stmt (dump_file, info->stmt, 0, 0);
+	  fprintf (dump_file, "\n");
+	}
+      reset_debug_uses (info->stmt);
+      unlink_stmt_vdef (info->stmt);
+      gsi_remove (&bsi, true);
+      release_defs (info->stmt);
+    }
+  return 1;
+}
+
+/* Remove local static variables that are only assigned to.  Return
+   end-of-pass TODO flags.  */
+static unsigned int
+remove_local_statics (void)
+{
+  rls_init ();
+
+  find_static_nonvolatile_declarations ();
+
+  /* Can we optimize anything?  */
+  if (n_statics != 0)
+    {
+      htab_traverse (defuse_statements, maybe_remove_stmt, NULL);
+      if (dump_file)
+        fprintf (dump_file, "removed %d static variables\n",
+                 n_statics);
+    }
+
+  rls_done ();
+
+  if (n_statics > 0)
+    return TODO_rebuild_alias | TODO_update_ssa;
+  else
+    return 0;
+}
+
 /* Main entry point.  */
 
 static unsigned int
@@ -360,6 +668,12 @@ tree_ssa_dse (void)
     
   /* For now, just wipe the post-dominator information.  */
   free_dominance_info (CDI_POST_DOMINATORS);
+
+  if (!cfun->calls_setjmp
+      && !cgraph_get_node (current_function_decl)->ever_was_nested
+      && !cgraph_function_possibly_inlined_p (current_function_decl))
+    return remove_local_statics ();
+
   return 0;
 }
 

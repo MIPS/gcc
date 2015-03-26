@@ -59,6 +59,7 @@
 #include "params.h"
 #include "opts.h"
 #include "dumpfile.h"
+#include "gimple-expr.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -94,6 +95,7 @@ static int thumb_far_jump_used_p (void);
 static bool thumb_force_lr_save (void);
 static unsigned arm_size_return_regs (void);
 static bool arm_assemble_integer (rtx, unsigned int, int);
+static void arm_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update);
 static void arm_print_operand (FILE *, rtx, int);
 static void arm_print_operand_address (FILE *, rtx);
 static bool arm_print_operand_punct_valid_p (unsigned char code);
@@ -585,6 +587,9 @@ static const struct attribute_spec arm_attribute_table[] =
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE arm_mangle_type
 
+#undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
+#define TARGET_ATOMIC_ASSIGN_EXPAND_FENV arm_atomic_assign_expand_fenv
+
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST arm_build_builtin_va_list
 #undef TARGET_EXPAND_BUILTIN_VA_START
@@ -677,6 +682,9 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef TARGET_CONST_NOT_OK_FOR_DEBUG_P
 #define TARGET_CONST_NOT_OK_FOR_DEBUG_P arm_const_not_ok_for_debug_p
+
+#undef TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
+#define TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2710,6 +2718,13 @@ arm_option_override (void)
 	fix_cm3_ldrd = 1;
       else
 	fix_cm3_ldrd = 0;
+    }
+
+  if (fix_a9_volatile_hazards == 1 && !TARGET_HAVE_DMB)
+    {
+      warning (0, "target CPU does not support DMB, disabling "
+	       "-mfix-cortex-a9-volatile-hazards");
+      fix_a9_volatile_hazards = 0;
     }
 
   /* Enable -munaligned-access by default for
@@ -16967,6 +16982,85 @@ thumb2_reorg (void)
   CLEAR_REG_SET (&live);
 }
 
+/* Return TRUE if BODY contains any volatile loads.  */
+
+static bool
+any_volatile_loads_p (const_rtx body)
+{
+  int i, j;
+  rtx lhs, rhs;
+  enum rtx_code code;
+  const char *fmt;
+  
+  if (body == NULL_RTX)
+    return false;
+  
+  code = GET_CODE (body);
+
+  if (code == SET)
+    {
+      lhs = SET_DEST (body);
+      rhs = SET_SRC (body);
+      
+      if (!REG_P (lhs) && GET_CODE (lhs) != SUBREG)
+        return false;
+
+      if ((MEM_P (rhs) || GET_CODE (rhs) == SYMBOL_REF)
+	  && MEM_VOLATILE_P (rhs))
+        return true;
+    }
+  else
+    {
+      fmt = GET_RTX_FORMAT (code);
+      
+      for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+        {
+	  if (fmt[i] == 'e')
+	    {
+	      if (any_volatile_loads_p (XEXP (body, i)))
+		return true;
+	    }
+	  else if (fmt[i] == 'E')
+	    for (j = 0; j < XVECLEN (body, i); j++)
+	      if (any_volatile_loads_p (XVECEXP (body, i, j)))
+		return true;
+	}
+    }
+ 
+  return false;
+}
+
+/* Work around read-after-read erratum on Cortex-A9 MPCore processors by
+   inserting DMB instructions after volatile loads.  For more information see:
+
+   http://infocenter.arm.com/help/topic/com.arm.doc.uan0004a/\
+     UAN0004A_a9_read_read.pdf
+*/   
+
+static void
+arm_cortex_a9_errata_reorg (rtx insn)
+{
+  rtx body = PATTERN (insn);
+
+  if (any_volatile_loads_p (body))
+    {
+      rtx barrier = gen_memory_barrier ();
+
+      /* In Thumb-2 mode, the barrier can be executed with the same condition
+	 as the load, which may reduce the number of IT instructions needed for
+	 adjacent loads.  In ARM mode barriers are unconditional
+	 instructions, so leave them alone.  */
+      if (TARGET_THUMB2 && GET_CODE (body) == COND_EXEC)
+	{
+	  rtx predicate = COND_EXEC_TEST (body);
+	  barrier = gen_rtx_COND_EXEC (VOIDmode, copy_rtx (predicate),
+				       PATTERN (barrier));
+	}
+
+      emit_insn_after (barrier, insn);
+    }
+}
+
 /* Gcc puts the pool in the wrong place for ARM, since we can only
    load addresses a limited distance around the pc.  We do some
    special munging to move the constant pool values to the correct
@@ -17006,6 +17100,9 @@ arm_reorg (void)
       else if (INSN_P (insn))
 	{
 	  rtx table;
+
+	  if (fix_a9_volatile_hazards)
+	    arm_cortex_a9_errata_reorg (insn);
 
 	  note_invalid_constants (insn, address, true);
 	  address += get_attr_length (insn);
@@ -17369,7 +17466,7 @@ vfp_emit_fstmd (int base_reg, int count)
    the call target.  */
 
 void
-arm_emit_call_insn (rtx pat, rtx addr)
+arm_emit_call_insn (rtx pat, rtx addr, bool sibcall)
 {
   rtx insn;
 
@@ -17380,6 +17477,7 @@ arm_emit_call_insn (rtx pat, rtx addr)
      to the instruction's CALL_INSN_FUNCTION_USAGE.  */
   if (TARGET_VXWORKS_RTP
       && flag_pic
+      && !sibcall
       && GET_CODE (addr) == SYMBOL_REF
       && (SYMBOL_REF_DECL (addr)
 	  ? !targetm.binds_local_p (SYMBOL_REF_DECL (addr))
@@ -17387,6 +17485,16 @@ arm_emit_call_insn (rtx pat, rtx addr)
     {
       require_pic_register ();
       use_reg (&CALL_INSN_FUNCTION_USAGE (insn), cfun->machine->pic_reg);
+    }
+
+  if (TARGET_AAPCS_BASED)
+    {
+      /* For AAPCS, IP and CC can be clobbered by veneers inserted by the
+	 linker.  We need to add an IP clobber to allow setting
+	 TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS to true.  A CC clobber
+	 is not needed since it's a fixed register.  */
+      rtx *fusage = &CALL_INSN_FUNCTION_USAGE (insn);
+      clobber_reg (fusage, gen_rtx_REG (word_mode, IP_REGNUM));
     }
 }
 
@@ -22565,6 +22673,9 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
 	    || (TARGET_HARD_FLOAT && TARGET_VFP
 		&& regno == VFPCC_REGNUM));
 
+  if (regno == CC_REGNUM && GET_MODE_CLASS (mode) != MODE_CC)
+    return false;
+
   if (TARGET_THUMB1)
     /* For the Thumb we only allow values bigger than SImode in
        registers 0 - 6, so that there is always a second low
@@ -22654,6 +22765,9 @@ arm_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
 enum reg_class
 arm_regno_class (int regno)
 {
+  if (regno == PC_REGNUM)
+    return NO_REGS;
+
   if (TARGET_THUMB1)
     {
       if (regno == STACK_POINTER_REGNUM)
@@ -23216,6 +23330,9 @@ enum arm_builtins
   ARM_BUILTIN_CRC32CB,
   ARM_BUILTIN_CRC32CH,
   ARM_BUILTIN_CRC32CW,
+
+  ARM_BUILTIN_GET_FPSCR,
+  ARM_BUILTIN_SET_FPSCR,
 
 #undef CRYPTO1
 #undef CRYPTO2
@@ -24015,6 +24132,15 @@ static const struct builtin_description bdesc_2arg[] =
   IWMMXT_BUILTIN2 (iwmmxt_wmacuz, WMACUZ)
   IWMMXT_BUILTIN2 (iwmmxt_wmacsz, WMACSZ)
 
+
+#define FP_BUILTIN(L, U) \
+  {0, CODE_FOR_##L, "__builtin_arm_"#L, ARM_BUILTIN_##U, \
+   UNKNOWN, 0},
+
+  FP_BUILTIN (get_fpscr, GET_FPSCR)
+  FP_BUILTIN (set_fpscr, SET_FPSCR)
+#undef FP_BUILTIN
+
 #define CRC32_BUILTIN(L, U) \
   {0, CODE_FOR_##L, "__builtin_arm_"#L, ARM_BUILTIN_##U, \
    UNKNOWN, 0},
@@ -24529,6 +24655,21 @@ arm_init_builtins (void)
 
   if (TARGET_CRC32)
     arm_init_crc32_builtins ();
+
+  if (TARGET_VFP && TARGET_HARD_FLOAT)
+    {
+      tree ftype_set_fpscr
+	= build_function_type_list (void_type_node, unsigned_type_node, NULL);
+      tree ftype_get_fpscr
+	= build_function_type_list (unsigned_type_node, NULL);
+
+      arm_builtin_decls[ARM_BUILTIN_GET_FPSCR]
+	= add_builtin_function ("__builtin_arm_ldfscr", ftype_get_fpscr,
+				ARM_BUILTIN_GET_FPSCR, BUILT_IN_MD, NULL, NULL_TREE);
+      arm_builtin_decls[ARM_BUILTIN_SET_FPSCR]
+	= add_builtin_function ("__builtin_arm_stfscr", ftype_set_fpscr,
+				ARM_BUILTIN_SET_FPSCR, BUILT_IN_MD, NULL, NULL_TREE);
+    }
 }
 
 /* Return the ARM builtin for CODE.  */
@@ -25256,6 +25397,25 @@ arm_expand_builtin (tree exp,
 
   switch (fcode)
     {
+    case ARM_BUILTIN_GET_FPSCR:
+    case ARM_BUILTIN_SET_FPSCR:
+      if (fcode == ARM_BUILTIN_GET_FPSCR)
+	{
+	  icode = CODE_FOR_get_fpscr;
+	  target = gen_reg_rtx (SImode);
+	  pat = GEN_FCN (icode) (target);
+	}
+      else
+	{
+	  target = NULL_RTX;
+	  icode = CODE_FOR_set_fpscr;
+	  arg0 = CALL_EXPR_ARG (exp, 0);
+	  op0 = expand_normal (arg0);
+	  pat = GEN_FCN (icode) (op0);
+	}
+      emit_insn (pat);
+      return target;
+
     case ARM_BUILTIN_TEXTRMSB:
     case ARM_BUILTIN_TEXTRMUB:
     case ARM_BUILTIN_TEXTRMSH:
@@ -28580,7 +28740,7 @@ static bool
 arm_array_mode_supported_p (enum machine_mode mode,
 			    unsigned HOST_WIDE_INT nelems)
 {
-  if (TARGET_NEON
+  if (TARGET_NEON && !BYTES_BIG_ENDIAN
       && (VALID_NEON_DREG_MODE (mode) || VALID_NEON_QREG_MODE (mode))
       && (nelems >= 2 && nelems <= 4))
     return true;
@@ -28595,7 +28755,7 @@ arm_array_mode_supported_p (enum machine_mode mode,
 static enum machine_mode
 arm_preferred_simd_mode (enum machine_mode mode)
 {
-  if (TARGET_NEON)
+  if (TARGET_NEON && !BYTES_BIG_ENDIAN)
     switch (mode)
       {
       case SFmode:
@@ -29612,7 +29772,8 @@ arm_vector_alignment (const_tree type)
 static unsigned int
 arm_autovectorize_vector_sizes (void)
 {
-  return TARGET_NEON_VECTORIZE_DOUBLE ? 0 : (16 | 8);
+  return (TARGET_NEON_VECTORIZE_DOUBLE || (TARGET_NEON && BYTES_BIG_ENDIAN))
+	 ? 0 : (16 | 8);
 }
 
 static bool
@@ -31165,6 +31326,75 @@ arm_const_not_ok_for_debug_p (rtx p)
     }
 
   return false;
+}
+
+static void
+arm_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
+{
+  const unsigned ARM_FE_INVALID = 1;
+  const unsigned ARM_FE_DIVBYZERO = 2;
+  const unsigned ARM_FE_OVERFLOW = 4;
+  const unsigned ARM_FE_UNDERFLOW = 8;
+  const unsigned ARM_FE_INEXACT = 16;
+  const unsigned HOST_WIDE_INT ARM_FE_ALL_EXCEPT = (ARM_FE_INVALID
+						    | ARM_FE_DIVBYZERO
+						    | ARM_FE_OVERFLOW
+						    | ARM_FE_UNDERFLOW
+						    | ARM_FE_INEXACT);
+  const unsigned HOST_WIDE_INT ARM_FE_EXCEPT_SHIFT = 8;
+  tree fenv_var, get_fpscr, set_fpscr, mask, ld_fenv, masked_fenv;
+  tree new_fenv_var, reload_fenv, restore_fnenv;
+  tree update_call, atomic_feraiseexcept, hold_fnclex;
+
+  if (!TARGET_VFP || !TARGET_HARD_FLOAT)
+    return;
+
+  /* Generate the equivalent of :
+       unsigned int fenv_var;
+       fenv_var = __builtin_arm_get_fpscr ();
+
+       unsigned int masked_fenv;
+       masked_fenv = fenv_var & mask;
+
+       __builtin_arm_set_fpscr (masked_fenv);  */
+
+  fenv_var = create_tmp_var (unsigned_type_node, NULL);
+  get_fpscr = arm_builtin_decls[ARM_BUILTIN_GET_FPSCR];
+  set_fpscr = arm_builtin_decls[ARM_BUILTIN_SET_FPSCR];
+  mask = build_int_cst (unsigned_type_node,
+			~((ARM_FE_ALL_EXCEPT << ARM_FE_EXCEPT_SHIFT)
+			  | ARM_FE_ALL_EXCEPT));
+  ld_fenv = build2 (MODIFY_EXPR, unsigned_type_node,
+		    fenv_var, build_call_expr (get_fpscr, 0));
+  masked_fenv = build2 (BIT_AND_EXPR, unsigned_type_node, fenv_var, mask);
+  hold_fnclex = build_call_expr (set_fpscr, 1, masked_fenv);
+  *hold = build2 (COMPOUND_EXPR, void_type_node,
+		  build2 (COMPOUND_EXPR, void_type_node, masked_fenv, ld_fenv),
+		  hold_fnclex);
+
+  /* Store the value of masked_fenv to clear the exceptions:
+     __builtin_arm_set_fpscr (masked_fenv);  */
+
+  *clear = build_call_expr (set_fpscr, 1, masked_fenv);
+
+  /* Generate the equivalent of :
+       unsigned int new_fenv_var;
+       new_fenv_var = __builtin_arm_get_fpscr ();
+
+       __builtin_arm_set_fpscr (fenv_var);
+
+       __atomic_feraiseexcept (new_fenv_var);  */
+
+  new_fenv_var = create_tmp_var (unsigned_type_node, NULL);
+  reload_fenv = build2 (MODIFY_EXPR, unsigned_type_node, new_fenv_var,
+			build_call_expr (get_fpscr, 0));
+  restore_fnenv = build_call_expr (set_fpscr, 1, fenv_var);
+  atomic_feraiseexcept = builtin_decl_implicit (BUILT_IN_ATOMIC_FERAISEEXCEPT);
+  update_call = build_call_expr (atomic_feraiseexcept, 1,
+				 fold_convert (integer_type_node, new_fenv_var));
+  *update = build2 (COMPOUND_EXPR, void_type_node,
+		    build2 (COMPOUND_EXPR, void_type_node,
+			    reload_fenv, restore_fnenv), update_call);
 }
 
 #include "gt-arm.h"

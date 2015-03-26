@@ -588,3 +588,23 @@ Allow double variables in upper registers with -mcpu=power7 or -mvsx
 mupper-regs-sf
 Target Undocumented Mask(UPPER_REGS_SF) Var(rs6000_isa_flags)
 Allow float variables in upper registers with -mcpu=power8 or -mp8-vector
+
+te500mc
+Target RejectNegative
+Alias for -mcpu=e500mc
+
+te500v1
+Target RejectNegative
+Alias for -mcpu=8540 -mfloat-gprs=single -mspe=yes -mabi=spe
+
+te500v2
+Target RejectNegative
+Alias for -mcpu=8548 -mfloat-gprs=double -mspe=yes -mabi=spe
+
+te600
+Target RejectNegative
+Alias for -mcpu=7400 -maltivec -mabi=altivec
+
+te6500
+Target RejectNegative
+Alias for -mcpu=e6500 -maltivec -mabi=altivec

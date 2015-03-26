@@ -1031,6 +1031,18 @@ arm*-*-linux-*)			# ARM GNU/Linux with ELF
 	# The EABI requires the use of __cxa_atexit.
 	default_use_cxa_atexit=yes
 	with_tls=${with_tls:-gnu}
+        case ${target} in
+        *)
+	    if test x$enable_extra_sgxx_multilibs = xyes; then
+		tm_file="${tm_file} arm/cs-linux.h"
+		tmake_file="${tmake_file} arm/t-cs-linux"
+	    elif test x$enable_extra_sgxxlite_multilibs = xyes; then
+		tmake_file="${tmake_file} arm/t-cs-linux-lite"
+	    fi
+	    tm_file="$tm_file ./sysroot-suffix.h"
+	    tmake_file="$tmake_file t-sysroot-suffix"
+	    ;;
+	esac
 	;;
 arm*-*-uclinux*eabi*)		# ARM ucLinux
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/linux-gas.h arm/uclinux-elf.h glibc-stdint.h"
@@ -1048,9 +1060,22 @@ arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtems*)
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/bpabi.h"
 	tmake_file="${tmake_file} arm/t-arm arm/t-arm-elf"
 	case ${target} in
+	arm-altera-eabi*)
+	  tm_file="$tm_file newlib-stdint.h"
+	  tm_file="${tm_file} arm/nocrt0.h"
+	  tmake_file="${tmake_file} arm/t-bpabi"
+	  tmake_file="${tmake_file} arm/t-cs-altera"
+	  use_gcc_stdint=wrap
+	  ;;
 	arm*-*-eabi*)
 	  tm_file="$tm_file newlib-stdint.h"
+	  tm_file="${tm_file} arm/nocrt0.h"
 	  tmake_file="${tmake_file} arm/t-bpabi"
+	  if test x$enable_extra_sgxx_multilibs = xyes; then
+		  tmake_file="${tmake_file} arm/t-cs-eabi"
+	  elif test x$enable_extra_sgxxlite_multilibs = xyes; then
+		  tmake_file="${tmake_file} arm/t-cs-eabi-lite"
+	  fi
 	  use_gcc_stdint=wrap
 	  ;;
 	arm*-*-rtems*)
@@ -1437,6 +1462,11 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | i
 		else
 			tm_file="${tm_file} i386/gnu-user-common.h i386/gnu-user.h i386/linux-common.h i386/linux.h"
 		fi
+		if test x$enable_extra_sgxx_multilibs = xyes; then
+			tm_file="${tm_file} i386/cs-linux.h"
+			tmake_file="${tmake_file} i386/t-cs-linux"
+			extra_options="${extra_options} i386/cs-linux.opt"
+		fi
 		;;
 	i[34567]86-*-knetbsd*-gnu)
 		tm_file="${tm_file} i386/gnu-user-common.h i386/gnu-user.h knetbsd-gnu.h i386/knetbsd-gnu.h"
@@ -1493,6 +1523,10 @@ x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 		esac
 	done
 	TM_MULTILIB_CONFIG=`echo $TM_MULTILIB_CONFIG | sed 's/^,//'`
+	if test x$enable_extra_sgxxlite_multilibs = xyes; then
+		tmake_file="$tmake_file i386/t-cs-amd-linux"
+		tm_file="$tm_file i386/cs-amd-linux.h"
+	fi
 	;;
 i[34567]86-pc-msdosdjgpp*)
 	xm_file=i386/xm-djgpp.h
@@ -1992,6 +2026,16 @@ mips*-*-linux*)				# Linux MIPS, either endian.
                 ;;
         mipsisa32*)
 		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
+		;;
+	*)
+		if test x$enable_extra_sgxx_multilibs = xyes; then
+		    tmake_file="$tmake_file mips/t-linux64 mips/t-sgxx-linux"
+		    tm_file="$tm_file mips/gnu-user64.h mips/linux64.h mips/cs-sgxx-linux.h"
+		elif test x$enable_extra_sgxxlite_multilibs = xyes; then
+		    tmake_file="$tmake_file mips/t-linux64 mips/t-sgxxlite-linux"
+		    tm_file="$tm_file mips/gnu-user64.h mips/linux64.h mips/cs-sgxxlite-linux.h"
+		fi
+		;;
         esac
 	;;
 mips*-mti-elf*)
@@ -2032,6 +2076,17 @@ mips*-sde-elf*)
 	    tm_defines="MIPS_ISA_DEFAULT=64 MIPS_ABI_DEFAULT=ABI_N32"
 	    ;;
 	esac
+        if [ "$enable_sgxx_sde_multilibs" = "yes" ]; then
+          tm_file="$tm_file mips/sdemtk.h"
+          tmake_file="$tmake_file mips/t-sgxx-sde"
+          # SourceryG++ is configured --with-arch=mips32r2.
+          tm_defines="MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
+        elif [ "$enable_sgxxlite_sde_multilibs" = "yes" ]; then
+          tm_file="$tm_file mips/sdemtk.h"
+          tmake_file="$tmake_file mips/t-sgxxlite-sde"
+          # SourceryG++ Lite is configured --with-arch=mips32r2.
+          tm_defines="MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
+        fi
 	;;
 mipsisa32-*-elf* | mipsisa32el-*-elf* | \
 mipsisa32r2-*-elf* | mipsisa32r2el-*-elf* | \
@@ -2253,7 +2308,10 @@ powerpc-xilinx-eabi*)
 powerpc-*-eabi*)
 	tm_file="${tm_file} dbxelf.h elfos.h usegas.h freebsd-spec.h newlib-stdint.h rs6000/sysv4.h rs6000/eabi.h rs6000/e500.h"
 	extra_options="${extra_options} rs6000/sysv4.opt"
-	tmake_file="rs6000/t-fprules rs6000/t-ppcgas rs6000/t-ppccomm"
+	tmake_file="rs6000/t-fprules rs6000/t-fprules-softfp soft-fp/t-softfp rs6000/t-ppcgas rs6000/t-ppccomm"
+	if test x$enable_extra_sgxx_multilibs = xyes; then
+	  tmake_file="${tmake_file} rs6000/t-cs-eabi"
+	fi
 	use_gcc_stdint=wrap
 	;;
 powerpc-*-rtems*)
@@ -2325,6 +2383,14 @@ powerpc*-*-linux*)
 	if test x${enable_secureplt} = xyes; then
 		tm_file="rs6000/secureplt.h ${tm_file}"
 	fi
+	case ${target} in
+	*)
+		if test x$enable_extra_sgxx_multilibs = xyes; then
+		  tm_file="${tm_file} rs6000/cs-linux.h rs6000/e500.h"
+		  tmake_file="$tmake_file rs6000/t-cs-linux"
+		fi
+		;;
+	esac
 	;;
 powerpc-wrs-vxworks|powerpc-wrs-vxworksae)
 	tm_file="${tm_file} elfos.h freebsd-spec.h rs6000/sysv4.h"

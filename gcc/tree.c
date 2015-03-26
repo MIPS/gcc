@@ -11756,7 +11756,7 @@ tree
 lhd_gcc_personality (void)
 {
   if (!gcc_eh_personality_decl)
-    gcc_eh_personality_decl = build_personality_function ("gcc");
+    gcc_eh_personality_decl = build_personality_function ("gcc", false);
   return gcc_eh_personality_decl;
 }
 

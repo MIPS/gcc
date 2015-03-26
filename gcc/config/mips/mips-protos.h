@@ -248,7 +248,6 @@ extern bool mips_expand_ext_as_unaligned_load (rtx, rtx, HOST_WIDE_INT,
 extern bool mips_expand_ins_as_unaligned_store (rtx, rtx, HOST_WIDE_INT,
 						HOST_WIDE_INT);
 extern bool mips_mem_fits_mode_p (enum machine_mode mode, rtx x);
-extern void mips_order_regs_for_local_alloc (void);
 extern HOST_WIDE_INT mips_debugger_offset (rtx, HOST_WIDE_INT);
 
 extern void mips_push_asm_switch (struct mips_asm_switch *);
@@ -256,6 +255,7 @@ extern void mips_pop_asm_switch (struct mips_asm_switch *);
 extern void mips_output_external (FILE *, tree, const char *);
 extern void mips_output_ascii (FILE *, const char *, size_t);
 extern const char *mips_output_tls_reloc_directive (rtx *);
+extern void mips_fixup_cfi_sections (void);
 extern void mips_output_aligned_decl_common (FILE *, tree, const char *,
 					     unsigned HOST_WIDE_INT,
 					     unsigned int);

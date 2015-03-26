@@ -1,0 +1,22 @@
+# Multilibs for powerpc-linux-gnu targets.
+
+MULTILIB_OPTIONS	= m64 te500v1/te500v2/te600/te500mc/te6500 \
+			  msoft-float
+
+MULTILIB_DIRNAMES	= 64 te500v1 te500v2 te600 te500mc te6500 \
+			  nof
+
+MULTILIB_EXCEPTIONS	= *m64*/*te500v1* \
+			  *m64*/*te500v2* \
+			  *m64*/*te600* \
+			  *m64*/*te500mc* \
+			  *m64*/*msoft-float* \
+			  *te500v1*/*msoft-float* \
+			  *te500v2*/*msoft-float* \
+			  *te600*/*msoft-float* \
+			  *te500mc*/*msoft-float* \
+			  *te6500*/*msoft-float* \
+
+MULTILIB_OSDIRNAMES	= m64=../lib64 \
+			  msoft-float=!nof \
+			  m64/te6500=../lib64/te6500 \

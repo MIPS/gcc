@@ -252,7 +252,44 @@ init_return_column_size (enum machine_mode mode, rtx mem, unsigned int c)
 		  gen_int_mode (size, mode));
 }
 
-/* Generate code to initialize the register size table.  */
+/* Helper for expand_builtin_init_dwarf_reg_sizes.  Generate code to
+   initialize the dwarf register size table entry corresponding to register
+   REGNO in REGMODE.  TABLE is the table base address, SLOTMODE is the mode
+   to use for the size entry to initialize, and WROTE_RETURN_COLUMN needs to
+   be set to true if the dwarf register number for REGNO is the dwarf return
+   column number.  */
+
+static
+void init_one_dwarf_reg_size (int regno, enum machine_mode regmode,
+			      rtx table, enum machine_mode slotmode,
+			      bool *wrote_return_column)
+{
+  const unsigned int dnum = DWARF_FRAME_REGNUM (regno);
+  const unsigned int rnum = DWARF2_FRAME_REG_OUT (dnum, 1);
+  const unsigned int dcol = DWARF_REG_TO_UNWIND_COLUMN (rnum);
+  
+  const HOST_WIDE_INT slotoffset = dcol * GET_MODE_SIZE (slotmode);
+  const HOST_WIDE_INT regsize = GET_MODE_SIZE (regmode);
+
+  if (rnum >= DWARF_FRAME_REGISTERS)
+    return;
+
+  if (dnum == DWARF_FRAME_RETURN_COLUMN)
+    {
+      if (regmode == VOIDmode)
+	return;
+      *wrote_return_column = true;
+    }
+
+  if (slotoffset < 0)
+    return;
+
+  emit_move_insn (adjust_address (table, slotmode, slotoffset),
+		  gen_int_mode (regsize, slotmode));
+}
+
+/* Generate code to initialize the dwarf register size table located
+   at the provided ADDRESS.  */
 
 void
 expand_builtin_init_dwarf_reg_sizes (tree address)
@@ -265,29 +302,21 @@ expand_builtin_init_dwarf_reg_sizes (tree address)
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
-      unsigned int dnum = DWARF_FRAME_REGNUM (i);
-      unsigned int rnum = DWARF2_FRAME_REG_OUT (dnum, 1);
+      enum machine_mode save_mode = targetm.dwarf_frame_reg_mode (i);
+      rtx span;
 
-      if (rnum < DWARF_FRAME_REGISTERS)
+      span = targetm.dwarf_register_span (gen_rtx_REG (save_mode, i));
+      if (!span)
+	init_one_dwarf_reg_size (i, save_mode, mem, mode, &wrote_return_column);
+      else
 	{
-	  HOST_WIDE_INT offset = rnum * GET_MODE_SIZE (mode);
-	  enum machine_mode save_mode = reg_raw_mode[i];
-	  HOST_WIDE_INT size;
-
-	  if (HARD_REGNO_CALL_PART_CLOBBERED (i, save_mode))
-	    save_mode = choose_hard_reg_mode (i, 1, true);
-	  if (dnum == DWARF_FRAME_RETURN_COLUMN)
+	  for (int si = 0; si < XVECLEN (span, 0); si++)
 	    {
-	      if (save_mode == VOIDmode)
-		continue;
-	      wrote_return_column = true;
-	    }
-	  size = GET_MODE_SIZE (save_mode);
-	  if (offset < 0)
-	    continue;
+	      rtx reg = XVECEXP (span, 0, si);
 
-	  emit_move_insn (adjust_address (mem, mode, offset),
-			  gen_int_mode (size, mode));
+	      init_one_dwarf_reg_size
+		(REGNO (reg), GET_MODE (reg), mem, mode, &wrote_return_column);
+	    }
 	}
     }
 
@@ -3338,6 +3367,16 @@ dwarf2out_do_frame (void)
   return false;
 }
 
+bool
+asm_cfi_special_encoding (int enc ATTRIBUTE_UNUSED)
+{
+#ifdef ASM_CFI_SPECIAL_ENCODING
+  return ASM_CFI_SPECIAL_ENCODING (enc);
+#else
+  return false;
+#endif
+}
+
 /* Decide whether to emit frame unwind via assembler directives.  */
 
 bool
@@ -3359,10 +3398,12 @@ dwarf2out_do_cfi_asm (void)
   /* Make sure the personality encoding is one the assembler can support.
      In particular, aligned addresses can't be handled.  */
   enc = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2,/*global=*/1);
-  if ((enc & 0x70) != 0 && (enc & 0x70) != DW_EH_PE_pcrel)
+  if ((enc & 0x70) != 0 && (enc & 0x70) != DW_EH_PE_pcrel
+      && ! asm_cfi_special_encoding (enc))
     return false;
   enc = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0,/*global=*/0);
-  if ((enc & 0x70) != 0 && (enc & 0x70) != DW_EH_PE_pcrel)
+  if ((enc & 0x70) != 0 && (enc & 0x70) != DW_EH_PE_pcrel
+      && ! asm_cfi_special_encoding (enc))
     return false;
 
   /* If we can't get the assembler to emit only .debug_frame, and we don't need

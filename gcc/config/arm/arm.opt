@@ -264,6 +264,11 @@ Target Report Var(fix_cm3_ldrd) Init(2)
 Avoid overlapping destination and address registers on LDRD instructions
 that may trigger Cortex-M3 errata.
 
+mfix-cortex-a9-volatile-hazards
+Target Report Var(fix_a9_volatile_hazards) Init(0)
+Avoid errata causing read-after-read hazards for concurrent volatile
+accesses on Cortex-A9 MPCore processors.
+
 munaligned-access
 Target Report Var(unaligned_access) Init(2)
 Enable unaligned word and halfword accesses to packed data.

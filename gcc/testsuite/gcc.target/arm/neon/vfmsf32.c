@@ -18,5 +18,5 @@ void test_vfmsf32 (void)
   out_float32x2_t = vfms_f32 (arg0_float32x2_t, arg1_float32x2_t, arg2_float32x2_t);
 }
 
-/* { dg-final { scan-assembler "vfms\.f32\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, \[dD\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vfms\.f32\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, \[dD\]\[0-9\]+!?\(\[ 	\]+@.*\)?\n" } } */
 /* { dg-final { cleanup-saved-temps } } */

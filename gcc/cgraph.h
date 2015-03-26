@@ -232,6 +232,13 @@ struct GTY(()) cgraph_global_info {
 
 struct GTY(()) cgraph_rtl_info {
    unsigned int preferred_incoming_stack_boundary;
+
+  /* Call unsaved hard registers really used by the corresponding
+     function (including ones used by functions called by the
+     function).  */
+  HARD_REG_SET function_used_regs;
+  /* Set if function_used_regs is valid.  */
+  unsigned function_used_regs_valid: 1;
 };
 
 /* Represent which DECL tree (or reference to such tree)
@@ -416,6 +423,8 @@ public:
   /* Set once the function has been instantiated and its callee
      lists created.  */
   unsigned process : 1;
+  /* Set if the function is a nested function or has nested functions.  */
+  unsigned ever_was_nested : 1;
   /* How commonly executed the node is.  Initialized during branch
      probabilities pass.  */
   ENUM_BITFIELD (node_frequency) frequency : 2;

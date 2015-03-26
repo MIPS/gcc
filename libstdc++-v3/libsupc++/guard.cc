@@ -203,7 +203,10 @@ namespace __cxxabiv1
   static inline void
   throw_recursive_init_exception()
   {
-#ifdef __EXCEPTIONS
+    // When building for use with CSLIBC, avoid the overhead of throwing
+    // an exception.  Recursive initialization is undefined behavior, so
+    // crashing is acceptable.
+#if defined(__EXCEPTIONS) && !_GLIBCXX_CSLIBC
 	throw __gnu_cxx::recursive_init_error();
 #else
 	// Use __builtin_trap so we don't require abort().

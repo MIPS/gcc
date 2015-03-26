@@ -17,5 +17,5 @@ void test_vsri_np64 (void)
   out_poly64x1_t = vsri_n_p64 (arg0_poly64x1_t, arg1_poly64x1_t, 1);
 }
 
-/* { dg-final { scan-assembler "vsri\.64\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vsri\.64\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@.*\)?\n" } } */
 /* { dg-final { cleanup-saved-temps } } */

@@ -137,3 +137,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define ENDFILE_SPEC \
   GNU_USER_TARGET_MATHFILE_SPEC " " \
   GNU_USER_TARGET_ENDFILE_SPEC
+
+#define SUBTARGET_OVERRIDE_OPTIONS                              \
+do {                                                            \
+  /* __thread_support is not supported by uClibc.  */           \
+  if (OPTION_UCLIBC)						\
+    targetm.have_tls = 0;					\
+} while (0)

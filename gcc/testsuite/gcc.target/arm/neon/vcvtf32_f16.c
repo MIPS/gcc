@@ -16,5 +16,5 @@ void test_vcvtf32_f16 (void)
   out_float32x4_t = vcvt_f32_f16 (arg0_float16x4_t);
 }
 
-/* { dg-final { scan-assembler "vcvt\.f32.f16\[ 	\]+\[qQ\]\[0-9\]+, \[dD\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vcvt\.f32.f16\[ 	\]+\[qQ\]\[0-9\]+, \[dD\]\[0-9\]+!?\(\[ 	\]+@.*\)?\n" } } */
 /* { dg-final { cleanup-saved-temps } } */

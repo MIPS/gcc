@@ -64,6 +64,7 @@ sources = \
 	eh_aux_runtime.cc \
 	eh_call.cc \
 	eh_catch.cc \
+	eh_compact_pr.cc \
 	eh_exception.cc \
 	eh_globals.cc \
 	eh_personality.cc \
@@ -89,13 +90,19 @@ sources = \
 	pbase_type_info.cc \
 	pmem_type_info.cc \
 	pointer_type_info.cc \
-	pure.cc \
 	si_class_type_info.cc \
 	tinfo.cc \
 	tinfo2.cc \
 	vec.cc \
 	vmi_class_type_info.cc \
 	vterminate.cc
+
+if !GLIBCXX_CSLIBC
+# CSLIBC (or, more accurately, CS3) provides its own implementation of
+# __cxa_pure_virtual.
+sources += \
+	pure.cc
+endif
 
 if ENABLE_VTABLE_VERIFY
   vtv_sources = \

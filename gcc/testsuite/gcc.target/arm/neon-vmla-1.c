@@ -1,7 +1,7 @@
 /* { dg-require-effective-target arm_neon_hw } */
 /* { dg-options "-O2 -ftree-vectorize -ffast-math" } */
 /* { dg-add-options arm_neon } */
-/* { dg-final { scan-assembler "vmla\\.i32" } } */
+/* { dg-final { scan-assembler "vmla\\.i32" { xfail { ! arm_little_endian } } } } */
 
 /* Verify that VMLA is used.  */
 void f1(int n, int a, int x[], int y[]) {

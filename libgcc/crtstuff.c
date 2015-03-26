@@ -105,8 +105,7 @@ call_ ## FUNC (void)					\
 #include <link.h>
 /* uClibc pretends to be glibc 2.2 and DT_CONFIG is defined in its link.h.
    But it doesn't use PT_GNU_EH_FRAME ELF segment currently.  */
-# if !defined(__UCLIBC__) \
-     && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2) \
+# if (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2) \
      || (__GLIBC__ == 2 && __GLIBC_MINOR__ == 2 && defined(DT_CONFIG)))
 #  define USE_PT_GNU_EH_FRAME
 # endif
@@ -168,6 +167,9 @@ call_ ## FUNC (void)					\
 extern void __register_frame_info (const void *, struct object *)
 				  TARGET_ATTRIBUTE_WEAK;
 extern void __register_frame_info_bases (const void *, struct object *,
+					 void *, void *)
+				  TARGET_ATTRIBUTE_WEAK;
+extern void __register_frame_info_header_bases (const void *, struct object *,
 					 void *, void *)
 				  TARGET_ATTRIBUTE_WEAK;
 extern void *__deregister_frame_info (const void *)
@@ -252,6 +254,10 @@ STATIC func_ptr __DTOR_LIST__[1]
 STATIC EH_FRAME_SECTION_CONST char __EH_FRAME_BEGIN__[]
      __attribute__((section(EH_FRAME_SECTION_NAME), aligned(4)))
      = { };
+
+#ifdef MD_HAVE_COMPACT_EH
+extern char __GNU_EH_FRAME_HDR[] TARGET_ATTRIBUTE_WEAK;
+#endif /* MD_HAVE_COMPACT_EH */
 #endif /* USE_EH_FRAME_REGISTRY */
 
 #ifdef JCR_SECTION_NAME
@@ -406,6 +412,12 @@ __do_global_dtors_aux (void)
 
 #ifdef USE_EH_FRAME_REGISTRY
 #ifdef CRT_GET_RFIB_DATA
+#ifdef MD_HAVE_COMPACT_EH
+  if (__register_frame_info_header_bases && __GNU_EH_FRAME_HDR &&
+      __GNU_EH_FRAME_HDR[0] > 1)
+    __deregister_frame_info_bases (__GNU_EH_FRAME_HDR);
+  else
+#endif /* MD_HAVE_COMPACT_EH */
   /* If we used the new __register_frame_info_bases interface,
      make sure that we deregister from the same place.  */
   if (__deregister_frame_info_bases)
@@ -451,6 +463,13 @@ frame_dummy (void)
   void *tbase, *dbase;
   tbase = 0;
   CRT_GET_RFIB_DATA (dbase);
+#ifdef MD_HAVE_COMPACT_EH
+  if (__register_frame_info_header_bases && __GNU_EH_FRAME_HDR &&
+      __GNU_EH_FRAME_HDR[0] > 1)
+    __register_frame_info_header_bases (__GNU_EH_FRAME_HDR, &object,
+					tbase, dbase);
+  else
+#endif /* MD_HAVE_COMPACT_EH */
   if (__register_frame_info_bases)
     __register_frame_info_bases (__EH_FRAME_BEGIN__, &object, tbase, dbase);
 #else

@@ -361,3 +361,41 @@ _GLIBCXX_LDBL_COMPAT(_ZNKSt17__gnu_cxx_ldbl1289money_putIcSt19ostreambuf_iterato
 		     _ZNKSt9money_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE9_M_insertILb1EEES3_S3_RSt8ios_basecRKSs);
 
 #endif // _GLIBCXX_LONG_DOUBLE_COMPAT
+
+#if _GLIBCXX_C_LOCALE_GNU && defined C_is_char
+/* Because of a bad cross-compilation fallback in a configure test,
+   Sourcery G++ toolchains for GNU/Linux targets formerly used the
+   "generic" locale model in libstdc++.  Improve compatibility with
+   those toolchains by exporting symbol aliases under the "generic"
+   names for the "gnu" functions.  */
+#define _GLIBCXX_LOCALE_COMPAT(generic, gnu) \
+  extern "C" void generic (void) __attribute__ ((alias (#gnu), weak))
+
+#ifdef _GLIBCXX_SIZE_T_IS_UINT
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIcLb0EEC1EPiPKcj, _ZNSt10moneypunctIcLb0EEC1EP15__locale_structPKcj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIcLb0EEC2EPiPKcj, _ZNSt10moneypunctIcLb0EEC2EP15__locale_structPKcj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIcLb1EEC1EPiPKcj, _ZNSt10moneypunctIcLb1EEC1EP15__locale_structPKcj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIcLb1EEC2EPiPKcj, _ZNSt10moneypunctIcLb1EEC2EP15__locale_structPKcj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt11__timepunctIcEC1EPiPKcj, _ZNSt11__timepunctIcEC1EP15__locale_structPKcj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt11__timepunctIcEC2EPiPKcj, _ZNSt11__timepunctIcEC2EP15__locale_structPKcj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7collateIcEC1EPij, _ZNSt7collateIcEC1EP15__locale_structj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7collateIcEC2EPij, _ZNSt7collateIcEC2EP15__locale_structj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt8messagesIcEC1EPiPKcj, _ZNSt8messagesIcEC1EP15__locale_structPKcj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt8messagesIcEC2EPiPKcj, _ZNSt8messagesIcEC2EP15__locale_structPKcj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt8numpunctIcEC1EPij, _ZNSt8numpunctIcEC1EP15__locale_structj);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt8numpunctIcEC2EPij, _ZNSt8numpunctIcEC2EP15__locale_structj);
+#else
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIcLb0EEC1EPiPKcm, _ZNSt10moneypunctIcLb0EEC1EP15__locale_structPKcm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIcLb0EEC2EPiPKcm, _ZNSt10moneypunctIcLb0EEC2EP15__locale_structPKcm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIcLb1EEC1EPiPKcm, _ZNSt10moneypunctIcLb1EEC1EP15__locale_structPKcm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt10moneypunctIcLb1EEC2EPiPKcm, _ZNSt10moneypunctIcLb1EEC2EP15__locale_structPKcm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt11__timepunctIcEC1EPiPKcm, _ZNSt11__timepunctIcEC1EP15__locale_structPKcm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt11__timepunctIcEC2EPiPKcm, _ZNSt11__timepunctIcEC2EP15__locale_structPKcm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7collateIcEC1EPim, _ZNSt7collateIcEC1EP15__locale_structm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt7collateIcEC2EPim, _ZNSt7collateIcEC2EP15__locale_structm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt8messagesIcEC1EPiPKcm, _ZNSt8messagesIcEC1EP15__locale_structPKcm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt8messagesIcEC2EPiPKcm, _ZNSt8messagesIcEC2EP15__locale_structPKcm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt8numpunctIcEC1EPim, _ZNSt8numpunctIcEC1EP15__locale_structm);
+_GLIBCXX_LOCALE_COMPAT (_ZNSt8numpunctIcEC2EPim, _ZNSt8numpunctIcEC2EP15__locale_structm);
+#endif
+#endif

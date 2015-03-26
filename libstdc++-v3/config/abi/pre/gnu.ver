@@ -1404,6 +1404,8 @@ CXXABI_1.3 {
     __gxx_personality_v0;
     __gxx_personality_sj0;
     __gxx_personality_seh0;
+    __gnu_compact_pr2;
+    __gnu_compact_pr3;
     __dynamic_cast;
 
     # *_type_info classes, ctor and dtor

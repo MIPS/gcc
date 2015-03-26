@@ -98,6 +98,7 @@ __EH_FRAME_BEGIN__:
 /* Head of __init function used for static constructors.  */
 	.section ".init","ax"
 	.align 2
+FUNC_START(_init)
 FUNC_START(__init)
 	stwu 1,-16(1)
 	mflr 0
@@ -106,6 +107,7 @@ FUNC_START(__init)
 /* Head of __fini function used for static destructors.  */
 	.section ".fini","ax"
 	.align 2
+FUNC_START(_fini)
 FUNC_START(__fini)
 	stwu 1,-16(1)
 	mflr 0

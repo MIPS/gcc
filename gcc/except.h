@@ -65,6 +65,16 @@ enum eh_region_type
   ERT_MUST_NOT_THROW
 };
 
+/* Region header types in the compact EH scheme.  */
+enum eh_compact_header_type
+{
+  ECHT_ACTION_CHAIN,
+  ECHT_CLEANUP,
+  ECHT_CONTINUE_UNWINDING,
+  ECHT_DUMMY_ACTION_CHAIN,
+  ECHT_NOTHROW
+};
+
 
 /* A landing pad for a given exception region.  Any transfer of control
    from the EH runtime to the function happens at a landing pad.  */

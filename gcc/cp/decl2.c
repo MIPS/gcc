@@ -4791,6 +4791,15 @@ mark_used (tree decl, tsubst_flags_t complain)
 
   /* Set TREE_USED for the benefit of -Wunused.  */
   TREE_USED (decl) = 1;
+  if (current_function_decl != NULL_TREE
+      && (TREE_CODE (decl) == VAR_DECL
+	  || TREE_CODE (decl) == PARM_DECL
+	  || TREE_CODE (decl) == FUNCTION_DECL))
+    {
+      tree context = decl_function_context (decl);
+      if (context != NULL_TREE && context != current_function_decl)
+	DECL_NONLOCAL (decl) = 1;
+    }
   if (DECL_CLONED_FUNCTION_P (decl))
     TREE_USED (DECL_CLONED_FUNCTION (decl)) = 1;
 

@@ -19,7 +19,7 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #define GNU_USER_LINK_EMULATION32 "elf32%{EB:b}%{EL:l}tsmip"
-#define GNU_USER_LINK_EMULATION64 "elf64%{EB:b}%{EL:l}tsmip"
+#define GNU_USER_LINK_EMULATION64 "elf64%{EB:b}%{EL:l}tsmip%{msym32:_sym32}"
 #define GNU_USER_LINK_EMULATIONN32 "elf32%{EB:b}%{EL:l}tsmipn32"
 
 #define GLIBC_DYNAMIC_LINKER32 \

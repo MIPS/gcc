@@ -538,6 +538,9 @@ ENDIAN_SELECT(" -mbig", " -mlittle", DEFAULT_ASM_ENDIAN)
 #define CC1_SECURE_PLT_DEFAULT_SPEC ""
 #endif
 
+#undef CC1_EXTRA_SPEC
+#define CC1_EXTRA_SPEC ""
+
 /* Pass -G xxx to the compiler.  */
 #define	CC1_SPEC "%{G*} %(cc1_cpu)" \
 "%{meabi: %{!mcall-*: -mcall-sysv }} \
@@ -551,7 +554,7 @@ ENDIAN_SELECT(" -mbig", " -mlittle", DEFAULT_ASM_ENDIAN)
 %{msdata: -msdata=default} \
 %{mno-sdata: -msdata=none} \
 %{!mbss-plt: %{!msecure-plt: %(cc1_secure_plt_default)}} \
-%{profile: -p}"
+%{profile: -p}" CC1_EXTRA_SPEC
 
 /* Default starting address if specified.  */
 #define LINK_START_SPEC "\
@@ -948,4 +951,3 @@ ncrtn.o%s"
 /* This target uses the sysv4.opt file.  */
 #define TARGET_USES_SYSV4_OPT 1
 
-#undef DBX_REGISTER_NUMBER

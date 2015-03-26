@@ -1,10 +1,6 @@
 LIB2ADD += $(srcdir)/config/rs6000/ibm-ldouble.c \
 	   $(srcdir)/config/rs6000/tramp.S
 
-# This can't end up in shared libgcc
-LIB2ADD_ST += \
-	   $(srcdir)/config/rs6000/eabi.S
-
 # We build {e,n}crti.o and {e,n}crtn.o, which serve to add begin and
 # end labels to all of the special sections used when we link using gcc.
 
