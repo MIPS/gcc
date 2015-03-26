@@ -1,4 +1,12 @@
 2015-03-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
+	PR65575.
+	* gcc/cp/parser.c (cp_parser_declarator): Don't emit errors
+	when a trailing requires-clause follows a non-function
+	abstract declarator.
+	* gcc/testsuite/g++.dg/concepts/pr65575.C: New.
+
+2015-03-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fix scope-squashing error in PR65552.
 	* gcc/cp/parser.C (cp_parser_type_requirement): Save and

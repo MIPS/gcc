@@ -18063,19 +18063,21 @@ cp_parser_declarator (cp_parser* parser,
   if (!declarator)
     return declarator;
 
-  // Parse the optional trailing requires clause. Note that
-  // the requires clause is only valid for function declarators.
+  /* Function declarators may be followed by a trailing
+     requires-clause. Note that a requires clause may also
+     follow abstract declarators in trailing return types.
+     For example:
+
+        void f() -> int& requires false
+
+     The requires-clause applies to the function declaration
+     and not the abstract declarator.  */
   if (flag_concepts)
     {
       if (declarator->kind == cdk_function)
         {
           declarator->u.function.requires_clause
             = cp_parser_trailing_requires_clause (parser, declarator);
-        }
-      else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
-        {
-          error ("requires clause after non-function declaration");
-          cp_parser_skip_to_end_of_statement (parser);
         }
     }    
   return declarator;
@@ -19161,7 +19163,8 @@ static tree cp_parser_template_type_arg (cp_parser *parser)
   return r;
 }
 
-static tree cp_parser_trailing_type_id (cp_parser *parser)
+static tree 
+cp_parser_trailing_type_id (cp_parser *parser)
 {
   return cp_parser_type_id_1 (parser, false, true);
 }
