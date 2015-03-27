@@ -579,6 +579,34 @@ gfc_conv_derived_to_class (gfc_se *parmse, gfc_expr *e,
 	}
     }
 
+  if (class_ts.u.derived->components->ts.type == BT_DERIVED
+      && class_ts.u.derived->components->ts.u.derived
+		 ->attr.unlimited_polymorphic)
+    {
+      /* Take care about initializing the _len component correctly.  */
+      ctree = gfc_class_len_get (var);
+      if (UNLIMITED_POLY (e))
+	{
+	  gfc_expr *len;
+	  gfc_se se;
+
+	  len = gfc_copy_expr (e);
+	  gfc_add_len_component (len);
+	  gfc_init_se (&se, NULL);
+	  gfc_conv_expr (&se, len);
+	  if (optional)
+	    tmp = build3_loc (input_location, COND_EXPR, TREE_TYPE (se.expr),
+			      cond_optional, se.expr,
+			      fold_convert (TREE_TYPE (se.expr),
+					    integer_zero_node));
+	  else
+	    tmp = se.expr;
+	}
+      else
+	tmp = integer_zero_node;
+      gfc_add_modify (&parmse->pre, ctree, fold_convert (TREE_TYPE (ctree),
+							  tmp));
+    }
   /* Pass the address of the class object.  */
   parmse->expr = gfc_build_addr_expr (NULL_TREE, var);
 
@@ -737,44 +765,64 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
 	}
     }
 
-  /* When the actual arg is a char array, then set the _len component of the
-     unlimited polymorphic entity, too.  */
-  if (e->ts.type == BT_CHARACTER)
+  gcc_assert (class_ts.type == BT_CLASS);
+  if (class_ts.u.derived->components->ts.type == BT_DERIVED
+      && class_ts.u.derived->components->ts.u.derived
+		 ->attr.unlimited_polymorphic)
     {
       ctree = gfc_class_len_get (var);
-      /* Start with parmse->string_length because this seems to be set to a
-	 correct value more often.  */
-      if (parmse->string_length)
-	  gfc_add_modify (&parmse->pre, ctree, parmse->string_length);
-      /* When the string_length is not yet set, then try the backend_decl of
-	 the cl.  */
-      else if (e->ts.u.cl->backend_decl)
-          gfc_add_modify (&parmse->pre, ctree, e->ts.u.cl->backend_decl);
-      /* If both of the above approaches fail, then try to generate an
-	 expression from the input, which is only feasible currently, when the
-	 expression can be evaluated to a constant one.  */
-      else
-        {
-	  /* Try to simplify the expression.  */
-	  gfc_simplify_expr (e, 0);
-	  if (e->expr_type == EXPR_CONSTANT && !e->ts.u.cl->resolved)
-	    {
-	      /* Amazingly all data is present to compute the length of a
-		 constant string, but the expression is not yet there.  */
-	      e->ts.u.cl->length = gfc_get_constant_expr (BT_INTEGER, 4,
-							  &e->where);
-	      mpz_set_ui (e->ts.u.cl->length->value.integer,
-			  e->value.character.length);
-	      gfc_conv_const_charlen (e->ts.u.cl);
-	      e->ts.u.cl->resolved = 1;
-	      gfc_add_modify (&parmse->pre, ctree, e->ts.u.cl->backend_decl);
-	    }
+      /* When the actual arg is a char array, then set the _len component of the
+       unlimited polymorphic entity, too.  */
+      if (e->ts.type == BT_CHARACTER)
+	{
+	  /* Start with parmse->string_length because this seems to be set to a
+	   correct value more often.  */
+	  if (parmse->string_length)
+	    tmp = parmse->string_length;
+	  /* When the string_length is not yet set, then try the backend_decl of
+	   the cl.  */
+	  else if (e->ts.u.cl->backend_decl)
+	    tmp = e->ts.u.cl->backend_decl;
+	  /* If both of the above approaches fail, then try to generate an
+	   expression from the input, which is only feasible currently, when the
+	   expression can be evaluated to a constant one.  */
 	  else
 	    {
-	      gfc_error ("Can't compute the length of the char array at %L.",
-			 &e->where);
+	      /* Try to simplify the expression.  */
+	      gfc_simplify_expr (e, 0);
+	      if (e->expr_type == EXPR_CONSTANT && !e->ts.u.cl->resolved)
+		{
+		  /* Amazingly all data is present to compute the length of a
+		   constant string, but the expression is not yet there.  */
+		  e->ts.u.cl->length = gfc_get_constant_expr (BT_INTEGER, 4,
+							      &e->where);
+		  mpz_set_ui (e->ts.u.cl->length->value.integer,
+			      e->value.character.length);
+		  gfc_conv_const_charlen (e->ts.u.cl);
+		  e->ts.u.cl->resolved = 1;
+		  tmp = e->ts.u.cl->backend_decl;
+		}
+	      else
+		{
+		  gfc_error ("Can't compute the length of the char array at %L.",
+			     &e->where);
+		}
 	    }
 	}
+      else
+	tmp = integer_zero_node;
+
+      gfc_add_modify (&parmse->pre, ctree, tmp);
+    }
+  else if (class_ts.type == BT_CLASS
+	   && class_ts.u.derived->components
+	   && class_ts.u.derived->components->ts.u
+		.derived->attr.unlimited_polymorphic)
+    {
+      ctree = gfc_class_len_get (var);
+      gfc_add_modify (&parmse->pre, ctree,
+		      fold_convert (TREE_TYPE (ctree),
+				    integer_zero_node));
     }
   /* Pass the address of the class object.  */
   parmse->expr = gfc_build_addr_expr (NULL_TREE, var);
@@ -802,6 +850,7 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
   tree tmp;
   tree vptr;
   tree cond = NULL_TREE;
+  tree slen = NULL_TREE;
   gfc_ref *ref;
   gfc_ref *class_ref;
   stmtblock_t block;
@@ -897,6 +946,7 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
       tmp = e->symtree->n.sym->backend_decl;
       if (DECL_LANG_SPECIFIC (tmp) && GFC_DECL_SAVED_DESCRIPTOR (tmp))
 	tmp = GFC_DECL_SAVED_DESCRIPTOR (tmp);
+      slen = integer_zero_node;
     }
   else
     {
@@ -909,6 +959,7 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
       gfc_conv_expr (&tmpse, e);
       class_ref->next = ref;
       tmp = tmpse.expr;
+      slen = tmpse.string_length;
     }
 
   gcc_assert (tmp != NULL_TREE);
@@ -926,6 +977,26 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
   if (!elemental && full_array && copyback)
     gfc_add_modify (&parmse->post, vptr,
 		    fold_convert (TREE_TYPE (vptr), ctree));
+
+  /* For unlimited polymorphic objects also set the _len component.  */
+  if (class_ts.type == BT_CLASS
+      && class_ts.u.derived->components
+      && class_ts.u.derived->components->ts.u
+		      .derived->attr.unlimited_polymorphic)
+    {
+      ctree = gfc_class_len_get (var);
+      if (UNLIMITED_POLY (e))
+	tmp = gfc_class_len_get (tmp);
+      else if (e->ts.type == BT_CHARACTER)
+	{
+	  gcc_assert (slen != NULL_TREE);
+	  tmp = slen;
+	}
+      else
+	tmp = integer_zero_node;
+      gfc_add_modify (&parmse->pre, ctree,
+		      fold_convert (TREE_TYPE (ctree), tmp));
+    }
 
   if (optional)
     {
@@ -1025,7 +1096,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
   fcn_type = TREE_TYPE (TREE_TYPE (fcn));
 
   if (from != NULL_TREE)
-      from_data = gfc_class_data_get (from);
+    from_data = gfc_class_data_get (from);
   else
     from_data = gfc_class_vtab_def_init_get (to);
 
@@ -1082,7 +1153,8 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
       gfc_init_block (&ifbody);
       gfc_add_block_to_block (&ifbody, &loop.pre);
       stdcopy = gfc_finish_block (&ifbody);
-      if (unlimited)
+      /* In initialization mode from_len is a constant zero.  */
+      if (unlimited && !integer_zerop (from_len))
 	{
 	  vec_safe_push (args, from_len);
 	  vec_safe_push (args, to_len);
@@ -1124,7 +1196,8 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
       vec_safe_push (args, to_data);
       stdcopy = build_call_vec (fcn_type, fcn, args);
 
-      if (unlimited)
+      /* In initialization mode from_len is a constant zero.  */
+      if (unlimited && !integer_zerop (from_len))
 	{
 	  vec_safe_push (args, from_len);
 	  vec_safe_push (args, to_len);
@@ -1137,6 +1210,18 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 	}
       else
 	tmp = stdcopy;
+    }
+
+  /* Only copy _def_init to to_data, when it is not a NULL-pointer.  */
+  if (from == NULL_TREE)
+    {
+      tree cond;
+      cond = fold_build2_loc (input_location, NE_EXPR,
+			      boolean_type_node,
+			      from_data, null_pointer_node);
+      tmp = fold_build3_loc (input_location, COND_EXPR,
+			     void_type_node, cond,
+			     tmp, build_empty_stmt (input_location));
     }
 
   return tmp;
@@ -7132,7 +7217,7 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
 	 of EXPR_NULL,... by default, the static nullify is not needed
 	 since this is done every time we come into scope.  */
       if (!c->expr || (cm->attr.allocatable && cm->attr.flavor != FL_PROCEDURE))
-        continue;
+	continue;
 
       if (cm->initializer && cm->initializer->expr_type != EXPR_NULL
 	  && strcmp (cm->name, "_extends") == 0
@@ -7153,13 +7238,9 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
 						val));
 	}
       else if (cm->ts.type == BT_INTEGER && strcmp (cm->name, "_len") == 0)
-        {
-          gfc_expr *e = gfc_get_int_expr (gfc_default_integer_kind, NULL, 0);
-          val = gfc_conv_constant_to_tree (e);
-          CONSTRUCTOR_APPEND_ELT (v, cm->backend_decl,
-                                  fold_convert (TREE_TYPE (cm->backend_decl),
-                                                val));
-        }
+	CONSTRUCTOR_APPEND_ELT (v, cm->backend_decl,
+				fold_convert (TREE_TYPE (cm->backend_decl),
+					      integer_zero_node));
       else
 	{
 	  val = gfc_conv_initializer (c->expr, &cm->ts,
