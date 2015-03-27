@@ -14952,6 +14952,9 @@ resolve_types (gfc_namespace *ns)
   gfc_equiv *eq;
   gfc_namespace* old_ns = gfc_current_ns;
 
+  if (ns->types_resolved)
+    return;
+
   /* Check that all IMPLICIT types are ok.  */
   if (!ns->seen_implicit_none)
     {
@@ -15025,6 +15028,8 @@ resolve_types (gfc_namespace *ns)
   gfc_resolve_omp_declare_simd (ns);
 
   gfc_resolve_omp_udrs (ns->omp_udr_root);
+
+  ns->types_resolved = 1;
 
   gfc_current_ns = old_ns;
 }
