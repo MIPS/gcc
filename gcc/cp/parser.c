@@ -18063,18 +18063,41 @@ cp_parser_declarator (cp_parser* parser,
   if (!declarator)
     return declarator;
 
-  /* Function declarators may be followed by a trailing
-     requires-clause. Note that a requires clause may also
-     follow abstract declarators in trailing return types.
-     For example:
+  /* Function declarations may be followed by a trailing
+     requires-clause. Declarators for function declartions
+     are function declarators wrapping an id-declarator.
+     If the inner declarator is anything else, it does not
+     declare a function. These may also be reference or 
+     pointer declarators enclosing such a function declarator.
+     In the declaration :
+
+        int *f(args)
+
+     the declarator is *f(args).
+
+     Abstract declarators cannot have a requires-clauses 
+     because they do not declare functions. Here:
 
         void f() -> int& requires false
 
-     The requires-clause applies to the function declaration
-     and not the abstract declarator.  */
-  if (flag_concepts)
+     The trailing return type contains an abstract declarator, 
+     and the requires-clause applies to the function 
+     declaration and not the abstract declarator.  */
+  if (flag_concepts && dcl_kind != CP_PARSER_DECLARATOR_ABSTRACT)
     {
-      if (declarator->kind == cdk_function)
+      /* We could have things like *f(args) or &f(args).
+         Look inside references and pointers.  */
+      cp_declarator* p = declarator;
+      if (p->kind == cdk_reference || p->kind == cdk_pointer)
+        p = p->declarator;
+
+      /* Pointers or references with no name, or functions
+         with no name cannot have constraints.  */
+      if (!p || !p->declarator)
+        return declarator;
+
+      /* Look for f(args) but not (*f)(args).  */
+      if (p && p->kind == cdk_function && p->declarator->kind == cdk_id)
         {
           declarator->u.function.requires_clause
             = cp_parser_trailing_requires_clause (parser, declarator);
@@ -18082,8 +18105,6 @@ cp_parser_declarator (cp_parser* parser,
     }    
   return declarator;
 }
-
-
 
 /* Parse a direct-declarator or direct-abstract-declarator.
 

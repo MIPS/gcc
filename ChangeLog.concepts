@@ -1,3 +1,12 @@
+2015-03-27  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
+	Trying again with PR65575.
+	* gcc/cp/parser.c (cp_parser_declarator): Search through
+	declarator structure for likely matches for function
+	declarations.
+	* gcc/testsuite/g++.dg/concepts/pr65575.C: Update with
+	new tests.
+
 2015-03-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	
 	PR65575.
