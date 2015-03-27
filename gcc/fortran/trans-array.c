@@ -5225,6 +5225,33 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 }
 
 
+/* Retrieve the last ref from the chain.  This routine is specific to
+   gfc_array_allocate ()'s needs.  */
+
+bool
+retrieve_last_ref (gfc_ref **ref_in, gfc_ref **prev_ref_in)
+{
+  gfc_ref *ref, *prev_ref;
+
+  ref = *ref_in;
+  /* Prevent warnings for uninitialized variables.  */
+  prev_ref = *prev_ref_in;
+  while (ref && ref->next != NULL)
+    {
+      gcc_assert (ref->type != REF_ARRAY || ref->u.ar.type == AR_ELEMENT
+		  || (ref->u.ar.dimen == 0 && ref->u.ar.codimen > 0));
+      prev_ref = ref;
+      ref = ref->next;
+    }
+
+  if (ref == NULL || ref->type != REF_ARRAY)
+    return false;
+
+  *ref_in = ref;
+  *prev_ref_in = prev_ref;
+  return true;
+}
+
 /* Initializes the descriptor and generates a call to _gfor_allocate.  Does
    the work for an ALLOCATE statement.  */
 /*GCC ARRAYS*/
@@ -5255,16 +5282,18 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   ref = expr->ref;
 
   /* Find the last reference in the chain.  */
-  while (ref && ref->next != NULL)
-    {
-      gcc_assert (ref->type != REF_ARRAY || ref->u.ar.type == AR_ELEMENT
-		  || (ref->u.ar.dimen == 0 && ref->u.ar.codimen > 0));
-      prev_ref = ref;
-      ref = ref->next;
-    }
-
-  if (ref == NULL || ref->type != REF_ARRAY)
+  if (!retrieve_last_ref (&ref, &prev_ref))
     return false;
+
+  if (ref->u.ar.type == AR_FULL && expr3 != NULL)
+    {
+      /* F08:C633: Array shape from expr3.  */
+      ref = expr3->ref;
+
+      /* Find the last reference in the chain.  */
+      if (!retrieve_last_ref (&ref, &prev_ref))
+	return false;
+    }
 
   if (!prev_ref)
     {

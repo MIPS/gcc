@@ -7103,9 +7103,19 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
   if (!ref2 || ref2->type != REF_ARRAY || ref2->u.ar.type == AR_FULL
       || (dimension && ref2->u.ar.dimen == 0))
     {
-      gfc_error ("Array specification required in ALLOCATE statement "
-		 "at %L", &e->where);
-      goto failure;
+      /* F08:C633.  */
+      if (code->expr3)
+	{
+	  if (!gfc_notify_std (GFC_STD_F2008, "Array specification required "
+			       "in ALLOCATE statement at %L", &e->where))
+	    goto failure;
+	}
+      else
+	{
+	  gfc_error ("Array specification required in ALLOCATE statement "
+		     "at %L", &e->where);
+	  goto failure;
+	}
     }
 
   /* Make sure that the array section reference makes sense in the
@@ -7124,7 +7134,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 
   for (i = 0; i < ar->dimen; i++)
     {
-      if (ref2->u.ar.type == AR_ELEMENT)
+      if (ar->type == AR_ELEMENT || ar->type == AR_FULL)
 	goto check_symbols;
 
       switch (ar->dimen_type[i])
