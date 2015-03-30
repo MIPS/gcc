@@ -7421,7 +7421,7 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	  temp_var_sym->attr.flavor = FL_VARIABLE;
 	  temp_var_sym->ts = code->expr3->ts;
 	  /* Build an EXPR_VARIABLE node.  */
-	  temp_var = gfc_get_expr();
+	  temp_var = gfc_get_expr ();
 	  temp_var->expr_type = EXPR_VARIABLE;
 	  temp_var->symtree = gfc_find_symtree (ns->sym_root, name);
 	  temp_var->ts = code->expr3->ts;
