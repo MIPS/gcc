@@ -5287,7 +5287,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   gfc_expr **lower;
   gfc_expr **upper;
   gfc_ref *ref, *prev_ref = NULL;
-  bool allocatable, coarray, dimension;
+  bool allocatable, coarray, dimension, alloc_w_e3_arr_spec = false;
 
   ref = expr->ref;
 
@@ -5303,6 +5303,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
       /* Find the last reference in the chain.  */
       if (!retrieve_last_ref (&ref, &prev_ref))
 	return false;
+      alloc_w_e3_arr_spec = true;
     }
 
   if (!prev_ref)
@@ -5340,8 +5341,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 
     case AR_FULL:
       gcc_assert (ref->u.ar.as->type == AS_EXPLICIT
-		  || (ref->u.ar.as->type == AS_DEFERRED
-		      && expr3->symtree->n.sym->attr.artificial));
+		  || alloc_w_e3_arr_spec);
 
       lower = ref->u.ar.as->lower;
       upper = ref->u.ar.as->upper;

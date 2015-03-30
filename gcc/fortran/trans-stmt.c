@@ -4979,7 +4979,6 @@ gfc_trans_allocate (gfc_code * code)
   stmtblock_t post;
   tree nelems;
   bool upoly_expr, tmp_expr3_len_flag = false, al_len_needs_set;
-  bool temp_e3_array = false;
 
   if (!code->ext.alloc.list)
     return NULL_TREE;
@@ -5033,12 +5032,6 @@ gfc_trans_allocate (gfc_code * code)
       /* expr3_tmp gets the tree when code->expr3.mold is set, i.e.,
 	 the expression is only needed to get the _vptr, _len a.s.o.  */
       tree expr3_tmp = NULL_TREE;
-      temp_e3_array = code->expr3->rank != 0
-	  && code->expr3->expr_type == EXPR_VARIABLE
-	  && code->expr3->ref
-	  && code->expr3->ref->type == REF_ARRAY
-	  && code->expr3->ref->u.ar.as->type == AS_DEFERRED
-	  && code->expr3->symtree->n.sym->attr.artificial;
 
       /* Figure whether we need the vtab from expr3.  */
       for (al = code->ext.alloc.list; !vtab_needed && al != NULL;
@@ -5047,7 +5040,7 @@ gfc_trans_allocate (gfc_code * code)
 
       /* A array expr3 needs the scalarizer, therefore do not process it
 	 here.  */
-      if (temp_e3_array
+      if (code->ext.alloc.arr_spec_from_expr3
 	  || (code->expr3->expr_type != EXPR_ARRAY
 	      && (code->expr3->rank == 0
 		  || code->expr3->expr_type == EXPR_FUNCTION)
@@ -5067,7 +5060,7 @@ gfc_trans_allocate (gfc_code * code)
 		  /* Convert expr3 to a tree.  */
 		  gfc_init_se (&se, NULL);
 		  se.want_pointer = 1;
-		  if (temp_e3_array)
+		  if (code->ext.alloc.arr_spec_from_expr3)
 		    {
 		      gfc_conv_expr_descriptor (&se, code->expr3);
 		      se.expr = build_fold_indirect_ref (se.expr);
@@ -5313,7 +5306,8 @@ gfc_trans_allocate (gfc_code * code)
       if (!gfc_array_allocate (&se, expr, stat, errmsg, errlen,
 			       label_finish, tmp, &nelems,
 			       code->expr3,
-			       temp_e3_array ? expr3 : NULL_TREE))
+			       code->ext.alloc.arr_spec_from_expr3 ?
+				 expr3 : NULL_TREE))
 	{
 	  /* A scalar or derived type.  First compute the size to
 	     allocate.
