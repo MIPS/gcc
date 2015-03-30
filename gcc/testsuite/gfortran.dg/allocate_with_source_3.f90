@@ -10,7 +10,7 @@ program assumed_shape_01
   end type cstruct
 
   type(cstruct), pointer :: u(:)
-  integer, allocatable :: iv(:)
+  integer, allocatable :: iv(:), iv2(:)
   integer, allocatable :: im(:,:)
   integer, parameter :: cim(2,3) = reshape([1,2,3, 2,3,4], [2,3])
   integer :: i
@@ -33,14 +33,45 @@ program assumed_shape_01
   deallocate(im)
   deallocate(iv)
 
-! The following is VALID Fortran 2008 but NOT YET supported 
   allocate(u, source=[cstruct( 4, [1.1,2.2] )] )
   if (u(1)%i /= 4 .or. any(abs(u(1)%r(:) - [1.1,2.2]) > 1E-6)) call abort()
   deallocate (u)
 
   allocate(iv, source= arrval())
   if (any(iv /= [ 1, 2, 4, 5, 6])) call abort()
+  ! Check simple array assign
+  allocate(iv2, source=iv)
+  if (any(iv2 /= [ 1, 2, 4, 5, 6])) call abort()
+  deallocate(iv, iv2)
+
+  ! Now check for mold=
+  allocate(iv, mold= [ 1, 2, 3, 4])
+  if (any(shape(iv) /= [4])) call abort()
   deallocate(iv)
+
+  allocate(iv, mold=(/(i, i=1,10)/))
+  if (any(shape(iv) /= [10])) call abort()
+
+  ! Now 2D
+  allocate(im, mold= cim)
+  if (any(shape(im) /= shape(cim))) call abort()
+  deallocate(im)
+
+  allocate(im, mold= reshape([iv, iv], [2, size(iv, 1)]))
+  if (any(shape(im) /= shape(lcim))) call abort()
+  deallocate(im)
+  deallocate(iv)
+
+  allocate(u, mold=[cstruct( 4, [1.1,2.2] )] )
+  if (any(shape(u(1)%r(:)) /= 2)) call abort()
+  deallocate (u)
+
+  allocate(iv, mold= arrval())
+  if (any(shape(iv) /= [5])) call abort()
+  ! Check simple array assign
+  allocate(iv2, mold=iv)
+  if (any(shape(iv2) /= [5])) call abort()
+  deallocate(iv, iv2)
 contains
   function arrval()
     integer, dimension(5) :: arrval

@@ -4974,7 +4974,7 @@ gfc_trans_allocate (gfc_code * code)
      element size, i.e. _vptr%size, is stored in expr3_esize.  Any of
      the trees may be the NULL_TREE indicating that this is not
      available for expr3's type.  */
-  tree expr3, expr3_vptr, expr3_len, expr3_esize;
+  tree expr3, expr3_vptr, expr3_len, expr3_esize, expr3_desc;
   stmtblock_t block;
   stmtblock_t post;
   tree nelems;
@@ -4986,6 +4986,7 @@ gfc_trans_allocate (gfc_code * code)
   stat = tmp = memsz = al_vptr = al_len = NULL_TREE;
   expr3 = expr3_vptr = expr3_len = expr3_esize = NULL_TREE;
   label_errmsg = label_finish = errmsg = errlen = NULL_TREE;
+  expr3_desc = NULL_TREE;
 
   gfc_init_block (&block);
   gfc_init_block (&post);
@@ -5055,7 +5056,8 @@ gfc_trans_allocate (gfc_code * code)
 	    {
 	      if (!code->expr3->mold
 		  || code->expr3->ts.type == BT_CHARACTER
-		  || vtab_needed)
+		  || vtab_needed
+		  || code->ext.alloc.arr_spec_from_expr3)
 		{
 		  /* Convert expr3 to a tree.  */
 		  gfc_init_se (&se, NULL);
@@ -5071,6 +5073,8 @@ gfc_trans_allocate (gfc_code * code)
 		    expr3 = se.expr;
 		  else
 		    expr3_tmp = se.expr;
+		  if (code->ext.alloc.arr_spec_from_expr3)
+		    expr3_desc = se.expr;
 		  expr3_len = se.string_length;
 		  gfc_add_block_to_block (&block, &se.pre);
 		  gfc_add_block_to_block (&post, &se.post);
@@ -5109,6 +5113,8 @@ gfc_trans_allocate (gfc_code * code)
 		expr3 = tmp;
 	      else
 		expr3_tmp = tmp;
+	      if (code->ext.alloc.arr_spec_from_expr3)
+		expr3_desc = tmp;
 	      /* When he length of a char array is easily available
 		 here, fix it for future use.  */
 	      if (se.string_length)
@@ -5305,9 +5311,7 @@ gfc_trans_allocate (gfc_code * code)
 	tmp = expr3_esize;
       if (!gfc_array_allocate (&se, expr, stat, errmsg, errlen,
 			       label_finish, tmp, &nelems,
-			       code->expr3,
-			       code->ext.alloc.arr_spec_from_expr3 ?
-				 expr3 : NULL_TREE))
+			       code->expr3, expr3_desc))
 	{
 	  /* A scalar or derived type.  First compute the size to
 	     allocate.
