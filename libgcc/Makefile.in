@@ -261,6 +261,10 @@ LIB2ADD =
 # Assembler files should have names ending in `.S'.
 LIB2ADD_ST =
 
+# List of extra C and assembler files to add to libgcc_nonshared.a.
+# Assembler files should have names ending in `.S'.
+LIB2ADDNONSHARED =
+
 # Specify the directories to be searched for header files.
 # Both . and srcdir are used, in that order,
 # so that *config.h will be found in the compilation
@@ -807,8 +811,15 @@ endif
 libgcc-objects += $(addsuffix $(objext),$(basename $(notdir $(LIB2ADD))))
 libgcc-objects += $(addsuffix $(objext),$(basename $(notdir $(LIB2ADD_ST))))
 
+# Build LIB2ADDNONSHARED.
+ifneq ($(filter-out %.c %.S %.asm,$(LIB2ADDNONSHARED)),)
+$(error Unsupported files in LIB2ADDNONSHARED.)
+endif
+
+libgcc-nonshared-objects += $(addsuffix $(objext),$(basename $(notdir $(LIB2ADDNONSHARED))))
+
 c_flags :=
-iter-items := $(LIB2ADD) $(LIB2ADD_ST)
+iter-items := $(LIB2ADD) $(LIB2ADD_ST) $(LIB2ADDNONSHARED)
 include $(iterator)
 
 ifeq ($(enable_shared),yes)
@@ -890,8 +901,9 @@ libgcc.a: $(libgcc-objects)
 libgcov.a: $(libgcov-objects)
 libunwind.a: $(libunwind-objects)
 libgcc_eh.a: $(libgcc-eh-objects)
+libgcc_nonshared.a: $(libgcc-nonshared-objects)
 
-libgcc.a libgcov.a libunwind.a libgcc_eh.a:
+libgcc.a libgcov.a libunwind.a libgcc_eh.a libgcc_nonshared.a:
 	-rm -f $@
 
 	objects="$(objects)";					\
@@ -905,7 +917,7 @@ libgcc.a libgcov.a libunwind.a libgcc_eh.a:
 
 	$(RANLIB) $@
 
-all: libgcc.a libgcov.a
+all: libgcc.a libgcc_nonshared.a libgcov.a
 
 ifneq ($(LIBUNWIND),)
 all: libunwind.a
@@ -1051,6 +1063,7 @@ libgcc-extra-parts: $(EXTRA_PARTS)
 all: $(extra-parts)
 
 $(libgcc-objects) $(libgcc-s-objects) $(libgcc-eh-objects) \
+	$(libgcc-nonshared-objects) \
 	$(libgcov-objects) \
 	$(libunwind-objects) $(libunwind-s-objects) \
 	$(EXTRA_PARTS): libgcc_tm.h
@@ -1118,6 +1131,9 @@ install-leaf: $(install-shared) $(install-libunwind)
 	$(INSTALL_DATA) libgcc.a $(DESTDIR)$(inst_libdir)/
 	chmod 644 $(DESTDIR)$(inst_libdir)/libgcc.a
 	$(RANLIB) $(DESTDIR)$(inst_libdir)/libgcc.a
+	$(INSTALL_DATA) libgcc_nonshared.a $(DESTDIR)$(inst_libdir)/
+	chmod 644 $(DESTDIR)$(inst_libdir)/libgcc_nonshared.a
+	$(RANLIB) $(DESTDIR)$(inst_libdir)/libgcc_nonshared.a
 	$(INSTALL_DATA) libgcov.a $(DESTDIR)$(inst_libdir)/
 	chmod 644 $(DESTDIR)$(inst_libdir)/libgcov.a
 	$(RANLIB) $(DESTDIR)$(inst_libdir)/libgcov.a

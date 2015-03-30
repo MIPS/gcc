@@ -1566,6 +1566,7 @@ init_spec (void)
 	if (in_sep && *p == '-' && strncmp (p, "-lgcc", 5) == 0)
 	  {
 	    init_gcc_specs (&obstack,
+			    "-lgcc_nonshared "
 			    "-lgcc_s"
 #ifdef USE_LIBUNWIND_EXCEPTIONS
 			    " -lunwind"
@@ -1591,6 +1592,7 @@ init_spec (void)
 	    /* Ug.  We don't know shared library extensions.  Hope that
 	       systems that use this form don't do shared libraries.  */
 	    init_gcc_specs (&obstack,
+			    "libgcc_nonshared.a%s "
 			    "-lgcc_s",
 			    "libgcc.a%s",
 			    "libgcc_eh.a%s"

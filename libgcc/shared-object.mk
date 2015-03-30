@@ -4,6 +4,7 @@
 o := $(firstword $(iter-items))
 iter-items := $(filter-out $o,$(iter-items))
 
+ifneq ($o,)
 base := $(basename $(notdir $o))
 
 c_flags-$o := $(c_flags)
@@ -35,4 +36,5 @@ $(base).vis: $(base)_s$(objext)
 $(base)_s$(objext): $o
 	$(gcc_s_compile) -c $(as_flags-$<) $<
 
+endif
 endif
