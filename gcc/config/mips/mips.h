@@ -207,11 +207,18 @@ struct mips_cpu_info {
 				 && (mips_isa_rev >= 6 \
 				     || ISA_HAS_MSA))
 
-/* The ISA compression flags that are currently in effect.  */
-#define TARGET_COMPRESSION (target_flags & (MASK_MIPS16 | MASK_MICROMIPS))
+/* When switching from target_flags to mips_ase_flags, the option machinery
+   creates OPTION_MASK_<ase> instead of MASK_<ase>.  We switch back to
+   MASK_<ase> here.  */
+#define MASK_MIPS16	OPTION_MASK_MIPS16
+#define MASK_MICROMIPS	OPTION_MASK_MICROMIPS
+#define MASK_MIPS3D	OPTION_MASK_MIPS3D
+#define MASK_DSP	OPTION_MASK_DSP
+#define MASK_DSPR2	OPTION_MASK_DSPR2
 
-/* Generate mips16 code */
-#define TARGET_MIPS16		((target_flags & MASK_MIPS16) != 0)
+/* The ISA compression flags that are currently in effect.  */
+#define TARGET_COMPRESSION (mips_ase_flags & (MASK_MIPS16 | MASK_MICROMIPS))
+
 /* Generate mips16e code. Default 16bit ASE for mips32* and mips64* */
 #define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
 /* Generate mips16e register save/restore sequences.  */

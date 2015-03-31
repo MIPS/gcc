@@ -108,7 +108,7 @@ Target Report RejectNegative InverseMask(DIVIDE_BREAKS, DIVIDE_TRAPS)
 Use trap instructions to check for integer divide by zero
 
 mdmx
-Target Report RejectNegative Var(TARGET_MDMX)
+Target Report RejectNegative Mask(MDMX) Var(mips_ase_flags) Save
 Allow the use of MDMX instructions
 
 mdouble-float
@@ -116,11 +116,11 @@ Target Report RejectNegative InverseMask(SINGLE_FLOAT, DOUBLE_FLOAT)
 Allow hardware floating-point instructions to cover both 32-bit and 64-bit operations
 
 mdsp
-Target Report Var(TARGET_DSP)
+Target Report Mask(DSP) Var(mips_ase_flags) Save
 Use MIPS-DSP instructions
 
 mdspr2
-Target Report Var(TARGET_DSPR2)
+Target Report Mask(DSPR2) Var(mips_ase_flags) Save
 Use MIPS-DSP REV 2 instructions
 
 mdspr3
@@ -146,7 +146,7 @@ Target Report Var(TARGET_EMBEDDED_DATA)
 Use ROM instead of RAM
 
 meva
-Target Report Var(TARGET_EVA)
+Target Report Mask(EVA) Var(mips_ase_flags) Save
 Use Enhanced Virtual Addressing instructions
 
 mexplicit-relocs
@@ -268,11 +268,11 @@ Target RejectNegative Joined ToLower Enum(mips_mips_opt_value) Var(mips_isa_opti
 -mipsN	Generate code for ISA level N
 
 mips16
-Target Report RejectNegative Mask(MIPS16)
+Target Report RejectNegative Mask(MIPS16) Var(mips_ase_flags) Save
 Generate MIPS16 code
 
 mips3d
-Target Report RejectNegative Var(TARGET_MIPS3D)
+Target Report RejectNegative Mask(MIPS3D) Var(mips_ase_flags) Save
 Use MIPS-3D instructions
 
 mllsc
@@ -304,7 +304,7 @@ Target Report Mask(MEMCPY)
 Don't optimize block moves
 
 mmicromips
-Target Report Mask(MICROMIPS)
+Target Report Mask(MICROMIPS) Var(mips_ase_flags) Save
 Use microMIPS instructions
 
 mmsa
@@ -312,7 +312,7 @@ Target Report Var(TARGET_MSA)
 Use MIPS MSA Extension instructions
 
 mmt
-Target Report Var(TARGET_MT)
+Target Report Mask(MT) Var(mips_ase_flags) Save
 Allow the use of MT instructions
 
 mmxu
@@ -324,7 +324,7 @@ Target Report RejectNegative Var(TARGET_NO_FLOAT) Condition(TARGET_SUPPORTS_NO_F
 Prevent the use of all floating-point operations
 
 mmcu
-Target Report Var(TARGET_MCU)
+Target Report Mask(MCU) Var(mips_ase_flags) Save
 Use MCU instructions
 
 mno-flush-func
@@ -332,15 +332,15 @@ Target RejectNegative
 Do not use a cache-flushing function before calling stack trampolines
 
 mno-mdmx
-Target Report RejectNegative Var(TARGET_MDMX, 0)
+Target Report RejectNegative InverseMask(MDMX) Var(mips_ase_flags) Save
 Do not use MDMX instructions
 
 mno-mips16
-Target Report RejectNegative InverseMask(MIPS16)
+Target Report RejectNegative InverseMask(MIPS16) Var(mips_ase_flags) Save
 Generate normal-mode code
 
 mno-mips3d
-Target Report RejectNegative Var(TARGET_MIPS3D, 0)
+Target Report RejectNegative InverseMask(MIPS3D) Var(mips_ase_flags) Save
 Do not use MIPS-3D instructions
 
 mpaired-single
@@ -377,7 +377,7 @@ Target Report RejectNegative Mask(SINGLE_FLOAT)
 Restrict the use of hardware floating-point instructions to 32-bit operations
 
 msmartmips
-Target Report Mask(SMARTMIPS)
+Target Report Mask(SMARTMIPS) Var(mips_ase_flags) Save
 Use SmartMIPS instructions
 
 msoft-float
@@ -409,11 +409,11 @@ Target Report Var(TARGET_UNINIT_CONST_IN_RODATA)
 Put uninitialized constants in ROM (needs -membedded-data)
 
 mvirt
-Target Report Var(TARGET_VIRT)
+Target Report Mask(VIRT) Var(mips_ase_flags)
 Use Virtualization Application Specific instructions
 
 mxpa
-Target Report Var(TARGET_XPA)
+Target Report Mask(XPA) Var(mips_ase_flags)
 Use eXtended Physical Address (XPA) instructions
 
 mvr4130-align

@@ -19622,13 +19622,13 @@ mips_set_compression_mode (unsigned int compression_mode)
   align_loops = mips_base_align_loops;
   align_jumps = mips_base_align_jumps;
   align_functions = mips_base_align_functions;
-  target_flags &= ~(MASK_MIPS16 | MASK_MICROMIPS);
-  target_flags |= compression_mode;
+  mips_ase_flags &= ~(MASK_MIPS16 | MASK_MICROMIPS);
+  mips_ase_flags |= compression_mode;
 
   if (compression_mode & MASK_MIPS16)
     {
       /* Switch to MIPS16 mode.  */
-      target_flags |= MASK_MIPS16;
+      mips_ase_flags |= MASK_MIPS16;
 
       /* Turn off SYNCI if it was on, MIPS16 doesn't support it.  */
       target_flags &= ~MASK_SYNCI;
@@ -19858,7 +19858,7 @@ mips_option_override (void)
      were generating uncompressed code.  */
   mips_base_compression_flags = TARGET_COMPRESSION;
   is_micromips = TARGET_MICROMIPS;
-  target_flags &= ~TARGET_COMPRESSION;
+  mips_ase_flags &= ~TARGET_COMPRESSION;
 
   /* -mno-float overrides -mhard-float and -msoft-float.  */
   if (TARGET_NO_FLOAT)
@@ -20219,7 +20219,7 @@ mips_option_override (void)
 	     TARGET_MIPS3D ? "-mips3d" : "-mpaired-single",
 	     TARGET_HARD_FLOAT_ABI ? "-mfp64" : "-mhard-float");
       target_flags &= ~MASK_PAIRED_SINGLE_FLOAT;
-      TARGET_MIPS3D = 0;
+      mips_ase_flags &= ~MASK_MIPS3D;
     }
 
   /* Make sure that when TARGET_MSA is true, TARGET_FLOAT64 and
@@ -20235,7 +20235,7 @@ mips_option_override (void)
       error ("the %qs architecture does not support paired-single"
 	     " instructions", mips_arch_info->name);
       target_flags &= ~MASK_PAIRED_SINGLE_FLOAT;
-      TARGET_MIPS3D = 0;
+      mips_ase_flags &= ~MASK_MIPS3D;
     }
 
   if (mips_r10k_cache_barrier != R10K_CACHE_BARRIER_NONE
@@ -20248,7 +20248,7 @@ mips_option_override (void)
 
   /* If TARGET_DSPR2, enable TARGET_DSP.  */
   if (TARGET_DSPR2)
-    TARGET_DSP = true;
+    mips_ase_flags |= MASK_DSP;
 
   if (is_micromips && mips_isa_rev >= 6
       && (TARGET_DSP || TARGET_DSPR2)
@@ -20258,8 +20258,8 @@ mips_option_override (void)
 
   if (TARGET_DSPR3)
     {
-      TARGET_DSP = true;
-      TARGET_DSPR2 = true;
+      mips_ase_flags &= ~MASK_DSP;
+      mips_ase_flags &= ~MASK_DSPR2;
     }
 
 
