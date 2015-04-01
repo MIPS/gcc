@@ -2237,6 +2237,13 @@ ifeq ($(strip $(filter-out %x32 linux%,$(target_cpu) $(target_os))),)
   s-inmaop.adb<s-inmaop-posix.adb \
   s-intman.adb<s-intman-posix.adb \
   s-linux.ads<s-linux-x32.ads \
+  s-crtl.ads<s-crtl-x32.ads \
+  adaint.c<adaint-x32.c \
+  adaint.h<adaint-x32.h \
+  argv.c<argv-x32.c \
+  cstreams.c<cstreams-x32.c \
+  init.c<init-x32.c \
+  mkdir.c<mkdir-x32.c \
   s-mudido.adb<s-mudido-affinity.adb \
   s-osinte.ads<s-osinte-linux.ads \
   s-osinte.adb<s-osinte-x32.adb \
