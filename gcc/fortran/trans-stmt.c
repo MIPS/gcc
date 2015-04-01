@@ -5061,21 +5061,21 @@ gfc_trans_allocate (gfc_code * code)
 		{
 		  /* Convert expr3 to a tree.  */
 		  gfc_init_se (&se, NULL);
-		  se.want_pointer = 1;
 		  if (code->ext.alloc.arr_spec_from_expr3)
 		    {
 		      gfc_conv_expr_descriptor (&se, code->expr3);
-		      se.expr = build_fold_indirect_ref (se.expr);
+		      expr3_desc = se.expr;
 		    }
 		  else
-		    gfc_conv_expr (&se, code->expr3);
-		  if (!code->expr3->mold)
-		    expr3 = se.expr;
-		  else
-		    expr3_tmp = se.expr;
-		  if (code->ext.alloc.arr_spec_from_expr3)
-		    expr3_desc = se.expr;
-		  expr3_len = se.string_length;
+		    {
+		      se.want_pointer = 1;
+		      gfc_conv_expr (&se, code->expr3);
+		      if (!code->expr3->mold)
+			expr3 = se.expr;
+		      else
+			expr3_tmp = se.expr;
+		      expr3_len = se.string_length;
+		    }
 		  gfc_add_block_to_block (&block, &se.pre);
 		  gfc_add_block_to_block (&post, &se.post);
 		}
@@ -5113,8 +5113,10 @@ gfc_trans_allocate (gfc_code * code)
 		expr3 = tmp;
 	      else
 		expr3_tmp = tmp;
+	      /* Insert this check for security reasons.  A array descriptor
+		 for a complicated expr3 is very unlikely.  */
 	      if (code->ext.alloc.arr_spec_from_expr3)
-		expr3_desc = tmp;
+		gcc_unreachable ();
 	      /* When he length of a char array is easily available
 		 here, fix it for future use.  */
 	      if (se.string_length)
@@ -5515,17 +5517,25 @@ gfc_trans_allocate (gfc_code * code)
 	  /* Initialization via SOURCE block
 	     (or static default initializer).  */
 	  gfc_expr *rhs = gfc_copy_expr (code->expr3);
-	  if (expr3 != NULL_TREE
-	      && ((POINTER_TYPE_P (TREE_TYPE (expr3))
-		   && TREE_CODE (expr3) != POINTER_PLUS_EXPR)
-		  || VAR_P (expr3))
+	  if (((expr3 != NULL_TREE
+		&& ((POINTER_TYPE_P (TREE_TYPE (expr3))
+		     && TREE_CODE (expr3) != POINTER_PLUS_EXPR)
+		    || VAR_P (expr3)))
+	       || expr3_desc != NULL_TREE)
 	      && code->expr3->ts.type == BT_CLASS
 	      && (expr->ts.type == BT_CLASS
 		  || expr->ts.type == BT_DERIVED))
 	    {
-	      tree to;
+	      /* copy_class_to_class can be used for class arrays, too.
+		 It just needs to be ensured, that the decl_saved_descriptor
+		 has a way to get to the vptr.  */
+	      tree to, from;
 	      to = VAR_P (se.expr) ? se.expr : TREE_OPERAND (se.expr, 0);
-	      tmp = gfc_copy_class_to_class (expr3, to,
+	      /* Only use the array descriptor in expr3_desc, when it is
+		 set and not in a mold= expression.  */
+	      from = expr3_desc == NULL_TREE || code->expr3->mold ?
+		    expr3 : GFC_DECL_SAVED_DESCRIPTOR (expr3_desc);
+	      tmp = gfc_copy_class_to_class (from, to,
 					     nelems, upoly_expr);
 	    }
 	  else if (code->expr3->ts.type == BT_CHARACTER)

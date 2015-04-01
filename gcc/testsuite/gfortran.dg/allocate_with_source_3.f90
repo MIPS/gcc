@@ -72,9 +72,39 @@ program assumed_shape_01
   allocate(iv2, mold=iv)
   if (any(shape(iv2) /= [5])) call abort()
   deallocate(iv, iv2)
+
+  call addData([4, 5])
+  call addData(["foo", "bar"])
 contains
   function arrval()
     integer, dimension(5) :: arrval
     arrval = [ 1, 2, 4, 5, 6]
   end function
+
+  subroutine addData(P)
+    class(*), intent(in) :: P(:)
+    class(*), allocatable :: cP(:)
+    allocate (cP, source= P)
+    select type (cP)
+      type is (integer)
+        if (any(cP /= [4,5])) call abort()
+      type is (character(*))
+        if (len(cP) /= 3) call abort()
+        if (any(cP /= ["foo", "bar"])) call abort()
+      class default
+        call abort()
+    end select
+    deallocate (cP)
+    allocate (cP, mold= P)
+    select type (cP)
+      type is (integer)
+        if (any(size(cP) /= [2])) call abort()
+      type is (character(*))
+        if (len(cP) /= 3) call abort()
+        if (any(size(cP) /= [2])) call abort()
+      class default
+        call abort()
+    end select
+    deallocate (cP)
+  end subroutine
 end program assumed_shape_01

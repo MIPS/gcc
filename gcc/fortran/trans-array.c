@@ -7095,6 +7095,16 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       desc = parm;
     }
 
+  /* For class arrays add the class tree into the saved descriptor to
+     enable getting of _vptr and the like.  */
+  if (expr->expr_type == EXPR_VARIABLE && VAR_P (desc)
+      && IS_CLASS_ARRAY (expr->symtree->n.sym)
+      && DECL_LANG_SPECIFIC (expr->symtree->n.sym->backend_decl))
+    {
+      gfc_allocate_lang_decl (desc);
+      GFC_DECL_SAVED_DESCRIPTOR (desc) =
+	  GFC_DECL_SAVED_DESCRIPTOR (expr->symtree->n.sym->backend_decl);
+    }
   if (!se->direct_byref || se->byref_noassign)
     {
       /* Get a pointer to the new descriptor.  */
