@@ -3481,13 +3481,27 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       break;
 
     case REQUIRES_EXPR:
-      /* A requires-expression appearing as the initializer of
-         variable concept is evaluated as a constant expression.
-         We can't actually evaluate it because we've defined
-         those to be instantiation dependent. */
-      gcc_assert (processing_template_decl);
-      *non_constant_p = true;
-      return t;
+      /* It's possible to get a requires-expression in a constant
+         expression. For example:
+
+             template<typename T> concept bool C() {
+               return requires (T t) { t; };
+             }
+
+             template<typename T> requires !C<T>() void f(T);
+        
+         Normalization leaves f with the associated constraint
+         '!requres (T t) { ... }' which is not transformed into
+         a constraint.
+
+         NOTE: This highlights a bug in the specification, which
+         says that requires-expressions are unevaluated. Clearly,
+         they are. */
+      if (!processing_template_decl)
+        return evaluate_constraint_expression (t, NULL_TREE);
+      else
+        *non_constant_p = true;
+        return t;
 
     default:
       if (STATEMENT_CODE_P (TREE_CODE (t)))

@@ -1,3 +1,15 @@
+2015-04-02  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fixing constraint processing bugs.
+	* gcc/cp/constraint.cc (check_logical_expr): Use build_x_binary_op
+	so that the c-common doesn't try to fold requires-expressions.
+	* gcc/cp/constexpr.c (cxx_eval_constant_expression): The value
+	of a requires clause is true iff its constraints are satisfied.
+	This lets us check negated requires-expressions.
+	* gcc/testsuite/g++.dg/concepts/req4.C: Update diagnostics
+	* gcc/testsuite/g++.dg/concepts/req5.C: Update diagnostics
+	* gcc/testsuite/g++.dg/concepts/req11.C: New.
+
 2015-03-27  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	
 	Trying again with PR65575.

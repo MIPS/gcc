@@ -11,8 +11,8 @@ template<typename T> constexpr fool p2() { return {}; }
 template<typename T>
   concept bool C() { return p1<T>() && p2<T>(); } 
 
-template<C T> void f(T x) { } // { dg-error "user-defined operator" }
+template<C T> void f(T x) { } // { dg-error "does not have type" }
 
 int main() {
-  f(0); // { dg-error "not|bool" }
+  f(0); // { dg-error "cannot call|does not have type" }
 }

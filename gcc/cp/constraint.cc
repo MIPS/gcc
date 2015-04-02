@@ -521,13 +521,20 @@ check_logical_expr (tree t)
 
   /* Resolve the logical operator. Note that template processing is
      disabled so we get the actual call or target expression back.
-     not_processing_template_sentinel sentinel. */
+     not_processing_template_sentinel sentinel. 
+
+     TODO: This check is actually subsumed by the requirement that
+     constraint operands have type bool. I'm not sure we need it
+     unless we allow conversions.  */
   tree arg1 = TREE_OPERAND (t, 0);
   tree arg2 = TREE_OPERAND (t, 1);
   tree ovl = NULL_TREE;
-  tree expr = build_new_op (input_location, TREE_CODE (t), LOOKUP_NORMAL, 
-                            arg1, arg2, /*arg3*/NULL_TREE, 
-                            &ovl, tf_none);
+  tree expr = build_x_binary_op (EXPR_LOC_OR_LOC (arg2, input_location), 
+                                 TREE_CODE (t), 
+                                 arg1, TREE_CODE (arg1),
+                                 arg2, TREE_CODE (arg2),
+                                 &ovl, 
+                                 tf_none);
   if (TREE_CODE (expr) != TREE_CODE (t))
     {
       error ("user-defined operator %qs in constraint %qE",
