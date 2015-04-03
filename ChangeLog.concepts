@@ -1,9 +1,16 @@
 2015-04-03  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	PR65635
+	* gcc/cp/tree.c (cp_tree_equal): Compare type declrations when
+	ordering constraints.
+	* gcc/testsuite/g++.dg/concepts/pr65635: New.
+
+2015-04-03  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	PR65636
 	* gcc/cp/pt.c (tsubst_decl): Don't try to manage specializations
 	for non-dependent, simple type declarations in namespace scope
 	because they don't have C++ language extensions.
+	* gcc/testsuite/g++.dg/concepts/pr65636: New.
 
 2015-04-03  Andrew Sutton  <andrew.n.sutton@gmail.com>
 

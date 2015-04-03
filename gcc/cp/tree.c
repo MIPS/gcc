@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
+#include "print-tree.h"
 #include "fold-const.h"
 #include "tree-hasher.h"
 #include "stor-layout.h"
@@ -2882,6 +2883,12 @@ cp_tree_equal (tree t1, tree t2)
 	}
       return false;
 
+    case TYPE_DECL:
+      /* When comparing type constraints, we end up comparing
+         type declarations.  These are the same when they have
+         the same type.  */
+      return same_type_p (TREE_TYPE (t1), TREE_TYPE (t2));
+
     case VAR_DECL:
     case CONST_DECL:
     case FIELD_DECL:
@@ -3034,6 +3041,8 @@ cp_tree_equal (tree t1, tree t2)
     case tcc_type:
       return same_type_p (t1, t2);
     default:
+      debug_tree (t1);
+      debug_tree (t2);
       gcc_unreachable ();
     }
   /* We can get here with --disable-checking.  */
