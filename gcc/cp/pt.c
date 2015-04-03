@@ -11854,7 +11854,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		  spec = t;
 	      }
 
-	    if (!spec)
+	    if (!spec && DECL_LANG_SPECIFIC (t))
 	      {
 		tmpl = DECL_TI_TEMPLATE (t);
 		gen_tmpl = most_general_template (tmpl);
@@ -11974,7 +11974,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    determine_visibility (r);
 	  }
 
-	if (!local_p)
+	if (!local_p && DECL_LANG_SPECIFIC (r))
 	  {
 	    /* A static data member declaration is always marked
 	       external when it is declared in-class, even if an

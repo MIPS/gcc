@@ -1,4 +1,11 @@
-2015-04-02  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2015-04-03  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR65636
+	* gcc/cp/pt.c (tsubst_decl): Don't try to manage specializations
+	for non-dependent, simple type declarations in namespace scope
+	because they don't have C++ language extensions.
+
+2015-04-03  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	PR65634
 	* gcc/cp/except.c (check_noexcept_r): Check the function type

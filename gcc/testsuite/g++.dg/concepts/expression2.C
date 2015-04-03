@@ -20,6 +20,8 @@ template<typename T>
   requires C2<T>()
 void f2(T x) { }
 
+// Note that these declarations are private and therefore
+// cannot satisify the constraints.
 class S
 {
   using type = int;
