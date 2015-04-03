@@ -1159,7 +1159,6 @@ check_noexcept_r (tree *tp, int * /*walk_subtrees*/, void * /*data*/)
          We could use TREE_NOTHROW (t) for !TREE_PUBLIC fns, though... */
       tree fn = (code == AGGR_INIT_EXPR
 		 ? AGGR_INIT_EXPR_FN (t) : CALL_EXPR_FN (t));
-      tree type = TREE_TYPE (TREE_TYPE (fn));
 
       STRIP_NOPS (fn);
       if (TREE_CODE (fn) == ADDR_EXPR)
@@ -1178,7 +1177,8 @@ check_noexcept_r (tree *tp, int * /*walk_subtrees*/, void * /*data*/)
 	      && is_sub_constant_expr (t))
 	    return NULL_TREE;
 	}
-      if (!TYPE_NOTHROW_P (type))
+
+      if (!TYPE_NOTHROW_P (TREE_TYPE (fn)))
 	return fn;
     }
 

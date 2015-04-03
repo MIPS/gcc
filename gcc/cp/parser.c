@@ -2861,7 +2861,6 @@ cp_parser_check_for_invalid_template_id (cp_parser* parser,
 	    error_at (location, "%qE is not a class template", type);
 	  else
 	    error_at (location, "%qE is not a template", type);
-          debug_tree (type);
 	}
       else
 	error_at (location, "invalid template-id");

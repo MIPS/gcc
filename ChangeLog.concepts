@@ -1,5 +1,14 @@
 2015-04-02  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	PR65634
+	* gcc/cp/except.c (check_noexcept_r): Check the function type
+	and not the return type for (TYPE_NOTHROW_P).
+	* gcc/cp/parser.c (cp_parser_check_for_invalid_template_id): Remove
+	stray debugging code.
+	* gcc/testsuite/g++.dg/concepts/pr65634: New.
+
+2015-04-02  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Fixing constraint processing bugs.
 	* gcc/cp/constraint.cc (check_logical_expr): Use build_x_binary_op
 	so that the c-common doesn't try to fold requires-expressions.
