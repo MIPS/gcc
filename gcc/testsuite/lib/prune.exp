@@ -72,6 +72,9 @@ proc prune_gcc_output { text } {
 
     # Ignore harmless warnings from Xcode 4.0.
     regsub -all "(^|\n)\[^\n\]*ld: warning: could not create compact unwind for\[^\n\]*" $text "" text
+ 
+    # Ignore harmless warning about crt
+    regsub -all "(^|\n)\[^\n\]*ld: warning: for symbol ___darwin_gcc3_preregister_frame_info tentative\[^\n\]*" $text "" text
 
     # Call into multiline.exp to handle any multiline output directives.
     set text [handle-multiline-outputs $text]
