@@ -7617,17 +7617,28 @@ coerce_template_parms (tree parms,
   return new_inner_args;
 }
 
-// Convert all template arguments to their appropriate types, and
-// return a vector containing the innermost resulting template
-// arguments.  If any error occurs, return error_mark_node. Error and
-// warning messages are not issued.
-//
-// Note that no function argument deduction is performed, and default
-// arguments are used to fill in unspecified arguments.
+/* Convert all template arguments to their appropriate types, and
+   return a vector containing the innermost resulting template
+   arguments.  If any error occurs, return error_mark_node. Error and
+   warning messages are not issued.
+
+   Note that no function argument deduction is performed, and default
+   arguments are used to fill in unspecified arguments. */
 tree
 coerce_template_parms (tree parms, tree args, tree in_decl)
 {
   return coerce_template_parms (parms, args, in_decl, tf_none, true, true);
+}
+
+/* Convert all template arguments to their appropriate type, and
+   instantiate default arguments as needed. This returns a vector
+   containing the innermost resulting template arguments, or 
+   error_mark_node if unsuccessful.  */
+tree
+coerce_template_parms (tree parms, tree args, tree in_decl,
+                       tsubst_flags_t complain)
+{
+  return coerce_template_parms (parms, args, in_decl, complain, true, true);
 }
 
 /* Like coerce_template_parms.  If PARMS represents all template

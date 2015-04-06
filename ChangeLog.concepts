@@ -1,4 +1,13 @@
 2015-04-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* gcc/cp/constraint.cc (lift_variable_concept): Coerce template
+	arguments before substituting into the initializer.
+	* gcc/cp/pt.c (coerce_template_parms): New overload that accepts
+	a tsubst_flags_t.
+	* gcc/cp/cp-tree.h (coerce_template_parms): New declaration.
+	* gcc/testsuite/g++.dg/concepts/var-concept5.C: New.
+
+2015-04-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	
 	* gcc/cp/constriant.cc (check_pack_expansion): Don't check
 	same_type_p if the type is null.

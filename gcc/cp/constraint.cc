@@ -385,6 +385,14 @@ lift_variable_concept (tree t)
   tree args = TREE_OPERAND (t, 1);
   tree decl = DECL_TEMPLATE_RESULT (tmpl);
   gcc_assert (DECL_DECLARED_CONCEPT_P (decl));
+
+  /* Convert the template arguments to ensure that they match
+     the parameters of the variable concept.  */
+  tree parms = INNERMOST_TEMPLATE_PARMS (DECL_TEMPLATE_PARMS (tmpl));
+  args = coerce_template_parms (parms, args, tmpl, tf_warning_or_error);
+  if (args == error_mark_node) 
+    return error_mark_node;
+
   return lift_variable_initializer (decl, args);
 }
 
