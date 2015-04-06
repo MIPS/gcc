@@ -4413,6 +4413,13 @@ process_partial_specialization (tree decl)
 
   gcc_assert (current_template_parms);
 
+  /* A concept cannot be specialized.  */
+  if (flag_concepts && variable_concept_p (maintmpl))
+    {
+      error ("specialization of variable concept %q#D", maintmpl);
+      return error_mark_node;
+    }
+
   // When defining a constrained partial specialization, DECL's type
   // will have been assigned to the canonical type of the primary.
   // That is:

@@ -1,4 +1,15 @@
+2015-04-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
+	* gcc/cp/constriant.cc (check_pack_expansion): Don't check
+	same_type_p if the type is null.
+	* gcc/cp/pt.c (process_partial_specialization): Don't allow
+	specialization of variable concepts.
+	* gcc/testsuite/g++.dg/concepts/var-concepts[1-3].C: Renamed to
+	var-concept[1-3].C.
+	* gcc/testsuite/g++.dg/concepts/var-concept4.C: New.
+
 2015-04-03  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	PR65635
 	* gcc/cp/tree.c (cp_tree_equal): Compare type declrations when
 	ordering constraints.

@@ -1533,7 +1533,7 @@ check_pack_expansion (tree t, tree args,
      indicate folded boolean expressions generated from a
      shorthand constraint.  This check should disappear with
      fold expressions.  */
-  if (!same_type_p (TREE_TYPE (t), boolean_type_node)) 
+  if (!TREE_TYPE (t) || !same_type_p (TREE_TYPE (t), boolean_type_node)) 
     {
       error ("invalid pack expansion in constraint %qE", t);
       return boolean_false_node;
@@ -1544,7 +1544,7 @@ check_pack_expansion (tree t, tree args,
   if (exprs == error_mark_node)
     return boolean_false_node;
   int n = TREE_VEC_LENGTH (exprs);
-  
+
   /* An empty expansion is inherently satisfied. */
   if (n == 0)
     return boolean_true_node;
