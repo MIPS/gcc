@@ -433,6 +433,7 @@ struct processor_costs {
   const int l2_cache_size;	/* size of l2 cache, in kilobytes.  */
   const int simultaneous_prefetches; /* number of parallel prefetch
 					operations.  */
+  const int sfdf_convert;	/* cost of SF->DF conversion.  */
 };
 
 const struct processor_costs *rs6000_cost;
@@ -452,10 +453,11 @@ struct processor_costs size32_cost = {
   COSTS_N_INSNS (1),    /* dmul */
   COSTS_N_INSNS (1),    /* sdiv */
   COSTS_N_INSNS (1),    /* ddiv */
-  32,
-  0,
-  0,
-  0,
+  32,			/* cache line size */
+  0,			/* l1 cache */
+  0,			/* l2 cache */
+  0,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction size costs on 64bit processors.  */
@@ -471,10 +473,11 @@ struct processor_costs size64_cost = {
   COSTS_N_INSNS (1),    /* dmul */
   COSTS_N_INSNS (1),    /* sdiv */
   COSTS_N_INSNS (1),    /* ddiv */
-  128,
-  0,
-  0,
-  0,
+  128,			/* cache line size */
+  0,			/* l1 cache */
+  0,			/* l2 cache */
+  0,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on RS64A processors.  */
@@ -494,6 +497,7 @@ struct processor_costs rs64a_cost = {
   128,			/* l1 cache */
   2048,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on MPCCORE processors.  */
@@ -513,6 +517,7 @@ struct processor_costs mpccore_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC403 processors.  */
@@ -532,6 +537,7 @@ struct processor_costs ppc403_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC405 processors.  */
@@ -551,6 +557,7 @@ struct processor_costs ppc405_cost = {
   16,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC440 processors.  */
@@ -570,6 +577,7 @@ struct processor_costs ppc440_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC476 processors.  */
@@ -589,6 +597,7 @@ struct processor_costs ppc476_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC601 processors.  */
@@ -608,6 +617,7 @@ struct processor_costs ppc601_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC603 processors.  */
@@ -627,6 +637,7 @@ struct processor_costs ppc603_cost = {
   8,			/* l1 cache */
   64,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC604 processors.  */
@@ -646,6 +657,7 @@ struct processor_costs ppc604_cost = {
   16,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC604e processors.  */
@@ -665,6 +677,7 @@ struct processor_costs ppc604e_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC620 processors.  */
@@ -684,6 +697,7 @@ struct processor_costs ppc620_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC630 processors.  */
@@ -703,6 +717,7 @@ struct processor_costs ppc630_cost = {
   64,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on Cell processor.  */
@@ -723,6 +738,7 @@ struct processor_costs ppccell_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   6,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC750 and PPC7400 processors.  */
@@ -742,6 +758,7 @@ struct processor_costs ppc750_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC7450 processors.  */
@@ -761,6 +778,7 @@ struct processor_costs ppc7450_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPC8540 processors.  */
@@ -780,6 +798,7 @@ struct processor_costs ppc8540_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* prefetch streams /*/
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on E300C2 and E300C3 cores.  */
@@ -799,6 +818,7 @@ struct processor_costs ppce300c2c3_cost = {
   16,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* prefetch streams /*/
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPCE500MC processors.  */
@@ -818,6 +838,7 @@ struct processor_costs ppce500mc_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPCE500MC64 processors.  */
@@ -837,6 +858,7 @@ struct processor_costs ppce500mc64_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPCE5500 processors.  */
@@ -856,6 +878,7 @@ struct processor_costs ppce5500_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on PPCE6500 processors.  */
@@ -875,6 +898,7 @@ struct processor_costs ppce6500_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on AppliedMicro Titan processors.  */
@@ -894,6 +918,7 @@ struct processor_costs titan_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* prefetch streams /*/
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on POWER4 and POWER5 processors.  */
@@ -913,6 +938,7 @@ struct processor_costs power4_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   8,			/* prefetch streams /*/
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on POWER6 processors.  */
@@ -932,6 +958,7 @@ struct processor_costs power6_cost = {
   64,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
+  0,			/* SF->DF convert */
 };
 
 /* Instruction costs on POWER7 processors.  */
@@ -951,6 +978,7 @@ struct processor_costs power7_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   12,			/* prefetch streams */
+  COSTS_N_INSNS (3),	/* SF->DF convert */
 };
 
 /* Instruction costs on POWER8 processors.  */
@@ -970,6 +998,7 @@ struct processor_costs power8_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   12,			/* prefetch streams */
+  COSTS_N_INSNS (3),	/* SF->DF convert */
 };
 
 /* Instruction costs on POWER A2 processors.  */
@@ -989,6 +1018,7 @@ struct processor_costs ppca2_cost = {
   16,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
+  0,			/* SF->DF convert */
 };
 
 
@@ -30154,7 +30184,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 
     case FLOAT_EXTEND:
       if (mode == DFmode)
-	*total = 0;
+	*total = rs6000_cost->sfdf_convert;
       else
 	*total = rs6000_cost->fp;
       return false;
