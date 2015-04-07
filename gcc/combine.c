@@ -80,6 +80,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "tm_p.h"
@@ -87,11 +96,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -100,6 +104,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "insn-config.h"
 /* Include expr.h after insn-config.h so we get HAVE_conditional_move.  */
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-attr.h"
 #include "recog.h"
@@ -118,8 +133,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "obstack.h"
-#include "statistics.h"
-#include "params.h"
 #include "rtl-iter.h"
 
 /* Number of attempts to combine instructions in this function.  */
@@ -270,6 +283,16 @@ typedef struct reg_stat_struct {
 
 
 static vec<reg_stat_type> reg_stat;
+
+/* One plus the highest pseudo for which we track REG_N_SETS.
+   regstat_init_n_sets_and_refs allocates the array for REG_N_SETS just once,
+   but during combine_split_insns new pseudos can be created.  As we don't have
+   updated DF information in that case, it is hard to initialize the array
+   after growing.  The combiner only cares about REG_N_SETS (regno) == 1,
+   so instead of growing the arrays, just assume all newly created pseudos
+   during combine might be set multiple times.  */
+
+static unsigned int reg_n_sets_max;
 
 /* Record the luid of the last insn that invalidated memory
    (anything that writes memory, and subroutine calls, but not pushes).  */
@@ -452,7 +475,7 @@ static rtx force_to_mode (rtx, machine_mode,
 			  unsigned HOST_WIDE_INT, int);
 static rtx if_then_else_cond (rtx, rtx *, rtx *);
 static rtx known_cond (rtx, enum rtx_code, rtx, rtx);
-static int rtx_equal_for_field_assignment_p (rtx, rtx);
+static int rtx_equal_for_field_assignment_p (rtx, rtx, bool = false);
 static rtx make_field_assignment (rtx);
 static rtx apply_distributive_law (rtx);
 static rtx distribute_and_simplify_rtx (rtx, int);
@@ -2407,7 +2430,9 @@ can_change_dest_mode (rtx x, int added_sets, machine_mode mode)
 		>= hard_regno_nregs[regno][mode]));
 
   /* Or a pseudo that is only used once.  */
-  return (REG_N_SETS (regno) == 1 && !added_sets
+  return (regno < reg_n_sets_max
+	  && REG_N_SETS (regno) == 1
+	  && !added_sets
 	  && !REG_USERVAR_P (x));
 }
 
@@ -2607,6 +2632,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
       int i;
       int ngood = 0;
       int nshift = 0;
+      rtx set0, set3;
 
       if (!flag_expensive_optimizations)
 	return 0;
@@ -2630,6 +2656,34 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 		   || GET_CODE (src) == LSHIFTRT)
 	    nshift++;
 	}
+
+      /* If I0 loads a memory and I3 sets the same memory, then I1 and I2
+	 are likely manipulating its value.  Ideally we'll be able to combine
+	 all four insns into a bitfield insertion of some kind. 
+
+	 Note the source in I0 might be inside a sign/zero extension and the
+	 memory modes in I0 and I3 might be different.  So extract the address
+	 from the destination of I3 and search for it in the source of I0.
+
+	 In the event that there's a match but the source/dest do not actually
+	 refer to the same memory, the worst that happens is we try some
+	 combinations that we wouldn't have otherwise.  */
+      if ((set0 = single_set (i0))
+	  /* Ensure the source of SET0 is a MEM, possibly buried inside
+	     an extension.  */
+	  && (GET_CODE (SET_SRC (set0)) == MEM
+	      || ((GET_CODE (SET_SRC (set0)) == ZERO_EXTEND
+		   || GET_CODE (SET_SRC (set0)) == SIGN_EXTEND)
+		  && GET_CODE (XEXP (SET_SRC (set0), 0)) == MEM))
+	  && (set3 = single_set (i3))
+	  /* Ensure the destination of SET3 is a MEM.  */
+	  && GET_CODE (SET_DEST (set3)) == MEM
+	  /* Would it be better to extract the base address for the MEM
+	     in SET3 and look for that?  I don't have cases where it matters
+	     but I could envision such cases.  */
+	  && rtx_referenced_p (XEXP (SET_DEST (set3), 0), SET_SRC (set0)))
+	ngood += 2;
+
       if (ngood < 2 && nshift < 2)
 	return 0;
     }
@@ -3588,7 +3642,8 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 
 	      if (REG_P (new_i3_dest)
 		  && REG_P (new_i2_dest)
-		  && REGNO (new_i3_dest) == REGNO (new_i2_dest))
+		  && REGNO (new_i3_dest) == REGNO (new_i2_dest)
+		  && REGNO (new_i2_dest) < reg_n_sets_max)
 		INC_REG_N_SETS (REGNO (new_i2_dest), 1);
 	    }
 	}
@@ -4438,7 +4493,8 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	   zero its use count so it won't make `reload' do any work.  */
 	if (! added_sets_2
 	    && (newi2pat == 0 || ! reg_mentioned_p (i2dest, newi2pat))
-	    && ! i2dest_in_i2src)
+	    && ! i2dest_in_i2src
+	    && REGNO (i2dest) < reg_n_sets_max)
 	  INC_REG_N_SETS (REGNO (i2dest), -1);
       }
 
@@ -4455,7 +4511,9 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 
 	record_value_for_reg (i1dest, i1_insn, i1_val);
 
-	if (! added_sets_1 && ! i1dest_in_i1src)
+	if (! added_sets_1
+	    && ! i1dest_in_i1src
+	    && REGNO (i1dest) < reg_n_sets_max)
 	  INC_REG_N_SETS (REGNO (i1dest), -1);
       }
 
@@ -4472,7 +4530,9 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 
 	record_value_for_reg (i0dest, i0_insn, i0_val);
 
-	if (! added_sets_0 && ! i0dest_in_i0src)
+	if (! added_sets_0
+	    && ! i0dest_in_i0src
+	    && REGNO (i0dest) < reg_n_sets_max)
 	  INC_REG_N_SETS (REGNO (i0dest), -1);
       }
 
@@ -9124,8 +9184,23 @@ known_cond (rtx x, enum rtx_code cond, rtx reg, rtx val)
    assignment as a field assignment.  */
 
 static int
-rtx_equal_for_field_assignment_p (rtx x, rtx y)
+rtx_equal_for_field_assignment_p (rtx x, rtx y, bool widen_x)
 {
+  if (widen_x && GET_MODE (x) != GET_MODE (y))
+    {
+      if (GET_MODE_SIZE (GET_MODE (x)) > GET_MODE_SIZE (GET_MODE (y)))
+	return 0;
+      if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN)
+	return 0;
+      /* For big endian, adjust the memory offset.  */
+      if (BYTES_BIG_ENDIAN)
+	x = adjust_address_nv (x, GET_MODE (y),
+			       -subreg_lowpart_offset (GET_MODE (x),
+						       GET_MODE (y)));
+      else
+	x = adjust_address_nv (x, GET_MODE (y), 0);
+    }
+
   if (x == y || rtx_equal_p (x, y))
     return 1;
 
@@ -9259,6 +9334,13 @@ make_field_assignment (rtx x)
      to the appropriate position, force it to the required mode, and
      make the extraction.  Check for the AND in both operands.  */
 
+  /* One or more SUBREGs might obscure the constant-position field
+     assignment.  The first one we are likely to encounter is an outer
+     narrowing SUBREG, which we can just strip for the purposes of
+     identifying the constant-field assignment.  */
+  if (GET_CODE (src) == SUBREG && subreg_lowpart_p (src))
+    src = SUBREG_REG (src);
+
   if (GET_CODE (src) != IOR && GET_CODE (src) != XOR)
     return x;
 
@@ -9269,9 +9351,35 @@ make_field_assignment (rtx x)
       && CONST_INT_P (XEXP (rhs, 1))
       && rtx_equal_for_field_assignment_p (XEXP (rhs, 0), dest))
     c1 = INTVAL (XEXP (rhs, 1)), other = lhs;
+  /* The second SUBREG that might get in the way is a paradoxical
+     SUBREG around the first operand of the AND.  We want to 
+     pretend the operand is as wide as the destination here.   We
+     do this by adjusting the MEM to wider mode for the sole
+     purpose of the call to rtx_equal_for_field_assignment_p.   Also
+     note this trick only works for MEMs.  */
+  else if (GET_CODE (rhs) == AND
+	   && paradoxical_subreg_p (XEXP (rhs, 0))
+	   && MEM_P (SUBREG_REG (XEXP (rhs, 0)))
+	   && CONST_INT_P (XEXP (rhs, 1))
+	   && rtx_equal_for_field_assignment_p (SUBREG_REG (XEXP (rhs, 0)),
+						dest, true))
+    c1 = INTVAL (XEXP (rhs, 1)), other = lhs;
   else if (GET_CODE (lhs) == AND
 	   && CONST_INT_P (XEXP (lhs, 1))
 	   && rtx_equal_for_field_assignment_p (XEXP (lhs, 0), dest))
+    c1 = INTVAL (XEXP (lhs, 1)), other = rhs;
+  /* The second SUBREG that might get in the way is a paradoxical
+     SUBREG around the first operand of the AND.  We want to 
+     pretend the operand is as wide as the destination here.   We
+     do this by adjusting the MEM to wider mode for the sole
+     purpose of the call to rtx_equal_for_field_assignment_p.   Also
+     note this trick only works for MEMs.  */
+  else if (GET_CODE (lhs) == AND
+	   && paradoxical_subreg_p (XEXP (lhs, 0))
+	   && MEM_P (SUBREG_REG (XEXP (lhs, 0)))
+	   && CONST_INT_P (XEXP (lhs, 1))
+	   && rtx_equal_for_field_assignment_p (SUBREG_REG (XEXP (lhs, 0)),
+						dest, true))
     c1 = INTVAL (XEXP (lhs, 1)), other = rhs;
   else
     return x;
@@ -9673,6 +9781,7 @@ reg_nonzero_bits_for_combine (const_rtx x, machine_mode mode,
 	  || (rsp->last_set_label == label_tick
               && DF_INSN_LUID (rsp->last_set) < subst_low_luid)
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
+	      && REGNO (x) < reg_n_sets_max
 	      && REG_N_SETS (REGNO (x)) == 1
 	      && !REGNO_REG_SET_P
 		  (DF_LR_IN (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb),
@@ -9748,6 +9857,7 @@ reg_num_sign_bit_copies_for_combine (const_rtx x, machine_mode mode,
 	  || (rsp->last_set_label == label_tick
               && DF_INSN_LUID (rsp->last_set) < subst_low_luid)
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
+	      && REGNO (x) < reg_n_sets_max
 	      && REG_N_SETS (REGNO (x)) == 1
 	      && !REGNO_REG_SET_P
 		  (DF_LR_IN (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb),
@@ -12786,6 +12896,7 @@ get_last_value_validate (rtx *loc, rtx_insn *insn, int tick, int replace)
 	      /* If this is a pseudo-register that was only set once and not
 		 live at the beginning of the function, it is always valid.  */
 	      || (! (regno >= FIRST_PSEUDO_REGISTER
+		     && regno < reg_n_sets_max
 		     && REG_N_SETS (regno) == 1
 		     && (!REGNO_REG_SET_P
 			 (DF_LR_IN (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb),
@@ -12902,6 +13013,7 @@ get_last_value (const_rtx x)
   if (value == 0
       || (rsp->last_set_label < label_tick_ebb_start
 	  && (regno < FIRST_PSEUDO_REGISTER
+	      || regno >= reg_n_sets_max
 	      || REG_N_SETS (regno) != 1
 	      || REGNO_REG_SET_P
 		 (DF_LR_IN (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb), regno))))
@@ -13671,6 +13783,11 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx_insn *i3, rtx_insn *i2,
 		       || rtx_equal_p (XEXP (note, 0), elim_i0))
 		break;
 	      tem_insn = i3;
+	      /* If the new I2 sets the same register that is marked dead
+		 in the note, the note now should not be put on I2, as the
+		 note refers to a previous incarnation of the reg.  */
+	      if (i2 != 0 && reg_set_p (XEXP (note, 0), PATTERN (i2)))
+		tem_insn = i2;
 	    }
 
 	  if (place == 0)
@@ -14084,6 +14201,7 @@ rest_of_handle_combine (void)
   df_analyze ();
 
   regstat_init_n_sets_and_refs ();
+  reg_n_sets_max = max_reg_num ();
 
   rebuild_jump_labels_after_combine
     = combine_instructions (get_insns (), max_reg_num ());

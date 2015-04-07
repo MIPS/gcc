@@ -26,6 +26,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "trans-mem.h"
@@ -43,16 +52,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "wide-int.h"
+#include "internal-fn.h"
 
 /* The various kinds of conversion.  */
 
@@ -333,13 +339,16 @@ build_call_n (tree function, int n, ...)
 void
 set_flags_from_callee (tree call)
 {
-  int nothrow;
+  bool nothrow;
   tree decl = get_callee_fndecl (call);
 
   /* We check both the decl and the type; a function may be known not to
      throw without being declared throw().  */
-  nothrow = ((decl && TREE_NOTHROW (decl))
-	     || TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (call)))));
+  nothrow = decl && TREE_NOTHROW (decl);
+  if (CALL_EXPR_FN (call))
+    nothrow |= TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (call))));
+  else if (internal_fn_flags (CALL_EXPR_IFN (call)) & ECF_NOTHROW)
+    nothrow = true;
 
   if (!nothrow && at_function_scope_p () && cfun && cp_function_chain)
     cp_function_chain->can_throw = 1;
@@ -1684,6 +1693,19 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
      of the underlying type with the argument expression.  Any
      difference in top-level cv-qualification is subsumed by the
      initialization itself and does not constitute a conversion.  */
+
+  /* [dcl.init.ref]
+
+     Otherwise, the reference shall be an lvalue reference to a
+     non-volatile const type, or the reference shall be an rvalue
+     reference.
+
+     We try below to treat this as a bad conversion to improve diagnostics,
+     but if TO is an incomplete class, we need to reject this conversion
+     now to avoid unnecessary instantiation.  */
+  if (!CP_TYPE_CONST_NON_VOLATILE_P (to) && !TYPE_REF_IS_RVALUE (rto)
+      && !COMPLETE_TYPE_P (to))
+    return NULL;
 
   /* We're generating a temporary now, but don't bind any more in the
      conversion (specifically, don't slice the temporary returned by a
@@ -7464,7 +7486,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
     }
 
   if (!already_used
-      && !mark_used (fn))
+      && !mark_used (fn, complain))
     return error_mark_node;
 
   if (DECL_VINDEX (fn) && (flags & LOOKUP_NONVIRTUAL) == 0
@@ -7998,7 +8020,11 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
      that would be captured if the call turns out to be to a
      non-static member function.  Do not actually capture it at this
      point.  */
-  first_mem_arg = maybe_resolve_dummy (instance, false);
+  if (DECL_CONSTRUCTOR_P (fn))
+    /* Constructors don't use the enclosing 'this'.  */
+    first_mem_arg = instance;
+  else
+    first_mem_arg = maybe_resolve_dummy (instance, false);
 
   /* Get the high-water mark for the CONVERSION_OBSTACK.  */
   p = conversion_obstack_alloc (0);

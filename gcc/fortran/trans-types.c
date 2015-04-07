@@ -33,7 +33,18 @@ along with GCC; see the file COPYING3.  If not see
 			   LONG_TYPE_SIZE, LONG_LONG_TYPE_SIZE,
 			   FLOAT_TYPE_SIZE, DOUBLE_TYPE_SIZE and
 			   LONG_DOUBLE_TYPE_SIZE.  */
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "langhooks.h"	/* For iso-c-bindings.def.  */
@@ -1101,12 +1112,7 @@ gfc_typenode_for_spec (gfc_typespec * spec)
       break;
 
     case BT_CHARACTER:
-#if 0
-      if (spec->deferred)
-	basetype = gfc_get_character_type (spec->kind, NULL);
-      else
-#endif
-	basetype = gfc_get_character_type (spec->kind, spec->u.cl);
+      basetype = gfc_get_character_type (spec->kind, spec->u.cl);
       break;
 
     case BT_HOLLERITH:
@@ -1166,6 +1172,10 @@ gfc_conv_array_bound (gfc_expr * expr)
   return NULL_TREE;
 }
 
+/* Return the type of an element of the array.  Note that scalar coarrays
+   are special.  In particular, for GFC_ARRAY_TYPE_P, the original argument
+   (with POINTER_TYPE stripped) is returned.  */
+
 tree
 gfc_get_element_type (tree type)
 {
@@ -2152,7 +2162,9 @@ gfc_sym_type (gfc_symbol * sym)
       && ((sym->attr.function && sym->attr.is_bind_c)
 	  || (sym->attr.result
 	      && sym->ns->proc_name
-	      && sym->ns->proc_name->attr.is_bind_c)))
+	      && sym->ns->proc_name->attr.is_bind_c)
+	  || (sym->ts.deferred && (!sym->ts.u.cl
+				   || !sym->ts.u.cl->backend_decl))))
     type = gfc_character1_type_node;
   else
     type = gfc_typenode_for_spec (&sym->ts);
@@ -2436,9 +2448,24 @@ gfc_get_derived_type (gfc_symbol * derived)
       /* Its components' backend_decl have been built or we are
 	 seeing recursion through the formal arglist of a procedure
 	 pointer component.  */
-      if (TYPE_FIELDS (derived->backend_decl)
-	    || derived->attr.proc_pointer_comp)
+      if (TYPE_FIELDS (derived->backend_decl))
         return derived->backend_decl;
+      else if (derived->attr.abstract
+	       && derived->attr.proc_pointer_comp)
+	{
+	  /* If an abstract derived type with procedure pointer
+	     components has no other type of component, return the
+	     backend_decl. Otherwise build the components if any of the
+	     non-procedure pointer components have no backend_decl.  */
+	  for (c = derived->components; c; c = c->next)
+	    {
+	      if (!c->attr.proc_pointer && c->backend_decl == NULL)
+		break;
+	      else if (c->next == NULL)
+		return derived->backend_decl;
+	    }
+	  typenode = derived->backend_decl;
+	}
       else
         typenode = derived->backend_decl;
     }

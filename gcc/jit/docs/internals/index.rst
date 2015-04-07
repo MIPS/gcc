@@ -1,4 +1,4 @@
-.. Copyright (C) 2014 Free Software Foundation, Inc.
+.. Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Originally contributed by David Malcolm <dmalcolm@redhat.com>
 
    This is free software: you can redistribute it and/or modify it
@@ -236,6 +236,54 @@ variables:
       ./jit-hello-world
   hello world
 
+Packaging notes
+---------------
+The configure-time option :option:`--enable-host-shared` is needed when
+building the jit in order to get position-independent code.  This will
+slow down the regular compiler by a few percent.  Hence when packaging gcc
+with libgccjit, please configure and build twice:
+
+  * once without :option:`--enable-host-shared` for most languages, and
+
+  * once with :option:`--enable-host-shared` for the jit
+
+For example:
+
+.. code-block:: bash
+
+  # Configure and build with --enable-host-shared
+  # for the jit:
+  mkdir configuration-for-jit
+  pushd configuration-for-jit
+  $(SRCDIR)/configure \
+    --enable-host-shared \
+    --enable-languages=jit \
+    --prefix=$(DESTDIR)
+  make
+  popd
+
+  # Configure and build *without* --enable-host-shared
+  # for maximum speed:
+  mkdir standard-configuration
+  pushd standard-configuration
+  $(SRCDIR)/configure \
+    --enable-languages=all \
+    --prefix=$(DESTDIR)
+  make
+  popd
+
+  # Both of the above are configured to install to $(DESTDIR)
+  # Install the configuration with --enable-host-shared first
+  # *then* the one without, so that the faster build
+  # of "cc1" et al overwrites the slower build.
+  pushd configuration-for-jit
+  make install
+  popd
+
+  pushd standard-configuration
+  make install
+  popd
+
 Overview of code structure
 --------------------------
 
@@ -277,3 +325,13 @@ generated via this call:
 
 .. literalinclude:: test-hello-world.exe.log.txt
     :lines: 1-
+
+Design notes
+------------
+It should not be possible for client code to cause an internal compiler
+error.  If this *does* happen, the root cause should be isolated (perhaps
+using :c:func:`gcc_jit_context_dump_reproducer_to_file`) and the cause
+should be rejected via additional checking.  The checking ideally should
+be within the libgccjit API entrypoints in libgccjit.c, since this is as
+close as possible to the error; failing that, a good place is within
+``recording::context::validate ()`` in jit-recording.c.

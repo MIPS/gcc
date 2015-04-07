@@ -1,4 +1,5 @@
 /* { dg-do run } */
+/* { dg-require-profiling "-pg" } */
 /* { dg-options "-O2 -pg" } */
 
 static int __attribute__((noinline))
@@ -24,3 +25,5 @@ main (void)
   int z = foo (0, 1, 2, 3, 4);
   return !(z == 191);
 }
+
+/* { dg-final { cleanup-profile-file } } */

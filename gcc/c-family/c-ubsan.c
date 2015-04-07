@@ -21,6 +21,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "alloc-pool.h"
 #include "hash-map.h"
@@ -293,8 +303,9 @@ ubsan_instrument_bounds (location_t loc, tree array, tree *index,
 
   /* Detect flexible array members and suchlike.  */
   tree base = get_base_address (array);
-  if (base && (TREE_CODE (base) == INDIRECT_REF
-	       || TREE_CODE (base) == MEM_REF))
+  if (TREE_CODE (array) == COMPONENT_REF
+      && base && (TREE_CODE (base) == INDIRECT_REF
+		  || TREE_CODE (base) == MEM_REF))
     {
       tree next = NULL_TREE;
       tree cref = array;

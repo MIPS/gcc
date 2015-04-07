@@ -23,6 +23,14 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "libgccjit.h"
 
+#include "hash-set.h"
+#include "input.h"
+#include "vec.h"
+#include "double-int.h"
+#include "alias.h"
+#include "flags.h"
+#include "symtab.h"
+#include "inchash.h"
 #include "tree.h"
 #include "tree-iterator.h"
 
@@ -160,6 +168,8 @@ public:
 	bool update_locations);
   ~dump ();
 
+  recording::context &get_context () { return m_ctxt; }
+
   void write (const char *fmt, ...)
     GNU_PRINTF(2, 3);
 
@@ -167,6 +177,8 @@ public:
 
   recording::location *
   make_location () const;
+
+  FILE *get_file () const { return m_file; }
 
 private:
   recording::context &m_ctxt;

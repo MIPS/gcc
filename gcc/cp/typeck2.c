@@ -29,6 +29,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -644,6 +653,8 @@ split_nonconstant_init_1 (tree dest, tree init)
 
 	      if (!split_nonconstant_init_1 (sub, value))
 		complete_p = false;
+	      else
+		CONSTRUCTOR_ELTS (init)->ordered_remove (idx--);
 	      num_split_elts++;
 	    }
 	  else if (!initializer_constant_valid_p (value, inner_type))

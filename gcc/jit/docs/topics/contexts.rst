@@ -1,4 +1,4 @@
-.. Copyright (C) 2014 Free Software Foundation, Inc.
+.. Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Originally contributed by David Malcolm <dmalcolm@redhat.com>
 
    This is free software: you can redistribute it and/or modify it
@@ -39,7 +39,7 @@ cleanup of such objects is done for you when the context is released.
 
 .. function:: gcc_jit_context *gcc_jit_context_acquire (void)
 
-  This function acquires a new :c:type:`gcc_jit_object *` instance,
+  This function acquires a new :c:type:`gcc_jit_context *` instance,
   which is independent of any others that may be present within this
   process.
 
@@ -138,7 +138,7 @@ be responsible for all of the rest:
    If no errors occurred, this will be NULL.
 
 If you are wrapping the C API for a higher-level language that supports
-exception-handling, you may instead by interested in the last error that
+exception-handling, you may instead be interested in the last error that
 occurred on the context, so that you can embed this in an exception:
 
 .. function:: const char *\
@@ -146,10 +146,10 @@ occurred on the context, so that you can embed this in an exception:
 
    Returns the last error message that occurred on the context.
 
-   The returned string is valid for the rest of the lifetime of the
-   context.
-
    If no errors occurred, this will be NULL.
+
+   If non-NULL, the returned string is only guaranteed to be valid until
+   the next call to libgccjit relating to this context.
 
 Debugging
 ---------
@@ -217,6 +217,30 @@ To contrast the above: :c:func:`gcc_jit_context_dump_to_file` dumps the
 current state of a context to the given path, whereas
 :c:func:`gcc_jit_context_set_logfile` enables on-going logging of
 future activies on a context to the given `FILE *`.
+
+
+.. function:: void\
+              gcc_jit_context_dump_reproducer_to_file (gcc_jit_context *ctxt,\
+                                                       const char *path)
+
+   Write C source code into `path` that can be compiled into a
+   self-contained executable (i.e. with libgccjit as the only dependency).
+   The generated code will attempt to replay the API calls that have been
+   made into the given context.
+
+   This may be useful when debugging the library or client code, for
+   reducing a complicated recipe for reproducing a bug into a simpler
+   form.  For example, consider client code that parses some source file
+   into some internal representation, and then walks this IR, calling into
+   libgccjit.  If this encounters a bug, a call to
+   `gcc_jit_context_dump_reproducer_to_file` will write out C code for
+   a much simpler executable that performs the equivalent calls into
+   libgccjit, without needing the client code and its data.
+
+   Typically you need to supply :option:`-Wno-unused-variable` when
+   compiling the generated file (since the result of each API call is
+   assigned to a unique variable within the generated C source, and not
+   all are necessarily then used).
 
 .. function:: void\
               gcc_jit_context_enable_dump (gcc_jit_context *ctxt,\

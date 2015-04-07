@@ -37,7 +37,13 @@
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
+#include "double-int.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stmt.h"
 #include "hash-table.h"
@@ -55,6 +61,17 @@
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-inline.h"
@@ -63,7 +80,6 @@
 #include "alloc-pool.h"
 #include "splay-tree.h"
 #include "params.h"
-#include "alias.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
 #include "tree-pretty-print.h"
@@ -393,6 +409,7 @@ new_var_info (tree t, const char *name)
   ret->may_have_pointers = true;
   ret->only_restrict_pointers = false;
   ret->is_restrict_var = false;
+  ret->ruid = 0;
   ret->is_global_var = (t == NULL_TREE);
   ret->is_fn_info = false;
   if (t && DECL_P (t))
@@ -3475,6 +3492,9 @@ get_constraint_for_1 (tree t, vec<ce_s> *results, bool address_p,
 	  case ARRAY_REF:
 	  case ARRAY_RANGE_REF:
 	  case COMPONENT_REF:
+	  case IMAGPART_EXPR:
+	  case REALPART_EXPR:
+	  case BIT_FIELD_REF:
 	    get_constraint_for_component_ref (t, results, address_p, lhs_p);
 	    return;
 	  case VIEW_CONVERT_EXPR:
@@ -4695,11 +4715,7 @@ find_func_aliases (struct function *fn, gimple origt)
 
 	  get_constraint_for (lhsop, &lhsc);
 
-	  if (FLOAT_TYPE_P (TREE_TYPE (lhsop)))
-	    /* If the operation produces a floating point result then
-	       assume the value is not produced to transfer a pointer.  */
-	    ;
-	  else if (code == POINTER_PLUS_EXPR)
+	  if (code == POINTER_PLUS_EXPR)
 	    get_constraint_for_ptr_offset (gimple_assign_rhs1 (t),
 					   gimple_assign_rhs2 (t), &rhsc);
 	  else if (code == BIT_AND_EXPR

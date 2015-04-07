@@ -44,7 +44,7 @@ bool ipa_edge_within_scc (struct cgraph_edge *);
 int ipa_reverse_postorder (struct cgraph_node **);
 tree get_base_var (tree);
 void ipa_merge_profiles (struct cgraph_node *dst,
-			 struct cgraph_node *src);
+			 struct cgraph_node *src, bool preserve_body = false);
 bool recursive_call_p (tree, tree);
 
 /* In ipa-profile.c  */
@@ -70,6 +70,7 @@ bool possible_polymorphic_call_target_p (tree, HOST_WIDE_INT,
 				         const ipa_polymorphic_call_context &,
 					 struct cgraph_node *);
 tree method_class_type (const_tree);
+tree inlined_polymorphic_ctor_dtor_block_p (tree, bool);
 bool decl_maybe_in_construction_p (tree, tree, gimple, tree);
 tree vtable_pointer_value_to_binfo (const_tree);
 bool vtable_pointer_value_to_vtable (const_tree, tree *, unsigned HOST_WIDE_INT *);
@@ -80,7 +81,7 @@ bool type_known_to_have_no_deriavations_p (tree);
 bool contains_polymorphic_type_p (const_tree);
 void register_odr_type (tree);
 bool types_must_be_same_for_odr (tree, tree);
-bool types_odr_comparable (tree, tree);
+bool types_odr_comparable (tree, tree, bool strict = false);
 cgraph_node *try_speculative_devirtualization (tree, HOST_WIDE_INT,
 					       ipa_polymorphic_call_context);
 

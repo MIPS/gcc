@@ -28,7 +28,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "cp-tree.h"
@@ -2203,6 +2213,8 @@ lookup_anon_field (tree t, tree type)
 {
   tree field;
 
+  t = TYPE_MAIN_VARIANT (t);
+
   for (field = TYPE_FIELDS (t); field; field = DECL_CHAIN (field))
     {
       if (TREE_STATIC (field))
@@ -2415,8 +2427,8 @@ build_class_member_access_expr (tree object, tree member,
 	  member_type = cp_build_qualified_type (member_type, type_quals);
 	}
 
-      result = build3 (COMPONENT_REF, member_type, object, member,
-		       NULL_TREE);
+      result = build3_loc (input_location, COMPONENT_REF, member_type,
+			   object, member, NULL_TREE);
       result = fold_if_not_in_template (result);
 
       /* Mark the expression const or volatile, as appropriate.  Even
@@ -4405,7 +4417,8 @@ cp_build_binary_op (location_t location,
 	      && decl_with_nonnull_addr_p (TREE_OPERAND (op0, 0)))
 	    {
 	      if ((complain & tf_warning)
-		  && c_inhibit_evaluation_warnings == 0)
+		  && c_inhibit_evaluation_warnings == 0
+		  && !TREE_NO_WARNING (op0))
 		warning (OPT_Waddress, "the address of %qD will never be NULL",
 			 TREE_OPERAND (op0, 0));
 	    }
@@ -4426,7 +4439,8 @@ cp_build_binary_op (location_t location,
 	      && decl_with_nonnull_addr_p (TREE_OPERAND (op1, 0)))
 	    {
 	      if ((complain & tf_warning)
-		  && c_inhibit_evaluation_warnings == 0)
+		  && c_inhibit_evaluation_warnings == 0
+		  && !TREE_NO_WARNING (op1))
 		warning (OPT_Waddress, "the address of %qD will never be NULL",
 			 TREE_OPERAND (op1, 0));
 	    }
@@ -4527,6 +4541,9 @@ cp_build_binary_op (location_t location,
 	    op1 = save_expr (op1);
 
 	  pfn0 = pfn_from_ptrmemfunc (op0);
+	  /* Avoid -Waddress warnings (c++/64877).  */
+	  if (TREE_CODE (pfn0) == ADDR_EXPR)
+	    TREE_NO_WARNING (pfn0) = 1;
 	  pfn1 = pfn_from_ptrmemfunc (op1);
 	  delta0 = delta_from_ptrmemfunc (op0);
 	  delta1 = delta_from_ptrmemfunc (op1);
@@ -6464,11 +6481,21 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       base = lookup_base (TREE_TYPE (type), intype,
 			  c_cast_p ? ba_unique : ba_check,
 			  NULL, complain);
+      expr = build_address (expr);
+
+      if (flag_sanitize & SANITIZE_VPTR)
+	{
+	  tree ubsan_check
+	    = cp_ubsan_maybe_instrument_downcast (input_location, type, expr);
+	  if (ubsan_check)
+	    expr = ubsan_check;
+	}
 
       /* Convert from "B*" to "D*".  This function will check that "B"
 	 is not a virtual base of "D".  */
-      expr = build_base_path (MINUS_EXPR, build_address (expr),
-			      base, /*nonnull=*/false, complain);
+      expr = build_base_path (MINUS_EXPR, expr, base, /*nonnull=*/false,
+			      complain);
+
       /* Convert the pointer to a reference -- but then remember that
 	 there are no expressions with reference type in C++.
 
@@ -6596,7 +6623,16 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 			  NULL, complain);
       expr = build_base_path (MINUS_EXPR, expr, base, /*nonnull=*/false,
 			      complain);
-      return cp_fold_convert(type, expr);
+
+      if (flag_sanitize & SANITIZE_VPTR)
+	{
+	  tree ubsan_check
+	    = cp_ubsan_maybe_instrument_downcast (input_location, type, expr);
+	  if (ubsan_check)
+	    expr = ubsan_check;
+	}
+
+      return cp_fold_convert (type, expr);
     }
 
   if ((TYPE_PTRDATAMEM_P (type) && TYPE_PTRDATAMEM_P (intype))

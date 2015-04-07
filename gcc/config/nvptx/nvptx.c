@@ -24,11 +24,35 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "insn-codes.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "regs.h"
 #include "optabs.h"
@@ -38,7 +62,6 @@
 #include "tm_p.h"
 #include "tm-preds.h"
 #include "tm-constrs.h"
-#include "function.h"
 #include "langhooks.h"
 #include "dbxout.h"
 #include "target.h"
@@ -48,10 +71,8 @@
 #include "basic-block.h"
 #include "cfgrtl.h"
 #include "stor-layout.h"
-#include "calls.h"
 #include "df.h"
 #include "builtins.h"
-#include "hashtab.h"
 
 /* Record the function decls we've written, and the libfuncs and function
    decls corresponding to them.  */
@@ -2009,6 +2030,16 @@ nvptx_vector_alignment (const_tree type)
   return MIN (align, BIGGEST_ALIGNMENT);
 }
 
+/* Record a symbol for mkoffload to enter into the mapping table.  */
+
+static void
+nvptx_record_offload_symbol (tree decl)
+{
+  fprintf (asm_out_file, "//:%s_MAP %s\n",
+	   TREE_CODE (decl) == VAR_DECL ? "VAR" : "FUNC",
+	   IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+}
+
 /* Implement TARGET_ASM_FILE_START.  Write the kinds of things ptxas expects
    at the start of a file.  */
 
@@ -2111,6 +2142,9 @@ nvptx_file_end (void)
 #define TARGET_MACHINE_DEPENDENT_REORG nvptx_reorg
 #undef TARGET_NO_REGISTER_ALLOCATION
 #define TARGET_NO_REGISTER_ALLOCATION true
+
+#undef TARGET_RECORD_OFFLOAD_SYMBOL
+#define TARGET_RECORD_OFFLOAD_SYMBOL nvptx_record_offload_symbol
 
 #undef TARGET_VECTOR_ALIGNMENT
 #define TARGET_VECTOR_ALIGNMENT nvptx_vector_alignment

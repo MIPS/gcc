@@ -28,6 +28,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -6816,6 +6825,9 @@ coerce_template_parameter_pack (tree parms,
               if (invalid_nontype_parm_type_p (t, complain))
                 return error_mark_node;
             }
+	  /* We don't know how many args we have yet, just
+	     use the unconverted ones for now.  */
+	  return NULL_TREE;
         }
 
       packed_args = make_tree_vec (TREE_VEC_LENGTH (packed_parms));
@@ -7312,7 +7324,22 @@ template_args_equal (tree ot, tree nt)
   else if (TREE_CODE (ot) == TREE_VEC || TYPE_P (ot))
     return 0;
   else
-    return cp_tree_equal (ot, nt);
+    {
+      /* Try to treat a template non-type argument that has been converted
+	 to the parameter type as equivalent to one that hasn't yet.  */
+      for (enum tree_code code1 = TREE_CODE (ot);
+	   CONVERT_EXPR_CODE_P (code1)
+	     || code1 == NON_LVALUE_EXPR;
+	   code1 = TREE_CODE (ot))
+	ot = TREE_OPERAND (ot, 0);
+      for (enum tree_code code2 = TREE_CODE (nt);
+	   CONVERT_EXPR_CODE_P (code2)
+	     || code2 == NON_LVALUE_EXPR;
+	   code2 = TREE_CODE (nt))
+	nt = TREE_OPERAND (nt, 0);
+
+      return cp_tree_equal (ot, nt);
+    }
 }
 
 /* Returns 1 iff the OLDARGS and NEWARGS are in fact identical sets of
@@ -8079,13 +8106,28 @@ tree
 lookup_template_variable (tree templ, tree arglist)
 {
   tree type = unknown_type_node;
-  tsubst_flags_t complain = tf_warning_or_error;
-  tree parms = INNERMOST_TEMPLATE_PARMS (DECL_TEMPLATE_PARMS (templ));
-  arglist = coerce_template_parms (parms, arglist, templ, complain,
-				   /*req_all*/true, /*use_default*/true);
   return build2 (TEMPLATE_ID_EXPR, type, templ, arglist);
 }
 
+/* Instantiate a variable declaration from a TEMPLATE_ID_EXPR for use. */
+
+tree
+finish_template_variable (tree var)
+{
+  tree templ = TREE_OPERAND (var, 0);
+
+  tree arglist = TREE_OPERAND (var, 1);
+  tree tmpl_args = DECL_TI_ARGS (DECL_TEMPLATE_RESULT (templ));
+  arglist = add_outermost_template_args (tmpl_args, arglist);
+
+  tree parms = DECL_TEMPLATE_PARMS (templ);
+  tsubst_flags_t complain = tf_warning_or_error;
+  arglist = coerce_innermost_template_parms (parms, arglist, templ, complain,
+					     /*req_all*/true,
+					     /*use_default*/true);
+
+  return instantiate_template (templ, arglist, complain);
+}
 
 struct pair_fn_data
 {
@@ -8455,7 +8497,8 @@ push_tinst_level_loc (tree d, location_t loc)
 
   if (tinst_depth >= max_tinst_depth)
     {
-      fatal_error ("template instantiation depth exceeds maximum of %d"
+      fatal_error (input_location,
+		   "template instantiation depth exceeds maximum of %d"
                    " (use -ftemplate-depth= to increase the maximum)",
                    max_tinst_depth);
       return false;
@@ -17845,7 +17888,13 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
       if (TREE_CODE (parm) == ARRAY_TYPE)
 	elttype = TREE_TYPE (parm);
       else
-	elttype = TREE_VEC_ELT (CLASSTYPE_TI_ARGS (parm), 0);
+	{
+	  elttype = TREE_VEC_ELT (CLASSTYPE_TI_ARGS (parm), 0);
+	  /* Deduction is defined in terms of a single type, so just punt
+	     on the (bizarre) std::initializer_list<T...>.  */
+	  if (PACK_EXPANSION_P (elttype))
+	    return unify_success (explain_p);
+	}
 
       FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (arg), i, elt)
 	{
@@ -17857,6 +17906,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 	  if (!BRACE_ENCLOSED_INITIALIZER_P (elt))
 	    {
 	      tree type = TREE_TYPE (elt);
+	      if (type == error_mark_node)
+		return unify_invalid (explain_p);
 	      /* It should only be possible to get here for a call.  */
 	      gcc_assert (elt_strict & UNIFY_ALLOW_OUTER_LEVEL);
 	      elt_strict |= maybe_adjust_types_for_deduction
@@ -20420,7 +20471,8 @@ instantiate_pending_templates (int retries)
     {
       tree decl = pending_templates->tinst->decl;
 
-      fatal_error ("template instantiation depth exceeds maximum of %d"
+      fatal_error (input_location,
+		   "template instantiation depth exceeds maximum of %d"
                    " instantiating %q+D, possibly from virtual table generation"
                    " (use -ftemplate-depth= to increase the maximum)",
                    max_tinst_depth, decl);
@@ -20696,62 +20748,8 @@ tsubst_enum (tree tag, tree newtag, tree args)
 tree
 get_mostly_instantiated_function_type (tree decl)
 {
-  tree fn_type;
-  tree tmpl;
-  tree targs;
-  tree tparms;
-  int parm_depth;
-
-  tmpl = most_general_template (DECL_TI_TEMPLATE (decl));
-  targs = DECL_TI_ARGS (decl);
-  tparms = DECL_TEMPLATE_PARMS (tmpl);
-  parm_depth = TMPL_PARMS_DEPTH (tparms);
-
-  /* There should be as many levels of arguments as there are levels
-     of parameters.  */
-  gcc_assert (parm_depth == TMPL_ARGS_DEPTH (targs));
-
-  fn_type = TREE_TYPE (tmpl);
-
-  if (parm_depth == 1)
-    /* No substitution is necessary.  */
-    ;
-  else
-    {
-      int i;
-      tree partial_args;
-
-      /* Replace the innermost level of the TARGS with NULL_TREEs to
-	 let tsubst know not to substitute for those parameters.  */
-      partial_args = make_tree_vec (TREE_VEC_LENGTH (targs));
-      for (i = 1; i < TMPL_ARGS_DEPTH (targs); ++i)
-	SET_TMPL_ARGS_LEVEL (partial_args, i,
-			     TMPL_ARGS_LEVEL (targs, i));
-      SET_TMPL_ARGS_LEVEL (partial_args,
-			   TMPL_ARGS_DEPTH (targs),
-			   make_tree_vec (DECL_NTPARMS (tmpl)));
-
-      /* Make sure that we can see identifiers, and compute access
-	 correctly.  */
-      push_access_scope (decl);
-
-      ++processing_template_decl;
-      /* Now, do the (partial) substitution to figure out the
-	 appropriate function type.  */
-      fn_type = tsubst (fn_type, partial_args, tf_error, NULL_TREE);
-      --processing_template_decl;
-
-      /* Substitute into the template parameters to obtain the real
-	 innermost set of parameters.  This step is important if the
-	 innermost set of template parameters contains value
-	 parameters whose types depend on outer template parameters.  */
-      TREE_VEC_LENGTH (partial_args)--;
-      tparms = tsubst_template_parms (tparms, partial_args, tf_error);
-
-      pop_access_scope (decl);
-    }
-
-  return fn_type;
+  /* For a function, DECL_TI_TEMPLATE is partially instantiated.  */
+  return TREE_TYPE (DECL_TI_TEMPLATE (decl));
 }
 
 /* Return truthvalue if we're processing a template different from
@@ -20773,6 +20771,16 @@ struct tinst_level *
 current_instantiation (void)
 {
   return current_tinst_level;
+}
+
+/* Return TRUE if current_function_decl is being instantiated, false
+   otherwise.  */
+
+bool
+instantiating_current_function_p (void)
+{
+  return (current_instantiation ()
+	  && current_instantiation ()->decl == current_function_decl);
 }
 
 /* [temp.param] Check that template non-type parm TYPE is of an allowable
@@ -20878,7 +20886,13 @@ dependent_type_p_r (tree type)
     return true;
   /* ... or any of the template arguments is a dependent type or
 	an expression that is type-dependent or value-dependent.  */
-  else if (TYPE_TEMPLATE_INFO (type)
+  else if (CLASS_TYPE_P (type) && CLASSTYPE_TEMPLATE_INFO (type)
+	   && (any_dependent_template_arguments_p
+	       (INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (type)))))
+    return true;
+  /* For an alias template specialization, check the arguments both to the
+     class template and the alias template.  */
+  else if (alias_template_specialization_p (type)
 	   && (any_dependent_template_arguments_p
 	       (INNERMOST_TEMPLATE_ARGS (TYPE_TI_ARGS (type)))))
     return true;

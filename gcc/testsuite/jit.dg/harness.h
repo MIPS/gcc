@@ -7,12 +7,14 @@
     extern void
     create_code (gcc_jit_context *ctxt, void * user_data);
 
+  and, #ifndef TEST_COMPILING_TO_FILE,
+
     extern void
     verify_code (gcc_jit_context *ctxt, gcc_jit_result *result);
-
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 
 /* test-threads.c use threads, but dejagnu.h isn't thread-safe; there's a
    shared "buffer", and the counts of passed/failed etc are globals.
@@ -106,12 +108,23 @@ static char test[1024];
       }				\
   } while (0)
 
+#define CHECK_NO_ERRORS(CTXT) \
+  do { \
+    const char *err = gcc_jit_context_get_first_error (CTXT); \
+    if (err) \
+      fail ("%s: %s: error unexpectedly occurred: %s", test, __func__, err); \
+    else \
+      pass ("%s: %s: no errors occurred", test, __func__); \
+  } while (0)
+
 /* Hooks that testcases should provide.  */
 extern void
 create_code (gcc_jit_context *ctxt, void * user_data);
 
+#ifndef TEST_COMPILING_TO_FILE
 extern void
 verify_code (gcc_jit_context *ctxt, gcc_jit_result *result);
+#endif
 
 extern void check_string_value (const char *funcname,
 				const char *actual, const char *expected);
@@ -250,6 +263,23 @@ static void set_options (gcc_jit_context *ctxt, const char *argv0)
     0);
 }
 
+/* Concatenate two strings.  The result must be released using "free".  */
+
+char *
+concat_strings (const char *prefix, const char *suffix)
+{
+  char *result = (char *)malloc (strlen (prefix) + strlen (suffix) + 1);
+  if (!result)
+    {
+      fail ("malloc failure");
+      return NULL;
+    }
+  strcpy (result, prefix);
+  strcpy (result + strlen (prefix), suffix);
+  result[strlen (prefix) + strlen (suffix)] = '\0';
+  return result;
+}
+
 #ifndef TEST_ESCHEWS_TEST_JIT
 /* Set up logging to a logfile of the form "test-FOO.exe.log.txt".
 
@@ -271,18 +301,9 @@ set_up_logging (gcc_jit_context *ctxt, const char *argv0)
   FILE *logfile = NULL;
 
   /* Build a logfile name of the form "test-FOO.exe.log.txt".  */
-  logfile_name = (char *)malloc (strlen (argv0)
-				 + strlen (logfile_name_suffix)
-				 + 1);
+  logfile_name = concat_strings (argv0, logfile_name_suffix);
   if (!logfile_name)
-    {
-      fail ("malloc failure");
-      return NULL;
-    }
-  strcpy (logfile_name, argv0);
-  strcpy (logfile_name + strlen (argv0), logfile_name_suffix);
-  logfile_name[strlen (argv0) + strlen (logfile_name_suffix)] = '\0';
-
+    return NULL;
   logfile = fopen (logfile_name, "w");
   CHECK_NON_NULL (logfile);
   free (logfile_name);
@@ -293,13 +314,34 @@ set_up_logging (gcc_jit_context *ctxt, const char *argv0)
   return logfile;
 }
 
+/* Exercise the API entrypoint:
+     gcc_jit_context_dump_reproducer_to_file
+   by calling it on the context, using the path expected by jit.exp.  */
+static void
+dump_reproducer (gcc_jit_context *ctxt, const char *argv0)
+{
+  char *reproducer_name;
+  reproducer_name = concat_strings (argv0, ".reproducer.c");
+  if (!reproducer_name)
+    return;
+  note ("%s: writing reproducer to %s", test, reproducer_name);
+  gcc_jit_context_dump_reproducer_to_file (ctxt, reproducer_name);
+  free (reproducer_name);
+}
+
 /* Run one iteration of the test.  */
 static void
 test_jit (const char *argv0, void *user_data)
 {
   gcc_jit_context *ctxt;
   FILE *logfile;
+#ifndef TEST_COMPILING_TO_FILE
   gcc_jit_result *result;
+#endif
+
+#ifdef TEST_COMPILING_TO_FILE
+  unlink (OUTPUT_FILENAME);
+#endif
 
   ctxt = gcc_jit_context_acquire ();
   if (!ctxt)
@@ -314,16 +356,27 @@ test_jit (const char *argv0, void *user_data)
 
   create_code (ctxt, user_data);
 
+  dump_reproducer (ctxt, argv0);
+
+#ifdef TEST_COMPILING_TO_FILE
+  gcc_jit_context_compile_to_file (ctxt,
+				   (OUTPUT_KIND),
+				   (OUTPUT_FILENAME));
+  CHECK_NO_ERRORS (ctxt);
+#else /* #ifdef TEST_COMPILING_TO_FILE */
   /* This actually calls into GCC and runs the build, all
      in a mutex for now.  */
   result = gcc_jit_context_compile (ctxt);
 
   verify_code (ctxt, result);
+#endif
 
   gcc_jit_context_release (ctxt);
 
+#ifndef TEST_COMPILING_TO_FILE
   /* Once we're done with the code, this unloads the built .so file: */
   gcc_jit_result_release (result);
+#endif
 
   if (logfile)
     fclose (logfile);

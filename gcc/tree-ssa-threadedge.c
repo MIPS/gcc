@@ -22,14 +22,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -55,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "params.h"
 #include "tree-ssa-threadedge.h"
+#include "tree-ssa-loop.h"
 #include "builtins.h"
 #include "cfg.h"
 #include "cfganal.h"
@@ -103,6 +110,15 @@ potentially_threadable_block (basic_block bb)
 {
   gimple_stmt_iterator gsi;
 
+  /* Special case.  We can get blocks that are forwarders, but are
+     not optimized away because they forward from outside a loop
+     to the loop header.   We want to thread through them as we can
+     sometimes thread to the loop exit, which is obviously profitable. 
+     the interesting case here is when the block has PHIs.  */
+  if (gsi_end_p (gsi_start_nondebug_bb (bb))
+      && !gsi_end_p (gsi_start_phis (bb)))
+    return true;
+  
   /* If BB has a single successor or a single predecessor, then
      there is no threading opportunity.  */
   if (single_succ_p (bb) || single_pred_p (bb))
@@ -1000,7 +1016,8 @@ static int max_threaded_paths;
 static void
 fsm_find_control_statement_thread_paths (tree expr,
 					 hash_set<gimple> *visited_phis,
-					 vec<basic_block, va_gc> *&path)
+					 vec<basic_block, va_gc> *&path,
+					 bool seen_loop_phi)
 {
   tree var = SSA_NAME_VAR (expr);
   gimple def_stmt = SSA_NAME_DEF_STMT (expr);
@@ -1023,6 +1040,14 @@ fsm_find_control_statement_thread_paths (tree expr,
   gphi *phi = as_a <gphi *> (def_stmt);
   int next_path_length = 0;
   basic_block last_bb_in_path = path->last ();
+
+  if (loop_containing_stmt (phi)->header == gimple_bb (phi))
+    {
+      /* Do not walk through more than one loop PHI node.  */
+      if (seen_loop_phi)
+	return;
+      seen_loop_phi = true;
+    }
 
   /* Following the chain of SSA_NAME definitions, we jumped from a definition in
      LAST_BB_IN_PATH to a definition in VAR_BB.  When these basic blocks are
@@ -1084,7 +1109,9 @@ fsm_find_control_statement_thread_paths (tree expr,
 	{
 	  vec_safe_push (path, bbi);
 	  /* Recursively follow SSA_NAMEs looking for a constant definition.  */
-	  fsm_find_control_statement_thread_paths (arg, visited_phis, path);
+	  fsm_find_control_statement_thread_paths (arg, visited_phis, path,
+						   seen_loop_phi);
+
 	  path->pop ();
 	  continue;
 	}
@@ -1263,16 +1290,32 @@ thread_through_normal_block (edge e,
     = record_temporary_equivalences_from_stmts_at_dest (e, stack, simplify,
 							*backedge_seen_p);
 
-  /* If we didn't look at all the statements, the most likely reason is
-     there were too many and thus duplicating this block is not profitable.
+  /* There's two reasons STMT might be null, and distinguishing
+     between them is important.
 
-     Also note if we do not look at all the statements, then we may not
-     have invalidated equivalences that are no longer valid if we threaded
-     around a loop.  Thus we must signal to our caller that this block
-     is not suitable for use as a joiner in a threading path.  */
+     First the block may not have had any statements.  For example, it
+     might have some PHIs and unconditionally transfer control elsewhere.
+     Such blocks are suitable for jump threading, particularly as a
+     joiner block.
+
+     The second reason would be if we did not process all the statements
+     in the block (because there were too many to make duplicating the
+     block profitable.   If we did not look at all the statements, then
+     we may not have invalidated everything needing invalidation.  Thus
+     we must signal to our caller that this block is not suitable for
+     use as a joiner in a threading path.  */
   if (!stmt)
-    return -1;
+    {
+      /* First case.  The statement simply doesn't have any instructions, but
+	 does have PHIs.  */
+      if (gsi_end_p (gsi_start_nondebug_bb (e->dest))
+	  && !gsi_end_p (gsi_start_phis (e->dest)))
+	return 0;
 
+      /* Second case.  */
+      return -1;
+    }
+  
   /* If we stopped at a COND_EXPR or SWITCH_EXPR, see if we know which arm
      will be taken.  */
   if (gimple_code (stmt) == GIMPLE_COND
@@ -1351,7 +1394,8 @@ thread_through_normal_block (edge e,
       hash_set<gimple> *visited_phis = new hash_set<gimple>;
 
       max_threaded_paths = PARAM_VALUE (PARAM_MAX_FSM_THREAD_PATHS);
-      fsm_find_control_statement_thread_paths (cond, visited_phis, bb_path);
+      fsm_find_control_statement_thread_paths (cond, visited_phis, bb_path,
+					       false);
 
       delete visited_phis;
       vec_free (bb_path);

@@ -25,7 +25,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "print-tree.h"
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -40,13 +50,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "recog.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "reload.h"
 #include "diagnostic-core.h"
@@ -446,24 +460,9 @@ struct GTY(()) machine_function
    bytes on a z10 (or higher) CPU.  */
 #define PREDICT_DISTANCE (TARGET_Z10 ? 384 : 2048)
 
-static const int s390_hotpatch_trampoline_halfwords_default = 12;
-static const int s390_hotpatch_trampoline_halfwords_max = 1000000;
-static int s390_hotpatch_trampoline_halfwords = -1;
-
-/* Return the argument of the given hotpatch attribute or the default value if
-   no argument is present.  */
-
-static inline int
-get_hotpatch_attribute (tree hotpatch_attr)
-{
-  const_tree args;
-
-  args = TREE_VALUE (hotpatch_attr);
-
-  return (args) ?
-    TREE_INT_CST_LOW (TREE_VALUE (args)):
-    s390_hotpatch_trampoline_halfwords_default;
-}
+static const int s390_hotpatch_hw_max = 1000000;
+static int s390_hotpatch_hw_before_label = 0;
+static int s390_hotpatch_hw_after_label = 0;
 
 /* Check whether the hotpatch attribute is applied to a function and, if it has
    an argument, the argument is valid.  */
@@ -472,32 +471,46 @@ static tree
 s390_handle_hotpatch_attribute (tree *node, tree name, tree args,
 				int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
 {
+  tree expr;
+  tree expr2;
+  int err;
+
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
 	       name);
       *no_add_attrs = true;
     }
-  else if (args)
+  if (args != NULL && TREE_CHAIN (args) != NULL)
     {
-      tree expr = TREE_VALUE (args);
-
-      if (TREE_CODE (expr) != INTEGER_CST
-	  || !INTEGRAL_TYPE_P (TREE_TYPE (expr))
-	  || wi::gtu_p (expr, s390_hotpatch_trampoline_halfwords_max))
-	{
-	  error ("requested %qE attribute is not a non-negative integer"
-		 " constant or too large (max. %d)", name,
-		 s390_hotpatch_trampoline_halfwords_max);
-	  *no_add_attrs = true;
-	}
+      expr = TREE_VALUE (args);
+      expr2 = TREE_VALUE (TREE_CHAIN (args));
+    }
+  if (args == NULL || TREE_CHAIN (args) == NULL)
+    err = 1;
+  else if (TREE_CODE (expr) != INTEGER_CST
+	   || !INTEGRAL_TYPE_P (TREE_TYPE (expr))
+	   || wi::gtu_p (expr, s390_hotpatch_hw_max))
+    err = 1;
+  else if (TREE_CODE (expr2) != INTEGER_CST
+	   || !INTEGRAL_TYPE_P (TREE_TYPE (expr2))
+	   || wi::gtu_p (expr2, s390_hotpatch_hw_max))
+    err = 1;
+  else
+    err = 0;
+  if (err)
+    {
+      error ("requested %qE attribute is not a comma separated pair of"
+	     " non-negative integer constants or too large (max. %d)", name,
+	     s390_hotpatch_hw_max);
+      *no_add_attrs = true;
     }
 
   return NULL_TREE;
 }
 
 static const struct attribute_spec s390_attribute_table[] = {
-  { "hotpatch", 0, 1, true, false, false, s390_handle_hotpatch_attribute, false
+  { "hotpatch", 2, 2, true, false, false, s390_handle_hotpatch_attribute, false
   },
   /* End element.  */
   { NULL,        0, 0, false, false, false, NULL, false }
@@ -2393,16 +2406,29 @@ s390_float_const_zero_p (rtx value)
 /* Implement TARGET_REGISTER_MOVE_COST.  */
 
 static int
-s390_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
+s390_register_move_cost (machine_mode mode,
                          reg_class_t from, reg_class_t to)
 {
-  /* On s390, copy between fprs and gprs is expensive as long as no
-     ldgr/lgdr can be used.  */
-  if ((!TARGET_Z10 || GET_MODE_SIZE (mode) != 8)
-      && ((reg_classes_intersect_p (from, GENERAL_REGS)
-	   && reg_classes_intersect_p (to, FP_REGS))
-	  || (reg_classes_intersect_p (from, FP_REGS)
-	      && reg_classes_intersect_p (to, GENERAL_REGS))))
+  /* On s390, copy between fprs and gprs is expensive.  */
+
+  /* It becomes somewhat faster having ldgr/lgdr.  */
+  if (TARGET_Z10 && GET_MODE_SIZE (mode) == 8)
+    {
+      /* ldgr is single cycle. */
+      if (reg_classes_intersect_p (from, GENERAL_REGS)
+	  && reg_classes_intersect_p (to, FP_REGS))
+	return 1;
+      /* lgdr needs 3 cycles. */
+      if (reg_classes_intersect_p (to, GENERAL_REGS)
+	  && reg_classes_intersect_p (from, FP_REGS))
+	return 3;
+    }
+
+  /* Otherwise copying is done via memory.  */
+  if ((reg_classes_intersect_p (from, GENERAL_REGS)
+       && reg_classes_intersect_p (to, FP_REGS))
+      || (reg_classes_intersect_p (from, FP_REGS)
+	  && reg_classes_intersect_p (to, GENERAL_REGS)))
     return 10;
 
   return 1;
@@ -2415,7 +2441,7 @@ s390_memory_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 		       reg_class_t rclass ATTRIBUTE_UNUSED,
 		       bool in ATTRIBUTE_UNUSED)
 {
-  return 1;
+  return 2;
 }
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
@@ -5208,53 +5234,36 @@ print_shift_count_operand (FILE *file, rtx op)
     fprintf (file, "(%s)", reg_names[REGNO (base)]);
 }
 
-/* Returns -1 if the function should not be made hotpatchable.  Otherwise it
-   returns a number >= 0 that is the desired size of the hotpatch trampoline
-   in halfwords. */
+/* Assigns the number of NOP halfwords to be emitted before and after the
+   function label to *HW_BEFORE and *HW_AFTER.  Both pointers must not be NULL.
+   If hotpatching is disabled for the function, the values are set to zero.
+*/
 
-static int s390_function_num_hotpatch_trampoline_halfwords (tree decl,
-							    bool do_warn)
+static void
+s390_function_num_hotpatch_hw (tree decl,
+			       int *hw_before,
+			       int *hw_after)
 {
   tree attr;
 
-  if (DECL_DECLARED_INLINE_P (decl)
-      || DECL_ARTIFICIAL (decl)
-      || MAIN_NAME_P (DECL_NAME (decl)))
-    {
-      /* - Explicitly inlined functions cannot be hotpatched.
-	 - Artificial functions need not be hotpatched.
-	 - Making the main function hotpatchable is useless. */
-      return -1;
-    }
   attr = lookup_attribute ("hotpatch", DECL_ATTRIBUTES (decl));
-  if (attr || s390_hotpatch_trampoline_halfwords >= 0)
+
+  /* Handle the arguments of the hotpatch attribute.  The values
+     specified via attribute might override the cmdline argument
+     values.  */
+  if (attr)
     {
-      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (decl)))
-	{
-	  if (do_warn)
-	    warning (OPT_Wattributes, "function %qE with the %qs attribute"
-		     " is not hotpatchable", DECL_NAME (decl), "always_inline");
-	  return -1;
-	}
-      else
-	{
-	  return (attr) ?
-	    get_hotpatch_attribute (attr) : s390_hotpatch_trampoline_halfwords;
-	}
+      tree args = TREE_VALUE (attr);
+
+      *hw_before = TREE_INT_CST_LOW (TREE_VALUE (args));
+      *hw_after = TREE_INT_CST_LOW (TREE_VALUE (TREE_CHAIN (args)));
     }
-
-  return -1;
-}
-
-/* Hook to determine if one function can safely inline another.  */
-
-static bool
-s390_can_inline_p (tree caller, tree callee)
-{
-  if (s390_function_num_hotpatch_trampoline_halfwords (callee, false) >= 0)
-    return false;
-
-  return default_target_can_inline_p (caller, callee);
+  else
+    {
+      /* Use the values specified by the cmdline arguments.  */
+      *hw_before = s390_hotpatch_hw_before_label;
+      *hw_after = s390_hotpatch_hw_after_label;
+    }
 }
 
 /* Write the extra assembler code needed to declare a function properly.  */
@@ -5263,44 +5272,46 @@ void
 s390_asm_output_function_label (FILE *asm_out_file, const char *fname,
 				tree decl)
 {
-  int hotpatch_trampoline_halfwords = -1;
+  int hw_before, hw_after;
 
-  if (decl)
+  s390_function_num_hotpatch_hw (decl, &hw_before, &hw_after);
+  if (hw_before > 0)
     {
-      hotpatch_trampoline_halfwords =
-	s390_function_num_hotpatch_trampoline_halfwords (decl, true);
-      if (hotpatch_trampoline_halfwords >= 0
-	  && decl_function_context (decl) != NULL_TREE)
-	{
-	  warning_at (DECL_SOURCE_LOCATION (decl), OPT_mhotpatch,
-		      "hotpatching is not compatible with nested functions");
-	  hotpatch_trampoline_halfwords = -1;
-	}
-    }
-
-  if (hotpatch_trampoline_halfwords > 0)
-    {
+      unsigned int function_alignment;
       int i;
 
       /* Add a trampoline code area before the function label and initialize it
 	 with two-byte nop instructions.  This area can be overwritten with code
 	 that jumps to a patched version of the function.  */
-      for (i = 0; i < hotpatch_trampoline_halfwords; i++)
-	asm_fprintf (asm_out_file, "\tnopr\t%%r7\n");
+      asm_fprintf (asm_out_file, "\tnopr\t%%r7"
+		   "\t# pre-label NOPs for hotpatch (%d halfwords)\n",
+		   hw_before);
+      for (i = 1; i < hw_before; i++)
+	fputs ("\tnopr\t%r7\n", asm_out_file);
+
       /* Note:  The function label must be aligned so that (a) the bytes of the
 	 following nop do not cross a cacheline boundary, and (b) a jump address
 	 (eight bytes for 64 bit targets, 4 bytes for 32 bit targets) can be
 	 stored directly before the label without crossing a cacheline
 	 boundary.  All this is necessary to make sure the trampoline code can
-	 be changed atomically.  */
+	 be changed atomically.
+	 This alignment is done automatically using the FOUNCTION_BOUNDARY, but
+	 if there are NOPs before the function label, the alignment is placed
+	 before them.  So it is necessary to duplicate the alignment after the
+	 NOPs.  */
+      function_alignment = MAX (8, DECL_ALIGN (decl) / BITS_PER_UNIT);
+      if (! DECL_USER_ALIGN (decl))
+	function_alignment = MAX (function_alignment,
+				  (unsigned int) align_functions);
+      fputs ("\t# alignment for hotpatch\n", asm_out_file);
+      ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (function_alignment));
     }
 
   ASM_OUTPUT_LABEL (asm_out_file, fname);
-
-  /* Output a four-byte nop if hotpatching is enabled.  This can be overwritten
-     atomically with a relative backwards jump to the trampoline area.  */
-  if (hotpatch_trampoline_halfwords >= 0)
-    asm_fprintf (asm_out_file, "\tnop\t0\n");
+  if (hw_after > 0)
+    asm_fprintf (asm_out_file,
+		 "\t# post-label NOPs for hotpatch (%d halfwords)\n",
+		 hw_after);
 }
 
 /* Output machine-dependent UNSPECs occurring in address constant X
@@ -7775,7 +7786,8 @@ s390_frame_info (void)
 
   cfun_frame_layout.frame_size = get_frame_size ();
   if (!TARGET_64BIT && cfun_frame_layout.frame_size > 0x7fff0000)
-    fatal_error ("total size of local variables exceeds architecture limit");
+    fatal_error (input_location,
+		 "total size of local variables exceeds architecture limit");
 
   if (!TARGET_PACKED_STACK)
     {
@@ -9946,10 +9958,15 @@ enum s390_builtin
   S390_BUILTIN_TX_NESTING_DEPTH,
   S390_BUILTIN_TX_ASSIST,
 
-  S390_BUILTIN_max
+  S390_BUILTIN_S390_SFPC,
+  S390_BUILTIN_S390_EFPC,
+
+  S390_BUILTIN_MAX
 };
 
-static enum insn_code const code_for_builtin[S390_BUILTIN_max] = {
+tree s390_builtin_decls[S390_BUILTIN_MAX];
+
+static enum insn_code const code_for_builtin[S390_BUILTIN_MAX] = {
   CODE_FOR_tbegin,
   CODE_FOR_tbegin_nofloat,
   CODE_FOR_tbegin_retry,
@@ -9959,7 +9976,10 @@ static enum insn_code const code_for_builtin[S390_BUILTIN_max] = {
   CODE_FOR_tabort,
   CODE_FOR_ntstg,
   CODE_FOR_etnd,
-  CODE_FOR_tx_assist
+  CODE_FOR_tx_assist,
+
+  CODE_FOR_s390_sfpc,
+  CODE_FOR_s390_efpc
 };
 
 static void
@@ -9972,44 +9992,68 @@ s390_init_builtins (void)
 
   /* void foo (void) */
   ftype = build_function_type_list (void_type_node, NULL_TREE);
-  add_builtin_function ("__builtin_tbeginc", ftype, S390_BUILTIN_TBEGINC,
-			BUILT_IN_MD, NULL, NULL_TREE);
+  s390_builtin_decls[S390_BUILTIN_TBEGINC] =
+    add_builtin_function ("__builtin_tbeginc", ftype, S390_BUILTIN_TBEGINC,
+			  BUILT_IN_MD, NULL, NULL_TREE);
 
   /* void foo (int) */
   ftype = build_function_type_list (void_type_node, integer_type_node,
 				    NULL_TREE);
-  add_builtin_function ("__builtin_tabort", ftype,
-			S390_BUILTIN_TABORT, BUILT_IN_MD, NULL, noreturn_attr);
-  add_builtin_function ("__builtin_tx_assist", ftype,
-			S390_BUILTIN_TX_ASSIST, BUILT_IN_MD, NULL, NULL_TREE);
+  s390_builtin_decls[S390_BUILTIN_TABORT] =
+    add_builtin_function ("__builtin_tabort", ftype,
+			  S390_BUILTIN_TABORT, BUILT_IN_MD, NULL,
+			  noreturn_attr);
+  s390_builtin_decls[S390_BUILTIN_TX_ASSIST] =
+    add_builtin_function ("__builtin_tx_assist", ftype,
+			  S390_BUILTIN_TX_ASSIST, BUILT_IN_MD, NULL, NULL_TREE);
+
+  /* void foo (unsigned) */
+  ftype = build_function_type_list (void_type_node, unsigned_type_node,
+				    NULL_TREE);
+  s390_builtin_decls[S390_BUILTIN_S390_SFPC] =
+    add_builtin_function ("__builtin_s390_sfpc", ftype,
+			  S390_BUILTIN_S390_SFPC, BUILT_IN_MD, NULL, NULL_TREE);
 
   /* int foo (void *) */
-  ftype = build_function_type_list (integer_type_node, ptr_type_node, NULL_TREE);
-  add_builtin_function ("__builtin_tbegin", ftype, S390_BUILTIN_TBEGIN,
-			BUILT_IN_MD, NULL, returns_twice_attr);
-  add_builtin_function ("__builtin_tbegin_nofloat", ftype,
-			S390_BUILTIN_TBEGIN_NOFLOAT,
-			BUILT_IN_MD, NULL, returns_twice_attr);
+  ftype = build_function_type_list (integer_type_node, ptr_type_node,
+				    NULL_TREE);
+  s390_builtin_decls[S390_BUILTIN_TBEGIN] =
+    add_builtin_function ("__builtin_tbegin", ftype, S390_BUILTIN_TBEGIN,
+			  BUILT_IN_MD, NULL, returns_twice_attr);
+  s390_builtin_decls[S390_BUILTIN_TBEGIN_NOFLOAT] =
+    add_builtin_function ("__builtin_tbegin_nofloat", ftype,
+			  S390_BUILTIN_TBEGIN_NOFLOAT,
+			  BUILT_IN_MD, NULL, returns_twice_attr);
 
   /* int foo (void *, int) */
   ftype = build_function_type_list (integer_type_node, ptr_type_node,
 				    integer_type_node, NULL_TREE);
-  add_builtin_function ("__builtin_tbegin_retry", ftype,
-			S390_BUILTIN_TBEGIN_RETRY,
-			BUILT_IN_MD,
-			NULL, returns_twice_attr);
-  add_builtin_function ("__builtin_tbegin_retry_nofloat", ftype,
-			S390_BUILTIN_TBEGIN_RETRY_NOFLOAT,
-			BUILT_IN_MD,
-			NULL, returns_twice_attr);
+  s390_builtin_decls[S390_BUILTIN_TBEGIN_RETRY] =
+    add_builtin_function ("__builtin_tbegin_retry", ftype,
+			  S390_BUILTIN_TBEGIN_RETRY,
+			  BUILT_IN_MD,
+			  NULL, returns_twice_attr);
+  s390_builtin_decls[S390_BUILTIN_TBEGIN_RETRY_NOFLOAT] =
+    add_builtin_function ("__builtin_tbegin_retry_nofloat", ftype,
+			  S390_BUILTIN_TBEGIN_RETRY_NOFLOAT,
+			  BUILT_IN_MD,
+			  NULL, returns_twice_attr);
 
   /* int foo (void) */
   ftype = build_function_type_list (integer_type_node, NULL_TREE);
-  add_builtin_function ("__builtin_tx_nesting_depth", ftype,
-			S390_BUILTIN_TX_NESTING_DEPTH,
-			BUILT_IN_MD, NULL, NULL_TREE);
-  add_builtin_function ("__builtin_tend", ftype,
-			S390_BUILTIN_TEND, BUILT_IN_MD,	NULL, NULL_TREE);
+  s390_builtin_decls[S390_BUILTIN_TX_NESTING_DEPTH] =
+    add_builtin_function ("__builtin_tx_nesting_depth", ftype,
+			  S390_BUILTIN_TX_NESTING_DEPTH,
+			  BUILT_IN_MD, NULL, NULL_TREE);
+  s390_builtin_decls[S390_BUILTIN_TEND] =
+    add_builtin_function ("__builtin_tend", ftype,
+			  S390_BUILTIN_TEND, BUILT_IN_MD, NULL, NULL_TREE);
+
+  /* unsigned foo (void) */
+  ftype = build_function_type_list (unsigned_type_node, NULL_TREE);
+  s390_builtin_decls[S390_BUILTIN_S390_EFPC] =
+    add_builtin_function ("__builtin_s390_efpc", ftype,
+			  S390_BUILTIN_S390_EFPC, BUILT_IN_MD, NULL, NULL_TREE);
 
   /* void foo (uint64_t *, uint64_t) */
   if (TARGET_64BIT)
@@ -10017,12 +10061,13 @@ s390_init_builtins (void)
   else
     uint64_type = long_long_unsigned_type_node;
 
-   ftype = build_function_type_list (void_type_node,
+  ftype = build_function_type_list (void_type_node,
  				    build_pointer_type (uint64_type),
 				    uint64_type, NULL_TREE);
-  add_builtin_function ("__builtin_non_tx_store", ftype,
-			S390_BUILTIN_NON_TX_STORE,
-			BUILT_IN_MD, NULL, NULL_TREE);
+  s390_builtin_decls[S390_BUILTIN_NON_TX_STORE] =
+    add_builtin_function ("__builtin_non_tx_store", ftype,
+			  S390_BUILTIN_NON_TX_STORE,
+			  BUILT_IN_MD, NULL, NULL_TREE);
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -10047,13 +10092,13 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   tree arg;
   call_expr_arg_iterator iter;
 
-  if (fcode >= S390_BUILTIN_max)
+  if (fcode >= S390_BUILTIN_MAX)
     internal_error ("bad builtin fcode");
   icode = code_for_builtin[fcode];
   if (icode == 0)
     internal_error ("bad builtin fcode");
 
-  if (!TARGET_HTM)
+  if (!TARGET_HTM && fcode <= S390_BUILTIN_TX_ASSIST)
     error ("Transactional execution builtins not enabled (-mhtm)\n");
 
   /* Set a flag in the machine specific cfun part in order to support
@@ -10132,6 +10177,18 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     return target;
   else
     return const0_rtx;
+}
+
+/* Return the decl for the target specific builtin with the function
+   code FCODE.  */
+
+static tree
+s390_builtin_decl (unsigned fcode, bool initialized_p ATTRIBUTE_UNUSED)
+{
+  if (fcode >= S390_BUILTIN_MAX)
+    return error_mark_node;
+
+  return s390_builtin_decls[fcode];
 }
 
 /* We call mcount before the function prologue.  So a profiled leaf
@@ -11287,6 +11344,7 @@ static void
 s390_reorg (void)
 {
   bool pool_overflow = false;
+  int hw_before, hw_after;
 
   /* Make sure all splits have been performed; splits after
      machine_dependent_reorg might confuse insn length counts.  */
@@ -11421,6 +11479,40 @@ s390_reorg (void)
       /* Adjust branches if we added new instructions.  */
       if (insn_added_p)
 	shorten_branches (get_insns ());
+    }
+
+  s390_function_num_hotpatch_hw (current_function_decl, &hw_before, &hw_after);
+  if (hw_after > 0)
+    {
+      rtx_insn *insn;
+
+      /* Insert NOPs for hotpatching. */
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+	{
+	  if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_FUNCTION_BEG)
+	    break;
+	}
+      gcc_assert (insn);
+      /* Output a series of NOPs after the NOTE_INSN_FUNCTION_BEG.  */
+      while (hw_after > 0)
+	{
+	  if (hw_after >= 3 && TARGET_CPU_ZARCH)
+	    {
+	      insn = emit_insn_after (gen_nop_6_byte (), insn);
+	      hw_after -= 3;
+	    }
+	  else if (hw_after >= 2)
+	    {
+	      insn = emit_insn_after (gen_nop_4_byte (), insn);
+	      hw_after -= 2;
+	    }
+	  else
+	    {
+	      insn = emit_insn_after (gen_nop_2_byte (), insn);
+	      hw_after -= 1;
+	    }
+	}
+      gcc_assert (hw_after == 0);
     }
 }
 
@@ -11815,29 +11907,44 @@ s390_option_override (void)
       {
 	switch (opt->opt_index)
 	  {
-	  case OPT_mhotpatch:
-	    s390_hotpatch_trampoline_halfwords = (opt->value) ?
-	      s390_hotpatch_trampoline_halfwords_default : -1;
-	    break;
 	  case OPT_mhotpatch_:
 	    {
-	      int val;
+	      int val1;
+	      int val2;
+	      char s[256];
+	      char *t;
 
-	      val = integral_argument (opt->arg);
-	      if (val == -1)
+	      strncpy (s, opt->arg, 256);
+	      s[255] = 0;
+	      t = strchr (s, ',');
+	      if (t != NULL)
+		{
+		  *t = 0;
+		  t++;
+		  val1 = integral_argument (s);
+		  val2 = integral_argument (t);
+		}
+	      else
+		{
+		  val1 = -1;
+		  val2 = -1;
+		}
+	      if (val1 == -1 || val2 == -1)
 		{
 		  /* argument is not a plain number */
-		  error ("argument to %qs should be a non-negative integer",
-			 "-mhotpatch=");
+		  error ("arguments to %qs should be non-negative integers",
+			 "-mhotpatch=n,m");
 		  break;
 		}
-	      else if (val > s390_hotpatch_trampoline_halfwords_max)
+	      else if (val1 > s390_hotpatch_hw_max
+		       || val2 > s390_hotpatch_hw_max)
 		{
 		  error ("argument to %qs is too large (max. %d)",
-			 "-mhotpatch=", s390_hotpatch_trampoline_halfwords_max);
+			 "-mhotpatch=n,m", s390_hotpatch_hw_max);
 		  break;
 		}
-	      s390_hotpatch_trampoline_halfwords = val;
+	      s390_hotpatch_hw_before_label = val1;
+	      s390_hotpatch_hw_after_label = val2;
 	      break;
 	    }
 	  default:
@@ -12043,6 +12150,80 @@ s390_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 	  || size == 4 || (TARGET_ZARCH && size == 8));
 }
 
+/* Implement TARGET_ATOMIC_ASSIGN_EXPAND_FENV hook.  */
+
+static void
+s390_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
+{
+  tree sfpc = s390_builtin_decls[S390_BUILTIN_S390_SFPC];
+  tree efpc = s390_builtin_decls[S390_BUILTIN_S390_EFPC];
+  tree call_efpc = build_call_expr (efpc, 0);
+  tree fenv_var = create_tmp_var (unsigned_type_node);
+
+#define FPC_EXCEPTION_MASK	 HOST_WIDE_INT_UC (0xf8000000)
+#define FPC_FLAGS_MASK		 HOST_WIDE_INT_UC (0x00f80000)
+#define FPC_DXC_MASK		 HOST_WIDE_INT_UC (0x0000ff00)
+#define FPC_EXCEPTION_MASK_SHIFT HOST_WIDE_INT_UC (24)
+#define FPC_FLAGS_SHIFT		 HOST_WIDE_INT_UC (16)
+#define FPC_DXC_SHIFT		 HOST_WIDE_INT_UC (8)
+
+  /* Generates the equivalent of feholdexcept (&fenv_var)
+
+     fenv_var = __builtin_s390_efpc ();
+     __builtin_s390_sfpc (fenv_var & mask) */
+  tree old_fpc = build2 (MODIFY_EXPR, unsigned_type_node, fenv_var, call_efpc);
+  tree new_fpc =
+    build2 (BIT_AND_EXPR, unsigned_type_node, fenv_var,
+	    build_int_cst (unsigned_type_node,
+			   ~(FPC_DXC_MASK | FPC_FLAGS_MASK |
+			     FPC_EXCEPTION_MASK)));
+  tree set_new_fpc = build_call_expr (sfpc, 1, new_fpc);
+  *hold = build2 (COMPOUND_EXPR, void_type_node, old_fpc, set_new_fpc);
+
+  /* Generates the equivalent of feclearexcept (FE_ALL_EXCEPT)
+
+     __builtin_s390_sfpc (__builtin_s390_efpc () & mask) */
+  new_fpc = build2 (BIT_AND_EXPR, unsigned_type_node, call_efpc,
+		    build_int_cst (unsigned_type_node,
+				   ~(FPC_DXC_MASK | FPC_FLAGS_MASK)));
+  *clear = build_call_expr (sfpc, 1, new_fpc);
+
+  /* Generates the equivalent of feupdateenv (fenv_var)
+
+  old_fpc = __builtin_s390_efpc ();
+  __builtin_s390_sfpc (fenv_var);
+  __atomic_feraiseexcept ((old_fpc & FPC_FLAGS_MASK) >> FPC_FLAGS_SHIFT);  */
+
+  old_fpc = create_tmp_var (unsigned_type_node);
+  tree store_old_fpc = build2 (MODIFY_EXPR, void_type_node,
+			       old_fpc, call_efpc);
+
+  set_new_fpc = build_call_expr (sfpc, 1, fenv_var);
+
+  tree raise_old_except = build2 (BIT_AND_EXPR, unsigned_type_node, old_fpc,
+				  build_int_cst (unsigned_type_node,
+						 FPC_FLAGS_MASK));
+  raise_old_except = build2 (RSHIFT_EXPR, unsigned_type_node, raise_old_except,
+			     build_int_cst (unsigned_type_node,
+					    FPC_FLAGS_SHIFT));
+  tree atomic_feraiseexcept
+    = builtin_decl_implicit (BUILT_IN_ATOMIC_FERAISEEXCEPT);
+  raise_old_except = build_call_expr (atomic_feraiseexcept,
+				      1, raise_old_except);
+
+  *update = build2 (COMPOUND_EXPR, void_type_node,
+		    build2 (COMPOUND_EXPR, void_type_node,
+			    store_old_fpc, set_new_fpc),
+		    raise_old_except);
+
+#undef FPC_EXCEPTION_MASK
+#undef FPC_FLAGS_MASK
+#undef FPC_DXC_MASK
+#undef FPC_EXCEPTION_MASK_SHIFT
+#undef FPC_FLAGS_SHIFT
+#undef FPC_DXC_SHIFT
+}
+
 /* Initialize GCC target structure.  */
 
 #undef  TARGET_ASM_ALIGNED_HI_OP
@@ -12087,6 +12268,8 @@ s390_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 #define TARGET_INIT_BUILTINS s390_init_builtins
 #undef  TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN s390_expand_builtin
+#undef  TARGET_BUILTIN_DECL
+#define TARGET_BUILTIN_DECL s390_builtin_decl
 
 #undef TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA
 #define TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA s390_output_addr_const_extra
@@ -12222,8 +12405,8 @@ s390_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE s390_attribute_table
 
-#undef TARGET_CAN_INLINE_P
-#define TARGET_CAN_INLINE_P s390_can_inline_p
+#undef TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P
+#define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P hook_bool_const_tree_true
 
 #undef TARGET_SET_UP_BY_PROLOGUE
 #define TARGET_SET_UP_BY_PROLOGUE s300_set_up_by_prologue
@@ -12231,6 +12414,9 @@ s390_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 #undef TARGET_USE_BY_PIECES_INFRASTRUCTURE_P
 #define TARGET_USE_BY_PIECES_INFRASTRUCTURE_P \
   s390_use_by_pieces_infrastructure_p
+
+#undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
+#define TARGET_ATOMIC_ASSIGN_EXPAND_FENV s390_atomic_assign_expand_fenv
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

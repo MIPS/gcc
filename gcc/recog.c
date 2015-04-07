@@ -22,6 +22,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "rtl-error.h"
 #include "tm_p.h"
@@ -31,14 +40,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "regs.h"
 #include "addresses.h"
-#include "expr.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
+#include "rtl.h"
 #include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
 #include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -2757,8 +2773,12 @@ constrain_operands (int strict, alternative_mask alternatives)
 			   /* Every memory operand can be reloaded to fit.  */
 			   && ((strict < 0 && MEM_P (op))
 			       /* Before reload, accept what reload can turn
-				  into mem.  */
+				  into a mem.  */
 			       || (strict < 0 && CONSTANT_P (op))
+			       /* Before reload, accept a pseudo,
+				  since LRA can turn it into a mem.  */
+			       || (strict < 0 && targetm.lra_p () && REG_P (op)
+				   && REGNO (op) >= FIRST_PSEUDO_REGISTER)
 			       /* During reload, accept a pseudo  */
 			       || (reload_in_progress && REG_P (op)
 				   && REGNO (op) >= FIRST_PSEUDO_REGISTER)))

@@ -795,7 +795,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    rounder than this.
 
    Pentium+ prefers DFmode values to be aligned to 64 bit boundary
-   and Pentium Pro XFmode values at 128 bit boundaries.  */
+   and Pentium Pro XFmode values at 128 bit boundaries.
+
+   When increasing the maximum, also update
+   TARGET_ABSOLUTE_BIGGEST_ALIGNMENT.  */
 
 #define BIGGEST_ALIGNMENT \
   (TARGET_AVX512F ? 512 : (TARGET_AVX ? 256 : 128))
@@ -1256,13 +1259,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define REAL_PIC_OFFSET_TABLE_REGNUM  (TARGET_64BIT ? R15_REG : BX_REG)
 
 #define PIC_OFFSET_TABLE_REGNUM						\
-  ((TARGET_64BIT && (ix86_cmodel == CM_SMALL_PIC			\
-                     || TARGET_PECOFF))					\
-   || !flag_pic								\
-   ? INVALID_REGNUM							\
-   : pic_offset_table_rtx						\
-     ? INVALID_REGNUM							\
-     : REAL_PIC_OFFSET_TABLE_REGNUM)
+  (ix86_use_pseudo_pic_reg ()						\
+   ? (pic_offset_table_rtx						\
+      ? INVALID_REGNUM							\
+      : REAL_PIC_OFFSET_TABLE_REGNUM)					\
+   : INVALID_REGNUM)
 
 #define GOT_SYMBOL_NAME "_GLOBAL_OFFSET_TABLE_"
 

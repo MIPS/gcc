@@ -22,7 +22,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -30,13 +40,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "target.h"
@@ -1610,11 +1626,6 @@ finalize_record_size (record_layout_info rli)
   if (! integer_zerop (rli->bitpos))
     unpadded_size_unit
       = size_binop (PLUS_EXPR, unpadded_size_unit, size_one_node);
-
-  if (TREE_CODE (unpadded_size_unit) == INTEGER_CST
-      && !TREE_OVERFLOW (unpadded_size_unit)
-      && !valid_constant_size_p (unpadded_size_unit))
-    error ("type %qT is too large", rli->t);
 
   /* Round the size up to be a multiple of the required alignment.  */
   TYPE_SIZE (rli->t) = round_up (unpadded_size, TYPE_ALIGN (rli->t));

@@ -93,7 +93,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "trans-mem.h"
 #include "calls.h"
 #include "tree-inline.h"
@@ -109,10 +119,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "profile.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -136,9 +142,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "sreal.h"
 #include "auto-profile.h"
-#include "cilk.h"
 #include "builtins.h"
 #include "fibonacci_heap.h"
+#include "lto-streamer.h"
 
 typedef fibonacci_heap <sreal, cgraph_edge> edge_heap_t;
 typedef fibonacci_node <sreal, cgraph_edge> edge_heap_node_t;
@@ -254,6 +260,23 @@ report_inline_failed_reason (struct cgraph_edge *e)
 	       xstrdup_for_dump (e->caller->name ()), e->caller->order,
 	       xstrdup_for_dump (e->callee->name ()), e->callee->order,
 	       cgraph_inline_failed_string (e->inline_failed));
+      if ((e->inline_failed == CIF_TARGET_OPTION_MISMATCH
+	   || e->inline_failed == CIF_OPTIMIZATION_MISMATCH)
+	  && e->caller->lto_file_data
+	  && e->callee->function_symbol ()->lto_file_data)
+	{
+	  fprintf (dump_file, "  LTO objects: %s, %s\n",
+		   e->caller->lto_file_data->file_name,
+		   e->callee->function_symbol ()->lto_file_data->file_name);
+	}
+      if (e->inline_failed == CIF_TARGET_OPTION_MISMATCH)
+	cl_target_option_print_diff
+	 (dump_file, 2, target_opts_for_fn (e->caller->decl),
+          target_opts_for_fn (e->callee->ultimate_alias_target ()->decl));
+      if (e->inline_failed == CIF_OPTIMIZATION_MISMATCH)
+	cl_optimization_print_diff
+	  (dump_file, 2, opts_for_fn (e->caller->decl),
+	   opts_for_fn (e->callee->ultimate_alias_target ()->decl));
     }
 }
 
@@ -275,6 +298,27 @@ sanitize_attrs_match_for_inline_p (const_tree caller, const_tree callee)
       DECL_ATTRIBUTES (callee));
 }
 
+/* Used for flags where it is safe to inline when caller's value is
+   grater than callee's.  */
+#define check_maybe_up(flag) \
+      (opts_for_fn (caller->decl)->x_##flag		\
+       != opts_for_fn (callee->decl)->x_##flag		\
+       && (!always_inline 				\
+	   || opts_for_fn (caller->decl)->x_##flag	\
+	      < opts_for_fn (callee->decl)->x_##flag))
+/* Used for flags where it is safe to inline when caller's value is
+   smaller than callee's.  */
+#define check_maybe_down(flag) \
+      (opts_for_fn (caller->decl)->x_##flag		\
+       != opts_for_fn (callee->decl)->x_##flag		\
+       && (!always_inline 				\
+	   || opts_for_fn (caller->decl)->x_##flag	\
+	      > opts_for_fn (callee->decl)->x_##flag))
+/* Used for flags where exact match is needed for correctness.  */
+#define check_match(flag) \
+      (opts_for_fn (caller->decl)->x_##flag		\
+       != opts_for_fn (callee->decl)->x_##flag)
+
  /* Decide if we can inline the edge and possibly update
    inline_failed reason.  
    We check whether inlining is possible at all and whether
@@ -286,20 +330,27 @@ sanitize_attrs_match_for_inline_p (const_tree caller, const_tree callee)
 
 static bool
 can_inline_edge_p (struct cgraph_edge *e, bool report,
-		   bool disregard_limits = false)
+		   bool disregard_limits = false, bool early = false)
 {
+  gcc_checking_assert (e->inline_failed);
+
+  if (cgraph_inline_failed_type (e->inline_failed) == CIF_FINAL_ERROR)
+    {
+      if (report)
+        report_inline_failed_reason (e);
+      return false;
+    }
+
   bool inlinable = true;
   enum availability avail;
   cgraph_node *callee = e->callee->ultimate_alias_target (&avail);
-  tree caller_tree = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (e->caller->decl);
+  cgraph_node *caller = e->caller->global.inlined_to
+		        ? e->caller->global.inlined_to : e->caller;
+  tree caller_tree = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (caller->decl);
   tree callee_tree
     = callee ? DECL_FUNCTION_SPECIFIC_OPTIMIZATION (callee->decl) : NULL;
-  struct function *caller_fun = e->caller->get_fun ();
-  struct function *callee_fun = callee ? callee->get_fun () : NULL;
 
-  gcc_assert (e->inline_failed);
-
-  if (!callee || !callee->definition)
+  if (!callee->definition)
     {
       e->inline_failed = CIF_BODY_NOT_AVAILABLE;
       inlinable = false;
@@ -307,12 +358,6 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
   else if (callee->calls_comdat_local)
     {
       e->inline_failed = CIF_USES_COMDAT_LOCAL;
-      inlinable = false;
-    }
-  else if (!inline_summaries->get (callee)->inlinable
-	   || (caller_fun && fn_contains_cilk_spawn_p (caller_fun)))
-    {
-      e->inline_failed = CIF_FUNCTION_NOT_INLINABLE;
       inlinable = false;
     }
   else if (avail <= AVAIL_INTERPOSABLE)
@@ -327,9 +372,9 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
       inlinable = false;
     }
   /* Don't inline if the functions have different EH personalities.  */
-  else if (DECL_FUNCTION_PERSONALITY (e->caller->decl)
+  else if (DECL_FUNCTION_PERSONALITY (caller->decl)
 	   && DECL_FUNCTION_PERSONALITY (callee->decl)
-	   && (DECL_FUNCTION_PERSONALITY (e->caller->decl)
+	   && (DECL_FUNCTION_PERSONALITY (caller->decl)
 	       != DECL_FUNCTION_PERSONALITY (callee->decl)))
     {
       e->inline_failed = CIF_EH_PERSONALITY;
@@ -337,31 +382,30 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
     }
   /* TM pure functions should not be inlined into non-TM_pure
      functions.  */
-  else if (is_tm_pure (callee->decl)
-	   && !is_tm_pure (e->caller->decl))
+  else if (is_tm_pure (callee->decl) && !is_tm_pure (caller->decl))
     {
       e->inline_failed = CIF_UNSPECIFIED;
       inlinable = false;
     }
-  /* Don't inline if the callee can throw non-call exceptions but the
-     caller cannot.
-     FIXME: this is obviously wrong for LTO where STRUCT_FUNCTION is missing.
-     Move the flag into cgraph node or mirror it in the inline summary.  */
-  else if (callee_fun && callee_fun->can_throw_non_call_exceptions
-	   && !(caller_fun && caller_fun->can_throw_non_call_exceptions))
-    {
-      e->inline_failed = CIF_NON_CALL_EXCEPTIONS;
-      inlinable = false;
-    }
   /* Check compatibility of target optimization options.  */
-  else if (!targetm.target_option.can_inline_p (e->caller->decl,
+  else if (!targetm.target_option.can_inline_p (caller->decl,
 						callee->decl))
     {
       e->inline_failed = CIF_TARGET_OPTION_MISMATCH;
       inlinable = false;
     }
+  else if (!inline_summaries->get (callee)->inlinable)
+    {
+      e->inline_failed = CIF_FUNCTION_NOT_INLINABLE;
+      inlinable = false;
+    }
+  else if (inline_summaries->get (caller)->contains_cilk_spawn)
+    {
+      e->inline_failed = CIF_CILK_SPAWN;
+      inlinable = false;
+    }
   /* Don't inline a function with mismatched sanitization attributes. */
-  else if (!sanitize_attrs_match_for_inline_p (e->caller->decl, callee->decl))
+  else if (!sanitize_attrs_match_for_inline_p (caller->decl, callee->decl))
     {
       e->inline_failed = CIF_ATTRIBUTE_MISMATCH;
       inlinable = false;
@@ -370,10 +414,7 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
   else if (!DECL_DISREGARD_INLINE_LIMITS (callee->decl)
 	   && !disregard_limits
 	   && !lookup_attribute ("flatten",
-				 DECL_ATTRIBUTES
-				   (e->caller->global.inlined_to
-				    ? e->caller->global.inlined_to->decl
-				    : e->caller->decl))
+				 DECL_ATTRIBUTES (caller->decl))
            && !caller_growth_limits (e))
     inlinable = false;
   /* Don't inline a function with a higher optimization level than the
@@ -381,16 +422,109 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
      optimization attribute.  */
   else if (caller_tree != callee_tree)
     {
-      if (((opt_for_fn (e->caller->decl, optimize)
-	    > opt_for_fn (e->callee->decl, optimize))
-	    || (opt_for_fn (e->caller->decl, optimize_size)
-		!= opt_for_fn (e->callee->decl, optimize_size)))
-	  /* gcc.dg/pr43564.c.  Look at forced inline even in -O0.  */
-	  && !DECL_DISREGARD_INLINE_LIMITS (e->callee->decl))
+      bool always_inline =
+	     (DECL_DISREGARD_INLINE_LIMITS (callee->decl)
+	      && lookup_attribute ("always_inline",
+				   DECL_ATTRIBUTES (callee->decl)));
+
+      /* There are some options that change IL semantics which means
+         we cannot inline in these cases for correctness reason.
+	 Not even for always_inline declared functions.  */
+      /* Strictly speaking only when the callee contains signed integer
+         math where overflow is undefined.  */
+      if ((check_maybe_up (flag_strict_overflow)
+	   /* this flag is set by optimize.  Allow inlining across
+	      optimize boundary.  */
+	   && (!opt_for_fn (caller->decl, optimize)
+	       == !opt_for_fn (callee->decl, optimize) || !always_inline))
+	  || check_match (flag_wrapv)
+	  || check_match (flag_trapv)
+	  /* Strictly speaking only when the callee contains memory
+	     accesses that are not using alias-set zero anyway.  */
+	  || check_maybe_down (flag_strict_aliasing)
+	  /* Strictly speaking only when the callee uses FP math.  */
+	  || check_maybe_up (flag_rounding_math)
+	  || check_maybe_up (flag_trapping_math)
+	  || check_maybe_down (flag_unsafe_math_optimizations)
+	  || check_maybe_down (flag_finite_math_only)
+	  || check_maybe_up (flag_signaling_nans)
+	  || check_maybe_down (flag_cx_limited_range)
+	  || check_maybe_up (flag_signed_zeros)
+	  || check_maybe_down (flag_associative_math)
+	  || check_maybe_down (flag_reciprocal_math)
+	  /* We do not want to make code compiled with exceptions to be brought
+	     into a non-EH function unless we know that the callee does not
+	     throw.  This is tracked by DECL_FUNCTION_PERSONALITY.  */
+	  || (check_match (flag_non_call_exceptions)
+	      /* TODO: We also may allow bringing !flag_non_call_exceptions
+		 to flag_non_call_exceptions function, but that may need
+		 extra work in tree-inline to add the extra EH edges.  */
+	      && (!opt_for_fn (callee->decl, flag_non_call_exceptions)
+		  || DECL_FUNCTION_PERSONALITY (callee->decl)))
+	  || (check_maybe_up (flag_exceptions)
+	      && DECL_FUNCTION_PERSONALITY (callee->decl))
+	  /* Strictly speaking only when the callee contains function
+	     calls that may end up setting errno.  */
+	  || check_maybe_up (flag_errno_math)
+	  /* When devirtualization is diabled for callee, it is not safe
+	     to inline it as we possibly mangled the type info.
+	     Allow early inlining of always inlines.  */
+	  || (!early && check_maybe_down (flag_devirtualize)))
 	{
 	  e->inline_failed = CIF_OPTIMIZATION_MISMATCH;
 	  inlinable = false;
 	}
+      /* gcc.dg/pr43564.c.  Apply user-forced inline even at -O0.  */
+      else if (always_inline)
+	;
+      /* When user added an attribute to the callee honor it.  */
+      else if (lookup_attribute ("optimize", DECL_ATTRIBUTES (callee->decl))
+	       && opts_for_fn (caller->decl) != opts_for_fn (callee->decl))
+	{
+	  e->inline_failed = CIF_OPTIMIZATION_MISMATCH;
+	  inlinable = false;
+	}
+      /* If mismatch is caused by merging two LTO units with different
+	 optimizationflags we want to be bit nicer.  However never inline
+	 if one of functions is not optimized at all.  */
+      else if (!opt_for_fn (callee->decl, optimize)
+      	       || !opt_for_fn (caller->decl, optimize))
+	{
+	  e->inline_failed = CIF_OPTIMIZATION_MISMATCH;
+	  inlinable = false;
+	}
+      /* If callee is optimized for size and caller is not, allow inlining if
+	 code shrinks or we are in MAX_INLINE_INSNS_SINGLE limit and callee
+	 is inline (and thus likely an unified comdat).  This will allow caller
+	 to run faster.  */
+      else if (opt_for_fn (callee->decl, optimize_size)
+	       > opt_for_fn (caller->decl, optimize_size))
+	{
+	  int growth = estimate_edge_growth (e);
+	  if (growth > 0
+	      && (!DECL_DECLARED_INLINE_P (callee->decl)
+		  && growth >= MAX (MAX_INLINE_INSNS_SINGLE,
+				    MAX_INLINE_INSNS_AUTO)))
+	    {
+	      e->inline_failed = CIF_OPTIMIZATION_MISMATCH;
+	      inlinable = false;
+	    }
+	}
+      /* If callee is more aggressively optimized for performance than caller,
+	 we generally want to inline only cheap (runtime wise) functions.  */
+      else if (opt_for_fn (callee->decl, optimize_size)
+	       < opt_for_fn (caller->decl, optimize_size)
+	       || (opt_for_fn (callee->decl, optimize)
+		   >= opt_for_fn (caller->decl, optimize)))
+	{
+	  if (estimate_edge_time (e)
+	      >= 20 + inline_edge_summary (e)->call_stmt_time)
+	    {
+	      e->inline_failed = CIF_OPTIMIZATION_MISMATCH;
+	      inlinable = false;
+	    }
+	}
+
     }
 
   if (!inlinable && report)
@@ -424,7 +558,7 @@ can_early_inline_edge_p (struct cgraph_edge *e)
 	fprintf (dump_file, "  edge not inlinable: not in SSA form\n");
       return false;
     }
-  if (!can_inline_edge_p (e, true))
+  if (!can_inline_edge_p (e, true, false, true))
     return false;
   return true;
 }
@@ -524,12 +658,19 @@ inline sreal
 compute_uninlined_call_time (struct inline_summary *callee_info,
 			     struct cgraph_edge *edge)
 {
-  sreal uninlined_call_time = (sreal)callee_info->time
-			      * MAX (edge->frequency, 1)
-			      * cgraph_freq_base_rec;
-  int caller_time = inline_summaries->get (edge->caller->global.inlined_to
-				           ? edge->caller->global.inlined_to
-				           : edge->caller)->time;
+  sreal uninlined_call_time = (sreal)callee_info->time;
+  cgraph_node *caller = (edge->caller->global.inlined_to 
+			 ? edge->caller->global.inlined_to
+			 : edge->caller);
+
+  if (edge->count && caller->count)
+    uninlined_call_time *= (sreal)edge->count / caller->count;
+  if (edge->frequency)
+    uninlined_call_time *= cgraph_freq_base_rec * edge->frequency;
+  else
+    uninlined_call_time = uninlined_call_time >> 11;
+
+  int caller_time = inline_summaries->get (caller)->time;
   return uninlined_call_time + caller_time;
 }
 
@@ -540,13 +681,28 @@ inline sreal
 compute_inlined_call_time (struct cgraph_edge *edge,
 			   int edge_time)
 {
-  int caller_time = inline_summaries->get (edge->caller->global.inlined_to
-				           ? edge->caller->global.inlined_to
-				           : edge->caller)->time;
-  sreal time = (sreal)caller_time
-	       + ((sreal) (edge_time - inline_edge_summary (edge)->call_stmt_time)
-	          * MAX (edge->frequency, 1)
-	          * cgraph_freq_base_rec);
+  cgraph_node *caller = (edge->caller->global.inlined_to 
+			 ? edge->caller->global.inlined_to
+			 : edge->caller);
+  int caller_time = inline_summaries->get (caller)->time;
+  sreal time = edge_time;
+
+  if (edge->count && caller->count)
+    time *= (sreal)edge->count / caller->count;
+  if (edge->frequency)
+    time *= cgraph_freq_base_rec * edge->frequency;
+  else
+    time = time >> 11;
+
+  /* This calculation should match one in ipa-inline-analysis.
+     FIXME: Once ipa-inline-analysis is converted to sreal this can be
+     simplified.  */
+  time -= (sreal) ((gcov_type) edge->frequency
+		   * inline_edge_summary (edge)->call_stmt_time
+	           * (INLINE_TIME_SCALE / CGRAPH_FREQ_BASE)) / INLINE_TIME_SCALE;
+  time += caller_time;
+  if (time <= 0)
+    time = ((sreal) 1) >> 8;
   gcc_checking_assert (time >= 0);
   return time;
 }
@@ -557,8 +713,10 @@ compute_inlined_call_time (struct cgraph_edge *edge,
 static bool
 big_speedup_p (struct cgraph_edge *e)
 {
-  sreal time = compute_uninlined_call_time (inline_summaries->get (e->callee), e);
+  sreal time = compute_uninlined_call_time (inline_summaries->get (e->callee),
+					    e);
   sreal inlined_time = compute_inlined_call_time (e, estimate_edge_time (e));
+
   if (time - inlined_time
       > (sreal) time * PARAM_VALUE (PARAM_INLINE_MIN_SPEEDUP)
 	 * percent_rec)
@@ -811,6 +969,8 @@ check_callers (struct cgraph_node *node, void *has_hot_call)
 	 return true;
        if (!can_inline_edge_p (e, true))
          return true;
+       if (e->recursive_p ())
+	 return true;
        if (!(*(bool *)has_hot_call) && e->maybe_hot_p ())
 	 *(bool *)has_hot_call = true;
      }
@@ -836,67 +996,25 @@ want_inline_function_to_all_callers_p (struct cgraph_node *node, bool cold)
 {
   bool has_hot_call = false;
 
-  if (node->ultimate_alias_target () != node)
+  /* Aliases gets inlined along with the function they alias.  */
+  if (node->alias)
     return false;
   /* Already inlined?  */
   if (node->global.inlined_to)
     return false;
   /* Does it have callers?  */
-  if (!node->call_for_symbol_thunks_and_aliases (has_caller_p, NULL, true))
+  if (!node->call_for_symbol_and_aliases (has_caller_p, NULL, true))
     return false;
   /* Inlining into all callers would increase size?  */
   if (estimate_growth (node) > 0)
     return false;
   /* All inlines must be possible.  */
-  if (node->call_for_symbol_thunks_and_aliases (check_callers, &has_hot_call,
-						true))
+  if (node->call_for_symbol_and_aliases (check_callers, &has_hot_call,
+					 true))
     return false;
   if (!cold && !has_hot_call)
     return false;
   return true;
-}
-
-#define RELATIVE_TIME_BENEFIT_RANGE (INT_MAX / 64)
-
-/* Return relative time improvement for inlining EDGE in range
-   as value NUMERATOR/DENOMINATOR.  */
-
-static inline void
-relative_time_benefit (struct inline_summary *callee_info,
-		       struct cgraph_edge *edge,
-		       int edge_time,
-		       sreal *numerator,
-		       sreal *denominator)
-{
-  /* Inlining into extern inline function is not a win.  */
-  if (DECL_EXTERNAL (edge->caller->global.inlined_to
-		     ? edge->caller->global.inlined_to->decl
-		     : edge->caller->decl))
-    {
-      *numerator = (sreal) 1;
-      *denominator = (sreal) 1024;
-      return;
-    }
-
-  sreal uninlined_call_time = compute_uninlined_call_time (callee_info, edge);
-  sreal inlined_call_time = compute_inlined_call_time (edge, edge_time);
-
-  /* Compute relative time benefit, i.e. how much the call becomes faster.
-     ??? perhaps computing how much the caller+calle together become faster
-     would lead to more realistic results.  */
-  if (uninlined_call_time == (sreal) 0)
-    uninlined_call_time = 1;
-
-  /* Avoid zeros, these are not useful later in calculations.  */
-  if (uninlined_call_time == inlined_call_time)
-    *numerator = ((sreal) 1)>>8;
-  else
-    *numerator = uninlined_call_time - inlined_call_time;
-  *denominator = uninlined_call_time;
-#ifdef ENABLE_CHECKING
-  gcc_checking_assert (*numerator >= 0);
-  gcc_checking_assert (*denominator >= 0);
-#endif
 }
 
 /* A cost model driving the inlining heuristics in a way so the edges with
@@ -913,9 +1031,9 @@ edge_badness (struct cgraph_edge *edge, bool dump)
   struct cgraph_node *callee = edge->callee->ultimate_alias_target ();
   struct inline_summary *callee_info = inline_summaries->get (callee);
   inline_hints hints;
-
-  if (DECL_DISREGARD_INLINE_LIMITS (callee->decl))
-    return sreal::min ();
+  cgraph_node *caller = (edge->caller->global.inlined_to 
+			 ? edge->caller->global.inlined_to
+			 : edge->caller);
 
   growth = estimate_edge_growth (edge);
   edge_time = estimate_edge_time (edge);
@@ -948,78 +1066,126 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 	fprintf (dump_file, "      %f: Growth %d <= 0\n", badness.to_double (),
 		 growth);
     }
-
-  /* When profiling is available, compute badness as:
-
-	        edge_count * relative_time_benefit
-     goodness = -------------------------------------------
-		growth_of_caller
-     badness = - goodness 
-
-    The fraction is upside down, because on edge counts and time beneits
-    the bounds are known. Edge growth is essentially unlimited.  */
-
-  else if (max_count)
+   /* Inlining into EXTERNAL functions is not going to change anything unless
+      they are themselves inlined.  */
+   else if (DECL_EXTERNAL (caller->decl))
     {
-      sreal numerator, denominator;
-      relative_time_benefit (callee_info, edge, edge_time, &numerator,
-			     &denominator);
-
-      if (edge->count)
-        numerator *= edge->count;
-      denominator *= growth;
-
-      badness = - numerator / denominator;
- 
       if (dump)
-	{
-	  sreal num,den;
-          relative_time_benefit (callee_info, edge, edge_time, &num, &den);
-	  fprintf (dump_file,
-		   "      %f: profile info. count %"PRId64
-		   " * Relative benefit %f / growth %i\n",
-		   badness.to_double (), (int64_t)edge->count,
-		   (num / den * 100).to_double (), growth);
-	}
+	fprintf (dump_file, "      max: function is external\n");
+      return sreal::max ();
     }
-
-  /* When function local profile is available. Compute badness as:
+  /* When profile is available. Compute badness as:
      
-                 relative_time_benefit
-     goodness =  ---------------------------------
-	         growth_of_caller * overall_growth
+                 time_saved * caller_count
+     goodness =  -------------------------------------------------
+	         growth_of_caller * overall_growth * combined_size
 
      badness = - goodness
 
-     compensated by the inline hints.
+     Again use negative value to make calls with profile appear hotter
+     then calls without.
   */
-  /* TODO: We ought suport mixing units where some functions are profiled
-     and some not.  */
-  else if (flag_guess_branch_prob)
+  else if (opt_for_fn (caller->decl, flag_guess_branch_prob) || caller->count)
     {
       sreal numerator, denominator;
-      relative_time_benefit (callee_info, edge, edge_time, &numerator,
-			     &denominator);
-      denominator *= growth;
-      if (callee_info->growth > 0)
-	denominator *= callee_info->growth;
+      int overall_growth;
+
+      numerator = (compute_uninlined_call_time (callee_info, edge)
+		   - compute_inlined_call_time (edge, edge_time));
+      if (numerator == 0)
+	numerator = ((sreal) 1 >> 8);
+      if (caller->count)
+	numerator *= caller->count;
+      else if (opt_for_fn (caller->decl, flag_branch_probabilities))
+	numerator = numerator >> 11;
+      denominator = growth;
+
+      overall_growth = callee_info->growth;
+
+      /* Look for inliner wrappers of the form:
+
+	 inline_caller ()
+	   {
+	     do_fast_job...
+	     if (need_more_work)
+	       noninline_callee ();
+	   }
+	 Withhout panilizing this case, we usually inline noninline_callee
+	 into the inline_caller because overall_growth is small preventing
+	 further inlining of inline_caller.
+
+	 Penalize only callgraph edges to functions with small overall
+	 growth ...
+	*/
+      if (growth > overall_growth
+	  /* ... and having only one caller which is not inlined ... */
+	  && callee_info->single_caller
+	  && !edge->caller->global.inlined_to
+	  /* ... and edges executed only conditionally ... */
+	  && edge->frequency < CGRAPH_FREQ_BASE
+	  /* ... consider case where callee is not inline but caller is ... */
+	  && ((!DECL_DECLARED_INLINE_P (edge->callee->decl)
+	       && DECL_DECLARED_INLINE_P (caller->decl))
+	      /* ... or when early optimizers decided to split and edge
+		 frequency still indicates splitting is a win ... */
+	      || (callee->split_part && !caller->split_part
+		  && edge->frequency
+		     < CGRAPH_FREQ_BASE
+		       * PARAM_VALUE
+			  (PARAM_PARTIAL_INLINING_ENTRY_PROBABILITY) / 100
+		  /* ... and do not overwrite user specified hints.   */
+		  && (!DECL_DECLARED_INLINE_P (edge->callee->decl)
+		      || DECL_DECLARED_INLINE_P (caller->decl)))))
+	{
+	  struct inline_summary *caller_info = inline_summaries->get (caller);
+	  int caller_growth = caller_info->growth;
+
+	  /* Only apply the penalty when caller looks like inline candidate,
+	     and it is not called once and.  */
+	  if (!caller_info->single_caller && overall_growth < caller_growth
+	      && caller_info->inlinable
+	      && caller_info->size
+		 < (DECL_DECLARED_INLINE_P (caller->decl)
+		    ? MAX_INLINE_INSNS_SINGLE : MAX_INLINE_INSNS_AUTO))
+	    {
+	      if (dump)
+		fprintf (dump_file,
+			 "     Wrapper penalty. Increasing growth %i to %i\n",
+			 overall_growth, caller_growth);
+	      overall_growth = caller_growth;
+	    }
+	}
+      if (overall_growth > 0)
+        {
+	  /* Strongly preffer functions with few callers that can be inlined
+	     fully.  The square root here leads to smaller binaries at average.
+	     Watch however for extreme cases and return to linear function
+	     when growth is large.  */
+	  if (overall_growth < 256)
+	    overall_growth *= overall_growth;
+	  else
+	    overall_growth += 256 * 256 - 256;
+	  denominator *= overall_growth;
+        }
+      denominator *= inline_summaries->get (caller)->self_size + growth;
 
       badness = - numerator / denominator;
 
       if (dump)
 	{
-	  sreal num,den;
-          relative_time_benefit (callee_info, edge, edge_time, &num, &den);
 	  fprintf (dump_file,
-		   "      %f: guessed profile. frequency %f,"
-		   " benefit %f%%, time w/o inlining %f, time w inlining %f"
-		   " overall growth %i (current) %i (original)\n",
-		   badness.to_double (), (double)edge->frequency / CGRAPH_FREQ_BASE,
-		   (num/den).to_double () * 100, 
+		   "      %f: guessed profile. frequency %f, count %"PRId64
+		   " caller count %"PRId64
+		   " time w/o inlining %f, time w inlining %f"
+		   " overall growth %i (current) %i (original)"
+		   " %i (compensated)\n",
+		   badness.to_double (),
+		  (double)edge->frequency / CGRAPH_FREQ_BASE,
+		   edge->count, caller->count,
 		   compute_uninlined_call_time (callee_info, edge).to_double (),
 		   compute_inlined_call_time (edge, edge_time).to_double (),
 		   estimate_growth (callee),
-		   callee_info->growth);
+		   callee_info->growth, overall_growth);
 	}
     }
   /* When function local profile is not available or it does not give
@@ -1037,8 +1203,8 @@ edge_badness (struct cgraph_edge *edge, bool dump)
       else
 	badness = badness << nest;
       if (dump)
-	fprintf (dump_file, "      %f: no profile. nest %i\n", badness.to_double (),
-		 nest);
+	fprintf (dump_file, "      %f: no profile. nest %i\n",
+		 badness.to_double (), nest);
     }
   gcc_checking_assert (badness != 0);
 
@@ -1056,7 +1222,9 @@ edge_badness (struct cgraph_edge *edge, bool dump)
     badness = badness.shift (badness > 0 ? 2 : -2);
   else if (hints & (INLINE_HINT_cross_module))
     badness = badness.shift (badness > 0 ? 1 : -1);
-  if ((hints & INLINE_HINT_declared_inline))
+  if (DECL_DISREGARD_INLINE_LIMITS (callee->decl))
+    badness = badness.shift (badness > 0 ? -4 : 4);
+  else if ((hints & INLINE_HINT_declared_inline))
     badness = badness.shift (badness > 0 ? -3 : 3);
   if (dump)
     fprintf (dump_file, "      Adjusted by hints %f\n", badness.to_double ());
@@ -1127,9 +1295,6 @@ reset_edge_caches (struct cgraph_node *node)
 
   if (where->global.inlined_to)
     where = where->global.inlined_to;
-
-  /* WHERE body size has changed, the cached growth is invalid.  */
-  reset_node_growth_cache (where);
 
   for (edge = where->callers; edge; edge = edge->next_caller)
     if (edge->inline_failed)
@@ -1461,8 +1626,6 @@ add_new_edges_to_heap (edge_heap_t *heap, vec<cgraph_edge *> new_edges)
 static void
 heap_edge_removal_hook (struct cgraph_edge *e, void *data)
 {
-  if (e->callee)
-    reset_node_growth_cache (e->callee);
   if (e->aux)
     {
       ((edge_heap_t *)data)->delete_node ((edge_heap_node_t *)e->aux);
@@ -1544,6 +1707,32 @@ resolve_noninline_speculation (edge_heap_t *edge_heap, struct cgraph_edge *edge)
     }
 }
 
+/* Return true if NODE should be accounted for overall size estimate.
+   Skip all nodes optimized for size so we can measure the growth of hot
+   part of program no matter of the padding.  */
+
+bool
+inline_account_function_p (struct cgraph_node *node)
+{
+   return (!DECL_EXTERNAL (node->decl)
+	   && !opt_for_fn (node->decl, optimize_size)
+	   && node->frequency != NODE_FREQUENCY_UNLIKELY_EXECUTED);
+}
+
+/* Count number of callers of NODE and store it into DATA (that
+   points to int.  Worker for cgraph_for_node_and_aliases.  */
+
+static bool
+sum_callers (struct cgraph_node *node, void *data)
+{
+  struct cgraph_edge *e;
+  int *num_calls = (int *)data;
+
+  for (e = node->callers; e; e = e->next_caller)
+    (*num_calls)++;
+  return false;
+}
+
 /* We use greedy algorithm for inlining of small functions:
    All inline candidates are put into prioritized heap ordered in
    increasing badness.
@@ -1577,18 +1766,23 @@ inline_small_functions (void)
   FOR_EACH_DEFINED_FUNCTION (node)
     if (!node->global.inlined_to)
       {
-	if (node->has_gimple_body_p ()
-	    || node->thunk.thunk_p)
+	if (!node->alias && node->analyzed
+	    && (node->has_gimple_body_p () || node->thunk.thunk_p))
 	  {
 	    struct inline_summary *info = inline_summaries->get (node);
 	    struct ipa_dfs_info *dfs = (struct ipa_dfs_info *) node->aux;
 
 	    /* Do not account external functions, they will be optimized out
 	       if not inlined.  Also only count the non-cold portion of program.  */
-	    if (!DECL_EXTERNAL (node->decl)
-		&& node->frequency != NODE_FREQUENCY_UNLIKELY_EXECUTED)
+	    if (inline_account_function_p (node))
 	      initial_size += info->size;
 	    info->growth = estimate_growth (node);
+
+	    int num_calls = 0;
+	    node->call_for_symbol_and_aliases (sum_callers, &num_calls,
+					       true);
+	    if (num_calls == 1)
+	      info->single_caller = true;
 	    if (dfs && dfs->next_cycle)
 	      {
 		struct cgraph_node *n2;
@@ -1625,7 +1819,8 @@ inline_small_functions (void)
   FOR_EACH_DEFINED_FUNCTION (node)
     {
       bool update = false;
-      struct cgraph_edge *next;
+      struct cgraph_edge *next = NULL;
+      bool has_speculative = false;
 
       if (dump_file)
 	fprintf (dump_file, "Enqueueing calls in %s/%i.\n",
@@ -1643,21 +1838,27 @@ inline_small_functions (void)
 	      gcc_assert (!edge->aux);
 	      update_edge_key (&edge_heap, edge);
 	    }
-	  if (edge->speculative && !speculation_useful_p (edge, edge->aux != NULL))
+	  if (edge->speculative)
+	    has_speculative = true;
+	}
+      if (has_speculative)
+	for (edge = node->callees; edge; edge = next)
+	  if (edge->speculative && !speculation_useful_p (edge,
+							  edge->aux != NULL))
 	    {
 	      edge->resolve_speculation ();
 	      update = true;
 	    }
-	}
       if (update)
 	{
 	  struct cgraph_node *where = node->global.inlined_to
 				      ? node->global.inlined_to : node;
 	  inline_update_overall_summary (where);
-          reset_node_growth_cache (where);
 	  reset_edge_caches (where);
           update_caller_keys (&edge_heap, where,
 			      updated_nodes, NULL);
+          update_callee_keys (&edge_heap, where,
+			      updated_nodes);
           bitmap_clear (updated_nodes);
 	}
     }
@@ -1683,21 +1884,41 @@ inline_small_functions (void)
 #ifdef ENABLE_CHECKING
       /* Be sure that caches are maintained consistent.  */
       sreal cached_badness = edge_badness (edge, false);
+ 
+      int old_size_est = estimate_edge_size (edge);
+      int old_time_est = estimate_edge_time (edge);
+      int old_hints_est = estimate_edge_hints (edge);
+
       reset_edge_growth_cache (edge);
-      reset_node_growth_cache (edge->callee);
+      gcc_assert (old_size_est == estimate_edge_size (edge));
+      gcc_assert (old_time_est == estimate_edge_time (edge));
+      /* FIXME:
+
+         gcc_assert (old_hints_est == estimate_edge_hints (edge));
+
+	 fails with profile feedback because some hints depends on
+	 maybe_hot_edge_p predicate and because callee gets inlined to other
+	 calls, the edge may become cold.
+	 This ought to be fixed by computing relative probabilities
+	 for given invocation but that will be better done once whole
+	 code is converted to sreals.  Disable for now and revert to "wrong"
+	 value so enable/disable checking paths agree.  */
+      edge_growth_cache[edge->uid].hints = old_hints_est + 1;
 
       /* When updating the edge costs, we only decrease badness in the keys.
 	 Increases of badness are handled lazilly; when we see key with out
 	 of date value on it, we re-insert it now.  */
       current_badness = edge_badness (edge, false);
-      gcc_assert (cached_badness == current_badness);
+      /* Disable checking for profile because roundoff errors may cause slight
+         deviations in the order.  */
+      gcc_assert (max_count || cached_badness == current_badness);
       gcc_assert (current_badness >= badness);
 #else
       current_badness = edge_badness (edge, false);
 #endif
       if (current_badness != badness)
 	{
-	  if (edge_heap.min () && badness > edge_heap.min_key ())
+	  if (edge_heap.min () && current_badness > edge_heap.min_key ())
 	    {
 	      edge->aux = edge_heap.insert (current_badness, edge);
 	      continue;
@@ -1724,10 +1945,15 @@ inline_small_functions (void)
 		   " to be inlined into %s/%i in %s:%i\n"
 		   " Estimated badness is %f, frequency %.2f.\n",
 		   edge->caller->name (), edge->caller->order,
-		   edge->call_stmt ? "unknown"
-		   : gimple_filename ((const_gimple) edge->call_stmt),
-		   edge->call_stmt ? -1
-		   : gimple_lineno ((const_gimple) edge->call_stmt),
+		   edge->call_stmt
+		   && (LOCATION_LOCUS (gimple_location ((const_gimple)
+							edge->call_stmt))
+		       > BUILTINS_LOCATION)
+		   ? gimple_filename ((const_gimple) edge->call_stmt)
+		   : "unknown",
+		   edge->call_stmt
+		   ? gimple_lineno ((const_gimple) edge->call_stmt)
+		   : -1,
 		   badness.to_double (),
 		   edge->frequency / (double)CGRAPH_FREQ_BASE);
 	  if (edge->count)
@@ -1813,8 +2039,7 @@ inline_small_functions (void)
 	  inline_call (edge, true, &new_indirect_edges, &overall_size, true);
 	  add_new_edges_to_heap (&edge_heap, new_indirect_edges);
 
-	  reset_edge_caches (edge->callee);
-          reset_node_growth_cache (callee);
+	  reset_edge_caches (edge->callee->function_symbol ());
 
 	  update_callee_keys (&edge_heap, where, updated_nodes);
 	}
@@ -1829,6 +2054,14 @@ inline_small_functions (void)
 	 called by function we inlined (since number of it inlinable callers
 	 might change).  */
       update_caller_keys (&edge_heap, where, updated_nodes, NULL);
+      /* Offline copy count has possibly changed, recompute if profile is
+	 available.  */
+      if (max_count)
+        {
+	  struct cgraph_node *n = cgraph_node::get (edge->callee->decl);
+	  if (n != edge->callee && n->analyzed)
+	    update_callee_keys (&edge_heap, n, updated_nodes);
+        }
       bitmap_clear (updated_nodes);
 
       if (dump_file)
@@ -1942,20 +2175,6 @@ flatten_function (struct cgraph_node *node, bool early)
     inline_update_overall_summary (node);
 }
 
-/* Count number of callers of NODE and store it into DATA (that
-   points to int.  Worker for cgraph_for_node_and_aliases.  */
-
-static bool
-sum_callers (struct cgraph_node *node, void *data)
-{
-  struct cgraph_edge *e;
-  int *num_calls = (int *)data;
-
-  for (e = node->callers; e; e = e->next_caller)
-    (*num_calls)++;
-  return false;
-}
-
 /* Inline NODE to all callers.  Worker for cgraph_for_node_and_aliases.
    DATA points to number of calls originally found so we avoid infinite
    recursion.  */
@@ -1969,6 +2188,15 @@ inline_to_all_callers (struct cgraph_node *node, void *data)
   while (node->callers && !node->global.inlined_to)
     {
       struct cgraph_node *caller = node->callers->caller;
+
+      if (!can_inline_edge_p (node->callers, true)
+	  || node->callers->recursive_p ())
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "Uninlinable call found; giving up.\n");
+	  *num_calls = 0;
+	  return false;
+	}
 
       if (dump_file)
 	{
@@ -2154,7 +2382,22 @@ ipa_inline (void)
   nnodes = ipa_reverse_postorder (order);
 
   FOR_EACH_FUNCTION (node)
-    node->aux = 0;
+    {
+      node->aux = 0;
+
+      /* Recompute the default reasons for inlining because they may have
+	 changed during merging.  */
+      if (in_lto_p)
+	{
+	  for (cgraph_edge *e = node->callees; e; e = e->next_callee)
+	    {
+	      gcc_assert (e->inline_failed);
+	      initialize_inline_failed (e);
+	    }
+	  for (cgraph_edge *e = node->indirect_calls; e; e = e->next_callee)
+	    initialize_inline_failed (e);
+	}
+    }
 
   if (dump_file)
     fprintf (dump_file, "\nFlattening functions:\n");
@@ -2238,16 +2481,15 @@ ipa_inline (void)
 	    {
 	      struct cgraph_node *where = node->global.inlined_to
 					  ? node->global.inlined_to : node;
-              reset_node_growth_cache (where);
 	      reset_edge_caches (where);
 	      inline_update_overall_summary (where);
 	    }
 	  if (want_inline_function_to_all_callers_p (node, cold))
 	    {
 	      int num_calls = 0;
-	      node->call_for_symbol_thunks_and_aliases (sum_callers, &num_calls,
-						      true);
-	      while (node->call_for_symbol_thunks_and_aliases
+	      node->call_for_symbol_and_aliases (sum_callers, &num_calls,
+						 true);
+	      while (node->call_for_symbol_and_aliases
 		       (inline_to_all_callers, &num_calls, true))
 		;
 	      remove_functions = true;
@@ -2398,6 +2640,13 @@ early_inliner (function *fun)
 #endif
   node->remove_all_references ();
 
+  /* Rebuild this reference because it dosn't depend on
+     function's body and it's required to pass cgraph_node
+     verification.  */
+  if (node->instrumented_version
+      && !node->instrumentation_clone)
+    node->create_reference (node->instrumented_version, IPA_REF_CHKP, NULL);
+
   /* Even when not optimizing or not inlining inline always-inline
      functions.  */
   inlined = inline_always_inline_functions (node);
@@ -2413,7 +2662,9 @@ early_inliner (function *fun)
 	 cycles of edges to be always inlined in the callgraph.
 
 	 We might want to be smarter and just avoid this type of inlining.  */
-      || DECL_DISREGARD_INLINE_LIMITS (node->decl))
+      || (DECL_DISREGARD_INLINE_LIMITS (node->decl)
+	  && lookup_attribute ("always_inline",
+			       DECL_ATTRIBUTES (node->decl))))
     ;
   else if (lookup_attribute ("flatten",
 			     DECL_ATTRIBUTES (node->decl)) != NULL)
@@ -2428,6 +2679,31 @@ early_inliner (function *fun)
     }
   else
     {
+      /* If some always_inline functions was inlined, apply the changes.
+	 This way we will not account always inline into growth limits and
+	 moreover we will inline calls from always inlines that we skipped
+	 previously becuase of conditional above.  */
+      if (inlined)
+	{
+	  timevar_push (TV_INTEGRATION);
+	  todo |= optimize_inline_calls (current_function_decl);
+	  /* optimize_inline_calls call above might have introduced new
+	     statements that don't have inline parameters computed.  */
+	  for (edge = node->callees; edge; edge = edge->next_callee)
+	    {
+	      if (inline_edge_summary_vec.length () > (unsigned) edge->uid)
+		{
+		  struct inline_edge_summary *es = inline_edge_summary (edge);
+		  es->call_stmt_size
+		    = estimate_num_insns (edge->call_stmt, &eni_size_weights);
+		  es->call_stmt_time
+		    = estimate_num_insns (edge->call_stmt, &eni_time_weights);
+		}
+	    }
+	  inline_update_overall_summary (node);
+	  inlined = false;
+	  timevar_pop (TV_INTEGRATION);
+	}
       /* We iterate incremental inlining to get trivial cases of indirect
 	 inlining.  */
       while (iterations < PARAM_VALUE (PARAM_EARLY_INLINER_MAX_ITERATIONS)

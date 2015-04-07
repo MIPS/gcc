@@ -22,7 +22,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "gfortran.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "gimple-expr.h"	/* For create_tmp_var_raw.  */
 #include "stringpool.h"
 #include "tree-iterator.h"
@@ -362,7 +373,7 @@ gfc_build_array_ref (tree base, tree offset, tree decl)
 	    return build4_loc (input_location, ARRAY_REF, type, base,
 			       offset, NULL_TREE, NULL_TREE);
 
-	  span = gfc_vtable_size_get (decl);
+	  span = gfc_class_vtab_size_get (decl);
 	}
       else if (GFC_DECL_SUBREF_ARRAY_P (decl))
 	span = GFC_DECL_SPAN(decl);
@@ -1004,8 +1015,8 @@ gfc_add_comp_finalizer_call (stmtblock_t *block, tree decl, gfc_component *comp,
 	return false;
 
       gfc_is_finalizable (CLASS_DATA (comp)->ts.u.derived, &final_expr);
-      final_fndecl = gfc_vtable_final_get (decl);
-      size = gfc_vtable_size_get (decl);
+      final_fndecl = gfc_class_vtab_final_get (decl);
+      size = gfc_class_vtab_size_get (decl);
       array = gfc_class_data_get (decl);
     }
 
@@ -1887,6 +1898,21 @@ trans_code (gfc_code * code, tree cond)
 	case EXEC_OMP_TEAMS_DISTRIBUTE_SIMD:
 	case EXEC_OMP_WORKSHARE:
 	  res = gfc_trans_omp_directive (code);
+	  break;
+
+	case EXEC_OACC_CACHE:
+	case EXEC_OACC_WAIT:
+	case EXEC_OACC_UPDATE:
+	case EXEC_OACC_LOOP:
+	case EXEC_OACC_HOST_DATA:
+	case EXEC_OACC_DATA:
+	case EXEC_OACC_KERNELS:
+	case EXEC_OACC_KERNELS_LOOP:
+	case EXEC_OACC_PARALLEL:
+	case EXEC_OACC_PARALLEL_LOOP:
+	case EXEC_OACC_ENTER_DATA:
+	case EXEC_OACC_EXIT_DATA:
+	  res = gfc_trans_oacc_directive (code);
 	  break;
 
 	default:

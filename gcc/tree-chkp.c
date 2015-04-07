@@ -21,10 +21,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree-core.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
-#include "tree.h"
 #include "target.h"
 #include "tree-iterator.h"
 #include "tree-cfg.h"
@@ -55,6 +65,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "gimplify-me.h"
 #include "print-tree.h"
+#include "hashtab.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-ssa-propagate.h"
 #include "gimple-fold.h"
@@ -65,8 +91,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "lto-streamer.h"
 #include "cgraph.h"
-#include "ipa-chkp.h"
-#include "params.h"
 #include "ipa-chkp.h"
 #include "params.h"
 
@@ -1244,7 +1268,8 @@ chkp_check_lower (tree addr, tree bounds,
   gimple check;
   tree node;
 
-  if (bounds == chkp_get_zero_bounds ())
+  if (!chkp_function_instrumented_p (current_function_decl)
+      && bounds == chkp_get_zero_bounds ())
     return;
 
   if (dirflag == integer_zero_node
@@ -1290,7 +1315,8 @@ chkp_check_upper (tree addr, tree bounds,
   gimple check;
   tree node;
 
-  if (bounds == chkp_get_zero_bounds ())
+  if (!chkp_function_instrumented_p (current_function_decl)
+      && bounds == chkp_get_zero_bounds ())
     return;
 
   if (dirflag == integer_zero_node
@@ -1662,9 +1688,8 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_OBJECT_SIZE)
     return;
 
-  /* Do nothing for calls to legacy functions.  */
-  if (fndecl
-      && lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl)))
+  /* Do nothing for calls to not instrumentable functions.  */
+  if (fndecl && !chkp_instrumentable_p (fndecl))
     return;
 
   /* Ignore CHKP_INIT_PTR_BOUNDS, CHKP_NULL_PTR_BOUNDS
@@ -1813,6 +1838,7 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       new_call = gimple_build_call_vec (gimple_op (call, 1), new_args);
       gimple_call_set_lhs (new_call, gimple_call_lhs (call));
       gimple_call_copy_flags (new_call, call);
+      gimple_call_set_chain (new_call, gimple_call_chain (call));
     }
   new_args.release ();
 
@@ -2090,13 +2116,19 @@ chkp_call_returns_bounds_p (gcall *call)
   if (gimple_call_internal_p (call))
     return false;
 
+  if (gimple_call_builtin_p (call, BUILT_IN_CHKP_NARROW_PTR_BOUNDS)
+      || chkp_gimple_call_builtin_p (call, BUILT_IN_CHKP_NARROW))
+    return true;
+
+  if (gimple_call_with_bounds_p (call))
+    return true;
+
   tree fndecl = gimple_call_fndecl (call);
 
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return false;
 
-  if (fndecl
-      && lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl)))
+  if (fndecl && !chkp_instrumentable_p (fndecl))
     return false;
 
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
@@ -2122,6 +2154,7 @@ chkp_build_returned_bound (gcall *call)
   tree bounds;
   gimple stmt;
   tree fndecl = gimple_call_fndecl (call);
+  unsigned int retflags;
 
   /* To avoid fixing alloca expands in targets we handle
      it separately.  */
@@ -2165,12 +2198,11 @@ chkp_build_returned_bound (gcall *call)
     }
   /* Do not use retbnd when returned bounds are equal to some
      of passed bounds.  */
-  else if (gimple_call_return_flags (call) & ERF_RETURNS_ARG)
+  else if (((retflags = gimple_call_return_flags (call)) & ERF_RETURNS_ARG)
+	   && (retflags & ERF_RETURN_ARG_MASK) < gimple_call_num_args (call))
     {
       gimple_stmt_iterator iter = gsi_for_stmt (call);
-      unsigned int retarg = 0, argno;
-      if (gimple_call_return_flags (call) & ERF_RETURNS_ARG)
-	retarg = gimple_call_return_flags (call) & ERF_RETURN_ARG_MASK;
+      unsigned int retarg = retflags & ERF_RETURN_ARG_MASK, argno;
       if (gimple_call_with_bounds_p (call))
 	{
 	  for (argno = 0; argno < gimple_call_num_args (call); argno++)
@@ -4277,6 +4309,10 @@ chkp_fini (void)
   free_dominance_info (CDI_POST_DOMINATORS);
 
   bitmap_obstack_release (NULL);
+
+  entry_block = NULL;
+  zero_bounds = NULL_TREE;
+  none_bounds = NULL_TREE;
 }
 
 /* Main instrumentation pass function.  */

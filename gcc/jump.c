@@ -56,6 +56,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfg.h"
 #include "cfgrtl.h"
 #include "basic-block.h"
+#include "symtab.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "except.h"
 #include "diagnostic-core.h"
@@ -152,7 +168,30 @@ cleanup_barriers (void)
 	  if (BARRIER_P (prev))
 	    delete_insn (insn);
 	  else if (prev != PREV_INSN (insn))
-	    reorder_insns_nobb (insn, insn, prev);
+	    {
+	      basic_block bb = BLOCK_FOR_INSN (prev);
+	      rtx_insn *end = PREV_INSN (insn);
+	      reorder_insns_nobb (insn, insn, prev);
+	      if (bb)
+		{
+		  /* If the backend called in machine reorg compute_bb_for_insn
+		     and didn't free_bb_for_insn again, preserve basic block
+		     boundaries.  Move the end of basic block to PREV since
+		     it is followed by a barrier now, and clear BLOCK_FOR_INSN
+		     on the following notes.
+		     ???  Maybe the proper solution for the targets that have
+		     cfg around after machine reorg is not to run cleanup_barriers
+		     pass at all.  */
+		  BB_END (bb) = prev;
+		  do
+		    {
+		      prev = NEXT_INSN (prev);
+		      if (prev != insn && BLOCK_FOR_INSN (prev) == bb)
+			BLOCK_FOR_INSN (prev) = NULL;
+		    }
+		  while (prev != end);
+		}
+	    }
 	}
     }
   return 0;

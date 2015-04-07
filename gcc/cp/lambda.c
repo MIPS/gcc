@@ -24,15 +24,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -500,7 +506,7 @@ add_capture (tree lambda, tree id, tree orig_init, bool by_reference_p,
       if (by_reference_p)
 	{
 	  type = build_reference_type (type);
-	  if (!real_lvalue_p (initializer))
+	  if (!dependent_type_p (type) && !real_lvalue_p (initializer))
 	    error ("cannot capture %qE by reference", initializer);
 	}
       else
@@ -848,7 +854,7 @@ prepare_op_call (tree fn, int nargs)
 void
 maybe_add_lambda_conv_op (tree type)
 {
-  bool nested = (current_function_decl != NULL_TREE);
+  bool nested = (cfun != NULL);
   bool nested_def = decl_function_context (TYPE_MAIN_DECL (type));
   tree callop = lambda_function (type);
 

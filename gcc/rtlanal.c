@@ -41,6 +41,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "basic-block.h"
 #include "df.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
 #include "addresses.h"
@@ -997,6 +1000,17 @@ reg_set_between_p (const_rtx reg, const rtx_insn *from_insn,
 int
 reg_set_p (const_rtx reg, const_rtx insn)
 {
+  /* After delay slot handling, call and branch insns might be in a
+     sequence.  Check all the elements there.  */
+  if (INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
+    {
+      for (int i = 0; i < XVECLEN (PATTERN (insn), 0); ++i)
+	if (reg_set_p (reg, XVECEXP (PATTERN (insn), 0, i)))
+	  return true;
+
+      return false;
+    }
+
   /* We can be passed an insn or part of one.  If we are passed an insn,
      check if a side-effect of the insn clobbers REG.  */
   if (INSN_P (insn)
@@ -1008,7 +1022,7 @@ reg_set_p (const_rtx reg, const_rtx insn)
 					       GET_MODE (reg), REGNO (reg)))
 		  || MEM_P (reg)
 		  || find_reg_fusage (insn, CLOBBER, reg)))))
-    return 1;
+    return true;
 
   return set_of (reg, insn) != NULL_RTX;
 }
@@ -3426,6 +3440,22 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 	  info->offset = offset / regsize_xmode;
 	  return;
 	}
+      /* Quick exit for the simple and common case of extracting whole
+	 subregisters from a multiregister value.  */
+      /* ??? It would be better to integrate this into the code below,
+	 if we can generalize the concept enough and figure out how
+	 odd-sized modes can coexist with the other weird cases we support.  */
+      if (!rknown
+	  && WORDS_BIG_ENDIAN == REG_WORDS_BIG_ENDIAN
+	  && regsize_xmode == regsize_ymode
+	  && (offset % regsize_ymode) == 0)
+	{
+	  info->representable_p = true;
+	  info->nregs = nregs_ymode;
+	  info->offset = offset / regsize_ymode;
+	  gcc_assert (info->offset + info->nregs <= nregs_xmode);
+	  return;
+	}
     }
 
   /* Lowpart subregs are otherwise valid.  */
@@ -5674,7 +5704,8 @@ get_index_term (rtx *inner)
     inner = strip_address_mutations (&XEXP (*inner, 0));
   if (REG_P (*inner)
       || MEM_P (*inner)
-      || GET_CODE (*inner) == SUBREG)
+      || GET_CODE (*inner) == SUBREG
+      || GET_CODE (*inner) == SCRATCH)
     return inner;
   return 0;
 }

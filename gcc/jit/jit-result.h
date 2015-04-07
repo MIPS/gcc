@@ -29,15 +29,19 @@ namespace jit {
 class result : public log_user
 {
 public:
-  result(logger *logger, void *dso_handle);
+  result(logger *logger, void *dso_handle, tempdir *tempdir_);
 
   virtual ~result();
 
   void *
   get_code (const char *funcname);
 
+  void *
+  get_global (const char *name);
+
 private:
   void *m_dso_handle;
+  tempdir *m_tempdir;
 };
 
 } // namespace gcc::jit

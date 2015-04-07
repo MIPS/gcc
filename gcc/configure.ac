@@ -1028,7 +1028,7 @@ ACX_HEADER_STRING
 AC_HEADER_SYS_WAIT
 AC_HEADER_TIOCGWINSZ
 AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h iconv.h \
-		 fcntl.h unistd.h sys/file.h sys/time.h sys/mman.h \
+		 fcntl.h ftw.h unistd.h sys/file.h sys/time.h sys/mman.h \
 		 sys/resource.h sys/param.h sys/times.h sys/stat.h \
 		 direct.h malloc.h langinfo.h ldfcn.h locale.h wchar.h)
 
@@ -3623,6 +3623,18 @@ AS_HELP_STRING([--disable-fix-cortex-a53-835769],
   [Define if your assembler supports the lituse_jsrdirect relocation.])])
     ;;
 
+  avr-*-*)
+    gcc_GAS_CHECK_FEATURE([--mlink-relax option], gcc_cv_as_avr_mlink_relax,,
+      [--mlink-relax], [.text],,
+      [AC_DEFINE(HAVE_AS_AVR_MLINK_RELAX_OPTION, 1,
+		[Define if your avr assembler supports --mlink-relax option.])])
+
+    gcc_GAS_CHECK_FEATURE([-mrmw option], gcc_cv_as_avr_mrmw,,
+      [-mrmw], [.text],,
+      [AC_DEFINE(HAVE_AS_AVR_MRMW_OPTION, 1,
+		[Define if your avr assembler supports -mrmw option.])])
+    ;;
+
   cris-*-*)
     gcc_GAS_CHECK_FEATURE([-no-mul-bug-abort option],
       gcc_cv_as_cris_no_mul_bug,[2,15,91],
@@ -4719,6 +4731,11 @@ EOF
 main:
 	movl	%eax, a_glob(%rip)
 	.size	main, .-main
+	.globl	ptr
+	.section	.data.rel,"aw",@progbits
+	.type	ptr, @object
+ptr:
+	.quad	a_glob
 EOF
       if $gcc_cv_as --64 -o conftest1.o conftest1.s > /dev/null 2>&1 \
          && $gcc_cv_ld -shared -melf_x86_64 -o conftest1.so conftest1.o > /dev/null 2>&1 \

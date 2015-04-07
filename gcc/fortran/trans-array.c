@@ -79,7 +79,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "gfortran.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "gimple-expr.h"
 #include "diagnostic-core.h"	/* For internal_error/fatal_error.  */
 #include "flags.h"
@@ -1185,7 +1196,7 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post, gfc_ss * ss,
 	elemsize = fold_convert (gfc_array_index_type,
 			TYPE_SIZE_UNIT (gfc_get_element_type (type)));
       else
-	elemsize = gfc_vtable_size_get (class_expr);
+	elemsize = gfc_class_vtab_size_get (class_expr);
 
       size = fold_build2_loc (input_location, MULT_EXPR, gfc_array_index_type,
 			      size, elemsize);
@@ -2463,7 +2474,8 @@ gfc_add_loop_ss_code (gfc_loopinfo * loop, gfc_ss * ss, bool subscript,
 	  gfc_conv_expr (&se, expr);
 	  gfc_add_block_to_block (&outer_loop->pre, &se.pre);
 
-	  if (expr->ts.type != BT_CHARACTER)
+	  if (expr->ts.type != BT_CHARACTER
+	      && !gfc_is_alloc_class_scalar_function (expr))
 	    {
 	      /* Move the evaluation of scalar expressions outside the
 		 scalarization loop, except for WHERE assignments.  */
@@ -2944,7 +2956,7 @@ conv_array_index_offset (gfc_se * se, gfc_ss * ss, int dim, int i,
 	stride = gfc_conv_descriptor_stride_get (info->descriptor,
 						 gfc_rank_cst[dim]);
 
-      if (!integer_zerop (info->delta[dim]))
+      if (info->delta[dim] && !integer_zerop (info->delta[dim]))
 	index = fold_build2_loc (input_location, PLUS_EXPR,
 				 gfc_array_index_type, index, info->delta[dim]);
     }
@@ -2973,7 +2985,9 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
   gfc_ref *class_ref;
   gfc_typespec *ts;
 
-  if (expr == NULL || expr->ts.type != BT_CLASS)
+  if (expr == NULL
+      || (expr->ts.type != BT_CLASS
+	  && !gfc_is_alloc_class_array_function (expr)))
     return false;
 
   if (expr->symtree && expr->symtree->n.sym->ts.type == BT_CLASS)
@@ -3007,6 +3021,30 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
       gcc_assert (expr->symtree->n.sym->backend_decl == current_function_decl);
       decl = gfc_get_fake_result_decl (expr->symtree->n.sym, 0);
     }
+  else if (gfc_is_alloc_class_array_function (expr))
+    {
+      size = NULL_TREE;
+      decl = NULL_TREE;
+      for (tmp = base; tmp; tmp = TREE_OPERAND (tmp, 0))
+	{
+	  tree type;
+	  type = TREE_TYPE (tmp);
+	  while (type)
+	    {
+	      if (GFC_CLASS_TYPE_P (type))
+		decl = tmp;
+	      if (type != TYPE_CANONICAL (type))
+		type = TYPE_CANONICAL (type);
+	      else
+		type = NULL_TREE;
+	    }
+	  if (TREE_CODE (tmp) == VAR_DECL)
+	    break;
+	}
+
+      if (decl == NULL_TREE)
+	return false;
+    }
   else if (class_ref == NULL)
     decl = expr->symtree->n.sym->backend_decl;
   else
@@ -3022,7 +3060,13 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
       class_ref->next = ref;
     }
 
-  size = gfc_vtable_size_get (decl);
+  if (POINTER_TYPE_P (TREE_TYPE (decl)))
+    decl = build_fold_indirect_ref_loc (input_location, decl);
+
+  if (!GFC_CLASS_TYPE_P (TREE_TYPE (decl)))
+    return false;
+
+  size = gfc_class_vtab_size_get (decl);
 
   /* Build the address of the element.  */
   type = TREE_TYPE (TREE_TYPE (base));
@@ -3064,7 +3108,7 @@ gfc_conv_scalarized_array_ref (gfc_se * se, gfc_array_ref * ar)
   index = conv_array_index_offset (se, ss, ss->dim[n], n, ar, info->stride0);
   /* Add the offset for this dimension to the stored offset for all other
      dimensions.  */
-  if (!integer_zerop (info->offset))
+  if (info->offset && !integer_zerop (info->offset))
     index = fold_build2_loc (input_location, PLUS_EXPR, gfc_array_index_type,
 			     index, info->offset);
 
@@ -4347,6 +4391,12 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
     {
       ss_expr = ss->info->expr;
 
+      if (ss->info->array_outer_dependency)
+	{
+	  nDepend = 1;
+	  break;
+	}
+
       if (ss->info->type != GFC_SS_SECTION)
 	{
 	  if (flag_realloc_lhs
@@ -4906,8 +4956,7 @@ static tree
 gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 		     gfc_expr ** lower, gfc_expr ** upper, stmtblock_t * pblock,
 		     stmtblock_t * descriptor_block, tree * overflow,
-		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3,
-		     gfc_typespec *ts)
+		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3)
 {
   tree type;
   tree tmp;
@@ -4933,7 +4982,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 
   /* Set the dtype.  */
   tmp = gfc_conv_descriptor_dtype (descriptor);
-  gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (TREE_TYPE (descriptor)));
+  gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (type));
 
   or_expr = boolean_false_node;
 
@@ -5087,9 +5136,6 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 	  tmp = TYPE_SIZE_UNIT (tmp);
 	}
     }
-  else if (ts->type != BT_UNKNOWN && ts->type != BT_CHARACTER)
-    /* FIXME: Properly handle characters.  See PR 57456.  */
-    tmp = TYPE_SIZE_UNIT (gfc_typenode_for_spec (ts));
   else
     tmp = TYPE_SIZE_UNIT (gfc_get_element_type (type));
 
@@ -5161,7 +5207,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 bool
 gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 		    tree errlen, tree label_finish, tree expr3_elem_size,
-		    tree *nelems, gfc_expr *expr3, gfc_typespec *ts)
+		    tree *nelems, gfc_expr *expr3)
 {
   tree tmp;
   tree pointer;
@@ -5246,7 +5292,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   size = gfc_array_init_size (se->expr, ref->u.ar.as->rank,
 			      ref->u.ar.as->corank, &offset, lower, upper,
 			      &se->pre, &set_descriptor_block, &overflow,
-			      expr3_elem_size, nelems, expr3, ts);
+			      expr3_elem_size, nelems, expr3);
 
   if (dimension)
     {
@@ -7892,7 +7938,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 
 	      dst_data = gfc_class_data_get (dcmp);
 	      src_data = gfc_class_data_get (comp);
-	      size = fold_convert (size_type_node, gfc_vtable_size_get (comp));
+	      size = fold_convert (size_type_node,
+				   gfc_class_vtab_size_get (comp));
 
 	      if (CLASS_DATA (c)->attr.dimension)
 		{
@@ -7927,7 +7974,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 				  fold_convert (TREE_TYPE (dst_data), tmp));
 		}
 
-	      tmp = gfc_copy_class_to_class (comp, dcmp, nelems);
+	      tmp = gfc_copy_class_to_class (comp, dcmp, nelems,
+					     UNLIMITED_POLY (c));
 	      gfc_add_expr_to_block (&tmpblock, tmp);
 	      tmp = gfc_finish_block (&tmpblock);
 
@@ -9038,6 +9086,11 @@ gfc_walk_function_expr (gfc_ss * ss, gfc_expr * expr)
   if (!sym)
     sym = expr->symtree->n.sym;
 
+  if (gfc_is_alloc_class_array_function (expr))
+    return gfc_get_array_ss (ss, expr,
+			     CLASS_DATA (expr->value.function.esym->result)->as->rank,
+			     GFC_SS_FUNCTION);
+
   /* A function that returns arrays.  */
   comp = gfc_get_proc_ptr_comp (expr);
   if ((!comp && gfc_return_by_reference (sym) && sym->result->attr.dimension)
@@ -9047,9 +9100,20 @@ gfc_walk_function_expr (gfc_ss * ss, gfc_expr * expr)
   /* Walk the parameters of an elemental function.  For now we always pass
      by reference.  */
   if (sym->attr.elemental || (comp && comp->attr.elemental))
-    return gfc_walk_elemental_function_args (ss, expr->value.function.actual,
+    {
+      gfc_ss *old_ss = ss;
+
+      ss = gfc_walk_elemental_function_args (old_ss,
+					     expr->value.function.actual,
 					     gfc_get_proc_ifc_for_expr (expr),
 					     GFC_SS_REFERENCE);
+      if (ss != old_ss
+	  && (comp
+	      || sym->attr.proc_pointer
+	      || sym->attr.if_source != IFSRC_DECL
+	      || sym->attr.array_outer_dependency))
+	ss->info->array_outer_dependency = 1;
+    }
 
   /* Scalar functions are OK as these are evaluated outside the scalarization
      loop.  Pass back and let the caller deal with it.  */

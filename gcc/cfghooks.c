@@ -23,6 +23,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "dumpfile.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
 #include "predict.h"
@@ -854,6 +863,9 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
       if (redirect_edge_p (e))
 	{
 	  dummy->frequency += EDGE_FREQUENCY (e);
+	  if (dummy->frequency > BB_FREQ_MAX)
+	    dummy->frequency = BB_FREQ_MAX;
+
 	  dummy->count += e->count;
 	  fallthru->count += e->count;
 	  ei_next (&ei);

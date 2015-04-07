@@ -25,7 +25,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "gfortran.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -36,10 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"	/* For internal_error.  */
 #include "toplev.h"	/* For announce_function.  */
 #include "target.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -147,6 +153,7 @@ tree gfor_fndecl_caf_get;
 tree gfor_fndecl_caf_send;
 tree gfor_fndecl_caf_sendget;
 tree gfor_fndecl_caf_sync_all;
+tree gfor_fndecl_caf_sync_memory;
 tree gfor_fndecl_caf_sync_images;
 tree gfor_fndecl_caf_error_stop;
 tree gfor_fndecl_caf_error_stop_str;
@@ -552,17 +559,18 @@ static void
 gfc_finish_var_decl (tree decl, gfc_symbol * sym)
 {
   tree new_type;
-  /* TREE_ADDRESSABLE means the address of this variable is actually needed.
-     This is the equivalent of the TARGET variables.
-     We also need to set this if the variable is passed by reference in a
-     CALL statement.  */
 
   /* Set DECL_VALUE_EXPR for Cray Pointees.  */
   if (sym->attr.cray_pointee)
     gfc_finish_cray_pointee (decl, sym);
 
+  /* TREE_ADDRESSABLE means the address of this variable is actually needed.
+     This is the equivalent of the TARGET variables.
+     We also need to set this if the variable is passed by reference in a
+     CALL statement.  */
   if (sym->attr.target)
     TREE_ADDRESSABLE (decl) = 1;
+
   /* If it wasn't used we wouldn't be getting it.  */
   TREE_USED (decl) = 1;
 
@@ -1364,12 +1372,30 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	     (sym->ts.u.cl->passed_length == sym->ts.u.cl->backend_decl))
 	    sym->ts.u.cl->backend_decl = NULL_TREE;
 
-	  if (sym->ts.deferred && fun_or_res
-		&& sym->ts.u.cl->passed_length == NULL
-		&& sym->ts.u.cl->backend_decl)
+	  if (sym->ts.deferred && byref)
 	    {
-	      sym->ts.u.cl->passed_length = sym->ts.u.cl->backend_decl;
-	      sym->ts.u.cl->backend_decl = NULL_TREE;
+	      /* The string length of a deferred char array is stored in the
+		 parameter at sym->ts.u.cl->backend_decl as a reference and
+		 marked as a result.  Exempt this variable from generating a
+		 temporary for it.  */
+	      if (sym->attr.result)
+		{
+		  /* We need to insert a indirect ref for param decls.  */
+		  if (sym->ts.u.cl->backend_decl
+		      && TREE_CODE (sym->ts.u.cl->backend_decl) == PARM_DECL)
+		    sym->ts.u.cl->backend_decl =
+			build_fold_indirect_ref (sym->ts.u.cl->backend_decl);
+		}
+	      /* For all other parameters make sure, that they are copied so
+		 that the value and any modifications are local to the routine
+		 by generating a temporary variable.  */
+	      else if (sym->attr.function
+		       && sym->ts.u.cl->passed_length == NULL
+		       && sym->ts.u.cl->backend_decl)
+		{
+		  sym->ts.u.cl->passed_length = sym->ts.u.cl->backend_decl;
+		  sym->ts.u.cl->backend_decl = NULL_TREE;
+		}
 	    }
 
 	  if (sym->ts.u.cl->backend_decl == NULL_TREE)
@@ -1418,8 +1444,6 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       if (sym->ts.type == BT_CLASS && sym->backend_decl)
 	GFC_DECL_CLASS(sym->backend_decl) = 1;
 
-      if (sym->ts.type == BT_CLASS && sym->backend_decl)
-	GFC_DECL_CLASS(sym->backend_decl) = 1;
      return sym->backend_decl;
     }
 
@@ -1470,9 +1494,18 @@ gfc_get_symbol_decl (gfc_symbol * sym)
     gfc_internal_error ("intrinsic variable which isn't a procedure");
 
   /* Create string length decl first so that they can be used in the
-     type declaration.  */
+     type declaration.  For associate names, the target character
+     length is used. Set 'length' to a constant so that if the
+     string lenght is a variable, it is not finished a second time.  */
   if (sym->ts.type == BT_CHARACTER)
-    length = gfc_create_string_length (sym);
+    {
+      if (sym->attr.associate_var
+	  && sym->ts.u.cl->backend_decl
+	  && TREE_CODE (sym->ts.u.cl->backend_decl) == VAR_DECL)
+	length = gfc_index_zero_node;
+      else
+	length = gfc_create_string_length (sym);
+    }
 
   /* Create the decl for the variable.  */
   decl = build_decl (sym->declared_at.lb->location,
@@ -1534,6 +1567,8 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       /* Character variables need special handling.  */
       gfc_allocate_lang_decl (decl);
 
+      /* Associate names can use the hidden string length variable
+	 of their associated target.  */
       if (TREE_CODE (length) != INTEGER_CST)
 	{
 	  gfc_finish_var_decl (length, sym);
@@ -2321,8 +2356,9 @@ create_function_arglist (gfc_symbol * sym)
       /* Fill in arg stuff.  */
       DECL_CONTEXT (parm) = fndecl;
       DECL_ARG_TYPE (parm) = TREE_VALUE (typelist);
-      /* All implementation args are read-only.  */
-      TREE_READONLY (parm) = 1;
+      /* All implementation args except for VALUE are read-only.  */
+      if (!f->sym->attr.value)
+	TREE_READONLY (parm) = 1;
       if (POINTER_TYPE_P (type)
 	  && (!f->sym->attr.proc_pointer
 	      && f->sym->attr.flavor != FL_PROCEDURE))
@@ -3414,6 +3450,10 @@ gfc_build_builtin_function_decls (void)
 
       gfor_fndecl_caf_sync_all = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_sync_all")), ".WW", void_type_node,
+	3, pint_type, pchar_type_node, integer_type_node);
+
+      gfor_fndecl_caf_sync_memory = gfc_build_library_function_decl_with_spec (
+	get_identifier (PREFIX("caf_sync_memory")), ".WW", void_type_node,
 	3, pint_type, pchar_type_node, integer_type_node);
 
       gfor_fndecl_caf_sync_images = gfc_build_library_function_decl_with_spec (
@@ -5548,12 +5588,6 @@ create_main_function (tree fndecl)
   /* Coarray: Call _gfortran_caf_finalize(void).  */
   if (flag_coarray == GFC_FCOARRAY_LIB)
     {
-      /* Per F2008, 8.5.1 END of the main program implies a
-	 SYNC MEMORY.  */
-      tmp = builtin_decl_explicit (BUILT_IN_SYNC_SYNCHRONIZE);
-      tmp = build_call_expr_loc (input_location, tmp, 0);
-      gfc_add_expr_to_block (&body, tmp);
-
       tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_finalize, 0);
       gfc_add_expr_to_block (&body, tmp);
     }
@@ -5796,6 +5830,13 @@ gfc_generate_function_code (gfc_namespace * ns)
      lengths).  */
   if ((gfc_option.rtcheck & GFC_RTCHECK_BOUNDS) && !sym->attr.is_bind_c)
     add_argument_checking (&body, sym);
+
+  /* Generate !$ACC DECLARE directive. */
+  if (ns->oacc_declare_clauses)
+    {
+      tree tmp = gfc_trans_oacc_declare (&body, ns);
+      gfc_add_expr_to_block (&body, tmp);
+    }
 
   tmp = gfc_trans_code (ns->code);
   gfc_add_expr_to_block (&body, tmp);

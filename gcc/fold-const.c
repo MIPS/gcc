@@ -45,12 +45,35 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "tree-iterator.h"
 #include "realmpfr.h"
 #include "rtl.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tm_p.h"
 #include "target.h"
@@ -59,13 +82,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "md5.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -1546,9 +1562,13 @@ const_binop (enum tree_code code, tree type, tree arg1, tree arg2)
     default:;
     }
 
+  if (TREE_CODE_CLASS (code) != tcc_binary)
+    return NULL_TREE;
+
   /* Make sure type and arg0 have the same saturating flag.  */
   gcc_checking_assert (TYPE_SATURATING (type)
 		       == TYPE_SATURATING (TREE_TYPE (arg1)));
+
   return const_binop (code, arg1, arg2);
 }
 
@@ -2840,7 +2860,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
       case ADDR_EXPR:
 	return operand_equal_p (TREE_OPERAND (arg0, 0), TREE_OPERAND (arg1, 0),
 				TREE_CONSTANT (arg0) && TREE_CONSTANT (arg1)
-				? OEP_CONSTANT_ADDRESS_OF : 0);
+				? OEP_CONSTANT_ADDRESS_OF | OEP_ADDRESS_OF : 0);
       default:
 	break;
       }
@@ -2902,7 +2922,11 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
       switch (TREE_CODE (arg0))
 	{
 	case INDIRECT_REF:
-	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
+	  if (!(flags & OEP_ADDRESS_OF)
+	      && (TYPE_ALIGN (TREE_TYPE (arg0))
+		  != TYPE_ALIGN (TREE_TYPE (arg1))))
+	    return 0;
+	  flags &= ~(OEP_CONSTANT_ADDRESS_OF|OEP_ADDRESS_OF);
 	  return OP_SAME (0);
 
 	case REALPART_EXPR:
@@ -2910,30 +2934,35 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 	  return OP_SAME (0);
 
 	case TARGET_MEM_REF:
-	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
-	  /* Require equal extra operands and then fall through to MEM_REF
-	     handling of the two common operands.  */
-	  if (!OP_SAME_WITH_NULL (2)
-	      || !OP_SAME_WITH_NULL (3)
-	      || !OP_SAME_WITH_NULL (4))
-	    return 0;
-	  /* Fallthru.  */
 	case MEM_REF:
-	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
 	  /* Require equal access sizes, and similar pointer types.
 	     We can have incomplete types for array references of
 	     variable-sized arrays from the Fortran frontend
 	     though.  Also verify the types are compatible.  */
-	  return ((TYPE_SIZE (TREE_TYPE (arg0)) == TYPE_SIZE (TREE_TYPE (arg1))
+	  if (!((TYPE_SIZE (TREE_TYPE (arg0)) == TYPE_SIZE (TREE_TYPE (arg1))
 		   || (TYPE_SIZE (TREE_TYPE (arg0))
 		       && TYPE_SIZE (TREE_TYPE (arg1))
 		       && operand_equal_p (TYPE_SIZE (TREE_TYPE (arg0)),
 					   TYPE_SIZE (TREE_TYPE (arg1)), flags)))
 		  && types_compatible_p (TREE_TYPE (arg0), TREE_TYPE (arg1))
-		  && alias_ptr_types_compatible_p
-		       (TREE_TYPE (TREE_OPERAND (arg0, 1)),
-			TREE_TYPE (TREE_OPERAND (arg1, 1)))
-		  && OP_SAME (0) && OP_SAME (1));
+		  && ((flags & OEP_ADDRESS_OF)
+		      || (alias_ptr_types_compatible_p
+			    (TREE_TYPE (TREE_OPERAND (arg0, 1)),
+			     TREE_TYPE (TREE_OPERAND (arg1, 1)))
+			  && (MR_DEPENDENCE_CLIQUE (arg0)
+			      == MR_DEPENDENCE_CLIQUE (arg1))
+			  && (MR_DEPENDENCE_BASE (arg0)
+			      == MR_DEPENDENCE_BASE (arg1))
+			  && (TYPE_ALIGN (TREE_TYPE (arg0))
+			    == TYPE_ALIGN (TREE_TYPE (arg1)))))))
+	    return 0;
+	  flags &= ~(OEP_CONSTANT_ADDRESS_OF|OEP_ADDRESS_OF);
+	  return (OP_SAME (0) && OP_SAME (1)
+		  /* TARGET_MEM_REF require equal extra operands.  */
+		  && (TREE_CODE (arg0) != TARGET_MEM_REF
+		      || (OP_SAME_WITH_NULL (2)
+			  && OP_SAME_WITH_NULL (3)
+			  && OP_SAME_WITH_NULL (4))));
 
 	case ARRAY_REF:
 	case ARRAY_RANGE_REF:
@@ -2942,7 +2971,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 	     may have different types but same value here.  */
 	  if (!OP_SAME (0))
 	    return 0;
-	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
+	  flags &= ~(OEP_CONSTANT_ADDRESS_OF|OEP_ADDRESS_OF);
 	  return ((tree_int_cst_equal (TREE_OPERAND (arg0, 1),
 				       TREE_OPERAND (arg1, 1))
 		   || OP_SAME (1))
@@ -2955,13 +2984,13 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 	  if (!OP_SAME_WITH_NULL (0)
 	      || !OP_SAME (1))
 	    return 0;
-	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
+	  flags &= ~(OEP_CONSTANT_ADDRESS_OF|OEP_ADDRESS_OF);
 	  return OP_SAME_WITH_NULL (2);
 
 	case BIT_FIELD_REF:
 	  if (!OP_SAME (0))
 	    return 0;
-	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
+	  flags &= ~(OEP_CONSTANT_ADDRESS_OF|OEP_ADDRESS_OF);
 	  return OP_SAME (1) && OP_SAME (2);
 
 	default:
@@ -2972,6 +3001,10 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
       switch (TREE_CODE (arg0))
 	{
 	case ADDR_EXPR:
+	  return operand_equal_p (TREE_OPERAND (arg0, 0),
+				  TREE_OPERAND (arg1, 0),
+				  flags | OEP_ADDRESS_OF);
+
 	case TRUTH_NOT_EXPR:
 	  return OP_SAME (0);
 
@@ -10241,7 +10274,9 @@ fold_binary_loc (location_t loc,
 		tem = build2_loc (loc, LROTATE_EXPR,
 				  TREE_TYPE (TREE_OPERAND (arg0, 0)),
 				  TREE_OPERAND (arg0, 0),
-				  code0 == LSHIFT_EXPR ? tree01 : tree11);
+				  code0 == LSHIFT_EXPR
+				  ? TREE_OPERAND (arg0, 1)
+				  : TREE_OPERAND (arg1, 1));
 		return fold_convert_loc (loc, type, tem);
 	      }
 	    else if (code11 == MINUS_EXPR)
@@ -10263,7 +10298,8 @@ fold_binary_loc (location_t loc,
 					       ? LROTATE_EXPR
 					       : RROTATE_EXPR),
 					      TREE_TYPE (TREE_OPERAND (arg0, 0)),
-					      TREE_OPERAND (arg0, 0), tree01));
+					      TREE_OPERAND (arg0, 0),
+					      TREE_OPERAND (arg0, 1)));
 	      }
 	    else if (code01 == MINUS_EXPR)
 	      {
@@ -10284,7 +10320,7 @@ fold_binary_loc (location_t loc,
 				? LROTATE_EXPR
 				: RROTATE_EXPR),
 			       TREE_TYPE (TREE_OPERAND (arg0, 0)),
-			       TREE_OPERAND (arg0, 0), tree11));
+			       TREE_OPERAND (arg0, 0), TREE_OPERAND (arg1, 1)));
 	      }
 	  }
       }
@@ -14057,11 +14093,12 @@ fold_checksum_tree (const_tree expr, struct md5_ctx *ctx,
   *slot = expr;
   code = TREE_CODE (expr);
   if (TREE_CODE_CLASS (code) == tcc_declaration
-      && DECL_ASSEMBLER_NAME_SET_P (expr))
+      && HAS_DECL_ASSEMBLER_NAME_P (expr))
     {
-      /* Allow DECL_ASSEMBLER_NAME to be modified.  */
+      /* Allow DECL_ASSEMBLER_NAME and symtab_node to be modified.  */
       memcpy ((char *) &buf, expr, tree_size (expr));
       SET_DECL_ASSEMBLER_NAME ((tree)&buf, NULL);
+      buf.decl_with_vis.symtab_node = NULL;
       expr = (tree) &buf;
     }
   else if (TREE_CODE_CLASS (code) == tcc_type
@@ -15995,8 +16032,8 @@ round_up_loc (location_t loc, tree value, unsigned int divisor)
 	    return value;
 
 	  overflow_p = TREE_OVERFLOW (value);
-	  val &= ~(divisor - 1);
-	  val += divisor;
+	  val += divisor - 1;
+	  val &= - (int) divisor;
 	  if (val == 0)
 	    overflow_p = true;
 
@@ -16008,7 +16045,7 @@ round_up_loc (location_t loc, tree value, unsigned int divisor)
 
 	  t = build_int_cst (TREE_TYPE (value), divisor - 1);
 	  value = size_binop_loc (loc, PLUS_EXPR, value, t);
-	  t = build_int_cst (TREE_TYPE (value), -divisor);
+	  t = build_int_cst (TREE_TYPE (value), - (int) divisor);
 	  value = size_binop_loc (loc, BIT_AND_EXPR, value, t);
 	}
     }
@@ -16213,4 +16250,28 @@ fold_strip_sign_ops (tree exp)
       break;
     }
   return NULL_TREE;
+}
+
+/* Return OFF converted to a pointer offset type suitable as offset for
+   POINTER_PLUS_EXPR.  Use location LOC for this conversion.  */
+tree
+convert_to_ptrofftype_loc (location_t loc, tree off)
+{
+  return fold_convert_loc (loc, sizetype, off);
+}
+
+/* Build and fold a POINTER_PLUS_EXPR at LOC offsetting PTR by OFF.  */
+tree
+fold_build_pointer_plus_loc (location_t loc, tree ptr, tree off)
+{
+  return fold_build2_loc (loc, POINTER_PLUS_EXPR, TREE_TYPE (ptr),
+			  ptr, convert_to_ptrofftype_loc (loc, off));
+}
+
+/* Build and fold a POINTER_PLUS_EXPR at LOC offsetting PTR by OFF.  */
+tree
+fold_build_pointer_plus_hwi_loc (location_t loc, tree ptr, HOST_WIDE_INT off)
+{
+  return fold_build2_loc (loc, POINTER_PLUS_EXPR, TREE_TYPE (ptr),
+			  ptr, size_int (off));
 }

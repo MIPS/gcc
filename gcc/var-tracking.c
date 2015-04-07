@@ -90,18 +90,22 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "hash-map.h"
 #include "hash-table.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -115,6 +119,16 @@
 #include "sbitmap.h"
 #include "alloc-pool.h"
 #include "regs.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-pass.h"
 #include "bitmap.h"
@@ -126,8 +140,6 @@
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
 #include "recog.h"
-#include "tm_p.h"
-#include "alias.h"
 #include "rtl-iter.h"
 #include "fibonacci_heap.h"
 
@@ -999,7 +1011,13 @@ use_narrower_mode (rtx x, machine_mode mode, machine_mode wmode)
       return simplify_gen_binary (GET_CODE (x), mode, op0, op1);
     case ASHIFT:
       op0 = use_narrower_mode (XEXP (x, 0), mode, wmode);
-      return simplify_gen_binary (ASHIFT, mode, op0, XEXP (x, 1));
+      op1 = XEXP (x, 1);
+      /* Ensure shift amount is not wider than mode.  */
+      if (GET_MODE (op1) == VOIDmode)
+	op1 = lowpart_subreg (mode, op1, wmode);
+      else if (GET_MODE_PRECISION (mode) < GET_MODE_PRECISION (GET_MODE (op1)))
+	op1 = lowpart_subreg (mode, op1, GET_MODE (op1));
+      return simplify_gen_binary (ASHIFT, mode, op0, op1);
     default:
       gcc_unreachable ();
     }
@@ -10293,7 +10311,10 @@ variable_tracking_main_1 (void)
 {
   bool success;
 
-  if (flag_var_tracking_assignments < 0)
+  if (flag_var_tracking_assignments < 0
+      /* Var-tracking right now assumes the IR doesn't contain
+	 any pseudos at this point.  */
+      || targetm.no_register_allocation)
     {
       delete_debug_insns ();
       return 0;

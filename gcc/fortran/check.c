@@ -1022,7 +1022,7 @@ gfc_check_atomic (gfc_expr *atom, int atom_no, gfc_expr *value, int val_no,
       return false;
     }
 
-  if (!gfc_expr_attr (atom).codimension)
+  if (!gfc_is_coarray (atom) && !gfc_is_coindexed (atom))
     {
       gfc_error ("ATOM argument at %L of the %s intrinsic function shall be a "
 		 "coarray or coindexed", &atom->where, gfc_current_intrinsic);
@@ -5089,7 +5089,7 @@ gfc_check_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
     return true;
 
   if (source_size < result_size)
-    gfc_warning ("Intrinsic TRANSFER at %L has partly undefined result: "
+    gfc_warning (0, "Intrinsic TRANSFER at %L has partly undefined result: "
 		 "source size %ld < result size %ld", &source->where,
 		 (long) source_size, (long) result_size);
 

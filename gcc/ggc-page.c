@@ -21,6 +21,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -2440,7 +2449,7 @@ ggc_pch_write_object (struct ggc_pch_data *d,
     }
 
   if (fwrite (x, size, 1, f) != 1)
-    fatal_error ("can%'t write PCH file: %m");
+    fatal_error (input_location, "can%'t write PCH file: %m");
 
   /* If SIZE is not the same as OBJECT_SIZE(order), then we need to pad the
      object out to OBJECT_SIZE(order).  This happens for strings.  */
@@ -2456,13 +2465,13 @@ ggc_pch_write_object (struct ggc_pch_data *d,
       if (padding <= sizeof (emptyBytes))
         {
           if (fwrite (emptyBytes, 1, padding, f) != padding)
-            fatal_error ("can%'t write PCH file");
+            fatal_error (input_location, "can%'t write PCH file");
         }
       else
         {
           /* Larger than our buffer?  Just default to fseek.  */
           if (fseek (f, padding, SEEK_CUR) != 0)
-            fatal_error ("can%'t write PCH file");
+            fatal_error (input_location, "can%'t write PCH file");
         }
     }
 
@@ -2471,14 +2480,14 @@ ggc_pch_write_object (struct ggc_pch_data *d,
       && fseek (f, ROUND_UP_VALUE (d->d.totals[order] * OBJECT_SIZE (order),
 				   G.pagesize),
 		SEEK_CUR) != 0)
-    fatal_error ("can%'t write PCH file: %m");
+    fatal_error (input_location, "can%'t write PCH file: %m");
 }
 
 void
 ggc_pch_finish (struct ggc_pch_data *d, FILE *f)
 {
   if (fwrite (&d->d, sizeof (d->d), 1, f) != 1)
-    fatal_error ("can%'t write PCH file: %m");
+    fatal_error (input_location, "can%'t write PCH file: %m");
   free (d);
 }
 
@@ -2568,7 +2577,7 @@ ggc_pch_read (FILE *f, void *addr)
   /* Allocate the appropriate page-table entries for the pages read from
      the PCH file.  */
   if (fread (&d, sizeof (d), 1, f) != 1)
-    fatal_error ("can%'t read PCH file: %m");
+    fatal_error (input_location, "can%'t read PCH file: %m");
 
   for (i = 0; i < NUM_ORDERS; i++)
     {

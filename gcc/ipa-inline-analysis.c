@@ -68,7 +68,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "print-tree.h"
@@ -81,10 +92,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "coverage.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -160,7 +167,6 @@ function_summary <inline_summary *> *inline_summaries;
 vec<inline_edge_summary_t> inline_edge_summary_vec;
 
 /* Cached node/edge growths.  */
-vec<int> node_growth_cache;
 vec<edge_growth_cache_entry> edge_growth_cache;
 
 /* Edge predicates goes here.  */
@@ -754,27 +760,47 @@ account_size_time (struct inline_summary *summary, int size, int time,
     }
 }
 
+/* We proved E to be unreachable, redirect it to __bultin_unreachable.  */
+
+static struct cgraph_edge *
+redirect_to_unreachable (struct cgraph_edge *e)
+{
+  struct cgraph_node *callee = !e->inline_failed ? e->callee : NULL;
+  struct cgraph_node *target = cgraph_node::get_create
+		      (builtin_decl_implicit (BUILT_IN_UNREACHABLE));
+
+  if (e->speculative)
+    e = e->resolve_speculation (target->decl);
+  else if (!e->callee)
+    e->make_direct (target);
+  else
+    e->redirect_callee (target);
+  struct inline_edge_summary *es = inline_edge_summary (e);
+  e->inline_failed = CIF_UNREACHABLE;
+  e->frequency = 0;
+  e->count = 0;
+  es->call_stmt_size = 0;
+  es->call_stmt_time = 0;
+  if (callee)
+    callee->remove_symbol_and_inline_clones ();
+  return e;
+}
+
 /* Set predicate for edge E.  */
 
 static void
 edge_set_predicate (struct cgraph_edge *e, struct predicate *predicate)
 {
-  struct inline_edge_summary *es = inline_edge_summary (e);
-
   /* If the edge is determined to be never executed, redirect it
      to BUILTIN_UNREACHABLE to save inliner from inlining into it.  */
-  if (predicate && false_predicate_p (predicate) && e->callee)
-    {
-      struct cgraph_node *callee = !e->inline_failed ? e->callee : NULL;
+  if (predicate && false_predicate_p (predicate)
+      /* When handling speculative edges, we need to do the redirection
+         just once.  Do it always on the direct edge, so we do not
+	 attempt to resolve speculation while duplicating the edge.  */
+      && (!e->speculative || e->callee))
+    e = redirect_to_unreachable (e);
 
-      e->redirect_callee (cgraph_node::get_create
-			    (builtin_decl_implicit (BUILT_IN_UNREACHABLE)));
-      e->inline_failed = CIF_UNREACHABLE;
-      es->call_stmt_size = 0;
-      es->call_stmt_time = 0;
-      if (callee)
-	callee->remove_symbol_and_inline_clones ();
-    }
+  struct inline_edge_summary *es = inline_edge_summary (e);
   if (predicate && !true_predicate_p (predicate))
     {
       if (!es->predicate)
@@ -1163,7 +1189,7 @@ inline_summary_t::duplicate (cgraph_node *src,
       size_time_entry *e;
       int optimized_out_size = 0;
       bool inlined_to_p = false;
-      struct cgraph_edge *edge;
+      struct cgraph_edge *edge, *next;
 
       info->entry = 0;
       known_vals.safe_grow_cleared (count);
@@ -1208,10 +1234,11 @@ inline_summary_t::duplicate (cgraph_node *src,
 
       /* Remap edge predicates with the same simplification as above.
          Also copy constantness arrays.   */
-      for (edge = dst->callees; edge; edge = edge->next_callee)
+      for (edge = dst->callees; edge; edge = next)
 	{
 	  struct predicate new_predicate;
 	  struct inline_edge_summary *es = inline_edge_summary (edge);
+	  next = edge->next_callee;
 
 	  if (!edge->inline_failed)
 	    inlined_to_p = true;
@@ -1222,19 +1249,17 @@ inline_summary_t::duplicate (cgraph_node *src,
 							     info);
 	  if (false_predicate_p (&new_predicate)
 	      && !false_predicate_p (es->predicate))
-	    {
-	      optimized_out_size += es->call_stmt_size * INLINE_SIZE_SCALE;
-	      edge->frequency = 0;
-	    }
+	    optimized_out_size += es->call_stmt_size * INLINE_SIZE_SCALE;
 	  edge_set_predicate (edge, &new_predicate);
 	}
 
       /* Remap indirect edge predicates with the same simplificaiton as above. 
          Also copy constantness arrays.   */
-      for (edge = dst->indirect_calls; edge; edge = edge->next_callee)
+      for (edge = dst->indirect_calls; edge; edge = next)
 	{
 	  struct predicate new_predicate;
 	  struct inline_edge_summary *es = inline_edge_summary (edge);
+	  next = edge->next_callee;
 
 	  gcc_checking_assert (edge->inline_failed);
 	  if (!es->predicate)
@@ -1244,10 +1269,7 @@ inline_summary_t::duplicate (cgraph_node *src,
 							     info);
 	  if (false_predicate_p (&new_predicate)
 	      && !false_predicate_p (es->predicate))
-	    {
-	      optimized_out_size += es->call_stmt_size * INLINE_SIZE_SCALE;
-	      edge->frequency = 0;
-	    }
+	    optimized_out_size += es->call_stmt_size * INLINE_SIZE_SCALE;
 	  edge_set_predicate (edge, &new_predicate);
 	}
       remap_hint_predicate_after_duplication (&info->loop_iterations,
@@ -1285,7 +1307,8 @@ inline_summary_t::duplicate (cgraph_node *src,
 	  set_hint_predicate (&info->array_index, p);
 	}
     }
-  inline_update_overall_summary (dst);
+  if (!dst->global.inlined_to)
+    inline_update_overall_summary (dst);
 }
 
 
@@ -1305,6 +1328,13 @@ inline_edge_duplication_hook (struct cgraph_edge *src,
   info->predicate = NULL;
   edge_set_predicate (dst, srcinfo->predicate);
   info->param = srcinfo->param.copy ();
+  if (!dst->indirect_unknown_callee && src->indirect_unknown_callee)
+    {
+      info->call_stmt_size -= (eni_size_weights.indirect_call_cost
+			       - eni_size_weights.call_cost);
+      info->call_stmt_time -= (eni_time_weights.indirect_call_cost
+			       - eni_time_weights.call_cost);
+    }
 }
 
 
@@ -1327,8 +1357,6 @@ initialize_growth_caches (void)
 {
   if (symtab->edges_max_uid)
     edge_growth_cache.safe_grow_cleared (symtab->edges_max_uid);
-  if (symtab->cgraph_max_uid)
-    node_growth_cache.safe_grow_cleared (symtab->cgraph_max_uid);
 }
 
 
@@ -1338,7 +1366,6 @@ void
 free_growth_caches (void)
 {
   edge_growth_cache.release ();
-  node_growth_cache.release ();
 }
 
 
@@ -1430,6 +1457,8 @@ dump_inline_summary (FILE *f, struct cgraph_node *node)
 	fprintf (f, " always_inline");
       if (s->inlinable)
 	fprintf (f, " inlinable");
+      if (s->contains_cilk_spawn)
+	fprintf (f, " contains_cilk_spawn");
       fprintf (f, "\n  self time:       %i\n", s->self_time);
       fprintf (f, "  global time:     %i\n", s->time);
       fprintf (f, "  self size:       %i\n", s->self_size);
@@ -2914,6 +2943,8 @@ compute_inline_parameters (struct cgraph_node *node, bool early)
   else
     info->inlinable = tree_inlinable_function_p (node->decl);
 
+  info->contains_cilk_spawn = fn_contains_cilk_spawn_p (cfun);
+
   /* Type attributes can use parameter indices to describe them.  */
   if (TYPE_ATTRIBUTES (TREE_TYPE (node->decl)))
     node->local.can_change_signature = false;
@@ -3460,11 +3491,12 @@ remap_edge_summaries (struct cgraph_edge *inlined_edge,
 		      clause_t possible_truths,
 		      struct predicate *toplev_predicate)
 {
-  struct cgraph_edge *e;
-  for (e = node->callees; e; e = e->next_callee)
+  struct cgraph_edge *e, *next;
+  for (e = node->callees; e; e = next)
     {
       struct inline_edge_summary *es = inline_edge_summary (e);
       struct predicate p;
+      next = e->next_callee;
 
       if (e->inline_failed)
 	{
@@ -3476,14 +3508,6 @@ remap_edge_summaries (struct cgraph_edge *inlined_edge,
 				   es->predicate, operand_map, offset_map,
 				   possible_truths, toplev_predicate);
 	      edge_set_predicate (e, &p);
-	      /* TODO: We should remove the edge for code that will be
-	         optimized out, but we need to keep verifiers and tree-inline
-	         happy.  Make it cold for now.  */
-	      if (false_predicate_p (&p))
-		{
-		  e->count = 0;
-		  e->frequency = 0;
-		}
 	    }
 	  else
 	    edge_set_predicate (e, toplev_predicate);
@@ -3493,10 +3517,11 @@ remap_edge_summaries (struct cgraph_edge *inlined_edge,
 			      operand_map, offset_map, possible_truths,
 			      toplev_predicate);
     }
-  for (e = node->indirect_calls; e; e = e->next_callee)
+  for (e = node->indirect_calls; e; e = next)
     {
       struct inline_edge_summary *es = inline_edge_summary (e);
       struct predicate p;
+      next = e->next_callee;
 
       remap_edge_change_prob (inlined_edge, e);
       if (es->predicate)
@@ -3505,14 +3530,6 @@ remap_edge_summaries (struct cgraph_edge *inlined_edge,
 			       es->predicate, operand_map, offset_map,
 			       possible_truths, toplev_predicate);
 	  edge_set_predicate (e, &p);
-	  /* TODO: We should remove the edge for code that will be optimized
-	     out, but we need to keep verifiers and tree-inline happy.
-	     Make it cold for now.  */
-	  if (false_predicate_p (&p))
-	    {
-	      e->count = 0;
-	      e->frequency = 0;
-	    }
 	}
       else
 	edge_set_predicate (e, toplev_predicate);
@@ -3692,13 +3709,16 @@ simple_edge_hints (struct cgraph_edge *edge)
   int hints = 0;
   struct cgraph_node *to = (edge->caller->global.inlined_to
 			    ? edge->caller->global.inlined_to : edge->caller);
+  struct cgraph_node *callee = edge->callee->ultimate_alias_target ();
   if (inline_summaries->get (to)->scc_no
-      && inline_summaries->get (to)->scc_no == inline_summaries->get (edge->callee)->scc_no
+      && inline_summaries->get (to)->scc_no
+	 == inline_summaries->get (callee)->scc_no
       && !edge->recursive_p ())
     hints |= INLINE_HINT_same_scc;
 
-  if (to->lto_file_data && edge->callee->lto_file_data
-      && to->lto_file_data != edge->callee->lto_file_data)
+  if (callee->lto_file_data && edge->caller->lto_file_data
+      && edge->caller->lto_file_data != callee->lto_file_data
+      && !callee->merged)
     hints |= INLINE_HINT_cross_module;
 
   return hints;
@@ -3888,6 +3908,7 @@ struct growth_data
 {
   struct cgraph_node *node;
   bool self_recursive;
+  bool uninlinable;
   int growth;
 };
 
@@ -3904,10 +3925,17 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
     {
       gcc_checking_assert (e->inline_failed);
 
-      if (e->caller == d->node
-	  || (e->caller->global.inlined_to
-	      && e->caller->global.inlined_to == d->node))
-	d->self_recursive = true;
+      if (cgraph_inline_failed_type (e->inline_failed) == CIF_FINAL_ERROR)
+	{
+	  d->uninlinable = true;
+          continue;
+	}
+
+      if (e->recursive_p ())
+	{
+	  d->self_recursive = true;
+	  continue;
+	}
       d->growth += estimate_edge_growth (e);
     }
   return false;
@@ -3917,12 +3945,12 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
 /* Estimate the growth caused by inlining NODE into all callees.  */
 
 int
-do_estimate_growth (struct cgraph_node *node)
+estimate_growth (struct cgraph_node *node)
 {
-  struct growth_data d = { node, 0, false };
+  struct growth_data d = { node, false, false, 0 };
   struct inline_summary *info = inline_summaries->get (node);
 
-  node->call_for_symbol_thunks_and_aliases (do_estimate_growth_1, &d, true);
+  node->call_for_symbol_and_aliases (do_estimate_growth_1, &d, true);
 
   /* For self recursive functions the growth estimation really should be
      infinity.  We don't want to return very large values because the growth
@@ -3930,7 +3958,7 @@ do_estimate_growth (struct cgraph_node *node)
      return zero or negative growths. */
   if (d.self_recursive)
     d.growth = d.growth < info->size ? info->size : d.growth;
-  else if (DECL_EXTERNAL (node->decl))
+  else if (DECL_EXTERNAL (node->decl) || d.uninlinable)
     ;
   else
     {
@@ -3946,13 +3974,32 @@ do_estimate_growth (struct cgraph_node *node)
 		     + 50) / 100;
     }
 
-  if (node_growth_cache.exists ())
-    {
-      if ((int) node_growth_cache.length () <= node->uid)
-	node_growth_cache.safe_grow_cleared (symtab->cgraph_max_uid);
-      node_growth_cache[node->uid] = d.growth + (d.growth >= 0);
-    }
   return d.growth;
+}
+
+/* Verify if there are fewer than MAX_CALLERS.  */
+
+static bool
+check_callers (cgraph_node *node, int *max_callers)
+{
+  ipa_ref *ref;
+
+  if (!node->can_remove_if_no_direct_calls_and_refs_p ())
+    return true;
+
+  for (cgraph_edge *e = node->callers; e; e = e->next_caller)
+    {
+      (*max_callers)--;
+      if (!*max_callers
+	  || cgraph_inline_failed_type (e->inline_failed) == CIF_FINAL_ERROR)
+	return true;
+    }
+
+  FOR_EACH_ALIAS (node, ref)
+    if (check_callers (dyn_cast <cgraph_node *> (ref->referring), max_callers))
+      return true;
+
+  return false;
 }
 
 
@@ -3962,12 +4009,34 @@ do_estimate_growth (struct cgraph_node *node)
    and skip computation if there are too many callers.  */
 
 bool
-growth_likely_positive (struct cgraph_node *node, int edge_growth ATTRIBUTE_UNUSED)
+growth_likely_positive (struct cgraph_node *node,
+		        int edge_growth)
 {
   int max_callers;
-  int ret;
   struct cgraph_edge *e;
   gcc_checking_assert (edge_growth > 0);
+
+  /* First quickly check if NODE is removable at all.  */
+  if (DECL_EXTERNAL (node->decl))
+    return true;
+  if (!node->can_remove_if_no_direct_calls_and_refs_p ()
+      || node->address_taken)
+    return true;
+
+  max_callers = inline_summaries->get (node)->size * 4 / edge_growth + 2;
+
+  for (e = node->callers; e; e = e->next_caller)
+    {
+      max_callers--;
+      if (!max_callers
+	  || cgraph_inline_failed_type (e->inline_failed) == CIF_FINAL_ERROR)
+	return true;
+    }
+
+  ipa_ref *ref;
+  FOR_EACH_ALIAS (node, ref)
+    if (check_callers (dyn_cast <cgraph_node *> (ref->referring), &max_callers))
+      return true;
 
   /* Unlike for functions called once, we play unsafe with
      COMDATs.  We can allow that since we know functions
@@ -3976,31 +4045,15 @@ growth_likely_positive (struct cgraph_node *node, int edge_growth ATTRIBUTE_UNUS
      functions may or may not disappear when eliminated from
      current unit. With good probability making aggressive
      choice in all units is going to make overall program
-     smaller.
-
-     Consequently we ask cgraph_can_remove_if_no_direct_calls_p
-     instead of
-     cgraph_will_be_removed_from_program_if_no_direct_calls  */
-  if (DECL_EXTERNAL (node->decl)
-      || !node->can_remove_if_no_direct_calls_p ())
-    return true;
-
-  /* If there is cached value, just go ahead.  */
-  if ((int)node_growth_cache.length () > node->uid
-      && (ret = node_growth_cache[node->uid]))
-    return ret > 0;
-  if (!node->will_be_removed_from_program_if_no_direct_calls_p ()
-      && (!DECL_COMDAT (node->decl)
-	  || !node->can_remove_if_no_direct_calls_p ()))
-    return true;
-  max_callers = inline_summaries->get (node)->size * 4 / edge_growth + 2;
-
-  for (e = node->callers; e; e = e->next_caller)
+     smaller.  */
+  if (DECL_COMDAT (node->decl))
     {
-      max_callers--;
-      if (!max_callers)
+      if (!node->can_remove_if_no_direct_calls_p ())
 	return true;
     }
+  else if (!node->will_be_removed_from_program_if_no_direct_calls_p ())
+    return true;
+
   return estimate_growth (node) > 0;
 }
 
@@ -4151,7 +4204,8 @@ inline_read_section (struct lto_file_decl_data *file_data, const char *data,
   unsigned int i, count2, j;
   unsigned int f_count;
 
-  lto_input_block ib ((const char *) data + main_offset, header->main_size);
+  lto_input_block ib ((const char *) data + main_offset, header->main_size,
+		      file_data->mode_table);
 
   data_in =
     lto_data_in_create (file_data, (const char *) data + string_offset,
@@ -4180,6 +4234,7 @@ inline_read_section (struct lto_file_decl_data *file_data, const char *data,
 
       bp = streamer_read_bitpack (&ib);
       info->inlinable = bp_unpack_value (&bp, 1);
+      info->contains_cilk_spawn = bp_unpack_value (&bp, 1);
 
       count2 = streamer_read_uhwi (&ib);
       gcc_assert (!info->conds);
@@ -4252,7 +4307,8 @@ inline_read_summary (void)
 	/* Fatal error here.  We do not want to support compiling ltrans units
 	   with different version of compiler or different flags than the WPA
 	   unit, so this should never happen.  */
-	fatal_error ("ipa inline summary is missing in input file");
+	fatal_error (input_location,
+		     "ipa inline summary is missing in input file");
     }
   if (optimize)
     {
@@ -4344,6 +4400,7 @@ inline_write_summary (void)
 	  streamer_write_hwi (ob, info->self_time);
 	  bp = bitpack_create (ob->main_stream);
 	  bp_pack_value (&bp, info->inlinable, 1);
+	  bp_pack_value (&bp, info->contains_cilk_spawn, 1);
 	  streamer_write_bitpack (&bp);
 	  streamer_write_uhwi (ob, vec_safe_length (info->conds));
 	  for (i = 0; vec_safe_iterate (info->conds, i, &c); i++)

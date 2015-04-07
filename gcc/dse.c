@@ -28,7 +28,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -44,8 +55,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "cselib.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
-#include "alias.h"
 #include "insn-config.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "recog.h"
 #include "insn-codes.h"
@@ -60,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-ssa.h"
 #include "rtl-iter.h"
+#include "cfgcleanup.h"
 
 /* This file contains three techniques for performing Dead Store
    Elimination (dse).
@@ -1553,6 +1575,10 @@ record_store (rtx body, bb_info_t bb_info)
 	    = rtx_group_vec[group_id];
 	  mem_addr = group->canon_base_addr;
 	}
+      /* get_addr can only handle VALUE but cannot handle expr like:
+	 VALUE + OFFSET, so call get_addr to get original addr for
+	 mem_addr before plus_constant.  */
+      mem_addr = get_addr (mem_addr);
       if (offset)
 	mem_addr = plus_constant (get_address_mode (mem), mem_addr, offset);
     }
@@ -2166,6 +2192,10 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
 	    = rtx_group_vec[group_id];
 	  mem_addr = group->canon_base_addr;
 	}
+      /* get_addr can only handle VALUE but cannot handle expr like:
+	 VALUE + OFFSET, so call get_addr to get original addr for
+	 mem_addr before plus_constant.  */
+      mem_addr = get_addr (mem_addr);
       if (offset)
 	mem_addr = plus_constant (get_address_mode (mem), mem_addr, offset);
     }
@@ -3725,6 +3755,14 @@ rest_of_handle_dse (void)
   if (dump_file)
     fprintf (dump_file, "dse: local deletions = %d, global deletions = %d, spill deletions = %d\n",
 	     locally_deleted, globally_deleted, spill_deleted);
+
+  /* DSE can eliminate potentially-trapping MEMs.
+     Remove any EH edges associated with them.  */
+  if ((locally_deleted || globally_deleted)
+      && cfun->can_throw_non_call_exceptions
+      && purge_all_dead_edges ())
+    cleanup_cfg (0);
+
   return 0;
 }
 

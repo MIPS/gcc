@@ -26,6 +26,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "parse.h"
 #include "flags.h"
 #include "constructor.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 
@@ -1771,8 +1780,8 @@ match_pointer_init (gfc_expr **init, int procptr)
       return MATCH_ERROR;
     }
 
-  if (!procptr)
-    gfc_resolve_expr (*init);
+  if (!procptr && !gfc_resolve_expr (*init))
+    return MATCH_ERROR;
 
   if (!gfc_notify_std (GFC_STD_F2008, "non-NULL pointer "
 		       "initialization at %C"))
@@ -2290,7 +2299,7 @@ kind_expr:
   if (ts->f90_type != BT_UNKNOWN && ts->f90_type != ts->type
       && !((ts->f90_type == BT_REAL && ts->type == BT_COMPLEX)
 	   || (ts->f90_type == BT_COMPLEX && ts->type == BT_REAL)))
-    gfc_warning_now ("C kind type parameter is for type %s but type at %L "
+    gfc_warning_now (0, "C kind type parameter is for type %s but type at %L "
 		     "is %s", gfc_basic_typename (ts->f90_type), &where,
 		     gfc_basic_typename (ts->type));
 
@@ -3309,7 +3318,7 @@ gfc_match_import (void)
 
 	  if (gfc_find_symtree (gfc_current_ns->sym_root, name))
 	    {
-	      gfc_warning ("%qs is already IMPORTed from host scoping unit "
+	      gfc_warning (0, "%qs is already IMPORTed from host scoping unit "
 			   "at %C", name);
 	      goto next_item;
 	    }
@@ -4147,7 +4156,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
       && tmp_sym->binding_label)
       /* Use gfc_warning_now because we won't say that the symbol fails
 	 just because of this.	*/
-      gfc_warning_now ("Symbol %qs at %L is marked PRIVATE but has been "
+      gfc_warning_now (0, "Symbol %qs at %L is marked PRIVATE but has been "
 		       "given the binding label %qs", tmp_sym->name,
 		       &(tmp_sym->declared_at), tmp_sym->binding_label);
 
@@ -6382,7 +6391,10 @@ attr_decl1 (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_array_spec *as;
-  gfc_symbol *sym;
+
+  /* Workaround -Wmaybe-uninitialized false positive during
+     profiledbootstrap by initializing them.  */
+  gfc_symbol *sym = NULL;
   locus var_locus;
   match m;
 
@@ -6613,7 +6625,7 @@ cray_pointer_decl (void)
 	  return MATCH_ERROR;
 	}
       else if (cptr->ts.kind < gfc_index_integer_kind)
-	gfc_warning ("Cray pointer at %C has %d bytes of precision;"
+	gfc_warning (0, "Cray pointer at %C has %d bytes of precision;"
 		     " memory addresses require %d bytes",
 		     cptr->ts.kind, gfc_index_integer_kind);
 
@@ -7778,7 +7790,6 @@ gfc_match_derived_decl (void)
   if (extended && !sym->components)
     {
       gfc_component *p;
-      gfc_symtree *st;
 
       /* Add the extended derived type as the first component.  */
       gfc_add_component (sym, parent, &p);
@@ -7803,8 +7814,6 @@ gfc_match_derived_decl (void)
       /* Provide the links between the extended type and its extension.  */
       if (!extended->f2k_derived)
 	extended->f2k_derived = gfc_get_namespace (NULL, 0);
-      st = gfc_new_symtree (&extended->f2k_derived->sym_root, sym->name);
-      st->n.sym = sym;
     }
 
   if (!sym->hash_value)

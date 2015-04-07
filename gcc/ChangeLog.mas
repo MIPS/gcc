@@ -1,3 +1,12 @@
+2015-04-07  Richard Biener  <rguenther@suse.de>
+
+	Merge from trunk r219384 through r221893.
+
+2015-01-16  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* genmatch.c (print_matches): Remove.
+	(main): Inline calls to print_matches.
+
 2015-01-12  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk r218478 through r219383.

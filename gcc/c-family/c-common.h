@@ -23,7 +23,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "cpplib.h"
 #include "ggc.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "statistics.h"
+#include "vec.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "flags.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before
@@ -1233,6 +1248,7 @@ extern void c_finish_omp_taskwait (location_t);
 extern void c_finish_omp_taskyield (location_t);
 extern tree c_finish_omp_for (location_t, enum tree_code, tree, tree, tree,
 			      tree, tree, tree);
+extern tree c_finish_oacc_wait (location_t, tree, tree);
 extern void c_omp_split_clauses (location_t, enum tree_code, omp_clause_mask,
 				 tree, tree *);
 extern tree c_omp_declare_simd_clauses_to_numbers (tree, tree);

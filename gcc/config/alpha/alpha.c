@@ -24,7 +24,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
@@ -36,18 +46,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "reload.h"
 #include "obstack.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "diagnostic-core.h"
 #include "ggc.h"
 #include "tm_p.h"
@@ -819,6 +833,10 @@ alpha_in_small_data_p (const_tree exp)
 
   /* Functions are never in the small data area.  Duh.  */
   if (TREE_CODE (exp) == FUNCTION_DECL)
+    return false;
+
+  /* COMMON symbols are never small data.  */
+  if (TREE_CODE (exp) == VAR_DECL && DECL_COMMON (exp))
     return false;
 
   if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))

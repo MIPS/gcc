@@ -140,7 +140,7 @@ host_libs="intl libiberty opcodes bfd readline tcl tk itcl libgui zlib libbacktr
 # binutils, gas and ld appear in that order because it makes sense to run
 # "make check" in that particular order.
 # If --enable-gold is used, "gold" may replace "ld".
-host_tools="texinfo flex bison binutils gas ld fixincludes gcc cgen sid sim gdb gprof etc expect dejagnu m4 utils guile fastjar gnattools libcc1"
+host_tools="texinfo flex bison binutils gas ld fixincludes gcc cgen sid sim gdb gprof etc expect dejagnu m4 utils guile fastjar gnattools libcc1 gotools"
 
 # libgcj represents the runtime libraries only used by gcj.
 libgcj="target-libffi \
@@ -162,6 +162,7 @@ target_libraries="target-libgcc \
 		target-libstdc++-v3 \
 		target-libsanitizer \
 		target-libvtv \
+		target-libmpx \
 		target-libssp \
 		target-libquadmath \
 		target-libgfortran \
@@ -640,6 +641,27 @@ if test -d ${srcdir}/libvtv; then
     fi
 fi
 
+
+# Enable libmpx on supported systems by request.
+if test -d ${srcdir}/libmpx; then
+    if test x$enable_libmpx = xyes; then
+       AC_MSG_CHECKING([for libmpx support])
+       if (srcdir=${srcdir}/libmpx; \
+               . ${srcdir}/configure.tgt; \
+               test "$LIBMPX_SUPPORTED" != "yes")
+       then
+           AC_MSG_RESULT([no])
+           noconfigdirs="$noconfigdirs target-libmpx"
+       else
+           AC_MSG_RESULT([yes])
+       fi
+    else
+       noconfigdirs="$noconfigdirs target-libmpx"
+    fi
+fi
+
+
+
 # Disable libquadmath for some systems.
 case "${target}" in
   avr-*-*)
@@ -781,6 +803,9 @@ case "${target}" in
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   alpha*-*-*vms*)
+    noconfigdirs="$noconfigdirs ${libgcj}"
+    ;;
+  arm*-*-freebsd*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   arm-wince-pe)
@@ -1915,6 +1940,14 @@ if test -d ${srcdir}/gcc; then
     fi
   fi
 
+  # If we're building an offloading compiler, add the LTO front end.
+  if test x"$enable_as_accelerator_for" != x ; then
+    case ,${enable_languages}, in
+      *,lto,*) ;;
+      *) enable_languages="${enable_languages},lto" ;;
+    esac
+  fi
+
   missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ `
   potential_languages=,c,
 
@@ -2311,28 +2344,36 @@ AC_SUBST(DEBUG_PREFIX_CFLAGS_FOR_TARGET)
 # gcc) are built with "-O2 -g", so include those options when setting
 # CFLAGS_FOR_TARGET and CXXFLAGS_FOR_TARGET.
 if test "x$CFLAGS_FOR_TARGET" = x; then
-  CFLAGS_FOR_TARGET=$CFLAGS
-  case " $CFLAGS " in
-    *" -O2 "*) ;;
-    *) CFLAGS_FOR_TARGET="-O2 $CFLAGS_FOR_TARGET" ;;
-  esac
-  case " $CFLAGS " in
-    *" -g "* | *" -g3 "*) ;;
-    *) CFLAGS_FOR_TARGET="-g $CFLAGS_FOR_TARGET" ;;
-  esac
+  if test "x${is_cross_compiler}" = xyes; then
+    CFLAGS_FOR_TARGET="-g -O2"
+  else
+    CFLAGS_FOR_TARGET=$CFLAGS
+    case " $CFLAGS " in
+      *" -O2 "*) ;;
+      *) CFLAGS_FOR_TARGET="-O2 $CFLAGS_FOR_TARGET" ;;
+    esac
+    case " $CFLAGS " in
+      *" -g "* | *" -g3 "*) ;;
+      *) CFLAGS_FOR_TARGET="-g $CFLAGS_FOR_TARGET" ;;
+    esac
+  fi
 fi
 AC_SUBST(CFLAGS_FOR_TARGET)
 
 if test "x$CXXFLAGS_FOR_TARGET" = x; then
-  CXXFLAGS_FOR_TARGET=$CXXFLAGS
-  case " $CXXFLAGS " in
-    *" -O2 "*) ;;
-    *) CXXFLAGS_FOR_TARGET="-O2 $CXXFLAGS_FOR_TARGET" ;;
-  esac
-  case " $CXXFLAGS " in
-    *" -g "* | *" -g3 "*) ;;
-    *) CXXFLAGS_FOR_TARGET="-g $CXXFLAGS_FOR_TARGET" ;;
-  esac
+  if test "x${is_cross_compiler}" = xyes; then
+    CXXFLAGS_FOR_TARGET="-g -O2"
+  else
+    CXXFLAGS_FOR_TARGET=$CXXFLAGS
+    case " $CXXFLAGS " in
+      *" -O2 "*) ;;
+      *) CXXFLAGS_FOR_TARGET="-O2 $CXXFLAGS_FOR_TARGET" ;;
+    esac
+    case " $CXXFLAGS " in
+      *" -g "* | *" -g3 "*) ;;
+      *) CXXFLAGS_FOR_TARGET="-g $CXXFLAGS_FOR_TARGET" ;;
+    esac
+  fi
 fi
 AC_SUBST(CXXFLAGS_FOR_TARGET)
 
@@ -2662,6 +2703,11 @@ fi
 if echo " ${target_configdirs} " | grep " libvtv " > /dev/null 2>&1 &&
    test "$enable_vtable_verify" != no; then
   bootstrap_target_libs=${bootstrap_target_libs}target-libvtv,
+fi
+
+# If we are building libmpx, bootstrap it.
+if echo " ${target_configdirs} " | grep " libmpx " > /dev/null 2>&1; then
+  bootstrap_target_libs=${bootstrap_target_libs}target-libmpx,
 fi
 
 # Determine whether gdb needs tk/tcl or not.
@@ -3463,6 +3509,30 @@ AC_ARG_ENABLE(host-shared,
 		[build host code as shared libraries])],
 [host_shared=$enableval], [host_shared=no])
 AC_SUBST(host_shared)
+
+# PR jit/64780: Require the user to explicitly specify
+# --enable-host-shared if the jit is enabled, hinting
+# that they might want to do a separate configure/build of
+# the jit, to avoid users from slowing down the rest of the
+# compiler by enabling the jit.
+if test ${host_shared} = "no" ; then
+  case "${enable_languages}" in
+    *jit*)
+      AC_MSG_ERROR([
+Enabling language "jit" requires --enable-host-shared.
+
+--enable-host-shared typically slows the rest of the compiler down by
+a few %, so you must explicitly enable it.
+
+If you want to build both the jit and the regular compiler, it is often
+best to do this via two separate configure/builds, in separate
+directories, to avoid imposing the performance cost of
+--enable-host-shared on the regular compiler.])
+      ;;
+    *)
+      ;;
+  esac
+fi
 
 # Specify what files to not compare during bootstrap.
 

@@ -37,15 +37,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
-#include "tree.h"
-#include "varasm.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
-#include "hard-reg-set.h"
+#include "vec.h"
+#include "double-int.h"
 #include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "varasm.h"
+#include "predict.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "cfgrtl.h"
 #include "basic-block.h"
@@ -53,9 +59,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "flags.h"
 #include "stringpool.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "regs.h"
-#include "insn-config.h"
 #include "recog.h"
 #include "bitmap.h"
 #include "debug.h"
@@ -5857,10 +5872,9 @@ init_emit_regs (void)
     = gen_raw_REG (Pmode, RETURN_ADDRESS_POINTER_REGNUM);
 #endif
 
+  pic_offset_table_rtx = NULL_RTX;
   if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
     pic_offset_table_rtx = gen_raw_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
-  else
-    pic_offset_table_rtx = NULL_RTX;
 
   for (i = 0; i < (int) MAX_MACHINE_MODE; i++)
     {

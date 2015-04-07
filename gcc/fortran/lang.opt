@@ -250,7 +250,7 @@ Fortran Warning Var(warn_implicit_procedure)
 Warn about called procedures not explicitly declared
 
 Wline-truncation
-Fortran Warning Var(warn_line_truncation) LangEnabledBy(Fortran,Wall)
+Fortran Warning Var(warn_line_truncation) LangEnabledBy(Fortran,Wall) Init(-1)
 Warn about truncated source lines
 
 Wintrinsics-std
@@ -566,8 +566,12 @@ fmodule-private
 Fortran Var(flag_module_private)
 Set default accessibility of module entities to PRIVATE.
 
+fopenacc
+Fortran LTO
+; Documented in C
+
 fopenmp
-Fortran
+Fortran LTO
 ; Documented in C
 
 fopenmp-simd

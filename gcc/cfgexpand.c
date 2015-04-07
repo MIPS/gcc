@@ -23,7 +23,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "varasm.h"
 #include "stor-layout.h"
@@ -31,11 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-tree.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -46,6 +52,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "insn-codes.h"
 #include "optabs.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
 #include "expr.h"
 #include "langhooks.h"
 #include "bitmap.h"
@@ -70,7 +86,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "except.h"
-#include "flags.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "toplev.h"
@@ -267,6 +282,15 @@ align_local_variable (tree decl)
   return align / BITS_PER_UNIT;
 }
 
+/* Align given offset BASE with ALIGN.  Truncate up if ALIGN_UP is true,
+   down otherwise.  Return truncated BASE value.  */
+
+static inline unsigned HOST_WIDE_INT
+align_base (HOST_WIDE_INT base, unsigned HOST_WIDE_INT align, bool align_up)
+{
+  return align_up ? (base + align - 1) & -align : base & -align;
+}
+
 /* Allocate SIZE bytes at byte alignment ALIGN from the stack frame.
    Return the frame offset.  */
 
@@ -275,20 +299,17 @@ alloc_stack_frame_space (HOST_WIDE_INT size, unsigned HOST_WIDE_INT align)
 {
   HOST_WIDE_INT offset, new_frame_offset;
 
-  new_frame_offset = frame_offset;
   if (FRAME_GROWS_DOWNWARD)
     {
-      new_frame_offset -= size + frame_phase;
-      new_frame_offset &= -align;
-      new_frame_offset += frame_phase;
+      new_frame_offset
+	= align_base (frame_offset - frame_phase - size,
+		      align, false) + frame_phase;
       offset = new_frame_offset;
     }
   else
     {
-      new_frame_offset -= frame_phase;
-      new_frame_offset += align - 1;
-      new_frame_offset &= -align;
-      new_frame_offset += frame_phase;
+      new_frame_offset
+	= align_base (frame_offset - frame_phase, align, true) + frame_phase;
       offset = new_frame_offset;
       new_frame_offset += size;
     }
@@ -958,6 +979,13 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	  i = stack_vars_sorted[si];
 	  alignb = stack_vars[i].alignb;
 
+	  /* All "large" alignment decls come before all "small" alignment
+	     decls, but "large" alignment decls are not sorted based on
+	     their alignment.  Increase large_align to track the largest
+	     required alignment.  */
+	  if ((alignb * BITS_PER_UNIT) > large_align)
+	    large_align = alignb * BITS_PER_UNIT;
+
 	  /* Stop when we get to the first decl with "small" alignment.  */
 	  if (alignb * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	    break;
@@ -1016,13 +1044,16 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	  base = virtual_stack_vars_rtx;
 	  if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK && pred)
 	    {
-	      HOST_WIDE_INT prev_offset = frame_offset;
+	      HOST_WIDE_INT prev_offset
+		= align_base (frame_offset,
+			      MAX (alignb, ASAN_RED_ZONE_SIZE),
+			      FRAME_GROWS_DOWNWARD);
 	      tree repr_decl = NULL_TREE;
-
 	      offset
 		= alloc_stack_frame_space (stack_vars[i].size
 					   + ASAN_RED_ZONE_SIZE,
 					   MAX (alignb, ASAN_RED_ZONE_SIZE));
+
 	      data->asan_vec.safe_push (prev_offset);
 	      data->asan_vec.safe_push (offset + stack_vars[i].size);
 	      /* Find best representative of the partition.
@@ -1401,7 +1432,8 @@ clear_tree_used (tree block)
 enum {
   SPCT_FLAG_DEFAULT = 1,
   SPCT_FLAG_ALL = 2,
-  SPCT_FLAG_STRONG = 3
+  SPCT_FLAG_STRONG = 3,
+  SPCT_FLAG_EXPLICIT = 4
 };
 
 /* Examine TYPE and determine a bit mask of the following features.  */
@@ -1474,7 +1506,10 @@ stack_protect_decl_phase (tree decl)
     has_short_buffer = true;
 
   if (flag_stack_protect == SPCT_FLAG_ALL
-      || flag_stack_protect == SPCT_FLAG_STRONG)
+      || flag_stack_protect == SPCT_FLAG_STRONG
+      || (flag_stack_protect == SPCT_FLAG_EXPLICIT
+	  && lookup_attribute ("stack_protect",
+			       DECL_ATTRIBUTES (current_function_decl))))
     {
       if ((bits & (SPCT_HAS_SMALL_CHAR_ARRAY | SPCT_HAS_LARGE_CHAR_ARRAY))
 	  && !(bits & SPCT_HAS_AGGREGATE))
@@ -1849,7 +1884,11 @@ expand_used_vars (void)
 
       /* If stack protection is enabled, we don't share space between
 	 vulnerable data and non-vulnerable data.  */
-      if (flag_stack_protect)
+      if (flag_stack_protect != 0
+	  && (flag_stack_protect != SPCT_FLAG_EXPLICIT
+	      || (flag_stack_protect == SPCT_FLAG_EXPLICIT
+		  && lookup_attribute ("stack_protect",
+				       DECL_ATTRIBUTES (current_function_decl)))))
 	add_stack_protection_conflicts ();
 
       /* Now that we have collected all stack variables, and have computed a
@@ -1867,15 +1906,24 @@ expand_used_vars (void)
 
     case SPCT_FLAG_STRONG:
       if (gen_stack_protect_signal
-	  || cfun->calls_alloca || has_protected_decls)
+	  || cfun->calls_alloca || has_protected_decls
+	  || lookup_attribute ("stack_protect",
+			       DECL_ATTRIBUTES (current_function_decl)))
 	create_stack_guard ();
       break;
 
     case SPCT_FLAG_DEFAULT:
-      if (cfun->calls_alloca || has_protected_decls)
+      if (cfun->calls_alloca || has_protected_decls
+	  || lookup_attribute ("stack_protect",
+			       DECL_ATTRIBUTES (current_function_decl)))
 	create_stack_guard ();
       break;
 
+    case SPCT_FLAG_EXPLICIT:
+      if (lookup_attribute ("stack_protect",
+			    DECL_ATTRIBUTES (current_function_decl)))
+	create_stack_guard ();
+      break;
     default:
       ;
     }
@@ -1901,7 +1949,11 @@ expand_used_vars (void)
 	  expand_stack_vars (stack_protect_decl_phase_1, &data);
 
 	  /* Phase 2 contains other kinds of arrays.  */
-	  if (flag_stack_protect == 2)
+	  if (flag_stack_protect == SPCT_FLAG_ALL
+	      || flag_stack_protect == SPCT_FLAG_STRONG
+	      || (flag_stack_protect == SPCT_FLAG_EXPLICIT
+		  && lookup_attribute ("stack_protect",
+				       DECL_ATTRIBUTES (current_function_decl))))
 	    expand_stack_vars (stack_protect_decl_phase_2, &data);
 	}
 
@@ -3050,8 +3102,6 @@ expand_computed_goto (tree exp)
 {
   rtx x = expand_normal (exp);
 
-  x = convert_memory_address (Pmode, x);
-
   do_pending_stack_adjust ();
   emit_indirect_jump (x);
 }
@@ -3733,6 +3783,48 @@ convert_debug_memory_address (machine_mode mode, rtx x,
   return x;
 }
 
+/* Map from SSA_NAMEs to corresponding DEBUG_EXPR_DECLs created
+   by avoid_deep_ter_for_debug.  */
+
+static hash_map<tree, tree> *deep_ter_debug_map;
+
+/* Split too deep TER chains for debug stmts using debug temporaries.  */
+
+static void
+avoid_deep_ter_for_debug (gimple stmt, int depth)
+{
+  use_operand_p use_p;
+  ssa_op_iter iter;
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+    {
+      tree use = USE_FROM_PTR (use_p);
+      if (TREE_CODE (use) != SSA_NAME || SSA_NAME_IS_DEFAULT_DEF (use))
+	continue;
+      gimple g = get_gimple_for_ssa_name (use);
+      if (g == NULL)
+	continue;
+      if (depth > 6 && !stmt_ends_bb_p (g))
+	{
+	  if (deep_ter_debug_map == NULL)
+	    deep_ter_debug_map = new hash_map<tree, tree>;
+
+	  tree &vexpr = deep_ter_debug_map->get_or_insert (use);
+	  if (vexpr != NULL)
+	    continue;
+	  vexpr = make_node (DEBUG_EXPR_DECL);
+	  gimple def_temp = gimple_build_debug_bind (vexpr, use, g);
+	  DECL_ARTIFICIAL (vexpr) = 1;
+	  TREE_TYPE (vexpr) = TREE_TYPE (use);
+	  DECL_MODE (vexpr) = TYPE_MODE (TREE_TYPE (use));
+	  gimple_stmt_iterator gsi = gsi_for_stmt (g);
+	  gsi_insert_after (&gsi, def_temp, GSI_NEW_STMT);
+	  avoid_deep_ter_for_debug (def_temp, 0);
+	}
+      else
+	avoid_deep_ter_for_debug (g, depth + 1);
+    }
+}
+
 /* Return an RTX equivalent to the value of the parameter DECL.  */
 
 static rtx
@@ -3835,10 +3927,34 @@ expand_debug_expr (tree exp)
 
     binary:
     case tcc_binary:
-    case tcc_comparison:
       op1 = expand_debug_expr (TREE_OPERAND (exp, 1));
       if (!op1)
 	return NULL_RTX;
+      switch (TREE_CODE (exp))
+	{
+	case LSHIFT_EXPR:
+	case RSHIFT_EXPR:
+	case LROTATE_EXPR:
+	case RROTATE_EXPR:
+	case WIDEN_LSHIFT_EXPR:
+	  /* Ensure second operand isn't wider than the first one.  */
+	  inner_mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 1)));
+	  if (SCALAR_INT_MODE_P (inner_mode))
+	    {
+	      machine_mode opmode = mode;
+	      if (VECTOR_MODE_P (mode))
+		opmode = GET_MODE_INNER (mode);
+	      if (SCALAR_INT_MODE_P (opmode)
+		  && (GET_MODE_PRECISION (opmode)
+		      < GET_MODE_PRECISION (inner_mode)))
+		op1 = simplify_gen_subreg (opmode, op1, inner_mode,
+					   subreg_lowpart_offset (opmode,
+								  inner_mode));
+	    }
+	  break;
+	default:
+	  break;
+	}
       /* Fall through.  */
 
     unary:
@@ -3848,6 +3964,10 @@ expand_debug_expr (tree exp)
       if (!op0)
 	return NULL_RTX;
       break;
+
+    case tcc_comparison:
+      unsignedp = TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0)));
+      goto binary;
 
     case tcc_type:
     case tcc_statement:
@@ -3930,7 +4050,7 @@ expand_debug_expr (tree exp)
 	op0 = copy_rtx (op0);
 
       if (GET_MODE (op0) == BLKmode
-	  /* If op0 is not BLKmode, but BLKmode is, adjust_mode
+	  /* If op0 is not BLKmode, but mode is, adjust_mode
 	     below would ICE.  While it is likely a FE bug,
 	     try to be robust here.  See PR43166.  */
 	  || mode == BLKmode
@@ -4620,7 +4740,16 @@ expand_debug_expr (tree exp)
 	gimple g = get_gimple_for_ssa_name (exp);
 	if (g)
 	  {
-	    op0 = expand_debug_expr (gimple_assign_rhs_to_tree (g));
+	    tree t = NULL_TREE;
+	    if (deep_ter_debug_map)
+	      {
+		tree *slot = deep_ter_debug_map->get (exp);
+		if (slot)
+		  t = *slot;
+	      }
+	    if (t == NULL_TREE)
+	      t = gimple_assign_rhs_to_tree (g);
+	    op0 = expand_debug_expr (t);
 	    if (!op0)
 	      return NULL;
 	  }
@@ -4927,6 +5056,25 @@ expand_debug_locations (void)
 	    if (INSN_VAR_LOCATION_STATUS (insn)
 		== VAR_INIT_STATUS_UNINITIALIZED)
 	      val = expand_debug_source_expr (value);
+	    /* The avoid_deep_ter_for_debug function inserts
+	       debug bind stmts after SSA_NAME definition, with the
+	       SSA_NAME as the whole bind location.  Disable temporarily
+	       expansion of that SSA_NAME into the DEBUG_EXPR_DECL
+	       being defined in this DEBUG_INSN.  */
+	    else if (deep_ter_debug_map && TREE_CODE (value) == SSA_NAME)
+	      {
+		tree *slot = deep_ter_debug_map->get (value);
+		if (slot)
+		  {
+		    if (*slot == INSN_VAR_LOCATION_DECL (insn))
+		      *slot = NULL_TREE;
+		    else
+		      slot = NULL;
+		  }
+		val = expand_debug_expr (value);
+		if (slot)
+		  *slot = INSN_VAR_LOCATION_DECL (insn);
+	      }
 	    else
 	      val = expand_debug_expr (value);
 	    gcc_assert (last == get_last_insn ());
@@ -4954,6 +5102,85 @@ expand_debug_locations (void)
   flag_strict_aliasing = save_strict_alias;
 }
 
+/* Performs swapping operands of commutative operations to expand
+   the expensive one first.  */
+
+static void
+reorder_operands (basic_block bb)
+{
+  unsigned int *lattice;  /* Hold cost of each statement.  */
+  unsigned int i = 0, n = 0;
+  gimple_stmt_iterator gsi;
+  gimple_seq stmts;
+  gimple stmt;
+  bool swap;
+  tree op0, op1;
+  ssa_op_iter iter;
+  use_operand_p use_p;
+  gimple def0, def1;
+
+  /* Compute cost of each statement using estimate_num_insns.  */
+  stmts = bb_seq (bb);
+  for (gsi = gsi_start (stmts); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      stmt = gsi_stmt (gsi);
+      if (!is_gimple_debug (stmt))
+        gimple_set_uid (stmt, n++);
+    }
+  lattice = XNEWVEC (unsigned int, n);
+  for (gsi = gsi_start (stmts); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      unsigned cost;
+      stmt = gsi_stmt (gsi);
+      if (is_gimple_debug (stmt))
+	continue;
+      cost = estimate_num_insns (stmt, &eni_size_weights);
+      lattice[i] = cost;
+      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+	{
+	  tree use = USE_FROM_PTR (use_p);
+	  gimple def_stmt;
+	  if (TREE_CODE (use) != SSA_NAME)
+	    continue;
+	  def_stmt = get_gimple_for_ssa_name (use);
+	  if (!def_stmt)
+	    continue;
+	  lattice[i] += lattice[gimple_uid (def_stmt)];
+	}
+      i++;
+      if (!is_gimple_assign (stmt)
+	  || !commutative_tree_code (gimple_assign_rhs_code (stmt)))
+	continue;
+      op0 = gimple_op (stmt, 1);
+      op1 = gimple_op (stmt, 2);
+      if (TREE_CODE (op0) != SSA_NAME
+	  || TREE_CODE (op1) != SSA_NAME)
+	continue;
+      /* Swap operands if the second one is more expensive.  */
+      def0 = get_gimple_for_ssa_name (op0);
+      def1 = get_gimple_for_ssa_name (op1);
+      if (!def1)
+	continue;
+      swap = false;
+      if (!def0 || lattice[gimple_uid (def1)] > lattice[gimple_uid (def0)])
+	swap = true;
+      if (swap)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Swap operands in stmt:\n");
+	      print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
+	      fprintf (dump_file, "Cost left opnd=%d, right opnd=%d\n",
+		       def0 ? lattice[gimple_uid (def0)] : 0,
+		       lattice[gimple_uid (def1)]);
+	    }
+	  swap_ssa_operands (stmt, gimple_assign_rhs1_ptr (stmt),
+			     gimple_assign_rhs2_ptr (stmt));
+	}
+    }
+  XDELETE (lattice);
+}
+
 /* Expand basic block BB from GIMPLE trees to RTL.  */
 
 static basic_block
@@ -4975,6 +5202,8 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
      cannot use the gsi_*_bb() routines because they expect the basic
      block to be in GIMPLE, instead of RTL.  Therefore, we need to
      access the BB sequence directly.  */
+  if (optimize)
+    reorder_operands (bb);
   stmts = bb_seq (bb);
   bb->il.gimple.seq = NULL;
   bb->il.gimple.phi_nodes = NULL;
@@ -5098,7 +5327,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 
 		if (have_debug_uses)
 		  {
-		    /* OP is a TERed SSA name, with DEF it's defining
+		    /* OP is a TERed SSA name, with DEF its defining
 		       statement, and where OP is used in further debug
 		       instructions.  Generate a debug temporary, and
 		       replace all uses of OP in debug insns with that
@@ -5704,6 +5933,15 @@ pass_expand::execute (function *fun)
   timevar_pop (TV_OUT_OF_SSA);
   SA.partition_to_pseudo = XCNEWVEC (rtx, SA.map->num_partitions);
 
+  if (MAY_HAVE_DEBUG_STMTS && flag_tree_ter)
+    {
+      gimple_stmt_iterator gsi;
+      FOR_EACH_BB_FN (bb, cfun)
+	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	  if (gimple_debug_bind_p (gsi_stmt (gsi)))
+	    avoid_deep_ter_for_debug (gsi_stmt (gsi), 0);
+    }
+
   /* Make sure all values used by the optimization passes have sane
      defaults.  */
   reg_renumber = 0;
@@ -5890,6 +6128,12 @@ pass_expand::execute (function *fun)
 
   if (MAY_HAVE_DEBUG_INSNS)
     expand_debug_locations ();
+
+  if (deep_ter_debug_map)
+    {
+      delete deep_ter_debug_map;
+      deep_ter_debug_map = NULL;
+    }
 
   /* Free stuff we no longer need after GIMPLE optimizations.  */
   free_dominance_info (CDI_DOMINATORS);

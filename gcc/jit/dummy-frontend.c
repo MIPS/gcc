@@ -22,8 +22,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "opts.h"
 #include "signop.h"
+#include "hash-set.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "flags.h"
+#include "symtab.h"
 #include "tree-core.h"
 #include "stor-layout.h"
+#include "inchash.h"
 #include "tree.h"
 #include "debug.h"
 #include "langhooks.h"
@@ -33,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin-api.h"
 #include "vec.h"
 #include "hashtab.h"
-#include "hash-set.h"
 #include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
@@ -162,6 +167,9 @@ jit_langhook_type_for_mode (enum machine_mode mode, int unsignedp)
   if (mode == TYPE_MODE (long_integer_type_node))
     return unsignedp ? long_unsigned_type_node : long_integer_type_node;
 
+  if (mode == TYPE_MODE (long_long_integer_type_node))
+    return unsignedp ? long_long_unsigned_type_node : long_long_integer_type_node;
+
   if (COMPLEX_MODE_P (mode))
     {
       if (mode == TYPE_MODE (complex_float_type_node))
@@ -216,11 +224,16 @@ jit_langhook_getdecls (void)
 static void
 jit_langhook_write_globals (void)
 {
-  gcc_assert (gcc::jit::active_playback_ctxt);
-  JIT_LOG_SCOPE (gcc::jit::active_playback_ctxt->get_logger ());
+  gcc::jit::playback::context *ctxt = gcc::jit::active_playback_ctxt;
+  gcc_assert (ctxt);
+  JIT_LOG_SCOPE (ctxt->get_logger ());
+
+  ctxt->write_global_decls_1 ();
 
   /* This is the hook that runs the middle and backends: */
   symtab->finalize_compilation_unit ();
+
+  ctxt->write_global_decls_2 ();
 }
 
 #undef LANG_HOOKS_NAME

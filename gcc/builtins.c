@@ -23,7 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "machmode.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
@@ -31,11 +40,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-object-size.h"
 #include "realmpfr.h"
 #include "predict.h"
-#include "vec.h"
 #include "hashtab.h"
-#include "hash-set.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "cfgrtl.h"
 #include "basic-block.h"
@@ -48,6 +54,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "except.h"
 #include "insn-config.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -70,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
+#include "gomp-constants.h"
 
 
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));
@@ -90,9 +105,9 @@ const char * built_in_names[(int) END_BUILTINS] =
 };
 #undef DEF_BUILTIN
 
-/* Setup an array of _DECL trees, make sure each element is
+/* Setup an array of builtin_info_type, make sure each element decl is
    initialized to NULL_TREE.  */
-builtin_info_type builtin_info;
+builtin_info_type builtin_info[(int)END_BUILTINS];
 
 /* Non-zero if __builtin_constant_p should be folded right away.  */
 bool force_folding_builtin_constant_p;
@@ -344,19 +359,24 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
       tree addr = TREE_OPERAND (exp, 0);
       unsigned ptr_align;
       unsigned HOST_WIDE_INT ptr_bitpos;
+      unsigned HOST_WIDE_INT ptr_bitmask = ~0;
 
+      /* If the address is explicitely aligned, handle that.  */
       if (TREE_CODE (addr) == BIT_AND_EXPR
 	  && TREE_CODE (TREE_OPERAND (addr, 1)) == INTEGER_CST)
 	{
-	  align = (TREE_INT_CST_LOW (TREE_OPERAND (addr, 1))
-		    & -TREE_INT_CST_LOW (TREE_OPERAND (addr, 1)));
-	  align *= BITS_PER_UNIT;
+	  ptr_bitmask = TREE_INT_CST_LOW (TREE_OPERAND (addr, 1));
+	  ptr_bitmask *= BITS_PER_UNIT;
+	  align = ptr_bitmask & -ptr_bitmask;
 	  addr = TREE_OPERAND (addr, 0);
 	}
 
       known_alignment
 	= get_pointer_alignment_1 (addr, &ptr_align, &ptr_bitpos);
       align = MAX (ptr_align, align);
+
+      /* Re-apply explicit alignment to the bitpos.  */
+      ptr_bitpos &= ptr_bitmask;
 
       /* The alignment of the pointer operand in a TARGET_MEM_REF
 	 has to take the variable offset parts into account.  */
@@ -782,10 +802,8 @@ expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
      register.  There is no way to access it off of the current frame
      pointer, but it can be accessed off the previous frame pointer by
      reading the value from the register window save area.  */
-#ifdef RETURN_ADDR_IN_PREVIOUS_FRAME
-  if (fndecl_code == BUILT_IN_RETURN_ADDRESS)
+  if (RETURN_ADDR_IN_PREVIOUS_FRAME && fndecl_code == BUILT_IN_RETURN_ADDRESS)
     count--;
-#endif
 
   /* Scan back COUNT frames to the specified frame.  */
   for (i = 0; i < count; i++)
@@ -5355,6 +5373,11 @@ get_memmodel (tree exp)
       return MEMMODEL_SEQ_CST;
     }
 
+  /* Workaround for Bugzilla 59448. GCC doesn't track consume properly, so
+     be conservative and promote consume to acquire.  */
+  if (val == MEMMODEL_CONSUME)
+    val = MEMMODEL_ACQUIRE;
+
   return (enum memmodel) val;
 }
 
@@ -5370,11 +5393,6 @@ expand_builtin_atomic_exchange (machine_mode mode, tree exp, rtx target)
   enum memmodel model;
 
   model = get_memmodel (CALL_EXPR_ARG (exp, 2));
-  if ((model & MEMMODEL_MASK) == MEMMODEL_CONSUME)
-    {
-      error ("invalid memory model for %<__atomic_exchange%>");
-      return NULL_RTX;
-    }
 
   if (!flag_inline_atomics)
     return NULL_RTX;
@@ -5407,20 +5425,25 @@ expand_builtin_atomic_compare_exchange (machine_mode mode, tree exp,
   success = get_memmodel (CALL_EXPR_ARG (exp, 4));
   failure = get_memmodel (CALL_EXPR_ARG (exp, 5));
 
+  if (failure > success)
+    {
+      warning (OPT_Winvalid_memory_model,
+	       "failure memory model cannot be stronger than success memory "
+	       "model for %<__atomic_compare_exchange%>");
+      success = MEMMODEL_SEQ_CST;
+    }
+ 
   if ((failure & MEMMODEL_MASK) == MEMMODEL_RELEASE
       || (failure & MEMMODEL_MASK) == MEMMODEL_ACQ_REL)
     {
-      error ("invalid failure memory model for %<__atomic_compare_exchange%>");
-      return NULL_RTX;
+      warning (OPT_Winvalid_memory_model,
+	       "invalid failure memory model for "
+	       "%<__atomic_compare_exchange%>");
+      failure = MEMMODEL_SEQ_CST;
+      success = MEMMODEL_SEQ_CST;
     }
 
-  if (failure > success)
-    {
-      error ("failure memory model cannot be stronger than success "
-	     "memory model for %<__atomic_compare_exchange%>");
-      return NULL_RTX;
-    }
-  
+ 
   if (!flag_inline_atomics)
     return NULL_RTX;
 
@@ -5476,8 +5499,9 @@ expand_builtin_atomic_load (machine_mode mode, tree exp, rtx target)
   if ((model & MEMMODEL_MASK) == MEMMODEL_RELEASE
       || (model & MEMMODEL_MASK) == MEMMODEL_ACQ_REL)
     {
-      error ("invalid memory model for %<__atomic_load%>");
-      return NULL_RTX;
+      warning (OPT_Winvalid_memory_model,
+	       "invalid memory model for %<__atomic_load%>");
+      model = MEMMODEL_SEQ_CST;
     }
 
   if (!flag_inline_atomics)
@@ -5506,8 +5530,9 @@ expand_builtin_atomic_store (machine_mode mode, tree exp)
       && (model & MEMMODEL_MASK) != MEMMODEL_SEQ_CST
       && (model & MEMMODEL_MASK) != MEMMODEL_RELEASE)
     {
-      error ("invalid memory model for %<__atomic_store%>");
-      return NULL_RTX;
+      warning (OPT_Winvalid_memory_model,
+	       "invalid memory model for %<__atomic_store%>");
+      model = MEMMODEL_SEQ_CST;
     }
 
   if (!flag_inline_atomics)
@@ -5610,11 +5635,13 @@ expand_builtin_atomic_clear (tree exp)
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
   model = get_memmodel (CALL_EXPR_ARG (exp, 1));
 
-  if ((model & MEMMODEL_MASK) == MEMMODEL_ACQUIRE
+  if ((model & MEMMODEL_MASK) == MEMMODEL_CONSUME
+      || (model & MEMMODEL_MASK) == MEMMODEL_ACQUIRE
       || (model & MEMMODEL_MASK) == MEMMODEL_ACQ_REL)
     {
-      error ("invalid memory model for %<__atomic_store%>");
-      return const0_rtx;
+      warning (OPT_Winvalid_memory_model,
+	       "invalid memory model for %<__atomic_store%>");
+      model = MEMMODEL_SEQ_CST;
     }
 
   if (HAVE_atomic_clear)
@@ -5880,6 +5907,47 @@ expand_stack_save (void)
   return ret;
 }
 
+
+/* Expand OpenACC acc_on_device.
+
+   This has to happen late (that is, not in early folding; expand_builtin_*,
+   rather than fold_builtin_*), as we have to act differently for host and
+   acceleration device (ACCEL_COMPILER conditional).  */
+
+static rtx
+expand_builtin_acc_on_device (tree exp, rtx target)
+{
+  if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  tree arg = CALL_EXPR_ARG (exp, 0);
+
+  /* Return (arg == v1 || arg == v2) ? 1 : 0.  */
+  machine_mode v_mode = TYPE_MODE (TREE_TYPE (arg));
+  rtx v = expand_normal (arg), v1, v2;
+#ifdef ACCEL_COMPILER
+  v1 = GEN_INT (GOMP_DEVICE_NOT_HOST);
+  v2 = GEN_INT (ACCEL_COMPILER_acc_device);
+#else
+  v1 = GEN_INT (GOMP_DEVICE_NONE);
+  v2 = GEN_INT (GOMP_DEVICE_HOST);
+#endif
+  machine_mode target_mode = TYPE_MODE (integer_type_node);
+  if (!target || !register_operand (target, target_mode))
+    target = gen_reg_rtx (target_mode);
+  emit_move_insn (target, const1_rtx);
+  rtx_code_label *done_label = gen_label_rtx ();
+  do_compare_rtx_and_jump (v, v1, EQ, false, v_mode, NULL_RTX,
+			   NULL_RTX, done_label, PROB_EVEN);
+  do_compare_rtx_and_jump (v, v2, EQ, false, v_mode, NULL_RTX,
+			   NULL_RTX, done_label, PROB_EVEN);
+  emit_move_insn (target, const0_rtx);
+  emit_label (done_label);
+
+  return target;
+}
+
+
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -5895,6 +5963,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
   machine_mode target_mode = TYPE_MODE (TREE_TYPE (exp));
   int flags;
 
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+    return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
+
   /* When ASan is enabled, we don't want to expand some memory/string
      builtins and rely on libsanitizer's hooks.  This allows us to avoid
      redundant checks and be sure, that possible overflow will be detected
@@ -5902,9 +5973,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
 
   if ((flag_sanitize & SANITIZE_ADDRESS) && asan_intercepted_p (fcode))
     return expand_call (exp, target, ignore);
-
-  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
-    return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
 
   /* When not optimizing, generate calls to library functions for a certain
      set of builtins.  */
@@ -7016,6 +7084,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
       /* Software implementation of Pointer Bounds Checker is NYI.
 	 Target support is required.  */
       error ("Your target platform does not support -fcheck-pointer-bounds");
+      break;
+
+    case BUILT_IN_ACC_ON_DEVICE:
+      target = expand_builtin_acc_on_device (exp, target);
+      if (target)
+	return target;
       break;
 
     default:	/* just do library call, if unknown builtin */
@@ -12455,6 +12529,7 @@ is_inexpensive_builtin (tree decl)
       case BUILT_IN_LABS:
       case BUILT_IN_LLABS:
       case BUILT_IN_PREFETCH:
+      case BUILT_IN_ACC_ON_DEVICE:
 	return true;
 
       default:

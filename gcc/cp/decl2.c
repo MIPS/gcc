@@ -30,6 +30,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -48,10 +57,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -1435,7 +1440,8 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 
   /* Add implicit "omp declare target" attribute if requested.  */
   if (scope_chain->omp_declare_target_attribute
-      && ((TREE_CODE (*decl) == VAR_DECL && TREE_STATIC (*decl))
+      && ((TREE_CODE (*decl) == VAR_DECL
+	   && (TREE_STATIC (*decl) || DECL_EXTERNAL (*decl)))
 	  || TREE_CODE (*decl) == FUNCTION_DECL))
     {
       if (TREE_CODE (*decl) == VAR_DECL
@@ -2170,6 +2176,7 @@ constrain_visibility (tree decl, int visibility, bool tmpl)
 	  TREE_PUBLIC (decl) = 0;
 	  DECL_WEAK (decl) = 0;
 	  DECL_COMMON (decl) = 0;
+	  DECL_COMDAT (decl) = false;
 	  if (TREE_CODE (decl) == FUNCTION_DECL
 	      || TREE_CODE (decl) == VAR_DECL)
 	    {
@@ -2210,9 +2217,12 @@ constrain_visibility_for_template (tree decl, tree targs)
       tree arg = TREE_VEC_ELT (args, i-1);
       if (TYPE_P (arg))
 	vis = type_visibility (arg);
-      else if (TREE_TYPE (arg) && POINTER_TYPE_P (TREE_TYPE (arg)))
+      else
 	{
-	  STRIP_NOPS (arg);
+	  if (REFERENCE_REF_P (arg))
+	    arg = TREE_OPERAND (arg, 0);
+	  if (TREE_TYPE (arg))
+	    STRIP_NOPS (arg);
 	  if (TREE_CODE (arg) == ADDR_EXPR)
 	    arg = TREE_OPERAND (arg, 0);
 	  if (VAR_OR_FUNCTION_DECL_P (arg))
@@ -3089,8 +3099,11 @@ var_defined_without_dynamic_init (tree var)
      counts as dynamic initialization.  */
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (var)))
     return false;
-  /* If it's in this TU, its initializer has been processed.  */
-  gcc_assert (DECL_INITIALIZED_P (var));
+  /* If it's in this TU, its initializer has been processed, unless
+     it's a case of self-initialization, then DECL_INITIALIZED_P is
+     false while the initializer is handled by finish_id_expression.  */
+  if (!DECL_INITIALIZED_P (var))
+    return false;
   /* If it has no initializer or a constant one, it's not dynamic.  */
   return (!DECL_NONTRIVIALLY_INITIALIZED_P (var)
 	  || DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (var));
@@ -5025,7 +5038,12 @@ mark_used (tree decl, tsubst_flags_t complain)
       && uses_template_parms (DECL_TI_ARGS (decl)))
     return true;
 
-  require_deduced_type (decl);
+  if (undeduced_auto_decl (decl))
+    {
+      if (complain & tf_error)
+	error ("use of %qD before deduction of %<auto%>", decl);
+      return false;
+    }
 
   /* If we don't need a value, then we don't need to synthesize DECL.  */
   if (cp_unevaluated_operand != 0)

@@ -42,6 +42,23 @@ along with GCC; see the file COPYING3.	If not see
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
+#include "symtab.h"
+#include "flags.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "predict.h"
 #include "dominance.h"
@@ -247,10 +264,12 @@ lra_intersected_live_ranges_p (lra_live_range_t r1, lra_live_range_t r2)
 }
 
 /* The function processing birth of hard register REGNO.  It updates
-   living hard regs, conflict hard regs for living pseudos, and
-   START_LIVING.  */
+   living hard regs, START_LIVING, and conflict hard regs for living
+   pseudos.  Conflict hard regs for the pic pseudo is not updated if
+   REGNO is REAL_PIC_OFFSET_TABLE_REGNUM and CHECK_PIC_PSEUDO_P is
+   true.  */
 static void
-make_hard_regno_born (int regno)
+make_hard_regno_born (int regno, bool check_pic_pseudo_p ATTRIBUTE_UNUSED)
 {
   unsigned int i;
 
@@ -260,7 +279,13 @@ make_hard_regno_born (int regno)
   SET_HARD_REG_BIT (hard_regs_live, regno);
   sparseset_set_bit (start_living, regno);
   EXECUTE_IF_SET_IN_SPARSESET (pseudos_live, i)
-    SET_HARD_REG_BIT (lra_reg_info[i].conflict_hard_regs, regno);
+#ifdef REAL_PIC_OFFSET_TABLE_REGNUM
+    if (! check_pic_pseudo_p
+	|| regno != REAL_PIC_OFFSET_TABLE_REGNUM
+	|| pic_offset_table_rtx == NULL
+	|| i != REGNO (pic_offset_table_rtx))
+#endif
+      SET_HARD_REG_BIT (lra_reg_info[i].conflict_hard_regs, regno);
 }
 
 /* Process the death of hard register REGNO.  This updates
@@ -335,7 +360,7 @@ mark_regno_live (int regno, machine_mode mode, int point)
       for (last = regno + hard_regno_nregs[regno][mode];
 	   regno < last;
 	   regno++)
-	make_hard_regno_born (regno);
+	make_hard_regno_born (regno, false);
     }
   else
     {
@@ -816,7 +841,7 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
 
       for (reg = curr_static_id->hard_regs; reg != NULL; reg = reg->next)
 	if (reg->type != OP_IN)
-	  make_hard_regno_born (reg->regno);
+	  make_hard_regno_born (reg->regno, false);
 
       sparseset_copy (unused_set, start_living);
 
@@ -875,12 +900,13 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
 
       for (reg = curr_static_id->hard_regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_IN)
-	  make_hard_regno_born (reg->regno);
+	  make_hard_regno_born (reg->regno, false);
 
       if (curr_id->arg_hard_regs != NULL)
-	/* Make argument hard registers live.  */
+	/* Make argument hard registers live.  Don't create conflict
+	   of used REAL_PIC_OFFSET_TABLE_REGNUM and the pic pseudo.  */
 	for (i = 0; (regno = curr_id->arg_hard_regs[i]) >= 0; i++)
-	  make_hard_regno_born (regno);
+	  make_hard_regno_born (regno, true);
 
       sparseset_and_compl (dead_set, start_living, start_dying);
 
@@ -936,7 +962,7 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
 
 	if (regno == INVALID_REGNUM)
 	  break;
-	make_hard_regno_born (regno);
+	make_hard_regno_born (regno, false);
       }
 #endif
 
@@ -951,7 +977,7 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
       EXECUTE_IF_SET_IN_SPARSESET (pseudos_live, px)
 	lra_reg_info[px].no_stack_p = true;
       for (px = FIRST_STACK_REG; px <= LAST_STACK_REG; px++)
-	make_hard_regno_born (px);
+	make_hard_regno_born (px, false);
 #endif
       /* No need to record conflicts for call clobbered regs if we
 	 have nonlocal labels around, as we don't ever try to
@@ -959,7 +985,7 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
       if (!cfun->has_nonlocal_label && bb_has_abnormal_call_pred (bb))
 	for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
 	  if (call_used_regs[px])
-	    make_hard_regno_born (px);
+	    make_hard_regno_born (px, false);
     }
 
   bool live_change_p = false;

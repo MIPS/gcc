@@ -23,20 +23,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "diagnostic-core.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "tree-inline.h"
 #include "flags.h"
 #include "params.h"
-#include "input.h"
 #include "insn-config.h"
 #include "hashtab.h"
 #include "langhooks.h"
 #include "predict.h"
-#include "vec.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "dominance.h"
@@ -63,6 +69,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
@@ -182,7 +198,7 @@ insert_debug_decl_map (copy_body_data *id, tree key, tree value)
   if (!gimple_in_ssa_p (id->src_cfun))
     return;
 
-  if (!MAY_HAVE_DEBUG_STMTS)
+  if (!opt_for_fn (id->dst_fn, flag_var_tracking_assignments))
     return;
 
   if (!target_for_debug_bind (key))
@@ -1337,6 +1353,10 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
   struct walk_stmt_info wi;
   bool skip_first = false;
   gimple_seq stmts = NULL;
+
+  if (is_gimple_debug (stmt)
+      && !opt_for_fn (id->dst_fn, flag_var_tracking_assignments))
+    return stmts;
 
   /* Begin by recognizing trees that we'll completely rewrite for the
      inlining context.  Our output for these trees is completely
@@ -2785,7 +2805,9 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
 	  maybe_move_debug_stmts_to_successors (id, (basic_block) bb->aux);
 	/* Update call edge destinations.  This can not be done before loop
 	   info is updated, because we may split basic blocks.  */
-	if (id->transform_call_graph_edges == CB_CGE_DUPLICATE)
+	if (id->transform_call_graph_edges == CB_CGE_DUPLICATE
+	    && bb->index != ENTRY_BLOCK
+	    && bb->index != EXIT_BLOCK)
 	  redirect_all_calls (id, (basic_block)bb->aux);
 	((basic_block)bb->aux)->aux = NULL;
 	bb->aux = NULL;
@@ -2997,7 +3019,7 @@ insert_init_debug_bind (copy_body_data *id,
   if (!gimple_in_ssa_p (id->src_cfun))
     return NULL;
 
-  if (!MAY_HAVE_DEBUG_STMTS)
+  if (!opt_for_fn (id->dst_fn, flag_var_tracking_assignments))
     return NULL;
 
   tracked_var = target_for_debug_bind (var);
@@ -3053,7 +3075,7 @@ insert_init_stmt (copy_body_data *id, basic_block bb, gimple init_stmt)
       gsi_insert_after (&si, init_stmt, GSI_NEW_STMT);
       gimple_regimplify_operands (init_stmt, &si);
 
-      if (!is_gimple_debug (init_stmt) && MAY_HAVE_DEBUG_STMTS)
+      if (!is_gimple_debug (init_stmt))
 	{
 	  tree def = gimple_assign_lhs (init_stmt);
 	  insert_init_debug_bind (id, bb, def, def, init_stmt);
@@ -3522,7 +3544,7 @@ has_label_address_in_static_1 (tree *nodep, int *walk_subtrees, void *fnp)
 /* Determine if the function can be copied.  If so return NULL.  If
    not return a string describng the reason for failure.  */
 
-static const char *
+const char *
 copy_forbidden (struct function *fun, tree fndecl)
 {
   const char *reason = fun->cannot_be_copied_reason;
@@ -4174,7 +4196,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       return (estimate_num_insns_seq (gimple_try_eval (stmt), weights)
               + estimate_num_insns_seq (gimple_try_cleanup (stmt), weights));
 
-    /* OpenMP directives are generally very expensive.  */
+    /* OMP directives are generally very expensive.  */
 
     case GIMPLE_OMP_RETURN:
     case GIMPLE_OMP_SECTIONS_SWITCH:
@@ -4757,18 +4779,19 @@ static bool
 gimple_expand_calls_inline (basic_block bb, copy_body_data *id)
 {
   gimple_stmt_iterator gsi;
+  bool inlined = false;
 
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi);)
     {
       gimple stmt = gsi_stmt (gsi);
+      gsi_prev (&gsi);
 
       if (is_gimple_call (stmt)
-	  && !gimple_call_internal_p (stmt)
-	  && expand_call_inline (bb, stmt, id))
-	return true;
+	  && !gimple_call_internal_p (stmt))
+	inlined |= expand_call_inline (bb, stmt, id);
     }
 
-  return false;
+  return inlined;
 }
 
 

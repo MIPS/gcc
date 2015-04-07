@@ -32,7 +32,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "stringpool.h"
@@ -45,10 +55,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "conditions.h"
 #include "insn-flags.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "toplev.h"
 #include "ggc.h"
@@ -57,6 +63,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
+#include "statistics.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "recog.h"
 #include "debug.h"
@@ -79,7 +92,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "context.h"
 #include "pass_manager.h"
-#include "wide-int.h"
 #include "builtins.h"
 #include "rtl-iter.h"
 
@@ -5480,7 +5492,8 @@ check_if_valid_sleep_operand (rtx *operands, int opno)
 	if( UNSIGNED_INT6 (INTVAL (operands[opno])))
 	    return true;
     default:
-	fatal_error("operand for sleep instruction must be an unsigned 6 bit compile-time constant");
+	fatal_error (input_location,
+		     "operand for sleep instruction must be an unsigned 6 bit compile-time constant");
 	break;
     }
   return false;
@@ -6032,7 +6045,7 @@ arc_reorg (void)
       cfun->machine->ccfsm_current_insn = NULL_RTX;
 
       if (!INSN_ADDRESSES_SET_P())
-	  fatal_error ("Insn addresses not set after shorten_branches");
+	  fatal_error (input_location, "Insn addresses not set after shorten_branches");
 
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{
@@ -6236,7 +6249,7 @@ arc_reorg (void)
     } while (changed);
 
   if (INSN_ADDRESSES_SET_P())
-    fatal_error ("insn addresses not freed");
+    fatal_error (input_location, "insn addresses not freed");
 
   arc_reorg_in_progress = 0;
 }

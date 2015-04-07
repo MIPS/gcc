@@ -23,14 +23,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
-#include "hard-reg-set.h"
+#include "vec.h"
+#include "double-int.h"
 #include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -38,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "inchash.h"
 #include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -58,6 +62,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "tree-ssa-loop.h"
 #include "tree-into-ssa.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
@@ -65,7 +83,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "obstack.h"
 #include "tree-pass.h"
-#include "flags.h"
 #include "langhooks.h"
 #include "cfgloop.h"
 #include "tree-ssa-sccvn.h"
@@ -81,6 +98,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-prop.h"
 #include "tree-ssa-propagate.h"
 #include "ipa-utils.h"
+#include "tree-cfgcleanup.h"
 
 /* TODO:
 
@@ -3140,6 +3158,33 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
   bitmap_insert_into_set (NEW_SETS (block),
 			  newphi);
 
+  /* If we insert a PHI node for a conversion of another PHI node
+     in the same basic-block try to preserve range information.
+     This is important so that followup loop passes receive optimal
+     number of iteration analysis results.  See PR61743.  */
+  if (expr->kind == NARY
+      && CONVERT_EXPR_CODE_P (expr->u.nary->opcode)
+      && TREE_CODE (expr->u.nary->op[0]) == SSA_NAME
+      && gimple_bb (SSA_NAME_DEF_STMT (expr->u.nary->op[0])) == block
+      && INTEGRAL_TYPE_P (type)
+      && INTEGRAL_TYPE_P (TREE_TYPE (expr->u.nary->op[0]))
+      && (TYPE_PRECISION (type)
+	  >= TYPE_PRECISION (TREE_TYPE (expr->u.nary->op[0])))
+      && SSA_NAME_RANGE_INFO (expr->u.nary->op[0]))
+    {
+      wide_int min, max;
+      if (get_range_info (expr->u.nary->op[0], &min, &max) == VR_RANGE
+	  && !wi::neg_p (min, SIGNED)
+	  && !wi::neg_p (max, SIGNED))
+	/* Just handle extension and sign-changes of all-positive ranges.  */
+	set_range_info (temp,
+			SSA_NAME_RANGE_TYPE (expr->u.nary->op[0]),
+			wide_int_storage::from (min, TYPE_PRECISION (type),
+						TYPE_SIGN (type)),
+			wide_int_storage::from (max, TYPE_PRECISION (type),
+						TYPE_SIGN (type)));
+    }
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Created phi ");
@@ -3851,6 +3896,7 @@ compute_avail (void)
 
 /* Local state for the eliminate domwalk.  */
 static vec<gimple> el_to_remove;
+static vec<gimple> el_to_fixup;
 static unsigned int el_todo;
 static vec<tree> el_avail;
 static vec<tree> el_avail_stack;
@@ -4335,6 +4381,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 				       cgraph_node::get (fn)->name ());
 		    }
 		  gimple_call_set_fndecl (call_stmt, fn);
+		  maybe_remove_unused_call_args (cfun, call_stmt);
 		  gimple_set_modified (stmt, true);
 		}
 	    }
@@ -4357,7 +4404,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	      /* When changing a call into a noreturn call, cfg cleanup
 		 is needed to fix up the noreturn call.  */
 	      if (!was_noreturn && gimple_call_noreturn_p (stmt))
-		el_todo |= TODO_cleanup_cfg;
+		el_to_fixup.safe_push  (stmt);
 	    }
 	  else
 	    {
@@ -4460,6 +4507,7 @@ eliminate (bool do_pre)
   need_ab_cleanup = BITMAP_ALLOC (NULL);
 
   el_to_remove.create (0);
+  el_to_fixup.create (0);
   el_todo = 0;
   el_avail.create (num_ssa_names);
   el_avail_stack.create (0);
@@ -4510,6 +4558,25 @@ eliminate (bool do_pre)
       el_todo |= TODO_cleanup_cfg;
     }
   el_to_remove.release ();
+
+  /* Fixup stmts that became noreturn calls.  This may require splitting
+     blocks and thus isn't possible during the dominator walk.  Do this
+     in reverse order so we don't inadvertedly remove a stmt we want to
+     fixup by visiting a dominating now noreturn call first.  */
+  while (!el_to_fixup.is_empty ())
+    {
+      stmt = el_to_fixup.pop ();
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "Fixing up noreturn call ");
+	  print_gimple_stmt (dump_file, stmt, 0, 0);
+	}
+
+      if (fixup_noreturn_call (stmt))
+	el_todo |= TODO_cleanup_cfg;
+    }
+  el_to_fixup.release ();
 
   return el_todo;
 }

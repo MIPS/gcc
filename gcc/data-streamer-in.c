@@ -24,12 +24,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
+#include "vec.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -62,7 +70,7 @@ string_for_index (struct data_in *data_in, unsigned int loc, unsigned int *rlen)
     }
 
   /* Get the string stored at location LOC in DATA_IN->STRINGS.  */
-  lto_input_block str_tab (data_in->strings, loc - 1, data_in->strings_len);
+  lto_input_block str_tab (data_in->strings, loc - 1, data_in->strings_len, NULL);
   len = streamer_read_uhwi (&str_tab);
   *rlen = len;
 

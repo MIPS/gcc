@@ -122,15 +122,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -1134,15 +1141,16 @@ valueize_op_1 (tree op)
 {
   if (TREE_CODE (op) == SSA_NAME)
     {
-      tree tem = get_constant_value (op);
-      if (tem)
-	return tem;
       /* If the definition may be simulated again we cannot follow
          this SSA edge as the SSA propagator does not necessarily
 	 re-visit the use.  */
       gimple def_stmt = SSA_NAME_DEF_STMT (op);
-      if (prop_simulate_again_p (def_stmt))
+      if (!gimple_nop_p (def_stmt)
+	  && prop_simulate_again_p (def_stmt))
 	return NULL_TREE;
+      tree tem = get_constant_value (op);
+      if (tem)
+	return tem;
     }
   return op;
 }

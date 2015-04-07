@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -27,7 +27,18 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "stmt.h"
@@ -36,16 +47,12 @@
 #include "output.h"
 #include "libfuncs.h"	/* For set_stack_check_libfunc.  */
 #include "tree-iterator.h"
-#include "hash-set.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "bitmap.h"
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -670,6 +677,11 @@ gigi (Node_Id gnat_root,
   /* Force -fno-strict-aliasing if the configuration pragma was seen.  */
   if (No_Strict_Aliasing_CP)
     flag_strict_aliasing = 0;
+
+  /* Save the current optimization options again after the above possible
+     global_options changes.  */
+  optimization_default_node = build_optimization_node (&global_options);
+  optimization_current_node = optimization_default_node;
 
   /* Now translate the compilation unit proper.  */
   Compilation_Unit_to_gnu (gnat_root);
@@ -1573,8 +1585,9 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
   bool prefix_unused = false;
 
   /* ??? If this is an access attribute for a public subprogram to be used in
-     a dispatch table, do not translate its type as it's useless there and the
-     parameter types might be incomplete types coming from a limited with.  */
+     a dispatch table, do not translate its type as it's useless in this case
+     and the parameter types might be incomplete types coming from a limited
+     context in Ada 2012 (AI05-0151).  */
   if (Ekind (Etype (gnat_node)) == E_Access_Subprogram_Type
       && Is_Dispatch_Table_Entity (Etype (gnat_node))
       && Nkind (gnat_prefix) == N_Identifier
@@ -2454,6 +2467,18 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 				   build_component_ref (rec_val, NULL_TREE,
 							field, false));
 	}
+      break;
+
+    case Attr_Deref:
+      prefix_unused = true;
+      gnu_expr = gnat_to_gnu (First (Expressions (gnat_node)));
+      gnu_result_type = get_unpadded_type (Etype (gnat_node));
+      /* This can be a random address so build an alias-all pointer type.  */
+      gnu_expr
+	= convert (build_pointer_type_for_mode (gnu_result_type, ptr_mode,
+						true),
+		   gnu_expr);
+      gnu_result = build_unary_op (INDIRECT_REF, NULL_TREE, gnu_expr);
       break;
 
     default:

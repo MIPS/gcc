@@ -22,7 +22,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "tree-hasher.h"
 #include "stor-layout.h"
 #include "print-tree.h"
@@ -35,10 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -816,10 +822,9 @@ build_cplus_array_type (tree elt_type, tree index_type)
   if (elt_type == error_mark_node || index_type == error_mark_node)
     return error_mark_node;
 
-  bool dependent
-    = (processing_template_decl
-       && (dependent_type_p (elt_type)
-	   || (index_type && !TREE_CONSTANT (TYPE_MAX_VALUE (index_type)))));
+  bool dependent = (processing_template_decl
+		    && (dependent_type_p (elt_type)
+			|| (index_type && dependent_type_p (index_type))));
 
   if (elt_type != TYPE_MAIN_VARIANT (elt_type))
     /* Start with an array of the TYPE_MAIN_VARIANT.  */
@@ -875,12 +880,12 @@ build_cplus_array_type (tree elt_type, tree index_type)
 	{
 	  t = build_min_array_type (elt_type, index_type);
 	  set_array_type_canon (t, elt_type, index_type);
-	  if (!dependent)
-	    layout_type (t);
 
 	  TYPE_MAIN_VARIANT (t) = m;
 	  TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
 	  TYPE_NEXT_VARIANT (m) = t;
+	  if (!dependent)
+	    layout_type (t);
 	}
     }
 
@@ -2739,20 +2744,8 @@ cp_tree_equal (tree t1, tree t2)
   if (!t1 || !t2)
     return false;
 
-  for (code1 = TREE_CODE (t1);
-       CONVERT_EXPR_CODE_P (code1)
-	 || code1 == NON_LVALUE_EXPR;
-       code1 = TREE_CODE (t1))
-    t1 = TREE_OPERAND (t1, 0);
-  for (code2 = TREE_CODE (t2);
-       CONVERT_EXPR_CODE_P (code2)
-	 || code2 == NON_LVALUE_EXPR;
-       code2 = TREE_CODE (t2))
-    t2 = TREE_OPERAND (t2, 0);
-
-  /* They might have become equal now.  */
-  if (t1 == t2)
-    return true;
+  code1 = TREE_CODE (t1);
+  code2 = TREE_CODE (t2);
 
   if (code1 != code2)
     return false;
@@ -2990,6 +2983,9 @@ cp_tree_equal (tree t1, tree t2)
     case DYNAMIC_CAST_EXPR:
     case IMPLICIT_CONV_EXPR:
     case NEW_EXPR:
+    CASE_CONVERT:
+    case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       if (!same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	return false;
       /* Now compare operands as usual.  */
@@ -3488,6 +3484,63 @@ check_abi_tag_redeclaration (const_tree decl, const_tree old, const_tree new_)
   return true;
 }
 
+/* The abi_tag attribute with the name NAME was given ARGS.  If they are
+   ill-formed, give an error and return false; otherwise, return true.  */
+
+bool
+check_abi_tag_args (tree args, tree name)
+{
+  if (!args)
+    {
+      error ("the %qE attribute requires arguments", name);
+      return false;
+    }
+  for (tree arg = args; arg; arg = TREE_CHAIN (arg))
+    {
+      tree elt = TREE_VALUE (arg);
+      if (TREE_CODE (elt) != STRING_CST
+	  || (!same_type_ignoring_top_level_qualifiers_p
+	      (strip_array_types (TREE_TYPE (elt)),
+	       char_type_node)))
+	{
+	  error ("arguments to the %qE attribute must be narrow string "
+		 "literals", name);
+	  return false;
+	}
+      const char *begin = TREE_STRING_POINTER (elt);
+      const char *end = begin + TREE_STRING_LENGTH (elt);
+      for (const char *p = begin; p != end; ++p)
+	{
+	  char c = *p;
+	  if (p == begin)
+	    {
+	      if (!ISALPHA (c) && c != '_')
+		{
+		  error ("arguments to the %qE attribute must contain valid "
+			 "identifiers", name);
+		  inform (input_location, "%<%c%> is not a valid first "
+			  "character for an identifier", c);
+		  return false;
+		}
+	    }
+	  else if (p == end - 1)
+	    gcc_assert (c == 0);
+	  else
+	    {
+	      if (!ISALNUM (c) && c != '_')
+		{
+		  error ("arguments to the %qE attribute must contain valid "
+			 "identifiers", name);
+		  inform (input_location, "%<%c%> is not a valid character "
+			  "in an identifier", c);
+		  return false;
+		}
+	    }
+	}
+    }
+  return true;
+}
+
 /* Handle an "abi_tag" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -3495,6 +3548,9 @@ static tree
 handle_abi_tag_attribute (tree* node, tree name, tree args,
 			  int flags, bool* no_add_attrs)
 {
+  if (!check_abi_tag_args (args, name))
+    goto fail;
+
   if (TYPE_P (*node))
     {
       if (!OVERLOAD_TYPE_P (*node))
@@ -3537,14 +3593,16 @@ handle_abi_tag_attribute (tree* node, tree name, tree args,
     }
   else
     {
-      if (TREE_CODE (*node) != FUNCTION_DECL)
+      if (TREE_CODE (*node) != FUNCTION_DECL
+	  && TREE_CODE (*node) != VAR_DECL)
 	{
-	  error ("%qE attribute applied to non-function %qD", name, *node);
+	  error ("%qE attribute applied to non-function, non-variable %qD",
+		 name, *node);
 	  goto fail;
 	}
       else if (DECL_LANGUAGE (*node) == lang_c)
 	{
-	  error ("%qE attribute applied to extern \"C\" function %qD",
+	  error ("%qE attribute applied to extern \"C\" declaration %qD",
 		 name, *node);
 	  goto fail;
 	}

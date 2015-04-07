@@ -21,6 +21,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "options.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "c-common.h"
 #include "c-pragma.h"
@@ -34,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "incpath.h"
 #include "debug.h"		/* For debug_hooks.  */
 #include "opts.h"
-#include "options.h"
 #include "plugin.h"		/* For PLUGIN_INCLUDE_FILE event.  */
 #include "mkdeps.h"
 #include "c-target.h"
@@ -877,6 +886,11 @@ c_common_post_options (const char **pfilename)
 	warn_abi = false;
     }
 
+  /* Change flag_abi_version to be the actual current ABI level for the
+     benefit of c_cpp_builtins.  */
+  if (flag_abi_version == 0)
+    flag_abi_version = 8;
+
   if (cxx_dialect >= cxx11)
     {
       /* If we're allowing C++0x constructs, don't warn about C++98
@@ -919,7 +933,7 @@ c_common_post_options (const char **pfilename)
 
       if (out_stream == NULL)
 	{
-	  fatal_error ("opening output file %s: %m", out_fname);
+	  fatal_error (input_location, "opening output file %s: %m", out_fname);
 	  return false;
 	}
 
@@ -1102,7 +1116,8 @@ c_common_finish (void)
 	{
 	  deps_stream = fopen (deps_file, deps_append ? "a": "w");
 	  if (!deps_stream)
-	    fatal_error ("opening dependency file %s: %m", deps_file);
+	    fatal_error (input_location, "opening dependency file %s: %m",
+			 deps_file);
 	}
     }
 
@@ -1112,10 +1127,10 @@ c_common_finish (void)
 
   if (deps_stream && deps_stream != out_stream
       && (ferror (deps_stream) || fclose (deps_stream)))
-    fatal_error ("closing dependency file %s: %m", deps_file);
+    fatal_error (input_location, "closing dependency file %s: %m", deps_file);
 
   if (out_stream && (ferror (out_stream) || fclose (out_stream)))
-    fatal_error ("when writing output to %s: %m", out_fname);
+    fatal_error (input_location, "when writing output to %s: %m", out_fname);
 }
 
 /* Either of two environment variables can specify output of

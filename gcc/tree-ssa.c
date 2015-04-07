@@ -21,17 +21,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -1555,6 +1561,8 @@ execute_update_addresses_taken (void)
 					TREE_TYPE (other),
 					TREE_OPERAND (lhs, 0));
 		    gimple load = gimple_build_assign (other, lrhs);
+		    location_t loc = gimple_location (stmt);
+		    gimple_set_location (load, loc);
 		    gimple_set_vuse (load, gimple_vuse (stmt));
 		    gsi_insert_before (&gsi, load, GSI_SAME_STMT);
 		    gimple_assign_set_lhs (stmt, TREE_OPERAND (lhs, 0));

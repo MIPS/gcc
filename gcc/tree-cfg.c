@@ -24,18 +24,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "hash-map.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "trans-mem.h"
 #include "stor-layout.h"
 #include "print-tree.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -65,6 +70,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-into-ssa.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
@@ -80,7 +98,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-live.h"
 #include "omp-low.h"
 #include "tree-cfgcleanup.h"
-#include "wide-int.h"
 #include "wide-int-print.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
@@ -1686,7 +1703,8 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
   if (!single_pred_p (b))
     return false;
 
-  if (b == EXIT_BLOCK_PTR_FOR_FN (cfun))
+  if (a == ENTRY_BLOCK_PTR_FOR_FN (cfun)
+      || b == EXIT_BLOCK_PTR_FOR_FN (cfun))
     return false;
 
   /* If A ends by a statement causing exceptions or something similar, we
@@ -1717,11 +1735,13 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
     }
 
   /* Protect simple loop latches.  We only want to avoid merging
-     the latch with the loop header in this case.  */
+     the latch with the loop header or with a block in another
+     loop in this case.  */
   if (current_loops
       && b->loop_father->latch == b
       && loops_state_satisfies_p (LOOPS_HAVE_SIMPLE_LATCHES)
-      && b->loop_father->header == a)
+      && (b->loop_father->header == a
+	  || b->loop_father != a->loop_father))
     return false;
 
   /* It must be possible to eliminate all phi nodes in B.  If ssa form
@@ -3315,7 +3335,9 @@ verify_gimple_call (gcall *stmt)
       return true;
     }
 
-  if (gimple_call_lhs (stmt) && gimple_call_noreturn_p (stmt))
+  if (gimple_call_ctrl_altering_p (stmt)
+      && gimple_call_lhs (stmt)
+      && gimple_call_noreturn_p (stmt))
     {
       error ("LHS in noreturn call");
       return true;
@@ -5664,7 +5686,6 @@ gimple_split_block (basic_block bb, void *stmt)
 {
   gimple_stmt_iterator gsi;
   gimple_stmt_iterator gsi_tgt;
-  gimple act;
   gimple_seq list;
   basic_block new_bb;
   edge e;
@@ -5678,26 +5699,16 @@ gimple_split_block (basic_block bb, void *stmt)
   FOR_EACH_EDGE (e, ei, new_bb->succs)
     e->src = new_bb;
 
-  if (stmt && gimple_code ((gimple) stmt) == GIMPLE_LABEL)
-    stmt = NULL;
-
-  /* Move everything from GSI to the new basic block.  */
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  /* Get a stmt iterator pointing to the first stmt to move.  */
+  if (!stmt || gimple_code ((gimple) stmt) == GIMPLE_LABEL)
+    gsi = gsi_after_labels (bb);
+  else
     {
-      act = gsi_stmt (gsi);
-      if (gimple_code (act) == GIMPLE_LABEL)
-	continue;
-
-      if (!stmt)
-	break;
-
-      if (stmt == act)
-	{
-	  gsi_next (&gsi);
-	  break;
-	}
+      gsi = gsi_for_stmt ((gimple) stmt);
+      gsi_next (&gsi);
     }
-
+ 
+  /* Move everything from GSI to the new basic block.  */
   if (gsi_end_p (gsi))
     return new_bb;
 
@@ -7815,6 +7826,13 @@ remove_edge_and_dominated_blocks (edge e)
   basic_block bb, dbb;
   bitmap_iterator bi;
 
+  /* If we are removing a path inside a non-root loop that may change
+     loop ownership of blocks or remove loops.  Mark loops for fixup.  */
+  if (current_loops
+      && loop_outer (e->src->loop_father) != NULL
+      && e->src->loop_father == e->dest->loop_father)
+    loops_state_set (LOOPS_NEED_FIXUP);
+
   if (!dom_info_available_p (CDI_DOMINATORS))
     {
       remove_edge (e);
@@ -8713,10 +8731,6 @@ execute_fixup_cfg (void)
   if (count_scale != REG_BR_PROB_BASE)
     compute_function_frequency ();
 
-  /* Dump a textual representation of the flowgraph.  */
-  if (dump_file)
-    gimple_dump_cfg (dump_file, dump_flags);
-
   if (current_loops
       && (todo & TODO_cleanup_cfg))
     loops_state_set (LOOPS_NEED_FIXUP);
@@ -8729,7 +8743,7 @@ namespace {
 const pass_data pass_data_fixup_cfg =
 {
   GIMPLE_PASS, /* type */
-  "*free_cfg_annotations", /* name */
+  "fixup_cfg", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_cfg, /* properties_required */

@@ -1,3 +1,174 @@
+2015-03-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR c/65586
+	* c-parser.c (c_parser_skip_to_pragma_eol): Optionally, don't
+	error out.
+	(c_parser_omp_for, c_parser_omp_parallel, c_parser_omp_distribute,
+	c_parser_omp_teams, c_parser_omp_target, c_parser_omp_declare):
+	Update calls to not error for skipped omp pragmas with -fopenmp-simd.
+
+2015-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-decl.c (c_decl_attributes): Also add "omp declare target"
+	attribute for DECL_EXTERNAL VAR_DECLs.
+
+2015-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parse_init): Don't call xstrdup on get_identifier
+	argument.
+
+2015-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/65120
+	* c-typeck.c (parser_build_binary_op): Check for tcc_comparison
+	before preparing arguments to warn_logical_not_parentheses.
+
+2015-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/65120
+	* c-typeck.c (parser_build_binary_op): Don't warn for
+	!!x == y or !b == y where b is _Bool.
+
+2015-03-09  Marek Polacek  <polacek@redhat.com>
+
+	* c-convert.c (convert): Make use of do_ubsan_in_current_function.
+	* c-decl.c (grokdeclarator): Likewise.
+	* c-typeck.c (build_binary_op): Likewise.
+
+2015-02-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65228
+	* c-decl.c (start_decl): Return NULL_TREE if decl is an error node.
+
+2015-02-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64768
+	* c-decl.c (grokdeclarator): Set the range of a flexible array member
+	declared through a typedef name.
+
+2015-02-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65050
+	* c-decl.c (grokdeclarator): Print also the type when giving
+	the error message about array's incomplete element type.
+
+2015-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64824
+	* c-parser.c (c_parser_binary_expression): Fix OpenMP stack[sp].prec
+	check in the POP macro.
+
+2015-02-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64856
+	* c-typeck.c (process_init_element): Don't always wrap
+	COMPOUND_LITERAL_EXPR in a SAVE_EXPR in C99 mode when
+	initializing a range of elements.
+
+2015-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64824
+	PR c/64868
+	* c-parser.c (c_parser_omp_atomic): Handle RDIV_EXPR.
+
+2015-02-02  Bruno Loff  <bruno.loff@gmail.com>
+
+	* c-parser.c (c_parser_declspecs): Call invoke_plugin_callbacks after
+	processing enum declaration.
+
+2015-01-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64709
+	* c-typeck.c (pop_init_level): If constructor_elements has
+	exactly one element with integer_zerop value, set constructor_zeroinit
+	to 1.  Remove braces around warning_init call.
+
+2015-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64766
+	* c-typeck.c (store_init_value): Don't overwrite DECL_INITIAL
+	of FUNCTION_DECLs with error_mark_node.
+
+2015-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64778
+	* c-typeck.c (convert_arguments): Return -1 if there are
+	error_args, even if we've diagnosed too many arguments.
+
+2015-01-21  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64313
+	* c-decl.c (merge_decls): Call set_builtin_decl_declared_p
+	for builtins the user declared correctly.
+
+2015-01-15  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+	    Ilmir Usmanov  <i.usmanov@samsung.com>
+
+	* c-parser.c: Include "gomp-constants.h".
+	(c_parser_omp_clause_map): Use enum gomp_map_kind instead of enum
+	omp_clause_map_kind.  Use GOMP_MAP_* instead of OMP_CLAUSE_MAP_*.
+	Use OMP_CLAUSE_SET_MAP_KIND.
+	(c_parser_pragma): Handle PRAGMA_OACC_ENTER_DATA,
+	PRAGMA_OACC_EXIT_DATA, PRAGMA_OACC_UPDATE.
+	(c_parser_omp_construct): Handle PRAGMA_OACC_CACHE,
+	PRAGMA_OACC_DATA, PRAGMA_OACC_KERNELS, PRAGMA_OACC_LOOP,
+	PRAGMA_OACC_PARALLEL, PRAGMA_OACC_WAIT.
+	(c_parser_omp_clause_name): Handle "auto", "async", "copy",
+	"copyout", "create", "delete", "deviceptr", "gang", "host",
+	"num_gangs", "num_workers", "present", "present_or_copy", "pcopy",
+	"present_or_copyin", "pcopyin", "present_or_copyout", "pcopyout",
+	"present_or_create", "pcreate", "seq", "self", "vector",
+	"vector_length", "wait", "worker".
+	(OACC_DATA_CLAUSE_MASK, OACC_KERNELS_CLAUSE_MASK)
+	(OACC_ENTER_DATA_CLAUSE_MASK, OACC_EXIT_DATA_CLAUSE_MASK)
+	(OACC_LOOP_CLAUSE_MASK, OACC_PARALLEL_CLAUSE_MASK)
+	(OACC_UPDATE_CLAUSE_MASK, OACC_WAIT_CLAUSE_MASK): New macros.
+	(c_parser_omp_variable_list): Handle OMP_CLAUSE__CACHE_.
+	(c_parser_oacc_wait_list, c_parser_oacc_data_clause)
+	(c_parser_oacc_data_clause_deviceptr)
+	(c_parser_omp_clause_num_gangs, c_parser_omp_clause_num_workers)
+	(c_parser_oacc_clause_async, c_parser_oacc_clause_wait)
+	(c_parser_omp_clause_vector_length, c_parser_oacc_all_clauses)
+	(c_parser_oacc_cache, c_parser_oacc_data, c_parser_oacc_kernels)
+	(c_parser_oacc_enter_exit_data, c_parser_oacc_loop)
+	(c_parser_oacc_parallel, c_parser_oacc_update)
+	(c_parser_oacc_wait): New functions.
+	* c-tree.h (c_finish_oacc_parallel, c_finish_oacc_kernels)
+	(c_finish_oacc_data): New prototypes.
+	* c-typeck.c: Include "gomp-constants.h".
+	(handle_omp_array_sections): Handle GOMP_MAP_FORCE_DEVICEPTR.  Use
+	GOMP_MAP_* instead of OMP_CLAUSE_MAP_*.  Use
+	OMP_CLAUSE_SET_MAP_KIND.
+	(c_finish_oacc_parallel, c_finish_oacc_kernels)
+	(c_finish_oacc_data): New functions.
+	(c_finish_omp_clauses): Handle OMP_CLAUSE__CACHE_,
+	OMP_CLAUSE_NUM_GANGS, OMP_CLAUSE_NUM_WORKERS,
+	OMP_CLAUSE_VECTOR_LENGTH, OMP_CLAUSE_ASYNC, OMP_CLAUSE_WAIT,
+	OMP_CLAUSE_AUTO, OMP_CLAUSE_SEQ, OMP_CLAUSE_GANG,
+	OMP_CLAUSE_WORKER, OMP_CLAUSE_VECTOR, and OMP_CLAUSE_MAP's
+	GOMP_MAP_FORCE_DEVICEPTR.
+
+2015-01-09  Michael Collison  <michael.collison@linaro.org>
+
+	* c-array-notation.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, and inchash.h due to flattening of tree.h.
+	* c-aux-info.c: Ditto.
+	* c-convert.c: Ditto.
+	* c-decl.c: Ditto.
+	* c-errors.c: Ditto.
+	* c-lang.c: Dittoxs.
+	* c-objc-common.c: Ditto.
+	* c-parser.c: Ditto.
+	* c-typeck.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, inchash.h, real.h and
+	fixed-value.h due to flattening of tree.h.
+
 2015-01-07  Marek Polacek  <polacek@redhat.com>
 
 	PR c/64417

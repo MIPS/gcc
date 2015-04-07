@@ -22,15 +22,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
-#include "stor-layout.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
-#include "hard-reg-set.h"
+#include "vec.h"
+#include "double-int.h"
 #include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "stor-layout.h"
+#include "predict.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -41,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "inchash.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
@@ -53,12 +57,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "dumpfile.h"
 #include "alloc-pool.h"
-#include "flags.h"
 #include "cfgloop.h"
 #include "params.h"
 #include "tree-ssa-propagate.h"
@@ -1282,7 +1299,11 @@ fully_constant_vn_reference_p (vn_reference_t ref)
 	       || TYPE_PRECISION (ref->type) % BITS_PER_UNIT == 0))
     {
       HOST_WIDE_INT off = 0;
-      HOST_WIDE_INT size = tree_to_shwi (TYPE_SIZE (ref->type));
+      HOST_WIDE_INT size;
+      if (INTEGRAL_TYPE_P (ref->type))
+	size = TYPE_PRECISION (ref->type);
+      else
+	size = tree_to_shwi (TYPE_SIZE (ref->type));
       if (size % BITS_PER_UNIT != 0
 	  || size > MAX_BITSIZE_MODE_ANY_MODE)
 	return NULL_TREE;
@@ -1536,7 +1557,7 @@ vn_reference_lookup_or_insert_for_pieces (tree vuse,
 					        va_heap> operands,
 					  tree value)
 {
-  struct vn_reference_s vr1;
+  vn_reference_s vr1;
   vn_reference_t result;
   unsigned value_id;
   vr1.vuse = vuse;
@@ -2746,7 +2767,8 @@ set_ssa_val_to (tree from, tree to)
     }
 
   gcc_assert (to != NULL_TREE
-	      && (TREE_CODE (to) == SSA_NAME
+	      && ((TREE_CODE (to) == SSA_NAME
+		   && (to == from || SSA_VAL (to) == to))
 		  || is_gimple_min_invariant (to)));
 
   if (from != to)
@@ -3025,6 +3047,9 @@ visit_reference_op_store (tree lhs, tree op, gimple stmt)
   tree vuse = gimple_vuse (stmt);
   tree vdef = gimple_vdef (stmt);
 
+  if (TREE_CODE (op) == SSA_NAME)
+    op = SSA_VAL (op);
+
   /* First we want to lookup using the *vuses* from the store and see
      if there the last store to this location with the same address
      had the same value.
@@ -3047,8 +3072,6 @@ visit_reference_op_store (tree lhs, tree op, gimple stmt)
     {
       if (TREE_CODE (result) == SSA_NAME)
 	result = SSA_VAL (result);
-      if (TREE_CODE (op) == SSA_NAME)
-	op = SSA_VAL (op);
       resultsame = expressions_equal_p (result, op);
     }
 
@@ -3378,7 +3401,7 @@ visit_use (tree use)
 		  changed = set_ssa_val_to (lhs, simplified);
 		  if (gimple_vdef (stmt))
 		    changed |= set_ssa_val_to (gimple_vdef (stmt),
-					       gimple_vuse (stmt));
+					       SSA_VAL (gimple_vuse (stmt)));
 		  goto done;
 		}
 	      else if (simplified
@@ -3387,7 +3410,7 @@ visit_use (tree use)
 		  changed = visit_copy (lhs, simplified);
 		  if (gimple_vdef (stmt))
 		    changed |= set_ssa_val_to (gimple_vdef (stmt),
-					       gimple_vuse (stmt));
+					       SSA_VAL (gimple_vuse (stmt)));
 		  goto done;
 		}
 	      else if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))

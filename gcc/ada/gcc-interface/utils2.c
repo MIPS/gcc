@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -27,7 +27,17 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -1052,6 +1062,13 @@ build_binary_op (enum tree_code op_code, tree result_type,
 		gcc_unreachable ();
 	    }
 
+	  else if (POINTER_TYPE_P (left_base_type)
+		   && POINTER_TYPE_P (right_base_type))
+	    {
+	      gcc_assert (TREE_TYPE (left_base_type)
+			  == TREE_TYPE (right_base_type));
+	      best_type = left_base_type;
+	    }
 	  else
 	    gcc_unreachable ();
 
@@ -2787,6 +2804,12 @@ gnat_invariant_expr (tree expr)
 	expr = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (expr))), expr);
       expr = remove_conversions (expr, false);
     }
+
+  /* We are only interested in scalar types at the moment and, even if we may
+     have gone through padding types in the above loop, we must be back to a
+     scalar value at this point.  */
+  if (AGGREGATE_TYPE_P (TREE_TYPE (expr)))
+    return NULL_TREE;
 
   if (TREE_CONSTANT (expr))
     return fold_convert (type, expr);
