@@ -1,3 +1,146 @@
+2015-04-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/64085
+	* lambda.c (add_capture): Use dependent_type_p for capture by
+	reference too.
+
+2015-04-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65642
+	* constexpr.c (cxx_eval_pointer_plus_expression): Call
+	cxx_eval_constant_expression on the first operand.
+
+2015-04-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65625
+	* decl.c (make_typename_type): Handle seeing a variable template.
+
+2015-04-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56100
+	* pt.c (instantiating_current_function_p): New.
+	* name-lookup.c (pushdecl_maybe_friend_1): Use it.
+	* cp-tree.h (instantiating_current_function_p): Declare.
+
+2015-04-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65646
+	* decl.c (grokvardecl): Don't call check_explicit_specialization
+	for non-template members of a class template.
+
+2015-04-01  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65554
+	* class.c (finish_struct): Require that the second field of a
+	user-defined initializer_list be of size type.
+
+2015-03-31  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65390
+	* tree.c (build_cplus_array_type): Use dependent_type_p rather than
+	checking for constness.
+
+2015-03-30  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65398
+	* constexpr.c (cxx_fold_indirect_ref): Don't perform the
+	 *(&A[i] p+ j) => A[i + j] transformation here.
+	(cxx_eval_pointer_plus_expression): New function.
+	(cxx_eval_constant_expression): Use it here.
+
+2015-03-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR c/65586
+	* parser.c (cp_parser_omp_for, cp_parser_omp_parallel,
+	cp_parser_omp_distribute, cp_parser_omp_teams, cp_parser_omp_target,
+	cp_parser_omp_declare): Don't show error for skipped omp pragmas with
+	-fopenmp-simd.
+
+2015-03-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65556
+	* semantics.c (finish_switch_cond): If the unlowered type is not an
+	enum, use the type of the condition.
+
+2015-03-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65509
+	* decl.c (make_rtl_for_nonlocal_decl): Don't defer static
+	constants.
+
+2015-03-26  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c++/65154
+	* init.c (build_vec_init): Fix initializing aggregates
+	with empty init list.
+
+2015-03-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65525
+	* constexpr.c (potential_constant_expression_1): Handle MEM_REF.
+
+2015-03-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65558
+	* name-lookup.c (handle_namespace_attrs): Ignore abi_tag attribute
+	on an anonymous namespace.
+
+2015-03-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/61670
+	* class.c (remove_zero_width_bit_fields): Check for null DECL_SIZE.
+
+2015-03-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65046
+	* cp-tree.h (NAMESPACE_IS_INLINE): Remove.
+	* parser.c (cp_parser_namespace_definition): Don't set it.
+	* name-lookup.c (handle_namespace_attrs): Check
+	DECL_NAMESPACE_ASSOCIATIONS instead.
+
+	PR c++/65498
+	* pt.c (get_mostly_instantiated_function_type): Just return the
+	type of the partially instantiated template in DECL_TI_TEMPLATE.
+
+2015-03-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65398
+	* constexpr.c (cxx_fold_indirect_ref): Transform *(&A[i] p+ j) into
+	A[i + j].
+
+2015-03-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65072
+	* typeck.c (lookup_anon_field): Make sure we're dealing with the main
+	variant.
+
+2015-03-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65046
+	Automatically propagate ABI tags to variables and functions
+	from their (return) type.
+	* class.c (check_tag): Handle variables and functions.
+	(mark_or_check_attr_tags): Split out from find_abi_tags_r.
+	(mark_or_check_tags): Likewise.
+	(mark_abi_tags): Use it.  Rename from mark_type_abi_tags.
+	(check_abi_tags): Add single argument overload for decls.
+	Handle inheriting tags for decls.
+	* mangle.c (write_mangled_name): Call it.
+	(mangle_return_type_p): Split out from write_encoding.
+	(unmangled_name_p): Split out from write_mangled_name.
+	(write_mangled_name): Ignore abi_tag on namespace.
+	* cp-tree.h (NAMESPACE_IS_INLINE): Replace NAMESPACE_ABI_TAG.
+	* parser.c (cp_parser_namespace_definition): Set it.
+	* name-lookup.c (handle_namespace_attrs): Use arguments. Warn
+	about abi_tag attribute on non-inline namespace.
+	* tree.c (check_abi_tag_args): Split out from handle_abi_tag_attribute.
+	(handle_abi_tag_attribute): Allow tags on variables.
+
+2015-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl2.c (cplus_decl_attributes): Also add "omp declare target"
+	attribute for DECL_EXTERNAL VAR_DECLs.
+
 2015-03-18  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/65340

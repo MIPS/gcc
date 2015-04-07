@@ -1508,6 +1508,10 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
   tree thunk_fndecl = decl;
   tree a;
 
+  /* Instrumentation thunk is the same function with
+     a different signature.  Never need to expand it.  */
+  if (thunk.add_pointer_bounds_args)
+    return false;
 
   if (!force_gimple_thunk && this_adjusting
       && targetm.asm_out.can_output_mi_thunk (thunk_fndecl, fixed_offset,
@@ -2484,8 +2488,9 @@ cgraph_node::create_wrapper (cgraph_node *target)
 
   /* Turn alias into thunk and expand it into GIMPLE representation.  */
   definition = true;
+
+  memset (&thunk, 0, sizeof (cgraph_thunk_info));
   thunk.thunk_p = true;
-  thunk.this_adjusting = false;
   create_edge (target, NULL, count, CGRAPH_FREQ_BASE);
 
   tree arguments = DECL_ARGUMENTS (decl);

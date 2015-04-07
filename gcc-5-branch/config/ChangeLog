@@ -1,10 +1,13 @@
-2015-02-25  Uros Bizjak  <ubizjak@gmail.com>
+2015-04-07  Jakub Jelinek  <jakub@redhat.com>
+	    Iain Sandoe  <iain@codesourcery.com>
 
-	Revert:
-	2014-07-26  Uros Bizjak  <ubizjak@gmail.com>
+	PR target/65351
+	* picflag.m4: Append -mno-dynamic-no-pic for Darwin.
 
-	PR target/47230
-	* mh-alpha-linux: New file.
+2015-03-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR bootstrap/65537
+	* bootstrap-lto-noplugin.mk: New build configuration.
 
 2015-02-18  Thomas Schwinge  <thomas@codesourcery.com>
 
