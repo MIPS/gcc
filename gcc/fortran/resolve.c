@@ -7224,6 +7224,11 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
   gfc_expr *stat, *errmsg, *pe, *qe;
   gfc_alloc *a, *p, *q;
 
+  /* When this flag is set already, then this allocate has already been
+     resolved.  Doing so again, would result in an endless loop.  */
+  if (code->ext.alloc.arr_spec_from_expr3)
+    return;
+
   stat = code->expr1;
   errmsg = code->expr2;
 
@@ -7413,7 +7418,7 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	      static unsigned int alloc_sym_count = 0;
 	      gfc_symbol *temp_var_sym;
 	      gfc_expr *temp_var;
-	      gfc_code *ass, *iter;
+	      gfc_code *ass, *old_alloc;
 	      gfc_namespace *ns = code->ext.alloc.list->expr->symtree->n.sym->ns;
 	      gfc_array_spec *as;
 	      int dim;
@@ -7469,24 +7474,18 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	      ass->loc = code->expr3->where;
 
 	      gfc_resolve_code (ass, ns);
+
 	      /* Now add the new code before this ones.  */
-	      iter = ns->code;
-	      /* At least one code has to be present in the ns, this one.  */
-	      if (iter == code)
-		ns->code = ass;
-	      else
-		{
-		  while (iter->next && iter->next != code)
-		    iter = iter->next;
-		  gcc_assert (iter->next);
-		  iter->next = ass;
-		}
-	      ass->next = code;
+	      old_alloc = gfc_get_code (EXEC_ALLOCATE);
+	      *old_alloc = *code;
+	      *code = *ass;
+	      code->next = old_alloc;
 
 	      /* Do not gfc_free_expr (temp_var), because it is inserted
-	     without copy into expr3.  */
-	      code->expr3 = temp_var;
+		 without copy into expr3.  */
+	      old_alloc->expr3 = temp_var;
 	      gfc_set_sym_referenced (temp_var_sym);
+	      gfc_commit_symbol (temp_var_sym);
 	    }
 	}
     }
