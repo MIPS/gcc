@@ -103,8 +103,6 @@
   UNSPEC_MSA_MULR_Q
   UNSPEC_MSA_NLOC
   UNSPEC_MSA_NORI_B
-  UNSPEC_MSA_PCKEV
-  UNSPEC_MSA_PCKOD
   UNSPEC_MSA_SAT_S
   UNSPEC_MSA_SAT_U
   UNSPEC_MSA_SHF
@@ -193,6 +191,12 @@
   [(V4SI "V2DI")
    (V8HI "V4SI")
    (V16QI "V8HI")])
+
+;; The attribute gives half modes with same number of elements for vector modes.
+(define_mode_attr TRUNCMODE
+  [(V8HI "V8QI")
+   (V4SI "V4HI")
+   (V2DI "V2SI")])
 
 ;; This attribute gives the mode of the result for "copy_s_b, copy_u_b" etc.
 (define_mode_attr RES
@@ -320,9 +324,11 @@
 ;; pckev pattern with implicit type conversion.
 (define_insn "vec_pack_trunc_<mode>"
    [(set (match_operand:<VHMODE> 0 "register_operand" "=f")
-	(unspec:<VHMODE> [(match_operand:IMSA_DWH 1 "register_operand" "f")
-			  (match_operand:IMSA_DWH 2 "register_operand" "f")]
-			 UNSPEC_MSA_PCKEV))]
+	 (vec_concat:<VHMODE>
+	   (truncate:<TRUNCMODE>
+	     (match_operand:IMSA_DWH 1 "register_operand" "f"))
+	   (truncate:<TRUNCMODE>
+	     (match_operand:IMSA_DWH 2 "register_operand" "f"))))]
   "ISA_HAS_MSA"
   "pckev.<hmsafmt>\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
@@ -2203,16 +2209,16 @@
 	  (vec_concat:V32QI
 	    (match_operand:V16QI 1 "register_operand" "f")
 	    (match_operand:V16QI 2 "register_operand" "f"))
-	  (parallel [(const_int 16) (const_int 0)
-		     (const_int 18) (const_int 2)
-		     (const_int 20) (const_int 4)
-		     (const_int 22) (const_int 6)
-		     (const_int 24) (const_int 8)
-		     (const_int 26) (const_int 10)
-		     (const_int 28) (const_int 12)
-		     (const_int 30) (const_int 14)])))]
+	  (parallel [(const_int 0)  (const_int 16)
+		     (const_int 2)  (const_int 18)
+		     (const_int 4)  (const_int 20)
+		     (const_int 6)  (const_int 22)
+		     (const_int 8)  (const_int 24)
+		     (const_int 10) (const_int 26)
+		     (const_int 12) (const_int 28)
+		     (const_int 14) (const_int 30)])))]
   "ISA_HAS_MSA"
-  "ilvev.b\t%w0,%w1,%w2"
+  "ilvev.b\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2223,12 +2229,12 @@
 	  (vec_concat:V16HI
 	    (match_operand:V8HI 1 "register_operand" "f")
 	    (match_operand:V8HI 2 "register_operand" "f"))
-	  (parallel [(const_int 8)  (const_int 0)
-		     (const_int 10) (const_int 2)
-		     (const_int 12) (const_int 4)
-		     (const_int 14) (const_int 6)])))]
+	  (parallel [(const_int 0) (const_int 8)
+		     (const_int 2) (const_int 10)
+		     (const_int 4) (const_int 12)
+		     (const_int 6) (const_int 14)])))]
   "ISA_HAS_MSA"
-  "ilvev.h\t%w0,%w1,%w2"
+  "ilvev.h\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2239,10 +2245,24 @@
 	  (vec_concat:V8SI
 	    (match_operand:V4SI 1 "register_operand" "f")
 	    (match_operand:V4SI 2 "register_operand" "f"))
-	  (parallel [(const_int 4) (const_int 0)
-		     (const_int 6) (const_int 2)])))]
+	  (parallel [(const_int 0) (const_int 4)
+		     (const_int 2) (const_int 6)])))]
   "ISA_HAS_MSA"
-  "ilvev.w\t%w0,%w1,%w2"
+  "ilvev.w\t%w0,%w2,%w1"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
+(define_insn "msa_ilvev_w_f"
+  [(set (match_operand:V4SF 0 "register_operand" "=f")
+	(vec_select:V4SF
+	  (vec_concat:V8SF
+	    (match_operand:V4SF 1 "register_operand" "f")
+	    (match_operand:V4SF 2 "register_operand" "f"))
+	  (parallel [(const_int 0) (const_int 4)
+		     (const_int 2) (const_int 6)])))]
+  "ISA_HAS_MSA"
+  "ilvev.w\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2253,16 +2273,16 @@
 	  (vec_concat:V32QI
 	    (match_operand:V16QI 1 "register_operand" "f")
 	    (match_operand:V16QI 2 "register_operand" "f"))
-	  (parallel [(const_int 24) (const_int 8)
-		     (const_int 25) (const_int 9)
-		     (const_int 26) (const_int 10)
-		     (const_int 27) (const_int 11)
-		     (const_int 28) (const_int 12)
-		     (const_int 29) (const_int 13)
-		     (const_int 30) (const_int 14)
-		     (const_int 31) (const_int 15)])))]
+	  (parallel [(const_int 8)  (const_int 24)
+		     (const_int 9)  (const_int 25)
+		     (const_int 10) (const_int 26)
+		     (const_int 11) (const_int 27)
+		     (const_int 12) (const_int 28)
+		     (const_int 13) (const_int 29)
+		     (const_int 14) (const_int 30)
+		     (const_int 15) (const_int 31)])))]
   "ISA_HAS_MSA"
-  "ilvl.b\t%w0,%w1,%w2"
+  "ilvl.b\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2273,12 +2293,12 @@
 	  (vec_concat:V16HI
 	    (match_operand:V8HI 1 "register_operand" "f")
 	    (match_operand:V8HI 2 "register_operand" "f"))
-	  (parallel [(const_int 12) (const_int 4)
-		     (const_int 13) (const_int 5)
-		     (const_int 14) (const_int 6)
-		     (const_int 15) (const_int 7)])))]
+	  (parallel [(const_int 4) (const_int 12)
+		     (const_int 5) (const_int 13)
+		     (const_int 6) (const_int 14)
+		     (const_int 7) (const_int 15)])))]
   "ISA_HAS_MSA"
-  "ilvl.h\t%w0,%w1,%w2"
+  "ilvl.h\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2289,10 +2309,10 @@
 	  (vec_concat:V8SI
 	    (match_operand:V4SI 1 "register_operand" "f")
 	    (match_operand:V4SI 2 "register_operand" "f"))
-	  (parallel [(const_int 6) (const_int 2)
-		     (const_int 7) (const_int 3)])))]
+	  (parallel [(const_int 2) (const_int 6)
+		     (const_int 3) (const_int 7)])))]
   "ISA_HAS_MSA"
-  "ilvl.w\t%w0,%w1,%w2"
+  "ilvl.w\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2303,10 +2323,10 @@
 	  (vec_concat:V8SF
 	    (match_operand:V4SF 1 "register_operand" "f")
 	    (match_operand:V4SF 2 "register_operand" "f"))
-	  (parallel [(const_int 6) (const_int 2)
-		     (const_int 7) (const_int 3)])))]
+	  (parallel [(const_int 2) (const_int 6)
+		     (const_int 3) (const_int 7)])))]
   "ISA_HAS_MSA"
-  "ilvl.w\t%w0,%w1,%w2"
+  "ilvl.w\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2317,9 +2337,9 @@
 	  (vec_concat:V4DI
 	    (match_operand:V2DI 1 "register_operand" "f")
 	    (match_operand:V2DI 2 "register_operand" "f"))
-	  (parallel [(const_int 3) (const_int 1)])))]
+	  (parallel [(const_int 1) (const_int 3)])))]
   "ISA_HAS_MSA"
-  "ilvl.d\t%w0,%w1,%w2"
+  "ilvl.d\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2330,9 +2350,9 @@
 	  (vec_concat:V4DF
 	    (match_operand:V2DF 1 "register_operand" "f")
 	    (match_operand:V2DF 2 "register_operand" "f"))
-	  (parallel [(const_int 3) (const_int 1)])))]
+	  (parallel [(const_int 1) (const_int 3)])))]
   "ISA_HAS_MSA"
-  "ilvl.d\t%w0,%w1,%w2"
+  "ilvl.d\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2343,16 +2363,16 @@
 	  (vec_concat:V32QI
 	    (match_operand:V16QI 1 "register_operand" "f")
 	    (match_operand:V16QI 2 "register_operand" "f"))
-	  (parallel [(const_int 17) (const_int 1)
-		     (const_int 19) (const_int 3)
-		     (const_int 21) (const_int 5)
-		     (const_int 23) (const_int 7)
-		     (const_int 25) (const_int 9)
-		     (const_int 27) (const_int 11)
-		     (const_int 29) (const_int 13)
-		     (const_int 31) (const_int 15)])))]
+	  (parallel [(const_int 1)  (const_int 17)
+		     (const_int 3)  (const_int 19)
+		     (const_int 5)  (const_int 21)
+		     (const_int 7)  (const_int 23)
+		     (const_int 9)  (const_int 25)
+		     (const_int 11) (const_int 27)
+		     (const_int 13) (const_int 29)
+		     (const_int 15) (const_int 31)])))]
   "ISA_HAS_MSA"
-  "ilvod.b\t%w0,%w1,%w2"
+  "ilvod.b\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2363,12 +2383,12 @@
 	  (vec_concat:V16HI
 	    (match_operand:V8HI 1 "register_operand" "f")
 	    (match_operand:V8HI 2 "register_operand" "f"))
-	  (parallel [(const_int 9)  (const_int 1)
-		     (const_int 11) (const_int 3)
-		     (const_int 13) (const_int 5)
-		     (const_int 15) (const_int 7)])))]
+	  (parallel [(const_int 1) (const_int 9)
+		     (const_int 3) (const_int 11)
+		     (const_int 5) (const_int 13)
+		     (const_int 7) (const_int 15)])))]
   "ISA_HAS_MSA"
-  "ilvod.h\t%w0,%w1,%w2"
+  "ilvod.h\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2379,10 +2399,24 @@
 	  (vec_concat:V8SI
 	    (match_operand:V4SI 1 "register_operand" "f")
 	    (match_operand:V4SI 2 "register_operand" "f"))
-	  (parallel [(const_int 5) (const_int 1)
-		     (const_int 7) (const_int 3)])))]
+	  (parallel [(const_int 1) (const_int 5)
+		     (const_int 3) (const_int 7)])))]
   "ISA_HAS_MSA"
-  "ilvod.w\t%w0,%w1,%w2"
+  "ilvod.w\t%w0,%w2,%w1"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
+(define_insn "msa_ilvod_w_f"
+  [(set (match_operand:V4SF 0 "register_operand" "=f")
+	(vec_select:V4SF
+	  (vec_concat:V8SF
+	    (match_operand:V4SF 1 "register_operand" "f")
+	    (match_operand:V4SF 2 "register_operand" "f"))
+	  (parallel [(const_int 1) (const_int 5)
+		     (const_int 3) (const_int 7)])))]
+  "ISA_HAS_MSA"
+  "ilvod.w\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2393,16 +2427,16 @@
 	  (vec_concat:V32QI
 	    (match_operand:V16QI 1 "register_operand" "f")
 	    (match_operand:V16QI 2 "register_operand" "f"))
-	  (parallel [(const_int 16) (const_int 0)
-		     (const_int 17) (const_int 1)
-		     (const_int 18) (const_int 2)
-		     (const_int 19) (const_int 3)
-		     (const_int 20) (const_int 4)
-		     (const_int 21) (const_int 5)
-		     (const_int 22) (const_int 6)
-		     (const_int 23) (const_int 7)])))]
+	  (parallel [(const_int 0) (const_int 16)
+		     (const_int 1) (const_int 17)
+		     (const_int 2) (const_int 18)
+		     (const_int 3) (const_int 19)
+		     (const_int 4) (const_int 20)
+		     (const_int 5) (const_int 21)
+		     (const_int 6) (const_int 22)
+		     (const_int 7) (const_int 23)])))]
   "ISA_HAS_MSA"
-  "ilvr.b\t%w0,%w1,%w2"
+  "ilvr.b\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2413,12 +2447,12 @@
 	  (vec_concat:V16HI
 	    (match_operand:V8HI 1 "register_operand" "f")
 	    (match_operand:V8HI 2 "register_operand" "f"))
-	  (parallel [(const_int 8)  (const_int 0)
-		     (const_int 9)  (const_int 1)
-		     (const_int 10) (const_int 2)
-		     (const_int 11) (const_int 3)])))]
+	  (parallel [(const_int 0) (const_int 8)
+		     (const_int 1) (const_int 9)
+		     (const_int 2) (const_int 10)
+		     (const_int 3) (const_int 11)])))]
   "ISA_HAS_MSA"
-  "ilvr.h\t%w0,%w1,%w2"
+  "ilvr.h\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2429,10 +2463,10 @@
 	  (vec_concat:V8SI
 	    (match_operand:V4SI 1 "register_operand" "f")
 	    (match_operand:V4SI 2 "register_operand" "f"))
-	  (parallel [(const_int 4) (const_int 0)
-		     (const_int 5) (const_int 1)])))]
+	  (parallel [(const_int 0) (const_int 4)
+		     (const_int 1) (const_int 5)])))]
   "ISA_HAS_MSA"
-  "ilvr.w\t%w0,%w1,%w2"
+  "ilvr.w\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2443,10 +2477,10 @@
 	  (vec_concat:V8SF
 	    (match_operand:V4SF 1 "register_operand" "f")
 	    (match_operand:V4SF 2 "register_operand" "f"))
-	  (parallel [(const_int 4) (const_int 0)
-		     (const_int 5) (const_int 1)])))]
+	  (parallel [(const_int 0) (const_int 4)
+		     (const_int 1) (const_int 5)])))]
   "ISA_HAS_MSA"
-  "ilvr.w\t%w0,%w1,%w2"
+  "ilvr.w\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2457,9 +2491,9 @@
 	  (vec_concat:V4DI
 	    (match_operand:V2DI 1 "register_operand" "f")
 	    (match_operand:V2DI 2 "register_operand" "f"))
-	  (parallel [(const_int 2) (const_int 0)])))]
+	  (parallel [(const_int 0) (const_int 2)])))]
   "ISA_HAS_MSA"
-  "ilvr.d\t%w0,%w1,%w2"
+  "ilvr.d\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2470,9 +2504,9 @@
 	  (vec_concat:V4DF
 	    (match_operand:V2DF 1 "register_operand" "f")
 	    (match_operand:V2DF 2 "register_operand" "f"))
-	  (parallel [(const_int 2) (const_int 0)])))]
+	  (parallel [(const_int 0) (const_int 2)])))]
   "ISA_HAS_MSA"
-  "ilvr.d\t%w0,%w1,%w2"
+  "ilvr.d\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
@@ -2703,24 +2737,130 @@
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
 
-(define_insn "msa_pckev_<msafmt>"
-  [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "f")
-		      (match_operand:IMSA 2 "register_operand" "f")]
-		     UNSPEC_MSA_PCKEV))]
+(define_insn "msa_pckev_b"
+[(set (match_operand:V16QI 0 "register_operand" "=f")
+      (vec_select:V16QI
+	(vec_concat:V32QI
+	  (match_operand:V16QI 1 "register_operand" "f")
+	  (match_operand:V16QI 2 "register_operand" "f"))
+	(parallel [(const_int 0) (const_int 2)
+		   (const_int 4) (const_int 6)
+		   (const_int 8) (const_int 10)
+		   (const_int 12) (const_int 14)
+		   (const_int 16) (const_int 18)
+		   (const_int 20) (const_int 22)
+		   (const_int 24) (const_int 26)
+		   (const_int 28) (const_int 30)])))]
   "ISA_HAS_MSA"
-  "pckev.<msafmt>\t%w0,%w1,%w2"
+  "pckev.b\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
 
-(define_insn "msa_pckod_<msafmt>"
-  [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "f")
-		      (match_operand:IMSA 2 "register_operand" "f")]
-		     UNSPEC_MSA_PCKOD))]
+(define_insn "msa_pckev_h"
+[(set (match_operand:V8HI 0 "register_operand" "=f")
+      (vec_select:V8HI
+	(vec_concat:V16HI
+	  (match_operand:V8HI 1 "register_operand" "f")
+	  (match_operand:V8HI 2 "register_operand" "f"))
+	(parallel [(const_int 0) (const_int 2)
+		   (const_int 4) (const_int 6)
+		   (const_int 8) (const_int 10)
+		   (const_int 12) (const_int 14)])))]
   "ISA_HAS_MSA"
-  "pckod.<msafmt>\t%w0,%w1,%w2"
+  "pckev.h\t%w0,%w2,%w1"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
+(define_insn "msa_pckev_w"
+[(set (match_operand:V4SI 0 "register_operand" "=f")
+      (vec_select:V4SI
+	(vec_concat:V8SI
+	  (match_operand:V4SI 1 "register_operand" "f")
+	  (match_operand:V4SI 2 "register_operand" "f"))
+	(parallel [(const_int 0) (const_int 2)
+		   (const_int 4) (const_int 6)])))]
+  "ISA_HAS_MSA"
+  "pckev.w\t%w0,%w2,%w1"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
+(define_insn "msa_pckev_w_f"
+[(set (match_operand:V4SF 0 "register_operand" "=f")
+      (vec_select:V4SF
+	(vec_concat:V8SF
+	  (match_operand:V4SF 1 "register_operand" "f")
+	  (match_operand:V4SF 2 "register_operand" "f"))
+	(parallel [(const_int 0) (const_int 2)
+		   (const_int 4) (const_int 6)])))]
+  "ISA_HAS_MSA"
+  "pckev.w\t%w0,%w2,%w1"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
+(define_insn "msa_pckod_b"
+[(set (match_operand:V16QI 0 "register_operand" "=f")
+      (vec_select:V16QI
+	(vec_concat:V32QI
+	  (match_operand:V16QI 1 "register_operand" "f")
+	  (match_operand:V16QI 2 "register_operand" "f"))
+	(parallel [(const_int 1) (const_int 3)
+		   (const_int 5) (const_int 7)
+		   (const_int 9) (const_int 11)
+		   (const_int 13) (const_int 15)
+		   (const_int 17) (const_int 19)
+		   (const_int 21) (const_int 23)
+		   (const_int 25) (const_int 27)
+		   (const_int 29) (const_int 31)])))]
+  "ISA_HAS_MSA"
+  "pckod.b\t%w0,%w2,%w1"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
+(define_insn "msa_pckod_h"
+[(set (match_operand:V8HI 0 "register_operand" "=f")
+      (vec_select:V8HI
+	(vec_concat:V16HI
+	  (match_operand:V8HI 1 "register_operand" "f")
+	  (match_operand:V8HI 2 "register_operand" "f"))
+	(parallel [(const_int 1) (const_int 3)
+		   (const_int 5) (const_int 7)
+		   (const_int 9) (const_int 11)
+		   (const_int 13) (const_int 15)])))]
+  "ISA_HAS_MSA"
+  "pckod.h\t%w0,%w2,%w1"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
+(define_insn "msa_pckod_w"
+[(set (match_operand:V4SI 0 "register_operand" "=f")
+      (vec_select:V4SI
+	(vec_concat:V8SI
+	  (match_operand:V4SI 1 "register_operand" "f")
+	  (match_operand:V4SI 2 "register_operand" "f"))
+	(parallel [(const_int 1) (const_int 3)
+		   (const_int 5) (const_int 7)])))]
+  "ISA_HAS_MSA"
+  "pckod.w\t%w0,%w2,%w1"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
+(define_insn "msa_pckod_w_f"
+[(set (match_operand:V4SF 0 "register_operand" "=f")
+      (vec_select:V4SF
+	(vec_concat:V8SF
+	  (match_operand:V4SF 1 "register_operand" "f")
+	  (match_operand:V4SF 2 "register_operand" "f"))
+	(parallel [(const_int 1) (const_int 3)
+		   (const_int 5) (const_int 7)])))]
+  "ISA_HAS_MSA"
+  "pckod.w\t%w0,%w2,%w1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
