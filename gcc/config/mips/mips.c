@@ -15056,6 +15056,8 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
 
 #define CODE_FOR_msa_ilvod_d CODE_FOR_msa_ilvl_d
 #define CODE_FOR_msa_ilvev_d CODE_FOR_msa_ilvr_d
+#define CODE_FOR_msa_pckod_d CODE_FOR_msa_ilvl_d
+#define CODE_FOR_msa_pckev_d CODE_FOR_msa_ilvr_d
 
 #define CODE_FOR_msa_ldi_b CODE_FOR_msa_ldiv16qi
 #define CODE_FOR_msa_ldi_h CODE_FOR_msa_ldiv8hi
@@ -16127,6 +16129,46 @@ static rtx
 mips_expand_builtin_insn (enum insn_code icode, unsigned int nops,
 			  struct expand_operand *ops, bool has_target_p)
 {
+  struct expand_operand tmp;
+  int i;
+
+  switch (icode)
+  {
+    case CODE_FOR_msa_ilvl_b:
+    case CODE_FOR_msa_ilvl_h:
+    case CODE_FOR_msa_ilvl_w:
+    case CODE_FOR_msa_ilvl_d:
+    case CODE_FOR_msa_ilvr_b:
+    case CODE_FOR_msa_ilvr_h:
+    case CODE_FOR_msa_ilvr_w:
+    case CODE_FOR_msa_ilvr_d:
+    case CODE_FOR_msa_ilvev_b:
+    case CODE_FOR_msa_ilvev_h:
+    case CODE_FOR_msa_ilvev_w:
+    case CODE_FOR_msa_ilvod_b:
+    case CODE_FOR_msa_ilvod_h:
+    case CODE_FOR_msa_ilvod_w:
+    case CODE_FOR_msa_pckev_b:
+    case CODE_FOR_msa_pckev_h:
+    case CODE_FOR_msa_pckev_w:
+    case CODE_FOR_msa_pckod_b:
+    case CODE_FOR_msa_pckod_h:
+    case CODE_FOR_msa_pckod_w:
+      /* Swap the operands 1 and 2 for interleave operations.  Builtins follow
+	 convention of ISA, which have op1 as higher component and op2 as lower
+         component.  However, the VEC_PERM op in tree and vec_concat in RTL
+         expects first operand to be lower component, because of which this swap
+         is needed for builtins.  */
+      gcc_assert (has_target_p && (nops > 2));
+      tmp = ops[2];
+      ops[2] = ops[1];
+      ops[1] = tmp;
+      break;
+
+    default:
+      break;
+  }
+
   if (!maybe_expand_insn (icode, nops, ops))
     {
       error ("invalid argument to built-in function");
@@ -20406,7 +20448,7 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
 
     dest = gen_reg_rtx (imode);
 
-    emit_insn (unpack (dest, tmp, operands[1]));
+    emit_insn (unpack (dest, operands[1], tmp));
     emit_move_insn (operands[0], gen_lowpart (GET_MODE (operands[0]), dest));
     return;
   }
