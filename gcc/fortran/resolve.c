@@ -4974,6 +4974,30 @@ resolve_variable (gfc_expr *e)
     }
 
 
+  /* For variables that are used in an associate (target => object) where
+     the object's basetype is array valued while the target is scalar,
+     the ts' type of the component refs is still array valued, which
+     can't be translated that way.  */
+  if (sym->assoc && e->rank == 0 && e->ref && sym->ts.type == BT_CLASS
+      && sym->assoc->target->ts.type == BT_CLASS
+      && CLASS_DATA (sym->assoc->target)->as)
+    {
+      gfc_ref *ref = e->ref;
+      while (ref)
+	{
+	  switch (ref->type)
+	    {
+	    case REF_COMPONENT:
+	      ref->u.c.sym = sym->ts.u.derived;
+	      /* Stop the loop.  */
+	      ref = NULL;
+	      break;
+	    default:
+	      ref = ref->next;
+	      break;
+	    }
+	}
+    }
   /* If this is an associate-name, it may be parsed with an array reference
      in error even though the target is scalar.  Fail directly in this case.
      TODO Understand why class scalar expressions must be excluded.  */
@@ -7212,12 +7236,6 @@ failure:
   return false;
 }
 
-
-static gfc_code *
-build_assignment (gfc_exec_op op, gfc_expr *expr1, gfc_expr *expr2,
-		  gfc_component *comp1, gfc_component *comp2, locus loc);
-
-
 static void
 resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 {
@@ -8055,6 +8073,9 @@ gfc_type_is_extensible (gfc_symbol *sym)
 }
 
 
+static void
+resolve_types (gfc_namespace *ns);
+
 /* Resolve an associate-name:  Resolve target and ensure the type-spec is
    correct as well as possibly the array-spec.  */
 
@@ -8062,6 +8083,7 @@ static void
 resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
 {
   gfc_expr* target;
+  gfc_array_spec *as;
 
   gcc_assert (sym->assoc);
   gcc_assert (sym->attr.flavor == FL_VARIABLE);
@@ -8117,6 +8139,7 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
       return;
     }
 
+
   /* We cannot deal with class selectors that need temporaries.  */
   if (target->ts.type == BT_CLASS
 	&& gfc_ref_needs_temporary_p (target->ref))
@@ -8126,23 +8149,106 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
       return;
     }
 
-  if (target->ts.type != BT_CLASS && target->rank > 0)
-    sym->attr.dimension = 1;
-  else if (target->ts.type == BT_CLASS)
+  if (target->ts.type == BT_CLASS)
     gfc_fix_class_refs (target);
+
+  if (target->rank != 0)
+    {
+      as = gfc_get_array_spec ();
+      as->rank = target->rank;
+      as->type = AS_DEFERRED;
+      as->corank = gfc_get_corank (target);
+      if (sym->ts.type != BT_CLASS)
+	{
+	  sym->attr.dimension = 1;
+	  if (as->corank != 0)
+	    sym->attr.codimension = 1;
+	  sym->as = as;
+	}
+      else
+	{
+	  /* Changing the as in the classes symbol is hazardous, because
+	     that symbol is used for the target, too.
+	     TODO: Solve this (by adding a new symbol?).  */
+	  CLASS_DATA (sym)->attr.dimension = 1;
+	  if (as->corank != 0)
+	    CLASS_DATA (sym)->attr.codimension = 1;
+	  CLASS_DATA (sym)->as = as;
+	}
+    }
+  else
+    {
+      if (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->as)
+	{
+#if 0
+	  gfc_expr *e;
+	  int old_target_pointer = CLASS_DATA (target)->attr.pointer;
+	  e = gfc_get_expr();
+	  e->expr_type = EXPR_VARIABLE;
+	  e->ts = sym->ts;
+	  e->symtree = gfc_find_sym_in_symtree (sym);
+	  CLASS_DATA (target)->attr.pointer = 1;
+
+	  if (!gfc_check_pointer_assign (e, target))
+	    gcc_unreachable ();
+
+	  CLASS_DATA (target)->attr.pointer = old_target_pointer;
+#endif
+	  symbol_attribute attr;
+	  /* The associated variable's type is still the array type
+	     correct this now.  */
+	  gfc_typespec *ts = &target->ts;
+	  gfc_ref *ref;
+	  gfc_component *c;
+	  for (ref = target->ref; ref != NULL; ref = ref->next)
+	    {
+	      switch (ref->type)
+		{
+		case REF_COMPONENT:
+		  ts = &ref->u.c.component->ts;
+		  break;
+		case REF_ARRAY:
+		  if (ts->type == BT_CLASS)
+		    ts = &ts->u.derived->components->ts;
+		  break;
+		default:
+		  break;
+		}
+	    }
+	  as = NULL;
+	  sym->ts = *ts;
+	  sym->ts.type = BT_CLASS;
+	  attr = CLASS_DATA (sym)->attr;
+	  attr.class_ok = 0;
+	  attr.associate_var = 1;
+	  attr.dimension = attr.codimension = 0;
+	  //attr.pointer = 1;
+	  attr.class_pointer = 1;
+	  if (!gfc_build_class_symbol (&sym->ts, &attr, &as))
+	    gcc_unreachable ();
+	  //target->ts.u.derived = sym->ts.u.derived;
+	  c = gfc_find_component (sym->ts.u.derived, "_vptr", true, true);
+	  if (c->ts.u.derived == NULL)
+	    c->ts.u.derived = gfc_find_derived_vtab (sym->ts.u.derived);
+	  CLASS_DATA (sym)->attr.pointer = 1;
+	  CLASS_DATA (sym)->attr.class_pointer = 1;
+	  gfc_set_sym_referenced (sym->ts.u.derived);
+	  gfc_commit_symbol (sym->ts.u.derived);
+	  /* _vptr now has the _vtab in it, change it to the _vtype.  */
+	  c->ts.u.derived = c->ts.u.derived->ts.u.derived;
+	  c->ts.u.derived->ns->types_resolved = 0;
+	  resolve_types (c->ts.u.derived->ns);
+	}
+    }
 
   /* The associate-name will have a correct type by now. Make absolutely
      sure that it has not picked up a dimension attribute.  */
-  if (sym->ts.type == BT_CLASS)
-    sym->attr.dimension = 0;
-
-  if (sym->attr.dimension)
-    {
-      sym->as = gfc_get_array_spec ();
-      sym->as->rank = target->rank;
-      sym->as->type = AS_DEFERRED;
-      sym->as->corank = gfc_get_corank (target);
-    }
+//  if (sym->ts.type == BT_CLASS && !sym->attr.select_type_temporary
+//      && CLASS_DATA (sym)->as && CLASS_DATA (sym)->as->type == AS_EXPLICIT)
+//    {
+//      CLASS_DATA (sym)->attr.dimension = 0;
+//      CLASS_DATA (sym)->as = NULL;
+//    }
 
   /* Mark this as an associate variable.  */
   sym->attr.associate_var = 1;
