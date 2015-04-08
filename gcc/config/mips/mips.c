@@ -11452,11 +11452,11 @@ mips_expand_prologue (void)
 		    /* Move from COP0 Cause to K0.  */
 		    emit_insn (gen_cop0_move (gen_rtx_REG (SImode, K0_REG_NUM),
 			gen_rtx_REG (SImode, COP0_CAUSE_REG_NUM)));
-		  /* Move from COP0 EPC to K1.  */
-		  emit_insn (gen_cop0_move (gen_rtx_REG (SImode, K1_REG_NUM),
-					    gen_rtx_REG (SImode,
-							 COP0_EPC_REG_NUM)));
 		}
+	      /* Move from COP0 EPC to K1.  */
+	      emit_insn (gen_cop0_move (gen_rtx_REG (SImode, K1_REG_NUM),
+					gen_rtx_REG (SImode,
+						     COP0_EPC_REG_NUM)));
 
 	      /* Allocate the first part of the frame.  */
 	      insn = gen_add3_insn (stack_pointer_rtx, stack_pointer_rtx,
