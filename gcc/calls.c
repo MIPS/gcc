@@ -3203,7 +3203,6 @@ expand_call (tree exp, rtx target, int ignore)
 
       if (pass && (flags & ECF_MALLOC))
 	{
-	  print_rtl_single(stderr, valreg);
 	  rtx temp = gen_reg_rtx (GET_MODE (valreg));
 	  rtx last, insns;
 

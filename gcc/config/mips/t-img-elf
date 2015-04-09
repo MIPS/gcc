@@ -22,6 +22,8 @@
 # A multilib for mips64r6+LE
 # A multilib for mips32r6+LE+singlefloat+shortdouble
 
-MULTILIB_OPTIONS = mregtrial=1/mregtrial=2
-MULTILIB_DIRNAMES = trial1 trial2
+MULTILIB_OPTIONS = EL mregtrial=1/mregtrial=2
+MULTILIB_DIRNAMES = el trial1 trial2
 MULTILIB_MATCHES = EL=mel EB=meb
+
+MULTILIB_EXCEPTIONS += mregtrial*
