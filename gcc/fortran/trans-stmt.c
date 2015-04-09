@@ -1261,7 +1261,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
       gfc_init_se (&se, NULL);
       se.descriptor_only = 1;
       /* In a select type the (temporary) associate variable shall point to
-	 a standart fortran array (lower bound == 1), but conv_expr ()
+	 a standard fortran array (lower bound == 1), but conv_expr ()
 	 just maps to the input array in the class object, whose lbound may
 	 be arbitrary.  conv_expr_descriptor solves this by inserting a
 	 temporary array descriptor.  */
