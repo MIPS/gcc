@@ -1031,9 +1031,9 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   array_attr = is_classarray ? &CLASS_DATA (sym)->attr : &sym->attr;
 
   /* The dummy is returned for pointer, allocatable or assumed rank arrays.
-     The check for pointerness needs to be repeated here (it is done in
-     IS_CLASS_ARRAY (), too), because for class arrays that are pointers, as
-     is the one of the sym, which is incorrect here.  */
+     For class arrays the information if sym is an allocatable or pointer
+     object needs to be checked explicitly (IS_CLASS_ARRAY can be false for
+     too many reasons to be of use here).  */
   if ((sym->ts.type != BT_CLASS && sym->attr.pointer)
       || (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->attr.class_pointer)
       || array_attr->allocatable
