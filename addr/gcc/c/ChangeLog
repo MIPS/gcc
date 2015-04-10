@@ -1,3 +1,18 @@
+2015-04-10  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	PR target/55143
+	* c-decl.c (c_default_pointer_mode): Remove definition.
+	* c-tree.h (c_default_pointer_mode): Remove declaration.
+
+2015-03-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR c/65586
+	* c-parser.c (c_parser_skip_to_pragma_eol): Optionally, don't
+	error out.
+	(c_parser_omp_for, c_parser_omp_parallel, c_parser_omp_distribute,
+	c_parser_omp_teams, c_parser_omp_target, c_parser_omp_declare):
+	Update calls to not error for skipped omp pragmas with -fopenmp-simd.
+
 2015-03-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-decl.c (c_decl_attributes): Also add "omp declare target"
