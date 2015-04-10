@@ -969,7 +969,7 @@ and @code{__float128} types are supported on x86 and IA-64 targets.
 The @code{__float128} type is supported on hppa HP-UX.
 The @code{__float128} type is supported on PowerPC systems by default
 if the vector scalar instruction set (VSX) is enabled, or if the
-@option{-mfloat128-fpr} option is used.
+@option{-mfloat128-ref} option is used.
 
 On the PowerPC, @code{__ibm128} provides access to the IBM extended
 double format, and it is intended to be used by the library functions

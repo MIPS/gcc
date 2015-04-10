@@ -1,5 +1,10 @@
 2015-04-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* doc/extend.texi: Fix references that used -mfloat128-fpr instead
+	of -mfloat128-ref.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/rs6000/rs6000.md: Likewise.
+
 	Merge up to 221977.
 	* REVISION: Update subversion id.
 

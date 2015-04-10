@@ -16062,7 +16062,7 @@ init_float128_ieee (machine_mode mode)
 
       /* The classic V4 IEEE 128-bit support did not include IEEE unordered
 	 support, or 64/128-bit integer conversions.  If we have
-	 -mfloat128-fpr, add these functions.  */
+	 -mfloat128-ref, add these functions.  */
       if (TARGET_FLOAT128_REF)
 	{
 	  set_optab_libfunc (unord_optab, mode, "_q_funordered");
