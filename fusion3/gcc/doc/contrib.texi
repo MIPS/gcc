@@ -590,6 +590,9 @@ implementation of the automaton based instruction scheduler.
 Bob Manson for his behind the scenes work on dejagnu.
 
 @item
+John Marino for contributing the DragonFly BSD port.
+
+@item
 Philip Martin for lots of libstdc++ string and vector iterator fixes and
 improvements, and string clean up and testsuites.
 
@@ -881,6 +884,8 @@ Christopher Smith did the port for Convex machines.
 
 @item
 Danny Smith for his major efforts on the Mingw (and Cygwin) ports.
+Retired from GCC maintainership August 2010, having mentored two 
+new maintainers into the role.
 
 @item
 Randy Smith finished the Sun FPA support.

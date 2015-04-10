@@ -1,3 +1,124 @@
+2015-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/65690
+	* tree.c (cp_build_qualified_type_real): Copy TYPE_ALIGN and
+	TYPE_USER_ALIGN.
+
+	PR c++/65690
+	* tree.c (build_cplus_array_type): Layout type before variants are
+	set, but copy over TYPE_SIZE and TYPE_SIZE_UNIT from the main
+	variant.
+
+2015-04-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/64085
+	* lambda.c (add_capture): Use dependent_type_p for capture by
+	reference too.
+
+2015-04-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65642
+	* constexpr.c (cxx_eval_pointer_plus_expression): Call
+	cxx_eval_constant_expression on the first operand.
+
+2015-04-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65625
+	* decl.c (make_typename_type): Handle seeing a variable template.
+
+2015-04-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56100
+	* pt.c (instantiating_current_function_p): New.
+	* name-lookup.c (pushdecl_maybe_friend_1): Use it.
+	* cp-tree.h (instantiating_current_function_p): Declare.
+
+2015-04-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65646
+	* decl.c (grokvardecl): Don't call check_explicit_specialization
+	for non-template members of a class template.
+
+2015-04-01  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65554
+	* class.c (finish_struct): Require that the second field of a
+	user-defined initializer_list be of size type.
+
+2015-03-31  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65390
+	* tree.c (build_cplus_array_type): Use dependent_type_p rather than
+	checking for constness.
+
+2015-03-30  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65398
+	* constexpr.c (cxx_fold_indirect_ref): Don't perform the
+	 *(&A[i] p+ j) => A[i + j] transformation here.
+	(cxx_eval_pointer_plus_expression): New function.
+	(cxx_eval_constant_expression): Use it here.
+
+2015-03-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR c/65586
+	* parser.c (cp_parser_omp_for, cp_parser_omp_parallel,
+	cp_parser_omp_distribute, cp_parser_omp_teams, cp_parser_omp_target,
+	cp_parser_omp_declare): Don't show error for skipped omp pragmas with
+	-fopenmp-simd.
+
+2015-03-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65556
+	* semantics.c (finish_switch_cond): If the unlowered type is not an
+	enum, use the type of the condition.
+
+2015-03-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65509
+	* decl.c (make_rtl_for_nonlocal_decl): Don't defer static
+	constants.
+
+2015-03-26  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c++/65154
+	* init.c (build_vec_init): Fix initializing aggregates
+	with empty init list.
+
+2015-03-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65525
+	* constexpr.c (potential_constant_expression_1): Handle MEM_REF.
+
+2015-03-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65558
+	* name-lookup.c (handle_namespace_attrs): Ignore abi_tag attribute
+	on an anonymous namespace.
+
+2015-03-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/61670
+	* class.c (remove_zero_width_bit_fields): Check for null DECL_SIZE.
+
+2015-03-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65046
+	* cp-tree.h (NAMESPACE_IS_INLINE): Remove.
+	* parser.c (cp_parser_namespace_definition): Don't set it.
+	* name-lookup.c (handle_namespace_attrs): Check
+	DECL_NAMESPACE_ASSOCIATIONS instead.
+
+	PR c++/65498
+	* pt.c (get_mostly_instantiated_function_type): Just return the
+	type of the partially instantiated template in DECL_TI_TEMPLATE.
+
+2015-03-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65398
+	* constexpr.c (cxx_fold_indirect_ref): Transform *(&A[i] p+ j) into
+	A[i + j].
+
 2015-03-20  Marek Polacek  <polacek@redhat.com>
 
 	PR c++/65072
