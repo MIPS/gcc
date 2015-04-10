@@ -20470,6 +20470,16 @@ static void
 gen_struct_or_union_type_die (tree type, dw_die_ref context_die,
 				enum debug_info_usage usage)
 {
+  /* Fill in the size of variable lengthed fields in late dwarf.  */
+  if (TREE_ASM_WRITTEN (type)
+      && !early_dwarf_dumping)
+    {
+      tree member;
+      for (member = TYPE_FIELDS (type); member; member = DECL_CHAIN (member))
+	fill_variable_array_bounds (TREE_TYPE (member));
+      return;
+    }
+
   dw_die_ref type_die = lookup_type_die (type);
   dw_die_ref scope_die = 0;
   int nested = 0;
@@ -20676,13 +20686,15 @@ gen_tagged_type_die (tree type,
       || !is_tagged_type (type))
     return;
 
+  if (TREE_ASM_WRITTEN (type))
+    need_pop = 0;
   /* If this is a nested type whose containing class hasn't been written
      out yet, writing it out will cover this one, too.  This does not apply
      to instantiations of member class templates; they need to be added to
      the containing class as they are generated.  FIXME: This hurts the
      idea of combining type decls from multiple TUs, since we can't predict
      what set of template instantiations we'll get.  */
-  if (TYPE_CONTEXT (type)
+  else if (TYPE_CONTEXT (type)
       && AGGREGATE_TYPE_P (TYPE_CONTEXT (type))
       && ! TREE_ASM_WRITTEN (TYPE_CONTEXT (type)))
     {
@@ -20810,11 +20822,14 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 
   if (TREE_ASM_WRITTEN (type))
     {
-      /* Variabled-lengthed types may be incomplete even if
+      /* Variable-length types may be incomplete even if
 	 TREE_ASM_WRITTEN.  For such types, fall through to
 	 gen_array_type_die() and possibly fill in
 	 DW_AT_{upper,lower}_bound attributes.  */
-      if (TREE_CODE (type) != ARRAY_TYPE
+      if ((TREE_CODE (type) != ARRAY_TYPE
+	   && TREE_CODE (type) != RECORD_TYPE
+	   && TREE_CODE (type) != UNION_TYPE
+	   && TREE_CODE (type) != QUAL_UNION_TYPE)
 	  || (TYPE_SIZE (type)
 	      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST))
 	return;
@@ -20870,9 +20885,6 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
       break;
 
     case ARRAY_TYPE:
-      gen_array_type_die (type, context_die);
-      break;
-
     case VECTOR_TYPE:
       gen_array_type_die (type, context_die);
       break;
