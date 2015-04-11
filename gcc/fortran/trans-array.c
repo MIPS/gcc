@@ -7070,6 +7070,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	 pointer/allocatable or associated.  */
       if (onebased && se->use_offset
 	  && expr->symtree
+	  && !IS_CLASS_ARRAY (expr->symtree->n.sym)
 	  && !expr->symtree->n.sym->attr.allocatable
 	  && !expr->symtree->n.sym->attr.pointer
 	  && !expr->symtree->n.sym->attr.host_assoc
