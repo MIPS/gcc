@@ -1,3 +1,11 @@
+2015-04-11  Kugan Vivekanandarajah  <kugan.vivekanandarajah@linaro.org>
+
+	Backport from trunk r203711.
+	2013-10-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.md
+	(*mov<mode>_aarch64): Fix output template for DUP (element) Scalar.
+
 2015-02-15  Michael Collison  <michael.collison@linaro.org>
 
 	* LINARO-VERSION: Bump version.
