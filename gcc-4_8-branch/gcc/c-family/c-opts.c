@@ -1347,7 +1347,9 @@ c_finish_options (void)
 static void
 push_command_line_include (void)
 {
-  // This can happen if disabled by -imacros for example.
+  /* This can happen if disabled by -imacros for example.
+     Punt so that we don't set "<command-line>" as the filename for
+     the header.  */
   if (include_cursor > deferred_count)
     return;
 
