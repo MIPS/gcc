@@ -18743,12 +18743,12 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
      much as possible.  */
   else if (old_die)
     {
-      dumped_early = old_die->dumped_early;
-
       /* A declaration that has been previously dumped needs no
 	 additional information.  */
-      if (dumped_early && declaration)
+      if (declaration)
 	return;
+
+      dumped_early = old_die->dumped_early;
 
       if (!get_AT_flag (old_die, DW_AT_declaration)
 	  /* We can have a normal definition following an inline one in the
@@ -18829,8 +18829,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		add_type_attribute (subr_die, TREE_TYPE (TREE_TYPE (decl)),
 				    TYPE_UNQUALIFIED, context_die);
 	    }
-	  if (early_dwarf_dumping)
-	    equate_decl_number_to_die (decl, subr_die);
 	}
     }
   /* Anything else... create a brand new DIE.  */
@@ -18860,6 +18858,11 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       add_accessibility_attribute (subr_die, decl);
     }
 
+  /* Unless we have an existing non-declaration DIE, equate the new
+     DIE.  */
+  if (!old_die || is_declaration_die (old_die))
+    equate_decl_number_to_die (decl, subr_die);
+
   if (declaration)
     {
       if (!old_die || !get_AT (old_die, DW_AT_inline))
@@ -18877,15 +18880,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  if (lang_hooks.decls.function_decl_deleted_p (decl)
 	      && (! dwarf_strict))
 	    add_AT_flag (subr_die, DW_AT_GNU_deleted, 1);
-
-	  /* The first time we see a member function, it is in the context of
-	     the class to which it belongs.  We make sure of this by emitting
-	     the class first.  The next time is the definition, which is
-	     handled above.  The two may come from the same source text.
-
-	     Note that force_decl_die() forces function declaration die. It is
-	     later reused to represent definition.  */
-	  equate_decl_number_to_die (decl, subr_die);
 	}
     }
   /* Tag abstract instances with DW_AT_inline.  */
@@ -18909,8 +18903,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       if (DECL_DECLARED_INLINE_P (decl)
 	  && lookup_attribute ("artificial", DECL_ATTRIBUTES (decl)))
 	add_AT_flag (subr_die, DW_AT_artificial, 1);
-
-      equate_decl_number_to_die (decl, subr_die);
     }
   /* For non DECL_EXTERNALs, if range information is available, fill
      the DIE with it.  */
@@ -18919,9 +18911,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       HOST_WIDE_INT cfa_fb_offset;
 
       struct function *fun = DECL_STRUCT_FUNCTION (decl);
-
-      if (!old_die || !get_AT (old_die, DW_AT_inline))
-	equate_decl_number_to_die (decl, subr_die);
 
       /* If we have no fun->fde, we have no range information.
 	 Skip over and fill in range information in the second
@@ -19090,14 +19079,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
     }
 
   /* Generate child dies for template paramaters.  */
-  if (debug_info_level > DINFO_LEVEL_TERSE)
-    {
-      /* XXX */
-      if (!lookup_decl_die (decl))
-	equate_decl_number_to_die (decl, subr_die);
-      if (early_dwarf_dumping)
-	gen_generic_params_dies (decl);
-    }
+  if (debug_info_level > DINFO_LEVEL_TERSE
+      && early_dwarf_dumping)
+    gen_generic_params_dies (decl);
 
   /* Now output descriptions of the arguments for this function. This gets
      (unnecessarily?) complex because of the fact that the DECL_ARGUMENT list
