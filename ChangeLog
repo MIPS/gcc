@@ -1,3 +1,15 @@
+2015-04-08  Cary Coutant  <ccoutant@gmail.com>
+
+	* MAINTAINERS: Update my email address.
+
+2015-04-02  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* MAINTAINERS: Add myself as a reviewer for the AArch64 port.
+
+2015-04-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* MAINTAINERS: Add myself as an arm port reviewer.
+
 2015-03-25  Martin Liska  <mliska@suse.cz>
 	    Yury Gribov  <y.gribov@samsung.com>
 
@@ -45,15 +57,6 @@
 2015-02-26  Martin Sebor  <msebor@redhat.com>
 
 	* MAINTAINERS (Various Maintainers): Add self.
-
-2015-02-25  Uros Bizjak  <ubizjak@gmail.com>
-
-	Revert:
-	2014-07-26  Uros Bizjak  <ubizjak@gmail.com>
-
-	PR target/47230
-	* configure.ac (alpha*-*-linux*): Use mh-alpha-linux.
-	* configure: Regenerate.
 
 2015-02-20  Thomas Schwinge  <thomas@codesourcery.com>
 

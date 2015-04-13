@@ -823,10 +823,9 @@ build_cplus_array_type (tree elt_type, tree index_type)
   if (elt_type == error_mark_node || index_type == error_mark_node)
     return error_mark_node;
 
-  bool dependent
-    = (processing_template_decl
-       && (dependent_type_p (elt_type)
-	   || (index_type && !TREE_CONSTANT (TYPE_MAX_VALUE (index_type)))));
+  bool dependent = (processing_template_decl
+		    && (dependent_type_p (elt_type)
+			|| (index_type && dependent_type_p (index_type))));
 
   if (elt_type != TYPE_MAIN_VARIANT (elt_type))
     /* Start with an array of the TYPE_MAIN_VARIANT.  */
@@ -882,12 +881,19 @@ build_cplus_array_type (tree elt_type, tree index_type)
 	{
 	  t = build_min_array_type (elt_type, index_type);
 	  set_array_type_canon (t, elt_type, index_type);
+	  if (!dependent)
+	    {
+	      layout_type (t);
+	      /* Make sure sizes are shared with the main variant.
+		 layout_type can't be called after setting TYPE_NEXT_VARIANT,
+		 as it will overwrite alignment etc. of all variants.  */
+	      TYPE_SIZE (t) = TYPE_SIZE (m);
+	      TYPE_SIZE_UNIT (t) = TYPE_SIZE_UNIT (m);
+	    }
 
 	  TYPE_MAIN_VARIANT (t) = m;
 	  TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
 	  TYPE_NEXT_VARIANT (m) = t;
-	  if (!dependent)
-	    layout_type (t);
 	}
     }
 
@@ -1074,6 +1080,8 @@ cp_build_qualified_type_real (tree type,
 	    {
 	      t = build_variant_type_copy (t);
 	      TYPE_NAME (t) = TYPE_NAME (type);
+	      TYPE_ALIGN (t) = TYPE_ALIGN (type);
+	      TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (type);
 	    }
 	}
 

@@ -4814,7 +4814,7 @@ arm_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
       if (i != maxval
 	  && (const_ok_for_arm (i + 1) || const_ok_for_arm (-(i + 1))))
 	{
-	  *op1 = GEN_INT (i + 1);
+	  *op1 = GEN_INT (ARM_SIGN_EXTEND (i + 1));
 	  *code = *code == GT ? GE : LT;
 	  return;
 	}
@@ -4836,7 +4836,7 @@ arm_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
       if (i != ~((unsigned HOST_WIDE_INT) 0)
 	  && (const_ok_for_arm (i + 1) || const_ok_for_arm (-(i + 1))))
 	{
-	  *op1 = GEN_INT (i + 1);
+	  *op1 = GEN_INT (ARM_SIGN_EXTEND (i + 1));
 	  *code = *code == GTU ? GEU : LTU;
 	  return;
 	}
@@ -8193,14 +8193,8 @@ arm_tls_referenced_p (rtx x)
    When generating pic allow anything.  */
 
 static bool
-arm_legitimate_constant_p_1 (machine_mode mode, rtx x)
+arm_legitimate_constant_p_1 (machine_mode, rtx x)
 {
-  /* At present, we have no support for Neon structure constants, so forbid
-     them here.  It might be possible to handle simple cases like 0 and -1
-     in future.  */
-  if (TARGET_NEON && VALID_NEON_STRUCT_MODE (mode))
-    return false;
-
   return flag_pic || !label_mentioned_p (x);
 }
 
@@ -27209,6 +27203,7 @@ arm_issue_rate (void)
 
     case cortexa15:
     case cortexa57:
+    case exynosm1:
       return 3;
 
     case cortexm7:
