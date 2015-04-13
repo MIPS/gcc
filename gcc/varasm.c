@@ -1928,17 +1928,18 @@ assemble_string (const char *p, int size)
 /* A noswitch_section_callback for lcomm_section.  */
 
 static bool
-emit_local (tree decl,
+emit_local (tree decl ATTRIBUTE_UNUSED,
 	    const char *name ATTRIBUTE_UNUSED,
 	    unsigned HOST_WIDE_INT size ATTRIBUTE_UNUSED,
 	    unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
 {
-  int align = symtab_node::get (decl)->definition_alignment ();
 #if defined ASM_OUTPUT_ALIGNED_DECL_LOCAL
+  int align = symtab_node::get (decl)->definition_alignment ();
   ASM_OUTPUT_ALIGNED_DECL_LOCAL (asm_out_file, decl, name,
 				 size, align);
   return true;
 #elif defined ASM_OUTPUT_ALIGNED_LOCAL
+  int align = symtab_node::get (decl)->definition_alignment ();
   ASM_OUTPUT_ALIGNED_LOCAL (asm_out_file, name, size, align);
   return true;
 #else
@@ -6811,7 +6812,8 @@ resolution_local_p (enum ld_plugin_symbol_resolution resolution)
 }
 
 static bool
-default_binds_local_p_2 (const_tree exp, bool shlib, bool weak_dominate)
+default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
+			 bool extern_protected_data)
 {
   /* A non-decl is an entry in the constant pool.  */
   if (!DECL_P (exp))
@@ -6857,6 +6859,9 @@ default_binds_local_p_2 (const_tree exp, bool shlib, bool weak_dominate)
      or if we have a definition for the symbol.  We cannot infer visibility
      for undefined symbols.  */
   if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT
+      && (TREE_CODE (exp) == FUNCTION_DECL
+	  || !extern_protected_data
+	  || DECL_VISIBILITY (exp) != VISIBILITY_PROTECTED)
       && (DECL_VISIBILITY_SPECIFIED (exp) || defined_locally))
     return true;
 
@@ -6892,13 +6897,21 @@ default_binds_local_p_2 (const_tree exp, bool shlib, bool weak_dominate)
 bool
 default_binds_local_p (const_tree exp)
 {
-  return default_binds_local_p_2 (exp, flag_shlib != 0, true);
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false);
+}
+
+/* Similar to default_binds_local_p, but protected data may be
+   external.  */
+bool
+default_binds_local_p_2 (const_tree exp)
+{
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true, true);
 }
 
 bool
 default_binds_local_p_1 (const_tree exp, int shlib)
 {
-  return default_binds_local_p_2 (exp, shlib != 0, false);
+  return default_binds_local_p_3 (exp, shlib != 0, false, false);
 }
 
 /* Return true when references to DECL must bind to current definition in

@@ -16252,7 +16252,6 @@ cp_parser_namespace_definition (cp_parser* parser)
   if (is_inline)
     {
       tree name_space = current_namespace;
-      NAMESPACE_IS_INLINE (name_space) = true;
       /* Set up namespace association.  */
       DECL_NAMESPACE_ASSOCIATIONS (name_space)
 	= tree_cons (CP_DECL_CONTEXT (name_space), NULL_TREE,
@@ -30800,7 +30799,7 @@ cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok,
     }
   if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      cp_parser_require_pragma_eol (parser, pragma_tok);
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       return NULL_TREE;
     }
 
@@ -31011,7 +31010,7 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok,
     }
   else if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      cp_parser_require_pragma_eol (parser, pragma_tok);
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       return NULL_TREE;
     }
   else if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
@@ -31274,7 +31273,7 @@ cp_parser_omp_distribute (cp_parser *parser, cp_token *pragma_tok,
     }
   if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      cp_parser_require_pragma_eol (parser, pragma_tok);
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       return NULL_TREE;
     }
 
@@ -31353,7 +31352,7 @@ cp_parser_omp_teams (cp_parser *parser, cp_token *pragma_tok,
     }
   if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      cp_parser_require_pragma_eol (parser, pragma_tok);
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       return NULL_TREE;
     }
 
@@ -31498,7 +31497,7 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
 	}
       else if (!flag_openmp)  /* flag_openmp_simd  */
 	{
-	  cp_parser_require_pragma_eol (parser, pragma_tok);
+	  cp_parser_skip_to_pragma_eol (parser, pragma_tok);
 	  return false;
 	}
       else if (strcmp (p, "data") == 0)
@@ -32474,7 +32473,7 @@ cp_parser_omp_declare (cp_parser *parser, cp_token *pragma_tok,
 	}
       if (!flag_openmp)  /* flag_openmp_simd  */
 	{
-	  cp_parser_require_pragma_eol (parser, pragma_tok);
+	  cp_parser_skip_to_pragma_eol (parser, pragma_tok);
 	  return;
 	}
       if (strcmp (p, "target") == 0)
