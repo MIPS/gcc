@@ -1,3 +1,12 @@
+2015-04-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Handle partial-concept-ids for variable templates
+	* gcc/cp/parser.c (cp_parser_template_id): Factor the check for
+	variable templates into a new branch that preceeds the check
+	for variable templates and function templates.
+	* gcc/testsuite/g++.dg/concepts/partial.C: Renamed.
+	* gcc/testsuite/g++.dg/concepts/partial-concept-id2.C: New.
+
 2015-04-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	* gcc/cp/constraint.cc (lift_variable_concept): Coerce template

@@ -2588,6 +2588,7 @@ static bool cp_parser_skip_to_closing_square_bracket
 
 static tree cp_maybe_concept_name       (cp_parser *, tree);
 static tree cp_maybe_partial_concept_id (cp_parser *, tree, tree);
+static bool cp_maybe_partial_concept_id (cp_parser *, tree, tree, tree*);
 
 // -------------------------------------------------------------------------- //
 // Unevaluated Operand Guard
@@ -14234,6 +14235,7 @@ cp_parser_template_id (cp_parser *parser,
     }
 
   /* Build a representation of the specialization.  */
+  tree partial_concept_id;
   if (identifier_p (templ))
     template_id = build_min_nt_loc (next_token->location,
 				    TEMPLATE_ID_EXPR,
@@ -14253,6 +14255,11 @@ cp_parser_template_id (cp_parser *parser,
       template_id
 	= finish_template_type (templ, arguments, entering_scope);
     }
+  /* A template-like identifier may be a partial concept id. */
+  else if (flag_concepts 
+           && cp_maybe_partial_concept_id 
+              (parser, templ, arguments, &partial_concept_id))
+    return partial_concept_id;
   else if (variable_template_p (templ))
     {
       template_id = lookup_template_variable (templ, arguments);
@@ -14264,12 +14271,6 @@ cp_parser_template_id (cp_parser *parser,
       gcc_assert ((DECL_FUNCTION_TEMPLATE_P (templ)
 		   || TREE_CODE (templ) == OVERLOAD
 		   || BASELINK_P (templ)));
-
-      // If the template + args designate a concept, then return
-      // something else.
-      if (tree id = cp_maybe_partial_concept_id (parser, templ, arguments))
-        return id;
-
       template_id = lookup_template_function (templ, arguments);
     }
 
@@ -15782,6 +15783,17 @@ cp_maybe_partial_concept_id (cp_parser *parser, tree decl, tree args)
 {
   return cp_maybe_constrained_type_specifier (parser, decl, args);
 }
+
+/* Check if DECL and ARGS form a partial-concept-id. If so,
+   assign ID to the resulting constrained placeholder.  */
+
+bool
+cp_maybe_partial_concept_id (cp_parser *parser, tree decl, tree args, tree* id)
+{
+  *id = cp_maybe_constrained_type_specifier (parser, decl, args);
+  return *id != NULL_TREE;
+}
+
 
 /* Parse a non-class type-name, that is, either an enum-name, a typedef-name,
    or a concept-name.
