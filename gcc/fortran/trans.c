@@ -357,7 +357,7 @@ gfc_build_array_ref (tree base, tree offset, tree decl, tree vptr)
 		|| TREE_CODE (decl) == VAR_DECL
 		|| TREE_CODE (decl) == PARM_DECL)
        && ((GFC_DECL_SUBREF_ARRAY_P (decl)
-	    && !integer_zerop (GFC_DECL_SPAN(decl)))
+	    && !integer_zerop (GFC_DECL_SPAN (decl)))
 	   || GFC_DECL_CLASS (decl)))
       || vptr)
     {
@@ -388,7 +388,7 @@ gfc_build_array_ref (tree base, tree offset, tree decl, tree vptr)
 	      span = gfc_class_vtab_size_get (decl);
 	    }
 	  else if (GFC_DECL_SUBREF_ARRAY_P (decl))
-	    span = GFC_DECL_SPAN(decl);
+	    span = GFC_DECL_SPAN (decl);
 	  else
 	    gcc_unreachable ();
 	}

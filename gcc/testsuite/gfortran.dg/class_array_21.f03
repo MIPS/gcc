@@ -8,7 +8,7 @@ module m1
   type InnerBaseT
     integer, allocatable :: a(:)
   end type InnerBaseT
-    
+
   type, extends(InnerBaseT) :: InnerT
     integer :: i
   end type InnerT
@@ -24,7 +24,7 @@ contains
   subroutine indir(this, mat)
     class(BaseT) :: this
     class(InnerT), intent(inout) :: mat(:,:)
-    
+
     call this%P(mat)
   end subroutine indir
 
