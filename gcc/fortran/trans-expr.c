@@ -2273,6 +2273,16 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
       field = f2;
     }
 
+  if (ref->u.c.sym && ref->u.c.sym->ts.type == BT_CLASS
+      && strcmp ("_data", c->name) == 0)
+    {
+      /* Found a ref to the _data component.  Store the associated ref to
+	 the vptr in se->class_vptr.  */
+      se->class_vptr = gfc_class_vptr_get (decl);
+    }
+  else
+    se->class_vptr = NULL_TREE;
+
   tmp = fold_build3_loc (input_location, COMPONENT_REF, TREE_TYPE (field),
 			 decl, field, NULL_TREE);
 
