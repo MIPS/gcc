@@ -3165,7 +3165,7 @@ add_to_offset (tree *cst_offset, tree *offset, tree t)
 
 
 static tree
-build_array_ref (tree desc, tree offset, tree decl)
+build_array_ref (tree desc, tree offset, tree decl, tree vptr)
 {
   tree tmp;
   tree type;
@@ -3212,7 +3212,7 @@ build_array_ref (tree desc, tree offset, tree decl)
 
   tmp = gfc_conv_array_data (desc);
   tmp = build_fold_indirect_ref_loc (input_location, tmp);
-  tmp = gfc_build_array_ref (tmp, offset, decl);
+  tmp = gfc_build_array_ref (tmp, offset, decl, vptr);
   return tmp;
 }
 
@@ -3375,7 +3375,8 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_expr *expr,
     offset = fold_build2_loc (input_location, PLUS_EXPR,
 			      gfc_array_index_type, offset, cst_offset);
 
-  se->expr = build_array_ref (se->expr, offset, sym->backend_decl);
+  se->expr = build_array_ref (se->expr, offset, sym->ts.type == BT_CLASS ?
+				NULL_TREE : sym->backend_decl, se->class_vptr);
 }
 
 
@@ -6270,7 +6271,7 @@ gfc_get_dataptr_offset (stmtblock_t *block, tree parm, tree desc, tree offset,
 	return;
     }
 
-  tmp = build_array_ref (desc, offset, NULL);
+  tmp = build_array_ref (desc, offset, NULL, NULL);
 
   /* Offset the data pointer for pointer assignments from arrays with
      subreferences; e.g. my_integer => my_type(:)%integer_component.  */
@@ -7029,7 +7030,6 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	 pointer/allocatable or associated.  */
       if (onebased && se->use_offset
 	  && expr->symtree
-//	  && !IS_CLASS_ARRAY (expr->symtree->n.sym)
 	  && !(expr->symtree->n.sym && expr->symtree->n.sym->ts.type == BT_CLASS
 	       && !CLASS_DATA (expr->symtree->n.sym)->attr.class_pointer)
 	  && !expr->symtree->n.sym->attr.allocatable
