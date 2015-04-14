@@ -19,8 +19,8 @@
 # The default build is mips32r2, hard-float big-endian.  Add mips32,
 # soft-float, and little-endian variations.
 
-MULTILIB_OPTIONS = muclibc mips64r2 mmicromips mabi=64 EL mnan=2008
-MULTILIB_DIRNAMES = uclibc mips64r2 micromips 64 el nan2008
+MULTILIB_OPTIONS = muclibc mips64r2 mmicromips mabi=64 EL mnan=2008 msoft-float
+MULTILIB_DIRNAMES = uclibc mips64r2 micromips 64 el nan2008 sof
 MULTILIB_MATCHES = EL=mel EB=meb mips32r2=mips32r3 mips32r2=mips32r5 mips64r2=mips64r3 mips64r2=mips64r5
 
 MULTILIB_REQUIRED    =
@@ -158,5 +158,5 @@ MULTILIB_REQUIRED   += mips32/mips16/EL/msoft-float
 MULTILIB_OSDIRNAMES += mips32/mips16/EL/msoft-float=!mipsel-r1-mips16-soft/lib
 
 # Uclibc multilibs
-MULTILIB_REQUIRED   += muclibc/EL
-MULTILIB_OSDIRNAMES += muclibc/EL=!mipsel-r2-hard-uclibc/lib
+#MULTILIB_REQUIRED   += muclibc/EL
+#MULTILIB_OSDIRNAMES += muclibc/EL=!mipsel-r2-hard-uclibc/lib
