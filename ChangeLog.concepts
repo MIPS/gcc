@@ -1,3 +1,9 @@
+2015-04-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix bootstrap regression.
+	* gcc/cp/parser.c (cp_maybe_partial_concept_id): Remove
+	unused overload.
+
 2015-04-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Handle partial-concept-ids for variable templates

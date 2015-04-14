@@ -2587,7 +2587,6 @@ static bool cp_parser_skip_to_closing_square_bracket
 /* Concept-related syntactic transformations */
 
 static tree cp_maybe_concept_name       (cp_parser *, tree);
-static tree cp_maybe_partial_concept_id (cp_parser *, tree, tree);
 static bool cp_maybe_partial_concept_id (cp_parser *, tree, tree, tree*);
 
 // -------------------------------------------------------------------------- //
@@ -15774,15 +15773,6 @@ cp_maybe_concept_name (cp_parser* parser, tree decl)
   return cp_maybe_constrained_type_specifier (parser, decl, NULL_TREE);
 }
 
-// Check if DECL and ARGS forms a partial concept id. Let C be the name
-// of the overload set denoted by TMPL, Args the sequence of ARGS, and
-// ? denote an unspecified template argument. If the template-id C<?, Args>
-// is valid, this denotes a partial-concept-id to be acted on.
-tree
-cp_maybe_partial_concept_id (cp_parser *parser, tree decl, tree args)
-{
-  return cp_maybe_constrained_type_specifier (parser, decl, args);
-}
 
 /* Check if DECL and ARGS form a partial-concept-id. If so,
    assign ID to the resulting constrained placeholder.  */
