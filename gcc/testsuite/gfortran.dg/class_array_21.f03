@@ -8,7 +8,7 @@ module m1
   type InnerBaseT
     integer, allocatable :: a(:)
   end type InnerBaseT
-    
+
   type, extends(InnerBaseT) :: InnerT
     integer :: i
   end type InnerT
@@ -24,7 +24,7 @@ contains
   subroutine indir(this, mat)
     class(BaseT) :: this
     class(InnerT), intent(inout) :: mat(:,:)
-    
+
     call this%P(mat)
   end subroutine indir
 
@@ -36,7 +36,9 @@ contains
     mat%i = 42
     do i= 1, ubound(mat, 1)
       do j= 1, ubound(mat, 2)
-        if (.not. allocated(mat(i,j)%a)) allocate(mat(i,j)%a(10), source = 72)
+        if (.not. allocated(mat(i,j)%a)) then
+          allocate(mat(i,j)%a(10), source = 72)
+        end if
       end do
     end do
     mat(1,1)%i = 9
@@ -64,14 +66,10 @@ program test
   do l= 1, 10
     do i= 1, 2
       do j= 1,2
-!        if ((i == 1 .and. j == 1 .and. l == 5 .and. &
-!             o%arr(i,j)%a(5) /= 1) &
-!            .or. (.not. (i == 1 .and. j == 1 .and. l == 5) &
-!              .and. o%arr(i,j)%a(l) /= 72)) then
-!          print *, "Check failed for o%arr(",i,",",j,")%a(",l,")=",o%arr(i,j)%a(l)
-!          call abort()
-!        end if
-        print *, "i=", i, ",j=", j, ":", o%arr(i,j)%a
+        if ((i == 1 .and. j == 1 .and. l == 5 .and. &
+             o%arr(i,j)%a(5) /= 1) &
+            .or. (.not. (i == 1 .and. j == 1 .and. l == 5) &
+              .and. o%arr(i,j)%a(l) /= 72)) call abort()
       end do
     end do
   end do
@@ -85,10 +83,7 @@ program test
             if ((i == 1 .and. j == 1 .and. l == 5 .and. &
                  i_a(i,j)%a(5) /= 1) &
                 .or. (.not. (i == 1 .and. j == 1 .and. l == 5) &
-                  .and. i_a(i,j)%a(l) /= 72)) then
-              print *, "Check failed for i_a(",i,",",j,")%a(",l,")=",i_a(i,j)%a(l)
-              call abort()
-            end if
+                  .and. i_a(i,j)%a(l) /= 72)) call abort()
           end do
         end do
       end do
