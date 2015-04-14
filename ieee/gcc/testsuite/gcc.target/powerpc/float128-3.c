@@ -156,7 +156,7 @@ main (void)
   TYPE input, output;
 
 #ifdef DEBUG
-  printf ("Testing %s, %ld bytes\n", TYPE_NAME, (long) sizeof (TYPE));
+  printf ("Testing, %ld bytes\n", (long) sizeof (TYPE));
 #endif
 
   input = power_of_two (-1);

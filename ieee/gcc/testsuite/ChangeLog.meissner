@@ -1,3 +1,9 @@
+2015-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-3.c (main): Do not print TYPE_NAME
+	in debug output.
+	* gcc.target/powerpc/float128-4.c (main): Likewise.
+
 2015-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 222060.

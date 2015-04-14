@@ -25,7 +25,7 @@ fp128_orig_funcs	= addkf3 subkf3 mulkf3 divkf3 \
 			  fixkfsi fixkfdi fixunskfsi fixunskfdi \
 			  floatsikf floatdikf floatunsikf floatundikf
 
-fp128_ppc_funcs		= cmpkf2
+fp128_ppc_funcs		= cmpkf2 extendkftf2 trunktfkf2
 fp128_funcs		= $(fp128_orig_funcs) $(fp128_ppc_funcs)
 
 fp128_orig_src1		= $(subst kf,tf,$(fp128_orig_funcs))

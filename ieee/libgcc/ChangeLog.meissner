@@ -1,3 +1,14 @@
+2015-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/t-float128: Add support for converting between
+	__float128 and __ibm128.
+
+	* config/rs6000/extendkftf2.c: New file to support converting
+	__float128 to __ibm128.
+
+	* config/rs6000/trunckftf2.c: New file to support converting
+	__ibm128 to __float128.
+
 2015-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 222060.
