@@ -18556,7 +18556,7 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 
   /* Ignore zero-length instructions (barriers and the like).  */
   ninsns = get_attr_length (insn) / 4;
-  if (ninsns == 0)
+  if (get_attr_length (insn) == 0)
     return;
 
   /* Work out how many nops are needed.  Note that we only care about
@@ -18571,7 +18571,8 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
      branch instruction was not in a sequence (as the sequence would
      imply it is not actually a compact branch anyway) and the current
      insn is not an inline asm, and can't go in a delay slot.  */
-  else if (*fs_delay && get_attr_can_delay (insn) == CAN_DELAY_NO
+  else if (TARGET_FORBIDDEN_SLOTS && *fs_delay
+	   && get_attr_can_delay (insn) == CAN_DELAY_NO
 	   && GET_CODE (PATTERN (after)) != SEQUENCE
 	   && GET_CODE (pattern) != ASM_INPUT
 	   && asm_noperands (pattern) < 0)
@@ -19362,6 +19363,7 @@ static void
 mips_option_override (void)
 {
   int i, start, regno, mode;
+  unsigned int is_micromips;
 
   if (global_options_set.x_mips_isa_option)
     mips_isa_option_info = &mips_cpu_info_table[mips_isa_option];
@@ -19377,6 +19379,7 @@ mips_option_override (void)
   /* Save the base compression state and process flags as though we
      were generating uncompressed code.  */
   mips_base_compression_flags = TARGET_COMPRESSION;
+  is_micromips = TARGET_MICROMIPS;
   target_flags &= ~TARGET_COMPRESSION;
 
   /* -mno-float overrides -mhard-float and -msoft-float.  */
@@ -19605,15 +19608,18 @@ mips_option_override (void)
   if (!ISA_HAS_COMPACT_BRANCHES && mips_cb == MIPS_CB_ALWAYS)
     {
       error ("unsupported combination: %qs%s %s",
-	      mips_arch_info->name, TARGET_MICROMIPS ? " -mmicromips" : "",
+	      mips_arch_info->name, is_micromips ? " -mmicromips" : "",
 	      "-mcompact-branches=always");
     }
   else if (!ISA_HAS_DELAY_SLOTS && mips_cb == MIPS_CB_NEVER)
     {
       error ("unsupported combination: %qs%s %s",
-	      mips_arch_info->name, TARGET_MICROMIPS ? " -mmicromips" : "",
+	      mips_arch_info->name, is_micromips ? " -mmicromips" : "",
 	      "-mcompact-branches=never");
     }
+
+  if (is_micromips && TARGET_MSA && mips_isa_rev >= 6)
+    error ("unsupported combination: %s", "-mmicromips -mmsa");
 
   /* Require explicit relocs for MIPS R6 onwards.  This enables simplification
      of the compact branch and jump support through the backend.  */
