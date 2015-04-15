@@ -351,10 +351,10 @@ GNATMAKE_OBJS = a-except.o ali.o ali-util.o aspects.o s-casuti.o alloc.o \
 # with MULTILIB_DIRNAMES defined in gcc/config/target/t-*.
 
 ifeq ($(strip $(filter-out %x86_64, $(target_cpu))),)
-  ifeq ($(strip $(MULTISUBDIR)),/32)
+  ifeq ($(shell echo __i386__ | $(GCC_FOR_TARGET) $(GNATLIBCFLAGS) -E - | grep __i386__),)
     target_cpu:=i686
   else
-    ifeq ($(strip $(MULTISUBDIR)),/x32)
+    ifeq ($(shell echo __ILP32__ | $(GCC_FOR_TARGET) $(GNATLIBCFLAGS) -E - | grep __ILP32__),)
       target_cpu:=x32
     endif
   endif
