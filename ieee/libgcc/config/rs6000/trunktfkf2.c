@@ -37,22 +37,28 @@
 
 extern __float128 __trunctfkf2 (__ibm128);
 
+#ifdef __LITTLE_ENDIAN__
+#define HIGH_WORD	1
+#define LOW_WORD	0
+#else
+#define HIGH_WORD	0
+#define LOW_WORD	1
+#endif
+
 __float128
 __trunctfkf2 (__ibm128 value)
 {
-#ifdef __LITTLE_ENDIAN__
-  double high = __builtin_unpack_longdouble (value, 0);
-  double low = __builtin_unpack_longdouble (value, 1);
-#else
-  double high = __builtin_unpack_longdouble (value, 1);
-  double low = __builtin_unpack_longdouble (value, 0);
-#endif
+  double high = __builtin_unpack_longdouble (value, HIGH_WORD);
+  double low = __builtin_unpack_longdouble (value, LOW_WORD);
 
-  /* This should catch the special cases of NAN, Infinity, and -0.0, and
-     propigate the sign correctly for infinity/0.  */
-  if (__builtin_isnan (high) || __builtin_isinf (high)
-      || (high == 0.0 && low == 0.0))
+  /* Handle the special cases of NAN and inifinity.  */
+  if (__builtin_isnan (high) || __builtin_isinf (high))
     return (__float128) high;
 
-  return ((__float128)low) + ((__float128)high);
+  /* If low is 0.0, there no need to do the add.  In addition, avoiding the add
+     produces the correct sign if high is -0.0.  */
+  if (low == 0.0)
+    return (__float128) high;
+
+  return ((__float128)high) + ((__float128)low);
 }

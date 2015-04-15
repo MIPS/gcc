@@ -50,24 +50,9 @@ __extendkftf2 (__float128 value)
     {
       low = (double) (value - (__float128)high);
 
-      /* If we are on a power6 or newer, we can use copysign to propigate the
-	 sign bit so that -0.0Q becomes -0.0L.  If we are on an older platform,
-	 we need to handle the sign propigation.  */
-#ifdef _ARCH_PWR6
+      /* Use copysign to propigate the sign bit so that -0.0Q becomes -0.0L.  */
       low = __builtin_copysign (low, high);
-#else
-      if (high == 0.0 && low == 0.0)
-	low = high;		/* just in case it is -0.0 */
-      else if (high < 0)
-	low = - __builtin_fabs (low);
-      else
-	low = __builtin_fabs (low);
-#endif	/* no copysign */
     }
 
-#ifdef __LITTLE_ENDIAN__
-  return __builtin_pack_longdouble (low, high);
-#else
   return __builtin_pack_longdouble (high, low);
-#endif
 }
