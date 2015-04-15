@@ -5344,8 +5344,19 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	    && (e->expr_type != EXPR_VARIABLE && !e->rank))
         {
 	  int parm_rank;
-	  tmp = build_fold_indirect_ref_loc (input_location,
-					 parmse.expr);
+	  /* It is known the e returns a structure type with at least one
+	     allocatable component.  When e is a function, ensure that the
+	     function is called once only by using a temporary variable.  */
+	  if (e->expr_type == EXPR_FUNCTION)
+	    parmse.expr = gfc_evaluate_now_loc (input_location,
+						parmse.expr, &se->pre);
+
+	  if (POINTER_TYPE_P (TREE_TYPE (parmse.expr)))
+	    tmp = build_fold_indirect_ref_loc (input_location,
+					       parmse.expr);
+	  else
+	    tmp = parmse.expr;
+
 	  parm_rank = e->rank;
 	  switch (parm_kind)
 	    {
