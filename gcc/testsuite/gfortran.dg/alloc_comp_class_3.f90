@@ -30,7 +30,7 @@ contains
   subroutine add (d)
     type(b), value :: d
   end subroutine
-  
+
   subroutine add_c (d)
     type(c), value :: d
   end subroutine
