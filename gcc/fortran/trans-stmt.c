@@ -5207,7 +5207,9 @@ gfc_trans_allocate (gfc_code * code)
 	      gfc_init_se (&se, NULL);
 	      if (code->expr3->rank != 0
 		  && code->expr3->expr_type == EXPR_FUNCTION
-		  && code->expr3->value.function.isym)
+		  && (code->expr3->value.function.isym
+		      || (code->expr3->value.function.esym &&
+			  code->expr3->value.function.esym->attr.elemental)))
 		gfc_conv_expr_descriptor (&se, code->expr3);
 	      else
 		gfc_conv_expr_reference (&se, code->expr3);
