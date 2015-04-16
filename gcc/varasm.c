@@ -6809,9 +6809,9 @@ resolution_local_p (enum ld_plugin_symbol_resolution resolution)
 	  || resolution == LDPR_RESOLVED_EXEC);
 }
 
-static bool
+bool
 default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
-			 bool extern_protected_data)
+			 bool extern_protected_data, bool common_maybe_local)
 {
   /* A non-decl is an entry in the constant pool.  */
   if (!DECL_P (exp))
@@ -6836,7 +6836,16 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
      because dynamic linking might overwrite symbols
      in shared libraries.  */
   bool resolved_locally = false;
-  bool defined_locally = !DECL_EXTERNAL (exp);
+
+  bool uninited_common = (DECL_COMMON (exp)
+			  && (DECL_INITIAL (exp) == NULL
+			      || (!in_lto_p
+				  && DECL_INITIAL (exp) == error_mark_node)));
+
+  /* A non-external variable is defined locally only if it isn't
+     uninitialized COMMON variable or common_maybe_local is true.  */
+  bool defined_locally = (!DECL_EXTERNAL (exp)
+			  && (!uninited_common || common_maybe_local));
   if (symtab_node *node = symtab_node::get (exp))
     {
       if (node->in_other_partition)
@@ -6878,10 +6887,7 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
 
   /* Uninitialized COMMON variable may be unified with symbols
      resolved from other modules.  */
-  if (DECL_COMMON (exp)
-      && !resolved_locally
-      && (DECL_INITIAL (exp) == NULL
-	  || (!in_lto_p && DECL_INITIAL (exp) == error_mark_node)))
+  if (uninited_common && !resolved_locally)
     return false;
 
   /* Otherwise we're left with initialized (or non-common) global data
@@ -6895,21 +6901,22 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
 bool
 default_binds_local_p (const_tree exp)
 {
-  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false);
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false, false);
 }
 
-/* Similar to default_binds_local_p, but protected data may be
-   external.  */
+/* Similar to default_binds_local_p, but common symbol may be local.  */
+
 bool
 default_binds_local_p_2 (const_tree exp)
 {
-  return default_binds_local_p_3 (exp, flag_shlib != 0, true, true);
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false,
+				  !flag_pic);
 }
 
 bool
 default_binds_local_p_1 (const_tree exp, int shlib)
 {
-  return default_binds_local_p_3 (exp, shlib != 0, false, false);
+  return default_binds_local_p_3 (exp, shlib != 0, false, false, false);
 }
 
 /* Return true when references to DECL must bind to current definition in
