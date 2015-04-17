@@ -23454,18 +23454,21 @@ cp_parser_requires_expression (cp_parser *parser)
     }
 
   /* Local parameters are delared as variables within the scope
-     of the expression. They are not visible past the end of
-     the expression. */
+     of the expression.  They are not visible past the end of
+     the expression.  Expressions within the requires-expression
+     are unevaluated.  */
   struct scope_sentinel
   {
     scope_sentinel ()
     {
+      ++cp_unevaluated_operand;
       begin_scope (sk_block, NULL_TREE);
     }
 
     ~scope_sentinel ()
     {
       pop_bindings_and_leave_scope ();
+      --cp_unevaluated_operand;
     }
   } s;
 

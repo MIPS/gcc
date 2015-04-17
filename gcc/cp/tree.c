@@ -3049,8 +3049,6 @@ cp_tree_equal (tree t1, tree t2)
     case tcc_type:
       return same_type_p (t1, t2);
     default:
-      debug_tree (t1);
-      debug_tree (t2);
       gcc_unreachable ();
     }
   /* We can get here with --disable-checking.  */

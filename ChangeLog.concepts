@@ -1,3 +1,15 @@
+2015-04-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Support requires-expressions for variable concepts.
+	* gcc/cp/parser.c (cp_parser_requires_expression): Parse
+	the parameters and body as unevaluated operands.
+	* gcc/cp/pt.c (value_dependent_expression_p): Make all
+	requires-expressions value dependent so we don't try to
+	initialize concepts as if they were actually variables.
+	* gcc/cp/tree.cp (cp_tree_equal): Remove debugging code.
+	* gcc/testsuite/g++.dg/concepts/var-concept1.C: Add tests
+	cases.
+
 2015-04-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fix bootstrap regression.

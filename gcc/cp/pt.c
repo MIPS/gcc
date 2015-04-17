@@ -21805,6 +21805,11 @@ value_dependent_expression_p (tree expression)
 		|| has_value_dependent_address (op));
       }
 
+    case REQUIRES_EXPR:
+      /* Treat all requires-expressions as value-dependent so
+         we don't try to fold them.  */
+      return true;
+
     case TYPE_REQ:
     case VALIDEXPR_EXPR:
     case VALIDTYPE_EXPR:
