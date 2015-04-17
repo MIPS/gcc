@@ -30,19 +30,19 @@ MULTILIB_OSDIRNAMES += mips64r2=!mips-r2-hard/lib32
 MULTILIB_REQUIRED   += mips64r2/mabi=64
 MULTILIB_OSDIRNAMES += mips64r2/mabi.64=!mips-r2-hard/lib64
 
-MULTILIB_REQUIRED   += mnan=2008
-MULTILIB_OSDIRNAMES += mnan.2008=mips-r2-hard-nan2008/lib
-MULTILIB_REQUIRED   += mips64r2/mnan=2008
-MULTILIB_OSDIRNAMES += mips64r2/mnan.2008=!mips-r2-hard-nan2008/lib32
-MULTILIB_REQUIRED   += mips64r2/mabi=64/mnan=2008
-MULTILIB_OSDIRNAMES += mips64r2/mabi.64/mnan.2008=!mips-r2-hard-nan2008/lib64
+#MULTILIB_REQUIRED   += mnan=2008
+#MULTILIB_OSDIRNAMES += mnan.2008=mips-r2-hard-nan2008/lib
+#MULTILIB_REQUIRED   += mips64r2/mnan=2008
+#MULTILIB_OSDIRNAMES += mips64r2/mnan.2008=!mips-r2-hard-nan2008/lib32
+#MULTILIB_REQUIRED   += mips64r2/mabi=64/mnan=2008
+#MULTILIB_OSDIRNAMES += mips64r2/mabi.64/mnan.2008=!mips-r2-hard-nan2008/lib64
 
-MULTILIB_REQUIRED   += msoft-float
-MULTILIB_OSDIRNAMES += msoft-float=mips-r2-soft/lib
-MULTILIB_REQUIRED   += mips64r2/msoft-float
-MULTILIB_OSDIRNAMES += mips64r2/msoft-float=!mips-r2-soft/lib32
-MULTILIB_REQUIRED   += mips64r2/mabi=64/msoft-float
-MULTILIB_OSDIRNAMES += mips64r2/mabi.64/msoft-float=!mips-r2-soft/lib64
+#MULTILIB_REQUIRED   += msoft-float
+##MULTILIB_OSDIRNAMES += msoft-float=mips-r2-soft/lib
+#MULTILIB_REQUIRED   += mips64r2/msoft-float
+#MULTILIB_OSDIRNAMES += mips64r2/msoft-float=!mips-r2-soft/lib32
+#MULTILIB_REQUIRED   += mips64r2/mabi=64/msoft-float
+#MULTILIB_OSDIRNAMES += mips64r2/mabi.64/msoft-float=!mips-r2-soft/lib64
 
 #MULTILIB_REQUIRED   += msoft-float/mnan=2008
 #MULTILIB_OSDIRNAMES += msoft-float/mnan.2008=mips-r2-soft-nan2008/lib
@@ -51,26 +51,26 @@ MULTILIB_OSDIRNAMES += mips64r2/mabi.64/msoft-float=!mips-r2-soft/lib64
 #MULTILIB_REQUIRED   += mips64r2/mabi=64/msoft-float/mnan=2008
 #MULTILIB_OSDIRNAMES += mips64r2/mabi.64/msoft-float/mnan.2008=!mips-r2-soft-nan2008/lib64
 
-MULTILIB_REQUIRED   += EL
-MULTILIB_OSDIRNAMES += EL=!mipsel-r2-hard/lib
-MULTILIB_REQUIRED   += mips64r2/EL
-MULTILIB_OSDIRNAMES += mips64r2/EL=!mipsel-r2-hard/lib32
-MULTILIB_REQUIRED   += mips64r2/mabi=64/EL
-MULTILIB_OSDIRNAMES += mips64r2/mabi.64/EL=!mipsel-r2-hard/lib64
+#MULTILIB_REQUIRED   += EL
+#MULTILIB_OSDIRNAMES += EL=!mipsel-r2-hard/lib
+#MULTILIB_REQUIRED   += mips64r2/EL
+#MULTILIB_OSDIRNAMES += mips64r2/EL=!mipsel-r2-hard/lib32
+#MULTILIB_REQUIRED   += mips64r2/mabi=64/EL
+#MULTILIB_OSDIRNAMES += mips64r2/mabi.64/EL=!mipsel-r2-hard/lib64
 
-MULTILIB_REQUIRED   += EL/mnan=2008
-MULTILIB_OSDIRNAMES += EL/mnan.2008=!mipsel-r2-hard-nan2008/lib
-MULTILIB_REQUIRED   += mips64r2/EL/mnan=2008
-MULTILIB_OSDIRNAMES += mips64r2/EL/mnan.2008=!mipsel-r2-hard-nan2008/lib32
-MULTILIB_REQUIRED   += mips64r2/mabi=64/EL/mnan=2008
-MULTILIB_OSDIRNAMES += mips64r2/mabi.64/EL/mnan.2008=!mipsel-r2-hard-nan2008/lib64
+#MULTILIB_REQUIRED   += EL/mnan=2008
+#MULTILIB_OSDIRNAMES += EL/mnan.2008=!mipsel-r2-hard-nan2008/lib
+#MULTILIB_REQUIRED   += mips64r2/EL/mnan=2008
+#MULTILIB_OSDIRNAMES += mips64r2/EL/mnan.2008=!mipsel-r2-hard-nan2008/lib32
+#MULTILIB_REQUIRED   += mips64r2/mabi=64/EL/mnan=2008
+#MULTILIB_OSDIRNAMES += mips64r2/mabi.64/EL/mnan.2008=!mipsel-r2-hard-nan2008/lib64
 
-MULTILIB_REQUIRED   += EL/msoft-float
-MULTILIB_OSDIRNAMES += EL/msoft-float=!mipsel-r2-soft/lib
-MULTILIB_REQUIRED   += mips64r2/EL/msoft-float
-MULTILIB_OSDIRNAMES += mips64r2/EL/msoft-float=!mipsel-r2-soft/lib32
-MULTILIB_REQUIRED   += mips64r2/mabi=64/EL/msoft-float
-MULTILIB_OSDIRNAMES += mips64r2/mabi.64/EL/msoft-float=!mipsel-r2-soft/lib64
+#MULTILIB_REQUIRED   += EL/msoft-float
+#MULTILIB_OSDIRNAMES += EL/msoft-float=!mipsel-r2-soft/lib
+#MULTILIB_REQUIRED   += mips64r2/EL/msoft-float
+#MULTILIB_OSDIRNAMES += mips64r2/EL/msoft-float=!mipsel-r2-soft/lib32
+#MULTILIB_REQUIRED   += mips64r2/mabi=64/EL/msoft-float
+#MULTILIB_OSDIRNAMES += mips64r2/mabi.64/EL/msoft-float=!mipsel-r2-soft/lib64
 
 #MULTILIB_REQUIRED   += EL/msoft-float/mnan=2008
 #MULTILIB_OSDIRNAMES += EL/msoft-float/mnan.2008=!mipsel-r2-soft-nan2008/lib
@@ -80,37 +80,37 @@ MULTILIB_OSDIRNAMES += mips64r2/mabi.64/EL/msoft-float=!mipsel-r2-soft/lib64
 #MULTILIB_OSDIRNAMES += mips64r2/mabi.64/EL/msoft-float/mnan.2008=!mipsel-r2-soft-nan2008/lib64
 
 # We will not include any 64 bit mips16 combinations.
-MULTILIB_REQUIRED   += mips16
-MULTILIB_OSDIRNAMES += mips16=!mips-r2-mips16-hard/lib
-MULTILIB_REQUIRED   += mips16/mnan=2008
-MULTILIB_OSDIRNAMES += mips16/mnan.2008=!mips-r2-mips16-hard-nan2008/lib
-MULTILIB_REQUIRED   += mips16/msoft-float
-MULTILIB_OSDIRNAMES += mips16/msoft-float=!mips-r2-mips16-soft/lib
+#MULTILIB_REQUIRED   += mips16
+#MULTILIB_OSDIRNAMES += mips16=!mips-r2-mips16-hard/lib
+#MULTILIB_REQUIRED   += mips16/mnan=2008
+#MULTILIB_OSDIRNAMES += mips16/mnan.2008=!mips-r2-mips16-hard-nan2008/lib
+#MULTILIB_REQUIRED   += mips16/msoft-float
+#MULTILIB_OSDIRNAMES += mips16/msoft-float=!mips-r2-mips16-soft/lib
 #MULTILIB_REQUIRED   += mips16/msoft-float/mnan=2008
 #MULTILIB_OSDIRNAMES += mips16/msoft-float/mnan.2008=!mips-r2-mips16-soft-nan2008/lib
 
-MULTILIB_REQUIRED   += mips16/EL
-MULTILIB_OSDIRNAMES += mips16/EL=!mipsel-r2-mips16-hard/lib
-MULTILIB_REQUIRED   += mips16/EL/mnan=2008
-MULTILIB_OSDIRNAMES += mips16/EL/mnan.2008=!mipsel-r2-mips16-hard-nan2008/lib
-MULTILIB_REQUIRED   += mips16/EL/msoft-float
-MULTILIB_OSDIRNAMES += mips16/EL/msoft-float=!mipsel-r2-mips16-soft/lib
+#MULTILIB_REQUIRED   += mips16/EL
+#MULTILIB_OSDIRNAMES += mips16/EL=!mipsel-r2-mips16-hard/lib
+#MULTILIB_REQUIRED   += mips16/EL/mnan=2008
+#MULTILIB_OSDIRNAMES += mips16/EL/mnan.2008=!mipsel-r2-mips16-hard-nan2008/lib
+#MULTILIB_REQUIRED   += mips16/EL/msoft-float
+#MULTILIB_OSDIRNAMES += mips16/EL/msoft-float=!mipsel-r2-mips16-soft/lib
 #MULTILIB_REQUIRED   += mips16/EL/msoft-float/mnan=2008
 #MULTILIB_OSDIRNAMES += mips16/EL/msoft-float/mnan.2008=!mipsel-r2-mips16-soft-nan2008/lib
 
-MULTILIB_REQUIRED   += mmicromips
-MULTILIB_OSDIRNAMES += mmicromips=!micromips-r2-hard/lib
-MULTILIB_REQUIRED   += mmicromips/mnan=2008
-MULTILIB_OSDIRNAMES += mmicromips/mnan.2008=!micromips-r2-hard-nan2008/lib
-MULTILIB_REQUIRED   += mmicromips/msoft-float
-MULTILIB_OSDIRNAMES += mmicromips/msoft-float=!micromips-r2-soft/lib
+#MULTILIB_REQUIRED   += mmicromips
+#MULTILIB_OSDIRNAMES += mmicromips=!micromips-r2-hard/lib
+#MULTILIB_REQUIRED   += mmicromips/mnan=2008
+#MULTILIB_OSDIRNAMES += mmicromips/mnan.2008=!micromips-r2-hard-nan2008/lib
+#MULTILIB_REQUIRED   += mmicromips/msoft-float
+#MULTILIB_OSDIRNAMES += mmicromips/msoft-float=!micromips-r2-soft/lib
 #MULTILIB_REQUIRED   += mmicromips/msoft-float/mnan=2008
 #MULTILIB_OSDIRNAMES += mmicromips/msoft-float/mnan.2008=!micromips-r2-soft-nan2008/lib
 
-MULTILIB_REQUIRED   += mmicromips/EL
-MULTILIB_OSDIRNAMES += mmicromips/EL=!micromipsel-r2-hard/lib
-MULTILIB_REQUIRED   += mmicromips/EL/mnan=2008
-MULTILIB_OSDIRNAMES += mmicromips/EL/mnan.2008=!micromipsel-r2-hard-nan2008/lib
+#MULTILIB_REQUIRED   += mmicromips/EL
+#MULTILIB_OSDIRNAMES += mmicromips/EL=!micromipsel-r2-hard/lib
+#MULTILIB_REQUIRED   += mmicromips/EL/mnan=2008
+#MULTILIB_OSDIRNAMES += mmicromips/EL/mnan.2008=!micromipsel-r2-hard-nan2008/lib
 MULTILIB_REQUIRED   += mmicromips/EL/msoft-float
 MULTILIB_OSDIRNAMES += mmicromips/EL/msoft-float=!micromipsel-r2-soft/lib
 #MULTILIB_REQUIRED   += mmicromips/EL/msoft-float/mnan=2008
@@ -118,44 +118,44 @@ MULTILIB_OSDIRNAMES += mmicromips/EL/msoft-float=!micromipsel-r2-soft/lib
 
 # Version 1 multilibs
 
-MULTILIB_REQUIRED   += mips32
-MULTILIB_OSDIRNAMES += mips32=mips-r1-hard/lib
-MULTILIB_REQUIRED   += mips64
-MULTILIB_OSDIRNAMES += mips64=!mips-r1-hard/lib32
-MULTILIB_REQUIRED   += mips64/mabi=64
-MULTILIB_OSDIRNAMES += mips64/mabi.64=!mips-r1-hard/lib64
+#MULTILIB_REQUIRED   += mips32
+#MULTILIB_OSDIRNAMES += mips32=mips-r1-hard/lib
+#MULTILIB_REQUIRED   += mips64
+#MULTILIB_OSDIRNAMES += mips64=!mips-r1-hard/lib32
+#MULTILIB_REQUIRED   += mips64/mabi=64
+#MULTILIB_OSDIRNAMES += mips64/mabi.64=!mips-r1-hard/lib64
 
-MULTILIB_REQUIRED   += mips32/msoft-float
-MULTILIB_OSDIRNAMES += mips32/msoft-float=mips-r1-soft/lib
-MULTILIB_REQUIRED   += mips64/msoft-float
-MULTILIB_OSDIRNAMES += mips64/msoft-float=!mips-r1-soft/lib32
-MULTILIB_REQUIRED   += mips64/mabi=64/msoft-float
-MULTILIB_OSDIRNAMES += mips64/mabi.64/msoft-float=!mips-r1-soft/lib64
+#MULTILIB_REQUIRED   += mips32/msoft-float
+#MULTILIB_OSDIRNAMES += mips32/msoft-float=mips-r1-soft/lib
+#MULTILIB_REQUIRED   += mips64/msoft-float
+#MULTILIB_OSDIRNAMES += mips64/msoft-float=!mips-r1-soft/lib32
+#MULTILIB_REQUIRED   += mips64/mabi=64/msoft-float
+#MULTILIB_OSDIRNAMES += mips64/mabi.64/msoft-float=!mips-r1-soft/lib64
 
-MULTILIB_REQUIRED   += mips32/EL
-MULTILIB_OSDIRNAMES += mips32/EL=!mipsel-r1-hard/lib
-MULTILIB_REQUIRED   += mips64/EL
-MULTILIB_OSDIRNAMES += mips64/EL=!mipsel-r1-hard/lib32
-MULTILIB_REQUIRED   += mips64/mabi=64/EL
-MULTILIB_OSDIRNAMES += mips64/mabi.64/EL=!mipsel-r1-hard/lib64
+#MULTILIB_REQUIRED   += mips32/EL
+#MULTILIB_OSDIRNAMES += mips32/EL=!mipsel-r1-hard/lib
+#MULTILIB_REQUIRED   += mips64/EL
+#MULTILIB_OSDIRNAMES += mips64/EL=!mipsel-r1-hard/lib32
+#MULTILIB_REQUIRED   += mips64/mabi=64/EL
+#MULTILIB_OSDIRNAMES += mips64/mabi.64/EL=!mipsel-r1-hard/lib64
 
-MULTILIB_REQUIRED   += mips32/EL/msoft-float
-MULTILIB_OSDIRNAMES += mips32/EL/msoft-float=!mipsel-r1-soft/lib
-MULTILIB_REQUIRED   += mips64/EL/msoft-float
-MULTILIB_OSDIRNAMES += mips64/EL/msoft-float=!mipsel-r1-soft/lib32
-MULTILIB_REQUIRED   += mips64/mabi=64/EL/msoft-float
-MULTILIB_OSDIRNAMES += mips64/mabi.64/EL/msoft-float=!mipsel-r1-soft/lib64
+#MULTILIB_REQUIRED   += mips32/EL/msoft-float
+#MULTILIB_OSDIRNAMES += mips32/EL/msoft-float=!mipsel-r1-soft/lib
+#MULTILIB_REQUIRED   += mips64/EL/msoft-float
+#MULTILIB_OSDIRNAMES += mips64/EL/msoft-float=!mipsel-r1-soft/lib32
+#MULTILIB_REQUIRED   += mips64/mabi=64/EL/msoft-float
+#MULTILIB_OSDIRNAMES += mips64/mabi.64/EL/msoft-float=!mipsel-r1-soft/lib64
 
 # We will not include any 64 bit mips16 combinations.
-MULTILIB_REQUIRED   += mips32/mips16
-MULTILIB_OSDIRNAMES += mips32/mips16=!mips-r1-mips16-hard/lib
-MULTILIB_REQUIRED   += mips32/mips16/msoft-float
-MULTILIB_OSDIRNAMES += mips32/mips16/msoft-float=!mips-r1-mips16-soft/lib
+#MULTILIB_REQUIRED   += mips32/mips16
+#MULTILIB_OSDIRNAMES += mips32/mips16=!mips-r1-mips16-hard/lib
+#MULTILIB_REQUIRED   += mips32/mips16/msoft-float
+#MULTILIB_OSDIRNAMES += mips32/mips16/msoft-float=!mips-r1-mips16-soft/lib
 
-MULTILIB_REQUIRED   += mips32/mips16/EL
-MULTILIB_OSDIRNAMES += mips32/mips16/EL=!mipsel-r1-mips16-hard/lib
-MULTILIB_REQUIRED   += mips32/mips16/EL/msoft-float
-MULTILIB_OSDIRNAMES += mips32/mips16/EL/msoft-float=!mipsel-r1-mips16-soft/lib
+#MULTILIB_REQUIRED   += mips32/mips16/EL
+#MULTILIB_OSDIRNAMES += mips32/mips16/EL=!mipsel-r1-mips16-hard/lib
+#MULTILIB_REQUIRED   += mips32/mips16/EL/msoft-float
+#MULTILIB_OSDIRNAMES += mips32/mips16/EL/msoft-float=!mipsel-r1-mips16-soft/lib
 
 # Uclibc multilibs
 #MULTILIB_REQUIRED   += muclibc/EL

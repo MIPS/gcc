@@ -19,8 +19,8 @@
 # The default build is mips32r6, hard-float big-endian.  Add mips64r6,
 # 64-bit ABI and little-endian variations.
 
-MULTILIB_OPTIONS = mips64r6 mmicromips mabi=64
-MULTILIB_DIRNAMES = mips64r6 micromips 64
+MULTILIB_OPTIONS = mips64r6 mmicromips mabi=64 EL msoft-float
+MULTILIB_DIRNAMES = mips64r6 micromips 64 el sof
 MULTILIB_MATCHES = EL=mel EB=meb
 
 MULTILIB_REQUIRED =
@@ -34,3 +34,6 @@ MULTILIB_OSDIRNAMES += mips64r6/mabi.64=!mips-r6-hard/lib64
 
 MULTILIB_REQUIRED   += mmicromips
 MULTILIB_OSDIRNAMES += mmicromips=!micromips-r6-hard/lib
+
+MULTILIB_REQUIRED   += mmicromips/EL/msoft-float
+MULTILIB_OSDIRNAMES += mmicromips/EL/msoft-float=!micromipsel-r6-soft/lib
