@@ -1,3 +1,24 @@
+2015-04-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_load): Use rotate 64
+	instead of mapping non-vector types to V2DImode for little endian
+	word swapping.  For the store case, require that we are running
+	before reload.
+	(rs6000_emit_le_vsx_load): Likewise.
+	(rs6000_emit_le_vsx_store): Likewise.
+
+	* config/rs6000/vsx.md (VSX_LE): Move types that aren't 2 element
+	vectors to VSX_LE_128 from VSX_LE.
+	(VSX_LE_128): Likewise.
+	(VSX_F128): Delete, no longer used.
+	(vsx_le_permute_<mode>, VSX_LE_128 case): Use rotate instead of
+	vec_select for the 128-bit scalar types and V1TImode.  Add
+	combiner to eliminate unneded double rotates.
+	(vsx_le_undo_permute_<mode>): Likewise.
+	(vsx_le_perm_load_<mode>, VSX_LE_128 case): Likewise.
+	(vsx_le_perm_store_<mode>, VSX_LE_128 case): Likewise.
+	(define_splits for VSX_LE_128 store): Likewise.
+
 2015-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 222060.
