@@ -7817,7 +7817,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	 component is allocated, for which code will be generated in
 	 gfc_duplicate_allocatable (), where the deep copy code is just added
 	 into the if's body, by adding tmp (the deep copy code) as last
-	 argument to gfc_duplicate_allocatable().  */
+	 argument to gfc_duplicate_allocatable ().  */
       if (purpose == COPY_ALLOC_COMP
 	  && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (dest)))
 	tmp = gfc_duplicate_allocatable (dest, decl, decl_type, rank,

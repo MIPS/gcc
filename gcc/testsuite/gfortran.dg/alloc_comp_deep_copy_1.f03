@@ -262,4 +262,3 @@ contains
 
 end program alloc_comp_copy_test
 
-! vim:ts=2:sts=2:sw=2:autoindent: 
