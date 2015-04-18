@@ -7737,10 +7737,11 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 
   decl_type = TREE_TYPE (decl);
 
-  if ((POINTER_TYPE_P (decl_type)/* && rank != 0*/)
+  if ((POINTER_TYPE_P (decl_type))
 	|| (TREE_CODE (decl_type) == REFERENCE_TYPE && rank == 0))
     {
       decl = build_fold_indirect_ref_loc (input_location, decl);
+      /* Deref dest in sync with decl, but only when it is not NULL.  */
       if (dest)
 	dest = build_fold_indirect_ref_loc (input_location, dest);
     }
@@ -7788,20 +7789,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 
       vref = gfc_build_array_ref (var, index, NULL);
 
-      if (purpose == COPY_ALLOC_COMP)
-        {
-//	  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (dest)))
-//	    {
-//	      tmp = gfc_duplicate_allocatable (dest, decl, decl_type, rank,
-//					       NULL_TREE);
-//	      gfc_add_expr_to_block (&fnblock, tmp);
-//	    }
-	  tmp = build_fold_indirect_ref_loc (input_location,
-					 gfc_conv_array_data (dest));
-	  dref = gfc_build_array_ref (tmp, index, NULL);
-	  tmp = structure_alloc_comps (der_type, vref, dref, rank, purpose);
-	}
-      else if (purpose == COPY_ONLY_ALLOC_COMP)
+      if (purpose == COPY_ALLOC_COMP || purpose == COPY_ONLY_ALLOC_COMP)
         {
 	  tmp = build_fold_indirect_ref_loc (input_location,
 					 gfc_conv_array_data (dest));
@@ -7824,12 +7812,16 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
       gfc_add_block_to_block (&fnblock, &loop.pre);
 
       tmp = gfc_finish_block (&fnblock);
+      /* When copying allocateable components, the above implements the
+	 deep copy.  Nevertheless is a deep copy only allowed, when the current
+	 component is allocated, for which code will be generated in
+	 gfc_duplicate_allocatable (), where the deep copy code is just added
+	 into the if's body, by adding tmp (the deep copy code) as last
+	 argument to gfc_duplicate_allocatable().  */
       if (purpose == COPY_ALLOC_COMP
 	  && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (dest)))
-	{
-	  tmp = gfc_duplicate_allocatable (dest, decl, decl_type, rank,
-					   tmp);
-	}
+	tmp = gfc_duplicate_allocatable (dest, decl, decl_type, rank,
+					 tmp);
       else if (null_cond != NULL_TREE)
 	tmp = build3_v (COND_EXPR, null_cond, tmp,
 			build_empty_stmt (input_location));
@@ -8115,6 +8107,10 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      continue;
 	    }
 
+	  /* To implement guarded deep copy, i.e., deep copy only allocatable
+	     components that are really allocated, the deep copy code has to
+	     be generated first and then added to the if-block in
+	     gfc_duplicate_allocatable ().  */
 	  if (cmp_has_alloc_comps)
 	    {
 	      rank = c->as ? c->as->rank : 0;
