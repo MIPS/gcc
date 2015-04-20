@@ -18,4 +18,3 @@ int main() {
   f2((void*)0); // { dg-error "cannot call" }
 }
 
-// { dg-excess-errors "x|with" }

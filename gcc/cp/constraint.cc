@@ -1390,7 +1390,9 @@ inline tree
 tsubst_simple_requirement (tree t, tree args, 
                            tsubst_flags_t complain, tree in_decl)
 {
+  ++processing_template_decl;
   tree expr = tsubst_expr (TREE_OPERAND (t, 0), args, complain, in_decl, false);
+  --processing_template_decl;
   return finish_simple_requirement (expr);
 }
 
@@ -1402,7 +1404,9 @@ inline tree
 tsubst_type_requirement (tree t, tree args, 
                          tsubst_flags_t complain, tree in_decl)
 {
+  ++processing_template_decl;
   tree type = tsubst (TREE_OPERAND (t, 0), args, complain, in_decl);
+  --processing_template_decl;
   return finish_type_requirement (type);
 }
 
@@ -1415,8 +1419,10 @@ tree
 tsubst_compound_requirement (tree t, tree args,
                              tsubst_flags_t complain, tree in_decl)
 {
+  ++processing_template_decl;
   tree expr = tsubst_expr (TREE_OPERAND (t, 0), args, complain, in_decl, false);
   tree type = tsubst (TREE_OPERAND (t, 1), args, complain, in_decl);
+  --processing_template_decl;
   bool noexcept_p = COMPOUND_REQ_NOEXCEPT_P (t);
   return finish_compound_requirement (expr, type, noexcept_p);
 }
@@ -1426,7 +1432,9 @@ tree
 tsubst_nested_requirement (tree t, tree args, 
                            tsubst_flags_t complain, tree in_decl)
 {
+  ++processing_template_decl;
   tree expr = tsubst_expr (TREE_OPERAND (t, 0), args, complain, in_decl, false);
+  --processing_template_decl;
   return finish_nested_requirement (expr);
 }
 
@@ -1613,7 +1621,6 @@ check_predicate_constraint (tree t, tree args,
 
   return cxx_constant_value (result);
 }
-
 
 /* Check an expression constraint. The constraint is satisfied if
    substitution succeeds ([temp.constr.expr]). 

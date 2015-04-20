@@ -1,5 +1,18 @@
 2015-04-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	PR65681
+	* gcc/cp/constraint.cc (tsubst_simple_requirement): Substitute
+	in a template-processing context to avoid doing full resolution
+	on types and expressions.
+	(tsubst_type_requirement): Likewise.
+	(tsubst_compound_requirement): Likewise.
+	(tsubst_nested_requirement): Likewise.
+	* gcc/testsuite/g++.dg/concepts/p465681.C: New.
+	* gcc/testsuite/g++.dg/concepts/req2.C: Remove check for spurious
+	diagnostics.
+
+2015-04-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Improve pretty printing output for constraints
 	* gcc/cp/error.c (dump_expr): Print predicate constraints
 	just like other constraints.
