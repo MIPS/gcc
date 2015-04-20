@@ -2737,10 +2737,6 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       break;
 
     case PRED_CONSTR:
-      pp_cxx_ws_string (cxx_pp, "__pred");
-      dump_expr (cxx_pp, TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
-      break;
-
     case EXPR_CONSTR:
     case TYPE_CONSTR:
     case ICONV_CONSTR:

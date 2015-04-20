@@ -2567,6 +2567,7 @@ pp_cxx_requirement (cxx_pretty_printer *pp, tree t)
 
     case COMPOUND_REQ:
       pp_cxx_compound_requirement (pp, t);
+      break;
 
     case NESTED_REQ:
       pp_cxx_nested_requirement (pp, t);
@@ -2585,11 +2586,7 @@ static void
 pp_cxx_requirement_list (cxx_pretty_printer *pp, tree t)
 {
   for (; t; t = TREE_CHAIN (t))
-    {
-      pp_newline_and_indent (pp, 3);
-      pp_cxx_requirement (pp, TREE_VALUE (t));
-    }
-  pp_newline_and_indent (pp, -3);
+    pp_cxx_requirement (pp, TREE_VALUE (t));
 }
 
 // requirement-body:
@@ -2607,11 +2604,13 @@ pp_cxx_requirement_body (cxx_pretty_printer *pp, tree t)
 void
 pp_cxx_requires_expr (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "requires");
-  pp_space (pp);
-  if (TREE_OPERAND (t, 0))
-    pp_cxx_parameter_declaration_clause (pp, TREE_OPERAND (t, 0));
-  pp_space (pp);
+  pp_string (pp, "requires");
+  if (tree parms = TREE_OPERAND (t, 0))
+    {
+      if (TREE_VALUE (parms) != void_type_node)
+          pp_cxx_parameter_declaration_clause (pp, parms);
+      pp_cxx_whitespace (pp);
+    }
   pp_cxx_requirement_body (pp, TREE_OPERAND (t, 1));
 }
 
@@ -2665,14 +2664,16 @@ pp_cxx_nested_requirement (cxx_pretty_printer *pp, tree t)
 void
 pp_cxx_predicate_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "__pred");
+  pp_string (pp, "predicate");
+  pp_left_paren (pp);
   pp->expression (TREE_OPERAND (t, 0));
+  pp_right_paren (pp);
 }
 
 void
 pp_cxx_expression_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "__is_valid ");
+  pp_string (pp, "valid_expr");
   pp_left_paren (pp);
   pp->expression (TREE_OPERAND (t, 0)); 
   pp_right_paren (pp);
@@ -2681,16 +2682,16 @@ pp_cxx_expression_constraint (cxx_pretty_printer *pp, tree t)
 void
 pp_cxx_type_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "__is_valid ");
+  pp_string (pp, "valid_type");
   pp_left_paren (pp);
-  pp->expression (TREE_OPERAND (t, 0)); 
+  pp->type_id (TREE_OPERAND (t, 0)); 
   pp_right_paren (pp);
 }
 
 void
 pp_cxx_implicit_conversion_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "__implicitly_convertible");
+  pp_cxx_ws_string (pp, "implicitly_convertible");
   pp_left_paren (pp);
   pp->expression (ICONV_CONSTR_EXPR (t));
   pp->expression (ICONV_CONSTR_TYPE (t));
@@ -2700,7 +2701,7 @@ pp_cxx_implicit_conversion_constraint (cxx_pretty_printer *pp, tree t)
 void
 pp_cxx_argument_deduction_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "__deducible");
+  pp_cxx_ws_string (pp, "deducible");
   pp_left_paren (pp);
   pp->expression (DEDUCT_CONSTR_EXPR (t));
   pp->expression (DEDUCT_CONSTR_PATTERN (t));
@@ -2719,10 +2720,14 @@ pp_cxx_exception_constraint (cxx_pretty_printer *pp, tree t)
 void
 pp_cxx_parameterized_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "\\...");
   pp_left_paren (pp);
-  pp_cxx_parameter_declaration_clause (pp, PARM_CONSTR_PARMS (t));
-  pp_cxx_whitespace (pp);
+  pp_string (pp, "forall");
+  if (tree parms = PARM_CONSTR_PARMS (t))
+    {
+      if (TREE_VALUE (parms) != void_type_node)
+          pp_cxx_parameter_declaration_clause (pp, parms);
+      pp_cxx_whitespace (pp);
+    }
   pp_cxx_constraint (pp, PARM_CONSTR_OPERAND (t));
   pp_right_paren (pp);
 }
@@ -2731,7 +2736,7 @@ void
 pp_cxx_conjunction (cxx_pretty_printer *pp, tree t)
 {
   pp_cxx_constraint (pp, TREE_OPERAND (t, 0));
-  pp_cxx_ws_string (pp, "and");
+  pp_string (pp, " and ");
   pp_cxx_constraint (pp, TREE_OPERAND (t, 1));
 }
 
@@ -2739,7 +2744,7 @@ void
 pp_cxx_disjunction (cxx_pretty_printer *pp, tree t)
 {
   pp_cxx_constraint (pp, TREE_OPERAND (t, 0));
-  pp_cxx_ws_string (pp, "or");
+  pp_string (pp, " or ");
   pp_cxx_constraint (pp, TREE_OPERAND (t, 1));
 }
 

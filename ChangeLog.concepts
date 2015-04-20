@@ -1,3 +1,23 @@
+2015-04-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Improve pretty printing output for constraints
+	* gcc/cp/error.c (dump_expr): Print predicate constraints
+	just like other constraints.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_requirement): Add missing
+	break statement.
+	(pp_cxx_requirement_list): Print requirements inline instead
+	of in newlines.
+	(pp_cxx_requirement_body): Don't print a parameter list if
+	there are no parameters.
+	(pp_cxx_nested_requirement): Be less obtuse.
+	(pp_cxx_expression_constraint): Likewise.
+	(pp_cxx_type_constraint) Likewise.
+	(pp_cxx_implicit_conversion_constraint): Likewise.
+	(pp_cxx_argument_deduction_constraint): Likewise.
+	(pp_cxx_parameterized_constraint): Likewise.
+	(pp_cxx_conjunction): Print spaces explicitly.
+	(pp_cxx_disjunction): Likewise.
+
 2015-04-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Support requires-expressions for variable concepts.
