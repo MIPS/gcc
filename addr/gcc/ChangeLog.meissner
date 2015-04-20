@@ -1,3 +1,8 @@
+2015-04-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222241.
+	* REVISION: Update subversion number.
+
 2015-04-20  Bill Schmidt  &lt;wschmidt@linux.vnet.ibm.com&gt;
 
 	* config/rs6000/altivec.md (*altivec_lvx_<mode>_internal): Remove

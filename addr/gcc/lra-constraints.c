@@ -533,7 +533,7 @@ get_equiv_with_elimination (rtx x, rtx_insn *insn)
   if (x == res || CONSTANT_P (res))
     return res;
   return lra_eliminate_regs_1 (insn, res, GET_MODE (res),
-			       0, false, false, true);
+			       false, false, 0, true);
 }
 
 /* Set up curr_operand_mode.  */
@@ -1656,8 +1656,7 @@ prohibited_class_reg_set_mode_p (enum reg_class rclass,
 {
   HARD_REG_SET temp;
   
-  // ??? Is this assert right
-  // lra_assert (hard_reg_set_subset_p (set, reg_class_contents[rclass]));
+  lra_assert (hard_reg_set_subset_p (reg_class_contents[rclass], set));
   COPY_HARD_REG_SET (temp, set);
   AND_COMPL_HARD_REG_SET (temp, lra_no_alloc_regs);
   return (hard_reg_set_subset_p
