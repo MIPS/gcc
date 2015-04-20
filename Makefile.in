@@ -844,6 +844,14 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 	$(LTO_FLAGS_TO_PASS) \
 	"`echo 'ADAFLAGS=$(BOOT_ADAFLAGS)' | sed -e s'/[^=][^=]*=$$/XFOO=/'`"
 
+@if gcc-bootstrap
+EXTRA_HOST_EXPORTS = if [ $(current_stage) != stage1 ]; then \
+		       $(POSTSTAGE1_HOST_EXPORTS) \
+		     fi ;
+
+EXTRA_BOOTSTRAP_FLAGS = CC="$$CC" CXX="$$CXX" LDFLAGS="$$LDFLAGS"
+@endif gcc-bootstrap
+
 # Flags to pass down to makes which are built with the target environment.
 # The double $ decreases the length of the command line; those variables
 # are set in BASE_FLAGS_TO_PASS, and the sub-make will expand them.  The
@@ -3682,9 +3690,9 @@ check-bfd:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/bfd && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif bfd
 
@@ -4556,9 +4564,9 @@ check-opcodes:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/opcodes && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif opcodes
 
@@ -5430,9 +5438,9 @@ check-binutils:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/binutils && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif binutils
 
@@ -5860,9 +5868,9 @@ check-bison:
 	@if [ '$(host)' = '$(target)' ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	  $(HOST_EXPORTS) \
+	  $(HOST_EXPORTS)  \
 	  (cd $(HOST_SUBDIR)/bison && \
-	    $(MAKE) $(FLAGS_TO_PASS)  check); \
+	    $(MAKE) $(FLAGS_TO_PASS)  check)
 	fi
 
 @endif bison
@@ -6302,7 +6310,7 @@ check-cgen:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/cgen && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -6743,7 +6751,7 @@ check-dejagnu:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/dejagnu && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -7184,7 +7192,7 @@ check-etc:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/etc && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -7627,9 +7635,9 @@ check-fastjar:
 	@if [ '$(host)' = '$(target)' ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	  $(HOST_EXPORTS) \
+	  $(HOST_EXPORTS)  \
 	  (cd $(HOST_SUBDIR)/fastjar && \
-	    $(MAKE) $(FLAGS_TO_PASS)  check); \
+	    $(MAKE) $(FLAGS_TO_PASS)  check)
 	fi
 
 @endif fastjar
@@ -8515,9 +8523,9 @@ check-fixincludes:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/fixincludes && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif fixincludes
 
@@ -8930,9 +8938,9 @@ check-flex:
 	@if [ '$(host)' = '$(target)' ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	  $(HOST_EXPORTS) \
+	  $(HOST_EXPORTS)  \
 	  (cd $(HOST_SUBDIR)/flex && \
-	    $(MAKE) $(FLAGS_TO_PASS)  check); \
+	    $(MAKE) $(FLAGS_TO_PASS)  check)
 	fi
 
 @endif flex
@@ -9818,9 +9826,9 @@ check-gas:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/gas && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif gas
 
@@ -10692,9 +10700,9 @@ check-gcc:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/gcc && \
-	  $(MAKE) $(FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) check)
+	  $(MAKE) $(FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif gcc
 
@@ -11572,9 +11580,9 @@ check-gmp:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/gmp && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif gmp
 
@@ -12440,9 +12448,9 @@ check-mpfr:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/mpfr && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif mpfr
 
@@ -13308,9 +13316,9 @@ check-mpc:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/mpc && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif mpc
 
@@ -14176,9 +14184,9 @@ check-isl:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/isl && \
-	  $(MAKE) $(FLAGS_TO_PASS) V=1 check)
+	  $(MAKE) $(FLAGS_TO_PASS) V=1 $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif isl
 
@@ -15044,9 +15052,9 @@ check-libelf:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/libelf && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif libelf
 
@@ -15906,9 +15914,9 @@ check-gold:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/gold && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif gold
 
@@ -16334,7 +16342,7 @@ check-gprof:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/gprof && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -17221,9 +17229,9 @@ check-intl:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/intl && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif intl
 
@@ -17649,7 +17657,7 @@ check-tcl:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/tcl && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -18075,7 +18083,7 @@ check-itcl:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/itcl && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -18962,9 +18970,9 @@ check-ld:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/ld && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif ld
 
@@ -19836,9 +19844,9 @@ check-libbacktrace:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/libbacktrace && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif libbacktrace
 
@@ -20710,9 +20718,9 @@ check-libcpp:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/libcpp && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif libcpp
 
@@ -21584,9 +21592,9 @@ check-libdecnumber:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/libdecnumber && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif libdecnumber
 
@@ -22012,7 +22020,7 @@ check-libgui:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/libgui && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -22905,9 +22913,9 @@ check-libiberty:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/libiberty && \
-	  $(MAKE) $(FLAGS_TO_PASS)  check)
+	  $(MAKE) $(FLAGS_TO_PASS)  $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif libiberty
 
@@ -23785,9 +23793,9 @@ check-libiberty-linker-plugin:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/libiberty-linker-plugin && \
-	  $(MAKE) $(FLAGS_TO_PASS) @extra_linker_plugin_flags@ check)
+	  $(MAKE) $(FLAGS_TO_PASS) @extra_linker_plugin_flags@ $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif libiberty-linker-plugin
 
@@ -24213,7 +24221,7 @@ check-libiconv:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/libiconv && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -24591,7 +24599,7 @@ check-m4:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/m4 && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -25032,7 +25040,7 @@ check-readline:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/readline && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -25473,7 +25481,7 @@ check-sid:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/sid && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -25914,7 +25922,7 @@ check-sim:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/sim && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -26355,7 +26363,7 @@ check-texinfo:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/texinfo && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -27640,7 +27648,7 @@ check-gdb:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/gdb && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -28081,7 +28089,7 @@ check-expect:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/expect && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -28522,7 +28530,7 @@ check-guile:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/guile && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -28963,7 +28971,7 @@ check-tk:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/tk && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -30214,7 +30222,7 @@ check-gnattools:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/gnattools && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -31107,9 +31115,9 @@ check-lto-plugin:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS) $(EXTRA_HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/lto-plugin && \
-	  $(MAKE) $(FLAGS_TO_PASS) @extra_linker_plugin_flags@ check)
+	  $(MAKE) $(FLAGS_TO_PASS) @extra_linker_plugin_flags@ $(EXTRA_BOOTSTRAP_FLAGS) check)
 
 @endif lto-plugin
 
@@ -31535,7 +31543,7 @@ check-libcc1:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/libcc1 && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
@@ -31976,7 +31984,7 @@ check-gotools:
 	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
+	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/gotools && \
 	  $(MAKE) $(FLAGS_TO_PASS)  check)
 
