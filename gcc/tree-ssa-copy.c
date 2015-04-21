@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-ssa-dom.h"
 #include "tree-ssa-loop-niter.h"
+#include "omp-low.h"
 
 
 /* This file implements the copy propagation pass and provides a
@@ -114,6 +115,9 @@ stmt_may_generate_copy (gimple stmt)
   /* If the statement has volatile operands, it won't generate a
      useful copy.  */
   if (gimple_has_volatile_ops (stmt))
+    return false;
+
+  if (gimple_stmt_omp_data_i_init_p (stmt))
     return false;
 
   /* Statements with loads and/or stores will never generate a useful copy.  */

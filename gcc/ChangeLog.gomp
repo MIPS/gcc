@@ -1,5 +1,9 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Add pass_copy_prop to pass group pass_oacc_kernels.
+	* tree-ssa-copy.c (stmt_may_generate_copy): Handle .omp_data_i init
+	conservatively.
+
 	* passes.def: Add pass_lim in pass group pass_ch_oacc_kernels.
 
 	* passes.def: Run pass_tree_loop_init and pass_tree_loop_done in pass
