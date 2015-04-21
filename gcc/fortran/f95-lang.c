@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -600,6 +601,26 @@ gfc_define_builtin (const char *name, tree type, enum built_in_function code,
   set_builtin_decl (code, decl, true);
 }
 
+/* Like gfc_define_builtin, but with fn spec attribute FNSPEC.  */
+
+static void ATTRIBUTE_UNUSED
+gfc_define_builtin_with_spec (const char *name, tree fntype,
+			      enum built_in_function code,
+			      const char *library_name, int attr,
+			      const char *fnspec)
+{
+  if (fnspec)
+    {
+      /* Code copied from build_library_function_decl_1.  */
+      tree attr_args = build_tree_list (NULL_TREE,
+					build_string (strlen (fnspec), fnspec));
+      tree attrs = tree_cons (get_identifier ("fn spec"),
+			      attr_args, TYPE_ATTRIBUTES (fntype));
+      fntype = build_type_attribute_variant (fntype, attrs);
+    }
+
+  gfc_define_builtin (name, fntype, code, library_name, attr);
+}
 
 #define DO_DEFINE_MATH_BUILTIN(code, name, argtype, tbase) \
     gfc_define_builtin ("__builtin_" name "l", tbase##longdouble[argtype], \

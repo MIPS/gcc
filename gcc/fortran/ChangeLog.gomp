@@ -1,3 +1,7 @@
+2015-04-21  Tom de Vries  <tom@codesourcery.com>
+
+	* f95-lang.c (gfc_define_builtin_with_spec): New function.
+
 2015-01-13  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* trans-openmp.c (gfc_omp_finish_clause, gfc_trans_omp_clauses):
