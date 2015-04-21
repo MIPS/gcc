@@ -1,5 +1,10 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Run pass_tree_loop_init and pass_tree_loop_done in pass
+	group pass_oacc_kernels.
+	* tree-ssa-loop.c (pass_tree_loop_init::clone)
+	(pass_tree_loop_done::clone): New function.
+
 	* omp-low.c (loop_in_oacc_kernels_region_p): New function.
 	* omp-low.h (loop_in_oacc_kernels_region_p): Declare.
 	* passes.def: Add pass_ch_oacc_kernels to pass group pass_oacc_kernels.
