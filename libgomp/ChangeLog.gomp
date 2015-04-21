@@ -1,6 +1,30 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-2.c: New
+	test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-enter-exit-2.c:
+	New test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-enter-exit.c:
+	New test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-update.c:
+	New test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data.c: New
+	test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-parallel-loop-data-enter-exit.c:
+	New test.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-2.f95: New
+	test.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-enter-exit-2.f95:
+	New test.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-enter-exit.f95:
+	New test.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-update.f95: New
+	test.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data.f95: New test.
+	* testsuite/libgomp.oacc-fortran/kernels-parallel-loop-data-enter-exit.f95:
+	New test.
+
 	* testsuite/libgomp.oacc-fortran/kernels-loop-2.f95: New test.
 	* testsuite/libgomp.oacc-fortran/kernels-loop.f95: New test.
 

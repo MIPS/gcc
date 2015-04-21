@@ -1,6 +1,21 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-c++-common/goacc/kernels-loop-data-2.c: New test.
+	* c-c++-common/goacc/kernels-loop-data-enter-exit-2.c: New test.
+	* c-c++-common/goacc/kernels-loop-data-enter-exit.c: New test.
+	* c-c++-common/goacc/kernels-loop-data-update.c: New test.
+	* c-c++-common/goacc/kernels-loop-data.c: New test.
+	* c-c++-common/goacc/kernels-parallel-loop-data-enter-exit.c: New
+	test.
+	* gfortran.dg/goacc/kernels-loop-data-2.f95: New test.
+	* gfortran.dg/goacc/kernels-loop-data-enter-exit-2.f95: New test.
+	* gfortran.dg/goacc/kernels-loop-data-enter-exit.f95: New test.
+	* gfortran.dg/goacc/kernels-loop-data-update.f95: New test.
+	* gfortran.dg/goacc/kernels-loop-data.f95: New test.
+	* gfortran.dg/goacc/kernels-parallel-loop-data-enter-exit.f95: New
+	test.
+
 	* c-c++-common/goacc/kernels-counter-vars-function-scope.c: New test.
 	* c-c++-common/goacc/kernels-one-counter-var.c: New test.
 	* g++.dg/ipa/devirt-37.C: Update for new pass_fre.
