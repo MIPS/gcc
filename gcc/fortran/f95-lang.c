@@ -1217,6 +1217,12 @@ gfc_init_builtin_functions (void)
 #define DEF_GOACC_BUILTIN(code, name, type, attr) \
       gfc_define_builtin ("__builtin_" name, builtin_types[type], \
 			  code, name, attr);
+/* Like DEF_GOACC_BUILTIN, but with an fn spec attribute.
+   KLUDGE: See gcc/builtins.def DEF_GOACC_BUILTIN_FNSPEC comment.  */
+#undef DEF_GOACC_BUILTIN_FNSPEC
+#define DEF_GOACC_BUILTIN_FNSPEC(code, name, type, attr, attr2, fnspec)	\
+      gfc_define_builtin_with_spec ("__builtin_" name, builtin_types[type], \
+				    code, name, attr2, fnspec);
 #undef DEF_GOACC_BUILTIN_COMPILER
 #define DEF_GOACC_BUILTIN_COMPILER(code, name, type, attr) \
       gfc_define_builtin (name, builtin_types[type], code, name, attr);
@@ -1224,6 +1230,7 @@ gfc_init_builtin_functions (void)
 #define DEF_GOMP_BUILTIN(code, name, type, attr) /* ignore */
 #include "../omp-builtins.def"
 #undef DEF_GOACC_BUILTIN
+#undef DEF_GOACC_BUILTIN_FNSPEC
 #undef DEF_GOACC_BUILTIN_COMPILER
 #undef DEF_GOMP_BUILTIN
     }
@@ -1232,6 +1239,9 @@ gfc_init_builtin_functions (void)
     {
 #undef DEF_GOACC_BUILTIN
 #define DEF_GOACC_BUILTIN(code, name, type, attr) /* ignore */
+#undef DEF_GOACC_BUILTIN_FNSPEC
+#define DEF_GOACC_BUILTIN_FNSPEC(code, name, type, attr, attr2, fnspec)	\
+      /* Ignore.  */
 #undef DEF_GOACC_BUILTIN_COMPILER
 #define DEF_GOACC_BUILTIN_COMPILER(code, name, type, attr)  /* ignore */
 #undef DEF_GOMP_BUILTIN
@@ -1240,6 +1250,7 @@ gfc_init_builtin_functions (void)
 			  code, name, attr);
 #include "../omp-builtins.def"
 #undef DEF_GOACC_BUILTIN
+#undef DEF_GOACC_BUILTIN_FNSPEC
 #undef DEF_GOACC_BUILTIN_COMPILER
 #undef DEF_GOMP_BUILTIN
     }

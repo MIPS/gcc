@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Before including this file, you should define a macro:
 
      DEF_GOACC_BUILTIN (ENUM, NAME, TYPE, ATTRS)
+     DEF_GOACC_BUILTIN_FNSPEC (ENUM, NAME, TYPE, ATTRS, ATTRS2, FNSPEC)
      DEF_GOACC_BUILTIN_COMPILER (ENUM, NAME, TYPE, ATTRS)
      DEF_GOMP_BUILTIN (ENUM, NAME, TYPE, ATTRS)
 
