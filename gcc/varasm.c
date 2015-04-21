@@ -6062,7 +6062,7 @@ decl_default_tls_model (const_tree decl)
   enum tls_model kind;
   bool is_local;
 
-  is_local = targetm.binds_local_p (decl);
+  is_local = targetm.binds_tls_local_p (decl);
   if (!flag_shlib)
     {
       if (is_local)
@@ -6756,11 +6756,15 @@ resolution_local_p (enum ld_plugin_symbol_resolution resolution)
 
 /* COMMON_LOCAL_P is true means that the linker can guarantee that an
    uninitialized common symbol in the executable will still be defined
-   (through COPY relocation) in the executable.  */
+   (through COPY relocation) in the executable.  DATA_LOCAL_P is true
+   means that the linker can guarantee that undefined, non-TLS, non-weak
+   data in the executable will still be defined (through COPY relocation)
+   in the executable.  */
 
 bool
-default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
-			 bool extern_protected_data, bool common_local_p)
+default_binds_local_p_3 (const_tree exp, bool tls, bool shlib,
+			 bool weak_dominate, bool extern_protected_data,
+			 bool common_local_p, bool data_local_p)
 {
   /* A non-decl is an entry in the constant pool.  */
   if (!DECL_P (exp))
@@ -6791,10 +6795,33 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
 			      || (!in_lto_p
 				  && DECL_INITIAL (exp) == error_mark_node)));
 
-  /* A non-external variable is defined locally only if it isn't
-     uninitialized COMMON variable or common_local_p is true.  */
-  bool defined_locally = (!DECL_EXTERNAL (exp)
-			  && (!uninited_common || common_local_p));
+  /* If TLS is false, double check if EXP is a TLS variable.  */
+  if (!tls)
+    tls = TREE_CODE (exp) == VAR_DECL && DECL_THREAD_LOCAL_P (exp);
+
+  bool defined_locally;
+  if (!DECL_EXTERNAL (exp))
+    {
+      /* When a variable isn't defined externally, it is defined locally
+	 only if it isn't uninitialized COMMON variable or common_local_p
+	 is true and external references aren't bound globally.  */
+      defined_locally = (!uninited_common
+			 || (common_local_p && !flag_symbolic));
+
+    }
+  else
+    {
+      /* An undefined variable is defined locally only if it is a
+	 non-TLS non-weak data variable, external references aren't
+	 bound globally and linker can guarantee it will be defined
+	 locally.  */
+      defined_locally = (!tls
+			 && data_local_p
+			 && !flag_symbolic
+			 && TREE_CODE (exp) != FUNCTION_DECL
+			 && !DECL_WEAK (exp));
+    }
+
   if (symtab_node *node = symtab_node::get (exp))
     {
       if (node->in_other_partition)
@@ -6804,7 +6831,7 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
       else if (resolution_local_p (node->resolution))
 	resolved_locally = true;
     }
-  if (defined_locally && weak_dominate && !shlib)
+  if (defined_locally && weak_dominate && (!shlib || flag_symbolic))
     resolved_locally = true;
 
   /* Undefined weak symbols are never defined locally.  */
@@ -6817,13 +6844,15 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
   if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT
       && (TREE_CODE (exp) == FUNCTION_DECL
 	  || !extern_protected_data
+	  || flag_symbolic
 	  || DECL_VISIBILITY (exp) != VISIBILITY_PROTECTED)
       && (DECL_VISIBILITY_SPECIFIED (exp) || defined_locally))
     return true;
 
   /* If PIC, then assume that any global name can be overridden by
-     symbols resolved from other modules.  */
-  if (shlib)
+     symbols resolved from other modules unless global references are
+     bound locally  */
+  if (shlib && !flag_symbolic)
     return false;
 
   /* Variables defined outside this object might not be local.  */
@@ -6850,7 +6879,16 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
 bool
 default_binds_local_p (const_tree exp)
 {
-  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false, false);
+  return default_binds_local_p_3 (exp, true, flag_shlib != 0, true,
+				  false, false, false);
+}
+
+/* Similar to default_binds_local_p, but for TLS variable.  */
+
+bool
+default_binds_tls_local_p (const_tree exp)
+{
+  return targetm.binds_local_p (exp);
 }
 
 /* Similar to default_binds_local_p, but common symbol may be local and
@@ -6859,14 +6897,15 @@ default_binds_local_p (const_tree exp)
 bool
 default_binds_local_p_2 (const_tree exp)
 {
-  return default_binds_local_p_3 (exp, flag_shlib != 0, true, true,
-				  !flag_pic);
+  return default_binds_local_p_3 (exp, true, flag_shlib != 0, true, true,
+				  !flag_pic, false);
 }
 
 bool
 default_binds_local_p_1 (const_tree exp, int shlib)
 {
-  return default_binds_local_p_3 (exp, shlib != 0, false, false, false);
+  return default_binds_local_p_3 (exp, true, shlib != 0, false, false,
+				  false, false);
 }
 
 /* Return true when references to DECL must bind to current definition in

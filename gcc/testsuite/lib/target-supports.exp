@@ -6443,8 +6443,14 @@ proc check_effective_target_pie_copyreloc { } {
 
 	set f [open $src "w"]
 	puts $f "#include \"../../auto-host.h\""
-	puts $f "#if HAVE_LD_PIE_COPYRELOC == 0"
-	puts $f "# error Linker does not support PIE with copy reloc."
+	puts $f "#ifdef __x86_64__"
+	puts $f "# if HAVE_LD_X86_64_PIE_COPYRELOC == 0"
+	puts $f "#  error 64-bit linker does not support PIE with copy reloc."
+	puts $f "# endif"
+	puts $f "#else"
+	puts $f "# if HAVE_LD_386_PIE_COPYRELOC == 0"
+	puts $f "#  error 32-bit linker does not support PIE with copy reloc."
+	puts $f "# endif"
 	puts $f "#endif"
 	close $f
 

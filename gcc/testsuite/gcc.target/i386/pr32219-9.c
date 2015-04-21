@@ -13,3 +13,5 @@ foo ()
 
 /* { dg-final { scan-assembler "movl\[ \t\]xxx\\(%rip\\), %eax" { target { ! ia32 } } } } */
 /* { dg-final { scan-assembler-not "xxx@GOTPCREL" { target { ! ia32 } } } } */
+/* { dg-final { scan-assembler "xxx@GOTOFF" { target ia32 } } } */
+/* { dg-final { scan-assembler-not "xxx@GOT\\(" { target ia32 } } } */

@@ -1140,7 +1140,7 @@ See S/390 and zSeries Options.
 -finhibit-size-directive  -finstrument-functions @gol
 -finstrument-functions-exclude-function-list=@var{sym},@var{sym},@dots{} @gol
 -finstrument-functions-exclude-file-list=@var{file},@var{file},@dots{} @gol
--fno-common  -fno-ident @gol
+-fno-common  -fsymbolic  -fno-ident @gol
 -fpcc-struct-return  -fpic  -fPIC -fpie -fPIE -fno-plt @gol
 -fno-jump-tables @gol
 -frecord-gcc-switches @gol
@@ -23958,6 +23958,16 @@ Compiling with @option{-fno-common} is useful on targets for which
 it provides better performance, or if you wish to verify that the
 program will work on other systems that always treat uninitialized
 variable declarations this way.
+
+@item -fsymbolic
+@opindex -fsymbolic
+This option is similar to ELF linker option, @option{-Bsymbolic},
+which controls how references to global symbols are bound.  The
+@option{-fsymbolic} option binds references to global symbols to the
+local definitions and external references globally.  This option
+avoids copy relocations in position-independent executables and
+optimizes global symbol references in shared library created by
+linker option, @option{-Bsymbolic}.
 
 @item -fno-ident
 @opindex fno-ident

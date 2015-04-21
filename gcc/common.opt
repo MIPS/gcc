@@ -1010,6 +1010,10 @@ fcommon
 Common Report Var(flag_no_common,0)
 Do not put uninitialized globals in the common section.
 
+fsymbolic
+Common Report Var(flag_symbolic)
+Bind global references locally and external references globally
+
 fcompare-debug
 Driver
 ; Converted by the driver to -fcompare-debug= options.

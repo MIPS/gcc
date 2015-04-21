@@ -14517,11 +14517,7 @@ legitimate_pic_address_disp_p (rtx disp)
 		return true;
 	    }
 	  else if (!SYMBOL_REF_FAR_ADDR_P (op0)
-		   && (SYMBOL_REF_LOCAL_P (op0)
-		       || (HAVE_LD_PIE_COPYRELOC
-			   && flag_pie
-			   && !SYMBOL_REF_WEAK (op0)
-			   && !SYMBOL_REF_FUNCTION_P (op0)))
+		   && SYMBOL_REF_LOCAL_P (op0)
 		   && ix86_cmodel != CM_LARGE_PIC)
 	    return true;
 	  break;
@@ -53535,17 +53531,39 @@ ix86_initialize_bounds (tree var, tree lb, tree ub, tree *stmts)
 }
 
 #if !TARGET_MACHO && !TARGET_DLLIMPORT_DECL_ATTRIBUTES
-/* For i386, common symbol is local only for non-PIE binaries.  For
-   x86-64, common symbol is local only for non-PIE binaries or linker
-   supports copy reloc in PIE binaries.   */
+/* Common and undefined non-TLS non-weak data symbols are local only
+   for non-PIE executables or linker supports copy reloc in PIE
+   executables.  */
+
+static bool
+ix86_binds_local (const_tree exp, bool tls)
+{
+  bool local_p;
+  if (!flag_pic)
+    local_p = true;
+  else if (flag_pie)
+    {
+      if (TARGET_64BIT)
+	local_p = HAVE_LD_X86_64_PIE_COPYRELOC != 0;
+      else
+	local_p = HAVE_LD_386_PIE_COPYRELOC != 0;
+    }
+  else
+    local_p = false;
+  return default_binds_local_p_3 (exp, tls, flag_shlib != 0, true,
+				  true, local_p, local_p);
+}
 
 static bool
 ix86_binds_local_p (const_tree exp)
 {
-  return default_binds_local_p_3 (exp, flag_shlib != 0, true, true,
-				  (!flag_pic
-				   || (TARGET_64BIT
-				       && HAVE_LD_PIE_COPYRELOC != 0)));
+  return ix86_binds_local (exp, false);
+}
+
+static bool
+ix86_binds_tls_local_p (const_tree exp)
+{
+  return ix86_binds_local (exp, true);
 }
 #endif
 
@@ -53773,6 +53791,8 @@ ix86_operands_ok_for_move_multiple (rtx *operands, bool load,
 #else
 #undef TARGET_BINDS_LOCAL_P
 #define TARGET_BINDS_LOCAL_P ix86_binds_local_p
+#undef TARGET_BINDS_TLS_LOCAL_P
+#define TARGET_BINDS_TLS_LOCAL_P ix86_binds_tls_local_p
 #endif
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 #undef TARGET_BINDS_LOCAL_P
