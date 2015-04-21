@@ -1,5 +1,22 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Add pass_parallelize_loops_oacc_kernels in pass group
+	pass_oacc_kernels.
+	* tree-parloops.c (create_parallel_loop, gen_parallel_loop): Add
+	function parameters region_entry and bool oacc_kernels_p.  Handle
+	oacc_kernels_p.
+	Call create_parallel_loop with additional args.
+	(parallelize_loops): Add function parameter oacc_kernels_p.  Calculate
+	dominance info.  Skip loops that are not in a kernels region. Call
+	gen_parallel_loop with additional args.
+	(pass_parallelize_loops::execute): Call parallelize_loops with false
+	argument.
+	(pass_data_parallelize_loops_oacc_kernels): New pass_data.
+	(class pass_parallelize_loops_oacc_kernels): New pass.
+	(pass_parallelize_loops_oacc_kernels::execute)
+	(make_pass_parallelize_loops_oacc_kernels): New function.
+	* tree-pass.h (make_pass_parallelize_loops_oacc_kernels): Declare.
+
 	* passes.def: Add pass_copy_prop to pass group pass_oacc_kernels.
 	* tree-ssa-copy.c (stmt_may_generate_copy): Handle .omp_data_i init
 	conservatively.

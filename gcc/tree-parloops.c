@@ -1612,9 +1612,10 @@ transform_to_exit_first_loop (struct loop *loop,
    of LOOP_FN.  N_THREADS is the requested number of threads.  Returns the
    basic block containing GIMPLE_OMP_PARALLEL tree.  */
 
-static basic_block
+static void
 create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
-		      tree new_data, unsigned n_threads, location_t loc)
+		      tree new_data, unsigned n_threads, location_t loc,
+		      basic_block region_entry, bool oacc_kernels_p)
 {
   gimple_stmt_iterator gsi;
   basic_block bb, paral_bb, for_bb, ex_bb;
@@ -1631,15 +1632,69 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   /* Prepare the GIMPLE_OMP_PARALLEL statement.  */
   bb = loop_preheader_edge (loop)->src;
   paral_bb = single_pred (bb);
-  gsi = gsi_last_bb (paral_bb);
+  if (!oacc_kernels_p)
+    gsi = gsi_last_bb (paral_bb);
+  else
+    /* Make sure the oacc parallel is inserted on top of the oacc kernels
+       region.  */
+    gsi = gsi_last_bb (region_entry);
 
-  t = build_omp_clause (loc, OMP_CLAUSE_NUM_THREADS);
-  OMP_CLAUSE_NUM_THREADS_EXPR (t)
-    = build_int_cst (integer_type_node, n_threads);
-  omp_par_stmt = gimple_build_omp_parallel (NULL, t, loop_fn, data);
-  gimple_set_location (omp_par_stmt, loc);
+  if (!oacc_kernels_p)
+    {
+      t = build_omp_clause (loc, OMP_CLAUSE_NUM_THREADS);
+      OMP_CLAUSE_NUM_THREADS_EXPR (t)
+	= build_int_cst (integer_type_node, n_threads);
+      omp_par_stmt = gimple_build_omp_parallel (NULL, t, loop_fn, data);
+      gimple_set_location (omp_par_stmt, loc);
 
-  gsi_insert_after (&gsi, omp_par_stmt, GSI_NEW_STMT);
+      gsi_insert_after (&gsi, omp_par_stmt, GSI_NEW_STMT);
+    }
+  else
+    {
+      /* Create oacc parallel pragma based on oacc kernels pragma.  */
+      gomp_target *kernels = as_a <gomp_target *> (gsi_stmt (gsi));
+
+      tree clauses = gimple_omp_target_clauses (kernels);
+      /* FIXME: We need a more intelligent mapping onto vector, gangs,
+	 workers.  */
+      if (1)
+	{
+	  tree clause = build_omp_clause (gimple_location (kernels),
+					  OMP_CLAUSE_VECTOR_LENGTH);
+	  OMP_CLAUSE_VECTOR_LENGTH_EXPR (clause)
+	    = build_int_cst (integer_type_node, n_threads);
+	  OMP_CLAUSE_CHAIN (clause) = clauses;
+	  clauses = clause;
+	}
+      gomp_target *stmt
+	= gimple_build_omp_target (NULL, GF_OMP_TARGET_KIND_OACC_PARALLEL,
+				   clauses);
+      tree child_fn = gimple_omp_target_child_fn (kernels);
+      gimple_omp_target_set_child_fn (stmt, child_fn);
+      tree data_arg = gimple_omp_target_data_arg (kernels);
+      gimple_omp_target_set_data_arg (stmt, data_arg);
+
+      gimple_set_location (stmt, loc);
+
+      /* Insert oacc parallel pragma after the oacc kernels pragma.  */
+      {
+	gimple_stmt_iterator gsi2;
+	gsi = gsi_last_bb (region_entry);
+	gsi2 = gsi;
+	gsi_prev (&gsi2);
+
+	/* Insert pragma acc parallel.  */
+	gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+
+	/* Remove GOACC_kernels.  */
+	replace_uses_by (gimple_vdef (gsi_stmt (gsi2)),
+			 gimple_vuse (gsi_stmt (gsi2)));
+	gsi_remove (&gsi2, true);
+
+	/* Remove pragma acc kernels.  */
+	gsi_remove (&gsi2, true);
+      }
+    }
 
   /* Initialize NEW_DATA.  */
   if (data)
@@ -1657,12 +1712,18 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
       gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
     }
 
-  /* Emit GIMPLE_OMP_RETURN for GIMPLE_OMP_PARALLEL.  */
-  bb = split_loop_exit_edge (single_dom_exit (loop));
-  gsi = gsi_last_bb (bb);
-  omp_return_stmt1 = gimple_build_omp_return (false);
-  gimple_set_location (omp_return_stmt1, loc);
-  gsi_insert_after (&gsi, omp_return_stmt1, GSI_NEW_STMT);
+  /* Skip insertion of OMP_RETURN for oacc_kernels_p.  We've already generated
+     one when lowering the oacc kernels directive in
+     pass_lower_omp/lower_omp (). */
+  if (!oacc_kernels_p)
+    {
+      /* Emit GIMPLE_OMP_RETURN for GIMPLE_OMP_PARALLEL.  */
+      bb = split_loop_exit_edge (single_dom_exit (loop));
+      gsi = gsi_last_bb (bb);
+      omp_return_stmt1 = gimple_build_omp_return (false);
+      gimple_set_location (omp_return_stmt1, loc);
+      gsi_insert_after (&gsi, omp_return_stmt1, GSI_NEW_STMT);
+    }
 
   /* Extract data for GIMPLE_OMP_FOR.  */
   gcc_assert (loop->header == single_dom_exit (loop)->src);
@@ -1719,7 +1780,11 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   t = build_omp_clause (loc, OMP_CLAUSE_SCHEDULE);
   OMP_CLAUSE_SCHEDULE_KIND (t) = OMP_CLAUSE_SCHEDULE_STATIC;
 
-  for_stmt = gimple_build_omp_for (NULL, GF_OMP_FOR_KIND_FOR, t, 1, NULL);
+  for_stmt = gimple_build_omp_for (NULL,
+				   (oacc_kernels_p
+				    ? GF_OMP_FOR_KIND_OACC_LOOP
+				    : GF_OMP_FOR_KIND_FOR),
+				   NULL_TREE, 1, NULL);
   gimple_set_location (for_stmt, loc);
   gimple_omp_for_set_index (for_stmt, 0, initvar);
   gimple_omp_for_set_initial (for_stmt, 0, cvar_init);
@@ -1749,8 +1814,6 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   /* After the above dom info is hosed.  Re-compute it.  */
   free_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_DOMINATORS);
-
-  return paral_bb;
 }
 
 /* Generates code to execute the iterations of LOOP in N_THREADS
@@ -1762,7 +1825,8 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 static void
 gen_parallel_loop (struct loop *loop,
 		   reduction_info_table_type *reduction_list,
-		   unsigned n_threads, struct tree_niter_desc *niter)
+		   unsigned n_threads, struct tree_niter_desc *niter,
+		   basic_block region_entry, bool oacc_kernels_p)
 {
   tree many_iterations_cond, type, nit;
   tree arg_struct, new_arg_struct;
@@ -1843,40 +1907,43 @@ gen_parallel_loop (struct loop *loop,
   if (stmts)
     gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
 
-  if (loop->inner)
-    m_p_thread=2;
-  else
-    m_p_thread=MIN_PER_THREAD;
-
-   many_iterations_cond =
-     fold_build2 (GE_EXPR, boolean_type_node,
-                nit, build_int_cst (type, m_p_thread * n_threads));
-
-  many_iterations_cond
-    = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
-		   invert_truthvalue (unshare_expr (niter->may_be_zero)),
-		   many_iterations_cond);
-  many_iterations_cond
-    = force_gimple_operand (many_iterations_cond, &stmts, false, NULL_TREE);
-  if (stmts)
-    gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
-  if (!is_gimple_condexpr (many_iterations_cond))
+  if (!oacc_kernels_p)
     {
+      if (loop->inner)
+	m_p_thread=2;
+      else
+	m_p_thread=MIN_PER_THREAD;
+
+      many_iterations_cond =
+	fold_build2 (GE_EXPR, boolean_type_node,
+		     nit, build_int_cst (type, m_p_thread * n_threads));
+
       many_iterations_cond
-	= force_gimple_operand (many_iterations_cond, &stmts,
-				true, NULL_TREE);
+	= fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+		       invert_truthvalue (unshare_expr (niter->may_be_zero)),
+		       many_iterations_cond);
+      many_iterations_cond
+	= force_gimple_operand (many_iterations_cond, &stmts, false, NULL_TREE);
       if (stmts)
 	gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
+      if (!is_gimple_condexpr (many_iterations_cond))
+	{
+	  many_iterations_cond
+	    = force_gimple_operand (many_iterations_cond, &stmts,
+				    true, NULL_TREE);
+	  if (stmts)
+	    gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
+	}
+
+      initialize_original_copy_tables ();
+
+      /* We assume that the loop usually iterates a lot.  */
+      prob = 4 * REG_BR_PROB_BASE / 5;
+      loop_version (loop, many_iterations_cond, NULL,
+		    prob, prob, REG_BR_PROB_BASE - prob, true);
+      update_ssa (TODO_update_ssa);
+      free_original_copy_tables ();
     }
-
-  initialize_original_copy_tables ();
-
-  /* We assume that the loop usually iterates a lot.  */
-  prob = 4 * REG_BR_PROB_BASE / 5;
-  loop_version (loop, many_iterations_cond, NULL,
-		prob, prob, REG_BR_PROB_BASE - prob, true);
-  update_ssa (TODO_update_ssa);
-  free_original_copy_tables ();
 
   /* Base all the induction variables in LOOP on a single control one.  */
   canonicalize_loop_ivs (loop, &nit, true);
@@ -1893,19 +1960,30 @@ gen_parallel_loop (struct loop *loop,
   entry = loop_preheader_edge (loop);
   exit = single_dom_exit (loop);
 
-  eliminate_local_variables (entry, exit);
-  /* In the old loop, move all variables non-local to the loop to a structure
-     and back, and create separate decls for the variables used in loop.  */
-  separate_decls_in_region (entry, exit, reduction_list, &arg_struct,
-			    &new_arg_struct, &clsn_data);
+  /* This rewrites the body in terms of new variables.  This has already
+     been done for oacc_kernels_p in pass_lower_omp/lower_omp ().  */
+  if (!oacc_kernels_p)
+    {
+      eliminate_local_variables (entry, exit);
+      /* In the old loop, move all variables non-local to the loop to a
+	 structure and back, and create separate decls for the variables used in
+	 loop.  */
+      separate_decls_in_region (entry, exit, reduction_list, &arg_struct,
+				&new_arg_struct, &clsn_data);
+    }
+  else
+    {
+      arg_struct = NULL_TREE;
+      new_arg_struct = NULL_TREE;
+    }
 
   /* Create the parallel constructs.  */
   loc = UNKNOWN_LOCATION;
   cond_stmt = last_stmt (loop->header);
   if (cond_stmt)
     loc = gimple_location (cond_stmt);
-  create_parallel_loop (loop, create_loop_fn (loc), arg_struct,
-			new_arg_struct, n_threads, loc);
+  create_parallel_loop (loop, create_loop_fn (loc), arg_struct, new_arg_struct,
+			n_threads, loc, region_entry, oacc_kernels_p);
   if (reduction_list->elements () > 0)
     create_call_for_reduction (loop, reduction_list, &clsn_data);
 
@@ -2145,7 +2223,7 @@ try_create_reduction_list (loop_p loop,
    otherwise.  */
 
 static bool
-parallelize_loops (void)
+parallelize_loops (bool oacc_kernels_p)
 {
   unsigned n_threads = flag_tree_parallelize_loops;
   bool changed = false;
@@ -2154,6 +2232,7 @@ parallelize_loops (void)
   struct obstack parloop_obstack;
   HOST_WIDE_INT estimated;
   source_location loop_loc;
+  basic_block region_entry, region_exit;
 
   /* Do not parallelize loops in the functions created by parallelization.  */
   if (parallelized_function_p (cfun->decl))
@@ -2165,9 +2244,46 @@ parallelize_loops (void)
   reduction_info_table_type reduction_list (10);
   init_stmt_vec_info_vec ();
 
+  calculate_dominance_info (CDI_DOMINATORS);
+
   FOR_EACH_LOOP (loop, 0)
     {
       reduction_list.empty ();
+
+      if (oacc_kernels_p)
+	{
+	  if (!loop_in_oacc_kernels_region_p (loop, &region_entry,
+					      &region_exit))
+	    continue;
+
+	  /* TODO: Allow nested loops.  */
+	  if (loop->inner)
+	    continue;
+
+	  gcc_assert (single_succ_p (region_entry));
+	  basic_block first = single_succ (region_entry);
+
+	  /* TODO: Allow conditional loop entry.  This test triggers when the
+	     loop bound is not known at compile time.  */
+	  if (!single_succ_p (first))
+	    continue;
+
+	  /* TODO: allow more complex loops.  */
+	  if (single_exit (loop) == NULL)
+	    continue;
+
+	  /* TODO: Allow other code than a single loop inside a kernels
+	     region.  */
+	  if (loop->header != single_succ (first)
+	      || single_exit (loop)->dest != region_exit)
+	    continue;
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
+		     "Trying loop %d with header bb %d in oacc kernels region\n",
+		     loop->num, loop->header->index);
+	}
+
       if (dump_file && (dump_flags & TDF_DETAILS))
       {
         fprintf (dump_file, "Trying loop %d as candidate\n",loop->num);
@@ -2209,6 +2325,7 @@ parallelize_loops (void)
       /* FIXME: Bypass this check as graphite doesn't update the
 	 count and frequency correctly now.  */
       if (!flag_loop_parallelize_all
+	  && !oacc_kernels_p
 	  && ((estimated != -1
 	       && estimated <= (HOST_WIDE_INT) n_threads * MIN_PER_THREAD)
 	      /* Do not bother with loops in cold areas.  */
@@ -2237,8 +2354,9 @@ parallelize_loops (void)
 	  fprintf (dump_file, "\nloop at %s:%d: ",
 		   LOCATION_FILE (loop_loc), LOCATION_LINE (loop_loc));
       }
+
       gen_parallel_loop (loop, &reduction_list,
-			 n_threads, &niter_desc);
+			 n_threads, &niter_desc, region_entry, oacc_kernels_p);
     }
 
   free_stmt_vec_info_vec ();
@@ -2289,7 +2407,7 @@ pass_parallelize_loops::execute (function *fun)
   if (number_of_loops (fun) <= 1)
     return 0;
 
-  if (parallelize_loops ())
+  if (parallelize_loops (false))
     {
       fun->curr_properties &= ~(PROP_gimple_eomp);
       return TODO_update_ssa;
@@ -2304,4 +2422,52 @@ gimple_opt_pass *
 make_pass_parallelize_loops (gcc::context *ctxt)
 {
   return new pass_parallelize_loops (ctxt);
+}
+
+namespace {
+
+const pass_data pass_data_parallelize_loops_oacc_kernels =
+{
+  GIMPLE_PASS, /* type */
+  "parloops_oacc_kernels", /* name */
+  OPTGROUP_LOOP, /* optinfo_flags */
+  TV_TREE_PARALLELIZE_LOOPS, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_parallelize_loops_oacc_kernels : public gimple_opt_pass
+{
+public:
+  pass_parallelize_loops_oacc_kernels (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_parallelize_loops_oacc_kernels, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *) { return flag_tree_parallelize_loops > 1; }
+  virtual unsigned int execute (function *);
+
+}; // class pass_parallelize_loops_oacc_kernels
+
+unsigned
+pass_parallelize_loops_oacc_kernels::execute (function *fun)
+{
+  if (number_of_loops (fun) <= 1)
+    return 0;
+
+  if (parallelize_loops (true))
+    return TODO_update_ssa;
+
+  return 0;
+}
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_parallelize_loops_oacc_kernels (gcc::context *ctxt)
+{
+  return new pass_parallelize_loops_oacc_kernels (ctxt);
 }
