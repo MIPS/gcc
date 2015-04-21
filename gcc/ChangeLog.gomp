@@ -1,5 +1,11 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
+	* builtin-attrs.def (DOT_DOT_DOT_r_r_r): Add DEF_ATTR_FOR_STRING.
+	(ATTR_FNSPEC_DOT_DOT_DOT_r_r_r_NOTHROW_LIST): Add
+	DEF_ATTR_TREE_LIST.
+	* omp-builtins.def (BUILT_IN_GOACC_KERNELS_INTERNAL): Add
+	DEF_GOACC_BUILTIN_FNSPEC.
+
 	* builtins.def (DEF_GOACC_BUILTIN_FNSPEC): Define.
 
 2015-03-21  Tom de Vries  <tom@codesourcery.com>
