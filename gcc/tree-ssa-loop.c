@@ -163,6 +163,51 @@ make_pass_tree_loop (gcc::context *ctxt)
   return new pass_tree_loop (ctxt);
 }
 
+/* Gate for oacc kernels pass group.  */
+
+static bool
+gate_oacc_kernels (function *fn)
+{
+  return (fn->curr_properties & PROP_gimple_eomp) == 0;
+}
+
+/* The oacc kernels superpass.  */
+
+namespace {
+
+const pass_data pass_data_oacc_kernels =
+{
+  GIMPLE_PASS, /* type */
+  "oacc_kernels", /* name */
+  OPTGROUP_LOOP, /* optinfo_flags */
+  TV_TREE_LOOP, /* tv_id */
+  PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_oacc_kernels : public gimple_opt_pass
+{
+public:
+  pass_oacc_kernels (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_oacc_kernels, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *fn) { return gate_oacc_kernels (fn); }
+
+}; // class pass_oacc_kernels
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_oacc_kernels (gcc::context *ctxt)
+{
+  return new pass_oacc_kernels (ctxt);
+}
+
 /* The no-loop superpass.  */
 
 namespace {

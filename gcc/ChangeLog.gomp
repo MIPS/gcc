@@ -1,5 +1,12 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Add pass group pass_oacc_kernels.
+	* tree-pass.h (make_pass_oacc_kernels): Declare.
+	* tree-ssa-loop.c (gate_oacc_kernels): New static function.
+	(pass_data_oacc_kernels): New pass_data.
+	(class pass_oacc_kernels): New pass.
+	(make_pass_oacc_kernels): New function.
+
 	* omp-low.c: Include gimple-pretty-print.h.
 	(release_first_vuse_in_edge_dest): New function.
 	(expand_omp_target): When not in ssa, don't split off oacc kernels

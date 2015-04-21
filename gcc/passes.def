@@ -86,7 +86,12 @@ along with GCC; see the file COPYING3.  If not see
 	     execute TODO_rebuild_alias at this point.  */
 	  NEXT_PASS (pass_build_ealias);
 	  NEXT_PASS (pass_fre);
-	  NEXT_PASS (pass_expand_omp_ssa);
+	  /* Pass group that runs when there are oacc kernels in the
+	     function.  */
+	  NEXT_PASS (pass_oacc_kernels);
+	  PUSH_INSERT_PASSES_WITHIN (pass_oacc_kernels)
+	      NEXT_PASS (pass_expand_omp_ssa);
+	  POP_INSERT_PASSES ()
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_cd_dce);
 	  NEXT_PASS (pass_early_ipa_sra);
