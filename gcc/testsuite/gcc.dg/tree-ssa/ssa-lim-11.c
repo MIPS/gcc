@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O -fprofile-arcs -fdump-tree-lim1-details" } */
+/* { dg-options "-O -fprofile-arcs -fdump-tree-lim2-details" } */
 
 struct thread_param
 {
@@ -21,5 +21,5 @@ void access_buf(struct thread_param* p)
     }
 }
 
-/* { dg-final { scan-tree-dump-times "Executing store motion of __gcov0.access_buf\\\[\[01\]\\\] from loop 1" 2 "lim1" } } */
-/* { dg-final { cleanup-tree-dump "lim1" } } */
+/* { dg-final { scan-tree-dump-times "Executing store motion of __gcov0.access_buf\\\[\[01\]\\\] from loop 1" 2 "lim2" } } */
+/* { dg-final { cleanup-tree-dump "lim2" } } */

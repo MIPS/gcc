@@ -92,6 +92,7 @@ along with GCC; see the file COPYING3.  If not see
 	  PUSH_INSERT_PASSES_WITHIN (pass_oacc_kernels)
 	      NEXT_PASS (pass_ch_oacc_kernels);
 	      NEXT_PASS (pass_tree_loop_init);
+	      NEXT_PASS (pass_lim);
 	      NEXT_PASS (pass_expand_omp_ssa);
 	      NEXT_PASS (pass_tree_loop_done);
 	  POP_INSERT_PASSES ()

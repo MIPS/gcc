@@ -1,5 +1,7 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Add pass_lim in pass group pass_ch_oacc_kernels.
+
 	* passes.def: Run pass_tree_loop_init and pass_tree_loop_done in pass
 	group pass_oacc_kernels.
 	* tree-ssa-loop.c (pass_tree_loop_init::clone)
