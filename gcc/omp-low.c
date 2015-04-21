@@ -13920,4 +13920,95 @@ gimple_stmt_omp_data_i_init_p (gimple stmt)
 						   SSA_OP_DEF);
 }
 
+/* Return true if LOOP is inside a kernels region.  */
+
+bool
+loop_in_oacc_kernels_region_p (struct loop *loop, basic_block *region_entry,
+			       basic_block *region_exit)
+{
+  bitmap excludes_bitmap = BITMAP_GGC_ALLOC ();
+  bitmap region_bitmap = BITMAP_GGC_ALLOC ();
+  bitmap_clear (region_bitmap);
+
+  if (region_entry != NULL)
+    *region_entry = NULL;
+  if (region_exit != NULL)
+    *region_exit = NULL;
+
+  basic_block bb;
+  gimple last;
+  FOR_EACH_BB_FN (bb, cfun)
+    {
+      if (bitmap_bit_p (region_bitmap, bb->index))
+	continue;
+
+      last = last_stmt (bb);
+      if (!last)
+	continue;
+
+      if (gimple_code (last) != GIMPLE_OMP_TARGET
+	  || (gimple_omp_target_kind (last) != GF_OMP_TARGET_KIND_OACC_KERNELS))
+	continue;
+
+      bitmap_clear (excludes_bitmap);
+      bitmap_set_bit (excludes_bitmap, bb->index);
+
+      vec<basic_block> dominated
+	= get_all_dominated_blocks (CDI_DOMINATORS, bb);
+
+      unsigned di;
+      basic_block dom;
+
+      basic_block end_region = NULL;
+      FOR_EACH_VEC_ELT (dominated, di, dom)
+	{
+	  if (dom == bb)
+	    continue;
+
+	  last = last_stmt (dom);
+	  if (!last)
+	    continue;
+
+	  if (gimple_code (last) != GIMPLE_OMP_RETURN)
+	    continue;
+
+	  if (end_region == NULL
+	      || dominated_by_p (CDI_DOMINATORS, end_region, dom))
+	    end_region = dom;
+	}
+
+      if (end_region == NULL)
+	{
+	  gimple kernels = last_stmt (bb);
+	  fatal_error (gimple_location (kernels),
+		       "End of kernel region unreachable");
+	}
+
+      vec<basic_block> excludes
+	= get_all_dominated_blocks (CDI_DOMINATORS, end_region);
+
+      unsigned di2;
+      basic_block exclude;
+
+      FOR_EACH_VEC_ELT (excludes, di2, exclude)
+	if (exclude != end_region)
+	  bitmap_set_bit (excludes_bitmap, exclude->index);
+
+      FOR_EACH_VEC_ELT (dominated, di, dom)
+	if (!bitmap_bit_p (excludes_bitmap, dom->index))
+	  bitmap_set_bit (region_bitmap, dom->index);
+
+      if (bitmap_bit_p (region_bitmap, loop->header->index))
+	{
+	  if (region_entry != NULL)
+	    *region_entry = bb;
+	  if (region_exit != NULL)
+	    *region_exit = end_region;
+	  return true;
+	}
+    }
+
+  return false;
+}
+
 #include "gt-omp-low.h"

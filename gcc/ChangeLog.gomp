@@ -1,5 +1,20 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (loop_in_oacc_kernels_region_p): New function.
+	* omp-low.h (loop_in_oacc_kernels_region_p): Declare.
+	* passes.def: Add pass_ch_oacc_kernels to pass group pass_oacc_kernels.
+	* tree-pass.h (make_pass_ch_oacc_kernels): Declare
+	* tree-ssa-loop-ch.c: Include omp-low.h.
+	(pass_ch_execute): Declare.
+	(pass_ch::execute): Factor out ...
+	(pass_ch_execute): ... this new function.  If handling oacc kernels,
+	skip loops that are not in oacc kernels region.
+	(pass_ch_oacc_kernels::execute):
+	(pass_data_ch_oacc_kernels): New pass_data.
+	(class pass_ch_oacc_kernels): New pass.
+	(pass_ch_oacc_kernels::execute, make_pass_ch_oacc_kernels): New
+	function.
+
 	* passes.def: Add pass group pass_oacc_kernels.
 	* tree-pass.h (make_pass_oacc_kernels): Declare.
 	* tree-ssa-loop.c (gate_oacc_kernels): New static function.

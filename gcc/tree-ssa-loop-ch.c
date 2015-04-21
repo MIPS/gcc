@@ -54,11 +54,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "flags.h"
 #include "tree-ssa-threadedge.h"
+#include "omp-low.h"
 
 /* Duplicates headers of loops if they are small enough, so that the statements
    in the loop body are always executed when the loop is entered.  This
    increases effectiveness of code motion optimizations, and reduces the need
    for loop preconditioning.  */
+
+static unsigned int pass_ch_execute (function *, bool);
 
 /* Check whether we should duplicate HEADER of LOOP.  At most *LIMIT
    instructions should be duplicated, limit is decreased by the actual
@@ -178,6 +181,14 @@ public:
 unsigned int
 pass_ch::execute (function *fun)
 {
+  return pass_ch_execute (fun, false);
+}
+
+} // anon namespace
+
+static unsigned int
+pass_ch_execute (function *fun, bool oacc_kernels_p)
+{
   struct loop *loop;
   basic_block header;
   edge exit, entry;
@@ -209,6 +220,10 @@ pass_ch::execute (function *fun)
 	 we might be in fact peeling the first iteration of the loop.  This
 	 in general is not a good idea.  */
       if (do_while_loop_p (loop))
+	continue;
+
+      if (oacc_kernels_p
+	  && !loop_in_oacc_kernels_region_p (loop, NULL, NULL))
 	continue;
 
       /* Iterate the header copying up to limit; this takes care of the cases
@@ -301,10 +316,50 @@ pass_ch::execute (function *fun)
   return 0;
 }
 
-} // anon namespace
-
 gimple_opt_pass *
 make_pass_ch (gcc::context *ctxt)
 {
   return new pass_ch (ctxt);
+}
+
+namespace {
+
+const pass_data pass_data_ch_oacc_kernels =
+{
+  GIMPLE_PASS, /* type */
+  "ch_oacc_kernels", /* name */
+  OPTGROUP_LOOP, /* optinfo_flags */
+  TV_TREE_CH, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_cleanup_cfg, /* todo_flags_finish */
+};
+
+ class pass_ch_oacc_kernels : public gimple_opt_pass
+{
+public:
+  pass_ch_oacc_kernels (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_ch_oacc_kernels, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *) { return true; }
+  virtual unsigned int execute (function *);
+
+}; // class pass_ch_oacc_kernels
+
+unsigned int
+pass_ch_oacc_kernels::execute (function *fun)
+{
+  return pass_ch_execute (fun, true);
+}
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_ch_oacc_kernels (gcc::context *ctxt)
+{
+  return new pass_ch_oacc_kernels (ctxt);
 }

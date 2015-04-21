@@ -90,6 +90,7 @@ along with GCC; see the file COPYING3.  If not see
 	     function.  */
 	  NEXT_PASS (pass_oacc_kernels);
 	  PUSH_INSERT_PASSES_WITHIN (pass_oacc_kernels)
+	      NEXT_PASS (pass_ch_oacc_kernels);
 	      NEXT_PASS (pass_expand_omp_ssa);
 	  POP_INSERT_PASSES ()
 	  NEXT_PASS (pass_merge_phi);
