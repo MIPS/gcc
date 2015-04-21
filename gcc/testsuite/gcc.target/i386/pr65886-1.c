@@ -1,9 +1,9 @@
 /* Check that GOTPCREL/GOT is used to access glob_a.  */
 /* { dg-do compile { target *-*-linux* } } */
-/* { dg-require-effective-target pie_copyreloc } */
-/* { dg-options "-O2 -fpie" } */
+/* { dg-require-effective-target pie } */
+/* { dg-options "-O2 -fpie -fsymbolic" } */
 
-extern int glob_a  __attribute__((weak));
+extern int glob_a;
 
 int foo ()
 {

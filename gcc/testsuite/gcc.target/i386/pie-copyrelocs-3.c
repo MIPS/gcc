@@ -11,4 +11,4 @@ int foo ()
 }
 
 /* glob_a should be accessed with a PLT.  */
-/* { dg-final { scan-assembler "glob_a@PLT" { target { ! ia32 } } } } */
+/* { dg-final { scan-assembler "glob_a@PLT" } } */

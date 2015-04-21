@@ -5034,6 +5034,8 @@ it is unlikely to be called.
 
 @hook TARGET_BINDS_LOCAL_P
 
+@hook TARGET_BINDS_TLS_LOCAL_P
+
 @hook TARGET_HAVE_TLS
 
 

@@ -1,9 +1,8 @@
 /* Check that GOTPCREL/GOT isn't used to access glob_a.  */
 /* { dg-do compile { target *-*-linux* } } */
-/* { dg-require-effective-target pie_copyreloc } */
-/* { dg-options "-O2 -fpie" } */
+/* { dg-options "-O2 -fpic -fsymbolic" } */
 
-extern int glob_a;
+int glob_a = 1;
 
 int foo ()
 {
