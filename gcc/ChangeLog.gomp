@@ -1,5 +1,7 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Add pass_fre after pass_ch_oacc_kernels.
+
 	* passes.def: Add pass_scev_cprop to pass_oacc_kernels.
 	* tree-ssa-loop.c (pass_scev_cprop::clone): New function.
 

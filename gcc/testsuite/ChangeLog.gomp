@@ -1,6 +1,15 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-c++-common/goacc/kernels-counter-vars-function-scope.c: New test.
+	* c-c++-common/goacc/kernels-one-counter-var.c: New test.
+	* g++.dg/ipa/devirt-37.C: Update for new pass_fre.
+	* g++.dg/ipa/devirt-40.C: Likewise.
+	* g++.dg/tree-ssa/pr61034.C: Likewise.
+	* gcc.dg/ipa/ipa-pta-13.c: Likewise.
+	* gcc.dg/ipa/ipa-pta-3.c: Likewise.
+	* gcc.dg/ipa/ipa-pta-4.c: Likewise.
+
 	* gcc.dg/pr41488.c: Update for new pass_scev_cprop.
 	* gcc.dg/tree-ssa/loop-17.c: Likewise.
 	* gcc.dg/tree-ssa/loop-39.c: Likewise.
