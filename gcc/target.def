@@ -2924,6 +2924,20 @@ currently supported object file formats.",
  bool, (const_tree exp),
  default_binds_local_p)
 
+/* True if TLS variable EXP names an object for which name resolution must
+   resolve to the current executable or shared library.  */
+DEFHOOK
+(binds_tls_local_p,
+ "Returns true if TLS variable @var{exp} names an object for which name\n\
+resolution rules must resolve to the current ``module'' (dynamic shared\n\
+library or executable image).\n\
+\n\
+The default version of this hook implements the name resolution rules\n\
+for ELF, which has a looser model of global name binding than other\n\
+currently supported object file formats.",
+ bool, (const_tree exp),
+ default_binds_tls_local_p)
+
 /* Check if profiling code is before or after prologue.  */
 DEFHOOK
 (profile_before_prologue,

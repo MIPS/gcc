@@ -7242,6 +7242,16 @@ for ELF, which has a looser model of global name binding than other
 currently supported object file formats.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_BINDS_TLS_LOCAL_P (const_tree @var{exp})
+Returns true if TLS variable @var{exp} names an object for which name
+resolution rules must resolve to the current ``module'' (dynamic shared
+library or executable image).
+
+The default version of this hook implements the name resolution rules
+for ELF, which has a looser model of global name binding than other
+currently supported object file formats.
+@end deftypefn
+
 @deftypevr {Target Hook} bool TARGET_HAVE_TLS
 Contains the value true if the target supports thread-local storage.
 The default value is false.
