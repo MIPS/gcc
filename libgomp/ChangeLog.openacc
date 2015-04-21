@@ -1,3 +1,21 @@
+2015-04-21  Tom de Vries  <tom@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-2.c: New
+	test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-enter-exit-2.c:
+	New test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-enter-exit.c:
+	New test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-update.c:
+	New test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data.c: New
+	test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-parallel-loop-data-enter-exit.c:
+	New test.
+	* testsuite/libgomp.oacc-fortran/kernels-parallel-loop-data-enter-exit.f95:
+	New test.
+
 2018-05-18  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR c++/85782
@@ -42,7 +60,7 @@
 	recursion depth from 25 to 23.
 	* testsuite/libgomp.fortran/examples-4/declare_target-2.f90: Same.
 
-Copyright (C) 2018 Free Software Foundation, Inc.
+Copyright (C) 2015-2018 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
