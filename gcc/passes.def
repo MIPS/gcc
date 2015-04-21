@@ -86,6 +86,7 @@ along with GCC; see the file COPYING3.  If not see
 	     execute TODO_rebuild_alias at this point.  */
 	  NEXT_PASS (pass_build_ealias);
 	  NEXT_PASS (pass_fre);
+	  NEXT_PASS (pass_expand_omp_ssa);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_cd_dce);
 	  NEXT_PASS (pass_early_ipa_sra);
@@ -99,6 +100,7 @@ along with GCC; see the file COPYING3.  If not see
 	      late.  */
 	  NEXT_PASS (pass_split_functions);
       POP_INSERT_PASSES ()
+      NEXT_PASS (pass_expand_omp_ssa);
       NEXT_PASS (pass_release_ssa_names);
       NEXT_PASS (pass_rebuild_cgraph_edges);
       NEXT_PASS (pass_inline_parameters);

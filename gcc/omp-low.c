@@ -108,6 +108,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "lto-section-names.h"
 #include "gomp-constants.h"
+#include "gimple-pretty-print.h"
 
 
 /* Lowering of OMP parallel and workshare constructs proceeds in two
@@ -5353,6 +5354,35 @@ expand_omp_build_assign (gimple_stmt_iterator *gsi_p, tree to, tree from)
     }
 }
 
+static void
+release_first_vuse_in_edge_dest (edge e)
+{
+  gimple_stmt_iterator i;
+  basic_block bb = e->dest;
+
+  for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
+    {
+      gimple phi = gsi_stmt (i);
+      tree arg = PHI_ARG_DEF_FROM_EDGE (phi, e);
+
+      if (!virtual_operand_p (arg))
+	continue;
+
+      mark_virtual_operand_for_renaming (arg);
+      return;
+    }
+
+  for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next_nondebug (&i))
+    {
+      gimple stmt = gsi_stmt (i);
+      if (gimple_vuse (stmt) == NULL_TREE)
+	continue;
+
+      mark_virtual_operand_for_renaming (gimple_vuse (stmt));
+      return;
+    }
+}
+
 /* Expand the OpenMP parallel or task directive starting at REGION.  */
 
 static void
@@ -8770,8 +8800,11 @@ expand_omp_target (struct omp_region *region)
   gimple stmt;
   edge e;
   bool offloaded, data_region;
+  bool do_emit_library_call = true;
+  bool do_splitoff = true;
 
   entry_stmt = as_a <gomp_target *> (last_stmt (region->entry));
+
   new_bb = region->entry;
 
   offloaded = is_gimple_omp_offloaded (entry_stmt);
@@ -8804,12 +8837,48 @@ expand_omp_target (struct omp_region *region)
   /* Supported by expand_omp_taskreg, but not here.  */
   if (child_cfun != NULL)
     gcc_checking_assert (!child_cfun->cfg);
-  gcc_checking_assert (!gimple_in_ssa_p (cfun));
 
   entry_bb = region->entry;
   exit_bb = region->exit;
 
-  if (offloaded)
+  if (gimple_omp_target_kind (entry_stmt) == GF_OMP_TARGET_KIND_OACC_KERNELS)
+    {
+      if (!gimple_in_ssa_p (cfun))
+	{
+	  /* We need to do analysis and optimizations on the kernels region
+	     before splitoff.  Since that's hard to do on low gimple, we
+	     postpone the splitoff until we're in SSA.
+	     However, we do the emit of the corresponding function call already,
+	     in order to keep the arguments of the call alive until the
+	     splitoff.
+	     Since at this point the function that is called is empty, we can
+	     model the function as BUILT_IN_GOACC_KERNELS_INTERNAL, which marks
+	     some of it's function arguments as non-escaping, so it acts less
+	     as an optimization barrier.  */
+	  do_splitoff = false;
+	  cfun->curr_properties &= ~PROP_gimple_eomp;
+	}
+      else
+	{
+	  /* Don't emit the library call.  We've already done that.  */
+	  do_emit_library_call = false;
+	  /* Transform BUILT_IN_GOACC_KERNELS_INTERNAL into
+	     BUILT_IN_GOACC_KERNELS_INTERNAL.  Now that the function body will be
+	     split off, we can no longer regard the omp_data_array reference as
+	     non-escaping.  */
+	  gsi = gsi_last_bb (entry_bb);
+	  gsi_prev (&gsi);
+	  gcall *call = as_a <gcall *> (gsi_stmt (gsi));
+	  gcc_assert (gimple_call_builtin_p (call, BUILT_IN_GOACC_KERNELS_INTERNAL));
+	  tree fndecl = builtin_decl_explicit (BUILT_IN_GOACC_KERNELS);
+	  gimple_call_set_fndecl (call, fndecl);
+	  gimple_call_set_fntype (call, TREE_TYPE (fndecl));
+	  gimple_call_reset_alias_info (call);
+	}
+    }
+
+  if (offloaded
+      && do_splitoff)
     {
       unsigned srcidx, dstidx, num;
 
@@ -8831,7 +8900,7 @@ expand_omp_target (struct omp_region *region)
 	{
 	  basic_block entry_succ_bb = single_succ (entry_bb);
 	  gimple_stmt_iterator gsi;
-	  tree arg;
+	  tree arg, narg;
 	  gimple tgtcopy_stmt = NULL;
 	  tree sender = TREE_VEC_ELT (data_arg, 0);
 
@@ -8861,8 +8930,27 @@ expand_omp_target (struct omp_region *region)
 	  gcc_assert (tgtcopy_stmt != NULL);
 	  arg = DECL_ARGUMENTS (child_fn);
 
-	  gcc_assert (gimple_assign_lhs (tgtcopy_stmt) == arg);
-	  gsi_remove (&gsi, true);
+	  if (!gimple_in_ssa_p (cfun))
+	    {
+	      gcc_assert (gimple_assign_lhs (tgtcopy_stmt) == arg);
+	      gsi_remove (&gsi, true);
+	    }
+	  else
+	    {
+	      gcc_assert (SSA_NAME_VAR (gimple_assign_lhs (tgtcopy_stmt))
+			  == arg);
+
+	      /* If we are in ssa form, we must load the value from the default
+		 definition of the argument.  That should not be defined now,
+		 since the argument is not used uninitialized.  */
+	      gcc_assert (ssa_default_def (cfun, arg) == NULL);
+	      narg = make_ssa_name (arg, gimple_build_nop ());
+	      set_ssa_default_def (cfun, arg, narg);
+	      /* ?? Is setting the subcode really necessary ??  */
+	      gimple_omp_set_subcode (tgtcopy_stmt, TREE_CODE (narg));
+	      gimple_assign_set_rhs1 (tgtcopy_stmt, narg);
+	      update_stmt (tgtcopy_stmt);
+	    }
 	}
 
       /* Declare local variables needed in CHILD_CFUN.  */
@@ -8905,11 +8993,23 @@ expand_omp_target (struct omp_region *region)
 	  stmt = gimple_build_return (NULL);
 	  gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
 	  gsi_remove (&gsi, true);
+
+	  /* A vuse in single_succ (exit_bb) may use a vdef from the region
+	     which is about to be split off.  Mark the vdef for renaming.  */
+	  release_first_vuse_in_edge_dest (single_succ_edge (exit_bb));
 	}
 
       /* Move the offloading region into CHILD_CFUN.  */
 
-      block = gimple_block (entry_stmt);
+      if (gimple_in_ssa_p (cfun))
+	{
+	  init_tree_ssa (child_cfun);
+	  init_ssa_operands (child_cfun);
+	  child_cfun->gimple_df->in_ssa_p = true;
+	  block = NULL_TREE;
+	}
+      else
+	block = gimple_block (entry_stmt);
 
       new_bb = move_sese_region_to_fn (child_cfun, entry_bb, exit_bb, block);
       if (exit_bb)
@@ -8969,7 +9069,16 @@ expand_omp_target (struct omp_region *region)
 	  if (changed)
 	    cleanup_tree_cfg ();
 	}
+      if (gimple_in_ssa_p (cfun))
+	update_ssa (TODO_update_ssa);
       pop_cfun ();
+    }
+
+  if (!do_emit_library_call)
+    {
+      if (gimple_in_ssa_p (cfun))
+	update_ssa (TODO_update_ssa_only_virtuals);
+      return;
     }
 
   /* Emit a library call to launch the offloading region, or do data
@@ -8993,7 +9102,7 @@ expand_omp_target (struct omp_region *region)
       start_ix = BUILT_IN_GOACC_PARALLEL;
       break;
     case GF_OMP_TARGET_KIND_OACC_KERNELS:
-      start_ix = BUILT_IN_GOACC_KERNELS;
+      start_ix = BUILT_IN_GOACC_KERNELS_INTERNAL;
       break;
     case GF_OMP_TARGET_KIND_OACC_DATA:
       start_ix = BUILT_IN_GOACC_DATA_START;
@@ -9128,6 +9237,7 @@ expand_omp_target (struct omp_region *region)
     case BUILT_IN_GOACC_DATA_START:
     case BUILT_IN_GOACC_ENTER_EXIT_DATA:
     case BUILT_IN_GOACC_KERNELS:
+    case BUILT_IN_GOACC_KERNELS_INTERNAL:
     case BUILT_IN_GOACC_PARALLEL:
     case BUILT_IN_GOACC_UPDATE:
       break;
@@ -9146,6 +9256,7 @@ expand_omp_target (struct omp_region *region)
     case BUILT_IN_GOMP_TARGET_UPDATE:
       break;
     case BUILT_IN_GOACC_KERNELS:
+    case BUILT_IN_GOACC_KERNELS_INTERNAL:
     case BUILT_IN_GOACC_PARALLEL:
       {
 	tree t_num_gangs, t_num_workers, t_vector_length;
@@ -9249,6 +9360,8 @@ expand_omp_target (struct omp_region *region)
       gcc_assert (g && gimple_code (g) == GIMPLE_OMP_RETURN);
       gsi_remove (&gsi, true);
     }
+  if (gimple_in_ssa_p (cfun))
+    update_ssa (TODO_update_ssa_only_virtuals);
 }
 
 
@@ -9503,7 +9616,7 @@ const pass_data pass_data_expand_omp =
   OPTGROUP_NONE, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
-  PROP_gimple_eomp, /* properties_provided */
+  0 /* Possibly PROP_gimple_eomp.  */, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
   0, /* todo_flags_finish */
@@ -9517,11 +9630,13 @@ public:
   {}
 
   /* opt_pass methods: */
-  virtual unsigned int execute (function *)
+  virtual unsigned int execute (function *fun)
     {
       bool gate = ((flag_cilkplus != 0 || flag_openacc != 0 || flag_openmp != 0
 		    || flag_openmp_simd != 0)
 		   && !seen_error ());
+
+      fun->curr_properties |= PROP_gimple_eomp;
 
       /* This pass always runs, to provide PROP_gimple_eomp.
 	 But often, there is nothing to do.  */
@@ -9553,7 +9668,8 @@ const pass_data pass_data_expand_omp_ssa =
   PROP_gimple_eomp, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_cleanup_cfg | TODO_rebuild_alias, /* todo_flags_finish */
+  TODO_cleanup_cfg | TODO_rebuild_alias
+  | TODO_remove_unused_locals, /* todo_flags_finish */
 };
 
 class pass_expand_omp_ssa : public gimple_opt_pass
@@ -9568,7 +9684,48 @@ public:
     {
       return !(fun->curr_properties & PROP_gimple_eomp);
     }
-  virtual unsigned int execute (function *) { return execute_expand_omp (); }
+  virtual unsigned int execute (function *)
+    {
+      unsigned res = execute_expand_omp ();
+
+      /* After running pass_expand_omp_ssa to expand the oacc kernels
+	 directive, we are left in the original function with anonymous
+	 SSA_NAMEs, with a defining statement that has been deleted.  This
+	 pass finds those SSA_NAMEs and releases them.
+	 TODO: Either fix this elsewhere, or make the fix unnecessary.  */
+      unsigned int i;
+      for (i = 1; i < num_ssa_names; ++i)
+	{
+	  tree name = ssa_name (i);
+	  if (name == NULL_TREE)
+	    continue;
+
+	  gimple stmt = SSA_NAME_DEF_STMT (name);
+	  bool found = false;
+
+	  ssa_op_iter op_iter;
+	  def_operand_p def_p;
+	  FOR_EACH_PHI_OR_STMT_DEF (def_p, stmt, op_iter, SSA_OP_ALL_DEFS)
+	    {
+	      tree def = DEF_FROM_PTR (def_p);
+	      if (def == name)
+		{
+		  found = true;
+		  break;
+		}
+	    }
+
+	  if (!found)
+	    {
+	      if (dump_file)
+		fprintf (dump_file, "Released dangling ssa name %u\n", i);
+	      release_ssa_name (name);
+	    }
+	}
+
+      return res;
+    }
+  opt_pass * clone () { return new pass_expand_omp_ssa (m_ctxt); }
 
 }; // class pass_expand_omp_ssa
 
@@ -13726,6 +13883,41 @@ omp_finish_file (void)
 	  targetm.record_offload_symbol (it);
 	}
     }
+}
+
+static bool
+gimple_stmt_ssa_operand_references_var_p (gimple stmt, const char **varnames,
+					  unsigned int nr_varnames,
+					  unsigned int flags)
+{
+  tree use;
+  ssa_op_iter iter;
+  const char *s;
+
+  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, flags)
+    {
+      if (SSA_NAME_IDENTIFIER (use) == NULL_TREE)
+	continue;
+      s = IDENTIFIER_POINTER (SSA_NAME_IDENTIFIER (use));
+
+      unsigned int i;
+      for (i = 0; i < nr_varnames; ++i)
+	if (strcmp (varnames[i], s) == 0)
+	  return true;
+    }
+
+  return false;
+}
+
+/* Return true if STMT is .omp_data_i init.  */
+
+bool
+gimple_stmt_omp_data_i_init_p (gimple stmt)
+{
+  const char *varnames[] = { ".omp_data_i" };
+  unsigned int nr_varnames = sizeof (varnames) / sizeof (varnames[0]);
+  return gimple_stmt_ssa_operand_references_var_p (stmt, varnames, nr_varnames,
+						   SSA_OP_DEF);
 }
 
 #include "gt-omp-low.h"

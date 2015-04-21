@@ -1706,6 +1706,15 @@ release_function_body (tree decl)
 void
 cgraph_node::release_body (bool keep_arguments)
 {
+  /* The omp-expansion of the oacc kernels directive is post-poned till after
+     all_small_ipa_passes.  That means pass_ipa_free_lang_data, which tries to
+     release the body of the offload function, is run before omp_expand_target 
+     can process the oacc kernels directive,  and omp_expand_target would crash
+     trying to access the body.  This snippet works around this problem.
+     FIXME: This should probably be fixed in a different way.  */
+  if (offloadable)
+    return;
+
   ipa_transforms_to_apply.release ();
   if (!used_as_abstract_origin && symtab->state != PARSING)
     {

@@ -28,6 +28,7 @@ extern void free_omp_regions (void);
 extern tree omp_reduction_init (tree, tree);
 extern bool make_gimple_omp_edges (basic_block, struct omp_region **, int *);
 extern void omp_finish_file (void);
+extern bool gimple_stmt_omp_data_i_init_p (gimple);
 
 extern GTY(()) vec<tree, va_gc> *offload_funcs;
 extern GTY(()) vec<tree, va_gc> *offload_vars;

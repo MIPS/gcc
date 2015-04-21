@@ -1,5 +1,35 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c: Include gimple-pretty-print.h.
+	(release_first_vuse_in_edge_dest): New function.
+	(expand_omp_target): When not in ssa, don't split off oacc kernels
+	region, clear PROP_gimple_eomp in cfun->curr_properties to force later
+	expanssion, and add GOACC_kernels_internal call.
+	When in ssa, split off oacc kernels and convert GOACC_kernels_internal
+	into GOACC_kernels call.  Handle ssa-code.
+	(pass_data_expand_omp): Don't set PROP_gimple_eomp unconditionally in
+	properties_provided field.
+	(pass_expand_omp::execute): Set PROP_gimple_eomp in
+	cfun->curr_properties tentatively.
+	(pass_data_expand_omp_ssa): Add TODO_remove_unused_locals to
+	todo_flags_finish field.
+	(pass_expand_omp_ssa::execute): Release dangling SSA_NAMEs after calling
+	execute_expand_omp.
+	(gimple_stmt_ssa_operand_references_var_p)
+	(gimple_stmt_omp_data_i_init_p): New function.
+	* omp-low.h (gimple_stmt_omp_data_i_init_p): Declare.
+	* passes.def: Add pass_expand_omp_ssa after pass_fre.  Add
+	pass_expand_omp_ssa after pass_all_early_optimizations.
+	* tree-ssa-ccp.c: Include omp-low.h.
+	(surely_varying_stmt_p, ccp_visit_stmt): Handle .omp_data_i init
+	conservatively.
+	* tree-ssa-forwprop.c: Include omp-low.h.
+	(pass_forwprop::execute): Handle .omp_data_i init conservatively.
+	* tree-ssa-sccvn.c: Include omp-low.h.
+	(visit_use): Handle .omp_data_i init conservatively.
+	* cgraph.c (cgraph_node::release_body): Don't release offloadable
+	functions.
+
 	* builtin-attrs.def (DOT_DOT_DOT_r_r_r): Add DEF_ATTR_FOR_STRING.
 	(ATTR_FNSPEC_DOT_DOT_DOT_r_r_r_NOTHROW_LIST): Add
 	DEF_ATTR_TREE_LIST.
