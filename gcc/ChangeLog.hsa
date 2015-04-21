@@ -1,3 +1,8 @@
+2015-04-21  Michael Matz  <matz@suse.de>
+
+	* hsa-regalloc.c (linear_scan_regalloc): Run backwards over
+	basic blocks when running backwards over instructions.
+
 2015-02-25  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-regalloc.c (regalloc): Bail out if there are no registers.

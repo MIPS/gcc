@@ -613,7 +613,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
   /* Make one pass through all instructions in linear order,
      noting and merging possible live range start and end points.  */
   last_insn = NULL;
-  for (i = 0; i < n; i++)
+  for (i = n - 1; i >= 0; i--)
     {
       basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bbs[i]);
       hsa_bb *hbb = hsa_bb_for_bb (bb);
