@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-sccp-details" } */
+/* { dg-options "-O2 -fdump-tree-sccp2-details" } */
 
 int
 foo (unsigned int n)
@@ -22,5 +22,5 @@ foo (unsigned int n)
   return r + n;
 }
 
-/* { dg-final { scan-tree-dump "# of iterations \[^\n\r]*, bounded by 8" "sccp" } } */
-/* { dg-final { cleanup-tree-dump "sccp" } } */
+/* { dg-final { scan-tree-dump "# of iterations \[^\n\r]*, bounded by 8" "sccp2" } } */
+/* { dg-final { cleanup-tree-dump "sccp2" } } */

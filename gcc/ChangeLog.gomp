@@ -1,5 +1,8 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Add pass_scev_cprop to pass_oacc_kernels.
+	* tree-ssa-loop.c (pass_scev_cprop::clone): New function.
+
 	* passes.def: Add pass_parallelize_loops_oacc_kernels in pass group
 	pass_oacc_kernels.
 	* tree-parloops.c (create_parallel_loop, gen_parallel_loop): Add

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-sccp-scev" } */
+/* { dg-options "-O2 -fdump-tree-sccp2-scev" } */
 
 struct struct_t
 {
@@ -14,5 +14,5 @@ void foo (struct struct_t* sp, int start, int end)
     sp->data[i+start] = 0;
 }
 
-/* { dg-final { scan-tree-dump-times "Simplify PEELED_CHREC into POLYNOMIAL_CHREC" 1 "sccp" } } */
-/* { dg-final { cleanup-tree-dump "sccp" } } */
+/* { dg-final { scan-tree-dump-times "Simplify PEELED_CHREC into POLYNOMIAL_CHREC" 1 "sccp2" } } */
+/* { dg-final { cleanup-tree-dump "sccp2" } } */

@@ -1,6 +1,9 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-fortran/kernels-loop-2.f95: New test.
+	* testsuite/libgomp.oacc-fortran/kernels-loop.f95: New test.
+
 	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-2.c: New test.
 	* testsuite/libgomp.oacc-c-c++-common/kernels-loop.c: New test.
 	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-n.c: New test.

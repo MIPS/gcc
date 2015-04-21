@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O -fdump-tree-sccp-details" } */
+/* { dg-options "-O -fdump-tree-sccp2-details" } */
 
 /* To determine the number of iterations in this loop we need to fold
    p_4 + 4B > p_4 + 8B to false.  This transformation has caused
@@ -15,5 +15,5 @@ int foo (int *p)
   return i;
 }
 
-/* { dg-final { scan-tree-dump "# of iterations 1, bounded by 1" "sccp" } } */
-/* { dg-final { cleanup-tree-dump "sccp" } } */
+/* { dg-final { scan-tree-dump "# of iterations 1, bounded by 1" "sccp2" } } */
+/* { dg-final { cleanup-tree-dump "sccp2" } } */

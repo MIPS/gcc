@@ -1,6 +1,13 @@
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gcc.dg/pr41488.c: Update for new pass_scev_cprop.
+	* gcc.dg/tree-ssa/loop-17.c: Likewise.
+	* gcc.dg/tree-ssa/loop-39.c: Likewise.
+	* gcc.dg/tree-ssa/scev-7.c: Likewise.
+	* gfortran.dg/goacc/kernels-loop-2.f95: New test.
+	* gfortran.dg/goacc/kernels-loop.f95: New test.
+
 	* c-c++-common/goacc/kernels-loop-2.c: New test.
 	* c-c++-common/goacc/kernels-loop.c: New test.
 	* c-c++-common/goacc/kernels-loop-n.c: New test.

@@ -425,6 +425,7 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *) { return flag_tree_scev_cprop; }
   virtual unsigned int execute (function *) { return scev_const_prop (); }
+  opt_pass * clone () { return new pass_scev_cprop (m_ctxt); }
 
 }; // class pass_scev_cprop
 
