@@ -5351,11 +5351,11 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	    parmse.expr = gfc_evaluate_now_loc (input_location,
 						parmse.expr, &se->pre);
 
-	  if (POINTER_TYPE_P (TREE_TYPE (parmse.expr)))
+	  if (fsym->attr.value)
+	    tmp = parmse.expr;
+	  else
 	    tmp = build_fold_indirect_ref_loc (input_location,
 					       parmse.expr);
-	  else
-	    tmp = parmse.expr;
 
 	  parm_rank = e->rank;
 	  switch (parm_kind)
