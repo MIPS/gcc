@@ -19137,9 +19137,14 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	{
 	  if (generic_decl_parm
 	      && lang_hooks.function_parameter_pack_p (generic_decl_parm))
-	    gen_formal_parameter_pack_die (generic_decl_parm,
-					   parm, subr_die,
-					   &parm);
+	    {
+	      if (early_dwarf_dumping)
+		gen_formal_parameter_pack_die (generic_decl_parm,
+					       parm, subr_die,
+					       &parm);
+	      else if (parm)
+		parm = DECL_CHAIN (parm);
+	    }
 	  else if (parm && !POINTER_BOUNDS_P (parm))
 	    {
 	      dw_die_ref parm_die = gen_decl_die (parm, NULL, subr_die);
