@@ -1,3 +1,11 @@
+2015-04-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Compare constrained partial specializations structurally.
+	* gcc/pt.c (process_partial_specialization): Don't use a
+	canonical type for constrained partial template specializations.
+	Compare structurally to avoid ICE's when specializations resolve
+	differently.
+
 2015-04-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	PR65681

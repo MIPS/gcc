@@ -4420,25 +4420,25 @@ process_partial_specialization (tree decl)
       return error_mark_node;
     }
 
-  // When defining a constrained partial specialization, DECL's type
-  // will have been assigned to the canonical type of the primary.
-  // That is:
-  //
-  //    template<typename T>
-  //      struct S; // Has canonical type S<T>
-  //
-  //    template<typename T>
-  //      requires C<T>
-  //        struct S<T>; // binds to the primary template.
-  //
-  // However, the the constraints differ, so we should be constructing
-  // a new type. We do this by making the DECL's type its own
-  // canonical type.
-  //
-  // TODO: Do we need to compare the current requirements to make
-  // sure this isn't a redeclaration?
+  /*  When defining a constrained partial specialization, DECL's type
+      will have been assigned to the canonical type of the primary.
+      That is:
+  
+         template<typename T>
+           struct S; // Has canonical type S<T>
+      
+         template<C T>
+           struct S<T>; // Binds to the primary template.
+  
+      However, the constraints differ, so we should be constructing
+      a new type instead of simply referring to the old one. We
+      do this by erasing the canonical type of the partial 
+      specialization and always comparing these types structurally.
+
+      TODO: Do we need to compare the current requirements to make
+      sure this isn't a redeclaration? */  
   if (TEMPLATE_PARM_CONSTRAINTS (current_template_parms))
-    TYPE_CANONICAL (type) = type;
+    SET_TYPE_STRUCTURAL_EQUALITY (type);
 
   inner_parms = INNERMOST_TEMPLATE_PARMS (current_template_parms);
   ntparms = TREE_VEC_LENGTH (inner_parms);
