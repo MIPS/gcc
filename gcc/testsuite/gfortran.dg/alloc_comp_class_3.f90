@@ -4,7 +4,7 @@
 ! Based on a contribution by Vladimir Fuka
 ! Contibuted by Andre Vehreschild
 
-program test_pr58586
+module test_pr58586_mod
   implicit none
 
   type :: a
@@ -18,13 +18,6 @@ program test_pr58586
      integer, allocatable :: a
   end type
 
-  ! These two are merely to check, if compilation works
-  call add(b())
-  call add(b(null()))
-
-  ! This needs to execute, to see whether the segfault at runtime is resolved
-  call add_c(c_init())
-
 contains
 
   subroutine add (d)
@@ -37,5 +30,16 @@ contains
 
   type(c) function c_init()
   end function
-end program test_pr58586
+end module test_pr58586_mod
+
+program test_pr58586
+  use test_pr58586_mod
+
+  ! These two are merely to check, if compilation works
+  call add(b())
+  call add(b(null()))
+
+  ! This needs to execute, to see whether the segfault at runtime is resolved
+  call add_c(c_init())
+end program
 
