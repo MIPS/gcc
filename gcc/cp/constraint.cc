@@ -107,6 +107,24 @@ conjoin_constraints (tree t)
   return r;
 }
 
+/* Returns true if T is a call expression to a function
+   concept. */
+bool
+function_concept_check_p (tree t)
+{
+  gcc_assert (TREE_CODE (t) == CALL_EXPR);
+  tree fn = CALL_EXPR_FN (t);
+  if (TREE_CODE (fn) == TEMPLATE_ID_EXPR 
+      && TREE_CODE (TREE_OPERAND (fn, 0)) == OVERLOAD)
+    {
+      tree f1 = OVL_FUNCTION (TREE_OPERAND (fn, 0));
+      if (TREE_CODE (f1) == TEMPLATE_DECL
+            && DECL_DECLARED_CONCEPT_P (DECL_TEMPLATE_RESULT (f1)))
+        return true;
+    }
+  return false;
+}
+
 /*---------------------------------------------------------------------------
                     Resolution of qualified concept names
 ---------------------------------------------------------------------------*/

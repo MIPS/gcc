@@ -8590,7 +8590,7 @@ finish_template_variable (tree var)
 
      NOTE: This is an extension of Concepts Lite TS that
      allows constraints to be used in expressions. */
-  if (flag_concepts)
+  if (flag_concepts && !processing_template_decl)
     if (variable_concept_p (templ) && !uses_template_parms (arglist))
       {
         tree decl = DECL_TEMPLATE_RESULT (templ);
@@ -22182,9 +22182,14 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
     case BIND_EXPR:
       return *tp;
 
-    case REQUIRES_EXPR:
       /* Treat requires-expressions as dependent. */
+    case REQUIRES_EXPR:
       return *tp;
+
+    case CALL_EXPR:
+      /* Treat calls to function concepts as dependent. */
+      if (function_concept_check_p (*tp))
+        return *tp;
 
     default:
       break;

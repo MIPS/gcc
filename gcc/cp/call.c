@@ -4146,21 +4146,21 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args, bool koenig_p,
       if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
         {
           /* If overload resolution selects a specialization of a
-             function concept, the expression is true if the
-             constraints are satisfied and false otherwise. 
+             function concept for non-dependent template arguments, 
+             the expression is true if the constraints are satisfied 
+             and false otherwise.
 
              NOTE: This is an extension of Concepts Lite TS that
              allows constraints to be used in expressions. */
-          if (flag_concepts)
+          if (flag_concepts && !processing_template_decl)
             {
               tree tmpl = DECL_TI_TEMPLATE (cand->fn);
+              tree targs = DECL_TI_ARGS (cand->fn);
               tree decl = DECL_TEMPLATE_RESULT (tmpl);
-              if (DECL_DECLARED_CONCEPT_P (decl))
-                {
-                  tree targs = DECL_TI_ARGS (cand->fn);
-                  tree eval = evaluate_function_concept (decl, targs);
-                  return eval;
-                }
+              if (DECL_DECLARED_CONCEPT_P (decl) 
+                  && !uses_template_parms (targs)) {
+                return evaluate_function_concept (decl, targs);
+            }
             }
 
 

@@ -1,5 +1,20 @@
 2015-04-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	PR65848
+	* gcc/cp/cp-tree.h (function_concept_check_p): New.
+	* gcc/cp/call.c (build_new_function_call): Don't evaluate
+	concepts while processing a template.
+	* gcc/cp/constraint.cc (function_concept_check_p): New.
+	* gcc/cp/pt.c (finish_template_variable): Don't evaluate
+	concepts while processing a template.
+	(instantiation_dependent_r): Treat all calls to function
+	concepts as instantiation dependent.
+	* gcc/testsuite/g++.dg/concepts/pr65848.C: New.
+	* gcc/testsuite/g++.dg/concepts/req4.C: Remove extra errors.
+	* gcc/testsuite/g++.dg/concepts/req5.C: Remove extra errors.
+
+2015-04-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Compare constrained partial specializations structurally.
 	* gcc/pt.c (process_partial_specialization): Don't use a
 	canonical type for constrained partial template specializations.
@@ -15,7 +30,7 @@
 	(tsubst_type_requirement): Likewise.
 	(tsubst_compound_requirement): Likewise.
 	(tsubst_nested_requirement): Likewise.
-	* gcc/testsuite/g++.dg/concepts/p465681.C: New.
+	* gcc/testsuite/g++.dg/concepts/pr65681.C: New.
 	* gcc/testsuite/g++.dg/concepts/req2.C: Remove check for spurious
 	diagnostics.
 
