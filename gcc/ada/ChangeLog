@@ -1,3 +1,170 @@
+2015-03-24  Gary Dismukes  <dismukes@adacore.com>
+
+	* sem_ch3.adb: Minor typo fix (missing paren).
+
+2015-03-24  Robert Dewar  <dewar@adacore.com>
+
+	* sinfo.ads: Update comment.
+
+2015-03-24  Robert Dewar  <dewar@adacore.com>
+
+	* exp_attr.adb: Add entry for typ'Deref.
+	* sem_attr.adb (Deref): New GNAT attribute.
+	* sem_attr.ads: Add entry for new GNAT attribute Deref.
+	* snames.ads-tmpl: Add entries for new attribute Deref.
+
+2015-03-24  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch13.adb (Rep_Item_Too_Early): allow pragma Convention
+	on generic type.
+
+2015-03-24  Gary Dismukes  <dismukes@adacore.com>
+
+	* inline.adb: Minor typo fix.
+
+2015-03-24  Arnaud Charlet  <charlet@adacore.com>
+
+	* doc/gnat_ugn/building_executable_programs_with_gnat.rst,
+	doc/gnat_ugn/gnat_utility_programs.rst
+	doc/gnat_rm/implementation_defined_attributes.rst
+	doc/gnat_rm/implementation_defined_pragmas.rst
+	doc/gnat_rm/representation_clauses_and_pragmas.rst
+	doc/gnat_rm/about_this_guide.rst
+	doc/gnat_rm/implementation_of_ada_2012_features.rst: Doc improvements.
+	* gnat_rm.texi, gnat_ugn.texi: Regenerate.
+
+2015-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/65522
+	* adadecode.c (ada_demangle): Guard with IN_RTS instead of IN_GCC.
+
+2015-03-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/65451
+	* gcc-interface/utils.c (gnat_pushdecl): Tidy up and improve comment.
+	Make sure to chain only main variants through TYPE_NEXT_PTR_TO.
+
+	* gcc-interface/trans.c (Attribute_to_gnu): Revert latest change.
+
+2015-03-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils2.c (gnat_invariant_expr): Return null if the type
+	of the expression ends up being composite.
+
+2015-03-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (is_from_limited_with_of_main): New predicate.
+	(gnat_to_gnu_entity) <E_Subprogram_Type>: Invoke it on return and
+	parameter types to detect circularities in ASIS mode.
+	* gcc-interface/trans.c (Attribute_to_gnu): Mention AI05-0151.
+
+2015-03-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Abstract_State>: Do not
+	short-circuit the regular handling.
+
+2015-03-13  Robert Dewar  <dewar@adacore.com>
+
+	* exp_unst.adb (Note_Uplevel_Reference): Eliminate duplicate
+	references.
+	(Actual_Ref): New function.
+	(AREC_String): Minor reformatting.
+	(Unnest_Subprogram): Use Actual_Ref.
+	* frontend.adb (Frontend): Turn off Unnest_Subprogram_Mode
+	before call to Instantiate_Bodies.
+
+2015-03-13  Ed Schonberg  <schonberg@adacore.com>
+
+	* freeze.adb (Freeze_Profile): If the return type of a function
+	being frozen is an untagged limited view and the function is
+	abstract, mark the type as frozen because there is no later
+	point at which the profile of the subprogram will be elaborated.
+
+2015-03-13  Robert Dewar  <dewar@adacore.com>
+
+	* einfo.adb, einfo.ads, atree.adb, atree.ads, atree.h: Add seventh
+	component to entities. Add new fields Field36-41 and Node36-41.
+
+2015-03-13  Claire Dross  <dross@adacore.com>
+
+	* inline.adb (Can_Be_Inlined_In_GNATprove_Mode): Rewrite after review.
+
+2015-03-13  Robert Dewar  <dewar@adacore.com>
+
+	* exp_util.adb (Is_Volatile_Reference): Compile time known
+	value is never considered to be a volatile reference.
+
+2015-03-13  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch3.adb (Analyze_Object_Contract): Suppress "constant
+	cannot be volatile" for internally generated object (such as
+	FIRST and LAST constants).
+
+2015-03-13  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Validate_Access_Subprogram_Instance): If a
+	convention is specified for the formal parameter, verify that
+	the actual has the same convention.
+	* sem_prag.adb (Set_Convention_From_Pragma): Allow convention
+	pragma to be set on a generic formal type.
+	* sem_util.adb (Set_Convention): Ignore within an instance,
+	as it has already been verified in the generic unit.
+
+2015-03-13  Claire Dross  <dross@adacore.com>
+
+	* inline.adb (Can_Be_Inlined_In_GNATprove_Mode): Do not inline
+	subprograms with unconstrained record parameters containing
+	Itype declarations.
+	* sinfo.ads Document GNATprove assumption that type should match
+	in the AST.
+	* sem_ch6.adb (Analyze_Subprogram_Body_Contract):
+	Do not check for Refined_Depends and Refined_Globals contracts
+	as they are optional.
+
+2015-03-13  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Instantiate_Type): For a floating-point type,
+	capture dimension info if any, because the generated subtype
+	declaration does not come from source and will not process dimensions.
+	* sem_dim,adb (Analyze_Dimension_Extension_Or_Record_Aggregate):
+	Do not analyze expressions with an initialization procedure
+	because aggregates will have been checked at the point of record
+	declaration.
+
+2015-03-13  Robert Dewar  <dewar@adacore.com>
+
+	* aspects.ads, aspects.adb: Add entries for aspect Unimplemented.
+	* einfo.ads, einfo.adb (Is_Unimplemented): New flag.
+	* sem_ch13.adb: Add dummy entry for aspect Unimplemented.
+	* snames.ads-tmpl: Add entry for Name_Unimplemented.
+
+2015-03-13  Gary Dismukes  <dismukes@adacore.com>
+
+	* style.adb (Missing_Overriding): Apply the
+	Comes_From_Source test to the Original_Node of the subprogram
+	node, to handle the case of a null procedure declaration that
+	has been rewritten as an empty procedure body.
+
+2015-03-13  Robert Dewar  <dewar@adacore.com>
+
+	* exp_util.ads: Minor fix to comment.
+	* sem_ch3.adb (Constrain_Index): Correct pasto from previous
+	change.
+
+2015-03-13  Robert Dewar  <dewar@adacore.com>
+
+	* exp_util.ads, exp_util.adb (Force_Evaluation): Add Related_Id and
+	Is_Low/High_Bound params.
+	* sem_ch3.adb (Constrain_Index): Use new Force_Evaluation calling
+	sequence to simplify generation of FIRST/LAST temps for bounds.
+
+2015-03-12  Olivier Hainque  <hainque@adacore.com>
+
+	* gcc-interface/trans.c (Attribute_to_gnu) <Code_Address case>:
+	On targets where a function symbol designates a function descriptor,
+	fetch the function code address from the descriptor.
+	(USE_RUNTIME_DESCRIPTORS): Provide a default definition.
+
 2015-03-04  Robert Dewar  <dewar@adacore.com>
 
 	* sem_warn.adb: Minor reformatting.

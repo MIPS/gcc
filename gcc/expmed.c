@@ -2551,9 +2551,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_shift;
 	    }
@@ -2582,9 +2581,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	      alg_in->cost.latency += op_cost;
 	      if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 		{
-		  struct algorithm *x;
 		  best_cost = alg_in->cost;
-		  x = alg_in, alg_in = best_alg, best_alg = x;
+		  std::swap (alg_in, best_alg);
 		  best_alg->log[best_alg->ops] = m;
 		  best_alg->op[best_alg->ops] = alg_shift;
 		}
@@ -2613,7 +2611,7 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 		 Thus we prefer addition in that case.  */
 	      && t != 3))
 	{
-	  /* T ends with ...111.  Multiply by (T + 1) and subtract 1.  */
+	  /* T ends with ...111.  Multiply by (T + 1) and subtract T.  */
 
 	  op_cost = add_cost (speed, mode);
 	  new_limit.cost = best_cost.cost - op_cost;
@@ -2624,16 +2622,15 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = 0;
 	      best_alg->op[best_alg->ops] = alg_sub_t_m2;
 	    }
 	}
       else
 	{
-	  /* T ends with ...01 or ...011.  Multiply by (T - 1) and add 1.  */
+	  /* T ends with ...01 or ...011.  Multiply by (T - 1) and add T.  */
 
 	  op_cost = add_cost (speed, mode);
 	  new_limit.cost = best_cost.cost - op_cost;
@@ -2644,9 +2641,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = 0;
 	      best_alg->op[best_alg->ops] = alg_add_t_m2;
 	    }
@@ -2667,9 +2663,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_sub_t_m2;
 	    }
@@ -2723,9 +2718,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	    alg_in->cost.latency = op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_add_factor;
 	    }
@@ -2762,9 +2756,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	    alg_in->cost.latency = op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_sub_factor;
 	    }
@@ -2793,9 +2786,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_add_t2_m;
 	    }
@@ -2818,9 +2810,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	  alg_in->cost.latency += op_cost;
 	  if (CHEAPER_MULT_COST (&alg_in->cost, &best_cost))
 	    {
-	      struct algorithm *x;
 	      best_cost = alg_in->cost;
-	      x = alg_in, alg_in = best_alg, best_alg = x;
+	      std::swap (alg_in, best_alg);
 	      best_alg->log[best_alg->ops] = m;
 	      best_alg->op[best_alg->ops] = alg_sub_t2_m;
 	    }

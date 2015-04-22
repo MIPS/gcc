@@ -617,6 +617,17 @@ package Sinfo is
    --       checks on empty ranges, which typically appear in deactivated
    --       code in a particular configuration).
 
+   --    6. Subtypes should match in the AST, even after a generic is
+   --       instantiated. In particular, GNATprove relies on the fact that,
+   --       on a selected component, the type of the selected component is
+   --       the type of the corresponding component in the prefix of the
+   --       selected component.
+   --
+   --       Note that, in some cases, we know that this rule is broken by the
+   --       frontend. In particular, if the selected component is a packed
+   --       array depending on a discriminant of a unconstrained formal object
+   --       parameter of a generic.
+
    -----------------------
    -- Check Flag Fields --
    -----------------------
@@ -816,7 +827,9 @@ package Sinfo is
    --    setting tag values, etc. N_Object_Declaration nodes also have this
    --    flag defined. Here it is used to indicate that an initialization
    --    expression is valid, even where it would normally not be allowed
-   --    (e.g. where the type involved is limited).
+   --    (e.g. where the type involved is limited). It is also used to stop
+   --    a Force_Evaluation call for an unchecked conversion, but this usage
+   --    is unclear and not documented ???
 
    --  Associated_Node (Node4-Sem)
    --    Present in nodes that can denote an entity: identifiers, character

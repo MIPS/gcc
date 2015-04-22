@@ -553,12 +553,11 @@ cgraph_node::get_create (tree decl)
       if (dump_file)
 	fprintf (dump_file, "Introduced new external node "
 		 "(%s/%i) and turned into root of the clone tree.\n",
-		 xstrdup_for_dump (node->name ()), node->order);
+		 node->name (), node->order);
     }
   else if (dump_file)
     fprintf (dump_file, "Introduced new external node "
-	     "(%s/%i).\n", xstrdup_for_dump (node->name ()),
-	     node->order);
+	     "(%s/%i).\n", node->name (), node->order);
   return node;
 }
 
@@ -1730,7 +1729,10 @@ cgraph_node::release_body (bool keep_arguments)
     DECL_INITIAL (decl) = error_mark_node;
   release_function_body (decl);
   if (lto_file_data)
-    lto_free_function_in_decl_state_for_node (this);
+    {
+      lto_free_function_in_decl_state_for_node (this);
+      lto_file_data = NULL;
+    }
 }
 
 /* Remove function from symbol table.  */
@@ -1808,12 +1810,17 @@ cgraph_node::remove (void)
       n = cgraph_node::get (decl);
       if (!n
 	  || (!n->clones && !n->clone_of && !n->global.inlined_to
-	      && (symtab->global_info_ready
+	      && ((symtab->global_info_ready || in_lto_p)
 		  && (TREE_ASM_WRITTEN (n->decl)
 		      || DECL_EXTERNAL (n->decl)
 		      || !n->analyzed
 		      || (!flag_wpa && n->in_other_partition)))))
 	release_body ();
+    }
+  else
+    {
+      lto_free_function_in_decl_state_for_node (this);
+      lto_file_data = NULL;
     }
 
   decl = NULL;
@@ -3229,6 +3236,8 @@ cgraph_node::get_untransformed_body (void)
   lto_free_section_data (file_data, LTO_section_function_body, name,
 			 data, len);
   lto_free_function_in_decl_state_for_node (this);
+  /* Keep lto file data so ipa-inline-analysis knows about cross module
+     inlining.  */
 
   timevar_pop (TV_IPA_LTO_GIMPLE_IN);
 

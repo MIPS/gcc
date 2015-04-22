@@ -1,3 +1,417 @@
+2015-03-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60130
+	* g++.dg/cpp0x/vt-60130.C: New.
+
+2015-03-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61971
+	* g++.dg/warn/Warray-bounds-7.C: New.
+
+2015-03-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60067
+	* g++.dg/template/defarg18.C: New.
+
+2015-03-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59988
+	* g++.dg/cpp0x/vt-59988.C: New.
+
+2015-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65533
+	* gcc.dg/pr65533.c: New test.
+
+2015-03-24  Andre Vehreschild  <vehre@gmx.de>
+
+	* gfortran.dg/allocate_alloc_opt_13.f90: Added tests for
+	source= and mold= expressions functionality.
+	* gfortran.dg/allocate_class_4.f90: New test.
+	* gfortran.dg/unlimited_polymorphic_20.f90: Added test whether
+	copying an unlimited polymorhpic object containing a char array
+	to another unlimited polymorphic object respects the _len
+	component.
+	* gfortran.dg/unlimited_polymorphic_22.f90: Extended to check
+	whether deferred length char array allocate works, unlimited
+	polymorphic object allocation from a string works and if
+	allocating an array of deferred length strings works.
+	* gfortran.dg/unlimited_polymorphic_24.f03: New test.
+
+2015-03-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/65513
+	* g++.dg/cpp0x/constexpr-array11.C: New.
+
+2015-03-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/65517
+	* gcc.dg/torture/pr65517.c: New testcase.
+
+2015-03-24  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/coindexed_1.f90: Moved from
+	gfortran.dg/coarray/coindexed_3.f90; added dg-options.
+
+2015-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/65506
+	* gcc.dg/pr29215.c: Dump and analyze ccp1 dump instead of
+	gimple dump.
+
+	PR target/65523
+	* gcc.target/i386/pr65523.c: New test.
+
+	PR ipa/65475
+	* g++.dg/lto/pr65475_0.C: Use dg-lto-options instead of
+	dg-options.
+	* g++.dg/lto/pr65475b_0.C: Likewise.
+
+2015-03-23  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/65505
+	* gcc.target/sh/torture/pr65505.c: New.
+
+2015-03-23  Martin Sebor  <msebor@redhat.com>
+
+	PR testsuite/63175
+	* gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a-pr63175.c: Scan
+	assembly for lvx in addition to lxv.
+
+2015-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/65504
+	* gfortran.dg/pr65504.f90: New test.
+
+	PR ipa/65521
+	* gcc.dg/pr65521.c: New test.
+
+2015-03-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/65518
+	* gcc.dg/vect/pr65518.c: New testcase.
+
+2015-03-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/65494
+	* gcc.dg/vect/pr65494.c: New testcase.
+
+2015-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/65238
+	* c-c++-common/cpp/pr65238-1.c: New test.
+	* gcc.dg/cpp/pr65238-2.c: New test.
+	* gcc.dg/cpp/trad/pr65238-3.c: New test.
+	* gcc.dg/cpp/trad/pr65238-4.c: New test.
+
+2015-03-23  Paul Thomas  <pault@gcc.gnu.org>
+	    Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/64952
+	* gfortran.dg/elemental_dependency_4.f90: New.
+	* gfortran.dg/elemental_dependency_5.f90: New.
+
+2015-03-22  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65475
+	* g++.dg/lto/pr65475b_0.C: New testcase.
+	* g++.dg/lto/pr65475b_1.C: New testcase.
+	* g++.dg/lto/pr65475c_0.C: New testcase.
+	* g++.dg/lto/pr65475c_1.C: New testcase.
+
+2015-03-21  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/coarray_38.f90: New.
+	* gfortran.dg/coarray_39.f90: New.
+	* gfortran.dg/coarray/coindexed_3.f90: Add dg-error, turn into
+	compile test.
+
+2015-03-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65398
+	* g++.dg/cpp0x/pr65398.C: New test.
+
+2015-03-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65475
+	* g++.dg/lto/pr65475_0.C: New testcase.
+	* g++.dg/lto/pr65475_1.C: New testcase.
+
+2015-03-20  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/64366
+	* gcc.target/sh/pr64366.c: New.
+
+2015-03-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/48324
+	* g++.dg/cpp0x/constexpr-48324.C: New.
+
+2015-03-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/48453
+	* g++.dg/cpp0x/pr48453.C: New.
+
+2015-03-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65072
+	* g++.dg/cpp0x/pr65072.C: New test.
+
+2015-03-20  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64715
+	* gcc.dg/pr15347.c: Use -O.
+	* c-c++-common/pr19807-1.c: Likewise.
+
+2015-03-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/volatile13.ad[sb]: New test.
+
+2015-03-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/60851
+	* gcc.target/i386/pr60851.c: New test.
+
+2015-03-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/65240
+	* gcc/testsuite/g++.dg/pr65240.h: Add tests for PR 65240.
+	* gcc/testsuite/g++.dg/pr65240-1.C: Likewise.
+	* gcc/testsuite/g++.dg/pr65240-2.C: Likewise.
+	* gcc/testsuite/g++.dg/pr65240-3.C: Likewise.
+	* gcc/testsuite/g++.dg/pr65240-4.C: Likewise.
+
+2015-03-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/63491
+	* gcc.target/powerpc/pr63491.c: New.
+
+2015-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/ipa/pr65465.C: New test.
+
+2015-03-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/52659
+	* g++.dg/cpp0x/deleted11.C: New.
+
+2015-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/65400
+	* c-c++-common/tsan/pr65400-3.c: New test.
+
+2015-03-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59686
+	* g++.dg/cpp0x/constexpr-59686.C: New.
+
+2015-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/64265
+	* g++.dg/tsan/pr64265.C: New test.
+
+	PR sanitizer/65400
+	* c-c++-common/tsan/pr65400-1.c: New test.
+	* c-c++-common/tsan/pr65400-2.c: New test.
+
+2015-03-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59816
+	* g++.dg/cpp0x/pr59816.C: New.
+
+2015-03-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/59198
+	* gfortran.dg/proc_ptr_comp_45.f90: Make tests fuzzy.
+
+2015-03-18  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/65439
+	* g++.dg/ipa/ipa-icf-4.C: Extend expected number of
+	equivalences either to 6 or 7.
+
+2015-03-18  Andrew Stubbs  <ams@codesourcery.com>
+
+	PR middle-end/64491
+	Revert:
+	2014-11-20  Andrew Stubbs  <ams@codesourcery.com>
+
+	* gcc.dg/undefined-loop-1.c: New file.
+	* gcc.dg/undefined-loop-2.c: New file.
+
+	2014-12-24  Andrew Stubbs  <ams@codesourcery.com>
+
+	PR testsuite/64032
+	* gcc.dg/undefined-loop-2.c: Don't allow GCC to optimize away the
+	loop exits too early.
+
+2015-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65450
+	* gfortran.dg/pr65450.f90: New test.
+
+	PR target/65078
+	* gcc.target/i386/pr65078-1.c: New test.
+	* gcc.target/i386/pr65078-2.c: New test.
+	* gcc.target/i386/pr65078-3.c: New test.
+	* gcc.target/i386/pr65078-4.c: New test.
+	* gcc.target/i386/pr65078-5.c: New test.
+	* gcc.target/i386/pr65078-6.c: New test.
+
+2015-03-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/65340
+	* g++.dg/cpp1y/pr65340.C: New.
+
+2015-03-17 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/64432
+	* gfortran.dg/system_clock_3.f08: Adjust test.
+
+2015-03-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/59198
+	* gfortran.dg/proc_ptr_comp_44.f90: New test.
+	* gfortran.dg/proc_ptr_comp_45.f90: New test.
+
+2015-03-16 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/64432
+	* gfortran.dg/system_clock_3.f08: New test.
+
+2015-03-16  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c++/64626
+	g++.dg/cpp1y/pr64626-1.C: New.
+	g++.dg/cpp1y/pr64626-2.C: New.
+	g++.dg/cpp1y/digit-sep-neg.C: Adjust errors and warnings.
+
+2015-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65427
+	* gcc.c-torture/execute/pr65427.c: New test.
+
+2015-03-16  Marek Polacek  <polacek@redhat.com>
+
+	DR 1688
+	PR c++/65327
+	* g++.dg/cpp0x/constexpr-object1.C: Change dg-error to dg-bogus.
+	* g++.dg/cpp0x/pr65327.C: New test.
+
+2015-03-16  Max Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	PR sanitizer/64820
+	* c-c++-common/asan/pr64820.c: New test.
+
+2015-03-16  Andre Vehreschild  <vehre@gmx.de>
+
+	* gfortran.dg/pointer_2.f90: New test.
+
+2015-03-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* testsuite/g++.dg/pr65049.C: New test.
+
+2015-03-16  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.target/i386/fuse-caller-save-rec.c: Add PR64895 xfail on scans.
+	* gcc.target/i386/fuse-caller-save-xmm.c: Same.
+	* gcc.target/i386/fuse-caller-save.c: Same.
+
+2015-03-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization18.ad[sb]: New test.
+	* gnat.dg/loop_optimization18_pkg.ads: New helper.
+
+2015-03-16  Alan Modra  <amodra@gmail.com>
+
+	* gcc.target/powerpc/pr53199.c: Add extra functions.  Revert
+	2014-12-05 change.
+
+2015-03-15  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gcc.dg/torture/pr65270-1.c: Add -fno-common to dg-options on
+	hppa*-*-hpux*.
+	* gcc.dg/torture/pr65270-2.c: Likewise.
+
+2015-03-14  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/61138
+	* gfortran.dg/pointer_remapping_9.f90: New.
+
+2015-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65369
+	* gcc.c-torture/execute/pr65369.c: New test.
+
+	PR tree-optimization/65418
+	* gcc.c-torture/execute/pr65418-1.c: New test.
+	* gcc.c-torture/execute/pr65418-2.c: New test.
+
+	PR rtl-optimization/65401
+	* gcc.c-torture/execute/pr65401.c: New test.
+
+2015-03-13  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/64600
+	* gcc.target/arm/pr64600_1.c: New test.
+
+2015-03-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/65235
+	* gcc.target/aarch64/pr65235_1.c: New test.
+
+2015-03-12  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/hotpatch-21.c: New test for hotpatch alignment.
+	* gcc.target/s390/hotpatch-22.c: Likewise.
+	* gcc.target/s390/hotpatch-23.c: Likewise.
+	* gcc.target/s390/hotpatch-24.c: Likewise.
+	* gcc.target/s390/hotpatch-2.c: Also check hotpatch alignment.
+	* gcc.target/s390/hotpatch-1.c: Update expected output.
+	* gcc.target/s390/hotpatch-2.c: Likewise.
+	* gcc.target/s390/hotpatch-3.c: Likewise.
+	* gcc.target/s390/hotpatch-4.c: Likewise.
+	* gcc.target/s390/hotpatch-5.c: Likewise.
+	* gcc.target/s390/hotpatch-6.c: Likewise.
+	* gcc.target/s390/hotpatch-7.c: Likewise.
+	* gcc.target/s390/hotpatch-8.c: Likewise.
+	* gcc.target/s390/hotpatch-9.c: Likewise.
+	* gcc.target/s390/hotpatch-10.c: Likewise.
+	* gcc.target/s390/hotpatch-11.c: Likewise.
+	* gcc.target/s390/hotpatch-12.c: Likewise.
+	* gcc.target/s390/hotpatch-13.c: Likewise.
+	* gcc.target/s390/hotpatch-14.c: Likewise.
+	* gcc.target/s390/hotpatch-15.c: Likewise.
+	* gcc.target/s390/hotpatch-16.c: Likewise.
+	* gcc.target/s390/hotpatch-17.c: Likewise.
+	* gcc.target/s390/hotpatch-18.c: Likewise.
+	* gcc.target/s390/hotpatch-19.c: Likewise.
+
+2015-03-12  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/65103
+	* gcc.target/i386/pr65103-1.c: New.
+
+2015-03-12  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/65044
+	* gcc.target/i386/pr65044.c: New.
+
+2015-03-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR rtl-optimization/64895
+	* gcc.target/i386/fuse-caller-save-rec.c: Revert require nonpic target.
+	* gcc.target/i386/fuse-caller-save-xmm.c: Ditto.
+	* gcc.target/i386/fuse-caller-save.c: Ditto.
+
+2015-03-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/ipa/pr63569.c: Fix template.
+
+2015-03-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* g++.dg/ipa/pr64146.C: Require fpic support.
+
 2015-03-11  Janne Blomqvist  <jb@gcc.gnu.org>
 
 	PR libfortran/65200
@@ -77,7 +491,7 @@
 
 2015-03-10  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* gcc/testsuite/lib/mpx-dg.exp (mpx_link_flags): New.
+	* lib/mpx-dg.exp (mpx_link_flags): New.
 	(mpx_init): New.
 	(mpx_finish): New.
 	* gcc.target/i386/mpx/alloca-1-lbv.c: New.
@@ -631,7 +1045,8 @@
 
 2015-02-27  Pat Haugen <pthaugen@us.ibm.com>
 
-	* gcc.dg/vect/pr59354.c: Move vector producing code to separate function.
+	* gcc.dg/vect/pr59354.c: Move vector producing code to
+	separate function.
 
 2015-02-27  Jan Hubicka  <hubicka@ucw.cz>
 
@@ -3336,7 +3751,7 @@
 2015-01-12  Jan Hubicka  <hubicka@ucw.cz>
 
 	PR ipa/63470
-	* testsuite/g++.dg/ipa/pr63470.C: New testcase.
+	* g++.dg/ipa/pr63470.C: New testcase.
 
 2015-01-11  Janus Weil  <janus@gcc.gnu.org>
 

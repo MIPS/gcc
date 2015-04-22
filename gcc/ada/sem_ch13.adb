@@ -1642,6 +1642,8 @@ package body Sem_Ch13 is
             --  Processing based on specific aspect
 
             case A_Id is
+               when Aspect_Unimplemented =>
+                  null; -- ??? temp for now
 
                --  No_Aspect should be impossible
 
@@ -9024,7 +9026,8 @@ package body Sem_Ch13 is
               Aspect_Refined_Post              |
               Aspect_Refined_State             |
               Aspect_SPARK_Mode                |
-              Aspect_Test_Case                 =>
+              Aspect_Test_Case                 |
+              Aspect_Unimplemented             =>
             raise Program_Error;
 
       end case;
@@ -11735,6 +11738,8 @@ package body Sem_Ch13 is
 
       elsif Is_Type (T)
         and then Is_Generic_Type (Root_Type (T))
+        and then (Nkind (N) /= N_Pragma
+                   or else Get_Pragma_Id (N) /= Pragma_Convention)
       then
          Error_Msg_N ("representation item not allowed for generic type", N);
          return True;
