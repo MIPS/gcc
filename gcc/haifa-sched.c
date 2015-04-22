@@ -621,16 +621,16 @@ struct delay_pair
 
 struct delay_i1_hasher : typed_noop_remove <delay_pair>
 {
-  typedef delay_pair value_type;
-  typedef void compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef delay_pair *value_type;
+  typedef void *compare_type;
+  static inline hashval_t hash (const delay_pair *);
+  static inline bool equal (const delay_pair *, const void *);
 };
 
 /* Returns a hash value for X, based on hashing just I1.  */
 
 inline hashval_t
-delay_i1_hasher::hash (const value_type *x)
+delay_i1_hasher::hash (const delay_pair *x)
 {
   return htab_hash_pointer (x->i1);
 }
@@ -638,23 +638,23 @@ delay_i1_hasher::hash (const value_type *x)
 /* Return true if I1 of pair X is the same as that of pair Y.  */
 
 inline bool
-delay_i1_hasher::equal (const value_type *x, const compare_type *y)
+delay_i1_hasher::equal (const delay_pair *x, const void *y)
 {
   return x->i1 == y;
 }
 
 struct delay_i2_hasher : typed_free_remove <delay_pair>
 {
-  typedef delay_pair value_type;
-  typedef void compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef delay_pair *value_type;
+  typedef void *compare_type;
+  static inline hashval_t hash (const delay_pair *);
+  static inline bool equal (const delay_pair *, const void *);
 };
 
 /* Returns a hash value for X, based on hashing just I2.  */
 
 inline hashval_t
-delay_i2_hasher::hash (const value_type *x)
+delay_i2_hasher::hash (const delay_pair *x)
 {
   return htab_hash_pointer (x->i2);
 }
@@ -662,7 +662,7 @@ delay_i2_hasher::hash (const value_type *x)
 /* Return true if I2 of pair X is the same as that of pair Y.  */
 
 inline bool
-delay_i2_hasher::equal (const value_type *x, const compare_type *y)
+delay_i2_hasher::equal (const delay_pair *x, const void *y)
 {
   return x->i2 == y;
 }
@@ -1070,7 +1070,6 @@ initiate_bb_reg_pressure_info (basic_block bb)
       if (NONDEBUG_INSN_P (insn))
 	setup_ref_regs (PATTERN (insn));
   initiate_reg_pressure_info (df_get_live_in (bb));
-#ifdef EH_RETURN_DATA_REGNO
   if (bb_has_eh_pred (bb))
     for (i = 0; ; ++i)
       {
@@ -1082,7 +1081,6 @@ initiate_bb_reg_pressure_info (basic_block bb)
 	  mark_regno_birth_or_death (curr_reg_live, curr_reg_pressure,
 				     regno, true);
       }
-#endif
 }
 
 /* Save current register pressure related info.  */
@@ -7186,9 +7184,8 @@ void
 sched_init (void)
 {
   /* Disable speculative loads in their presence if cc0 defined.  */
-#ifdef HAVE_cc0
+  if (HAVE_cc0)
   flag_schedule_speculative_load = 0;
-#endif
 
   if (targetm.sched.dispatch (NULL, IS_DISPATCH_ON))
     targetm.sched.dispatch_do (NULL, DISPATCH_INIT);

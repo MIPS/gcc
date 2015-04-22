@@ -439,6 +439,17 @@ valid_lattice_transition (ccp_prop_value_t old_val, ccp_prop_value_t new_val)
 
   /* Now both lattice values are CONSTANT.  */
 
+  /* Allow arbitrary copy changes as we might look through PHI <a_1, ...>
+     when only a single copy edge is executable.  */
+  if (TREE_CODE (old_val.value) == SSA_NAME
+      && TREE_CODE (new_val.value) == SSA_NAME)
+    return true;
+
+  /* Allow transitioning from a constant to a copy.  */
+  if (is_gimple_min_invariant (old_val.value)
+      && TREE_CODE (new_val.value) == SSA_NAME)
+    return true;
+
   /* Allow transitioning from PHI <&x, not executable> == &x
      to PHI <&x, &y> == common alignment.  */
   if (TREE_CODE (old_val.value) != INTEGER_CST
@@ -527,9 +538,10 @@ set_lattice_value (tree var, ccp_prop_value_t new_val)
      caller that this was a non-transition.  */
   if (old_val->lattice_val != new_val.lattice_val
       || (new_val.lattice_val == CONSTANT
-	  && TREE_CODE (new_val.value) == INTEGER_CST
-	  && (TREE_CODE (old_val->value) != INTEGER_CST
-	      || new_val.mask != old_val->mask)))
+	  && (TREE_CODE (new_val.value) != TREE_CODE (old_val->value)
+	      || simple_cst_equal (new_val.value, old_val->value) != 1
+	      || (TREE_CODE (new_val.value) == INTEGER_CST
+		  && new_val.mask != old_val->mask))))
     {
       /* ???  We would like to delay creation of INTEGER_CSTs from
 	 partially constants here.  */
@@ -585,7 +597,8 @@ get_value_from_alignment (tree expr)
   val.mask = (POINTER_TYPE_P (type) || TYPE_UNSIGNED (type)
 	      ? wi::mask <widest_int> (TYPE_PRECISION (type), false)
 	      : -1).and_not (align / BITS_PER_UNIT - 1);
-  val.lattice_val = val.mask == -1 ? VARYING : CONSTANT;
+  val.lattice_val
+    = wi::sext (val.mask, TYPE_PRECISION (type)) == -1 ? VARYING : CONSTANT;
   if (val.lattice_val == CONSTANT)
     val.value = build_int_cstu (type, bitpos / BITS_PER_UNIT);
   else
@@ -645,6 +658,7 @@ static ccp_lattice_t
 likely_value (gimple stmt)
 {
   bool has_constant_operand, has_undefined_operand, all_undefined_operands;
+  bool has_nsa_operand;
   tree use;
   ssa_op_iter iter;
   unsigned i;
@@ -667,6 +681,7 @@ likely_value (gimple stmt)
   has_constant_operand = false;
   has_undefined_operand = false;
   all_undefined_operands = true;
+  has_nsa_operand = false;
   FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
       ccp_prop_value_t *val = get_value (use);
@@ -678,6 +693,10 @@ likely_value (gimple stmt)
 
       if (val->lattice_val == CONSTANT)
 	has_constant_operand = true;
+
+      if (SSA_NAME_IS_DEFAULT_DEF (use)
+	  || !prop_simulate_again_p (SSA_NAME_DEF_STMT (use)))
+	has_nsa_operand = true;
     }
 
   /* There may be constants in regular rhs operands.  For calls we
@@ -750,8 +769,10 @@ likely_value (gimple stmt)
 
   /* We do not consider virtual operands here -- load from read-only
      memory may have only VARYING virtual operands, but still be
-     constant.  */
+     constant.  Also we can combine the stmt with definitions from
+     operands whose definitions are not simulated again.  */
   if (has_constant_operand
+      || has_nsa_operand
       || gimple_references_memory_p (stmt))
     return CONSTANT;
 
@@ -956,14 +977,23 @@ ccp_finalize (void)
    */
 
 static void
-ccp_lattice_meet (ccp_prop_value_t *val1, ccp_prop_value_t *val2)
+ccp_lattice_meet (basic_block where,
+		  ccp_prop_value_t *val1, ccp_prop_value_t *val2)
 {
-  if (val1->lattice_val == UNDEFINED)
+  if (val1->lattice_val == UNDEFINED
+      /* For UNDEFINED M SSA we can't always SSA because its definition
+         may not dominate the PHI node.  Doing optimistic copy propagation
+	 also causes a lot of gcc.dg/uninit-pred*.c FAILs.  */
+      && (val2->lattice_val != CONSTANT
+	  || TREE_CODE (val2->value) != SSA_NAME))
     {
       /* UNDEFINED M any = any   */
       *val1 = *val2;
     }
-  else if (val2->lattice_val == UNDEFINED)
+  else if (val2->lattice_val == UNDEFINED
+	   /* See above.  */
+	   && (val1->lattice_val != CONSTANT
+	       || TREE_CODE (val1->value) != SSA_NAME))
     {
       /* any M UNDEFINED = any
          Nothing to do.  VAL1 already contains the value we want.  */
@@ -990,7 +1020,7 @@ ccp_lattice_meet (ccp_prop_value_t *val1, ccp_prop_value_t *val2)
       val1->mask = (val1->mask | val2->mask
 		    | (wi::to_widest (val1->value)
 		       ^ wi::to_widest (val2->value)));
-      if (val1->mask == -1)
+      if (wi::sext (val1->mask, TYPE_PRECISION (TREE_TYPE (val1->value))) == -1)
 	{
 	  val1->lattice_val = VARYING;
 	  val1->value = NULL_TREE;
@@ -1017,7 +1047,7 @@ ccp_lattice_meet (ccp_prop_value_t *val1, ccp_prop_value_t *val2)
 	*val1 = get_value_for_expr (val1->value, true);
       if (TREE_CODE (val2->value) == ADDR_EXPR)
 	tem = get_value_for_expr (val2->value, true);
-      ccp_lattice_meet (val1, &tem);
+      ccp_lattice_meet (where, val1, &tem);
     }
   else
     {
@@ -1086,7 +1116,7 @@ ccp_visit_phi_node (gphi *phi)
 	  tree arg = gimple_phi_arg (phi, i)->def;
 	  ccp_prop_value_t arg_val = get_value_for_expr (arg, false);
 
-	  ccp_lattice_meet (&new_val, &arg_val);
+	  ccp_lattice_meet (gimple_bb (phi), &new_val, &arg_val);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -1499,10 +1529,10 @@ bit_value_unop (enum tree_code code, tree type, tree rhs)
 
   gcc_assert ((rval.lattice_val == CONSTANT
 	       && TREE_CODE (rval.value) == INTEGER_CST)
-	      || rval.mask == -1);
+	      || wi::sext (rval.mask, TYPE_PRECISION (TREE_TYPE (rhs))) == -1);
   bit_value_unop_1 (code, type, &value, &mask,
 		    TREE_TYPE (rhs), value_to_wide_int (rval), rval.mask);
-  if (mask != -1)
+  if (wi::sext (mask, TYPE_PRECISION (type)) != -1)
     {
       val.lattice_val = CONSTANT;
       val.mask = mask;
@@ -1540,14 +1570,16 @@ bit_value_binop (enum tree_code code, tree type, tree rhs1, tree rhs2)
 
   gcc_assert ((r1val.lattice_val == CONSTANT
 	       && TREE_CODE (r1val.value) == INTEGER_CST)
-	      || r1val.mask == -1);
+	      || wi::sext (r1val.mask,
+			   TYPE_PRECISION (TREE_TYPE (rhs1))) == -1);
   gcc_assert ((r2val.lattice_val == CONSTANT
 	       && TREE_CODE (r2val.value) == INTEGER_CST)
-	      || r2val.mask == -1);
+	      || wi::sext (r2val.mask,
+			   TYPE_PRECISION (TREE_TYPE (rhs2))) == -1);
   bit_value_binop_1 (code, type, &value, &mask,
 		     TREE_TYPE (rhs1), value_to_wide_int (r1val), r1val.mask,
 		     TREE_TYPE (rhs2), value_to_wide_int (r2val), r2val.mask);
-  if (mask != -1)
+  if (wi::sext (mask, TYPE_PRECISION (type)) != -1)
     {
       val.lattice_val = CONSTANT;
       val.mask = mask;
@@ -1596,7 +1628,7 @@ bit_value_assume_aligned (gimple stmt, tree attr, ccp_prop_value_t ptrval,
     return ptrval;
   gcc_assert ((ptrval.lattice_val == CONSTANT
 	       && TREE_CODE (ptrval.value) == INTEGER_CST)
-	      || ptrval.mask == -1);
+	      || wi::sext (ptrval.mask, TYPE_PRECISION (type)) == -1);
   if (attr == NULL_TREE)
     {
       /* Get aligni and misaligni from __builtin_assume_aligned.  */
@@ -1648,7 +1680,7 @@ bit_value_assume_aligned (gimple stmt, tree attr, ccp_prop_value_t ptrval,
   bit_value_binop_1 (BIT_AND_EXPR, type, &value, &mask,
 		     type, value_to_wide_int (ptrval), ptrval.mask,
 		     type, value_to_wide_int (alignval), alignval.mask);
-  if (mask != -1)
+  if (wi::sext (mask, TYPE_PRECISION (type)) != -1)
     {
       val.lattice_val = CONSTANT;
       val.mask = mask;
@@ -1745,10 +1777,20 @@ evaluate_stmt (gimple stmt)
 	  val.mask = 0;
 	}
     }
+  /* If the statement result is likely UNDEFINED, make it so.  */
+  else if (likelyvalue == UNDEFINED)
+    {
+      val.lattice_val = UNDEFINED;
+      val.value = NULL_TREE;
+      val.mask = 0;
+      return val;
+    }
 
   /* Resort to simplification for bitwise tracking.  */
   if (flag_tree_bit_ccp
-      && (likelyvalue == CONSTANT || is_gimple_call (stmt))
+      && (likelyvalue == CONSTANT || is_gimple_call (stmt)
+	  || (gimple_assign_single_p (stmt)
+	      && gimple_assign_rhs_code (stmt) == ADDR_EXPR))
       && (likelyvalue == CONSTANT || is_gimple_call (stmt)
          || (gimple_assign_single_p (stmt)
              && gimple_assign_rhs_code (stmt) == ADDR_EXPR))
@@ -1762,35 +1804,28 @@ evaluate_stmt (gimple stmt)
 	{
 	  enum tree_code subcode = gimple_assign_rhs_code (stmt);
 	  tree rhs1 = gimple_assign_rhs1 (stmt);
-	  switch (get_gimple_rhs_class (subcode))
-	    {
-	    case GIMPLE_SINGLE_RHS:
-	      if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-		  || POINTER_TYPE_P (TREE_TYPE (rhs1)))
-		val = get_value_for_expr (rhs1, true);
-	      break;
+	  tree lhs = gimple_assign_lhs (stmt);
+	  if ((INTEGRAL_TYPE_P (TREE_TYPE (lhs))
+	       || POINTER_TYPE_P (TREE_TYPE (lhs)))
+	      && (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
+		  || POINTER_TYPE_P (TREE_TYPE (rhs1))))
+	    switch (get_gimple_rhs_class (subcode))
+	      {
+	      case GIMPLE_SINGLE_RHS:
+	        val = get_value_for_expr (rhs1, true);
+		break;
 
-	    case GIMPLE_UNARY_RHS:
-	      if ((INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-		   || POINTER_TYPE_P (TREE_TYPE (rhs1)))
-		  && (INTEGRAL_TYPE_P (gimple_expr_type (stmt))
-		      || POINTER_TYPE_P (gimple_expr_type (stmt))))
-		val = bit_value_unop (subcode, gimple_expr_type (stmt), rhs1);
-	      break;
+	      case GIMPLE_UNARY_RHS:
+		val = bit_value_unop (subcode, TREE_TYPE (lhs), rhs1);
+		break;
 
-	    case GIMPLE_BINARY_RHS:
-	      if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-		  || POINTER_TYPE_P (TREE_TYPE (rhs1)))
-		{
-		  tree lhs = gimple_assign_lhs (stmt);
-		  tree rhs2 = gimple_assign_rhs2 (stmt);
-		  val = bit_value_binop (subcode,
-					 TREE_TYPE (lhs), rhs1, rhs2);
-		}
-	      break;
+	      case GIMPLE_BINARY_RHS:
+		val = bit_value_binop (subcode, TREE_TYPE (lhs), rhs1,
+				       gimple_assign_rhs2 (stmt));
+		break;
 
-	    default:;
-	    }
+	      default:;
+	      }
 	}
       else if (code == GIMPLE_COND)
 	{
@@ -1887,7 +1922,7 @@ evaluate_stmt (gimple stmt)
 
   if (flag_tree_bit_ccp
       && ((is_constant && TREE_CODE (val.value) == INTEGER_CST)
-	  || (!is_constant && likelyvalue != UNDEFINED))
+	  || !is_constant)
       && gimple_get_lhs (stmt)
       && TREE_CODE (gimple_get_lhs (stmt)) == SSA_NAME)
     {
@@ -1915,23 +1950,24 @@ evaluate_stmt (gimple stmt)
 	}
     }
 
+  /* The statement produced a nonconstant value.  */
   if (!is_constant)
     {
-      /* The statement produced a nonconstant value.  If the statement
-	 had UNDEFINED operands, then the result of the statement
-	 should be UNDEFINED.  Otherwise, the statement is VARYING.  */
-      if (likelyvalue == UNDEFINED)
+      /* The statement produced a copy.  */
+      if (simplified && TREE_CODE (simplified) == SSA_NAME
+	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (simplified))
 	{
-	  val.lattice_val = likelyvalue;
-	  val.mask = 0;
+	  val.lattice_val = CONSTANT;
+	  val.value = simplified;
+	  val.mask = -1;
 	}
+      /* The statement is VARYING.  */
       else
 	{
 	  val.lattice_val = VARYING;
+	  val.value = NULL_TREE;
 	  val.mask = -1;
 	}
-
-      val.value = NULL_TREE;
     }
 
   return val;
@@ -2243,27 +2279,15 @@ static enum ssa_prop_result
 visit_assignment (gimple stmt, tree *output_p)
 {
   ccp_prop_value_t val;
-  enum ssa_prop_result retval;
+  enum ssa_prop_result retval = SSA_PROP_NOT_INTERESTING;
 
   tree lhs = gimple_get_lhs (stmt);
-
-  gcc_assert (gimple_code (stmt) != GIMPLE_CALL
-              || gimple_call_lhs (stmt) != NULL_TREE);
-
-  if (gimple_assign_single_p (stmt)
-      && gimple_assign_rhs_code (stmt) == SSA_NAME)
-    /* For a simple copy operation, we copy the lattice values.  */
-    val = *get_value (gimple_assign_rhs1 (stmt));
-  else
-    /* Evaluate the statement, which could be
-       either a GIMPLE_ASSIGN or a GIMPLE_CALL.  */
-    val = evaluate_stmt (stmt);
-
-  retval = SSA_PROP_NOT_INTERESTING;
-
-  /* Set the lattice value of the statement's output.  */
   if (TREE_CODE (lhs) == SSA_NAME)
     {
+      /* Evaluate the statement, which could be
+	 either a GIMPLE_ASSIGN or a GIMPLE_CALL.  */
+      val = evaluate_stmt (stmt);
+
       /* If STMT is an assignment to an SSA_NAME, we only have one
 	 value to set.  */
       if (set_lattice_value (lhs, val))

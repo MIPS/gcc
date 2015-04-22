@@ -89,6 +89,7 @@ along with GCC; see the file COPYING3.  If not see
 	  NEXT_PASS (pass_build_ealias);
 	  NEXT_PASS (pass_fre);
 	  NEXT_PASS (pass_merge_phi);
+          NEXT_PASS (pass_dse);
 	  NEXT_PASS (pass_cd_dce);
 	  NEXT_PASS (pass_early_ipa_sra);
 	  NEXT_PASS (pass_tail_recursion);
@@ -344,6 +345,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_tm_edges);
   POP_INSERT_PASSES ()
   NEXT_PASS (pass_vtable_verify);
+  NEXT_PASS (pass_lower_vaarg);
   NEXT_PASS (pass_lower_vector);
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_asan_O0);

@@ -388,15 +388,15 @@ static struct ls_expr * pre_ldst_mems = NULL;
 
 struct pre_ldst_expr_hasher : typed_noop_remove <ls_expr>
 {
-  typedef ls_expr value_type;
+  typedef ls_expr *value_type;
   typedef value_type compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  static inline hashval_t hash (const ls_expr *);
+  static inline bool equal (const ls_expr *, const ls_expr *);
 };
 
 /* Hashtable helpers.  */
 inline hashval_t
-pre_ldst_expr_hasher::hash (const value_type *x)
+pre_ldst_expr_hasher::hash (const ls_expr *x)
 {
   int do_not_record_p = 0;
   return
@@ -406,8 +406,8 @@ pre_ldst_expr_hasher::hash (const value_type *x)
 static int expr_equiv_p (const_rtx, const_rtx);
 
 inline bool
-pre_ldst_expr_hasher::equal (const value_type *ptr1,
-			     const compare_type *ptr2)
+pre_ldst_expr_hasher::equal (const ls_expr *ptr1,
+			     const ls_expr *ptr2)
 {
   return expr_equiv_p (ptr1->pattern, ptr2->pattern);
 }
@@ -2048,21 +2048,23 @@ insert_insn_end_basic_block (struct gcse_expr *expr, basic_block bb)
 	  && (!single_succ_p (bb)
 	      || single_succ_edge (bb)->flags & EDGE_ABNORMAL)))
     {
-#ifdef HAVE_cc0
       /* FIXME: 'twould be nice to call prev_cc0_setter here but it aborts
 	 if cc0 isn't set.  */
-      rtx note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
-      if (note)
-	insn = safe_as_a <rtx_insn *> (XEXP (note, 0));
-      else
+      if (HAVE_cc0)
 	{
-	  rtx_insn *maybe_cc0_setter = prev_nonnote_insn (insn);
-	  if (maybe_cc0_setter
-	      && INSN_P (maybe_cc0_setter)
-	      && sets_cc0_p (PATTERN (maybe_cc0_setter)))
-	    insn = maybe_cc0_setter;
+	  rtx note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
+	  if (note)
+	    insn = safe_as_a <rtx_insn *> (XEXP (note, 0));
+	  else
+	    {
+	      rtx_insn *maybe_cc0_setter = prev_nonnote_insn (insn);
+	      if (maybe_cc0_setter
+		  && INSN_P (maybe_cc0_setter)
+		  && sets_cc0_p (PATTERN (maybe_cc0_setter)))
+		insn = maybe_cc0_setter;
+	    }
 	}
-#endif
+
       /* FIXME: What if something in cc0/jump uses value set in new insn?  */
       new_insn = emit_insn_before_noloc (pat, insn, bb);
     }
