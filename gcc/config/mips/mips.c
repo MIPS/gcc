@@ -3697,7 +3697,7 @@ mips_legitimize_move (machine_mode mode, rtx dest, rtx src)
   if (!register_operand (dest, mode)
       && !register_operand (src, mode)
       && (TARGET_MIPS16 || !const_0_operand (src, mode)
-          || MSA_SUPPORTED_MODE_P (mode)))
+	  || MSA_SUPPORTED_MODE_P (mode)))
     {
       mips_emit_move (dest, force_reg (mode, src));
       return true;
@@ -16130,7 +16130,6 @@ mips_expand_builtin_insn (enum insn_code icode, unsigned int nops,
 			  struct expand_operand *ops, bool has_target_p)
 {
   struct expand_operand tmp;
-  int i;
 
   switch (icode)
   {
