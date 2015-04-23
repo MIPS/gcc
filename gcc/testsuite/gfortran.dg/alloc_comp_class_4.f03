@@ -70,6 +70,5 @@ program test_pr58586
   allocate(oe)
   call add_c(oe%init())
   deallocate(oe)
-   
 end program
 
