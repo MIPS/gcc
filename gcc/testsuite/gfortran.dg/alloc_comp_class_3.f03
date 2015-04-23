@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-options "-Wreturn-type" }
 !
 ! Check that pr58586 is fixed now.
 ! Based on a contribution by Vladimir Fuka
@@ -35,7 +36,7 @@ contains
     type(c), value :: d
   end subroutine
 
-  type(c) function c_init()
+  type(c) function c_init()  ! { dg-warning "not set" }
   end function
 end program test_pr58586
 
