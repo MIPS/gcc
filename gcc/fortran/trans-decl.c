@@ -2158,6 +2158,8 @@ build_function_decl (gfc_symbol * sym, bool global)
     gfc_set_decl_assembler_name (fndecl, gfc_sym_mangled_function_id (sym));
 
   sym->backend_decl = fndecl;
+  if (sym == sym->result && !sym->result->backend_decl)
+    sym->result->backend_decl = result_decl;
 }
 
 
@@ -5898,7 +5900,20 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   if (TREE_TYPE (DECL_RESULT (fndecl)) != void_type_node)
     {
+      bool artificial_result_decl = false;
       tree result = get_proc_result (sym);
+
+      /* Make sure that a function returning an object with
+	 alloc/pointer_components always has a result, where at least
+	 the allocatable/pointer components are set to zero.  */
+      if (result == NULL_TREE && sym->attr.function
+	  && sym->ts.type == BT_DERIVED
+	  && (sym->ts.u.derived->attr.alloc_comp
+	      || sym->ts.u.derived->attr.pointer_comp))
+	{
+	  artificial_result_decl = true;
+	  result = gfc_get_fake_result_decl (sym, 0);
+	}
 
       if (result != NULL_TREE && sym->attr.function && !sym->attr.pointer)
 	{
@@ -5918,16 +5933,26 @@ gfc_generate_function_code (gfc_namespace * ns)
 							null_pointer_node));
 	    }
 	  else if (sym->ts.type == BT_DERIVED
-		   && sym->ts.u.derived->attr.alloc_comp
 		   && !sym->attr.allocatable)
 	    {
-	      rank = sym->as ? sym->as->rank : 0;
-	      tmp = gfc_nullify_alloc_comp (sym->ts.u.derived, result, rank);
-	      gfc_add_expr_to_block (&init, tmp);
+	      gfc_expr *init_exp;
+	      init_exp = gfc_default_initializer (&sym->ts);
+	      if (init_exp)
+		{
+		  tmp = gfc_trans_structure_assign (result, init_exp, 0);
+		  gfc_free_expr (init_exp);
+		  gfc_add_expr_to_block (&init, tmp);
+		}
+	      else if (sym->ts.u.derived->attr.alloc_comp)
+		{
+		  rank = sym->as ? sym->as->rank : 0;
+		  tmp = gfc_nullify_alloc_comp (sym->ts.u.derived, result, rank);
+		  gfc_add_expr_to_block (&init, tmp);
+		}
 	    }
 	}
 
-      if (result == NULL_TREE)
+      if (result == NULL_TREE || artificial_result_decl)
 	{
 	  /* TODO: move to the appropriate place in resolve.c.  */
 	  if (warn_return_type && sym == sym->result)
@@ -5937,7 +5962,7 @@ gfc_generate_function_code (gfc_namespace * ns)
 	  if (warn_return_type)
 	    TREE_NO_WARNING(sym->backend_decl) = 1;
 	}
-      else
+      if (result != NULL_TREE)
 	gfc_add_expr_to_block (&body, gfc_generate_return ());
     }
 
