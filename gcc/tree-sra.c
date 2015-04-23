@@ -327,16 +327,16 @@ static hash_map<tree, auto_vec<access_p> > *base_access_vec;
 
 struct uid_decl_hasher : typed_noop_remove <tree_node>
 {
-  typedef tree_node value_type;
-  typedef tree_node compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef tree_node *value_type;
+  typedef tree_node *compare_type;
+  static inline hashval_t hash (const tree_node *);
+  static inline bool equal (const tree_node *, const tree_node *);
 };
 
 /* Hash a tree in a uid_decl_map.  */
 
 inline hashval_t
-uid_decl_hasher::hash (const value_type *item)
+uid_decl_hasher::hash (const tree_node *item)
 {
   return item->decl_minimal.uid;
 }
@@ -344,7 +344,7 @@ uid_decl_hasher::hash (const value_type *item)
 /* Return true if the DECL_UID in both trees are equal.  */
 
 inline bool
-uid_decl_hasher::equal (const value_type *a, const compare_type *b)
+uid_decl_hasher::equal (const tree_node *a, const tree_node *b)
 {
   return (a->decl_minimal.uid == b->decl_minimal.uid);
 }
@@ -2012,7 +2012,11 @@ create_access_replacement (struct access *access)
       DECL_CONTEXT (repl) = current_function_decl;
     }
   else
-    repl = create_tmp_var (access->type, "SR");
+    /* Drop any special alignment on the type if it's not on the main
+       variant.  This avoids issues with weirdo ABIs like AAPCS.  */
+    repl = create_tmp_var (build_qualified_type
+			     (TYPE_MAIN_VARIANT (access->type),
+			      TYPE_QUALS (access->type)), "SR");
   if (TREE_CODE (access->type) == COMPLEX_TYPE
       || TREE_CODE (access->type) == VECTOR_TYPE)
     {
@@ -5109,7 +5113,7 @@ ipa_sra_preliminary_function_checks (struct cgraph_node *node)
       return false;
     }
 
-  if ((DECL_COMDAT (node->decl) || DECL_EXTERNAL (node->decl))
+  if ((DECL_ONE_ONLY (node->decl) || DECL_EXTERNAL (node->decl))
       && inline_summaries->get (node)->size >= MAX_INLINE_INSNS_AUTO)
     {
       if (dump_file)

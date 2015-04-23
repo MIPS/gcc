@@ -66,10 +66,6 @@ extern rtx legitimize_tls_address (rtx, rtx);
 extern bool arm_legitimate_address_p (machine_mode, rtx, bool);
 extern int arm_legitimate_address_outer_p (machine_mode, rtx, RTX_CODE, int);
 extern int thumb_legitimate_offset_p (machine_mode, HOST_WIDE_INT);
-extern bool arm_legitimize_reload_address (rtx *, machine_mode, int, int,
-					   int);
-extern rtx thumb_legitimize_reload_address (rtx *, machine_mode, int, int,
-					    int);
 extern int thumb1_legitimate_address_p (machine_mode, rtx, int);
 extern bool ldm_stm_operation_p (rtx, bool, machine_mode mode,
                                  bool, bool);
@@ -264,6 +260,9 @@ enum arm_sched_autopref
     ARM_SCHED_AUTOPREF_FULL
   };
 
+/* Dump function ARM_PRINT_TUNE_INFO should be updated whenever this
+   structure is modified.  */
+
 struct tune_params
 {
   bool (*rtx_costs) (rtx, RTX_CODE, RTX_CODE, int *, bool);
@@ -300,6 +299,8 @@ struct tune_params
   unsigned int fuseable_ops;
   /* Depth of scheduling queue to check for L2 autoprefetcher.  */
   enum arm_sched_autopref sched_autopref;
+  /* Issue rate of the processor.  */
+  unsigned int issue_rate;
 };
 
 extern const struct tune_params *current_tune;

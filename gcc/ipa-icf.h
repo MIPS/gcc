@@ -96,12 +96,12 @@ struct symbol_compare_hashmap_traits: default_hashmap_traits
     hstate.add_int (v->m_references.length ());
 
     for (unsigned i = 0; i < v->m_references.length (); i++)
-      hstate.add_ptr (v->m_references[i]->ultimate_alias_target ());
+      hstate.add_int (v->m_references[i]->ultimate_alias_target ()->order);
 
     hstate.add_int (v->m_interposables.length ());
 
     for (unsigned i = 0; i < v->m_interposables.length (); i++)
-      hstate.add_ptr (v->m_interposables[i]->ultimate_alias_target ());
+      hstate.add_int (v->m_interposables[i]->ultimate_alias_target ()->order);
 
     return hstate.end ();
   }
@@ -171,18 +171,6 @@ public:
   /* Add reference to a semantic TARGET.  */
   void add_reference (sem_item *target);
 
-  /* Gets symbol name of the item.  */
-  const char *name (void)
-  {
-    return node->name ();
-  }
-
-  /* Gets assembler name of the item.  */
-  const char *asm_name (void)
-  {
-    return node->asm_name ();
-  }
-
   /* Fast equality function based on knowledge known in WPA.  */
   virtual bool equals_wpa (sem_item *item,
 			   hash_map <symtab_node *, sem_item *> &ignored_nodes) = 0;
@@ -200,6 +188,15 @@ public:
 
   /* Dump symbol to FILE.  */
   virtual void dump_to_file (FILE *file) = 0;
+
+  /* Update hash by address sensitive references.  */
+  void update_hash_by_addr_refs (hash_map <symtab_node *,
+				 sem_item *> &m_symtab_node_map);
+
+  /* Update hash by computed local hash values taken from different
+     semantic items.  */
+  void update_hash_by_local_refs (hash_map <symtab_node *,
+				  sem_item *> &m_symtab_node_map);
 
   /* Return base tree that can be used for compatible_types_p and
      contains_polymorphic_type_p comparison.  */
@@ -238,17 +235,39 @@ public:
   /* A set with symbol table references.  */
   hash_set <symtab_node *> refs_set;
 
-protected:
-  /* Cached, once calculated hash for the item.  */
+  /* Hash of item.  */
   hashval_t hash;
 
-  /* Accumulate to HSTATE a hash of constructor expression EXP.  */
+  /* Temporary hash used where hash values of references are added.  */
+  hashval_t global_hash;
+protected:
+  /* Cached, once calculated hash for the item.  */
+
+  /* Accumulate to HSTATE a hash of expression EXP.  */
   static void add_expr (const_tree exp, inchash::hash &hstate);
+  /* Accumulate to HSTATE a hash of type T.  */
+  static void add_type (const_tree t, inchash::hash &hstate);
+
+  /* Compare properties of symbol that does not affect semantics of symbol
+     itself but affects semantics of its references.
+     If ADDRESS is true, do extra checking needed for IPA_REF_ADDR.  */
+  static bool compare_referenced_symbol_properties (symtab_node *used_by,
+						    symtab_node *n1,
+					            symtab_node *n2,
+					            bool address);
+
+  /* Compare two attribute lists.  */
+  static bool compare_attributes (const_tree list1, const_tree list2);
+
+  /* Hash properties compared by compare_referenced_symbol_properties.  */
+  void hash_referenced_symbol_properties (symtab_node *ref,
+					  inchash::hash &hstate,
+					  bool address);
 
   /* For a given symbol table nodes N1 and N2, we check that FUNCTION_DECLs
      point to a same function. Comparison can be skipped if IGNORED_NODES
      contains these nodes.  ADDRESS indicate if address is taken.  */
-  bool compare_cgraph_references (hash_map <symtab_node *, sem_item *>
+  bool compare_symbol_references (hash_map <symtab_node *, sem_item *>
 				  &ignored_nodes,
 				  symtab_node *n1, symtab_node *n2,
 				  bool address);
@@ -340,6 +359,9 @@ public:
   /* Array of structures for all basic blocks.  */
   vec <ipa_icf_gimple::sem_bb *> bb_sorted;
 
+  /* Return true if parameter I may be used.  */
+  bool param_used_p (unsigned int i);
+
 private:
   /* Calculates hash value based on a BASIC_BLOCK.  */
   hashval_t get_bb_hash (const ipa_icf_gimple::sem_bb *basic_block);
@@ -426,15 +448,16 @@ struct congruence_class_group
 /* Congruence class set structure.  */
 struct congruence_class_group_hash: typed_noop_remove <congruence_class_group>
 {
-  typedef congruence_class_group value_type;
-  typedef congruence_class_group compare_type;
+  typedef congruence_class_group *value_type;
+  typedef congruence_class_group *compare_type;
 
-  static inline hashval_t hash (const value_type *item)
+  static inline hashval_t hash (const congruence_class_group *item)
   {
     return item->hash;
   }
 
-  static inline int equal (const value_type *item1, const compare_type *item2)
+  static inline int equal (const congruence_class_group *item1,
+			   const congruence_class_group *item2)
   {
     return item1->hash == item2->hash && item1->type == item2->type;
   }
@@ -504,7 +527,12 @@ public:
   congruence_class_group *get_group_by_hash (hashval_t hash,
       sem_item_type type);
 
+  /* Because types can be arbitrarily large, avoid quadratic bottleneck.  */
+  hash_map<const_tree, hashval_t> m_type_hash_cache;
 private:
+
+  /* For each semantic item, append hash values of references.  */
+  void update_hash_by_addr_refs ();
 
   /* Congruence classes are built by hash value.  */
   void build_hash_based_classes (void);

@@ -1,3 +1,61 @@
+2015-04-22  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* acinclude.m4 (GTHREAD_USE_WEAK): Define as 0 for *-*-musl*.
+	* configure: Regenerate.
+
+2015-04-21 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/65234
+	* io/format.c (parse_format_list): Set the seen_dd flag in all
+	cases where a data descriptor has been seen.
+
+2015-04-21 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/56743
+	* io/list_read.c (CASE_SEPARATORS): Add case for '!'.
+	(is_separator): Add condition for '!'.
+	(eat_separator): Use notify_std to warn or errord if '!' is
+	encountered before a proper separator.
+
+2015-04-14 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/65089
+	* io/format.h (free_format): New function to free memory
+	allocated for building format error messages.
+	* io/format.c (format_error): Add checks before freeing memory
+	to avoid potential segfaults and free formatting data when
+	needed on error conditions. Always allocate and NULL terminate
+	the string.
+	* io/transfer.c (st_read_done, st_write_done): Use new
+	free_format function to clean up memory allocations when done.
+
+2015-03-28 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/65596
+	* io/transfer.c (data_transfer_init): If in namelist mode and
+	delimiter is not specified, set it to DELIM_QUOTE, independent
+	of -std.
+	* io/unit.c (init_units): Set flags.delim to the correct
+	initial value of DELIM_UNSPECIFIED.
+
+2015-03-25 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/65541
+	* io/write.c (nml_write_obj): Convert '+' to '%' before emitting
+	object names in namelists.
+
+2015-03-22 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/59513
+	* io/transfer.c (data_transfer_init): Do not error for
+	-std=legacy.
+
+2015-03-16 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/64432
+	* intrinsics/system_clock.c (system_clock4, system_clock8):
+	Cleanup some whitespace.
+
 2015-03-11  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* caf/single.c (caf_runtime_error): Revert 2014-11-28 changes.

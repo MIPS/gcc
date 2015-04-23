@@ -168,10 +168,6 @@ static int warn_about_return_type;
 
 static bool undef_nested_function;
 
-/* Mode used to build pointers (VOIDmode means ptr_mode).  */
-
-machine_mode c_default_pointer_mode = VOIDmode;
-
 /* If non-zero, implicit "omp declare target" attribute is added into the
    attribute lists.  */
 int current_omp_declare_target_attribute;
@@ -4407,7 +4403,8 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 {
   /* Add implicit "omp declare target" attribute if requested.  */
   if (current_omp_declare_target_attribute
-      && ((TREE_CODE (*node) == VAR_DECL && TREE_STATIC (*node))
+      && ((TREE_CODE (*node) == VAR_DECL
+	   && (TREE_STATIC (*node) || DECL_EXTERNAL (*node)))
 	  || TREE_CODE (*node) == FUNCTION_DECL))
     {
       if (TREE_CODE (*node) == VAR_DECL
@@ -8799,6 +8796,21 @@ store_parm_decls_from (struct c_arg_info *arg_info)
   store_parm_decls ();
 }
 
+/* Called by walk_tree to look for and update context-less labels.  */
+
+static tree
+set_labels_context_r (tree *tp, int *walk_subtrees, void *data)
+{
+  if (TREE_CODE (*tp) == LABEL_EXPR
+      && DECL_CONTEXT (LABEL_EXPR_LABEL (*tp)) == NULL_TREE)
+    {
+      DECL_CONTEXT (LABEL_EXPR_LABEL (*tp)) = static_cast<tree>(data);
+      *walk_subtrees = 0;
+    }
+
+  return NULL_TREE;
+}
+
 /* Store the parameter declarations into the current function declaration.
    This is called after parsing the parameter declarations, before
    digesting the body of the function.
@@ -8853,7 +8865,21 @@ store_parm_decls (void)
      thus won't naturally see the SAVE_EXPR containing the increment.  All
      other pending sizes would be handled by gimplify_parameters.  */
   if (arg_info->pending_sizes)
-    add_stmt (arg_info->pending_sizes);
+    {
+      /* In very special circumstances, e.g. for code like
+	   _Atomic int i = 5;
+	   void f (int a[i += 2]) {}
+	 we need to execute the atomic assignment on function entry.
+	 But in this case, it is not just a straight store, it has the
+	 op= form, which means that build_atomic_assign has generated
+	 gotos, labels, etc.  Because at that time the function decl
+	 for F has not been created yet, those labels do not have any
+	 function context.  But we have the fndecl now, so update the
+	 labels accordingly.  gimplify_expr would crash otherwise.  */
+      walk_tree_without_duplicates (&arg_info->pending_sizes,
+				    set_labels_context_r, fndecl);
+      add_stmt (arg_info->pending_sizes);
+    }
 }
 
 /* Store PARM_DECLs in PARMS into scope temporarily.  Used for

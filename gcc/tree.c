@@ -4873,7 +4873,7 @@ simple_cst_list_equal (const_tree l1, const_tree l2)
    attribute values are known to be equal; otherwise return false.
 */
 
-static bool
+bool
 attribute_value_equal (const_tree attr1, const_tree attr2)
 {
   if (TREE_VALUE (attr1) == TREE_VALUE (attr2))
@@ -5139,6 +5139,7 @@ need_assembler_name_p (tree decl)
       && decl == TYPE_NAME (TREE_TYPE (decl))
       && !is_lang_specific (TREE_TYPE (decl))
       && AGGREGATE_TYPE_P (TREE_TYPE (decl))
+      && !TYPE_ARTIFICIAL (TREE_TYPE (decl))
       && !variably_modified_type_p (TREE_TYPE (decl), NULL_TREE)
       && !type_in_anonymous_namespace_p (TREE_TYPE (decl)))
     return !DECL_ASSEMBLER_NAME_SET_P (decl);
@@ -5824,6 +5825,8 @@ free_lang_data (void)
      still be used indirectly via the get_alias_set langhook.  */
   lang_hooks.dwarf_name = lhd_dwarf_name;
   lang_hooks.decl_printable_name = gimple_decl_printable_name;
+  lang_hooks.gimplify_expr = lhd_gimplify_expr;
+
   /* We do not want the default decl_assembler_name implementation,
      rather if we have fixed everything we want a wrapper around it
      asserting that all non-local symbols already got their assembler

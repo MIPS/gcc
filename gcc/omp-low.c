@@ -1564,6 +1564,7 @@ finalize_task_copyfn (gomp_task *task_stmt)
 
   /* Inform the callgraph about the new function.  */
   cgraph_node::add_new_function (child_fn, false);
+  cgraph_node::get (child_fn)->parallelized_function = 1;
 }
 
 /* Destroy a omp_context data structures.  Called through the splay tree
@@ -2350,6 +2351,7 @@ scan_omp_parallel (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
   DECL_ARTIFICIAL (name) = 1;
   DECL_NAMELESS (name) = 1;
   TYPE_NAME (ctx->record_type) = name;
+  TYPE_ARTIFICIAL (ctx->record_type) = 1;
   create_omp_child_function (ctx, false);
   gimple_omp_parallel_set_child_fn (stmt, ctx->cb.dst_fn);
 
@@ -2390,6 +2392,7 @@ scan_omp_task (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
   DECL_ARTIFICIAL (name) = 1;
   DECL_NAMELESS (name) = 1;
   TYPE_NAME (ctx->record_type) = name;
+  TYPE_ARTIFICIAL (ctx->record_type) = 1;
   create_omp_child_function (ctx, false);
   gimple_omp_task_set_child_fn (stmt, ctx->cb.dst_fn);
 
@@ -2403,6 +2406,7 @@ scan_omp_task (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
       DECL_ARTIFICIAL (name) = 1;
       DECL_NAMELESS (name) = 1;
       TYPE_NAME (ctx->srecord_type) = name;
+      TYPE_ARTIFICIAL (ctx->srecord_type) = 1;
       create_omp_child_function (ctx, true);
     }
 
@@ -2670,6 +2674,7 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
   DECL_ARTIFICIAL (name) = 1;
   DECL_NAMELESS (name) = 1;
   TYPE_NAME (ctx->record_type) = name;
+  TYPE_ARTIFICIAL (ctx->record_type) = 1;
   if (offloaded)
     {
       if (is_gimple_omp_oacc (stmt))
@@ -4932,7 +4937,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 	      tmp_join = tmp_var;
 	    }
 
-	  e = split_block (bb, NULL);
+	  e = split_block_after_labels (bb);
 	  cond_bb = e->src;
 	  bb = e->dest;
 	  remove_edge (e);
@@ -5569,6 +5574,7 @@ expand_omp_taskreg (struct omp_region *region)
       /* Inform the callgraph about the new function.  */
       DECL_STRUCT_FUNCTION (child_fn)->curr_properties = cfun->curr_properties;
       cgraph_node::add_new_function (child_fn, true);
+      cgraph_node::get (child_fn)->parallelized_function = 1;
 
       /* Fix the callgraph edges for child_cfun.  Those for cfun will be
 	 fixed in a following pass.  */
@@ -9046,7 +9052,7 @@ expand_omp_target (struct omp_region *region)
 
       tmp_var = create_tmp_var (TREE_TYPE (device));
       if (offloaded)
-	e = split_block (new_bb, NULL);
+	e = split_block_after_labels (new_bb);
       else
 	{
 	  gsi = gsi_last_bb (new_bb);
@@ -13333,7 +13339,7 @@ simd_clone_adjust (struct cgraph_node *node)
   e = split_block (incr_bb, gsi_stmt (gsi));
   basic_block latch_bb = e->dest;
   basic_block new_exit_bb;
-  new_exit_bb = split_block (latch_bb, NULL)->dest;
+  new_exit_bb = split_block_after_labels (latch_bb)->dest;
   loop->latch = latch_bb;
 
   redirect_edge_succ (FALLTHRU_EDGE (latch_bb), body_bb);
