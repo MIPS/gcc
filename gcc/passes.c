@@ -299,7 +299,8 @@ rest_of_decl_compilation (tree decl,
      finalize_compilation_unit (and by consequence, locally scoped
      symbols), or by rest_of_type_compilation below.  */
   if (!flag_wpa
-	&& TREE_CODE (decl) != FUNCTION_DECL
+      && !in_lto_p
+      && TREE_CODE (decl) != FUNCTION_DECL
       && !decl_function_context (decl)
       && !current_function_decl
       && !decl_type_context (decl))
