@@ -1,3 +1,19 @@
+2015-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/65597
+	* trans-openmp.c (gfc_trans_omp_do): For !simple simd with explicit
+	linear clause for the iterator set OMP_CLAUSE_LINEAR_NO_COPYIN.
+	For implcitly added !simple OMP_CLAUSE_LINEAR set it too.  Use step 1
+	instead of the original step on the new iterator - count.
+
+2015-03-25  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/64952
+	PR fortran/65532
+	* gfortran.h (struct gfc_namespace): New field 'types_resolved'.
+	* resolve.c (resolve_types): Return early if field 'types_resolved'
+	is set.  Set 'types_resolved' at the end.
+
 2015-03-24  Andre Vehreschild  <vehre@gmx.de>
 
 	PR fortran/55901
