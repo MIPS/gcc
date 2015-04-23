@@ -16156,9 +16156,9 @@ mips_expand_builtin_insn (enum insn_code icode, unsigned int nops,
     case CODE_FOR_msa_pckod_w:
       /* Swap the operands 1 and 2 for interleave operations.  Builtins follow
 	 convention of ISA, which have op1 as higher component and op2 as lower
-         component.  However, the VEC_PERM op in tree and vec_concat in RTL
-         expects first operand to be lower component, because of which this swap
-         is needed for builtins.  */
+	 component.  However, the VEC_PERM op in tree and vec_concat in RTL
+	 expects first operand to be lower component, because of which this swap
+	 is needed for builtins.  */
       gcc_assert (has_target_p && (nops > 2));
       tmp = ops[2];
       ops[2] = ops[1];
@@ -18709,6 +18709,11 @@ mips_option_override (void)
   /* MIPS16 and microMIPS cannot coexist.  */
   if (TARGET_MICROMIPS && TARGET_MIPS16)
     error ("unsupported combination: %s", "-mips16 -mmicromips");
+
+  /* Prohibit Paired-Single and MSA combination.  This is software restriction
+     rather than architectural.  */
+  if (TARGET_MSA && TARGET_PAIRED_SINGLE_FLOAT)
+    error ("unsupported combination: %s", "-mmsa -mpaired-single");
 
   /* Save the base compression state and process flags as though we
      were generating uncompressed code.  */
