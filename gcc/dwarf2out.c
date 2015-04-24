@@ -19582,19 +19582,18 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	    }
 	  else
 	    {
-	      /* Otherwise, the only reasonable alternate way of
-		 getting here is during the final dwarf pass, when
-		 being called on a local static.  We can end up with
-		 different contexts because the context_die is set to
-		 the context of the containing function, whereas the
-		 cached die (old_die) is correctly set to the
-		 (possible) enclosing lexical scope
-		 (DW_TAG_lexical_block).  In which case, special
-		 handle it (hack).
+	      /* In some cases we end up with different contexts because
+		 the context_die is set to the context of the containing
+		 function, whereas the cached die is correctly set to the
+		 (possible) enclosing lexical scope (DW_TAG_lexical_block).
+		 In which case, special case it (hack).
 
 		 See dwarf2out_decl and its use of
-		 local_function_static to see how this happened.  */
-	      gcc_assert (local_function_static (decl));
+		 local_function_static to see how this can happened.
+		 In java, it can happen with non local statics, hence
+		 we do not check for TREE_STATIC here.  */
+	      gcc_assert (!DECL_CONTEXT (decl)
+			  || TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL);
 	      var_die = old_die;
 	      goto gen_variable_die_location;
 	    }
