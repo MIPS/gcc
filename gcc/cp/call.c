@@ -7549,7 +7549,6 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
 		tsubst_flags_t complain)
 {
   tree fndecl;
-  int optimize_sav;
 
   /* Remember roughly where this call is.  */
   location_t loc = EXPR_LOC_OR_LOC (fn, input_location);
@@ -7605,16 +7604,6 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
 	  return fn;
 	}
     }
-
-  /* Some built-in function calls will be evaluated at compile-time in
-     fold ().  Set optimize to 1 when folding __builtin_constant_p inside
-     a constexpr function so that fold_builtin_1 doesn't fold it to 0.  */
-  optimize_sav = optimize;
-  if (!optimize && fndecl && DECL_IS_BUILTIN_CONSTANT_P (fndecl)
-      && current_function_decl
-      && DECL_DECLARED_CONSTEXPR_P (current_function_decl))
-    optimize = 1;
-  optimize = optimize_sav;
 
   if (VOID_TYPE_P (TREE_TYPE (fn)))
     return fn;
