@@ -20617,12 +20617,18 @@ gen_typedef_die (tree decl, dw_die_ref context_die)
 	{
 	  type = DECL_ORIGINAL_TYPE (decl);
 
+	  if (type == error_mark_node)
+	    return;
+
 	  gcc_assert (type != TREE_TYPE (decl));
 	  equate_type_number_to_die (TREE_TYPE (decl), type_die);
 	}
       else
 	{
 	  type = TREE_TYPE (decl);
+
+	  if (type == error_mark_node)
+	    return;
 
 	  if (is_naming_typedef_decl (TYPE_NAME (type)))
 	    {
