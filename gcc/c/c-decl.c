@@ -7827,10 +7827,18 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
     }
 
   /* If this structure or union completes the type of any previous
-     variable declaration, lay it out and output its rtl.  */
-  for (x = C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t));
-       x;
-       x = TREE_CHAIN (x))
+     variable declaration, lay it out and output its rtl.
+
+     Note: C_TYPE_INCOMPLETE_VARS overloads TYPE_VFIELD which is used
+     in dwarf2out via rest_of_decl_compilation below and means
+     something totally different.  Since we will be clearing
+     C_TYPE_INCOMPLETE_VARS shortly after we iterate through them,
+     clear it ahead of time and avoid problems in dwarf2out.  Ideally,
+     C_TYPE_INCOMPLETE_VARS should use some language specific
+     node.  */
+  tree incomplete_vars = C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t));
+  C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
+  for (x = incomplete_vars; x; x = TREE_CHAIN (x))
     {
       tree decl = TREE_VALUE (x);
       if (TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
@@ -7843,7 +7851,6 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 	  rest_of_decl_compilation (decl, toplevel, 0);
 	}
     }
-  C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
 
   /* Update type location to the one of the definition, instead of e.g.
      a forward declaration.  */
