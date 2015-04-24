@@ -5737,7 +5737,7 @@ check_die_inline (dw_die_ref die)
   dw_attr_ref a;
   bool inline_found = false;
   FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
-    if (a->dw_attr == DW_AT_inline)
+    if (a->dw_attr == DW_AT_inline && a->dw_attr_val.v.val_unsigned)
       inline_found = true;
   if (inline_found)
     {
