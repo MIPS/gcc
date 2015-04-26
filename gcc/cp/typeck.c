@@ -3366,7 +3366,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function,
 	e2 = build1 (NOP_EXPR, TREE_TYPE (e2),
 		     cp_build_addr_expr (e2, complain));
 
-      e2 = fold (convert (TREE_TYPE (e3), e2));
+      e2 = fold_convert (TREE_TYPE (e3), e2);
       e1 = build_conditional_expr (input_location, e1, e2, e3, complain);
       if (e1 == error_mark_node)
 	return error_mark_node;
