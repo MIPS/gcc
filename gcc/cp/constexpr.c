@@ -1570,10 +1570,7 @@ cxx_eval_unary_expression (const constexpr_ctx *ctx, tree t,
   location_t loc = EXPR_LOCATION (t);
   enum tree_code code = TREE_CODE (t);
   tree type = TREE_TYPE (t);
-  if (TREE_CODE (t) == UNARY_PLUS_EXPR)
-    r = fold_convert_loc (loc, TREE_TYPE (t), arg);
-  else
-    r = fold_unary_loc (loc, code, type, arg);
+  r = fold_unary_loc (loc, code, type, arg);
   if (r == NULL_TREE || !CONSTANT_CLASS_P (r))
     {
       if (arg == orig_arg)
@@ -3214,7 +3211,6 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
     case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
     case FIXED_CONVERT_EXPR:
-    case UNARY_PLUS_EXPR:
       r = cxx_eval_unary_expression (ctx, t, lval,
 				     non_constant_p, overflow_p);
       break;
@@ -3401,9 +3397,12 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
     case CONVERT_EXPR:
     case VIEW_CONVERT_EXPR:
     case NOP_EXPR:
+    case UNARY_PLUS_EXPR:
       {
+	enum tree_code tcode = TREE_CODE (t);
 	tree oldop = TREE_OPERAND (t, 0);
-	if (TREE_CODE (t) == NOP_EXPR && TREE_TYPE (t) == TREE_TYPE (oldop) && TREE_OVERFLOW_P (oldop))
+
+	if (tcode == NOP_EXPR && TREE_TYPE (t) == TREE_TYPE (oldop) && TREE_OVERFLOW_P (oldop))
 	  {
 	    if (!ctx->quiet)
 	      permerror (input_location, "overflow in constant expression");
@@ -3430,11 +3429,14 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	    *non_constant_p = true;
 	    return t;
 	  }
-	if (op == oldop)
+	if (op == oldop && tcode != UNARY_PLUS_EXPR)
 	  /* We didn't fold at the top so we could check for ptr-int
 	     conversion.  */
 	  return fold (t);
-	r = fold_build1 (TREE_CODE (t), TREE_TYPE (t), op);
+	if (tcode == UNARY_PLUS_EXPR)
+	  r = fold_convert (TREE_TYPE (t), op);
+	else
+	  r = fold_build1 (tcode, TREE_TYPE (t), op);
 	/* Conversion of an out-of-range value has implementation-defined
 	   behavior; the language considers it different from arithmetic
 	   overflow, which is undefined.  */
