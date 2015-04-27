@@ -4324,6 +4324,22 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
+  /* Determine when unaligned vector accesses are permitted, and when
+     they are preferred over masked Altivec loads.  Note that if
+     TARGET_ALLOW_MOVMISALIGN has been disabled by the user, then
+     TARGET_EFFICIENT_UNALIGNED_VSX must be as well.  The converse is
+     not true.  */
+  if (TARGET_EFFICIENT_UNALIGNED_VSX == -1) {
+    if (TARGET_VSX && rs6000_cpu == PROCESSOR_POWER8
+	&& TARGET_ALLOW_MOVMISALIGN != 0)
+      TARGET_EFFICIENT_UNALIGNED_VSX = 1;
+    else
+      TARGET_EFFICIENT_UNALIGNED_VSX = 0;
+  }
+
+  if (TARGET_ALLOW_MOVMISALIGN == -1 && rs6000_cpu == PROCESSOR_POWER8)
+    TARGET_ALLOW_MOVMISALIGN = 1;
+
   /* Set the builtin mask of the various options used that could affect which
      builtins were used.  In the past we used target_flags, but we've run out
      of bits, and some options like SPE and PAIRED are no longer in
@@ -4372,7 +4388,9 @@ rs6000_option_override (void)
 static tree
 rs6000_builtin_mask_for_load (void)
 {
-  if (TARGET_ALTIVEC || TARGET_VSX)
+  /* Don't use lvsl/vperm for P8 and similarly efficient machines.  */
+  if ((TARGET_ALTIVEC && !TARGET_VSX)
+      || (TARGET_VSX && !TARGET_EFFICIENT_UNALIGNED_VSX))
     return altivec_builtin_mask_for_load;
   else
     return 0;
@@ -4451,6 +4469,9 @@ rs6000_builtin_support_vector_misalignment (machine_mode mode,
 {
   if (TARGET_VSX)
     {
+      if (TARGET_EFFICIENT_UNALIGNED_VSX)
+	return true;
+
       /* Return if movmisalign pattern is not supported for this mode.  */
       if (optab_handler (movmisalign_optab, mode) == CODE_FOR_nothing)
         return false;
@@ -4514,6 +4535,9 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return 3;
 
       case unaligned_load:
+	if (TARGET_EFFICIENT_UNALIGNED_VSX)
+	  return 1;
+
         if (TARGET_VSX && TARGET_ALLOW_MOVMISALIGN)
           {
             elements = TYPE_VECTOR_SUBPARTS (vectype);
@@ -4549,6 +4573,9 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return 2;
 
       case unaligned_store:
+	if (TARGET_EFFICIENT_UNALIGNED_VSX)
+	  return 1;
+
         if (TARGET_VSX && TARGET_ALLOW_MOVMISALIGN)
           {
             elements = TYPE_VECTOR_SUBPARTS (vectype);
@@ -8455,6 +8482,15 @@ rs6000_emit_le_vsx_store (rtx dest, rtx source, machine_mode mode)
      not re-permute the source register.  It is intended only for use
      during expand.  */
   gcc_assert (!reload_in_progress && !lra_in_progress && !reload_completed);
+
+  /* Use V2DImode to do swaps of types with 128-bit scalare parts (TImode,
+     V1TImode).  */
+  if (mode == TImode || mode == V1TImode)
+    {
+      mode = V2DImode;
+      dest = adjust_address (dest, V2DImode, 0);
+      source = gen_lowpart (V2DImode, source);
+    }
 
   tmp = gen_reg_rtx_and_attrs (source);
   permute_src = rs6000_gen_le_vsx_permute (source, mode);
@@ -12749,9 +12785,9 @@ static inline enum insn_code
 rs6000_htm_spr_icode (bool nonvoid)
 {
   if (nonvoid)
-    return (TARGET_64BIT) ? CODE_FOR_htm_mfspr_di : CODE_FOR_htm_mfspr_si;
+    return (TARGET_POWERPC64) ? CODE_FOR_htm_mfspr_di : CODE_FOR_htm_mfspr_si;
   else
-    return (TARGET_64BIT) ? CODE_FOR_htm_mtspr_di : CODE_FOR_htm_mtspr_si;
+    return (TARGET_POWERPC64) ? CODE_FOR_htm_mtspr_di : CODE_FOR_htm_mtspr_si;
 }
 
 /* Expand the HTM builtin in EXP and store the result in TARGET.
@@ -12765,7 +12801,17 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
   const struct builtin_description *d;
   size_t i;
 
-  *expandedp = false;
+  *expandedp = true;
+
+  if (!TARGET_POWERPC64
+      && (fcode == HTM_BUILTIN_TABORTDC
+	  || fcode == HTM_BUILTIN_TABORTDCI))
+    {
+      size_t uns_fcode = (size_t)fcode;
+      const char *name = rs6000_builtin_info[uns_fcode].name;
+      error ("builtin %s is only valid in 64-bit mode", name);
+      return const0_rtx;
+    }
 
   /* Expand the HTM builtins.  */
   d = bdesc_htm;
@@ -12778,26 +12824,29 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 	call_expr_arg_iterator iter;
 	unsigned attr = rs6000_builtin_info[fcode].attr;
 	enum insn_code icode = d->icode;
+	const struct insn_operand_data *insn_op;
+	bool uses_spr = (attr & RS6000_BTC_SPR);
+	rtx cr = NULL_RTX;
 
-	if (attr & RS6000_BTC_SPR)
+	if (uses_spr)
 	  icode = rs6000_htm_spr_icode (nonvoid);
+	insn_op = &insn_data[icode].operand[0];
 
 	if (nonvoid)
 	  {
-	    machine_mode tmode = insn_data[icode].operand[0].mode;
+	    machine_mode tmode = (uses_spr) ? insn_op->mode : SImode;
 	    if (!target
 		|| GET_MODE (target) != tmode
-		|| !(*insn_data[icode].operand[0].predicate) (target, tmode))
+		|| (uses_spr && !(*insn_op->predicate) (target, tmode)))
 	      target = gen_reg_rtx (tmode);
-	    op[nopnds++] = target;
+	    if (uses_spr)
+	      op[nopnds++] = target;
 	  }
 
 	FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
 	{
-	  const struct insn_operand_data *insn_op;
-
 	  if (arg == error_mark_node || nopnds >= MAX_HTM_OPERANDS)
-	    return NULL_RTX;
+	    return const0_rtx;
 
 	  insn_op = &insn_data[icode].operand[nopnds];
 
@@ -12844,10 +12893,17 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 
 	/* If this builtin accesses SPRs, then pass in the appropriate
 	   SPR number and SPR regno as the last two operands.  */
-	if (attr & RS6000_BTC_SPR)
+	if (uses_spr)
 	  {
-	    op[nopnds++] = gen_rtx_CONST_INT (Pmode, htm_spr_num (fcode));
-	    op[nopnds++] = gen_rtx_REG (Pmode, htm_spr_regno (fcode));
+	    machine_mode mode = (TARGET_POWERPC64) ? DImode : SImode;
+	    op[nopnds++] = gen_rtx_CONST_INT (mode, htm_spr_num (fcode));
+	    op[nopnds++] = gen_rtx_REG (mode, htm_spr_regno (fcode));
+	  }
+	/* If this builtin accesses a CR, then pass in a scratch
+	   CR as the last operand.  */
+	else if (attr & RS6000_BTC_CR)
+	  { cr = gen_reg_rtx (CCmode);
+	    op[nopnds++] = cr;
 	  }
 
 #ifdef ENABLE_CHECKING
@@ -12860,7 +12916,7 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 	  expected_nopnds = 3;
 	if (!(attr & RS6000_BTC_VOID))
 	  expected_nopnds += 1;
-	if (attr & RS6000_BTC_SPR)
+	if (uses_spr)
 	  expected_nopnds += 2;
 
 	gcc_assert (nopnds == expected_nopnds && nopnds <= MAX_HTM_OPERANDS);
@@ -12887,12 +12943,41 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 	  return NULL_RTX;
 	emit_insn (pat);
 
-	*expandedp = true;
+	if (attr & RS6000_BTC_CR)
+	  {
+	    if (fcode == HTM_BUILTIN_TBEGIN)
+	      {
+		/* Emit code to set TARGET to true or false depending on
+		   whether the tbegin. instruction successfully or failed
+		   to start a transaction.  We do this by placing the 1's
+		   complement of CR's EQ bit into TARGET.  */
+		rtx scratch = gen_reg_rtx (SImode);
+		emit_insn (gen_rtx_SET (VOIDmode, scratch,
+					gen_rtx_EQ (SImode, cr,
+						     const0_rtx)));
+		emit_insn (gen_rtx_SET (VOIDmode, target,
+					gen_rtx_XOR (SImode, scratch,
+						     GEN_INT (1))));
+	      }
+	    else
+	      {
+		/* Emit code to copy the 4-bit condition register field
+		   CR into the least significant end of register TARGET.  */
+		rtx scratch1 = gen_reg_rtx (SImode);
+		rtx scratch2 = gen_reg_rtx (SImode);
+		rtx subreg = simplify_gen_subreg (CCmode, scratch1, SImode, 0);
+		emit_insn (gen_movcc (subreg, cr));
+		emit_insn (gen_lshrsi3 (scratch2, scratch1, GEN_INT (28)));
+		emit_insn (gen_andsi3 (target, scratch2, GEN_INT (0xf)));
+	      }
+	  }
+
 	if (nonvoid)
 	  return target;
 	return const0_rtx;
       }
 
+  *expandedp = false;
   return NULL_RTX;
 }
 
@@ -15419,8 +15504,31 @@ htm_init_builtins (void)
       bool void_func = (attr & RS6000_BTC_VOID);
       int attr_args = (attr & RS6000_BTC_TYPE_MASK);
       int nopnds = 0;
-      tree argtype = (attr & RS6000_BTC_SPR) ? long_unsigned_type_node
-					     : unsigned_type_node;
+      tree gpr_type_node;
+      tree rettype;
+      tree argtype;
+
+      if (TARGET_32BIT && TARGET_POWERPC64)
+	gpr_type_node = long_long_unsigned_type_node;
+      else
+	gpr_type_node = long_unsigned_type_node;
+
+      if (attr & RS6000_BTC_SPR)
+	{
+	  rettype = gpr_type_node;
+	  argtype = gpr_type_node;
+	}
+      else if (d->code == HTM_BUILTIN_TABORTDC
+	       || d->code == HTM_BUILTIN_TABORTDCI)
+	{
+	  rettype = unsigned_type_node;
+	  argtype = gpr_type_node;
+	}
+      else
+	{
+	  rettype = unsigned_type_node;
+	  argtype = unsigned_type_node;
+	}
 
       if ((mask & builtin_mask) != mask)
 	{
@@ -15437,7 +15545,7 @@ htm_init_builtins (void)
 	  continue;
 	}
 
-      op[nopnds++] = (void_func) ? void_type_node : argtype;
+      op[nopnds++] = (void_func) ? void_type_node : rettype;
 
       if (attr_args == RS6000_BTC_UNARY)
 	op[nopnds++] = argtype;
@@ -24800,7 +24908,6 @@ rs6000_output_function_prologue (FILE *file,
       gcc_assert (!TARGET_32BIT);
 
       asm_fprintf (file, "\tmflr %s\n", reg_names[0]);
-      asm_fprintf (file, "\tstd %s,16(%s)\n", reg_names[0], reg_names[1]);
 
       /* In the ELFv2 ABI we have no compiler stack word.  It must be
 	 the resposibility of _mcount to preserve the static chain
@@ -32628,10 +32735,11 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "quad-memory",		OPTION_MASK_QUAD_MEMORY,	false, true  },
   { "quad-memory-atomic",	OPTION_MASK_QUAD_MEMORY_ATOMIC,	false, true  },
   { "recip-precision",		OPTION_MASK_RECIP_PRECISION,	false, true  },
+  { "save-toc-indirect",	OPTION_MASK_SAVE_TOC_INDIRECT,	false, true  },
   { "string",			OPTION_MASK_STRING,		false, true  },
   { "update",			OPTION_MASK_NO_UPDATE,		true , true  },
-  { "upper-regs-df",		OPTION_MASK_UPPER_REGS_DF,	false, false },
-  { "upper-regs-sf",		OPTION_MASK_UPPER_REGS_SF,	false, false },
+  { "upper-regs-df",		OPTION_MASK_UPPER_REGS_DF,	false, true  },
+  { "upper-regs-sf",		OPTION_MASK_UPPER_REGS_SF,	false, true  },
   { "vsx",			OPTION_MASK_VSX,		false, true  },
   { "vsx-timode",		OPTION_MASK_VSX_TIMODE,		false, true  },
 #ifdef OPTION_MASK_64BIT
@@ -32704,6 +32812,42 @@ static struct rs6000_opt_var const rs6000_opt_vars[] =
   { "longcall",
     offsetof (struct gcc_options, x_rs6000_default_long_calls),
     offsetof (struct cl_target_option, x_rs6000_default_long_calls), },
+  { "optimize-swaps",
+    offsetof (struct gcc_options, x_rs6000_optimize_swaps),
+    offsetof (struct cl_target_option, x_rs6000_optimize_swaps), },
+  { "allow-movmisalign",
+    offsetof (struct gcc_options, x_TARGET_ALLOW_MOVMISALIGN),
+    offsetof (struct cl_target_option, x_TARGET_ALLOW_MOVMISALIGN), },
+  { "allow-df-permute",
+    offsetof (struct gcc_options, x_TARGET_ALLOW_DF_PERMUTE),
+    offsetof (struct cl_target_option, x_TARGET_ALLOW_DF_PERMUTE), },
+  { "sched-groups",
+    offsetof (struct gcc_options, x_TARGET_SCHED_GROUPS),
+    offsetof (struct cl_target_option, x_TARGET_SCHED_GROUPS), },
+  { "always-hint",
+    offsetof (struct gcc_options, x_TARGET_ALWAYS_HINT),
+    offsetof (struct cl_target_option, x_TARGET_ALWAYS_HINT), },
+  { "align-branch-targets",
+    offsetof (struct gcc_options, x_TARGET_ALIGN_BRANCH_TARGETS),
+    offsetof (struct cl_target_option, x_TARGET_ALIGN_BRANCH_TARGETS), },
+  { "vectorize-builtins",
+    offsetof (struct gcc_options, x_TARGET_VECTORIZE_BUILTINS),
+    offsetof (struct cl_target_option, x_TARGET_VECTORIZE_BUILTINS), },
+  { "tls-markers",
+    offsetof (struct gcc_options, x_tls_markers),
+    offsetof (struct cl_target_option, x_tls_markers), },
+  { "sched-prolog",
+    offsetof (struct gcc_options, x_TARGET_SCHED_PROLOG),
+    offsetof (struct cl_target_option, x_TARGET_SCHED_PROLOG), },
+  { "sched-epilog",
+    offsetof (struct gcc_options, x_TARGET_SCHED_PROLOG),
+    offsetof (struct cl_target_option, x_TARGET_SCHED_PROLOG), },
+  { "gen-cell-microcode",
+    offsetof (struct gcc_options, x_rs6000_gen_cell_microcode),
+    offsetof (struct cl_target_option, x_rs6000_gen_cell_microcode), },
+  { "warn-cell-microcode",
+    offsetof (struct gcc_options, x_rs6000_warn_cell_microcode),
+    offsetof (struct cl_target_option, x_rs6000_warn_cell_microcode), },
 };
 
 /* Inner function to handle attribute((target("..."))) and #pragma GCC target
@@ -32777,9 +32921,15 @@ rs6000_inner_target_options (tree args, bool attr_p)
 			rs6000_isa_flags_explicit |= mask;
 
 			/* VSX needs altivec, so -mvsx automagically sets
-			   altivec.  */
-			if (mask == OPTION_MASK_VSX && !invert)
-			  mask |= OPTION_MASK_ALTIVEC;
+			   altivec and disables -mavoid-indexed-addresses.  */
+			if (!invert)
+			  {
+			    if (mask == OPTION_MASK_VSX)
+			      {
+				mask |= OPTION_MASK_ALTIVEC;
+				TARGET_AVOID_XFORM = 0;
+			      }
+			  }
 
 			if (rs6000_opt_masks[i].invert)
 			  invert = !invert;
@@ -32800,6 +32950,7 @@ rs6000_inner_target_options (tree args, bool attr_p)
 			size_t j = rs6000_opt_vars[i].global_offset;
 			*((int *) ((char *)&global_options + j)) = !invert;
 			error_p = false;
+			not_valid_p = false;
 			break;
 		      }
 		}
@@ -34652,7 +34803,8 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	   order-dependent element, so additional fixup code would be
 	   needed to make those work.  Vector set and non-immediate-form
 	   vector splat are element-order sensitive.  A few of these
-	   cases might be workable with special handling if required.  */
+	   cases might be workable with special handling if required.
+	   Adding cost modeling would be appropriate in some cases.  */
 	int val = XINT (op, 1);
 	switch (val)
 	  {
@@ -34691,12 +34843,6 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	  case UNSPEC_VUPKLPX:
 	  case UNSPEC_VUPKLS_V4SF:
 	  case UNSPEC_VUPKLU_V4SF:
-	  /* The following could be handled as an idiom with XXSPLTW.
-	     These place a scalar in BE element zero, but the XXSPLTW
-	     will currently expect it in BE element 2 in a swapped
-	     region.  When one of these feeds an XXSPLTW with no other
-	     defs/uses either way, we can avoid the lane change for
-	     XXSPLTW and things will be correct.  TBD.  */
 	  case UNSPEC_VSX_CVDPSPN:
 	  case UNSPEC_VSX_CVSPDP:
 	  case UNSPEC_VSX_CVSPDPN:
@@ -34785,6 +34931,36 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
 	}
       else
 	return 0;
+    }
+
+  /* A convert to single precision can be left as is provided that
+     all of its uses are in xxspltw instructions that splat BE element
+     zero.  */
+  if (GET_CODE (body) == SET
+      && GET_CODE (SET_SRC (body)) == UNSPEC
+      && XINT (SET_SRC (body), 1) == UNSPEC_VSX_CVDPSPN)
+    {
+      df_ref def;
+      struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+
+      FOR_EACH_INSN_INFO_DEF (def, insn_info)
+	{
+	  struct df_link *link = DF_REF_CHAIN (def);
+	  if (!link)
+	    return 0;
+
+	  for (; link; link = link->next) {
+	    rtx use_insn = DF_REF_INSN (link->ref);
+	    rtx use_body = PATTERN (use_insn);
+	    if (GET_CODE (use_body) != SET
+		|| GET_CODE (SET_SRC (use_body)) != UNSPEC
+		|| XINT (SET_SRC (use_body), 1) != UNSPEC_VSX_XXSPLTW
+		|| XEXP (XEXP (SET_SRC (use_body), 0), 1) != const0_rtx)
+	      return 0;
+	  }
+	}
+
+      return 1;
     }
 
   /* Otherwise check the operands for vector lane violations.  */
