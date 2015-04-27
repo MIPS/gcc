@@ -491,7 +491,7 @@ gfc_conv_derived_to_class (gfc_se *parmse, gfc_expr *e,
   if (optional)
     cond_optional = gfc_conv_expr_present (e->symtree->n.sym);
 
-  if (parmse->ss && parmse->ss->info->useflags)
+  if (parmse->ss && parmse->ss->info->useflags && e->rank != 0)
     {
       /* For an array reference in an elemental procedure call we need
 	 to retain the ss to provide the scalarized array reference.  */
@@ -4741,13 +4741,16 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	     copied.  */
 	  if (fsym && (fsym->attr.value
 		       || (e->expr_type == EXPR_VARIABLE
-			   && fsym->ts.type == BT_DERIVED
-			   && e->ts.type == BT_DERIVED
-			   && !e->ts.u.derived->attr.dimension
 			   && !e->rank
-			   && (!e->symtree
-			       || (!e->symtree->n.sym->attr.allocatable
-				   && !e->symtree->n.sym->attr.pointer)))))
+			   && ((fsym->ts.type == BT_DERIVED
+				&& e->ts.type == BT_DERIVED
+				&& !e->ts.u.derived->attr.dimension
+				&& (!e->symtree
+				    || (!e->symtree->n.sym->attr.allocatable
+					&& !e->symtree->n.sym->attr.pointer)))
+			       || (fsym->ts.type == BT_CLASS
+				   && e->ts.type == BT_CLASS
+				   && !CLASS_DATA (e)->attr.dimension)))))
 	    gfc_conv_expr (&parmse, e);
 	  else
 	    gfc_conv_expr_reference (&parmse, e);
