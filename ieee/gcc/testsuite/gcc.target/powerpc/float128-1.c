@@ -23,7 +23,7 @@ __float128 (*no_optimize) (__float128) = pass_through;
 
 #ifdef DEBUG
 __attribute__((__noinline__))
-void
+static void
 print_f128 (__float128 x)
 {
   uint64_t sign;
@@ -72,7 +72,7 @@ print_f128 (__float128 x)
 #endif
 
 __attribute__((__noinline__))
-void
+static void
 do_test (__float128 expected, __float128 got, const char *name)
 {
   int equal_p = (expected == got);
