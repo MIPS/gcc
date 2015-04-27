@@ -930,7 +930,7 @@ See RS/6000 and PowerPC Options.
 -mcompat-align-parm -mno-compat-align-parm @gol
 -mupper-regs-df -mno-upper-regs-df -mupper-regs-sf -mno-upper-regs-sf @gol
 -mupper-regs -mno-upper-regs @gol
--mfloat128-vsx -mfloat128-ref}
+-mfloat128 -mno-float128}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -19974,25 +19974,15 @@ GCC.
 
 The @option{-mno-compat-align-parm} option is the default.
 
-@item -mfloat128-vsx
-@itemx -mno-float128-vsx
+@item -mfloat128
+@itemx -mno-float128
 @opindex mfloat128-vsx
 Enable (do not enable) the type @code{__float128} which is the IEEE
 128-bit floating point type.  The @code{__float128} type is passed and
 returned in a single register, and it requires the VSX instruction set
-extension.  The @option{-mfloat128-vsx} option is enabled by default
+extension.  The @option{-mfloat128} option is enabled by default
 if @option{-mvsx}, @option{-mcpu=power7}, or @option{-mcpu=power8}
-options are used.  You cannot use @option{-mfloat128-vsx} and
-@option{-mfloat128-ref} at the same time.
-
-@item -mfloat128-ref
-@itemx -mno-float128-ref
-@opindex mfloat128-fpr
-Enable (do not enable) the type @code{__float128} which is the IEEE
-128-bit floating point type.  The @code{__float128} type is passed and
-returned by reference on the stack.  This option is not enabled by
-default.  You cannot use @option{-mfloat128-vsx} and
-@option{-mfloat128-ref} at the same time.
+options are used.
 @end table
 
 @node RX Options

@@ -1,5 +1,45 @@
 2015-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Delete old
+	-mfloat128-{vsx,ref}.  Only support __float128 for VSX systems
+	using the switch -mfloat128.
+	(POWERPC_MASKS): Likewise.
+	(power7): Likewise.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros):
+	Likewise.
+
+	* config/rs6000/rs6000.opt (-mfloat128-vsx): Delete.
+	(-mfloat128-ref): Delete.
+	(-mfloat128): Repalcement switch.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Delete old
+	-mfloat128-{vsx,ref}.  Only support __float128 for VSX systems
+	using the switch -mfloat128.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_return_in_memory): Likewise.
+	(rs6000_pass_by_reference): Likewise.
+	(init_float128_ieee): Likewise.
+	(rs6000_opt_masks): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_FLOAT128): Delete.
+	(FLOAT128_2REG_P): Drop -mfloat128-{ref,vsx}.  Add -mfloat128.
+	(MASK_FLOAT128_VSX): Likewise.
+	(MASK_FLOAT128_REF): Likewise.
+	(MASK_FLOAT128): Likewise.
+
+	* config/rs6000/rs6000.md (FMOVE128_FPR): Drop
+	-mfloat128-{ref,vsx}.  Add -mfloat128.
+	(neg<mode>2, TFIFKF mode): Likewise.
+	(abs<mode>2, TFIFKF mode): Likewise.
+	(ieee_128bit_vsx_neg<mode>2): Likewise.
+	(ieee_128bit_vsx_abs<mode>2): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2): Likewise.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Drop
+	-mfloat128-{ref,vsx}.  Add -mfloat128.
+
 	Merge up to 222474.
 	* REVISION: Update subversion number.
 

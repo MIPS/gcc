@@ -445,13 +445,9 @@ mwarn-altivec-long
 Target Var(rs6000_warn_altivec_long) Init(1) Save
 Warn about deprecated 'vector long ...' AltiVec type usage
 
-mfloat128-vsx
-Target Mask(FLOAT128_VSX) Var(rs6000_isa_flags)
-Enable the __float128 type using VSX registers
-
-mfloat128-ref
-Target Mask(FLOAT128_REF) Var(rs6000_isa_flags)
-Enable the __float128 type, passing/returning the value by reference
+mfloat128
+Target Mask(FLOAT128) Var(rs6000_isa_flags)
+Enable the __float128 type
 
 mfloat-gprs=
 Target RejectNegative Joined Enum(rs6000_float_gprs) Var(rs6000_float_gprs) Save

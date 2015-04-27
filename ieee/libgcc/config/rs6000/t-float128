@@ -7,14 +7,6 @@
 # names used by the IBM double-double format use TF in them, so we rename
 # all of the functions provided for the new IEEE 128-bit support.
 #
-# Some PowerPC targets did not use the IBM double-double format, but
-# used IEEE 128-bit floating point, using different names for the emulation
-# functions.
-#
-# If VSX support is available, we pass __float128 in vector registers.  If VSX
-# support is not available, we pass __float128 by reference and use the names
-# (like _q_add) that were used by the older PowerPC GCC compilers.
-
 # All functions in soft-fp for 128-bit support.  We use sed to transform the
 # names in the files, these names are just used for the source file that we
 # create.
@@ -41,15 +33,6 @@ fp128_vsx_obj		= $(fp128_vsx_static_obj) $(fp128_vsx_shared_obj)
 fp128_vsx_sed		= $(srcdir)/config/rs6000/fp128-vsx-sed
 fp128_vsx_dep		= $(fp128_vsx_sed) $(srcdir)/config/rs6000/t-float128
 
-fp128_ref_orig_src	= $(addsuffix -ref.c,$(fp128_orig_funcs))
-fp128_ref_ppc_src	= $(addsuffix -ref.c,$(fp128_ppc_funcs))
-fp128_ref_src		= $(fp128_ref_orig_src) $(fp128_ref_ppc_src)
-fp128_ref_static_obj	= $(addsuffix -ref$(objext),$(fp128_funcs))
-fp128_ref_shared_obj	= $(addsuffix -ref_s$(objext),$(fp128_funcs))
-fp128_ref_obj		= $(fp128_ref_static_obj) $(fp128_ref_shared_obj)
-fp128_ref_sed		= $(srcdir)/config/rs6000/fp128-ref-sed
-fp128_ref_dep		= $(fp128_ref_sed) $(srcdir)/config/rs6000/t-float128
-
 fp128_includes		= $(srcdir)/soft-fp/double.h \
 			  $(srcdir)/soft-fp/op-1.h \
 			  $(srcdir)/soft-fp/op-4.h \
@@ -61,7 +44,7 @@ fp128_includes		= $(srcdir)/soft-fp/double.h \
 			  $(srcdir)/soft-fp/quad.h \
 			  $(srcdir)/soft-fp/soft-fp.h
 
-EXTRA_CLEAN	    += *-vsx.c *-ref.c
+EXTRA_CLEAN	    += *-vsx.c
 
 # Defining TF to be 'KF' forces TFtype to be:
 # typedef float TFtype __attribute__ ((mode (KF)));
@@ -69,21 +52,17 @@ EXTRA_CLEAN	    += *-vsx.c *-ref.c
 FP128_CFLAGS_COMMON  = -Wno-type-limits -I$(srcdir)/soft-fp \
 		       -I$(srcdir)/config/rs6000
 
-FP128_CFLAGS_VSX     = -mvsx -mfloat128-vsx -mno-float128-ref
-FP128_CFLAGS_REF     = -mfloat128-ref -mno-float128-vsx
+FP128_CFLAGS_VSX     = -mvsx -mfloat128
 
 $(fp128_vsx_obj) : INTERNAL_CFLAGS += $(FP128_CFLAGS_COMMON) $(FP128_CFLAGS_VSX)
 $(fp128_vsx_obj) : $(fp128_includes) $(srcdir)/config/rs6000/quad-vsx.h
-
-$(fp128_ref_obj) : INTERNAL_CFLAGS += $(FP128_CFLAGS_COMMON) $(FP128_CFLAGS_REF)
-$(fp128_ref_obj) : $(fp128_includes) $(srcdir)/config/rs6000/quad-ref.h
 
 $(fp128_vsx_orig_src) : $(srcdir)/soft-fp/$(subst -vsx,,$(subst kf,tf,$@)) $(fp128_vsx_dep)
 	@src="$(srcdir)/soft-fp/$(subst -vsx,,$(subst kf,tf,$@))"; \
 	echo "Create $@"; \
 	(echo "/* file created from $$src */"; \
 	 echo; \
-	 echo '#pragma GCC target ("vsx,float128-vsx,no-float128-ref")'; \
+	 echo '#pragma GCC target ("vsx,float128")'; \
 	 echo; \
 	 sed -f $(fp128_vsx_sed) < $$src) > $@
 
@@ -92,41 +71,19 @@ $(fp128_vsx_ppc_src) : $(srcdir)/config/rs6000/$(subst -vsx,,$@) $(fp128_vsx_dep
 	echo "Create $@"; \
 	(echo "/* file created from $$src */"; \
 	 echo; \
-	 echo '#pragma GCC target ("vsx,float128-vsx,no-float128-ref")'; \
+	 echo '#pragma GCC target ("vsx,float128")'; \
 	 echo; \
 	 sed -f $(fp128_vsx_sed) < $$src) > $@
 
-$(fp128_ref_orig_src) : $(srcdir)/soft-fp/$(subst -ref,,$(subst kf,tf,$@)) $(fp128_ref_dep)
-	@src="$(srcdir)/soft-fp/$(subst -ref,,$(subst kf,tf,$@))"; \
-	echo "Create $@"; \
-	(echo "/* file created from $$src */"; \
-	 echo; \
-	 echo '#pragma GCC target ("float128-ref,no-float128-vsx")'; \
-	 echo; \
-	 sed -f $(fp128_ref_sed) < $$src) > $@
-
-$(fp128_ref_ppc_src) : $(srcdir)/config/rs6000/$(subst -ref,,$@) $(fp128_vsx_dep)
-	@src="$(srcdir)/config/rs6000/$(subst -ref,,$@)"; \
-	echo "Create $@"; \
-	(echo "/* file created from $$src */"; \
-	 echo; \
-	 echo '#pragma GCC target ("float128-ref,no-float128-vsx")'; \
-	 echo; \
-	 sed -f $(fp128_ref_sed) < $$src) > $@
-
-test: $(fp128_vsx_src) $(fp128_ref_src)
+test: $(fp128_vsx_src)
 	@echo "fp128_vsx_src = $(fp128_vsx_src)"; \
-	 echo "fp128_ref_src = $(fp128_ref_src)"; \
-	 echo "fp128_vsx_obj = $(fp128_vsx_obj)"; \
-	 echo "fp128_ref_obj = $(fp128_ref_obj)"
+	 echo "fp128_vsx_obj = $(fp128_vsx_obj)";
 
 xtest:
 	@echo "fp128_vsx_src = $(fp128_vsx_src)"; \
-	 echo "fp128_ref_src = $(fp128_ref_src)"; \
-	 echo "fp128_vsx_obj = $(fp128_vsx_obj)"; \
-	 echo "fp128_ref_obj = $(fp128_ref_obj)"
+	 echo "fp128_vsx_obj = $(fp128_vsx_obj)";
 
 # For now, only put it in the static library
-# LIB2ADD += $(fp128_vsx_src) $(fp128_ref_src)
+# LIB2ADD += $(fp128_vsx_src)
 
-LIB2ADD_ST += $(fp128_vsx_src) $(fp128_ref_src)
+LIB2ADD_ST += $(fp128_vsx_src)

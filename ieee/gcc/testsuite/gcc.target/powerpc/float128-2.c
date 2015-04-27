@@ -1,91 +1,228 @@
 /* { dg-do run { target { powerpc*-*-linux* && lp64 } } } */
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
 /* { dg-skip-if "" { powerpc*-*-*spe* } { "*" } { "" } } */
-/* { dg-require-effective-target ppc_recip_hw } */
-/* { dg-options "-O2 -mfloat128-ref -static-libgcc" } */
+/* { dg-require-effective-target vsx_hw } */
+/* { dg-options "-mcpu=power7 -O2 -mfloat128 -static-libgcc" } */
 
-#ifdef DEBUG
+/*
+ * Test program to make sure we are getting more precision than the 53 bits we
+ * get with IEEE double.
+ */
+
 #include <stdio.h>
+#include <math.h>
+#include <stdlib.h>
+#include <stddef.h>
+
+#ifndef TYPE
+#define TYPE __float128
 #endif
 
-#if !defined(__FLOAT128_VSX__) && !defined(__FLOAT128_REF__)
-static __float128
-pass_through (__float128 x)
+#ifndef NO_INLINE
+#define NO_INLINE __attribute__((__noinline__))
+#endif
+
+static TYPE power_of_two (ssize_t) NO_INLINE;
+static TYPE calc1 (TYPE) NO_INLINE;
+static TYPE calc2 (TYPE) NO_INLINE;
+static TYPE calc3 (TYPE) NO_INLINE;
+
+#ifndef POWER2
+#define POWER2 60
+#endif
+
+
+/*
+ * Print TYPE in hex.
+ */
+
+
+#if defined(DEBUG) || defined(DEBUG2)
+static void print_hex (const char *prefix, TYPE, const char *suffix) NO_INLINE;
+
+#if defined (__i386__) || defined (__x86_64__) || defined (__LITTLE_ENDIAN__)
+#define ENDIAN_REVERSE(N, MAX)        ((MAX) - 1 - (N))
+
+#else
+#define ENDIAN_REVERSE(N, MAX)        (N)
+#endif
+
+static void
+print_hex (const char *prefix, TYPE value, const char *suffix)
 {
-  return x;
+  union {
+    TYPE f128;
+    unsigned char uc[sizeof (TYPE)];
+  } u;
+
+  size_t i;
+
+  u.f128 = value;
+  printf ("%s0x", prefix);
+  for (i = 0; i < sizeof (TYPE); i++)
+    printf ("%.2x", u.uc[ ENDIAN_REVERSE (i, sizeof (TYPE)) ]);
+
+  printf (", %24.2Lf%s", (long double)value, suffix);
 }
-
-__float128 (*no_optimize) (__float128) = pass_through;
 #endif
 
-void
-abort_test (const char *string)
+
+/*
+ * Return a power of two.
+ */
+
+static TYPE
+power_of_two (ssize_t num)
 {
+  TYPE ret = (TYPE) 1.0;
+  ssize_t i;
+
+  if (num >= 0)
+    {
+      for (i = 0; i < num; i++)
+	ret *= (TYPE) 2.0;
+    }
+  else
+    {
+      ssize_t num2 = -num;
+      for (i = 0; i < num2; i++)
+	ret /= (TYPE) 2.0;
+    }
+
 #ifdef DEBUG
-  printf ("Test %s failed\n", string);
+  printf ("power_of_two (%2ld)   = ", (long) num);
+  print_hex ("", ret, "\n");
 #endif
-  __builtin_abort ();
+
+  return ret;
 }
 
+
+#ifdef ADDSUB
+static TYPE add (TYPE a, TYPE b) NO_INLINE;
+static TYPE sub (TYPE a, TYPE b) NO_INLINE;
 
+static TYPE
+add (TYPE a, TYPE b)
+{
+  TYPE c;
+#ifdef DEBUG
+  print_hex ("add, arg1           = ", a, "\n");
+  print_hex ("add, arg2           = ", b, "\n");
+#endif
+  c = a + b;
+#ifdef DEBUG
+  print_hex ("add, result         = ", c, "\n");
+#endif
+  return c;
+}
+
+static TYPE
+sub (TYPE a, TYPE b)
+{
+  TYPE c;
+#ifdef DEBUG
+  print_hex ("sub, arg1           = ", a, "\n");
+  print_hex ("sub, arg2           = ", b, "\n");
+#endif
+  c = a - b;
+#ifdef DEBUG
+  print_hex ("sub, result         = ", c, "\n");
+#endif
+  return c;
+}
+
+#else
+#define add(x, y) ((x) + (y))
+#define sub(x, y) ((x) - (y))
+#endif
+
+/*
+ * Various calculations.  Add in 2**POWER2, and subtract 2**(POWER2-1) twice, and we should
+ * get the original value.
+ */
+
+static TYPE
+calc1 (TYPE num)
+{
+  TYPE num2 = add (power_of_two (POWER2), num);
+  TYPE ret;
+
+#ifdef DEBUG
+  print_hex ("calc1 (before call) = ", num2, "\n");
+#endif
+
+  ret = calc2 (num2);
+
+#ifdef DEBUG
+  print_hex ("calc1 (after call)  = ", ret, "\n");
+#endif
+
+  return ret;
+}
+
+static TYPE
+calc2 (TYPE num)
+{
+  TYPE num2 = sub (num, power_of_two (POWER2-1));
+  TYPE ret;
+
+#ifdef DEBUG
+  print_hex ("calc2 (before call) = ", num2, "\n");
+#endif
+
+  ret = calc3 (num2);
+
+#ifdef DEBUG
+  print_hex ("calc2 (after call)  = ", ret, "\n");
+#endif
+
+  return ret;
+}
+
+static TYPE
+calc3 (TYPE num)
+{
+  TYPE ret = sub (num, (((TYPE) 2.0) * power_of_two (POWER2-2)));
+
+#ifdef DEBUG
+  print_hex ("calc3               = ", ret, "\n");
+#endif
+
+  return ret;
+}
+
+
 int
 main (void)
 {
-  __float128 one = 1.0q;
-  __float128 two = 2.0q;
-  __float128 three = 3.0q;
-  __float128 four = 4.0q;
-  __float128 five = 5.0q;
-  __float128 add_result = (1.0q + 2.0q);
-  __float128 mul_result = ((1.0q + 2.0q) * 3.0q);
-  __float128 div_result = (((1.0q + 2.0q) * 3.0q) / 4.0q);
-  __float128 sub_result = ((((1.0q + 2.0q) * 3.0q) / 4.0q) - 5.0q);
-  __float128 add_xresult;
-  __float128 mul_xresult;
-  __float128 div_xresult;
-  __float128 sub_xresult;
-
-#if defined(__FLOAT128_VSX__)
-  __asm__ (" #prevent constant folding, %x0" : "+wa" (one));
-  __asm__ (" #prevent constant folding, %x0" : "+wa" (two));
-  __asm__ (" #prevent constant folding, %x0" : "+wa" (three));
-  __asm__ (" #prevent constant folding, %x0" : "+wa" (four));
-  __asm__ (" #prevent constant folding, %x0" : "+wa" (five));
-
-#elif defined(__FLOAT128_REF__)
-  __asm__ (" #prevent constant folding, %x0" : "+d" (one));
-  __asm__ (" #prevent constant folding, %x0" : "+d" (two));
-  __asm__ (" #prevent constant folding, %x0" : "+d" (three));
-  __asm__ (" #prevent constant folding, %x0" : "+d" (four));
-  __asm__ (" #prevent constant folding, %x0" : "+d" (five));
-
-#else
-  one   = no_optimize (one);
-  two   = no_optimize (two);
-  three = no_optimize (three);
-  four  = no_optimize (four);
-  five  = no_optimize (five);
-#endif
-
-  add_xresult = (one + two);
-  if (add_xresult != add_result)
-    abort_test ("add");
-
-  mul_xresult = add_xresult * three;
-  if (mul_xresult != mul_result)
-    abort_test ("multiply");
-
-  div_xresult = mul_xresult / four;
-  if (div_xresult != div_result)
-    abort_test ("divide");
-
-  sub_xresult = div_xresult - five;
-  if (sub_xresult != sub_result)
-    abort_test ("subtract");
+  TYPE input, output;
 
 #ifdef DEBUG
-  printf ("Passed\n");
+  printf ("Testing, %ld bytes\n", (long) sizeof (TYPE));
 #endif
+
+  input = power_of_two (-1);
+  if ((double)input != 0.5)
+    {
+#if defined(DEBUG) || defined(DEBUG2)
+      print_hex ("Input should be 0.5:  ", output, "\n");
+      return 1;
+#else
+      __builtin_abort ();
+#endif
+    }
+
+  output = calc1 (input);
+  if ((double)output != 0.5)
+    {
+#if defined(DEBUG) || defined(DEBUG2)
+      print_hex ("Output should be 0.5: ", output, "\n");
+      return 1;
+#else
+      __builtin_abort ();
+#endif
+    }
 
   return 0;
 }

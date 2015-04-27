@@ -2465,6 +2465,9 @@ rs6000_debug_reg_global (void)
   if (targetm.lra_p ())
     fprintf (stderr, DEBUG_FMT_S, "lra", "true");
 
+  if (TARGET_FLOAT128)
+    fprintf (stderr, DEBUG_FMT_S, "__float128", "true");
+
   if (TARGET_P8_FUSION)
     fprintf (stderr, DEBUG_FMT_S, "p8 fusion",
 	     (TARGET_P8_FUSION_SIGN) ? "zero+sign" : "zero");
@@ -2486,10 +2489,6 @@ rs6000_debug_reg_global (void)
 	   (int)END_BUILTINS);
   fprintf (stderr, DEBUG_FMT_D, "Number of rs6000 builtins",
 	   (int)RS6000_BUILTIN_COUNT);
-
-  if (TARGET_FLOAT128)
-    fprintf (stderr, DEBUG_FMT_S, "__float128",
-	     TARGET_FLOAT128_VSX ? "vsx" : "ref");
 
   if (TARGET_VSX)
     fprintf (stderr, DEBUG_FMT_D, "VSX easy 64-bit scalar element",
@@ -2692,7 +2691,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   /* KF mode (ieee 128-bit) where we can pass it as a vector.  We do not have
      arithmetic, so only set the memory modes.  */
-  if (TARGET_VSX && TARGET_FLOAT128_VSX)
+  if (TARGET_FLOAT128)
     {
       rs6000_vector_mem[KFmode] = VECTOR_VSX;
       rs6000_vector_align[KFmode] = 128;
@@ -3626,33 +3625,11 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_isa_flags &= ~OPTION_MASK_P8_VECTOR;
     }
 
-  if (TARGET_FLOAT128_REF && TARGET_FLOAT128_VSX)
+  if (TARGET_FLOAT128 && !TARGET_VSX)
     {
-      if (((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_VSX) != 0)
-	  && ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_REF) == 0))
-	rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_REF;
-
-      else if (((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_VSX) == 0)
-	       && ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_REF) != 0))
-	rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_VSX;
-
-      else
-	{
-	  if ((rs6000_isa_flags_explicit
-	       & (OPTION_MASK_FLOAT128_VSX | OPTION_MASK_FLOAT128_REF)) != 0)
-	    error ("-mfloat128-vsx and -mfloat128-ref are incompatible");
-
-	  rs6000_isa_flags &= ((TARGET_VSX)
-			       ? ~OPTION_MASK_FLOAT128_REF
-			       : ~OPTION_MASK_FLOAT128_VSX);
-	}
-    }
-
-  if (TARGET_FLOAT128_VSX && !TARGET_VSX)
-    {
-      if (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_VSX)
-	error ("-mfloat128-vsx requires -mvsx");
-      rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_VSX;
+      if (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128)
+	error ("-mfloat128 requires -mvsx");
+      rs6000_isa_flags &= ~OPTION_MASK_FLOAT128;
     }
 
   if (TARGET_VSX_TIMODE && !TARGET_VSX)
@@ -9354,8 +9331,8 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
       return true;
     }
 
-  if (IEEE_128BIT_P (TYPE_MODE (type))
-      && (TARGET_FLOAT128_REF || (DEFAULT_ABI == ABI_V4)))
+  if (DEFAULT_ABI == ABI_V4 && TARGET_IEEEQUAD
+      && IEEE_128BIT_P (TYPE_MODE (type)))
     return true;
 
   return false;
@@ -10915,8 +10892,8 @@ rs6000_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 			  machine_mode mode, const_tree type,
 			  bool named ATTRIBUTE_UNUSED)
 {
-  if (IEEE_128BIT_P (mode)
-      && (TARGET_FLOAT128_REF || (DEFAULT_ABI == ABI_V4)))
+  if (DEFAULT_ABI == ABI_V4 && TARGET_IEEEQUAD
+      && IEEE_128BIT_P (TYPE_MODE (type)))
     {
       if (TARGET_DEBUG_ARG)
 	fprintf (stderr, "function_arg_pass_by_reference: V4 IEEE 128-bit\n");
@@ -16159,32 +16136,6 @@ init_float128_ieee (machine_mode mode)
       set_conv_libfunc (ufix_optab, SImode, mode, "_q_qtou");
       set_conv_libfunc (sfloat_optab, mode, SImode, "_q_itoq");
       set_conv_libfunc (ufloat_optab, mode, SImode, "_q_utoq");
-
-      /* The classic V4 IEEE 128-bit support did not include IEEE unordered
-	 support, or 64/128-bit integer conversions.  If we have
-	 -mfloat128-ref, add these functions.  */
-      if (TARGET_FLOAT128_REF)
-	{
-	  set_optab_libfunc (unord_optab, mode, "_q_funordered");
-	  set_optab_libfunc (cmp_optab, mode, "_q_fcmp");
-
-	  if (mode == KFmode)
-	    {
-	      set_conv_libfunc (sext_optab, IFmode, KFmode, "_q_qtot");
-	      set_conv_libfunc (trunc_optab, KFmode, IFmode, "_q_ttoq");
-
-	      if (!TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
-		{
-		  set_conv_libfunc (sext_optab, TFmode, KFmode, "_q_qtot");
-		  set_conv_libfunc (trunc_optab, KFmode, TFmode, "_q_ttoq");
-		}
-	    }
-
-	  set_conv_libfunc (sfix_optab, DImode, mode, "_q_qtoi_d");
-	  set_conv_libfunc (ufix_optab, DImode, mode, "_q_qtou_d");
-	  set_conv_libfunc (sfloat_optab, mode, DImode, "_q_itoq_d");
-	  set_conv_libfunc (ufloat_optab, mode, DImode, "_q_utoq_d");
-	}
     }
 }
 
@@ -32715,8 +32666,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "crypto",			OPTION_MASK_CRYPTO,		false, true  },
   { "direct-move",		OPTION_MASK_DIRECT_MOVE,	false, true  },
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
-  { "float128-vsx",		OPTION_MASK_FLOAT128_VSX,	false, true  },
-  { "float128-ref",		OPTION_MASK_FLOAT128_REF,	false, true  },
+  { "float128",			OPTION_MASK_FLOAT128,		false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },

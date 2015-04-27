@@ -2,13 +2,13 @@
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
 /* { dg-skip-if "" { powerpc*-*-*spe* } { "*" } { "" } } */
 /* { dg-require-effective-target vsx_hw } */
-/* { dg-options "-mcpu=power7 -O2 -mfloat128-vsx -static-libgcc" } */
+/* { dg-options "-mcpu=power7 -O2 -mfloat128 -static-libgcc" } */
 
 #ifdef DEBUG
 #include <stdio.h>
 #endif
 
-#if !defined(__FLOAT128_VSX__) && !defined(__FLOAT128_REF__)
+#if !defined(__FLOAT128__) || !defined(_ARCH_PPC)
 static __float128
 pass_through (__float128 x)
 {
@@ -18,13 +18,38 @@ pass_through (__float128 x)
 __float128 (*no_optimize) (__float128) = pass_through;
 #endif
 
+__attribute__((__noinline__))
 void
-abort_test (const char *string)
+do_test (__float128 expected, __float128 got, const char *name)
 {
+  int equal_p = (expected == got);
+
 #ifdef DEBUG
-  printf ("Test %s failed\n", string);
+  size_t i;
+
+  union {
+    __float128 f128;
+    unsigned char uc[sizeof (__float128)];
+  } ue, ug;
+
+  printf ("Test %-8s expected: 0x", name);
+
+  ue.f128 = expected;
+  for (i = 0; i < sizeof (__float128); i++)
+    printf ("%.2x", ue.uc[i]);
+
+  printf (" %10g, got: 0x", (double) expected);
+  ug.f128 = got;
+  for (i = 0; i < sizeof (__float128); i++)
+    printf ("%.2x", ug.uc[i]);
+
+  printf (" %10g, result %s\n",
+	  (double) got,
+	  (equal_p) ? "equal" : "not equal");
 #endif
-  __builtin_abort ();
+
+  if (!equal_p)
+    __builtin_abort ();
 }
 
 
@@ -45,19 +70,12 @@ main (void)
   __float128 div_xresult;
   __float128 sub_xresult;
 
-#if defined(__FLOAT128_VSX__)
+#if defined(__FLOAT128__) && defined(_ARCH_PPC)
   __asm__ (" #prevent constant folding, %x0" : "+wa" (one));
   __asm__ (" #prevent constant folding, %x0" : "+wa" (two));
   __asm__ (" #prevent constant folding, %x0" : "+wa" (three));
   __asm__ (" #prevent constant folding, %x0" : "+wa" (four));
   __asm__ (" #prevent constant folding, %x0" : "+wa" (five));
-
-#elif defined(__FLOAT128_REF__)
-  __asm__ (" #prevent constant folding, %x0" : "+d" (one));
-  __asm__ (" #prevent constant folding, %x0" : "+d" (two));
-  __asm__ (" #prevent constant folding, %x0" : "+d" (three));
-  __asm__ (" #prevent constant folding, %x0" : "+d" (four));
-  __asm__ (" #prevent constant folding, %x0" : "+d" (five));
 
 #else
   one   = no_optimize (one);
@@ -68,20 +86,16 @@ main (void)
 #endif
 
   add_xresult = (one + two);
-  if (add_xresult != add_result)
-    abort_test ("add");
+  do_test (add_result, add_xresult, "add");
 
   mul_xresult = add_xresult * three;
-  if (mul_xresult != mul_result)
-    abort_test ("multiply");
+  do_test (mul_result, mul_xresult, "mul");
 
   div_xresult = mul_xresult / four;
-  if (div_xresult != div_result)
-    abort_test ("divide");
+  do_test (div_result, div_xresult, "div");
 
   sub_xresult = div_xresult - five;
-  if (sub_xresult != sub_result)
-    abort_test ("subtract");
+  do_test (sub_result, sub_xresult, "sub");
 
 #ifdef DEBUG
   printf ("Passed\n");

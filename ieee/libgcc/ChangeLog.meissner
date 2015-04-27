@@ -1,5 +1,9 @@
 2015-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/t-float128: Drop support for passing IEEE values
+	in GPRs (-mfloat128-ref).  Rename switch for VSX support
+	(-mfloat128-vsx to -mfloat128).
+
 	Merge up to 222474.
 
 2015-04-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
