@@ -26,8 +26,8 @@ __attribute__((__noinline__))
 static void
 print_f128 (__float128 x)
 {
-  uint64_t sign;
-  uint64_t exponent;
+  unsigned sign;
+  unsigned exponent;
   uint64_t mantissa1;
   uint64_t mantissa2;
   uint64_t upper;
@@ -58,12 +58,12 @@ print_f128 (__float128 x)
   upper  = u.s128.upper;
   lower  = u.s128.lower;
 
-  sign      = ((upper >> 63) & 1);
-  exponent  = ((upper >> 48) & ((((uint64_t)1) << 16) - 1));
+  sign      = (unsigned)((upper >> 63) & 1);
+  exponent  = (unsigned)((upper >> 48) & ((((uint64_t)1) << 16) - 1));
   mantissa1 = (upper & ((((uint64_t)1) << 48) - 1));
   mantissa2 = lower;
 
-  printf ("%c 0x%.4lx 0x%.12lx 0x%.16lx",
+  printf ("%c 0x%.4x 0x%.12lx 0x%.16lx",
 	  sign ? '-' : '+',
 	  exponent,
 	  mantissa1,
