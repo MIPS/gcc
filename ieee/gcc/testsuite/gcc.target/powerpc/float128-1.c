@@ -95,11 +95,11 @@ do_test (__float128 expected, __float128 got, const char *name)
 int
 main (void)
 {
-  __float128 one = 1.0q;
-  __float128 two = 2.0q;
-  __float128 three = 3.0q;
-  __float128 four = 4.0q;
-  __float128 five = 5.0q;
+  __float128 one	= 1.0q;
+  __float128 two	= 2.0q;
+  __float128 three	= 3.0q;
+  __float128 four	= 4.0q;
+  __float128 five	= 5.0q;
   __float128 add_result = (1.0q + 2.0q);
   __float128 mul_result = ((1.0q + 2.0q) * 3.0q);
   __float128 div_result = (((1.0q + 2.0q) * 3.0q) / 4.0q);
