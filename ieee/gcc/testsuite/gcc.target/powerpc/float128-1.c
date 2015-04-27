@@ -18,6 +18,55 @@ pass_through (__float128 x)
 __float128 (*no_optimize) (__float128) = pass_through;
 #endif
 
+#ifdef DEBUG
+__attribute__((__noinline__))
+print_f128 (__float128 x)
+{
+  unsigned long sign;
+  unsigned long exponent;
+  unsigned long mantissa1;
+  unsigned long mantissa2;
+  unsigned long upper;
+  unsigned long lower;
+
+#if defined(_ARCH_PPC) && defined(__BIG_ENDIAN__)
+  struct ieee128 {
+    unsigned long upper;
+    unsigned long lower;
+  };
+
+#elif (defined(_ARCH_PPC) && defined(__LITTLE_ENDIAN__)) || defined(__x86_64__)
+  struct ieee128 {
+    unsigned long lower;
+    unsigned long upper;
+  };
+
+#else
+#error "Unknown system"
+#endif
+
+  union {
+    __float128 f128;
+    struct ieee128 s128;
+  } u;
+
+  u.f128 = x;
+  upper = u.s128.upper;
+  lower = u.s128.lower;
+
+  sign      = ((upper >> 63) & 0x1UL);
+  exponent  = ((upper >> 48) & ((1UL << 16) - 1));
+  mantissa1 = (upper & ((1UL << 48) - 1));
+  mantissa2 = lower;
+
+  printf ("%c 0x%.4lx 0x%.12lx 0x%.16lx",
+	  sign ? '-' : '+',
+	  exponent,
+	  mantissa1,
+	  mantissa2);
+}
+#endif
+
 __attribute__((__noinline__))
 void
 do_test (__float128 expected, __float128 got, const char *name)
@@ -25,25 +74,11 @@ do_test (__float128 expected, __float128 got, const char *name)
   int equal_p = (expected == got);
 
 #ifdef DEBUG
-  size_t i;
-
-  union {
-    __float128 f128;
-    unsigned char uc[sizeof (__float128)];
-  } ue, ug;
-
-  printf ("Test %-8s expected: 0x", name);
-
-  ue.f128 = expected;
-  for (i = 0; i < sizeof (__float128); i++)
-    printf ("%.2x", ue.uc[i]);
-
-  printf (" %10g, got: 0x", (double) expected);
-  ug.f128 = got;
-  for (i = 0; i < sizeof (__float128); i++)
-    printf ("%.2x", ug.uc[i]);
-
-  printf (" %10g, result %s\n",
+  printf ("Test %s, expected: ", name);
+  print_f128 (expected);
+  printf (" %5g, got: ", (double) expected);
+  print_f128 (got);
+  printf (" %5g, result %s\n",
 	  (double) got,
 	  (equal_p) ? "equal" : "not equal");
 #endif
