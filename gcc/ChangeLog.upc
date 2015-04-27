@@ -1,3 +1,8 @@
+2015-04-27  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 222452 into gupc branch.
+	DEV-PHASE: Bump to 6.0.0-1.
+
 2015-04-20  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 222227 into gupc branch.

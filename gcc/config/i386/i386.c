@@ -13591,15 +13591,6 @@ ix86_GOT_alias_set (void)
   return set;
 }
 
-/* Set regs_ever_live for PIC base address register
-   to true if required.  */
-static void
-set_pic_reg_ever_live ()
-{
-  if (reload_in_progress)
-    df_set_regs_ever_live (REGNO (pic_offset_table_rtx), true);
-}
-
 /* Return a legitimate reference for ORIG (an address) using the
    register REG.  If REG is 0, a new pseudo is generated.
 
@@ -13650,7 +13641,6 @@ legitimize_pic_address (rtx orig, rtx reg)
       /* This symbol may be referenced via a displacement from the PIC
 	 base address (@GOTOFF).  */
 
-      set_pic_reg_ever_live ();
       if (GET_CODE (addr) == CONST)
 	addr = XEXP (addr, 0);
       if (GET_CODE (addr) == PLUS)
@@ -13682,7 +13672,6 @@ legitimize_pic_address (rtx orig, rtx reg)
       /* This symbol may be referenced via a displacement from the PIC
 	 base address (@GOTOFF).  */
 
-      set_pic_reg_ever_live ();
       if (GET_CODE (addr) == CONST)
 	addr = XEXP (addr, 0);
       if (GET_CODE (addr) == PLUS)
@@ -13743,7 +13732,6 @@ legitimize_pic_address (rtx orig, rtx reg)
 	  /* This symbol must be referenced via a load from the
 	     Global Offset Table (@GOT).  */
 
-	  set_pic_reg_ever_live ();
 	  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOT);
 	  new_rtx = gen_rtx_CONST (Pmode, new_rtx);
 	  if (TARGET_64BIT)
@@ -13795,7 +13783,6 @@ legitimize_pic_address (rtx orig, rtx reg)
 	    {
 	      if (!TARGET_64BIT)
 		{
-		  set_pic_reg_ever_live ();
 		  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op0),
 					    UNSPEC_GOTOFF);
 		  new_rtx = gen_rtx_PLUS (Pmode, new_rtx, op1);
@@ -14097,7 +14084,6 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 	}
       else if (flag_pic)
 	{
-	  set_pic_reg_ever_live ();
 	  pic = pic_offset_table_rtx;
 	  type = TARGET_ANY_GNU_TLS ? UNSPEC_GOTNTPOFF : UNSPEC_GOTTPOFF;
 	}
@@ -17321,10 +17307,8 @@ ix86_expand_move (machine_mode mode, rtx operands[])
 	  /* dynamic-no-pic */
 	  if (MACHOPIC_INDIRECT)
 	    {
-	      rtx temp = ((reload_in_progress
-			   || ((op0 && REG_P (op0))
-			       && mode == Pmode))
-			  ? op0 : gen_reg_rtx (Pmode));
+	      rtx temp = (op0 && REG_P (op0) && mode == Pmode)
+			 ? op0 : gen_reg_rtx (Pmode);
 	      op1 = machopic_indirect_data_reference (op1, temp);
 	      if (MACHOPIC_PURE)
 		op1 = machopic_legitimize_pic_address (op1, mode,
@@ -17972,16 +17956,10 @@ ix86_expand_binary_operator (enum rtx_code code, machine_mode mode,
  /* Emit the instruction.  */
 
   op = gen_rtx_SET (VOIDmode, dst, gen_rtx_fmt_ee (code, mode, src1, src2));
-  if (reload_in_progress)
-    {
-      /* Reload doesn't know about the flags register, and doesn't know that
-         it doesn't want to clobber it.  We can only do this with PLUS.  */
-      gcc_assert (code == PLUS);
-      emit_insn (op);
-    }
-  else if (reload_completed
-	   && code == PLUS
-	   && !rtx_equal_p (dst, src1))
+
+  if (reload_completed
+      && code == PLUS
+      && !rtx_equal_p (dst, src1))
     {
       /* This is going to be an LEA; avoid splitting it later.  */
       emit_insn (op);
@@ -18145,13 +18123,9 @@ ix86_expand_unary_operator (enum rtx_code code, machine_mode mode,
   /* Emit the instruction.  */
 
   op = gen_rtx_SET (VOIDmode, dst, gen_rtx_fmt_e (code, mode, src));
-  if (reload_in_progress || code == NOT)
-    {
-      /* Reload doesn't know about the flags register, and doesn't know that
-         it doesn't want to clobber it.  */
-      gcc_assert (code == NOT);
-      emit_insn (op);
-    }
+
+  if (code == NOT)
+    emit_insn (op);
   else
     {
       clob = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (CCmode, FLAGS_REG));
@@ -46746,7 +46720,7 @@ ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 
       case vec_construct:
 	elements = TYPE_VECTOR_SUBPARTS (vectype);
-	return elements / 2 + 1;
+	return ix86_cost->vec_stmt_cost * (elements / 2 + 1);
 
       default:
         gcc_unreachable ();
@@ -51766,6 +51740,92 @@ ix86_binds_local_p (const_tree exp)
 				       && HAVE_LD_PIE_COPYRELOC != 0)));
 }
 #endif
+
+/* If MEM is in the form of [base+offset], extract the two parts
+   of address and set to BASE and OFFSET, otherwise return false.  */
+
+static bool
+extract_base_offset_in_addr (rtx mem, rtx *base, rtx *offset)
+{
+  rtx addr;
+
+  gcc_assert (MEM_P (mem));
+
+  addr = XEXP (mem, 0);
+  
+  if (GET_CODE (addr) == CONST)
+    addr = XEXP (addr, 0);
+
+  if (REG_P (addr) || GET_CODE (addr) == SYMBOL_REF)
+    {
+      *base = addr;
+      *offset = const0_rtx;
+      return true;
+    }
+
+  if (GET_CODE (addr) == PLUS
+      && (REG_P (XEXP (addr, 0))
+	  || GET_CODE (XEXP (addr, 0)) == SYMBOL_REF)
+      && CONST_INT_P (XEXP (addr, 1)))
+    {
+      *base = XEXP (addr, 0);
+      *offset = XEXP (addr, 1);
+      return true;
+    }
+
+  return false;
+}
+
+/* Given OPERANDS of consecutive load/store, check if we can merge
+   them into move multiple.  LOAD is true if they are load instructions.
+   MODE is the mode of memory operands.  */
+
+bool
+ix86_operands_ok_for_move_multiple (rtx *operands, bool load,
+				    enum machine_mode mode)
+{
+  HOST_WIDE_INT offval_1, offval_2, msize;
+  rtx mem_1, mem_2, reg_1, reg_2, base_1, base_2, offset_1, offset_2;
+
+  if (load)
+    {
+      mem_1 = operands[1];
+      mem_2 = operands[3];
+      reg_1 = operands[0];
+      reg_2 = operands[2];
+    }
+  else
+    {
+      mem_1 = operands[0];
+      mem_2 = operands[2];
+      reg_1 = operands[1];
+      reg_2 = operands[3];
+    }
+
+  gcc_assert (REG_P (reg_1) && REG_P (reg_2));
+
+  if (REGNO (reg_1) != REGNO (reg_2))
+    return false;
+
+  /* Check if the addresses are in the form of [base+offset].  */
+  if (!extract_base_offset_in_addr (mem_1, &base_1, &offset_1))
+    return false;
+  if (!extract_base_offset_in_addr (mem_2, &base_2, &offset_2))
+    return false;
+
+  /* Check if the bases are the same.  */
+  if (!rtx_equal_p (base_1, base_2))
+    return false;
+
+  offval_1 = INTVAL (offset_1);
+  offval_2 = INTVAL (offset_2);
+  msize = GET_MODE_SIZE (mode);
+  /* Check if mem_1 is adjacent to mem_2 and mem_1 has lower address.  */
+  if (offval_1 + msize != offval_2)
+    return false;
+
+  return true;
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
