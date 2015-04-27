@@ -8,6 +8,9 @@
 #include <stdio.h>
 #endif
 
+#include <stddef.h>
+#include <stdint.h>
+
 #if !defined(__FLOAT128__) || !defined(_ARCH_PPC)
 static __float128
 pass_through (__float128 x)
@@ -20,25 +23,26 @@ __float128 (*no_optimize) (__float128) = pass_through;
 
 #ifdef DEBUG
 __attribute__((__noinline__))
+void
 print_f128 (__float128 x)
 {
-  unsigned long sign;
-  unsigned long exponent;
-  unsigned long mantissa1;
-  unsigned long mantissa2;
-  unsigned long upper;
-  unsigned long lower;
+  uint64_t sign;
+  uint64_t exponent;
+  uint64_t mantissa1;
+  uint64_t mantissa2;
+  uint64_t upper;
+  uint64_t lower;
 
 #if defined(_ARCH_PPC) && defined(__BIG_ENDIAN__)
   struct ieee128 {
-    unsigned long upper;
-    unsigned long lower;
+    uint64_t upper;
+    uint64_t lower;
   };
 
 #elif (defined(_ARCH_PPC) && defined(__LITTLE_ENDIAN__)) || defined(__x86_64__)
   struct ieee128 {
-    unsigned long lower;
-    unsigned long upper;
+    uint64_t lower;
+    uint64_t upper;
   };
 
 #else
@@ -51,12 +55,12 @@ print_f128 (__float128 x)
   } u;
 
   u.f128 = x;
-  upper = u.s128.upper;
-  lower = u.s128.lower;
+  upper  = u.s128.upper;
+  lower  = u.s128.lower;
 
-  sign      = ((upper >> 63) & 0x1UL);
-  exponent  = ((upper >> 48) & ((1UL << 16) - 1));
-  mantissa1 = (upper & ((1UL << 48) - 1));
+  sign      = ((upper >> 63) & 1);
+  exponent  = ((upper >> 48) & ((((uint64_t)1) << 16) - 1));
+  mantissa1 = (upper & ((((uint64_t)1) << 48) - 1));
   mantissa2 = lower;
 
   printf ("%c 0x%.4lx 0x%.12lx 0x%.16lx",
