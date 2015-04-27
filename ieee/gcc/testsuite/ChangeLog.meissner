@@ -1,3 +1,12 @@
+2015-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-1.c: Add #ifdef DEBUG suport, and
+	ability to run test on x86.  Add multiply, divide, subtract
+	tests.
+	* gcc.target/powerpc/float128-2.c: Likewise.
+	* gcc.target/powerpc/float128-3.c: Add more debug support.
+	* gcc.target/powerpc/float128-4.c: Likewise.
+
 2015-04-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 222241.

@@ -27,13 +27,17 @@ static TYPE calc1 (TYPE) NO_INLINE;
 static TYPE calc2 (TYPE) NO_INLINE;
 static TYPE calc3 (TYPE) NO_INLINE;
 
+#ifndef POWER2
+#define POWER2 60
+#endif
+
 
 /*
  * Print TYPE in hex.
  */
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG2)
 static void print_hex (const char *prefix, TYPE, const char *suffix) NO_INLINE;
 
 #if defined (__i386__) || defined (__x86_64__) || defined (__LITTLE_ENDIAN__)
@@ -94,15 +98,54 @@ power_of_two (ssize_t num)
 }
 
 
+#ifdef ADDSUB
+static TYPE add (TYPE a, TYPE b) NO_INLINE;
+static TYPE sub (TYPE a, TYPE b) NO_INLINE;
+
+static TYPE
+add (TYPE a, TYPE b)
+{
+  TYPE c;
+#ifdef DEBUG
+  print_hex ("add, arg1           = ", a, "\n");
+  print_hex ("add, arg2           = ", b, "\n");
+#endif
+  c = a + b;
+#ifdef DEBUG
+  print_hex ("add, result         = ", c, "\n");
+#endif
+  return c;
+}
+
+static TYPE
+sub (TYPE a, TYPE b)
+{
+  TYPE c;
+#ifdef DEBUG
+  print_hex ("sub, arg1           = ", a, "\n");
+  print_hex ("sub, arg2           = ", b, "\n");
+#endif
+  c = a - b;
+#ifdef DEBUG
+  print_hex ("sub, result         = ", c, "\n");
+#endif
+  return c;
+}
+
+#else
+#define add(x, y) ((x) + (y))
+#define sub(x, y) ((x) - (y))
+#endif
+
 /*
- * Various calculations.  Add in 2**60, and subtract 2**59 twice, and we should
+ * Various calculations.  Add in 2**POWER2, and subtract 2**(POWER2-1) twice, and we should
  * get the original value.
  */
 
 static TYPE
 calc1 (TYPE num)
 {
-  TYPE num2 = power_of_two (60) + num;
+  TYPE num2 = add (power_of_two (POWER2), num);
   TYPE ret;
 
 #ifdef DEBUG
@@ -121,7 +164,7 @@ calc1 (TYPE num)
 static TYPE
 calc2 (TYPE num)
 {
-  TYPE num2 = num - power_of_two (59);
+  TYPE num2 = sub (num, power_of_two (POWER2-1));
   TYPE ret;
 
 #ifdef DEBUG
@@ -140,7 +183,7 @@ calc2 (TYPE num)
 static TYPE
 calc3 (TYPE num)
 {
-  TYPE ret = num - (((TYPE) 2.0) * power_of_two (58));
+  TYPE ret = sub (num, (((TYPE) 2.0) * power_of_two (POWER2-2)));
 
 #ifdef DEBUG
   print_hex ("calc3               = ", ret, "\n");
@@ -160,22 +203,25 @@ main (void)
 #endif
 
   input = power_of_two (-1);
-  output = calc1 (input);
-
-  if (input != (TYPE) 0.5)
+  if ((double)input != 0.5)
     {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG2)
       print_hex ("Input should be 0.5:  ", output, "\n");
-#endif
+      return 1;
+#else
       __builtin_abort ();
+#endif
     }
 
-  if (output != (TYPE) 0.5)
+  output = calc1 (input);
+  if ((double)output != 0.5)
     {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG2)
       print_hex ("Output should be 0.5: ", output, "\n");
-#endif
+      return 1;
+#else
       __builtin_abort ();
+#endif
     }
 
   return 0;
