@@ -6,10 +6,10 @@
 
 #ifdef DEBUG
 #include <stdio.h>
-#endif
-
 #include <stddef.h>
 #include <stdint.h>
+#include <inttypes.h>
+#endif
 
 #if !defined(__FLOAT128__) || !defined(_ARCH_PPC)
 static __float128
@@ -63,7 +63,7 @@ print_f128 (__float128 x)
   mantissa1 = (upper & ((((uint64_t)1) << 48) - 1));
   mantissa2 = lower;
 
-  printf ("%c 0x%.4x 0x%.12lx 0x%.16lx",
+  printf ("%c 0x%.4x 0x%.12" PRIx64 " 0x%.16" PRIx64,
 	  sign ? '-' : '+',
 	  exponent,
 	  mantissa1,
