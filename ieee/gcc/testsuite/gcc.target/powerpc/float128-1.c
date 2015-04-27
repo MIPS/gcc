@@ -104,10 +104,12 @@ main (void)
   __float128 mul_result = ((1.0q + 2.0q) * 3.0q);
   __float128 div_result = (((1.0q + 2.0q) * 3.0q) / 4.0q);
   __float128 sub_result = ((((1.0q + 2.0q) * 3.0q) / 4.0q) - 5.0q);
+  __float128 neg_result = - sub_result;
   __float128 add_xresult;
   __float128 mul_xresult;
   __float128 div_xresult;
   __float128 sub_xresult;
+  __float128 neg_xresult;
 
 #if defined(__FLOAT128__) && defined(_ARCH_PPC)
   __asm__ (" #prevent constant folding, %x0" : "+wa" (one));
@@ -135,6 +137,9 @@ main (void)
 
   sub_xresult = div_xresult - five;
   do_test (sub_result, sub_xresult, "sub");
+
+  neg_xresult = - sub_xresult;
+  do_test (neg_result, neg_xresult, "neg");
 
 #ifdef DEBUG
   printf ("Passed\n");
