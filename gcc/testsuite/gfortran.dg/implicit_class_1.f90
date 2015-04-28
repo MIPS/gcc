@@ -4,9 +4,11 @@
 !
 ! Contributed by Reinhold Bader <Reinhold.Bader@lrz.de>
 
-! Add dump-tree-original to check, if the patch preventing a gfortran
-! segfault is working correctly.
-! { dg-options "-fdump-tree-original" }
+! Add dump-fortran-original to check, if the patch preventing a gfortran
+! segfault is working correctly.  No cleanup needed, because the dump
+! goes to stdout.
+! { dg-options "-fdump-fortran-original" }
+! { dg-prune-output "Namespace:.*" }
 
 program upimp
   implicit class(foo) (a-b)
@@ -37,5 +39,3 @@ contains
     implicit class(*) (a-z)
   end
 end program
-
-! { dg-final { cleanup-tree-dump "original" } }
