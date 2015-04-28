@@ -428,7 +428,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define CONVERT_EXPR_CODE_P(CODE)				\
   ((CODE) == NOP_EXPR || (CODE) == CONVERT_EXPR)
 
-/* Similarly, but accept an expressions instead of a tree code.  */
+/* Similarly, but accept an expression instead of a tree code.  */
 #define CONVERT_EXPR_P(EXP)	CONVERT_EXPR_CODE_P (TREE_CODE (EXP))
 
 /* Generate case for NOP_EXPR, CONVERT_EXPR.  */
@@ -3887,6 +3887,8 @@ extern tree make_tree (tree, rtx);
 extern tree build_type_attribute_variant (tree, tree);
 extern tree build_decl_attribute_variant (tree, tree);
 extern tree build_type_attribute_qual_variant (tree, tree, int);
+
+extern bool attribute_value_equal (const_tree, const_tree);
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a

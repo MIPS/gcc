@@ -880,12 +880,19 @@ build_cplus_array_type (tree elt_type, tree index_type)
 	{
 	  t = build_min_array_type (elt_type, index_type);
 	  set_array_type_canon (t, elt_type, index_type);
+	  if (!dependent)
+	    {
+	      layout_type (t);
+	      /* Make sure sizes are shared with the main variant.
+		 layout_type can't be called after setting TYPE_NEXT_VARIANT,
+		 as it will overwrite alignment etc. of all variants.  */
+	      TYPE_SIZE (t) = TYPE_SIZE (m);
+	      TYPE_SIZE_UNIT (t) = TYPE_SIZE_UNIT (m);
+	    }
 
 	  TYPE_MAIN_VARIANT (t) = m;
 	  TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
 	  TYPE_NEXT_VARIANT (m) = t;
-	  if (!dependent)
-	    layout_type (t);
 	}
     }
 
@@ -1072,6 +1079,8 @@ cp_build_qualified_type_real (tree type,
 	    {
 	      t = build_variant_type_copy (t);
 	      TYPE_NAME (t) = TYPE_NAME (type);
+	      TYPE_ALIGN (t) = TYPE_ALIGN (type);
+	      TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (type);
 	    }
 	}
 
@@ -2464,12 +2473,6 @@ build_ctor_subob_ref (tree index, tree type, tree obj)
 /* Like substitute_placeholder_in_expr, but handle C++ tree codes and
    build up subexpressions as we go deeper.  */
 
-struct replace_placeholders_t
-{
-  tree obj;
-  hash_set<tree> *pset;
-};
-
 static tree
 replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 {
@@ -2530,7 +2533,6 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 tree
 replace_placeholders (tree exp, tree obj)
 {
-  hash_set<tree> pset;
   tree *tp = &exp;
   if (TREE_CODE (exp) == TARGET_EXPR)
     tp = &TARGET_EXPR_INITIAL (exp);

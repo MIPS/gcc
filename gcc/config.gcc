@@ -664,6 +664,11 @@ case ${target} in
   gas=yes
   gnu_ld=yes
   fbsd_major=`echo ${target} | sed -e 's/.*freebsd//g' | sed -e 's/\..*//g'`
+  if test "$fbsd_major" = ""; then
+    echo "Specify the major version number of the targeted FreeBSD release"
+    echo "like this: --target=amd64-unknown-freebsd10.1"
+    exit 1
+  fi
   tm_defines="${tm_defines} FBSD_MAJOR=${fbsd_major}"
   tmake_file="t-slibgcc"
   case ${enable_threads} in
@@ -1118,7 +1123,7 @@ bfin*-uclinux*)
 	;;
 bfin*-linux-uclibc*)
 	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h gnu-user.h linux.h glibc-stdint.h bfin/linux.h ./linux-sysroot-suffix.h"
-	tmake_file="bfin/t-bfin-linux t-slibgcc t-linux"
+	tmake_file="${tmake_file} bfin/t-bfin-linux"
 	use_collect2=no
 	;;
 bfin*-rtems*)
@@ -2917,7 +2922,7 @@ vax-*-netbsdelf*)
 	extra_options="${extra_options} netbsd.opt netbsd-elf.opt vax/elf.opt"
 	;;
 vax-*-openbsd*)
-	tm_file="vax/vax.h vax/openbsd1.h openbsd.h openbsd-stdint.h openbsd-pthread.h vax/openbsd.h"
+	tm_file="vax/vax.h vax/openbsd1.h openbsd.h openbsd-stdint.h openbsd-libpthread.h vax/openbsd.h"
 	extra_options="${extra_options} openbsd.opt"
 	use_collect2=yes
 	;;

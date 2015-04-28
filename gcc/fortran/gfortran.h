@@ -2819,6 +2819,7 @@ bool verify_bind_c_derived_type (gfc_symbol *);
 bool verify_com_block_vars_c_interop (gfc_common_head *);
 gfc_symtree *generate_isocbinding_symbol (const char *, iso_c_binding_symbol,
 					  const char *, gfc_symtree *, bool);
+void gfc_save_symbol_data (gfc_symbol *);
 int gfc_get_sym_tree (const char *, gfc_namespace *, gfc_symtree **, bool);
 int gfc_get_ha_symbol (const char *, gfc_symbol **);
 int gfc_get_ha_sym_tree (const char *, gfc_symtree **);
@@ -3209,6 +3210,11 @@ bool gfc_is_finalizable (gfc_symbol *, gfc_expr **);
 	 && CLASS_DATA (sym) \
 	 && CLASS_DATA (sym)->ts.u.derived \
 	 && CLASS_DATA (sym)->ts.u.derived->attr.unlimited_polymorphic)
+#define IS_CLASS_ARRAY(sym) \
+	(sym->ts.type == BT_CLASS \
+	 && CLASS_DATA (sym) \
+	 && CLASS_DATA (sym)->attr.dimension \
+	 && !CLASS_DATA (sym)->attr.class_pointer)
 
 /* frontend-passes.c */
 

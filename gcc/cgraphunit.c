@@ -1373,7 +1373,7 @@ init_lowered_empty_function (tree decl, bool in_ssa, gcov_type count)
   ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency = REG_BR_PROB_BASE;
   EXIT_BLOCK_PTR_FOR_FN (cfun)->count = count;
   EXIT_BLOCK_PTR_FOR_FN (cfun)->frequency = REG_BR_PROB_BASE;
-  bb = create_basic_block (NULL, (void *) 0, ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  bb = create_basic_block (NULL, ENTRY_BLOCK_PTR_FOR_FN (cfun));
   bb->count = count;
   bb->frequency = BB_FREQ_MAX;
   e = make_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun), bb, EDGE_FALLTHRU);
@@ -1585,6 +1585,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       int i;
       tree resdecl;
       tree restmp = NULL;
+      tree resbnd = NULL;
 
       gcall *call;
       greturn *ret;
@@ -1701,6 +1702,17 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       gsi_insert_after (&bsi, call, GSI_NEW_STMT);
       if (!alias_is_noreturn)
 	{
+	  if (instrumentation_clone
+	      && !DECL_BY_REFERENCE (resdecl)
+	      && restmp
+	      && BOUNDED_P (restmp))
+	    {
+	      resbnd = chkp_insert_retbnd_call (NULL, restmp, &bsi);
+	      create_edge (get_create (gimple_call_fndecl (gsi_stmt (bsi))),
+			   as_a <gcall *> (gsi_stmt (bsi)),
+			   callees->count, callees->frequency);
+	    }
+
 	  if (restmp && !this_adjusting
 	      && (fixed_offset || virtual_offset))
 	    {
@@ -1714,13 +1726,13 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 		     protect against NULL.  We know there will be an
 		     adjustment, because that's why we're emitting a
 		     thunk.  */
-		  then_bb = create_basic_block (NULL, (void *) 0, bb);
+		  then_bb = create_basic_block (NULL, bb);
 		  then_bb->count = count - count / 16;
 		  then_bb->frequency = BB_FREQ_MAX - BB_FREQ_MAX / 16;
-		  return_bb = create_basic_block (NULL, (void *) 0, then_bb);
+		  return_bb = create_basic_block (NULL, then_bb);
 		  return_bb->count = count;
 		  return_bb->frequency = BB_FREQ_MAX;
-		  else_bb = create_basic_block (NULL, (void *) 0, else_bb);
+		  else_bb = create_basic_block (NULL, else_bb);
 		  then_bb->count = count / 16;
 		  then_bb->frequency = BB_FREQ_MAX / 16;
 		  add_bb_to_loop (then_bb, bb->loop_father);
@@ -1770,6 +1782,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 	    ret = gimple_build_return (restmp);
 	  else
 	    ret = gimple_build_return (resdecl);
+	  gimple_return_set_retbnd (ret, resbnd);
 
 	  gsi_insert_after (&bsi, ret, GSI_NEW_STMT);
 	}

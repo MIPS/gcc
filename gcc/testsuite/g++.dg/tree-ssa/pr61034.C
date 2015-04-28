@@ -42,6 +42,6 @@ bool f(I a, I b, I c, I d) {
 // This works only if everything is inlined into 'f'.
 
 // { dg-final { scan-tree-dump-times ";; Function" 1 "fre3" } }
-// { dg-final { scan-tree-dump-times "free" 19 "fre3" } }
+// { dg-final { scan-tree-dump-times "free" 18 "fre3" } }
 // { dg-final { scan-tree-dump-times "unreachable" 11 "fre3" } }
 // { dg-final { cleanup-tree-dump "fre3" } }

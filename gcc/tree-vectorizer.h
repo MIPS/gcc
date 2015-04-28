@@ -131,10 +131,6 @@ typedef struct _slp_instance {
 
   /* The group of nodes that contain loads of this SLP instance.  */
   vec<slp_tree> loads;
-
-  /* The first scalar load of the instance. The created vector loads will be
-     inserted before this statement.  */
-  gimple first_load;
 } *slp_instance;
 
 
@@ -144,7 +140,6 @@ typedef struct _slp_instance {
 #define SLP_INSTANCE_UNROLLING_FACTOR(S)         (S)->unrolling_factor
 #define SLP_INSTANCE_BODY_COST_VEC(S)            (S)->body_cost_vec
 #define SLP_INSTANCE_LOADS(S)                    (S)->loads
-#define SLP_INSTANCE_FIRST_LOAD_STMT(S)          (S)->first_load
 
 #define SLP_TREE_CHILDREN(S)                     (S)->children
 #define SLP_TREE_SCALAR_STMTS(S)                 (S)->stmts
@@ -220,20 +215,20 @@ typedef struct _vect_peel_extended_info
 
 struct peel_info_hasher : typed_free_remove <_vect_peel_info>
 {
-  typedef _vect_peel_info value_type;
-  typedef _vect_peel_info compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef _vect_peel_info *value_type;
+  typedef _vect_peel_info *compare_type;
+  static inline hashval_t hash (const _vect_peel_info *);
+  static inline bool equal (const _vect_peel_info *, const _vect_peel_info *);
 };
 
 inline hashval_t
-peel_info_hasher::hash (const value_type *peel_info)
+peel_info_hasher::hash (const _vect_peel_info *peel_info)
 {
   return (hashval_t) peel_info->npeel;
 }
 
 inline bool
-peel_info_hasher::equal (const value_type *a, const compare_type *b)
+peel_info_hasher::equal (const _vect_peel_info *a, const _vect_peel_info *b)
 {
   return (a->npeel == b->npeel);
 }

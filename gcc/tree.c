@@ -4873,7 +4873,7 @@ simple_cst_list_equal (const_tree l1, const_tree l2)
    attribute values are known to be equal; otherwise return false.
 */
 
-static bool
+bool
 attribute_value_equal (const_tree attr1, const_tree attr2)
 {
   if (TREE_VALUE (attr1) == TREE_VALUE (attr2))
@@ -5822,6 +5822,8 @@ free_lang_data (void)
      still be used indirectly via the get_alias_set langhook.  */
   lang_hooks.dwarf_name = lhd_dwarf_name;
   lang_hooks.decl_printable_name = gimple_decl_printable_name;
+  lang_hooks.gimplify_expr = lhd_gimplify_expr;
+
   /* We do not want the default decl_assembler_name implementation,
      rather if we have fixed everything we want a wrapper around it
      asserting that all non-local symbols already got their assembler
@@ -7704,7 +7706,7 @@ build_pointer_type_for_mode (tree to_type, machine_mode mode,
   else if (TYPE_CANONICAL (to_type) != to_type)
     TYPE_CANONICAL (t)
       = build_pointer_type_for_mode (TYPE_CANONICAL (to_type),
-				     mode, can_alias_all);
+				     mode, false);
 
   /* Lay out the type.  This function has many callers that are concerned
      with expression-construction, and this simplifies them all.  */
@@ -7771,7 +7773,7 @@ build_reference_type_for_mode (tree to_type, machine_mode mode,
   else if (TYPE_CANONICAL (to_type) != to_type)
     TYPE_CANONICAL (t)
       = build_reference_type_for_mode (TYPE_CANONICAL (to_type),
-				       mode, can_alias_all);
+				       mode, false);
 
   layout_type (t);
 

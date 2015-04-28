@@ -103,6 +103,7 @@ along with GCC; see the file COPYING3.  If not see
 	      NEXT_PASS (pass_tree_loop_done);
 	  POP_INSERT_PASSES ()
 	  NEXT_PASS (pass_merge_phi);
+          NEXT_PASS (pass_dse);
 	  NEXT_PASS (pass_cd_dce);
 	  NEXT_PASS (pass_early_ipa_sra);
 	  NEXT_PASS (pass_tail_recursion);
@@ -173,7 +174,6 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_ccp);
       /* After CCP we rewrite no longer addressed locals into SSA
 	 form if possible.  */
-      NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_phiprop);
       NEXT_PASS (pass_forwprop);
@@ -225,7 +225,6 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_ccp);
       /* After CCP we rewrite no longer addressed locals into SSA
 	 form if possible.  */
-      NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_cse_sincos);
       NEXT_PASS (pass_optimize_bswap);
       NEXT_PASS (pass_split_crit_edges);
@@ -359,6 +358,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_tm_edges);
   POP_INSERT_PASSES ()
   NEXT_PASS (pass_vtable_verify);
+  NEXT_PASS (pass_lower_vaarg);
   NEXT_PASS (pass_lower_vector);
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_asan_O0);

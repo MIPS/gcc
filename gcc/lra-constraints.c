@@ -533,7 +533,7 @@ get_equiv_with_elimination (rtx x, rtx_insn *insn)
   if (x == res || CONSTANT_P (res))
     return res;
   return lra_eliminate_regs_1 (insn, res, GET_MODE (res),
-			       0, false, false, true);
+			       false, false, 0, true);
 }
 
 /* Set up curr_operand_mode.  */
@@ -1656,7 +1656,7 @@ prohibited_class_reg_set_mode_p (enum reg_class rclass,
 {
   HARD_REG_SET temp;
   
-  lra_assert (hard_reg_set_subset_p (set, reg_class_contents[rclass]));
+  lra_assert (hard_reg_set_subset_p (reg_class_contents[rclass], set));
   COPY_HARD_REG_SET (temp, set);
   AND_COMPL_HARD_REG_SET (temp, lra_no_alloc_regs);
   return (hard_reg_set_subset_p
@@ -3354,12 +3354,10 @@ curr_insn_transform (bool check_only_p)
   if (JUMP_P (curr_insn) || CALL_P (curr_insn))
     no_output_reloads_p = true;
 
-#ifdef HAVE_cc0
-  if (reg_referenced_p (cc0_rtx, PATTERN (curr_insn)))
+  if (HAVE_cc0 && reg_referenced_p (cc0_rtx, PATTERN (curr_insn)))
     no_input_reloads_p = true;
-  if (reg_set_p (cc0_rtx, PATTERN (curr_insn)))
+  if (HAVE_cc0 && reg_set_p (cc0_rtx, PATTERN (curr_insn)))
     no_output_reloads_p = true;
-#endif
 
   n_operands = curr_static_id->n_operands;
   n_alternatives = curr_static_id->n_alternatives;

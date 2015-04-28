@@ -839,7 +839,6 @@ set_single_call_flag (cgraph_node *node, void *)
     cs = cs->next_caller;
   if (cs)
     {
-      gcc_assert (!cs->next_caller);
       IPA_NODE_REF (cs->caller)->node_calling_single_call = true;
       return true;
     }
@@ -4494,6 +4493,7 @@ ipcp_driver (void)
   /* Free all IPCP structures.  */
   free_toporder_info (&topo);
   next_edge_clone.release ();
+  prev_edge_clone.release ();
   symtab->remove_edge_removal_hook (edge_removal_hook_holder);
   symtab->remove_edge_duplication_hook (edge_duplication_hook_holder);
   ipa_free_all_structures_after_ipa_cp ();
