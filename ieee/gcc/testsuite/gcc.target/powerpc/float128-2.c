@@ -1,4 +1,4 @@
-/* { dg-do run { target { powerpc*-*-linux* && lp64 } } } */
+/* { dg-do run { target { powerpc*-*-linux* } } } */
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
 /* { dg-skip-if "" { powerpc*-*-*spe* } { "*" } { "" } } */
 /* { dg-require-effective-target vsx_hw } */

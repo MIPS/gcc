@@ -1,3 +1,25 @@
+2015-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config.host (powerpc*-*-linux*): Enable __float128 support on
+	32-bit big endian VSX systems.
+	* configure.ac (powerpc*-*-linux*): Likewise.
+	* configure: Regenerate.
+
+	* config/rs6000/sfp-machine.h (_FP_W_TYPE_SIZE): On 64-bit systems
+	and 32-bit VSX systems, use 64-bit integers instead of 32-bit for
+	doing the emulation support.  However, don't enable 128-bit
+	integer support (TImode) on 32-bit systems.
+	(_FP_W_TYPE): Likewise.
+	(_FP_WS_TYPE): Likewise.
+	(_FP_I_TYPE): Likewise.
+	(TItype): Likewise.
+	(UTItype): Likewise.
+	(TI_BITS): Likewise.
+	(_FP_MUL_MEAT_2_wide): Likewise.
+	(_FP_MUL_MEAT_4_wide): Likewise.
+	(_FP_DIV_MEAT_Q): Likewise.
+	(_FP_NANFRAC_Q): Likewise.
+
 2015-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/t-float128: Drop support for passing IEEE values
