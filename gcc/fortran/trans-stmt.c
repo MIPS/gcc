@@ -5174,25 +5174,30 @@ gfc_trans_allocate (gfc_code * code)
 	{
 	  if (!code->expr3->mold
 	      || code->expr3->ts.type == BT_CHARACTER
-	      || vtab_needed)
+	      || vtab_needed
+	      || code->ext.alloc.arr_spec_from_expr3)
 	    {
 	      /* Convert expr3 to a tree.  */
 	      gfc_init_se (&se, NULL);
-	      /* For all "simple" expression just get the descriptor or the
-		 reference, respectively, depending on the rank of the expr.  */
-	      if (code->expr3->rank != 0 || code->ext.alloc.arr_spec_from_expr3)
+	      if (code->ext.alloc.arr_spec_from_expr3)
 		{
 		  gfc_conv_expr_descriptor (&se, code->expr3);
-		  if (code->ext.alloc.arr_spec_from_expr3)
-		    expr3_desc = se.expr;
+		  expr3_desc = se.expr;
 		}
 	      else
-		gfc_conv_expr_reference (&se, code->expr3);
-	      if (!code->expr3->mold)
-		expr3 = se.expr;
-	      else
-		expr3_tmp = se.expr;
-	      expr3_len = se.string_length;
+		{
+		  /* For all "simple" expression just get the descriptor or the
+		     reference, respectively, depending on the rank of the expr.  */
+		  if (code->expr3->rank != 0)
+		    gfc_conv_expr_descriptor (&se, code->expr3);
+		  else
+		    gfc_conv_expr_reference (&se, code->expr3);
+		  if (!code->expr3->mold)
+		    expr3 = se.expr;
+		  else
+		    expr3_tmp = se.expr;
+		  expr3_len = se.string_length;
+		}
 	      gfc_add_block_to_block (&block, &se.pre);
 	      gfc_add_block_to_block (&post, &se.post);
 	    }
@@ -5653,15 +5658,15 @@ gfc_trans_allocate (gfc_code * code)
 	  /* Initialization via SOURCE block
 	     (or static default initializer).  */
 	  gfc_expr *rhs = gfc_copy_expr (code->expr3);
-	  if (expr3_desc != NULL_TREE
+	  if ((expr3_desc != NULL_TREE
 	      || (expr3 != NULL_TREE
 		  && ((POINTER_TYPE_P (TREE_TYPE (expr3))
 		       && TREE_CODE (expr3) != POINTER_PLUS_EXPR)
 		      || (VAR_P (expr3) && GFC_CLASS_TYPE_P (
-			    TREE_TYPE (expr3))))
-		  && code->expr3->ts.type == BT_CLASS
-		  && (expr->ts.type == BT_CLASS
-		      || expr->ts.type == BT_DERIVED)))
+			    TREE_TYPE (expr3))))))
+	      && code->expr3->ts.type == BT_CLASS
+	      && (expr->ts.type == BT_CLASS
+		  || expr->ts.type == BT_DERIVED))
 	    {
 	      /* copy_class_to_class can be used for class arrays, too.
 		 It just needs to be ensured, that the decl_saved_descriptor
