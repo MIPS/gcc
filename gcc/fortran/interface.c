@@ -489,7 +489,7 @@ gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
      When the _data component is not present, then nevertheless the
      unlimited_polymorphic flag may be set in the derived type's attr.  */
   if (ts1->type == BT_CLASS && ts1->u.derived->components
-      && ((strcmp (ts1->u.derived->components->name, "_data") == 0
+      && ((ts1->u.derived->attr.is_class
 	   && ts1->u.derived->components->ts.u.derived->attr
 						  .unlimited_polymorphic)
 	  || ts1->u.derived->attr.unlimited_polymorphic))
@@ -498,7 +498,7 @@ gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
   /* F2003: C717  */
   if (ts2->type == BT_CLASS && ts1->type == BT_DERIVED
       && ts2->u.derived->components
-      && ((strcmp (ts2->u.derived->components->name, "_data") == 0
+      && ((ts2->u.derived->attr.is_class
 	   && ts2->u.derived->components->ts.u.derived->attr
 						  .unlimited_polymorphic)
 	  || ts2->u.derived->attr.unlimited_polymorphic)
