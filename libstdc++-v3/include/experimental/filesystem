@@ -40,6 +40,8 @@
 #include <experimental/fs_dir.h>
 #include <experimental/fs_ops.h>
 
+#define __cpp_lib_experimental_filesystem 201406
+
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 namespace experimental
