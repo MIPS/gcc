@@ -251,7 +251,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // operational functions
 
   void copy(const path& __from, const path& __to, copy_options __options);
-  void copy(const path& __from, const path& __to, copy_options __options,  
+  void copy(const path& __from, const path& __to, copy_options __options,
 	    error_code&) noexcept;
 
   bool copy_file(const path& __from, const path& __to, copy_options __option);

@@ -31,7 +31,7 @@ namespace __gnu_test
 #define PATH_CHK(p1, p2, fn) \
     if ( p1.fn() != p2.fn() ) \
       throw std::experimental::filesystem::filesystem_error( #fn, p1, p2, \
-	  std::make_error_code(std::errc::invalid_argument) ) 
+	  std::make_error_code(std::errc::invalid_argument) )
 
   void
   compare_paths(const std::experimental::filesystem::path& p1,
