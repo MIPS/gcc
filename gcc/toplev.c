@@ -500,15 +500,15 @@ wrapup_global_declarations (tree *vec, int len)
   return output_something;
 }
 
-/* A subroutine of check_global_declarations.  Issue appropriate warnings
-   for the global declaration DECL.  */
+/* Issue appropriate warnings for the global declaration DECL.  */
 
 void
-check_global_declaration_1 (tree decl)
+check_global_declaration (tree decl)
 {
   /* Warn about any function declared static but not defined.  We don't
      warn about variables, because many programs have static variables
      that exist only to get some text into the object file.  */
+  symtab_node *snode = symtab_node::get (decl);
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_INITIAL (decl) == 0
       && DECL_EXTERNAL (decl)
@@ -516,9 +516,9 @@ check_global_declaration_1 (tree decl)
       && ! TREE_NO_WARNING (decl)
       && ! TREE_PUBLIC (decl)
       && (warn_unused_function
-	  || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
+	  || snode->referred_to_p (false)))
     {
-      if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+      if (snode->referred_to_p (false))
 	pedwarn (input_location, 0, "%q+F used but never defined", decl);
       else
 	warning (OPT_Wunused_function, "%q+F declared %<static%> but never defined", decl);
@@ -533,6 +533,11 @@ check_global_declaration_1 (tree decl)
        || (warn_unused_variable
 	   && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
       && ! DECL_IN_SYSTEM_HEADER (decl)
+      && ! snode->referred_to_p (false)
+      /* ?? Why are we looking at TREE_USED?  Shouldn't the call to
+	 referred_to_p above be enough?  Apparently not, because the
+	 `__unused__' attribute is not being considered for
+	 referred_to_p.  */
       && ! TREE_USED (decl)
       /* The TREE_USED bit for file-scope decls is kept in the identifier,
 	 to handle multiple external decls in different scopes.  */
@@ -543,24 +548,16 @@ check_global_declaration_1 (tree decl)
       && ! TREE_THIS_VOLATILE (decl)
       /* Global register variables must be declared to reserve them.  */
       && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+      /* Global ctors and dtors are called by the runtime.  */
+      && (TREE_CODE (decl) != FUNCTION_DECL
+	  || (!DECL_STATIC_CONSTRUCTOR (decl)
+	      && !DECL_STATIC_DESTRUCTOR (decl)))
       /* Otherwise, ask the language.  */
       && lang_hooks.decls.warn_unused_global (decl))
     warning ((TREE_CODE (decl) == FUNCTION_DECL)
 	     ? OPT_Wunused_function
              : OPT_Wunused_variable,
 	     "%q+D defined but not used", decl);
-}
-
-/* Issue appropriate warnings for the global declarations in V (of
-   which there are LEN).  */
-
-void
-check_global_declarations (tree *v, int len)
-{
-  int i;
-
-  for (i = 0; i < len; i++)
-    check_global_declaration_1 (v[i]);
 }
 
 /* Emit late debugging information (post compilation) for all global

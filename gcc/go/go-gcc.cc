@@ -3084,8 +3084,6 @@ Gcc_backend::write_global_definitions(
 
   wrapup_global_declarations(defs, i);
 
-  check_global_declarations(defs, i);
-
   delete[] defs;
 }
 

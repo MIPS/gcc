@@ -10686,7 +10686,7 @@ c_write_global_declarations_1 (tree globals)
     {
       /* Check for used but undefined static functions using the C
 	 standard's definition of "used", and set TREE_NO_WARNING so
-	 that check_global_declarations doesn't repeat the check.  */
+	 that check_global_declaration doesn't repeat the check.  */
       if (TREE_CODE (decl) == FUNCTION_DECL
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
@@ -10707,9 +10707,6 @@ c_write_global_declarations_1 (tree globals)
 	reconsider |= wrapup_global_declaration_2 (decl);
     }
   while (reconsider);
-
-  for (decl = globals; decl; decl = DECL_CHAIN (decl))
-    check_global_declaration_1 (decl);
 }
 
 /* Callback to collect a source_ref from a DECL.  */
@@ -10811,7 +10808,7 @@ c_parse_final_cleanups (void)
     }
 
   /* Process all file scopes in this compilation, and the external_scope,
-     through wrapup_global_declarations and check_global_declarations.  */
+     through wrapup_global_declarations.  */
   FOR_EACH_VEC_ELT (*all_translation_units, i, t)
     c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   c_write_global_declarations_1 (BLOCK_VARS (ext_block));

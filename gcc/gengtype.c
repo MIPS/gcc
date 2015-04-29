@@ -4718,7 +4718,8 @@ write_roots (pair_p variables, bool emit_pch)
    this funcion will have to be adjusted to be more like
    output_mangled_typename.  */
 
-static void
+/* ?? Why are we keeping this?  Is this actually used anywhere?  */
+static void ATTRIBUTE_UNUSED
 output_typename (outf_p of, const_type_p t)
 {
   switch (t->kind)

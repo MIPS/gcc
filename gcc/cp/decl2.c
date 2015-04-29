@@ -4359,21 +4359,6 @@ dump_tu (void)
     }
 }
 
-/* Issue warnings for globals in NAME_SPACE (unused statics, etc).  */
-
-static int
-check_statics_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
-{
-  cp_binding_level *level = NAMESPACE_LEVEL (name_space);
-  vec<tree, va_gc> *statics = level->static_decls;
-  tree *vec = statics->address ();
-  int len = statics->length ();
-
-  check_global_declarations (vec, len);
-
-  return 0;
-}
-
 static location_t locus_at_end_of_parsing;
 
 /* Check the deallocation functions for CODE to see if we want to warn that
@@ -4739,7 +4724,7 @@ c_parse_final_cleanups (void)
 				(template_for_substitution (decl)))))
 	{
 	  warning (0, "inline function %q+D used but never defined", decl);
-	  /* Avoid a duplicate warning from check_global_declaration_1.  */
+	  /* Avoid a duplicate warning from check_global_declaration.  */
 	  TREE_NO_WARNING (decl) = 1;
 	}
     }
@@ -4802,10 +4787,6 @@ c_parse_final_cleanups (void)
      generate initial debug information.  */
   timevar_stop (TV_PHASE_PARSING);
   timevar_start (TV_PHASE_DBGINFO);
-  walk_namespaces (check_statics_for_namespace, 0);
-  if (vec_safe_length (pending_statics) != 0)
-    check_global_declarations (pending_statics->address (),
-			       pending_statics->length ());
 
   perform_deferred_noexcept_checks ();
 

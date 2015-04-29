@@ -139,12 +139,12 @@ lhd_print_tree_nothing (FILE * ARG_UNUSED (file),
 {
 }
 
-/* Called from check_global_declarations.  */
+/* Called from check_global_declaration.  */
 
 bool
 lhd_warn_unused_global_decl (const_tree decl)
 {
-  /* This is what used to exist in check_global_declarations.  Probably
+  /* This is what used to exist in check_global_declaration.  Probably
      not many of these actually apply to non-C languages.  */
 
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl))
@@ -338,7 +338,6 @@ global_decl_processing (void)
     vec[len - i - 1] = decl;
 
   wrapup_global_declarations (vec, len);
-  check_global_declarations (vec, len);
   timevar_stop (TV_PHASE_DEFERRED);
 
   timevar_start (TV_PHASE_PARSING);
