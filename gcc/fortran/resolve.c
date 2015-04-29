@@ -7144,7 +7144,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code, bool *array_alloc_wo_spec)
     }
 
   /* Make sure that the array section reference makes sense in the
-    context of an ALLOCATE specification.  */
+     context of an ALLOCATE specification.  */
 
   ar = &ref2->u.ar;
 
@@ -7236,6 +7236,10 @@ failure:
   return false;
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8b4702968ab31a52fed68f528ffea0b73d6c9fd3
 static void
 resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 {
@@ -7429,9 +7433,9 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	      || code->expr3->expr_type == EXPR_FUNCTION)
 	    {
 	      /* The trans stage can not cope with expr3->expr_type
-	     being EXPR_ARRAY or EXPR_FUNCTION, therefore create a
-	     temporary variable and assign expr3 to it, substituting
-	     the variable in expr3.  */
+		 being EXPR_ARRAY or EXPR_FUNCTION, therefore create a
+		 temporary variable and assign expr3 to it, substituting
+		 the variable in expr3.  */
 	      char name[25];
 	      static unsigned int alloc_sym_count = 0;
 	      gfc_symbol *temp_var_sym;
@@ -7456,7 +7460,7 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	      temp_var->where = code->expr3->where;
 
 	      /* Now to the most important: Set the array specification
-	     correctly.  */
+		 correctly.  */
 	      as = gfc_get_array_spec ();
 	      temp_var->rank = as->rank = code->expr3->rank;
 	      if (code->expr3->expr_type == EXPR_ARRAY)
