@@ -1,3 +1,9 @@
+2015-04-29  Gary Funck  <gary@intrepid.com>
+
+	* doc/gupc.texi, doc/install.texi, doc/invoke.texi,
+	doc/passes.texi, doc/sourcebuild.texi:
+	Update GUPC documentation.
+
 2015-04-27  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 222452 into gupc branch.
