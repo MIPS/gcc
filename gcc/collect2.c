@@ -1044,7 +1044,8 @@ main (int argc, char **argv)
 #ifndef HAVE_LD_DEMANGLE
   current_demangling_style = auto_demangling;
 #endif
-  p = getenv ("COLLECT_GCC_OPTIONS");
+  char *gcc_options = getenv ("COLLECT_GCC_OPTIONS");
+  p = gcc_options;
   while (p && *p)
     {
       const char *q = extract_string (&p);
@@ -1231,7 +1232,8 @@ main (int argc, char **argv)
      AIX support needs to know if -shared has been specified before
      parsing commandline arguments.  */
 
-  p = getenv ("COLLECT_GCC_OPTIONS");
+  int add_fsymbolic = -1;
+  p = gcc_options;
   while (p && *p)
     {
       const char *q = extract_string (&p);
@@ -1241,6 +1243,9 @@ main (int argc, char **argv)
 	*c_ptr++ = xstrdup (q);
       if (strcmp (q, "-shared") == 0)
 	shared_obj = 1;
+      else if (strcmp (q, "-fsymbolic") == 0
+	       || strcmp (q, "-fno-symbolic") == 0)
+	add_fsymbolic = 0;
       if (*q == '-' && q[1] == 'B')
 	{
 	  *c_ptr++ = xstrdup (q);
@@ -1278,6 +1283,13 @@ main (int argc, char **argv)
 	{
 	  switch (arg[1])
 	    {
+	    case 'B':
+	      /* Add -fsymbolic to COLLECT_GCC_OPTIONS if -Bsymbolic is
+		 used.  */
+	      if (add_fsymbolic == -1 && !strcmp (arg + 2, "symbolic"))
+		add_fsymbolic = 1;
+	      break;
+
 	    case 'd':
 	      if (!strcmp (arg, "-debug"))
 		{
@@ -1493,6 +1505,41 @@ main (int argc, char **argv)
 	    }
 #endif
 	}
+    }
+
+  if (add_fsymbolic > 0)
+    {
+      /* Add -fsymbolic to COLLECT_GCC_OPTIONS.  */
+      size_t sizeof_env = sizeof "COLLECT_GCC_OPTIONS=";
+      size_t sizeof_fsymbolic = sizeof "\'-fsymbolic\' ";
+      size_t len = strlen (gcc_options);
+      size_t next, start;
+      char *first;
+      char *options = (char *) xmalloc (sizeof_env + len +
+					sizeof_fsymbolic - 1);
+      memcpy (options, "COLLECT_GCC_OPTIONS=", sizeof_env - 1);
+      first = strchr (gcc_options, '\'');
+      if (first == NULL)
+	fatal_error (input_location, "malformed COLLECT_GCC_OPTIONS: %s",
+		     gcc_options);
+      next = sizeof_env - 1;
+      if (first != gcc_options)
+	{
+	  size_t first_len = first - gcc_options;
+	  memcpy (options + next, gcc_options, first_len);
+	  next += first_len;
+	  start = first_len;
+	}
+      else
+	start = 0;
+      memcpy (options + next, "\'-fsymbolic\' ", sizeof_fsymbolic - 1);
+      next += sizeof_fsymbolic - 1;
+      memcpy (options + next, gcc_options + start, len);
+      next += len;
+      options[next] = '\0';
+      putenv (options);
+      if (verbose)
+	fprintf (stderr, "%s\n", options);
     }
 
 #ifdef COLLECT_EXPORT_LIST
