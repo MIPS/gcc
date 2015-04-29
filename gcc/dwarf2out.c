@@ -5723,10 +5723,10 @@ dwarf2out_dump_early_debug_stats (void)
     }
 }
 
-/* Sanity checks on DW_AT_inline DIEs.  */
+/* Sanity checks on DIEs.  */
 
 static void
-check_die_inline (dw_die_ref die)
+check_die (dw_die_ref die)
 {
   /* A debugging information entry that is a member of an abstract
      instance tree [that has DW_AT_inline] should not contain any
@@ -5749,49 +5749,7 @@ check_die_inline (dw_die_ref die)
 		    && a->dw_attr != DW_AT_frame_base
 		    && a->dw_attr != DW_AT_GNU_all_call_sites);
     }
-
 }
-
-/* Perform some sanity checks on DIEs after they have been generated
-   earlier in the compilation process.  */
-
-static void
-check_die (dw_die_ref die)
-{
-  static unsigned long mark = 1;
-  dw_die_ref c, p;
-
-  check_die_inline (die);
-
-  /* Check that all of our children have their parent set to us.  */
-  c = die->die_child;
-  if (c) do {
-      c = c->die_sib;
-      gcc_assert (c->die_parent == die);
-    } while (c != die->die_child);
-
-  /* Check the we are part of our parent's child list.  */
-  mark++;
-  p = die->die_parent;
-  if (p)
-    {
-      c = p->die_child;
-      gcc_assert (c);
-      do {
-	c = c->die_sib;
-	/* Found it.  */
-	if (c == die)
-	  break;
-	/* If we're at start --> not found.  */
-	gcc_assert (c != p->die_child);
-	/* If we've seen this node already the circular list doesn't
-	   even go back to start.  */
-	gcc_assert (c->die_abbrev != mark);
-	c->die_abbrev = mark;
-      } while (1);
-    }
-}
-
 
 /* Start a new compilation unit DIE for an include file.  OLD_UNIT is the CU
    for the enclosing include file, if any.  BINCL_DIE is the DW_TAG_GNU_BINCL
