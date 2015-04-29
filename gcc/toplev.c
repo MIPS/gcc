@@ -505,6 +505,8 @@ wrapup_global_declarations (tree *vec, int len)
 void
 check_global_declaration (tree decl)
 {
+  // ?? Perhaps we should avoid all DECL_ARTIFICIALs here?
+
   /* Warn about any function declared static but not defined.  We don't
      warn about variables, because many programs have static variables
      that exist only to get some text into the object file.  */
