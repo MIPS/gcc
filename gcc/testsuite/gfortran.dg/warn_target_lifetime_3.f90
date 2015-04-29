@@ -10,7 +10,7 @@ subroutine test
   integer, target :: t
   p => t
 contains
-  subroutine sub()		! { dg-warning "defined but not used" }
+  subroutine sub()               ! { dg-warning "defined but not used" }
     if (p /= 0) return
   end subroutine
 end subroutine
