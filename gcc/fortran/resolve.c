@@ -7236,10 +7236,7 @@ failure:
   return false;
 }
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 8b4702968ab31a52fed68f528ffea0b73d6c9fd3
 static void
 resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 {
