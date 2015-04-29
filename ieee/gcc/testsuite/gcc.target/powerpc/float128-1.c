@@ -92,24 +92,6 @@ do_test (__float128 expected, __float128 got, const char *name)
 }
 
 
-#if defined(__FLOAT128__) && defined(_ARCH_PPC) && defined(WRAP_SUBKF3)
-extern __float128 __real___subkf3 (__float128, __float128);
-extern __float128 __wrap___subkf3 (__float128, __float128);
-
-__float128
-__wrap___subkf3 (__float128 a, __float128 b)
-{
-  __float128 r;
-
-  do_test (2.25q,  a, "*a*");
-  do_test (5.0q,   b, "*b*");
-  r = __real___subkf3 (a, b);
-  do_test (-2.75q, r, "*r*");
-
-  return r;
-}
-#endif
-
 int
 main (void)
 {
