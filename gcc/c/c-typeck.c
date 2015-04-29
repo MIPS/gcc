@@ -12053,6 +12053,7 @@ c_finish_omp_clauses (tree clauses)
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head;
   tree c, t, *pc;
+  tree simdlen = NULL_TREE, safelen = NULL_TREE;
   bool branch_seen = false;
   bool copyprivate_seen = false;
   tree *nowait_clause = NULL;
@@ -12345,6 +12346,12 @@ c_finish_omp_clauses (tree clauses)
 
 	case OMP_CLAUSE_DEPEND:
 	  t = OMP_CLAUSE_DECL (c);
+	  if (t == NULL_TREE)
+	    {
+	      gcc_assert (OMP_CLAUSE_DEPEND_KIND (c)
+			  == OMP_CLAUSE_DEPEND_SOURCE);
+	      break;
+	    }
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
 	      if (handle_omp_array_sections (c))
@@ -12466,8 +12473,6 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_MERGEABLE:
-	case OMP_CLAUSE_SAFELEN:
-	case OMP_CLAUSE_SIMDLEN:
 	case OMP_CLAUSE_DEVICE:
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_PARALLEL:
@@ -12475,6 +12480,12 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_SECTIONS:
 	case OMP_CLAUSE_TASKGROUP:
 	case OMP_CLAUSE_PROC_BIND:
+	case OMP_CLAUSE_PRIORITY:
+	case OMP_CLAUSE_GRAINSIZE:
+	case OMP_CLAUSE_NUM_TASKS:
+	case OMP_CLAUSE_NOGROUP:
+	case OMP_CLAUSE_THREADS:
+	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
@@ -12486,6 +12497,15 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
+
+	case OMP_CLAUSE_SAFELEN:
+	  safelen = c;
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
+	case OMP_CLAUSE_SIMDLEN:
+	  simdlen = c;
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 
@@ -12556,6 +12576,18 @@ c_finish_omp_clauses (tree clauses)
 	*pc = OMP_CLAUSE_CHAIN (c);
       else
 	pc = &OMP_CLAUSE_CHAIN (c);
+    }
+
+  if (simdlen
+      && safelen
+      && tree_int_cst_lt (OMP_CLAUSE_SAFELEN_EXPR (safelen),
+			  OMP_CLAUSE_SIMDLEN_EXPR (simdlen)))
+    {
+      error_at (OMP_CLAUSE_LOCATION (simdlen),
+		"%<simdlen%> clause value is bigger than "
+		"%<safelen%> clause value");
+      OMP_CLAUSE_SIMDLEN_EXPR (simdlen)
+	= OMP_CLAUSE_SAFELEN_EXPR (safelen);
     }
 
   bitmap_obstack_release (NULL);

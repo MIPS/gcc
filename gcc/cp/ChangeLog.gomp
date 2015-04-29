@@ -1,0 +1,12 @@
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_ordered): Clear
+	OMP_CLAUSE_ORDERED_EXPR.
+	(cp_parser_omp_ordered): Pass NULL_TREE as clauses
+	to c_finish_omp_ordered.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

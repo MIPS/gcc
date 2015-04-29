@@ -122,9 +122,12 @@ c_finish_omp_critical (location_t loc, tree body, tree name)
    that follows the pragma.  LOC is the location of the #pragma.  */
 
 tree
-c_finish_omp_ordered (location_t loc, tree stmt)
+c_finish_omp_ordered (location_t loc, tree clauses, tree stmt)
 {
-  tree t = build1 (OMP_ORDERED, void_type_node, stmt);
+  tree t = make_node (OMP_ORDERED);
+  TREE_TYPE (t) = void_type_node;
+  OMP_ORDERED_BODY (t) = stmt;
+  OMP_ORDERED_CLAUSES (t) = clauses;
   SET_EXPR_LOCATION (t, loc);
   return add_stmt (t);
 }
@@ -687,7 +690,7 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
     }
 }
 
-/* Right now we have 14 different combined constructs, this
+/* Right now we have 15 different combined constructs, this
    function attempts to split or duplicate clauses for combined
    constructs.  CODE is the innermost construct in the combined construct,
    and MASK allows to determine which constructs are combined together,
@@ -707,7 +710,8 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
    #pragma omp target teams
    #pragma omp target teams distribute
    #pragma omp target teams distribute parallel for
-   #pragma omp target teams distribute parallel for simd  */
+   #pragma omp target teams distribute parallel for simd
+   #pragma omp taskloop simd  */
 
 void
 c_omp_split_clauses (location_t loc, enum tree_code code,
@@ -766,11 +770,20 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	  s = C_OMP_CLAUSE_SPLIT_FOR;
 	  break;
 	case OMP_CLAUSE_SAFELEN:
+	case OMP_CLAUSE_SIMDLEN:
 	case OMP_CLAUSE_LINEAR:
 	case OMP_CLAUSE_ALIGNED:
 	  s = C_OMP_CLAUSE_SPLIT_SIMD;
 	  break;
-	/* Duplicate this to all of distribute, for and simd.  */
+	case OMP_CLAUSE_GRAINSIZE:
+	case OMP_CLAUSE_NUM_TASKS:
+	case OMP_CLAUSE_FINAL:
+	case OMP_CLAUSE_UNTIED:
+	case OMP_CLAUSE_MERGEABLE:
+	case OMP_CLAUSE_NOGROUP:
+	  s = C_OMP_CLAUSE_SPLIT_TASKLOOP;
+	  break;
+	/* Duplicate this to all of taskloop, distribute, for and simd.  */
 	case OMP_CLAUSE_COLLAPSE:
 	  if (code == OMP_SIMD)
 	    {
@@ -797,6 +810,9 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	      else
 		s = C_OMP_CLAUSE_SPLIT_FOR;
 	    }
+	  else if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOGROUP))
+		   != 0)
+	    s = C_OMP_CLAUSE_SPLIT_TASKLOOP;
 	  else
 	    s = C_OMP_CLAUSE_SPLIT_DISTRIBUTE;
 	  break;
@@ -861,6 +877,13 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	      gcc_assert (code == OMP_SIMD);
 	      s = C_OMP_CLAUSE_SPLIT_TEAMS;
 	    }
+	  else if ((mask & (OMP_CLAUSE_MASK_1
+			    << PRAGMA_OMP_CLAUSE_NOGROUP)) != 0)
+	    {
+	      /* This must be #pragma omp taskloop simd.  */
+	      gcc_assert (code == OMP_SIMD);
+	      s = C_OMP_CLAUSE_SPLIT_TASKLOOP;
+	    }
 	  else
 	    {
 	      /* This must be #pragma omp for simd.  */
@@ -903,6 +926,12 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	  if (code == OMP_TEAMS)
 	    {
 	      s = C_OMP_CLAUSE_SPLIT_TEAMS;
+	      break;
+	    }
+	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOGROUP))
+	      != 0)
+	    {
+	      s = C_OMP_CLAUSE_SPLIT_TASKLOOP;
 	      break;
 	    }
 	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_TEAMS))
@@ -965,9 +994,12 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	    s = C_OMP_CLAUSE_SPLIT_TEAMS;
 	  break;
 	case OMP_CLAUSE_IF:
-	  /* FIXME: This is currently being discussed.  */
-	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_THREADS))
+	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOGROUP))
 	      != 0)
+	    s = C_OMP_CLAUSE_SPLIT_TASKLOOP;
+	  /* FIXME: This is currently being discussed.  */
+	  else if ((mask & (OMP_CLAUSE_MASK_1
+			    << PRAGMA_OMP_CLAUSE_NUM_THREADS)) != 0)
 	    s = C_OMP_CLAUSE_SPLIT_PARALLEL;
 	  else
 	    s = C_OMP_CLAUSE_SPLIT_TARGET;

@@ -6336,6 +6336,9 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_THREAD_LIMIT:
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_DEVICE:
+	case OMP_CLAUSE_PRIORITY:
+	case OMP_CLAUSE_GRAINSIZE:
+	case OMP_CLAUSE_NUM_TASKS:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
@@ -6369,6 +6372,10 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE_SAFELEN:
+	case OMP_CLAUSE_SIMDLEN:
+	case OMP_CLAUSE_NOGROUP:
+	case OMP_CLAUSE_THREADS:
+	case OMP_CLAUSE_SIMD:
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
@@ -6739,7 +6746,14 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE_SAFELEN:
+	case OMP_CLAUSE_SIMDLEN:
 	case OMP_CLAUSE_DEPEND:
+	case OMP_CLAUSE_PRIORITY:
+	case OMP_CLAUSE_GRAINSIZE:
+	case OMP_CLAUSE_NUM_TASKS:
+	case OMP_CLAUSE_NOGROUP:
+	case OMP_CLAUSE_THREADS:
+	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
@@ -7432,6 +7446,14 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
     case OMP_TARGET_UPDATE:
       clauses = OMP_TARGET_UPDATE_CLAUSES (expr);
       kind = GF_OMP_TARGET_KIND_UPDATE;
+      break;
+    case OMP_TARGET_ENTER_DATA:
+      clauses = OMP_TARGET_ENTER_DATA_CLAUSES (expr);
+      kind = GF_OMP_TARGET_KIND_ENTER_DATA;
+      break;
+    case OMP_TARGET_EXIT_DATA:
+      clauses = OMP_TARGET_EXIT_DATA_CLAUSES (expr);
+      kind = GF_OMP_TARGET_KIND_EXIT_DATA;
       break;
     default:
       gcc_unreachable ();
@@ -8426,6 +8448,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	case OACC_EXIT_DATA:
 	case OACC_UPDATE:
 	case OMP_TARGET_UPDATE:
+	case OMP_TARGET_ENTER_DATA:
+	case OMP_TARGET_EXIT_DATA:
 	  gimplify_omp_target_update (expr_p, pre_p);
 	  ret = GS_ALL_DONE;
 	  break;

@@ -120,6 +120,7 @@ extern int omp_get_num_teams (void) __GOMP_NOTHROW;
 extern int omp_get_team_num (void) __GOMP_NOTHROW;
 
 extern int omp_is_initial_device (void) __GOMP_NOTHROW;
+extern int omp_get_max_task_priority (void) __GOMP_NOTHROW;
 
 #ifdef __cplusplus
 }

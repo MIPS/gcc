@@ -1,0 +1,19 @@
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp.h.in (omp_get_max_task_priority): New prototype.
+	* omp_lib.h.in (omp_get_max_task_priority): New extern.
+	* omp_lib.f90.in (omp_get_max_task_priority): New interface.
+	* fortran.c (omp_get_max_task_priority_): New function.
+	(omp_get_max_task_priority): Add ialias_redirect.
+	* libgomp.map (OMP_4.1): Export omp_get_max_task_priority
+	and omp_get_max_task_priority_.
+	* env.c (gomp_max_task_priority_var): New variable.
+	(handle_omp_display_env): Print OMP_MAX_TASK_PRIORITY.
+	(initialize_env): Handle OMP_MAX_TASK_PRIORITY env var.
+	(omp_get_max_task_priority): New function.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

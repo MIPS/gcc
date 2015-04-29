@@ -1,0 +1,12 @@
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_clauses): Clear
+	OMP_CLAUSE_ORDERED_EXPR.
+	(gfc_trans_omp_ordered): Adjust for OMP_ORDERED change from 1
+	operand to 2 operands.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

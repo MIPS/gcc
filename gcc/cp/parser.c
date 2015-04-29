@@ -28407,6 +28407,7 @@ cp_parser_omp_clause_ordered (cp_parser * /*parser*/,
 			     "ordered", location);
 
   c = build_omp_clause (location, OMP_CLAUSE_ORDERED);
+  OMP_CLAUSE_ORDERED_EXPR (c) = NULL_TREE;
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
@@ -30796,7 +30797,8 @@ cp_parser_omp_ordered (cp_parser *parser, cp_token *pragma_tok)
 {
   location_t loc = cp_lexer_peek_token (parser->lexer)->location;
   cp_parser_require_pragma_eol (parser, pragma_tok);
-  return c_finish_omp_ordered (loc, cp_parser_omp_structured_block (parser));
+  return c_finish_omp_ordered (loc, NULL_TREE,
+			       cp_parser_omp_structured_block (parser));
 }
 
 /* OpenMP 2.5:

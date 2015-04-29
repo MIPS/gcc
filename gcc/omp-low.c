@@ -1809,6 +1809,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_SCHEDULE:
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_DEPEND:
+	case OMP_CLAUSE_PRIORITY:
+	case OMP_CLAUSE_GRAINSIZE:
+	case OMP_CLAUSE_NUM_TASKS:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
@@ -1908,6 +1911,10 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE_SAFELEN:
+	case OMP_CLAUSE_SIMDLEN:
+	case OMP_CLAUSE_THREADS:
+	case OMP_CLAUSE_SIMD:
+	case OMP_CLAUSE_NOGROUP:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
 	case OMP_CLAUSE_GANG:
@@ -2033,11 +2040,18 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE_SAFELEN:
+	case OMP_CLAUSE_SIMDLEN:
 	case OMP_CLAUSE_ALIGNED:
 	case OMP_CLAUSE_DEPEND:
 	case OMP_CLAUSE__LOOPTEMP_:
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
+	case OMP_CLAUSE_PRIORITY:
+	case OMP_CLAUSE_GRAINSIZE:
+	case OMP_CLAUSE_NUM_TASKS:
+	case OMP_CLAUSE_THREADS:
+	case OMP_CLAUSE_SIMD:
+	case OMP_CLAUSE_NOGROUP:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
@@ -3030,19 +3044,26 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 	    case GF_OMP_TARGET_KIND_REGION: stmt_name = "target"; break;
 	    case GF_OMP_TARGET_KIND_DATA: stmt_name = "target data"; break;
 	    case GF_OMP_TARGET_KIND_UPDATE: stmt_name = "target update"; break;
+	    case GF_OMP_TARGET_KIND_ENTER_DATA:
+	      stmt_name = "target enter data"; break;
+	    case GF_OMP_TARGET_KIND_EXIT_DATA:
+	      stmt_name = "target exit data"; break;
 	    case GF_OMP_TARGET_KIND_OACC_PARALLEL: stmt_name = "parallel"; break;
 	    case GF_OMP_TARGET_KIND_OACC_KERNELS: stmt_name = "kernels"; break;
 	    case GF_OMP_TARGET_KIND_OACC_DATA: stmt_name = "data"; break;
 	    case GF_OMP_TARGET_KIND_OACC_UPDATE: stmt_name = "update"; break;
-	    case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA: stmt_name = "enter/exit data"; break;
+	    case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
+	      stmt_name = "enter/exit data"; break;
 	    default: gcc_unreachable ();
 	    }
 	  switch (gimple_omp_target_kind (ctx->stmt))
 	    {
 	    case GF_OMP_TARGET_KIND_REGION: ctx_stmt_name = "target"; break;
 	    case GF_OMP_TARGET_KIND_DATA: ctx_stmt_name = "target data"; break;
-	    case GF_OMP_TARGET_KIND_OACC_PARALLEL: ctx_stmt_name = "parallel"; break;
-	    case GF_OMP_TARGET_KIND_OACC_KERNELS: ctx_stmt_name = "kernels"; break;
+	    case GF_OMP_TARGET_KIND_OACC_PARALLEL:
+	      ctx_stmt_name = "parallel"; break;
+	    case GF_OMP_TARGET_KIND_OACC_KERNELS:
+	      ctx_stmt_name = "kernels"; break;
 	    case GF_OMP_TARGET_KIND_OACC_DATA: ctx_stmt_name = "data"; break;
 	    default: gcc_unreachable ();
 	    }
@@ -8785,6 +8806,8 @@ expand_omp_target (struct omp_region *region)
     {
     case GF_OMP_TARGET_KIND_REGION:
     case GF_OMP_TARGET_KIND_UPDATE:
+    case GF_OMP_TARGET_KIND_ENTER_DATA:
+    case GF_OMP_TARGET_KIND_EXIT_DATA:
     case GF_OMP_TARGET_KIND_OACC_PARALLEL:
     case GF_OMP_TARGET_KIND_OACC_KERNELS:
     case GF_OMP_TARGET_KIND_OACC_UPDATE:
@@ -8992,6 +9015,11 @@ expand_omp_target (struct omp_region *region)
       start_ix = BUILT_IN_GOMP_TARGET_DATA;
       break;
     case GF_OMP_TARGET_KIND_UPDATE:
+      start_ix = BUILT_IN_GOMP_TARGET_UPDATE;
+      break;
+    case GF_OMP_TARGET_KIND_ENTER_DATA:
+    case GF_OMP_TARGET_KIND_EXIT_DATA:
+      /* FIXME */
       start_ix = BUILT_IN_GOMP_TARGET_UPDATE;
       break;
     case GF_OMP_TARGET_KIND_OACC_PARALLEL:
@@ -9396,6 +9424,8 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 		case GF_OMP_TARGET_KIND_OACC_DATA:
 		  break;
 		case GF_OMP_TARGET_KIND_UPDATE:
+		case GF_OMP_TARGET_KIND_ENTER_DATA:
+		case GF_OMP_TARGET_KIND_EXIT_DATA:
 		case GF_OMP_TARGET_KIND_OACC_UPDATE:
 		case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
 		  /* ..., other than for those stand-alone directives...  */
@@ -11198,6 +11228,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     {
     case GF_OMP_TARGET_KIND_REGION:
     case GF_OMP_TARGET_KIND_UPDATE:
+    case GF_OMP_TARGET_KIND_ENTER_DATA:
+    case GF_OMP_TARGET_KIND_EXIT_DATA:
     case GF_OMP_TARGET_KIND_OACC_PARALLEL:
     case GF_OMP_TARGET_KIND_OACC_KERNELS:
     case GF_OMP_TARGET_KIND_OACC_UPDATE:
@@ -11251,13 +11283,13 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  case GOMP_MAP_TOFROM:
 	  case GOMP_MAP_POINTER:
 	  case GOMP_MAP_TO_PSET:
-	    break;
 	  case GOMP_MAP_FORCE_ALLOC:
 	  case GOMP_MAP_FORCE_TO:
 	  case GOMP_MAP_FORCE_FROM:
 	  case GOMP_MAP_FORCE_TOFROM:
 	  case GOMP_MAP_FORCE_PRESENT:
 	  case GOMP_MAP_FORCE_DEALLOC:
+	    break;
 	  case GOMP_MAP_FORCE_DEVICEPTR:
 	    gcc_assert (is_gimple_omp_oacc (stmt));
 	    break;
@@ -11488,6 +11520,9 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      default:
 		gcc_unreachable ();
 	      }
+	    /* FIXME: Temporary hack.  */
+	    if (talign_shift == 3)
+	      tkind &= ~GOMP_MAP_FLAG_FORCE;
 	    gcc_checking_assert (tkind
 				 < (HOST_WIDE_INT_C (1U) << talign_shift));
 	    talign = ceil_log2 (talign);
@@ -12244,6 +12279,8 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
 	case GF_OMP_TARGET_KIND_OACC_DATA:
 	  break;
 	case GF_OMP_TARGET_KIND_UPDATE:
+	case GF_OMP_TARGET_KIND_ENTER_DATA:
+	case GF_OMP_TARGET_KIND_EXIT_DATA:
 	case GF_OMP_TARGET_KIND_OACC_UPDATE:
 	case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
 	  cur_region = cur_region->outer;

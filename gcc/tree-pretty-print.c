@@ -404,6 +404,13 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       break;
     case OMP_CLAUSE_ORDERED:
       pp_string (pp, "ordered");
+      if (OMP_CLAUSE_ORDERED_EXPR (clause))
+	{
+	  pp_left_paren (pp);
+	  dump_generic_node (pp, OMP_CLAUSE_ORDERED_EXPR (clause),
+			     spc, flags, false);
+	  pp_right_paren (pp);
+	}
       break;
 
     case OMP_CLAUSE_DEFAULT:
@@ -522,6 +529,9 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 	case OMP_CLAUSE_DEPEND_INOUT:
 	  pp_string (pp, "inout");
 	  break;
+	case OMP_CLAUSE_DEPEND_SOURCE:
+	  pp_string (pp, "source)");
+	  return;
 	default:
 	  gcc_unreachable ();
 	}
@@ -550,22 +560,22 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 	  pp_string (pp, "tofrom");
 	  break;
 	case GOMP_MAP_FORCE_ALLOC:
-	  pp_string (pp, "force_alloc");
+	  pp_string (pp, "always,alloc");
 	  break;
 	case GOMP_MAP_FORCE_TO:
-	  pp_string (pp, "force_to");
+	  pp_string (pp, "always,to");
 	  break;
 	case GOMP_MAP_FORCE_FROM:
-	  pp_string (pp, "force_from");
+	  pp_string (pp, "always,from");
 	  break;
 	case GOMP_MAP_FORCE_TOFROM:
-	  pp_string (pp, "force_tofrom");
+	  pp_string (pp, "always,tofrom");
 	  break;
 	case GOMP_MAP_FORCE_PRESENT:
 	  pp_string (pp, "force_present");
 	  break;
 	case GOMP_MAP_FORCE_DEALLOC:
-	  pp_string (pp, "force_dealloc");
+	  pp_string (pp, "always,delete");
 	  break;
 	case GOMP_MAP_FORCE_DEVICEPTR:
 	  pp_string (pp, "force_deviceptr");
@@ -674,6 +684,27 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
     case OMP_CLAUSE_SIMDLEN:
       pp_string (pp, "simdlen(");
       dump_generic_node (pp, OMP_CLAUSE_SIMDLEN_EXPR (clause),
+			 spc, flags, false);
+      pp_right_paren (pp);
+      break;
+
+    case OMP_CLAUSE_PRIORITY:
+      pp_string (pp, "priority(");
+      dump_generic_node (pp, OMP_CLAUSE_PRIORITY_EXPR (clause),
+			 spc, flags, false);
+      pp_right_paren (pp);
+      break;
+
+    case OMP_CLAUSE_GRAINSIZE:
+      pp_string (pp, "grainsize(");
+      dump_generic_node (pp, OMP_CLAUSE_GRAINSIZE_EXPR (clause),
+			 spc, flags, false);
+      pp_right_paren (pp);
+      break;
+
+    case OMP_CLAUSE_NUM_TASKS:
+      pp_string (pp, "num_tasks(");
+      dump_generic_node (pp, OMP_CLAUSE_NUM_TASKS_EXPR (clause),
 			 spc, flags, false);
       pp_right_paren (pp);
       break;
@@ -795,6 +826,15 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       break;
     case OMP_CLAUSE_TASKGROUP:
       pp_string (pp, "taskgroup");
+      break;
+    case OMP_CLAUSE_NOGROUP:
+      pp_string (pp, "nogroup");
+      break;
+    case OMP_CLAUSE_THREADS:
+      pp_string (pp, "threads");
+      break;
+    case OMP_CLAUSE_SIMD:
+      pp_string (pp, "simd");
       break;
     case OMP_CLAUSE_INDEPENDENT:
       pp_string (pp, "independent");
@@ -2652,6 +2692,10 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
       pp_string (pp, "#pragma omp distribute");
       goto dump_omp_loop;
 
+    case OMP_TASKLOOP:
+      pp_string (pp, "#pragma omp taskloop");
+      goto dump_omp_loop;
+
     case OACC_LOOP:
       pp_string (pp, "#pragma acc loop");
       goto dump_omp_loop;
@@ -2665,6 +2709,18 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
       pp_string (pp, "#pragma omp target data");
       dump_omp_clauses (pp, OMP_TARGET_DATA_CLAUSES (node), spc, flags);
       goto dump_omp_body;
+
+    case OMP_TARGET_ENTER_DATA:
+      pp_string (pp, "#pragma omp target enter data");
+      dump_omp_clauses (pp, OMP_TARGET_ENTER_DATA_CLAUSES (node), spc, flags);
+      is_expr = false;
+      break;
+
+    case OMP_TARGET_EXIT_DATA:
+      pp_string (pp, "#pragma omp target exit data");
+      dump_omp_clauses (pp, OMP_TARGET_EXIT_DATA_CLAUSES (node), spc, flags);
+      is_expr = false;
+      break;
 
     case OMP_TARGET:
       pp_string (pp, "#pragma omp target");
@@ -2766,6 +2822,7 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
 
     case OMP_ORDERED:
       pp_string (pp, "#pragma omp ordered");
+      dump_omp_clauses (pp, OMP_ORDERED_CLAUSES (node), spc, flags);
       goto dump_omp_body;
 
     case OMP_CRITICAL:

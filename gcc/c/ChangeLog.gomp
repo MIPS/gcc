@@ -1,0 +1,44 @@
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Allow NULL OMP_CLAUSE_DECL
+	for OMP_CLAUSE_DEPEND_SOURCE.  Diagnose simdlen > safelen.  Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}
+	clauses.
+	* c-parser.c (c_parser_pragma): Handle PRAGMA_OMP_ORDERED.
+	(c_parser_omp_clause_name): Handle grainsize, nogroup, num_tasks,
+	priority, simd and threads clauses.
+	(c_parser_omp_clause_num_tasks, c_parser_omp_clause_grainsize,
+	c_parser_omp_clause_priority): New functions.
+	(c_parser_omp_clause_ordered): Handle parsing of optional argument.
+	(c_parser_omp_clause_nogroup, c_parser_omp_clause_orderedkind):
+	New functions.
+	(c_parser_omp_clause_depend): Handle parsing of depend(source)
+	and partially handle depend(sink:vec).
+	(c_parser_omp_clause_map): Parse optional always map type modifier.
+	Handle parsing of delete map kind.
+	(c_parser_omp_all_clauses): Handle
+	PRAGMA_OMP_CLAUSE_{GRAINSIZE,NUM_TASKS,PRIORITY,NOGROUP,THREADS,SIMD}.
+	(OMP_SIMD_CLAUSE_MASK): Add simdlen clause.
+	(OMP_FOR_CLAUSE_MASK): Add linear clause.
+	(OMP_ORDERED_CLAUSE_MASK, OMP_ORDERED_DEPEND_CLAUSE_MASK): Define.
+	(c_parser_omp_ordered): Handle parsing of the clauses, and if depend
+	clause is present, parse it as standalone directive.  Remove LOC
+	argument, add CONTEXT argument.
+	(OMP_TASK_CLAUSE_MASK): Add priority clause.
+	(c_parser_omp_target_data): Diagnose if no map clauses are present.
+	(OMP_TARGET_ENTER_DATA_CLAUSE_MASK): Define.
+	(c_parser_omp_target_enter_data): New function.
+	OMP_TARGET_EXIT_DATA_CLAUSE_MASK): Define.
+	(c_parser_omp_target_exit_data): New function.
+	(OMP_TARGET_CLAUSE_MASK): Add nowait and depend clauses.
+	(c_parser_omp_target): Handle #pragma omp target {enter,exit} data.
+	(OMP_TASKLOOP_CLAUSE_MASK): Define.
+	(c_parser_omp_taskloop): New function.
+	(c_parser_omp_construct): Don't handle PRAGMA_OMP_ORDERED here.
+	Handle PRAGMA_OMP_TASKLOOP.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

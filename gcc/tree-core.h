@@ -310,7 +310,7 @@ enum omp_clause_code {
   /* OpenMP clause: nowait.  */
   OMP_CLAUSE_NOWAIT,
 
-  /* OpenMP clause: ordered.  */
+  /* OpenMP clause: ordered [(constant-integer-expression)].  */
   OMP_CLAUSE_ORDERED,
 
   /* OpenMP clause: default.  */
@@ -366,6 +366,24 @@ enum omp_clause_code {
 
   /* OpenMP clause: taskgroup.  */
   OMP_CLAUSE_TASKGROUP,
+
+  /* OpenMP clause: priority (integer-expression).  */
+  OMP_CLAUSE_PRIORITY,
+
+  /* OpenMP clause: grainsize (integer-expression).  */
+  OMP_CLAUSE_GRAINSIZE,
+
+  /* OpenMP clause: num_tasks (integer-expression).  */
+  OMP_CLAUSE_NUM_TASKS,
+
+  /* OpenMP clause: nogroup.  */
+  OMP_CLAUSE_NOGROUP,
+
+  /* OpenMP clause: threads.  */
+  OMP_CLAUSE_THREADS,
+
+  /* OpenMP clause: simd.  */
+  OMP_CLAUSE_SIMD,
 
   /* Internally used only clause, holding SIMD uid.  */
   OMP_CLAUSE__SIMDUID_,
@@ -1227,6 +1245,8 @@ enum omp_clause_depend_kind
   OMP_CLAUSE_DEPEND_IN,
   OMP_CLAUSE_DEPEND_OUT,
   OMP_CLAUSE_DEPEND_INOUT,
+  OMP_CLAUSE_DEPEND_SOURCE,
+  OMP_CLAUSE_DEPEND_SINK,
   OMP_CLAUSE_DEPEND_LAST
 };
 

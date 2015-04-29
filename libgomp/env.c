@@ -68,6 +68,7 @@ struct gomp_task_icv gomp_global_icv = {
 
 unsigned long gomp_max_active_levels_var = INT_MAX;
 bool gomp_cancel_var = false;
+int gomp_max_task_priority_var = 0;
 #ifndef HAVE_SYNC_BUILTINS
 gomp_mutex_t gomp_managed_threads_lock;
 #endif
@@ -1157,6 +1158,8 @@ handle_omp_display_env (unsigned long stacksize, int wait_policy)
 	   gomp_cancel_var ? "TRUE" : "FALSE");
   fprintf (stderr, "  OMP_DEFAULT_DEVICE = '%d'\n",
 	   gomp_global_icv.default_device_var);
+  fprintf (stderr, "  OMP_MAX_TASK_PRIORITY = '%d'\n",
+	   gomp_max_task_priority_var);
 
   if (verbose)
     {
@@ -1189,6 +1192,7 @@ initialize_env (void)
   parse_boolean ("OMP_NESTED", &gomp_global_icv.nest_var);
   parse_boolean ("OMP_CANCELLATION", &gomp_cancel_var);
   parse_int ("OMP_DEFAULT_DEVICE", &gomp_global_icv.default_device_var, true);
+  parse_int ("OMP_MAX_TASK_PRIORITY", &gomp_max_task_priority_var, true);
   parse_unsigned_long ("OMP_MAX_ACTIVE_LEVELS", &gomp_max_active_levels_var,
 		       true);
   if (parse_unsigned_long ("OMP_THREAD_LIMIT", &thread_limit_var, false))
@@ -1402,6 +1406,12 @@ omp_get_cancellation (void)
   return gomp_cancel_var;
 }
 
+int
+omp_get_max_task_priority (void)
+{
+  return gomp_max_task_priority_var;
+}
+
 omp_proc_bind_t
 omp_get_proc_bind (void)
 {
@@ -1469,3 +1479,4 @@ ialias (omp_get_num_devices)
 ialias (omp_get_num_teams)
 ialias (omp_get_team_num)
 ialias (omp_is_initial_device)
+ialias (omp_get_max_task_priority)

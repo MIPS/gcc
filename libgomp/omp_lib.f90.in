@@ -337,4 +337,10 @@
           end function omp_is_initial_device
         end interface
 
+        interface
+          function omp_get_max_task_priority ()
+            integer (4) :: omp_get_max_task_priority
+          end function omp_get_max_task_priority
+        end interface
+
       end module omp_lib

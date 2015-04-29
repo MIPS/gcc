@@ -1,0 +1,17 @@
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_finish_omp_ordered): Add CLAUSES argument, adjust
+	for building 2 operand tree instead of single operand tree.
+	(c_omp_split_clauses): Add taskloop simd splitting support.
+	* c-pragma.h (enum pragma_kind): Add PRAGMA_OMP_TASKLOOP.
+	(enum pragma_omp_clause): Add
+	PRAGMA_OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}.
+	* c-common.h (enum c_omp_clause_split): Add C_OMP_CLAUSE_SPLIT_TASKLOOP
+	as alias to C_OMP_CLAUSE_SPLIT_FOR.
+	(c_finish_omp_ordered): Adjust prototype for CLAUSES argument addition.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

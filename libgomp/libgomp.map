@@ -134,6 +134,12 @@ OMP_4.0 {
 	omp_is_initial_device_;
 } OMP_3.1;
 
+OMP_4.1 {
+  global:
+	omp_get_max_task_priority;
+	omp_get_max_task_priority_;
+} OMP_4.0;
+
 GOMP_1.0 {
   global:
 	GOMP_atomic_end;

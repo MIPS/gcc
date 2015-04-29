@@ -1,0 +1,63 @@
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.h (enum gf_mask): Increment GF_OMP_TARGET_KIND_MASK
+	to 15 from 7.  Add GF_OMP_TARGET_KIND_ENTER_DATA and
+	GF_OMP_TARGET_KIND_EXIT_DATA, renumber GF_OMP_TARGET_KIND_OACC*.
+	* tree.h (OMP_ORDERED_CLAUSES, OMP_TARGET_ENTER_DATA_CLAUSES,
+	OMP_TARGET_EXIT_DATA_CLAUSES, OMP_CLAUSE_NUM_TASKS_EXPR,
+	OMP_CLAUSE_GRAINSIZE_EXPR, OMP_CLAUSE_PRIORITY_EXPR,
+	OMP_CLAUSE_ORDERED_EXPR): Define.
+	* tree.def (OMP_TASKLOOP, OMP_TARGET_ENTER_DATA,
+	OMP_TARGET_EXIT_DATA): New tree codes.
+	(OMP_ORDERED): Add second operand - OMP_ORDERED_CLAUSES.  Move
+	before OMP_SINGLE, so that OMP_CLAUSES can be used on it too.
+	* gimplify.c (gimplify_scan_omp_clauses): Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD,SIMDLEN}
+	clauses.
+	(gimplify_adjust_omp_clauses): Likewise.
+	(gimplify_omp_target_update): Handle OMP_TARGET_ENTER_DATA
+	and OMP_TARGET_EXIT_DATA.
+	(gimplify_expr): Likewise.
+	* tree.c (omp_clause_num_ops): Change OMP_CLAUSE_ORDERED operand
+	count to 1 from 0.  Add entries for
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}.
+	(omp_clause_code_name): Add names for
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}
+	clauses.
+	(walk_tree_1): Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}
+	clauses.  Handle OMP_CLAUSE_ORDERED as other 1 operand clauses.
+	* tree-nested.c (convert_nonlocal_omp_clauses): Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD,SIMDLEN}
+	clauses.
+	(convert_local_omp_clauses): Likewise.
+	* gimple-pretty-print.c (dump_gimple_omp_target): Handle
+	GF_OMP_TARGET_KIND_ENTER_DATA and GF_OMP_TARGET_KIND_EXIT_DATA.
+	* tree-core.h (enum omp_clause_code): Add
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}.
+	(enum omp_clause_depend_kind): Add OMP_CLAUSE_DEPEND_{SOURCE,SINK}.
+	* omp-low.c (scan_sharing_clauses): Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD,SIMDLEN}
+	clauses.
+	(check_omp_nesting_restrictions): Handle
+	GF_OMP_TARGET_KIND_ENTER_DATA and GF_OMP_TARGET_KIND_EXIT_DATA.
+	Formatting fixes.
+	(expand_omp_target): Handle GF_OMP_TARGET_KIND_ENTER_DATA and
+	GF_OMP_TARGET_KIND_EXIT_DATA.
+	(build_omp_regions_1, make_gimple_omp_edges): Likewise.
+	(lower_omp_target): Likewise.  Don't assert is_gimple_omp_oacc
+	for certain OpenMP 4.1 map kinds + modifiers.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	OMP_CLAUSE_ORDERED_EXPR on OMP_CLAUSE_ORDERED.  Handle
+	OMP_CLAUSE_DEPEND_SOURCE on OMP_CLAUSE_DEPEND.  Adjust printing
+	OpenMP 4.1 new map kinds and modifiers.  Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}
+	clauses.
+	(dump_generic_node): Handle OMP_{TASKLOOP,TARGET_{ENTER,EXIT}_DATA}.
+	Dump OMP_ORDERED_CLAUSES for OMP_ORDERED.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

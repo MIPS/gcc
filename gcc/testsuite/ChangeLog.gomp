@@ -1,0 +1,13 @@
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/cancel-1.c (f2): Add map clause to all
+	#pragma omp target data directives.
+	* c-c++-common/gomp/nesting-warn-1.c (f_omp_target): Likewise.
+	* c-c++-common/gomp/nesting-1.c (f_omp_parallel, f_omp_target,
+	f_omp_target_data): Likewise.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
