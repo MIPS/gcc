@@ -542,7 +542,7 @@ make_blocks_1 (gimple_seq seq, basic_block bb)
 	{
 	  if (!first_stmt_of_seq)
 	    gsi_split_seq_before (&i, &seq);
-	  bb = create_basic_block (seq, NULL, bb);
+	  bb = create_basic_block (seq, bb);
 	  start_new_block = false;
 	}
 
@@ -748,7 +748,7 @@ handle_abnormal_edges (basic_block *dispatcher_bbs,
 	}
 
       /* Create the dispatcher bb.  */
-      *dispatcher = create_basic_block (NULL, NULL, for_bb);
+      *dispatcher = create_basic_block (NULL, for_bb);
       if (computed_goto)
 	{
 	  /* Factor computed gotos into a common computed goto site.  Also
@@ -7441,7 +7441,11 @@ dump_function_to_file (tree fndecl, FILE *file, int flags)
       else
 	{
 	  if (!ignore_topmost_bind)
-	    fprintf (file, "{\n");
+	    {
+	      fprintf (file, "{\n");
+	      /* No topmost bind, pretend it's ignored for later.  */
+	      ignore_topmost_bind = true;
+	    }
 	  indent = 2;
 	}
 
