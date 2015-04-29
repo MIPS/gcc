@@ -292,15 +292,12 @@ hsa_num_def_ops (hsa_insn_basic *insn)
       case BRIG_OPCODE_ACTIVELANECOUNT:
       case BRIG_OPCODE_ACTIVELANEID:
       case BRIG_OPCODE_ACTIVELANEMASK:
-      case BRIG_OPCODE_ACTIVELANESHUFFLE:
+      case BRIG_OPCODE_ACTIVELANEPERMUTE:
 	return 1; /* ??? */
 
       case BRIG_OPCODE_CALL:
       case BRIG_OPCODE_SCALL:
       case BRIG_OPCODE_ICALL:
-	return 1; /* ??? */
-
-      case BRIG_OPCODE_LDI:
 	return 1; /* ??? */
 
       case BRIG_OPCODE_RET:
@@ -318,14 +315,9 @@ hsa_num_def_ops (hsa_insn_basic *insn)
       case BRIG_OPCODE_PACKETCOMPLETIONSIG:
       case BRIG_OPCODE_PACKETID:
       case BRIG_OPCODE_ADDQUEUEWRITEINDEX:
-      case BRIG_OPCODE_AGENTCOUNT:
-      case BRIG_OPCODE_AGENTID:
       case BRIG_OPCODE_CASQUEUEWRITEINDEX:
-      case BRIG_OPCODE_LDK:
       case BRIG_OPCODE_LDQUEUEREADINDEX:
       case BRIG_OPCODE_LDQUEUEWRITEINDEX:
-      case BRIG_OPCODE_QUEUEID:
-      case BRIG_OPCODE_QUEUEPTR:
       case BRIG_OPCODE_STQUEUEREADINDEX:
       case BRIG_OPCODE_STQUEUEWRITEINDEX:
 	return 1; /* ??? */

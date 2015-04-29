@@ -77,7 +77,7 @@ struct hsa_op_base
   unsigned brig_op_offset;
 
   /* The type of a particular operand.  */
-  BrigKinds16_t kind;
+  BrigKind16_t kind;
 };
 
 /* Common abstract ancestor for operands which have a type.  */
@@ -103,7 +103,7 @@ template <>
 inline bool
 is_a_helper <hsa_op_immed *>::test (hsa_op_base *p)
 {
-  return p->kind == BRIG_KIND_OPERAND_DATA;
+  return p->kind == BRIG_KIND_OPERAND_CONSTANT_BYTES;
 }
 
 /* HSA register operand.  */
@@ -152,7 +152,7 @@ template <>
 inline bool
 is_a_helper <hsa_op_reg *>::test (hsa_op_base *p)
 {
-  return p->kind == BRIG_KIND_OPERAND_REG;
+  return p->kind == BRIG_KIND_OPERAND_REGISTER;
 }
 
 /* An address HSA operand.  */
@@ -617,6 +617,10 @@ hsa_op_reg *hsa_spill_in (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_op_reg *hsa_spill_out (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_bb *hsa_init_new_bb (basic_block);
 void hsa_deinit_compilation_unit_data (void);
+unsigned hsa_get_number_decl_kernel_mappings (void);
+tree hsa_get_decl_kernel_mapping_decl (unsigned i);
+char *hsa_get_decl_kernel_mapping_name (unsigned i);
+void hsa_free_decl_kernel_mapping (void);
 
 /* In hsa-regalloc.c.  */
 void hsa_regalloc (void);

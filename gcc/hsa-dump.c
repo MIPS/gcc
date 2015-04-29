@@ -347,16 +347,12 @@ hsa_opcode_name (BrigOpcode16_t opcode)
       return "activelaneid";
     case BRIG_OPCODE_ACTIVELANEMASK:
       return "activelanemask";
-    case BRIG_OPCODE_ACTIVELANESHUFFLE:
-      return "activelaneshuffle";
     case BRIG_OPCODE_CALL:
       return "call";
     case BRIG_OPCODE_SCALL:
       return "scall";
     case BRIG_OPCODE_ICALL:
       return "icall";
-    case BRIG_OPCODE_LDI:
-      return "ldi";
     case BRIG_OPCODE_RET:
       return "ret";
     case BRIG_OPCODE_ALLOCA:
@@ -393,22 +389,12 @@ hsa_opcode_name (BrigOpcode16_t opcode)
       return "setdetectexcept";
     case BRIG_OPCODE_ADDQUEUEWRITEINDEX:
       return "addqueuewriteindex";
-    case BRIG_OPCODE_AGENTCOUNT:
-      return "agentcount";
-    case BRIG_OPCODE_AGENTID:
-      return "agentid";
     case BRIG_OPCODE_CASQUEUEWRITEINDEX:
       return "casqueuewriteindex";
-    case BRIG_OPCODE_LDK:
-      return "ldk";
     case BRIG_OPCODE_LDQUEUEREADINDEX:
       return "ldqueuereadindex";
     case BRIG_OPCODE_LDQUEUEWRITEINDEX:
       return "ldqueuewriteindex";
-    case BRIG_OPCODE_QUEUEID:
-      return "queueid";
-    case BRIG_OPCODE_QUEUEPTR:
-      return "queueptr";
     case BRIG_OPCODE_STQUEUEREADINDEX:
       return "stqueuereadindex";
     case BRIG_OPCODE_STQUEUEWRITEINDEX:
@@ -570,11 +556,11 @@ hsa_memscope_name (enum BrigMemoryScope scope)
     case BRIG_MEMORY_SCOPE_WORKITEM:
       return "wi";
     case BRIG_MEMORY_SCOPE_WAVEFRONT:
-      return "wv";
+      return "wave";
     case BRIG_MEMORY_SCOPE_WORKGROUP:
       return "wg";
-    case BRIG_MEMORY_SCOPE_COMPONENT:
-      return "cmp";
+    case BRIG_MEMORY_SCOPE_AGENT:
+      return "agent";
     case BRIG_MEMORY_SCOPE_SYSTEM:
       return "sys";
     default:

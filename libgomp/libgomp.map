@@ -236,4 +236,5 @@ GOMP_4.0.1 {
 HSA_1.0 {
   global:
 	__hsa_launch_kernel;
+	__hsa_register_image;
 } GOMP_4.0.1;

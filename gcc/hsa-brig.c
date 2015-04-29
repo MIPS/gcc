@@ -25,19 +25,29 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "hsa.h"
 #include "tree.h"
+#include "tree-iterator.h"
 #include "stor-layout.h"
 #include "tree-cfg.h"
+#include "tree-ssa-alias.h"
 #include "machmode.h"
 #include "output.h"
+#include "gimple-expr.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "function.h"
+#include "gimple.h"
 #include "basic-block.h"
 #include "vec.h"
+#include "stringpool.h"
 #include "gimple-pretty-print.h"
 #include "diagnostic-core.h"
 #include "hash-map.h"
+#include "ipa-ref.h"
+#include "lto-streamer.h"
+#include "cgraph.h"
 
+#define BRIG_ELF_SECTION_NAME ".brig"
+#define BRIG_LABEL_STRING "hsa_brig"
 #define BRIG_SECTION_DATA_NAME    "hsa_data"
 #define BRIG_SECTION_CODE_NAME    "hsa_code"
 #define BRIG_SECTION_OPERAND_NAME "hsa_operand"
@@ -67,7 +77,11 @@ public:
   /* Section name that will be output to the BRIG.  */
   const char *section_name;
   /* Size in bytes of all data stored in the section.  */
-  unsigned total_size, header_byte_count;
+  unsigned total_size;
+  /* The size of the header of the section including padding. */
+  unsigned header_byte_count;
+  /* The size of the header of the section without any padding.  */
+  unsigned header_byte_delta;
 
   /* Buffers of binary data, each containing BRIG_CHUNK_MAX_SIZE bytes.  */
   vec <struct hsa_brig_data_chunk> chunks;
@@ -123,15 +137,15 @@ hsa_brig_section::allocate_new_chunk ()
 void
 hsa_brig_section::init (const char *name)
 {
-  struct BrigSectionHeader sample;
-
   section_name = name;
-  total_size = sizeof(sample.byteCount) + sizeof(sample.headerByteCount)
-        + sizeof(sample.nameLength);
-  /* Add strlen + null termination to the section size*/
-  total_size = total_size + strlen(section_name) + 1;
+  /* While the following computation is basically wrong, because the intent
+     certainly wasn't to have the first character of name and padding, which
+     are a part of sizeof (BrigSectionHeader), included in the first addend,
+     this is what the disassembler expects.  */
+  total_size = sizeof (BrigSectionHeader) + strlen(section_name);
   chunks.create (1);
   allocate_new_chunk ();
+  header_byte_delta = total_size;
   round_size_up (4);
   header_byte_count = total_size;
 }
@@ -154,14 +168,17 @@ void
 hsa_brig_section::output ()
 {
   struct BrigSectionHeader section_header;
+  char padding[8];
 
-  switch_to_section (get_section (section_name, SECTION_NOTYPE, NULL));
-
-  section_header.byteCount = htole32 (total_size);
-  section_header.nameLength = htole32 (strlen(section_name));
+  section_header.byteCount = htole64 (total_size);
   section_header.headerByteCount = htole32 (header_byte_count);
-  assemble_string ((const char*) &section_header, 12);
-  assemble_string (section_name, (section_header.nameLength + 1));
+  section_header.nameLength = htole32 (strlen(section_name));
+  assemble_string ((const char*) &section_header, 16);
+  assemble_string (section_name, (section_header.nameLength));
+  memset (&padding, 0, sizeof (padding));
+  /* This is also a consequence of the wrong header size computation described
+     in a comment in hsa_brig_section::init.  */
+  assemble_string (padding, 8);
   for (unsigned i = 0; i < chunks.length (); i++)
     assemble_string (chunks[i].data, chunks[i].size);
 }
@@ -214,7 +231,7 @@ hsa_brig_section::get_ptr_by_offset (unsigned int offset)
 {
   gcc_assert (offset < total_size);
 
-  offset -= header_byte_count;
+  offset -= header_byte_delta;
   unsigned int i;
 
   for (i = 0; offset >= chunks[i].size; i++)
@@ -222,7 +239,6 @@ hsa_brig_section::get_ptr_by_offset (unsigned int offset)
 
   return chunks[i].data + offset;
 }
-
 
 /* BRIG string data hashing.  */
 
@@ -356,7 +372,6 @@ static struct operand_queue
 static void
 brig_init (void)
 {
-  struct BrigDirectiveVersion verdir;
   brig_insn_count = 0;
 
   if (brig_initialized)
@@ -366,21 +381,37 @@ brig_init (void)
   brig_data.init (BRIG_SECTION_DATA_NAME);
   brig_code.init (BRIG_SECTION_CODE_NAME);
   brig_operand.init (BRIG_SECTION_OPERAND_NAME);
-
-  verdir.base.byteCount = htole16 (sizeof (verdir));
-  verdir.base.kind = htole16 (BRIG_KIND_DIRECTIVE_VERSION);
-  verdir.hsailMajor = htole32 (BRIG_VERSION_HSAIL_MAJOR) ;
-  verdir.hsailMinor =  htole32 (BRIG_VERSION_HSAIL_MINOR);
-  verdir.brigMajor = htole32 (BRIG_VERSION_BRIG_MAJOR);
-  verdir.brigMinor = htole32 (BRIG_VERSION_BRIG_MINOR);
-  verdir.profile = hsa_full_profile_p () ? BRIG_PROFILE_FULL: BRIG_PROFILE_BASE;
-  if (hsa_machine_large_p ())
-    verdir.machineModel = BRIG_MACHINE_LARGE;
-  else
-    verdir.machineModel = BRIG_MACHINE_SMALL;
-  verdir.reserved = 0;
-  brig_code.add (&verdir, sizeof (verdir));
   brig_initialized = true;
+
+  struct BrigDirectiveModule moddir;
+  memset (&moddir, 0, sizeof (moddir));
+  moddir.base.byteCount = htole16 (sizeof (moddir));
+
+  char *modname;
+  if (!in_lto_p && main_input_filename)
+    {
+      const char *part = strrchr (main_input_filename, '/');
+      if (!part)
+	part = main_input_filename;
+      asprintf (&modname, "&%s", part);
+      char* extension = strchr (modname, '.');
+      if (extension)
+	*extension = '\0';
+      moddir.name = brig_emit_string (modname);
+      free (modname);
+    }
+  else
+    moddir.name = brig_emit_string (main_input_filename);
+  moddir.base.kind = htole16 (BRIG_KIND_DIRECTIVE_MODULE);
+  moddir.hsailMajor = htole32 (BRIG_VERSION_HSAIL_MAJOR) ;
+  moddir.hsailMinor = htole32 (BRIG_VERSION_HSAIL_MINOR);
+  moddir.profile = hsa_full_profile_p () ? BRIG_PROFILE_FULL: BRIG_PROFILE_BASE;
+  if (hsa_machine_large_p ())
+    moddir.machineModel = BRIG_MACHINE_LARGE;
+  else
+    moddir.machineModel = BRIG_MACHINE_SMALL;
+  moddir.defaultFloatRound = BRIG_ROUND_FLOAT_DEFAULT;
+  brig_code.add (&moddir, sizeof (moddir));
 }
 
 /* Free all BRIG data.  */
@@ -433,6 +464,7 @@ emit_directive_variable (struct hsa_symbol *symbol)
   if (symbol->directive_offset)
     return symbol->directive_offset;
 
+  memset (&dirvar, 0, sizeof (dirvar));
   dirvar.base.byteCount = htole16 (sizeof (dirvar));
   dirvar.base.kind = htole16 (BRIG_KIND_DIRECTIVE_VARIABLE);
   dirvar.allocation = BRIG_ALLOCATION_AUTOMATIC;
@@ -472,7 +504,7 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.linkage = symbol->linkage;
   dirvar.dim.lo = htole32 (symbol->dimLo);
   dirvar.dim.hi = htole32 (symbol->dimHi);
-  dirvar.modifier = BRIG_SYMBOL_DEFINITION;
+  dirvar.modifier.allBits |= BRIG_VARIABLE_DEFINITION;
   dirvar.reserved = 0;
 
   symbol->directive_offset = brig_code.add (&dirvar, sizeof (dirvar));
@@ -506,8 +538,10 @@ emit_function_directives (void)
 
   next_toplev_off = scoped_off + count * sizeof (struct BrigDirectiveVariable);
 
+  memset (&fndir, 0, sizeof (fndir));
   fndir.base.byteCount = htole16 (sizeof (fndir));
-  fndir.base.kind = htole16 (hsa_cfun.kern_p ? BRIG_KIND_DIRECTIVE_KERNEL : BRIG_KIND_DIRECTIVE_FUNCTION);
+  fndir.base.kind = htole16 (hsa_cfun.kern_p ? BRIG_KIND_DIRECTIVE_KERNEL
+			     : BRIG_KIND_DIRECTIVE_FUNCTION);
   fndir.name = htole32 (name_offset);
   fndir.inArgCount = htole16 (hsa_cfun.input_args_count);
   fndir.outArgCount = htole16 (hsa_cfun.output_arg ? 1 : 0);
@@ -515,8 +549,7 @@ emit_function_directives (void)
   fndir.firstCodeBlockEntry = htole32 (scoped_off);
   fndir.nextModuleEntry = htole32 (next_toplev_off);
   fndir.linkage = BRIG_LINKAGE_PROGRAM;
-  fndir.codeBlockEntryCount = htole32 (0);
-  fndir.modifier = BRIG_EXECUTABLE_DEFINITION;
+  fndir.modifier.allBits |= BRIG_EXECUTABLE_DEFINITION;
   memset (&fndir.reserved, 0, sizeof (fndir.reserved));
 
   function_offsets.put (cfun->decl, brig_code.total_size);
@@ -721,9 +754,9 @@ enqueue_op (hsa_op_base *op)
   op_queue.last_op = op;
 
   if (is_a <hsa_op_immed *> (op))
-    op_queue.projected_size += sizeof (struct BrigOperandData);
+    op_queue.projected_size += sizeof (struct BrigOperandConstantBytes);
   else if (is_a <hsa_op_reg *> (op))
-    op_queue.projected_size += sizeof (struct BrigOperandReg);
+    op_queue.projected_size += sizeof (struct BrigOperandRegister);
   else if (is_a <hsa_op_address *> (op))
     {
     op_queue.projected_size += sizeof (struct BrigOperandAddress);
@@ -742,7 +775,7 @@ enqueue_op (hsa_op_base *op)
 static void
 emit_immediate_operand (hsa_op_immed *imm)
 {
-  struct BrigOperandData out;
+  struct BrigOperandConstantBytes out;
   uint32_t byteCount;
 
   union
@@ -754,6 +787,7 @@ emit_immediate_operand (hsa_op_immed *imm)
   } bytes;
   unsigned len;
 
+  memset (&out, 0, sizeof (out));
   switch (imm->type)
     {
     case BRIG_TYPE_U8:
@@ -841,10 +875,10 @@ emit_immediate_operand (hsa_op_immed *imm)
     }
 
   out.base.byteCount = htole16 (sizeof (out));
-  out.base.kind = htole16 (BRIG_KIND_OPERAND_DATA);
-  byteCount = len ;
-
-  out.data = brig_data.add (&byteCount, sizeof (byteCount));
+  out.base.kind = htole16 (BRIG_KIND_OPERAND_CONSTANT_BYTES);
+  byteCount = htole32 (len);
+  out.type = htole16 (imm->type);
+  out.bytes = brig_data.add (&byteCount, sizeof (byteCount));
   brig_data.add (&bytes, len);
 
   brig_operand.add (&out, sizeof(out));
@@ -856,20 +890,20 @@ emit_immediate_operand (hsa_op_immed *imm)
 static void
 emit_register_operand (hsa_op_reg *reg)
 {
-  struct BrigOperandReg out;
+  struct BrigOperandRegister out;
 
   out.base.byteCount = htole16 (sizeof (out));
-  out.base.kind = htole16 (BRIG_KIND_OPERAND_REG);
+  out.base.kind = htole16 (BRIG_KIND_OPERAND_REGISTER);
   out.regNum = htole32 (reg->hard_num);
 
   if (BRIG_TYPE_B32 == regtype_for_type (reg->type))
-    out.regKind = BRIG_REGISTER_SINGLE;
+    out.regKind = BRIG_REGISTER_KIND_SINGLE;
   else if (BRIG_TYPE_B64 == regtype_for_type (reg->type))
-    out.regKind = BRIG_REGISTER_DOUBLE;
+    out.regKind = BRIG_REGISTER_KIND_DOUBLE;
   else if (BRIG_TYPE_B128 == regtype_for_type (reg->type))
-    out.regKind = BRIG_REGISTER_QUAD;
+    out.regKind = BRIG_REGISTER_KIND_QUAD;
   else if (BRIG_TYPE_B1 == regtype_for_type (reg->type))
-    out.regKind = BRIG_REGISTER_CONTROL;
+    out.regKind = BRIG_REGISTER_KIND_CONTROL;
   else
     gcc_unreachable ();
 
@@ -997,7 +1031,7 @@ emit_memory_insn (hsa_insn_mem *mem)
     repr.segment = addr->symbol->segment;
   else
     repr.segment = BRIG_SEGMENT_FLAT;
-  repr.modifier = 0 ;
+  repr.modifier.allBits = 0 ;
   repr.equivClass = mem->equiv_class;
   repr.align = BRIG_ALIGNMENT_1;
   if (mem->opcode == BRIG_OPCODE_LD)
@@ -1119,7 +1153,7 @@ emit_segment_insn (hsa_insn_seg *seg)
 
   repr.sourceType = htole16 (as_a <hsa_op_reg *> (seg->operands[1])->type);
   repr.segment = seg->segment;
-  repr.modifier = 0;
+  repr.modifier.allBits = 0;
 
   brig_code.add (&repr, sizeof (repr));
 
@@ -1136,6 +1170,7 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
   BrigOperandOffset32_t operand_offsets[3];
   uint32_t byteCount;
 
+  memset (&repr, 0, sizeof (repr));
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_CMP);
   repr.base.opcode = htole16 (cmp->opcode);
@@ -1155,10 +1190,9 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
     repr.sourceType = htole16 (as_a <hsa_op_reg *> (cmp->operands[1])->type);
   else
     repr.sourceType = htole16 (as_a <hsa_op_immed *> (cmp->operands[1])->type);
-  repr.modifier = 0;
+  repr.modifier.allBits = 0;
   repr.compare = cmp->compare;
   repr.pack = 0;
-  repr.reserved = 0;
 
   brig_code.add (&repr, sizeof (repr));
   brig_insn_count++;
@@ -1261,17 +1295,16 @@ emit_cvt_insn (hsa_insn_basic *insn)
   else
     srctype = as_a <hsa_op_immed *> (insn->operands[1])->type;
   repr.sourceType = htole16 (srctype);
-
+  repr.modifier.allBits = 0;
   /* float to smaller float requires a rounding setting (we default
      to 'near'.  */
   if (float_type_p (insn->type)
       && (!float_type_p (srctype)
          || ((insn->type & BRIG_TYPE_BASE_MASK)
              < (srctype & BRIG_TYPE_BASE_MASK))))
-    repr.modifier = BRIG_ROUND_FLOAT_NEAR_EVEN;
+    repr.round = BRIG_ROUND_FLOAT_NEAR_EVEN;
   else
-    repr.modifier = 0;
-
+    repr.round = BRIG_ROUND_NONE;
   brig_code.add (&repr, sizeof (repr));
   brig_insn_count++;
 }
@@ -1281,15 +1314,22 @@ emit_cvt_insn (hsa_insn_basic *insn)
 static void
 emit_arg_block (bool is_start)
 {
-  struct BrigDirectiveArgBlock repr;
-  repr.base.byteCount = htole16 (sizeof (repr));
-
-  BrigKinds16_t kind = is_start ? BRIG_KIND_DIRECTIVE_ARG_BLOCK_START
-    : BRIG_KIND_DIRECTIVE_ARG_BLOCK_END;
-  repr.base.kind = htole16 (kind);
-
-  brig_code.add (&repr, sizeof (repr));
-  brig_insn_count++;
+  if (is_start)
+    {
+      struct BrigDirectiveArgBlockStart repr;
+      repr.base.byteCount = htole16 (sizeof (repr));
+      repr.base.kind = htole16 (BRIG_KIND_DIRECTIVE_ARG_BLOCK_START);
+      brig_code.add (&repr, sizeof (repr));
+      brig_insn_count++;
+    }
+  else
+    {
+      struct BrigDirectiveArgBlockEnd repr;
+      repr.base.byteCount = htole16 (sizeof (repr));
+      repr.base.kind = htole16 (BRIG_KIND_DIRECTIVE_ARG_BLOCK_END);
+      brig_code.add (&repr, sizeof (repr));
+      brig_insn_count++;
+    }
 }
 
 /* Emit call instruction INSN, where this instruction must be closed
@@ -1390,14 +1430,12 @@ emit_basic_insn (hsa_insn_basic *insn)
       return;
     }
 
+  memset (&repr, 0, sizeof (repr));
   repr.base.base.byteCount = htole16 (sizeof (BrigInstBasic));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_BASIC);
   repr.base.opcode = htole16 (insn->opcode);
   switch (insn->opcode)
     {
-      /* XXX The spec says mov can take all types.  But the LLVM based
-	 simulator cries about "Mov_s32" not being defined.  */
-      case BRIG_OPCODE_MOV:
       /* And the bit-logical operations need bit types and whine about
          arithmetic types :-/  */
       case BRIG_OPCODE_AND:
@@ -1430,9 +1468,9 @@ emit_basic_insn (hsa_insn_basic *insn)
   if ((type & BRIG_TYPE_PACK_MASK) != BRIG_TYPE_PACK_NONE)
     {
       if (float_type_p (type))
-	repr.modifier = BRIG_ROUND_FLOAT_NEAR_EVEN;
+	repr.round = BRIG_ROUND_FLOAT_NEAR_EVEN;
       else
-	repr.modifier = 0;
+	repr.round = 0;
       /* We assume that destination and sources agree in packing
          layout.  */
       if (insn->operands[2])
@@ -1578,11 +1616,172 @@ hsa_brig_emit_function (void)
       prev_bb = bb;
     }
   perhaps_emit_branch (prev_bb, NULL);
-  ptr_to_fndir->codeBlockEntryCount = brig_insn_count ;
   ptr_to_fndir->nextModuleEntry = brig_code.total_size;
 
   emit_queued_operands ();
 }
+
+static GTY(()) tree hsa_ctor_statements;
+
+/* Create a static initializator that will register out brig stufgf with
+   libgomp.  */
+
+static void
+hsa_output_kernel_mapping (tree brig_decl)
+{
+  unsigned map_count = hsa_get_number_decl_kernel_mappings ();
+  gcc_assert (map_count > 0);
+
+  tree int_num_of_kernels;
+  int_num_of_kernels = build_int_cst (integer_type_node, (int) map_count);
+  tree kernel_num_index_type = build_index_type (int_num_of_kernels);
+  tree host_functions_array_type = build_array_type (ptr_type_node,
+						     kernel_num_index_type);
+
+  vec<constructor_elt, va_gc> *host_functions_vec = NULL;
+  for (unsigned i = 0; i < map_count; ++i)
+    {
+      tree decl = hsa_get_decl_kernel_mapping_decl (i);
+      CONSTRUCTOR_APPEND_ELT (host_functions_vec, NULL_TREE,
+			      build_fold_addr_expr (decl));
+    }
+  tree host_functions_ctor = build_constructor (host_functions_array_type,
+						host_functions_vec);
+  char tmp_name[64];
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "hsa_host_functions", 1);
+  tree hsa_host_func_table = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+					 get_identifier (tmp_name),
+					 host_functions_array_type);
+  TREE_STATIC (hsa_host_func_table) = 1;
+  TREE_READONLY (hsa_host_func_table) = 1;
+  TREE_PUBLIC (hsa_host_func_table) = 0;
+  DECL_ARTIFICIAL (hsa_host_func_table) = 1;
+  DECL_IGNORED_P (hsa_host_func_table) = 1;
+  DECL_EXTERNAL (hsa_host_func_table) = 0;
+  TREE_CONSTANT (hsa_host_func_table) = 1;
+  DECL_INITIAL (hsa_host_func_table) = host_functions_ctor;
+  varpool_node::finalize_decl (hsa_host_func_table);
+
+  int len = 0;
+  for (unsigned i = 0; i < map_count; ++i)
+    {
+      char *name = hsa_get_decl_kernel_mapping_name (i);
+      /* We add 1 for the terminating zero and 1 for an ampersand prefix.  */
+      len = len + strlen (name) + 2;
+    }
+  len++;
+
+  char *buf = XNEWVEC (char, len);
+  char *p = buf;
+  for (unsigned i = 0; i < map_count; ++i)
+    {
+      char *name = hsa_get_decl_kernel_mapping_name (i);
+      int ll = strlen (name);
+      gcc_assert (ll > 0);
+      *p = '&';
+      p++;
+      memcpy (p, name, ll);
+      p += ll;
+      *p = '\0';
+      p++;
+    }
+  *p = '\0';
+  tree kern_names = build_string (len, buf);
+  TREE_TYPE (kern_names) = build_array_type (char_type_node,
+					     build_index_type (size_int (len)));
+  free (buf);
+
+  tree hsa_image_desc_type = make_node (RECORD_TYPE);
+  tree id_f1 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+			   get_identifier ("brig_module"), ptr_type_node);
+  DECL_CHAIN (id_f1) = NULL_TREE;
+  tree id_f2 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+			   get_identifier ("kern_names"), ptr_type_node);
+  DECL_CHAIN (id_f2) = id_f1;
+  finish_builtin_struct (hsa_image_desc_type, "__hsa_image_desc", id_f2,
+			 NULL_TREE);
+
+  vec<constructor_elt, va_gc> *img_desc_vec = NULL;
+  CONSTRUCTOR_APPEND_ELT (img_desc_vec, NULL_TREE,
+			  build_fold_addr_expr (brig_decl));
+  CONSTRUCTOR_APPEND_ELT (img_desc_vec, NULL_TREE,
+			  build1 (ADDR_EXPR,
+				  build_pointer_type (TREE_TYPE (kern_names)),
+				  kern_names));
+
+  tree img_desc_ctor = build_constructor (hsa_image_desc_type, img_desc_vec);
+
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "hsa_img_descriptor", 1);
+  tree hsa_img_descriptor = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+					get_identifier (tmp_name),
+					hsa_image_desc_type);
+  TREE_STATIC (hsa_img_descriptor) = 1;
+  TREE_READONLY (hsa_img_descriptor) = 1;
+  TREE_PUBLIC (hsa_img_descriptor) = 0;
+  DECL_ARTIFICIAL (hsa_img_descriptor) = 1;
+  DECL_IGNORED_P (hsa_img_descriptor) = 1;
+  DECL_EXTERNAL (hsa_img_descriptor) = 0;
+  TREE_CONSTANT (hsa_img_descriptor) = 1;
+  DECL_INITIAL (hsa_img_descriptor) = img_desc_ctor;
+  varpool_node::finalize_decl (hsa_img_descriptor);
+
+  /* Construct the "host_table" libgomp expects. */
+  tree libgomp_host_table_type = build_array_type (ptr_type_node,
+						   build_index_type
+						   (build_int_cst
+						    (integer_type_node, 4)));
+  vec<constructor_elt, va_gc> *libgomp_host_table_vec = NULL;
+  tree host_func_table_addr = build_fold_addr_expr (hsa_host_func_table);
+  CONSTRUCTOR_APPEND_ELT (libgomp_host_table_vec, NULL_TREE,
+			  host_func_table_addr);
+  offset_int func_table_size = wi::to_offset (TYPE_SIZE_UNIT (ptr_type_node))
+    * map_count;
+  CONSTRUCTOR_APPEND_ELT (libgomp_host_table_vec, NULL_TREE,
+			  fold_build2 (POINTER_PLUS_EXPR,
+				       TREE_TYPE (host_func_table_addr),
+				       host_func_table_addr,
+				       build_int_cst (size_type_node,
+						      func_table_size.to_uhwi
+						      ())));
+  CONSTRUCTOR_APPEND_ELT (libgomp_host_table_vec, NULL_TREE, null_pointer_node);
+  CONSTRUCTOR_APPEND_ELT (libgomp_host_table_vec, NULL_TREE, null_pointer_node);
+  tree libgomp_host_table_ctor = build_constructor (libgomp_host_table_type,
+						    libgomp_host_table_vec);
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "hsa_libgomp_host_table", 1);
+  tree hsa_libgomp_host_table = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+					    get_identifier (tmp_name),
+					    libgomp_host_table_type);
+
+  TREE_STATIC (hsa_libgomp_host_table) = 1;
+  TREE_READONLY (hsa_libgomp_host_table) = 1;
+  TREE_PUBLIC (hsa_libgomp_host_table) = 0;
+  DECL_ARTIFICIAL (hsa_libgomp_host_table) = 1;
+  DECL_IGNORED_P (hsa_libgomp_host_table) = 1;
+  DECL_EXTERNAL (hsa_libgomp_host_table) = 0;
+  TREE_CONSTANT (hsa_libgomp_host_table) = 1;
+  DECL_INITIAL (hsa_libgomp_host_table) = libgomp_host_table_ctor;
+  varpool_node::finalize_decl (hsa_libgomp_host_table);
+
+  /* Generate an initializer with a call to the registration routine.  */
+
+  /* FIXME: gomp_offload_register has one more enum parameter omitted here.  */
+  tree reg_fn_type = build_function_type_list (void_type_node, ptr_type_node,
+					       ptr_type_node, NULL_TREE);
+  tree reg_fn = build_fn_decl ("__hsa_register_image", reg_fn_type);
+   append_to_statement_list
+    (build_call_expr (reg_fn, 2,
+		      build_fold_addr_expr (hsa_libgomp_host_table),
+		      build_fold_addr_expr (hsa_img_descriptor)),
+     &hsa_ctor_statements);
+  cgraph_build_static_cdtor ('I', hsa_ctor_statements, DEFAULT_INIT_PRIORITY);
+}
+
+
+#define HSA_SECTION_ALIGNMENT 16
+
+/* Emit the brig module we have compiled to a section in the final assembly and
+   also create a compile unit static constructor that will register the brig
+   module with libgomp.  */
 
 void
 hsa_output_brig (void)
@@ -1613,13 +1812,74 @@ hsa_output_brig (void)
 
   saved_section = in_section;
 
+  switch_to_section (get_section (BRIG_ELF_SECTION_NAME, SECTION_NOTYPE, NULL));
+  char tmp_name[64];
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, BRIG_LABEL_STRING, 1);
+  ASM_OUTPUT_LABEL (asm_out_file, tmp_name);
+  tree brig_id = get_identifier (tmp_name);
+  tree brig_decl = build_decl (UNKNOWN_LOCATION, VAR_DECL, brig_id,
+			       char_type_node);
+  SET_DECL_ASSEMBLER_NAME (brig_decl, brig_id);
+  TREE_ADDRESSABLE (brig_decl) = 1;
+  TREE_READONLY (brig_decl) = 1;
+  DECL_ARTIFICIAL (brig_decl) = 1;
+  DECL_IGNORED_P (brig_decl) = 1;
+  TREE_STATIC (brig_decl) = 1;
+  TREE_PUBLIC (brig_decl) = 0;
+  TREE_USED (brig_decl) = 1;
+  DECL_INITIAL (brig_decl) = brig_decl;
+  TREE_ASM_WRITTEN (brig_decl) = 1;
+
+  BrigModuleHeader module_header;
+  memcpy (&module_header.identification, "HSA BRIG",
+	  sizeof(module_header.identification));
+  module_header.brigMajor = htole32 (BRIG_VERSION_BRIG_MAJOR);
+  module_header.brigMinor = htole32 (BRIG_VERSION_BRIG_MINOR);
+  uint64_t section_index[3];
+
+  int data_padding, code_padding, operand_padding;
+  data_padding = HSA_SECTION_ALIGNMENT
+    - brig_data.total_size % HSA_SECTION_ALIGNMENT;
+  code_padding = HSA_SECTION_ALIGNMENT
+    - brig_code.total_size % HSA_SECTION_ALIGNMENT;
+  operand_padding = HSA_SECTION_ALIGNMENT
+    - brig_operand.total_size % HSA_SECTION_ALIGNMENT;
+
+  uint64_t module_size = sizeof (module_header) + sizeof (section_index)
+    + brig_data.total_size + data_padding
+    + brig_code.total_size + code_padding
+    + brig_operand.total_size + operand_padding;
+  gcc_assert ((module_size % 16) == 0);
+  module_header.byteCount = htole64 (module_size);
+  memset (&module_header.hash, 0, sizeof (module_header.hash));
+  module_header.reserved = 0;
+  module_header.sectionCount = htole32 (3);
+  module_header.sectionIndex = htole64 (sizeof (module_header));
+  assemble_string ((const char *) &module_header, sizeof(module_header));
+  uint64_t off = sizeof (module_header) + sizeof (section_index);
+  section_index[0] = htole64 (off);
+  off += brig_data.total_size + data_padding;
+  section_index[1] = htole64 (off);
+  off += brig_code.total_size + code_padding;
+  section_index[2] = htole64 (off);
+  assemble_string ((const char *) &section_index, sizeof (section_index));
+
+  char padding[HSA_SECTION_ALIGNMENT];
+  memset (padding, 0, sizeof(padding));
+
   brig_data.output ();
+  assemble_string (padding, data_padding);
   brig_code.output ();
+  assemble_string (padding, code_padding);
   brig_operand.output ();
+  assemble_string (padding, operand_padding);
 
   if (saved_section)
     switch_to_section (saved_section);
 
+  hsa_output_kernel_mapping (brig_decl);
+
+  hsa_free_decl_kernel_mapping ();
   brig_release_data ();
   hsa_deinit_compilation_unit_data ();
 }
