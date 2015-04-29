@@ -8381,35 +8381,6 @@ stabilize_vla_size (tree size)
   cp_walk_tree (&size, stabilize_save_expr_r, &pset, &pset);
 }
 
-/* Helper function for compute_array_index_type.  Look for SIZEOF_EXPR
-   not inside of SAVE_EXPR and fold them.  */
-
-static tree
-fold_sizeof_expr_r (tree *expr_p, int *walk_subtrees, void *data)
-{
-  tree expr = *expr_p;
-  if (TREE_CODE (expr) == SAVE_EXPR || TYPE_P (expr))
-    *walk_subtrees = 0;
-  else if (TREE_CODE (expr) == SIZEOF_EXPR)
-    {
-      *(bool *)data = true;
-      if (SIZEOF_EXPR_TYPE_P (expr))
-	expr = cxx_sizeof_or_alignof_type (TREE_TYPE (TREE_OPERAND (expr, 0)),
-					   SIZEOF_EXPR, false);
-      else if (TYPE_P (TREE_OPERAND (expr, 0)))
-	expr = cxx_sizeof_or_alignof_type (TREE_OPERAND (expr, 0), SIZEOF_EXPR,
-					   false);
-      else
-        expr = cxx_sizeof_or_alignof_expr (TREE_OPERAND (expr, 0), SIZEOF_EXPR,
-					   false);
-      if (expr == error_mark_node)
-        expr = size_one_node;
-      *expr_p = expr;
-      *walk_subtrees = 0;
-    }
-  return NULL;
-}
-
 /* Given the SIZE (i.e., number of elements) in an array, compute an
    appropriate index type for the array.  If non-NULL, NAME is the
    name of the thing being declared.  */
@@ -8596,18 +8567,6 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	{
 	  /* A variable sized array.  */
 	  itype = variable_size (itype);
-
-	  if (TREE_CODE (itype) != SAVE_EXPR)
-	    {
-	      /* Look for SIZEOF_EXPRs in itype and fold them, otherwise
-		 they might survive till gimplification.  */
-	      tree newitype = itype;
-	      bool found = false;
-	      cp_walk_tree_without_duplicates (&newitype,
-					       fold_sizeof_expr_r, &found);
-	      if (found)
-		itype = variable_size (maybe_constant_value (newitype));
-	    }
 
 	  stabilize_vla_size (itype);
 
