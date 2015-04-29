@@ -7120,7 +7120,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code, bool *array_alloc_wo_spec)
     }
 
   /* Make sure that the array section reference makes sense in the
-    context of an ALLOCATE specification.  */
+     context of an ALLOCATE specification.  */
 
   ar = &ref2->u.ar;
 
@@ -7213,16 +7213,16 @@ failure:
 }
 
 
-static gfc_code *
-build_assignment (gfc_exec_op op, gfc_expr *expr1, gfc_expr *expr2,
-		  gfc_component *comp1, gfc_component *comp2, locus loc);
-
-
 static void
 resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 {
   gfc_expr *stat, *errmsg, *pe, *qe;
   gfc_alloc *a, *p, *q;
+
+  /* When this flag is set already, then this allocate has already been
+     resolved.  Doing so again, would result in an endless loop.  */
+  if (code->ext.alloc.arr_spec_from_expr3)
+    return;
 
   stat = code->expr1;
   errmsg = code->expr2;
@@ -7406,14 +7406,14 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	      || code->expr3->expr_type == EXPR_FUNCTION)
 	    {
 	      /* The trans stage can not cope with expr3->expr_type
-	     being EXPR_ARRAY or EXPR_FUNCTION, therefore create a
-	     temporary variable and assign expr3 to it, substituting
-	     the variable in expr3.  */
+		 being EXPR_ARRAY or EXPR_FUNCTION, therefore create a
+		 temporary variable and assign expr3 to it, substituting
+		 the variable in expr3.  */
 	      char name[25];
 	      static unsigned int alloc_sym_count = 0;
 	      gfc_symbol *temp_var_sym;
 	      gfc_expr *temp_var;
-	      gfc_code *ass, *iter;
+	      gfc_code *ass, *old_alloc;
 	      gfc_namespace *ns = code->ext.alloc.list->expr->symtree->n.sym->ns;
 	      gfc_array_spec *as;
 	      int dim;
@@ -7433,7 +7433,7 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	      temp_var->where = code->expr3->where;
 
 	      /* Now to the most important: Set the array specification
-	     correctly.  */
+		 correctly.  */
 	      as = gfc_get_array_spec ();
 	      temp_var->rank = as->rank = code->expr3->rank;
 	      if (code->expr3->expr_type == EXPR_ARRAY)
@@ -7470,23 +7470,16 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 
 	      gfc_resolve_code (ass, ns);
 	      /* Now add the new code before this ones.  */
-	      iter = ns->code;
-	      /* At least one code has to be present in the ns, this one.  */
-	      if (iter == code)
-		ns->code = ass;
-	      else
-		{
-		  while (iter->next && iter->next != code)
-		    iter = iter->next;
-		  gcc_assert (iter->next);
-		  iter->next = ass;
-		}
-	      ass->next = code;
+	      old_alloc = gfc_get_code (EXEC_ALLOCATE);
+	      *old_alloc = *code;
+	      *code = *ass;
+	      code->next = old_alloc;
 
 	      /* Do not gfc_free_expr (temp_var), because it is inserted
-	     without copy into expr3.  */
-	      code->expr3 = temp_var;
+		 without copy into expr3.  */
+	      old_alloc->expr3 = temp_var;
 	      gfc_set_sym_referenced (temp_var_sym);
+	      gfc_commit_symbol (temp_var_sym);
 	    }
 	}
     }
