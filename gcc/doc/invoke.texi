@@ -23967,7 +23967,8 @@ which controls how references to global symbols are bound.  The
 local definitions and external references globally.  This option
 avoids copy relocations in position-independent executables and
 optimizes global symbol references in shared library created by
-linker option, @option{-Bsymbolic}.
+linker option, @option{-Bsymbolic}.  This option is enabled by default
+with @option{-flto} when @option{-Bsymbolic} is used.
 
 @item -fno-ident
 @opindex fno-ident
