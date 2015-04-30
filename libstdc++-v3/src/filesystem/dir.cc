@@ -39,7 +39,8 @@
 # define EACCES static_cast<int>(std::errc::permission_denied)
 #endif
 using DIR = void;
-static DIR* opendir(const char*) { return nullptr; }
+using P = std::experimental::filesystem::path;
+static DIR* opendir(const P::value_type*) { return nullptr; }
 static void closedir(DIR*) { }
 struct dirent { const char* d_name; };
 static inline int readdir_r(DIR*, dirent*, dirent**)
@@ -130,7 +131,7 @@ namespace
   }
 
   inline fs::file_type
-  get_file_type(const dirent& d)
+  get_file_type(const dirent& d __attribute__((__unused__)))
   {
 #ifdef _GLIBCXX_HAVE_STRUCT_DIRENT_D_TYPE
     switch (d.d_type)

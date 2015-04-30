@@ -46,7 +46,8 @@
 #include <bits/locale_conv.h>
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
-# define _GLIBCXX_FILESYSTEM_IS_WINDOWS
+# define _GLIBCXX_FILESYSTEM_IS_WINDOWS 1
+# include <algorithm>
 #endif
 
 namespace std _GLIBCXX_VISIBILITY(default)
@@ -775,46 +776,46 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       if (is_same<_CharT, value_type>::value)
 	return { _M_pathname.begin(), _M_pathname.end(), __a };
 
-      basic_string<_CharT, _Traits, _Allocator> __str{__a};
       const value_type* __first = _M_pathname.data();
       const value_type* __last = __first + _M_pathname.size();
 
 #ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
+      using _CharAlloc = typename __alloc_rebind<_Allocator, char>;
+      using _String = basic_string<char, char_traits<char>, _CharAlloc>;
+      using _WString = basic_string<_CharT, _Traits, _Allocator>;
+
       // use codecvt_utf8<wchar_t> to convert native string to UTF-8
       codecvt_utf8<value_type> __cvt;
-      basic_string<char, _Traits, _Allocator> __u8str{__a};
+      _String __u8str{_CharAlloc{__a}};
       if (__str_codecvt_out(__first, __last, __u8str, __cvt))
 	{
 	  struct
 	  {
-	    // This overload will be used when is_same<_CharT, char>
-	    const basic_string<char, _Traits, _Allocator>*
-	    operator()(const basic_string<char, _Traits, _Allocator>& __instr,
-		       basic_string<char, _Traits, _Allocator>&,
-		       int)
-	    { return std::__addressof(__instr); }
+	    const _String*
+	    operator()(const _String& __from, _String&, true_type)
+	    { return std::__addressof(__from); }
 
-	    basic_string<_CharT, _Traits, _Allocator>*
-	    operator()(const basic_string<char, _Traits, _Allocator>& __instr,
-		       basic_string<_CharT, _Traits, _Allocator>& __outstr,
-		       ...)
+	    _WString*
+	    operator()(const _String& __from, _WString& __to, false_type)
 	    {
-	      // use codecvt_utf8<_CharT> to convert UTF-8 to target string
+	      // use codecvt_utf8<_CharT> to convert UTF-8 to wide string
 	      codecvt_utf8<_CharT> __cvt;
-	      const char* __f = __instr.data();
-	      const char* __l = __f + __instr.size();
-	      if (__str_codecvt_in(__f, __l, __outstr, __cvt))
-		return std::__addressof(__outstr);
+	      const char* __f = __from.data();
+	      const char* __l = __f + __from.size();
+	      if (__str_codecvt_in(__f, __l, __to, __cvt))
+		return std::__addressof(__to);
 	      return nullptr;
 	    }
 	  } __dispatch;
-	  if (auto* __p = __dispatch(__u8str, __str, 1))
+	  _WString __wstr;
+	  if (auto* __p = __dispatch(__u8str, __wstr, is_same<_CharT, char>{}))
 	    return *__p;
 	}
 #else
       codecvt_utf8<_CharT> __cvt;
-      if (__str_codecvt_in(__first, __last, __str, __cvt))
-	return __str;
+      basic_string<_CharT, _Traits, _Allocator> __wstr{__a};
+      if (__str_codecvt_in(__first, __last, __wstr, __cvt))
+	return __wstr;
 #endif
       _GLIBCXX_THROW_OR_ABORT(filesystem_error(
 	    "Cannot convert character sequence",
@@ -831,7 +832,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   path::u8string() const
   {
 #ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
-    string __str;
+    std::string __str;
     // convert from native encoding to UTF-8
     codecvt_utf8<value_type> __cvt;
     const value_type* __first = _M_pathname.data();
