@@ -7282,14 +7282,11 @@ fold_plusminus_mult_expr (location_t loc, enum tree_code code, tree type,
 
 /* Subroutine of native_encode_expr.  Encode the INTEGER_CST
    specified by EXPR into the buffer PTR of length LEN bytes.
-   If REVERSE is true, the INTEGER_CST is interpreted in reverse
-   storage order wrt the target order.
    Return the number of bytes placed in the buffer, or zero
    upon failure.  */
 
 static int
-native_encode_int (const_tree expr, unsigned char *ptr, int len, int off,
-		   bool reverse)
+native_encode_int (const_tree expr, unsigned char *ptr, int len, int off)
 {
   tree type = TREE_TYPE (expr);
   int total_bytes = GET_MODE_SIZE (TYPE_MODE (type));
@@ -7313,21 +7310,16 @@ native_encode_int (const_tree expr, unsigned char *ptr, int len, int off,
       if (total_bytes > UNITS_PER_WORD)
 	{
 	  word = byte / UNITS_PER_WORD;
-	  if (reverse ? !WORDS_BIG_ENDIAN : WORDS_BIG_ENDIAN)
+	  if (WORDS_BIG_ENDIAN)
 	    word = (words - 1) - word;
 	  offset = word * UNITS_PER_WORD;
-	  if (reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
+	  if (BYTES_BIG_ENDIAN)
 	    offset += (UNITS_PER_WORD - 1) - (byte % UNITS_PER_WORD);
 	  else
 	    offset += byte % UNITS_PER_WORD;
 	}
       else
-	{
-	  if (reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
-	    offset = (total_bytes - 1) - byte;
-          else
-	    offset = byte;
-	}
+	offset = BYTES_BIG_ENDIAN ? (total_bytes - 1) - byte : byte;
       if (offset >= off
 	  && offset - off < len)
 	ptr[offset - off] = value;
@@ -7338,14 +7330,11 @@ native_encode_int (const_tree expr, unsigned char *ptr, int len, int off,
 
 /* Subroutine of native_encode_expr.  Encode the FIXED_CST
    specified by EXPR into the buffer PTR of length LEN bytes.
-   If REVERSE is true, the INTEGER_CST is interpreted in reverse
-   storage order wrt the target order.
    Return the number of bytes placed in the buffer, or zero
    upon failure.  */
 
 static int
-native_encode_fixed (const_tree expr, unsigned char *ptr, int len, int off,
-		     bool reverse)
+native_encode_fixed (const_tree expr, unsigned char *ptr, int len, int off)
 {
   tree type = TREE_TYPE (expr);
   machine_mode mode = TYPE_MODE (type);
@@ -7365,20 +7354,17 @@ native_encode_fixed (const_tree expr, unsigned char *ptr, int len, int off,
   value = TREE_FIXED_CST (expr);
   i_value = double_int_to_tree (i_type, value.data);
 
-  return native_encode_int (i_value, ptr, len, off, reverse);
+  return native_encode_int (i_value, ptr, len, off);
 }
 
 
 /* Subroutine of native_encode_expr.  Encode the REAL_CST
    specified by EXPR into the buffer PTR of length LEN bytes.
-   If REVERSE is true, the INTEGER_CST is interpreted in reverse
-   storage order wrt the target order.
    Return the number of bytes placed in the buffer, or zero
    upon failure.  */
 
 static int
-native_encode_real (const_tree expr, unsigned char *ptr, int len, int off,
-		    bool reverse)
+native_encode_real (const_tree expr, unsigned char *ptr, int len, int off)
 {
   tree type = TREE_TYPE (expr);
   int total_bytes = GET_MODE_SIZE (TYPE_MODE (type));
@@ -7408,21 +7394,16 @@ native_encode_real (const_tree expr, unsigned char *ptr, int len, int off,
       if (UNITS_PER_WORD < 4)
 	{
 	  word = byte / UNITS_PER_WORD;
-	  if (reverse ? !WORDS_BIG_ENDIAN : WORDS_BIG_ENDIAN)
+	  if (WORDS_BIG_ENDIAN)
 	    word = (words - 1) - word;
 	  offset = word * UNITS_PER_WORD;
-	  if (reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
+	  if (BYTES_BIG_ENDIAN)
 	    offset += (UNITS_PER_WORD - 1) - (byte % UNITS_PER_WORD);
 	  else
 	    offset += byte % UNITS_PER_WORD;
 	}
       else
-	{
-	  if (reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
-	    offset = 3 - byte;
-	  else
-	    offset = byte;
-	}
+	offset = BYTES_BIG_ENDIAN ? 3 - byte : byte;
       offset = offset + ((bitpos / BITS_PER_UNIT) & ~3);
       if (offset >= off
 	  && offset - off < len)
@@ -7433,27 +7414,24 @@ native_encode_real (const_tree expr, unsigned char *ptr, int len, int off,
 
 /* Subroutine of native_encode_expr.  Encode the COMPLEX_CST
    specified by EXPR into the buffer PTR of length LEN bytes.
-   If REVERSE is true, the INTEGER_CST is interpreted in reverse
-   storage order wrt the target order.
    Return the number of bytes placed in the buffer, or zero
    upon failure.  */
 
 static int
-native_encode_complex (const_tree expr, unsigned char *ptr, int len, int off,
-		       bool reverse)
+native_encode_complex (const_tree expr, unsigned char *ptr, int len, int off)
 {
   int rsize, isize;
   tree part;
 
   part = TREE_REALPART (expr);
-  rsize = native_encode_expr (part, ptr, len, off, reverse);
+  rsize = native_encode_expr (part, ptr, len, off);
   if (off == -1
       && rsize == 0)
     return 0;
   part = TREE_IMAGPART (expr);
   if (off != -1)
     off = MAX (0, off - GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (part))));
-  isize = native_encode_expr (part, ptr+rsize, len-rsize, off, reverse);
+  isize = native_encode_expr (part, ptr+rsize, len-rsize, off);
   if (off == -1
       && isize != rsize)
     return 0;
@@ -7463,14 +7441,11 @@ native_encode_complex (const_tree expr, unsigned char *ptr, int len, int off,
 
 /* Subroutine of native_encode_expr.  Encode the VECTOR_CST
    specified by EXPR into the buffer PTR of length LEN bytes.
-   If REVERSE is true, the INTEGER_CST is interpreted in reverse
-   storage order wrt the target order.
    Return the number of bytes placed in the buffer, or zero
    upon failure.  */
 
 static int
-native_encode_vector (const_tree expr, unsigned char *ptr, int len, int off,
-		      bool reverse)
+native_encode_vector (const_tree expr, unsigned char *ptr, int len, int off)
 {
   unsigned i, count;
   int size, offset;
@@ -7488,7 +7463,7 @@ native_encode_vector (const_tree expr, unsigned char *ptr, int len, int off,
 	  continue;
 	}
       elem = VECTOR_CST_ELT (expr, i);
-      int res = native_encode_expr (elem, ptr+offset, len-offset, off, reverse);
+      int res = native_encode_expr (elem, ptr+offset, len-offset, off);
       if ((off == -1 && res != size)
 	  || res == 0)
 	return 0;
@@ -7545,30 +7520,27 @@ native_encode_string (const_tree expr, unsigned char *ptr, int len, int off)
    REAL_CST, COMPLEX_CST or VECTOR_CST specified by EXPR into the
    buffer PTR of length LEN bytes.  If OFF is not -1 then start
    the encoding at byte offset OFF and encode at most LEN bytes.
-   If REVERSE is true, the _CST object is interpreted in reverse
-   storage order wrt the target order.
    Return the number of bytes placed in the buffer, or zero upon failure.  */
 
 int
-native_encode_expr (const_tree expr, unsigned char *ptr, int len, int off,
-		    bool reverse)
+native_encode_expr (const_tree expr, unsigned char *ptr, int len, int off)
 {
   switch (TREE_CODE (expr))
     {
     case INTEGER_CST:
-      return native_encode_int (expr, ptr, len, off, reverse);
+      return native_encode_int (expr, ptr, len, off);
 
     case REAL_CST:
-      return native_encode_real (expr, ptr, len, off, reverse);
+      return native_encode_real (expr, ptr, len, off);
 
     case FIXED_CST:
-      return native_encode_fixed (expr, ptr, len, off, reverse);
+      return native_encode_fixed (expr, ptr, len, off);
 
     case COMPLEX_CST:
-      return native_encode_complex (expr, ptr, len, off, reverse);
+      return native_encode_complex (expr, ptr, len, off);
 
     case VECTOR_CST:
-      return native_encode_vector (expr, ptr, len, off, reverse);
+      return native_encode_vector (expr, ptr, len, off);
 
     case STRING_CST:
       return native_encode_string (expr, ptr, len, off);
@@ -7780,29 +7752,6 @@ can_native_interpret_type_p (tree type)
       return false;
     }
 }
-
-/* Fold the flipping of storage order for constant expression EXPR
-   at compile-time.  If we're unable to perform the flipping, return
-   NULL_TREE.  */
-
-tree
-fold_flip_storage_order (tree expr)
-{
-  /* We support up to 512-bit values (for V8DFmode).  */
-  unsigned char buffer[64];
-  int len;
-
-  /* Check that the host and target are sane.  */
-  if (CHAR_BIT != 8 || BITS_PER_UNIT != 8)
-    return NULL_TREE;
-
-  len = native_encode_expr (expr, buffer, sizeof (buffer), -1, true);
-  if (len == 0)
-    return NULL_TREE;
-
-  return native_interpret_expr (TREE_TYPE (expr), buffer, len);
-}
-
 
 /* Fold a VIEW_CONVERT_EXPR of a constant expression EXPR to type
    TYPE at compile-time.  If we're unable to perform the conversion
@@ -13807,9 +13756,9 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 	  if (clen <= 4096)
 	    {
 	      unsigned char *b = XALLOCAVEC (unsigned char, clen);
-	      unsigned HOST_WIDE_INT len
-		= native_encode_expr (arg0, b, clen, false);
-	      if (len > 0 && len * BITS_PER_UNIT >= bitpos + bitsize)
+	      unsigned HOST_WIDE_INT len = native_encode_expr (arg0, b, clen);
+	      if (len > 0
+		  && len * BITS_PER_UNIT >= bitpos + bitsize)
 		{
 		  tree v = native_interpret_expr (type,
 						  b + bitpos / BITS_PER_UNIT,

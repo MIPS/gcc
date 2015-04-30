@@ -1,10 +1,10 @@
 -- { dg-do run }
 
-with Init10; use Init10;
+with Init11; use Init11;
 with Text_IO; use Text_IO;
 with Dump;
 
-procedure S10 is
+procedure S11 is
 
   A1 : R1 := My_R1;
   A2 : R2 := My_R2;

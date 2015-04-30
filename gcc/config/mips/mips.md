@@ -7223,7 +7223,7 @@
   gcc_assert (GET_CODE (operands[0]) == CONST_DOUBLE);
   REAL_VALUE_FROM_CONST_DOUBLE (d, operands[0]);
   assemble_real (d, GET_MODE (operands[0]),
-		 GET_MODE_BITSIZE (GET_MODE (operands[0])));
+		 GET_MODE_BITSIZE (GET_MODE (operands[0])), false);
   return "";
 }
   [(set (attr "length")

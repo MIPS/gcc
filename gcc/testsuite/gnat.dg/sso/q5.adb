@@ -19,12 +19,12 @@ begin
   -- { dg-output "A1 : 78 56 34 12 12 00 ab 00 34 00 cd 00 56 00 ef 00\n" }
 
   Put ("B1 :");
-  Dump (B1'Address, R2'Max_Size_In_Storage_Elements);
+  Dump (B1'Address, R1'Max_Size_In_Storage_Elements);
   New_Line;
   -- { dg-output "B1 : 78 56 34 12 12 00 ab 00 34 00 cd 00 56 00 ef 00\n" }
 
   Put ("A2 :");
-  Dump (A2'Address, R1'Max_Size_In_Storage_Elements);
+  Dump (A2'Address, R2'Max_Size_In_Storage_Elements);
   New_Line;
   -- { dg-output "A2 : 12 34 56 78 00 ab 00 12 00 cd 00 34 00 ef 00 56\n" }
 

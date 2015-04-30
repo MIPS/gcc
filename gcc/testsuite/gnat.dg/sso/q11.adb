@@ -1,11 +1,10 @@
 -- { dg-do run }
 
-with Init4; use Init4;
-with Ada.Numerics; use Ada.Numerics;
+with Init11; use Init11;
 with Text_IO; use Text_IO;
 with Dump;
 
-procedure Q4 is
+procedure Q11 is
 
   A1 : R1 := My_R1;
   B1 : R1 := My_R1;
@@ -17,36 +16,28 @@ begin
   Put ("A1 :");
   Dump (A1'Address, R1'Max_Size_In_Storage_Elements);
   New_Line;
-  -- { dg-output "A1 : db 0f 49 40\n" }
+  -- { dg-output "A1 : 78 56 34 12 12 00 ab 00 34 00 cd 00 56 00 ef 00\n" }
 
   Put ("B1 :");
   Dump (B1'Address, R1'Max_Size_In_Storage_Elements);
   New_Line;
-  -- { dg-output "B1 : db 0f 49 40\n" }
+  -- { dg-output "B1 : 78 56 34 12 12 00 ab 00 34 00 cd 00 56 00 ef 00\n" }
 
   Put ("A2 :");
   Dump (A2'Address, R2'Max_Size_In_Storage_Elements);
   New_Line;
-  -- { dg-output "A2 : 40 49 0f db\n" }
+  -- { dg-output "A2 : 12 34 56 78 00 ab 00 12 00 cd 00 34 00 ef 00 56\n" }
 
   Put ("B2 :");
   Dump (B2'Address, R2'Max_Size_In_Storage_Elements);
   New_Line;
-  -- { dg-output "B2 : 40 49 0f db\n" }
+  -- { dg-output "B2 : 12 34 56 78 00 ab 00 12 00 cd 00 34 00 ef 00 56\n"} 
 
-  if A1.F /= B1.F then
+  if A1.I /= B1.I or A1.A(1) /= B1.A(1) then
     raise Program_Error;
   end if;
 
-  if A1.F /= Pi then
-    raise Program_Error;
-  end if;
-
-  if A2.F /= B2.F then
-    raise Program_Error;
-  end if;
-
-  if A2.F /= Pi then
+  if A2.I /= B2.I or A2.A(1) /= B2.A(1) then
     raise Program_Error;
   end if;
 

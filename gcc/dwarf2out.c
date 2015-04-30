@@ -16250,7 +16250,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
     case NON_LVALUE_EXPR:
       return native_encode_initializer (TREE_OPERAND (init, 0), array, size);
     default:
-      return native_encode_expr (init, array, size, false) == size;
+      return native_encode_expr (init, array, size) == size;
     }
 }
 

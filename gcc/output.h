@@ -280,7 +280,7 @@ extern section *get_named_text_section (tree, const char *, const char *);
 
 #ifdef REAL_VALUE_TYPE_SIZE
 /* Assemble the floating-point constant D into an object of size MODE.  */
-extern void assemble_real (REAL_VALUE_TYPE, machine_mode, unsigned);
+extern void assemble_real (REAL_VALUE_TYPE, machine_mode, unsigned, bool);
 #endif
 
 /* Write the address of the entity given by SYMBOL to SEC.  */

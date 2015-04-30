@@ -12411,7 +12411,7 @@ label:
     {
       REAL_VALUE_TYPE d;
       REAL_VALUE_FROM_CONST_DOUBLE (d, operands[0]);
-      assemble_real (d, SFmode, GET_MODE_ALIGNMENT (SFmode));
+      assemble_real (d, SFmode, GET_MODE_ALIGNMENT (SFmode), false);
     }
   return "";
 }
@@ -12429,7 +12429,7 @@ label:
     {
       REAL_VALUE_TYPE d;
       REAL_VALUE_FROM_CONST_DOUBLE (d, operands[0]);
-      assemble_real (d, DFmode, GET_MODE_ALIGNMENT (DFmode));
+      assemble_real (d, DFmode, GET_MODE_ALIGNMENT (DFmode), false);
     }
   return "";
 }

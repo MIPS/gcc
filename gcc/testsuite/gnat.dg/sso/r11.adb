@@ -1,10 +1,10 @@
 -- { dg-do run }
 
-with Init10; use Init10;
+with Init11; use Init11;
 with Text_IO; use Text_IO;
 with Dump;
 
-procedure R10 is
+procedure R11 is
 
   function Get_Elem (R : R1) return My_Integer is
     Tmp : R1 := R;

@@ -10633,7 +10633,7 @@
 	{
 	  REAL_VALUE_TYPE r;
 	  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-	  assemble_real (r, GET_MODE (x), BITS_PER_WORD);
+	  assemble_real (r, GET_MODE (x), BITS_PER_WORD, false);
 	  break;
 	}
       default:
@@ -10666,7 +10666,7 @@
         {
           REAL_VALUE_TYPE r;
           REAL_VALUE_FROM_CONST_DOUBLE (r, operands[0]);
-          assemble_real (r, GET_MODE (operands[0]), BITS_PER_WORD);
+          assemble_real (r, GET_MODE (operands[0]), BITS_PER_WORD, false);
           break;
         }
       default:
@@ -10691,7 +10691,7 @@
         {
           REAL_VALUE_TYPE r;
           REAL_VALUE_FROM_CONST_DOUBLE (r, operands[0]);
-          assemble_real (r, GET_MODE (operands[0]), BITS_PER_WORD);
+          assemble_real (r, GET_MODE (operands[0]), BITS_PER_WORD, false);
           break;
         }
       default:

@@ -2792,11 +2792,12 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
 }
 
 void
-assemble_real (REAL_VALUE_TYPE d, machine_mode mode, unsigned int align)
+assemble_real (REAL_VALUE_TYPE d, machine_mode mode, unsigned int align,
+	       bool reverse)
 {
   long data[4] = {0, 0, 0, 0};
-  int i;
   int bitsize, nelts, nunits, units_per;
+  rtx elt;
 
   /* This is hairy.  We have a quantity of known size.  real_to_target
      will put it into an array of *host* longs, 32 bits per element
@@ -2818,15 +2819,23 @@ assemble_real (REAL_VALUE_TYPE d, machine_mode mode, unsigned int align)
   real_to_target (data, &d, mode);
 
   /* Put out the first word with the specified alignment.  */
-  assemble_integer (GEN_INT (data[0]), MIN (nunits, units_per), align, 1);
+  if (reverse)
+    elt = flip_storage_order (SImode, GEN_INT (data[nelts - 1]));
+  else
+    elt = GEN_INT (data[0]);
+  assemble_integer (elt, MIN (nunits, units_per), align, 1);
   nunits -= units_per;
 
   /* Subsequent words need only 32-bit alignment.  */
   align = min_align (align, 32);
 
-  for (i = 1; i < nelts; i++)
+  for (int i = 1; i < nelts; i++)
     {
-      assemble_integer (GEN_INT (data[i]), MIN (nunits, units_per), align, 1);
+      if (reverse)
+	elt = flip_storage_order (SImode, GEN_INT (data[nelts - 1 - i]));
+      else
+	elt = GEN_INT (data[i]);
+      assemble_integer (elt, MIN (nunits, units_per), align, 1);
       nunits -= units_per;
     }
 }
@@ -3846,7 +3855,7 @@ output_constant_pool_2 (machine_mode mode, rtx x, unsigned int align)
 
 	gcc_assert (CONST_DOUBLE_AS_FLOAT_P (x));
 	REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-	assemble_real (r, mode, align);
+	assemble_real (r, mode, align, false);
 	break;
       }
 
@@ -4672,6 +4681,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
 {
   enum tree_code code;
   unsigned HOST_WIDE_INT thissize;
+  rtx cst;
 
   if (size == 0 || flag_syntax_only)
     return size;
@@ -4766,11 +4776,10 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
     case FIXED_POINT_TYPE:
     case POINTER_BOUNDS_TYPE:
     case NULLPTR_TYPE:
+      cst = expand_expr (exp, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
       if (reverse)
-	exp = fold_flip_storage_order (exp);
-      if (! assemble_integer (expand_expr (exp, NULL_RTX, VOIDmode,
-					   EXPAND_INITIALIZER),
-			      MIN (size, thissize), align, 0))
+	cst = flip_storage_order (TYPE_MODE (TREE_TYPE (exp)), cst);
+      if (!assemble_integer (cst, MIN (size, thissize), align, 0))
 	error ("initializer for integer/fixed-point value is too complicated");
       break;
 
@@ -4779,10 +4788,8 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
 	error ("initializer for floating value is not a floating constant");
       else
 	{
-	  if (reverse)
-	    exp = fold_flip_storage_order (exp);
 	  assemble_real (TREE_REAL_CST (exp), TYPE_MODE (TREE_TYPE (exp)),
-			 align);
+			 align, reverse);
 	}
       break;
 
