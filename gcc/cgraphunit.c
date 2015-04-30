@@ -2467,13 +2467,13 @@ symbol_table::finalize_compilation_unit (void)
 
   /* Gimplify and lower all functions, compute reachability and
      remove unreachable nodes.  */
-  analyze_functions (true);
+  analyze_functions (/*first_time=*/true);
 
   /* Mark alias targets necessary and emit diagnostics.  */
   handle_alias_pairs ();
 
   /* Gimplify and lower thunks.  */
-  analyze_functions (false);
+  analyze_functions (/*first_time=*/false);
 
   /* Emit early debug for reachable functions, and by consequence,
      locally scoped symbols.  */

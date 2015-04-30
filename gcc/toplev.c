@@ -505,8 +505,6 @@ wrapup_global_declarations (tree *vec, int len)
 void
 check_global_declaration (tree decl)
 {
-  // ?? Perhaps we should avoid all DECL_ARTIFICIALs here?
-
   /* Warn about any function declared static but not defined.  We don't
      warn about variables, because many programs have static variables
      that exist only to get some text into the object file.  */
@@ -518,9 +516,9 @@ check_global_declaration (tree decl)
       && ! TREE_NO_WARNING (decl)
       && ! TREE_PUBLIC (decl)
       && (warn_unused_function
-	  || snode->referred_to_p (false)))
+	  || snode->referred_to_p (/*include_self=*/false)))
     {
-      if (snode->referred_to_p (false))
+      if (snode->referred_to_p (/*include_self=*/false))
 	pedwarn (input_location, 0, "%q+F used but never defined", decl);
       else
 	warning (OPT_Wunused_function, "%q+F declared %<static%> but never defined", decl);
@@ -535,11 +533,10 @@ check_global_declaration (tree decl)
        || (warn_unused_variable
 	   && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
       && ! DECL_IN_SYSTEM_HEADER (decl)
-      && ! snode->referred_to_p (false)
-      /* ?? Why are we looking at TREE_USED?  Shouldn't the call to
-	 referred_to_p above be enough?  Apparently not, because the
-	 `__unused__' attribute is not being considered for
-	 referred_to_p.  */
+      && ! snode->referred_to_p (/*include_self=*/false)
+      /* This TREE_USED check is needed in addition to referred_to_p
+	 above, because the `__unused__' attribute is not being
+	 considered for referred_to_p.  */
       && ! TREE_USED (decl)
       /* The TREE_USED bit for file-scope decls is kept in the identifier,
 	 to handle multiple external decls in different scopes.  */
