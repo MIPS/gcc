@@ -26,9 +26,9 @@ SUBDIRS = c++98 c++11 filesystem
 
 # Cross compiler support.
 if VTV_CYGMIN
-toolexeclib_LTLIBRARIES = libvtv.la libstdc++.la libstdc++fs.la
+toolexeclib_LTLIBRARIES = libvtv.la libstdc++.la
 else
-toolexeclib_LTLIBRARIES = libstdc++.la libstdc++fs.la
+toolexeclib_LTLIBRARIES = libstdc++.la
 endif
 
 if VTV_CYGMIN
@@ -52,6 +52,7 @@ endif
 
 vpath % $(top_srcdir)/src/c++98
 vpath % $(top_srcdir)/src/c++11
+vpath % $(top_srcdir)/src/filesystem
 
 if GLIBCXX_LDBL_COMPAT
 ldbl_compat_sources = compatibility-ldbl.cc
@@ -95,20 +96,6 @@ libstdc___la_LDFLAGS = \
 	-version-info $(libtool_VERSION) ${version_arg} -lm
 
 libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
-
-libstdc__fs_la_SOURCES =
-
-libstdc__fs_la_LIBADD = \
-	$(top_builddir)/src/filesystem/libfilesystemconvenience.la
-
-libstdc__fs_la_DEPENDENCIES = \
-	${version_dep} \
-	$(top_builddir)/src/filesystem/libfilesystemconvenience.la
-
-libstdc__fs_la_LDFLAGS = \
-	-version-info $(libtool_VERSION) ${version_arg} -lm
-
-libstdc__fs_la_LINK = $(CXXLINK) $(libstdc__fs_la_LDFLAGS)
 
 # Use special rules for compatibility-ldbl.cc compilation, as we need to
 # pass -mlong-double-64.

@@ -22,7 +22,7 @@
 
 include $(top_srcdir)/fragment.am
 
-noinst_LTLIBRARIES = libfilesystemconvenience.la
+toolexeclib_LTLIBRARIES = libstdc++fs.la
 
 headers =
 
@@ -33,7 +33,7 @@ sources = \
 
 # vpath % $(top_srcdir)/src/filesystem
 
-libfilesystemconvenience_la_SOURCES = $(sources)
+libstdc__fs_la_SOURCES = $(sources)
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually
@@ -41,7 +41,7 @@ libfilesystemconvenience_la_SOURCES = $(sources)
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
 # as the occasion call for it.
 AM_CXXFLAGS = \
-	$(glibcxx_lt_pic_flag) \
+	$(glibcxx_lt_pic_flag) $(glibcxx_compiler_shared_flag) \
 	-std=gnu++14 \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS)  $(CONFIG_CXXFLAGS)
 
@@ -82,6 +82,18 @@ LTCXXCOMPILE = \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(EXTRA_CXX_FLAGS)
 
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
+
+# 3) We'd have a problem when building the shared libstdc++ object if
+# the rules automake generates would be used.  We cannot allow g++ to
+# be used since this would add -lstdc++ to the link line which of
+# course is problematic at this point.  So, we get the top-level
+# directory to configure libstdc++-v3 to use gcc as the C++
+# compilation driver.
+CXXLINK = \
+	$(LIBTOOL) --tag CXX --tag disable-shared \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CXX) \
+	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = stamp-*
