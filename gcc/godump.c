@@ -517,6 +517,7 @@ go_function_decl (tree decl)
 static void
 go_early_global_decl (tree decl)
 {
+  go_decl (decl);
   real_debug_hooks->early_global_decl (decl);
 }
 
@@ -526,7 +527,6 @@ static void
 go_late_global_decl (tree decl)
 {
   real_debug_hooks->late_global_decl (decl);
-  go_decl (decl);
 }
 
 /* A type declaration.  */

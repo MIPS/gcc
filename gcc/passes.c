@@ -297,10 +297,20 @@ rest_of_decl_compilation (tree decl,
   /* Generate early debug for global variables.  Any local variables will
      be handled by either handling reachable functions from
      finalize_compilation_unit (and by consequence, locally scoped
-     symbols), or by rest_of_type_compilation below.  */
+     symbols), or by rest_of_type_compilation below.
+
+     Also, pick up function prototypes, which will be mostly ignored
+     by the different early_global_decl() hooks, but will at least be
+     used by Go's hijack of the debug_hooks to implement
+     -fdump-go-spec.  */
   if (!flag_wpa
       && !in_lto_p
-      && TREE_CODE (decl) != FUNCTION_DECL
+      && (TREE_CODE (decl) != FUNCTION_DECL
+	  /* This will pick up function prototypes with no bodies,
+	     which are not visible in finalize_compilation_unit()
+	     while iterating with FOR_EACH_*_FUNCTION through the
+	     symbol table.  */
+	  || !DECL_SAVED_TREE (decl))
       && !decl_function_context (decl)
       && !current_function_decl
       && !decl_type_context (decl))
