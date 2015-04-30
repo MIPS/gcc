@@ -200,7 +200,7 @@ const struct gcc_debug_hooks vmsdbg_debug_hooks
    vmsdbgout_end_epilogue,
    vmsdbgout_begin_function,
    vmsdbgout_end_function,
-   vmsdbgout_decl,
+   vmsdbgout_function_decl,
    vmsdbgout_early_global_decl,
    vmsdbgout_late_global_decl,
    vmsdbgout_type_decl,		  /* type_decl */
@@ -1515,7 +1515,7 @@ vmsdbgout_undef (unsigned int lineno, const char *buffer)
 /* Not implemented in VMS Debug.  */
 
 static void
-vmsdbgout_decl (tree decl)
+vmsdbgout_function_decl (tree decl)
 {
   if (write_symbols == VMS_AND_DWARF2_DEBUG)
     (*dwarf2_debug_hooks.function_decl) (decl);
@@ -1526,7 +1526,8 @@ vmsdbgout_decl (tree decl)
 static void
 vmsdbgout_early_global_decl (tree decl)
 {
-  /* NYI for non-dwarf.  */
+  if (write_symbols == VMS_AND_DWARF2_DEBUG)
+    (*dwarf2_debug_hooks.early_global_decl) (decl);
 }
 
 /* Not implemented in VMS Debug.  */

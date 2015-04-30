@@ -1432,17 +1432,20 @@ sdbout_reg_parms (tree parms)
       }
 }
 
+/* Output early debug information for a global DECL.  Called from
+   rest_of_decl_compilation during parsing.  */
+
 static void
 sdbout_early_global_decl (tree decl ATTRIBUTE_UNUSED)
 {
   /* NYI for non-dwarf.  */
 }
 
-/* Output debug information for a global DECL.  Called from toplev.c
-   after compilation proper has finished.  */
+/* Output late debug information for a global DECL after location
+   information is available.  */
 
 static void
-sdbout_late_global_decl (tree decl)
+sdbout_late_global_decl (tree decl ATTRIBUTE_UNUSED)
 {
   if (TREE_CODE (decl) == VAR_DECL
       && !DECL_EXTERNAL (decl)
