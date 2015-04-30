@@ -2806,6 +2806,10 @@ static GTY(()) comdat_type_node *comdat_type_list;
 /* A list of DIEs with a NULL parent waiting to be relocated.  */
 static GTY(()) limbo_die_node *limbo_die_list;
 
+/* A list of DIEs for which we may have to generate
+   DW_AT_{,MIPS_}linkage_name once their DECL_ASSEMBLER_NAMEs are set.  */
+static GTY(()) limbo_die_node *deferred_asm_name;
+
 struct dwarf_file_hasher : ggc_hasher<dwarf_file_data *>
 {
   typedef const char *compare_type;
@@ -17237,9 +17241,22 @@ add_linkage_name (dw_die_ref die, tree decl)
       && (TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
       && TREE_PUBLIC (decl)
       && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
-      && die->die_tag != DW_TAG_member
-      && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
-    add_linkage_attr (die, decl);
+      && die->die_tag != DW_TAG_member)
+    {
+      /* Defer until we have an assembler name set.  */
+      if (!DECL_ASSEMBLER_NAME_SET_P (decl))
+	{
+	  limbo_die_node *asm_name;
+
+	  asm_name = ggc_cleared_alloc<limbo_die_node> ();
+	  asm_name->die = die;
+	  asm_name->created_for = decl;
+	  asm_name->next = deferred_asm_name;
+	  deferred_asm_name = asm_name;
+	}
+      else if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
+	add_linkage_attr (die, decl);
+    }
 }
 
 /* Add a DW_AT_name attribute and source coordinate attribute for the
@@ -23882,6 +23899,37 @@ comdat_type_hasher::equal (const comdat_type_node *type_node_1,
                     DWARF_TYPE_SIGNATURE_SIZE));
 }
 
+/* Move a DW_AT_{,MIPS_}linkage_name attribute just added to dw_die_ref
+   to the location it would have been added, should we know its
+   DECL_ASSEMBLER_NAME when we added other attributes.  This will
+   probably improve compactness of debug info, removing equivalent
+   abbrevs, and hide any differences caused by deferring the
+   computation of the assembler name, triggered by e.g. PCH.  */
+
+static inline void
+move_linkage_attr (dw_die_ref die)
+{
+  unsigned ix = vec_safe_length (die->die_attr);
+  dw_attr_node linkage = (*die->die_attr)[ix - 1];
+
+  gcc_assert (linkage.dw_attr == DW_AT_linkage_name
+	      || linkage.dw_attr == DW_AT_MIPS_linkage_name);
+
+  while (--ix > 0)
+    {
+      dw_attr_node *prev = &(*die->die_attr)[ix - 1];
+
+      if (prev->dw_attr == DW_AT_decl_line || prev->dw_attr == DW_AT_name)
+	break;
+    }
+
+  if (ix != vec_safe_length (die->die_attr) - 1)
+    {
+      die->die_attr->pop ();
+      die->die_attr->quick_insert (ix, linkage);
+    }
+}
+
 /* Helper function for resolve_addr, mark DW_TAG_base_type nodes
    referenced from typed stack ops and count how often they are used.  */
 
@@ -25059,7 +25107,7 @@ dwarf2out_finish (const char *filename)
 		|| !node->die->dumped_early);
 
   /* Flush out any latecomers to the limbo party.  */
-  dwarf2out_early_finish();
+  dwarf2out_early_finish ();
 
   /* PCH might result in DW_AT_producer string being restored from the
      header compilation, so always fill it with empty string initially
@@ -25407,6 +25455,25 @@ dwarf2out_finish (const char *filename)
 static void
 dwarf2out_early_finish (void)
 {
+  limbo_die_node *node, *next_node;
+
+  /* Add DW_AT_linkage_name for all deferred DIEs.  */
+  for (node = deferred_asm_name; node; node = node->next)
+    {
+      tree decl = node->created_for;
+      /* When generating LTO bytecode we can not generate new assembler
+         names at this point and all important decls got theirs via
+	 free-lang-data.  */
+      if (((!flag_generate_lto && !flag_generate_offload)
+	   || DECL_ASSEMBLER_NAME_SET_P (decl))
+	  && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
+	{
+	  add_linkage_attr (node->die, decl);
+	  move_linkage_attr (node->die);
+	}
+    }
+  deferred_asm_name = NULL;
+
   /* Traverse the limbo die list, and add parent/child links.  The only
      dies without parents that should be here are concrete instances of
      inline functions, and the comp_unit_die.  We can ignore the comp_unit_die.
@@ -25415,7 +25482,6 @@ dwarf2out_early_finish (void)
 
      The point here is to flush out the limbo list so that it is empty
      and we don't need to stream it for LTO.  */
-  limbo_die_node *node, *next_node;
   for (node = limbo_die_list; node; node = next_node)
     {
       dw_die_ref die = node->die;
