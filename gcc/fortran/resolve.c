@@ -7442,7 +7442,19 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 		  as->type = AS_EXPLICIT;
 		  for (dim = 0; dim < as->rank; ++dim)
 		    {
-		      gfc_array_dimen_size (code->expr3, dim, &dim_size);
+		      if (!gfc_array_dimen_size (code->expr3, dim, &dim_size))
+			{
+			  /* When the array dimensions can not be determined at
+			     compile time, use a deferred type array.  */
+			  as->type = AS_DEFERRED;
+			  while (dim >= 0)
+			    {
+			      as->lower[dim] = as->upper[dim] = NULL;
+			      --dim;
+			    }
+			  temp_var_sym->attr.allocatable = 1;
+			  break;
+			}
 		      as->lower[dim] = gfc_get_int_expr (gfc_index_integer_kind,
 							 &code->expr3->where, 1);
 		      as->upper[dim] = gfc_get_int_expr (gfc_index_integer_kind,

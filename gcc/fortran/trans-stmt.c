@@ -5755,29 +5755,73 @@ gfc_trans_allocate (gfc_code * code)
 
 	      if (dataref && dataref->u.c.component->as)
 		{
-		  int dim;
+		  int dim = 0;
 		  gfc_expr *temp;
 		  gfc_ref *ref = dataref->next;
 		  ref->u.ar.type = AR_SECTION;
-		  /* We have to set up the array reference to give ranges
-		    in all dimensions and ensure that the end and stride
-		    are set so that the copy can be scalarized.  */
-		  dim = 0;
-		  for (; dim < dataref->u.c.component->as->rank; dim++)
+		  if (code->ext.alloc.arr_spec_from_expr3)
 		    {
-		      ref->u.ar.dimen_type[dim] = DIMEN_RANGE;
-		      if (ref->u.ar.end[dim] == NULL)
+		      /* Take the array dimensions from the
+			 source=-expression.  */
+		      gfc_array_ref *source_ref =
+			  gfc_find_array_ref (code->expr3);
+		      if (source_ref->type == AR_FULL)
 			{
-			  ref->u.ar.end[dim] = ref->u.ar.start[dim];
-			  temp = gfc_get_int_expr (gfc_default_integer_kind,
-						   &al->expr->where, 1);
-			  ref->u.ar.start[dim] = temp;
+			  /* For full array refs copy the bounds.  */
+			  for (; dim < dataref->u.c.component->as->rank; dim++)
+			    {
+			      ref->u.ar.dimen_type[dim] = DIMEN_RANGE;
+			      ref->u.ar.start[dim] =
+				  gfc_copy_expr (source_ref->as->lower[dim]);
+			      ref->u.ar.end[dim] =
+				  gfc_copy_expr (source_ref->as->upper[dim]);
+			    }
 			}
-		      temp = gfc_subtract (gfc_copy_expr (ref->u.ar.end[dim]),
-					   gfc_copy_expr (ref->u.ar.start[dim]));
-		      temp = gfc_add (gfc_get_int_expr (gfc_default_integer_kind,
-							&al->expr->where, 1),
-				      temp);
+		      else
+			{
+			  int sdim = 0;
+			  /* For partial array refs, the partials.  */
+			  for (; dim < dataref->u.c.component->as->rank;
+			       dim++, sdim++)
+			    {
+			      ref->u.ar.dimen_type[dim] = DIMEN_RANGE;
+			      ref->u.ar.start[dim] =
+				  gfc_get_int_expr (gfc_default_integer_kind,
+						    &al->expr->where, 1);
+			      /* Skip over element dimensions.  */
+			      while (source_ref->dimen_type[sdim] == DIMEN_ELEMENT)
+				++sdim;
+			      temp = gfc_subtract (gfc_copy_expr (
+						     source_ref->end[sdim]),
+						   gfc_copy_expr (
+						     source_ref->start[sdim]));
+			      ref->u.ar.end[dim] = gfc_add (temp,
+				    gfc_get_int_expr (gfc_default_integer_kind,
+						      &al->expr->where, 1));
+			    }
+			}
+		    }
+		  else
+		    {
+		      /* We have to set up the array reference to give ranges
+			 in all dimensions and ensure that the end and stride
+			 are set so that the copy can be scalarized.  */
+		      for (; dim < dataref->u.c.component->as->rank; dim++)
+			{
+			  ref->u.ar.dimen_type[dim] = DIMEN_RANGE;
+			  if (ref->u.ar.end[dim] == NULL)
+			    {
+			      ref->u.ar.end[dim] = ref->u.ar.start[dim];
+			      temp = gfc_get_int_expr (gfc_default_integer_kind,
+						       &al->expr->where, 1);
+			      ref->u.ar.start[dim] = temp;
+			    }
+			  temp = gfc_subtract (gfc_copy_expr (ref->u.ar.end[dim]),
+					       gfc_copy_expr (ref->u.ar.start[dim]));
+			  temp = gfc_add (gfc_get_int_expr (gfc_default_integer_kind,
+							    &al->expr->where, 1),
+					  temp);
+			}
 		    }
 		}
 	      if (rhs->ts.type == BT_CLASS)
