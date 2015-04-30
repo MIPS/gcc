@@ -665,15 +665,15 @@ fs::current_path(error_code& ec)
       size = path_max;
   for (char_ptr buf; p.empty(); size *= 2)
     {
-      if (char* ptr = realloc(buf.release(), size))
+      if (char* ptr = (char*)realloc(buf.release(), size))
 	{
 	  buf.reset(ptr);
-	  if (char* ptr = getcwd(buf.get(), size))
+	  if (getcwd(buf.get(), size))
 	    {
 	      p.assign(buf.get());
 	      ec.clear();
 	    }
-	  if (errno != ERANGE)
+	  else if (errno != ERANGE)
 	    {
 	      ec.assign(errno, std::generic_category());
 	      return {};
@@ -856,8 +856,8 @@ fs::last_write_time(const path& p, file_time_type new_time)
 }
 
 void
-fs::last_write_time(const path& p, file_time_type new_time,
-		    error_code& ec) noexcept
+fs::last_write_time(const path& p __attribute__((__unused__)),
+		    file_time_type new_time, error_code& ec) noexcept
 {
   auto d = new_time.time_since_epoch();
   auto s = chrono::duration_cast<chrono::seconds>(d);
