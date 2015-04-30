@@ -1,4 +1,5 @@
 // { dg-options "-std=gnu++11 -lstdc++fs" }
+// { dg-require-filesystem-ts "" }
 
 // Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //

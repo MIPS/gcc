@@ -3904,6 +3904,37 @@ AC_DEFUN([GLIBCXX_DEFAULT_ABI], [
 ])
 
 dnl
+dnl Check to see whether to build libstdc++fs.a
+dnl
+dnl --enable-libstdcxx-filesystem-ts
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_FILESYSTEM_TS], [
+  GLIBCXX_ENABLE(libstdcxx-filesystem-ts,auto,,
+    [turns on ISO/IEC TS 18822 support],
+    [permit yes|no|auto])
+
+  AC_MSG_CHECKING([whether to build Filesystem TS support])
+  if test x"$enable_libstdcxx_filesystem_ts" = x"auto"; then
+    case "${target_os}" in
+      freebsd*|netbsd*|openbsd*|dragonfly*|darwin*)
+        enable_libstdcxx_filesystem_ts=yes
+        ;;
+      gnu* | linux* | kfreebsd*-gnu | knetbsd*-gnu)
+        enable_libstdcxx_filesystem_ts=yes
+        ;;
+      solaris*)
+        enable_libstdcxx_filesystem_ts=yes
+        ;;
+      *)
+        enable_libstdcxx_filesystem_ts=no
+        ;;
+    esac
+  fi
+  AC_MSG_RESULT($enable_libstdcxx_filesystem_ts)
+  GLIBCXX_CONDITIONAL(ENABLE_FILESYSTEM_TS, test $enable_libstdcxx_filesystem_ts = yes)
+])
+
+dnl
 dnl Check whether the library calls required by the Filesystem TS are present
 dnl and define _GLIBCXX_USE_REALPATH and _GLIBCXX_USE_UTIMENSAT.
 dnl
