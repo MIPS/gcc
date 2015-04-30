@@ -17953,6 +17953,10 @@ mips_option_override (void)
   if (TARGET_DSPR2)
     TARGET_DSP = true;
 
+  if (is_micromips && mips_isa_rev >= 6 && (TARGET_DSP || TARGET_DSPR2))
+    error ("unsupported combination: -mmicromips -mips32r6 %s, use "
+	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
+
   if (TARGET_DSPR3)
     {
       TARGET_DSP = true;
