@@ -665,9 +665,9 @@ fs::current_path(error_code& ec)
       size = path_max;
   for (char_ptr buf; p.empty(); size *= 2)
     {
-      if (char* ptr = (char*)realloc(buf.release(), size))
+      buf.reset((char*)malloc(size));
+      if (buf)
 	{
-	  buf.reset(ptr);
 	  if (getcwd(buf.get(), size))
 	    {
 	      p.assign(buf.get());
