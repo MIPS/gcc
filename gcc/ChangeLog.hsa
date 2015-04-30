@@ -1,3 +1,73 @@
+2015-04-30  Martin Jambor  <mjambor@suse.cz>
+
+	* README.hsa: Updated to reflect changes brought about by transition
+	to HSA 1.0F.
+
+2015-04-29  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig-format.h: Updated to 1.0F.
+	* hsa-brig.c: Added includes of tree-iterator.h, tree-ssa-alias.h,
+	gimple-expr.h, gimple.h, stringpool.h, ipa-ref.h, lto-streamer.h and
+	cgraph.h.
+	(BRIG_ELF_SECTION_NAME): New define.
+	(BRIG_LABEL_STRING): Likewise.
+	(hsa_brig_section): New field header_byte_delta.
+	(hsa_brig_section::init): Calculate initial size based on what the new
+	disassembler expects.
+	(hsa_brig_section::output): Remove assembly section switching, add new
+	BRIG section stuff.
+	(get_ptr_by_offset): Use the new delta for calculations.
+	(brig_init): Remove initializations of 1.0p structures and add
+	initializations of 1.0F structures.
+	(emit_directive_variable): Adjust to 1.0F.
+	(emit_function_directives): Likewise.
+	(enqueue_op): Likewise.
+	(emit_immediate_operand): Likewise.
+	(emit_register_operand): Likewise.
+	(emit_memory_insn): Likewise.
+	(emit_segment_insn): Likewise.
+	(emit_cmp_insn): Likewise.
+	(emit_cvt_insn): Likewise.
+	(emit_arg_block): Likewise.
+	(emit_basic_insn): Do not turn mov types into bit-types.  Adjust to
+	1.0F.
+	(hsa_ctor_statements): New variable.
+	(hsa_output_kernel_mapping): New function.
+	(HSA_SECTION_ALIGNMENT): New define.
+	(hsa_output_brig): Emit HSAIL BRIG 1.0F.  Call
+	hsa_output_kernel_mapping.
+	* hsa-dump.c (hsa_opcode_name): Adjust to 1.0F
+	(hsa_memscope_name): Likewise.
+	* hsa-gen.c (hsa_decl_kernel_map_element): New type.
+	(hsa_decl_kernel_mapping): New variable.
+	(hsa_deinit_data_for_cfun): Do not free names of kernels.
+	(hsa_alloc_immed_op): Adjust to HSA 1.0F.
+	(hsa_alloc_reg_op): Likewise.
+	(hsa_add_kern_decl_mapping): New function.
+	(hsa_get_number_decl_kernel_mappings): Likewise.
+	(hsa_get_decl_kernel_mapping_decl): Likewise.
+	(hsa_get_decl_kernel_mapping_name): Likewise.
+	(hsa_free_decl_kernel_mapping): Likewise.
+	(generate_hsa): Fix detecting kernels.  Also call
+	hsa_add_kern_decl_mapping.
+	(hsa_kernel_desc_type, hsa_range_dimnum_decl): Removed.
+	(hsa_range_grid_decl, hsa_range_group_decl): Likewise.
+	(hsa_launch_range_type): Likewise.
+	(hsa_lattrs_dimnum_decl, hsa_lattrs_grid_decl): New.
+	(hsa_lattrs_group_decl, hsa_lattrs_nargs_decl): Likewise.
+	(hsa_launch_attributes_type): Likewise.
+	(init_hsa_functions): Build the types and decls necessary for HSA 1.0F.
+	(wrap_hsa_kernel_call): New function.
+	(wrap_all_hsa_calls): Simplify.
+	* hsa-regalloc.c (hsa_num_def_ops): Adjust to HSA 1.0F.
+	* hsa.h (hsa_op_base): Adjust to HSA 1.0F.
+	(is_a_helper <hsa_op_immed *>::test): Likewise.
+	(is_a_helper <hsa_op_reg *>::test): Likewise.
+	(hsa_get_number_decl_kernel_mappings): Declare.
+	(hsa_get_decl_kernel_mapping_decl): Likewise.
+	(hsa_get_decl_kernel_mapping_name): Likewise.
+	(hsa_free_decl_kernel_mapping): Likewise.
+
 2015-04-21  Michael Matz  <matz@suse.de>
 
 	* hsa-regalloc.c (linear_scan_regalloc): Run backwards over

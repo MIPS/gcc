@@ -1,3 +1,14 @@
+2015-04-29  Martin Jambor  <mjambor@suse.cz>
+
+	* Makefile.am (libgomp_la_SOURCES): USe hsa.c instead of hsaokra.c.
+	* Makefile.in: Regenerated.
+	* hsa.c: New file.
+	* hsa.h: Likewise.
+	* hsa_ext_finalize.h: Likewise.
+	* hsaokra.c: Removed.
+	* okra.h: Likewise.
+	* libgomp.map (HSA_1.0): Added __hsa_register_image.
+
 2014-10-24  Martin Jambor  <mjambor@suse.cz>
 
 	* hsaokra.c (__hsa_launch_kernel): Do not segfault if file cannot be
