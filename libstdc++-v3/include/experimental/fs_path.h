@@ -357,7 +357,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     pair<const string_type*, size_t> _M_find_extension() const;
 
-    template<typename _CharT, typename = value_type>
+    template<typename _CharT>
       struct _Cvt;
 
     static string_type
@@ -569,7 +569,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // specialize _Cvt for degenerate 'noconv' case
   template<>
-    struct path::_Cvt<path::value_type, path::value_type>
+    struct path::_Cvt<path::value_type>
     {
       template<typename _Iter>
 	static string_type
@@ -578,72 +578,61 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     };
 
   template<typename _CharT>
-    struct path::_Cvt<_CharT, char>
+    struct path::_Cvt
     {
-      static std::string
-      _S_convert(const _CharT* __f, const _CharT* __l)
+#ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
+      static string_type
+      _S_wconvert(const char* __f, const char* __l, true_type)
       {
-	std::string __str;
-	codecvt_utf8<_CharT> __cvt;
-	if (__str_codecvt_out(__f, __l, __str, __cvt))
-	  return __str;
+	using _Cvt = std::codecvt<wchar_t, char, mbstate_t>;
+	const auto& __cvt = std::use_facet<_Cvt>(std::locale{});
+	std::wstring __wstr;
+	if (__str_codecvt_in(__f, __l, __wstr, __cvt))
+	    return __wstr;
 	_GLIBCXX_THROW_OR_ABORT(filesystem_error(
 	      "Cannot convert character sequence",
 	      std::make_error_code(errc::illegal_byte_sequence)));
       }
 
-      static std::string
-      _S_convert(_CharT* __f, _CharT* __l)
+      static string_type
+      _S_wconvert(const _CharT* __f, const _CharT* __l, false_type)
       {
-	return _S_convert(const_cast<const _CharT*>(__f),
-			  const_cast<const _CharT*>(__l));
-      }
-
-      template<typename _Iter>
-	static std::string
-	_S_convert(_Iter __first, _Iter __last)
-	{
-	  const std::basic_string<_CharT> __str(__first, __last);
-	  return _S_convert(__str.data(), __str.data() + __str.size());
-	}
-
-      template<typename _Iter, typename _Cont>
-	static std::string
-	_S_convert(__gnu_cxx::__normal_iterator<_Iter, _Cont> __first,
-		  __gnu_cxx::__normal_iterator<_Iter, _Cont> __last)
-	{ return _S_convert(__first.base(), __last.base()); }
-    };
-
-#ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
-  template<typename _CharT>
-    struct path::_Cvt<char, wchar_t>
-    {
-      // TODO 
-    };
-
-  template<typename _CharT>
-    struct path::_Cvt<_CharT, wchar_t>
-    {
-      static std::wstring
-      _S_convert(const _CharT* __f, const _CharT* __l)
-      {
-	std::codecvt_utf8<_CharT> __narrow_cvt;
-	std::string __u8str;
-	if (__str_codecvt_out(__f, __l, __u8str, __narrow_cvt))
+	std::codecvt_utf8<_CharT> __cvt;
+	std::string __str;
+	if (__str_codecvt_out(__f, __l, __str, __cvt))
 	  {
-	    const char* __f2 = __u8str.data();
-	    const char* __l2 = __f2 + __u8str.size();
-	    std::codecvt_utf8<wchar_t> __widen_cvt;
-	    std::wstring __str;
-	    if (__str_codecvt_in(__f2, __l2, __str, __widen_cvt))
-	      return __str;
+	    const char* __f2 = __str.data();
+	    const char* __l2 = __f2 + __str.size();
+	    std::codecvt_utf8<wchar_t> __wcvt;
+	    std::wstring __wstr;
+	    if (__str_codecvt_in(__f2, __l2, __wstr, __wcvt))
+	      return __wstr;
 	  }
 	_GLIBCXX_THROW_OR_ABORT(filesystem_error(
 	      "Cannot convert character sequence",
 	      std::make_error_code(errc::illegal_byte_sequence)));
       }
 
-      static std::wstring
+      static string_type
+      _S_convert(const _CharT* __f, const _CharT* __l)
+      {
+	return _S_wconvert(__f, __l, is_same<_CharT, char>{});
+      }
+#else
+      static string_type
+      _S_convert(const _CharT* __f, const _CharT* __l)
+      {
+	std::codecvt_utf8<_CharT> __cvt;
+	std::string __str;
+	if (__str_codecvt_out(__f, __l, __str, __cvt))
+	  return __str;
+	_GLIBCXX_THROW_OR_ABORT(filesystem_error(
+	      "Cannot convert character sequence",
+	      std::make_error_code(errc::illegal_byte_sequence)));
+      }
+#endif
+
+      static string_type
       _S_convert(_CharT* __f, _CharT* __l)
       {
 	return _S_convert(const_cast<const _CharT*>(__f),
@@ -651,7 +640,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       }
 
       template<typename _Iter>
-	static std::wstring
+	static string_type
 	_S_convert(_Iter __first, _Iter __last)
 	{
 	  const std::basic_string<_CharT> __str(__first, __last);
@@ -659,12 +648,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
 
       template<typename _Iter, typename _Cont>
-	static std::wstring
+	static string_type
 	_S_convert(__gnu_cxx::__normal_iterator<_Iter, _Cont> __first,
 		  __gnu_cxx::__normal_iterator<_Iter, _Cont> __last)
 	{ return _S_convert(__first.base(), __last.base()); }
     };
-#endif
 
   /// An iterator for the components of a path
   class path::iterator
