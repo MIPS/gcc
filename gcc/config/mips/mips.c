@@ -20067,13 +20067,9 @@ mips_option_override (void)
   if (TARGET_DSPR2)
     TARGET_DSP = true;
 
-  if (TARGET_DSP && mips_isa_rev >= 6)
-    {
-      error ("the %qs architecture does not support DSP instructions",
-	     mips_arch_info->name);
-      TARGET_DSP = false;
-      TARGET_DSPR2 = false;
-    }
+  if (is_micromips && mips_isa_rev >= 6 && (TARGET_DSP || TARGET_DSPR2))
+    error ("unsupported combination: -mmicromips -mips32r6 %s, use "
+	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
 
   /* .eh_frame addresses should be the same width as a C pointer.
      Most MIPS ABIs support only one pointer size, so the assembler
