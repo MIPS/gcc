@@ -47,6 +47,10 @@ inline namespace v1
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
+#if _GLIBCXX_USE_CXX11_ABI
+  inline namespace __cxx11 __attribute__((__abi_tag__ ("cxx11"))) { }
+#endif
+
   /**
    * @defgroup filesystem
    * @ingroup experimental
@@ -57,12 +61,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @{
    */
 
+  class file_status;
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
   class path;
   class filesystem_error;
-  class file_status;
   class directory_entry;
   class directory_iterator;
   class recursive_directory_iterator;
+_GLIBCXX_END_NAMESPACE_CXX11
 
   struct space_info
   {

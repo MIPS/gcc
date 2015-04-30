@@ -82,6 +82,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     perms	_M_perms;
   };
 
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
 
   class directory_entry
   {
@@ -310,6 +311,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   operator!=(const recursive_directory_iterator& __lhs,
              const recursive_directory_iterator& __rhs)
   { return !(__lhs == __rhs); }
+
+_GLIBCXX_END_NAMESPACE_CXX11
 
   // @} group filesystem
 _GLIBCXX_END_NAMESPACE_VERSION

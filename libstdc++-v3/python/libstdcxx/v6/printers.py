@@ -1383,6 +1383,8 @@ def build_libstdcxx_dictionary ():
     # Filesystem TS components
     libstdcxx_printer.add_version('std::experimental::filesystem::v1::',
                                   'path', StdExpPathPrinter)
+    libstdcxx_printer.add_version('std::experimental::filesystem::v1::__cxx11',
+                                  'path', StdExpPathPrinter)
 
     # Extensions.
     libstdcxx_printer.add_version('__gnu_cxx::', 'slist', StdSlistPrinter)
