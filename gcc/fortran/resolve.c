@@ -8236,7 +8236,8 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
 	  gfc_set_sym_referenced (sym->ts.u.derived);
 	  gfc_commit_symbol (sym->ts.u.derived);
 	  /* _vptr now has the _vtab in it, change it to the _vtype.  */
-	  c->ts.u.derived = c->ts.u.derived->ts.u.derived;
+	  if (c->ts.u.derived->attr.vtab)
+	    c->ts.u.derived = c->ts.u.derived->ts.u.derived;
 	  c->ts.u.derived->ns->types_resolved = 0;
 	  resolve_types (c->ts.u.derived->ns);
 	}
