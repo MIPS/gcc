@@ -8423,9 +8423,8 @@ rs6000_const_vec (machine_mode mode)
 rtx
 rs6000_gen_le_vsx_permute (rtx source, machine_mode mode)
 {
-  /* 128-bit types that are scalar, or the special V1TI container can't
-     use vec_select, so use ROTATE on these values.  */
-  if (mode == TImode || mode == V1TImode || FLOAT128_VECTOR_P (mode))
+  /* Use ROTATE instead of VEC_SELECT on IEEE 128-bit floating point.  */
+  if (FLOAT128_VECTOR_P (mode))
     return gen_rtx_ROTATE (mode, source, GEN_INT (64));
   else
     {
@@ -8440,9 +8439,20 @@ rs6000_gen_le_vsx_permute (rtx source, machine_mode mode)
 void
 rs6000_emit_le_vsx_load (rtx dest, rtx source, machine_mode mode)
 {
-  rtx tmp = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (dest) : dest;
-  rtx permute_mem = rs6000_gen_le_vsx_permute (source, mode);
-  rtx permute_reg = rs6000_gen_le_vsx_permute (tmp, mode);
+  rtx tmp, permute_mem, permute_reg;
+
+  /* Use V2DImode to do swaps of types with 128-bit scalare parts (TImode,
+     V1TImode).  */
+  if (mode == TImode || mode == V1TImode)
+    {
+      mode = V2DImode;
+      dest = gen_lowpart (V2DImode, dest);
+      source = adjust_address (source, V2DImode, 0);
+    }
+
+  tmp = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (dest) : dest;
+  permute_mem = rs6000_gen_le_vsx_permute (source, mode);
+  permute_reg = rs6000_gen_le_vsx_permute (tmp, mode);
   emit_insn (gen_rtx_SET (VOIDmode, tmp, permute_mem));
   emit_insn (gen_rtx_SET (VOIDmode, dest, permute_reg));
 }
@@ -8460,7 +8470,7 @@ rs6000_emit_le_vsx_store (rtx dest, rtx source, machine_mode mode)
      during expand.  */
   gcc_assert (!reload_in_progress && !lra_in_progress && !reload_completed);
 
-  /* Use V2DImode to do swaps of types with 128-bit scalare parts (TImode,
+  /* Use V2DImode to do swaps of types with 128-bit scalar parts (TImode,
      V1TImode).  */
   if (mode == TImode || mode == V1TImode)
     {

@@ -919,8 +919,6 @@ enum data_align { align_abi, align_opt, align_both };
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
    || (SCALAR_FLOAT_MODE_P (MODE) && (ALIGN) < 32)			\
-   || (VECTOR_MEM_VSX_OR_P8_VECTOR_P (MODE) && GET_MODE_SIZE (MODE) > 8	\
-       && (ALIGN) < 32)							\
    || (!TARGET_EFFICIENT_UNALIGNED_VSX                                  \
        && (VECTOR_MODE_P ((MODE)) && (((int)(ALIGN)) < VECTOR_ALIGN (MODE)))))
 

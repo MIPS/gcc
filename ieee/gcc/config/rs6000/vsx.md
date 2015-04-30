@@ -24,8 +24,8 @@
 ;; Iterator for the 2 64-bit vector types
 (define_mode_iterator VSX_D [V2DF V2DI])
 
-;; Iterator for the 2 64-bit vector types to properly handle swapping words on
-;; little endian
+;; Iterator for the 2 64-bit vector types + 128-bit types that are loaded with
+;; lxvd2x to properly handle swapping words on little endian
 (define_mode_iterator VSX_LE [V2DF
 			      V2DI
 			      V1TI
@@ -34,9 +34,7 @@
 ;; Mode iterator to handle swapping words on little endian for the 128-bit
 ;; types that goes in a single vector register.
 (define_mode_iterator VSX_LE_128 [(KF   "FLOAT128_VECTOR_P (KFmode)")
-				  (TF   "FLOAT128_VECTOR_P (TFmode)")
-				  (TI   "TARGET_VSX_TIMODE")
-				  V1TI])
+				  (TF   "FLOAT128_VECTOR_P (TFmode)")])
 
 ;; Iterator for the 2 32-bit vector types
 (define_mode_iterator VSX_W [V4SF V4SI])

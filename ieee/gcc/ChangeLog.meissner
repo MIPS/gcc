@@ -1,3 +1,16 @@
+2015-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_gen_le_vsx_permute): Only use
+	ROTATE on IEEE 128-bit floating point, not on TImode or V1TImode.
+	(rs6000_emit_le_vsx_load): Revert changes.
+	(rs6000_emit_le_vsx_store): Fix typo in comment.
+
+	* config/rs6000/vsx.md (VSX_LE_128): Only do little endian swap
+	via ROTATE for IEEE 128-bit floating point.
+
+	* config/rs6000/rs6000.h (SLOW_UNALIGNED_ACCESS): Fix thinko in
+	merging up -mefficient-unaligned-vsx code.
+
 2015-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Delete old
