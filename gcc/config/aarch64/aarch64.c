@@ -5158,9 +5158,18 @@ aarch64_strip_extend (rtx x)
   return x;
 }
 
+/* Return true iff CODE is a shift supported in combination
+   with arithmetic instructions.  */
+
+static bool
+aarch64_shift_p (enum rtx_code code)
+{
+  return code == ASHIFT || code == ASHIFTRT || code == LSHIFTRT;
+}
+
 /* Helper function for rtx cost calculation.  Calculate the cost of
-   a MULT, which may be part of a multiply-accumulate rtx.  Return
-   the calculated cost of the expression, recursing manually in to
+   a MULT or ASHIFT, which may be part of a compound PLUS/MINUS rtx.
+   Return the calculated cost of the expression, recursing manually in to
    operands where needed.  */
 
 static int
@@ -5170,7 +5179,7 @@ aarch64_rtx_mult_cost (rtx x, int code, int outer, bool speed)
   const struct cpu_cost_table *extra_cost
     = aarch64_tune_params->insn_extra_cost;
   int cost = 0;
-  bool maybe_fma = (outer == PLUS || outer == MINUS);
+  bool compound_p = (outer == PLUS || outer == MINUS);
   machine_mode mode = GET_MODE (x);
 
   gcc_checking_assert (code == MULT);
@@ -5185,22 +5194,48 @@ aarch64_rtx_mult_cost (rtx x, int code, int outer, bool speed)
   if (GET_MODE_CLASS (mode) == MODE_INT)
     {
       /* The multiply will be canonicalized as a shift, cost it as such.  */
-      if (CONST_INT_P (op1)
-	  && exact_log2 (INTVAL (op1)) > 0)
+      if (aarch64_shift_p (GET_CODE (x))
+	  || (CONST_INT_P (op1)
+	      && exact_log2 (INTVAL (op1)) > 0))
 	{
+	  bool is_extend = GET_CODE (op0) == ZERO_EXTEND
+	                   || GET_CODE (op0) == SIGN_EXTEND;
 	  if (speed)
 	    {
-	      if (maybe_fma)
-		/* ADD (shifted register).  */
-		cost += extra_cost->alu.arith_shift;
+	      if (compound_p)
+	        {
+	          if (REG_P (op1))
+		    /* ARITH + shift-by-register.  */
+		    cost += extra_cost->alu.arith_shift_reg;
+		  else if (is_extend)
+		    /* ARITH + extended register.  We don't have a cost field
+		       for ARITH+EXTEND+SHIFT, so use extend_arith here.  */
+		    cost += extra_cost->alu.extend_arith;
+		  else
+		    /* ARITH + shift-by-immediate.  */
+		    cost += extra_cost->alu.arith_shift;
+		}
 	      else
 		/* LSL (immediate).  */
-		cost += extra_cost->alu.shift;
+	        cost += extra_cost->alu.shift;
+
 	    }
+	  /* Strip extends as we will have costed them in the case above.  */
+	  if (is_extend)
+	    op0 = aarch64_strip_extend (op0);
 
 	  cost += rtx_cost (op0, GET_CODE (op0), 0, speed);
 
 	  return cost;
+	}
+
+      /* MNEG or [US]MNEGL.  Extract the NEG operand and indicate that it's a
+	 compound and let the below cases handle it.  After all, MNEG is a
+	 special-case alias of MSUB.  */
+      if (GET_CODE (op0) == NEG)
+	{
+	  op0 = XEXP (op0, 0);
+	  compound_p = true;
 	}
 
       /* Integer multiplies or FMAs have zero/sign extending variants.  */
@@ -5214,8 +5249,8 @@ aarch64_rtx_mult_cost (rtx x, int code, int outer, bool speed)
 
 	  if (speed)
 	    {
-	      if (maybe_fma)
-		/* MADD/SMADDL/UMADDL.  */
+	      if (compound_p)
+		/* SMADDL/UMADDL/UMSUBL/SMSUBL.  */
 		cost += extra_cost->mult[0].extend_add;
 	      else
 		/* MUL/SMULL/UMULL.  */
@@ -5225,15 +5260,15 @@ aarch64_rtx_mult_cost (rtx x, int code, int outer, bool speed)
 	  return cost;
 	}
 
-      /* This is either an integer multiply or an FMA.  In both cases
+      /* This is either an integer multiply or a MADD.  In both cases
 	 we want to recurse and cost the operands.  */
       cost += rtx_cost (op0, MULT, 0, speed)
 	      + rtx_cost (op1, MULT, 1, speed);
 
       if (speed)
 	{
-	  if (maybe_fma)
-	    /* MADD.  */
+	  if (compound_p)
+	    /* MADD/MSUB.  */
 	    cost += extra_cost->mult[mode == DImode].add;
 	  else
 	    /* MUL.  */
@@ -5253,7 +5288,7 @@ aarch64_rtx_mult_cost (rtx x, int code, int outer, bool speed)
 	  if (GET_CODE (op1) == NEG)
 	    op1 = XEXP (op1, 0);
 
-	  if (maybe_fma)
+	  if (compound_p)
 	    /* FMADD/FNMADD/FNMSUB/FMSUB.  */
 	    cost += extra_cost->fp[mode == DFmode].fma;
 	  else
@@ -5819,7 +5854,7 @@ cost_minus:
         if (aarch64_rtx_arith_op_extract_p (op1, mode))
 	  {
 	    if (speed)
-	      *cost += extra_cost->alu.arith_shift;
+	      *cost += extra_cost->alu.extend_arith;
 
 	    *cost += rtx_cost (XEXP (XEXP (op1, 0), 0),
 			       (enum rtx_code) GET_CODE (op1),
@@ -5831,7 +5866,7 @@ cost_minus:
 
 	/* Cost this as an FMA-alike operation.  */
 	if ((GET_CODE (new_op1) == MULT
-	     || GET_CODE (new_op1) == ASHIFT)
+	     || aarch64_shift_p (GET_CODE (new_op1)))
 	    && code != COMPARE)
 	  {
 	    *cost += aarch64_rtx_mult_cost (new_op1, MULT,
@@ -5888,7 +5923,7 @@ cost_plus:
         if (aarch64_rtx_arith_op_extract_p (op0, mode))
 	  {
 	    if (speed)
-	      *cost += extra_cost->alu.arith_shift;
+	      *cost += extra_cost->alu.extend_arith;
 
 	    *cost += rtx_cost (XEXP (XEXP (op0, 0), 0),
 			       (enum rtx_code) GET_CODE (op0),
@@ -5901,7 +5936,7 @@ cost_plus:
 	new_op0 = aarch64_strip_extend (op0);
 
 	if (GET_CODE (new_op0) == MULT
-	    || GET_CODE (new_op0) == ASHIFT)
+	    || aarch64_shift_p (GET_CODE (new_op0)))
 	  {
 	    *cost += aarch64_rtx_mult_cost (new_op0, MULT, PLUS,
 					    speed);

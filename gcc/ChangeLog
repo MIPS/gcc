@@ -1,3 +1,102 @@
+2015-04-30  Renlin Li  <renlin.li@arm.com>
+
+	* config/aarch64/aarch64-simd.md (vec_shr): Defined as an unspec.
+	* config/aarch64/iterators.md (unspec): Add UNSPEC_VEC_SHR.
+
+2015-04-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65873
+	* ipa-inline.c (can_inline_edge_p): It is safe to inline across
+	-fstrict-aliasing boundaries.
+
+2015-04-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_rtx_mult_cost): Handle MNEG
+	and [SU]MNEGL patterns.
+
+2015-04-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_shift_p): New function.
+	(aarch64_rtx_mult_cost): Update comment to reflect that it also handles
+	combined arithmetic-shift ops.  Properly handle all shift and extend
+	operations that can occur in combination with PLUS/MINUS.
+	Rename maybe_fma to compound_p.
+	(aarch64_rtx_costs): Use aarch64_shift_p when costing compound
+	arithmetic and shift operations.
+
+2015-04-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_rtx_costs): Use extend_arith
+	rather than arith_shift cost when costing ADD/MINUS of an
+	extended value.
+
+2015-04-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/65948
+	* ipa-devirt.c (odr_types_equivalent_p): NULLPTR_TYPE is equivalent
+	to itself.
+
+2015-04-30  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* genrecog.c (simplify_tests): Check that CONST_INT and XWINT tests
+	are for the same position.
+
+2015-04-29  Aditya Kumar  <hiraditya@hotmail.com>
+
+	* tree-vectorizer.c (set_uid_loop_bbs): New.  Factored out of
+	vectorize_loops.
+	(vectorize_loops): Use it.
+
+2015-04-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-devirt.c (odr_subtypes_equivalent_p): Compare TYPE_NAME only
+	for aggregate types.
+	(register_odr_type): Be ready for MAIN_VARIANT of ODR type
+	type to be non_ODR.
+	* tree.c (need_assembler_name_p): Compute mangled name for
+	non-fundamental types and integer types.
+
+2015-04-29  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* dojump.c (do_compare_rtx_and_jump): Use std::swap instead of
+	manual swaps.
+	* expr.c (expand_expr_real_2): Likewise.
+
+2015-04-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (build_common_builtin_nodes): Do not build
+	__builtin_alloca_with_align as equivalent of library alloca.
+
+2015-04-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	* dwarf2out.c (gen_type_die_with_usage): Call verify_type.
+	* ipa-chkp.c (chkp_copy_function_type_adding_bounds): Do not produce
+	bugus variants.
+	* tree.c: Include print-tree.h and ipa-utils.h
+	(free_lang_data_in_type): Clear TYPE_VFIELD leaked by C FE.
+	(free_lang_data_in_cgraph): Call verify_type.
+	(verify_type_variant): New function.
+	(verify_type): New function.
+	* tree.h (verify_type): Declare.
+
+2015-04-29  Steve Ellcey  <sellcey@imgtec.com>
+
+	* config/mips/mips-cpus.def: (mips4): Change default processor
+	from PROCESSOR_R8000 to PROCESSOR_R10000.
+
+2015-04-29  Petar Jovanovic  <petar.jovanovic@rt-rk.com>
+
+	* config/mips/mips.h (CRT_CALL_STATIC_FUNCTION): Fix the macro to use
+	la/jalr instead of jal.
+
+2015-04-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/65871
+	* config/i386/i386.md (*bmi_bextr_<mode>_cczonly): New pattern.
+	(*bmi2_bzhi_<mode>3_1_cczonly): Ditto.
+	(setcc+movzbl peephole2): Check also clobbered reg.
+	(setcc+andl peephole2): Ditto.
+
 2015-04-29  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR libgomp/65099
@@ -7229,6 +7328,7 @@
 2015-01-22  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 	    Jakub Jelinek  <jakub@redhat.com>
 
+	PR middle-end/64729
 	* gcc.c (LINK_SSP_SPEC): Handle -fstack-protector-explicit
 	for !TARGET_LIBC_PROVIDES_SSP version and
 	-fstack-protector-{all,strong,explicit} otherwise.

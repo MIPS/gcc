@@ -1,3 +1,85 @@
+2015-04-30  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Add fundamentals TR container erasure.
+	* include/Makefile.am: Add new headers.
+	* include/Makefile.in: Add new headers.
+	* include/experimental/array: New.
+	* include/experimental/deque: New.
+	* include/experimental/erase_if.tcc: New.
+	* include/experimental/forward_list: New.
+	* include/experimental/list: New.
+	* include/experimental/map: New.
+	* include/experimental/set: New.
+	* include/experimental/string: New.
+	* include/experimental/unordered_map: New.
+	* include/experimental/unordered_set: New.
+	* include/experimental/vector: New.
+	* testsuite/experimental/deque/erasure.cc: New.
+	* testsuite/experimental/forward_list/erasure.cc: New.
+	* testsuite/experimental/list/erasure.cc: New.
+	* testsuite/experimental/map/erasure.cc: New.
+	* testsuite/experimental/set/erasure.cc: New.
+	* testsuite/experimental/string/erasure.cc: New.
+	* testsuite/experimental/unordered_map/erasure.cc: New.
+	* testsuite/experimental/unordered_set/erasure.cc: New.
+	* testsuite/experimental/vector/erasure.cc: New.
+
+2015-04-30  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/cpp_type_traits.h
+	(__gnu_cxx::__is_normal_iterator): Delete.
+	* include/bits/stl_algobase.h (std::__niter_base): Adapt.
+	* include/bits/stl_iterator.h (__make_reverse_iterator): New in C++11.
+	(std::__niter_base): Overloads for std::reverse_iterator,
+	__gnu_cxx::__normal_iterator and std::move_iterator.
+
+2015-04-30  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/hashtable_policy.h (_Prime_rehash_policy::_S_n_primes):
+	Delete.
+	* src/c++11/hashtable_c++0x.cc (_Prime_rehash_policy::_M_next_bkt):
+	Remove usage of latter and compute size of the prime numbers array
+	locally.
+
+2015-04-29  Doug Evans  <dje@google.com>
+
+	PR libstdc++/65839
+	* python/libstdcxx/v6/xmethods.py (get_bool_type): New function.
+	Replace all lookups of "bool" with this.
+	(get_std_size_type): New function.  Replace all lookups of std::size_t
+	with this.
+	(*Worker): New method get_result_type.
+	(DequeWorkerBase.__init__): New arg val_type.  All callers updated.
+	(ListWorkerBase.__init__): New arg val_type.  All callers updated.
+	(UniquePtrGetWorker.__init__): New arg elem_type.  All callers updated.
+	Delete setting of name, enabled.
+	(UniquePtrDerefWorker.__init__): New arg elem_type.  All callers
+	updated.  Delete setting of name.
+	(UniquePtrMethodsMatcher): Rewrite for consistency with all other
+	libstdc++ xmethod matchers.
+	* testsuite/libstdc++-xmethods/array.cc: Add whatis tests.
+	* testsuite/libstdc++-xmethods/associative-containers.cc: Ditto.
+	* testsuite/libstdc++-xmethods/deque.cc: Ditto.
+	* testsuite/libstdc++-xmethods/forwardlist.cc: Ditto.
+	* testsuite/libstdc++-xmethods/list.cc: Ditto.
+	* testsuite/libstdc++-xmethods/unique_ptr.cc: Ditto.
+	* testsuite/libstdc++-xmethods/vector.cc: Ditto.
+
+2015-04-29  Doug Evans  <dje@google.com>
+
+	Use consistent naming for value type attributes.
+	* python/libstdcxx/v6/xmethods.py (ArrayWorkerBase): Rename _valtype
+	to _val_type.
+	(ArraySizeWorker, ArrayEmptyWorker): Ditto.
+	(ArrayFrontWorker, ArrayBackWorker): Ditto.
+	(ArrayAtWorker, ArraySubscriptWorker): Ditto.
+	(DequeWorkerBase): Rename elemtype to val_type.
+	(ForwardListWorkerBase): Rename _elem_type to _val_type.
+	(ForwardListFrontWorker): Ditto.  And rename elem_address to
+	val_address.
+	(ForwardListMethodsMatcher): Rename elem_type to val_type.
+	(VectorWorkerBase): Rename _elemtype to _val_type.
+
 2015-04-29  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/65760
