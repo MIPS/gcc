@@ -118,20 +118,20 @@ struct simduid_to_vf : typed_free_remove<simduid_to_vf>
   int vf;
 
   /* hash_table support.  */
-  typedef simduid_to_vf value_type;
-  typedef simduid_to_vf compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline int equal (const value_type *, const compare_type *);
+  typedef simduid_to_vf *value_type;
+  typedef simduid_to_vf *compare_type;
+  static inline hashval_t hash (const simduid_to_vf *);
+  static inline int equal (const simduid_to_vf *, const simduid_to_vf *);
 };
 
 inline hashval_t
-simduid_to_vf::hash (const value_type *p)
+simduid_to_vf::hash (const simduid_to_vf *p)
 {
   return p->simduid;
 }
 
 inline int
-simduid_to_vf::equal (const value_type *p1, const value_type *p2)
+simduid_to_vf::equal (const simduid_to_vf *p1, const simduid_to_vf *p2)
 {
   return p1->simduid == p2->simduid;
 }
@@ -154,20 +154,22 @@ struct simd_array_to_simduid : typed_free_remove<simd_array_to_simduid>
   unsigned int simduid;
 
   /* hash_table support.  */
-  typedef simd_array_to_simduid value_type;
-  typedef simd_array_to_simduid compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline int equal (const value_type *, const compare_type *);
+  typedef simd_array_to_simduid *value_type;
+  typedef simd_array_to_simduid *compare_type;
+  static inline hashval_t hash (const simd_array_to_simduid *);
+  static inline int equal (const simd_array_to_simduid *,
+			   const simd_array_to_simduid *);
 };
 
 inline hashval_t
-simd_array_to_simduid::hash (const value_type *p)
+simd_array_to_simduid::hash (const simd_array_to_simduid *p)
 {
   return DECL_UID (p->decl);
 }
 
 inline int
-simd_array_to_simduid::equal (const value_type *p1, const value_type *p2)
+simd_array_to_simduid::equal (const simd_array_to_simduid *p1,
+			      const simd_array_to_simduid *p2)
 {
   return p1->decl == p2->decl;
 }
@@ -719,14 +721,7 @@ increase_alignment (void)
 
       if (vect_can_force_dr_alignment_p (decl, alignment))
         {
-          DECL_ALIGN (decl) = TYPE_ALIGN (vectype);
-          DECL_USER_ALIGN (decl) = 1;
-	  if (TREE_STATIC (decl))
-	    {
-	      tree target = symtab_node::get (decl)->ultimate_alias_target ()->decl;
-              DECL_ALIGN (target) = TYPE_ALIGN (vectype);
-              DECL_USER_ALIGN (target) = 1;
-	    }
+	  vnode->increase_alignment (TYPE_ALIGN (vectype));
           dump_printf (MSG_NOTE, "Increasing alignment of decl: ");
           dump_generic_expr (MSG_NOTE, TDF_SLIM, decl);
           dump_printf (MSG_NOTE, "\n");

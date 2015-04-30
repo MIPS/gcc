@@ -1165,6 +1165,8 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	}
       /* We want unlowered type here to handle enum bit-fields.  */
       orig_type = unlowered_expr_type (cond);
+      if (TREE_CODE (orig_type) != ENUMERAL_TYPE)
+	orig_type = TREE_TYPE (cond);
       if (cond != error_mark_node)
 	{
 	  /* Warn if the condition has boolean value.  */
@@ -3115,7 +3117,8 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
   tree initializer = convert_from_reference (decl);
 
   /* Mark it as used now even if the use is ill-formed.  */
-  mark_used (decl);
+  if (!mark_used (decl, complain) && !(complain & tf_error))
+    return error_mark_node;
 
   /* Core issue 696: "[At the July 2009 meeting] the CWG expressed
      support for an approach in which a reference to a local

@@ -4873,7 +4873,7 @@ simple_cst_list_equal (const_tree l1, const_tree l2)
    attribute values are known to be equal; otherwise return false.
 */
 
-static bool
+bool
 attribute_value_equal (const_tree attr1, const_tree attr2)
 {
   if (TREE_VALUE (attr1) == TREE_VALUE (attr2))
@@ -5081,9 +5081,15 @@ free_lang_data_in_type (tree type)
       if (TYPE_BINFO (type))
 	{
 	  free_lang_data_in_binfo (TYPE_BINFO (type));
+	  /* We need to preserve link to bases and virtual table for all
+	     polymorphic types to make devirtualization machinery working.
+	     Debug output cares only about bases, but output also
+	     virtual table pointers so merging of -fdevirtualize and
+	     -fno-devirtualize units is easier.  */
 	  if ((!BINFO_VTABLE (TYPE_BINFO (type))
 	       || !flag_devirtualize)
-	      && (!BINFO_N_BASE_BINFOS (TYPE_BINFO (type))
+	      && ((!BINFO_N_BASE_BINFOS (TYPE_BINFO (type))
+		   && !BINFO_VTABLE (TYPE_BINFO (type)))
 		  || debug_info_level != DINFO_LEVEL_NONE))
 	    TYPE_BINFO (type) = NULL;
 	}
@@ -5133,6 +5139,7 @@ need_assembler_name_p (tree decl)
       && decl == TYPE_NAME (TREE_TYPE (decl))
       && !is_lang_specific (TREE_TYPE (decl))
       && AGGREGATE_TYPE_P (TREE_TYPE (decl))
+      && !TYPE_ARTIFICIAL (TREE_TYPE (decl))
       && !variably_modified_type_p (TREE_TYPE (decl), NULL_TREE)
       && !type_in_anonymous_namespace_p (TREE_TYPE (decl)))
     return !DECL_ASSEMBLER_NAME_SET_P (decl);
@@ -5815,6 +5822,8 @@ free_lang_data (void)
      still be used indirectly via the get_alias_set langhook.  */
   lang_hooks.dwarf_name = lhd_dwarf_name;
   lang_hooks.decl_printable_name = gimple_decl_printable_name;
+  lang_hooks.gimplify_expr = lhd_gimplify_expr;
+
   /* We do not want the default decl_assembler_name implementation,
      rather if we have fixed everything we want a wrapper around it
      asserting that all non-local symbols already got their assembler
@@ -7697,7 +7706,7 @@ build_pointer_type_for_mode (tree to_type, machine_mode mode,
   else if (TYPE_CANONICAL (to_type) != to_type)
     TYPE_CANONICAL (t)
       = build_pointer_type_for_mode (TYPE_CANONICAL (to_type),
-				     mode, can_alias_all);
+				     mode, false);
 
   /* Lay out the type.  This function has many callers that are concerned
      with expression-construction, and this simplifies them all.  */
@@ -7764,7 +7773,7 @@ build_reference_type_for_mode (tree to_type, machine_mode mode,
   else if (TYPE_CANONICAL (to_type) != to_type)
     TYPE_CANONICAL (t)
       = build_reference_type_for_mode (TYPE_CANONICAL (to_type),
-				       mode, can_alias_all);
+				       mode, false);
 
   layout_type (t);
 
@@ -11992,7 +12001,7 @@ type_in_anonymous_namespace_p (const_tree t)
 
 /* Lookup sub-BINFO of BINFO of TYPE at offset POS.  */
 
-tree
+static tree
 lookup_binfo_at_offset (tree binfo, tree type, HOST_WIDE_INT pos)
 {
   unsigned int i;
@@ -12045,11 +12054,13 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
       else if (offset != 0)
 	{
 	  tree found_binfo = NULL, base_binfo;
-	  int offset = (tree_to_shwi (BINFO_OFFSET (binfo)) + pos
-			/ BITS_PER_UNIT);
+	  /* Offsets in BINFO are in bytes relative to the whole structure
+	     while POS is in bits relative to the containing field.  */
+	  int binfo_offset = (tree_to_shwi (BINFO_OFFSET (binfo)) + pos
+			     / BITS_PER_UNIT);
 
 	  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
-	    if (tree_to_shwi (BINFO_OFFSET (base_binfo)) == offset
+	    if (tree_to_shwi (BINFO_OFFSET (base_binfo)) == binfo_offset
 		&& types_same_for_odr (TREE_TYPE (base_binfo), TREE_TYPE (fld)))
 	      {
 		found_binfo = base_binfo;
@@ -12058,7 +12069,8 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
 	  if (found_binfo)
 	    binfo = found_binfo;
 	  else
-	    binfo = lookup_binfo_at_offset (binfo, TREE_TYPE (fld), offset);
+	    binfo = lookup_binfo_at_offset (binfo, TREE_TYPE (fld),
+					    binfo_offset);
 	 }
 
       type = TREE_TYPE (fld);

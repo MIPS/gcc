@@ -574,9 +574,11 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->icf_merged, 1);
   bp_pack_value (&bp, node->nonfreeing_fn, 1);
   bp_pack_value (&bp, node->thunk.thunk_p, 1);
+  bp_pack_value (&bp, node->parallelized_function, 1);
   bp_pack_enum (&bp, ld_plugin_symbol_resolution,
 	        LDPR_NUM_KNOWN, node->resolution);
   bp_pack_value (&bp, node->instrumentation_clone, 1);
+  bp_pack_value (&bp, node->split_part, 1);
   streamer_write_bitpack (&bp);
   streamer_write_data_stream (ob->main_stream, section, strlen (section) + 1);
 
@@ -608,11 +610,17 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
 			 lto_symtab_encoder_t encoder)
 {
   bool boundary_p = !lto_symtab_encoder_in_partition_p (encoder, node);
+  bool encode_initializer_p
+	 = (node->definition
+	    && lto_symtab_encoder_encode_initializer_p (encoder, node));
   struct bitpack_d bp;
   int ref;
   const char *comdat;
   const char *section;
   tree group;
+
+  gcc_assert (!encode_initializer_p || node->definition);
+  gcc_assert (boundary_p || encode_initializer_p);
 
   streamer_write_enum (ob->main_stream, LTO_symtab_tags, LTO_symtab_last_tag,
 		       LTO_symtab_variable);
@@ -624,11 +632,14 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
   bp_pack_value (&bp, node->force_output, 1);
   bp_pack_value (&bp, node->forced_by_abi, 1);
   bp_pack_value (&bp, node->unique_name, 1);
-  bp_pack_value (&bp, node->body_removed
-		 || !lto_symtab_encoder_encode_initializer_p (encoder, node), 1);
+  bp_pack_value (&bp,
+		 node->body_removed
+		 || (!encode_initializer_p && !node->alias && node->definition),
+		 1);
   bp_pack_value (&bp, node->implicit_section, 1);
   bp_pack_value (&bp, node->writeonly, 1);
-  bp_pack_value (&bp, node->definition, 1);
+  bp_pack_value (&bp, node->definition && (encode_initializer_p || node->alias),
+		 1);
   bp_pack_value (&bp, node->alias, 1);
   bp_pack_value (&bp, node->weakref, 1);
   bp_pack_value (&bp, node->analyzed && !boundary_p, 1);
@@ -1200,9 +1211,11 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->icf_merged = bp_unpack_value (bp, 1);
   node->nonfreeing_fn = bp_unpack_value (bp, 1);
   node->thunk.thunk_p = bp_unpack_value (bp, 1);
+  node->parallelized_function = bp_unpack_value (bp, 1);
   node->resolution = bp_unpack_enum (bp, ld_plugin_symbol_resolution,
 				     LDPR_NUM_KNOWN);
   node->instrumentation_clone = bp_unpack_value (bp, 1);
+  node->split_part = bp_unpack_value (bp, 1);
   gcc_assert (flag_ltrans
 	      || (!node->in_other_partition
 		  && !node->used_from_other_partition));
@@ -1604,9 +1617,8 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
 		}
 
 	      /* Restore decl names reference.  */
-	      if (IDENTIFIER_TRANSPARENT_ALIAS (DECL_ASSEMBLER_NAME (cnode->decl))
-		  && !TREE_CHAIN (DECL_ASSEMBLER_NAME (cnode->decl)))
-		TREE_CHAIN (DECL_ASSEMBLER_NAME (cnode->decl))
+	      IDENTIFIER_TRANSPARENT_ALIAS (DECL_ASSEMBLER_NAME (cnode->decl)) = 1;
+	      TREE_CHAIN (DECL_ASSEMBLER_NAME (cnode->decl))
 		  = DECL_ASSEMBLER_NAME (cnode->orig_decl);
 	    }
 	}
@@ -2113,7 +2125,7 @@ input_cgraph_opt_section (struct lto_file_decl_data *file_data,
   unsigned int count;
 
   lto_input_block ib_main ((const char *) data + main_offset,
-			   header->main_size);
+			   header->main_size, file_data->mode_table);
 
   data_in =
     lto_data_in_create (file_data, (const char *) data + string_offset,

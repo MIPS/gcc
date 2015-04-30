@@ -897,6 +897,11 @@ fasan-shadow-offset=
 Common Joined RejectNegative Var(common_deferred_options) Defer
 -fasan-shadow-offset=<number>	Use custom shadow memory offset.
 
+fsanitize-sections=
+Common Joined RejectNegative Var(common_deferred_options) Defer
+-fsanitize-sections=<sec1,sec2,...>	Sanitize global variables
+in user-defined sections.
+
 fsanitize-recover=
 Common Report Joined
 After diagnosing undefined behavior attempt to continue execution
@@ -1458,6 +1463,10 @@ fipa-cp-clone
 Common Report Var(flag_ipa_cp_clone) Optimization
 Perform cloning to make Interprocedural constant propagation stronger
 
+fipa-cp-alignment
+Common Report Var(flag_ipa_cp_alignment) Optimization
+Perform alignment discovery and propagation to make Interprocedural constant propagation stronger
+
 fipa-profile
 Common Report Var(flag_ipa_profile) Init(0) Optimization
 Perform interprocedural profile propagation
@@ -1640,11 +1649,11 @@ Report on permanent memory allocation in WPA only
 ; string constants and constants from constant pool, if 2 also constant
 ; variables.
 fmerge-all-constants
-Common Report Var(flag_merge_constants,2) Init(1) Optimization
+Common Report Var(flag_merge_constants,2) Init(1)
 Attempt to merge identical constants and constant variables
 
 fmerge-constants
-Common Report Var(flag_merge_constants,1) Optimization
+Common Report Var(flag_merge_constants,1)
 Attempt to merge identical constants across compilation units
 
 fmerge-debug-strings
@@ -2064,6 +2073,10 @@ Split wide types into independent registers
 fssa-phiopt
 Common Report Var(flag_ssa_phiopt) Optimization
 Optimize conditional patterns using SSA PHI nodes
+
+fstdarg-opt
+Common Report Var(flag_stdarg_opt) Init(1) Optimization
+Optimize amount of stdarg registers saved to stack at start of function
 
 fvariable-expansion-in-unroller
 Common Report Var(flag_variable_expansion_in_unroller) Optimization

@@ -968,10 +968,6 @@ vect_model_store_cost (stmt_vec_info stmt_info, int ncopies,
   struct data_reference *first_dr;
   gimple first_stmt;
 
-  /* The SLP costs were already calculated during SLP tree build.  */
-  if (PURE_SLP_STMT (stmt_info))
-    return;
-
   if (dt == vect_constant_def || dt == vect_external_def)
     prologue_cost += record_stmt_cost (prologue_cost_vec, 1, scalar_to_vec,
 				       stmt_info, 0, vect_prologue);
@@ -1097,10 +1093,6 @@ vect_model_load_cost (stmt_vec_info stmt_info, int ncopies,
   gimple first_stmt;
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info), *first_dr;
   unsigned int inside_cost = 0, prologue_cost = 0;
-
-  /* The SLP costs were already calculated during SLP tree build.  */
-  if (PURE_SLP_STMT (stmt_info))
-    return;
 
   /* Grouped accesses?  */
   first_stmt = GROUP_FIRST_ELEMENT (stmt_info);
@@ -4956,8 +4948,13 @@ ensure_base_align (stmt_vec_info stmt_info, struct data_reference *dr)
       tree vectype = STMT_VINFO_VECTYPE (stmt_info);
       tree base_decl = ((dataref_aux *)dr->aux)->base_decl;
 
-      DECL_ALIGN (base_decl) = TYPE_ALIGN (vectype);
-      DECL_USER_ALIGN (base_decl) = 1;
+      if (decl_in_symtab_p (base_decl))
+	symtab_node::get (base_decl)->increase_alignment (TYPE_ALIGN (vectype));
+      else
+	{
+          DECL_ALIGN (base_decl) = TYPE_ALIGN (vectype);
+          DECL_USER_ALIGN (base_decl) = 1;
+	}
       ((dataref_aux *)dr->aux)->base_misaligned = false;
     }
 }
@@ -5176,8 +5173,10 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   if (!vec_stmt) /* transformation not required.  */
     {
       STMT_VINFO_TYPE (stmt_info) = store_vec_info_type;
-      vect_model_store_cost (stmt_info, ncopies, store_lanes_p, dt,
-			     NULL, NULL, NULL);
+      /* The SLP costs are calculated during SLP analysis.  */
+      if (!PURE_SLP_STMT (stmt_info))
+	vect_model_store_cost (stmt_info, ncopies, store_lanes_p, dt,
+			       NULL, NULL, NULL);
       return true;
     }
 
@@ -5775,6 +5774,22 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
       gcc_assert (! nested_in_vect_loop && !STMT_VINFO_GATHER_P (stmt_info));
 
       first_stmt = GROUP_FIRST_ELEMENT (stmt_info);
+
+      /* If this is single-element interleaving with an element distance
+         that leaves unused vector loads around punt - we at least create
+	 very sub-optimal code in that case (and blow up memory,
+	 see PR65518).  */
+      if (first_stmt == stmt
+	  && !GROUP_NEXT_ELEMENT (stmt_info)
+	  && GROUP_SIZE (stmt_info) > TYPE_VECTOR_SUBPARTS (vectype))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "single-element interleaving not supported "
+			     "for not adjacent vector loads\n");
+	  return false;
+	}
+
       if (!slp && !PURE_SLP_STMT (stmt_info))
 	{
 	  group_size = GROUP_SIZE (vinfo_for_stmt (first_stmt));
@@ -5880,7 +5895,10 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   if (!vec_stmt) /* transformation not required.  */
     {
       STMT_VINFO_TYPE (stmt_info) = load_vec_info_type;
-      vect_model_load_cost (stmt_info, ncopies, load_lanes_p, NULL, NULL, NULL);
+      /* The SLP costs are calculated during SLP analysis.  */
+      if (!PURE_SLP_STMT (stmt_info))
+	vect_model_load_cost (stmt_info, ncopies, load_lanes_p,
+			      NULL, NULL, NULL);
       return true;
     }
 
@@ -6463,9 +6481,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		case dr_explicit_realign:
 		  {
 		    tree ptr, bump;
-		    tree vs_minus_1;
 
-		    vs_minus_1 = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+		    tree vs = size_int (TYPE_VECTOR_SUBPARTS (vectype));
 
 		    if (compute_in_loop)
 		      msq = vect_setup_realignment (first_stmt, gsi,
@@ -6494,8 +6511,9 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		    vect_finish_stmt_generation (stmt, new_stmt, gsi);
 		    msq = new_temp;
 
-		    bump = size_binop (MULT_EXPR, vs_minus_1,
+		    bump = size_binop (MULT_EXPR, vs,
 				       TYPE_SIZE_UNIT (elem_type));
+		    bump = size_binop (MINUS_EXPR, bump, size_one_node);
 		    ptr = bump_vector_ptr (dataref_ptr, NULL, gsi, stmt, bump);
 		    new_stmt = gimple_build_assign
 				 (NULL_TREE, BIT_AND_EXPR, ptr,
@@ -7734,7 +7752,45 @@ vect_is_simple_use (tree operand, gimple stmt, loop_vec_info loop_vinfo,
   else
     {
       stmt_vinfo = vinfo_for_stmt (*def_stmt);
-      *dt = STMT_VINFO_DEF_TYPE (stmt_vinfo);
+      if (!loop && !STMT_VINFO_VECTORIZABLE (stmt_vinfo))
+	*dt = vect_external_def;
+      else
+	*dt = STMT_VINFO_DEF_TYPE (stmt_vinfo);
+    }
+
+  if (dump_enabled_p ())
+    {
+      dump_printf_loc (MSG_NOTE, vect_location, "type of def: ");
+      switch (*dt)
+	{
+	case vect_uninitialized_def:
+	  dump_printf (MSG_NOTE, "uninitialized\n");
+	  break;
+	case vect_constant_def:
+	  dump_printf (MSG_NOTE, "constant\n");
+	  break;
+	case vect_external_def:
+	  dump_printf (MSG_NOTE, "external\n");
+	  break;
+	case vect_internal_def:
+	  dump_printf (MSG_NOTE, "internal\n");
+	  break;
+	case vect_induction_def:
+	  dump_printf (MSG_NOTE, "induction\n");
+	  break;
+	case vect_reduction_def:
+	  dump_printf (MSG_NOTE, "reduction\n");
+	  break;
+	case vect_double_reduction_def:
+	  dump_printf (MSG_NOTE, "double reduction\n");
+	  break;
+	case vect_nested_cycle:
+	  dump_printf (MSG_NOTE, "nested cycle\n");
+	  break;
+	case vect_unknown_def_type:
+	  dump_printf (MSG_NOTE, "unknown\n");
+	  break;
+	}
     }
 
   if (*dt == vect_unknown_def_type
@@ -7747,9 +7803,6 @@ vect_is_simple_use (tree operand, gimple stmt, loop_vec_info loop_vinfo,
                          "Unsupported pattern.\n");
       return false;
     }
-
-  if (dump_enabled_p ())
-    dump_printf_loc (MSG_NOTE, vect_location, "type of def: %d.\n", *dt);
 
   switch (gimple_code (*def_stmt))
     {

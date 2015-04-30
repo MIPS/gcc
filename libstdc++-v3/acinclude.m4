@@ -49,7 +49,7 @@ AC_DEFUN([GLIBCXX_CONFIGURE], [
   # Keep these sync'd with the list in Makefile.am.  The first provides an
   # expandable list at autoconf time; the second provides an expandable list
   # (i.e., shell variable) at configure time.
-  m4_define([glibcxx_SUBDIRS],[include libsupc++ python src src/c++98 src/c++11 src/filesystem doc po testsuite])
+  m4_define([glibcxx_SUBDIRS],[include libsupc++ src src/c++98 src/c++11 src/filesystem doc po testsuite python])
   SUBDIRS='glibcxx_SUBDIRS'
 
   # These need to be absolute paths, yet at the same time need to
@@ -1221,7 +1221,7 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
         ac_has_nanosleep=yes
         ac_has_sched_yield=yes
         ;;
-      freebsd*|netbsd*)
+      freebsd*|netbsd*|dragonfly*)
         ac_has_clock_monotonic=yes
         ac_has_clock_realtime=yes
         ac_has_nanosleep=yes
@@ -3383,7 +3383,7 @@ changequote([,])dnl
 fi
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:21:0
+libtool_VERSION=6:22:0
 
 # Everything parsed; figure out what files and settings to use.
 case $enable_symvers in
@@ -3563,6 +3563,13 @@ AC_DEFUN([GLIBCXX_CHECK_GTHREADS], [
   if test x"$ac_has_gthreads" = x"yes"; then
     AC_DEFINE(_GLIBCXX_HAS_GTHREADS, 1,
 	      [Define if gthreads library is available.])
+
+    # Also check for pthread_rwlock_t for std::shared_timed_mutex in C++14
+    AC_CHECK_TYPE([pthread_rwlock_t],
+            [AC_DEFINE([_GLIBCXX_USE_PTHREAD_RWLOCK_T], 1,
+            [Define if POSIX read/write locks are available in <gthr.h>.])],
+            [],
+            [#include "gthr.h"])
   fi
 
   CXXFLAGS="$ac_save_CXXFLAGS"
@@ -3852,6 +3859,10 @@ dnl  _GLIBCXX_USE_DUAL_ABI (always defined, either to 1 or 0)
 dnl
 AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_DUAL_ABI], [
   GLIBCXX_ENABLE(libstdcxx-dual-abi,$1,,[support two versions of std::string])
+  if test x$enable_symvers = xgnu-versioned-namespace; then
+    # gnu-versioned-namespace is incompatible with the dual ABI.
+    enable_libstdcxx_dual_abi="no"
+  fi
   if test x"$enable_libstdcxx_dual_abi" != xyes; then
     AC_MSG_NOTICE([dual ABI is disabled])
     default_libstdcxx_abi="c++98"

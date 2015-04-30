@@ -842,6 +842,18 @@ fix = {
 };
 
 /*
+ * stdlib.h on AIX 4.3 declares strtof() with a non-const first argument.
+ */
+fix = {
+    hackname  = aix_strtof_const;
+    files     = stdlib.h;
+    select    = "((extern[ \t]+)?float[ \t]+strtof)\\(char \\*, char \\*\\*\\);";
+    c_fix     = format;
+    c_fix_arg = "%1(const char *, char **);";
+    test_text = "extern float    strtof(char *, char **);";
+};
+
+/*
  *  sys/machine.h on AIX 4.3.3 puts whitespace between a \ and a newline
  *  in an otherwise harmless (and #ifed out) macro definition
  */
@@ -2059,6 +2071,19 @@ fix = {
     c_fix     = format;
     c_fix_arg = "if !defined(_MATH_INCLUDED) || defined(__GNUG__)";
     test_text = "#ifndef _MATH_INCLUDED";
+};
+
+/*
+ *  Fix hpux11 __LWP_RWLOCK_VALID define
+ */
+fix = {
+    hackname  = hpux11_lwp_rwlock_valid;
+    mach      = "*-hp-hpux11*";
+    files     = sys/pthread.h;
+    select    = "#define __LWP_RWLOCK_VALID[ \t]*0x8c91";
+    c_fix     = format;
+    c_fix_arg = "#define __LWP_RWLOCK_VALID              -29551";
+    test_text = "#define __LWP_RWLOCK_VALID 0x8c91";
 };
 
 /*

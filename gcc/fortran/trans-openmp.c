@@ -391,9 +391,11 @@ gfc_walk_alloc_comps (tree decl, tree dest, tree var,
 	  if (GFC_DESCRIPTOR_TYPE_P (ftype)
 	      && GFC_TYPE_ARRAY_AKIND (ftype) == GFC_ARRAY_ALLOCATABLE)
 	    tem = gfc_duplicate_allocatable (destf, declf, ftype,
-					     GFC_TYPE_ARRAY_RANK (ftype));
+					     GFC_TYPE_ARRAY_RANK (ftype),
+					     NULL_TREE);
 	  else if (GFC_DECL_GET_SCALAR_ALLOCATABLE (field))
-	    tem = gfc_duplicate_allocatable (destf, declf, ftype, 0);
+	    tem = gfc_duplicate_allocatable (destf, declf, ftype, 0,
+					     NULL_TREE);
 	  break;
 	}
       if (tem)
@@ -3255,6 +3257,19 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 	  inits.safe_push (e);
 	}
 
+      if (dovar_found == 2
+	  && op == EXEC_OMP_SIMD
+	  && collapse == 1
+	  && !simple)
+	{
+	  for (tmp = omp_clauses; tmp; tmp = OMP_CLAUSE_CHAIN (tmp))
+	    if (OMP_CLAUSE_CODE (tmp) == OMP_CLAUSE_LINEAR
+		&& OMP_CLAUSE_DECL (tmp) == dovar)
+	      {
+		OMP_CLAUSE_LINEAR_NO_COPYIN (tmp) = 1;
+		break;
+	      }
+	}
       if (!dovar_found)
 	{
 	  if (op == EXEC_OMP_SIMD)
@@ -3263,6 +3278,7 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 		{
 		  tmp = build_omp_clause (input_location, OMP_CLAUSE_LINEAR);
 		  OMP_CLAUSE_LINEAR_STEP (tmp) = step;
+		  OMP_CLAUSE_LINEAR_NO_COPYIN (tmp) = 1;
 		}
 	      else
 		tmp = build_omp_clause (input_location, OMP_CLAUSE_LASTPRIVATE);
@@ -3330,7 +3346,7 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 	  else if (collapse == 1)
 	    {
 	      tmp = build_omp_clause (input_location, OMP_CLAUSE_LINEAR);
-	      OMP_CLAUSE_LINEAR_STEP (tmp) = step;
+	      OMP_CLAUSE_LINEAR_STEP (tmp) = build_int_cst (type, 1);
 	      OMP_CLAUSE_LINEAR_NO_COPYIN (tmp) = 1;
 	      OMP_CLAUSE_LINEAR_NO_COPYOUT (tmp) = 1;
 	    }

@@ -625,6 +625,9 @@ perform_member_init (tree member, tree init)
       && TREE_CHAIN (init) == NULL_TREE)
     {
       tree val = TREE_VALUE (init);
+      /* Handle references.  */
+      if (REFERENCE_REF_P (val))
+	val = TREE_OPERAND (val, 0);
       if (TREE_CODE (val) == COMPONENT_REF && TREE_OPERAND (val, 1) == member
 	  && TREE_OPERAND (val, 0) == current_class_ref)
 	warning_at (DECL_SOURCE_LOCATION (current_function_decl),
@@ -3716,11 +3719,7 @@ build_vec_init (tree base, tree maxindex, tree init,
 	{
 	  if (cxx_dialect >= cxx11 && AGGREGATE_TYPE_P (type))
 	    {
-	      if (BRACE_ENCLOSED_INITIALIZER_P (init)
-		  && CONSTRUCTOR_NELTS (init) == 0)
-		/* Reuse it.  */;
-	      else
-		init = build_constructor (init_list_type_node, NULL);
+	      init = build_constructor (init_list_type_node, NULL);
 	      CONSTRUCTOR_IS_DIRECT_INIT (init) = true;
 	    }
 	  else

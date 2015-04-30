@@ -187,6 +187,13 @@ section *in_section;
    at the cold section.  */
 bool in_cold_section_p;
 
+/* The following global holds the "function name" for the code in the
+   cold section of a function, if hot/cold function splitting is enabled
+   and there was actually code that went into the cold section.  A
+   pseudo function name is needed for the cold section of code for some
+   debugging tools that perform symbolization. */
+tree cold_function_name = NULL_TREE;
+
 /* A linked list of all the unnamed sections.  */
 static GTY(()) section *unnamed_sections;
 
@@ -659,7 +666,7 @@ function_section_1 (tree decl, bool force_cold)
   else
     return targetm.asm_out.select_section
 	    (decl, freq == NODE_FREQUENCY_UNLIKELY_EXECUTED,
-	     DECL_ALIGN (decl));
+	     symtab_node::get (decl)->definition_alignment ());
 #else
   if (targetm.asm_out.function_section)
     section = targetm.asm_out.function_section (decl, freq, startup, exit);
@@ -1630,35 +1637,30 @@ default_ctor_section_asm_out_constructor (rtx symbol,
 void
 notice_global_symbol (tree decl)
 {
-  const char **type = &first_global_object_name;
+  const char **t = &first_global_object_name;
 
   if (first_global_object_name
       || !TREE_PUBLIC (decl)
       || DECL_EXTERNAL (decl)
       || !DECL_NAME (decl)
+      || (TREE_CODE (decl) == VAR_DECL && DECL_HARD_REGISTER (decl))
       || (TREE_CODE (decl) != FUNCTION_DECL
 	  && (TREE_CODE (decl) != VAR_DECL
 	      || (DECL_COMMON (decl)
 		  && (DECL_INITIAL (decl) == 0
-		      || DECL_INITIAL (decl) == error_mark_node))))
-      || !MEM_P (DECL_RTL (decl)))
+		      || DECL_INITIAL (decl) == error_mark_node)))))
     return;
 
   /* We win when global object is found, but it is useful to know about weak
      symbol as well so we can produce nicer unique names.  */
   if (DECL_WEAK (decl) || DECL_ONE_ONLY (decl) || flag_shlib)
-    type = &weak_global_object_name;
+    t = &weak_global_object_name;
 
-  if (!*type)
+  if (!*t)
     {
-      const char *p;
-      const char *name;
-      rtx decl_rtl = DECL_RTL (decl);
-
-      p = targetm.strip_name_encoding (XSTR (XEXP (decl_rtl, 0), 0));
-      name = ggc_strdup (p);
-
-      *type = name;
+      tree id = DECL_ASSEMBLER_NAME (decl);
+      ultimate_transparent_alias_target (&id);
+      *t = ggc_strdup (targetm.strip_name_encoding (IDENTIFIER_POINTER (id)));
     }
 }
 
@@ -1724,6 +1726,7 @@ assemble_start_function (tree decl, const char *fnname)
       ASM_GENERATE_INTERNAL_LABEL (tmp_label, "LCOLDE", const_labelno);
       crtl->subsections.cold_section_end_label = ggc_strdup (tmp_label);
       const_labelno++;
+      cold_function_name = NULL_TREE;
     }
   else
     {
@@ -1740,6 +1743,8 @@ assemble_start_function (tree decl, const char *fnname)
   if (CONSTANT_POOL_BEFORE_FUNCTION)
     output_constant_pool (fnname, decl);
 
+  align = symtab_node::get (decl)->definition_alignment ();
+
   /* Make sure the not and cold text (code) sections are properly
      aligned.  This is necessary here in the case where the function
      has both hot and cold sections, because we don't want to re-set
@@ -1750,7 +1755,7 @@ assemble_start_function (tree decl, const char *fnname)
       first_function_block_is_cold = false;
 
       switch_to_section (unlikely_text_section ());
-      assemble_align (DECL_ALIGN (decl));
+      assemble_align (align);
       ASM_OUTPUT_LABEL (asm_out_file, crtl->subsections.cold_section_label);
 
       /* When the function starts with a cold section, we need to explicitly
@@ -1760,7 +1765,7 @@ assemble_start_function (tree decl, const char *fnname)
 	  && BB_PARTITION (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb) == BB_COLD_PARTITION)
 	{
 	  switch_to_section (text_section);
-	  assemble_align (DECL_ALIGN (decl));
+	  assemble_align (align);
 	  ASM_OUTPUT_LABEL (asm_out_file, crtl->subsections.hot_section_label);
 	  hot_label_written = true;
 	  first_function_block_is_cold = true;
@@ -1777,7 +1782,7 @@ assemble_start_function (tree decl, const char *fnname)
     ASM_OUTPUT_LABEL (asm_out_file, crtl->subsections.hot_section_label);
 
   /* Tell assembler to move to target machine's alignment for functions.  */
-  align = floor_log2 (DECL_ALIGN (decl) / BITS_PER_UNIT);
+  align = floor_log2 (align / BITS_PER_UNIT);
   if (align > 0)
     {
       ASM_OUTPUT_ALIGN (asm_out_file, align);
@@ -1859,6 +1864,12 @@ assemble_end_function (tree decl, const char *fnname ATTRIBUTE_UNUSED)
 
       save_text_section = in_section;
       switch_to_section (unlikely_text_section ());
+#ifdef ASM_DECLARE_FUNCTION_SIZE
+      if (cold_function_name != NULL_TREE)
+	ASM_DECLARE_FUNCTION_SIZE (asm_out_file,
+				   IDENTIFIER_POINTER (cold_function_name),
+				   decl);
+#endif
       ASM_OUTPUT_LABEL (asm_out_file, crtl->subsections.cold_section_end_label);
       if (first_function_block_is_cold)
 	switch_to_section (text_section);
@@ -1937,11 +1948,13 @@ emit_local (tree decl ATTRIBUTE_UNUSED,
 	    unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
 {
 #if defined ASM_OUTPUT_ALIGNED_DECL_LOCAL
+  int align = symtab_node::get (decl)->definition_alignment ();
   ASM_OUTPUT_ALIGNED_DECL_LOCAL (asm_out_file, decl, name,
-				 size, DECL_ALIGN (decl));
+				 size, align);
   return true;
 #elif defined ASM_OUTPUT_ALIGNED_LOCAL
-  ASM_OUTPUT_ALIGNED_LOCAL (asm_out_file, name, size, DECL_ALIGN (decl));
+  int align = symtab_node::get (decl)->definition_alignment ();
+  ASM_OUTPUT_ALIGNED_LOCAL (asm_out_file, name, size, align);
   return true;
 #else
   ASM_OUTPUT_LOCAL (asm_out_file, name, size, rounded);
@@ -1958,11 +1971,9 @@ emit_bss (tree decl ATTRIBUTE_UNUSED,
 	  unsigned HOST_WIDE_INT size ATTRIBUTE_UNUSED,
 	  unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
 {
-#if defined ASM_OUTPUT_ALIGNED_BSS
   ASM_OUTPUT_ALIGNED_BSS (asm_out_file, decl, name, size,
 			  get_variable_align (decl));
   return true;
-#endif
 }
 #endif
 
@@ -3295,7 +3306,12 @@ build_constant_desc (tree exp)
   /* Now construct the SYMBOL_REF and the MEM.  */
   if (use_object_blocks_p ())
     {
-      section *sect = get_constant_section (exp, DECL_ALIGN (decl));
+      int align = (TREE_CODE (decl) == CONST_DECL
+		   || (TREE_CODE (decl) == VAR_DECL
+		       && DECL_IN_CONSTANT_POOL (decl))
+		   ? DECL_ALIGN (decl)
+		   : symtab_node::get (decl)->definition_alignment ());
+      section *sect = get_constant_section (exp, align);
       symbol = create_block_symbol (ggc_strdup (label),
 				    get_block_for_section (sect), -1);
     }
@@ -3423,7 +3439,6 @@ output_constant_def_contents (rtx symbol)
 {
   tree decl = SYMBOL_REF_DECL (symbol);
   tree exp = DECL_INITIAL (decl);
-  unsigned int align;
   bool asan_protected = false;
 
   /* Make sure any other constants whose addresses appear in EXP
@@ -3449,7 +3464,11 @@ output_constant_def_contents (rtx symbol)
     place_block_symbol (symbol);
   else
     {
-      align = DECL_ALIGN (decl);
+      int align = (TREE_CODE (decl) == CONST_DECL
+		   || (TREE_CODE (decl) == VAR_DECL
+		       && DECL_IN_CONSTANT_POOL (decl))
+		   ? DECL_ALIGN (decl)
+		   : symtab_node::get (decl)->definition_alignment ());
       switch_to_section (get_constant_section (exp, align));
       if (align > BITS_PER_UNIT)
 	ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
@@ -6802,8 +6821,13 @@ resolution_local_p (enum ld_plugin_symbol_resolution resolution)
 	  || resolution == LDPR_RESOLVED_EXEC);
 }
 
-static bool
-default_binds_local_p_2 (const_tree exp, bool shlib, bool weak_dominate)
+/* COMMON_LOCAL_P is true means that the linker can guarantee that an
+   uninitialized common symbol in the executable will still be defined
+   (through COPY relocation) in the executable.  */
+
+bool
+default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
+			 bool extern_protected_data, bool common_local_p)
 {
   /* A non-decl is an entry in the constant pool.  */
   if (!DECL_P (exp))
@@ -6828,19 +6852,27 @@ default_binds_local_p_2 (const_tree exp, bool shlib, bool weak_dominate)
      because dynamic linking might overwrite symbols
      in shared libraries.  */
   bool resolved_locally = false;
-  bool defined_locally = false;
+
+  bool uninited_common = (DECL_COMMON (exp)
+			  && (DECL_INITIAL (exp) == NULL
+			      || (!in_lto_p
+				  && DECL_INITIAL (exp) == error_mark_node)));
+
+  /* A non-external variable is defined locally only if it isn't
+     uninitialized COMMON variable or common_local_p is true.  */
+  bool defined_locally = (!DECL_EXTERNAL (exp)
+			  && (!uninited_common || common_local_p));
   if (symtab_node *node = symtab_node::get (exp))
     {
-      if (node->definition || node->in_other_partition)
-	{
-	  defined_locally = true;
-	  resolved_locally = (weak_dominate && !shlib);
-	}
+      if (node->in_other_partition)
+	defined_locally = true;
       if (resolution_to_local_definition_p (node->resolution))
 	defined_locally = resolved_locally = true;
       else if (resolution_local_p (node->resolution))
 	resolved_locally = true;
     }
+  if (defined_locally && weak_dominate && !shlib)
+    resolved_locally = true;
 
   /* Undefined weak symbols are never defined locally.  */
   if (DECL_WEAK (exp) && !defined_locally)
@@ -6850,6 +6882,9 @@ default_binds_local_p_2 (const_tree exp, bool shlib, bool weak_dominate)
      or if we have a definition for the symbol.  We cannot infer visibility
      for undefined symbols.  */
   if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT
+      && (TREE_CODE (exp) == FUNCTION_DECL
+	  || !extern_protected_data
+	  || DECL_VISIBILITY (exp) != VISIBILITY_PROTECTED)
       && (DECL_VISIBILITY_SPECIFIED (exp) || defined_locally))
     return true;
 
@@ -6868,10 +6903,7 @@ default_binds_local_p_2 (const_tree exp, bool shlib, bool weak_dominate)
 
   /* Uninitialized COMMON variable may be unified with symbols
      resolved from other modules.  */
-  if (DECL_COMMON (exp)
-      && !resolved_locally
-      && (DECL_INITIAL (exp) == NULL
-	  || (!in_lto_p && DECL_INITIAL (exp) == error_mark_node)))
+  if (uninited_common && !resolved_locally)
     return false;
 
   /* Otherwise we're left with initialized (or non-common) global data
@@ -6885,13 +6917,22 @@ default_binds_local_p_2 (const_tree exp, bool shlib, bool weak_dominate)
 bool
 default_binds_local_p (const_tree exp)
 {
-  return default_binds_local_p_2 (exp, flag_shlib != 0, true);
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false, false);
+}
+
+/* Similar to default_binds_local_p, but common symbol may be local.  */
+
+bool
+default_binds_local_p_2 (const_tree exp)
+{
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false,
+				  !flag_pic);
 }
 
 bool
 default_binds_local_p_1 (const_tree exp, int shlib)
 {
-  return default_binds_local_p_2 (exp, shlib != 0, false);
+  return default_binds_local_p_3 (exp, shlib != 0, false, false, false);
 }
 
 /* Return true when references to DECL must bind to current definition in
@@ -7043,7 +7084,13 @@ default_file_start (void)
     fputs (ASM_APP_OFF, asm_out_file);
 
   if (targetm.asm_file_start_file_directive)
-    output_file_directive (asm_out_file, main_input_filename);
+    {
+      /* LTO produced units have no meaningful main_input_filename.  */
+      if (in_lto_p)
+	output_file_directive (asm_out_file, "<artificial>");
+      else
+	output_file_directive (asm_out_file, main_input_filename);
+    }
 }
 
 /* This is a generic routine suitable for use as TARGET_ASM_FILE_END
@@ -7154,6 +7201,7 @@ place_block_symbol (rtx symbol)
   else if (TREE_CONSTANT_POOL_ADDRESS_P (symbol))
     {
       decl = SYMBOL_REF_DECL (symbol);
+      gcc_checking_assert (DECL_IN_CONSTANT_POOL (decl));
       alignment = DECL_ALIGN (decl);
       size = get_constant_size (DECL_INITIAL (decl));
       if ((flag_sanitize & SANITIZE_ADDRESS)
@@ -7328,8 +7376,9 @@ output_object_block (struct object_block *block)
 	{
 	  HOST_WIDE_INT size;
 	  decl = SYMBOL_REF_DECL (symbol);
-	  assemble_constant_contents (DECL_INITIAL (decl), XSTR (symbol, 0),
-				      DECL_ALIGN (decl));
+	  assemble_constant_contents
+	       (DECL_INITIAL (decl), XSTR (symbol, 0), DECL_ALIGN (decl));
+
 	  size = get_constant_size (DECL_INITIAL (decl));
 	  offset += size;
 	  if ((flag_sanitize & SANITIZE_ADDRESS)
