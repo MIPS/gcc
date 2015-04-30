@@ -988,10 +988,11 @@ class StdExpPathPrinter:
 
     def to_string (self):
         path = self.val ['_M_pathname']
-        list_head = self.val['_M_cmpts']['_M_impl']['_M_node']
-        if list_head.address != list_head['_M_next']:
-            cmpts = self.list_visualizer.to_string()
-            path = "%s [Components %s]" % (path, cmpts)
+        if self.list_visualizer:
+            list_head = self.val['_M_cmpts']['_M_impl']['_M_node']
+            if list_head.address != list_head['_M_next']:
+                cmpts = self.list_visualizer.to_string()
+                path = "%s [Components %s]" % (path, cmpts)
         return path
 
 # A "regular expression" printer which conforms to the
