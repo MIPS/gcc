@@ -106,6 +106,7 @@ The middle-end will, at its option, emit the function and data
 definitions immediately or queue them for later processing.
 
 @node UPC Transformation
+@section UPC Transformation
 @cindex UPC
 
 If UPC compilation is enabled via the flag @option{-fupc},

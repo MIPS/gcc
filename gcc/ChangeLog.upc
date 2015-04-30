@@ -1,3 +1,7 @@
+2015-04-30  Gary Funck  <gary@intrepid.com>
+
+	* doc/passes.texi: Add @section command for "UPC Transformation".
+
 2015-04-29  Gary Funck  <gary@intrepid.com>
 
 	* doc/gupc.texi, doc/install.texi, doc/invoke.texi,
