@@ -432,20 +432,17 @@ path::string_type
 path::_S_convert_loc(const char* __first, const char* __last,
                const std::locale& __loc)
 {
-  auto& __cvt = use_facet<std::codecvt<wchar_t, char, mbstate_t>>(__loc);
-  mbstate_t __st = mbstate_t();
-  size_t __len = __cvt.length(__st, __first, __last,
-                              (__last - __first) * __cvt.max_length());
-  std::wstring __out(__len, L'\0');
-  auto __outnext = &__out.front();
-  __st = mbstate_t();
-  auto __res = __cvt.in(__st, __first, __last, __first,
-                        __outnext, &__out.back() + 1, __outnext);
-  if (__res == codecvt_base::ok && __first == __last)
-    return _Cvt<wchar_t>::_S_convert(&__out.front(), __outnext);
-  _GLIBCXX_THROW_OR_ABORT(filesystem_error(
-	"Cannot convert character sequence",
-	std::make_error_code(errc::illegal_byte_sequence)));
+  auto& __cvt = std::use_facet<codecvt<wchar_t, char, mbstate_t>>(__loc);
+  basic_string<wchar_t> __ws;
+  if (!__str_codecvt_in(__first, __last, __ws, __cvt))
+    _GLIBCXX_THROW_OR_ABORT(filesystem_error(
+	  "Cannot convert character sequence",
+	  std::make_error_code(errc::illegal_byte_sequence)));
+#ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
+  return __ws;
+#else
+  return _Cvt<wchar_t>::_S_convert(__ws.data(), __ws.data() + __ws.size());
+#endif
 }
 
 std::size_t
