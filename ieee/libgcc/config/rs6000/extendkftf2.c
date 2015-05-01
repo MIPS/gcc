@@ -31,10 +31,6 @@
 
 /* Convert IEEE 128-bit floating point to IBM long double.  */
 
-#ifdef __FLOAT128_REF__
-#define __extendkftf2	_q_qtot
-#endif
-
 extern __ibm128 __extendkftf2 (__float128);
 
 __ibm128

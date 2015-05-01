@@ -31,10 +31,6 @@
 
 /* Convert IBM long double to IEEE 128-bit floating point.  */
 
-#ifdef __FLOAT128_REF__
-#define __trunctfkf2	_q_ttoq
-#endif
-
 extern __float128 __trunctfkf2 (__ibm128);
 
 #ifdef __LITTLE_ENDIAN__

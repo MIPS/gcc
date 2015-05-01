@@ -1,3 +1,13 @@
+2015-05-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/t-float128 (fp128_ppc_funcs): Rename trunctfkf2.c
+	file.
+	* config/rs6000/trunctfkf2: Likewise.
+
+	* config/rs6000/extendkftf2.c: Eliminate old -mfloat128-ref
+	support.
+	* config/rs6000/trunctfkf2: Likewise.
+
 2015-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config.host (powerpc*-*-linux*): Enable __float128 support on
