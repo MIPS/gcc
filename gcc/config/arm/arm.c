@@ -22450,7 +22450,7 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
 
             assemble_real
               (rval, GET_MODE_INNER (mode),
-              i == 0 ? BIGGEST_ALIGNMENT : size * BITS_PER_UNIT);
+              i == 0 ? BIGGEST_ALIGNMENT : size * BITS_PER_UNIT, false);
           }
 
       return true;
