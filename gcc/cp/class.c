@@ -7646,7 +7646,7 @@ resolve_address_of_overloaded_function (tree target_type,
 
           /* Constraints must be satisfied. This is done before
              return type deduction since that instantiates the
-             declaration. */
+             function. */
           if (flag_concepts && !constraints_satisfied_p (instantiation))
             continue;
 

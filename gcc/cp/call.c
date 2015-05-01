@@ -2015,7 +2015,7 @@ add_function_candidate (struct z_candidate **candidates,
       reason = arity_rejection (first_arg, i + remaining, len);
     }
 
-  /* Second, for a function to be viable, it's constraints must be
+  /* Second, for a function to be viable, its constraints must be
      satisfied. */
   if (flag_concepts && viable) 
     {
@@ -4158,9 +4158,8 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args, bool koenig_p,
               tree targs = DECL_TI_ARGS (cand->fn);
               tree decl = DECL_TEMPLATE_RESULT (tmpl);
               if (DECL_DECLARED_CONCEPT_P (decl) 
-                  && !uses_template_parms (targs)) {
+                  && !uses_template_parms (targs))
                 return evaluate_function_concept (decl, targs);
-            }
             }
 
 

@@ -16647,9 +16647,8 @@ instantiate_alias_template (tree tmpl, tree args, tsubst_flags_t complain)
   /* We can't free this if a pending_template entry or last_error_tinst_level
      is pointing at it.  */
   if (last_pending_template == old_last_pend
-      && last_error_tinst_level == old_error_tinst) {
+      && last_error_tinst_level == old_error_tinst)
     ggc_free (tinst);
-  }
 
   return r;
 }
@@ -17017,9 +17016,8 @@ fn_type_unification (tree fn,
   /* We can't free this if a pending_template entry or last_error_tinst_level
      is pointing at it.  */
   if (last_pending_template == old_last_pend
-      && last_error_tinst_level == old_error_tinst) {
+      && last_error_tinst_level == old_error_tinst)
     ggc_free (tinst);
-  }
 
   return r;
 }
@@ -23136,14 +23134,14 @@ struct GTY((for_user)) constr_entry
   tree ci;
 };
 
-/* Hashing function and equality fo constraint entries.. */
+/* Hashing function and equality for constraint entries. */
 struct constr_hasher : ggc_hasher<constr_entry *>
 {
   static hashval_t hash (constr_entry *e)
   {
     return (hashval_t)DECL_UID (e->decl);
   }
-  
+
   static bool equal (constr_entry *e1, constr_entry *e2)
   {
     return e1->decl == e2->decl;
@@ -23155,7 +23153,7 @@ struct constr_hasher : ggc_hasher<constr_entry *>
    both templates and their underlying declarations are mapped to the 
    same constraint information.
 
-   FIXME: This is defined in pt.c because it's garbage collection
+   FIXME: This is defined in pt.c because garbage collection
    code is not being generated for constraint.cc. */
 static GTY (()) hash_table<constr_hasher> *decl_constraints;
 

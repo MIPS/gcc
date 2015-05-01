@@ -446,7 +446,7 @@ lift_template_id (tree t)
 }
 
 /* If the variable declaration is a specialization of a concept
-   declaration, then inline it's initializer. */
+   declaration, then inline its initializer. */
 tree
 lift_variable (tree t)
 {
@@ -1293,7 +1293,7 @@ tree tsubst_constraint (tree, tree, tsubst_flags_t, tree);
    ill-formed. 
 
    Note that we only ever substitute into the associated constraints
-   of a declaration. That is, substitute is defined only for predicate 
+   of a declaration. That is, substitution is defined only for predicate
    constraints and conjunctions. */
 
 /* Substitute into the predicate constraints. Returns error_mark_node 
