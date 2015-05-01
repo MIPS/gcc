@@ -377,6 +377,48 @@ rl78_option_override (void)
       && strcmp (lang_hooks.name, "GNU GIMPLE"))
     /* Address spaces are currently only supported by C.  */
     error ("-mes0 can only be used with C");
+
+  switch (rl78_cpu_type)
+    {
+    case CPU_UNINIT:
+      rl78_cpu_type = CPU_G14;
+      if (rl78_mul_type == MUL_UNINIT)
+	rl78_mul_type = MUL_NONE;
+      break;
+
+    case CPU_G10:
+      switch (rl78_mul_type)
+	{
+	case MUL_UNINIT: rl78_mul_type = MUL_NONE; break;
+	case MUL_NONE:   break;
+	case MUL_G13:  	 error ("-mmul=g13 cannot be used with -mcpu=g10"); break;
+	case MUL_G14:  	 error ("-mmul=g14 cannot be used with -mcpu=g10"); break;
+	}
+      break;
+
+    case CPU_G13:
+      switch (rl78_mul_type)
+	{
+	case MUL_UNINIT: rl78_mul_type = MUL_G13; break;
+	case MUL_NONE:   break;
+	case MUL_G13:  	break;
+	  /* The S2 core does not have mul/div instructions.  */
+	case MUL_G14: 	error ("-mmul=g14 cannot be used with -mcpu=g13"); break;
+	}
+      break;
+
+    case CPU_G14:
+      switch (rl78_mul_type)
+	{
+	case MUL_UNINIT: rl78_mul_type = MUL_G14; break;
+	case MUL_NONE:   break;
+	case MUL_G14:  	break;
+	/* The G14 core does not have the hardware multiply peripheral used by the
+	   G13 core, hence you cannot use G13 multipliy routines on G14 hardware.  */
+	case MUL_G13: 	error ("-mmul=g13 cannot be used with -mcpu=g14"); break;
+	}
+      break;
+    }
 }
 
 /* Most registers are 8 bits.  Some are 16 bits because, for example,
@@ -506,12 +548,12 @@ rl78_expand_movsi (rtx *operands)
 
 /* Generate code to move an SImode value.  */
 void
-rl78_split_movsi (rtx *operands)
+rl78_split_movsi (rtx *operands, enum machine_mode omode)
 {
   rtx op00, op02, op10, op12;
 
-  op00 = rl78_subreg (HImode, operands[0], SImode, 0);
-  op02 = rl78_subreg (HImode, operands[0], SImode, 2);
+  op00 = rl78_subreg (HImode, operands[0], omode, 0);
+  op02 = rl78_subreg (HImode, operands[0], omode, 2);
 
   if (GET_CODE (operands[1]) == CONST
       || GET_CODE (operands[1]) == SYMBOL_REF)
@@ -523,8 +565,8 @@ rl78_split_movsi (rtx *operands)
     }
   else
     {
-      op10 = rl78_subreg (HImode, operands[1], SImode, 0);
-      op12 = rl78_subreg (HImode, operands[1], SImode, 2);
+      op10 = rl78_subreg (HImode, operands[1], omode, 0);
+      op12 = rl78_subreg (HImode, operands[1], omode, 2);
     }
 
   if (rtx_equal_p (operands[0], operands[1]))
@@ -578,6 +620,13 @@ rl78_force_nonfar_3 (rtx *operands, rtx (*gen)(rtx,rtx,rtx))
 {
   int did = 0;
   rtx temp_reg = NULL;
+
+  /* As an exception, we allow two far operands if they're identical
+     and the third operand is not a MEM.  This allows global variables
+     to be incremented, for example.  */
+  if (rtx_equal_p (operands[0], operands[1])
+      && ! MEM_P (operands[2]))
+    return 0;
 
   /* FIXME: Likewise.  */
   if (rl78_far_p (operands[1]))
@@ -970,6 +1019,12 @@ rl78_far_p (rtx x)
   fprintf (stderr, "\033[35mrl78_far_p: "); debug_rtx (x);
   fprintf (stderr, " = %d\033[0m\n", MEM_ADDR_SPACE (x) == ADDR_SPACE_FAR);
 #endif
+
+  /* Not all far addresses are legitimate, because the devirtualizer
+     can't handle them.  */
+  if (! rl78_as_legitimate_address (GET_MODE (x), XEXP (x, 0), false, ADDR_SPACE_FAR))
+    return 0;
+
   return GET_MODE_BITSIZE (rl78_addr_space_address_mode (MEM_ADDR_SPACE (x))) == 32;
 }
 
@@ -1309,7 +1364,7 @@ rl78_expand_prologue (void)
 
 	  emit_move_insn (ax, sp);
 	  emit_insn (gen_subhi3 (ax, ax, GEN_INT (fs)));
-	  insn = emit_move_insn (sp, ax);
+	  insn = F (emit_move_insn (sp, ax));
 	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
 			gen_rtx_SET (SImode, sp,
 				     gen_rtx_PLUS (HImode, sp, GEN_INT (-fs))));
@@ -1557,6 +1612,7 @@ rl78_function_arg_boundary (machine_mode mode ATTRIBUTE_UNUSED,
    e - third QI of an SI (i.e. where the ES register gets values from)
    E - fourth QI of an SI (i.e. MSB)
 
+   p - Add +0 to a zero-indexed HL based address.
 */
 
 /* Implements the bulk of rl78_print_operand, below.  We do it this
@@ -1637,8 +1693,11 @@ rl78_print_operand_1 (FILE * file, rtx op, int letter)
 	    }
 	  else
 	    {
+	      op = XEXP (op, 0);
 	      fprintf (file, "[");
-	      rl78_print_operand_1 (file, XEXP (op, 0), letter);
+	      rl78_print_operand_1 (file, op, letter);
+	      if (letter == 'p' && REG_P (op) && REGNO (op) == 6)
+		fprintf (file, "+0");
 	      fprintf (file, "]");
 	    }
 	}
@@ -1759,15 +1818,41 @@ rl78_print_operand_1 (FILE * file, rtx op, int letter)
 
       if (GET_CODE (XEXP (op, 0)) == ZERO_EXTEND)
 	{
-	  rl78_print_operand_1 (file, XEXP (op, 1), letter);
-	  fprintf (file, "+");
-	  rl78_print_operand_1 (file, XEXP (op, 0), letter);
+	  if (GET_CODE (XEXP (op, 1)) == SYMBOL_REF
+	      && SYMBOL_REF_DECL (XEXP (op, 1))
+	      && TREE_CODE (SYMBOL_REF_DECL (XEXP (op, 1))) == FUNCTION_DECL)
+	    {
+	      fprintf (file, "%%code(");
+	      assemble_name (file, rl78_strip_nonasm_name_encoding (XSTR (XEXP (op, 1), 0)));
+	      fprintf (file, "+");
+	      rl78_print_operand_1 (file, XEXP (op, 0), letter);
+	      fprintf (file, ")");
+	    }
+	  else
+	    {
+	      rl78_print_operand_1 (file, XEXP (op, 1), letter);
+	      fprintf (file, "+");
+	      rl78_print_operand_1 (file, XEXP (op, 0), letter);
+	    }
 	}
       else
 	{
-	  rl78_print_operand_1 (file, XEXP (op, 0), letter);
-	  fprintf (file, "+");
-	  rl78_print_operand_1 (file, XEXP (op, 1), letter);
+	  if (GET_CODE (XEXP (op, 0)) == SYMBOL_REF
+	      && SYMBOL_REF_DECL (XEXP (op, 0))
+	      && TREE_CODE (SYMBOL_REF_DECL (XEXP (op, 0))) == FUNCTION_DECL)
+	    {
+	      fprintf (file, "%%code(");
+	      assemble_name (file, rl78_strip_nonasm_name_encoding (XSTR (XEXP (op, 0), 0)));
+	      fprintf (file, "+");
+	      rl78_print_operand_1 (file, XEXP (op, 1), letter);
+	      fprintf (file, ")");
+	    }
+	  else
+	    {
+	      rl78_print_operand_1 (file, XEXP (op, 0), letter);
+	      fprintf (file, "+");
+	      rl78_print_operand_1 (file, XEXP (op, 1), letter);
+	    }
 	}
       if (need_paren)
 	fprintf (file, ")");
@@ -3007,9 +3092,18 @@ rl78_alloc_physical_registers_op2 (rtx_insn * insn)
 
   if (rtx_equal_p (OP (0), OP (1)))
     {
-      OP (0) =
-      OP (1) = transcode_memory_rtx (OP (1), DE, insn);
-      OP (2) = transcode_memory_rtx (OP (2), HL, insn);
+      if (MEM_P (OP (2)))
+	{
+	  OP (0) =
+	  OP (1) = transcode_memory_rtx (OP (1), DE, insn);
+	  OP (2) = transcode_memory_rtx (OP (2), HL, insn);
+	}
+      else
+	{
+	  OP (0) =
+	  OP (1) = transcode_memory_rtx (OP (1), HL, insn);
+	  OP (2) = transcode_memory_rtx (OP (2), DE, insn);
+	}
     }
   else if (rtx_equal_p (OP (0), OP (2)))
     {
@@ -3462,6 +3556,18 @@ rl78_alloc_physical_registers (void)
 	  record_content (BC, NULL_RTX);
 	  record_content (DE, NULL_RTX);
 	}
+      else if (valloc_method == VALLOC_DIVHI)
+	{
+	  record_content (AX, NULL_RTX);
+	  record_content (BC, NULL_RTX);
+	}
+      else if (valloc_method == VALLOC_DIVSI)
+	{
+	  record_content (AX, NULL_RTX);
+	  record_content (BC, NULL_RTX);
+	  record_content (DE, NULL_RTX);
+	  record_content (HL, NULL_RTX);
+	}
 
       if (insn_ok_now (insn))
 	continue;
@@ -3489,6 +3595,7 @@ rl78_alloc_physical_registers (void)
 	  break;
 	case VALLOC_UMUL:
 	  rl78_alloc_physical_registers_umul (insn);
+	  record_content (AX, NULL_RTX);
 	  break;
 	case VALLOC_MACAX:
 	  /* Macro that clobbers AX.  */
@@ -3496,6 +3603,18 @@ rl78_alloc_physical_registers (void)
 	  record_content (AX, NULL_RTX);
 	  record_content (BC, NULL_RTX);
 	  record_content (DE, NULL_RTX);
+	  break;
+	case VALLOC_DIVSI:
+	  rl78_alloc_address_registers_div (insn);
+	  record_content (AX, NULL_RTX);
+	  record_content (BC, NULL_RTX);
+	  record_content (DE, NULL_RTX);
+	  record_content (HL, NULL_RTX);
+	  break;
+	case VALLOC_DIVHI:
+	  rl78_alloc_address_registers_div (insn);
+	  record_content (AX, NULL_RTX);
+	  record_content (BC, NULL_RTX);
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -3811,6 +3930,37 @@ set_origin (rtx pat, rtx_insn * insn, int * origins, int * age)
 	    age[i] = 0;
 	  }
     }
+  else if (get_attr_valloc (insn) == VALLOC_DIVHI)
+    {
+      if (dump_file)
+	fprintf (dump_file, "Resetting origin of AX/DE for DIVHI pattern.\n");
+
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (i == A_REG
+	    || i == X_REG
+	    || i == D_REG
+	    || i == E_REG
+	    || origins[i] == A_REG
+	    || origins[i] == X_REG
+	    || origins[i] == D_REG
+	    || origins[i] == E_REG)
+	  {
+	    origins[i] = i;
+	    age[i] = 0;
+	  }
+    }
+  else if (get_attr_valloc (insn) == VALLOC_DIVSI)
+    {
+      if (dump_file)
+	fprintf (dump_file, "Resetting origin of AX/BC/DE/HL for DIVSI pattern.\n");
+
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (i <= 7 || origins[i] <= 7)
+	  {
+	    origins[i] = i;
+	    age[i] = 0;
+	  }
+    }
 
   if (GET_CODE (src) == ASHIFT
       || GET_CODE (src) == ASHIFTRT
@@ -4016,21 +4166,26 @@ rl78_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 #undef  TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS rl78_rtx_costs
 
-static bool rl78_rtx_costs (rtx   x,
-			    int   code,
-			    int   outer_code ATTRIBUTE_UNUSED,
-			    int   opno ATTRIBUTE_UNUSED,
-			    int * total,
-			    bool  speed ATTRIBUTE_UNUSED)
+static bool
+rl78_rtx_costs (rtx   x,
+		int   code,
+		int   outer_code ATTRIBUTE_UNUSED,
+		int   opno ATTRIBUTE_UNUSED,
+		int * total,
+		bool  speed ATTRIBUTE_UNUSED)
 {
   if (code == IF_THEN_ELSE)
-    return COSTS_N_INSNS (10);
+    {
+      *total = COSTS_N_INSNS (10);
+      return true;
+    }
+
   if (GET_MODE (x) == SImode)
     {
       switch (code)
 	{
 	case MULT:
-	  if (RL78_MUL_RL78)
+	  if (RL78_MUL_G14)
 	    *total = COSTS_N_INSNS (14);
 	  else if (RL78_MUL_G13)
 	    *total = COSTS_N_INSNS (29);
@@ -4350,7 +4505,7 @@ rl78_insert_attributes (tree decl, tree *attributes ATTRIBUTE_UNUSED)
       tree type = TREE_TYPE (decl);
       tree attr = TYPE_ATTRIBUTES (type);
       int q = TYPE_QUALS_NO_ADDR_SPACE (type) | ENCODE_QUAL_ADDR_SPACE (ADDR_SPACE_FAR);
-      
+
       TREE_TYPE (decl) = build_type_attribute_qual_variant (type, attr, q);
     }
 }
@@ -4446,7 +4601,7 @@ rl78_flags_already_set (rtx op, rtx operand)
     {
       if (LABEL_P (insn))
 	break;
-      
+
       if (! INSN_P (insn))
 	continue;
 
@@ -4486,6 +4641,19 @@ rl78_flags_already_set (rtx op, rtx operand)
 
   return res;
 }
+
+#undef  TARGET_PREFERRED_RELOAD_CLASS
+#define TARGET_PREFERRED_RELOAD_CLASS rl78_preferred_reload_class
+
+static reg_class_t
+rl78_preferred_reload_class (rtx x ATTRIBUTE_UNUSED, reg_class_t rclass)
+{
+  if (rclass == NO_REGS)
+    rclass = V_REGS;
+
+  return rclass;
+}
+
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

@@ -3886,6 +3886,7 @@ add_AT_wide (dw_die_ref die, enum dwarf_attribute attr_kind,
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_wide_int;
+  attr.dw_attr_val.val_entry = NULL;
   attr.dw_attr_val.v.val_wide = ggc_alloc<wide_int> ();
   *attr.dw_attr_val.v.val_wide = w;
   add_dwarf_attr (die, &attr);
@@ -6866,28 +6867,28 @@ struct cu_hash_table_entry
 
 struct cu_hash_table_entry_hasher
 {
-  typedef cu_hash_table_entry value_type;
-  typedef die_struct compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-  static inline void remove (value_type *);
+  typedef cu_hash_table_entry *value_type;
+  typedef die_struct *compare_type;
+  static inline hashval_t hash (const cu_hash_table_entry *);
+  static inline bool equal (const cu_hash_table_entry *, const die_struct *);
+  static inline void remove (cu_hash_table_entry *);
 };
 
 inline hashval_t
-cu_hash_table_entry_hasher::hash (const value_type *entry)
+cu_hash_table_entry_hasher::hash (const cu_hash_table_entry *entry)
 {
   return htab_hash_string (entry->cu->die_id.die_symbol);
 }
 
 inline bool
-cu_hash_table_entry_hasher::equal (const value_type *entry1,
-				   const compare_type *entry2)
+cu_hash_table_entry_hasher::equal (const cu_hash_table_entry *entry1,
+				   const die_struct *entry2)
 {
   return !strcmp (entry1->cu->die_id.die_symbol, entry2->die_id.die_symbol);
 }
 
 inline void
-cu_hash_table_entry_hasher::remove (value_type *entry)
+cu_hash_table_entry_hasher::remove (cu_hash_table_entry *entry)
 {
   struct cu_hash_table_entry *next;
 
@@ -7203,21 +7204,21 @@ struct decl_table_entry
 
 struct decl_table_entry_hasher : typed_free_remove <decl_table_entry>
 {
-  typedef decl_table_entry value_type;
-  typedef die_struct compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef decl_table_entry *value_type;
+  typedef die_struct *compare_type;
+  static inline hashval_t hash (const decl_table_entry *);
+  static inline bool equal (const decl_table_entry *, const die_struct *);
 };
 
 inline hashval_t
-decl_table_entry_hasher::hash (const value_type *entry)
+decl_table_entry_hasher::hash (const decl_table_entry *entry)
 {
   return htab_hash_pointer (entry->orig);
 }
 
 inline bool
-decl_table_entry_hasher::equal (const value_type *entry1,
-				const compare_type *entry2)
+decl_table_entry_hasher::equal (const decl_table_entry *entry1,
+				const die_struct *entry2)
 {
   return entry1->orig == entry2;
 }
@@ -7745,14 +7746,14 @@ struct external_ref
 
 struct external_ref_hasher : typed_free_remove <external_ref>
 {
-  typedef external_ref value_type;
-  typedef external_ref compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef external_ref *value_type;
+  typedef external_ref *compare_type;
+  static inline hashval_t hash (const external_ref *);
+  static inline bool equal (const external_ref *, const external_ref *);
 };
 
 inline hashval_t
-external_ref_hasher::hash (const value_type *r)
+external_ref_hasher::hash (const external_ref *r)
 {
   dw_die_ref die = r->type;
   hashval_t h = 0;
@@ -7773,7 +7774,7 @@ external_ref_hasher::hash (const value_type *r)
 }
 
 inline bool
-external_ref_hasher::equal (const value_type *r1, const compare_type *r2)
+external_ref_hasher::equal (const external_ref *r1, const external_ref *r2)
 {
   return r1->type == r2->type;
 }
@@ -8898,14 +8899,14 @@ output_die (dw_die_ref die)
 	      for (i = len - 1; i >= 0; --i)
 		{
 		  dw2_asm_output_data (l, a->dw_attr_val.v.val_wide->elt (i),
-				       name);
+				       "%s", name);
 		  name = NULL;
 		}
 	    else
 	      for (i = 0; i < len; ++i)
 		{
 		  dw2_asm_output_data (l, a->dw_attr_val.v.val_wide->elt (i),
-				       name);
+				       "%s", name);
 		  name = NULL;
 		}
 	  }
@@ -9003,9 +9004,15 @@ output_die (dw_die_ref die)
 	  break;
 
 	case dw_val_class_vms_delta:
+#ifdef ASM_OUTPUT_DWARF_VMS_DELTA
 	  dw2_asm_output_vms_delta (DWARF_OFFSET_SIZE,
 				    AT_vms_delta2 (a), AT_vms_delta1 (a),
 				    "%s", name);
+#else
+	  dw2_asm_output_delta (DWARF_OFFSET_SIZE,
+				AT_vms_delta2 (a), AT_vms_delta1 (a),
+				"%s", name);
+#endif
 	  break;
 
 	case dw_val_class_lbl_id:
@@ -12794,7 +12801,12 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	}
 
       if (!const_ok_for_output (rtl))
-	break;
+	{
+	  if (GET_CODE (rtl) == CONST)
+	    mem_loc_result = mem_loc_descriptor (XEXP (rtl, 0), mode, mem_mode,
+						 initialized);
+	  break;
+	}
 
     symref:
       mem_loc_result = new_addr_loc_descr (rtl, dtprel_false);
@@ -14637,6 +14649,7 @@ loc_list_from_tree (tree loc, int want_address,
 
     case TARGET_MEM_REF:
     case SSA_NAME:
+    case DEBUG_EXPR_DECL:
       return NULL;
 
     case COMPOUND_EXPR:
@@ -15108,7 +15121,6 @@ field_byte_offset (const_tree decl)
 
   bitpos_int = wi::to_offset (bit_position (decl));
 
-#ifdef PCC_BITFIELD_TYPE_MATTERS
   if (PCC_BITFIELD_TYPE_MATTERS)
     {
       tree type;
@@ -15206,7 +15218,6 @@ field_byte_offset (const_tree decl)
 	}
     }
   else
-#endif /* PCC_BITFIELD_TYPE_MATTERS */
     object_offset_in_bits = bitpos_int;
 
   object_offset_in_bytes
@@ -19652,6 +19663,8 @@ gen_producer_string (void)
       case OPT_nostdinc:
       case OPT_nostdinc__:
       case OPT_fpreprocessed:
+      case OPT_fltrans_output_list_:
+      case OPT_fresolution_:
 	/* Ignore these.  */
 	continue;
       default:
@@ -20225,6 +20238,11 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 
   if (type == NULL_TREE || type == error_mark_node)
     return;
+
+#ifdef ENABLE_CHECKING
+  if (type)
+     verify_type (type);
+#endif
 
   if (TYPE_NAME (type) != NULL_TREE
       && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
@@ -22217,21 +22235,21 @@ dwarf2out_undef (unsigned int lineno ATTRIBUTE_UNUSED,
 
 struct macinfo_entry_hasher : typed_noop_remove <macinfo_entry>
 {
-  typedef macinfo_entry value_type;
-  typedef macinfo_entry compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef macinfo_entry *value_type;
+  typedef macinfo_entry *compare_type;
+  static inline hashval_t hash (const macinfo_entry *);
+  static inline bool equal (const macinfo_entry *, const macinfo_entry *);
 };
 
 inline hashval_t
-macinfo_entry_hasher::hash (const value_type *entry)
+macinfo_entry_hasher::hash (const macinfo_entry *entry)
 {
   return htab_hash_string (entry->info);
 }
 
 inline bool
-macinfo_entry_hasher::equal (const value_type *entry1,
-			     const compare_type *entry2)
+macinfo_entry_hasher::equal (const macinfo_entry *entry1,
+			     const macinfo_entry *entry2)
 {
   return !strcmp (entry1->info, entry2->info);
 }
@@ -22614,6 +22632,14 @@ output_macinfo (void)
 static void
 dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 {
+  /* This option is currently broken, see (PR53118 and PR46102).  */
+  if (flag_eliminate_dwarf2_dups
+      && strstr (lang_hooks.name, "C++"))
+    {
+      warning (0, "-feliminate-dwarf2-dups is broken for C++, ignoring");
+      flag_eliminate_dwarf2_dups = 0;
+    }
+
   /* Allocate the file_table.  */
   file_table = hash_table<dwarf_file_hasher>::create_ggc (50);
 
@@ -23287,14 +23313,14 @@ file_table_relative_p (dwarf_file_data **slot, bool *p)
 
 struct comdat_type_hasher : typed_noop_remove <comdat_type_node>
 {
-  typedef comdat_type_node value_type;
-  typedef comdat_type_node compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef comdat_type_node *value_type;
+  typedef comdat_type_node *compare_type;
+  static inline hashval_t hash (const comdat_type_node *);
+  static inline bool equal (const comdat_type_node *, const comdat_type_node *);
 };
 
 inline hashval_t
-comdat_type_hasher::hash (const value_type *type_node)
+comdat_type_hasher::hash (const comdat_type_node *type_node)
 {
   hashval_t h;
   memcpy (&h, type_node->signature, sizeof (h));
@@ -23302,8 +23328,8 @@ comdat_type_hasher::hash (const value_type *type_node)
 }
 
 inline bool
-comdat_type_hasher::equal (const value_type *type_node_1,
-			   const compare_type *type_node_2)
+comdat_type_hasher::equal (const comdat_type_node *type_node_1,
+			   const comdat_type_node *type_node_2)
 {
   return (! memcmp (type_node_1->signature, type_node_2->signature,
                     DWARF_TYPE_SIGNATURE_SIZE));
@@ -24390,16 +24416,17 @@ compare_locs (dw_loc_descr_ref x, dw_loc_descr_ref y)
 
 struct loc_list_hasher : typed_noop_remove <dw_loc_list_struct>
 {
-  typedef dw_loc_list_struct value_type;
-  typedef dw_loc_list_struct compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef dw_loc_list_struct *value_type;
+  typedef dw_loc_list_struct *compare_type;
+  static inline hashval_t hash (const dw_loc_list_struct *);
+  static inline bool equal (const dw_loc_list_struct *,
+			    const dw_loc_list_struct *);
 };
 
 /* Return precomputed hash of location list X.  */
 
 inline hashval_t
-loc_list_hasher::hash (const value_type *x)
+loc_list_hasher::hash (const dw_loc_list_struct *x)
 {
   return x->hash;
 }
@@ -24407,7 +24434,8 @@ loc_list_hasher::hash (const value_type *x)
 /* Return true if location lists A and B are the same.  */
 
 inline bool
-loc_list_hasher::equal (const value_type *a, const compare_type *b)
+loc_list_hasher::equal (const dw_loc_list_struct *a,
+			const dw_loc_list_struct *b)
 {
   if (a == b)
     return 1;
@@ -24520,8 +24548,13 @@ dwarf2out_finish (const char *filename)
   gen_remaining_tmpl_value_param_die_attribute ();
 
   /* Add the name for the main input file now.  We delayed this from
-     dwarf2out_init to avoid complications with PCH.  */
-  add_name_attribute (comp_unit_die (), remap_debug_filename (filename));
+     dwarf2out_init to avoid complications with PCH.
+     For LTO produced units use a fixed artificial name to avoid
+     leaking tempfile names into the dwarf.  */
+  if (!in_lto_p)
+    add_name_attribute (comp_unit_die (), remap_debug_filename (filename));
+  else
+    add_name_attribute (comp_unit_die (), "<artificial>");
   if (!IS_ABSOLUTE_PATH (filename) || targetm.force_at_comp_dir)
     add_comp_dir_attribute (comp_unit_die ());
   else if (get_AT (comp_unit_die (), DW_AT_comp_dir) == NULL)

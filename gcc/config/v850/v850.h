@@ -111,6 +111,8 @@ extern GTY(()) rtx v850_compare_op1;
 #define ASM_SPEC "%{m850es:-mv850e1}%{!mv850es:%{mv*:-mv%*}} \
 %{mrelax:-mrelax} \
 %{m8byte-align:-m8byte-align} \
+%{msoft-float:-msoft-float} \
+%{mhard-float:-mhard-float} \
 %{mgcc-abi:-mgcc-abi}"
 
 #define LINK_SPEC "%{mgcc-abi:-m v850}"
@@ -708,7 +710,7 @@ do {									\
 
 /* Indirect calls are expensive, never turn a direct call
    into an indirect call.  */
-#define NO_FUNCTION_CSE
+#define NO_FUNCTION_CSE 1
 
 /* The four different data regions on the v850.  */
 typedef enum 

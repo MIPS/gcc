@@ -214,20 +214,22 @@ struct finally_tree_node
 
 struct finally_tree_hasher : typed_free_remove <finally_tree_node>
 {
-  typedef finally_tree_node value_type;
-  typedef finally_tree_node compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef finally_tree_node *value_type;
+  typedef finally_tree_node *compare_type;
+  static inline hashval_t hash (const finally_tree_node *);
+  static inline bool equal (const finally_tree_node *,
+			    const finally_tree_node *);
 };
 
 inline hashval_t
-finally_tree_hasher::hash (const value_type *v)
+finally_tree_hasher::hash (const finally_tree_node *v)
 {
   return (intptr_t)v->child.t >> 4;
 }
 
 inline bool
-finally_tree_hasher::equal (const value_type *v, const compare_type *c)
+finally_tree_hasher::equal (const finally_tree_node *v,
+			    const finally_tree_node *c)
 {
   return v->child.t == c->child.t;
 }
@@ -884,10 +886,10 @@ eh_region_may_contain_throw (eh_region r)
 /* We want to transform
 	try { body; } catch { stuff; }
    to
-	normal_seqence:
+	normal_sequence:
 	  body;
 	  over:
-	eh_seqence:
+	eh_sequence:
 	  landing_pad:
 	  stuff;
 	  goto over;
@@ -1813,6 +1815,12 @@ lower_catch (struct leh_state *state, gtry *tp)
   this_state.cur_region = state->cur_region;
   this_state.ehp_region = try_region;
 
+  /* Add eh_seq from lowering EH in the cleanup sequence after the cleanup
+     itself, so that e.g. for coverage purposes the nested cleanups don't
+     appear before the cleanup body.  See PR64634 for details.  */
+  gimple_seq old_eh_seq = eh_seq;
+  eh_seq = NULL;
+
   out_label = NULL;
   cleanup = gimple_try_cleanup (tp);
   for (gsi = gsi_start (cleanup);
@@ -1849,7 +1857,11 @@ lower_catch (struct leh_state *state, gtry *tp)
 
   gimple_try_set_cleanup (tp, new_seq);
 
-  return frob_into_branch_around (tp, try_region, out_label);
+  gimple_seq new_eh_seq = eh_seq;
+  eh_seq = old_eh_seq;
+  gimple_seq ret_seq = frob_into_branch_around (tp, try_region, out_label);
+  gimple_seq_add_seq (&eh_seq, new_eh_seq);
+  return ret_seq;
 }
 
 /* A subroutine of lower_eh_constructs_1.  Lower a GIMPLE_TRY with a
@@ -3858,6 +3870,17 @@ mark_reachable_handlers (sbitmap *r_reachablep, sbitmap *lp_reachablep)
 	      bitmap_set_bit (r_reachable,
 			      gimple_eh_dispatch_region (
                                 as_a <geh_dispatch *> (stmt)));
+	      break;
+	    case GIMPLE_CALL:
+	      if (gimple_call_builtin_p (stmt, BUILT_IN_EH_COPY_VALUES))
+		for (int i = 0; i < 2; ++i)
+		  {
+		    tree rt = gimple_call_arg (stmt, i);
+		    HOST_WIDE_INT ri = tree_to_shwi (rt);
+
+		    gcc_assert (ri = (int)ri);
+		    bitmap_set_bit (r_reachable, ri);
+		  }
 	      break;
 	    default:
 	      break;

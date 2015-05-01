@@ -1763,8 +1763,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
   /* create_basic_block() will append every new block to
      basic_block_info automatically.  */
-  copy_basic_block = create_basic_block (NULL, (void *) 0,
-                                         (basic_block) prev->aux);
+  copy_basic_block = create_basic_block (NULL, (basic_block) prev->aux);
   copy_basic_block->count = apply_scale (bb->count, count_scale);
 
   /* We are going to rebuild frequencies from scratch.  These values
@@ -2807,7 +2806,9 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
 	  maybe_move_debug_stmts_to_successors (id, (basic_block) bb->aux);
 	/* Update call edge destinations.  This can not be done before loop
 	   info is updated, because we may split basic blocks.  */
-	if (id->transform_call_graph_edges == CB_CGE_DUPLICATE)
+	if (id->transform_call_graph_edges == CB_CGE_DUPLICATE
+	    && bb->index != ENTRY_BLOCK
+	    && bb->index != EXIT_BLOCK)
 	  redirect_all_calls (id, (basic_block)bb->aux);
 	((basic_block)bb->aux)->aux = NULL;
 	bb->aux = NULL;
@@ -4526,6 +4527,14 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   id->src_cfun = DECL_STRUCT_FUNCTION (fn);
   id->call_stmt = stmt;
 
+  /* If the the src function contains an IFN_VA_ARG, then so will the dst
+     function after inlining.  */
+  if ((id->src_cfun->curr_properties & PROP_gimple_lva) == 0)
+    {
+      struct function *dst_cfun = DECL_STRUCT_FUNCTION (id->dst_fn);
+      dst_cfun->curr_properties &= ~PROP_gimple_lva;
+    }
+
   gcc_assert (!id->src_cfun->after_inlining);
 
   id->entry_bb = bb;
@@ -4779,18 +4788,19 @@ static bool
 gimple_expand_calls_inline (basic_block bb, copy_body_data *id)
 {
   gimple_stmt_iterator gsi;
+  bool inlined = false;
 
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi);)
     {
       gimple stmt = gsi_stmt (gsi);
+      gsi_prev (&gsi);
 
       if (is_gimple_call (stmt)
-	  && !gimple_call_internal_p (stmt)
-	  && expand_call_inline (bb, stmt, id))
-	return true;
+	  && !gimple_call_internal_p (stmt))
+	inlined |= expand_call_inline (bb, stmt, id);
     }
 
-  return false;
+  return inlined;
 }
 
 

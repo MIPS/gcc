@@ -221,6 +221,7 @@ protected:
 #define PROP_loops		(1 << 11)	/* preserve loop structures */
 #define PROP_gimple_lvec	(1 << 12)       /* lowered vector */
 #define PROP_gimple_eomp	(1 << 13)       /* no OpenMP directives */
+#define PROP_gimple_lva		(1 << 14)       /* No va_arg internal function.  */
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_gimple_lomp)
@@ -436,6 +437,7 @@ extern gimple_opt_pass *make_pass_remove_cgraph_callee_edges (gcc::context
 							      *ctxt);
 extern gimple_opt_pass *make_pass_build_cgraph_edges (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_local_pure_const (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_nothrow (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_tracer (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_warn_unused_result (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_diagnose_tm_blocks (gcc::context *ctxt);
@@ -588,6 +590,7 @@ extern gimple_opt_pass *make_pass_early_inline (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_inline_parameters (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_update_address_taken (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_convert_switch (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_lower_vaarg (gcc::context *ctxt);
 
 /* Current optimization pass.  */
 extern opt_pass *current_pass;

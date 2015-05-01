@@ -24,7 +24,7 @@ tree gfc_array_deallocate (tree, tree, tree, tree, tree, gfc_expr*);
 /* Generate code to initialize and allocate an array.  Statements are added to
    se, which should contain an expression for the array descriptor.  */
 bool gfc_array_allocate (gfc_se *, gfc_expr *, tree, tree, tree, tree,
-			 tree, tree *, gfc_expr *, gfc_typespec *);
+			 tree, tree *, gfc_expr *);
 
 /* Allow the bounds of a loop to be set from a callee's array spec.  */
 void gfc_set_loop_bounds_from_array_spec (gfc_interface_mapping *,
@@ -46,7 +46,7 @@ tree gfc_trans_dealloc_allocated (tree, bool, gfc_expr *);
 
 tree gfc_full_array_size (stmtblock_t *, tree, int);
 
-tree gfc_duplicate_allocatable (tree dest, tree src, tree type, int rank);
+tree gfc_duplicate_allocatable (tree, tree, tree, int, tree);
 
 tree gfc_copy_allocatable_data (tree dest, tree src, tree type, int rank);
 

@@ -292,16 +292,16 @@ typedef struct iv_cand *iv_cand_p;
 
 struct iv_inv_expr_hasher : typed_free_remove <iv_inv_expr_ent>
 {
-  typedef iv_inv_expr_ent value_type;
-  typedef iv_inv_expr_ent compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef iv_inv_expr_ent *value_type;
+  typedef iv_inv_expr_ent *compare_type;
+  static inline hashval_t hash (const iv_inv_expr_ent *);
+  static inline bool equal (const iv_inv_expr_ent *, const iv_inv_expr_ent *);
 };
 
 /* Hash function for loop invariant expressions.  */
 
 inline hashval_t
-iv_inv_expr_hasher::hash (const value_type *expr)
+iv_inv_expr_hasher::hash (const iv_inv_expr_ent *expr)
 {
   return expr->hash;
 }
@@ -309,7 +309,8 @@ iv_inv_expr_hasher::hash (const value_type *expr)
 /* Hash table equality function for expressions.  */
 
 inline bool
-iv_inv_expr_hasher::equal (const value_type *expr1, const compare_type *expr2)
+iv_inv_expr_hasher::equal (const iv_inv_expr_ent *expr1,
+			   const iv_inv_expr_ent *expr2)
 {
   return expr1->hash == expr2->hash
 	 && operand_equal_p (expr1->expr, expr2->expr, 0);
@@ -1081,13 +1082,40 @@ determine_biv_step (gphi *phi)
   return integer_zerop (iv.step) ? NULL_TREE : iv.step;
 }
 
+/* Return the first non-invariant ssa var found in EXPR.  */
+
+static tree
+extract_single_var_from_expr (tree expr)
+{
+  int i, n;
+  tree tmp;
+  enum tree_code code;
+
+  if (!expr || is_gimple_min_invariant (expr))
+    return NULL;
+
+  code = TREE_CODE (expr);
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
+    {
+      n = TREE_OPERAND_LENGTH (expr);
+      for (i = 0; i < n; i++)
+	{
+	  tmp = extract_single_var_from_expr (TREE_OPERAND (expr, i));
+
+	  if (tmp)
+	    return tmp;
+	}
+    }
+  return (TREE_CODE (expr) == SSA_NAME) ? expr : NULL;
+}
+
 /* Finds basic ivs.  */
 
 static bool
 find_bivs (struct ivopts_data *data)
 {
   gphi *phi;
-  tree step, type, base;
+  tree step, type, base, stop;
   bool found = false;
   struct loop *loop = data->current_loop;
   gphi_iterator psi;
@@ -1104,7 +1132,13 @@ find_bivs (struct ivopts_data *data)
 	continue;
 
       base = PHI_ARG_DEF_FROM_EDGE (phi, loop_preheader_edge (loop));
-      base = expand_simple_operations (base);
+      /* Stop expanding iv base at the first ssa var referred by iv step.
+	 Ideally we should stop at any ssa var, because that's expensive
+	 and unusual to happen, we just do it on the first one.
+
+	 See PR64705 for the rationale.  */
+      stop = extract_single_var_from_expr (step);
+      base = expand_simple_operations (base, stop);
       if (contains_abnormal_ssa_name_p (base)
 	  || contains_abnormal_ssa_name_p (step))
 	continue;
@@ -1176,7 +1210,7 @@ mark_bivs (struct ivopts_data *data)
 static bool
 find_givs_in_stmt_scev (struct ivopts_data *data, gimple stmt, affine_iv *iv)
 {
-  tree lhs;
+  tree lhs, stop;
   struct loop *loop = data->current_loop;
 
   iv->base = NULL_TREE;
@@ -1191,13 +1225,19 @@ find_givs_in_stmt_scev (struct ivopts_data *data, gimple stmt, affine_iv *iv)
 
   if (!simple_iv (loop, loop_containing_stmt (stmt), lhs, iv, true))
     return false;
-  iv->base = expand_simple_operations (iv->base);
 
+  /* Stop expanding iv base at the first ssa var referred by iv step.
+     Ideally we should stop at any ssa var, because that's expensive
+     and unusual to happen, we just do it on the first one.
+
+     See PR64705 for the rationale.  */
+  stop = extract_single_var_from_expr (iv->step);
+  iv->base = expand_simple_operations (iv->base, stop);
   if (contains_abnormal_ssa_name_p (iv->base)
       || contains_abnormal_ssa_name_p (iv->step))
     return false;
 
-  /* If STMT could throw, then do not consider STMT as defining a GIV.  
+  /* If STMT could throw, then do not consider STMT as defining a GIV.
      While this will suppress optimizations, we can not safely delete this
      GIV and associated statements, even if it appears it is not used.  */
   if (stmt_could_throw_p (stmt))
@@ -1441,9 +1481,9 @@ extract_cond_operands (struct ivopts_data *data, gimple stmt,
 
 end:
   if (control_var)
-    *control_var = op0;;
+    *control_var = op0;
   if (iv_var)
-    *iv_var = iv0;;
+    *iv_var = iv0;
   if (bound)
     *bound = op1;
   if (iv_bound)

@@ -1780,6 +1780,10 @@ find_bswap_or_nop_load (gimple stmt, tree ref, struct symbolic_number *n)
   int unsignedp, reversep, volatilep;
   tree offset, base_addr;
 
+  /* Not prepared to handle PDP endian.  */
+  if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN)
+    return false;
+
   if (!gimple_assign_load_p (stmt) || gimple_has_volatile_ops (stmt))
     return false;
 
@@ -1862,8 +1866,8 @@ perform_symbolic_merge (gimple source_stmt1, struct symbolic_number *n1,
 	  || !operand_equal_p (n1->base_addr, n2->base_addr, 0))
 	return NULL;
 
-      if (!n1->offset != !n2->offset ||
-          (n1->offset && !operand_equal_p (n1->offset, n2->offset, 0)))
+      if (!n1->offset != !n2->offset
+	  || (n1->offset && !operand_equal_p (n1->offset, n2->offset, 0)))
 	return NULL;
 
       if (n1->bytepos < n2->bytepos)
@@ -1914,8 +1918,8 @@ perform_symbolic_merge (gimple source_stmt1, struct symbolic_number *n1,
       size = TYPE_PRECISION (n1->type) / BITS_PER_UNIT;
       for (i = 0; i < size; i++, inc <<= BITS_PER_MARKER)
 	{
-	  unsigned marker =
-	    (toinc_n_ptr->n >> (i * BITS_PER_MARKER)) & MARKER_MASK;
+	  unsigned marker
+	    = (toinc_n_ptr->n >> (i * BITS_PER_MARKER)) & MARKER_MASK;
 	  if (marker && marker != MARKER_BYTE_UNKNOWN)
 	    toinc_n_ptr->n += inc;
 	}
@@ -2034,7 +2038,7 @@ find_bswap_or_nop_1 (gimple stmt, struct symbolic_number *n, int limit)
 	case RSHIFT_EXPR:
 	case LROTATE_EXPR:
 	case RROTATE_EXPR:
-	  if (!do_shift_rotate (code, n, (int)TREE_INT_CST_LOW (rhs2)))
+	  if (!do_shift_rotate (code, n, (int) TREE_INT_CST_LOW (rhs2)))
 	    return NULL;
 	  break;
 	CASE_CONVERT:
@@ -2106,12 +2110,12 @@ find_bswap_or_nop_1 (gimple stmt, struct symbolic_number *n, int limit)
 	  if (TYPE_PRECISION (n1.type) != TYPE_PRECISION (n2.type))
 	    return NULL;
 
-	  if (!n1.vuse != !n2.vuse ||
-	  (n1.vuse && !operand_equal_p (n1.vuse, n2.vuse, 0)))
+	  if (!n1.vuse != !n2.vuse
+	      || (n1.vuse && !operand_equal_p (n1.vuse, n2.vuse, 0)))
 	    return NULL;
 
-	  source_stmt =
-	    perform_symbolic_merge (source_stmt1, &n1, source_stmt2, &n2, n);
+	  source_stmt
+	    = perform_symbolic_merge (source_stmt1, &n1, source_stmt2, &n2, n);
 
 	  if (!source_stmt)
 	    return NULL;
@@ -2155,12 +2159,12 @@ find_bswap_or_nop (gimple stmt, struct symbolic_number *n, bool *bswap)
      in libgcc, and for initial shift/and operation of the src operand.  */
   limit = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (gimple_expr_type (stmt)));
   limit += 1 + (int) ceil_log2 ((unsigned HOST_WIDE_INT) limit);
-  source_stmt =  find_bswap_or_nop_1 (stmt, n, limit);
+  source_stmt = find_bswap_or_nop_1 (stmt, n, limit);
 
   if (!source_stmt)
     return NULL;
 
-  /* Find real size of result (highest non zero byte).  */
+  /* Find real size of result (highest non-zero byte).  */
   if (n->base_addr)
     {
       int rsize;
@@ -2263,8 +2267,30 @@ bswap_replace (gimple cur_stmt, gimple src_stmt, tree fndecl, tree bswap_type,
       tree load_offset_ptr, aligned_load_type;
       gimple addr_stmt, load_stmt;
       unsigned align;
+      HOST_WIDE_INT load_offset = 0;
 
       align = get_object_alignment (src);
+      /* If the new access is smaller than the original one, we need
+	 to perform big endian adjustment.  */
+      if (BYTES_BIG_ENDIAN)
+	{
+	  HOST_WIDE_INT bitsize, bitpos;
+	  machine_mode mode;
+	  int unsignedp, reversep, volatilep;
+	  tree offset;
+
+	  get_inner_reference (src, &bitsize, &bitpos, &offset, &mode,
+			       &unsignedp, &reversep, &volatilep, false);
+	  if (n->range < (unsigned HOST_WIDE_INT) bitsize)
+	    {
+	      load_offset = (bitsize - n->range) / BITS_PER_UNIT;
+	      unsigned HOST_WIDE_INT l
+		= (load_offset * BITS_PER_UNIT) & (align - 1);
+	      if (l)
+		align = l & -l;
+	    }
+	}
+
       if (bswap
 	  && align < GET_MODE_ALIGNMENT (TYPE_MODE (load_type))
 	  && SLOW_UNALIGNED_ACCESS (TYPE_MODE (load_type), align))
@@ -2276,10 +2302,10 @@ bswap_replace (gimple cur_stmt, gimple src_stmt, tree fndecl, tree bswap_type,
       gsi_move_before (&gsi, &gsi_ins);
       gsi = gsi_for_stmt (cur_stmt);
 
-      /*  Compute address to load from and cast according to the size
-	  of the load.  */
+      /* Compute address to load from and cast according to the size
+	 of the load.  */
       addr_expr = build_fold_addr_expr (unshare_expr (src));
-      if (is_gimple_min_invariant (addr_expr))
+      if (is_gimple_mem_ref_addr (addr_expr))
 	addr_tmp = addr_expr;
       else
 	{
@@ -2293,7 +2319,7 @@ bswap_replace (gimple cur_stmt, gimple src_stmt, tree fndecl, tree bswap_type,
       aligned_load_type = load_type;
       if (align < TYPE_ALIGN (load_type))
 	aligned_load_type = build_aligned_type (load_type, align);
-      load_offset_ptr = build_int_cst (n->alias_set, 0);
+      load_offset_ptr = build_int_cst (n->alias_set, load_offset);
       val_expr = fold_build2 (MEM_REF, aligned_load_type, addr_tmp,
 			      load_offset_ptr);
 
@@ -2330,7 +2356,7 @@ bswap_replace (gimple cur_stmt, gimple src_stmt, tree fndecl, tree bswap_type,
 	    {
 	      fprintf (dump_file,
 		       "%d bit load in target endianness found at: ",
-		       (int)n->range);
+		       (int) n->range);
 	      print_gimple_stmt (dump_file, cur_stmt, 0, 0);
 	    }
 	  return true;
@@ -2397,7 +2423,7 @@ bswap_replace (gimple cur_stmt, gimple src_stmt, tree fndecl, tree bswap_type,
   if (dump_file)
     {
       fprintf (dump_file, "%d bit bswap implementation found at: ",
-	       (int)n->range);
+	       (int) n->range);
       print_gimple_stmt (dump_file, cur_stmt, 0, 0);
     }
 

@@ -128,9 +128,6 @@ along with GCC; see the file COPYING3.  If not see
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
-#ifndef HAVE_epilogue
-#define HAVE_epilogue 0
-#endif
 #ifndef HAVE_prologue
 #define HAVE_prologue 0
 #endif
@@ -1375,7 +1372,17 @@ process_options (void)
   if (flag_check_pointer_bounds)
     {
       if (targetm.chkp_bound_mode () == VOIDmode)
-	error ("-fcheck-pointer-bounds is not supported for this target");
+	{
+	  error ("-fcheck-pointer-bounds is not supported for this target");
+	  flag_check_pointer_bounds = 0;
+	}
+
+      if (flag_sanitize & SANITIZE_ADDRESS)
+	{
+	  error ("-fcheck-pointer-bounds is not supported with "
+		 "Address Sanitizer");
+	  flag_check_pointer_bounds = 0;
+	}
     }
 
   /* One region RA really helps to decrease the code size.  */

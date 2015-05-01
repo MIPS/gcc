@@ -1,3 +1,127 @@
+2014-04-29  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* Makefile.in (real_host_noncanonical): New variable.
+	(libsubdir): Use it.
+	* configure.ac (real_host_noncanonical): Compute.  Remove special
+	case for intelmicemul.
+	* configure: Regenerate.
+
+2015-04-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/frv/elf-lib.h: New file.
+	(CRT_GET_RFIB_DATA): Move definition from gcc/config/frv/frv.h.
+	* libgcc/config.host (frv-*elf, frv-*-*linux*): Add frv/elf-lib.h
+	to tm_file.
+
+2015-04-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/frv/frvbengin.c: Do not include defaults.h
+	* config/frv/frvend.c: Ditto.
+
+2015-04-27  Yoshinori Sato  <ysato@users.sourceforge.jp>
+
+	* config.host: Add h8300-*-linux
+	* config/h8300/t-linux: New file.
+	* config/h8300/lib1funs.s: Change symbol prefix.
+	* config/h8300/sfp-machine.h: 64bit double support.
+
+2015-04-22  Gregor Richards  <gregor.richards@uwaterloo.ca>
+	    Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* unwind-dw2-fde-dip.c (USE_PT_GNU_EH_FRAME): Define it on
+	Linux if target provides dl_iterate_phdr.
+
+2015-04-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/65612
+	* config.host (tmake_file): Add t-slibgcc-libgcc for Linux/x86.
+	* config/i386/cpuinfo.c (__cpu_model): Initialize.
+	(__cpu_indicator_init@GCC_4.8.0): New.
+	(__cpu_model@GCC_4.8.0): Likewise.
+	* config/i386/t-linux (HOST_LIBGCC2_CFLAGS): Add
+	-DUSE_ELF_SYMVER.
+
+2015-04-16  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/divmodhi.S: Add G14 and G13 versions of the __divhi3
+	and __modhi3 functions.
+	* config/rl78/divmodso.S: Add G14 and G13 versions of the
+	__divsi3, __udivsi3, __modsi3 and __umodsi3 functions.
+
+2015-04-15  Chen Gang  <gang.chen.5i5j@gmail.com>
+
+	* gthr-single.h (__GTHREAD_MUTEX_INIT_FUNCTION): Use empty
+	do-while loop as macro body to avoid warnings.
+
+2015-04-10  Jakub Jelinek  <jakub@redhat.com>
+	    Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/65351
+	* configure: Regenerate.
+
+2015-04-07  Jakub Jelinek  <jakub@redhat.com>
+	    Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/65351
+	* configure: Regenerate.
+
+2015-03-25  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config.host (nios2-*-linux*): Remove 'extra_parts' setting.
+
+2015-03-03  Max Filippov  <jcmvbkbc@gmail.com>
+
+	Implement call0 ABI for xtensa
+	* config/xtensa/lib2funcs.S (__xtensa_libgcc_window_spill,
+	__xtensa_nonlocal_goto): Don't compile for call0 ABI.
+	(__xtensa_sync_caches): Only use entry and retw in windowed ABI,
+	use ret in call0 ABI.
+	* config/xtensa/t-windowed: New file.
+	* libgcc/config/xtensa/t-xtensa (LIB2ADDEH): Move to t-windowed.
+	* libgcc/configure: Regenerated.
+	* libgcc/configure.ac: Check if xtensa target is configured for
+	windowed ABI and thus needs to use custom unwind code.
+
+2015-02-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libgcc/64885
+	* gthr-single.h: Use __unused__ attribute instead of unused.
+	* config/gthr-vxworks.h: Likewise.
+	* config/i386/gthr-win32.h: Likewise.
+
+2015-02-27  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/65038
+	* config.in: Regenerated.
+	* configure: Likewise.
+	* configure.ac (AC_HEADER_STDC): Added explicit.
+	(AC_CHECK_HEADERS): Check for default headers  plus
+	for ftw.h header.
+	* libgcov-util.c (gcov_read_profile_dir): Disable use
+	of ftw-function, if header is not found.
+	(ftw_read_file): Likewise.
+
+2015-02-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR target/65181
+	* config/nvptx/t-nvptx (INHIBIT_LIBC_CFLAGS): Define to
+	-Dinhibit_libc.
+
+2015-02-17  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/arm/bpabi.S (test_div_by_zero): Make label names
+	consistent between thumb2 and arm mode cases.  Separate the
+	signed comparison on the high word of the numerator from the
+	unsigned comparison on the low word.
+	* config/arm/bpabi-v6m.S (test_div_by_zero): Similarly separate
+	signed comparison.
+
+2015-02-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/nvptx/realloc.c: Include <stddef.h> instead of <stdlib.h>
+	and <string.h>.
+	(__nvptx_realloc): Call __builtin_memcpy instead of memcpy.
+
 2015-02-10  Rainer Emrich  <rainer@emrich-ebersheim.de>
 
 	PR gcov-profile/61889
@@ -192,7 +316,7 @@
 	(SUBWORD_BOOL_CAS): Likewise.
 	(FETCH_AND_OP_WORD): Update.
 	Consistently use signed types.
-	
+
 2014-11-13  Bernd Schmidt  <bernds@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 	    Ilya Verbin  <ilya.verbin@intel.com>
@@ -860,7 +984,7 @@
 	(__gcov_delta_counter_op): Process delta profile counter values.
 	(__gcov_single_counter_op): Process single  profile counter values.
 	(fp_scale): Callback function for float-point scaling.
-	(int_scale): Callback function for integer fraction scaling. 
+	(int_scale): Callback function for integer fraction scaling.
 	(gcov_profile_scale): Scaling profile counters.
 	(gcov_profile_normalize): Normalize profile counters.
 	* libgcov.h: Add headers and functions for gcov-tool use.
@@ -1289,7 +1413,7 @@
 	(gcov_exit_merge_summary): Ditto.
 	(gcov_exit_dump_gcov): Ditto.
 
-2014-01-08  Rong Xu  <xur@google.com> 
+2014-01-08  Rong Xu  <xur@google.com>
 
 	* libgcov-driver.c: Use libgcov.h.
 	(buffer_fn_data): Use xmalloc instead of malloc.
@@ -2179,7 +2303,7 @@
 	* config/mips/crtn.S (fini, init): New labels.
 
 2012-02-19  Edgar E. Iglesias  <edgar.iglesias@gmail.com>
-	* config/microblaze/modsi3.S (modsi3): Fix case with 0x80000000 
+	* config/microblaze/modsi3.S (modsi3): Fix case with 0x80000000
 	as dividend.
 
 2013-02-16  Alan Modra  <amodra@gmail.com>

@@ -1940,16 +1940,17 @@ typedef const struct equiv_class_label *const_equiv_class_label_t;
 
 struct equiv_class_hasher : typed_free_remove <equiv_class_label>
 {
-  typedef equiv_class_label value_type;
-  typedef equiv_class_label compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef equiv_class_label *value_type;
+  typedef equiv_class_label *compare_type;
+  static inline hashval_t hash (const equiv_class_label *);
+  static inline bool equal (const equiv_class_label *,
+			    const equiv_class_label *);
 };
 
 /* Hash function for a equiv_class_label_t */
 
 inline hashval_t
-equiv_class_hasher::hash (const value_type *ecl)
+equiv_class_hasher::hash (const equiv_class_label *ecl)
 {
   return ecl->hashcode;
 }
@@ -1957,7 +1958,8 @@ equiv_class_hasher::hash (const value_type *ecl)
 /* Equality function for two equiv_class_label_t's.  */
 
 inline bool
-equiv_class_hasher::equal (const value_type *eql1, const compare_type *eql2)
+equiv_class_hasher::equal (const equiv_class_label *eql1,
+			   const equiv_class_label *eql2)
 {
   return (eql1->hashcode == eql2->hashcode
 	  && bitmap_equal_p (eql1->labels, eql2->labels));
@@ -3493,6 +3495,9 @@ get_constraint_for_1 (tree t, vec<ce_s> *results, bool address_p,
 	  case ARRAY_REF:
 	  case ARRAY_RANGE_REF:
 	  case COMPONENT_REF:
+	  case IMAGPART_EXPR:
+	  case REALPART_EXPR:
+	  case BIT_FIELD_REF:
 	    get_constraint_for_component_ref (t, results, address_p, lhs_p);
 	    return;
 	  case VIEW_CONVERT_EXPR:
@@ -4716,11 +4721,7 @@ find_func_aliases (struct function *fn, gimple origt)
 
 	  get_constraint_for (lhsop, &lhsc);
 
-	  if (FLOAT_TYPE_P (TREE_TYPE (lhsop)))
-	    /* If the operation produces a floating point result then
-	       assume the value is not produced to transfer a pointer.  */
-	    ;
-	  else if (code == POINTER_PLUS_EXPR)
+	  if (code == POINTER_PLUS_EXPR)
 	    get_constraint_for_ptr_offset (gimple_assign_rhs1 (t),
 					   gimple_assign_rhs2 (t), &rhsc);
 	  else if (code == BIT_AND_EXPR
@@ -5968,16 +5969,17 @@ typedef const struct shared_bitmap_info *const_shared_bitmap_info_t;
 
 struct shared_bitmap_hasher : typed_free_remove <shared_bitmap_info>
 {
-  typedef shared_bitmap_info value_type;
-  typedef shared_bitmap_info compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef shared_bitmap_info *value_type;
+  typedef shared_bitmap_info *compare_type;
+  static inline hashval_t hash (const shared_bitmap_info *);
+  static inline bool equal (const shared_bitmap_info *,
+			    const shared_bitmap_info *);
 };
 
 /* Hash function for a shared_bitmap_info_t */
 
 inline hashval_t
-shared_bitmap_hasher::hash (const value_type *bi)
+shared_bitmap_hasher::hash (const shared_bitmap_info *bi)
 {
   return bi->hashcode;
 }
@@ -5985,7 +5987,8 @@ shared_bitmap_hasher::hash (const value_type *bi)
 /* Equality function for two shared_bitmap_info_t's. */
 
 inline bool
-shared_bitmap_hasher::equal (const value_type *sbi1, const compare_type *sbi2)
+shared_bitmap_hasher::equal (const shared_bitmap_info *sbi1,
+			     const shared_bitmap_info *sbi2)
 {
   return bitmap_equal_p (sbi1->pt_vars, sbi2->pt_vars);
 }

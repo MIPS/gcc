@@ -893,10 +893,9 @@ rtl_merge_blocks (basic_block a, basic_block b)
 
       del_first = a_end;
 
-#ifdef HAVE_cc0
       /* If this was a conditional jump, we need to also delete
 	 the insn that set cc0.  */
-      if (only_sets_cc0_p (prev))
+      if (HAVE_cc0 && only_sets_cc0_p (prev))
 	{
 	  rtx_insn *tmp = prev;
 
@@ -905,7 +904,6 @@ rtl_merge_blocks (basic_block a, basic_block b)
 	    prev = BB_HEAD (a);
 	  del_first = tmp;
 	}
-#endif
 
       a_end = PREV_INSN (del_first);
     }
@@ -1064,11 +1062,9 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
   /* In case we zap a conditional jump, we'll need to kill
      the cc0 setter too.  */
   kill_from = insn;
-#ifdef HAVE_cc0
-  if (reg_mentioned_p (cc0_rtx, PATTERN (insn))
+  if (HAVE_cc0 && reg_mentioned_p (cc0_rtx, PATTERN (insn))
       && only_sets_cc0_p (PREV_INSN (insn)))
     kill_from = PREV_INSN (insn);
-#endif
 
   /* See if we can create the fallthru edge.  */
   if (in_cfglayout || can_fallthru (src, target))
@@ -1709,21 +1705,19 @@ force_nonfallthru_and_redirect (edge e, basic_block target, rtx jump_label)
     {
       if (jump_label == ret_rtx)
 	{
-#ifdef HAVE_return
+	  if (!HAVE_return)
+	    gcc_unreachable ();
+
 	  emit_jump_insn_after_setloc (gen_return (), BB_END (jump_block), loc);
-#else
-	  gcc_unreachable ();
-#endif
 	}
       else
 	{
 	  gcc_assert (jump_label == simple_return_rtx);
-#ifdef HAVE_simple_return
+	  if (!HAVE_simple_return)
+	    gcc_unreachable ();
+
 	  emit_jump_insn_after_setloc (gen_simple_return (),
 				       BB_END (jump_block), loc);
-#else
-	  gcc_unreachable ();
-#endif
 	}
       set_return_jump_label (BB_END (jump_block));
     }
@@ -1825,12 +1819,10 @@ rtl_tidy_fallthru_edge (edge e)
 	  delete_insn (table);
 	}
 
-#ifdef HAVE_cc0
       /* If this was a conditional jump, we need to also delete
 	 the insn that set cc0.  */
-      if (any_condjump_p (q) && only_sets_cc0_p (PREV_INSN (q)))
+      if (HAVE_cc0 && any_condjump_p (q) && only_sets_cc0_p (PREV_INSN (q)))
 	q = PREV_INSN (q);
-#endif
 
       q = PREV_INSN (q);
     }
@@ -1928,7 +1920,7 @@ rtl_split_edge (edge edge_in)
               && (edge_in->flags & EDGE_CROSSING))
             {
               after = last_bb_in_partition (edge_in->src);
-              before = NEXT_INSN (BB_END (after));
+              before = get_last_bb_insn (after);
               /* The instruction following the last bb in partition should
                  be a barrier, since it cannot end in a fall-through.  */
               gcc_checking_assert (BARRIER_P (before));
@@ -4047,7 +4039,7 @@ fixup_fallthru_exit_predecessor (void)
 	 edge, we have to split that block.  */
       if (c == bb)
 	{
-	  bb = split_block (bb, NULL)->dest;
+	  bb = split_block_after_labels (bb)->dest;
 	  bb->aux = c->aux;
 	  c->aux = bb;
 	  BB_FOOTER (bb) = BB_FOOTER (c);
@@ -4347,11 +4339,7 @@ cfg_layout_finalize (void)
 #endif
   force_one_exit_fallthru ();
   rtl_register_cfg_hooks ();
-  if (reload_completed
-#ifdef HAVE_epilogue
-      && !HAVE_epilogue
-#endif
-      )
+  if (reload_completed && !HAVE_epilogue)
     fixup_fallthru_exit_predecessor ();
   fixup_reorder_chain ();
 

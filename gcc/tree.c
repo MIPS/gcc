@@ -102,6 +102,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "intl.h"
 #include "builtins.h"
+#include "print-tree.h"
+#include "ipa-utils.h"
 
 /* Tree code classes.  */
 
@@ -4874,7 +4876,7 @@ simple_cst_list_equal (const_tree l1, const_tree l2)
    attribute values are known to be equal; otherwise return false.
 */
 
-static bool
+bool
 attribute_value_equal (const_tree attr1, const_tree attr2)
 {
   if (TREE_VALUE (attr1) == TREE_VALUE (attr2))
@@ -5078,13 +5080,24 @@ free_lang_data_in_type (tree type)
       else
 	TYPE_FIELDS (type) = NULL_TREE;
 
+      /* FIXME: C FE uses TYPE_VFIELD to record C_TYPE_INCOMPLETE_VARS
+ 	 and danagle the pointer from time to time.  */
+      if (TYPE_VFIELD (type) && TREE_CODE (TYPE_VFIELD (type)) != FIELD_DECL)
+        TYPE_VFIELD (type) = NULL_TREE;
+
       TYPE_METHODS (type) = NULL_TREE;
       if (TYPE_BINFO (type))
 	{
 	  free_lang_data_in_binfo (TYPE_BINFO (type));
+	  /* We need to preserve link to bases and virtual table for all
+	     polymorphic types to make devirtualization machinery working.
+	     Debug output cares only about bases, but output also
+	     virtual table pointers so merging of -fdevirtualize and
+	     -fno-devirtualize units is easier.  */
 	  if ((!BINFO_VTABLE (TYPE_BINFO (type))
 	       || !flag_devirtualize)
-	      && (!BINFO_N_BASE_BINFOS (TYPE_BINFO (type))
+	      && ((!BINFO_N_BASE_BINFOS (TYPE_BINFO (type))
+		   && !BINFO_VTABLE (TYPE_BINFO (type)))
 		  || debug_info_level != DINFO_LEVEL_NONE))
 	    TYPE_BINFO (type) = NULL;
 	}
@@ -5133,7 +5146,18 @@ need_assembler_name_p (tree decl)
       && DECL_NAME (decl)
       && decl == TYPE_NAME (TREE_TYPE (decl))
       && !is_lang_specific (TREE_TYPE (decl))
-      && AGGREGATE_TYPE_P (TREE_TYPE (decl))
+      /* Save some work. Names of builtin types are always derived from
+	 properties of its main variant.  A special case are integer types
+	 where mangling do make differences between char/signed char/unsigned
+	 char etc.  Storing name for these makes e.g.
+	 -fno-signed-char/-fsigned-char mismatches to be handled well.
+
+	 See cp/mangle.c:write_builtin_type for details.  */
+      && (TREE_CODE (TREE_TYPE (decl)) != VOID_TYPE
+	  && TREE_CODE (TREE_TYPE (decl)) != BOOLEAN_TYPE
+	  && TREE_CODE (TREE_TYPE (decl)) != REAL_TYPE
+	  && TREE_CODE (TREE_TYPE (decl)) != FIXED_POINT_TYPE)
+      && !TYPE_ARTIFICIAL (TREE_TYPE (decl))
       && !variably_modified_type_p (TREE_TYPE (decl), NULL_TREE)
       && !type_in_anonymous_namespace_p (TREE_TYPE (decl)))
     return !DECL_ASSEMBLER_NAME_SET_P (decl);
@@ -5778,6 +5802,10 @@ free_lang_data_in_cgraph (void)
   /* Traverse every type found freeing its language data.  */
   FOR_EACH_VEC_ELT (fld.types, i, t)
     free_lang_data_in_type (t);
+#ifdef ENABLE_CHECKING
+  FOR_EACH_VEC_ELT (fld.types, i, t)
+    verify_type (t);
+#endif
 
   delete fld.pset;
   fld.worklist.release ();
@@ -5816,6 +5844,8 @@ free_lang_data (void)
      still be used indirectly via the get_alias_set langhook.  */
   lang_hooks.dwarf_name = lhd_dwarf_name;
   lang_hooks.decl_printable_name = gimple_decl_printable_name;
+  lang_hooks.gimplify_expr = lhd_gimplify_expr;
+
   /* We do not want the default decl_assembler_name implementation,
      rather if we have fixed everything we want a wrapper around it
      asserting that all non-local symbols already got their assembler
@@ -7698,7 +7728,7 @@ build_pointer_type_for_mode (tree to_type, machine_mode mode,
   else if (TYPE_CANONICAL (to_type) != to_type)
     TYPE_CANONICAL (t)
       = build_pointer_type_for_mode (TYPE_CANONICAL (to_type),
-				     mode, can_alias_all);
+				     mode, false);
 
   /* Lay out the type.  This function has many callers that are concerned
      with expression-construction, and this simplifies them all.  */
@@ -7765,7 +7795,7 @@ build_reference_type_for_mode (tree to_type, machine_mode mode,
   else if (TYPE_CANONICAL (to_type) != to_type)
     TYPE_CANONICAL (t)
       = build_reference_type_for_mode (TYPE_CANONICAL (to_type),
-				       mode, can_alias_all);
+				       mode, false);
 
   layout_type (t);
 
@@ -10080,7 +10110,8 @@ build_common_builtin_nodes (void)
   ftype = build_function_type_list (ptr_type_node, size_type_node,
 				    size_type_node, NULL_TREE);
   local_define_builtin ("__builtin_alloca_with_align", ftype,
-			BUILT_IN_ALLOCA_WITH_ALIGN, "alloca",
+			BUILT_IN_ALLOCA_WITH_ALIGN,
+			"__builtin_alloca_with_align",
 			ECF_MALLOC | ECF_NOTHROW | ECF_LEAF);
 
   /* If we're checking the stack, `alloca' can throw.  */
@@ -11993,7 +12024,7 @@ type_in_anonymous_namespace_p (const_tree t)
 
 /* Lookup sub-BINFO of BINFO of TYPE at offset POS.  */
 
-tree
+static tree
 lookup_binfo_at_offset (tree binfo, tree type, HOST_WIDE_INT pos)
 {
   unsigned int i;
@@ -12046,11 +12077,13 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
       else if (offset != 0)
 	{
 	  tree found_binfo = NULL, base_binfo;
-	  int offset = (tree_to_shwi (BINFO_OFFSET (binfo)) + pos
-			/ BITS_PER_UNIT);
+	  /* Offsets in BINFO are in bytes relative to the whole structure
+	     while POS is in bits relative to the containing field.  */
+	  int binfo_offset = (tree_to_shwi (BINFO_OFFSET (binfo)) + pos
+			     / BITS_PER_UNIT);
 
 	  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
-	    if (tree_to_shwi (BINFO_OFFSET (base_binfo)) == offset
+	    if (tree_to_shwi (BINFO_OFFSET (base_binfo)) == binfo_offset
 		&& types_same_for_odr (TREE_TYPE (base_binfo), TREE_TYPE (fld)))
 	      {
 		found_binfo = base_binfo;
@@ -12059,7 +12092,8 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
 	  if (found_binfo)
 	    binfo = found_binfo;
 	  else
-	    binfo = lookup_binfo_at_offset (binfo, TREE_TYPE (fld), offset);
+	    binfo = lookup_binfo_at_offset (binfo, TREE_TYPE (fld),
+					    binfo_offset);
 	 }
 
       type = TREE_TYPE (fld);
@@ -12412,6 +12446,159 @@ element_mode (const_tree t)
   if (VECTOR_TYPE_P (t) || TREE_CODE (t) == COMPLEX_TYPE)
     t = TREE_TYPE (t);
   return TYPE_MODE (t);
+}
+
+/* Veirfy that basic properties of T match TV and thus T can be a variant of
+   TV.  TV should be the more specified variant (i.e. the main variant).  */
+
+static bool
+verify_type_variant (const_tree t, tree tv)
+{
+  if (TREE_CODE (t) != TREE_CODE (tv))
+    {
+      error ("type variant has different TREE_CODE");
+      debug_tree (tv);
+      return false;
+    }
+  if (COMPLETE_TYPE_P (t) && TYPE_SIZE (t) != TYPE_SIZE (tv))
+    {
+      error ("type variant has different TYPE_SIZE");
+      debug_tree (tv);
+      error ("type variant's TYPE_SIZE");
+      debug_tree (TYPE_SIZE (tv));
+      error ("type's TYPE_SIZE");
+      debug_tree (TYPE_SIZE (t));
+      return false;
+    }
+  if (COMPLETE_TYPE_P (t)
+      && TYPE_SIZE_UNIT (t) != TYPE_SIZE_UNIT (tv)
+      /* FIXME: ideally we should compare pointer equality, but java FE produce
+ 	 variants where size is INTEGER_CST of different type (int wrt size_type)
+	 during libjava biuld.  */
+      && !operand_equal_p (TYPE_SIZE_UNIT (t), TYPE_SIZE_UNIT (tv), 0))
+    {
+      error ("type variant has different TYPE_SIZE_UNIT");
+      debug_tree (tv);
+      error ("type variant's TYPE_SIZE_UNIT");
+      debug_tree (TYPE_SIZE_UNIT (tv));
+      error ("type's TYPE_SIZE_UNIT");
+      debug_tree (TYPE_SIZE_UNIT (t));
+      return false;
+    }
+  /* FIXME: C FE uses TYPE_VFIELD to record C_TYPE_INCOMPLETE_VARS
+     and danagle the pointer from time to time.  */
+  if (RECORD_OR_UNION_TYPE_P (t) && TYPE_VFIELD (t) != TYPE_VFIELD (tv)
+      && (!TYPE_VFIELD (tv) || TREE_CODE (TYPE_VFIELD (tv)) != TREE_LIST))
+    {
+      error ("type variant has different TYPE_VFIELD");
+      debug_tree (tv);
+      return false;
+    }
+  if (((TREE_CODE (t) == ENUMERAL_TYPE && COMPLETE_TYPE_P (t))
+	|| TREE_CODE (t) == INTEGER_TYPE
+	|| TREE_CODE (t) == BOOLEAN_TYPE
+	|| TREE_CODE (t) == REAL_TYPE
+	|| TREE_CODE (t) == FIXED_POINT_TYPE)
+       && (TYPE_MAX_VALUE (t) != TYPE_MAX_VALUE (tv)
+	   || TYPE_MIN_VALUE (t) != TYPE_MIN_VALUE (tv)))
+    {
+      error ("type variant has different TYPE_MAX_VALUE or TYPE_MIN_VALUE");
+      debug_tree (tv);
+      return false;
+    }
+  if (TREE_CODE (t) == METHOD_TYPE
+      && TYPE_METHOD_BASETYPE (t) != TYPE_METHOD_BASETYPE (tv))
+    {
+      error ("type variant has different TYPE_METHOD_BASETYPE");
+      debug_tree (tv);
+      return false;
+    }
+  /* FIXME: this check triggers during libstdc++ build that is a bug.
+     It affects non-LTO debug output only, because free_lang_data clears
+     this anyway.  */
+  if (RECORD_OR_UNION_TYPE_P (t) && COMPLETE_TYPE_P (t) && 0
+      && TYPE_METHODS (t) != TYPE_METHODS (tv))
+    {
+      error ("type variant has different TYPE_METHODS");
+      debug_tree (tv);
+      return false;
+    }
+  if (TREE_CODE (t) == OFFSET_TYPE
+      && TYPE_OFFSET_BASETYPE (t) != TYPE_OFFSET_BASETYPE (tv))
+    {
+      error ("type variant has different TYPE_OFFSET_BASETYPE");
+      debug_tree (tv);
+      return false;
+    }
+  if (TREE_CODE (t) == ARRAY_TYPE
+      && TYPE_ARRAY_MAX_SIZE (t) != TYPE_ARRAY_MAX_SIZE (tv))
+    {
+      error ("type variant has different TYPE_ARRAY_MAX_SIZE");
+      debug_tree (tv);
+      return false;
+    }
+  /* FIXME: Be lax and allow TYPE_BINFO to be missing in variant types
+     or even type's main variant.  This is needed to make bootstrap pass
+     and the bug seems new in GCC 5.
+     C++ FE should be updated to make this consistent and we should check
+     that TYPE_BINFO is always NULL for !COMPLETE_TYPE_P and otherwise there
+     is a match with main variant.
+
+     Also disable the check for Java for now because of parser hack that builds
+     first an dummy BINFO and then sometimes replace it by real BINFO in some
+     of the copies.  */
+  if (RECORD_OR_UNION_TYPE_P (t) && TYPE_BINFO (t) && TYPE_BINFO (tv)
+      && TYPE_BINFO (t) != TYPE_BINFO (tv)
+      /* FIXME: Java sometimes keep dump TYPE_BINFOs on variant types.
+	 Since there is no cheap way to tell C++/Java type w/o LTO, do checking
+	 at LTO time only.  */
+      && (in_lto_p && odr_type_p (t)))
+    {
+      error ("type variant has different TYPE_BINFO");
+      debug_tree (tv);
+      error ("type variant's TYPE_BINFO");
+      debug_tree (TYPE_BINFO (tv));
+      error ("type's TYPE_BINFO");
+      debug_tree (TYPE_BINFO (t));
+      return false;
+    }
+  return true;
+}
+
+/* Verify type T.  */
+
+void
+verify_type (const_tree t)
+{
+  bool error_found = false;
+  tree mv = TYPE_MAIN_VARIANT (t);
+  if (!mv)
+    {
+      error ("Main variant is not defined");
+      error_found = true;
+    }
+  else if (mv != TYPE_MAIN_VARIANT (mv))
+    {
+      error ("TYPE_MAIN_VARIANT has different TYPE_MAIN_VARIANT");
+      debug_tree (mv);
+      error_found = true;
+    }
+  else if (t != mv && !verify_type_variant (t, mv))
+    error_found = true;
+  /* FIXME: C FE uses TYPE_VFIELD to record C_TYPE_INCOMPLETE_VARS
+     and danagle the pointer from time to time.  */
+  if (RECORD_OR_UNION_TYPE_P (t) && TYPE_VFIELD (t)
+      && TREE_CODE (TYPE_VFIELD (t)) != FIELD_DECL
+      && TREE_CODE (TYPE_VFIELD (t)) != TREE_LIST)
+    {
+      error ("TYPE_VFIELD is not FIELD_DECL nor TREE_LIST");
+      debug_tree (TYPE_VFIELD (t));
+    }
+  if (error_found)
+    {
+      debug_tree (const_cast <tree> (t));
+      internal_error ("verify_type failed");
+    }
 }
 
 #include "gt-tree.h"

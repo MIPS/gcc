@@ -229,7 +229,7 @@ static void
 unpack_ts_fixed_cst_value_fields (struct bitpack_d *bp, tree expr)
 {
   FIXED_VALUE_TYPE *fp = ggc_alloc<fixed_value> ();
-  fp->mode = bp_unpack_enum (bp, machine_mode, MAX_MACHINE_MODE);
+  fp->mode = bp_unpack_machine_mode (bp);
   fp->data.low = bp_unpack_var_len_int (bp);
   fp->data.high = bp_unpack_var_len_int (bp);
   TREE_FIXED_CST_PTR (expr) = fp;
@@ -241,7 +241,7 @@ unpack_ts_fixed_cst_value_fields (struct bitpack_d *bp, tree expr)
 static void
 unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
 {
-  DECL_MODE (expr) = bp_unpack_enum (bp, machine_mode, MAX_MACHINE_MODE);
+  DECL_MODE (expr) = bp_unpack_machine_mode (bp);
   DECL_NONLOCAL (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_VIRTUAL_P (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_IGNORED_P (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -252,7 +252,10 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
   DECL_EXTERNAL (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_GIMPLE_REG_P (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_ALIGN (expr) = (unsigned) bp_unpack_var_len_unsigned (bp);
-
+#ifdef ACCEL_COMPILER
+  if (DECL_ALIGN (expr) > targetm.absolute_biggest_alignment)
+    DECL_ALIGN (expr) = targetm.absolute_biggest_alignment;
+#endif
   if (TREE_CODE (expr) == LABEL_DECL)
     {
       EH_LANDING_PAD_NR (expr) = (int) bp_unpack_var_len_unsigned (bp);
@@ -378,7 +381,7 @@ unpack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
 {
   machine_mode mode;
 
-  mode = bp_unpack_enum (bp, machine_mode, MAX_MACHINE_MODE);
+  mode = bp_unpack_machine_mode (bp);
   SET_TYPE_MODE (expr, mode);
   TYPE_STRING_FLAG (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_NO_FORCE_BLK (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -396,6 +399,10 @@ unpack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
   TYPE_READONLY (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_PRECISION (expr) = bp_unpack_var_len_unsigned (bp);
   TYPE_ALIGN (expr) = bp_unpack_var_len_unsigned (bp);
+#ifdef ACCEL_COMPILER
+  if (TYPE_ALIGN (expr) > targetm.absolute_biggest_alignment)
+    TYPE_ALIGN (expr) = targetm.absolute_biggest_alignment;
+#endif
   TYPE_ALIAS_SET (expr) = bp_unpack_var_len_int (bp);
 }
 
@@ -409,7 +416,7 @@ unpack_ts_block_value_fields (struct data_in *data_in,
 {
   BLOCK_ABSTRACT (expr) = (unsigned) bp_unpack_value (bp, 1);
   /* BLOCK_NUMBER is recomputed.  */
-  BLOCK_SOURCE_LOCATION (expr) = stream_input_location (bp, data_in);
+  stream_input_location (&BLOCK_SOURCE_LOCATION (expr), bp, data_in);
 }
 
 /* Unpack all the non-pointer fields of the TS_TRANSLATION_UNIT_DECL
@@ -431,7 +438,7 @@ static void
 unpack_ts_omp_clause_value_fields (struct data_in *data_in,
 				   struct bitpack_d *bp, tree expr)
 {
-  OMP_CLAUSE_LOCATION (expr) = stream_input_location (bp, data_in);
+  stream_input_location (&OMP_CLAUSE_LOCATION (expr), bp, data_in);
   switch (OMP_CLAUSE_CODE (expr))
     {
     case OMP_CLAUSE_DEFAULT:
@@ -501,7 +508,7 @@ streamer_read_tree_bitfields (struct lto_input_block *ib,
     unpack_ts_fixed_cst_value_fields (&bp, expr);
 
   if (CODE_CONTAINS_STRUCT (code, TS_DECL_MINIMAL))
-    DECL_SOURCE_LOCATION (expr) = stream_input_location (&bp, data_in);
+    stream_input_location (&DECL_SOURCE_LOCATION (expr), &bp, data_in);
 
   if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
     unpack_ts_decl_common_value_fields (&bp, expr);
@@ -520,7 +527,7 @@ streamer_read_tree_bitfields (struct lto_input_block *ib,
 
   if (CODE_CONTAINS_STRUCT (code, TS_EXP))
     {
-      SET_EXPR_LOCATION (expr, stream_input_location (&bp, data_in));
+      stream_input_location (&EXPR_CHECK (expr)->exp.locus, &bp, data_in);
       if (code == MEM_REF
 	  || code == TARGET_MEM_REF)
 	{
@@ -557,7 +564,11 @@ streamer_read_tree_bitfields (struct lto_input_block *ib,
 
 #ifndef ACCEL_COMPILER
   if (CODE_CONTAINS_STRUCT (code, TS_TARGET_OPTION))
-    cl_target_option_stream_in (data_in, &bp, TREE_TARGET_OPTION (expr));
+    {
+      cl_target_option_stream_in (data_in, &bp, TREE_TARGET_OPTION (expr));
+      if (targetm.target_option.post_stream_in)
+	targetm.target_option.post_stream_in (TREE_TARGET_OPTION (expr));
+    }
 #endif
 
   if (code == OMP_CLAUSE)
@@ -899,11 +910,20 @@ lto_input_ts_exp_tree_pointers (struct lto_input_block *ib,
 			        struct data_in *data_in, tree expr)
 {
   int i;
+  tree block;
 
   for (i = 0; i < TREE_OPERAND_LENGTH (expr); i++)
     TREE_OPERAND (expr, i) = stream_read_tree (ib, data_in);
 
-  TREE_SET_BLOCK (expr, stream_read_tree (ib, data_in));
+  block = stream_read_tree (ib, data_in);
+
+  /* TODO: Block is stored in the locus information.  It may make more sense to
+     to make it go via the location cache.  */
+  if (block)
+    {
+      data_in->location_cache.apply_location_cache ();
+      TREE_SET_BLOCK (expr, block);
+    }
 }
 
 

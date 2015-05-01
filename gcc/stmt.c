@@ -342,13 +342,7 @@ parse_output_constraint (const char **constraint_p, int operand_num,
 	else if (insn_extra_memory_constraint (cn))
 	  *allows_mem = true;
 	else
-	  {
-	    /* Otherwise we can't assume anything about the nature of
-	       the constraint except that it isn't purely registers.
-	       Treat it like "g" and hope for the best.  */
-	    *allows_reg = true;
-	    *allows_mem = true;
-	  }
+	  insn_extra_constraint_allows_reg_mem (cn, allows_reg, allows_mem);
 	break;
       }
 
@@ -465,13 +459,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
 	else if (insn_extra_memory_constraint (cn))
 	  *allows_mem = true;
 	else
-	  {
-	    /* Otherwise we can't assume anything about the nature of
-	       the constraint except that it isn't purely registers.
-	       Treat it like "g" and hope for the best.  */
-	    *allows_reg = true;
-	    *allows_mem = true;
-	  }
+	  insn_extra_constraint_allows_reg_mem (cn, allows_reg, allows_mem);
 	break;
       }
 
@@ -1722,7 +1710,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 
 	      tree test_label
 		= build_decl (curr_insn_location (),
-			      LABEL_DECL, NULL_TREE, NULL_TREE);
+			      LABEL_DECL, NULL_TREE, void_type_node);
 
               /* The default label could be reached either through the right
                  subtree or the left subtree. Divide the probability
@@ -1881,7 +1869,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 		 Branch to a label where we will handle it later.  */
 
 	      test_label = build_decl (curr_insn_location (),
-				       LABEL_DECL, NULL_TREE, NULL_TREE);
+				       LABEL_DECL, NULL_TREE, void_type_node);
               probability = conditional_probability (
                   node->right->subtree_prob + default_prob/2,
                   subtree_prob + default_prob);

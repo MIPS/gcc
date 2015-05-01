@@ -168,10 +168,6 @@ static int warn_about_return_type;
 
 static bool undef_nested_function;
 
-/* Mode used to build pointers (VOIDmode means ptr_mode).  */
-
-machine_mode c_default_pointer_mode = VOIDmode;
-
 /* If non-zero, implicit "omp declare target" attribute is added into the
    attribute lists.  */
 int current_omp_declare_target_attribute;
@@ -4407,7 +4403,8 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 {
   /* Add implicit "omp declare target" attribute if requested.  */
   if (current_omp_declare_target_attribute
-      && ((TREE_CODE (*node) == VAR_DECL && TREE_STATIC (*node))
+      && ((TREE_CODE (*node) == VAR_DECL
+	   && (TREE_STATIC (*node) || DECL_EXTERNAL (*node)))
 	  || TREE_CODE (*node) == FUNCTION_DECL))
     {
       if (TREE_CODE (*node) == VAR_DECL
@@ -4460,8 +4457,8 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   decl = grokdeclarator (declarator, declspecs,
 			 NORMAL, initialized, NULL, &attributes, &expr, NULL,
 			 deprecated_state);
-  if (!decl)
-    return 0;
+  if (!decl || decl == error_mark_node)
+    return NULL_TREE;
 
   if (expr)
     add_stmt (fold_convert (void_type_node, expr));
@@ -5837,10 +5834,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		    warn_variable_length_array (name, size);
 		    if (flag_sanitize & SANITIZE_VLA
 		        && decl_context == NORMAL
-			&& current_function_decl != NULL_TREE
-			&& !lookup_attribute ("no_sanitize_undefined",
-					      DECL_ATTRIBUTES
-						(current_function_decl)))
+			&& do_ubsan_in_current_function ())
 		      {
 			/* Evaluate the array size only once.  */
 			size = c_save_expr (size);
@@ -5962,7 +5956,8 @@ grokdeclarator (const struct c_declarator *declarator,
 	    /* Complain about arrays of incomplete types.  */
 	    if (!COMPLETE_TYPE_P (type))
 	      {
-		error_at (loc, "array type has incomplete element type");
+		error_at (loc, "array type has incomplete element type %qT",
+			  type);
 		type = error_mark_node;
 	      }
 	    else
@@ -6513,6 +6508,19 @@ grokdeclarator (const struct c_declarator *declarator,
 	    else
 	      error_at (loc, "unnamed field has incomplete type");
 	    type = error_mark_node;
+	  }
+	else if (TREE_CODE (type) == ARRAY_TYPE
+		 && TYPE_DOMAIN (type) == NULL_TREE)
+	  {
+	    /* We have a flexible array member through a typedef.
+	       Set suitable range.  Whether this is a correct position
+	       for a flexible array member will be determined elsewhere.  */
+	    if (!in_system_header_at (input_location))
+	      pedwarn_c90 (loc, OPT_Wpedantic, "ISO C90 does not "
+			   "support flexible array members");
+	    type = build_distinct_type_copy (TYPE_MAIN_VARIANT (type));
+	    TYPE_DOMAIN (type) = build_range_type (sizetype, size_zero_node,
+						   NULL_TREE);
 	  }
 	type = c_build_qualified_type (type, type_quals);
 	decl = build_decl (declarator->id_loc,
@@ -8019,11 +8027,13 @@ finish_enum (tree enumtype, tree values, tree attributes)
   TYPE_MIN_VALUE (enumtype) = TYPE_MIN_VALUE (tem);
   TYPE_MAX_VALUE (enumtype) = TYPE_MAX_VALUE (tem);
   TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (tem);
+  TYPE_ALIGN (enumtype) = TYPE_ALIGN (tem);
   TYPE_SIZE (enumtype) = 0;
 
-  /* If the precision of the type was specific with an attribute and it
+  /* If the precision of the type was specified with an attribute and it
      was too small, give an error.  Otherwise, use it.  */
-  if (TYPE_PRECISION (enumtype))
+  if (TYPE_PRECISION (enumtype)
+      && lookup_attribute ("mode", attributes))
     {
       if (precision > TYPE_PRECISION (enumtype))
 	error ("specified mode too small for enumeral values");
@@ -8805,6 +8815,21 @@ store_parm_decls_from (struct c_arg_info *arg_info)
   store_parm_decls ();
 }
 
+/* Called by walk_tree to look for and update context-less labels.  */
+
+static tree
+set_labels_context_r (tree *tp, int *walk_subtrees, void *data)
+{
+  if (TREE_CODE (*tp) == LABEL_EXPR
+      && DECL_CONTEXT (LABEL_EXPR_LABEL (*tp)) == NULL_TREE)
+    {
+      DECL_CONTEXT (LABEL_EXPR_LABEL (*tp)) = static_cast<tree>(data);
+      *walk_subtrees = 0;
+    }
+
+  return NULL_TREE;
+}
+
 /* Store the parameter declarations into the current function declaration.
    This is called after parsing the parameter declarations, before
    digesting the body of the function.
@@ -8859,7 +8884,21 @@ store_parm_decls (void)
      thus won't naturally see the SAVE_EXPR containing the increment.  All
      other pending sizes would be handled by gimplify_parameters.  */
   if (arg_info->pending_sizes)
-    add_stmt (arg_info->pending_sizes);
+    {
+      /* In very special circumstances, e.g. for code like
+	   _Atomic int i = 5;
+	   void f (int a[i += 2]) {}
+	 we need to execute the atomic assignment on function entry.
+	 But in this case, it is not just a straight store, it has the
+	 op= form, which means that build_atomic_assign has generated
+	 gotos, labels, etc.  Because at that time the function decl
+	 for F has not been created yet, those labels do not have any
+	 function context.  But we have the fndecl now, so update the
+	 labels accordingly.  gimplify_expr would crash otherwise.  */
+      walk_tree_without_duplicates (&arg_info->pending_sizes,
+				    set_labels_context_r, fndecl);
+      add_stmt (arg_info->pending_sizes);
+    }
 }
 
 /* Store PARM_DECLs in PARMS into scope temporarily.  Used for

@@ -1694,6 +1694,19 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
      difference in top-level cv-qualification is subsumed by the
      initialization itself and does not constitute a conversion.  */
 
+  /* [dcl.init.ref]
+
+     Otherwise, the reference shall be an lvalue reference to a
+     non-volatile const type, or the reference shall be an rvalue
+     reference.
+
+     We try below to treat this as a bad conversion to improve diagnostics,
+     but if TO is an incomplete class, we need to reject this conversion
+     now to avoid unnecessary instantiation.  */
+  if (!CP_TYPE_CONST_NON_VOLATILE_P (to) && !TYPE_REF_IS_RVALUE (rto)
+      && !COMPLETE_TYPE_P (to))
+    return NULL;
+
   /* We're generating a temporary now, but don't bind any more in the
      conversion (specifically, don't slice the temporary returned by a
      conversion operator).  */
@@ -5955,7 +5968,8 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  argarray[0] = addr;
 	  for (i = 1; i < nargs; i++)
 	    argarray[i] = CALL_EXPR_ARG (placement, i);
-	  mark_used (fn);
+	  if (!mark_used (fn, complain) && !(complain & tf_error))
+	    return error_mark_node;
 	  return build_cxx_call (fn, nargs, argarray, complain);
 	}
       else
@@ -6007,12 +6021,22 @@ enforce_access (tree basetype_path, tree decl, tree diag_decl,
       if (complain & tf_error)
 	{
 	  if (TREE_PRIVATE (decl))
-	    error ("%q+#D is private", diag_decl);
+	    {
+	      error ("%q#D is private within this context", diag_decl);
+	      inform (DECL_SOURCE_LOCATION (diag_decl),
+		      "declared private here");
+	    }
 	  else if (TREE_PROTECTED (decl))
-	    error ("%q+#D is protected", diag_decl);
+	    {
+	      error ("%q#D is protected within this context", diag_decl);
+	      inform (DECL_SOURCE_LOCATION (diag_decl),
+		      "declared protected here");
+	    }
 	  else
-	    error ("%q+#D is inaccessible", diag_decl);
-	  error ("within this context");
+	    {
+	      error ("%q#D is inaccessible within this context", diag_decl);
+	      inform (DECL_SOURCE_LOCATION (diag_decl), "declared here");
+	    }
 	}
       return false;
     }
@@ -7377,7 +7401,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	 the implementation elided its use.  */
       if (!trivial || DECL_DELETED_FN (fn))
 	{
-	  mark_used (fn);
+	  if (!mark_used (fn, complain) && !(complain & tf_error))
+	    return error_mark_node;
 	  already_used = true;
 	}
 
@@ -7473,7 +7498,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
     }
 
   if (!already_used
-      && !mark_used (fn))
+      && !mark_used (fn, complain))
     return error_mark_node;
 
   if (DECL_VINDEX (fn) && (flags & LOOKUP_NONVIRTUAL) == 0
@@ -8007,7 +8032,11 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
      that would be captured if the call turns out to be to a
      non-static member function.  Do not actually capture it at this
      point.  */
-  first_mem_arg = maybe_resolve_dummy (instance, false);
+  if (DECL_CONSTRUCTOR_P (fn))
+    /* Constructors don't use the enclosing 'this'.  */
+    first_mem_arg = instance;
+  else
+    first_mem_arg = maybe_resolve_dummy (instance, false);
 
   /* Get the high-water mark for the CONVERSION_OBSTACK.  */
   p = conversion_obstack_alloc (0);

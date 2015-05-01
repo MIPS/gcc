@@ -2765,10 +2765,9 @@ init_alias_target (void)
     = unique_base_value (UNIQUE_BASE_VALUE_ARGP);
   static_reg_base_value[FRAME_POINTER_REGNUM]
     = unique_base_value (UNIQUE_BASE_VALUE_FP);
-#if !HARD_FRAME_POINTER_IS_FRAME_POINTER
-  static_reg_base_value[HARD_FRAME_POINTER_REGNUM]
-    = unique_base_value (UNIQUE_BASE_VALUE_HFP);
-#endif
+  if (!HARD_FRAME_POINTER_IS_FRAME_POINTER)
+    static_reg_base_value[HARD_FRAME_POINTER_REGNUM]
+      = unique_base_value (UNIQUE_BASE_VALUE_HFP);
 }
 
 /* Set MEMORY_MODIFIED when X modifies DATA (that is assumed
@@ -2926,15 +2925,19 @@ init_alias_analysis (void)
 		{
 		  rtx note, set;
 
-#if defined (HAVE_prologue) || defined (HAVE_epilogue)
+#if defined (HAVE_prologue)
+		  static const bool prologue = true;
+#else
+		  static const bool prologue = false;
+#endif
+
 		  /* The prologue/epilogue insns are not threaded onto the
 		     insn chain until after reload has completed.  Thus,
 		     there is no sense wasting time checking if INSN is in
 		     the prologue/epilogue until after reload has completed.  */
-		  if (reload_completed
+		  if ((prologue || HAVE_epilogue) && reload_completed
 		      && prologue_epilogue_contains (insn))
 		    continue;
-#endif
 
 		  /* If this insn has a noalias note, process it,  Otherwise,
 		     scan for sets.  A simple set will have no side effects
