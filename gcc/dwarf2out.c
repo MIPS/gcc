@@ -15121,7 +15121,6 @@ field_byte_offset (const_tree decl)
 
   bitpos_int = wi::to_offset (bit_position (decl));
 
-#ifdef PCC_BITFIELD_TYPE_MATTERS
   if (PCC_BITFIELD_TYPE_MATTERS)
     {
       tree type;
@@ -15219,7 +15218,6 @@ field_byte_offset (const_tree decl)
 	}
     }
   else
-#endif /* PCC_BITFIELD_TYPE_MATTERS */
     object_offset_in_bits = bitpos_int;
 
   object_offset_in_bytes
@@ -20240,6 +20238,11 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 
   if (type == NULL_TREE || type == error_mark_node)
     return;
+
+#ifdef ENABLE_CHECKING
+  if (type)
+     verify_type (type);
+#endif
 
   if (TYPE_NAME (type) != NULL_TREE
       && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
