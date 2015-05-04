@@ -1,3 +1,7 @@
+2015-05-04  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 222758 into gupc branch.
+
 2015-04-30  Gary Funck  <gary@intrepid.com>
 
 	* doc/passes.texi: Add @section command for "UPC Transformation".
