@@ -5340,7 +5340,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
       if (e && (e->ts.type == BT_DERIVED || e->ts.type == BT_CLASS)
 	    && e->ts.u.derived->attr.alloc_comp
 	    && !(e->symtree && e->symtree->n.sym->attr.pointer)
-	    && (e->expr_type != EXPR_VARIABLE && !e->rank))
+	    && e->expr_type != EXPR_VARIABLE && !e->rank
+	    && e->expr_type != EXPR_STRUCTURE)
         {
 	  int parm_rank;
 	  /* It is known the e returns a structure type with at least one
@@ -6724,13 +6725,13 @@ gfc_trans_alloc_subarray_assign (tree dest, gfc_component * cm,
 	{
 	  tmp = TREE_TYPE (dest);
 	  tmp = gfc_duplicate_allocatable (dest, se.expr,
-					   tmp, expr->rank);
+					   tmp, expr->rank, NULL_TREE);
 	}
     }
   else
     tmp = gfc_duplicate_allocatable (dest, se.expr,
 				     TREE_TYPE(cm->backend_decl),
-				     cm->as->rank);
+				     cm->as->rank, NULL_TREE);
 
   gfc_add_expr_to_block (&block, tmp);
   gfc_add_block_to_block (&block, &se.post);
