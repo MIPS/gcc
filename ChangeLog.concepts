@@ -1,3 +1,10 @@
+2015-05-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR65854
+	* gcc/cp/parser.c (cp_parser_type_requirement): Unwrap alias 
+	declarations so they can be checked correctly.
+	* gcc/testsuite/g++.dg/concepts/pr65854.C: New.
+
 2015-04-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	PR65848
