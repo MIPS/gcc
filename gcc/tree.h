@@ -1197,10 +1197,16 @@ extern void protected_set_expr_location (tree, location_t);
 
 /* OpenMP and OpenACC directive and clause accessors.  */
 
+/* Generic accessors for OMP nodes that keep the body as operand 0, and clauses
+   as operand 1.  */
 #define OMP_BODY(NODE) \
   TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_PARALLEL, OMP_CRITICAL), 0)
 #define OMP_CLAUSES(NODE) \
   TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_PARALLEL, OMP_SINGLE), 1)
+
+/* Generic accessors for OMP nodes that keep clauses as operand 0.  */
+#define OMP_STANDALONE_CLAUSES(NODE) \
+  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_CACHE, OMP_TARGET_UPDATE), 0)
 
 #define OACC_PARALLEL_BODY(NODE) \
   TREE_OPERAND (OACC_PARALLEL_CHECK (NODE), 0)
@@ -4495,6 +4501,7 @@ extern tree drop_tree_overflow (tree);
 extern int tree_map_base_eq (const void *, const void *);
 extern unsigned int tree_map_base_hash (const void *);
 extern int tree_map_base_marked_p (const void *);
+extern void DEBUG_FUNCTION verify_type (const_tree t);
 
 #define tree_map_eq tree_map_base_eq
 extern unsigned int tree_map_hash (const void *);
