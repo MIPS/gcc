@@ -7548,7 +7548,6 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	      ass->loc = code->expr3->where;
 
 	      gfc_resolve_code (ass, ns);
-
 	      /* Now add the new code before this ones.  */
 	      old_alloc = gfc_get_code (EXEC_ALLOCATE);
 	      *old_alloc = *code;
