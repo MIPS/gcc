@@ -4973,7 +4973,6 @@ resolve_variable (gfc_expr *e)
       return false;
     }
 
-
   /* For variables that are used in an associate (target => object) where
      the object's basetype is array valued while the target is scalar,
      the ts' type of the component refs is still array valued, which
@@ -4998,6 +4997,7 @@ resolve_variable (gfc_expr *e)
 	    }
 	}
     }
+
   /* If this is an associate-name, it may be parsed with an array reference
      in error even though the target is scalar.  Fail directly in this case.
      TODO Understand why class scalar expressions must be excluded.  */
@@ -5020,6 +5020,49 @@ resolve_variable (gfc_expr *e)
       e->ref->type = REF_ARRAY;
       e->ref->u.ar.type = AR_FULL;
       e->ref->u.ar.dimen = 0;
+    }
+
+  /* Like above, but for class types, where the checking whether an array
+     ref is present is more complicated.  Furthermore make sure not to add
+     the full array ref to _vptr or _len refs.  */
+  if (sym->assoc && sym->ts.type == BT_CLASS
+      && CLASS_DATA (sym)->attr.dimension
+      && (e->ts.type != BT_DERIVED || !e->ts.u.derived->attr.vtype))
+    {
+      gfc_ref *ref, *newref;
+
+      newref = gfc_get_ref ();
+      newref->type = REF_ARRAY;
+      newref->u.ar.type = AR_FULL;
+      newref->u.ar.dimen = 0;
+      /* Because this is an associate var and the first ref either is a ref to
+	 the _data component or not, no traversal of the ref chain is
+	 needed.  The array ref needs to be inserted after the _data ref,
+	 or when that is not present, which may happend for polymorphic
+	 types, then at the first position.  */
+      ref = e->ref;
+      if (!ref)
+	e->ref = newref;
+      else if (ref->type == REF_COMPONENT
+	       && strcmp ("_data", ref->u.c.component->name) == 0)
+	{
+	  if (!ref->next || ref->next->type != REF_ARRAY)
+	    {
+	      newref->next = ref->next;
+	      ref->next = newref;
+	    }
+	  else
+	    /* Array ref present already.  */
+	    gfc_free_ref_list (newref);
+	}
+      else if (ref->type == REF_ARRAY)
+	/* Array ref present already.  */
+	gfc_free_ref_list (newref);
+      else
+	{
+	  newref->next = ref;
+	  e->ref = newref;
+	}
     }
 
   if (e->ref && !resolve_ref (e))
@@ -8096,7 +8139,6 @@ static void
 resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
 {
   gfc_expr* target;
-  gfc_array_spec *as;
 
   gcc_assert (sym->assoc);
   gcc_assert (sym->attr.flavor == FL_VARIABLE);
@@ -8167,46 +8209,26 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
 
   if (target->rank != 0)
     {
-      as = gfc_get_array_spec ();
-      as->rank = target->rank;
-      as->type = AS_DEFERRED;
-      as->corank = gfc_get_corank (target);
-      if (sym->ts.type != BT_CLASS)
+      gfc_array_spec *as;
+      if (sym->ts.type != BT_CLASS && !sym->as)
 	{
+	  as = gfc_get_array_spec ();
+	  as->rank = target->rank;
+	  as->type = AS_DEFERRED;
+	  as->corank = gfc_get_corank (target);
 	  sym->attr.dimension = 1;
 	  if (as->corank != 0)
 	    sym->attr.codimension = 1;
 	  sym->as = as;
 	}
-      else
-	{
-	  /* Changing the as in the classes symbol is hazardous, because
-	     that symbol is used for the target, too.
-	     TODO: Solve this (by adding a new symbol?).  */
-	  CLASS_DATA (sym)->attr.dimension = 1;
-	  if (as->corank != 0)
-	    CLASS_DATA (sym)->attr.codimension = 1;
-	  CLASS_DATA (sym)->as = as;
-	}
     }
   else
     {
+      /* target's rank is 0, but the type of the sym is still array valued,
+	 which has to be corrected.  */
       if (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->as)
 	{
-#if 0
-	  gfc_expr *e;
-	  int old_target_pointer = CLASS_DATA (target)->attr.pointer;
-	  e = gfc_get_expr();
-	  e->expr_type = EXPR_VARIABLE;
-	  e->ts = sym->ts;
-	  e->symtree = gfc_find_sym_in_symtree (sym);
-	  CLASS_DATA (target)->attr.pointer = 1;
-
-	  if (!gfc_check_pointer_assign (e, target))
-	    gcc_unreachable ();
-
-	  CLASS_DATA (target)->attr.pointer = old_target_pointer;
-#endif
+	  gfc_array_spec *as;
 	  symbol_attribute attr;
 	  /* The associated variable's type is still the array type
 	     correct this now.  */
@@ -8228,6 +8250,11 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
 		  break;
 		}
 	    }
+	  /* Create a scalar instance of the current class type.  Because the
+	     rank of a class array goes into its name, the type has to be
+	     rebuild.  The alternative of (re-)setting just the attributes
+	     and as in the current type, destroys the type also in other
+	     places.  */
 	  as = NULL;
 	  sym->ts = *ts;
 	  sym->ts.type = BT_CLASS;
@@ -8235,11 +8262,10 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
 	  attr.class_ok = 0;
 	  attr.associate_var = 1;
 	  attr.dimension = attr.codimension = 0;
-	  //attr.pointer = 1;
 	  attr.class_pointer = 1;
 	  if (!gfc_build_class_symbol (&sym->ts, &attr, &as))
 	    gcc_unreachable ();
-	  //target->ts.u.derived = sym->ts.u.derived;
+	  /* Make sure the _vptr is set.  */
 	  c = gfc_find_component (sym->ts.u.derived, "_vptr", true, true);
 	  if (c->ts.u.derived == NULL)
 	    c->ts.u.derived = gfc_find_derived_vtab (sym->ts.u.derived);
@@ -8254,15 +8280,6 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
 	  resolve_types (c->ts.u.derived->ns);
 	}
     }
-
-  /* The associate-name will have a correct type by now. Make absolutely
-     sure that it has not picked up a dimension attribute.  */
-//  if (sym->ts.type == BT_CLASS && !sym->attr.select_type_temporary
-//      && CLASS_DATA (sym)->as && CLASS_DATA (sym)->as->type == AS_EXPLICIT)
-//    {
-//      CLASS_DATA (sym)->attr.dimension = 0;
-//      CLASS_DATA (sym)->as = NULL;
-//    }
 
   /* Mark this as an associate variable.  */
   sym->attr.associate_var = 1;
