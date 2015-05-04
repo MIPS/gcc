@@ -484,23 +484,16 @@ find_end_label (rtx kind)
 	}
       else
 	{
-#ifdef HAVE_epilogue
-	  if (HAVE_epilogue
-#ifdef HAVE_return
-	      && ! HAVE_return
-#endif
-	      )
+	  if (HAVE_epilogue && ! HAVE_return)
 	    /* The RETURN insn has its delay slot filled so we cannot
 	       emit the label just before it.  Since we already have
 	       an epilogue and cannot emit a new RETURN, we cannot
 	       emit the label at all.  */
 	    return NULL;
-#endif /* HAVE_epilogue */
 
 	  /* Otherwise, make a new label and emit a RETURN and BARRIER,
 	     if needed.  */
 	  emit_label (label);
-#ifdef HAVE_return
 	  if (HAVE_return)
 	    {
 	      /* The return we make may have delay slots too.  */
@@ -511,7 +504,6 @@ find_end_label (rtx kind)
 	      if (num_delay_slots (insn) > 0)
 		obstack_ptr_grow (&unfilled_slots_obstack, insn);
 	    }
-#endif
 	}
       *plabel = label;
     }
@@ -543,7 +535,7 @@ emit_delay_sequence (rtx_insn *insn, rtx_insn_list *list, int length)
 
   /* Unlink INSN from the insn chain, so that we can put it into
      the SEQUENCE.   Remember where we want to emit SEQUENCE in AFTER.  */
-  rtx after = PREV_INSN (insn);
+  rtx_insn *after = PREV_INSN (insn);
   remove_insn (insn);
   SET_NEXT_INSN (insn) = SET_PREV_INSN (insn) = NULL;
 
@@ -1817,7 +1809,8 @@ reorg_redirect_jump (rtx_insn *jump, rtx nlabel)
 static void
 update_reg_dead_notes (rtx insn, rtx delayed_insn)
 {
-  rtx p, link, next;
+  rtx link, next;
+  rtx_insn *p;
 
   for (p = next_nonnote_insn (insn); p != delayed_insn;
        p = next_nonnote_insn (p))
@@ -1850,7 +1843,8 @@ update_reg_dead_notes (rtx insn, rtx delayed_insn)
 static void
 fix_reg_dead_note (rtx start_insn, rtx stop_insn)
 {
-  rtx p, link, next;
+  rtx link, next;
+  rtx_insn *p;
 
   for (p = next_nonnote_insn (start_insn); p != stop_insn;
        p = next_nonnote_insn (p))
@@ -2701,7 +2695,7 @@ fill_slots_from_thread (rtx_insn *insn, rtx condition, rtx thread_or_return,
 	  && REG_P (SET_DEST (pat))
 	  && !reg_overlap_mentioned_p (SET_DEST (pat), SET_SRC (pat)))
 	{
-	  rtx next = next_nonnote_insn (trial);
+	  rtx_insn *next = next_nonnote_insn (trial);
 
 	  if (next && NONJUMP_INSN_P (next)
 	      && GET_CODE (PATTERN (next)) != USE
@@ -3129,7 +3123,7 @@ delete_computation (rtx insn)
 
   if (HAVE_cc0 && reg_referenced_p (cc0_rtx, PATTERN (insn)))
     {
-      rtx prev = prev_nonnote_insn (insn);
+      rtx_insn *prev = prev_nonnote_insn (insn);
       /* We assume that at this stage
 	 CC's are always set explicitly
 	 and always immediately before the jump that
@@ -3825,12 +3819,8 @@ dbr_schedule (rtx_insn *first)
     delete_related_insns (function_simple_return_label);
 
   need_return_insns = false;
-#ifdef HAVE_return
   need_return_insns |= HAVE_return && function_return_label != 0;
-#endif
-#ifdef HAVE_simple_return
   need_return_insns |= HAVE_simple_return && function_simple_return_label != 0;
-#endif
   if (need_return_insns)
     make_return_insns (first);
 
