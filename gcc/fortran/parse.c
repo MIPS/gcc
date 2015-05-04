@@ -3979,9 +3979,10 @@ parse_associate (void)
 	 in case of association to a derived-type.  */
       sym->ts = a->target->ts;
 
-      /* Check if the target expression is array valued.  This can not be done
-	 by looking at target.rank, because that has not been set yet.
-	 Therefore traverse the chain of refs, looking for the */
+      /* Check if the target expression is array valued.  This can not always
+	 be done by looking at target.rank, because that might not have been
+	 set yet.  Therefore traverse the chain of refs, looking for the last
+	 array ref and evaluate that.  */
       array_ref = NULL;
       for (ref = a->target->ref; ref; ref = ref->next)
 	if (ref->type == REF_ARRAY)
@@ -3992,13 +3993,12 @@ parse_associate (void)
 	  int dim, rank = 0;
 	  if (array_ref)
 	    {
+	      /* Count the dimension, that have a non-scalar extend.  */
 	      for (dim = 0; dim < array_ref->dimen; ++dim)
 		if (array_ref->dimen_type[dim] != DIMEN_ELEMENT
 		    && !(array_ref->dimen_type[dim] == DIMEN_UNKNOWN
 			 && array_ref->end[dim] == NULL
-			 && array_ref->start[dim] != NULL/*
-			      && array_ref->start[dim]->expr_type != EXPR_OP
-			      && array_ref->start[dim]->value.op.op != IN*/))
+			 && array_ref->start[dim] != NULL))
 		  ++rank;
 	    }
 	  else
