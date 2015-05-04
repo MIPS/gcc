@@ -8,7 +8,7 @@
 ! segfault is working correctly.  No cleanup needed, because the dump
 ! goes to stdout.
 ! { dg-options "-fdump-fortran-original" }
-! { dg-prune-output "Namespace:.*" }
+! { dg-prune-output "Namespace:.*-{42}" }
 
 program upimp
   implicit class(foo) (a-b)
