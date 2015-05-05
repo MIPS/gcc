@@ -302,7 +302,7 @@ m32c*-*-*)
 aarch64*-*-*)
 	cpu_type=aarch64
 	extra_headers="arm_neon.h arm_acle.h"
-	extra_objs="aarch64-builtins.o aarch-common.o"
+	extra_objs="aarch64-builtins.o aarch-common.o cortex-a57-fma-steering.o"
 	target_gtfiles="\$(srcdir)/config/aarch64/aarch64-builtins.c"
 	target_has_targetm_common=yes
 	;;
@@ -605,8 +605,11 @@ case ${target} in
   *-*-darwin9*)
     tm_file="${tm_file} darwin9.h"
     ;;
-  *-*-darwin[12][0-9]*)
+  *-*-darwin[1][01]*)
     tm_file="${tm_file} darwin9.h darwin10.h"
+    ;;
+  *-*-darwin[1][2-9]* | *-*-darwin[2][0-9]*)
+    tm_file="${tm_file} darwin9.h darwin10.h darwin12.h"
     ;;
   esac
   tm_file="${tm_file} ${cpu_type}/darwin.h"
@@ -1217,6 +1220,10 @@ h8300-*-rtems*)
 h8300-*-elf*)
 	tmake_file="h8300/t-h8300"
 	tm_file="h8300/h8300.h dbxelf.h elfos.h newlib-stdint.h h8300/elf.h"
+	;;
+h8300-*-linux*)
+	tmake_file="${tmake_file} h8300/t-h8300 h8300/t-linux"
+	tm_file="h8300/h8300.h dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h h8300/linux.h"
 	;;
 hppa*64*-*-linux*)
 	target_cpu_default="MASK_PA_11|MASK_PA_20"

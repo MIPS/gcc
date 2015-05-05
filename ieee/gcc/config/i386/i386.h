@@ -2017,7 +2017,7 @@ do {							\
    Desirable on the 386 because a CALL with a constant address is
    faster than one with a register address.  */
 
-#define NO_FUNCTION_CSE
+#define NO_FUNCTION_CSE 1
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.
@@ -2562,6 +2562,8 @@ extern void debug_dispatch_window (int);
 
 /* For switching between functions with different target attributes.  */
 #define SWITCHABLE_TARGET 1
+
+#define TARGET_SUPPORTS_WIDE_INT 1
 
 /*
 Local variables:

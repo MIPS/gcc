@@ -3658,6 +3658,29 @@ AS_HELP_STRING([--disable-fix-cortex-a53-835769],
         esac
       ],
     [])
+    # Enable default workaround for AArch64 Cortex-A53 erratum 843419.
+    AC_ARG_ENABLE(fix-cortex-a53-843419,
+    [
+AS_HELP_STRING([--enable-fix-cortex-a53-843419],
+        [enable workaround for AArch64 Cortex-A53 erratum 843419 by default])
+AS_HELP_STRING([--disable-fix-cortex-a53-843419],
+        [disable workaround for AArch64 Cortex-A53 erratum 843419 by default])
+    ],
+      [
+        case $enableval in
+          yes)
+            tm_defines="${tm_defines} TARGET_FIX_ERR_A53_843419_DEFAULT=1"
+            ;;
+          no)
+            ;;
+          *)
+            AC_MSG_ERROR(['$enableval' is an invalid value for --enable-fix-cortex-a53-843419.\
+  Valid choices are 'yes' and 'no'.])
+            ;;
+
+        esac
+      ],
+    [])
     ;;
 
   # All TARGET_ABI_OSF targets.
@@ -5152,6 +5175,31 @@ EOF
     if test x"$gcc_cv_ld_large_toc" = xyes; then
       AC_DEFINE(HAVE_LD_LARGE_TOC, 1,
     [Define if your PowerPC64 linker supports a large TOC.])
+    fi
+
+    AC_CACHE_CHECK(linker toc pointer alignment,
+    gcc_cv_ld_toc_align,
+    [if test x$gcc_cv_as != x -a x$gcc_cv_ld != x -a x$gcc_cv_nm != x; then
+      cat > conftest.s <<EOF
+	.global _start
+	.text
+_start:
+	addis 9,2,x@got@ha
+	.section .data.rel.ro,"aw",@progbits
+	.p2align 16
+	.space 32768
+x:	.quad .TOC.
+EOF
+      if $gcc_cv_as -a64 -o conftest.o conftest.s > /dev/null 2>&1 \
+         && $gcc_cv_ld $emul_name -o conftest conftest.o > /dev/null 2>&1; then
+        gcc_cv_ld_toc_align=`$gcc_cv_nm conftest | ${AWK} '/\.TOC\./ { match ($0, "0[[[:xdigit:]]]*", a); print strtonum ("0x" substr(a[[0]], length(a[[0]])-3)) }'`
+      fi
+      rm -f conftest conftest.o conftest.s
+    fi
+    ])
+    if test -n "$gcc_cv_ld_toc_align" && test $gcc_cv_ld_toc_align -gt 8; then
+      AC_DEFINE_UNQUOTED(POWERPC64_TOC_POINTER_ALIGNMENT, $gcc_cv_ld_toc_align,
+    [Define to .TOC. alignment forced by your linker.])
     fi
     ;;
 esac
