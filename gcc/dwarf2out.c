@@ -18011,15 +18011,27 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
     {
       parm_die = lookup_decl_die (node);
 
-      /* If the contexts differ, it means we're not talking about the
-	 same thing.  Clear things so we can get a new DIE.  This can
-	 happen when creating an inlined instance, in which case we
-	 need to create a new DIE that will get annotated with
-	 DW_AT_abstract_origin.  */
+      /* If the contexts differ, we may not be talking about the same
+	 thing.  */
       if (parm_die && parm_die->die_parent != context_die)
 	{
-	  gcc_assert (!DECL_ABSTRACT_P (node));
-	  parm_die = NULL;
+	  if (!DECL_ABSTRACT_P (node))
+	    {
+	      /* This can happen when creating an inlined instance, in
+		 which case we need to create a new DIE that will get
+		 annotated with DW_AT_abstract_origin.  */
+	      parm_die = NULL;
+	    }
+	  else
+	    {
+	      /* Reuse DIE even with a differing context.
+
+		 This happens when called through
+		 dwarf2out_abstract_function for formal parameter
+		 packs.  */
+	      gcc_assert (parm_die->die_parent->die_tag
+			  == DW_TAG_GNU_formal_parameter_pack);
+	    }
 	}
 
       if (parm_die && parm_die->die_parent == NULL)
