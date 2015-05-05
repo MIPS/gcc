@@ -13424,9 +13424,9 @@ cp_parser_template_parameter_list (cp_parser* parser)
    introduced-parameter:
      ...[opt] identifier
 
-   Returns a TREE_VEC of INTRODUCED_PARM_DECLs.  If the parameter is a pack
-   then the introduced parm will have INTORDUCED_PACK_P set.  In addition, the
-   INTRODUCED_PARM_DECL will also have DECL_NAME set and token location in
+   Returns a TREE_VEC of WILDCARD_DECLs.  If the parameter is a pack
+   then the introduced parm will have WILDCARD_PACK_P set.  In addition, the
+   WILDCARD_DECL will also have DECL_NAME set and token location in
    DECL_SOURCE_LOCATION.  */
 
 static tree
@@ -13441,11 +13441,11 @@ cp_parser_introduction_list (cp_parser *parser)
 	cp_lexer_consume_token (parser->lexer);
 
       // Build placeholder.
-      tree parm = build_nt (INTRODUCED_PARM_DECL);
+      tree parm = build_nt (WILDCARD_DECL);
       DECL_SOURCE_LOCATION (parm)
 	= cp_lexer_peek_token (parser->lexer)->location;
       DECL_NAME (parm) = cp_parser_identifier (parser);
-      INTRODUCED_PACK_P (parm) = is_pack;
+      WILDCARD_PACK_P (parm) = is_pack;
       vec_safe_push (introduction_vec, parm);
 
       // If the next token is not a `,', we're done.
@@ -15703,56 +15703,61 @@ cp_parser_allows_constrained_type_specifier (cp_parser *parser)
 	      || parser->in_result_type_constraint_p));
 }
 
-// Check if DECL and ARGS can form a constrained-type-specifier. If ARGS
-// is non-null, we try to form a concept check of the form DECL<?, ARGS>
-// where ? is a placeholder for any kind of template argument. If ARGS
-// is NULL, then we try to form a concept check of the form DECL<?>.
+/*  Check if DECL and ARGS can form a constrained-type-specifier. 
+    If ARGS is non-null, we try to form a concept check of the 
+    form DECL<?, ARGS> where ? is a wildcard that matches any 
+    kind of template argument. If ARGS is NULL, then we try to 
+    form a concept check of the form DECL<?>. */
 static tree
 cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
 {
   gcc_assert (args ? TREE_CODE (args) == TREE_VEC : true);
 
-  // Don't do any heavy lifting if we know we're not in a context
-  // where it could succeed.
+  /* Don't do any heavy lifting if we know we're not in a 
+     context where it could succeed. */
   if (!cp_parser_allows_constrained_type_specifier (parser))
     return NULL_TREE;
 
-  // Try to build a call expression that evaluates the concept. This
-  // can fail if the overload set refers only to non-templates.
-  tree placeholder = build_nt (INTRODUCED_PARM_DECL);
-  tree call = build_concept_check (decl, placeholder, args);
-  if (call == error_mark_node)
+  /* Try to build a call expression that evaluates the 
+     concept. This can fail if the overload set refers 
+     only to non-templates. */
+  tree placeholder = build_nt (WILDCARD_DECL);
+  tree check = build_concept_check (decl, placeholder, args);
+  if (check == error_mark_node)
     return NULL_TREE;
 
-  // Deduce the checked constraint and the prototype parameter.
+  /* Deduce the checked constraint and the prototype parameter. */
   tree fn;
   tree proto;
-  if (!deduce_constrained_parameter (call, fn, proto))
+  if (!deduce_constrained_parameter (check, fn, proto))
     return NULL_TREE;
 
-  // In template parameter scope, this results in a constrained parameter.
-  // Return a descriptor of that parm.
+  /* In template parameter scope, this results in a constrained 
+     parameter. Return a descriptor of that parm. */
   if (processing_template_parmlist)
     return build_constrained_parameter (fn, proto, args);
 
-  // In any other context, a concept must be a type concept.
+  /* In any other context, a concept must be a type concept. */
   if (!cp_check_type_concept (fn, proto))
     return error_mark_node;
 
-  // In a parameter-declaration-clause, constrained-type specifiers
-  // result in invented template parameters.
+  /* In a parameter-declaration-clause, constrained-type
+     specifiers result in invented template parameters. 
+
+     TODO: Also support variable declarations. */
   if (parser->auto_is_implicit_function_template_parm_p)
     {
       tree x = build_constrained_parameter (fn, proto, args);
-      tree r = synthesize_implicit_template_parm (parser, x);
-      return r;
+      return synthesize_implicit_template_parm (parser, x);
     }
 
-  // A concept-name appearing in a result-type constraint is a
-  // constrained auto. Meaning that type deduction will be applied
-  // and the constraint checked.
-  //
-  // TODO: Actually bind the constraint to the auto.
+  /* A concept-name appearing in a result-type constraint is a
+     constrained auto, meaning that type deduction will be applied
+     and the constraint checked.
+
+     NOTE: This is an extensions of the the Concepts TS.
+  
+     TODO: Actually bind the constraint to the auto.  */
   if (parser->in_result_type_constraint_p)
     return make_auto();
 
@@ -34640,10 +34645,14 @@ get_concept_from_constraint (tree t)
 {
   gcc_assert (TREE_CODE (t) == PRED_CONSTR);
   t = PRED_CONSTR_EXPR (t);
-  gcc_assert (TREE_CODE (t) == CALL_EXPR || TREE_CODE (t) == TEMPLATE_ID_EXPR);
+  gcc_assert (TREE_CODE (t) == CALL_EXPR 
+              || TREE_CODE (t) == TEMPLATE_ID_EXPR
+              || VAR_P (t));
 
   if (TREE_CODE (t) == TEMPLATE_ID_EXPR)
     return DECL_TEMPLATE_RESULT (TREE_OPERAND (t, 0));
+  if (VAR_P (t))
+    return DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (t));
   else
     {
       tree fn = CALL_EXPR_FN (t);
@@ -34662,9 +34671,11 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
 {
   gcc_assert (current_binding_level->kind == sk_function_parms);
 
-  // Before committing to modifying any scope, if we're in an implicit
-  // template scope, and we're trying to synthesize a constrained
-  // parameter, try to find a previous parameter with the same name.
+   /* Before committing to modifying any scope, if we're in an 
+      implicit template scope, and we're trying to synthesize a 
+      constrained parameter, try to find a previous parameter with 
+      the same name.  This is the same-type rule for abbreviated
+      function templates.  */
   if (parser->implicit_template_scope && constr)
     {
       tree t = parser->implicit_template_parms;

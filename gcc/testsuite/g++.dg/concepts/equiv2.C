@@ -1,15 +1,16 @@
 // { dg-do run }
 // { dg-options "-std=c++1z" }
 
+
+// template<typename T>
+// concept bool C() { return true; }
+
+
 template<typename T>
-  concept bool C = true;
+concept bool C = true;
 
 void f1(C, C);
 void f2(C, C);
-
-// FIXME: This is not matching its definition, but the others
-// are. There must be a difference in the way we are synthesizing
-// associated constraints when we use shorthand.
 void f3(C, C);
 
 int main() {
@@ -21,8 +22,9 @@ int main() {
 void f1(C, C) { }
 
 template<C T> 
-  void f2(T, T) { }
+void f2(T, T) { }
 
-template<typename T>
-  requires C<T>
-    void f3(T, T);
+template<typename T> 
+  requires C<T> 
+void f3(T, T) { }
+

@@ -991,14 +991,29 @@ build_constraints (tree tmpl_reqs, tree decl_reqs)
   ++processing_template_decl;
   ci->normalized_constr = normalize_constraint (ci->associated_constr);
   --processing_template_decl;
-  
+
   ci->assumptions = decompose_assumptions (ci->normalized_constr);
   return (tree)ci;
 }
 
 namespace {
-// Build a new call expression, but don't actually generate a new
-// function call. We just want the tree, not the semantics.
+
+/* Returns true if any of the arguments in the template
+   argument list is a wildcard or wildcard pack. */
+bool
+contains_wildcard_p (tree args)
+{
+  for (int i = 0; i < TREE_VEC_LENGTH (args); ++i) {
+    tree arg = TREE_VEC_ELT (args, i);
+    if (TREE_CODE (arg) == WILDCARD_DECL)
+      return true;
+  }
+  return false;
+}
+
+/* Build a new call expression, but don't actually generate 
+   a new function call. We just want the tree, not the 
+   semantics. */
 inline tree
 build_call_check (tree id)
 {
@@ -1008,53 +1023,90 @@ build_call_check (tree id)
   --processing_template_decl;
   return call;
 }
-} // namespace
 
-// Construct a concept check for the given TARGET. The target may be
-// an overload set or a baselink referring to an overload set. Template
-// arguments to the target are given by ARG and REST. If the target is
-// a function (overload set or baselink referring to an overload set),
-// then this builds the call expression  TARGET<ARG, REST>(). If REST is
-// NULL_TREE, then the resulting check is just TARGET<ARG>(). If ARG is
-// NULL_TREE, then the resulting check is TARGET<REST>().
+/* Build an expression that will check a variable concept. If any 
+   argument contains a wildcard, don't try to finish the variable 
+   template because we can't substitute into a non-existent 
+   declaration.  */
 tree
-build_concept_check (tree target, tree arg, tree rest)
+build_variable_check (tree id)
+{
+  gcc_assert (TREE_CODE (id) == TEMPLATE_ID_EXPR);
+  if (contains_wildcard_p (TREE_OPERAND (id, 1)))
+    return id;
+
+  ++processing_template_decl;
+  tree var = finish_template_variable (id);
+  --processing_template_decl;
+  return var;
+}
+
+/* Construct a sequence of template arguments by prepending
+   ARG to REST. Either ARG or REST may be null. */
+tree
+build_concept_check_arguments (tree arg, tree rest)
 {
   gcc_assert (rest ? TREE_CODE (rest) == TREE_VEC : true);
-
-  // Build a template-id that acts as the call target using TARGET as
-  // the template and ARG as the only explicit argument.
   int n = rest ? TREE_VEC_LENGTH (rest) : 0;
-  tree targs;
+  tree args;
   if (arg)
     {
-      targs = make_tree_vec (n + 1);
-      TREE_VEC_ELT (targs, 0) = arg;
+      args = make_tree_vec (n + 1);
+      TREE_VEC_ELT (args, 0) = arg;
       if (rest)
         for (int i = 0; i < n; ++i)
-          TREE_VEC_ELT (targs, i + 1) = TREE_VEC_ELT (rest, i);
-      SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs, n + 1);
+          TREE_VEC_ELT (args, i + 1) = TREE_VEC_ELT (rest, i);
+      SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (args, n + 1);
     }
   else
     {
       gcc_assert (rest != NULL_TREE);
-      targs = rest;
+      args = rest;
     }
-
-  if (variable_template_p (target))
-    return lookup_template_variable (target, targs);
-  else
-    return build_call_check (lookup_template_function (target, targs));
+  return args;
 }
 
-// Returns a TYPE_DECL that contains sufficient information to build
-// a template parameter of the same kind as PROTO and constrained
-// by the concept declaration FN. PROTO is saved as the initializer of
-// the new type decl, and the constraining function is saved in
-// DECL_SIZE_UNIT.
-//
-// If specified, ARGS provides additional arguments to the constraint
-// check. These are stored in the DECL_SIZE field.
+/* Construct a template-id that will resolve to a concept
+   check at some point in the future.  This is used to
+   represent concept checks nested in a pack expansion.  */
+tree
+build_template_id_check (tree target, tree arg, tree rest)
+{
+  tree args = build_concept_check_arguments (arg, rest);
+  if (variable_template_p (target)) 
+    return lookup_template_variable (target, args);
+  else
+    return build_call_check (lookup_template_function (target, args));
+}
+
+} // namespace
+
+/* Construct a concept check for the given TARGET.  The target 
+   may be an overload set or a baselink referring to an overload 
+   set.  Template arguments to the target are given by ARG and 
+   REST.  If the target is a function (overload set or baselink 
+   referring to an overload set), then this builds the call 
+   expression  TARGET<ARG, REST>().  If REST is NULL_TREE, then 
+   the resulting check is just TARGET<ARG>().  If ARG is NULL_TREE, 
+   then the resulting check is TARGET<REST>().  */
+tree
+build_concept_check (tree target, tree arg, tree rest)
+{
+  tree args = build_concept_check_arguments (arg, rest);
+  if (variable_template_p (target)) 
+    return build_variable_check (lookup_template_variable (target, args));
+  else
+    return build_call_check (lookup_template_function (target, args));
+}
+
+/* Returns a TYPE_DECL that contains sufficient information to 
+   build a template parameter of the same kind as PROTO and 
+   constrained by the concept declaration FN. PROTO is saved as 
+   the initializer of the new type decl, and the constraining 
+   function is saved in DECL_SIZE_UNIT.
+
+   If specified, ARGS provides additional arguments to the 
+   constraint check. These are stored in the DECL_SIZE field. */
 tree
 build_constrained_parameter (tree fn, tree proto, tree args)
 {
@@ -1079,51 +1131,51 @@ build_constrained_parameter (tree fn, tree proto, tree args)
 tree
 finish_shorthand_constraint (tree decl, tree constr)
 {
-  // No requirements means no constraints.
+  /* No requirements means no constraints.  */
   if (!constr)
     return NULL_TREE;
 
-  tree proto = DECL_INITIAL (constr); // The prototype declaration
-  tree con = DECL_SIZE_UNIT (constr); // The concept declaration
-  tree args = DECL_SIZE (constr);     // Extra template arguments
+  tree proto = DECL_INITIAL (constr); /* The prototype declaration  */
+  tree con = DECL_SIZE_UNIT (constr); /* The concept declaration  */
+  tree args = DECL_SIZE (constr);     /* Extra template arguments  */
 
-  // If the parameter declaration is variadic, but the concept is not
-  // then we need to apply the concept to every element in the pack.
+/* If the parameter declaration is variadic, but the concept 
+   is not then we need to apply the concept to every element 
+   in the pack.  */
   bool is_proto_pack = template_parameter_pack_p (proto);
   bool is_decl_pack = template_parameter_pack_p (decl);
   bool apply_to_all_p = is_decl_pack && !is_proto_pack;
 
-  // Get the argument and overload used for the requirement. Adjust
-  // if we're going to expand later.
+  /* Get the argument and overload used for the requirement
+     and adjust it if we're going to expand later.  */
   tree arg = template_parm_to_arg (build_tree_list (NULL_TREE, decl));
   if (apply_to_all_p)
     arg = PACK_EXPANSION_PATTERN (TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0));
 
-  // Build the concept check. If it the constraint needs to be applied
-  // to all elements of the parameter pack, then make the constraint
-  // an expansion.
+  /* Build the concept check. If it the constraint needs to be 
+     applied to all elements of the parameter pack, then make 
+     the constraint an expansion. */
   tree check;
+  tree tmpl = DECL_TI_TEMPLATE (con);
   if (TREE_CODE (con) == VAR_DECL)
     {
-      check = build_concept_check (DECL_TI_TEMPLATE (con), arg, args);
+      if (!apply_to_all_p)
+        check = build_concept_check (tmpl, arg, args);
+      else
+        check = build_template_id_check (tmpl, arg, args);
     }
   else
     {
-      tree ovl = build_overload (DECL_TI_TEMPLATE (con), NULL_TREE);
+      tree ovl = build_overload (tmpl, NULL_TREE);
       check = build_concept_check (ovl, arg, args);
     }
+  
+  /* Make the check a pack expansion if needed.
+  
+     FIXME: We should be making a fold expression. */
   if (apply_to_all_p)
     {
       check = make_pack_expansion (check);
-
-      // Set the type to indicate that this expansion will get special
-      // treatment during instantiation.
-      //
-      // TODO: Maybe this should be a different kind of node... one that
-      // has all the same properties as a pack expansion, but has a definite
-      // expansion when instantiated as part of an expression.
-      //
-      // As of now, this is a hack.
       TREE_TYPE (check) = boolean_type_node;
     }
 
@@ -1159,17 +1211,18 @@ process_introduction_parm (tree parameter_list, tree src_parm)
   if (is_parameter_pack)
     src_parm = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (src_parm), 0);
 
-  // At this point we should have a INTRODUCED_PARM_DECL, but we want to grab
-  // the associated decl from it.  Also grab the stored identifier and location
-  // that should be chained to it in a PARM_DECL.
-  gcc_assert (TREE_CODE (src_parm) == INTRODUCED_PARM_DECL);
+  // At this point we should have a wildcard, but we want to 
+  // grab the associated decl from it.  Also grab the stored 
+  // identifier and location that should be chained to it in 
+  // a PARM_DECL.
+  gcc_assert (TREE_CODE (src_parm) == WILDCARD_DECL);
 
   tree ident = DECL_NAME (src_parm);
   location_t parm_loc = DECL_SOURCE_LOCATION (src_parm);
 
   // If we expect a pack and the deduced template is not a pack, or if the
   // template is using a pack and we didn't declare a pack, throw an error.
-  if (is_parameter_pack != INTRODUCED_PACK_P (src_parm))
+  if (is_parameter_pack != WILDCARD_PACK_P (src_parm))
     {
       error_at (parm_loc, "cannot match pack for introduced parameter");
       tree err_parm = build_tree_list (error_mark_node, error_mark_node);
@@ -1210,17 +1263,16 @@ process_introduction_parm (tree parameter_list, tree src_parm)
 }
 
 /* Associates a constraint check to the current template based 
-   on the introduction parameters.  INTRO_LIST should be a TREE_VEC 
-   of INTRODUCED_PARM_DECLs containing a chained PARM_DECL which 
+   on the introduction parameters.  INTRO_LIST must be a TREE_VEC 
+   of WILDCARD_DECLs containing a chained PARM_DECL which 
    contains the identifier as well as the source location.  
-   TMPL_DECL is the decl for the concept being used.  If we take 
-   some concept, C, this will form a check in the form of 
+   TMPL_DECL is the decl for the concept being used.  If we 
+   take a concept, C, this will form a check in the form of
    C<INTRO_LIST> filling in any extra arguments needed by the
    defaults deduced.
 
    Returns NULL_TREE if no concept could be matched and 
-   error_mark_node if an error occurred when matching.
-*/
+   error_mark_node if an error occurred when matching.  */
 tree
 finish_template_introduction (tree tmpl_decl, tree intro_list)
 {

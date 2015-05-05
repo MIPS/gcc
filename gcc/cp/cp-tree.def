@@ -480,9 +480,11 @@ DEFTREECODE (TEMPLATE_INFO, "template_info", tcc_exceptional, 0)
 /* Used to represent information associated with constrained declarations. */
 DEFTREECODE (CONSTRAINT_INFO, "constraint_info", tcc_exceptional, 0)
 
-/* Alternative PLACEHOLDER_EXPR which is used for concept introductions.  This
-   is a temporary type which is used to produce normal template parameters.  */
-DEFTREECODE (INTRODUCED_PARM_DECL, "introduced_parm_decl", tcc_declaration, 0)
+/* A wildcard declaration is a placeholder for a template parameter
+   used to resolve constrained-type-names in concepts.  During
+   resolution, the matching argument is saved as the TREE_TYPE
+   of the wildcard.  */
+DEFTREECODE (WILDCARD_DECL, "wildcard_decl", tcc_declaration, 0)
 
 /* A requires-expr is a binary expression. The first operand is 
    its parameter list (possibly NULL). The second is a list of 

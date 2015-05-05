@@ -1,5 +1,34 @@
 2015-05-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Fixing errors in the invention of constrained placeholders
+	and bringing the implementation more into line with the
+	wording of the TS. Also, rewrite comments in C style.
+	* gcc/cp/cp-tree.def (INTRODUCED_PARM_DECL): Renamed to
+	WILDCARD_DECL.
+	* gcc/cp/cp-tree.h (INTRODUCED_PACK_P): Renamed to
+	WILDCARD_PACK_P.
+	(IS_INTRODUCED_PACK): Removed.
+	* cp-objcp-common.c (cp_common_init_ts): Use WILDCARD_DECL.
+	* gcc/cp/pt.c (convert_placeholder_argument): Renamed to
+	convert_wildcard_argument.
+	(coerce_template_parameter_pack): Update for removed macro.
+	gcc/cp/parser.c (cp_parser_introduction_list): Use WILDCARD_DECL.
+	(cp_maybe_constrained_type_specifier): Likewise.
+	(get_concept_from_constraint): Handle VAR_DECLs.
+	gcc/cp/constraint.cc (contains_wildcard_p): New.
+	(build_variable_check): New. Finish processing references to
+	variable templates if the template-id doesn't have wildcards.
+	(build_concept_check_arguments): New. Factor argument construction
+	into a separate function.
+	(build_template_id_check): New. Like build_concept_check, but
+	guarantees preservation of template-ids.
+	(build_concept_check): Use build_variable_check. Refacor to
+	use build_concept_check_arguments.
+	(process_introduction_parm): Use WILDCARD_DECL.
+	* gcc/testsuite/g++.dg/concepts/equiv2.C: Update test.
+
+2015-05-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	PR65854
 	* gcc/cp/parser.c (cp_parser_type_requirement): Unwrap alias 
 	declarations so they can be checked correctly.

@@ -94,7 +94,7 @@ c-common.h, not after.
       TINFO_HAS_ACCESS_ERRORS (in TEMPLATE_INFO)
       SIZEOF_EXPR_TYPE_P (in SIZEOF_EXPR)
       COMPOUND_REQ_NOEXCEPT_P (in COMPOUND_REQ)
-      INTRODUCED_PACK_P (in INTRODUCED_PARM_DECL)
+      WILDCARD_PACK_P (in WILDCARD_DECL)
       BLOCK_OUTER_CURLY_BRACE_P (in BLOCK)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
@@ -3165,13 +3165,8 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 /* True iff this pack expansion is within a function context.  */
 #define PACK_EXPANSION_LOCAL_P(NODE) TREE_LANG_FLAG_0 (NODE)
 
-/* True iff the introudced parm matches a template parameter pack.  */
-#define INTRODUCED_PACK_P(NODE) TREE_LANG_FLAG_0 (NODE)
-
-/* True iff this is a introduction representing a pack in an introduction
-   list.  */
-#define IS_INTRODUCED_PACK(NODE)					\
-  (TREE_CODE (NODE) == INTRODUCED_PARM_DECL && INTRODUCED_PACK_P (NODE))
+/* True iff the wildcard can match a template parameter pack.  */
+#define WILDCARD_PACK_P(NODE) TREE_LANG_FLAG_0 (NODE)
 
 /* Determine if this is an argument pack.  */
 #define ARGUMENT_PACK_P(NODE)                          \
