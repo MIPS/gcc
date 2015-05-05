@@ -109,12 +109,10 @@ extern int validate_replace_rtx (rtx, rtx, rtx);
 extern int validate_replace_rtx_part (rtx, rtx, rtx *, rtx);
 extern int validate_replace_rtx_part_nosimplify (rtx, rtx, rtx *, rtx);
 extern void validate_replace_rtx_group (rtx, rtx, rtx);
-extern void validate_replace_src_group (rtx, rtx, rtx);
+extern void validate_replace_src_group (rtx, rtx, rtx_insn *);
 extern bool validate_simplify_insn (rtx insn);
 extern int num_changes_pending (void);
-#ifdef HAVE_cc0
 extern int next_insn_tests_no_inequality (rtx);
-#endif
 extern bool reg_fits_class_p (const_rtx, reg_class_t, int, machine_mode);
 
 extern int offsettable_memref_p (rtx);
@@ -251,7 +249,7 @@ struct recog_data_d
   bool is_asm;
 
   /* In case we are caching, hold insn data was generated for.  */
-  rtx insn;
+  rtx_insn *insn;
 };
 
 extern struct recog_data_d recog_data;

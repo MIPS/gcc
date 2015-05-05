@@ -5340,17 +5340,17 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
       if (e && (e->ts.type == BT_DERIVED || e->ts.type == BT_CLASS)
 	    && e->ts.u.derived->attr.alloc_comp
 	    && !(e->symtree && e->symtree->n.sym->attr.pointer)
-	    && (e->expr_type != EXPR_VARIABLE && !e->rank))
+	    && e->expr_type != EXPR_VARIABLE && !e->rank)
         {
 	  int parm_rank;
 	  /* It is known the e returns a structure type with at least one
 	     allocatable component.  When e is a function, ensure that the
 	     function is called once only by using a temporary variable.  */
-	  if (e->expr_type == EXPR_FUNCTION)
+	  if (!DECL_P (parmse.expr))
 	    parmse.expr = gfc_evaluate_now_loc (input_location,
 						parmse.expr, &se->pre);
 
-	  if (fsym->attr.value)
+	  if (fsym && fsym->attr.value)
 	    tmp = parmse.expr;
 	  else
 	    tmp = build_fold_indirect_ref_loc (input_location,

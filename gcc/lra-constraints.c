@@ -3354,12 +3354,10 @@ curr_insn_transform (bool check_only_p)
   if (JUMP_P (curr_insn) || CALL_P (curr_insn))
     no_output_reloads_p = true;
 
-#ifdef HAVE_cc0
-  if (reg_referenced_p (cc0_rtx, PATTERN (curr_insn)))
+  if (HAVE_cc0 && reg_referenced_p (cc0_rtx, PATTERN (curr_insn)))
     no_input_reloads_p = true;
-  if (reg_set_p (cc0_rtx, PATTERN (curr_insn)))
+  if (HAVE_cc0 && reg_set_p (cc0_rtx, PATTERN (curr_insn)))
     no_output_reloads_p = true;
-#endif
 
   n_operands = curr_static_id->n_operands;
   n_alternatives = curr_static_id->n_alternatives;
@@ -4143,7 +4141,7 @@ contains_deleted_insn_p (rtx_insn_list *list)
 
 /* Return true if X contains a pseudo dying in INSN.  */
 static bool
-dead_pseudo_p (rtx x, rtx insn)
+dead_pseudo_p (rtx x, rtx_insn *insn)
 {
   int i, j;
   const char *fmt;
@@ -4546,7 +4544,7 @@ setup_next_usage_insn (int regno, rtx insn, int reloads_num, bool after_p)
    optional debug insns finished by a non-debug insn using REGNO.
    RELOADS_NUM is current number of reload insns processed so far.  */
 static void
-add_next_usage_insn (int regno, rtx insn, int reloads_num)
+add_next_usage_insn (int regno, rtx_insn *insn, int reloads_num)
 {
   rtx next_usage_insns;
 
@@ -5569,7 +5567,7 @@ inherit_in_ebb (rtx_insn *head, rtx_insn *tail)
 			   || reg_renumber[src_regno] >= 0)
 		    {
 		      bool before_p;
-		      rtx use_insn = curr_insn;
+		      rtx_insn *use_insn = curr_insn;
 
 		      before_p = (JUMP_P (curr_insn)
 				  || (CALL_P (curr_insn) && reg->type == OP_IN));

@@ -3262,7 +3262,7 @@ rl78_alloc_physical_registers_cmp (rtx_insn * insn)
 {
   int tmp_id;
   rtx saved_op1;
-  rtx prev = prev_nonnote_nondebug_insn (insn);
+  rtx_insn *prev = prev_nonnote_nondebug_insn (insn);
   rtx first;
 
   OP (1) = transcode_memory_rtx (OP (1), DE, insn);
@@ -3353,7 +3353,7 @@ rl78_alloc_physical_registers_cmp (rtx_insn * insn)
 static void
 rl78_alloc_physical_registers_umul (rtx_insn * insn)
 {
-  rtx prev = prev_nonnote_nondebug_insn (insn);
+  rtx_insn *prev = prev_nonnote_nondebug_insn (insn);
   rtx first;
   int tmp_id;
   rtx saved_op1;
@@ -4646,7 +4646,7 @@ rl78_flags_already_set (rtx op, rtx operand)
 #define TARGET_PREFERRED_RELOAD_CLASS rl78_preferred_reload_class
 
 static reg_class_t
-rl78_preferred_reload_class (rtx x, reg_class_t rclass)
+rl78_preferred_reload_class (rtx x ATTRIBUTE_UNUSED, reg_class_t rclass)
 {
   if (rclass == NO_REGS)
     rclass = V_REGS;

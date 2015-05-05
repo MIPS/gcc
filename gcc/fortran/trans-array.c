@@ -4998,7 +4998,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
   tree var;
   stmtblock_t thenblock;
   stmtblock_t elseblock;
-  gfc_expr *ubound;
+  gfc_expr *ubound = NULL;
   gfc_se se;
   int n;
 
@@ -5013,6 +5013,11 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 
   or_expr = boolean_false_node;
 
+  /* When expr3_desc is set, use its rank, because we want to allocate an
+     array with the array_spec coming from source=.  */
+  if (expr3_desc != NULL_TREE)
+    rank = GFC_TYPE_ARRAY_RANK (TREE_TYPE (expr3_desc));
+
   for (n = 0; n < rank; n++)
     {
       tree conv_lbound;
@@ -5022,7 +5027,6 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 	 lower == NULL    => lbound = 1, ubound = upper[n]
 	 upper[n] = NULL  => lbound = 1, ubound = lower[n]
 	 upper[n] != NULL => lbound = lower[n], ubound = upper[n]  */
-      ubound = upper[n];
 
       /* Set lower bound.  */
       gfc_init_se (&se, NULL);
@@ -5030,6 +5034,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 	se.expr = gfc_conv_descriptor_lbound_get (expr3_desc, gfc_rank_cst[n]);
       else
 	{
+	  ubound = upper[n];
 	  if (lower == NULL)
 	    se.expr = gfc_index_one_node;
 	  else
@@ -5356,7 +5361,8 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   overflow = integer_zero_node;
 
   gfc_init_block (&set_descriptor_block);
-  size = gfc_array_init_size (se->expr, ref->u.ar.as->rank,
+  size = gfc_array_init_size (se->expr, alloc_w_e3_arr_spec ? expr->rank
+							   : ref->u.ar.as->rank,
 			      ref->u.ar.as->corank, &offset, lower, upper,
 			      &se->pre, &set_descriptor_block, &overflow,
 			      expr3_elem_size, nelems, expr3, e3_arr_desc);
