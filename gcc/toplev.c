@@ -624,9 +624,6 @@ compile_file (void)
     debug_hooks->late_global_decl (node->decl);
   timevar_stop (TV_PHASE_DBGINFO);
 
-  if (!in_lto_p && flag_dump_early_debug_stats)
-    dwarf2out_dump_early_debug_stats ();
-
   timevar_start (TV_PHASE_LATE_ASM);
 
   /* Compilation unit is finalized.  When producing non-fat LTO object, we are

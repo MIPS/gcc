@@ -1178,10 +1178,6 @@ fdump-unnumbered-links
 Common Report Var(flag_dump_unnumbered_links)
 Suppress output of previous and next insn numbers in debugging dumps
 
-fdump-early-debug-stats
-Common Report Var(flag_dump_early_debug_stats)
-Dump all dwarf DIEs, specifying if they were generated during the early debug stage
-
 fdwarf2-cfi-asm
 Common Report Var(flag_dwarf2_cfi_asm) Init(HAVE_GAS_CFI_DIRECTIVE)
 Enable CFI tables via GAS assembler directives.

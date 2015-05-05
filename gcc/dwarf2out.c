@@ -2628,10 +2628,6 @@ typedef struct GTY((chain_circular ("%h.die_sib"), for_user)) die_struct {
   int die_mark;
   unsigned int decl_id;
   enum dwarf_tag die_tag;
-  /* FIXME debug-early: No one should depend on this, as it is a
-     temporary debugging aid to indicate the DECL for which this DIE
-     was created for.  Remove this at merge time!!  */
-  tree tmp_created_for;
   /* Die is used and must not be pruned as unused.  */
   BOOL_BITFIELD die_perennial_p : 1;
   BOOL_BITFIELD comdat_type_p : 1; /* DIE has a type signature */
@@ -4935,7 +4931,6 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
   dw_die_ref die = ggc_cleared_alloc<die_node> ();
 
   die->die_tag = tag_value;
-  die->tmp_created_for = t;
 
   if (early_dwarf_dumping)
     die->dumped_early = true;
@@ -5633,13 +5628,6 @@ print_die (dw_die_ref die, FILE *outfile)
 	fprintf (outfile, ": %s", name);
       fputc (')', outfile);
     }
-  if (die->tmp_created_for
-      && DECL_P (die->tmp_created_for)
-      && CODE_CONTAINS_STRUCT
-           (TREE_CODE (die->tmp_created_for), TS_DECL_WITH_VIS)
-      && DECL_ASSEMBLER_NAME_SET_P (die->tmp_created_for))
-    fprintf (outfile, "(mangle: %s)",
-	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (die->tmp_created_for)));
   fputc ('\n', outfile);
   print_spaces (outfile);
   fprintf (outfile, "  abbrev id: %lu", die->die_abbrev);
@@ -25168,8 +25156,6 @@ dwarf2out_finish (const char *filename)
 
   if (flag_eliminate_unused_debug_types)
     prune_unused_types ();
-
-  /* FIXME debug-early: Prune DIEs for unused decls.  */
 
   /* Generate separate COMDAT sections for type DIEs. */
   if (use_debug_types)

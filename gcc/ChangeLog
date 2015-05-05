@@ -1,16 +1,3 @@
-2014-12-11  Aldy Hernandez  <aldyh@redhat.com>
-
-	* dwarf2out.c (gen_lexical_block_die): Remove unused `depth'
-	parameter.
-	(gen_inlined_subroutine_die): Same.
-	(gen_block_die): Same.
-	(decls_for_scope): Same.
-
-2014-10-24  Aldy Hernandez  <aldyh@redhat.com>
-
-	* dwarf2out.c (declare_in_namespace): Only emit external
-	declarations in the local scope once.
-
 2015-05-02  Jan Hubicka  <hubicka@ucw.cz>
 
 	* tree.c (verify_type): Check various uses of TYPE_MAXVAL;
