@@ -177,6 +177,8 @@ struct tune_params
   const int int_reassoc_width;
   const int fp_reassoc_width;
   const int vec_reassoc_width;
+  const int min_div_recip_mul_sf;
+  const int min_div_recip_mul_df;
 };
 
 HOST_WIDE_INT aarch64_initial_elimination_offset (unsigned, unsigned);
@@ -263,12 +265,6 @@ void aarch64_emit_call_insn (rtx);
 void init_aarch64_simd_builtins (void);
 
 void aarch64_simd_emit_reg_reg_move (rtx *, enum machine_mode, unsigned int);
-
-/* Emit code to place a AdvSIMD pair result in memory locations (with equal
-   registers).  */
-void aarch64_simd_emit_pair_result_insn (machine_mode,
-					 rtx (*intfn) (rtx, rtx, rtx), rtx,
-					 rtx);
 
 /* Expand builtins for SIMD intrinsics.  */
 rtx aarch64_simd_expand_builtin (int, tree, rtx);

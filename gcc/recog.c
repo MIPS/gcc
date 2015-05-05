@@ -905,7 +905,7 @@ struct validate_replace_src_data
 {
   rtx from;			/* Old RTX */
   rtx to;			/* New RTX */
-  rtx insn;			/* Insn in which substitution is occurring.  */
+  rtx_insn *insn;			/* Insn in which substitution is occurring.  */
 };
 
 static void
@@ -921,7 +921,7 @@ validate_replace_src_1 (rtx *x, void *data)
    SET_DESTs.  */
 
 void
-validate_replace_src_group (rtx from, rtx to, rtx insn)
+validate_replace_src_group (rtx from, rtx to, rtx_insn *insn)
 {
   struct validate_replace_src_data d;
 
@@ -971,7 +971,6 @@ validate_simplify_insn (rtx insn)
   return ((num_changes_pending () > 0) && (apply_change_group () > 0));
 }
 
-#ifdef HAVE_cc0
 /* Return 1 if the insn using CC0 set by INSN does not contain
    any ordered tests applied to the condition codes.
    EQ and NE tests do not count.  */
@@ -979,7 +978,7 @@ validate_simplify_insn (rtx insn)
 int
 next_insn_tests_no_inequality (rtx insn)
 {
-  rtx next = next_cc0_user (insn);
+  rtx_insn *next = next_cc0_user (insn);
 
   /* If there is no next insn, we have to take the conservative choice.  */
   if (next == 0)
@@ -988,7 +987,6 @@ next_insn_tests_no_inequality (rtx insn)
   return (INSN_P (next)
 	  && ! inequality_comparisons_p (PATTERN (next)));
 }
-#endif
 
 /* Return 1 if OP is a valid general operand for machine mode MODE.
    This is either a register reference, a memory reference,
@@ -2126,7 +2124,7 @@ get_bool_attr_mask_uncached (rtx_insn *insn, bool_attr attr)
      that the insn operands are already cached.  As above, the attribute
      mustn't depend on the values of operands, so we don't provide their
      real values here.  */
-  rtx old_insn = recog_data.insn;
+  rtx_insn *old_insn = recog_data.insn;
   int old_alternative = which_alternative;
 
   recog_data.insn = insn;

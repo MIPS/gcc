@@ -573,7 +573,8 @@ compute_can_copy (void)
 {
   int i;
 #ifndef AVOID_CCMODE_COPIES
-  rtx reg, insn;
+  rtx reg;
+ rtx_insn *insn;
 #endif
   memset (can_copy, 0, NUM_MACHINE_MODES);
 
@@ -2048,21 +2049,23 @@ insert_insn_end_basic_block (struct gcse_expr *expr, basic_block bb)
 	  && (!single_succ_p (bb)
 	      || single_succ_edge (bb)->flags & EDGE_ABNORMAL)))
     {
-#ifdef HAVE_cc0
       /* FIXME: 'twould be nice to call prev_cc0_setter here but it aborts
 	 if cc0 isn't set.  */
-      rtx note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
-      if (note)
-	insn = safe_as_a <rtx_insn *> (XEXP (note, 0));
-      else
+      if (HAVE_cc0)
 	{
-	  rtx_insn *maybe_cc0_setter = prev_nonnote_insn (insn);
-	  if (maybe_cc0_setter
-	      && INSN_P (maybe_cc0_setter)
-	      && sets_cc0_p (PATTERN (maybe_cc0_setter)))
-	    insn = maybe_cc0_setter;
+	  rtx note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
+	  if (note)
+	    insn = safe_as_a <rtx_insn *> (XEXP (note, 0));
+	  else
+	    {
+	      rtx_insn *maybe_cc0_setter = prev_nonnote_insn (insn);
+	      if (maybe_cc0_setter
+		  && INSN_P (maybe_cc0_setter)
+		  && sets_cc0_p (PATTERN (maybe_cc0_setter)))
+		insn = maybe_cc0_setter;
+	    }
 	}
-#endif
+
       /* FIXME: What if something in cc0/jump uses value set in new insn?  */
       new_insn = emit_insn_before_noloc (pat, insn, bb);
     }

@@ -19,6 +19,14 @@ program test_pr58586
      integer, allocatable :: a
   end type
 
+  type :: t
+    integer, allocatable :: comp
+  end type
+  type :: u
+    type(t), allocatable :: comp
+  end type
+
+
   ! These two are merely to check, if compilation works
   call add(b())
   call add(b(null()))
@@ -26,6 +34,7 @@ program test_pr58586
   ! This needs to execute, to see whether the segfault at runtime is resolved
   call add_c(c_init())
 
+  call sub(u())
 contains
 
   subroutine add (d)
@@ -38,5 +47,9 @@ contains
 
   type(c) function c_init()  ! { dg-warning "not set" }
   end function
+
+  subroutine sub(d)
+    type(u), value :: d
+  end subroutine
 end program test_pr58586
 

@@ -2245,7 +2245,7 @@ vect_analyze_group_access (struct data_reference *dr)
         }
 
       if (groupsize == 0)
-        groupsize = count;
+        groupsize = count + gaps;
 
       GROUP_SIZE (vinfo_for_stmt (stmt)) = groupsize;
       if (dump_enabled_p ())
@@ -2600,6 +2600,15 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
 	     interleaving, and DRA is accessed before DRB.  */
 	  HOST_WIDE_INT type_size_a = tree_to_uhwi (sza);
 	  if ((init_b - init_a) % type_size_a != 0)
+	    break;
+
+	  /* If we have a store, the accesses are adjacent.  This splits
+	     groups into chunks we support (we don't support vectorization
+	     of stores with gaps).  */
+	  if (!DR_IS_READ (dra)
+	      && (init_b - (HOST_WIDE_INT) TREE_INT_CST_LOW
+					     (DR_INIT (datarefs_copy[i-1]))
+		  != type_size_a))
 	    break;
 
 	  /* The step (if not zero) is greater than the difference between

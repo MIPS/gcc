@@ -181,38 +181,52 @@
 ;; compare a second time.
 (define_code_iterator LTUGEU [ltu geu])
 
+;; The signed gt, ge comparisons
+(define_code_iterator GTGE [gt ge])
+
+;; The unsigned gt, ge comparisons
+(define_code_iterator GTUGEU [gtu geu])
+
+;; Comparisons for vc<cmp>
+(define_code_iterator COMPARISONS [eq gt ge le lt])
+
 ;; A list of ...
-(define_code_iterator ior_xor [ior xor])
+(define_code_iterator IOR_XOR [ior xor])
 
 ;; Operations on two halves of a quadword vector.
-(define_code_iterator vqh_ops [plus smin smax umin umax])
+(define_code_iterator VQH_OPS [plus smin smax umin umax])
 
 ;; Operations on two halves of a quadword vector,
 ;; without unsigned variants (for use with *SFmode pattern).
-(define_code_iterator vqhs_ops [plus smin smax])
+(define_code_iterator VQHS_OPS [plus smin smax])
 
 ;; A list of widening operators
 (define_code_iterator SE [sign_extend zero_extend])
 
 ;; Right shifts
-(define_code_iterator rshifts [ashiftrt lshiftrt])
+(define_code_iterator RSHIFTS [ashiftrt lshiftrt])
 
 ;; Iterator for integer conversions
 (define_code_iterator FIXUORS [fix unsigned_fix])
 
 ;; Binary operators whose second operand can be shifted.
-(define_code_iterator shiftable_ops [plus minus ior xor and])
+(define_code_iterator SHIFTABLE_OPS [plus minus ior xor and])
 
-;; plus and minus are the only shiftable_ops for which Thumb2 allows
+;; plus and minus are the only SHIFTABLE_OPS for which Thumb2 allows
 ;; a stack pointer opoerand.  The minus operation is a candidate for an rsub
 ;; and hence only plus is supported.
 (define_code_attr t2_binop0
   [(plus "rk") (minus "r") (ior "r") (xor "r") (and "r")])
 
-;; The instruction to use when a shiftable_ops has a shift operation as
+;; The instruction to use when a SHIFTABLE_OPS has a shift operation as
 ;; its first operand.
 (define_code_attr arith_shift_insn
   [(plus "add") (minus "rsb") (ior "orr") (xor "eor") (and "and")])
+
+(define_code_attr cmp_op [(eq "eq") (gt "gt") (ge "ge") (lt "lt") (le "le")
+                          (gtu "gt") (geu "ge")])
+
+(define_code_attr cmp_type [(eq "i") (gt "s") (ge "s") (lt "s") (le "s")])
 
 ;;----------------------------------------------------------------------------
 ;; Int iterators
@@ -220,6 +234,10 @@
 
 (define_int_iterator VRINT [UNSPEC_VRINTZ UNSPEC_VRINTP UNSPEC_VRINTM
                             UNSPEC_VRINTR UNSPEC_VRINTX UNSPEC_VRINTA])
+
+(define_int_iterator NEON_VCMP [UNSPEC_VCEQ UNSPEC_VCGT UNSPEC_VCGE UNSPEC_VCLT UNSPEC_VCLE])
+
+(define_int_iterator NEON_VACMP [UNSPEC_VCAGE UNSPEC_VCAGT])
 
 (define_int_iterator VCVT [UNSPEC_VRINTP UNSPEC_VRINTM UNSPEC_VRINTA])
 
@@ -677,6 +695,11 @@
 
 ])
 
+(define_int_attr cmp_op_unsp [(UNSPEC_VCEQ "eq") (UNSPEC_VCGT "gt")
+                              (UNSPEC_VCGE "ge") (UNSPEC_VCLE "le")
+                              (UNSPEC_VCLT "lt") (UNSPEC_VCAGE "ge")
+                              (UNSPEC_VCAGT "gt")])
+
 (define_int_attr r [
   (UNSPEC_VRHADD_S "r") (UNSPEC_VRHADD_U "r")
   (UNSPEC_VHADD_S "") (UNSPEC_VHADD_U "")
@@ -774,7 +797,7 @@
                           (UNSPEC_SHA256H2 "V4SI") (UNSPEC_SHA256SU1 "V4SI")])
 
 ;; Both kinds of return insn.
-(define_code_iterator returns [return simple_return])
+(define_code_iterator RETURNS [return simple_return])
 (define_code_attr return_str [(return "") (simple_return "simple_")])
 (define_code_attr return_simple_p [(return "false") (simple_return "true")])
 (define_code_attr return_cond_false [(return " && USE_RETURN_INSN (FALSE)")

@@ -1,3 +1,9 @@
+! { dg-do run }
+!
+! Check fix for correctly deep copying allocatable components.
+! PR fortran/59678
+! Contributed by Andre Vehreschild  <vehre@gmx.de>
+!
 program alloc_comp_copy_test
 
   type InnerT
