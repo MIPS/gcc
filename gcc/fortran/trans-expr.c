@@ -5346,7 +5346,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  /* It is known the e returns a structure type with at least one
 	     allocatable component.  When e is a function, ensure that the
 	     function is called once only by using a temporary variable.  */
-	  if (!DECL_P (parmse.expr)/*e->expr_type == EXPR_FUNCTION*/)
+	  if (!DECL_P (parmse.expr))
 	    parmse.expr = gfc_evaluate_now_loc (input_location,
 						parmse.expr, &se->pre);
 
