@@ -491,7 +491,8 @@ gfc_conv_derived_to_class (gfc_se *parmse, gfc_expr *e,
   if (optional)
     cond_optional = gfc_conv_expr_present (e->symtree->n.sym);
 
-  if (parmse->ss && parmse->ss->info->useflags && e->rank != 0)
+  if (parmse->ss && parmse->ss->info->useflags
+      && !(e->rank == 0 && parmse->ss->dimen == 0))
     {
       /* For an array reference in an elemental procedure call we need
 	 to retain the ss to provide the scalarized array reference.  */
@@ -4706,7 +4707,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	    parmse.string_length = build_int_cst (gfc_charlen_type_node, 0);
 	}
       else if (fsym && fsym->ts.type == BT_CLASS
-		 && e->ts.type == BT_DERIVED)
+	       && e->ts.type == BT_DERIVED)
 	{
 	  /* The derived type needs to be converted to a temporary
 	     CLASS object.  */
