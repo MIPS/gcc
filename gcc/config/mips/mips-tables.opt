@@ -637,7 +637,7 @@ EnumValue
 Enum(mips_arch_opt_value) String(m5100) Value(86) Canonical
 
 EnumValue
-Enum(mips_arch_opt_value) String(m5150) Value(87) Canonical
+Enum(mips_arch_opt_value) String(m6200) Value(87) Canonical
 
 EnumValue
 Enum(mips_arch_opt_value) String(5kc) Value(88) Canonical

@@ -71,7 +71,6 @@
   w64
   i6400
   m5100
-  m5150
 ])
 
 (define_c_enum "unspec" [
