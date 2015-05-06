@@ -1,4 +1,49 @@
-2015-05-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2015-05-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Initial implementation of constrained-type-specifiers for variable 
+	declarations. Also updating documentation and style.
+	* gcc/cp/cp-tree.h (make_constrained_auto): New.
+	(evaluate_constraints): New.
+	(check_constraint_epression): Renamed and made static.
+	* gcc/cp/pt.c (do_auto_deduction): Check constraints on
+	constrained placeholders before forming the type.
+	* gcc/cp/parser.c (cp_parser_postfix_expression): Don't
+	allow constrained-type-specifiers within the first term
+	of a postfix expression.
+	(cp_parser_allows_constrained_type_specifier): Removed.
+	(cp_maybe_constrained_type_specifier): Don't process
+	nodes as constrained type specifiers unless they look like
+	constrianed type specifiers, and only when they are allowed.
+	Also, support constrained auto for placeholders. Renamed 
+	variables to better reflect usage.
+	gcc/cp/parser.h (struct cp_parser): New member
+	prevent_constrained_type_specifiers.
+	gcc/cp/decl.c (grokfndecl): Remove commented code.
+	gcc/cp/constraint.cc (deduce_constrained_parameter): New.
+	Actually check that template arguments match the concept's 
+	parameters.
+	(deduce_constrained_parameter): Use deduce_constrained_parameter.
+	(make_constrained_auto): New. Construct an auto with an
+	attached constraint.
+	(check_*_constraint): Renamed to satisfy_*_constraint.
+	(satisfy_constraint): New. Simplify usage in evaluation functions.
+	(evaluate_constraints): New. Normalize and evaluate a constraint.
+	(constraints_satisfied_p): Allow a constraint to be used as
+	an argument in addition to declaraitons.
+	(constraint_expression_satisfied_p): Renamed from 
+	check_constraint_expression.
+	(diagnose_*): Use constraint_expression_satisfied_p.
+	(diagnose_decl_constraint): New.
+	(diagnose_constraint): Allow the argument to be a constraint
+	in addition to a declaration.
+	* gcc/testsuite/g++.dg/concepts/mem-concept.C: Renamed to
+	member-concept.C. Updated tests to reflect actual errors.
+	* gcc/testsuite/g++.dg/concepts/mem-concept-err.C: Removed,
+	because it is redundant.
+	* gcc/testsuite/g++.dg/concepts/var-concept5.C: Update error messages.
+	* gcc/testsuite/g++.dg/concepts/placeholder1.C: New.
+
+2015-05-05  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fixing errors in the invention of constrained placeholders
 	and bringing the implementation more into line with the

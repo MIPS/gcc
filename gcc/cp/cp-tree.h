@@ -6583,6 +6583,7 @@ extern tree build_constraints                   (tree, tree);
 extern tree get_shorthand_constraints           (tree);
 extern tree build_concept_check                 (tree, tree, tree = NULL_TREE);
 extern tree build_constrained_parameter         (tree, tree, tree = NULL_TREE);
+extern tree make_constrained_auto               (tree, tree);
 extern bool deduce_constrained_parameter        (tree, tree&, tree&);
 extern tree resolve_constraint_check            (tree);
 extern tree check_function_concept              (tree);
@@ -6600,12 +6601,12 @@ extern tree tsubst_requires_expr                (tree, tree, tsubst_flags_t, tre
 extern tree tsubst_constraint_info              (tree, tree, tsubst_flags_t, tree);
 extern bool function_concept_check_p            (tree);
 
-extern bool constraints_satisfied_p             (tree);
-extern bool constraints_satisfied_p             (tree, tree);
+extern tree evaluate_constraints                (tree, tree);
 extern tree evaluate_function_concept           (tree, tree);
 extern tree evaluate_variable_concept           (tree, tree);
 extern tree evaluate_constraint_expression      (tree, tree);
-extern bool check_constraint_expression         (tree, tree);
+extern bool constraints_satisfied_p             (tree);
+extern bool constraints_satisfied_p             (tree, tree);
 
 extern bool equivalent_constraints              (tree, tree);
 extern bool equivalently_constrained            (tree, tree);

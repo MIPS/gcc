@@ -3042,6 +3042,7 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
   struct rejection_reason *reason = NULL;
   int errs;
 
+
   /* We don't do deduction on the in-charge parameter, the VTT
      parameter or 'this'.  */
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (tmpl))

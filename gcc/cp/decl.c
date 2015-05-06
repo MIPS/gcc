@@ -7848,21 +7848,6 @@ grokfndecl (tree ctype,
 	      return NULL_TREE;
 	    }
 
-          // Do not allow the declaration of constrained friend template
-          // specializations. They cannot be instantiated since they
-          // must match a fully instantiated function, and non-dependent
-          // functions cannot be constrained.
-          //
-          // FIXME [concepts] This is no longer correct. We do disallow
-          // constraints on friend function template specializations.
-          //             
-          // if (current_template_reqs)
-          //   {
-          //     error ("constraints are not allowed in declaration "
-          //            "of friend template specialization %qD", decl);
-          //     return NULL_TREE;
-          //   }
-
 	  /* A friend declaration of the form friend void f<>().  Record
 	     the information in the TEMPLATE_ID_EXPR.  */
 	  SET_DECL_IMPLICIT_INSTANTIATION (decl);

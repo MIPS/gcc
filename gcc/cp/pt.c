@@ -2124,6 +2124,7 @@ determine_specialization (tree template_id,
 	  tree fn_arg_types;
 	  tree insttype;
 
+
 	  /* In case of explicit specialization, we need to check if
 	     the number of template headers appearing in the specialization
 	     is correct. This is usually done in check_explicit_specialization,
@@ -20017,7 +20018,8 @@ most_specialized_partial_spec (tree target, tsubst_flags_t complain)
 
           /* Keep the candidate only if the constraints are satisfied,
              or if we're not compiling with concepts.  */
-          if (!flag_concepts || constraints_satisfied_p (spec_tmpl, spec_args))
+          if (!flag_concepts 
+              || constraints_satisfied_p (spec_tmpl, spec_args))
             {
               list = tree_cons (spec_args, TREE_VALUE (t), list);
               TREE_TYPE (list) = TREE_TYPE (t);
@@ -22867,6 +22869,24 @@ do_auto_deduction (tree type, tree init, tree auto_node)
 	    }
 	  return error_mark_node;
 	}
+    }
+
+  /* If the auto is constrained, then we need to ensure that the
+     constraints are actually satisfied. Continue processing
+     even if constraints are not satisfied.
+
+     TODO: In full generality (accept auto anywhere in a type
+     specifier), we need to produce a cojunction of those
+     constraints before checking them. */
+  if (flag_concepts && !processing_template_decl)
+    {
+      tree decl = TYPE_NAME (auto_node);
+      if (tree constr = DECL_SIZE_UNIT (decl))
+        if (!constraints_satisfied_p (constr, targs))
+          {
+            error ("initializer does not satisfy placeholder constraints");
+            diagnose_constraints (input_location, constr, targs);
+          }
     }
 
   /* If the list of declarators contains more than one declarator, the type
