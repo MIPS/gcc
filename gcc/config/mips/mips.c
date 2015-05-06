@@ -1289,15 +1289,6 @@ static const struct mips_rtx_cost_data
 		    4             /* memory_latency */
   },
   { /* M5100 */
-    SOFT_FP_COSTS,
-    COSTS_N_INSNS (5),            /* int_mult_si */
-    COSTS_N_INSNS (5),            /* int_mult_di */
-    COSTS_N_INSNS (34),           /* int_div_si */
-    COSTS_N_INSNS (68),           /* int_div_di */
-		     1,           /* branch_cost */
-		     4            /* memory_latency */
-  },
-  { /* M5150 */
     COSTS_N_INSNS (4),            /* fp_add */
     COSTS_N_INSNS (4),            /* fp_mult_sf */
     COSTS_N_INSNS (5),            /* fp_mult_df */
@@ -14623,7 +14614,6 @@ mips_issue_rate (void)
     case PROCESSOR_OCTEON2:
     case PROCESSOR_OCTEON3:
     case PROCESSOR_I6400:
-    case PROCESSOR_M5150:
       return 2;
 
     case PROCESSOR_SB1:
