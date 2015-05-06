@@ -1,5 +1,5 @@
 /* File format for coverage information
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -199,7 +199,7 @@ typedef uint64_t gcov_type_unsigned;
 #define gcov_nonruntime_assert(EXPR) ((void)(0 && (EXPR)))
 #else
 #define gcov_nonruntime_assert(EXPR) gcc_assert (EXPR)
-#define gcov_error(...) fatal_error (__VA_ARGS__)
+#define gcov_error(...) fatal_error (input_location, __VA_ARGS__)
 #endif
 
 /* File suffixes.  */

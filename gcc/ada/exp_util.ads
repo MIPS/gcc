@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -450,6 +450,10 @@ package Exp_Util is
    --  declarations and/or allocations when the type is indefinite (including
    --  class-wide).
 
+   function Finalize_Address (Typ : Entity_Id) return Entity_Id;
+   --  Locate TSS primitive Finalize_Address in type Typ. Return Empty if the
+   --  subprogram is not available.
+
    function Find_Interface_ADT
      (T     : Entity_Id;
       Iface : Entity_Id) return Elmt_Id;
@@ -507,17 +511,35 @@ package Exp_Util is
    --  current declarative part to look for an address clause for the object
    --  being declared, and returns the clause if one is found, returns
    --  Empty otherwise.
+   --
+   --  Note: this function can be costly and must be invoked with special care.
+   --  Possibly we could introduce a flag at parse time indicating the presence
+   --  of an address clause to speed this up???
+   --
+   --  Note: currently this function does not scan the private part, that seems
+   --  like a potential bug ???
 
    procedure Force_Evaluation
-     (Exp      : Node_Id;
-      Name_Req : Boolean := False);
+     (Exp           : Node_Id;
+      Name_Req      : Boolean   := False;
+      Related_Id    : Entity_Id := Empty;
+      Is_Low_Bound  : Boolean   := False;
+      Is_High_Bound : Boolean   := False);
    --  Force the evaluation of the expression right away. Similar behavior
    --  to Remove_Side_Effects when Variable_Ref is set to TRUE. That is to
-   --  say, it removes the side-effects and captures the values of the
+   --  say, it removes the side effects and captures the values of the
    --  variables. Remove_Side_Effects guarantees that multiple evaluations
    --  of the same expression won't generate multiple side effects, whereas
    --  Force_Evaluation further guarantees that all evaluations will yield
    --  the same result.
+   --
+   --  Related_Id denotes the entity of the context where Expr appears. Flags
+   --  Is_Low_Bound and Is_High_Bound specify whether the expression to check
+   --  is the low or the high bound of a range. These three optional arguments
+   --  signal Remove_Side_Effects to create an external symbol of the form
+   --  Chars (Related_Id)_FIRST/_LAST. If Related_Id is set, then exactly one
+   --  of the Is_xxx_Bound flags must be set. For use of these parameters see
+   --  the warning in the body of Sem_Ch3.Process_Range_Expr_In_Decl.
 
    function Fully_Qualified_Name_String
      (E          : Entity_Id;
@@ -859,7 +881,7 @@ package Exp_Util is
    --  Is_Low_Bound and Is_High_Bound specify whether the expression to check
    --  is the low or the high bound of a range. These three optional arguments
    --  signal Remove_Side_Effects to create an external symbol of the form
-   --  Chars (Related_Id)_FIRST/_LAST. If Related_Id is set, the exactly one
+   --  Chars (Related_Id)_FIRST/_LAST. If Related_Id is set, then exactly one
    --  of the Is_xxx_Bound flags must be set. For use of these parameters see
    --  the warning in the body of Sem_Ch3.Process_Range_Expr_In_Decl.
 

@@ -1,5 +1,5 @@
 /* Coalesce SSA_NAMES together for the out-of-ssa pass.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -22,17 +22,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "flags.h"
 #include "tree-pretty-print.h"
 #include "bitmap.h"
 #include "dumpfile.h"
 #include "hash-table.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -834,12 +840,11 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple_stmt_iterator gsi;
-
       /* Start with live on exit temporaries.  */
       live_track_init (live, live_on_exit (liveinfo, bb));
 
-      for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
+      for (gimple_stmt_iterator gsi = gsi_last_bb (bb); !gsi_end_p (gsi);
+	   gsi_prev (&gsi))
         {
 	  tree var;
 	  gimple stmt = gsi_stmt (gsi);
@@ -876,9 +881,10 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 	 There must be a conflict recorded between the result of the PHI and
 	 any variables that are live.  Otherwise the out-of-ssa translation
 	 may create incorrect code.  */
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gphi *phi = gsi.phi ();
 	  tree result = PHI_RESULT (phi);
 	  if (live_track_live_p (live, result))
 	    live_track_process_def (live, result, graph);
@@ -944,9 +950,11 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
     {
       tree arg;
 
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gphi_iterator gpi = gsi_start_phis (bb);
+	   !gsi_end_p (gpi);
+	   gsi_next (&gpi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gphi *phi = gpi.phi ();
 	  size_t i;
 	  int ver;
 	  tree res;
@@ -1018,15 +1026,16 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 
 	    case GIMPLE_ASM:
 	      {
+		gasm *asm_stmt = as_a <gasm *> (stmt);
 		unsigned long noutputs, i;
 		unsigned long ninputs;
 		tree *outputs, link;
-		noutputs = gimple_asm_noutputs (stmt);
-		ninputs = gimple_asm_ninputs (stmt);
+		noutputs = gimple_asm_noutputs (asm_stmt);
+		ninputs = gimple_asm_ninputs (asm_stmt);
 		outputs = (tree *) alloca (noutputs * sizeof (tree));
 		for (i = 0; i < noutputs; ++i)
 		  {
-		    link = gimple_asm_output_op (stmt, i);
+		    link = gimple_asm_output_op (asm_stmt, i);
 		    outputs[i] = TREE_VALUE (link);
 		  }
 
@@ -1037,7 +1046,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		    char *end;
 		    unsigned long match;
 
-		    link = gimple_asm_input_op (stmt, i);
+		    link = gimple_asm_input_op (asm_stmt, i);
 		    constraint
 		      = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
 		    input = TREE_VALUE (link);
@@ -1199,13 +1208,18 @@ coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl,
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->flags & EDGE_ABNORMAL)
 	  {
-	    gimple_stmt_iterator gsi;
+	    gphi_iterator gsi;
 	    for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
 		 gsi_next (&gsi))
 	      {
-		gimple phi = gsi_stmt (gsi);
+		gphi *phi = gsi.phi ();
+		tree arg = PHI_ARG_DEF (phi, e->dest_idx);
+		if (SSA_NAME_IS_DEFAULT_DEF (arg)
+		    && (!SSA_NAME_VAR (arg)
+			|| TREE_CODE (SSA_NAME_VAR (arg)) != PARM_DECL))
+		  continue;
+
 		tree res = PHI_RESULT (phi);
-	        tree arg = PHI_ARG_DEF (phi, e->dest_idx);
 		int v1 = SSA_NAME_VERSION (res);
 		int v2 = SSA_NAME_VERSION (arg);
 
@@ -1330,7 +1344,7 @@ coalesce_ssa_name (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_var_map (dump_file, map);
 
-  liveinfo = calculate_live_ranges (map);
+  liveinfo = calculate_live_ranges (map, false);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_live_info (dump_file, liveinfo, LIVEDUMP_ENTRY);

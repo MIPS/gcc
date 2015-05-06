@@ -1,5 +1,5 @@
 /* Thread edges through blocks and update the control flow and SSA graphs.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,13 +20,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
-#include "flags.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "flags.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -167,8 +174,9 @@ dump_jump_thread_path (FILE *dump_file, vec<jump_thread_edge *> path,
 		       bool registering)
 {
   fprintf (dump_file,
-	   "  %s jump thread: (%d, %d) incoming edge; ",
+	   "  %s%s jump thread: (%d, %d) incoming edge; ",
 	   (registering ? "Registering" : "Cancelling"),
+	   (path[0]->type == EDGE_FSM_THREAD ? " FSM": ""),
 	   path[0]->e->src->index, path[0]->e->dest->index);
 
   for (unsigned int i = 1; i < path.length (); i++)
@@ -188,6 +196,9 @@ dump_jump_thread_path (FILE *dump_file, vec<jump_thread_edge *> path,
 		 path[i]->e->src->index, path[i]->e->dest->index);
       if (path[i]->type == EDGE_NO_COPY_SRC_BLOCK)
        fprintf (dump_file, " (%d, %d) nocopy;",
+		 path[i]->e->src->index, path[i]->e->dest->index);
+      if (path[0]->type == EDGE_FSM_THREAD)
+	fprintf (dump_file, " (%d, %d) ",
 		 path[i]->e->src->index, path[i]->e->dest->index);
     }
   fputc ('\n', dump_file);
@@ -405,13 +416,13 @@ copy_phi_arg_into_existing_phi (edge src_e, edge tgt_e)
   int tgt_idx = tgt_e->dest_idx;
 
   /* Iterate over each PHI in e->dest.  */
-  for (gimple_stmt_iterator gsi = gsi_start_phis (src_e->dest),
-			    gsi2 = gsi_start_phis (tgt_e->dest);
+  for (gphi_iterator gsi = gsi_start_phis (src_e->dest),
+			   gsi2 = gsi_start_phis (tgt_e->dest);
        !gsi_end_p (gsi);
        gsi_next (&gsi), gsi_next (&gsi2))
     {
-      gimple src_phi = gsi_stmt (gsi);
-      gimple dest_phi = gsi_stmt (gsi2);
+      gphi *src_phi = gsi.phi ();
+      gphi *dest_phi = gsi2.phi ();
       tree val = gimple_phi_arg_def (src_phi, src_idx);
       source_location locus = gimple_phi_arg_location (src_phi, src_idx);
 
@@ -430,14 +441,14 @@ get_value_locus_in_path (tree def, vec<jump_thread_edge *> *path,
 			 basic_block bb, int idx, source_location *locus)
 {
   tree arg;
-  gimple def_phi;
+  gphi *def_phi;
   basic_block def_bb;
 
   if (path == NULL || idx == 0)
     return def;
 
-  def_phi = SSA_NAME_DEF_STMT (def);
-  if (gimple_code (def_phi) != GIMPLE_PHI)
+  def_phi = dyn_cast <gphi *> (SSA_NAME_DEF_STMT (def));
+  if (!def_phi)
     return def;
 
   def_bb = gimple_bb (def_phi);
@@ -474,12 +485,12 @@ static void
 copy_phi_args (basic_block bb, edge src_e, edge tgt_e,
 	       vec<jump_thread_edge *> *path, int idx)
 {
-  gimple_stmt_iterator gsi;
+  gphi_iterator gsi;
   int src_indx = src_e->dest_idx;
 
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gphi *phi = gsi.phi ();
       tree def = gimple_phi_arg_def (phi, src_indx);
       source_location locus = gimple_phi_arg_location (phi, src_indx);
 
@@ -2068,13 +2079,13 @@ fail:
 static bool
 phi_args_equal_on_edges (edge e1, edge e2)
 {
-  gimple_stmt_iterator gsi;
+  gphi_iterator gsi;
   int indx1 = e1->dest_idx;
   int indx2 = e2->dest_idx;
 
   for (gsi = gsi_start_phis (e1->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gphi *phi = gsi.phi ();
 
       if (!operand_equal_p (gimple_phi_arg_def (phi, indx1),
 			    gimple_phi_arg_def (phi, indx2), 0))
@@ -2317,6 +2328,210 @@ bb_ends_with_multiway_branch (basic_block bb ATTRIBUTE_UNUSED)
   return false;
 }
 
+/* Verify that the REGION is a valid jump thread.  A jump thread is a special
+   case of SEME Single Entry Multiple Exits region in which all nodes in the
+   REGION have exactly one incoming edge.  The only exception is the first block
+   that may not have been connected to the rest of the cfg yet.  */
+
+DEBUG_FUNCTION void
+verify_jump_thread (basic_block *region, unsigned n_region)
+{
+  for (unsigned i = 0; i < n_region; i++)
+    gcc_assert (EDGE_COUNT (region[i]->preds) <= 1);
+}
+
+/* Return true when BB is one of the first N items in BBS.  */
+
+static inline bool
+bb_in_bbs (basic_block bb, basic_block *bbs, int n)
+{
+  for (int i = 0; i < n; i++)
+    if (bb == bbs[i])
+      return true;
+
+  return false;
+}
+
+/* Duplicates a jump-thread path of N_REGION basic blocks.
+   The ENTRY edge is redirected to the duplicate of the region.
+
+   Remove the last conditional statement in the last basic block in the REGION,
+   and create a single fallthru edge pointing to the same destination as the
+   EXIT edge.
+
+   The new basic blocks are stored to REGION_COPY in the same order as they had
+   in REGION, provided that REGION_COPY is not NULL.
+
+   Returns false if it is unable to copy the region, true otherwise.  */
+
+static bool
+duplicate_thread_path (edge entry, edge exit,
+		       basic_block *region, unsigned n_region,
+		       basic_block *region_copy)
+{
+  unsigned i;
+  bool free_region_copy = false;
+  struct loop *loop = entry->dest->loop_father;
+  edge exit_copy;
+  edge redirected;
+  int total_freq = 0, entry_freq = 0;
+  gcov_type total_count = 0, entry_count = 0;
+
+  if (!can_copy_bbs_p (region, n_region))
+    return false;
+
+  /* Some sanity checking.  Note that we do not check for all possible
+     missuses of the functions.  I.e. if you ask to copy something weird,
+     it will work, but the state of structures probably will not be
+     correct.  */
+  for (i = 0; i < n_region; i++)
+    {
+      /* We do not handle subloops, i.e. all the blocks must belong to the
+	 same loop.  */
+      if (region[i]->loop_father != loop)
+	return false;
+    }
+
+  initialize_original_copy_tables ();
+
+  set_loop_copy (loop, loop);
+
+  if (!region_copy)
+    {
+      region_copy = XNEWVEC (basic_block, n_region);
+      free_region_copy = true;
+    }
+
+  if (entry->dest->count)
+    {
+      total_count = entry->dest->count;
+      entry_count = entry->count;
+      /* Fix up corner cases, to avoid division by zero or creation of negative
+	 frequencies.  */
+      if (entry_count > total_count)
+	entry_count = total_count;
+    }
+  else
+    {
+      total_freq = entry->dest->frequency;
+      entry_freq = EDGE_FREQUENCY (entry);
+      /* Fix up corner cases, to avoid division by zero or creation of negative
+	 frequencies.  */
+      if (total_freq == 0)
+	total_freq = 1;
+      else if (entry_freq > total_freq)
+	entry_freq = total_freq;
+    }
+
+  copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop,
+	    split_edge_bb_loc (entry), false);
+
+  /* Fix up: copy_bbs redirects all edges pointing to copied blocks.  The
+     following code ensures that all the edges exiting the jump-thread path are
+     redirected back to the original code: these edges are exceptions
+     invalidating the property that is propagated by executing all the blocks of
+     the jump-thread path in order.  */
+
+  for (i = 0; i < n_region; i++)
+    {
+      edge e;
+      edge_iterator ei;
+      basic_block bb = region_copy[i];
+
+      if (single_succ_p (bb))
+	{
+	  /* Make sure the successor is the next node in the path.  */
+	  gcc_assert (i + 1 == n_region
+		      || region_copy[i + 1] == single_succ_edge (bb)->dest);
+	  continue;
+	}
+
+      /* Special case the last block on the path: make sure that it does not
+	 jump back on the copied path.  */
+      if (i + 1 == n_region)
+	{
+	  FOR_EACH_EDGE (e, ei, bb->succs)
+	    if (bb_in_bbs (e->dest, region_copy, n_region - 1))
+	      {
+		basic_block orig = get_bb_original (e->dest);
+		if (orig)
+		  redirect_edge_and_branch_force (e, orig);
+	      }
+	  continue;
+	}
+
+      /* Redirect all other edges jumping to non-adjacent blocks back to the
+	 original code.  */
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	if (region_copy[i + 1] != e->dest)
+	  {
+	    basic_block orig = get_bb_original (e->dest);
+	    if (orig)
+	      redirect_edge_and_branch_force (e, orig);
+	  }
+    }
+
+  if (total_count)
+    {
+      scale_bbs_frequencies_gcov_type (region, n_region,
+				       total_count - entry_count,
+				       total_count);
+      scale_bbs_frequencies_gcov_type (region_copy, n_region, entry_count,
+				       total_count);
+    }
+  else
+    {
+      scale_bbs_frequencies_int (region, n_region, total_freq - entry_freq,
+				 total_freq);
+      scale_bbs_frequencies_int (region_copy, n_region, entry_freq, total_freq);
+    }
+
+#ifdef ENABLE_CHECKING
+  verify_jump_thread (region_copy, n_region);
+#endif
+
+  /* Remove the last branch in the jump thread path.  */
+  remove_ctrl_stmt_and_useless_edges (region_copy[n_region - 1], exit->dest);
+  edge e = make_edge (region_copy[n_region - 1], exit->dest, EDGE_FALLTHRU);
+
+  if (e) {
+    rescan_loop_exit (e, true, false);
+    e->probability = REG_BR_PROB_BASE;
+    e->count = region_copy[n_region - 1]->count;
+  }
+
+  /* Redirect the entry and add the phi node arguments.  */
+  if (entry->dest == loop->header)
+    mark_loop_for_removal (loop);
+  redirected = redirect_edge_and_branch (entry, get_bb_copy (entry->dest));
+  gcc_assert (redirected != NULL);
+  flush_pending_stmts (entry);
+
+  /* Add the other PHI node arguments.  */
+  add_phi_args_after_copy (region_copy, n_region, NULL);
+
+  if (free_region_copy)
+    free (region_copy);
+
+  free_original_copy_tables ();
+  return true;
+}
+
+/* Return true when PATH is a valid jump-thread path.  */
+
+static bool
+valid_jump_thread_path (vec<jump_thread_edge *> *path)
+{
+  unsigned len = path->length ();
+
+  /* Check that the path is connected.  */
+  for (unsigned int j = 0; j < len - 1; j++)
+    if ((*path)[j]->e->dest != (*path)[j+1]->e->src)
+      return false;
+
+  return true;
+}
+
 /* Walk through all blocks and thread incoming edges to the appropriate
    outgoing edge for each edge pair recorded in THREADED_EDGES.
 
@@ -2342,6 +2557,70 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 
   threaded_blocks = BITMAP_ALLOC (NULL);
   memset (&thread_stats, 0, sizeof (thread_stats));
+
+  /* Jump-thread all FSM threads before other jump-threads.  */
+  for (i = 0; i < paths.length ();)
+    {
+      vec<jump_thread_edge *> *path = paths[i];
+      edge entry = (*path)[0]->e;
+
+      /* Only code-generate FSM jump-threads in this loop.  */
+      if ((*path)[0]->type != EDGE_FSM_THREAD)
+	{
+	  i++;
+	  continue;
+	}
+
+      /* Do not jump-thread twice from the same block.  */
+      if (bitmap_bit_p (threaded_blocks, entry->src->index)
+	  /* Verify that the jump thread path is still valid: a
+	     previous jump-thread may have changed the CFG, and
+	     invalidated the current path.  */
+	  || !valid_jump_thread_path (path))
+	{
+	  /* Remove invalid FSM jump-thread paths.  */
+	  delete_jump_thread_path (path);
+	  paths.unordered_remove (i);
+	  continue;
+	}
+
+      unsigned len = path->length ();
+      edge exit = (*path)[len - 1]->e;
+      basic_block *region = XNEWVEC (basic_block, len - 1);
+
+      for (unsigned int j = 0; j < len - 1; j++)
+	region[j] = (*path)[j]->e->dest;
+
+      if (duplicate_thread_path (entry, exit, region, len - 1, NULL))
+	{
+	  /* We do not update dominance info.  */
+	  free_dominance_info (CDI_DOMINATORS);
+	  bitmap_set_bit (threaded_blocks, entry->src->index);
+	  retval = true;
+	}
+
+      delete_jump_thread_path (path);
+      paths.unordered_remove (i);
+    }
+
+  /* Remove from PATHS all the jump-threads starting with an edge already
+     jump-threaded.  */
+  for (i = 0; i < paths.length ();)
+    {
+      vec<jump_thread_edge *> *path = paths[i];
+      edge entry = (*path)[0]->e;
+
+      /* Do not jump-thread twice from the same block.  */
+      if (bitmap_bit_p (threaded_blocks, entry->src->index))
+	{
+	  delete_jump_thread_path (path);
+	  paths.unordered_remove (i);
+	}
+      else
+	i++;
+    }
+
+  bitmap_clear (threaded_blocks);
 
   mark_threaded_blocks (threaded_blocks);
 
@@ -2428,16 +2707,8 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 		/* Our path is still valid, thread it.  */
 	        if (e->aux)
 		  {
-		    struct loop *loop = (*path)[0]->e->dest->loop_father;
-
 		    if (thread_block ((*path)[0]->e->dest, false))
-		      {
-			/* This jump thread likely totally scrambled this loop.
-			   So arrange for it to be fixed up.  */
-			loop->header = NULL;
-			loop->latch = NULL;
-			e->aux = NULL;
-		      }
+		      e->aux = NULL;
 		    else
 		      {
 		        delete_jump_thread_path (path);
@@ -2481,6 +2752,7 @@ delete_jump_thread_path (vec<jump_thread_edge *> *path)
   for (unsigned int i = 0; i < path->length (); i++)
     delete (*path)[i];
   path->release();
+  delete path;
 }
 
 /* Register a jump threading opportunity.  We queue up all the jump

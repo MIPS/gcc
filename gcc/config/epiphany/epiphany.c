@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the EPIPHANY cpu.
-   Copyright (C) 1994-2014 Free Software Foundation, Inc.
+   Copyright (C) 1994-2015 Free Software Foundation, Inc.
    Contributed by Embecosm on behalf of Adapteva, Inc.
 
 This file is part of GCC.
@@ -22,7 +22,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
@@ -36,14 +46,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "insn-codes.h"
 #include "optabs.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "recog.h"
@@ -61,7 +74,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "df.h"
 #include "langhooks.h"
-#include "insn-codes.h"
 #include "ggc.h"
 #include "tm-constrs.h"
 #include "tree-pass.h"	/* for current_pass */
@@ -1542,6 +1554,8 @@ epiphany_override_options (void)
   if (epiphany_stack_offset & 3)
     error ("stack_offset must be a multiple of 4");
   epiphany_stack_offset = (epiphany_stack_offset + 3) & -4;
+ if (!TARGET_SOFT_CMPSF)
+   flag_finite_math_only = 1;
 
   /* This needs to be done at start up.  It's convenient to do it here.  */
   epiphany_init ();

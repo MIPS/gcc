@@ -1,5 +1,5 @@
 /* Forward propagation of expressions for single use variables.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,16 +21,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -52,13 +57,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-pass.h"
 #include "langhooks.h"
-#include "flags.h"
 #include "diagnostic.h"
-#include "expr.h"
 #include "cfgloop.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -355,7 +372,7 @@ remove_prop_source_from_use (tree name)
   return cfg_changed;
 }
 
-/* Return the rhs of a gimple_assign STMT in a form of a single tree,
+/* Return the rhs of a gassign *STMT in a form of a single tree,
    converted to type TYPE.
 
    This should disappear, but is needed so we can combine expressions and use
@@ -529,7 +546,7 @@ forward_propagate_into_comparison (gimple_stmt_iterator *gsi)
    This must be kept in sync with forward_propagate_into_cond.  */
 
 static int
-forward_propagate_into_gimple_cond (gimple stmt)
+forward_propagate_into_gimple_cond (gcond *stmt)
 {
   tree tmp;
   enum tree_code code = gimple_cond_code (stmt);
@@ -757,10 +774,9 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 
       if (useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (new_def_rhs)))
 	gimple_assign_set_rhs_with_ops (use_stmt_gsi, TREE_CODE (new_def_rhs),
-					new_def_rhs, NULL_TREE);
+					new_def_rhs);
       else if (is_gimple_min_invariant (new_def_rhs))
-	gimple_assign_set_rhs_with_ops (use_stmt_gsi, NOP_EXPR,
-					new_def_rhs, NULL_TREE);
+	gimple_assign_set_rhs_with_ops (use_stmt_gsi, NOP_EXPR, new_def_rhs);
       else
 	return false;
       gcc_assert (gsi_stmt (*use_stmt_gsi) == use_stmt);
@@ -1044,7 +1060,7 @@ forward_propagate_addr_expr (tree name, tree rhs, bool parent_single_use_p)
    have values outside the range of the new type.  */
 
 static void
-simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
+simplify_gimple_switch_label_vec (gswitch *stmt, tree index_type)
 {
   unsigned int branch_num = gimple_switch_num_labels (stmt);
   auto_vec<tree> labels (branch_num);
@@ -1114,7 +1130,7 @@ simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
    the condition which we may be able to optimize better.  */
 
 static bool
-simplify_gimple_switch (gimple stmt)
+simplify_gimple_switch (gswitch *stmt)
 {
   /* The optimization that we really care about is removing unnecessary
      casts.  That will let us do much better in propagating the inferred
@@ -1289,7 +1305,8 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  use_operand_p use_p;
 
 	  if (!tree_fits_shwi_p (val2)
-	      || !tree_fits_uhwi_p (len2))
+	      || !tree_fits_uhwi_p (len2)
+	      || compare_tree_int (len2, 1024) == 1)
 	    break;
 	  if (is_gimple_call (stmt1))
 	    {
@@ -1355,7 +1372,8 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	     is not constant, or is bigger than memcpy length, bail out.  */
 	  if (diff == NULL
 	      || !tree_fits_uhwi_p (diff)
-	      || tree_int_cst_lt (len1, diff))
+	      || tree_int_cst_lt (len1, diff)
+	      || compare_tree_int (diff, 1024) == 1)
 	    break;
 
 	  /* Use maximum of difference plus memset length and memcpy length
@@ -1723,24 +1741,21 @@ simplify_rotate (gimple_stmt_iterator *gsi)
   if (!useless_type_conversion_p (TREE_TYPE (def_arg2[0]),
 				  TREE_TYPE (rotcnt)))
     {
-      g = gimple_build_assign_with_ops (NOP_EXPR,
-					make_ssa_name (TREE_TYPE (def_arg2[0]),
-						       NULL),
-					rotcnt, NULL_TREE);
+      g = gimple_build_assign (make_ssa_name (TREE_TYPE (def_arg2[0])),
+			       NOP_EXPR, rotcnt);
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
       rotcnt = gimple_assign_lhs (g);
     }
   lhs = gimple_assign_lhs (stmt);
   if (!useless_type_conversion_p (rtype, TREE_TYPE (def_arg1[0])))
-    lhs = make_ssa_name (TREE_TYPE (def_arg1[0]), NULL);
-  g = gimple_build_assign_with_ops (((def_code[0] == LSHIFT_EXPR) ^ swapped_p)
-				    ? LROTATE_EXPR : RROTATE_EXPR,
-				    lhs, def_arg1[0], rotcnt);
+    lhs = make_ssa_name (TREE_TYPE (def_arg1[0]));
+  g = gimple_build_assign (lhs,
+			   ((def_code[0] == LSHIFT_EXPR) ^ swapped_p)
+			   ? LROTATE_EXPR : RROTATE_EXPR, def_arg1[0], rotcnt);
   if (!useless_type_conversion_p (rtype, TREE_TYPE (def_arg1[0])))
     {
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
-      g = gimple_build_assign_with_ops (NOP_EXPR, gimple_assign_lhs (stmt),
-					lhs, NULL_TREE);
+      g = gimple_build_assign (gimple_assign_lhs (stmt), NOP_EXPR, lhs);
     }
   gsi_replace (gsi, g, false);
   return true;
@@ -2055,7 +2070,7 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
       for (i = 0; i < nelts; i++)
 	mask_elts[i] = build_int_cst (TREE_TYPE (mask_type), sel[i]);
       op2 = build_vector (mask_type, mask_elts);
-      gimple_assign_set_rhs_with_ops_1 (gsi, VEC_PERM_EXPR, orig, orig, op2);
+      gimple_assign_set_rhs_with_ops (gsi, VEC_PERM_EXPR, orig, orig, op2);
     }
   update_stmt (gsi_stmt (*gsi));
   return true;
@@ -2126,6 +2141,7 @@ pass_forwprop::execute (function *fun)
   lattice.quick_grow_cleared (num_ssa_names);
   int *postorder = XNEWVEC (int, n_basic_blocks_for_fn (fun));
   int postorder_num = inverted_post_order_compute (postorder);
+  auto_vec<gimple, 4> to_fixup;
   to_purge = BITMAP_ALLOC (NULL);
   for (int i = 0; i < postorder_num; ++i)
     {
@@ -2212,6 +2228,108 @@ pass_forwprop::execute (function *fun)
 	      else
 		gsi_next (&gsi);
 	    }
+	  else if (TREE_CODE (TREE_TYPE (lhs)) == COMPLEX_TYPE
+		   && gimple_assign_load_p (stmt)
+		   && !gimple_has_volatile_ops (stmt)
+		   && (TREE_CODE (gimple_assign_rhs1 (stmt))
+		       != TARGET_MEM_REF)
+		   && !stmt_can_throw_internal (stmt))
+	    {
+	      /* Rewrite loads used only in real/imagpart extractions to
+	         component-wise loads.  */
+	      use_operand_p use_p;
+	      imm_use_iterator iter;
+	      bool rewrite = true;
+	      FOR_EACH_IMM_USE_FAST (use_p, iter, lhs)
+		{
+		  gimple use_stmt = USE_STMT (use_p);
+		  if (is_gimple_debug (use_stmt))
+		    continue;
+		  if (!is_gimple_assign (use_stmt)
+		      || (gimple_assign_rhs_code (use_stmt) != REALPART_EXPR
+			  && gimple_assign_rhs_code (use_stmt) != IMAGPART_EXPR))
+		    {
+		      rewrite = false;
+		      break;
+		    }
+		}
+	      if (rewrite)
+		{
+		  gimple use_stmt;
+		  FOR_EACH_IMM_USE_STMT (use_stmt, iter, lhs)
+		    {
+		      if (is_gimple_debug (use_stmt))
+			{
+			  if (gimple_debug_bind_p (use_stmt))
+			    {
+			      gimple_debug_bind_reset_value (use_stmt);
+			      update_stmt (use_stmt);
+			    }
+			  continue;
+			}
+
+		      tree new_rhs = build1 (gimple_assign_rhs_code (use_stmt),
+					     TREE_TYPE (TREE_TYPE (rhs)),
+					     unshare_expr (rhs));
+		      gimple new_stmt
+			= gimple_build_assign (gimple_assign_lhs (use_stmt),
+					       new_rhs);
+
+		      location_t loc = gimple_location (use_stmt);
+		      gimple_set_location (new_stmt, loc);
+		      gimple_stmt_iterator gsi2 = gsi_for_stmt (use_stmt);
+		      unlink_stmt_vdef (use_stmt);
+		      gsi_remove (&gsi2, true);
+
+		      gsi_insert_before (&gsi, new_stmt, GSI_SAME_STMT);
+		    }
+
+		  release_defs (stmt);
+		  gsi_remove (&gsi, true);
+		}
+	      else
+		gsi_next (&gsi);
+	    }
+	  else if (code == COMPLEX_EXPR)
+	    {
+	      /* Rewrite stores of a single-use complex build expression
+	         to component-wise stores.  */
+	      use_operand_p use_p;
+	      gimple use_stmt;
+	      if (single_imm_use (lhs, &use_p, &use_stmt)
+		  && gimple_store_p (use_stmt)
+		  && !gimple_has_volatile_ops (use_stmt)
+		  && is_gimple_assign (use_stmt)
+		  && (TREE_CODE (gimple_assign_lhs (use_stmt))
+		      != TARGET_MEM_REF))
+		{
+		  tree use_lhs = gimple_assign_lhs (use_stmt);
+		  tree new_lhs = build1 (REALPART_EXPR,
+					 TREE_TYPE (TREE_TYPE (use_lhs)),
+					 unshare_expr (use_lhs));
+		  gimple new_stmt = gimple_build_assign (new_lhs, rhs);
+		  location_t loc = gimple_location (use_stmt);
+		  gimple_set_location (new_stmt, loc);
+		  gimple_set_vuse (new_stmt, gimple_vuse (use_stmt));
+		  gimple_set_vdef (new_stmt, make_ssa_name (gimple_vop (cfun)));
+		  SSA_NAME_DEF_STMT (gimple_vdef (new_stmt)) = new_stmt;
+		  gimple_set_vuse (use_stmt, gimple_vdef (new_stmt));
+		  gimple_stmt_iterator gsi2 = gsi_for_stmt (use_stmt);
+		  gsi_insert_before (&gsi2, new_stmt, GSI_SAME_STMT);
+
+		  new_lhs = build1 (IMAGPART_EXPR,
+				    TREE_TYPE (TREE_TYPE (use_lhs)),
+				    unshare_expr (use_lhs));
+		  gimple_assign_set_lhs (use_stmt, new_lhs);
+		  gimple_assign_set_rhs1 (use_stmt, gimple_assign_rhs2 (stmt));
+		  update_stmt (use_stmt);
+
+		  release_defs (stmt);
+		  gsi_remove (&gsi, true);
+		}
+	      else
+		gsi_next (&gsi);
+	    }
 	  else
 	    gsi_next (&gsi);
 	}
@@ -2223,6 +2341,8 @@ pass_forwprop::execute (function *fun)
 	  gimple stmt = gsi_stmt (gsi);
 	  gimple orig_stmt = stmt;
 	  bool changed = false;
+	  bool was_noreturn = (is_gimple_call (stmt)
+			       && gimple_call_noreturn_p (stmt));
 
 	  /* Mark stmt as potentially needing revisiting.  */
 	  gimple_set_plf (stmt, GF_PLF_1, false);
@@ -2233,12 +2353,15 @@ pass_forwprop::execute (function *fun)
 	      stmt = gsi_stmt (gsi);
 	      if (maybe_clean_or_replace_eh_stmt (orig_stmt, stmt))
 		bitmap_set_bit (to_purge, bb->index);
+	      if (!was_noreturn
+		  && is_gimple_call (stmt) && gimple_call_noreturn_p (stmt))
+		to_fixup.safe_push (stmt);
 	      /* Cleanup the CFG if we simplified a condition to
 	         true or false.  */
-	      if (gimple_code (stmt) == GIMPLE_COND
-		  && (gimple_cond_true_p (stmt)
-		      || gimple_cond_false_p (stmt)))
-		cfg_changed = true;
+	      if (gcond *cond = dyn_cast <gcond *> (stmt))
+		if (gimple_cond_true_p (cond)
+		    || gimple_cond_false_p (cond))
+		  cfg_changed = true;
 	      update_stmt (stmt);
 	    }
 
@@ -2288,13 +2411,13 @@ pass_forwprop::execute (function *fun)
 	      }
 
 	    case GIMPLE_SWITCH:
-	      changed = simplify_gimple_switch (stmt);
+	      changed = simplify_gimple_switch (as_a <gswitch *> (stmt));
 	      break;
 
 	    case GIMPLE_COND:
 	      {
-		int did_something;
-		did_something = forward_propagate_into_gimple_cond (stmt);
+		int did_something
+		  = forward_propagate_into_gimple_cond (as_a <gcond *> (stmt));
 		if (did_something == 2)
 		  cfg_changed = true;
 		changed = did_something != 0;
@@ -2352,6 +2475,22 @@ pass_forwprop::execute (function *fun)
     }
   free (postorder);
   lattice.release ();
+
+  /* Fixup stmts that became noreturn calls.  This may require splitting
+     blocks and thus isn't possible during the walk.  Do this
+     in reverse order so we don't inadvertedly remove a stmt we want to
+     fixup by visiting a dominating now noreturn call first.  */
+  while (!to_fixup.is_empty ())
+    {
+      gimple stmt = to_fixup.pop ();
+      if (dump_file && dump_flags & TDF_DETAILS)
+	{
+	  fprintf (dump_file, "Fixing up noreturn call ");
+	  print_gimple_stmt (dump_file, stmt, 0, 0);
+	  fprintf (dump_file, "\n");
+	}
+      cfg_changed |= fixup_noreturn_call (stmt);
+    }
 
   cfg_changed |= gimple_purge_all_dead_eh_edges (to_purge);
   BITMAP_FREE (to_purge);

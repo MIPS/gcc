@@ -1,5 +1,5 @@
 /* Branch prediction routines for the GNU compiler.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,17 +31,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "calls.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -54,6 +59,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "diagnostic-core.h"
 #include "recog.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "coverage.h"
 #include "sreal.h"
@@ -78,11 +93,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop.h"
 #include "tree-pass.h"
 #include "tree-scalar-evolution.h"
-#include "cfgloop.h"
 
 /* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE,
 		   1/REG_BR_PROB_BASE, 0.5, BB_FREQ_MAX.  */
-static sreal real_zero, real_one, real_almost_one, real_br_prob_base,
+static sreal real_almost_one, real_br_prob_base,
 	     real_inv_br_prob_base, real_one_half, real_bb_freq_max;
 
 static void combine_predictions_for_insn (rtx_insn *, basic_block);
@@ -1065,7 +1079,7 @@ get_base_value (tree t)
    Otherwise return false and set LOOP_INVAIANT to NULL.  */
 
 static bool
-is_comparison_with_loop_invariant_p (gimple stmt, struct loop *loop,
+is_comparison_with_loop_invariant_p (gcond *stmt, struct loop *loop,
 				     tree *loop_invariant,
 				     enum tree_code *compare_code,
 				     tree *loop_step,
@@ -1230,7 +1244,8 @@ predict_iv_comparison (struct loop *loop, basic_block bb,
   stmt = last_stmt (bb);
   if (!stmt || gimple_code (stmt) != GIMPLE_COND)
     return;
-  if (!is_comparison_with_loop_invariant_p (stmt, loop, &compare_var,
+  if (!is_comparison_with_loop_invariant_p (as_a <gcond *> (stmt),
+					    loop, &compare_var,
 					    &compare_code,
 					    &compare_step_var,
 					    &compare_base))
@@ -1403,12 +1418,19 @@ predict_extra_loop_exits (edge exit_edge)
 {
   unsigned i;
   bool check_value_one;
-  gimple phi_stmt;
+  gimple lhs_def_stmt;
+  gphi *phi_stmt;
   tree cmp_rhs, cmp_lhs;
-  gimple cmp_stmt = last_stmt (exit_edge->src);
+  gimple last;
+  gcond *cmp_stmt;
 
-  if (!cmp_stmt || gimple_code (cmp_stmt) != GIMPLE_COND)
+  last = last_stmt (exit_edge->src);
+  if (!last)
     return;
+  cmp_stmt = dyn_cast <gcond *> (last);
+  if (!cmp_stmt)
+    return;
+
   cmp_rhs = gimple_cond_rhs (cmp_stmt);
   cmp_lhs = gimple_cond_lhs (cmp_stmt);
   if (!TREE_CONSTANT (cmp_rhs)
@@ -1424,8 +1446,12 @@ predict_extra_loop_exits (edge exit_edge)
 		    ^ (gimple_cond_code (cmp_stmt) == EQ_EXPR))
 		    ^ ((exit_edge->flags & EDGE_TRUE_VALUE) != 0));
 
-  phi_stmt = SSA_NAME_DEF_STMT (cmp_lhs);
-  if (!phi_stmt || gimple_code (phi_stmt) != GIMPLE_PHI)
+  lhs_def_stmt = SSA_NAME_DEF_STMT (cmp_lhs);
+  if (!lhs_def_stmt)
+    return;
+
+  phi_stmt = dyn_cast <gphi *> (lhs_def_stmt);
+  if (!phi_stmt)
     return;
 
   for (i = 0; i < gimple_phi_num_args (phi_stmt); i++)
@@ -1471,7 +1497,7 @@ predict_loops (void)
       tree loop_bound_step = NULL;
       tree loop_bound_var = NULL;
       tree loop_iv_base = NULL;
-      gimple stmt = NULL;
+      gcond *stmt = NULL;
 
       exits = get_loop_exit_edges (loop);
       n_exits = exits.length ();
@@ -1538,12 +1564,12 @@ predict_loops (void)
 	if (nb_iter->stmt
 	    && gimple_code (nb_iter->stmt) == GIMPLE_COND)
 	  {
-	    stmt = nb_iter->stmt;
+	    stmt = as_a <gcond *> (nb_iter->stmt);
 	    break;
 	  }
       if (!stmt && last_stmt (loop->header)
 	  && gimple_code (last_stmt (loop->header)) == GIMPLE_COND)
-	stmt = last_stmt (loop->header);
+	stmt = as_a <gcond *> (last_stmt (loop->header));
       if (stmt)
 	is_comparison_with_loop_invariant_p (stmt, loop,
 					     &loop_bound_var,
@@ -2101,10 +2127,10 @@ return_prediction (tree val, enum prediction *prediction)
 static void
 apply_return_prediction (void)
 {
-  gimple return_stmt = NULL;
+  greturn *return_stmt = NULL;
   tree return_val;
   edge e;
-  gimple phi;
+  gphi *phi;
   int phi_num_args, i;
   enum br_predictor pred;
   enum prediction direction;
@@ -2112,10 +2138,13 @@ apply_return_prediction (void)
 
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     {
-      return_stmt = last_stmt (e->src);
-      if (return_stmt
-	  && gimple_code (return_stmt) == GIMPLE_RETURN)
-	break;
+      gimple last = last_stmt (e->src);
+      if (last
+	  && gimple_code (last) == GIMPLE_RETURN)
+	{
+	  return_stmt = as_a <greturn *> (last);
+	  break;
+	}
     }
   if (!e)
     return;
@@ -2126,7 +2155,7 @@ apply_return_prediction (void)
       || !SSA_NAME_DEF_STMT (return_val)
       || gimple_code (SSA_NAME_DEF_STMT (return_val)) != GIMPLE_PHI)
     return;
-  phi = SSA_NAME_DEF_STMT (return_val);
+  phi = as_a <gphi *> (SSA_NAME_DEF_STMT (return_val));
   phi_num_args = gimple_phi_num_args (phi);
   pred = return_prediction (PHI_ARG_DEF (phi, 0), &direction);
 
@@ -2231,12 +2260,12 @@ tree_estimate_probability_bb (basic_block bb)
 	  gimple_stmt_iterator gi;
 	  for (gi = gsi_start_bb (e->dest); !gsi_end_p (gi); gsi_next (&gi))
 	    {
-	      gimple stmt = gsi_stmt (gi);
+	      glabel *label_stmt = dyn_cast <glabel *> (gsi_stmt (gi));
 	      tree decl;
 
-	      if (gimple_code (stmt) != GIMPLE_LABEL)
+	      if (!label_stmt)
 		break;
-	      decl = gimple_label_label (stmt);
+	      decl = gimple_label_label (label_stmt);
 	      if (DECL_ARTIFICIAL (decl))
 		continue;
 
@@ -2526,13 +2555,13 @@ propagate_freq (basic_block head, bitmap tovisit)
 	bb->count = bb->frequency = 0;
     }
 
-  BLOCK_INFO (head)->frequency = real_one;
+  BLOCK_INFO (head)->frequency = 1;
   last = head;
   for (bb = head; bb; bb = nextbb)
     {
       edge_iterator ei;
-      sreal cyclic_probability = real_zero;
-      sreal frequency = real_zero;
+      sreal cyclic_probability = 0;
+      sreal frequency = 0;
 
       nextbb = BLOCK_INFO (bb)->next;
       BLOCK_INFO (bb)->next = NULL;
@@ -2557,13 +2586,13 @@ propagate_freq (basic_block head, bitmap tovisit)
 				  * BLOCK_INFO (e->src)->frequency /
 				  REG_BR_PROB_BASE);  */
 
-		sreal tmp (e->probability, 0);
+		sreal tmp = e->probability;
 		tmp *= BLOCK_INFO (e->src)->frequency;
 		tmp *= real_inv_br_prob_base;
 		frequency += tmp;
 	      }
 
-	  if (cyclic_probability == real_zero)
+	  if (cyclic_probability == 0)
 	    {
 	      BLOCK_INFO (bb)->frequency = frequency;
 	    }
@@ -2575,7 +2604,7 @@ propagate_freq (basic_block head, bitmap tovisit)
 	      /* BLOCK_INFO (bb)->frequency = frequency
 					      / (1 - cyclic_probability) */
 
-	      cyclic_probability = real_one - cyclic_probability;
+	      cyclic_probability = sreal (1) - cyclic_probability;
 	      BLOCK_INFO (bb)->frequency = frequency / cyclic_probability;
 	    }
 	}
@@ -2589,7 +2618,7 @@ propagate_freq (basic_block head, bitmap tovisit)
 	     = ((e->probability * BLOCK_INFO (bb)->frequency)
 	     / REG_BR_PROB_BASE); */
 
-	  sreal tmp (e->probability, 0);
+	  sreal tmp = e->probability;
 	  tmp *= BLOCK_INFO (bb)->frequency;
 	  EDGE_INFO (e)->back_edge_prob = tmp * real_inv_br_prob_base;
 	}
@@ -2871,13 +2900,11 @@ estimate_bb_frequencies (bool force)
       if (!real_values_initialized)
         {
 	  real_values_initialized = 1;
-	  real_zero = sreal (0, 0);
-	  real_one = sreal (1, 0);
-	  real_br_prob_base = sreal (REG_BR_PROB_BASE, 0);
-	  real_bb_freq_max = sreal (BB_FREQ_MAX, 0);
+	  real_br_prob_base = REG_BR_PROB_BASE;
+	  real_bb_freq_max = BB_FREQ_MAX;
 	  real_one_half = sreal (1, -1);
-	  real_inv_br_prob_base = real_one / real_br_prob_base;
-	  real_almost_one = real_one - real_inv_br_prob_base;
+	  real_inv_br_prob_base = sreal (1) / real_br_prob_base;
+	  real_almost_one = sreal (1) - real_inv_br_prob_base;
 	}
 
       mark_dfs_back_edges ();
@@ -2895,7 +2922,7 @@ estimate_bb_frequencies (bool force)
 
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    {
-	      EDGE_INFO (e)->back_edge_prob = sreal (e->probability, 0);
+	      EDGE_INFO (e)->back_edge_prob = e->probability;
 	      EDGE_INFO (e)->back_edge_prob *= real_inv_br_prob_base;
 	    }
 	}
@@ -2904,7 +2931,7 @@ estimate_bb_frequencies (bool force)
          to outermost to examine frequencies for back edges.  */
       estimate_loops ();
 
-      freq_max = real_zero;
+      freq_max = 0;
       FOR_EACH_BB_FN (bb, cfun)
 	if (freq_max < BLOCK_INFO (bb)->frequency)
 	  freq_max = BLOCK_INFO (bb)->frequency;
@@ -3022,6 +3049,9 @@ unsigned int
 pass_profile::execute (function *fun)
 {
   unsigned nb_loops;
+
+  if (profile_status_for_fn (cfun) == PROFILE_GUESSED)
+    return 0;
 
   loop_optimizer_init (LOOPS_NORMAL);
   if (dump_file && (dump_flags & TDF_DETAILS))

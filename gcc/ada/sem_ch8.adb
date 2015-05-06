@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,10 +28,12 @@ with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Errout;   use Errout;
+with Exp_Disp; use Exp_Disp;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Fname;    use Fname;
 with Freeze;   use Freeze;
+with Ghost;    use Ghost;
 with Impunit;  use Impunit;
 with Lib;      use Lib;
 with Lib.Load; use Lib.Load;
@@ -552,6 +554,12 @@ package body Sem_Ch8 is
       Nam : constant Node_Id := Name (N);
 
    begin
+      --  The exception renaming declaration may be subject to pragma Ghost
+      --  with policy Ignore. Set the mode now to ensure that any nodes
+      --  generated during analysis and expansion are properly flagged as
+      --  ignored Ghost.
+
+      Set_Ghost_Mode (N);
       Check_SPARK_05_Restriction ("exception renaming is not allowed", N);
 
       Enter_Name (Id);
@@ -575,7 +583,7 @@ package body Sem_Ch8 is
          --  An exception renaming is Ghost if the renamed entity is Ghost or
          --  the construct appears within a Ghost scope.
 
-         if Is_Ghost_Entity (Entity (Nam)) or else Within_Ghost_Scope then
+         if Is_Ghost_Entity (Entity (Nam)) or else Ghost_Mode > None then
             Set_Is_Ghost_Entity (Id);
          end if;
       end if;
@@ -665,6 +673,11 @@ package body Sem_Ch8 is
          return;
       end if;
 
+      --  The generic renaming declaration may be subject to pragma Ghost with
+      --  policy Ignore. Set the mode now to ensure that any nodes generated
+      --  during analysis and expansion are properly flagged as ignored Ghost.
+
+      Set_Ghost_Mode (N);
       Check_SPARK_05_Restriction ("generic renaming is not allowed", N);
 
       Generate_Definition (New_P);
@@ -711,7 +724,7 @@ package body Sem_Ch8 is
          --  An generic renaming is Ghost if the renamed entity is Ghost or the
          --  construct appears within a Ghost scope.
 
-         if Is_Ghost_Entity (Old_P) or else Within_Ghost_Scope then
+         if Is_Ghost_Entity (Old_P) or else Ghost_Mode > None then
             Set_Is_Ghost_Entity (New_P);
          end if;
 
@@ -850,6 +863,11 @@ package body Sem_Ch8 is
          return;
       end if;
 
+      --  The object renaming declaration may be subject to pragma Ghost with
+      --  policy Ignore. Set the mode now to ensure that any nodes generated
+      --  during analysis and expansion are properly flagged as ignored Ghost.
+
+      Set_Ghost_Mode (N);
       Check_SPARK_05_Restriction ("object renaming is not allowed", N);
 
       Set_Is_Pure (Id, Is_Pure (Current_Scope));
@@ -1058,10 +1076,11 @@ package body Sem_Ch8 is
       if Nkind (Nam) = N_Function_Call then
          case Ada_Version is
 
-            --  Usage is illegal in Ada 83
+            --  Usage is illegal in Ada 83, but renamings are also introduced
+            --  during expansion, and error does not apply to those.
 
             when Ada_83 =>
-               if Comes_From_Source (Nam) then
+               if Comes_From_Source (N) then
                   Error_Msg_N
                     ("(Ada 83) cannot rename function return object", Nam);
                end if;
@@ -1314,7 +1333,7 @@ package body Sem_Ch8 is
 
       if (Is_Entity_Name (Nam)
            and then Is_Ghost_Entity (Entity (Nam)))
-        or else Within_Ghost_Scope
+        or else Ghost_Mode > None
       then
          Set_Is_Ghost_Entity (Id);
       end if;
@@ -1369,6 +1388,12 @@ package body Sem_Ch8 is
       if Name (N) = Error then
          return;
       end if;
+
+      --  The package renaming declaration may be subject to pragma Ghost with
+      --  policy Ignore. Set the mode now to ensure that any nodes generated
+      --  during analysis and expansion are properly flagged as ignored Ghost.
+
+      Set_Ghost_Mode (N);
 
       --  Check for Text_IO special unit (we may be renaming a Text_IO child)
 
@@ -1436,7 +1461,7 @@ package body Sem_Ch8 is
          --  A package renaming is Ghost if the renamed entity is Ghost or
          --  the construct appears within a Ghost scope.
 
-         if Is_Ghost_Entity (Old_P) or else Within_Ghost_Scope then
+         if Is_Ghost_Entity (Old_P) or else Ghost_Mode > None then
             Set_Is_Ghost_Entity (New_P);
          end if;
 
@@ -2558,6 +2583,13 @@ package body Sem_Ch8 is
    --  Start of processing for Analyze_Subprogram_Renaming
 
    begin
+      --  The subprogram renaming declaration may be subject to pragma Ghost
+      --  with policy Ignore. Set the mode now to ensure that any nodes
+      --  generated during analysis and expansion are properly flagged as
+      --  ignored Ghost.
+
+      Set_Ghost_Mode (N);
+
       --  We must test for the attribute renaming case before the Analyze
       --  call because otherwise Sem_Attr will complain that the attribute
       --  is missing an argument when it is analyzed.
@@ -2679,7 +2711,16 @@ package body Sem_Ch8 is
          --  Check whether the renaming is for a defaulted actual subprogram
          --  with a class-wide actual.
 
-         if CW_Actual and then Box_Present (Inst_Node) then
+         --  The class-wide wrapper is not needed in GNATprove_Mode and there
+         --  is an external axiomatization on the package.
+
+         if CW_Actual
+            and then Box_Present (Inst_Node)
+            and then not
+             (GNATprove_Mode
+               and then
+                 Present (Containing_Package_With_Ext_Axioms (Formal_Spec)))
+         then
             Build_Class_Wide_Wrapper (New_S, Old_S);
 
          elsif Is_Entity_Name (Nam)
@@ -2831,7 +2872,6 @@ package body Sem_Ch8 is
          --  constructed later at the freeze point, so indicate that the
          --  completion has not been seen yet.
 
-         Set_Contract (New_S, Empty);
          Set_Ekind (New_S, E_Subprogram_Body);
          New_S := Rename_Spec;
          Set_Has_Completion (Rename_Spec, False);
@@ -3026,7 +3066,7 @@ package body Sem_Ch8 is
          --  A subprogram renaming is Ghost if the renamed entity is Ghost or
          --  the construct appears within a Ghost scope.
 
-         if Is_Ghost_Entity (Entity (Nam)) or else Within_Ghost_Scope then
+         if Is_Ghost_Entity (Entity (Nam)) or else Ghost_Mode > None then
             Set_Is_Ghost_Entity (New_S);
          end if;
 
@@ -3222,7 +3262,7 @@ package body Sem_Ch8 is
 
                      if Present (DTC_Entity (Old_S)) then
                         Set_DTC_Entity  (New_S, DTC_Entity (Old_S));
-                        Set_DT_Position (New_S, DT_Position (Old_S));
+                        Set_DT_Position_Value (New_S, DT_Position (Old_S));
                      end if;
                   end if;
                end;
@@ -3450,6 +3490,29 @@ package body Sem_Ch8 is
       Ada_Version := Save_AV;
       Ada_Version_Pragma := Save_AVP;
       Ada_Version_Explicit := Save_AV_Exp;
+
+      --  In GNATprove mode, the renamings of actual subprograms are replaced
+      --  with wrapper functions that make it easier to propagate axioms to the
+      --  points of call within an instance. Wrappers are generated if formal
+      --  subprogram is subject to axiomatization.
+
+      --  The types in the wrapper profiles are obtained from (instances of)
+      --  the types of the formal subprogram.
+
+      if Is_Actual
+        and then GNATprove_Mode
+        and then Present (Containing_Package_With_Ext_Axioms (Formal_Spec))
+        and then not Inside_A_Generic
+      then
+         if Ekind (Old_S) = E_Function then
+            Rewrite (N, Build_Function_Wrapper (Formal_Spec, Old_S));
+            Analyze (N);
+
+         elsif Ekind (Old_S) = E_Operator then
+            Rewrite (N, Build_Operator_Wrapper (Formal_Spec, Old_S));
+            Analyze (N);
+         end if;
+      end if;
    end Analyze_Subprogram_Renaming;
 
    -------------------------
@@ -3532,10 +3595,22 @@ package body Sem_Ch8 is
             if Ekind (Pack) /= E_Package and then Etype (Pack) /= Any_Type then
                if Ekind (Pack) = E_Generic_Package then
                   Error_Msg_N  -- CODEFIX
-                   ("a generic package is not allowed in a use clause",
-                      Pack_Name);
+                    ("a generic package is not allowed in a use clause",
+                     Pack_Name);
+
+               elsif Ekind_In (Pack, E_Generic_Function, E_Generic_Package)
+               then
+                  Error_Msg_N  -- CODEFIX
+                    ("a generic subprogram is not allowed in a use clause",
+                     Pack_Name);
+
+               elsif Ekind_In (Pack, E_Function, E_Procedure, E_Operator) then
+                  Error_Msg_N  -- CODEFIX
+                    ("a subprogram is not allowed in a use clause",
+                     Pack_Name);
+
                else
-                  Error_Msg_N ("& is not a usable package", Pack_Name);
+                  Error_Msg_N ("& is not allowed in a use clause", Pack_Name);
                end if;
 
             else
@@ -3950,6 +4025,15 @@ package body Sem_Ch8 is
          Pack := Defining_Entity (Parent (N));
          if not In_Open_Scopes (Pack) then
             null;  --  default as well
+
+         --  If the use clause appears in an ancestor and we are in the
+         --  private part of the immediate parent, the use clauses are
+         --  already installed.
+
+         elsif Pack /= Scope (Current_Scope)
+           and then In_Private_Part (Scope (Current_Scope))
+         then
+            null;
 
          else
             --  Find entry for parent unit in scope stack
@@ -5169,7 +5253,7 @@ package body Sem_Ch8 is
          Nvis_Messages;
       end if;
 
-      return;
+      goto Done;
 
       --  Processing for a potentially use visible entry found. We must search
       --  the rest of the homonym chain for two reasons. First, if there is a
@@ -5279,7 +5363,7 @@ package body Sem_Ch8 is
                end loop;
 
                Nvis_Messages;
-               return;
+               goto Done;
 
             elsif
               Is_Predefined_File_Name (Unit_File_Name (Current_Sem_Unit))
@@ -5306,7 +5390,7 @@ package body Sem_Ch8 is
 
             else
                Nvis_Messages;
-               return;
+               goto Done;
             end if;
          end if;
       end;
@@ -5411,9 +5495,8 @@ package body Sem_Ch8 is
            and then Expander_Active
            and then Get_PCS_Name /= Name_No_DSA
          then
-            Rewrite (N,
-              New_Occurrence_Of (Equivalent_Type (E), Sloc (N)));
-            return;
+            Rewrite (N, New_Occurrence_Of (Equivalent_Type (E), Sloc (N)));
+            goto Done;
          end if;
 
          --  Set the entity. Note that the reason we call Set_Entity for the
@@ -5550,7 +5633,7 @@ package body Sem_Ch8 is
                   end if;
                end if;
 
-               Check_Nested_Access (E);
+               Check_Nested_Access (N, E);
             end if;
 
             Set_Entity_Or_Discriminal (N, E);
@@ -5568,6 +5651,11 @@ package body Sem_Ch8 is
             end if;
          end if;
       end;
+
+   --  Come here with entity set
+
+   <<Done>>
+      Check_Restriction_No_Use_Of_Entity (N);
    end Find_Direct_Name;
 
    ------------------------
@@ -6375,12 +6463,43 @@ package body Sem_Ch8 is
 
       Nam : Node_Id;
 
+      function Available_Subtype return Boolean;
+      --  A small optimization: if the prefix is constrained and the component
+      --  is an array type we may already have a usable subtype for it, so we
+      --  can use it rather than generating a new one, because the bounds
+      --  will be the values of the discriminants and not discriminant refs.
+      --  This simplifies value tracing in GNATProve. For consistency, both
+      --  the entity name and the subtype come from the constrained component.
+
       function Is_Reference_In_Subunit return Boolean;
       --  In a subunit, the scope depth is not a proper measure of hiding,
       --  because the context of the proper body may itself hide entities in
       --  parent units. This rare case requires inspecting the tree directly
       --  because the proper body is inserted in the main unit and its context
       --  is simply added to that of the parent.
+
+      -----------------------
+      -- Available_Subtype --
+      -----------------------
+
+      function Available_Subtype return Boolean is
+         Comp : Entity_Id;
+
+      begin
+         Comp := First_Entity (Etype (P));
+         while Present (Comp) loop
+            if Chars (Comp) = Chars (Selector_Name (N)) then
+               Set_Etype (N, Etype (Comp));
+               Set_Entity (Selector_Name (N), Comp);
+               Set_Etype  (Selector_Name (N), Etype (Comp));
+               return True;
+            end if;
+
+            Next_Component (Comp);
+         end loop;
+
+         return False;
+      end Available_Subtype;
 
       -----------------------------
       -- Is_Reference_In_Subunit --
@@ -6484,6 +6603,16 @@ package body Sem_Ch8 is
                  and then (not Is_Entity_Name (P)
                             or else Chars (Entity (P)) /= Name_uInit)
                then
+                  --  Check if we already have an available subtype we can use
+
+                  if Ekind (Etype (P)) = E_Record_Subtype
+                    and then Nkind (Parent (Etype (P))) = N_Subtype_Declaration
+                    and then Is_Array_Type (Etype (Selector))
+                    and then not Is_Packed (Etype (Selector))
+                    and then Available_Subtype
+                  then
+                     return;
+
                   --  Do not build the subtype when referencing components of
                   --  dispatch table wrappers. Required to avoid generating
                   --  elaboration code with HI runtimes. JVM and .NET use a
@@ -6491,7 +6620,7 @@ package body Sem_Ch8 is
                   --  Dispatch_Table_Wrapper and RE_No_Dispatch_Table_Wrapper.
                   --  Avoid raising RE_Not_Available exception in those cases.
 
-                  if VM_Target = No_VM
+                  elsif VM_Target = No_VM
                     and then RTU_Loaded (Ada_Tags)
                     and then
                       ((RTE_Available (RE_Dispatch_Table_Wrapper)
@@ -6783,20 +6912,38 @@ package body Sem_Ch8 is
                Premature_Usage (P);
 
             elsif Nkind (P) /= N_Attribute_Reference then
-               Error_Msg_N (
-                "invalid prefix in selected component&", P);
+
+               --  This may have been meant as a prefixed call to a primitive
+               --  of an untagged type.
+
+               declare
+                  F : constant Entity_Id :=
+                        Current_Entity (Selector_Name (N));
+               begin
+                  if Present (F)
+                    and then Is_Overloadable (F)
+                    and then Present (First_Entity (F))
+                    and then Etype (First_Entity (F)) = Etype (P)
+                    and then not Is_Tagged_Type (Etype (P))
+                  then
+                     Error_Msg_N
+                       ("prefixed call is only allowed for objects "
+                        & "of a tagged type", N);
+                  end if;
+               end;
+
+               Error_Msg_N ("invalid prefix in selected component&", P);
 
                if Is_Access_Type (P_Type)
                  and then Ekind (Designated_Type (P_Type)) = E_Incomplete_Type
                then
                   Error_Msg_N
-                    ("\dereference must not be of an incomplete type " &
-                       "(RM 3.10.1)", P);
+                    ("\dereference must not be of an incomplete type "
+                     & "(RM 3.10.1)", P);
                end if;
 
             else
-               Error_Msg_N (
-                "invalid prefix in selected component", P);
+               Error_Msg_N ("invalid prefix in selected component", P);
             end if;
          end if;
 
@@ -7147,6 +7294,12 @@ package body Sem_Ch8 is
             Check_Restriction (No_Fixed_Point, N);
          elsif Is_Floating_Point_Type (Etype (N)) then
             Check_Restriction (No_Floating_Point, N);
+         end if;
+
+         --  A Ghost type must appear in a specific context
+
+         if Is_Ghost_Entity (Etype (N)) then
+            Check_Ghost_Context (Etype (N), N);
          end if;
       end if;
    end Find_Type;

@@ -1,5 +1,5 @@
 /* Translation of ISL AST to Gimple.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Roman Gareev <gareevroman@gmail.com>.
 
 This file is part of GCC.
@@ -25,23 +25,32 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/map.h>
 #include <isl/union_map.h>
 #include <isl/ast_build.h>
-#if defined(__cplusplus)
+
+/* Since ISL-0.13, the extern is in val_gmp.h.  */
+#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
 extern "C" {
 #endif
 #include <isl/val_gmp.h>
-#if defined(__cplusplus)
+#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
 }
 #endif
 #endif
 
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"

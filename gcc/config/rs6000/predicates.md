@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2015 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -392,8 +392,8 @@
 ;; Return 1 if op is a constant integer valid for addition with addis, addi.
 (define_predicate "add_cint_operand"
   (and (match_code "const_int")
-       (match_test "(unsigned HOST_WIDE_INT)
-		      (INTVAL (op) + (mode == SImode ? 0x80000000 : 0x80008000))
+       (match_test "((unsigned HOST_WIDE_INT) INTVAL (op)
+		       + (mode == SImode ? 0x80000000 : 0x80008000))
 		    < (unsigned HOST_WIDE_INT) 0x100000000ll")))
 
 ;; Return 1 if op is a constant integer valid for addition
@@ -408,7 +408,7 @@
 (define_predicate "reg_or_sub_cint_operand"
   (if_then_else (match_code "const_int")
     (match_test "(unsigned HOST_WIDE_INT)
-		   (- INTVAL (op) + (mode == SImode ? 0x80000000 : 0x80008000))
+		   (- UINTVAL (op) + (mode == SImode ? 0x80000000 : 0x80008000))
 		 < (unsigned HOST_WIDE_INT) 0x100000000ll")
     (match_operand 0 "gpc_reg_operand")))
 
@@ -432,9 +432,6 @@
 (define_predicate "easy_fp_constant"
   (match_code "const_double")
 {
-  long k[4];
-  REAL_VALUE_TYPE rv;
-
   if (GET_MODE (op) != mode
       || (!SCALAR_FLOAT_MODE_P (mode) && mode != DImode))
     return 0;
@@ -446,8 +443,7 @@
     return 1;
 
   /* The constant 0.0 is easy under VSX.  */
-  if ((mode == SFmode || mode == DFmode || mode == SDmode || mode == DDmode)
-      && VECTOR_UNIT_VSX_P (DFmode) && op == CONST0_RTX (mode))
+  if (TARGET_VSX && SCALAR_FLOAT_MODE_P (mode) && op == CONST0_RTX (mode))
     return 1;
 
   if (DECIMAL_FLOAT_MODE_P (mode))
@@ -464,82 +460,28 @@
     return 0;
 #endif
 
+  /* If we have real FPRs, consider floating point constants hard (other than
+     0.0 under VSX), so that the constant gets pushed to memory during the
+     early RTL phases.  This has the advantage that double precision constants
+     that can be represented in single precision without a loss of precision
+     will use single precision loads.  */
+
   switch (mode)
     {
     case TFmode:
-      if (TARGET_E500_DOUBLE)
-	return 0;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-      REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
-
-      return (num_insns_constant_wide ((HOST_WIDE_INT) k[0]) == 1
-	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1
-	      && num_insns_constant_wide ((HOST_WIDE_INT) k[2]) == 1
-	      && num_insns_constant_wide ((HOST_WIDE_INT) k[3]) == 1);
-
     case DFmode:
-      /* Force constants to memory before reload to utilize
-	 compress_float_constant.
-	 Avoid this when flag_unsafe_math_optimizations is enabled
-	 because RDIV division to reciprocal optimization is not able
-	 to regenerate the division.  */
-      if (TARGET_E500_DOUBLE
-          || (!reload_in_progress && !reload_completed
-	      && !flag_unsafe_math_optimizations))
-        return 0;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-      REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
-
-      return (num_insns_constant_wide ((HOST_WIDE_INT) k[0]) == 1
-	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1);
-
     case SFmode:
-      /* Force constants to memory before reload to utilize
-	 compress_float_constant.
-	 Avoid this when flag_unsafe_math_optimizations is enabled
-	 because RDIV division to reciprocal optimization is not able
-	 to regenerate the division.  */
-      if (!reload_in_progress && !reload_completed
-          && !flag_unsafe_math_optimizations)
-	return 0;
+      return 0;
 
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-      REAL_VALUE_TO_TARGET_SINGLE (rv, k[0]);
+    case DImode:
+      return (num_insns_constant (op, DImode) <= 2);
 
-      return num_insns_constant_wide (k[0]) == 1;
+    case SImode:
+      return 1;
 
-  case DImode:
-    return (num_insns_constant (op, DImode) <= 2);
-
-  case SImode:
-    return 1;
-
-  default:
-    gcc_unreachable ();
-  }
-})
-
-;; Return 1 if the operand must be loaded from memory.  This is used by a
-;; define_split to insure constants get pushed to the constant pool before
-;; reload.  If -ffast-math is used, easy_fp_constant will allow move insns to
-;; have constants in order not interfere with reciprocal estimation.  However,
-;; with -mupper-regs support, these constants must be moved to the constant
-;; pool before register allocation.
-
-(define_predicate "memory_fp_constant"
-  (match_code "const_double")
-{
-  if (TARGET_VSX && op == CONST0_RTX (mode))
-    return 0;
-
-  if (!TARGET_HARD_FLOAT || !TARGET_FPRS
-      || (mode == SFmode && !TARGET_SINGLE_FLOAT)
-      || (mode == DFmode && !TARGET_DOUBLE_FLOAT))
-    return 0;
-	  
-  return 1;
+    default:
+      gcc_unreachable ();
+    }
 })
 
 ;; Return 1 if the operand is a CONST_VECTOR and can be loaded into a
@@ -788,6 +730,12 @@
 		 || satisfies_constraint_L (op)")
     (match_operand 0 "gpc_reg_operand")))
 
+;; Return 1 if the operand is either a non-special register, or 0, or -1.
+(define_predicate "adde_operand"
+  (if_then_else (match_code "const_int")
+    (match_test "INTVAL (op) == 0 || INTVAL (op) == -1")
+    (match_operand 0 "gpc_reg_operand")))
+
 ;; Return 1 if OP is a constant but not a valid add_operand.
 (define_predicate "non_add_cint_operand"
   (and (match_code "const_int")
@@ -827,7 +775,7 @@
 (define_predicate "mask_operand"
   (match_code "const_int")
 {
-  HOST_WIDE_INT c, lsb;
+  unsigned HOST_WIDE_INT c, lsb;
 
   c = INTVAL (op);
 
@@ -872,7 +820,7 @@
 (define_predicate "mask_operand_wrap"
   (match_code "const_int")
 {
-  HOST_WIDE_INT c, lsb;
+  unsigned HOST_WIDE_INT c, lsb;
 
   c = INTVAL (op);
 
@@ -897,7 +845,7 @@
 (define_predicate "mask64_operand"
   (match_code "const_int")
 {
-  HOST_WIDE_INT c, lsb;
+  unsigned HOST_WIDE_INT c, lsb;
 
   c = INTVAL (op);
 
@@ -923,7 +871,7 @@
 (define_predicate "mask64_2_operand"
   (match_code "const_int")
 {
-  HOST_WIDE_INT c, lsb;
+  unsigned HOST_WIDE_INT c, lsb;
 
   c = INTVAL (op);
 
@@ -1016,7 +964,8 @@
 
 ;; Return 1 if the operand is CONST_DOUBLE 0, register or memory operand.
 (define_predicate "zero_reg_mem_operand"
-  (ior (match_operand 0 "zero_fp_constant")
+  (ior (and (match_test "TARGET_VSX")
+	    (match_operand 0 "zero_fp_constant"))
        (match_operand 0 "reg_or_mem_operand")))
 
 ;; Return 1 if the operand is a CONST_INT and it is the element for 64-bit
@@ -1233,6 +1182,14 @@
 			      (ior (match_operand 0 "ordered_comparison_operator")
 				   (match_code ("unlt,unle,ungt,unge"))))
 		(match_operand 0 "comparison_operator")))
+
+;; Return 1 if OP is an unsigned comparison operator.
+(define_predicate "unsigned_comparison_operator"
+  (match_code "ltu,gtu,leu,geu"))
+
+;; Return 1 if OP is a signed comparison operator.
+(define_predicate "signed_comparison_operator"
+  (match_code "lt,gt,le,ge"))
 
 ;; Return 1 if OP is a comparison operation that is valid for an SCC insn --
 ;; it must be a positive comparison.

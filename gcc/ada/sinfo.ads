@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -521,6 +521,32 @@ package Sinfo is
    --      simply ignore these nodes, since they are not relevant to the task
    --      of back annotating representation information.
 
+   ----------------
+   -- Ghost Mode --
+   ----------------
+
+   --  When a declaration is subject to pragma Ghost, it establishes a Ghost
+   --  region depending on the Ghost assertion policy in effect at the point
+   --  of declaration. This region is temporal and starts right before the
+   --  analysis of the Ghost declaration and ends after its expansion. The
+   --  values of global variable Opt.Ghost_Mode are as follows:
+
+   --    1. Check - All static semantics as defined in SPARK RM 6.9 are in
+   --       effect.
+
+   --    2. Ignore - Same as Check, ignored Ghost code is not present in ALI
+   --       files, object files as well as the final executable.
+
+   --  To achieve the runtime semantics of "Ignore", the compiler marks each
+   --  node created during an ignored Ghost region and signals all enclosing
+   --  scopes that such a node resides within. The compilation unit where the
+   --  node resides is also added to an auxiliary table for post processing.
+
+   --  After the analysis and expansion of all compilation units takes place
+   --  as well as the instantiation of all inlined [generic] bodies, the GNAT
+   --  driver initiates a separate pass which removes all ignored Ghost code
+   --  from all units stored in the auxiliary table.
+
    --------------------
    -- GNATprove Mode --
    --------------------
@@ -562,7 +588,7 @@ package Sinfo is
    --  not make sense from a user point-of-view, and that cross-references that
    --  do not lead to data dependences for subprograms can be safely ignored.
 
-   --  GNATprove relies on the following frontend behaviors:
+   --  GNATprove relies on the following front end behaviors:
 
    --    1. The first declarations in the list of visible declarations of
    --       a package declaration for a generic instance, up to the first
@@ -579,7 +605,28 @@ package Sinfo is
 
    --    4. Unconstrained types are not replaced by constrained types whose
    --       bounds are generated from an expression: Expand_Subtype_From_Expr
-   --       should be noop.
+   --       should be a no-op.
+
+   --    5. Errors (instead of warnings) are issued on compile-time-known
+   --       constraint errors even though such cases do not correspond to
+   --       illegalities in the Ada RM (this is simply another case where
+   --       GNATprove implements a subset of the full language).
+   --
+   --       However, there are a few exceptions to this rule for cases where
+   --       we want to allow the GNATprove analysis to proceed (e.g. range
+   --       checks on empty ranges, which typically appear in deactivated
+   --       code in a particular configuration).
+
+   --    6. Subtypes should match in the AST, even after a generic is
+   --       instantiated. In particular, GNATprove relies on the fact that,
+   --       on a selected component, the type of the selected component is
+   --       the type of the corresponding component in the prefix of the
+   --       selected component.
+   --
+   --       Note that, in some cases, we know that this rule is broken by the
+   --       frontend. In particular, if the selected component is a packed
+   --       array depending on a discriminant of a unconstrained formal object
+   --       parameter of a generic.
 
    -----------------------
    -- Check Flag Fields --
@@ -780,7 +827,9 @@ package Sinfo is
    --    setting tag values, etc. N_Object_Declaration nodes also have this
    --    flag defined. Here it is used to indicate that an initialization
    --    expression is valid, even where it would normally not be allowed
-   --    (e.g. where the type involved is limited).
+   --    (e.g. where the type involved is limited). It is also used to stop
+   --    a Force_Evaluation call for an unchecked conversion, but this usage
+   --    is unclear and not documented ???
 
    --  Associated_Node (Node4-Sem)
    --    Present in nodes that can denote an entity: identifiers, character
@@ -6485,6 +6534,14 @@ package Sinfo is
       --  expanded tree. This is for example used to deal with the case of
       --  a cleanup procedure that must handle declarations as well as the
       --  statements of a block.
+
+      --  Note: the cleanup_procedure_call does not go through the common
+      --  processing for calls, which in particular means that it will not be
+      --  automatically inlined in all cases, even though the procedure to be
+      --  called is marked inline. More specifically, if the procedure comes
+      --  from another unit than the main source unit, for example a run-time
+      --  unit, then it needs to be manually added to the list of bodies to be
+      --  inlined by invoking Add_Inlined_Body on it.
 
       --  N_Handled_Sequence_Of_Statements
       --  Sloc points to first token of first statement

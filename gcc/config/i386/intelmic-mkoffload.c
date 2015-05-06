@@ -1,6 +1,6 @@
 /* Offload image generation tool for Intel MIC devices.
 
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
    Contributed by Ilya Verbin <ilya.verbin@intel.com>.
 
@@ -28,7 +28,7 @@
 #include "intl.h"
 #include "diagnostic.h"
 #include "collect-utils.h"
-#include <libgomp_target.h>
+#include "intelmic-offload.h"
 
 const char tool_name[] = "intelmic mkoffload";
 
@@ -158,10 +158,21 @@ find_target_compiler (const char *name)
   bool found = false;
   char **paths = NULL;
   unsigned n_paths, i;
-  const char *collect_path = dirname (ASTRDUP (getenv ("COLLECT_GCC")));
-  size_t len = strlen (collect_path) + 1 + strlen (name) + 1;
-  char *target_compiler = XNEWVEC (char, len);
-  sprintf (target_compiler, "%s/%s", collect_path, name);
+  char *target_compiler;
+  const char *collect_gcc = getenv ("COLLECT_GCC");
+  const char *gcc_path = dirname (ASTRDUP (collect_gcc));
+  const char *gcc_exec = basename (ASTRDUP (collect_gcc));
+
+  if (strcmp (gcc_exec, collect_gcc) == 0)
+    {
+      /* collect_gcc has no path, so it was found in PATH.  Make sure we also
+	 find accel-gcc in PATH.  */
+      target_compiler = XDUPVEC (char, name, strlen (name) + 1);
+      found = true;
+      goto out;
+    }
+
+  target_compiler = concat (gcc_path, "/", name, NULL);
   if (access_check (target_compiler, X_OK) == 0)
     {
       found = true;
@@ -171,7 +182,7 @@ find_target_compiler (const char *name)
   n_paths = parse_env_var (getenv ("COMPILER_PATH"), &paths);
   for (i = 0; i < n_paths; i++)
     {
-      len = strlen (paths[i]) + 1 + strlen (name) + 1;
+      size_t len = strlen (paths[i]) + 1 + strlen (name) + 1;
       target_compiler = XRESIZEVEC (char, target_compiler, len);
       sprintf (target_compiler, "%s/%s", paths[i], name);
       if (access_check (target_compiler, X_OK) == 0)
@@ -191,6 +202,8 @@ compile_for_target (struct obstack *argv_obstack)
 {
   if (target_ilp32)
     obstack_ptr_grow (argv_obstack, "-m32");
+  else
+    obstack_ptr_grow (argv_obstack, "-m64");
   obstack_ptr_grow (argv_obstack, NULL);
   char **argv = XOBFINISH (argv_obstack, char **);
 
@@ -225,7 +238,7 @@ generate_target_descr_file (const char *target_compiler)
   FILE *src_file = fopen (src_filename, "w");
 
   if (!src_file)
-    fatal_error ("cannot open '%s'", src_filename);
+    fatal_error (input_location, "cannot open '%s'", src_filename);
 
   fprintf (src_file,
 	   "extern void *__offload_funcs_end[];\n"
@@ -285,7 +298,7 @@ generate_target_offloadend_file (const char *target_compiler)
   FILE *src_file = fopen (src_filename, "w");
 
   if (!src_file)
-    fatal_error ("cannot open '%s'", src_filename);
+    fatal_error (input_location, "cannot open '%s'", src_filename);
 
   fprintf (src_file,
 	   "void *__offload_funcs_end[0]\n"
@@ -322,7 +335,7 @@ generate_host_descr_file (const char *host_compiler)
   FILE *src_file = fopen (src_filename, "w");
 
   if (!src_file)
-    fatal_error ("cannot open '%s'", src_filename);
+    fatal_error (input_location, "cannot open '%s'", src_filename);
 
   fprintf (src_file,
 	   "extern void *__OFFLOAD_TABLE__;\n"
@@ -337,14 +350,27 @@ generate_host_descr_file (const char *host_compiler)
 	   "#ifdef __cplusplus\n"
 	   "extern \"C\"\n"
 	   "#endif\n"
-	   "void GOMP_offload_register (void *, int, void *);\n\n"
+	   "void GOMP_offload_register (void *, int, void *);\n"
+	   "#ifdef __cplusplus\n"
+	   "extern \"C\"\n"
+	   "#endif\n"
+	   "void GOMP_offload_unregister (void *, int, void *);\n\n"
 
 	   "__attribute__((constructor))\n"
 	   "static void\n"
 	   "init (void)\n"
 	   "{\n"
 	   "  GOMP_offload_register (&__OFFLOAD_TABLE__, %d, __offload_target_data);\n"
-	   "}\n", OFFLOAD_TARGET_TYPE_INTEL_MIC);
+	   "}\n\n", GOMP_DEVICE_INTEL_MIC);
+
+  fprintf (src_file,
+	   "__attribute__((destructor))\n"
+	   "static void\n"
+	   "fini (void)\n"
+	   "{\n"
+	   "  GOMP_offload_unregister (&__OFFLOAD_TABLE__, %d, __offload_target_data);\n"
+	   "}\n", GOMP_DEVICE_INTEL_MIC);
+
   fclose (src_file);
 
   unsigned new_argc = 0;
@@ -355,6 +381,8 @@ generate_host_descr_file (const char *host_compiler)
   new_argv[new_argc++] = "-shared";
   if (target_ilp32)
     new_argv[new_argc++] = "-m32";
+  else
+    new_argv[new_argc++] = "-m64";
   new_argv[new_argc++] = src_filename;
   new_argv[new_argc++] = "-o";
   new_argv[new_argc++] = obj_filename;
@@ -386,7 +414,6 @@ prepare_target_image (const char *target_compiler, int argc, char **argv)
   obstack_init (&argv_obstack);
   obstack_ptr_grow (&argv_obstack, target_compiler);
   obstack_ptr_grow (&argv_obstack, "-xlto");
-  obstack_ptr_grow (&argv_obstack, "-fopenmp");
   obstack_ptr_grow (&argv_obstack, "-shared");
   obstack_ptr_grow (&argv_obstack, "-fPIC");
   obstack_ptr_grow (&argv_obstack, opt1);
@@ -398,7 +425,7 @@ prepare_target_image (const char *target_compiler, int argc, char **argv)
 	obstack_ptr_grow (&argv_obstack, argv[i]);
     }
   if (!out_obj_filename)
-    fatal_error ("output file not specified");
+    fatal_error (input_location, "output file not specified");
   obstack_ptr_grow (&argv_obstack, opt2);
   obstack_ptr_grow (&argv_obstack, "-o");
   obstack_ptr_grow (&argv_obstack, target_so_filename);
@@ -474,17 +501,17 @@ main (int argc, char **argv)
   diagnostic_initialize (global_dc, 0);
 
   if (atexit (mkoffload_atexit) != 0)
-    fatal_error ("atexit failed");
+    fatal_error (input_location, "atexit failed");
 
   const char *host_compiler = getenv ("COLLECT_GCC");
   if (!host_compiler)
-    fatal_error ("COLLECT_GCC must be set");
+    fatal_error (input_location, "COLLECT_GCC must be set");
 
-  const char *target_driver_name
-    = DEFAULT_REAL_TARGET_MACHINE "-accel-" DEFAULT_TARGET_MACHINE "-gcc";
+  const char *target_driver_name = GCC_INSTALL_NAME;
   char *target_compiler = find_target_compiler (target_driver_name);
   if (target_compiler == NULL)
-    fatal_error ("offload compiler %s not found", target_driver_name);
+    fatal_error (input_location, "offload compiler %s not found",
+		 target_driver_name);
 
   /* We may be called with all the arguments stored in some file and
      passed with @file.  Expand them into argv before processing.  */
@@ -497,7 +524,8 @@ main (int argc, char **argv)
 	if (strstr (argv[i], "ilp32"))
 	  target_ilp32 = true;
 	else if (!strstr (argv[i], "lp64"))
-	  fatal_error ("unrecognizable argument of option -foffload-abi");
+	  fatal_error (input_location,
+		       "unrecognizable argument of option -foffload-abi");
 	break;
       }
 
@@ -511,11 +539,11 @@ main (int argc, char **argv)
   unsigned new_argc = 0;
   const char *new_argv[9];
   new_argv[new_argc++] = "ld";
+  new_argv[new_argc++] = "-m";
   if (target_ilp32)
-    {
-      new_argv[new_argc++] = "-m";
-      new_argv[new_argc++] = "elf_i386";
-    }
+    new_argv[new_argc++] = "elf_i386";
+  else
+    new_argv[new_argc++] = "elf_x86_64";
   new_argv[new_argc++] = "--relocatable";
   new_argv[new_argc++] = host_descr_filename;
   new_argv[new_argc++] = target_so_filename;

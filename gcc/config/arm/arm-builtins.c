@@ -1,5 +1,5 @@
 /* Description of builtins used by the ARM backend.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -22,8 +22,33 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tm_p.h"
 #include "recog.h"
@@ -2039,7 +2064,10 @@ arm_expand_neon_args (rtx target, machine_mode map_mode, int fcode,
             case NEON_ARG_MEMORY:
 	      /* Check if expand failed.  */
 	      if (op[argc] == const0_rtx)
+	      {
+		va_end (ap);
 		return 0;
+	      }
 	      gcc_assert (MEM_P (op[argc]));
 	      PUT_MODE (op[argc], mode[argc]);
 	      /* ??? arm_neon.h uses the same built-in functions for signed
@@ -2883,7 +2911,7 @@ arm_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
        __builtin_arm_set_fpscr (masked_fenv);  */
 
-  fenv_var = create_tmp_var (unsigned_type_node, NULL);
+  fenv_var = create_tmp_var (unsigned_type_node);
   get_fpscr = arm_builtin_decls[ARM_BUILTIN_GET_FPSCR];
   set_fpscr = arm_builtin_decls[ARM_BUILTIN_SET_FPSCR];
   mask = build_int_cst (unsigned_type_node,
@@ -2910,7 +2938,7 @@ arm_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
        __atomic_feraiseexcept (new_fenv_var);  */
 
-  new_fenv_var = create_tmp_var (unsigned_type_node, NULL);
+  new_fenv_var = create_tmp_var (unsigned_type_node);
   reload_fenv = build2 (MODIFY_EXPR, unsigned_type_node, new_fenv_var,
 			build_call_expr (get_fpscr, 0));
   restore_fnenv = build_call_expr (set_fpscr, 1, fenv_var);

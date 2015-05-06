@@ -1,6 +1,6 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -29,6 +29,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -604,6 +613,17 @@ split_nonconstant_init_1 (tree dest, tree init)
     case ARRAY_TYPE:
       inner_type = TREE_TYPE (type);
       array_type_p = true;
+      if ((TREE_SIDE_EFFECTS (init)
+	   && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+	  || array_of_runtime_bound_p (type))
+	{
+	  /* For an array, we only need/want a single cleanup region rather
+	     than one per element.  */
+	  tree code = build_vec_init (dest, NULL_TREE, init, false, 1,
+				      tf_warning_or_error);
+	  add_stmt (code);
+	  return true;
+	}
       /* FALLTHRU */
 
     case RECORD_TYPE:
@@ -633,6 +653,8 @@ split_nonconstant_init_1 (tree dest, tree init)
 
 	      if (!split_nonconstant_init_1 (sub, value))
 		complete_p = false;
+	      else
+		CONSTRUCTOR_ELTS (init)->ordered_remove (idx--);
 	      num_split_elts++;
 	    }
 	  else if (!initializer_constant_valid_p (value, inner_type))
@@ -721,11 +743,13 @@ split_nonconstant_init_1 (tree dest, tree init)
    perform the non-constant part of the initialization to DEST.
    Returns the code for the runtime init.  */
 
-static tree
+tree
 split_nonconstant_init (tree dest, tree init)
 {
   tree code;
 
+  if (TREE_CODE (init) == TARGET_EXPR)
+    init = TARGET_EXPR_INITIAL (init);
   if (TREE_CODE (init) == CONSTRUCTOR)
     {
       code = push_stmt_list ();
@@ -790,7 +814,7 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
 
   value = extend_ref_init_temps (decl, value, cleanups);
 
-  /* In C++0x constant expression is a semantic, not syntactic, property.
+  /* In C++11 constant expression is a semantic, not syntactic, property.
      In C++98, make sure that what we thought was a constant expression at
      template definition time is still constant and otherwise perform this
      as optimization, e.g. to fold SIZEOF_EXPRs in the initializer.  */
@@ -809,6 +833,10 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
 	    value = cxx_constant_value (value, decl);
 	}
       value = maybe_constant_init (value, decl);
+      if (TREE_CODE (value) == CONSTRUCTOR && cp_has_mutable_p (type))
+	/* Poison this CONSTRUCTOR so it can't be copied to another
+	   constexpr variable.  */
+	CONSTRUCTOR_MUTABLE_POISON (value) = true;
       const_init = (reduced_constant_expression_p (value)
 		    || error_operand_p (value));
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = const_init;
@@ -826,17 +854,7 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
       && (TREE_SIDE_EFFECTS (value)
 	  || array_of_runtime_bound_p (type)
 	  || ! reduced_constant_expression_p (value)))
-    {
-      if (TREE_CODE (type) == ARRAY_TYPE
-	  && (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (type))
-	      || array_of_runtime_bound_p (type)))
-	/* For an array, we only need/want a single cleanup region rather
-	   than one per element.  */
-	return build_vec_init (decl, NULL_TREE, value, false, 1,
-			       tf_warning_or_error);
-      else
-	return split_nonconstant_init (decl, value);
-    }
+    return split_nonconstant_init (decl, value);
   /* If the value is a constant, just put it in DECL_INITIAL.  If DECL
      is an automatic variable, the middle end will turn this into a
      dynamic initialization later.  */

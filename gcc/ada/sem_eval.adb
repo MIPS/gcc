@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -3163,12 +3163,17 @@ package body Sem_Eval is
                     (Expr : Node_Id;
                      Ent  : out Entity_Id;
                      Kind : out Character;
-                     Cons : out Uint);
+                     Cons : out Uint;
+                     Orig : Boolean := True);
                   --  Given an expression see if it is of the form given above,
                   --  X [+/- K]. If so Ent is set to the entity in X, Kind is
                   --  'F','L','E' for 'First/'Last/simple entity, and Cons is
                   --  the value of K. If the expression is not of the required
                   --  form, Ent is set to Empty.
+                  --
+                  --  Orig indicates whether Expr is the original expression
+                  --  to consider, or if we are handling a sub-expression
+                  --  (e.g. recursive call to Decompose_Expr).
 
                   --------------------
                   -- Decompose_Expr --
@@ -3178,11 +3183,14 @@ package body Sem_Eval is
                     (Expr : Node_Id;
                      Ent  : out Entity_Id;
                      Kind : out Character;
-                     Cons : out Uint)
+                     Cons : out Uint;
+                     Orig : Boolean := True)
                   is
                      Exp : Node_Id;
 
                   begin
+                     Ent := Empty;
+
                      if Nkind (Expr) = N_Op_Add
                        and then Compile_Time_Known_Value (Right_Opnd (Expr))
                      then
@@ -3206,18 +3214,29 @@ package body Sem_Eval is
                          Nkind (Parent (Entity (Expr))) = N_Object_Declaration
                      then
                         Exp := Expression (Parent (Entity (Expr)));
-                        Decompose_Expr (Exp, Ent, Kind, Cons);
+                        Decompose_Expr (Exp, Ent, Kind, Cons, Orig => False);
 
                         --  If original expression includes an entity, create a
                         --  reference to it for use below.
 
                         if Present (Ent) then
                            Exp := New_Occurrence_Of (Ent, Sloc (Ent));
+                        else
+                           return;
                         end if;
 
                      else
-                        Exp  := Expr;
-                        Cons := Uint_0;
+                        --  Only consider the case of X + 0 for a full
+                        --  expression, and not when recursing, otherwise we
+                        --  may end up with evaluating expressions not known
+                        --  at compile time to 0.
+
+                        if Orig then
+                           Exp  := Expr;
+                           Cons := Uint_0;
+                        else
+                           return;
+                        end if;
                      end if;
 
                      --  At this stage Exp is set to the potential X
@@ -3228,7 +3247,6 @@ package body Sem_Eval is
                         elsif Attribute_Name (Exp) = Name_Last then
                            Kind := 'L';
                         else
-                           Ent := Empty;
                            return;
                         end if;
 
@@ -3238,11 +3256,10 @@ package body Sem_Eval is
                         Kind := 'E';
                      end if;
 
-                     if Is_Entity_Name (Exp) and then Present (Entity (Exp))
+                     if Is_Entity_Name (Exp)
+                       and then Present (Entity (Exp))
                      then
                         Ent := Entity (Exp);
-                     else
-                        Ent := Empty;
                      end if;
                   end Decompose_Expr;
 
@@ -5415,18 +5432,29 @@ package body Sem_Eval is
 
          Copy := Copy_Separate_Tree (Left_Opnd (Expr));
 
-      --  Case where call to predicate function appears on its own
+      --  Case where call to predicate function appears on its own (this means
+      --  that the predicate at this level is just inherited from the parent).
 
       elsif Nkind (Expr) =  N_Function_Call then
+         declare
+            Typ : constant Entity_Id :=
+                    Etype (First_Formal (Entity (Name (Expr))));
 
-         --  Here the result is just the result of calling the inner predicate
+         begin
+            --  If the inherited predicate is dynamic, just ignore it. We can't
+            --  go trying to evaluate a dynamic predicate as a static one!
 
-         return
-           Real_Or_String_Static_Predicate_Matches
-             (Val => Val,
-              Typ => Etype (First_Formal (Entity (Name (Expr)))));
+            if Has_Dynamic_Predicate_Aspect (Typ) then
+               return True;
 
-      --  If no inherited predicate, copy whole expression
+            --  Otherwise inherited predicate is static, check for match
+
+            else
+               return Real_Or_String_Static_Predicate_Matches (Val, Typ);
+            end if;
+         end;
+
+      --  If not just an inherited predicate, copy whole expression
 
       else
          Copy := Copy_Separate_Tree (Expr);

@@ -1,6 +1,6 @@
 ## Makefile for the C++03 sources of the GNU C++ Standard library.
 ##
-## Copyright (C) 1997-2014 Free Software Foundation, Inc.
+## Copyright (C) 1997-2015 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -39,20 +39,28 @@ ctype_configure_char.cc: ${glibcxx_srcdir}/$(OS_INC_SRCDIR)/ctype_configure_char
 ctype_members.cc: ${glibcxx_srcdir}/$(CCTYPE_CC)
 	$(LN_S) ${glibcxx_srcdir}/$(CCTYPE_CC) . || true
 
-if ENABLE_CXX11_ABI
+if ENABLE_DUAL_ABI
 cxx11_abi_sources = \
-	cxx11-ios_failure.cc
+	cow-locale_init.cc \
+	cow-shim_facets.cc \
+	cxx11-hash_tr1.cc \
+	cxx11-ios_failure.cc \
+	cxx11-shim_facets.cc \
+	cxx11-stdexcept.cc
 else
 cxx11_abi_sources =
 endif
 
 sources = \
 	chrono.cc \
+	codecvt.cc \
 	condition_variable.cc \
+	cow-stdexcept.cc \
 	ctype.cc \
 	debug.cc \
 	functexcept.cc \
 	functional.cc \
+	futex.cc \
 	future.cc \
 	hash_c++0x.cc \
 	hashtable_c++0x.cc \
@@ -69,18 +77,33 @@ sources = \
 	${cxx11_abi_sources} \
 	${host_sources}
 
+if ENABLE_DUAL_ABI
+extra_string_inst_sources = \
+	cow-fstream-inst.cc \
+	cow-sstream-inst.cc \
+	cow-string-inst.cc \
+	cow-wstring-inst.cc \
+	cxx11-locale-inst.cc \
+	cxx11-wlocale-inst.cc
+else
+extra_string_inst_sources =
+endif
+
 if ENABLE_EXTERN_TEMPLATE
 # XTEMPLATE_FLAGS = -fno-implicit-templates
 inst_sources = \
+	$(extra_string_inst_sources) \
 	ext11-inst.cc \
 	fstream-inst.cc \
 	ios-inst.cc \
 	iostream-inst.cc \
 	istream-inst.cc \
+	locale-inst.cc \
 	ostream-inst.cc \
 	sstream-inst.cc \
 	streambuf-inst.cc \
 	string-inst.cc \
+	wlocale-inst.cc \
 	wstring-inst.cc
 else
 # XTEMPLATE_FLAGS =

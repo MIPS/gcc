@@ -1,5 +1,5 @@
 /* IRA hard register and memory cost calculation for allocnos or pseudos.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -25,22 +25,38 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
-#include "expr.h"
-#include "tm_p.h"
-#include "flags.h"
-#include "predict.h"
-#include "vec.h"
+#include "symtab.h"
 #include "hashtab.h"
 #include "hash-set.h"
+#include "vec.h"
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
+#include "flags.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
+#include "tm_p.h"
+#include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
 #include "regs.h"
 #include "addresses.h"
-#include "insn-config.h"
 #include "recog.h"
 #include "reload.h"
 #include "diagnostic-core.h"
@@ -573,7 +589,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	  while (*p == '%' || *p == '=' || *p == '+' || *p == '&')
 	    p++;
 
-	  if (p[0] >= '0' && p[0] <= '0' + i && (p[1] == ',' || p[1] == 0))
+	  if (p[0] >= '0' && p[0] <= '0' + i)
 	    {
 	      /* Copy class and whether memory is allowed from the
 		 matching alternative.  Then perform any needed cost
@@ -738,14 +754,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		      && ! find_reg_note (insn, REG_DEAD, op))
 		    alt_cost += 2;
 
-		  /* This is in place of ordinary cost computation for
-		     this operand, so skip to the end of the
-		     alternative (should be just one character).  */
-		  while (*p && *p++ != ',')
-		    ;
-
-		  constraints[i] = p;
-		  continue;
+		  p++;
 		}
 	    }
 
@@ -760,6 +769,10 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		case '*':
 		  /* Ignore the next letter for this pass.  */
 		  c = *++p;
+		  break;
+
+		case '^':
+		  alt_cost += 2;
 		  break;
 
 		case '?':
@@ -2355,4 +2368,10 @@ ira_adjust_equiv_reg_cost (unsigned regno, int cost)
     regno_equiv_gains[regno] = 0;
   else
     regno_equiv_gains[regno] += cost;
+}
+
+void
+ira_costs_c_finalize (void)
+{
+  this_target_ira_int->free_ira_costs ();
 }

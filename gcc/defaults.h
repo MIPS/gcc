@@ -1,5 +1,5 @@
 /* Definitions of various defaults for tm.h macros.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
 This file is part of GCC.
@@ -436,6 +436,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    By default, we just provide columns for all registers.  */
 #ifndef DWARF_FRAME_REGNUM
 #define DWARF_FRAME_REGNUM(REG) DBX_REGISTER_NUMBER (REG)
+#endif
+
+/* The mapping from dwarf CFA reg number to internal dwarf reg numbers.  */
+#ifndef DWARF_REG_TO_UNWIND_COLUMN
+#define DWARF_REG_TO_UNWIND_COLUMN(REGNO) (REGNO)
 #endif
 
 /* Map register numbers held in the call frame info that gcc has
@@ -1088,6 +1093,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #ifndef FRAME_GROWS_DOWNWARD
 #define FRAME_GROWS_DOWNWARD 0
+#endif
+
+#ifndef RETURN_ADDR_IN_PREVIOUS_FRAME
+#define RETURN_ADDR_IN_PREVIOUS_FRAME 0
 #endif
 
 /* On most machines, the CFA coincides with the first incoming parm.  */

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -690,41 +690,6 @@ package body Exp_Attr is
       Obj_Ref : Node_Id;
       Curr    : Entity_Id;
 
-      function May_Be_External_Call return Boolean;
-      --  If the 'Access is to a local operation, but appears in a context
-      --  where it may lead to a call from outside the object, we must treat
-      --  this as an external call. Clearly we cannot tell without full
-      --  flow analysis, and a subsequent call that uses this 'Access may
-      --  lead to a bounded error (trying to seize locks twice, e.g.). For
-      --  now we treat 'Access as a potential external call if it is an actual
-      --  in a call to an outside subprogram.
-
-      --------------------------
-      -- May_Be_External_Call --
-      --------------------------
-
-      function May_Be_External_Call return Boolean is
-         Subp : Entity_Id;
-         Par  : Node_Id := Parent (N);
-
-      begin
-         --  Account for the case where the Access attribute is part of a
-         --  named parameter association.
-
-         if Nkind (Par) = N_Parameter_Association then
-            Par := Parent (Par);
-         end if;
-
-         if Nkind (Par) in N_Subprogram_Call
-            and then Is_Entity_Name (Name (Par))
-         then
-            Subp := Entity (Name (Par));
-            return not In_Open_Scopes (Scope (Subp));
-         else
-            return False;
-         end if;
-      end May_Be_External_Call;
-
    --  Start of processing for Expand_Access_To_Protected_Op
 
    begin
@@ -733,14 +698,14 @@ package body Exp_Attr is
       --  protected body of the current enclosing operation.
 
       if Is_Entity_Name (Pref) then
-         if May_Be_External_Call then
-            Sub :=
-              New_Occurrence_Of (External_Subprogram (Entity (Pref)), Loc);
-         else
-            Sub :=
-              New_Occurrence_Of
-                (Protected_Body_Subprogram (Entity (Pref)), Loc);
-         end if;
+         --  All indirect calls are external calls, so must do locking and
+         --  barrier reevaluation, even if the 'Access occurs within the
+         --  protected body. Hence the call to External_Subprogram, as opposed
+         --  to Protected_Body_Subprogram, below. See RM-9.5(5). This means
+         --  that indirect calls from within the same protected body will
+         --  deadlock, as allowed by RM-9.5.1(8,15,17).
+
+         Sub := New_Occurrence_Of (External_Subprogram (Entity (Pref)), Loc);
 
          --  Don't traverse the scopes when the attribute occurs within an init
          --  proc, because we directly use the _init formal of the init proc in
@@ -1021,6 +986,9 @@ package body Exp_Attr is
       Pref      : constant Node_Id   := Prefix (N);
       Typ       : constant Entity_Id := Etype (Pref);
       Blk       : Node_Id;
+      CW_Decl   : Node_Id;
+      CW_Temp   : Entity_Id;
+      CW_Typ    : Entity_Id;
       Decls     : List_Id;
       Installed : Boolean;
       Loc       : Source_Ptr;
@@ -1338,18 +1306,55 @@ package body Exp_Attr is
       --  Step 3: Create a constant to capture the value of the prefix at the
       --  entry point into the loop.
 
-      --  Generate:
-      --    Temp : constant <type of Pref> := <Pref>;
-
       Temp_Id := Make_Temporary (Loc, 'P');
 
-      Temp_Decl :=
-        Make_Object_Declaration (Loc,
-          Defining_Identifier => Temp_Id,
-          Constant_Present    => True,
-          Object_Definition   => New_Occurrence_Of (Typ, Loc),
-          Expression          => Relocate_Node (Pref));
-      Append_To (Decls, Temp_Decl);
+      --  Preserve the tag of the prefix by offering a specific view of the
+      --  class-wide version of the prefix.
+
+      if Is_Tagged_Type (Typ) then
+
+         --  Generate:
+         --    CW_Temp : constant Typ'Class := Typ'Class (Pref);
+
+         CW_Temp := Make_Temporary (Loc, 'T');
+         CW_Typ  := Class_Wide_Type (Typ);
+
+         CW_Decl :=
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => CW_Temp,
+             Constant_Present    => True,
+             Object_Definition   => New_Occurrence_Of (CW_Typ, Loc),
+             Expression          =>
+               Convert_To (CW_Typ, Relocate_Node (Pref)));
+         Append_To (Decls, CW_Decl);
+
+         --  Generate:
+         --    Temp : Typ renames Typ (CW_Temp);
+
+         Temp_Decl :=
+           Make_Object_Renaming_Declaration (Loc,
+             Defining_Identifier => Temp_Id,
+             Subtype_Mark        => New_Occurrence_Of (Typ, Loc),
+             Name                =>
+               Convert_To (Typ, New_Occurrence_Of (CW_Temp, Loc)));
+         Append_To (Decls, Temp_Decl);
+
+      --  Non-tagged case
+
+      else
+         CW_Decl := Empty;
+
+         --  Generate:
+         --    Temp : constant Typ := Pref;
+
+         Temp_Decl :=
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Temp_Id,
+             Constant_Present    => True,
+             Object_Definition   => New_Occurrence_Of (Typ, Loc),
+             Expression          => Relocate_Node (Pref));
+         Append_To (Decls, Temp_Decl);
+      end if;
 
       --  Step 4: Analyze all bits
 
@@ -1374,6 +1379,10 @@ package body Exp_Attr is
       --  the declaration of the constant.
 
       else
+         if Present (CW_Decl) then
+            Analyze (CW_Decl);
+         end if;
+
          Analyze (Temp_Decl);
       end if;
 
@@ -3453,9 +3462,9 @@ package body Exp_Attr is
       begin
          Rewrite (N,
            Make_Attribute_Reference (Loc,
-             Prefix => New_Occurrence_Of (Ptyp, Loc),
+             Prefix         => New_Occurrence_Of (Ptyp, Loc),
              Attribute_Name => Name_Image,
-             Expressions => New_List (Relocate_Node (Pref))));
+             Expressions    => New_List (Relocate_Node (Pref))));
 
          Analyze_And_Resolve (N, Standard_String);
       end Img;
@@ -3621,18 +3630,15 @@ package body Exp_Attr is
 
                declare
                   Rtyp : constant Entity_Id := Root_Type (P_Type);
-                  Dnn  : Entity_Id;
-                  Decl : Node_Id;
                   Expr : Node_Id;
 
                begin
                   --  Read the internal tag (RM 13.13.2(34)) and use it to
-                  --  initialize a dummy tag object:
+                  --  initialize a dummy tag value:
 
-                  --    Dnn : Ada.Tags.Tag :=
-                  --            Descendant_Tag (String'Input (Strm), P_Type);
+                  --     Descendant_Tag (String'Input (Strm), P_Type);
 
-                  --  This dummy object is used only to provide a controlling
+                  --  This value is used only to provide a controlling
                   --  argument for the eventual _Input call. Descendant_Tag is
                   --  called rather than Internal_Tag to ensure that we have a
                   --  tag for a type that is descended from the prefix type and
@@ -3641,30 +3647,26 @@ package body Exp_Attr is
                   --  required for Ada 2005 because tagged types can be
                   --  extended in nested scopes (AI-344).
 
+                  --  Note: we used to generate an explicit declaration of a
+                  --  constant Ada.Tags.Tag object, and use an occurrence of
+                  --  this constant in Cntrl, but this caused a secondary stack
+                  --  leak.
+
                   Expr :=
                     Make_Function_Call (Loc,
-                      Name =>
+                      Name                   =>
                         New_Occurrence_Of (RTE (RE_Descendant_Tag), Loc),
                       Parameter_Associations => New_List (
                         Make_Attribute_Reference (Loc,
-                          Prefix => New_Occurrence_Of (Standard_String, Loc),
+                          Prefix         =>
+                            New_Occurrence_Of (Standard_String, Loc),
                           Attribute_Name => Name_Input,
-                          Expressions => New_List (
+                          Expressions    => New_List (
                             Relocate_Node (Duplicate_Subexpr (Strm)))),
                         Make_Attribute_Reference (Loc,
-                          Prefix => New_Occurrence_Of (P_Type, Loc),
+                          Prefix         => New_Occurrence_Of (P_Type, Loc),
                           Attribute_Name => Name_Tag)));
-
-                  Dnn := Make_Temporary (Loc, 'D', Expr);
-
-                  Decl :=
-                    Make_Object_Declaration (Loc,
-                      Defining_Identifier => Dnn,
-                      Object_Definition   =>
-                        New_Occurrence_Of (RTE (RE_Tag), Loc),
-                      Expression          => Expr);
-
-                  Insert_Action (N, Decl);
+                  Set_Etype (Expr, RTE (RE_Tag));
 
                   --  Now we need to get the entity for the call, and construct
                   --  a function call node, where we preset a reference to Dnn
@@ -3673,9 +3675,7 @@ package body Exp_Attr is
                   --  tagged object).
 
                   Fname := Find_Prim_Op (Rtyp, TSS_Stream_Input);
-                  Cntrl :=
-                    Unchecked_Convert_To (P_Type,
-                      New_Occurrence_Of (Dnn, Loc));
+                  Cntrl := Unchecked_Convert_To (P_Type, Expr);
                   Set_Etype (Cntrl, P_Type);
                   Set_Parent (Cntrl, N);
                end;
@@ -4171,16 +4171,30 @@ package body Exp_Attr is
          --  wrapped inside a type conversion.
 
       begin
+         --  If the prefix is X'Class, we transform it into a direct reference
+         --  to the class-wide type, because the back end must not see a 'Class
+         --  reference. See also 'Size.
+
+         if Is_Entity_Name (Pref)
+           and then Is_Class_Wide_Type (Entity (Pref))
+         then
+            Rewrite (Prefix (N), New_Occurrence_Of (Entity (Pref), Loc));
+            return;
+         end if;
+
          Apply_Universal_Integer_Attribute_Checks (N);
 
          --  The universal integer check may sometimes add a type conversion,
          --  retrieve the original attribute reference from the expression.
 
          Attr := N;
+
          if Nkind (Attr) = N_Type_Conversion then
             Attr := Expression (Attr);
             Conversion_Added := True;
          end if;
+
+         pragma Assert (Nkind (Attr) = N_Attribute_Reference);
 
          --  Heap-allocated controlled objects contain two extra pointers which
          --  are not part of the actual type. Transform the attribute reference
@@ -4190,7 +4204,6 @@ package body Exp_Attr is
          --  two pointers are already present in the type.
 
          if VM_Target = No_VM
-           and then Nkind (Attr) = N_Attribute_Reference
            and then Needs_Finalization (Ptyp)
            and then not Header_Size_Added (Attr)
          then
@@ -4358,19 +4371,13 @@ package body Exp_Attr is
       ---------
 
       when Attribute_Old => Old : declare
-         Asn_Stm : Node_Id;
+         Typ     : constant Entity_Id := Etype (N);
+         CW_Temp : Entity_Id;
+         CW_Typ  : Entity_Id;
          Subp    : Node_Id;
          Temp    : Entity_Id;
 
       begin
-         Temp := Make_Temporary (Loc, 'T', Pref);
-
-         --  Set the entity kind now in order to mark the temporary as a
-         --  handler of attribute 'Old's prefix.
-
-         Set_Ekind (Temp, E_Constant);
-         Set_Stores_Attribute_Old_Prefix (Temp);
-
          --  Climb the parent chain looking for subprogram _Postconditions
 
          Subp := N;
@@ -4395,15 +4402,13 @@ package body Exp_Attr is
 
          pragma Assert (Present (Subp));
 
-         --  Generate:
-         --    Temp : constant <Pref type> := <Pref>;
+         Temp := Make_Temporary (Loc, 'T', Pref);
 
-         Asn_Stm :=
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Temp,
-             Constant_Present    => True,
-             Object_Definition   => New_Occurrence_Of (Etype (N), Loc),
-             Expression          => Pref);
+         --  Set the entity kind now in order to mark the temporary as a
+         --  handler of attribute 'Old's prefix.
+
+         Set_Ekind (Temp, E_Constant);
+         Set_Stores_Attribute_Old_Prefix (Temp);
 
          --  Push the scope of the related subprogram where _Postcondition
          --  resides as this ensures that the object will be analyzed in the
@@ -4411,12 +4416,49 @@ package body Exp_Attr is
 
          Push_Scope (Scope (Defining_Entity (Subp)));
 
-         --  The object declaration is inserted before the body of subprogram
-         --  _Postconditions. This ensures that any precondition-like actions
-         --  are still executed before any parameter values are captured and
-         --  the multiple 'Old occurrences appear in order of declaration.
+         --  Preserve the tag of the prefix by offering a specific view of the
+         --  class-wide version of the prefix.
 
-         Insert_Before_And_Analyze (Subp, Asn_Stm);
+         if Is_Tagged_Type (Typ) then
+
+            --  Generate:
+            --    CW_Temp : constant Typ'Class := Typ'Class (Pref);
+
+            CW_Temp := Make_Temporary (Loc, 'T');
+            CW_Typ  := Class_Wide_Type (Typ);
+
+            Insert_Before_And_Analyze (Subp,
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => CW_Temp,
+                Constant_Present    => True,
+                Object_Definition   => New_Occurrence_Of (CW_Typ, Loc),
+                Expression          =>
+                  Convert_To (CW_Typ, Relocate_Node (Pref))));
+
+            --  Generate:
+            --    Temp : Typ renames Typ (CW_Temp);
+
+            Insert_Before_And_Analyze (Subp,
+              Make_Object_Renaming_Declaration (Loc,
+                Defining_Identifier => Temp,
+                Subtype_Mark        => New_Occurrence_Of (Typ, Loc),
+                Name                =>
+                  Convert_To (Typ, New_Occurrence_Of (CW_Temp, Loc))));
+
+         --  Non-tagged case
+
+         else
+            --  Generate:
+            --    Temp : constant Typ := Pref;
+
+            Insert_Before_And_Analyze (Subp,
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Temp,
+                Constant_Present    => True,
+                Object_Definition   => New_Occurrence_Of (Typ, Loc),
+                Expression          => Relocate_Node (Pref)));
+         end if;
+
          Pop_Scope;
 
          --  Ensure that the prefix of attribute 'Old is valid. The check must
@@ -5494,9 +5536,9 @@ package body Exp_Attr is
             end if;
          end if;
 
-         --  For class-wide types, X'Class'Size is transformed into a direct
-         --  reference to the Size of the class type, so that the back end does
-         --  not have to deal with the X'Class'Size reference.
+         --  If the prefix is X'Class, we transform it into a direct reference
+         --  to the class-wide type, because the back end must not see a 'Class
+         --  reference.
 
          if Is_Entity_Name (Pref)
            and then Is_Class_Wide_Type (Entity (Pref))
@@ -7061,6 +7103,7 @@ package body Exp_Attr is
       when Attribute_Bit_Order                    |
            Attribute_Code_Address                 |
            Attribute_Definite                     |
+           Attribute_Deref                        |
            Attribute_Null_Parameter               |
            Attribute_Passed_By_Reference          |
            Attribute_Pool_Address                 |
@@ -7351,30 +7394,65 @@ package body Exp_Attr is
 
       --  Local variables
 
-      Aggr  : constant Node_Id    := First (Expressions (N));
-      Loc   : constant Source_Ptr := Sloc (N);
-      Pref  : constant Node_Id    := Prefix (N);
-      Typ   : constant Entity_Id  := Etype (Pref);
-      Assoc : Node_Id;
-      Comp  : Node_Id;
-      Expr  : Node_Id;
-      Temp  : Entity_Id;
+      Aggr    : constant Node_Id    := First (Expressions (N));
+      Loc     : constant Source_Ptr := Sloc (N);
+      Pref    : constant Node_Id    := Prefix (N);
+      Typ     : constant Entity_Id  := Etype (Pref);
+      Assoc   : Node_Id;
+      Comp    : Node_Id;
+      CW_Temp : Entity_Id;
+      CW_Typ  : Entity_Id;
+      Expr    : Node_Id;
+      Temp    : Entity_Id;
 
    --  Start of processing for Expand_Update_Attribute
 
    begin
-      --  Create the anonymous object that stores the value of the prefix and
-      --  reflects subsequent changes in value. Generate:
+      --  Create the anonymous object to store the value of the prefix and
+      --  capture subsequent changes in value.
 
-      --    Temp : <type of Pref> := Pref;
+      Temp := Make_Temporary (Loc, 'T', Pref);
 
-      Temp := Make_Temporary (Loc, 'T');
+      --  Preserve the tag of the prefix by offering a specific view of the
+      --  class-wide version of the prefix.
 
-      Insert_Action (N,
-        Make_Object_Declaration (Loc,
-          Defining_Identifier => Temp,
-          Object_Definition   => New_Occurrence_Of (Typ, Loc),
-          Expression          => Relocate_Node (Pref)));
+      if Is_Tagged_Type (Typ) then
+
+         --  Generate:
+         --    CW_Temp : Typ'Class := Typ'Class (Pref);
+
+         CW_Temp := Make_Temporary (Loc, 'T');
+         CW_Typ  := Class_Wide_Type (Typ);
+
+         Insert_Action (N,
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => CW_Temp,
+             Object_Definition   => New_Occurrence_Of (CW_Typ, Loc),
+             Expression          =>
+               Convert_To (CW_Typ, Relocate_Node (Pref))));
+
+         --  Generate:
+         --    Temp : Typ renames Typ (CW_Temp);
+
+         Insert_Action (N,
+           Make_Object_Renaming_Declaration (Loc,
+             Defining_Identifier => Temp,
+             Subtype_Mark        => New_Occurrence_Of (Typ, Loc),
+             Name                =>
+               Convert_To (Typ, New_Occurrence_Of (CW_Temp, Loc))));
+
+      --  Non-tagged case
+
+      else
+         --  Generate:
+         --    Temp : Typ := Pref;
+
+         Insert_Action (N,
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Temp,
+             Object_Definition   => New_Occurrence_Of (Typ, Loc),
+             Expression          => Relocate_Node (Pref)));
+      end if;
 
       --  Process the update aggregate
 

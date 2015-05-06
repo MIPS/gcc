@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -239,10 +239,10 @@ package body Exp_Aggr is
    --  Packed_Array_Aggregate_Handled, we set this parameter to True, since
    --  these are cases we handle in there.
 
-   --  It would seem worthwhile to have a higher default value for Max_Others_
-   --  replicate, but aggregates in the compiler make this impossible: the
-   --  compiler bootstrap fails if Max_Others_Replicate is greater than 25.
-   --  This is unexpected ???
+   --  It would seem useful to have a higher default for Max_Others_Replicate,
+   --  but aggregates in the compiler make this impossible: the compiler
+   --  bootstrap fails if Max_Others_Replicate is greater than 25. This
+   --  is unexpected ???
 
    procedure Expand_Array_Aggregate (N : Node_Id);
    --  This is the top-level routine to perform array aggregate expansion.
@@ -784,6 +784,12 @@ package body Exp_Aggr is
       --     end loop;
       --
       --  Otherwise we call Build_Code recursively
+
+      function Get_Assoc_Expr (Assoc : Node_Id) return Node_Id;
+      --  For an association with a box, use value given by aspect
+     --   Default_Component_Value of array type if specified, else use
+     --   value given by aspect Default_Value for component type itself
+     --   if specified, else return Empty.
 
       function Local_Compile_Time_Known_Value (E : Node_Id) return Boolean;
       function Local_Expr_Value               (E : Node_Id) return Uint;
@@ -1524,6 +1530,33 @@ package body Exp_Aggr is
          return S;
       end Gen_While;
 
+      --------------------
+      -- Get_Assoc_Expr --
+      --------------------
+
+      function Get_Assoc_Expr (Assoc : Node_Id) return Node_Id is
+         Typ : constant Entity_Id := Base_Type (Etype (N));
+
+      begin
+         if Box_Present (Assoc) then
+            if Is_Scalar_Type (Ctype) then
+               if Present (Default_Aspect_Component_Value (Typ)) then
+                  return Default_Aspect_Component_Value (Typ);
+               elsif Present (Default_Aspect_Value (Ctype)) then
+                  return Default_Aspect_Value (Ctype);
+               else
+                  return Empty;
+               end if;
+
+            else
+               return Empty;
+            end if;
+
+         else
+            return Expression (Assoc);
+         end if;
+      end Get_Assoc_Expr;
+
       ---------------------
       -- Index_Base_Name --
       ---------------------
@@ -1566,8 +1599,7 @@ package body Exp_Aggr is
       Expr   : Node_Id;
       Typ    : Entity_Id;
 
-      Others_Expr        : Node_Id := Empty;
-      Others_Box_Present : Boolean := False;
+      Others_Assoc        : Node_Id := Empty;
 
       Aggr_L : constant Node_Id := Low_Bound (Aggregate_Bounds (N));
       Aggr_H : constant Node_Id := High_Bound (Aggregate_Bounds (N));
@@ -1637,12 +1669,7 @@ package body Exp_Aggr is
             while Present (Choice) loop
                if Nkind (Choice) = N_Others_Choice then
                   Set_Loop_Actions (Assoc, New_List);
-
-                  if Box_Present (Assoc) then
-                     Others_Box_Present := True;
-                  else
-                     Others_Expr := Expression (Assoc);
-                  end if;
+                  Others_Assoc := Assoc;
                   exit;
                end if;
 
@@ -1653,15 +1680,12 @@ package body Exp_Aggr is
                end if;
 
                Nb_Choices := Nb_Choices + 1;
-               if Box_Present (Assoc) then
-                  Table (Nb_Choices) := (Choice_Lo   => Low,
-                                         Choice_Hi   => High,
-                                         Choice_Node => Empty);
-               else
-                  Table (Nb_Choices) := (Choice_Lo   => Low,
-                                         Choice_Hi   => High,
-                                         Choice_Node => Expression (Assoc));
-               end if;
+
+               Table (Nb_Choices) :=
+                  (Choice_Lo   => Low,
+                   Choice_Hi   => High,
+                   Choice_Node => Get_Assoc_Expr (Assoc));
+
                Next (Choice);
             end loop;
 
@@ -1689,7 +1713,7 @@ package body Exp_Aggr is
          --  We don't need to generate loops over empty gaps, but if there is
          --  a single empty range we must analyze the expression for semantics
 
-         if Present (Others_Expr) or else Others_Box_Present then
+         if Present (Others_Assoc) then
             declare
                First : Boolean := True;
 
@@ -1730,7 +1754,8 @@ package body Exp_Aggr is
                   then
                      First := False;
                      Append_List
-                       (Gen_Loop (Low, High, Others_Expr), To => New_Code);
+                       (Gen_Loop (Low, High,
+                          Get_Assoc_Expr (Others_Assoc)), To => New_Code);
                   end if;
                end loop;
             end;
@@ -1760,19 +1785,10 @@ package body Exp_Aggr is
 
             --  Ada 2005 (AI-287)
 
-            if Box_Present (Assoc) then
-               Append_List (Gen_While (Add (Nb_Elements, To => Aggr_L),
-                                       Aggr_High,
-                                       Empty),
-                            To => New_Code);
-            else
-               Expr  := Expression (Assoc);
-
-               Append_List (Gen_While (Add (Nb_Elements, To => Aggr_L),
-                                       Aggr_High,
-                                       Expr), --  AI-287
-                            To => New_Code);
-            end if;
+            Append_List (Gen_While (Add (Nb_Elements, To => Aggr_L),
+                                    Aggr_High,
+                                    Get_Assoc_Expr (Assoc)), --  AI-287
+                         To => New_Code);
          end if;
       end if;
 
@@ -2108,21 +2124,27 @@ package body Exp_Aggr is
       -------------------------------
 
       procedure Init_Hidden_Discriminants (Typ : Entity_Id; List : List_Id) is
-         Btype       : Entity_Id;
-         Parent_Type : Entity_Id;
-         Disc        : Entity_Id;
-         Discr_Val   : Elmt_Id;
+         Btype        : Entity_Id;
+         Parent_Type  : Entity_Id;
+         Disc         : Entity_Id;
+         Discr_Val    : Elmt_Id;
+         In_Aggr_Type : Boolean;
 
       begin
          --  The constraints on the hidden discriminants, if present, are kept
          --  in the Stored_Constraint list of the type itself, or in that of
-         --  the base type.
+         --  the base type. If not in the constraints of the aggregate itself,
+         --  we examine ancestors to find discriminants that are not renamed
+         --  by other discriminants but constrained explicitly.
+
+         In_Aggr_Type := True;
 
          Btype := Base_Type (Typ);
          while Is_Derived_Type (Btype)
-           and then (Present (Stored_Constraint (Btype))
-                       or else
-                     Present (Stored_Constraint (Typ)))
+           and then
+             (Present (Stored_Constraint (Btype))
+               or else
+                 (In_Aggr_Type and then Present (Stored_Constraint (Typ))))
          loop
             Parent_Type := Etype (Btype);
 
@@ -2149,7 +2171,7 @@ package body Exp_Aggr is
                Discr_Val := First_Elmt (Stored_Constraint (Typ));
             end if;
 
-            while Present (Discr_Val) loop
+            while Present (Discr_Val) and then Present (Disc) loop
 
                --  Only those discriminants of the parent that are not
                --  renamed by discriminants of the derived type need to
@@ -2176,6 +2198,7 @@ package body Exp_Aggr is
                Next_Elmt (Discr_Val);
             end loop;
 
+            In_Aggr_Type := False;
             Btype := Base_Type (Parent_Type);
          end loop;
       end Init_Hidden_Discriminants;

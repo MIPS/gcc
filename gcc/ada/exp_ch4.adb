@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1278,30 +1278,6 @@ package body Exp_Ch4 is
                           Prefix => New_Occurrence_Of (Temp, Loc))),
                     Typ     => T));
             end if;
-
-            --  Generate:
-            --    Set_Finalize_Address (<PtrT>FM, <T>FD'Unrestricted_Access);
-
-            --  Do not generate this call in the following cases:
-
-            --    * .NET/JVM - these targets do not support address arithmetic
-            --    and unchecked conversion, key elements of Finalize_Address.
-
-            --    * CodePeer mode - TSS primitive Finalize_Address is not
-            --    created in this mode.
-
-            if VM_Target = No_VM
-              and then not CodePeer_Mode
-              and then Present (Finalization_Master (PtrT))
-              and then Present (Temp_Decl)
-              and then Nkind (Expression (Temp_Decl)) = N_Allocator
-            then
-               Insert_Action (N,
-                 Make_Set_Finalize_Address_Call
-                   (Loc     => Loc,
-                    Typ     => T,
-                    Ptr_Typ => PtrT));
-            end if;
          end if;
 
          Rewrite (N, New_Occurrence_Of (Temp, Loc));
@@ -2269,6 +2245,7 @@ package body Exp_Ch4 is
 
          elsif Nkind (Parent (N)) = N_Op_Not
            and then Nkind (N) = N_Op_And
+           and then Nkind (Parent (Parent (N))) = N_Assignment_Statement
            and then Safe_In_Place_Array_Op (Name (Parent (Parent (N))), L, R)
          then
             return;
@@ -4867,40 +4844,22 @@ package body Exp_Ch4 is
                       (Obj_Ref => New_Copy_Tree (Init_Arg1),
                        Typ     => T));
 
-                  if Present (Finalization_Master (PtrT)) then
+                  --  Special processing for .NET/JVM, the allocated object is
+                  --  attached to the finalization master. Generate:
 
-                     --  Special processing for .NET/JVM, the allocated object
-                     --  is attached to the finalization master. Generate:
+                  --    Attach (<PtrT>FM, Root_Controlled_Ptr (Init_Arg1));
 
-                     --    Attach (<PtrT>FM, Root_Controlled_Ptr (Init_Arg1));
+                  --  Types derived from [Limited_]Controlled are the only ones
+                  --  considered since they have fields Prev and Next.
 
-                     --  Types derived from [Limited_]Controlled are the only
-                     --  ones considered since they have fields Prev and Next.
-
-                     if VM_Target /= No_VM then
-                        if Is_Controlled (T) then
-                           Insert_Action (N,
-                             Make_Attach_Call
-                               (Obj_Ref => New_Copy_Tree (Init_Arg1),
-                                Ptr_Typ => PtrT));
-                        end if;
-
-                     --  Default case, generate:
-
-                     --    Set_Finalize_Address
-                     --      (<PtrT>FM, <T>FD'Unrestricted_Access);
-
-                     --  Do not generate this call in CodePeer mode, as TSS
-                     --  primitive Finalize_Address is not created in this
-                     --  mode.
-
-                     elsif not CodePeer_Mode then
-                        Insert_Action (N,
-                          Make_Set_Finalize_Address_Call
-                            (Loc     => Loc,
-                             Typ     => T,
-                             Ptr_Typ => PtrT));
-                     end if;
+                  if VM_Target /= No_VM
+                    and then Is_Controlled (T)
+                    and then Present (Finalization_Master (PtrT))
+                  then
+                     Insert_Action (N,
+                       Make_Attach_Call
+                         (Obj_Ref => New_Copy_Tree (Init_Arg1),
+                          Ptr_Typ => PtrT));
                   end if;
                end if;
 
@@ -6699,6 +6658,26 @@ package body Exp_Ch4 is
       --  Divisions with fixed-point results
 
       if Is_Fixed_Point_Type (Typ) then
+
+         --  Deal with divide-by-zero check if back end cannot handle them
+         --  and the flag is set indicating that we need such a check. Note
+         --  that we don't need to bother here with the case of mixed-mode
+         --  (Right operand an integer type), since these will be rewritten
+         --  with conversions to a divide with a fixed-point right operand.
+
+         if Do_Division_Check (N)
+           and then not Backend_Divide_Checks_On_Target
+           and then not Is_Integer_Type (Rtyp)
+         then
+            Set_Do_Division_Check (N, False);
+            Insert_Action (N,
+              Make_Raise_Constraint_Error (Loc,
+                Condition =>
+                  Make_Op_Eq (Loc,
+                    Left_Opnd  => Duplicate_Subexpr_Move_Checks (Ropnd),
+                    Right_Opnd => Make_Real_Literal (Loc, Ureal_0)),
+                  Reason  => CE_Divide_By_Zero));
+         end if;
 
          --  No special processing if Treat_Fixed_As_Integer is set, since
          --  from a semantic point of view such operations are simply integer
@@ -9506,7 +9485,8 @@ package body Exp_Ch4 is
 
             Add_Inlined_Body
               (Discriminant_Checking_Func
-                (Original_Record_Component (Entity (S))));
+                (Original_Record_Component (Entity (S))),
+               N);
 
             --  Now reset the flag and generate the call
 
@@ -9961,7 +9941,9 @@ package body Exp_Ch4 is
       procedure Raise_Accessibility_Error;
       --  Called when we know that an accessibility check will fail. Rewrites
       --  node N to an appropriate raise statement and outputs warning msgs.
-      --  The Etype of the raise node is set to Target_Type.
+      --  The Etype of the raise node is set to Target_Type. Note that in this
+      --  case the rest of the processing should be skipped (i.e. the call to
+      --  this procedure will be followed by "goto Done").
 
       procedure Real_Range_Check;
       --  Handles generation of range check for real target value
@@ -10497,6 +10479,7 @@ package body Exp_Ch4 is
              Type_Access_Level (Operand_Type) > Type_Access_Level (Target_Type)
          then
             Raise_Accessibility_Error;
+            goto Done;
 
          --  When the operand is a selected access discriminant the check needs
          --  to be made against the level of the object denoted by the prefix
@@ -10622,7 +10605,10 @@ package body Exp_Ch4 is
 
             --  Ada 2005 (AI-251): Handle interface type conversion
 
-            if Is_Interface (Actual_Op_Typ) then
+            if Is_Interface (Actual_Op_Typ)
+                 or else
+               Is_Interface (Actual_Targ_Typ)
+            then
                Expand_Interface_Conversion (N);
                goto Done;
             end if;

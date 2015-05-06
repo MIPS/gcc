@@ -1,5 +1,5 @@
 /* Internals of libgccjit: classes for playing back recorded API calls.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by David Malcolm <dmalcolm@redhat.com>.
 
 This file is part of GCC.
@@ -22,13 +22,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "opts.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "statistics.h"
+#include "vec.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "flags.h"
+#include "symtab.h"
+#include "tree-core.h"
+#include "inchash.h"
 #include "tree.h"
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
 #include "vec.h"
 #include "hashtab.h"
-#include "hash-set.h"
 #include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
@@ -46,9 +59,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-tree.h"
 #include "gimplify.h"
 #include "gcc-driver-name.h"
+#include "attribs.h"
+#include "context.h"
+#include "fold-const.h"
+#include "debug.h"
+#include "gcc.h"
 
 #include "jit-common.h"
+#include "jit-logging.h"
 #include "jit-playback.h"
+#include "jit-result.h"
+#include "jit-builtins.h"
+#include "jit-tempdir.h"
 
 
 /* gcc::jit::playback::context::build_cast uses the convert.h API,
@@ -81,11 +103,15 @@ namespace jit {
 /* The constructor for gcc::jit::playback::context.  */
 
 playback::context::context (recording::context *ctxt)
-  : m_recording_ctxt (ctxt),
+  : log_user (ctxt->get_logger ()),
+    m_recording_ctxt (ctxt),
+    m_tempdir (NULL),
     m_char_array_type_node (NULL),
     m_const_char_ptr (NULL)
 {
+  JIT_LOG_SCOPE (get_logger ());
   m_functions.create (0);
+  m_globals.create (0);
   m_source_files.create (0);
   m_cached_locations.create (0);
 }
@@ -94,25 +120,19 @@ playback::context::context (recording::context *ctxt)
 
 playback::context::~context ()
 {
-  if (get_bool_option (GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES))
-    fprintf (stderr, "intermediate files written to %s\n", m_path_tempdir);
-  else
-    {
-      /* Clean up .s/.so and tempdir. */
-      if (m_path_s_file)
-        unlink (m_path_s_file);
-      if (m_path_so_file)
-        unlink (m_path_so_file);
-      if (m_path_tempdir)
-        rmdir (m_path_tempdir);
-    }
+  JIT_LOG_SCOPE (get_logger ());
 
-  free (m_path_template);
-  /* m_path_tempdir aliases m_path_template, or is NULL, so don't
-     attempt to free it .  */
-  free (m_path_c_file);
-  free (m_path_s_file);
-  free (m_path_so_file);
+  /* Normally the playback::context is responsible for cleaning up the
+     tempdir (including "fake.so" within the filesystem).
+
+     In the normal case, clean it up now.
+
+     However m_tempdir can be NULL if the context has handed over
+     responsibility for the tempdir cleanup to the jit::result object, so
+     that the cleanup can be delayed (see PR jit/64206).  If that's the
+     case this "delete NULL;" is a no-op. */
+  delete m_tempdir;
+
   m_functions.release ();
 }
 
@@ -197,6 +217,13 @@ get_tree_node_for_type (enum gcc_jit_types type_)
 
     case GCC_JIT_TYPE_FILE_PTR:
       return fileptr_type_node;
+
+    case GCC_JIT_TYPE_COMPLEX_FLOAT:
+      return complex_float_type_node;
+    case GCC_JIT_TYPE_COMPLEX_DOUBLE:
+      return complex_double_type_node;
+    case GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE:
+      return complex_long_double_type_node;
     }
 
   return NULL;
@@ -285,15 +312,15 @@ new_compound_type (location *loc,
 }
 
 void
-playback::compound_type::set_fields (const vec<playback::field *> &fields)
+playback::compound_type::set_fields (const auto_vec<playback::field *> *fields)
 {
   /* Compare with c/c-decl.c: finish_struct. */
   tree t = as_tree ();
 
   tree fieldlist = NULL;
-  for (unsigned i = 0; i < fields.length (); i++)
+  for (unsigned i = 0; i < fields->length (); i++)
     {
-      field *f = fields[i];
+      field *f = (*fields)[i];
       DECL_CONTEXT (f->as_tree ()) = t;
       fieldlist = chainon (f->as_tree (), fieldlist);
     }
@@ -309,7 +336,7 @@ playback::compound_type::set_fields (const vec<playback::field *> &fields)
 playback::type *
 playback::context::
 new_function_type (type *return_type,
-		   vec<type *> *param_types,
+		   const auto_vec<type *> *param_types,
 		   int is_variadic)
 {
   int i;
@@ -361,7 +388,7 @@ new_function (location *loc,
 	      enum gcc_jit_function_kind kind,
 	      type *return_type,
 	      const char *name,
-	      vec<param *> *params,
+	      const auto_vec<param *> *params,
 	      int is_variadic,
 	      enum built_in_function builtin_id)
 {
@@ -398,10 +425,21 @@ new_function (location *loc,
 
   if (builtin_id)
     {
-      DECL_BUILT_IN_CLASS (fndecl) = BUILT_IN_NORMAL;
       DECL_FUNCTION_CODE (fndecl) = builtin_id;
       gcc_assert (loc == NULL);
       DECL_SOURCE_LOCATION (fndecl) = BUILTINS_LOCATION;
+
+      DECL_BUILT_IN_CLASS (fndecl) =
+	builtins_manager::get_class (builtin_id);
+      set_builtin_decl (builtin_id, fndecl,
+			builtins_manager::implicit_p (builtin_id));
+
+      builtins_manager *bm = get_builtins_manager ();
+      tree attrs = bm->get_attrs_tree (builtin_id);
+      if (attrs)
+	decl_attributes (&fndecl, attrs, ATTR_FLAG_BUILT_IN);
+      else
+	decl_attributes (&fndecl, NULL_TREE, 0);
     }
 
   if (kind != GCC_JIT_FUNCTION_IMPORTED)
@@ -447,30 +485,64 @@ new_function (location *loc,
 playback::lvalue *
 playback::context::
 new_global (location *loc,
-            type *type,
-            const char *name)
+	    enum gcc_jit_global_kind kind,
+	    type *type,
+	    const char *name)
 {
   gcc_assert (type);
   gcc_assert (name);
   tree inner = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 			   get_identifier (name),
 			   type->as_tree ());
-  TREE_PUBLIC (inner) = 1;
+  TREE_PUBLIC (inner) = (kind != GCC_JIT_GLOBAL_INTERNAL);
   DECL_COMMON (inner) = 1;
-  DECL_EXTERNAL (inner) = 1;
+  switch (kind)
+    {
+    default:
+      gcc_unreachable ();
+
+    case GCC_JIT_GLOBAL_EXPORTED:
+      TREE_STATIC (inner) = 1;
+      break;
+
+    case GCC_JIT_GLOBAL_INTERNAL:
+      TREE_STATIC (inner) = 1;
+      break;
+
+    case GCC_JIT_GLOBAL_IMPORTED:
+      DECL_EXTERNAL (inner) = 1;
+      break;
+    }
 
   if (loc)
     set_tree_location (inner, loc);
 
+  varpool_node::get_create (inner);
+
+  m_globals.safe_push (inner);
+
   return new lvalue (this, inner);
 }
 
-/* Construct a playback::rvalue instance (wrapping a tree).  */
+/* Implementation of the various
+      gcc::jit::playback::context::new_rvalue_from_const <HOST_TYPE>
+   methods.
+   Each of these constructs a playback::rvalue instance (wrapping a tree).
 
-playback::rvalue *
-playback::context::
-new_rvalue_from_int (type *type,
-		     int value)
+   These specializations are required to be in the same namespace
+   as the template, hence we now have to enter the gcc::jit::playback
+   namespace.  */
+
+namespace playback
+{
+
+/* Specialization of making an rvalue from a const, for host <int>.  */
+
+template <>
+rvalue *
+context::
+new_rvalue_from_const <int> (type *type,
+			     int value)
 {
   // FIXME: type-checking, or coercion?
   tree inner_type = type->as_tree ();
@@ -488,12 +560,37 @@ new_rvalue_from_int (type *type,
     }
 }
 
-/* Construct a playback::rvalue instance (wrapping a tree).  */
+/* Specialization of making an rvalue from a const, for host <long>.  */
 
-playback::rvalue *
-playback::context::
-new_rvalue_from_double (type *type,
-			double value)
+template <>
+rvalue *
+context::
+new_rvalue_from_const <long> (type *type,
+			      long value)
+{
+  // FIXME: type-checking, or coercion?
+  tree inner_type = type->as_tree ();
+  if (INTEGRAL_TYPE_P (inner_type))
+    {
+      tree inner = build_int_cst (inner_type, value);
+      return new rvalue (this, inner);
+    }
+  else
+    {
+      REAL_VALUE_TYPE real_value;
+      real_from_integer (&real_value, VOIDmode, value, SIGNED);
+      tree inner = build_real (inner_type, real_value);
+      return new rvalue (this, inner);
+    }
+}
+
+/* Specialization of making an rvalue from a const, for host <double>.  */
+
+template <>
+rvalue *
+context::
+new_rvalue_from_const <double> (type *type,
+				double value)
 {
   // FIXME: type-checking, or coercion?
   tree inner_type = type->as_tree ();
@@ -518,18 +615,25 @@ new_rvalue_from_double (type *type,
   return new rvalue (this, inner);
 }
 
-/* Construct a playback::rvalue instance (wrapping a tree).  */
+/* Specialization of making an rvalue from a const, for host <void *>.  */
 
-playback::rvalue *
-playback::context::
-new_rvalue_from_ptr (type *type,
-		     void *value)
+template <>
+rvalue *
+context::
+new_rvalue_from_const <void *> (type *type,
+				void *value)
 {
   tree inner_type = type->as_tree ();
   /* FIXME: how to ensure we have a wide enough type?  */
   tree inner = build_int_cstu (inner_type, (unsigned HOST_WIDE_INT)value);
   return new rvalue (this, inner);
 }
+
+/* We're done implementing the specializations of
+      gcc::jit::playback::context::new_rvalue_from_const <T>
+   so we can exit the gcc::jit::playback namespace.  */
+
+} // namespace playback
 
 /* Construct a playback::rvalue instance (wrapping a tree).  */
 
@@ -568,6 +672,45 @@ as_truth_value (tree expr, location *loc)
 
   return expr;
 }
+
+/* For use by jit_langhook_write_globals.
+   Calls varpool_node::finalize_decl on each global.  */
+
+void
+playback::context::
+write_global_decls_1 ()
+{
+  /* Compare with e.g. the C frontend's c_write_global_declarations.  */
+  JIT_LOG_SCOPE (get_logger ());
+
+  int i;
+  tree decl;
+  FOR_EACH_VEC_ELT (m_globals, i, decl)
+    {
+      gcc_assert (TREE_CODE (decl) == VAR_DECL);
+      varpool_node::finalize_decl (decl);
+    }
+}
+
+/* For use by jit_langhook_write_globals.
+   Calls debug_hooks->global_decl on each global.  */
+
+void
+playback::context::
+write_global_decls_2 ()
+{
+  /* Compare with e.g. the C frontend's c_write_global_declarations_2. */
+  JIT_LOG_SCOPE (get_logger ());
+
+  int i;
+  tree decl;
+  FOR_EACH_VEC_ELT (m_globals, i, decl)
+    {
+      gcc_assert (TREE_CODE (decl) == VAR_DECL);
+      debug_hooks->global_decl (decl);
+    }
+}
+
 
 /* Construct a playback::rvalue instance (wrapping a tree) for a
    unary op.  */
@@ -608,6 +751,10 @@ new_unary_op (location *loc,
       if (loc)
 	set_tree_location (inner_result, loc);
       return new rvalue (this, inner_result);
+
+    case GCC_JIT_UNARY_OP_ABS:
+      inner_op = ABS_EXPR;
+      break;
     }
 
   inner_result = build1 (inner_op,
@@ -770,12 +917,12 @@ playback::rvalue *
 playback::context::
 build_call (location *loc,
 	    tree fn_ptr,
-	    vec<rvalue *> args)
+	    const auto_vec<rvalue *> *args)
 {
   vec<tree, va_gc> *tree_args;
-  vec_alloc (tree_args, args.length ());
-  for (unsigned i = 0; i < args.length (); i++)
-    tree_args->quick_push (args[i]->as_tree ());
+  vec_alloc (tree_args, args->length ());
+  for (unsigned i = 0; i < args->length (); i++)
+    tree_args->quick_push ((*args)[i]->as_tree ());
 
   if (loc)
     set_tree_location (fn_ptr, loc);
@@ -806,7 +953,7 @@ playback::rvalue *
 playback::context::
 new_call (location *loc,
 	  function *func,
-	  vec<rvalue *> args)
+	  const auto_vec<rvalue *> *args)
 {
   tree fndecl;
 
@@ -828,7 +975,7 @@ playback::rvalue *
 playback::context::
 new_call_through_ptr (location *loc,
 		      rvalue *fn_ptr,
-		      vec<rvalue *> args)
+		      const auto_vec<rvalue *> *args)
 {
   gcc_assert (fn_ptr);
   tree t_fn_ptr = fn_ptr->as_tree ();
@@ -868,7 +1015,8 @@ playback::context::build_cast (playback::location *loc,
 	 c_common_truthvalue_conversion. */
       /* For now, convert to: (t_expr != 0)  */
       t_ret = build2 (NE_EXPR, t_dst_type,
-		      t_expr, integer_zero_node);
+		      t_expr,
+		      build_int_cst (TREE_TYPE (t_expr), 0));
       goto maybe_fold;
 
     case REAL_TYPE:
@@ -936,7 +1084,7 @@ new_array_access (location *loc,
       tree t_result = build4 (ARRAY_REF, t_type_star_ptr, t_ptr, t_index,
 			      NULL_TREE, NULL_TREE);
       if (loc)
-        set_tree_location (t_result, loc);
+	set_tree_location (t_result, loc);
       return new lvalue (this, t_result);
     }
   else
@@ -951,12 +1099,12 @@ new_array_access (location *loc,
 
       tree t_indirection = build1 (INDIRECT_REF, t_type_star_ptr, t_address);
       if (loc)
-        {
-          set_tree_location (t_sizeof, loc);
-          set_tree_location (t_offset, loc);
-          set_tree_location (t_address, loc);
-          set_tree_location (t_indirection, loc);
-        }
+	{
+	  set_tree_location (t_sizeof, loc);
+	  set_tree_location (t_offset, loc);
+	  set_tree_location (t_address, loc);
+	  set_tree_location (t_indirection, loc);
+	}
 
       return new lvalue (this, t_indirection);
     }
@@ -1079,6 +1227,18 @@ get_address (location *loc)
   return new rvalue (get_context (), ptr);
 }
 
+/* The wrapper subclasses are GC-managed, but can own non-GC memory.
+   Provide this finalization hook for calling then they are collected,
+   which calls the finalizer vfunc.  This allows them to call "release"
+   on any vec<> within them.  */
+
+static void
+wrapper_finalizer (void *ptr)
+{
+  playback::wrapper *wrapper = reinterpret_cast <playback::wrapper *> (ptr);
+  wrapper->finalizer ();
+}
+
 /* gcc::jit::playback::wrapper subclasses are GC-managed:
    allocate them using ggc_internal_cleared_alloc.  */
 
@@ -1086,7 +1246,8 @@ void *
 playback::wrapper::
 operator new (size_t sz)
 {
-  return ggc_internal_cleared_alloc (sz MEM_STAT_INFO);
+  return ggc_internal_cleared_alloc (sz, wrapper_finalizer, 0, 1);
+
 }
 
 /* Constructor for gcc:jit::playback::function.  */
@@ -1126,6 +1287,15 @@ gt_ggc_mx ()
   gt_ggc_m_9tree_node (m_inner_bind_expr);
   gt_ggc_m_9tree_node (m_stmt_list);
   gt_ggc_m_9tree_node (m_inner_block);
+}
+
+/* Don't leak vec's internal buffer (in non-GC heap) when we are
+   GC-ed.  */
+
+void
+playback::function::finalizer ()
+{
+  m_blocks.release ();
 }
 
 /* Get the return type of a playback function, in tree form.  */
@@ -1185,6 +1355,8 @@ build_stmt_list ()
   int i;
   block *b;
 
+  JIT_LOG_SCOPE (m_ctxt->get_logger ());
+
   FOR_EACH_VEC_ELT (m_blocks, i, b)
     {
       int j;
@@ -1210,6 +1382,8 @@ void
 playback::function::
 postprocess ()
 {
+  JIT_LOG_SCOPE (m_ctxt->get_logger ());
+
   if (m_ctxt->get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE))
     debug_tree (m_stmt_list);
 
@@ -1262,6 +1436,15 @@ postprocess ()
     }
 }
 
+/* Don't leak vec's internal buffer (in non-GC heap) when we are
+   GC-ed.  */
+
+void
+playback::block::finalizer ()
+{
+  m_stmts.release ();
+}
+
 /* Add an eval of the rvalue to the function's statement list.  */
 
 void
@@ -1293,8 +1476,8 @@ add_assignment (location *loc,
   if (TREE_TYPE (t_rvalue) != TREE_TYPE (t_lvalue))
     {
       t_rvalue = build1 (CONVERT_EXPR,
-		         TREE_TYPE (t_lvalue),
-		         t_rvalue);
+			 TREE_TYPE (t_lvalue),
+			 t_rvalue);
       if (loc)
 	set_tree_location (t_rvalue, loc);
     }
@@ -1462,76 +1645,61 @@ block (function *func,
   m_label_expr = NULL;
 }
 
-/* Construct a tempdir path template suitable for use by mkdtemp
-   e.g. "/tmp/libgccjit-XXXXXX", but respecting the rules in
-   libiberty's choose_tempdir rather than hardcoding "/tmp/".
+/* A subclass of auto_vec <char *> that frees all of its elements on
+   deletion.  */
 
-   The memory is allocated using malloc and must be freed.
-   Aborts the process if allocation fails. */
-
-static char *
-make_tempdir_path_template ()
+class auto_argvec : public auto_vec <char *>
 {
-  const char *tmpdir_buf;
-  size_t tmpdir_len;
-  const char *file_template_buf;
-  size_t file_template_len;
-  char *result;
+ public:
+  ~auto_argvec ();
+};
 
-  /* The result of choose_tmpdir is a cached buffer within libiberty, so
-     we must *not* free it.  */
-  tmpdir_buf = choose_tmpdir ();
+/* auto_argvec's dtor, freeing all contained strings, automatically
+   chaining up to ~auto_vec <char *>, which frees the internal buffer.  */
 
-  /* choose_tmpdir aborts on malloc failure.  */
-  gcc_assert (tmpdir_buf);
-
-  tmpdir_len = strlen (tmpdir_buf);
-  /* tmpdir_buf should now have a dir separator as the final byte.  */
-  gcc_assert (tmpdir_len > 0);
-  gcc_assert (tmpdir_buf[tmpdir_len - 1] == DIR_SEPARATOR);
-
-  file_template_buf = "libgccjit-XXXXXX";
-  file_template_len = strlen (file_template_buf);
-
-  result = XNEWVEC (char, tmpdir_len + file_template_len + 1);
-  strcpy (result, tmpdir_buf);
-  strcpy (result + tmpdir_len, file_template_buf);
-
-  return result;
+auto_argvec::~auto_argvec ()
+{
+  int i;
+  char *str;
+  FOR_EACH_VEC_ELT (*this, i, str)
+    free (str);
 }
 
 /* Compile a playback::context:
 
    - Use the context's options to cconstruct command-line options, and
      call into the rest of GCC (toplev::main).
-   - Assuming it succeeds, we have a .s file; we want a .so file.
-     Invoke another gcc to convert the .s file to a .so file.
-   - dlopen the .so file
-   - Wrap the result up as a playback::result and return it.  */
+   - Assuming it succeeds, we have a .s file.
+   - We then run the "postprocess" vfunc:
 
-result *
+     (A) In-memory compile ("gcc_jit_context_compile")
+
+       For an in-memory compile we have the playback::compile_to_memory
+       subclass; "postprocess" will convert the .s file to a .so DSO,
+       and load it in memory (via dlopen), wrapping the result up as
+       a jit::result and returning it.
+
+     (B) Compile to file ("gcc_jit_context_compile_to_file")
+
+       When compiling to a file, we have the playback::compile_to_file
+       subclass; "postprocess" will either copy the .s file to the
+       destination (for GCC_JIT_OUTPUT_KIND_ASSEMBLER), or invoke
+       the driver to convert it as necessary, copying the result.  */
+
+void
 playback::context::
 compile ()
 {
-  void *handle = NULL;
+  JIT_LOG_SCOPE (get_logger ());
+
   const char *ctxt_progname;
-  result *result_obj = NULL;
-  const char *fake_args[20];
-  unsigned int num_args;
 
-  m_path_template = make_tempdir_path_template ();
-  if (!m_path_template)
-    return NULL;
+  int keep_intermediates =
+    get_bool_option (GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES);
 
-  /* Create tempdir using mkdtemp.  This is created with 0700 perms and
-     is unique.  Hence no other (non-root) users should have access to
-     the paths within it.  */
-  m_path_tempdir = mkdtemp (m_path_template);
-  if (!m_path_tempdir)
-    return NULL;
-  m_path_c_file = concat (m_path_tempdir, "/fake.c", NULL);
-  m_path_s_file = concat (m_path_tempdir, "/fake.s", NULL);
-  m_path_so_file = concat (m_path_tempdir, "/fake.so", NULL);
+  m_tempdir = new tempdir (get_logger (), keep_intermediates);
+  if (!m_tempdir->create ())
+    return;
 
   /* Call into the rest of gcc.
      For now, we have to assemble command-line options to pass into
@@ -1540,20 +1708,365 @@ compile ()
   /* Pass in user-provided program name as argv0, if any, so that it
      makes it into GCC's "progname" global, used in various diagnostics. */
   ctxt_progname = get_str_option (GCC_JIT_STR_OPTION_PROGNAME);
-  fake_args[0] =
-    (ctxt_progname ? ctxt_progname : "libgccjit.so");
 
-  fake_args[1] = m_path_c_file;
-  num_args = 2;
+  if (!ctxt_progname)
+    ctxt_progname = "libgccjit.so";
 
-#define ADD_ARG(arg) \
-  do \
-    { \
-      gcc_assert(num_args < sizeof(fake_args)/sizeof(char*)); \
-      fake_args[num_args++] = arg; \
-    } \
-  while (0)
+  auto_vec <recording::requested_dump> requested_dumps;
+  m_recording_ctxt->get_all_requested_dumps (&requested_dumps);
 
+  /* Acquire the JIT mutex and set "this" as the active playback ctxt.  */
+  acquire_mutex ();
+
+  auto_argvec fake_args;
+  make_fake_args (&fake_args, ctxt_progname, &requested_dumps);
+  if (errors_occurred ())
+    {
+      release_mutex ();
+      return;
+    }
+
+  /* This runs the compiler.  */
+  toplev toplev (false, /* use_TV_TOTAL */
+		 false); /* init_signals */
+  enter_scope ("toplev::main");
+  if (get_logger ())
+    for (unsigned i = 0; i < fake_args.length (); i++)
+      get_logger ()->log ("argv[%i]: %s", i, fake_args[i]);
+  toplev.main (fake_args.length (),
+	       const_cast <char **> (fake_args.address ()));
+  exit_scope ("toplev::main");
+
+  /* Extracting dumps makes use of the gcc::dump_manager, hence we
+     need to do it between toplev::main (which creates the dump manager)
+     and toplev::finalize (which deletes it).  */
+  extract_any_requested_dumps (&requested_dumps);
+
+  /* Clean up the compiler.  */
+  enter_scope ("toplev::finalize");
+  toplev.finalize ();
+  exit_scope ("toplev::finalize");
+
+  /* Ideally we would release the jit mutex here, but we can't yet since
+     followup activities use timevars, which are global state.  */
+
+  if (errors_occurred ())
+    {
+      release_mutex ();
+      return;
+    }
+
+  if (get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE))
+    dump_generated_code ();
+
+  /* We now have a .s file.
+
+     Run any postprocessing steps.  This will either convert the .s file to
+     a .so DSO, and load it in memory (playback::compile_to_memory), or
+     convert the .s file to the requested output format, and copy it to a
+     given file (playback::compile_to_file).  */
+  postprocess (ctxt_progname);
+
+  release_mutex ();
+}
+
+/* Implementation of class gcc::jit::playback::compile_to_memory,
+   a subclass of gcc::jit::playback::context.  */
+
+/*  playback::compile_to_memory's trivial constructor. */
+
+playback::compile_to_memory::compile_to_memory (recording::context *ctxt) :
+  playback::context (ctxt),
+  m_result (NULL)
+{
+  JIT_LOG_SCOPE (get_logger ());
+}
+
+/*  Implementation of the playback::context::process vfunc for compiling
+    to memory.
+
+    Convert the .s file to a .so DSO, and load it in memory (via dlopen),
+    wrapping the result up as a jit::result and returning it.  */
+
+void
+playback::compile_to_memory::postprocess (const char *ctxt_progname)
+{
+  JIT_LOG_SCOPE (get_logger ());
+  convert_to_dso (ctxt_progname);
+  if (errors_occurred ())
+    return;
+  m_result = dlopen_built_dso ();
+}
+
+/* Implementation of class gcc::jit::playback::compile_to_file,
+   a subclass of gcc::jit::playback::context.  */
+
+/*  playback::compile_to_file's trivial constructor. */
+
+playback::compile_to_file::compile_to_file (recording::context *ctxt,
+					    enum gcc_jit_output_kind output_kind,
+					    const char *output_path) :
+  playback::context (ctxt),
+  m_output_kind (output_kind),
+  m_output_path (output_path)
+{
+  JIT_LOG_SCOPE (get_logger ());
+}
+
+/*  Implementation of the playback::context::process vfunc for compiling
+    to a file.
+
+    Either copy the .s file to the given destination (for
+    GCC_JIT_OUTPUT_KIND_ASSEMBLER), or invoke the driver to convert it
+    as necessary, copying the result.  */
+
+void
+playback::compile_to_file::postprocess (const char *ctxt_progname)
+{
+  JIT_LOG_SCOPE (get_logger ());
+
+  /* The driver takes different actions based on the filename, so
+     we provide a filename with an appropriate suffix for the
+     output kind, and then copy it up to the user-provided path,
+     rather than directly compiling it to the requested output path.  */
+
+  switch (m_output_kind)
+    {
+    default:
+      gcc_unreachable ();
+
+    case GCC_JIT_OUTPUT_KIND_ASSEMBLER:
+      copy_file (get_tempdir ()->get_path_s_file (),
+		 m_output_path);
+      break;
+
+    case GCC_JIT_OUTPUT_KIND_OBJECT_FILE:
+      {
+	char *tmp_o_path = ::concat (get_tempdir ()->get_path (),
+				     "/fake.o",
+				     NULL);
+	invoke_driver (ctxt_progname,
+		       get_tempdir ()->get_path_s_file (),
+		       tmp_o_path,
+		       TV_ASSEMBLE,
+		       false, /* bool shared, */
+		       false);/* bool run_linker */
+	if (!errors_occurred ())
+	  copy_file (tmp_o_path,
+		     m_output_path);
+	free (tmp_o_path);
+      }
+      break;
+
+    case GCC_JIT_OUTPUT_KIND_DYNAMIC_LIBRARY:
+      invoke_driver (ctxt_progname,
+		     get_tempdir ()->get_path_s_file (),
+		     get_tempdir ()->get_path_so_file (),
+		     TV_ASSEMBLE,
+		     true, /* bool shared, */
+		     true);/* bool run_linker */
+      if (!errors_occurred ())
+	copy_file (get_tempdir ()->get_path_so_file (),
+		   m_output_path);
+      break;
+
+    case GCC_JIT_OUTPUT_KIND_EXECUTABLE:
+      {
+	char *tmp_exe_path = ::concat (get_tempdir ()->get_path (),
+				     "/fake.exe",
+				     NULL);
+	invoke_driver (ctxt_progname,
+		       get_tempdir ()->get_path_s_file (),
+		       tmp_exe_path,
+		       TV_ASSEMBLE,
+		       false, /* bool shared, */
+		       true);/* bool run_linker */
+	if (!errors_occurred ())
+	  copy_file (tmp_exe_path,
+		     m_output_path);
+	free (tmp_exe_path);
+      }
+      break;
+
+    }
+
+}
+
+/* Copy SRC_PATH to DST_PATH, preserving permission bits (in particular,
+   the "executable" bits).
+
+   Any errors that occur are reported on the context and hence count as
+   a failure of the compile.
+
+   We can't in general hardlink or use "rename" from the tempdir since
+   it might be on a different filesystem to the destination.  For example,
+   I get EXDEV: "Invalid cross-device link".  */
+
+void
+playback::compile_to_file::copy_file (const char *src_path,
+				      const char *dst_path)
+{
+  JIT_LOG_SCOPE (get_logger ());
+  if (get_logger ())
+    {
+      get_logger ()->log ("src_path: %s", src_path);
+      get_logger ()->log ("dst_path: %s", dst_path);
+    }
+
+  FILE *f_in = NULL;
+  FILE *f_out = NULL;
+  size_t total_sz_in = 0;
+  size_t total_sz_out = 0;
+  char buf[4096];
+  size_t sz_in;
+  struct stat stat_buf;
+
+  f_in = fopen (src_path, "rb");
+  if (!f_in)
+    {
+      add_error (NULL,
+		 "unable to open %s for reading: %s",
+		 src_path,
+		 xstrerror (errno));
+      return;
+    }
+
+  /* Use stat on the filedescriptor to get the mode,
+     so that we can copy it over (in particular, the
+     "executable" bits).  */
+  if (-1 == fstat (fileno (f_in), &stat_buf))
+    {
+      add_error (NULL,
+		 "unable to fstat %s: %s",
+		 src_path,
+		 xstrerror (errno));
+      fclose (f_in);
+      return;
+    }
+
+  f_out = fopen (dst_path, "wb");
+  if (!f_out)
+    {
+      add_error (NULL,
+		 "unable to open %s for writing: %s",
+		 dst_path,
+		 xstrerror (errno));
+      fclose (f_in);
+      return;
+    }
+
+  while ( (sz_in = fread (buf, 1, sizeof (buf), f_in)) )
+    {
+      total_sz_in += sz_in;
+      size_t sz_out_remaining = sz_in;
+      size_t sz_out_so_far = 0;
+      while (sz_out_remaining)
+	{
+	  size_t sz_out = fwrite (buf + sz_out_so_far,
+				  1,
+				  sz_out_remaining,
+				  f_out);
+	  gcc_assert (sz_out <= sz_out_remaining);
+	  if (!sz_out)
+	    {
+	      add_error (NULL,
+			 "error writing to %s: %s",
+			 dst_path,
+			 xstrerror (errno));
+	      fclose (f_in);
+	      fclose (f_out);
+	      return;
+	    }
+	  total_sz_out += sz_out;
+	  sz_out_so_far += sz_out;
+	  sz_out_remaining -= sz_out;
+	}
+      gcc_assert (sz_out_so_far == sz_in);
+    }
+
+  if (!feof (f_in))
+    add_error (NULL,
+	       "error reading from %s: %s",
+	       src_path,
+	       xstrerror (errno));
+
+  fclose (f_in);
+
+  gcc_assert (total_sz_in == total_sz_out);
+  if (get_logger ())
+    get_logger ()->log ("total bytes copied: %ld", total_sz_out);
+
+  /* Set the permissions of the copy to those of the original file,
+     in particular the "executable" bits.  */
+  if (-1 == fchmod (fileno (f_out), stat_buf.st_mode))
+    add_error (NULL,
+	       "error setting mode of %s: %s",
+	       dst_path,
+	       xstrerror (errno));
+
+  fclose (f_out);
+}
+
+/* Helper functions for gcc::jit::playback::context::compile.  */
+
+/* This mutex guards gcc::jit::recording::context::compile, so that only
+   one thread can be accessing the bulk of GCC's state at once.  */
+
+static pthread_mutex_t jit_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+/* Acquire jit_mutex and set "this" as the active playback ctxt.  */
+
+void
+playback::context::acquire_mutex ()
+{
+  /* Acquire the big GCC mutex. */
+  JIT_LOG_SCOPE (get_logger ());
+  pthread_mutex_lock (&jit_mutex);
+  gcc_assert (NULL == active_playback_ctxt);
+  active_playback_ctxt = this;
+}
+
+/* Release jit_mutex and clear the active playback ctxt.  */
+
+void
+playback::context::release_mutex ()
+{
+  /* Release the big GCC mutex. */
+  JIT_LOG_SCOPE (get_logger ());
+  gcc_assert (active_playback_ctxt == this);
+  active_playback_ctxt = NULL;
+  pthread_mutex_unlock (&jit_mutex);
+}
+
+/* Callback used by gcc::jit::playback::context::make_fake_args when
+   invoking driver_get_configure_time_options.
+   Populate a vec <char * > with the configure-time options.  */
+
+static void
+append_arg_from_driver (const char *option, void *user_data)
+{
+  gcc_assert (option);
+  gcc_assert (user_data);
+  vec <char *> *argvec = static_cast <vec <char *> *> (user_data);
+  argvec->safe_push (concat ("-", option, NULL));
+}
+
+/* Build a fake argv for toplev::main from the options set
+   by the user on the context .  */
+
+void
+playback::context::
+make_fake_args (vec <char *> *argvec,
+		const char *ctxt_progname,
+		vec <recording::requested_dump> *requested_dumps)
+{
+  JIT_LOG_SCOPE (get_logger ());
+
+#define ADD_ARG(arg) argvec->safe_push (xstrdup (arg))
+#define ADD_ARG_TAKE_OWNERSHIP(arg) argvec->safe_push (arg)
+
+  ADD_ARG (ctxt_progname);
+  ADD_ARG (get_path_c_file ());
   ADD_ARG ("-fPIC");
 
   /* Handle int options: */
@@ -1563,7 +2076,7 @@ compile ()
       add_error (NULL,
 		 "unrecognized optimization level: %i",
 		 get_int_option (GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL));
-      return NULL;
+      return;
 
     case 0:
       ADD_ARG ("-O0");
@@ -1610,105 +2123,320 @@ compile ()
       ADD_ARG ("-fdump-ipa-all");
     }
 
-  toplev toplev (false);
-
-  toplev.main (num_args, const_cast <char **> (fake_args));
-  toplev.finalize ();
-
-  active_playback_ctxt = NULL;
-
-  if (errors_occurred ())
-    return NULL;
-
-  if (get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE))
-   dump_generated_code ();
-
-  /* Gross hacks follow:
-     We have a .s file; we want a .so file.
-     We could reuse parts of gcc/gcc.c to do this.
-     For now, just use the driver binary from the install, as
-     named in gcc-driver-name.h
-     e.g. "x86_64-unknown-linux-gnu-gcc-5.0.0".
-   */
+  /* Add "-fdump-" options for any calls to
+     gcc_jit_context_enable_dump.  */
   {
-    auto_timevar assemble_timevar (TV_ASSEMBLE);
-    const char *errmsg;
-    const char *argv[7];
-    int exit_status = 0;
-    int err = 0;
-    const char *gcc_driver_name = GCC_DRIVER_NAME;
-
-    argv[0] = gcc_driver_name;
-    argv[1] = "-shared";
-    /* The input: assembler.  */
-    argv[2] = m_path_s_file;
-    /* The output: shared library.  */
-    argv[3] = "-o";
-    argv[4] = m_path_so_file;
-
-    /* Don't use the linker plugin.
-       If running with just a "make" and not a "make install", then we'd
-       run into
-          "fatal error: -fuse-linker-plugin, but liblto_plugin.so not found"
-       libto_plugin is a .la at build time, with it becoming installed with
-       ".so" suffix: i.e. it doesn't exist with a .so suffix until install
-       time.  */
-    argv[5] = "-fno-use-linker-plugin";
-
-    /* pex argv arrays are NULL-terminated.  */
-    argv[6] = NULL;
-
-    errmsg = pex_one (PEX_SEARCH, /* int flags, */
-		      gcc_driver_name,
-		      const_cast<char * const *> (argv),
-		      ctxt_progname, /* const char *pname */
-		      NULL, /* const char *outname */
-		      NULL, /* const char *errname */
-		      &exit_status, /* int *status */
-		      &err); /* int *err*/
-    if (errmsg)
+    int i;
+    recording::requested_dump *d;
+    FOR_EACH_VEC_ELT (*requested_dumps, i, d)
       {
-	add_error (NULL, "error invoking gcc driver: %s", errmsg);
-	return NULL;
-      }
-
-    /* pex_one can return a NULL errmsg when the executable wasn't
-       found (or doesn't exist), so trap these cases also.  */
-    if (exit_status || err)
-      {
-	add_error (NULL,
-		   "error invoking gcc driver: exit_status: %i err: %i",
-		   exit_status, err);
-	add_error (NULL,
-		   "whilst attempting to run a driver named: %s",
-		   gcc_driver_name);
-	add_error (NULL,
-		   "PATH was: %s",
-		   getenv ("PATH"));
-	return NULL;
+	char *arg = concat ("-fdump-", d->m_dumpname, NULL);
+	ADD_ARG_TAKE_OWNERSHIP (arg);
       }
   }
 
-  // TODO: split out assembles vs linker
+  /* PR jit/64810: Add any target-specific default options
+     from OPTION_DEFAULT_SPECS, normally provided by the driver
+     in the non-jit case.
 
-  /* dlopen the .so file. */
+     The target-specific code can define OPTION_DEFAULT_SPECS:
+     default command options in the form of spec macros for the
+     driver to expand ().
+
+     For cc1 etc, the driver processes OPTION_DEFAULT_SPECS and,
+     if not overriden, injects the defaults as extra arguments to
+     cc1 etc.
+     For the jit case, we need to add these arguments here.  The
+     input format (using the specs language) means that we have to run
+     part of the driver code here (driver_get_configure_time_options).
+
+     To avoid running the spec-expansion code every time, we just do
+     it the first time (via a function-static flag), saving the result
+     into a function-static vec.
+     This flag and vec are global state (i.e. per-process).
+     They are guarded by the jit mutex.  */
   {
-    auto_timevar load_timevar (TV_LOAD);
+    static bool have_configure_time_options = false;
+    static vec <char *> configure_time_options;
 
-    const char *error;
-
-    /* Clear any existing error.  */
-    dlerror ();
-
-    handle = dlopen (m_path_so_file, RTLD_NOW | RTLD_LOCAL);
-    if ((error = dlerror()) != NULL)  {
-      add_error (NULL, "%s", error);
-    }
-    if (handle)
-      result_obj = new result (handle);
+    if (have_configure_time_options)
+      log ("reusing cached configure-time options");
     else
-      result_obj = NULL;
+      {
+	have_configure_time_options = true;
+	log ("getting configure-time options from driver");
+	driver_get_configure_time_options (append_arg_from_driver,
+					   &configure_time_options);
+      }
+
+    int i;
+    char *opt;
+
+    if (get_logger ())
+      FOR_EACH_VEC_ELT (configure_time_options, i, opt)
+	log ("configure_time_options[%i]: %s", i, opt);
+
+    /* configure_time_options should now contain the expanded options
+       from OPTION_DEFAULT_SPECS (if any).  */
+    FOR_EACH_VEC_ELT (configure_time_options, i, opt)
+      {
+	gcc_assert (opt);
+	gcc_assert (opt[0] == '-');
+	ADD_ARG (opt);
+      }
   }
+
+#undef ADD_ARG
+#undef ADD_ARG_TAKE_OWNERSHIP
+}
+
+/* The second half of the implementation of gcc_jit_context_enable_dump.
+   Iterate through the requested dumps, reading the underlying files
+   into heap-allocated buffers, writing pointers to the buffers into
+   the char ** pointers provided by client code.
+   Client code is responsible for calling free on the results.  */
+
+void
+playback::context::
+extract_any_requested_dumps (vec <recording::requested_dump> *requested_dumps)
+{
+  JIT_LOG_SCOPE (get_logger ());
+
+  int i;
+  recording::requested_dump *d;
+  FOR_EACH_VEC_ELT (*requested_dumps, i, d)
+    {
+      dump_file_info *dfi;
+      char *filename;
+      char *content;
+
+      dfi = g->get_dumps ()->get_dump_file_info_by_switch (d->m_dumpname);
+      if (!dfi)
+	{
+	  add_error (NULL, "unrecognized dump: %s", d->m_dumpname);
+	  continue;
+	}
+
+      filename = g->get_dumps ()->get_dump_file_name (dfi);
+      content = read_dump_file (filename);
+      *(d->m_out_ptr) = content;
+      free (filename);
+    }
+}
+
+/* Helper function for playback::context::extract_any_requested_dumps
+   (itself for use in implementation of gcc_jit_context_enable_dump).
+
+   Attempt to read the complete file at the given path, returning the
+   bytes found there as a buffer.
+   The caller is responsible for calling free on the result.
+   Errors will be reported on the context, and lead to NULL being
+   returned; an out-of-memory error will terminate the process.  */
+
+char *
+playback::context::read_dump_file (const char *path)
+{
+  char *result = NULL;
+  size_t total_sz = 0;
+  char buf[4096];
+  size_t sz;
+  FILE *f_in;
+
+  f_in = fopen (path, "r");
+  if (!f_in)
+    {
+      add_error (NULL, "unable to open %s for reading", path);
+      return NULL;
+    }
+
+  while ( (sz = fread (buf, 1, sizeof (buf), f_in)) )
+    {
+      size_t old_total_sz = total_sz;
+      total_sz += sz;
+      result = reinterpret_cast <char *> (xrealloc (result, total_sz + 1));
+      memcpy (result + old_total_sz, buf, sz);
+    }
+
+  if (!feof (f_in))
+    {
+      add_error (NULL, "error reading from %s", path);
+      free (result);
+      fclose (f_in);
+      return NULL;
+    }
+
+  fclose (f_in);
+
+  if (result)
+    {
+      result[total_sz] = '\0';
+      return result;
+    }
+  else
+    return xstrdup ("");
+}
+
+/* Part of playback::context::compile ().
+
+   We have a .s file; we want a .so file.
+   We could reuse parts of gcc/gcc.c to do this.
+   For now, just use the driver binary from the install, as
+   named in gcc-driver-name.h
+   e.g. "x86_64-unknown-linux-gnu-gcc-5.0.0".  */
+
+void
+playback::context::
+convert_to_dso (const char *ctxt_progname)
+{
+  JIT_LOG_SCOPE (get_logger ());
+
+  invoke_driver (ctxt_progname,
+		 m_tempdir->get_path_s_file (),
+		 m_tempdir->get_path_so_file (),
+		 TV_ASSEMBLE,
+		 true, /* bool shared, */
+		 true);/* bool run_linker */
+}
+
+void
+playback::context::
+invoke_driver (const char *ctxt_progname,
+	       const char *input_file,
+	       const char *output_file,
+	       timevar_id_t tv_id,
+	       bool shared,
+	       bool run_linker)
+{
+  JIT_LOG_SCOPE (get_logger ());
+  /* Currently this lumps together both assembling and linking into
+     TV_ASSEMBLE.  */
+  auto_timevar assemble_timevar (tv_id);
+  const char *errmsg;
+  auto_vec <const char *> argvec;
+#define ADD_ARG(arg) argvec.safe_push (arg)
+  int exit_status = 0;
+  int err = 0;
+  const char *gcc_driver_name = GCC_DRIVER_NAME;
+
+  ADD_ARG (gcc_driver_name);
+
+  if (shared)
+    ADD_ARG ("-shared");
+
+  if (!run_linker)
+    ADD_ARG ("-c");
+
+  ADD_ARG (input_file);
+  ADD_ARG ("-o");
+  ADD_ARG (output_file);
+
+  /* Don't use the linker plugin.
+     If running with just a "make" and not a "make install", then we'd
+     run into
+       "fatal error: -fuse-linker-plugin, but liblto_plugin.so not found"
+     libto_plugin is a .la at build time, with it becoming installed with
+     ".so" suffix: i.e. it doesn't exist with a .so suffix until install
+     time.  */
+  ADD_ARG ("-fno-use-linker-plugin");
+
+  /* pex argv arrays are NULL-terminated.  */
+  ADD_ARG (NULL);
+
+  /* pex_one's error-handling requires pname to be non-NULL.  */
+  gcc_assert (ctxt_progname);
+
+  if (get_logger ())
+    for (unsigned i = 0; i < argvec.length (); i++)
+      get_logger ()->log ("argv[%i]: %s", i, argvec[i]);
+
+  errmsg = pex_one (PEX_SEARCH, /* int flags, */
+		    gcc_driver_name,
+		    const_cast <char *const *> (argvec.address ()),
+		    ctxt_progname, /* const char *pname */
+		    NULL, /* const char *outname */
+		    NULL, /* const char *errname */
+		    &exit_status, /* int *status */
+		    &err); /* int *err*/
+  if (errmsg)
+    {
+      add_error (NULL, "error invoking gcc driver: %s", errmsg);
+      return;
+    }
+
+  /* pex_one can return a NULL errmsg when the executable wasn't
+     found (or doesn't exist), so trap these cases also.  */
+  if (exit_status || err)
+    {
+      add_error (NULL,
+		 "error invoking gcc driver: exit_status: %i err: %i",
+		 exit_status, err);
+      add_error (NULL,
+		 "whilst attempting to run a driver named: %s",
+		 gcc_driver_name);
+      add_error (NULL,
+		 "PATH was: %s",
+		 getenv ("PATH"));
+      return;
+    }
+#undef ADD_ARG
+}
+
+/* Dynamically-link the built DSO file into this process, using dlopen.
+   Wrap it up within a jit::result *, and return that.
+   Return NULL if any errors occur, reporting them on this context.  */
+
+result *
+playback::context::
+dlopen_built_dso ()
+{
+  JIT_LOG_SCOPE (get_logger ());
+  auto_timevar load_timevar (TV_LOAD);
+  void *handle = NULL;
+  const char *error = NULL;
+  result *result_obj = NULL;
+
+  /* Clear any existing error.  */
+  dlerror ();
+
+  handle = dlopen (m_tempdir->get_path_so_file (),
+		   RTLD_NOW | RTLD_LOCAL);
+  if ((error = dlerror()) != NULL)  {
+    add_error (NULL, "%s", error);
+  }
+  if (handle)
+    {
+      /* We've successfully dlopened the result; create a
+	 jit::result object to wrap it.
+
+	 We're done with the tempdir for now, but if the user
+	 has requested debugging, the user's debugger might not
+	 be capable of dealing with the .so file being unlinked
+	 immediately, so keep it around until after the result
+	 is released.  We do this by handing over ownership of
+	 the jit::tempdir to the result.  See PR jit/64206.  */
+      tempdir *handover_tempdir;
+      if (get_bool_option (GCC_JIT_BOOL_OPTION_DEBUGINFO))
+	{
+	  handover_tempdir = m_tempdir;
+	  m_tempdir = NULL;
+	  /* The tempdir will eventually be cleaned up in the
+	     jit::result's dtor. */
+	  log ("GCC_JIT_BOOL_OPTION_DEBUGINFO was set:"
+	       " handing over tempdir to jit::result");
+	}
+      else
+	{
+	  handover_tempdir = NULL;
+	  /* ... and retain ownership of m_tempdir so we clean it
+	     up it the playback::context's dtor. */
+	  log ("GCC_JIT_BOOL_OPTION_DEBUGINFO was not set:"
+	       " retaining ownership of tempdir");
+	}
+
+      result_obj = new result (get_logger (), handle, handover_tempdir);
+    }
+  else
+    result_obj = NULL;
 
   return result_obj;
 }
@@ -1723,6 +2451,7 @@ void
 playback::context::
 replay ()
 {
+  JIT_LOG_SCOPE (get_logger ());
   /* Adapted from c-common.c:c_common_nodes_and_builtins.  */
   tree array_domain_type = build_index_type (size_int (200));
   m_char_array_type_node
@@ -1742,6 +2471,14 @@ replay ()
      latter are GC-allocated, but the former don't mark these
      refs.  Hence we must stop using them before the GC can run.  */
   m_recording_ctxt->disassociate_from_playback ();
+
+  /* The builtins_manager, if any, is associated with the recording::context
+     and might be reused for future compiles on other playback::contexts,
+     but its m_attributes array is not GTY-labeled and hence will become
+     nonsense if the GC runs.  Purge this state.  */
+  builtins_manager *bm = get_builtins_manager ();
+  if (bm)
+    bm->finish_playback ();
 
   timevar_pop (TV_JIT_REPLAY);
 
@@ -1776,9 +2513,10 @@ void
 playback::context::
 dump_generated_code ()
 {
+  JIT_LOG_SCOPE (get_logger ());
   char buf[4096];
   size_t sz;
-  FILE *f_in = fopen (m_path_s_file, "r");
+  FILE *f_in = fopen (get_path_s_file (), "r");
   if (!f_in)
     return;
 
@@ -1786,6 +2524,37 @@ dump_generated_code ()
     fwrite (buf, 1, sz, stderr);
 
   fclose (f_in);
+}
+
+/* Get the supposed path of the notional "fake.c" file within the
+   tempdir.  This file doesn't exist, but the rest of the compiler
+   needs a name.  */
+
+const char *
+playback::context::
+get_path_c_file () const
+{
+  return m_tempdir->get_path_c_file ();
+}
+
+/* Get the path of the assembler output file "fake.s" file within the
+   tempdir. */
+
+const char *
+playback::context::
+get_path_s_file () const
+{
+  return m_tempdir->get_path_s_file ();
+}
+
+/* Get the path of the DSO object file "fake.so" file within the
+   tempdir. */
+
+const char *
+playback::context::
+get_path_so_file () const
+{
+  return m_tempdir->get_path_so_file ();
 }
 
 /* qsort comparator for comparing pairs of playback::source_line *,
@@ -1830,6 +2599,7 @@ handle_locations ()
      imposed by the linemap API.
 
      line_table is a global.  */
+  JIT_LOG_SCOPE (get_logger ());
   int i;
   source_file *file;
 
@@ -1915,48 +2685,6 @@ add_error_va (location *loc, const char *fmt, va_list ap)
 				  fmt, ap);
 }
 
-/* Constructor for gcc::jit::playback::result.  */
-
-result::
-result(void *dso_handle)
-  : m_dso_handle(dso_handle)
-{
-}
-
-/* gcc::jit::playback::result's destructor.
-
-   Called implicitly by gcc_jit_result_release.  */
-
-result::~result()
-{
-  dlclose (m_dso_handle);
-}
-
-/* Attempt to locate the given function by name within the
-   playback::result, using dlsym.
-
-   Implements the post-error-checking part of
-   gcc_jit_result_get_code.  */
-
-void *
-result::
-get_code (const char *funcname)
-{
-  void *code;
-  const char *error;
-
-  /* Clear any existing error.  */
-  dlerror ();
-
-  code = dlsym (m_dso_handle, funcname);
-
-  if ((error = dlerror()) != NULL)  {
-    fprintf(stderr, "%s\n", error);
-  }
-
-  return code;
-}
-
 /* Dealing with the linemap API.  */
 
 /* Construct a playback::location for a recording::location, if it
@@ -2024,6 +2752,15 @@ playback::source_file::source_file (tree filename) :
 {
 }
 
+/* Don't leak vec's internal buffer (in non-GC heap) when we are
+   GC-ed.  */
+
+void
+playback::source_file::finalizer ()
+{
+  m_source_lines.release ();
+}
+
 /* Construct a playback::source_line for the given line
    within this source file, if one doesn't exist already.  */
 
@@ -2054,6 +2791,15 @@ playback::source_line::source_line (source_file *file, int line_num) :
   m_source_file (file),
   m_line_num (line_num)
 {
+}
+
+/* Don't leak vec's internal buffer (in non-GC heap) when we are
+   GC-ed.  */
+
+void
+playback::source_line::finalizer ()
+{
+  m_locations.release ();
 }
 
 /* Construct a playback::location for the given column

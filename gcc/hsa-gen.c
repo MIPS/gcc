@@ -24,9 +24,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "is-a.h"
+#include "hash-set.h"
 #include "defaults.h"
 #include "hard-reg-set.h"
-#include "hsa.h"
+#include "symtab.h"
+#include "vec.h"
+#include "input.h"
+#include "alias.h"
+#include "double-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "tree-pass.h"
 #include "tree-ssa-alias.h"
@@ -35,13 +42,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "dominance.h"
 #include "cfg.h"
 #include "function.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "fold-const.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "machmode.h"
 #include "output.h"
-#include "basic-block.h"
 #include "function.h"
-#include "vec.h"
 #include "bitmap.h"
 #include "dumpfile.h"
 #include "gimple-pretty-print.h"
@@ -52,6 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-phinodes.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "rtl.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "ssa-iterators.h"
@@ -61,6 +70,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "gimplify-me.h"
 #include "print-tree.h"
+#include "hsa.h"
 
 /* Structure containing intermediate HSA representation of the generated
    function. */
@@ -1834,7 +1844,7 @@ gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
    names to HSA pseudo registers.  */
 
 static void
-gen_hsa_insns_for_return (gimple stmt, hsa_bb *hbb,
+gen_hsa_insns_for_return (greturn *stmt, hsa_bb *hbb,
 			vec <hsa_op_reg_p> ssa_map)
 {
   tree retval = gimple_return_retval (stmt);
@@ -2025,7 +2035,7 @@ gen_hsa_insns_for_gimple_stmt (gimple stmt, hsa_bb *hbb,
 	gen_hsa_insns_for_operation_assignment (stmt, hbb, ssa_map);
       break;
     case GIMPLE_RETURN:
-      gen_hsa_insns_for_return (stmt, hbb, ssa_map);
+      gen_hsa_insns_for_return (as_a <greturn *> (stmt), hbb, ssa_map);
       break;
     case GIMPLE_COND:
       gen_hsa_insns_for_cond_stmt (stmt, hbb, ssa_map);
@@ -2038,7 +2048,7 @@ gen_hsa_insns_for_gimple_stmt (gimple stmt, hsa_bb *hbb,
       break;
     case GIMPLE_LABEL:
     {
-      tree label = gimple_label_label (stmt);
+      tree label = gimple_label_label (as_a <glabel *> (stmt));
       if (FORCED_LABEL (label))
 	sorry ("Support for HSA does not implement gimple label with address taken");
 

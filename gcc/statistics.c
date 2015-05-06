@@ -1,5 +1,5 @@
 /* Optimization statistics functions.
-   Copyright (C) 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2008-2015 Free Software Foundation, Inc.
    Contributed by Richard Guenther  <rguenther@suse.de>
 
 This file is part of GCC.
@@ -270,7 +270,8 @@ statistics_early_init (void)
   gcc::dump_manager *dumps = g->get_dumps ();
   statistics_dump_nr = dumps->dump_register (".statistics", "statistics",
 					     "statistics", TDF_TREE,
-					     OPTGROUP_NONE);
+					     OPTGROUP_NONE,
+					     false);
 }
 
 /* Init the statistics.  */

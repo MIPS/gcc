@@ -1,6 +1,6 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 2014 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,7 +26,12 @@
 // ISO C++ 14882:2011: 27.5.3.1.1  Class ios_base::failure
 //
 
+#define _GLIBCXX_USE_CXX11_ABI 1
 #include <ios>
+
+#if ! _GLIBCXX_USE_DUAL_ABI
+# error This file should not be compiled for this configuration.
+#endif
 
 namespace
 {
@@ -36,6 +41,7 @@ namespace
     name() const noexcept
     { return "iostream"; }
 
+    _GLIBCXX_DEFAULT_ABI_TAG
     virtual std::string message(int __ec) const
     {
       std::string __msg;

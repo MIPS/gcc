@@ -1,5 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -24,6 +24,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tm.h"
 #include "tree.h"
 #include "stringpool.h"
@@ -38,10 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -129,7 +135,7 @@ vec<tree, va_gc> *local_classes;
 static tree get_vfield_name (tree);
 static void finish_struct_anon (tree);
 static tree get_vtable_name (tree);
-static tree get_basefndecls (tree, tree);
+static void get_basefndecls (tree, tree, vec<tree> *);
 static int build_primary_vtable (tree, tree);
 static int build_secondary_vtable (tree);
 static void finish_vtbls (tree);
@@ -441,10 +447,20 @@ build_base_path (enum tree_code code,
 	  v_offset = cp_build_indirect_ref (v_offset, RO_NULL, complain);
 	}
       else
-	v_offset = build_vfield_ref (cp_build_indirect_ref (expr, RO_NULL,
-                                                            complain),
-				     TREE_TYPE (TREE_TYPE (expr)));
-      
+	{
+	  tree t = expr;
+	  if ((flag_sanitize & SANITIZE_VPTR) && fixed_type_p == 0)
+	    {
+	      t = cp_ubsan_maybe_instrument_cast_to_vbase (input_location,
+							   probe, expr);
+	      if (t == NULL_TREE)
+		t = expr;
+	    }
+	  v_offset = build_vfield_ref (cp_build_indirect_ref (t, RO_NULL,
+							      complain),
+	  TREE_TYPE (TREE_TYPE (expr)));
+	}
+
       if (v_offset == error_mark_node)
 	return error_mark_node;
 
@@ -1352,17 +1368,126 @@ handle_using_decl (tree using_decl, tree t)
     alter_access (t, decl, access);
 }
 
-/* walk_tree callback for check_abi_tags: if the type at *TP involves any
-   types with abi tags, add the corresponding identifiers to the VEC in
-   *DATA and set IDENTIFIER_MARKED.  */
+/* Data structure for find_abi_tags_r, below.  */
 
 struct abi_tag_data
 {
-  tree t;
-  tree subob;
-  // error_mark_node to get diagnostics; otherwise collect missing tags here
-  tree tags;
+  tree t;		// The type that we're checking for missing tags.
+  tree subob;		// The subobject of T that we're getting tags from.
+  tree tags; // error_mark_node for diagnostics, or a list of missing tags.
 };
+
+/* Subroutine of find_abi_tags_r. Handle a single TAG found on the class TP
+   in the context of P.  TAG can be either an identifier (the DECL_NAME of
+   a tag NAMESPACE_DECL) or a STRING_CST (a tag attribute).  */
+
+static void
+check_tag (tree tag, tree id, tree *tp, abi_tag_data *p)
+{
+  if (!IDENTIFIER_MARKED (id))
+    {
+      if (p->tags != error_mark_node)
+	{
+	  /* We're collecting tags from template arguments or from
+	     the type of a variable or function return type.  */
+	  p->tags = tree_cons (NULL_TREE, tag, p->tags);
+
+	  /* Don't inherit this tag multiple times.  */
+	  IDENTIFIER_MARKED (id) = true;
+
+	  if (TYPE_P (p->t))
+	    {
+	      /* Tags inherited from type template arguments are only used
+		 to avoid warnings.  */
+	      ABI_TAG_IMPLICIT (p->tags) = true;
+	      return;
+	    }
+	  /* For functions and variables we want to warn, too.  */
+	}
+
+      /* Otherwise we're diagnosing missing tags.  */
+      if (TREE_CODE (p->t) == FUNCTION_DECL)
+	{
+	  if (warning (OPT_Wabi_tag, "%qD inherits the %E ABI tag "
+		       "that %qT (used in its return type) has",
+		       p->t, tag, *tp))
+	    inform (location_of (*tp), "%qT declared here", *tp);
+	}
+      else if (TREE_CODE (p->t) == VAR_DECL)
+	{
+	  if (warning (OPT_Wabi_tag, "%qD inherits the %E ABI tag "
+		       "that %qT (used in its type) has", p->t, tag, *tp))
+	    inform (location_of (*tp), "%qT declared here", *tp);
+	}
+      else if (TYPE_P (p->subob))
+	{
+	  if (warning (OPT_Wabi_tag, "%qT does not have the %E ABI tag "
+		       "that base %qT has", p->t, tag, p->subob))
+	    inform (location_of (p->subob), "%qT declared here",
+		    p->subob);
+	}
+      else
+	{
+	  if (warning (OPT_Wabi_tag, "%qT does not have the %E ABI tag "
+		       "that %qT (used in the type of %qD) has",
+		       p->t, tag, *tp, p->subob))
+	    {
+	      inform (location_of (p->subob), "%qD declared here",
+		      p->subob);
+	      inform (location_of (*tp), "%qT declared here", *tp);
+	    }
+	}
+    }
+}
+
+/* Find all the ABI tags in the attribute list ATTR and either call
+   check_tag (if TP is non-null) or set IDENTIFIER_MARKED to val.  */
+
+static void
+mark_or_check_attr_tags (tree attr, tree *tp, abi_tag_data *p, bool val)
+{
+  if (!attr)
+    return;
+  for (; (attr = lookup_attribute ("abi_tag", attr));
+       attr = TREE_CHAIN (attr))
+    for (tree list = TREE_VALUE (attr); list;
+	 list = TREE_CHAIN (list))
+      {
+	tree tag = TREE_VALUE (list);
+	tree id = get_identifier (TREE_STRING_POINTER (tag));
+	if (tp)
+	  check_tag (tag, id, tp, p);
+	else
+	  IDENTIFIER_MARKED (id) = val;
+      }
+}
+
+/* Find all the ABI tags on T and its enclosing scopes and either call
+   check_tag (if TP is non-null) or set IDENTIFIER_MARKED to val.  */
+
+static void
+mark_or_check_tags (tree t, tree *tp, abi_tag_data *p, bool val)
+{
+  while (t != global_namespace)
+    {
+      tree attr;
+      if (TYPE_P (t))
+	{
+	  attr = TYPE_ATTRIBUTES (t);
+	  t = CP_TYPE_CONTEXT (t);
+	}
+      else
+	{
+	  attr = DECL_ATTRIBUTES (t);
+	  t = CP_DECL_CONTEXT (t);
+	}
+      mark_or_check_attr_tags (attr, tp, p, val);
+    }
+}
+
+/* walk_tree callback for check_abi_tags: if the type at *TP involves any
+   types with ABI tags, add the corresponding identifiers to the VEC in
+   *DATA and set IDENTIFIER_MARKED.  */
 
 static tree
 find_abi_tags_r (tree *tp, int *walk_subtrees, void *data)
@@ -1374,86 +1499,114 @@ find_abi_tags_r (tree *tp, int *walk_subtrees, void *data)
      anyway, but let's make sure of it.  */
   *walk_subtrees = false;
 
-  if (tree attributes = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (*tp)))
-    {
-      struct abi_tag_data *p = static_cast<struct abi_tag_data*>(data);
-      for (tree list = TREE_VALUE (attributes); list;
-	   list = TREE_CHAIN (list))
-	{
-	  tree tag = TREE_VALUE (list);
-	  tree id = get_identifier (TREE_STRING_POINTER (tag));
-	  if (!IDENTIFIER_MARKED (id))
-	    {
-	      if (p->tags != error_mark_node)
-		{
-		  /* We're collecting tags from template arguments.  */
-		  tree str = build_string (IDENTIFIER_LENGTH (id),
-					   IDENTIFIER_POINTER (id));
-		  p->tags = tree_cons (NULL_TREE, str, p->tags);
-		  ABI_TAG_IMPLICIT (p->tags) = true;
+  abi_tag_data *p = static_cast<struct abi_tag_data*>(data);
 
-		  /* Don't inherit this tag multiple times.  */
-		  IDENTIFIER_MARKED (id) = true;
-		}
+  mark_or_check_tags (*tp, tp, p, false);
 
-	      /* Otherwise we're diagnosing missing tags.  */
-	      else if (TYPE_P (p->subob))
-		{
-		  if (warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
-			       "that base %qT has", p->t, tag, p->subob))
-		    inform (location_of (p->subob), "%qT declared here",
-			    p->subob);
-		}
-	      else
-		{
-		  if (warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
-			       "that %qT (used in the type of %qD) has",
-			       p->t, tag, *tp, p->subob))
-		    {
-		      inform (location_of (p->subob), "%qD declared here",
-			      p->subob);
-		      inform (location_of (*tp), "%qT declared here", *tp);
-		    }
-		}
-	    }
-	}
-    }
   return NULL_TREE;
 }
 
-/* Set IDENTIFIER_MARKED on all the ABI tags on T and its (transitively
-   complete) template arguments.  */
+/* walk_tree callback for mark_abi_tags: if *TP is a class, set
+   IDENTIFIER_MARKED on its ABI tags.  */
+
+static tree
+mark_abi_tags_r (tree *tp, int *walk_subtrees, void *data)
+{
+  if (!OVERLOAD_TYPE_P (*tp))
+    return NULL_TREE;
+
+  /* walk_tree shouldn't be walking into any subtrees of a RECORD_TYPE
+     anyway, but let's make sure of it.  */
+  *walk_subtrees = false;
+
+  bool *valp = static_cast<bool*>(data);
+
+  mark_or_check_tags (*tp, NULL, NULL, *valp);
+
+  return NULL_TREE;
+}
+
+/* Set IDENTIFIER_MARKED on all the ABI tags on T and its enclosing
+   scopes.  */
 
 static void
-mark_type_abi_tags (tree t, bool val)
+mark_abi_tags (tree t, bool val)
 {
-  tree attributes = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (t));
-  if (attributes)
+  mark_or_check_tags (t, NULL, NULL, val);
+  if (DECL_P (t))
     {
-      for (tree list = TREE_VALUE (attributes); list;
-	   list = TREE_CHAIN (list))
+      if (DECL_LANG_SPECIFIC (t) && DECL_USE_TEMPLATE (t)
+	  && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (t)))
 	{
-	  tree tag = TREE_VALUE (list);
-	  tree id = get_identifier (TREE_STRING_POINTER (tag));
-	  IDENTIFIER_MARKED (id) = val;
+	  /* Template arguments are part of the signature.  */
+	  tree level = INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (t));
+	  for (int j = 0; j < TREE_VEC_LENGTH (level); ++j)
+	    {
+	      tree arg = TREE_VEC_ELT (level, j);
+	      cp_walk_tree_without_duplicates (&arg, mark_abi_tags_r, &val);
+	    }
 	}
+      if (TREE_CODE (t) == FUNCTION_DECL)
+	/* A function's parameter types are part of the signature, so
+	   we don't need to inherit any tags that are also in them.  */
+	for (tree arg = FUNCTION_FIRST_USER_PARMTYPE (t); arg;
+	     arg = TREE_CHAIN (arg))
+	  cp_walk_tree_without_duplicates (&TREE_VALUE (arg),
+					   mark_abi_tags_r, &val);
     }
 }
 
-/* Check that class T has all the abi tags that subobject SUBOB has, or
-   warn if not.  */
+/* Check that T has all the ABI tags that subobject SUBOB has, or
+   warn if not.  If T is a (variable or function) declaration, also
+   add any missing tags.  */
 
 static void
 check_abi_tags (tree t, tree subob)
 {
-  mark_type_abi_tags (t, true);
+  bool inherit = DECL_P (t);
+
+  if (!inherit && !warn_abi_tag)
+    return;
+
+  tree decl = TYPE_P (t) ? TYPE_NAME (t) : t;
+  if (!TREE_PUBLIC (decl))
+    /* No need to worry about things local to this TU.  */
+    return;
+
+  mark_abi_tags (t, true);
 
   tree subtype = TYPE_P (subob) ? subob : TREE_TYPE (subob);
   struct abi_tag_data data = { t, subob, error_mark_node };
+  if (inherit)
+    data.tags = NULL_TREE;
 
   cp_walk_tree_without_duplicates (&subtype, find_abi_tags_r, &data);
 
-  mark_type_abi_tags (t, false);
+  if (inherit && data.tags)
+    {
+      tree attr = lookup_attribute ("abi_tag", DECL_ATTRIBUTES (t));
+      if (attr)
+	TREE_VALUE (attr) = chainon (data.tags, TREE_VALUE (attr));
+      else
+	DECL_ATTRIBUTES (t)
+	  = tree_cons (get_identifier ("abi_tag"), data.tags,
+		       DECL_ATTRIBUTES (t));
+    }
+
+  mark_abi_tags (t, false);
+}
+
+/* Check that DECL has all the ABI tags that are used in parts of its type
+   that are not reflected in its mangled name.  */
+
+void
+check_abi_tags (tree decl)
+{
+  if (TREE_CODE (decl) == VAR_DECL)
+    check_abi_tags (decl, TREE_TYPE (decl));
+  else if (TREE_CODE (decl) == FUNCTION_DECL
+	   && !mangle_return_type_p (decl))
+    check_abi_tags (decl, TREE_TYPE (TREE_TYPE (decl)));
 }
 
 void
@@ -1463,7 +1616,7 @@ inherit_targ_abi_tags (tree t)
       || CLASSTYPE_TEMPLATE_INFO (t) == NULL_TREE)
     return;
 
-  mark_type_abi_tags (t, true);
+  mark_abi_tags (t, true);
 
   tree args = CLASSTYPE_TI_ARGS (t);
   struct abi_tag_data data = { t, NULL_TREE, NULL_TREE };
@@ -1491,7 +1644,7 @@ inherit_targ_abi_tags (tree t)
 		       TYPE_ATTRIBUTES (t));
     }
 
-  mark_type_abi_tags (t, false);
+  mark_abi_tags (t, false);
 }
 
 /* Return true, iff class T has a non-virtual destructor that is
@@ -2717,16 +2870,16 @@ modify_all_vtables (tree t, tree virtuals)
 /* Get the base virtual function declarations in T that have the
    indicated NAME.  */
 
-static tree
-get_basefndecls (tree name, tree t)
+static void
+get_basefndecls (tree name, tree t, vec<tree> *base_fndecls)
 {
   tree methods;
-  tree base_fndecls = NULL_TREE;
   int n_baseclasses = BINFO_N_BASE_BINFOS (TYPE_BINFO (t));
   int i;
 
   /* Find virtual functions in T with the indicated NAME.  */
   i = lookup_fnfields_1 (t, name);
+  bool found_decls = false;
   if (i != -1)
     for (methods = (*CLASSTYPE_METHOD_VEC (t))[i];
 	 methods;
@@ -2736,20 +2889,20 @@ get_basefndecls (tree name, tree t)
 
 	if (TREE_CODE (method) == FUNCTION_DECL
 	    && DECL_VINDEX (method))
-	  base_fndecls = tree_cons (NULL_TREE, method, base_fndecls);
+	  {
+	    base_fndecls->safe_push (method);
+	    found_decls = true;
+	  }
       }
 
-  if (base_fndecls)
-    return base_fndecls;
+  if (found_decls)
+    return;
 
   for (i = 0; i < n_baseclasses; i++)
     {
       tree basetype = BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (t), i));
-      base_fndecls = chainon (get_basefndecls (name, basetype),
-			      base_fndecls);
+      get_basefndecls (name, basetype, base_fndecls);
     }
-
-  return base_fndecls;
 }
 
 /* If this declaration supersedes the declaration of
@@ -2777,6 +2930,10 @@ check_for_override (tree decl, tree ctype)
     {
       DECL_VINDEX (decl) = decl;
       overrides_found = true;
+      if (warn_override && !DECL_OVERRIDE_P (decl)
+	  && !DECL_DESTRUCTOR_P (decl))
+	warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wsuggest_override,
+		    "%q+D can be marked override", decl);
     }
 
   if (DECL_VIRTUAL_P (decl))
@@ -2811,7 +2968,6 @@ warn_hidden (tree t)
       tree fn;
       tree name;
       tree fndecl;
-      tree base_fndecls;
       tree base_binfo;
       tree binfo;
       int j;
@@ -2820,19 +2976,18 @@ warn_hidden (tree t)
 	 have the same name.  Figure out what name that is.  */
       name = DECL_NAME (OVL_CURRENT (fns));
       /* There are no possibly hidden functions yet.  */
-      base_fndecls = NULL_TREE;
+      auto_vec<tree, 20> base_fndecls;
       /* Iterate through all of the base classes looking for possibly
 	 hidden functions.  */
       for (binfo = TYPE_BINFO (t), j = 0;
 	   BINFO_BASE_ITERATE (binfo, j, base_binfo); j++)
 	{
 	  tree basetype = BINFO_TYPE (base_binfo);
-	  base_fndecls = chainon (get_basefndecls (name, basetype),
-				  base_fndecls);
+	  get_basefndecls (name, basetype, &base_fndecls);
 	}
 
       /* If there are no functions to hide, continue.  */
-      if (!base_fndecls)
+      if (base_fndecls.is_empty ())
 	continue;
 
       /* Remove any overridden functions.  */
@@ -2842,28 +2997,27 @@ warn_hidden (tree t)
 	  if (TREE_CODE (fndecl) == FUNCTION_DECL
 	      && DECL_VINDEX (fndecl))
 	    {
-	      tree *prev = &base_fndecls;
-
-	      while (*prev)
 		/* If the method from the base class has the same
 		   signature as the method from the derived class, it
 		   has been overridden.  */
-		if (same_signature_p (fndecl, TREE_VALUE (*prev)))
-		  *prev = TREE_CHAIN (*prev);
-		else
-		  prev = &TREE_CHAIN (*prev);
+		for (size_t k = 0; k < base_fndecls.length (); k++)
+		if (base_fndecls[k]
+		    && same_signature_p (fndecl, base_fndecls[k]))
+		  base_fndecls[k] = NULL_TREE;
 	    }
 	}
 
       /* Now give a warning for all base functions without overriders,
 	 as they are hidden.  */
-      while (base_fndecls)
-	{
-	  /* Here we know it is a hider, and no overrider exists.  */
-	  warning (OPT_Woverloaded_virtual, "%q+D was hidden", TREE_VALUE (base_fndecls));
-	  warning (OPT_Woverloaded_virtual, "  by %q+D", fns);
-	  base_fndecls = TREE_CHAIN (base_fndecls);
-	}
+      size_t k;
+      tree base_fndecl;
+      FOR_EACH_VEC_ELT (base_fndecls, k, base_fndecl)
+	if (base_fndecl)
+	  {
+	      /* Here we know it is a hider, and no overrider exists.  */
+	      warning (OPT_Woverloaded_virtual, "%q+D was hidden", base_fndecl);
+	      warning (OPT_Woverloaded_virtual, "  by %q+D", fns);
+	  }
     }
 }
 
@@ -3572,13 +3726,15 @@ check_field_decls (tree t, tree *access_decls,
 	  CLASSTYPE_NON_STD_LAYOUT (t) = 1;
 	  if (DECL_INITIAL (x) == NULL_TREE)
 	    SET_CLASSTYPE_REF_FIELDS_NEED_INIT (t, 1);
-
-	  /* ARM $12.6.2: [A member initializer list] (or, for an
-	     aggregate, initialization by a brace-enclosed list) is the
-	     only way to initialize nonstatic const and reference
-	     members.  */
-	  TYPE_HAS_COMPLEX_COPY_ASSIGN (t) = 1;
-	  TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) = 1;
+	  if (cxx_dialect < cxx11)
+	    {
+	      /* ARM $12.6.2: [A member initializer list] (or, for an
+		 aggregate, initialization by a brace-enclosed list) is the
+		 only way to initialize nonstatic const and reference
+		 members.  */
+	      TYPE_HAS_COMPLEX_COPY_ASSIGN (t) = 1;
+	      TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) = 1;
+	    }
 	}
 
       type = strip_array_types (type);
@@ -3680,13 +3836,15 @@ check_field_decls (tree t, tree *access_decls,
 	  C_TYPE_FIELDS_READONLY (t) = 1;
 	  if (DECL_INITIAL (x) == NULL_TREE)
 	    SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT (t, 1);
-
-	  /* ARM $12.6.2: [A member initializer list] (or, for an
-	     aggregate, initialization by a brace-enclosed list) is the
-	     only way to initialize nonstatic const and reference
-	     members.  */
-	  TYPE_HAS_COMPLEX_COPY_ASSIGN (t) = 1;
-	  TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) = 1;
+	  if (cxx_dialect < cxx11)
+	    {
+	      /* ARM $12.6.2: [A member initializer list] (or, for an
+		 aggregate, initialization by a brace-enclosed list) is the
+		 only way to initialize nonstatic const and reference
+		 members.  */
+	      TYPE_HAS_COMPLEX_COPY_ASSIGN (t) = 1;
+	      TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) = 1;
+	    }
 	}
       /* A field that is pseudo-const makes the structure likewise.  */
       else if (CLASS_TYPE_P (type))
@@ -5276,7 +5434,8 @@ remove_zero_width_bit_fields (tree t)
 	     DECL_INITIAL (*fieldsp).
 	     check_bitfield_decl eventually sets DECL_SIZE (*fieldsp)
 	     to that width.  */
-	  && integer_zerop (DECL_SIZE (*fieldsp)))
+	  && (DECL_SIZE (*fieldsp) == NULL_TREE
+	      || integer_zerop (DECL_SIZE (*fieldsp))))
 	*fieldsp = DECL_CHAIN (*fieldsp);
       else
 	fieldsp = &DECL_CHAIN (*fieldsp);
@@ -6732,12 +6891,13 @@ finish_struct (tree t, tree attributes)
 	  if (f && TREE_CODE (TREE_TYPE (f)) == POINTER_TYPE)
 	    {
 	      f = next_initializable_field (DECL_CHAIN (f));
-	      if (f && TREE_CODE (TREE_TYPE (f)) == INTEGER_TYPE)
+	      if (f && same_type_p (TREE_TYPE (f), size_type_node))
 		ok = true;
 	    }
 	}
       if (!ok)
-	fatal_error ("definition of std::initializer_list does not match "
+	fatal_error (input_location,
+		     "definition of std::initializer_list does not match "
 		     "#include <initializer_list>");
     }
 

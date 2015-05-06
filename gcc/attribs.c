@@ -1,5 +1,5 @@
 /* Functions dealing with attribute handling, used by most front ends.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "symtab.h"
+#include "input.h"
+#include "alias.h"
+#include "double-int.h"
+#include "machmode.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "attribs.h"
@@ -502,11 +510,7 @@ decl_attributes (tree *node, tree attributes, int flags)
       if (spec->type_required && DECL_P (*anode))
 	{
 	  anode = &TREE_TYPE (*anode);
-	  /* Allow ATTR_FLAG_TYPE_IN_PLACE for the type's naming decl.  */
-	  if (!(TREE_CODE (*anode) == TYPE_DECL
-		&& *anode == TYPE_NAME (TYPE_MAIN_VARIANT
-					(TREE_TYPE (*anode)))))
-	    flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
+	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
 	}
 
       if (spec->function_type_required && TREE_CODE (*anode) != FUNCTION_TYPE

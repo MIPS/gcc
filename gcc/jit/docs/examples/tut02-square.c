@@ -1,5 +1,5 @@
 /* Usage example for libgccjit.so
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -88,6 +88,10 @@ main (int argc, char **argv)
       goto error;
     }
 
+  /* We're done with the context; we can release it: */
+  gcc_jit_context_release (ctxt);
+  ctxt = NULL;
+
   /* Extract the generated code from "result".  */
   void *fn_ptr = gcc_jit_result_get_code (result, "square");
   if (!fn_ptr)
@@ -98,10 +102,12 @@ main (int argc, char **argv)
 
   typedef int (*fn_type) (int);
   fn_type square = (fn_type)fn_ptr;
-  printf ("result: %d", square (5));
+  printf ("result: %d\n", square (5));
 
  error:
-  gcc_jit_context_release (ctxt);
-  gcc_jit_result_release (result);
+  if (ctxt)
+    gcc_jit_context_release (ctxt);
+  if (result)
+    gcc_jit_result_release (result);
   return 0;
 }

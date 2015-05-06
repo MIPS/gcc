@@ -1,5 +1,5 @@
 /* Expand builtin functions.
-   Copyright (C) 1988-2014 Free Software Foundation, Inc.
+   Copyright (C) 1988-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -77,11 +77,11 @@ extern bool avoid_folding_inline_builtin (tree);
 extern tree fold_call_expr (location_t, tree, bool);
 extern tree fold_builtin_call_array (location_t, tree, tree, int, tree *);
 extern tree fold_builtin_n (location_t, tree, tree *, int, bool);
-extern bool validate_gimple_arglist (const_gimple, ...);
+extern bool validate_gimple_arglist (const gcall *, ...);
 extern rtx default_expand_builtin (tree, rtx, rtx, machine_mode, int);
 extern bool fold_builtin_next_arg (tree, bool);
 extern tree do_mpc_arg2 (tree, tree, tree, int, int (*)(mpc_ptr, mpc_srcptr, mpc_srcptr, mpc_rnd_t));
-extern tree fold_call_stmt (gimple, bool);
+extern tree fold_call_stmt (gcall *, bool);
 extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
 extern bool is_simple_builtin (tree);
 extern bool is_inexpensive_builtin (tree);
@@ -89,7 +89,10 @@ extern bool is_inexpensive_builtin (tree);
 extern bool readonly_data_expr (tree exp);
 extern const char *c_getstr (tree);
 extern bool init_target_chars (void);
+extern unsigned HOST_WIDE_INT target_newline;
 extern unsigned HOST_WIDE_INT target_percent;
 extern char target_percent_s[3];
+extern char target_percent_c[3];
+extern char target_percent_s_newline[4];
 
 #endif

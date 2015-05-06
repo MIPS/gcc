@@ -1,6 +1,6 @@
 # Pretty-printers for libstdc++.
 
-# Copyright (C) 2008-2014 Free Software Foundation, Inc.
+# Copyright (C) 2008-2015 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -327,22 +327,35 @@ class StdTuplePrinter:
             return self
 
         def __next__ (self):
-            nodes = self.head.type.fields ()
             # Check for further recursions in the inheritance tree.
+            # For a GCC 5+ tuple self.head is None after visiting all nodes:
+            if not self.head:
+                raise StopIteration
+            nodes = self.head.type.fields ()
+            # For a GCC 4.x tuple there is a final node with no fields:
             if len (nodes) == 0:
                 raise StopIteration
             # Check that this iteration has an expected structure.
-            if len (nodes) != 2:
+            if len (nodes) > 2:
                 raise ValueError("Cannot parse more than 2 nodes in a tuple tree.")
 
-            # - Left node is the next recursion parent.
-            # - Right node is the actual class contained in the tuple.
+            if len (nodes) == 1:
+                # This is the last node of a GCC 5+ std::tuple.
+                impl = self.head.cast (nodes[0].type)
+                self.head = None
+            else:
+                # Either a node before the last node, or the last node of
+                # a GCC 4.x tuple (which has an empty parent).
 
-            # Process right node.
-            impl = self.head.cast (nodes[1].type)
+                # - Left node is the next recursion parent.
+                # - Right node is the actual class contained in the tuple.
 
-            # Process left node and set it as head.
-            self.head  = self.head.cast (nodes[0].type)
+                # Process right node.
+                impl = self.head.cast (nodes[1].type)
+
+                # Process left node and set it as head.
+                self.head  = self.head.cast (nodes[0].type)
+
             self.count = self.count + 1
 
             # Finally, check the implementation.  If it is
@@ -660,6 +673,7 @@ class StdStringPrinter:
 
     def __init__(self, typename, val):
         self.val = val
+        self.new_string = typename.find("::__cxx11::basic_string") != -1
 
     def to_string(self):
         # Make sure &string works, too.
@@ -671,13 +685,18 @@ class StdStringPrinter:
         # the string according to length, not according to first null
         # encountered.
         ptr = self.val ['_M_dataplus']['_M_p']
-        realtype = type.unqualified ().strip_typedefs ()
-        reptype = gdb.lookup_type (str (realtype) + '::_Rep').pointer ()
-        header = ptr.cast(reptype) - 1
-        len = header.dereference ()['_M_length']
+        if self.new_string:
+            length = self.val['_M_string_length']
+            # https://sourceware.org/bugzilla/show_bug.cgi?id=17728
+            ptr = ptr.cast(ptr.type.strip_typedefs())
+        else:
+            realtype = type.unqualified ().strip_typedefs ()
+            reptype = gdb.lookup_type (str (realtype) + '::_Rep').pointer ()
+            header = ptr.cast(reptype) - 1
+            length = header.dereference ()['_M_length']
         if hasattr(ptr, "lazy_string"):
-            return ptr.lazy_string (length = len)
-        return ptr.string (length = len)
+            return ptr.lazy_string (length = length)
+        return ptr.string (length = length)
 
     def display_hint (self):
         return 'string'
@@ -1266,6 +1285,7 @@ def build_libstdcxx_dictionary ():
     # In order from:
     # http://gcc.gnu.org/onlinedocs/libstdc++/latest-doxygen/a01847.html
     libstdcxx_printer.add_version('std::', 'basic_string', StdStringPrinter)
+    libstdcxx_printer.add_version('std::', '__cxx11::basic_string', StdStringPrinter)
     libstdcxx_printer.add_container('std::', 'bitset', StdBitsetPrinter)
     libstdcxx_printer.add_container('std::', 'deque', StdDequePrinter)
     libstdcxx_printer.add_container('std::', 'list', StdListPrinter)

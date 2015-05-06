@@ -1,5 +1,5 @@
 ;; Machine description of the Adaptiva epiphany cpu for GNU C compiler
-;; Copyright (C) 1994-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1994-2015 Free Software Foundation, Inc.
 ;; Contributed by Embecosm on behalf of Adapteva, Inc.
 
 ;; This file is part of GCC.
@@ -1960,7 +1960,7 @@
       && !rtx_equal_p (operands[0], operands[3]))
     {
       rtx tmp = operands[2]; operands[2] = operands[3]; operands[3] = tmp;
-      code = (FLOAT_MODE_P (GET_MODE (cmp_op0))
+      code = (FLOAT_MODE_P (GET_MODE (cmp_op0)) && !flag_finite_math_only
 	      ? reverse_condition_maybe_unordered (code)
 	      : reverse_condition (code));
     }

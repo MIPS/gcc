@@ -1,5 +1,5 @@
 /* A type-safe hash table template.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Lawrence Crowl <crowl@google.com>
 
 This file is part of GCC.
@@ -282,7 +282,8 @@ struct pointer_hash : typed_noop_remove <Type>
 
   static inline hashval_t hash (const value_type &);
 
-  static inline bool equal (const value_type &existing, const compare_type &candidate);
+  static inline bool equal (const value_type &existing,
+			    const compare_type &candidate);
 };
 
 template <typename Type>
@@ -334,6 +335,44 @@ struct ggc_hasher
   }
 };
 
+/* Hasher for cache entry in gc memory.  */
+
+template<typename T>
+struct ggc_cache_hasher
+{
+  typedef T value_type;
+  typedef T compare_type;
+  typedef int store_values_directly;
+
+  static void remove (T &) {}
+
+  /* Entries are weakly held because this is for caches.  */
+
+  static void ggc_mx (T &) {}
+
+  static void
+  pch_nx (T &p)
+  {
+  extern void gt_pch_nx (T &);
+  gt_pch_nx (p);
+  }
+
+  static void
+  pch_nx (T &p, gt_pointer_operator op, void *cookie)
+  {
+    op (&p, cookie);
+  }
+
+  /* Clear out entries if they are about to be gc'd.  */
+
+  static void
+  handle_cache_entry (T &e)
+  {
+    if (e != HTAB_EMPTY_ENTRY && e != HTAB_DELETED_ENTRY && !ggc_marked_p (e))
+      e = static_cast<T> (HTAB_DELETED_ENTRY);
+  }
+};
+
 
 /* Table of primes and their inversion information.  */
 
@@ -350,9 +389,54 @@ extern struct prime_ent const prime_tab[];
 
 /* Functions for computing hash table indexes.  */
 
-extern unsigned int hash_table_higher_prime_index (unsigned long n);
-extern hashval_t hash_table_mod1 (hashval_t hash, unsigned int index);
-extern hashval_t hash_table_mod2 (hashval_t hash, unsigned int index);
+extern unsigned int hash_table_higher_prime_index (unsigned long n)
+   ATTRIBUTE_PURE;
+
+/* Return X % Y using multiplicative inverse values INV and SHIFT.
+
+   The multiplicative inverses computed above are for 32-bit types,
+   and requires that we be able to compute a highpart multiply.
+
+   FIX: I am not at all convinced that
+     3 loads, 2 multiplications, 3 shifts, and 3 additions
+   will be faster than
+     1 load and 1 modulus
+   on modern systems running a compiler.  */
+
+inline hashval_t
+mul_mod (hashval_t x, hashval_t y, hashval_t inv, int shift)
+{
+   hashval_t t1, t2, t3, t4, q, r;
+
+   t1 = ((uint64_t)x * inv) >> 32;
+   t2 = x - t1;
+   t3 = t2 >> 1;
+   t4 = t1 + t3;
+   q  = t4 >> shift;
+   r  = x - (q * y);
+
+   return r;
+}
+
+/* Compute the primary table index for HASH given current prime index.  */
+
+inline hashval_t
+hash_table_mod1 (hashval_t hash, unsigned int index)
+{
+  const struct prime_ent *p = &prime_tab[index];
+  gcc_checking_assert (sizeof (hashval_t) * CHAR_BIT <= 32);
+    return mul_mod (hash, p->prime, p->inv, p->shift);
+}
+
+/* Compute the secondary table index for HASH given current prime index.  */
+
+inline hashval_t
+hash_table_mod2 (hashval_t hash, unsigned int index)
+{
+  const struct prime_ent *p = &prime_tab[index];
+  gcc_checking_assert (sizeof (hashval_t) * CHAR_BIT <= 32);
+  return 1 + mul_mod (hash, p->prime - 2, p->inv_m2, p->shift);
+}
 
 /* The below is some template meta programming to decide if we should use the
    hash table partial specialization that directly stores value_type instead of
@@ -710,8 +794,7 @@ hash_table<Descriptor, Allocator, false>
 
   if (*slot == HTAB_EMPTY_ENTRY)
     return slot;
-  else if (*slot == HTAB_DELETED_ENTRY)
-    abort ();
+  gcc_checking_assert (*slot != HTAB_DELETED_ENTRY);
 
   hash2 = hash_table_mod2 (hash, m_size_prime_index);
   for (;;)
@@ -723,8 +806,7 @@ hash_table<Descriptor, Allocator, false>
       slot = m_entries + index;
       if (*slot == HTAB_EMPTY_ENTRY)
         return slot;
-      else if (*slot == HTAB_DELETED_ENTRY)
-        abort ();
+      gcc_checking_assert (*slot != HTAB_DELETED_ENTRY);
     }
 }
 
@@ -735,7 +817,7 @@ hash_table<Descriptor, Allocator, false>
    table entries is changed.  If memory allocation fails, this function
    will abort.  */
 
-	  template<typename Descriptor, template<typename Type> class Allocator>
+template<typename Descriptor, template<typename Type> class Allocator>
 void
 hash_table<Descriptor, Allocator, false>::expand ()
 {
@@ -824,9 +906,9 @@ template<typename Descriptor, template<typename Type> class Allocator>
 void
 hash_table<Descriptor, Allocator, false>::clear_slot (value_type **slot)
 {
-  if (slot < m_entries || slot >= m_entries + size ()
-      || *slot == HTAB_EMPTY_ENTRY || *slot == HTAB_DELETED_ENTRY)
-    abort ();
+  gcc_checking_assert (!(slot < m_entries || slot >= m_entries + size ()
+		         || *slot == HTAB_EMPTY_ENTRY
+			 || *slot == HTAB_DELETED_ENTRY));
 
   Descriptor::remove (*slot);
 
@@ -1163,6 +1245,7 @@ private:
   template<typename T> friend void gt_pch_nx (hash_table<T> *,
 					      gt_pointer_operator, void *);
 
+  value_type *alloc_entries (size_t n) const;
   value_type *find_empty_slot_for_expand (hashval_t);
   void expand ();
   static bool is_deleted (value_type &v)
@@ -1221,12 +1304,7 @@ hash_table<Descriptor, Allocator, true>::hash_table (size_t size, bool ggc) :
   size_prime_index = hash_table_higher_prime_index (size);
   size = prime_tab[size_prime_index].prime;
 
-  if (!m_ggc)
-    m_entries = Allocator <value_type> ::data_alloc (size);
-  else
-    m_entries = ggc_cleared_vec_alloc<value_type> (size);
-
-  gcc_assert (m_entries != NULL);
+  m_entries = alloc_entries (size);
   m_size = size;
   m_size_prime_index = size_prime_index;
 }
@@ -1242,6 +1320,26 @@ hash_table<Descriptor, Allocator, true>::~hash_table ()
     Allocator <value_type> ::data_free (m_entries);
   else
     ggc_free (m_entries);
+}
+
+/* This function returns an array of empty hash table elements.  */
+
+template<typename Descriptor, template<typename Type> class Allocator>
+inline typename hash_table<Descriptor, Allocator, true>::value_type *
+hash_table<Descriptor, Allocator, true>::alloc_entries (size_t n) const
+{
+  value_type *nentries;
+
+  if (!m_ggc)
+    nentries = Allocator <value_type> ::data_alloc (n);
+  else
+    nentries = ::ggc_cleared_vec_alloc<value_type> (n);
+
+  gcc_assert (nentries != NULL);
+  for (size_t i = 0; i < n; i++)
+    mark_empty (nentries[i]);
+
+  return nentries;
 }
 
 /* Similar to find_slot, but without several unwanted side effects:
@@ -1263,8 +1361,9 @@ hash_table<Descriptor, Allocator, true>
 
   if (is_empty (*slot))
     return slot;
-  else if (is_deleted (*slot))
-    abort ();
+#ifdef ENABLE_CHECKING
+  gcc_checking_assert (!is_deleted (*slot));
+#endif
 
   hash2 = hash_table_mod2 (hash, m_size_prime_index);
   for (;;)
@@ -1276,8 +1375,9 @@ hash_table<Descriptor, Allocator, true>
       slot = m_entries + index;
       if (is_empty (*slot))
         return slot;
-      else if (is_deleted (*slot))
-        abort ();
+#ifdef ENABLE_CHECKING
+      gcc_checking_assert (!is_deleted (*slot));
+#endif
     }
 }
 
@@ -1313,13 +1413,7 @@ hash_table<Descriptor, Allocator, true>::expand ()
       nsize = osize;
     }
 
-  value_type *nentries;
-  if (!m_ggc)
-    nentries = Allocator <value_type> ::data_alloc (nsize);
-  else
-    nentries = ggc_cleared_vec_alloc<value_type> (nsize);
-
-  gcc_assert (nentries != NULL);
+  value_type *nentries = alloc_entries (nsize);
   m_entries = nentries;
   m_size = nsize;
   m_size_prime_index = nindex;
@@ -1367,16 +1461,11 @@ hash_table<Descriptor, Allocator, true>::empty ()
       int nsize = prime_tab[nindex].prime;
 
       if (!m_ggc)
-	{
-	  Allocator <value_type> ::data_free (m_entries);
-	  m_entries = Allocator <value_type> ::data_alloc (nsize);
-	}
+	Allocator <value_type> ::data_free (m_entries);
       else
-	{
-	  ggc_free (m_entries);
-	  m_entries = ggc_cleared_vec_alloc<value_type> (nsize);
-	}
+	ggc_free (m_entries);
 
+      m_entries = alloc_entries (nsize);
       m_size = nsize;
       m_size_prime_index = nindex;
     }
@@ -1394,9 +1483,8 @@ template<typename Descriptor, template<typename Type> class Allocator>
 void
 hash_table<Descriptor, Allocator, true>::clear_slot (value_type *slot)
 {
-  if (slot < m_entries || slot >= m_entries + size ()
-      || is_empty (*slot) || is_deleted (*slot))
-    abort ();
+  gcc_checking_assert (!(slot < m_entries || slot >= m_entries + size ()
+		         || is_empty (*slot) || is_deleted (*slot)));
 
   Descriptor::remove (*slot);
 
@@ -1665,6 +1753,18 @@ static inline void
 gt_pch_nx (hash_table<D> *h, gt_pointer_operator op, void *cookie)
 {
   op (&h->m_entries, cookie);
+}
+
+template<typename H>
+inline void
+gt_cleare_cache (hash_table<H> *h)
+{
+  if (!h)
+    return;
+
+  for (typename hash_table<H>::iterator iter = h->begin (); iter != h->end ();
+       ++iter)
+    H::handle_cache_entry (*iter);
 }
 
 #endif /* TYPED_HASHTAB_H */

@@ -73,6 +73,12 @@ make_tests_of_unary_ops (gcc_jit_context *ctxt)
 			   GCC_JIT_UNARY_OP_LOGICAL_NEGATE,
 			   "test_UNARY_OP_LOGICAL_NEGATE_on_int"),
     "!(a)");
+  CHECK_STRING_VALUE (
+    make_test_of_unary_op (ctxt,
+			   int_type,
+			   GCC_JIT_UNARY_OP_ABS,
+			   "test_UNARY_OP_ABS_on_int"),
+    "abs (a)");
 }
 
 static void
@@ -104,6 +110,13 @@ verify_unary_ops (gcc_jit_result *result)
   CHECK_VALUE (test_UNARY_OP_LOGICAL_NEGATE_on_int (42), 0);
   CHECK_VALUE (test_UNARY_OP_LOGICAL_NEGATE_on_int (-5), 0);
 
+  test_fn test_UNARY_OP_ABS_on_int =
+    (test_fn)gcc_jit_result_get_code (result,
+				      "test_UNARY_OP_ABS_on_int");
+  CHECK_NON_NULL (test_UNARY_OP_ABS_on_int);
+  CHECK_VALUE (test_UNARY_OP_ABS_on_int (0), 0);
+  CHECK_VALUE (test_UNARY_OP_ABS_on_int (42), 42);
+  CHECK_VALUE (test_UNARY_OP_ABS_on_int (-5), 5);
 }
 
 /**********************************************************************
@@ -543,6 +556,8 @@ make_tests_of_casts (gcc_jit_context *ctxt)
 {
   gcc_jit_type *int_type =
     gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
+  gcc_jit_type *long_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_LONG);
   gcc_jit_type *float_type =
     gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_FLOAT);
   gcc_jit_type *bool_type =
@@ -580,6 +595,20 @@ make_tests_of_casts (gcc_jit_context *ctxt)
 		       int_type,
 		       bool_type,
 		       "test_cast_from_int_to_bool"),
+    "(bool)a");
+
+  /* bool/long conversions */
+  CHECK_STRING_VALUE (
+    make_test_of_cast (ctxt,
+		       bool_type,
+		       long_type,
+		       "test_cast_from_bool_to_long"),
+    "(long)a");
+  CHECK_STRING_VALUE (
+    make_test_of_cast (ctxt,
+		       long_type,
+		       bool_type,
+		       "test_cast_from_long_to_bool"),
     "(bool)a");
 
   /* array/ptr conversions */
@@ -699,6 +728,28 @@ verify_casts (gcc_jit_result *result)
     CHECK_NON_NULL (test_cast_from_int_to_bool);
     CHECK_VALUE (test_cast_from_int_to_bool (0), 0);
     CHECK_VALUE (test_cast_from_int_to_bool (1), 1);
+  }
+
+  /* bool to long */
+  {
+    typedef long (*fn_type) (bool);
+    fn_type test_cast_from_bool_to_long =
+      (fn_type)gcc_jit_result_get_code (result,
+					"test_cast_from_bool_to_long");
+    CHECK_NON_NULL (test_cast_from_bool_to_long);
+    CHECK_VALUE (test_cast_from_bool_to_long (0), 0);
+    CHECK_VALUE (test_cast_from_bool_to_long (1), 1);
+  }
+
+  /* long to bool */
+  {
+    typedef bool (*fn_type) (long);
+    fn_type test_cast_from_long_to_bool =
+      (fn_type)gcc_jit_result_get_code (result,
+					"test_cast_from_long_to_bool");
+    CHECK_NON_NULL (test_cast_from_long_to_bool);
+    CHECK_VALUE (test_cast_from_long_to_bool (0), 0);
+    CHECK_VALUE (test_cast_from_long_to_bool (1), 1);
   }
 
   /* array to ptr */
@@ -833,6 +884,7 @@ make_test_of_get_address (gcc_jit_context *ctxt)
     gcc_jit_context_new_global (
       ctxt,
       NULL,
+      GCC_JIT_GLOBAL_IMPORTED,
       int_type,
       "test_global");
 

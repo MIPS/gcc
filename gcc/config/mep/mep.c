@@ -1,5 +1,5 @@
 /* Definitions for Toshiba Media Processor
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
@@ -23,7 +23,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
 #include "calls.h"
 #include "stringpool.h"
@@ -38,15 +48,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "recog.h"
 #include "obstack.h"
-#include "tree.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "reload.h"
@@ -3597,7 +3610,7 @@ mep_gimplify_va_arg_expr (tree valist, tree type,
 
   label_sover = create_artificial_label (UNKNOWN_LOCATION);
   label_selse = create_artificial_label (UNKNOWN_LOCATION);
-  res_addr = create_tmp_var (ptr_type_node, NULL);
+  res_addr = create_tmp_var (ptr_type_node);
 
   tmp = build2 (GE_EXPR, boolean_type_node, next_gp,
 		unshare_expr (next_gp_limit));

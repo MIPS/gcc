@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -246,13 +246,6 @@ package body Sem_Ch10 is
    ------------------------------
 
    procedure Analyze_Compilation_Unit (N : Node_Id) is
-      Unit_Node     : constant Node_Id := Unit (N);
-      Lib_Unit      : Node_Id          := Library_Unit (N);
-      Spec_Id       : Entity_Id;
-      Main_Cunit    : constant Node_Id := Cunit (Main_Unit);
-      Par_Spec_Name : Unit_Name_Type;
-      Unum          : Unit_Number_Type;
-
       procedure Check_Redundant_Withs
         (Context_Items      : List_Id;
          Spec_Context_Items : List_Id := No_List);
@@ -602,6 +595,15 @@ package body Sem_Ch10 is
          end loop;
       end Check_Redundant_Withs;
 
+      --  Local variables
+
+      Main_Cunit    : constant Node_Id := Cunit (Main_Unit);
+      Unit_Node     : constant Node_Id := Unit (N);
+      Lib_Unit      : Node_Id          := Library_Unit (N);
+      Par_Spec_Name : Unit_Name_Type;
+      Spec_Id       : Entity_Id;
+      Unum          : Unit_Number_Type;
+
    --  Start of processing for Analyze_Compilation_Unit
 
    begin
@@ -930,13 +932,22 @@ package body Sem_Ch10 is
          end;
       end if;
 
+      --  Analyze the contract of a [generic] subprogram that acts as a
+      --  compilation unit after all compilation pragmas have been analyzed.
+
+      if Nkind_In (Unit_Node, N_Generic_Subprogram_Declaration,
+                              N_Subprogram_Declaration)
+      then
+         Analyze_Subprogram_Contract (Defining_Entity (Unit_Node));
+      end if;
+
       --  Generate distribution stubs if requested and no error
 
       if N = Main_Cunit
         and then (Distribution_Stub_Mode = Generate_Receiver_Stub_Body
                     or else
                   Distribution_Stub_Mode = Generate_Caller_Stub_Body)
-        and then not Fatal_Error (Main_Unit)
+        and then Fatal_Error (Main_Unit) /= Error_Detected
       then
          if Is_RCI_Pkg_Spec_Or_Body (N) then
 
@@ -1096,7 +1107,7 @@ package body Sem_Ch10 is
 
                      elsif not Analyzed (Cunit (Un))
                        and then Un /= Main_Unit
-                       and then not Fatal_Error (Un)
+                       and then Fatal_Error (Un) /= Error_Detected
                      then
                         Style_Check := False;
                         Semantics (Cunit (Un));
@@ -1623,7 +1634,8 @@ package body Sem_Ch10 is
          --  All done if we successfully loaded the subunit
 
          if Unum /= No_Unit
-           and then (not Fatal_Error (Unum) or else Try_Semantics)
+           and then (Fatal_Error (Unum) /= Error_Detected
+                      or else Try_Semantics)
          then
             Comp_Unit := Cunit (Unum);
 
@@ -1855,12 +1867,14 @@ package body Sem_Ch10 is
                       In_Extended_Main_Source_Unit
                         (Cunit_Entity (Current_Sem_Unit))
                   then
-                     SCO_Record (Unum);
+                     SCO_Record_Raw (Unum);
                   end if;
 
                   --  Analyze the unit if semantics active
 
-                  if not Fatal_Error (Unum) or else Try_Semantics then
+                  if Fatal_Error (Unum) /= Error_Detected
+                    or else Try_Semantics
+                  then
                      Analyze_Subunit (Comp_Unit);
                   end if;
                end if;
@@ -1917,39 +1931,6 @@ package body Sem_Ch10 is
       end if;
    end Analyze_Protected_Body_Stub;
 
-   -------------------------------------------
-   -- Analyze_Subprogram_Body_Stub_Contract --
-   -------------------------------------------
-
-   procedure Analyze_Subprogram_Body_Stub_Contract (Stub_Id : Entity_Id) is
-      Stub_Decl : constant Node_Id   := Parent (Parent (Stub_Id));
-      Spec_Id   : constant Entity_Id := Corresponding_Spec_Of_Stub (Stub_Decl);
-
-   begin
-      --  A subprogram body stub may act as its own spec or as the completion
-      --  of a previous declaration. Depending on the context, the contract of
-      --  the stub may contain two sets of pragmas.
-
-      --  The stub is a completion, the applicable pragmas are:
-      --    Contract_Cases
-      --    Depends
-      --    Global
-      --    Postcondition
-      --    Precondition
-      --    Test_Case
-
-      if Present (Spec_Id) then
-         Analyze_Subprogram_Body_Contract (Stub_Id);
-
-      --  The stub acts as its own spec, the applicable pragmas are:
-      --    Refined_Depends
-      --    Refined_Global
-
-      else
-         Analyze_Subprogram_Contract (Stub_Id);
-      end if;
-   end Analyze_Subprogram_Body_Stub_Contract;
-
    ----------------------------------
    -- Analyze_Subprogram_Body_Stub --
    ----------------------------------
@@ -2001,6 +1982,39 @@ package body Sem_Ch10 is
 
       Restore_Opt_Config_Switches (Opts);
    end Analyze_Subprogram_Body_Stub;
+
+   -------------------------------------------
+   -- Analyze_Subprogram_Body_Stub_Contract --
+   -------------------------------------------
+
+   procedure Analyze_Subprogram_Body_Stub_Contract (Stub_Id : Entity_Id) is
+      Stub_Decl : constant Node_Id   := Parent (Parent (Stub_Id));
+      Spec_Id   : constant Entity_Id := Corresponding_Spec_Of_Stub (Stub_Decl);
+
+   begin
+      --  A subprogram body stub may act as its own spec or as the completion
+      --  of a previous declaration. Depending on the context, the contract of
+      --  the stub may contain two sets of pragmas.
+
+      --  The stub is a completion, the applicable pragmas are:
+      --    Refined_Depends
+      --    Refined_Global
+
+      if Present (Spec_Id) then
+         Analyze_Subprogram_Body_Contract (Stub_Id);
+
+      --  The stub acts as its own spec, the applicable pragmas are:
+      --    Contract_Cases
+      --    Depends
+      --    Global
+      --    Postcondition
+      --    Precondition
+      --    Test_Case
+
+      else
+         Analyze_Subprogram_Contract (Stub_Id);
+      end if;
+   end Analyze_Subprogram_Body_Stub_Contract;
 
    ---------------------
    -- Analyze_Subunit --
@@ -2521,6 +2535,18 @@ package body Sem_Ch10 is
          return;
       end if;
 
+      --  If we are compiling under "don't quit" mode (-gnatq) and we have
+      --  already detected serious errors then we mark the with-clause nodes as
+      --  analyzed before the corresponding compilation unit is analyzed. This
+      --  is done here to protect the frontend against never ending recursion
+      --  caused by circularities in the sources (because the previous errors
+      --  may break the regular machine of the compiler implemented in
+      --  Load_Unit to detect circularities).
+
+      if Serious_Errors_Detected > 0 and then Try_Semantics then
+         Set_Analyzed (N);
+      end if;
+
       --  If the library unit is a predefined unit, and we are in high
       --  integrity mode, then temporarily reset Configurable_Run_Time_Mode
       --  for the analysis of the with'ed unit. This mode does not prevent
@@ -2806,6 +2832,29 @@ package body Sem_Ch10 is
       if Private_Present (N) then
          Set_Is_Immediately_Visible (E_Name, False);
       end if;
+
+      --  Propagate Fatal_Error setting from with'ed unit to current unit
+
+      case Fatal_Error (Get_Source_Unit (Library_Unit (N))) is
+
+         --  Nothing to do if with'ed unit had no error
+
+         when None =>
+            null;
+
+         --  If with'ed unit had a detected fatal error, propagate it
+
+         when Error_Detected =>
+            Set_Fatal_Error (Current_Sem_Unit, Error_Detected);
+
+         --  If with'ed unit had an ignored error, then propagate it but do not
+         --  overide an existring setting.
+
+         when Error_Ignored =>
+            if Fatal_Error (Current_Sem_Unit) = None then
+               Set_Fatal_Error (Current_Sem_Unit, Error_Ignored);
+            end if;
+      end case;
    end Analyze_With_Clause;
 
    ------------------------------
@@ -5430,7 +5479,7 @@ package body Sem_Ch10 is
       else
          Compiler_State := Analyzing; -- reset after load
 
-         if not Fatal_Error (Unum) or else Try_Semantics then
+         if Fatal_Error (Unum) /= Error_Detected or else Try_Semantics then
             if Debug_Flag_L then
                Write_Str ("*** Loaded generic body");
                Write_Eol;
@@ -6494,6 +6543,11 @@ package body Sem_Ch10 is
          Item := First (Context_Items (Comp_Unit));
          while Present (Item) loop
             if Nkind (Item) = N_With_Clause
+
+              --  The following guard is needed to ensure that the name has
+              --  been properly analyzed before we go fetching its entity.
+
+              and then Is_Entity_Name (Name (Item))
               and then Entity (Name (Item)) = E
               and then not Private_Present (Item)
             then

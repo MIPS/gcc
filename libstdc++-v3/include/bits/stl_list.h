@@ -1,6 +1,6 @@
 // List implementation -*- C++ -*-
 
-// Copyright (C) 2001-2014 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -292,10 +292,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
                const _List_const_iterator<_Val>& __y) _GLIBCXX_NOEXCEPT
     { return __x._M_node != __y._M_node; }
 
-
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
   /// See bits/stl_deque.h's _Deque_base for an explanation.
   template<typename _Tp, typename _Alloc>
-    class _GLIBCXX_DEFAULT_ABI_TAG _List_base
+    class _List_base
     {
     protected:
       // NOTA BENE
@@ -504,7 +504,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
    *  %empty. 
   */
   template<typename _Tp, typename _Alloc = std::allocator<_Tp> >
-    class _GLIBCXX_DEFAULT_ABI_TAG list : protected _List_base<_Tp, _Alloc>
+    class list : protected _List_base<_Tp, _Alloc>
     {
       // concept requirements
       typedef typename _Alloc::value_type                _Alloc_value_type;
@@ -1790,6 +1790,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	  __builtin_abort();
       }
     };
+_GLIBCXX_END_NAMESPACE_CXX11
 
   /**
    *  @brief  List equality comparison.

@@ -156,11 +156,6 @@ class Parse
   // break or continue statement with no label.
   typedef std::vector<std::pair<Statement*, Label*> > Bc_stack;
 
-  // Map from type switch variables to the variables they mask, so
-  // that a use of the type switch variable can become a use of the
-  // real variable.
-  typedef Unordered_map(Named_object*, Named_object*) Type_switch_vars;
-
   // Parser nonterminals.
   void identifier_list(Typed_identifier_list*);
   Expression_list* expression_list(Expression*, bool may_be_sink,
@@ -218,7 +213,7 @@ class Parse
   Typed_identifier* receiver();
   Expression* operand(bool may_be_sink, bool *is_parenthesized);
   Expression* enclosing_var_reference(Named_object*, Named_object*,
-				      Location);
+				      bool may_be_sink, Location);
   Expression* composite_lit(Type*, int depth, Location);
   Expression* function_lit();
   Expression* create_closure(Named_object* function, Enclosing_vars*,
@@ -245,7 +240,7 @@ class Parse
   void statement_list();
   bool statement_list_may_start_here();
   void expression_stat(Expression*);
-  void send_stmt(Expression*);
+  void send_stmt(Expression*, bool may_be_composite_lit);
   void inc_dec_stat(Expression*);
   void assignment(Expression*, bool may_be_composite_lit, Range_clause*);
   void tuple_assignment(Expression_list*, bool may_be_composite_lit,
@@ -259,7 +254,8 @@ class Parse
   void expr_case_clause(Case_clauses*, bool* saw_default);
   Expression_list* expr_switch_case(bool*);
   Statement* type_switch_body(Label*, const Type_switch&, Location);
-  void type_case_clause(Named_object*, Type_case_clauses*, bool* saw_default);
+  void type_case_clause(const std::string&, Expression*, Type_case_clauses*,
+                        bool* saw_default, std::vector<Named_object*>*);
   void type_switch_case(std::vector<Type*>*, bool*);
   void select_stat(Label*);
   void comm_clause(Select_clauses*, bool* saw_default);
@@ -327,8 +323,6 @@ class Parse
   // References from the local function to variables defined in
   // enclosing functions.
   Enclosing_vars enclosing_vars_;
-  // Map from type switch variables to real variables.
-  Type_switch_vars type_switch_vars_;
 };
 
 

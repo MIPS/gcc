@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler. NEC V850 series
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
    This file is part of GCC.
@@ -111,6 +111,8 @@ extern GTY(()) rtx v850_compare_op1;
 #define ASM_SPEC "%{m850es:-mv850e1}%{!mv850es:%{mv*:-mv%*}} \
 %{mrelax:-mrelax} \
 %{m8byte-align:-m8byte-align} \
+%{msoft-float:-msoft-float} \
+%{mhard-float:-mhard-float} \
 %{mgcc-abi:-mgcc-abi}"
 
 #define LINK_SPEC "%{mgcc-abi:-m v850}"

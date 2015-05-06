@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,6 +24,8 @@ extern bool default_legitimate_address_p (machine_mode, rtx, bool);
 
 extern void default_external_libcall (rtx);
 extern rtx default_legitimize_address (rtx, rtx, machine_mode);
+extern bool default_legitimize_address_displacement (rtx *, rtx *,
+						     machine_mode);
 
 extern int default_unspec_may_trap_p (const_rtx, unsigned);
 extern machine_mode default_promote_function_mode (const_tree, machine_mode,
@@ -181,7 +183,7 @@ extern int default_memory_move_cost (machine_mode, reg_class_t, bool);
 extern int default_register_move_cost (machine_mode, reg_class_t,
 				       reg_class_t);
 
-extern bool default_use_by_pieces_infrastructure_p (unsigned int,
+extern bool default_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT,
 						    unsigned int,
 						    enum by_pieces_operation,
 						    bool);

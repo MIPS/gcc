@@ -1,5 +1,5 @@
 /* LRA (local register allocator) driver and LRA utilities.
-   Copyright (C) 2010-2014 Free Software Foundation, Inc.
+   Copyright (C) 2010-2015 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -120,8 +120,23 @@ along with GCC; see the file COPYING3.	If not see
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
-#include "tree-core.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
 #include "optabs.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "predict.h"
 #include "dominance.h"
@@ -460,7 +475,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
 		  rtx insn = emit_add2_insn (x, disp);
 		  if (insn != NULL_RTX)
 		    {
-		      insn = emit_add2_insn (x, disp);
+		      insn = emit_add2_insn (x, base);
 		      if (insn != NULL_RTX)
 			ok_p = true;
 		    }
@@ -1618,7 +1633,8 @@ lra_update_insn_regno_info (rtx_insn *insn)
   lra_insn_recog_data_t data;
   struct lra_static_insn_data *static_data;
   enum rtx_code code;
-
+  rtx link;
+  
   if (! INSN_P (insn))
     return;
   data = lra_get_insn_recog_data (insn);
@@ -1633,6 +1649,18 @@ lra_update_insn_regno_info (rtx_insn *insn)
   if ((code = GET_CODE (PATTERN (insn))) == CLOBBER || code == USE)
     add_regs_to_insn_regno_info (data, XEXP (PATTERN (insn), 0), uid,
 				 code == USE ? OP_IN : OP_OUT, false);
+  if (CALL_P (insn))
+    /* On some targets call insns can refer to pseudos in memory in
+       CALL_INSN_FUNCTION_USAGE list.  Process them in order to
+       consider their occurrences in calls for different
+       transformations (e.g. inheritance) with given pseudos.  */
+    for (link = CALL_INSN_FUNCTION_USAGE (insn);
+	 link != NULL_RTX;
+	 link = XEXP (link, 1))
+      if (((code = GET_CODE (XEXP (link, 0))) == USE || code == CLOBBER)
+	  && MEM_P (XEXP (XEXP (link, 0), 0)))
+	add_regs_to_insn_regno_info (data, XEXP (XEXP (link, 0), 0), uid,
+				     code == USE ? OP_IN : OP_OUT, false);
   if (NONDEBUG_INSN_P (insn))
     setup_insn_reg_info (data, freq);
 }
@@ -1806,7 +1834,8 @@ lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg)
       machine_mode mode = GET_MODE (*loc);
       machine_mode inner_mode = GET_MODE (new_reg);
 
-      if (mode != inner_mode)
+      if (mode != inner_mode
+	  && ! (CONST_INT_P (new_reg) && SCALAR_INT_MODE_P (mode)))
 	{
 	  if (GET_MODE_SIZE (mode) >= GET_MODE_SIZE (inner_mode)
 	      || ! SCALAR_INT_MODE_P (inner_mode))
@@ -1891,6 +1920,24 @@ lra_former_scratch_operand_p (rtx_insn *insn, int nop)
 		       INSN_UID (insn) * MAX_RECOG_OPERANDS + nop) != 0;
 }
 
+/* Register operand NOP in INSN as a former scratch.  It will be
+   changed to scratch back, if it is necessary, at the LRA end.  */
+void
+lra_register_new_scratch_op (rtx_insn *insn, int nop)
+{
+  lra_insn_recog_data_t id = lra_get_insn_recog_data (insn);
+  rtx op = *id->operand_loc[nop];
+  sloc_t loc = XNEW (struct sloc);
+  lra_assert (REG_P (op));
+  loc->insn = insn;
+  loc->nop = nop;
+  scratches.safe_push (loc);
+  bitmap_set_bit (&scratch_bitmap, REGNO (op));
+  bitmap_set_bit (&scratch_operand_bitmap,
+		  INSN_UID (insn) * MAX_RECOG_OPERANDS + nop);
+  add_reg_note (insn, REG_UNUSED, op);
+}
+
 /* Change scratches onto pseudos and save their location.  */
 static void
 remove_scratches (void)
@@ -1900,7 +1947,6 @@ remove_scratches (void)
   basic_block bb;
   rtx_insn *insn;
   rtx reg;
-  sloc_t loc;
   lra_insn_recog_data_t id;
   struct lra_static_insn_data *static_id;
 
@@ -1922,15 +1968,7 @@ remove_scratches (void)
 	      *id->operand_loc[i] = reg
 		= lra_create_new_reg (static_id->operand[i].mode,
 				      *id->operand_loc[i], ALL_REGS, NULL);
-	      add_reg_note (insn, REG_UNUSED, reg);
-	      lra_update_dup (id, i);
-	      loc = XNEW (struct sloc);
-	      loc->insn = insn;
-	      loc->nop = i;
-	      scratches.safe_push (loc);
-	      bitmap_set_bit (&scratch_bitmap, REGNO (*id->operand_loc[i]));
-	      bitmap_set_bit (&scratch_operand_bitmap,
-			      INSN_UID (insn) * MAX_RECOG_OPERANDS + i);
+	      lra_register_new_scratch_op (insn, i);
 	      if (lra_dump_file != NULL)
 		fprintf (lra_dump_file,
 			 "Removing SCRATCH in insn #%u (nop %d)\n",
@@ -2142,6 +2180,10 @@ int lra_new_regno_start;
 /* Start of reload pseudo regnos before the new spill pass.  */
 int lra_constraint_new_regno_start;
 
+/* Avoid spilling pseudos with regno more than the following value if
+   it is possible.  */
+int lra_bad_spill_regno_start;
+
 /* Inheritance pseudo regnos before the new spill pass.	 */
 bitmap_head lra_inheritance_pseudos;
 
@@ -2222,6 +2264,7 @@ lra (FILE *f)
   lra_live_range_iter = lra_coalesce_iter = lra_constraint_iter = 0;
   lra_assignment_iter = lra_assignment_iter_after_spill = 0;
   lra_inheritance_iter = lra_undo_inheritance_iter = 0;
+  lra_rematerialization_iter = 0;
 
   setup_reg_spill_flag ();
 
@@ -2230,6 +2273,7 @@ lra (FILE *f)
      permit changing reg classes for pseudos created by this
      simplification.  */
   lra_constraint_new_regno_start = lra_new_regno_start = max_reg_num ();
+  lra_bad_spill_regno_start = INT_MAX;
   remove_scratches ();
   scratch_p = lra_constraint_new_regno_start != max_reg_num ();
 
@@ -2289,7 +2333,7 @@ lra (FILE *f)
 	  /* Do inheritance only for regular algorithms.  */
 	  if (! lra_simple_p)
 	    {
-	      if (flag_use_caller_save)
+	      if (flag_ipa_ra)
 		{
 		  if (live_p)
 		    lra_clear_live_ranges ();
@@ -2297,6 +2341,7 @@ lra (FILE *f)
 		     actual_call_used_reg_set,  which is needed during
 		     lra_inheritance.  */
 		  lra_create_live_ranges (true, true);
+		  live_p = true;
 		}
 	      lra_inheritance ();
 	    }
@@ -2367,6 +2412,13 @@ lra (FILE *f)
 	 some eliminations.  So update the offsets here.  */
       lra_eliminate (false, false);
       lra_constraint_new_regno_start = max_reg_num ();
+      if (lra_bad_spill_regno_start == INT_MAX
+	  && lra_inheritance_iter > LRA_MAX_INHERITANCE_PASSES
+	  && lra_rematerialization_iter > LRA_MAX_REMATERIALIZATION_PASSES)
+	/* After switching off inheritance and rematerialization
+	   passes, avoid spilling reload pseudos will be created to
+	   prevent LRA cycling in some complicated cases.  */
+	lra_bad_spill_regno_start = lra_constraint_new_regno_start;
       lra_assignment_iter_after_spill = 0;
     }
   restore_scratches ();

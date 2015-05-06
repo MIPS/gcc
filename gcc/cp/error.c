@@ -1,6 +1,6 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
-   Copyright (C) 1993-2014 Free Software Foundation, Inc.
+   Copyright (C) 1993-2015 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -21,6 +21,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "cp-tree.h"
@@ -33,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "c-family/c-objc.h"
 #include "ubsan.h"
+#include "internal-fn.h"
 
 #include <new>                    // For placement-new.
 
@@ -1212,7 +1222,9 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 	tree args = TREE_OPERAND (t, 1);
 
 	if (is_overloaded_fn (name))
-	  name = DECL_NAME (get_first_fn (name));
+	  name = get_first_fn (name);
+	if (DECL_P (name))
+	  name = DECL_NAME (name);
 	dump_decl (pp, name, flags);
 	pp_cxx_begin_template_argument_list (pp);
 	if (args == error_mark_node)
@@ -2037,6 +2049,14 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	tree fn = CALL_EXPR_FN (t);
 	bool skipfirst = false;
 
+	/* Deal with internal functions.  */
+	if (fn == NULL_TREE)
+	  {
+	    pp_string (pp, internal_fn_name (CALL_EXPR_IFN (t)));
+	    dump_call_expr_args (pp, t, flags, skipfirst);
+	    break;
+	  }
+
 	if (TREE_CODE (fn) == ADDR_EXPR)
 	  fn = TREE_OPERAND (fn, 0);
 
@@ -2299,7 +2319,13 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 			    TREE_TYPE (ttype)))
 	  {
 	    if (TREE_CODE (ttype) == REFERENCE_TYPE)
-	      dump_unary_op (pp, "*", t, flags);
+	      {
+		STRIP_NOPS (op);
+		if (TREE_CODE (op) == ADDR_EXPR)
+		  dump_expr (pp, TREE_OPERAND (op, 0), flags);
+		else
+		  dump_unary_op (pp, "*", t, flags);
+	      }
 	    else
 	      dump_unary_op (pp, "&", t, flags);
 	  }

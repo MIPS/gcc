@@ -1,5 +1,5 @@
 /* Interprocedural semantic function equality pass
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
    Contributed by Jan Hubicka <hubicka@ucw.cz> and Martin Liska <mliska@suse.cz>
 
@@ -75,7 +75,7 @@ static inline bool
 return_with_result (bool result, const char *func, unsigned int line)
 {
   if (!result && dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "  false returned (%s:%u)\n", func, line);
+    fprintf (dump_file, "  false returned: (%s:%u)\n", func, line);
 
   return result;
 }
@@ -161,7 +161,7 @@ public:
 
   /* Verifies for given GIMPLEs S1 and S2 that
      call statements are semantically equivalent.  */
-  bool compare_gimple_call (gimple s1, gimple s2);
+  bool compare_gimple_call (gcall *s1, gcall *s2);
 
   /* Verifies for given GIMPLEs S1 and S2 that
      assignment statements are semantically equivalent.  */
@@ -171,30 +171,31 @@ public:
      condition statements are semantically equivalent.  */
   bool compare_gimple_cond (gimple s1, gimple s2);
 
-  /* Verifies for given GIMPLEs S1 and S2 that
+  /* Verifies for given GIMPLE_LABEL stmts S1 and S2 that
      label statements are semantically equivalent.  */
-  bool compare_gimple_label (gimple s1, gimple s2);
+  bool compare_gimple_label (const glabel *s1, const glabel *s2);
 
-  /* Verifies for given GIMPLEs S1 and S2 that
+  /* Verifies for given GIMPLE_SWITCH stmts S1 and S2 that
      switch statements are semantically equivalent.  */
-  bool compare_gimple_switch (gimple s1, gimple s2);
+  bool compare_gimple_switch (const gswitch *s1, const gswitch *s2);
 
-  /* Verifies for given GIMPLEs S1 and S2 that
+  /* Verifies for given GIMPLE_RETURN stmts S1 and S2 that
      return statements are semantically equivalent.  */
-  bool compare_gimple_return (gimple s1, gimple s2);
+  bool compare_gimple_return (const greturn *s1, const greturn *s2);
 
   /* Verifies for given GIMPLEs S1 and S2 that
      goto statements are semantically equivalent.  */
   bool compare_gimple_goto (gimple s1, gimple s2);
 
-  /* Verifies for given GIMPLEs S1 and S2 that
+  /* Verifies for given GIMPLE_RESX stmts S1 and S2 that
      resx statements are semantically equivalent.  */
-  bool compare_gimple_resx (gimple s1, gimple s2);
+  bool compare_gimple_resx (const gresx *s1, const gresx *s2);
 
-  /* Verifies for given GIMPLEs S1 and S2 that ASM statements are equivalent.
+  /* Verifies for given GIMPLE_ASM stmts S1 and S2 that ASM statements
+     are equivalent.
      For the beginning, the pass only supports equality for
      '__asm__ __volatile__ ("", "", "", "memory")'.  */
-  bool compare_gimple_asm (gimple s1, gimple s2);
+  bool compare_gimple_asm (const gasm *s1, const gasm *s2);
 
   /* Verification function for declaration trees T1 and T2.  */
   bool compare_decl (tree t1, tree t2);
@@ -202,7 +203,14 @@ public:
   /* Verifies that tree labels T1 and T2 correspond.  */
   bool compare_tree_ssa_label (tree t1, tree t2);
 
-  /* Function responsible for comparison of handled components T1 and T2.
+  /* Function compare for equality given memory operands T1 and T2.  */
+  bool compare_memory_operand (tree t1, tree t2);
+
+  /* Function compare for equality given trees T1 and T2 which
+     can be either a constant or a declaration type.  */
+  bool compare_cst_or_decl (tree t1, tree t2);
+
+  /* Function responsible for comparison of various operands T1 and T2.
      If these components, from functions FUNC1 and FUNC2, are equal, true
      is returned.  */
   bool compare_operand (tree t1, tree t2);
@@ -218,12 +226,16 @@ public:
   /* Verifies that trees T1 and T2 do correspond.  */
   bool compare_variable_decl (tree t1, tree t2);
 
+  /* Return true if types are compatible for polymorphic call analysis.
+     COMPARE_PTR indicates if polymorphic type comparsion should be
+     done for pointers, too.  */
+  static bool compatible_polymorphic_types_p (tree t1, tree t2,
+					      bool compare_ptr);
+
   /* Return true if types are compatible from perspective of ICF.
      FIRST_ARGUMENT indicates if the comparison is called for
      first parameter of a function.  */
-  static bool compatible_types_p (tree t1, tree t2,
-				  bool compare_polymorphic = true,
-				  bool first_argument = false);
+  static bool compatible_types_p (tree t1, tree t2);
 
 
 private:

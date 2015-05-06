@@ -1,5 +1,5 @@
 /* context.c - Holder for global state
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -37,4 +37,10 @@ gcc::context::context ()
      before the pass manager.  */
   m_dumps = new gcc::dump_manager ();
   m_passes = new gcc::pass_manager (this);
+}
+
+gcc::context::~context ()
+{
+  delete m_passes;
+  delete m_dumps;
 }

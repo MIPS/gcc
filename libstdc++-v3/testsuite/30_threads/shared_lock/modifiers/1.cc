@@ -5,7 +5,7 @@
 // { dg-require-cstdint "" }
 // { dg-require-gthreads "" }
 
-// Copyright (C) 2013-2014 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -55,7 +55,7 @@ int main()
       VERIFY( !(bool)l1 );
       VERIFY( (bool)l2 );
     }
-  catch (const std::system_error& e)
+  catch (const std::system_error&)
     {
       VERIFY( false );
     }

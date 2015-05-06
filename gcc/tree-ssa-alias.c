@@ -1,5 +1,5 @@
 /* Alias analysis for trees.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -22,16 +22,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "tm_p.h"
 #include "target.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
+
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "basic-block.h"
@@ -49,12 +55,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-inline.h"
 #include "params.h"
 #include "alloc-pool.h"
-#include "tree-ssa-alias.h"
 #include "bitmap.h"
 #include "hash-map.h"
 #include "plugin-api.h"
@@ -1384,6 +1402,34 @@ refs_may_alias_p_1 (ao_ref *ref1, ao_ref *ref2, bool tbaa_p)
     return decl_refs_may_alias_p (ref1->ref, base1, offset1, max_size1,
 				  ref2->ref, base2, offset2, max_size2);
 
+  /* Handle restrict based accesses.
+     ???  ao_ref_base strips inner MEM_REF [&decl], recover from that
+     here.  */
+  tree rbase1 = base1;
+  tree rbase2 = base2;
+  if (var1_p)
+    {
+      rbase1 = ref1->ref;
+      if (rbase1)
+	while (handled_component_p (rbase1))
+	  rbase1 = TREE_OPERAND (rbase1, 0);
+    }
+  if (var2_p)
+    {
+      rbase2 = ref2->ref;
+      if (rbase2)
+	while (handled_component_p (rbase2))
+	  rbase2 = TREE_OPERAND (rbase2, 0);
+    }
+  if (rbase1 && rbase2
+      && (TREE_CODE (base1) == MEM_REF || TREE_CODE (base1) == TARGET_MEM_REF)
+      && (TREE_CODE (base2) == MEM_REF || TREE_CODE (base2) == TARGET_MEM_REF)
+      /* If the accesses are in the same restrict clique... */
+      && MR_DEPENDENCE_CLIQUE (base1) == MR_DEPENDENCE_CLIQUE (base2)
+      /* But based on different pointers they do not alias.  */
+      && MR_DEPENDENCE_BASE (base1) != MR_DEPENDENCE_BASE (base2))
+    return false;
+
   ind1_p = (TREE_CODE (base1) == MEM_REF
 	    || TREE_CODE (base1) == TARGET_MEM_REF);
   ind2_p = (TREE_CODE (base2) == MEM_REF
@@ -1490,7 +1536,7 @@ refs_output_dependent_p (tree store1, tree store2)
    otherwise return false.  */
 
 static bool
-ref_maybe_used_by_call_p_1 (gimple call, ao_ref *ref)
+ref_maybe_used_by_call_p_1 (gcall *call, ao_ref *ref)
 {
   tree base, callee;
   unsigned i;
@@ -1803,7 +1849,7 @@ process_args:
 }
 
 static bool
-ref_maybe_used_by_call_p (gimple call, ao_ref *ref)
+ref_maybe_used_by_call_p (gcall *call, ao_ref *ref)
 {
   bool res;
   res = ref_maybe_used_by_call_p_1 (call, ref);
@@ -1838,10 +1884,10 @@ ref_maybe_used_by_stmt_p (gimple stmt, ao_ref *ref)
       return refs_may_alias_p (rhs, ref);
     }
   else if (is_gimple_call (stmt))
-    return ref_maybe_used_by_call_p (stmt, ref);
-  else if (gimple_code (stmt) == GIMPLE_RETURN)
+    return ref_maybe_used_by_call_p (as_a <gcall *> (stmt), ref);
+  else if (greturn *return_stmt = dyn_cast <greturn *> (stmt))
     {
-      tree retval = gimple_return_retval (stmt);
+      tree retval = gimple_return_retval (return_stmt);
       if (retval
 	  && TREE_CODE (retval) != SSA_NAME
 	  && !is_gimple_min_invariant (retval)
@@ -1874,7 +1920,7 @@ ref_maybe_used_by_stmt_p (gimple stmt, tree ref)
    return true, otherwise return false.  */
 
 bool
-call_may_clobber_ref_p_1 (gimple call, ao_ref *ref)
+call_may_clobber_ref_p_1 (gcall *call, ao_ref *ref)
 {
   tree base;
   tree callee;
@@ -1883,6 +1929,22 @@ call_may_clobber_ref_p_1 (gimple call, ao_ref *ref)
   if (gimple_call_flags (call)
       & (ECF_PURE|ECF_CONST|ECF_LOOPING_CONST_OR_PURE|ECF_NOVOPS))
     return false;
+  if (gimple_call_internal_p (call))
+    switch (gimple_call_internal_fn (call))
+      {
+	/* Treat these internal calls like ECF_PURE for aliasing,
+	   they don't write to any memory the program should care about.
+	   They have important other side-effects, and read memory,
+	   so can't be ECF_NOVOPS.  */
+      case IFN_UBSAN_NULL:
+      case IFN_UBSAN_BOUNDS:
+      case IFN_UBSAN_VPTR:
+      case IFN_UBSAN_OBJECT_SIZE:
+      case IFN_ASAN_CHECK:
+	return false;
+      default:
+	break;
+      }
 
   base = ao_ref_base (ref);
   if (!base)
@@ -2147,7 +2209,7 @@ call_may_clobber_ref_p_1 (gimple call, ao_ref *ref)
    return true, otherwise return false.  */
 
 bool
-call_may_clobber_ref_p (gimple call, tree ref)
+call_may_clobber_ref_p (gcall *call, tree ref)
 {
   bool res;
   ao_ref r;
@@ -2179,7 +2241,7 @@ stmt_may_clobber_ref_p_1 (gimple stmt, ao_ref *ref)
 	    return true;
 	}
 
-      return call_may_clobber_ref_p_1 (stmt, ref);
+      return call_may_clobber_ref_p_1 (as_a <gcall *> (stmt), ref);
     }
   else if (gimple_assign_single_p (stmt))
     {
@@ -2604,12 +2666,18 @@ get_continuation_for_phi (gimple phi, ao_ref *ref,
    If TRANSLATE returns NULL the walk continues and TRANSLATE is supposed
    to adjust REF and *DATA to make that valid.
 
+   VALUEIZE if non-NULL is called with the next VUSE that is considered
+   and return value is substituted for that.  This can be used to
+   implement optimistic value-numbering for example.  Note that the
+   VUSE argument is assumed to be valueized already.
+
    TODO: Cache the vector of equivalent vuses per ref, vuse pair.  */
 
 void *
 walk_non_aliased_vuses (ao_ref *ref, tree vuse,
 			void *(*walker)(ao_ref *, tree, unsigned int, void *),
 			void *(*translate)(ao_ref *, tree, void *, bool),
+			tree (*valueize)(tree),
 			void *data)
 {
   bitmap visited = NULL;
@@ -2635,6 +2703,8 @@ walk_non_aliased_vuses (ao_ref *ref, tree vuse,
       else if (res != NULL)
 	break;
 
+      if (valueize)
+	vuse = valueize (vuse);
       def_stmt = SSA_NAME_DEF_STMT (vuse);
       if (gimple_nop_p (def_stmt))
 	break;

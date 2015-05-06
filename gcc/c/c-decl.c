@@ -1,5 +1,5 @@
 /* Process declarations and variables for C compiler.
-   Copyright (C) 1988-2014 Free Software Foundation, Inc.
+   Copyright (C) 1988-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,7 +30,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "tm.h"
 #include "intl.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "symtab.h"
+#include "input.h"
+#include "alias.h"
+#include "double-int.h"
+#include "machmode.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "print-tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -158,10 +167,6 @@ static int warn_about_return_type;
    of a nested function which is never defined.  */
 
 static bool undef_nested_function;
-
-/* Mode used to build pointers (VOIDmode means ptr_mode).  */
-
-machine_mode c_default_pointer_mode = VOIDmode;
 
 /* If non-zero, implicit "omp declare target" attribute is added into the
    attribute lists.  */
@@ -2573,6 +2578,8 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 			set_builtin_decl_implicit_p (fncode, true);
 		      break;
 		    default:
+		      if (builtin_decl_explicit_p (fncode))
+			set_builtin_decl_declared_p (fncode, true);
 		      break;
 		    }
 		}
@@ -4396,7 +4403,8 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 {
   /* Add implicit "omp declare target" attribute if requested.  */
   if (current_omp_declare_target_attribute
-      && ((TREE_CODE (*node) == VAR_DECL && TREE_STATIC (*node))
+      && ((TREE_CODE (*node) == VAR_DECL
+	   && (TREE_STATIC (*node) || DECL_EXTERNAL (*node)))
 	  || TREE_CODE (*node) == FUNCTION_DECL))
     {
       if (TREE_CODE (*node) == VAR_DECL
@@ -4449,8 +4457,8 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   decl = grokdeclarator (declarator, declspecs,
 			 NORMAL, initialized, NULL, &attributes, &expr, NULL,
 			 deprecated_state);
-  if (!decl)
-    return 0;
+  if (!decl || decl == error_mark_node)
+    return NULL_TREE;
 
   if (expr)
     add_stmt (fold_convert (void_type_node, expr));
@@ -5826,10 +5834,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		    warn_variable_length_array (name, size);
 		    if (flag_sanitize & SANITIZE_VLA
 		        && decl_context == NORMAL
-			&& current_function_decl != NULL_TREE
-			&& !lookup_attribute ("no_sanitize_undefined",
-					      DECL_ATTRIBUTES
-						(current_function_decl)))
+			&& do_ubsan_in_current_function ())
 		      {
 			/* Evaluate the array size only once.  */
 			size = c_save_expr (size);
@@ -5951,7 +5956,8 @@ grokdeclarator (const struct c_declarator *declarator,
 	    /* Complain about arrays of incomplete types.  */
 	    if (!COMPLETE_TYPE_P (type))
 	      {
-		error_at (loc, "array type has incomplete element type");
+		error_at (loc, "array type has incomplete element type %qT",
+			  type);
 		type = error_mark_node;
 	      }
 	    else
@@ -6502,6 +6508,19 @@ grokdeclarator (const struct c_declarator *declarator,
 	    else
 	      error_at (loc, "unnamed field has incomplete type");
 	    type = error_mark_node;
+	  }
+	else if (TREE_CODE (type) == ARRAY_TYPE
+		 && TYPE_DOMAIN (type) == NULL_TREE)
+	  {
+	    /* We have a flexible array member through a typedef.
+	       Set suitable range.  Whether this is a correct position
+	       for a flexible array member will be determined elsewhere.  */
+	    if (!in_system_header_at (input_location))
+	      pedwarn_c90 (loc, OPT_Wpedantic, "ISO C90 does not "
+			   "support flexible array members");
+	    type = build_distinct_type_copy (TYPE_MAIN_VARIANT (type));
+	    TYPE_DOMAIN (type) = build_range_type (sizetype, size_zero_node,
+						   NULL_TREE);
 	  }
 	type = c_build_qualified_type (type, type_quals);
 	decl = build_decl (declarator->id_loc,
@@ -8353,7 +8372,8 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   else if (warn_missing_declarations
 	   && TREE_PUBLIC (decl1)
 	   && old_decl == 0
-	   && !MAIN_NAME_P (DECL_NAME (decl1)))
+	   && !MAIN_NAME_P (DECL_NAME (decl1))
+	   && !DECL_DECLARED_INLINE_P (decl1))
     warning_at (loc, OPT_Wmissing_declarations,
 		"no previous declaration for %qD",
 		decl1);

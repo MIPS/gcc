@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2014 Free Software Foundation, Inc.
+# Copyright (C) 2001-2015 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,6 +17,8 @@
 load_lib target-libpath.exp
 
 load_lib wrapper.exp
+
+load_lib target-utils.exp
 
 #
 # ${tool}_check_compile -- Reports and returns pass/fail for a compilation
@@ -145,34 +147,6 @@ proc ${tool}_exit { } {
 	unset gluefile
     }
 }
-    
-#
-# ${tool}_check_unsupported_p -- Check the compiler(/assembler/linker) output 
-#	for text indicating that the testcase should be marked as "unsupported"
-#
-# Utility used by mike-gcc.exp and c-torture.exp.
-# When dealing with a large number of tests, it's difficult to weed out the
-# ones that are too big for a particular cpu (eg: 16 bit with a small amount
-# of memory).  There are various ways to deal with this.  Here's one.
-# Fortunately, all of the cases where this is likely to happen will be using
-# gld so we can tell what the error text will look like.
-#
-
-proc ${tool}_check_unsupported_p { output } {
-    if [regexp "(^|\n)\[^\n\]*: region \[^\n\]* is full" $output] {
-	return "memory full"
-    }
-    if { [regexp "(^|\n)\[^\n\]*: relocation truncated to fit" $output]
-          && [check_effective_target_tiny] } {
-        return "memory full"
-     }
-
-    if { [istarget spu-*-*] && \
-	     [string match "*exceeds local store*" $output] } {
-	return "memory full"
-    }
-    return ""
-}
 
 #
 # runtest_file_p -- Provide a definition for older dejagnu releases
@@ -294,6 +268,7 @@ proc dg-additional-options { args } {
 # main source file.
 
 set additional_sources ""
+set additional_sources_used ""
 
 proc dg-additional-sources { args } {
     global additional_sources
@@ -316,6 +291,7 @@ proc dg-additional-files { args } {
 
 proc dg-additional-files-options { options source } {
     global additional_sources
+    global additional_sources_used
     global additional_files
     set to_download [list]
     if { $additional_sources != "" } then {
@@ -327,6 +303,7 @@ proc dg-additional-files-options { options source } {
 	    lappend options "additional_flags=$additional_sources"
 	}
 	set to_download [concat $to_download $additional_sources]
+	set additional_sources_used "$additional_sources"
 	set additional_sources ""
     }
     if { $additional_files != "" } then { 

@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -24,6 +24,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "tm.h"
 #include "toplev.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "attribs.h"
@@ -40,10 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -708,4 +713,29 @@ lhd_enum_underlying_base_type (const_tree enum_type)
 {
   return lang_hooks.types.type_for_size (TYPE_PRECISION (enum_type),
 					 TYPE_UNSIGNED (enum_type));
+}
+
+/* Returns true if the current lang_hooks represents the GNU C frontend.  */
+
+bool
+lang_GNU_C (void)
+{
+  return (strncmp (lang_hooks.name, "GNU C", 5) == 0
+	  && (lang_hooks.name[5] == '\0' || ISDIGIT (lang_hooks.name[5])));
+}
+
+/* Returns true if the current lang_hooks represents the GNU C++ frontend.  */
+
+bool
+lang_GNU_CXX (void)
+{
+  return strncmp (lang_hooks.name, "GNU C++", 7) == 0;
+}
+
+/* Returns true if the current lang_hooks represents the GNU Fortran frontend.  */
+
+bool
+lang_GNU_Fortran (void)
+{
+  return strncmp (lang_hooks.name, "GNU Fortran", 11) == 0;
 }

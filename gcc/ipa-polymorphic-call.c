@@ -1,5 +1,5 @@
 /* Analysis of polymorphic call context.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -22,27 +22,43 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "print-tree.h"
 #include "calls.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "hash-set.h"
 #include "target.h"
-#include "hash-table.h"
-#include "inchash.h"
 #include "tree-pretty-print.h"
 #include "predict.h"
 #include "basic-block.h"
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-utils.h"
@@ -52,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimple.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "diagnostic.h"
@@ -64,6 +81,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "data-streamer.h"
 #include "lto-streamer.h"
 #include "streamer-hooks.h"
+#include "tree-ssa-operands.h"
+#include "tree-into-ssa.h"
 
 /* Return true when TYPE contains an polymorphic type and thus is interesting
    for devirtualization machinery.  */
@@ -112,7 +131,7 @@ possible_placement_new (tree type, tree expected_type,
 	      || !tree_fits_shwi_p (TYPE_SIZE (type))
 	      || (cur_offset
 		  + (expected_type ? tree_to_uhwi (TYPE_SIZE (expected_type))
-		     : GET_MODE_BITSIZE (Pmode))
+		     : POINTER_SIZE)
 		  <= tree_to_uhwi (TYPE_SIZE (type)))));
 }
 
@@ -155,7 +174,7 @@ ipa_polymorphic_call_context::restrict_to_inner_class (tree otr_type,
   HOST_WIDE_INT cur_offset = offset;
   bool speculative = false;
   bool size_unknown = false;
-  unsigned HOST_WIDE_INT otr_type_size = GET_MODE_BITSIZE (Pmode);
+  unsigned HOST_WIDE_INT otr_type_size = POINTER_SIZE;
 
   /* Update OUTER_TYPE to match EXPECTED_TYPE if it is not set.  */
   if (!outer_type)
@@ -316,7 +335,7 @@ ipa_polymorphic_call_context::restrict_to_inner_class (tree otr_type,
 		
 	      if (pos <= (unsigned HOST_WIDE_INT)cur_offset
 		  && (pos + size) >= (unsigned HOST_WIDE_INT)cur_offset
-				     + GET_MODE_BITSIZE (Pmode)
+				     + POINTER_SIZE
 		  && (!otr_type
 		      || !TYPE_SIZE (TREE_TYPE (fld))
 		      || !tree_fits_shwi_p (TYPE_SIZE (TREE_TYPE (fld)))
@@ -494,6 +513,38 @@ contains_type_p (tree outer_type, HOST_WIDE_INT offset,
 }
 
 
+/* Return a FUNCTION_DECL if BLOCK represents a constructor or destructor.
+   If CHECK_CLONES is true, also check for clones of ctor/dtors.  */
+
+tree
+inlined_polymorphic_ctor_dtor_block_p (tree block, bool check_clones)
+{
+  tree fn = BLOCK_ABSTRACT_ORIGIN (block);
+  if (fn == NULL || TREE_CODE (fn) != FUNCTION_DECL)
+    return NULL_TREE;
+
+  if (TREE_CODE (TREE_TYPE (fn)) != METHOD_TYPE
+      || (!DECL_CXX_CONSTRUCTOR_P (fn) && !DECL_CXX_DESTRUCTOR_P (fn)))
+    {
+      if (!check_clones)
+	return NULL_TREE;
+
+      /* Watch for clones where we constant propagated the first
+	 argument (pointer to the instance).  */
+      fn = DECL_ABSTRACT_ORIGIN (fn);
+      if (!fn
+	  || TREE_CODE (TREE_TYPE (fn)) != METHOD_TYPE
+	  || (!DECL_CXX_CONSTRUCTOR_P (fn) && !DECL_CXX_DESTRUCTOR_P (fn)))
+	return NULL_TREE;
+    }
+
+  if (flags_from_decl_or_type (fn) & (ECF_PURE | ECF_CONST))
+    return NULL_TREE;
+
+  return fn;
+}
+
+
 /* We know that the instance is stored in variable or parameter
    (not dynamically allocated) and we want to disprove the fact
    that it may be in construction at invocation of CALL.
@@ -531,30 +582,11 @@ decl_maybe_in_construction_p (tree base, tree outer_type,
       && flags_from_decl_or_type (function) & (ECF_PURE | ECF_CONST))
     return false;
 
+  bool check_clones = !base || is_global_var (base);
   for (tree block = gimple_block (call); block && TREE_CODE (block) == BLOCK;
        block = BLOCK_SUPERCONTEXT (block))
-    if (BLOCK_ABSTRACT_ORIGIN (block)
-	&& TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block)) == FUNCTION_DECL)
+    if (tree fn = inlined_polymorphic_ctor_dtor_block_p (block, check_clones))
       {
-	tree fn = BLOCK_ABSTRACT_ORIGIN (block);
-
-	if (TREE_CODE (TREE_TYPE (fn)) != METHOD_TYPE
-	    || (!DECL_CXX_CONSTRUCTOR_P (fn)
-		&& !DECL_CXX_DESTRUCTOR_P (fn)))
-	  {
-	    /* Watch for clones where we constant propagated the first
-	       argument (pointer to the instance).  */
-	    fn = DECL_ABSTRACT_ORIGIN (fn);
-	    if (!fn
-		|| (base && !is_global_var (base))
-	        || TREE_CODE (TREE_TYPE (fn)) != METHOD_TYPE
-		|| (!DECL_CXX_CONSTRUCTOR_P (fn)
-		    && !DECL_CXX_DESTRUCTOR_P (fn)))
-	      continue;
-	  }
-	if (flags_from_decl_or_type (fn) & (ECF_PURE | ECF_CONST))
-	  continue;
-
 	tree type = TYPE_MAIN_VARIANT (method_class_type (TREE_TYPE (fn)));
 
 	if (!outer_type || !types_odr_comparable (type, outer_type))
@@ -787,7 +819,9 @@ walk_ssa_copies (tree op, hash_set<tree> **global_visited = NULL)
   STRIP_NOPS (op);
   while (TREE_CODE (op) == SSA_NAME
 	 && !SSA_NAME_IS_DEFAULT_DEF (op)
-	 && SSA_NAME_DEF_STMT (op)
+	 /* We might be called via fold_stmt during cfgcleanup where
+	    SSA form need not be up-to-date.  */
+	 && !name_registered_for_update_p (op) 
 	 && (gimple_assign_single_p (SSA_NAME_DEF_STMT (op))
 	     || gimple_code (SSA_NAME_DEF_STMT (op)) == GIMPLE_PHI))
     {
@@ -1047,7 +1081,8 @@ ipa_polymorphic_call_context::ipa_polymorphic_call_context (tree fndecl,
 
   if (TREE_CODE (base_pointer) == SSA_NAME
       && SSA_NAME_IS_DEFAULT_DEF (base_pointer)
-      && TREE_CODE (SSA_NAME_VAR (base_pointer)) != PARM_DECL)
+      && !(TREE_CODE (SSA_NAME_VAR (base_pointer)) == PARM_DECL
+	   || TREE_CODE (SSA_NAME_VAR (base_pointer)) == RESULT_DECL))
     {
       invalid = true;
       if (instance)
@@ -1060,7 +1095,7 @@ ipa_polymorphic_call_context::ipa_polymorphic_call_context (tree fndecl,
     base_type = TREE_TYPE (gimple_assign_rhs1
 			    (SSA_NAME_DEF_STMT (base_pointer)));
  
-  if (POINTER_TYPE_P (base_type))
+  if (base_type && POINTER_TYPE_P (base_type))
     combine_speculation_with (TYPE_MAIN_VARIANT (TREE_TYPE (base_type)),
 			      offset,
 			      true, NULL /* Do not change type here */);
@@ -1141,15 +1176,7 @@ noncall_stmt_may_be_vtbl_ptr_store (gimple stmt)
        block = BLOCK_SUPERCONTEXT (block))
     if (BLOCK_ABSTRACT_ORIGIN (block)
 	&& TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block)) == FUNCTION_DECL)
-      {
-	tree fn = BLOCK_ABSTRACT_ORIGIN (block);
-
-	if (flags_from_decl_or_type (fn) & (ECF_PURE | ECF_CONST))
-	  return false;
-	return (TREE_CODE (TREE_TYPE (fn)) == METHOD_TYPE
-		&& (DECL_CXX_CONSTRUCTOR_P (fn)
-		    || DECL_CXX_DESTRUCTOR_P (fn)));
-      }
+      return inlined_polymorphic_ctor_dtor_block_p (block, false);
   return (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE
 	  && (DECL_CXX_CONSTRUCTOR_P (current_function_decl)
 	      || DECL_CXX_DESTRUCTOR_P (current_function_decl)));
@@ -1243,7 +1270,7 @@ extr_type_from_vtbl_ptr_store (gimple stmt, struct type_change_info *tci,
 	      print_generic_expr (dump_file, tci->instance, TDF_SLIM);
 	      fprintf (dump_file, " with offset %i\n", (int)tci->offset);
 	    }
-	  return tci->offset > GET_MODE_BITSIZE (Pmode) ? error_mark_node : NULL_TREE;
+	  return tci->offset > POINTER_SIZE ? error_mark_node : NULL_TREE;
 	}
       if (offset != tci->offset
 	  || size != POINTER_SIZE
@@ -1252,9 +1279,9 @@ extr_type_from_vtbl_ptr_store (gimple stmt, struct type_change_info *tci,
 	  if (dump_file)
 	    fprintf (dump_file, "    wrong offset %i!=%i or size %i\n",
 		     (int)offset, (int)tci->offset, (int)size);
-	  return offset + GET_MODE_BITSIZE (Pmode) <= tci->offset
+	  return offset + POINTER_SIZE <= tci->offset
 	         || (max_size != -1
-		     && tci->offset + GET_MODE_BITSIZE (Pmode) > offset + max_size)
+		     && tci->offset + POINTER_SIZE > offset + max_size)
 		 ? error_mark_node : NULL;
 	}
     }
@@ -1307,6 +1334,7 @@ record_known_type (struct type_change_info *tci, tree type, HOST_WIDE_INT offset
   if (type
       && (offset
           || (TREE_CODE (type) != RECORD_TYPE
+	      || !TYPE_BINFO (type)
 	      || !polymorphic_type_binfo_p (TYPE_BINFO (type)))))
     {
       ipa_polymorphic_call_context context;

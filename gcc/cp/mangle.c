@@ -1,5 +1,5 @@
 /* Name mangling for the 3.0 C++ ABI.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Written by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -48,6 +48,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "tree-hasher.h"
 #include "stor-layout.h"
@@ -60,10 +69,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -643,6 +648,48 @@ find_substitution (tree node)
   return 1;
 }
 
+/* Returns whether DECL's symbol name should be the plain unqualified-id
+   rather than a more complicated mangled name.  */
+
+static bool
+unmangled_name_p (const tree decl)
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      /* The names of `extern "C"' functions are not mangled.  */
+      return (DECL_EXTERN_C_FUNCTION_P (decl)
+	      /* But overloaded operator names *are* mangled.  */
+	      && !DECL_OVERLOADED_OPERATOR_P (decl));
+    }
+  else if (VAR_P (decl))
+    {
+      /* static variables are mangled.  */
+      if (!DECL_EXTERNAL_LINKAGE_P (decl))
+	return false;
+
+      /* extern "C" declarations aren't mangled.  */
+      if (DECL_EXTERN_C_P (decl))
+	return true;
+
+      /* Other variables at non-global scope are mangled.  */
+      if (CP_DECL_CONTEXT (decl) != global_namespace)
+	return false;
+
+      /* Variable template instantiations are mangled.  */
+      if (DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
+	  && variable_template_p (DECL_TI_TEMPLATE (decl)))
+	return false;
+
+      /* Declarations with ABI tags are mangled.  */
+      if (lookup_attribute ("abi_tag", DECL_ATTRIBUTES (decl)))
+	return false;
+
+      /* The names of non-static global variables aren't mangled.  */
+      return true;
+    }
+
+  return false;
+}
 
 /* TOP_LEVEL is true, if this is being called at outermost level of
   mangling. It should be false when mangling a decl appearing in an
@@ -655,13 +702,10 @@ write_mangled_name (const tree decl, bool top_level)
 {
   MANGLE_TRACE_TREE ("mangled-name", decl);
 
-  if (/* The names of `extern "C"' functions are not mangled.  */
-      DECL_EXTERN_C_FUNCTION_P (decl)
-      /* But overloaded operator names *are* mangled.  */
-      && !DECL_OVERLOADED_OPERATOR_P (decl))
-    {
-    unmangled_name:;
+  check_abi_tags (decl);
 
+  if (unmangled_name_p (decl))
+    {
       if (top_level)
 	write_string (IDENTIFIER_POINTER (DECL_NAME (decl)));
       else
@@ -675,22 +719,23 @@ write_mangled_name (const tree decl, bool top_level)
 	  write_source_name (DECL_NAME (decl));
 	}
     }
-  else if (VAR_P (decl)
-	   /* Variable template instantiations are mangled.  */
-	   && !(DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl))
-	   /* The names of non-static global variables aren't mangled.  */
-	   && DECL_EXTERNAL_LINKAGE_P (decl)
-	   && (CP_DECL_CONTEXT (decl) == global_namespace
-	       /* And neither are `extern "C"' variables.  */
-	       || DECL_EXTERN_C_P (decl)))
-    {
-      goto unmangled_name;
-    }
   else
     {
       write_string ("_Z");
       write_encoding (decl);
     }
+}
+
+/* Returns true if the return type of DECL is part of its signature, and
+   therefore its mangling.  */
+
+bool
+mangle_return_type_p (tree decl)
+{
+  return (!DECL_CONSTRUCTOR_P (decl)
+	  && !DECL_DESTRUCTOR_P (decl)
+	  && !DECL_CONV_FN_P (decl)
+	  && decl_is_template_id (decl, NULL));
 }
 
 /*   <encoding>		::= <function name> <bare-function-type>
@@ -734,10 +779,7 @@ write_encoding (const tree decl)
 	}
 
       write_bare_function_type (fn_type,
-				(!DECL_CONSTRUCTOR_P (decl)
-				 && !DECL_DESTRUCTOR_P (decl)
-				 && !DECL_CONV_FN_P (decl)
-				 && decl_is_template_id (decl, NULL)),
+				mangle_return_type_p (decl),
 				d);
     }
 }
@@ -764,8 +806,7 @@ decl_mangling_context (tree decl)
       if (extra)
 	return extra;
     }
-    else if (TREE_CODE (decl) == TYPE_DECL
-	     && TREE_CODE (TREE_TYPE (decl)) == TEMPLATE_TYPE_PARM)
+  else if (template_type_parameter_p (decl))
      /* template type parms have no mangling context.  */
       return NULL_TREE;
   return CP_DECL_CONTEXT (decl);
@@ -1285,7 +1326,7 @@ write_unqualified_name (tree decl)
   if (tree tmpl = most_general_template (decl))
     decl = DECL_TEMPLATE_RESULT (tmpl);
   /* Don't crash on an unbound class template.  */
-  if (decl)
+  if (decl && TREE_CODE (decl) != NAMESPACE_DECL)
     {
       tree attrs = (TREE_CODE (decl) == TYPE_DECL
 		    ? TYPE_ATTRIBUTES (TREE_TYPE (decl))
@@ -3086,6 +3127,8 @@ write_template_arg (tree node)
 	}
     }
 
+  if (REFERENCE_REF_P (node))
+    node = TREE_OPERAND (node, 0);
   if (TREE_CODE (node) == NOP_EXPR
       && TREE_CODE (TREE_TYPE (node)) == REFERENCE_TYPE)
     {
@@ -3427,6 +3470,28 @@ get_mangled_id (tree decl)
   return targetm.mangle_decl_assembler_name (decl, id);
 }
 
+/* If DECL is a mangling alias, remove it from the symbol table and return
+   true; otherwise return false.  */
+
+bool
+maybe_remove_implicit_alias (tree decl)
+{
+  if (DECL_P (decl) && DECL_ARTIFICIAL (decl)
+      && DECL_IGNORED_P (decl)
+      && (TREE_CODE (decl) == FUNCTION_DECL
+	  || (TREE_CODE (decl) == VAR_DECL
+	      && TREE_STATIC (decl))))
+    {
+      symtab_node *n = symtab_node::get (decl);
+      if (n && n->cpp_implicit_alias)
+	{
+	  n->remove();
+	  return true;
+	}
+    }
+  return false;
+}
+
 /* Create an identifier for the external mangled name of DECL.  */
 
 void
@@ -3490,8 +3555,15 @@ mangle_decl (const tree decl)
 	}
 
 #ifdef ASM_OUTPUT_DEF
-      if (flag_abi_compat_version != 0
-	  && IDENTIFIER_GLOBAL_VALUE (id2))
+      /* If there's a declaration already using this mangled name,
+	 don't create a compatibility alias that conflicts.  */
+      if (IDENTIFIER_GLOBAL_VALUE (id2))
+	return;
+
+      struct cgraph_node *n = NULL;
+      if (TREE_CODE (decl) == FUNCTION_DECL
+	  && !(n = cgraph_node::get (decl)))
+	/* Don't create an alias to an unreferenced function.  */
 	return;
 
       tree alias = make_alias_for (decl, id2);
@@ -3502,11 +3574,7 @@ mangle_decl (const tree decl)
       if (vague_linkage_p (decl))
 	DECL_WEAK (alias) = 1;
       if (TREE_CODE (decl) == FUNCTION_DECL)
-	{
-	  /* Don't create an alias to an unreferenced function.  */
-	  if (struct cgraph_node *n = cgraph_node::get (decl))
-	    n->create_same_body_alias (alias, decl);
-	}
+	n->create_same_body_alias (alias, decl);
       else
 	varpool_node::create_extra_name_alias (alias, decl);
 #endif

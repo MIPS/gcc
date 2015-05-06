@@ -212,14 +212,13 @@ not in any particular release.
     </row>
 
     <row>
-      <?dbhtml bgcolor="#C8C8B0" ?>
       <entry>
 	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.open-std.org/JTC1/sc22/WG21/docs/papers/2013/n3657.htm">
 	  N3657
 	</link>
       </entry>
       <entry>Adding heterogeneous comparison lookup to associative containers</entry>
-      <entry>WIP</entry>
+      <entry>Y</entry>
       <entry/>
     </row>
 
@@ -242,8 +241,8 @@ not in any particular release.
 	</link>
       </entry>
       <entry>Null Forward Iterators</entry>
-      <entry>N</entry>
-      <entry/>
+      <entry>Partial</entry>
+      <entry>Only affects Debug Mode</entry>
     </row>
 
   </tbody>
@@ -280,18 +279,6 @@ not in any particular release.
       <entry>C++ Dynamic Arrays</entry>
       <entry>N</entry>
       <entry>Array Extensions TS</entry>
-    </row>
-
-    <row>
-      <?dbhtml bgcolor="#C8B0B0" ?>
-      <entry>
-	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.open-std.org/JTC1/SC22/WG21/docs/papers/2013/n3783.pdf">
-	  N3783
-	</link>
-      </entry>
-      <entry>Network byte order conversion</entry>
-      <entry>N</entry>
-      <entry>Library Fundamentals TS</entry>
     </row>
 
     <row>
@@ -397,14 +384,13 @@ not in any particular release.
     </row>
 
     <row>
-      <?dbhtml bgcolor="#C8C8B0" ?>
       <entry>
 	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3932.htm">
 	  N3932
 	</link>
       </entry>
       <entry>Variable Templates For Type Traits</entry>
-      <entry>Partial</entry>
+      <entry>Y</entry>
       <entry>Library Fundamentals TS</entry>
     </row>
 

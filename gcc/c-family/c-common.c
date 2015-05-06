@@ -1,5 +1,5 @@
 /* Subroutines shared by all languages that are variants of C.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -17,9 +17,12 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#define GCC_C_COMMON_C
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "input.h"
 #include "c-common.h"
 #include "tm.h"
 #include "intl.h"
@@ -60,8 +63,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "gimplify.h"
 #include "wide-int-print.h"
+#include "gimple-expr.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
+
+/* Mode used to build pointers (VOIDmode means ptr_mode).  */
+
+machine_mode c_default_pointer_mode = VOIDmode;
 
 /* The following symbols are subsumed in the c_global_trees array, and
    listed here individually for documentation purposes.
@@ -323,10 +331,12 @@ static tree handle_no_address_safety_analysis_attribute (tree *, tree, tree,
 							 int, bool *);
 static tree handle_no_sanitize_undefined_attribute (tree *, tree, tree, int,
 						    bool *);
+static tree handle_stack_protect_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noclone_attribute (tree *, tree, tree, int, bool *);
-static tree handle_hsa_attribute (tree *, tree, tree, int, bool *);
+static tree handle_noicf_attribute (tree *, tree, tree, int, bool *);
 static tree handle_leaf_attribute (tree *, tree, tree, int, bool *);
+static tree handle_hsa_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
 static tree handle_gnu_inline_attribute (tree *, tree, tree, int, bool *);
@@ -454,6 +464,8 @@ const struct c_common_resword c_common_reswords[] =
   { "__attribute__",	RID_ATTRIBUTE,	0 },
   { "__auto_type",	RID_AUTO_TYPE,	D_CONLY },
   { "__bases",          RID_BASES, D_CXXONLY },
+  { "__builtin_call_with_static_chain",
+    RID_BUILTIN_CALL_WITH_STATIC_CHAIN, D_CONLY },
   { "__builtin_choose_expr", RID_CHOOSE_EXPR, D_CONLY },
   { "__builtin_complex", RID_BUILTIN_COMPLEX, D_CONLY },
   { "__builtin_shuffle", RID_BUILTIN_SHUFFLE, 0 },
@@ -652,6 +664,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noreturn_attribute, false },
   { "volatile",               0, 0, true,  false, false,
 			      handle_noreturn_attribute, false },
+  { "stack_protect",          0, 0, true,  false, false,
+			      handle_stack_protect_attribute, false },
   { "noinline",               0, 0, true,  false, false,
 			      handle_noinline_attribute, false },
   { "noclone",                0, 0, true,  false, false,
@@ -662,6 +676,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_hsa_attribute, false },
   { "hsafunc",                0, 0, true,  false, false,
 			      handle_hsa_attribute, false },
+  { "no_icf",                 0, 0, true,  false, false,
+			      handle_noicf_attribute, false },
   { "leaf",                   0, 0, true,  false, false,
 			      handle_leaf_attribute, false },
   { "always_inline",          0, 0, true,  false, false,
@@ -766,6 +782,9 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_no_address_safety_analysis_attribute,
 			      false },
   { "no_sanitize_address",    0, 0, true, false, false,
+			      handle_no_sanitize_address_attribute,
+			      false },
+  { "no_sanitize_thread",     0, 0, true, false, false,
 			      handle_no_sanitize_address_attribute,
 			      false },
   { "no_sanitize_undefined",  0, 0, true, false, false,
@@ -1368,6 +1387,17 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 				 ? G_("left shift count >= width of type")
 				 : G_("right shift count >= width of type")));
 	}
+      if ((code == TRUNC_DIV_EXPR
+	   || code == CEIL_DIV_EXPR
+	   || code == FLOOR_DIV_EXPR
+	   || code == EXACT_DIV_EXPR
+	   || code == TRUNC_MOD_EXPR)
+	  && TREE_CODE (orig_op1) != INTEGER_CST
+	  && TREE_CODE (op1) == INTEGER_CST
+	  && (TREE_CODE (TREE_TYPE (orig_op0)) == INTEGER_TYPE
+	      || TREE_CODE (TREE_TYPE (orig_op0)) == FIXED_POINT_TYPE)
+	  && TREE_CODE (TREE_TYPE (orig_op1)) == INTEGER_TYPE)
+	warn_for_div_by_zero (loc, op1);
       goto out;
 
     case INDIRECT_REF:
@@ -1779,6 +1809,12 @@ warn_logical_not_parentheses (location_t location, enum tree_code code,
   if (TREE_CODE_CLASS (code) != tcc_comparison
       || TREE_TYPE (rhs) == NULL_TREE
       || TREE_CODE (TREE_TYPE (rhs)) == BOOLEAN_TYPE)
+    return;
+
+  /* Don't warn for !x == 0 or !y != 0, those are equivalent to
+     !(x == 0) or !(y != 0).  */
+  if ((code == EQ_EXPR || code == NE_EXPR)
+      && integer_zerop (rhs))
     return;
 
   warning_at (location, OPT_Wlogical_not_parentheses,
@@ -5217,7 +5253,11 @@ enum c_builtin_type
 #define DEF_FUNCTION_TYPE_VAR_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
 #define DEF_FUNCTION_TYPE_VAR_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
 #define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
-  NAME,
+				NAME,
+#define DEF_FUNCTION_TYPE_VAR_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6, ARG7) NAME,
+#define DEF_FUNCTION_TYPE_VAR_11(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11) NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "builtin-types.def"
 #undef DEF_PRIMITIVE_TYPE
@@ -5236,6 +5276,8 @@ enum c_builtin_type
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
+#undef DEF_FUNCTION_TYPE_VAR_7
+#undef DEF_FUNCTION_TYPE_VAR_11
 #undef DEF_POINTER_TYPE
   BT_LAST
 };
@@ -5328,6 +5370,13 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
   def_fn_type (ENUM, RETURN, 1, 4, ARG1, ARG2, ARG3, ARG4);
 #define DEF_FUNCTION_TYPE_VAR_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
   def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5);
+#define DEF_FUNCTION_TYPE_VAR_7(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6, ARG7)				\
+  def_fn_type (ENUM, RETURN, 1, 7, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7);
+#define DEF_FUNCTION_TYPE_VAR_11(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11) \
+  def_fn_type (ENUM, RETURN, 1, 11, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,      \
+	       ARG7, ARG8, ARG9, ARG10, ARG11);
 #define DEF_POINTER_TYPE(ENUM, TYPE) \
   builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
 
@@ -5349,6 +5398,8 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
+#undef DEF_FUNCTION_TYPE_VAR_7
+#undef DEF_FUNCTION_TYPE_VAR_11
 #undef DEF_POINTER_TYPE
   builtin_types[(int) BT_LAST] = NULL_TREE;
 
@@ -5418,11 +5469,10 @@ c_common_nodes_and_builtins (void)
       char name[25];
 
       sprintf (name, "__int%d", int_n_data[i].bitsize);
-      record_builtin_type ((enum rid)(RID_FIRST_INT_N + i), xstrdup (name),
+      record_builtin_type ((enum rid)(RID_FIRST_INT_N + i), name,
 			   int_n_trees[i].signed_type);
       sprintf (name, "__int%d unsigned", int_n_data[i].bitsize);
-      record_builtin_type (RID_MAX, xstrdup (name),
-			   int_n_trees[i].unsigned_type);
+      record_builtin_type (RID_MAX, name, int_n_trees[i].unsigned_type);
     }
 
   if (c_dialect_cxx ())
@@ -6756,6 +6806,25 @@ handle_no_sanitize_undefined_attribute (tree *node, tree name, tree, int,
   return NULL_TREE;
 }
 
+/* Handle a "stack_protect" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+handle_stack_protect_attribute (tree *node, tree name, tree, int,
+				bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+  else
+    DECL_ATTRIBUTES (*node) 
+      = tree_cons (get_identifier ("stack_protect"),
+		   NULL_TREE, DECL_ATTRIBUTES (*node));
+
+  return NULL_TREE;
+}
+
 /* Handle a "noinline" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -6791,6 +6860,23 @@ static tree
 handle_noclone_attribute (tree *node, tree name,
 			  tree ARG_UNUSED (args),
 			  int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "no_icf" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_noicf_attribute (tree *node, tree name,
+			tree ARG_UNUSED (args),
+			int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
@@ -7811,7 +7897,12 @@ handle_weak_attribute (tree *node, tree name,
     }
   else if (TREE_CODE (*node) == FUNCTION_DECL
 	   || TREE_CODE (*node) == VAR_DECL)
-    declare_weak (*node);
+    {
+      struct symtab_node *n = symtab_node::get (*node);
+      if (n && n->refuse_visibility_changes)
+	error ("%+D declared weak after being used", *node);
+      declare_weak (*node);
+    }
   else
     warning (OPT_Wattributes, "%qE attribute ignored", name);
 
@@ -11263,11 +11354,12 @@ check_missing_format_attribute (tree ltype, tree rtype)
    warning only for non-constant value of type char.  */
 
 void
-warn_array_subscript_with_type_char (tree index)
+warn_array_subscript_with_type_char (location_t loc, tree index)
 {
   if (TYPE_MAIN_VARIANT (TREE_TYPE (index)) == char_type_node
       && TREE_CODE (index) != INTEGER_CST)
-    warning (OPT_Wchar_subscripts, "array subscript has type %<char%>");
+    warning_at (loc, OPT_Wchar_subscripts,
+		"array subscript has type %<char%>");
 }
 
 /* Implement -Wparentheses for the unexpected C precedence rules, to
@@ -12061,22 +12153,47 @@ build_userdef_literal (tree suffix_id, tree value,
 }
 
 /* For vector[index], convert the vector to a
-   pointer of the underlying type.  */
-void
+   pointer of the underlying type.  Return true if the resulting
+   ARRAY_REF should not be an lvalue.  */
+
+bool
 convert_vector_to_pointer_for_subscript (location_t loc,
-					 tree* vecp, tree index)
+					 tree *vecp, tree index)
 {
+  bool ret = false;
   if (TREE_CODE (TREE_TYPE (*vecp)) == VECTOR_TYPE)
     {
       tree type = TREE_TYPE (*vecp);
       tree type1;
 
+      ret = !lvalue_p (*vecp);
       if (TREE_CODE (index) == INTEGER_CST)
         if (!tree_fits_uhwi_p (index)
             || tree_to_uhwi (index) >= TYPE_VECTOR_SUBPARTS (type))
           warning_at (loc, OPT_Warray_bounds, "index value is out of bound");
 
-      c_common_mark_addressable_vec (*vecp);
+      if (ret)
+	{
+	  tree tmp = create_tmp_var_raw (type);
+	  DECL_SOURCE_LOCATION (tmp) = loc;
+	  *vecp = c_save_expr (*vecp);
+	  if (TREE_CODE (*vecp) == C_MAYBE_CONST_EXPR)
+	    {
+	      bool non_const = C_MAYBE_CONST_EXPR_NON_CONST (*vecp);
+	      *vecp = C_MAYBE_CONST_EXPR_EXPR (*vecp);
+	      *vecp
+		= c_wrap_maybe_const (build4 (TARGET_EXPR, type, tmp,
+					      *vecp, NULL_TREE, NULL_TREE),
+				      non_const);
+	    }
+	  else
+	    *vecp = build4 (TARGET_EXPR, type, tmp, *vecp,
+			    NULL_TREE, NULL_TREE);
+	  SET_EXPR_LOCATION (*vecp, loc);
+	  c_common_mark_addressable_vec (tmp);
+	}
+      else
+	c_common_mark_addressable_vec (*vecp);
       type = build_qualified_type (TREE_TYPE (type), TYPE_QUALS (type));
       type1 = build_pointer_type (TREE_TYPE (*vecp));
       bool ref_all = TYPE_REF_CAN_ALIAS_ALL (type1);
@@ -12096,6 +12213,7 @@ convert_vector_to_pointer_for_subscript (location_t loc,
       *vecp = build1 (ADDR_EXPR, type1, *vecp);
       *vecp = convert (type, *vecp);
     }
+  return ret;
 }
 
 /* Determine which of the operands, if any, is a scalar that needs to be

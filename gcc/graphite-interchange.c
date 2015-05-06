@@ -1,7 +1,7 @@
 /* Interchange heuristics and transform for loop interchange on
    polyhedral representation.
 
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@amd.com> and
    Harsha Jagasia <harsha.jagasia@amd.com>.
 
@@ -30,23 +30,32 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/union_map.h>
 #include <isl/ilp.h>
 #include <isl/val.h>
-#if defined(__cplusplus)
+
+/* Since ISL-0.13, the extern is in val_gmp.h.  */
+#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
 extern "C" {
 #endif
 #include <isl/val_gmp.h>
-#if defined(__cplusplus)
+#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
 }
 #endif
 #endif
 
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"

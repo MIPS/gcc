@@ -1,5 +1,5 @@
 /* UndefinedBehaviorSanitizer, undefined behavior detector.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by Marek Polacek <polacek@redhat.com>
 
 This file is part of GCC.
@@ -21,7 +21,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "predict.h"
@@ -32,13 +43,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -58,6 +64,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "ubsan.h"
 #include "c-family/c-common.h"
 #include "rtl.h"
+#include "hashtab.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-ssanames.h"
 #include "asan.h"
@@ -67,27 +86,44 @@ along with GCC; see the file COPYING3.  If not see
 #include "dfp.h"
 #include "builtins.h"
 #include "tree-object-size.h"
+#include "tree-eh.h"
 
 /* Map from a tree to a VAR_DECL tree.  */
 
-struct GTY(()) tree_type_map {
+struct GTY((for_user)) tree_type_map {
   struct tree_map_base type;
   tree decl;
 };
 
-#define tree_type_map_eq tree_map_base_eq
-#define tree_type_map_marked_p tree_map_base_marked_p
-
-/* Hash from a tree in a tree_type_map.  */
-
-unsigned int
-tree_type_map_hash (const void *item)
+struct tree_type_map_cache_hasher : ggc_cache_hasher<tree_type_map *>
 {
-  return TYPE_UID (((const struct tree_type_map *)item)->type.from);
-}
+  static inline hashval_t
+  hash (tree_type_map *t)
+  {
+    return TYPE_UID (t->type.from);
+  }
 
-static GTY ((if_marked ("tree_type_map_marked_p"), param_is (struct tree_type_map)))
-     htab_t decl_tree_for_type;
+  static inline bool
+  equal (tree_type_map *a, tree_type_map *b)
+  {
+    return a->type.from == b->type.from;
+  }
+
+  static void
+  handle_cache_entry (tree_type_map *&m)
+  {
+    extern void gt_ggc_mx (tree_type_map *&);
+    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
+      return;
+    else if (ggc_marked_p (m->type.from))
+      gt_ggc_mx (m);
+    else
+      m = static_cast<tree_type_map *> (HTAB_DELETED_ENTRY);
+  }
+};
+
+static GTY ((cache))
+     hash_table<tree_type_map_cache_hasher> *decl_tree_for_type;
 
 /* Lookup a VAR_DECL for TYPE, and return it if we find one.  */
 
@@ -97,8 +133,8 @@ decl_for_type_lookup (tree type)
   /* If the hash table is not initialized yet, create it now.  */
   if (decl_tree_for_type == NULL)
     {
-      decl_tree_for_type = htab_create_ggc (10, tree_type_map_hash,
-					    tree_type_map_eq, 0);
+      decl_tree_for_type
+	= hash_table<tree_type_map_cache_hasher>::create_ggc (10);
       /* That also means we don't have to bother with the lookup.  */
       return NULL_TREE;
     }
@@ -106,8 +142,7 @@ decl_for_type_lookup (tree type)
   struct tree_type_map *h, in;
   in.type.from = type;
 
-  h = (struct tree_type_map *)
-      htab_find_with_hash (decl_tree_for_type, &in, TYPE_UID (type));
+  h = decl_tree_for_type->find_with_hash (&in, TYPE_UID (type));
   return h ? h->decl : NULL_TREE;
 }
 
@@ -117,14 +152,11 @@ static void
 decl_for_type_insert (tree type, tree decl)
 {
   struct tree_type_map *h;
-  void **slot;
 
   h = ggc_alloc<tree_type_map> ();
   h->type.from = type;
   h->decl = decl;
-  slot = htab_find_slot_with_hash (decl_tree_for_type, h, TYPE_UID (type),
-                                  INSERT);
-  *(struct tree_type_map **) slot = h;
+  *decl_tree_for_type->find_slot_with_hash (h, TYPE_UID (type), INSERT) = h;
 }
 
 /* Helper routine, which encodes a value in the pointer_sized_int_node.
@@ -159,7 +191,7 @@ ubsan_encode_value (tree t, bool in_expand_p)
 	{
 	  /* The reason for this is that we don't want to pessimize
 	     code by making vars unnecessarily addressable.  */
-	  tree var = create_tmp_var (type, NULL);
+	  tree var = create_tmp_var (type);
 	  tree tem = build2 (MODIFY_EXPR, void_type_node, var, t);
 	  if (in_expand_p)
 	    {
@@ -179,6 +211,9 @@ ubsan_encode_value (tree t, bool in_expand_p)
     }
 }
 
+/* Cached ubsan_get_type_descriptor_type () return value.  */
+static GTY(()) tree ubsan_type_descriptor_type;
+
 /* Build
    struct __ubsan_type_descriptor
    {
@@ -189,11 +224,15 @@ ubsan_encode_value (tree t, bool in_expand_p)
    type.  */
 
 static tree
-ubsan_type_descriptor_type (void)
+ubsan_get_type_descriptor_type (void)
 {
   static const char *field_names[3]
     = { "__typekind", "__typeinfo", "__typename" };
   tree fields[3], ret;
+
+  if (ubsan_type_descriptor_type)
+    return ubsan_type_descriptor_type;
+
   tree itype = build_range_type (sizetype, size_zero_node, NULL_TREE);
   tree flex_arr_type = build_array_type (char_type_node, itype);
 
@@ -208,9 +247,16 @@ ubsan_type_descriptor_type (void)
       if (i)
 	DECL_CHAIN (fields[i - 1]) = fields[i];
     }
+  tree type_decl = build_decl (input_location, TYPE_DECL,
+			       get_identifier ("__ubsan_type_descriptor"),
+			       ret);
+  DECL_IGNORED_P (type_decl) = 1;
+  DECL_ARTIFICIAL (type_decl) = 1;
   TYPE_FIELDS (ret) = fields[0];
-  TYPE_NAME (ret) = get_identifier ("__ubsan_type_descriptor");
+  TYPE_NAME (ret) = type_decl;
+  TYPE_STUB_DECL (ret) = type_decl;
   layout_type (ret);
+  ubsan_type_descriptor_type = ret;
   return ret;
 }
 
@@ -249,8 +295,14 @@ ubsan_get_source_location_type (void)
       if (i)
 	DECL_CHAIN (fields[i - 1]) = fields[i];
     }
+  tree type_decl = build_decl (input_location, TYPE_DECL,
+			       get_identifier ("__ubsan_source_location"),
+			       ret);
+  DECL_IGNORED_P (type_decl) = 1;
+  DECL_ARTIFICIAL (type_decl) = 1;
   TYPE_FIELDS (ret) = fields[0];
-  TYPE_NAME (ret) = get_identifier ("__ubsan_source_location");
+  TYPE_NAME (ret) = type_decl;
+  TYPE_STUB_DECL (ret) = type_decl;
   layout_type (ret);
   ubsan_source_location_type = ret;
   return ret;
@@ -276,10 +328,9 @@ ubsan_source_location (location_t loc)
   else
     {
       /* Fill in the values from LOC.  */
-      size_t len = strlen (xloc.file);
-      str = build_string (len + 1, xloc.file);
-      TREE_TYPE (str) = build_array_type (char_type_node,
-					  build_index_type (size_int (len)));
+      size_t len = strlen (xloc.file) + 1;
+      str = build_string (len, xloc.file);
+      TREE_TYPE (str) = build_array_type_nelts (char_type_node, len);
       TREE_READONLY (str) = 1;
       TREE_STATIC (str) = 1;
       str = build_fold_addr_expr (str);
@@ -333,10 +384,10 @@ ubsan_type_descriptor (tree type, enum ubsan_print_style pstyle)
   if (decl != NULL_TREE && varpool_node::get (decl))
     return build_fold_addr_expr (decl);
 
-  tree dtype = ubsan_type_descriptor_type ();
+  tree dtype = ubsan_get_type_descriptor_type ();
   tree type2 = type;
   const char *tname = NULL;
-  char *pretty_name;
+  pretty_printer pretty_name;
   unsigned char deref_depth = 0;
   unsigned short tkind, tinfo;
 
@@ -375,54 +426,58 @@ ubsan_type_descriptor (tree type, enum ubsan_print_style pstyle)
     /* We weren't able to determine the type name.  */
     tname = "<unknown>";
 
-  /* Decorate the type name with '', '*', "struct", or "union".  */
-  pretty_name = (char *) alloca (strlen (tname) + 16 + deref_depth);
   if (pstyle == UBSAN_PRINT_POINTER)
     {
-      int pos = sprintf (pretty_name, "'%s%s%s%s%s%s%s",
-			 TYPE_VOLATILE (type2) ? "volatile " : "",
-			 TYPE_READONLY (type2) ? "const " : "",
-			 TYPE_RESTRICT (type2) ? "restrict " : "",
-			 TYPE_ATOMIC (type2) ? "_Atomic " : "",
-			 TREE_CODE (type2) == RECORD_TYPE
-			 ? "struct "
-			 : TREE_CODE (type2) == UNION_TYPE
-			   ? "union " : "", tname,
-			 deref_depth == 0 ? "" : " ");
+      pp_printf (&pretty_name, "'%s%s%s%s%s%s%s",
+		 TYPE_VOLATILE (type2) ? "volatile " : "",
+		 TYPE_READONLY (type2) ? "const " : "",
+		 TYPE_RESTRICT (type2) ? "restrict " : "",
+		 TYPE_ATOMIC (type2) ? "_Atomic " : "",
+		 TREE_CODE (type2) == RECORD_TYPE
+		 ? "struct "
+		 : TREE_CODE (type2) == UNION_TYPE
+		   ? "union " : "", tname,
+		 deref_depth == 0 ? "" : " ");
       while (deref_depth-- > 0)
-        pretty_name[pos++] = '*';
-      pretty_name[pos++] = '\'';
-      pretty_name[pos] = '\0';
+	pp_star (&pretty_name);
+      pp_quote (&pretty_name);
     }
   else if (pstyle == UBSAN_PRINT_ARRAY)
     {
       /* Pretty print the array dimensions.  */
       gcc_assert (TREE_CODE (type) == ARRAY_TYPE);
       tree t = type;
-      int pos = sprintf (pretty_name, "'%s ", tname);
+      pp_printf (&pretty_name, "'%s ", tname);
       while (deref_depth-- > 0)
-        pretty_name[pos++] = '*';
+	pp_star (&pretty_name);
       while (TREE_CODE (t) == ARRAY_TYPE)
 	{
-	  pretty_name[pos++] = '[';
+	  pp_left_bracket (&pretty_name);
 	  tree dom = TYPE_DOMAIN (t);
 	  if (dom && TREE_CODE (TYPE_MAX_VALUE (dom)) == INTEGER_CST)
-	    pos += sprintf (&pretty_name[pos], HOST_WIDE_INT_PRINT_DEC,
+	    {
+	      if (tree_fits_uhwi_p (TYPE_MAX_VALUE (dom))
+		  && tree_to_uhwi (TYPE_MAX_VALUE (dom)) + 1 != 0)
+		pp_printf (&pretty_name, HOST_WIDE_INT_PRINT_DEC,
 			    tree_to_uhwi (TYPE_MAX_VALUE (dom)) + 1);
+	      else
+		pp_wide_int (&pretty_name,
+			     wi::add (wi::to_widest (TYPE_MAX_VALUE (dom)), 1),
+			     TYPE_SIGN (TREE_TYPE (dom)));
+	    }
 	  else
 	    /* ??? We can't determine the variable name; print VLA unspec.  */
-	    pretty_name[pos++] = '*';
-	  pretty_name[pos++] = ']';
+	    pp_star (&pretty_name);
+	  pp_right_bracket (&pretty_name);
 	  t = TREE_TYPE (t);
 	}
-      pretty_name[pos++] = '\'';
-      pretty_name[pos] = '\0';
+      pp_quote (&pretty_name);
 
-     /* Save the tree with stripped types.  */
-     type = t;
+      /* Save the tree with stripped types.  */
+      type = t;
     }
   else
-    sprintf (pretty_name, "'%s'", tname);
+    pp_printf (&pretty_name, "'%s'", tname);
 
   switch (TREE_CODE (type))
     {
@@ -448,6 +503,13 @@ ubsan_type_descriptor (tree type, enum ubsan_print_style pstyle)
   tinfo = get_ubsan_type_info_for_type (type);
 
   /* Create a new VAR_DECL of type descriptor.  */
+  const char *tmp = pp_formatted_text (&pretty_name);
+  size_t len = strlen (tmp) + 1;
+  tree str = build_string (len, tmp);
+  TREE_TYPE (str) = build_array_type_nelts (char_type_node, len);
+  TREE_READONLY (str) = 1;
+  TREE_STATIC (str) = 1;
+
   char tmp_name[32];
   static unsigned int type_var_id_num;
   ASM_GENERATE_INTERNAL_LABEL (tmp_name, "Lubsan_type", type_var_id_num++);
@@ -458,13 +520,12 @@ ubsan_type_descriptor (tree type, enum ubsan_print_style pstyle)
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
   DECL_EXTERNAL (decl) = 0;
+  DECL_SIZE (decl)
+    = size_binop (PLUS_EXPR, DECL_SIZE (decl), TYPE_SIZE (TREE_TYPE (str)));
+  DECL_SIZE_UNIT (decl)
+    = size_binop (PLUS_EXPR, DECL_SIZE_UNIT (decl),
+		  TYPE_SIZE_UNIT (TREE_TYPE (str)));
 
-  size_t len = strlen (pretty_name);
-  tree str = build_string (len + 1, pretty_name);
-  TREE_TYPE (str) = build_array_type (char_type_node,
-				      build_index_type (size_int (len)));
-  TREE_READONLY (str) = 1;
-  TREE_STATIC (str) = 1;
   tree ctor = build_constructor_va (dtype, 3, NULL_TREE,
 				    build_int_cst (short_unsigned_type_node,
 						   tkind), NULL_TREE,
@@ -498,8 +559,7 @@ ubsan_create_data (const char *name, int loccnt, const location_t *ploc, ...)
   int j;
 
   /* Firstly, create a pointer to type descriptor type.  */
-  tree td_type = ubsan_type_descriptor_type ();
-  TYPE_READONLY (td_type) = 1;
+  tree td_type = ubsan_get_type_descriptor_type ();
   td_type = build_pointer_type (td_type);
 
   /* Create the structure type.  */
@@ -543,8 +603,13 @@ ubsan_create_data (const char *name, int loccnt, const location_t *ploc, ...)
     }
   va_end (args);
 
+  tree type_decl = build_decl (input_location, TYPE_DECL,
+			       get_identifier (name), ret);
+  DECL_IGNORED_P (type_decl) = 1;
+  DECL_ARTIFICIAL (type_decl) = 1;
   TYPE_FIELDS (ret) = fields[0];
-  TYPE_NAME (ret) = get_identifier (name);
+  TYPE_NAME (ret) = type_decl;
+  TYPE_STUB_DECL (ret) = type_decl;
   layout_type (ret);
 
   /* Now, fill in the type.  */
@@ -616,8 +681,24 @@ bool
 is_ubsan_builtin_p (tree t)
 {
   return TREE_CODE (t) == FUNCTION_DECL
+	 && DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL
 	 && strncmp (IDENTIFIER_POINTER (DECL_NAME (t)),
 		     "__builtin___ubsan_", 18) == 0;
+}
+
+/* Create a callgraph edge for statement STMT.  */
+
+static void
+ubsan_create_edge (gimple stmt)
+{
+  gcall *call_stmt = dyn_cast <gcall *> (stmt);
+  basic_block bb = gimple_bb (stmt);
+  int freq = compute_call_stmt_bb_frequency (current_function_decl, bb);
+  cgraph_node *node = cgraph_node::get (current_function_decl);
+  tree decl = gimple_call_fndecl (call_stmt);
+  if (decl)
+    node->create_edge (cgraph_node::get_create (decl), call_stmt, bb->count,
+		       freq);
 }
 
 /* Expand the UBSAN_BOUNDS special builtin function.  */
@@ -710,9 +791,8 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
       unsigned int ptralign = get_pointer_alignment (ptr) / BITS_PER_UNIT;
       if (compare_tree_int (align, ptralign) == 1)
 	{
-	  check_align = make_ssa_name (pointer_sized_int_node, NULL);
-	  g = gimple_build_assign_with_ops (NOP_EXPR, check_align,
-					    ptr, NULL_TREE);
+	  check_align = make_ssa_name (pointer_sized_int_node);
+	  g = gimple_build_assign (check_align, NOP_EXPR, ptr);
 	  gimple_set_location (g, loc);
 	  gsi_insert_before (&gsi, g, GSI_SAME_STMT);
 	}
@@ -799,6 +879,7 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
 
       /* Replace the UBSAN_NULL with a GIMPLE_COND stmt.  */
       gsi_replace (&gsi, g, false);
+      stmt = g;
     }
 
   if (check_align)
@@ -834,10 +915,8 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
 
       tree mask = build_int_cst (pointer_sized_int_node,
 				 tree_to_uhwi (align) - 1);
-      g = gimple_build_assign_with_ops (BIT_AND_EXPR,
-					make_ssa_name (pointer_sized_int_node,
-						       NULL),
-					check_align, mask);
+      g = gimple_build_assign (make_ssa_name (pointer_sized_int_node),
+			       BIT_AND_EXPR, check_align, mask);
       gimple_set_location (g, loc);
       if (check_null)
 	gsi_insert_after (&gsi2, g, GSI_NEW_STMT);
@@ -856,6 +935,8 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
     }
   return false;
 }
+
+#define OBJSZ_MAX_OFFSET (1024 * 16)
 
 /* Expand UBSAN_OBJECT_SIZE internal call.  */
 
@@ -878,6 +959,10 @@ ubsan_expand_objsize_ifn (gimple_stmt_iterator *gsi)
       || integer_all_onesp (size))
     /* Yes, __builtin_object_size couldn't determine the
        object size.  */;
+  else if (TREE_CODE (offset) == INTEGER_CST
+	   && wi::ges_p (wi::to_widest (offset), -OBJSZ_MAX_OFFSET)
+	   && wi::les_p (wi::to_widest (offset), -1))
+    /* The offset is in range [-16K, -1].  */;
   else
     {
       /* if (offset > objsize) */
@@ -889,8 +974,42 @@ ubsan_expand_objsize_ifn (gimple_stmt_iterator *gsi)
       gimple_set_location (g, loc);
       gsi_insert_after (&cond_insert_point, g, GSI_NEW_STMT);
 
+      /* If the offset is small enough, we don't need the second
+	 run-time check.  */
+      if (TREE_CODE (offset) == INTEGER_CST
+	  && wi::ges_p (wi::to_widest (offset), 0)
+	  && wi::les_p (wi::to_widest (offset), OBJSZ_MAX_OFFSET))
+	*gsi = gsi_after_labels (then_bb);
+      else
+	{
+	  /* Don't issue run-time error if (ptr > ptr + offset).  That
+	     may happen when computing a POINTER_PLUS_EXPR.  */
+	  basic_block then2_bb, fallthru2_bb;
+
+	  gimple_stmt_iterator gsi2 = gsi_after_labels (then_bb);
+	  cond_insert_point = create_cond_insert_point (&gsi2, false, false,
+							true, &then2_bb,
+							&fallthru2_bb);
+	  /* Convert the pointer to an integer type.  */
+	  tree p = make_ssa_name (pointer_sized_int_node);
+	  g = gimple_build_assign (p, NOP_EXPR, ptr);
+	  gimple_set_location (g, loc);
+	  gsi_insert_before (&cond_insert_point, g, GSI_NEW_STMT);
+	  p = gimple_assign_lhs (g);
+	  /* Compute ptr + offset.  */
+	  g = gimple_build_assign (make_ssa_name (pointer_sized_int_node),
+				   PLUS_EXPR, p, offset);
+	  gimple_set_location (g, loc);
+	  gsi_insert_after (&cond_insert_point, g, GSI_NEW_STMT);
+	  /* Now build the conditional and put it into the IR.  */
+	  g = gimple_build_cond (LE_EXPR, p, gimple_assign_lhs (g),
+				 NULL_TREE, NULL_TREE);
+	  gimple_set_location (g, loc);
+	  gsi_insert_after (&cond_insert_point, g, GSI_NEW_STMT);
+	  *gsi = gsi_after_labels (then2_bb);
+	}
+
       /* Generate __ubsan_handle_type_mismatch call.  */
-      *gsi = gsi_after_labels (then_bb);
       if (flag_sanitize_undefined_trap_on_error)
 	g = gimple_build_call (builtin_decl_explicit (BUILT_IN_TRAP), 0);
       else
@@ -908,8 +1027,8 @@ ubsan_expand_objsize_ifn (gimple_stmt_iterator *gsi)
 	    = (flag_sanitize_recover & SANITIZE_OBJECT_SIZE)
 	      ? BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH
 	      : BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH_ABORT;
-	  tree p = make_ssa_name (pointer_sized_int_node, NULL);
-	  g = gimple_build_assign_with_ops (NOP_EXPR, p, ptr, NULL_TREE);
+	  tree p = make_ssa_name (pointer_sized_int_node);
+	  g = gimple_build_assign (p, NOP_EXPR, ptr);
 	  gimple_set_location (g, loc);
 	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 	  g = gimple_build_call (builtin_decl_explicit (bcode), 2, data, p);
@@ -919,12 +1038,178 @@ ubsan_expand_objsize_ifn (gimple_stmt_iterator *gsi)
 
       /* Point GSI to next logical statement.  */
       *gsi = gsi_start_bb (fallthru_bb);
+
+      /* Get rid of the UBSAN_OBJECT_SIZE call from the IR.  */
+      unlink_stmt_vdef (stmt);
+      gsi_remove (&gsi_orig, true);
+      return true;
     }
 
   /* Get rid of the UBSAN_OBJECT_SIZE call from the IR.  */
   unlink_stmt_vdef (stmt);
-  gsi_remove (&gsi_orig, true);
-  return gsi_end_p (*gsi);
+  gsi_remove (gsi, true);
+  return true;
+}
+
+/* Cached __ubsan_vptr_type_cache decl.  */
+static GTY(()) tree ubsan_vptr_type_cache_decl;
+
+/* Expand UBSAN_VPTR internal call.  The type is kept on the ckind
+   argument which is a constant, because the middle-end treats pointer
+   conversions as useless and therefore the type of the first argument
+   could be changed to any other pointer type.  */
+
+bool
+ubsan_expand_vptr_ifn (gimple_stmt_iterator *gsip)
+{
+  gimple_stmt_iterator gsi = *gsip;
+  gimple stmt = gsi_stmt (gsi);
+  location_t loc = gimple_location (stmt);
+  gcc_assert (gimple_call_num_args (stmt) == 5);
+  tree op = gimple_call_arg (stmt, 0);
+  tree vptr = gimple_call_arg (stmt, 1);
+  tree str_hash = gimple_call_arg (stmt, 2);
+  tree ti_decl_addr = gimple_call_arg (stmt, 3);
+  tree ckind_tree = gimple_call_arg (stmt, 4);
+  ubsan_null_ckind ckind = (ubsan_null_ckind) tree_to_uhwi (ckind_tree);
+  tree type = TREE_TYPE (TREE_TYPE (ckind_tree));
+  gimple g;
+  basic_block fallthru_bb = NULL;
+
+  if (ckind == UBSAN_DOWNCAST_POINTER)
+    {
+      /* Guard everything with if (op != NULL) { ... }.  */
+      basic_block then_bb;
+      gimple_stmt_iterator cond_insert_point
+	= create_cond_insert_point (gsip, false, false, true,
+				    &then_bb, &fallthru_bb);
+      g = gimple_build_cond (NE_EXPR, op, build_zero_cst (TREE_TYPE (op)),
+			     NULL_TREE, NULL_TREE);
+      gimple_set_location (g, loc);
+      gsi_insert_after (&cond_insert_point, g, GSI_NEW_STMT);
+      *gsip = gsi_after_labels (then_bb);
+      gsi_remove (&gsi, false);
+      gsi_insert_before (gsip, stmt, GSI_NEW_STMT);
+      gsi = *gsip;
+    }
+
+  tree htype = TREE_TYPE (str_hash);
+  tree cst = wide_int_to_tree (htype,
+			       wi::uhwi (((uint64_t) 0x9ddfea08 << 32)
+			       | 0xeb382d69, 64));
+  g = gimple_build_assign (make_ssa_name (htype), BIT_XOR_EXPR,
+			   vptr, str_hash);
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+  g = gimple_build_assign (make_ssa_name (htype), MULT_EXPR,
+			   gimple_assign_lhs (g), cst);
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+  tree t1 = gimple_assign_lhs (g);
+  g = gimple_build_assign (make_ssa_name (htype), LSHIFT_EXPR,
+			   t1, build_int_cst (integer_type_node, 47));
+  gimple_set_location (g, loc);
+  tree t2 = gimple_assign_lhs (g);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+  g = gimple_build_assign (make_ssa_name (htype), BIT_XOR_EXPR,
+			   vptr, t1);
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+  g = gimple_build_assign (make_ssa_name (htype), BIT_XOR_EXPR,
+			   t2, gimple_assign_lhs (g));
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+  g = gimple_build_assign (make_ssa_name (htype), MULT_EXPR,
+			   gimple_assign_lhs (g), cst);
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+  tree t3 = gimple_assign_lhs (g);
+  g = gimple_build_assign (make_ssa_name (htype), LSHIFT_EXPR,
+			   t3, build_int_cst (integer_type_node, 47));
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+  g = gimple_build_assign (make_ssa_name (htype), BIT_XOR_EXPR,
+			   t3, gimple_assign_lhs (g));
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+  g = gimple_build_assign (make_ssa_name (htype), MULT_EXPR,
+			   gimple_assign_lhs (g), cst);
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+  if (!useless_type_conversion_p (pointer_sized_int_node, htype))
+    {
+      g = gimple_build_assign (make_ssa_name (pointer_sized_int_node),
+			       NOP_EXPR, gimple_assign_lhs (g));
+      gimple_set_location (g, loc);
+      gsi_insert_before (gsip, g, GSI_SAME_STMT);
+    }
+  tree hash = gimple_assign_lhs (g);
+
+  if (ubsan_vptr_type_cache_decl == NULL_TREE)
+    {
+      tree atype = build_array_type_nelts (pointer_sized_int_node, 128);
+      tree array = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+			       get_identifier ("__ubsan_vptr_type_cache"),
+			       atype);
+      DECL_ARTIFICIAL (array) = 1;
+      DECL_IGNORED_P (array) = 1;
+      TREE_PUBLIC (array) = 1;
+      TREE_STATIC (array) = 1;
+      DECL_EXTERNAL (array) = 1;
+      DECL_VISIBILITY (array) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (array) = 1;
+      varpool_node::finalize_decl (array);
+      ubsan_vptr_type_cache_decl = array;
+   }
+
+  g = gimple_build_assign (make_ssa_name (pointer_sized_int_node),
+			   BIT_AND_EXPR, hash,
+			   build_int_cst (pointer_sized_int_node, 127));
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+
+  tree c = build4_loc (loc, ARRAY_REF, pointer_sized_int_node,
+		       ubsan_vptr_type_cache_decl, gimple_assign_lhs (g),
+		       NULL_TREE, NULL_TREE);
+  g = gimple_build_assign (make_ssa_name (pointer_sized_int_node),
+			   ARRAY_REF, c);
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+
+  basic_block then_bb, fallthru2_bb;
+  gimple_stmt_iterator cond_insert_point
+    = create_cond_insert_point (gsip, false, false, true,
+				&then_bb, &fallthru2_bb);
+  g = gimple_build_cond (NE_EXPR, gimple_assign_lhs (g), hash,
+			 NULL_TREE, NULL_TREE);
+  gimple_set_location (g, loc);
+  gsi_insert_after (&cond_insert_point, g, GSI_NEW_STMT);
+  *gsip = gsi_after_labels (then_bb);
+  if (fallthru_bb == NULL)
+    fallthru_bb = fallthru2_bb;
+
+  tree data
+    = ubsan_create_data ("__ubsan_vptr_data", 1, &loc,
+			 ubsan_type_descriptor (type), NULL_TREE, ti_decl_addr,
+			 build_int_cst (unsigned_char_type_node, ckind),
+			 NULL_TREE);
+  data = build_fold_addr_expr_loc (loc, data);
+  enum built_in_function bcode
+    = (flag_sanitize_recover & SANITIZE_VPTR)
+      ? BUILT_IN_UBSAN_HANDLE_DYNAMIC_TYPE_CACHE_MISS
+      : BUILT_IN_UBSAN_HANDLE_DYNAMIC_TYPE_CACHE_MISS_ABORT;
+
+  g = gimple_build_call (builtin_decl_explicit (bcode), 3, data, op, hash);
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsip, g, GSI_SAME_STMT);
+
+  /* Point GSI to next logical statement.  */
+  *gsip = gsi_start_bb (fallthru_bb);
+
+  /* Get rid of the UBSAN_VPTR call from the IR.  */
+  unlink_stmt_vdef (stmt);
+  gsi_remove (&gsi, true);
+  return true;
 }
 
 /* Instrument a memory reference.  BASE is the base of MEM, IS_LHS says
@@ -947,11 +1232,11 @@ instrument_mem_ref (tree mem, tree base, gimple_stmt_iterator *iter,
   tree t = TREE_OPERAND (base, 0);
   if (!POINTER_TYPE_P (TREE_TYPE (t)))
     return;
-  if (RECORD_OR_UNION_TYPE_P (TREE_TYPE (TREE_TYPE (t))) && mem != base)
+  if (RECORD_OR_UNION_TYPE_P (TREE_TYPE (base)) && mem != base)
     ikind = UBSAN_MEMBER_ACCESS;
-  tree kind = build_int_cst (TREE_TYPE (t), ikind);
+  tree kind = build_int_cst (build_pointer_type (TREE_TYPE (base)), ikind);
   tree alignt = build_int_cst (pointer_sized_int_node, align);
-  gimple g = gimple_build_call_internal (IFN_UBSAN_NULL, 3, t, kind, alignt);
+  gcall *g = gimple_build_call_internal (IFN_UBSAN_NULL, 3, t, kind, alignt);
   gimple_set_location (g, gimple_location (gsi_stmt (*iter)));
   gsi_insert_before (iter, g, GSI_SAME_STMT);
 }
@@ -1077,7 +1362,7 @@ instrument_si_overflow (gimple_stmt_iterator gsi)
       a = build_int_cst (lhstype, 0);
       b = gimple_assign_rhs1 (stmt);
       g = gimple_build_call_internal (IFN_UBSAN_CHECK_SUB, 2, a, b);
-      a = make_ssa_name (lhstype, NULL);
+      a = make_ssa_name (lhstype);
       gimple_call_set_lhs (g, a);
       gimple_set_location (g, gimple_location (stmt));
       gsi_insert_before (&gsi, g, GSI_SAME_STMT);
@@ -1135,26 +1420,41 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
       || TREE_CODE (gimple_assign_lhs (stmt)) != SSA_NAME)
     return;
 
+  bool can_throw = stmt_could_throw_p (stmt);
   location_t loc = gimple_location (stmt);
+  tree lhs = gimple_assign_lhs (stmt);
   tree ptype = build_pointer_type (TREE_TYPE (rhs));
   tree atype = reference_alias_ptr_type (rhs);
-  gimple g = gimple_build_assign (make_ssa_name (ptype, NULL),
+  gimple g = gimple_build_assign (make_ssa_name (ptype),
 				  build_fold_addr_expr (rhs));
   gimple_set_location (g, loc);
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
   tree mem = build2 (MEM_REF, utype, gimple_assign_lhs (g),
 		     build_int_cst (atype, 0));
-  tree urhs = make_ssa_name (utype, NULL);
-  g = gimple_build_assign (urhs, mem);
-  gimple_set_location (g, loc);
-  gsi_insert_before (gsi, g, GSI_SAME_STMT);
+  tree urhs = make_ssa_name (utype);
+  if (can_throw)
+    {
+      gimple_assign_set_lhs (stmt, urhs);
+      g = gimple_build_assign (lhs, NOP_EXPR, urhs);
+      gimple_set_location (g, loc);
+      edge e = find_fallthru_edge (gimple_bb (stmt)->succs);
+      gsi_insert_on_edge_immediate (e, g);
+      gimple_assign_set_rhs_from_tree (gsi, mem);
+      update_stmt (stmt);
+      *gsi = gsi_for_stmt (g);
+      g = stmt;
+    }
+  else
+    {
+      g = gimple_build_assign (urhs, mem);
+      gimple_set_location (g, loc);
+      gsi_insert_before (gsi, g, GSI_SAME_STMT);
+    }
   minv = fold_convert (utype, minv);
   maxv = fold_convert (utype, maxv);
   if (!integer_zerop (minv))
     {
-      g = gimple_build_assign_with_ops (MINUS_EXPR,
-					make_ssa_name (utype, NULL),
-					urhs, minv);
+      g = gimple_build_assign (make_ssa_name (utype), MINUS_EXPR, urhs, minv);
       gimple_set_location (g, loc);
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
     }
@@ -1169,8 +1469,11 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
   gimple_set_location (g, loc);
   gsi_insert_after (gsi, g, GSI_NEW_STMT);
 
-  gimple_assign_set_rhs_with_ops (&gsi2, NOP_EXPR, urhs, NULL_TREE);
-  update_stmt (stmt);
+  if (!can_throw)
+    {
+      gimple_assign_set_rhs_with_ops (&gsi2, NOP_EXPR, urhs);
+      update_stmt (stmt);
+    }
 
   gsi2 = gsi_after_labels (then_bb);
   if (flag_sanitize_undefined_trap_on_error)
@@ -1195,14 +1498,16 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
     }
   gimple_set_location (g, loc);
   gsi_insert_before (&gsi2, g, GSI_SAME_STMT);
+  ubsan_create_edge (g);
   *gsi = gsi_for_stmt (stmt);
 }
 
 /* Instrument float point-to-integer conversion.  TYPE is an integer type of
-   destination, EXPR is floating-point expression.  */
+   destination, EXPR is floating-point expression.  ARG is what to pass
+   the libubsan call as value, often EXPR itself.  */
 
 tree
-ubsan_instrument_float_cast (location_t loc, tree type, tree expr)
+ubsan_instrument_float_cast (location_t loc, tree type, tree expr, tree arg)
 {
   tree expr_type = TREE_TYPE (expr);
   tree t, tt, fn, min, max;
@@ -1295,6 +1600,12 @@ ubsan_instrument_float_cast (location_t loc, tree type, tree expr)
   else
     return NULL_TREE;
 
+  t = fold_build2 (UNLE_EXPR, boolean_type_node, expr, min);
+  tt = fold_build2 (UNGE_EXPR, boolean_type_node, expr, max);
+  t = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, t, tt);
+  if (integer_zerop (t))
+    return NULL_TREE;
+
   if (flag_sanitize_undefined_trap_on_error)
     fn = build_call_expr_loc (loc, builtin_decl_explicit (BUILT_IN_TRAP), 0);
   else
@@ -1311,14 +1622,10 @@ ubsan_instrument_float_cast (location_t loc, tree type, tree expr)
       fn = builtin_decl_explicit (bcode);
       fn = build_call_expr_loc (loc, fn, 2,
 				build_fold_addr_expr_loc (loc, data),
-				ubsan_encode_value (expr, false));
+				ubsan_encode_value (arg, false));
     }
 
-  t = fold_build2 (UNLE_EXPR, boolean_type_node, expr, min);
-  tt = fold_build2 (UNGE_EXPR, boolean_type_node, expr, max);
-  return fold_build3 (COND_EXPR, void_type_node,
-		      fold_build2 (TRUTH_OR_EXPR, boolean_type_node, t, tt),
-		      fn, integer_zero_node);
+  return fold_build3 (COND_EXPR, void_type_node, t, fn, integer_zero_node);
 }
 
 /* Instrument values passed to function arguments with nonnull attribute.  */
@@ -1343,8 +1650,7 @@ instrument_nonnull_arg (gimple_stmt_iterator *gsi)
 	  gimple g;
 	  if (!is_gimple_val (arg))
 	    {
-	      g = gimple_build_assign (make_ssa_name (TREE_TYPE (arg), NULL),
-				       arg);
+	      g = gimple_build_assign (make_ssa_name (TREE_TYPE (arg)), arg);
 	      gimple_set_location (g, loc[0]);
 	      gsi_insert_before (gsi, g, GSI_SAME_STMT);
 	      arg = gimple_assign_lhs (g);
@@ -1380,6 +1686,7 @@ instrument_nonnull_arg (gimple_stmt_iterator *gsi)
 	    }
 	  gimple_set_location (g, loc[0]);
 	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
+	  ubsan_create_edge (g);
 	}
       *gsi = gsi_for_stmt (stmt);
     }
@@ -1391,7 +1698,7 @@ instrument_nonnull_arg (gimple_stmt_iterator *gsi)
 static void
 instrument_nonnull_return (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  greturn *stmt = as_a <greturn *> (gsi_stmt (*gsi));
   location_t loc[2];
   tree arg = gimple_return_retval (stmt);
   /* infer_nonnull_range needs flag_delete_null_pointer_checks set,
@@ -1432,6 +1739,7 @@ instrument_nonnull_return (gimple_stmt_iterator *gsi)
 	}
       gimple_set_location (g, loc[0]);
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
+      ubsan_create_edge (g);
       *gsi = gsi_for_stmt (stmt);
     }
   flag_delete_null_pointer_checks = save_flag_delete_null_pointer_checks;
@@ -1494,7 +1802,13 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
     return;
 
   bool decl_p = DECL_P (inner);
-  tree base = decl_p ? inner : TREE_OPERAND (inner, 0);
+  tree base;
+  if (decl_p)
+    base = inner;
+  else if (TREE_CODE (inner) == MEM_REF)
+    base = TREE_OPERAND (inner, 0);
+  else
+    return;
   tree ptr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (t)), t);
 
   while (TREE_CODE (base) == SSA_NAME)
@@ -1505,7 +1819,14 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 	      && POINTER_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (def_stmt))))
 	  || (is_gimple_assign (def_stmt)
 	      && gimple_assign_rhs_code (def_stmt) == POINTER_PLUS_EXPR))
-	base = gimple_assign_rhs1 (def_stmt);
+	{
+	  tree rhs1 = gimple_assign_rhs1 (def_stmt);
+	  if (TREE_CODE (rhs1) == SSA_NAME
+	    && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs1))
+	    break;
+	  else
+	    base = rhs1;
+	}
       else
 	break;
     }
@@ -1515,6 +1836,7 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 
   tree sizet;
   tree base_addr = base;
+  gimple bos_stmt = NULL;
   if (decl_p)
     base_addr = build1 (ADDR_EXPR,
 			build_pointer_type (TREE_TYPE (base)), base);
@@ -1531,6 +1853,17 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 				   integer_zero_node);
       sizet = force_gimple_operand_gsi (gsi, sizet, false, NULL_TREE, true,
 					GSI_SAME_STMT);
+      /* If the call above didn't end up being an integer constant, go one
+	 statement back and get the __builtin_object_size stmt.  Save it,
+	 we might need it later.  */
+      if (SSA_VAR_P (sizet))
+	{
+	  gsi_prev (gsi);
+	  bos_stmt = gsi_stmt (*gsi);
+
+	  /* Move on to where we were.  */
+	  gsi_next (gsi);
+	}
     }
   else
     return;
@@ -1567,7 +1900,10 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 	}
     }
 
-  /* Nope.  Emit the check.  */
+  if (bos_stmt && gimple_call_builtin_p (bos_stmt, BUILT_IN_OBJECT_SIZE))
+    ubsan_create_edge (bos_stmt);
+
+  /* We have to emit the check.  */
   t = force_gimple_operand_gsi (gsi, t, true, NULL_TREE, true,
 				GSI_SAME_STMT);
   ptr = force_gimple_operand_gsi (gsi, ptr, true, NULL_TREE, true,
@@ -1578,6 +1914,16 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 					 ptr, t, sizet, ckind);
   gimple_set_location (g, loc);
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
+}
+
+/* True if we want to play UBSan games in the current function.  */
+
+bool
+do_ubsan_in_current_function ()
+{
+  return (current_function_decl != NULL_TREE
+	  && !lookup_attribute ("no_sanitize_undefined",
+				DECL_ATTRIBUTES (current_function_decl)));
 }
 
 namespace {
@@ -1611,9 +1957,7 @@ public:
 			      | SANITIZE_NONNULL_ATTRIBUTE
 			      | SANITIZE_RETURNS_NONNULL_ATTRIBUTE
 			      | SANITIZE_OBJECT_SIZE)
-	     && current_function_decl != NULL_TREE
-	     && !lookup_attribute ("no_sanitize_undefined",
-				   DECL_ATTRIBUTES (current_function_decl));
+	&& do_ubsan_in_current_function ();
     }
 
   virtual unsigned int execute (function *);

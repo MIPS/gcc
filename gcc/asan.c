@@ -1,5 +1,5 @@
 /* AddressSanitizer, a fast memory error detector.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Kostya Serebryany <kcc@google.com>
 
 This file is part of GCC.
@@ -22,16 +22,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
-#include "hash-table.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "hash-table.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -41,7 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "gimple-expr.h"
 #include "is-a.h"
-#include "inchash.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -59,6 +64,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "asan.h"
 #include "gimple-pretty-print.h"
 #include "target.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -493,7 +510,7 @@ has_mem_ref_been_instrumented (const asan_mem_ref *ref, tree len)
    otherwise.  */
 
 static bool
-get_mem_ref_of_assignment (const gimple assignment,
+get_mem_ref_of_assignment (const gassign *assignment,
 			   asan_mem_ref *ref,
 			   bool *ref_is_store)
 {
@@ -521,7 +538,7 @@ get_mem_ref_of_assignment (const gimple assignment,
    representing a builtin call that has to do with memory access.  */
 
 static bool
-get_mem_refs_of_builtin_call (const gimple call,
+get_mem_refs_of_builtin_call (const gcall *call,
 			      asan_mem_ref *src0,
 			      tree *src0_len,
 			      bool *src0_is_store,
@@ -864,7 +881,8 @@ has_stmt_been_instrumented_p (gimple stmt)
       asan_mem_ref r;
       asan_mem_ref_init (&r, NULL, 1);
 
-      if (get_mem_ref_of_assignment (stmt, &r, &r_is_store))
+      if (get_mem_ref_of_assignment (as_a <gassign *> (stmt), &r,
+				     &r_is_store))
 	return has_mem_ref_been_instrumented (&r);
     }
   else if (gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
@@ -877,7 +895,7 @@ has_stmt_been_instrumented_p (gimple stmt)
       tree src0_len = NULL_TREE, src1_len = NULL_TREE, dest_len = NULL_TREE;
       bool src0_is_store = false, src1_is_store = false,
 	dest_is_store = false, dest_is_deref = false, intercepted_p = true;
-      if (get_mem_refs_of_builtin_call (stmt,
+      if (get_mem_refs_of_builtin_call (as_a <gcall *> (stmt),
 					&src0, &src0_len, &src0_is_store,
 					&src1, &src1_len, &src1_is_store,
 					&dest, &dest_len, &dest_is_store,
@@ -1347,7 +1365,9 @@ asan_protect_global (tree decl)
 	 the var that is selected by the linker will have
 	 padding or not.  */
       || DECL_ONE_ONLY (decl)
-      /* Similarly for common vars.  People can use -fno-common.  */
+      /* Similarly for common vars.  People can use -fno-common.
+	 Note: Linux kernel is built with -fno-common, so we do instrument
+	 globals there even if it is C.  */
       || (DECL_COMMON (decl) && TREE_PUBLIC (decl))
       /* Don't protect if using user section, often vars placed
 	 into user section from multiple TUs are then assumed
@@ -1556,7 +1576,7 @@ create_cond_insert_point (gimple_stmt_iterator *iter,
    pointing to initially.  */
 
 static void
-insert_if_then_before_iter (gimple cond,
+insert_if_then_before_iter (gcond *cond,
 			    gimple_stmt_iterator *iter,
 			    bool then_more_likely_p,
 			    basic_block *then_bb,
@@ -1584,30 +1604,25 @@ build_shadow_mem_access (gimple_stmt_iterator *gsi, location_t location,
   gimple g;
 
   t = build_int_cst (uintptr_type, ASAN_SHADOW_SHIFT);
-  g = gimple_build_assign_with_ops (RSHIFT_EXPR,
-				    make_ssa_name (uintptr_type, NULL),
-				    base_addr, t);
+  g = gimple_build_assign (make_ssa_name (uintptr_type), RSHIFT_EXPR,
+			   base_addr, t);
   gimple_set_location (g, location);
   gsi_insert_after (gsi, g, GSI_NEW_STMT);
 
   t = build_int_cst (uintptr_type, asan_shadow_offset ());
-  g = gimple_build_assign_with_ops (PLUS_EXPR,
-				    make_ssa_name (uintptr_type, NULL),
-				    gimple_assign_lhs (g), t);
+  g = gimple_build_assign (make_ssa_name (uintptr_type), PLUS_EXPR,
+			   gimple_assign_lhs (g), t);
   gimple_set_location (g, location);
   gsi_insert_after (gsi, g, GSI_NEW_STMT);
 
-  g = gimple_build_assign_with_ops (NOP_EXPR,
-				    make_ssa_name (shadow_ptr_type, NULL),
-				    gimple_assign_lhs (g), NULL_TREE);
+  g = gimple_build_assign (make_ssa_name (shadow_ptr_type), NOP_EXPR,
+			   gimple_assign_lhs (g));
   gimple_set_location (g, location);
   gsi_insert_after (gsi, g, GSI_NEW_STMT);
 
   t = build2 (MEM_REF, shadow_type, gimple_assign_lhs (g),
 	      build_int_cst (shadow_ptr_type, 0));
-  g = gimple_build_assign_with_ops (MEM_REF,
-				    make_ssa_name (shadow_type, NULL),
-				    t, NULL_TREE);
+  g = gimple_build_assign (make_ssa_name (shadow_type), MEM_REF, t);
   gimple_set_location (g, location);
   gsi_insert_after (gsi, g, GSI_NEW_STMT);
   return gimple_assign_lhs (g);
@@ -1622,10 +1637,8 @@ maybe_create_ssa_name (location_t loc, tree base, gimple_stmt_iterator *iter,
 {
   if (TREE_CODE (base) == SSA_NAME)
     return base;
-  gimple g
-    = gimple_build_assign_with_ops (TREE_CODE (base),
-				    make_ssa_name (TREE_TYPE (base), NULL),
-				    base, NULL_TREE);
+  gimple g = gimple_build_assign (make_ssa_name (TREE_TYPE (base)),
+				  TREE_CODE (base), base);
   gimple_set_location (g, loc);
   if (before_p)
     gsi_insert_before (iter, g, GSI_SAME_STMT);
@@ -1643,10 +1656,8 @@ maybe_cast_to_ptrmode (location_t loc, tree len, gimple_stmt_iterator *iter,
 {
   if (ptrofftype_p (len))
     return len;
-  gimple g
-    = gimple_build_assign_with_ops (NOP_EXPR,
-				    make_ssa_name (pointer_sized_int_node, NULL),
-				    len, NULL);
+  gimple g = gimple_build_assign (make_ssa_name (pointer_sized_int_node),
+				  NOP_EXPR, len);
   gimple_set_location (g, loc);
   if (before_p)
     gsi_insert_before (iter, g, GSI_SAME_STMT);
@@ -1809,6 +1820,8 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
     {
       if (DECL_THREAD_LOCAL_P (inner))
 	return;
+      if (!ASAN_GLOBALS && is_global_var (inner))
+        return;
       if (!TREE_STATIC (inner))
 	{
 	  /* Automatic vars in the current function will be always
@@ -1902,7 +1915,7 @@ instrument_builtin_call (gimple_stmt_iterator *iter)
     return false;
 
   bool iter_advanced_p = false;
-  gimple call = gsi_stmt (*iter);
+  gcall *call = as_a <gcall *> (gsi_stmt (*iter));
 
   gcc_checking_assert (gimple_call_builtin_p (call, BUILT_IN_NORMAL));
 
@@ -2168,8 +2181,13 @@ asan_global_struct (void)
       if (i)
 	DECL_CHAIN (fields[i - 1]) = fields[i];
     }
+  tree type_decl = build_decl (input_location, TYPE_DECL,
+			       get_identifier ("__asan_global"), ret);
+  DECL_IGNORED_P (type_decl) = 1;
+  DECL_ARTIFICIAL (type_decl) = 1;
   TYPE_FIELDS (ret) = fields[0];
-  TYPE_NAME (ret) = get_identifier ("__asan_global");
+  TYPE_NAME (ret) = type_decl;
+  TYPE_STUB_DECL (ret) = type_decl;
   layout_type (ret);
   return ret;
 }
@@ -2290,6 +2308,9 @@ initialize_sanitizer_builtins (void)
 				pointer_sized_int_node, NULL_TREE);
   tree BT_FN_VOID_INT
     = build_function_type_list (void_type_node, integer_type_node, NULL_TREE);
+  tree BT_FN_SIZE_CONST_PTR_INT
+    = build_function_type_list (size_type_node, const_ptr_type_node,
+				integer_type_node, NULL_TREE);
   tree BT_FN_BOOL_VPTR_PTR_IX_INT_INT[5];
   tree BT_FN_IX_CONST_VPTR_INT[5];
   tree BT_FN_IX_VPTR_IX_INT[5];
@@ -2361,6 +2382,8 @@ initialize_sanitizer_builtins (void)
 #undef ATTR_COLD_CONST_NORETURN_NOTHROW_LEAF_LIST
 #define ATTR_COLD_CONST_NORETURN_NOTHROW_LEAF_LIST \
   /* ECF_COLD missing */ ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST
+#undef ATTR_PURE_NOTHROW_LEAF_LIST
+#define ATTR_PURE_NOTHROW_LEAF_LIST ECF_PURE | ATTR_NOTHROW_LEAF_LIST
 #undef DEF_SANITIZER_BUILTIN
 #define DEF_SANITIZER_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   decl = add_builtin_function ("__builtin_" NAME, TYPE, ENUM,		\
@@ -2369,6 +2392,15 @@ initialize_sanitizer_builtins (void)
   set_builtin_decl (ENUM, decl, true);
 
 #include "sanitizer.def"
+
+  /* -fsanitize=object-size uses __builtin_object_size, but that might
+     not be available for e.g. Fortran at this point.  We use
+     DEF_SANITIZER_BUILTIN here only as a convenience macro.  */
+  if ((flag_sanitize & SANITIZE_OBJECT_SIZE)
+      && !builtin_decl_implicit_p (BUILT_IN_OBJECT_SIZE))
+    DEF_SANITIZER_BUILTIN (BUILT_IN_OBJECT_SIZE, "object_size",
+			   BT_FN_SIZE_CONST_PTR_INT,
+			   ATTR_PURE_NOTHROW_LEAF_LIST)
 
 #undef DEF_SANITIZER_BUILTIN
 }
@@ -2437,6 +2469,13 @@ asan_finish_file (void)
      nor after .LASAN* array.  */
   flag_sanitize &= ~SANITIZE_ADDRESS;
 
+  /* For user-space we want asan constructors to run first.
+     Linux kernel does not support priorities other than default, and the only
+     other user of constructors is coverage. So we run with the default
+     priority.  */
+  int priority = flag_sanitize & SANITIZE_USER_ADDRESS
+                 ? MAX_RESERVED_INIT_PRIORITY - 1 : DEFAULT_INIT_PRIORITY;
+
   if (flag_sanitize & SANITIZE_USER_ADDRESS)
     {
       tree fn = builtin_decl_implicit (BUILT_IN_ASAN_INIT);
@@ -2492,12 +2531,10 @@ asan_finish_file (void)
 						 build_fold_addr_expr (var),
 						 gcount_tree),
 				&dtor_statements);
-      cgraph_build_static_cdtor ('D', dtor_statements,
-				 MAX_RESERVED_INIT_PRIORITY - 1);
+      cgraph_build_static_cdtor ('D', dtor_statements, priority);
     }
   if (asan_ctor_statements)
-    cgraph_build_static_cdtor ('I', asan_ctor_statements,
-			       MAX_RESERVED_INIT_PRIORITY - 1);
+    cgraph_build_static_cdtor ('I', asan_ctor_statements, priority);
   flag_sanitize |= SANITIZE_ADDRESS;
 }
 
@@ -2528,11 +2565,8 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
   if (use_calls)
     {
       /* Instrument using callbacks.  */
-      gimple g
-	= gimple_build_assign_with_ops (NOP_EXPR,
-					make_ssa_name (pointer_sized_int_node,
-					NULL),
-					base, NULL_TREE);
+      gimple g = gimple_build_assign (make_ssa_name (pointer_sized_int_node),
+				      NOP_EXPR, base);
       gimple_set_location (g, loc);
       gsi_insert_before (iter, g, GSI_SAME_STMT);
       tree base_addr = gimple_assign_lhs (g);
@@ -2544,10 +2578,8 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
       else
 	{
 	  gcc_assert (nargs == 2);
-	  g = gimple_build_assign_with_ops (NOP_EXPR,
-					    make_ssa_name (pointer_sized_int_node,
-							   NULL),
-					    len, NULL_TREE);
+	  g = gimple_build_assign (make_ssa_name (pointer_sized_int_node),
+				   NOP_EXPR, len);
 	  gimple_set_location (g, loc);
 	  gsi_insert_before (iter, g, GSI_SAME_STMT);
 	  tree sz_arg = gimple_assign_lhs (g);
@@ -2584,8 +2616,9 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
       gimple_set_location (g, loc);
 
       basic_block then_bb, fallthrough_bb;
-      insert_if_then_before_iter (g, iter, /*then_more_likely_p=*/true,
-				 &then_bb, &fallthrough_bb);
+      insert_if_then_before_iter (as_a <gcond *> (g), iter,
+				  /*then_more_likely_p=*/true,
+				  &then_bb, &fallthrough_bb);
       /* Note that fallthrough_bb starts with the statement that was
 	pointed to by ITER.  */
 
@@ -2603,10 +2636,8 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
 				  &then_bb,
 				  &else_bb);
 
-  g = gimple_build_assign_with_ops (NOP_EXPR,
-				    make_ssa_name (pointer_sized_int_node,
-						   NULL),
-				    base, NULL_TREE);
+  g = gimple_build_assign (make_ssa_name (pointer_sized_int_node),
+			   NOP_EXPR, base);
   gimple_set_location (g, loc);
   gsi_insert_before (&gsi, g, GSI_NEW_STMT);
   tree base_addr = gimple_assign_lhs (g);
@@ -2658,17 +2689,14 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
        check first and last byte.  */
       if (size_in_bytes == -1)
 	{
-	  g = gimple_build_assign_with_ops (MINUS_EXPR,
-					    make_ssa_name (pointer_sized_int_node, NULL),
-					    len,
-					    build_int_cst (pointer_sized_int_node, 1));
+	  g = gimple_build_assign (make_ssa_name (pointer_sized_int_node),
+				   MINUS_EXPR, len,
+				   build_int_cst (pointer_sized_int_node, 1));
 	  gimple_set_location (g, loc);
 	  gsi_insert_after (&gsi, g, GSI_NEW_STMT);
 	  tree last = gimple_assign_lhs (g);
-	  g = gimple_build_assign_with_ops (PLUS_EXPR,
-					    make_ssa_name (pointer_sized_int_node, NULL),
-					    base_addr,
-					    last);
+	  g = gimple_build_assign (make_ssa_name (pointer_sized_int_node),
+				   PLUS_EXPR, base_addr, last);
 	  gimple_set_location (g, loc);
 	  gsi_insert_after (&gsi, g, GSI_NEW_STMT);
 	  tree base_end_addr = gimple_assign_lhs (g);

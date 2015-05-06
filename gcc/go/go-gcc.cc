@@ -1,5 +1,5 @@
 // go-gcc.cc -- Go frontend to gcc IR.
-// Copyright (C) 2011-2014 Free Software Foundation, Inc.
+// Copyright (C) 2011-2015 Free Software Foundation, Inc.
 // Contributed by Ian Lance Taylor, Google.
 
 // This file is part of GCC.
@@ -24,7 +24,18 @@
 // include it here before tree.h includes it later.
 #include <gmp.h>
 
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -32,10 +43,6 @@
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -216,16 +223,16 @@ class Gcc_backend : public Backend
   bool
   is_circular_pointer_type(Btype*);
 
-  size_t
+  int64_t
   type_size(Btype*);
 
-  size_t
+  int64_t
   type_alignment(Btype*);
 
-  size_t
+  int64_t
   type_field_alignment(Btype*);
 
-  size_t
+  int64_t
   type_field_offset(Btype*, size_t index);
 
   // Expressions.
@@ -315,7 +322,7 @@ class Gcc_backend : public Backend
 
   Bexpression*
   call_expression(Bexpression* fn, const std::vector<Bexpression*>& args,
-                  Location);
+                  Bexpression* static_chain, Location);
 
   // Statements.
 
@@ -396,12 +403,15 @@ class Gcc_backend : public Backend
 		     Location);
 
   Bvariable*
+  static_chain_variable(Bfunction*, const std::string&, Btype*, Location);
+
+  Bvariable*
   temporary_variable(Bfunction*, Bblock*, Btype*, Bexpression*, bool,
 		     Location, Bstatement**);
 
   Bvariable*
   implicit_variable(const std::string&, Btype*, bool, bool, bool,
-		    size_t);
+		    int64_t);
 
   void
   implicit_variable_set_init(Bvariable*, const std::string&, Btype*,
@@ -1087,7 +1097,7 @@ Gcc_backend::is_circular_pointer_type(Btype* btype)
 
 // Return the size of a type.
 
-size_t
+int64_t
 Gcc_backend::type_size(Btype* btype)
 {
   tree t = btype->get_tree();
@@ -1096,14 +1106,14 @@ Gcc_backend::type_size(Btype* btype)
   t = TYPE_SIZE_UNIT(t);
   gcc_assert(tree_fits_uhwi_p (t));
   unsigned HOST_WIDE_INT val_wide = TREE_INT_CST_LOW(t);
-  size_t ret = static_cast<size_t>(val_wide);
-  gcc_assert(ret == val_wide);
+  int64_t ret = static_cast<int64_t>(val_wide);
+  gcc_assert(ret >= 0 && static_cast<unsigned HOST_WIDE_INT>(ret) == val_wide);
   return ret;
 }
 
 // Return the alignment of a type.
 
-size_t
+int64_t
 Gcc_backend::type_alignment(Btype* btype)
 {
   tree t = btype->get_tree();
@@ -1114,7 +1124,7 @@ Gcc_backend::type_alignment(Btype* btype)
 
 // Return the alignment of a struct field of type BTYPE.
 
-size_t
+int64_t
 Gcc_backend::type_field_alignment(Btype* btype)
 {
   tree t = btype->get_tree();
@@ -1125,7 +1135,7 @@ Gcc_backend::type_field_alignment(Btype* btype)
 
 // Return the offset of a field in a struct.
 
-size_t
+int64_t
 Gcc_backend::type_field_offset(Btype* btype, size_t index)
 {
   tree struct_tree = btype->get_tree();
@@ -1139,9 +1149,8 @@ Gcc_backend::type_field_offset(Btype* btype, size_t index)
       gcc_assert(field != NULL_TREE);
     }
   HOST_WIDE_INT offset_wide = int_byte_position(field);
-  gcc_assert(offset_wide >= 0);
-  size_t ret = static_cast<size_t>(offset_wide);
-  gcc_assert(ret == static_cast<unsigned HOST_WIDE_INT>(offset_wide));
+  int64_t ret = static_cast<int64_t>(offset_wide);
+  gcc_assert(ret == offset_wide);
   return ret;
 }
 
@@ -1656,6 +1665,7 @@ Gcc_backend::constructor_expression(Btype* btype,
   vec<constructor_elt, va_gc> *init;
   vec_alloc(init, vals.size());
 
+  tree sink = NULL_TREE;
   bool is_constant = true;
   tree field = TYPE_FIELDS(type_tree);
   for (std::vector<Bexpression*>::const_iterator p = vals.begin();
@@ -1669,6 +1679,17 @@ Gcc_backend::constructor_expression(Btype* btype,
           || TREE_TYPE(val) == error_mark_node)
         return this->error_expression();
 
+      if (int_size_in_bytes(TREE_TYPE(field)) == 0)
+	{
+	  // GIMPLE cannot represent indices of zero-sized types so
+	  // trying to construct a map with zero-sized keys might lead
+	  // to errors.  Instead, we evaluate each expression that
+	  // would have been added as a map element for its
+	  // side-effects and construct an empty map.
+	  append_to_statement_list(val, &sink);
+	  continue;
+	}
+
       constructor_elt empty = {NULL, NULL};
       constructor_elt* elt = init->quick_push(empty);
       elt->index = field;
@@ -1681,23 +1702,29 @@ Gcc_backend::constructor_expression(Btype* btype,
   tree ret = build_constructor(type_tree, init);
   if (is_constant)
     TREE_CONSTANT(ret) = 1;
-
+  if (sink != NULL_TREE)
+    ret = fold_build2_loc(location.gcc_location(), COMPOUND_EXPR,
+			  type_tree, sink, ret);
   return this->make_expression(ret);
 }
 
 Bexpression*
 Gcc_backend::array_constructor_expression(
     Btype* array_btype, const std::vector<unsigned long>& indexes,
-    const std::vector<Bexpression*>& vals, Location)
+    const std::vector<Bexpression*>& vals, Location location)
 {
   tree type_tree = array_btype->get_tree();
   if (type_tree == error_mark_node)
     return this->error_expression();
 
   gcc_assert(indexes.size() == vals.size());
-  vec<constructor_elt, va_gc> *init;
-  vec_alloc(init, vals.size());
 
+  tree element_type = TREE_TYPE(type_tree);
+  HOST_WIDE_INT element_size = int_size_in_bytes(element_type);
+  vec<constructor_elt, va_gc> *init;
+  vec_alloc(init, element_size == 0 ? 0 : vals.size());
+
+  tree sink = NULL_TREE;
   bool is_constant = true;
   for (size_t i = 0; i < vals.size(); ++i)
     {
@@ -1707,6 +1734,16 @@ Gcc_backend::array_constructor_expression(
       if (index == error_mark_node
           || val == error_mark_node)
         return this->error_expression();
+
+      if (element_size == 0)
+       {
+         // GIMPLE cannot represent arrays of zero-sized types so trying
+         // to construct an array of zero-sized values might lead to errors.
+         // Instead, we evaluate each expression that would have been added as
+         // an array value for its side-effects and construct an empty array.
+	 append_to_statement_list(val, &sink);
+         continue;
+       }
 
       if (!TREE_CONSTANT(val))
         is_constant = false;
@@ -1720,6 +1757,9 @@ Gcc_backend::array_constructor_expression(
   tree ret = build_constructor(type_tree, init);
   if (is_constant)
     TREE_CONSTANT(ret) = 1;
+  if (sink != NULL_TREE)
+    ret = fold_build2_loc(location.gcc_location(), COMPOUND_EXPR,
+                         type_tree, sink, ret);
   return this->make_expression(ret);
 }
 
@@ -1770,7 +1810,7 @@ Gcc_backend::array_index_expression(Bexpression* array, Bexpression* index,
 Bexpression*
 Gcc_backend::call_expression(Bexpression* fn_expr,
                              const std::vector<Bexpression*>& fn_args,
-                             Location location)
+                             Bexpression* chain_expr, Location location)
 {
   tree fn = fn_expr->get_tree();
   if (fn == error_mark_node || TREE_TYPE(fn) == error_mark_node)
@@ -1829,6 +1869,9 @@ Gcc_backend::call_expression(Bexpression* fn_expr,
       build_call_array_loc(location.gcc_location(),
                            excess_type != NULL_TREE ? excess_type : rettype,
                            fn, nargs, args);
+
+  if (chain_expr)
+    CALL_EXPR_STATIC_CHAIN (ret) = chain_expr->get_tree();
 
   if (excess_type != NULL_TREE)
     {
@@ -2451,6 +2494,40 @@ Gcc_backend::parameter_variable(Bfunction* function, const std::string& name,
   return new Bvariable(decl);
 }
 
+// Make a static chain variable.
+
+Bvariable*
+Gcc_backend::static_chain_variable(Bfunction* function, const std::string& name,
+				   Btype* btype, Location location)
+{
+  tree type_tree = btype->get_tree();
+  if (type_tree == error_mark_node)
+    return this->error_variable();
+  tree decl = build_decl(location.gcc_location(), PARM_DECL,
+			 get_identifier_from_string(name), type_tree);
+  tree fndecl = function->get_tree();
+  DECL_CONTEXT(decl) = fndecl;
+  DECL_ARG_TYPE(decl) = type_tree;
+  TREE_USED(decl) = 1;
+  DECL_ARTIFICIAL(decl) = 1;
+  DECL_IGNORED_P(decl) = 1;
+  TREE_READONLY(decl) = 1;
+
+  struct function *f = DECL_STRUCT_FUNCTION(fndecl);
+  if (f == NULL)
+    {
+      push_struct_function(fndecl);
+      pop_cfun();
+      f = DECL_STRUCT_FUNCTION(fndecl);
+    }
+  gcc_assert(f->static_chain_decl == NULL);
+  f->static_chain_decl = decl;
+  DECL_STATIC_CHAIN(fndecl) = 1;
+
+  go_preserve_from_gc(decl);
+  return new Bvariable(decl);
+}
+
 // Make a temporary variable.
 
 Bvariable*
@@ -2505,7 +2582,7 @@ Gcc_backend::temporary_variable(Bfunction* function, Bblock* bblock,
       BIND_EXPR_VARS(bind_tree) = BLOCK_VARS(block_tree);
     }
 
-  if (init_tree != NULL_TREE)
+  if (this->type_size(btype) != 0 && init_tree != NULL_TREE)
     DECL_INITIAL(var) = fold_convert_loc(location.gcc_location(), type_tree,
                                          init_tree);
 
@@ -2515,6 +2592,13 @@ Gcc_backend::temporary_variable(Bfunction* function, Bblock* bblock,
   *pstatement = this->make_statement(build1_loc(location.gcc_location(),
                                                 DECL_EXPR,
 						void_type_node, var));
+
+  // Don't initialize VAR with BINIT, but still evaluate BINIT for
+  // its side effects.
+  if (this->type_size(btype) == 0 && init_tree != NULL_TREE)
+    *pstatement = this->compound_statement(this->expression_statement(binit),
+					   *pstatement);
+
   return new Bvariable(var);
 }
 
@@ -2524,7 +2608,7 @@ Gcc_backend::temporary_variable(Bfunction* function, Bblock* bblock,
 Bvariable*
 Gcc_backend::implicit_variable(const std::string& name, Btype* type,
 			       bool is_hidden, bool is_constant,
-			       bool is_common, size_t alignment)
+			       bool is_common, int64_t alignment)
 {
   tree type_tree = type->get_tree();
   if (type_tree == error_mark_node)

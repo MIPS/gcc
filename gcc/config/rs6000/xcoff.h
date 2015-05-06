@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for some generic XCOFF file format
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -155,7 +155,6 @@
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)				\
 { char *buffer = (char *) alloca (strlen (NAME) + 1);			\
   char *p;								\
-  rtx _symref = XEXP (DECL_RTL (DECL), 0);				\
   int dollar_inside = 0;						\
   strcpy (buffer, NAME);						\
   p = strchr (buffer, '$');						\
@@ -169,15 +168,6 @@
       RS6000_OUTPUT_BASENAME (FILE, buffer);				\
       putc ('\n', FILE);						\
       fprintf(FILE, "\t.rename .%s,\".%s\"\n", buffer, NAME);		\
-    }									\
-  if ((TREE_CODE (DECL) == VAR_DECL					\
-       || TREE_CODE (DECL) == FUNCTION_DECL)				\
-      && (NAME)[strlen (NAME) - 1] != ']')				\
-    {									\
-      XSTR (_symref, 0) = concat (XSTR (_symref, 0),			\
-				  (TREE_CODE (DECL) == FUNCTION_DECL	\
-				   ? "[DS]" : "[RW]"),			\
-				  NULL);				\
     }									\
 }
 
@@ -251,14 +241,15 @@
   do { fputs (LOCAL_COMMON_ASM_OP, (FILE));			\
        RS6000_OUTPUT_BASENAME ((FILE), (NAME));			\
        if ((ALIGN) > 32)					\
-	 fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%s,%u\n",	\
+	 fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%s%u_,%u\n",	\
 		  (SIZE), xcoff_bss_section_name,			\
+		  floor_log2 ((ALIGN) / BITS_PER_UNIT),			\
 		  floor_log2 ((ALIGN) / BITS_PER_UNIT));		\
        else if ((SIZE) > 4)					\
-	 fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%s,3\n",	\
+	 fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%s3_,3\n",	\
 		  (SIZE), xcoff_bss_section_name);		\
        else							\
-	 fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%s\n",	\
+	 fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%s,2\n",	\
 		  (SIZE), xcoff_bss_section_name);		\
      } while (0)
 #endif

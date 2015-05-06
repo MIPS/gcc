@@ -1,5 +1,5 @@
 /* Optimize and expand sanitizer functions.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Marek Polacek <polacek@redhat.com>
 
 This file is part of GCC.
@@ -21,12 +21,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "hash-table.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "function.h"
@@ -84,6 +92,92 @@ struct sanopt_info
   bool visited_p;
 };
 
+/* If T has a single definition of form T = T2, return T2.  */
+
+static tree
+maybe_get_single_definition (tree t)
+{
+  if (TREE_CODE (t) == SSA_NAME)
+    {
+      gimple g = SSA_NAME_DEF_STMT (t);
+      if (gimple_assign_single_p (g))
+	return gimple_assign_rhs1 (g);
+    }
+  return NULL_TREE;
+}
+
+/* Traits class for tree hash maps below.  */
+
+struct sanopt_tree_map_traits : default_hashmap_traits
+{
+  static inline hashval_t hash (const_tree ref)
+  {
+    return iterative_hash_expr (ref, 0);
+  }
+
+  static inline bool equal_keys (const_tree ref1, const_tree ref2)
+  {
+    return operand_equal_p (ref1, ref2, 0);
+  }
+}; 
+
+/* Tree triplet for vptr_check_map.  */
+struct sanopt_tree_triplet
+{
+  tree t1, t2, t3;
+};
+
+/* Traits class for tree triplet hash maps below.  */
+
+struct sanopt_tree_triplet_map_traits : default_hashmap_traits
+{
+  static inline hashval_t
+  hash (const sanopt_tree_triplet &ref)
+  {
+    inchash::hash hstate (0);
+    inchash::add_expr (ref.t1, hstate);
+    inchash::add_expr (ref.t2, hstate);
+    inchash::add_expr (ref.t3, hstate);
+    return hstate.end ();
+  }
+
+  static inline bool
+  equal_keys (const sanopt_tree_triplet &ref1, const sanopt_tree_triplet &ref2)
+  {
+    return operand_equal_p (ref1.t1, ref2.t1, 0)
+	   && operand_equal_p (ref1.t2, ref2.t2, 0)
+	   && operand_equal_p (ref1.t3, ref2.t3, 0);
+  }
+
+  template<typename T>
+  static inline void
+  mark_deleted (T &e)
+  {
+    e.m_key.t1 = reinterpret_cast<T *> (1);
+  }
+
+  template<typename T>
+  static inline void
+  mark_empty (T &e)
+  {
+    e.m_key.t1 = NULL;
+  }
+
+  template<typename T>
+  static inline bool
+  is_deleted (T &e)
+  {
+    return e.m_key.t1 == (void *) 1;
+  }
+
+  template<typename T>
+  static inline bool
+  is_empty (T &e)
+  {
+    return e.m_key.t1 == NULL;
+  }
+};
+
 /* This is used to carry various hash maps and variables used
    in sanopt_optimize_walker.  */
 
@@ -95,7 +189,13 @@ struct sanopt_ctx
 
   /* This map maps a pointer (the second argument of ASAN_CHECK) to
      a vector of ASAN_CHECK call statements that check the access.  */
-  hash_map<tree, auto_vec<gimple> > asan_check_map;
+  hash_map<tree, auto_vec<gimple>, sanopt_tree_map_traits> asan_check_map;
+
+  /* This map maps a tree triplet (the first, second and fourth argument
+     of UBSAN_VPTR) to a vector of UBSAN_VPTR call statements that check
+     that virtual table pointer.  */
+  hash_map<sanopt_tree_triplet, auto_vec<gimple>,
+	   sanopt_tree_triplet_map_traits> vptr_check_map;
 
   /* Number of IFN_ASAN_CHECK statements.  */
   int asan_num_accesses;
@@ -197,6 +297,24 @@ imm_dom_path_with_freeing_call (basic_block bb, basic_block dom)
   return false;
 }
 
+/* Get the first dominating check from the list of stored checks.
+   Non-dominating checks are silently dropped.  */
+
+static gimple
+maybe_get_dominating_check (auto_vec<gimple> &v)
+{
+  for (; !v.is_empty (); v.pop ())
+    {
+      gimple g = v.last ();
+      sanopt_info *si = (sanopt_info *) gimple_bb (g)->aux;
+      if (!si->visited_p)
+	/* At this point we shouldn't have any statements
+	   that aren't dominating the current BB.  */
+	return g;
+    }
+  return NULL;
+}
+
 /* Optimize away redundant UBSAN_NULL calls.  */
 
 static bool
@@ -209,7 +327,8 @@ maybe_optimize_ubsan_null_ifn (struct sanopt_ctx *ctx, gimple stmt)
   bool remove = false;
 
   auto_vec<gimple> &v = ctx->null_check_map.get_or_insert (ptr);
-  if (v.is_empty ())
+  gimple g = maybe_get_dominating_check (v);
+  if (!g)
     {
       /* For this PTR we don't have any UBSAN_NULL stmts recorded, so there's
 	 nothing to optimize yet.  */
@@ -220,90 +339,68 @@ maybe_optimize_ubsan_null_ifn (struct sanopt_ctx *ctx, gimple stmt)
   /* We already have recorded a UBSAN_NULL check for this pointer. Perhaps we
      can drop this one.  But only if this check doesn't specify stricter
      alignment.  */
-  while (!v.is_empty ())
-    {
-      gimple g = v.last ();
-      /* Remove statements for BBs that have been already processed.  */
-      sanopt_info *si = (sanopt_info *) gimple_bb (g)->aux;
-      if (si->visited_p)
-	{
-	  v.pop ();
-	  continue;
-	}
 
-      /* At this point we shouldn't have any statements that aren't dominating
-	 the current BB.  */
-      tree align = gimple_call_arg (g, 2);
-      int kind = tree_to_shwi (gimple_call_arg (g, 1));
-      /* If this is a NULL pointer check where we had segv anyway, we can
-	 remove it.  */
-      if (integer_zerop (align)
-	  && (kind == UBSAN_LOAD_OF
-	      || kind == UBSAN_STORE_OF
-	      || kind == UBSAN_MEMBER_ACCESS))
-	remove = true;
-      /* Otherwise remove the check in non-recovering mode, or if the
-	 stmts have same location.  */
-      else if (integer_zerop (align))
-	remove = (flag_sanitize_recover & SANITIZE_NULL) == 0
-		 || flag_sanitize_undefined_trap_on_error
-		 || gimple_location (g) == gimple_location (stmt);
-      else if (tree_int_cst_le (cur_align, align))
-	remove = (flag_sanitize_recover & SANITIZE_ALIGNMENT) == 0
-		 || flag_sanitize_undefined_trap_on_error
-		 || gimple_location (g) == gimple_location (stmt);
-      if (!remove && gimple_bb (g) == gimple_bb (stmt)
-	  && tree_int_cst_compare (cur_align, align) == 0)
-	v.pop ();
-      break;
-    }
+  tree align = gimple_call_arg (g, 2);
+  int kind = tree_to_shwi (gimple_call_arg (g, 1));
+  /* If this is a NULL pointer check where we had segv anyway, we can
+     remove it.  */
+  if (integer_zerop (align)
+      && (kind == UBSAN_LOAD_OF
+	  || kind == UBSAN_STORE_OF
+	  || kind == UBSAN_MEMBER_ACCESS))
+    remove = true;
+  /* Otherwise remove the check in non-recovering mode, or if the
+     stmts have same location.  */
+  else if (integer_zerop (align))
+    remove = (flag_sanitize_recover & SANITIZE_NULL) == 0
+	      || flag_sanitize_undefined_trap_on_error
+	      || gimple_location (g) == gimple_location (stmt);
+  else if (tree_int_cst_le (cur_align, align))
+    remove = (flag_sanitize_recover & SANITIZE_ALIGNMENT) == 0
+	      || flag_sanitize_undefined_trap_on_error
+	      || gimple_location (g) == gimple_location (stmt);
+
+  if (!remove && gimple_bb (g) == gimple_bb (stmt)
+      && tree_int_cst_compare (cur_align, align) == 0)
+    v.pop ();
 
   if (!remove)
     v.safe_push (stmt);
   return remove;
 }
 
-/* Optimize away redundant ASAN_CHECK calls.  */
+/* Optimize away redundant UBSAN_VPTR calls.  The second argument
+   is the value loaded from the virtual table, so rely on FRE to find out
+   when we can actually optimize.  */
 
 static bool
-maybe_optimize_asan_check_ifn (struct sanopt_ctx *ctx, gimple stmt)
+maybe_optimize_ubsan_vptr_ifn (struct sanopt_ctx *ctx, gimple stmt)
 {
-  gcc_assert (gimple_call_num_args (stmt) == 4);
-  tree ptr = gimple_call_arg (stmt, 1);
-  tree len = gimple_call_arg (stmt, 2);
-  basic_block bb = gimple_bb (stmt);
-  sanopt_info *info = (sanopt_info *) bb->aux;
+  gcc_assert (gimple_call_num_args (stmt) == 5);
+  sanopt_tree_triplet triplet;
+  triplet.t1 = gimple_call_arg (stmt, 0);
+  triplet.t2 = gimple_call_arg (stmt, 1);
+  triplet.t3 = gimple_call_arg (stmt, 3);
 
-  if (TREE_CODE (len) != INTEGER_CST)
-    return false;
-  if (integer_zerop (len))
-    return false;
-
-  gimple_set_uid (stmt, info->freeing_call_events);
-
-  auto_vec<gimple> &v = ctx->asan_check_map.get_or_insert (ptr);
-  if (v.is_empty ())
+  auto_vec<gimple> &v = ctx->vptr_check_map.get_or_insert (triplet);
+  gimple g = maybe_get_dominating_check (v);
+  if (!g)
     {
-      /* For this PTR we don't have any ASAN_CHECK stmts recorded, so there's
+      /* For this PTR we don't have any UBSAN_VPTR stmts recorded, so there's
 	 nothing to optimize yet.  */
       v.safe_push (stmt);
       return false;
     }
 
-  /* We already have recorded a ASAN_CHECK check for this pointer.  Perhaps
-     we can drop this one.  But only if this check doesn't specify larger
-     size.  */
-  while (!v.is_empty ())
-    {
-      gimple g = v.last ();
-      /* Remove statements for BBs that have been already processed.  */
-      sanopt_info *si = (sanopt_info *) gimple_bb (g)->aux;
-      if (si->visited_p)
-	v.pop ();
-      else
-	break;
-    }
+  return true;
+}
 
+/* Returns TRUE if ASan check of length LEN in block BB can be removed
+   if preceded by checks in V.  */
+
+static bool
+can_remove_asan_check (auto_vec<gimple> &v, tree len, basic_block bb)
+{
   unsigned int i;
   gimple g;
   gimple to_pop = NULL;
@@ -323,17 +420,9 @@ maybe_optimize_asan_check_ifn (struct sanopt_ctx *ctx, gimple stmt)
 	  continue;
 	}
 
-      if (TREE_CODE (len) != INTEGER_CST)
-	{
-	  /* If there is some stmts not followed by freeing call event
-	     for ptr already in the current bb, no need to insert anything.
-	     Non-constant len is treated just as length 1.  */
-	  if (gbb == bb)
-	    return false;
-	  break;
-	}
-
       tree glen = gimple_call_arg (g, 2);
+      gcc_assert (TREE_CODE (glen) == INTEGER_CST);
+
       /* If we've checked only smaller length than we want to check now,
 	 we can't remove the current stmt.  If g is in the same basic block,
 	 we want to remove it though, as the current stmt is better.  */
@@ -383,8 +472,71 @@ maybe_optimize_asan_check_ifn (struct sanopt_ctx *ctx, gimple stmt)
       v.truncate (j);
     }
 
+  return remove;
+}
+
+/* Optimize away redundant ASAN_CHECK calls.  */
+
+static bool
+maybe_optimize_asan_check_ifn (struct sanopt_ctx *ctx, gimple stmt)
+{
+  gcc_assert (gimple_call_num_args (stmt) == 4);
+  tree ptr = gimple_call_arg (stmt, 1);
+  tree len = gimple_call_arg (stmt, 2);
+  basic_block bb = gimple_bb (stmt);
+  sanopt_info *info = (sanopt_info *) bb->aux;
+
+  if (TREE_CODE (len) != INTEGER_CST)
+    return false;
+  if (integer_zerop (len))
+    return false;
+
+  gimple_set_uid (stmt, info->freeing_call_events);
+
+  auto_vec<gimple> *ptr_checks = &ctx->asan_check_map.get_or_insert (ptr);
+
+  tree base_addr = maybe_get_single_definition (ptr);
+  auto_vec<gimple> *base_checks = NULL;
+  if (base_addr)
+    {
+      base_checks = &ctx->asan_check_map.get_or_insert (base_addr);
+      /* Original pointer might have been invalidated.  */
+      ptr_checks = ctx->asan_check_map.get (ptr);
+    }
+
+  gimple g = maybe_get_dominating_check (*ptr_checks);
+  gimple g2 = NULL;
+
+  if (base_checks)
+    /* Try with base address as well.  */
+    g2 = maybe_get_dominating_check (*base_checks);
+
+  if (g == NULL && g2 == NULL)
+    {
+      /* For this PTR we don't have any ASAN_CHECK stmts recorded, so there's
+	 nothing to optimize yet.  */
+      ptr_checks->safe_push (stmt);
+      if (base_checks)
+	base_checks->safe_push (stmt);
+      return false;
+    }
+
+  bool remove = false;
+
+  if (ptr_checks)
+    remove = can_remove_asan_check (*ptr_checks, len, bb);
+
+  if (!remove && base_checks)
+    /* Try with base address as well.  */
+    remove = can_remove_asan_check (*base_checks, len, bb);
+
   if (!remove)
-    v.safe_push (stmt);
+    {
+      ptr_checks->safe_push (stmt);
+      if (base_checks)
+	base_checks->safe_push (stmt);
+    }
+
   return remove;
 }
 
@@ -404,10 +556,7 @@ sanopt_optimize_walker (basic_block bb, struct sanopt_ctx *ctx)
   basic_block son;
   gimple_stmt_iterator gsi;
   sanopt_info *info = (sanopt_info *) bb->aux;
-  bool asan_check_optimize
-    = (flag_sanitize & SANITIZE_ADDRESS)
-      && ((flag_sanitize & flag_sanitize_recover
-	   & SANITIZE_KERNEL_ADDRESS) == 0);
+  bool asan_check_optimize = (flag_sanitize & SANITIZE_ADDRESS) != 0;
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
     {
@@ -418,10 +567,11 @@ sanopt_optimize_walker (basic_block bb, struct sanopt_ctx *ctx)
 	{
 	  /* Handle asm volatile or asm with "memory" clobber
 	     the same as potentionally freeing call.  */
-	  if (gimple_code (stmt) == GIMPLE_ASM
+	  gasm *asm_stmt = dyn_cast <gasm *> (stmt);
+	  if (asm_stmt
 	      && asan_check_optimize
-	      && (gimple_asm_clobbers_memory_p (stmt)
-		  || gimple_asm_volatile_p (stmt)))
+	      && (gimple_asm_clobbers_memory_p (asm_stmt)
+		  || gimple_asm_volatile_p (asm_stmt)))
 	    info->freeing_call_events++;
 	  gsi_next (&gsi);
 	  continue;
@@ -435,6 +585,9 @@ sanopt_optimize_walker (basic_block bb, struct sanopt_ctx *ctx)
 	  {
 	  case IFN_UBSAN_NULL:
 	    remove = maybe_optimize_ubsan_null_ifn (ctx, stmt);
+	    break;
+	  case IFN_UBSAN_VPTR:
+	    remove = maybe_optimize_ubsan_vptr_ifn (ctx, stmt);
 	    break;
 	  case IFN_ASAN_CHECK:
 	    if (asan_check_optimize)
@@ -540,7 +693,8 @@ pass_sanopt::execute (function *fun)
   /* Try to remove redundant checks.  */
   if (optimize
       && (flag_sanitize
-	  & (SANITIZE_NULL | SANITIZE_ALIGNMENT | SANITIZE_ADDRESS)))
+	  & (SANITIZE_NULL | SANITIZE_ALIGNMENT
+	     | SANITIZE_ADDRESS | SANITIZE_VPTR)))
     asan_num_accesses = sanopt_optimize (fun);
   else if (flag_sanitize & SANITIZE_ADDRESS)
     {
@@ -585,6 +739,9 @@ pass_sanopt::execute (function *fun)
 		  break;
 		case IFN_UBSAN_OBJECT_SIZE:
 		  no_next = ubsan_expand_objsize_ifn (&gsi);
+		  break;
+		case IFN_UBSAN_VPTR:
+		  no_next = ubsan_expand_vptr_ifn (&gsi);
 		  break;
 		case IFN_ASAN_CHECK:
 		  no_next = asan_expand_check_ifn (&gsi, use_calls);

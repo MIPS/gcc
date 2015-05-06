@@ -1,5 +1,5 @@
 /* Header file for gimple iterators.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,6 +33,15 @@ struct gimple_stmt_iterator
      block/sequence is removed.  */
   gimple_seq *seq;
   basic_block bb;
+};
+
+/* Iterator over GIMPLE_PHI statements.  */
+struct gphi_iterator : public gimple_stmt_iterator
+{
+  gphi *phi () const
+  {
+    return as_a <gphi *> (ptr);
+  }
 };
  
 enum gsi_iterator_update
@@ -70,6 +79,7 @@ extern void gsi_insert_after (gimple_stmt_iterator *, gimple,
 			      enum gsi_iterator_update);
 extern bool gsi_remove (gimple_stmt_iterator *, bool);
 extern gimple_stmt_iterator gsi_for_stmt (gimple);
+extern gphi_iterator gsi_for_phi (gphi *);
 extern void gsi_move_after (gimple_stmt_iterator *, gimple_stmt_iterator *);
 extern void gsi_move_before (gimple_stmt_iterator *, gimple_stmt_iterator *);
 extern void gsi_move_to_bb_end (gimple_stmt_iterator *, basic_block);
@@ -79,7 +89,7 @@ extern basic_block gsi_insert_on_edge_immediate (edge, gimple);
 extern basic_block gsi_insert_seq_on_edge_immediate (edge, gimple_seq);
 extern void gsi_commit_edge_inserts (void);
 extern void gsi_commit_one_edge_insert (edge, basic_block *);
-extern gimple_stmt_iterator gsi_start_phis (basic_block);
+extern gphi_iterator gsi_start_phis (basic_block);
 
 /* Return a new iterator pointing to GIMPLE_SEQ's first statement.  */
 
@@ -201,6 +211,19 @@ gsi_stmt (gimple_stmt_iterator i)
   return i.ptr;
 }
 
+/* Return a new iterator pointing to the first non-debug statement
+   in basic block BB.  */
+
+static inline gimple_stmt_iterator
+gsi_start_bb_nondebug (basic_block bb)
+{
+  gimple_stmt_iterator gsi = gsi_start_bb (bb);
+  while (!gsi_end_p (gsi) && is_gimple_debug (gsi_stmt (gsi)))
+    gsi_next (&gsi);
+
+  return gsi;
+}
+
 /* Return a block statement iterator that points to the first non-label
    statement in block BB.  */
 
@@ -227,7 +250,7 @@ gsi_next_nondebug (gimple_stmt_iterator *i)
   while (!gsi_end_p (*i) && is_gimple_debug (gsi_stmt (*i)));
 }
 
-/* Advance the iterator to the next non-debug gimple statement.  */
+/* Advance the iterator to the previous non-debug gimple statement.  */
 
 static inline void
 gsi_prev_nondebug (gimple_stmt_iterator *i)
@@ -284,14 +307,14 @@ gsi_last_nondebug_bb (basic_block bb)
 /* Iterates I statement iterator to the next non-virtual statement.  */
 
 static inline void
-gsi_next_nonvirtual_phi (gimple_stmt_iterator *i)
+gsi_next_nonvirtual_phi (gphi_iterator *i)
 {
-  gimple phi;
+  gphi *phi;
 
   if (gsi_end_p (*i))
     return;
 
-  phi = gsi_stmt (*i);
+  phi = i->phi ();
   gcc_assert (phi != NULL);
 
   while (virtual_operand_p (gimple_phi_result (phi)))
@@ -301,7 +324,7 @@ gsi_next_nonvirtual_phi (gimple_stmt_iterator *i)
       if (gsi_end_p (*i))
 	return;
 
-      phi = gsi_stmt (*i);
+      phi = i->phi ();
     }
 }
 

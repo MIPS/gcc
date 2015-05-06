@@ -1,5 +1,5 @@
 /* Tree SCC value numbering
-   Copyright (C) 2007-2014 Free Software Foundation, Inc.
+   Copyright (C) 2007-2015 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -212,7 +212,7 @@ tree vn_reference_lookup_pieces (tree, alias_set_type, tree,
 				 vec<vn_reference_op_s> ,
 				 vn_reference_t *, vn_lookup_kind);
 tree vn_reference_lookup (tree, tree, vn_lookup_kind, vn_reference_t *);
-void vn_reference_lookup_call (gimple, vn_reference_t *, vn_reference_t);
+void vn_reference_lookup_call (gcall *, vn_reference_t *, vn_reference_t);
 vn_reference_t vn_reference_insert_pieces (tree, alias_set_type, tree,
 					   vec<vn_reference_op_s> ,
 					   tree, unsigned int);

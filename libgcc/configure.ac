@@ -76,6 +76,23 @@ AC_ARG_ENABLE(vtable-verify,
 [enable_vtable_verify=no])
 AC_SUBST(enable_vtable_verify)
 
+AC_ARG_WITH(aix-soname,
+[AS_HELP_STRING([--with-aix-soname=aix|svr4|both],
+    [shared library versioning (aka "SONAME") variant to provide on AIX])],
+[case "${host}:${enable_shared}" in
+ power*-*-aix[[5-9]]*:yes)
+   AC_MSG_CHECKING([which variant of shared library versioning to provide for shared libgcc])
+   case ${withval} in
+     aix|svr4|both) ;;
+     *) AC_MSG_ERROR([Unknown argument to --with-aix-soname]);;
+   esac
+   AC_MSG_RESULT($withval)
+   ;;
+ *) with_aix_soname=aix ;;
+ esac
+], [with_aix_soname=aix])
+AC_SUBST(with_aix_soname)
+
 GCC_PICFLAG
 AC_SUBST(PICFLAG)
 
@@ -179,6 +196,11 @@ AS_VAR_ARITH([double_type_size], [$ac_cv_sizeof_double \* 8])
 AS_VAR_ARITH([long_double_type_size], [$ac_cv_sizeof_long_double \* 8])
 AC_SUBST(double_type_size)
 AC_SUBST(long_double_type_size)
+
+AC_CHECK_HEADERS(inttypes.h stdint.h stdlib.h ftw.h \
+	unistd.h sys/stat.h sys/types.h \
+	string.h strings.h memory.h)
+AC_HEADER_STDC
 
 # Check for decimal float support.
 AC_CACHE_CHECK([whether decimal floating point is supported], [libgcc_cv_dfp],
@@ -410,6 +432,22 @@ i?86-*-solaris2* | x86_64-*-solaris2.1[[0-9]]*)
 EOF
   if AC_TRY_COMMAND(${CC-cc} -shared -nostartfiles -nodefaultlibs -o conftest.so conftest.s 1>&AS_MESSAGE_LOG_FD); then
       tmake_file="${tmake_file} i386/t-crtstuff"
+  fi
+  ;;
+esac
+
+# Check if xtensa target is configured for windowed ABI and thus needs to use
+# custom unwind code.
+# This is after config.host so we can augment tmake_file.
+case ${host} in
+xtensa*-*)
+  cat > conftest.c <<EOF
+	#ifdef __XTENSA_CALL0_ABI__
+	#error
+	#endif
+EOF
+  if AC_TRY_COMMAND(${CC-cc} -E -o conftest.i conftest.c 1>&AS_MESSAGE_LOG_FD); then
+      tmake_file="${tmake_file} xtensa/t-windowed"
   fi
   ;;
 esac

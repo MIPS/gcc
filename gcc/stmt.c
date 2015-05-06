@@ -1,5 +1,5 @@
 /* Expands front end tree to back end RTL for GCC
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,19 +29,34 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "insn-config.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "libfuncs.h"
 #include "recog.h"
@@ -292,6 +307,7 @@ parse_output_constraint (const char **constraint_p, int operand_num,
 	break;
 
       case '?':  case '!':  case '*':  case '&':  case '#':
+      case '$':  case '^':
       case 'E':  case 'F':  case 'G':  case 'H':
       case 's':  case 'i':  case 'n':
       case 'I':  case 'J':  case 'K':  case 'L':  case 'M':
@@ -382,6 +398,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
 
       case '<':  case '>':
       case '?':  case '!':  case '*':  case '#':
+      case '$':  case '^':
       case 'E':  case 'F':  case 'G':  case 'H':
       case 's':  case 'i':  case 'n':
       case 'I':  case 'J':  case 'K':  case 'L':  case 'M':
@@ -1111,7 +1128,7 @@ reset_out_edges_aux (basic_block bb)
    STMT. Record this information in the aux field of the edge.  */
 
 static inline void
-compute_cases_per_edge (gimple stmt)
+compute_cases_per_edge (gswitch *stmt)
 {
   basic_block bb = gimple_bb (stmt);
   reset_out_edges_aux (bb);
@@ -1133,7 +1150,7 @@ compute_cases_per_edge (gimple stmt)
    Generate the code to test it and jump to the right place.  */
 
 void
-expand_case (gimple stmt)
+expand_case (gswitch *stmt)
 {
   tree minval = NULL_TREE, maxval = NULL_TREE, range = NULL_TREE;
   rtx default_label = NULL_RTX;
@@ -1705,7 +1722,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 
 	      tree test_label
 		= build_decl (curr_insn_location (),
-			      LABEL_DECL, NULL_TREE, NULL_TREE);
+			      LABEL_DECL, NULL_TREE, void_type_node);
 
               /* The default label could be reached either through the right
                  subtree or the left subtree. Divide the probability
@@ -1864,7 +1881,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 		 Branch to a label where we will handle it later.  */
 
 	      test_label = build_decl (curr_insn_location (),
-				       LABEL_DECL, NULL_TREE, NULL_TREE);
+				       LABEL_DECL, NULL_TREE, void_type_node);
               probability = conditional_probability (
                   node->right->subtree_prob + default_prob/2,
                   subtree_prob + default_prob);

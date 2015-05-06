@@ -1,6 +1,6 @@
 // shared_ptr and weak_ptr implementation -*- C++ -*-
 
-// Copyright (C) 2007-2014 Free Software Foundation, Inc.
+// Copyright (C) 2007-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -75,7 +75,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     inline _Del*
     get_deleter(const __shared_ptr<_Tp, _Lp>& __p) noexcept
     {
-#ifdef __GXX_RTTI
+#if __cpp_rtti
       return static_cast<_Del*>(__p._M_get_deleter(typeid(_Del)));
 #else
       return 0;

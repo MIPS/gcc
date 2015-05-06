@@ -1,5 +1,5 @@
 /* Target Definitions for NVPTX.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
    This file is part of GCC.
@@ -32,6 +32,10 @@
       builtin_assert ("cpu=nvptx");		\
       builtin_define ("__nvptx__");		\
     } while (0)
+
+/* Avoid the default in ../../gcc.c, which adds "-pthread", which is not
+   supported for nvptx.  */
+#define GOMP_SELF_SPECS ""
 
 /* Storage Layout.  */
 
@@ -185,7 +189,8 @@ struct nvptx_args {
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
 #define FUNCTION_PROFILER(file, labelno) \
-  fatal_error ("profiling is not yet implemented for this architecture")
+  fatal_error (input_location, \
+	       "profiling is not yet implemented for this architecture")
 
 #define TRAMPOLINE_SIZE 32
 #define TRAMPOLINE_ALIGNMENT 256
@@ -281,9 +286,17 @@ struct GTY(()) machine_function
     }								\
   while (0)
 
-#define ASM_OUTPUT_ALIGN(FILE, POWER)
+#define ASM_OUTPUT_ALIGN(FILE, POWER)		\
+  do						\
+    {						\
+      (void) (FILE);				\
+      (void) (POWER);				\
+    }						\
+  while (0)
+
 #define ASM_OUTPUT_SKIP(FILE, N)		\
   nvptx_output_skip (FILE, N)
+
 #undef  ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(FILE, STR, LENGTH)			\
   nvptx_output_ascii (FILE, STR, LENGTH);
@@ -352,5 +365,9 @@ struct GTY(()) machine_function
 #define TRULY_NOOP_TRUNCATION(outprec, inprec) 1
 #define FUNCTION_MODE QImode
 #define HAS_INIT_SECTION 1
+
+/* The C++ front end insists to link against libstdc++ -- which we don't build.
+   Tell it to instead link against the innocuous libgcc.  */
+#define LIBSTDCXX "gcc"
 
 #endif /* GCC_NVPTX_H */

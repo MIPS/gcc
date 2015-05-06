@@ -1,5 +1,5 @@
 /* Machine description for AArch64 architecture.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -38,6 +38,8 @@
       builtin_define ("__ARM_FEATURE_CLZ");             \
       builtin_define ("__ARM_FEATURE_IDIV");            \
       builtin_define ("__ARM_FEATURE_UNALIGNED");       \
+      if (flag_unsafe_math_optimizations)               \
+        builtin_define ("__ARM_FP_FAST");               \
       builtin_define ("__ARM_PCS_AAPCS64");             \
       builtin_define_with_int_value                     \
         ("__ARM_SIZEOF_WCHAR_T", WCHAR_TYPE_SIZE / 8);  \
@@ -52,10 +54,19 @@
       else						\
 	builtin_define ("__AARCH64EL__");		\
 							\
-      if (TARGET_SIMD)					\
-	builtin_define ("__ARM_NEON");			\
-							\
-      if (TARGET_CRC32)				\
+      if (TARGET_FLOAT)                                         \
+        {                                                       \
+          builtin_define ("__ARM_FEATURE_FMA");                 \
+          builtin_define_with_int_value ("__ARM_FP", 0x0C);     \
+        }                                                       \
+      if (TARGET_SIMD)                                          \
+        {                                                       \
+          builtin_define ("__ARM_FEATURE_NUMERIC_MAXMIN");      \
+          builtin_define ("__ARM_NEON");			\
+          builtin_define_with_int_value ("__ARM_NEON_FP", 0x0C);\
+        }                                                       \
+							        \
+      if (TARGET_CRC32)				        \
 	builtin_define ("__ARM_FEATURE_CRC32");		\
 							\
       switch (aarch64_cmodel)				\
@@ -495,7 +506,7 @@ enum reg_class
 
 enum target_cpus
 {
-#define AARCH64_CORE(NAME, INTERNAL_IDENT, IDENT, ARCH, FLAGS, COSTS) \
+#define AARCH64_CORE(NAME, INTERNAL_IDENT, SCHED, ARCH, FLAGS, COSTS) \
   TARGET_CPU_##INTERNAL_IDENT,
 #include "aarch64-cores.def"
 #undef AARCH64_CORE
@@ -793,9 +804,9 @@ do {									     \
    : reverse_condition (CODE))
 
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
-  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE))
+  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE), 2)
 #define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
-  ((VALUE) = ((MODE) == SImode ? 32 : 64), 2)
+  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE), 2)
 
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (Pmode, LR_REGNUM)
 
@@ -867,9 +878,6 @@ do {									     \
 #define CLEAR_INSN_CACHE(beg, end)				\
   extern void  __aarch64_sync_cache_range (void *, void *);	\
   __aarch64_sync_cache_range (beg, end)
-
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)	\
-  aarch64_cannot_change_mode_class (FROM, TO, CLASS)
 
 #define SHIFT_COUNT_TRUNCATED !TARGET_SIMD
 

@@ -1,5 +1,5 @@
 ;; Scheduling description for Motorola PowerPC processor cores.
-;;   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+;;   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -69,7 +69,7 @@
   "mciu_mpc*6")
 
 (define_insn_reservation "mpccore-compare" 3
-  (and (ior (eq_attr "type" "cmp,compare")
+  (and (ior (eq_attr "type" "cmp")
 	    (and (eq_attr "type" "add,logical,shift,exts")
 		 (eq_attr "dot" "yes")))
        (eq_attr "cpu" "mpccore"))

@@ -1,5 +1,5 @@
 /* Data and Control Flow Analysis for Trees.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -37,11 +37,11 @@ extern void end_recording_case_labels (void);
 extern basic_block label_to_block_fn (struct function *, tree);
 #define label_to_block(t) (label_to_block_fn (cfun, t))
 extern void cleanup_dead_labels (void);
-extern void group_case_labels_stmt (gimple);
+extern void group_case_labels_stmt (gswitch *);
 extern void group_case_labels (void);
 extern void replace_uses_by (tree, tree);
 extern basic_block single_noncomplex_succ (basic_block bb);
-extern void notice_special_calls (gimple);
+extern void notice_special_calls (gcall *);
 extern void clear_special_calls (void);
 extern edge find_taken_edge (basic_block, tree);
 extern void gimple_debug_bb (basic_block);
@@ -67,12 +67,14 @@ extern void verify_gimple_in_cfg (struct function *, bool);
 extern tree gimple_block_label (basic_block);
 extern void add_phi_args_after_copy_bb (basic_block);
 extern void add_phi_args_after_copy (basic_block *, unsigned, edge);
+extern basic_block split_edge_bb_loc (edge);
 extern bool gimple_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *, bool);
 extern bool gimple_duplicate_sese_tail (edge, edge, basic_block *, unsigned,
 				      basic_block *);
 extern void gather_blocks_in_sese_region (basic_block entry, basic_block exit,
 					  vec<basic_block> *bbs_p);
+extern void verify_sese (basic_block, basic_block, vec<basic_block> *);
 extern basic_block move_sese_region_to_fn (struct function *, basic_block,
 				           basic_block, tree);
 extern void dump_function_to_file (tree, FILE *, int);

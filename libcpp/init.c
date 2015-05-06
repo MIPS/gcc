@@ -1,5 +1,5 @@
 /* CPP Library.
-   Copyright (C) 1986-2014 Free Software Foundation, Inc.
+   Copyright (C) 1986-2015 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -380,6 +380,8 @@ static const struct builtin_macro builtin_array[] =
   B("__LINE__",		 BT_SPECLINE,      true),
   B("__INCLUDE_LEVEL__", BT_INCLUDE_LEVEL, true),
   B("__COUNTER__",	 BT_COUNTER,       true),
+  B("__has_attribute",	 BT_HAS_ATTRIBUTE, true),
+  B("__has_cpp_attribute", BT_HAS_ATTRIBUTE, true),
   /* Keep builtins not used for -traditional-cpp at the end, and
      update init_builtins() if any more are added.  */
   B("_Pragma",		 BT_PRAGMA,        true),
@@ -460,6 +462,10 @@ cpp_init_special_builtins (cpp_reader *pfile)
 
   for (b = builtin_array; b < builtin_array + n; b++)
     {
+      if (b->value == BT_HAS_ATTRIBUTE
+	  && (CPP_OPTION (pfile, lang) == CLK_ASM
+	      || pfile->cb.has_attribute == NULL))
+	continue;
       cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
       hp->type = NT_MACRO;
       hp->flags |= NODE_BUILTIN;

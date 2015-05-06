@@ -1,5 +1,5 @@
 /* Prototypes of target machine for GNU compiler.  MIPS version.
-   Copyright (C) 1989-2014 Free Software Foundation, Inc.
+   Copyright (C) 1989-2015 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64-bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -347,6 +347,7 @@ extern bool umips_load_store_pair_p (bool, rtx *);
 extern void umips_output_load_store_pair (bool, rtx *);
 extern bool umips_movep_target_p (rtx, rtx);
 extern bool umips_12bit_offset_address_p (rtx, machine_mode);
+extern bool mips_9bit_offset_address_p (rtx, machine_mode);
 extern bool lwsp_swsp_address_p (rtx, machine_mode);
 extern bool m16_based_address_p (rtx, machine_mode,
 			         int (*)(rtx_def*, machine_mode)); 

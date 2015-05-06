@@ -1,5 +1,5 @@
 /* Tail merging for gimple.
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Tom de Vries (tom@codesourcery.com)
 
 This file is part of GCC.
@@ -189,16 +189,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "trans-mem.h"
 #include "inchash.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -231,7 +238,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Describes a group of bbs with the same successors.  The successor bbs are
    cached in succs, and the successor edge flags are cached in succ_flags.
-   If a bb has the EDGE_TRUE/VALSE_VALUE flags swapped compared to succ_flags,
+   If a bb has the EDGE_TRUE/FALSE_VALUE flags swapped compared to succ_flags,
    it's marked in inverse.
    Additionally, the hash value for the struct is cached in hashval, and
    in_worklist indicates whether it's currently part of worklist.  */
@@ -326,7 +333,8 @@ stmt_local_def (gimple stmt)
 
   if (gimple_vdef (stmt) != NULL_TREE
       || gimple_has_side_effects (stmt)
-      || gimple_could_trap_p_1 (stmt, false, false))
+      || gimple_could_trap_p_1 (stmt, false, false)
+      || gimple_vuse (stmt) != NULL_TREE)
     return false;
 
   def_p = SINGLE_SSA_DEF_OPERAND (stmt, SSA_OP_DEF);
@@ -468,13 +476,12 @@ same_succ_hash (const_same_succ e)
   unsigned int first = bitmap_first_set_bit (e->bbs);
   basic_block bb = BASIC_BLOCK_FOR_FN (cfun, first);
   int size = 0;
-  gimple_stmt_iterator gsi;
   gimple stmt;
   tree arg;
   unsigned int s;
   bitmap_iterator bs;
 
-  for (gsi = gsi_start_nondebug_bb (bb);
+  for (gimple_stmt_iterator gsi = gsi_start_nondebug_bb (bb);
        !gsi_end_p (gsi); gsi_next_nondebug (&gsi))
     {
       stmt = gsi_stmt (gsi);
@@ -517,10 +524,11 @@ same_succ_hash (const_same_succ e)
   EXECUTE_IF_SET_IN_BITMAP (e->succs, 0, s, bs)
     {
       int n = find_edge (bb, BASIC_BLOCK_FOR_FN (cfun, s))->dest_idx;
-      for (gsi = gsi_start_phis (BASIC_BLOCK_FOR_FN (cfun, s)); !gsi_end_p (gsi);
+      for (gphi_iterator gsi = gsi_start_phis (BASIC_BLOCK_FOR_FN (cfun, s));
+	   !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gphi *phi = gsi.phi ();
 	  tree lhs = gimple_phi_result (phi);
 	  tree val = gimple_phi_arg_def (phi, n);
 
@@ -579,7 +587,7 @@ same_succ_def::equal (const value_type *e1, const compare_type *e2)
   if (!inverse_flags (e1, e2))
     {
       for (i = 0; i < e1->succ_flags.length (); ++i)
-	if (e1->succ_flags[i] != e1->succ_flags[i])
+	if (e1->succ_flags[i] != e2->succ_flags[i])
 	  return 0;
     }
 
@@ -857,9 +865,8 @@ same_succ_flush_bbs (bitmap bbs)
 static void
 release_last_vdef (basic_block bb)
 {
-  gimple_stmt_iterator i;
-
-  for (i = gsi_last_bb (bb); !gsi_end_p (i); gsi_prev_nondebug (&i))
+  for (gimple_stmt_iterator i = gsi_last_bb (bb); !gsi_end_p (i);
+       gsi_prev_nondebug (&i))
     {
       gimple stmt = gsi_stmt (i);
       if (gimple_vdef (stmt) == NULL_TREE)
@@ -869,9 +876,10 @@ release_last_vdef (basic_block bb)
       return;
     }
 
-  for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
+  for (gphi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
+       gsi_next (&i))
     {
-      gimple phi = gsi_stmt (i);
+      gphi *phi = i.phi ();
       tree res = gimple_phi_result (phi);
 
       if (!virtual_operand_p (res))
@@ -1175,7 +1183,8 @@ gimple_equal_p (same_succ same_succ, gimple s1, gimple s2)
 						 gimple_assign_rhs1 (s2)));
       else if (TREE_CODE (lhs1) == SSA_NAME
 	       && TREE_CODE (lhs2) == SSA_NAME)
-	return vn_valueize (lhs1) == vn_valueize (lhs2);
+	return operand_equal_p (gimple_assign_rhs1 (s1),
+				gimple_assign_rhs1 (s2), 0);
       return false;
 
     case GIMPLE_COND:
@@ -1195,8 +1204,7 @@ gimple_equal_p (same_succ same_succ, gimple s1, gimple s2)
 		  != bitmap_bit_p (same_succ->inverse, bb2->index));
       if (inv_cond)
 	{
-	  bool honor_nans
-	    = HONOR_NANS (TYPE_MODE (TREE_TYPE (gimple_cond_lhs (s1))));
+	  bool honor_nans = HONOR_NANS (t1);
 	  code2 = invert_tree_comparison (code2, honor_nans);
 	}
       return code1 == code2;
@@ -1296,11 +1304,11 @@ static bool
 same_phi_alternatives_1 (basic_block dest, edge e1, edge e2)
 {
   int n1 = e1->dest_idx, n2 = e2->dest_idx;
-  gimple_stmt_iterator gsi;
+  gphi_iterator gsi;
 
   for (gsi = gsi_start_phis (dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gphi *phi = gsi.phi ();
       tree lhs = gimple_phi_result (phi);
       tree val1 = gimple_phi_arg_def (phi, n1);
       tree val2 = gimple_phi_arg_def (phi, n2);
@@ -1477,14 +1485,14 @@ find_clusters (void)
 
 /* Returns the vop phi of BB, if any.  */
 
-static gimple
+static gphi *
 vop_phi (basic_block bb)
 {
-  gimple stmt;
-  gimple_stmt_iterator gsi;
+  gphi *stmt;
+  gphi_iterator gsi;
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      stmt = gsi_stmt (gsi);
+      stmt = gsi.phi ();
       if (! virtual_operand_p (gimple_phi_result (stmt)))
 	continue;
       return stmt;
@@ -1501,7 +1509,7 @@ replace_block_by (basic_block bb1, basic_block bb2)
   edge e1, e2;
   edge_iterator ei;
   unsigned int i;
-  gimple bb2_phi;
+  gphi *bb2_phi;
 
   bb2_phi = vop_phi (bb2);
 
@@ -1604,9 +1612,7 @@ update_debug_stmt (gimple stmt)
 {
   use_operand_p use_p;
   ssa_op_iter oi;
-  basic_block bbdef, bbuse;
-  gimple def_stmt;
-  tree name;
+  basic_block bbuse;
 
   if (!gimple_debug_bind_p (stmt))
     return;
@@ -1614,19 +1620,16 @@ update_debug_stmt (gimple stmt)
   bbuse = gimple_bb (stmt);
   FOR_EACH_PHI_OR_STMT_USE (use_p, stmt, oi, SSA_OP_USE)
     {
-      name = USE_FROM_PTR (use_p);
-      gcc_assert (TREE_CODE (name) == SSA_NAME);
-
-      def_stmt = SSA_NAME_DEF_STMT (name);
-      gcc_assert (def_stmt != NULL);
-
-      bbdef = gimple_bb (def_stmt);
+      tree name = USE_FROM_PTR (use_p);
+      gimple def_stmt = SSA_NAME_DEF_STMT (name);
+      basic_block bbdef = gimple_bb (def_stmt);
       if (bbdef == NULL || bbuse == bbdef
 	  || dominated_by_p (CDI_DOMINATORS, bbuse, bbdef))
 	continue;
 
       gimple_debug_bind_reset_value (stmt);
       update_stmt (stmt);
+      break;
     }
 }
 

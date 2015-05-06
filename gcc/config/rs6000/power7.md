@@ -1,5 +1,5 @@
 ;; Scheduling description for IBM POWER7 processor.
-;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2015 Free Software Foundation, Inc.
 ;;
 ;; Contributed by Pat Haugen (pthaugen@us.ibm.com).
 
@@ -203,9 +203,8 @@
   "DU_power7,FXU_power7")
 
 (define_insn_reservation "power7-compare" 2
-  (and (ior (eq_attr "type" "compare")
-	    (and (eq_attr "type" "shift,exts")
-		 (eq_attr "dot" "yes")))
+  (and (eq_attr "type" "shift,exts")
+       (eq_attr "dot" "yes")
        (eq_attr "cpu" "power7"))
   "DU2F_power7,FXU_power7,FXU_power7")
 

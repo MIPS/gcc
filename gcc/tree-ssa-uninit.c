@@ -1,5 +1,5 @@
 /* Predicate aware uninitialized variable warning.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Contributed by Xinliang David Li <davidxl@google.com>
 
 This file is part of GCC.
@@ -22,14 +22,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -52,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "diagnostic-core.h"
 #include "params.h"
+#include "tree-cfg.h"
 
 /* This implements the pass that does predicate aware warning on uses of
    possibly uninitialized variables. The pass first collects the set of
@@ -301,7 +308,7 @@ can_skip_redundant_opnd (tree opnd, gimple phi)
    that have empty (or possibly empty) definitions.  */
 
 static unsigned
-compute_uninit_opnds_pos (gimple phi)
+compute_uninit_opnds_pos (gphi *phi)
 {
   size_t i, n;
   unsigned uninit_opnds = 0;
@@ -405,6 +412,7 @@ find_control_equiv_block (basic_block bb)
 #define MAX_NUM_CHAINS 8
 #define MAX_CHAIN_LEN 5
 #define MAX_POSTDOM_CHECK 8
+#define MAX_SWITCH_CASES 40
 
 /* Computes the control dependence chains (paths of edges)
    for DEP_BB up to the dominating basic block BB (the head node of a
@@ -586,17 +594,63 @@ convert_control_dep_chain_into_preds (vec<edge> *dep_chains,
               if (skip)
                 continue;
             }
-          if (gimple_code (cond_stmt) != GIMPLE_COND)
+          if (gimple_code (cond_stmt) == GIMPLE_COND)
+	    {
+	      one_pred.pred_lhs = gimple_cond_lhs (cond_stmt);
+	      one_pred.pred_rhs = gimple_cond_rhs (cond_stmt);
+	      one_pred.cond_code = gimple_cond_code (cond_stmt);
+	      one_pred.invert = !!(e->flags & EDGE_FALSE_VALUE);
+	      t_chain.safe_push (one_pred);
+	      has_valid_pred = true;
+	    }
+	  else if (gswitch *gs = dyn_cast <gswitch *> (cond_stmt))
+	    {
+	      /* Avoid quadratic behavior.  */
+	      if (gimple_switch_num_labels (gs) > MAX_SWITCH_CASES)
+		{
+		  has_valid_pred = false;
+		  break;
+		}
+	      /* Find the case label.  */
+	      tree l = NULL_TREE;
+	      unsigned idx;
+	      for (idx = 0; idx < gimple_switch_num_labels (gs); ++idx)
+		{
+		  tree tl = gimple_switch_label (gs, idx);
+		  if (e->dest == label_to_block (CASE_LABEL (tl)))
+		    {
+		      if (!l)
+			l = tl;
+		      else
+			{
+			  l = NULL_TREE;
+			  break;
+			}
+		    }
+		}
+	      /* If more than one label reaches this block or the case
+	         label doesn't have a single value (like the default one)
+		 fail.  */
+	      if (!l
+		  || !CASE_LOW (l)
+		  || (CASE_HIGH (l) && !operand_equal_p (CASE_LOW (l),
+							 CASE_HIGH (l), 0)))
+		{
+		  has_valid_pred = false;
+		  break;
+		}
+	      one_pred.pred_lhs = gimple_switch_index (gs);
+	      one_pred.pred_rhs = CASE_LOW (l);
+	      one_pred.cond_code = EQ_EXPR;
+	      one_pred.invert = false;
+	      t_chain.safe_push (one_pred);
+	      has_valid_pred = true;
+	    }
+	  else
             {
               has_valid_pred = false;
               break;
             }
-          one_pred.pred_lhs = gimple_cond_lhs (cond_stmt);
-          one_pred.pred_rhs = gimple_cond_rhs (cond_stmt);
-          one_pred.cond_code = gimple_cond_code (cond_stmt);
-          one_pred.invert = !!(e->flags & EDGE_FALSE_VALUE);
-          t_chain.safe_push (one_pred);
-	  has_valid_pred = true;
         }
 
       if (!has_valid_pred)
@@ -653,7 +707,7 @@ find_predicates (pred_chain_union *preds,
    VISITED_PHIS is a pointer set for detecting cycles.  */
 
 static void
-collect_phi_def_edges (gimple phi, basic_block cd_root,
+collect_phi_def_edges (gphi *phi, basic_block cd_root,
                        vec<edge> *edges,
                        hash_set<gimple> *visited_phis)
 {
@@ -686,7 +740,7 @@ collect_phi_def_edges (gimple phi, basic_block cd_root,
           if (gimple_code (def) == GIMPLE_PHI
               && dominated_by_p (CDI_DOMINATORS,
                                  gimple_bb (def), cd_root))
-            collect_phi_def_edges (def, cd_root, edges,
+            collect_phi_def_edges (as_a <gphi *> (def), cd_root, edges,
                                    visited_phis);
           else if (!uninit_undefined_value_p (opnd))
             {
@@ -706,7 +760,7 @@ collect_phi_def_edges (gimple phi, basic_block cd_root,
    composite predicates pointed to by PREDS.  */
 
 static bool
-find_def_preds (pred_chain_union *preds, gimple phi)
+find_def_preds (pred_chain_union *preds, gphi *phi)
 {
   size_t num_chains = 0, i, n;
   vec<edge> dep_chains[MAX_NUM_CHAINS];
@@ -766,7 +820,7 @@ dump_predicates (gimple usestmt, pred_chain_union preds,
 {
   size_t i, j;
   pred_chain one_pred_chain = vNULL;
-  fprintf (dump_file, msg);
+  fprintf (dump_file, "%s", msg);
   print_gimple_stmt (dump_file, usestmt, 0, 0);
   fprintf (dump_file, "is guarded by :\n\n");
   size_t num_preds = preds.length ();
@@ -944,9 +998,9 @@ find_matching_predicate_in_rest_chains (pred_info pred,
 static bool
 is_use_properly_guarded (gimple use_stmt,
                          basic_block use_bb,
-                         gimple phi,
+                         gphi *phi,
                          unsigned uninit_opnds,
-                         hash_set<gimple> *visited_phis);
+                         hash_set<gphi *> *visited_phis);
 
 /* Returns true if all uninitialized opnds are pruned. Returns false
    otherwise. PHI is the phi node with uninitialized operands,
@@ -983,12 +1037,12 @@ is_use_properly_guarded (gimple use_stmt,
 */
 
 static bool
-prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
+prune_uninit_phi_opnds_in_unrealizable_paths (gphi *phi,
 					      unsigned uninit_opnds,
-					      gimple flag_def,
+					      gphi *flag_def,
 					      tree boundary_cst,
 					      enum tree_code cmp_code,
-					      hash_set<gimple> *visited_phis,
+					      hash_set<gphi *> *visited_phis,
 					      bitmap *visited_flag_phis)
 {
   unsigned i;
@@ -1003,22 +1057,22 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
       flag_arg = gimple_phi_arg_def (flag_def, i);
       if (!is_gimple_constant (flag_arg))
         {
-          gimple flag_arg_def, phi_arg_def;
+          gphi *flag_arg_def, *phi_arg_def;
           tree phi_arg;
           unsigned uninit_opnds_arg_phi;
 
           if (TREE_CODE (flag_arg) != SSA_NAME)
             return false;
-          flag_arg_def = SSA_NAME_DEF_STMT (flag_arg);
-          if (gimple_code (flag_arg_def) != GIMPLE_PHI)
+          flag_arg_def = dyn_cast <gphi *> (SSA_NAME_DEF_STMT (flag_arg));
+	  if (!flag_arg_def)
             return false;
 
           phi_arg = gimple_phi_arg_def (phi, i);
           if (TREE_CODE (phi_arg) != SSA_NAME)
             return false;
 
-          phi_arg_def = SSA_NAME_DEF_STMT (phi_arg);
-          if (gimple_code (phi_arg_def) != GIMPLE_PHI)
+          phi_arg_def = dyn_cast <gphi *> (SSA_NAME_DEF_STMT (phi_arg));
+	  if (!phi_arg_def)
             return false;
 
           if (gimple_bb (phi_arg_def) != gimple_bb (flag_arg_def))
@@ -1059,16 +1113,16 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
 
           opnd = gimple_phi_arg_def (phi, i);
           opnd_def = SSA_NAME_DEF_STMT (opnd);
-          if (gimple_code (opnd_def) == GIMPLE_PHI)
+          if (gphi *opnd_def_phi = dyn_cast <gphi *> (opnd_def))
             {
               edge opnd_edge;
               unsigned uninit_opnds2
-                  = compute_uninit_opnds_pos (opnd_def);
+                  = compute_uninit_opnds_pos (opnd_def_phi);
               gcc_assert (!MASK_EMPTY (uninit_opnds2));
               opnd_edge = gimple_phi_arg_edge (phi, i);
               if (!is_use_properly_guarded (phi,
                                             opnd_edge->src,
-                                            opnd_def,
+                                            opnd_def_phi,
                                             uninit_opnds2,
                                             visited_phis))
                   return false;
@@ -1157,8 +1211,8 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
 
 static bool
 use_pred_not_overlap_with_undef_path_pred (pred_chain_union preds,
-				           gimple phi, unsigned uninit_opnds,
-					   hash_set<gimple> *visited_phis)
+				           gphi *phi, unsigned uninit_opnds,
+					   hash_set<gphi *> *visited_phis)
 {
   unsigned int i, n;
   gimple flag_def = 0;
@@ -1231,7 +1285,7 @@ use_pred_not_overlap_with_undef_path_pred (pred_chain_union preds,
 
   all_pruned = prune_uninit_phi_opnds_in_unrealizable_paths (phi,
                                                              uninit_opnds,
-                                                             flag_def,
+                                                             as_a <gphi *> (flag_def),
                                                              boundary_cst,
                                                              cmp_code,
                                                              visited_phis,
@@ -1322,6 +1376,11 @@ is_pred_expr_subset_of (pred_info expr1, pred_info expr2)
   code2 = expr2.cond_code;
   if (expr2.invert)
     code2 = invert_tree_comparison (code2, false);
+
+  if ((code1 == EQ_EXPR || code1 == BIT_AND_EXPR)
+      && code2 == BIT_AND_EXPR)
+    return wi::eq_p (expr1.pred_rhs,
+		     wi::bit_and (expr1.pred_rhs, expr2.pred_rhs));
 
   if (code1 != code2 && code2 != NE_EXPR)
     return false;
@@ -1964,8 +2023,25 @@ normalize_one_pred_1 (pred_chain_union *norm_preds,
     }
   else if (gimple_assign_rhs_code (def_stmt) == and_or_code)
     {
-      push_to_worklist (gimple_assign_rhs1 (def_stmt), work_list, mark_set);
-      push_to_worklist (gimple_assign_rhs2 (def_stmt), work_list, mark_set);
+      /* Avoid splitting up bit manipulations like x & 3 or y | 1.  */
+      if (is_gimple_min_invariant (gimple_assign_rhs2 (def_stmt)))
+	{
+	  /* But treat x & 3 as condition.  */
+	  if (and_or_code == BIT_AND_EXPR)
+	    {
+	      pred_info n_pred;
+	      n_pred.pred_lhs = gimple_assign_rhs1 (def_stmt);
+	      n_pred.pred_rhs = gimple_assign_rhs2 (def_stmt);
+	      n_pred.cond_code = and_or_code;
+	      n_pred.invert = false;
+	      norm_chain->safe_push (n_pred);
+	    }
+	}
+      else
+	{
+	  push_to_worklist (gimple_assign_rhs1 (def_stmt), work_list, mark_set);
+	  push_to_worklist (gimple_assign_rhs2 (def_stmt), work_list, mark_set);
+	}
     }
   else if (TREE_CODE_CLASS (gimple_assign_rhs_code (def_stmt))
 	   == tcc_comparison)
@@ -2112,9 +2188,9 @@ normalize_preds (pred_chain_union preds, gimple use_or_def, bool is_use)
 static bool
 is_use_properly_guarded (gimple use_stmt,
                          basic_block use_bb,
-                         gimple phi,
+                         gphi *phi,
                          unsigned uninit_opnds,
-                         hash_set<gimple> *visited_phis)
+                         hash_set<gphi *> *visited_phis)
 {
   basic_block phi_bb;
   pred_chain_union preds = vNULL;
@@ -2181,9 +2257,9 @@ is_use_properly_guarded (gimple use_stmt,
    if the new phi is already in the worklist.  */
 
 static gimple
-find_uninit_use (gimple phi, unsigned uninit_opnds,
-                 vec<gimple> *worklist,
-		 hash_set<gimple> *added_to_worklist)
+find_uninit_use (gphi *phi, unsigned uninit_opnds,
+                 vec<gphi *> *worklist,
+		 hash_set<gphi *> *added_to_worklist)
 {
   tree phi_result;
   use_operand_p use_p;
@@ -2200,13 +2276,13 @@ find_uninit_use (gimple phi, unsigned uninit_opnds,
       if (is_gimple_debug (use_stmt))
 	continue;
 
-      if (gimple_code (use_stmt) == GIMPLE_PHI)
-	use_bb = gimple_phi_arg_edge (use_stmt,
+      if (gphi *use_phi = dyn_cast <gphi *> (use_stmt))
+	use_bb = gimple_phi_arg_edge (use_phi,
 				      PHI_ARG_INDEX_FROM_USE (use_p))->src;
       else
 	use_bb = gimple_bb (use_stmt);
 
-      hash_set<gimple> visited_phis;
+      hash_set<gphi *> visited_phis;
       if (is_use_properly_guarded (use_stmt, use_bb, phi, uninit_opnds,
                                    &visited_phis))
 	continue;
@@ -2222,7 +2298,7 @@ find_uninit_use (gimple phi, unsigned uninit_opnds,
 
       /* Found a phi use that is not guarded,
          add the phi to the worklist.  */
-      if (!added_to_worklist->add (use_stmt))
+      if (!added_to_worklist->add (as_a <gphi *> (use_stmt)))
         {
           if (dump_file && (dump_flags & TDF_DETAILS))
             {
@@ -2230,7 +2306,7 @@ find_uninit_use (gimple phi, unsigned uninit_opnds,
               print_gimple_stmt (dump_file, use_stmt, 0, 0);
             }
 
-          worklist->safe_push (use_stmt);
+          worklist->safe_push (as_a <gphi *> (use_stmt));
           possibly_undefined_names->add (phi_result);
         }
     }
@@ -2247,8 +2323,8 @@ find_uninit_use (gimple phi, unsigned uninit_opnds,
    a pointer set tracking if the new phi is added to the worklist or not.  */
 
 static void
-warn_uninitialized_phi (gimple phi, vec<gimple> *worklist,
-                        hash_set<gimple> *added_to_worklist)
+warn_uninitialized_phi (gphi *phi, vec<gphi *> *worklist,
+                        hash_set<gphi *> *added_to_worklist)
 {
   unsigned uninit_opnds;
   gimple uninit_use_stmt = 0;
@@ -2333,8 +2409,8 @@ unsigned int
 pass_late_warn_uninitialized::execute (function *fun)
 {
   basic_block bb;
-  gimple_stmt_iterator gsi;
-  vec<gimple> worklist = vNULL;
+  gphi_iterator gsi;
+  vec<gphi *> worklist = vNULL;
 
   calculate_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_POST_DOMINATORS);
@@ -2346,13 +2422,13 @@ pass_late_warn_uninitialized::execute (function *fun)
   timevar_push (TV_TREE_UNINIT);
 
   possibly_undefined_names = new hash_set<tree>;
-  hash_set<gimple> added_to_worklist;
+  hash_set<gphi *> added_to_worklist;
 
   /* Initialize worklist  */
   FOR_EACH_BB_FN (bb, fun)
     for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
-	gimple phi = gsi_stmt (gsi);
+	gphi *phi = gsi.phi ();
 	size_t n, i;
 
 	n = gimple_phi_num_args (phi);
@@ -2381,7 +2457,7 @@ pass_late_warn_uninitialized::execute (function *fun)
 
   while (worklist.length () != 0)
     {
-      gimple cur_phi = 0;
+      gphi *cur_phi = 0;
       cur_phi = worklist.pop ();
       warn_uninitialized_phi (cur_phi, &worklist, &added_to_worklist);
     }

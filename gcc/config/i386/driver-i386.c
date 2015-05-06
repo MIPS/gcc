@@ -1,5 +1,5 @@
 /* Subroutines for the gcc driver.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -412,6 +412,8 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   unsigned int has_avx512f = 0, has_sha = 0, has_prefetchwt1 = 0;
   unsigned int has_clflushopt = 0, has_xsavec = 0, has_xsaves = 0;
   unsigned int has_avx512dq = 0, has_avx512bw = 0, has_avx512vl = 0;
+  unsigned int has_avx512vbmi = 0, has_avx512ifma = 0, has_clwb = 0;
+  unsigned int has_pcommit = 0;
 
   bool arch;
 
@@ -489,12 +491,16 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       has_avx512pf = ebx & bit_AVX512PF;
       has_avx512cd = ebx & bit_AVX512CD;
       has_sha = ebx & bit_SHA;
+      has_pcommit = ebx & bit_PCOMMIT;
       has_clflushopt = ebx & bit_CLFLUSHOPT;
+      has_clwb = ebx & bit_CLWB;
       has_avx512dq = ebx & bit_AVX512DQ;
       has_avx512bw = ebx & bit_AVX512BW;
       has_avx512vl = ebx & bit_AVX512VL;
+      has_avx512vl = ebx & bit_AVX512IFMA;
 
       has_prefetchwt1 = ecx & bit_PREFETCHWT1;
+      has_avx512vl = ecx & bit_AVX512VBMI;
     }
 
   if (max_level >= 13)
@@ -697,7 +703,10 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	  cpu = "bonnell";
 	  break;
 	case 0x37:
+	case 0x4a:
 	case 0x4d:
+	case 0x5a:
+	case 0x5d:
 	  /* Silvermont.  */
 	  cpu = "silvermont";
 	  break;
@@ -732,16 +741,31 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	  cpu = "ivybridge";
 	  break;
 	case 0x3c:
+	case 0x3f:
 	case 0x45:
 	case 0x46:
 	  /* Haswell.  */
 	  cpu = "haswell";
 	  break;
+	case 0x3d:
+	case 0x4f:
+	case 0x56:
+	  /* Broadwell.  */
+	  cpu = "broadwell";
+	  break;
+	case 0x57:
+	  /* Knights Landing.  */
+	  cpu = "knl";
+	  break;
 	default:
 	  if (arch)
 	    {
 	      /* This is unknown family 0x6 CPU.  */
-	      if (has_adx)
+	      /* Assume Knights Landing.  */
+	      if (has_avx512f)
+		cpu = "knl";
+	      /* Assume Broadwell.  */
+	      else if (has_adx)
 		cpu = "broadwell";
 	      else if (has_avx2)
 		/* Assume Haswell.  */
@@ -925,6 +949,10 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       const char *avx512dq = has_avx512dq ? " -mavx512dq" : " -mno-avx512dq";
       const char *avx512bw = has_avx512bw ? " -mavx512bw" : " -mno-avx512bw";
       const char *avx512vl = has_avx512vl ? " -mavx512vl" : " -mno-avx512vl";
+      const char *avx512ifma = has_avx512ifma ? " -mavx512ifma" : " -mno-avx512ifma";
+      const char *avx512vbmi = has_avx512vbmi ? " -mavx512vbmi" : " -mno-avx512vbmi";
+      const char *clwb = has_clwb ? " -mclwb" : " -mno-clwb";
+      const char *pcommit = has_pcommit ? " -mpcommit" : " -mno-pcommit";
 
       options = concat (options, mmx, mmx3dnow, sse, sse2, sse3, ssse3,
 			sse4a, cx16, sahf, movbe, aes, sha, pclmul,
@@ -934,7 +962,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 			fxsr, xsave, xsaveopt, avx512f, avx512er,
 			avx512cd, avx512pf, prefetchwt1, clflushopt,
 			xsavec, xsaves, avx512dq, avx512bw, avx512vl,
-			NULL);
+			avx512ifma, avx512vbmi, clwb, pcommit, NULL);
     }
 
 done:

@@ -1,7 +1,7 @@
 # Makefile for GNU Compiler Collection
 # Run 'configure' to generate Makefile from Makefile.in
 
-# Copyright (C) 1987-2014 Free Software Foundation, Inc.
+# Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -209,8 +209,8 @@ gengtype-lex.o-warn = -Wno-error
 libgcov-util.o-warn = -Wno-error
 libgcov-driver-tool.o-warn = -Wno-error
 libgcov-merge-tool.o-warn = -Wno-error
-gimple-match.o-warn = -Wno-unused-variable -Wno-unused-parameter
-generic-match.o-warn = -Wno-unused-variable -Wno-unused-parameter
+gimple-match.o-warn = -Wno-unused
+generic-match.o-warn = -Wno-unused
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -1006,7 +1006,7 @@ BUILD_LIBDEPS= $(BUILD_LIBIBERTY)
 # and the system's installed libraries.
 LIBS = @LIBS@ libcommon.a $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBBACKTRACE) \
 	$(LIBIBERTY) $(LIBDECNUMBER) $(HOST_LIBS)
-BACKENDLIBS = $(CLOOGLIBS) $(ISLLIBS) $(GMPLIBS) $(PLUGINLIBS) $(HOST_LIBS) \
+BACKENDLIBS = $(ISLLIBS) $(GMPLIBS) $(PLUGINLIBS) $(HOST_LIBS) \
 	$(ZLIB)
 # Any system libraries needed just for GNAT.
 SYSLIBS = @GNAT_LIBEXC@
@@ -1038,7 +1038,7 @@ BUILD_ERRORS = build/errors.o
 INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   -I$(srcdir)/../include @INCINTL@ \
 	   $(CPPINC) $(GMPINC) $(DECNUMINC) $(BACKTRACEINC) \
-	   $(CLOOGINC) $(ISLINC)
+	   $(ISLINC)
 
 COMPILE.base = $(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) -o $@
 ifeq ($(CXXDEPMODE),depmode=gcc3)
@@ -1132,7 +1132,7 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 FORTRAN_TARGET_OBJS=@fortran_target_objs@
 
 # Object files for gcc many-languages driver.
-GCC_OBJS = gcc.o ggc-none.o
+GCC_OBJS = gcc.o gcc-main.o ggc-none.o
 
 c-family-warn = $(STRICT_WARN)
 
@@ -1235,6 +1235,7 @@ OBJS = \
 	function.o \
 	fwprop.o \
 	gcse.o \
+	gcse-common.o \
 	ggc-common.o \
 	gimple.o \
 	gimple-builder.o \
@@ -1513,7 +1514,8 @@ ALL_HOST_FRONTEND_OBJS = $(foreach v,$(CONFIG_LANGUAGES),$($(v)_OBJS))
 ALL_HOST_BACKEND_OBJS = $(GCC_OBJS) $(OBJS) $(OBJS-libcommon) \
   $(OBJS-libcommon-target) @TREEBROWSER@ main.o c-family/cppspec.o \
   $(COLLECT2_OBJS) $(EXTRA_GCC_OBJS) $(GCOV_OBJS) $(GCOV_DUMP_OBJS) \
-  $(GCOV_TOOL_OBJS) lto-wrapper.o collect-utils.o
+  $(GCOV_TOOL_OBJS) $(GENGTYPE_OBJS) gcc-ar.o gcc-nm.o gcc-ranlib.o \
+  lto-wrapper.o collect-utils.o
 
 # This lists all host object files, whether they are included in this
 # compilation or not.
@@ -1549,7 +1551,8 @@ MOSTLYCLEANFILES = insn-flags.h insn-config.h insn-codes.h \
 # from within the *build* directory, for use when running the JIT library
 # from there (e.g. when running its testsuite).
 $(FULL_DRIVER_NAME): ./xgcc
-	$(LN) -s $< $@
+	rm -f $@
+	$(LN_S) $< $@
 
 #
 # Language makefile fragments.
@@ -2323,7 +2326,6 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-scalar-evolution.c \
   $(srcdir)/tree-ssa-operands.h \
   $(srcdir)/tree-profile.c $(srcdir)/tree-nested.c \
-  $(srcdir)/tree-parloops.c \
   $(srcdir)/omp-low.c \
   $(srcdir)/omp-low.h \
   $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c $(srcdir)/cgraphunit.c \
@@ -2489,29 +2491,30 @@ build/gengenrtl.o : gengenrtl.c $(BCONFIG_H) $(SYSTEM_H) rtl.def
 # on BCONFIG_H.  For the build objects, add -DGENERATOR_FILE manually,
 # the build-%: rule doesn't apply to them.
 
+GENGTYPE_OBJS = gengtype.o gengtype-parse.o gengtype-state.o \
+  gengtype-lex.o errors.o
+
 gengtype-lex.o build/gengtype-lex.o : gengtype-lex.c gengtype.h $(SYSTEM_H)
-gengtype-lex.o: $(CONFIG_H) $(BCONFIG_H)
-CFLAGS-gengtype-lex.o += -DGENERATOR_FILE
+CFLAGS-gengtype-lex.o += -DHOST_GENERATOR_FILE
 build/gengtype-lex.o: $(BCONFIG_H)
 
 gengtype-parse.o build/gengtype-parse.o : gengtype-parse.c gengtype.h \
   $(SYSTEM_H)
-gengtype-parse.o: $(CONFIG_H)
-CFLAGS-gengtype-parse.o += -DGENERATOR_FILE
+CFLAGS-gengtype-parse.o += -DHOST_GENERATOR_FILE
 build/gengtype-parse.o: $(BCONFIG_H)
 
 gengtype-state.o build/gengtype-state.o: gengtype-state.c $(SYSTEM_H) \
   gengtype.h errors.h double-int.h version.h $(HASHTAB_H) $(OBSTACK_H) \
   $(XREGEX_H)
-gengtype-state.o: $(CONFIG_H)
-CFLAGS-gengtype-state.o += -DGENERATOR_FILE
+CFLAGS-gengtype-state.o += -DHOST_GENERATOR_FILE
 build/gengtype-state.o: $(BCONFIG_H)
 gengtype.o build/gengtype.o : gengtype.c $(SYSTEM_H) gengtype.h 	\
   rtl.def insn-notes.def errors.h double-int.h version.h     		\
   $(HASHTAB_H) $(OBSTACK_H) $(XREGEX_H)
-gengtype.o: $(CONFIG_H)
-CFLAGS-gengtype.o += -DGENERATOR_FILE
+CFLAGS-gengtype.o += -DHOST_GENERATOR_FILE
 build/gengtype.o: $(BCONFIG_H)
+
+CFLAGS-errors.o += -DHOST_GENERATOR_FILE
 
 build/genmddeps.o: genmddeps.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h	\
   errors.h $(READ_MD_H)
@@ -3230,7 +3233,8 @@ PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   tree-ssa-loop.h tree-ssa-loop-ivopts.h tree-ssa-loop-manip.h \
   tree-ssa-loop-niter.h tree-ssa-ter.h tree-ssa-threadedge.h \
   tree-ssa-threadupdate.h inchash.h wide-int.h signop.h hash-map.h \
-  hash-set.h pass-instances.def
+  hash-set.h dominance.h cfg.h cfgrtl.h cfganal.h cfgbuild.h cfgcleanup.h \
+  lcm.h cfgloopmanip.h builtins.def chkp-builtins.def pass-instances.def
 
 # generate the 'build fragment' b-header-vars
 s-header-vars: Makefile
@@ -3256,7 +3260,7 @@ install-plugin: installdirs lang.install-plugin s-header-vars install-gengtype
 # We keep the directory structure for files in config or c-family and .def
 # files. All other files are flattened to a single directory.
 	$(mkinstalldirs) $(DESTDIR)$(plugin_includedir)
-	headers=`echo $(PLUGIN_HEADERS) | tr ' ' '\012' | sort -u`; \
+	headers=`echo $(PLUGIN_HEADERS) $$(cd $(srcdir); echo *.h *.def) | tr ' ' '\012' | sort -u`; \
 	srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`; \
 	for file in $$headers; do \
 	  if [ -f $$file ] ; then \
@@ -3607,9 +3611,6 @@ site.exp: ./config.status Makefile
 	  echo "set PLUGINCC \"$(PLUGINCC)\"" >> ./site.tmp; \
 	  echo "set PLUGINCFLAGS \"$(PLUGINCFLAGS)\"" >> ./site.tmp; \
 	  echo "set GMPINC \"$(GMPINC)\"" >> ./site.tmp; \
-	fi
-	@if test "@enable_lto@" = "yes" ; then \
-	  echo "set ENABLE_LTO 1" >> ./site.tmp; \
 	fi
 # If newlib has been configured, we need to pass -B to gcc so it can find
 # newlib's crt0.o if it exists.  This will cause a "path prefix not used"

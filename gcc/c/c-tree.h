@@ -1,5 +1,5 @@
 /* Definitions for C parsing and type checking.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -640,6 +640,9 @@ extern tree c_finish_bc_stmt (location_t, tree *, bool);
 extern tree c_finish_goto_label (location_t, tree);
 extern tree c_finish_goto_ptr (location_t, tree);
 extern tree c_expr_to_decl (tree, bool *, bool *);
+extern tree c_finish_oacc_parallel (location_t, tree, tree);
+extern tree c_finish_oacc_kernels (location_t, tree, tree);
+extern tree c_finish_oacc_data (location_t, tree, tree);
 extern tree c_begin_omp_parallel (void);
 extern tree c_finish_omp_parallel (location_t, tree, tree);
 extern tree c_begin_omp_task (void);
@@ -667,10 +670,6 @@ extern int current_function_returns_null;
    a call to a noreturn function is seen.  */
 
 extern int current_function_returns_abnormally;
-
-/* Mode used to build pointers (VOIDmode means ptr_mode).  */
-
-extern machine_mode c_default_pointer_mode;
 
 /* In c-decl.c */
 

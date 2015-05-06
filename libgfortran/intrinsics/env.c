@@ -1,6 +1,6 @@
 /* Implementation of the GETENV g77, and
    GET_ENVIRONMENT_VARIABLE F2003, intrinsics. 
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Janne Blomqvist.
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -42,7 +42,6 @@ PREFIX(getenv) (char * name, char * value, gfc_charlen_type name_len,
 {
   char *name_nt;
   char *res = NULL;
-  int res_len;
 
   if (name == NULL || value == NULL)
     runtime_error ("Both arguments to getenv are mandatory.");

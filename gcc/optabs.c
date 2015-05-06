@@ -1,5 +1,5 @@
 /* Expand the basic unary and binary arithmetic operations, for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,6 +28,15 @@ along with GCC; see the file COPYING3.  If not see
    is properly defined.  */
 #include "insn-config.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "tree-hasher.h"
 #include "stor-layout.h"
@@ -35,14 +44,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "except.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -4167,8 +4181,11 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
 
   if (GET_MODE_CLASS (mode) == MODE_CC)
     {
-      gcc_assert (can_compare_p (comparison, CCmode, ccp_jump));
-      *ptest = gen_rtx_fmt_ee (comparison, VOIDmode, x, y);
+      enum insn_code icode = optab_handler (cbranch_optab, CCmode);
+      test = gen_rtx_fmt_ee (comparison, VOIDmode, x, y);
+      gcc_assert (icode != CODE_FOR_nothing
+                  && insn_operand_matches (icode, 0, test));
+      *ptest = test;
       return;
     }
 

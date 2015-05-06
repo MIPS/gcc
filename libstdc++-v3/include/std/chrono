@@ -1,6 +1,6 @@
 // <chrono> -*- C++ -*-
 
-// Copyright (C) 2008-2014 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -865,6 +865,15 @@ _GLIBCXX_END_NAMESPACE_VERSION
 
   } // inline namespace chrono_literals
   } // inline namespace literals
+
+  namespace chrono
+  {
+  _GLIBCXX_BEGIN_NAMESPACE_VERSION
+
+  using namespace literals::chrono_literals;
+
+  _GLIBCXX_END_NAMESPACE_VERSION
+  } // namespace chrono
 
 #endif // __cplusplus > 201103L
 

@@ -36,7 +36,7 @@ extern "C" {
 #include <sys/stat.h>
 #include <stdio.h>
 
-#ifdef _WIN32
+#if defined (_WIN32) || defined (__CYGWIN__)
 #include "mingw32.h"
 #endif
 
@@ -299,7 +299,7 @@ extern void   __gnat_cpu_set                       (int, size_t, cpu_set_t *);
 #if defined (_WIN32)
 /* Interface to delete a handle from internally maintained list of child
    process handles on Windows */
-extern void
+extern int
 __gnat_win32_remove_handle (HANDLE h, int pid);
 #endif
 

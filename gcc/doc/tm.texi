@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2014 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -1002,6 +1002,12 @@ Biggest alignment that any data type can require on this machine, in
 bits.  Note that this is not the biggest alignment that is supported,
 just the biggest alignment that, when violated, may cause a fault.
 @end defmac
+
+@deftypevr {Target Hook} HOST_WIDE_INT TARGET_ABSOLUTE_BIGGEST_ALIGNMENT
+If defined, this target hook specifies the absolute biggest alignment
+that a type or variable can have on this machine, otherwise,
+@code{BIGGEST_ALIGNMENT} is used.
+@end deftypevr
 
 @defmac MALLOC_ABI_ALIGNMENT
 Alignment, in bits, a C conformant malloc implementation has to
@@ -2847,6 +2853,25 @@ A target hook which returns true if we need register usage leveling.  That means
 A target hook which returns true if an address with the same structure  can have different maximal legitimate displacement.  For example, the  displacement can depend on memory mode or on operand combinations in  the insn.    The default version of this target hook returns always false.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_CANNOT_SUBSTITUTE_MEM_EQUIV_P (rtx @var{subst})
+A target hook which returns @code{true} if @var{subst} can't
+substitute safely pseudos with equivalent memory values during
+register allocation.
+The default version of this target hook returns @code{false}.
+On most machines, this default should be used.  For generally
+machines with non orthogonal register usage for addressing, such
+as SH, this hook can be used to avoid excessive spilling.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_LEGITIMIZE_ADDRESS_DISPLACEMENT (rtx *@var{disp}, rtx *@var{offset}, machine_mode @var{mode})
+A target hook which returns @code{true} if *@var{disp} is
+legitimezed to valid address displacement with subtracting *@var{offset}
+at memory mode @var{mode}.
+The default version of this target hook returns @code{false}.
+This hook will benefit machines with limited base plus displacement
+addressing.
+@end deftypefn
+
 @deftypefn {Target Hook} reg_class_t TARGET_SPILL_CLASS (reg_class_t, @var{machine_mode})
 This hook defines a class of registers which could be used for spilling  pseudos of the given mode and class, or @code{NO_REGS} if only memory  should be used.  Not defining this hook is equivalent to returning  @code{NO_REGS} for all inputs.
 @end deftypefn
@@ -3020,7 +3045,7 @@ A C expression whose value is RTL representing the value of the return
 address for the frame @var{count} steps up from the current frame, after
 the prologue.  @var{frameaddr} is the frame pointer of the @var{count}
 frame, or the frame pointer of the @var{count} @minus{} 1 frame if
-@code{RETURN_ADDR_IN_PREVIOUS_FRAME} is defined.
+@code{RETURN_ADDR_IN_PREVIOUS_FRAME} is nonzero.
 
 The value of the expression must always be the correct address when
 @var{count} is zero, but may be @code{NULL_RTX} if there is no way to
@@ -3028,8 +3053,9 @@ determine the return address of other frames.
 @end defmac
 
 @defmac RETURN_ADDR_IN_PREVIOUS_FRAME
-Define this if the return address of a particular stack frame is accessed
-from the frame pointer of the previous stack frame.
+Define this macro to nonzero value if the return address of a particular
+stack frame is accessed from the frame pointer of the previous stack
+frame.  The zero default for this macro is suitable for most ports.
 @end defmac
 
 @defmac INCOMING_RETURN_ADDR_RTX
@@ -3462,7 +3488,7 @@ If the static chain is passed in memory, these macros should not be
 defined; instead, the @code{TARGET_STATIC_CHAIN} hook should be used.
 @end defmac
 
-@deftypefn {Target Hook} rtx TARGET_STATIC_CHAIN (const_tree @var{fndecl}, bool @var{incoming_p})
+@deftypefn {Target Hook} rtx TARGET_STATIC_CHAIN (const_tree @var{fndecl_or_type}, bool @var{incoming_p})
 This hook replaces the use of @code{STATIC_CHAIN_REGNUM} et al for
 targets that may use different static chain locations for different
 nested functions.  This may be required if the target has function
@@ -4844,7 +4870,7 @@ linker (e.g. stubs, veneers, branch islands), but not including those
 modifiable by the callee.  The affected registers may be mentioned explicitly
 in the call pattern, or included as clobbers in CALL_INSN_FUNCTION_USAGE.
 The default version of this hook is set to false.  The purpose of this hook
-is to enable the fuse-caller-save optimization.
+is to enable the fipa-ra optimization.
 @end deftypevr
 
 @node Varargs
@@ -6205,7 +6231,7 @@ optimized for speed rather than size.
 If you don't define this, a reasonable default is used.
 @end defmac
 
-@deftypefn {Target Hook} bool TARGET_USE_BY_PIECES_INFRASTRUCTURE_P (unsigned int @var{size}, unsigned int @var{alignment}, enum by_pieces_operation @var{op}, bool @var{speed_p})
+@deftypefn {Target Hook} bool TARGET_USE_BY_PIECES_INFRASTRUCTURE_P (unsigned HOST_WIDE_INT @var{size}, unsigned int @var{alignment}, enum by_pieces_operation @var{op}, bool @var{speed_p})
 GCC will attempt several strategies when asked to copy between
 two areas of memory, or to set, clear or store to memory, for example
 when copying a @code{struct}. The @code{by_pieces} infrastructure
@@ -6484,11 +6510,13 @@ cycle.  These other insns can then be taken into account properly.
 This hook is used to check whether target platform supports macro fusion.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_SCHED_MACRO_FUSION_PAIR_P (rtx_insn *@var{condgen}, rtx_insn *@var{condjmp})
-This hook is used to check whether two insns could be macro fused for
-target microarchitecture. If this hook returns true for the given insn pair
-(@var{condgen} and @var{condjmp}), scheduler will put them into a sched
-group, and they will not be scheduled apart.
+@deftypefn {Target Hook} bool TARGET_SCHED_MACRO_FUSION_PAIR_P (rtx_insn *@var{prev}, rtx_insn *@var{curr})
+This hook is used to check whether two insns should be macro fused for
+a target microarchitecture. If this hook returns true for the given insn pair
+(@var{prev} and @var{curr}), the scheduler will put them into a sched
+group, and they will not be scheduled apart.  The two insns will be either
+two SET insns or a compare and a conditional jump and this hook should
+validate any dependencies needed to fuse the two insns together.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK (rtx_insn *@var{head}, rtx_insn *@var{tail})
@@ -6795,6 +6823,7 @@ instructions.
 
 Given below example:
 
+@smallexample
     ldr r10, [r1, 4]
     add r4, r4, r10
     ldr r15, [r2, 8]
@@ -6803,6 +6832,7 @@ Given below example:
     add r4, r4, r11
     ldr r16, [r2, 12]
     sub r5, r5, r16
+@end smallexample
 
 On targets like ARM/AArch64, the two pairs of consecutive loads should be
 merged.  Since peephole2 pass can't help in this case unless consecutive
@@ -6810,19 +6840,22 @@ loads are actually next to each other in instruction flow.  That's where
 this scheduling fusion pass works.  This hook calculates priority for each
 instruction based on its fustion type, like:
 
-    ldr r10, [r1, 4]  ; fusion_pri=99,  pri=96   
-    add r4, r4, r10   ; fusion_pri=100, pri=100  
-    ldr r15, [r2, 8]  ; fusion_pri=98,  pri=92   
-    sub r5, r5, r15   ; fusion_pri=100, pri=100  
-    ldr r11, [r1, 0]  ; fusion_pri=99,  pri=100  
-    add r4, r4, r11   ; fusion_pri=100, pri=100  
-    ldr r16, [r2, 12] ; fusion_pri=98,  pri=88   
-    sub r5, r5, r16   ; fusion_pri=100, pri=100  
+@smallexample
+    ldr r10, [r1, 4]  ; fusion_pri=99,  pri=96
+    add r4, r4, r10   ; fusion_pri=100, pri=100
+    ldr r15, [r2, 8]  ; fusion_pri=98,  pri=92
+    sub r5, r5, r15   ; fusion_pri=100, pri=100
+    ldr r11, [r1, 0]  ; fusion_pri=99,  pri=100
+    add r4, r4, r11   ; fusion_pri=100, pri=100
+    ldr r16, [r2, 12] ; fusion_pri=98,  pri=88
+    sub r5, r5, r16   ; fusion_pri=100, pri=100
+@end smallexample
 
 Scheduling fusion pass then sorts all ready to issue instructions according
 to the priorities.  As a result, instructions of same fusion type will be
 pushed together in instruction flow, like:
 
+@smallexample
     ldr r11, [r1, 0]
     ldr r10, [r1, 4]
     ldr r15, [r2, 8]
@@ -6831,6 +6864,7 @@ pushed together in instruction flow, like:
     sub r5, r5, r15
     add r4, r4, r11
     sub r5, r5, r16
+@end smallexample
 
 Now peephole2 pass can simply merge the two pairs of loads.
 
@@ -9872,6 +9906,12 @@ information in the @code{struct cl_target_option} structure for
 function-specific options to the @code{struct gcc_options} structure.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_OPTION_POST_STREAM_IN (struct cl_target_option *@var{ptr})
+This hook is called to update target-specific information in the
+@code{struct cl_target_option} structure after it is streamed in from
+LTO bytecode.
+@end deftypefn
+
 @deftypefn {Target Hook} void TARGET_OPTION_PRINT (FILE *@var{file}, int @var{indent}, struct cl_target_option *@var{ptr})
 This hook is called to print any additional target-specific
 information in the @code{struct cl_target_option} structure for
@@ -11080,17 +11120,6 @@ loops containing function calls or branch on table instructions.
 Take an instruction in @var{insn} and return @code{false} if the instruction is not appropriate as a combination of two or more instructions.  The default is to accept all instructions.
 @end deftypefn
 
-@defmac MD_CAN_REDIRECT_BRANCH (@var{branch1}, @var{branch2})
-
-Take a branch insn in @var{branch1} and another in @var{branch2}.
-Return true if redirecting @var{branch1} to the destination of
-@var{branch2} is possible.
-
-On some targets, branches may have a limited range.  Optimizing the
-filling of delay slots can result in branches being redirected, and this
-may in turn cause a branch offset to overflow.
-@end defmac
-
 @deftypefn {Target Hook} bool TARGET_CAN_FOLLOW_JUMP (const rtx_insn *@var{follower}, const rtx_insn *@var{followee})
 FOLLOWER and FOLLOWEE are JUMP_INSN instructions;  return true if FOLLOWER may be modified to follow FOLLOWEE;  false, if it can't.  For example, on some targets, certain kinds of branches can't be made to  follow through a hot/cold partitioning.
 @end deftypefn
@@ -11232,18 +11261,25 @@ This target hook is required only when the target has several different
 modes and they have different conditional execution capability, such as ARM.
 @end deftypefn
 
-@deftypefn {Target Hook} rtx TARGET_GEN_CCMP_FIRST (int @var{code}, rtx @var{op0}, rtx @var{op1})
-This function emits a comparison insn for the first of a sequence of
- conditional comparisions.  It returns a comparison expression appropriate
- for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.  @var{code} is
+@deftypefn {Target Hook} rtx TARGET_GEN_CCMP_FIRST (rtx *@var{prep_seq}, rtx *@var{gen_seq}, int @var{code}, tree @var{op0}, tree @var{op1})
+This function prepares to emit a comparison insn for the first compare in a
+ sequence of conditional comparisions.  It returns a appropriate @code{CC}
+ for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.  The insns to
+ prepare the compare are saved in @var{prep_seq} and the compare insns are
+ saved in @var{gen_seq}.  They will be emitted when all the compares in the
+ the conditional comparision are generated without error.  @var{code} is
  the @code{rtx_code} of the compare for @var{op0} and @var{op1}.
 @end deftypefn
 
-@deftypefn {Target Hook} rtx TARGET_GEN_CCMP_NEXT (rtx @var{prev}, int @var{cmp_code}, rtx @var{op0}, rtx @var{op1}, int @var{bit_code})
-This function emits a conditional comparison within a sequence of
- conditional comparisons.  The @var{prev} expression is the result of a
- prior call to @code{gen_ccmp_first} or @code{gen_ccmp_next}.  It may return
- @code{NULL} if the combination of @var{prev} and this comparison is
+@deftypefn {Target Hook} rtx TARGET_GEN_CCMP_NEXT (rtx *@var{prep_seq}, rtx *@var{gen_seq}, rtx @var{prev}, int @var{cmp_code}, tree @var{op0}, tree @var{op1}, int @var{bit_code})
+This function prepare to emit a conditional comparison within a sequence of
+ conditional comparisons.  It returns a appropriate @code{CC} for passing to
+ @code{gen_ccmp_next} or @code{cbranch_optab}.  The insns to prepare the
+ compare are saved in @var{prep_seq} and the compare insns are saved in
+ @var{gen_seq}.  They will be emitted when all the compares in the conditional
+ comparision are generated without error.  The @var{prev} expression is the
+ result of a prior call to @code{gen_ccmp_first} or @code{gen_ccmp_next}.  It
+ may return @code{NULL} if the combination of @var{prev} and this comparison is
  not supported, otherwise the result must be appropriate for passing to
  @code{gen_ccmp_next} or @code{cbranch_optab}.  @var{code} is the
  @code{rtx_code} of the compare for @var{op0} and @var{op1}.  @var{bit_code}

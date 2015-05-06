@@ -1,5 +1,5 @@
 /* Machine description for AArch64 architecture.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -170,14 +170,18 @@ struct tune_params
   const struct cpu_vector_cost *const vec_costs;
   const int memmov_cost;
   const int issue_rate;
+  const unsigned int fuseable_ops;
+  const int function_align;
+  const int jump_align;
+  const int loop_align;
+  const int int_reassoc_width;
+  const int fp_reassoc_width;
+  const int vec_reassoc_width;
 };
 
 HOST_WIDE_INT aarch64_initial_elimination_offset (unsigned, unsigned);
 int aarch64_get_condition_code (rtx);
 bool aarch64_bitmask_imm (HOST_WIDE_INT val, machine_mode);
-bool aarch64_cannot_change_mode_class (machine_mode,
-				       machine_mode,
-				       enum reg_class);
 enum aarch64_symbol_type
 aarch64_classify_symbolic_expression (rtx, enum aarch64_symbol_context);
 bool aarch64_const_vec_all_same_int_p (rtx, HOST_WIDE_INT);
@@ -196,6 +200,8 @@ bool aarch64_modes_tieable_p (machine_mode mode1,
 bool aarch64_move_imm (HOST_WIDE_INT, machine_mode);
 bool aarch64_mov_operand_p (rtx, enum aarch64_symbol_context,
 			    machine_mode);
+int aarch64_simd_attr_length_rglist (enum machine_mode);
+rtx aarch64_reverse_mask (enum machine_mode);
 bool aarch64_offset_7bit_signed_scaled_p (machine_mode, HOST_WIDE_INT);
 char *aarch64_output_scalar_simd_mov_immediate (rtx, machine_mode);
 char *aarch64_output_simd_mov_immediate (rtx, machine_mode, unsigned);
@@ -218,7 +224,7 @@ const char *aarch64_mangle_builtin_type (const_tree);
 const char *aarch64_output_casesi (rtx *);
 const char *aarch64_rewrite_selected_cpu (const char *name);
 
-enum aarch64_symbol_type aarch64_classify_symbol (rtx,
+enum aarch64_symbol_type aarch64_classify_symbol (rtx, rtx,
 						  enum aarch64_symbol_context);
 enum aarch64_symbol_type aarch64_classify_tls_symbol (rtx);
 enum reg_class aarch64_regno_regclass (unsigned);
@@ -246,7 +252,6 @@ void aarch64_expand_epilogue (bool);
 void aarch64_expand_mov_immediate (rtx, rtx);
 void aarch64_expand_prologue (void);
 void aarch64_expand_vector_init (rtx, rtx);
-void aarch64_function_profiler (FILE *, int);
 void aarch64_init_cumulative_args (CUMULATIVE_ARGS *, const_tree, rtx,
 				   const_tree, unsigned);
 void aarch64_init_expanders (void);
@@ -257,7 +262,7 @@ void aarch64_emit_call_insn (rtx);
 /* Initialize builtins for SIMD intrinsics.  */
 void init_aarch64_simd_builtins (void);
 
-void aarch64_simd_disambiguate_copy (rtx *, rtx *, rtx *, unsigned int);
+void aarch64_simd_emit_reg_reg_move (rtx *, enum machine_mode, unsigned int);
 
 /* Emit code to place a AdvSIMD pair result in memory locations (with equal
    registers).  */
@@ -268,7 +273,7 @@ void aarch64_simd_emit_pair_result_insn (machine_mode,
 /* Expand builtins for SIMD intrinsics.  */
 rtx aarch64_simd_expand_builtin (int, tree, rtx);
 
-void aarch64_simd_lane_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
+void aarch64_simd_lane_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT, const_tree);
 
 void aarch64_split_128bit_move (rtx, rtx);
 
@@ -292,6 +297,7 @@ void aarch64_expand_compare_and_swap (rtx op[]);
 void aarch64_split_compare_and_swap (rtx op[]);
 void aarch64_split_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx, rtx);
 
+bool aarch64_gen_adjusted_ldpstp (rtx *, bool, enum machine_mode, RTX_CODE);
 #endif /* RTX_CODE */
 
 void aarch64_init_builtins (void);
@@ -315,4 +321,8 @@ extern bool
 aarch64_expand_vec_perm_const (rtx target, rtx op0, rtx op1, rtx sel);
 void aarch64_atomic_assign_expand_fenv (tree *, tree *, tree *);
 int aarch64_ccmp_mode_to_code (enum machine_mode mode);
+
+bool extract_base_offset_in_addr (rtx mem, rtx *base, rtx *offset);
+bool aarch64_operands_ok_for_ldpstp (rtx *, bool, enum machine_mode);
+bool aarch64_operands_adjust_ok_for_ldpstp (rtx *, bool, enum machine_mode);
 #endif /* GCC_AARCH64_PROTOS_H */

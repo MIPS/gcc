@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2015 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -32,17 +32,11 @@
 ;; Iterator for all integer modes (up to 64-bit)
 (define_mode_iterator ALLI [QI HI SI DI])
 
-;; Iterator scalar modes (up to 64-bit)
-(define_mode_iterator SDQ_I [QI HI SI DI])
-
 ;; Iterator for all integer modes that can be extended (up to 64-bit)
 (define_mode_iterator ALLX [QI HI SI])
 
 ;; Iterator for General Purpose Floating-point registers (32- and 64-bit modes)
 (define_mode_iterator GPF [SF DF])
-
-;; Integer vector modes.
-(define_mode_iterator VDQ [V8QI V16QI V4HI V8HI V2SI V4SI V2DI])
 
 ;; Integer vector modes.
 (define_mode_iterator VDQ_I [V8QI V16QI V4HI V8HI V2SI V4SI V2DI])
@@ -71,16 +65,6 @@
 
 ;; Quad vector with only 2 element modes.
 (define_mode_iterator VQ_2E [V2DI V2DF])
-
-;; All vector modes, except double.
-(define_mode_iterator VQ_S [V8QI V16QI V4HI V8HI V2SI V4SI])
-
-;; Vector and scalar, 64 & 128-bit container: all vector integer mode;
-;; 8, 16, 32-bit scalar integer modes
-(define_mode_iterator VSDQ_I_BHSI [V8QI V16QI V4HI V8HI V2SI V4SI V2DI QI HI SI])
-
-;; Vector modes for moves.
-(define_mode_iterator VDQM [V8QI V16QI V4HI V8HI V2SI V4SI])
 
 ;; This mode iterator allows :P to be used for patterns that operate on
 ;; addresses in different modes.  In LP64, only DI will match, while in
@@ -132,9 +116,6 @@
 ;; All quad integer narrow-able modes.
 (define_mode_iterator VQN [V8HI V4SI V2DI])
 
-;; All double integer widen-able modes.
-(define_mode_iterator VDW [V8QI V4HI V2SI])
-
 ;; Vector and scalar 128-bit container: narrowable 16, 32, 64-bit integer modes
 (define_mode_iterator VSQN_HSDI [V8HI V4SI V2DI HI SI DI])
 
@@ -144,11 +125,11 @@
 ;; Double vector modes for combines.
 (define_mode_iterator VDC [V8QI V4HI V2SI V2SF DI DF])
 
-;; Double vector modes for combines.
-(define_mode_iterator VDIC [V8QI V4HI V2SI])
-
 ;; Vector modes except double int.
 (define_mode_iterator VDQIF [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF V2DF])
+
+;; Vector modes for S type.
+(define_mode_iterator VDQ_SI [V2SI V4SI])
 
 ;; Vector modes for Q and H types.
 (define_mode_iterator VDQQH [V8QI V16QI V4HI V8HI])
@@ -158,9 +139,6 @@
 
 ;; Vector modes for H, S and D types.
 (define_mode_iterator VDQHSD [V4HI V8HI V2SI V4SI V2DI])
-
-;; Vector modes for Q, H and S types.
-(define_mode_iterator VDQQHS [V8QI V16QI V4HI V8HI V2SI V4SI])
 
 ;; Vector and scalar integer modes for H and S
 (define_mode_iterator VSDQ_HSI [V4HI V8HI V2SI V4SI HI SI])
@@ -179,6 +157,9 @@
 
 ;; All byte modes.
 (define_mode_iterator VB [V8QI V16QI])
+
+;; 2 and 4 lane SI modes.
+(define_mode_iterator VS [V2SI V4SI])
 
 (define_mode_iterator TX [TI TF])
 
@@ -203,6 +184,7 @@
  [
     UNSPEC_ASHIFT_SIGNED	; Used in aarch-simd.md.
     UNSPEC_ASHIFT_UNSIGNED	; Used in aarch64-simd.md.
+    UNSPEC_ABS		; Used in aarch64-simd.md.
     UNSPEC_FMAX		; Used in aarch64-simd.md.
     UNSPEC_FMAXNMV	; Used in aarch64-simd.md.
     UNSPEC_FMAXV	; Used in aarch64-simd.md.
@@ -295,6 +277,7 @@
     UNSPEC_SHA256SU1    ; Used in aarch64-simd.md.
     UNSPEC_PMULL        ; Used in aarch64-simd.md.
     UNSPEC_PMULL2       ; Used in aarch64-simd.md.
+    UNSPEC_REV_REGLIST  ; Used in aarch64-simd.md.
 ])
 
 ;; -------------------------------------------------------------------
@@ -406,7 +389,8 @@
 			  (V2SI "8b") (V4SI  "16b")
 			  (V2DI "16b") (V2SF  "8b")
 			  (V4SF "16b") (V2DF  "16b")
-			  (DI   "8b")  (DF    "8b")])
+			  (DI   "8b")  (DF    "8b")
+			  (SI   "8b")])
 
 ;; Define element mode for each vector mode.
 (define_mode_attr VEL [(V8QI "QI") (V16QI "QI")
@@ -484,7 +468,7 @@
 
 )
 
-;; Widened mode register suffixes for VDW/VQW.
+;; Widened mode register suffixes for VD_BHSI/VQW.
 (define_mode_attr Vwtype [(V8QI "8h") (V4HI "4s")
 			  (V2SI "2d") (V16QI "8h") 
 			  (V8HI "4s") (V4SI "2d")])
@@ -667,6 +651,11 @@
 		      (V2DI  "p") (V2DF  "p")
 		      (V2SF "p") (V4SF  "v")])
 
+(define_mode_attr vsi2qi [(V2SI "v8qi") (V4SI "v16qi")])
+(define_mode_attr VSI2QI [(V2SI "V8QI") (V4SI "V16QI")])
+
+(define_mode_attr insn_count [(OI "8") (CI "12") (XI "16")])
+
 ;; -------------------------------------------------------------------
 ;; Code Iterators
 ;; -------------------------------------------------------------------
@@ -679,6 +668,9 @@
 
 ;; Code iterator for logical operations
 (define_code_iterator LOGICAL [and ior xor])
+
+;; Code iterator for logical operations whose :nlogical works on SIMD registers.
+(define_code_iterator NLOGICAL [and ior])
 
 ;; Code iterator for sign/zero extension
 (define_code_iterator ANY_EXTEND [sign_extend zero_extend])
@@ -822,6 +814,9 @@
 		      (div "s") (udiv "u")
 		      (smax "s") (umax "u")
 		      (smin "s") (umin "u")])
+
+;; Emit conditional branch instructions.
+(define_code_attr bcond [(eq "beq") (ne "bne") (lt "bne") (ge "beq")])
 
 ;; Emit cbz/cbnz depending on comparison type.
 (define_code_attr cbz [(eq "cbz") (ne "cbnz") (lt "cbnz") (ge "cbz")])
