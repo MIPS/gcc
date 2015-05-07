@@ -1,3 +1,8 @@
+2015-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-pragma.c (omp_pragmas_simd): Add taskloop.
+	* c-common.c (DEF_FUNCTION_TYPE_10): Define.
+
 2015-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-omp.c (c_finish_omp_ordered): Add CLAUSES argument, adjust

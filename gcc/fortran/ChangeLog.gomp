@@ -1,3 +1,10 @@
+2015-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_ULL_ULL_ULL): New.
+	* f95-lang.c (DEF_FUNCTION_TYPE_10): Define.
+
 2015-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-openmp.c (gfc_trans_omp_clauses): Clear

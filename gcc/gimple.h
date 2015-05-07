@@ -89,17 +89,19 @@ enum gf_mask {
     GF_CALL_CTRL_ALTERING       = 1 << 7,
     GF_CALL_WITH_BOUNDS 	= 1 << 8,
     GF_OMP_PARALLEL_COMBINED	= 1 << 0,
-    GF_OMP_FOR_KIND_MASK	= (1 << 3) - 1,
+    GF_OMP_TASK_TASKLOOP	= 1 << 0,
+    GF_OMP_FOR_KIND_MASK	= (1 << 4) - 1,
     GF_OMP_FOR_KIND_FOR		= 0,
     GF_OMP_FOR_KIND_DISTRIBUTE	= 1,
-    GF_OMP_FOR_KIND_CILKFOR     = 2,
-    GF_OMP_FOR_KIND_OACC_LOOP	= 3,
+    GF_OMP_FOR_KIND_TASKLOOP	= 2,
+    GF_OMP_FOR_KIND_CILKFOR     = 3,
+    GF_OMP_FOR_KIND_OACC_LOOP	= 4,
     /* Flag for SIMD variants of OMP_FOR kinds.  */
-    GF_OMP_FOR_SIMD		= 1 << 2,
+    GF_OMP_FOR_SIMD		= 1 << 3,
     GF_OMP_FOR_KIND_SIMD	= GF_OMP_FOR_SIMD | 0,
     GF_OMP_FOR_KIND_CILKSIMD	= GF_OMP_FOR_SIMD | 1,
-    GF_OMP_FOR_COMBINED		= 1 << 3,
-    GF_OMP_FOR_COMBINED_INTO	= 1 << 4,
+    GF_OMP_FOR_COMBINED		= 1 << 4,
+    GF_OMP_FOR_COMBINED_INTO	= 1 << 5,
     GF_OMP_TARGET_KIND_MASK	= (1 << 4) - 1,
     GF_OMP_TARGET_KIND_REGION	= 0,
     GF_OMP_TARGET_KIND_DATA	= 1,
@@ -4830,6 +4832,31 @@ gimple_omp_task_set_clauses (gimple gs, tree clauses)
 {
   gomp_task *omp_task_stmt = as_a <gomp_task *> (gs);
   omp_task_stmt->clauses = clauses;
+}
+
+
+/* Return true if OMP task statement G has the
+   GF_OMP_TASK_TASKLOOP flag set.  */
+
+static inline bool
+gimple_omp_task_taskloop_p (const_gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_TASK);
+  return (gimple_omp_subcode (g) & GF_OMP_TASK_TASKLOOP) != 0;
+}
+
+
+/* Set the GF_OMP_TASK_TASKLOOP field in G depending on the boolean
+   value of TASKLOOP_P.  */
+
+static inline void
+gimple_omp_task_set_taskloop_p (gimple g, bool taskloop_p)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_TASK);
+  if (taskloop_p)
+    g->subcode |= GF_OMP_TASK_TASKLOOP;
+  else
+    g->subcode &= ~GF_OMP_TASK_TASKLOOP;
 }
 
 

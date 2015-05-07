@@ -1,3 +1,7 @@
+2015-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (OMP_TASKLOOP_CLAUSE_MASK): Add untied clause.
+
 2015-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (c_finish_omp_clauses): Allow NULL OMP_CLAUSE_DECL

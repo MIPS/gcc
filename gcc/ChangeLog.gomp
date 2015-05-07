@@ -1,3 +1,47 @@
+2015-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.h (enum gf_mask): Add GF_OMP_TASK_TASKLOOP.
+	Add GF_OMP_FOR_KIND_TASKLOOP and renumber GF_OMP_FOR_*.
+	(gimple_omp_task_taskloop_p, gimple_omp_task_set_taskloop_p): New
+	functions.
+	* gimplify.c (is_gimple_stmt): Return true for  OMP_TARGET,
+	OMP_TARGET_DATA, OMP_TARGET_UPDATE, OMP_TARGET_ENTER_DATA,
+	OMP_TARGET_EXIT_DATA, OMP_TASKLOOP and OMP_TEAMS.
+	(gimplify_omp_for): Handle OMP_TASKLOOP.
+	(gimplify_expr): Likewise.
+	* gimple-pretty-print.c (dump_gimple_omp_for): Handle taskloop.
+	(dump_gimple_omp_task): Likewise.
+	* omp-low.c (is_taskloop_ctx): New function.
+	(is_taskreg_ctx): Use is_parallel_ctx and is_task_ctx helpers.
+	(extract_omp_for_data): Use OMP_CLAUSE_SCHEDULE_RUNTIME for
+	taskloop.
+	(scan_sharing_clauses): Allow _LOOPTEMP_ clause on GOMP_TASK.
+	(find_combined_for): Allow searching for different GIMPLE_OMP_FOR
+	kinds.
+	(add_taskreg_looptemp_clauses): New function.
+	(scan_omp_parallel): Use it.
+	(scan_omp_task): Likewise.
+	(finish_taskreg_scan): For taskloop, move fields for the first two
+	_LOOPTEMP_ clauses first.
+	(check_omp_nesting_restrictions): Allow the sandwiched taskloop
+	constructs.
+	(lower_rec_input_clauses): Allow _LOOPTEMP_ clause on GOMP_TASK.
+	(lower_send_clauses): Ignore first two _LOOPTEMP_ clauses in
+	taskloop GOMP_TASK.
+	(expand_task_call): Handle taskloop construct expansion.  Add
+	REGION argument.
+	(expand_omp_taskreg): Adjust caller.
+	(expand_omp_for_init_vars): Handle GOMP_TASK inner_stmt.
+	(expand_omp_taskloop_for_outer, expand_omp_taskloop_for_inner): New
+	functions.
+	(expand_omp_for): Call them.
+	(lower_omp_for): Handle taskloop constructs.
+	* omp-builtins.def (BUILT_IN_GOMP_TASKLOOP,
+	BUILT_IN_GOMP_TASKLOOP_ULL): New builtins.
+	* builtin-types.def
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_ULL_ULL_ULL): New.
+
 2015-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimple.h (enum gf_mask): Increment GF_OMP_TARGET_KIND_MASK
