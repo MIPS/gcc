@@ -1,3 +1,155 @@
+2015-05-06  Aditya Kumar  <hiraditya@msn.com>
+
+	* gcov-tool.c (do_merge): Refactore to remove int ret.
+	* ipa-icf.c (sem_item::hash_referenced_symbol_properties): Change
+	!type == FUNC to type != FUNC.
+	* reload.h (struct target_reload): Changee to type of
+	x_spill_indirect_levels from bool to unsigned char.
+
+2015-05-07  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* rtl.h (always_void_p): New function.
+	* gengenrtl.c (always_void_p): Likewise.
+	(genmacro): Don't add a mode parameter to gen_rtx_foo if rtxes
+	with code foo are always VOIDmode.
+	* genemit.c (gen_exp): Update gen_rtx_foo calls accordingly.
+	* builtins.c, caller-save.c, calls.c, cfgexpand.c, combine.c,
+	compare-elim.c, config/aarch64/aarch64.c,
+	config/aarch64/aarch64.md, config/alpha/alpha.c,
+	config/alpha/alpha.md, config/arc/arc.c, config/arc/arc.md,
+	config/arm/arm-fixed.md, config/arm/arm.c, config/arm/arm.md,
+	config/arm/ldrdstrd.md, config/arm/thumb2.md, config/arm/vfp.md,
+	config/avr/avr.c, config/bfin/bfin.c, config/c6x/c6x.c,
+	config/c6x/c6x.md, config/cr16/cr16.c, config/cris/cris.c,
+	config/cris/cris.md, config/darwin.c, config/epiphany/epiphany.c,
+	config/epiphany/epiphany.md, config/fr30/fr30.c, config/frv/frv.c,
+	config/frv/frv.md, config/h8300/h8300.c, config/i386/i386.c,
+	config/i386/i386.md, config/i386/sse.md, config/ia64/ia64.c,
+	config/ia64/vect.md, config/iq2000/iq2000.c,
+	config/iq2000/iq2000.md, config/lm32/lm32.c, config/lm32/lm32.md,
+	config/m32c/m32c.c, config/m32r/m32r.c, config/m68k/m68k.c,
+	config/m68k/m68k.md, config/mcore/mcore.c, config/mcore/mcore.md,
+	config/mep/mep.c, config/microblaze/microblaze.c,
+	config/mips/mips.c, config/mips/mips.md, config/mmix/mmix.c,
+	config/mn10300/mn10300.c, config/msp430/msp430.c,
+	config/nds32/nds32-memory-manipulation.c, config/nds32/nds32.c,
+	config/nds32/nds32.md, config/nios2/nios2.c, config/nvptx/nvptx.c,
+	config/pa/pa.c, config/pa/pa.md, config/rl78/rl78.c,
+	config/rs6000/altivec.md, config/rs6000/rs6000.c,
+	config/rs6000/rs6000.md, config/rs6000/vector.md,
+	config/rs6000/vsx.md, config/rx/rx.c, config/rx/rx.md,
+	config/s390/s390.c, config/s390/s390.md, config/sh/sh.c,
+	config/sh/sh.md, config/sh/sh_treg_combine.cc,
+	config/sparc/sparc.c, config/sparc/sparc.md, config/spu/spu.c,
+	config/spu/spu.md, config/stormy16/stormy16.c,
+	config/tilegx/tilegx.c, config/tilegx/tilegx.md,
+	config/tilepro/tilepro.c, config/tilepro/tilepro.md,
+	config/v850/v850.c, config/v850/v850.md, config/vax/vax.c,
+	config/visium/visium.c, config/xtensa/xtensa.c, cprop.c, dse.c,
+	expr.c, gcse.c, ifcvt.c, ira.c, jump.c, lower-subreg.c,
+	lra-constraints.c, lra-eliminations.c, lra.c, postreload.c, ree.c,
+	reg-stack.c, reload.c, reload1.c, reorg.c, sel-sched.c,
+	var-tracking.c: Update calls accordingly.
+
+2015-05-07  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR middle-end/192
+	PR middle-end/54303
+	* varasm.c (function_mergeable_rodata_prefix): New function.
+	(mergeable_string_section): Use it.
+	(mergeable_constant_section): Use it.
+
+2015-05-07  Jeff Law  <law@redhat.com>
+
+	* match.pd (bit_and (plus/minus (convert @0) (convert @1) mask): New
+	simplifier to narrow arithmetic.
+	* generic-match-head.c: (types_match, single_use): New functions.
+	* gimple-match-head.c: (types_match, single_use): New functions.
+
+2015-05-07  Venkataramanan Kumar  <venkataramanan.kumar@amd.com>
+
+	* combine.c (make_compound_operation): Remove checks for PLUS/MINUS
+	rtx type.
+
+2015-05-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66002
+	* passes.def: Schedule another pass_merge_phi after ifcombine, right
+	before phiopt.
+
+2015-05-07  Marek Polacek  <polacek@redhat.com>
+	    Martin Uecker  <uecker@eecs.berkeley.edu>
+
+	* doc/invoke.texi: Document -fsanitize=bounds-strict.
+	* flag-types.h (enum sanitize_code): Add SANITIZE_BOUNDS_STRICT, or it
+	into SANITIZE_NONDEFAULT.
+	* opts.c (common_handle_option): Handle -fsanitize=bounds-strict.
+
+2015-05-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66015
+	* config/alpha/alpha.c (alpha_override_options_after_change): New.
+	(TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE): New.
+	(alpha_override_options): Move align_loops, align_jumps and
+	align_functions handling into alpha_override_options_after_change.
+
+2015-05-06  Sandra Loosemore  <sandra@codesourcery.com>
+	    Chris Jones  <chrisj@nvidia.com>
+	    Joshua Conner  <jconner@nvidia.com>
+
+	* config/arm/unknown-elf.h (STARTFILE_SPEC): Add conditional
+	linking of crtfastmath.o.
+	* config/arm/linux-eabi.h (STARTFILE_SPEC): Likewise.
+
+2015-05-06  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.md (cstore<mode>4_signed_imm): New expander.
+	(cstore<mode>4_unsigned_imm): New expander.
+	(cstore<mode>4): Remove empty constraint strings.  Use the new
+	expanders.
+
+2015-05-06  Yvan Roux  <yvan.roux@linaro.org>
+
+	PR target/64208
+	* config/arm/iwmmxt.md ("*iwmmxt_arm_movdi"): Cleanup redundant
+	alternatives.
+
+2015-05-06  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config/aarch64/geniterators.sh: Use standard BRE in sed.
+
+2015-05-06  Alan Modra  <amodra@gmail.com>
+
+	PR target/66033
+	* config/rs6000/rs6000.md (nop): Use an unspec pattern.
+	(UNSPEC_NOP): Define.
+	(reload_vsx_from_gpr<mode>): Add missing DONE.
+	(reload_gpr_from_vsx<mode>): Likewise.
+	* config/rs6000/vsx.md (vsx_mul_v2di): Likewise.
+	(vsx_div_v2di, vsx_udiv_v2di): Likewise.
+
+2015-05-06  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/66015
+	* config/aarch64/aarch64.c (aarch64_override_options): Move align_loops,
+	align_jumps, align_functions into aarch64_override_options_after_change.
+
+2015-05-06  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-slp.c (vect_supported_load_permutation_p): Use
+	vect_transform_slp_perm_load to check if we support a permutation
+	for basic-block vectorization.
+
+2015-05-06  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78.c (need_to_save): Save register 22 if it is
+	used, even if it is not being used as a frame pointer.
+
+2015-05-05  Jason Merrill  <jason@redhat.com>
+
+	* dwarf2out.c (gen_member_die): Don't emit anything for an
+	anonymous class constructor.
+
 2015-05-05  David Malcolm  <dmalcolm@redhat.com>
 
 	* auto-profile.c (afdo_find_equiv_class): Fix indentation so

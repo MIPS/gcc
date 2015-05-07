@@ -2882,6 +2882,12 @@ Warn when overload resolution chooses a promotion from unsigned or
 enumerated type to a signed type, over a conversion to an unsigned type of
 the same size.  Previous versions of G++ tried to preserve
 unsignedness, but the standard mandates the current behavior.
+
+@item -Wno-terminate @r{(C++ and Objective-C++ only)}
+@opindex Wterminate
+@opindex Wno-terminate
+Disable the warning about a throw-expression that will immediately
+result in a call to @code{terminate}.
 @end table
 
 @node Objective-C and Objective-C++ Dialect Options
@@ -5729,6 +5735,13 @@ a++;
 This option enables instrumentation of array bounds.  Various out of bounds
 accesses are detected.  Flexible array members, flexible array member-like
 arrays, and initializers of variables with static storage are not instrumented.
+
+@item -fsanitize=bounds-strict
+@opindex fsanitize=bounds-strict
+This option enables strict instrumentation of array bounds.  Most out of bounds
+accesses are detected, including flexible array members and flexible array
+member-like arrays.  Initializers of variables with static storage are not
+instrumented.
 
 @item -fsanitize=alignment
 @opindex fsanitize=alignment
