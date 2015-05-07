@@ -4437,7 +4437,7 @@ vectorizable_shift (gimple stmt, gimple_stmt_iterator *gsi,
                         dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
                                          "unusable type for last operand in"
                                          " vector/vector shift/rotate.\n");
-			return false;
+		      return false;
 		    }
 		  if (vec_stmt && !slp_node)
 		    {
@@ -7752,7 +7752,10 @@ vect_is_simple_use (tree operand, gimple stmt, loop_vec_info loop_vinfo,
   else
     {
       stmt_vinfo = vinfo_for_stmt (*def_stmt);
-      *dt = STMT_VINFO_DEF_TYPE (stmt_vinfo);
+      if (!loop && !STMT_VINFO_VECTORIZABLE (stmt_vinfo))
+	*dt = vect_external_def;
+      else
+	*dt = STMT_VINFO_DEF_TYPE (stmt_vinfo);
     }
 
   if (dump_enabled_p ())
