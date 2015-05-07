@@ -1,3 +1,9 @@
+2015-05-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* objc-act.c (objc_write_global_declarations): Adjust comment.
+	* objc-gnu-runtime-abi-01.c (build_selector_table_decl): Set
+	TREE_USED bit.
+
 2015-04-27  Jim Wilson  <jim.wilson@linaro.org>
 
 	* Make-lang.in (objc.mostlyclean): Remove cc1obj.

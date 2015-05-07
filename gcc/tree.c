@@ -5822,9 +5822,6 @@ free_lang_data (void)
 
   /* If we are the LTO frontend we have freed lang-specific data already.  */
   if (in_lto_p
-      /* FIXME debug-early: Eventually we need to remove this so the
-	 function proceeds and we can be sure there is no language
-	 specific data past cgraph.  */
       || (!flag_generate_lto && !flag_generate_offload))
     return 0;
 

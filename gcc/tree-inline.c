@@ -4778,7 +4778,9 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   return successfully_inlined;
 }
 
-/* Expand call statements in BB when profitable.  */
+/* Expand call statements reachable from STMT_P.
+   We can only have CALL_EXPRs as the "toplevel" tree code or nested
+   in a MODIFY_EXPR.  */
 
 static bool
 gimple_expand_calls_inline (basic_block bb, copy_body_data *id)

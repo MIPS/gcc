@@ -70,7 +70,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "c-family/c-ada-spec.h"
 #include "asan.h"
-#include "debug.h"
 
 extern cpp_reader *parse_in;
 

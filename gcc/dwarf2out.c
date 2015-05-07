@@ -120,12 +120,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "gdb/gdb-index.h"
 #include "rtl-iter.h"
-#include "print-tree.h"
 
 static void dwarf2out_source_line (unsigned int, const char *, int, bool);
 static rtx_insn *last_var_location_insn;
 static rtx_insn *cached_next_real_insn;
-static dw_die_ref dwarf2out_decl (tree);
+static void dwarf2out_decl (tree);
 
 #ifdef VMS_DEBUGGING_INFO
 int vms_file_stats_name (const char *, long long *, long *, char *, int *);
@@ -4839,7 +4838,7 @@ move_all_children (dw_die_ref old_parent, dw_die_ref new_parent)
 /* Remove child DIE whose die_tag is TAG.  Do nothing if no child
    matches TAG.  */
 
-static void ATTRIBUTE_UNUSED
+static void
 remove_child_TAG (dw_die_ref die, enum dwarf_tag tag)
 {
   dw_die_ref c;
@@ -5701,18 +5700,6 @@ debug_dwarf (void)
 {
   print_indent = 0;
   print_die (comp_unit_die (), stderr);
-}
-
-/* Dump the DIE table if available.  */
-
-void
-dwarf2out_dump_early_debug_stats (void)
-{
-  if (decl_die_table && asm_out_file)
-    {
-      print_indent = 0;
-      print_die (comp_unit_die (), asm_out_file);
-    }
 }
 
 /* Sanity checks on DIEs.  */
@@ -18758,7 +18745,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       struct dwarf_file_data * file_index = lookup_filename (s.file);
       if ((is_cu_die (old_die->die_parent)
 	   /* FIXME: Jason doesn't like this condition, but it fixes
-	      the inconsistency/ICE with the followin Fortran test:
+	      the inconsistency/ICE with the following Fortran test:
 
 		 module some_m
 		 contains
@@ -18767,7 +18754,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		   end function
 		 end module
 
-	      Another alternative was !is_cu_die (context_die).
+	      Another alternative is !is_cu_die (context_die).
 	   */
 	   || old_die->die_parent->die_tag == DW_TAG_module
 	   || context_die == NULL)
@@ -18813,7 +18800,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	    }
 	}
     }
-  /* Anything else... create a brand new DIE.  */
+  /* Create a fresh DIE for anything else.  */
   else
     {
       subr_die = new_die (DW_TAG_subprogram, context_die, decl);
@@ -19376,7 +19363,7 @@ block_die_hasher::equal (die_struct *x, die_struct *y)
 static inline bool
 decl_will_get_specification_p (dw_die_ref old_die, tree decl, bool declaration)
 {
-  return (old_die && TREE_STATIC (decl) && ! declaration
+  return (old_die && TREE_STATIC (decl) && !declaration
 	  && get_AT_flag (old_die, DW_AT_declaration) == 1);
 }
 
@@ -20440,7 +20427,7 @@ static void
 gen_struct_or_union_type_die (tree type, dw_die_ref context_die,
 				enum debug_info_usage usage)
 {
-  /* Fill in the size of variable lengthed fields in late dwarf.  */
+  /* Fill in the size of variable-length fields in late dwarf.  */
   if (TREE_ASM_WRITTEN (type)
       && !early_dwarf_dumping)
     {
@@ -21573,7 +21560,7 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
   return NULL;
 }
 
-/* Output initial debug information for global DECL.  Called from the
+/* Output initial debug information for global DECL.  Called at the
    end of the parsing process.
 
    This is the initial debug generation process.  As such, the DIEs
@@ -21827,7 +21814,7 @@ gen_namelist_decl (tree name, dw_die_ref scope_die, tree item_decls)
 
 /* Write the debugging output for DECL and return the DIE.  */
 
-static dw_die_ref
+static void
 dwarf2out_decl (tree decl)
 {
   dw_die_ref context_die = comp_unit_die ();
@@ -21844,7 +21831,7 @@ dwarf2out_decl (tree decl)
   switch (TREE_CODE (decl))
     {
     case ERROR_MARK:
-      return NULL;
+      return;
 
     case FUNCTION_DECL:
       /* What we would really like to do here is to filter out all mere
@@ -21881,7 +21868,7 @@ dwarf2out_decl (tree decl)
 	 or not at all.  */
       if (DECL_INITIAL (decl) == NULL_TREE
 	  && ! DECL_ABSTRACT_P (decl))
-	return NULL;
+	return;
 
       /* If we're a nested function, initially use a parent of NULL; if we're
 	 a plain function, this will be fixed up in decls_for_scope.  If
@@ -21900,14 +21887,14 @@ dwarf2out_decl (tree decl)
       /* If we are in terse mode, don't generate any DIEs to represent any
 	 variable declarations or definitions.  */
       if (debug_info_level <= DINFO_LEVEL_TERSE)
-	return NULL;
+	return;
       break;
 
     case CONST_DECL:
       if (debug_info_level <= DINFO_LEVEL_TERSE)
-	return NULL;
+	return;
       if (!is_fortran () && !is_ada ())
-	return NULL;
+	return;
       if (TREE_STATIC (decl) && decl_function_context (decl))
 	context_die = lookup_decl_die (DECL_CONTEXT (decl));
       break;
@@ -21915,24 +21902,24 @@ dwarf2out_decl (tree decl)
     case NAMESPACE_DECL:
     case IMPORTED_DECL:
       if (debug_info_level <= DINFO_LEVEL_TERSE)
-	return NULL;
+	return;
       if (lookup_decl_die (decl) != NULL)
-	return NULL;
+	return;
       break;
 
     case TYPE_DECL:
       /* Don't emit stubs for types unless they are needed by other DIEs.  */
       if (TYPE_DECL_SUPPRESS_DEBUG (decl))
-	return NULL;
+	return;
 
       /* Don't bother trying to generate any DIEs to represent any of the
 	 normal built-in types for the language we are compiling.  */
       if (DECL_IS_BUILTIN (decl))
-	return NULL;
+	return;
 
       /* If we are in terse mode, don't generate any DIEs for types.  */
       if (debug_info_level <= DINFO_LEVEL_TERSE)
-	return NULL;
+	return;
 
       /* If we're a function-scope tag, initially use a parent of NULL;
 	 this will be fixed up in decls_for_scope.  */
@@ -21945,7 +21932,7 @@ dwarf2out_decl (tree decl)
       break;
 
     default:
-      return NULL;
+      return;
     }
 
   gen_decl_die (decl, NULL, context_die);
@@ -21962,7 +21949,6 @@ dwarf2out_decl (tree decl)
 		   new one is a specification of the old one.  */
 		|| get_AT_ref (die, DW_AT_specification) == early_die);
 #endif
-  return die;
 }
 
 /* Write the debugging output for DECL.  */

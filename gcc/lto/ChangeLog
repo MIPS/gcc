@@ -1,3 +1,8 @@
+2015-05-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* lto-lang.c (lto_write_globals): Remove.
+	(LANG_HOOKS_WRITE_GLOBALS): Same.
+
 2015-04-29  Jan Hubicka  <hubicka@ucw.cz>
 
 	* lto.c (lto_fixup_state): Call verify_type.
