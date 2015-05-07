@@ -4706,7 +4706,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	    parmse.string_length = build_int_cst (gfc_charlen_type_node, 0);
 	}
       else if (fsym && fsym->ts.type == BT_CLASS
-	       && e->ts.type == BT_DERIVED)
+		 && e->ts.type == BT_DERIVED)
 	{
 	  /* The derived type needs to be converted to a temporary
 	     CLASS object.  */
