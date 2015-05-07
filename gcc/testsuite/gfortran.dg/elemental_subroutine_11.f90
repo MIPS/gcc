@@ -184,7 +184,6 @@ contains
     real, dimension(2) :: pol_f
     type(model_data_t), target :: model
     call model%init_sm_test ()
-  !  print *, "beam_1: ",lbound(model%field), ubound(model%field)
     call flv%init ([1,-1], model)
     pol_f(1) = 0.5
   end subroutine beam_1
@@ -193,7 +192,6 @@ contains
     type(flavor_t), dimension(2) :: flv
     real, dimension(2) :: pol_f
     class(model_data_t), intent(in), target :: model
-  !  print *, "beam_1: ",lbound(model%field), ubound(model%field)
     call flv%init ([1,-1], model)
     pol_f(1) = 0.5
   end subroutine beam_2
