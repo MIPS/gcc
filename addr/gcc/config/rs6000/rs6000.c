@@ -34443,7 +34443,7 @@ expand_fusion_extra_load (rtx *operands)
   new_mem = gen_rtx_UNSPEC (extend_mode, gen_rtvec (1, new_mem),
 			    UNSPEC_FUSION_EXTRA);
 
-  set = gen_rtx_SET (VOIDmode, target, new_mem);
+  set = gen_rtx_SET (target, new_mem);
   clobber = gen_rtx_CLOBBER (VOIDmode, tmp_reg);
   insn = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set, clobber));
   emit_insn (insn);
@@ -34490,7 +34490,7 @@ expand_fusion_extra_store (rtx *operands)
   new_src = gen_rtx_UNSPEC (target_mode, gen_rtvec (1, src),
 			    UNSPEC_FUSION_EXTRA);
 
-  set = gen_rtx_SET (VOIDmode, new_mem, new_src);
+  set = gen_rtx_SET (new_mem, new_src);
   clobber = gen_rtx_CLOBBER (VOIDmode, tmp_reg);
   insn = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set, clobber));
   emit_insn (insn);
