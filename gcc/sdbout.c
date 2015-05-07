@@ -1445,7 +1445,7 @@ sdbout_early_global_decl (tree decl ATTRIBUTE_UNUSED)
    information is available.  */
 
 static void
-sdbout_late_global_decl (tree decl ATTRIBUTE_UNUSED)
+sdbout_late_global_decl (tree decl)
 {
   if (TREE_CODE (decl) == VAR_DECL
       && !DECL_EXTERNAL (decl)

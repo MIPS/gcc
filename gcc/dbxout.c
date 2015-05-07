@@ -1346,65 +1346,24 @@ dbxout_function_decl (tree decl)
 
 #endif /* DBX_DEBUGGING_INFO  */
 
-/* Return true if a variable is really a constant and not written in
-   memory.  */
-
-static bool
-decl_is_really_constant (tree decl)
+static void
+dbxout_early_global_decl (tree decl ATTRIBUTE_UNUSED)
 {
-  return ((TREE_CODE (decl) == VAR_DECL
-	   || TREE_CODE (decl) == RESULT_DECL)
-	  && !DECL_EXTERNAL (decl)
-	  && TREE_STATIC (decl)
-	  && TREE_READONLY (decl)
-	  && DECL_INITIAL (decl) != 0
-	  && tree_fits_shwi_p (DECL_INITIAL (decl))
-	  && ! TREE_ASM_WRITTEN (decl)
-	  && (DECL_FILE_SCOPE_P (decl)
-	      || TREE_CODE (DECL_CONTEXT (decl)) == BLOCK
-	      || TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
-	  && TREE_PUBLIC (decl) == 0);
+  /* NYI for non-dwarf.  */
 }
 
-/* Wrapper for dbxout_symbol that temporarily sets TREE_USED on the
-   DECL.  */
-
+/* Debug information for a global DECL.  Called from toplev.c after
+   compilation proper has finished.  */
 static void
-dbxout_symbol_used (tree decl)
+dbxout_late_global_decl (tree decl)
 {
-  int saved_tree_used = TREE_USED (decl);
-  TREE_USED (decl) = 1;
-  dbxout_symbol (decl, 0);
-  TREE_USED (decl) = saved_tree_used;
-}
-
-/* Output early debug information for a global DECL.  Called from
-   rest_of_decl_compilation during parsing.  */
-
-static void
-dbxout_early_global_decl (tree decl)
-{
-  /* True constant values may not appear in the symbol table, so they
-     will be missed by the late_global_decl hook.  Handle these cases
-     now, since early_global_decl will get unoptimized symbols early
-     enough-- and besides, true constants don't need location
-     information, so it's ok to handle them earlier.  */
-  if (decl_is_really_constant (decl))
-    dbxout_symbol_used (decl);
-}
-
-/* Output late debug information for a global DECL after location
-   information is available.  */
-
-static void
-dbxout_late_global_decl (tree decl ATTRIBUTE_UNUSED)
-{
-  if (TREE_CODE (decl) == VAR_DECL
-      && !DECL_EXTERNAL (decl)
-      /* Read-only constants were handled in
-	 dbxout_early_global_decl.  */
-      && !decl_is_really_constant (decl))
-    dbxout_symbol_used (decl);
+  if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
+    {
+      int saved_tree_used = TREE_USED (decl);
+      TREE_USED (decl) = 1;
+      dbxout_symbol (decl, 0);
+      TREE_USED (decl) = saved_tree_used;
+    }
 }
 
 /* This is just a function-type adapter; dbxout_symbol does exactly
@@ -2945,7 +2904,14 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	 and not written in memory, inform the debugger.
 
 	 ??? Why do we skip emitting the type and location in this case?  */
-      if (decl_is_really_constant (decl))
+      if (TREE_STATIC (decl) && TREE_READONLY (decl)
+	  && DECL_INITIAL (decl) != 0
+	  && tree_fits_shwi_p (DECL_INITIAL (decl))
+	  && ! TREE_ASM_WRITTEN (decl)
+	  && (DECL_FILE_SCOPE_P (decl)
+	      || TREE_CODE (DECL_CONTEXT (decl)) == BLOCK
+	      || TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
+	  && TREE_PUBLIC (decl) == 0)
 	{
 	  /* The sun4 assembler does not grok this.  */
 
