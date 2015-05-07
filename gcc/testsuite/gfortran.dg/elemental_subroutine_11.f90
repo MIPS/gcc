@@ -61,7 +61,6 @@ module model_data
      procedure :: get_field_ptr_by_index => model_data_get_field_ptr_index
      procedure :: init_sm_test => model_data_init_sm_test
   end type model_data_t
-     
 
 contains
 
@@ -133,9 +132,8 @@ contains
     field => model%get_field_ptr_by_index (1)
     call field%init (1)
   end subroutine model_data_init_sm_test
-  
-end module model_data
 
+end module model_data
 
 module flavors
   use model_data
@@ -154,7 +152,7 @@ module flavors
           flavor_init0_model
      procedure, private :: flavor_init0_model
   end type flavor_t
-       
+
 contains
 
   impure elemental subroutine flavor_init0_model (flv, f, model)
@@ -236,7 +234,7 @@ contains
        qn_mask(prt_index_in(i)%entry) = &
             pack (qn_mask_in(i)%mask, prt_is_connected(i)%entry) &
             .or. qn_mask_rest
-      ! Without the patch above line produced an ICE. 
+      ! Without the patch above line produced an ICE.
     end do
   end subroutine make_product_interaction
 end module evaluators
