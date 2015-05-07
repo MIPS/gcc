@@ -1131,6 +1131,19 @@ analyze_functions (bool first_time)
 	{
 	  if (symtab->dump_file)
 	    fprintf (symtab->dump_file, " %s", node->name ());
+
+	  /* See if the debugger can use anything before the DECL
+	     passes away.  Perhaps it can notice a DECL that is now a
+	     constant and can tag the early DIE with an appropriate
+	     attribute.
+
+	     Otherwise, this is the last chance the debug_hooks have
+	     at looking at optimized away DECLs, since
+	     late_global_decl will subsequently be called from the
+	     contents of the now pruned symbol table.  */
+	  if (!decl_function_context (node->decl))
+	    (*debug_hooks->late_global_decl) (node->decl);
+
 	  node->remove ();
 	  continue;
 	}

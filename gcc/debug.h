@@ -119,7 +119,8 @@ struct gcc_debug_hooks
      after the compilation proper has finished and cgraph information
      is available.
 
-     Location information is available at this point.
+     Location information is usually available at this point, unless
+     the hook is being called for a decl that has been optimized away.
 
      This hook may be called on VAR_DECLs or FUNCTION_DECLs.  It is up
      to the hook to use what it needs.  */

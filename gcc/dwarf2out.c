@@ -25467,7 +25467,11 @@ dwarf2out_early_finish (void)
 	 free-lang-data.  */
       if (((!flag_generate_lto && !flag_generate_offload)
 	   || DECL_ASSEMBLER_NAME_SET_P (decl))
-	  && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
+	  && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
+	  /* A missing DECL_ASSEMBLER_NAME can be a constant DIE that
+	     ended up in in deferred_asm_name before we knew it was
+	     constant and never written to disk.  */
+	  && DECL_ASSEMBLER_NAME (decl))
 	{
 	  add_linkage_attr (node->die, decl);
 	  move_linkage_attr (node->die);
