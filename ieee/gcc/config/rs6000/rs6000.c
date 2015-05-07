@@ -18439,7 +18439,7 @@ rs6000_output_move_128bit (rtx operands[])
 	return output_vec_const_move (operands);
     }
 
-  fatal_insn ("Bad 128-bit move", gen_rtx_SET (VOIDmode, dest, src));
+  fatal_insn ("Bad 128-bit move", gen_rtx_SET (dest, src));
 }
 
 /* Validate a 128-bit move.  */
@@ -19847,7 +19847,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
       compare_result = gen_reg_rtx (CCmode);
       comp_mode = CCmode;
 
-      emit_insn (gen_rtx_SET (VOIDmode, compare_result,
+      emit_insn (gen_rtx_SET (compare_result,
 			      gen_rtx_COMPARE (comp_mode, dest, const0_rtx)));
     }
 
