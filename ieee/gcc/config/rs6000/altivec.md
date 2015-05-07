@@ -279,7 +279,7 @@
     RTVEC_ELT (v, i) = constm1_rtx;
 
   emit_insn (gen_vec_initv4si (dest, gen_rtx_PARALLEL (mode, v)));
-  emit_insn (gen_rtx_SET (VOIDmode, dest, gen_rtx_ASHIFT (mode, dest, dest)));
+  emit_insn (gen_rtx_SET (dest, gen_rtx_ASHIFT (mode, dest, dest)));
   DONE;
 })
 
@@ -904,7 +904,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V16QImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -964,7 +964,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V8HImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1018,7 +1018,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V4SImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1093,7 +1093,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V16QImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1153,7 +1153,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V8HImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1207,7 +1207,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V4SImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1717,7 +1717,7 @@
   v = gen_rtvec (1, operands[2]);
   x = gen_rtx_VEC_SELECT (QImode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
   x = gen_rtx_VEC_DUPLICATE (V16QImode, x);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1765,7 +1765,7 @@
   v = gen_rtvec (1, operands[2]);
   x = gen_rtx_VEC_SELECT (HImode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
   x = gen_rtx_VEC_DUPLICATE (V8HImode, x);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1813,7 +1813,7 @@
   v = gen_rtvec (1, operands[2]);
   x = gen_rtx_VEC_SELECT (SImode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
   x = gen_rtx_VEC_DUPLICATE (V4SImode, x);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1861,7 +1861,7 @@
   v = gen_rtvec (1, operands[2]);
   x = gen_rtx_VEC_SELECT (SFmode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
   x = gen_rtx_VEC_DUPLICATE (V4SFmode, x);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -2335,7 +2335,7 @@
       constv = force_reg (V16QImode, constv);
       vperm = gen_rtx_UNSPEC (V16QImode, gen_rtvec (3, mask, mask, constv),
                               UNSPEC_VPERM);
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0], vperm));
+      emit_insn (gen_rtx_SET (operands[0], vperm));
     }
   DONE;
 })
@@ -2367,7 +2367,7 @@
       constv = force_reg (V16QImode, constv);
       vperm = gen_rtx_UNSPEC (V16QImode, gen_rtvec (3, mask, mask, constv),
                               UNSPEC_VPERM);
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0], vperm));
+      emit_insn (gen_rtx_SET (operands[0], vperm));
     }
   DONE;
 })
@@ -2393,8 +2393,7 @@
 
   addr = XEXP (operands[1], 0);
   temp = gen_reg_rtx (GET_MODE (addr));
-  emit_insn (gen_rtx_SET (VOIDmode, temp, 
-			  gen_rtx_NEG (GET_MODE (addr), addr)));
+  emit_insn (gen_rtx_SET (temp, gen_rtx_NEG (GET_MODE (addr), addr)));
   emit_insn (gen_altivec_lvsr (operands[0], 
 			       replace_equiv_address (operands[1], temp)));
   DONE;
