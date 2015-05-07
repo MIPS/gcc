@@ -491,8 +491,7 @@ gfc_conv_derived_to_class (gfc_se *parmse, gfc_expr *e,
   if (optional)
     cond_optional = gfc_conv_expr_present (e->symtree->n.sym);
 
-  if (parmse->ss && parmse->ss->info->useflags
-      && !(e->rank == 0 && parmse->ss->dimen == 0))
+  if (parmse->ss && parmse->ss->info->useflags)
     {
       /* For an array reference in an elemental procedure call we need
 	 to retain the ss to provide the scalarized array reference.  */
@@ -4707,7 +4706,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	    parmse.string_length = build_int_cst (gfc_charlen_type_node, 0);
 	}
       else if (fsym && fsym->ts.type == BT_CLASS
-	       && e->ts.type == BT_DERIVED)
+		 && e->ts.type == BT_DERIVED)
 	{
 	  /* The derived type needs to be converted to a temporary
 	     CLASS object.  */
@@ -7497,7 +7496,13 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
       if (expr->ts.type == BT_CHARACTER
 	  && expr->expr_type != EXPR_FUNCTION)
 	gfc_conv_string_parameter (se);
-      else
+      /* Do not return the address of the expression, when it is already an
+	 address.  */
+      else if (!(((expr->ts.type == BT_DERIVED
+		  && expr->ts.u.derived->as == NULL)
+		 || (expr->ts.type == BT_CLASS
+		     && CLASS_DATA (expr)->as == NULL))
+		 && POINTER_TYPE_P (TREE_TYPE (se->expr))))
 	se->expr = gfc_build_addr_expr (NULL_TREE, se->expr);
 
       return;
