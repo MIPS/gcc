@@ -106,6 +106,8 @@ struct gcc_debug_hooks
   /* Debug information for a global DECL.  Called from the parser
      after the parsing process has finished.
 
+     This gets called for both variables and functions.
+
      Location information is not available at this point, but it is a
      good probe point to get access to symbols before they get
      optimized away.
@@ -118,6 +120,8 @@ struct gcc_debug_hooks
      more complete debug info (if applicable).  Called from toplev.c
      after the compilation proper has finished and cgraph information
      is available.
+
+     This gets called for both variables and functions.
 
      Location information is usually available at this point, unless
      the hook is being called for a decl that has been optimized away.
