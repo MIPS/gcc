@@ -652,13 +652,17 @@ xform_compound_requirement (tree t)
   tree constr = build_nt (EXPR_CONSTR, TREE_OPERAND (t, 0));
 
   /* If a type is given, append an implicit conversion or
-     argument deduction constraint. 
-
-     FIXME: Handle argument deduction constraints. */
+     argument deduction constraint.  */
   if (tree type = TREE_OPERAND (t, 1)) 
     {
-      tree iconv = build_nt (ICONV_CONSTR, expr, type);
-      constr = conjoin_constraints (constr, iconv);
+      tree type_constr;
+      /* TODO: We should be extracting a list of auto nodes
+         from type_uses_auto, not a single node */
+      if (tree placeholder = type_uses_auto (type))
+        type_constr = build_nt (DEDUCT_CONSTR, expr, type, placeholder);
+      else 
+        type_constr = build_nt (ICONV_CONSTR, expr, type);
+      constr = conjoin_constraints (constr, type_constr);
     }
 
   /* If noexcept is present, append an exception constraint. */
@@ -729,12 +733,12 @@ xform_requires_expr (tree t)
 
 /* Transform an expression into an atomic predicate constraint. 
     After substitution, the expression of a predicate constraint shall 
-    have type bool (temp.constr.pred). For non-type- dependent 
+    have type bool (temp.constr.pred). For non-type-dependent 
     expressions, we can check that now. */
 tree
 xform_atomic (tree t) 
 {
-  if (!type_dependent_expression_p (t)) 
+  if (TREE_TYPE (t) && !type_dependent_expression_p (t)) 
   {
     tree type = cv_unqualified (TREE_TYPE (t));
     if (!same_type_p (type, boolean_type_node))
@@ -1397,8 +1401,6 @@ make_constrained_auto (tree con, tree args)
                         Constraint substitution
 ---------------------------------------------------------------------------*/
 
-tree tsubst_constraint (tree, tree, tsubst_flags_t, tree);
-
 /* The following functions implement substitution rules for constraints. 
    Substitution without checking constraints happens only in the 
    instantiation of class templates. For example:
@@ -1857,17 +1859,27 @@ satisfy_implicit_conversion_constraint (tree t, tree args,
     return boolean_true_node;
 }
 
-/* Check an argument deduction constraint.
-
-   TODO: Implement me. We need generalized auto for this to work. */
+/* Check an argument deduction constraint. */
 
 tree
-satisfy_argument_deduction_constraint (tree /*t*/, tree /*args*/, 
-                                       tsubst_flags_t /*complain*/, 
-                                       tree /*in_decl*/)
+satisfy_argument_deduction_constraint (tree t, tree args, 
+                                       tsubst_flags_t complain, tree in_decl)
 {
-  gcc_unreachable ();
-  return boolean_false_node;
+  /* Substitute through the expression. */
+  tree expr = DEDUCT_CONSTR_EXPR (t);
+  tree init = tsubst_expr (expr, args, complain, in_decl, false);
+  if (expr == error_mark_node)
+    return boolean_false_node;
+
+  /* Perform auto or decltype(auto) deduction to get the result. */
+  tree pattern = DEDUCT_CONSTR_PATTERN (t);
+  tree placeholder = DEDUCT_CONSTR_PLACEHOLDER (t);
+  tree type = do_auto_deduction (pattern, init, placeholder, 
+                                 complain, adc_requirement);
+  if (type == error_mark_node)
+    return boolean_false_node;
+
+  return boolean_true_node;
 }
 
 /* Check an exception constraint. An exception constraint for an

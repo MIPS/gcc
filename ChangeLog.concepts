@@ -1,3 +1,27 @@
+2015-05-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Implement argument deduction constraints.
+	* gcc/cp/cp-tree.def (DEDUCT_CONSTR): Add a third operand.
+	* gcc/cp/cp-tree.h (auto_deduction_context): New. Flags to control
+	diagnostics in auto deduction.
+	(do_auto_deduction): New overload to allow for control of diagnostics.
+	(tsubst_constraint): Make extern.
+	* gcc/cp/pt.c (tsubst): Propagate constraints for place holders.
+	(do_auto_deduction): New overload that calls the expanded version
+	with default args. 
+	(do_auto_deduction): Control diagnostics with tf_subst_flags and
+	auto_deduction_context.
+	(do_auto_deduction): Only check constraints for when not using
+	decltype(auto).
+	* gcc/cp/constraint.cc (xform_compound_requirement): Build argument
+	deduction constraints.
+	(xform_atomic): Don't check the types of dependent expressions,
+	even when not processing templates.
+	(satisfy_argument_deduction_constraint): Implement this.
+	* gcc/testsuite/g++.dg/concepts/placeholder1.C: Add tests for
+	more complex failures.
+	* gcc/testsuite/g++.dg/concepts/placeholder2.C: New.
+
 2015-05-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Initial implementation of constrained-type-specifiers for variable 

@@ -551,8 +551,9 @@ DEFTREECODE (ICONV_CONSTR, "iconv_constr", tcc_expression, 2)
    T must contain at least one place holder.
 
    DEDUCT_CONSTR_EXPR has the expression E
-   DEDUCT_CONSTR_PATTERN has the type patter T. */
-DEFTREECODE (DEDUCT_CONSTR, "deduct_constr", tcc_expression, 2)
+   DEDUCT_CONSTR_PATTERN has the type patter T.
+   DEDUCT_CONSTR_PLACEHOLDERS has the list of placeholder nodes in T. */
+DEFTREECODE (DEDUCT_CONSTR, "deduct_constr", tcc_expression, 3)
 
 /* An exception constraint determines if, for an expression E,
    noexcept(E) is true. 

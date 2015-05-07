@@ -6503,7 +6503,9 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 						  tf_warning_or_error);
       d_init = resolve_nondeduced_context (d_init);
       type = TREE_TYPE (decl) = do_auto_deduction (type, d_init,
-						   auto_node);
+						   auto_node, 
+                                                   tf_warning_or_error,
+                                                   adc_variable_type);
       if (type == error_mark_node)
 	return;
       cp_apply_type_quals_to_decl (cp_type_quals (type), decl);

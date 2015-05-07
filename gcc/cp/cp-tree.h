@@ -931,6 +931,10 @@ check_constraint_info (tree t)
 #define DEDUCT_CONSTR_PATTERN(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, DEDUCT_CONSTR), 1)
 
+/* In an argument deduction constraint, the list of placeholder nodes. */
+#define DEDUCT_CONSTR_PLACEHOLDER(NODE) \
+  TREE_OPERAND (TREE_CHECK (NODE, DEDUCT_CONSTR), 2)
+
 /* The expression of an exception constraint. */
 #define EXCEPT_CONSTR_EXPR(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, EXCEPT_CONSTR), 0)
@@ -4957,6 +4961,17 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
 #define TEMPLATE_TYPE_PARAMETER_PACK(NODE) \
   (TEMPLATE_PARM_PARAMETER_PACK (TEMPLATE_TYPE_PARM_INDEX (NODE)))
 
+/* Contexts in which auto deduction occurs. These flags are
+   used to control diagnostics in do_auto_deduction.  */
+
+enum auto_deduction_context
+{
+  adc_unspecified,   /* Not given */
+  adc_variable_type, /* Variable initializer deduction */
+  adc_return_type,   /* Return type deduction */
+  adc_requirement    /* Argument dedution constraint */
+};
+
 /* True iff this TEMPLATE_TYPE_PARM represents decltype(auto).  */
 #define AUTO_IS_DECLTYPE(NODE) \
   (TYPE_LANG_FLAG_5 (TEMPLATE_TYPE_PARM_CHECK (NODE)))
@@ -5843,7 +5858,10 @@ extern int num_template_headers_for_class	(tree);
 extern void check_template_variable		(tree);
 extern tree make_auto				(void);
 extern tree make_decltype_auto			(void);
-extern tree do_auto_deduction			(tree, tree, tree);
+extern tree do_auto_deduction                   (tree, tree, tree);
+extern tree do_auto_deduction                   (tree, tree, tree, 
+                                                 tsubst_flags_t, 
+                                                 auto_deduction_context);
 extern tree type_uses_auto			(tree);
 extern tree type_uses_auto_or_concept		(tree);
 extern void append_type_to_template_for_access_check (tree, tree, tree,
@@ -6598,6 +6616,7 @@ extern tree finish_compound_requirement         (tree, tree, bool);
 extern tree finish_nested_requirement           (tree);
 extern void check_constrained_friend            (tree, tree);
 extern tree tsubst_requires_expr                (tree, tree, tsubst_flags_t, tree);
+extern tree tsubst_constraint                   (tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_constraint_info              (tree, tree, tsubst_flags_t, tree);
 extern bool function_concept_check_p            (tree);
 

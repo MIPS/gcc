@@ -12716,6 +12716,12 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		TYPE_POINTER_TO (r) = NULL_TREE;
 		TYPE_REFERENCE_TO (r) = NULL_TREE;
 
+                /* Propagate constraints on placeholders. */
+                if (TREE_CODE (t) == TEMPLATE_TYPE_PARM)
+                  if (tree constr = DECL_SIZE_UNIT (TYPE_NAME (t)))
+                    DECL_SIZE_UNIT (TYPE_NAME (r)) = 
+                       tsubst_constraint (constr, args, complain, in_decl);
+
 		if (TREE_CODE (r) == TEMPLATE_TEMPLATE_PARM)
 		  /* We have reduced the level of the template
 		     template parameter, but not the levels of its
@@ -22794,6 +22800,20 @@ listify_autos (tree type, tree auto_node)
 tree
 do_auto_deduction (tree type, tree init, tree auto_node)
 {
+  return do_auto_deduction (type, init, auto_node, 
+                            tf_warning_or_error, 
+                            adc_unspecified);
+}
+
+/* Replace occurrences of 'auto' in TYPE with the appropriate type deduced
+   from INIT.  AUTO_NODE is the TEMPLATE_TYPE_PARM used for 'auto' in TYPE.  
+   The CONTEXT determines the context in which auto deduction is performed
+   and is used to control error diagnostics.  */
+
+tree
+do_auto_deduction (tree type, tree init, tree auto_node, 
+                   tsubst_flags_t complain, auto_deduction_context context)
+{
   tree targs;
 
   if (init == error_mark_node)
@@ -22816,11 +22836,14 @@ do_auto_deduction (tree type, tree init, tree auto_node)
 	init = CONSTRUCTOR_ELT (init, 0)->value;
       else
 	{
-	  if (permerror (input_location, "direct-list-initialization of "
-			 "%<auto%> requires exactly one element"))
-	    inform (input_location,
-		    "for deduction to %<std::initializer_list%>, use copy-"
-		    "list-initialization (i.e. add %<=%> before the %<{%>)");
+          if (complain & tf_warning_or_error)
+            {
+	      if (permerror (input_location, "direct-list-initialization of "
+			     "%<auto%> requires exactly one element"))
+	        inform (input_location,
+		        "for deduction to %<std::initializer_list%>, use copy-"
+		        "list-initialization (i.e. add %<=%> before the %<{%>)");
+            }
 	  type = listify_autos (type, auto_node);
 	}
     }
@@ -22836,7 +22859,8 @@ do_auto_deduction (tree type, tree init, tree auto_node)
 	= finish_decltype_type (init, id, tf_warning_or_error);
       if (type != auto_node)
 	{
-	  error ("%qT as type rather than plain %<decltype(auto)%>", type);
+          if (complain & tf_warning_or_error)
+	    error ("%qT as type rather than plain %<decltype(auto)%>", type);
 	  return error_mark_node;
 	}
     }
@@ -22862,31 +22886,52 @@ do_auto_deduction (tree type, tree init, tree auto_node)
 	       in the diagnostic is not really useful to the user.  */
 	    {
 	      if (cfun && auto_node == current_function_auto_return_pattern
-		  && LAMBDA_FUNCTION_P (current_function_decl))
+		  && LAMBDA_FUNCTION_P (current_function_decl)
+                  && complain & tf_warning_or_error)
 		error ("unable to deduce lambda return type from %qE", init);
 	      else
 		error ("unable to deduce %qT from %qE", type, init);
 	    }
 	  return error_mark_node;
 	}
-    }
 
-  /* If the auto is constrained, then we need to ensure that the
-     constraints are actually satisfied. Continue processing
-     even if constraints are not satisfied.
+      /* If the auto is constrained, then we need to ensure that the
+         constraints are actually satisfied. 
 
-     TODO: In full generality (accept auto anywhere in a type
-     specifier), we need to produce a cojunction of those
-     constraints before checking them. */
-  if (flag_concepts && !processing_template_decl)
-    {
-      tree decl = TYPE_NAME (auto_node);
-      if (tree constr = DECL_SIZE_UNIT (decl))
-        if (!constraints_satisfied_p (constr, targs))
-          {
-            error ("initializer does not satisfy placeholder constraints");
-            diagnose_constraints (input_location, constr, targs);
-          }
+         TODO: In full generality (accept auto anywhere in a type
+         specifier), we need to produce a cojunction of those
+         constraints before checking them. */
+      if (flag_concepts && !processing_template_decl)
+        {
+          tree decl = TYPE_NAME (auto_node);
+          tree constr = DECL_SIZE_UNIT (decl);
+          if (constr && !constraints_satisfied_p (constr, targs))
+            {
+              if (complain & tf_warning_or_error)
+                {
+                  switch (context) 
+                    {
+                    case adc_unspecified:
+                      error("placeholder constraints not satisfied");
+                      break;
+                    case adc_variable_type:
+                      error ("deduced initializer does not satisfy "
+                             "placeholder constraints");
+                      break;
+                    case adc_return_type:
+                      error ("deduced return type does not satisfy "
+                             "placeholder constraints");
+                      break;
+                    case adc_requirement:
+                      error ("deduced expression type does not saatisy "
+                             "placeholder constraints");
+                      break;
+                    }
+                  diagnose_constraints (input_location, constr, targs);
+                }
+              return error_mark_node;
+            }
+        }
     }
 
   /* If the list of declarators contains more than one declarator, the type
