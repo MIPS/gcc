@@ -227,9 +227,6 @@ static GTY((deletable)) struct gnat_binding_level *free_binding_level;
 /* The context to be used for global declarations.  */
 static GTY(()) tree global_context;
 
-/* An array of global declarations.  */
-static GTY(()) vec<tree, va_gc> *global_decls;
-
 /* An array of builtin function declarations.  */
 static GTY(()) vec<tree, va_gc> *builtin_decls;
 
@@ -764,9 +761,7 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
 	    vec_safe_push (builtin_decls, decl);
 	}
-      else if (global_bindings_p ())
-	vec_safe_push (global_decls, decl);
-      else
+      else if (!global_bindings_p ())
 	{
 	  DECL_CHAIN (decl) = BLOCK_VARS (current_binding_level->block);
 	  BLOCK_VARS (current_binding_level->block) = decl;
@@ -5176,7 +5171,7 @@ smaller_form_type_p (tree type, tree orig_type)
 static GTY (()) tree dummy_global;
 
 void
-gnat_write_global_declarations (void)
+note_types_used_by_globals (void)
 {
   unsigned int i;
   tree iter;
@@ -5204,10 +5199,6 @@ gnat_write_global_declarations (void)
 	  types_used_by_var_decl_insert (t, dummy_global);
 	}
     }
-
-  FOR_EACH_VEC_SAFE_ELT (global_decls, i, iter)
-    if (TREE_CODE (iter) == TYPE_DECL && !DECL_IGNORED_P (iter))
-      debug_hooks->early_global_decl (iter);
 }
 
 /* ************************************************************************

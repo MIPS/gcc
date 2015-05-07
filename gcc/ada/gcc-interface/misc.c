@@ -123,9 +123,7 @@ gnat_parse_file (void)
   /* Call the front end.  */
   _ada_gnat1drv ();
 
-  /* Output global declarations and generate debug information for
-     them.  */
-  gnat_write_global_declarations ();
+  note_types_used_by_globals ();
 }
 
 /* Return language mask for option processing.  */
@@ -976,8 +974,6 @@ gnat_init_ts (void)
 #define LANG_HOOKS_GETDECLS		lhd_return_null_tree_v
 #undef  LANG_HOOKS_PUSHDECL
 #define LANG_HOOKS_PUSHDECL		gnat_return_tree
-#undef  LANG_HOOKS_WRITE_GLOBALS
-#define LANG_HOOKS_WRITE_GLOBALS	gnat_write_global_declarations
 #undef  LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET	gnat_get_alias_set
 #undef  LANG_HOOKS_PRINT_DECL
