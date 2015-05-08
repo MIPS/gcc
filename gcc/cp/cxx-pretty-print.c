@@ -1161,6 +1161,10 @@ cxx_pretty_printer::expression (tree t)
       pp_cxx_ws_string (this, "<lambda>");
       break;
 
+    case TRAIT_EXPR:
+      pp_cxx_trait_expression (this, t);
+      break;
+
     case PRED_CONSTR:
     case EXPR_CONSTR:
     case TYPE_CONSTR:
@@ -2691,9 +2695,10 @@ pp_cxx_type_constraint (cxx_pretty_printer *pp, tree t)
 void
 pp_cxx_implicit_conversion_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "implicitly_convertible");
+  pp_string (pp, "convertible");
   pp_left_paren (pp);
   pp->expression (ICONV_CONSTR_EXPR (t));
+  pp_cxx_separate_with (pp, ',');
   pp->expression (ICONV_CONSTR_TYPE (t));
   pp_right_paren (pp);
 }
@@ -2701,9 +2706,10 @@ pp_cxx_implicit_conversion_constraint (cxx_pretty_printer *pp, tree t)
 void
 pp_cxx_argument_deduction_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_cxx_ws_string (pp, "deducible");
+  pp_string (pp, "deducible");
   pp_left_paren (pp);
   pp->expression (DEDUCT_CONSTR_EXPR (t));
+  pp_cxx_separate_with (pp, ',');
   pp->expression (DEDUCT_CONSTR_PATTERN (t));
   pp_right_paren (pp);
 }

@@ -1,3 +1,17 @@
+2015-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Use the substituted type, not the deduced arguments, to
+	check placeholder constraints.
+	* gcc/cp/pt.c (do_auto_deduction): Check constraints using
+	the deduced type and not the deduced arguments.
+	(tsubst): Don't substitute through constraints.
+	* gcc/cp/cxx-pretty-print.c (cxx_pretty_printer::expression):
+	Print trait expressions.
+	(pp_cxx_implicit_conversion_constraint,
+	pp_cxx_argument_deduction_constraint): Clean up printing.
+	* gcc/testsuite/g++.dg/concepts/placeholder2.C: Update tests
+	to require extra substitutions.
+
 2015-05-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Implement argument deduction constraints.

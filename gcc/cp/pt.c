@@ -12719,8 +12719,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
                 /* Propagate constraints on placeholders. */
                 if (TREE_CODE (t) == TEMPLATE_TYPE_PARM)
                   if (tree constr = DECL_SIZE_UNIT (TYPE_NAME (t)))
-                    DECL_SIZE_UNIT (TYPE_NAME (r)) = 
-                       tsubst_constraint (constr, args, complain, in_decl);
+                    DECL_SIZE_UNIT (TYPE_NAME (r)) = constr;
 
 		if (TREE_CODE (r) == TEMPLATE_TEMPLATE_PARM)
 		  /* We have reduced the level of the template
@@ -22894,44 +22893,6 @@ do_auto_deduction (tree type, tree init, tree auto_node,
 	    }
 	  return error_mark_node;
 	}
-
-      /* If the auto is constrained, then we need to ensure that the
-         constraints are actually satisfied. 
-
-         TODO: In full generality (accept auto anywhere in a type
-         specifier), we need to produce a cojunction of those
-         constraints before checking them. */
-      if (flag_concepts && !processing_template_decl)
-        {
-          tree decl = TYPE_NAME (auto_node);
-          tree constr = DECL_SIZE_UNIT (decl);
-          if (constr && !constraints_satisfied_p (constr, targs))
-            {
-              if (complain & tf_warning_or_error)
-                {
-                  switch (context) 
-                    {
-                    case adc_unspecified:
-                      error("placeholder constraints not satisfied");
-                      break;
-                    case adc_variable_type:
-                      error ("deduced initializer does not satisfy "
-                             "placeholder constraints");
-                      break;
-                    case adc_return_type:
-                      error ("deduced return type does not satisfy "
-                             "placeholder constraints");
-                      break;
-                    case adc_requirement:
-                      error ("deduced expression type does not saatisy "
-                             "placeholder constraints");
-                      break;
-                    }
-                  diagnose_constraints (input_location, constr, targs);
-                }
-              return error_mark_node;
-            }
-        }
     }
 
   /* If the list of declarators contains more than one declarator, the type
@@ -22955,7 +22916,47 @@ do_auto_deduction (tree type, tree init, tree auto_node,
 
   if (processing_template_decl)
     targs = add_to_template_args (current_template_args (), targs);
-  return tsubst (type, targs, tf_warning_or_error, NULL_TREE);
+  tree deduced = tsubst (type, targs, complain, NULL_TREE);
+  if (deduced == error_mark_node)
+    return error_mark_node;
+
+  /* Check any placeholder constraints against the deduced type. */
+  if (flag_concepts && !processing_template_decl)
+    if (tree constr = DECL_SIZE_UNIT (TYPE_NAME (auto_node)))
+      {
+        /* Use the deduced type to check the associated constraints. */
+        tree cargs = make_tree_vec (1);
+        TREE_VEC_ELT (cargs, 0) = deduced;
+        constr = tsubst_constraint (constr, cargs, complain, NULL_TREE);
+        if (!constraints_satisfied_p (constr, cargs))
+          {
+            if (complain & tf_warning_or_error)
+              {
+                switch (context) 
+                  {
+                  case adc_unspecified:
+                    error("placeholder constraints not satisfied");
+                    break;
+                  case adc_variable_type:
+                    error ("deduced initializer does not satisfy "
+                           "placeholder constraints");
+                    break;
+                  case adc_return_type:
+                    error ("deduced return type does not satisfy "
+                           "placeholder constraints");
+                    break;
+                  case adc_requirement:
+                    error ("deduced expression type does not saatisy "
+                           "placeholder constraints");
+                    break;
+                  }
+                diagnose_constraints (input_location, constr, targs);
+              }
+            return error_mark_node;
+          }
+      }
+
+  return deduced;
 }
 
 /* Substitutes LATE_RETURN_TYPE for 'auto' in TYPE and returns the
