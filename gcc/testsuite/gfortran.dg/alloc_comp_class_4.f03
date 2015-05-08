@@ -29,6 +29,10 @@ module test_pr58586_mod
      integer, allocatable :: a
   end type
 
+  type t
+    integer :: i = 5
+  end type
+
 contains
 
   subroutine add (d)
@@ -39,7 +43,19 @@ contains
     type(c), value :: d
   end subroutine
 
+  subroutine add_class_c (d)
+    class(c), value :: d
+  end subroutine
+
+  subroutine add_t (d)
+    type(t), value :: d
+  end subroutine
+
   type(c) function c_init() ! { dg-warning "not set" }
+  end function
+
+  class(c) function c_init2() ! { dg-warning "not set" }
+    allocatable :: c_init2
   end function
 
   type(c) function d_init(this) ! { dg-warning "not set" }
@@ -50,6 +66,13 @@ contains
     class(e) :: this
     allocate (e_init%a)
   end function
+
+  type(t) function t_init() ! { dg-warning "not set" }
+    allocatable :: t_init
+  end function
+  
+  type(t) function static_t_init() ! { dg-warning "not set" }
+  end function
 end module test_pr58586_mod
 
 program test_pr58586
@@ -57,12 +80,19 @@ program test_pr58586
 
   class(d), allocatable :: od
   class(e), allocatable :: oe
+  type(t), allocatable :: temp
+
   ! These two are merely to check, if compilation works
   call add(b())
   call add(b(null()))
 
   ! This needs to execute, to see whether the segfault at runtime is resolved
   call add_c(c_init())
+  call add_class_c(c_init2())
+
+  call add_t(static_t_init())
+  temp = t_init() ! <-- This derefs a null-pointer currently
+  if (allocated (temp)) call abort()
 
   allocate(od)
   call add_c(od%init())
@@ -70,5 +100,6 @@ program test_pr58586
   allocate(oe)
   call add_c(oe%init())
   deallocate(oe)
+   
 end program
 
