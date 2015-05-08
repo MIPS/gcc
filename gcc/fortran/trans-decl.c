@@ -2158,8 +2158,6 @@ build_function_decl (gfc_symbol * sym, bool global)
     gfc_set_decl_assembler_name (fndecl, gfc_sym_mangled_function_id (sym));
 
   sym->backend_decl = fndecl;
-  if (sym == sym->result && !sym->result->backend_decl)
-    sym->result->backend_decl = result_decl;
 }
 
 
@@ -5907,9 +5905,14 @@ gfc_generate_function_code (gfc_namespace * ns)
 	 alloc/pointer_components always has a result, where at least
 	 the allocatable/pointer components are set to zero.  */
       if (result == NULL_TREE && sym->attr.function
-	  && sym->ts.type == BT_DERIVED
-	  && (sym->ts.u.derived->attr.alloc_comp
-	      || sym->ts.u.derived->attr.pointer_comp))
+	  && ((sym->result->ts.type == BT_DERIVED
+	       && (sym->result->attr.allocatable
+		   || sym->result->ts.u.derived->attr.alloc_comp
+		   || sym->result->ts.u.derived->attr.pointer_comp))
+	      || (sym->result->ts.type == BT_CLASS
+		  && (CLASS_DATA (sym->result)->attr.allocatable
+		      || CLASS_DATA (sym->result)->attr.alloc_comp
+		      || CLASS_DATA (sym->result)->attr.pointer_comp))))
 	{
 	  artificial_result_decl = true;
 	  result = gfc_get_fake_result_decl (sym, 0);
