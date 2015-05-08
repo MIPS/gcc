@@ -70,7 +70,7 @@ contains
   type(t) function t_init() ! { dg-warning "not set" }
     allocatable :: t_init
   end function
-  
+
   type(t) function static_t_init() ! { dg-warning "not set" }
   end function
 end module test_pr58586_mod
@@ -100,6 +100,5 @@ program test_pr58586
   allocate(oe)
   call add_c(oe%init())
   deallocate(oe)
-   
 end program
 
