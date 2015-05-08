@@ -1769,7 +1769,7 @@ setup_prohibited_mode_move_regs (void)
   ira_prohibited_mode_move_regs_initialized_p = true;
   test_reg1 = gen_rtx_REG (VOIDmode, 0);
   test_reg2 = gen_rtx_REG (VOIDmode, 0);
-  move_pat = gen_rtx_SET (VOIDmode, test_reg1, test_reg2);
+  move_pat = gen_rtx_SET (test_reg1, test_reg2);
   move_insn = gen_rtx_INSN (VOIDmode, 0, 0, 0, move_pat, 0, -1, 0);
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
@@ -2709,20 +2709,22 @@ fix_reg_equiv_init (void)
 {
   int max_regno = max_reg_num ();
   int i, new_regno, max;
-  rtx x, prev, next, insn, set;
+  rtx set;
+  rtx_insn_list *x, *next, *prev;
+  rtx_insn *insn;
 
   if (max_regno_before_ira < max_regno)
     {
       max = vec_safe_length (reg_equivs);
       grow_reg_equivs ();
       for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
-	for (prev = NULL_RTX, x = reg_equiv_init (i);
+	for (prev = NULL, x = reg_equiv_init (i);
 	     x != NULL_RTX;
 	     x = next)
 	  {
-	    next = XEXP (x, 1);
-	    insn = XEXP (x, 0);
-	    set = single_set (as_a <rtx_insn *> (insn));
+	    next = x->next ();
+	    insn = x->insn ();
+	    set = single_set (insn);
 	    ira_assert (set != NULL_RTX
 			&& (REG_P (SET_DEST (set)) || REG_P (SET_SRC (set))));
 	    if (REG_P (SET_DEST (set))

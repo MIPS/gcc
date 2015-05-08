@@ -2287,7 +2287,7 @@
 	(gen_rtx_COND_EXEC
 	  (VOIDmode,
 	   gen_rtx_LTU (VOIDmode, gen_rtx_REG (CC_Cmode, CC_REG), GEN_INT (0)),
-	   gen_rtx_SET (VOIDmode, h0, plus_constant (SImode, h0, 1))));
+	   gen_rtx_SET (h0, plus_constant (SImode, h0, 1))));
       DONE;
     }
   emit_insn (gen_add_f (l0, l1, l2));
@@ -2512,13 +2512,13 @@
     {
       h1 = simplify_gen_binary (MINUS, SImode, h1, h2);
       if (!rtx_equal_p (h0, h1))
-	emit_insn (gen_rtx_SET (VOIDmode, h0, h1));
+	emit_insn (gen_rtx_SET (h0, h1));
       emit_insn (gen_sub_f (l0, l1, l2));
       emit_insn
 	(gen_rtx_COND_EXEC
 	  (VOIDmode,
 	   gen_rtx_LTU (VOIDmode, gen_rtx_REG (CC_Cmode, CC_REG), GEN_INT (0)),
-	   gen_rtx_SET (VOIDmode, h0, plus_constant (SImode, h0, -1))));
+	   gen_rtx_SET (h0, plus_constant (SImode, h0, -1))));
       DONE;
     }
   emit_insn (gen_sub_f (l0, l1, l2));
@@ -3544,7 +3544,7 @@
   x = gen_rtx_GTU (VOIDmode, gen_rtx_REG (CCmode, CC_REG), const0_rtx);
   x = gen_rtx_IF_THEN_ELSE (VOIDmode, x,
 			    gen_rtx_LABEL_REF (VOIDmode, operands[4]), pc_rtx);
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, x));
+  emit_jump_insn (gen_rtx_SET (pc_rtx, x));
   if (TARGET_COMPACT_CASESI)
     {
       emit_jump_insn (gen_casesi_compact_jump (operands[5], operands[7]));
@@ -4079,13 +4079,12 @@
     (gen_rtx_COND_EXEC
       (VOIDmode,
        gen_rtx_LT (VOIDmode, gen_rtx_REG (CC_ZNmode, CC_REG), const0_rtx),
-       gen_rtx_SET (VOIDmode, operands[0], const0_rtx)));
+       gen_rtx_SET (operands[0], const0_rtx)));
   emit_insn
     (gen_rtx_COND_EXEC
       (VOIDmode,
        gen_rtx_GE (VOIDmode, gen_rtx_REG (CC_ZNmode, CC_REG), const0_rtx),
-       gen_rtx_SET (VOIDmode, operands[0],
-		    plus_constant (SImode, operands[0], 1))));
+       gen_rtx_SET (operands[0], plus_constant (SImode, operands[0], 1))));
   DONE;
 })
 
@@ -4108,13 +4107,12 @@
     (gen_rtx_COND_EXEC
       (VOIDmode,
        gen_rtx_LT (VOIDmode, gen_rtx_REG (CC_ZNmode, CC_REG), const0_rtx),
-       gen_rtx_SET (VOIDmode, operands[0], GEN_INT (32))));
+       gen_rtx_SET (operands[0], GEN_INT (32))));
   emit_insn
     (gen_rtx_COND_EXEC
       (VOIDmode,
        gen_rtx_GE (VOIDmode, gen_rtx_REG (CC_ZNmode, CC_REG), const0_rtx),
-       gen_rtx_SET (VOIDmode, operands[0],
-		    gen_rtx_MINUS (SImode, GEN_INT (31), temp))));
+       gen_rtx_SET (operands[0], gen_rtx_MINUS (SImode, GEN_INT (31), temp))));
   DONE;
 })
 
@@ -4877,7 +4875,7 @@
     {
       /* At least four instructions are needed between the setting of LP_COUNT
 	 and the loop end - but the lp instruction qualifies as one.  */
-      rtx prev = prev_nonnote_insn (insn);
+      rtx_insn *prev = prev_nonnote_insn (insn);
 
       if (!INSN_P (prev) || dead_or_set_regno_p (prev, LP_COUNT))
 	output_asm_insn ("nop", operands);
@@ -4933,7 +4931,7 @@
   ""
   "*
 {
-  rtx prev = prev_nonnote_insn (insn);
+  rtx_insn *prev = prev_nonnote_insn (insn);
 
   /* If there is an immediately preceding label, we must output a nop,
      lest a branch to that label will fall out of the loop.

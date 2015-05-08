@@ -1478,8 +1478,8 @@ result_vector (int savep, rtx result)
 	reg = gen_rtx_REG (mode, savep ? regno : INCOMING_REGNO (regno));
 	mem = adjust_address (result, mode, size);
 	savevec[nelts++] = (savep
-			    ? gen_rtx_SET (VOIDmode, mem, reg)
-			    : gen_rtx_SET (VOIDmode, reg, mem));
+			    ? gen_rtx_SET (mem, reg)
+			    : gen_rtx_SET (reg, mem));
 	size += GET_MODE_SIZE (mode);
       }
   return gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nelts, savevec));
@@ -4754,7 +4754,7 @@ expand_builtin_trap (void)
 #ifdef HAVE_trap
   if (HAVE_trap)
     {
-      rtx insn = emit_insn (gen_trap ());
+      rtx_insn *insn = emit_insn (gen_trap ());
       /* For trap insns when not accumulating outgoing args force
 	 REG_ARGS_SIZE note to prevent crossjumping of calls with
 	 different args sizes.  */
