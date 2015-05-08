@@ -18107,24 +18107,10 @@ cp_parser_declarator (cp_parser* parser,
      declaration and not the abstract declarator.  */
   if (flag_concepts && dcl_kind != CP_PARSER_DECLARATOR_ABSTRACT)
     {
-      /* We could have things like *f(args) or &f(args).
-         Look inside references and pointers.  */
-      cp_declarator* p = declarator;
-      if (p->kind == cdk_reference || p->kind == cdk_pointer)
-        p = p->declarator;
-
-      /* Pointers or references with no name, or functions
-         with no name cannot have constraints.  */
-      if (!p || !p->declarator)
-        return declarator;
-
-      /* Look for f(args) but not (*f)(args).  */
-      if (p && p->kind == cdk_function && p->declarator->kind == cdk_id)
-        {
-          declarator->u.function.requires_clause
-            = cp_parser_trailing_requires_clause (parser, declarator);
-        }
-    }    
+      if (function_declarator_p (declarator))
+        declarator->u.function.requires_clause
+          = cp_parser_trailing_requires_clause (parser, declarator);
+    }
   return declarator;
 }
 

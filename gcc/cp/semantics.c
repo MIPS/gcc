@@ -2454,8 +2454,6 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	  else
 	    {
 	      next = OVL_CHAIN (fn);
-              if (flag_concepts)
-                remove_constraints (OVL_FUNCTION (fn));
 	      ggc_free (fn);
 	    }
 	}

@@ -117,7 +117,7 @@ function_concept_check_p (tree t)
   if (TREE_CODE (fn) == TEMPLATE_ID_EXPR 
       && TREE_CODE (TREE_OPERAND (fn, 0)) == OVERLOAD)
     {
-      tree f1 = OVL_FUNCTION (TREE_OPERAND (fn, 0));
+      tree f1 = get_first_fn (fn);
       if (TREE_CODE (f1) == TEMPLATE_DECL
             && DECL_DECLARED_CONCEPT_P (DECL_TEMPLATE_RESULT (f1)))
         return true;
@@ -348,6 +348,12 @@ namespace {
                        Lifting of concept definitions
 ---------------------------------------------------------------------------*/
 
+/* Part of constraint normalization.  Whenever we find a reference to
+   a variable concept or a call to a function concept, we lift or
+   inline that concept's definition into the constraint.  This ensures
+   that constraints are always checked in the immediate instantiation
+   context. */
+
 tree lift_expression (tree);
 
 /* If the tree T has operands, then lift any concepts out of them.  */
@@ -569,8 +575,11 @@ lift_expression (tree t)
 }
 
 /*---------------------------------------------------------------------------
-                        Constraint normalization
+                Transformation of expressions into constraints
 ---------------------------------------------------------------------------*/
+
+/* Part of constraint normalization. The following functions rewrite
+   expressions as constraints.  */
 
 tree transform_expression (tree);
 
@@ -1779,20 +1788,7 @@ satisfy_expression_constraint (tree t, tree args,
                                tsubst_flags_t complain, tree in_decl)
 {
   cp_unevaluated guard;
-
-  /* A sentinel class that ensures that deferred access checks
-     are popped before a function returns.  */
-  struct deferring_access_check_sentinel
-  {
-    deferring_access_check_sentinel ()
-    {
-      push_deferring_access_checks (dk_deferred);
-    }
-    ~ deferring_access_check_sentinel ()
-    {
-      pop_deferring_access_checks ();
-    }
-  } deferring;
+  deferring_access_check_sentinel deferring;
 
   tree expr = EXPR_CONSTR_EXPR (t);
   tree check = tsubst_expr (expr, args, complain, in_decl, false);
@@ -1834,7 +1830,7 @@ satisfy_implicit_conversion_constraint (tree t, tree args,
                                         tsubst_flags_t complain, tree in_decl)
 {
   /* Don't tsubst as if we're processing a template. If we try 
-     to we can end up generating template-like expresssions
+     to we can end up generating template-like expressions
      (e.g., modop-exprs) that aren't properly typed.  */
   int saved_template_decl = processing_template_decl;
   processing_template_decl = 0;

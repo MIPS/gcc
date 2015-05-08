@@ -1,5 +1,18 @@
 2015-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Addressing review comments.
+	* gcc/cp/call.c (build_new_function_call): Don't check for
+	template parameters when we're not processing a template decl.
+	* gcc/cp/constraint.cc (function_concept_check_p): Use
+	get_first_fn.
+	(satisfy_expression_constraint): Move sentinel into cp-tree.h.
+	* gcc/cp/parser.c (cp_parser_declarator): Use function_declarator_p.
+	* gcc/cp/cp-tree.h (struct deferring_access_check_sentinel): Moved
+	from constraint.cc.
+	* gcc/cp/semantics: (finish_call_expr) Don't remove constraints.
+
+2015-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Use the substituted type, not the deduced arguments, to
 	check placeholder constraints.
 	* gcc/cp/pt.c (do_auto_deduction): Check constraints using

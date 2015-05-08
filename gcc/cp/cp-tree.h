@@ -4634,8 +4634,9 @@ extern int comparing_specializations;
 
 extern int cp_unevaluated_operand;
 
-// An RAII class used to inhibit the evaluation of operands during parsing
-// and template instantiation. Evaluation warnings are also inhibited.
+/* RAII class used to inhibit the evaluation of operands during parsing
+   and template instantiation. Evaluation warnings are also inhibited. */
+
 class cp_unevaluated
 {
 public:
@@ -6073,6 +6074,22 @@ extern bool perform_access_checks (vec<deferred_access_check, va_gc> *,
 extern bool perform_deferred_access_checks	(tsubst_flags_t);
 extern bool perform_or_defer_access_check	(tree, tree, tree,
 						 tsubst_flags_t);
+
+/* RAII sentinel to ensures that deferred access checks are popped before 
+  a function returns.  */
+
+struct deferring_access_check_sentinel
+{
+  deferring_access_check_sentinel ()
+  {
+    push_deferring_access_checks (dk_deferred);
+  }
+  ~deferring_access_check_sentinel ()
+  {
+    pop_deferring_access_checks ();
+  }
+};
+
 extern int stmts_are_full_exprs_p		(void);
 extern void init_cp_semantics			(void);
 extern tree do_poplevel				(tree);
