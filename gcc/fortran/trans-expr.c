@@ -7047,7 +7047,9 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
       gfc_add_expr_to_block (&block, tmp);
     }
   else if (init && (cm->attr.allocatable
-	   || (cm->ts.type == BT_CLASS && CLASS_DATA (cm)->attr.allocatable)))
+	   || (cm->ts.type == BT_CLASS && CLASS_DATA (cm)->attr.allocatable
+	       && (expr->ts.type != BT_CLASS
+		   || CLASS_DATA (expr)->attr.allocatable))))
     {
       /* Take care about non-array allocatable components here.  The alloc_*
 	 routine below is motivated by the alloc_scalar_allocatable_for_
