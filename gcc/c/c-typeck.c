@@ -11634,6 +11634,7 @@ build_binary_op (location_t location, enum tree_code code,
   return ret;
 }
 
+
 /* Convert EXPR to be a truth-value, validating its type for this
    purpose.  LOCATION is the source location for the expression.  */
 

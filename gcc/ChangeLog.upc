@@ -1,3 +1,9 @@
+2015-05-08  Gary Funck  <gary@intrepid.com>
+
+	Revert cosmetic changes to trunk to avoid spurious differences.
+	* tree.c: Remove extra blank line.
+	* c/c-typeck.c: Add back extra blank line.
+
 2015-05-04  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 222758 into gupc branch.
