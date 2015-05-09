@@ -866,6 +866,11 @@ c_common_post_options (const char **pfilename)
   if (warn_implicit_int == -1)
     warn_implicit_int = flag_isoc99;
 
+  /* -Wshift-negative-value is enabled by -Wextra in C99 and C++11 modes.  */
+  if (warn_shift_negative_value == -1)
+    warn_shift_negative_value = (extra_warnings
+				 && (cxx_dialect >= cxx11 || flag_isoc99));
+
   /* Declone C++ 'structors if -Os.  */
   if (flag_declone_ctor_dtor == -1)
     flag_declone_ctor_dtor = optimize_size;
@@ -895,7 +900,7 @@ c_common_post_options (const char **pfilename)
     {
       /* If we're allowing C++0x constructs, don't warn about C++98
 	 identifiers which are keywords in C++0x.  */
-      warn_cxx0x_compat = 0;
+      warn_cxx11_compat = 0;
 
       if (warn_narrowing == -1)
 	warn_narrowing = 1;
