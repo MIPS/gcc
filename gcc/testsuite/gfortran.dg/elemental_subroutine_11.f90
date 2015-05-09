@@ -246,5 +246,3 @@ program main
   call beam_1 (6)
   call beam_2 (6, model)
 end program main
-
-! vim:ts=2:sts=2:sw=2:cindent:
