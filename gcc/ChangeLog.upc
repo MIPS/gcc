@@ -1,3 +1,7 @@
+2015-05-11  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 222997 into gupc branch.
+
 2015-05-08  Gary Funck  <gary@intrepid.com>
 
 	Revert cosmetic changes to trunk to avoid spurious differences.

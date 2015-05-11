@@ -5446,7 +5446,7 @@ print_dw_val (dw_val_node *val, bool recurse, FILE *outfile)
       fprintf (outfile, HOST_WIDE_INT_PRINT_UNSIGNED, val->v.val_unsigned);
       break;
     case dw_val_class_const_double:
-      fprintf (outfile, "constant ("HOST_WIDE_INT_PRINT_DEC","\
+      fprintf (outfile, "constant (" HOST_WIDE_INT_PRINT_DEC","\
 			HOST_WIDE_INT_PRINT_UNSIGNED")",
 	       val->v.val_double.high,
 	       val->v.val_double.low);
@@ -16363,12 +16363,12 @@ tree_add_const_value_attribute_for_decl (dw_die_ref var_die, tree decl)
 	  && !TREE_STATIC (decl)))
     return false;
 
-    if (TREE_READONLY (decl)
-	&& ! TREE_THIS_VOLATILE (decl)
-	&& DECL_INITIAL (decl))
-      /* OK */;
-    else
-      return false;
+  if (TREE_READONLY (decl)
+      && ! TREE_THIS_VOLATILE (decl)
+      && DECL_INITIAL (decl))
+    /* OK */;
+  else
+    return false;
 
   /* Don't add DW_AT_const_value if abstract origin already has one.  */
   if (get_AT (var_die, DW_AT_const_value))
@@ -20004,6 +20004,10 @@ gen_member_die (tree type, dw_die_ref context_die)
     {
       /* Don't include clones in the member list.  */
       if (DECL_ABSTRACT_ORIGIN (member))
+	continue;
+      /* Nor constructors for anonymous classes.  */
+      if (DECL_ARTIFICIAL (member)
+	  && dwarf2_name (member, 0) == NULL)
 	continue;
 
       child = lookup_decl_die (member);

@@ -3723,6 +3723,29 @@ AS_HELP_STRING([--disable-fix-cortex-a53-835769],
         esac
       ],
     [])
+    # Enable default workaround for AArch64 Cortex-A53 erratum 843419.
+    AC_ARG_ENABLE(fix-cortex-a53-843419,
+    [
+AS_HELP_STRING([--enable-fix-cortex-a53-843419],
+        [enable workaround for AArch64 Cortex-A53 erratum 843419 by default])
+AS_HELP_STRING([--disable-fix-cortex-a53-843419],
+        [disable workaround for AArch64 Cortex-A53 erratum 843419 by default])
+    ],
+      [
+        case $enableval in
+          yes)
+            tm_defines="${tm_defines} TARGET_FIX_ERR_A53_843419_DEFAULT=1"
+            ;;
+          no)
+            ;;
+          *)
+            AC_MSG_ERROR(['$enableval' is an invalid value for --enable-fix-cortex-a53-843419.\
+  Valid choices are 'yes' and 'no'.])
+            ;;
+
+        esac
+      ],
+    [])
     ;;
 
   # All TARGET_ABI_OSF targets.
@@ -5355,6 +5378,9 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
       gcc_cv_libc_provides_ssp,
       [gcc_cv_libc_provides_ssp=no
     case "$target" in
+       *-*-musl*)
+	 # All versions of musl provide stack protector
+	 gcc_cv_libc_provides_ssp=yes;;
        *-*-linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu)
       # glibc 2.4 and later provides __stack_chk_fail and
       # either __stack_chk_guard, or TLS access to stack guard canary.
@@ -5381,6 +5407,7 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
 	 # <http://gcc.gnu.org/ml/gcc/2008-10/msg00130.html>) and for now
 	 # simply assert that glibc does provide this, which is true for all
 	 # realistically usable GNU/Hurd configurations.
+	 # All supported versions of musl provide it as well
 	 gcc_cv_libc_provides_ssp=yes;;
        *-*-darwin* | *-*-freebsd*)
 	 AC_CHECK_FUNC(__stack_chk_fail,[gcc_cv_libc_provides_ssp=yes],
@@ -5453,6 +5480,9 @@ case "$target" in
     else
       gcc_cv_target_dl_iterate_phdr=no
     fi
+    ;;
+  *-linux-musl*)
+    gcc_cv_target_dl_iterate_phdr=yes
     ;;
 esac
 GCC_TARGET_TEMPLATE([TARGET_DL_ITERATE_PHDR])
