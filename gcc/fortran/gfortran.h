@@ -901,6 +901,7 @@ typedef struct
 
   /* This is an OpenACC acclerator function at level N - 1  */
   unsigned oacc_function:3;
+  unsigned oacc_function_nohost:1;
 
   /* Attributes set by compiler extensions (!GCC$ ATTRIBUTES).  */
   unsigned ext_attr:EXT_ATTR_NUM;
@@ -1340,8 +1341,9 @@ typedef struct gfc_omp_clauses
   struct gfc_expr *vector_length_expr;
   gfc_expr_list *wait_list;
   gfc_expr_list *tile_list;
+  struct gfc_symbol *routine_bind;
   unsigned async:1, gang:1, worker:1, vector:1, seq:1, independent:1;
-  unsigned wait:1, par_auto:1, gang_static:1, acc_collapse:1;
+  unsigned wait:1, par_auto:1, gang_static:1, acc_collapse:1, nohost:1, bind:1;
   locus loc;
 
 }

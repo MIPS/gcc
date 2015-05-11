@@ -1,3 +1,17 @@
+2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_clause_bind, c_parser_oacc_routine)
+	(c_finish_oacc_routine): Update.
+
+2015-05-11  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Handle "bind", "nohost".
+	(c_parser_oacc_clause_bind): New function.
+	(c_parser_oacc_all_clauses): Handle PRAGMA_OACC_CLAUSE_BIND,
+	PRAGMA_OACC_CLAUSE_NOHOST.
+	* c-typeck.c (c_finish_omp_clauses): Handle OMP_CLAUSE_BIND,
+	OMP_CLAUSE_NOHOST.
+
 2015-05-11  James Norris  <jnorris@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_wait_list): Change error message.

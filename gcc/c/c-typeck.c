@@ -13877,6 +13877,8 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_BIND:
+	case OMP_CLAUSE_NOHOST:
 	case OMP_CLAUSE_TILE:
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;

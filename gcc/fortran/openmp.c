@@ -813,6 +813,8 @@ enum omp_mask2
   OMP_CLAUSE_DELETE,
   OMP_CLAUSE_AUTO,
   OMP_CLAUSE_TILE,
+  OMP_CLAUSE_BIND,
+  OMP_CLAUSE_NOHOST,
   /* This must come last.  */
   OMP_MASK2_LAST
 };
@@ -1012,6 +1014,15 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	    {
 	      c->par_auto = true;
 	      needs_space = true;
+	      continue;
+	    }
+	  break;
+	case 'b':
+	  if ((mask & OMP_CLAUSE_BIND)
+	      && c->routine_bind == NULL
+	      && gfc_match ("bind ( %s )", &c->routine_bind) == MATCH_YES)
+	    {
+	      c->bind = 1;
 	      continue;
 	    }
 	  break;
@@ -1424,6 +1435,13 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	      && gfc_match ("nogroup") == MATCH_YES)
 	    {
 	      c->nogroup = needs_space = true;
+	      continue;
+	    }
+	  if ((mask & OMP_CLAUSE_NOHOST)
+	      && !c->nohost
+	      && gfc_match ("nohost") == MATCH_YES)
+	    {
+	      c->nohost = true;
 	      continue;
 	    }
 	  if ((mask & OMP_CLAUSE_NOTINBRANCH)
@@ -1964,7 +1982,9 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
   omp_mask (OMP_CLAUSE_ASYNC)
 #define OACC_ROUTINE_CLAUSES \
   (omp_mask (OMP_CLAUSE_GANG) | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR	      \
-   | OMP_CLAUSE_SEQ)
+   | OMP_CLAUSE_SEQ							      \
+   | OMP_CLAUSE_BIND							      \
+   | OMP_CLAUSE_NOHOST)
 
 
 static match
@@ -2349,6 +2369,8 @@ gfc_match_oacc_routine (void)
 	goto cleanup;
       gfc_current_ns->proc_name->attr.oacc_function
 	= gfc_oacc_routine_dims (c) + 1;
+      gfc_current_ns->proc_name->attr.oacc_function_nohost
+	= c ? c->nohost : false;
     }
 
   if (n)

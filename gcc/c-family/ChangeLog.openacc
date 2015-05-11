@@ -1,3 +1,13 @@
+2015-05-11  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-pragma.h (pragma_omp_clause): Add PRAGMA_OACC_CLAUSE_BIND,
+	PRAGMA_OACC_CLAUSE_NOHOST.
+
+2015-05-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-attribs.c (c_common_attribute_table): Set min_len to -1 for
+	"omp declare target".
+
 2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-pragma.h (enum pragma_omp_clause): Merge

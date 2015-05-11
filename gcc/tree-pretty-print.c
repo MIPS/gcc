@@ -1033,6 +1033,15 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, dump_flags_t flags)
 			 spc, flags, false);
       pp_right_paren (pp);
       break;
+    case OMP_CLAUSE_NOHOST:
+      pp_string (pp, "nohost");
+      break;
+    case OMP_CLAUSE_BIND:
+      pp_string (pp, "bind(");
+      dump_generic_node (pp, OMP_CLAUSE_BIND_NAME (clause),
+			 spc, flags, false);
+      pp_string (pp, ")");
+      break;
 
     case OMP_CLAUSE__GRIDDIM_:
       pp_string (pp, "_griddim_(");

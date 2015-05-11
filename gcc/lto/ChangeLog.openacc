@@ -1,0 +1,10 @@
+2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* lto.c (read_cgraph_and_symbols) [ACCEL_COMPILER]: Handle OpenACC
+	bind clauses.
+
+Copyright (C) 2015-2018 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
