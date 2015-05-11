@@ -7447,13 +7447,7 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
       if (expr->ts.type == BT_CHARACTER
 	  && expr->expr_type != EXPR_FUNCTION)
 	gfc_conv_string_parameter (se);
-      /* Do not return the address of the expression, when it is already an
-	 address.  */
-      else if (!(((expr->ts.type == BT_DERIVED
-		  && expr->ts.u.derived->as == NULL)
-		 || (expr->ts.type == BT_CLASS
-		     && CLASS_DATA (expr)->as == NULL))
-		 && POINTER_TYPE_P (TREE_TYPE (se->expr))))
+     else
 	se->expr = gfc_build_addr_expr (NULL_TREE, se->expr);
 
       return;
