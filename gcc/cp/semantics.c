@@ -5295,19 +5295,21 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
    Remove any elements from the list that are invalid.  */
 
 tree
-finish_omp_clauses (tree clauses)
+finish_omp_clauses (tree clauses, bool oacc)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head;
+  bitmap_head aligned_head, oacc_data_head;
   tree c, t, *pc;
   bool branch_seen = false;
   bool copyprivate_seen = false;
+  bool oacc_data = false;
 
   bitmap_obstack_initialize (NULL);
   bitmap_initialize (&generic_head, &bitmap_default_obstack);
   bitmap_initialize (&firstprivate_head, &bitmap_default_obstack);
   bitmap_initialize (&lastprivate_head, &bitmap_default_obstack);
   bitmap_initialize (&aligned_head, &bitmap_default_obstack);
+  bitmap_initialize (&oacc_data_head, &bitmap_default_obstack);
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
@@ -5318,9 +5320,21 @@ finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_SHARED:
 	  goto check_dup_generic;
 	case OMP_CLAUSE_PRIVATE:
-	  goto check_dup_generic;
+	  if (oacc)
+	    {
+	      oacc_data = true;
+	      goto check_dup_oacc;
+	    }
+	  else
+	    goto check_dup_generic;
 	case OMP_CLAUSE_REDUCTION:
-	  goto check_dup_generic;
+	  if (oacc)
+	    {
+	      oacc_data = false;
+	      goto check_dup_oacc;
+	    }
+	  else
+	    goto check_dup_generic;
 	case OMP_CLAUSE_COPYPRIVATE:
 	  copyprivate_seen = true;
 	  goto check_dup_generic;
@@ -5404,6 +5418,44 @@ finish_omp_clauses (tree clauses)
 	  else
 	    bitmap_set_bit (&generic_head, DECL_UID (t));
 	  break;
+	check_dup_oacc:
+	  t = OMP_CLAUSE_DECL (c);
+	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
+	    {
+	      if (processing_template_decl)
+		break;
+	      if (DECL_P (t))
+		error ("%qD is not a variable in clause %qs", t,
+		       omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      else
+		error ("%qE is not a variable in clause %qs", t,
+		       omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      remove = true;
+	    }
+	  else if (oacc_data)
+	    {
+	      if (bitmap_bit_p (&oacc_data_head, DECL_UID (t)))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE appears more than once in data clauses", t);
+		  remove = true;
+		}
+	      else
+		bitmap_set_bit (&oacc_data_head, DECL_UID (t));
+	    }
+	  else
+	    {
+	      if (bitmap_bit_p (&generic_head, DECL_UID (t)))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE appears more than once in data clauses", t);
+		  remove = true;
+		}
+	      else
+		bitmap_set_bit (&generic_head, DECL_UID (t));
+	    }
+	  break;
+
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	  t = OMP_CLAUSE_DECL (c);
@@ -5425,6 +5477,37 @@ finish_omp_clauses (tree clauses)
 	    }
 	  else
 	    bitmap_set_bit (&firstprivate_head, DECL_UID (t));
+	  break;
+
+	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_WORKER:
+	  /* Operand 0 is the num: or length: argument.  */
+	  t = OMP_CLAUSE_OPERAND (c, 0);
+	  if (t == NULL_TREE)
+	    break;
+
+	  t = maybe_convert_cond (t);
+	  if (t == error_mark_node)
+	    remove = true;
+	  else if (!processing_template_decl)
+	    t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+	  OMP_CLAUSE_OPERAND (c, 0) = t;
+
+	  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_GANG)
+	    break;
+
+	  /* Ooperand 1 is the gang static: argument.  */
+	  t = OMP_CLAUSE_OPERAND (c, 1);
+	  if (t == NULL_TREE)
+	    break;
+
+	  t = maybe_convert_cond (t);
+	  if (t == error_mark_node)
+	    remove = true;
+	  else if (!processing_template_decl)
+	    t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+	  OMP_CLAUSE_OPERAND (c, 1) = t;
 	  break;
 
 	case OMP_CLAUSE_LASTPRIVATE:
@@ -5470,13 +5553,30 @@ finish_omp_clauses (tree clauses)
 	  break;
 
 	case OMP_CLAUSE_NUM_THREADS:
-	  t = OMP_CLAUSE_NUM_THREADS_EXPR (c);
+	case OMP_CLAUSE_NUM_GANGS:
+	case OMP_CLAUSE_NUM_WORKERS:
+	case OMP_CLAUSE_VECTOR_LENGTH:
+	  t = OMP_CLAUSE_OPERAND (c, 0);
 	  if (t == error_mark_node)
 	    remove = true;
 	  else if (!type_dependent_expression_p (t)
 		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
 	    {
-	      error ("num_threads expression must be integral");
+	     switch (OMP_CLAUSE_CODE (c))
+		{
+		case OMP_CLAUSE_NUM_THREADS:
+		  error ("num_threads expression must be integral"); break;
+		case OMP_CLAUSE_NUM_GANGS:
+		  error ("%<num_gangs%> expression must be integral"); break;
+		case OMP_CLAUSE_NUM_WORKERS:
+		  error ("%<num_workers%> expression must be integral");
+		  break;
+		case OMP_CLAUSE_VECTOR_LENGTH:
+		  error ("%<vector_length%> expression must be integral");
+		  break;
+		default:
+		  error ("invalid argument");
+		}
 	      remove = true;
 	    }
 	  else
@@ -5484,7 +5584,7 @@ finish_omp_clauses (tree clauses)
 	      t = mark_rvalue_use (t);
 	      if (!processing_template_decl)
 		t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
-	      OMP_CLAUSE_NUM_THREADS_EXPR (c) = t;
+	      OMP_CLAUSE_OPERAND (c, 0) = t;
 	    }
 	  break;
 
@@ -5590,16 +5690,6 @@ finish_omp_clauses (tree clauses)
 		t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
 	      OMP_CLAUSE_ASYNC_EXPR (c) = t;
 	    }
-	  break;
-
-	case OMP_CLAUSE_VECTOR_LENGTH:
-	  t = OMP_CLAUSE_VECTOR_LENGTH_EXPR (c);
-	  t = maybe_convert_cond (t);
-	  if (t == error_mark_node)
-	    remove = true;
-	  else if (!processing_template_decl)
-	    t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
-	  OMP_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
 	  break;
 
 	case OMP_CLAUSE_WAIT:
@@ -5862,6 +5952,13 @@ finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_TASKGROUP:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
+	case OMP_CLAUSE_USE_DEVICE:
+	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_INDEPENDENT:
+	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_BIND:
+	case OMP_CLAUSE_NOHOST:
+	case OMP_CLAUSE_TILE:
 	  break;
 
 	case OMP_CLAUSE_INBRANCH:
@@ -6143,6 +6240,24 @@ finish_oacc_data (tree clauses, tree block)
   TREE_TYPE (stmt) = void_type_node;
   OACC_DATA_CLAUSES (stmt) = clauses;
   OACC_DATA_BODY (stmt) = block;
+
+  return add_stmt (stmt);
+}
+
+/* Generate OACC_HOST_DATA, with CLAUSES and BLOCK as its compound
+   statement.  */
+
+tree
+finish_oacc_host_data (tree clauses, tree block)
+{
+  tree stmt;
+  
+  block = finish_omp_structured_block (block);
+  
+  stmt = make_node (OACC_HOST_DATA);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_HOST_DATA_CLAUSES (stmt) = clauses;
+  OACC_HOST_DATA_BODY (stmt) = block;
 
   return add_stmt (stmt);
 }
@@ -6806,7 +6921,7 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
       OMP_CLAUSE_OPERAND (c, 0)
 	= cilk_for_number_of_iterations (omp_for);
       OMP_CLAUSE_CHAIN (c) = clauses;
-      OMP_PARALLEL_CLAUSES (omp_par) = finish_omp_clauses (c);
+      OMP_PARALLEL_CLAUSES (omp_par) = finish_omp_clauses (c, false);
       add_stmt (omp_par);
       return omp_par;
     }

@@ -1,3 +1,97 @@
+2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* dump-parse-tree.c (show_namespace): Rewrite handling of OpenACC
+	declare.
+	* gfortran.h (gfc_statement): Add ST_OACC_ATOMIC,
+	ST_OACC_END_ATOMIC.
+	(gfc_omp_clauses): Add routine_bind, dtype, dtype_clauses, nohost,
+	acc_collapse, bind, num_gangs, num_workers, vector_length, tile
+	members.
+	(gfc_oacc_declare, gfc_oacc_routine_name): New typedefs.
+	(gfc_get_oacc_declare, gfc_get_oacc_routine_name): New macros.
+	(gfc_namespace): Add oacc_declare, oacc_routine_clauses,
+	oacc_routine_names, oacc_routine members, remove
+	oacc_declare_clauses member.
+	(gfc_exec_op): Add EXEC_OACC_ROUTINE, EXEC_OACC_ATOMIC,
+	EXEC_OACC_DECLARE.
+	(gfc_code): Add oacc_declare member.
+	(gfc_free_oacc_declares, insert_oacc_declare): New prototypes.
+	* match.h (gfc_match_oacc_atomic): New prototype.
+	* openmp.c (OMP_CLAUSE_HOST_SELF): Rename to...
+	(OMP_CLAUSE_HOST): ... this.  Adjust all users.
+	(OMP_CLAUSE_BIND, OMP_CLAUSE_NOHOST, OMP_CLAUSE_DEVICE_TYPE): New
+	macros.
+	(gfc_free_oacc_declares): New function.
+	(gfc_match_omp_map_clause): Add allow_sections formal parameter.
+	Adjust all users.
+	(gfc_match_omp_clauses): Add dtype_mask formal parameter.  Adjust
+	all users.  Change handling of OMP_CLAUSE_VECTOR_LENGTH,
+	OMP_CLAUSE_NUM_GANGS, OMP_CLAUSE_NUM_WORKERS, OMP_CLAUSE_TILE,
+	OMP_CLAUSE_DEFAULT, OMP_CLAUSE_COLLAPSE.  Handle OMP_CLAUSE_BIND,
+	OMP_CLAUSE_NOHOST, OMP_CLAUSE_DEVICE_TYPE.
+	(OACC_PARALLEL_CLAUSES, OACC_KERNELS_CLAUSES, OACC_LOOP_CLAUSES)
+	(OACC_UPDATE_CLAUSES): Add OMP_CLAUSE_DEVICE_TYPE.
+	(OACC_ROUTINE_CLAUSES, OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK)
+	(OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK)
+	(OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK)
+	(OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK)
+	(OACC_UPDATE_CLAUSE_DEVICE_TYPE_MASK): New macros.
+	(gfc_match_oacc_declare, gfc_match_oacc_routine): Rewrite
+	functions.
+	(gfc_match_oacc_update): Add error reporting.
+	(gfc_match_omp_atomic, gfc_match_oacc_atomic): New wrapper
+	functions around...
+	(gfc_match_omp_oacc_atomic): ... this new function.
+	(check_array_not_assumed): Remove pointer check.
+	(oacc_code_to_statement): Handle EXEC_OACC_ATOMIC.
+	(resolve_oacc_loop_blocks): Don't error out for combined OpenACC
+	gang, worker, and vector clauses.
+	(resolve_oacc_cache): Remove function.
+	(gfc_resolve_oacc_declare): Rewrite function.
+	(gfc_resolve_oacc_directive): Handle EXEC_OACC_ATOMIC.  Don't
+	handle EXEC_OACC_CACHE.
+	* parse.c (decode_oacc_directive): Handle "atomic", "end atomic".
+	(case_exec_markers): Add ST_OACC_ATOMIC.
+	(case_decl): Add ST_OACC_DECLARE.
+	(gfc_ascii_statement): Handle ST_OACC_ATOMIC, ST_OACC_END_ATOMIC.
+	(verify_st_order, parse_spec): Remove handling of ST_OACC_DECLARE.
+	(parse_omp_atomic): Rename to...
+	(parse_omp_oacc_atomic): ... this new function.  Add omp_p formal
+	parameter.  Adjust all users.
+	(parse_executable): Handle ST_OACC_ATOMIC.
+	(parse_progunit): Remove handling of OpenACC declare.
+	(is_oacc): Handle EXEC_OACC_ROUTINE.
+	* parse.h (gfc_state_data): Add ext.oacc_declare member.  Remove
+	ext.oacc_declare_clauses member.
+	* resolve.c (gfc_resolve_blocks): Handle EXEC_OACC_ATOMIC,
+	EXEC_OACC_ROUTINE, EXEC_OACC_DECLARE.
+	(gfc_resolve_code): Handle EXEC_OACC_ATOMIC, EXEC_OACC_DECLARE.
+	* st.c (gfc_free_statement): Handle EXEC_OACC_DECLARE,
+	EXEC_OACC_ROUTINE, EXEC_OACC_ATOMIC.
+	* trans-decl.c (find_end, insert_oacc_declare): New functions.
+	(gfc_generate_function_code): Change handling of OpenACC declare.
+	* trans-openmp.c (gfc_omp_clause_copy_ctor): Handle
+	OMP_CLAUSE_REDUCTION.
+	(gfc_trans_omp_clauses): Add appropriate, generate OMP_CLAUSE_SEQ
+	(instead of OMP_CLAUSE_ORDERED), OMP_CLAUSE_AUTO, or
+	OMP_CLAUSE_TILE.
+	(gfc_trans_oacc_combined_directive): Don't set
+	OACC_KERNELS_COMBINED, and OACC_PARALLEL_COMBINED.
+	(gfc_trans_oacc_declare): Rewrite function.
+	(gfc_trans_oacc_directive): Handle EXEC_OACC_ATOMIC,
+	EXEC_OACC_DECLARE.
+	* trans-stmt.c (gfc_trans_block_construct): Change handling of
+	OpenACC declare.
+	* trans.c (trans_code): Handle EXEC_OACC_ATOMIC,
+	EXEC_OACC_DECLARE.
+
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
 	* f95-lang.c (DEF_GOACC_BUILTIN_FNSPEC): Define.

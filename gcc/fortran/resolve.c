@@ -9209,6 +9209,9 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_OACC_CACHE:
 	case EXEC_OACC_ENTER_DATA:
 	case EXEC_OACC_EXIT_DATA:
+	case EXEC_OACC_ATOMIC:
+	case EXEC_OACC_ROUTINE:
+	case EXEC_OACC_DECLARE:
 	case EXEC_OMP_ATOMIC:
 	case EXEC_OMP_CRITICAL:
 	case EXEC_OMP_DISTRIBUTE:
@@ -10385,6 +10388,7 @@ gfc_resolve_code (gfc_code *code, gfc_namespace *ns)
 		       "expression", &code->expr1->where);
 	  break;
 
+	case EXEC_OACC_ATOMIC:
 	case EXEC_OACC_PARALLEL_LOOP:
 	case EXEC_OACC_PARALLEL:
 	case EXEC_OACC_KERNELS_LOOP:
@@ -10397,6 +10401,7 @@ gfc_resolve_code (gfc_code *code, gfc_namespace *ns)
 	case EXEC_OACC_CACHE:
 	case EXEC_OACC_ENTER_DATA:
 	case EXEC_OACC_EXIT_DATA:
+	case EXEC_OACC_DECLARE:
 	  gfc_resolve_oacc_directive (code, ns);
 	  break;
 

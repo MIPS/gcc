@@ -1194,13 +1194,17 @@ static vec<pragma_ns_name> registered_pp_pragmas;
 
 struct omp_pragma_def { const char *name; unsigned int id; };
 static const struct omp_pragma_def oacc_pragmas[] = {
+  { "atomic", PRAGMA_OACC_ATOMIC },
   { "cache", PRAGMA_OACC_CACHE },
   { "data", PRAGMA_OACC_DATA },
+  { "declare", PRAGMA_OACC_DECLARE },
   { "enter", PRAGMA_OACC_ENTER_DATA },
   { "exit", PRAGMA_OACC_EXIT_DATA },
+  { "host_data", PRAGMA_OACC_HOST_DATA },
   { "kernels", PRAGMA_OACC_KERNELS },
   { "loop", PRAGMA_OACC_LOOP },
   { "parallel", PRAGMA_OACC_PARALLEL },
+  { "routine", PRAGMA_OACC_ROUTINE },
   { "update", PRAGMA_OACC_UPDATE },
   { "wait", PRAGMA_OACC_WAIT }
 };

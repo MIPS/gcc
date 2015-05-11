@@ -49,7 +49,7 @@ typedef struct gfc_state_data
   union
   {
     gfc_st_label *end_do_label;
-    gfc_omp_clauses *oacc_declare_clauses;
+    struct gfc_oacc_declare *oacc_declare;
   }
   ext;
 }

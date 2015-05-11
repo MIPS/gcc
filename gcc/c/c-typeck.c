@@ -11439,6 +11439,25 @@ c_finish_oacc_data (location_t loc, tree clauses, tree block)
   return add_stmt (stmt);
 }
 
+/* Generate OACC_HOST_DATA, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OACC_HOST_DATA.  */
+
+tree
+c_finish_oacc_host_data (location_t loc, tree clauses, tree block)
+{
+  tree stmt;
+
+  block = c_end_compound_stmt (loc, block, true);
+
+  stmt = make_node (OACC_HOST_DATA);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_HOST_DATA_CLAUSES (stmt) = clauses;
+  OACC_HOST_DATA_BODY (stmt) = block;
+  SET_EXPR_LOCATION (stmt, loc);
+
+  return add_stmt (stmt);
+}
+
 /* Like c_begin_compound_stmt, except force the retention of the BLOCK.  */
 
 tree
@@ -12038,13 +12057,14 @@ c_find_omp_placeholder_r (tree *tp, int *, void *data)
    Remove any elements from the list that are invalid.  */
 
 tree
-c_finish_omp_clauses (tree clauses)
+c_finish_omp_clauses (tree clauses, bool oacc)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head;
+  bitmap_head aligned_head, oacc_data_head;
   tree c, t, *pc;
   bool branch_seen = false;
   bool copyprivate_seen = false;
+  bool oacc_data = false;
   tree *nowait_clause = NULL;
 
   bitmap_obstack_initialize (NULL);
@@ -12052,6 +12072,7 @@ c_finish_omp_clauses (tree clauses)
   bitmap_initialize (&firstprivate_head, &bitmap_default_obstack);
   bitmap_initialize (&lastprivate_head, &bitmap_default_obstack);
   bitmap_initialize (&aligned_head, &bitmap_default_obstack);
+  bitmap_initialize (&oacc_data_head, &bitmap_default_obstack);
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
@@ -12067,11 +12088,16 @@ c_finish_omp_clauses (tree clauses)
 
 	case OMP_CLAUSE_PRIVATE:
 	  need_complete = true;
+	  oacc_data = true;
 	  need_implicitly_determined = true;
-	  goto check_dup_generic;
+	  if (oacc)
+	    goto check_dup_oacc;
+	  else
+	    goto check_dup_generic;
 
 	case OMP_CLAUSE_REDUCTION:
 	  need_implicitly_determined = true;
+	  oacc_data = false;
 	  t = OMP_CLAUSE_DECL (c);
 	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) == NULL_TREE
 	      && (FLOAT_TYPE_P (TREE_TYPE (t))
@@ -12191,7 +12217,10 @@ c_finish_omp_clauses (tree clauses)
 			       OMP_CLAUSE_REDUCTION_INIT (c), NULL_TREE);
 	      TREE_SIDE_EFFECTS (OMP_CLAUSE_REDUCTION_INIT (c)) = 1;
 	    }
-	  goto check_dup_generic;
+	  if (oacc)
+	    goto check_dup_oacc;
+	  else
+	    goto check_dup_generic;
 
 	case OMP_CLAUSE_COPYPRIVATE:
 	  copyprivate_seen = true;
@@ -12252,9 +12281,9 @@ c_finish_omp_clauses (tree clauses)
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
-	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
-		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t))
-		   || bitmap_bit_p (&lastprivate_head, DECL_UID (t)))
+	  if (bitmap_bit_p (&generic_head, DECL_UID (t))
+	      || bitmap_bit_p (&firstprivate_head, DECL_UID (t))
+	      || bitmap_bit_p (&lastprivate_head, DECL_UID (t)))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qE appears more than once in data clauses", t);
@@ -12262,6 +12291,39 @@ c_finish_omp_clauses (tree clauses)
 	    }
 	  else
 	    bitmap_set_bit (&generic_head, DECL_UID (t));
+	  break;
+
+	check_dup_oacc:
+	  t = OMP_CLAUSE_DECL (c);
+	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE is not a variable in clause %qs", t,
+			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      remove = true;
+	    }
+	  if (oacc_data)
+	    {
+	      if (bitmap_bit_p (&oacc_data_head, DECL_UID (t)))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE appears more than once in data clauses", t);
+		  remove = true;
+		}
+	      else
+		bitmap_set_bit (&oacc_data_head, DECL_UID (t));
+	    }
+	  else
+	    {
+	      if (bitmap_bit_p (&generic_head, DECL_UID (t)))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE appears more than once in data clauses", t);
+		  remove = true;
+		}
+	      else
+		bitmap_set_bit (&generic_head, DECL_UID (t));
+	    }
 	  break;
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
@@ -12274,15 +12336,29 @@ c_finish_omp_clauses (tree clauses)
 			"%qE is not a variable in clause %<firstprivate%>", t);
 	      remove = true;
 	    }
-	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
-		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
+	  else if (oacc)
 	    {
-	      error_at (OMP_CLAUSE_LOCATION (c),
-			"%qE appears more than once in data clauses", t);
-	      remove = true;
+	      if (bitmap_bit_p (&oacc_data_head, DECL_UID (t)))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE appears more than once in data clauses", t);
+		  remove = true;
+		}
+	      else
+		bitmap_set_bit (&oacc_data_head, DECL_UID (t));
 	    }
 	  else
-	    bitmap_set_bit (&firstprivate_head, DECL_UID (t));
+	    {
+	      if (bitmap_bit_p (&generic_head, DECL_UID (t))
+		  || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE appears more than once in data clauses", t);
+		  remove = true;
+		}
+	      else
+		bitmap_set_bit (&firstprivate_head, DECL_UID (t));
+	    }
 	  break;
 
 	case OMP_CLAUSE_LASTPRIVATE:
@@ -12405,7 +12481,8 @@ c_finish_omp_clauses (tree clauses)
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
-	  else if (bitmap_bit_p (&generic_head, DECL_UID (t)))
+	  if ((oacc && bitmap_bit_p (&oacc_data_head, DECL_UID (t)))
+	      || bitmap_bit_p (&generic_head, DECL_UID (t)))
 	    {
 	      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
 		error ("%qD appears more than once in motion clauses", t);
@@ -12413,6 +12490,8 @@ c_finish_omp_clauses (tree clauses)
 		error ("%qD appears more than once in map clauses", t);
 	      remove = true;
 	    }
+	  else if (oacc)
+	    bitmap_set_bit (&oacc_data_head, DECL_UID (t));
 	  else
 	    bitmap_set_bit (&generic_head, DECL_UID (t));
 	  break;
@@ -12472,10 +12551,15 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
 	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_USE_DEVICE:
+	case OMP_CLAUSE_BIND:
+	case OMP_CLAUSE_NOHOST:
+	case OMP_CLAUSE_TILE:
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 

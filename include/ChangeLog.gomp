@@ -1,3 +1,9 @@
+2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* gomp-constants.h (gomp_map_kind): Add GOMP_MAP_DEVICE_RESIDENT,
+	GOMP_MAP_LINK.
+
 2015-01-12  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gomp-constants.h (GOMP_MAP_LAST): Rename from

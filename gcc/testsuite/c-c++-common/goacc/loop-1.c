@@ -1,5 +1,3 @@
-/* { dg-skip-if "not yet" { c++ } } */
-
 int test1()
 {
   int i, j, k, b[10];

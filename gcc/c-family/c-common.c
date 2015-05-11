@@ -809,7 +809,7 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_omp_declare_simd_attribute, false },
   { "cilk simd function",     0, -1, true,  false, false,
 			      handle_omp_declare_simd_attribute, false },
-  { "omp declare target",     0, 0, true, false, false,
+  { "omp declare target",     0, -1, true, false, false,
 			      handle_omp_declare_target_attribute, false },
   { "alloc_align",	      1, 1, false, true, true,
 			      handle_alloc_align_attribute, false },
@@ -823,6 +823,7 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_bnd_legacy, false },
   { "bnd_instrument",         0, 0, true, false, false,
 			      handle_bnd_instrument, false },
+  { "oacc declare",           0, -1, true,  false, false, NULL, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 

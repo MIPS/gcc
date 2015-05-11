@@ -373,6 +373,10 @@ typedef struct GTY(()) cp_parser {
      necessary.  */
   cp_omp_declare_simd_data * GTY((skip)) cilk_simd_fn_info;
 
+  /* OpenACC specific parser information.  */
+  cp_omp_declare_simd_data * GTY((skip)) oacc_routine;
+  vec <tree, va_gc> *named_oacc_routines;
+
   /* Nonzero if parsing a parameter list where 'auto' should trigger an implicit
      template parameter.  */
   bool auto_is_implicit_function_template_parm_p;

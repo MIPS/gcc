@@ -70,6 +70,10 @@ enum gomp_map_kind
     /* Is a device pointer.  OMP_CLAUSE_SIZE for these is unused; is implicitly
        POINTER_SIZE_UNITS.  */
     GOMP_MAP_FORCE_DEVICEPTR =		(GOMP_MAP_FLAG_SPECIAL_1 | 0),
+    /* OpenACC device_resident.  */
+    GOMP_MAP_DEVICE_RESIDENT =		(GOMP_MAP_FLAG_SPECIAL_1 | 1),
+    /* OpenACC link.  */
+    GOMP_MAP_LINK =			(GOMP_MAP_FLAG_SPECIAL_1 | 2),
     /* Allocate.  */
     GOMP_MAP_FORCE_ALLOC =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_ALLOC),
     /* ..., and copy to device.  */

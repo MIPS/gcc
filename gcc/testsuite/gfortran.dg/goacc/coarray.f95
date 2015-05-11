@@ -32,4 +32,4 @@ contains
     !$acc update self (a)
   end subroutine oacc1
 end module test
-! { dg-prune-output "ACC cache unimplemented" }
+! { dg-bogus "sorry, unimplemented: directive not yet implemented" "host_data" { xfail *-*-* } 19 }

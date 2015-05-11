@@ -1583,7 +1583,8 @@ cxx_omp_clause_default_ctor (tree clause, tree decl, tree /*outer*/)
 tree
 cxx_omp_clause_copy_ctor (tree clause, tree dst, tree src)
 {
-  tree info = CP_OMP_CLAUSE_INFO (clause);
+  tree info = OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP ? NULL
+    : CP_OMP_CLAUSE_INFO (clause);
   tree ret = NULL;
 
   if (info)

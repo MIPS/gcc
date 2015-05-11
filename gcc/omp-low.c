@@ -1929,6 +1929,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_BIND:
+	case OMP_CLAUSE_NOHOST:
+	case OMP_CLAUSE_TILE:
 	  sorry ("Clause not supported yet");
 	  break;
 
@@ -2056,6 +2059,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_BIND:
+	case OMP_CLAUSE_NOHOST:
+	case OMP_CLAUSE_TILE:
 	  sorry ("Clause not supported yet");
 	  break;
 
@@ -2743,7 +2749,10 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
     {
       for (omp_context *ctx_ = ctx; ctx_ != NULL; ctx_ = ctx_->outer)
 	if (is_gimple_omp (ctx_->stmt)
-	    && is_gimple_omp_oacc (ctx_->stmt))
+	    && is_gimple_omp_oacc (ctx_->stmt)
+	    /* Except for atomic codes that we share with OpenMP.  */
+	    && ! (gimple_code (stmt) == GIMPLE_OMP_ATOMIC_LOAD
+		  || gimple_code (stmt) == GIMPLE_OMP_ATOMIC_STORE))
 	  {
 	    error_at (gimple_location (stmt),
 		      "non-OpenACC construct inside of OpenACC region");

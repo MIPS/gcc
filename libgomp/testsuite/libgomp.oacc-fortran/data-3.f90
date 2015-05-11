@@ -17,7 +17,7 @@ program asyncwait
 
   !$acc enter data copyin (a(1:N)) copyin (b(1:N)) copyin (N) async
 
-  !$acc parallel async wait
+  !$acc parallel async wait present (a(1:N)) present (b(1:N)) present (N)
   do i = 1, N
      b(i) = a(i)
   end do
@@ -36,7 +36,7 @@ program asyncwait
 
   !$acc enter data copyin (a(1:N)) copyin (b(1:N)) async (1)
 
-  !$acc parallel async (1) wait (1)
+  !$acc parallel async (1) wait (1) present (a(1:N), b(1:N), N)
   do i = 1, N
      b(i) = a(i)
   end do
@@ -55,28 +55,30 @@ program asyncwait
   c(:) = 0.0
   d(:) = 0.0
 
-  !$acc enter data copyin (a(1:N)) create (b(1:N)) create (c(1:N)) create (d(1:N))
+  !$acc enter data copyin (a(1:N)) create (b(1:N)) create (c(1:N)) &
+  !$acc& create (d(1:N))
 
-  !$acc parallel async (1)
+  !$acc parallel async (1) present (a(1:N), b(1:N), c(1:N), N)
   do i = 1, N
      b(i) = (a(i) * a(i) * a(i)) / a(i)
   end do
   !$acc end parallel
 
-  !$acc parallel async (1)
+  !$acc parallel async (1) present (a(1:N), b(1:N), c(1:N), N)
   do i = 1, N
      c(i) = (a(i) * 4) / a(i)
   end do
   !$acc end parallel
 
-  !$acc parallel async (1)
+  !$acc parallel async (1) present (a(1:N), b(1:N), c(1:N), d(1:N), N)
   do i = 1, N
      d(i) = ((a(i) * a(i)  + a(i)) / a(i)) - a(i)
   end do
   !$acc end parallel
 
   !$acc wait (1)
-  !$acc exit data copyout (a(1:N)) copyout (b(1:N)) copyout (c(1:N)) copyout (d(1:N))
+  !$acc exit data copyout (a(1:N)) copyout (b(1:N)) copyout (c(1:N)) &
+  !$acc& copyout (d(1:N))
 
   do i = 1, N
      if (a(i) .ne. 3.0) call abort
@@ -91,34 +93,40 @@ program asyncwait
   d(:) = 0.0
   e(:) = 0.0
 
-  !$acc enter data copyin (a(1:N)) create (b(1:N)) create (c(1:N)) create (d(1:N)) copyin (e(1:N))
+  !$acc enter data copyin (a(1:N)) create (b(1:N)) create (c(1:N)) &
+  !$acc& create (d(1:N)) copyin (e(1:N))
 
-  !$acc parallel async (1)
+  !$acc parallel async (1) present (a(1:N), b(1:N), c(1:N), d(1:N)) &
+  !$acc& present (e(1:N), N)
   do i = 1, N
      b(i) = (a(i) * a(i) * a(i)) / a(i)
   end do
   !$acc end parallel
 
-  !$acc parallel async (1)
+  !$acc parallel async (1) present (a(1:N), b(1:N), c(1:N), d(1:N)) &
+  !$acc& present (e(1:N), N)
   do i = 1, N
      c(i) = (a(i) * 4) / a(i)
   end do
   !$acc end parallel
 
-  !$acc parallel async (1)
+  !$acc parallel async (1) present (a(1:N), b(1:N), c(1:N), d(1:N)) &
+  !$acc& present (e(1:N), N)
   do i = 1, N
      d(i) = ((a(i) * a(i) + a(i)) / a(i)) - a(i)
   end do
   !$acc end parallel
 
-  !$acc parallel wait (1) async (1)
+  !$acc parallel wait (1) async (1) present (a(1:N), b(1:N), c(1:N)) &
+  !$acc& present (d(1:N), e(1:N), N)
   do i = 1, N
      e(i) = a(i) + b(i) + c(i) + d(i)
   end do
   !$acc end parallel
 
   !$acc wait (1)
-  !$acc exit data copyout (a(1:N)) copyout (b(1:N)) copyout (c(1:N)) copyout (d(1:N)) copyout (e(1:N))
+  !$acc exit data copyout (a(1:N)) copyout (b(1:N)) copyout (c(1:N)) &
+  !$acc& copyout (d(1:N)) copyout (e(1:N))
   !$acc exit data delete (N)
 
   do i = 1, N

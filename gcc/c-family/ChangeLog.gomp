@@ -1,3 +1,29 @@
+2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* c-common.c (c_common_attribute_table): Set min_len to -1 for
+	"omp declare target".  Add "oacc declare".
+	* c-common.h (oacc_extract_device_id, oacc_filter_device_types):
+	New prototypes.
+	* c-omp.c (oacc_extract_device_id, oacc_filter_device_types): New
+	functions.
+	* c-pragma.c (oacc_pragmas): Add "atomic", "declare", "host_data",
+	"routine".
+	* c-pragma.h (pragma_kind): Add PRAGMA_OACC_ATOMIC,
+	PRAGMA_OACC_DECLARE, PRAGMA_OACC_HOST_DATA, PRAGMA_OACC_ROUTINE.
+	(pragma_omp_clause): Add PRAGMA_OACC_CLAUSE_BIND,
+	PRAGMA_OACC_CLAUSE_DEVICE_RESIDENT,
+	PRAGMA_OACC_CLAUSE_DEVICE_TYPE, PRAGMA_OACC_CLAUSE_INDEPENDENT,
+	PRAGMA_OACC_CLAUSE_LINK, PRAGMA_OACC_CLAUSE_NOHOST,
+	PRAGMA_OACC_CLAUSE_TILE, PRAGMA_OACC_CLAUSE_USE_DEVICE,
+	PRAGMA_OACC_CLAUSE_DEFAULT, remove PRAGMA_OACC_CLAUSE_SELF.
+
 2014-12-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-pragma.h (enum pragma_omp_clause): Rename

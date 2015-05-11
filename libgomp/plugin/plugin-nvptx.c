@@ -863,6 +863,16 @@ link_ptx (CUmodule *module, char *ptx_code)
 			 cuda_error (r));
     }
 
+  char *gomp_atomic_ptx = GOMP_ATOMIC_PTX;
+  r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, gomp_atomic_ptx,
+		     strlen (gomp_atomic_ptx) + 1, 0, 0, 0, 0);
+  if (r != CUDA_SUCCESS)
+    {
+      GOMP_PLUGIN_error ("Link error log %s\n", &elog[0]);
+      GOMP_PLUGIN_fatal ("cuLinkAddData (gomp_atomic_ptx) error: %s",
+			 cuda_error (r));
+    }
+
   r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, ptx_code,
               strlen (ptx_code) + 1, 0, 0, 0, 0);
   if (r != CUDA_SUCCESS)

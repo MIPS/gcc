@@ -546,6 +546,9 @@ update_dev_host (int is_dev, void *h, size_t s)
 {
   splay_tree_key n;
   void *d;
+
+  goacc_lazy_initialize ();
+
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
 

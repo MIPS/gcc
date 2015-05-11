@@ -8987,7 +8987,7 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 		  clauses = tsubst_omp_clauses (clauses, true, args,
 						complain, in_decl);
 		  c_omp_declare_simd_clauses_to_decls (*decl_p, clauses);
-		  clauses = finish_omp_clauses (clauses);
+		  clauses = finish_omp_clauses (clauses, false);
 		  tree parms = DECL_ARGUMENTS (*decl_p);
 		  clauses
 		    = c_omp_declare_simd_clauses_to_numbers (parms, clauses);
@@ -13442,6 +13442,14 @@ tsubst_omp_clauses (tree clauses, bool declare_simd,
 	case OMP_CLAUSE_THREAD_LIMIT:
 	case OMP_CLAUSE_SAFELEN:
 	case OMP_CLAUSE_SIMDLEN:
+	case OMP_CLAUSE_NUM_GANGS:
+	case OMP_CLAUSE_NUM_WORKERS:
+	case OMP_CLAUSE_VECTOR_LENGTH:
+	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WAIT:
 	  OMP_CLAUSE_OPERAND (nc, 0)
 	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 0), args, complain, 
 			   in_decl, /*integral_constant_expression_p=*/false);
@@ -13488,6 +13496,10 @@ tsubst_omp_clauses (tree clauses, bool declare_simd,
 	case OMP_CLAUSE_PARALLEL:
 	case OMP_CLAUSE_SECTIONS:
 	case OMP_CLAUSE_TASKGROUP:
+	case OMP_CLAUSE_INDEPENDENT:
+	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_TILE:
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -13496,7 +13508,7 @@ tsubst_omp_clauses (tree clauses, bool declare_simd,
 
   new_clauses = nreverse (new_clauses);
   if (!declare_simd)
-    new_clauses = finish_omp_clauses (new_clauses);
+    new_clauses = finish_omp_clauses (new_clauses, false);
   return new_clauses;
 }
 
@@ -13636,7 +13648,7 @@ tsubst_omp_for_iterator (tree t, int i, tree declv, tree initv,
 	{
 	  c = build_omp_clause (input_location, OMP_CLAUSE_PRIVATE);
 	  OMP_CLAUSE_DECL (c) = decl;
-	  c = finish_omp_clauses (c);
+	  c = finish_omp_clauses (c, false);
 	  if (c)
 	    {
 	      OMP_CLAUSE_CHAIN (c) = *clauses;
@@ -14105,6 +14117,22 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	= OMP_PARALLEL_COMBINED (t);
       break;
 
+    case OACC_PARALLEL:
+      tmp = tsubst_omp_clauses (OACC_PARALLEL_CLAUSES (t), false,
+				args, complain, in_decl);
+      stmt = begin_omp_parallel ();
+      RECUR (OACC_PARALLEL_BODY (t));
+      finish_oacc_parallel (tmp, stmt);
+      break;
+
+    case OACC_KERNELS:
+      tmp = tsubst_omp_clauses (OACC_KERNELS_CLAUSES (t), false,
+				args, complain, in_decl);
+      stmt = begin_omp_parallel ();
+      RECUR (OACC_KERNELS_BODY (t));
+      finish_oacc_kernels (tmp, stmt);
+      break;
+
     case OMP_TASK:
       tmp = tsubst_omp_clauses (OMP_TASK_CLAUSES (t), false,
 				args, complain, in_decl);
@@ -14118,6 +14146,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
     case CILK_SIMD:
     case CILK_FOR:
     case OMP_DISTRIBUTE:
+    case OACC_LOOP:
       {
 	tree clauses, body, pre_body;
 	tree declv = NULL_TREE, initv = NULL_TREE, condv = NULL_TREE;
@@ -14183,6 +14212,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       add_stmt (t);
       break;
 
+    case OACC_DATA:
     case OMP_TARGET_DATA:
     case OMP_TARGET:
       tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false,
@@ -14200,10 +14230,13 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       break;
 
     case OMP_TARGET_UPDATE:
-      tmp = tsubst_omp_clauses (OMP_TARGET_UPDATE_CLAUSES (t), false,
+    case OACC_ENTER_DATA:
+    case OACC_EXIT_DATA:
+    case OACC_UPDATE:
+      tmp = tsubst_omp_clauses (OMP_STANDALONE_CLAUSES (t), false,
 				args, complain, in_decl);
       t = copy_node (t);
-      OMP_TARGET_UPDATE_CLAUSES (t) = tmp;
+      OMP_STANDALONE_CLAUSES (t) = tmp;
       add_stmt (t);
       break;
 

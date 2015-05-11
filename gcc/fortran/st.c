@@ -185,6 +185,11 @@ gfc_free_statement (gfc_code *p)
       gfc_free_forall_iterator (p->ext.forall_iterator);
       break;
 
+    case EXEC_OACC_DECLARE:
+      if (p->ext.oacc_declare)
+	gfc_free_oacc_declares (p->ext.oacc_declare);
+      break;
+
     case EXEC_OACC_PARALLEL_LOOP:
     case EXEC_OACC_PARALLEL:
     case EXEC_OACC_KERNELS_LOOP:
@@ -197,6 +202,7 @@ gfc_free_statement (gfc_code *p)
     case EXEC_OACC_CACHE:
     case EXEC_OACC_ENTER_DATA:
     case EXEC_OACC_EXIT_DATA:
+    case EXEC_OACC_ROUTINE:
     case EXEC_OMP_CANCEL:
     case EXEC_OMP_CANCELLATION_POINT:
     case EXEC_OMP_DISTRIBUTE:
@@ -240,6 +246,7 @@ gfc_free_statement (gfc_code *p)
       gfc_free_omp_namelist (p->ext.omp_namelist);
       break;
 
+    case EXEC_OACC_ATOMIC:
     case EXEC_OMP_ATOMIC:
     case EXEC_OMP_BARRIER:
     case EXEC_OMP_MASTER:

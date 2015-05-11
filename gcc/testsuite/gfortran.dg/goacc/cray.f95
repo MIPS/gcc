@@ -53,4 +53,3 @@ contains
     !$acc update self (ptr)
   end subroutine oacc1
 end module test
-! { dg-prune-output "unimplemented" }

@@ -29,4 +29,3 @@ contains
     !$acc update self (a) ! { dg-error "not a variable" }
   end subroutine oacc1
 end module test
-! { dg-prune-output "unimplemented" }

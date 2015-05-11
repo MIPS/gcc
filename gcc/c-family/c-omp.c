@@ -1087,3 +1087,108 @@ c_omp_predetermined_sharing (tree decl)
 
   return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
 }
+
+/* Return a numerical code representing the device_type.  Currently,
+   only device_type(nvidia) is supported.  All device_type parameters
+   are treated as case-insensitive keywords.  */
+
+int
+oacc_extract_device_id (const char *device)
+{
+  if (!strcasecmp (device, "nvidia"))
+    return GOMP_DEVICE_NVIDIA_PTX;
+  return GOMP_DEVICE_NONE;
+}
+
+/* Filter out the list of unsupported OpenACC device_types.  */
+
+tree
+oacc_filter_device_types (tree clauses)
+{
+  tree c, prev;
+  tree dtype = NULL_TREE;
+  tree seen_nvidia = NULL_TREE;
+  tree seen_default = NULL_TREE;
+
+  /* First scan for all device_type clauses.  */
+  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    {
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEVICE_TYPE)
+	{
+	  int code = TREE_INT_CST_LOW (OMP_CLAUSE_DEVICE_TYPE_DEVICES (c));
+
+	  if (code == GOMP_DEVICE_DEFAULT)
+	    {
+	      if (seen_default)
+		{
+		  seen_default = NULL_TREE;
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "duplicate device_type (*)");
+		  goto filter_error;
+		}
+	      else
+		seen_default = OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
+	    }
+	  if (code & (1 << GOMP_DEVICE_NVIDIA_PTX))
+	    {
+	      if (seen_nvidia)
+		{
+		  seen_nvidia = NULL_TREE;
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "duplicate device_type (nvidia)");
+		  goto filter_error;
+		}
+	      else
+		seen_nvidia = OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
+	    }
+	}
+    }
+
+  /* Don't do anything if there aren't any device_type clauses.  */
+  if (seen_nvidia == NULL_TREE && seen_default == NULL_TREE)
+    return clauses;
+
+  dtype = seen_nvidia ? seen_nvidia : seen_default;
+
+  /* Now filter out clauses if necessary.  */
+  for (c = clauses; c && OMP_CLAUSE_CODE (c) != OMP_CLAUSE_DEVICE_TYPE;
+       c = OMP_CLAUSE_CHAIN (c))
+    {
+      tree t;
+
+      prev = NULL_TREE;
+
+      for (t = dtype; t; t = OMP_CLAUSE_CHAIN (t))
+	{
+	  if (OMP_CLAUSE_CODE (t) == OMP_CLAUSE_CODE (c))
+	    {
+	      /* Remove c from clauses.  */
+	      tree next = OMP_CLAUSE_CHAIN (c);
+
+	      if (prev)
+	        OMP_CLAUSE_CHAIN (prev) = next;
+
+	      break;
+	    }
+	}
+
+      prev = c;
+    }
+  
+ filter_error:
+  /* Remove all device_type clauses.  Those clauses are located at the
+     beginning of the clause list.  */
+  for (c = clauses; c && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEVICE_TYPE;
+       c = OMP_CLAUSE_CHAIN (c))
+    ;
+
+  if (c == NULL_TREE)
+    return dtype;
+
+  clauses = c;
+  for (prev = c, c = OMP_CLAUSE_CHAIN (c); c; c = OMP_CLAUSE_CHAIN (c))
+    prev = c;
+
+  OMP_CLAUSE_CHAIN (prev) = dtype;
+  return clauses;
+}

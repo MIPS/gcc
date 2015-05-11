@@ -615,6 +615,9 @@ decode_oacc_directive (void)
 
   switch (c)
     {
+    case 'a':
+      match ("atomic", gfc_match_oacc_atomic, ST_OACC_ATOMIC);
+      break;
     case 'c':
       match ("cache", gfc_match_oacc_cache, ST_OACC_CACHE);
       break;
@@ -623,6 +626,7 @@ decode_oacc_directive (void)
       match ("declare", gfc_match_oacc_declare, ST_OACC_DECLARE);
       break;
     case 'e':
+      match ("end atomic", gfc_match_omp_eos, ST_OACC_END_ATOMIC);
       match ("end data", gfc_match_omp_eos, ST_OACC_END_DATA);
       match ("end host_data", gfc_match_omp_eos, ST_OACC_END_HOST_DATA);
       match ("end kernels loop", gfc_match_omp_eos, ST_OACC_END_KERNELS_LOOP);
@@ -1351,7 +1355,8 @@ next_statement (void)
   case ST_OMP_DISTRIBUTE_PARALLEL_DO_SIMD: \
   case ST_CRITICAL: \
   case ST_OACC_PARALLEL_LOOP: case ST_OACC_PARALLEL: case ST_OACC_KERNELS: \
-  case ST_OACC_DATA: case ST_OACC_HOST_DATA: case ST_OACC_LOOP: case ST_OACC_KERNELS_LOOP
+  case ST_OACC_DATA: case ST_OACC_HOST_DATA: case ST_OACC_LOOP: \
+  case ST_OACC_KERNELS_LOOP: case ST_OACC_ATOMIC
 
 /* Declaration statements */
 
@@ -1359,7 +1364,7 @@ next_statement (void)
   case ST_EQUIVALENCE: case ST_NAMELIST: case ST_STATEMENT_FUNCTION: \
   case ST_TYPE: case ST_INTERFACE: case ST_OMP_THREADPRIVATE: \
   case ST_PROCEDURE: case ST_OMP_DECLARE_SIMD: case ST_OMP_DECLARE_REDUCTION: \
-  case ST_OMP_DECLARE_TARGET: case ST_OACC_ROUTINE
+  case ST_OMP_DECLARE_TARGET: case ST_OACC_ROUTINE: case ST_OACC_DECLARE
 
 /* Block end statements.  Errors associated with interchanging these
    are detected in gfc_match_end().  */
@@ -1380,7 +1385,7 @@ push_state (gfc_state_data *p, gfc_compile_state new_state, gfc_symbol *sym)
   p->head = p->tail = NULL;
   p->do_variable = NULL;
   if (p->state != COMP_DO && p->state != COMP_DO_CONCURRENT)
-    p->ext.oacc_declare_clauses = NULL;
+    p->ext.oacc_declare = NULL;
 
   /* If this the state of a construct like BLOCK, DO or IF, the corresponding
      construct statement was accepted right before pushing the state.  Thus,
@@ -1909,6 +1914,12 @@ gfc_ascii_statement (gfc_statement st)
     case ST_OACC_ROUTINE:
       p = "!$ACC ROUTINE";
       break;
+    case ST_OACC_ATOMIC:
+      p = "!ACC ATOMIC";
+      break;
+    case ST_OACC_END_ATOMIC:
+      p = "!ACC END ATOMIC";
+      break;
     case ST_OMP_ATOMIC:
       p = "!$OMP ATOMIC";
       break;
@@ -2410,7 +2421,6 @@ verify_st_order (st_state *p, gfc_statement st, bool silent)
     case ST_PUBLIC:
     case ST_PRIVATE:
     case ST_DERIVED_DECL:
-    case ST_OACC_DECLARE:
     case_decl:
       if (p->state >= ORDER_EXEC)
 	goto order;
@@ -3312,19 +3322,6 @@ declSt:
       st = next_statement ();
       goto loop;
 
-    case ST_OACC_DECLARE:
-      if (!verify_st_order(&ss, st, false))
-	{
-	  reject_statement ();
-	  st = next_statement ();
-	  goto loop;
-	}
-      if (gfc_state_stack->ext.oacc_declare_clauses == NULL)
-	gfc_state_stack->ext.oacc_declare_clauses = new_st.ext.omp_clauses;
-      accept_statement (st);
-      st = next_statement ();
-      goto loop;
-
     default:
       break;
     }
@@ -4190,14 +4187,24 @@ parse_omp_do (gfc_statement omp_st)
 /* Parse the statements of OpenMP atomic directive.  */
 
 static gfc_statement
-parse_omp_atomic (void)
+parse_omp_oacc_atomic (bool omp_p)
 {
-  gfc_statement st;
+  gfc_statement st, st_atomic, st_end_atomic;
   gfc_code *cp, *np;
   gfc_state_data s;
   int count;
 
-  accept_statement (ST_OMP_ATOMIC);
+  if (omp_p)
+    {
+      st_atomic = ST_OMP_ATOMIC;
+      st_end_atomic = ST_OMP_END_ATOMIC;
+    }
+  else
+    {
+      st_atomic = ST_OACC_ATOMIC;
+      st_end_atomic = ST_OACC_END_ATOMIC;
+    }
+  accept_statement (st_atomic);
 
   cp = gfc_state_stack->tail;
   push_state (&s, COMP_OMP_STRUCTURED_BLOCK, NULL);
@@ -4224,7 +4231,7 @@ parse_omp_atomic (void)
   pop_state ();
 
   st = next_statement ();
-  if (st == ST_OMP_END_ATOMIC)
+  if (st == st_end_atomic)
     {
       gfc_clear_new_st ();
       gfc_commit_symbols ();
@@ -4518,7 +4525,7 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
 		  continue;
 
 		case ST_OMP_ATOMIC:
-		  st = parse_omp_atomic ();
+		  st = parse_omp_oacc_atomic (true);
 		  continue;
 
 		default:
@@ -4737,8 +4744,12 @@ parse_executable (gfc_statement st)
 	    return st;
 	  continue;
 
+	case ST_OACC_ATOMIC:
+	  st = parse_omp_oacc_atomic (false);
+	  continue;
+
 	case ST_OMP_ATOMIC:
-	  st = parse_omp_atomic ();
+	  st = parse_omp_oacc_atomic (true);
 	  continue;
 
 	default:
@@ -5024,13 +5035,6 @@ contains:
 
 done:
   gfc_current_ns->code = gfc_state_stack->head;
-  if (gfc_state_stack->state == COMP_PROGRAM
-      || gfc_state_stack->state == COMP_MODULE 
-      || gfc_state_stack->state == COMP_SUBROUTINE 
-      || gfc_state_stack->state == COMP_FUNCTION
-      || gfc_state_stack->state == COMP_BLOCK)
-    gfc_current_ns->oacc_declare_clauses 
-      = gfc_state_stack->ext.oacc_declare_clauses;
 }
 
 
@@ -5568,6 +5572,7 @@ is_oacc (gfc_state_data *sd)
     case EXEC_OACC_CACHE:
     case EXEC_OACC_ENTER_DATA:
     case EXEC_OACC_EXIT_DATA:
+    case EXEC_OACC_ROUTINE:
       return true;
 
     default:

@@ -390,7 +390,19 @@ enum omp_clause_code {
   OMP_CLAUSE_NUM_WORKERS,
 
   /* OpenACC clause: vector_length (integer-expression).  */
-  OMP_CLAUSE_VECTOR_LENGTH
+  OMP_CLAUSE_VECTOR_LENGTH,
+
+  /* OpenACC clause: bind ( identifer | string ).  */
+  OMP_CLAUSE_BIND,
+
+  /* OpenACC clause: nohost.  */
+  OMP_CLAUSE_NOHOST,
+
+  /* OpenACC clause: tile ( size-expr-list ).  */
+  OMP_CLAUSE_TILE,
+
+  /* OpenACC clause: device_type ( device-type-list).  */
+  OMP_CLAUSE_DEVICE_TYPE
 };
 
 #undef DEFTREESTRUCT

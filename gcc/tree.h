@@ -1312,15 +1312,6 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_SECTION_LAST(NODE) \
   (OMP_SECTION_CHECK (NODE)->base.private_flag)
 
-/* True on an OACC_KERNELS statement if is represents combined kernels loop
-   directive.  */
-#define OACC_KERNELS_COMBINED(NODE) \
-  (OACC_KERNELS_CHECK (NODE)->base.private_flag)
-
-/* Like OACC_KERNELS_COMBINED, but for parallel loop directive.  */
-#define OACC_PARALLEL_COMBINED(NODE) \
-  (OACC_PARALLEL_CHECK (NODE)->base.private_flag)
-
 /* True on an OMP_PARALLEL statement if it represents an explicit
    combined parallel work-sharing constructs.  */
 #define OMP_PARALLEL_COMBINED(NODE) \
@@ -1391,6 +1382,9 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_VECTOR_LENGTH_EXPR(NODE) \
   OMP_CLAUSE_OPERAND ( \
     OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_VECTOR_LENGTH), 0)
+#define OMP_CLAUSE_BIND_NAME(NODE) \
+  OMP_CLAUSE_OPERAND ( \
+    OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_BIND), 0)
 
 #define OMP_CLAUSE_DEPEND_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEPEND)->omp_clause.subcode.depend_kind)
@@ -1494,6 +1488,15 @@ extern void protected_set_expr_location (tree, location_t);
 
 #define OMP_CLAUSE_DEFAULT_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEFAULT)->omp_clause.subcode.default_kind)
+
+#define OMP_CLAUSE_TILE_LIST(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_TILE), 0)
+
+#define OMP_CLAUSE_DEVICE_TYPE_DEVICES(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEVICE_TYPE), 0)
+
+#define OMP_CLAUSE_DEVICE_TYPE_CLAUSES(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEVICE_TYPE), 1)
 
 /* SSA_NAME accessors.  */
 

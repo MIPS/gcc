@@ -5750,6 +5750,61 @@ is_ieee_module_used (gfc_namespace *ns)
 }
 
 
+static gfc_code *
+find_end (gfc_code *code)
+{
+  gcc_assert (code);
+
+  if (code->op == EXEC_END_PROCEDURE)
+    return code;
+
+  if (code->next)
+    {
+      if (code->next->op == EXEC_END_PROCEDURE)
+	return code;
+      else
+	return find_end (code->next);
+    }
+
+  return NULL;
+}
+
+
+void
+insert_oacc_declare (gfc_namespace *ns)
+{
+  gfc_code *code;
+
+  code = XCNEW (gfc_code);
+  code->op = EXEC_OACC_DECLARE;
+  code->loc = ns->oacc_declare->where;
+
+  code->ext.oacc_declare = ns->oacc_declare;
+
+  code->block = XCNEW (gfc_code);
+  code->block->op = EXEC_OACC_DECLARE;
+  code->block->loc = ns->oacc_declare->where;
+
+  if (ns->code)
+    {
+      gfc_code *c;
+
+      c = find_end (ns->code);
+      if (c)
+	{
+	  code->next = c->next;
+	  c->next = NULL;
+	}
+
+      code->block->next = ns->code;
+      code->block->ext.oacc_declare = NULL;
+    }
+
+  ns->code = code;
+  ns->oacc_declare = NULL;
+}
+
+
 /* Generate code for a function.  */
 
 void
@@ -5887,11 +5942,8 @@ gfc_generate_function_code (gfc_namespace * ns)
     add_argument_checking (&body, sym);
 
   /* Generate !$ACC DECLARE directive. */
-  if (ns->oacc_declare_clauses)
-    {
-      tree tmp = gfc_trans_oacc_declare (&body, ns);
-      gfc_add_expr_to_block (&body, tmp);
-    }
+  if (ns->oacc_declare)
+    insert_oacc_declare (ns);
 
   tmp = gfc_trans_code (ns->code);
   gfc_add_expr_to_block (&body, tmp);

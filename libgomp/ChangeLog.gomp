@@ -1,3 +1,73 @@
+2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/clauses-1.c: Update.
+	* testsuite/libgomp.oacc-c-c++-common/data-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/data-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-69.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-70.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-71.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-72.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-73.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-74.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-75.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-76.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-77.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-78.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-79.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-80.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-81.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-82.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-83.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-2.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-3.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-4-2.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-4.f90: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/subr.h: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/subr.ptx: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/timer.h: Remove file.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-1.c: Move common
+	code from here...
+	* testsuite/libgomp.oacc-c-c++-common/parallel-1.c: ..., and
+	here...
+	* testsuite/libgomp.oacc-c-c++-common/data-clauses.h: ... into
+	this new file.
+	* testsuite/libgomp.oacc-c++/template-reduction.C: New test.
+	* testsuite/libgomp.oacc-c-c++-common/atomic_capture-1.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/atomic_capture-2.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/atomic_update-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/routine-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/routine-2.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/atomic_capture-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/atomic_update-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/cache-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/clauses-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/declare-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/lib-12.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/lib-13.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/lib-14.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/lib-15.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/routine-5.f90: Likewise.
+
+2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* oacc-ptx.h (GOMP_ATOMIC_PTX): New macro.
+	* plugin/plugin-nvptx.c (link_ptx): Link it in.
+
+2015-05-11  James Norris  <jnorris@codesourcery.com>
+
+	* oacc-mem.c (update_dev_host): Add missing initialization.
+
 2015-04-27  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.fortran/fortran.exp (DG_TORTURE_OPTIONS):

@@ -6,7 +6,7 @@ subroutine oacc1()
   implicit none
   integer :: i
   integer  :: a
-  !$acc parallel loop reduction(+:a) ! { dg-excess-errors "sorry, unimplemented: directive not yet implemented" }
+  !$acc parallel loop reduction(+:a)
   do i = 1,5
   enddo
 end subroutine oacc1

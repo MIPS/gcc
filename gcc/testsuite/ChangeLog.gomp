@@ -1,3 +1,61 @@
+2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc-gomp/nesting-1.c: Update.
+	* c-c++-common/goacc-gomp/nesting-fail-1.c: Likewise.
+	* c-c++-common/goacc/asyncwait-1.c: Likewise.
+	* c-c++-common/goacc/data-2.c: Likewise.
+	* c-c++-common/goacc/reduction-1.c: Likewise.
+	* c-c++-common/goacc/reduction-2.c: Likewise.
+	* c-c++-common/goacc/reduction-3.c: Likewise.
+	* c-c++-common/goacc/reduction-4.c: Likewise.
+	* gfortran.dg/goacc/cache-1.f95: Likewise.
+	* gfortran.dg/goacc/coarray.f95: Likewise.
+	* gfortran.dg/goacc/coarray_2.f90: Likewise.
+	* gfortran.dg/goacc/combined_loop.f90: Likewise.
+	* gfortran.dg/goacc/cray.f95: Likewise.
+	* gfortran.dg/goacc/declare-1.f95: Likewise.
+	* gfortran.dg/goacc/host_data-tree.f95: Likewise.
+	* gfortran.dg/goacc/loop-1.f95: Likewise.
+	* gfortran.dg/goacc/loop-2.f95: Likewise.
+	* gfortran.dg/goacc/parameter.f95: Likewise.
+	* c-c++-common/goacc/loop-1.c: Enable for C++.
+	* c-c++-common/goacc/kernels-1.c: Rename to...
+	* c-c++-common/goacc/kernels-empty.c: ... this new file.
+	* c-c++-common/goacc/parallel-1.c: Rename to...
+	* c-c++-common/goacc/parallel-empty.c: ... this new file.
+	* c-c++-common/goacc/declare-1.c: New file.
+	* c-c++-common/goacc/declare-2.c: Likewise.
+	* c-c++-common/goacc/dtype-1.c: Likewise.
+	* c-c++-common/goacc/dtype-2.c: Likewise.
+	* c-c++-common/goacc/host_data-1.c: Likewise.
+	* c-c++-common/goacc/host_data-2.c: Likewise.
+	* c-c++-common/goacc/host_data-3.c: Likewise.
+	* c-c++-common/goacc/host_data-4.c: Likewise.
+	* c-c++-common/goacc/kernels-eternal.c: Likewise.
+	* c-c++-common/goacc/kernels-noreturn.c: Likewise.
+	* c-c++-common/goacc/parallel-eternal.c: Likewise.
+	* c-c++-common/goacc/parallel-noreturn.c: Likewise.
+	* c-c++-common/goacc/routine-1.c: Likewise.
+	* c-c++-common/goacc/routine-2.c: Likewise.
+	* c-c++-common/goacc/routine-3.c: Likewise.
+	* c-c++-common/goacc/routine-4.c: Likewise.
+	* c-c++-common/goacc/tile.c: Likewise.
+	* g++.dg/goacc/template-reduction.C: Likewise.
+	* g++.dg/goacc/template.C: Likewise.
+	* gfortran.dg/goacc/declare-2.f95: Likewise.
+	* gfortran.dg/goacc/default.f95: Likewise.
+	* gfortran.dg/goacc/dtype-1.f95: Likewise.
+	* gfortran.dg/goacc/dtype-2.f95: Likewise.
+	* gfortran.dg/goacc/modules.f95: Likewise.
+	* gfortran.dg/goacc/update.f95: Likewise.
+
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 

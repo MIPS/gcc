@@ -1,3 +1,31 @@
+2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses)
+	(gimplify_adjust_omp_clauses): Handle OMP_CLAUSE_TILE.
+	(gimplify_expr): Don't verify OACC_KERNELS_COMBINED, and
+	OACC_PARALLEL_COMBINED.
+	* omp-low.c (scan_sharing_clauses): Handle OMP_CLAUSE_BIND,
+	OMP_CLAUSE_NOHOST, OMP_CLAUSE_TILE.
+	(check_omp_nesting_restrictions): Support GIMPLE_OMP_ATOMIC_LOAD,
+	GIMPLE_OMP_ATOMIC_STORE inside OpenACC contexts.
+	* tree-core.h (omp_clause_code): Add OMP_CLAUSE_BIND,
+	OMP_CLAUSE_NOHOST, OMP_CLAUSE_TILE, OMP_CLAUSE_DEVICE_TYPE.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name, walk_tree_1):
+	Update for these.
+	* tree-pretty-print.c (dump_omp_clause): Handle OMP_CLAUSE_TILE.
+	* tree.h (OACC_KERNELS_COMBINED, OACC_PARALLEL_COMBINED): Remove
+	macros.
+	(OMP_CLAUSE_BIND_NAME, OMP_CLAUSE_TILE_LIST)
+	(OMP_CLAUSE_DEVICE_TYPE_DEVICES, OMP_CLAUSE_DEVICE_TYPE_CLAUSES):
+	Add macros.
+
 2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
 	* builtin-attrs.def (DOT_DOT_r_r_r): Add DEF_ATTR_FOR_STRING.

@@ -6369,6 +6369,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE_SAFELEN:
+	case OMP_CLAUSE_TILE:
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
@@ -6754,6 +6755,7 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 	case OMP_CLAUSE_VECTOR:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_TILE:
 	  break;
 
 	default:
@@ -8394,21 +8396,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  break;
 
 	case OACC_KERNELS:
-	  if (OACC_KERNELS_COMBINED (*expr_p))
-	    sorry ("directive not yet implemented");
-	  else
-	    gimplify_omp_workshare (expr_p, pre_p);
-	  ret = GS_ALL_DONE;
-	  break;
-
 	case OACC_PARALLEL:
-	  if (OACC_PARALLEL_COMBINED (*expr_p))
-	    sorry ("directive not yet implemented");
-	  else
-	    gimplify_omp_workshare (expr_p, pre_p);
-	  ret = GS_ALL_DONE;
-	  break;
-
 	case OACC_DATA:
 	case OMP_SECTIONS:
 	case OMP_SINGLE:

@@ -424,3 +424,31 @@
   "st.param.u32 [%out_retval],%retval;\n"				\
   "ret;\n"								\
   "}\n"
+
+ #define GOMP_ATOMIC_PTX \
+  ".version 3.1\n" \
+  ".target sm_30\n" \
+  ".address_size 64\n" \
+  ".global .align 4 .u32 libgomp_ptx_lock;\n" \
+  ".visible .func GOMP_atomic_start;\n" \
+  ".visible .func GOMP_atomic_start\n" \
+  "{\n" \
+  "  .reg .pred    %p<2>;\n" \
+  "  .reg .s32     %r<2>;\n" \
+  "  .reg .s64     %rd<2>;\n" \
+  "BB5_1:\n" \
+  "  mov.u64       %rd1, libgomp_ptx_lock;\n" \
+  "  atom.global.cas.b32   %r1, [%rd1], 0, 1;\n" \
+  "  setp.ne.s32   %p1, %r1, 0;\n" \
+  "  @%p1 bra      BB5_1;\n" \
+  "  ret;\n" \
+  "}\n" \
+  ".visible .func GOMP_atomic_end;\n" \
+  ".visible .func GOMP_atomic_end\n" \
+  "{\n" \
+  "  .reg .s32     %r<2>;\n" \
+  "  .reg .s64     %rd<2>;\n" \
+  "  mov.u64       %rd1, libgomp_ptx_lock;\n" \
+  "  atom.global.exch.b32  %r1, [%rd1], 0;\n" \
+  "  ret;\n" \
+  "}\n"
