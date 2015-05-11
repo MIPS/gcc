@@ -95,6 +95,7 @@ gfc_free_omp_clauses (gfc_omp_clauses *c)
   gfc_free_expr_list (c->wait_list);
   gfc_free_expr_list (c->tile_list);
   free (CONST_CAST (char *, c->critical_name));
+  gfc_free_omp_clauses (c->dtype_clauses);
   free (c);
 }
 
@@ -835,6 +836,7 @@ enum omp_mask2
   OMP_CLAUSE_TILE,
   OMP_CLAUSE_BIND,
   OMP_CLAUSE_NOHOST,
+  OMP_CLAUSE_DEVICE_TYPE,
   /* This must come last.  */
   OMP_MASK2_LAST
 };
@@ -853,8 +855,8 @@ struct omp_inv_mask;
    if (mask & OMP_CLAUSE_UUU)  */
 
 struct omp_mask {
-  const uint64_t mask1;
-  const uint64_t mask2;
+  /* TODO const */ uint64_t mask1;
+  /* TODO const */ uint64_t mask2;
   inline omp_mask ();
   inline omp_mask (omp_mask1);
   inline omp_mask (omp_mask2);
@@ -957,12 +959,15 @@ gfc_match_omp_map_clause (gfc_omp_namelist **list, gfc_omp_map_op map_op)
    clauses that are allowed for a particular directive.  */
 
 static match
-gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
+gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
+		       const omp_mask dtype_mask,
 		       bool first = true, bool needs_space = true,
 		       bool openacc = false)
 {
-  gfc_omp_clauses *c = gfc_get_omp_clauses ();
+  gfc_omp_clauses *base_clauses, *c = gfc_get_omp_clauses ();
   locus old_loc;
+
+  base_clauses = c;
 
   gcc_checking_assert (OMP_MASK1_LAST <= 64 && OMP_MASK2_LAST <= 64);
   *cp = NULL;
@@ -1199,6 +1204,67 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 		   ("device_resident (",
 		    &c->lists[OMP_LIST_DEVICE_RESIDENT], true) == MATCH_YES)
 	    continue;
+	  if ((mask & OMP_CLAUSE_DEVICE_TYPE)
+	      && (gfc_match ("device_type ( ") == MATCH_YES
+		  || gfc_match ("dtype ( ") == MATCH_YES))
+	    {
+	      gfc_omp_clauses *t = gfc_get_omp_clauses ();
+	      gfc_expr_list *p = NULL, *head, *tail;
+
+	      head = tail = NULL;
+
+	      if (gfc_match (" * ") == MATCH_YES)
+		{
+		  head = p = gfc_get_expr_list ();
+		  p->expr
+		    = gfc_get_character_expr (gfc_default_character_kind,
+					      &gfc_current_locus, "*", 1);
+		}
+	      else
+		{
+		  char n[GFC_MAX_SYMBOL_LEN + 1];
+
+		  do
+		    {
+		      p = gfc_get_expr_list ();
+
+		      if (head == NULL)
+			head = tail = p;
+		      else
+			{
+			  tail->next = p;
+			  tail = p;
+			}
+
+		      if (gfc_match (" %n ", n) == MATCH_YES)
+			p->expr
+			  = gfc_get_character_expr (gfc_default_character_kind,
+						    &gfc_current_locus, n,
+						    strlen (n));
+		      else
+			{
+			  gfc_error ("missing device_type argument");
+			  continue;
+			}
+		    }
+		  while (gfc_match (" , ") == MATCH_YES);
+		}
+
+	      /* Consume the trailing ')'.  */
+	      if (gfc_match (" ) ") != MATCH_YES)
+		{
+		  gfc_error ("expected %<)%>");
+		  continue;
+		}
+
+	      /* Move to chained pointer for parsing remaining clauses.  */
+	      c->device_types = head;
+	      c->dtype_clauses = t;
+	      c = t;
+
+	      mask = dtype_mask;
+	      continue;
+	    }
 	  if ((mask & OMP_CLAUSE_DIST_SCHEDULE)
 	      && c->dist_sched_kind == OMP_SCHED_NONE
 	      && gfc_match ("dist_schedule ( static") == MATCH_YES)
@@ -1939,76 +2005,124 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 
   if (gfc_match_omp_eos () != MATCH_YES)
     {
-      gfc_free_omp_clauses (c);
+      gfc_free_omp_clauses (base_clauses);
       return MATCH_ERROR;
     }
 
-  *cp = c;
+  *cp = base_clauses;
   return MATCH_YES;
 }
 
 
 #define OACC_PARALLEL_CLAUSES \
-  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_NUM_GANGS	      \
-   | OMP_CLAUSE_NUM_WORKERS | OMP_CLAUSE_VECTOR_LENGTH | OMP_CLAUSE_REDUCTION \
-   | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		      \
-   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY      \
-   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT	      \
-   | OMP_CLAUSE_PRESENT_OR_CREATE | OMP_CLAUSE_DEVICEPTR | OMP_CLAUSE_PRIVATE \
-   | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_WAIT)
+  (omp_mask (OMP_CLAUSE_ASYNC) | OMP_CLAUSE_WAIT			\
+   | OMP_CLAUSE_NUM_GANGS | OMP_CLAUSE_NUM_WORKERS			\
+   | OMP_CLAUSE_VECTOR_LENGTH						\
+   | OMP_CLAUSE_DEVICE_TYPE						\
+   | OMP_CLAUSE_IF							\
+   | OMP_CLAUSE_REDUCTION						\
+   | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		\
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
+   | OMP_CLAUSE_PRESENT_OR_COPY | OMP_CLAUSE_PRESENT_OR_COPYIN		\
+   | OMP_CLAUSE_PRESENT_OR_COPYOUT | OMP_CLAUSE_PRESENT_OR_CREATE	\
+   | OMP_CLAUSE_DEVICEPTR						\
+   | OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE			\
+   | OMP_CLAUSE_DEFAULT)
 #define OACC_KERNELS_CLAUSES \
-  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_NUM_GANGS	      \
-   | OMP_CLAUSE_NUM_WORKERS | OMP_CLAUSE_VECTOR_LENGTH | OMP_CLAUSE_DEVICEPTR \
-   | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		      \
-   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY      \
-   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT	      \
-   | OMP_CLAUSE_PRESENT_OR_CREATE | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_WAIT)
+  (omp_mask (OMP_CLAUSE_ASYNC) | OMP_CLAUSE_WAIT			\
+   | OMP_CLAUSE_NUM_GANGS | OMP_CLAUSE_NUM_WORKERS			\
+   | OMP_CLAUSE_VECTOR_LENGTH						\
+   | OMP_CLAUSE_DEVICE_TYPE						\
+   | OMP_CLAUSE_IF							\
+   | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		\
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
+   | OMP_CLAUSE_PRESENT_OR_COPY | OMP_CLAUSE_PRESENT_OR_COPYIN		\
+   | OMP_CLAUSE_PRESENT_OR_COPYOUT | OMP_CLAUSE_PRESENT_OR_CREATE	\
+   | OMP_CLAUSE_DEVICEPTR						\
+   | OMP_CLAUSE_DEFAULT)
 #define OACC_DATA_CLAUSES \
-  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_DEVICEPTR  | OMP_CLAUSE_COPY	      \
-   | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT | OMP_CLAUSE_CREATE		      \
-   | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY			      \
-   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT	      \
-   | OMP_CLAUSE_PRESENT_OR_CREATE)
+  (omp_mask (OMP_CLAUSE_IF)						\
+   | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		\
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
+   | OMP_CLAUSE_PRESENT_OR_COPY | OMP_CLAUSE_PRESENT_OR_COPYIN		\
+   | OMP_CLAUSE_PRESENT_OR_COPYOUT | OMP_CLAUSE_PRESENT_OR_CREATE	\
+   | OMP_CLAUSE_DEVICEPTR)
+#define OACC_HOST_DATA_CLAUSES \
+  (omp_mask (OMP_CLAUSE_USE_DEVICE))
 #define OACC_LOOP_CLAUSES \
-  (omp_mask (OMP_CLAUSE_COLLAPSE) | OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER	      \
-   | OMP_CLAUSE_VECTOR | OMP_CLAUSE_SEQ | OMP_CLAUSE_INDEPENDENT	      \
-   | OMP_CLAUSE_PRIVATE | OMP_CLAUSE_REDUCTION | OMP_CLAUSE_AUTO	      \
-   | OMP_CLAUSE_TILE)
-#define OACC_PARALLEL_LOOP_CLAUSES \
-  (OACC_LOOP_CLAUSES | OACC_PARALLEL_CLAUSES)
-#define OACC_KERNELS_LOOP_CLAUSES \
-  (OACC_LOOP_CLAUSES | OACC_KERNELS_CLAUSES)
-#define OACC_HOST_DATA_CLAUSES omp_mask (OMP_CLAUSE_USE_DEVICE)
+  (omp_mask (OMP_CLAUSE_COLLAPSE)					\
+   | OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR		\
+   | OMP_CLAUSE_SEQ							\
+   | OMP_CLAUSE_AUTO							\
+   | OMP_CLAUSE_TILE							\
+   | OMP_CLAUSE_DEVICE_TYPE						\
+   | OMP_CLAUSE_INDEPENDENT						\
+   | OMP_CLAUSE_PRIVATE							\
+   | OMP_CLAUSE_REDUCTION)
 #define OACC_DECLARE_CLAUSES \
-  (omp_mask (OMP_CLAUSE_COPY) | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT	      \
-   | OMP_CLAUSE_CREATE | OMP_CLAUSE_DEVICEPTR | OMP_CLAUSE_DEVICE_RESIDENT    \
-   | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY			      \
-   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT	      \
-   | OMP_CLAUSE_PRESENT_OR_CREATE | OMP_CLAUSE_LINK)
+  (omp_mask (OMP_CLAUSE_COPY) | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT	\
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
+   | OMP_CLAUSE_PRESENT_OR_COPY | OMP_CLAUSE_PRESENT_OR_COPYIN		\
+   | OMP_CLAUSE_PRESENT_OR_COPYOUT | OMP_CLAUSE_PRESENT_OR_CREATE	\
+   | OMP_CLAUSE_DEVICEPTR						\
+   | OMP_CLAUSE_DEVICE_RESIDENT						\
+   | OMP_CLAUSE_LINK)
 #define OACC_UPDATE_CLAUSES \
-  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_HOST_SELF	      \
-   | OMP_CLAUSE_DEVICE | OMP_CLAUSE_WAIT)
-#define OACC_ENTER_DATA_CLAUSES \
-  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT	      \
-   | OMP_CLAUSE_COPYIN | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT_OR_COPYIN     \
-   | OMP_CLAUSE_PRESENT_OR_CREATE)
-#define OACC_EXIT_DATA_CLAUSES \
-  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT	      \
-   | OMP_CLAUSE_COPYOUT | OMP_CLAUSE_DELETE)
+  (omp_mask (OMP_CLAUSE_ASYNC) | OMP_CLAUSE_WAIT			\
+   | OMP_CLAUSE_DEVICE_TYPE						\
+   | OMP_CLAUSE_IF							\
+   | OMP_CLAUSE_HOST_SELF | OMP_CLAUSE_DEVICE)
 #define OACC_WAIT_CLAUSES \
-  omp_mask (OMP_CLAUSE_ASYNC)
+  (omp_mask (OMP_CLAUSE_ASYNC))
+#define OACC_ENTER_DATA_CLAUSES \
+  (omp_mask (OMP_CLAUSE_IF)						\
+   | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT					\
+   | OMP_CLAUSE_COPYIN | OMP_CLAUSE_CREATE				\
+   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_CREATE)
+#define OACC_EXIT_DATA_CLAUSES \
+  (omp_mask (OMP_CLAUSE_IF)						\
+   | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT					\
+   | OMP_CLAUSE_COPYOUT | OMP_CLAUSE_DELETE)
 #define OACC_ROUTINE_CLAUSES \
-  (omp_mask (OMP_CLAUSE_GANG) | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR	      \
-   | OMP_CLAUSE_SEQ							      \
-   | OMP_CLAUSE_BIND							      \
+  (omp_mask (OMP_CLAUSE_GANG) | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR	\
+   | OMP_CLAUSE_SEQ							\
+   | OMP_CLAUSE_BIND							\
+   | OMP_CLAUSE_DEVICE_TYPE						\
    | OMP_CLAUSE_NOHOST)
+
+#define OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK \
+  (omp_mask (OMP_CLAUSE_ASYNC) | OMP_CLAUSE_WAIT			\
+   | OMP_CLAUSE_NUM_GANGS | OMP_CLAUSE_NUM_WORKERS			\
+   | OMP_CLAUSE_VECTOR_LENGTH						\
+   | OMP_CLAUSE_DEVICE_TYPE)
+#define OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK \
+  (omp_mask (OMP_CLAUSE_ASYNC) | OMP_CLAUSE_WAIT			\
+   | OMP_CLAUSE_NUM_GANGS | OMP_CLAUSE_NUM_WORKERS			\
+   | OMP_CLAUSE_VECTOR_LENGTH						\
+   | OMP_CLAUSE_DEVICE_TYPE)
+#define OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK \
+  (omp_mask (OMP_CLAUSE_COLLAPSE)					\
+   | OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR		\
+   | OMP_CLAUSE_SEQ							\
+   | OMP_CLAUSE_AUTO							\
+   | OMP_CLAUSE_TILE							\
+   | OMP_CLAUSE_DEVICE_TYPE)
+#define OACC_UPDATE_CLAUSE_DEVICE_TYPE_MASK \
+  (omp_mask (OMP_CLAUSE_ASYNC) | OMP_CLAUSE_WAIT			\
+   | OMP_CLAUSE_DEVICE_TYPE)
+#define OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK \
+  (omp_mask (OMP_CLAUSE_GANG) | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR	\
+   | OMP_CLAUSE_SEQ							\
+   | OMP_CLAUSE_BIND							\
+   | OMP_CLAUSE_DEVICE_TYPE)
 
 
 static match
-match_acc (gfc_exec_op op, const omp_mask mask)
+match_acc (gfc_exec_op op, const omp_mask mask, const omp_mask dtype_mask)
 {
   gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, mask, false, false, true) != MATCH_YES)
+  if (gfc_match_omp_clauses (&c, mask, dtype_mask, false, false, true)
+      != MATCH_YES)
     return MATCH_ERROR;
   new_st.op = op;
   new_st.ext.omp_clauses = c;
@@ -2018,49 +2132,59 @@ match_acc (gfc_exec_op op, const omp_mask mask)
 match
 gfc_match_oacc_parallel_loop (void)
 {
-  return match_acc (EXEC_OACC_PARALLEL_LOOP, OACC_PARALLEL_LOOP_CLAUSES);
+  return match_acc (EXEC_OACC_PARALLEL_LOOP,
+		    OACC_PARALLEL_CLAUSES | OACC_LOOP_CLAUSES,
+		    OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK
+		    | OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK);
 }
 
 
 match
 gfc_match_oacc_parallel (void)
 {
-  return match_acc (EXEC_OACC_PARALLEL, OACC_PARALLEL_CLAUSES);
+  return match_acc (EXEC_OACC_PARALLEL, OACC_PARALLEL_CLAUSES,
+		    OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK);
 }
 
 
 match
 gfc_match_oacc_kernels_loop (void)
 {
-  return match_acc (EXEC_OACC_KERNELS_LOOP, OACC_KERNELS_LOOP_CLAUSES);
+  return match_acc (EXEC_OACC_KERNELS_LOOP,
+		    OACC_KERNELS_CLAUSES | OACC_LOOP_CLAUSES,
+		    OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK
+		    | OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK);
 }
 
 
 match
 gfc_match_oacc_kernels (void)
 {
-  return match_acc (EXEC_OACC_KERNELS, OACC_KERNELS_CLAUSES);
+  return match_acc (EXEC_OACC_KERNELS, OACC_KERNELS_CLAUSES,
+		    OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK);
 }
 
 
 match
 gfc_match_oacc_data (void)
 {
-  return match_acc (EXEC_OACC_DATA, OACC_DATA_CLAUSES);
+  return match_acc (EXEC_OACC_DATA, OACC_DATA_CLAUSES, OMP_MASK2_LAST);
 }
 
 
 match
 gfc_match_oacc_host_data (void)
 {
-  return match_acc (EXEC_OACC_HOST_DATA, OACC_HOST_DATA_CLAUSES);
+  return match_acc (EXEC_OACC_HOST_DATA, OACC_HOST_DATA_CLAUSES,
+		    OMP_MASK2_LAST);
 }
 
 
 match
 gfc_match_oacc_loop (void)
 {
-  return match_acc (EXEC_OACC_LOOP, OACC_LOOP_CLAUSES);
+  return match_acc (EXEC_OACC_LOOP, OACC_LOOP_CLAUSES,
+		    OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK);
 }
 
 
@@ -2074,8 +2198,8 @@ gfc_match_oacc_declare (void)
   bool module_var = false;
   locus where = gfc_current_locus;
 
-  if (gfc_match_omp_clauses (&c, OACC_DECLARE_CLAUSES, false, false, true)
-      != MATCH_YES)
+  if (gfc_match_omp_clauses (&c, OACC_DECLARE_CLAUSES, OMP_MASK2_LAST, false,
+			     false, true) != MATCH_YES)
     return MATCH_ERROR;
 
   for (n = c->lists[OMP_LIST_DEVICE_RESIDENT]; n != NULL; n = n->next)
@@ -2159,7 +2283,9 @@ gfc_match_oacc_update (void)
   gfc_omp_clauses *c;
   locus here = gfc_current_locus;
 
-  if (gfc_match_omp_clauses (&c, OACC_UPDATE_CLAUSES, false, false, true)
+  if (gfc_match_omp_clauses (&c, OACC_UPDATE_CLAUSES,
+			     OACC_UPDATE_CLAUSE_DEVICE_TYPE_MASK, false,
+			     false, true)
       != MATCH_YES)
     return MATCH_ERROR;
 
@@ -2179,14 +2305,16 @@ gfc_match_oacc_update (void)
 match
 gfc_match_oacc_enter_data (void)
 {
-  return match_acc (EXEC_OACC_ENTER_DATA, OACC_ENTER_DATA_CLAUSES);
+  return match_acc (EXEC_OACC_ENTER_DATA, OACC_ENTER_DATA_CLAUSES,
+		    OMP_MASK2_LAST);
 }
 
 
 match
 gfc_match_oacc_exit_data (void)
 {
-  return match_acc (EXEC_OACC_EXIT_DATA, OACC_EXIT_DATA_CLAUSES);
+  return match_acc (EXEC_OACC_EXIT_DATA, OACC_EXIT_DATA_CLAUSES,
+		    OMP_MASK2_LAST);
 }
 
 
@@ -2204,8 +2332,8 @@ gfc_match_oacc_wait (void)
   else if (m == MATCH_YES)
     space = false;
 
-  if (gfc_match_omp_clauses (&c, OACC_WAIT_CLAUSES, space, space, true)
-      == MATCH_ERROR)
+  if (gfc_match_omp_clauses (&c, OACC_WAIT_CLAUSES, OMP_MASK2_LAST, space,
+			     space, true) == MATCH_ERROR)
     return MATCH_ERROR;
 
   if (wait_list)
@@ -2363,8 +2491,9 @@ gfc_match_oacc_routine (void)
     }
 
   if (gfc_match_omp_eos () != MATCH_YES
-      && (gfc_match_omp_clauses (&c, OACC_ROUTINE_CLAUSES, false, false, true)
-	  != MATCH_YES))
+      && (gfc_match_omp_clauses (&c, OACC_ROUTINE_CLAUSES,
+				 OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK, false,
+				 false, true) != MATCH_YES))
     return MATCH_ERROR;
 
   if (sym != NULL)
@@ -2473,7 +2602,7 @@ static match
 match_omp (gfc_exec_op op, const omp_mask mask)
 {
   gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, mask) != MATCH_YES)
+  if (gfc_match_omp_clauses (&c, mask, OMP_MASK2_LAST) != MATCH_YES)
     return MATCH_ERROR;
   new_st.op = op;
   new_st.ext.omp_clauses = c;
@@ -2496,7 +2625,8 @@ gfc_match_omp_critical (void)
 	  return MATCH_ERROR;
 	}
     }
-  else if (gfc_match_omp_clauses (&c, omp_mask (OMP_CLAUSE_HINT)) != MATCH_YES)
+  else if (gfc_match_omp_clauses (&c, omp_mask (OMP_CLAUSE_HINT),
+				  OMP_MASK2_LAST) != MATCH_YES)
     return MATCH_ERROR;
 
   new_st.op = EXEC_OMP_CRITICAL;
@@ -2609,8 +2739,8 @@ gfc_match_omp_declare_simd (void)
     case MATCH_ERROR: return MATCH_ERROR;
     }
 
-  if (gfc_match_omp_clauses (&c, OMP_DECLARE_SIMD_CLAUSES, true,
-			     needs_space) != MATCH_YES)
+  if (gfc_match_omp_clauses (&c, OMP_DECLARE_SIMD_CLAUSES, OMP_MASK2_LAST,
+			     true, needs_space) != MATCH_YES)
     return MATCH_ERROR;
 
   if (gfc_current_ns->is_block_data)
@@ -3064,7 +3194,8 @@ gfc_match_omp_declare_target (void)
 	  goto cleanup;
 	}
     }
-  else if (gfc_match_omp_clauses (&c, OMP_DECLARE_TARGET_CLAUSES) != MATCH_YES)
+  else if (gfc_match_omp_clauses (&c, OMP_DECLARE_TARGET_CLAUSES,
+				  OMP_MASK2_LAST) != MATCH_YES)
     return MATCH_ERROR;
 
   gfc_buffer_error (false);
@@ -3659,7 +3790,8 @@ gfc_match_omp_cancel (void)
   enum gfc_omp_cancel_kind kind = gfc_match_omp_cancel_kind ();
   if (kind == OMP_CANCEL_UNKNOWN)
     return MATCH_ERROR;
-  if (gfc_match_omp_clauses (&c, omp_mask (OMP_CLAUSE_IF), false) != MATCH_YES)
+  if (gfc_match_omp_clauses (&c, omp_mask (OMP_CLAUSE_IF), OMP_MASK2_LAST,
+			     false) != MATCH_YES)
     return MATCH_ERROR;
   c->cancel = kind;
   new_st.op = EXEC_OMP_CANCEL;
@@ -3716,8 +3848,8 @@ gfc_match_omp_end_single (void)
       new_st.ext.omp_bool = true;
       return MATCH_YES;
     }
-  if (gfc_match_omp_clauses (&c, omp_mask (OMP_CLAUSE_COPYPRIVATE))
-      != MATCH_YES)
+  if (gfc_match_omp_clauses (&c, omp_mask (OMP_CLAUSE_COPYPRIVATE),
+			     OMP_MASK2_LAST) != MATCH_YES)
     return MATCH_ERROR;
   new_st.op = EXEC_OMP_END_SINGLE;
   new_st.ext.omp_clauses = c;

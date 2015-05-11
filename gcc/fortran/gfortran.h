@@ -1342,6 +1342,8 @@ typedef struct gfc_omp_clauses
   gfc_expr_list *wait_list;
   gfc_expr_list *tile_list;
   struct gfc_symbol *routine_bind;
+  gfc_expr_list *device_types;
+  struct gfc_omp_clauses *dtype_clauses;
   unsigned async:1, gang:1, worker:1, vector:1, seq:1, independent:1;
   unsigned wait:1, par_auto:1, gang_static:1, acc_collapse:1, nohost:1, bind:1;
   locus loc;
@@ -3116,6 +3118,7 @@ bool gfc_check_intrinsic_standard (const gfc_intrinsic_sym*, const char**,
 				      bool, locus);
 
 /* match.c -- FIXME */
+gfc_omp_namelist *gfc_copy_omp_namelist (gfc_omp_namelist *);
 void gfc_free_iterator (gfc_iterator *, int);
 void gfc_free_forall_iterator (gfc_forall_iterator *);
 void gfc_free_alloc_list (gfc_alloc *);

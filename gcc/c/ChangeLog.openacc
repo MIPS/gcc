@@ -1,3 +1,16 @@
+2015-07-17  Julian Brown  <julian@codesourcery.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Handle OMP_CLAUSE_DEVICE_TYPE.
+
+2015-05-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Add consume_token formal
+	parameter.  Handle "device_type", "dtype".
+	(c_parser_oacc_clause_device_type): New function.
+	(c_parser_oacc_all_clauses): Add dtype_mask, and scan_dtype formal
+	parameters.  Adjust all users.  Handle
+	PRAGMA_OACC_CLAUSE_DEVICE_TYPE.
+
 2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_clause_bind, c_parser_oacc_routine)

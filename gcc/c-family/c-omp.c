@@ -1009,6 +1009,8 @@ c_oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses,
 	  loop_clauses = clauses;
 	  break;
 
+	  /* FIXME: device_type */
+
 	  /* Parallel/kernels clauses.  */
 	default:
 	  OMP_CLAUSE_CHAIN (clauses) = *not_loop_clauses;

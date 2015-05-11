@@ -1,3 +1,24 @@
+2015-12-02  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gfortran.dg/goacc/reduction-2.f95: Update.
+
+2015-11-09  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/combined-directives.c: Update.
+	* gfortran.dg/goacc/combined-directives.f90: Likewise.
+
+2015-05-11  Cesar Philippidis  <cesar@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+
+	* c-c++-common/goacc/dtype-1.c: New file.
+	* c-c++-common/goacc/dtype-2.c: Likewise.
+	* c-c++-common/goacc/dtype-3.c: Likewise.
+	* c-c++-common/goacc/dtype-4.c: Likewise.
+	* gfortran.dg/goacc/dtype-1.f95: Likewise.
+	* gfortran.dg/goacc/dtype-2.f95: Likewise.
+	* gfortran.dg/goacc/dtype-3.f: Likewise.
+	* g++.dg/goacc/template.C: Update.
+
 2015-12-28  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* c-c++-common/goacc/routine-nohost-1.c: Adjust expected dump output.

@@ -474,7 +474,10 @@ enum omp_clause_code {
 
   /* OpenMP internal-only clause to specify grid dimensions of a gridified
      kernel.  */
-  OMP_CLAUSE__GRIDDIM_
+  OMP_CLAUSE__GRIDDIM_,
+
+  /* OpenACC clause: device_type ( device-type-list).  */
+  OMP_CLAUSE_DEVICE_TYPE
 };
 
 #undef DEFTREESTRUCT

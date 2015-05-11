@@ -1349,6 +1349,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE__SIMT_:
 	case OMP_CLAUSE_DEFAULT:
+	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
@@ -1522,6 +1523,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE__GRIDDIM_:
 	case OMP_CLAUSE__SIMT_:
+	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
 	case OMP_CLAUSE_BIND:
@@ -5731,11 +5733,16 @@ lower_oacc_head_mark (location_t loc, tree ddvar, tree clauses,
 	  tag |= OLF_TILE;
 	  break;
 
+	case OMP_CLAUSE_DEVICE_TYPE:
+	  /* TODO: Add device type handling.  */
+	  goto done;
+
 	default:
 	  continue;
 	}
     }
 
+ done:
   if (gang_static)
     {
       if (DECL_P (gang_static))

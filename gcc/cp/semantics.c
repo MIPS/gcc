@@ -7138,6 +7138,12 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	    }
 	  break;
 
+	case OMP_CLAUSE_DEVICE_TYPE:
+	  OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c)
+	    = finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c), ort);
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
+
 	case OMP_CLAUSE_ORDERED:
 	  ordered_seen = true;
 	  break;

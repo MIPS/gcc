@@ -7379,6 +7379,10 @@ expand_omp_target (struct omp_region *region)
       {
 	tree t_async = NULL_TREE;
 
+	c = omp_find_clause (clauses, OMP_CLAUSE_DEVICE_TYPE);
+	if (c)
+	  sorry ("device_type clause is not supported yet");
+
 	/* If present, use the value specified by the respective
 	   clause, making sure that is of the correct type.  */
 	c = omp_find_clause (clauses, OMP_CLAUSE_ASYNC);

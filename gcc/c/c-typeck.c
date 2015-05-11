@@ -13883,6 +13883,12 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 
+        case OMP_CLAUSE_DEVICE_TYPE:
+	  OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c)
+	    = c_finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c), ort);
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
+
 	case OMP_CLAUSE_SCHEDULE:
 	  if (OMP_CLAUSE_SCHEDULE_KIND (c) & OMP_CLAUSE_SCHEDULE_NONMONOTONIC)
 	    {

@@ -1,3 +1,21 @@
+2015-05-11  Cesar Philippidis  <cesar@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+
+	* gfortran.h (gfc_omp_clauses): Add device_types, dtype_clauses
+	members.
+	Add gfc_copy_omp_namelist prototype.
+	* match.c: Add gfc_copy_omp_namelist definition.
+	* openmp.c (gfc_free_omp_clauses): Recursively deallocate
+	device_type clauses.
+	(omp_mask2): Add OMP_CLAUSE_DEVICE_TYPE.
+	(gfc_match_omp_clauses, match_acc): Add dtype_mask formal
+	parameter.  Adjust all users.  Handle OMP_CLAUSE_DEVICE_TYPE.
+	* trans-openmp.c (gfc_trans_omp_clauses): Translate device_type
+	clauses, and split old body into...
+	(gfc_trans_omp_clauses_1): New function.
+	* trans-openmp.c (gfc_filter_oacc_combined_clauses): New function.
+	(gfc_trans_oacc_combined_directive): Use it.
+
 2017-03-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.h (struct gfc_omp_clauses): Add bind_name member.

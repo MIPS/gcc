@@ -1,3 +1,8 @@
+2015-05-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-pragma.h (pragma_omp_clause): Add
+	PRAGMA_OACC_CLAUSE_DEVICE_TYPE.
+
 2015-05-11  Joseph Myers  <joseph@codesourcery.com>
 
 	* c-pragma.h (pragma_omp_clause): Add PRAGMA_OACC_CLAUSE_BIND,

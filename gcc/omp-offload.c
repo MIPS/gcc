@@ -673,6 +673,9 @@ oacc_validate_dims (tree fn, tree attrs, int *dims, int level, unsigned used)
 
   bool check = true;
 #ifdef ACCEL_COMPILER
+  /* When device_type is implemented, we should also check on the
+     target, if device_type has been used to affect the partitioning
+     and/or dimensions.  */
   check = false;
 #endif
   if (check

@@ -31,7 +31,7 @@ oacc_parallel_copy (T a)
 
 #pragma acc parallel num_gangs (a) if (1)
   {
-#pragma acc loop independent collapse (2) gang
+#pragma acc loop independent collapse (2) device_type (nvidia) gang
     for (int i = 0; i < a; i++)
       for (int j = 0; j < 5; j++)
 	b = a;
