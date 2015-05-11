@@ -31389,8 +31389,8 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_SCHEDULE;
 	  else if (!strcmp ("sections", p))
 	    result = PRAGMA_OMP_CLAUSE_SECTIONS;
-	  else if (!strcmp ("self", p))
-	    result = PRAGMA_OACC_CLAUSE_SELF;
+	  else if (!strcmp ("self", p)) /* "self" is a synonym for "host".  */
+	    result = PRAGMA_OACC_CLAUSE_HOST;
 	  else if (!strcmp ("seq", p))
 	    result = PRAGMA_OACC_CLAUSE_SEQ;
 	  else if (!strcmp ("shared", p))
@@ -31689,7 +31689,6 @@ cp_parser_oacc_data_clause (cp_parser *parser, pragma_omp_clause c_kind,
       kind = GOMP_MAP_DEVICE_RESIDENT;
       break;
     case PRAGMA_OACC_CLAUSE_HOST:
-    case PRAGMA_OACC_CLAUSE_SELF:
       kind = GOMP_MAP_FORCE_FROM;
       break;
     case PRAGMA_OACC_CLAUSE_LINK:
@@ -33782,10 +33781,6 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	case PRAGMA_OACC_CLAUSE_REDUCTION:
 	  clauses = cp_parser_omp_clause_reduction (parser, clauses);
 	  c_name = "reduction";
-	  break;
-	case PRAGMA_OACC_CLAUSE_SELF:
-	  clauses = cp_parser_oacc_data_clause (parser, c_kind, clauses);
-	  c_name = "self";
 	  break;
 	case PRAGMA_OACC_CLAUSE_SEQ:
 	  clauses = cp_parser_oacc_simple_clause (parser, OMP_CLAUSE_SEQ,
@@ -37135,7 +37130,6 @@ cp_parser_oacc_kernels_parallel (cp_parser *parser, cp_token *pragma_tok,
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_DEVICE)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_HOST)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_IF)			\
-	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_SELF)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_WAIT))
 
 static tree

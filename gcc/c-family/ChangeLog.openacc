@@ -1,0 +1,11 @@
+2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-pragma.h (enum pragma_omp_clause): Merge
+	PRAGMA_OACC_CLAUSE_SELF into PRAGMA_OACC_CLAUSE_HOST.  Adjust all
+	users.
+
+Copyright (C) 2015-2018 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
