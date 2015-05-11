@@ -1,10 +1,14 @@
+2015-05-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* cp-gimplify.c (cxx_omp_clause_copy_ctor): Handle OMP_CLAUSE_MAP.
+
 2018-05-18  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR c++/85782
 	* cp-gimplify.c (cp_genericize_r): Call genericize_omp_for_stmt for
 	OACC_LOOPs.
 
-Copyright (C) 2018 Free Software Foundation, Inc.
+Copyright (C) 2015-2018 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
