@@ -31990,7 +31990,8 @@ cp_parser_oacc_wait_list (cp_parser *parser, location_t clause_loc, tree list)
 
   if (args == NULL || args->length () == 0)
     {
-      cp_parser_error (parser, "expected integer expression before ')'");
+      cp_parser_error (parser,
+		       "expected integer expression list before %<)%>");
       if (args != NULL)
 	release_tree_vector (args);
       return list;
