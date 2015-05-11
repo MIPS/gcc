@@ -53,7 +53,7 @@ main (int argc, char **argv)
 #pragma acc enter data copyin (a[0:N]) async 
 #pragma acc enter data copyin (b[0:N]) async wait
 #pragma acc enter data copyin (N) async wait
-#pragma acc parallel async wait
+#pragma acc parallel async wait present (a[0:N]) present (b[0:N]) present (N)
 #pragma acc loop
   for (i = 0; i < N; i++)
     b[i] = a[i];
