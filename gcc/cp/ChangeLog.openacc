@@ -1,5 +1,10 @@
 2015-05-11  James Norris  <jnorris@codesourcery.com>
 
+	* parser.c (cp_parser_oacc_enter_exit_data): Use existing local
+	variable.
+
+2015-05-11  James Norris  <jnorris@codesourcery.com>
+
         * parser.c (cp_parser_oacc_wait_list): Change error message.
 
 2015-05-11  Cesar Philippidis  <cesar@codesourcery.com>
