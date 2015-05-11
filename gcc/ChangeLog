@@ -1,3 +1,79 @@
+2015-05-11  Christian Bruel  <christian.bruel@st.com>
+
+	* config/arm/arm-protos.h (arm_declare_function_name): Declare.
+	(is_called_in_ARM_mode): Remove.
+	* config/arm/arm.c (is_called_in_ARM_mode): Declare static bool.
+	(arm_declare_function_name): Moved from from ARM_DECLARE_FUNCTION_NAME.
+	* config/arm/arm.h (ARM_DECLARE_FUNCTION_NAME): Call
+	 arm_declare_function_name.
+
+2015-05-11  Christian Bruel  <christian.bruel@st.com>
+
+	* config/arm/arm.c (arm_option_override): Reoganized and split into :
+	(arm_option_params_internal); New function.
+	(arm_option_check_internal): New function.
+	(arm_option_override_internal): New function.
+	(thumb_code, thumb1_code): Remove.
+	* config/arm/arm.h (TREE_TARGET_THUMB, TREE_TARGET_THUMB1): New macros.
+	(TREE_TARGET_THUM2, TREE_TARGET_ARM): Likewise.
+	(thumb_code, thumb1_code): Remove.
+	* config/arm/arm.md (is_thumb, is_thumb1): Check TARGET flag.
+
+2015-05-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_emit_set_const_1)
+	(alpha_emit_set_long_const, alpha_extract_integer)
+	(alpha_legitimate_constant_p, alpha_split_const_mov)
+	(alpha_expand_block_clear, alpha_expand_zap_mask, print_operand):
+	[HOST_BITS_PER_WIDE_INT < 64]: Remove dead code.
+	(alpha_emit_set_const_1): Change "(HOST_WIDE_INT) 1" to
+	HOST_WIDE_INT_1U.
+	* config/alpha/predicates.md (mode_mask_operand): Do not match
+	const_double RTX.
+	[HOST_BITS_PER_WIDE_INT < 64]: Remove dead code.
+	* config/alpha/alpha.md (abstf, *abstf_internal, UNSPEC_ZAP splitter):
+	Change "(HOST_WIDE_INT) 1" to HOST_WIDE_INT_1U.
+	[HOST_BITS_PER_WIDE_INT < 64]: Remove dead code.
+	(*negtf_internal): Use gen_int_mode instead of immed_double_const.
+
+2015-05-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/65780
+	* config/s390/linux.h (TARGET_BINDS_LOCAL_P): Define to
+	default_binds_local_p_2.
+	* config/arm/linux-elf.h (TARGET_BINDS_LOCAL_P): Likewise.
+	* config/aarch64/aarch64-linux.h (TARGET_BINDS_LOCAL_P): Likewise.
+
+2015-05-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (verify_type_variant): Check TYPE_VALUES_RAW and TYPE_PRECISION
+
+2015-05-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	Patch by Richard Biener
+	* coverage.c (coverage_obj_init): Delay building of type variant
+	until the type is finished.
+
+2015-05-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-devirt.c (warn_types_mismatch): Do not ICE when warning about
+	mismatch between C and C++ type; compoare correctly ARG_TYPES
+	for non-prototypes and output correctly parameter index for METHOD_TYPE.
+	(odr_types_equivalent_p): Fix wording of warning about attributes;
+	it is OK to match prototype and non-prototype.
+
+2015-05-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (free_lang_data_in_type): Free TREE_PURPOSE of
+	TYPE_ARG_TYPES list.
+	(verify_type): Permit non-NULL TREE_PURPOSE in non-LTO builds.
+	* tree.def (FUNCTION_TYPE): Document TREE_PURPOSE in TYPE_ARG_TYPES
+
+2015-05-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (verify_type): Verify TYPE_BINFO and TYPE_VALUES_RAW.
+	* tree.h (is_lang_specific): Constify.
+
 2015-05-09  Marc Glisse  <marc.glisse@inria.fr>
 
 	PR tree-optimization/64454

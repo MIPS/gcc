@@ -1,3 +1,22 @@
+2015-05-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66041
+	* gfortran.dg/inline_matmul_7.f90:  New test.
+	* gfortran.dg/inline_matmul_8.f90:  New test.
+	* gfortran.dg/inline_matmul_9.f90:  New test.
+
+2015-05-10  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* gfortran.dg/bound_simplification_5.f90: New.
+
+2015-05-09  Jason Merrill  <jason@redhat.com>
+
+	* lib/target-supports.exp (cxx_default): New global.
+	(check_effective_target_c++11_only)
+	(check_effective_target_c++14_only)
+	(check_effective_target_c++98_only)
+	(check_effective_target_c++1z_only): Check it.
+
 2015-05-09  Marc Glisse  <marc.glisse@inria.fr>
 
 	PR tree-optimization/64454
