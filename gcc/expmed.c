@@ -343,6 +343,40 @@ negate_rtx (machine_mode mode, rtx x)
   return result;
 }
 
+/* Whether reverse storage order is supported on the target.  */
+static int reverse_storage_order_supported = -1;
+
+/* Check whether reverse storage order is supported on the target.  */
+
+static void
+check_reverse_storage_order_support (void)
+{
+  if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN)
+    {
+      reverse_storage_order_supported = 0;
+      sorry ("reverse scalar storage order");
+    }
+  else
+    reverse_storage_order_supported = 1;
+}
+
+/* Whether reverse FP storage order is supported on the target.  */
+static int reverse_float_storage_order_supported = -1;
+
+/* Check whether reverse FP storage order is supported on the target.  */
+
+static void
+check_reverse_float_storage_order_support (void)
+{
+  if (FLOAT_WORDS_BIG_ENDIAN != WORDS_BIG_ENDIAN)
+    {
+      reverse_float_storage_order_supported = 0;
+      sorry ("reverse floating-point scalar storage order");
+    }
+  else
+    reverse_float_storage_order_supported = 1;
+}
+
 /* Return an rtx representing value of X with reverse storage order.
    MODE is the intended mode of the result,
    useful if X is a CONST_INT.  */
@@ -356,10 +390,17 @@ flip_storage_order (enum machine_mode mode, rtx x)
   if (mode == QImode)
     return x;
 
+  if (__builtin_expect (reverse_storage_order_supported < 0, 0))
+    check_reverse_storage_order_support ();
+
   if (SCALAR_INT_MODE_P (mode))
     int_mode = mode;
   else
     {
+      if (FLOAT_MODE_P (mode)
+	  && __builtin_expect (reverse_float_storage_order_supported < 0, 0))
+	check_reverse_float_storage_order_support ();
+
       int_mode = int_mode_for_mode (mode);
       gcc_assert (int_mode != BLKmode);
       x = gen_lowpart (int_mode, x);
