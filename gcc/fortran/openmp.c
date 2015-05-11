@@ -1035,6 +1035,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 		    }
 		  c->collapse = collapse;
 		  gfc_free_expr (cexpr);
+		  c->acc_collapse = 1;
 		  continue;
 		}
 	    }

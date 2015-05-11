@@ -1,3 +1,8 @@
+2015-05-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.h (gfc_omp_clauses): Add acc_collapse member.
+	* openmp.c (gfc_match_omp_clauses): Handle it.
+
 2018-05-13  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/85742
@@ -6,7 +11,7 @@
 	TREE_TYPE of the type, unless it is VOID_TYPE. In this latter
 	case, set the size to zero.
 
-Copyright (C) 2018 Free Software Foundation, Inc.
+Copyright (C) 2015-2018 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
