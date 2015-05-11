@@ -5,6 +5,29 @@
 
 2015-05-11  James Norris  <jnorris@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/subr.h: Reimplement.
+	* testsuite/libgomp.oacc-c-c++-common/subr.ptx: Regenerated PTX.
+	* testsuite/libgomp.oacc-c-c++-common/timer.h: Removed.
+	* testsuite/libgomp.oacc-c-c++-common/lib-69.c: Change async checks.
+	* testsuite/libgomp.oacc-c-c++-common/lib-70.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-71.c: Rework kernel i/f.
+	* testsuite/libgomp.oacc-c-c++-common/lib-72.c: Rework kernel i/f and
+	change async checks.
+	* testsuite/libgomp.oacc-c-c++-common/lib-73.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-74.c: Rework kernel i/f and
+	timing checks.
+	* testsuite/libgomp.oacc-c-c++-common/lib-75.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-76.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-77.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-78.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-79.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-80.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-81.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-82.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-83.c: Likewise.
+
+2015-05-11  James Norris  <jnorris@codesourcery.com>
+
 	* testsuite/libgomp.oacc-fortran/lib-12.f90: New test.
 	* testsuite/libgomp.oacc-fortran/lib-13.f90: Likewise.
 	* testsuite/libgomp.oacc-fortran/lib-14.f90: Likewise.
