@@ -6886,9 +6886,8 @@ alloc_scalar_allocatable_for_subcomponent_assignment (stmtblock_t *block,
       gcc_assert (expr2->ts.type == BT_CLASS || expr2->ts.type == BT_DERIVED);
       if (expr2->ts.type == BT_DERIVED)
 	{
-	  tmp = gfc_get_symbol_decl (gfc_find_vtab (&expr2->ts));
-	  tmp = gfc_build_addr_expr (NULL_TREE, tmp);
-	  size = fold_convert (size_type_node, gfc_vptr_size_get (tmp));
+	  tmp = gfc_get_symbol_decl (expr2->ts.u.derived);
+	  size = TYPE_SIZE_UNIT (tmp);
 	}
       else
 	{
@@ -7033,8 +7032,7 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
     }
   else if (init && (cm->attr.allocatable
 	   || (cm->ts.type == BT_CLASS && CLASS_DATA (cm)->attr.allocatable
-	       && (expr->ts.type != BT_CLASS
-		   || CLASS_DATA (expr)->attr.allocatable))))
+	       && expr->ts.type != BT_CLASS)))
     {
       /* Take care about non-array allocatable components here.  The alloc_*
 	 routine below is motivated by the alloc_scalar_allocatable_for_
