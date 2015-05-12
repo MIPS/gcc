@@ -1114,7 +1114,7 @@ output_stack_usage (void)
 	}
 
       fprintf (stack_usage_file,
-	       "%s:%d:%d:%s\t"HOST_WIDE_INT_PRINT_DEC"\t%s\n",
+	       "%s:%d:%d:%s\t" HOST_WIDE_INT_PRINT_DEC"\t%s\n",
 	       lbasename (loc.file),
 	       loc.line,
 	       loc.column,
@@ -2095,8 +2095,11 @@ toplev::toplev (bool use_TV_TOTAL, bool init_signals)
 
 toplev::~toplev ()
 {
-  timevar_stop (TV_TOTAL);
-  timevar_print (stderr);
+  if (g_timer)
+    {
+      g_timer->stop (TV_TOTAL);
+      g_timer->print (stderr);
+    }
 }
 
 void

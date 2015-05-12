@@ -5446,7 +5446,7 @@ print_dw_val (dw_val_node *val, bool recurse, FILE *outfile)
       fprintf (outfile, HOST_WIDE_INT_PRINT_UNSIGNED, val->v.val_unsigned);
       break;
     case dw_val_class_const_double:
-      fprintf (outfile, "constant ("HOST_WIDE_INT_PRINT_DEC","\
+      fprintf (outfile, "constant (" HOST_WIDE_INT_PRINT_DEC","\
 			HOST_WIDE_INT_PRINT_UNSIGNED")",
 	       val->v.val_double.high,
 	       val->v.val_double.low);
@@ -19945,23 +19945,26 @@ gen_member_die (tree type, dw_die_ref context_die)
 	gen_decl_die (member, NULL, context_die);
     }
 
+  /* We do not keep type methods in type variants.  */
+  gcc_assert (TYPE_MAIN_VARIANT (type) == type);
   /* Now output info about the function members (if any).  */
-  for (member = TYPE_METHODS (type); member; member = DECL_CHAIN (member))
-    {
-      /* Don't include clones in the member list.  */
-      if (DECL_ABSTRACT_ORIGIN (member))
-	continue;
-      /* Nor constructors for anonymous classes.  */
-      if (DECL_ARTIFICIAL (member)
-	  && dwarf2_name (member, 0) == NULL)
-	continue;
+  if (TYPE_METHODS (type) != error_mark_node)
+    for (member = TYPE_METHODS (type); member; member = DECL_CHAIN (member))
+      {
+	/* Don't include clones in the member list.  */
+	if (DECL_ABSTRACT_ORIGIN (member))
+	  continue;
+	/* Nor constructors for anonymous classes.  */
+	if (DECL_ARTIFICIAL (member)
+	    && dwarf2_name (member, 0) == NULL)
+	  continue;
 
-      child = lookup_decl_die (member);
-      if (child)
-	splice_child_die (context_die, child);
-      else
-	gen_decl_die (member, NULL, context_die);
-    }
+	child = lookup_decl_die (member);
+	if (child)
+	  splice_child_die (context_die, child);
+	else
+	  gen_decl_die (member, NULL, context_die);
+      }
 }
 
 /* Generate a DIE for a structure or union type.  If TYPE_DECL_SUPPRESS_DEBUG
