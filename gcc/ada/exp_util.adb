@@ -3366,6 +3366,13 @@ package body Exp_Util is
 
             Stm := Parent (CV);
 
+            --  If the tree has been otherwise rewritten there is nothing
+            --  else to be done either.
+
+            if Nkind (Stm) /= N_If_Statement then
+               return;
+            end if;
+
             --  Before start of ELSIF part
 
             if Loc < Sloc (CV) then
@@ -6874,9 +6881,7 @@ package body Exp_Util is
    function Non_Limited_Designated_Type (T : Entity_Id) return Entity_Id is
       Desig : constant Entity_Id := Designated_Type (T);
    begin
-      if Ekind (Desig) = E_Incomplete_Type
-        and then Present (Non_Limited_View (Desig))
-      then
+      if Has_Non_Limited_View (Desig) then
          return Non_Limited_View (Desig);
       else
          return Desig;
@@ -8133,7 +8138,7 @@ package body Exp_Util is
 
    begin
       --  If the expression is the RHS of an assignment or object declaration
-      --   we are always OK because there will always be a target.
+      --  we are always OK because there will always be a target.
 
       --  Object renaming declarations, (generated for view conversions of
       --  actuals in inlined calls), like object declarations, provide an
@@ -8174,8 +8179,8 @@ package body Exp_Util is
          Otyp := Entity (Subtype_Mark (Exp));
       end if;
 
-      --  The input type always comes from the expression, and we assume
-      --  this is indeed always analyzed, so we can simply get the Etype.
+      --  The input type always comes from the expression, and we assume this
+      --  is indeed always analyzed, so we can simply get the Etype.
 
       Ityp := Etype (Expression (Exp));
 
@@ -8246,8 +8251,8 @@ package body Exp_Util is
       then
          return True;
 
-      --  If either type is tagged, then we know the alignment is OK so
-      --  Gigi will be able to use pointer punning.
+      --  If either type is tagged, then we know the alignment is OK so Gigi
+      --  will be able to use pointer punning.
 
       elsif Is_Tagged_Type (Otyp) or else Is_Tagged_Type (Ityp) then
          return True;
