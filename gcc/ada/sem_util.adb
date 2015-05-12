@@ -1546,7 +1546,15 @@ package body Sem_Util is
                      Constraints => Constraints)));
 
          Insert_Action (N, Decl);
-         Analyze (Decl);
+
+         --  If the context is a component declaration the subtype
+         --  declaration will be analyzed when the enclosing type is
+         --  frozen, otherwise do it now.
+
+         if Ekind (Current_Scope) /= E_Record_Type then
+            Analyze (Decl);
+         end if;
+
          return Act;
       end;
    end Build_Default_Subtype;
@@ -4941,7 +4949,7 @@ package body Sem_Util is
 
       --  Both names are selected_components, their prefixes are known to
       --  denote the same object, and their selector_names denote the same
-      --  component (RM 6.4.1(6.6/3)
+      --  component (RM 6.4.1(6.6/3))
 
       elsif Nkind (Obj1) = N_Selected_Component then
          return Denotes_Same_Object (Prefix (Obj1), Prefix (Obj2))
@@ -12771,6 +12779,14 @@ package body Sem_Util is
    --  Start of processing for Is_Variable
 
    begin
+      --  Special check, allow x'Deref(expr) as a variable
+
+      if Nkind (N) = N_Attribute_Reference
+        and then Attribute_Name (N) = Name_Deref
+      then
+         return True;
+      end if;
+
       --  Check if we perform the test on the original node since this may be a
       --  test of syntactic categories which must not be disturbed by whatever
       --  rewriting might have occurred. For example, an aggregate, which is
@@ -16855,7 +16871,7 @@ package body Sem_Util is
         and then Has_Foreign_Convention (E)
       then
 
-         --  A convention pragma in an instance may apply to the subtype
+         --  A pragma Convention in an instance may apply to the subtype
          --  created for a formal, in which case we have already verified
          --  that conventions of actual and formal match and there is nothing
          --  to flag on the subtype.
