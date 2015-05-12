@@ -8985,14 +8985,15 @@ check_var_type (tree identifier, tree type)
   return type;
 }
 
-// Return a trailing requires clause for a function declarator, or
-// NULL_TREE if there is no trailing requires clause or the declarator
-// is some other kind.
+/* Return a trailing requires clause for a function declarator, or
+   NULL_TREE if there is no trailing requires clause or the declarator
+   is some other kind.  */
+
 static inline tree
 get_trailing_requires_clause (const cp_declarator *declarator)
 {
-  if (declarator && declarator->kind == cdk_function)
-    return declarator->u.function.requires_clause;
+  if (const cp_declarator *d = get_function_declarator (declarator))
+    return d->u.function.requires_clause;
   else
     return NULL_TREE;
 }

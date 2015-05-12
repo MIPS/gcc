@@ -1661,17 +1661,7 @@ make_parameter_declarator (cp_decl_specifier_seq *decl_specifiers,
 static bool
 function_declarator_p (const cp_declarator *declarator)
 {
-  while (declarator)
-    {
-      if (declarator->kind == cdk_function
-	  && declarator->declarator->kind == cdk_id)
-	return true;
-      if (declarator->kind == cdk_id
-	  || declarator->kind == cdk_error)
-	return false;
-      declarator = declarator->declarator;
-    }
-  return false;
+  return get_function_declarator (declarator) != NULL;
 }
  
 /* The parser.  */
@@ -18107,8 +18097,8 @@ cp_parser_declarator (cp_parser* parser,
      declaration and not the abstract declarator.  */
   if (flag_concepts && dcl_kind != CP_PARSER_DECLARATOR_ABSTRACT)
     {
-      if (function_declarator_p (declarator))
-        declarator->u.function.requires_clause
+      if (cp_declarator *fndecl = get_function_declarator (declarator))
+        fndecl->u.function.requires_clause
           = cp_parser_trailing_requires_clause (parser, declarator);
     }
   return declarator;

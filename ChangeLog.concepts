@@ -1,5 +1,17 @@
 2015-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	PR66091
+	* gcc/cp/cp-tree.h (get_function_declarator): New.
+	* gcc/cp/decl.c (get_trailing_requires_clause): Use 
+	get_function_declarator.
+	* gcc/cp/parser.c (function_declarator_p): Likewise.
+	(cp_parser_declarator): Stop invoking undefined behavior
+	and install the requires clause on the found function 
+	declarator.
+	* gcc/testsuite/g++.dg/concepts/pr66091.C: New.
+
+2015-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Addressing review comments.
 	* gcc/cp/call.c (build_new_function_call): Don't check for
 	template parameters when we're not processing a template decl.
