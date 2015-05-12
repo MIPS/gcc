@@ -1794,9 +1794,10 @@ package body Sem_Ch3 is
    -----------------------------------
 
    procedure Analyze_Component_Declaration (N : Node_Id) is
-      Id  : constant Entity_Id := Defining_Identifier (N);
-      E   : constant Node_Id   := Expression (N);
-      Typ : constant Node_Id   :=
+      Loc : constant Source_Ptr := Sloc (N);
+      Id  : constant Entity_Id  := Defining_Identifier (N);
+      E   : constant Node_Id    := Expression (N);
+      Typ : constant Node_Id    :=
               Subtype_Indication (Component_Definition (N));
       T   : Entity_Id;
       P   : Entity_Id;
@@ -2121,6 +2122,27 @@ package body Sem_Ch3 is
             Set_Etype (Id, Any_Type);
             Set_Is_Limited_Composite (Current_Scope, False);
          end if;
+      end if;
+
+      --  If the component is an unconstrained task or protected type with
+      --  discriminants, the component and the enclosing record are limited
+      --  and the component is constrained by its default values. Compute
+      --  its actual subtype, else it may be allocated the maximum size by
+      --  the backend, and possibly overflow.
+
+      if Is_Concurrent_Type (T)
+        and then not Is_Constrained (T)
+        and then Has_Discriminants (T)
+        and then not Has_Discriminants (Current_Scope)
+      then
+         declare
+            Act_T : constant Entity_Id := Build_Default_Subtype (T, N);
+         begin
+            Set_Etype (Id, Act_T);
+            Set_Component_Definition (N,
+              Make_Component_Definition (Loc,
+                Subtype_Indication => New_Occurrence_Of (Act_T, Loc)));
+         end;
       end if;
 
       Set_Original_Record_Component (Id, Id);
@@ -3314,6 +3336,18 @@ package body Sem_Ch3 is
       --  or a variant record type is encountered, Check_Restrictions is called
       --  indicating the count is unknown.
 
+      function Delayed_Aspect_Present return Boolean;
+      --  If the declaration has an expression that is an aggregate, and it
+      --  has aspects that require delayed analysis, the resolution of the
+      --  aggregate must be deferred to the freeze point of the objet. This
+      --  special processing was created for address clauses, but it must
+      --  also apply to Alignment.
+      --  This must be done before the aspect specifications are analyzed
+      --  because we must handle the aggregate before the analysis of the
+      --  object declaration is complete.
+
+      --  any other relevant delayed aspects on object declarations ???
+
       -----------------
       -- Count_Tasks --
       -----------------
@@ -3367,6 +3401,32 @@ package body Sem_Ch3 is
             return Uint_0;
          end if;
       end Count_Tasks;
+
+      ----------------------------
+      -- Delayed_Aspect_Present --
+      ----------------------------
+
+      function Delayed_Aspect_Present return Boolean is
+         A : Node_Id;
+         A_Id : Aspect_Id;
+
+      begin
+         if Present (Aspect_Specifications (N)) then
+            A    := First (Aspect_Specifications (N));
+            A_Id :=   Get_Aspect_Id (Chars (Identifier (A)));
+            while Present (A) loop
+               if
+                 A_Id = Aspect_Alignment or else A_Id = Aspect_Address
+               then
+                  return True;
+               end if;
+
+               Next (A);
+            end loop;
+         end if;
+
+         return False;
+      end Delayed_Aspect_Present;
 
    --  Start of processing for Analyze_Object_Declaration
 
@@ -3683,7 +3743,8 @@ package body Sem_Ch3 is
          if Comes_From_Source (N)
            and then Expander_Active
            and then Nkind (E) = N_Aggregate
-           and then Present (Following_Address_Clause (N))
+           and then (Present (Following_Address_Clause (N))
+                      or else Delayed_Aspect_Present)
          then
             Set_Etype (E, T);
 
@@ -11603,7 +11664,8 @@ package body Sem_Ch3 is
       --  Freeze the private subtype entity if its parent is delayed, and not
       --  already frozen. We skip this processing if the type is an anonymous
       --  subtype of a record component, or is the corresponding record of a
-      --  protected type, since ???
+      --  protected type, since these are processed when the enclosing type
+      --  is frozen.
 
       if not Is_Type (Scope (Full)) then
          Set_Has_Delayed_Freeze (Full,
@@ -11782,10 +11844,18 @@ package body Sem_Ch3 is
 
       --  Make sure Has_Predicates is set on full type if it is set on the
       --  private type. Note that it may already be set on the full type and
-      --  if so, we don't want to unset it.
+      --  if so, we don't want to unset it. Similarly, propagate information
+      --  about delayed aspects, because the corresponding pragmas must be
+      --  analyzed when one of the views is frozen. This last step is needed
+      --  in particular when the full type is a scalar type for which an
+      --  anonymous base type is constructed.
 
       if Has_Predicates (Priv) then
          Set_Has_Predicates (Full);
+      end if;
+
+      if Has_Delayed_Aspects (Priv) then
+         Set_Has_Delayed_Aspects (Full);
       end if;
    end Complete_Private_Subtype;
 
