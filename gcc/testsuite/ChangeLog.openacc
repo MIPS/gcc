@@ -1,4 +1,9 @@
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/private-reduction-1.c: New test.
+
+2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* g++.dg/goacc/loop-1.c: New test.
 	* g++.dg/goacc/loop-2.c: New test.
