@@ -1403,7 +1403,7 @@ cp_check_const_attributes (tree attributes)
 
 /* Return true if TYPE is an OpenMP mappable type.  */
 bool
-cp_omp_mappable_type (tree type)
+cp_omp_mappable_type (tree type, bool oacc)
 {
   /* Mappable type has to be complete.  */
   if (type == error_mark_node || !COMPLETE_TYPE_P (type))
@@ -1423,9 +1423,11 @@ cp_omp_mappable_type (tree type)
 	  return false;
 	/* All fields must have mappable types.  */
 	else if (TREE_CODE (field) == FIELD_DECL
-		 && !cp_omp_mappable_type (TREE_TYPE (field)))
+		 && !cp_omp_mappable_type (TREE_TYPE (field), oacc))
 	  return false;
     }
+  if (oacc && TREE_CODE (type) == REFERENCE_TYPE)
+    return false;
   return true;
 }
 
@@ -1455,7 +1457,7 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 	       *decl);
       else if (!processing_template_decl
 	       && TREE_CODE (*decl) == VAR_DECL
-	       && !cp_omp_mappable_type (TREE_TYPE (*decl)))
+	       && !cp_omp_mappable_type (TREE_TYPE (*decl), false))
 	error ("%q+D in declare target directive does not have mappable type",
 	       *decl);
       else

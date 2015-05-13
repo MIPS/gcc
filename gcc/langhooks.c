@@ -555,7 +555,7 @@ lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 /* Return true if TYPE is an OpenMP mappable type.  */
 
 bool
-lhd_omp_mappable_type (tree type)
+lhd_omp_mappable_type (tree type, bool oacc ATTRIBUTE_UNUSED)
 {
   /* Mappable type has to be complete.  */
   if (type == error_mark_node || !COMPLETE_TYPE_P (type))

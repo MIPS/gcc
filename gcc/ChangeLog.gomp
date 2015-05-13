@@ -1,3 +1,13 @@
+2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* langhooks-def.h (lhd_omp_mappable_type): Add bool argument.
+	* langhooks.c (lhd_omp_mappable_type): Likewise, for the
+	parameter.
+	* langhooks.h (struct lang_hooks_for_types): Add bool oacc
+	argument.
+	* gimplify.c (omp_notice_variable): Use it when calling the
+	omp_mappable_type langhook.
+
 2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
 	    Bernd Schmidt  <bernds@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>

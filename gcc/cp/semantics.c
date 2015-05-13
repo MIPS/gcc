@@ -5866,7 +5866,7 @@ finish_omp_clauses (tree clauses, bool oacc)
 		  t = OMP_CLAUSE_DECL (c);
 		  if (TREE_CODE (t) != TREE_LIST
 		      && !type_dependent_expression_p (t)
-		      && !cp_omp_mappable_type (TREE_TYPE (t)))
+		      && !cp_omp_mappable_type (TREE_TYPE (t), oacc))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"array section does not have mappable type "
@@ -5876,6 +5876,11 @@ finish_omp_clauses (tree clauses, bool oacc)
 		    }
 		}
 	      break;
+	    }
+	  if (oacc && TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"reference types are not supported in OpenACC");
 	    }
 	  if (t == error_mark_node)
 	    remove = true;
@@ -5907,10 +5912,10 @@ finish_omp_clauses (tree clauses, bool oacc)
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		     && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
 		   && !type_dependent_expression_p (t)
-		   && !cp_omp_mappable_type ((TREE_CODE (TREE_TYPE (t))
+		   && !cp_omp_mappable_type (((TREE_CODE (TREE_TYPE (t))
 					      == REFERENCE_TYPE)
 					     ? TREE_TYPE (TREE_TYPE (t))
-					     : TREE_TYPE (t)))
+					     : TREE_TYPE (t)), oacc))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,

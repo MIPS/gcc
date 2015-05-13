@@ -4414,7 +4414,8 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 	error ("%q+D in block scope inside of declare target directive",
 	       *node);
       else if (TREE_CODE (*node) == VAR_DECL
-	       && !lang_hooks.types.omp_mappable_type (TREE_TYPE (*node)))
+	       && !lang_hooks.types.omp_mappable_type (TREE_TYPE (*node),
+						       false))
 	error ("%q+D in declare target directive does not have mappable type",
 	       *node);
       else

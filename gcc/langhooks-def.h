@@ -79,7 +79,7 @@ extern void lhd_omp_finish_clause (tree, gimple_seq *);
 struct gimplify_omp_ctx;
 extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 					       tree);
-extern bool lhd_omp_mappable_type (tree);
+extern bool lhd_omp_mappable_type (tree, bool);
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)

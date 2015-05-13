@@ -5910,7 +5910,9 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 		}
 	    }
 
-	  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (decl)))
+	  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (decl),
+						   ctx->region_kind
+						   == ORK_OACC))
 	    {
 	      error ("%qD referenced in target region does not have "
 		     "a mappable type", decl);

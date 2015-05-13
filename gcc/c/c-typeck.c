@@ -12445,7 +12445,8 @@ c_finish_omp_clauses (tree clauses, bool oacc)
 	      else
 		{
 		  t = OMP_CLAUSE_DECL (c);
-		  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (t)))
+		  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (t),
+							   oacc))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"array section does not have mappable type "
@@ -12478,7 +12479,8 @@ c_finish_omp_clauses (tree clauses, bool oacc)
 		     && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
 			 || (OMP_CLAUSE_MAP_KIND (c)
 			     == GOMP_MAP_FORCE_DEVICEPTR)))
-		   && !lang_hooks.types.omp_mappable_type (TREE_TYPE (t)))
+		   && !lang_hooks.types.omp_mappable_type (TREE_TYPE (t),
+							   oacc))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,

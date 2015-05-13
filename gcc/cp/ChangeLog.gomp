@@ -1,3 +1,11 @@
+2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* cp-tree.h (cp_omp_mappable_type): Add bool parameter.
+	* decl2.c (cp_check_const_attributes): Likewise. Use it.
+	(cp_omp_mappable_type): Update call to cp_omp_mappable_type.
+	(cplus_decl_attributes): Likewise.
+	* semantics.c (finish_omp_clauses): Likewise.
+
 2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
 	    Bernd Schmidt  <bernds@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>
