@@ -52,7 +52,7 @@ EXTRA_CLEAN	    += *-vsx.c
 FP128_CFLAGS_COMMON  = -Wno-type-limits -I$(srcdir)/soft-fp \
 		       -I$(srcdir)/config/rs6000
 
-FP128_CFLAGS_VSX     = -mvsx -mfloat128
+FP128_CFLAGS_VSX     = -mvsx -mfloat128-software
 
 $(fp128_vsx_obj) : INTERNAL_CFLAGS += $(FP128_CFLAGS_COMMON) $(FP128_CFLAGS_VSX)
 $(fp128_vsx_obj) : $(fp128_includes) $(srcdir)/config/rs6000/quad-vsx.h
@@ -62,7 +62,7 @@ $(fp128_vsx_orig_src) : $(srcdir)/soft-fp/$(subst -vsx,,$(subst kf,tf,$@)) $(fp1
 	echo "Create $@"; \
 	(echo "/* file created from $$src */"; \
 	 echo; \
-	 echo '#pragma GCC target ("vsx,float128")'; \
+	 echo '#pragma GCC target ("vsx,float128-software")'; \
 	 echo; \
 	 sed -f $(fp128_vsx_sed) < $$src) > $@
 
@@ -71,7 +71,7 @@ $(fp128_vsx_ppc_src) : $(srcdir)/config/rs6000/$(subst -vsx,,$@) $(fp128_vsx_dep
 	echo "Create $@"; \
 	(echo "/* file created from $$src */"; \
 	 echo; \
-	 echo '#pragma GCC target ("vsx,float128")'; \
+	 echo '#pragma GCC target ("vsx,float128-software")'; \
 	 echo; \
 	 sed -f $(fp128_vsx_sed) < $$src) > $@
 
