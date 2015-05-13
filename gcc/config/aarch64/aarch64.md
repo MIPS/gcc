@@ -531,7 +531,7 @@
 	char buf[64];
 	uint64_t val = ((uint64_t ) 1)
 			<< (GET_MODE_SIZE (<MODE>mode) * BITS_PER_UNIT - 1);
-	sprintf (buf, "tst\t%%<w>0, %"PRId64, val);
+	sprintf (buf, "tst\t%%<w>0, %" PRId64, val);
 	output_asm_insn (buf, operands);
 	return "<bcond>\t%l1";
       }
@@ -1414,18 +1414,28 @@
   "
   if (! aarch64_plus_operand (operands[2], VOIDmode))
     {
-      rtx subtarget = ((optimize && can_create_pseudo_p ())
-		       ? gen_reg_rtx (<MODE>mode) : operands[0]);
       HOST_WIDE_INT imm = INTVAL (operands[2]);
 
-      if (imm < 0)
-	imm = -(-imm & ~0xfff);
+      if (aarch64_move_imm (imm, <MODE>mode) && can_create_pseudo_p ())
+        {
+	  rtx tmp = gen_reg_rtx (<MODE>mode);
+	  emit_move_insn (tmp, operands[2]);
+	  operands[2] = tmp;
+        }
       else
-        imm &= ~0xfff;
+        {
+	  rtx subtarget = ((optimize && can_create_pseudo_p ())
+			   ? gen_reg_rtx (<MODE>mode) : operands[0]);
 
-      emit_insn (gen_add<mode>3 (subtarget, operands[1], GEN_INT (imm)));
-      operands[1] = subtarget;
-      operands[2] = GEN_INT (INTVAL (operands[2]) - imm);
+	  if (imm < 0)
+	    imm = -(-imm & ~0xfff);
+	  else
+	    imm &= ~0xfff;
+
+	  emit_insn (gen_add<mode>3 (subtarget, operands[1], GEN_INT (imm)));
+	  operands[1] = subtarget;
+	  operands[2] = GEN_INT (INTVAL (operands[2]) - imm);
+        }
     }
   "
 )
@@ -2184,14 +2194,13 @@
    && GP_REGNUM_P (REGNO (operands[1]))"
   [(const_int 0)]
   {
-    emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+    emit_insn (gen_rtx_SET (operands[0],
 			    gen_rtx_XOR (DImode,
 					 gen_rtx_ASHIFTRT (DImode,
 							   operands[1],
 							   GEN_INT (63)),
 					 operands[1])));
-    emit_insn (gen_rtx_SET (VOIDmode,
-			    operands[0],
+    emit_insn (gen_rtx_SET (operands[0],
 			    gen_rtx_MINUS (DImode,
 					   operands[0],
 					   gen_rtx_ASHIFTRT (DImode,
@@ -2623,7 +2632,7 @@
          (match_operand 3 "const0_operand")]))]
   ""
 "{
-  emit_insn (gen_rtx_SET (SImode, operands[0], operands[1]));
+  emit_insn (gen_rtx_SET (operands[0], operands[1]));
   DONE;
 }")
 
@@ -3058,6 +3067,26 @@
    (set_attr "simd" "*,yes")]
 )
 
+(define_insn "*<NLOGICAL:optab>_one_cmplsidi3_ze"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	  (NLOGICAL:SI (not:SI (match_operand:SI 1 "register_operand" "r"))
+	               (match_operand:SI 2 "register_operand" "r"))))]
+  ""
+  "<NLOGICAL:nlogical>\\t%w0, %w2, %w1"
+  [(set_attr "type" "logic_reg")]
+)
+
+(define_insn "*xor_one_cmplsidi3_ze"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+        (zero_extend:DI
+          (not:SI (xor:SI (match_operand:SI 1 "register_operand" "r")
+                          (match_operand:SI 2 "register_operand" "r")))))]
+  ""
+  "eon\\t%w0, %w1, %w2"
+  [(set_attr "type" "logic_reg")]
+)
+
 ;; (xor (not a) b) is simplify_rtx-ed down to (not (xor a b)).
 ;; eon does not operate on SIMD registers so the vector variant must be split.
 (define_insn_and_split "*xor_one_cmpl<mode>3"
@@ -3129,6 +3158,32 @@
   ""
   "<LOGICAL:nlogical>\\t%<w>0, %<w>3, %<w>1, <SHIFT:shift> %2"
   [(set_attr "type" "logics_shift_imm")]
+)
+
+(define_insn "*eor_one_cmpl_<SHIFT:optab><mode>3_alt"
+  [(set (match_operand:GPI 0 "register_operand" "=r")
+	(not:GPI (xor:GPI
+		      (SHIFT:GPI
+		       (match_operand:GPI 1 "register_operand" "r")
+		       (match_operand:QI 2 "aarch64_shift_imm_<mode>" "n"))
+		     (match_operand:GPI 3 "register_operand" "r"))))]
+  ""
+  "eon\\t%<w>0, %<w>3, %<w>1, <SHIFT:shift> %2"
+  [(set_attr "type" "logic_shift_imm")]
+)
+
+;; Zero-extend version of the above.
+(define_insn "*eor_one_cmpl_<SHIFT:optab>sidi3_alt_ze"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	  (not:SI (xor:SI
+		    (SHIFT:SI
+		      (match_operand:SI 1 "register_operand" "r")
+		      (match_operand:QI 2 "aarch64_shift_imm_si" "n"))
+		    (match_operand:SI 3 "register_operand" "r")))))]
+  ""
+  "eon\\t%w0, %w3, %w1, <SHIFT:shift> %2"
+  [(set_attr "type" "logic_shift_imm")]
 )
 
 (define_insn "*and_one_cmpl_<SHIFT:optab><mode>3_compare0"
@@ -3551,6 +3606,21 @@
   [(set_attr "type" "shift_imm")]
 )
 
+;; There are no canonicalisation rules for ashift and lshiftrt inside an ior
+;; so we have to match both orderings.
+(define_insn "*extr<mode>5_insn_alt"
+  [(set (match_operand:GPI 0 "register_operand" "=r")
+	(ior:GPI  (lshiftrt:GPI (match_operand:GPI 2 "register_operand" "r")
+			        (match_operand 4 "const_int_operand" "n"))
+		  (ashift:GPI (match_operand:GPI 1 "register_operand" "r")
+			      (match_operand 3 "const_int_operand" "n"))))]
+  "UINTVAL (operands[3]) < GET_MODE_BITSIZE (<MODE>mode)
+   && (UINTVAL (operands[3]) + UINTVAL (operands[4])
+       == GET_MODE_BITSIZE (<MODE>mode))"
+  "extr\\t%<w>0, %<w>1, %<w>2, %4"
+  [(set_attr "type" "shift_imm")]
+)
+
 ;; zero_extend version of the above
 (define_insn "*extrsi5_insn_uxtw"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -3559,6 +3629,19 @@
 			    (match_operand 3 "const_int_operand" "n"))
 		 (lshiftrt:SI (match_operand:SI 2 "register_operand" "r")
 			      (match_operand 4 "const_int_operand" "n")))))]
+  "UINTVAL (operands[3]) < 32 &&
+   (UINTVAL (operands[3]) + UINTVAL (operands[4]) == 32)"
+  "extr\\t%w0, %w1, %w2, %4"
+  [(set_attr "type" "shift_imm")]
+)
+
+(define_insn "*extrsi5_insn_uxtw_alt"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	 (ior:SI (lshiftrt:SI (match_operand:SI 2 "register_operand" "r")
+			       (match_operand 4 "const_int_operand" "n"))
+		 (ashift:SI (match_operand:SI 1 "register_operand" "r")
+			    (match_operand 3 "const_int_operand" "n")))))]
   "UINTVAL (operands[3]) < 32 &&
    (UINTVAL (operands[3]) + UINTVAL (operands[4]) == 32)"
   "extr\\t%w0, %w1, %w2, %4"
@@ -4403,7 +4486,7 @@
   cc_reg = SET_DEST (cmp);
   bcomp = gen_rtx_NE (VOIDmode, cc_reg, const0_rtx);
   loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands [1]);
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+  emit_jump_insn (gen_rtx_SET (pc_rtx,
 			       gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
 						     loc_ref, pc_rtx)));
   DONE;

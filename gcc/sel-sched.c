@@ -614,7 +614,7 @@ advance_one_cycle (fence_t fence)
 /* Returns true when SUCC in a fallthru bb of INSN, possibly
    skipping empty basic blocks.  */
 static bool
-in_fallthru_bb_p (rtx insn, rtx succ)
+in_fallthru_bb_p (rtx_insn *insn, rtx succ)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
   edge e;
@@ -863,7 +863,7 @@ create_insn_rtx_with_rhs (vinsn_t vi, rtx rhs_rtx)
 
   lhs_rtx = copy_rtx (VINSN_LHS (vi));
 
-  pattern = gen_rtx_SET (VOIDmode, lhs_rtx, rhs_rtx);
+  pattern = gen_rtx_SET (lhs_rtx, rhs_rtx);
   insn_rtx = create_insn_rtx_from_pattern (pattern, NULL_RTX);
 
   return insn_rtx;
@@ -944,7 +944,7 @@ create_insn_rtx_with_lhs (vinsn_t vi, rtx lhs_rtx)
 
   rhs_rtx = copy_rtx (VINSN_RHS (vi));
 
-  pattern = gen_rtx_SET (VOIDmode, lhs_rtx, rhs_rtx);
+  pattern = gen_rtx_SET (lhs_rtx, rhs_rtx);
   insn_rtx = create_insn_rtx_from_pattern (pattern, NULL_RTX);
 
   return insn_rtx;
@@ -1047,7 +1047,6 @@ get_reg_class (rtx_insn *insn)
   return NO_REGS;
 }
 
-#ifdef HARD_REGNO_RENAME_OK
 /* Calculate HARD_REGNO_RENAME_OK data for REGNO.  */
 static void
 init_hard_regno_rename (int regno)
@@ -1066,14 +1065,12 @@ init_hard_regno_rename (int regno)
         SET_HARD_REG_BIT (sel_hrd.regs_for_rename[regno], cur_reg);
     }
 }
-#endif
 
 /* A wrapper around HARD_REGNO_RENAME_OK that will look into the hard regs
    data first.  */
 static inline bool
 sel_hard_regno_rename_ok (int from ATTRIBUTE_UNUSED, int to ATTRIBUTE_UNUSED)
 {
-#ifdef HARD_REGNO_RENAME_OK
   /* Check whether this is all calculated.  */
   if (TEST_HARD_REG_BIT (sel_hrd.regs_for_rename[from], from))
     return TEST_HARD_REG_BIT (sel_hrd.regs_for_rename[from], to);
@@ -1081,9 +1078,6 @@ sel_hard_regno_rename_ok (int from ATTRIBUTE_UNUSED, int to ATTRIBUTE_UNUSED)
   init_hard_regno_rename (from);
 
   return TEST_HARD_REG_BIT (sel_hrd.regs_for_rename[from], to);
-#else
-  return true;
-#endif
 }
 
 /* Calculate set of registers that are capable of holding MODE.  */
@@ -1859,7 +1853,7 @@ create_speculation_check (expr_t c_expr, ds_t check_ds, insn_t orig_insn)
 
 /* True when INSN is a "regN = regN" copy.  */
 static bool
-identical_copy_p (rtx insn)
+identical_copy_p (rtx_insn *insn)
 {
   rtx lhs, rhs, pat;
 
@@ -2116,7 +2110,7 @@ implicit_clobber_conflict_p (insn_t through_insn, expr_t expr)
 
   /* Make a new insn with it.  */
   rhs = copy_rtx (VINSN_RHS (EXPR_VINSN (expr)));
-  pat = gen_rtx_SET (VOIDmode, reg, rhs);
+  pat = gen_rtx_SET (reg, rhs);
   start_sequence ();
   insn = emit_insn (pat);
   end_sequence ();
@@ -5836,7 +5830,7 @@ move_op_after_merge_succs (cmpd_local_params_p lp, void *sparams)
 /* Track bookkeeping copies created, insns scheduled, and blocks for
    rescheduling when INSN is found by move_op.  */
 static void
-track_scheduled_insns_and_blocks (rtx insn)
+track_scheduled_insns_and_blocks (rtx_insn *insn)
 {
   /* Even if this insn can be a copy that will be removed during current move_op,
      we still need to count it as an originator.  */

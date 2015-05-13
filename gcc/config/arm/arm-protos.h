@@ -30,6 +30,7 @@ extern void arm_load_pic_register (unsigned long);
 extern int arm_volatile_func (void);
 extern void arm_expand_prologue (void);
 extern void arm_expand_epilogue (bool);
+extern void arm_declare_function_name (FILE *, const char *, tree);
 extern void thumb2_expand_return (bool);
 extern const char *arm_strip_name_encoding (const char *);
 extern void arm_asm_output_labelref (FILE *, const char *);
@@ -66,10 +67,6 @@ extern rtx legitimize_tls_address (rtx, rtx);
 extern bool arm_legitimate_address_p (machine_mode, rtx, bool);
 extern int arm_legitimate_address_outer_p (machine_mode, rtx, RTX_CODE, int);
 extern int thumb_legitimate_offset_p (machine_mode, HOST_WIDE_INT);
-extern bool arm_legitimize_reload_address (rtx *, machine_mode, int, int,
-					   int);
-extern rtx thumb_legitimize_reload_address (rtx *, machine_mode, int, int,
-					    int);
 extern int thumb1_legitimate_address_p (machine_mode, rtx, int);
 extern bool ldm_stm_operation_p (rtx, bool, machine_mode mode,
                                  bool, bool);
@@ -185,9 +182,6 @@ extern const char *thumb1_unexpanded_epilogue (void);
 extern void thumb1_expand_prologue (void);
 extern void thumb1_expand_epilogue (void);
 extern const char *thumb1_output_interwork (void);
-#ifdef TREE_CODE
-extern int is_called_in_ARM_mode (tree);
-#endif
 extern int thumb_shiftable_const (unsigned HOST_WIDE_INT);
 #ifdef RTX_CODE
 extern enum arm_cond_code maybe_get_arm_condition_code (rtx);
@@ -303,6 +297,8 @@ struct tune_params
   unsigned int fuseable_ops;
   /* Depth of scheduling queue to check for L2 autoprefetcher.  */
   enum arm_sched_autopref sched_autopref;
+  /* Issue rate of the processor.  */
+  unsigned int issue_rate;
 };
 
 extern const struct tune_params *current_tune;
@@ -465,12 +461,6 @@ extern int arm_tune_wbuf;
 
 /* Nonzero if tuning for Cortex-A9.  */
 extern int arm_tune_cortex_a9;
-
-/* Nonzero if generating Thumb instructions.  */
-extern int thumb_code;
-
-/* Nonzero if generating Thumb-1 instructions.  */
-extern int thumb1_code;
 
 /* Nonzero if we should define __THUMB_INTERWORK__ in the
    preprocessor.

@@ -252,6 +252,13 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define SUBTARGET_CPP_SPEC      ""
 #endif
 
+/* Tree Target Specification.  */
+#define TREE_TARGET_THUMB(opts)  (TARGET_THUMB_P (opts->x_target_flags))
+#define TREE_TARGET_ARM(opts)    (!TARGET_THUMB_P (opts->x_target_flags))
+#define TREE_TARGET_THUMB1(opts) (TARGET_THUMB_P (opts->x_target_flags) \
+				  && !arm_arch_thumb2)
+#define TREE_TARGET_THUMB2(opts) (TARGET_THUMB_P (opts->x_target_flags) \
+				  && arm_arch_thumb2)
 /* Run-time Target Specification.  */
 #define TARGET_SOFT_FLOAT		(arm_float_abi == ARM_FLOAT_ABI_SOFT)
 /* Use hardware floating point instructions. */
@@ -527,12 +534,6 @@ extern int arm_arch8;
 
 /* Nonzero if this chip can benefit from load scheduling.  */
 extern int arm_ld_sched;
-
-/* Nonzero if generating Thumb code, either Thumb-1 or Thumb-2.  */
-extern int thumb_code;
-
-/* Nonzero if generating Thumb-1 code.  */
-extern int thumb1_code;
 
 /* Nonzero if this chip is a StrongARM.  */
 extern int arm_tune_strongarm;
@@ -1360,46 +1361,6 @@ enum reg_class
      ? GENERAL_REGS : NO_REGS)					\
     : THUMB_SECONDARY_INPUT_RELOAD_CLASS (CLASS, MODE, X)))
 
-/* Try a machine-dependent way of reloading an illegitimate address
-   operand.  If we find one, push the reload and jump to WIN.  This
-   macro is used in only one place: `find_reloads_address' in reload.c.
-
-   For the ARM, we wish to handle large displacements off a base
-   register by splitting the addend across a MOV and the mem insn.
-   This can cut the number of reloads needed.  */
-#define ARM_LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND, WIN)	   \
-  do									   \
-    {									   \
-      if (arm_legitimize_reload_address (&X, MODE, OPNUM, TYPE, IND))	   \
-	goto WIN;							   \
-    }									   \
-  while (0)
-
-/* XXX If an HImode FP+large_offset address is converted to an HImode
-   SP+large_offset address, then reload won't know how to fix it.  It sees
-   only that SP isn't valid for HImode, and so reloads the SP into an index
-   register, but the resulting address is still invalid because the offset
-   is too big.  We fix it here instead by reloading the entire address.  */
-/* We could probably achieve better results by defining PROMOTE_MODE to help
-   cope with the variances between the Thumb's signed and unsigned byte and
-   halfword load instructions.  */
-/* ??? This should be safe for thumb2, but we may be able to do better.  */
-#define THUMB_LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_L, WIN)     \
-do {									      \
-  rtx new_x = thumb_legitimize_reload_address (&X, MODE, OPNUM, TYPE, IND_L); \
-  if (new_x)								      \
-    {									      \
-      X = new_x;							      \
-      goto WIN;								      \
-    }									      \
-} while (0)
-
-#define LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN)   \
-  if (TARGET_ARM)							   \
-    ARM_LEGITIMIZE_RELOAD_ADDRESS (X, MODE, OPNUM, TYPE, IND_LEVELS, WIN); \
-  else									   \
-    THUMB_LEGITIMIZE_RELOAD_ADDRESS (X, MODE, OPNUM, TYPE, IND_LEVELS, WIN)
-
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
    ARM regs are UNITS_PER_WORD bits.  
@@ -2222,23 +2183,7 @@ extern int making_const_table;
    ? 1 : 0)
 
 #define ARM_DECLARE_FUNCTION_NAME(STREAM, NAME, DECL) 	\
-  do							\
-    {							\
-      if (TARGET_THUMB) 				\
-        {						\
-          if (is_called_in_ARM_mode (DECL)		\
-	      || (TARGET_THUMB1 && !TARGET_THUMB1_ONLY	\
-		  && cfun->is_thunk))	\
-            fprintf (STREAM, "\t.code 32\n") ;		\
-          else if (TARGET_THUMB1)			\
-           fprintf (STREAM, "\t.code\t16\n\t.thumb_func\n") ;	\
-          else						\
-           fprintf (STREAM, "\t.thumb\n\t.thumb_func\n") ;	\
-        }						\
-      if (TARGET_POKE_FUNCTION_NAME)			\
-        arm_poke_function_name (STREAM, (const char *) NAME);	\
-    }							\
-  while (0)
+  arm_declare_function_name ((STREAM), (NAME), (DECL));
 
 /* For aliases of functions we use .thumb_set instead.  */
 #define ASM_OUTPUT_DEF_FROM_DECLS(FILE, DECL1, DECL2)		\

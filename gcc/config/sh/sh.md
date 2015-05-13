@@ -5964,7 +5964,7 @@ label:
    When we're here, the not:SI pattern obviously has been matched already
    and we only have to see whether the following insn is the left shift.  */
 
-  rtx i = next_nonnote_insn_bb (curr_insn);
+  rtx_insn *i = next_nonnote_insn_bb (curr_insn);
   if (i == NULL_RTX || !NONJUMP_INSN_P (i))
     FAIL;
 
@@ -10417,7 +10417,7 @@ label:
 	       mach as operand 2, so let the instructions that
 	       preserve r0 be optimized away if r0 turns out to be
 	       dead.  */
-	    emit_insn_before (gen_rtx_SET (SImode, tmp, r0), insn);
+	    emit_insn_before (gen_rtx_SET (tmp, r0), insn);
 	    emit_move_insn (r0, tmp);
 	    break;
 	  }

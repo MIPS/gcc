@@ -3073,7 +3073,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    ARGUMENT_PACK_SELECT represents. */
 #define ARGUMENT_PACK_SELECT_ARG(NODE)					\
   TREE_VEC_ELT (ARGUMENT_PACK_ARGS (ARGUMENT_PACK_SELECT_FROM_PACK (NODE)), \
-	        ARGUMENT_PACK_SELECT_INDEX (NODE));
+	        ARGUMENT_PACK_SELECT_INDEX (NODE))
 
 /* In a FUNCTION_DECL, the saved language-specific per-function data.  */
 #define DECL_SAVED_FUNCTION_DATA(NODE)			\
@@ -5447,6 +5447,7 @@ extern tree finish_case_label			(location_t, tree, tree);
 extern tree cxx_maybe_build_cleanup		(tree, tsubst_flags_t);
 
 /* in decl2.c */
+extern void note_mangling_alias			(tree, tree);
 extern bool check_java_method			(tree);
 extern tree build_memfn_type			(tree, tree, cp_cv_quals, cp_ref_qualifier);
 extern tree build_pointer_ptrmemfn_type	(tree);
@@ -6066,8 +6067,8 @@ extern bool class_tmpl_impl_spec_p		(const_tree);
 extern int zero_init_p				(const_tree);
 extern bool check_abi_tag_redeclaration		(const_tree, const_tree, const_tree);
 extern bool check_abi_tag_args			(tree, tree);
-extern tree strip_typedefs			(tree);
-extern tree strip_typedefs_expr			(tree);
+extern tree strip_typedefs			(tree, bool * = NULL);
+extern tree strip_typedefs_expr			(tree, bool * = NULL);
 extern tree copy_binfo				(tree, tree, tree,
 						 tree *, int);
 extern int member_p				(const_tree);

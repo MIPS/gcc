@@ -1197,10 +1197,16 @@ extern void protected_set_expr_location (tree, location_t);
 
 /* OpenMP and OpenACC directive and clause accessors.  */
 
+/* Generic accessors for OMP nodes that keep the body as operand 0, and clauses
+   as operand 1.  */
 #define OMP_BODY(NODE) \
   TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_PARALLEL, OMP_CRITICAL), 0)
 #define OMP_CLAUSES(NODE) \
   TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_PARALLEL, OMP_SINGLE), 1)
+
+/* Generic accessors for OMP nodes that keep clauses as operand 0.  */
+#define OMP_STANDALONE_CLAUSES(NODE) \
+  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_CACHE, OMP_TARGET_UPDATE), 0)
 
 #define OACC_PARALLEL_BODY(NODE) \
   TREE_OPERAND (OACC_PARALLEL_CHECK (NODE), 0)
@@ -3888,6 +3894,8 @@ extern tree build_type_attribute_variant (tree, tree);
 extern tree build_decl_attribute_variant (tree, tree);
 extern tree build_type_attribute_qual_variant (tree, tree, int);
 
+extern bool attribute_value_equal (const_tree, const_tree);
+
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a
    warning to be generated).  */
@@ -4493,6 +4501,7 @@ extern tree drop_tree_overflow (tree);
 extern int tree_map_base_eq (const void *, const void *);
 extern unsigned int tree_map_base_hash (const void *);
 extern int tree_map_base_marked_p (const void *);
+extern void DEBUG_FUNCTION verify_type (const_tree t);
 
 #define tree_map_eq tree_map_base_eq
 extern unsigned int tree_map_hash (const void *);
@@ -4612,7 +4621,7 @@ more_call_expr_args_p (const call_expr_arg_iterator *iter)
 
 /* Return true if tree node T is a language-specific node.  */
 static inline bool
-is_lang_specific (tree t)
+is_lang_specific (const_tree t)
 {
   return TREE_CODE (t) == LANG_TYPE || TREE_CODE (t) >= NUM_TREE_CODES;
 }

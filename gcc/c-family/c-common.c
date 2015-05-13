@@ -256,9 +256,9 @@ const char *constant_string_class_name;
 
 int flag_use_repository;
 
-/* The C++ dialect being used. C++98 is the default.  */
+/* The C++ dialect being used.  Default set in c_common_post_options.  */
 
-enum cxx_dialect cxx_dialect = cxx98;
+enum cxx_dialect cxx_dialect = cxx_unset;
 
 /* Maximum template instantiation depth.  This limit exists to limit the
    time it takes to notice excessively recursive template instantiations.
@@ -1368,6 +1368,14 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 	  && !TREE_OVERFLOW_P (op0)
 	  && !TREE_OVERFLOW_P (op1))
 	overflow_warning (EXPR_LOCATION (expr), ret);
+      if (code == LSHIFT_EXPR
+	  && TREE_CODE (orig_op0) != INTEGER_CST
+	  && TREE_CODE (TREE_TYPE (orig_op0)) == INTEGER_TYPE
+	  && TREE_CODE (op0) == INTEGER_CST
+	  && c_inhibit_evaluation_warnings == 0
+	  && tree_int_cst_sgn (op0) < 0)
+	warning_at (loc, OPT_Wshift_negative_value,
+		    "left shift of negative value");
       if ((code == LSHIFT_EXPR || code == RSHIFT_EXPR)
 	  && TREE_CODE (orig_op1) != INTEGER_CST
 	  && TREE_CODE (op1) == INTEGER_CST
@@ -1377,15 +1385,17 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 	  && c_inhibit_evaluation_warnings == 0)
 	{
 	  if (tree_int_cst_sgn (op1) < 0)
-	    warning_at (loc, 0, (code == LSHIFT_EXPR
-				 ? G_("left shift count is negative")
-				 : G_("right shift count is negative")));
+	    warning_at (loc, OPT_Wshift_count_negative,
+			(code == LSHIFT_EXPR
+			 ? G_("left shift count is negative")
+			 : G_("right shift count is negative")));
 	  else if (compare_tree_int (op1,
 				     TYPE_PRECISION (TREE_TYPE (orig_op0)))
 		   >= 0)
-	    warning_at (loc, 0, (code == LSHIFT_EXPR
-				 ? G_("left shift count >= width of type")
-				 : G_("right shift count >= width of type")));
+	    warning_at (loc, OPT_Wshift_count_overflow,
+			(code == LSHIFT_EXPR
+			 ? G_("left shift count >= width of type")
+			 : G_("right shift count >= width of type")));
 	}
       if ((code == TRUNC_DIV_EXPR
 	   || code == CEIL_DIV_EXPR
@@ -1704,6 +1714,13 @@ warn_logical_operator (location_t location, enum tree_code code, tree type,
       && code != TRUTH_OR_EXPR)
     return;
 
+  /* We don't want to warn if either operand comes from a macro
+     expansion.  ??? This doesn't work with e.g. NEGATE_EXPR yet;
+     see PR61534.  */
+  if (from_macro_expansion_at (EXPR_LOCATION (op_left))
+      || from_macro_expansion_at (EXPR_LOCATION (op_right)))
+    return;
+
   /* Warn if &&/|| are being used in a context where it is
      likely that the bitwise equivalent was intended by the
      programmer. That is, an expression such as op && MASK
@@ -1779,22 +1796,35 @@ warn_logical_operator (location_t location, enum tree_code code, tree type,
     return;
 
   /* If both expressions have the same operand, if we can merge the
-     ranges, and if the range test is always false, then warn.  */
+     ranges, ...  */
   if (operand_equal_p (lhs, rhs, 0)
       && merge_ranges (&in_p, &low, &high, in0_p, low0, high0,
-		       in1_p, low1, high1)
-      && 0 != (tem = build_range_check (UNKNOWN_LOCATION,
-					type, lhs, in_p, low, high))
-      && integer_zerop (tem))
+		       in1_p, low1, high1))
     {
-      if (or_op)
-        warning_at (location, OPT_Wlogical_op,
-                    "logical %<or%> "
-                    "of collectively exhaustive tests is always true");
-      else
-        warning_at (location, OPT_Wlogical_op,
-                    "logical %<and%> "
-                    "of mutually exclusive tests is always false");
+      tem = build_range_check (UNKNOWN_LOCATION, type, lhs, in_p, low, high);
+      /* ... and if the range test is always false, then warn.  */
+      if (tem && integer_zerop (tem))
+	{
+	  if (or_op)
+	    warning_at (location, OPT_Wlogical_op,
+			"logical %<or%> of collectively exhaustive tests is "
+			"always true");
+	  else
+	    warning_at (location, OPT_Wlogical_op,
+			"logical %<and%> of mutually exclusive tests is "
+			"always false");
+	}
+      /* Or warn if the operands have exactly the same range, e.g.
+	 A > 0 && A > 0.  */
+      else if (low0 == low1 && high0 == high1)
+	{
+	  if (or_op)
+	    warning_at (location, OPT_Wlogical_op,
+			"logical %<or%> of equal expressions");
+	  else
+	    warning_at (location, OPT_Wlogical_op,
+			"logical %<and%> of equal expressions");
+	}
     }
 }
 
@@ -5895,6 +5925,10 @@ set_compound_literal_name (tree decl)
 tree
 build_va_arg (location_t loc, tree expr, tree type)
 {
+  /* In gimplify_va_arg_expr we take the address of the ap argument, mark it
+     addressable now.  */
+  mark_addressable (expr);
+
   expr = build1 (VA_ARG_EXPR, type, expr);
   SET_EXPR_LOCATION (expr, loc);
   return expr;
@@ -7608,58 +7642,59 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 {
   tree decl = *node;
 
-  if (targetm_common.have_named_sections)
-    {
-      user_defined_section_attribute = true;
-
-      if ((TREE_CODE (decl) == FUNCTION_DECL
-	   || TREE_CODE (decl) == VAR_DECL)
-	  && TREE_CODE (TREE_VALUE (args)) == STRING_CST)
-	{
-	  if (TREE_CODE (decl) == VAR_DECL
-	      && current_function_decl != NULL_TREE
-	      && !TREE_STATIC (decl))
-	    {
-	      error_at (DECL_SOURCE_LOCATION (decl),
-			"section attribute cannot be specified for "
-			"local variables");
-	      *no_add_attrs = true;
-	    }
-
-	  /* The decl may have already been given a section attribute
-	     from a previous declaration.  Ensure they match.  */
-	  else if (DECL_SECTION_NAME (decl) != NULL
-		   && strcmp (DECL_SECTION_NAME (decl),
-			      TREE_STRING_POINTER (TREE_VALUE (args))) != 0)
-	    {
-	      error ("section of %q+D conflicts with previous declaration",
-		     *node);
-	      *no_add_attrs = true;
-	    }
-	  else if (TREE_CODE (decl) == VAR_DECL
-		   && !targetm.have_tls && targetm.emutls.tmpl_section
-		   && DECL_THREAD_LOCAL_P (decl))
-	    {
-	      error ("section of %q+D cannot be overridden", *node);
-	      *no_add_attrs = true;
-	    }
-	  else
-	    set_decl_section_name (decl,
-				   TREE_STRING_POINTER (TREE_VALUE (args)));
-	}
-      else
-	{
-	  error ("section attribute not allowed for %q+D", *node);
-	  *no_add_attrs = true;
-	}
-    }
-  else
+  if (!targetm_common.have_named_sections)
     {
       error_at (DECL_SOURCE_LOCATION (*node),
 		"section attributes are not supported for this target");
-      *no_add_attrs = true;
+      goto fail;
     }
 
+  user_defined_section_attribute = true;
+
+  if (TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
+    {
+      error ("section attribute not allowed for %q+D", *node);
+      goto fail;
+    }
+
+  if (TREE_CODE (TREE_VALUE (args)) != STRING_CST)
+    {
+      error ("section attribute argument not a string constant");
+      goto fail;
+    }
+
+  if (TREE_CODE (decl) == VAR_DECL
+      && current_function_decl != NULL_TREE
+      && !TREE_STATIC (decl))
+    {
+      error_at (DECL_SOURCE_LOCATION (decl),
+                "section attribute cannot be specified for local variables");
+      goto fail;
+    }
+
+  /* The decl may have already been given a section attribute
+     from a previous declaration.  Ensure they match.  */
+  if (DECL_SECTION_NAME (decl) != NULL
+      && strcmp (DECL_SECTION_NAME (decl),
+                 TREE_STRING_POINTER (TREE_VALUE (args))) != 0)
+    {
+      error ("section of %q+D conflicts with previous declaration", *node);
+      goto fail;
+    }
+
+  if (TREE_CODE (decl) == VAR_DECL
+      && !targetm.have_tls && targetm.emutls.tmpl_section
+      && DECL_THREAD_LOCAL_P (decl))
+    {
+      error ("section of %q+D cannot be overridden", *node);
+      goto fail;
+    }
+
+  set_decl_section_name (decl, TREE_STRING_POINTER (TREE_VALUE (args)));
+  return NULL_TREE;
+
+fail:
+  *no_add_attrs = true;
   return NULL_TREE;
 }
 
@@ -11916,8 +11951,8 @@ maybe_warn_bool_compare (location_t loc, enum tree_code code, tree op0,
 
   if (!integer_zerop (cst) && !integer_onep (cst))
     {
-      int sign = (TREE_CODE (op0) == INTEGER_CST)
-		 ? tree_int_cst_sgn (cst) : -tree_int_cst_sgn (cst);
+      int sign = (TREE_CODE (op0) == INTEGER_CST
+		 ? tree_int_cst_sgn (cst) : -tree_int_cst_sgn (cst));
       if (code == EQ_EXPR
 	  || ((code == GT_EXPR || code == GE_EXPR) && sign < 0)
 	  || ((code == LT_EXPR || code == LE_EXPR) && sign > 0))
@@ -11926,6 +11961,29 @@ maybe_warn_bool_compare (location_t loc, enum tree_code code, tree op0,
       else
 	warning_at (loc, OPT_Wbool_compare, "comparison of constant %qE "
 		    "with boolean expression is always true", cst);
+    }
+  else if (integer_zerop (cst) || integer_onep (cst))
+    {
+      /* If the non-constant operand isn't of a boolean type, we
+	 don't want to warn here.  */
+      tree noncst = TREE_CODE (op0) == INTEGER_CST ? op1 : op0;
+      /* Handle booleans promoted to integers.  */
+      if (CONVERT_EXPR_P (noncst)
+	  && TREE_TYPE (noncst) == integer_type_node
+	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (noncst, 0))) == BOOLEAN_TYPE)
+	/* Warn.  */;
+      else if (TREE_CODE (TREE_TYPE (noncst)) != BOOLEAN_TYPE
+	       && !truth_value_p (TREE_CODE (noncst)))
+	return;
+      /* Do some magic to get the right diagnostics.  */
+      bool flag = TREE_CODE (op0) == INTEGER_CST;
+      flag = integer_zerop (cst) ? flag : !flag;
+      if ((code == GE_EXPR && !flag) || (code == LE_EXPR && flag))
+	warning_at (loc, OPT_Wbool_compare, "comparison of constant %qE "
+		    "with boolean expression is always true", cst);
+      else if ((code == LT_EXPR && !flag) || (code == GT_EXPR && flag))
+	warning_at (loc, OPT_Wbool_compare, "comparison of constant %qE "
+		    "with boolean expression is always false", cst);
     }
 }
 

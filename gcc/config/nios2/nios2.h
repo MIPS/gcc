@@ -306,7 +306,7 @@ typedef struct nios2_args
 
 /* It is as good to call a constant function address as to call an address
    kept in a register.  */
-#define NO_FUNCTION_CSE
+#define NO_FUNCTION_CSE 1
 
 /* Position independent code.  */
 
@@ -435,7 +435,7 @@ do                                                                      \
   {									\
     fprintf ((FILE), "%s", COMMON_ASM_OP);				\
     assemble_name ((FILE), (NAME));					\
-    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", (SIZE),	\
+    fprintf ((FILE), "," HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", (SIZE),	\
 	     (ALIGN) / BITS_PER_UNIT);					\
   }									\
 while (0)

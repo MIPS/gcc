@@ -61,20 +61,20 @@ struct loc
 
 struct bitmap_desc_hasher : typed_noop_remove <bitmap_descriptor_d>
 {
-  typedef bitmap_descriptor_d value_type;
-  typedef loc compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef bitmap_descriptor_d *value_type;
+  typedef loc *compare_type;
+  static inline hashval_t hash (const bitmap_descriptor_d *);
+  static inline bool equal (const bitmap_descriptor_d *, const loc *);
 };
 
 inline hashval_t
-bitmap_desc_hasher::hash (const value_type *d)
+bitmap_desc_hasher::hash (const bitmap_descriptor_d *d)
 {
   return htab_hash_pointer (d->file) + d->line;
 }
 
 inline bool
-bitmap_desc_hasher::equal (const value_type *d, const compare_type *l)
+bitmap_desc_hasher::equal (const bitmap_descriptor_d *d, const loc *l)
 {
   return d->file == l->file && d->function == l->function && d->line == l->line;
 }
@@ -2170,8 +2170,8 @@ print_statistics (bitmap_descriptor_d **slot, bitmap_output_info *i)
       sprintf (s, "%s:%i (%s)", s1, d->line, d->function);
       s[41] = 0;
       fprintf (stderr,
-	       "%-41s %9u %15"PRId64" %15"PRId64" %15"PRId64
-	       " %10"PRId64" %10"PRId64"\n",
+	       "%-41s %9u %15" PRId64" %15" PRId64" %15" PRId64
+	       " %10" PRId64" %10" PRId64"\n",
 	       s, d->created,
 	       d->allocated, d->peak, d->current,
 	       d->nsearches, d->search_iter);
@@ -2204,7 +2204,7 @@ dump_bitmap_statistics (void)
   bitmap_desc_hash->traverse <bitmap_output_info *, print_statistics> (&info);
   fprintf (stderr, "---------------------------------------------------------------------------------\n");
   fprintf (stderr,
-	   "%-41s %9"PRId64" %15"PRId64"\n",
+	   "%-41s %9" PRId64" %15" PRId64"\n",
 	   "Total", info.count, info.size);
   fprintf (stderr, "---------------------------------------------------------------------------------\n");
 }

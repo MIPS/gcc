@@ -2424,7 +2424,7 @@ check_explicit_specialization (tree declarator,
   switch (tsk)
     {
     case tsk_none:
-      if (processing_specialization)
+      if (processing_specialization && TREE_CODE (decl) != VAR_DECL)
 	{
 	  specialization = 1;
 	  SET_DECL_TEMPLATE_SPECIALIZATION (decl);
@@ -3338,9 +3338,9 @@ make_pack_expansion (tree arg)
   if (!arg || arg == error_mark_node)
     return arg;
 
-  if (TREE_CODE (arg) == TREE_LIST)
+  if (TREE_CODE (arg) == TREE_LIST && TREE_PURPOSE (arg))
     {
-      /* The only time we will see a TREE_LIST here is for a base
+      /* A TREE_LIST with a non-null TREE_PURPOSE is for a base
          class initializer.  In this case, the TREE_PURPOSE will be a
          _TYPE node (representing the base class expansion we're
          initializing) and the TREE_VALUE will be a TREE_LIST
@@ -6493,20 +6493,14 @@ template_template_parm_bindings_ok_p (tree tparms, tree targs)
 static tree
 canonicalize_type_argument (tree arg, tsubst_flags_t complain)
 {
-  tree mv;
   if (!arg || arg == error_mark_node || arg == TYPE_CANONICAL (arg))
     return arg;
-  mv = TYPE_MAIN_VARIANT (arg);
-  arg = strip_typedefs (arg);
-  if (TYPE_ALIGN (arg) != TYPE_ALIGN (mv)
-      || TYPE_ATTRIBUTES (arg) != TYPE_ATTRIBUTES (mv))
-    {
-      if (complain & tf_warning)
-	warning (0, "ignoring attributes on template argument %qT", arg);
-      arg = build_aligned_type (arg, TYPE_ALIGN (mv));
-      arg = cp_build_type_attribute_variant (arg, TYPE_ATTRIBUTES (mv));
-    }
-  return arg;
+  bool removed_attributes = false;
+  tree canon = strip_typedefs (arg, &removed_attributes);
+  if (removed_attributes
+      && (complain & tf_warning))
+    warning (0, "ignoring attributes on template argument %qT", arg);
+  return canon;
 }
 
 /* Convert the indicated template ARG as necessary to match the
@@ -6743,7 +6737,10 @@ convert_template_argument (tree parm,
 	   argument specification is valid.  */
 	val = convert_nontype_argument (t, orig_arg, complain);
       else
-	val = strip_typedefs_expr (orig_arg);
+	{
+	  bool removed_attr = false;
+	  val = strip_typedefs_expr (orig_arg, &removed_attr);
+	}
 
       if (val == NULL_TREE)
 	val = error_mark_node;
@@ -7724,60 +7721,10 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       /* Calculate the BOUND_ARGS.  These will be the args that are
 	 actually tsubst'd into the definition to create the
 	 instantiation.  */
-      if (parm_depth > 1)
-	{
-	  /* We have multiple levels of arguments to coerce, at once.  */
-	  int i;
-	  int saved_depth = TMPL_ARGS_DEPTH (arglist);
-
-	  tree bound_args = make_tree_vec (parm_depth);
-
-	  for (i = saved_depth,
-		 t = DECL_TEMPLATE_PARMS (gen_tmpl);
-	       i > 0 && t != NULL_TREE;
-	       --i, t = TREE_CHAIN (t))
-	    {
-	      tree a;
-	      if (i == saved_depth)
-		a = coerce_template_parms (TREE_VALUE (t),
-					   arglist, gen_tmpl,
-					   complain,
-					   /*require_all_args=*/true,
-					   /*use_default_args=*/true);
-	      else
-		/* Outer levels should have already been coerced.  */
-		a = TMPL_ARGS_LEVEL (arglist, i);
-
-	      /* Don't process further if one of the levels fails.  */
-	      if (a == error_mark_node)
-		{
-		  /* Restore the ARGLIST to its full size.  */
-		  TREE_VEC_LENGTH (arglist) = saved_depth;
-		  return error_mark_node;
-		}
-
-	      SET_TMPL_ARGS_LEVEL (bound_args, i, a);
-
-	      /* We temporarily reduce the length of the ARGLIST so
-		 that coerce_template_parms will see only the arguments
-		 corresponding to the template parameters it is
-		 examining.  */
-	      TREE_VEC_LENGTH (arglist)--;
-	    }
-
-	  /* Restore the ARGLIST to its full size.  */
-	  TREE_VEC_LENGTH (arglist) = saved_depth;
-
-	  arglist = bound_args;
-	}
-      else
-	arglist
-	  = coerce_template_parms (INNERMOST_TEMPLATE_PARMS (parmlist),
-				   INNERMOST_TEMPLATE_ARGS (arglist),
-				   gen_tmpl,
-				   complain,
-				   /*require_all_args=*/true,
-				   /*use_default_args=*/true);
+      arglist = coerce_innermost_template_parms (parmlist, arglist, gen_tmpl,
+						 complain,
+						 /*require_all_args=*/true,
+						 /*use_default_args=*/true);
 
       if (arglist == error_mark_node)
 	/* We were unable to bind the arguments.  */
@@ -9065,6 +9012,21 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 		      = tree_cons (NULL_TREE, TREE_VALUE (TREE_VALUE (t)),
 				   chain);
 		}
+	      else if (TREE_VALUE (t) && PACK_EXPANSION_P (TREE_VALUE (t)))
+		{
+		  /* An attribute pack expansion.  */
+		  tree purp = TREE_PURPOSE (t);
+		  tree pack = (tsubst_pack_expansion
+			       (TREE_VALUE (t), args, complain, in_decl));
+		  int len = TREE_VEC_LENGTH (pack);
+		  for (int i = 0; i < len; ++i)
+		    {
+		      tree elt = TREE_VEC_ELT (pack, i);
+		      *q = build_tree_list (purp, elt);
+		      q = &TREE_CHAIN (*q);
+		    }
+		  continue;
+		}
 	      else
 		TREE_VALUE (t)
 		  = tsubst_expr (TREE_VALUE (t), args, complain, in_decl,
@@ -9883,7 +9845,8 @@ gen_elem_of_pack_expansion_instantiation (tree pattern,
 	  if (index == 0)
 	    {
 	      aps = make_argument_pack_select (arg_pack, index);
-	      mark_used (parm);
+	      if (!mark_used (parm, complain) && !(complain & tf_error))
+		return error_mark_node;
 	      register_local_specialization (aps, parm);
 	    }
 	  else
@@ -12653,8 +12616,9 @@ tsubst_baselink (tree baselink, tree object_type,
        point.)  */
     if (BASELINK_P (baselink))
       fns = BASELINK_FUNCTIONS (baselink);
-    if (!template_id_p && !really_overloaded_fn (fns))
-      mark_used (OVL_CURRENT (fns));
+    if (!template_id_p && !really_overloaded_fn (fns)
+	&& !mark_used (OVL_CURRENT (fns), complain) && !(complain & tf_error))
+      return error_mark_node;
 
     /* Add back the template arguments, if present.  */
     if (BASELINK_P (baselink) && template_id_p)
@@ -12769,7 +12733,8 @@ tsubst_qualified_id (tree qualified_id, tree args,
       check_accessibility_of_qualified_id (expr, /*object_type=*/NULL_TREE,
 					   scope);
       /* Remember that there was a reference to this entity.  */
-      mark_used (expr);
+      if (!mark_used (expr, complain) && !(complain & tf_error))
+	return error_mark_node;
     }
 
   if (expr == error_mark_node || TREE_CODE (expr) == TREE_LIST)
@@ -12879,7 +12844,8 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       
       if (TREE_CODE (r) == ARGUMENT_PACK_SELECT)
 	r = ARGUMENT_PACK_SELECT_ARG (r);
-      mark_used (r);
+      if (!mark_used (r, complain) && !(complain & tf_error))
+	return error_mark_node;
       return r;
 
     case CONST_DECL:
@@ -13036,7 +13002,8 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	}
       else
 	r = t;
-      mark_used (r);
+      if (!mark_used (r, complain) && !(complain & tf_error))
+	return error_mark_node;
       return r;
 
     case NAMESPACE_DECL:
@@ -13400,7 +13367,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	tree op1 = tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl);
 	r = build2 (code, type, op0, op1);
 	PTRMEM_OK_P (r) = PTRMEM_OK_P (t);
-	mark_used (TREE_OPERAND (r, 1));
+	if (!mark_used (TREE_OPERAND (r, 1), complain)
+	    && !(complain & tf_error))
+	  return error_mark_node;
 	return r;
       }
 
@@ -14249,7 +14218,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       tmp = tsubst_omp_clauses (OMP_TARGET_UPDATE_CLAUSES (t), false,
 				args, complain, in_decl);
       t = copy_node (t);
-      OMP_CLAUSES (t) = tmp;
+      OMP_TARGET_UPDATE_CLAUSES (t) = tmp;
       add_stmt (t);
       break;
 
@@ -14918,8 +14887,9 @@ tsubst_copy_and_build (tree t,
       op1 = tsubst_non_call_postfix_expression (TREE_OPERAND (t, 0),
 						args, complain, in_decl);
       /* Remember that there was a reference to this entity.  */
-      if (DECL_P (op1))
-	mark_used (op1);
+      if (DECL_P (op1)
+	  && !mark_used (op1, complain) && !(complain & tf_error))
+	RETURN (error_mark_node);
       RETURN (build_x_arrow (input_location, op1, complain));
 
     case NEW_EXPR:
@@ -15170,8 +15140,9 @@ tsubst_copy_and_build (tree t,
 	  }
 
 	/* Remember that there was a reference to this entity.  */
-	if (DECL_P (function))
-	  mark_used (function, complain);
+	if (DECL_P (function)
+	    && !mark_used (function, complain) && !(complain & tf_error))
+	  RETURN (error_mark_node);
 
 	/* Put back tf_decltype for the actual call.  */
 	complain |= decltype_flag;
@@ -15354,8 +15325,9 @@ tsubst_copy_and_build (tree t,
 	object = tsubst_non_call_postfix_expression (TREE_OPERAND (t, 0),
 						     args, complain, in_decl);
 	/* Remember that there was a reference to this entity.  */
-	if (DECL_P (object))
-	  mark_used (object);
+	if (DECL_P (object)
+	    && !mark_used (object, complain) && !(complain & tf_error))
+	  RETURN (error_mark_node);
 	object_type = TREE_TYPE (object);
 
 	member = TREE_OPERAND (t, 1);
@@ -18242,7 +18214,10 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 	  && !TEMPLATE_PARM_PARAMETER_PACK (parm))
 	return unify_parameter_pack_mismatch (explain_p, parm, arg);
 
-      arg = strip_typedefs_expr (arg);
+      {
+	bool removed_attr = false;
+	arg = strip_typedefs_expr (arg, &removed_attr);
+      }
       TREE_VEC_ELT (INNERMOST_TEMPLATE_ARGS (targs), idx) = arg;
       return unify_success (explain_p);
 

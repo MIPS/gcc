@@ -2478,7 +2478,6 @@
   "ISA_HAS_FP_MADD4_MSUB4 && TARGET_FUSED_MADD"
   "madd.<fmt>\t%0,%3,%1,%2"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"3")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "fma<mode>4"
@@ -2499,7 +2498,6 @@
   "ISA_HAS_FP_MADD3_MSUB3 && TARGET_FUSED_MADD"
   "madd.<fmt>\t%0,%1,%2"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"3")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "*msub4<mode>"
@@ -2510,7 +2508,6 @@
   "ISA_HAS_FP_MADD4_MSUB4 && TARGET_FUSED_MADD"
   "msub.<fmt>\t%0,%3,%1,%2"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"3")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "*msub3<mode>"
@@ -2521,7 +2518,6 @@
   "ISA_HAS_FP_MADD3_MSUB3 && TARGET_FUSED_MADD"
   "msub.<fmt>\t%0,%1,%2"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"3")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "*nmadd4<mode>"
@@ -2536,7 +2532,6 @@
    && !HONOR_NANS (<MODE>mode)"
   "nmadd.<fmt>\t%0,%3,%1,%2"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"3")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "*nmadd3<mode>"
@@ -2551,7 +2546,6 @@
    && !HONOR_NANS (<MODE>mode)"
   "nmadd.<fmt>\t%0,%1,%2"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"3")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "*nmadd4<mode>_fastmath"
@@ -2566,7 +2560,6 @@
    && !HONOR_NANS (<MODE>mode)"
   "nmadd.<fmt>\t%0,%3,%1,%2"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"3")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "*nmadd3<mode>_fastmath"
@@ -2581,7 +2574,6 @@
    && !HONOR_NANS (<MODE>mode)"
   "nmadd.<fmt>\t%0,%1,%2"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"3")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "*nmsub4<mode>"
@@ -2596,7 +2588,6 @@
    && !HONOR_NANS (<MODE>mode)"
   "nmsub.<fmt>\t%0,%1,%2,%3"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"1")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "*nmsub3<mode>"
@@ -2611,7 +2602,6 @@
    && !HONOR_NANS (<MODE>mode)"
   "nmsub.<fmt>\t%0,%1,%2"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"1")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "*nmsub4<mode>_fastmath"
@@ -2626,7 +2616,6 @@
    && !HONOR_NANS (<MODE>mode)"
   "nmsub.<fmt>\t%0,%1,%2,%3"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"1")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "*nmsub3<mode>_fastmath"
@@ -2641,7 +2630,6 @@
    && !HONOR_NANS (<MODE>mode)"
   "nmsub.<fmt>\t%0,%1,%2"
   [(set_attr "type" "fmadd")
-   (set_attr "accum_in"	"1")
    (set_attr "mode" "<UNITMODE>")])
 
 ;;
@@ -3889,8 +3877,8 @@
       emit_jump_insn (gen_cbranchdf4 (test, operands[1], reg1, label1));
 
       emit_insn (gen_fix_truncdfsi2 (operands[0], operands[1]));
-      emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-				   gen_rtx_LABEL_REF (VOIDmode, label2)));
+      emit_jump_insn (gen_rtx_SET (pc_rtx,
+                                   gen_rtx_LABEL_REF (VOIDmode, label2)));
       emit_barrier ();
 
       emit_label (label1);
@@ -3933,8 +3921,7 @@
   emit_jump_insn (gen_cbranchdf4 (test, operands[1], reg1, label1));
 
   emit_insn (gen_fix_truncdfdi2 (operands[0], operands[1]));
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-			       gen_rtx_LABEL_REF (VOIDmode, label2)));
+  emit_jump_insn (gen_rtx_SET (pc_rtx, gen_rtx_LABEL_REF (VOIDmode, label2)));
   emit_barrier ();
 
   emit_label (label1);
@@ -3976,8 +3963,7 @@
   emit_jump_insn (gen_cbranchsf4 (test, operands[1], reg1, label1));
 
   emit_insn (gen_fix_truncsfsi2 (operands[0], operands[1]));
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-			       gen_rtx_LABEL_REF (VOIDmode, label2)));
+  emit_jump_insn (gen_rtx_SET (pc_rtx, gen_rtx_LABEL_REF (VOIDmode, label2)));
   emit_barrier ();
 
   emit_label (label1);
@@ -4019,8 +4005,7 @@
   emit_jump_insn (gen_cbranchsf4 (test, operands[1], reg1, label1));
 
   emit_insn (gen_fix_truncsfdi2 (operands[0], operands[1]));
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-			       gen_rtx_LABEL_REF (VOIDmode, label2)));
+  emit_jump_insn (gen_rtx_SET (pc_rtx, gen_rtx_LABEL_REF (VOIDmode, label2)));
   emit_barrier ();
 
   emit_label (label1);

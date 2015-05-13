@@ -490,7 +490,7 @@ extern rtx hppa_pic_save_rtx (void);
 /* #define STACK_GROWS_DOWNWARD */
 
 /* Believe it or not.  */
-#define ARGS_GROW_DOWNWARD
+#define ARGS_GROW_DOWNWARD 1
 
 /* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
@@ -1048,7 +1048,7 @@ do {									     \
    shouldn't be put through pseudo regs where they can be cse'd.
    Desirable on machines where ordinary constants are expensive
    but a CALL with constant address is cheap.  */
-#define NO_FUNCTION_CSE
+#define NO_FUNCTION_CSE 1
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
    few bits.  */
@@ -1210,7 +1210,7 @@ do {									     \
     fprintf (FILE, "\t.align %d\n", (1<<(LOG)))
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.blockz "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
+  fprintf (FILE, "\t.blockz " HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
 	   (unsigned HOST_WIDE_INT)(SIZE))
 
 /* This says how to output an assembler line to define an uninitialized

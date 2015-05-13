@@ -1061,7 +1061,6 @@ struct oecount_hasher
 {
   typedef int value_type;
   typedef int compare_type;
-  typedef int store_values_directly;
   static inline hashval_t hash (const value_type &);
   static inline bool equal (const value_type &, const compare_type &);
   static bool is_deleted (int &v) { return v == 1; }
@@ -4550,7 +4549,7 @@ attempt_builtin_powi (gimple stmt, vec<operand_entry_t> *ops)
 		      if (elt < vec_len - 1)
 			fputs (" * ", dump_file);
 		    }
-		  fprintf (dump_file, ")^"HOST_WIDE_INT_PRINT_DEC"\n",
+		  fprintf (dump_file, ")^" HOST_WIDE_INT_PRINT_DEC"\n",
 			   power);
 		}
 	    }
@@ -4584,7 +4583,7 @@ attempt_builtin_powi (gimple stmt, vec<operand_entry_t> *ops)
 		  if (elt < vec_len - 1)
 		    fputs (" * ", dump_file);
 		}
-	      fprintf (dump_file, ")^"HOST_WIDE_INT_PRINT_DEC"\n", power);
+	      fprintf (dump_file, ")^" HOST_WIDE_INT_PRINT_DEC"\n", power);
 	    }
 
 	  reassociate_stats.pows_created++;

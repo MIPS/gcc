@@ -114,11 +114,11 @@ typedef struct counts_entry
   struct gcov_ctr_summary summary;
 
   /* hash_table support.  */
-  typedef counts_entry value_type;
-  typedef counts_entry compare_type;
-  static inline hashval_t hash (const value_type *);
-  static int equal (const value_type *, const compare_type *);
-  static void remove (value_type *);
+  typedef counts_entry *value_type;
+  typedef counts_entry *compare_type;
+  static inline hashval_t hash (const counts_entry *);
+  static int equal (const counts_entry *, const counts_entry *);
+  static void remove (counts_entry *);
 } counts_entry_t;
 
 static GTY(()) struct coverage_data *functions_head = 0;
@@ -197,20 +197,19 @@ get_gcov_unsigned_t (void)
 }
 
 inline hashval_t
-counts_entry::hash (const value_type *entry)
+counts_entry::hash (const counts_entry *entry)
 {
   return entry->ident * GCOV_COUNTERS + entry->ctr;
 }
 
 inline int
-counts_entry::equal (const value_type *entry1,
-		     const compare_type *entry2)
+counts_entry::equal (const counts_entry *entry1, const counts_entry *entry2)
 {
   return entry1->ident == entry2->ident && entry1->ctr == entry2->ctr;
 }
 
 inline void
-counts_entry::remove (value_type *entry)
+counts_entry::remove (counts_entry *entry)
 {
   free (entry->counts);
   free (entry);
@@ -1142,9 +1141,10 @@ coverage_obj_init (void)
   /* Build the info and fn_info types.  These are mutually recursive.  */
   gcov_info_type = lang_hooks.types.make_type (RECORD_TYPE);
   gcov_fn_info_type = lang_hooks.types.make_type (RECORD_TYPE);
+  build_fn_info_type (gcov_fn_info_type, n_counters, gcov_info_type);
+  gcov_info_type = lang_hooks.types.make_type (RECORD_TYPE);
   gcov_fn_info_ptr_type = build_pointer_type
     (build_qualified_type (gcov_fn_info_type, TYPE_QUAL_CONST));
-  build_fn_info_type (gcov_fn_info_type, n_counters, gcov_info_type);
   build_info_type (gcov_info_type, gcov_fn_info_ptr_type);
   
   /* Build the gcov info var, this is referred to in its own

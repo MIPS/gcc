@@ -802,13 +802,13 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
 	}
       else
 	{
-          if (warn_cxx0x_compat
+          if (warn_cxx11_compat
               && C_RID_CODE (token->u.value) >= RID_FIRST_CXX0X
               && C_RID_CODE (token->u.value) <= RID_LAST_CXX0X)
             {
               /* Warn about the C++0x keyword (but still treat it as
                  an identifier).  */
-              warning (OPT_Wc__0x_compat, 
+              warning (OPT_Wc__11_compat, 
                        "identifier %qE is a keyword in C++11",
                        token->u.value);
 
@@ -2193,7 +2193,7 @@ static tree finish_fully_implicit_template
 /* Classes [gram.class] */
 
 static tree cp_parser_class_name
-  (cp_parser *, bool, bool, enum tag_types, bool, bool, bool);
+  (cp_parser *, bool, bool, enum tag_types, bool, bool, bool, bool = false);
 static tree cp_parser_class_specifier
   (cp_parser *);
 static tree cp_parser_class_head
@@ -2957,10 +2957,13 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree id,
     return;
   /* If the lookup found a template-name, it means that the user forgot
   to specify an argument list. Emit a useful error message.  */
-  if (TREE_CODE (decl) == TEMPLATE_DECL)
-    error_at (location,
-	      "invalid use of template-name %qE without an argument list",
-	      decl);
+  if (DECL_TYPE_TEMPLATE_P (decl))
+    {
+      error_at (location,
+		"invalid use of template-name %qE without an argument list",
+		decl);
+      inform (DECL_SOURCE_LOCATION (decl), "%qD declared here", decl);
+    }
   else if (TREE_CODE (id) == BIT_NOT_EXPR)
     error_at (location, "invalid use of destructor %qD as a type", id);
   else if (TREE_CODE (decl) == TYPE_DECL)
@@ -3037,6 +3040,8 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree id,
 	    error_at (location_of (id),
 		      "%qE in namespace %qE does not name a type",
 		      id, parser->scope);
+	  if (DECL_P (decl))
+	    inform (DECL_SOURCE_LOCATION (decl), "%qD declared here", decl);
 	}
       else if (CLASS_TYPE_P (parser->scope)
 	       && constructor_name_p (id, parser->scope))
@@ -3063,6 +3068,8 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree id,
 	    error_at (location_of (id),
 		      "%qE in %q#T does not name a type",
 		      id, parser->scope);
+	  if (DECL_P (decl))
+	    inform (DECL_SOURCE_LOCATION (decl), "%qD declared here", decl);
 	}
       else
 	gcc_unreachable ();
@@ -5710,35 +5717,9 @@ cp_parser_qualifying_entity (cp_parser *parser,
 				type_p ? class_type : none_type,
 				check_dependency_p,
 				/*class_head_p=*/false,
-				is_declaration);
+				is_declaration,
+				/*enum_ok=*/cxx_dialect > cxx98);
   successful_parse_p = only_class_p || cp_parser_parse_definitely (parser);
-  /* If that didn't work and we're in C++0x mode, try for a type-name.  */
-  if (!only_class_p 
-      && cxx_dialect != cxx98
-      && !successful_parse_p)
-    {
-      /* Restore the saved scope.  */
-      parser->scope = saved_scope;
-      parser->qualifying_scope = saved_qualifying_scope;
-      parser->object_scope = saved_object_scope;
-
-      /* Parse tentatively.  */
-      cp_parser_parse_tentatively (parser);
-     
-      /* Parse a type-name  */
-      scope = cp_parser_type_name (parser);
-
-      /* "If the name found does not designate a namespace or a class,
-	 enumeration, or dependent type, the program is ill-formed."
-
-         We cover classes and dependent types above and namespaces below,
-         so this code is only looking for enums.  */
-      if (!scope || TREE_CODE (scope) != TYPE_DECL
-	  || TREE_CODE (TREE_TYPE (scope)) != ENUMERAL_TYPE)
-	cp_parser_simulate_error (parser);
-
-      successful_parse_p = cp_parser_parse_definitely (parser);
-    }
   /* If that didn't work, try for a namespace-name.  */
   if (!only_class_p && !successful_parse_p)
     {
@@ -8181,11 +8162,11 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
       /* Get an operator token.  */
       token = cp_lexer_peek_token (parser->lexer);
 
-      if (warn_cxx0x_compat
+      if (warn_cxx11_compat
           && token->type == CPP_RSHIFT
           && !parser->greater_than_is_operator_p)
         {
-          if (warning_at (token->location, OPT_Wc__0x_compat,
+          if (warning_at (token->location, OPT_Wc__11_compat,
 			  "%<>>%> operator is treated"
 			  " as two right angle brackets in C++11"))
 	    inform (token->location,
@@ -11892,7 +11873,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 
               /* Complain about `auto' as a storage specifier, if
                  we're complaining about C++0x compatibility.  */
-              warning_at (token->location, OPT_Wc__0x_compat, "%<auto%>"
+              warning_at (token->location, OPT_Wc__11_compat, "%<auto%>"
 			  " changes meaning in C++11; please remove it");
 
               /* Set the storage class anyway.  */
@@ -16766,10 +16747,11 @@ cp_parser_asm_definition (cp_parser* parser)
 	      && cp_lexer_next_token_is_not (parser->lexer,
 					     CPP_CLOSE_PAREN)
 	      && !goto_p)
-	    outputs = cp_parser_asm_operand_list (parser);
-
-	    if (outputs == error_mark_node)
-	      invalid_outputs_p = true;
+            {
+              outputs = cp_parser_asm_operand_list (parser);
+              if (outputs == error_mark_node)
+                invalid_outputs_p = true;
+            }
 	}
       /* If the next token is `::', there are no outputs, and the
 	 next token is the beginning of the inputs.  */
@@ -16790,10 +16772,11 @@ cp_parser_asm_definition (cp_parser* parser)
 					     CPP_SCOPE)
 	      && cp_lexer_next_token_is_not (parser->lexer,
 					     CPP_CLOSE_PAREN))
-	    inputs = cp_parser_asm_operand_list (parser);
-
-	    if (inputs == error_mark_node)
-	      invalid_inputs_p = true;
+            {
+              inputs = cp_parser_asm_operand_list (parser);
+              if (inputs == error_mark_node)
+                invalid_inputs_p = true;
+            }
 	}
       else if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE))
 	/* The clobbers are coming next.  */
@@ -19608,7 +19591,8 @@ cp_parser_initializer_list (cp_parser* parser, bool* non_constant_p)
    is a template.  TAG_TYPE indicates the explicit tag given before
    the type name, if any.  If CHECK_DEPENDENCY_P is FALSE, names are
    looked up in dependent scopes.  If CLASS_HEAD_P is TRUE, this class
-   is the class being defined in a class-head.
+   is the class being defined in a class-head.  If ENUM_OK is TRUE,
+   enum-names are also accepted.
 
    Returns the TYPE_DECL representing the class.  */
 
@@ -19619,7 +19603,8 @@ cp_parser_class_name (cp_parser *parser,
 		      enum tag_types tag_type,
 		      bool check_dependency_p,
 		      bool class_head_p,
-		      bool is_declaration)
+		      bool is_declaration,
+		      bool enum_ok)
 {
   tree decl;
   tree scope;
@@ -19747,7 +19732,8 @@ cp_parser_class_name (cp_parser *parser,
     }
   else if (TREE_CODE (decl) != TYPE_DECL
 	   || TREE_TYPE (decl) == error_mark_node
-	   || !MAYBE_CLASS_TYPE_P (TREE_TYPE (decl))
+	   || !(MAYBE_CLASS_TYPE_P (TREE_TYPE (decl))
+		|| (enum_ok && TREE_CODE (TREE_TYPE (decl)) == ENUMERAL_TYPE))
 	   /* In Objective-C 2.0, a classname followed by '.' starts a
 	      dot-syntax expression, and it's not a type-name.  */
 	   || (c_dialect_objc ()
@@ -22500,6 +22486,13 @@ cp_parser_std_attribute_list (cp_parser *parser)
 	  attributes = attribute;
 	}
       token = cp_lexer_peek_token (parser->lexer);
+      if (token->type == CPP_ELLIPSIS)
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  TREE_VALUE (attribute)
+	    = make_pack_expansion (TREE_VALUE (attribute));
+	  token = cp_lexer_peek_token (parser->lexer);
+	}
       if (token->type != CPP_COMMA)
 	break;
       cp_lexer_consume_token (parser->lexer);
@@ -22578,20 +22571,27 @@ cp_parser_std_attribute_spec (cp_parser *parser)
 	    return alignas_expr;
 	}
 
+      alignas_expr = cxx_alignas_expr (alignas_expr);
+      alignas_expr = build_tree_list (NULL_TREE, alignas_expr);
+
+      if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  alignas_expr = make_pack_expansion (alignas_expr);
+	}
+
       if (cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN) == NULL)
 	{
 	  cp_parser_error (parser, "expected %<)%>");
 	  return error_mark_node;
 	}
 
-      alignas_expr = cxx_alignas_expr (alignas_expr);
-
       /* Build the C++-11 representation of an 'aligned'
 	 attribute.  */
       attributes =
 	build_tree_list (build_tree_list (get_identifier ("gnu"),
 					  get_identifier ("aligned")),
-			 build_tree_list (NULL_TREE, alignas_expr));
+			 alignas_expr);
     }
 
   return attributes;
@@ -31395,7 +31395,7 @@ cp_parser_omp_target_update (cp_parser *parser, cp_token *pragma_tok,
       && find_omp_clause (clauses, OMP_CLAUSE_FROM) == NULL_TREE)
     {
       error_at (pragma_tok->location,
-		"%<#pragma omp target update must contain at least one "
+		"%<#pragma omp target update%> must contain at least one "
 		"%<from%> or %<to%> clauses");
       return false;
     }
@@ -31622,10 +31622,7 @@ cp_parser_oacc_enter_exit_data (cp_parser *parser, cp_token *pragma_tok,
 
   stmt = enter ? make_node (OACC_ENTER_DATA) : make_node (OACC_EXIT_DATA);
   TREE_TYPE (stmt) = void_type_node;
-  if (enter)
-    OACC_ENTER_DATA_CLAUSES (stmt) = clauses;
-  else
-    OACC_EXIT_DATA_CLAUSES (stmt) = clauses;
+  OMP_STANDALONE_CLAUSES (stmt) = clauses;
   SET_EXPR_LOCATION (stmt, pragma_tok->location);
   add_stmt (stmt);
   return stmt;

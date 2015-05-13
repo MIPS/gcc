@@ -518,16 +518,16 @@ hsa_bb_for_bb (basic_block bb)
 
 struct hsa_noop_symbol_hasher : typed_noop_remove <hsa_symbol>
 {
-  typedef hsa_symbol value_type;
-  typedef hsa_symbol compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef hsa_symbol *value_type;
+  typedef hsa_symbol *compare_type;
+  static inline hashval_t hash (const value_type);
+  static inline bool equal (const value_type, const compare_type);
 };
 
 /* Hash hsa_symbol.  */
 
 inline hashval_t
-hsa_noop_symbol_hasher::hash (const value_type *item)
+hsa_noop_symbol_hasher::hash (const value_type item)
 {
   return DECL_UID (item->decl);
 }
@@ -535,7 +535,7 @@ hsa_noop_symbol_hasher::hash (const value_type *item)
 /* Return true if the DECL_UIDs of decls both symbols refer to  are equal.  */
 
 inline bool
-hsa_noop_symbol_hasher::equal (const value_type *a, const compare_type *b)
+hsa_noop_symbol_hasher::equal (const value_type a, const compare_type b)
 {
   return (DECL_UID (a->decl) == DECL_UID (b->decl));
 }
@@ -544,16 +544,16 @@ hsa_noop_symbol_hasher::equal (const value_type *a, const compare_type *b)
 
 struct hsa_free_symbol_hasher : typed_free_remove <hsa_symbol>
 {
-  typedef hsa_symbol value_type;
-  typedef hsa_symbol compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef hsa_symbol *value_type;
+  typedef hsa_symbol *compare_type;
+  static inline hashval_t hash (const value_type);
+  static inline bool equal (const value_type, const compare_type);
 };
 
 /* Hash hsa_symbol.  */
 
 inline hashval_t
-hsa_free_symbol_hasher::hash (const value_type *item)
+hsa_free_symbol_hasher::hash (const value_type item)
 {
   return DECL_UID (item->decl);
 }
@@ -561,7 +561,7 @@ hsa_free_symbol_hasher::hash (const value_type *item)
 /* Return true if the DECL_UIDs of decls both symbols refer to  are equal.  */
 
 inline bool
-hsa_free_symbol_hasher::equal (const value_type *a, const compare_type *b)
+hsa_free_symbol_hasher::equal (const value_type a, const compare_type b)
 {
   return (DECL_UID (a->decl) == DECL_UID (b->decl));
 }

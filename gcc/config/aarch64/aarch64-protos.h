@@ -162,12 +162,20 @@ struct cpu_vector_cost
   const int cond_not_taken_branch_cost;  /* Cost of not taken branch.  */
 };
 
+/* Branch costs.  */
+struct cpu_branch_cost
+{
+  const int predictable;    /* Predictable branch or optimizing for size.  */
+  const int unpredictable;  /* Unpredictable branch or optimizing for speed.  */
+};
+
 struct tune_params
 {
   const struct cpu_cost_table *const insn_extra_cost;
   const struct cpu_addrcost_table *const addr_cost;
   const struct cpu_regmove_cost *const regmove_cost;
   const struct cpu_vector_cost *const vec_costs;
+  const struct cpu_branch_cost *const branch_costs;
   const int memmov_cost;
   const int issue_rate;
   const unsigned int fuseable_ops;
@@ -177,11 +185,14 @@ struct tune_params
   const int int_reassoc_width;
   const int fp_reassoc_width;
   const int vec_reassoc_width;
+  const int min_div_recip_mul_sf;
+  const int min_div_recip_mul_df;
 };
 
 HOST_WIDE_INT aarch64_initial_elimination_offset (unsigned, unsigned);
 int aarch64_get_condition_code (rtx);
 bool aarch64_bitmask_imm (HOST_WIDE_INT val, machine_mode);
+int aarch64_branch_cost (bool, bool);
 enum aarch64_symbol_type
 aarch64_classify_symbolic_expression (rtx, enum aarch64_symbol_context);
 bool aarch64_const_vec_all_same_int_p (rtx, HOST_WIDE_INT);
@@ -263,12 +274,6 @@ void aarch64_emit_call_insn (rtx);
 void init_aarch64_simd_builtins (void);
 
 void aarch64_simd_emit_reg_reg_move (rtx *, enum machine_mode, unsigned int);
-
-/* Emit code to place a AdvSIMD pair result in memory locations (with equal
-   registers).  */
-void aarch64_simd_emit_pair_result_insn (machine_mode,
-					 rtx (*intfn) (rtx, rtx, rtx), rtx,
-					 rtx);
 
 /* Expand builtins for SIMD intrinsics.  */
 rtx aarch64_simd_expand_builtin (int, tree, rtx);

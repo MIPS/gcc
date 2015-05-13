@@ -210,7 +210,7 @@ init_expr_target (void)
   reg = gen_rtx_REG (VOIDmode, -1);
 
   insn = rtx_alloc (INSN);
-  pat = gen_rtx_SET (VOIDmode, NULL_RTX, NULL_RTX);
+  pat = gen_rtx_SET (NULL_RTX, NULL_RTX);
   PATTERN (insn) = pat;
 
   for (mode = VOIDmode; (int) mode < NUM_MACHINE_MODES;
@@ -4879,7 +4879,13 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	  offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, EXPAND_SUM);
 	  address_mode = get_address_mode (to_rtx);
 	  if (GET_MODE (offset_rtx) != address_mode)
-	    offset_rtx = convert_to_mode (address_mode, offset_rtx, 0);
+	    {
+		/* We cannot be sure that the RTL in offset_rtx is valid outside
+		   of a memory address context, so force it into a register
+		   before attempting to convert it to the desired mode.  */
+	      offset_rtx = force_operand (offset_rtx, NULL_RTX);
+	      offset_rtx = convert_to_mode (address_mode, offset_rtx, 0);
+	    }
 
 	  /* If we have an expression in OFFSET_RTX and a non-zero
 	     byte offset in BITPOS, adding the byte offset before the
@@ -8864,11 +8870,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 
       /* If op1 was placed in target, swap op0 and op1.  */
       if (target != op0 && target == op1)
-	{
-	  temp = op0;
-	  op0 = op1;
-	  op1 = temp;
-	}
+	std::swap (op0, op1);
 
       /* We generate better code and avoid problems with op1 mentioning
 	 target by forcing op1 into a pseudo if it isn't a constant.  */
@@ -10258,7 +10260,13 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 
 	    address_mode = get_address_mode (op0);
 	    if (GET_MODE (offset_rtx) != address_mode)
-	      offset_rtx = convert_to_mode (address_mode, offset_rtx, 0);
+	      {
+		/* We cannot be sure that the RTL in offset_rtx is valid outside
+		   of a memory address context, so force it into a register
+		   before attempting to convert it to the desired mode.  */
+		offset_rtx = force_operand (offset_rtx, NULL_RTX);
+		offset_rtx = convert_to_mode (address_mode, offset_rtx, 0);
+	      }
 
 	    /* See the comment in expand_assignment for the rationale.  */
 	    if (mode1 != VOIDmode

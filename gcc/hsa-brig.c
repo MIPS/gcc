@@ -265,18 +265,18 @@ struct brig_string_slot
 
 struct brig_string_slot_hasher
 {
-  typedef brig_string_slot value_type;
-  typedef brig_string_slot compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-  static inline void remove (value_type *);
+  typedef brig_string_slot *value_type;
+  typedef brig_string_slot *compare_type;
+  static inline hashval_t hash (const value_type);
+  static inline bool equal (const value_type, const compare_type);
+  static inline void remove (value_type);
 };
 
 /* Returns a hash code for DS.  Adapted from libiberty's htab_hash_string
    to support strings that may not end in '\0'.  */
 
 inline hashval_t
-brig_string_slot_hasher::hash (const value_type *ds)
+brig_string_slot_hasher::hash (const value_type ds)
 {
   hashval_t r = ds->len;
   int i;
@@ -290,7 +290,7 @@ brig_string_slot_hasher::hash (const value_type *ds)
 /* Returns nonzero if DS1 and DS2 are equal.  */
 
 inline bool
-brig_string_slot_hasher::equal (const value_type *ds1, const compare_type *ds2)
+brig_string_slot_hasher::equal (const value_type ds1, const compare_type ds2)
 {
   if (ds1->len == ds2->len)
     return ds1->prefix == ds2->prefix && memcmp (ds1->s, ds2->s, ds1->len) == 0;
@@ -299,7 +299,7 @@ brig_string_slot_hasher::equal (const value_type *ds1, const compare_type *ds2)
 }
 
 inline void
-brig_string_slot_hasher::remove (value_type *ds)
+brig_string_slot_hasher::remove (value_type ds)
 {
   free (const_cast<char*> (ds->s));
   free (ds);

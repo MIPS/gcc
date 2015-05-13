@@ -67,6 +67,11 @@
 	builtin_define ("__RX_GCC_ABI__");	\
       else					\
 	builtin_define ("__RX_ABI__");		\
+						\
+      if (rx_allow_string_insns)		\
+	builtin_define ("__RX_ALLOW_STRING_INSNS__"); \
+      else					\
+	builtin_define ("__RX_DISALLOW_STRING_INSNS__");\
     }                                           \
   while (0)
 
@@ -97,6 +102,7 @@
 %{msmall-data-limit*:-msmall-data-limit} \
 %{mrelax:-relax} \
 %{mpid} \
+%{mno-allow-string-insns} \
 %{mint-register=*} \
 %{mgcc-abi:-mgcc-abi} %{!mgcc-abi:-mrx-abi} \
 %{mcpu=*} \
@@ -556,15 +562,15 @@ typedef unsigned int CUMULATIVE_ARGS;
 	  switch ((ALIGN) / BITS_PER_UNIT)				\
             {								\
             case 4:							\
-              fprintf ((FILE), ":\t.BLKL\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+              fprintf ((FILE), ":\t.BLKL\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
 		       (SIZE) / 4);					\
 	      break;							\
             case 2:							\
-              fprintf ((FILE), ":\t.BLKW\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+              fprintf ((FILE), ":\t.BLKW\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
 		       (SIZE) / 2);					\
 	      break;							\
             default:							\
-              fprintf ((FILE), ":\t.BLKB\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+              fprintf ((FILE), ":\t.BLKB\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
 		       (SIZE));						\
 	      break;							\
             }								\
@@ -573,7 +579,7 @@ typedef unsigned int CUMULATIVE_ARGS;
         {								\
           fprintf ((FILE), "%s", COMMON_ASM_OP);			\
           assemble_name ((FILE), (NAME));				\
-          fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",	\
+          fprintf ((FILE), "," HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",	\
 	           (SIZE), (ALIGN) / BITS_PER_UNIT);			\
 	}								\
     }									\

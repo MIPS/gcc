@@ -1345,7 +1345,7 @@ extern void init_deps_global (void);
 extern void finish_deps_global (void);
 extern void deps_analyze_insn (struct deps_desc *, rtx_insn *);
 extern void remove_from_deps (struct deps_desc *, rtx_insn *);
-extern void init_insn_reg_pressure_info (rtx);
+extern void init_insn_reg_pressure_info (rtx_insn *);
 
 extern dw_t get_dep_weak (ds_t, ds_t);
 extern ds_t set_dep_weak (ds_t, ds_t, dw_t);
@@ -1649,8 +1649,8 @@ sd_iterator_next (sd_iterator_def *it_ptr)
 
 extern int sd_lists_size (const_rtx, sd_list_types_def);
 extern bool sd_lists_empty_p (const_rtx, sd_list_types_def);
-extern void sd_init_insn (rtx);
-extern void sd_finish_insn (rtx);
+extern void sd_init_insn (rtx_insn *);
+extern void sd_finish_insn (rtx_insn *);
 extern dep_t sd_find_dep_between (rtx, rtx, bool);
 extern void sd_add_dep (dep_t, bool);
 extern enum DEPS_ADJUST_RESULT sd_add_or_update_dep (dep_t, bool);

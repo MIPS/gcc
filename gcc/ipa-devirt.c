@@ -308,11 +308,11 @@ type_possibly_instantiated_p (tree t)
 
 struct odr_name_hasher
 {
-  typedef odr_type_d value_type;
-  typedef union tree_node compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-  static inline void remove (value_type *);
+  typedef odr_type_d *value_type;
+  typedef union tree_node *compare_type;
+  static inline hashval_t hash (const odr_type_d *);
+  static inline bool equal (const odr_type_d *, const tree_node *);
+  static inline void remove (odr_type_d *);
 };
 
 /* Has used to unify ODR types based on their associated virtual table.
@@ -321,8 +321,8 @@ struct odr_name_hasher
 
 struct odr_vtable_hasher:odr_name_hasher
 {
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  static inline hashval_t hash (const odr_type_d *);
+  static inline bool equal (const odr_type_d *, const tree_node *);
 };
 
 /* Return type that was declared with T's name so that T is an
@@ -369,7 +369,7 @@ hash_odr_name (const_tree t)
 /* Return the computed hashcode for ODR_TYPE.  */
 
 inline hashval_t
-odr_name_hasher::hash (const value_type *odr_type)
+odr_name_hasher::hash (const odr_type_d *odr_type)
 {
   return hash_odr_name (odr_type->type);
 }
@@ -414,7 +414,7 @@ hash_odr_vtable (const_tree t)
 /* Return the computed hashcode for ODR_TYPE.  */
 
 inline hashval_t
-odr_vtable_hasher::hash (const value_type *odr_type)
+odr_vtable_hasher::hash (const odr_type_d *odr_type)
 {
   return hash_odr_vtable (odr_type->type);
 }
@@ -553,7 +553,7 @@ types_must_be_same_for_odr (tree t1, tree t2)
    equivalent.  */
 
 inline bool
-odr_name_hasher::equal (const value_type *o1, const compare_type *t2)
+odr_name_hasher::equal (const odr_type_d *o1, const tree_node *t2)
 {
   tree t1 = o1->type;
 
@@ -578,7 +578,7 @@ odr_name_hasher::equal (const value_type *o1, const compare_type *t2)
    equivalent.  */
 
 inline bool
-odr_vtable_hasher::equal (const value_type *o1, const compare_type *t2)
+odr_vtable_hasher::equal (const odr_type_d *o1, const tree_node *t2)
 {
   tree t1 = o1->type;
 
@@ -602,7 +602,7 @@ odr_vtable_hasher::equal (const value_type *o1, const compare_type *t2)
 /* Free ODR type V.  */
 
 inline void
-odr_name_hasher::remove (value_type *v)
+odr_name_hasher::remove (odr_type_d *v)
 {
   v->bases.release ();
   v->derived_types.release ();
@@ -675,7 +675,8 @@ odr_subtypes_equivalent_p (tree t1, tree t2,
      have to be compared structurally.  */
   if (TREE_CODE (t1) != TREE_CODE (t2))
     return false;
-  if ((TYPE_NAME (t1) == NULL_TREE) != (TYPE_NAME (t2) == NULL_TREE))
+  if (AGGREGATE_TYPE_P (t1)
+      && (TYPE_NAME (t1) == NULL_TREE) != (TYPE_NAME (t2) == NULL_TREE))
     return false;
 
   type_pair pair={t1,t2};
@@ -1027,7 +1028,9 @@ warn_types_mismatch (tree t1, tree t2)
 	  t1 = t2;
 	  t2 = tmp;
 	}
-      if (TYPE_NAME (t1) && TYPE_NAME (t2))
+      if (TYPE_NAME (t1) && TYPE_NAME (t2)
+	  && TREE_CODE (TYPE_NAME (t1)) == TYPE_DECL
+	  && TREE_CODE (TYPE_NAME (t2)) == TYPE_DECL)
 	{
 	  inform (DECL_SOURCE_LOCATION (TYPE_NAME (t1)),
 		  "type %qT defined in anonymous namespace can not match "
@@ -1078,7 +1081,7 @@ warn_types_mismatch (tree t1, tree t2)
 	  else if (TREE_CODE (t1) == METHOD_TYPE
 		   || TREE_CODE (t1) == FUNCTION_TYPE)
 	    {
-	      tree parms1, parms2;
+	      tree parms1 = NULL, parms2 = NULL;
 	      int count = 1;
 
 	      if (!odr_subtypes_equivalent_p (TREE_TYPE (t1), TREE_TYPE (t2),
@@ -1088,21 +1091,27 @@ warn_types_mismatch (tree t1, tree t2)
 		  warn_types_mismatch (TREE_TYPE (t1), TREE_TYPE (t2));
 		  return;
 		}
-	      for (parms1 = TYPE_ARG_TYPES (t1), parms2 = TYPE_ARG_TYPES (t2);
-		   parms1 && parms2;
-		   parms1 = TREE_CHAIN (parms1), parms2 = TREE_CHAIN (parms2),
-		   count++)
-		{
-		  if (!odr_subtypes_equivalent_p
-		      (TREE_VALUE (parms1), TREE_VALUE (parms2), &visited))
-		    {
-		      inform (UNKNOWN_LOCATION,
-			      "type mismatch in parameter %i", count);
-		      warn_types_mismatch (TREE_VALUE (parms1),
-					   TREE_VALUE (parms2));
-		      return;
-		    }
-		}
+	      if (prototype_p (t1) && prototype_p (t2))
+		for (parms1 = TYPE_ARG_TYPES (t1), parms2 = TYPE_ARG_TYPES (t2);
+		     parms1 && parms2;
+		     parms1 = TREE_CHAIN (parms1), parms2 = TREE_CHAIN (parms2),
+		     count++)
+		  {
+		    if (!odr_subtypes_equivalent_p
+			(TREE_VALUE (parms1), TREE_VALUE (parms2), &visited))
+		      {
+			if (count == 1 && TREE_CODE (t1) == METHOD_TYPE)
+			  inform (UNKNOWN_LOCATION,
+				  "implicit this pointer type mismatch");
+			else
+			  inform (UNKNOWN_LOCATION,
+				  "type mismatch in parameter %i",
+				  count - (TREE_CODE (t1) == METHOD_TYPE));
+			warn_types_mismatch (TREE_VALUE (parms1),
+					     TREE_VALUE (parms2));
+			return;
+		      }
+		  }
 	      if (parms1 || parms2)
 		{
 		  inform (UNKNOWN_LOCATION,
@@ -1179,7 +1188,7 @@ odr_types_equivalent_p (tree t1, tree t2, bool warn, bool *warned,
   if (comp_type_attributes (t1, t2) != 1)
     {
       warn_odr (t1, t2, NULL, NULL, warn, warned,
-	        G_("a type with attributes "
+	        G_("a type with different attributes "
 		   "is defined in another translation unit"));
       return false;
     }
@@ -1347,7 +1356,8 @@ odr_types_equivalent_p (tree t1, tree t2, bool warn, bool *warned,
 	  return false;
 	}
 
-      if (TYPE_ARG_TYPES (t1) == TYPE_ARG_TYPES (t2))
+      if (TYPE_ARG_TYPES (t1) == TYPE_ARG_TYPES (t2)
+	  || !prototype_p (t1) || !prototype_p (t2))
 	return true;
       else
 	{
@@ -1536,6 +1546,7 @@ odr_types_equivalent_p (tree t1, tree t2, bool warn, bool *warned,
 	break;
       }
     case VOID_TYPE:
+    case NULLPTR_TYPE:
       break;
 
     default:
@@ -2029,10 +2040,14 @@ register_odr_type (tree type)
       if (in_lto_p)
         odr_vtable_hash = new odr_vtable_hash_type (23);
     }
-  /* Arrange things to be nicer and insert main variants first.  */
-  if (odr_type_p (TYPE_MAIN_VARIANT (type)))
+  /* Arrange things to be nicer and insert main variants first.
+     ??? fundamental prerecorded types do not have mangled names; this
+     makes it possible that non-ODR type is main_odr_variant of ODR type.
+     Things may get smoother if LTO FE set mangled name of those types same
+     way as C++ FE does.  */
+  if (odr_type_p (main_odr_variant (TYPE_MAIN_VARIANT (type))))
     get_odr_type (TYPE_MAIN_VARIANT (type), true);
-  if (TYPE_MAIN_VARIANT (type) != type)
+  if (TYPE_MAIN_VARIANT (type) != type && odr_type_p (main_odr_variant (type)))
     get_odr_type (type, true);
 }
 
@@ -2507,17 +2522,18 @@ struct polymorphic_call_target_d
 
 struct polymorphic_call_target_hasher 
 {
-  typedef polymorphic_call_target_d value_type;
-  typedef polymorphic_call_target_d compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-  static inline void remove (value_type *);
+  typedef polymorphic_call_target_d *value_type;
+  typedef polymorphic_call_target_d *compare_type;
+  static inline hashval_t hash (const polymorphic_call_target_d *);
+  static inline bool equal (const polymorphic_call_target_d *,
+			    const polymorphic_call_target_d *);
+  static inline void remove (polymorphic_call_target_d *);
 };
 
 /* Return the computed hashcode for ODR_QUERY.  */
 
 inline hashval_t
-polymorphic_call_target_hasher::hash (const value_type *odr_query)
+polymorphic_call_target_hasher::hash (const polymorphic_call_target_d *odr_query)
 {
   inchash::hash hstate (odr_query->otr_token);
 
@@ -2541,8 +2557,8 @@ polymorphic_call_target_hasher::hash (const value_type *odr_query)
 /* Compare cache entries T1 and T2.  */
 
 inline bool
-polymorphic_call_target_hasher::equal (const value_type *t1,
-				       const compare_type *t2)
+polymorphic_call_target_hasher::equal (const polymorphic_call_target_d *t1,
+				       const polymorphic_call_target_d *t2)
 {
   return (t1->type == t2->type && t1->otr_token == t2->otr_token
 	  && t1->speculative == t2->speculative
@@ -2560,7 +2576,7 @@ polymorphic_call_target_hasher::equal (const value_type *t1,
 /* Remove entry in polymorphic call target cache hash.  */
 
 inline void
-polymorphic_call_target_hasher::remove (value_type *v)
+polymorphic_call_target_hasher::remove (polymorphic_call_target_d *v)
 {
   v->targets.release ();
   free (v);

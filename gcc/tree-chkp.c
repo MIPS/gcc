@@ -1071,7 +1071,8 @@ static basic_block
 chkp_get_entry_block (void)
 {
   if (!entry_block)
-    entry_block = split_block (ENTRY_BLOCK_PTR_FOR_FN (cfun), NULL)->dest;
+    entry_block
+      = split_block_after_labels (ENTRY_BLOCK_PTR_FOR_FN (cfun))->dest;
 
   return entry_block;
 }
@@ -4330,8 +4331,10 @@ chkp_execute (void)
 static bool
 chkp_gate (void)
 {
-  return cgraph_node::get (cfun->decl)->instrumentation_clone
-    || lookup_attribute ("chkp ctor", DECL_ATTRIBUTES (cfun->decl));
+  cgraph_node *node = cgraph_node::get (cfun->decl);
+  return ((node != NULL
+	   && node->instrumentation_clone)
+	   || lookup_attribute ("chkp ctor", DECL_ATTRIBUTES (cfun->decl)));
 }
 
 namespace {

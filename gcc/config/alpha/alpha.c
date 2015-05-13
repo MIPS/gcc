@@ -241,6 +241,7 @@ static struct machine_function *alpha_init_machine_status (void);
 static rtx alpha_emit_xfloating_compare (enum rtx_code *, rtx, rtx);
 static void alpha_handle_trap_shadows (void);
 static void alpha_align_insns (void);
+static void alpha_override_options_after_change (void);
 
 #if TARGET_ABI_OPEN_VMS
 static void alpha_write_linkage (FILE *, const char *);
@@ -628,17 +629,7 @@ alpha_option_override (void)
   else if (flag_pic == 2)
     target_flags &= ~MASK_SMALL_DATA;
 
-  /* Align labels and loops for optimal branching.  */
-  /* ??? Kludge these by not doing anything if we don't optimize.  */
-  if (optimize > 0)
-    {
-      if (align_loops <= 0)
-	align_loops = 16;
-      if (align_jumps <= 0)
-	align_jumps = 16;
-    }
-  if (align_functions <= 0)
-    align_functions = 16;
+  alpha_override_options_after_change ();
 
   /* Register variables and functions with the garbage collector.  */
 
@@ -661,6 +652,24 @@ alpha_option_override (void)
   /* This needs to be done at start up.  It's convenient to do it here.  */
   register_pass (&handle_trap_shadows_info);
   register_pass (&align_insns_info);
+}
+
+/* Implement targetm.override_options_after_change.  */
+
+static void
+alpha_override_options_after_change (void)
+{
+  /* Align labels and loops for optimal branching.  */
+  /* ??? Kludge these by not doing anything if we don't optimize.  */
+  if (optimize > 0)
+    {
+      if (align_loops <= 0)
+	align_loops = 16;
+      if (align_jumps <= 0)
+	align_jumps = 16;
+    }
+  if (align_functions <= 0)
+    align_functions = 16;
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -1118,7 +1127,7 @@ alpha_legitimize_address_1 (rtx x, rtx scratch, machine_mode mode)
 	  if (alpha_tls_size == 64)
 	    {
 	      dest = gen_reg_rtx (Pmode);
-	      emit_insn (gen_rtx_SET (VOIDmode, dest, eqv));
+	      emit_insn (gen_rtx_SET (dest, eqv));
 	      emit_insn (gen_adddi3 (dest, dest, scratch));
 	      return dest;
 	    }
@@ -1127,7 +1136,7 @@ alpha_legitimize_address_1 (rtx x, rtx scratch, machine_mode mode)
 	      insn = gen_rtx_HIGH (Pmode, eqv);
 	      insn = gen_rtx_PLUS (Pmode, scratch, insn);
 	      scratch = gen_reg_rtx (Pmode);
-	      emit_insn (gen_rtx_SET (VOIDmode, scratch, insn));
+	      emit_insn (gen_rtx_SET (scratch, insn));
 	    }
 	  return gen_rtx_LO_SUM (Pmode, scratch, eqv);
 
@@ -1139,7 +1148,7 @@ alpha_legitimize_address_1 (rtx x, rtx scratch, machine_mode mode)
 	  dest = gen_reg_rtx (Pmode);
 
 	  emit_insn (gen_get_thread_pointerdi (tp));
-	  emit_insn (gen_rtx_SET (VOIDmode, scratch, eqv));
+	  emit_insn (gen_rtx_SET (scratch, eqv));
 	  emit_insn (gen_adddi3 (dest, tp, scratch));
 	  return dest;
 
@@ -1154,7 +1163,7 @@ alpha_legitimize_address_1 (rtx x, rtx scratch, machine_mode mode)
 	      insn = gen_rtx_HIGH (Pmode, eqv);
 	      insn = gen_rtx_PLUS (Pmode, tp, insn);
 	      tp = gen_reg_rtx (Pmode);
-	      emit_insn (gen_rtx_SET (VOIDmode, tp, insn));
+	      emit_insn (gen_rtx_SET (tp, insn));
 	    }
 	  return gen_rtx_LO_SUM (Pmode, tp, eqv);
 
@@ -1170,8 +1179,7 @@ alpha_legitimize_address_1 (rtx x, rtx scratch, machine_mode mode)
 	    {
 	      if (can_create_pseudo_p ())
 	        scratch = gen_reg_rtx (Pmode);
-	      emit_insn (gen_rtx_SET (VOIDmode, scratch,
-				      gen_rtx_HIGH (Pmode, x)));
+	      emit_insn (gen_rtx_SET (scratch, gen_rtx_HIGH (Pmode, x)));
 	      return gen_rtx_LO_SUM (Pmode, scratch, x);
 	    }
 	}
@@ -1763,11 +1771,9 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
   rtx temp, insn;
 
   /* If this is a sign-extended 32-bit constant, we can do this in at most
-     three insns, so do it if we have enough insns left.  We always have
-     a sign-extended 32-bit constant when compiling on a narrow machine.  */
+     three insns, so do it if we have enough insns left.  */
 
-  if (HOST_BITS_PER_WIDE_INT != 64
-      || c >> 31 == -1 || c >> 31 == 0)
+  if (c >> 31 == -1 || c >> 31 == 0)
     {
       HOST_WIDE_INT low = ((c & 0xffff) ^ 0x8000) - 0x8000;
       HOST_WIDE_INT tmp1 = c - low;
@@ -1796,7 +1802,7 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 	    return pc_rtx;
 	  if (target == NULL)
 	    target = gen_reg_rtx (mode);
-	  emit_insn (gen_rtx_SET (VOIDmode, target, GEN_INT (c)));
+	  emit_insn (gen_rtx_SET (target, GEN_INT (c)));
 	  return target;
 	}
       else if (n >= 2 + (extra != 0))
@@ -1805,7 +1811,7 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 	    return pc_rtx;
 	  if (!can_create_pseudo_p ())
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, target, GEN_INT (high << 16)));
+	      emit_insn (gen_rtx_SET (target, GEN_INT (high << 16)));
 	      temp = target;
 	    }
 	  else
@@ -1823,7 +1829,7 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 	      if (! subtarget)
 		subtarget = gen_reg_rtx (mode);
 	      insn = gen_rtx_PLUS (mode, temp, GEN_INT (extra << 16));
-	      insn = gen_rtx_SET (VOIDmode, subtarget, insn);
+	      insn = gen_rtx_SET (subtarget, insn);
 	      emit_insn (insn);
 	      temp = subtarget;
 	    }
@@ -1831,7 +1837,7 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 	  if (target == NULL)
 	    target = gen_reg_rtx (mode);
 	  insn = gen_rtx_PLUS (mode, temp, GEN_INT (low));
-	  insn = gen_rtx_SET (VOIDmode, target, insn);
+	  insn = gen_rtx_SET (target, insn);
 	  emit_insn (insn);
 	  return target;
 	}
@@ -1909,11 +1915,9 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
       /* Now try high-order zero bits.  Here we try the shifted-in bits as
 	 all zero and all ones.  Be careful to avoid shifting outside the
 	 mode and to avoid shifting outside the host wide int size.  */
-      /* On narrow hosts, don't shift a 1 into the high bit, since we'll
-	 confuse the recursive call and set all of the high 32 bits.  */
 
       bits = (MIN (HOST_BITS_PER_WIDE_INT, GET_MODE_SIZE (mode) * 8)
-	      - floor_log2 (c) - 1 - (HOST_BITS_PER_WIDE_INT < 64));
+	      - floor_log2 (c) - 1);
       if (bits > 0)
 	for (; bits > 0; bits--)
 	  {
@@ -1921,7 +1925,7 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 	    temp = alpha_emit_set_const (subtarget, mode, new_const, i, no_output);
 	    if (!temp)
 	      {
-		new_const = (c << bits) | (((HOST_WIDE_INT) 1 << bits) - 1);
+		new_const = (c << bits) | ((HOST_WIDE_INT_1U << bits) - 1);
 	        temp = alpha_emit_set_const (subtarget, mode, new_const,
 					     i, no_output);
 	      }
@@ -1947,7 +1951,7 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 	    temp = alpha_emit_set_const (subtarget, mode, new_const, i, no_output);
 	    if (!temp)
 	      {
-		new_const = (c << bits) | (((HOST_WIDE_INT) 1 << bits) - 1);
+		new_const = (c << bits) | ((HOST_WIDE_INT_1U << bits) - 1);
 	        temp = alpha_emit_set_const (subtarget, mode, new_const,
 					     i, no_output);
 	      }
@@ -1961,7 +1965,6 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 	  }
     }
 
-#if HOST_BITS_PER_WIDE_INT == 64
   /* Finally, see if can load a value into the target that is the same as the
      constant except that all bytes that are 0 are changed to be 0xff.  If we
      can, then we can do a ZAPNOT to obtain the desired constant.  */
@@ -1988,7 +1991,6 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 			       target, 0, OPTAB_WIDEN);
 	}
     }
-#endif
 
   return 0;
 }
@@ -2069,7 +2071,7 @@ alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
   HOST_WIDE_INT d1, d2, d3, d4;
 
   /* Decompose the entire word */
-#if HOST_BITS_PER_WIDE_INT >= 64
+
   gcc_assert (c2 == -(c1 < 0));
   d1 = ((c1 & 0xffff) ^ 0x8000) - 0x8000;
   c1 -= d1;
@@ -2079,17 +2081,6 @@ alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
   c1 -= d3;
   d4 = ((c1 & 0xffffffff) ^ 0x80000000) - 0x80000000;
   gcc_assert (c1 == d4);
-#else
-  d1 = ((c1 & 0xffff) ^ 0x8000) - 0x8000;
-  c1 -= d1;
-  d2 = ((c1 & 0xffffffff) ^ 0x80000000) - 0x80000000;
-  gcc_assert (c1 == d2);
-  c2 += (d2 < 0);
-  d3 = ((c2 & 0xffff) ^ 0x8000) - 0x8000;
-  c2 -= d3;
-  d4 = ((c2 & 0xffffffff) ^ 0x80000000) - 0x80000000;
-  gcc_assert (c2 == d4);
-#endif
 
   /* Construct the high word */
   if (d4)
@@ -2130,15 +2121,10 @@ alpha_extract_integer (rtx x, HOST_WIDE_INT *p0, HOST_WIDE_INT *p1)
       i0 = INTVAL (x);
       i1 = -(i0 < 0);
     }
-  else if (HOST_BITS_PER_WIDE_INT >= 64)
-    {
-      i0 = CONST_DOUBLE_LOW (x);
-      i1 = -(i0 < 0);
-    }
   else
     {
       i0 = CONST_DOUBLE_LOW (x);
-      i1 = CONST_DOUBLE_HIGH (x);
+      i1 = -(i0 < 0);
     }
 
   *p0 = i0;
@@ -2198,9 +2184,7 @@ alpha_legitimate_constant_p (machine_mode mode, rtx x)
       if (TARGET_BUILD_CONSTANTS)
 	return true;
       alpha_extract_integer (x, &i0, &i1);
-      if (HOST_BITS_PER_WIDE_INT >= 64 || i1 == (-i0 < 0))
-        return alpha_emit_set_const_1 (x, mode, i0, 3, true) != NULL;
-      return false;
+      return alpha_emit_set_const_1 (x, mode, i0, 3, true) != NULL;
 
     default:
       return false;
@@ -2218,8 +2202,7 @@ alpha_split_const_mov (machine_mode mode, rtx *operands)
 
   alpha_extract_integer (operands[1], &i0, &i1);
 
-  if (HOST_BITS_PER_WIDE_INT >= 64 || i1 == -(i0 < 0))
-    temp = alpha_emit_set_const (operands[0], mode, i0, 3, false);
+  temp = alpha_emit_set_const (operands[0], mode, i0, 3, false);
 
   if (!temp && TARGET_BUILD_CONSTANTS)
     temp = alpha_emit_set_long_const (operands[0], i0, i1);
@@ -2508,7 +2491,7 @@ alpha_emit_floatuns (rtx operands[2])
 
   emit_cmp_and_jump_insns (in, const0_rtx, LT, const0_rtx, DImode, 0, neglab);
 
-  emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_FLOAT (mode, in)));
+  emit_insn (gen_rtx_SET (out, gen_rtx_FLOAT (mode, in)));
   emit_jump_insn (gen_jump (donelab));
   emit_barrier ();
 
@@ -2517,8 +2500,8 @@ alpha_emit_floatuns (rtx operands[2])
   emit_insn (gen_lshrdi3 (i0, in, const1_rtx));
   emit_insn (gen_anddi3 (i1, in, const1_rtx));
   emit_insn (gen_iordi3 (i0, i0, i1));
-  emit_insn (gen_rtx_SET (VOIDmode, f0, gen_rtx_FLOAT (mode, i0)));
-  emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_PLUS (mode, f0, f0)));
+  emit_insn (gen_rtx_SET (f0, gen_rtx_FLOAT (mode, i0)));
+  emit_insn (gen_rtx_SET (out, gen_rtx_PLUS (mode, f0, f0)));
 
   emit_label (donelab);
 }
@@ -2644,7 +2627,7 @@ alpha_emit_conditional_branch (rtx operands[], machine_mode cmp_mode)
     }
 
   /* Emit the branch instruction.  */
-  tem = gen_rtx_SET (VOIDmode, pc_rtx,
+  tem = gen_rtx_SET (pc_rtx,
 		     gen_rtx_IF_THEN_ELSE (VOIDmode,
 					   gen_rtx_fmt_ee (branch_code,
 							   branch_mode, tem,
@@ -2726,16 +2709,16 @@ alpha_emit_setcc (rtx operands[], machine_mode cmp_mode)
   if (cmp_code != UNKNOWN)
     {
       tmp = gen_reg_rtx (cmp_mode);
-      emit_insn (gen_rtx_SET (VOIDmode, tmp,
-			      gen_rtx_fmt_ee (cmp_code, cmp_mode, op0, op1)));
+      emit_insn (gen_rtx_SET (tmp, gen_rtx_fmt_ee (cmp_code, cmp_mode,
+						   op0, op1)));
 
       op0 = cmp_mode != DImode ? gen_lowpart (DImode, tmp) : tmp;
       op1 = const0_rtx;
     }
 
   /* Emit the setcc instruction.  */
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0],
-			  gen_rtx_fmt_ee (code, DImode, op0, op1)));
+  emit_insn (gen_rtx_SET (operands[0], gen_rtx_fmt_ee (code, DImode,
+						       op0, op1)));
   return true;
 }
 
@@ -2821,9 +2804,8 @@ alpha_emit_conditional_move (rtx cmp, machine_mode mode)
 	}
 
       tem = gen_reg_rtx (cmp_mode);
-      emit_insn (gen_rtx_SET (VOIDmode, tem,
-			      gen_rtx_fmt_ee (cmp_code, cmp_mode,
-					      op0, op1)));
+      emit_insn (gen_rtx_SET (tem, gen_rtx_fmt_ee (cmp_code, cmp_mode,
+						   op0, op1)));
 
       cmp_mode = cmp_mode == DImode ? DFmode : DImode;
       op0 = gen_lowpart (cmp_mode, tem);
@@ -2947,16 +2929,16 @@ alpha_split_conditional_move (enum rtx_code code, rtx dest, rtx cond,
       && (diff <= 8 || alpha_tune == PROCESSOR_EV6))
     {
       tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (subtarget), tmp));
+      emit_insn (gen_rtx_SET (copy_rtx (subtarget), tmp));
 
       tmp = gen_rtx_ASHIFT (DImode, copy_rtx (subtarget),
 			    GEN_INT (exact_log2 (t)));
-      emit_insn (gen_rtx_SET (VOIDmode, target, tmp));
+      emit_insn (gen_rtx_SET (target, tmp));
     }
   else if (f == 0 && t == -1)
     {
       tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (subtarget), tmp));
+      emit_insn (gen_rtx_SET (copy_rtx (subtarget), tmp));
 
       emit_insn (gen_negdi2 (target, copy_rtx (subtarget)));
     }
@@ -2965,7 +2947,7 @@ alpha_split_conditional_move (enum rtx_code code, rtx dest, rtx cond,
       rtx add_op;
 
       tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (subtarget), tmp));
+      emit_insn (gen_rtx_SET (copy_rtx (subtarget), tmp));
 
       if (diff == 1)
 	emit_insn (gen_adddi3 (target, copy_rtx (subtarget), GEN_INT (f)));
@@ -2977,7 +2959,7 @@ alpha_split_conditional_move (enum rtx_code code, rtx dest, rtx cond,
 	      tmp = gen_rtx_MULT (DImode, copy_rtx (subtarget),
 				  GEN_INT (diff));
 	      tmp = gen_rtx_PLUS (DImode, tmp, add_op);
-	      emit_insn (gen_rtx_SET (VOIDmode, target, tmp));
+	      emit_insn (gen_rtx_SET (target, tmp));
 	    }
 	  else
 	    return 0;
@@ -3692,7 +3674,7 @@ alpha_expand_unaligned_load_words (rtx *out_regs, rtx smem,
     {
       emit_insn (gen_extql (data_regs[i], data_regs[i], sreg));
       emit_insn (gen_extqh (ext_tmps[i], data_regs[i+1], sreg));
-      emit_insn (gen_rtx_SET (VOIDmode, ext_tmps[i],
+      emit_insn (gen_rtx_SET (ext_tmps[i],
 			      gen_rtx_IF_THEN_ELSE (DImode,
 						    gen_rtx_EQ (DImode, areg,
 								const0_rtx),
@@ -4092,7 +4074,6 @@ alpha_expand_block_clear (rtx operands[])
 
   if (alignofs > 0)
     {
-#if HOST_BITS_PER_WIDE_INT >= 64
       /* Given that alignofs is bounded by align, the only time BWX could
 	 generate three stores is for a 7 byte fill.  Prefer two individual
 	 stores over a load/mask/store sequence.  */
@@ -4127,7 +4108,6 @@ alpha_expand_block_clear (rtx operands[])
 
 	  emit_move_insn (mem, tmp);
 	}
-#endif
 
       if (TARGET_BWX && (alignofs & 1) && bytes >= 1)
 	{
@@ -4239,7 +4219,6 @@ alpha_expand_block_clear (rtx operands[])
 
   /* Next clean up any trailing pieces.  */
 
-#if HOST_BITS_PER_WIDE_INT >= 64
   /* Count the number of bits in BYTES for which aligned stores could
      be emitted.  */
   words = 0;
@@ -4284,7 +4263,6 @@ alpha_expand_block_clear (rtx operands[])
 	  return 1;
 	}
     }
-#endif
 
   if (!TARGET_BWX && bytes >= 4)
     {
@@ -4329,43 +4307,16 @@ alpha_expand_zap_mask (HOST_WIDE_INT value)
 {
   rtx result;
   int i;
+  HOST_WIDE_INT mask = 0;
 
-  if (HOST_BITS_PER_WIDE_INT >= 64)
+  for (i = 7; i >= 0; --i)
     {
-      HOST_WIDE_INT mask = 0;
-
-      for (i = 7; i >= 0; --i)
-	{
-	  mask <<= 8;
-	  if (!((value >> i) & 1))
-	    mask |= 0xff;
-	}
-
-      result = gen_int_mode (mask, DImode);
-    }
-  else
-    {
-      HOST_WIDE_INT mask_lo = 0, mask_hi = 0;
-
-      gcc_assert (HOST_BITS_PER_WIDE_INT == 32);
-      
-      for (i = 7; i >= 4; --i)
-	{
-	  mask_hi <<= 8;
-	  if (!((value >> i) & 1))
-	    mask_hi |= 0xff;
-	}
-
-      for (i = 3; i >= 0; --i)
-	{
-	  mask_lo <<= 8;
-	  if (!((value >> i) & 1))
-	    mask_lo |= 0xff;
-	}
-
-      result = immed_double_const (mask_lo, mask_hi, DImode);
+      mask <<= 8;
+      if (!((value >> i) & 1))
+	mask |= 0xff;
     }
 
+  result = gen_int_mode (mask, DImode);
   return result;
 }
 
@@ -4399,7 +4350,7 @@ emit_unlikely_jump (rtx cond, rtx label)
   rtx x;
 
   x = gen_rtx_IF_THEN_ELSE (VOIDmode, cond, label, pc_rtx);
-  x = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, x));
+  x = emit_jump_insn (gen_rtx_SET (pc_rtx, x));
   add_int_reg_note (x, REG_BR_PROB, very_unlikely);
 }
 
@@ -4507,15 +4458,15 @@ alpha_split_atomic_op (enum rtx_code code, rtx mem, rtx val, rtx before,
   if (code == NOT)
     {
       x = gen_rtx_AND (mode, before, val);
-      emit_insn (gen_rtx_SET (VOIDmode, val, x));
+      emit_insn (gen_rtx_SET (val, x));
 
       x = gen_rtx_NOT (mode, val);
     }
   else
     x = gen_rtx_fmt_ee (code, mode, before, val);
   if (after)
-    emit_insn (gen_rtx_SET (VOIDmode, after, copy_rtx (x)));
-  emit_insn (gen_rtx_SET (VOIDmode, scratch, x));
+    emit_insn (gen_rtx_SET (after, copy_rtx (x)));
+  emit_insn (gen_rtx_SET (scratch, x));
 
   emit_store_conditional (mode, cond, mem, scratch);
 
@@ -4567,7 +4518,7 @@ alpha_split_compare_and_swap (rtx operands[])
   else
     {
       x = gen_rtx_EQ (DImode, x, oldval);
-      emit_insn (gen_rtx_SET (VOIDmode, cond, x));
+      emit_insn (gen_rtx_SET (cond, x));
       x = gen_rtx_EQ (DImode, cond, const0_rtx);
     }
   emit_unlikely_jump (x, label2);
@@ -4682,7 +4633,7 @@ alpha_split_compare_and_swap_12 (rtx operands[])
   else
     {
       x = gen_rtx_EQ (DImode, dest, oldval);
-      emit_insn (gen_rtx_SET (VOIDmode, cond, x));
+      emit_insn (gen_rtx_SET (cond, x));
       x = gen_rtx_EQ (DImode, cond, const0_rtx);
     }
   emit_unlikely_jump (x, label2);
@@ -5281,7 +5232,7 @@ print_operand (FILE *file, rtx x, int code)
       if (!CONST_INT_P (x))
 	output_operand_lossage ("invalid %%P value");
 
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) 1 << INTVAL (x));
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, HOST_WIDE_INT_1 << INTVAL (x));
       break;
 
     case 'h':
@@ -5378,14 +5329,7 @@ print_operand (FILE *file, rtx x, int code)
 	      break;
 	    }
 	}
-      else if (HOST_BITS_PER_WIDE_INT == 32
-	       && GET_CODE (x) == CONST_DOUBLE
-	       && CONST_DOUBLE_LOW (x) == 0xffffffff
-	       && CONST_DOUBLE_HIGH (x) == 0)
-	{
-	  fputc ('l', file);
-	  break;
-	}
+
       output_operand_lossage ("invalid %%U value");
       break;
 
@@ -5957,10 +5901,6 @@ alpha_build_builtin_va_list (void)
 		    integer_type_node);
   DECL_FIELD_CONTEXT (ofs) = record;
   DECL_CHAIN (ofs) = space;
-  /* ??? This is a hack, __offset is marked volatile to prevent
-     DCE that confuses stdarg optimization and results in
-     gcc.c-torture/execute/stdarg-1.c failure.  See PR 41089.  */
-  TREE_THIS_VOLATILE (ofs) = 1;
 
   base = build_decl (BUILTINS_LOCATION,
 		     FIELD_DECL, get_identifier ("__base"),
@@ -6784,13 +6724,6 @@ alpha_expand_builtin (tree exp, rtx target,
   else
     return const0_rtx;
 }
-
-
-/* Several bits below assume HWI >= 64 bits.  This should be enforced
-   by config.gcc.  */
-#if HOST_BITS_PER_WIDE_INT < 64
-# error "HOST_WIDE_INT too small"
-#endif
 
 /* Fold the builtin for the CMPBGE instruction.  This is a vector comparison
    with an 8-bit output vector.  OPINT contains the integer operands; bit N
@@ -7707,7 +7640,7 @@ emit_frame_store_1 (rtx value, rtx base_reg, HOST_WIDE_INT frame_bias,
 	}
 
       add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-		    gen_rtx_SET (VOIDmode, mem, frame_reg));
+		    gen_rtx_SET (mem, frame_reg));
     }
 }
 
@@ -7888,7 +7821,7 @@ alpha_expand_prologue (void)
          note it looks at instead.  */
       RTX_FRAME_RELATED_P (seq) = 1;
       add_reg_note (seq, REG_FRAME_RELATED_EXPR,
-		    gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+		    gen_rtx_SET (stack_pointer_rtx,
 				 plus_constant (Pmode, stack_pointer_rtx,
 						-frame_size)));
     }
@@ -10101,6 +10034,10 @@ alpha_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE alpha_option_override
+
+#undef TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE
+#define TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE \
+  alpha_override_options_after_change
 
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
 #undef TARGET_MANGLE_TYPE

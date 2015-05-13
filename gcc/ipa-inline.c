@@ -439,9 +439,6 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
 	       == !opt_for_fn (callee->decl, optimize) || !always_inline))
 	  || check_match (flag_wrapv)
 	  || check_match (flag_trapv)
-	  /* Strictly speaking only when the callee contains memory
-	     accesses that are not using alias-set zero anyway.  */
-	  || check_maybe_down (flag_strict_aliasing)
 	  /* Strictly speaking only when the callee uses FP math.  */
 	  || check_maybe_up (flag_rounding_math)
 	  || check_maybe_up (flag_trapping_math)
@@ -515,7 +512,7 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
       else if (opt_for_fn (callee->decl, optimize_size)
 	       < opt_for_fn (caller->decl, optimize_size)
 	       || (opt_for_fn (callee->decl, optimize)
-		   >= opt_for_fn (caller->decl, optimize)))
+		   > opt_for_fn (caller->decl, optimize)))
 	{
 	  if (estimate_edge_time (e)
 	      >= 20 + inline_edge_summary (e)->call_stmt_time)
@@ -1174,8 +1171,8 @@ edge_badness (struct cgraph_edge *edge, bool dump)
       if (dump)
 	{
 	  fprintf (dump_file,
-		   "      %f: guessed profile. frequency %f, count %"PRId64
-		   " caller count %"PRId64
+		   "      %f: guessed profile. frequency %f, count %" PRId64
+		   " caller count %" PRId64
 		   " time w/o inlining %f, time w inlining %f"
 		   " overall growth %i (current) %i (original)"
 		   " %i (compensated)\n",
@@ -1957,7 +1954,7 @@ inline_small_functions (void)
 		   badness.to_double (),
 		   edge->frequency / (double)CGRAPH_FREQ_BASE);
 	  if (edge->count)
-	    fprintf (dump_file," Called %"PRId64"x\n",
+	    fprintf (dump_file," Called %" PRId64"x\n",
 		     edge->count);
 	  if (dump_flags & TDF_DETAILS)
 	    edge_badness (edge, true);
@@ -2244,8 +2241,8 @@ dump_overall_stats (void)
 	sum_weighted += time * node->count;
       }
   fprintf (dump_file, "Overall time estimate: "
-	   "%"PRId64" weighted by profile: "
-	   "%"PRId64"\n", sum, sum_weighted);
+	   "%" PRId64" weighted by profile: "
+	   "%" PRId64"\n", sum, sum_weighted);
 }
 
 /* Output some useful stats about inlining.  */
@@ -2323,31 +2320,31 @@ dump_inline_stats (void)
   if (max_count)
     {
       fprintf (dump_file,
-	       "Inlined %"PRId64 " + speculative "
-	       "%"PRId64 " + speculative polymorphic "
-	       "%"PRId64 " + previously indirect "
-	       "%"PRId64 " + virtual "
-	       "%"PRId64 " + virtual and previously indirect "
-	       "%"PRId64 "\n" "Not inlined "
-	       "%"PRId64 " + previously indirect "
-	       "%"PRId64 " + virtual "
-	       "%"PRId64 " + virtual and previously indirect "
-	       "%"PRId64 " + stil indirect "
-	       "%"PRId64 " + still indirect polymorphic "
-	       "%"PRId64 "\n", inlined_cnt,
+	       "Inlined %" PRId64 " + speculative "
+	       "%" PRId64 " + speculative polymorphic "
+	       "%" PRId64 " + previously indirect "
+	       "%" PRId64 " + virtual "
+	       "%" PRId64 " + virtual and previously indirect "
+	       "%" PRId64 "\n" "Not inlined "
+	       "%" PRId64 " + previously indirect "
+	       "%" PRId64 " + virtual "
+	       "%" PRId64 " + virtual and previously indirect "
+	       "%" PRId64 " + stil indirect "
+	       "%" PRId64 " + still indirect polymorphic "
+	       "%" PRId64 "\n", inlined_cnt,
 	       inlined_speculative, inlined_speculative_ply,
 	       inlined_indir_cnt, inlined_virt_cnt, inlined_virt_indir_cnt,
 	       noninlined_cnt, noninlined_indir_cnt, noninlined_virt_cnt,
 	       noninlined_virt_indir_cnt, indirect_cnt, indirect_poly_cnt);
       fprintf (dump_file,
-	       "Removed speculations %"PRId64 "\n",
+	       "Removed speculations %" PRId64 "\n",
 	       spec_rem);
     }
   dump_overall_stats ();
   fprintf (dump_file, "\nWhy inlining failed?\n");
   for (i = 0; i < CIF_N_REASONS; i++)
     if (reason[i][2])
-      fprintf (dump_file, "%-50s: %8i calls, %8i freq, %"PRId64" count\n",
+      fprintf (dump_file, "%-50s: %8i calls, %8i freq, %" PRId64" count\n",
 	       cgraph_inline_failed_string ((cgraph_inline_failed_t) i),
 	       (int) reason[i][2], (int) reason[i][1], reason[i][0]);
 }

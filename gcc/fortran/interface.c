@@ -484,13 +484,24 @@ gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
   if (ts1->type == BT_VOID || ts2->type == BT_VOID)
     return 1;
 
-  if (ts1->type == BT_CLASS
-      && ts1->u.derived->components->ts.u.derived->attr.unlimited_polymorphic)
+  /* The _data component is not always present, therefore check for its
+     presence before assuming, that its derived->attr is available.
+     When the _data component is not present, then nevertheless the
+     unlimited_polymorphic flag may be set in the derived type's attr.  */
+  if (ts1->type == BT_CLASS && ts1->u.derived->components
+      && ((ts1->u.derived->attr.is_class
+	   && ts1->u.derived->components->ts.u.derived->attr
+						  .unlimited_polymorphic)
+	  || ts1->u.derived->attr.unlimited_polymorphic))
     return 1;
 
   /* F2003: C717  */
   if (ts2->type == BT_CLASS && ts1->type == BT_DERIVED
-      && ts2->u.derived->components->ts.u.derived->attr.unlimited_polymorphic
+      && ts2->u.derived->components
+      && ((ts2->u.derived->attr.is_class
+	   && ts2->u.derived->components->ts.u.derived->attr
+						  .unlimited_polymorphic)
+	  || ts2->u.derived->attr.unlimited_polymorphic)
       && (ts1->u.derived->attr.sequence || ts1->u.derived->attr.is_bind_c))
     return 1;
 
@@ -2169,7 +2180,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 	    gfc_error ("Passing coarray at %L to allocatable, noncoarray, "
 		       "INTENT(OUT) dummy argument %qs", &actual->where,
 		       formal->name);
-	    return 0;
+	  return 0;
 	}
       else if (warn_surprising && where && formal->attr.intent != INTENT_IN)
 	gfc_warning (OPT_Wsurprising,

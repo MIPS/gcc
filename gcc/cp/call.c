@@ -5968,7 +5968,8 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  argarray[0] = addr;
 	  for (i = 1; i < nargs; i++)
 	    argarray[i] = CALL_EXPR_ARG (placement, i);
-	  mark_used (fn);
+	  if (!mark_used (fn, complain) && !(complain & tf_error))
+	    return error_mark_node;
 	  return build_cxx_call (fn, nargs, argarray, complain);
 	}
       else
@@ -6020,12 +6021,22 @@ enforce_access (tree basetype_path, tree decl, tree diag_decl,
       if (complain & tf_error)
 	{
 	  if (TREE_PRIVATE (decl))
-	    error ("%q+#D is private", diag_decl);
+	    {
+	      error ("%q#D is private within this context", diag_decl);
+	      inform (DECL_SOURCE_LOCATION (diag_decl),
+		      "declared private here");
+	    }
 	  else if (TREE_PROTECTED (decl))
-	    error ("%q+#D is protected", diag_decl);
+	    {
+	      error ("%q#D is protected within this context", diag_decl);
+	      inform (DECL_SOURCE_LOCATION (diag_decl),
+		      "declared protected here");
+	    }
 	  else
-	    error ("%q+#D is inaccessible", diag_decl);
-	  error ("within this context");
+	    {
+	      error ("%q#D is inaccessible within this context", diag_decl);
+	      inform (DECL_SOURCE_LOCATION (diag_decl), "declared here");
+	    }
 	}
       return false;
     }
@@ -6232,19 +6243,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	tree convfn = cand->fn;
 	unsigned i;
 
-	/* When converting from an init list we consider explicit
-	   constructors, but actually trying to call one is an error.  */
-	if (DECL_NONCONVERTING_P (convfn) && DECL_CONSTRUCTOR_P (convfn)
-	    /* Unless this is for direct-list-initialization.  */
-	    && !DIRECT_LIST_INIT_P (expr))
-	  {
-	    if (!(complain & tf_error))
-	      return error_mark_node;
-	    error ("converting to %qT from initializer list would use "
-		   "explicit constructor %qD", totype, convfn);
-	  }
-
-	/* If we're initializing from {}, it's value-initialization.  */
+	/* If we're initializing from {}, it's value-initialization.  Note
+	   that under the resolution of core 1630, value-initialization can
+	   use explicit constructors.  */
 	if (BRACE_ENCLOSED_INITIALIZER_P (expr)
 	    && CONSTRUCTOR_NELTS (expr) == 0
 	    && TYPE_HAS_DEFAULT_CONSTRUCTOR (totype))
@@ -6258,6 +6259,18 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 		TARGET_EXPR_DIRECT_INIT_P (expr) = direct;
 	      }
 	    return expr;
+	  }
+
+	/* When converting from an init list we consider explicit
+	   constructors, but actually trying to call one is an error.  */
+	if (DECL_NONCONVERTING_P (convfn) && DECL_CONSTRUCTOR_P (convfn)
+	    /* Unless this is for direct-list-initialization.  */
+	    && !DIRECT_LIST_INIT_P (expr))
+	  {
+	    if (!(complain & tf_error))
+	      return error_mark_node;
+	    error ("converting to %qT from initializer list would use "
+		   "explicit constructor %qD", totype, convfn);
 	  }
 
 	expr = mark_rvalue_use (expr);
@@ -7390,7 +7403,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	 the implementation elided its use.  */
       if (!trivial || DECL_DELETED_FN (fn))
 	{
-	  mark_used (fn);
+	  if (!mark_used (fn, complain) && !(complain & tf_error))
+	    return error_mark_node;
 	  already_used = true;
 	}
 
