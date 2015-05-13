@@ -1,3 +1,9 @@
+2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/routine-1.c: Remove
+	-fno-exceptions.
+	* testsuite/libgomp.oacc-c-c++-common/routine-2.c: Likewise.
+
 2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
 	    Bernd Schmidt  <bernds@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>

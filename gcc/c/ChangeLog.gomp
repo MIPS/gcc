@@ -1,5 +1,8 @@
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* c-parser.c (c_finish_oacc_routine): Add an "oacc function"
+	attribute to routines.
+
 	* c-decl.c (c_decl_attributes): Update call to omp_mappable_type.
 	* c-typeck.c (c_finish_omp_clauses): Likewise.
 

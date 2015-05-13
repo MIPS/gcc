@@ -2559,6 +2559,12 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
       = tree_cons (get_identifier ("omp target entrypoint"),
                    NULL_TREE, DECL_ATTRIBUTES (decl));
 
+  if (is_gimple_omp_oacc (ctx->stmt)
+      && !lookup_attribute ("omp function", DECL_ATTRIBUTES (decl)))
+    DECL_ATTRIBUTES (decl)
+      = tree_cons (get_identifier ("oacc function"), NULL_TREE,
+		   DECL_ATTRIBUTES (decl));
+
   t = build_decl (DECL_SOURCE_LOCATION (decl),
 		  RESULT_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (t) = 1;

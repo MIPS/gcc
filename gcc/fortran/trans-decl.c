@@ -1309,6 +1309,10 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
     list = tree_cons (get_identifier ("omp declare target"),
 		      NULL_TREE, list);
 
+  if (sym_attr.oacc_function)
+    list = tree_cons (get_identifier ("oacc function"),
+		      NULL_TREE, list);
+
   return list;
 }
 

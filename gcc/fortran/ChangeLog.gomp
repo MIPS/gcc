@@ -1,3 +1,11 @@
+2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* f95-lang.c (gfc_attribute_table): Add and "oacc function"
+	attribute.
+	* gfortran.h (symbol_attribute): Add oacc_function bit.
+	* openmp.c (gfc_match_oacc_routine): Use it.
+	* trans-decl.c (add_attributes_to_decl): Lower it.
+
 2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
 	    Bernd Schmidt  <bernds@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>

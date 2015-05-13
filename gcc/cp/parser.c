@@ -33249,6 +33249,7 @@ cp_parser_late_parsing_oacc_routine (cp_parser *parser, tree attrs)
     cl = tree_cons (NULL_TREE, cl, NULL_TREE);
 
   attrs = build_tree_list (get_identifier ("omp declare target"), cl);
+  attrs = tree_cons (get_identifier ("oacc function"), NULL_TREE, attrs);
   data->fndecl_seen = true;
   return attrs;
 }

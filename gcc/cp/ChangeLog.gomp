@@ -1,5 +1,8 @@
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* parser.c (cp_parser_late_parsing_oacc_routine): Add an
+	"oacc function" attribute to routines.
+
 	* cp-tree.h (cp_omp_mappable_type): Add bool parameter.
 	* decl2.c (cp_check_const_attributes): Likewise. Use it.
 	(cp_omp_mappable_type): Update call to cp_omp_mappable_type.

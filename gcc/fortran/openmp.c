@@ -1776,6 +1776,7 @@ gfc_match_oacc_routine (void)
 				       gfc_current_ns->proc_name->name,
 				       &old_loc))
 	goto cleanup;
+      gfc_current_ns->proc_name->attr.oacc_function = 1;
     }
   else
     gcc_unreachable ();

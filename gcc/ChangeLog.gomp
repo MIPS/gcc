@@ -1,5 +1,10 @@
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* except.c (finish_eh_generation): Don't finalize exeception
+	handlers for functions containing the "oacc function" attribute.
+	* omp-low.c (create_omp_child_function): Add an "oacc function"
+	attribute to acc regions.
+
 	* langhooks-def.h (lhd_omp_mappable_type): Add bool argument.
 	* langhooks.c (lhd_omp_mappable_type): Likewise, for the
 	parameter.

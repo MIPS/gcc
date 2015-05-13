@@ -824,6 +824,7 @@ const struct attribute_spec c_common_attribute_table[] =
   { "bnd_instrument",         0, 0, true, false, false,
 			      handle_bnd_instrument, false },
   { "oacc declare",           0, -1, true,  false, false, NULL, false },
+  { "oacc function",          0, 0, true,  false, false, NULL, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 

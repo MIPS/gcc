@@ -1,7 +1,7 @@
-/* FIXME: remove -fno-var-tracking and -fno-exceptions from dg-options.  */
+/* FIXME: remove -fno-var-tracking from dg-options.  */
 
 /* { dg-do run } */
-/* { dg-options "-fno-inline -fno-var-tracking -fno-exceptions" } */
+/* { dg-options "-fno-inline -fno-var-tracking" } */
 
 #include <stdio.h>
 #include <stdlib.h>

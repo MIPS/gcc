@@ -1503,6 +1503,10 @@ finish_eh_generation (void)
 {
   basic_block bb;
 
+  if (lookup_attribute ("oacc function",
+			DECL_ATTRIBUTES (current_function_decl)))
+    return;
+
   /* Construct the landing pads.  */
   if (targetm_common.except_unwind_info (&global_options) == UI_SJLJ)
     sjlj_build_landing_pads ();

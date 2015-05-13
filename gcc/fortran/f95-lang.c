@@ -104,8 +104,8 @@ static alias_set_type gfc_get_alias_set (tree);
 static void gfc_init_ts (void);
 static tree gfc_builtin_function (tree);
 
-/* Handle an "omp declare target" attribute; arguments as in
-   struct attribute_spec.handler.  */
+/* Handle an "omp declare target" or "oacc function" attribute;
+   arguments as in struct attribute_spec.handler.  */
 static tree
 gfc_handle_omp_declare_target_attribute (tree *, tree, tree, int, bool *)
 {
@@ -118,6 +118,8 @@ static const struct attribute_spec gfc_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
        affects_type_identity } */
   { "omp declare target", 0, 0, true,  false, false,
+    gfc_handle_omp_declare_target_attribute, false },
+  { "oacc function", 0, 0, true,  false, false,
     gfc_handle_omp_declare_target_attribute, false },
   { NULL,		  0, 0, false, false, false, NULL, false }
 };

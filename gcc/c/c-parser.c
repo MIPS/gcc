@@ -13032,7 +13032,9 @@ c_finish_oacc_routine (c_parser *parser, tree fndecl, tree clauses,
   clauses = build_tree_list (get_identifier ("omp declare target"),
 			     clauses);
   TREE_CHAIN (clauses) = DECL_ATTRIBUTES (fndecl);
-  DECL_ATTRIBUTES (fndecl) = clauses;
+  DECL_ATTRIBUTES (fndecl)
+    = tree_cons (get_identifier ("oacc function"),
+		 NULL_TREE, clauses);
 }
 
 /* OpenACC 2.0:
