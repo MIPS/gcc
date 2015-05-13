@@ -8678,6 +8678,11 @@ lower_omp_regimplify_p (tree *tp, int *walk_subtrees,
 {
   tree t = *tp;
 
+  /* Explicitly ignore labels to avoid re-gimplifying
+     gotos and labels stmts.  */
+  if (TREE_CODE (t) != LABEL_DECL && !is_gimple_val (t))
+    return t;
+
   /* Any variable with DECL_VALUE_EXPR needs to be regimplified.  */
   if (VAR_P (t) && data == NULL && DECL_HAS_VALUE_EXPR_P (t))
     return t;
