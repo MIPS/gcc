@@ -1829,6 +1829,16 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 	    && IN_RANGE (last_regno, FIRST_GPR_REGNO, LAST_GPR_REGNO)
 	    && ((regno & 1) == 0));
 
+  /* If we don't allow 128-bit binary floating point, disallow the 128-bit
+     types from going in any registers.  Similarly if __float128 is not
+     supported, don't allow __float128/__ibm128 types.  */
+  if (!TARGET_LONG_DOUBLE_128
+      && (mode == TFmode || mode == KFmode || mode == IFmode))
+    return false;
+
+  if (!TARGET_FLOAT128 && (mode == KFmode || mode == IFmode))
+    return false;
+
   /* VSX registers that overlap the FPR registers are larger than for non-VSX
      implementations.  Don't allow an item to be split between a FP register
      and an Altivec register.  Allow TImode in all VSX registers if the user
@@ -2098,6 +2108,7 @@ rs6000_debug_reg_global (void)
   const char *trace_str;
   const char *abi_str;
   const char *cmodel_str;
+  const char *float128_str;
   struct cl_target_option cl_opts;
 
   /* Modes we want tieable information on.  */
@@ -2458,6 +2469,16 @@ rs6000_debug_reg_global (void)
 
   fprintf (stderr, DEBUG_FMT_S, "e500_double",
 	   (TARGET_E500_DOUBLE ? "true" : "false"));
+
+  switch (TARGET_FLOAT128)
+    {
+    case FLOAT128_NONE:	float128_str = "none";		break;
+    case FLOAT128_SW:	float128_str = "software";	break;
+    case FLOAT128_HW:	float128_str = "hardware";	break;
+    default:		float128_str = "unknown";	break;
+    }
+
+  fprintf (stderr, DEBUG_FMT_S, "float128", float128_str);
 
   if (TARGET_LINK_STACK)
     fprintf (stderr, DEBUG_FMT_S, "link_stack", "true");
@@ -3628,13 +3649,6 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_isa_flags &= ~OPTION_MASK_P8_VECTOR;
     }
 
-  if (TARGET_FLOAT128 && !TARGET_VSX)
-    {
-      if (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128)
-	error ("-mfloat128 requires -mvsx");
-      rs6000_isa_flags &= ~OPTION_MASK_FLOAT128;
-    }
-
   if (TARGET_VSX_TIMODE && !TARGET_VSX)
     {
       if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
@@ -3744,6 +3758,23 @@ rs6000_option_override_internal (bool global_init_p)
       && optimize_function_for_speed_p (cfun)
       && optimize >= 3)
     rs6000_isa_flags |= OPTION_MASK_P8_FUSION_SIGN;
+
+  /* Set the appropriate IEEE 128-bit floating option.  If we have hardware,
+     use it.  Otherwise enable emulation if -mvsx.  */
+  if (TARGET_FLOAT128 == FLOAT128_UNSET)
+    {
+      if (TARGET_VSX)
+	TARGET_FLOAT128 = FLOAT128_SW;
+      else
+	TARGET_FLOAT128 = FLOAT128_NONE;
+    }
+  else if (TARGET_FLOAT128 == FLOAT128_HW)
+    error ("-mfloat128-hardware is not yet supported");
+  else if (TARGET_FLOAT128 == FLOAT128_SW)
+    {
+      if (!TARGET_VSX)
+	error ("-mfloat128-software requires VSX support");
+    }
 
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
@@ -32653,7 +32684,6 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "crypto",			OPTION_MASK_CRYPTO,		false, true  },
   { "direct-move",		OPTION_MASK_DIRECT_MOVE,	false, true  },
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
-  { "float128",			OPTION_MASK_FLOAT128,		false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
@@ -32732,7 +32762,7 @@ static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
 struct rs6000_opt_var {
   const char *name;		/* option name */
   size_t global_offset;		/* offset of the option in global_options.  */
-  size_t target_offset;		/* offset of the option in target optiosn.  */
+  size_t target_offset;		/* offset of the option in target options.  */
 };
 
 static struct rs6000_opt_var const rs6000_opt_vars[] =
@@ -32785,6 +32815,23 @@ static struct rs6000_opt_var const rs6000_opt_vars[] =
   { "warn-cell-microcode",
     offsetof (struct gcc_options, x_rs6000_warn_cell_microcode),
     offsetof (struct cl_target_option, x_rs6000_warn_cell_microcode), },
+};
+
+/* Float128 options we want to support inside attribute((target)) and #pragma
+   GCC target operations.  */
+
+struct rs6000_float128_var {
+  const char *name;		/* option name.  */
+  enum float128_type_t type;	/* float128 type.  */
+};
+
+static struct rs6000_float128_var const rs6000_float128_vars[] =
+{
+  { "float128-none",		FLOAT128_NONE },
+  { "float128-hardware",	FLOAT128_HW },
+  { "float128-hw",		FLOAT128_HW },
+  { "float128-software",	FLOAT128_SW },
+  { "float128-sw",		FLOAT128_SW },
 };
 
 /* Inner function to handle attribute((target("..."))) and #pragma GCC target
@@ -32878,6 +32925,18 @@ rs6000_inner_target_options (tree args, bool attr_p)
 		      }
 		    break;
 		  }
+
+	      if (error_p && !not_valid_p && !invert)
+		{
+		  for (i = 0; i < ARRAY_SIZE (rs6000_float128_vars); i++)
+		    if (strcmp (r, rs6000_float128_vars[i].name) == 0)
+		      {
+			TARGET_FLOAT128 = rs6000_float128_vars[i].type;
+			error_p = false;
+			not_valid_p = false;
+			break;
+		      }
+		}
 
 	      if (error_p && !not_valid_p)
 		{
