@@ -256,9 +256,9 @@ const char *constant_string_class_name;
 
 int flag_use_repository;
 
-/* The C++ dialect being used. C++98 is the default.  */
+/* The C++ dialect being used.  Default set in c_common_post_options.  */
 
-enum cxx_dialect cxx_dialect = cxx98;
+enum cxx_dialect cxx_dialect = cxx_unset;
 
 /* Maximum template instantiation depth.  This limit exists to limit the
    time it takes to notice excessively recursive template instantiations.
@@ -1361,6 +1361,14 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 	  && !TREE_OVERFLOW_P (op0)
 	  && !TREE_OVERFLOW_P (op1))
 	overflow_warning (EXPR_LOCATION (expr), ret);
+      if (code == LSHIFT_EXPR
+	  && TREE_CODE (orig_op0) != INTEGER_CST
+	  && TREE_CODE (TREE_TYPE (orig_op0)) == INTEGER_TYPE
+	  && TREE_CODE (op0) == INTEGER_CST
+	  && c_inhibit_evaluation_warnings == 0
+	  && tree_int_cst_sgn (op0) < 0)
+	warning_at (loc, OPT_Wshift_negative_value,
+		    "left shift of negative value");
       if ((code == LSHIFT_EXPR || code == RSHIFT_EXPR)
 	  && TREE_CODE (orig_op1) != INTEGER_CST
 	  && TREE_CODE (op1) == INTEGER_CST
@@ -5910,9 +5918,25 @@ set_compound_literal_name (tree decl)
 tree
 build_va_arg (location_t loc, tree expr, tree type)
 {
-  /* In gimplify_va_arg_expr we take the address of the ap argument, mark it
-     addressable now.  */
-  mark_addressable (expr);
+  tree va_type = TREE_TYPE (expr);
+  tree canon_va_type = (va_type == error_mark_node
+			? NULL_TREE
+			: targetm.canonical_va_list_type (va_type));
+
+  if (canon_va_type != NULL)
+    {
+      /* When the va_arg ap argument is a parm decl with declared type va_list,
+	 and the va_list type is an array, then grokdeclarator changes the type
+	 of the parm decl to the corresponding pointer type.  We know that that
+	 pointer is constant, so there's no need to modify it, so there's no
+	 need to pass it around using an address operator, so there's no need to
+	 mark it addressable.  */
+      if (!(TREE_CODE (canon_va_type) == ARRAY_TYPE
+	    && TREE_CODE (va_type) != ARRAY_TYPE))
+	/* In gimplify_va_arg_expr we take the address of the ap argument, mark
+	   it addressable now.  */
+	mark_addressable (expr);
+    }
 
   expr = build1 (VA_ARG_EXPR, type, expr);
   SET_EXPR_LOCATION (expr, loc);
@@ -10768,7 +10792,7 @@ get_atomic_generic_size (location_t loc, tree function,
       if (TREE_CODE (p) == INTEGER_CST)
         {
 	  int i = tree_to_uhwi (p);
-	  if (i < 0 || (i & MEMMODEL_MASK) >= MEMMODEL_LAST)
+	  if (i < 0 || (memmodel_base (i) >= MEMMODEL_LAST))
 	    {
 	      warning_at (loc, OPT_Winvalid_memory_model,
 			  "invalid memory model argument %d of %qE", x + 1,

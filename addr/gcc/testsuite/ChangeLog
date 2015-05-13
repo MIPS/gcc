@@ -1,3 +1,187 @@
+2015-05-13  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/pow-sqrt-synth-1.c: New test.
+	* gcc.dg/pow-sqrt.x: New file.
+	* gcc.dg/pow-sqrt-1.c: New test.
+	* gcc.dg/pow-sqrt-2.c: Likewise.
+	* gcc.dg/pow-sqrt-3.c: Likewise.
+
+2015-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66123
+	* gcc.dg/torture/pr66123.c: New testcase.
+
+2015-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/66110
+	* gcc.dg/alias-2.c: Adjust.
+	* gcc.dg/tree-ssa/ssa-dse-17.c: New testcase.
+
+2015-05-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/65103
+	* gcc.target/i386/pr65103-3.c: New.
+
+2015-05-13  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/ipa/pr65557.C: Remove unnecessary dump flag.
+
+2015-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/66112
+	* gcc.target/i386/pr66112-2.c: New test.
+
+	PR target/66112
+	* gcc.target/i386/pr66112-1.c: New test.
+
+2015-05-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/66048
+	* gcc.target/i386/mpx/pr66048.cc: New.
+
+2015-05-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR rtl-optimization/64616
+	* gcc.dg/loop-8.c: New test.
+	* gcc.dg/loop-9.c: New test.
+
+2015-05-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR target/pr66047.c
+	* gcc.target/i386/pr66047.c: New testcase.
+
+2015-05-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65873
+	* gcc.c-torture/compile/pr65873.c: New testcase.
+
+2015-05-12  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66111
+	* gfortran.dg/inline_matmul_10.f90:  New test.
+
+2015-05-12  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-c++-common/Wmisleading-indentation.c: New testcase.
+	* c-c++-common/Wmisleading-indentation-2.c: New testcase.
+	* c-c++-common/Wmisleading-indentation-2.md: New file.
+
+2015-05-12 Sandra Loosemore <sandra@codesourcery.com>
+
+	* gcc.target/nios2/nios2-trap-insn.c: Expect "trap" instead of
+	"break".
+	* gcc.target/nios2/nios2-stack-check-1.c: Likewise.
+
+2015-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66101
+	* gcc.dg/torture/pr66101.c: New testcase.
+
+2015-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/37021
+	* gcc.target/i386/vect-addsub.c: New testcase.
+
+2015-05-11  Alexander Monakov  <amonakov@ispras.ru>
+
+	* gcc.target/i386/pr65753.c: Use -O2 instead of -O.
+
+2015-05-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66010
+	* gcc.dg/tree-ssa/stdarg-2.c: Undo scan xfails for f15.
+
+2015-05-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/65133
+	* g++.dg/cpp0x/trailing10.C: New.
+
+2015-05-12  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/bb-slp-35.c: New testcase.
+
+2015-05-11  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/66100
+	* gfortran.dg/bound_simplification_6.f90: New.
+
+2015-05-11  Steve Ellcey  <sellcey@mips.com>
+
+	* gcc.target/mips/branch-1.c: Pass argument to bar().
+
+2015-05-11  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR target/65753
+	* gcc.target/i386/pr65753.c: New test.
+
+2015-05-11  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR rtl-optimization/66076
+	* gcc.dg/torture/pr66076.c: New test.
+
+2015-05-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66041
+	* gfortran.dg/inline_matmul_7.f90:  New test.
+	* gfortran.dg/inline_matmul_8.f90:  New test.
+	* gfortran.dg/inline_matmul_9.f90:  New test.
+
+2015-05-10  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* gfortran.dg/bound_simplification_5.f90: New.
+
+2015-05-09  Jason Merrill  <jason@redhat.com>
+
+	* lib/target-supports.exp (cxx_default): New global.
+	(check_effective_target_c++11_only)
+	(check_effective_target_c++14_only)
+	(check_effective_target_c++98_only)
+	(check_effective_target_c++1z_only): Check it.
+
+2015-05-09  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/64454
+	* gcc.dg/tree-ssa/vrp97.c: New file.
+	* gcc.dg/vect/slp-perm-7.c: Update.
+
+2015-05-09  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/65894
+	* gfortran.dg/elemental_subroutine_11.f90: New test.
+
+2015-05-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66036
+	* gcc.dg/vect/slp-41.c: New testcase.
+
+2015-05-08  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* gfortran.dg/elemental_optional_args_7.f90: New.
+
+2015-05-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/singleton_intrinsics_1.c: Generalize regex to
+	allow cmlt or sshr.
+
+2015-05-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64918
+	* gcc.dg/Woverride-init-side-effects-1.c: New test.
+	* gcc.dg/Woverride-init-side-effects-2.c: New test.
+
+2015-05-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65179
+	* c-c++-common/Wshift-negative-value-1.c: New test.
+	* testsuite/c-c++-common/Wshift-negative-value-2.c: New test.
+	* testsuite/c-c++-common/Wshift-negative-value-3.c: New test.
+	* testsuite/c-c++-common/Wshift-negative-value-4.c: New test.
+	* testsuite/c-c++-common/Wshift-negative-value-5.c: New test.
+	* testsuite/c-c++-common/Wshift-negative-value-6.c: New test.
+	* testsuite/gcc.dg/c90-left-shift-1.c: New test.
+	* testsuite/gcc.dg/c99-const-expr-7.c: Add dg-error.
+	* testsuite/gcc.dg/c99-left-shift-1.c: New test.
+
 2015-05-07  Segher Boessenkool  <segher@kernel.crashing.org>
 
 	PR middle-end/192
