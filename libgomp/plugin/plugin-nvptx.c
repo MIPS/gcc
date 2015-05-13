@@ -34,7 +34,6 @@
 #include "openacc.h"
 #include "config.h"
 #include "libgomp-plugin.h"
-#include "oacc-ptx.h"
 #include "oacc-plugin.h"
 
 #include <pthread.h>
@@ -793,7 +792,7 @@ nvptx_get_num_devices (void)
 
 
 static void
-link_ptx (CUmodule *module, char *ptx_code)
+link_ptx (CUmodule *module, char *ptx_code, size_t length)
 {
   CUjit_option opts[7];
   void *optvals[7];
@@ -834,63 +833,38 @@ link_ptx (CUmodule *module, char *ptx_code)
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuLinkCreate error: %s", cuda_error (r));
 
-  char *abort_ptx = ABORT_PTX;
-  r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, abort_ptx,
-		     strlen (abort_ptx) + 1, 0, 0, 0, 0);
-  if (r != CUDA_SUCCESS)
+  size_t off = 0;
+  while (off < length)
     {
-      GOMP_PLUGIN_error ("Link error log %s\n", &elog[0]);
-      GOMP_PLUGIN_fatal ("cuLinkAddData (abort) error: %s", cuda_error (r));
-    }
+      int l = strlen (ptx_code + off);
+      r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, ptx_code + off, l + 1,
+			 0, 0, 0, 0);
+      if (r != CUDA_SUCCESS)
+	{
+	  GOMP_PLUGIN_error ("Link error log %s\n", &elog[0]);
+	  GOMP_PLUGIN_fatal ("cuLinkAddData (ptx_code) error: %s", cuda_error (r));
+	}
 
-  char *acc_on_device_ptx = ACC_ON_DEVICE_PTX;
-  r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, acc_on_device_ptx,
-		     strlen (acc_on_device_ptx) + 1, 0, 0, 0, 0);
-  if (r != CUDA_SUCCESS)
-    {
-      GOMP_PLUGIN_error ("Link error log %s\n", &elog[0]);
-      GOMP_PLUGIN_fatal ("cuLinkAddData (acc_on_device) error: %s",
-			 cuda_error (r));
-    }
-
-  char *goacc_internal_ptx = GOACC_INTERNAL_PTX;
-  r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, goacc_internal_ptx,
-		     strlen (goacc_internal_ptx) + 1, 0, 0, 0, 0);
-  if (r != CUDA_SUCCESS)
-    {
-      GOMP_PLUGIN_error ("Link error log %s\n", &elog[0]);
-      GOMP_PLUGIN_fatal ("cuLinkAddData (goacc_internal_ptx) error: %s",
-			 cuda_error (r));
-    }
-
-  char *gomp_atomic_ptx = GOMP_ATOMIC_PTX;
-  r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, gomp_atomic_ptx,
-		     strlen (gomp_atomic_ptx) + 1, 0, 0, 0, 0);
-  if (r != CUDA_SUCCESS)
-    {
-      GOMP_PLUGIN_error ("Link error log %s\n", &elog[0]);
-      GOMP_PLUGIN_fatal ("cuLinkAddData (gomp_atomic_ptx) error: %s",
-			 cuda_error (r));
-    }
-
-  r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, ptx_code,
-              strlen (ptx_code) + 1, 0, 0, 0, 0);
-  if (r != CUDA_SUCCESS)
-    {
-      GOMP_PLUGIN_error ("Link error log %s\n", &elog[0]);
-      GOMP_PLUGIN_fatal ("cuLinkAddData (ptx_code) error: %s", cuda_error (r));
+      off += l;
+      while (off < length && ptx_code[off] == '\0')
+	off++;
     }
 
   r = cuLinkComplete (linkstate, &linkout, &linkoutsize);
-  if (r != CUDA_SUCCESS)
-    GOMP_PLUGIN_fatal ("cuLinkComplete error: %s", cuda_error (r));
 
   GOMP_PLUGIN_debug (0, "Link complete: %fms\n", elapsed);
   GOMP_PLUGIN_debug (0, "Link log %s\n", &ilog[0]);
 
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuLinkComplete error: %s", cuda_error (r));
+
   r = cuModuleLoadData (module, linkout);
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuModuleLoadData error: %s", cuda_error (r));
+
+  r = cuLinkDestroy (linkstate);
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuLinkDestory error: %s", cuda_error (r));
 }
 
 static void
@@ -1633,7 +1607,7 @@ GOMP_OFFLOAD_load_image (int ord, void *target_data,
 
   nvptx_attach_host_thread_to_device (ord);
 
-  link_ptx (&module, img_header[0]);
+  link_ptx (&module, img_header[0], (size_t) img_header[1]);
 
   pthread_mutex_lock (&ptx_image_lock);
   new_image = GOMP_PLUGIN_malloc (sizeof (struct ptx_image_data));
@@ -1647,18 +1621,19 @@ GOMP_OFFLOAD_load_image (int ord, void *target_data,
      each offload image:
 
      img_header[0] -> ptx code
-     img_header[1] -> number of variables
-     img_header[2] -> array of variable names (pointers to strings)
-     img_header[3] -> number of kernels
-     img_header[4] -> array of kernel names (pointers to strings)
+     img_header[1] -> size of ptx code
+     img_header[2] -> number of variables
+     img_header[3] -> array of variable names (pointers to strings)
+     img_header[4] -> number of kernels
+     img_header[5] -> array of kernel names (pointers to strings)
 
      The array of kernel names and the functions addresses form a
      one-to-one correspondence.  */
 
-  var_entries = (uintptr_t) img_header[1];
-  var_names = (char **) img_header[2];
-  fn_entries = (uintptr_t) img_header[3];
-  fn_names = (char **) img_header[4];
+  var_entries = (uintptr_t) img_header[2];
+  var_names = (char **) img_header[3];
+  fn_entries = (uintptr_t) img_header[4];
+  fn_names = (char **) img_header[5];
 
   *target_table = GOMP_PLUGIN_malloc (sizeof (struct addr_pair)
 				      * (fn_entries + var_entries));

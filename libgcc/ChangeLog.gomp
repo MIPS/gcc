@@ -1,3 +1,15 @@
+2015-05-13  Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config.host (nvptx-*): For an offloading build, add libgomp.a
+	and libgomp.spec to extra_parts.
+	* config/nvptx/t-nvptx (gomp-acc_on_device.o, gomp-tids.o)
+	(gomp-atomic.o, libgomp.a, libgomp.spec): New rules.
+	(OBJS_libgomp): New variable.
+	* config/nvptx/gomp-acc_on_device.c: New file.
+	* config/nvptx/gomp-atomic.asm: Likewise.
+	* config/nvptx/gomp-tids.c: Likewise.
+
 2014-09-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* configure.ac (enable_accelerator, offload_targets): Remove.

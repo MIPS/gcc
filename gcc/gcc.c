@@ -1184,6 +1184,11 @@ static vec<char_p> assembler_options;
    These options are accumulated by -Wp,
    and substituted into the preprocessor command with %Z.  */
 static vec<char_p> preprocessor_options;
+
+/* A vector of options to give to mkoffload.
+   These options are accumulated by -Xoffload and place in the
+   COLLECT_MKOFFLOAD_OPTIONS variable.  */
+static vec<char_p> mkoffload_options;
 
 static char *
 skip_whitespace (char *p)
@@ -3202,6 +3207,7 @@ display_help (void)
   fputs (_("  -Xassembler <arg>        Pass <arg> on to the assembler\n"), stdout);
   fputs (_("  -Xpreprocessor <arg>     Pass <arg> on to the preprocessor\n"), stdout);
   fputs (_("  -Xlinker <arg>           Pass <arg> on to the linker\n"), stdout);
+  fputs (_("  -Xoffload <arg>          Pass <arg> to mkoffload via an environment variable\n"), stdout);
   fputs (_("  -save-temps              Do not delete intermediate files\n"), stdout);
   fputs (_("  -save-temps=<arg>        Do not delete intermediate files\n"), stdout);
   fputs (_("\
@@ -3256,6 +3262,12 @@ static void
 add_linker_option (const char *option, int len)
 {
   linker_options.safe_push (save_string (option, len));
+}
+
+static void
+add_mkoffload_option (const char *option, int len)
+{
+  mkoffload_options.safe_push (save_string (option, len));
 }
 
 /* Allocate space for an input file in infiles.  */
@@ -3693,6 +3705,11 @@ driver_handle_option (struct gcc_options *opts,
 
     case OPT_Xlinker:
       add_infile (arg, "*");
+      do_save = false;
+      break;
+
+    case OPT_Xoffload:
+      add_mkoffload_option (arg, strlen (arg));
       do_save = false;
       break;
 
@@ -4266,7 +4283,7 @@ process_command (unsigned int decoded_options_count,
     }
 
   gcc_assert (!IS_ABSOLUTE_PATH (tooldir_base_prefix));
-  tooldir_prefix2 = concat (tooldir_base_prefix, spec_host_machine,
+  tooldir_prefix2 = concat (tooldir_base_prefix, spec_machine,
 			    dir_separator_str, NULL);
 
   /* Look for tools relative to the location from which the driver is
@@ -4391,6 +4408,23 @@ set_collect_gcc_options (void)
     }
   obstack_grow (&collect_obstack, "\0", 1);
   xputenv (XOBFINISH (&collect_obstack, char *));
+
+#ifdef ENABLE_OFFLOADING
+  /* Build COLLECT_MKOFFLOAD_OPTIONS to have all of the options specified to
+     mkoffload.  */
+  obstack_grow (&collect_obstack, "COLLECT_MKOFFLOAD_OPTIONS=",
+		sizeof ("COLLECT_MKOFFLOAD_OPTIONS=") - 1);
+
+  char_p opt;
+  FOR_EACH_VEC_ELT (mkoffload_options, i, opt)
+    {
+      if (i > 0)
+	obstack_grow (&collect_obstack, " ", 1);
+      obstack_grow (&collect_obstack, opt, strlen (opt));
+    }
+  obstack_grow (&collect_obstack, "\0", 1);
+  xputenv (XOBFINISH (&collect_obstack, char *));
+#endif
 }
 
 /* Process a spec string, accumulating and running commands.  */

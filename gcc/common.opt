@@ -741,6 +741,9 @@ Driver Separate
 Xlinker
 Driver Separate
 
+Xoffload
+Driver Separate
+
 Xpreprocessor
 Driver Separate
 

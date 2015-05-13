@@ -1,3 +1,19 @@
+2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* oacc-ptx.h: Remove file.
+	* plugin/plugin-nvptx.c: Don't include it.
+	(link_ptx): Accept a length argument.  Don't add predefined bits of
+	PTX code.  Look for NUL characters as file boundaries in the input
+	and link the multiple PTX files.
+	(GOMP_OFFLOAD_load_image): Get the size of PTX code from the table
+	and pass it to link_ptx.
+	* testsuite/libgomp.fortran/fortran.exp (lang_link_flags): Add
+	"-Xoffload -lgfortran -Xoffload -lm".
+	* testsuite/libgomp.oacc-fortran/fortran.exp (lang_link_flags):
+	Likewise.
+
 2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
 	    Bernd Schmidt  <bernds@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>

@@ -1,3 +1,31 @@
+2015-05-13  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* config/nvptx/mkoffload.c (enum Kind, struct Token, enum Vis)
+	(struct Stmt): Remove.
+	(read_file, tokenize, write_token, write_tokens, alloc_stmt)
+	(alloc_comment, append_stmt, rev_stmts, write_stmt, write_stmts)
+	(parse_insn, parse_list_nosemi, parse_init, parse_file): Remove
+	functions and macros.
+	(decls, vars, fns): Remove variables.
+	(maybe_unlink): Use save_temps rather than debug to keep files.
+	(tool_cleanup): Unlink ptx_cfile_name and ptx_name.
+	(read_file): Accept a pointer to a length and store into it.
+	(process): Don't try to parse the input file, just write it out as a
+	string, but looking for maps.  Also write out the length.
+	(main): Don't use -S to compile ptx code.  Add -lgomp.  Add
+	COLLECT_MKOFFLOAD_OPTIONS.  Scan for -fopenacc and produce an empty
+	image if it is not set.  Scan for -save-temps.
+	* gcc.c (mkoffload_options): New static variable.
+	(display_help): Mention -Xoffload
+	(driver_handle_option): Handle it.
+	(add_mkoffload_option): New static function.
+	(set_collect_gcc_options): If offloading, set
+	COLLECT_MKOFFLOAD_OPTIONS.
+	* doc/invoke.texi (-Xoffload): Document.
+	* common.opt (Xoffload): New option.
+	* gcc.c (process_command): Use spec_machine rather than
+	spec_host_machine to build tooldir_prefix2.
+
 2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
 	    Bernd Schmidt  <bernds@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>

@@ -490,7 +490,7 @@ Objective-C and Objective-C++ Dialects}.
 -static-libmpx -static-libmpxwrappers @gol
 -shared -shared-libgcc  -symbolic @gol
 -T @var{script}  -Wl,@var{option}  -Xlinker @var{option} @gol
--u @var{symbol} -z @var{keyword}}
+-Xoffload @var{option} -u @var{symbol} -z @var{keyword}}
 
 @item Directory Options
 @xref{Directory Options,,Options for Directory Search}.
@@ -11403,6 +11403,11 @@ syntax than as separate arguments.  For example, you can specify
 @option{-Xlinker -Map=output.map} rather than
 @option{-Xlinker -Map -Xlinker output.map}.  Other linkers may not support
 this syntax for command-line options.
+
+@item -Xoffload @var{option}
+@opindex Xoffload
+Pass @var{option} as an option to the mkoffload program during the linking
+phase.  This program is used to generate images for offloaded code.
 
 @item -Wl,@var{option}
 @opindex Wl

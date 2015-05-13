@@ -1292,7 +1292,11 @@ mep*-*-*)
 	;;
 nvptx-*)
 	tmake_file="$tmake_file nvptx/t-nvptx"
-	extra_parts="crt0.o"
+	if test "x${enable_as_accelerator_for}" != x; then
+		extra_parts="crt0.o libgomp.a libgomp.spec"
+	else
+		extra_parts="crt0.o"
+	fi
 	;;
 *)
 	echo "*** Configuration ${host} not supported" 1>&2

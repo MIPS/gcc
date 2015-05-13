@@ -403,6 +403,8 @@ For more information about these matters, see the file named COPYING\n\n"));
 	default:
 	  break;
 	}
+      append_option (OPT_Xoffload, "-lm", 1);
+      append_option (OPT_Xoffload, "-lgfortran", 1);
     }
 
 #ifdef ENABLE_SHARED_LIBGCC
