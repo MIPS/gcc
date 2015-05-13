@@ -1,0 +1,10 @@
+2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/atomic.c: New file.
+	* config/nvptx/t-nvptx (LIB2ADD): Include it.
+
+Copyright (C) 2015-2018 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
