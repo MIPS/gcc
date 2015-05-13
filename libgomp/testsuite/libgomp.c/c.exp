@@ -23,6 +23,8 @@ dg-init
 # Turn on OpenMP.
 lappend ALWAYS_CFLAGS "additional_flags=-fopenmp"
 
+lappend libgomp_compile_options "compiler=$GCC_UNDER_TEST"
+
 # Gather a list of all tests.
 set tests [lsort [find $srcdir/$subdir *.c]]
 

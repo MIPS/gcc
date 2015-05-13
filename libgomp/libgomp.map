@@ -344,3 +344,9 @@ GOMP_PLUGIN_1.0 {
 	GOMP_PLUGIN_async_unmap_vars;
 	GOMP_PLUGIN_acc_thread;
 };
+
+# TODO.  See testsuite/lib/libgomp.exp:libgomp_init.
+INTERNAL {
+  global:
+	initialize_env;
+};

@@ -49,6 +49,11 @@ if { $blddir != "" } {
 }
 
 if { $lang_test_file_found } {
+    if ![info exists GFORTRAN_UNDER_TEST] then {
+	set GFORTRAN_UNDER_TEST $GCC_UNDER_TEST
+    }
+    lappend libgomp_compile_options "compiler=$GFORTRAN_UNDER_TEST"
+
     # Gather a list of all tests.
     set tests [lsort [find $srcdir/$subdir *.\[fF\]{,90,95,03,08}]]
 
@@ -69,8 +74,13 @@ if { $lang_test_file_found } {
     set_ld_library_path_env_vars
 
     # Test OpenACC with available accelerators.
+    set SAVE_ALWAYS_CFLAGS "$ALWAYS_CFLAGS"
     foreach offload_target_openacc $offload_targets_s_openacc {
+	set ALWAYS_CFLAGS "$SAVE_ALWAYS_CFLAGS"
 	set tagopt "-DACC_DEVICE_TYPE_$offload_target_openacc=1"
+	# Set $ACC_DEVICE_TYPE.  See the comments in
+	# ../lib/libgomp.exp:libgomp_init.
+	lappend ALWAYS_CFLAGS "ldflags=constructor-setenv-ACC_DEVICE_TYPE-$offload_target_openacc.o"
 
 	# Todo: Determine shared memory or not using run-time test.
 	switch $offload_target_openacc {
@@ -88,9 +98,6 @@ if { $lang_test_file_found } {
 	    }
 	}
 	set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared"
-
-	# Todo: Verify that this works for both local and remote testing.
-	setenv ACC_DEVICE_TYPE $offload_target_openacc
 
 	# For Fortran we're doing torture testing, as Fortran has far more tests
 	# with arrays etc. that testing just -O0 or -O2 is insufficient, that is

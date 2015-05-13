@@ -4,6 +4,7 @@ load_gcc_lib gcc-dg.exp
 global shlib_ext
 
 set shlib_ext [get_shlib_extension]
+#TODO
 set lang_link_flags "-lstdc++"
 set lang_test_file_found 0
 set lang_library_path "../libstdc++-v3/src/.libs"
@@ -41,6 +42,13 @@ if { $blddir != "" } {
 }
 
 if { $lang_test_file_found } {
+    if ![info exists GXX_UNDER_TEST] then {
+	# TODO.  See libgomp.oacc-c++/c++.exp.
+	set HAVE_SET_GXX_UNDER_TEST ""
+	set GXX_UNDER_TEST "$GCC_UNDER_TEST"
+    }
+    lappend libgomp_compile_options "compiler=$GXX_UNDER_TEST"
+
     # Gather a list of all tests.
     set tests [lsort [find $srcdir/$subdir *.C]]
 
@@ -61,6 +69,11 @@ if { $lang_test_file_found } {
 
     # Main loop.
     dg-runtest $tests "" $libstdcxx_includes
+}
+
+# TODO.  See above.
+if { [info exists HAVE_SET_GXX_UNDER_TEST] } {
+    unset GXX_UNDER_TEST
 }
 
 # All done.

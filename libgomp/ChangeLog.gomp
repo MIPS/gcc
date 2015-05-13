@@ -1,3 +1,41 @@
+2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+        * env.c (initialize_env): Remove static attribute.
+	* libgomp.map (INTERNAL): Export initialize_env.
+	* testsuite/lib/libgomp.exp (libgomp_init): Build a few object
+	files to pre-set environment variables.
+	(ALWAYS_CFLAGS): Add constructor-setenv-defaults.o to ldflags.
+	(libgomp_target_compile): Don't set the compiler.
+	* testsuite/libgomp.c++/c++.exp (GXX_UNDER_TEST): Provide default.
+	(libgomp_compile_options): Set the compiler.
+	* testsuite/libgomp.c/c.exp (libgomp_compile_options): Set the
+	compiler.
+	* testsuite/libgomp.fortran/fortran.exp (GFORTRAN_UNDER_TEST):
+	Provide default.
+	(libgomp_compile_options): Set the compiler.
+	* testsuite/libgomp.graphite/graphite.exp
+	(libgomp_compile_options): Set the compiler.
+	* testsuite/libgomp.oacc-c++/c++.exp (SAVE_GCC_UNDER_TEST)
+	(GCC_UNDER_TEST): Don't set.
+	(GXX_UNDER_TEST): Provide default.
+	(libgomp_compile_options): Set the compiler.
+	(ALWAYS_CFLAGS): Add the respective
+	constructor-setenv-ACC_DEVICE_TYPE-$offload_target_openacc.o to
+	ldflags.
+	(ACC_DEVICE_TYPE): Don't set.
+	* testsuite/libgomp.oacc-c/c.exp (libgomp_compile_options): Set
+	the compiler.
+	(ALWAYS_CFLAGS): Add the respective
+	constructor-setenv-ACC_DEVICE_TYPE-$offload_target_openacc.o to
+	ldflags.
+	(ACC_DEVICE_TYPE): Don't set.
+	* testsuite/libgomp.oacc-fortran/fortran.exp
+	(libgomp_compile_options): Set the compiler.
+	(ALWAYS_CFLAGS): Add the respective
+	constructor-setenv-ACC_DEVICE_TYPE-$offload_target_openacc.o to
+	ldflags.
+	(ACC_DEVICE_TYPE): Don't set.
+
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/routine-1.c: Remove

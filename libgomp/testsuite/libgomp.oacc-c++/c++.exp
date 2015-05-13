@@ -6,6 +6,7 @@ load_gcc_lib gcc-dg.exp
 global shlib_ext
 
 set shlib_ext [get_shlib_extension]
+#TODO
 set lang_link_flags "-lstdc++"
 set lang_test_file_found 0
 set lang_library_path "../libstdc++-v3/src/.libs"
@@ -18,11 +19,6 @@ dg-init
 
 # Turn on OpenACC.
 lappend ALWAYS_CFLAGS "additional_flags=-fopenacc"
-
-# Switch into C++ mode.  Otherwise, the libgomp.oacc-c-c++-common/*.c
-# files would be compiled as C files.
-set SAVE_GCC_UNDER_TEST "$GCC_UNDER_TEST"
-set GCC_UNDER_TEST "$GCC_UNDER_TEST -x c++"
 
 set blddir [lookfor_file [get_multilibs] libgomp]
 
@@ -48,6 +44,14 @@ if { $blddir != "" } {
 }
 
 if { $lang_test_file_found } {
+    if ![info exists GXX_UNDER_TEST] then {
+	# Use GCC_UNDER_TEST, but switch into C++ mode, as otherwise the
+	# libgomp.oacc-c-c++-common/*.c files would be compiled as C files.
+	set HAVE_SET_GXX_UNDER_TEST ""
+	set GXX_UNDER_TEST "$GCC_UNDER_TEST -x c++"
+    }
+    lappend libgomp_compile_options "compiler=$GXX_UNDER_TEST"
+
     # Gather a list of all tests.
     set tests [lsort [concat \
 			  [find $srcdir/$subdir *.C] \
@@ -69,8 +73,13 @@ if { $lang_test_file_found } {
     }
 
     # Test OpenACC with available accelerators.
+    set SAVE_ALWAYS_CFLAGS "$ALWAYS_CFLAGS"
     foreach offload_target_openacc $offload_targets_s_openacc {
+	set ALWAYS_CFLAGS "$SAVE_ALWAYS_CFLAGS"
 	set tagopt "-DACC_DEVICE_TYPE_$offload_target_openacc=1"
+	# Set $ACC_DEVICE_TYPE.  See the comments in
+	# ../lib/libgomp.exp:libgomp_init.
+	lappend ALWAYS_CFLAGS "ldflags=constructor-setenv-ACC_DEVICE_TYPE-$offload_target_openacc.o"
 
 	# Todo: Determine shared memory or not using run-time test.
 	switch $offload_target_openacc {
@@ -95,15 +104,14 @@ if { $lang_test_file_found } {
 	}
 	set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared"
 
-	# Todo: Verify that this works for both local and remote testing.
-	setenv ACC_DEVICE_TYPE $offload_target_openacc
-
 	dg-runtest $tests "$tagopt" $libstdcxx_includes
     }
 }
 
 # See above.
-set GCC_UNDER_TEST "$SAVE_GCC_UNDER_TEST"
+if { [info exists HAVE_SET_GXX_UNDER_TEST] } {
+    unset GXX_UNDER_TEST
+}
 
 # All done.
 dg-finish

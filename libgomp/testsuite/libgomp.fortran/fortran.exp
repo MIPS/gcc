@@ -47,6 +47,11 @@ if { $blddir != "" } {
 }
 
 if { $lang_test_file_found } {
+    if ![info exists GFORTRAN_UNDER_TEST] then {
+	set GFORTRAN_UNDER_TEST $GCC_UNDER_TEST
+    }
+    lappend libgomp_compile_options "compiler=$GFORTRAN_UNDER_TEST"
+
     # Gather a list of all tests.
     set tests [lsort [find $srcdir/$subdir *.\[fF\]{,90,95,03,08}]]
 
