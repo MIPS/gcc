@@ -1,5 +1,11 @@
 2015-05-11  Gary Funck  <gary@intrepid.com>
 
+	Remove asserts which check for attempt to qualify an ARRAY_TYPE.
+	Caused an ICE when compiling gcc.dg/pointer-array-quals-*.c.
+	* c/c-typeck.c (qualify_type): Revert to trunk.
+
+2015-05-11  Gary Funck  <gary@intrepid.com>
+
 	Merge trunk version 222997 into gupc branch.
 
 2015-05-08  Gary Funck  <gary@intrepid.com>
