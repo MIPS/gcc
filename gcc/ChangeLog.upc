@@ -1,3 +1,11 @@
+2015-05-13  Gary Funck  <gary@intrepid.com>
+
+	Fix ICE when initializing a global shared variable of type __int128.
+	* c/c-convert.c (convert):
+        Drop 'shared' qualifier for all conversions.
+	Previously, this was done only for types that
+	shared the same main variant.
+
 2015-05-12  Gary Funck  <gary@intrepid.com>
 
 	Fix ICE when compiling nested functions.
