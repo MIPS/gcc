@@ -1,3 +1,62 @@
+2015-05-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/stl_raw_storage_iter.h (raw_storage_iterator::base()):
+	Define (LWG 2454).
+	* testsuite/20_util/raw_storage_iterator/base.cc: New.
+
+	* include/std/future (packaged_task(allocator_arg_t, const A&, F&&):
+	Remove explicit (LWG 2407).
+
+	* include/bits/basic_string.h (basic_string::basic_string()): Make
+	noexcept conditional on allocator (LWG 2455).
+
+	* include/std/complex (polar): Check for negative rho (LWG 2459).
+
+	* include/experimental/tuple (apply): Handle pointers to member (LWG
+	2418).
+	* include/std/functional (_Mem_fn_base): Make constructors constexpr.
+	(_Maybe_wrap_member_pointer::__do_wrap): Make constexpr.
+	* testsuite/experimental/tuple/apply.cc: Test pointer to member.
+
+	* include/bits/random.h (seed_seq): More noexcept (LWG 2440).
+
+	* include/bits/alloc_traits.h (_S_max_size): Implement LWG 2466.
+	* testsuite/20_util/allocator_traits/members/max_size.cc: Adjust.
+	* testsuite/23_containers/forward_list/allocator/minimal.cc:
+	Likewise.
+	* testsuite/23_containers/map/allocator/minimal.cc: Likewise.
+	* testsuite/23_containers/multimap/allocator/minimal.cc: Likewise.
+	* testsuite/23_containers/multiset/allocator/minimal.cc: Likewise.
+	* testsuite/23_containers/set/allocator/minimal.cc: Likewise.
+	* testsuite/23_containers/unordered_map/allocator/minimal.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_multimap/allocator/minimal.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_multiset/allocator/minimal.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_set/allocator/minimal.cc:
+	Likewise.
+	* testsuite/util/testsuite_allocator.h: Remove unused parameter.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_FILESYSTEM_TS): Re-enable on solaris.
+	* configure: Regenerate.
+
+2015-05-13  Michael Haubenwallner  <michael.haubenwallner@ssi-schaefer.com>
+
+	* Makefile.in: Regenerated with automake-1.11.6.
+	* aclocal.m4: Likewise.
+	* configure: Likewise.
+	* doc/Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* python/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* src/c++11/Makefile.in: Likewise.
+	* src/c++98/Makefile.in: Likewise.
+	* src/filesystem/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
 2015-05-09  Jason Merrill  <jason@redhat.com>
 
 	* testsuite/20_util/headers/functional/synopsis.cc: Add
