@@ -1,3 +1,15 @@
+2015-05-13  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* common.opt (Xoffload): New option.
+	* config/nvptx/mkoffload.c (main): Add COLLECT_MKOFFLOAD_OPTIONS.
+	* doc/invoke.texi (-Xoffload): Document.
+	* gcc.c (mkoffload_options): New static variable.
+	(display_help): Mention -Xoffload
+	(driver_handle_option): Handle it.
+	(add_mkoffload_option): New static function.
+	(set_collect_gcc_options): If offloading, set
+	COLLECT_MKOFFLOAD_OPTIONS.
+
 2018-05-09  Tom de Vries  <tom@codesourcery.com>
 
 	PR target/85626
@@ -32,7 +44,7 @@
 	* doc/sourcebuild.texi (Commands for use in dg-final, Scan optimization
 	dump files): Add wpa-ipa.
 
-Copyright (C) 2018 Free Software Foundation, Inc.
+Copyright (C) 2015-2018 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

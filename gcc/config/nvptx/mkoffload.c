@@ -510,6 +510,19 @@ main (int argc, char **argv)
     }
   if (fopenmp)
     obstack_ptr_grow (&argv_obstack, "-mgomp");
+  char *collect_mkoffload_opts = getenv ("COLLECT_MKOFFLOAD_OPTIONS");
+  if (collect_mkoffload_opts)
+    {
+      char *str = collect_mkoffload_opts;
+      char *p;
+      while ((p = strchr (str, ' ')) != 0)
+	{
+	  *p = '\0';
+	  obstack_ptr_grow (&argv_obstack, str);
+	  str = p + 1;
+	}
+      obstack_ptr_grow (&argv_obstack, str);
+    }
 
   for (int ix = 1; ix != argc; ix++)
     {
