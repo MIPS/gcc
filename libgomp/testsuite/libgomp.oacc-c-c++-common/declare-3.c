@@ -1,5 +1,4 @@
 /* { dg-do run { target openacc_nvidia_accel_selected } } */
-/* { dg-xfail-run-if "TODO" { openacc_nvidia_accel_selected } } */
 
 #include <stdlib.h>
 #include <openacc.h>

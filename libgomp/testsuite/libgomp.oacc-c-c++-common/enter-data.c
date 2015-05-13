@@ -2,7 +2,6 @@
    don't cause duplicate mapping failures at runtime.  */
 
 /* { dg-do run } */
-/* { dg-xfail-run-if "TODO" { openacc_nvidia_accel_selected } } */
 
 #include <stdlib.h>
 

@@ -1,8 +1,10 @@
 /* Test 'acc enter/exit data' regions.  */
 
 /* { dg-do run } */
+/* { dg-xfail-run-if "TODO" { openacc_nvidia_accel_selected } } */
 
 #include <stdlib.h>
+#include <openacc.h>
 
 int
 main (int argc, char **argv)
@@ -32,7 +34,7 @@ main (int argc, char **argv)
   for (i = 0; i < N; i++)
     b[i] = a[i];
 
-#pragma acc exit data copyout (a[0:N]) copyout (b[0:N]) wait async
+#pragma acc exit data copyout (a[0:N], b[0:N]) delete (N) wait async
 #pragma acc wait
 
   for (i = 0; i < N; i++)
@@ -82,7 +84,7 @@ main (int argc, char **argv)
   for (i = 0; i < N; i++)
     b[i] = a[i];
 
-#pragma acc exit data copyout (a[0:N]) copyout (b[0:N]) wait (1) async (1)
+#pragma acc exit data copyout (a[0:N]) copyout (b[0:N]) delete (N) wait (1) async (1)
 #pragma acc wait (1)
 
   for (i = 0; i < N; i++)
@@ -119,7 +121,7 @@ main (int argc, char **argv)
   for (i = 0; i < N; i++)
     d[i] = ((a[i] * a[i] + a[i]) / a[i]) - a[i];
 
-#pragma acc exit data copyout (a[0:N]) copyout (b[0:N]) copyout (c[0:N]) copyout (d[0:N]) wait (1, 2, 3) async (1)
+#pragma acc exit data copyout (a[0:N]) copyout (b[0:N]) copyout (c[0:N]) copyout (d[0:N]) delete (N) wait (1, 2, 3) async (1)
 #pragma acc wait (1)
 
   for (i = 0; i < N; i++)
@@ -186,6 +188,157 @@ main (int argc, char **argv)
       if (e[i] != 11.0)
 	abort ();
     }
+
+#if !ACC_MEM_SHARED
+  for (i = 0; i < N; i++)
+    {
+      a[i] = 3.0;
+      b[i] = 0.0;
+    }
+
+#pragma acc enter data present_or_copyin (a[0:N])
+
+  if (!acc_is_present (a, nbytes))
+    abort ();
+
+#pragma acc exit data copyout (a[0:N])
+
+  if (acc_is_present (a, nbytes))
+    abort ();
+
+#pragma acc exit data delete (a[0:N])
+
+  if (acc_is_present (a, nbytes))
+    abort ();
+
+#pragma acc enter data present_or_copyin (a[0:N], b[0:N])
+
+  if (!acc_is_present (a, nbytes))
+    abort ();
+
+  if (!acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc exit data copyout (a[0:N], b[0:N])
+
+  if (acc_is_present (a, nbytes))
+    abort ();
+
+  if (acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc exit data delete (a[0:N], b[0:N])
+
+  if (acc_is_present (a, nbytes))
+    abort ();
+
+  if (acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc enter data present_or_create (a[0:N], b[0:N])
+
+  if (!acc_is_present (a, nbytes))
+    abort ();
+
+  if (!acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc exit data copyout (a[0:N], b[0:N])
+
+  if (acc_is_present (a, nbytes))
+    abort ();
+
+  if (acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc enter data present_or_create (a[0:N], b[0:N])
+
+  if (!acc_is_present (a, nbytes))
+    abort ();
+
+  if (!acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc enter data present_or_create (a[0:N], b[0:N])
+
+  if (!acc_is_present (a, nbytes))
+    abort ();
+
+  if (!acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc exit data delete (a[0:N], b[0:N])
+
+  if (acc_is_present (a, nbytes))
+    abort ();
+
+  if (acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc exit data delete (a[0:N], b[0:N])
+
+  if (acc_is_present (a, nbytes))
+    abort ();
+
+  if (acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc enter data create (a[0:N], b[0:N])
+
+  if (!acc_is_present (a, nbytes))
+    abort ();
+
+  if (!acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc enter data present_or_copyin (a[0:N], b[0:N])
+
+  if (!acc_is_present (a, nbytes))
+    abort ();
+
+  if (!acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc exit data delete (a[0:N], b[0:N])
+
+  if (acc_is_present (a, nbytes))
+    abort ();
+
+  if (acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc exit data delete (a[0:N], b[0:N])
+
+  if (acc_is_present (a, nbytes))
+    abort ();
+
+  if (acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc enter data present_or_copyin (a[0:N])
+
+  if (!acc_is_present (a, nbytes))
+    abort ();
+
+  if (acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc exit data delete (a[0:N], b[0:N])
+
+  if (acc_is_present (a, nbytes))
+    abort ();
+
+  if (acc_is_present (b, nbytes))
+    abort ();
+
+#pragma acc exit data delete (a[0:N], b[0:N])
+
+  if (acc_is_present (a, nbytes))
+    abort ();
+
+  if (acc_is_present (b, nbytes))
+    abort ();
+#endif
 
   return 0;
 }

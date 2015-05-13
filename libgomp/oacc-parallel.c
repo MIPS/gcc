@@ -298,7 +298,9 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 
       if (kind == GOMP_MAP_FORCE_ALLOC
 	  || kind == GOMP_MAP_FORCE_PRESENT
-	  || kind == GOMP_MAP_FORCE_TO)
+	  || kind == GOMP_MAP_FORCE_TO
+	  || kind == GOMP_MAP_TO
+	  || kind == GOMP_MAP_ALLOC)
 	{
 	  data_enter = true;
 	  break;
@@ -330,13 +332,29 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 					&kinds[i]);
 		  break;
 		case GOMP_MAP_FORCE_ALLOC:
-		  acc_create (hostaddrs[i], sizes[i]);
+		case GOMP_MAP_ALLOC:
+		  if ((i + 1) < mapnum &&
+		      kind == GOMP_MAP_ALLOC &&
+		      ((kinds[i + 1] & 0xff) == GOMP_MAP_POINTER) &&
+		      acc_is_present (hostaddrs[i], sizes[i]))
+		    i++;
+		  else if (kind == GOMP_MAP_ALLOC)
+		    acc_present_or_create (hostaddrs[i], sizes[i]);
+		  else
+		    acc_create (hostaddrs[i], sizes[i]);
 		  break;
 		case GOMP_MAP_FORCE_PRESENT:
-		  acc_present_or_copyin (hostaddrs[i], sizes[i]);
-		  break;
 		case GOMP_MAP_FORCE_TO:
-		  acc_present_or_copyin (hostaddrs[i], sizes[i]);
+		case GOMP_MAP_TO:
+		  if ((i + 1) < mapnum &&
+		      kind == GOMP_MAP_TO &&
+		      ((kinds[i + 1] & 0xff) == GOMP_MAP_POINTER) &&
+		      acc_is_present (hostaddrs[i], sizes[i]))
+		    i++;
+		  else if (kind == GOMP_MAP_TO)
+		    acc_present_or_copyin (hostaddrs[i], sizes[i]);
+		  else
+		    acc_copyin (hostaddrs[i], sizes[i]);
 		  break;
 		default:
 		  gomp_fatal (">>>> GOACC_enter_exit_data UNHANDLED kind 0x%.2x",
@@ -346,7 +364,11 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	    }
 	  else
 	    {
-	      gomp_acc_insert_pointer (3, &hostaddrs[i], &sizes[i], &kinds[i]);
+	      if (!acc_is_present (hostaddrs[i], sizes[i]))
+		{
+		  gomp_acc_insert_pointer (3, &hostaddrs[i],
+					   &sizes[i], &kinds[i]);
+		}
 	      /* Increment 'i' by two because OpenACC requires fortran
 		 arrays to be contiguous, so each PSET is associated with
 		 one of MAP_FORCE_ALLOC/MAP_FORCE_PRESET/MAP_FORCE_TO, and
@@ -372,7 +394,10 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 					 async, 1);
 		break;
 	      case GOMP_MAP_DELETE:
-		acc_delete (hostaddrs[i], sizes[i]);
+		if (acc_is_present (hostaddrs[i], sizes[i]))
+		  acc_delete (hostaddrs[i], sizes[i]);
+		else
+		  i++;
 		break;
 	      case GOMP_MAP_FORCE_FROM:
 		acc_copyout (hostaddrs[i], sizes[i]);
@@ -385,9 +410,12 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	  }
 	else
 	  {
-	    gomp_acc_remove_pointer (hostaddrs[i], (kinds[i] & 0xff)
-				     == GOMP_MAP_FORCE_FROM, async, 3);
-	    /* See the above comment.  */
+	    if (acc_is_present (hostaddrs[i], sizes[i]))
+	      {
+		gomp_acc_remove_pointer (hostaddrs[i], (kinds[i] & 0xff)
+					 == GOMP_MAP_FORCE_FROM, async, 3);
+		/* See the above comment.  */
+	      }
 	    i += 2;
 	  }
       }
