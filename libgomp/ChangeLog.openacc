@@ -1,5 +1,13 @@
 2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/enter-data.c: Add XFAIL.
+
+2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/enter-data.c: New test.
+
+2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
+
 	* testsuite/libgomp.oacc-fortran/lib-12.f90: Add XFAIL.
 	* testsuite/libgomp.oacc-fortran/lib-13.f90: Likewise.
 
