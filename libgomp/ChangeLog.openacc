@@ -4,6 +4,12 @@
 
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-1.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-1.h: New test.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-2.h: New test.
+
+2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* testsuite/libgomp.oacc-c-c++-common/enter-data.c: New test.
 
 2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
