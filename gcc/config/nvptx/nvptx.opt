@@ -28,3 +28,17 @@ Generate code for a 64-bit ABI
 mmainkernel
 Target Report RejectNegative
 Link in code for a __main kernel.
+
+Enum
+Name(ptx_isa) Type(int)
+Known PTX ISA versions (for use with the -misa= option):
+
+EnumValue
+Enum(ptx_isa) String(sm_30) Value(PTX_ISA_SM30)
+
+EnumValue
+Enum(ptx_isa) String(sm_35) Value(PTX_ISA_SM35)
+
+misa=
+Target RejectNegative ToLower Joined Enum(ptx_isa) Var(ptx_isa_option) Init(PTX_ISA_SM30)
+Specify the version of the ptx ISA to use

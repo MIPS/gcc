@@ -1,3 +1,16 @@
+2015-05-13  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* config/nvptx/nvptx-opts.h: New file.
+	* config/nvptx/nvptx.c (nvptx_file_start): Print the correct .target.
+	* config/nvptx/nvptx.h: Include "nvptx-opts.h".
+	(ASM_SPEC): Define.
+	(TARGET_SM35): New macro.
+	* config/nvptx/nvptx.md (atomic_fetch_<logic><mode>): Enable with the
+	correct predicate.
+	* config/nvptx/nvptx.opt (ptx_isa, sm_30, sm_35): New enum and its
+	values.
+	(misa=): New option.
+
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* except.c (finish_eh_generation): Don't finalize exeception
