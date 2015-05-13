@@ -51,6 +51,10 @@
 
    UNSPEC_NTID
    UNSPEC_TID
+   UNSPEC_NCTAID
+   UNSPEC_CTAID
+
+   UNSPEC_SHARED_DATA
 ])
 
 (define_c_enum "unspecv" [
@@ -1285,6 +1289,54 @@
 {
   if (INTVAL (operands[1]) < 0 || INTVAL (operands[1]) > 2)
     FAIL;
+})
+
+;; Number of CUDA grids (CPA = Cooperative Thread Arrays)
+(define_insn "*oacc_nctaid_insn"
+  [(set (match_operand:SI 0 "nvptx_register_operand" "=R")
+	(unspec:SI [(match_operand:SI 1 "const_int_operand" "n")] UNSPEC_NCTAID))]
+  ""
+  "%.\\tmov.u32 %0, %%nctaid%d1;")
+
+(define_expand "oacc_nctaid"
+  [(set (match_operand:SI 0 "nvptx_register_operand" "")
+	(unspec:SI [(match_operand:SI 1 "const_int_operand" "")] UNSPEC_NCTAID))]
+  ""
+{
+  if (INTVAL (operands[1]) < 0 || INTVAL (operands[1]) > 2)
+    FAIL;
+})
+
+(define_insn "*oacc_ctaid_insn"
+  [(set (match_operand:SI 0 "nvptx_register_operand" "=R")
+	(unspec:SI [(match_operand:SI 1 "const_int_operand" "n")] UNSPEC_CTAID))]
+  ""
+  "%.\\tmov.u32 %0, %%ctaid%d1;")
+
+(define_expand "oacc_ctaid"
+  [(set (match_operand:SI 0 "nvptx_register_operand" "")
+	(unspec:SI [(match_operand:SI 1 "const_int_operand" "")] UNSPEC_CTAID))]
+  ""
+{
+  if (INTVAL (operands[1]) < 0 || INTVAL (operands[1]) > 2)
+    FAIL;
+})
+
+(define_insn "ganglocal_ptr<mode>"
+  [(set (match_operand:P 0 "nvptx_register_operand" "")
+	(unspec:P [(const_int 0)] UNSPEC_SHARED_DATA))]
+  ""
+  "%.\\tcvta.shared%t0\\t%0, sdata;")
+
+(define_expand "ganglocal_ptr"
+  [(match_operand 0 "nvptx_register_operand" "")]
+  ""
+{
+  if (Pmode == DImode)
+    emit_insn (gen_ganglocal_ptrdi (operands[0]));
+  else
+    emit_insn (gen_ganglocal_ptrsi (operands[0]));
+  DONE;
 })
 
 ;; Atomic insns.

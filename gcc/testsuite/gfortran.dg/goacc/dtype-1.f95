@@ -2,7 +2,7 @@
 ! { dg-options "-fopenacc -fdump-tree-omplower" }
 
 program dtype
-  integer i1
+  integer i1, i2, i3, i4, i5, i6
 
 !! ACC PARALLEL DEVICE_TYPE:
 
@@ -46,20 +46,69 @@ program dtype
 !! ACC LOOP DEVICE_TYPE:
 
 !$acc parallel
-!$acc loop device_type (nVidia) gang
+!$acc loop device_type (nVidia) gang tile (1)
   do i1 = 1, 10
+     !$acc loop dtype (nVidia) worker collapse (1)
+     do i2 = 1, 10
+        !$acc loop device_type (nVidia) vector
+        do i3 = 1, 10
+           !$acc loop device_type (nVidia) auto
+           do i4 = 1, 10
+              !$acc loop dtype (nVidia) independent
+              do i5 = 1, 10
+                 !$acc loop dtype (nVidia) seq
+                 do i6 = 1, 10
+                 end do
+              end do
+           end do
+        end do
+     end do
   end do
 !$acc end parallel
 
 !$acc parallel
-!$acc loop dtype (nVidia) gang dtype (*) worker
+!$acc loop dtype (nVidia) gang tile (1) dtype (*) seq
   do i1 = 1, 10
+     !$acc loop device_type (nVidia) worker collapse (1) &
+     !$acc& device_type (*) seq
+     do i2 = 1, 10
+        !$acc loop device_type (nVidia) vector dtype (*) seq
+        do i3 = 1, 10
+           !$acc loop device_type (nVidia) auto dtype (*) seq
+           do i4 = 1, 10
+              !$acc loop dtype (nVidia) independent &
+              !$acc& dtype (*) seq
+              do i5 = 1, 10
+                 !$acc loop device_type (nVidia) seq
+                 do i6 = 1, 10
+                 end do
+              end do
+           end do
+        end do
+     end do
   end do
 !$acc end parallel
 
 !$acc parallel
-!$acc loop dtype (nVidiaGPU) gang dtype (*) vector
+!$acc loop dtype (nVidiaGPU) gang tile (1) dtype (*) seq
   do i1 = 1, 10
+     !$acc loop dtype (nVidiaGPU) worker collapse (1) &
+     !$acc& device_type (*) seq
+     do i2 = 1, 10
+        !$acc loop device_type (nVidiaGPU) vector device_type (*) seq
+        do i3 = 1, 10
+           !$acc loop dtype (nVidiaGPU) auto device_type (*) seq
+           do i4 = 1, 10
+              !$acc loop dtype (nVidiaGPU) independent &
+              !$acc& dtype (*) seq
+              do i5 = 1, 10
+                 !$acc loop dtype (nVidiaGPU) seq device_type (*) seq
+                 do i6 = 1, 10
+                 end do
+              end do
+           end do
+        end do
+     end do
   end do
 !$acc end parallel
 
@@ -92,48 +141,52 @@ subroutine sr3 ()
   !$acc routine device_type (nvidia) vector
 end subroutine sr3
 
+subroutine sr4 ()
+  !$acc routine device_type (nvidia) seq
+end subroutine sr4
+
 subroutine sr5 ()
   !$acc routine dtype (nvidia) bind (foo)
 end subroutine sr5
 
 subroutine sr1a ()
-  !$acc routine device_type (nvidia) gang device_type (*) worker
+  !$acc routine device_type (nvidia) gang device_type (*) seq
 end subroutine sr1a
 
 subroutine sr2a ()
-  !$acc routine dtype (nvidia) worker dtype (*) vector
+  !$acc routine dtype (nvidia) worker dtype (*) seq
 end subroutine sr2a
 
 subroutine sr3a ()
-  !$acc routine dtype (nvidia) vector device_type (*) gang
+  !$acc routine dtype (nvidia) vector device_type (*) seq
 end subroutine sr3a
 
 subroutine sr4a ()
-  !$acc routine device_type (nvidia) vector device_type (*) worker
+  !$acc routine device_type (nvidia) seq device_type (*) worker
 end subroutine sr4a
 
 subroutine sr5a ()
-  !$acc routine device_type (nvidia) bind (foo) dtype (*) gang
+  !$acc routine device_type (nvidia) bind (foo) dtype (*) seq
 end subroutine sr5a
 
 subroutine sr1b ()
-  !$acc routine dtype (gpu) gang dtype (*) worker
+  !$acc routine dtype (gpu) gang dtype (*) seq
 end subroutine sr1b
 
 subroutine sr2b ()
-  !$acc routine dtype (gpu) worker device_type (*) worker
+  !$acc routine dtype (gpu) worker device_type (*) seq
 end subroutine sr2b
 
 subroutine sr3b ()
-  !$acc routine device_type (gpu) vector device_type (*) worker
+  !$acc routine device_type (gpu) vector device_type (*) seq
 end subroutine sr3b
 
 subroutine sr4b ()
-  !$acc routine device_type (gpu) worker device_type (*) worker
+  !$acc routine device_type (gpu) seq device_type (*) worker
 end subroutine sr4b
 
 subroutine sr5b ()
-  !$acc routine dtype (gpu) bind (foo) device_type (*) gang
+  !$acc routine dtype (gpu) bind (foo) device_type (*) seq
 end subroutine sr5b
 
 ! { dg-final { scan-tree-dump-times "oacc_parallel async\\(1\\) wait\\(1\\) num_gangs\\(100\\) num_workers\\(100\\) vector_length\\(32\\)" 1 "omplower" } }
@@ -152,10 +205,28 @@ end subroutine sr5b
 
 ! { dg-final { scan-tree-dump-times "oacc_kernels async\\(0\\) wait\\(0\\)" 1 "omplower" } }
 
-! { dg-final { scan-tree-dump-times "acc loop private\\(i1\\) gang private\\(i1\\.1\\)" 1 "omplower" } }
+! { dg-final { scan-tree-dump-times "acc loop private\\(i1\\) tile\\(1\\) gang private\\(i1\\.1\\)" 1 "omplower" } }
 
-! { dg-final { scan-tree-dump-times "acc loop private\\(i1\\) gang private\\(i1\\.2\\)" 1 "omplower" } }
+! { dg-final { scan-tree-dump-times "acc loop private\\(i1\\) tile\\(1\\) gang private\\(i1\\.2\\)" 1 "omplower" } }
 
-! { dg-final { scan-tree-dump-times "acc loop private\\(i1\\) vector private\\(i1\\.3\\)" 1 "omplower" } }
+! { dg-final { scan-tree-dump-times "acc loop private\\(i1\\) seq private\\(i1\\.3\\)" 1 "omplower" } }
+
+! { dg-final { scan-tree-dump-times "acc loop private\\(i2\\) collapse\\(1\\) worker" 2 "omplower" } }
+
+! { dg-final { scan-tree-dump-times "acc loop private\\(i3\\) vector" 2 "omplower" } }
+
+! { dg-final { scan-tree-dump-times "acc loop private\\(i4\\) auto" 2 "omplower" } }
+
+! { dg-final { scan-tree-dump-times "acc loop private\\(i4\\)" 3 "omplower" } }
+
+! { dg-final { scan-tree-dump-times "acc loop private\\(i5\\)" 3 "omplower" } }
+
+! { dg-final { scan-tree-dump-times "acc loop private\\(i6\\) seq" 3 "omplower" } }
+
+! { dg-final { scan-tree-dump-times "acc loop private\\(i2\\) seq" 1 "omplower" } }
+
+! { dg-final { scan-tree-dump-times "acc loop private\\(i4\\) seq" 1 "omplower" } }
+
+! { dg-final { scan-tree-dump-times "acc loop private\\(i5\\) seq" 1 "omplower" } }
 
 ! { dg-final { cleanup-tree-dump "omplower" } }

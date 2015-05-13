@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-additional-options "-cpp" }
 
 program test
   use openacc
@@ -70,12 +71,135 @@ program test
     end do
   !$acc end parallel
   
-  !$acc exit data copyout (d(1:N)) async
+  !$acc exit data delete (c(1:N)) copyout (d(1:N)) async
   !$acc exit data async
   !$acc wait
 
   do i = 1, N
     if (d(i) .ne. 4.0) call abort
   end do
+
+#if !ACC_MEM_SHARED && !ACC_DEVICE_TYPE_host_nonshm
+
+  c(:) = 3.0
+  d(:) = 0.0
+
+  !$acc enter data present_or_copyin (c(0:N))
+
+  if (acc_is_present (c) .eqv. .FALSE.) call abort
+
+  !$acc exit data copyout (c(0:N))
+
+  if (acc_is_present (c) .eqv. .TRUE.) call abort
+
+  !$acc exit data delete (c(0:N))
+
+  if (acc_is_present (c) .eqv. .TRUE.) call abort
+
+  do i = 1, N
+    if (c(i) .ne. 3.0) call abort
+  end do
+
+  c(:) = 5.0
+  d(:) = 9.0
+
+  !$acc enter data present_or_copyin (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .FALSE.) call abort
+  if (acc_is_present (d) .eqv. .FALSE.) call abort
+
+  !$acc exit data copyout (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .TRUE.) call abort
+  if (acc_is_present (d) .eqv. .TRUE.) call abort
+
+  !$acc exit data delete (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .TRUE.) call abort
+  if (acc_is_present (d) .eqv. .TRUE.) call abort
+
+  do i = 1, N
+    if (c(i) .ne. 5.0) call abort
+    if (d(i) .ne. 9.0) call abort
+  end do
+
+  !$acc enter data present_or_create (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .FALSE.) call abort
+  if (acc_is_present (d) .eqv. .FALSE.) call abort
+
+  !$acc parallel
+    do i = 1, N
+      c(i) = 1.0;
+      d(i) = 2.0;
+    end do
+  !$acc end parallel
+
+  !$acc exit data copyout (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .TRUE.) call abort
+  if (acc_is_present (d) .eqv. .TRUE.) call abort
+
+  do i = 1, N
+    if (c(i) .ne. 1.0) call abort
+    if (d(i) .ne. 2.0) call abort
+  end do
+
+  !$acc enter data present_or_create (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .FALSE.) call abort
+  if (acc_is_present (d) .eqv. .FALSE.) call abort
+
+  !$acc enter data present_or_create (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .FALSE.) call abort
+  if (acc_is_present (d) .eqv. .FALSE.) call abort
+
+  !$acc exit data delete (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .TRUE.) call abort
+  if (acc_is_present (d) .eqv. .TRUE.) call abort
+
+  !$acc exit data delete (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .TRUE.) call abort
+  if (acc_is_present (d) .eqv. .TRUE.) call abort
+
+  !$acc enter data create (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .FALSE.) call abort
+  if (acc_is_present (d) .eqv. .FALSE.) call abort
+
+  !$acc enter data present_or_copyin (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .FALSE.) call abort
+  if (acc_is_present (d) .eqv. .FALSE.) call abort
+
+  !$acc exit data delete (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .TRUE.) call abort
+  if (acc_is_present (d) .eqv. .TRUE.) call abort
+
+  !$acc exit data delete (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .TRUE.) call abort
+  if (acc_is_present (d) .eqv. .TRUE.) call abort
+
+  !$acc enter data present_or_copyin (c(0:N))
+
+  if (acc_is_present (c) .eqv. .FALSE.) call abort
+  if (acc_is_present (d) .eqv. .TRUE.) call abort
+
+  !$acc exit data delete (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .TRUE.) call abort
+  if (acc_is_present (d) .eqv. .TRUE.) call abort
+
+  !$acc exit data delete (c(0:N), d(0:N))
+
+  if (acc_is_present (c) .eqv. .TRUE.) call abort
+  if (acc_is_present (d) .eqv. .TRUE.) call abort
+
+#endif
 
 end program test

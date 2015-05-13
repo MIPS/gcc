@@ -1629,6 +1629,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   gomp_continue *omp_cont_stmt;
   tree cvar, cvar_init, initvar, cvar_next, cvar_base, type;
   edge exit, nexit, guard, end, e;
+  tree for_clauses = NULL_TREE;
 
   /* Prepare the GIMPLE_OMP_PARALLEL statement.  */
   bb = loop_preheader_edge (loop)->src;
@@ -1655,14 +1656,17 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
       /* Create oacc parallel pragma based on oacc kernels pragma.  */
       gomp_target *kernels = as_a <gomp_target *> (gsi_stmt (gsi));
 
+      gsi_prev (&gsi);
+      gcall *goacc_kernels = as_a <gcall *> (gsi_stmt (gsi));
+
       tree clauses = gimple_omp_target_clauses (kernels);
       /* FIXME: We need a more intelligent mapping onto vector, gangs,
 	 workers.  */
       if (1)
 	{
 	  tree clause = build_omp_clause (gimple_location (kernels),
-					  OMP_CLAUSE_VECTOR_LENGTH);
-	  OMP_CLAUSE_VECTOR_LENGTH_EXPR (clause)
+					  OMP_CLAUSE_NUM_GANGS);
+	  OMP_CLAUSE_NUM_GANGS_EXPR (clause) 
 	    = build_int_cst (integer_type_node, n_threads);
 	  OMP_CLAUSE_CHAIN (clause) = clauses;
 	  clauses = clause;
@@ -1674,6 +1678,8 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
       gimple_omp_target_set_child_fn (stmt, child_fn);
       tree data_arg = gimple_omp_target_data_arg (kernels);
       gimple_omp_target_set_data_arg (stmt, data_arg);
+      tree ganglocal_size = gimple_call_arg (goacc_kernels, /* TODO */ 9);
+      gimple_omp_target_set_ganglocal_size (stmt, ganglocal_size);
 
       gimple_set_location (stmt, loc);
 
@@ -1781,11 +1787,17 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   t = build_omp_clause (loc, OMP_CLAUSE_SCHEDULE);
   OMP_CLAUSE_SCHEDULE_KIND (t) = OMP_CLAUSE_SCHEDULE_STATIC;
 
+  if (1)
+    {
+      /* In combination with the NUM_GANGS on the parallel.  */
+      for_clauses = build_omp_clause (loc, OMP_CLAUSE_GANG);
+    }
+
   for_stmt = gimple_build_omp_for (NULL,
 				   (oacc_kernels_p
 				    ? GF_OMP_FOR_KIND_OACC_LOOP
 				    : GF_OMP_FOR_KIND_FOR),
-				   NULL_TREE, 1, NULL);
+				   for_clauses, 1, NULL);
   gimple_set_location (for_stmt, loc);
   gimple_omp_for_set_index (for_stmt, 0, initvar);
   gimple_omp_for_set_initial (for_stmt, 0, cvar_init);

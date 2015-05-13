@@ -8,8 +8,8 @@ main (void)
   int n = 100;
   int i;
 
-#pragma acc parallel vector_length (1000)
-#pragma acc loop reduction (+:s1, s2)
+#pragma acc parallel num_gangs (1000)  copy (s1, s2)
+#pragma acc loop reduction (+:s1, s2) gang
   for (i = 0; i < n; i++)
     {
       s1 = s1 + 3;

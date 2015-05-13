@@ -7,7 +7,7 @@
 #include <math.h>
 #include <complex.h>
 
-#define vl 32
+#define ng 32
 
 int
 main(void)
@@ -24,8 +24,8 @@ main(void)
   vresult = 0;
 
   /* '+' reductions.  */
-#pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (+:result)
+#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc loop reduction (+:result) gang
   for (i = 0; i < n; i++)
     result += array[i];
 
@@ -39,53 +39,18 @@ main(void)
   result = 0;
   vresult = 0;
 
-  /* Needs support for complex multiplication.  */
+  /* '*' reductions.  */
+#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc loop reduction (*:result) gang
+  for (i = 0; i < n; i++)
+    result *= array[i];
 
-//   /* '*' reductions.  */
-// #pragma acc parallel vector_length (vl)
-// #pragma acc loop reduction (*:result)
-//   for (i = 0; i < n; i++)
-//     result *= array[i];
-// 
-//   /* Verify the reduction.  */
-//   for (i = 0; i < n; i++)
-//     vresult *= array[i];
-// 
-//   if (fabs(result - vresult) > .0001)
-//     abort ();
-//   result = 0;
-//   vresult = 0;
+  /* Verify the reduction.  */
+  for (i = 0; i < n; i++)
+    vresult *= array[i];
 
-//   /* 'max' reductions.  */
-// #pragma acc parallel vector_length (vl)
-// #pragma acc loop reduction (+:result)
-//   for (i = 0; i < n; i++)
-//       result = result > array[i] ? result : array[i];
-// 
-//   /* Verify the reduction.  */
-//   for (i = 0; i < n; i++)
-//       vresult = vresult > array[i] ? vresult : array[i];
-// 
-//   printf("%d != %d\n", result, vresult);
-//   if (result != vresult)
-//     abort ();
-// 
-//   result = 0;
-//   vresult = 0;
-// 
-//   /* 'min' reductions.  */
-// #pragma acc parallel vector_length (vl)
-// #pragma acc loop reduction (+:result)
-//   for (i = 0; i < n; i++)
-//       result = result < array[i] ? result : array[i];
-// 
-//   /* Verify the reduction.  */
-//   for (i = 0; i < n; i++)
-//       vresult = vresult < array[i] ? vresult : array[i];
-// 
-//   printf("%d != %d\n", result, vresult);
-//   if (result != vresult)
-//     abort ();
+  if (cabsf (result - vresult) > .0001)
+    abort ();
 
   result = 5;
   vresult = 5;
@@ -94,8 +59,8 @@ main(void)
   lvresult = false;
 
   /* '&&' reductions.  */
-#pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (&&:lresult)
+#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc loop reduction (&&:lresult) gang
   for (i = 0; i < n; i++)
     lresult = lresult && (creal(result) > creal(array[i]));
 
@@ -113,8 +78,8 @@ main(void)
   lvresult = false;
 
   /* '||' reductions.  */
-#pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (||:lresult)
+#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc loop reduction (||:lresult) gang
   for (i = 0; i < n; i++)
     lresult = lresult || (creal(result) > creal(array[i]));
 

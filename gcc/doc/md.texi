@@ -6621,6 +6621,24 @@ inclusive and operand 1 exclusive.
 If this pattern is not defined, a call to the library function
 @code{__clear_cache} is used.
 
+@cindex @code{oacc_ntid} instruction pattern
+@item @samp{oacc_ntid}
+
+This pattern, if defined, expands to an instruction that sets operand 0
+to the number of OpenACC threads in the dimension specified by operand
+1.  Operand 1 will always be a @code{CONST_INT}, if a target does not
+support the specified dimension, the pattern be rejected with
+@code{FAIL}.
+
+@cindex @code{oacc_tid} instruction pattern
+@item @samp{oacc_tid}
+
+This pattern, if defined, expands to an instruction that sets operand 0
+to the index of the current OpenACC thread in the dimension specified by
+operand 1.  Operand 1 will always be a @code{CONST_INT}, if a target
+does not support the specified dimension, the pattern be rejected with
+@code{FAIL}.
+
 @end table
 
 @end ifset

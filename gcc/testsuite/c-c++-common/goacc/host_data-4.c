@@ -12,4 +12,3 @@ int main (int argc, char* argv[])
 
   return 0;
 }
-/* { dg-bogus "sorry, unimplemented: directive not yet implemented" "host_data" { xfail *-*-* } 9 } */

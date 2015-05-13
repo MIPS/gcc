@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <math.h>
 
-#define vl 32
+#define ng 32
 
 int
 main(void)
@@ -14,7 +14,7 @@ main(void)
   const int n = 1000;
   int i;
   float vresult, result, array[n];
-  bool lvresult, lresult;
+  int lvresult, lresult;
 
   for (i = 0; i < n; i++)
     array[i] = i;
@@ -23,8 +23,8 @@ main(void)
   vresult = 0;
 
   /* '+' reductions.  */
-#pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (+:result)
+#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc loop reduction (+:result) gang
   for (i = 0; i < n; i++)
     result += array[i];
 
@@ -39,8 +39,8 @@ main(void)
   vresult = 0;
 
   /* '*' reductions.  */
-#pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (*:result)
+#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc loop reduction (*:result) gang
   for (i = 0; i < n; i++)
     result *= array[i];
 
@@ -50,49 +50,48 @@ main(void)
 
   if (fabs(result - vresult) > .0001)
     abort ();
-//   result = 0;
-//   vresult = 0;
-// 
-//   /* 'max' reductions.  */
-// #pragma acc parallel vector_length (vl)
-// #pragma acc loop reduction (+:result)
-//   for (i = 0; i < n; i++)
-//       result = result > array[i] ? result : array[i];
-// 
-//   /* Verify the reduction.  */
-//   for (i = 0; i < n; i++)
-//       vresult = vresult > array[i] ? vresult : array[i];
-// 
-//   printf("%d != %d\n", result, vresult);
-//   if (result != vresult)
-//     abort ();
-// 
-//   result = 0;
-//   vresult = 0;
-// 
-//   /* 'min' reductions.  */
-// #pragma acc parallel vector_length (vl)
-// #pragma acc loop reduction (+:result)
-//   for (i = 0; i < n; i++)
-//       result = result < array[i] ? result : array[i];
-// 
-//   /* Verify the reduction.  */
-//   for (i = 0; i < n; i++)
-//       vresult = vresult < array[i] ? vresult : array[i];
-// 
-//   printf("%d != %d\n", result, vresult);
-//   if (result != vresult)
-//     abort ();
+
+  result = 0;
+  vresult = 0;
+
+  /* 'max' reductions.  */
+#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc loop reduction (max:result) gang
+  for (i = 0; i < n; i++)
+    result = result > array[i] ? result : array[i];
+
+  /* Verify the reduction.  */
+  for (i = 0; i < n; i++)
+    vresult = vresult > array[i] ? vresult : array[i];
+
+  if (result != vresult)
+    abort ();
+
+  result = 0;
+  vresult = 0;
+
+  /* 'min' reductions.  */
+#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc loop reduction (min:result) gang
+  for (i = 0; i < n; i++)
+    result = result < array[i] ? result : array[i];
+
+  /* Verify the reduction.  */
+  for (i = 0; i < n; i++)
+    vresult = vresult < array[i] ? vresult : array[i];
+
+  if (result != vresult)
+    abort ();
 
   result = 5;
   vresult = 5;
 
-  lresult = false;
-  lvresult = false;
+  lresult = 0;
+  lvresult = 0;
 
   /* '&&' reductions.  */
-#pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (&&:lresult)
+#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc loop reduction (&&:lresult) gang
   for (i = 0; i < n; i++)
     lresult = lresult && (result > array[i]);
 
@@ -106,12 +105,12 @@ main(void)
   result = 5;
   vresult = 5;
 
-  lresult = false;
-  lvresult = false;
+  lresult = 0;
+  lvresult = 0;
 
   /* '||' reductions.  */
-#pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (||:lresult)
+#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc loop reduction (||:lresult) gang
   for (i = 0; i < n; i++)
     lresult = lresult || (result > array[i]);
 

@@ -1,0 +1,19 @@
+2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* jit-builtins.c (DEF_FUNCTION_TYPE_VAR_11): Remove.
+	(DEF_FUNCTION_TYPE_VAR_12): New macro.
+	* jit-builtins.h (DEF_FUNCTION_TYPE_VAR_11): Remove.
+	(DEF_FUNCTION_TYPE_VAR_12): New macro.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

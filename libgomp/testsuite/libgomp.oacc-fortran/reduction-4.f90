@@ -5,7 +5,7 @@
 program reduction_4
   implicit none
 
-  integer, parameter    :: n = 10, vl = 32
+  integer, parameter    :: n = 10, gangs = 20
   integer               :: i
   complex               :: vresult, result
   complex, dimension (n) :: array
@@ -19,8 +19,8 @@ program reduction_4
 
   ! '+' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(+:result)
+  !$acc parallel num_gangs(gangs) copy(result)
+  !$acc loop reduction(+:result) gang
   do i = 1, n
      result = result + array(i)
   end do
@@ -36,19 +36,19 @@ program reduction_4
   result = 1
   vresult = 1
 
-!  ! '*' reductions
-!
-!  !$acc parallel vector_length(vl)
-!  !$acc loop reduction(*:result)
-!  do i = 1, n
-!     result = result * array(i)
-!  end do
-!  !$acc end parallel
-!
-!  ! Verify the results
-!  do i = 1, n
-!     vresult = vresult * array(i)
-!  end do
-!
-!  if (result.ne.vresult) call abort
+  ! '*' reductions
+
+  !$acc parallel num_gangs (gangs) copy(result)
+  !$acc loop reduction(*:result) gang
+  do i = 1, n
+     result = result * array(i)
+  end do
+  !$acc end parallel
+
+  ! Verify the results
+  do i = 1, n
+     vresult = vresult * array(i)
+  end do
+
+  if (result .ne. vresult) call abort
 end program reduction_4

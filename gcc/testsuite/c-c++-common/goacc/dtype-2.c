@@ -20,7 +20,7 @@ test ()
   /* ACC LOOP DEVICE_TYPE: */
 
 #pragma acc parallel
-#pragma acc loop device_type (nVidia) gang private (i2) /* { dg-error "not valid" } */
+#pragma acc loop device_type (nVidia) gang tile (1) private (i2) /* { dg-error "not valid" } */
   for (i1 = 1; i1 < 10; i1++)
     {
     }

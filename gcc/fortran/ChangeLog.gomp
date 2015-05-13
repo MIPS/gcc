@@ -1,3 +1,26 @@
+2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_11): Remove.
+	(DEF_FUNCTION_TYPE_VAR_12): New macro.
+	* gfortran.h (gfc_omp_map_op): Add OMP_MAP_GANGLOCAL,
+	OMP_MAP_FORCE_TO_GANGLOCAL.
+	* trans-openmp.c (gfc_trans_omp_clauses): Handle them.
+	* openmp.c (gfc_match_omp_clauses): Update handling of
+	OMP_CLAUSE_FIRSTPRIVATE.
+	* types.def
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_INT_INT_INT_INT_INT_VAR):
+	Remove.
+	(BT_FN_INT_INT_INT_INT)
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_INT_INT_INT_SIZE_INT_INT_VAR):
+	New function types.
+
 2015-05-13  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* gfortranspec.c (lang_specific_driver): Add -Xoffload options to

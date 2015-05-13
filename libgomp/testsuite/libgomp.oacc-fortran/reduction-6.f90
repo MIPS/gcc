@@ -11,8 +11,8 @@ program reduction
   vs1 = 0
   vs2 = 0
 
-  !$acc parallel vector_length (1000)
-  !$acc loop reduction(+:s1, s2)
+  !$acc parallel num_gangs (1000) copy(s1, s2)
+  !$acc loop reduction(+:s1, s2) gang
   do i = 1, n
      s1 = s1 + 1
      s2 = s2 + 2

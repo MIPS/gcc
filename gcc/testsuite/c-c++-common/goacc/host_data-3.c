@@ -5,7 +5,10 @@ int main (int argc, char* argv[])
   int x = 5, y;
 
   #pragma acc enter data copyin (x)
-  #pragma acc host_data use_device (x)
+  /* It's not clear what attempts to use non-pointer variables "directly"
+     (rather than merely taking their address) should do in host_data regions. 
+     We choose to make it an error.  */
+  #pragma acc host_data use_device (x) /* TODO { dg-error "" } */
   {
     y = x;
   }
@@ -13,4 +16,3 @@ int main (int argc, char* argv[])
 
   return y - 5;
 }
-/* { dg-bogus "sorry, unimplemented: directive not yet implemented" "host_data" { xfail *-*-* } 8 } */

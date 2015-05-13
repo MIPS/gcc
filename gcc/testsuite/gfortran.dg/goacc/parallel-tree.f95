@@ -37,5 +37,5 @@ end program test
 
 ! { dg-final { scan-tree-dump-times "map\\(force_deviceptr:u\\)" 1 "original" } } 
 ! { dg-final { scan-tree-dump-times "private\\(v\\)" 1 "original" } } 
-! { dg-final { scan-tree-dump-times "firstprivate\\(w\\)" 1 "original" } } 
+! { dg-final { scan-tree-dump-times "map\\(force_to_ganglocal:w" 1 "original" } }
 ! { dg-final { cleanup-tree-dump "original" } } 

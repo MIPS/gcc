@@ -11,4 +11,3 @@ f (void)
 #pragma acc host_data copy(v2) /* { dg-error "not valid for" } */
   ;
 }
-/* { dg-bogus "sorry, unimplemented: directive not yet implemented" "host_data" { xfail *-*-* } 11 } */

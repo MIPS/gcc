@@ -1,3 +1,84 @@
+2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* builtin-types.def
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_INT_INT_INT_INT_INT_VAR):
+	Remove.
+	(BT_FN_INT_INT_INT_INT)
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_INT_INT_INT_SIZE_INT_INT_VAR):
+	New function types.
+	* builtins.c (expand_oacc_builtin, expand_oacc_ganglocal_ptr): New
+	functions.
+	(expand_builtin, is_simple_builtin): Use them.
+	* config/nvptx/mkoffload.c (process): Protect
+	GOMP_offload_register prototype from C++ name mangling.
+	* config/nvptx/nvptx.c (nvptx_file_start): Print declaration of
+	sdata.
+	* config/nvptx/nvptx.md (UNSPEC_NCTAID, UNSPEC_CTAID)
+	(UNSPEC_SHARED_DATA): New constants.
+	(oacc_nctaid_insn, oacc_nctaid, oacc_ctaid_insn, oacc_ctaid)
+	(ganglocal_ptr<mode>, ganglocal_ptr): New patterns.
+	* doc/md.texi (oacc_ntid, oacc_tid): Document.
+	* gimple.h (gimple_statement_omp_parallel_layout): Add
+	ganglocal_size member.
+	(gimple_omp_target_ganglocal_size)
+	(gimple_omp_target_set_ganglocal_size): New functions.
+	* gimplify.c (gimplify_omp_var_data): Add GOVD_USE_DEVICE,
+	GOVD_FORCE_MAP, GOVD_GANGLOCAL.
+	(omp_region_type): Add ORT_HOST_DATA.
+	(omp_region_kind, acc_region_kind): New enum types.
+	(gimplify_omp_ctx): Add region_kind, acc_region_kind members.
+	(new_omp_context, omp_add_variable, omp_notice_variable)
+	(gimplify_scan_omp_clauses, gimplify_adjust_omp_clauses_1): Update
+	for OpenACC.
+	(gimplify_scan_omp_clauses): Add region_kind formal parameter.
+	Adjust all users.
+	(gimplify_oacc_host_data_1, gimplify_oacc_host_data): New
+	functions.
+	(gimplify_expr): Update handling of OACC_HOST_DATA.
+	* omp-builtins.def (BUILT_IN_GOACC_KERNELS_INTERNAL)
+	(BUILT_IN_GOACC_KERNELS, BUILT_IN_GOACC_PARALLEL): Change type
+	from BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_INT_INT_INT_INT_INT_VAR
+	to
+	BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_INT_INT_INT_SIZE_INT_INT_VAR.
+	Adjust all users.
+	(BUILT_IN_GOACC_GET_THREAD_NUM, BUILT_IN_GOACC_GET_NUM_THREADS):
+	Change type from from BT_FN_INT to BT_FN_INT_INT_INT_INT.  Adjust
+	all users.
+	(BUILT_IN_GOACC_NTID, BUILT_IN_GOACC_TID, BUILT_IN_GOACC_NCTAID)
+	(BUILT_IN_GOACC_CTAID, BUILT_IN_GOACC_GET_GANGLOCAL_PTR)
+	(BUILT_IN_GOACC_DEVICEPTR): New builtins.
+	* omp-low.c (omp_context): Add oacc_reduction_set, ganglocal_init,
+	ganglocal_ptr, ganglocal_size, ganglocal_size_host members.
+	(new_omp_context, delete_omp_context): Initialize/deinitialize
+	these, respectively.
+	(omp_for_data): Add gang, worker, vector members.
+	(extract_omp_for_data): Populate these.
+	(oacc_max_threads, oacc_finalize_reduction_data): Rewrite
+	functions.
+	(is_oacc_parallel, oacc_parallel_max_reduction_array_size)
+	(align_and_expand, alloc_var_ganglocal, install_var_ganglocal)
+	(install_array_var_ganglocal)
+	(oacc_outermost_parallel_kernels_context, oacc_inside_routine)
+	(is_oacc_multithreaded, oacc_needs_global_memory)
+	(is_atomic_compatible_reduction, oacc_serial_reduction)
+	(oacc_process_reduction_data_helper): New functions.
+	(build_outer_var_ref, fixup_remapped_decl, scan_sharing_clauses)
+	(check_omp_nesting_restrictions, lower_rec_input_clauses)
+	(lower_reduction_clauses, oacc_initialize_reduction_data)
+	(oacc_process_reduction_data, lower_omp_target)
+	(lower_omp_regimplify_p): Update for OpenACC.
+	* tree-parloops.c (create_parallel_loop): For OpenACC, switch from
+	vector to gang parallelism.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	GOMP_MAP_FORCE_TO_GANGLOCAL.
+
 2015-05-13  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* config/nvptx/mkoffload.c (enum Kind, struct Token, enum Vis)

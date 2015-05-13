@@ -36,6 +36,7 @@
 
 #define GOMP_MAP_FLAG_TO		(1 << 0)
 #define GOMP_MAP_FLAG_FROM		(1 << 1)
+#define GOMP_MAP_FLAG_GANGLOCAL		(1 << 4)
 /* Special map kinds, enumerated starting here.  */
 #define GOMP_MAP_FLAG_SPECIAL_0		(1 << 2)
 #define GOMP_MAP_FLAG_SPECIAL_1		(1 << 3)
@@ -54,6 +55,8 @@ enum gomp_map_kind
     GOMP_MAP_FROM =			(GOMP_MAP_ALLOC | GOMP_MAP_FLAG_FROM),
     /* ..., and copy to and from device.  */
     GOMP_MAP_TOFROM =			(GOMP_MAP_TO | GOMP_MAP_FROM),
+    /* OpenACC Gang-local.  */
+    GOMP_MAP_GANGLOCAL =		(GOMP_MAP_ALLOC | GOMP_MAP_FLAG_GANGLOCAL),
     /* The following kind is an internal only map kind, used for pointer based
        array sections.  OMP_CLAUSE_SIZE for these is not the pointer size,
        which is implicitly POINTER_SIZE_UNITS, but the bias.  */
@@ -81,7 +84,9 @@ enum gomp_map_kind
     /* ..., and copy from device.  */
     GOMP_MAP_FORCE_FROM =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_FROM),
     /* ..., and copy to and from device.  */
-    GOMP_MAP_FORCE_TOFROM =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TOFROM)
+    GOMP_MAP_FORCE_TOFROM =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TOFROM),
+    /* Flag to allocate, copy to device and also make gang-local.  */
+    GOMP_MAP_FORCE_TO_GANGLOCAL =	(GOMP_MAP_FORCE_TO | GOMP_MAP_GANGLOCAL)
   };
 
 #define GOMP_MAP_COPY_TO_P(X) \

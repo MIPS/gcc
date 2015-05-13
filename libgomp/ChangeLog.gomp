@@ -1,6 +1,77 @@
 2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
 	    Bernd Schmidt  <bernds@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* libgomp.h (splay_tree_key_s): Add dealloc_host member.  Adjust
+	all users.
+	* libgomp.map (GOACC_2.0.GOMP_4_BRANCH): Add GOACC_deviceptr,
+	GOACC_get_ganglocal_ptr.
+	* libgomp_g.h (GOACC_get_ganglocal_ptr): New prototype.
+	* oacc-mem.c (GOACC_deviceptr): New function.
+	* oacc-parallel.c (__goacc_host_ganglocal_ptr): New static
+	variable.
+	(GOACC_get_ganglocal_ptr, alloc_host_shared_mem)
+	(free_host_shared_mem, alloc_ganglocal_addrs): New functions.
+	(GOACC_parallel, GOACC_kernels): Use them.  Add shared_size formal
+	parameter.  Adjust all users.
+	(GOACC_parallel): Remove num_workers check.
+	(GOACC_enter_exit_data, GOACC_update): Handle more mapping kinds.
+	(GOACC_get_num_threads, GOACC_get_thread_num): Add gang, worker,
+	vector formal parameters.  Adjust all users.
+	* plugin/plugin-host.c (GOMP_OFFLOAD_openacc_parallel): Add
+	shared_size formal parameter.  Adjust all users.
+	* plugin/plugin-nvptx.c (nvptx_exec)
+	(GOMP_OFFLOAD_openacc_parallel): Add shared_size formal parameter.
+	Adjust all users.
+	* target.c (gomp_map_vars, gomp_unmap_vars)
+	(gomp_offload_image_to_device): Update for OpenACC.
+	* testsuite/libgomp.oacc-c++/template-reduction.C: Update.
+	* testsuite/libgomp.oacc-c-c++-common/collapse-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/data-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-4.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-5.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-5.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-6.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-7.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/collapse-8.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-2.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-2.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-3.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-4.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-5.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-6.f90: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/enter-data.c: New file.
+	* testsuite/libgomp.oacc-c-c++-common/firstprivate-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/firstprivate-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/host_data-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/host_data-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-1.h: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-2.h: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-reduction.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c/gwv.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/firstprivate-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/host_data-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/if-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/implicit-firstprivate-ref.f90:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/parallel-reduction.f90: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-initial-1.c:
+	Remove file.
+
+2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
 
 	* oacc-ptx.h: Remove file.
 	* plugin/plugin-nvptx.c: Don't include it.

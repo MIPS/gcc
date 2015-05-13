@@ -309,6 +309,12 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		k->tgt_offset = tgt_size;
 		tgt_size += k->host_end - k->host_start;
 		k->copy_from = GOMP_MAP_COPY_FROM_P (kind & typemask);
+		k->dealloc_host = (kind & typemask)
+		  == GOMP_MAP_FORCE_TO_GANGLOCAL;
+		if (GOMP_MAP_POINTER_P (kind & typemask) && i < 0 &&
+		    (get_kind (is_openacc, kinds, i-1) & typemask)
+		    == GOMP_MAP_FORCE_TO_GANGLOCAL)
+		  k->dealloc_host = true;
 		k->refcount = 1;
 		k->async_refcount = 0;
 		tgt->refcount++;
@@ -325,6 +331,7 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		  case GOMP_MAP_TO:
 		  case GOMP_MAP_TOFROM:
 		  case GOMP_MAP_FORCE_TO:
+		  case GOMP_MAP_FORCE_TO_GANGLOCAL:
 		  case GOMP_MAP_FORCE_TOFROM:
 		    /* FIXME: Perhaps add some smarts, like if copying
 		       several adjacent fields from host to target, use some
@@ -596,6 +603,8 @@ gomp_unmap_vars (struct target_mem_desc *tgt, bool do_copyfrom)
 	  devicep->dev2host_func (devicep->target_id, (void *) k->host_start,
 				  (void *) (k->tgt->tgt_start + k->tgt_offset),
 				  k->host_end - k->host_start);
+	if (k->dealloc_host)
+	  free ((void *)k->host_start);
 	splay_tree_remove (&devicep->mem_map, k);
 	if (k->tgt->refcount > 1)
 	  k->tgt->refcount--;
@@ -728,6 +737,7 @@ gomp_offload_image_to_device (struct gomp_device_descr *devicep,
       k->refcount = 1;
       k->async_refcount = 0;
       k->copy_from = false;
+      k->dealloc_host = false;
       array->left = NULL;
       array->right = NULL;
       splay_tree_insert (&devicep->mem_map, array);
@@ -754,6 +764,7 @@ gomp_offload_image_to_device (struct gomp_device_descr *devicep,
       k->refcount = 1;
       k->async_refcount = 0;
       k->copy_from = false;
+      k->dealloc_host = false;
       array->left = NULL;
       array->right = NULL;
       splay_tree_insert (&devicep->mem_map, array);

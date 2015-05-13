@@ -555,6 +555,9 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 	case GOMP_MAP_FORCE_TO:
 	  pp_string (pp, "force_to");
 	  break;
+	case GOMP_MAP_FORCE_TO_GANGLOCAL:
+	  pp_string (pp, "force_to_ganglocal");
+	  break;
 	case GOMP_MAP_FORCE_FROM:
 	  pp_string (pp, "force_from");
 	  break;
@@ -585,12 +588,21 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 	  else if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
 		   && OMP_CLAUSE_MAP_KIND (clause) == GOMP_MAP_TO_PSET)
 	    pp_string (pp, " [pointer set, len: ");
+
+	  else if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
+		   && (OMP_CLAUSE_MAP_KIND (clause)
+		       == GOMP_MAP_FORCE_TO_GANGLOCAL))
+	    pp_string (pp, " [gang-local copy, len: ");
 	  else
 	    pp_string (pp, " [len: ");
 	  dump_generic_node (pp, OMP_CLAUSE_SIZE (clause),
 			     spc, flags, false);
 	  pp_right_bracket (pp);
 	}
+      else if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
+	       && (OMP_CLAUSE_MAP_KIND (clause)
+		   == GOMP_MAP_FORCE_TO_GANGLOCAL))
+	pp_string (pp, " [gang-local copy]");
       pp_right_paren (pp);
       break;
 

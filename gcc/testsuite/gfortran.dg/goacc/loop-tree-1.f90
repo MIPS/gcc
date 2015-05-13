@@ -17,7 +17,7 @@ program test
 
   !$acc loop independent gang (3)
   DO i = 1,10
-    !$acc loop worker(3) ! { dg-error "work-sharing region may not be closely nested inside of work-sharing, critical, ordered, master or explicit task region" }
+    !$acc loop worker(3)
     DO j = 1,10
       !$acc loop vector(5)
       DO k = 1,10

@@ -35,6 +35,15 @@ oacc_parallel_copy (T a)
   for (int i = 0; i < a; i++)
     for (int j = 0; j < 5; j++)
       b = a;
+
+#pragma acc loop auto tile (3, 3)
+  for (int i = 0; i < a; i++)
+    for (int j = 0; j < 5; j++)
+      b = a;
+
+#pragma acc loop seq
+  for (int i = 0; i < a; i++)
+    b = a;
   }
 
   T c;
@@ -101,6 +110,12 @@ oacc_kernels_copy (T a)
 
 #pragma acc kernels copyout (b) copyin (a)
   b = a;
+
+#pragma acc kernels loop reduction (+:c)
+  for (int i = 0; i < 10; i++)
+    {
+      c = 1;
+    }
 
 #pragma acc data if (1) copy (b)
   {

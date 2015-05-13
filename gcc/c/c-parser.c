@@ -10373,6 +10373,9 @@ c_parser_oacc_data_clause (c_parser *parser, pragma_omp_clause c_kind,
     case PRAGMA_OACC_CLAUSE_DEVICE_RESIDENT:
       kind = GOMP_MAP_DEVICE_RESIDENT;
       break;
+    case PRAGMA_OACC_CLAUSE_FIRSTPRIVATE:
+      kind = GOMP_MAP_FORCE_TO_GANGLOCAL;
+      break;
     case PRAGMA_OACC_CLAUSE_HOST:
       kind = GOMP_MAP_FORCE_FROM;
       break;
@@ -11967,7 +11970,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "deviceptr";
 	  break;
 	case PRAGMA_OACC_CLAUSE_FIRSTPRIVATE:
-	  clauses = c_parser_omp_clause_firstprivate (parser, clauses);
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
 	  c_name = "firstprivate";
 	  break;
 	case PRAGMA_OACC_CLAUSE_GANG:
@@ -12566,6 +12569,7 @@ oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses)
 	  loop_clauses = clauses;
 	  break;
 
+	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_PRIVATE:
 	  c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
 			        OMP_CLAUSE_CODE (clauses));
@@ -12812,6 +12816,7 @@ c_parser_oacc_kernels (location_t loc, c_parser *parser, char *p_name)
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_DEVICEPTR)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_IF)			\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_PRIVATE)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_FIRSTPRIVATE)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_NUM_GANGS)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_NUM_WORKERS)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_PRESENT)		\

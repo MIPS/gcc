@@ -328,6 +328,8 @@ GOACC_2.0 {
 
 GOACC_2.0.GOMP_4_BRANCH {
   global:
+	GOACC_deviceptr;
+	GOACC_get_ganglocal_ptr;
 	GOACC_kernels;
 } GOACC_2.0;
 

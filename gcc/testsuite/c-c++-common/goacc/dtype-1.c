@@ -4,7 +4,7 @@
 void
 test ()
 {
-  int i1;
+  int i1, i2, i3, i4, i5, i6;
 
   /* ACC PARALLEL DEVICE_TYPE: */
 
@@ -45,22 +45,52 @@ test ()
   /* ACC LOOP DEVICE_TYPE: */
 
 #pragma acc parallel
-#pragma acc loop dtype (nVidia) gang
+#pragma acc loop dtype (nVidia) gang tile (1)
   for (i1 = 1; i1 < 10; i1++)
-    {
-    }
+#pragma acc loop device_type (nVidia) worker collapse (1)
+    for (i2 = 1; i2 < 10; i2++)
+#pragma acc loop device_type (nVidia) vector
+      for (i3 = 1; i3 < 10; i3++)
+#pragma acc loop dtype (nVidia) auto
+	for (i4 = 1; i4 < 10; i4++)
+#pragma acc loop dtype (nVidia) independent
+	  for (i5 = 1; i5 < 10; i5++)
+#pragma acc loop device_type (nVidia) seq
+	    for (i6 = 1; i6 < 10; i6++)
+	      {
+	      }
 
 #pragma acc parallel
-#pragma acc loop device_type (nVidia) gang dtype (*) worker
+#pragma acc loop device_type (nVidia) gang tile (1) dtype (*) seq
   for (i1 = 1; i1 < 10; i1++)
-    {
-    }
+#pragma acc loop dtype (nVidia) worker collapse (1) device_type (*) seq
+    for (i2 = 1; i2 < 10; i2++)
+#pragma acc loop device_type (nVidia) vector dtype (*) seq
+      for (i3 = 1; i3 < 10; i3++)
+#pragma acc loop dtype (nVidia) auto device_type (*) seq
+	for (i4 = 1; i4 < 10; i4++)
+#pragma acc loop device_type (nVidia) independent device_type (*) seq
+	  for (i5 = 1; i5 < 10; i5++)
+#pragma acc loop device_type (nVidia) seq
+	    for (i6 = 1; i6 < 10; i6++)
+	      {
+	      }
 
 #pragma acc parallel
-#pragma acc loop dtype (nVidiaGPU) gang device_type (*) vector
+#pragma acc loop dtype (nVidiaGPU) gang tile (1) device_type (*) seq
   for (i1 = 1; i1 < 10; i1++)
-    {
-    }
+#pragma acc loop device_type (nVidiaGPU) worker collapse (1) dtype (*) seq
+    for (i2 = 1; i2 < 10; i2++)
+#pragma acc loop dtype (nVidiaGPU) vector device_type (*) seq
+      for (i3 = 1; i3 < 10; i3++)
+#pragma acc loop device_type (nVidiaGPU) auto device_type (*) seq
+	for (i4 = 1; i4 < 10; i4++)
+#pragma acc loop dtype (nVidiaGPU) independent dtype (*) seq
+	  for (i5 = 1; i5 < 10; i5++)
+#pragma acc loop device_type (nVidiaGPU) seq device_type (*) seq
+	    for (i6 = 1; i6 < 10; i6++)
+	      {
+	      }
 
   /* ACC UPDATE DEVICE_TYPE: */
 
@@ -80,17 +110,18 @@ test ()
 #pragma acc routine (foo1) device_type (nvidia) gang
 #pragma acc routine (foo2) device_type (nvidia) worker
 #pragma acc routine (foo3) dtype (nvidia) vector
+#pragma acc routine (foo4) dtype (nvidia) seq
 #pragma acc routine (foo5) device_type (nvidia) bind (foo)
-#pragma acc routine (foo6) device_type (nvidia) gang device_type (*) worker
-#pragma acc routine (foo7) dtype (nvidia) worker dtype (*) vector
-#pragma acc routine (foo8) dtype (nvidia) vector device_type (*) gang
-#pragma acc routine (foo9) device_type (nvidia) vector device_type (*) worker
-#pragma acc routine (foo10) device_type (nvidia) bind (foo) dtype (*) gang
-#pragma acc routine (foo11) device_type (gpu) gang device_type (*) worker
-#pragma acc routine (foo12) device_type (gpu) worker dtype (*) worker
-#pragma acc routine (foo13) device_type (gpu) vector device_type (*) worker
-#pragma acc routine (foo14) dtype (gpu) worker dtype (*) worker
-#pragma acc routine (foo15) dtype (gpu) bind (foo) dtype (*) gang
+#pragma acc routine (foo6) device_type (nvidia) gang device_type (*) seq
+#pragma acc routine (foo7) dtype (nvidia) worker dtype (*) seq
+#pragma acc routine (foo8) dtype (nvidia) vector device_type (*) seq
+#pragma acc routine (foo9) device_type (nvidia) seq device_type (*) worker
+#pragma acc routine (foo10) device_type (nvidia) bind (foo) dtype (*) seq
+#pragma acc routine (foo11) device_type (gpu) gang device_type (*) seq
+#pragma acc routine (foo12) device_type (gpu) worker dtype (*) seq
+#pragma acc routine (foo13) device_type (gpu) vector device_type (*) seq
+#pragma acc routine (foo14) dtype (gpu) seq dtype (*) worker
+#pragma acc routine (foo15) dtype (gpu) bind (foo) dtype (*) seq
 
 /* { dg-final { scan-tree-dump-times "oacc_parallel wait\\(1\\) vector_length\\(32\\) num_workers\\(100\\) num_gangs\\(100\\) async\\(1\\)" 1 "omplower" } } */
 
@@ -104,10 +135,26 @@ test ()
 
 /* { dg-final { scan-tree-dump-times "oacc_kernels async\\(-1\\) wait\\(0\\) async\\(0\\)" 1 "omplower" } } */
 
-/* { dg-final { scan-tree-dump-times "acc loop gang private\\(i1.0\\) private\\(i1\\)" 1 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "acc loop tile\\(1\\) gang private\\(i1\\.0\\) private\\(i1\\)" 1 "omplower" } } */
 
-/* { dg-final { scan-tree-dump-times "acc loop gang private\\(i1.1\\) private\\(i1\\)" 1 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "acc loop tile\\(1\\) gang private\\(i1\\.1\\) private\\(i1\\)" 1 "omplower" } } */
 
-/* { dg-final { scan-tree-dump-times "acc loop vector private\\(i1.2\\) private\\(i1\\)" 1 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "acc loop seq private\\(i1\\.2\\) private\\(i1\\)" 1 "omplower" } } */
+
+/* { dg-final { scan-tree-dump-times "acc loop collapse\\(1\\) worker private\\(i2\\)" 2 "omplower" } } */
+
+/* { dg-final { scan-tree-dump-times "acc loop vector private\\(i3\\)" 2 "omplower" } } */
+
+/* { dg-final { scan-tree-dump-times "acc loop auto private\\(i4\\)" 2 "omplower" } } */
+
+/* { dg-final { scan-tree-dump-times "acc loop private\\(i5\\)" 2 "omplower" } } */
+
+/* { dg-final { scan-tree-dump-times "acc loop seq private\\(i6\\)" 3 "omplower" } } */
+
+/* { dg-final { scan-tree-dump-times "acc loop seq private\\(i2\\)" 1 "omplower" } } */
+
+/* { dg-final { scan-tree-dump-times "acc loop seq private\\(i4\\)" 1 "omplower" } } */
+
+/* { dg-final { scan-tree-dump-times "acc loop seq private\\(i5\\)" 1 "omplower" } } */
 
 /* { dg-final { cleanup-tree-dump "omplower" } } */

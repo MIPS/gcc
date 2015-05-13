@@ -54,16 +54,16 @@ async_sum (T array[])
   return s;
 }
 
-// Check present and async
+// Check present and async and an explicit firstprivate
 
 template<typename T> T
 async_sum (int c)
 {
    T s = 0;
 
-#pragma acc parallel loop num_gangs (10) gang reduction (+:s) copy(s) async wait (1)
+#pragma acc parallel loop num_gangs (10) gang reduction (+:s) copy(s) firstprivate (c) async wait (1)
   for (int i = 0; i < n; i++)
-    s += i;
+    s += i+c;
 
 #pragma acc wait
 

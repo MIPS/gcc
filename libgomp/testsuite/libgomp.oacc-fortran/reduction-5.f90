@@ -23,8 +23,8 @@ subroutine redsub(sum, n, c)
 
   sum = 0
 
-  !$acc parallel vector_length(n) copyin (n, c) num_gangs(2)
-  !$acc loop reduction(+:sum)
+  !$acc parallel copyin (n, c) num_gangs(n) copy(sum)
+  !$acc loop reduction(+:sum) gang
   do i = 1, n
      sum = sum + c
   end do

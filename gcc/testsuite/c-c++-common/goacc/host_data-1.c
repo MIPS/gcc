@@ -11,4 +11,3 @@ f (void)
 #pragma acc host_data use_device(v2, v0, v1)
   ;
 }
-/* { dg-bogus "sorry, unimplemented: directive not yet implemented" "host_data" { xfail *-*-* } 11 } */

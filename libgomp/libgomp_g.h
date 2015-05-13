@@ -224,14 +224,15 @@ extern void GOACC_enter_exit_data (int, size_t, void **,
 				   size_t *, unsigned short *, int, int, ...);
 extern void GOACC_kernels (int, void (*) (void *), size_t,
 			   void **, size_t *, unsigned short *, int, int, int,
-			   int, int, ...);
+			   size_t, int, int, ...);
 extern void GOACC_parallel (int, void (*) (void *), size_t,
 			    void **, size_t *, unsigned short *, int, int, int,
-			    int, int, ...);
+			    size_t, int, int, ...);
 extern void GOACC_update (int, size_t, void **, size_t *,
 			  unsigned short *, int, int, ...);
 extern void GOACC_wait (int, int, ...);
-extern int GOACC_get_num_threads (void);
-extern int GOACC_get_thread_num (void);
+extern int GOACC_get_num_threads (int, int, int);
+extern int GOACC_get_thread_num (int, int, int);
+extern void *GOACC_get_ganglocal_ptr (void);
 
 #endif /* LIBGOMP_G_H */

@@ -675,6 +675,8 @@ struct splay_tree_key_s {
   uintptr_t async_refcount;
   /* True if data should be copied from device to host at the end.  */
   bool copy_from;
+  /* True if data should be freed on the host, e.g. for ganglocal vars.  */
+  bool dealloc_host;
 };
 
 #include "splay-tree.h"
@@ -690,7 +692,7 @@ typedef struct acc_dispatch_t
 
   /* Execute.  */
   void (*exec_func) (void (*) (void *), size_t, void **, void **, size_t *,
-		     unsigned short *, int, int, int, int, void *);
+		     unsigned short *, int, int, int, int, size_t, void *);
 
   /* Async cleanup callback registration.  */
   void (*register_async_cleanup_func) (void *);

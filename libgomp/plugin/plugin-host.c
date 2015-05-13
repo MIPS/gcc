@@ -171,6 +171,7 @@ GOMP_OFFLOAD_openacc_parallel (void (*fn) (void *),
 			       int num_workers __attribute__ ((unused)),
 			       int vector_length __attribute__ ((unused)),
 			       int async __attribute__ ((unused)),
+			       size_t shared_size __attribute__ ((unused)),
 			       void *targ_mem_desc __attribute__ ((unused)))
 {
 #ifdef HOST_NONSHM_PLUGIN

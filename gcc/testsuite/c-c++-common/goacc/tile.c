@@ -21,6 +21,3 @@ main ()
 
   return 0;
 }
-/* { dg-bogus "sorry, unimplemented: Clause not supported yet" "tile" { xfail *-*-* } 6 } */
-/* { dg-bogus "sorry, unimplemented: Clause not supported yet" "tile" { xfail *-*-* } 10 } */
-/* { dg-bogus "sorry, unimplemented: Clause not supported yet" "tile" { xfail *-*-* } 14 } */

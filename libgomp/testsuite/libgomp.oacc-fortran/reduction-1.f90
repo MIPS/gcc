@@ -5,7 +5,7 @@
 program reduction_1
   implicit none
 
-  integer, parameter    :: n = 10, vl = 2
+  integer, parameter    :: n = 10, gangs = 20
   integer               :: i, vresult, result
   logical               :: lresult, lvresult
   integer, dimension (n) :: array
@@ -19,8 +19,8 @@ program reduction_1
 
   ! '+' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(+:result)
+  !$acc parallel num_gangs(gangs) copy(result)
+  !$acc loop reduction(+:result) gang
   do i = 1, n
      result = result + array(i)
   end do
@@ -38,8 +38,8 @@ program reduction_1
 
   ! '*' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(*:result)
+  !$acc parallel num_gangs(gangs) copy(result)
+  !$acc loop reduction(*:result) gang
   do i = 1, n
      result = result * array(i)
   end do
@@ -57,8 +57,8 @@ program reduction_1
 
   ! 'max' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(max:result)
+  !$acc parallel num_gangs(gangs) copy(result)
+  !$acc loop reduction(max:result) gang
   do i = 1, n
      result = max (result, array(i))
   end do
@@ -76,8 +76,8 @@ program reduction_1
 
   ! 'min' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(min:result)
+  !$acc parallel num_gangs(gangs) copy(result)
+  !$acc loop reduction(min:result) gang
   do i = 1, n
      result = min (result, array(i))
   end do
@@ -95,8 +95,8 @@ program reduction_1
 
   ! 'iand' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(iand:result)
+  !$acc parallel num_gangs(gangs) copy(result)
+  !$acc loop reduction(iand:result) gang
   do i = 1, n
      result = iand (result, array(i))
   end do
@@ -114,8 +114,8 @@ program reduction_1
 
   ! 'ior' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(ior:result)
+  !$acc parallel num_gangs(gangs) copy(result)
+  !$acc loop reduction(ior:result) gang
   do i = 1, n
      result = ior (result, array(i))
   end do
@@ -133,8 +133,8 @@ program reduction_1
 
   ! 'ieor' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(ieor:result)
+  !$acc parallel num_gangs(gangs) copy(result)
+  !$acc loop reduction(ieor:result) gang
   do i = 1, n
      result = ieor (result, array(i))
   end do
@@ -152,8 +152,8 @@ program reduction_1
 
   ! '.and.' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(.and.:lresult)
+  !$acc parallel num_gangs(gangs) copy(lresult)
+  !$acc loop reduction(.and.:lresult) gang
   do i = 1, n
      lresult = lresult .and. (array(i) .ge. 5)
   end do
@@ -164,15 +164,15 @@ program reduction_1
      lvresult = lvresult .and. (array(i) .ge. 5)
   end do
 
-  if (result.ne.vresult) call abort
+  if (lresult .neqv. lvresult) call abort
 
   lresult = .false.
   lvresult = .false.
 
   ! '.or.' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(.or.:lresult)
+  !$acc parallel num_gangs(gangs) copy(lresult)
+  !$acc loop reduction(.or.:lresult) gang
   do i = 1, n
      lresult = lresult .or. (array(i) .ge. 5)
   end do
@@ -183,15 +183,15 @@ program reduction_1
      lvresult = lvresult .or. (array(i) .ge. 5)
   end do
 
-  if (result.ne.vresult) call abort
+  if (lresult .neqv. lvresult) call abort
 
   lresult = .false.
   lvresult = .false.
 
   ! '.eqv.' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(.eqv.:lresult)
+  !$acc parallel num_gangs(gangs) copy(lresult)
+  !$acc loop reduction(.eqv.:lresult) gang
   do i = 1, n
      lresult = lresult .eqv. (array(i) .ge. 5)
   end do
@@ -202,15 +202,15 @@ program reduction_1
      lvresult = lvresult .eqv. (array(i) .ge. 5)
   end do
 
-  if (result.ne.vresult) call abort
+  if (lresult .neqv. lvresult) call abort
 
   lresult = .false.
   lvresult = .false.
 
   ! '.neqv.' reductions
 
-  !$acc parallel vector_length(vl) num_gangs(2)
-  !$acc loop reduction(.neqv.:lresult)
+  !$acc parallel num_gangs(gangs) copy(lresult)
+  !$acc loop reduction(.neqv.:lresult) gang
   do i = 1, n
      lresult = lresult .neqv. (array(i) .ge. 5)
   end do
@@ -221,5 +221,5 @@ program reduction_1
      lvresult = lvresult .neqv. (array(i) .ge. 5)
   end do
 
-  if (result.ne.vresult) call abort
+  if (lresult .neqv. lvresult) call abort
 end program reduction_1

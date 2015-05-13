@@ -1,3 +1,39 @@
+2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/dtype-1.c: Update.
+	* c-c++-common/goacc/dtype-2.c: Likewise.
+	* c-c++-common/goacc/host_data-1.c: Likewise.
+	* c-c++-common/goacc/host_data-2.c: Likewise.
+	* c-c++-common/goacc/host_data-3.c: Likewise.
+	* c-c++-common/goacc/host_data-4.c: Likewise.
+	* c-c++-common/goacc/sb-3.c: Likewise.
+	* c-c++-common/goacc/tile.c: Likewise.
+	* g++.dg/goacc/template-reduction.C: Likewise.
+	* g++.dg/goacc/template.C: Likewise.
+	* gfortran.dg/goacc/coarray.f95: Likewise.
+	* gfortran.dg/goacc/dtype-1.f95: Likewise.
+	* gfortran.dg/goacc/host_data-tree.f95: Likewise.
+	* gfortran.dg/goacc/list.f95: Likewise.
+	* gfortran.dg/goacc/loop-tree-1.f90: Likewise.
+	* gfortran.dg/goacc/parallel-tree.f95: Likewise.
+	* c-c++-common/goacc/executeables-1.c: New file.
+	* c-c++-common/goacc/firstprivate.c: Likewise.
+	* c-c++-common/goacc/private-reduction-1.c: Likewise.
+	* g++.dg/goacc/loop-1.c: Likewise.
+	* g++.dg/goacc/loop-2.c: Likewise.
+	* g++.dg/goacc/loop-3.c: Likewise.
+	* gcc.dg/goacc/sb-1.c: Likewise.
+	* gcc.dg/goacc/sb-2.c: Likewise.
+	* gcc.dg/goacc/sb-3.c: Likewise.
+	* gfortran.dg/goacc/firstprivate-1.f95: Likewise.
+
 2015-05-11  Thomas Schwinge  <thomas@codesourcery.com>
 	    Bernd Schmidt  <bernds@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>

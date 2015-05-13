@@ -576,6 +576,10 @@ struct GTY((tag("GSS_OMP_PARALLEL_LAYOUT")))
   /* [ WORD 10 ]
      Shared data argument.  */
   tree data_arg;
+
+  /* [ WORD 11 ]
+     Size of the gang-local memory to allocate.  */
+  tree ganglocal_size;
 };
 
 /* GIMPLE_OMP_PARALLEL or GIMPLE_TASK */
@@ -5216,6 +5220,25 @@ gimple_omp_target_set_data_arg (gomp_target *omp_target_stmt,
 				tree data_arg)
 {
   omp_target_stmt->data_arg = data_arg;
+}
+
+
+/* Return the size of gang-local data associated with OMP_TARGET GS.  */
+
+static inline tree
+gimple_omp_target_ganglocal_size (const gomp_target *omp_target_stmt)
+{
+  return omp_target_stmt->ganglocal_size;
+}
+
+
+/* Set SIZE to be the size of gang-local memory associated with OMP_TARGET
+   GS.  */
+
+static inline void
+gimple_omp_target_set_ganglocal_size (gomp_target *omp_target_stmt, tree size)
+{
+  omp_target_stmt->ganglocal_size = size;
 }
 
 

@@ -963,7 +963,8 @@ event_add (enum ptx_event_type type, CUevent *e, void *h)
 void
 nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 	  size_t *sizes, unsigned short *kinds, int num_gangs, int num_workers,
-	  int vector_length, int async, void *targ_mem_desc)
+	  int vector_length, int async, size_t shared_size,
+	  void *targ_mem_desc)
 {
   struct targ_fn_descriptor *targ_fn = (struct targ_fn_descriptor *) fn;
   CUfunction function;
@@ -972,7 +973,6 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
   struct ptx_stream *dev_str;
   void *kargs[1];
   void *hp, *dp;
-  unsigned int nthreads_in_block;
   struct nvptx_thread *nvthd = nvptx_thread ();
   const char *maybe_abort_msg = "(perhaps abort was called)";
 
@@ -1002,32 +1002,15 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 
   // OpenACC		CUDA
   //
-  // num_gangs		blocks
-  // num_workers	warps (where a warp is equivalent to 32 threads)
-  // vector length	threads
-  //
-
-  /* The openacc vector_length clause 'determines the vector length to use for
-     vector or SIMD operations'.  The question is how to map this to CUDA.
-
-     In CUDA, the warp size is the vector length of a CUDA device.  However, the
-     CUDA interface abstracts away from that, and only shows us warp size
-     indirectly in maximum number of threads per block, which is a product of
-     warp size and the number of hyperthreads of a multiprocessor.
-
-     We choose to map openacc vector_length directly onto the number of threads
-     in a block, in the x dimension.  This is reflected in gcc code generation
-     that uses ThreadIdx.x to access vector elements.
-
-     Attempting to use an openacc vector_length of more than the maximum number
-     of threads per block will result in a cuda error.  */
-  nthreads_in_block = vector_length;
+  // num_gangs		nctaid.x
+  // num_workers	ntid.y
+  // vector length	ntid.x
 
   kargs[0] = &dp;
   r = cuLaunchKernel (function,
 		      num_gangs, 1, 1,
-		      nthreads_in_block, 1, 1,
-		      0, dev_str->stream, kargs, 0);
+		      vector_length, num_workers, 1,
+		      shared_size, dev_str->stream, kargs, 0);
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuLaunchKernel error: %s", cuda_error (r));
 
@@ -1741,10 +1724,10 @@ GOMP_OFFLOAD_openacc_parallel (void (*fn) (void *), size_t mapnum,
 			       void **hostaddrs, void **devaddrs, size_t *sizes,
 			       unsigned short *kinds, int num_gangs,
 			       int num_workers, int vector_length, int async,
-			       void *targ_mem_desc)
+			       size_t shared_size, void *targ_mem_desc)
 {
   nvptx_exec (fn, mapnum, hostaddrs, devaddrs, sizes, kinds, num_gangs,
-	    num_workers, vector_length, async, targ_mem_desc);
+	      num_workers, vector_length, async, shared_size, targ_mem_desc);
 }
 
 void

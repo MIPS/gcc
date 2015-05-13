@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#define vl 32
+#define ng 32
 
 #define DO_PRAGMA(x) _Pragma (#x)
 
@@ -13,8 +13,8 @@
   {						\
     type res, vres;				\
     res = (init);				\
-DO_PRAGMA (acc parallel vector_length (vl))\
-DO_PRAGMA (acc loop reduction (op:res))\
+DO_PRAGMA (acc parallel num_gangs (ng) copy (res)) \
+DO_PRAGMA (acc loop gang reduction (op:res))	\
     for (i = 0; i < n; i++)			\
       res = res op (b);				\
 						\
@@ -55,16 +55,19 @@ test_reductions_bool (void)
     array[i] = i;
 
   cmp_val = 5;
+#if 0
+  // TODO
   check_reduction_op (bool, &&, true, (cmp_val > array[i]));
   check_reduction_op (bool, ||, false, (cmp_val > array[i]));
+#endif
 }
 
 #define check_reduction_macro(type, op, init, b)	\
   {							\
     type res, vres;					\
     res = (init);					\
-DO_PRAGMA (acc parallel vector_length (vl))\
-DO_PRAGMA (acc loop reduction (op:res))\
+DO_PRAGMA (acc parallel num_gangs (ng) copy(res))	\
+DO_PRAGMA (acc loop gang reduction (op:res))		\
     for (i = 0; i < n; i++)				\
       res = op (res, (b));				\
 							\
