@@ -1,3 +1,15 @@
+2015-05-12  Gary Funck  <gary@intrepid.com>
+
+	Fix ICE when compiling nested functions.
+	* c-family/c-gimplify.c: Revert to trunk.
+	* c/c-decl.c (finish_function):
+	Move call to upc_genericize here.
+	* c-family/c-upc-low.c (upc_genericize_function): Renamed.
+	Was: upc_genericize_fndecl.
+	Remove logic that attempted to explicitly save/restore
+	current_function_decl.
+	(upc_genericize_function_tree): Delete.
+
 2015-05-11  Gary Funck  <gary@intrepid.com>
 
 	Remove asserts which check for attempt to qualify an ARRAY_TYPE.
