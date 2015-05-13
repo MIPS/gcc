@@ -1,3 +1,9 @@
+2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* g++.dg/goacc/loop-1.c: New test.
+	* g++.dg/goacc/loop-2.c: New test.
+	* g++.dg/goacc/loop-3.c: New test.
+
 2015-05-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/modules.f95: New test.
