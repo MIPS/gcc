@@ -1,3 +1,8 @@
+2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/atomic.c: New file.
+	* config/nvptx/t-nvptx (LIB2ADD): Include it.
+
 2015-05-13  Bernd Schmidt  <bernds@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>
 
