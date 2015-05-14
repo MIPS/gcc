@@ -1,3 +1,11 @@
+2015-05-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_c_mode_for_suffix): Allow 'w' and
+	'W' as the suffix for __ibm128.
+
+	* doc/extend.texi (Float Types): Document the 'w' and 'W' floating
+	point suffixes.
+
 2015-05-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Change

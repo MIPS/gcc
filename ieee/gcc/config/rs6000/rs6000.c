@@ -32595,8 +32595,14 @@ rs6000_vector_mode_supported_p (machine_mode mode)
 static machine_mode
 rs6000_c_mode_for_suffix (char suffix)
 {
-  if (TARGET_FLOAT128 && suffix == 'q')
-    return KFmode;
+  if (TARGET_FLOAT128 && TARGET_LONG_DOUBLE_128)
+    {
+      if (suffix == 'q' || suffix == 'Q')
+	return (TARGET_IEEEQUAD) ? TFmode : KFmode;
+
+      if (suffix == 'w' || suffix == 'W')
+	return (!TARGET_IEEEQUAD) ? TFmode : IFmode;
+    }
 
   return VOIDmode;
 }

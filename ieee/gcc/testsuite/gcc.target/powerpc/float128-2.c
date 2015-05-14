@@ -2,7 +2,7 @@
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
 /* { dg-skip-if "" { powerpc*-*-*spe* } { "*" } { "" } } */
 /* { dg-require-effective-target vsx_hw } */
-/* { dg-options "-mcpu=power7 -O2 -mfloat128 -static-libgcc" } */
+/* { dg-options "-mcpu=power7 -O2 -mfloat128-software -static-libgcc" } */
 
 /*
  * Test program to make sure we are getting more precision than the 53 bits we

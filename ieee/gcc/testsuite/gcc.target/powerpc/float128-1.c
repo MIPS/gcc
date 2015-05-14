@@ -2,7 +2,7 @@
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
 /* { dg-skip-if "" { powerpc*-*-*spe* } { "*" } { "" } } */
 /* { dg-require-effective-target vsx_hw } */
-/* { dg-options "-mcpu=power7 -O2 -mfloat128 -static-libgcc" } */
+/* { dg-options "-mcpu=power7 -O2 -mfloat128-software -static-libgcc" } */
 
 #ifdef DEBUG
 #include <stdio.h>
