@@ -38,15 +38,23 @@
 #include <stdarg.h>
 #include <assert.h>
 
+/* Returns the number of mappings associated with the pointer or pset. PSET
+   have three mappings, whereas pointer have two.  */
+
 static int
-find_pset (int pos, size_t mapnum, unsigned short *kinds)
+find_pointer (int pos, size_t mapnum, unsigned short *kinds)
 {
   if (pos + 1 >= mapnum)
     return 0;
 
   unsigned char kind = kinds[pos+1] & 0xff;
 
-  return kind == GOMP_MAP_TO_PSET;
+  if (kind == GOMP_MAP_TO_PSET)
+    return 3;
+  else if (kind == GOMP_MAP_POINTER)
+    return 2;
+
+  return 0;
 }
 
 static void *__goacc_host_ganglocal_ptr;
@@ -325,47 +333,39 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 		      kind);
     }
 
+  /* In c, non-pointers and arrays are represented by a single data clause.
+     Dynamically allocated arrays and subarrays are represented by a data
+     clause followed by an internal GOMP_MAP_POINTER.
+
+     In fortran, scalars and not allocated arrays are represented by a
+     single data clause. Allocated arrays and subarrays have three mappings:
+     1) the original data clause, 2) a PSET 3) a pointer to the array data.
+  */
+
   if (data_enter)
     {
       for (i = 0; i < mapnum; i++)
 	{
 	  unsigned char kind = kinds[i] & 0xff;
 
-	  /* Scan for PSETs.  */
-	  int psets = find_pset (i, mapnum, kinds);
+	  /* Scan for pointers and PSETs.  */
+	  int pointer = find_pointer (i, mapnum, kinds);
 
-	  if (!psets)
+	  if (!pointer)
 	    {
 	      switch (kind)
 		{
-		case GOMP_MAP_POINTER:
-		  gomp_acc_insert_pointer (1, &hostaddrs[i], &sizes[i],
-					&kinds[i]);
+		case GOMP_MAP_ALLOC:
+		  acc_present_or_create (hostaddrs[i], sizes[i]);
 		  break;
 		case GOMP_MAP_FORCE_ALLOC:
-		case GOMP_MAP_ALLOC:
-		  if ((i + 1) < mapnum &&
-		      kind == GOMP_MAP_ALLOC &&
-		      ((kinds[i + 1] & 0xff) == GOMP_MAP_POINTER) &&
-		      acc_is_present (hostaddrs[i], sizes[i]))
-		    i++;
-		  else if (kind == GOMP_MAP_ALLOC)
-		    acc_present_or_create (hostaddrs[i], sizes[i]);
-		  else
-		    acc_create (hostaddrs[i], sizes[i]);
+		  acc_create (hostaddrs[i], sizes[i]);
 		  break;
-		case GOMP_MAP_FORCE_PRESENT:
-		case GOMP_MAP_FORCE_TO:
 		case GOMP_MAP_TO:
-		  if ((i + 1) < mapnum &&
-		      kind == GOMP_MAP_TO &&
-		      ((kinds[i + 1] & 0xff) == GOMP_MAP_POINTER) &&
-		      acc_is_present (hostaddrs[i], sizes[i]))
-		    i++;
-		  else if (kind == GOMP_MAP_TO)
-		    acc_present_or_copyin (hostaddrs[i], sizes[i]);
-		  else
-		    acc_copyin (hostaddrs[i], sizes[i]);
+		  acc_present_or_copyin (hostaddrs[i], sizes[i]);
+		  break;
+		case GOMP_MAP_FORCE_TO:
+		  acc_copyin (hostaddrs[i], sizes[i]);
 		  break;
 		default:
 		  gomp_fatal (">>>> GOACC_enter_exit_data UNHANDLED kind 0x%.2x",
@@ -377,14 +377,14 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	    {
 	      if (!acc_is_present (hostaddrs[i], sizes[i]))
 		{
-		  gomp_acc_insert_pointer (3, &hostaddrs[i],
+		  gomp_acc_insert_pointer (pointer, &hostaddrs[i],
 					   &sizes[i], &kinds[i]);
 		}
 	      /* Increment 'i' by two because OpenACC requires fortran
 		 arrays to be contiguous, so each PSET is associated with
 		 one of MAP_FORCE_ALLOC/MAP_FORCE_PRESET/MAP_FORCE_TO, and
 		 one MAP_POINTER.  */
-	      i += 2;
+	      i += pointer - 1;
 	    }
 	}
     }
@@ -393,17 +393,12 @@ GOACC_enter_exit_data (int device, size_t mapnum,
       {
 	unsigned char kind = kinds[i] & 0xff;
 
-	int psets = find_pset (i, mapnum, kinds);
+	int pointer = find_pointer (i, mapnum, kinds);
 
-	if (!psets)
+	if (!pointer)
 	  {
 	    switch (kind)
 	      {
-	      case GOMP_MAP_POINTER:
-		gomp_acc_remove_pointer (hostaddrs[i], (kinds[i] & 0xff)
-					 == GOMP_MAP_FORCE_FROM,
-					 async, 1);
-		break;
 	      case GOMP_MAP_FORCE_DEALLOC:
 		if (acc_is_present (hostaddrs[i], sizes[i]))
 		  acc_delete (hostaddrs[i], sizes[i]);
@@ -424,10 +419,11 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	    if (acc_is_present (hostaddrs[i], sizes[i]))
 	      {
 		gomp_acc_remove_pointer (hostaddrs[i], (kinds[i] & 0xff)
-					 == GOMP_MAP_FORCE_FROM, async, 3);
+					 == GOMP_MAP_FORCE_FROM, async,
+					 pointer);
 		/* See the above comment.  */
 	      }
-	    i += 2;
+	    i += pointer - 1;
 	  }
       }
 

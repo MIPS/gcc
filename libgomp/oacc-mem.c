@@ -668,10 +668,8 @@ gomp_acc_remove_pointer (void *h, bool force_copyfrom, int async, int mapnum)
   if (t->refcount == minrefs)
     {
       /* This is the last reference, so pull the descriptor off the
-	 chain. This avoids gomp_unmap_vars via gomp_unmap_tgt from
+	 chain. This pevents gomp_unmap_vars via gomp_unmap_tgt from
 	 freeing the device memory. */
-      t->tgt_end = 0;
-      t->to_free = 0;
 
       for (tp = NULL, t = acc_dev->openacc.data_environ; t != NULL;
 	   tp = t, t = t->prev)
@@ -687,8 +685,7 @@ gomp_acc_remove_pointer (void *h, bool force_copyfrom, int async, int mapnum)
 	}
     }
 
-  if (force_copyfrom)
-    t->list[0]->copy_from = 1;
+  t->list[0]->copy_from = force_copyfrom ? 1 : 0;
 
   gomp_mutex_unlock (&acc_dev->lock);
 

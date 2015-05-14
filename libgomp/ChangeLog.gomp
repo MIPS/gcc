@@ -1,3 +1,13 @@
+2015-05-14  Cesar Philippidis  <cesar@codesourcery.com>
+
+	libgomp/
+	* oacc-mem.c (gomp_acc_remove_pointer): Fix a memory leak preventing
+	target_mem_desc.to_free from being deallocated with acc exit data.
+	* oacc-parallel.c (find_pset): Remove.
+	(find_pointer): New function.
+	(GOACC_enter_exit_data): Handle pointer maps with
+	gomp_acc_insert_pointer and gomp_acc_remove_pointer.
+
 2015-05-13  Thomas Schwinge  <thomas@codesourcery.com>
 
         * env.c (initialize_env): Remove static attribute.
