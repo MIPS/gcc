@@ -1,5 +1,4 @@
 ! { dg-do run }
-! { dg-xfail-run-if "TODO" { openacc_nvidia_accel_selected } }
 ! { dg-additional-options "-cpp" }
 
 program test

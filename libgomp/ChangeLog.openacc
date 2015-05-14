@@ -1,5 +1,18 @@
 2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-fortran/data-2.f90: Remove XFAIL.
+
+2015-05-14  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* oacc-mem.c (gomp_acc_remove_pointer): Fix a memory leak preventing
+	target_mem_desc.to_free from being deallocated with acc exit data.
+	* oacc-parallel.c (find_pset): Remove.
+	(find_pointer): New function.
+	(GOACC_enter_exit_data): Handle pointer maps with
+	gomp_acc_insert_pointer and gomp_acc_remove_pointer.
+
+2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
+
 	* testsuite/libgomp.oacc-c-c++-common/data-2.c: Add XFAIL.
 	* testsuite/libgomp.oacc-c-c++-common/declare-3.c: Remove XFAIL.
 	* testsuite/libgomp.oacc-c-c++-common/enter-data.c: Likewise.
