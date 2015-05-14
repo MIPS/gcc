@@ -5186,7 +5186,7 @@ c_parser_c99_block_statement (c_parser *parser)
    parser->in_if_block.  */
 
 static tree
-c_parser_if_body (c_parser *parser, bool *if_p)
+c_parser_if_body (c_parser *parser, bool *if_p, location_t if_loc)
 {
   tree block = c_begin_compound_stmt (flag_isoc99);
   location_t body_loc = c_parser_peek_token (parser)->location;
@@ -5204,7 +5204,15 @@ c_parser_if_body (c_parser *parser, bool *if_p)
   else if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
     add_stmt (c_parser_compound_statement (parser));
   else
-    c_parser_statement_after_labels (parser);
+    {
+      c_parser_statement_after_labels (parser);
+      if (!c_parser_next_token_is_keyword (parser, RID_ELSE))
+	warn_for_misleading_indentation (if_loc, body_loc,
+					 c_parser_peek_token (parser)->location,
+					 c_parser_peek_token (parser)->type,
+					 "if");
+    }
+
   return c_end_compound_stmt (body_loc, block, flag_isoc99);
 }
 
@@ -5213,9 +5221,9 @@ c_parser_if_body (c_parser *parser, bool *if_p)
    specially for the sake of -Wempty-body warnings.  */
 
 static tree
-c_parser_else_body (c_parser *parser)
+c_parser_else_body (c_parser *parser, location_t else_loc)
 {
-  location_t else_loc = c_parser_peek_token (parser)->location;
+  location_t body_loc = c_parser_peek_token (parser)->location;
   tree block = c_begin_compound_stmt (flag_isoc99);
   c_parser_all_labels (parser);
   if (c_parser_next_token_is (parser, CPP_SEMICOLON))
@@ -5228,8 +5236,14 @@ c_parser_else_body (c_parser *parser)
       c_parser_consume_token (parser);
     }
   else
-    c_parser_statement_after_labels (parser);
-  return c_end_compound_stmt (else_loc, block, flag_isoc99);
+    {
+      c_parser_statement_after_labels (parser);
+      warn_for_misleading_indentation (else_loc, body_loc,
+				       c_parser_peek_token (parser)->location,
+				       c_parser_peek_token (parser)->type,
+				       "else");
+    }
+  return c_end_compound_stmt (body_loc, block, flag_isoc99);
 }
 
 /* Parse an if statement (C90 6.6.4, C99 6.8.4).
@@ -5251,6 +5265,7 @@ c_parser_if_statement (c_parser *parser)
   tree if_stmt;
 
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_IF));
+  location_t if_loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
   loc = c_parser_peek_token (parser)->location;
@@ -5262,12 +5277,13 @@ c_parser_if_statement (c_parser *parser)
     }
   in_if_block = parser->in_if_block;
   parser->in_if_block = true;
-  first_body = c_parser_if_body (parser, &first_if);
+  first_body = c_parser_if_body (parser, &first_if, if_loc);
   parser->in_if_block = in_if_block;
   if (c_parser_next_token_is_keyword (parser, RID_ELSE))
     {
+      location_t else_loc = c_parser_peek_token (parser)->location;
       c_parser_consume_token (parser);
-      second_body = c_parser_else_body (parser);
+      second_body = c_parser_else_body (parser, else_loc);
     }
   else
     second_body = NULL_TREE;
@@ -5347,6 +5363,7 @@ c_parser_while_statement (c_parser *parser, bool ivdep)
   tree block, cond, body, save_break, save_cont;
   location_t loc;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_WHILE));
+  location_t while_loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
   loc = c_parser_peek_token (parser)->location;
@@ -5363,7 +5380,16 @@ c_parser_while_statement (c_parser *parser, bool ivdep)
   c_break_label = NULL_TREE;
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
+
+  location_t body_loc = UNKNOWN_LOCATION;
+  if (c_parser_peek_token (parser)->type != CPP_OPEN_BRACE)
+    body_loc = c_parser_peek_token (parser)->location;
   body = c_parser_c99_block_statement (parser);
+  warn_for_misleading_indentation (while_loc, body_loc,
+				   c_parser_peek_token (parser)->location,
+				   c_parser_peek_token (parser)->type,
+				   "while");
+
   c_finish_loop (loc, cond, NULL, body, c_break_label, c_cont_label, true);
   add_stmt (c_end_compound_stmt (loc, block, flag_isoc99));
   c_break_label = save_break;
@@ -5641,7 +5667,16 @@ c_parser_for_statement (c_parser *parser, bool ivdep)
   c_break_label = NULL_TREE;
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
+
+  location_t body_loc = UNKNOWN_LOCATION;
+  if (c_parser_peek_token (parser)->type != CPP_OPEN_BRACE)
+    body_loc = c_parser_peek_token (parser)->location;
   body = c_parser_c99_block_statement (parser);
+  warn_for_misleading_indentation (for_loc, body_loc,
+				   c_parser_peek_token (parser)->location,
+				   c_parser_peek_token (parser)->type,
+				   "for");
+
   if (is_foreach_statement)
     objc_finish_foreach_loop (loc, object_expression, collection_expression, body, c_break_label, c_cont_label);
   else
@@ -12483,10 +12518,7 @@ c_parser_oacc_enter_exit_data (c_parser *parser, bool enter)
 
   stmt = enter ? make_node (OACC_ENTER_DATA) : make_node (OACC_EXIT_DATA);
   TREE_TYPE (stmt) = void_type_node;
-  if (enter)
-    OACC_ENTER_DATA_CLAUSES (stmt) = clauses;
-  else
-    OACC_EXIT_DATA_CLAUSES (stmt) = clauses;
+  OMP_STANDALONE_CLAUSES (stmt) = clauses;
   SET_EXPR_LOCATION (stmt, loc);
   add_stmt (stmt);
 }

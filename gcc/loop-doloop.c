@@ -141,7 +141,7 @@ doloop_condition_get (rtx doloop_pat)
   if (GET_CODE (pattern) != PARALLEL)
     {
       rtx cond;
-      rtx prev_insn = prev_nondebug_insn (doloop_pat);
+      rtx_insn *prev_insn = prev_nondebug_insn (doloop_pat);
       rtx cmp_arg1, cmp_arg2;
       rtx cmp_orig;
 
@@ -446,7 +446,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
     {
       fprintf (dump_file, "Doloop: Inserting doloop pattern (");
       if (desc->const_iter)
-	fprintf (dump_file, "%"PRId64, desc->niter);
+	fprintf (dump_file, "%" PRId64, desc->niter);
       else
 	fputs ("runtime", dump_file);
       fputs (" iterations).\n", dump_file);

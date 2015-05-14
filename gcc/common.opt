@@ -1070,7 +1070,7 @@ Common Report Var(flag_delete_dead_exceptions) Init(0) Optimization
 Delete dead instructions that may throw exceptions
 
 fdelete-null-pointer-checks
-Common Report Var(flag_delete_null_pointer_checks) Init(1) Optimization
+Common Report Var(flag_delete_null_pointer_checks) Init(-1) Optimization
 Delete useless null pointer checks
 
 fdevirtualize-at-ltrans
@@ -1165,6 +1165,10 @@ freport-bug
 Common Driver Var(flag_report_bug)
 Collect and dump debug information into temporary file if ICE in C/C++
 compiler occured.
+
+fdump-internal-locations
+Common Var(flag_dump_locations) Init(0)
+Dump detailed information on GCC's internal representation of source code locations
 
 fdump-passes
 Common Var(flag_dump_passes) Init(0)
@@ -1780,6 +1784,10 @@ Generate position-independent code if possible (small mode)
 fpie
 Common Report Var(flag_pie,1) Negative(fPIC)
 Generate position-independent code for executables if possible (small mode)
+
+fplt
+Common Report Var(flag_plt) Init(1) Optimization
+Use PLT for PIC calls (-fno-plt: load the address from GOT at call site)
 
 fplugin=
 Common Joined RejectNegative Var(common_deferred_options) Defer

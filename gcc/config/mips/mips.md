@@ -3877,8 +3877,8 @@
       emit_jump_insn (gen_cbranchdf4 (test, operands[1], reg1, label1));
 
       emit_insn (gen_fix_truncdfsi2 (operands[0], operands[1]));
-      emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-				   gen_rtx_LABEL_REF (VOIDmode, label2)));
+      emit_jump_insn (gen_rtx_SET (pc_rtx,
+                                   gen_rtx_LABEL_REF (VOIDmode, label2)));
       emit_barrier ();
 
       emit_label (label1);
@@ -3921,8 +3921,7 @@
   emit_jump_insn (gen_cbranchdf4 (test, operands[1], reg1, label1));
 
   emit_insn (gen_fix_truncdfdi2 (operands[0], operands[1]));
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-			       gen_rtx_LABEL_REF (VOIDmode, label2)));
+  emit_jump_insn (gen_rtx_SET (pc_rtx, gen_rtx_LABEL_REF (VOIDmode, label2)));
   emit_barrier ();
 
   emit_label (label1);
@@ -3964,8 +3963,7 @@
   emit_jump_insn (gen_cbranchsf4 (test, operands[1], reg1, label1));
 
   emit_insn (gen_fix_truncsfsi2 (operands[0], operands[1]));
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-			       gen_rtx_LABEL_REF (VOIDmode, label2)));
+  emit_jump_insn (gen_rtx_SET (pc_rtx, gen_rtx_LABEL_REF (VOIDmode, label2)));
   emit_barrier ();
 
   emit_label (label1);
@@ -4007,8 +4005,7 @@
   emit_jump_insn (gen_cbranchsf4 (test, operands[1], reg1, label1));
 
   emit_insn (gen_fix_truncsfdi2 (operands[0], operands[1]));
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-			       gen_rtx_LABEL_REF (VOIDmode, label2)));
+  emit_jump_insn (gen_rtx_SET (pc_rtx, gen_rtx_LABEL_REF (VOIDmode, label2)));
   emit_barrier ();
 
   emit_label (label1);
@@ -5531,11 +5528,11 @@
 
 (define_insn "<GPR:d>lsa"
  [(set (match_operand:GPR 0 "register_operand" "=d")
-       (plus:GPR (mult:GPR (match_operand:GPR 1 "register_operand" "d")
-			   (match_operand 2 "const_immlsa_operand" ""))
+       (plus:GPR (ashift:GPR (match_operand:GPR 1 "register_operand" "d")
+			     (match_operand 2 "const_immlsa_operand" ""))
 		(match_operand:GPR 3 "register_operand" "d")))]
  "ISA_HAS_<GPR:D>LSA"
- "<GPR:d>lsa\t%0,%1,%3,%y2"
+ "<GPR:d>lsa\t%0,%1,%3,%2"
  [(set_attr "type" "arith")
   (set_attr "mode" "<GPR:MODE>")])
 

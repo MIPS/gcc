@@ -4665,9 +4665,11 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  tree type = TREE_TYPE (call);
 	  tree ap = CALL_EXPR_ARG (call, 0);
 	  tree tag = CALL_EXPR_ARG (call, 1);
+	  tree do_deref = CALL_EXPR_ARG (call, 2);
 	  tree newcall = build_call_expr_internal_loc (EXPR_LOCATION (call),
-						       IFN_VA_ARG, type, 3, ap,
-						       tag, vlasize);
+						       IFN_VA_ARG, type, 4, ap,
+						       tag, do_deref,
+						       vlasize);
 	  tree *call_p = &(TREE_OPERAND (*from_p, 0));
 	  *call_p = newcall;
 	}
@@ -5279,7 +5281,7 @@ gimplify_asm_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       stmt = gimple_build_asm_vec (TREE_STRING_POINTER (ASM_STRING (expr)),
 				   inputs, outputs, clobbers, labels);
 
-      gimple_asm_set_volatile (stmt, ASM_VOLATILE_P (expr));
+      gimple_asm_set_volatile (stmt, ASM_VOLATILE_P (expr) || noutputs == 0);
       gimple_asm_set_input (stmt, ASM_INPUT_P (expr));
 
       gimplify_seq_add_stmt (pre_p, stmt);
@@ -7527,26 +7529,22 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
 static void
 gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
 {
-  tree expr = *expr_p, clauses;
+  tree expr = *expr_p;
   int kind;
   gomp_target *stmt;
 
   switch (TREE_CODE (expr))
     {
     case OACC_ENTER_DATA:
-      clauses = OACC_ENTER_DATA_CLAUSES (expr);
       kind = GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA;
       break;
     case OACC_EXIT_DATA:
-      clauses = OACC_EXIT_DATA_CLAUSES (expr);
       kind = GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA;
       break;
     case OACC_UPDATE:
-      clauses = OACC_UPDATE_CLAUSES (expr);
       kind = GF_OMP_TARGET_KIND_OACC_UPDATE;
       break;
     case OMP_TARGET_UPDATE:
-      clauses = OMP_TARGET_UPDATE_CLAUSES (expr);
       kind = GF_OMP_TARGET_KIND_UPDATE;
       break;
     case OMP_TARGET_ENTER_DATA:
@@ -7560,9 +7558,10 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
     default:
       gcc_unreachable ();
     }
-  gimplify_scan_omp_clauses (&clauses, pre_p, ORT_WORKSHARE);
-  gimplify_adjust_omp_clauses (pre_p, &clauses);
-  stmt = gimple_build_omp_target (NULL, kind, clauses);
+  gimplify_scan_omp_clauses (&OMP_STANDALONE_CLAUSES (expr), pre_p,
+			     ORT_WORKSHARE);
+  gimplify_adjust_omp_clauses (pre_p, &OMP_STANDALONE_CLAUSES (expr));
+  stmt = gimple_build_omp_target (NULL, kind, OMP_STANDALONE_CLAUSES (expr));
 
   gimplify_seq_add_stmt (pre_p, stmt);
   *expr_p = NULL_TREE;
@@ -9430,42 +9429,6 @@ dummy_object (tree type)
   return build2 (MEM_REF, type, t, t);
 }
 
-/* Call the target expander for evaluating a va_arg call of VALIST
-   and TYPE.  */
-
-tree
-gimplify_va_arg_internal (tree valist, tree type, location_t loc,
-			  gimple_seq *pre_p, gimple_seq *post_p)
-{
-  tree have_va_type = TREE_TYPE (valist);
-  tree cano_type = targetm.canonical_va_list_type (have_va_type);
-
-  if (cano_type != NULL_TREE)
-    have_va_type = cano_type;
-
-  /* Make it easier for the backends by protecting the valist argument
-     from multiple evaluations.  */
-  if (TREE_CODE (have_va_type) == ARRAY_TYPE)
-    {
-      /* For this case, the backends will be expecting a pointer to
-	 TREE_TYPE (abi), but it's possible we've
-	 actually been given an array (an actual TARGET_FN_ABI_VA_LIST).
-	 So fix it.  */
-      if (TREE_CODE (TREE_TYPE (valist)) == ARRAY_TYPE)
-	{
-	  tree p1 = build_pointer_type (TREE_TYPE (have_va_type));
-	  valist = fold_convert_loc (loc, p1,
-				     build_fold_addr_expr_loc (loc, valist));
-	}
-
-      gimplify_expr (&valist, pre_p, post_p, is_gimple_val, fb_rvalue);
-    }
-  else
-    gimplify_expr (&valist, pre_p, post_p, is_gimple_min_lval, fb_lvalue);
-
-  return targetm.gimplify_va_arg_expr (valist, type, pre_p, post_p);
-}
-
 /* Gimplify __builtin_va_arg, aka VA_ARG_EXPR, which is not really a
    builtin function, but a very special sort of operator.  */
 
@@ -9476,7 +9439,7 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p,
   tree promoted_type, have_va_type;
   tree valist = TREE_OPERAND (*expr_p, 0);
   tree type = TREE_TYPE (*expr_p);
-  tree t, tag, ap;
+  tree t, tag, ap, do_deref;
   location_t loc = EXPR_LOCATION (*expr_p);
 
   /* Verify that valist is of the proper type.  */
@@ -9530,9 +9493,34 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p,
     }
 
   /* Transform a VA_ARG_EXPR into an VA_ARG internal function.  */
-  ap = build_fold_addr_expr_loc (loc, valist);
+  if (TREE_CODE (have_va_type) == ARRAY_TYPE)
+    {
+      if (TREE_CODE (TREE_TYPE (valist)) == ARRAY_TYPE)
+	{
+	  /* Take the address, but don't strip it.  Gimplify_va_arg_internal
+	     expects a pointer to array element type.  */
+	  ap = build_fold_addr_expr_loc (loc, valist);
+	  do_deref = integer_zero_node;
+	}
+      else
+	{
+	  /* Don't take the address.  Gimplify_va_arg_internal expects a pointer
+	     to array element type, and we already have that.
+	     See also comment in build_va_arg.  */
+	  ap = valist;
+	  do_deref = integer_zero_node;
+	}
+    }
+  else
+    {
+      /* No special handling.  Take the address here, note that it needs to be
+	 stripped before calling gimplify_va_arg_internal. */
+      ap = build_fold_addr_expr_loc (loc, valist);
+      do_deref = integer_one_node;
+    }
   tag = build_int_cst (build_pointer_type (type), 0);
-  *expr_p = build_call_expr_internal_loc (loc, IFN_VA_ARG, type, 2, ap, tag);
+  *expr_p = build_call_expr_internal_loc (loc, IFN_VA_ARG, type, 3, ap, tag,
+					  do_deref);
 
   /* Clear the tentatively set PROP_gimple_lva, to indicate that IFN_VA_ARG
      needs to be expanded.  */

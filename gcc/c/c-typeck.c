@@ -229,15 +229,13 @@ require_complete_type (tree value)
 void
 c_incomplete_type_error (const_tree value, const_tree type)
 {
-  const char *type_code_string;
-
   /* Avoid duplicate error message.  */
   if (TREE_CODE (type) == ERROR_MARK)
     return;
 
   if (value != 0 && (TREE_CODE (value) == VAR_DECL
 		     || TREE_CODE (value) == PARM_DECL))
-    error ("%qD has an incomplete type", value);
+    error ("%qD has an incomplete type %qT", value, type);
   else
     {
     retry:
@@ -246,15 +244,8 @@ c_incomplete_type_error (const_tree value, const_tree type)
       switch (TREE_CODE (type))
 	{
 	case RECORD_TYPE:
-	  type_code_string = "struct";
-	  break;
-
 	case UNION_TYPE:
-	  type_code_string = "union";
-	  break;
-
 	case ENUMERAL_TYPE:
-	  type_code_string = "enum";
 	  break;
 
 	case VOID_TYPE:
@@ -280,11 +271,10 @@ c_incomplete_type_error (const_tree value, const_tree type)
 	}
 
       if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
-	error ("invalid use of undefined type %<%s %E%>",
-	       type_code_string, TYPE_NAME (type));
+	error ("invalid use of undefined type %qT", type);
       else
 	/* If this type has a typedef-name, the TYPE_NAME is a TYPE_DECL.  */
-	error ("invalid use of incomplete typedef %qD", TYPE_NAME (type));
+	error ("invalid use of incomplete typedef %qT", type);
     }
 }
 
@@ -7926,7 +7916,7 @@ set_init_label (location_t loc, tree fieldname,
   field = lookup_field (constructor_type, fieldname);
 
   if (field == 0)
-    error ("unknown field %qE specified in initializer", fieldname);
+    error_at (loc, "unknown field %qE specified in initializer", fieldname);
   else
     do
       {
@@ -7978,7 +7968,7 @@ add_pending_init (location_t loc, tree purpose, tree value, tree origtype,
 	      if (!implicit)
 		{
 		  if (TREE_SIDE_EFFECTS (p->value))
-		    warning_init (loc, 0,
+		    warning_init (loc, OPT_Woverride_init_side_effects,
 				  "initialized field with side-effects "
 				  "overwritten");
 		  else if (warn_override_init)
@@ -8008,7 +7998,7 @@ add_pending_init (location_t loc, tree purpose, tree value, tree origtype,
 	      if (!implicit)
 		{
 		  if (TREE_SIDE_EFFECTS (p->value))
-		    warning_init (loc, 0,
+		    warning_init (loc, OPT_Woverride_init_side_effects,
 				  "initialized field with side-effects "
 				  "overwritten");
 		  else if (warn_override_init)
@@ -8540,7 +8530,7 @@ output_init_element (location_t loc, tree value, tree origtype,
       if (!implicit)
 	{
 	  if (TREE_SIDE_EFFECTS (constructor_elements->last ().value))
-	    warning_init (loc, 0,
+	    warning_init (loc, OPT_Woverride_init_side_effects,
 			  "initialized field with side-effects overwritten");
 	  else if (warn_override_init)
 	    warning_init (loc, OPT_Woverride_init,
@@ -10707,6 +10697,17 @@ build_binary_op (location_t location, enum tree_code code,
 	  && code1 == INTEGER_TYPE)
 	{
 	  doing_shift = true;
+	  if (TREE_CODE (op0) == INTEGER_CST
+	      && tree_int_cst_sgn (op0) < 0)
+	    {
+	      /* Don't reject a left shift of a negative value in a context
+		 where a constant expression is needed in C90.  */
+	      if (flag_isoc99)
+		int_const = false;
+	      if (c_inhibit_evaluation_warnings == 0)
+		warning_at (location, OPT_Wshift_negative_value,
+			    "left shift of negative value");
+	    }
 	  if (TREE_CODE (op1) == INTEGER_CST)
 	    {
 	      if (tree_int_cst_sgn (op1) < 0)
@@ -12677,14 +12678,17 @@ c_build_qualified_type (tree type, int type_quals)
 tree
 c_build_va_arg (location_t loc, tree expr, tree type)
 {
-  if (warn_cxx_compat && TREE_CODE (type) == ENUMERAL_TYPE)
-    warning_at (loc, OPT_Wc___compat,
-		"C++ requires promoted type, not enum type, in %<va_arg%>");
-  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+  if (error_operand_p (type))
+    return error_mark_node;
+  else if (!COMPLETE_TYPE_P (type))
     {
-      c_incomplete_type_error (NULL_TREE, type);
+      error_at (loc, "second argument to %<va_arg%> is of incomplete "
+		"type %qT", type);
       return error_mark_node;
     }
+  else if (warn_cxx_compat && TREE_CODE (type) == ENUMERAL_TYPE)
+    warning_at (loc, OPT_Wc___compat,
+		"C++ requires promoted type, not enum type, in %<va_arg%>");
   return build_va_arg (loc, expr, type);
 }
 

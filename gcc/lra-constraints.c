@@ -2688,7 +2688,7 @@ base_to_reg (struct address_info *ad)
                                    : *ad->disp_term);
   if (!valid_address_p (ad->mode, new_inner, ad->as))
     return NULL_RTX;
-  insn = emit_insn (gen_rtx_SET (ad->mode, new_reg, *ad->base_term));
+  insn = emit_insn (gen_rtx_SET (new_reg, *ad->base_term));
   code = recog_memoized (insn);
   if (code < 0)
     {
@@ -2967,7 +2967,7 @@ process_address_1 (int nop, bool check_only_p,
 
 	    /* addr => lo_sum (new_base, addr), case (2) above.  */
 	    insn = emit_insn (gen_rtx_SET
-			      (VOIDmode, new_reg,
+			      (new_reg,
 			       gen_rtx_HIGH (Pmode, copy_rtx (addr))));
 	    code = recog_memoized (insn);
 	    if (code >= 0)
@@ -2977,7 +2977,7 @@ process_address_1 (int nop, bool check_only_p,
 		  {
 		    /* Try to put lo_sum into register.  */
 		    insn = emit_insn (gen_rtx_SET
-				      (VOIDmode, new_reg,
+				      (new_reg,
 				       gen_rtx_LO_SUM (Pmode, new_reg, addr)));
 		    code = recog_memoized (insn);
 		    if (code >= 0)
@@ -4141,7 +4141,7 @@ contains_deleted_insn_p (rtx_insn_list *list)
 
 /* Return true if X contains a pseudo dying in INSN.  */
 static bool
-dead_pseudo_p (rtx x, rtx insn)
+dead_pseudo_p (rtx x, rtx_insn *insn)
 {
   int i, j;
   const char *fmt;
@@ -4531,7 +4531,7 @@ struct usage_insns
 static struct usage_insns *usage_insns;
 
 static void
-setup_next_usage_insn (int regno, rtx insn, int reloads_num, bool after_p)
+setup_next_usage_insn (int regno, rtx_insn *insn, int reloads_num, bool after_p)
 {
   usage_insns[regno].check = curr_usage_insns_check;
   usage_insns[regno].insns = insn;
@@ -4544,7 +4544,7 @@ setup_next_usage_insn (int regno, rtx insn, int reloads_num, bool after_p)
    optional debug insns finished by a non-debug insn using REGNO.
    RELOADS_NUM is current number of reload insns processed so far.  */
 static void
-add_next_usage_insn (int regno, rtx insn, int reloads_num)
+add_next_usage_insn (int regno, rtx_insn *insn, int reloads_num)
 {
   rtx next_usage_insns;
 
@@ -5567,7 +5567,7 @@ inherit_in_ebb (rtx_insn *head, rtx_insn *tail)
 			   || reg_renumber[src_regno] >= 0)
 		    {
 		      bool before_p;
-		      rtx use_insn = curr_insn;
+		      rtx_insn *use_insn = curr_insn;
 
 		      before_p = (JUMP_P (curr_insn)
 				  || (CALL_P (curr_insn) && reg->type == OP_IN));

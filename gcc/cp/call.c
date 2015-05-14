@@ -3436,7 +3436,6 @@ print_z_candidates (location_t loc, struct z_candidate *candidates)
 {
   struct z_candidate *cand1;
   struct z_candidate **cand2;
-  int n_candidates;
 
   if (!candidates)
     return;
@@ -3477,9 +3476,6 @@ print_z_candidates (location_t loc, struct z_candidate *candidates)
 	    cand2 = &(*cand2)->next;
 	}
     }
-
-  for (n_candidates = 0, cand1 = candidates; cand1; cand1 = cand1->next)
-    n_candidates++;
 
   for (; candidates; candidates = candidates->next)
     print_z_candidate (loc, "candidate:", candidates);
@@ -6243,19 +6239,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	tree convfn = cand->fn;
 	unsigned i;
 
-	/* When converting from an init list we consider explicit
-	   constructors, but actually trying to call one is an error.  */
-	if (DECL_NONCONVERTING_P (convfn) && DECL_CONSTRUCTOR_P (convfn)
-	    /* Unless this is for direct-list-initialization.  */
-	    && !DIRECT_LIST_INIT_P (expr))
-	  {
-	    if (!(complain & tf_error))
-	      return error_mark_node;
-	    error ("converting to %qT from initializer list would use "
-		   "explicit constructor %qD", totype, convfn);
-	  }
-
-	/* If we're initializing from {}, it's value-initialization.  */
+	/* If we're initializing from {}, it's value-initialization.  Note
+	   that under the resolution of core 1630, value-initialization can
+	   use explicit constructors.  */
 	if (BRACE_ENCLOSED_INITIALIZER_P (expr)
 	    && CONSTRUCTOR_NELTS (expr) == 0
 	    && TYPE_HAS_DEFAULT_CONSTRUCTOR (totype))
@@ -6269,6 +6255,18 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 		TARGET_EXPR_DIRECT_INIT_P (expr) = direct;
 	      }
 	    return expr;
+	  }
+
+	/* When converting from an init list we consider explicit
+	   constructors, but actually trying to call one is an error.  */
+	if (DECL_NONCONVERTING_P (convfn) && DECL_CONSTRUCTOR_P (convfn)
+	    /* Unless this is for direct-list-initialization.  */
+	    && !DIRECT_LIST_INIT_P (expr))
+	  {
+	    if (!(complain & tf_error))
+	      return error_mark_node;
+	    error ("converting to %qT from initializer list would use "
+		   "explicit constructor %qD", totype, convfn);
 	  }
 
 	expr = mark_rvalue_use (expr);

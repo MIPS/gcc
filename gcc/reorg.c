@@ -186,7 +186,7 @@ skip_consecutive_labels (rtx label_or_return)
    and REG_CC_USER notes so we can find it.  */
 
 static void
-link_cc0_insns (rtx insn)
+link_cc0_insns (rtx_insn *insn)
 {
   rtx user = next_nonnote_insn (insn);
 
@@ -225,7 +225,7 @@ static int *uid_to_ruid;
 /* Highest valid index in `uid_to_ruid'.  */
 static int max_uid;
 
-static int stop_search_p (rtx, int);
+static int stop_search_p (rtx_insn *, int);
 static int resource_conflicts_p (struct resources *, struct resources *);
 static int insn_references_resource_p (rtx, struct resources *, bool);
 static int insn_sets_resource_p (rtx, struct resources *, bool);
@@ -260,12 +260,12 @@ static rtx_insn_list *steal_delay_list_from_fallthrough (rtx_insn *, rtx,
 							 struct resources *,
 							 struct resources *,
 							 int, int *, int *);
-static void try_merge_delay_insns (rtx, rtx_insn *);
+static void try_merge_delay_insns (rtx_insn *, rtx_insn *);
 static rtx redundant_insn (rtx, rtx_insn *, rtx);
 static int own_thread_p (rtx, rtx, int);
 static void update_block (rtx_insn *, rtx);
 static int reorg_redirect_jump (rtx_insn *, rtx);
-static void update_reg_dead_notes (rtx, rtx);
+static void update_reg_dead_notes (rtx_insn *, rtx_insn *);
 static void fix_reg_dead_note (rtx, rtx);
 static void update_reg_unused_notes (rtx, rtx);
 static void fill_simple_delay_slots (int);
@@ -302,7 +302,7 @@ simplejump_or_return_p (rtx insn)
    In all cases, jumps terminate the search.  */
 
 static int
-stop_search_p (rtx insn, int labels_p)
+stop_search_p (rtx_insn *insn, int labels_p)
 {
   if (insn == 0)
     return 1;
@@ -535,7 +535,7 @@ emit_delay_sequence (rtx_insn *insn, rtx_insn_list *list, int length)
 
   /* Unlink INSN from the insn chain, so that we can put it into
      the SEQUENCE.   Remember where we want to emit SEQUENCE in AFTER.  */
-  rtx after = PREV_INSN (insn);
+  rtx_insn *after = PREV_INSN (insn);
   remove_insn (insn);
   SET_NEXT_INSN (insn) = SET_PREV_INSN (insn) = NULL;
 
@@ -1313,7 +1313,7 @@ steal_delay_list_from_fallthrough (rtx_insn *insn, rtx condition,
    we delete the merged insn.  */
 
 static void
-try_merge_delay_insns (rtx insn, rtx_insn *thread)
+try_merge_delay_insns (rtx_insn *insn, rtx_insn *thread)
 {
   rtx_insn *trial, *next_trial;
   rtx_insn *delay_insn = as_a <rtx_insn *> (XVECEXP (PATTERN (insn), 0, 0));
@@ -1807,9 +1807,10 @@ reorg_redirect_jump (rtx_insn *jump, rtx nlabel)
    is dead because it sees a REG_DEAD note immediately before a CODE_LABEL.  */
 
 static void
-update_reg_dead_notes (rtx insn, rtx delayed_insn)
+update_reg_dead_notes (rtx_insn *insn, rtx_insn *delayed_insn)
 {
-  rtx p, link, next;
+  rtx link, next;
+  rtx_insn *p;
 
   for (p = next_nonnote_insn (insn); p != delayed_insn;
        p = next_nonnote_insn (p))
@@ -1842,7 +1843,8 @@ update_reg_dead_notes (rtx insn, rtx delayed_insn)
 static void
 fix_reg_dead_note (rtx start_insn, rtx stop_insn)
 {
-  rtx p, link, next;
+  rtx link, next;
+  rtx_insn *p;
 
   for (p = next_nonnote_insn (start_insn); p != stop_insn;
        p = next_nonnote_insn (p))
@@ -2693,7 +2695,7 @@ fill_slots_from_thread (rtx_insn *insn, rtx condition, rtx thread_or_return,
 	  && REG_P (SET_DEST (pat))
 	  && !reg_overlap_mentioned_p (SET_DEST (pat), SET_SRC (pat)))
 	{
-	  rtx next = next_nonnote_insn (trial);
+	  rtx_insn *next = next_nonnote_insn (trial);
 
 	  if (next && NONJUMP_INSN_P (next)
 	      && GET_CODE (PATTERN (next)) != USE
@@ -2786,8 +2788,7 @@ fill_slots_from_thread (rtx_insn *insn, rtx condition, rtx thread_or_return,
 	    new_arith = gen_rtx_fmt_ee (GET_CODE (src) == PLUS ? MINUS : PLUS,
 					GET_MODE (src), dest, other);
 
-	  ninsn = emit_insn_after (gen_rtx_SET (VOIDmode, dest, new_arith),
-				   insn);
+	  ninsn = emit_insn_after (gen_rtx_SET (dest, new_arith), insn);
 
 	  if (recog_memoized (ninsn) < 0
 	      || (extract_insn (ninsn),
@@ -3121,7 +3122,7 @@ delete_computation (rtx insn)
 
   if (HAVE_cc0 && reg_referenced_p (cc0_rtx, PATTERN (insn)))
     {
-      rtx prev = prev_nonnote_insn (insn);
+      rtx_insn *prev = prev_nonnote_insn (insn);
       /* We assume that at this stage
 	 CC's are always set explicitly
 	 and always immediately before the jump that

@@ -210,7 +210,7 @@ init_expr_target (void)
   reg = gen_rtx_REG (VOIDmode, -1);
 
   insn = rtx_alloc (INSN);
-  pat = gen_rtx_SET (VOIDmode, NULL_RTX, NULL_RTX);
+  pat = gen_rtx_SET (NULL_RTX, NULL_RTX);
   PATTERN (insn) = pat;
 
   for (mode = VOIDmode; (int) mode < NUM_MACHINE_MODES;
@@ -8870,11 +8870,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 
       /* If op1 was placed in target, swap op0 and op1.  */
       if (target != op0 && target == op1)
-	{
-	  temp = op0;
-	  op0 = op1;
-	  op1 = temp;
-	}
+	std::swap (op0, op1);
 
       /* We generate better code and avoid problems with op1 mentioning
 	 target by forcing op1 into a pseudo if it isn't a constant.  */

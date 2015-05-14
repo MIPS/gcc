@@ -783,12 +783,13 @@
 ;; For 64-bit modes we use ushl/r, as this does not require a SIMD zero.
 (define_insn "vec_shr_<mode>"
   [(set (match_operand:VD 0 "register_operand" "=w")
-        (lshiftrt:VD (match_operand:VD 1 "register_operand" "w")
-		     (match_operand:SI 2 "immediate_operand" "i")))]
+        (unspec:VD [(match_operand:VD 1 "register_operand" "w")
+		    (match_operand:SI 2 "immediate_operand" "i")]
+		   UNSPEC_VEC_SHR))]
   "TARGET_SIMD"
   {
     if (BYTES_BIG_ENDIAN)
-      return "ushl %d0, %d1, %2";
+      return "shl %d0, %d1, %2";
     else
       return "ushr %d0, %d1, %2";
   }
@@ -2056,13 +2057,13 @@
 })
 
 (define_expand "aarch64_vcond_internal<mode><mode>"
-  [(set (match_operand:VDQ_I 0 "register_operand")
-	(if_then_else:VDQ_I
+  [(set (match_operand:VSDQ_I_DI 0 "register_operand")
+	(if_then_else:VSDQ_I_DI
 	  (match_operator 3 "comparison_operator"
-	    [(match_operand:VDQ_I 4 "register_operand")
-	     (match_operand:VDQ_I 5 "nonmemory_operand")])
-	  (match_operand:VDQ_I 1 "nonmemory_operand")
-	  (match_operand:VDQ_I 2 "nonmemory_operand")))]
+	    [(match_operand:VSDQ_I_DI 4 "register_operand")
+	     (match_operand:VSDQ_I_DI 5 "nonmemory_operand")])
+	  (match_operand:VSDQ_I_DI 1 "nonmemory_operand")
+	  (match_operand:VSDQ_I_DI 2 "nonmemory_operand")))]
   "TARGET_SIMD"
 {
   rtx op1 = operands[1];
@@ -2364,13 +2365,13 @@
 })
 
 (define_expand "vcond<mode><mode>"
-  [(set (match_operand:VALL 0 "register_operand")
-	(if_then_else:VALL
+  [(set (match_operand:VALLDI 0 "register_operand")
+	(if_then_else:VALLDI
 	  (match_operator 3 "comparison_operator"
-	    [(match_operand:VALL 4 "register_operand")
-	     (match_operand:VALL 5 "nonmemory_operand")])
-	  (match_operand:VALL 1 "nonmemory_operand")
-	  (match_operand:VALL 2 "nonmemory_operand")))]
+	    [(match_operand:VALLDI 4 "register_operand")
+	     (match_operand:VALLDI 5 "nonmemory_operand")])
+	  (match_operand:VALLDI 1 "nonmemory_operand")
+	  (match_operand:VALLDI 2 "nonmemory_operand")))]
   "TARGET_SIMD"
 {
   emit_insn (gen_aarch64_vcond_internal<mode><mode> (operands[0], operands[1],
@@ -2397,13 +2398,13 @@
 })
 
 (define_expand "vcondu<mode><mode>"
-  [(set (match_operand:VDQ_I 0 "register_operand")
-	(if_then_else:VDQ_I
+  [(set (match_operand:VSDQ_I_DI 0 "register_operand")
+	(if_then_else:VSDQ_I_DI
 	  (match_operator 3 "comparison_operator"
-	    [(match_operand:VDQ_I 4 "register_operand")
-	     (match_operand:VDQ_I 5 "nonmemory_operand")])
-	  (match_operand:VDQ_I 1 "nonmemory_operand")
-	  (match_operand:VDQ_I 2 "nonmemory_operand")))]
+	    [(match_operand:VSDQ_I_DI 4 "register_operand")
+	     (match_operand:VSDQ_I_DI 5 "nonmemory_operand")])
+	  (match_operand:VSDQ_I_DI 1 "nonmemory_operand")
+	  (match_operand:VSDQ_I_DI 2 "nonmemory_operand")))]
   "TARGET_SIMD"
 {
   emit_insn (gen_aarch64_vcond_internal<mode><mode> (operands[0], operands[1],
@@ -3954,6 +3955,7 @@
   [(set_attr "type" "neon_store2_2reg<q>")]
 )
 
+;; RTL uses GCC vector extension indices, so flip only for assembly.
 (define_insn "vec_store_lanesoi_lane<mode>"
   [(set (match_operand:<V_TWO_ELEM> 0 "aarch64_simd_struct_operand" "=Utv")
 	(unspec:<V_TWO_ELEM> [(match_operand:OI 1 "register_operand" "w")
@@ -3961,7 +3963,10 @@
 		    (match_operand:SI 2 "immediate_operand" "i")]
                    UNSPEC_ST2_LANE))]
   "TARGET_SIMD"
-  "st2\\t{%S1.<Vetype> - %T1.<Vetype>}[%2], %0"
+  {
+    operands[2] = GEN_INT (ENDIAN_LANE_N (<MODE>mode, INTVAL (operands[2])));
+    return "st2\\t{%S1.<Vetype> - %T1.<Vetype>}[%2], %0";
+  }
   [(set_attr "type" "neon_store3_one_lane<q>")]
 )
 
@@ -4045,6 +4050,7 @@
   [(set_attr "type" "neon_store3_3reg<q>")]
 )
 
+;; RTL uses GCC vector extension indices, so flip only for assembly.
 (define_insn "vec_store_lanesci_lane<mode>"
   [(set (match_operand:<V_THREE_ELEM> 0 "aarch64_simd_struct_operand" "=Utv")
 	(unspec:<V_THREE_ELEM> [(match_operand:CI 1 "register_operand" "w")
@@ -4052,7 +4058,10 @@
 		    (match_operand:SI 2 "immediate_operand" "i")]
                    UNSPEC_ST3_LANE))]
   "TARGET_SIMD"
-  "st3\\t{%S1.<Vetype> - %U1.<Vetype>}[%2], %0"
+  {
+    operands[2] = GEN_INT (ENDIAN_LANE_N (<MODE>mode, INTVAL (operands[2])));
+    return "st3\\t{%S1.<Vetype> - %U1.<Vetype>}[%2], %0";
+  }
   [(set_attr "type" "neon_store3_one_lane<q>")]
 )
 
@@ -4136,6 +4145,7 @@
   [(set_attr "type" "neon_store4_4reg<q>")]
 )
 
+;; RTL uses GCC vector extension indices, so flip only for assembly.
 (define_insn "vec_store_lanesxi_lane<mode>"
   [(set (match_operand:<V_FOUR_ELEM> 0 "aarch64_simd_struct_operand" "=Utv")
 	(unspec:<V_FOUR_ELEM> [(match_operand:XI 1 "register_operand" "w")
@@ -4143,7 +4153,10 @@
 		    (match_operand:SI 2 "immediate_operand" "i")]
                    UNSPEC_ST4_LANE))]
   "TARGET_SIMD"
-  "st4\\t{%S1.<Vetype> - %V1.<Vetype>}[%2], %0"
+  {
+    operands[2] = GEN_INT (ENDIAN_LANE_N (<MODE>mode, INTVAL (operands[2])));
+    return "st4\\t{%S1.<Vetype> - %V1.<Vetype>}[%2], %0";
+  }
   [(set_attr "type" "neon_store4_one_lane<q>")]
 )
 

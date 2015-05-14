@@ -324,7 +324,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
         _S_copy_chars(_CharT* __p, _Iterator __k1, _Iterator __k2)
 	_GLIBCXX_NOEXCEPT
         {
-	  for (; __k1 != __k2; ++__k1, ++__p)
+	  for (; __k1 != __k2; ++__k1, (void)++__p)
 	    traits_type::assign(*__p, *__k1); // These types are off.
 	}
 
@@ -377,7 +377,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       /**
        *  @brief  Default constructor creates an empty string.
        */
-      basic_string() _GLIBCXX_NOEXCEPT
+      basic_string()
+#if __cplusplus >= 201103L
+      noexcept(is_nothrow_default_constructible<_Alloc>::value)
+#endif
       : _M_dataplus(_M_local_data())
       { _M_set_length(0); }
 
@@ -2779,7 +2782,7 @@ _GLIBCXX_END_NAMESPACE_CXX11
         _S_copy_chars(_CharT* __p, _Iterator __k1, _Iterator __k2)
 	_GLIBCXX_NOEXCEPT
         {
-	  for (; __k1 != __k2; ++__k1, ++__p)
+	  for (; __k1 != __k2; ++__k1, (void)++__p)
 	    traits_type::assign(*__p, *__k1); // These types are off.
 	}
 

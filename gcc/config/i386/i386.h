@@ -1688,6 +1688,7 @@ typedef struct ix86_args {
   int stdarg;                   /* Set to 1 if function is stdarg.  */
   enum calling_abi call_abi;	/* Set to SYSV_ABI for sysv abi. Otherwise
  				   MS_ABI for ms abi.  */
+  tree decl;			/* Callee decl.  */
 } CUMULATIVE_ARGS;
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -2562,6 +2563,8 @@ extern void debug_dispatch_window (int);
 
 /* For switching between functions with different target attributes.  */
 #define SWITCHABLE_TARGET 1
+
+#define TARGET_SUPPORTS_WIDE_INT 1
 
 /*
 Local variables:

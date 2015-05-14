@@ -1,3 +1,74 @@
+2015-05-12  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.h (warn_for_misleading_indentation): New prototype.
+	* c-indentation.c: New file.
+	* c.opt (Wmisleading-indentation): New option.
+
+2015-05-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66010
+	* c-common.c (build_va_arg): Don't mark ap addressable unless necessary.
+
+2015-05-09  Jason Merrill  <jason@redhat.com>
+
+	* c-opts.c (c_common_post_options): Also clear
+	cpp_opts->cpp_warn_cxx11_compat.
+
+	* c-common.h (enum cxx_dialect): Add cxx_unset.
+	* c-common.c (cxx_dialect): Initialize to cxx_unset.
+	* c-opts.c (c_common_post_options): Set C++ dialect to C++98 if unset.
+
+	* c.opt (std=c++14): Remove Undocumented flag and experimental warning.
+	(std=gnu++0x): Mark as Undocumented.
+	(std=gnu++1y): Add deprecated message.
+
+2015-05-08  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wc++11-compat): Make primary.  Rename var warn_cxx11_compat.
+	* c-opts.c: Adjust.
+
+	* c.opt (Wc++0x-compat): Also set cpp_warn_cxx11_compat.
+
+2015-05-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64918
+	* c.opt (Woverride-init-side-effects): New option.
+
+2015-05-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65179
+	* c-common.c (c_fully_fold_internal): Warn when left shifting a
+	negative value.
+	* c.opt (Wshift-negative-value): New option.
+	* c-opts.c (c_common_post_options): Set warn_shift_negative_value
+	when -Wextra and C99/C++11 mode.
+
+2015-05-07  Marek Polacek  <polacek@redhat.com>
+	    Martin Uecker  <uecker@eecs.berkeley.edu>
+
+	* c-ubsan.c (ubsan_instrument_bounds): Don't skip instrumenting
+	flexible member array-like members if SANITIZE_BOUNDS_STRICT.
+
+2015-05-05  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wterminate): New.
+
+2015-04-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.c (maybe_warn_bool_compare): When comparing with 0/1,
+	require that the non-constant be of a boolean type.
+
+2015-04-29  Josh Triplett  <josh@joshtriplett.org>
+
+	* c-common.c (handle_section_attribute): Refactor to reduce
+	nesting and distinguish between error cases.
+
+2015-04-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64610
+	* c-common.c (maybe_warn_bool_compare): Warn when comparing a boolean
+	with 0/1.
+
 2015-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-common.h (omp_clause_mask): Unconditionally define as a class.
@@ -10,7 +81,7 @@
 	* c-common.c (build_va_arg): Mark va_arg ap argument as addressable.
 
 2015-04-28  Eric Botcazou  <ebotcazou@adacore.com>
-            Pierre-Marie de Rodat  <derodat@adacore.com>
+	    Pierre-Marie de Rodat  <derodat@adacore.com>
 
 	* c-ada-spec.c (in_function): Delete.
 	(dump_generic_ada_node): Do not change in_function and remove the

@@ -687,7 +687,8 @@ need_to_save (unsigned int regno)
       return df_regs_ever_live_p (regno);
     }
 
-  if (regno == FRAME_POINTER_REGNUM && frame_pointer_needed)
+  if (regno == FRAME_POINTER_REGNUM
+      && (frame_pointer_needed || df_regs_ever_live_p (regno)))
     return true;
   if (fixed_regs[regno])
     return false;
@@ -1366,8 +1367,8 @@ rl78_expand_prologue (void)
 	  emit_insn (gen_subhi3 (ax, ax, GEN_INT (fs)));
 	  insn = F (emit_move_insn (sp, ax));
 	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			gen_rtx_SET (SImode, sp,
-				     gen_rtx_PLUS (HImode, sp, GEN_INT (-fs))));
+			gen_rtx_SET (sp, gen_rtx_PLUS (HImode, sp,
+						       GEN_INT (-fs))));
 	}
       else
 	{
@@ -3262,7 +3263,7 @@ rl78_alloc_physical_registers_cmp (rtx_insn * insn)
 {
   int tmp_id;
   rtx saved_op1;
-  rtx prev = prev_nonnote_nondebug_insn (insn);
+  rtx_insn *prev = prev_nonnote_nondebug_insn (insn);
   rtx first;
 
   OP (1) = transcode_memory_rtx (OP (1), DE, insn);
@@ -3353,7 +3354,7 @@ rl78_alloc_physical_registers_cmp (rtx_insn * insn)
 static void
 rl78_alloc_physical_registers_umul (rtx_insn * insn)
 {
-  rtx prev = prev_nonnote_nondebug_insn (insn);
+  rtx_insn *prev = prev_nonnote_nondebug_insn (insn);
   rtx first;
   int tmp_id;
   rtx saved_op1;
