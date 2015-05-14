@@ -5231,9 +5231,14 @@ gfc_trans_allocate (gfc_code * code)
 		 variable declaration.  */
 	  if (!VAR_P (se.expr))
 	    {
+	      tree var;
 	      tmp = build_fold_indirect_ref_loc (input_location,
 						 se.expr);
-	      tmp = gfc_evaluate_now (tmp, &block);
+	      /* We need a regular (non-UID) symbol here, therefore give a
+		 prefix.  */
+	      var = gfc_create_var (TREE_TYPE (tmp), "atmp");
+	      gfc_add_modify_loc (input_location, &block, var, tmp);
+	      tmp = var;
 	    }
 	  else
 	    tmp = se.expr;
@@ -5640,8 +5645,8 @@ gfc_trans_allocate (gfc_code * code)
 	}
       if (code->expr3 && !code->expr3->mold)
 	{
-	  /* Initialization via SOURCE block
-	     (or static default initializer).  */
+	  /* Initialization via SOURCE block (or static default initializer).
+	     Classes need some special handling, so catch them first.  */
 	  gfc_expr *rhs = gfc_copy_expr (code->expr3);
 	  if (expr3 != NULL_TREE
 	      && ((POINTER_TYPE_P (TREE_TYPE (expr3))
@@ -5655,54 +5660,6 @@ gfc_trans_allocate (gfc_code * code)
 	      to = VAR_P (se.expr) ? se.expr : TREE_OPERAND (se.expr, 0);
 	      tmp = gfc_copy_class_to_class (expr3, to,
 					     nelems, upoly_expr);
-	    }
-	  else if (code->expr3->ts.type == BT_CHARACTER)
-	    {
-	      tree dst, src, dlen, slen;
-	      /* For arrays of char arrays, a ref to the data component still
-		 needs to be added, because se.expr upto now only contains the
-		 descritor.  */
-	      if (expr->ref && se.expr && TREE_TYPE (se.expr) != NULL_TREE
-		  && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr)))
-		{
-		  dst = gfc_conv_array_data (se.expr);
-		  src = gfc_conv_array_data (expr3);
-		  /* For CHARACTER (len=string_length), dimension (nelems)
-		     compute the total length of the string to copy.  */
-		  if (nelems)
-		    {
-		      dlen = fold_build2_loc (input_location, MULT_EXPR,
-					      size_type_node,
-					      fold_convert (size_type_node,
-							    se.string_length),
-					      fold_convert (size_type_node,
-							    nelems));
-		      slen = fold_build2_loc (input_location, MULT_EXPR,
-					      size_type_node,
-					      fold_convert (size_type_node,
-							    expr3_len),
-					      fold_convert (size_type_node,
-							    nelems));
-		    }
-		  else
-		    {
-		      dlen = se.string_length;
-		      slen = expr3_len;
-		    }
-		}
-	      else
-		{
-		  dst = INDIRECT_REF_P (se.expr) ?
-			se.expr :
-			build_fold_indirect_ref_loc (input_location,
-						     se.expr);
-		  src = expr3;
-		  dlen = al_len;
-		  slen = expr3_len;
-		}
-	      gfc_trans_string_copy (&block, dlen, dst, code->expr3->ts.kind,
-				     slen, src, code->expr3->ts.kind);
-	      tmp = NULL_TREE;
 	    }
 	  else if (al->expr->ts.type == BT_CLASS)
 	    {
@@ -5736,8 +5693,8 @@ gfc_trans_allocate (gfc_code * code)
 		  gfc_ref *ref = dataref->next;
 		  ref->u.ar.type = AR_SECTION;
 		  /* We have to set up the array reference to give ranges
-		    in all dimensions and ensure that the end and stride
-		    are set so that the copy can be scalarized.  */
+		     in all dimensions and ensure that the end and stride
+		     are set so that the copy can be scalarized.  */
 		  dim = 0;
 		  for (; dim < dataref->u.c.component->as->rank; dim++)
 		    {
@@ -5806,8 +5763,8 @@ gfc_trans_allocate (gfc_code * code)
 		      gfc_add_len_component (last_arg->expr);
 		    }
 		  else if (code->expr3->ts.type == BT_CHARACTER)
-		      last_arg->expr =
-			  gfc_copy_expr (code->expr3->ts.u.cl->length);
+		    last_arg->expr =
+			gfc_copy_expr (code->expr3->ts.u.cl->length);
 		  else
 		    gcc_unreachable ();
 
@@ -5824,6 +5781,60 @@ gfc_trans_allocate (gfc_code * code)
 	    }
 	  else
 	    {
+	      /* The routine gfc_trans_assignment () already implements all
+		 techniques needed.  Unfortunately we may have a temporary
+		 variable for the source= expression here.  When that is the
+		 case convert this variable into a temporary gfc_expr of type
+		 EXPR_VARIABLE and used it as rhs for the assignment.  The
+		 advantage is, that we get scalarizer support for free,
+		 don't have to take care about scalar to array treatment and
+		 will benefit of every enhancements gfc_trans_assignment ()
+		 gets.  */
+	      if (DECL_P (expr3) && DECL_ARTIFICIAL (expr3))
+		{
+		  /* Build a temporary symtree and symbol.  Do not add it to
+		     the current namespace to prevent accidently modifying
+		     a colliding symbol's as.  */
+		  gfc_symtree *newsym = XCNEW (gfc_symtree);
+		  /* The name of the symtree should be unique, because
+		     gfc_create_var () took care about generating the
+		     identifier.  */
+		  newsym->name = gfc_get_string (IDENTIFIER_POINTER (
+						   DECL_NAME (expr3)));
+		  newsym->n.sym = gfc_new_symbol (newsym->name, NULL);
+		  /* The temporary is likely to need no references, but a
+		     full array ref, therefore clear the chain of refs.  */
+		  gfc_free_ref_list (rhs->ref);
+		  rhs->ref = NULL;
+		  /* The backend_decl is known.  It is expr3, which is inserted
+		     here.  */
+		  newsym->n.sym->backend_decl = expr3;
+		  rhs->symtree = newsym;
+		  /* Mark the symbol referenced or gfc_trans_assignment will
+		     bug.  */
+		  newsym->n.sym->attr.referenced = 1;
+		  rhs->expr_type = EXPR_VARIABLE;
+		  /* Set the symbols type, upto it was BT_UNKNOWN.  */
+		  newsym->n.sym->ts = rhs->ts;
+		  /* Check whether the expr3 is array valued.  */
+		  if (rhs->rank)
+		    {
+		      gfc_array_spec *arr;
+		      arr = gfc_get_array_spec ();
+		      arr->rank = rhs->rank;
+		      arr->type = AS_DEFERRED;
+		      /* Set the dimension and pointer attribute for arrays
+			 to be on the safe side.  */
+		      newsym->n.sym->attr.dimension = 1;
+		      newsym->n.sym->attr.pointer = 1;
+		      newsym->n.sym->as = arr;
+		      gfc_add_full_array_ref (rhs, arr);
+		    }
+		  /* The string length is known to.  Set it for char arrays.  */
+		  if (code->expr3->ts.type == BT_CHARACTER)
+		    newsym->n.sym->ts.u.cl->backend_decl = expr3_len;
+		  gfc_commit_symbol (newsym->n.sym);
+		}
 	      /* Switch off automatic reallocation since we have just
 		 done the ALLOCATE.  */
 	      int realloc_lhs = flag_realloc_lhs;
