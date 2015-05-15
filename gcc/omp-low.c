@@ -2959,14 +2959,6 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
 	    }
 	  if (outer_type == GIMPLE_OMP_FOR)
 	    outer_ctx->gwv_below |= val;
-	  if (OMP_CLAUSE_OPERAND (c, 0) != NULL_TREE)
-	    {
-	      omp_context *enclosing = enclosing_target_ctx (outer_ctx);
-	      if (gimple_omp_target_kind (enclosing->stmt)
-		  == GF_OMP_TARGET_KIND_OACC_PARALLEL)
-		error_at (gimple_location (stmt),
-			  "no arguments allowed to gang, worker and vector clauses inside parallel");
-	    }
 	}
     }
 

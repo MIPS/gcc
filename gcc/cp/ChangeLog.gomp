@@ -1,3 +1,14 @@
+2015-05-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* parser.h (typedef struct cp_parser): Add bool oacc_parallel_region
+	and oacc_kernels_region.
+	* parser.c (cp_parser_oacc_shape_clause): Only use op1 for the static
+	argument in the gang clause. Check for incompatible clause arguments
+	inside parallel regions.
+	(cp_parser_oacc_loop): Error on conflicting loop clauses.
+	(cp_parser_oacc_parallel_kernels): Error in nested parallel and
+	kernels.
+
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* parser.c (cp_parser_late_parsing_oacc_routine): Add an

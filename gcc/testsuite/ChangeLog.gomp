@@ -1,3 +1,9 @@
+2015-05-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/nesting-fail-1.c: Update error messages.
+	* g++.dg/goacc/loop-4.C: New test.
+	* gcc.dg/goacc/loop-1.c: New test.
+
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* g++.dg/goacc/reference.C: New test.

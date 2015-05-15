@@ -1,3 +1,14 @@
+2015-05-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (typedef struct c_parser): Add BOOL_BITFIELDS
+	oacc_parallel_region and oacc_kernels_region.
+	(c_parser_oacc_shape_clause): Only use op1 for the static argument
+	in the gang clause. Check for incompatible clause arguments inside
+	parallel regions.
+	(c_parser_oacc_loop): Error on conflicting loop clauses.
+	(c_parser_oacc_kernels): Error in nested parallel and kernels.
+	(c_parser_oacc_parallel): Likewise.
+
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-parser.c (c_finish_oacc_routine): Add an "oacc function"

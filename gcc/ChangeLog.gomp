@@ -1,3 +1,8 @@
+2015-05-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (scan_omp_for): Remove check for nested parallel and
+	kernels regions.
+
 2015-05-13  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* config/nvptx/nvptx-opts.h: New file.
