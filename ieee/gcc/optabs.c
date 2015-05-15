@@ -4117,9 +4117,7 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
 
       /* Try to use a memory block compare insn - either cmpstr
 	 or cmpmem will do.  */
-      for (cmp_mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-	   cmp_mode != VOIDmode;
-	   cmp_mode = GET_MODE_WIDER_MODE (cmp_mode))
+      FOR_EACH_MODE_CLASS (cmp_mode, MODE_INT)
 	{
 	  cmp_code = direct_optab_handler (cmpmem_optab, cmp_mode);
 	  if (cmp_code == CODE_FOR_nothing)

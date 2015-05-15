@@ -1259,16 +1259,6 @@ emit_mode_wider (void)
   int c;
   struct mode_data *m;
 
-  /* Special modes are not listed in the normal widening tables, but they are
-     listed in the widening tables used for initialization, etc.  */
-  print_decl ("unsigned char", "mode_wider_special", "NUM_MACHINE_MODES");
-
-  for_all_modes (c, m)
-    tagged_printf ("%smode",
-		   m->wider ? m->wider->name : void_mode->name,
-		   m->name);
-
-  print_closer ();
   print_decl ("unsigned char", "mode_wider", "NUM_MACHINE_MODES");
 
   for_all_modes (c, m)

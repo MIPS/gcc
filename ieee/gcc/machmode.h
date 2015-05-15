@@ -252,12 +252,6 @@ extern const unsigned char mode_nunits[NUM_MACHINE_MODES];
 extern const unsigned char mode_wider[NUM_MACHINE_MODES];
 #define GET_MODE_WIDER_MODE(MODE) ((machine_mode) mode_wider[MODE])
 
-/* Special modes are not listed in the normal widening tables, but they are
-   listed in the widening tables used for initialization, etc.  */
-extern const unsigned char mode_wider_special[NUM_MACHINE_MODES];
-#define GET_MODE_WIDER_MODE_SPECIAL(MODE) \
-  ((machine_mode) mode_wider_special[MODE])
-
 /* For scalars, this is a mode with twice the precision.  For vectors,
    this is a mode with the same inner mode but with twice the elements.  */
 extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];
@@ -365,5 +359,17 @@ typedef struct {
    smallest bitsize to largest bitsize. */
 extern bool int_n_enabled_p[NUM_INT_N_ENTS];
 extern const int_n_data_t int_n_data[NUM_INT_N_ENTS];
+
+/* Iterator over a mode class, going from the minimum of the class to the
+   maximum.  If there are no modes in a mode class, the minimum and maximum
+   values are VOIDmode.  VOIDmode is in the RANDOM class, so allow VOID in
+   those cases.  Unlike iterating from narrowest to widest mode, this
+   iterator includes the special modes that are not covered with mode
+   widening.  */
+#define FOR_EACH_MODE_CLASS(VAR, CLASS)					\
+  if (MIN_ ## CLASS != VOIDmode || CLASS == MODE_RANDOM)		\
+    for (VAR = MIN_ ## CLASS;						\
+	 VAR <= MAX_ ## CLASS;						\
+	 VAR = (machine_mode) (((int)(VAR)) + 1))
 
 #endif /* not HAVE_MACHINE_MODES */

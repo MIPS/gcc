@@ -260,12 +260,10 @@ init_expr_target (void)
 
   mem = gen_rtx_MEM (VOIDmode, gen_rtx_raw_REG (Pmode, 10000));
 
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
+  FOR_EACH_MODE_CLASS (mode, MODE_FLOAT)
     {
       machine_mode srcmode;
-      for (srcmode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); srcmode != mode;
-	   srcmode = GET_MODE_WIDER_MODE_SPECIAL (srcmode))
+      FOR_EACH_MODE_CLASS (srcmode, MODE_FLOAT)
 	{
 	  enum insn_code ic;
 
