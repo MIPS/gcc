@@ -1,0 +1,6 @@
+softfp_float_modes += tf
+softfp_extensions += sftf dftf xftf
+softfp_truncations += tfsf tfdf tfxf
+softfp_exclude_libgcc2 := n
+
+HOST_LIBGCC2_CFLAGS += -mlong-double-80
