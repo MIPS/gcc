@@ -1032,10 +1032,10 @@ c_cpp_builtins (cpp_reader *pfile)
   /* For libgcc-internal use only.  */
   if (flag_building_libgcc)
     {
+      enum machine_mode mode;
+
       /* Properties of floating-point modes for libgcc2.c.  */
-      for (machine_mode mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
-	   mode != VOIDmode;
-	   mode = GET_MODE_WIDER_MODE (mode))
+      FOR_EACH_MODE_CLASS (mode, MODE_FLOAT)
 	{
 	  const char *name = GET_MODE_NAME (mode);
 	  char *macro_name

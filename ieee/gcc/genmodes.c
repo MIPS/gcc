@@ -1259,6 +1259,24 @@ emit_mode_wider (void)
   int c;
   struct mode_data *m;
 
+  print_decl ("unsigned char", "mode_narrowest", "NUM_MACHINE_MODES");
+
+  for_all_modes (c, m)
+    {
+      struct mode_data *narrowest = modes[c];
+
+      if (!narrowest)
+	narrowest = void_mode;
+      else if (m->special)
+	narrowest = m;
+      else if (c == MODE_INT && modes[c]->precision > 1)
+	narrowest = modes[c]->next;	/* skip BImode.  */
+
+      tagged_printf ("%smode", narrowest->name, m->name);
+    }
+
+  print_closer ();
+
   print_decl ("unsigned char", "mode_wider", "NUM_MACHINE_MODES");
 
   for_all_modes (c, m)

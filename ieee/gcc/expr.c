@@ -783,7 +783,7 @@ alignment_for_piecewise_move (unsigned int max_pieces, unsigned int align)
     {
       machine_mode tmode, xmode;
 
-      for (tmode = GET_CLASS_NARROWEST_MODE (MODE_INT), xmode = tmode;
+      for (tmode = GET_MODE_NARROWEST_MODE (MIN_MODE_INT), xmode = tmode;
 	   tmode != VOIDmode;
 	   xmode = tmode, tmode = GET_MODE_WIDER_MODE (tmode))
 	if (GET_MODE_SIZE (tmode) > max_pieces
@@ -804,8 +804,7 @@ widest_int_mode_for_size (unsigned int size)
 {
   machine_mode tmode, mode = VOIDmode;
 
-  for (tmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-       tmode != VOIDmode; tmode = GET_MODE_WIDER_MODE (tmode))
+  FOR_EACH_MODE_CLASS (tmode, MODE_INT)
     if (GET_MODE_SIZE (tmode) < size)
       mode = tmode;
 
@@ -1286,8 +1285,7 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
      including more than one in the machine description unless
      the more limited one has some advantage.  */
 
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+  FOR_EACH_MODE_CLASS (mode, MODE_INT)
     {
       enum insn_code code = direct_optab_handler (movmem_optab, mode);
 
@@ -2323,9 +2321,7 @@ copy_blkmode_to_reg (machine_mode mode, tree src)
     {
       /* Find the smallest integer mode large enough to hold the
 	 entire structure.  */
-      for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-	   mode != VOIDmode;
-	   mode = GET_MODE_WIDER_MODE (mode))
+      FOR_EACH_MODE_CLASS (mode, MODE_INT)
 	/* Have we found a large enough mode?  */
 	if (GET_MODE_SIZE (mode) >= bytes)
 	  break;
@@ -2944,8 +2940,7 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
 	expected_size = min_size;
     }
 
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+  FOR_EACH_MODE_CLASS (mode, MODE_INT)
     {
       enum insn_code code = direct_optab_handler (setmem_optab, mode);
 
@@ -3683,9 +3678,7 @@ compress_float_constant (rtx x, rtx y)
   else
     oldcost = set_src_cost (force_const_mem (dstmode, y), speed);
 
-  for (srcmode = GET_CLASS_NARROWEST_MODE (GET_MODE_CLASS (orig_srcmode));
-       srcmode != orig_srcmode && srcmode != VOIDmode;
-       srcmode = GET_MODE_WIDER_MODE (srcmode))
+  FOR_EACH_MODE_NARROW_TO_WIDE (srcmode, orig_srcmode)
     {
       enum insn_code ic;
       rtx trunc_y;
@@ -3806,7 +3799,7 @@ push_block (rtx size, int extra, int below)
 			     negate_rtx (Pmode, size));
     }
 
-  return memory_address (GET_CLASS_NARROWEST_MODE (MODE_INT), temp);
+  return memory_address (MIN_MODE_INT, temp);
 }
 
 /* A utility routine that returns the base of an auto-inc memory, or NULL.  */

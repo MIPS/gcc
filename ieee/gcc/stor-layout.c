@@ -1934,8 +1934,7 @@ finish_bitfield_representative (tree repr, tree field)
   gcc_assert (maxbitsize % BITS_PER_UNIT == 0);
 
   /* Find the smallest nice mode to use.  */
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+  FOR_EACH_MODE_CLASS (mode, MODE_INT)
     if (GET_MODE_BITSIZE (mode) >= bitsize)
       break;
   if (mode != VOIDmode
@@ -2731,7 +2730,7 @@ bit_field_mode_iterator
 			   HOST_WIDE_INT bitregion_start,
 			   HOST_WIDE_INT bitregion_end,
 			   unsigned int align, bool volatilep)
-: m_mode (GET_CLASS_NARROWEST_MODE (MODE_INT)), m_bitsize (bitsize),
+: m_mode (MIN_MODE_INT), m_bitsize (bitsize),
   m_bitpos (bitpos), m_bitregion_start (bitregion_start),
   m_bitregion_end (bitregion_end), m_align (align),
   m_volatilep (volatilep), m_count (0)

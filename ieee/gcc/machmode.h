@@ -330,6 +330,14 @@ extern const unsigned char class_narrowest_mode[MAX_MODE_CLASS];
 #define GET_CLASS_NARROWEST_MODE(CLASS) \
   ((machine_mode) class_narrowest_mode[CLASS])
 
+/* For each mode, get the narrowest mode in the class that the mode is a member
+   of.  If the mode is a special floating point mode, the narrowest type will
+   just be the mode itself.  */
+
+extern const unsigned char mode_narrowest[NUM_MACHINE_MODES];
+#define GET_MODE_NARROWEST_MODE(MODE) \
+  ((machine_mode) mode_narrowest[MODE])
+
 /* Define the integer modes whose sizes are BITS_PER_UNIT and BITS_PER_WORD
    and the mode whose class is Pmode and whose size is POINTER_SIZE.  */
 
@@ -373,3 +381,17 @@ extern const int_n_data_t int_n_data[NUM_INT_N_ENTS];
 	 VAR = (machine_mode) (((int)(VAR)) + 1))
 
 #endif /* not HAVE_MACHINE_MODES */
+
+/* Iterator to start with the narrowest mode in the class the mode is in and go
+   to successive modes until we find an appropriate mode.  Just in case we run
+   off the end, if we see VOIDmode just leave MODE in the variable.  */
+#define FOR_EACH_MODE_NARROW_TO_WIDE(VAR, MODE)				\
+  for (VAR = GET_MODE_NARROWEST_MODE (MODE);				\
+       VAR != MODE;							\
+       VAR = GET_MODE_WIDER_MODE (VAR))					\
+    if (VAR == VOIDmode && MODE != VOIDmode)				\
+      {									\
+	VAR = MODE;							\
+	break;								\
+      }									\
+    else
