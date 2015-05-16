@@ -2221,11 +2221,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	for (index = ndim - 1; index >= 0; index--)
 	  {
 	    tem = build_nonshared_array_type (tem, gnu_index_types[index]);
-	    if (index == 0)
+	    if (index == ndim - 1)
 	      TYPE_REVERSE_STORAGE_ORDER (tem)
 		= Reverse_Storage_Order (gnat_entity);
-	    else
-	      TYPE_MULTI_ARRAY_P (tem) = 1;
+	    TYPE_MULTI_ARRAY_P (tem) = (index > 0);
 	    if (array_type_has_nonaliased_component (tem, gnat_entity))
 	      TYPE_NONALIASED_COMPONENT (tem) = 1;
 
@@ -2594,11 +2593,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    {
 	      gnu_type = build_nonshared_array_type (gnu_type,
 						     gnu_index_types[index]);
-	      if (index == 0)
+	      if (index == ndim - 1)
 		TYPE_REVERSE_STORAGE_ORDER (gnu_type)
 		  = Reverse_Storage_Order (gnat_entity);
-	      else
-		TYPE_MULTI_ARRAY_P (gnu_type) = 1;
+	      TYPE_MULTI_ARRAY_P (gnu_type) = (index > 0);
 	      if (array_type_has_nonaliased_component (gnu_type, gnat_entity))
 		TYPE_NONALIASED_COMPONENT (gnu_type) = 1;
 
