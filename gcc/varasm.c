@@ -3148,10 +3148,12 @@ compare_constant (const tree t1, const tree t2)
 	if (typecode == ARRAY_TYPE)
 	  {
 	    HOST_WIDE_INT size_1 = int_size_in_bytes (TREE_TYPE (t1));
-	    /* For arrays, check that the sizes all match.  */
+	    /* For arrays, check that mode, size and storage order match.  */
 	    if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2))
 		|| size_1 == -1
-		|| size_1 != int_size_in_bytes (TREE_TYPE (t2)))
+		|| size_1 != int_size_in_bytes (TREE_TYPE (t2))
+		|| TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (t1))
+		   != TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (t2)))
 	      return 0;
 	  }
 	else

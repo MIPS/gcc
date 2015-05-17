@@ -3385,7 +3385,7 @@ gnat_types_compatible_p (tree t1, tree t2)
     return 1;
 
   /* Array types are also compatible if they are constrained and have the same
-     domain(s) and the same component type.  */
+     domain(s), the same component type and the same scalar storage order.  */
   if (code == ARRAY_TYPE
       && (TYPE_DOMAIN (t1) == TYPE_DOMAIN (t2)
 	  || (TYPE_DOMAIN (t1)
@@ -3396,7 +3396,8 @@ gnat_types_compatible_p (tree t1, tree t2)
 				     TYPE_MAX_VALUE (TYPE_DOMAIN (t2)))))
       && (TREE_TYPE (t1) == TREE_TYPE (t2)
 	  || (TREE_CODE (TREE_TYPE (t1)) == ARRAY_TYPE
-	      && gnat_types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2)))))
+	      && gnat_types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2))))
+      && TYPE_REVERSE_STORAGE_ORDER (t1) == TYPE_REVERSE_STORAGE_ORDER (t2))
     return 1;
 
   return 0;
