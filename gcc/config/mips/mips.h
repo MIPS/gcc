@@ -803,8 +803,8 @@ struct mips_cpu_info {
 			  |mips64r3|mips64r5|mips64r6:-msynci;:-mno-synci}}"
 
 #define MIPS_ISA_NAN2008_SPEC \
-  "%{mnan*:;mips32r6|mips64r6:-mnan=2008;mmicromips: \
-					   %{!msoft-float:-mnan=2008}}"
+  "%{mnan*:;mips32r6|mips64r6:-mnan=2008;mmicromips|march=m51*: \
+					 %{!msoft-float:-mnan=2008}}"
 
 #if (MIPS_ABI_DEFAULT == ABI_O64 \
      || MIPS_ABI_DEFAULT == ABI_N32 \
