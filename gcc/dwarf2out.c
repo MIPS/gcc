@@ -4944,6 +4944,8 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 	 because the limbo list should not persist past LTO
 	 streaming.  */
       if (tag_value != DW_TAG_compile_unit
+	  /* These are allowed because they're generated while
+	     breaking out COMDAT units late.  */
 	  && tag_value != DW_TAG_type_unit
 	  && !early_dwarf_dumping
 	  /* Allow nested functions to live in limbo because they will
@@ -8876,9 +8878,10 @@ output_die (dw_die_ref die)
   if (! die->comdat_type_p && die->die_id.die_symbol)
     output_die_symbol (die);
 
-  dw2_asm_output_data_uleb128 (die->die_abbrev, "(DIE (%#lx) %s)",
+  dw2_asm_output_data_uleb128 (die->die_abbrev, "(DIE (%#lx) %s)%s",
 			       (unsigned long)die->die_offset,
-			       dwarf_tag_name (die->die_tag));
+			       dwarf_tag_name (die->die_tag),
+			       die->dumped_early ? " (early)" : "");
 
   FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
     {
@@ -21753,6 +21756,9 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
 
   gcc_assert (decl);
 
+  bool save = early_dwarf_dumping;
+  early_dwarf_dumping = true;
+
   /* To emit DW_TAG_imported_module or DW_TAG_imported_decl, we need two DIEs.
      We need decl DIE for reference and scope die. First, get DIE for the decl
      itself.  */
@@ -21780,6 +21786,7 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
   /* OK, now we have DIEs for decl as well as scope. Emit imported die.  */
   dwarf2out_imported_module_or_decl_1 (decl, name, context, scope_die);
 
+  early_dwarf_dumping = save;
 }
 
 /* Output debug information for namelists.   */
