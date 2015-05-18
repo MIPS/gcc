@@ -650,28 +650,36 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
      held in REGNO.  If none, we look for the largest floating-point mode.
      If we still didn't find a valid mode, try CCmode.  */
 
-  FOR_EACH_MODE_CLASS (mode, MODE_INT)
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
     if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
 	&& GET_MODE_SIZE (mode) > GET_MODE_SIZE (found_mode))
       found_mode = mode;
 
-  FOR_EACH_MODE_CLASS (mode, MODE_FLOAT)
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
     if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
 	&& GET_MODE_SIZE (mode) > GET_MODE_SIZE (found_mode))
       found_mode = mode;
 
-  FOR_EACH_MODE_CLASS (mode, MODE_VECTOR_FLOAT)
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FLOAT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
     if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
 	&& GET_MODE_SIZE (mode) > GET_MODE_SIZE (found_mode))
       found_mode = mode;
 
-  FOR_EACH_MODE_CLASS (mode, MODE_VECTOR_INT)
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
     if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))

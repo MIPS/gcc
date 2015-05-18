@@ -1,7 +1,18 @@
 2015-05-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* expr.c (convert_move): Handle PowerPC having two fractional
-	128floating types and a standard 128-bit floating point.
+	* machmode.h: Undo all IEEE 128-bit changes.
+	* optabs.c: Likewise.
+	* rtlanal.c: Likewise.
+	* cse.c: Likewise.
+	* machmode.def: Likewise.
+	* expr.c: Likewise.
+	* dse.c: Likewise.
+	* genmodes.c: Likewise.
+	* expmed.c: Likewise.
+	* emit-rtl.c: Likewise.
+	* explow.c: Likewise.
+	* combine.c: Likewise.
+	* reginfo.c: Likewise.
 
 	* config/rs6000/predicates.md (easy_fp_constant): Add support for
 	IFmode.

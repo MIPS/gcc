@@ -1907,7 +1907,8 @@ extract_fixed_bit_field_1 (machine_mode tmode, rtx op0,
 
   /* Find the narrowest integer mode that contains the field.  */
 
-  FOR_EACH_MODE_CLASS (mode, MODE_INT)
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
     if (GET_MODE_BITSIZE (mode) >= bitsize + bitnum)
       {
 	op0 = convert_to_mode (mode, op0, 0);

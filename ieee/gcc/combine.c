@@ -11552,8 +11552,7 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	  else if (c0 == c1)
 	    for (tmode = GET_CLASS_NARROWEST_MODE
 		 (GET_MODE_CLASS (GET_MODE (op0)));
-		 tmode != GET_MODE (op0) && tmode != VOIDmode;
-		 tmode = GET_MODE_WIDER_MODE (tmode))
+		 tmode != GET_MODE (op0); tmode = GET_MODE_WIDER_MODE (tmode))
 	      if ((unsigned HOST_WIDE_INT) c0 == GET_MODE_MASK (tmode))
 		{
 		  op0 = gen_lowpart (tmode, inner_op0);

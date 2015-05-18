@@ -1773,7 +1773,7 @@ find_shift_sequence (int access_size,
 
   for (new_mode = smallest_mode_for_size (access_size * BITS_PER_UNIT,
 					  MODE_INT);
-       GET_MODE_BITSIZE (new_mode) <= BITS_PER_WORD && new_mode != VOIDmode;
+       GET_MODE_BITSIZE (new_mode) <= BITS_PER_WORD;
        new_mode = GET_MODE_WIDER_MODE (new_mode))
     {
       rtx target, new_reg, new_lhs;

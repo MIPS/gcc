@@ -260,10 +260,12 @@ init_expr_target (void)
 
   mem = gen_rtx_MEM (VOIDmode, gen_rtx_raw_REG (Pmode, 10000));
 
-  FOR_EACH_MODE_CLASS (mode, MODE_FLOAT)
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
     {
       machine_mode srcmode;
-      FOR_EACH_MODE_CLASS (srcmode, MODE_FLOAT)
+      for (srcmode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); srcmode != mode;
+	   srcmode = GET_MODE_WIDER_MODE (srcmode))
 	{
 	  enum insn_code ic;
 
@@ -361,34 +363,17 @@ convert_move (rtx to, rtx from, int unsignedp)
       rtx value;
       rtx_insn *insns;
       convert_optab tab;
-      unsigned to_precision = GET_MODE_PRECISION (to_mode);
-      unsigned from_precision = GET_MODE_PRECISION (from_mode);
-      bool same_size_p = (from_precision == to_precision);
-      bool no_mixed_binary_decimal_p = (DECIMAL_FLOAT_MODE_P (from_mode)
-					== DECIMAL_FLOAT_MODE_P (to_mode));
-      bool same_format_p = (REAL_MODE_FORMAT (from_mode)
-			    == REAL_MODE_FORMAT (to_mode));
 
-      /* In order to support the traditional IBM extended double 128-bit
-	 format, and IEEE 128-bit floating point, the PowerPC port has 3
-	 128-bit floating point types (TFmode, KFmode, and IFmode).  We need to
-	 be able to support conversions between the 3 types.  */
+      gcc_assert ((GET_MODE_PRECISION (from_mode)
+		   != GET_MODE_PRECISION (to_mode))
+		  || (DECIMAL_FLOAT_MODE_P (from_mode)
+		      != DECIMAL_FLOAT_MODE_P (to_mode)));
 
-      if (same_size_p && no_mixed_binary_decimal_p && same_format_p)
-	fatal_insn ("bad convert", gen_rtx_SET (to, from));
-
-      /* Same size, but different format, use extend.  */
-      else if (same_size_p && no_mixed_binary_decimal_p)
-	tab = sext_optab;
-
-      /* Same size, but different binary/decimal.  */
-      else if (same_size_p)
+      if (GET_MODE_PRECISION (from_mode) == GET_MODE_PRECISION (to_mode))
+	/* Conversion between decimal float and binary float, same size.  */
 	tab = DECIMAL_FLOAT_MODE_P (from_mode) ? trunc_optab : sext_optab;
-
-      /* Different sizes.  */
-      else if (from_precision < to_precision)
+      else if (GET_MODE_PRECISION (from_mode) < GET_MODE_PRECISION (to_mode))
 	tab = sext_optab;
-
       else
 	tab = trunc_optab;
 
@@ -3701,7 +3686,7 @@ compress_float_constant (rtx x, rtx y)
     oldcost = set_src_cost (force_const_mem (dstmode, y), speed);
 
   for (srcmode = GET_CLASS_NARROWEST_MODE (GET_MODE_CLASS (orig_srcmode));
-       srcmode != orig_srcmode && srcmode != VOIDmode;
+       srcmode != orig_srcmode;
        srcmode = GET_MODE_WIDER_MODE (srcmode))
     {
       enum insn_code ic;

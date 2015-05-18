@@ -4856,7 +4856,7 @@ cse_insn (rtx_insn *insn)
 	  rtx new_and = gen_rtx_AND (VOIDmode, NULL_RTX, XEXP (src, 1));
 
 	  for (tmode = GET_MODE_WIDER_MODE (mode);
-	       GET_MODE_SIZE (tmode) <= UNITS_PER_WORD && tmode != VOIDmode;
+	       GET_MODE_SIZE (tmode) <= UNITS_PER_WORD;
 	       tmode = GET_MODE_WIDER_MODE (tmode))
 	    {
 	      rtx inner = gen_lowpart (tmode, XEXP (src, 0));
@@ -4908,7 +4908,7 @@ cse_insn (rtx_insn *insn)
 	  XEXP (memory_extend_rtx, 0) = src;
 
 	  for (tmode = GET_MODE_WIDER_MODE (mode);
-	       GET_MODE_SIZE (tmode) <= UNITS_PER_WORD && tmode != VOIDmode;
+	       GET_MODE_SIZE (tmode) <= UNITS_PER_WORD;
 	       tmode = GET_MODE_WIDER_MODE (tmode))
 	    {
 	      struct table_elt *larger_elt;
