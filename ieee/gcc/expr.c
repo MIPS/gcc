@@ -361,17 +361,34 @@ convert_move (rtx to, rtx from, int unsignedp)
       rtx value;
       rtx_insn *insns;
       convert_optab tab;
+      unsigned to_precision = GET_MODE_PRECISION (to_mode);
+      unsigned from_precision = GET_MODE_PRECISION (from_mode);
+      bool same_size_p = (from_precision == to_precision);
+      bool no_mixed_binary_decimal_p = (DECIMAL_FLOAT_MODE_P (from_mode)
+					== DECIMAL_FLOAT_MODE_P (to_mode));
+      bool same_format_p = (REAL_MODE_FORMAT (from_mode)
+			    == REAL_MODE_FORMAT (to_mode));
 
-      gcc_assert ((GET_MODE_PRECISION (from_mode)
-		   != GET_MODE_PRECISION (to_mode))
-		  || (DECIMAL_FLOAT_MODE_P (from_mode)
-		      != DECIMAL_FLOAT_MODE_P (to_mode)));
+      /* In order to support the traditional IBM extended double 128-bit
+	 format, and IEEE 128-bit floating point, the PowerPC port has 3
+	 128-bit floating point types (TFmode, KFmode, and IFmode).  We need to
+	 be able to support conversions between the 3 types.  */
 
-      if (GET_MODE_PRECISION (from_mode) == GET_MODE_PRECISION (to_mode))
-	/* Conversion between decimal float and binary float, same size.  */
-	tab = DECIMAL_FLOAT_MODE_P (from_mode) ? trunc_optab : sext_optab;
-      else if (GET_MODE_PRECISION (from_mode) < GET_MODE_PRECISION (to_mode))
+      if (same_size_p && no_mixed_binary_decimal_p && same_format_p)
+	fatal_insn ("bad convert", gen_rtx_SET (to, from));
+
+      /* Same size, but different format, use extend.  */
+      else if (same_size_p && no_mixed_binary_decimal_p)
 	tab = sext_optab;
+
+      /* Same size, but different binary/decimal.  */
+      else if (same_size_p)
+	tab = DECIMAL_FLOAT_MODE_P (from_mode) ? trunc_optab : sext_optab;
+
+      /* Different sizes.  */
+      else if (from_precision < to_precision)
+	tab = sext_optab;
+
       else
 	tab = trunc_optab;
 

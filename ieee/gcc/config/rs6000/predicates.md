@@ -465,7 +465,7 @@
   if (TARGET_VSX && SCALAR_FLOAT_MODE_P (mode) && op == CONST0_RTX (mode))
     return 1;
 
-  if (DECIMAL_FLOAT_MODE_P (mode) || mode == KFmode)
+  if (DECIMAL_FLOAT_MODE_P (mode) || mode == KFmode || mode == IFmode)
     return 0;
 
   /* If we are using V.4 style PIC, consider all constants to be hard.  */
@@ -487,10 +487,8 @@
 
   switch (mode)
     {
-    /* For IEEE 128-bit, only consider 0.0 to be easy.  */
     case KFmode:
-      return 0;
-
+    case IFmode:
     case TFmode:
     case DFmode:
     case SFmode:

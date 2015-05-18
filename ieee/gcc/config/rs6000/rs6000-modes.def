@@ -18,6 +18,12 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
+/* IBM 128-bit floating point.  */
+FRACTIONAL_FLOAT_MODE (IF, 106, 16, ibm_extended_format);
+
+/* Explicit IEEE 128-bit floating point.  */
+FRACTIONAL_FLOAT_MODE (KF, 113, 16, ieee_quad_format);
+
 /* 128-bit floating point.  ABI_V4 uses IEEE quad, AIX/Darwin
    adjust this in rs6000_option_override_internal.  */
 FLOAT_MODE (TF, 16, ieee_quad_format);
@@ -47,21 +53,3 @@ VECTOR_MODES (FLOAT, 32);     /*       V16HF V8SF V4DF */
    for quad memory atomic operations to force getting an even/odd register
    combination.  */
 PARTIAL_INT_MODE (TI, 128, PTI);
-
-/* IEEE 128-bit floating point.  Define this as a SPECIAL floating point type
-   to prevent the compiler from widening DFmode to KFmode (IEEE 128-bit) and
-   then to TFmode (IBM long double).  To use KFmode, you must explicitly use
-   __float128.  */
-SPECIAL_FLOAT_MODE (KF, 112, 16, ieee_quad_format);
-ADJUST_ALIGNMENT (KF, 16);
-
-/* IBM 128-bit floating point.  Define this as a SPECIAL floating point type to
-   prevent the compiler from widening DFmode to IFmode (IBM 128-bit).  The
-   intention is to allow the library to provide a method of accessing the IBM
-   128-bit floating point format, even if the default for TFmode is IEEE
-   128-bit floating point.  To use IFmode, you must explicitly use
-   __ibm128.  */
-SPECIAL_FLOAT_MODE (IF, 112, 16, ibm_extended_format);
-ADJUST_ALIGNMENT (IF, 16);
-
-

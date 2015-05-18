@@ -1,3 +1,15 @@
+2015-05-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* expr.c (convert_move): Handle PowerPC having two fractional
+	128floating types and a standard 128-bit floating point.
+
+	* config/rs6000/predicates.md (easy_fp_constant): Add support for
+	IFmode.
+
+	* config/rs6000/rs6000-modes.def (IFmode): Change to use
+	fractional floating point modes for IFmode/KFmode.  Don't use
+	SPECIAL_FLOAT_MODE any more.
+
 2015-05-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* machmode.h (GET_MODE_WIDER_MODE_SPECIAL): Delete, replace with
