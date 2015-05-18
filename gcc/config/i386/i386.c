@@ -26600,6 +26600,34 @@ ix86_constant_alignment (tree exp, int align)
   return align;
 }
 
+/* Compute the alignment for a variable for Intel MCU psABI.  TYPE is
+   the data type, and ALIGN is the alignment that the object would
+   ordinarily have.  */
+
+static int
+iamcu_alignment (tree type, int align)
+{
+  enum machine_mode mode;
+
+  if (align < 32 || TYPE_USER_ALIGN (type))
+    return align;
+
+  /* Intel MCU psABI specifies scalar types > 4 bytes aligned to 4
+     bytes.  */
+  mode = TYPE_MODE (strip_array_types (type));
+  switch (GET_MODE_CLASS (mode))
+    {
+    case MODE_INT:
+    case MODE_COMPLEX_INT:
+    case MODE_COMPLEX_FLOAT:
+    case MODE_FLOAT:
+    case MODE_DECIMAL_FLOAT:
+      return 32;
+    default:
+      return align;
+    }
+}
+
 /* Compute the alignment for a static variable.
    TYPE is the data type, and ALIGN is the alignment that
    the object would ordinarily have.  The value of this function is used
@@ -26627,6 +26655,9 @@ ix86_data_alignment (tree type, int align, bool opt)
 
   if (max_align < BITS_PER_WORD)
     max_align = BITS_PER_WORD;
+
+  if (TARGET_IAMCU)
+    align = iamcu_alignment (type, align);
 
   if (opt
       && AGGREGATE_TYPE_P (type)
@@ -38913,6 +38944,8 @@ x86_field_alignment (tree field, int computed)
 
   if (TARGET_64BIT || TARGET_ALIGN_DOUBLE)
     return computed;
+  if (TARGET_IAMCU)
+    return iamcu_alignment (type, computed);
   mode = TYPE_MODE (strip_array_types (type));
   if (mode == DFmode || mode == DCmode
       || GET_MODE_CLASS (mode) == MODE_INT
