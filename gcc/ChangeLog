@@ -76,7 +76,7 @@
 	early_global_decl, and late_global_decl fields.
 	Remove global_decl field.
 	Document gcc_debug_hooks.
-	* gengtype.c (output_typename): Mark function as unused.
+	* gengtype.c (output_typename): Remove.
 	* godump.c (go_early_global_decl): New.
 	(go_late_global_decl): New.
 	(go_global_decl): Remove.
