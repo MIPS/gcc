@@ -6,6 +6,8 @@
 	Add early_global_decl and late_global_decl hook.
 	Add dumped_early bit to die_struct.
 	New global early_dwarf_dumping.
+	(output_die): Indicate whether a DIE was generated early
+	when generating assembly with -dA.
 	(struct limbo_die_struct): Document created_for field.
 	Remove file_table_last_lookup.
 	(remove_AT): Return TRUE if successful.
