@@ -1,37 +1,17 @@
 2015-05-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* machmode.h (mode_narrowest): Define array.
-	(GET_MODE_NARROWEST_MODE): New macro for a given type, return the
-	narrowest mode that that can be used via narrowing/widening.
-	(GET_MODE_WIDER_MODE_SPECIAL): Delete, replace with
+	* machmode.h (GET_MODE_WIDER_MODE_SPECIAL): Delete, replace with
 	FOR_EACH_MODE_CLASS.
 	(FOR_EACH_MODE_CLASS): New iterator for handling all modes of a
 	static class.
-	(FOR_EACH_MODE_NARROW_TO_WIDE): New iterator to go through all of
-	the narrower modes for a given mode class.
-
 	* optabs.c (prepare_cmp_insn): Use FOR_EACH_MODE_CLASS.
 	* expr.c (init_expr_target): Likewise.
 	* expmed.c (extract_fixed_bit_field_1): Likewise.
 	* emit-rtl.c (init_derived_machine_modes): Likewise.
 	* explow.c (hard_function_value): Likewise.
 	* reginfo.c (choose_hard_reg_mode): Likewise.
-	* c-family/c-cppbuiltin.c (c_cpp_builtins): Likewise.
-
-	* expr.c (alignment_for_piecewise_move): Use either
-	GET_MODE_NARROWEST_MODE instead of GET_CLASS_NARROWEST_MODE.  Use
-	FOR_EACH_MODE_CLASS or FOR_EACH_MOD_NARROW_TO_WIDE iterators.
-	When we use GET_CLASS_NARROWEST_MODE of a staci class, just use
-	the MIN_<CLASS> value.
-	(widest_int_mode_for_size): Likewise.
-	(copy_blkmode_to_reg): Likewise.
-	(compress_float_constant): Likewise.
-	(push_block): Likewise.
-	* stor-layout (finish_bitfield_representative): Likewise.
-
 	* genmodes.c (emit_mode_wider): Do not emit the special wider
-	table.  Instead emit the table for each mode of the narrowest mode
-	that can be widened to the current mode.
+	table.
 
 2015-05-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
