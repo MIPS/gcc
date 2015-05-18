@@ -5718,16 +5718,15 @@ gfc_trans_allocate (gfc_code * code)
 	{
 	  /* Initialization via SOURCE block (or static default initializer).
 	     Classes need some special handling, so catch them first.  */
-	  gfc_expr *rhs = gfc_copy_expr (code->expr3);
-	  if (expr3_desc != NULL_TREE
-	      || (expr3 != NULL_TREE
-		  && ((POINTER_TYPE_P (TREE_TYPE (expr3))
-		       && TREE_CODE (expr3) != POINTER_PLUS_EXPR)
-		      || (VAR_P (expr3) && GFC_CLASS_TYPE_P (
-			    TREE_TYPE (expr3))))
-		  && code->expr3->ts.type == BT_CLASS
-		  && (expr->ts.type == BT_CLASS
-		      || expr->ts.type == BT_DERIVED)))
+	  if ((expr3_desc != NULL_TREE
+	       || (expr3 != NULL_TREE
+		   && ((POINTER_TYPE_P (TREE_TYPE (expr3))
+		        && TREE_CODE (expr3) != POINTER_PLUS_EXPR)
+		       || (VAR_P (expr3) && GFC_CLASS_TYPE_P (
+			     TREE_TYPE (expr3))))))
+	      && code->expr3->ts.type == BT_CLASS
+	      && (expr->ts.type == BT_CLASS
+		  || expr->ts.type == BT_DERIVED))
 	    {
 	      /* copy_class_to_class can be used for class arrays, too.
 		 It just needs to be ensured, that the decl_saved_descriptor
