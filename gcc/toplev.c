@@ -567,6 +567,9 @@ emit_debug_global_declarations (tree *vec, int len)
   /* Avoid confusing the debug information machinery when there are errors.  */
   if (seen_error ())
     return;
+  /* No need for debug info in object files when producing slimLTO.  */
+  if (!in_lto_p && flag_lto && !flag_fat_lto_objects)
+    return;
 
   timevar_push (TV_SYMOUT);
   for (i = 0; i < len; i++)
@@ -588,6 +591,9 @@ compile_file (void)
 
   timevar_pop (TV_PARSE_GLOBAL);
   timevar_stop (TV_PHASE_PARSING);
+
+  if (flag_dump_locations)
+    dump_location_info (stderr);
 
   /* Compilation is now finished except for writing
      what's left of the symbol table output.  */
@@ -1131,7 +1137,7 @@ output_stack_usage (void)
 	}
 
       fprintf (stack_usage_file,
-	       "%s:%d:%d:%s\t"HOST_WIDE_INT_PRINT_DEC"\t%s\n",
+	       "%s:%d:%d:%s\t" HOST_WIDE_INT_PRINT_DEC"\t%s\n",
 	       lbasename (loc.file),
 	       loc.line,
 	       loc.column,
@@ -2112,8 +2118,11 @@ toplev::toplev (bool use_TV_TOTAL, bool init_signals)
 
 toplev::~toplev ()
 {
-  timevar_stop (TV_TOTAL);
-  timevar_print (stderr);
+  if (g_timer)
+    {
+      g_timer->stop (TV_TOTAL);
+      g_timer->print (stderr);
+    }
 }
 
 void

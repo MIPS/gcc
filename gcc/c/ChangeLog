@@ -12,6 +12,40 @@
 	* c-objc-common.h: Remove LANG_HOOKS_WRITE_GLOBALS.
 	* c-tree.h: Remove c_write_global_declarations.
 
+2015-05-16  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* c-objc-common.c (c_tree_printer): Replace locus pointer with
+	accessor function.
+
+2015-05-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66066
+	PR c/66127
+	* c-typeck.c (digest_init): Call pedwarn_init with OPT_Wpedantic
+	rather than with 0.
+
+2015-05-12  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_if_body): Add param "if_loc", use it
+	to add a call to warn_for_misleading_indentation.
+	(c_parser_else_body): Likewise, adding param "else_loc".
+	(c_parser_if_statement): Check for misleading indentation.
+	(c_parser_while_statement): Likewise.
+	(c_parser_for_statement): Likewise.
+
+2015-05-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64918
+	* c-typeck.c (add_pending_init): Use OPT_Woverride_init_side_effects.
+	(output_init_element): Likewise.
+
+2015-05-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65179
+	* c-typeck.c (build_binary_op): Warn when left shifting a negative
+	value.
+
 2015-04-30  Marek Polacek  <polacek@redhat.com>
 
 	* c-typeck.c (set_init_label): Call error_at instead of error and

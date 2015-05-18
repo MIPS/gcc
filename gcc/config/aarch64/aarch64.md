@@ -531,7 +531,7 @@
 	char buf[64];
 	uint64_t val = ((uint64_t ) 1)
 			<< (GET_MODE_SIZE (<MODE>mode) * BITS_PER_UNIT - 1);
-	sprintf (buf, "tst\t%%<w>0, %"PRId64, val);
+	sprintf (buf, "tst\t%%<w>0, %" PRId64, val);
 	output_asm_insn (buf, operands);
 	return "<bcond>\t%l1";
       }
@@ -1414,18 +1414,28 @@
   "
   if (! aarch64_plus_operand (operands[2], VOIDmode))
     {
-      rtx subtarget = ((optimize && can_create_pseudo_p ())
-		       ? gen_reg_rtx (<MODE>mode) : operands[0]);
       HOST_WIDE_INT imm = INTVAL (operands[2]);
 
-      if (imm < 0)
-	imm = -(-imm & ~0xfff);
+      if (aarch64_move_imm (imm, <MODE>mode) && can_create_pseudo_p ())
+        {
+	  rtx tmp = gen_reg_rtx (<MODE>mode);
+	  emit_move_insn (tmp, operands[2]);
+	  operands[2] = tmp;
+        }
       else
-        imm &= ~0xfff;
+        {
+	  rtx subtarget = ((optimize && can_create_pseudo_p ())
+			   ? gen_reg_rtx (<MODE>mode) : operands[0]);
 
-      emit_insn (gen_add<mode>3 (subtarget, operands[1], GEN_INT (imm)));
-      operands[1] = subtarget;
-      operands[2] = GEN_INT (INTVAL (operands[2]) - imm);
+	  if (imm < 0)
+	    imm = -(-imm & ~0xfff);
+	  else
+	    imm &= ~0xfff;
+
+	  emit_insn (gen_add<mode>3 (subtarget, operands[1], GEN_INT (imm)));
+	  operands[1] = subtarget;
+	  operands[2] = GEN_INT (INTVAL (operands[2]) - imm);
+        }
     }
   "
 )
@@ -2172,35 +2182,16 @@
   [(set_attr "type" "alu_ext")]
 )
 
-(define_insn_and_split "absdi2"
-  [(set (match_operand:DI 0 "register_operand" "=&r,w")
-	(abs:DI (match_operand:DI 1 "register_operand" "r,w")))]
+(define_expand "abs<mode>2"
+  [(match_operand:GPI 0 "register_operand" "")
+   (match_operand:GPI 1 "register_operand" "")]
   ""
-  "@
-   #
-   abs\\t%d0, %d1"
-  "reload_completed
-   && GP_REGNUM_P (REGNO (operands[0]))
-   && GP_REGNUM_P (REGNO (operands[1]))"
-  [(const_int 0)]
   {
-    emit_insn (gen_rtx_SET (VOIDmode, operands[0],
-			    gen_rtx_XOR (DImode,
-					 gen_rtx_ASHIFTRT (DImode,
-							   operands[1],
-							   GEN_INT (63)),
-					 operands[1])));
-    emit_insn (gen_rtx_SET (VOIDmode,
-			    operands[0],
-			    gen_rtx_MINUS (DImode,
-					   operands[0],
-					   gen_rtx_ASHIFTRT (DImode,
-							     operands[1],
-							     GEN_INT (63)))));
+    rtx ccreg = aarch64_gen_compare_reg (LT, operands[1], const0_rtx);
+    rtx x = gen_rtx_LT (VOIDmode, ccreg, const0_rtx);
+    emit_insn (gen_csneg3<mode>_insn (operands[0], x, operands[1], operands[1]));
     DONE;
   }
-  [(set_attr "type" "alu_sreg")
-   (set_attr "simd" "no,yes")]
 )
 
 (define_insn "neg<mode>2"
@@ -2623,7 +2614,7 @@
          (match_operand 3 "const0_operand")]))]
   ""
 "{
-  emit_insn (gen_rtx_SET (SImode, operands[0], operands[1]));
+  emit_insn (gen_rtx_SET (operands[0], operands[1]));
   DONE;
 }")
 
@@ -2879,7 +2870,7 @@
   [(set_attr "type" "csel")]
 )
 
-(define_insn "*csneg3<mode>_insn"
+(define_insn "csneg3<mode>_insn"
   [(set (match_operand:GPI 0 "register_operand" "=r")
         (if_then_else:GPI
 	  (match_operand 1 "aarch64_comparison_operation" "")
@@ -4477,7 +4468,7 @@
   cc_reg = SET_DEST (cmp);
   bcomp = gen_rtx_NE (VOIDmode, cc_reg, const0_rtx);
   loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands [1]);
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+  emit_jump_insn (gen_rtx_SET (pc_rtx,
 			       gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
 						     loc_ref, pc_rtx)));
   DONE;

@@ -5199,6 +5199,14 @@ note_types_used_by_globals (void)
 	  types_used_by_var_decl_insert (t, dummy_global);
 	}
     }
+
+  /* Output debug information for all global type declarations first.  This
+     ensures that global types whose compilation hasn't been finalized yet,
+     for example pointers to Taft amendment types, have their compilation
+     finalized in the right context.  */
+  FOR_EACH_VEC_SAFE_ELT (global_decls, i, iter)
+    if (TREE_CODE (iter) == TYPE_DECL && !DECL_IGNORED_P (iter))
+      debug_hooks->type_decl (iter, false);
 }
 
 /* ************************************************************************

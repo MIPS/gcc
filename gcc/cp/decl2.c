@@ -1179,6 +1179,10 @@ is_late_template_attribute (tree attr, tree decl)
       && is_attribute_p ("omp declare simd", name))
     return true;
 
+  /* An attribute pack is clearly dependent.  */
+  if (args && PACK_EXPANSION_P (args))
+    return true;
+
   /* If any of the arguments are dependent expressions, we can't evaluate
      the attribute until instantiation time.  */
   for (arg = args; arg; arg = TREE_CHAIN (arg))
@@ -2652,7 +2656,12 @@ reset_type_linkage_2 (tree type)
 	if (TREE_CODE (m) == VAR_DECL)
 	  reset_decl_linkage (m);
       for (tree m = TYPE_METHODS (type); m; m = DECL_CHAIN (m))
-	reset_decl_linkage (m);
+	{
+	  reset_decl_linkage (m);
+	  if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (m))
+	    /* Also update its name, for cxx_dwarf_name.  */
+	    DECL_NAME (m) = TYPE_IDENTIFIER (type);
+	}
       binding_table_foreach (CLASSTYPE_NESTED_UTDS (type),
 			     bt_reset_linkage_2, NULL);
     }
@@ -4318,7 +4327,7 @@ generate_mangling_alias (tree decl, tree id2)
    implementation.  */
 
 void
-note_mangling_alias (tree decl, tree id2)
+note_mangling_alias (tree decl ATTRIBUTE_UNUSED, tree id2 ATTRIBUTE_UNUSED)
 {
 #ifdef ASM_OUTPUT_DEF
   if (at_eof)

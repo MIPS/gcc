@@ -4735,19 +4735,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_init_se (&parmse, se);
 	  parm_kind = ELEMENTAL;
 
-	  /* For all value functions or polymorphic scalar non-pointer
-	     non-allocatable variables use the expression in e directly.  This
-	     ensures, that initializers of polymorphic entities are correctly
-	     copied.  */
-	  if (fsym && (fsym->attr.value
-		       || (e->expr_type == EXPR_VARIABLE
-			   && fsym->ts.type == BT_DERIVED
-			   && e->ts.type == BT_DERIVED
-			   && !e->ts.u.derived->attr.dimension
-			   && !e->rank
-			   && (!e->symtree
-			       || (!e->symtree->n.sym->attr.allocatable
-				   && !e->symtree->n.sym->attr.pointer)))))
+	  if (fsym && fsym->attr.value)
 	    gfc_conv_expr (&parmse, e);
 	  else
 	    gfc_conv_expr_reference (&parmse, e);
@@ -7062,19 +7050,31 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
     {
       if (expr->expr_type != EXPR_STRUCTURE)
 	{
+	  tree dealloc = NULL_TREE;
 	  gfc_init_se (&se, NULL);
 	  gfc_conv_expr (&se, expr);
 	  gfc_add_block_to_block (&block, &se.pre);
+	  /* Prevent repeat evaluations in gfc_copy_alloc_comp by fixing the
+	     expression in  a temporary variable and deallocate the allocatable
+	     components. Then we can the copy the expression to the result.  */
 	  if (cm->ts.u.derived->attr.alloc_comp
-	      && expr->expr_type == EXPR_VARIABLE)
+	      && expr->expr_type != EXPR_VARIABLE)
+	    {
+	      se.expr = gfc_evaluate_now (se.expr, &block);
+	      dealloc = gfc_deallocate_alloc_comp (cm->ts.u.derived, se.expr,
+						   expr->rank);
+	    }
+	  gfc_add_modify (&block, dest,
+			  fold_convert (TREE_TYPE (dest), se.expr));
+	  if (cm->ts.u.derived->attr.alloc_comp
+	      && expr->expr_type != EXPR_NULL)
 	    {
 	      tmp = gfc_copy_alloc_comp (cm->ts.u.derived, se.expr,
 					 dest, expr->rank);
 	      gfc_add_expr_to_block (&block, tmp);
+	      if (dealloc != NULL_TREE)
+		gfc_add_expr_to_block (&block, dealloc);
 	    }
-	  else
-	    gfc_add_modify (&block, dest,
-			    fold_convert (TREE_TYPE (dest), se.expr));
 	  gfc_add_block_to_block (&block, &se.post);
 	}
       else
@@ -7310,11 +7310,9 @@ gfc_conv_expr (gfc_se * se, gfc_expr * expr)
 
       ss_info = ss->info;
       /* Substitute a scalar expression evaluated outside the scalarization
-         loop.  */
+	 loop.  */
       se->expr = ss_info->data.scalar.value;
-      /* If the reference can be NULL, the value field contains the reference,
-	 not the value the reference points to (see gfc_add_loop_ss_code).  */
-      if (ss_info->can_be_null_ref)
+      if (gfc_scalar_elemental_arg_saved_as_reference (ss_info))
 	se->expr = build_fold_indirect_ref_loc (input_location, se->expr);
 
       se->string_length = ss_info->string_length;

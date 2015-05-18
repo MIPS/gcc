@@ -123,6 +123,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-icf-gimple.h"
 #include "ipa-icf.h"
 #include "stor-layout.h"
+#include "dbgcnt.h"
 
 using namespace ipa_icf_gimple;
 
@@ -505,7 +506,7 @@ sem_item::hash_referenced_symbol_properties (symtab_node *ref,
 {
   if (is_a <cgraph_node *> (ref))
     {
-      if ((!type == FUNC || address || !opt_for_fn (decl, optimize_size))
+      if ((type != FUNC || address || !opt_for_fn (decl, optimize_size))
 	  && !opt_for_fn (ref->decl, optimize_size)
 	  && !DECL_UNINLINABLE (ref->decl))
 	{
@@ -3453,7 +3454,8 @@ sem_item_optimizer::merge_classes (unsigned int prev_class_count)
 		alias->dump_to_file (dump_file);
 	      }
 
-	    merged_p |= source->merge (alias);
+	    if (dbg_cnt (merged_ipa_icf))
+	      merged_p |= source->merge (alias);
 	  }
       }
 

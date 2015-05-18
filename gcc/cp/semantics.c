@@ -2377,6 +2377,7 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
       if (!result)
 	{
 	  if (warn_sizeof_pointer_memaccess
+	      && (complain & tf_warning)
 	      && !vec_safe_is_empty (*args)
 	      && !processing_template_decl)
 	    {
@@ -2912,6 +2913,7 @@ finish_member_declaration (tree decl)
 	 CLASSTYPE_METHOD_VEC.  */
       if (add_method (current_class_type, decl, NULL_TREE))
 	{
+	  gcc_assert (TYPE_MAIN_VARIANT (current_class_type) == current_class_type);
 	  DECL_CHAIN (decl) = TYPE_METHODS (current_class_type);
 	  TYPE_METHODS (current_class_type) = decl;
 

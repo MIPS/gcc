@@ -419,6 +419,7 @@ enum gfc_isym_id
   GFC_ISYM_EXPONENT,
   GFC_ISYM_EXTENDS_TYPE_OF,
   GFC_ISYM_FDATE,
+  GFC_ISYM_FE_RUNTIME_ERROR,
   GFC_ISYM_FGET,
   GFC_ISYM_FGETC,
   GFC_ISYM_FLOOR,
@@ -1002,6 +1003,7 @@ typedef struct
 			AS_EXPLICIT, but we want to remember that we
 			did this.  */
 
+  bool resolved;
 }
 gfc_array_spec;
 
@@ -1907,7 +1909,7 @@ typedef struct gfc_intrinsic_sym
   gfc_typespec ts;
   unsigned elemental:1, inquiry:1, transformational:1, pure:1,
     generic:1, specific:1, actual_ok:1, noreturn:1, conversion:1,
-    from_module:1;
+    from_module:1, vararg:1;
 
   int standard;
 
@@ -2658,10 +2660,10 @@ void gfc_buffer_error (bool);
 
 const char *gfc_print_wide_char (gfc_char_t);
 
-void gfc_warning_1 (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 bool gfc_warning (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
-void gfc_warning_now_1 (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 bool gfc_warning_now (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
+bool gfc_warning_now_at (location_t loc, int opt, const char *gmsgid, ...)
+  ATTRIBUTE_GCC_GFC(3,4);
 
 void gfc_clear_warning (void);
 void gfc_warning_check (void);
@@ -2677,7 +2679,6 @@ bool gfc_error_check (void);
 bool gfc_error_flag_test (void);
 
 notification gfc_notification_std (int);
-bool gfc_notify_std_1 (int, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 bool gfc_notify_std (int, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 
 /* A general purpose syntax error.  */
@@ -3230,5 +3231,9 @@ int gfc_code_walker (gfc_code **, walk_code_fn_t, walk_expr_fn_t, void *);
 /* simplify.c */
 
 void gfc_convert_mpz_to_signed (mpz_t, int);
+
+/* trans-array.c  */
+
+bool gfc_is_reallocatable_lhs (gfc_expr *);
 
 #endif /* GCC_GFORTRAN_H  */
