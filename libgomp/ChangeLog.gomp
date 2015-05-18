@@ -1,6 +1,9 @@
+2015-05-18  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c/gwv.c: Delete.
+
 2015-05-14  Cesar Philippidis  <cesar@codesourcery.com>
 
-	libgomp/
 	* oacc-mem.c (gomp_acc_remove_pointer): Fix a memory leak preventing
 	target_mem_desc.to_free from being deallocated with acc exit data.
 	* oacc-parallel.c (find_pset): Remove.
