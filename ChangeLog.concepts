@@ -1,5 +1,30 @@
 2015-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Fix long-standing regression in template introductions.
+	* gcc/cp/parser.c (cp_parser_template_declaration_after_export):
+	Return bool.
+	(cp_parser_template_parameter_list): Remove #ifdeffing.
+	(cp_parser_member_declaration): Check for template introductions.
+	(cp_parser_template_declaration_after_parameters): New. Parse
+	a template declaration following the declaration or introduction
+	of template parameters.
+	(cp_parser_template_introduction): Save and restore scopes when
+	tentatively parsing a template introduction. Update diagnostics.
+	(cp_parser_explicit_template_declaration): Renamed from 
+	cp_parser_template_declaration_after_export. Parse a template
+	declartion that begins with the template keyword. Use
+	cp_parser_template_declaration_after_parameters to parse the
+	declaration after parsing the header.
+	(cp_parser_template_declaration_after_export): Use either
+	cp_parser_template_introduction or 
+	cp_parser_explicit_template_declaration.
+	* gcc/testsuite/g++.dg/concepts/intro4: Remove spurios diagnostic.
+	* gcc/testsuite/g++.dg/concepts/intro6: New.
+
+
+
+2015-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	PR66091
 	* gcc/cp/cp-tree.h (get_function_declarator): New.
 	* gcc/cp/decl.c (get_trailing_requires_clause): Use 

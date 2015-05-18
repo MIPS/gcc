@@ -1,7 +1,7 @@
 // { dg-options "-std=c++1z" }
 
 template<typename ... T>
-  concept bool C1 = true; // { dg-message "provided" }
+  concept bool C1 = true;
 
 template<int ... N>
   concept bool C2 = true;
