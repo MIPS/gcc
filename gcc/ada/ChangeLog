@@ -3,12 +3,9 @@
 	* gcc-interface/gigi.h (note_types_used_by_globals): New prototype.
 	* gcc-interface/misc.c (gnat_parse_file): Call
 	note_types_used_by_globals.
-	* gcc-interface/utils.c: Remove global_decls.
-	(gnat_pushdecl): Remove use of global_decls.
-	(gnat_write_global_declarations): Rename to
-	note_types_used_by_globals.
+	* gcc-interface/utils.c: (gnat_write_global_declarations): Rename
+	to note_types_used_by_globals.
 	Remove call to finalize_compilation_unit.
-	Remove explicit call to debug_hooks.
 
 2015-05-12  Jason Merrill  <jason@redhat.com>
 
