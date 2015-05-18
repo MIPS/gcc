@@ -5198,25 +5198,11 @@ gfc_trans_allocate (gfc_code * code)
 	  /* In all other cases evaluate the expr3 and create a
 		 temporary.  */
 	  gfc_init_se (&se, NULL);
-	  /* For more complicated expression, the decision when to get the
-	     descriptor and when to get a reference is depending on more
-	     conditions.  The descriptor is only retrieved for functions
-	     that are intrinsic, elemental user-defined and known, or neither
-	     of the two, or are a class or type, that has a not deferred type
-	     array_spec.  */
-	  if (code->expr3->rank != 0
-	      && (code->expr3->expr_type != EXPR_FUNCTION
-		  || code->expr3->value.function.isym
-		  || (code->expr3->value.function.esym &&
-		      code->expr3->value.function.esym->attr.elemental)
-		  || (!code->expr3->value.function.isym
-		      && !code->expr3->value.function.esym)
-		  || (code->expr3->ts.type == BT_DERIVED
-		      && code->expr3->ts.u.derived->as
-		      && code->expr3->ts.u.derived->as->type != AS_DEFERRED)
-		  || (code->expr3->ts.type == BT_CLASS
-		      && CLASS_DATA (code->expr3)->as
-		      && CLASS_DATA (code->expr3)->as->type != AS_DEFERRED)))
+	  symbol_attribute attr;
+	  /* Get the descriptor for all arrays, that are not allocatable or
+	     pointer, because the latter are descriptors already.  */
+	  attr = gfc_expr_attr (code->expr3);
+	  if (code->expr3->rank != 0 && !attr.allocatable && !attr.pointer)
 	    gfc_conv_expr_descriptor (&se, code->expr3);
 	  else
 	    gfc_conv_expr_reference (&se, code->expr3);
