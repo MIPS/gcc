@@ -82,40 +82,58 @@ grep $format '^+' $files \
 
 # Grep
 g (){
-    msg="$1"
-    arg="$2"
+    local msg="$1"
+    local arg="$2"
+
+    local found=false
     cat $inp \
 	| egrep --color=always -- "$arg" \
-	> $tmp && printf "\n$msg\n"
-    cat $tmp
+	> "$tmp" && found=true
+
+    if $found; then
+	printf "\n$msg\n"
+	cat "$tmp"
+    fi
 }
 
 # And Grep
 ag (){
-    msg="$1"
-    arg1="$2"
-    arg2="$3"
+    local msg="$1"
+    local arg1="$2"
+    local arg2="$3"
+
+    local found=false
     cat $inp \
 	| egrep --color=always -- "$arg1" \
 	| egrep --color=always -- "$arg2" \
-	> $tmp && printf "\n$msg\n"
-    cat $tmp
+	> "$tmp" && found=true
+
+    if $found; then
+	printf "\n$msg\n"
+	cat "$tmp"
+    fi
 }
 
 # reVerse Grep
 vg (){
-    msg="$1"
-    varg="$2"
-    arg="$3"
+    local msg="$1"
+    local varg="$2"
+    local arg="$3"
+
+    local found=false
     cat $inp \
 	| egrep -v -- "$varg" \
 	| egrep --color=always -- "$arg" \
-	> $tmp && printf "\n$msg\n"
-    cat $tmp
+	> "$tmp" && found=true
+
+    if $found; then
+	printf "\n$msg\n"
+	cat "$tmp"
+    fi
 }
 
 col (){
-    msg="$1"
+    local msg="$1"
     local first=true
     local f
     for f in $files; do
@@ -170,11 +188,12 @@ g 'Sentences should end with a dot.  Dot, space, space, end of the comment.' \
     '[[:alnum:]][[:blank:]]*\*/'
 
 vg 'There should be exactly one space between function name and parentheses.' \
-    '\#define' '[[:alnum:]]([[:blank:]]{2,})?\('
+    '\#define' \
+    '[[:alnum:]]([[:blank:]]{2,})?\('
 
 g 'There should be no space before closing parentheses.' \
     '[[:graph:]][[:blank:]]+\)'
 
 ag 'Braces should be on a separate line.' \
-    '\{' 'if[[:blank:]]\(|while[[:blank:]]\(|switch[[:blank:]]\('
-
+    '\{' \
+    'if[[:blank:]]\(|while[[:blank:]]\(|switch[[:blank:]]\('
