@@ -1,3 +1,8 @@
+2015-05-19  Julian Brown  <julian@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/mode-transitions.c: Update:
+	vector.
+
 2016-04-01  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/loop-red-wv-1.c: Don't force
