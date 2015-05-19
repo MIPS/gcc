@@ -3694,6 +3694,20 @@ ix86_option_override_internal (bool main_args_p,
 	break;
       }
 
+  if (TARGET_IAMCU_P (opts->x_target_flags))
+    {
+      /* Verify that x87/MMX/SSE/AVX is off for -miamcu.  */
+      if (TARGET_80387_P (opts->x_target_flags))
+	sorry ("X87 FPU isn%'t supported in Intel MCU psABI");
+      else if ((opts->x_ix86_isa_flags & (OPTION_MASK_ISA_MMX
+					  | OPTION_MASK_ISA_SSE
+					  | OPTION_MASK_ISA_AVX)))
+	sorry ("%s isn%'t supported in Intel MCU psABI",
+	       TARGET_MMX_P (opts->x_ix86_isa_flags)
+	       ? "MMX"
+	       : TARGET_SSE_P (opts->x_ix86_isa_flags) ? "SSE" : "AVX");
+    }
+
   if (!strcmp (opts->x_ix86_arch_string, "generic"))
     error ("generic CPU can be used only for %stune=%s %s",
 	   prefix, suffix, sw);
