@@ -1,3 +1,7 @@
+2015-05-19  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (enclosing_target_ctx): Comment out.
+
 2015-05-18  Tom de Vries  <tom@codesourcery.com>
 
 	PR tree-optimization/65637

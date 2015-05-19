@@ -2893,6 +2893,7 @@ finish_taskreg_scan (omp_context *ctx)
 }
 
 
+#if 0
 static omp_context *
 enclosing_target_ctx (omp_context *ctx)
 {
@@ -2902,6 +2903,7 @@ enclosing_target_ctx (omp_context *ctx)
   gcc_assert (ctx != NULL);
   return ctx;
 }
+#endif
 
 static bool
 oacc_loop_or_target_p (gimple stmt)
