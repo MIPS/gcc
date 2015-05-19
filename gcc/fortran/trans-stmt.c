@@ -5723,7 +5723,7 @@ gfc_trans_allocate (gfc_code * code)
 	      /* Only use the array descriptor in expr3_desc, when it is
 		 set and not in a mold= expression.  */
 	      from = expr3_desc == NULL_TREE || code->expr3->mold ?
-		    expr3 : GFC_DECL_SAVED_DESCRIPTOR (expr3_desc);
+		       expr3 : GFC_DECL_SAVED_DESCRIPTOR (expr3_desc);
 	      tmp = gfc_copy_class_to_class (from, to,
 					     nelems, upoly_expr);
 	    }
@@ -5816,10 +5816,13 @@ gfc_trans_allocate (gfc_code * code)
 						       &al->expr->where, 1);
 			      ref->u.ar.start[dim] = temp;
 			    }
-			  temp = gfc_subtract (gfc_copy_expr (ref->u.ar.end[dim]),
-					       gfc_copy_expr (ref->u.ar.start[dim]));
-			  temp = gfc_add (gfc_get_int_expr (gfc_default_integer_kind,
-							    &al->expr->where, 1),
+			  temp = gfc_subtract (gfc_copy_expr (
+						 ref->u.ar.end[dim]),
+					       gfc_copy_expr (
+						 ref->u.ar.start[dim]));
+			  temp = gfc_add (gfc_get_int_expr (
+					    gfc_default_integer_kind,
+					    &al->expr->where, 1),
 					  temp);
 			}
 		    }
