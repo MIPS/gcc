@@ -2757,6 +2757,9 @@ pp_cxx_disjunction (cxx_pretty_printer *pp, tree t)
 void
 pp_cxx_constraint (cxx_pretty_printer *pp, tree t)
 {
+  if (t == error_mark_node)
+    return pp->expression (t);
+
   switch (TREE_CODE (t))
     {
     case PRED_CONSTR:

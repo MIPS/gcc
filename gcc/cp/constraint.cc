@@ -50,14 +50,18 @@ along with GCC; see the file COPYING3.  If not see
                        Operations on constraints
 ---------------------------------------------------------------------------*/
 
-/* Returns true if C is a constraint tree code. */
+/* Returns true if C is a constraint tree code. Note that ERROR_MARK
+   is a valid constraint.  */
+
 static inline bool
 constraint_p (tree_code c)
 {
-  return PRED_CONSTR <= c && c <= DISJ_CONSTR;
+  return (PRED_CONSTR <= c && c <= DISJ_CONSTR) || c == ERROR_MARK;
 }
 
-/* Returns true if T is a constraint. */
+/* Returns true if T is a constraint. Note that error_mark_node
+   is a valid constraint.  */
+
 bool
 constraint_p (tree t)
 {
@@ -65,6 +69,7 @@ constraint_p (tree t)
 }
 
 /* Make a predicate constraint from the given expression. */
+
 tree
 make_predicate_constraint (tree expr)
 {
@@ -82,6 +87,7 @@ make_predicate_constraint (tree expr)
       conjoin_constraints (NULL_TREE, a) == a
 
    If both A and B are NULL_TREE, the result is also NULL_TREE. */
+
 tree
 conjoin_constraints (tree a, tree b)
 {
@@ -97,6 +103,7 @@ conjoin_constraints (tree a, tree b)
 
 /* Transform the vector of expressions in the T into a conjunction
    of requirements. T must be a TREE_VEC. */
+
 tree
 conjoin_constraints (tree t)
 {
@@ -109,6 +116,7 @@ conjoin_constraints (tree t)
 
 /* Returns true if T is a call expression to a function
    concept. */
+
 bool
 function_concept_check_p (tree t)
 {
@@ -689,7 +697,12 @@ xform_compound_requirement (tree t)
 }
 
 /* A nested requirement T introduces a conjunction of constraints
-   corresponding to its constraint-expression.  */
+   corresponding to its constraint-expression.  
+
+   If the result of transforming T is error_mkar_node, the resulting 
+   constraint is a predicate constraint whose operand is also 
+   error_mark_node. This preserves the constraint structure, but 
+   will guarantee that the constraint is never satisfied.  */
 
 inline tree
 xform_nested_requirement (tree t)
@@ -703,22 +716,22 @@ tree
 xform_requirement (tree t)
 {
   switch (TREE_CODE (t))
-  {
-  case SIMPLE_REQ:
-    return xform_simple_requirement (t);
-  
-  case TYPE_REQ:
-    return xform_type_requirement (t);
-  
-  case COMPOUND_REQ:
-    return xform_compound_requirement (t);
-  
-  case NESTED_REQ:
-    return xform_nested_requirement (t);
+    {
+    case SIMPLE_REQ:
+      return xform_simple_requirement (t);
+    
+    case TYPE_REQ:
+      return xform_type_requirement (t);
+    
+    case COMPOUND_REQ:
+      return xform_compound_requirement (t);
+    
+    case NESTED_REQ:
+      return xform_nested_requirement (t);
 
-  default:
-    gcc_unreachable ();
-  }
+    default:
+      gcc_unreachable ();
+    }
   return error_mark_node;
 }
 
@@ -729,10 +742,11 @@ tree
 xform_requirements (tree t)
 {
   tree result = NULL_TREE;
-  for (; t; t = TREE_CHAIN (t)) {
-    tree constr = xform_requirement (TREE_VALUE (t));
-    result = conjoin_constraints (result, constr);
-  }
+  for (; t; t = TREE_CHAIN (t)) 
+    {
+      tree constr = xform_requirement (TREE_VALUE (t));
+      result = conjoin_constraints (result, constr);
+    }
   return result;
 }
 
@@ -928,6 +942,9 @@ normalize_constraint (tree t)
 {
   if (!t)
     return NULL_TREE;
+
+  if (t == error_mark_node)
+    return t;
   
   switch (TREE_CODE (t))
     {
@@ -1018,15 +1035,14 @@ build_constraint_info ()
 
 } // namespace
 
-/* Build a constraint-info object that contains the 
-   associated condstraints of a declaration. This also 
-   includes the declaration's template requirements (TREQS)
-   and any trailing requirements for a function declarator
-   (DREQS). Note that both TREQS and DREQS must be constraints.
+/* Build a constraint-info object that contains the associated constraints 
+   of a declaration.  This also includes the declaration's template 
+   requirements (TREQS) and any trailing requirements for a function 
+   declarator (DREQS).  Note that both TREQS and DREQS must be constraints.
 
-   If the declaration has neither template nor declaration 
-   requirements this returns NULL_TREE, indicating an 
-   unconstrained declaration. */
+   If the declaration has neither template nor declaration requirements 
+   this returns NULL_TREE, indicating an unconstrained declaration.  */
+
 tree
 build_constraints (tree tmpl_reqs, tree decl_reqs)
 {
@@ -1553,6 +1569,7 @@ tsubst_simple_requirement (tree t, tree args,
    substitution may result in an ill-formed type without
    causing the program to be ill-formed. In such cases, the
    requirement wraps an error_mark_node. */
+
 inline tree
 tsubst_type_requirement (tree t, tree args, 
                          tsubst_flags_t complain, tree in_decl)
@@ -1568,6 +1585,7 @@ tsubst_type_requirement (tree t, tree args,
    operands in the resulting node will be error_mark_node. This
    preserves a requirement for the purpose of partial ordering, but
    it will never be satisfied. */
+
 tree
 tsubst_compound_requirement (tree t, tree args,
                              tsubst_flags_t complain, tree in_decl)
@@ -1581,6 +1599,7 @@ tsubst_compound_requirement (tree t, tree args,
 }
 
 /* Substitute ARGS into the nested requirement T. */
+
 tree
 tsubst_nested_requirement (tree t, tree args, 
                            tsubst_flags_t complain, tree in_decl)
@@ -1612,6 +1631,7 @@ tsubst_requirement (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 /* Substitute ARGS into the list of requirements T. Note that
    substitution failures here result in ill-formed programs. */
+
 tree
 tsubst_requirement_body (tree t, tree args, 
                          tsubst_flags_t complain, tree in_decl)
@@ -1634,6 +1654,7 @@ tsubst_requirement_body (tree t, tree args,
    results in the re-declaration of local parameters when
    substituting through the parameter list. If either substitution
    fails, the program is ill-formed. */
+
 tree
 tsubst_requires_expr (tree t, tree args, 
                       tsubst_flags_t complain, tree in_decl)

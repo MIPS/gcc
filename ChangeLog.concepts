@@ -1,5 +1,14 @@
 2015-05-19  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Handle nested requirements with type errors.
+	* gcc/cp/constraint.cc (constraint_p): Admit error_mark_node
+	as a valid, but never satisfied, constraint.
+	(normalize_constraint): Handle the error_mark_node case.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_constraint): Likewise.
+	* gcc/testsuite/g++.dg/concepts/fn10.C: New test case.
+
+2015-05-19  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Stop template processing during constraint satisfication.
 	* gcc/cp/constraint.cc (satisfy_constraint): Rename to
 	satisfy_constraint_1 and assert that we are not processing

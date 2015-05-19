@@ -6,9 +6,24 @@
 
 namespace std
 {
-  struct ostream { };
-  ostream cout;
-}
+
+struct ostream { };
+ostream cout;
+
+template<typename T>
+auto begin(T& t) -> decltype(t.begin()) { return t.begin(); }
+
+template<typename T>
+auto begin(T const& t) -> decltype(t.begin()) { return t.begin(); }
+
+template<typename T>
+auto end(T& t) -> decltype(t.end()) { return t.end(); }
+
+template<typename T>
+auto end(T const& t) -> decltype(t.end()) { return t.end(); }
+
+} // namespace std
+
 
 template <typename T>
   concept bool Float()
@@ -42,8 +57,36 @@ template <Concept T>
     std::cout << "OK"; // { dg-error "no match" }
   }
 
+
+template <typename R>
+concept bool Range()
+{
+  return requires( R r ) {
+    requires __is_same_as( 
+      decltype(std::begin(r)), decltype(std::end(r)) );
+  };
+}
+
+struct A
+{
+  A() = default;
+  A( const A& ) = default;
+
+  // Derivation from this class forces the instantiation of
+  // this constructor, which results in the __is_same_as type
+  // trait above to become error_mark_node in this declaration.
+  template <Range R>
+    explicit A( R&& r ) { }
+};
+
+struct C : A
+{
+  C() = default;
+  C( const C& ) = default;
+};
+
 int main()
 {
-  foo( 12.5f );
+  C c; // OK
   return 0;
 }
