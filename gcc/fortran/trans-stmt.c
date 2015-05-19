@@ -5187,8 +5187,9 @@ gfc_trans_allocate (gfc_code * code)
 		}
 	      else
 		{
-		  /* For all "simple" expression just get the descriptor or the
-		     reference, respectively, depending on the rank of the expr.  */
+		  /* For all "simple" expression just get the descriptor
+		     or the reference, respectively, depending on the
+		     rank of the expr.  */
 		  if (code->expr3->rank != 0)
 		    gfc_conv_expr_descriptor (&se, code->expr3);
 		  else
@@ -5708,7 +5709,7 @@ gfc_trans_allocate (gfc_code * code)
 	  if ((expr3_desc != NULL_TREE
 	       || (expr3 != NULL_TREE
 		   && ((POINTER_TYPE_P (TREE_TYPE (expr3))
-		        && TREE_CODE (expr3) != POINTER_PLUS_EXPR)
+			&& TREE_CODE (expr3) != POINTER_PLUS_EXPR)
 		       || (VAR_P (expr3) && GFC_CLASS_TYPE_P (
 			     TREE_TYPE (expr3))))))
 	      && code->expr3->ts.type == BT_CLASS
@@ -5789,7 +5790,8 @@ gfc_trans_allocate (gfc_code * code)
 				  gfc_get_int_expr (gfc_default_integer_kind,
 						    &al->expr->where, 1);
 			      /* Skip over element dimensions.  */
-			      while (source_ref->dimen_type[sdim] == DIMEN_ELEMENT)
+			      while (source_ref->dimen_type[sdim]
+				     == DIMEN_ELEMENT)
 				++sdim;
 			      temp = gfc_subtract (gfc_copy_expr (
 						     source_ref->end[sdim]),

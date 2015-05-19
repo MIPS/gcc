@@ -7414,7 +7414,8 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	      gfc_symbol *temp_var_sym;
 	      gfc_expr *temp_var;
 	      gfc_code *ass, *old_alloc;
-	      gfc_namespace *ns = code->ext.alloc.list->expr->symtree->n.sym->ns;
+	      gfc_namespace *ns =
+		  code->ext.alloc.list->expr->symtree->n.sym->ns;
 	      gfc_array_spec *as;
 	      int dim;
 	      mpz_t dim_size;
@@ -7456,7 +7457,7 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 			  break;
 			}
 		      as->lower[dim] = gfc_get_int_expr (gfc_index_integer_kind,
-							 &code->expr3->where, 1);
+							&code->expr3->where, 1);
 		      as->upper[dim] = gfc_get_int_expr (gfc_index_integer_kind,
 							 &code->expr3->where,
 							 mpz_get_si (dim_size));
