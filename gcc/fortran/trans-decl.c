@@ -5958,7 +5958,8 @@ gfc_generate_function_code (gfc_namespace * ns)
 	      else if (rsym->ts.u.derived->attr.alloc_comp)
 		{
 		  rank = rsym->as ? rsym->as->rank : 0;
-		  tmp = gfc_nullify_alloc_comp (rsym->ts.u.derived, result, rank);
+		  tmp = gfc_nullify_alloc_comp (rsym->ts.u.derived, result,
+						rank);
 		  gfc_prepend_expr_to_block (&body, tmp);
 		}
 	    }
