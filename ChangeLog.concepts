@@ -1,4 +1,11 @@
-2015-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2015-05-19  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Handle naked non-type template arguments as constraints.
+	* gcc/cp/constraint.cc (xform_misc): Removed.
+	(transform_expr): All misc tree classes are atomic constraints.
+	* gcc/testsuite/g++.dg/concepts/req1.C: Add new test cases.
+
+2015-05-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fix long-standing regression in template introductions.
 	* gcc/cp/parser.c (cp_parser_template_declaration_after_export):
@@ -20,8 +27,6 @@
 	cp_parser_explicit_template_declaration.
 	* gcc/testsuite/g++.dg/concepts/intro4: Remove spurios diagnostic.
 	* gcc/testsuite/g++.dg/concepts/intro6: New.
-
-
 
 2015-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
 

@@ -587,6 +587,7 @@ tree transform_expression (tree);
    not result in a call to a user-defined user-defined operator 
    (temp.constr.op). Returns true if the logical operator is 
    admissible and false otherwise. */
+
 bool
 check_logical_expr (tree t) 
 {
@@ -621,6 +622,7 @@ check_logical_expr (tree t)
 
 /* Transform a logical-or or logical-and expression into either
    a conjunction or disjunction. */
+
 tree
 xform_logical (tree t, tree_code c)
 {
@@ -633,14 +635,15 @@ xform_logical (tree t, tree_code c)
 
 /* A simple requirement T introduces an expression constraint
    for its expression. */
+
 inline tree
 xform_simple_requirement (tree t)
 {
   return build_nt (EXPR_CONSTR, TREE_OPERAND (t, 0));
 }
 
-/* A type requirement T introduce a type constraint for its
-   type. */
+/* A type requirement T introduce a type constraint for its type.  */
+
 inline tree
 xform_type_requirement (tree t)
 {
@@ -648,12 +651,13 @@ xform_type_requirement (tree t)
 }
 
 /* A compound requirement T introduces a conjunction of constraints
-   depending on its form. The conjunction always includes
-   an expression constraint for the expression of the requirement.
+   depending on its form.  The conjunction always includes an 
+   expression constraint for the expression of the requirement.
    If a trailing return type was specified, the conjunction includes
-   either an implicit conversion constraint or an argument
-   deduction constraint. If the noexcept specifier is present, the
-   conjunction includes an exception constraint. */
+   either an implicit conversion constraint or an argument deduction 
+   constraint.  If the noexcept specifier is present, the conjunction 
+   includes an exception constraint.  */
+
 tree
 xform_compound_requirement (tree t)
 {
@@ -685,14 +689,16 @@ xform_compound_requirement (tree t)
 }
 
 /* A nested requirement T introduces a conjunction of constraints
-   corresponding to its constraint-expression. */
+   corresponding to its constraint-expression.  */
+
 inline tree
 xform_nested_requirement (tree t)
 {
   return transform_expression (TREE_OPERAND (t, 0));
 }
 
-/* Transform a requirement T into one or more constraints. */
+/* Transform a requirement T into one or more constraints.  */
+
 tree 
 xform_requirement (tree t)
 {
@@ -718,6 +724,7 @@ xform_requirement (tree t)
 
 /* Transform a sequence of requirements into a conjunction of
    constraints. */
+
 tree
 xform_requirements (tree t)
 {
@@ -729,7 +736,8 @@ xform_requirements (tree t)
   return result;
 }
 
-/* Transform a requires-expression into a parameterized constraint. */
+/* Transform a requires-expression into a parameterized constraint.  */
+
 tree
 xform_requires_expr (tree t)
 {
@@ -741,9 +749,10 @@ xform_requires_expr (tree t)
 }
 
 /* Transform an expression into an atomic predicate constraint. 
-    After substitution, the expression of a predicate constraint shall 
-    have type bool (temp.constr.pred). For non-type-dependent 
-    expressions, we can check that now. */
+    After substitution, the expression of a predicate constraint 
+    shall have type bool (temp.constr.pred).  For non-type-dependent
+    expressions, we can check that now.  */
+
 tree
 xform_atomic (tree t) 
 {
@@ -759,7 +768,8 @@ xform_atomic (tree t)
   return build_nt (PRED_CONSTR, t);
 }
 
-/* Transform an expression into a constraint. */
+/* Transform an expression into a constraint.  */
+
 tree
 xform_expr (tree t)
 {
@@ -783,7 +793,8 @@ xform_expr (tree t)
     }
 }
 
-/* Transform a statement into an expression. */
+/* Transform a statement into an expression.  */
+
 tree
 xform_stmt (tree t)
 {
@@ -797,7 +808,8 @@ xform_stmt (tree t)
   return error_mark_node;
 }
 
-// Reduction rules for the declaration T.
+/* Reduction rules for the declaration T.  */
+
 tree
 xform_decl (tree t)
 {
@@ -811,26 +823,11 @@ xform_decl (tree t)
   return error_mark_node;
 }
 
-/* Transform an exceptional node into a constraint. */
-tree
-xform_misc (tree t)
-{
-  switch (TREE_CODE (t))
-    {
-    case TRAIT_EXPR:
-      return xform_atomic (t);
-    case CONSTRUCTOR:
-      return xform_atomic (t);
-    default:
-      gcc_unreachable ();
-    }
-  return error_mark_node;
-}
-
 
 /* Transform a lifted expression into a constraint. This either
    returns a constraint, or it returns error_mark_node when
-   a constraint cannot be formed. */
+   a constraint cannot be formed.  */
+
 tree
 transform_expression (tree t)
 {
@@ -855,12 +852,10 @@ transform_expression (tree t)
       return xform_decl (t);
     
     case tcc_exceptional: 
-      return xform_misc (t);
-    
     case tcc_constant:
     case tcc_reference:
     case tcc_comparison:
-      /* These are atomic predicate constraints. */
+      /* These are all atomic predicate constraints. */
       return xform_atomic (t);
 
     default:
@@ -877,7 +872,8 @@ transform_expression (tree t)
 tree normalize_constraint (tree);
 
 /* The normal form of the disjunction T0 /\ T1 is the conjunction
-   of the normal form of T0 and the normal form of T1 */
+   of the normal form of T0 and the normal form of T1.  */
+
 inline tree
 normalize_conjunction (tree t)
 {
@@ -887,7 +883,8 @@ normalize_conjunction (tree t)
 }
 
 /* The normal form of the disjunction T0 \/ T1 is the disjunction 
-   of the normal form of T0 and the normal form of T1 */
+   of the normal form of T0 and the normal form of T1.  */
+
 inline tree
 normalize_disjunction (tree t)
 {
@@ -896,11 +893,12 @@ normalize_disjunction (tree t)
   return build_nt (DISJ_CONSTR, t0, t1);
 }
 
-/* A predicate constraint is normalized in two stages. First all
+/* A predicate constraint is normalized in two stages.  First all
    references specializations of concepts are replaced by their
-   substituted definitions. Then, the resulting expression is
+   substituted definitions.  Then, the resulting expression is
    transformed into a constraint by transforming && expressions
-   into conjunctions and || into disjunctions. */
+   into conjunctions and || into disjunctions.  */
+
 tree 
 normalize_predicate_constraint (tree t)
 {
@@ -911,7 +909,8 @@ normalize_predicate_constraint (tree t)
 }
 
 /* The normal form of a parameterized constraint is the normal
-   form of its operand. */
+   form of its operand.  */
+
 tree
 normalize_parameterized_constraint (tree t)
 {
@@ -922,7 +921,8 @@ normalize_parameterized_constraint (tree t)
 
 /* Normalize the constraint T by reducing it so that it is
    comprised of only conjunctions and disjunctions of atomic
-   constraints. */
+   constraints.  */
+
 tree
 normalize_constraint (tree t)
 {
