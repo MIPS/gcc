@@ -1,5 +1,15 @@
 2015-05-19  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Stop template processing during constraint satisfication.
+	* gcc/cp/constraint.cc (satisfy_constraint): Rename to
+	satisfy_constraint_1 and assert that we are not processing
+	template declarations.
+	(satisfy_*_constraint): Use satisfy_constraint_1.
+	(satisfy_constraint): Turn off template processing.
+	* gcc/testsuite/g++.dg/concepts/fn10.C: New.
+
+2015-05-19  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Handle naked non-type template arguments as constraints.
 	* gcc/cp/constraint.cc (xform_misc): Removed.
 	(transform_expr): All misc tree classes are atomic constraints.

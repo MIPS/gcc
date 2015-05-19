@@ -1688,7 +1688,7 @@ tsubst_constraint_info (tree t, tree args,
 
 namespace {
 
-tree satisfy_constraint (tree, tree, tsubst_flags_t, tree);
+tree satisfy_constraint_1 (tree, tree, tsubst_flags_t, tree);
 
 /* Check the pack expansion by first transforming it into a
    conjunction of constraints. */
@@ -1728,7 +1728,7 @@ satisfy_pack_expansion (tree t, tree args,
       tree constr = transform_expression (expr);
       result = conjoin_constraints (result, constr);
     }
-  return satisfy_constraint (result, args, complain, in_decl);
+  return satisfy_constraint_1 (result, args, complain, in_decl);
 }
 
 /* A predicate constraint is satisfied if its expression evaluates
@@ -1832,11 +1832,8 @@ satisfy_implicit_conversion_constraint (tree t, tree args,
   /* Don't tsubst as if we're processing a template. If we try 
      to we can end up generating template-like expressions
      (e.g., modop-exprs) that aren't properly typed.  */
-  int saved_template_decl = processing_template_decl;
-  processing_template_decl = 0;
   tree expr =
     tsubst_expr (ICONV_CONSTR_EXPR (t), args, complain, in_decl, false);
-  processing_template_decl = saved_template_decl;
   if (expr == error_mark_node)
     return boolean_false_node;
 
@@ -1908,7 +1905,7 @@ satisfy_parameterized_constraint (tree t, tree args,
   if (vars == error_mark_node)
     return boolean_false_node;
   tree constr = PARM_CONSTR_OPERAND (t);
-  return satisfy_constraint (constr, args, complain, in_decl);
+  return satisfy_constraint_1 (constr, args, complain, in_decl);
 }
 
 /* Check that the conjunction of constraints is satisfied. Note
@@ -1923,10 +1920,10 @@ satisfy_parameterized_constraint (tree t, tree args,
 tree
 satisfy_conjunction (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
-  tree t0 = satisfy_constraint (TREE_OPERAND (t, 0), args, complain, in_decl);
+  tree t0 = satisfy_constraint_1 (TREE_OPERAND (t, 0), args, complain, in_decl);
   if (t0 == boolean_false_node)
     return t0;
-  tree t1 = satisfy_constraint (TREE_OPERAND (t, 1), args, complain, in_decl);
+  tree t1 = satisfy_constraint_1 (TREE_OPERAND (t, 1), args, complain, in_decl);
   if (t1 == boolean_false_node)
     return t1;
   return boolean_true_node;
@@ -1939,22 +1936,23 @@ satisfy_conjunction (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 tree
 satisfy_disjunction (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
-  tree t0 = satisfy_constraint (TREE_OPERAND (t, 0), args, complain, in_decl);
+  tree t0 = satisfy_constraint_1 (TREE_OPERAND (t, 0), args, complain, in_decl);
   if (t0 == boolean_true_node)
     return boolean_true_node;
-  tree t1 = satisfy_constraint (TREE_OPERAND (t, 1), args, complain, in_decl);
+  tree t1 = satisfy_constraint_1 (TREE_OPERAND (t, 1), args, complain, in_decl);
   if (t1 == boolean_true_node)
     return boolean_true_node;
   return boolean_false_node;
 }
 
-/* Check that the constraint is satisfied, according to the rules 
-   for that constraint. Note that each satisfy_* function returns
-   true or false, depending on whether it is satisfied or not.  */
+/* Dispatch to an appropriate satisfaction routine depending on the
+   tree code of T.  */
 
 tree 
-satisfy_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+satisfy_constraint_1 (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
+  gcc_assert (!processing_template_decl);
+
   if (!t)
     return boolean_false_node;
 
@@ -1996,12 +1994,17 @@ satisfy_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   return boolean_false_node;
 }
 
-/* Same as above but will not emit diagnostics. */
+/* Check that the constraint is satisfied, according to the rules 
+   for that constraint. Note that each satisfy_* function returns
+   true or false, depending on whether it is satisfied or not.  */
 
 tree 
 satisfy_constraint (tree t, tree args)
 {
-  return satisfy_constraint (t, args, tf_none, NULL_TREE);
+  /* Turn off template processing. Constraint satisfaction only applies
+     to non-dependent terms, so we want full checking here.  */
+  processing_template_decl_sentinel sentinel (true);
+  return satisfy_constraint_1 (t, args, tf_none, NULL_TREE);
 }
 
 /* Check the associated constraints in CI against the given 
