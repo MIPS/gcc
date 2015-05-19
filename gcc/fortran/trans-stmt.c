@@ -5109,6 +5109,7 @@ gfc_trans_allocate (gfc_code * code)
   stmtblock_t post;
   tree nelems;
   bool upoly_expr, tmp_expr3_len_flag = false, al_len_needs_set;
+  gfc_symtree *newsym = NULL;
 
   if (!code->ext.alloc.list)
     return NULL_TREE;
@@ -5338,26 +5339,24 @@ gfc_trans_allocate (gfc_code * code)
 	     don't have to take care about scalar to array treatment and
 	     will benefit of every enhancements gfc_trans_assignment ()
 	     gets.  */
-	  e3rhs = gfc_copy_expr (code->expr3);
 	  if (expr3 != NULL_TREE && DECL_P (expr3) && DECL_ARTIFICIAL (expr3))
 	    {
 	      /* Build a temporary symtree and symbol.  Do not add it to
 		 the current namespace to prevent accidently modifying
 		 a colliding symbol's as.  */
-	      gfc_symtree *newsym = XCNEW (gfc_symtree);
+	      newsym = XCNEW (gfc_symtree);
 	      /* The name of the symtree should be unique, because
 		 gfc_create_var () took care about generating the
 		 identifier.  */
 	      newsym->name = gfc_get_string (IDENTIFIER_POINTER (
 					       DECL_NAME (expr3)));
 	      newsym->n.sym = gfc_new_symbol (newsym->name, NULL);
-	      /* The temporary is likely to need no references, but a
-		 full array ref, therefore clear the chain of refs.  */
-	      gfc_free_ref_list (e3rhs->ref);
-	      e3rhs->ref = NULL;
 	      /* The backend_decl is known.  It is expr3, which is inserted
 		 here.  */
 	      newsym->n.sym->backend_decl = expr3;
+	      e3rhs = gfc_get_expr ();
+	      e3rhs->ts = code->expr3->ts;
+	      e3rhs->rank = code->expr3->rank;
 	      e3rhs->symtree = newsym;
 	      /* Mark the symbol referenced or gfc_trans_assignment will
 		 bug.  */
@@ -5380,10 +5379,12 @@ gfc_trans_allocate (gfc_code * code)
 		  gfc_add_full_array_ref (e3rhs, arr);
 		}
 	      /* The string length is known to.  Set it for char arrays.  */
-	      if (code->expr3->ts.type == BT_CHARACTER)
+	      if (e3rhs->ts.type == BT_CHARACTER)
 		newsym->n.sym->ts.u.cl->backend_decl = expr3_len;
 	      gfc_commit_symbol (newsym->n.sym);
 	    }
+	  else
+	    e3rhs = gfc_copy_expr (code->expr3);
 	}
       gcc_assert (expr3_esize);
       expr3_esize = fold_convert (sizetype, expr3_esize);
@@ -5849,6 +5850,15 @@ gfc_trans_allocate (gfc_code * code)
        gfc_free_expr (expr);
     } // for-loop
 
+  if (e3rhs)
+    {
+      if (newsym)
+	{
+	  gfc_free_symbol (newsym->n.sym);
+	  XDELETE (newsym);
+	}
+      gfc_free_expr (e3rhs);
+    }
   /* STAT.  */
   if (code->expr1)
     {
