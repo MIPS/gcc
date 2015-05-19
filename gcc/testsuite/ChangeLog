@@ -1,3 +1,230 @@
+2015-05-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/20150120-1.c (dg-final): Cleanup original tree dump.
+	* gcc.dg/20150120-2.c (dg-final): Ditto.
+	* gcc.dg/20150120-2.c (dg-final): Ditto.
+	* gfortran.dg/inline_matmul_1.f90 (dg-final): Ditto.
+
+2015-05-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66174
+	* gcc.target/i386/pr66174.c: New test.
+
+2015-05-17  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/37131
+	* gfortran.dg/matmul_bounds_6.f90:  New test.
+	* gfortran.dg/matmul_bounds_7.f90:  New test.
+
+2015-05-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gfortran.dg/lto/20091028-2_1.c: Fix return value.
+	* gfortran.dg/lto/pr41576_1.f90: Add interface.
+	* gfortran.dg/lto/pr41521_0.f90: Disable lto-type-mismatch
+	* gfortran.dg/lto/pr60635_0.f90: Disable lto-type-mismatch.
+	* gfortran.dg/lto/20091028-1_1.c: Fix return type.
+	* gcc.dg/lto/20120723_0.c: Disbale lto-type-mismatch.
+
+2015-05-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/65903
+	* gfortran.dg/continuation_13.f90: Update test.
+	* gfortran.dg/pr65903.f90: New test.
+
+2015-05-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66113
+	* gfortran.dg/block_14.f90:  New test.
+
+2015-05-16  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* lib/gfortran-dg.exp: Update regex to handle two locations for
+	the same diagnostic without caret.
+	* gfortran.dg/badline.f: Test also that line numbers are correct
+	before and after "left but not entered" warning.
+
+2015-05-16  Kugan Vivekanandarajah  <kuganv@linaro.org>
+	    Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	PR target/65768
+	* gcc.target/arm/maskdata.c: New test.
+
+2015-05-16  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/65792
+	* gfortran.dg/derived_constructor_components_5: New test
+
+2015-05-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66140
+	* gcc.target/alpha/pr66140.c: New test.
+
+2015-05-15  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c/48956
+	* gcc.dg/Wconversion-complex-c99.c: New test.
+	* gcc.dg/Wconversion-complex-gnu.c: New test.
+
+2015-05-15  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/64454
+	* gcc.dg/modmod.c: New testcase.
+
+2015-05-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.dg/lto/chkp-wrap-asm-name_0.c: New.
+
+2015-05-15  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR middle-end/66134
+	* gcc.target/i386/mpx/pr66134.c: New test.
+
+2015-05-14  Rohit Arul Raj  <rohitrulraj@freescale.com>
+
+	* gcc.target/powerpc/pr60158.c: New test.
+
+2015-05-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	* gcc.target/i386/sibcall-7.c: New test.
+	* gcc.target/i386/sibcall-8.c: New test.
+
+2015-05-14  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* gcc.target/aarch64/abs_1.c (abs64): Update test for new abs expansion.
+	(abs64_in_dreg): Likewise.
+
+2015-05-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66066
+	PR c/66127
+	* gcc.dg/pr14649-1.c: Add -Wpedantic.
+	* gcc.dg/pr19984.c: Likewise.
+	* gcc.dg/pr66066-1.c: New test.
+	* gcc.dg/pr66066-2.c: New test.
+	* gcc.dg/pr66066-3.c: New test.
+
+2015-05-13  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/pow-sqrt-synth-1.c: New test.
+	* gcc.dg/pow-sqrt.x: New file.
+	* gcc.dg/pow-sqrt-1.c: New test.
+	* gcc.dg/pow-sqrt-2.c: Likewise.
+	* gcc.dg/pow-sqrt-3.c: Likewise.
+
+2015-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66123
+	* gcc.dg/torture/pr66123.c: New testcase.
+
+2015-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/66110
+	* gcc.dg/alias-2.c: Adjust.
+	* gcc.dg/tree-ssa/ssa-dse-17.c: New testcase.
+
+2015-05-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/65103
+	* gcc.target/i386/pr65103-3.c: New.
+
+2015-05-13  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/ipa/pr65557.C: Remove unnecessary dump flag.
+
+2015-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/66112
+	* gcc.target/i386/pr66112-2.c: New test.
+
+	PR target/66112
+	* gcc.target/i386/pr66112-1.c: New test.
+
+2015-05-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/66048
+	* gcc.target/i386/mpx/pr66048.cc: New.
+
+2015-05-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR rtl-optimization/64616
+	* gcc.dg/loop-8.c: New test.
+	* gcc.dg/loop-9.c: New test.
+
+2015-05-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR target/pr66047.c
+	* gcc.target/i386/pr66047.c: New testcase.
+
+2015-05-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65873
+	* gcc.c-torture/compile/pr65873.c: New testcase.
+
+2015-05-12  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66111
+	* gfortran.dg/inline_matmul_10.f90:  New test.
+
+2015-05-12  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-c++-common/Wmisleading-indentation.c: New testcase.
+	* c-c++-common/Wmisleading-indentation-2.c: New testcase.
+	* c-c++-common/Wmisleading-indentation-2.md: New file.
+
+2015-05-12 Sandra Loosemore <sandra@codesourcery.com>
+
+	* gcc.target/nios2/nios2-trap-insn.c: Expect "trap" instead of
+	"break".
+	* gcc.target/nios2/nios2-stack-check-1.c: Likewise.
+
+2015-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66101
+	* gcc.dg/torture/pr66101.c: New testcase.
+
+2015-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/37021
+	* gcc.target/i386/vect-addsub.c: New testcase.
+
+2015-05-12  Alexander Monakov  <amonakov@ispras.ru>
+
+	* gcc.target/i386/pr65753.c: Use -O2 instead of -O.
+
+2015-05-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66010
+	* gcc.dg/tree-ssa/stdarg-2.c: Undo scan xfails for f15.
+
+2015-05-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/65133
+	* g++.dg/cpp0x/trailing10.C: New.
+
+2015-05-12  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/bb-slp-35.c: New testcase.
+
+2015-05-11  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/66100
+	* gfortran.dg/bound_simplification_6.f90: New.
+
+2015-05-11  Steve Ellcey  <sellcey@mips.com>
+
+	* gcc.target/mips/branch-1.c: Pass argument to bar().
+
+2015-05-11  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR target/65753
+	* gcc.target/i386/pr65753.c: New test.
+
+2015-05-11  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR rtl-optimization/66076
+	* gcc.dg/torture/pr66076.c: New test.
+
 2015-05-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR fortran/66041

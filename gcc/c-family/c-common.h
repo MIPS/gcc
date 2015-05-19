@@ -767,15 +767,22 @@ struct visibility_flags
   unsigned inlines_hidden : 1;	/* True when -finlineshidden in effect.  */
 };
 
-/* These enumerators are possible types of unsafe conversions.
-   SAFE_CONVERSION The conversion is safe
-   UNSAFE_OTHER Another type of conversion with problems
-   UNSAFE_SIGN Conversion between signed and unsigned integers
-    which are all warned about immediately, so this is unused
-   UNSAFE_REAL Conversions that reduce the precision of reals
-    including conversions from reals to integers
- */
-enum conversion_safety { SAFE_CONVERSION = 0, UNSAFE_OTHER, UNSAFE_SIGN, UNSAFE_REAL };
+/* These enumerators are possible types of unsafe conversions.  */
+enum conversion_safety {
+  /* The conversion is safe.  */
+  SAFE_CONVERSION = 0,
+  /* Another type of conversion with problems.  */
+  UNSAFE_OTHER,
+  /* Conversion between signed and unsigned integers
+     which are all warned about immediately, so this is unused.  */
+  UNSAFE_SIGN,
+  /* Conversions that reduce the precision of reals including conversions
+     from reals to integers.  */
+  UNSAFE_REAL,
+  /* Conversions from complex to reals or integers, that discard imaginary
+     component.  */
+  UNSAFE_IMAGINARY
+};
 
 /* Global visibility options.  */
 extern struct visibility_flags visibility_options;
@@ -1489,4 +1496,12 @@ extern bool contains_cilk_spawn_stmt (tree);
 extern tree cilk_for_number_of_iterations (tree);
 extern bool check_no_cilk (tree, const char *, const char *,
 		           location_t loc = UNKNOWN_LOCATION);
+/* In c-indentation.c.  */
+extern void
+warn_for_misleading_indentation (location_t guard_loc,
+				 location_t body_loc,
+				 location_t next_stmt_loc,
+				 enum cpp_ttype next_tok_type,
+				 const char *guard_kind);
+
 #endif /* ! GCC_C_COMMON_H */

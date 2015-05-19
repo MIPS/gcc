@@ -85,7 +85,7 @@ target_alias=${target_alias-$host_alias}
 #  -Wall:  turns on all automake warnings...
 #  -Wno-portability:  ...except this one, since GNU make is required.
 #  -Wno-override: ... and this one, since we do want this in testsuite.
-AM_INIT_AUTOMAKE([1.11.1 foreign -Wall -Wno-portability -Wno-override])
+AM_INIT_AUTOMAKE([1.11.6 foreign -Wall -Wno-portability -Wno-override])
 
 # UPC disables multilib for portals4 runtime
 if echo "${with_upc_runtime}" | grep -v -i '^portals4$' 2>&1 >/dev/null; then

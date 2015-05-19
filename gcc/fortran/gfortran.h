@@ -1002,6 +1002,8 @@ typedef struct
   bool cp_was_assumed; /* AS_ASSUMED_SIZE cp arrays are converted to
 			AS_EXPLICIT, but we want to remember that we
 			did this.  */
+
+  bool resolved;
 }
 gfc_array_spec;
 
@@ -2658,10 +2660,10 @@ void gfc_buffer_error (bool);
 
 const char *gfc_print_wide_char (gfc_char_t);
 
-void gfc_warning_1 (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 bool gfc_warning (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
-void gfc_warning_now_1 (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 bool gfc_warning_now (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
+bool gfc_warning_now_at (location_t loc, int opt, const char *gmsgid, ...)
+  ATTRIBUTE_GCC_GFC(3,4);
 
 void gfc_clear_warning (void);
 void gfc_warning_check (void);
@@ -2677,7 +2679,6 @@ bool gfc_error_check (void);
 bool gfc_error_flag_test (void);
 
 notification gfc_notification_std (int);
-bool gfc_notify_std_1 (int, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 bool gfc_notify_std (int, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 
 /* A general purpose syntax error.  */

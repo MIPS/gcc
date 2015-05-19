@@ -1,3 +1,7 @@
+2015-05-18  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 223286 into gupc branch.
+
 2015-05-13  Gary Funck  <gary@intrepid.com>
 
 	Fix ICE when initializing a global shared variable of type __int128.
