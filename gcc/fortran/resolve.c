@@ -7481,7 +7481,8 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	      gfc_symbol *temp_var_sym;
 	      gfc_expr *temp_var;
 	      gfc_code *ass, *old_alloc;
-	      gfc_namespace *ns = code->ext.alloc.list->expr->symtree->n.sym->ns;
+	      gfc_namespace *ns =
+		  code->ext.alloc.list->expr->symtree->n.sym->ns;
 	      gfc_array_spec *as;
 	      int dim;
 	      mpz_t dim_size;
@@ -7523,7 +7524,7 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 			  break;
 			}
 		      as->lower[dim] = gfc_get_int_expr (gfc_index_integer_kind,
-							 &code->expr3->where, 1);
+							&code->expr3->where, 1);
 		      as->upper[dim] = gfc_get_int_expr (gfc_index_integer_kind,
 							 &code->expr3->where,
 							 mpz_get_si (dim_size));
@@ -9026,7 +9027,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
   /* The label is not in an enclosing block, so illegal.  This was
      allowed in Fortran 66, so we allow it as extension.  No
      further checks are necessary in this case.  */
-  gfc_notify_std_1 (GFC_STD_LEGACY, "Label at %L is not in the same block "
+  gfc_notify_std (GFC_STD_LEGACY, "Label at %L is not in the same block "
 		  "as the GOTO statement at %L", &label->where,
 		  &code->loc);
   return;
@@ -13167,8 +13168,8 @@ resolve_fl_derived (gfc_symbol *sym)
   if (gen_dt && gen_dt->generic && gen_dt->generic->next
       && (!gen_dt->generic->sym->attr.use_assoc
 	  || gen_dt->generic->sym->module != gen_dt->generic->next->sym->module)
-      && !gfc_notify_std_1 (GFC_STD_F2003, "Generic name '%s' of function "
-			  "'%s' at %L being the same name as derived "
+      && !gfc_notify_std (GFC_STD_F2003, "Generic name %qs of function "
+			  "%qs at %L being the same name as derived "
 			  "type at %L", sym->name,
 			  gen_dt->generic->sym == sym
 			  ? gen_dt->generic->next->sym->name

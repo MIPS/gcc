@@ -1334,7 +1334,11 @@ package body Sem_Disp is
 
       elsif Is_Concurrent_Type (Tagged_Type) then
          pragma Assert (not Expander_Active);
-         null;
+
+         --  Attach operation to list of primitives of the synchronized type
+         --  itself, for ASIS use.
+
+         Append_Elmt (Subp, Direct_Primitive_Operations (Tagged_Type));
 
       --  If no old subprogram, then we add this as a dispatching operation,
       --  but we avoid doing this if an error was posted, to prevent annoying
