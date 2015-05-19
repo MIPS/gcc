@@ -1,6 +1,12 @@
 2015-05-19  Julian Brown  <julian@codesourcery.com>
 
 	libgomp/
+	* plugin/plugin-nvptx.c (nvptx_get_num_devices): Return zero
+	on cuInit failure.
+
+2015-05-19  Julian Brown  <julian@codesourcery.com>
+
+	libgomp/
 	* testsuite/libgomp.oacc-c-c++-common/vec-single-{1,2,3,4,5,6}.c:
 	New tests.
 	* testsuite/libgomp.oacc-c-c++-common/vec-partn-{1,2,3,4,5,6}.c:
