@@ -728,15 +728,22 @@ struct visibility_flags
   unsigned inlines_hidden : 1;	/* True when -finlineshidden in effect.  */
 };
 
-/* These enumerators are possible types of unsafe conversions.
-   SAFE_CONVERSION The conversion is safe
-   UNSAFE_OTHER Another type of conversion with problems
-   UNSAFE_SIGN Conversion between signed and unsigned integers
-    which are all warned about immediately, so this is unused
-   UNSAFE_REAL Conversions that reduce the precision of reals
-    including conversions from reals to integers
- */
-enum conversion_safety { SAFE_CONVERSION = 0, UNSAFE_OTHER, UNSAFE_SIGN, UNSAFE_REAL };
+/* These enumerators are possible types of unsafe conversions.  */
+enum conversion_safety {
+  /* The conversion is safe.  */
+  SAFE_CONVERSION = 0,
+  /* Another type of conversion with problems.  */
+  UNSAFE_OTHER,
+  /* Conversion between signed and unsigned integers
+     which are all warned about immediately, so this is unused.  */
+  UNSAFE_SIGN,
+  /* Conversions that reduce the precision of reals including conversions
+     from reals to integers.  */
+  UNSAFE_REAL,
+  /* Conversions from complex to reals or integers, that discard imaginary
+     component.  */
+  UNSAFE_IMAGINARY
+};
 
 /* Global visibility options.  */
 extern struct visibility_flags visibility_options;
@@ -1086,13 +1093,13 @@ extern const unsigned char executable_checksum[16];
 extern void builtin_define_std (const char *macro);
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
-extern void fe_file_change (const struct line_map *);
+extern void fe_file_change (const line_map_ordinary *);
 extern void c_parse_error (const char *, enum cpp_ttype, tree, unsigned char);
 
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
-extern void pp_file_change (const struct line_map *);
+extern void pp_file_change (const line_map_ordinary *);
 extern void pp_dir_change (cpp_reader *, const char *);
 extern bool check_missing_format_attribute (tree, tree);
 
