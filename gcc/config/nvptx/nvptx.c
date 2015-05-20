@@ -2029,6 +2029,15 @@ nvptx_vector_alignment (const_tree type)
 
   return MIN (align, BIGGEST_ALIGNMENT);
 }
+
+static bool
+nvptx_cannot_copy_insn_p (rtx_insn *insn)
+{
+  if (recog_memoized (insn) == CODE_FOR_oacc_thread_broadcastsi)
+    return true;
+  return false;
+}
+
 
 /* Record a symbol for mkoffload to enter into the mapping table.  */
 
@@ -2152,6 +2161,9 @@ nvptx_file_end (void)
 
 #undef TARGET_VECTOR_ALIGNMENT
 #define TARGET_VECTOR_ALIGNMENT nvptx_vector_alignment
+
+#undef  TARGET_CANNOT_COPY_INSN_P
+#define TARGET_CANNOT_COPY_INSN_P nvptx_cannot_copy_insn_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

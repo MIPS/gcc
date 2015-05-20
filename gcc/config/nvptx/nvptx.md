@@ -61,6 +61,7 @@
    UNSPECV_LOCK
    UNSPECV_CAS
    UNSPECV_XCHG
+   UNSPECV_WARP_BCAST
 ])
 
 (define_attr "subregs_ok" "false,true"
@@ -1320,6 +1321,37 @@
 {
   if (INTVAL (operands[1]) < 0 || INTVAL (operands[1]) > 2)
     FAIL;
+})
+
+(define_insn "oacc_thread_broadcastsi"
+  [(set (match_operand:SI 0 "nvptx_register_operand" "")
+	(unspec_volatile:SI [(match_operand:SI 1 "nvptx_register_operand" "")]
+			    UNSPECV_WARP_BCAST))]
+  ""
+  "%.\\tshfl.idx.b32\\t%0, %1, 0, 31;")
+
+(define_expand "oacc_thread_broadcastdi"
+  [(set (match_operand:DI 0 "nvptx_register_operand" "")
+	(unspec_volatile:DI [(match_operand:DI 1 "nvptx_register_operand" "")]
+			    UNSPECV_WARP_BCAST))]
+  ""
+{
+  rtx t = gen_reg_rtx (DImode);
+  emit_insn (gen_lshrdi3 (t, operands[1], GEN_INT (32)));
+  rtx op0 = force_reg (SImode, gen_lowpart (SImode, t));
+  rtx op1 = force_reg (SImode, gen_lowpart (SImode, operands[1]));
+  rtx targ0 = gen_reg_rtx (SImode);
+  rtx targ1 = gen_reg_rtx (SImode);
+  emit_insn (gen_oacc_thread_broadcastsi (targ0, op0));
+  emit_insn (gen_oacc_thread_broadcastsi (targ1, op1));
+  rtx t2 = gen_reg_rtx (DImode);
+  rtx t3 = gen_reg_rtx (DImode);
+  emit_insn (gen_extendsidi2 (t2, targ0));
+  emit_insn (gen_extendsidi2 (t3, targ1));
+  rtx t4 = gen_reg_rtx (DImode);
+  emit_insn (gen_ashldi3 (t4, t2, GEN_INT (32)));
+  emit_insn (gen_iordi3 (operands[0], t3, t4));
+  DONE;
 })
 
 (define_insn "ganglocal_ptr<mode>"

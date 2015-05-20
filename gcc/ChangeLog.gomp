@@ -1,3 +1,16 @@
+2015-05-19  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* omp-builtins.def (GOACC_thread_broadcast,
+	GOACC_thread_broadcast_ll): New builtins.
+	* optabs.def (oacc_thread_broadcast_optab): New optab.
+	* builtins.c (expand_builtin_oacc_thread_broadcast): New function.
+	(expand_builtin): Use it.
+	* config/nvptx/nvptx.c (nvptx_cannot_copy_insn_p): New function.
+	(TARGET_CANNOT_COPY_INSN_P): Define.
+	* config/nvptx/nvptx.md (UNSPECV_WARP_BCAST): New constant.
+	(oacc_thread_broadcastsi): New pattern.
+	(oacc_thread_broadcastdi): New expander.
+
 2015-05-19  Tom de Vries  <tom@codesourcery.com>
 
 	* omp-low.c (enclosing_target_ctx): Comment out.

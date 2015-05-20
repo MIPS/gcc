@@ -1,3 +1,7 @@
+2015-05-19  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* types.def (BT_FN_ULONGLONG_ULONGLONG): Define.
+
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* f95-lang.c (gfc_attribute_table): Add and "oacc function"
