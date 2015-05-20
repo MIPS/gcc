@@ -303,8 +303,7 @@ rest_of_decl_compilation (tree decl,
      by the different early_global_decl() hooks, but will at least be
      used by Go's hijack of the debug_hooks to implement
      -fdump-go-spec.  */
-  if (!flag_wpa
-      && !in_lto_p
+  if (!in_lto_p
       && (TREE_CODE (decl) != FUNCTION_DECL
 	  /* This will pick up function prototypes with no bodies,
 	     which are not visible in finalize_compilation_unit()
