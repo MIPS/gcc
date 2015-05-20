@@ -1585,6 +1585,9 @@ not be built.
 Specify that the run-time libraries for stack smashing protection
 should not be built.
 
+@item --enable-default-pie
+Turn on @option{-fPIE} and @option{-pie} by default.
+
 @item --disable-libquadmath
 Specify that the GCC quad-precision math library should not be built.
 On some systems, the library is required to be linkable when building

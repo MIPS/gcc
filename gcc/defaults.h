@@ -1229,6 +1229,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define ARGS_GROW_DOWNWARD 0
 #endif
 
+/* Default PIE to -fPIE.  */
+#ifndef DEFAULT_FLAG_PIE
+# define DEFAULT_FLAG_PIE 2
+#endif
+
 #ifdef GCC_INSN_FLAGS_H
 /* Dependent default target macro definitions
 
