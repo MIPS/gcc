@@ -310,8 +310,37 @@ rest_of_decl_compilation (tree decl,
 	     while iterating with FOR_EACH_*_FUNCTION through the
 	     symbol table.  */
 	  || !DECL_SAVED_TREE (decl))
+
+      /* We need to check both decl_function_context and
+	 current_function_decl here to make sure local extern
+	 declarations end up with the correct context.
+
+	 For local extern declarations, decl_function_context is
+	 empty, but current_function_decl is set to the function where
+	 the extern was declared .  Without the check for
+	 !current_function_decl below, the local extern ends up
+	 incorrectly with a top-level context.
+
+	 For example:
+
+	 namespace S
+	 {
+	   int
+	   f()
+	   {
+	     {
+	       int i = 42;
+	       {
+	         extern int i; // Local extern declaration.
+		 return i;
+	       }
+	     }
+	   }
+	 }
+      */
       && !decl_function_context (decl)
       && !current_function_decl
+
       && !decl_type_context (decl))
     (*debug_hooks->early_global_decl) (decl);
 }
