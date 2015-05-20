@@ -1,3 +1,13 @@
+2015-05-20  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* config/nvptx/nvptx.c: Include "dumpfile,h".
+	(condition_unidirectional_p): New static function.
+	(nvptx_print_operand): Use it for new 'U' handling.
+	(nvptx_reorg): Compute warp_equal_pseudos.
+	* config/nvptx/nvptx.h (struct machine_function): New field
+	warp_equal_pseudos.
+	* config/nvptx/nvptx.md (br_true, br_false): Add %U modifier.
+
 2015-05-19  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* omp-builtins.def (GOACC_thread_broadcast,

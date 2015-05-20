@@ -814,7 +814,7 @@
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))]
   ""
-  "%j0\\tbra\\t%l1;")
+  "%j0\\tbra%U0\\t%l1;")
 
 (define_insn "br_false"
   [(set (pc)
@@ -823,7 +823,7 @@
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))]
   ""
-  "%J0\\tbra\\t%l1;")
+  "%J0\\tbra%U0\\t%l1;")
 
 (define_expand "cbranch<mode>4"
   [(set (pc)

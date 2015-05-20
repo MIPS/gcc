@@ -72,6 +72,7 @@
 #include "cfgrtl.h"
 #include "stor-layout.h"
 #include "df.h"
+#include "dumpfile.h"
 #include "builtins.h"
 
 /* Record the function decls we've written, and the libfuncs and function
@@ -1646,6 +1647,23 @@ nvptx_print_operand_address (FILE *file, rtx addr)
   nvptx_print_address_operand (file, addr, VOIDmode);
 }
 
+/* Return true if the value of COND is the same across all threads in a
+   warp.  */
+
+static bool
+condition_unidirectional_p (rtx cond)
+{
+  if (CONSTANT_P (cond))
+    return true;
+  if (GET_CODE (cond) == REG)
+    return cfun->machine->warp_equal_pseudos[REGNO (cond)];
+  if (GET_RTX_CLASS (GET_CODE (cond)) == RTX_COMPARE
+      || GET_RTX_CLASS (GET_CODE (cond)) == RTX_COMM_COMPARE)
+    return (condition_unidirectional_p (XEXP (cond, 0))
+	    && condition_unidirectional_p (XEXP (cond, 1)));
+  return false;
+}
+
 /* Print an operand, X, to FILE, with an optional modifier in CODE.
 
    Meaning of CODE:
@@ -1659,7 +1677,9 @@ nvptx_print_operand_address (FILE *file, rtx addr)
    f -- print a full reg even for something that must always be split
    t -- print a type opcode suffix, promoting QImode to 32 bits
    T -- print a type size in bits
-   u -- print a type opcode suffix without promotions.  */
+   u -- print a type opcode suffix without promotions.
+   U -- print ".uni" if a condition consists only of values equal across all
+        threads in a warp.  */
 
 static void
 nvptx_print_operand (FILE *file, rtx x, int code)
@@ -1731,6 +1751,11 @@ nvptx_print_operand (FILE *file, rtx x, int code)
     case 'J':
       fprintf (file, "@!");
       goto common;
+
+    case 'U':
+      if (condition_unidirectional_p (x))
+	fprintf (file, ".uni");
+      break;
 
     case 'c':
       op_mode = GET_MODE (XEXP (x, 0));
@@ -1899,6 +1924,12 @@ nvptx_reorg (void)
 
   df_clear_flags (DF_LR_RUN_DCE);
   df_analyze ();
+  regstat_init_n_sets_and_refs ();
+  int max_regs = max_reg_num ();
+
+  for (int i = LAST_VIRTUAL_REGISTER + 1; i < max_regs; i++)
+    if (REG_N_SETS (i) == 0 && REG_N_REFS (i) == 0)
+      regno_reg_rtx[i] = const0_rtx;
 
   thread_prologue_and_epilogue_insns ();
 
@@ -1911,6 +1942,11 @@ nvptx_reorg (void)
   siregs.mode = SImode;
   diregs.mode = DImode;
 
+  cfun->machine->warp_equal_pseudos
+    = ggc_cleared_vec_alloc<char> (max_regs);
+
+  auto_vec<unsigned> warp_reg_worklist;
+
   for (insn = get_insns (); insn; insn = next)
     {
       next = NEXT_INSN (insn);
@@ -1919,11 +1955,25 @@ nvptx_reorg (void)
 	  || GET_CODE (PATTERN (insn)) == USE
 	  || GET_CODE (PATTERN (insn)) == CLOBBER)
 	continue;
+
       qiregs.n_in_use = 0;
       hiregs.n_in_use = 0;
       siregs.n_in_use = 0;
       diregs.n_in_use = 0;
       extract_insn (insn);
+
+      if (recog_memoized (insn) == CODE_FOR_oacc_thread_broadcastsi
+	  || (GET_CODE (PATTERN (insn)) == SET
+	      && CONSTANT_P (SET_SRC (PATTERN (insn)))))
+	{
+	  rtx dest = recog_data.operand[0];
+	  if (REG_P (dest) && REG_N_SETS (REGNO (dest)) == 1)
+	    {
+	      cfun->machine->warp_equal_pseudos[REGNO (dest)] = true;
+	      warp_reg_worklist.safe_push (REGNO (dest));
+	    }
+	}
+
       enum attr_subregs_ok s_ok = get_attr_subregs_ok (insn);
       for (int i = 0; i < recog_data.n_operands; i++)
 	{
@@ -1978,12 +2028,55 @@ nvptx_reorg (void)
 	}
     }
 
-  int maxregs = max_reg_num ();
-  regstat_init_n_sets_and_refs ();
+  while (!warp_reg_worklist.is_empty ())
+    {
+      int regno = warp_reg_worklist.pop ();
+      
+      df_ref use = DF_REG_USE_CHAIN (regno);
+      for (; use; use = DF_REF_NEXT_REG (use))
+	{
+	  rtx_insn *insn;
+	  if (!DF_REF_INSN_INFO (use))
+	    continue;
+	  insn = DF_REF_INSN (use);
+	  if (DEBUG_INSN_P (insn))
+	    continue;
 
-  for (int i = LAST_VIRTUAL_REGISTER + 1; i < maxregs; i++)
-    if (REG_N_SETS (i) == 0 && REG_N_REFS (i) == 0)
-      regno_reg_rtx[i] = const0_rtx;
+	  /* The only insns we have to exclude are those which refer to
+	     memory.  */
+	  rtx pat = PATTERN (insn);
+	  if (GET_CODE (pat) == SET
+	      && (MEM_P (SET_SRC (pat)) || MEM_P (SET_DEST (pat))))
+	    continue;
+
+	  df_ref insn_use;
+	  bool all_equal = true;
+	  FOR_EACH_INSN_USE (insn_use, insn)
+	    {
+	      unsigned insn_regno = DF_REF_REGNO (insn_use);
+	      if (!cfun->machine->warp_equal_pseudos[insn_regno])
+		{
+		  all_equal = false;
+		  break;
+		}
+	    }
+	  if (!all_equal)
+	    continue;
+	  df_ref insn_def;
+	  FOR_EACH_INSN_DEF (insn_def, insn)
+	    {
+	      unsigned dregno = DF_REF_REGNO (insn_def);
+	      if (cfun->machine->warp_equal_pseudos[dregno])
+		continue;
+	      cfun->machine->warp_equal_pseudos[dregno] = true;
+	      warp_reg_worklist.safe_push (dregno);
+	    }
+	}
+    }
+  if (dump_file)
+    for (int i = 0; i < max_regs; i++)
+      if (cfun->machine->warp_equal_pseudos[i])
+	fprintf (dump_file, "Found warp invariant pseudo %d\n", i);
   regstat_free_n_sets_and_refs ();
 }
 
