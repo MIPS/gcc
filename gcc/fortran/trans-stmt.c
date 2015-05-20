@@ -5378,6 +5378,10 @@ gfc_trans_allocate (gfc_code * code)
 		  newsym->n.sym->as = arr;
 		  gfc_add_full_array_ref (e3rhs, arr);
 		}
+	      else if (POINTER_TYPE_P (TREE_TYPE (expr3)))
+		newsym->n.sym->attr.pointer = 1;
+	      else
+		newsym->n.sym->attr.value = 1;
 	      /* The string length is known to.  Set it for char arrays.  */
 	      if (e3rhs->ts.type == BT_CHARACTER)
 		newsym->n.sym->ts.u.cl->backend_decl = expr3_len;
