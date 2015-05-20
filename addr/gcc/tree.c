@@ -5182,8 +5182,7 @@ need_assembler_name_p (tree decl)
       && DECL_NAME (decl)
       && decl == TYPE_NAME (TREE_TYPE (decl))
       && !TYPE_ARTIFICIAL (TREE_TYPE (decl))
-      && (((RECORD_OR_UNION_TYPE_P (TREE_TYPE (decl))
-	   || TREE_CODE (TREE_TYPE (decl)) == ENUMERAL_TYPE)
+      && ((type_with_linkage_p (TREE_TYPE (decl))
 	   && !type_in_anonymous_namespace_p (TREE_TYPE (decl)))
 	  || TREE_CODE (TREE_TYPE (decl)) == INTEGER_TYPE)
       && !variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
@@ -12468,6 +12467,7 @@ element_mode (const_tree t)
     t = TREE_TYPE (t);
   return TYPE_MODE (t);
 }
+ 
 
 /* Veirfy that basic properties of T match TV and thus T can be a variant of
    TV.  TV should be the more specified variant (i.e. the main variant).  */
@@ -12475,85 +12475,129 @@ element_mode (const_tree t)
 static bool
 verify_type_variant (const_tree t, tree tv)
 {
-  if (TREE_CODE (t) != TREE_CODE (tv))
+  /* Type variant can differ by:
+
+     - TYPE_QUALS: TYPE_READONLY, TYPE_VOLATILE, TYPE_ATOMIC, TYPE_RESTRICT,
+                   ENCODE_QUAL_ADDR_SPACE. 
+     - main variant may be TYPE_COMPLETE_P and variant types !TYPE_COMPLETE_P
+       in this case some values may not be set in the variant types
+       (see TYPE_COMPLETE_P checks).
+     - it is possible to have TYPE_ARTIFICIAL variant of non-artifical type
+     - by TYPE_NAME and attributes (i.e. when variant originate by typedef)
+     - TYPE_CANONICAL (TYPE_ALIAS_SET is the same among variants)
+     - by the alignment: TYPE_ALIGN and TYPE_USER_ALIGN
+     - during LTO by TYPE_CONTEXT if type is TYPE_FILE_SCOPE_P
+       this is necessary to make it possible to merge types form different TUs
+     - arrays, pointers and references may have TREE_TYPE that is a variant
+       of TREE_TYPE of their main variants.
+     - aggregates may have new TYPE_FIELDS list that list variants of
+       the main variant TYPE_FIELDS.
+     - vector types may differ by TYPE_VECTOR_OPAQUE
+     - TYPE_METHODS is always NULL for vairant types and maintained for
+       main variant only.
+   */
+
+  /* Convenience macro for matching individual fields.  */
+#define verify_variant_match(flag)					    \
+  do {									    \
+    if (flag (tv) != flag (t))						    \
+      {									    \
+	error ("type variant differs by " #flag ".");			    \
+	debug_tree (tv);						    \
+	return false;							    \
+      }									    \
+  } while (false)
+
+  /* tree_base checks.  */
+
+  verify_variant_match (TREE_CODE);
+  /* FIXME: Ada builds non-artificial variants of artificial types.  */
+  if (TYPE_ARTIFICIAL (tv) && 0)
+    verify_variant_match (TYPE_ARTIFICIAL);
+  if (POINTER_TYPE_P (tv))
+    verify_variant_match (TYPE_REF_CAN_ALIAS_ALL);
+  /* FIXME: TYPE_SIZES_GIMPLIFIED may differs for Ada build.  */
+  verify_variant_match (TYPE_UNSIGNED);
+  verify_variant_match (TYPE_ALIGN_OK);
+  verify_variant_match (TYPE_PACKED);
+  if (TREE_CODE (t) == REFERENCE_TYPE)
+    verify_variant_match (TYPE_REF_IS_RVALUE);
+  verify_variant_match (TYPE_SATURATING);
+  /* FIXME: This check trigger during libstdc++ build.  */
+  if (RECORD_OR_UNION_TYPE_P (t) && COMPLETE_TYPE_P (t) && 0)
+    verify_variant_match (TYPE_FINAL_P);
+
+  /* tree_type_common checks.  */
+
+  if (COMPLETE_TYPE_P (t))
     {
-      error ("type variant has different TREE_CODE");
-      debug_tree (tv);
-      return false;
+      verify_variant_match (TYPE_SIZE);
+      verify_variant_match (TYPE_MODE);
+      if (TYPE_SIZE_UNIT (t) != TYPE_SIZE_UNIT (tv)
+	  /* FIXME: ideally we should compare pointer equality, but java FE
+	     produce variants where size is INTEGER_CST of different type (int
+	     wrt size_type) during libjava biuld.  */
+	  && !operand_equal_p (TYPE_SIZE_UNIT (t), TYPE_SIZE_UNIT (tv), 0))
+	{
+	  error ("type variant has different TYPE_SIZE_UNIT");
+	  debug_tree (tv);
+	  error ("type variant's TYPE_SIZE_UNIT");
+	  debug_tree (TYPE_SIZE_UNIT (tv));
+	  error ("type's TYPE_SIZE_UNIT");
+	  debug_tree (TYPE_SIZE_UNIT (t));
+	  return false;
+	}
     }
-  if (COMPLETE_TYPE_P (t) && TYPE_SIZE (t) != TYPE_SIZE (tv))
-    {
-      error ("type variant has different TYPE_SIZE");
-      debug_tree (tv);
-      error ("type variant's TYPE_SIZE");
-      debug_tree (TYPE_SIZE (tv));
-      error ("type's TYPE_SIZE");
-      debug_tree (TYPE_SIZE (t));
-      return false;
-    }
-  if (COMPLETE_TYPE_P (t)
-      && TYPE_SIZE_UNIT (t) != TYPE_SIZE_UNIT (tv)
-      /* FIXME: ideally we should compare pointer equality, but java FE produce
- 	 variants where size is INTEGER_CST of different type (int wrt size_type)
-	 during libjava biuld.  */
-      && !operand_equal_p (TYPE_SIZE_UNIT (t), TYPE_SIZE_UNIT (tv), 0))
-    {
-      error ("type variant has different TYPE_SIZE_UNIT");
-      debug_tree (tv);
-      error ("type variant's TYPE_SIZE_UNIT");
-      debug_tree (TYPE_SIZE_UNIT (tv));
-      error ("type's TYPE_SIZE_UNIT");
-      debug_tree (TYPE_SIZE_UNIT (t));
-      return false;
-    }
+  verify_variant_match (TYPE_PRECISION);
+  verify_variant_match (TYPE_NO_FORCE_BLK);
+  verify_variant_match (TYPE_NEEDS_CONSTRUCTING);
+  if (RECORD_OR_UNION_TYPE_P (t))
+    verify_variant_match (TYPE_TRANSPARENT_AGGR);
+  else if (TREE_CODE (t) == ARRAY_TYPE)
+    verify_variant_match (TYPE_NONALIASED_COMPONENT);
+  /* During LTO we merge variant lists from diferent translation units
+     that may differ BY TYPE_CONTEXT that in turn may point 
+     to TRANSLATION_UNIT_DECL.
+     Ada also builds variants of types with different TYPE_CONTEXT.   */
+  if ((!in_lto_p || !TYPE_FILE_SCOPE_P (t)) && 0)
+    verify_variant_match (TYPE_CONTEXT);
+  verify_variant_match (TYPE_STRING_FLAG);
+  if (TYPE_ALIAS_SET_KNOWN_P (t) && TYPE_ALIAS_SET_KNOWN_P (tv))
+    verify_variant_match (TYPE_ALIAS_SET);
+
+  /* tree_type_non_common checks.  */
+
   /* FIXME: C FE uses TYPE_VFIELD to record C_TYPE_INCOMPLETE_VARS
-     and danagle the pointer from time to time.  */
+     and dangle the pointer from time to time.  */
   if (RECORD_OR_UNION_TYPE_P (t) && TYPE_VFIELD (t) != TYPE_VFIELD (tv)
-      && (!TYPE_VFIELD (tv) || TREE_CODE (TYPE_VFIELD (tv)) != TREE_LIST))
+      && (in_lto_p || !TYPE_VFIELD (tv)
+	  || TREE_CODE (TYPE_VFIELD (tv)) != TREE_LIST))
     {
       error ("type variant has different TYPE_VFIELD");
       debug_tree (tv);
       return false;
     }
-  if (((TREE_CODE (t) == ENUMERAL_TYPE && COMPLETE_TYPE_P (t))
-	|| TREE_CODE (t) == INTEGER_TYPE
-	|| TREE_CODE (t) == BOOLEAN_TYPE
-	|| TREE_CODE (t) == REAL_TYPE
-	|| TREE_CODE (t) == FIXED_POINT_TYPE)
-       && (TYPE_MAX_VALUE (t) != TYPE_MAX_VALUE (tv)
-	   || TYPE_MIN_VALUE (t) != TYPE_MIN_VALUE (tv)))
+  if ((TREE_CODE (t) == ENUMERAL_TYPE && COMPLETE_TYPE_P (t))
+       || TREE_CODE (t) == INTEGER_TYPE
+       || TREE_CODE (t) == BOOLEAN_TYPE
+       || TREE_CODE (t) == REAL_TYPE
+       || TREE_CODE (t) == FIXED_POINT_TYPE)
     {
-      error ("type variant has different TYPE_MAX_VALUE or TYPE_MIN_VALUE");
-      debug_tree (tv);
-      return false;
+      verify_variant_match (TYPE_MAX_VALUE);
+      verify_variant_match (TYPE_MIN_VALUE);
     }
-  if (TREE_CODE (t) == METHOD_TYPE
-      && TYPE_METHOD_BASETYPE (t) != TYPE_METHOD_BASETYPE (tv))
-    {
-      error ("type variant has different TYPE_METHOD_BASETYPE");
-      debug_tree (tv);
-      return false;
-    }
+  if (TREE_CODE (t) == METHOD_TYPE)
+    verify_variant_match (TYPE_METHOD_BASETYPE);
   if (RECORD_OR_UNION_TYPE_P (t) && TYPE_METHODS (t))
     {
       error ("type variant has TYPE_METHODS");
       debug_tree (tv);
       return false;
     }
-  if (TREE_CODE (t) == OFFSET_TYPE
-      && TYPE_OFFSET_BASETYPE (t) != TYPE_OFFSET_BASETYPE (tv))
-    {
-      error ("type variant has different TYPE_OFFSET_BASETYPE");
-      debug_tree (tv);
-      return false;
-    }
-  if (TREE_CODE (t) == ARRAY_TYPE
-      && TYPE_ARRAY_MAX_SIZE (t) != TYPE_ARRAY_MAX_SIZE (tv))
-    {
-      error ("type variant has different TYPE_ARRAY_MAX_SIZE");
-      debug_tree (tv);
-      return false;
-    }
+  if (TREE_CODE (t) == OFFSET_TYPE)
+    verify_variant_match (TYPE_OFFSET_BASETYPE);
+  if (TREE_CODE (t) == ARRAY_TYPE)
+    verify_variant_match (TYPE_ARRAY_MAX_SIZE);
   /* FIXME: Be lax and allow TYPE_BINFO to be missing in variant types
      or even type's main variant.  This is needed to make bootstrap pass
      and the bug seems new in GCC 5.
@@ -12581,28 +12625,10 @@ verify_type_variant (const_tree t, tree tv)
     }
 
   /* Check various uses of TYPE_VALUES_RAW.  */
-  if (TREE_CODE (t) == ENUMERAL_TYPE
-      && TYPE_VALUES (t) != TYPE_VALUES (tv))
-    {
-      error ("type variant has different TYPE_VALUES");
-      debug_tree (tv);
-      error ("type variant's TYPE_VALUES");
-      debug_tree (TYPE_VALUES (tv));
-      error ("type's TYPE_VALUES");
-      debug_tree (TYPE_VALUES (t));
-      return false;
-    }
-  else if (TREE_CODE (t) == ARRAY_TYPE
-	   && TYPE_DOMAIN (t) != TYPE_DOMAIN (tv))
-    {
-      error ("type variant has different TYPE_DOMAIN");
-      debug_tree (tv);
-      error ("type variant's TYPE_DOMAIN");
-      debug_tree (TYPE_DOMAIN (tv));
-      error ("type's TYPE_DOMAIN");
-      debug_tree (TYPE_DOMAIN (t));
-      return false;
-    }
+  if (TREE_CODE (t) == ENUMERAL_TYPE)
+    verify_variant_match (TYPE_VALUES);
+  else if (TREE_CODE (t) == ARRAY_TYPE)
+    verify_variant_match (TYPE_DOMAIN);
   /* Permit incomplete variants of complete type.  While FEs may complete
      all variants, this does not happen for C++ templates in all cases.  */
   else if (RECORD_OR_UNION_TYPE_P (t)
@@ -12640,13 +12666,8 @@ verify_type_variant (const_tree t, tree tv)
           return false;
 	}
     }
-  else if ((TREE_CODE (t) == FUNCTION_TYPE || TREE_CODE (t) == METHOD_TYPE)
-	   && TYPE_ARG_TYPES (t) != TYPE_ARG_TYPES (tv))
-    {
-      error ("type variant has different TYPE_ARG_TYPES");
-      debug_tree (tv);
-      return false;
-    }
+  else if ((TREE_CODE (t) == FUNCTION_TYPE || TREE_CODE (t) == METHOD_TYPE))
+    verify_variant_match (TYPE_ARG_TYPES);
   /* For C++ the qualified variant of array type is really an array type
      of qualified TREE_TYPE.
      objc builds variants of pointer where pointer to type is a variant, too
@@ -12665,13 +12686,224 @@ verify_type_variant (const_tree t, tree tv)
       debug_tree (TREE_TYPE (t));
       return false;
     }
-  if (TYPE_PRECISION (t) != TYPE_PRECISION (tv))
-    {
-      error ("type variant has different TYPE_PRECISION");
-      debug_tree (tv);
-      return false;
-    }
   return true;
+#undef verify_variant_match
+}
+
+
+/* The TYPE_CANONICAL merging machinery.  It should closely resemble
+   the middle-end types_compatible_p function.  It needs to avoid
+   claiming types are different for types that should be treated
+   the same with respect to TBAA.  Canonical types are also used
+   for IL consistency checks via the useless_type_conversion_p
+   predicate which does not handle all type kinds itself but falls
+   back to pointer-comparison of TYPE_CANONICAL for aggregates
+   for example.  */
+
+/* Return true iff T1 and T2 are structurally identical for what
+   TBAA is concerned.  
+   This function is used both by lto.c canonical type merging and by the
+   verifier.  If TRUST_TYPE_CANONICAL we do not look into structure of types
+   that have TYPE_CANONICAL defined and assume them equivalent.  */
+
+bool
+gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
+				     bool trust_type_canonical)
+{
+  /* Before starting to set up the SCC machinery handle simple cases.  */
+
+  /* Check first for the obvious case of pointer identity.  */
+  if (t1 == t2)
+    return true;
+
+  /* Check that we have two types to compare.  */
+  if (t1 == NULL_TREE || t2 == NULL_TREE)
+    return false;
+
+  /* If the types have been previously registered and found equal
+     they still are.  */
+  if (TYPE_CANONICAL (t1) && TYPE_CANONICAL (t2)
+      && trust_type_canonical)
+    return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
+
+  /* Can't be the same type if the types don't have the same code.  */
+  if (TREE_CODE (t1) != TREE_CODE (t2))
+    return false;
+
+  /* Qualifiers do not matter for canonical type comparison purposes.  */
+
+  /* Void types and nullptr types are always the same.  */
+  if (TREE_CODE (t1) == VOID_TYPE
+      || TREE_CODE (t1) == NULLPTR_TYPE)
+    return true;
+
+  /* Can't be the same type if they have different mode.  */
+  if (TYPE_MODE (t1) != TYPE_MODE (t2))
+    return false;
+
+  /* Non-aggregate types can be handled cheaply.  */
+  if (INTEGRAL_TYPE_P (t1)
+      || SCALAR_FLOAT_TYPE_P (t1)
+      || FIXED_POINT_TYPE_P (t1)
+      || TREE_CODE (t1) == VECTOR_TYPE
+      || TREE_CODE (t1) == COMPLEX_TYPE
+      || TREE_CODE (t1) == OFFSET_TYPE
+      || POINTER_TYPE_P (t1))
+    {
+      /* Can't be the same type if they have different sign or precision.  */
+      if (TYPE_PRECISION (t1) != TYPE_PRECISION (t2)
+	  || TYPE_UNSIGNED (t1) != TYPE_UNSIGNED (t2))
+	return false;
+
+      if (TREE_CODE (t1) == INTEGER_TYPE
+	  && TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2))
+	return false;
+
+      /* For canonical type comparisons we do not want to build SCCs
+	 so we cannot compare pointed-to types.  But we can, for now,
+	 require the same pointed-to type kind and match what
+	 useless_type_conversion_p would do.  */
+      if (POINTER_TYPE_P (t1))
+	{
+	  if (TYPE_ADDR_SPACE (TREE_TYPE (t1))
+	      != TYPE_ADDR_SPACE (TREE_TYPE (t2)))
+	    return false;
+
+	  if (TREE_CODE (TREE_TYPE (t1)) != TREE_CODE (TREE_TYPE (t2)))
+	    return false;
+	}
+
+      /* Tail-recurse to components.  */
+      if (TREE_CODE (t1) == VECTOR_TYPE
+	  || TREE_CODE (t1) == COMPLEX_TYPE)
+	return gimple_canonical_types_compatible_p (TREE_TYPE (t1),
+						    TREE_TYPE (t2),
+						    trust_type_canonical);
+
+      return true;
+    }
+
+  /* Do type-specific comparisons.  */
+  switch (TREE_CODE (t1))
+    {
+    case ARRAY_TYPE:
+      /* Array types are the same if the element types are the same and
+	 the number of elements are the same.  */
+      if (!gimple_canonical_types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2),
+						trust_type_canonical)
+	  || TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2)
+	  || TYPE_NONALIASED_COMPONENT (t1) != TYPE_NONALIASED_COMPONENT (t2))
+	return false;
+      else
+	{
+	  tree i1 = TYPE_DOMAIN (t1);
+	  tree i2 = TYPE_DOMAIN (t2);
+
+	  /* For an incomplete external array, the type domain can be
+ 	     NULL_TREE.  Check this condition also.  */
+	  if (i1 == NULL_TREE && i2 == NULL_TREE)
+	    return true;
+	  else if (i1 == NULL_TREE || i2 == NULL_TREE)
+	    return false;
+	  else
+	    {
+	      tree min1 = TYPE_MIN_VALUE (i1);
+	      tree min2 = TYPE_MIN_VALUE (i2);
+	      tree max1 = TYPE_MAX_VALUE (i1);
+	      tree max2 = TYPE_MAX_VALUE (i2);
+
+	      /* The minimum/maximum values have to be the same.  */
+	      if ((min1 == min2
+		   || (min1 && min2
+		       && ((TREE_CODE (min1) == PLACEHOLDER_EXPR
+			    && TREE_CODE (min2) == PLACEHOLDER_EXPR)
+		           || operand_equal_p (min1, min2, 0))))
+		  && (max1 == max2
+		      || (max1 && max2
+			  && ((TREE_CODE (max1) == PLACEHOLDER_EXPR
+			       && TREE_CODE (max2) == PLACEHOLDER_EXPR)
+			      || operand_equal_p (max1, max2, 0)))))
+		return true;
+	      else
+		return false;
+	    }
+	}
+
+    case METHOD_TYPE:
+    case FUNCTION_TYPE:
+      /* Function types are the same if the return type and arguments types
+	 are the same.  */
+      if (!gimple_canonical_types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2),
+						trust_type_canonical))
+	return false;
+
+      if (!comp_type_attributes (t1, t2))
+	return false;
+
+      if (TYPE_ARG_TYPES (t1) == TYPE_ARG_TYPES (t2))
+	return true;
+      else
+	{
+	  tree parms1, parms2;
+
+	  for (parms1 = TYPE_ARG_TYPES (t1), parms2 = TYPE_ARG_TYPES (t2);
+	       parms1 && parms2;
+	       parms1 = TREE_CHAIN (parms1), parms2 = TREE_CHAIN (parms2))
+	    {
+	      if (!gimple_canonical_types_compatible_p
+		     (TREE_VALUE (parms1), TREE_VALUE (parms2),
+		      trust_type_canonical))
+		return false;
+	    }
+
+	  if (parms1 || parms2)
+	    return false;
+
+	  return true;
+	}
+
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      {
+	tree f1, f2;
+
+	/* For aggregate types, all the fields must be the same.  */
+	for (f1 = TYPE_FIELDS (t1), f2 = TYPE_FIELDS (t2);
+	     f1 || f2;
+	     f1 = TREE_CHAIN (f1), f2 = TREE_CHAIN (f2))
+	  {
+	    /* Skip non-fields.  */
+	    while (f1 && TREE_CODE (f1) != FIELD_DECL)
+	      f1 = TREE_CHAIN (f1);
+	    while (f2 && TREE_CODE (f2) != FIELD_DECL)
+	      f2 = TREE_CHAIN (f2);
+	    if (!f1 || !f2)
+	      break;
+	    /* The fields must have the same name, offset and type.  */
+	    if (DECL_NONADDRESSABLE_P (f1) != DECL_NONADDRESSABLE_P (f2)
+		|| !gimple_compare_field_offset (f1, f2)
+		|| !gimple_canonical_types_compatible_p
+		      (TREE_TYPE (f1), TREE_TYPE (f2),
+		       trust_type_canonical))
+	      return false;
+	  }
+
+	/* If one aggregate has more fields than the other, they
+	   are not the same.  */
+	if (f1 || f2)
+	  return false;
+
+	return true;
+      }
+
+    default:
+      /* Consider all types with language specific trees in them mutually
+	 compatible.  This is executed only from verify_type and false
+         positives can be tolerated.  */
+      gcc_assert (!in_lto_p);
+      return true;
+    }
 }
 
 /* Verify type T.  */
@@ -12694,6 +12926,36 @@ verify_type (const_tree t)
     }
   else if (t != mv && !verify_type_variant (t, mv))
     error_found = true;
+
+  tree ct = TYPE_CANONICAL (t);
+  if (!ct)
+    ;
+  else if (TYPE_CANONICAL (t) != ct)
+    {
+      error ("TYPE_CANONICAL has different TYPE_CANONICAL");
+      debug_tree (ct);
+      error_found = true;
+    }
+  /* Method and function types can not be used to address memory and thus
+     TYPE_CANONICAL really matters only for determining useless conversions.
+
+     FIXME: C++ FE does not agree with gimple_canonical_types_compatible_p
+     here.  gimple_canonical_types_compatible_p calls comp_type_attributes
+     while for C++ FE the attributes does not make difference.  */
+  else if (TREE_CODE (t) == FUNCTION_TYPE || TREE_CODE (t) == METHOD_TYPE)
+    ;
+  else if (t != ct
+	   /* FIXME: gimple_canonical_types_compatible_p can not compare types
+	      with variably sized arrays because their sizes possibly
+	      gimplified to different variables.  */
+	   && !variably_modified_type_p (ct, NULL)
+	   && !gimple_canonical_types_compatible_p (t, ct, false))
+    {
+      error ("TYPE_CANONICAL is not compatible");
+      debug_tree (ct);
+      error_found = true;
+    }
+
 
   /* Check various uses of TYPE_MINVAL.  */
   if (RECORD_OR_UNION_TYPE_P (t))
@@ -12966,6 +13228,27 @@ verify_type (const_tree t)
       error ("TYPE_CACHED_VALUES_P is set while it should not");
       error_found = true;
     }
+  if (TYPE_STRING_FLAG (t)
+      && TREE_CODE (t) != ARRAY_TYPE && TREE_CODE (t) != INTEGER_TYPE)
+    {
+      error ("TYPE_STRING_FLAG is set on wrong type code");
+      error_found = true;
+    }
+  else if (TYPE_STRING_FLAG (t))
+    {
+      const_tree b = t;
+      if (TREE_CODE (b) == ARRAY_TYPE)
+	b = TREE_TYPE (t);
+      /* Java builds arrays with TYPE_STRING_FLAG of promoted_char_type
+	 that is 32bits.  */
+      if (TREE_CODE (b) != INTEGER_TYPE)
+	{
+	  error ("TYPE_STRING_FLAG is set on type that does not look like "
+		 "char nor array of chars");
+	  error_found = true;
+	}
+    }
+  
 
 
   if (error_found)

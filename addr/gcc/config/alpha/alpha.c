@@ -1352,7 +1352,7 @@ alpha_legitimize_reload_address (rtx x,
       && REG_P (XEXP (x, 0))
       && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER
       && REGNO_OK_FOR_BASE_P (REGNO (XEXP (x, 0)))
-      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+      && CONST_INT_P (XEXP (x, 1)))
     {
       HOST_WIDE_INT val = INTVAL (XEXP (x, 1));
       HOST_WIDE_INT low = ((val & 0xffff) ^ 0x8000) - 0x8000;
@@ -1556,8 +1556,7 @@ get_aligned_mem (rtx ref, rtx *paligned_mem, rtx *pbitnum)
 
   gcc_assert (MEM_P (ref));
 
-  if (reload_in_progress
-      && ! memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (reload_in_progress)
     {
       base = find_replacement (&XEXP (ref, 0));
       gcc_assert (memory_address_p (GET_MODE (ref), base));
@@ -1602,11 +1601,9 @@ get_unaligned_address (rtx ref)
 
   gcc_assert (MEM_P (ref));
 
-  if (reload_in_progress
-      && ! memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (reload_in_progress)
     {
       base = find_replacement (&XEXP (ref, 0));
-
       gcc_assert (memory_address_p (GET_MODE (ref), base));
     }
   else
@@ -1647,9 +1644,8 @@ alpha_preferred_reload_class(rtx x, enum reg_class rclass)
     return rclass;
 
   /* These sorts of constants we can easily drop to memory.  */
-  if (CONST_INT_P (x)
-      || GET_CODE (x) == CONST_WIDE_INT
-      || GET_CODE (x) == CONST_DOUBLE
+  if (CONST_SCALAR_INT_P (x)
+      || CONST_DOUBLE_P (x)
       || GET_CODE (x) == CONST_VECTOR)
     {
       if (rclass == FLOAT_REGS)
@@ -2105,8 +2101,7 @@ alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1)
   return target;
 }
 
-/* Given an integral CONST_INT, CONST_WIDE_INT, CONST_DOUBLE,
-   or CONST_VECTOR, return the low 64 bits.  */
+/* Given an integral CONST_INT or CONST_VECTOR, return the low 64 bits.  */
 
 static HOST_WIDE_INT
 alpha_extract_integer (rtx x)
@@ -2114,17 +2109,9 @@ alpha_extract_integer (rtx x)
   if (GET_CODE (x) == CONST_VECTOR)
     x = simplify_subreg (DImode, x, GET_MODE (x), 0);
 
-  switch (GET_CODE (x))
-    {
-    case CONST_INT:
-      return INTVAL (x);
-    case CONST_WIDE_INT:
-      return CONST_WIDE_INT_ELT (x, 0);
-    case CONST_DOUBLE:
-      return CONST_DOUBLE_LOW (x);
-    default:
-      gcc_unreachable ();
-    }
+  gcc_assert (CONST_INT_P (x));
+
+  return INTVAL (x);
 }
 
 /* Implement TARGET_LEGITIMATE_CONSTANT_P.  This is all constants for which
@@ -2145,14 +2132,13 @@ alpha_legitimate_constant_p (machine_mode mode, rtx x)
 
     case CONST:
       if (GET_CODE (XEXP (x, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+	  && CONST_INT_P (XEXP (XEXP (x, 0), 1)))
 	x = XEXP (XEXP (x, 0), 0);
       else
 	return true;
 
       if (GET_CODE (x) != SYMBOL_REF)
 	return true;
-
       /* FALLTHRU */
 
     case SYMBOL_REF:
@@ -2160,8 +2146,16 @@ alpha_legitimate_constant_p (machine_mode mode, rtx x)
       return SYMBOL_REF_TLS_MODEL (x) == 0;
 
     case CONST_WIDE_INT:
+      if (TARGET_BUILD_CONSTANTS)
+	return true;
       if (x == CONST0_RTX (mode))
 	return true;
+      mode = DImode;
+      gcc_assert (CONST_WIDE_INT_NUNITS (x) == 2);
+      i0 = CONST_WIDE_INT_ELT (x, 1);
+      if (alpha_emit_set_const_1 (NULL_RTX, mode, i0, 3, true) == NULL)
+	return false;
+      i0 = CONST_WIDE_INT_ELT (x, 0);
       goto do_integer;
 
     case CONST_DOUBLE:
@@ -2176,14 +2170,14 @@ alpha_legitimate_constant_p (machine_mode mode, rtx x)
 	return false;
       if (GET_MODE_SIZE (mode) != 8)
 	return false;
-      goto do_integer;
+      /* FALLTHRU */
 
     case CONST_INT:
-    do_integer:
       if (TARGET_BUILD_CONSTANTS)
 	return true;
       i0 = alpha_extract_integer (x);
-      return alpha_emit_set_const_1 (x, mode, i0, 3, true) != NULL;
+    do_integer:
+      return alpha_emit_set_const_1 (NULL_RTX, mode, i0, 3, true) != NULL;
 
     default:
       return false;
@@ -2248,8 +2242,6 @@ alpha_expand_mov (machine_mode mode, rtx *operands)
 
   /* Split large integers.  */
   if (CONST_INT_P (operands[1])
-      || GET_CODE (operands[1]) == CONST_WIDE_INT
-      || GET_CODE (operands[1]) == CONST_DOUBLE
       || GET_CODE (operands[1]) == CONST_VECTOR)
     {
       if (alpha_split_const_mov (mode, operands))
@@ -3290,8 +3282,7 @@ alpha_split_tmode_pair (rtx operands[4], machine_mode mode,
       operands[2] = adjust_address (operands[1], DImode, 0);
       break;
 
-    case CONST_INT:
-    case CONST_WIDE_INT:
+    CASE_CONST_SCALAR_INT:
     case CONST_DOUBLE:
       gcc_assert (operands[1] == CONST0_RTX (mode));
       operands[2] = operands[3] = const0_rtx;
@@ -5264,9 +5255,7 @@ print_operand (FILE *file, rtx x, int code)
 
     case 'M':
       /* 'b', 'w', 'l', or 'q' as the value of the constant.  */
-      if (!CONST_INT_P (x)
-	  || (INTVAL (x) != 8 && INTVAL (x) != 16
-	      && INTVAL (x) != 32 && INTVAL (x) != 64))
+      if (!mode_width_operand (x, VOIDmode))
 	output_operand_lossage ("invalid %%M value");
 
       fprintf (file, "%s",
