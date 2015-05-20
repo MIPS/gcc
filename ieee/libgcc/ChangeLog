@@ -1,3 +1,31 @@
+2015-05-20  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/morestack.S: New.
+	* config/rs6000/t-stack-rs6000: New.
+	* config.host (powerpc*-*-linux*): Add t-stack and t-stack-rs6000
+	to tmake_file.
+	* generic-morestack.c: Don't build for powerpc 32-bit.
+
+2015-05-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* Makefile.in (LIBUNWIND): Move dependency for shared libgcc.
+	Remove useless endif/ifneq ($(enable_shared),yes) pair.
+
+2015-05-15  Martin Galvan  <martin.galvan@tallertechnologies.com>
+
+        * config/arm/lib1funcs.S (CFI_START_FUNCTION, CFI_END_FUNCTION):
+        New macros.
+        * config/arm/ieee754-df.S: Add CFI directives.
+        * config/arm/ieee754-sf.S: Add CFI directives.
+
+2015-05-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* configure.ac: Include config/sjlj.m4.
+	Remove manual SJLJ check, add GCC_CHECK_SJLJ_EXCEPTIONS and adjust.
+	* config.in: Regenerate.
+	* configure: Likewise.
+	* config.host: Replace enable_sjlj_exceptions by ac_cv_sjlj_exceptions.
+
 2015-05-12  Uros Bizjak  <ubizjak@gmail.com>
 
 	* libgcov-util.c: Add space between string literal and macro name.

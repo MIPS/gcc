@@ -1,3 +1,8 @@
+2015-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223451.
+	* REVISION: Update subversion id.
+
 2015-05-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* machmode.h: Undo all IEEE 128-bit changes.

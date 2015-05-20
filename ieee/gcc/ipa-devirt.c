@@ -247,9 +247,14 @@ struct GTY(()) odr_type_d
 
 /* Return true if T is a type with linkage defined.  */
 
-static bool
+bool
 type_with_linkage_p (const_tree t)
 {
+  /* Builtin types do not define linkage, their TYPE_CONTEXT is NULL.  */
+  if (!TYPE_CONTEXT (t)
+      || !TYPE_NAME (t) || TREE_CODE (TYPE_NAME (t)) != TYPE_DECL)
+    return false;
+
   return (RECORD_OR_UNION_TYPE_P (t)
 	  || TREE_CODE (t) == ENUMERAL_TYPE);
 }
@@ -261,12 +266,23 @@ bool
 type_in_anonymous_namespace_p (const_tree t)
 {
   gcc_assert (type_with_linkage_p (t));
-  /* TREE_PUBLIC of TYPE_STUB_DECL may not be properly set for
-     backend produced types (such as va_arg_type); those have CONTEXT NULL
-     and never are considered anonymoius.  */
-  if (!TYPE_CONTEXT (t))
-    return false;
-  return (TYPE_STUB_DECL (t) && !TREE_PUBLIC (TYPE_STUB_DECL (t)));
+
+  if (TYPE_STUB_DECL (t) && !TREE_PUBLIC (TYPE_STUB_DECL (t)))
+    {
+      if (DECL_ARTIFICIAL (TYPE_NAME (t)))
+	return true;
+      tree ctx = DECL_CONTEXT (TYPE_NAME (t));
+      while (ctx)
+	{
+	  if (TREE_CODE (ctx) == NAMESPACE_DECL)
+	    return !TREE_PUBLIC (ctx);
+	  if (TREE_CODE (ctx) == BLOCK)
+	    ctx = BLOCK_SUPERCONTEXT (ctx);
+	  else
+	    ctx = get_containing_scope (ctx);
+	}
+    }
+  return false;
 }
 
 /* Return true of T is type with One Definition Rule info attached. 
@@ -282,7 +298,7 @@ odr_type_p (const_tree t)
      to care, since it is used only for type merging.  */
   gcc_checking_assert (in_lto_p || flag_lto);
 
-  return (TYPE_NAME (t)
+  return (TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL
           && (DECL_ASSEMBLER_NAME_SET_P (TYPE_NAME (t))));
 }
 
@@ -587,6 +603,59 @@ types_must_be_same_for_odr (tree t1, tree t2)
     return types_same_for_odr (t1, t2);
   else
     return TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2);
+}
+
+/* If T is compound type, return type it is based on.  */
+
+static tree
+compound_type_base (const_tree t)
+{
+  if (TREE_CODE (t) == ARRAY_TYPE
+      || POINTER_TYPE_P (t)
+      || TREE_CODE (t) == COMPLEX_TYPE
+      || VECTOR_TYPE_P (t))
+    return TREE_TYPE (t);
+  if (TREE_CODE (t) == METHOD_TYPE)
+    return TYPE_METHOD_BASETYPE (t);
+  if (TREE_CODE (t) == OFFSET_TYPE)
+    return TYPE_OFFSET_BASETYPE (t);
+  return NULL_TREE;
+}
+
+/* Return true if T is either ODR type or compound type based from it.
+   If the function return true, we know that T is a type originating from C++
+   source even at link-time.  */
+
+bool
+odr_or_derived_type_p (const_tree t)
+{
+  do
+    {
+      if (odr_type_p (t))
+	return true;
+      /* Function type is a tricky one. Basically we can consider it
+	 ODR derived if return type or any of the parameters is.
+	 We need to check all parameters because LTO streaming merges
+	 common types (such as void) and they are not considered ODR then.  */
+      if (TREE_CODE (t) == FUNCTION_TYPE)
+	{
+	  if (TYPE_METHOD_BASETYPE (t))
+	    t = TYPE_METHOD_BASETYPE (t);
+	  else
+	   {
+	     if (TREE_TYPE (t) && odr_or_derived_type_p (TREE_TYPE (t)))
+	       return true;
+	     for (t = TYPE_ARG_TYPES (t); t; t = TREE_CHAIN (t))
+	       if (odr_or_derived_type_p (TREE_VALUE (t)))
+		 return true;
+	     return false;
+	   }
+	}
+      else
+	t = compound_type_base (t);
+    }
+  while (t);
+  return t;
 }
 
 /* Compare types T1 and T2 and return true if they are
@@ -1223,6 +1292,16 @@ odr_types_equivalent_p (tree t1, tree t2, bool warn, bool *warned,
       return false;
     }
 
+  if ((type_with_linkage_p (t1) && type_in_anonymous_namespace_p (t1))
+      || (type_with_linkage_p (t2) && type_in_anonymous_namespace_p (t2)))
+    {
+      /* We can not trip this when comparing ODR types, only when trying to
+	 match different ODR derivations from different declarations.
+	 So WARN should be always false.  */
+      gcc_assert (!warn);
+      return false;
+    }
+
   if (comp_type_attributes (t1, t2) != 1)
     {
       warn_odr (t1, t2, NULL, NULL, warn, warned,
@@ -1625,6 +1704,20 @@ odr_types_equivalent_p (tree t1, tree t2, bool warn, bool *warned,
   return true;
 }
 
+/* Return true if TYPE1 and TYPE2 are equivalent for One Definition Rule.  */
+
+bool
+odr_types_equivalent_p (tree type1, tree type2)
+{
+  hash_set<type_pair,pair_traits> visited;
+
+#ifdef ENABLE_CHECKING
+  gcc_assert (odr_or_derived_type_p (type1) && odr_or_derived_type_p (type2));
+#endif
+  return odr_types_equivalent_p (type1, type2, false, NULL,
+			         &visited);
+}
+
 /* TYPE is equivalent to VAL by ODR, but its tree representation differs
    from VAL->type.  This may happen in LTO where tree merging did not merge
    all variants of the same type or due to ODR violation.
@@ -1749,12 +1842,8 @@ add_type_duplicate (odr_type val, tree type)
 		  base_mismatch = true;
 	      }
 	    else
-	      {
-		hash_set<type_pair,pair_traits> visited;
-		if (!odr_types_equivalent_p (type1, type2, false, NULL,
-					     &visited))
-		  base_mismatch = true;
-	      }
+	      if (!odr_types_equivalent_p (type1, type2))
+		base_mismatch = true;
 	    if (base_mismatch)
 	      {
 		if (!warned && !val->odr_violated)
@@ -2037,6 +2126,7 @@ get_odr_type (tree type, bool insert)
     }
 
   if (build_bases && TREE_CODE (type) == RECORD_TYPE && TYPE_BINFO (type)
+      && type_with_linkage_p (type)
       && type == TYPE_MAIN_VARIANT (type))
     {
       tree binfo = TYPE_BINFO (type);
@@ -2096,7 +2186,8 @@ register_odr_type (tree type)
      makes it possible that non-ODR type is main_odr_variant of ODR type.
      Things may get smoother if LTO FE set mangled name of those types same
      way as C++ FE does.  */
-  if (odr_type_p (main_odr_variant (TYPE_MAIN_VARIANT (type))))
+  if (odr_type_p (main_odr_variant (TYPE_MAIN_VARIANT (type)))
+      && odr_type_p (TYPE_MAIN_VARIANT (type)))
     get_odr_type (TYPE_MAIN_VARIANT (type), true);
   if (TYPE_MAIN_VARIANT (type) != type && odr_type_p (main_odr_variant (type)))
     get_odr_type (type, true);
@@ -2105,7 +2196,7 @@ register_odr_type (tree type)
 /* Return true if type is known to have no derivations.  */
 
 bool
-type_known_to_have_no_deriavations_p (tree t)
+type_known_to_have_no_derivations_p (tree t)
 {
   return (type_all_derivations_known_p (t)
 	  && (TYPE_FINAL_P (t)

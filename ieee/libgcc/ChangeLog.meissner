@@ -1,3 +1,12 @@
+2015-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223451.
+
+	PR libgcc/66225
+	* config/rs6000/morestack.S: Do not use .abiversion on big endian
+	systems in case an older assembler is used.  Use _ARCH_PPC64 to
+	test for 64-bit and not __powerpc64__.
+
 2015-05-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/t-float128: Change -mfloat128 to

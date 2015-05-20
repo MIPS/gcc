@@ -1326,6 +1326,11 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_PARALLEL_COMBINED(NODE) \
   (OMP_PARALLEL_CHECK (NODE)->base.private_flag)
 
+/* True on an OMP_TEAMS statement if it represents an explicit
+   combined teams distribute constructs.  */
+#define OMP_TEAMS_COMBINED(NODE) \
+  (OMP_TEAMS_CHECK (NODE)->base.private_flag)
+
 /* True if OMP_ATOMIC* is supposed to be sequentially consistent
    as opposed to relaxed.  */
 #define OMP_ATOMIC_SEQ_CST(NODE) \
@@ -4544,7 +4549,6 @@ extern tree obj_type_ref_class (tree ref);
 extern bool types_same_for_odr (const_tree type1, const_tree type2,
 				bool strict=false);
 extern bool contains_bitfld_component_ref_p (const_tree);
-extern bool type_in_anonymous_namespace_p (const_tree);
 extern bool block_may_fallthru (const_tree);
 extern void using_eh_for_cleanups (void);
 extern bool using_eh_for_cleanups_p (void);
@@ -4565,6 +4569,8 @@ extern int tree_map_base_eq (const void *, const void *);
 extern unsigned int tree_map_base_hash (const void *);
 extern int tree_map_base_marked_p (const void *);
 extern void DEBUG_FUNCTION verify_type (const_tree t);
+extern bool gimple_canonical_types_compatible_p (const_tree, const_tree,
+						 bool trust_type_canonical = true);
 
 #define tree_map_eq tree_map_base_eq
 extern unsigned int tree_map_hash (const void *);
