@@ -1,3 +1,8 @@
+2015-05-20  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (tsubst_decl) [VAR_DECL]: SET_DECL_IMPLICIT_INSTANTIATION
+	before register_specialization.
+
 2015-05-18  Jason Merrill  <jason@redhat.com>
 
 	* pt.c (tsubst_decl) [VAR_DECL]: Call coerce_innermost_template_parms.
