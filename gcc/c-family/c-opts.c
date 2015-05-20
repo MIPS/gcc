@@ -1091,8 +1091,7 @@ c_common_parse_file (void)
 	break;
     }
 
-  if (!flag_syntax_only)
-    c_parse_final_cleanups ();
+  c_parse_final_cleanups ();
 }
 
 /* Returns the appropriate dump file for PHASE to dump with FLAGS.  */

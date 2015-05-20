@@ -4442,6 +4442,9 @@ c_parse_final_cleanups (void)
       return;
     }
 
+  timevar_stop (TV_PHASE_PARSING);
+  timevar_start (TV_PHASE_DEFERRED);
+
   symtab->process_same_body_aliases ();
 
   /* Handle -fdump-ada-spec[-slim] */
@@ -4456,9 +4459,6 @@ c_parse_final_cleanups (void)
     }
 
   /* FIXME - huh?  was  input_line -= 1;*/
-
-  timevar_stop (TV_PHASE_PARSING);
-  timevar_start (TV_PHASE_DEFERRED);
 
   /* We now have to write out all the stuff we put off writing out.
      These include:
@@ -4781,20 +4781,12 @@ c_parse_final_cleanups (void)
   /* Generate Java hidden aliases.  */
   build_java_method_aliases ();
 
-  timevar_stop (TV_PHASE_DEFERRED);
-  timevar_start (TV_PHASE_PARSING);
-
   if (flag_vtable_verify)
     {
       vtv_recover_class_info ();
       vtv_compute_class_hierarchy_transitive_closure ();
       vtv_build_vtable_verify_fndecl ();
     }
-
-  /* Issue warnings about static, but not defined, functions, etc, and
-     generate initial debug information.  */
-  timevar_stop (TV_PHASE_PARSING);
-  timevar_start (TV_PHASE_DBGINFO);
 
   perform_deferred_noexcept_checks ();
 
@@ -4810,7 +4802,7 @@ c_parse_final_cleanups (void)
       dump_time_statistics ();
     }
 
-  timevar_stop (TV_PHASE_DBGINFO);
+  timevar_stop (TV_PHASE_DEFERRED);
   timevar_start (TV_PHASE_PARSING);
 }
 
