@@ -26770,6 +26770,10 @@ ix86_local_alignment (tree exp, enum machine_mode mode,
       return align;
     }
 
+  /* Don't increase alignment for Intel MCU psABI.  */
+  if (TARGET_IAMCU)
+    return align;
+
   /* x86-64 ABI requires arrays greater than 16 bytes to be aligned
      to 16byte boundary.  Exact wording is:
 
