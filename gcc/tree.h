@@ -1206,7 +1206,7 @@ extern void protected_set_expr_location (tree, location_t);
 
 /* Generic accessors for OMP nodes that keep clauses as operand 0.  */
 #define OMP_STANDALONE_CLAUSES(NODE) \
-  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_CACHE, OMP_TARGET_UPDATE), 0)
+  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_CACHE, OMP_TARGET_EXIT_DATA), 0)
 
 #define OACC_PARALLEL_BODY(NODE) \
   TREE_OPERAND (OACC_PARALLEL_CHECK (NODE), 0)
@@ -1365,6 +1365,12 @@ extern void protected_set_expr_location (tree, location_t);
 		      1)
 #define OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ(NODE) \
   (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_init
+
+/* True on a SHARED clause if a FIRSTPRIVATE clause for the same
+   decl is present in the chain (this can happen only for taskloop
+   with FIRSTPRIVATE/LASTPRIVATE on it originally.  */
+#define OMP_CLAUSE_SHARED_FIRSTPRIVATE(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SHARED)->base.public_flag)
 
 #define OMP_CLAUSE_FINAL_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_FINAL), 0)

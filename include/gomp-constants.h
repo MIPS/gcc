@@ -113,4 +113,14 @@ enum gomp_map_kind
 #define GOMP_DEVICE_ICV			-1
 #define GOMP_DEVICE_HOST_FALLBACK	-2
 
+/* GOMP_task/GOMP_taskloop* flags argument.  */
+#define GOMP_TASK_FLAG_UNTIED		(1 << 0)
+#define GOMP_TASK_FLAG_FINAL		(1 << 1)
+#define GOMP_TASK_FLAG_MERGEABLE	(1 << 2)
+#define GOMP_TASK_FLAG_DEPEND		(1 << 3)
+#define GOMP_TASK_FLAG_UP		(1 << 8)
+#define GOMP_TASK_FLAG_GRAINSIZE	(1 << 9)
+#define GOMP_TASK_FLAG_IF		(1 << 10)
+#define GOMP_TASK_FLAG_NOGROUP		(1 << 11)
+
 #endif

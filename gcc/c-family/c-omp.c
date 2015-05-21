@@ -491,6 +491,7 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
 	      init = integer_zero_node;
 	      fail = true;
 	    }
+	  DECL_INITIAL (decl) = NULL_TREE;
 
 	  init = build_modify_expr (elocus, decl, NULL_TREE, NOP_EXPR,
 	      			    /* FIXME diagnostics: This should

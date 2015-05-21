@@ -1,3 +1,16 @@
+2015-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.map (GOMP_4.1): Export GOMP_taskloop and GOMP_taskloop_ull.
+	* task.c: Include gomp-constants.h.  Include taskloop.c twice
+	with appropriate macros.
+	(GOMP_task): Use GOMP_TASK_FLAG_* defines instead of hardcoded
+	constants.
+	* taskloop.c: New file.
+	* testsuite/libgomp.c/for-4.c: New test.
+	* testsuite/libgomp.c/taskloop-1.c: New test.
+	* testsuite/libgomp.c/taskloop-2.c: New test.
+	* testsuite/libgomp.c/taskloop-3.c: New test.
+
 2015-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp.h.in (omp_get_max_task_priority): New prototype.

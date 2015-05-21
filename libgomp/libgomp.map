@@ -240,6 +240,12 @@ GOMP_4.0.1 {
 	GOMP_offload_unregister;
 } GOMP_4.0;
 
+GOMP_4.1 {
+  global:
+	GOMP_taskloop;
+	GOMP_taskloop_ull;
+} GOMP_4.0.1;
+
 OACC_2.0 {
   global:
 	acc_get_num_devices;

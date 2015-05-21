@@ -1,0 +1,12 @@
+2015-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gomp-constants.h (GOMP_TASK_FLAG_UNTIED, GOMP_TASK_FLAG_FINAL,
+	GOMP_TASK_FLAG_MERGEABLE, GOMP_TASK_FLAG_DEPEND, GOMP_TASK_FLAG_UP,
+	GOMP_TASK_FLAG_GRAINSIZE, GOMP_TASK_FLAG_IF, GOMP_TASK_FLAG_NOGROUP):
+	Define.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

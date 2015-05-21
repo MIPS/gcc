@@ -1,3 +1,7 @@
+2015-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_finish_omp_for): Clear DECL_INITIAL.
+
 2015-05-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-pragma.c (omp_pragmas_simd): Add taskloop.

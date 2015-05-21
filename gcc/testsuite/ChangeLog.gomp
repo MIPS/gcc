@@ -1,3 +1,7 @@
+2015-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/taskloop-1.c: New test.
+
 2015-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/cancel-1.c (f2): Add map clause to all

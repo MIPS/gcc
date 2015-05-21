@@ -1,3 +1,44 @@
+2015-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_STANDALONE_CLAUSES): Adjust to cover
+	OMP_TARGET_{ENTER,EXIT}_DATA.
+	(OMP_CLAUSE_SHARED_FIRSTPRIVATE): Define.
+	* gimplify.c (gimplify_scan_omp_clauses): Add lastprivate
+	clause to outer taskloop if needed.
+	(gimplify_omp_for): Fix a typo.  Fixup OMP_TASKLOOP
+	gimplification.
+	* omp-low.c (omp_copy_decl_2): If var is TREE_ADDRESSABLE
+	listed in task_shared_vars, clear TREE_ADDRESSABLE on the
+	copy.
+	(build_outer_var_ref): Add lastprivate argument, pass it through
+	recursively.  Handle lastprivate on taskloop construct.
+	(install_var_field): Allow multiple fields for a single
+	decl - one for firstprivate, another for shared clauses
+	on task.
+	(scan_sharing_clauses): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE.
+	(add_taskreg_looptemp_clauses): Add one more _looptemp_ clause
+	for taskloop GIMPLE_OMP_TASK, if it is collapse > 1 with
+	non-constant iteration count and there is lastprivate clause
+	on the inner GIMPLE_OMP_FOR.
+	(finish_taskreg_scan): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE.
+	(lower_rec_input_clauses): Likewise.  Ignore all
+	OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE clauses on taskloop construct.
+	(lower_lastprivate_clauses): For OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE
+	on taskloop lookup decl in outer context.  Pass true
+	to build_outer_var_ref lastprivate argument.
+	(lower_send_clauses): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE.
+	(lower_send_shared_vars): Ignore fields with NULL or
+	FIELD_DECL abstract origin.
+	(expand_task_call): Use GOMP_TASK_* defines instead of
+	hardcoded integers.
+	(expand_omp_simd): Handle addressable fd->loop.v.
+	(expand_omp_taskloop_for_outer): Initialize the last
+	_looptemp_ with total iteration count if needed.
+	(expand_omp_taskloop_for_inner): Handle bias and broken_loop.
+	(lower_omp_for_lastprivate): Use last _looptemp_ clause
+	on taskloop for comparison.
+	(create_task_copyfn): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE.
+
 2015-05-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimple.h (enum gf_mask): Add GF_OMP_TASK_TASKLOOP.
