@@ -386,6 +386,18 @@ plugin_build_decl (cc1_plugin::connection *self,
 		   unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
+  { // FIXME in gdb:
+    char *nname = (char*)strrchr (name, ':');
+    if (nname)
+      name = nname + 1;
+    char *nameend = (char*)strchr (name, '(');
+    if (nameend)
+      {
+	*nameend = 0;
+	name = strdupa (name);
+	*nameend = '(';
+      }
+  }
   tree identifier = get_identifier (name);
   enum tree_code code;
   tree decl;
