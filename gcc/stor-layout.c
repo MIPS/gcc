@@ -1831,6 +1831,7 @@ finalize_type_size (tree type)
 	  TYPE_ALIGN (variant) = valign;
 	  TYPE_PRECISION (variant) = precision;
 	  SET_TYPE_MODE (variant, mode);
+	  TYPE_NO_FORCE_BLK (variant) = TYPE_NO_FORCE_BLK (type);
 	}
     }
 }
