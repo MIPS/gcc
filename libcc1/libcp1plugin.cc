@@ -417,7 +417,13 @@ plugin_build_decl (cc1_plugin::connection *self,
 
   source_location loc = ctx->get_source_location (filename, line_number);
 
-  decl = build_decl (loc, code, identifier, sym_type);
+  if (code == FUNCTION_DECL)
+    {
+      decl = build_lang_decl (code, identifier, sym_type);
+      DECL_SOURCE_LOCATION (decl) = loc;
+    }
+  else
+    decl = build_decl (loc, code, identifier, sym_type);
   TREE_USED (decl) = 1;
   TREE_ADDRESSABLE (decl) = 1;
 
