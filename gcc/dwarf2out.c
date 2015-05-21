@@ -4953,6 +4953,12 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 	     them up.  */
 	  && (TREE_CODE (t) != FUNCTION_DECL
 	      || !decl_function_context (t))
+	  /* Same as nested functions above but for types.  Types that
+	     are local to a function will be fixed in
+	     decls_for_scope.  */
+	  && (!RECORD_OR_UNION_TYPE_P (t)
+	      || !TYPE_CONTEXT (t)
+	      || TREE_CODE (TYPE_CONTEXT (t)) != FUNCTION_DECL)
 	  /* FIXME debug-early: Allow late limbo DIE creation for LTO,
 	     especially in the ltrans stage, but once we implement LTO
 	     dwarf streaming, we should remove this exception.  */
