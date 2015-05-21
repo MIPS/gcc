@@ -1,3 +1,41 @@
+2015-05-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/52952
+	* gcc.dg/redecl-4.c: Update column numbers.
+	* gcc.dg/format/bitfld-1.c: Likewise.
+	* gcc.dg/format/attr-2.c: Likewise.
+	* gcc.dg/format/attr-6.c: Likewise.
+	* gcc.dg/format/attr-7.c (baz): Likewise.
+	* gcc.dg/format/asm_fprintf-1.c: Likewise.
+	* gcc.dg/format/attr-4.c: Likewise.
+	* gcc.dg/format/branch-1.c: Likewise.
+	* gcc.dg/format/c90-printf-1.c: Likewise. Add tests for column
+	locations within strings with embedded escape sequences.
+
+2015-05-20  Alex Velenko  <Alex.Velenko@arm.com>
+
+        * gcc.target/arm/thumb1-far-jump-2.c (r4): Added int in definition.
+
+2015-05-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-c++-common/Wmisleading-indentation.c (fn_32): New.
+	(fn_33_k_and_r_style): New.
+	(fn_33_stroustrup_style): New.
+	(fn_33_allman_style): New.
+	(fn_33_whitesmiths_style): New.
+	(fn_33_horstmann_style): New.
+	(fn_33_ratliff_banner_style): New.
+	(fn_33_lisp_style): New.
+	(fn_34_indent_dash_gnu): New.
+	(fn_34_indent_dash_kr): New.
+	(fn_34_indent_dash_orig): New.
+	(fn_34_indent_linux_style): New.
+
+2015-05-20  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/65548
+	* gfortran.dg/allocate_with_source_5.f90: Extend test.
+
 2015-05-20  Bin Cheng  <bin.cheng@arm.com>
 
 	PR tree-optimization/65447
