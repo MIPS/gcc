@@ -85,6 +85,10 @@ get_anonymous_namespace_name (void)
 
 static GTY((deletable)) binding_entry free_binding_entry = NULL;
 
+/* The bindin oracle; see cp-tree.h.  */
+
+cp_binding_oracle_function *cp_binding_oracle;
+
 /* Create a binding_entry object for (NAME, TYPE).  */
 
 static inline binding_entry
@@ -4826,6 +4830,15 @@ lookup_name_real_1 (tree name, int prefer_type, int nonclass, bool block_p,
   cxx_binding *iter;
   tree val = NULL_TREE;
 
+  // FIXME: we need a more space-efficient representation for
+  // oracle_looked_up.
+  if (cp_binding_oracle && !LANG_IDENTIFIER_CAST (name)->oracle_looked_up)
+    {
+      LANG_IDENTIFIER_CAST (name)->oracle_looked_up = true;
+      cp_binding_oracle (CP_ORACLE_SYMBOL, name);
+      cp_binding_oracle (CP_ORACLE_TAG, name);
+    }
+
   /* Conversion operators are handled specially because ordinary
      unqualified name lookup will not find template conversion
      operators.  */
@@ -6036,6 +6049,27 @@ pushtag (tree name, tree type, tag_scope scope)
   timevar_cond_stop (TV_NAME_LOOKUP, subtime);
   return ret;
 }
+
+void
+cp_bind (location_t loc, tree decl, bool is_global)
+{
+  DECL_SOURCE_LOCATION (decl) = loc;
+
+  if (!is_global)
+    {
+      push_local_binding (DECL_NAME (decl), decl, 0);
+      return;
+    }
+
+  /* Select the global namespace.  */
+  cp_binding_level *level = current_binding_level;
+
+  while (level->level_chain)
+    level = level->level_chain;
+
+  add_decl_to_level (decl, level);
+}
+
 
 /* Subroutines for reverting temporarily to top-level for instantiation
    of templates and such.  We actually need to clear out the class- and
