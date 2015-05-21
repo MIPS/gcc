@@ -1,3 +1,15 @@
+2015-05-21  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* omp-low.c (struct omp_region): Add a gwv_this field.
+	(bb_region_map): New variable.
+	(find_omp_for_region_data, find_omp_target_region_data): New static
+	functions.
+	(build_omp_regions_1): Call them.  Build the bb_region_map.
+	(enclosing_target_region, requires_vector_predicate,
+	generate_vector_broadcast, predicate_bb, find_predicatable_bbs,
+	predicate_omp_regions): New static functions.
+	(execute_expand_omp): Allocate and free bb_region_map.
+
 2015-05-20  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* config/nvptx/nvptx.c: Include "dumpfile,h".
