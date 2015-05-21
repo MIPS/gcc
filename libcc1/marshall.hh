@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define CC1_PLUGIN_MARSHALL_HH
 
 #include "status.hh"
-#include "gcc-c-interface.h"
+#include "gcc-interface.h"
 
 namespace cc1_plugin
 {
@@ -66,13 +66,6 @@ namespace cc1_plugin
     *scalar = result;
     return OK;
   }
-
-  // Unmarshallers for some specific enum types.  With C++11 we
-  // wouldn't need these, as we could add type traits to the scalar
-  // unmarshaller.
-  status unmarshall (connection *, enum gcc_c_symbol_kind *);
-  status unmarshall (connection *, enum gcc_qualifiers *);
-  status unmarshall (connection *, enum gcc_c_oracle_request *);
 
   // Send a string type marker followed by a string.
   status marshall (connection *, const char *);

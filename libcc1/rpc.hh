@@ -21,7 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #define CC1_PLUGIN_RPC_HH
 
 #include "status.hh"
-#include "marshall.hh"
 #include "connection.hh"
 
 namespace cc1_plugin
