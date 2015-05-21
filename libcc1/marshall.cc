@@ -50,36 +50,6 @@ cc1_plugin::unmarshall_intlike (connection *conn, unsigned long long *result)
 }
 
 cc1_plugin::status
-cc1_plugin::unmarshall (connection *conn, enum gcc_c_symbol_kind *result)
-{
-  protocol_int p;
-  if (!unmarshall_intlike (conn, &p))
-    return FAIL;
-  *result = (enum gcc_c_symbol_kind) p;
-  return OK;
-}
-
-cc1_plugin::status
-cc1_plugin::unmarshall (connection *conn, enum gcc_c_oracle_request *result)
-{
-  protocol_int p;
-  if (!unmarshall_intlike (conn, &p))
-    return FAIL;
-  *result = (enum gcc_c_oracle_request) p;
-  return OK;
-}
-
-cc1_plugin::status
-cc1_plugin::unmarshall (connection *conn, enum gcc_qualifiers *result)
-{
-  protocol_int p;
-  if (!unmarshall_intlike (conn, &p))
-    return FAIL;
-  *result = (enum gcc_qualifiers) p;
-  return OK;
-}
-
-cc1_plugin::status
 cc1_plugin::marshall (connection *conn, const char *str)
 {
   if (!conn->send ('s'))
