@@ -63,6 +63,7 @@
 
 #include "callbacks.hh"
 #include "connection.hh"
+#include "marshall-c.hh"
 #include "rpc.hh"
 
 #ifdef __GNUC__
@@ -469,18 +470,30 @@ plugin_build_pointer_type (cc1_plugin::connection *,
   return convert_out (build_pointer_type (convert_in (base_type)));
 }
 
+// TYPE_NAME needs to be a valid pointer, even if there is no name available.
+
+static tree
+build_anonymous_node (enum tree_code code)
+{
+  tree node = make_node (code);
+  tree type_decl = build_decl (input_location, TYPE_DECL, NULL_TREE, node);
+  TYPE_NAME (node) = type_decl;
+  TYPE_STUB_DECL (node) = type_decl;
+  return node;
+}
+
 gcc_type
 plugin_build_record_type (cc1_plugin::connection *self)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  return convert_out (ctx->preserve (make_node (RECORD_TYPE)));
+  return convert_out (ctx->preserve (build_anonymous_node (RECORD_TYPE)));
 }
 
 gcc_type
 plugin_build_union_type (cc1_plugin::connection *self)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  return convert_out (ctx->preserve (make_node (UNION_TYPE)));
+  return convert_out (ctx->preserve (build_anonymous_node (UNION_TYPE)));
 }
 
 int
@@ -577,7 +590,7 @@ plugin_build_enum_type (cc1_plugin::connection *self,
   if (underlying_int_type == error_mark_node)
     return convert_out (error_mark_node);
 
-  tree result = make_node (ENUMERAL_TYPE);
+  tree result = build_anonymous_node (ENUMERAL_TYPE);
 
   TYPE_PRECISION (result) = TYPE_PRECISION (underlying_int_type);
   TYPE_UNSIGNED (result) = TYPE_UNSIGNED (underlying_int_type);
