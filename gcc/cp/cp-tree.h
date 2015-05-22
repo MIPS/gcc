@@ -6832,9 +6832,6 @@ typedef void cp_binding_oracle_function (enum cp_oracle_request, tree identifier
 
 extern cp_binding_oracle_function *cp_binding_oracle;
 
-extern void cp_pushtag (location_t, tree, tree);
-extern void cp_bind (location_t, tree, bool);
-
 /* in constraint.cc */
 extern void init_constraint_processing          ();
 extern bool constraint_p                        (tree);

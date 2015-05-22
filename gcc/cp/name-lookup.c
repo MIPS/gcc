@@ -6050,26 +6050,6 @@ pushtag (tree name, tree type, tag_scope scope)
   return ret;
 }
 
-void
-cp_bind (location_t loc, tree decl, bool is_global)
-{
-  DECL_SOURCE_LOCATION (decl) = loc;
-
-  if (!is_global)
-    {
-      push_local_binding (DECL_NAME (decl), decl, 0);
-      return;
-    }
-
-  /* Select the global namespace.  */
-  cp_binding_level *level = current_binding_level;
-
-  while (level->level_chain)
-    level = level->level_chain;
-
-  add_decl_to_level (decl, level);
-}
-
 
 /* Subroutines for reverting temporarily to top-level for instantiation
    of templates and such.  We actually need to clear out the class- and
