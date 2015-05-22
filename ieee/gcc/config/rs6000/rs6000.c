@@ -1853,6 +1853,7 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
      asked for it.  */
   if (TARGET_VSX && VSX_REGNO_P (regno)
       && (VECTOR_MEM_VSX_P (mode)
+	  || FLOAT128_VECTOR_P (mode)
 	  || reg_addr[mode].scalar_in_vmx_p
 	  || (TARGET_VSX_TIMODE && mode == TImode)
 	  || (TARGET_VADDUQM && mode == V1TImode)))
@@ -1878,6 +1879,9 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
      modes and DImode.  */
   if (FP_REGNO_P (regno))
     {
+      if (FLOAT128_VECTOR_P (mode))
+	return false;
+
       if (SCALAR_FLOAT_MODE_P (mode)
 	  && (mode != TDmode || (regno % 2) == 0)
 	  && FP_REGNO_P (last_regno))
@@ -2493,9 +2497,6 @@ rs6000_debug_reg_global (void)
 
   if (targetm.lra_p ())
     fprintf (stderr, DEBUG_FMT_S, "lra", "true");
-
-  if (TARGET_FLOAT128)
-    fprintf (stderr, DEBUG_FMT_S, "__float128", "true");
 
   if (TARGET_P8_FUSION)
     fprintf (stderr, DEBUG_FMT_S, "p8 fusion",
@@ -3778,11 +3779,8 @@ rs6000_option_override_internal (bool global_init_p)
     }
   else if (TARGET_FLOAT128 == FLOAT128_HW)
     error ("-mfloat128-hardware is not yet supported");
-  else if (TARGET_FLOAT128 == FLOAT128_SW)
-    {
-      if (!TARGET_VSX)
-	error ("-mfloat128-software requires VSX support");
-    }
+  else if (TARGET_FLOAT128 == FLOAT128_SW && !TARGET_VSX)
+    error ("-mfloat128-software requires VSX support");
 
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
