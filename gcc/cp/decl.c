@@ -12592,10 +12592,14 @@ xref_tag_1 (enum tag_types tag_code, tree name,
     {
       if (template_header_p && MAYBE_CLASS_TYPE_P (t))
         {
-          // Check that we aren't trying to overload a class with
-          // different constraints.
-          tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
-          tree constr = build_constraints (reqs, NULL_TREE);
+          /* Check that we aren't trying to overload a class with different 
+             constraints.  */
+          tree constr = NULL_TREE;
+          if (current_template_parms)
+            {
+              tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
+              constr = build_constraints (reqs, NULL_TREE);
+            }
 	  if (!redeclare_class_template (t, current_template_parms, constr))
 	    return error_mark_node;
         }

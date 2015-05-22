@@ -1,3 +1,9 @@
+2015-05-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix regression caused by null de-reference.
+	* gcc/cp/decl.c (xref_tag_1): Check that current_template_parms
+	is non-null before accessing constraints.
+
 2015-05-19  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Handle nested requirements with type errors.
