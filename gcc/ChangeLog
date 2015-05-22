@@ -55,7 +55,6 @@
 	(dwarf2out_early_finish): ...here.  New.
 	(dwarf2out_c_finalize): Remove set of deferred_location_list,
 	deferred_asm_name, and file_table_last_lookup.
-	* tree-switch-conversion.c (build_one_array): Set DECL_IGNORED_P.
 	* cgraph.h (referred_to_p): Add default argument.
 	* cgraphunit.c (referred_to_p): Add and handle include_self
 	argument.
