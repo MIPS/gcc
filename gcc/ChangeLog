@@ -1,7 +1,198 @@
+2015-05-22  hiraditya  <hiraditya@msn.com>
+
+	* gimple.h (gimple_expr_type): Refactor to make it concise. Remove
+	redundant if.
+
+2015-05-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/65701
+	* tree-vect-data-refs.c (vect_enhance_data_refs_alignment):
+	Move peeling cost models into one place.  Peel for alignment
+	for single loads only if an aligned load is cheaper than
+	an unaligned load.
+
+2015-05-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c/47043
+	* doc/extend.texi (Enumerator Attributes): New section.
+	Document syntax of enumerator attributes.
+
+2015-05-22  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-loop.c (get_reduction_op): New function.
+	(vect_model_reduction_cost): Use it, add reduc_index parameter.
+	Make ready for BB reductions.
+	(vect_create_epilog_for_reduction): Use get_reduction_op.
+	(vectorizable_reduction): Init reduc_index to a valid value.
+	Adjust vect_model_reduction_cost call.
+	* tree-vect-slp.c (vect_get_constant_vectors): Use the proper
+	operand for reduction defaults.  Add SAD_EXPR support.
+	Assert we have a neutral op for SLP reductions.
+	* tree-vect-stmts.c (vect_mark_stmts_to_be_vectorized): When
+	walking pattern stmt ops only recurse to SSA names.
+
+2015-05-22  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Replace
+	assert with guard, remove check on detected reduction.
+	(vect_recog_sad_pattern): Likewise.
+	(vect_recog_widen_sum_pattern): Likewise.
+
+2015-05-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/arm_neon.h (vaeseq_u8): Add __extension__ and
+	__always_inline__ attribute.
+	(vaesdq_u8): Likewise.
+	(vaesmcq_u8): Likewise.
+	(vaesimcq_u8): Likewise.
+	(vsha1cq_u32): Likewise.
+	(vsha1mq_u32): Likewise.
+	(vsha1pq_u32): Likewise.
+	(vsha1h_u32): Likewise.
+	(vsha1su0q_u32): Likewise.
+	(vsha1su1q_u32): Likewise.
+	(vsha256hq_u32): Likewise.
+	(vsha256h2q_u32): Likewise.
+	(vsha256su0q_u32): Likewise.
+	(vsha256su1q_u32): Likewise.
+	(vmull_p64): Likewise.
+	(vmull_high_p64): Likewise.
+
+2015-05-20  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* final.c (final_scan_insn): Don't check HAVE_peephole with the
+	preprocessor.
+	* output.h: Likewise.
+	* genconfig.c (main): Alwways define HAVE_peephole.
+	* genpeep.c: Don't emit checks of HAVE_peephole.
+
+2015-05-20  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* combine.c, expmed.c, expr.c, optabs.c optabs.h, toplev.c: DOn't
+	check HAVE_conditional_move with the preprocessor.
+
+2015-05-20  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* genconfig.c (main): Always define HAVE_conditional_move.
+	* combine.c, expmed.c, expr.c, ifcvt.c, optabs.c, optabs.h,
+	toplev.c, tree-ssa-phiopt.c: Don't check if HAVE_conditional_move
+	is defined.
+
+2015-05-20  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* combine.c, df-problems.c, df-scan.c, emit-rtl.c, reginfo.c,
+	reload.c, rtlanal.c: Remove comparison of ARG_FRAME_POINTER_REGNUM
+	and FRAME_POINTER_REGNUM with the preprocessor.
+
+2015-05-20  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* defaults.h: Add default for STACK_PUSH_CODE.
+	* expr.c: Don't redefine STACK_PUSH_CODE.
+	* recog.c: Likewise.
+
+2015-05-20  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* builtins.c, dwarf2cfi.c, explow.c, expr.c, recog.c,
+	sched-deps.c: Use if instead of preprocessor checks with
+	STACK_GROWS_DOWNWARD.
+
+2015-05-20  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* *.c: Check the value of STACK_GROWS_DOWNWARD rather than if it
+	is defined.
+	* config/**/*.h: Define STACK_GROWS_DOWNWARD to an integer.
+	* defaults.h: Provide default for STACK_GROWS_DOWNWARD.
+	* doc/tm.texi.in: Update references to STACK_GROWS_DOWNWARD.
+	* doc/tm.texi: Regenerate.
+
+2015-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/66232
+	* config/i386/constraints.md (Bg): New constraint for GOT memory
+	operand.
+	* config/i386/i386.md (*call_got_x32): New pattern.
+	(*call_value_got_x32): Likewise.
+	* config/i386/predicates.md (GOT_memory_operand): New predicate.
+
+2015-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/66233
+	* match.pd (ocvt (icvt@1 @0)): Don't handle vector types.
+	Simplify.
+
+2015-05-21  Jeff Law  <law@redhat.com>
+
+	* config/pa/pa.md (add-with-constant splitter): Use ASHIFT rather
+	than MULT for shadd sequences.
+
+2015-05-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	* alias.c (alias_stats): New static var.	
+	(alias_sets_conflict_p, alias_sets_must_conflict_p): Update stats.
+	(dump_alias_stats_in_alias_c): New function.
+	* alias.h (dump_alias_stats_in_alias_c): Declare.
+	* tree-ssa-alias.c (dump_alias_stats): Call it.
+
+2015-05-08  Michael Matz  <matz@suse.de>
+
+	* tree-vectorizer.h (struct _stmt_vec_info): Rename stride_load_p
+	to strided_p.
+	(STMT_VINFO_STRIDE_LOAD_P): Rename to ...
+	(STMT_VINFO_STRIDED_P): ... this.
+	* tree-vect-data-refs.c (vect_compute_data_ref_alignment): Adjust.
+	(vect_verify_datarefs_alignment): Likewise.
+	(vect_enhance_data_refs_alignment): Likewise.
+	(vect_analyze_data_ref_access): Likewise.
+	(vect_analyze_data_refs): Accept strided stores.
+	* tree-vect-stmts.c (vect_model_store_cost): Count strided stores.
+	(vect_model_load_cost): Adjust for macro rename.
+	(vectorizable_mask_load_store): Likewise.
+	(vectorizable_load): Likewise.
+	(vectorizable_store): Open code strided stores.
+
+2015-05-21  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* doc/sourcebuild.texi (7.2.3.9 Other hardware attributes):
+	Document sqrt_insn.
+
+2015-05-21  Richard Biener  <rguenther@suse.de>
+
+	PR c++/66211
+	* match.pd: Guard pattern optimzing (int)(float)int
+	conversions to apply only on GIMPLE.
+
+2015-05-21  Jeff Law  <law@redhat.com>
+
+	* combine.c (find_split_point): Handle ASHIFT like MULT to encourage
+	multiply-accumulate/shift-add insn generation.
+
+2015-05-21  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54236
+	* config/sh/sh.md (*round_int_even): Reject pattern if operands[0] and
+	operands[1] are the same.
+
+2015-05-21  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR middle-end/66221
+	* ipa-chkp.c (chkp_copy_function_type_adding_bounds): Use
+	build_distinct_type_copy to copy bounds.
+
 2015-05-21  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* genrecog.c (MAX_DEPTH, MIN_NUM_STATEMENTS, MAX_NUM_STATEMENTS):
 	Change to unsigned int.
+
+2015-05-20  Jeff Law  <law@redhat.com>
+
+	* config/pa/pa.c (pa_print_operand): New 'o' output modifier.
+	(pa_mem_shadd_constant_p): Renamed from pa_shadd_constant_p.
+	(pa_shadd_constant_p): Allow constants for shadd insns rather
+	than valid scaling constants for memory addresses.
+	* config/pa/pa-protos.h (pa_mem_shadd_constant_p): Add prototype.
+	* config/pa/predicates.md (mem_shadd_operand): New predicate.
+	* config/pa/pa.md (shift-add insns using MULT): Use mem_shadd_operand.
+	(shift-add insns using ASHIFT): New patterns.
 
 2015-05-20  Mikhail Maltsev  <maltsevm@gmail.com>
 
