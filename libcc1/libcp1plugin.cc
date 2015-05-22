@@ -513,16 +513,23 @@ static tree
 build_anonymous_node (enum tree_code code)
 {
   tree node;
-  if (code == RECORD_TYPE)
-    node = make_class_type (code);
+  if (code != ENUMERAL_TYPE)
+    {
+      node = make_class_type (code);
+    }
   else
-    node = make_node (code);
-  if (!name_placeholder)
+    node = cxx_make_type (code);
+  if (!name_placeholder) // FIXME: have a separate call to set scope, name and bases
     name_placeholder = get_identifier ("name placeholder");
   tree type_decl = build_decl (input_location, TYPE_DECL,
 			       name_placeholder, node);
   TYPE_NAME (node) = type_decl;
   TYPE_STUB_DECL (node) = type_decl;
+  if (code != ENUMERAL_TYPE)
+    {
+      xref_basetypes (node, NULL);
+      begin_class_definition (node);
+    }
   return node;
 }
 
@@ -530,9 +537,7 @@ gcc_type
 plugin_build_record_type (cc1_plugin::connection *self)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  tree node = build_anonymous_node (RECORD_TYPE);
-  xref_basetypes (node, NULL); // for now
-  return convert_out (ctx->preserve (node));
+  return convert_out (ctx->preserve (build_anonymous_node (RECORD_TYPE)));
 }
 
 gcc_type
@@ -553,8 +558,7 @@ plugin_build_add_field (cc1_plugin::connection *,
   tree record_or_union_type = convert_in (record_or_union_type_in);
   tree field_type = convert_in (field_type_in);
 
-  gcc_assert (TREE_CODE (record_or_union_type) == RECORD_TYPE
-	      || TREE_CODE (record_or_union_type) == UNION_TYPE);
+  gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
 
   /* Note that gdb does not preserve the location of field decls, so
      we can't provide a decent location here.  */
@@ -599,33 +603,9 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
 {
   tree record_or_union_type = convert_in (record_or_union_type_in);
 
-  gcc_assert (TREE_CODE (record_or_union_type) == RECORD_TYPE
-	      || TREE_CODE (record_or_union_type) == UNION_TYPE);
+  gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
 
-  /* We built the field list in reverse order, so fix it now.  */
-  TYPE_FIELDS (record_or_union_type)
-    = nreverse (TYPE_FIELDS (record_or_union_type));
-
-  if (TREE_CODE (record_or_union_type) == UNION_TYPE)
-    {
-      /* Unions can just be handled by the generic code.  */
-      layout_type (record_or_union_type);
-    }
-  else
-    {
-      // FIXME there's no way to get this from DWARF,
-      // or even, it seems, a particularly good way to deduce it.
-      TYPE_ALIGN (record_or_union_type)
-	= TYPE_PRECISION (pointer_sized_int_node);
-
-      TYPE_SIZE (record_or_union_type) = bitsize_int (size_in_bytes
-						      * BITS_PER_UNIT);
-      TYPE_SIZE_UNIT (record_or_union_type) = size_int (size_in_bytes);
-
-      compute_record_mode (record_or_union_type);
-      finish_bitfield_layout (record_or_union_type);
-      // FIXME we have no idea about TYPE_PACKED
-    }
+  finish_struct (record_or_union_type, NULL);
 
   return 1;
 }
