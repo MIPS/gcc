@@ -45,6 +45,13 @@ static const char *const mode_class_names[MAX_MODE_CLASS] =
 # define EXTRA_MODES_FILE ""
 #endif
 
+#ifdef EXTRA_ADJUSTMENTS_FILE
+# define HAVE_EXTRA_ADJUSTMENTS 1
+#else
+# define HAVE_EXTRA_ADJUSTMENTS 0
+# define EXTRA_ADJUSTMENTS_FILE ""
+#endif
+
 /* Data structure for building up what we know about a mode.
    They're clustered by mode class.  */
 struct mode_data
@@ -1122,18 +1129,27 @@ mode_unit_precision_inline (machine_mode mode)\n\
 }
 
 static void
+emit_autogen_header (void)
+{
+  puts ("/* Generated automatically from");
+  puts ("\tmachmode.def");
+  if (HAVE_EXTRA_MODES)
+    printf ("\t%s\n", EXTRA_MODES_FILE);
+  if (HAVE_EXTRA_ADJUSTMENTS)
+    printf ("\t%s\n", EXTRA_ADJUSTMENTS_FILE);
+  puts ("   by genmodes.  */");
+}
+
+static void
 emit_insn_modes_h (void)
 {
   int c;
   struct mode_data *m, *first, *last;
   int n_int_n_ents = 0;
 
-  printf ("/* Generated automatically from machmode.def%s%s\n",
-	   HAVE_EXTRA_MODES ? " and " : "",
-	   EXTRA_MODES_FILE);
+  emit_autogen_header ();
 
   puts ("\
-   by genmodes.  */\n\
 \n\
 #ifndef GCC_INSN_MODES_H\n\
 #define GCC_INSN_MODES_H\n\
@@ -1212,12 +1228,9 @@ enum machine_mode\n{");
 static void
 emit_insn_modes_c_header (void)
 {
-  printf ("/* Generated automatically from machmode.def%s%s\n",
-	   HAVE_EXTRA_MODES ? " and " : "",
-	   EXTRA_MODES_FILE);
+  emit_autogen_header ();
 
   puts ("\
-   by genmodes.  */\n\
 \n\
 #include \"config.h\"\n\
 #include \"system.h\"\n\
@@ -1230,12 +1243,9 @@ emit_insn_modes_c_header (void)
 static void
 emit_min_insn_modes_c_header (void)
 {
-  printf ("/* Generated automatically from machmode.def%s%s\n",
-	   HAVE_EXTRA_MODES ? " and " : "",
-	   EXTRA_MODES_FILE);
+  emit_autogen_header ();
 
   puts ("\
-   by genmodes.  */\n\
 \n\
 #include \"bconfig.h\"\n\
 #include \"system.h\"\n\

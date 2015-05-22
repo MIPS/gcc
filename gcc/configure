@@ -734,6 +734,7 @@ LIBINTL_DEP
 LIBINTL
 USE_NLS
 extra_opt_files
+extra_adjustments_file
 extra_modes_file
 NATIVE_SYSTEM_HEADER_DIR
 objext
@@ -11709,6 +11710,17 @@ _ACEOF
 
 fi
 
+# Look for a file containing extra machine mode adjustments.
+if test -n "$extra_adjustments" && test -f $srcdir/config/$extra_adjustments; then
+  extra_adjustments_file='$(srcdir)'/config/${extra_adjustments}
+
+
+cat >>confdefs.h <<_ACEOF
+#define EXTRA_ADJUSTMENTS_FILE "config/$extra_adjustments"
+_ACEOF
+
+fi
+
 # Convert extra_options into a form suitable for Makefile use.
 extra_opt_files=
 all_opt_files=
@@ -18402,7 +18414,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18405 "configure"
+#line 18417 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18508,7 +18520,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18511 "configure"
+#line 18523 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H

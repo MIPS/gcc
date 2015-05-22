@@ -250,6 +250,11 @@ DECIMAL_FLOAT_MODE (SD, 4, decimal_single_format);
 DECIMAL_FLOAT_MODE (DD, 8, decimal_double_format);
 DECIMAL_FLOAT_MODE (TD, 16, decimal_quad_format);
 
+/* Allow the target to make various adjustments to modes.  */
+#if HAVE_EXTRA_ADJUSTMENTS
+# include EXTRA_ADJUSTMENTS_FILE
+#endif
+
 /* The symbol Pmode stands for one of the above machine modes (usually SImode).
    The tm.h file specifies which one.  It is not a distinct mode.  */
 

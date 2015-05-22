@@ -1,0 +1,28 @@
+/* Definitions of target adjustments for GCC for x86.
+   Copyright (C) 2015 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3, or (at your option)
+any later version.
+
+GCC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
+/* If TARGET_128BIT_LONG_DOUBLE is true, XFmode has size and alignment 16.
+   Otherwise, XFmode has size 12 and alignment 4.  */
+ADJUST_FLOAT_FORMAT (XF, (TARGET_128BIT_LONG_DOUBLE
+			  ? &ieee_extended_intel_128_format
+			  : TARGET_96_ROUND_53_LONG_DOUBLE
+			  ? &ieee_extended_intel_96_round_53_format
+			  : &ieee_extended_intel_96_format));
+ADJUST_BYTESIZE  (XF, TARGET_128BIT_LONG_DOUBLE ? 16 : 12);
+ADJUST_ALIGNMENT (XF, TARGET_128BIT_LONG_DOUBLE ? 16 : 4);

@@ -548,6 +548,7 @@ lang_tree_files=@lang_tree_files@
 target_cpu_default=@target_cpu_default@
 OBJC_BOEHM_GC=@objc_boehm_gc@
 extra_modes_file=@extra_modes_file@
+extra_adjustments_file=@extra_adjustments_file@
 extra_opt_files=@extra_opt_files@
 host_hook_obj=@out_host_hook_obj@
 
@@ -2558,7 +2559,7 @@ CFLAGS-errors.o += -DHOST_GENERATOR_FILE
 build/genmddeps.o: genmddeps.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h	\
   errors.h $(READ_MD_H)
 build/genmodes.o : genmodes.c $(BCONFIG_H) $(SYSTEM_H) errors.h		\
-  $(HASHTAB_H) machmode.def $(extra_modes_file)
+  $(HASHTAB_H) machmode.def $(extra_modes_file) $(extra_adjustments_file)
 build/genopinit.o : genopinit.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h gensupport.h optabs.def
 build/genoutput.o : genoutput.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\

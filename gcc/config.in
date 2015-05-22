@@ -234,6 +234,13 @@
 #endif
 
 
+/* Define to the name of a file containing adjustments to machine modes for
+   this architecture. */
+#ifndef USED_FOR_TARGET
+#undef EXTRA_ADJUSTMENTS_FILE
+#endif
+
+
 /* Define to the name of a file containing a list of extra machine modes for
    this architecture. */
 #ifndef USED_FOR_TARGET

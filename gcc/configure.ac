@@ -1622,6 +1622,15 @@ if test -n "$extra_modes" && test -f $srcdir/config/$extra_modes; then
    for this architecture.])
 fi
 
+# Look for a file containing extra machine mode adjustments.
+if test -n "$extra_adjustments" && test -f $srcdir/config/$extra_adjustments; then
+  extra_adjustments_file='$(srcdir)'/config/${extra_adjustments}
+  AC_SUBST(extra_adjustments_file)
+  AC_DEFINE_UNQUOTED(EXTRA_ADJUSTMENTS_FILE, "config/$extra_adjustments",
+  [Define to the name of a file containing adjustments to machine modes
+   for this architecture.])
+fi
+
 # Convert extra_options into a form suitable for Makefile use.
 extra_opt_files=
 all_opt_files=

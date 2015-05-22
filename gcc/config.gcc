@@ -103,6 +103,10 @@
 #                       machine modes, if necessary and different from
 #                       "$cpu_type/$cpu_type-modes.def".
 #
+#  extra_adjustments    The name of the file containing adjustments to
+#                       machine modes, if necessary and different from
+#                       "$cpu_type/$cpu_type-adjustments.def".
+#
 #  extra_objs		List of extra objects that should be linked into
 #			the compiler proper (cc1, cc1obj, cc1plus)
 #			depending on target.
@@ -496,6 +500,11 @@ extra_modes=
 if test -f ${srcdir}/config/${cpu_type}/${cpu_type}-modes.def
 then
 	extra_modes=${cpu_type}/${cpu_type}-modes.def
+fi
+extra_adjustments=
+if test -f ${srcdir}/config/${cpu_type}/${cpu_type}-adjustments.def
+then
+	extra_adjustments=${cpu_type}/${cpu_type}-adjustments.def
 fi
 if test -f ${srcdir}/config/${cpu_type}/${cpu_type}.opt
 then
