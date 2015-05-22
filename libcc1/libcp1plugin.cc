@@ -433,6 +433,7 @@ plugin_build_decl (cc1_plugin::connection *self,
     {
       decl = build_lang_decl (code, identifier, sym_type);
       DECL_SOURCE_LOCATION (decl) = loc;
+      SET_DECL_LANGUAGE (decl, lang_cplusplus); // FIXME: current_lang_name is lang_name_c while compiling an extern "C" function, and we haven't switched to a global context at this point, and this breaks function overloading.
     }
   else
     decl = build_decl (loc, code, identifier, sym_type);
@@ -471,7 +472,15 @@ plugin_bind (cc1_plugin::connection *,
 	     gcc_decl decl_in, int is_global)
 {
   tree decl = convert_in (decl_in);
-  cp_bind (DECL_SOURCE_LOCATION (decl), decl, is_global);
+
+  if (is_global)
+    push_nested_namespace (global_namespace);
+
+  pushdecl_maybe_friend (decl, false);
+
+  if (is_global)
+    pop_nested_namespace (global_namespace);
+
   rest_of_decl_compilation (decl, is_global, 0);
   return 1;
 }
