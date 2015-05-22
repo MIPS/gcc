@@ -476,15 +476,29 @@ plugin_bind (cc1_plugin::connection *,
   return 1;
 }
 
-static tree name_placeholder;
+// g++ really wants types to have names, even when they're anonymous.
+// FIXME: we can't tell actual anonymous types.  We should have type
+// names specified earlier, otherwise we'll create wrong bindings
+// within class defs.  Maybe have a separate call to set scope, name
+// and base classes wouldn't be a bad idea.
+
+static tree
+get_placeholder_identifier ()
+{
+  static tree name_placeholder;
+  if (!name_placeholder)
+    name_placeholder = get_identifier ("name placeholder");
+  return name_placeholder;
+}
 
 void
 cp_pushtag (location_t loc, tree name, tree type)
 {
   tree decl = TYPE_NAME (type);
   DECL_SOURCE_LOCATION (decl) = loc;
-  gcc_assert (DECL_NAME (decl) == name_placeholder || DECL_NAME (decl) == name);
-  DECL_NAME (decl) = name;
+  gcc_assert (DECL_NAME (decl) == name
+	      || DECL_NAME (decl) == get_placeholder_identifier ());
+  DECL_NAME (decl) = name; // FIXME: drop name_placeholder
   pushtag (name, type, ts_global);
 }
 
@@ -494,8 +508,10 @@ plugin_tagbind (cc1_plugin::connection *self,
 		const char *filename, unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
+  push_nested_namespace (global_namespace); // FIXME
   cp_pushtag (ctx->get_source_location (filename, line_number),
 	      get_identifier (name), convert_in (tagged_type));
+  pop_nested_namespace (global_namespace); // FIXME
   return 1;
 }
 
@@ -510,26 +526,17 @@ plugin_build_pointer_type (cc1_plugin::connection *,
 // TYPE_NAME needs to be a valid pointer, even if there is no name available.
 
 static tree
-build_anonymous_node (enum tree_code code)
+build_named_class_type (enum tree_code code)
 {
   tree node;
-  if (code != ENUMERAL_TYPE)
-    {
-      node = make_class_type (code);
-    }
-  else
-    node = cxx_make_type (code);
-  if (!name_placeholder) // FIXME: have a separate call to set scope, name and bases
-    name_placeholder = get_identifier ("name placeholder");
+  push_nested_namespace (global_namespace); // FIXME
+  node = make_class_type (code);
   tree type_decl = build_decl (input_location, TYPE_DECL,
-			       name_placeholder, node);
+			       get_placeholder_identifier (), node);
   TYPE_NAME (node) = type_decl;
   TYPE_STUB_DECL (node) = type_decl;
-  if (code != ENUMERAL_TYPE)
-    {
-      xref_basetypes (node, NULL);
-      begin_class_definition (node);
-    }
+  xref_basetypes (node, NULL);
+  begin_class_definition (node);
   return node;
 }
 
@@ -537,14 +544,14 @@ gcc_type
 plugin_build_record_type (cc1_plugin::connection *self)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  return convert_out (ctx->preserve (build_anonymous_node (RECORD_TYPE)));
+  return convert_out (ctx->preserve (build_named_class_type (RECORD_TYPE)));
 }
 
 gcc_type
 plugin_build_union_type (cc1_plugin::connection *self)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  return convert_out (ctx->preserve (build_anonymous_node (UNION_TYPE)));
+  return convert_out (ctx->preserve (build_named_class_type (UNION_TYPE)));
 }
 
 int
@@ -607,6 +614,11 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
 
   finish_struct (record_or_union_type, NULL);
 
+  pop_nested_namespace (global_namespace); // FIXME
+
+  gcc_assert (compare_tree_int (TYPE_SIZE_UNIT (record_or_union_type),
+				size_in_bytes) == 0);
+
   return 1;
 }
 
@@ -619,10 +631,15 @@ plugin_build_enum_type (cc1_plugin::connection *self,
   if (underlying_int_type == error_mark_node)
     return convert_out (error_mark_node);
 
-  tree result = build_anonymous_node (ENUMERAL_TYPE);
+  bool is_new_type = false;
+  bool scoped_enum_p = false; // FIXME
 
-  TYPE_PRECISION (result) = TYPE_PRECISION (underlying_int_type);
-  TYPE_UNSIGNED (result) = TYPE_UNSIGNED (underlying_int_type);
+  push_nested_namespace (global_namespace); // FIXME
+
+  tree result = start_enum (get_placeholder_identifier (), NULL_TREE,
+			    underlying_int_type, scoped_enum_p, &is_new_type);
+
+  gcc_assert (is_new_type);
 
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (result));
@@ -634,21 +651,12 @@ plugin_build_add_enum_constant (cc1_plugin::connection *,
 				const char *name,
 				unsigned long value)
 {
-  tree cst, decl, cons;
   tree enum_type = convert_in (enum_type_in);
 
   gcc_assert (TREE_CODE (enum_type) == ENUMERAL_TYPE);
 
-  cst = build_int_cst (enum_type, value);
-  /* Note that gdb does not preserve the location of enum constants,
-     so we can't provide a decent location here.  */
-  decl = build_decl (BUILTINS_LOCATION, CONST_DECL,
-		     get_identifier (name), enum_type);
-  DECL_INITIAL (decl) = cst;
-  pushdecl_safe (decl);
-
-  cons = tree_cons (DECL_NAME (decl), cst, TYPE_VALUES (enum_type));
-  TYPE_VALUES (enum_type) = cons;
+  build_enumerator (get_identifier (name), build_int_cst (enum_type, value),
+		    enum_type, BUILTINS_LOCATION);
 
   return 1;
 }
@@ -658,24 +666,11 @@ plugin_finish_enum_type (cc1_plugin::connection *,
 			 gcc_type enum_type_in)
 {
   tree enum_type = convert_in (enum_type_in);
-  tree minnode, maxnode, iter;
 
-  iter = TYPE_VALUES (enum_type);
-  minnode = maxnode = TREE_VALUE (iter);
-  for (iter = TREE_CHAIN (iter);
-       iter != NULL_TREE;
-       iter = TREE_CHAIN (iter))
-    {
-      tree value = TREE_VALUE (iter);
-      if (tree_int_cst_lt (maxnode, value))
-	maxnode = value;
-      if (tree_int_cst_lt (value, minnode))
-	minnode = value;
-    }
-  TYPE_MIN_VALUE (enum_type) = minnode;
-  TYPE_MAX_VALUE (enum_type) = maxnode;
+  finish_enum_value_list (enum_type);
+  finish_enum (enum_type);
 
-  layout_type (enum_type);
+  pop_nested_namespace (global_namespace); // FIXME
 
   return 1;
 }
