@@ -1,5 +1,11 @@
 2015-05-22  Gary Funck  <gary@intrepid.com>
 
+	* config/rs6000/rs6000.c (s6000_function_arg_boundary):
+	Check for UPC pointer-to-shared type in logic that
+	handles new ABI for types that are aligned at >= 16 bytes.
+
+2015-05-22  Gary Funck  <gary@intrepid.com>
+
 	Fix RTL check for "struct-PTS".
 	* function.c (assign_parm_setup_reg): Don't call mark_reg_pointer()
 	with a UPC pointer-to-shared.

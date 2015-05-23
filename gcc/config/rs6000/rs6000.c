@@ -9550,9 +9550,15 @@ rs6000_function_arg_boundary (machine_mode mode, const_tree type)
     {
       /* "Aggregate" means any AGGREGATE_TYPE except for single-element
          or homogeneous float/vector aggregates here.  We already handled
-         vector aggregates above, but still need to check for float here. */
+         vector aggregates above, but still need to check for float here.
+	 
+	 A UPC pointer-to-shared is considered an aggregate if its
+	 underlying representation is a structure. */
       bool aggregate_p = (AGGREGATE_TYPE_P (type)
-			  && !SCALAR_FLOAT_MODE_P (elt_mode));
+			  && !SCALAR_FLOAT_MODE_P (elt_mode))
+			 || (POINTER_TYPE_P (type)
+			     && upc_shared_type_p (TREE_TYPE (type))
+			     && AGGREGATE_TYPE_P (upc_pts_rep_type_node));
 
       /* We used to check for BLKmode instead of the above aggregate type
 	 check.  Warn when this results in any difference to the ABI.  */
@@ -10822,17 +10828,6 @@ rs6000_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 
   if (!type)
     return 0;
-
-#if HAVE_UPC_PTS_STRUCT_REP
-  if (DEFAULT_ABI == ABI_V4 && POINTER_TYPE_P (type)
-      && upc_shared_type_p (TREE_TYPE (type)))
-    {
-      if (TARGET_DEBUG_ARG)
-	fprintf (stderr, 
-		 "function_arg_pass_by_reference: V4 UPC ptr to shared\n");
-      return 1;
-    }
-#endif
 
   if (DEFAULT_ABI == ABI_V4 && AGGREGATE_TYPE_P (type))
     {
