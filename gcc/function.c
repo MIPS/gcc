@@ -3294,8 +3294,11 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	set_dst_reg_note (linsn, REG_EQUIV, equiv_stack_parm, parmreg);
     }
 
-  /* For pointer data type, suggest pointer register.  */
-  if (POINTER_TYPE_P (TREE_TYPE (parm)))
+  /* For pointer data type, suggest pointer register.
+     Skip this step for UPC pointers-to-shared; they
+     cannot be used directly as pointers.  */
+  if (POINTER_TYPE_P (TREE_TYPE (parm))
+      && !upc_shared_type_p (TREE_TYPE (TREE_TYPE (parm))))
     mark_reg_pointer (parmreg,
 		      TYPE_ALIGN (TREE_TYPE (TREE_TYPE (parm))));
 }

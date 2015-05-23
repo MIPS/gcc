@@ -1,3 +1,9 @@
+2015-05-22  Gary Funck  <gary@intrepid.com>
+
+	Fix RTL check for "struct-PTS".
+	* function.c (assign_parm_setup_reg): Don't call mark_reg_pointer()
+	with a UPC pointer-to-shared.
+
 2015-05-18  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 223286 into gupc branch.
