@@ -7131,6 +7131,15 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			 const_tree type, HOST_WIDE_INT bytes,
 			 HOST_WIDE_INT words)
 {
+  if (TARGET_IAMCU)
+    {
+      /* Intel MCU psABI passes scalars and aggregates no larger than 8
+	 bytes in registers.  */
+      if (bytes <= 8)
+	goto pass_in_reg;
+      return;
+    }
+
   switch (mode)
     {
     default:
@@ -7145,6 +7154,7 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     case SImode:
     case HImode:
     case QImode:
+pass_in_reg:
       cum->words += words;
       cum->nregs -= words;
       cum->regno += words;
@@ -7313,6 +7323,15 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (mode == VOIDmode)
     return constm1_rtx;
 
+  if (TARGET_IAMCU)
+    {
+      /* Intel MCU psABI passes scalars and aggregates no larger than 8
+	 bytes in registers.  */
+      if (bytes <= 8)
+	goto pass_in_reg;
+      return NULL_RTX;
+    }
+
   switch (mode)
     {
     default:
@@ -7326,6 +7345,7 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
     case SImode:
     case HImode:
     case QImode:
+pass_in_reg:
       if (words <= cum->nregs)
 	{
 	  int regno = cum->regno;
@@ -8030,12 +8050,15 @@ ix86_libcall_value (enum machine_mode mode)
 static bool ATTRIBUTE_UNUSED
 return_in_memory_32 (const_tree type, enum machine_mode mode)
 {
-  HOST_WIDE_INT size;
+  HOST_WIDE_INT size = int_size_in_bytes (type);
+
+  /* Intel MCU psABI returns scalars and aggregates no larger than 8
+     bytes in registers.  */
+  if (TARGET_IAMCU)
+    return size > 8;
 
   if (mode == BLKmode)
     return true;
-
-  size = int_size_in_bytes (type);
 
   if (MS_AGGREGATE_RETURN && AGGREGATE_TYPE_P (type) && size <= 8)
     return false;
