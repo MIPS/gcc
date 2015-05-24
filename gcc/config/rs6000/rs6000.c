@@ -9548,24 +9548,27 @@ rs6000_function_arg_boundary (machine_mode mode, const_tree type)
        || DEFAULT_ABI == ABI_ELFv2)
       && type && TYPE_ALIGN (type) > 64)
     {
+      /* TYPE is a UPC pointer-to-shared type or is equivalent
+         to the UPC pointer-to-shared representation type,
+	 and the underlying representation type is an aggregate.  */
+      bool upc_struct_pts_p = ((POINTER_TYPE_P (type)
+			        && upc_shared_type_p (TREE_TYPE (type)))
+			        || (TYPE_MAIN_VARIANT (type)
+			            == upc_pts_rep_type_node))
+                               && AGGREGATE_TYPE_P (upc_pts_rep_type_node);
       /* "Aggregate" means any AGGREGATE_TYPE except for single-element
          or homogeneous float/vector aggregates here.  We already handled
-         vector aggregates above, but still need to check for float here.
-	 
-	 A UPC pointer-to-shared is considered an aggregate if its
-	 underlying representation is a structure. */
+         vector aggregates above, but still need to check for float here.  */
       bool aggregate_p = (AGGREGATE_TYPE_P (type)
-			  && !SCALAR_FLOAT_MODE_P (elt_mode))
-			 || (POINTER_TYPE_P (type)
-			     && upc_shared_type_p (TREE_TYPE (type))
-			     && AGGREGATE_TYPE_P (upc_pts_rep_type_node));
+			  && !SCALAR_FLOAT_MODE_P (elt_mode));
 
       /* We used to check for BLKmode instead of the above aggregate type
 	 check.  Warn when this results in any difference to the ABI.  */
       if (aggregate_p != (mode == BLKmode))
 	{
 	  static bool warned;
-	  if (!warned && warn_psabi)
+	  /* Do not warn it TYPE is a UPC struct PTS.  */
+	  if (!warned && warn_psabi && !upc_struct_pts_p)
 	    {
 	      warned = true;
 	      inform (input_location,
@@ -9575,7 +9578,7 @@ rs6000_function_arg_boundary (machine_mode mode, const_tree type)
 	    }
 	}
 
-      if (aggregate_p)
+      if (aggregate_p || upc_struct_pts_p)
 	return 128;
     }
 
