@@ -3128,19 +3128,22 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 	bad_proc = true;
 
       /* (ii) The assignment is in the main program; or  */
-      if (gfc_current_ns->proc_name->attr.is_main_program)
+      if (gfc_current_ns->proc_name
+	  && gfc_current_ns->proc_name->attr.is_main_program)
 	bad_proc = true;
 
       /* (iii) A module or internal procedure...  */
-      if ((gfc_current_ns->proc_name->attr.proc == PROC_INTERNAL
-	   || gfc_current_ns->proc_name->attr.proc == PROC_MODULE)
+      if (gfc_current_ns->proc_name
+	  && (gfc_current_ns->proc_name->attr.proc == PROC_INTERNAL
+	      || gfc_current_ns->proc_name->attr.proc == PROC_MODULE)
 	  && gfc_current_ns->parent
 	  && (!(gfc_current_ns->parent->proc_name->attr.function
 		|| gfc_current_ns->parent->proc_name->attr.subroutine)
 	      || gfc_current_ns->parent->proc_name->attr.is_main_program))
 	{
 	  /* ... that is not a function...  */
-	  if (!gfc_current_ns->proc_name->attr.function)
+	  if (gfc_current_ns->proc_name
+	      && !gfc_current_ns->proc_name->attr.function)
 	    bad_proc = true;
 
 	  /* ... or is not an entry and has a different name.  */
@@ -4991,7 +4994,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       if (!gfc_check_vardef_context (assoc->target, pointer, false, false, NULL))
 	{
 	  if (context)
-	    gfc_error_1 ("Associate-name '%s' can not appear in a variable"
+	    gfc_error ("Associate-name %qs can not appear in a variable"
 		       " definition context (%s) at %L because its target"
 		       " at %L can not, either",
 		       name, context, &e->where,
@@ -5033,12 +5036,12 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 			  if (gfc_dep_compare_expr (ec, en) == 0)
 			    {
 			      if (context)
-				gfc_error_now_1 ("Elements with the same value "
-						 "at %L and %L in vector "
-						 "subscript in a variable "
-						 "definition context (%s)",
-						 &(ec->where), &(en->where),
-						 context);
+				gfc_error_now ("Elements with the same value "
+					       "at %L and %L in vector "
+					       "subscript in a variable "
+					       "definition context (%s)",
+					       &(ec->where), &(en->where),
+					       context);
 			      return false;
 			    }
 			}

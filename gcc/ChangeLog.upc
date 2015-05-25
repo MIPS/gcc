@@ -1,3 +1,7 @@
+2015-05-25  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 223642 into gupc branch.
+
 2015-05-24  Gary Funck  <gary@intrepid.com>
 
 	* tree-core.h, tree.h: Fix typo introduced in revision 209120.
