@@ -703,6 +703,7 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
     case OMP_FOR:
     case OMP_SIMD:
     case OMP_DISTRIBUTE:
+    case OMP_TASKLOOP:
       ret = cp_gimplify_omp_for (expr_p, pre_p);
       break;
 
@@ -1258,7 +1259,8 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
     genericize_break_stmt (stmt_p);
   else if (TREE_CODE (stmt) == OMP_FOR
 	   || TREE_CODE (stmt) == OMP_SIMD
-	   || TREE_CODE (stmt) == OMP_DISTRIBUTE)
+	   || TREE_CODE (stmt) == OMP_DISTRIBUTE
+	   || TREE_CODE (stmt) == OMP_TASKLOOP)
     genericize_omp_for_stmt (stmt_p, walk_subtrees, data);
   else if (TREE_CODE (stmt) == SIZEOF_EXPR)
     {

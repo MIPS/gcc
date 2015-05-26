@@ -5301,6 +5301,7 @@ finish_omp_clauses (tree clauses)
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head;
   tree c, t, *pc;
+  tree safelen = NULL_TREE;
   bool branch_seen = false;
   bool copyprivate_seen = false;
 
@@ -5484,7 +5485,17 @@ finish_omp_clauses (tree clauses)
 	    {
 	      t = mark_rvalue_use (t);
 	      if (!processing_template_decl)
-		t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+		{
+		  t = maybe_constant_value (t);
+		  if (TREE_CODE (t) == INTEGER_CST
+		      && tree_int_cst_sgn (t) != 1)
+		    {
+		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				  "%<num_threads%> value must be positive");
+		      t = integer_one_node;
+		    }
+		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+		}
 	      OMP_CLAUSE_NUM_THREADS_EXPR (c) = t;
 	    }
 	  break;
@@ -5552,6 +5563,8 @@ finish_omp_clauses (tree clauses)
 		    }
 		}
 	      OMP_CLAUSE_OPERAND (c, 0) = t;
+	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SAFELEN)
+		safelen = c;
 	    }
 	  break;
 
@@ -5569,7 +5582,17 @@ finish_omp_clauses (tree clauses)
 	    {
 	      t = mark_rvalue_use (t);
 	      if (!processing_template_decl)
-		t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+		{
+		  t = maybe_constant_value (t);
+		  if (TREE_CODE (t) == INTEGER_CST
+		      && tree_int_cst_sgn (t) != 1)
+		    {
+		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				  "%<num_teams%> value must be positive");
+		      t = integer_one_node;
+		    }
+		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+		}
 	      OMP_CLAUSE_NUM_TEAMS_EXPR (c) = t;
 	    }
 	  break;
@@ -5626,7 +5649,17 @@ finish_omp_clauses (tree clauses)
 	    {
 	      t = mark_rvalue_use (t);
 	      if (!processing_template_decl)
-		t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+		{
+		  t = maybe_constant_value (t);
+		  if (TREE_CODE (t) == INTEGER_CST
+		      && tree_int_cst_sgn (t) != 1)
+		    {
+		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				  "%<thread_limit%> value must be positive");
+		      t = integer_one_node;
+		    }
+		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+		}
 	      OMP_CLAUSE_THREAD_LIMIT_EXPR (c) = t;
 	    }
 	  break;
@@ -5736,6 +5769,12 @@ finish_omp_clauses (tree clauses)
 
 	case OMP_CLAUSE_DEPEND:
 	  t = OMP_CLAUSE_DECL (c);
+	  if (t == NULL_TREE)
+	    {
+	      gcc_assert (OMP_CLAUSE_DEPEND_KIND (c)
+			  == OMP_CLAUSE_DEPEND_SOURCE);
+	      break;
+	    }
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
 	      if (handle_omp_array_sections (c))
@@ -5851,6 +5890,93 @@ finish_omp_clauses (tree clauses)
 	    }
 	  goto check_dup_generic;
 
+	case OMP_CLAUSE_NUM_TASKS:
+	  t = OMP_CLAUSE_NUM_TASKS_EXPR (c);
+	  if (t == error_mark_node)
+	    remove = true;
+	  else if (!type_dependent_expression_p (t)
+		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
+	    {
+	      error ("%<num_tasks%> expression must be integral");
+	      remove = true;
+	    }
+	  else
+	    {
+	      t = mark_rvalue_use (t);
+	      if (!processing_template_decl)
+		{
+		  t = maybe_constant_value (t);
+		  if (TREE_CODE (t) == INTEGER_CST
+		      && tree_int_cst_sgn (t) != 1)
+		    {
+		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				  "%<num_tasks%> value must be positive");
+		      t = integer_one_node;
+		    }
+		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+		}
+	      OMP_CLAUSE_NUM_TASKS_EXPR (c) = t;
+	    }
+	  break;
+
+	case OMP_CLAUSE_GRAINSIZE:
+	  t = OMP_CLAUSE_GRAINSIZE_EXPR (c);
+	  if (t == error_mark_node)
+	    remove = true;
+	  else if (!type_dependent_expression_p (t)
+		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
+	    {
+	      error ("%<grainsize%> expression must be integral");
+	      remove = true;
+	    }
+	  else
+	    {
+	      t = mark_rvalue_use (t);
+	      if (!processing_template_decl)
+		{
+		  t = maybe_constant_value (t);
+		  if (TREE_CODE (t) == INTEGER_CST
+		      && tree_int_cst_sgn (t) != 1)
+		    {
+		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				  "%<grainsize%> value must be positive");
+		      t = integer_one_node;
+		    }
+		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+		}
+	      OMP_CLAUSE_GRAINSIZE_EXPR (c) = t;
+	    }
+	  break;
+
+	case OMP_CLAUSE_PRIORITY:
+	  t = OMP_CLAUSE_PRIORITY_EXPR (c);
+	  if (t == error_mark_node)
+	    remove = true;
+	  else if (!type_dependent_expression_p (t)
+		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
+	    {
+	      error ("%<priority%> expression must be integral");
+	      remove = true;
+	    }
+	  else
+	    {
+	      t = mark_rvalue_use (t);
+	      if (!processing_template_decl)
+		{
+		  t = maybe_constant_value (t);
+		  if (TREE_CODE (t) == INTEGER_CST
+		      && tree_int_cst_sgn (t) == -1)
+		    {
+		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				  "%<priority%> value must be non-negative");
+		      t = integer_one_node;
+		    }
+		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+		}
+	      OMP_CLAUSE_PRIORITY_EXPR (c) = t;
+	    }
+	  break;
+
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
@@ -5862,6 +5988,9 @@ finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_SECTIONS:
 	case OMP_CLAUSE_TASKGROUP:
 	case OMP_CLAUSE_PROC_BIND:
+	case OMP_CLAUSE_NOGROUP:
+	case OMP_CLAUSE_THREADS:
+	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	  break;
 
@@ -5929,6 +6058,20 @@ finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_COPYIN:
 	  need_copy_assignment = true;
 	  break;
+	case OMP_CLAUSE_SIMDLEN:
+	  if (safelen
+	      && !processing_template_decl
+	      && tree_int_cst_lt (OMP_CLAUSE_SAFELEN_EXPR (safelen),
+				  OMP_CLAUSE_SIMDLEN_EXPR (c)))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%<simdlen%> clause value is bigger than "
+			"%<safelen%> clause value");
+	      OMP_CLAUSE_SIMDLEN_EXPR (c)
+		= OMP_CLAUSE_SAFELEN_EXPR (safelen);
+	    }
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
 	case OMP_CLAUSE_NOWAIT:
 	  if (copyprivate_seen)
 	    {

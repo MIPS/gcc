@@ -9751,8 +9751,7 @@ c_parser_pragma (c_parser *parser, enum pragma_context context)
       return false;
 
     case PRAGMA_OMP_ORDERED:
-      c_parser_omp_ordered (parser, context);
-      return false;
+      return c_parser_omp_ordered (parser, context);
 
     case PRAGMA_IVDEP:
       c_parser_consume_pragma (parser);
@@ -13663,14 +13662,16 @@ c_parser_omp_ordered (c_parser *parser, enum pragma_context context)
 	    = c_parser_omp_all_clauses (parser,
 					OMP_ORDERED_DEPEND_CLAUSE_MASK,
 					"#pragma omp ordered");
-	  return c_finish_omp_ordered (loc, clauses, NULL_TREE);
+	  c_finish_omp_ordered (loc, clauses, NULL_TREE);
+	  return false;
 	}
     }
 
   tree clauses = c_parser_omp_all_clauses (parser, OMP_ORDERED_CLAUSE_MASK,
 					   "#pragma omp ordered");
-  return c_finish_omp_ordered (loc, clauses,
-			       c_parser_omp_structured_block (parser));
+  c_finish_omp_ordered (loc, clauses,
+			c_parser_omp_structured_block (parser));
+  return true;
 }
 
 /* OpenMP 2.5:
@@ -14242,7 +14243,9 @@ c_parser_omp_target_data (location_t loc, c_parser *parser)
 	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_FROM)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_TO)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEVICE)	\
-	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF))
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEPEND)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOWAIT))
 
 static bool
 c_parser_omp_target_update (location_t loc, c_parser *parser,
@@ -14512,13 +14515,13 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
 	{
 	  c_parser_consume_token (parser);
 	  c_parser_omp_target_enter_data (loc, parser, context);
-	  return true;
+	  return false;
 	}
       else if (strcmp (p, "exit") == 0)
 	{
 	  c_parser_consume_token (parser);
 	  c_parser_omp_target_exit_data (loc, parser, context);
-	  return true;
+	  return false;
 	}
       else if (strcmp (p, "update") == 0)
 	{
@@ -15212,6 +15215,9 @@ c_parser_omp_declare (c_parser *parser, enum pragma_context context)
 
 /* OpenMP 4.1:
    #pragma omp taskloop taskloop-clause[optseq] new-line
+     for-loop
+
+   #pragma omp taskloop simd taskloop-simd-clause[optseq] new-line
      for-loop  */
 
 #define OMP_TASKLOOP_CLAUSE_MASK				\

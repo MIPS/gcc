@@ -1,3 +1,16 @@
+2015-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_pragma): Return result of
+	c_parser_omp_ordered instead of always returning false.
+	(c_parser_omp_ordered): Return false or true depending
+	on if it is a standalone directive or construct with body.
+	(OMP_TARGET_UPDATE_CLAUSE_MASK): Allow depend and nowait
+	clauses.
+	(c_parser_omp_target): Return false for enter data and
+	exit data.
+	(c_parser_omp_taskloop): Mention composite taskloop simd
+	construct.
+
 2015-05-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (OMP_TASKLOOP_CLAUSE_MASK): Add untied clause.
@@ -32,7 +45,7 @@
 	(c_parser_omp_target_data): Diagnose if no map clauses are present.
 	(OMP_TARGET_ENTER_DATA_CLAUSE_MASK): Define.
 	(c_parser_omp_target_enter_data): New function.
-	OMP_TARGET_EXIT_DATA_CLAUSE_MASK): Define.
+	(OMP_TARGET_EXIT_DATA_CLAUSE_MASK): Define.
 	(c_parser_omp_target_exit_data): New function.
 	(OMP_TARGET_CLAUSE_MASK): Add nowait and depend clauses.
 	(c_parser_omp_target): Handle #pragma omp target {enter,exit} data.

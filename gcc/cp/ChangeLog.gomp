@@ -1,3 +1,54 @@
+2015-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_name): Handle grainsize, nogroup,
+	num_tasks, priority, simd and threads clauses.
+	(cp_parser_omp_clause_num_tasks, cp_parser_omp_clause_grainsize,
+	cp_parser_omp_clause_priority): New functions.
+	(cp_parser_omp_clause_ordered): Handle parsing of optional argument.
+	(cp_parser_omp_clause_nogroup, cp_parser_omp_clause_orderedkind):
+	New functions.
+	(cp_parser_omp_clause_depend): Add LOC argument.  Handle parsing of
+	depend(source) and partially handle depend(sink:vec).
+	(cp_parser_omp_clause_map): Parse optional always map type modifier.
+	Handle parsing of delete map kind.
+	(cp_parser_omp_all_clauses): Handle
+	PRAGMA_OMP_CLAUSE_{GRAINSIZE,NUM_TASKS,PRIORITY,NOGROUP,THREADS,SIMD}.
+	(OMP_SIMD_CLAUSE_MASK): Add simdlen clause.
+	(OMP_FOR_CLAUSE_MASK): Add linear clause.
+	(OMP_ORDERED_CLAUSE_MASK, OMP_ORDERED_DEPEND_CLAUSE_MASK): Define.
+	(cp_parser_omp_ordered): Handle parsing of the clauses, and if depend
+	clause is present, parse it as standalone directive.  Add CONTEXT
+	argument.
+	(OMP_TASK_CLAUSE_MASK): Add priority clause.
+	(cp_parser_omp_target_data): Diagnose if no map clauses are present.
+	(OMP_TARGET_ENTER_DATA_CLAUSE_MASK): Define.
+	(cp_parser_omp_target_enter_data): New function.
+	(OMP_TARGET_EXIT_DATA_CLAUSE_MASK): Define.
+	(cp_parser_omp_target_exit_data): New function.
+	(OMP_TARGET_UPDATE_CLAUSE_MASK, OMP_TARGET_CLAUSE_MASK): Add nowait
+	and depend clauses.
+	(cp_parser_omp_target): Handle #pragma omp target {enter,exit} data.
+	(OMP_TASKLOOP_CLAUSE_MASK): Define.
+	(cp_parser_omp_taskloop): New function.
+	(cp_parser_omp_construct): Don't handle PRAGMA_OMP_ORDERED here.
+	Handle PRAGMA_OMP_TASKLOOP.
+	(cp_parser_pragma): Handle PRAGMA_OMP_ORDERED directly.  Handle
+	PRAGMA_OMP_TASKLOOP.
+	* pt.c (tsubst_omp_clauses): Handle OMP_CLAUSE_NUM_TASKS,
+	OMP_CLAUSE_GRAINSIZE, OMP_CLAUSE_PRIORITY, OMP_CLAUSE_NOGROUP,
+	OMP_CLAUSE_THREADS, OMP_CLAUSE_SIMD.  Handle argument
+	of OMP_CLAUSE_ORDERED.
+	(tsubst_expr): Handle OMP_TASKLOOP.
+	* semantics.c (finish_omp_clauses): Allow NULL OMP_CLAUSE_DECL
+	for OMP_CLAUSE_DEPEND_SOURCE.  Diagnose simdlen > safelen.  Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}
+	clauses.  Warn about non-positive num_threads/num_teams/thread_limit
+	arguments.
+	* cp-gimplify.c (cp_gimplify_expr, cp_genericize_r): Handle
+	OMP_TASKLOOP.
+	* cp-tree.h (OMP_FOR_GIMPLIFYING_P): Adjust comment to
+	include OMP_TASKLOOP.
+
 2015-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_clause_ordered): Clear
