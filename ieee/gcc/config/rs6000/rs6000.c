@@ -9055,7 +9055,8 @@ rs6000_member_type_forces_blk (const_tree field, machine_mode mode)
 
 /* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE)		\
-  (scalar_float_not_ieee128_p (MODE)		\
+  (SCALAR_FLOAT_MODE_P (MODE)			\
+   && !FLOAT128_VECTOR_P (MODE)			\
    && (CUM)->fregno <= FP_ARG_MAX_REG		\
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
@@ -16171,18 +16172,28 @@ init_float128_ieee (machine_mode mode)
     }
 }
 
+/* Initialize the library functions.  For 128-bit floating point (both IEEE
+   128-bit floating point and IBM extended double 128-bit floating point) we
+   need to change names.  While many of the names were changed for IBM extended
+   double, there were some tf names that were used, so we use kf names for the
+   IEEE 128-bit floating point support that uses VSX.  */
+
 static void
 rs6000_init_libfuncs (void)
 {
-  /* AIX/Darwin/64-bit Linux quad floating point routines.  */
-  init_float128_ibm (IFmode);
-  if (!TARGET_IEEEQUAD)
-    init_float128_ibm (TFmode);
+  if (TARGET_LONG_DOUBLE_128)
+    {
+      if (TARGET_FLOAT128)
+	{
+	  init_float128_ibm (IFmode);
+	  init_float128_ieee (KFmode);
+	}
 
-  /* IEEE 128-bit including 32-bit SVR4 quad floating point routines.  */
-  init_float128_ieee (KFmode);
-  if (TARGET_IEEEQUAD)
-    init_float128_ieee (TFmode);
+      if (!TARGET_IEEEQUAD)
+	init_float128_ibm (TFmode);
+      else
+	init_float128_ieee (TFmode);
+    }
 }
 
 
