@@ -1,5 +1,20 @@
 2015-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (scalar_float_not_vector_p): Rename
+	scalar_float_not_ieee_p and change to deal with IEEE 128-bit
+	floating point outside of -mfloat128. Change all callers.
+	(init_cumulative_args): Likewise.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_function_value): Likewise.
+	(rs6000_libcall_value): Likewise.
+	(rs6000_generate_compare): Use FLOAT128_VECTOR_P, not
+	IEEE_128BIT_P.
+	(rs6000_vector_mode_supported_p): Likewise.
+	(USE_FP_FOR_ARG_P): Fix logic to allow IEEE 128-bit floating point
+	that doesn't use VSX.
+	(rs6000_init_libfuncs): Rework, do not do anything unless long
+	double is 128 bits.
+
 	Merge up to 223705.
 	* REVISION: Update subversion id.
 
