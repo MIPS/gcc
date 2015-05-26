@@ -1,4 +1,4 @@
-#ifdef _ARCH_PPC64
+#ifdef __powerpc64__
 # PowerPC64 support for -fsplit-stack.
 # Copyright (C) 2009-2015 Free Software Foundation, Inc.
 # Contributed by Alan Modra <amodra@gmail.com>.
@@ -28,9 +28,6 @@
 	.abiversion 2
 #define PARAMS 32
 #else
-#ifndef __BIG_ENDIAN__
-	.abiversion 1
-#endif
 #define PARAMS 48
 #endif
 #define MORESTACK_FRAMESIZE	(PARAMS+96)
@@ -350,4 +347,4 @@ ENTRY0(__morestack_make_guard)
 	.section .note.GNU-stack,"",@progbits
 	.section .note.GNU-split-stack,"",@progbits
 	.section .note.GNU-no-split-stack,"",@progbits
-#endif /* _ARCH_PPC64 */
+#endif /* __powerpc64__ */
