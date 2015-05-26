@@ -396,6 +396,12 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 /* Should NEON be used for 64-bits bitops.  */
 #define TARGET_PREFER_NEON_64BITS (prefer_neon_for_64bits)
 
+/* Should constant I be slplit for OP.  */
+#define DONT_EARLY_SPLIT_CONSTANT(i, op) \
+				((optimize >= 2) \
+				 && can_create_pseudo_p () \
+				 && !const_ok_for_op (i, op))
+
 /* True iff the full BPABI is being used.  If TARGET_BPABI is true,
    then TARGET_AAPCS_BASED must be true -- but the converse does not
    hold.  TARGET_BPABI implies the use of the BPABI runtime library,
@@ -2057,10 +2063,11 @@ enum arm_auto_incmodes
   (current_tune->branch_cost (speed_p, predictable_p))
 
 /* False if short circuit operation is preferred.  */
-#define LOGICAL_OP_NON_SHORT_CIRCUIT				\
-  ((optimize_size)						\
-   ? (TARGET_THUMB ? false : true)				\
-   : (current_tune->logical_op_non_short_circuit[TARGET_ARM]))
+#define LOGICAL_OP_NON_SHORT_CIRCUIT					\
+  ((optimize_size)							\
+   ? (TARGET_THUMB ? false : true)					\
+   : TARGET_THUMB ? static_cast<bool> (current_tune->logical_op_non_short_circuit_thumb) \
+   : static_cast<bool> (current_tune->logical_op_non_short_circuit_arm))
 
 
 /* Position Independent Code.  */

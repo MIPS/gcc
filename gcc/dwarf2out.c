@@ -11147,7 +11147,7 @@ reg_loc_descriptor (rtx rtl, enum var_init_status initialized)
 
   regs = targetm.dwarf_register_span (rtl);
 
-  if (hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)] > 1 || regs)
+  if (REG_NREGS (rtl) > 1 || regs)
     return multiple_reg_loc_descriptor (rtl, regs, initialized);
   else
     {
@@ -11204,7 +11204,7 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs,
 #endif
 
       gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
-      nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
+      nregs = REG_NREGS (rtl);
 
       size = GET_MODE_SIZE (GET_MODE (rtl)) / nregs;
 
@@ -19945,23 +19945,26 @@ gen_member_die (tree type, dw_die_ref context_die)
 	gen_decl_die (member, NULL, context_die);
     }
 
+  /* We do not keep type methods in type variants.  */
+  gcc_assert (TYPE_MAIN_VARIANT (type) == type);
   /* Now output info about the function members (if any).  */
-  for (member = TYPE_METHODS (type); member; member = DECL_CHAIN (member))
-    {
-      /* Don't include clones in the member list.  */
-      if (DECL_ABSTRACT_ORIGIN (member))
-	continue;
-      /* Nor constructors for anonymous classes.  */
-      if (DECL_ARTIFICIAL (member)
-	  && dwarf2_name (member, 0) == NULL)
-	continue;
+  if (TYPE_METHODS (type) != error_mark_node)
+    for (member = TYPE_METHODS (type); member; member = DECL_CHAIN (member))
+      {
+	/* Don't include clones in the member list.  */
+	if (DECL_ABSTRACT_ORIGIN (member))
+	  continue;
+	/* Nor constructors for anonymous classes.  */
+	if (DECL_ARTIFICIAL (member)
+	    && dwarf2_name (member, 0) == NULL)
+	  continue;
 
-      child = lookup_decl_die (member);
-      if (child)
-	splice_child_die (context_die, child);
-      else
-	gen_decl_die (member, NULL, context_die);
-    }
+	child = lookup_decl_die (member);
+	if (child)
+	  splice_child_die (context_die, child);
+	else
+	  gen_decl_die (member, NULL, context_die);
+      }
 }
 
 /* Generate a DIE for a structure or union type.  If TYPE_DECL_SUPPRESS_DEBUG

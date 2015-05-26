@@ -211,6 +211,7 @@ libgcov-driver-tool.o-warn = -Wno-error
 libgcov-merge-tool.o-warn = -Wno-error
 gimple-match.o-warn = -Wno-unused
 generic-match.o-warn = -Wno-unused
+dfp.o-warn = -Wno-strict-aliasing
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -527,10 +528,6 @@ xm_include_list=@xm_include_list@
 xm_defines=@xm_defines@
 lang_checks=
 lang_checks_parallelized=
-# Upper limit to which it is useful to parallelize this lang target.
-# It doesn't make sense to try e.g. 128 goals for small testsuites
-# like objc or go.
-check_gcc_parallelize=10000
 lang_opt_files=@lang_opt_files@ $(srcdir)/c-family/c.opt $(srcdir)/common.opt
 lang_specs_files=@lang_specs_files@
 lang_tree_files=@lang_tree_files@
@@ -1145,8 +1142,8 @@ c-family-warn = $(STRICT_WARN)
 
 # Language-specific object files shared by all C-family front ends.
 C_COMMON_OBJS = c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
-  c-family/c-format.o c-family/c-gimplify.o c-family/c-lex.o \
-  c-family/c-omp.o c-family/c-opts.o c-family/c-pch.o \
+  c-family/c-format.o c-family/c-gimplify.o c-family/c-indentation.o \
+  c-family/c-lex.o c-family/c-omp.o c-family/c-opts.o c-family/c-pch.o \
   c-family/c-ppoutput.o c-family/c-pragma.o c-family/c-pretty-print.o \
   c-family/c-semantics.o c-family/c-ada-spec.o \
   c-family/c-cilkplus.o \
@@ -3747,7 +3744,9 @@ check_p_subdirs=$(wordlist 1,$(check_p_count),$(wordlist 1, \
 #
 # To parallelize some language check, add the corresponding check-$lang
 # to lang_checks_parallelized variable and define check_$lang_parallelize
-# variable (see above check_gcc_parallelize description).
+# variable.  This is the upper limit to which it is useful to parallelize the
+# check-$lang target.  It doesn't make sense to try e.g. 128 goals for small
+# testsuites like objc or go.
 $(lang_checks_parallelized): check-% : site.exp
 	-rm -rf $(TESTSUITEDIR)/$*-parallel
 	@if [ "$(filter -j, $(MFLAGS))" = "-j" ]; then \

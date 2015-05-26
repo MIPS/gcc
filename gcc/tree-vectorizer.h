@@ -111,6 +111,8 @@ struct _slp_tree {
      scalar elements in one scalar iteration (GROUP_SIZE) multiplied by VF
      divided by vector size.  */
   unsigned int vec_stmts_size;
+  /* Whether the scalar computations use two different operators.  */
+  bool two_operators;
 };
 
 
@@ -146,6 +148,7 @@ typedef struct _slp_instance {
 #define SLP_TREE_VEC_STMTS(S)                    (S)->vec_stmts
 #define SLP_TREE_NUMBER_OF_VEC_STMTS(S)          (S)->vec_stmts_size
 #define SLP_TREE_LOAD_PERMUTATION(S)             (S)->load_permutation
+#define SLP_TREE_TWO_OPERATORS(S)		 (S)->two_operators
 
 /* This structure is used in creation of an SLP tree.  Each instance
    corresponds to the same operand in a group of scalar stmts in an SLP
@@ -160,6 +163,7 @@ typedef struct _slp_oprnd_info
   enum vect_def_type first_dt;
   tree first_op_type;
   bool first_pattern;
+  bool second_pattern;
 } *slp_oprnd_info;
 
 
@@ -643,7 +647,9 @@ typedef struct _stmt_vec_info {
 
   /* For loads only, true if this is a gather load.  */
   bool gather_p;
-  bool stride_load_p;
+
+  /* True if this is an access with loop-invariant stride.  */
+  bool strided_p;
 
   /* For both loads and stores.  */
   bool simd_lane_access_p;
@@ -661,7 +667,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_VECTORIZABLE(S)         (S)->vectorizable
 #define STMT_VINFO_DATA_REF(S)             (S)->data_ref_info
 #define STMT_VINFO_GATHER_P(S)		   (S)->gather_p
-#define STMT_VINFO_STRIDE_LOAD_P(S)	   (S)->stride_load_p
+#define STMT_VINFO_STRIDED_P(S)	   	   (S)->strided_p
 #define STMT_VINFO_SIMD_LANE_ACCESS_P(S)   (S)->simd_lane_access_p
 
 #define STMT_VINFO_DR_BASE_ADDRESS(S)      (S)->dr_base_address

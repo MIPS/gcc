@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "vec.h"
 #include "target.h"
 #include "rtl.h"
 #include "regs.h"
@@ -29,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "predict.h"
-#include "vec.h"
 #include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
@@ -267,7 +267,7 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 	    && GET_CODE ((ret_reg = XEXP (PATTERN (last_insn), 0))) == REG)
 	  {
 	    int ret_start = REGNO (ret_reg);
-	    int nregs = hard_regno_nregs[ret_start][GET_MODE (ret_reg)];
+	    int nregs = REG_NREGS (ret_reg);
 	    int ret_end = ret_start + nregs;
 	    bool short_block = false;
 	    bool multi_reg_return = false;

@@ -571,6 +571,9 @@ emit_debug_global_declarations (tree *vec, int len)
   /* Avoid confusing the debug information machinery when there are errors.  */
   if (seen_error ())
     return;
+  /* No need for debug info in object files when producing slimLTO.  */
+  if (!in_lto_p && flag_lto && !flag_fat_lto_objects)
+    return;
 
   timevar_push (TV_SYMOUT);
   for (i = 0; i < len; i++)
@@ -593,6 +596,9 @@ compile_file (void)
 
   timevar_pop (TV_PARSE_GLOBAL);
   timevar_stop (TV_PHASE_PARSING);
+
+  if (flag_dump_locations)
+    dump_location_info (stderr);
 
   /* Compilation is now finished except for writing
      what's left of the symbol table output.  */
@@ -1573,11 +1579,12 @@ process_options (void)
     warning (0, "var-tracking-assignments changes selective scheduling");
 
   if (flag_tree_cselim == AUTODETECT_VALUE)
-#ifdef HAVE_conditional_move
-    flag_tree_cselim = 1;
-#else
-    flag_tree_cselim = 0;
-#endif
+    {
+      if (HAVE_conditional_move)
+	flag_tree_cselim = 1;
+      else
+	flag_tree_cselim = 0;
+    }
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
@@ -1818,6 +1825,8 @@ static int rtl_initialized;
 void
 initialize_rtl (void)
 {
+  auto_timevar tv (TV_INITIALIZE_RTL);
+
   /* Initialization done just once per compilation, but delayed
      till code generation.  */
   if (!rtl_initialized)
@@ -2098,8 +2107,11 @@ toplev::toplev (bool use_TV_TOTAL, bool init_signals)
 
 toplev::~toplev ()
 {
-  timevar_stop (TV_TOTAL);
-  timevar_print (stderr);
+  if (g_timer)
+    {
+      g_timer->stop (TV_TOTAL);
+      g_timer->print (stderr);
+    }
 }
 
 void

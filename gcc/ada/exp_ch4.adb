@@ -415,173 +415,201 @@ package body Exp_Ch4 is
    ------------------------------
 
    function Current_Anonymous_Master return Entity_Id is
-      Decls     : List_Id;
-      Loc       : Source_Ptr;
-      Subp_Body : Node_Id;
+      function Create_Anonymous_Master
+        (Unit_Id   : Entity_Id;
+         Unit_Decl : Node_Id) return Entity_Id;
+      --  Create a new anonymous master for a compilation unit denoted by its
+      --  entity Unit_Id and declaration Unit_Decl. The declaration of the new
+      --  master along with any specialized initialization is inserted at the
+      --  top of the unit's declarations (see body for special cases). Return
+      --  the entity of the anonymous master.
+
+      -----------------------------
+      -- Create_Anonymous_Master --
+      -----------------------------
+
+      function Create_Anonymous_Master
+        (Unit_Id   : Entity_Id;
+         Unit_Decl : Node_Id) return Entity_Id
+      is
+         Insert_Nod : Node_Id := Empty;
+         --  The point of insertion into the declarative list of the unit. All
+         --  nodes are inserted before Insert_Nod.
+
+         procedure Insert_And_Analyze (Decls : List_Id; N : Node_Id);
+         --  Insert arbitrary node N in declarative list Decls and analyze it
+
+         ------------------------
+         -- Insert_And_Analyze --
+         ------------------------
+
+         procedure Insert_And_Analyze (Decls : List_Id; N : Node_Id) is
+         begin
+            --  The declarative list is already populated, the nodes are
+            --  inserted at the top of the list, preserving their order.
+
+            if Present (Insert_Nod) then
+               Insert_Before (Insert_Nod, N);
+
+            --  Otherwise append to the declarations to preserve order
+
+            else
+               Append_To (Decls, N);
+            end if;
+
+            Analyze (N);
+         end Insert_And_Analyze;
+
+         --  Local variables
+
+         Loc       : constant Source_Ptr := Sloc (Unit_Id);
+         Spec_Id   : constant Entity_Id  := Corresponding_Spec_Of (Unit_Decl);
+         Decls     : List_Id;
+         FM_Id     : Entity_Id;
+         Pref      : Character;
+         Unit_Spec : Node_Id;
+
+      --  Start of processing for Create_Anonymous_Master
+
+      begin
+         --  Find the declarative list of the unit
+
+         if Nkind (Unit_Decl) = N_Package_Declaration then
+            Unit_Spec := Specification (Unit_Decl);
+            Decls := Visible_Declarations (Unit_Spec);
+
+            if No (Decls) then
+               Decls := New_List (Make_Null_Statement (Loc));
+               Set_Visible_Declarations (Unit_Spec, Decls);
+            end if;
+
+         --  Package or subprogram body
+
+         --  ??? A subprogram declaration that acts as a compilation unit may
+         --  contain a formal parameter of an anonymous access-to-controlled
+         --  type initialized by an allocator.
+
+         --    procedure Comp_Unit_Proc (Param : access Ctrl := new Ctrl);
+
+         --  There is no suitable place to create the anonymous master as the
+         --  subprogram is not in a declarative list.
+
+         else
+            Decls := Declarations (Unit_Decl);
+
+            if No (Decls) then
+               Decls := New_List (Make_Null_Statement (Loc));
+               Set_Declarations (Unit_Decl, Decls);
+            end if;
+         end if;
+
+         --  The anonymous master and all initialization actions are inserted
+         --  before the first declaration (if any).
+
+         Insert_Nod := First (Decls);
+
+         --  Since the anonymous master and all its initialization actions are
+         --  inserted at top level, use the scope of the unit when analyzing.
+
+         Push_Scope (Spec_Id);
+
+         --  Step 1: Anonymous master creation
+
+         --  Use a unique prefix in case the same unit requires two anonymous
+         --  masters, one for the spec (S) and one for the body (B).
+
+         if Ekind_In (Unit_Id, E_Function, E_Package, E_Procedure) then
+            Pref := 'S';
+         else
+            Pref := 'B';
+         end if;
+
+         FM_Id :=
+           Make_Defining_Identifier (Loc,
+             New_External_Name
+               (Related_Id => Chars (Unit_Id),
+                Suffix     => "AM",
+                Prefix     => Pref));
+
+         Set_Anonymous_Master (Unit_Id, FM_Id);
+
+         --  Generate:
+         --    <FM_Id> : Finalization_Master;
+
+         Insert_And_Analyze (Decls,
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => FM_Id,
+             Object_Definition   =>
+               New_Occurrence_Of (RTE (RE_Finalization_Master), Loc)));
+
+         --  Step 2: Initialization actions
+
+         --  Do not set the base pool and mode of operation on .NET/JVM since
+         --  those targets do not support pools and all VM masters defaulted to
+         --  heterogeneous.
+
+         if VM_Target = No_VM then
+
+            --  Generate:
+            --    Set_Base_Pool
+            --      (<FM_Id>, Global_Pool_Object'Unrestricted_Access);
+
+            Insert_And_Analyze (Decls,
+              Make_Procedure_Call_Statement (Loc,
+                Name                   =>
+                  New_Occurrence_Of (RTE (RE_Set_Base_Pool), Loc),
+                Parameter_Associations => New_List (
+                  New_Occurrence_Of (FM_Id, Loc),
+                  Make_Attribute_Reference (Loc,
+                    Prefix         =>
+                      New_Occurrence_Of (RTE (RE_Global_Pool_Object), Loc),
+                    Attribute_Name => Name_Unrestricted_Access))));
+
+            --  Generate:
+            --    Set_Is_Heterogeneous (<FM_Id>);
+
+            Insert_And_Analyze (Decls,
+              Make_Procedure_Call_Statement (Loc,
+                Name                   =>
+                  New_Occurrence_Of (RTE (RE_Set_Is_Heterogeneous), Loc),
+                Parameter_Associations => New_List (
+                  New_Occurrence_Of (FM_Id, Loc))));
+         end if;
+
+         Pop_Scope;
+         return FM_Id;
+      end Create_Anonymous_Master;
+
+      --  Local declarations
+
       Unit_Decl : Node_Id;
       Unit_Id   : Entity_Id;
 
+   --  Start of processing for Current_Anonymous_Master
+
    begin
-      Unit_Id := Cunit_Entity (Current_Sem_Unit);
-
-      --  Find the entity of the current unit
-
-      if Ekind (Unit_Id) = E_Subprogram_Body then
-
-         --  When processing subprogram bodies, the proper scope is always that
-         --  of the spec.
-
-         Subp_Body := Unit_Id;
-         while Present (Subp_Body)
-           and then Nkind (Subp_Body) /= N_Subprogram_Body
-         loop
-            Subp_Body := Parent (Subp_Body);
-         end loop;
-
-         Unit_Id := Corresponding_Spec (Subp_Body);
-      end if;
-
-      Loc := Sloc (Unit_Id);
       Unit_Decl := Unit (Cunit (Current_Sem_Unit));
+      Unit_Id   := Defining_Entity (Unit_Decl);
 
-      --  Find the declarations list of the current unit
+      --  The compilation unit is a package instantiation. In this case the
+      --  anonymous master is associated with the package spec as both the
+      --  spec and body appear at the same level.
 
-      if Nkind (Unit_Decl) = N_Package_Declaration then
-         Unit_Decl := Specification (Unit_Decl);
-         Decls := Visible_Declarations (Unit_Decl);
-
-         if No (Decls) then
-            Decls := New_List (Make_Null_Statement (Loc));
-            Set_Visible_Declarations (Unit_Decl, Decls);
-
-         elsif Is_Empty_List (Decls) then
-            Append_To (Decls, Make_Null_Statement (Loc));
-         end if;
-
-      else
-         Decls := Declarations (Unit_Decl);
-
-         if No (Decls) then
-            Decls := New_List (Make_Null_Statement (Loc));
-            Set_Declarations (Unit_Decl, Decls);
-
-         elsif Is_Empty_List (Decls) then
-            Append_To (Decls, Make_Null_Statement (Loc));
-         end if;
+      if Nkind (Unit_Decl) = N_Package_Body
+        and then Nkind (Original_Node (Unit_Decl)) = N_Package_Instantiation
+      then
+         Unit_Id   := Corresponding_Spec (Unit_Decl);
+         Unit_Decl := Unit_Declaration_Node (Unit_Id);
       end if;
 
-      --  The current unit has an existing anonymous master, traverse its
-      --  declarations and locate the entity.
+      if Present (Anonymous_Master (Unit_Id)) then
+         return Anonymous_Master (Unit_Id);
 
-      if Has_Anonymous_Master (Unit_Id) then
-         declare
-            Decl       : Node_Id;
-            Fin_Mas_Id : Entity_Id;
-
-         begin
-            Decl := First (Decls);
-            while Present (Decl) loop
-
-               --  Look for the first variable in the declarations whole type
-               --  is Finalization_Master.
-
-               if Nkind (Decl) = N_Object_Declaration then
-                  Fin_Mas_Id := Defining_Identifier (Decl);
-
-                  if Ekind (Fin_Mas_Id) = E_Variable
-                    and then Etype (Fin_Mas_Id) = RTE (RE_Finalization_Master)
-                  then
-                     return Fin_Mas_Id;
-                  end if;
-               end if;
-
-               Next (Decl);
-            end loop;
-
-            --  The master was not found even though the unit was labeled as
-            --  having one.
-
-            raise Program_Error;
-         end;
-
-      --  Create a new anonymous master
+      --  Create a new anonymous master when allocating an object of anonymous
+      --  access-to-controlled type for the first time.
 
       else
-         declare
-            First_Decl : constant Node_Id := First (Decls);
-            Action     : Node_Id;
-            Fin_Mas_Id : Entity_Id;
-
-         begin
-            --  Since the master and its associated initialization is inserted
-            --  at top level, use the scope of the unit when analyzing.
-
-            Push_Scope (Unit_Id);
-
-            --  Create the finalization master
-
-            Fin_Mas_Id :=
-              Make_Defining_Identifier (Loc,
-                Chars => New_External_Name (Chars (Unit_Id), "AM"));
-
-            --  Generate:
-            --    <Fin_Mas_Id> : Finalization_Master;
-
-            Action :=
-              Make_Object_Declaration (Loc,
-                Defining_Identifier => Fin_Mas_Id,
-                Object_Definition =>
-                  New_Occurrence_Of (RTE (RE_Finalization_Master), Loc));
-
-            Insert_Before_And_Analyze (First_Decl, Action);
-
-            --  Mark the unit to prevent the generation of multiple masters
-
-            Set_Has_Anonymous_Master (Unit_Id);
-
-            --  Do not set the base pool and mode of operation on .NET/JVM
-            --  since those targets do not support pools and all VM masters
-            --  are heterogeneous by default.
-
-            if VM_Target = No_VM then
-
-               --  Generate:
-               --    Set_Base_Pool
-               --      (<Fin_Mas_Id>, Global_Pool_Object'Unrestricted_Access);
-
-               Action :=
-                 Make_Procedure_Call_Statement (Loc,
-                   Name =>
-                     New_Occurrence_Of (RTE (RE_Set_Base_Pool), Loc),
-
-                   Parameter_Associations => New_List (
-                     New_Occurrence_Of (Fin_Mas_Id, Loc),
-                     Make_Attribute_Reference (Loc,
-                       Prefix =>
-                         New_Occurrence_Of (RTE (RE_Global_Pool_Object), Loc),
-                       Attribute_Name => Name_Unrestricted_Access)));
-
-               Insert_Before_And_Analyze (First_Decl, Action);
-
-               --  Generate:
-               --    Set_Is_Heterogeneous (<Fin_Mas_Id>);
-
-               Action :=
-                 Make_Procedure_Call_Statement (Loc,
-                   Name =>
-                     New_Occurrence_Of (RTE (RE_Set_Is_Heterogeneous), Loc),
-                   Parameter_Associations => New_List (
-                     New_Occurrence_Of (Fin_Mas_Id, Loc)));
-
-               Insert_Before_And_Analyze (First_Decl, Action);
-            end if;
-
-            --  Restore the original state of the scope stack
-
-            Pop_Scope;
-
-            return Fin_Mas_Id;
-         end;
+         return Create_Anonymous_Master (Unit_Id, Unit_Decl);
       end if;
    end Current_Anonymous_Master;
 
@@ -830,7 +858,6 @@ package body Exp_Ch4 is
                           Make_Exception_Handler (Loc,
                             Exception_Choices => New_List (
                               Make_Others_Choice (Loc)),
-
                             Statements        => New_List (
                               New_Copy_Tree (Free_Stmt),
                               Make_Raise_Statement (Loc))))));
@@ -5090,7 +5117,6 @@ package body Exp_Ch4 is
    --------------------------------------
 
    procedure Expand_N_Expression_With_Actions (N : Node_Id) is
-
       function Process_Action (Act : Node_Id) return Traverse_Result;
       --  Inspect and process a single action of an expression_with_actions for
       --  transient controlled objects. If such objects are found, the routine
@@ -5129,14 +5155,57 @@ package body Exp_Ch4 is
 
       --  Local variables
 
-      Act : Node_Id;
+      Acts : constant List_Id := Actions (N);
+      Expr : constant Node_Id := Expression (N);
+      Act  : Node_Id;
 
    --  Start of processing for Expand_N_Expression_With_Actions
 
    begin
-      --  Process the actions as described above
+      --  Do not evaluate the expression when it denotes an entity because the
+      --  expression_with_actions node will be replaced by the reference.
 
-      Act := First (Actions (N));
+      if Is_Entity_Name (Expr) then
+         null;
+
+      --  Do not evaluate the expression when there are no actions because the
+      --  expression_with_actions node will be replaced by the expression.
+
+      elsif No (Acts) or else Is_Empty_List (Acts) then
+         null;
+
+      --  Force the evaluation of the expression by capturing its value in a
+      --  temporary. This ensures that aliases of transient controlled objects
+      --  do not leak to the expression of the expression_with_actions node:
+
+      --    do
+      --       Trans_Id : Ctrl_Typ : ...;
+      --       Alias : ... := Trans_Id;
+      --    in ... Alias ... end;
+
+      --  In the example above, Trans_Id cannot be finalized at the end of the
+      --  actions list because this may affect the alias and the final value of
+      --  the expression_with_actions. Forcing the evaluation encapsulates the
+      --  reference to the Alias within the actions list:
+
+      --    do
+      --       Trans_Id : Ctrl_Typ : ...;
+      --       Alias : ... := Trans_Id;
+      --       Val : constant Boolean := ... Alias ...;
+      --       <finalize Trans_Id>
+      --    in Val end;
+
+      --  It is now safe to finalize the transient controlled object at the end
+      --  of the actions list.
+
+      else
+         Force_Evaluation (Expr);
+      end if;
+
+      --  Process all transient controlled objects found within the actions of
+      --  the EWA node.
+
+      Act := First (Acts);
       while Present (Act) loop
          Process_Single_Action (Act);
          Next (Act);
@@ -5151,7 +5220,7 @@ package body Exp_Ch4 is
       --  tree in cases like this. This raises a whole lot of issues of whether
       --  we have problems elsewhere, which will be addressed in the future???
 
-      if Is_Empty_List (Actions (N)) then
+      if Is_Empty_List (Acts) then
          Rewrite (N, Relocate_Node (Expression (N)));
       end if;
    end Expand_N_Expression_With_Actions;
@@ -7244,12 +7313,12 @@ package body Exp_Ch4 is
          --  Where the component type is elementary we can use a block bit
          --  comparison (if supported on the target) exception in the case
          --  of floating-point (negative zero issues require element by
-         --  element comparison), and atomic types (where we must be sure
+         --  element comparison), and atomic/VFA types (where we must be sure
          --  to load elements independently) and possibly unaligned arrays.
 
          elsif Is_Elementary_Type (Component_Type (Typl))
            and then not Is_Floating_Point_Type (Component_Type (Typl))
-           and then not Is_Atomic (Component_Type (Typl))
+           and then not Is_Atomic_Or_VFA (Component_Type (Typl))
            and then not Is_Possibly_Unaligned_Object (Lhs)
            and then not Is_Possibly_Unaligned_Object (Rhs)
            and then Support_Composite_Compare_On_Target
@@ -7450,7 +7519,31 @@ package body Exp_Ch4 is
 
       Rewrite_Comparison (N);
 
+      --  Special optimization of length comparison
+
       Optimize_Length_Comparison (N);
+
+      --  One more special case: if we have a comparison of X'Result = expr
+      --  in floating-point, then if not already there, change expr to be
+      --  f'Machine (expr) to eliminate surprise from extra precision.
+
+      if Is_Floating_Point_Type (Typl)
+        and then Nkind (Original_Node (Lhs)) = N_Attribute_Reference
+        and then Attribute_Name (Original_Node (Lhs)) = Name_Result
+      then
+         --  Stick in the Typ'Machine call if not already there
+
+         if Nkind (Rhs) /= N_Attribute_Reference
+           or else Attribute_Name (Rhs) /= Name_Machine
+         then
+            Rewrite (Rhs,
+              Make_Attribute_Reference (Loc,
+                Prefix         => New_Occurrence_Of (Typl, Loc),
+                Attribute_Name => Name_Machine,
+                Expressions    => New_List (Relocate_Node (Rhs))));
+            Analyze_And_Resolve (Rhs, Typl);
+         end if;
+      end if;
    end Expand_N_Op_Eq;
 
    -----------------------
@@ -7611,34 +7704,40 @@ package body Exp_Ch4 is
          end if;
       end if;
 
-      --  Case of (2 ** expression) appearing as an argument of an integer
-      --  multiplication, or as the right argument of a division of a non-
-      --  negative integer. In such cases we leave the node untouched, setting
-      --  the flag Is_Natural_Power_Of_2_for_Shift set, then the expansion
-      --  of the higher level node converts it into a shift.
-
-      --  Another case is 2 ** N in any other context. We simply convert
-      --  this to 1 * 2 ** N, and then the above transformation applies.
-
-      --  Note: this transformation is not applicable for a modular type with
-      --  a non-binary modulus in the multiplication case, since we get a wrong
-      --  result if the shift causes an overflow before the modular reduction.
+      --  Deal with optimizing 2 ** expression to shift where possible
 
       --  Note: we used to check that Exptyp was an unsigned type. But that is
       --  an unnecessary check, since if Exp is negative, we have a run-time
       --  error that is either caught (so we get the right result) or we have
       --  suppressed the check, in which case the code is erroneous anyway.
 
-      if Nkind (Base) = N_Integer_Literal
+      if Is_Integer_Type (Rtyp)
+
+        --  The base value must be "safe compile-time known", and exactly 2
+
+        and then Nkind (Base) = N_Integer_Literal
         and then CRT_Safe_Compile_Time_Known_Value (Base)
         and then Expr_Value (Base) = Uint_2
+
+        --  We only handle cases where the right type is a integer
+
         and then Is_Integer_Type (Root_Type (Exptyp))
         and then Esize (Root_Type (Exptyp)) <= Esize (Standard_Integer)
-        and then not Ovflo
-      then
-         --  First the multiply and divide cases
 
-         if Nkind_In (Parent (N), N_Op_Divide, N_Op_Multiply) then
+        --  This transformation is not applicable for a modular type with a
+        --  nonbinary modulus because we do not handle modular reduction in
+        --  a correct manner if we attempt this transformation in this case.
+
+        and then not Non_Binary_Modulus (Typ)
+      then
+         --  Handle the cases where our parent is a division or multiplication
+         --  specially. In these cases we can convert to using a shift at the
+         --  parent level if we are not doing overflow checking, since it is
+         --  too tricky to combine the overflow check at the parent level.
+
+         if not Ovflo
+           and then Nkind_In (Parent (N), N_Op_Divide, N_Op_Multiply)
+         then
             declare
                P : constant Node_Id := Parent (N);
                L : constant Node_Id := Left_Opnd (P);
@@ -7646,12 +7745,12 @@ package body Exp_Ch4 is
 
             begin
                if (Nkind (P) = N_Op_Multiply
-                   and then not Non_Binary_Modulus (Typ)
-                   and then
-                     ((Is_Integer_Type (Etype (L)) and then R = N)
-                         or else
-                      (Is_Integer_Type (Etype (R)) and then L = N))
-                   and then not Do_Overflow_Check (P))
+                    and then
+                      ((Is_Integer_Type (Etype (L)) and then R = N)
+                          or else
+                       (Is_Integer_Type (Etype (R)) and then L = N))
+                    and then not Do_Overflow_Check (P))
+
                  or else
                   (Nkind (P) = N_Op_Divide
                     and then Is_Integer_Type (Etype (L))
@@ -7664,15 +7763,111 @@ package body Exp_Ch4 is
                end if;
             end;
 
-         --  Now the other cases
+         --  Here we just have 2 ** N on its own, so we can convert this to a
+         --  shift node. We are prepared to deal with overflow here, and we
+         --  also have to handle proper modular reduction for binary modular.
 
-         elsif not Non_Binary_Modulus (Typ) then
-            Rewrite (N,
-              Make_Op_Multiply (Loc,
-                Left_Opnd  => Make_Integer_Literal (Loc, 1),
-                Right_Opnd => Relocate_Node (N)));
-            Analyze_And_Resolve (N, Typ);
-            return;
+         else
+            declare
+               OK : Boolean;
+               Lo : Uint;
+               Hi : Uint;
+
+               MaxS : Uint;
+               --  Maximum shift count with no overflow
+
+               TestS : Boolean;
+               --  Set True if we must test the shift count
+
+            begin
+               --  Compute maximum shift based on the underlying size. For a
+               --  modular type this is one less than the size.
+
+               if Is_Modular_Integer_Type (Typ) then
+
+                  --  For modular integer types, this is the size of the value
+                  --  being shifted minus one. Any larger values will cause
+                  --  modular reduction to a result of zero. Note that we do
+                  --  want the RM_Size here (e.g. mod 2 ** 7, we want a result
+                  --  of 6, since 2**7 should be reduced to zero).
+
+                  MaxS := RM_Size (Rtyp) - 1;
+
+                  --  For signed integer types, we use the size of the value
+                  --  being shifted minus 2. Larger values cause overflow.
+
+               else
+                  MaxS := Esize (Rtyp) - 2;
+               end if;
+
+               --  Determine range to see if it can be larger than MaxS
+
+               Determine_Range
+                 (Right_Opnd (N), OK, Lo, Hi, Assume_Valid => True);
+               TestS := (not OK) or else Hi > MaxS;
+
+               --  Signed integer case
+
+               if Is_Signed_Integer_Type (Typ) then
+
+                  --  Generate overflow check if overflow is active. Note that
+                  --  we can simply ignore the possibility of overflow if the
+                  --  flag is not set (means that overflow cannot happen or
+                  --  that overflow checks are suppressed).
+
+                  if Ovflo and TestS then
+                     Insert_Action (N,
+                       Make_Raise_Constraint_Error (Loc,
+                         Condition =>
+                           Make_Op_Gt (Loc,
+                             Left_Opnd  => Duplicate_Subexpr (Right_Opnd (N)),
+                             Right_Opnd => Make_Integer_Literal (Loc, MaxS)),
+                         Reason    => CE_Overflow_Check_Failed));
+                  end if;
+
+                  --  Now rewrite node as Shift_Left (1, right-operand)
+
+                  Rewrite (N,
+                    Make_Op_Shift_Left (Loc,
+                      Left_Opnd  => Make_Integer_Literal (Loc, Uint_1),
+                      Right_Opnd => Right_Opnd (N)));
+
+               --  Modular integer case
+
+               else pragma Assert (Is_Modular_Integer_Type (Typ));
+
+                  --  If shift count can be greater than MaxS, we need to wrap
+                  --  the shift in a test that will reduce the result value to
+                  --  zero if this shift count is exceeded.
+
+                  if TestS then
+                     Rewrite (N,
+                       Make_If_Expression (Loc,
+                         Expressions => New_List (
+                           Make_Op_Gt (Loc,
+                             Left_Opnd  => Duplicate_Subexpr (Right_Opnd (N)),
+                             Right_Opnd => Make_Integer_Literal (Loc, MaxS)),
+
+                           Make_Integer_Literal (Loc, Uint_0),
+
+                           Make_Op_Shift_Left (Loc,
+                             Left_Opnd  => Make_Integer_Literal (Loc, Uint_1),
+                             Right_Opnd => Right_Opnd (N)))));
+
+                  --  If we know shift count cannot be greater than MaxS, then
+                  --  it is safe to just rewrite as a shift with no test.
+
+                  else
+                     Rewrite (N,
+                       Make_Op_Shift_Left (Loc,
+                         Left_Opnd  => Make_Integer_Literal (Loc, Uint_1),
+                         Right_Opnd => Right_Opnd (N)));
+                  end if;
+               end if;
+
+               Analyze_And_Resolve (N, Typ);
+               return;
+            end;
          end if;
       end if;
 
@@ -7682,8 +7877,8 @@ package body Exp_Ch4 is
 
       if Is_Modular_Integer_Type (Rtyp) then
 
-         --  Non-binary case, we call the special exponentiation routine for
-         --  the non-binary case, converting the argument to Long_Long_Integer
+         --  Nonbinary case, we call the special exponentiation routine for
+         --  the nonbinary case, converting the argument to Long_Long_Integer
          --  and passing the modulus value. Then the result is converted back
          --  to the base type.
 
@@ -8934,7 +9129,7 @@ package body Exp_Ch4 is
       --  where Bits is the shift count mod Esize (the mod operation here
       --  deals with ludicrous large shift counts, which are apparently OK).
 
-      --  What about non-binary modulus ???
+      --  What about nonbinary modulus ???
 
       declare
          Loc : constant Source_Ptr := Sloc (N);
@@ -8987,7 +9182,7 @@ package body Exp_Ch4 is
       --  where Bits is the shift count mod Esize (the mod operation here
       --  deals with ludicrous large shift counts, which are apparently OK).
 
-      --  What about non-binary modulus ???
+      --  What about nonbinary modulus ???
 
       declare
          Loc : constant Source_Ptr := Sloc (N);
@@ -9124,7 +9319,7 @@ package body Exp_Ch4 is
       --  to the word size, since in this case (not (Shift_Right (Mask, bits)))
       --  generates all 1'bits.
 
-      --  What about non-binary modulus ???
+      --  What about nonbinary modulus ???
 
       declare
          Loc   : constant Source_Ptr := Sloc (N);
@@ -11406,9 +11601,10 @@ package body Exp_Ch4 is
          --  problems for coverage analysis.
 
          Rewrite (Right,
-                  Make_Expression_With_Actions (LocR,
-                    Expression => Relocate_Node (Right),
-                    Actions    => Actlist));
+           Make_Expression_With_Actions (LocR,
+             Expression => Relocate_Node (Right),
+             Actions    => Actlist));
+
          Set_Actions (N, No_List);
          Analyze_And_Resolve (Right, Standard_Boolean);
 
@@ -12620,72 +12816,28 @@ package body Exp_Ch4 is
      (Decl     : Node_Id;
       Rel_Node : Node_Id)
    is
-      Loc       : constant Source_Ptr := Sloc (Decl);
-      Obj_Id    : constant Entity_Id  := Defining_Identifier (Decl);
-      Obj_Typ   : constant Node_Id    := Etype (Obj_Id);
-      Desig_Typ : Entity_Id;
-      Expr      : Node_Id;
-      Fin_Stmts : List_Id;
-      Ptr_Id    : Entity_Id;
-      Temp_Id   : Entity_Id;
-      Temp_Ins  : Node_Id;
+      Loc         : constant Source_Ptr := Sloc (Decl);
+      Obj_Id      : constant Entity_Id  := Defining_Identifier (Decl);
+      Obj_Typ     : constant Node_Id    := Etype (Obj_Id);
+      Desig_Typ   : Entity_Id;
+      Expr        : Node_Id;
+      Hook_Id     : Entity_Id;
+      Hook_Insert : Node_Id;
+      Ptr_Id      : Entity_Id;
 
       Hook_Context : constant Node_Id := Find_Hook_Context (Rel_Node);
-      --  Node on which to insert the hook pointer (as an action): the
-      --  innermost enclosing non-transient scope.
+      --  The node on which to insert the hook as an action. This is usually
+      --  the innermost enclosing non-transient construct.
 
-      Finalization_Context : Node_Id;
-      --  Node after which to insert finalization actions
-
-      Finalize_Always : Boolean;
-      --  If False, call to finalizer includes a test of whether the hook
-      --  pointer is null.
+      Fin_Context : Node_Id;
+      --  The node after which to insert the finalization actions of the
+      --  transient controlled object.
 
    begin
-      --  Step 0: determine where to attach finalization actions in the tree
-
-      --  Special case for Boolean EWAs: capture expression in a temporary,
-      --  whose declaration will serve as the context around which to insert
-      --  finalization code. The finalization thus remains local to the
-      --  specific condition being evaluated.
-
       if Is_Boolean_Type (Etype (Rel_Node)) then
-
-         --  In this case, the finalization context is chosen so that we know
-         --  at finalization point that the hook pointer is never null, so no
-         --  need for a test, we can call the finalizer unconditionally, except
-         --  in the case where the object is created in a specific branch of a
-         --  conditional expression.
-
-         Finalize_Always :=
-           not Within_Case_Or_If_Expression (Rel_Node)
-             and then not Nkind_In
-                            (Original_Node (Rel_Node), N_Case_Expression,
-                                                       N_If_Expression);
-
-         declare
-            Loc  : constant Source_Ptr := Sloc (Rel_Node);
-            Temp : constant Entity_Id := Make_Temporary (Loc, 'E', Rel_Node);
-
-         begin
-            Append_To (Actions (Rel_Node),
-              Make_Object_Declaration (Loc,
-                Defining_Identifier => Temp,
-                Constant_Present    => True,
-                Object_Definition   =>
-                  New_Occurrence_Of (Etype (Rel_Node), Loc),
-                Expression          => Expression (Rel_Node)));
-            Finalization_Context := Last (Actions (Rel_Node));
-
-            Analyze (Last (Actions (Rel_Node)));
-
-            Set_Expression (Rel_Node, New_Occurrence_Of (Temp, Loc));
-            Analyze (Expression (Rel_Node));
-         end;
-
+         Fin_Context := Last (Actions (Rel_Node));
       else
-         Finalize_Always := False;
-         Finalization_Context := Hook_Context;
+         Fin_Context := Hook_Context;
       end if;
 
       --  Step 1: Create the access type which provides a reference to the
@@ -12715,23 +12867,23 @@ package body Exp_Ch4 is
       --  Step 2: Create a temporary which acts as a hook to the transient
       --  controlled object. Generate:
 
-      --    Temp : Ptr_Id := null;
+      --    Hook : Ptr_Id := null;
 
-      Temp_Id := Make_Temporary (Loc, 'T');
+      Hook_Id := Make_Temporary (Loc, 'T');
 
       Insert_Action (Hook_Context,
         Make_Object_Declaration (Loc,
-          Defining_Identifier => Temp_Id,
+          Defining_Identifier => Hook_Id,
           Object_Definition   => New_Occurrence_Of (Ptr_Id, Loc)));
 
-      --  Mark the temporary as created for the purposes of exporting the
-      --  transient controlled object out of the expression_with_action or if
-      --  expression. This signals the machinery in Build_Finalizer to treat
-      --  this case specially.
+      --  Mark the hook as created for the purposes of exporting the transient
+      --  controlled object out of the expression_with_action or if expression.
+      --  This signals the machinery in Build_Finalizer to treat this case in
+      --  a special manner.
 
-      Set_Status_Flag_Or_Transient_Decl (Temp_Id, Decl);
+      Set_Status_Flag_Or_Transient_Decl (Hook_Id, Decl);
 
-      --  Step 3: Hook the transient object to the temporary
+      --  Step 3: Associate the transient object to the hook
 
       --  This must be inserted right after the object declaration, so that
       --  the assignment is executed if, and only if, the object is actually
@@ -12747,7 +12899,9 @@ package body Exp_Ch4 is
 
       if Is_Access_Type (Obj_Typ) then
          Expr :=
-           Unchecked_Convert_To (Ptr_Id, New_Occurrence_Of (Obj_Id, Loc));
+           Unchecked_Convert_To
+             (Typ  => Ptr_Id,
+              Expr => New_Occurrence_Of (Obj_Id, Loc));
       else
          Expr :=
            Make_Attribute_Reference (Loc,
@@ -12756,9 +12910,9 @@ package body Exp_Ch4 is
       end if;
 
       --  Generate:
-      --    Temp := Ptr_Id (Obj_Id);
+      --    Hook := Ptr_Id (Obj_Id);
       --      <or>
-      --    Temp := Obj_Id'Unrestricted_Access;
+      --    Hook := Obj_Id'Unrestricted_Access;
 
       --  When the transient object is initialized by an aggregate, the hook
       --  must capture the object after the last component assignment takes
@@ -12767,25 +12921,25 @@ package body Exp_Ch4 is
       if Ekind (Obj_Id) = E_Variable
         and then Present (Last_Aggregate_Assignment (Obj_Id))
       then
-         Temp_Ins := Last_Aggregate_Assignment (Obj_Id);
+         Hook_Insert := Last_Aggregate_Assignment (Obj_Id);
 
       --  Otherwise the hook seizes the related object immediately
 
       else
-         Temp_Ins := Decl;
+         Hook_Insert := Decl;
       end if;
 
-      Insert_After_And_Analyze (Temp_Ins,
+      Insert_After_And_Analyze (Hook_Insert,
         Make_Assignment_Statement (Loc,
-          Name       => New_Occurrence_Of (Temp_Id, Loc),
+          Name       => New_Occurrence_Of (Hook_Id, Loc),
           Expression => Expr));
 
-      --  Step 4: Finalize the transient controlled object after the context
-      --  has been evaluated/elaborated. Generate:
+      --  Step 4: Finalize the hook after the context has been evaluated or
+      --  elaborated. Generate:
 
-      --    if Temp /= null then
-      --       [Deep_]Finalize (Temp.all);
-      --       Temp := null;
+      --    if Hook /= null then
+      --       [Deep_]Finalize (Hook.all);
+      --       Hook := null;
       --    end if;
 
       --  When the node is part of a return statement, there is no need to
@@ -12795,29 +12949,29 @@ package body Exp_Ch4 is
       --  insert the finalization code after the return statement as this will
       --  render it unreachable.
 
-      if Nkind (Finalization_Context) /= N_Simple_Return_Statement then
-         Fin_Stmts := New_List (
-           Make_Final_Call
-             (Obj_Ref =>
-                Make_Explicit_Dereference (Loc,
-                  Prefix => New_Occurrence_Of (Temp_Id, Loc)),
-              Typ     => Desig_Typ),
+      if Nkind (Fin_Context) = N_Simple_Return_Statement then
+         null;
 
-           Make_Assignment_Statement (Loc,
-             Name       => New_Occurrence_Of (Temp_Id, Loc),
-             Expression => Make_Null (Loc)));
+      --  Otherwise finalize the hook
 
-         if not Finalize_Always then
-            Fin_Stmts := New_List (
-              Make_Implicit_If_Statement (Decl,
-                Condition =>
-                  Make_Op_Ne (Loc,
-                    Left_Opnd  => New_Occurrence_Of (Temp_Id, Loc),
-                    Right_Opnd => Make_Null (Loc)),
-                Then_Statements => Fin_Stmts));
-         end if;
+      else
+         Insert_Action_After (Fin_Context,
+           Make_Implicit_If_Statement (Decl,
+             Condition =>
+               Make_Op_Ne (Loc,
+                 Left_Opnd  => New_Occurrence_Of (Hook_Id, Loc),
+                 Right_Opnd => Make_Null (Loc)),
 
-         Insert_Actions_After (Finalization_Context, Fin_Stmts);
+             Then_Statements => New_List (
+               Make_Final_Call
+                 (Obj_Ref =>
+                    Make_Explicit_Dereference (Loc,
+                      Prefix => New_Occurrence_Of (Hook_Id, Loc)),
+                  Typ     => Desig_Typ),
+
+               Make_Assignment_Statement (Loc,
+                 Name       => New_Occurrence_Of (Hook_Id, Loc),
+                 Expression => Make_Null (Loc)))));
       end if;
    end Process_Transient_Object;
 

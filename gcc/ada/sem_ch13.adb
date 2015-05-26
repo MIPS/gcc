@@ -965,6 +965,13 @@ package body Sem_Ch13 is
                            Set_Is_Volatile (E);
                         end if;
 
+                     --  Volatile_Full_Access
+
+                     when Aspect_Volatile_Full_Access =>
+                        if Is_Volatile_Full_Access (P) then
+                           Set_Is_Volatile_Full_Access (E);
+                        end if;
+
                      --  Volatile_Components
 
                      when Aspect_Volatile_Components =>
@@ -1057,6 +1064,11 @@ package body Sem_Ch13 is
                      return;
                   end if;
 
+               when Aspect_Volatile_Full_Access =>
+                  if not Is_Volatile_Full_Access (Par) then
+                     return;
+                  end if;
+
                when others =>
                   return;
             end case;
@@ -1066,7 +1078,6 @@ package body Sem_Ch13 is
             Error_Msg_Name_1 := A_Name;
             Error_Msg_NE
               ("derived type& inherits aspect%, cannot cancel", Expr, E);
-
          end Check_False_Aspect_For_Derived_Type;
 
       --  Start of processing for Make_Pragma_From_Boolean_Aspect
@@ -1130,7 +1141,20 @@ package body Sem_Ch13 is
 
                   when Aspect_Default_Value           |
                        Aspect_Default_Component_Value =>
-                     Analyze_Aspect_Default_Value (ASN);
+
+                     --  Do not inherit aspect for anonymous base type of a
+                     --  scalar or array type, because they apply to the first
+                     --  subtype of the type, and will be processed when that
+                     --  first subtype is frozen.
+
+                     if Is_Derived_Type (E)
+                       and then not Comes_From_Source (E)
+                       and then E /= First_Subtype (E)
+                     then
+                        null;
+                     else
+                        Analyze_Aspect_Default_Value (ASN);
+                     end if;
 
                   --  Ditto for iterator aspects, because the corresponding
                   --  attributes may not have been analyzed yet.
@@ -3102,6 +3126,7 @@ package body Sem_Ch13 is
                      then
                         if A_Id = Aspect_Import then
                            Set_Is_Imported (E);
+                           Set_Has_Completion (E);
 
                            --  An imported entity cannot have an explicit
                            --  initialization.
@@ -3402,6 +3427,147 @@ package body Sem_Ch13 is
          Ensure_Freeze_Node (E);
       end if;
    end Analyze_Aspect_Specifications;
+
+   ---------------------------------------------------
+   -- Analyze_Aspect_Specifications_On_Body_Or_Stub --
+   ---------------------------------------------------
+
+   procedure Analyze_Aspect_Specifications_On_Body_Or_Stub (N : Node_Id) is
+      Body_Id : constant Entity_Id := Defining_Entity (N);
+
+      procedure Diagnose_Misplaced_Aspects (Spec_Id : Entity_Id);
+      --  Subprogram body [stub] N has aspects, but they are not properly
+      --  placed. Emit an error message depending on the aspects involved.
+      --  Spec_Id is the entity of the corresponding spec.
+
+      --------------------------------
+      -- Diagnose_Misplaced_Aspects --
+      --------------------------------
+
+      procedure Diagnose_Misplaced_Aspects (Spec_Id : Entity_Id) is
+         procedure Misplaced_Aspect_Error
+           (Asp     : Node_Id;
+            Ref_Nam : Name_Id);
+         --  Emit an error message concerning misplaced aspect Asp. Ref_Nam is
+         --  the name of the refined version of the aspect.
+
+         ----------------------------
+         -- Misplaced_Aspect_Error --
+         ----------------------------
+
+         procedure Misplaced_Aspect_Error
+           (Asp     : Node_Id;
+            Ref_Nam : Name_Id)
+         is
+            Asp_Nam : constant Name_Id   := Chars (Identifier (Asp));
+            Asp_Id  : constant Aspect_Id := Get_Aspect_Id (Asp_Nam);
+
+         begin
+            --  The corresponding spec already contains the aspect in question
+            --  and the one appearing on the body must be the refined form:
+
+            --    procedure P with Global ...;
+            --    procedure P with Global ... is ... end P;
+            --                     ^
+            --                     Refined_Global
+
+            if Has_Aspect (Spec_Id, Asp_Id) then
+               Error_Msg_Name_1 := Asp_Nam;
+
+               --  Subunits cannot carry aspects that apply to a subprogram
+               --  declaration.
+
+               if Nkind (Parent (N)) = N_Subunit then
+                  Error_Msg_N ("aspect % cannot apply to a subunit", Asp);
+
+               --  Otherwise suggest the refined form
+
+               else
+                  Error_Msg_Name_2 := Ref_Nam;
+                  Error_Msg_N ("aspect % should be %", Asp);
+               end if;
+
+            --  Otherwise the aspect must appear on the spec, not on the body
+
+            --    procedure P;
+            --    procedure P with Global ... is ... end P;
+
+            else
+               Error_Msg_N
+                 ("aspect specification must appear in subprogram declaration",
+                  Asp);
+            end if;
+         end Misplaced_Aspect_Error;
+
+         --  Local variables
+
+         Asp     : Node_Id;
+         Asp_Nam : Name_Id;
+
+      --  Start of processing for Diagnose_Misplaced_Aspects
+
+      begin
+         --  Iterate over the aspect specifications and emit specific errors
+         --  where applicable.
+
+         Asp := First (Aspect_Specifications (N));
+         while Present (Asp) loop
+            Asp_Nam := Chars (Identifier (Asp));
+
+            --  Do not emit errors on aspects that can appear on a subprogram
+            --  body. This scenario occurs when the aspect specification list
+            --  contains both misplaced and properly placed aspects.
+
+            if Aspect_On_Body_Or_Stub_OK (Get_Aspect_Id (Asp_Nam)) then
+               null;
+
+            --  Special diagnostics for SPARK aspects
+
+            elsif Asp_Nam = Name_Depends then
+               Misplaced_Aspect_Error (Asp, Name_Refined_Depends);
+
+            elsif Asp_Nam = Name_Global then
+               Misplaced_Aspect_Error (Asp, Name_Refined_Global);
+
+            elsif Asp_Nam = Name_Post then
+               Misplaced_Aspect_Error (Asp, Name_Refined_Post);
+
+            --  Otherwise a language-defined aspect is misplaced
+
+            else
+               Error_Msg_N
+                 ("aspect specification must appear in subprogram declaration",
+                  Asp);
+            end if;
+
+            Next (Asp);
+         end loop;
+      end Diagnose_Misplaced_Aspects;
+
+      --  Local variables
+
+      Spec_Id : Entity_Id;
+
+   --  Start of processing for Analyze_Aspects_On_Body_Or_Stub
+
+   begin
+      if Nkind (N) = N_Subprogram_Body_Stub then
+         Spec_Id := Corresponding_Spec_Of_Stub (N);
+      else
+         Spec_Id := Corresponding_Spec (N);
+      end if;
+
+      --  Language-defined aspects cannot be associated with a subprogram body
+      --  [stub] if the subprogram has a spec. Certain implementation defined
+      --  aspects are allowed to break this rule (for all applicable cases, see
+      --  table Aspects.Aspect_On_Body_Or_Stub_OK).
+
+      if Present (Spec_Id) and then not Aspects_On_Body_Or_Stub_OK (N) then
+         Diagnose_Misplaced_Aspects (Spec_Id);
+      else
+         Analyze_Aspect_Specifications (N, Body_Id);
+      end if;
+   end Analyze_Aspect_Specifications_On_Body_Or_Stub;
 
    -----------------------
    -- Analyze_At_Clause --
@@ -3736,28 +3902,43 @@ package body Sem_Ch13 is
 
             elsif No (Next_Formal (First_Formal (Subp))) then
                Illegal_Indexing
-                  ("indexing function must have at least two parameters");
+                 ("indexing function must have at least two parameters");
                return;
 
-            elsif Is_Derived_Type (Ent) then
-               if (Attr = Name_Constant_Indexing
-                    and then Present
-                      (Find_Aspect (Etype (Ent), Aspect_Constant_Indexing)))
-                 or else
-                   (Attr = Name_Variable_Indexing
-                     and then Present
-                       (Find_Aspect (Etype (Ent), Aspect_Variable_Indexing)))
-               then
-                  if Debug_Flag_Dot_XX then
-                     null;
+            --  For a derived type, check that no indexing aspect is specified
+            --  for the type if it is also inherited
 
-                  else
-                     Illegal_Indexing
-                        ("indexing function already inherited "
-                          & "from parent type");
-                     return;
+            elsif Is_Derived_Type (Ent) then
+               declare
+                  Inherited : Node_Id;
+
+               begin
+                  if Attr = Name_Constant_Indexing then
+                     Inherited :=
+                       Find_Aspect (Etype (Ent), Aspect_Constant_Indexing);
+                  else pragma Assert (Attr = Name_Variable_Indexing);
+                     Inherited :=
+                        Find_Aspect (Etype (Ent), Aspect_Variable_Indexing);
                   end if;
-               end if;
+
+                  if Present (Inherited) then
+                     if Debug_Flag_Dot_XX then
+                        null;
+
+                     --  Indicate the operation that must be overridden, rather
+                     --  than redefining the indexing aspect
+
+                     else
+                        Illegal_Indexing
+                          ("indexing function already inherited "
+                           & "from parent type");
+                        Error_Msg_NE
+                          ("!override & instead",
+                           N, Entity (Expression (Inherited)));
+                        return;
+                     end if;
+                  end if;
+               end;
             end if;
 
             if not Check_Primitive_Function (Subp) then
@@ -3970,8 +4151,10 @@ package body Sem_Ch13 is
                    Entity (Expr), Ent);
             end if;
 
+            --  Flag the default_iterator as well as the denoted function.
+
             if not Valid_Default_Iterator (Entity (Expr)) then
-               Error_Msg_N ("improper function for default iterator", Expr);
+               Error_Msg_N ("improper function for default iterator!", Expr);
             end if;
 
          else
@@ -4022,6 +4205,12 @@ package body Sem_Ch13 is
             return False;
          else
             Ctrl := Etype (First_Formal (Subp));
+         end if;
+
+         --  To be a primitive operation subprogram has to be in same scope.
+
+         if Scope (Ctrl) /= Scope (Subp) then
+            return False;
          end if;
 
          --  Type of formal may be the class-wide type, an access to such,
@@ -4818,9 +5007,12 @@ package body Sem_Ch13 is
             Typ  : Entity_Id;
 
          begin
+            --  If target type is untagged, further checks are irrelevant
+
             if not Is_Tagged_Type (U_Ent) then
                Error_Msg_N
-                 ("aspect Default_Iterator applies to  tagged type", Nam);
+                 ("aspect Default_Iterator applies to tagged type", Nam);
+               return;
             end if;
 
             Check_Iterator_Functions;
@@ -4831,15 +5023,17 @@ package body Sem_Ch13 is
               or else Ekind (Entity (Expr)) /= E_Function
             then
                Error_Msg_N ("aspect Iterator must be a function", Expr);
+               return;
             else
                Func := Entity (Expr);
             end if;
 
             --  The type of the first parameter must be T, T'class, or a
-            --  corresponding access type (5.5.1 (8/3)
+            --  corresponding access type (5.5.1 (8/3). If function is
+            --  parameterless label type accordingly.
 
             if No (First_Formal (Func)) then
-               Typ := Empty;
+               Typ := Any_Type;
             else
                Typ := Etype (First_Formal (Func));
             end if;
@@ -10896,8 +11090,8 @@ package body Sem_Ch13 is
                    (Get_Rep_Item (Typ, Name_Atomic, Name_Shared))
       then
          Set_Is_Atomic (Typ);
-         Set_Treat_As_Volatile (Typ);
          Set_Is_Volatile (Typ);
+         Set_Treat_As_Volatile (Typ);
       end if;
 
       --  Convention
@@ -10910,9 +11104,12 @@ package body Sem_Ch13 is
 
       --  Default_Component_Value
 
+      --  Verify that there is no rep_item declared for the type, and there
+      --  is one coming from an ancestor.
+
       if Is_Array_Type (Typ)
         and then Is_Base_Type (Typ)
-        and then Has_Rep_Item (Typ, Name_Default_Component_Value, False)
+        and then not Has_Rep_Item (Typ, Name_Default_Component_Value, False)
         and then Has_Rep_Item (Typ, Name_Default_Component_Value)
       then
          Set_Default_Aspect_Component_Value (Typ,
@@ -10924,9 +11121,10 @@ package body Sem_Ch13 is
 
       if Is_Scalar_Type (Typ)
         and then Is_Base_Type (Typ)
-        and then Has_Rep_Item (Typ, Name_Default_Value, False)
+        and then not Has_Rep_Item (Typ, Name_Default_Value, False)
         and then Has_Rep_Item (Typ, Name_Default_Value)
       then
+         Set_Has_Default_Aspect (Typ);
          Set_Default_Aspect_Value (Typ,
            Default_Aspect_Value
              (Entity (Get_Rep_Item (Typ, Name_Default_Value))));
@@ -10973,8 +11171,20 @@ package body Sem_Ch13 is
         and then Is_Pragma_Or_Corr_Pragma_Present_In_Rep_Item
                    (Get_Rep_Item (Typ, Name_Volatile))
       then
-         Set_Treat_As_Volatile (Typ);
          Set_Is_Volatile (Typ);
+         Set_Treat_As_Volatile (Typ);
+      end if;
+
+      --  Volatile_Full_Access
+
+      if not Has_Rep_Item (Typ, Name_Volatile_Full_Access, False)
+        and then Has_Rep_Pragma (Typ, Name_Volatile_Full_Access)
+        and then Is_Pragma_Or_Corr_Pragma_Present_In_Rep_Item
+                   (Get_Rep_Item (Typ, Name_Volatile_Full_Access))
+      then
+         Set_Is_Volatile_Full_Access (Typ);
+         Set_Is_Volatile (Typ);
+         Set_Treat_As_Volatile (Typ);
       end if;
 
       --  Inheritance for derived types only
@@ -11531,11 +11741,20 @@ package body Sem_Ch13 is
          Lo := Uint_0;
       end if;
 
+      --  Null range case, size is always zero. We only do this in the discrete
+      --  type case, since that's the odd case that came up. Probably we should
+      --  also do this in the fixed-point case, but doing so causes peculiar
+      --  gigi failures, and it is not worth worrying about this incredibly
+      --  marginal case (explicit null-range fixed-point type declarations)???
+
+      if Lo > Hi and then Is_Discrete_Type (T) then
+         S := 0;
+
       --  Signed case. Note that we consider types like range 1 .. -1 to be
       --  signed for the purpose of computing the size, since the bounds have
       --  to be accommodated in the base type.
 
-      if Lo < 0 or else Hi < 0 then
+      elsif Lo < 0 or else Hi < 0 then
          S := 1;
          B := Uint_1;
 
@@ -12629,12 +12848,16 @@ package body Sem_Ch13 is
                     ("\??size of & is ^", ACCR.N, ACCR.Y);
 
                --  Check for inadequate alignment, both of the base object
-               --  and of the offset, if any.
+               --  and of the offset, if any. We only do this check if the
+               --  run-time Alignment_Check is active. No point in warning
+               --  if this check has been suppressed (or is suppressed by
+               --  default in the non-strict alignment machine case).
 
                --  Note: we do not check the alignment if we gave a size
                --  warning, since it would likely be redundant.
 
-               elsif Y_Alignment /= Uint_0
+               elsif not Alignment_Checks_Suppressed (ACCR.Y)
+                 and then Y_Alignment /= Uint_0
                  and then (Y_Alignment < X_Alignment
                              or else (ACCR.Off
                                         and then
@@ -13292,9 +13515,22 @@ package body Sem_Ch13 is
                         end if;
 
                      else pragma Assert (Source_Siz > Target_Siz);
-                        Error_Msg
-                          ("\?z?^ trailing bits of source will be ignored!",
-                           Eloc);
+                        if Is_Discrete_Type (Source) then
+                           if Bytes_Big_Endian then
+                              Error_Msg
+                                ("\?z?^ low order bits of source will be "
+                                 & "ignored!", Eloc);
+                           else
+                              Error_Msg
+                                ("\?z?^ high order bits of source will be "
+                                 & "ignored!", Eloc);
+                           end if;
+
+                        else
+                           Error_Msg
+                             ("\?z?^ trailing bits of source will be "
+                              & "ignored!", Eloc);
+                        end if;
                      end if;
                   end if;
                end if;

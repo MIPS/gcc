@@ -1564,7 +1564,7 @@ enum reg_class
 
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 /* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
@@ -1688,6 +1688,7 @@ typedef struct ix86_args {
   int stdarg;                   /* Set to 1 if function is stdarg.  */
   enum calling_abi call_abi;	/* Set to SYSV_ABI for sysv abi. Otherwise
  				   MS_ABI for ms abi.  */
+  tree decl;			/* Callee decl.  */
 } CUMULATIVE_ARGS;
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS

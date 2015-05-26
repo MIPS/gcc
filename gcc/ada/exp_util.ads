@@ -468,13 +468,11 @@ package Exp_Util is
    --  return the record component containing the tag of Iface.
 
    function Find_Prim_Op (T : Entity_Id; Name : Name_Id) return Entity_Id;
-   --  Find the first primitive operation of type T whose name is 'Name'.
+   --  Find the first primitive operation of a tagged type T with name Name.
    --  This function allows the use of a primitive operation which is not
-   --  directly visible. If T is a class wide type, then the reference is
-   --  to an operation of the corresponding root type. Raises Program_Error
-   --  exception if no primitive operation is found. This is normally an
-   --  internal error, but in some cases is an expected consequence of
-   --  illegalities elsewhere.
+   --  directly visible. If T is a class wide type, then the reference is to an
+   --  operation of the corresponding root type. It is an error if no primitive
+   --  operation with the given name is found.
 
    function Find_Prim_Op
      (T    : Entity_Id;
@@ -484,16 +482,19 @@ package Exp_Util is
    --  with the indicated suffix). This function allows use of a primitive
    --  operation which is not directly visible. If T is a class wide type,
    --  then the reference is to an operation of the corresponding root type.
-   --  Raises Program_Error exception if no primitive operation is found.
-   --  This is normally an internal error, but in some cases is an expected
-   --  consequence of illegalities elsewhere.
+
+   function Find_Optional_Prim_Op
+     (T : Entity_Id; Name : Name_Id) return Entity_Id;
+   function Find_Optional_Prim_Op
+     (T    : Entity_Id;
+      Name : TSS_Name_Type) return Entity_Id;
+   --  Same as Find_Prim_Op, except returns Empty if not found
 
    function Find_Protection_Object (Scop : Entity_Id) return Entity_Id;
-   --  Traverse the scope stack starting from Scop and look for an entry,
-   --  entry family, or a subprogram that has a Protection_Object and return
-   --  it. Raises Program_Error if no such entity is found since the context
-   --  in which this routine is invoked should always have a protection
-   --  object.
+   --  Traverse the scope stack starting from Scop and look for an entry, entry
+   --  family, or a subprogram that has a Protection_Object and return it. Must
+   --  always return a value since the context in which this routine is invoked
+   --  should always have a protection object.
 
    function Find_Protection_Type (Conc_Typ : Entity_Id) return Entity_Id;
    --  Given a protected type or its corresponding record, find the type of
@@ -635,7 +636,7 @@ package Exp_Util is
       Rel_Node : Node_Id) return Boolean;
    --  Determine whether declaration Decl denotes a controlled transient which
    --  should be finalized. Rel_Node is the related context. Even though some
-   --  transient are controlled, they may act as renamings of other objects or
+   --  transients are controlled, they may act as renamings of other objects or
    --  function calls.
 
    function Is_Fully_Repped_Tagged_Type (T : Entity_Id) return Boolean;

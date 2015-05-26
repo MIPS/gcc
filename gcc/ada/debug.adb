@@ -157,7 +157,7 @@ package body Debug is
 
    --  d.1  Enable unnesting of nested procedures
    --  d.2  Allow statements in declarative part
-   --  d.3
+   --  d.3  Output debugging information from Exp_Unst
    --  d.4
    --  d.5
    --  d.6
@@ -689,11 +689,11 @@ package body Debug is
    --       the order in which units are walked. This is primarily for use in
    --       debugging CodePeer mode.
 
-   --  d.X  A previous version of GNAT allowed indexing aspects to be
-   --       redefined on derived container types, while the default iterator
-   --       was inherited from the aprent type. This non-standard extension
-   --       is preserved temporarily for use by the modelling project under
-   --       debug flag d.X.
+   --  d.X  A previous version of GNAT allowed indexing aspects to be redefined
+   --       on derived container types, while the default iterator was
+   --       inherited from the aprent type. This non-standard extension is
+   --       preserved temporarily for use by the modelling project under debug
+   --       flag d.X.
 
    --  d.Z  Normally we always enable expansion in configurable run-time mode
    --       to make sure we get error messages about unsupported features even
@@ -754,6 +754,9 @@ package body Debug is
    --  d.2  Allow statements within declarative parts. This is not usually
    --       allowed, but in some debugging contexts (e.g. testing the circuit
    --       for unnesting of procedures), it is useful to allow this.
+
+   --  d.3  Output debugging information from Exp_Unst, including the name of
+   --       any unreachable subprograms that get deleted.
 
    ------------------------------------------
    -- Documentation for Binder Debug Flags --

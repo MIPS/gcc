@@ -2913,6 +2913,7 @@ finish_member_declaration (tree decl)
 	 CLASSTYPE_METHOD_VEC.  */
       if (add_method (current_class_type, decl, NULL_TREE))
 	{
+	  gcc_assert (TYPE_MAIN_VARIANT (current_class_type) == current_class_type);
 	  DECL_CHAIN (decl) = TYPE_METHODS (current_class_type);
 	  TYPE_METHODS (current_class_type) = decl;
 
@@ -3650,11 +3651,6 @@ finish_id_expression (tree id_expression,
 	  decl = convert_from_reference (decl);
 	}
     }
-
-  /* Handle references (c++/56130).  */
-  tree t = REFERENCE_REF_P (decl) ? TREE_OPERAND (decl, 0) : decl;
-  if (TREE_DEPRECATED (t))
-    warn_deprecated_use (t, NULL_TREE);
 
   return decl;
 }
