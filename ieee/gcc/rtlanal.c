@@ -1445,9 +1445,8 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 	 clobber a virtual register.  In fact, we could be more precise,
 	 but it isn't worth it.  */
       if ((x_regno == STACK_POINTER_REGNUM
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	   || x_regno == ARG_POINTER_REGNUM
-#endif
+	   || (FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	       && x_regno == ARG_POINTER_REGNUM)
 	   || x_regno == FRAME_POINTER_REGNUM)
 	  && regno >= FIRST_VIRTUAL_REGISTER && regno <= LAST_VIRTUAL_REGISTER)
 	return true;
@@ -2917,7 +2916,8 @@ rtx_referenced_p (const_rtx x, const_rtx body)
 bool
 tablejump_p (const rtx_insn *insn, rtx *labelp, rtx_jump_table_data **tablep)
 {
-  rtx label, table;
+  rtx label;
+  rtx_insn *table;
 
   if (!JUMP_P (insn))
     return false;

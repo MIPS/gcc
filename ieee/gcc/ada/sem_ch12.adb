@@ -825,11 +825,15 @@ package body Sem_Ch12 is
    --  at the end of the enclosing generic package, which is semantically
    --  neutral.
 
-   procedure Preanalyze_Actuals (N : Node_Id);
+   procedure Preanalyze_Actuals (N : Node_Id; Inst : Entity_Id := Empty);
    --  Analyze actuals to perform name resolution. Full resolution is done
    --  later, when the expected types are known, but names have to be captured
    --  before installing parents of generics, that are not visible for the
    --  actuals themselves.
+   --
+   --  If Inst is present, it is the entity of the package instance. This
+   --  entity is marked as having a limited_view actual when some actual is
+   --  a limited view. This is used to place the instance body properly.
 
    procedure Remove_Parent (In_Body : Boolean := False);
    --  Reverse effect after instantiation of child is complete
@@ -3120,14 +3124,15 @@ package body Sem_Ch12 is
    ------------------------------------------
 
    procedure Analyze_Generic_Package_Declaration (N : Node_Id) is
+      GM          : constant Ghost_Mode_Type := Ghost_Mode;
       Loc         : constant Source_Ptr := Sloc (N);
-      Id          : Entity_Id;
-      New_N       : Node_Id;
-      Save_Parent : Node_Id;
-      Renaming    : Node_Id;
       Decls       : constant List_Id :=
                       Visible_Declarations (Specification (N));
       Decl        : Node_Id;
+      Id          : Entity_Id;
+      New_N       : Node_Id;
+      Renaming    : Node_Id;
+      Save_Parent : Node_Id;
 
    begin
       --  The generic package declaration may be subject to pragma Ghost with
@@ -3286,6 +3291,11 @@ package body Sem_Ch12 is
             end if;
          end;
       end if;
+
+      --  Restore the original Ghost mode once analysis and expansion have
+      --  taken place.
+
+      Ghost_Mode := GM;
    end Analyze_Generic_Package_Declaration;
 
    --------------------------------------------
@@ -3293,6 +3303,7 @@ package body Sem_Ch12 is
    --------------------------------------------
 
    procedure Analyze_Generic_Subprogram_Declaration (N : Node_Id) is
+      GM          : constant Ghost_Mode_Type := Ghost_Mode;
       Formals     : List_Id;
       Id          : Entity_Id;
       New_N       : Node_Id;
@@ -3362,13 +3373,17 @@ package body Sem_Ch12 is
 
       Formals := Parameter_Specifications (Spec);
 
+      if Nkind (Spec) = N_Function_Specification then
+         Set_Ekind (Id, E_Generic_Function);
+      else
+         Set_Ekind (Id, E_Generic_Procedure);
+      end if;
+
       if Present (Formals) then
          Process_Formals (Formals, Spec);
       end if;
 
       if Nkind (Spec) = N_Function_Specification then
-         Set_Ekind (Id, E_Generic_Function);
-
          if Nkind (Result_Definition (Spec)) = N_Access_Definition then
             Result_Type := Access_Definition (Spec, Result_Definition (Spec));
             Set_Etype (Id, Result_Type);
@@ -3416,7 +3431,6 @@ package body Sem_Ch12 is
          end if;
 
       else
-         Set_Ekind (Id, E_Generic_Procedure);
          Set_Etype (Id, Standard_Void_Type);
       end if;
 
@@ -3453,6 +3467,11 @@ package body Sem_Ch12 is
       Generate_Reference_To_Formals (Id);
 
       List_Inherited_Pre_Post_Aspects (Id);
+
+      --  Restore the original Ghost mode once analysis and expansion have
+      --  taken place.
+
+      Ghost_Mode := GM;
    end Analyze_Generic_Subprogram_Declaration;
 
    -----------------------------------
@@ -3596,7 +3615,13 @@ package body Sem_Ch12 is
       end if;
 
       Generate_Definition (Act_Decl_Id);
-      Preanalyze_Actuals (N);
+      Set_Ekind (Act_Decl_Id, E_Package);
+
+      --  Initialize list of incomplete actuals before analysis
+
+      Set_Incomplete_Actuals (Act_Decl_Id, New_Elmt_List);
+
+      Preanalyze_Actuals (N, Act_Decl_Id);
 
       Init_Env;
       Env_Installed := True;
@@ -8845,6 +8870,40 @@ package body Sem_Ch12 is
    --  Start of processing for Install_Body
 
    begin
+      --  Handle first the case of an instance with incomplete actual types.
+      --  The instance body cannot be placed after the declaration because
+      --  full views have not been seen yet. Any use of the non-limited views
+      --  in the instance body requires the presence of a regular with_clause
+      --  in the enclosing unit, and will fail if this with_clause is missing.
+      --  We place the instance body at the beginning of the enclosing body,
+      --  which is the unit being compiled. The freeze node for the instance
+      --  is then placed after the instance body.
+
+      if not Is_Empty_Elmt_List (Incomplete_Actuals (Act_Id))
+        and then Expander_Active
+        and then Ekind (Scope (Act_Id)) = E_Package
+      then
+         declare
+            Scop    : constant Entity_Id := Scope (Act_Id);
+            Body_Id : constant Node_Id :=
+                         Corresponding_Body (Unit_Declaration_Node (Scop));
+
+         begin
+            Ensure_Freeze_Node (Act_Id);
+            F_Node := Freeze_Node (Act_Id);
+            if Present (Body_Id) then
+               Set_Is_Frozen (Act_Id, False);
+               Prepend (Act_Body, Declarations (Parent (Body_Id)));
+               if Is_List_Member (F_Node) then
+                  Remove (F_Node);
+               end if;
+
+               Insert_After (Act_Body, F_Node);
+            end if;
+         end;
+         return;
+      end if;
+
       --  If the body is a subunit, the freeze point is the corresponding stub
       --  in the current compilation, not the subunit itself.
 
@@ -10707,8 +10766,23 @@ package body Sem_Ch12 is
       end if;
 
       --  Establish global variable for sloc adjustment and for error recovery
+      --  In the case of an instance body for an instantiation with actuals
+      --  from a limited view, the instance body is placed at the beginning
+      --  of the enclosing package body: use the body entity as the source
+      --  location for nodes of the instance body.
 
-      Instantiation_Node := Inst_Node;
+      if not Is_Empty_Elmt_List (Incomplete_Actuals (Act_Decl_Id)) then
+         declare
+            Scop    : constant Entity_Id := Scope (Act_Decl_Id);
+            Body_Id : constant Node_Id :=
+                         Corresponding_Body (Unit_Declaration_Node (Scop));
+
+         begin
+            Instantiation_Node := Body_Id;
+         end;
+      else
+         Instantiation_Node := Inst_Node;
+      end if;
 
       if Present (Gen_Body_Id) then
          Save_Env (Gen_Unit, Act_Decl_Id);
@@ -11794,12 +11868,12 @@ package body Sem_Ch12 is
 
          --  It should not be necessary to check for unknown discriminants on
          --  Formal, but for some reason Has_Unknown_Discriminants is false for
-         --  A_Gen_T, so Is_Indefinite_Subtype incorrectly returns False. This
+         --  A_Gen_T, so Is_Definite_Subtype incorrectly returns True. This
          --  needs fixing. ???
 
-         if not Is_Indefinite_Subtype (A_Gen_T)
+         if Is_Definite_Subtype (A_Gen_T)
            and then not Unknown_Discriminants_Present (Formal)
-           and then Is_Indefinite_Subtype (Act_T)
+           and then not Is_Definite_Subtype (Act_T)
          then
             Error_Msg_N ("actual subtype must be constrained", Actual);
             Abandon_Instantiation (Actual);
@@ -12296,8 +12370,8 @@ package body Sem_Ch12 is
               ("actual for & must have preelaborable initialization", Actual,
                Gen_T);
 
-         elsif Is_Indefinite_Subtype (Act_T)
-            and then not Is_Indefinite_Subtype (A_Gen_T)
+         elsif not Is_Definite_Subtype (Act_T)
+            and then Is_Definite_Subtype (A_Gen_T)
             and then Ada_Version >= Ada_95
          then
             Error_Msg_NE
@@ -13195,7 +13269,7 @@ package body Sem_Ch12 is
    -- Preanalyze_Actuals --
    ------------------------
 
-   procedure Preanalyze_Actuals (N : Node_Id) is
+   procedure Preanalyze_Actuals (N : Node_Id; Inst : Entity_Id := Empty) is
       Assoc : Node_Id;
       Act   : Node_Id;
       Errs  : constant Int := Serious_Errors_Detected;
@@ -13286,6 +13360,13 @@ package body Sem_Ch12 is
 
             elsif Nkind (Act) /= N_Operator_Symbol then
                Analyze (Act);
+
+               if Is_Entity_Name (Act)
+                 and then Is_Type (Entity (Act))
+                 and then From_Limited_With (Entity (Act))
+               then
+                  Append_Elmt (Entity (Act), Incomplete_Actuals (Inst));
+               end if;
             end if;
 
             if Errs /= Serious_Errors_Detected then

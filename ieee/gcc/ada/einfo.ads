@@ -166,7 +166,7 @@ package Einfo is
 --    the Value_Size values differ generate a warning, and are potentially
 --    target dependent).
 
---    The default rule for the value of Value_Size are as follows:
+--    The default rules for the value of Value_Size are as follows:
 
 --       The Value_Size for a base subtype is the minimum number of bits
 --       required to store all values of the type (including the sign bit
@@ -180,9 +180,9 @@ package Einfo is
 --       All other subtypes have a Value_Size corresponding to the minimum
 --       number of bits required to store all values of the subtype. For
 --       dynamic bounds, it is assumed that the value can range down or up
---       to the corresponding bound of the ancestor
+--       to the corresponding bound of the ancestor.
 
---    The RM defined attribute Size corresponds to the Value_Size attribute
+--    The RM defined attribute Size corresponds to the Value_Size attribute.
 
 --    The Size attribute may be defined for a first-named subtype. This sets
 --    the Value_Size of the first-named subtype to the given value, and the
@@ -218,11 +218,13 @@ package Einfo is
 
 --     subtype x4 is x2'base range 0 .. 10;        8               4
 
---     subtype x5 is x2 range 0 .. dynamic;       16              (7)
+--     dynamic : x2'Base range -64 .. +63;
 
---     subtype x6 is x2'base range 0 .. dynamic;   8              (7)
+--     subtype x5 is x2 range 0 .. dynamic;       16               3*
 
---  Note: the entries marked (7) are not actually specified by the Ada 95 RM,
+--     subtype x6 is x2'base range 0 .. dynamic;   8               7*
+
+--  Note: the entries marked * are not actually specified by the Ada 95 RM,
 --  but it seems in the spirit of the RM rules to allocate the minimum number
 --  of bits known to be large enough to hold the given range of values.
 
@@ -435,6 +437,12 @@ package Einfo is
 --       subtype and derived type declarations). Note also that a record
 --       definition clause with an (obsolescent) mod clause is converted
 --       into an attribute definition clause for this purpose.
+
+--    Anonymous_Master (Node36)
+--       Defined in the entities of non-generic packages, subprograms and their
+--       corresponding bodies. Contains the entity of a special heterogeneous
+--       finalization master that services most anonymous access-to-controlled
+--       allocations that occur within the unit.
 
 --    Associated_Entity (Node37)
 --       Defined in all entities. This field is similar to Associated_Node, but
@@ -903,6 +911,10 @@ package Einfo is
 --       Designated_Type obtains this full type in the case of access to an
 --       incomplete type.
 
+--    Disable_Controlled (Flag253)
+--      Present in all entities. Set for a controlled type (Is_Controlled flag
+--      set) if the aspect Disable_Controlled is active for the type.
+
 --    Discard_Names (Flag88)
 --       Defined in types and exception entities. Set if pragma Discard_Names
 --       applies to the entity. It is also set for declarative regions and
@@ -1096,10 +1108,10 @@ package Einfo is
 --       'COUNT when it applies to a family member.
 
 --    Contract (Node34)
---       Defined in entry, entry family, [generic] package, package body,
---       [generic] subprogram, subprogram body and variable entities. Points
---       to the contract of the entity, holding various assertion items and
---       data classifiers.
+--       Defined in constant, entry, entry family, [generic] package, package
+--       body, [generic] subprogram, subprogram body, and variable entities.
+--       Points to the contract of the entity, holding various assertion items
+--       and data classifiers.
 
 --    Entry_Parameters_Type (Node15)
 --       Defined in entries. Points to the access-to-record type that is
@@ -1405,7 +1417,9 @@ package Einfo is
 
 --    Has_Aliased_Components (Flag135) [implementation base type only]
 --       Defined in array type entities. Indicates that the component type
---       of the array is aliased.
+--       of the array is aliased. Should this also be set for records to
+--       indicate that at least one component is aliased (see processing in
+--       Sem_Prag.Process_Atomic_Independent_Shared_Volatile???)
 
 --    Has_Alignment_Clause (Flag46)
 --       Defined in all type entities and objects. Indicates if an alignment
@@ -1420,13 +1434,6 @@ package Einfo is
 --       All_Calls_Remote pragma. Note that such entities must also be RCI
 --       entities, so the flag Is_Remote_Call_Interface will always be set if
 --       this flag is set.
-
---    Has_Anonymous_Master (Flag253)
---       Defined in units (top-level functions and procedures, library-level
---       packages). Set if the associated unit contains a heterogeneous
---       finalization master. The master's name is of the form <unit>AM and it
---       services anonymous access-to-controlled types with an undetermined
---       lifetime.
 
 --    Has_Atomic_Components (Flag86) [implementation base type only]
 --       Defined in all types and objects. Set only for an array type or
@@ -1755,8 +1762,9 @@ package Einfo is
 --       Object_Size clauses for a given entity.
 
 --    Has_Out_Or_In_Out_Parameter (Flag110)
---       Present in function and generic function entities. Set if the function
---       has at least one OUT or IN OUT parameter (allowed only in Ada 2012).
+--       Present in subprograms, generic subprograms, entries, and entry
+--       families. Set if they have at least one OUT or IN OUT parameter
+--       (allowed for functions only in Ada 2012).
 
 --    Has_Per_Object_Constraint (Flag154)
 --       Defined in E_Component entities. Set if the subtype of the component
@@ -2046,12 +2054,6 @@ package Einfo is
 --       type the pragma will be chained to the rep item chain of the first
 --       subtype in the usual manner.
 
---    Has_Volatile_Full_Access (Flag285)
---       Defined in all type entities, and also in constants, components and
---       variables. Set if a pragma Volatile_Full_Access applies to the entity.
---       In the case of private and incomplete types, this flag is set in
---       both the partial view and the full view.
-
 --    Has_Xref_Entry (Flag182)
 --       Defined in all entities. Set if an entity has an entry in the Xref
 --       information generated in ali files. This is true for all source
@@ -2088,6 +2090,13 @@ package Einfo is
 --       in which case this field points to the pragma (we can't use the normal
 --       Rep_Item chain mechanism, because a single pragma Import can apply
 --       to multiple subprogram entities).
+
+--    Incomplete_Actuals (Elist24)
+--       Defined on package entities that are instances. Indicates the actuals
+--       types in the instantiation that are limited views. If this list is
+--       not empty, the instantiation, which appears in a package declaration,
+--       is relocated to the corresponding package body, which must have a
+--       corresponding nonlimited with_clause.
 
 --    In_Package_Body (Flag48)
 --       Defined in package entities. Set on the entity that denotes the
@@ -2205,10 +2214,18 @@ package Einfo is
 --       keyword. For Ada 2012, also applies to formal parameters.
 
 --    Is_Atomic (Flag85)
---       Defined in all type entities, and also in constants, components and
+--       Defined in all type entities, and also in constants, components, and
 --       variables. Set if a pragma Atomic or Shared applies to the entity.
 --       In the case of private and incomplete types, this flag is set in
 --       both the partial view and the full view.
+
+--    Is_Atomic_Or_VFA (synth)
+--       Defined in all type entities, and also in constants, components and
+--       variables. Set if a pragma Atomic or Shared or Volatile_Full_Access
+--       applies to the entity. For many purposes VFA objects should be treated
+--       the same as Atomic objects, and this predicate is intended for that
+--       usage. In the case of private and incomplete types, the predicate
+--       applies to both the partial view and the full view.
 
 --    Is_Array_Type (synthesized)
 --       Applies to all entities, true for array types and subtypes
@@ -2323,6 +2340,10 @@ package Einfo is
 --       Defined in all type entities. Indicates that the type is controlled,
 --       i.e. is either a descendant of Ada.Finalization.Controlled or of
 --       Ada.Finalization.Limited_Controlled.
+
+--    Is_Controlled_Active (synth) [base type only]
+--       Defined in all type entities. Set if Is_Controlled is set for the
+--       type, and Disable_Controlled is not set.
 
 --    Is_Controlling_Formal (Flag97)
 --       Defined in all Formal_Kind entities. Marks the controlling parameters
@@ -3176,6 +3197,12 @@ package Einfo is
 --       optimizations on volatile objects should test Treat_As_Volatile
 --       rather than testing this flag.
 
+--    Is_Volatile_Full_Access (Flag285)
+--       Defined in all type entities, and also in constants, components, and
+--       variables. Set if a pragma Volatile_Full_Access applies to the entity.
+--       In the case of private and incomplete types, this flag is set in
+--       both the partial view and the full view.
+
 --    Is_Wrapper_Package (synthesized)
 --       Defined in package entities. Indicates that the package has been
 --       created as a wrapper for a subprogram instantiation.
@@ -3347,6 +3374,14 @@ package Einfo is
 --       entities when the return type is an array type, and a call can be
 --       interpreted as an indexing of the result of the call. It is also
 --       used to resolve various cases of entry calls.
+
+--    Needs_Typedef (Flag286)
+--       Defined for all types and subtypes. Set if it is essential to generate
+--       a typedef when we are generating C code from Cprint. Normally we
+--       generate typedef's only for source entities, and not for internally
+--       generated types, but there are cases, notably the AREC types generated
+--       in Exp_Unst when we are unnesting subprograms where we must generate
+--       typedef's for non-source types.
 
 --    Never_Set_In_Source (Flag115)
 --       Defined in all entities, but can be set only for variables and
@@ -3917,7 +3952,7 @@ package Einfo is
 --       end and zero is a legitimate value for a type with one value.
 
 --    Root_Type (synthesized)
---       Applies to all type entities. For class-wide types, return the root
+--       Applies to all type entities. For class-wide types, returns the root
 --       type of the class covered by the CW type, otherwise returns the
 --       ultimate derivation ancestor of the given type. This function
 --       preserves the view, i.e. the Root_Type of a partial view is the
@@ -4019,7 +4054,9 @@ package Einfo is
 --       length objects). It is set conservatively (i.e. if it is True, the
 --       size is certainly known at compile time, if it is False, then the
 --       size may or may not be known at compile time, but the code will
---       assume that it is not known).
+--       assume that it is not known). Note that the value may be known only
+--       to the back end, so the fact that this flag is set does not mean that
+--       the front end can access the value.
 
 --    Small_Value (Ureal21)
 --       Defined in fixed point types. Points to the universal real for the
@@ -4175,8 +4212,11 @@ package Einfo is
 --       names to access entries in this list.
 
 --    Subps_Index (Uint24)
---       Used during Exp_Inst.Unnest_Subprogram to hold the index in the Subps
---       table for a subprogram. See processing in this procedure for details.
+--       Present in subprogram entries. Set if the subprogram contains nested
+--       subprograms, or is a subprogram nested within such a subprogram. Holds
+--       the index in the Exp_Unst.Subps table for the subprogram. Note that
+--       for the outer level subprogram, this is the starting index in the Subp
+--       table for the entries for this subprogram.
 
 --    Suppress_Elaboration_Warnings (Flag148)
 --       Defined in all entities, can be set only for subprogram entities and
@@ -4688,11 +4728,6 @@ package Einfo is
       E_Array_Subtype,
       --  An array subtype, created by an explicit array subtype declaration,
       --  or the use of an anonymous array subtype.
-
-      E_String_Type,
-      E_String_Subtype,
-      --  These are obsolete and not used any more, they are retained to ease
-      --  transition in getting rid of these obsolete entries.
 
       E_String_Literal_Subtype,
       --  A special string subtype, used only to describe the type of a string
@@ -5381,6 +5416,7 @@ package Einfo is
    --    Linker_Section_Pragma               (Node33)
 
    --    Depends_On_Private                  (Flag14)
+   --    Disable_Controlled                  (Flag253)
    --    Discard_Names                       (Flag88)
    --    Finalize_Storage_Only               (Flag158)  (base type only)
    --    From_Limited_With                   (Flag159)
@@ -5418,7 +5454,6 @@ package Einfo is
    --    Has_Task                            (Flag30)   (base type only)
    --    Has_Unchecked_Union                 (Flag123)  (base type only)
    --    Has_Volatile_Components             (Flag87)   (base type only)
-   --    Has_Volatile_Full_Access            (Flag285)
    --    In_Use                              (Flag8)
    --    Is_Abstract_Type                    (Flag146)
    --    Is_Asynchronous                     (Flag81)
@@ -5436,11 +5471,13 @@ package Einfo is
    --    Is_RACW_Stub_Type                   (Flag244)
    --    Is_Unsigned_Type                    (Flag144)
    --    Is_Volatile                         (Flag16)
+   --    Is_Volatile_Full_Access             (Flag285)
    --    Itype_Printed                       (Flag202)  (itypes only)
    --    Known_To_Have_Preelab_Init          (Flag207)
    --    May_Inherit_Delayed_Rep_Aspects     (Flag262)
    --    Must_Be_On_Byte_Boundary            (Flag183)
    --    Must_Have_Preelab_Init              (Flag208)
+   --    Needs_Typedef                       (Flag286)
    --    Optimize_Alignment_Space            (Flag241)
    --    Optimize_Alignment_Time             (Flag242)
    --    Partial_View_Has_Unknown_Discr      (Flag280)
@@ -5457,6 +5494,8 @@ package Einfo is
    --    Implementation_Base_Type            (synth)
    --    Invariant_Procedure                 (synth)
    --    Is_Access_Protected_Subprogram_Type (synth)
+   --    Is_Atomic_Or_VFA                    (synth)
+   --    Is_Controlled_Active                (synth)
    --    Predicate_Function                  (synth)
    --    Predicate_Function_M                (synth)
    --    Root_Type                           (synth)
@@ -5602,13 +5641,14 @@ package Einfo is
    --    Related_Type                        (Node27)
    --    Has_Biased_Representation           (Flag139)
    --    Has_Per_Object_Constraint           (Flag154)
-   --    Has_Volatile_Full_Access            (Flag285)
    --    Is_Atomic                           (Flag85)
    --    Is_Independent                      (Flag268)
    --    Is_Return_Object                    (Flag209)
    --    Is_Tag                              (Flag78)
    --    Is_Volatile                         (Flag16)
+   --    Is_Volatile_Full_Access             (Flag285)
    --    Treat_As_Volatile                   (Flag41)
+   --    Is_Atomic_Or_VFA                    (synth)
    --    Next_Component                      (synth)
    --    Next_Component_Or_Discriminant      (synth)
 
@@ -5633,6 +5673,7 @@ package Einfo is
    --    Activation_Record_Component         (Node31)
    --    Encapsulating_State                 (Node32)   (constants only)
    --    Linker_Section_Pragma               (Node33)
+   --    Contract                            (Node34)   (constants only)
    --    Has_Alignment_Clause                (Flag46)
    --    Has_Atomic_Components               (Flag86)
    --    Has_Biased_Representation           (Flag139)
@@ -5641,7 +5682,6 @@ package Einfo is
    --    Has_Size_Clause                     (Flag29)
    --    Has_Thunks                          (Flag228)  (constants only)
    --    Has_Volatile_Components             (Flag87)
-   --    Has_Volatile_Full_Access            (Flag285)
    --    Is_Atomic                           (Flag85)
    --    Is_Eliminated                       (Flag124)
    --    Is_Independent                      (Flag268)
@@ -5650,12 +5690,14 @@ package Einfo is
    --    Is_True_Constant                    (Flag163)
    --    Is_Uplevel_Referenced_Entity        (Flag283)
    --    Is_Volatile                         (Flag16)
+   --    Is_Volatile_Full_Access             (Flag285)
    --    Optimize_Alignment_Space            (Flag241)  (constants only)
    --    Optimize_Alignment_Time             (Flag242)  (constants only)
    --    Stores_Attribute_Old_Prefix         (Flag270)  (constants only)
    --    Treat_As_Volatile                   (Flag41)
    --    Address_Clause                      (synth)
    --    Alignment_Clause                    (synth)
+   --    Is_Atomic_Or_VFA                    (synth)
    --    Size_Clause                         (synth)
 
    --  E_Decimal_Fixed_Point_Type
@@ -5821,6 +5863,7 @@ package Einfo is
    --    Linker_Section_Pragma               (Node33)
    --    Contract                            (Node34)
    --    Import_Pragma                       (Node35)   (non-generic case only)
+   --    Anonymous_Master                    (Node36)   (non-generic case only)
    --    Body_Needed_For_SAL                 (Flag40)
    --    Contains_Ignored_Ghost_Code         (Flag279)
    --    Default_Expressions_Processed       (Flag108)
@@ -5828,7 +5871,6 @@ package Einfo is
    --    Delay_Subprogram_Descriptors        (Flag50)
    --    Discard_Names                       (Flag88)
    --    Elaboration_Entity_Required         (Flag174)
-   --    Has_Anonymous_Master                (Flag253)
    --    Has_Completion                      (Flag26)
    --    Has_Controlling_Result              (Flag98)
    --    Has_Expanded_Contract               (Flag240)  (non-generic case only)
@@ -6031,6 +6073,7 @@ package Einfo is
    --    Generic_Renamings                   (Elist23)  (for an instance)
    --    Inner_Instances                     (Elist23)  (generic case only)
    --    Limited_View                        (Node23)   (non-generic/instance)
+   --    Incomplete_Actuals                  (Elist24)  (for an instance)
    --    Abstract_States                     (Elist25)
    --    Package_Instantiation               (Node26)
    --    Current_Use_Clause                  (Node27)
@@ -6038,6 +6081,7 @@ package Einfo is
    --    SPARK_Pragma                        (Node32)
    --    SPARK_Aux_Pragma                    (Node33)
    --    Contract                            (Node34)
+   --    Anonymous_Master                    (Node36)   (non-generic case only)
    --    Delay_Subprogram_Descriptors        (Flag50)
    --    Body_Needed_For_SAL                 (Flag40)
    --    Contains_Ignored_Ghost_Code         (Flag279)
@@ -6046,7 +6090,6 @@ package Einfo is
    --    Elaborate_Body_Desirable            (Flag210)  (non-generic case only)
    --    From_Limited_With                   (Flag159)
    --    Has_All_Calls_Remote                (Flag79)
-   --    Has_Anonymous_Master                (Flag253)
    --    Has_Completion                      (Flag26)
    --    Has_Forward_Instantiation           (Flag175)
    --    Has_Master_Entity                   (Flag21)
@@ -6075,9 +6118,9 @@ package Einfo is
    --    SPARK_Pragma                        (Node32)
    --    SPARK_Aux_Pragma                    (Node33)
    --    Contract                            (Node34)
+   --    Anonymous_Master                    (Node36)
    --    Contains_Ignored_Ghost_Code         (Flag279)
    --    Delay_Subprogram_Descriptors        (Flag50)
-   --    Has_Anonymous_Master                (Flag253)
    --    SPARK_Aux_Pragma_Inherited          (Flag266)
    --    SPARK_Pragma_Inherited              (Flag265)
    --    Scope_Depth                         (synth)
@@ -6127,6 +6170,7 @@ package Einfo is
    --    Linker_Section_Pragma               (Node33)
    --    Contract                            (Node34)
    --    Import_Pragma                       (Node35)   (non-generic case only)
+   --    Anonymous_Master                    (Node36)   (non-generic case only)
    --    Body_Needed_For_SAL                 (Flag40)
    --    Contains_Ignored_Ghost_Code         (Flag279)
    --    Delay_Cleanups                      (Flag114)
@@ -6136,7 +6180,6 @@ package Einfo is
    --    Delay_Cleanups                      (Flag114)
    --    Delay_Subprogram_Descriptors        (Flag50)
    --    Discard_Names                       (Flag88)
-   --    Has_Anonymous_Master                (Flag253)
    --    Has_Completion                      (Flag26)
    --    Has_Expanded_Contract               (Flag240)  (non-generic case only)
    --    Has_Invariants                      (Flag232)
@@ -6300,6 +6343,7 @@ package Einfo is
    --    Extra_Formals                       (Node28)
    --    SPARK_Pragma                        (Node32)
    --    Contract                            (Node34)
+   --    Anonymous_Master                    (Node36)
    --    Contains_Ignored_Ghost_Code         (Flag279)
    --    SPARK_Pragma_Inherited              (Flag265)
    --    Scope_Depth                         (synth)
@@ -6373,7 +6417,6 @@ package Einfo is
    --    Has_Initial_Value                   (Flag219)
    --    Has_Size_Clause                     (Flag29)
    --    Has_Volatile_Components             (Flag87)
-   --    Has_Volatile_Full_Access            (Flag285)
    --    Is_Atomic                           (Flag85)
    --    Is_Eliminated                       (Flag124)
    --    Is_Independent                      (Flag268)
@@ -6384,6 +6427,7 @@ package Einfo is
    --    Is_True_Constant                    (Flag163)
    --    Is_Uplevel_Referenced_Entity        (Flag283)
    --    Is_Volatile                         (Flag16)
+   --    Is_Volatile_Full_Access             (Flag285)
    --    OK_To_Rename                        (Flag247)
    --    Optimize_Alignment_Space            (Flag241)
    --    Optimize_Alignment_Time             (Flag242)
@@ -6391,6 +6435,7 @@ package Einfo is
    --    Treat_As_Volatile                   (Flag41)
    --    Address_Clause                      (synth)
    --    Alignment_Clause                    (synth)
+   --    Is_Atomic_Or_VFA                    (synth)
    --    Size_Clause                         (synth)
 
    --  E_Void
@@ -6635,6 +6680,7 @@ package Einfo is
    function Address_Taken                       (Id : E) return B;
    function Alias                               (Id : E) return E;
    function Alignment                           (Id : E) return U;
+   function Anonymous_Master                    (Id : E) return E;
    function Associated_Entity                   (Id : E) return E;
    function Associated_Formal_Package           (Id : E) return E;
    function Associated_Node_For_Itype           (Id : E) return N;
@@ -6683,6 +6729,7 @@ package Einfo is
    function Digits_Value                        (Id : E) return U;
    function Direct_Primitive_Operations         (Id : E) return L;
    function Directly_Designated_Type            (Id : E) return E;
+   function Disable_Controlled                  (Id : E) return B;
    function Discard_Names                       (Id : E) return B;
    function Discriminal                         (Id : E) return E;
    function Discriminal_Link                    (Id : E) return E;
@@ -6738,7 +6785,6 @@ package Einfo is
    function Has_Aliased_Components              (Id : E) return B;
    function Has_Alignment_Clause                (Id : E) return B;
    function Has_All_Calls_Remote                (Id : E) return B;
-   function Has_Anonymous_Master                (Id : E) return B;
    function Has_Atomic_Components               (Id : E) return B;
    function Has_Biased_Representation           (Id : E) return B;
    function Has_Completion                      (Id : E) return B;
@@ -6825,11 +6871,11 @@ package Einfo is
    function Has_Uplevel_Reference               (Id : E) return B;
    function Has_Visible_Refinement              (Id : E) return B;
    function Has_Volatile_Components             (Id : E) return B;
-   function Has_Volatile_Full_Access            (Id : E) return B;
    function Has_Xref_Entry                      (Id : E) return B;
    function Hiding_Loop_Variable                (Id : E) return E;
    function Homonym                             (Id : E) return E;
    function Import_Pragma                       (Id : E) return E;
+   function Incomplete_Actuals                  (Id : E) return L;
    function In_Package_Body                     (Id : E) return B;
    function In_Private_Part                     (Id : E) return B;
    function In_Use                              (Id : E) return B;
@@ -6846,6 +6892,7 @@ package Einfo is
    function Is_Aliased                          (Id : E) return B;
    function Is_Asynchronous                     (Id : E) return B;
    function Is_Atomic                           (Id : E) return B;
+   function Is_Atomic_Or_VFA                    (Id : E) return B;
    function Is_Bit_Packed_Array                 (Id : E) return B;
    function Is_Called                           (Id : E) return B;
    function Is_Character_Type                   (Id : E) return B;
@@ -6942,6 +6989,7 @@ package Einfo is
    function Is_Visible_Formal                   (Id : E) return B;
    function Is_Visible_Lib_Unit                 (Id : E) return B;
    function Is_Volatile                         (Id : E) return B;
+   function Is_Volatile_Full_Access             (Id : E) return B;
    function Itype_Printed                       (Id : E) return B;
    function Kill_Elaboration_Checks             (Id : E) return B;
    function Kill_Range_Checks                   (Id : E) return B;
@@ -6964,6 +7012,7 @@ package Einfo is
    function Must_Have_Preelab_Init              (Id : E) return B;
    function Needs_Debug_Info                    (Id : E) return B;
    function Needs_No_Actuals                    (Id : E) return B;
+   function Needs_Typedef                       (Id : E) return B;
    function Never_Set_In_Source                 (Id : E) return B;
    function Next_Inlined_Subprogram             (Id : E) return E;
    function No_Dynamic_Predicate_On_Actual      (Id : E) return B;
@@ -7163,6 +7212,7 @@ package Einfo is
    function Is_Base_Type                        (Id : E) return B;
    function Is_Boolean_Type                     (Id : E) return B;
    function Is_Constant_Object                  (Id : E) return B;
+   function Is_Controlled_Active                (Id : E) return B;
    function Is_Discriminal                      (Id : E) return B;
    function Is_Dynamic_Scope                    (Id : E) return B;
    function Is_External_State                   (Id : E) return B;
@@ -7288,6 +7338,7 @@ package Einfo is
    procedure Set_Address_Taken                   (Id : E; V : B := True);
    procedure Set_Alias                           (Id : E; V : E);
    procedure Set_Alignment                       (Id : E; V : U);
+   procedure Set_Anonymous_Master                (Id : E; V : E);
    procedure Set_Associated_Entity               (Id : E; V : E);
    procedure Set_Associated_Formal_Package       (Id : E; V : E);
    procedure Set_Associated_Node_For_Itype       (Id : E; V : N);
@@ -7336,6 +7387,7 @@ package Einfo is
    procedure Set_Digits_Value                    (Id : E; V : U);
    procedure Set_Direct_Primitive_Operations     (Id : E; V : L);
    procedure Set_Directly_Designated_Type        (Id : E; V : E);
+   procedure Set_Disable_Controlled              (Id : E; V : B := True);
    procedure Set_Discard_Names                   (Id : E; V : B := True);
    procedure Set_Discriminal                     (Id : E; V : E);
    procedure Set_Discriminal_Link                (Id : E; V : E);
@@ -7390,7 +7442,6 @@ package Einfo is
    procedure Set_Has_Aliased_Components          (Id : E; V : B := True);
    procedure Set_Has_Alignment_Clause            (Id : E; V : B := True);
    procedure Set_Has_All_Calls_Remote            (Id : E; V : B := True);
-   procedure Set_Has_Anonymous_Master            (Id : E; V : B := True);
    procedure Set_Has_Atomic_Components           (Id : E; V : B := True);
    procedure Set_Has_Biased_Representation       (Id : E; V : B := True);
    procedure Set_Has_Completion                  (Id : E; V : B := True);
@@ -7476,11 +7527,11 @@ package Einfo is
    procedure Set_Has_Uplevel_Reference           (Id : E; V : B := True);
    procedure Set_Has_Visible_Refinement          (Id : E; V : B := True);
    procedure Set_Has_Volatile_Components         (Id : E; V : B := True);
-   procedure Set_Has_Volatile_Full_Access        (Id : E; V : B := True);
    procedure Set_Has_Xref_Entry                  (Id : E; V : B := True);
    procedure Set_Hiding_Loop_Variable            (Id : E; V : E);
    procedure Set_Homonym                         (Id : E; V : E);
    procedure Set_Import_Pragma                   (Id : E; V : E);
+   procedure Set_Incomplete_Actuals              (Id : E; V : L);
    procedure Set_In_Package_Body                 (Id : E; V : B := True);
    procedure Set_In_Private_Part                 (Id : E; V : B := True);
    procedure Set_In_Use                          (Id : E; V : B := True);
@@ -7599,6 +7650,7 @@ package Einfo is
    procedure Set_Is_Visible_Formal               (Id : E; V : B := True);
    procedure Set_Is_Visible_Lib_Unit             (Id : E; V : B := True);
    procedure Set_Is_Volatile                     (Id : E; V : B := True);
+   procedure Set_Is_Volatile_Full_Access         (Id : E; V : B := True);
    procedure Set_Itype_Printed                   (Id : E; V : B := True);
    procedure Set_Kill_Elaboration_Checks         (Id : E; V : B := True);
    procedure Set_Kill_Range_Checks               (Id : E; V : B := True);
@@ -7621,6 +7673,7 @@ package Einfo is
    procedure Set_Must_Have_Preelab_Init          (Id : E; V : B := True);
    procedure Set_Needs_Debug_Info                (Id : E; V : B := True);
    procedure Set_Needs_No_Actuals                (Id : E; V : B := True);
+   procedure Set_Needs_Typedef                   (Id : E; V : B := True);
    procedure Set_Never_Set_In_Source             (Id : E; V : B := True);
    procedure Set_Next_Inlined_Subprogram         (Id : E; V : E);
    procedure Set_No_Dynamic_Predicate_On_Actual  (Id : E; V : B := True);
@@ -8062,6 +8115,7 @@ package Einfo is
    pragma Inline (Address_Taken);
    pragma Inline (Alias);
    pragma Inline (Alignment);
+   pragma Inline (Anonymous_Master);
    pragma Inline (Associated_Entity);
    pragma Inline (Associated_Formal_Package);
    pragma Inline (Associated_Node_For_Itype);
@@ -8109,6 +8163,7 @@ package Einfo is
    pragma Inline (Digits_Value);
    pragma Inline (Direct_Primitive_Operations);
    pragma Inline (Directly_Designated_Type);
+   pragma Inline (Disable_Controlled);
    pragma Inline (Discard_Names);
    pragma Inline (Discriminal);
    pragma Inline (Discriminal_Link);
@@ -8162,7 +8217,6 @@ package Einfo is
    pragma Inline (Has_Aliased_Components);
    pragma Inline (Has_Alignment_Clause);
    pragma Inline (Has_All_Calls_Remote);
-   pragma Inline (Has_Anonymous_Master);
    pragma Inline (Has_Atomic_Components);
    pragma Inline (Has_Biased_Representation);
    pragma Inline (Has_Completion);
@@ -8248,11 +8302,11 @@ package Einfo is
    pragma Inline (Has_Uplevel_Reference);
    pragma Inline (Has_Visible_Refinement);
    pragma Inline (Has_Volatile_Components);
-   pragma Inline (Has_Volatile_Full_Access);
    pragma Inline (Has_Xref_Entry);
    pragma Inline (Hiding_Loop_Variable);
    pragma Inline (Homonym);
    pragma Inline (Import_Pragma);
+   pragma Inline (Incomplete_Actuals);
    pragma Inline (In_Package_Body);
    pragma Inline (In_Private_Part);
    pragma Inline (In_Use);
@@ -8274,6 +8328,7 @@ package Einfo is
    pragma Inline (Is_Assignable);
    pragma Inline (Is_Asynchronous);
    pragma Inline (Is_Atomic);
+   pragma Inline (Is_Atomic_Or_VFA);
    pragma Inline (Is_Bit_Packed_Array);
    pragma Inline (Is_Called);
    pragma Inline (Is_Character_Type);
@@ -8410,6 +8465,7 @@ package Einfo is
    pragma Inline (Is_Valued_Procedure);
    pragma Inline (Is_Visible_Formal);
    pragma Inline (Is_Visible_Lib_Unit);
+   pragma Inline (Is_Volatile_Full_Access);
    pragma Inline (Itype_Printed);
    pragma Inline (Kill_Elaboration_Checks);
    pragma Inline (Kill_Range_Checks);
@@ -8432,6 +8488,7 @@ package Einfo is
    pragma Inline (Must_Have_Preelab_Init);
    pragma Inline (Needs_Debug_Info);
    pragma Inline (Needs_No_Actuals);
+   pragma Inline (Needs_Typedef);
    pragma Inline (Never_Set_In_Source);
    pragma Inline (Next_Index);
    pragma Inline (Next_Inlined_Subprogram);
@@ -8562,6 +8619,7 @@ package Einfo is
    pragma Inline (Set_Address_Taken);
    pragma Inline (Set_Alias);
    pragma Inline (Set_Alignment);
+   pragma Inline (Set_Anonymous_Master);
    pragma Inline (Set_Associated_Entity);
    pragma Inline (Set_Associated_Formal_Package);
    pragma Inline (Set_Associated_Node_For_Itype);
@@ -8609,6 +8667,7 @@ package Einfo is
    pragma Inline (Set_Digits_Value);
    pragma Inline (Set_Direct_Primitive_Operations);
    pragma Inline (Set_Directly_Designated_Type);
+   pragma Inline (Set_Disable_Controlled);
    pragma Inline (Set_Discard_Names);
    pragma Inline (Set_Discriminal);
    pragma Inline (Set_Discriminal_Link);
@@ -8660,7 +8719,6 @@ package Einfo is
    pragma Inline (Set_Has_Aliased_Components);
    pragma Inline (Set_Has_Alignment_Clause);
    pragma Inline (Set_Has_All_Calls_Remote);
-   pragma Inline (Set_Has_Anonymous_Master);
    pragma Inline (Set_Has_Atomic_Components);
    pragma Inline (Set_Has_Biased_Representation);
    pragma Inline (Set_Has_Completion);
@@ -8745,11 +8803,11 @@ package Einfo is
    pragma Inline (Set_Has_Unknown_Discriminants);
    pragma Inline (Set_Has_Visible_Refinement);
    pragma Inline (Set_Has_Volatile_Components);
-   pragma Inline (Set_Has_Volatile_Full_Access);
    pragma Inline (Set_Has_Xref_Entry);
    pragma Inline (Set_Hiding_Loop_Variable);
    pragma Inline (Set_Homonym);
    pragma Inline (Set_Import_Pragma);
+   pragma Inline (Set_Incomplete_Actuals);
    pragma Inline (Set_In_Package_Body);
    pragma Inline (Set_In_Private_Part);
    pragma Inline (Set_In_Use);
@@ -8867,6 +8925,7 @@ package Einfo is
    pragma Inline (Set_Is_Visible_Formal);
    pragma Inline (Set_Is_Visible_Lib_Unit);
    pragma Inline (Set_Is_Volatile);
+   pragma Inline (Set_Is_Volatile_Full_Access);
    pragma Inline (Set_Itype_Printed);
    pragma Inline (Set_Kill_Elaboration_Checks);
    pragma Inline (Set_Kill_Range_Checks);
@@ -8889,6 +8948,7 @@ package Einfo is
    pragma Inline (Set_Must_Have_Preelab_Init);
    pragma Inline (Set_Needs_Debug_Info);
    pragma Inline (Set_Needs_No_Actuals);
+   pragma Inline (Set_Needs_Typedef);
    pragma Inline (Set_Never_Set_In_Source);
    pragma Inline (Set_Next_Inlined_Subprogram);
    pragma Inline (Set_No_Dynamic_Predicate_On_Actual);
@@ -9012,6 +9072,7 @@ package Einfo is
 
    pragma Inline (Base_Type);
    pragma Inline (Is_Base_Type);
+   pragma Inline (Is_Controlled_Active);
    pragma Inline (Is_Package_Or_Generic_Package);
    pragma Inline (Is_Packed_Array);
    pragma Inline (Is_Subprogram_Or_Generic_Subprogram);
