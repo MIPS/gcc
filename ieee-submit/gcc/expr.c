@@ -199,7 +199,7 @@ init_expr_target (void)
 
   /* A scratch register we can modify in-place below to avoid
      useless RTL allocations.  */
-  reg = gen_rtx_REG (word_mode, FIRST_PSEUDO_REGISTER);
+  reg = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 1);
 
   insn = rtx_alloc (INSN);
   pat = gen_rtx_SET (NULL_RTX, NULL_RTX);
@@ -249,7 +249,7 @@ init_expr_target (void)
 	  }
     }
 
-  mem = gen_rtx_MEM (VOIDmode, gen_raw_REG (Pmode, FIRST_PSEUDO_REGISTER));
+  mem = gen_rtx_MEM (VOIDmode, gen_raw_REG (Pmode, LAST_VIRTUAL_REGISTER + 1));
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
@@ -1507,10 +1507,8 @@ void
 move_block_to_reg (int regno, rtx x, int nregs, machine_mode mode)
 {
   int i;
-#ifdef HAVE_load_multiple
   rtx pat;
   rtx_insn *last;
-#endif
 
   if (nregs == 0)
     return;
@@ -1519,7 +1517,6 @@ move_block_to_reg (int regno, rtx x, int nregs, machine_mode mode)
     x = validize_mem (force_const_mem (mode, x));
 
   /* See if the machine can do this with a load multiple insn.  */
-#ifdef HAVE_load_multiple
   if (HAVE_load_multiple)
     {
       last = get_last_insn ();
@@ -1533,7 +1530,6 @@ move_block_to_reg (int regno, rtx x, int nregs, machine_mode mode)
       else
 	delete_insns_since (last);
     }
-#endif
 
   for (i = 0; i < nregs; i++)
     emit_move_insn (gen_rtx_REG (word_mode, regno + i),
@@ -1552,7 +1548,6 @@ move_block_from_reg (int regno, rtx x, int nregs)
     return;
 
   /* See if the machine can do this with a store multiple insn.  */
-#ifdef HAVE_store_multiple
   if (HAVE_store_multiple)
     {
       rtx_insn *last = get_last_insn ();
@@ -1566,7 +1561,6 @@ move_block_from_reg (int regno, rtx x, int nregs)
       else
 	delete_insns_since (last);
     }
-#endif
 
   for (i = 0; i < nregs; i++)
     {
@@ -11232,11 +11226,6 @@ try_casesi (tree index_type, tree index_expr, tree minval, tree range,
 }
 
 /* Attempt to generate a tablejump instruction; same concept.  */
-#ifndef HAVE_tablejump
-#define HAVE_tablejump 0
-#define gen_tablejump(x, y) (0)
-#endif
-
 /* Subroutine of the next function.
 
    INDEX is the value being switched on, with the lowest value

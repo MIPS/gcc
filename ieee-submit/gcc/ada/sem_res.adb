@@ -3566,7 +3566,6 @@ package body Sem_Res is
 
    begin
       Check_Argument_Order;
-      Check_Function_Writable_Actuals (N);
 
       if Is_Overloadable (Nam)
         and then Is_Inherited_Operation (Nam)
@@ -5508,7 +5507,6 @@ package body Sem_Res is
 
       Check_Unset_Reference (L);
       Check_Unset_Reference (R);
-      Check_Function_Writable_Actuals (N);
    end Resolve_Arithmetic_Op;
 
    ------------------
@@ -6993,18 +6991,12 @@ package body Sem_Res is
          Set_Entity_With_Checks (N, E);
          Eval_Entity_Name (N);
 
-      --  Case of subtype name appearing as an operand in expression
+      --  Case of (sub)type name appearing in a context where an expression
+      --  is expected. This is legal if occurrence is a current instance.
+      --  See RM 8.6 (17/3).
 
       elsif Is_Type (E) then
-
-         --  Allow use of subtype if it is a concurrent type where we are
-         --  currently inside the body. This will eventually be expanded into a
-         --  call to Self (for tasks) or _object (for protected objects). Any
-         --  other use of a subtype is invalid.
-
-         if Is_Concurrent_Type (E)
-           and then In_Open_Scopes (E)
-         then
+         if Is_Current_Instance (N) then
             null;
 
          --  Any other use is an error
@@ -8600,8 +8592,6 @@ package body Sem_Res is
             end if;
          end;
       end if;
-
-      Check_Function_Writable_Actuals (N);
    end Resolve_Logical_Op;
 
    ---------------------------
@@ -8793,7 +8783,6 @@ package body Sem_Res is
       <<SM_Exit>>
 
       Eval_Membership_Op (N);
-      Check_Function_Writable_Actuals (N);
    end Resolve_Membership_Op;
 
    ------------------

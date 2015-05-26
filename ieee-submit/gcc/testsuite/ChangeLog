@@ -1,3 +1,84 @@
+2015-05-26  Michael Matz  <matz@suse.de>
+
+	PR middle-end/66251
+	* gcc.dg/vect/pr66251.c: New test.
+
+2015-05-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66142
+	* gcc.dg/tree-ssa/ssa-fre-44.c: New testcase.
+
+2015-05-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/66082
+	* gfortran.dg/allocatable_scalar_13.f90: New test
+
+2015-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/warn11.adb: New test.
+	* gnat.dg/specs/alignment2.ads: Add dg-warning directive.
+
+2015-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/vfa1_1.adb: New test.
+	* gnat.dg/vfa1_2.adb: Likewise.
+	* gnat.dg/vfa1_3.adb: Likewise.
+	* gnat.dg/vfa1_4.adb: Likewise.
+	* gnat.dg/vfa1_pkg.ads: New helper.
+
+2015-05-25  Alexander Monakov  <amonakov@ispras.ru>
+
+	* gcc.target/i386/pr66232-1.c: Adjust scan pattern.
+	* gcc.target/i386/pr66232-3.c: Likewise.
+
+2015-05-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66274
+	* gcc.target/i386/pr66274.c: New test.
+
+2015-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/renaming6.ad[sb]: New test.
+
+2015-05-25  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* gcc.target/i386/pr64317.c: Use 'dg-require-effective-target ia32'
+	and 'dg-require-effective-target pie'.
+
+2015-05-23  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/66243
+	* g++.dg/cpp0x/pr66243.C: New.
+
+2015-05-24  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/66180
+	* g++.dg/lto/pr66180_0.C: New testcase.
+	* g++.dg/lto/pr66180_1.C: New testcase.
+
+2015-05-24  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/66257
+	* typebound_call_27.f90: New file.
+
+2015-05-23  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/65936
+	* g++.dg/template/pr65936.C: New.
+
+2015-05-22  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/63387
+	* gcc.dg/pr63387-2.c: New testcase.
+
+2015-05-22  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/simd-1.c: Update to the new message.
+
+2015-05-22  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/nand.c: New testcase.
+
 2015-05-22  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc.target/aarch64/advsimd-intrinsics/advsimd-intrinsics.exp:
@@ -209,6 +290,7 @@
 
 2015-05-21  Jeff Law  <law@redhat.com>
 
+	* gcc.target/hppa/shadd-3.c: New test.
 	* gcc.target/hppa/shadd-4.c: New test.
 
 2015-05-21  Michael Matz  <matz@suse.de>
