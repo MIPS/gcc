@@ -1,3 +1,8 @@
+2015-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/task-1.C: Remove both dg-error directives.
+	* g++.dg/gomp/reference-1.C: New test.
+
 2015-05-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/gomp/taskloop-1.c: Moved to...

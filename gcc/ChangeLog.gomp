@@ -1,3 +1,8 @@
+2015-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_rec_input_clauses): Unshare new_var
+	before passing it to omp_clause_{default,copy}_ctor.
+
 2015-05-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.h (OMP_STANDALONE_CLAUSES): Adjust to cover

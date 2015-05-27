@@ -5330,14 +5330,19 @@ finish_omp_clauses (tree clauses)
 	  goto check_dup_generic;
 	case OMP_CLAUSE_LINEAR:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (!type_dependent_expression_p (t)
-	      && !INTEGRAL_TYPE_P (TREE_TYPE (t))
-	      && TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
+	  if (!type_dependent_expression_p (t))
 	    {
-	      error ("linear clause applied to non-integral non-pointer "
-		     "variable with %qT type", TREE_TYPE (t));
-	      remove = true;
-	      break;
+	      tree type = TREE_TYPE (t);
+	      if (TREE_CODE (type) == REFERENCE_TYPE)
+		type = TREE_TYPE (type);
+	      if (!INTEGRAL_TYPE_P (type)
+		  && TREE_CODE (type) != POINTER_TYPE)
+		{
+		  error ("linear clause applied to non-integral non-pointer "
+			 "variable with %qT type", TREE_TYPE (t));
+		  remove = true;
+		  break;
+		}
 	    }
 	  t = OMP_CLAUSE_LINEAR_STEP (c);
 	  if (t == NULL_TREE)
@@ -5362,14 +5367,16 @@ finish_omp_clauses (tree clauses)
 		  if (TREE_CODE (OMP_CLAUSE_DECL (c)) == PARM_DECL)
 		    t = maybe_constant_value (t);
 		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
-		  if (TREE_CODE (TREE_TYPE (OMP_CLAUSE_DECL (c)))
-		      == POINTER_TYPE)
+		  tree type = TREE_TYPE (OMP_CLAUSE_DECL (c));
+		  if (TREE_CODE (type) == REFERENCE_TYPE)
+		    type = TREE_TYPE (type);
+		  if (TREE_CODE (type) == POINTER_TYPE)
 		    {
+		      tree d = convert_from_reference (OMP_CLAUSE_DECL (c));
 		      t = pointer_int_sum (OMP_CLAUSE_LOCATION (c), PLUS_EXPR,
-					   OMP_CLAUSE_DECL (c), t);
+					   d, t);
 		      t = fold_build2_loc (OMP_CLAUSE_LOCATION (c),
-					   MINUS_EXPR, sizetype, t,
-					   OMP_CLAUSE_DECL (c));
+					   MINUS_EXPR, sizetype, t, d);
 		      if (t == error_mark_node)
 			{
 			  remove = true;
@@ -5377,7 +5384,7 @@ finish_omp_clauses (tree clauses)
 			}
 		    }
 		  else
-		    t = fold_convert (TREE_TYPE (OMP_CLAUSE_DECL (c)), t);
+		    t = fold_convert (type, t);
 		}
 	      OMP_CLAUSE_LINEAR_STEP (c) = t;
 	    }
@@ -6019,7 +6026,7 @@ finish_omp_clauses (tree clauses)
     {
       enum omp_clause_code c_kind = OMP_CLAUSE_CODE (c);
       bool remove = false;
-      bool need_complete_non_reference = false;
+      bool need_complete_type = false;
       bool need_default_ctor = false;
       bool need_copy_ctor = false;
       bool need_copy_assignment = false;
@@ -6033,19 +6040,19 @@ finish_omp_clauses (tree clauses)
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_PRIVATE:
-	  need_complete_non_reference = true;
+	  need_complete_type = true;
 	  need_default_ctor = true;
 	  need_dtor = true;
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	  need_complete_non_reference = true;
+	  need_complete_type = true;
 	  need_copy_ctor = true;
 	  need_dtor = true;
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_LASTPRIVATE:
-	  need_complete_non_reference = true;
+	  need_complete_type = true;
 	  need_copy_assignment = true;
 	  need_implicitly_determined = true;
 	  break;
@@ -6125,18 +6132,14 @@ finish_omp_clauses (tree clauses)
 	  break;
 	}
 
-      if (need_complete_non_reference || need_copy_assignment)
+      if (need_complete_type || need_copy_assignment)
 	{
 	  t = require_complete_type (t);
 	  if (t == error_mark_node)
 	    remove = true;
 	  else if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE
-		   && need_complete_non_reference)
-	    {
-	      error ("%qE has reference type for %qs", t,
-		     omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
-	      remove = true;
-	    }
+		   && !complete_type_or_else (TREE_TYPE (TREE_TYPE (t)), t))
+	    remove = true;
 	}
       if (need_implicitly_determined)
 	{
@@ -6171,11 +6174,12 @@ finish_omp_clauses (tree clauses)
 
       /* We're interested in the base element, not arrays.  */
       inner_type = type = TREE_TYPE (t);
-      while (TREE_CODE (inner_type) == ARRAY_TYPE)
-	inner_type = TREE_TYPE (inner_type);
-
-      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+      if ((need_complete_type
+	   || need_copy_assignment
+	   || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
 	  && TREE_CODE (inner_type) == REFERENCE_TYPE)
+	inner_type = TREE_TYPE (inner_type);
+      while (TREE_CODE (inner_type) == ARRAY_TYPE)
 	inner_type = TREE_TYPE (inner_type);
 
       /* Check for special function availability by building a call to one.

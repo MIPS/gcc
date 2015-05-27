@@ -4038,7 +4038,8 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		x = NULL;
 	    do_private:
 	      tree nx;
-	      nx = lang_hooks.decls.omp_clause_default_ctor (c, new_var, x);
+	      nx = lang_hooks.decls.omp_clause_default_ctor
+						(c, unshare_expr (new_var), x);
 	      if (is_simd)
 		{
 		  tree y = lang_hooks.decls.omp_clause_dtor (c, new_var);
@@ -4192,7 +4193,8 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		      break;
 		    }
 		}
-	      x = lang_hooks.decls.omp_clause_copy_ctor (c, new_var, x);
+	      x = lang_hooks.decls.omp_clause_copy_ctor
+						(c, unshare_expr (new_var), x);
 	      gimplify_and_add (x, ilist);
 	      goto do_dtor;
 

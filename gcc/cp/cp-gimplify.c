@@ -1716,16 +1716,7 @@ cxx_omp_finish_clause (tree c, gimple_seq *)
   if (decl == error_mark_node)
     make_shared = true;
   else if (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE)
-    {
-      if (is_invisiref_parm (decl))
-	inner_type = TREE_TYPE (inner_type);
-      else
-	{
-	  error ("%qE implicitly determined as %<firstprivate%> has reference type",
-		 decl);
-	  make_shared = true;
-	}
-    }
+    inner_type = TREE_TYPE (inner_type);
 
   /* We're interested in the base element, not arrays.  */
   while (TREE_CODE (inner_type) == ARRAY_TYPE)
