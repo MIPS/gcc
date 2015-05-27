@@ -1,10 +1,13 @@
-2015-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2015-05-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.h (SLOW_UNALIGNED_ACCESS): Rework.
+	(FLOAT128_2REG_P): Rework.
 
 	* config/rs6000/rs6000.c (scalar_float_not_vector_p): Rename
 	scalar_float_not_ieee_p and change to deal with IEEE 128-bit
 	floating point outside of -mfloat128. Change all callers.
+	(rs6000_hard_regno_nregs_internal): Add check for 16 byte mode
+	size before using UNITS_PER_VSX_WORD.
 	(init_cumulative_args): Likewise.
 	(rs6000_function_arg_advance_1): Likewise.
 	(rs6000_function_value): Likewise.

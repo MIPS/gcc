@@ -1760,8 +1760,8 @@ rs6000_cpu_name_lookup (const char *name)
 }
 
 
-/* Helper function to return true if the type uses traditional floating point
-   registers and not vector registers.  */
+/* Helper function to return true if the type is a scalar floating point value
+   that is not an 128-bit value that occupys a single vector register.  */
 
 static inline bool
 scalar_float_not_vector_p (machine_mode mode)
@@ -1769,7 +1769,8 @@ scalar_float_not_vector_p (machine_mode mode)
   if (!SCALAR_FLOAT_MODE_P (mode))
     return false;
 
-  if (FLOAT128_VECTOR_P (mode))
+  if (GET_MODE_SIZE (mode) == 16
+      && HARD_REGNO_NREGS (mode, FIRST_ALTIVEC_REGNO) == 1)
     return false;
 
   return true;
@@ -1795,7 +1796,8 @@ rs6000_hard_regno_nregs_internal (int regno, machine_mode mode)
   /* 128-bit floating point usually takes 2 registers, unless it is IEEE
      128-bit floating point that can go in vector registers.  */
   if (FP_REGNO_P (regno))
-    reg_size = ((VECTOR_MEM_VSX_P (mode) && !FLOAT128_2REG_P (mode))
+    reg_size = ((VECTOR_MEM_VSX_P (mode) && GET_MODE_SIZE (mode) == 16
+		 && HARD_REGNO_NREGS (mode, FIRST_ALTIVEC_REGNO) == 1)
 		? UNITS_PER_VSX_WORD
 		: UNITS_PER_FP_WORD);
 
@@ -3077,7 +3079,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
 	  /* TDmode & IBM 128-bit floating point always takes 2 registers, even
 	     in VSX.  */
-	  if (TARGET_VSX && VSX_REG_CLASS_P (c) && FLOAT128_2REG_P (m))
+	  if (TARGET_VSX && VSX_REG_CLASS_P (c) && FLOAT128_2REG_P (m2))
 	    reg_size2 = UNITS_PER_FP_WORD;
 
 	  rs6000_class_max_nregs[m][c]

@@ -427,9 +427,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define FLOAT128_VECTOR_P(MODE) (TARGET_FLOAT128 && IEEE_128BIT_P (MODE))
 
 #define FLOAT128_2REG_P(MODE)						\
-  (IBM_128BIT_P (MODE)							\
-   || ((MODE) == TDmode)						\
-   || (!TARGET_FLOAT128 && IEEE_128BIT_P (MODE)))
+  (SCALAR_FLOAT_MODE_P (MODE) && GET_MODE_SIZE (MODE) == 16		\
+   && !FLOAT128_VECTOR_P (MODE))
 
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];
