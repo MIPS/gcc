@@ -7,7 +7,7 @@
 #define N ((1024 * 512) + 1)
 #define COUNTERTYPE unsigned int
 
-static int __attribute__((noinline,noclone))
+int
 foo (COUNTERTYPE n)
 {
   unsigned int *__restrict a;
@@ -41,8 +41,3 @@ foo (COUNTERTYPE n)
   return 0;
 }
 
-int
-main (void)
-{
-  return foo (N);
-}
