@@ -1760,17 +1760,17 @@ rs6000_cpu_name_lookup (const char *name)
 }
 
 
-/* Helper function to return true if the type is a scalar floating point value
-   that is not an 128-bit value that occupys a single vector register.  */
+/* Helper function to separate IEEE 128-bit floating point from other scalar
+   float modes, since IEEE 128-bit is either passed by reference (V4) or in a
+   vector register (VSX).  */
 
 static inline bool
-scalar_float_not_vector_p (machine_mode mode)
+scalar_float_not_ieee128_p (machine_mode mode)
 {
   if (!SCALAR_FLOAT_MODE_P (mode))
     return false;
 
-  if (GET_MODE_SIZE (mode) == 16
-      && HARD_REGNO_NREGS (FIRST_ALTIVEC_REGNO, mode) == 1)
+  if (IEEE_128BIT_P (mode))
     return false;
 
   return true;
@@ -2951,6 +2951,12 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[SFmode].reload_store    = CODE_FOR_reload_sf_di_store;
 	  reg_addr[SFmode].reload_load     = CODE_FOR_reload_sf_di_load;
 
+	  if (TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
+	    {
+	      reg_addr[TFmode].reload_store = CODE_FOR_reload_kf_di_store;
+	      reg_addr[TFmode].reload_load  = CODE_FOR_reload_kf_di_load;
+	    }
+
 	  /* Only provide a reload handler for SDmode if lfiwzx/stfiwx are
 	     available.  */
 	  if (TARGET_NO_SDMODE_STACK)
@@ -3012,6 +3018,12 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[DDmode].reload_load     = CODE_FOR_reload_dd_si_load;
 	  reg_addr[SFmode].reload_store    = CODE_FOR_reload_sf_si_store;
 	  reg_addr[SFmode].reload_load     = CODE_FOR_reload_sf_si_load;
+
+	  if (TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
+	    {
+	      reg_addr[TFmode].reload_store = CODE_FOR_reload_kf_si_store;
+	      reg_addr[TFmode].reload_load  = CODE_FOR_reload_kf_si_load;
+	    }
 
 	  /* Only provide a reload handler for SDmode if lfiwzx/stfiwx are
 	     available.  */
@@ -3078,7 +3090,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
 	  /* TDmode & IBM 128-bit floating point always takes 2 registers, even
 	     in VSX.  */
-	  if (TARGET_VSX && VSX_REG_CLASS_P (c) && FLOAT128_2REG_P (m2))
+	  if (TARGET_VSX && VSX_REG_CLASS_P (c) && FLOAT128_2REG_P (m))
 	    reg_size2 = UNITS_PER_FP_WORD;
 
 	  rs6000_class_max_nregs[m][c]
@@ -9055,8 +9067,7 @@ rs6000_member_type_forces_blk (const_tree field, machine_mode mode)
 
 /* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE)		\
-  (SCALAR_FLOAT_MODE_P (MODE)			\
-   && !FLOAT128_VECTOR_P (MODE)			\
+  (scalar_float_not_ieee128_p (MODE)		\
    && (CUM)->fregno <= FP_ARG_MAX_REG		\
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
@@ -9499,7 +9510,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 		      <= 8))
 		rs6000_returns_struct = true;
 	    }
-	  if (scalar_float_not_vector_p (return_mode))
+	  if (scalar_float_not_ieee128_p (return_mode))
 	    rs6000_passes_float = true;
 	  else if (ALTIVEC_OR_VSX_VECTOR_MODE (return_mode)
 		   || SPE_VECTOR_MODE (return_mode))
@@ -9912,7 +9923,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
   if (DEFAULT_ABI == ABI_V4
       && cum->escapes)
     {
-      if (scalar_float_not_vector_p (mode))
+      if (scalar_float_not_ieee128_p (mode))
 	rs6000_passes_float = true;
       else if (named && ALTIVEC_OR_VSX_VECTOR_MODE (mode))
 	rs6000_passes_vector = true;
@@ -10085,7 +10096,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
 
       cum->words = align_words + n_words;
 
-      if (scalar_float_not_vector_p (elt_mode) && TARGET_HARD_FLOAT
+      if (scalar_float_not_ieee128_p (elt_mode) && TARGET_HARD_FLOAT
 	  && TARGET_FPRS)
 	{
 	  /* _Decimal128 must be passed in an even/odd float register pair.
@@ -19801,7 +19812,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
   /* IEEE 128-bit support without hardware.  The ge/le comparison functions
      return -2 for unordered, -1 for less than, 0 for equal, and +1 for greater
      than.  For now, don't support IEEE Nan's in tests.  */
-  else if (FLOAT128_VECTOR_P (mode))
+  else if(IEEE_128BIT_P (mode))
     {
       rtx and_reg = gen_reg_rtx (SImode);
       rtx dest = gen_reg_rtx (SImode);
@@ -19940,7 +19951,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
   /* Some kinds of FP comparisons need an OR operation;
      under flag_finite_math_only we don't bother.  */
   if (FLOAT_MODE_P (mode)
-      && !FLOAT128_VECTOR_P (mode)
+      && !IEEE_128BIT_P (mode)
       && !flag_finite_math_only
       && !(TARGET_HARD_FLOAT && !TARGET_FPRS)
       && (code == LE || code == GE
@@ -32509,7 +32520,7 @@ rs6000_function_value (const_tree valtype,
     {
       int first_reg, n_regs;
 
-      if (scalar_float_not_vector_p (elt_mode))
+      if (scalar_float_not_ieee128_p (elt_mode))
 	{
 	  /* _Decimal128 must use even/odd register pairs.  */
 	  first_reg = (elt_mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
@@ -32546,7 +32557,7 @@ rs6000_function_value (const_tree valtype,
   if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     /* _Decimal128 must use an even/odd register pair.  */
     regno = (mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
-  else if (scalar_float_not_vector_p (mode) && TARGET_HARD_FLOAT && TARGET_FPRS
+  else if (scalar_float_not_ieee128_p (mode) && TARGET_HARD_FLOAT && TARGET_FPRS
 	   && ((TARGET_SINGLE_FLOAT && (mode == SFmode)) || TARGET_DOUBLE_FLOAT))
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
@@ -32583,7 +32594,7 @@ rs6000_libcall_value (machine_mode mode)
   if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     /* _Decimal128 must use an even/odd register pair.  */
     regno = (mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
-  else if (scalar_float_not_vector_p (mode)
+  else if (scalar_float_not_ieee128_p (mode)
 	   && TARGET_HARD_FLOAT && TARGET_FPRS
            && ((TARGET_SINGLE_FLOAT && mode == SFmode) || TARGET_DOUBLE_FLOAT))
     regno = FP_ARG_RETURN;
@@ -32840,13 +32851,10 @@ rs6000_vector_mode_supported_p (machine_mode mode)
   if (TARGET_SPE && SPE_VECTOR_MODE (mode))
     return true;
 
-  /* There is no vector form for IEEE 128-bit, but it is treated as a vector
-     type for addressing.  If we return true for IEEE 128-bit, the compiler
-     might try to widen IEEE 128-bit to IBM double-double.  */
-  else if (FLOAT128_VECTOR_P (mode))
-    return false;
-
-  else if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
+  /* There is no vector form for IEEE 128-bit.  If we return true for IEEE
+     128-bit, the compiler might try to widen IEEE 128-bit to IBM
+     double-double.  */
+  else if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode) && !IEEE_128BIT_P (mode))
     return true;
 
   else
