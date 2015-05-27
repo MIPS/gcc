@@ -2700,7 +2700,7 @@ comdat_type_node;
 typedef struct GTY(()) limbo_die_struct {
   dw_die_ref die;
   /* The tree for which this DIE was created for.  We use this to
-     determine anscestry later.  */
+     determine ancestry later.  */
   tree created_for;
   struct limbo_die_struct *next;
 }
