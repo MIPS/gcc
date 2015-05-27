@@ -1,5 +1,11 @@
 
 2015-05-27   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h: #include "gcc-plugin.h" & "plugin-version.h" &
+	"diagnostic-core.h"
+	* melt-runtime.cc (melt_ggcstart_callback, melt_garbcoll)
+	(melt_load_module_index): More precise melt_fatal_error message.
+
+2015-05-27   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merged with GCC 5, so}}
 	* melt-runtime.h (melt_fatal_error, melt_fatal_error_at_line):
 	Pass UNKNOWN_LOCATION for GCC 5. Re-indented with command:

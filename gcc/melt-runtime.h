@@ -34,13 +34,12 @@ along with GCC; see the file COPYING3.   If not see
 
 #define MELT_HAVE_CLASSY_FRAME 2
 
-/* In the generated gtype-desc.c, file diagnostic.h is not included,
-   so we declare these functions explicitly! */
+#ifndef GCCPLUGIN_VERSION
+#include "gcc-plugin.h"
+#include "plugin-version.h"
+#endif /*GCCPLUGIN_VERSION*/
 
-extern void error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
-extern void error_at (location_t, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
-extern void fatal_error (location_t, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3)
-ATTRIBUTE_NORETURN;
+#include "diagnostic-core.h"
 
 #if __GNUC__ >= 4
 #define MELT_MODULE_VISIBILITY  __attribute__ ((visibility ("hidden")))

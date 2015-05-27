@@ -1615,7 +1615,8 @@ melt_ggcstart_callback (void *gcc_data ATTRIBUTE_UNUSED,
           || melt_storalz < melt_initialstoralz))
     {
       if (melt_prohibit_garbcoll)
-        melt_fatal_error ("MELT minor garbage collection prohibited from GGC start callback");
+        melt_fatal_error ("MELT minor garbage collection prohibited from GGC start callback (with %ld young Kilobytes)",
+			  (((char *) melt_curalz - (char *) melt_startalz))>>10);
       melt_debuggc_eprintf
       ("melt_ggcstart_callback need a minor copying GC with %ld young Kilobytes\n",
        (((char *) melt_curalz - (char *) melt_startalz))>>10);
@@ -1729,7 +1730,8 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
 {
   const char* needfullreason = NULL;
   if (melt_prohibit_garbcoll)
-    melt_fatal_error ("MELT garbage collection prohibited");
+    melt_fatal_error ("MELT garbage collection prohibited (wanted %ld)",
+		      (long)wanted);
   gcc_assert (melt_scangcvect == NULL);
   melt_nb_garbcoll++;
   if (gckd == MELT_NEED_FULL)
@@ -8873,7 +8875,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
       {
         error("MELT won't load twice a module of basename %s", modbase.c_str());
         if (errorp)
-          *errorp = "duplicate MELT module";
+          *errorp = (char*)"duplicate MELT module";
         return -1;
       }
   }
