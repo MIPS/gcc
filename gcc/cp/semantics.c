@@ -888,7 +888,13 @@ finish_return_stmt (tree expr)
 
   if (error_operand_p (expr)
       || (flag_openmp && !check_omp_return ()))
-    return error_mark_node;
+    {
+      /* Suppress -Wreturn-type for this function.  */
+      if (warn_return_type)
+	TREE_NO_WARNING (current_function_decl) = true;
+      return error_mark_node;
+    }
+
   if (!processing_template_decl)
     {
       if (warn_sequence_point)
@@ -1159,6 +1165,8 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	}
       /* We want unlowered type here to handle enum bit-fields.  */
       orig_type = unlowered_expr_type (cond);
+      if (TREE_CODE (orig_type) != ENUMERAL_TYPE)
+	orig_type = TREE_TYPE (cond);
       if (cond != error_mark_node)
 	{
 	  /* Warn if the condition has boolean value.  */
@@ -2452,15 +2460,6 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
     }
 
   return result;
-}
-
-/* Instantiate a variable declaration from a TEMPLATE_ID_EXPR for use. */
-
-tree
-finish_template_variable (tree var)
-{
-  return instantiate_template (TREE_OPERAND (var, 0), TREE_OPERAND (var, 1),
-                               tf_error);
 }
 
 /* Finish a call to a postfix increment or decrement or EXPR.  (Which

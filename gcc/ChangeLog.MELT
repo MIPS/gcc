@@ -1,4 +1,28 @@
 
+2015-05-27   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merged with GCC 5, so}}
+	* melt-runtime.h (melt_fatal_error, melt_fatal_error_at_line):
+	Pass UNKNOWN_LOCATION for GCC 5. Re-indented with command:
+	   astyle --style=gnu -s2
+
+	* melt-runtime.cc:  Re-indented with command:
+	   astyle --style=gnu -s2
+	(melt_branch_process_arguments, melt_ggcstart_callback)
+	(melt_reserved_allocation_failure): Use melt_fatal_error instead
+	of fatal_error.
+
+	* melt/generated/meltrunsup-inc.cc: Manually edited for fatal_error.
+	* melt/generated/warmelt-first.cc: Ditto.
+
+	* melt/warmelt-first.melt (melt_assert_failure_fun): Ditto.
+	* melt/warmelt-modes.melt (generate_runtypesupport_scanning):
+	Ditto, in the emitted code.
+
+	* Makefile.in: mention s-gtype instead of gt-melt-runtime.h in
+	dependencies.
+	(TEXI_GCCINT_FILES): Add meltgendoc.texi.
+
+
 2015-01-23   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-gimple.melt: Adding all static_casts. Compiles
 	ok.

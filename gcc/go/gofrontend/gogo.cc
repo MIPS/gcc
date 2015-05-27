@@ -341,22 +341,28 @@ Gogo::set_package_name(const std::string& package_name,
   // Now that we know the name of the package we are compiling, set
   // the package path to use for reflect.Type.PkgPath and global
   // symbol names.
-  if (!this->pkgpath_set_)
+  if (this->pkgpath_set_)
+    this->pkgpath_symbol_ = Gogo::pkgpath_for_symbol(this->pkgpath_);
+  else
     {
       if (!this->prefix_from_option_ && package_name == "main")
-	this->pkgpath_ = package_name;
+	{
+	  this->pkgpath_ = package_name;
+	  this->pkgpath_symbol_ = Gogo::pkgpath_for_symbol(package_name);
+	}
       else
 	{
 	  if (!this->prefix_from_option_)
 	    this->prefix_ = "go";
 	  this->pkgpath_ = this->prefix_ + '.' + package_name;
+	  this->pkgpath_symbol_ = (Gogo::pkgpath_for_symbol(this->prefix_) + '.'
+				   + Gogo::pkgpath_for_symbol(package_name));
 	}
       this->pkgpath_set_ = true;
     }
 
-  this->pkgpath_symbol_ = Gogo::pkgpath_for_symbol(this->pkgpath_);
-
-  this->package_ = this->register_package(this->pkgpath_, location);
+  this->package_ = this->register_package(this->pkgpath_,
+					  this->pkgpath_symbol_, location);
   this->package_->set_package_name(package_name, location);
 
   if (this->is_main_package())
@@ -596,7 +602,7 @@ Gogo::zero_value(Type *type)
     }
 
   // The zero value will be the maximum required size.
-  unsigned long size;
+  int64_t size;
   bool ok = type->backend_type_size(this, &size);
   if (!ok) {
     go_assert(saw_errors());
@@ -605,7 +611,7 @@ Gogo::zero_value(Type *type)
   if (size > this->zero_value_size_)
     this->zero_value_size_ = size;
 
-  unsigned long align;
+  int64_t align;
   ok = type->backend_type_align(this, &align);
   if (!ok) {
     go_assert(saw_errors());
@@ -638,13 +644,12 @@ Gogo::backend_zero_value()
   Btype* bbtype_type = byte_type->get_backend(this);
 
   Type* int_type = this->lookup_global("int")->type_value();
-  Btype* bint_type = int_type->get_backend(this);
 
-  mpz_t val;
-  mpz_init_set_ui(val, this->zero_value_size_);
-  Bexpression* blength =
-    this->backend()->integer_constant_expression(bint_type, val);
-  mpz_clear(val);
+  Expression* e = Expression::make_integer_int64(this->zero_value_size_,
+						 int_type,
+						 Linemap::unknown_location());
+  Translate_context context(this, NULL, NULL, NULL);
+  Bexpression* blength = e->get_backend(&context);
 
   Btype* barray_type = this->backend()->array_type(bbtype_type, blength);
 
@@ -1089,6 +1094,7 @@ sort_var_inits(Gogo* gogo, Var_inits* var_inits)
   // variable initializations that depend on it.
   typedef std::map<Var_init, std::set<Var_init*> > Init_deps;
   Init_deps init_deps;
+  bool init_loop = false;
   for (Var_inits::iterator p1 = var_inits->begin();
        p1 != var_inits->end();
        ++p1)
@@ -1137,14 +1143,15 @@ sort_var_inits(Gogo* gogo, Var_inits* var_inits)
 			   p2var->message_name().c_str());
 		  inform(p2->var()->location(), "%qs defined here",
 			 p2var->message_name().c_str());
-		  p2 = var_inits->end();
+		  init_loop = true;
+		  break;
 		}
 	    }
 	}
     }
 
   // If there are no dependencies then the declaration order is sorted.
-  if (!init_deps.empty())
+  if (!init_deps.empty() && !init_loop)
     {
       // Otherwise, sort variable initializations by emitting all variables with
       // no dependencies in declaration order. VAR_INITS is already in
@@ -1522,10 +1529,11 @@ Gogo::add_imported_package(const std::string& real_name,
 			   const std::string& alias_arg,
 			   bool is_alias_exported,
 			   const std::string& pkgpath,
+			   const std::string& pkgpath_symbol,
 			   Location location,
 			   bool* padd_to_globals)
 {
-  Package* ret = this->register_package(pkgpath, location);
+  Package* ret = this->register_package(pkgpath, pkgpath_symbol, location);
   ret->set_package_name(real_name, location);
 
   *padd_to_globals = false;
@@ -1554,10 +1562,13 @@ Gogo::add_imported_package(const std::string& real_name,
 // Register a package.  This package may or may not be imported.  This
 // returns the Package structure for the package, creating if it
 // necessary.  LOCATION is the location of the import statement that
-// led us to see this package.
+// led us to see this package.  PKGPATH_SYMBOL is the symbol to use
+// for names in the package; it may be the empty string, in which case
+// we either get it later or make a guess when we need it.
 
 Package*
-Gogo::register_package(const std::string& pkgpath, Location location)
+Gogo::register_package(const std::string& pkgpath,
+		       const std::string& pkgpath_symbol, Location location)
 {
   Package* package = NULL;
   std::pair<Packages::iterator, bool> ins =
@@ -1567,13 +1578,15 @@ Gogo::register_package(const std::string& pkgpath, Location location)
       // We have seen this package name before.
       package = ins.first->second;
       go_assert(package != NULL && package->pkgpath() == pkgpath);
+      if (!pkgpath_symbol.empty())
+	package->set_pkgpath_symbol(pkgpath_symbol);
       if (Linemap::is_unknown_location(package->location()))
 	package->set_location(location);
     }
   else
     {
       // First time we have seen this package name.
-      package = new Package(pkgpath, location);
+      package = new Package(pkgpath, pkgpath_symbol, location);
       go_assert(ins.first->second == NULL);
       ins.first->second = package;
     }
@@ -4331,11 +4344,26 @@ Gogo::do_exports()
   // support streaming to a separate file.
   Stream_to_section stream;
 
+  // Write out either the prefix or pkgpath depending on how we were
+  // invoked.
+  std::string prefix;
+  std::string pkgpath;
+  if (this->pkgpath_from_option_)
+    pkgpath = this->pkgpath_;
+  else if (this->prefix_from_option_)
+    prefix = this->prefix_;
+  else if (this->is_main_package())
+    pkgpath = "main";
+  else
+    prefix = "go";
+
   Export exp(&stream);
   exp.register_builtin_types(this);
   exp.export_globals(this->package_name(),
-		     this->pkgpath(),
+		     prefix,
+		     pkgpath,
 		     this->package_priority(),
+		     this->packages_,
 		     this->imports_,
 		     (this->need_init_fn_ && !this->is_main_package()
 		      ? this->get_init_fn_name()
@@ -6002,6 +6030,7 @@ Variable::type()
   Type* type = this->type_;
   Expression* init = this->init_;
   if (this->is_type_switch_var_
+      && type != NULL
       && this->type_->is_nil_constant_as_type())
     {
       Type_guard_expression* tge = this->init_->type_guard_expression();
@@ -6075,7 +6104,9 @@ Variable::determine_type()
   // type here.  It will have an initializer which is a type guard.
   // We want to initialize it to the value without the type guard, and
   // use the type of that value as well.
-  if (this->is_type_switch_var_ && this->type_->is_nil_constant_as_type())
+  if (this->is_type_switch_var_
+      && this->type_ != NULL
+      && this->type_->is_nil_constant_as_type())
     {
       Type_guard_expression* tge = this->init_->type_guard_expression();
       go_assert(tge != NULL);
@@ -7476,8 +7507,9 @@ Unnamed_label::get_goto(Translate_context* context, Location location)
 
 // Class Package.
 
-Package::Package(const std::string& pkgpath, Location location)
-  : pkgpath_(pkgpath), pkgpath_symbol_(Gogo::pkgpath_for_symbol(pkgpath)),
+Package::Package(const std::string& pkgpath,
+		 const std::string& pkgpath_symbol, Location location)
+  : pkgpath_(pkgpath), pkgpath_symbol_(pkgpath_symbol),
     package_name_(), bindings_(new Bindings(NULL)), priority_(0),
     location_(location), used_(false), is_imported_(false),
     uses_sink_alias_(false)
@@ -7499,6 +7531,29 @@ Package::set_package_name(const std::string& package_name, Location location)
 	     "saw two different packages with the same package path %s: %s, %s",
 	     this->pkgpath_.c_str(), this->package_name_.c_str(),
 	     package_name.c_str());
+}
+
+// Return the pkgpath symbol, which is a prefix for symbols defined in
+// this package.
+
+std::string
+Package::pkgpath_symbol() const
+{
+  if (this->pkgpath_symbol_.empty())
+    return Gogo::pkgpath_for_symbol(this->pkgpath_);
+  return this->pkgpath_symbol_;
+}
+
+// Set the package path symbol.
+
+void
+Package::set_pkgpath_symbol(const std::string& pkgpath_symbol)
+{
+  go_assert(!pkgpath_symbol.empty());
+  if (this->pkgpath_symbol_.empty())
+    this->pkgpath_symbol_ = pkgpath_symbol;
+  else
+    go_assert(this->pkgpath_symbol_ == pkgpath_symbol);
 }
 
 // Set the priority.  We may see multiple priorities for an imported

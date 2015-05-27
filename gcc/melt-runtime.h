@@ -1,7 +1,7 @@
 /** -*- C++ -*-
    MELT header melt-runtime.h
    [[middle end lisp translator, see http://gcc-melt.org/ for more.]]
-   Copyright (C)  2008 - 2013 Free Software Foundation, Inc.
+   Copyright (C)  2008 - 2015 Free Software Foundation, Inc.
    Contributed by Basile Starynkevitch <basile@starynkevitch.net>
    and Pierre Vittet <piervit@pvittet.com>
 
@@ -37,8 +37,10 @@ along with GCC; see the file COPYING3.   If not see
 /* In the generated gtype-desc.c, file diagnostic.h is not included,
    so we declare these functions explicitly! */
 
-extern void error (const char *, ...);
-extern void fatal_error (const char *, ...);
+extern void error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+extern void error_at (location_t, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
+extern void fatal_error (location_t, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3)
+ATTRIBUTE_NORETURN;
 
 #if __GNUC__ >= 4
 #define MELT_MODULE_VISIBILITY  __attribute__ ((visibility ("hidden")))
@@ -112,10 +114,18 @@ MELT_EXTERN std::vector<std::string> melt_done_modes_vector;
 
 MELT_EXTERN void melt_fatal_info (const char*filename, int lineno);
 
+
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#define melt_fatal_error(Fmt,...) do{ melt_fatal_info (__FILE__,__LINE__); \
+    fatal_error (UNKNOWN_LOCATION, (Fmt),##__VA_ARGS__); }while(0)
+#define melt_fatal_error_at_line(Lin,Fmt,...) do{ melt_fatal_info (__FILE__,(Lin)); \
+    fatal_error (UNKNOWN_LOCATION, (Fmt),##__VA_ARGS__); }while(0)
+#else /* GCC 4.9 */
 #define melt_fatal_error(Fmt,...) do{ melt_fatal_info (__FILE__,__LINE__); \
     fatal_error ((Fmt),##__VA_ARGS__); }while(0)
 #define melt_fatal_error_at_line(Lin,Fmt,...) do{ melt_fatal_info (__FILE__,(Lin)); \
     fatal_error ((Fmt),##__VA_ARGS__); }while(0)
+#endif /* GCC 5 or 4.9 */
 
 #define dbgprintf_raw(Fmt,...) do{if (dump_file) \
       {fprintf(dump_file, Fmt, ##__VA_ARGS__); fflush(dump_file);}}while(0)
@@ -463,8 +473,9 @@ melt_bucketlongentry_st
 
 
 struct
-GTY (())			// entry of JSONobjects 
-  melt_jsonobentry_st {
+GTY (())			// entry of JSONobjects
+melt_jsonobentry_st
+{
   melt_ptr_t jsonob_name;
   melt_ptr_t jsonob_val;
 };
@@ -1333,13 +1344,14 @@ melt_get_real (melt_ptr_t v)
 static inline double
 melt_get_double(melt_ptr_t v)
 {
-  if (melt_magic_discr (v) == MELTOBMAG_DOUBLE) {
-    // debugeprintf("melt_get_double good v@%p dbl=%g",
-    //	            (void*)v, ((struct meltdouble_st*) v)->val);
-    return ((struct meltdouble_st*) v)->val;
-  }
-  //debugeprintf("melt_get_double bad v@%p magic %d = %s", 
-  //             (void*)v, melt_magic_discr (v), 
+  if (melt_magic_discr (v) == MELTOBMAG_DOUBLE)
+    {
+      // debugeprintf("melt_get_double good v@%p dbl=%g",
+      //	            (void*)v, ((struct meltdouble_st*) v)->val);
+      return ((struct meltdouble_st*) v)->val;
+    }
+  //debugeprintf("melt_get_double bad v@%p magic %d = %s",
+  //             (void*)v, melt_magic_discr (v),
   //              melt_obmag_string(melt_magic_discr (v)));
   return NAN;
 }
@@ -1880,7 +1892,7 @@ melt_string_same_case (melt_ptr_t v1, melt_ptr_t v2)
       && melt_magic_discr (v2) == MELTOBMAG_STRING)
     {
       return 0 == strcasecmp (((struct meltstring_st *) v1)->val,
-                          ((struct meltstring_st *) v2)->val);
+                              ((struct meltstring_st *) v2)->val);
     }
   return 0;
 }
@@ -1892,7 +1904,7 @@ melt_string_less_case (melt_ptr_t v1, melt_ptr_t v2)
       && melt_magic_discr (v2) == MELTOBMAG_STRING)
     {
       return strcasecmp (((struct meltstring_st *) v1)->val,
-                     ((struct meltstring_st *) v2)->val) < 0;
+                         ((struct meltstring_st *) v2)->val) < 0;
     }
   return 0;
 }
@@ -1939,9 +1951,9 @@ melt_strbuf_peek (melt_ptr_t v, int ioff)
       struct meltstrbuf_st *sbu = (struct meltstrbuf_st *) v;
       int slen = (sbu->bufend) - (sbu->bufstart);
       if (ioff < 0)
-	ioff += slen;
+        ioff += slen;
       if (ioff >= 0 && ioff < slen)
-	return (int)(sbu->bufzn[sbu->bufstart+ioff]);
+        return (int)(sbu->bufzn[sbu->bufstart+ioff]);
     }
   return -1;
 }
@@ -1968,17 +1980,18 @@ melt_strbuf_peek_long_number (melt_ptr_t v, int ioff, long *pnum)
       struct meltstrbuf_st *sbu = (struct meltstrbuf_st *) v;
       int slen = (sbu->bufend) - (sbu->bufstart);
       if (ioff < 0)
-	ioff += slen;
+        ioff += slen;
       if (ioff >= 0 && ioff < slen)
-	{
-	  char *endp = NULL;
-	  char*curp = sbu->bufzn+sbu->bufstart+ioff;
-	  long n = strtol(curp, &endp, 0);
-	  if (endp && endp>curp) {
-	    *pnum = n;
-	    return (int) (endp - curp);
-	  }
-	}
+        {
+          char *endp = NULL;
+          char*curp = sbu->bufzn+sbu->bufstart+ioff;
+          long n = strtol(curp, &endp, 0);
+          if (endp && endp>curp)
+            {
+              *pnum = n;
+              return (int) (endp - curp);
+            }
+        }
     }
   return 0;
 }
@@ -1995,17 +2008,18 @@ melt_strbuf_peek_double_number (melt_ptr_t v, int ioff, double *pnum)
       struct meltstrbuf_st *sbu = (struct meltstrbuf_st *) v;
       int slen = (sbu->bufend) - (sbu->bufstart);
       if (ioff < 0)
-	ioff += slen;
+        ioff += slen;
       if (ioff >= 0 && ioff < slen)
-	{
-	  char *endp = NULL;
-	  char*curp = sbu->bufzn+sbu->bufstart+ioff;
-	  double x = strtod(curp, &endp);
-	  if (endp && endp>curp) {
-	    *pnum = x;
-	    return (int) (endp - curp);
-	  }
-	}
+        {
+          char *endp = NULL;
+          char*curp = sbu->bufzn+sbu->bufstart+ioff;
+          double x = strtod(curp, &endp);
+          if (endp && endp>curp)
+            {
+              *pnum = x;
+              return (int) (endp - curp);
+            }
+        }
     }
   return 0;
 }
@@ -2604,17 +2618,18 @@ void meltgc_add_out (melt_ptr_t outbuf_p,
 
 /* add safely into OUTBUF the string STR of length SLEN encoded as a C
    string with backslash escapes */
-enum melt_coutput_mode_en {
+enum melt_coutput_mode_en
+{
   MELTCOUT_ASCII,		// use \oXXX
   MELTCOUT_UTF8JSON		// keep UTF8 characters as is,
-				// e.g. for JSON, use \uXXXX for
-				// control characters
+  // e.g. for JSON, use \uXXXX for
+  // control characters
   /// we could add a mode for JSON \uXXXX escapes for UTF8 sequences
   /// outside of ASCII, this would require decoding of UTF-8 multibyte
   /// characters.
 };
 void meltgc_add_out_cstr_len_mode (melt_ptr_t outbuf_p, const char *str, int slen,
-				     enum melt_coutput_mode_en omode);
+                                   enum melt_coutput_mode_en omode);
 static inline void
 meltgc_add_out_cstr_len(melt_ptr_t outbuf_p, const char *str, int slen)
 {
@@ -2637,7 +2652,7 @@ meltgc_add_out_cstr (melt_ptr_t outbuf_p, const char *str)
    of length SLEN encoded as a C string with backslash escapes */
 static inline void
 meltgc_add_out_csubstr_len (melt_ptr_t outbuf_p,
-			    const char *str, int off, int slen)
+                            const char *str, int off, int slen)
 {
   if (!str)
     return;
@@ -3176,8 +3191,14 @@ public:
   };
   void debug_hook (melthook_ptr_t) {};
   void debug_closure (meltclosure_ptr_t) {};
-  const char* dbg_file() const { return NULL; };
-  long dbg_line() const { return  0; };
+  const char* dbg_file() const
+  {
+    return NULL;
+  };
+  long dbg_line() const
+  {
+    return  0;
+  };
 #endif  /*ENABLE_CHECKING*/
   ~Melt_CallProtoFrame()
   {
@@ -3560,7 +3581,7 @@ debugvalue_at (const char *fil, int lin, const char *msg, void *val)
   if (melt_flag_debug)
     {
       if (melt_dbgcounter++ > melt_debugskipcount)
-	melthookproc_HOOK_LOW_DEBUG_VALUE_AT((melt_ptr_t)val, fil, lin, msg, melt_dbgcounter);
+        melthookproc_HOOK_LOW_DEBUG_VALUE_AT((melt_ptr_t)val, fil, lin, msg, melt_dbgcounter);
       fflush (stderr);
     }
 }
@@ -3573,7 +3594,7 @@ debugmsgval_at (const char*fil, int lin, const char* msg, void*val, long count)
 {
   if (melt_flag_debug)
     {
-	melthookproc_HOOK_LOW_DEBUG_VALUE_AT((melt_ptr_t)val, fil, lin, msg, count);
+      melthookproc_HOOK_LOW_DEBUG_VALUE_AT((melt_ptr_t)val, fil, lin, msg, count);
     }
 }
 
@@ -3685,10 +3706,10 @@ melt_flush_file (melt_ptr_t file_p)
     {
       unsigned k = melt_special_kind (file_p);
       if (k == meltpydkind_file || k == meltpydkind_rawfile)
-	{
-	  FILE *f = (((struct meltspecialdata_st*)file_p)->meltspec_payload.meltpayload_file1);
-	  if (f) fflush(f);
-	}
+        {
+          FILE *f = (((struct meltspecialdata_st*)file_p)->meltspec_payload.meltpayload_file1);
+          if (f) fflush(f);
+        }
     }
 }
 
@@ -3704,15 +3725,16 @@ melt_close_file (melt_ptr_t file_p)
     {
       unsigned k = melt_special_kind (file_p);
       if (k == meltpydkind_file || k == meltpydkind_rawfile)
-	{
-	  FILE *f = (((struct meltspecialdata_st*)file_p)->meltspec_payload.meltpayload_file1);
-	  if (f) {
-	    fclose(f);
-	    ((struct meltspecialdata_st*)file_p)->meltspec_payload.meltpayload_file1 = NULL;
-	   ((struct meltspecialdata_st*)file_p)->meltspec_kind
-	     = meltpydkind__none;
-	  }
-	}
+        {
+          FILE *f = (((struct meltspecialdata_st*)file_p)->meltspec_payload.meltpayload_file1);
+          if (f)
+            {
+              fclose(f);
+              ((struct meltspecialdata_st*)file_p)->meltspec_payload.meltpayload_file1 = NULL;
+              ((struct meltspecialdata_st*)file_p)->meltspec_kind
+                = meltpydkind__none;
+            }
+        }
     }
 }
 

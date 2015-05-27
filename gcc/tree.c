@@ -5081,9 +5081,15 @@ free_lang_data_in_type (tree type)
       if (TYPE_BINFO (type))
 	{
 	  free_lang_data_in_binfo (TYPE_BINFO (type));
+	  /* We need to preserve link to bases and virtual table for all
+	     polymorphic types to make devirtualization machinery working.
+	     Debug output cares only about bases, but output also
+	     virtual table pointers so merging of -fdevirtualize and
+	     -fno-devirtualize units is easier.  */
 	  if ((!BINFO_VTABLE (TYPE_BINFO (type))
 	       || !flag_devirtualize)
-	      && (!BINFO_N_BASE_BINFOS (TYPE_BINFO (type))
+	      && ((!BINFO_N_BASE_BINFOS (TYPE_BINFO (type))
+		   && !BINFO_VTABLE (TYPE_BINFO (type)))
 		  || debug_info_level != DINFO_LEVEL_NONE))
 	    TYPE_BINFO (type) = NULL;
 	}
@@ -5133,6 +5139,7 @@ need_assembler_name_p (tree decl)
       && decl == TYPE_NAME (TREE_TYPE (decl))
       && !is_lang_specific (TREE_TYPE (decl))
       && AGGREGATE_TYPE_P (TREE_TYPE (decl))
+      && !TYPE_ARTIFICIAL (TREE_TYPE (decl))
       && !variably_modified_type_p (TREE_TYPE (decl), NULL_TREE)
       && !type_in_anonymous_namespace_p (TREE_TYPE (decl)))
     return !DECL_ASSEMBLER_NAME_SET_P (decl);
@@ -11990,6 +11997,23 @@ type_in_anonymous_namespace_p (const_tree t)
   return (TYPE_STUB_DECL (t) && !TREE_PUBLIC (TYPE_STUB_DECL (t)));
 }
 
+/* Lookup sub-BINFO of BINFO of TYPE at offset POS.  */
+
+static tree
+lookup_binfo_at_offset (tree binfo, tree type, HOST_WIDE_INT pos)
+{
+  unsigned int i;
+  tree base_binfo, b;
+
+  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+    if (pos == tree_to_shwi (BINFO_OFFSET (base_binfo))
+	&& types_same_for_odr (TREE_TYPE (base_binfo), type))
+      return base_binfo;
+    else if ((b = lookup_binfo_at_offset (base_binfo, type, pos)) != NULL)
+      return b;
+  return NULL;
+}
+
 /* Try to find a base info of BINFO that would have its field decl at offset
    OFFSET within the BINFO type and which is of EXPECTED_TYPE.  If it can be
    found, return, otherwise return NULL_TREE.  */
@@ -12027,42 +12051,25 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
 	 represented in the binfo for the derived class.  */
       else if (offset != 0)
 	{
-	  tree base_binfo, binfo2 = binfo;
+	  tree found_binfo = NULL, base_binfo;
+	  /* Offsets in BINFO are in bytes relative to the whole structure
+	     while POS is in bits relative to the containing field.  */
+	  int binfo_offset = (tree_to_shwi (BINFO_OFFSET (binfo)) + pos
+			     / BITS_PER_UNIT);
 
-	  /* Find BINFO corresponding to FLD.  This is bit harder
-	     by a fact that in virtual inheritance we may need to walk down
-	     the non-virtual inheritance chain.  */
-	  while (true)
-	    {
-	      tree containing_binfo = NULL, found_binfo = NULL;
-	      for (i = 0; BINFO_BASE_ITERATE (binfo2, i, base_binfo); i++)
-		if (types_same_for_odr (TREE_TYPE (base_binfo), TREE_TYPE (fld)))
-		  {
-		    found_binfo = base_binfo;
-		    break;
-		  }
-		else
-		  if ((tree_to_shwi (BINFO_OFFSET (base_binfo)) 
-		       - tree_to_shwi (BINFO_OFFSET (binfo)))
-		      * BITS_PER_UNIT < pos
-		      /* Rule out types with no virtual methods or we can get confused
-			 here by zero sized bases.  */
-		      && TYPE_BINFO (BINFO_TYPE (base_binfo))
-		      && BINFO_VTABLE (TYPE_BINFO (BINFO_TYPE (base_binfo)))
-		      && (!containing_binfo
-			  || (tree_to_shwi (BINFO_OFFSET (containing_binfo))
-			      < tree_to_shwi (BINFO_OFFSET (base_binfo)))))
-		    containing_binfo = base_binfo;
-	      if (found_binfo)
-		{
-		  binfo = found_binfo;
-		  break;
-		}
-	      if (!containing_binfo)
-		return NULL_TREE;
-	      binfo2 = containing_binfo;
-	    }
-	}
+	  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	    if (tree_to_shwi (BINFO_OFFSET (base_binfo)) == binfo_offset
+		&& types_same_for_odr (TREE_TYPE (base_binfo), TREE_TYPE (fld)))
+	      {
+		found_binfo = base_binfo;
+		break;
+	      }
+	  if (found_binfo)
+	    binfo = found_binfo;
+	  else
+	    binfo = lookup_binfo_at_offset (binfo, TREE_TYPE (fld),
+					    binfo_offset);
+	 }
 
       type = TREE_TYPE (fld);
       offset -= pos;

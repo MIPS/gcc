@@ -3143,7 +3143,7 @@ convert_arguments (location_t loc, vec<location_t> arg_loc, tree typelist,
 	  else
 	    error_at (loc, "too many arguments to function %qE", function);
 	  inform_declaration (fundecl);
-	  return parmnum;
+	  return error_args ? -1 : (int) parmnum;
 	}
 
       if (selector && argnum > 2)
@@ -3459,9 +3459,36 @@ parser_build_binary_op (location_t location, enum tree_code code,
 			   code1, arg1.value, code2, arg2.value);
 
   if (warn_logical_not_paren
+      && TREE_CODE_CLASS (code) == tcc_comparison
       && code1 == TRUTH_NOT_EXPR
-      && code2 != TRUTH_NOT_EXPR)
-    warn_logical_not_parentheses (location, code, arg2.value);
+      && code2 != TRUTH_NOT_EXPR
+      /* Avoid warning for !!x == y.  */
+      && (TREE_CODE (arg1.value) != NE_EXPR
+	  || !integer_zerop (TREE_OPERAND (arg1.value, 1))))
+    {
+      /* Avoid warning for !b == y where b has _Bool type.  */
+      tree t = integer_zero_node;
+      if (TREE_CODE (arg1.value) == EQ_EXPR
+	  && integer_zerop (TREE_OPERAND (arg1.value, 1))
+	  && TREE_TYPE (TREE_OPERAND (arg1.value, 0)) == integer_type_node)
+	{
+	  t = TREE_OPERAND (arg1.value, 0);
+	  do
+	    {
+	      if (TREE_TYPE (t) != integer_type_node)
+		break;
+	      if (TREE_CODE (t) == C_MAYBE_CONST_EXPR)
+		t = C_MAYBE_CONST_EXPR_EXPR (t);
+	      else if (CONVERT_EXPR_P (t))
+		t = TREE_OPERAND (t, 0);
+	      else
+		break;
+	    }
+	  while (1);
+	}
+      if (TREE_CODE (TREE_TYPE (t)) != BOOLEAN_TYPE)
+	warn_logical_not_parentheses (location, code, arg2.value);
+    }
 
   /* Warn about comparisons against string literals, with the exception
      of testing for equality or inequality of a string literal with NULL.  */
@@ -6422,7 +6449,8 @@ store_init_value (location_t init_loc, tree decl, tree init, tree origtype)
     warning (OPT_Wtraditional, "traditional C rejects automatic "
 	     "aggregate initialization");
 
-  DECL_INITIAL (decl) = value;
+  if (value != error_mark_node || TREE_CODE (decl) != FUNCTION_DECL)
+    DECL_INITIAL (decl) = value;
 
   /* ANSI wants warnings about out-of-range constant initializers.  */
   STRIP_TYPE_NOPS (value);
@@ -7556,20 +7584,28 @@ pop_init_level (location_t loc, int implicit,
 	}
     }
 
-  /* Initialization with { } counts as zeroinit.  */
-  if (vec_safe_length (constructor_elements) == 0)
-    constructor_zeroinit = 1;
-  /* If the constructor has more than one element, it can't be { 0 }.  */
-  else if (vec_safe_length (constructor_elements) != 1)
-    constructor_zeroinit = 0;
+  switch (vec_safe_length (constructor_elements))
+    {
+    case 0:
+      /* Initialization with { } counts as zeroinit.  */
+      constructor_zeroinit = 1;
+      break;
+    case 1:
+      /* This might be zeroinit as well.  */
+      if (integer_zerop ((*constructor_elements)[0].value))
+	constructor_zeroinit = 1;
+      break;
+    default:
+      /* If the constructor has more than one element, it can't be { 0 }.  */
+      constructor_zeroinit = 0;
+      break;
+    }
 
   /* Warn when some structs are initialized with direct aggregation.  */
   if (!implicit && found_missing_braces && warn_missing_braces
       && !constructor_zeroinit)
-    {
-      warning_init (loc, OPT_Wmissing_braces,
-		    "missing braces around initializer");
-    }
+    warning_init (loc, OPT_Wmissing_braces,
+		  "missing braces around initializer");
 
   /* Warn when some struct elements are implicitly initialized to zero.  */
   if (warn_missing_field_initializers
@@ -8776,8 +8812,7 @@ process_init_element (location_t loc, struct c_expr value, bool implicit,
       /* If value is a compound literal and we'll be just using its
 	 content, don't put it into a SAVE_EXPR.  */
       if (TREE_CODE (value.value) != COMPOUND_LITERAL_EXPR
-	  || !require_constant_value
-	  || flag_isoc99)
+	  || !require_constant_value)
 	{
 	  tree semantic_type = NULL_TREE;
 	  if (TREE_CODE (value.value) == EXCESS_PRECISION_EXPR)
@@ -11221,9 +11256,7 @@ build_binary_op (location_t location, enum tree_code code,
 
   if ((flag_sanitize & (SANITIZE_SHIFT | SANITIZE_DIVIDE
 			| SANITIZE_FLOAT_DIVIDE))
-      && current_function_decl != 0
-      && !lookup_attribute ("no_sanitize_undefined",
-			    DECL_ATTRIBUTES (current_function_decl))
+      && do_ubsan_in_current_function ()
       && (doing_div_or_mod || doing_shift))
     {
       /* OP0 and/or OP1 might have side-effects.  */

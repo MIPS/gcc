@@ -917,6 +917,9 @@ struct _haifa_insn_data
   int reg_pressure_excess_cost_change;
   int model_index;
 
+  /* Original order of insns in the ready list.  */
+  int rfs_debug_orig_order;
+
   /* The deciding reason for INSN's place in the ready list.  */
   int last_rfs_win;
 
@@ -1397,7 +1400,6 @@ extern int dfa_lookahead;
 
 extern int autopref_multipass_dfa_lookahead_guard (rtx_insn *, int);
 
-extern void ready_sort (struct ready_list *);
 extern rtx_insn *ready_element (struct ready_list *, int);
 extern rtx_insn **ready_lastpos (struct ready_list *);
 

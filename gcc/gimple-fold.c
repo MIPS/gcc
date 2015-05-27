@@ -769,7 +769,7 @@ var_decl_component_p (tree var)
 }
 
 /* Fold function call to builtin mem{{,p}cpy,move}.  Return
-   NULL_TREE if no simplification can be made.
+   false if no simplification can be made.
    If ENDP is 0, return DEST (like memcpy).
    If ENDP is 1, return DEST+LEN (like mempcpy).
    If ENDP is 2, return DEST+LEN-1 (like stpcpy).
@@ -3120,6 +3120,7 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 			}
 		      gimple_call_set_lhs (stmt, NULL_TREE);
 		    }
+		  maybe_remove_unused_call_args (cfun, stmt);
 		}
 	      else
 		{
@@ -5471,7 +5472,7 @@ fold_ctor_reference (tree type, tree ctor, unsigned HOST_WIDE_INT offset,
       ret = canonicalize_constructor_val (unshare_expr (ctor), from_decl);
       ret = fold_unary (VIEW_CONVERT_EXPR, type, ret);
       if (ret)
-	STRIP_NOPS (ret);
+	STRIP_USELESS_TYPE_CONVERSION (ret);
       return ret;
     }
   /* For constants and byte-aligned/sized reads try to go through
@@ -5649,7 +5650,6 @@ gimple_get_virt_method_for_vtable (HOST_WIDE_INT token,
   if (TREE_CODE (v) != VAR_DECL
       || !DECL_VIRTUAL_P (v))
     {
-      gcc_assert (in_lto_p);
       /* Pass down that we lost track of the target.  */
       if (can_refer)
 	*can_refer = false;

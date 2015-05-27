@@ -1213,8 +1213,13 @@ coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl,
 		 gsi_next (&gsi))
 	      {
 		gphi *phi = gsi.phi ();
+		tree arg = PHI_ARG_DEF (phi, e->dest_idx);
+		if (SSA_NAME_IS_DEFAULT_DEF (arg)
+		    && (!SSA_NAME_VAR (arg)
+			|| TREE_CODE (SSA_NAME_VAR (arg)) != PARM_DECL))
+		  continue;
+
 		tree res = PHI_RESULT (phi);
-	        tree arg = PHI_ARG_DEF (phi, e->dest_idx);
 		int v1 = SSA_NAME_VERSION (res);
 		int v2 = SSA_NAME_VERSION (arg);
 
@@ -1339,7 +1344,7 @@ coalesce_ssa_name (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_var_map (dump_file, map);
 
-  liveinfo = calculate_live_ranges (map);
+  liveinfo = calculate_live_ranges (map, false);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_live_info (dump_file, liveinfo, LIVEDUMP_ENTRY);

@@ -1,4 +1,9 @@
 
+2015-05-27   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merged with almost GCC 5. i.e. trunk r222129 from 2015-04-15,
+	using svn merge -r219880:222129
+	svn+ssh://bstarynk@gcc.gnu.org/svn/gcc/trunk }}
+
 2015-01-21   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merged with trunk -i.e. GCC5.0 in stage4- using
 	svn merge -r209216:219879 svn+ssh://bstarynk@gcc.gnu.org/svn/gcc/trunk

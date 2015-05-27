@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -944,12 +944,15 @@ package body Freeze is
                      Packed_Size_Known := False;
                   end if;
 
-                  --  We do not know the packed size if we have a by reference
-                  --  type, or an atomic type or an atomic component, or an
-                  --  aliased component (because packing does not touch these).
+                  --  We do not know the packed size if we have an atomic type
+                  --  or component, or an independent type or component, or a
+                  --  by reference type or aliased component (because packing
+                  --  does not touch these).
 
                   if Is_Atomic (Ctyp)
                     or else Is_Atomic (Comp)
+                    or else Is_Independent (Ctyp)
+                    or else Is_Independent (Comp)
                     or else Is_By_Reference_Type (Ctyp)
                     or else Is_Aliased (Comp)
                   then
@@ -1796,26 +1799,13 @@ package body Freeze is
                   Next_Entity (Ent);
                end loop;
             end;
-
-         --  We add finalization masters to access types whose designated types
-         --  require finalization. This is normally done when freezing the
-         --  type, but this misses recursive type definitions where the later
-         --  members of the recursion introduce controlled components (such as
-         --  can happen when incomplete types are involved), as well cases
-         --  where a component type is private and the controlled full type
-         --  occurs after the access type is frozen. Cases that don't need a
-         --  finalization master are generic formal types (the actual type will
-         --  have it) and types derived from them,  and types with Java and CIL
-         --  conventions, since those are used for API bindings.
-         --  (Are there any other cases that should be excluded here???)
-
-         elsif Is_Access_Type (E)
-           and then Comes_From_Source (E)
-           and then not Is_Generic_Type (Root_Type (E))
-           and then Needs_Finalization (Designated_Type (E))
-         then
-            Build_Finalization_Master (E);
          end if;
+
+         --  Historical note: We used to create a finalization master for an
+         --  access type whose designated type is not controlled, but contains
+         --  private controlled compoments. This form of postprocessing is no
+         --  longer needed because the finalization master is now created when
+         --  the access type is frozen (see Exp_Ch3.Freeze_Type).
 
          Next_Entity (E);
       end loop;
@@ -2513,6 +2503,64 @@ package body Freeze is
                end Alias_Atomic_Check;
             end if;
 
+            --  Check for Independent_Components/Independent with unsuitable
+            --  packing or explicit component size clause given.
+
+            if (Has_Independent_Components (Arr) or else Is_Independent (Ctyp))
+              and then
+                (Has_Component_Size_Clause (Arr) or else Is_Packed (Arr))
+            then
+               begin
+                  --  If object size of component type isn't known, we cannot
+                  --  be sure so we defer to the back end.
+
+                  if not Known_Static_Esize (Ctyp) then
+                     null;
+
+                  --  Case where component size has no effect. First check for
+                  --  object size of component type multiple of the storage
+                  --  unit size.
+
+                  elsif Esize (Ctyp) mod System_Storage_Unit = 0
+
+                    --  OK in both packing case and component size case if RM
+                    --  size is known and multiple of the storage unit size.
+
+                    and then
+                      ((Known_Static_RM_Size (Ctyp)
+                         and then RM_Size (Ctyp) mod System_Storage_Unit = 0)
+
+                        --  Or if we have an explicit component size clause and
+                        --  the component size is larger than the object size.
+
+                        or else
+                          (Has_Component_Size_Clause (Arr)
+                            and then Component_Size (Arr) >= Esize (Ctyp)))
+                  then
+                     null;
+
+                  else
+                     if Has_Component_Size_Clause (Arr) then
+                        Clause :=
+                          Get_Attribute_Definition_Clause
+                            (FS, Attribute_Component_Size);
+
+                        Error_Msg_N
+                          ("incorrect component size for "
+                           & "independent components", Clause);
+                        Error_Msg_Uint_1 := Esize (Ctyp);
+                        Error_Msg_N
+                          ("\minimum allowed is^", Clause);
+
+                     else
+                        Error_Msg_N
+                          ("cannot pack independent components",
+                           Get_Rep_Pragma (FS, Name_Pack));
+                     end if;
+                  end if;
+               end;
+            end if;
+
             --  Warn for case of atomic type
 
             Clause := Get_Rep_Pragma (FS, Name_Atomic);
@@ -2978,18 +3026,23 @@ package body Freeze is
                R_Type := Full_View (R_Type);
                Set_Etype (E, R_Type);
 
-            --  If the return type is a limited view and the non-
-            --  limited view is still incomplete, the function has
-            --  to be frozen at a later time.
+            --  If the return type is a limited view and the non-limited
+            --  view is still incomplete, the function has to be frozen at a
+            --  later time. If the function is abstract there is no place at
+            --  which the full view will become available, and no code to be
+            --  generated for it, so mark type as frozen.
 
             elsif Ekind (R_Type) = E_Incomplete_Type
               and then From_Limited_With (R_Type)
-              and then
-                Ekind (Non_Limited_View (R_Type)) = E_Incomplete_Type
+              and then Ekind (Non_Limited_View (R_Type)) = E_Incomplete_Type
             then
-               Set_Is_Frozen (E, False);
-               Set_Returns_Limited_View (E);
-               return False;
+               if Is_Abstract_Subprogram (E) then
+                  null;
+               else
+                  Set_Is_Frozen (E, False);
+                  Set_Returns_Limited_View (E);
+                  return False;
+               end if;
             end if;
 
             Freeze_And_Append (R_Type, N, Result);
@@ -3092,6 +3145,44 @@ package body Freeze is
                Error_Msg_N ("?x?foreign convention function& should not " &
                  "return unconstrained array!", E);
             end if;
+         end if;
+
+         --  Check suspicious use of Import in pure unit
+
+         if Is_Imported (E) and then Is_Pure (Cunit_Entity (Current_Sem_Unit))
+
+           --  Ignore internally generated entity. This happens in some cases
+           --  of subprograms in specs, where we generate an implied body.
+
+           and then Comes_From_Source (Import_Pragma (E))
+
+           --  Assume run-time knows what it is doing
+
+           and then not GNAT_Mode
+
+           --  Assume explicit Pure_Function means import is pure
+
+           and then not Has_Pragma_Pure_Function (E)
+
+           --  Don't need warning in relaxed semantics mode
+
+           and then not Relaxed_RM_Semantics
+
+           --  Assume convention Intrinsic is OK, since this is specialized.
+           --  This deals with the DEC unit current_exception.ads
+
+           and then Convention (E) /= Convention_Intrinsic
+
+            --  Assume that ASM interface knows what it is doing. This deals
+            --  with unsigned.ads in the AAMP back end.
+
+           and then Convention (E) /= Convention_Assembler
+         then
+            Error_Msg_N
+              ("pragma Import in Pure unit??", Import_Pragma (E));
+            Error_Msg_NE
+              ("\calls to & may be omitted (RM 10.2.1(18/3))??",
+               Import_Pragma (E), E);
          end if;
 
          return True;
@@ -7948,17 +8039,27 @@ package body Freeze is
             return;
          end if;
 
-         Decl := Next (Parent (Expr));
-
          --  If a pragma Import follows, we assume that it is for the current
-         --  target of the address clause, and skip the warning.
+         --  target of the address clause, and skip the warning. There may be
+         --  a source pragma or an aspect that specifies import and generates
+         --  the corresponding pragma. These will indicate that the entity is
+         --  imported and that is checked above so that the spurious warning
+         --  (generated when the entity is frozen) will be suppressed. The
+         --  pragma may be attached to the aspect, so it is not yet a list
+         --  member.
 
-         if Present (Decl)
-           and then Nkind (Decl) = N_Pragma
-           and then Pragma_Name (Decl) = Name_Import
-         then
-            return;
+         if Is_List_Member (Parent (Expr)) then
+            Decl := Next (Parent (Expr));
+
+            if Present (Decl)
+              and then Nkind (Decl) = N_Pragma
+              and then Pragma_Name (Decl) = Name_Import
+            then
+               return;
+            end if;
          end if;
+
+         --  Otherwise give warning message
 
          if Present (Old) then
             Error_Msg_Node_2 := Old;

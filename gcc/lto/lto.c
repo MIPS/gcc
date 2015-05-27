@@ -85,6 +85,8 @@ static int lto_parallelism;
 
 static GTY(()) tree first_personality_decl;
 
+static GTY(()) const unsigned char *lto_mode_identity_table;
+
 /* Returns a hash code for P.  */
 
 static hashval_t
@@ -1732,10 +1734,11 @@ cmp_tree (const void *p1_, const void *p2_)
    that was successful, otherwise return false.  */
 
 static bool
-unify_scc (struct streamer_tree_cache_d *cache, unsigned from,
+unify_scc (struct data_in *data_in, unsigned from,
 	   unsigned len, unsigned scc_entry_len, hashval_t scc_hash)
 {
   bool unified_p = false;
+  struct streamer_tree_cache_d *cache = data_in->reader_cache;
   tree_scc *scc
     = (tree_scc *) alloca (sizeof (tree_scc) + (len - 1) * sizeof (tree));
   scc->next = NULL;
@@ -1825,6 +1828,7 @@ unify_scc (struct streamer_tree_cache_d *cache, unsigned from,
 	    }
 
 	  /* Free the tree nodes from the read SCC.  */
+	  data_in->location_cache.revert_location_cache ();
 	  for (unsigned i = 0; i < len; ++i)
 	    {
 	      enum tree_code code;
@@ -1877,7 +1881,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   uint32_t num_decl_states;
 
   lto_input_block ib_main ((const char *) data + main_offset,
-			   header->main_size);
+			   header->main_size, decl_data->mode_table);
 
   data_in = lto_data_in_create (decl_data, (const char *) data + string_offset,
 				header->string_size, resolutions);
@@ -1918,9 +1922,13 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 
 	  /* Try to unify the SCC with already existing ones.  */
 	  if (!flag_ltrans
-	      && unify_scc (data_in->reader_cache, from,
+	      && unify_scc (data_in, from,
 			    len, scc_entry_len, scc_hash))
 	    continue;
+
+	  /* Tree merging failed, mark entries in location cache as
+	     permanent.  */
+	  data_in->location_cache.accept_location_cache ();
 
 	  bool seen_type = false;
 	  for (unsigned i = 0; i < len; ++i)
@@ -1951,7 +1959,13 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 	      /* Register TYPE_DECLs with the debuginfo machinery.  */
 	      if (!flag_wpa
 		  && TREE_CODE (t) == TYPE_DECL)
-		debug_hooks->type_decl (t, !DECL_FILE_SCOPE_P (t));
+		{
+		  /* Dwarf2out needs location information.
+		     TODO: Moving this out of the streamer loop may noticealy
+		     improve ltrans linemap memory use.  */
+		  data_in->location_cache.apply_location_cache ();
+		  debug_hooks->type_decl (t, !DECL_FILE_SCOPE_P (t));
+		}
 	      if (!flag_ltrans)
 		{
 		  /* Register variables and functions with the
@@ -1977,6 +1991,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 	  gcc_assert (t && data_in->reader_cache->nodes.length () == from);
 	}
     }
+  data_in->location_cache.apply_location_cache ();
 
   /* Read in lto_in_decl_state objects.  */
   data_ptr = (const uint32_t *) ((const char*) data + decl_offset); 
@@ -2219,6 +2234,11 @@ lto_file_finalize (struct lto_file_decl_data *file_data, lto_file *file)
 
   file_data->renaming_hash_table = lto_create_renaming_table ();
   file_data->file_name = file->filename;
+#ifdef ACCEL_COMPILER
+  lto_input_mode_table (file_data);
+#else
+  file_data->mode_table = lto_mode_identity_table;
+#endif
   data = lto_get_section_data (file_data, LTO_section_decls, NULL, &len);
   if (data == NULL)
     {
@@ -2328,7 +2348,7 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
       fd = open (file_data->file_name, O_RDONLY|O_BINARY);
       if (fd == -1)
         {
-	  fatal_error ("Cannot open %s", file_data->file_name);
+	  fatal_error (input_location, "Cannot open %s", file_data->file_name);
 	  return NULL;
         }
       fd_name = xstrdup (file_data->file_name);
@@ -2349,7 +2369,7 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
 			  fd, computed_offset);
   if (result == MAP_FAILED)
     {
-      fatal_error ("Cannot map %s", file_data->file_name);
+      fatal_error (input_location, "Cannot map %s", file_data->file_name);
       return NULL;
     }
 
@@ -2360,7 +2380,7 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
       || read (fd, result, len) != (ssize_t) len)
     {
       free (result);
-      fatal_error ("Cannot read %s", file_data->file_name);
+      fatal_error (input_location, "Cannot read %s", file_data->file_name);
       result = NULL;
     }
 #ifdef __MINGW32__
@@ -2474,7 +2494,7 @@ do_stream_out (char *temp_filename, lto_symtab_encoder_t encoder)
 {
   lto_file *file = lto_obj_file_open (temp_filename, true);
   if (!file)
-    fatal_error ("lto_obj_file_open() failed");
+    fatal_error (input_location, "lto_obj_file_open() failed");
   lto_set_current_out_file (file);
 
   ipa_write_optimization_summaries (encoder);
@@ -2497,12 +2517,13 @@ wait_for_child ()
 #endif
       int w = waitpid (0, &status, WUNTRACED | WCONTINUED);
       if (w == -1)
-	fatal_error ("waitpid failed");
+	fatal_error (input_location, "waitpid failed");
 
       if (WIFEXITED (status) && WEXITSTATUS (status))
-	fatal_error ("streaming subprocess failed");
+	fatal_error (input_location, "streaming subprocess failed");
       else if (WIFSIGNALED (status))
-	fatal_error ("streaming subprocess was killed by signal");
+	fatal_error (input_location,
+		     "streaming subprocess was killed by signal");
     }
   while (!WIFEXITED (status) && !WIFSIGNALED (status));
 }
@@ -2578,7 +2599,7 @@ lto_wpa_write_files (void)
 
   /* Open the LTRANS output list.  */
   if (!ltrans_output_list)
-    fatal_error ("no LTRANS output list filename provided");
+    fatal_error (input_location, "no LTRANS output list filename provided");
 
   timevar_push (TV_WHOPR_WPA);
 
@@ -2665,13 +2686,14 @@ lto_wpa_write_files (void)
     }
   ltrans_output_list_stream = fopen (ltrans_output_list, "w");
   if (ltrans_output_list_stream == NULL)
-    fatal_error ("opening LTRANS output list %s: %m", ltrans_output_list);
+    fatal_error (input_location,
+		 "opening LTRANS output list %s: %m", ltrans_output_list);
   for (i = 0; i < n_sets; i++)
     {
       unsigned int len = strlen (temp_filenames[i]);
       if (fwrite (temp_filenames[i], 1, len, ltrans_output_list_stream) < len
 	  || fwrite ("\n", 1, 1, ltrans_output_list_stream) < 1)
-	fatal_error ("writing to LTRANS output list %s: %m",
+	fatal_error (input_location, "writing to LTRANS output list %s: %m",
 		     ltrans_output_list);
      free (temp_filenames[i]);
     }
@@ -2681,7 +2703,8 @@ lto_wpa_write_files (void)
 
   /* Close the LTRANS output list.  */
   if (fclose (ltrans_output_list_stream))
-    fatal_error ("closing LTRANS output list %s: %m", ltrans_output_list);
+    fatal_error (input_location,
+		 "closing LTRANS output list %s: %m", ltrans_output_list);
 
   free_ltrans_partitions();
   free (temp_filename);
@@ -2927,7 +2950,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 
       resolution = fopen (resolution_file_name, "r");
       if (resolution == NULL)
-	fatal_error ("could not open symbol resolution file: %m");
+	fatal_error (input_location,
+		     "could not open symbol resolution file: %m");
 
       t = fscanf (resolution, "%u", &num_objects);
       gcc_assert (t == 1);
@@ -3067,7 +3091,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       /* If there were errors during symbol merging bail out, we have no
 	 good way to recover here.  */
       if (seen_error ())
-	fatal_error ("errors during merging of translation units");
+	fatal_error (input_location,
+		     "errors during merging of translation units");
 
       /* Fixup all decls.  */
       lto_fixup_decls (all_file_decl_data);
@@ -3106,13 +3131,20 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       fprintf (symtab->dump_file, "Before merging:\n");
       symtab_node::dump_table (symtab->dump_file);
     }
-  lto_symtab_merge_symbols ();
-  /* Removal of unreachable symbols is needed to make verify_symtab to pass;
-     we are still having duplicated comdat groups containing local statics.
-     We could also just remove them while merging.  */
-  symtab->remove_unreachable_nodes (dump_file);
+  if (!flag_ltrans)
+    {
+      lto_symtab_merge_symbols ();
+      /* Removal of unreachable symbols is needed to make verify_symtab to pass;
+	 we are still having duplicated comdat groups containing local statics.
+	 We could also just remove them while merging.  */
+      symtab->remove_unreachable_nodes (dump_file);
+    }
   ggc_collect ();
   symtab->state = IPA_SSA;
+  /* FIXME: Technically all node removals happening here are useless, because
+     WPA should not stream them.  */
+  if (flag_ltrans)
+    symtab->remove_unreachable_nodes (dump_file);
 
   timevar_pop (TV_IPA_LTO_CGRAPH_MERGE);
 
@@ -3389,6 +3421,13 @@ lto_init (void)
   memset (&lto_stats, 0, sizeof (lto_stats));
   bitmap_obstack_initialize (NULL);
   gimple_register_cfg_hooks ();
+#ifndef ACCEL_COMPILER
+  unsigned char *table
+    = ggc_vec_alloc<unsigned char> (MAX_MACHINE_MODE);
+  for (int m = 0; m < MAX_MACHINE_MODE; m++)
+    table[m] = m;
+  lto_mode_identity_table = table;
+#endif
 }
 
 

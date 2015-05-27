@@ -1,8 +1,8 @@
-/*  -*- C -*-  
+/*  -*- C -*-
   Generated MELT file melt-run.h included in every generated file.
   Please edit melt-run.proto.h ....
    all include files for generated code
-   
+
    Copyright (C) 2008 - 2014  Free Software Foundation, Inc.
    Contributed by Basile Starynkevitch  <basile@starynkevitch.net>
    and Pierre Vittet  <piervit@pvittet.com>

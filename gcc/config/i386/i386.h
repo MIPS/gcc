@@ -795,7 +795,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    rounder than this.
 
    Pentium+ prefers DFmode values to be aligned to 64 bit boundary
-   and Pentium Pro XFmode values at 128 bit boundaries.  */
+   and Pentium Pro XFmode values at 128 bit boundaries.
+
+   When increasing the maximum, also update
+   TARGET_ABSOLUTE_BIGGEST_ALIGNMENT.  */
 
 #define BIGGEST_ALIGNMENT \
   (TARGET_AVX512F ? 512 : (TARGET_AVX ? 256 : 128))
@@ -1256,13 +1259,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define REAL_PIC_OFFSET_TABLE_REGNUM  (TARGET_64BIT ? R15_REG : BX_REG)
 
 #define PIC_OFFSET_TABLE_REGNUM						\
-  ((TARGET_64BIT && (ix86_cmodel == CM_SMALL_PIC			\
-                     || TARGET_PECOFF))					\
-   || !flag_pic								\
-   ? INVALID_REGNUM							\
-   : pic_offset_table_rtx						\
-     ? INVALID_REGNUM							\
-     : REAL_PIC_OFFSET_TABLE_REGNUM)
+  (ix86_use_pseudo_pic_reg ()						\
+   ? (pic_offset_table_rtx						\
+      ? INVALID_REGNUM							\
+      : REAL_PIC_OFFSET_TABLE_REGNUM)					\
+   : INVALID_REGNUM)
 
 #define GOT_SYMBOL_NAME "_GLOBAL_OFFSET_TABLE_"
 
@@ -1445,14 +1446,16 @@ enum reg_class
 #define QI_REG_P(X) (REG_P (X) && QI_REGNO_P (REGNO (X)))
 #define QI_REGNO_P(N) IN_RANGE ((N), AX_REG, BX_REG)
 
-#define GENERAL_REG_P(X) \
-  (REG_P (X) && GENERAL_REGNO_P (REGNO (X)))
+#define GENERAL_REG_P(X) (REG_P (X) && GENERAL_REGNO_P (REGNO (X)))
 #define GENERAL_REGNO_P(N) \
-  (IN_RANGE ((N), AX_REG, SP_REG) || REX_INT_REGNO_P (N))
+  (LEGACY_INT_REGNO_P (N) || REX_INT_REGNO_P (N))
 
 #define ANY_QI_REG_P(X) (REG_P (X) && ANY_QI_REGNO_P (REGNO (X)))
 #define ANY_QI_REGNO_P(N) \
   (TARGET_64BIT ? GENERAL_REGNO_P (N) : QI_REGNO_P (N))
+
+#define LEGACY_INT_REG_P(X) (REG_P (X) && LEGACY_INT_REGNO_P (REGNO (X)))
+#define LEGACY_INT_REGNO_P(N) (IN_RANGE ((N), AX_REG, SP_REG))
 
 #define REX_INT_REG_P(X) (REG_P (X) && REX_INT_REGNO_P (REGNO (X)))
 #define REX_INT_REGNO_P(N) \
@@ -1486,7 +1489,6 @@ enum reg_class
 
 #define MASK_REG_P(X) (REG_P (X) && MASK_REGNO_P (REGNO (X)))
 #define MASK_REGNO_P(N) IN_RANGE ((N), FIRST_MASK_REG, LAST_MASK_REG)
-#define ANY_MASK_REG_P(X) (REG_P (X) && MASK_REGNO_P (REGNO (X)))
 
 #define SSE_FLOAT_MODE_P(MODE) \
   ((TARGET_SSE && (MODE) == SFmode) || (TARGET_SSE2 && (MODE) == DFmode))
@@ -1503,8 +1505,8 @@ enum reg_class
 #define CC_REG_P(X) (REG_P (X) && CC_REGNO_P (REGNO (X)))
 #define CC_REGNO_P(X) ((X) == FLAGS_REG || (X) == FPSR_REG)
 
+#define BND_REG_P(X) (REG_P (X) && BND_REGNO_P (REGNO (X)))
 #define BND_REGNO_P(N) IN_RANGE ((N), FIRST_BND_REG, LAST_BND_REG)
-#define ANY_BND_REG_P(X) (REG_P (X) && BND_REGNO_P (REGNO (X)))
 
 /* The class value for index registers, and the one for base regs.  */
 

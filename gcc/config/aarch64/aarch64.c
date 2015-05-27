@@ -188,188 +188,148 @@ unsigned long aarch64_tune_flags = 0;
 
 /* Tuning parameters.  */
 
-#if HAVE_DESIGNATED_INITIALIZERS
-#define NAMED_PARAM(NAME, VAL) .NAME = (VAL)
-#else
-#define NAMED_PARAM(NAME, VAL) (VAL)
-#endif
-
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
-
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
 static const struct cpu_addrcost_table generic_addrcost_table =
 {
-#if HAVE_DESIGNATED_INITIALIZERS
-  .addr_scale_costs =
-#endif
     {
-      NAMED_PARAM (hi, 0),
-      NAMED_PARAM (si, 0),
-      NAMED_PARAM (di, 0),
-      NAMED_PARAM (ti, 0),
+      0, /* hi  */
+      0, /* si  */
+      0, /* di  */
+      0, /* ti  */
     },
-  NAMED_PARAM (pre_modify, 0),
-  NAMED_PARAM (post_modify, 0),
-  NAMED_PARAM (register_offset, 0),
-  NAMED_PARAM (register_extend, 0),
-  NAMED_PARAM (imm_offset, 0)
+  0, /* pre_modify  */
+  0, /* post_modify  */
+  0, /* register_offset  */
+  0, /* register_extend  */
+  0 /* imm_offset  */
 };
 
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
 static const struct cpu_addrcost_table cortexa57_addrcost_table =
 {
-#if HAVE_DESIGNATED_INITIALIZERS
-  .addr_scale_costs =
-#endif
     {
-      NAMED_PARAM (hi, 1),
-      NAMED_PARAM (si, 0),
-      NAMED_PARAM (di, 0),
-      NAMED_PARAM (ti, 1),
+      1, /* hi  */
+      0, /* si  */
+      0, /* di  */
+      1, /* ti  */
     },
-  NAMED_PARAM (pre_modify, 0),
-  NAMED_PARAM (post_modify, 0),
-  NAMED_PARAM (register_offset, 0),
-  NAMED_PARAM (register_extend, 0),
-  NAMED_PARAM (imm_offset, 0),
+  0, /* pre_modify  */
+  0, /* post_modify  */
+  0, /* register_offset  */
+  0, /* register_extend  */
+  0, /* imm_offset  */
 };
 
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
 static const struct cpu_addrcost_table xgene1_addrcost_table =
 {
-#if HAVE_DESIGNATED_INITIALIZERS
-  .addr_scale_costs =
-#endif
     {
-      NAMED_PARAM (hi, 1),
-      NAMED_PARAM (si, 0),
-      NAMED_PARAM (di, 0),
-      NAMED_PARAM (ti, 1),
+      1, /* hi  */
+      0, /* si  */
+      0, /* di  */
+      1, /* ti  */
     },
-  NAMED_PARAM (pre_modify, 1),
-  NAMED_PARAM (post_modify, 0),
-  NAMED_PARAM (register_offset, 0),
-  NAMED_PARAM (register_extend, 1),
-  NAMED_PARAM (imm_offset, 0),
+  1, /* pre_modify  */
+  0, /* post_modify  */
+  0, /* register_offset  */
+  1, /* register_extend  */
+  0, /* imm_offset  */
 };
 
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
 static const struct cpu_regmove_cost generic_regmove_cost =
 {
-  NAMED_PARAM (GP2GP, 1),
+  1, /* GP2GP  */
   /* Avoid the use of slow int<->fp moves for spilling by setting
      their cost higher than memmov_cost.  */
-  NAMED_PARAM (GP2FP, 5),
-  NAMED_PARAM (FP2GP, 5),
-  NAMED_PARAM (FP2FP, 2)
+  5, /* GP2FP  */
+  5, /* FP2GP  */
+  2 /* FP2FP  */
 };
 
 static const struct cpu_regmove_cost cortexa57_regmove_cost =
 {
-  NAMED_PARAM (GP2GP, 1),
+  1, /* GP2GP  */
   /* Avoid the use of slow int<->fp moves for spilling by setting
      their cost higher than memmov_cost.  */
-  NAMED_PARAM (GP2FP, 5),
-  NAMED_PARAM (FP2GP, 5),
-  NAMED_PARAM (FP2FP, 2)
+  5, /* GP2FP  */
+  5, /* FP2GP  */
+  2 /* FP2FP  */
 };
 
 static const struct cpu_regmove_cost cortexa53_regmove_cost =
 {
-  NAMED_PARAM (GP2GP, 1),
+  1, /* GP2GP  */
   /* Avoid the use of slow int<->fp moves for spilling by setting
      their cost higher than memmov_cost.  */
-  NAMED_PARAM (GP2FP, 5),
-  NAMED_PARAM (FP2GP, 5),
-  NAMED_PARAM (FP2FP, 2)
+  5, /* GP2FP  */
+  5, /* FP2GP  */
+  2 /* FP2FP  */
 };
 
 static const struct cpu_regmove_cost thunderx_regmove_cost =
 {
-  NAMED_PARAM (GP2GP, 2),
-  NAMED_PARAM (GP2FP, 2),
-  NAMED_PARAM (FP2GP, 6),
-  NAMED_PARAM (FP2FP, 4)
+  2, /* GP2GP  */
+  2, /* GP2FP  */
+  6, /* FP2GP  */
+  4 /* FP2FP  */
 };
 
 static const struct cpu_regmove_cost xgene1_regmove_cost =
 {
-  NAMED_PARAM (GP2GP, 1),
+  1, /* GP2GP  */
   /* Avoid the use of slow int<->fp moves for spilling by setting
      their cost higher than memmov_cost.  */
-  NAMED_PARAM (GP2FP, 8),
-  NAMED_PARAM (FP2GP, 8),
-  NAMED_PARAM (FP2FP, 2)
+  8, /* GP2FP  */
+  8, /* FP2GP  */
+  2 /* FP2FP  */
 };
 
 /* Generic costs for vector insn classes.  */
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
 static const struct cpu_vector_cost generic_vector_cost =
 {
-  NAMED_PARAM (scalar_stmt_cost, 1),
-  NAMED_PARAM (scalar_load_cost, 1),
-  NAMED_PARAM (scalar_store_cost, 1),
-  NAMED_PARAM (vec_stmt_cost, 1),
-  NAMED_PARAM (vec_to_scalar_cost, 1),
-  NAMED_PARAM (scalar_to_vec_cost, 1),
-  NAMED_PARAM (vec_align_load_cost, 1),
-  NAMED_PARAM (vec_unalign_load_cost, 1),
-  NAMED_PARAM (vec_unalign_store_cost, 1),
-  NAMED_PARAM (vec_store_cost, 1),
-  NAMED_PARAM (cond_taken_branch_cost, 3),
-  NAMED_PARAM (cond_not_taken_branch_cost, 1)
+  1, /* scalar_stmt_cost  */
+  1, /* scalar_load_cost  */
+  1, /* scalar_store_cost  */
+  1, /* vec_stmt_cost  */
+  1, /* vec_to_scalar_cost  */
+  1, /* scalar_to_vec_cost  */
+  1, /* vec_align_load_cost  */
+  1, /* vec_unalign_load_cost  */
+  1, /* vec_unalign_store_cost  */
+  1, /* vec_store_cost  */
+  3, /* cond_taken_branch_cost  */
+  1 /* cond_not_taken_branch_cost  */
 };
 
 /* Generic costs for vector insn classes.  */
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
 static const struct cpu_vector_cost cortexa57_vector_cost =
 {
-  NAMED_PARAM (scalar_stmt_cost, 1),
-  NAMED_PARAM (scalar_load_cost, 4),
-  NAMED_PARAM (scalar_store_cost, 1),
-  NAMED_PARAM (vec_stmt_cost, 3),
-  NAMED_PARAM (vec_to_scalar_cost, 8),
-  NAMED_PARAM (scalar_to_vec_cost, 8),
-  NAMED_PARAM (vec_align_load_cost, 5),
-  NAMED_PARAM (vec_unalign_load_cost, 5),
-  NAMED_PARAM (vec_unalign_store_cost, 1),
-  NAMED_PARAM (vec_store_cost, 1),
-  NAMED_PARAM (cond_taken_branch_cost, 1),
-  NAMED_PARAM (cond_not_taken_branch_cost, 1)
+  1, /* scalar_stmt_cost  */
+  4, /* scalar_load_cost  */
+  1, /* scalar_store_cost  */
+  3, /* vec_stmt_cost  */
+  8, /* vec_to_scalar_cost  */
+  8, /* scalar_to_vec_cost  */
+  5, /* vec_align_load_cost  */
+  5, /* vec_unalign_load_cost  */
+  1, /* vec_unalign_store_cost  */
+  1, /* vec_store_cost  */
+  1, /* cond_taken_branch_cost  */
+  1 /* cond_not_taken_branch_cost  */
 };
 
 /* Generic costs for vector insn classes.  */
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
 static const struct cpu_vector_cost xgene1_vector_cost =
 {
-  NAMED_PARAM (scalar_stmt_cost, 1),
-  NAMED_PARAM (scalar_load_cost, 5),
-  NAMED_PARAM (scalar_store_cost, 1),
-  NAMED_PARAM (vec_stmt_cost, 2),
-  NAMED_PARAM (vec_to_scalar_cost, 4),
-  NAMED_PARAM (scalar_to_vec_cost, 4),
-  NAMED_PARAM (vec_align_load_cost, 10),
-  NAMED_PARAM (vec_unalign_load_cost, 10),
-  NAMED_PARAM (vec_unalign_store_cost, 2),
-  NAMED_PARAM (vec_store_cost, 2),
-  NAMED_PARAM (cond_taken_branch_cost, 2),
-  NAMED_PARAM (cond_not_taken_branch_cost, 1)
+  1, /* scalar_stmt_cost  */
+  5, /* scalar_load_cost  */
+  1, /* scalar_store_cost  */
+  2, /* vec_stmt_cost  */
+  4, /* vec_to_scalar_cost  */
+  4, /* scalar_to_vec_cost  */
+  10, /* vec_align_load_cost  */
+  10, /* vec_unalign_load_cost  */
+  2, /* vec_unalign_store_cost  */
+  2, /* vec_store_cost  */
+  2, /* cond_taken_branch_cost  */
+  1 /* cond_not_taken_branch_cost  */
 };
 
 #define AARCH64_FUSE_NOTHING	(0)
@@ -379,18 +339,15 @@ static const struct cpu_vector_cost xgene1_vector_cost =
 #define AARCH64_FUSE_ADRP_LDR	(1 << 3)
 #define AARCH64_FUSE_CMP_BRANCH	(1 << 4)
 
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
 static const struct tune_params generic_tunings =
 {
   &cortexa57_extra_costs,
   &generic_addrcost_table,
   &generic_regmove_cost,
   &generic_vector_cost,
-  NAMED_PARAM (memmov_cost, 4),
-  NAMED_PARAM (issue_rate, 2),
-  NAMED_PARAM (fuseable_ops, AARCH64_FUSE_NOTHING),
+  4, /* memmov_cost  */
+  2, /* issue_rate  */
+  AARCH64_FUSE_NOTHING, /* fuseable_ops  */
   8,	/* function_align.  */
   8,	/* jump_align.  */
   4,	/* loop_align.  */
@@ -405,10 +362,10 @@ static const struct tune_params cortexa53_tunings =
   &generic_addrcost_table,
   &cortexa53_regmove_cost,
   &generic_vector_cost,
-  NAMED_PARAM (memmov_cost, 4),
-  NAMED_PARAM (issue_rate, 2),
-  NAMED_PARAM (fuseable_ops, (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
-                             | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR)),
+  4, /* memmov_cost  */
+  2, /* issue_rate  */
+  (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
+   | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR), /* fuseable_ops  */
   8,	/* function_align.  */
   8,	/* jump_align.  */
   4,	/* loop_align.  */
@@ -423,9 +380,10 @@ static const struct tune_params cortexa57_tunings =
   &cortexa57_addrcost_table,
   &cortexa57_regmove_cost,
   &cortexa57_vector_cost,
-  NAMED_PARAM (memmov_cost, 4),
-  NAMED_PARAM (issue_rate, 3),
-  NAMED_PARAM (fuseable_ops, (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD | AARCH64_FUSE_MOVK_MOVK)),
+  4, /* memmov_cost  */
+  3, /* issue_rate  */
+  (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
+   | AARCH64_FUSE_MOVK_MOVK), /* fuseable_ops  */
   16,	/* function_align.  */
   8,	/* jump_align.  */
   4,	/* loop_align.  */
@@ -440,9 +398,9 @@ static const struct tune_params thunderx_tunings =
   &generic_addrcost_table,
   &thunderx_regmove_cost,
   &generic_vector_cost,
-  NAMED_PARAM (memmov_cost, 6),
-  NAMED_PARAM (issue_rate, 2),
-  NAMED_PARAM (fuseable_ops, AARCH64_FUSE_CMP_BRANCH),
+  6, /* memmov_cost  */
+  2, /* issue_rate  */
+  AARCH64_FUSE_CMP_BRANCH, /* fuseable_ops  */
   8,	/* function_align.  */
   8,	/* jump_align.  */
   8,	/* loop_align.  */
@@ -457,9 +415,9 @@ static const struct tune_params xgene1_tunings =
   &xgene1_addrcost_table,
   &xgene1_regmove_cost,
   &xgene1_vector_cost,
-  NAMED_PARAM (memmov_cost, 6),
-  NAMED_PARAM (issue_rate, 4),
-  NAMED_PARAM (fuseable_ops, AARCH64_FUSE_NOTHING),
+  6, /* memmov_cost  */
+  4, /* issue_rate  */
+  AARCH64_FUSE_NOTHING, /* fuseable_ops  */
   16,	/* function_align.  */
   8,	/* jump_align.  */
   16,	/* loop_align.  */
@@ -529,9 +487,6 @@ static const struct aarch64_option_extension all_extensions[] =
 /* Used to track the size of an address when generating a pre/post
    increment address.  */
 static machine_mode aarch64_memory_reference_mode;
-
-/* Used to force GTY into this file.  */
-static GTY(()) int gty_dummy;
 
 /* A table of valid AArch64 "bitmask immediate" values for
    logical instructions.  */
@@ -818,8 +773,8 @@ tls_symbolic_operand_type (rtx addr)
 
    Local Exec:
    mrs  tp, tpidr_el0
-   add  t0, tp, #:tprel_hi12:imm
-   add  t0, #:tprel_lo12_nc:imm
+   add  t0, tp, #:tprel_hi12:imm, lsl #12
+   add  t0, t0, #:tprel_lo12_nc:imm
 */
 
 static void
@@ -956,6 +911,10 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
     case SYMBOL_SMALL_TPREL:
       {
 	rtx tp = aarch64_load_tp (NULL);
+
+	if (GET_MODE (dest) != Pmode)
+	  tp = gen_lowpart (GET_MODE (dest), tp);
+
 	emit_insn (gen_tlsle_small (dest, tp, imm));
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
@@ -3424,12 +3383,20 @@ aarch64_classify_address (struct aarch64_address_info *info,
 {
   enum rtx_code code = GET_CODE (x);
   rtx op0, op1;
+
+  /* On BE, we use load/store pair for all large int mode load/stores.  */
+  bool load_store_pair_p = (outer_code == PARALLEL
+			    || (BYTES_BIG_ENDIAN
+				&& aarch64_vect_struct_mode_p (mode)));
+
   bool allow_reg_index_p =
-    outer_code != PARALLEL && (GET_MODE_SIZE (mode) != 16
-			       || aarch64_vector_mode_supported_p (mode));
-  /* Don't support anything other than POST_INC or REG addressing for
-     AdvSIMD.  */
-  if (aarch64_vect_struct_mode_p (mode)
+    !load_store_pair_p
+    && (GET_MODE_SIZE (mode) != 16 || aarch64_vector_mode_supported_p (mode))
+    && !aarch64_vect_struct_mode_p (mode);
+
+  /* On LE, for AdvSIMD, don't support anything other than POST_INC or
+     REG addressing.  */
+  if (aarch64_vect_struct_mode_p (mode) && !BYTES_BIG_ENDIAN
       && (code != POST_INC && code != REG))
     return false;
 
@@ -3481,7 +3448,29 @@ aarch64_classify_address (struct aarch64_address_info *info,
 	    return (aarch64_offset_7bit_signed_scaled_p (mode, offset)
 		    && offset_9bit_signed_unscaled_p (mode, offset));
 
-	  if (outer_code == PARALLEL)
+	  /* A 7bit offset check because OImode will emit a ldp/stp
+	     instruction (only big endian will get here).
+	     For ldp/stp instructions, the offset is scaled for the size of a
+	     single element of the pair.  */
+	  if (mode == OImode)
+	    return aarch64_offset_7bit_signed_scaled_p (TImode, offset);
+
+	  /* Three 9/12 bit offsets checks because CImode will emit three
+	     ldr/str instructions (only big endian will get here).  */
+	  if (mode == CImode)
+	    return (aarch64_offset_7bit_signed_scaled_p (TImode, offset)
+		    && (offset_9bit_signed_unscaled_p (V16QImode, offset + 32)
+			|| offset_12bit_unsigned_scaled_p (V16QImode,
+							   offset + 32)));
+
+	  /* Two 7bit offsets checks because XImode will emit two ldp/stp
+	     instructions (only big endian will get here).  */
+	  if (mode == XImode)
+	    return (aarch64_offset_7bit_signed_scaled_p (TImode, offset)
+		    && aarch64_offset_7bit_signed_scaled_p (TImode,
+							    offset + 32));
+
+	  if (load_store_pair_p)
 	    return ((GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8)
 		    && aarch64_offset_7bit_signed_scaled_p (mode, offset));
 	  else
@@ -3541,7 +3530,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
 	    return (aarch64_offset_7bit_signed_scaled_p (mode, offset)
 		    && offset_9bit_signed_unscaled_p (mode, offset));
 
-	  if (outer_code == PARALLEL)
+	  if (load_store_pair_p)
 	    return ((GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8)
 		    && aarch64_offset_7bit_signed_scaled_p (mode, offset));
 	  else
@@ -3555,7 +3544,8 @@ aarch64_classify_address (struct aarch64_address_info *info,
       /* load literal: pc-relative constant pool entry.  Only supported
          for SI mode or larger.  */
       info->type = ADDRESS_SYMBOLIC;
-      if (outer_code != PARALLEL && GET_MODE_SIZE (mode) >= 4)
+
+      if (!load_store_pair_p && GET_MODE_SIZE (mode) >= 4)
 	{
 	  rtx sym, addend;
 
@@ -4206,6 +4196,16 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  return;
 	}
       asm_fprintf (f, "v%d", REGNO (x) - V0_REGNUM + (code - 'S'));
+      break;
+
+    case 'R':
+      /* Print a scalar FP/SIMD register name + 1.  */
+      if (!REG_P (x) || !FP_REGNUM_P (REGNO (x)))
+	{
+	  output_operand_lossage ("incompatible floating point / vector register operand for '%%%c'", code);
+	  return;
+	}
+      asm_fprintf (f, "q%d", REGNO (x) - V0_REGNUM + 1);
       break;
 
     case 'X':
@@ -7042,8 +7042,8 @@ aarch64_classify_symbol (rtx x, rtx offset,
 	  /* Same reasoning as the tiny code model, but the offset cap here is
 	     4G.  */
 	  if (SYMBOL_REF_WEAK (x)
-	      || INTVAL (offset) < (HOST_WIDE_INT) -4294967263
-	      || INTVAL (offset) > (HOST_WIDE_INT) 4294967264)
+	      || !IN_RANGE (INTVAL (offset), HOST_WIDE_INT_C (-4294967263),
+			    HOST_WIDE_INT_C (4294967264)))
 	    return SYMBOL_FORCE_TO_MEM;
 	  return SYMBOL_SMALL_ABSOLUTE;
 
@@ -8595,35 +8595,28 @@ aarch64_simd_mem_operand_p (rtx op)
 			|| REG_P (XEXP (op, 0)));
 }
 
-/* Set up OPERANDS for a register copy from SRC to DEST, taking care
-   not to early-clobber SRC registers in the process.
+/* Emit a register copy from operand to operand, taking care not to
+   early-clobber source registers in the process.
 
-   We assume that the operands described by SRC and DEST represent a
-   decomposed copy of OPERANDS[1] into OPERANDS[0].  COUNT is the
-   number of components into which the copy has been decomposed.  */
+   COUNT is the number of components into which the copy needs to be
+   decomposed.  */
 void
-aarch64_simd_disambiguate_copy (rtx *operands, rtx *dest,
-				rtx *src, unsigned int count)
+aarch64_simd_emit_reg_reg_move (rtx *operands, enum machine_mode mode,
+				unsigned int count)
 {
   unsigned int i;
+  int rdest = REGNO (operands[0]);
+  int rsrc = REGNO (operands[1]);
 
   if (!reg_overlap_mentioned_p (operands[0], operands[1])
-      || REGNO (operands[0]) < REGNO (operands[1]))
-    {
-      for (i = 0; i < count; i++)
-	{
-	  operands[2 * i] = dest[i];
-	  operands[2 * i + 1] = src[i];
-	}
-    }
+      || rdest < rsrc)
+    for (i = 0; i < count; i++)
+      emit_move_insn (gen_rtx_REG (mode, rdest + i),
+		      gen_rtx_REG (mode, rsrc + i));
   else
-    {
-      for (i = 0; i < count; i++)
-	{
-	  operands[2 * i] = dest[count - i - 1];
-	  operands[2 * i + 1] = src[count - i - 1];
-	}
-    }
+    for (i = 0; i < count; i++)
+      emit_move_insn (gen_rtx_REG (mode, rdest + count - i - 1),
+		      gen_rtx_REG (mode, rsrc + count - i - 1));
 }
 
 /* Compute and return the length of aarch64_simd_mov<mode>, where <mode> is
@@ -8651,6 +8644,14 @@ aarch64_simd_attr_length_move (rtx_insn *insn)
 	}
     }
   return 4;
+}
+
+/* Compute and return the length of aarch64_simd_reglist<mode>, where <mode> is
+   one of VSTRUCT modes: OI, CI, EI, or XI.  */
+int
+aarch64_simd_attr_length_rglist (enum machine_mode mode)
+{
+  return (GET_MODE_SIZE (mode) / UNITS_PER_VREG) * 4;
 }
 
 /* Implement target hook TARGET_VECTOR_ALIGNMENT.  The AAPCS64 sets the maximum
@@ -9832,9 +9833,7 @@ aarch64_evpc_ext (struct expand_vec_perm_d *d)
       /* After setup, we want the high elements of the first vector (stored
          at the LSB end of the register), and the low elements of the second
          vector (stored at the MSB end of the register). So swap.  */
-      rtx temp = d->op0;
-      d->op0 = d->op1;
-      d->op1 = temp;
+      std::swap (d->op0, d->op1);
       /* location != 0 (above), so safe to assume (nelt - location) < nelt.  */
       location = nelt - location;
     }
@@ -10005,15 +10004,12 @@ aarch64_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
   if (d->perm[0] >= d->nelt)
     {
       unsigned i, nelt = d->nelt;
-      rtx x;
 
       gcc_assert (nelt == (nelt & -nelt));
       for (i = 0; i < nelt; ++i)
 	d->perm[i] ^= nelt; /* Keep the same index, but in the other vector.  */
 
-      x = d->op0;
-      d->op0 = d->op1;
-      d->op1 = x;
+      std::swap (d->op0, d->op1);
     }
 
   if (TARGET_SIMD)
@@ -10133,52 +10129,25 @@ aarch64_vectorize_vec_perm_const_ok (machine_mode vmode,
   return ret;
 }
 
-/* Implement target hook CANNOT_CHANGE_MODE_CLASS.  */
-bool
-aarch64_cannot_change_mode_class (machine_mode from,
-				  machine_mode to,
-				  enum reg_class rclass)
+rtx
+aarch64_reverse_mask (enum machine_mode mode)
 {
-  /* Full-reg subregs are allowed on general regs or any class if they are
-     the same size.  */
-  if (GET_MODE_SIZE (from) == GET_MODE_SIZE (to)
-      || !reg_classes_intersect_p (FP_REGS, rclass))
-    return false;
+  /* We have to reverse each vector because we dont have
+     a permuted load that can reverse-load according to ABI rules.  */
+  rtx mask;
+  rtvec v = rtvec_alloc (16);
+  int i, j;
+  int nunits = GET_MODE_NUNITS (mode);
+  int usize = GET_MODE_UNIT_SIZE (mode);
 
-  /* Limited combinations of subregs are safe on FPREGs.  Particularly,
-     1. Vector Mode to Scalar mode where 1 unit of the vector is accessed.
-     2. Scalar to Scalar for integer modes or same size float modes.
-     3. Vector to Vector modes.
-     4. On little-endian only, Vector-Structure to Vector modes.  */
-  if (GET_MODE_SIZE (from) > GET_MODE_SIZE (to))
-    {
-      if (aarch64_vector_mode_supported_p (from)
-	  && GET_MODE_SIZE (GET_MODE_INNER (from)) == GET_MODE_SIZE (to))
-	return false;
+  gcc_assert (BYTES_BIG_ENDIAN);
+  gcc_assert (AARCH64_VALID_SIMD_QREG_MODE (mode));
 
-      if (GET_MODE_NUNITS (from) == 1
-	  && GET_MODE_NUNITS (to) == 1
-	  && (GET_MODE_CLASS (from) == MODE_INT
-	      || from == to))
-	return false;
-
-      if (aarch64_vector_mode_supported_p (from)
-	  && aarch64_vector_mode_supported_p (to))
-	return false;
-
-      /* Within an vector structure straddling multiple vector registers
-	 we are in a mixed-endian representation.  As such, we can't
-	 easily change modes for BYTES_BIG_ENDIAN.  Otherwise, we can
-	 switch between vectors and vector structures cheaply.  */
-      if (!BYTES_BIG_ENDIAN)
-	if ((aarch64_vector_mode_supported_p (from)
-	      && aarch64_vect_struct_mode_p (to))
-	    || (aarch64_vector_mode_supported_p (to)
-	      && aarch64_vect_struct_mode_p (from)))
-	  return false;
-    }
-
-  return true;
+  for (i = 0; i < nunits; i++)
+    for (j = 0; j < usize; j++)
+      RTVEC_ELT (v, i * usize + j) = GEN_INT ((i + 1) * usize - 1 - j);
+  mask = gen_rtx_CONST_VECTOR (V16QImode, v);
+  return force_reg (V16QImode, mask);
 }
 
 /* Implement MODES_TIEABLE_P.  */

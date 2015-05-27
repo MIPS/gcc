@@ -1133,7 +1133,7 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 FORTRAN_TARGET_OBJS=@fortran_target_objs@
 
 # Object files for gcc many-languages driver.
-GCC_OBJS = gcc.o ggc-none.o
+GCC_OBJS = gcc.o gcc-main.o ggc-none.o
 
 c-family-warn = $(STRICT_WARN)
 
@@ -1237,6 +1237,7 @@ OBJS = \
 	function.o \
 	fwprop.o \
 	gcse.o \
+	gcse-common.o \
 	ggc-common.o \
 	gimple.o \
 	gimple-builder.o \
@@ -2043,7 +2044,6 @@ CFLAGS-lto-compress.o += $(ZLIBINC)
 ################################################################
 #### added for MELT http://gcc-melt.org
 
-melt_default_probe=melt-probe
 
 ## FIXME: melt_installed_cflags may vary from stage1 to stage2 so
 ## melt-runtime.o fails in the compare step.
@@ -2058,7 +2058,6 @@ melt-runtime-params-inc.c: build/melt-make-string$(build_exeext) Makefile
 	     melt_module_makefile '$(melt_installed_module_makefile)' \
 	     melt_module_cflags '$(melt_installed_cflags)' \
 	     melt_revision '$(shell echo -n $(REVISION_c) | tr -s [:space:] _)' \
-             melt_default_probe '$(melt_default_probe)' \
 	     melt_default_modlis '$(melt_default_modules_list)' > $@-tmp
 	mv $@-tmp $@
 
@@ -2076,7 +2075,7 @@ melt-runtime.args:  $(MELT_RUNTIME_CC) melt-run-md5.h melt-runtime-params-inc.c 
     tree-pass.h $(MELT_H) \
     $(srcdir)/melt/generated/meltrunsup.h \
     $(srcdir)/melt/generated/meltrunsup-inc.cc \
-    gt-melt-runtime.h $(PLUGIN_H) $(TOPLEV_H) $(VERSION_H) \
+    s-gtype $(PLUGIN_H) $(TOPLEV_H) $(VERSION_H) \
      Makefile
 	@echo '@@**@@' building melt-runtime.args
 	@echo $(ALL_CFLAGS) $(ALL_CPPFLAGS) -I $(srcdir)/melt/generated/ \
@@ -2094,7 +2093,7 @@ melt-runtime.o:  $(MELT_RUNTIME_CC) melt-run-md5.h melt-runtime-params-inc.c  $(
     tree-pass.h $(MELT_H) \
     $(srcdir)/melt/generated/meltrunsup.h \
     $(srcdir)/melt/generated/meltrunsup-inc.cc \
-    gt-melt-runtime.h $(PLUGIN_H) $(TOPLEV_H) $(VERSION_H) \
+    s-gtype $(PLUGIN_H) $(TOPLEV_H) $(VERSION_H) \
 	| melt-runtime.args
 	ls -l melt-runtime.args
 	$(COMPILER) -c $(shell cat melt-runtime.args)  $(OUTPUT_OPTION)
@@ -2117,7 +2116,7 @@ MELT_GCC_VERSION_NUM=$(shell $(AWK) '{split($$0,vertab,"."); printf "%d", vertab
 melt-run-md5.h melt-run.h:  $(srcdir)/melt-run.proto.h \
    $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) \
    $(TREE_H)  $(GGC_H) $(BASIC_BLOCK_H) $(GIMPLE_H) $(CFGLOOP_H)  \
-   tree-pass.h $(MELT_H) gt-melt-runtime.h $(PLUGIN_H) $(TOPLEV_H) $(VERSION_H) | Makefile
+   tree-pass.h $(MELT_H) s-gtype $(PLUGIN_H) $(TOPLEV_H) $(VERSION_H) | Makefile
 	melt_run_md5=`$(COMPILER) -C -E -DMELT_GCC_VERSION=$(MELT_GCC_VERSION_NUM) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(srcdir)/melt-run.proto.h | grep -v '^#' | md5sum | cut -c 1-32`; \
    ( echo  "const char melt_run_preprocessed_md5[]=\"$$melt_run_md5\";" > melt-run-md5.h-tmp ; \
    sed -e "s,#define *MELT_RUN_HASHMD5 *XX,#define MELT_RUN_HASHMD5 \"$$melt_run_md5\"," \
@@ -2438,7 +2437,6 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-scalar-evolution.c \
   $(srcdir)/tree-ssa-operands.h \
   $(srcdir)/tree-profile.c $(srcdir)/tree-nested.c \
-  $(srcdir)/tree-parloops.c \
   $(srcdir)/omp-low.c \
   $(srcdir)/omp-low.h \
   $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c $(srcdir)/cgraphunit.c \
@@ -3014,6 +3012,8 @@ TEXI_GCC_FILES = gcc.texi gcc-common.texi gcc-vers.texi frontends.texi	\
 	 fdl.texi contrib.texi cppenv.texi cppopts.texi avr-mmcu.texi	\
 	 implement-c.texi implement-cxx.texi gcov-tool.texi
 
+# notice that meltgendoc.texi is generated in the build directory
+
 # we explicitly use $(srcdir)/doc/tm.texi here to avoid confusion with
 # the generated tm.texi; the latter might have a more recent timestamp,
 # but we don't want to rebuild the info files unless the contents of
@@ -3026,10 +3026,10 @@ TEXI_GCCINT_FILES = gccint.texi gcc-common.texi gcc-vers.texi		\
 	 gnu.texi gpl_v3.texi fdl.texi contrib.texi languages.texi	\
 	 sourcebuild.texi gty.texi libgcc.texi cfg.texi tree-ssa.texi	\
 	 loop.texi generic.texi gimple.texi plugins.texi optinfo.texi   \
-	 match-and-simplify.texi
+	 match-and-simplify.texi \
+	 meltgendoc.texi
 
 
-# notice that meltgendoc.texi is generated in the build directory
 
 
 TEXI_GCCINSTALL_FILES = install.texi install-old.texi fdl.texi		\
@@ -3391,7 +3391,7 @@ install-plugin: installdirs lang.install-plugin s-header-vars install-gengtype
 # We keep the directory structure for files in config or c-family and .def
 # files. All other files are flattened to a single directory.
 	$(mkinstalldirs) $(DESTDIR)$(plugin_includedir) $(DESTDIR)$(melt_header_dir)
-	headers=`echo $(PLUGIN_HEADERS) | tr ' ' '\012' | sort -u`; \
+	headers=`echo $(PLUGIN_HEADERS) $$(cd $(srcdir); echo *.h *.def) | tr ' ' '\012' | sort -u`; \
 	srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`; \
 	for file in $$headers; do \
 	  if [ -f $$file ] ; then \

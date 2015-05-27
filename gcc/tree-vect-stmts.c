@@ -676,7 +676,6 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	    {
 	      dump_printf_loc (MSG_NOTE, vect_location, "init: phi relevant? ");
 	      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, phi, 0);
-              dump_printf (MSG_NOTE, "\n");
 	    }
 
 	  if (vect_stmt_relevant_p (phi, loop_vinfo, &relevant, &live_p))
@@ -689,7 +688,6 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	    {
 	      dump_printf_loc (MSG_NOTE, vect_location, "init: stmt relevant? ");
 	      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-              dump_printf (MSG_NOTE, "\n");
 	    }
 
 	  if (vect_stmt_relevant_p (stmt, loop_vinfo, &relevant, &live_p))
@@ -708,7 +706,6 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	{
           dump_printf_loc (MSG_NOTE, vect_location, "worklist: examine stmt: ");
           dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-          dump_printf (MSG_NOTE, "\n");
 	}
 
       /* Examine the USEs of STMT. For each USE, mark the stmt that defines it
@@ -809,7 +806,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 				    live_p, relevant, &worklist, false)
 		      || !process_use (stmt, TREE_OPERAND (op, 1), loop_vinfo,
 				       live_p, relevant, &worklist, false))
-        return false;
+		    return false;
 		  i = 2;
 		}
 	      for (; i < gimple_num_ops (stmt); i++)
@@ -847,7 +844,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	  gcc_assert (decl);
 	  if (!process_use (stmt, off, loop_vinfo, live_p, relevant,
 			    &worklist, true))
-      return false;
+	    return false;
 	}
     } /* while worklist */
 
@@ -1319,7 +1316,6 @@ vect_init_vector_1 (gimple stmt, gimple new_stmt, gimple_stmt_iterator *gsi)
       dump_printf_loc (MSG_NOTE, vect_location,
                        "created new init_stmt: ");
       dump_gimple_stmt (MSG_NOTE, TDF_SLIM, new_stmt, 0);
-      dump_printf (MSG_NOTE, "\n");
     }
 }
 
@@ -1423,7 +1419,6 @@ vect_get_vec_def_for_operand (tree op, gimple stmt, tree *scalar_def)
           else
             dump_printf_loc (MSG_NOTE, vect_location, "  def_stmt =  ");
 	  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, def_stmt, 0);
-          dump_printf (MSG_NOTE, "\n");
         }
     }
 
@@ -1720,7 +1715,6 @@ vect_finish_stmt_generation (gimple stmt, gimple vec_stmt,
     {
       dump_printf_loc (MSG_NOTE, vect_location, "add new stmt: ");
       dump_gimple_stmt (MSG_NOTE, TDF_SLIM, vec_stmt, 0);
-      dump_printf (MSG_NOTE, "\n");
     }
 
   gimple_set_location (vec_stmt, gimple_location (stmt));
@@ -4962,8 +4956,13 @@ ensure_base_align (stmt_vec_info stmt_info, struct data_reference *dr)
       tree vectype = STMT_VINFO_VECTYPE (stmt_info);
       tree base_decl = ((dataref_aux *)dr->aux)->base_decl;
 
-      DECL_ALIGN (base_decl) = TYPE_ALIGN (vectype);
-      DECL_USER_ALIGN (base_decl) = 1;
+      if (decl_in_symtab_p (base_decl))
+	symtab_node::get (base_decl)->increase_alignment (TYPE_ALIGN (vectype));
+      else
+	{
+          DECL_ALIGN (base_decl) = TYPE_ALIGN (vectype);
+          DECL_USER_ALIGN (base_decl) = 1;
+	}
       ((dataref_aux *)dr->aux)->base_misaligned = false;
     }
 }
@@ -5781,6 +5780,22 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
       gcc_assert (! nested_in_vect_loop && !STMT_VINFO_GATHER_P (stmt_info));
 
       first_stmt = GROUP_FIRST_ELEMENT (stmt_info);
+
+      /* If this is single-element interleaving with an element distance
+         that leaves unused vector loads around punt - we at least create
+	 very sub-optimal code in that case (and blow up memory,
+	 see PR65518).  */
+      if (first_stmt == stmt
+	  && !GROUP_NEXT_ELEMENT (stmt_info)
+	  && GROUP_SIZE (stmt_info) > TYPE_VECTOR_SUBPARTS (vectype))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "single-element interleaving not supported "
+			     "for not adjacent vector loads\n");
+	  return false;
+	}
+
       if (!slp && !PURE_SLP_STMT (stmt_info))
 	{
 	  group_size = GROUP_SIZE (vinfo_for_stmt (first_stmt));
@@ -6469,9 +6484,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		case dr_explicit_realign:
 		  {
 		    tree ptr, bump;
-		    tree vs_minus_1;
 
-		    vs_minus_1 = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+		    tree vs = size_int (TYPE_VECTOR_SUBPARTS (vectype));
 
 		    if (compute_in_loop)
 		      msq = vect_setup_realignment (first_stmt, gsi,
@@ -6500,8 +6514,9 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		    vect_finish_stmt_generation (stmt, new_stmt, gsi);
 		    msq = new_temp;
 
-		    bump = size_binop (MULT_EXPR, vs_minus_1,
+		    bump = size_binop (MULT_EXPR, vs,
 				       TYPE_SIZE_UNIT (elem_type));
+		    bump = size_binop (MINUS_EXPR, bump, size_one_node);
 		    ptr = bump_vector_ptr (dataref_ptr, NULL, gsi, stmt, bump);
 		    new_stmt = gimple_build_assign
 				 (NULL_TREE, BIT_AND_EXPR, ptr,
@@ -6584,7 +6599,6 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 					   "hoisting out of the vectorized "
 					   "loop: ");
 			  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-			  dump_printf (MSG_NOTE, "\n");
 			}
 		      tree tem = copy_ssa_name (scalar_dest);
 		      gsi_insert_on_edge_immediate
@@ -6999,7 +7013,6 @@ vect_analyze_stmt (gimple stmt, bool *need_to_vectorize, slp_tree node)
     {
       dump_printf_loc (MSG_NOTE, vect_location, "==> examining statement: ");
       dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-      dump_printf (MSG_NOTE, "\n");
     }
 
   if (gimple_has_volatile_ops (stmt))
@@ -7042,7 +7055,6 @@ vect_analyze_stmt (gimple stmt, bool *need_to_vectorize, slp_tree node)
               dump_printf_loc (MSG_NOTE, vect_location,
                                "==> examining pattern statement: ");
               dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-              dump_printf (MSG_NOTE, "\n");
             }
         }
       else
@@ -7065,7 +7077,6 @@ vect_analyze_stmt (gimple stmt, bool *need_to_vectorize, slp_tree node)
           dump_printf_loc (MSG_NOTE, vect_location,
                            "==> examining pattern statement: ");
           dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-          dump_printf (MSG_NOTE, "\n");
         }
 
       if (!vect_analyze_stmt (pattern_stmt, need_to_vectorize, node))
@@ -7090,7 +7101,6 @@ vect_analyze_stmt (gimple stmt, bool *need_to_vectorize, slp_tree node)
 		  dump_printf_loc (MSG_NOTE, vect_location,
                                    "==> examining pattern def statement: ");
 		  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, pattern_def_stmt, 0);
-                  dump_printf (MSG_NOTE, "\n");
 		}
 
 	      if (!vect_analyze_stmt (pattern_def_stmt,
@@ -7202,7 +7212,6 @@ vect_analyze_stmt (gimple stmt, bool *need_to_vectorize, slp_tree node)
                            "not vectorized: relevant stmt not ");
           dump_printf (MSG_MISSED_OPTIMIZATION, "supported: ");
           dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-          dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
         }
 
       return false;
@@ -7225,7 +7234,6 @@ vect_analyze_stmt (gimple stmt, bool *need_to_vectorize, slp_tree node)
                            "not vectorized: live stmt not ");
           dump_printf (MSG_MISSED_OPTIMIZATION,  "supported: ");
           dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-          dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
         }
 
        return false;
@@ -7727,7 +7735,6 @@ vect_is_simple_use (tree operand, gimple stmt, loop_vec_info loop_vinfo,
     {
       dump_printf_loc (MSG_NOTE, vect_location, "def_stmt: ");
       dump_gimple_stmt (MSG_NOTE, TDF_SLIM, *def_stmt, 0);
-      dump_printf (MSG_NOTE, "\n");
     }
 
   /* Empty stmt is expected only in case of a function argument.

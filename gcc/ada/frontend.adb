@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -338,7 +338,7 @@ begin
      --  unit failed to load, to avoid cascaded inconsistencies that can lead
      --  to a compiler crash.
 
-     and then not Fatal_Error (Main_Unit)
+     and then Fatal_Error (Main_Unit) /= Error_Detected
    then
       --  Pragmas that require some semantic activity, such as Interrupt_State,
       --  cannot be processed until the main unit is installed, because they
@@ -388,7 +388,7 @@ begin
 
       --  Following steps are skipped if we had a fatal error during parsing
 
-      if not Fatal_Error (Main_Unit) then
+      if Fatal_Error (Main_Unit) /= Error_Detected then
 
          --  Reset Operating_Mode to Check_Semantics for subunits. We cannot
          --  actually generate code for subunits, so we suppress expansion.
@@ -407,6 +407,13 @@ begin
          Semantics (Cunit (Main_Unit));
 
          --  Cleanup processing after completing main analysis
+
+         --  Turn off unnesting of subprograms mode. This is not right
+         --  with respect to instantiations. What needs to happen is that
+         --  we do the unnesting AFTER the call to Instantiate_Bodies. We
+         --  will take care of that later ???
+
+         Opt.Unnest_Subprogram_Mode := False;
 
          --  Comment needed for ASIS mode test and GNATprove mode test???
 

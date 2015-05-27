@@ -506,7 +506,7 @@ add_capture (tree lambda, tree id, tree orig_init, bool by_reference_p,
       if (by_reference_p)
 	{
 	  type = build_reference_type (type);
-	  if (!real_lvalue_p (initializer))
+	  if (!dependent_type_p (type) && !real_lvalue_p (initializer))
 	    error ("cannot capture %qE by reference", initializer);
 	}
       else
@@ -854,7 +854,7 @@ prepare_op_call (tree fn, int nargs)
 void
 maybe_add_lambda_conv_op (tree type)
 {
-  bool nested = (current_function_decl != NULL_TREE);
+  bool nested = (cfun != NULL);
   bool nested_def = decl_function_context (TYPE_MAIN_DECL (type));
   tree callop = lambda_function (type);
 

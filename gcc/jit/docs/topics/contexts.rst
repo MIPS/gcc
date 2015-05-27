@@ -39,7 +39,7 @@ cleanup of such objects is done for you when the context is released.
 
 .. function:: gcc_jit_context *gcc_jit_context_acquire (void)
 
-  This function acquires a new :c:type:`gcc_jit_object *` instance,
+  This function acquires a new :c:type:`gcc_jit_context *` instance,
   which is independent of any others that may be present within this
   process.
 
@@ -138,7 +138,7 @@ be responsible for all of the rest:
    If no errors occurred, this will be NULL.
 
 If you are wrapping the C API for a higher-level language that supports
-exception-handling, you may instead by interested in the last error that
+exception-handling, you may instead be interested in the last error that
 occurred on the context, so that you can embed this in an exception:
 
 .. function:: const char *\
@@ -146,10 +146,10 @@ occurred on the context, so that you can embed this in an exception:
 
    Returns the last error message that occurred on the context.
 
-   The returned string is valid for the rest of the lifetime of the
-   context.
-
    If no errors occurred, this will be NULL.
+
+   If non-NULL, the returned string is only guaranteed to be valid until
+   the next call to libgccjit relating to this context.
 
 Debugging
 ---------

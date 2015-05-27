@@ -257,6 +257,16 @@ struct cpu_vec_costs {
 
 struct cpu_cost_table;
 
+enum arm_sched_autopref
+  {
+    ARM_SCHED_AUTOPREF_OFF,
+    ARM_SCHED_AUTOPREF_RANK,
+    ARM_SCHED_AUTOPREF_FULL
+  };
+
+/* Dump function ARM_PRINT_TUNE_INFO should be updated whenever this
+   structure is modified.  */
+
 struct tune_params
 {
   bool (*rtx_costs) (rtx, RTX_CODE, RTX_CODE, int *, bool);
@@ -292,7 +302,7 @@ struct tune_params
   /* Bitfield encoding the fuseable pairs of instructions.  */
   unsigned int fuseable_ops;
   /* Depth of scheduling queue to check for L2 autoprefetcher.  */
-  int sched_autopref_queue_depth;
+  enum arm_sched_autopref sched_autopref;
 };
 
 extern const struct tune_params *current_tune;
@@ -353,6 +363,7 @@ extern bool arm_is_constant_pool_ref (rtx);
 #define FL_CRC32      (1 << 25)	      /* ARMv8 CRC32 instructions.  */
 
 #define FL_SMALLMUL   (1 << 26)       /* Small multiply supported.  */
+#define FL_NO_VOLATILE_CE   (1 << 27) /* No volatile memory in IT block.  */
 
 #define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
 #define FL_IWMMXT2    (1 << 30)       /* "Intel Wireless MMX2 technology".  */
@@ -474,6 +485,9 @@ extern int arm_arch_thumb2;
 /* Nonzero if chip supports integer division instruction.  */
 extern int arm_arch_arm_hwdiv;
 extern int arm_arch_thumb_hwdiv;
+
+/* Nonzero if chip disallows volatile memory access in IT block.  */
+extern int arm_arch_no_volatile_ce;
 
 /* Nonzero if we should use Neon to handle 64-bits operations rather
    than core registers.  */

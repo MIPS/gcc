@@ -2,7 +2,7 @@
 ;; file warmelt-first.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2014  Free Software Foundation, Inc.
+    Copyright 2008 - 2015  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -1274,9 +1274,16 @@ create it if not found.}#
 			      "!+! MELT ASSERT FAILURE @%s:%ld: %s\n",
 			      $FILENAME, $LINENO, $MSG);
 	      fflush (NULL);
-	      if (got_assert) 
-  	        fatal_error ("!*!*! RECURSIVE MELT ASSERT FAILURE @%s:%ld: %s", 
-			     $FILENAME, $LINENO, $MSG);
+	      if (got_assert)
+	      
+#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+                  fatal_error (UNKNOWN_LOCATION,
+			       "!*!*! RECURSIVE MELT ASSERT FAILURE @%s:%ld: %s", 
+			       $FILENAME, $LINENO, $MSG);
+#else /* GCC 4.9 */
+                  fatal_error ("!*!*! RECURSIVE MELT ASSERT FAILURE @%s:%ld: %s", 
+			       $FILENAME, $LINENO, $MSG);
+#endif /* GCC 5 or 4.9 */
               got_assert = true;
 	      }#)
   (let ( (:long argcount 0)

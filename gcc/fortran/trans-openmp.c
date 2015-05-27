@@ -189,7 +189,7 @@ gfc_has_alloc_comps (tree type, tree decl)
 	return false;
     }
 
-  while (GFC_DESCRIPTOR_TYPE_P (type) || GFC_ARRAY_TYPE_P (type))
+  if (GFC_DESCRIPTOR_TYPE_P (type) || GFC_ARRAY_TYPE_P (type))
     type = gfc_get_element_type (type);
 
   if (TREE_CODE (type) != RECORD_TYPE)
@@ -1989,7 +1989,10 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		      OMP_CLAUSE_DECL (node3)
 			= gfc_conv_descriptor_data_get (decl);
 		      OMP_CLAUSE_SIZE (node3) = size_int (0);
-		      if (n->sym->attr.pointer)
+
+		      /* We have to check for n->sym->attr.dimension because
+			 of scalar coarrays.  */
+		      if (n->sym->attr.pointer && n->sym->attr.dimension)
 			{
 			  stmtblock_t cond_block;
 			  tree size
@@ -2019,16 +2022,19 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 							     else_b));
 			  OMP_CLAUSE_SIZE (node) = size;
 			}
-		      else
+		      else if (n->sym->attr.dimension)
 			OMP_CLAUSE_SIZE (node)
 			  = gfc_full_array_size (block, decl,
 						 GFC_TYPE_ARRAY_RANK (type));
-		      tree elemsz
-			= TYPE_SIZE_UNIT (gfc_get_element_type (type));
-		      elemsz = fold_convert (gfc_array_index_type, elemsz);
-		      OMP_CLAUSE_SIZE (node)
-			= fold_build2 (MULT_EXPR, gfc_array_index_type,
-				       OMP_CLAUSE_SIZE (node), elemsz);
+		      if (n->sym->attr.dimension)
+			{
+			  tree elemsz
+			    = TYPE_SIZE_UNIT (gfc_get_element_type (type));
+			  elemsz = fold_convert (gfc_array_index_type, elemsz);
+			  OMP_CLAUSE_SIZE (node)
+			    = fold_build2 (MULT_EXPR, gfc_array_index_type,
+					   OMP_CLAUSE_SIZE (node), elemsz);
+			}
 		    }
 		  else
 		    OMP_CLAUSE_DECL (node) = decl;
@@ -3249,6 +3255,19 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 	  inits.safe_push (e);
 	}
 
+      if (dovar_found == 2
+	  && op == EXEC_OMP_SIMD
+	  && collapse == 1
+	  && !simple)
+	{
+	  for (tmp = omp_clauses; tmp; tmp = OMP_CLAUSE_CHAIN (tmp))
+	    if (OMP_CLAUSE_CODE (tmp) == OMP_CLAUSE_LINEAR
+		&& OMP_CLAUSE_DECL (tmp) == dovar)
+	      {
+		OMP_CLAUSE_LINEAR_NO_COPYIN (tmp) = 1;
+		break;
+	      }
+	}
       if (!dovar_found)
 	{
 	  if (op == EXEC_OMP_SIMD)
@@ -3257,6 +3276,7 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 		{
 		  tmp = build_omp_clause (input_location, OMP_CLAUSE_LINEAR);
 		  OMP_CLAUSE_LINEAR_STEP (tmp) = step;
+		  OMP_CLAUSE_LINEAR_NO_COPYIN (tmp) = 1;
 		}
 	      else
 		tmp = build_omp_clause (input_location, OMP_CLAUSE_LASTPRIVATE);
@@ -3324,7 +3344,7 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 	  else if (collapse == 1)
 	    {
 	      tmp = build_omp_clause (input_location, OMP_CLAUSE_LINEAR);
-	      OMP_CLAUSE_LINEAR_STEP (tmp) = step;
+	      OMP_CLAUSE_LINEAR_STEP (tmp) = build_int_cst (type, 1);
 	      OMP_CLAUSE_LINEAR_NO_COPYIN (tmp) = 1;
 	      OMP_CLAUSE_LINEAR_NO_COPYOUT (tmp) = 1;
 	    }
@@ -3438,7 +3458,7 @@ gfc_trans_oacc_combined_directive (gfc_code *code)
     pblock = &block;
   else
     pushlevel ();
-  stmt = gfc_trans_omp_do (code, code->op, pblock, &loop_clauses, NULL);
+  stmt = gfc_trans_omp_do (code, EXEC_OACC_LOOP, pblock, &loop_clauses, NULL);
   if (TREE_CODE (stmt) != BIND_EXPR)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0));
   else
