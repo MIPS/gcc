@@ -1,5 +1,11 @@
 2015-05-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Don't ICE when asking if a function pointer is noexcept.
+	* gcc/cp/except.c (check_noexcept_r): Adjust the type of
+	the function so it always refers to a type.
+
+2015-05-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Fix regression caused by null de-reference.
 	* gcc/cp/decl.c (xref_tag_1): Check that current_template_parms
 	is non-null before accessing constraints.
