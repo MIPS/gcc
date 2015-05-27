@@ -1,3 +1,10 @@
+2015-05-27  Gary Funck  <gary@intrepid.com>
+
+	* config/rs6000/rs6000.c (rs6000_return_in_memory):
+	Generalize check for struct PTS to handle various ABI's.
+	(rs6000_function_arg_boundary): Simplify the check for struct PTS.
+	(rs6000_function_value): Improve formatting.
+
 2015-05-25  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 223642 into gupc branch.
@@ -8,7 +15,7 @@
 
 2015-05-23  Gary Funck  <gary@intrepid.com>
 
-	* config/rs6000/rs6000.c (s6000_function_arg_boundary):
+	* config/rs6000/rs6000.c (rs6000_function_arg_boundary):
 	Disable ABI warning for UPC pointer-to-shared types
 	or the PTS representation type.
 
