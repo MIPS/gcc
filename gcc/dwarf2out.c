@@ -2637,7 +2637,12 @@ typedef struct GTY((chain_circular ("%h.die_sib"), for_user)) die_struct {
 die_node;
 
 /* Set to TRUE while dwarf2out_early_global_decl is running.  */
-static bool early_dwarf_dumping;
+static bool early_dwarf;
+struct set_early_dwarf {
+  bool saved;
+  set_early_dwarf () : saved(early_dwarf) { early_dwarf = true; }
+  ~set_early_dwarf () { early_dwarf = saved; }
+};
 
 /* Evaluate 'expr' while 'c' is set to each child of DIE in order.  */
 #define FOR_EACH_CHILD(die, c, expr) do {	\
@@ -4931,7 +4936,7 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 
   die->die_tag = tag_value;
 
-  if (early_dwarf_dumping)
+  if (early_dwarf)
     die->dumped_early = true;
 
   if (parent_die != NULL)
@@ -4947,7 +4952,7 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 	  /* These are allowed because they're generated while
 	     breaking out COMDAT units late.  */
 	  && tag_value != DW_TAG_type_unit
-	  && !early_dwarf_dumping
+	  && !early_dwarf
 	  /* Allow nested functions to live in limbo because they will
 	     only temporarily live there, as decls_for_scope will fix
 	     them up.  */
@@ -18753,8 +18758,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       expanded_location s = expand_location (DECL_SOURCE_LOCATION (decl));
       struct dwarf_file_data * file_index = lookup_filename (s.file);
       if ((is_cu_die (old_die->die_parent)
-	   /* FIXME: Jason doesn't like this condition, but it fixes
-	      the inconsistency/ICE with the following Fortran test:
+	   /* This condition fixes the inconsistency/ICE with the
+	      following Fortran test (or some derivative thereof) while
+	      building libgfortran:
 
 		 module some_m
 		 contains
@@ -18762,8 +18768,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		      funky = .true.
 		   end function
 		 end module
-
-	      Another alternative is !is_cu_die (context_die).
 	   */
 	   || old_die->die_parent->die_tag == DW_TAG_module
 	   || context_die == NULL)
@@ -18884,17 +18888,11 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
     }
   /* For non DECL_EXTERNALs, if range information is available, fill
      the DIE with it.  */
-  else if (!DECL_EXTERNAL (decl))
+  else if (!DECL_EXTERNAL (decl) && !early_dwarf)
     {
       HOST_WIDE_INT cfa_fb_offset;
 
       struct function *fun = DECL_STRUCT_FUNCTION (decl);
-
-      /* If we have no fun->fde, we have no range information.
-	 Skip over and fill in range information in the second
-	 dwarf pass.  */
-      if (!fun->fde)
-	goto no_fde_continue;
 
       if (!flag_reorder_blocks_and_partition)
 	{
@@ -19052,13 +19050,10 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	add_AT_location_description
 	  (subr_die, DW_AT_static_link,
 	   loc_list_from_tree (fun->static_chain_decl, 2, NULL));
-    no_fde_continue:
-      ;
     }
 
   /* Generate child dies for template paramaters.  */
-  if (debug_info_level > DINFO_LEVEL_TERSE
-      && early_dwarf_dumping)
+  if (early_dwarf && debug_info_level > DINFO_LEVEL_TERSE)
     gen_generic_params_dies (decl);
 
   /* Now output descriptions of the arguments for this function. This gets
@@ -19114,7 +19109,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  if (generic_decl_parm
 	      && lang_hooks.function_parameter_pack_p (generic_decl_parm))
 	    {
-	      if (early_dwarf_dumping)
+	      if (early_dwarf)
 		gen_formal_parameter_pack_die (generic_decl_parm,
 					       parm, subr_die,
 					       &parm);
@@ -19661,7 +19656,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 		  handled the declaration by virtue of early dwarf.
 		  If so, make a new assocation if available, so late
 		  dwarf can find it.  */
-	       || (specialization_p && early_dwarf_dumping)))
+	       || (specialization_p && early_dwarf)))
     equate_decl_number_to_die (decl, var_die);
 
  gen_variable_die_location:
@@ -19677,7 +19672,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	 to add it again.  */
       && (origin_die == NULL || get_AT (origin_die, DW_AT_location) == NULL))
     {
-      if (early_dwarf_dumping)
+      if (early_dwarf)
 	add_pubname (decl_or_origin, var_die);
       else
 	add_location_or_const_value_attribute (var_die, decl_or_origin,
@@ -19889,9 +19884,10 @@ gen_lexical_block_die (tree stmt, dw_die_ref context_die)
     {
       if (stmt_die)
 	{
-	  /* Do nothing.  This must have been early dumped and it
-	     won't even need location information since it's a
-	     DW_AT_inline function.  */
+#ifdef ENABLE_CHECKING
+	  /* This must have been generated early and it won't even
+	     need location information since it's a DW_AT_inline
+	     function.  */
 	  for (dw_die_ref c = context_die; c; c = c->die_parent)
 	    if (c->die_tag == DW_TAG_inlined_subroutine
 		|| c->die_tag == DW_TAG_subprogram)
@@ -19899,6 +19895,7 @@ gen_lexical_block_die (tree stmt, dw_die_ref context_die)
 		gcc_assert (get_AT (c, DW_AT_inline));
 		break;
 	      }
+#endif
 	  return;
 	}
       else
@@ -19930,7 +19927,7 @@ gen_lexical_block_die (tree stmt, dw_die_ref context_die)
 	}
     }
 
-  if (!early_dwarf_dumping)
+  if (!early_dwarf)
     {
       if (call_arg_locations)
 	{
@@ -20445,7 +20442,7 @@ gen_struct_or_union_type_die (tree type, dw_die_ref context_die,
 {
   /* Fill in the size of variable-length fields in late dwarf.  */
   if (TREE_ASM_WRITTEN (type)
-      && !early_dwarf_dumping)
+      && !early_dwarf)
     {
       tree member;
       for (member = TYPE_FIELDS (type); member; member = DECL_CHAIN (member))
@@ -21040,7 +21037,7 @@ process_scope_var (tree stmt, tree decl, tree origin, dw_die_ref context_die)
     add_child_die (context_die, die);
   else if (TREE_CODE (decl_or_origin) == IMPORTED_DECL)
     {
-      if (early_dwarf_dumping)
+      if (early_dwarf)
 	dwarf2out_imported_module_or_decl_1 (decl_or_origin, DECL_NAME (decl_or_origin),
 					     stmt, context_die);
     }
@@ -21587,8 +21584,7 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
 static void
 dwarf2out_early_global_decl (tree decl)
 {
-  bool prev_early_dwarf_dumping = early_dwarf_dumping;
-  early_dwarf_dumping = true;
+  set_early_dwarf s;
 
   /* gen_decl_die() will set DECL_ABSTRACT because
      cgraph_function_possibly_inlined_p() returns true.  This is in
@@ -21623,8 +21619,6 @@ dwarf2out_early_global_decl (tree decl)
     }
  early_decl_exit:
   symtab->global_info_ready = save;
-  early_dwarf_dumping = prev_early_dwarf_dumping;
-  return;
 }
 
 /* Output debug information for global decl DECL.  Called from
@@ -21650,10 +21644,8 @@ dwarf2out_type_decl (tree decl, int local)
 {
   if (!local)
     {
-      bool t = early_dwarf_dumping;
-      early_dwarf_dumping = true;
+      set_early_dwarf s;
       dwarf2out_decl (decl);
-      early_dwarf_dumping = t;
     }
 }
 
@@ -21762,8 +21754,7 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
 
   gcc_assert (decl);
 
-  bool save = early_dwarf_dumping;
-  early_dwarf_dumping = true;
+  set_early_dwarf s;
 
   /* To emit DW_TAG_imported_module or DW_TAG_imported_decl, we need two DIEs.
      We need decl DIE for reference and scope die. First, get DIE for the decl
@@ -21791,8 +21782,6 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
 
   /* OK, now we have DIEs for decl as well as scope. Emit imported die.  */
   dwarf2out_imported_module_or_decl_1 (decl, name, context, scope_die);
-
-  early_dwarf_dumping = save;
 }
 
 /* Output debug information for namelists.   */

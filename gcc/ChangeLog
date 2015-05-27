@@ -5,7 +5,8 @@
 	Remove global_decl hook.
 	Add early_global_decl and late_global_decl hook.
 	Add dumped_early bit to die_struct.
-	New global early_dwarf_dumping.
+	New global early_dwarf.
+	New structure set_early_dwarf.
 	(output_die): Indicate whether a DIE was generated early
 	when generating assembly with -dA.
 	(struct limbo_die_struct): Document created_for field.
@@ -41,7 +42,7 @@
 	dwarf.
 	(dwarf2out_early_global_decl): New.
 	(dwarf2out_late_global_decl): Rename from dwarf2out_global_decl.
-	(dwarf2out_type_decl): Set early_dwarf_dumping while calling
+	(dwarf2out_type_decl): Set early_dwarf while calling
 	dwarf2out_decl.
 	(dwarf2out_decl): Verify that we did not recreate a previously
 	generated DIE.
