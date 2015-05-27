@@ -1,5 +1,9 @@
 2015-05-27  Tom de Vries  <tom@codesourcery.com>
 
+	* c-c++-common/goacc/kernels-loop-n.c: Check for parallelization.
+
+2015-05-27  Tom de Vries  <tom@codesourcery.com>
+
 	* c-c++-common/goacc/kernels-loop-n.c (main): Remove.
 
 2015-05-15  Cesar Philippidis  <cesar@codesourcery.com>

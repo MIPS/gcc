@@ -2273,24 +2273,6 @@ parallelize_loops (bool oacc_kernels_p)
 	  if (loop->inner)
 	    continue;
 
-	  gcc_assert (single_succ_p (region_entry));
-	  basic_block first = single_succ (region_entry);
-
-	  /* TODO: Allow conditional loop entry.  This test triggers when the
-	     loop bound is not known at compile time.  */
-	  if (!single_succ_p (first))
-	    continue;
-
-	  /* TODO: allow more complex loops.  */
-	  if (single_exit (loop) == NULL)
-	    continue;
-
-	  /* TODO: Allow other code than a single loop inside a kernels
-	     region.  */
-	  if (loop->header != single_succ (first)
-	      || single_exit (loop)->dest != region_exit)
-	    continue;
-
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file,
 		     "Trying loop %d with header bb %d in oacc kernels region\n",
