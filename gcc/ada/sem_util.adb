@@ -35,6 +35,7 @@ with Exp_Disp; use Exp_Disp;
 with Exp_Util; use Exp_Util;
 with Fname;    use Fname;
 with Freeze;   use Freeze;
+with Ghost;    use Ghost;
 with Lib;      use Lib;
 with Lib.Xref; use Lib.Xref;
 with Namet.Sp; use Namet.Sp;
@@ -1313,6 +1314,7 @@ package body Sem_Util is
 
          --  Local variables
 
+         GM        : constant Ghost_Mode_Type := Ghost_Mode;
          Loc       : constant Source_Ptr := Sloc (Typ);
          Prag      : constant Node_Id    :=
                        Get_Pragma (Typ, Pragma_Default_Initial_Condition);
@@ -1338,6 +1340,11 @@ package body Sem_Util is
          if Present (Corresponding_Body (Spec_Decl)) then
             return;
          end if;
+
+         --  Ensure that the analysis and expansion produce Ghost nodes if the
+         --  type itself is Ghost.
+
+         Set_Ghost_Mode_From_Entity (Typ);
 
          Param_Id := First_Formal (Proc_Id);
 
@@ -1405,6 +1412,11 @@ package body Sem_Util is
          Set_Corresponding_Spec (Body_Decl, Proc_Id);
 
          Insert_After_And_Analyze (Declaration_Node (Typ), Body_Decl);
+
+         --  Restore the original Ghost mode once analysis and expansion have
+         --  taken place.
+
+         Ghost_Mode := GM;
       end Build_Default_Init_Cond_Procedure_Body;
 
       --  Local variables
@@ -1453,6 +1465,7 @@ package body Sem_Util is
    ---------------------------------------------------
 
    procedure Build_Default_Init_Cond_Procedure_Declaration (Typ : Entity_Id) is
+      GM      : constant Ghost_Mode_Type := Ghost_Mode;
       Loc     : constant Source_Ptr := Sloc (Typ);
       Prag    : constant Node_Id    :=
                   Get_Pragma (Typ, Pragma_Default_Initial_Condition);
@@ -1472,7 +1485,12 @@ package body Sem_Util is
          return;
       end if;
 
-      Proc_Id  :=
+      --  Ensure that the analysis and expansion produce Ghost nodes if the
+      --  type itself is Ghost.
+
+      Set_Ghost_Mode_From_Entity (Typ);
+
+      Proc_Id :=
         Make_Defining_Identifier (Loc,
           Chars => New_External_Name (Chars (Typ), "Default_Init_Cond"));
 
@@ -1481,6 +1499,13 @@ package body Sem_Util is
       Set_Ekind (Proc_Id, E_Procedure);
       Set_Is_Default_Init_Cond_Procedure (Proc_Id);
       Set_Default_Init_Cond_Procedure (Typ, Proc_Id);
+
+      --  Mark the default initial condition procedure explicitly as Ghost
+      --  because it does not come from source.
+
+      if Ghost_Mode > None then
+         Set_Is_Ghost_Entity (Proc_Id);
+      end if;
 
       --  Generate:
       --    procedure <Typ>Default_Init_Cond (Inn : <Typ>);
@@ -1494,6 +1519,11 @@ package body Sem_Util is
                 Make_Parameter_Specification (Loc,
                   Defining_Identifier => Make_Temporary (Loc, 'I'),
                   Parameter_Type      => New_Occurrence_Of (Typ, Loc))))));
+
+      --  Restore the original Ghost mode once analysis and expansion have
+      --  taken place.
+
+      Ghost_Mode := GM;
    end Build_Default_Init_Cond_Procedure_Declaration;
 
    ---------------------------
@@ -2062,6 +2092,7 @@ package body Sem_Util is
    procedure Check_Function_Writable_Actuals (N : Node_Id) is
       Writable_Actuals_List : Elist_Id := No_Elist;
       Identifiers_List      : Elist_Id := No_Elist;
+      Aggr_Error_Node       : Node_Id  := Empty;
       Error_Node            : Node_Id  := Empty;
 
       procedure Collect_Identifiers (N : Node_Id);
@@ -2119,11 +2150,46 @@ package body Sem_Util is
                then
                   return Skip;
 
+               --  For rewritten nodes, continue the traversal in the original
+               --  subtree. Needed to handle aggregates in original expressions
+               --  extracted from the tree by Remove_Side_Effects.
+
+               elsif Is_Rewrite_Substitution (N) then
+                  Collect_Identifiers (Original_Node (N));
+                  return Skip;
+
+               --  For now we skip aggregate discriminants, since they require
+               --  performing the analysis in two phases to identify conflicts:
+               --  first one analyzing discriminants and second one analyzing
+               --  the rest of components (since at run time, discriminants are
+               --  evaluated prior to components): too much computation cost
+               --  to identify a corner case???
+
+               elsif Nkind (Parent (N)) = N_Component_Association
+                  and then Nkind_In (Parent (Parent (N)),
+                                     N_Aggregate,
+                                     N_Extension_Aggregate)
+               then
+                  declare
+                     Choice : constant Node_Id := First (Choices (Parent (N)));
+
+                  begin
+                     if Ekind (Entity (N)) = E_Discriminant then
+                        return Skip;
+
+                     elsif Expression (Parent (N)) = N
+                       and then Nkind (Choice) = N_Identifier
+                       and then Ekind (Entity (Choice)) = E_Discriminant
+                     then
+                        return Skip;
+                     end if;
+                  end;
+
                --  Analyze if N is a writable actual of a function
 
                elsif Nkind (Parent (N)) = N_Function_Call then
                   declare
-                     Call   : constant Node_Id   := Parent (N);
+                     Call   : constant Node_Id := Parent (N);
                      Actual : Node_Id;
                      Formal : Node_Id;
 
@@ -2136,32 +2202,60 @@ package body Sem_Util is
                         return Abandon;
                      end if;
 
-                     Formal := First_Formal (Id);
-                     Actual := First_Actual (Call);
-                     while Present (Actual) and then Present (Formal) loop
-                        if Actual = N then
-                           if Ekind_In (Formal, E_Out_Parameter,
-                                                E_In_Out_Parameter)
-                           then
-                              Is_Writable_Actual := True;
+                     if Ekind_In (Id, E_Function, E_Generic_Function)
+                       and then Has_Out_Or_In_Out_Parameter (Id)
+                     then
+                        Formal := First_Formal (Id);
+                        Actual := First_Actual (Call);
+                        while Present (Actual) and then Present (Formal) loop
+                           if Actual = N then
+                              if Ekind_In (Formal, E_Out_Parameter,
+                                                   E_In_Out_Parameter)
+                              then
+                                 Is_Writable_Actual := True;
+                              end if;
+
+                              exit;
                            end if;
 
-                           exit;
-                        end if;
-
-                        Next_Formal (Formal);
-                        Next_Actual (Actual);
-                     end loop;
+                           Next_Formal (Formal);
+                           Next_Actual (Actual);
+                        end loop;
+                     end if;
                   end;
                end if;
 
                if Is_Writable_Actual then
                   if Contains (Writable_Actuals_List, N) then
-                     Error_Msg_NE
-                       ("value may be affected by call to& "
-                        & "because order of evaluation is arbitrary", N, Id);
-                     Error_Node := N;
-                     return Abandon;
+
+                     --  Report the error on the second occurrence of the
+                     --  identifier. We cannot assume that N is the second
+                     --  occurrence, since Traverse_Func walks through Field2
+                     --  last (see comment in the body of Traverse_Func).
+
+                     declare
+                        Elmt : Elmt_Id;
+
+                     begin
+                        Elmt := First_Elmt (Writable_Actuals_List);
+                        while Present (Elmt)
+                           and then Entity (Node (Elmt)) /= Entity (N)
+                        loop
+                           Next_Elmt (Elmt);
+                        end loop;
+
+                        if Sloc (N) > Sloc (Node (Elmt)) then
+                           Error_Node := N;
+                        else
+                           Error_Node := Node (Elmt);
+                        end if;
+
+                        Error_Msg_NE
+                          ("value may be affected by call to & "
+                           & "because order of evaluation is arbitrary",
+                           Error_Node, Id);
+                        return Abandon;
+                     end;
                   end if;
 
                   Append_New_Elmt (N, To => Writable_Actuals_List);
@@ -2269,11 +2363,12 @@ package body Sem_Util is
    --  Start of processing for Check_Function_Writable_Actuals
 
    begin
-      --  The check only applies to Ada 2012 code, and only to constructs that
-      --  have multiple constituents whose order of evaluation is not specified
-      --  by the language.
+      --  The check only applies to Ada 2012 code on which Check_Actuals has
+      --  been set, and only to constructs that have multiple constituents
+      --  whose order of evaluation is not specified by the language.
 
       if Ada_Version < Ada_2012
+        or else not Check_Actuals (N)
         or else (not (Nkind (N) in N_Op)
                   and then not (Nkind (N) in N_Membership_Test)
                   and then not Nkind_In (N, N_Range,
@@ -2544,6 +2639,73 @@ package body Sem_Util is
                         end if;
                      end if;
                   end;
+
+               --  For an array aggregate, a discrete_choice_list that has
+               --  a nonstatic range is considered as two or more separate
+               --  occurrences of the expression (RM 6.4.1(20/3)).
+
+               elsif Is_Array_Type (Etype (N))
+                 and then Nkind (N) = N_Aggregate
+                 and then Present (Aggregate_Bounds (N))
+                 and then not Compile_Time_Known_Bounds (Etype (N))
+               then
+                  --  Collect identifiers found in the dynamic bounds
+
+                  declare
+                     Count_Components : Natural := 0;
+                     Low, High        : Node_Id;
+
+                  begin
+                     Assoc := First (Component_Associations (N));
+                     while Present (Assoc) loop
+                        Choice := First (Choices (Assoc));
+                        while Present (Choice) loop
+                           if Nkind_In (Choice, N_Range,
+                                                   N_Subtype_Indication)
+                             or else (Is_Entity_Name (Choice)
+                                       and then Is_Type (Entity (Choice)))
+                           then
+                              Get_Index_Bounds (Choice, Low, High);
+
+                              if not Compile_Time_Known_Value (Low) then
+                                 Collect_Identifiers (Low);
+
+                                 if No (Aggr_Error_Node) then
+                                    Aggr_Error_Node := Low;
+                                 end if;
+                              end if;
+
+                              if not Compile_Time_Known_Value (High) then
+                                 Collect_Identifiers (High);
+
+                                 if No (Aggr_Error_Node) then
+                                    Aggr_Error_Node := High;
+                                 end if;
+                              end if;
+
+                           --  The RM rule is violated if there is more than
+                           --  a single choice in a component association.
+
+                           else
+                              Count_Components := Count_Components + 1;
+
+                              if No (Aggr_Error_Node)
+                                and then Count_Components > 1
+                              then
+                                 Aggr_Error_Node := Choice;
+                              end if;
+
+                              if not Compile_Time_Known_Value (Choice) then
+                                 Collect_Identifiers (Choice);
+                              end if;
+                           end if;
+
+                           Next (Choice);
+                        end loop;
+
+                        Next (Assoc);
+                     end loop;
+                  end;
                end if;
 
                --  Handle ancestor part of extension aggregates
@@ -2620,6 +2782,18 @@ package body Sem_Util is
       --  No further action needed if we already reported an error
 
       if Present (Error_Node) then
+         return;
+      end if;
+
+      --  Check violation of RM 6.20/3 in aggregates
+
+      if Present (Aggr_Error_Node)
+        and then Writable_Actuals_List /= No_Elist
+      then
+         Error_Msg_N
+           ("value may be affected by call in other component because they "
+            & "are evaluated in unspecified order",
+            Node (First_Elmt (Writable_Actuals_List)));
          return;
       end if;
 
@@ -5552,6 +5726,25 @@ package body Sem_Util is
       return Parent_Typ;
    end Enclosing_CPP_Parent;
 
+   ---------------------------
+   -- Enclosing_Declaration --
+   ---------------------------
+
+   function Enclosing_Declaration (N : Node_Id) return Node_Id is
+      Decl : Node_Id := N;
+
+   begin
+      while Present (Decl)
+        and then not (Nkind (Decl) in N_Declaration
+                        or else
+                      Nkind (Decl) in N_Later_Decl_Item)
+      loop
+         Decl := Parent (Decl);
+      end loop;
+
+      return Decl;
+   end Enclosing_Declaration;
+
    ----------------------------
    -- Enclosing_Generic_Body --
    ----------------------------
@@ -5653,6 +5846,24 @@ package body Sem_Util is
       return Unit_Entity;
    end Enclosing_Lib_Unit_Entity;
 
+   -----------------------------
+   -- Enclosing_Lib_Unit_Node --
+   -----------------------------
+
+   function Enclosing_Lib_Unit_Node (N : Node_Id) return Node_Id is
+      Encl_Unit : Node_Id;
+
+   begin
+      Encl_Unit := Enclosing_Comp_Unit_Node (N);
+      while Present (Encl_Unit)
+        and then Nkind (Unit (Encl_Unit)) = N_Subunit
+      loop
+         Encl_Unit := Library_Unit (Encl_Unit);
+      end loop;
+
+      return Encl_Unit;
+   end Enclosing_Lib_Unit_Node;
+
    -----------------------
    -- Enclosing_Package --
    -----------------------
@@ -5676,6 +5887,34 @@ package body Sem_Util is
          return Enclosing_Package (Dynamic_Scope);
       end if;
    end Enclosing_Package;
+
+   -------------------------------------
+   -- Enclosing_Package_Or_Subprogram --
+   -------------------------------------
+
+   function Enclosing_Package_Or_Subprogram (E : Entity_Id) return Entity_Id is
+      S : Entity_Id;
+
+   begin
+      S := Scope (E);
+      while Present (S) loop
+         if Is_Package_Or_Generic_Package (S)
+           or else Ekind (S) = E_Package_Body
+         then
+            return S;
+
+         elsif Is_Subprogram_Or_Generic_Subprogram (S)
+           or else Ekind (S) = E_Subprogram_Body
+         then
+            return S;
+
+         else
+            S := Scope (S);
+         end if;
+      end loop;
+
+      return Empty;
+   end Enclosing_Package_Or_Subprogram;
 
    --------------------------
    -- Enclosing_Subprogram --
@@ -7273,6 +7512,11 @@ package body Sem_Util is
       return Cursor;
    end Get_Cursor_Type;
 
+   function Get_Cursor_Type (Typ : Entity_Id) return Entity_Id is
+   begin
+      return Etype (Get_Iterable_Type_Primitive (Typ, Name_First));
+   end Get_Cursor_Type;
+
    -------------------------------
    -- Get_Default_External_Name --
    -------------------------------
@@ -7627,34 +7871,24 @@ package body Sem_Util is
       return R;
    end Get_Renamed_Entity;
 
-   -------------------------
-   -- Get_Subprogram_Body --
-   -------------------------
+   -----------------------
+   -- Get_Return_Object --
+   -----------------------
 
-   function Get_Subprogram_Body (E : Entity_Id) return Node_Id is
+   function Get_Return_Object (N : Node_Id) return Entity_Id is
       Decl : Node_Id;
 
    begin
-      Decl := Unit_Declaration_Node (E);
+      Decl := First (Return_Object_Declarations (N));
+      while Present (Decl) loop
+         exit when Nkind (Decl) = N_Object_Declaration
+           and then Is_Return_Object (Defining_Identifier (Decl));
+         Next (Decl);
+      end loop;
 
-      if Nkind (Decl) = N_Subprogram_Body then
-         return Decl;
-
-      --  The below comment is bad, because it is possible for
-      --  Nkind (Decl) to be an N_Subprogram_Body_Stub ???
-
-      else           --  Nkind (Decl) = N_Subprogram_Declaration
-
-         if Present (Corresponding_Body (Decl)) then
-            return Unit_Declaration_Node (Corresponding_Body (Decl));
-
-         --  Imported subprogram case
-
-         else
-            return Empty;
-         end if;
-      end if;
-   end Get_Subprogram_Body;
+      pragma Assert (Present (Decl));
+      return Defining_Identifier (Decl);
+   end Get_Return_Object;
 
    ---------------------------
    -- Get_Subprogram_Entity --
@@ -7733,6 +7967,33 @@ package body Sem_Util is
 
       return Task_Body_Procedure (Underlying_Type (Root_Type (E)));
    end Get_Task_Body_Procedure;
+
+   -------------------------
+   -- Get_User_Defined_Eq --
+   -------------------------
+
+   function Get_User_Defined_Eq (E : Entity_Id) return Entity_Id is
+      Prim : Elmt_Id;
+      Op   : Entity_Id;
+
+   begin
+      Prim := First_Elmt (Collect_Primitive_Operations (E));
+      while Present (Prim) loop
+         Op := Node (Prim);
+
+         if Chars (Op) = Name_Op_Eq
+           and then Etype (Op) = Standard_Boolean
+           and then Etype (First_Formal (Op)) = E
+           and then Etype (Next_Formal (First_Formal (Op))) = E
+         then
+            return Op;
+         end if;
+
+         Next_Elmt (Prim);
+      end loop;
+
+      return Empty;
+   end Get_User_Defined_Eq;
 
    -----------------------
    -- Has_Access_Values --
@@ -10300,6 +10561,16 @@ package body Sem_Util is
         and then Attribute_Name (N) = Name_Result;
    end Is_Attribute_Result;
 
+   -------------------------
+   -- Is_Attribute_Update --
+   -------------------------
+
+   function Is_Attribute_Update (N : Node_Id) return Boolean is
+   begin
+      return Nkind (N) = N_Attribute_Reference
+        and then Attribute_Name (N) = Name_Update;
+   end Is_Attribute_Update;
+
    ------------------------------------
    -- Is_Body_Or_Package_Declaration --
    ------------------------------------
@@ -10767,6 +11038,46 @@ package body Sem_Util is
         and then Is_Imported (Entity (Name (N)));
    end Is_CPP_Constructor_Call;
 
+   -------------------------
+   -- Is_Current_Instance --
+   -------------------------
+
+   function Is_Current_Instance (N : Node_Id) return Boolean is
+      Typ : constant Entity_Id := Entity (N);
+      P   : Node_Id;
+
+   begin
+      --  Simplest case: entity is a concurrent type and we are currently
+      --  inside the body. This will eventually be expanded into a
+      --  call to Self (for tasks) or _object (for protected objects).
+
+      if Is_Concurrent_Type (Typ) and then In_Open_Scopes (Typ) then
+         return True;
+
+      else
+         --  Check whether the context is a (sub)type declaration for the
+         --  type entity.
+
+         P := Parent (N);
+         while Present (P) loop
+            if Nkind_In (P, N_Full_Type_Declaration,
+                            N_Private_Type_Declaration,
+                            N_Subtype_Declaration)
+              and then Comes_From_Source (P)
+              and then Defining_Entity (P) = Typ
+            then
+               return True;
+            end if;
+
+            P := Parent (P);
+         end loop;
+      end if;
+
+      --  In any other context this is not a current occurrence
+
+      return False;
+   end Is_Current_Instance;
+
    --------------------
    -- Is_Declaration --
    --------------------
@@ -10980,7 +11291,7 @@ package body Sem_Util is
             --  Ada 2005 (AI-363): In Ada 2005 an aliased object can be mutable
 
             if not Is_Constrained (Prefix_Type)
-              and then (not Is_Indefinite_Subtype (Prefix_Type)
+              and then (Is_Definite_Subtype (Prefix_Type)
                          or else
                            (Is_Generic_Type (Prefix_Type)
                              and then Ekind (Current_Scope) = E_Generic_Package
@@ -11097,6 +11408,20 @@ package body Sem_Util is
          end loop;
       end if;
    end Is_Descendent_Of;
+
+   ---------------------------------------------
+   -- Is_Double_Precision_Floating_Point_Type --
+   ---------------------------------------------
+
+   function Is_Double_Precision_Floating_Point_Type
+     (E : Entity_Id) return Boolean is
+   begin
+      return Is_Floating_Point_Type (E)
+        and then Machine_Radix_Value (E) = Uint_2
+        and then Machine_Mantissa_Value (E) = UI_From_Int (53)
+        and then Machine_Emax_Value (E) = Uint_2 ** Uint_10
+        and then Machine_Emin_Value (E) = Uint_3 - (Uint_2 ** Uint_10);
+   end Is_Double_Precision_Floating_Point_Type;
 
    -----------------------------
    -- Is_Effectively_Volatile --
@@ -12487,6 +12812,27 @@ package body Sem_Util is
       return False;
    end Is_Renamed_Entry;
 
+   -----------------------------
+   -- Is_Renaming_Declaration --
+   -----------------------------
+
+   function Is_Renaming_Declaration (N : Node_Id) return Boolean is
+   begin
+      case Nkind (N) is
+         when N_Exception_Renaming_Declaration         |
+              N_Generic_Function_Renaming_Declaration  |
+              N_Generic_Package_Renaming_Declaration   |
+              N_Generic_Procedure_Renaming_Declaration |
+              N_Object_Renaming_Declaration            |
+              N_Package_Renaming_Declaration           |
+              N_Subprogram_Renaming_Declaration        =>
+            return True;
+
+         when others                                   =>
+            return False;
+      end case;
+   end Is_Renaming_Declaration;
+
    ----------------------------
    -- Is_Reversible_Iterator --
    ----------------------------
@@ -12558,6 +12904,20 @@ package body Sem_Util is
          end;
       end if;
    end Is_Selector_Name;
+
+   ---------------------------------------------
+   -- Is_Single_Precision_Floating_Point_Type --
+   ---------------------------------------------
+
+   function Is_Single_Precision_Floating_Point_Type
+     (E : Entity_Id) return Boolean is
+   begin
+      return Is_Floating_Point_Type (E)
+        and then Machine_Radix_Value (E) = Uint_2
+        and then Machine_Mantissa_Value (E) = Uint_24
+        and then Machine_Emax_Value (E) = Uint_2 ** Uint_7
+        and then Machine_Emin_Value (E) = Uint_3 - (Uint_2 ** Uint_7);
+   end Is_Single_Precision_Floating_Point_Type;
 
    -------------------------------------
    -- Is_SPARK_05_Initialization_Expr --
@@ -15940,28 +16300,31 @@ package body Sem_Util is
 
    function Policy_In_Effect (Policy : Name_Id) return Name_Id is
       function Policy_In_List (List : Node_Id) return Name_Id;
-      --  Determine the the mode of a policy in a N_Pragma list
+      --  Determine the mode of a policy in a N_Pragma list
 
       --------------------
       -- Policy_In_List --
       --------------------
 
       function Policy_In_List (List : Node_Id) return Name_Id is
-         Arg  : Node_Id;
-         Expr : Node_Id;
+         Arg1 : Node_Id;
+         Arg2 : Node_Id;
          Prag : Node_Id;
 
       begin
          Prag := List;
          while Present (Prag) loop
-            Arg  := First (Pragma_Argument_Associations (Prag));
-            Expr := Get_Pragma_Arg (Arg);
+            Arg1 := First (Pragma_Argument_Associations (Prag));
+            Arg2 := Next (Arg1);
 
-            --  The current Check_Policy pragma matches the requested policy,
-            --  return the second argument which denotes the policy identifier.
+            Arg1 := Get_Pragma_Arg (Arg1);
+            Arg2 := Get_Pragma_Arg (Arg2);
 
-            if Chars (Expr) = Policy then
-               return Chars (Get_Pragma_Arg (Next (Arg)));
+            --  The current Check_Policy pragma matches the requested policy or
+            --  appears in the single argument form (Assertion, policy_id).
+
+            if Nam_In (Chars (Arg1), Name_Assertion, Policy) then
+               return Chars (Arg2);
             end if;
 
             Prag := Next_Pragma (Prag);
@@ -16619,7 +16982,7 @@ package body Sem_Util is
       --  for declaring an object. It might be possible to relax this in the
       --  future, e.g. by declaring the maximum possible space for the type.
 
-      elsif Is_Indefinite_Subtype (Typ) then
+      elsif not Is_Definite_Subtype (Typ) then
          return True;
 
       --  Functions returning tagged types may dispatch on result so their
@@ -16639,13 +17002,20 @@ package body Sem_Util is
          begin
             Comp := First_Entity (Typ);
             while Present (Comp) loop
-               if Ekind (Comp) = E_Component
-                  and then Requires_Transient_Scope (Etype (Comp))
-               then
-                  return True;
-               else
-                  Next_Entity (Comp);
+               if Ekind (Comp) = E_Component then
+                  --  ???It's not clear we need a full recursive call to
+                  --  Requires_Transient_Scope here. Note that the following
+                  --  can't happen.
+
+                  pragma Assert (Is_Definite_Subtype (Etype (Comp)));
+                  pragma Assert (not Has_Controlled_Component (Etype (Comp)));
+
+                  if Requires_Transient_Scope (Etype (Comp)) then
+                     return True;
+                  end if;
                end if;
+
+               Next_Entity (Comp);
             end loop;
          end;
 
@@ -16676,6 +17046,7 @@ package body Sem_Util is
       --  All other cases do not require a transient scope
 
       else
+         pragma Assert (Is_Protected_Type (Typ) or else Is_Task_Type (Typ));
          return False;
       end if;
    end Requires_Transient_Scope;

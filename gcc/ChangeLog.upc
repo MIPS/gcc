@@ -1,5 +1,9 @@
 2015-05-27  Gary Funck  <gary@intrepid.com>
 
+	Merge trunk version 223766 into gupc branch.
+
+2015-05-27  Gary Funck  <gary@intrepid.com>
+
 	* config/rs6000/rs6000.c (rs6000_return_in_memory):
 	Generalize check for struct PTS to handle various ABI's.
 	(rs6000_function_arg_boundary): Simplify the check for struct PTS.

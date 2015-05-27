@@ -1,3 +1,77 @@
+2015-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66272
+	Revert parts of
+	2014-08-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62031
+	* gcc.dg/torture/pr66272.c: New testcase.
+
+2015-05-27  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/slp-reduc-7.c: New testcase.
+
+2015-05-27  Honggyu Kim  <hong.gyu.kim@lge.com>
+
+	PR target/65358
+	* gcc.dg/pr65358.c: New test. 
+
+2015-05-27  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/65548
+	* gfortran.dg/allocate_with_source_5.f90: Correct errorneous
+	semantic.
+	* gfortran.dg/allocate_with_source_6.f90: New test.
+
+2015-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/atomic7_1.adb: New test.
+	* gnat.dg/atomic7_2.adb: Likewise.
+	* gnat.dg/atomic7_pkg1.ads: New helper.
+	* gnat.dg/atomic7_pkg2.ad[sb]: Likewise.
+
+2015-05-26  Michael Matz  <matz@suse.de>
+
+	PR middle-end/66251
+	* gcc.dg/vect/pr66251.c: New test.
+
+2015-05-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66142
+	* gcc.dg/tree-ssa/ssa-fre-44.c: New testcase.
+
+2015-05-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/66082
+	* gfortran.dg/allocatable_scalar_13.f90: New test
+
+2015-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/warn11.adb: New test.
+	* gnat.dg/specs/alignment2.ads: Add dg-warning directive.
+
+2015-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/vfa1_1.adb: New test.
+	* gnat.dg/vfa1_2.adb: Likewise.
+	* gnat.dg/vfa1_3.adb: Likewise.
+	* gnat.dg/vfa1_4.adb: Likewise.
+	* gnat.dg/vfa1_pkg.ads: New helper.
+
+2015-05-25  Alexander Monakov  <amonakov@ispras.ru>
+
+	* gcc.target/i386/pr66232-1.c: Adjust scan pattern.
+	* gcc.target/i386/pr66232-3.c: Likewise.
+
+2015-05-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66274
+	* gcc.target/i386/pr66274.c: New test.
+
+2015-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/renaming6.ad[sb]: New test.
+
 2015-05-25  Andreas Tobler  <andreast@gcc.gnu.org>
 
 	* gcc.target/i386/pr64317.c: Use 'dg-require-effective-target ia32'
