@@ -5300,9 +5300,9 @@ meltgc_send (melt_ptr_t recv_p,
     };
 #if MELT_HAVE_DEBUG
   char curloc[80];
+  curloc[0] = (char)0;
   if (melt_flag_debug)
     {
-      curloc[0] = (char)0;
       const char* selname = melt_string_str (obj_selv->obj_vartab[MELTFIELD_NAMED_NAME]);
       if (selname && selname[0])
         MELT_LOCATION_HERE_PRINTF (curloc, "sending %s", selname);
@@ -5873,6 +5873,7 @@ melt_compile_source (const char *srcbase, const char *binbase, const char*workdi
   const char* mycwd = NULL;
 #if MELT_HAVE_DEBUG
   char curlocbuf[250];
+  curlocbuf[0] = 0;
 #endif
   /* we want a MELT frame for MELT_LOCATION here */
   MELT_ENTEREMPTYFRAME(NULL);
@@ -6858,6 +6859,7 @@ meltgc_readsexpr (struct melt_reading_st *rd, int endc)
   location_t loc = 0;
 #if MELT_HAVE_DEBUG
   char curlocbuf[100];
+  curlocbuf[0] = 0;
 #endif
   MELT_ENTERFRAME (3, NULL);
 #define sexprv  meltfram__.mcfr_varptr[0]
@@ -7234,6 +7236,7 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
   location_t loc = 0;
 #if MELT_HAVE_DEBUG
   char curlocbuf[100];
+  curlocbuf[0] = 0;
 #endif
   MELT_ENTERFRAME (8, NULL);
 #define readv    meltfram__.mcfr_varptr[0]
@@ -7650,6 +7653,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
   location_t loc = 0;
 #if MELT_HAVE_DEBUG
   char curlocbuf[120];
+  curlocbuf[0] = 0;
 #endif
   MELT_ENTERFRAME (4, NULL);
 #define readv   meltfram__.mcfr_varptr[0]

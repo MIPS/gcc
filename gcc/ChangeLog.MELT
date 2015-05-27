@@ -1,5 +1,13 @@
 
 2015-05-27   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{ensure that MELT can be compiled with --enable-checks=release}}
+	* melt-runtime.h (MELT_LOCATION_HERE,MELT_LOCATION_HERE_PRINTF):
+	Are no-op when MELT_HAVE_DEBUG is false.
+	* melt-runtime.cc (meltgc_send, melt_compile_source)
+	(meltgc_readsexpr, meltgc_readmacrostringsequence)
+	(meltgc_readval): Clear the first byte of curlocbuf...
+
+2015-05-27   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate all.
 
 2015-05-27   Basile Starynkevitch  <basile@starynkevitch.net>

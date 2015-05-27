@@ -3420,6 +3420,7 @@ melt_curframdepth (void)
 #define MELT_LOCATION_HERE_AT(FIL,LIN,MSG) do {		\
   if (MELT_HAVE_DEBUG) {				\
     static char locbuf_##LIN[92];			\
+    locbuf_##LIN[0] = 0;				\
     if (!MELT_UNLIKELY(locbuf_##LIN[0]))		\
       snprintf(locbuf_##LIN, sizeof(locbuf_##LIN),	\
 	       "%s:%d <%s>",				\
@@ -3434,10 +3435,16 @@ melt_curframdepth (void)
   MELT_LOCATION_HERE_AT(FIL,LIN,MSG)
 #define MELT_LOCATION_HERE_MACRO(MSG)  \
   MELT_LOCATION_HERE_AT_MACRO(__FILE__,__LINE__,MSG)
+
+#if MELT_HAVE_DEBUG
 #define MELT_LOCATION_HERE(MSG)  MELT_LOCATION_HERE_MACRO(MSG)
+#else
+#define MELT_LOCATION_HERE(MSG) do{}while(0)
+#endif
 
 /* SBUF should be a local array of char */
 #define MELT_LOCATION_HERE_PRINTF_AT(SBUF,FIL,LIN,FMT,...) do {	\
+  SBUF[0] = 0;							\
   if (MELT_HAVE_DEBUG) {					\
     memset (SBUF, 0, sizeof(SBUF));				\
     snprintf (SBUF, sizeof(SBUF),				\
@@ -3446,15 +3453,20 @@ melt_curframdepth (void)
 	      (int)LIN, __VA_ARGS__);				\
     meltfram__.mcfr_flocs = SBUF;				\
   }} while(0)
+
 /* We need several indirections of macro to have the ##LIN trick above
    working!  */
 #define MELT_LOCATION_HERE_PRINTF_AT_MACRO(SBUF,FIL,LIN,FMT,...)	\
   MELT_LOCATION_HERE_PRINTF_AT(SBUF,FIL,LIN,FMT,__VA_ARGS__)
 #define MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT,...)			\
   MELT_LOCATION_HERE_PRINTF_AT_MACRO(SBUF,__FILE__,__LINE__,FMT,__VA_ARGS__)
+
+#if MELT_HAVE_DEBUG
 #define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...)		\
   MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT, __VA_ARGS__)
-
+#else
+#define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...) do{}while(0)
+#endif /*end MELT_HAVE_DEBUG*/
 
 ////////////////////////////////////////////////////////////////
 
