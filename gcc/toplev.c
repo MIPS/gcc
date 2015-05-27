@@ -1593,11 +1593,12 @@ process_options (void)
     warning (0, "var-tracking-assignments changes selective scheduling");
 
   if (flag_tree_cselim == AUTODETECT_VALUE)
-#ifdef HAVE_conditional_move
-    flag_tree_cselim = 1;
-#else
-    flag_tree_cselim = 0;
-#endif
+    {
+      if (HAVE_conditional_move)
+	flag_tree_cselim = 1;
+      else
+	flag_tree_cselim = 0;
+    }
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
@@ -1838,6 +1839,8 @@ static int rtl_initialized;
 void
 initialize_rtl (void)
 {
+  auto_timevar tv (TV_INITIALIZE_RTL);
+
   /* Initialization done just once per compilation, but delayed
      till code generation.  */
   if (!rtl_initialized)
@@ -1977,6 +1980,7 @@ dump_memory_report (bool final)
   dump_rtx_statistics ();
   dump_alloc_pool_statistics ();
   dump_bitmap_statistics ();
+  dump_hash_table_loc_statistics ();
   dump_vec_loc_statistics ();
   dump_ggc_loc_statistics (final);
   dump_alias_stats (stderr);
