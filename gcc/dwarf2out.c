@@ -19081,7 +19081,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
     {
       /* Generate DIEs to represent all known formal parameters.  */
       tree parm = DECL_ARGUMENTS (decl);
-      tree generic_decl = lang_hooks.decls.get_generic_function_decl (decl);
+      tree generic_decl = early_dwarf
+	? lang_hooks.decls.get_generic_function_decl (decl) : NULL;
       tree generic_decl_parm = generic_decl
 				? DECL_ARGUMENTS (generic_decl)
 				: NULL;
@@ -19108,14 +19109,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	{
 	  if (generic_decl_parm
 	      && lang_hooks.function_parameter_pack_p (generic_decl_parm))
-	    {
-	      if (early_dwarf)
-		gen_formal_parameter_pack_die (generic_decl_parm,
-					       parm, subr_die,
-					       &parm);
-	      else if (parm)
-		parm = DECL_CHAIN (parm);
-	    }
+	    gen_formal_parameter_pack_die (generic_decl_parm,
+					   parm, subr_die,
+					   &parm);
 	  else if (parm && !POINTER_BOUNDS_P (parm))
 	    {
 	      dw_die_ref parm_die = gen_decl_die (parm, NULL, subr_die);
@@ -25457,12 +25453,7 @@ dwarf2out_early_finish (void)
   for (node = deferred_asm_name; node; node = node->next)
     {
       tree decl = node->created_for;
-      /* When generating LTO bytecode we can not generate new assembler
-         names at this point and all important decls got theirs via
-	 free-lang-data.  */
-      if (((!flag_generate_lto && !flag_generate_offload)
-	   || DECL_ASSEMBLER_NAME_SET_P (decl))
-	  && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
+      if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
 	  /* A missing DECL_ASSEMBLER_NAME can be a constant DIE that
 	     ended up in in deferred_asm_name before we knew it was
 	     constant and never written to disk.  */
