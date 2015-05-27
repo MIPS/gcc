@@ -1760,9 +1760,9 @@ rs6000_cpu_name_lookup (const char *name)
 }
 
 
-/* Helper function to separate IEEE 128-bit floating point from other scalar
-   float modes, since IEEE 128-bit is either passed by reference (V4) or in a
-   vector register (VSX).  */
+/* Helper function to separate IEEE 128-bit floating point (using
+   -mfloat128-software) that uses a single 128-bit vector register from other
+   scalar float modes that use floating point registers in 64-bit chunks.  */
 
 static inline bool
 scalar_float_not_ieee128_p (machine_mode mode)
@@ -1770,7 +1770,7 @@ scalar_float_not_ieee128_p (machine_mode mode)
   if (!SCALAR_FLOAT_MODE_P (mode))
     return false;
 
-  if (IEEE_128BIT_P (mode))
+  if (FLOAT128_VECTOR_P (mode))
     return false;
 
   return true;
