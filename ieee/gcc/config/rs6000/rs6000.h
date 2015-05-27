@@ -416,19 +416,20 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    128-bit.  */
 #define IEEE_128BIT_P(MODE)						\
   (((MODE) == KFmode)							\
-   || (((MODE) == TFmode) && TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128))
+   || (((MODE) == TFmode) && TARGET_IEEEQUAD))
 
 #define IBM_128BIT_P(MODE)						\
-  ((((MODE) == TFmode) && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)	\
-   || ((MODE) == IFmode))
+  (((MODE) == IFmode)							\
+   || (((MODE) == TFmode) && !TARGET_IEEEQUAD))
 
 /* Helper macros to say whether a 128-bit floating point type can go in a
    single vector register, or whether it needs paired scalar values.  */
 #define FLOAT128_VECTOR_P(MODE) (TARGET_FLOAT128 && IEEE_128BIT_P (MODE))
 
 #define FLOAT128_2REG_P(MODE)						\
-  (SCALAR_FLOAT_MODE_P (MODE) && GET_MODE_SIZE (MODE) == 16		\
-   && !FLOAT128_VECTOR_P (MODE))
+  ((MODE) == TDmode							\
+   || (MODE) == IFmode							\
+   || ((MODE) == TFmode && (!TARGET_FLOAT128 || !TARGET_IEEEQUAD)))
 
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];

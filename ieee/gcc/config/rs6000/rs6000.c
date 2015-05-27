@@ -1770,7 +1770,7 @@ scalar_float_not_vector_p (machine_mode mode)
     return false;
 
   if (GET_MODE_SIZE (mode) == 16
-      && HARD_REGNO_NREGS (mode, FIRST_ALTIVEC_REGNO) == 1)
+      && HARD_REGNO_NREGS (FIRST_ALTIVEC_REGNO, mode) == 1)
     return false;
 
   return true;
@@ -1796,8 +1796,7 @@ rs6000_hard_regno_nregs_internal (int regno, machine_mode mode)
   /* 128-bit floating point usually takes 2 registers, unless it is IEEE
      128-bit floating point that can go in vector registers.  */
   if (FP_REGNO_P (regno))
-    reg_size = ((VECTOR_MEM_VSX_P (mode) && GET_MODE_SIZE (mode) == 16
-		 && HARD_REGNO_NREGS (mode, FIRST_ALTIVEC_REGNO) == 1)
+    reg_size = ((VECTOR_MEM_VSX_P (mode) && !FLOAT128_2REG_P (mode))
 		? UNITS_PER_VSX_WORD
 		: UNITS_PER_FP_WORD);
 
