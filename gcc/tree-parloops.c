@@ -2338,6 +2338,9 @@ gen_parallel_loop (struct loop *loop,
      iterations of the loop by one.  */
   if (!try_transform_to_exit_first_loop_alt (loop, reduction_list, nit))
     {
+      if (oacc_kernels_p)
+	n_threads = 1;
+
       /* Fall back on the method that handles more cases, but duplicates the
 	 loop body: move the exit condition of LOOP to the beginning of its
 	 header, and duplicate the part of the last iteration that gets disabled
