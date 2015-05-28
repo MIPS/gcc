@@ -16300,7 +16300,7 @@ package body Sem_Util is
 
    function Policy_In_Effect (Policy : Name_Id) return Name_Id is
       function Policy_In_List (List : Node_Id) return Name_Id;
-      --  Determine the the mode of a policy in a N_Pragma list
+      --  Determine the mode of a policy in a N_Pragma list
 
       --------------------
       -- Policy_In_List --
@@ -17704,7 +17704,22 @@ package body Sem_Util is
             Set_Debug_Info_Needed_If_Not_Set (Directly_Designated_Type (T));
 
          elsif Is_Private_Type (T) then
-            Set_Debug_Info_Needed_If_Not_Set (Full_View (T));
+            declare
+               FV : constant Entity_Id := Full_View (T);
+
+            begin
+               Set_Debug_Info_Needed_If_Not_Set (FV);
+
+               --  If the full view is itself a derived private type, we need
+               --  debug information on its underlying type.
+
+               if Present (FV)
+                 and then Is_Private_Type (FV)
+                 and then Present (Underlying_Full_View (FV))
+               then
+                  Set_Needs_Debug_Info (Underlying_Full_View (FV));
+               end if;
+            end;
 
          elsif Is_Protected_Type (T) then
             Set_Debug_Info_Needed_If_Not_Set (Corresponding_Record_Type (T));
@@ -19012,6 +19027,15 @@ package body Sem_Util is
            and then Covers (Full_View (Expected_Type), Etype (Expr))
          then
             return;
+
+         --  Conversely, type of expression may be the private one.
+
+         elsif Is_Private_Type (Base_Type (Etype (Expr)))
+           and then Full_View (Base_Type (Etype (Expr))) =
+             Expected_Type
+         then
+            return;
+
          end if;
       end if;
 
