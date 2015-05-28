@@ -1968,10 +1968,10 @@ package body Sem_Ch4 is
                end if;
 
                --  An explicit dereference is a legal occurrence of an
-               --  incomplete type imported through a limited_with clause,
-               --  if the full view is visible, or if we are within an
-               --  instance body, where the enclosing body has a regular
-               --  with_clause on the unit.
+               --  incomplete type imported through a limited_with clause, if
+               --  the full view is visible, or if we are within an instance
+               --  body, where the enclosing body has a regular with_clause
+               --  on the unit.
 
                if From_Limited_With (DT)
                  and then not From_Limited_With (Scope (DT))
@@ -2196,8 +2196,8 @@ package body Sem_Ch4 is
             Get_First_Interp (Then_Expr, I, It);
             while Present (It.Nam) loop
 
-               --  Add possible intepretation of Then_Expr if no Else_Expr,
-               --  or Else_Expr is present and has a compatible type.
+               --  Add possible intepretation of Then_Expr if no Else_Expr, or
+               --  Else_Expr is present and has a compatible type.
 
                if No (Else_Expr)
                  or else Has_Compatible_Type (Else_Expr, It.Typ)
@@ -2224,8 +2224,8 @@ package body Sem_Ch4 is
       U_N   : Entity_Id;
 
       procedure Process_Function_Call;
-      --  Prefix in indexed component form is an overloadable entity,
-      --  so the node is a function call. Reformat it as such.
+      --  Prefix in indexed component form is an overloadable entity, so the
+      --  node is a function call. Reformat it as such.
 
       procedure Process_Indexed_Component;
       --  Prefix in indexed component form is actually an indexed component.
@@ -2263,8 +2263,8 @@ package body Sem_Ch4 is
 
             --  Move to next actual. Note that we use Next, not Next_Actual
             --  here. The reason for this is a bit subtle. If a function call
-            --  includes named associations, the parser recognizes the node as
-            --  a call, and it is analyzed as such. If all associations are
+            --  includes named associations, the parser recognizes the node
+            --  as a call, and it is analyzed as such. If all associations are
             --  positional, the parser builds an indexed_component node, and
             --  it is only after analysis of the prefix that the construct
             --  is recognized as a call, in which case Process_Function_Call
@@ -2398,7 +2398,7 @@ package body Sem_Ch4 is
                elsif Is_Entity_Name (P)
                  and then Etype (P) = Standard_Void_Type
                then
-                  Error_Msg_NE ("incorrect use of&", P, Entity (P));
+                  Error_Msg_NE ("incorrect use of &", P, Entity (P));
 
                else
                   Error_Msg_N ("array type required in indexed component", P);
@@ -2447,10 +2447,10 @@ package body Sem_Ch4 is
 
          Exp := First (Exprs);
 
-         --  If one index is present, and it is a subtype name, then the
-         --  node denotes a slice (note that the case of an explicit range
-         --  for a slice was already built as an N_Slice node in the first
-         --  place, so that case is not handled here).
+         --  If one index is present, and it is a subtype name, then the node
+         --  denotes a slice (note that the case of an explicit range for a
+         --  slice was already built as an N_Slice node in the first place,
+         --  so that case is not handled here).
 
          --  We use a replace rather than a rewrite here because this is one
          --  of the cases in which the tree built by the parser is plain wrong.
@@ -3880,7 +3880,7 @@ package body Sem_Ch4 is
       --    for some X => (if P then Q [else True])
 
       --  any value for X that makes P False results in the if expression being
-      --  trivially True, and so also results in the the quantified expression
+      --  trivially True, and so also results in the quantified expression
       --  being trivially True.
 
       if Warn_On_Suspicious_Contract
@@ -4102,7 +4102,8 @@ package body Sem_Ch4 is
       --  searches have failed. If a match is found, the Etype of both N and
       --  Sel are set from this component, and the entity of Sel is set to
       --  reference this component. If no match is found, Entity (Sel) remains
-      --  unset.
+      --  unset. For a derived type that is an actual of the instance, the
+      --  desired component may be found in any ancestor.
 
       function Has_Mode_Conformant_Spec (Comp : Entity_Id) return Boolean;
       --  It is known that the parent of N denotes a subprogram call. Comp
@@ -4117,18 +4118,36 @@ package body Sem_Ch4 is
 
       procedure Find_Component_In_Instance (Rec : Entity_Id) is
          Comp : Entity_Id;
+         Typ  : Entity_Id;
 
       begin
-         Comp := First_Component (Rec);
-         while Present (Comp) loop
-            if Chars (Comp) = Chars (Sel) then
-               Set_Entity_With_Checks (Sel, Comp);
-               Set_Etype (Sel, Etype (Comp));
-               Set_Etype (N,   Etype (Comp));
+         Typ := Rec;
+         while Present (Typ) loop
+            Comp := First_Component (Typ);
+            while Present (Comp) loop
+               if Chars (Comp) = Chars (Sel) then
+                  Set_Entity_With_Checks (Sel, Comp);
+                  Set_Etype (Sel, Etype (Comp));
+                  Set_Etype (N,   Etype (Comp));
+                  return;
+               end if;
+
+               Next_Component (Comp);
+            end loop;
+
+            --  If not found, the component may be declared in the parent
+            --  type or its full view, if any.
+
+            if Is_Derived_Type (Typ) then
+               Typ := Etype (Typ);
+
+               if Is_Private_Type (Typ) then
+                  Typ := Full_View (Typ);
+               end if;
+
+            else
                return;
             end if;
-
-            Next_Component (Comp);
          end loop;
 
          --  If we fall through, no match, so no changes made
@@ -4788,6 +4807,18 @@ package body Sem_Ch4 is
                        or else Par = Etype (Par);
                      Par := Etype (Par);
                   end loop;
+
+               --  Another special case: the type is an extension of a private
+               --  type T, is an actual in an instance, and we are in the body
+               --  of the instance, so the generic body had a full view of the
+               --  type declaration for T or of some ancestor that defines the
+               --  component in question.
+
+               elsif Is_Derived_Type (Type_To_Use)
+                 and then Used_As_Generic_Actual (Type_To_Use)
+                 and then In_Instance_Body
+               then
+                  Find_Component_In_Instance (Parent_Subtype (Type_To_Use));
 
                --  In ASIS mode the generic parent type may be absent. Examine
                --  the parent type directly for a component that may have been
