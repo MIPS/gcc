@@ -5760,6 +5760,7 @@ gfc_trans_allocate (gfc_code * code)
 
 	      if (dataref && dataref->u.c.component->as)
 		{
+#if 1
 		  int dim = 0;
 		  gfc_expr *temp;
 		  gfc_ref *ref = dataref->next;
@@ -5769,7 +5770,7 @@ gfc_trans_allocate (gfc_code * code)
 		      /* Take the array dimensions from the
 			 source=-expression.  */
 		      gfc_array_ref *source_ref =
-			  gfc_find_array_ref (code->expr3);
+			  gfc_find_array_ref (e3rhs ? e3rhs : code->expr3);
 		      if (source_ref->type == AR_FULL)
 			{
 			  /* For full array refs copy the bounds.  */
@@ -5832,6 +5833,13 @@ gfc_trans_allocate (gfc_code * code)
 					  temp);
 			}
 		    }
+#else
+		  gfc_free_ref_list (dataref->next);
+		  dataref->next = NULL;
+		  gfc_add_full_array_ref (last_arg->expr,
+				gfc_get_full_arrayspec_from_expr (e3rhs ? e3rhs
+								: code->expr3));
+#endif
 		}
 	      if (rhs->ts.type == BT_CLASS)
 		{
