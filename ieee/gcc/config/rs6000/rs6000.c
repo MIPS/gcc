@@ -1760,9 +1760,9 @@ rs6000_cpu_name_lookup (const char *name)
 }
 
 
-/* Helper function to separate IEEE 128-bit floating point (using
-   -mfloat128-software) that uses a single 128-bit vector register from other
-   scalar float modes that use floating point registers in 64-bit chunks.  */
+/* Helper function to separate IEEE 128-bit floating point from other scalar
+   float modes, since IEEE 128-bit is either passed by reference (V4) or in a
+   vector register (VSX).  */
 
 static inline bool
 scalar_float_not_ieee128_p (machine_mode mode)
@@ -1770,7 +1770,7 @@ scalar_float_not_ieee128_p (machine_mode mode)
   if (!SCALAR_FLOAT_MODE_P (mode))
     return false;
 
-  if (FLOAT128_VECTOR_P (mode))
+  if (IEEE_128BIT_P (mode))
     return false;
 
   return true;
@@ -2951,12 +2951,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[SFmode].reload_store    = CODE_FOR_reload_sf_di_store;
 	  reg_addr[SFmode].reload_load     = CODE_FOR_reload_sf_di_load;
 
-	  if (TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
-	    {
-	      reg_addr[TFmode].reload_store = CODE_FOR_reload_kf_di_store;
-	      reg_addr[TFmode].reload_load  = CODE_FOR_reload_kf_di_load;
-	    }
-
 	  /* Only provide a reload handler for SDmode if lfiwzx/stfiwx are
 	     available.  */
 	  if (TARGET_NO_SDMODE_STACK)
@@ -3018,12 +3012,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[DDmode].reload_load     = CODE_FOR_reload_dd_si_load;
 	  reg_addr[SFmode].reload_store    = CODE_FOR_reload_sf_si_store;
 	  reg_addr[SFmode].reload_load     = CODE_FOR_reload_sf_si_load;
-
-	  if (TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
-	    {
-	      reg_addr[TFmode].reload_store = CODE_FOR_reload_kf_si_store;
-	      reg_addr[TFmode].reload_load  = CODE_FOR_reload_kf_si_load;
-	    }
 
 	  /* Only provide a reload handler for SDmode if lfiwzx/stfiwx are
 	     available.  */
@@ -16183,28 +16171,18 @@ init_float128_ieee (machine_mode mode)
     }
 }
 
-/* Initialize the library functions.  For 128-bit floating point (both IEEE
-   128-bit floating point and IBM extended double 128-bit floating point) we
-   need to change names.  While many of the names were changed for IBM extended
-   double, there were some tf names that were used, so we use kf names for the
-   IEEE 128-bit floating point support that uses VSX.  */
-
 static void
 rs6000_init_libfuncs (void)
 {
-  if (TARGET_LONG_DOUBLE_128)
-    {
-      if (TARGET_FLOAT128)
-	{
-	  init_float128_ibm (IFmode);
-	  init_float128_ieee (KFmode);
-	}
+  /* AIX/Darwin/64-bit Linux quad floating point routines.  */
+  init_float128_ibm (IFmode);
+  if (!TARGET_IEEEQUAD)
+    init_float128_ibm (TFmode);
 
-      if (!TARGET_IEEEQUAD)
-	init_float128_ibm (TFmode);
-      else
-	init_float128_ieee (TFmode);
-    }
+  /* IEEE 128-bit including 32-bit SVR4 quad floating point routines.  */
+  init_float128_ieee (KFmode);
+  if (TARGET_IEEEQUAD)
+    init_float128_ieee (TFmode);
 }
 
 
