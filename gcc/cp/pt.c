@@ -3075,10 +3075,11 @@ check_explicit_specialization (tree declarator,
               tree tmpl_func = DECL_TEMPLATE_RESULT (gen_tmpl);
               gcc_assert (TREE_CODE (tmpl_func) == FUNCTION_DECL);
 
-              // A concept cannot be specialized.
+              /* A concept cannot be specialized.  */
               if (DECL_DECLARED_CONCEPT_P (tmpl_func))
                 {
-                  error ("explicit specialization of concept %qD", gen_tmpl);
+                  error ("explicit specialization of function concept %qD", 
+                         gen_tmpl);
                   return error_mark_node;
                 }
 
@@ -22139,6 +22140,10 @@ type_dependent_expression_p (tree expression)
 	    return true;
 	  expression = TREE_OPERAND (expression, 0);
 	}
+
+      if (variable_template_p (expression))
+        return dependent_type_p (TREE_TYPE (expression));
+
       gcc_assert (TREE_CODE (expression) == OVERLOAD
 		  || TREE_CODE (expression) == FUNCTION_DECL);
 

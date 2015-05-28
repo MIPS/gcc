@@ -1,3 +1,19 @@
+2015-05-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fixing regression from merge.
+	* gcc/cp/pt.c (determine_specializaion): Don't add variable candidates
+	if we can't coerce their template arguments.
+
+	Add tests for specialization of variable concepts.
+	gcc/cp/pt.c (check_explicit_specialization): Update error message.
+	gcc/cp/decl.c (grokvardecl): Add note about concept specialization.
+	* gcc/testsuite/g++.dg/concepts/var-concept4.C: Add new tests.
+
+	Don't crash on ill-formed specialization.
+	* gcc/cp/pt.c (type_dependent_expression_p); Handle expressions
+	that refer to variable templates.
+	* gcc/testsuite/g++.dg/cpp1y/var-templ29.C: New.
+
 2015-05-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Don't ICE when asking if a function pointer is noexcept.
