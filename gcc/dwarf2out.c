@@ -19869,11 +19869,17 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
 static void
 gen_lexical_block_die (tree stmt, dw_die_ref context_die)
 {
-  dw_die_ref stmt_die = BLOCK_DIE (stmt);
+  dw_die_ref old_die = BLOCK_DIE (stmt);
+  dw_die_ref stmt_die;
+  if (!old_die)
+    {
+      stmt_die = new_die (DW_TAG_lexical_block, context_die, stmt);
+      BLOCK_DIE (stmt) = stmt_die;
+    }
 
   if (BLOCK_ABSTRACT (stmt))
     {
-      if (stmt_die)
+      if (old_die)
 	{
 #ifdef ENABLE_CHECKING
 	  /* This must have been generated early and it won't even
@@ -19889,40 +19895,24 @@ gen_lexical_block_die (tree stmt, dw_die_ref context_die)
 #endif
 	  return;
 	}
-      else
-	{
-	  /* Do the new DIE dance.  */
-	  stmt_die = new_die (DW_TAG_lexical_block, context_die, stmt);
-	  BLOCK_DIE (stmt) = stmt_die;
-	}
     }
   else if (BLOCK_ABSTRACT_ORIGIN (stmt))
     {
       /* If this is an inlined instance, create a new lexical die for
 	 anything below to attach DW_AT_abstract_origin to.  */
-      stmt_die = new_die (DW_TAG_lexical_block, context_die, stmt);
-    }
-  else
-    {
-      if (!stmt_die)
+      if (old_die)
 	{
-	  /* This is the first time we are creating something for this
-	     block.  */
 	  stmt_die = new_die (DW_TAG_lexical_block, context_die, stmt);
 	  BLOCK_DIE (stmt) = stmt_die;
-	}
-      else
-	{
-	  /* Otherwise we are being called from late dwarf to fill in
-	     location details.  */
+	  old_die = NULL;
 	}
     }
+
+  if (old_die)
+    stmt_die = old_die;
 
   if (!early_dwarf)
     {
-      if (call_arg_locations)
-	BLOCK_DIE (stmt) = stmt_die;
-
       /* A non abstract block whose blocks have already been reordered
 	 should have the instruction range for this block.  If so, set the
 	 high/low attributes.  */
