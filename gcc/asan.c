@@ -88,6 +88,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ubsan.h"
 #include "params.h"
 #include "builtins.h"
+#include "fnmatch.h"
 
 /* AddressSanitizer finds out-of-bounds and use-after-free bugs
    with <2x slowdown on average.
@@ -272,6 +273,7 @@ along with GCC; see the file COPYING3.  If not see
 
 static unsigned HOST_WIDE_INT asan_shadow_offset_value;
 static bool asan_shadow_offset_computed;
+static vec<char *> sanitized_sections;
 
 /* Sets shadow offset to value in string VAL.  */
 
@@ -292,6 +294,40 @@ set_asan_shadow_offset (const char *val)
   asan_shadow_offset_computed = true;
 
   return true;
+}
+
+/* Set list of user-defined sections that need to be sanitized.  */
+
+void
+set_sanitized_sections (const char *sections)
+{
+  char *pat;
+  unsigned i;
+  FOR_EACH_VEC_ELT (sanitized_sections, i, pat)
+    free (pat);
+  sanitized_sections.truncate (0);
+
+  for (const char *s = sections; *s; )
+    {
+      const char *end;
+      for (end = s; *end && *end != ','; ++end);
+      size_t len = end - s;
+      sanitized_sections.safe_push (xstrndup (s, len));
+      s = *end ? end + 1 : end;
+    }
+}
+
+/* Checks whether section SEC should be sanitized.  */
+
+static bool
+section_sanitized_p (const char *sec)
+{
+  char *pat;
+  unsigned i;
+  FOR_EACH_VEC_ELT (sanitized_sections, i, pat)
+    if (fnmatch (pat, sec, FNM_PERIOD) == 0)
+      return true;
+  return false;
 }
 
 /* Returns Asan shadow offset.  */
@@ -407,11 +443,11 @@ asan_mem_ref_get_end (const asan_mem_ref *ref, tree len)
 struct asan_mem_ref_hasher
   : typed_noop_remove <asan_mem_ref>
 {
-  typedef asan_mem_ref value_type;
-  typedef asan_mem_ref compare_type;
+  typedef asan_mem_ref *value_type;
+  typedef asan_mem_ref *compare_type;
 
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  static inline hashval_t hash (const asan_mem_ref *);
+  static inline bool equal (const asan_mem_ref *, const asan_mem_ref *);
 };
 
 /* Hash a memory reference.  */
@@ -1374,7 +1410,8 @@ asan_protect_global (tree decl)
 	 to be an array of such vars, putting padding in there
 	 breaks this assumption.  */
       || (DECL_SECTION_NAME (decl) != NULL
-	  && !symtab_node::get (decl)->implicit_section)
+	  && !symtab_node::get (decl)->implicit_section
+	  && !section_sanitized_p (DECL_SECTION_NAME (decl)))
       || DECL_SIZE (decl) == 0
       || ASAN_RED_ZONE_SIZE * BITS_PER_UNIT > MAX_OFILE_ALIGNMENT
       || !valid_constant_size_p (DECL_SIZE_UNIT (decl))

@@ -227,22 +227,24 @@ static vec<allocno_hard_regs_t> allocno_hard_regs_vec;
 
 struct allocno_hard_regs_hasher : typed_noop_remove <allocno_hard_regs>
 {
-  typedef allocno_hard_regs value_type;
-  typedef allocno_hard_regs compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef allocno_hard_regs *value_type;
+  typedef allocno_hard_regs *compare_type;
+  static inline hashval_t hash (const allocno_hard_regs *);
+  static inline bool equal (const allocno_hard_regs *,
+			    const allocno_hard_regs *);
 };
 
 /* Returns hash value for allocno hard registers V.  */
 inline hashval_t
-allocno_hard_regs_hasher::hash (const value_type *hv)
+allocno_hard_regs_hasher::hash (const allocno_hard_regs *hv)
 {
   return iterative_hash (&hv->set, sizeof (HARD_REG_SET), 0);
 }
 
 /* Compares allocno hard registers V1 and V2.  */
 inline bool
-allocno_hard_regs_hasher::equal (const value_type *hv1, const compare_type *hv2)
+allocno_hard_regs_hasher::equal (const allocno_hard_regs *hv1,
+				 const allocno_hard_regs *hv2)
 {
   return hard_reg_set_equal_p (hv1->set, hv2->set);
 }
@@ -547,7 +549,7 @@ print_hard_regs_subforest (FILE *f, allocno_hard_regs_node_t roots,
 	fprintf (f, " ");
       fprintf (f, "%d:(", node->preorder_num);
       print_hard_reg_set (f, node->hard_regs->set, false);
-      fprintf (f, ")@%"PRId64"\n", node->hard_regs->cost);
+      fprintf (f, ")@%" PRId64"\n", node->hard_regs->cost);
       print_hard_regs_subforest (f, node->first, level + 1);
     }
 }
@@ -938,7 +940,7 @@ setup_left_conflict_sizes_p (ira_allocno_t a)
       subnodes[i].left_conflict_subnodes_size = 0;
     }
   start = node_preorder_num * allocno_hard_regs_nodes_num;
-  for (i = data->hard_regs_subnodes_num - 1; i >= 0; i--)
+  for (i = data->hard_regs_subnodes_num - 1; i > 0; i--)
     {
       int size, parent_i;
       allocno_hard_regs_node_t parent;
@@ -948,12 +950,10 @@ setup_left_conflict_sizes_p (ira_allocno_t a)
 		     - subnodes[i].left_conflict_subnodes_size,
 		     subnodes[i].left_conflict_size));
       parent = allocno_hard_regs_nodes[i + node_preorder_num]->parent;
-      if (parent == NULL)
-	continue;
+      gcc_checking_assert(parent);
       parent_i
 	= allocno_hard_regs_subnode_index[start + parent->preorder_num];
-      if (parent_i < 0)
-	continue;
+      gcc_checking_assert(parent_i >= 0);
       subnodes[parent_i].left_conflict_subnodes_size += size;
     }
   left_conflict_subnodes_size = subnodes[0].left_conflict_subnodes_size;
@@ -3854,14 +3854,6 @@ coalesced_pseudo_reg_freq_compare (const void *v1p, const void *v2p)
    It is used for sorting pseudo registers.  */
 static unsigned int *regno_max_ref_width;
 
-/* Redefine STACK_GROWS_DOWNWARD in terms of 0 or 1.  */
-#ifdef STACK_GROWS_DOWNWARD
-# undef STACK_GROWS_DOWNWARD
-# define STACK_GROWS_DOWNWARD 1
-#else
-# define STACK_GROWS_DOWNWARD 0
-#endif
-
 /* Sort pseudos according their slot numbers (putting ones with
   smaller numbers first, or last when the frame pointer is not
   needed).  */
@@ -4600,7 +4592,7 @@ ira_mark_new_stack_slot (rtx x, int regno, unsigned int total_size)
    CALL_USED_COUNT), and the first hard regno occupied by the
    pseudo-registers (through FIRST_HARD_REGNO).  */
 static int
-calculate_spill_cost (int *regnos, rtx in, rtx out, rtx insn,
+calculate_spill_cost (int *regnos, rtx in, rtx out, rtx_insn *insn,
 		      int *excess_pressure_live_length,
 		      int *nrefs, int *call_used_count, int *first_hard_regno)
 {
@@ -4661,7 +4653,7 @@ calculate_spill_cost (int *regnos, rtx in, rtx out, rtx insn,
    decisions.  */
 bool
 ira_better_spill_reload_regno_p (int *regnos, int *other_regnos,
-				 rtx in, rtx out, rtx insn)
+				 rtx in, rtx out, rtx_insn *insn)
 {
   int cost, other_cost;
   int length, other_length;

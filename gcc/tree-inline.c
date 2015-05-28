@@ -1761,8 +1761,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
   /* create_basic_block() will append every new block to
      basic_block_info automatically.  */
-  copy_basic_block = create_basic_block (NULL, (void *) 0,
-                                         (basic_block) prev->aux);
+  copy_basic_block = create_basic_block (NULL, (basic_block) prev->aux);
   copy_basic_block->count = apply_scale (bb->count, count_scale);
 
   /* We are going to rebuild frequencies from scratch.  These values
@@ -4525,6 +4524,14 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   id->src_node = cg_edge->callee;
   id->src_cfun = DECL_STRUCT_FUNCTION (fn);
   id->call_stmt = stmt;
+
+  /* If the the src function contains an IFN_VA_ARG, then so will the dst
+     function after inlining.  */
+  if ((id->src_cfun->curr_properties & PROP_gimple_lva) == 0)
+    {
+      struct function *dst_cfun = DECL_STRUCT_FUNCTION (id->dst_fn);
+      dst_cfun->curr_properties &= ~PROP_gimple_lva;
+    }
 
   gcc_assert (!id->src_cfun->after_inlining);
 

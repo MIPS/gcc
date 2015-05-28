@@ -859,7 +859,7 @@ xtensa_expand_conditional_branch (rtx *operands, machine_mode mode)
       label1 = pc_rtx;
     }
 
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+  emit_jump_insn (gen_rtx_SET (pc_rtx,
 			       gen_rtx_IF_THEN_ELSE (VOIDmode, cmp,
 						     label1,
 						     label2)));
@@ -1335,7 +1335,7 @@ xtensa_expand_block_move (rtx *operands)
 	  temp[next] = gen_reg_rtx (mode[next]);
 
 	  x = adjust_address (src_mem, mode[next], offset_ld);
-	  emit_insn (gen_rtx_SET (VOIDmode, temp[next], x));
+	  emit_insn (gen_rtx_SET (temp[next], x));
 
 	  offset_ld += next_amount;
 	  bytes -= next_amount;
@@ -1347,7 +1347,7 @@ xtensa_expand_block_move (rtx *operands)
 	  active[phase] = false;
 	  
 	  x = adjust_address (dst_mem, mode[phase], offset_st);
-	  emit_insn (gen_rtx_SET (VOIDmode, x, temp[phase]));
+	  emit_insn (gen_rtx_SET (x, temp[phase]));
 
 	  offset_st += amount[phase];
 	}
@@ -1461,8 +1461,9 @@ init_alignment_context (struct alignment_context *ac, rtx mem)
   if (ac->shift != NULL_RTX)
     {
       /* Shift is the byte count, but we need the bitcount.  */
-      ac->shift = expand_simple_binop (SImode, MULT, ac->shift,
-				       GEN_INT (BITS_PER_UNIT),
+      gcc_assert (exact_log2 (BITS_PER_UNIT) >= 0);
+      ac->shift = expand_simple_binop (SImode, ASHIFT, ac->shift,
+				       GEN_INT (exact_log2 (BITS_PER_UNIT)),
 				       NULL_RTX, 1, OPTAB_DIRECT);
       ac->modemask = expand_simple_binop (SImode, ASHIFT,
 					  GEN_INT (GET_MODE_MASK (mode)),
@@ -1981,8 +1982,8 @@ xtensa_legitimize_address (rtx x,
 	{
 	  rtx temp = gen_reg_rtx (Pmode);
 	  rtx addmi_offset = GEN_INT (INTVAL (plus1) & ~0xff);
-	  emit_insn (gen_rtx_SET (Pmode, temp,
-				  gen_rtx_PLUS (Pmode, plus0, addmi_offset)));
+	  emit_insn (gen_rtx_SET (temp, gen_rtx_PLUS (Pmode, plus0,
+						      addmi_offset)));
 	  return gen_rtx_PLUS (Pmode, temp, GEN_INT (INTVAL (plus1) & 0xff));
 	}
     }
@@ -2727,7 +2728,7 @@ xtensa_expand_prologue (void)
 	  insn = emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
 					GEN_INT (-total_size)));
 	  RTX_FRAME_RELATED_P (insn) = 1;
-	  note_rtx = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+	  note_rtx = gen_rtx_SET (stack_pointer_rtx,
 				  plus_constant (Pmode, stack_pointer_rtx,
 						 -total_size));
 	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, note_rtx);
@@ -2743,7 +2744,7 @@ xtensa_expand_prologue (void)
 	      insn = emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
 					    GEN_INT (-xtensa_callee_save_size)));
 	      RTX_FRAME_RELATED_P (insn) = 1;
-	      note_rtx = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+	      note_rtx = gen_rtx_SET (stack_pointer_rtx,
 				      plus_constant (Pmode, stack_pointer_rtx,
 						     -xtensa_callee_save_size));
 	      add_reg_note (insn, REG_FRAME_RELATED_EXPR, note_rtx);
@@ -2756,7 +2757,7 @@ xtensa_expand_prologue (void)
 	      insn = emit_insn (gen_subsi3 (stack_pointer_rtx,
 					    stack_pointer_rtx, tmp_reg));
 	      RTX_FRAME_RELATED_P (insn) = 1;
-	      note_rtx = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+	      note_rtx = gen_rtx_SET (stack_pointer_rtx,
 				      plus_constant (Pmode, stack_pointer_rtx,
 						     -total_size));
 	      add_reg_note (insn, REG_FRAME_RELATED_EXPR, note_rtx);
@@ -2776,7 +2777,7 @@ xtensa_expand_prologue (void)
 	      insn = emit_move_insn (mem, reg);
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			    gen_rtx_SET (VOIDmode, mem, reg));
+			    gen_rtx_SET (mem, reg));
 	    }
 	}
       if (total_size > 1024)
@@ -2787,7 +2788,7 @@ xtensa_expand_prologue (void)
 	  insn = emit_insn (gen_subsi3 (stack_pointer_rtx,
 					stack_pointer_rtx, tmp_reg));
 	  RTX_FRAME_RELATED_P (insn) = 1;
-	  note_rtx = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+	  note_rtx = gen_rtx_SET (stack_pointer_rtx,
 				  plus_constant (Pmode, stack_pointer_rtx,
 						 xtensa_callee_save_size -
 						 total_size));
@@ -2826,7 +2827,7 @@ xtensa_expand_prologue (void)
 				       stack_pointer_rtx));
 	  if (!TARGET_WINDOWED_ABI)
 	    {
-	      note_rtx = gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx,
+	      note_rtx = gen_rtx_SET (hard_frame_pointer_rtx,
 				      stack_pointer_rtx);
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	      add_reg_note (insn, REG_FRAME_RELATED_EXPR, note_rtx);
@@ -2839,9 +2840,9 @@ xtensa_expand_prologue (void)
       /* Create a note to describe the CFA.  Because this is only used to set
 	 DW_AT_frame_base for debug info, don't bother tracking changes through
 	 each instruction in the prologue.  It just takes up space.  */
-      note_rtx = gen_rtx_SET (VOIDmode, (frame_pointer_needed
-					 ? hard_frame_pointer_rtx
-					 : stack_pointer_rtx),
+      note_rtx = gen_rtx_SET ((frame_pointer_needed
+			       ? hard_frame_pointer_rtx
+			       : stack_pointer_rtx),
 			      plus_constant (Pmode, stack_pointer_rtx,
 					     -total_size));
       RTX_FRAME_RELATED_P (insn) = 1;
@@ -2933,8 +2934,7 @@ xtensa_set_return_address (rtx address, rtx scratch)
     hard_frame_pointer_rtx : stack_pointer_rtx;
   rtx a0_addr = plus_constant (Pmode, frame,
 			       total_size - UNITS_PER_WORD);
-  rtx note = gen_rtx_SET (VOIDmode,
-			  gen_frame_mem (SImode, a0_addr),
+  rtx note = gen_rtx_SET (gen_frame_mem (SImode, a0_addr),
 			  gen_rtx_REG (SImode, A0_REG));
   rtx insn;
 

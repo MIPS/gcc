@@ -69,13 +69,17 @@
 ; IS_THUMB is set to 'yes' when we are generating Thumb code, and 'no' when
 ; generating ARM code.  This is used to control the length of some insn
 ; patterns that share the same RTL in both ARM and Thumb code.
-(define_attr "is_thumb" "no,yes" (const (symbol_ref "thumb_code")))
+(define_attr "is_thumb" "yes,no"
+  (const (if_then_else (symbol_ref "TARGET_THUMB")
+		       (const_string "yes") (const_string "no"))))
 
 ; IS_ARCH6 is set to 'yes' when we are generating code form ARMv6.
 (define_attr "is_arch6" "no,yes" (const (symbol_ref "arm_arch6")))
 
 ; IS_THUMB1 is set to 'yes' iff we are generating Thumb-1 code.
-(define_attr "is_thumb1" "no,yes" (const (symbol_ref "thumb1_code")))
+(define_attr "is_thumb1" "yes,no"
+  (const (if_then_else (symbol_ref "TARGET_THUMB1")
+		       (const_string "yes") (const_string "no"))))
 
 ; We use this attribute to disable alternatives that can produce 32-bit
 ; instructions inside an IT-block in Thumb2 state.  ARMv8 deprecates IT blocks
@@ -1164,10 +1168,16 @@
     {
       if (TARGET_32BIT)
         {
-          arm_split_constant (MINUS, SImode, NULL_RTX,
-	                      INTVAL (operands[1]), operands[0],
-	  		      operands[2], optimize && can_create_pseudo_p ());
-          DONE;
+	  if (DONT_EARLY_SPLIT_CONSTANT (INTVAL (operands[1]), MINUS))
+	    operands[1] = force_reg (SImode, operands[1]);
+	  else
+	    {
+	      arm_split_constant (MINUS, SImode, NULL_RTX,
+				  INTVAL (operands[1]), operands[0],
+				  operands[2],
+				  optimize && can_create_pseudo_p ());
+	      DONE;
+	    }
 	}
       else /* TARGET_THUMB1 */
         operands[1] = force_reg (SImode, operands[1]);
@@ -1177,9 +1187,9 @@
 
 ; ??? Check Thumb-2 split length
 (define_insn_and_split "*arm_subsi3_insn"
-  [(set (match_operand:SI           0 "s_register_operand" "=l,l ,l ,l ,r ,r,r,rk,r")
-	(minus:SI (match_operand:SI 1 "reg_or_int_operand" "l ,0 ,l ,Pz,rI,r,r,k ,?n")
-		  (match_operand:SI 2 "reg_or_int_operand" "l ,Py,Pd,l ,r ,I,r,r ,r")))]
+  [(set (match_operand:SI           0 "s_register_operand" "=l,l ,l ,l ,r,r,r,rk,r")
+	(minus:SI (match_operand:SI 1 "reg_or_int_operand" "l ,0 ,l ,Pz,I,r,r,k ,?n")
+		  (match_operand:SI 2 "reg_or_int_operand" "l ,Py,Pd,l ,r,I,r,r ,r")))]
   "TARGET_32BIT"
   "@
    sub%?\\t%0, %1, %2
@@ -2078,14 +2088,19 @@
 	      operands[1] = convert_to_mode (QImode, operands[1], 1);
 	      emit_insn (gen_thumb2_zero_extendqisi2_v6 (operands[0],
 							 operands[1]));
+	      DONE;
 	    }
+	  else if (DONT_EARLY_SPLIT_CONSTANT (INTVAL (operands[2]), AND))
+	    operands[2] = force_reg (SImode, operands[2]);
 	  else
-	    arm_split_constant (AND, SImode, NULL_RTX,
-				INTVAL (operands[2]), operands[0],
-				operands[1],
-				optimize && can_create_pseudo_p ());
+	    {
+	      arm_split_constant (AND, SImode, NULL_RTX,
+				  INTVAL (operands[2]), operands[0],
+				  operands[1],
+				  optimize && can_create_pseudo_p ());
 
-          DONE;
+	      DONE;
+	    }
         }
     }
   else /* TARGET_THUMB1 */
@@ -2768,6 +2783,55 @@
 		      (const_string "logic_shift_reg")))]
 )
 
+;; Shifted bics pattern used to set up CC status register and not reusing
+;; bics output.  Pattern restricts Thumb2 shift operand as bics for Thumb2
+;; does not support shift by register.
+(define_insn "andsi_not_shiftsi_si_scc_no_reuse"
+  [(set (reg:CC_NOOV CC_REGNUM)
+	(compare:CC_NOOV
+		(and:SI (not:SI (match_operator:SI 0 "shift_operator"
+			[(match_operand:SI 1 "s_register_operand" "r")
+			 (match_operand:SI 2 "arm_rhs_operand" "rM")]))
+			(match_operand:SI 3 "s_register_operand" "r"))
+		(const_int 0)))
+   (clobber (match_scratch:SI 4 "=r"))]
+  "TARGET_ARM || (TARGET_THUMB2 && CONST_INT_P (operands[2]))"
+  "bic%.%?\\t%4, %3, %1%S0"
+  [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
+   (set_attr "conds" "set")
+   (set_attr "shift" "1")
+   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
+		      (const_string "logic_shift_imm")
+		      (const_string "logic_shift_reg")))]
+)
+
+;; Same as andsi_not_shiftsi_si_scc_no_reuse, but the bics result is also
+;; getting reused later.
+(define_insn "andsi_not_shiftsi_si_scc"
+  [(parallel [(set (reg:CC_NOOV CC_REGNUM)
+	(compare:CC_NOOV
+		(and:SI (not:SI (match_operator:SI 0 "shift_operator"
+			[(match_operand:SI 1 "s_register_operand" "r")
+			 (match_operand:SI 2 "arm_rhs_operand" "rM")]))
+			(match_operand:SI 3 "s_register_operand" "r"))
+		(const_int 0)))
+	(set (match_operand:SI 4 "s_register_operand" "=r")
+	     (and:SI (not:SI (match_op_dup 0
+		     [(match_dup 1)
+		      (match_dup 2)]))
+		     (match_dup 3)))])]
+  "TARGET_ARM || (TARGET_THUMB2 && CONST_INT_P (operands[2]))"
+  "bic%.%?\\t%4, %3, %1%S0"
+  [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
+   (set_attr "conds" "set")
+   (set_attr "shift" "1")
+   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
+		      (const_string "logic_shift_imm")
+		      (const_string "logic_shift_reg")))]
+)
+
 (define_insn "*andsi_notsi_si_compare0"
   [(set (reg:CC_NOOV CC_REGNUM)
 	(compare:CC_NOOV
@@ -2884,10 +2948,16 @@
     {
       if (TARGET_32BIT)
         {
-          arm_split_constant (IOR, SImode, NULL_RTX,
-	                      INTVAL (operands[2]), operands[0], operands[1],
-			      optimize && can_create_pseudo_p ());
-          DONE;
+	  if (DONT_EARLY_SPLIT_CONSTANT (INTVAL (operands[2]), IOR))
+	    operands[2] = force_reg (SImode, operands[2]);
+	  else
+	    {
+	      arm_split_constant (IOR, SImode, NULL_RTX,
+				  INTVAL (operands[2]), operands[0],
+				  operands[1],
+				  optimize && can_create_pseudo_p ());
+	      DONE;
+	    }
 	}
       else /* TARGET_THUMB1 */
         {
@@ -3054,10 +3124,16 @@
     {
       if (TARGET_32BIT)
         {
-          arm_split_constant (XOR, SImode, NULL_RTX,
-	                      INTVAL (operands[2]), operands[0], operands[1],
-			      optimize && can_create_pseudo_p ());
-          DONE;
+	  if (DONT_EARLY_SPLIT_CONSTANT (INTVAL (operands[2]), XOR))
+	    operands[2] = force_reg (SImode, operands[2]);
+	  else
+	    {
+	      arm_split_constant (XOR, SImode, NULL_RTX,
+				  INTVAL (operands[2]), operands[0],
+				  operands[1],
+				  optimize && can_create_pseudo_p ());
+	      DONE;
+	    }
 	}
       else /* TARGET_THUMB1 */
         {
@@ -3277,7 +3353,7 @@
   if (operands[2] == const0_rtx || operands[2] == constm1_rtx)
     {
       /* No need for a clobber of the condition code register here.  */
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+      emit_insn (gen_rtx_SET (operands[0],
 			      gen_rtx_SMAX (SImode, operands[1],
 					    operands[2])));
       DONE;
@@ -3339,7 +3415,7 @@
   if (operands[2] == const0_rtx)
     {
       /* No need for a clobber of the condition code register here.  */
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+      emit_insn (gen_rtx_SET (operands[0],
 			      gen_rtx_SMIN (SImode, operands[1],
 					    operands[2])));
       DONE;
@@ -4420,13 +4496,13 @@
 		rsc	Rhi, Rhi, #0 (thumb2: sbc Rhi, Rhi, Rhi, lsl #1).  */
 	rtx cc_reg = gen_rtx_REG (CC_Cmode, CC_REGNUM);
 
-	emit_insn (gen_rtx_SET (VOIDmode, high,
+	emit_insn (gen_rtx_SET (high,
 				gen_rtx_ASHIFTRT (SImode, operands[1],
 						  GEN_INT (31))));
 
 	emit_insn (gen_subsi3_compare (low, const0_rtx, operands[1]));
 	if (TARGET_ARM)
-	  emit_insn (gen_rtx_SET (VOIDmode, high,
+	  emit_insn (gen_rtx_SET (high,
 				  gen_rtx_MINUS (SImode,
 						 gen_rtx_MINUS (SImode,
 								const0_rtx,
@@ -4437,7 +4513,7 @@
 	else
 	  {
 	    rtx two_x = gen_rtx_ASHIFT (SImode, high, GEN_INT (1));
-	    emit_insn (gen_rtx_SET (VOIDmode, high,
+	    emit_insn (gen_rtx_SET (high,
 				    gen_rtx_MINUS (SImode,
 						   gen_rtx_MINUS (SImode,
 								  high,
@@ -4454,13 +4530,12 @@
 		bic	Rhi, Rlo, Rin
 		asr	Rhi, Rhi, #31
 	   Flags not needed for this sequence.  */
-	emit_insn (gen_rtx_SET (VOIDmode, low,
-				gen_rtx_NEG (SImode, operands[1])));
-	emit_insn (gen_rtx_SET (VOIDmode, high,
+	emit_insn (gen_rtx_SET (low, gen_rtx_NEG (SImode, operands[1])));
+	emit_insn (gen_rtx_SET (high,
 				gen_rtx_AND (SImode,
 					     gen_rtx_NOT (SImode, operands[1]),
 					     low)));
-	emit_insn (gen_rtx_SET (VOIDmode, high,
+	emit_insn (gen_rtx_SET (high,
 				gen_rtx_ASHIFTRT (SImode, high,
 						  GEN_INT (31))));
       }
@@ -4531,15 +4606,13 @@
           (cond_exec (lt:CC (reg:CC CC_REGNUM) (const_int 0))
                      (set (match_dup 0) (minus:SI (const_int 0) (match_dup 1))))]
       */
-      emit_insn (gen_rtx_SET (VOIDmode,
-                              gen_rtx_REG (CCmode, CC_REGNUM),
+      emit_insn (gen_rtx_SET (gen_rtx_REG (CCmode, CC_REGNUM),
                               gen_rtx_COMPARE (CCmode, operands[0], const0_rtx)));
       emit_insn (gen_rtx_COND_EXEC (VOIDmode,
                                     (gen_rtx_LT (SImode,
                                                  gen_rtx_REG (CCmode, CC_REGNUM),
                                                  const0_rtx)),
-                                    (gen_rtx_SET (VOIDmode,
-                                                  operands[0],
+                                    (gen_rtx_SET (operands[0],
                                                   (gen_rtx_MINUS (SImode,
                                                                   const0_rtx,
                                                                   operands[1]))))));
@@ -4556,15 +4629,13 @@
                (minus:SI (match_dup 0)
                       (ashiftrt:SI (match_dup 1) (const_int 31))))]
       */
-      emit_insn (gen_rtx_SET (VOIDmode,
-                              operands[0],
+      emit_insn (gen_rtx_SET (operands[0],
                               gen_rtx_XOR (SImode,
                                            gen_rtx_ASHIFTRT (SImode,
                                                              operands[1],
                                                              GEN_INT (31)),
                                            operands[1])));
-      emit_insn (gen_rtx_SET (VOIDmode,
-                              operands[0],
+      emit_insn (gen_rtx_SET (operands[0],
                               gen_rtx_MINUS (SImode,
                                              operands[0],
                                              gen_rtx_ASHIFTRT (SImode,
@@ -4595,15 +4666,13 @@
       /* Emit the pattern:
          cmp\\t%0, #0\;rsbgt\\t%0, %0, #0
       */
-      emit_insn (gen_rtx_SET (VOIDmode,
-                              gen_rtx_REG (CCmode, CC_REGNUM),
+      emit_insn (gen_rtx_SET (gen_rtx_REG (CCmode, CC_REGNUM),
                               gen_rtx_COMPARE (CCmode, operands[0], const0_rtx)));
       emit_insn (gen_rtx_COND_EXEC (VOIDmode,
                                     gen_rtx_GT (SImode,
                                                 gen_rtx_REG (CCmode, CC_REGNUM),
                                                 const0_rtx),
-                                    gen_rtx_SET (VOIDmode,
-                                                 operands[0],
+                                    gen_rtx_SET (operands[0],
                                                  (gen_rtx_MINUS (SImode,
                                                                  const0_rtx,
                                                                  operands[1])))));
@@ -4613,15 +4682,13 @@
       /* Emit the pattern:
          eor%?\\t%0, %1, %1, asr #31\;rsb%?\\t%0, %0, %1, asr #31
       */
-      emit_insn (gen_rtx_SET (VOIDmode,
-                              operands[0],
+      emit_insn (gen_rtx_SET (operands[0],
                               gen_rtx_XOR (SImode,
                                            gen_rtx_ASHIFTRT (SImode,
                                                              operands[1],
                                                              GEN_INT (31)),
                                            operands[1])));
-      emit_insn (gen_rtx_SET (VOIDmode,
-                              operands[0],
+      emit_insn (gen_rtx_SET (operands[0],
                               gen_rtx_MINUS (SImode,
                                              gen_rtx_ASHIFTRT (SImode,
                                                                operands[1],
@@ -4885,7 +4952,7 @@
       if (src_mode == SImode)
         emit_move_insn (lo_part, operands[1]);
       else
-        emit_insn (gen_rtx_SET (VOIDmode, lo_part,
+        emit_insn (gen_rtx_SET (lo_part,
 				gen_rtx_ZERO_EXTEND (SImode, operands[1])));
       operands[1] = lo_part;
     }
@@ -4912,7 +4979,7 @@
       if (src_mode == SImode)
         emit_move_insn (lo_part, operands[1]);
       else
-        emit_insn (gen_rtx_SET (VOIDmode, lo_part,
+        emit_insn (gen_rtx_SET (lo_part,
 				gen_rtx_SIGN_EXTEND (SImode, operands[1])));
       operands[1] = lo_part;
     }
@@ -5076,7 +5143,7 @@
 
 (define_split
   [(set (match_operand:SI 0 "s_register_operand" "")
-	(ior_xor:SI (and:SI (ashift:SI
+	(IOR_XOR:SI (and:SI (ashift:SI
 			     (match_operand:SI 1 "s_register_operand" "")
 			     (match_operand:SI 2 "const_int_operand" ""))
 			    (match_operand:SI 3 "const_int_operand" ""))
@@ -5088,7 +5155,7 @@
        == (GET_MODE_MASK (GET_MODE (operands[5]))
            & (GET_MODE_MASK (GET_MODE (operands[5]))
 	      << (INTVAL (operands[2])))))"
-  [(set (match_dup 0) (ior_xor:SI (ashift:SI (match_dup 1) (match_dup 2))
+  [(set (match_dup 0) (IOR_XOR:SI (ashift:SI (match_dup 1) (match_dup 2))
 				  (match_dup 4)))
    (set (match_dup 0) (zero_extend:SI (match_dup 5)))]
   "operands[5] = gen_lowpart (GET_MODE (operands[5]), operands[0]);"
@@ -5237,8 +5304,7 @@
   {
     if (arm_arch4 && MEM_P (operands[1]))
       {
-	emit_insn (gen_rtx_SET (VOIDmode,
-				operands[0],
+	emit_insn (gen_rtx_SET (operands[0],
 				gen_rtx_SIGN_EXTEND (HImode, operands[1])));
 	DONE;
       }
@@ -5554,10 +5620,18 @@
           && !(const_ok_for_arm (INTVAL (operands[1]))
                || const_ok_for_arm (~INTVAL (operands[1]))))
         {
-           arm_split_constant (SET, SImode, NULL_RTX,
-	                       INTVAL (operands[1]), operands[0], NULL_RTX,
-			       optimize && can_create_pseudo_p ());
-          DONE;
+	   if (DONT_EARLY_SPLIT_CONSTANT (INTVAL (operands[1]), SET))
+	     {
+		emit_insn (gen_rtx_SET (operands[0], operands[1]));
+		DONE;
+	     }
+	  else
+	     {
+		arm_split_constant (SET, SImode, NULL_RTX,
+	                            INTVAL (operands[1]), operands[0], NULL_RTX,
+			            optimize && can_create_pseudo_p ());
+		DONE;
+	     }
         }
     }
   else /* TARGET_THUMB1...  */
@@ -5631,7 +5705,7 @@
   [(set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")
    (set_attr "length" "4")
-   (set_attr "type" "mov_imm")]
+   (set_attr "type" "alu_sreg")]
 )
 
 (define_insn "*arm_movsi_insn"
@@ -5697,7 +5771,7 @@
     if (offset < -0x8000 || offset > 0x7fff)
       {
 	arm_emit_movpair (operands[0], operands[1]);
-	emit_insn (gen_rtx_SET (SImode, operands[0],
+	emit_insn (gen_rtx_SET (operands[0],
 				gen_rtx_PLUS (SImode, operands[0], operands[2])));
       }
     else
@@ -6625,8 +6699,7 @@
       emit_insn (gen_addsi3 (operands[2], XEXP (XEXP (operands[0], 0), 0),
 			     XEXP (XEXP (operands[0], 0), 1)));
 
-    emit_insn (gen_rtx_SET (VOIDmode,
-			    replace_equiv_address (operands[0], operands[2]),
+    emit_insn (gen_rtx_SET (replace_equiv_address (operands[0], operands[2]),
 			    operands[1]));
 
     if (code == POST_DEC)
@@ -6676,7 +6749,7 @@
 
   /* Support only fixed point registers.  */
   if (!CONST_INT_P (operands[2])
-      || INTVAL (operands[2]) > 14
+      || INTVAL (operands[2]) > MAX_LDM_STM_OPS
       || INTVAL (operands[2]) < 2
       || !MEM_P (operands[1])
       || !REG_P (operands[0])
@@ -6701,7 +6774,7 @@
 
   /* Support only fixed point registers.  */
   if (!CONST_INT_P (operands[2])
-      || INTVAL (operands[2]) > 14
+      || INTVAL (operands[2]) > MAX_LDM_STM_OPS
       || INTVAL (operands[2]) < 2
       || !REG_P (operands[1])
       || !MEM_P (operands[0])
@@ -6886,7 +6959,7 @@
   [(set_attr "conds" "set")
    (set_attr "shift" "1")
    (set_attr "arch" "32,a,a")
-   (set_attr "type" "alus_shift_imm,alu_shift_reg,alus_shift_imm")])
+   (set_attr "type" "alus_shift_imm,alus_shift_reg,alus_shift_imm")])
 
 (define_insn "*cmpsi_shiftsi_swp"
   [(set (reg:CC_SWP CC_REGNUM)
@@ -6899,7 +6972,7 @@
   [(set_attr "conds" "set")
    (set_attr "shift" "1")
    (set_attr "arch" "32,a,a")
-   (set_attr "type" "alus_shift_imm,alu_shift_reg,alus_shift_imm")])
+   (set_attr "type" "alus_shift_imm,alus_shift_reg,alus_shift_imm")])
 
 (define_insn "*arm_cmpsi_negshiftsi_si"
   [(set (reg:CC_Z CC_REGNUM)
@@ -7459,9 +7532,7 @@
 
     emit_insn (gen_rtx_COND_EXEC (VOIDmode,
                                   operands[3],
-                                  gen_rtx_SET (VOIDmode,
-                                               operands[0],
-                                               operands[1])));
+                                  gen_rtx_SET (operands[0], operands[1])));
 
     rev_code = GET_CODE (operands[3]);
     mode = GET_MODE (operands[4]);
@@ -7476,9 +7547,7 @@
                                const0_rtx);
     emit_insn (gen_rtx_COND_EXEC (VOIDmode,
                                   rev_cond,
-                                  gen_rtx_SET (VOIDmode,
-                                               operands[0],
-                                               operands[2])));
+                                  gen_rtx_SET (operands[0], operands[2])));
     DONE;
   }
   [(set_attr "length" "4,4,4,4,8,8,8,8")
@@ -7492,10 +7561,10 @@
                                         (const_string "mov_imm")
                                         (const_string "mov_reg"))
                           (const_string "mvn_imm")
-                          (const_string "mov_reg")
-                          (const_string "mov_reg")
-                          (const_string "mov_reg")
-                          (const_string "mov_reg")])]
+                          (const_string "multiple")
+                          (const_string "multiple")
+                          (const_string "multiple")
+                          (const_string "multiple")])]
 )
 
 (define_insn "*movsfcc_soft_insn"
@@ -7848,7 +7917,7 @@
 )
 
 (define_expand "<return_str>return"
-  [(returns)]
+  [(RETURNS)]
   "(TARGET_ARM || (TARGET_THUMB2
                    && ARM_FUNC_TYPE (arm_current_func_type ()) == ARM_FT_NORMAL
                    && !IS_STACKALIGN (arm_current_func_type ())))
@@ -7886,7 +7955,7 @@
   [(set (pc)
         (if_then_else (match_operator 0 "arm_comparison_operator"
 		       [(match_operand 1 "cc_register" "") (const_int 0)])
-                      (returns)
+                      (RETURNS)
                       (pc)))]
   "TARGET_ARM  <return_cond_true>"
   "*
@@ -7909,7 +7978,7 @@
         (if_then_else (match_operator 0 "arm_comparison_operator"
 		       [(match_operand 1 "cc_register" "") (const_int 0)])
                       (pc)
-		      (returns)))]
+		      (RETURNS)))]
   "TARGET_ARM <return_cond_true>"
   "*
   {
@@ -8243,7 +8312,7 @@
 
 (define_insn "*<arith_shift_insn>_multsi"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
-	(shiftable_ops:SI
+	(SHIFTABLE_OPS:SI
 	 (mult:SI (match_operand:SI 2 "s_register_operand" "r,r")
 		  (match_operand:SI 3 "power_of_two_operand" ""))
 	 (match_operand:SI 1 "s_register_operand" "rk,<t2_binop0>")))]
@@ -8257,7 +8326,7 @@
 
 (define_insn "*<arith_shift_insn>_shiftsi"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r,r")
-	(shiftable_ops:SI
+	(SHIFTABLE_OPS:SI
 	 (match_operator:SI 2 "shift_nomul_operator"
 	  [(match_operand:SI 3 "s_register_operand" "r,r,r")
 	   (match_operand:SI 4 "shift_amount_operand" "M,M,r")])
@@ -8653,7 +8722,14 @@
     return \"\";
   "
   [(set_attr "conds" "use")
-   (set_attr "type" "mov_reg,mov_reg,multiple")
+   (set_attr_alternative "type"
+                         [(if_then_else (match_operand 2 "const_int_operand" "")
+                                        (const_string "mov_imm")
+                                        (const_string "mov_reg"))
+                          (if_then_else (match_operand 1 "const_int_operand" "")
+                                        (const_string "mov_imm")
+                                        (const_string "mov_reg"))
+                          (const_string "multiple")])
    (set_attr "length" "4,4,8")]
 )
 
@@ -9245,8 +9321,7 @@
     if (GET_CODE (operands[3]) == LT && operands[2] == const0_rtx)
        {
          /* Emit mov\\t%0, %1, asr #31 */
-         emit_insn (gen_rtx_SET (VOIDmode,
-                                 operands[0],
+         emit_insn (gen_rtx_SET (operands[0],
                                  gen_rtx_ASHIFTRT (SImode,
                                                    operands[1],
                                                    GEN_INT (31))));
@@ -9265,16 +9340,14 @@
                                       gen_rtx_NE (SImode,
                                                   cc_reg,
                                                   const0_rtx),
-                                      gen_rtx_SET (SImode,
-                                                   operands[0],
+                                      gen_rtx_SET (operands[0],
                                                    GEN_INT (~0))));
         DONE;
       }
     else
       {
         /* Emit: cmp\\t%1, %2\;mov%D3\\t%0, #0\;mvn%d3\\t%0, #0 */
-        emit_insn (gen_rtx_SET (VOIDmode,
-                                cc_reg,
+        emit_insn (gen_rtx_SET (cc_reg,
                                 gen_rtx_COMPARE (CCmode, operands[1], operands[2])));
         enum rtx_code rc = GET_CODE (operands[3]);
 
@@ -9284,15 +9357,14 @@
                                                       VOIDmode,
                                                       cc_reg,
                                                       const0_rtx),
-                                      gen_rtx_SET (VOIDmode, operands[0], const0_rtx)));
+                                      gen_rtx_SET (operands[0], const0_rtx)));
         rc = GET_CODE (operands[3]);
         emit_insn (gen_rtx_COND_EXEC (VOIDmode,
                                       gen_rtx_fmt_ee (rc,
                                                       VOIDmode,
                                                       cc_reg,
                                                       const0_rtx),
-                                      gen_rtx_SET (VOIDmode,
-                                                   operands[0],
+                                      gen_rtx_SET (operands[0],
                                                    GEN_INT (~0))));
         DONE;
       }
@@ -9331,7 +9403,7 @@
     enum rtx_code rc = GET_CODE (operands[5]);
     operands[6] = gen_rtx_REG (mode, CC_REGNUM);
     gcc_assert (!(mode == CCFPmode || mode == CCFPEmode));
-    if (REGNO (operands[2]) != REGNO (operands[0]))
+    if (!REG_P (operands[2]) || REGNO (operands[2]) != REGNO (operands[0]))
       rc = reverse_condition (rc);
     else
       std::swap (operands[1], operands[2]);
@@ -9449,8 +9521,8 @@
                                         (const_string "alu_imm" )
                                         (const_string "alu_sreg"))
                           (const_string "alu_imm")
-                          (const_string "alu_sreg")
-                          (const_string "alu_sreg")])]
+                          (const_string "multiple")
+                          (const_string "multiple")])]
 )
 
 (define_insn "*ifcompare_move_plus"
@@ -9487,7 +9559,13 @@
    sub%D4\\t%0, %2, #%n3\;mov%d4\\t%0, %1"
   [(set_attr "conds" "use")
    (set_attr "length" "4,4,8,8")
-   (set_attr "type" "alu_sreg,alu_imm,multiple,multiple")]
+   (set_attr_alternative "type"
+                         [(if_then_else (match_operand 3 "const_int_operand" "")
+                                        (const_string "alu_imm" )
+                                        (const_string "alu_sreg"))
+                          (const_string "alu_imm")
+                          (const_string "multiple")
+                          (const_string "multiple")])]
 )
 
 (define_insn "*ifcompare_arith_arith"
@@ -9582,7 +9660,11 @@
    %I5%d4\\t%0, %2, %3\;mov%D4\\t%0, %1"
   [(set_attr "conds" "use")
    (set_attr "length" "4,8")
-   (set_attr "type" "alu_shift_reg,multiple")]
+   (set_attr_alternative "type"
+                         [(if_then_else (match_operand 3 "const_int_operand" "")
+                                        (const_string "alu_shift_imm" )
+                                        (const_string "alu_shift_reg"))
+                          (const_string "multiple")])]
 )
 
 (define_insn "*ifcompare_move_arith"
@@ -9643,7 +9725,11 @@
    %I5%D4\\t%0, %2, %3\;mov%d4\\t%0, %1"
   [(set_attr "conds" "use")
    (set_attr "length" "4,8")
-   (set_attr "type" "alu_shift_reg,multiple")]
+   (set_attr_alternative "type"
+                         [(if_then_else (match_operand 3 "const_int_operand" "")
+                                        (const_string "alu_shift_imm" )
+                                        (const_string "alu_shift_reg"))
+                          (const_string "multiple")])]
 )
 
 (define_insn "*ifcompare_move_not"
@@ -9750,7 +9836,12 @@
   [(set_attr "conds" "use")
    (set_attr "shift" "2")
    (set_attr "length" "4,8,8")
-   (set_attr "type" "mov_shift_reg,multiple,multiple")]
+   (set_attr_alternative "type"
+                         [(if_then_else (match_operand 3 "const_int_operand" "")
+                                        (const_string "mov_shift" )
+                                        (const_string "mov_shift_reg"))
+                          (const_string "multiple")
+                          (const_string "multiple")])]
 )
 
 (define_insn "*ifcompare_move_shift"
@@ -9788,7 +9879,12 @@
   [(set_attr "conds" "use")
    (set_attr "shift" "2")
    (set_attr "length" "4,8,8")
-   (set_attr "type" "mov_shift_reg,multiple,multiple")]
+   (set_attr_alternative "type"
+                         [(if_then_else (match_operand 3 "const_int_operand" "")
+                                        (const_string "mov_shift" )
+                                        (const_string "mov_shift_reg"))
+                          (const_string "multiple")
+                          (const_string "multiple")])]
 )
 
 (define_insn "*ifcompare_shift_shift"
@@ -10869,7 +10965,7 @@
  [(set_attr "predicable" "yes")
   (set_attr "predicable_short_it" "no")
   (set_attr "length" "4")
-  (set_attr "type" "mov_imm")]
+  (set_attr "type" "alu_sreg")]
 )
 
 (define_insn "*arm_rev"
@@ -11213,7 +11309,7 @@
      emit_move_insn (scratch1, op2_high);
      emit_move_insn (scratch2, op1_high);
 
-     emit_insn(gen_rtx_SET(SImode, scratch1,
+     emit_insn(gen_rtx_SET(scratch1,
 			   gen_rtx_LSHIFTRT (SImode, op2_high, GEN_INT(31))));
      emit_insn(gen_insv_t2(scratch2, GEN_INT(1), GEN_INT(31), scratch1));
      emit_move_insn (op0_low, op1_low);

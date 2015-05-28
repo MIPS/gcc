@@ -1197,10 +1197,16 @@ extern void protected_set_expr_location (tree, location_t);
 
 /* OpenMP and OpenACC directive and clause accessors.  */
 
+/* Generic accessors for OMP nodes that keep the body as operand 0, and clauses
+   as operand 1.  */
 #define OMP_BODY(NODE) \
   TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_PARALLEL, OMP_CRITICAL), 0)
 #define OMP_CLAUSES(NODE) \
   TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_PARALLEL, OMP_SINGLE), 1)
+
+/* Generic accessors for OMP nodes that keep clauses as operand 0.  */
+#define OMP_STANDALONE_CLAUSES(NODE) \
+  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_CACHE, OMP_TARGET_UPDATE), 0)
 
 #define OACC_PARALLEL_BODY(NODE) \
   TREE_OPERAND (OACC_PARALLEL_CHECK (NODE), 0)
@@ -1319,6 +1325,11 @@ extern void protected_set_expr_location (tree, location_t);
    combined parallel work-sharing constructs.  */
 #define OMP_PARALLEL_COMBINED(NODE) \
   (OMP_PARALLEL_CHECK (NODE)->base.private_flag)
+
+/* True on an OMP_TEAMS statement if it represents an explicit
+   combined teams distribute constructs.  */
+#define OMP_TEAMS_COMBINED(NODE) \
+  (OMP_TEAMS_CHECK (NODE)->base.private_flag)
 
 /* True if OMP_ATOMIC* is supposed to be sequentially consistent
    as opposed to relaxed.  */
@@ -3888,6 +3899,8 @@ extern tree build_type_attribute_variant (tree, tree);
 extern tree build_decl_attribute_variant (tree, tree);
 extern tree build_type_attribute_qual_variant (tree, tree, int);
 
+extern bool attribute_value_equal (const_tree, const_tree);
+
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a
    warning to be generated).  */
@@ -4362,9 +4375,9 @@ extern int operand_equal_for_phi_arg_p (const_tree, const_tree);
 extern tree create_artificial_label (location_t);
 extern const char *get_name (tree);
 extern bool stdarg_p (const_tree);
-extern bool prototype_p (tree);
-extern bool is_typedef_decl (tree x);
-extern bool typedef_variant_p (tree);
+extern bool prototype_p (const_tree);
+extern bool is_typedef_decl (const_tree x);
+extern bool typedef_variant_p (const_tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
 extern tree build_low_bits_mask (tree, unsigned);
 extern bool tree_nop_conversion_p (const_tree, const_tree);
@@ -4375,6 +4388,69 @@ extern tree lhd_gcc_personality (void);
 extern void assign_assembler_name_if_neeeded (tree);
 extern void warn_deprecated_use (tree, tree);
 extern void cache_integer_cst (tree);
+
+/* Return the memory model from a host integer.  */
+static inline enum memmodel
+memmodel_from_int (unsigned HOST_WIDE_INT val)
+{
+  return (enum memmodel) (val & MEMMODEL_MASK);
+}
+
+/* Return the base memory model from a host integer.  */
+static inline enum memmodel
+memmodel_base (unsigned HOST_WIDE_INT val)
+{
+  return (enum memmodel) (val & MEMMODEL_BASE_MASK);
+}
+
+/* Return TRUE if the memory model is RELAXED.  */
+static inline bool
+is_mm_relaxed (enum memmodel model)
+{
+  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_RELAXED;
+}
+
+/* Return TRUE if the memory model is CONSUME.  */
+static inline bool
+is_mm_consume (enum memmodel model)
+{
+  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_CONSUME;
+}
+
+/* Return TRUE if the memory model is ACQUIRE.  */
+static inline bool
+is_mm_acquire (enum memmodel model)
+{
+  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_ACQUIRE;
+}
+
+/* Return TRUE if the memory model is RELEASE.  */
+static inline bool
+is_mm_release (enum memmodel model)
+{
+  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_RELEASE;
+}
+
+/* Return TRUE if the memory model is ACQ_REL.  */
+static inline bool
+is_mm_acq_rel (enum memmodel model)
+{
+  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_ACQ_REL;
+}
+
+/* Return TRUE if the memory model is SEQ_CST.  */
+static inline bool
+is_mm_seq_cst (enum memmodel model)
+{
+  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_SEQ_CST;
+}
+
+/* Return TRUE if the memory model is a SYNC variant.  */
+static inline bool
+is_mm_sync (enum memmodel model)
+{
+  return (model & MEMMODEL_SYNC);
+}
 
 /* Compare and hash for any structure which begins with a canonical
    pointer.  Assumes all pointers are interchangeable, which is sort
@@ -4468,12 +4544,11 @@ extern location_t *block_nonartificial_location (tree);
 extern location_t tree_nonartificial_location (tree);
 extern tree block_ultimate_origin (const_tree);
 extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
-extern bool virtual_method_call_p (tree);
-extern tree obj_type_ref_class (tree ref);
+extern bool virtual_method_call_p (const_tree);
+extern tree obj_type_ref_class (const_tree ref);
 extern bool types_same_for_odr (const_tree type1, const_tree type2,
 				bool strict=false);
 extern bool contains_bitfld_component_ref_p (const_tree);
-extern bool type_in_anonymous_namespace_p (const_tree);
 extern bool block_may_fallthru (const_tree);
 extern void using_eh_for_cleanups (void);
 extern bool using_eh_for_cleanups_p (void);
@@ -4493,6 +4568,9 @@ extern tree drop_tree_overflow (tree);
 extern int tree_map_base_eq (const void *, const void *);
 extern unsigned int tree_map_base_hash (const void *);
 extern int tree_map_base_marked_p (const void *);
+extern void DEBUG_FUNCTION verify_type (const_tree t);
+extern bool gimple_canonical_types_compatible_p (const_tree, const_tree,
+						 bool trust_type_canonical = true);
 
 #define tree_map_eq tree_map_base_eq
 extern unsigned int tree_map_hash (const void *);
@@ -4612,7 +4690,7 @@ more_call_expr_args_p (const call_expr_arg_iterator *iter)
 
 /* Return true if tree node T is a language-specific node.  */
 static inline bool
-is_lang_specific (tree t)
+is_lang_specific (const_tree t)
 {
   return TREE_CODE (t) == LANG_TYPE || TREE_CODE (t) >= NUM_TREE_CODES;
 }
@@ -5010,6 +5088,26 @@ int_bit_position (const_tree field)
 { 
   return (wi::lshift (wi::to_offset (DECL_FIELD_OFFSET (field)), BITS_PER_UNIT_LOG)
 	  + wi::to_offset (DECL_FIELD_BIT_OFFSET (field))).to_shwi ();
+}
+
+/* Return true if it makes sense to consider alias set for a type T.  */
+
+inline bool
+type_with_alias_set_p (const_tree t)
+{
+  /* Function and method types are never accessed as memory locations.  */
+  if (TREE_CODE (t) == FUNCTION_TYPE || TREE_CODE (t) == METHOD_TYPE)
+    return false;
+
+  if (COMPLETE_TYPE_P (t))
+    return true;
+
+  /* Incomplete types can not be accessed in general except for arrays
+     where we can fetch its element despite we have no array bounds.  */
+  if (TREE_CODE (t) == ARRAY_TYPE && COMPLETE_TYPE_P (TREE_TYPE (t)))
+    return true;
+
+  return false;
 }
 
 extern void gt_ggc_mx (tree &);

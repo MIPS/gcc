@@ -233,9 +233,6 @@ static GTY(()) vec<tree, va_gc> *global_decls;
 /* An array of builtin function declarations.  */
 static GTY(()) vec<tree, va_gc> *builtin_decls;
 
-/* An array of global renaming pointers.  */
-static GTY(()) vec<tree, va_gc> *global_renaming_pointers;
-
 /* A chain of unused BLOCK nodes. */
 static GTY((deletable)) tree free_block_chain;
 
@@ -322,9 +319,6 @@ destroy_gnat_utils (void)
   /* Destroy the hash table of padded types.  */
   pad_type_hash_table->empty ();
   pad_type_hash_table = NULL;
-
-  /* Invalidate the global renaming pointers.   */
-  invalidate_global_renaming_pointers ();
 }
 
 /* GNAT_ENTITY is a GNAT tree node for an entity.  Associate GNU_DECL, a GCC
@@ -1351,8 +1345,8 @@ maybe_pad_type (tree type, tree size, unsigned int align,
     }
 
   /* Now create the field with the original size.  */
-  field  = create_field_decl (get_identifier ("F"), type, record, orig_size,
-			      bitsize_zero_node, 0, 1);
+  field = create_field_decl (get_identifier ("F"), type, record, orig_size,
+			     bitsize_zero_node, 0, 1);
   DECL_INTERNAL_P (field) = 1;
 
   /* Do not emit debug info until after the auxiliary record is built.  */
@@ -1426,7 +1420,7 @@ built:
   if (CONTAINS_PLACEHOLDER_P (orig_size))
     orig_size = max_size (orig_size, true);
 
-  if (align)
+  if (align && AGGREGATE_TYPE_P (type))
     orig_size = round_up (orig_size, align);
 
   if (!operand_equal_p (size, orig_size, 0)
@@ -2716,36 +2710,6 @@ process_attributes (tree *node, struct attrib **attr_list, bool in_place,
       }
 
   *attr_list = NULL;
-}
-
-/* Record DECL as a global renaming pointer.  */
-
-void
-record_global_renaming_pointer (tree decl)
-{
-  gcc_assert (!DECL_LOOP_PARM_P (decl) && DECL_RENAMED_OBJECT (decl));
-  vec_safe_push (global_renaming_pointers, decl);
-}
-
-/* Invalidate the global renaming pointers that are not constant, lest their
-   renamed object contains SAVE_EXPRs tied to an elaboration routine.  Note
-   that we should not blindly invalidate everything here because of the need
-   to propagate constant values through renaming.  */
-
-void
-invalidate_global_renaming_pointers (void)
-{
-  unsigned int i;
-  tree iter;
-
-  if (global_renaming_pointers == NULL)
-    return;
-
-  FOR_EACH_VEC_ELT (*global_renaming_pointers, i, iter)
-    if (!TREE_CONSTANT (DECL_RENAMED_OBJECT (iter)))
-      SET_DECL_RENAMED_OBJECT (iter, NULL_TREE);
-
-  vec_free (global_renaming_pointers);
 }
 
 /* Return true if VALUE is a known to be a multiple of FACTOR, which must be
@@ -4070,10 +4034,8 @@ convert (tree type, tree expr)
 
       /* If we have just converted to this padded type, just get the
 	 inner expression.  */
-      if (TREE_CODE (expr) == CONSTRUCTOR
-	  && !vec_safe_is_empty (CONSTRUCTOR_ELTS (expr))
-	  && (*CONSTRUCTOR_ELTS (expr))[0].index == TYPE_FIELDS (etype))
-	unpadded = (*CONSTRUCTOR_ELTS (expr))[0].value;
+      if (TREE_CODE (expr) == CONSTRUCTOR)
+	unpadded = CONSTRUCTOR_ELT (expr, 0)->value;
 
       /* Otherwise, build an explicit component reference.  */
       else
@@ -4635,7 +4597,7 @@ remove_conversions (tree exp, bool true_address)
 	  && TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE
 	  && TYPE_JUSTIFIED_MODULAR_P (TREE_TYPE (exp)))
 	return
-	  remove_conversions ((*CONSTRUCTOR_ELTS (exp))[0].value, true);
+	  remove_conversions (CONSTRUCTOR_ELT (exp, 0)->value, true);
       break;
 
     case COMPONENT_REF:
@@ -5211,7 +5173,7 @@ gnat_write_global_declarations (void)
      finalized in the right context.  */
   FOR_EACH_VEC_SAFE_ELT (global_decls, i, iter)
     if (TREE_CODE (iter) == TYPE_DECL && !DECL_IGNORED_P (iter))
-      debug_hooks->global_decl (iter);
+      debug_hooks->type_decl (iter, false);
 
   /* Proceed to optimize and emit assembly. */
   symtab->finalize_compilation_unit ();

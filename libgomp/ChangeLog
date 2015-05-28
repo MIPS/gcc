@@ -1,3 +1,163 @@
+2015-05-27  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* target.c (gomp_map_pointer): New function abstracting out
+	GOMP_MAP_POINTER handling.
+	(gomp_map_vars): Remove GOMP_MAP_POINTER handling code and use
+	gomp_map_pointer().
+
+2015-05-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/66199
+	* testsuite/libgomp.c/pr66199-1.c: New test.
+	* testsuite/libgomp.c/pr66199-2.c: New test.
+	* testsuite/libgomp.c++/pr66199-1.C: New test.
+	* testsuite/libgomp.c++/pr66199-2.C: New test.
+	* testsuite/libgomp.fortran/pr66199-1.f90: New test.
+	* testsuite/libgomp.fortran/pr66199-2.f90: New test.
+
+2015-05-19  Julian Brown  <julian@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (nvptx_get_num_devices): Return zero
+	on cuInit failure.
+
+2015-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/66133
+	* testsuite/libgomp.c/pr66133.c: New test.
+
+2015-05-13  Michael Haubenwallner  <michael.haubenwallner@ssi-schaefer.com>
+
+	* Makefile.in: Regenerated with automake-1.11.6.
+	* aclocal.m4: Likewise.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2015-05-08  Jason Merrill  <jason@redhat.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/reduction-4.c (main): Use
+	_Complex.
+
+	* openacc.h (__GOACC_NOTHROW): Fix noexcept syntax.
+
+2015-05-06  Julian Brown  <julian@codesourcery.com>
+
+	* oacc-init.c (acc_device_lock): Add explanatory comment.
+	(resolve_device): Add comment about locking requirement.
+	(acc_init_1, acc_shutdown_1): Likewise. Add locking around
+	gomp_init_device and gomp_fini_device calls.
+	(acc_get_num_devices, acc_set_device_type, acc_get_device_type)
+	(acc_get_device_num, acc_set_device_num): Add locking around
+	resolve_device and gomp_init_device calls.
+
+2015-05-06  Julian Brown  <julian@codesourcery.com>
+
+	* oacc-init.c (acc_shutdown_1): Call gomp_mutex_unlock for
+	goacc_thread_lock on error paths.
+	* oacc-mem.c (lookup_host): Remove locking from function. Note
+	locking requirement for caller in function comment.
+	(lookup_dev): Likewise.
+	(acc_free, acc_deviceptr, acc_hostptr, acc_is_present)
+	(acc_map_data, acc_unmap_data, present_create_copy, delete_copyout)
+	(update_dev_host, gomp_acc_insert_pointer, gomp_acc_remove_pointer):
+	Add locking.
+
+2015-05-05  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR testsuite/65205
+	PR libgomp/65993
+	* testsuite/libgomp.oacc-c-c++-common/clauses-2.c: In dg-output,
+	don't expect "0x" prefix for "%p" format specifier, don't expect
+	"(nil)" for NULL pointer.
+	* testsuite/libgomp.oacc-c-c++-common/lib-16.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-17.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-18.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-20.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-21.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-22.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-23.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-25.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-26.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-27.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-28.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-29.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-30.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-34.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-35.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-36.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-39.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-40.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-42.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-43.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-44.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-47.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-48.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-52.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-53.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-54.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-57.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-58.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/data-already-1.c: More
+	accurately specify what we're looking for.
+	* testsuite/libgomp.oacc-c-c++-common/data-already-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/data-already-8.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-already-1.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-already-2.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/data-already-8.f: Likewise.
+
+2015-04-30  James Norris  <jnorris@codesourcery.com>
+
+	PR testsuite/65205
+	* testsuite/lib/libgomp.exp
+	(check_effective_target_openacc_host_selected)
+	(check_effective_target_openacc_host_nonshm_selected): New
+	procedures.
+	* testsuite/libgomp.oacc-c-c++-common/clauses-2.c: Fix misuse of
+	dg-shouldfail.
+	* testsuite/libgomp.oacc-c-c++-common/lib-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-11.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-16.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-17.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-18.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-20.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-21.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-22.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-23.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-25.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-26.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-27.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-28.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-29.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-30.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-34.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-35.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-36.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-39.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-4.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-40.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-42.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-43.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-44.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-47.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-48.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-52.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-53.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-54.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-57.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-58.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-62.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-63.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-64.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-65.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-67.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-68.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-71.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-77.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-80.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/present-1.c: Likewise.
+
 2015-04-08  Julian Brown  <julian@codesourcery.com>
 
 	* libgomp.h (target_mem_desc: Remove mem_map field.

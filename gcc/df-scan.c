@@ -62,18 +62,11 @@ along with GCC; see the file COPYING3.  If not see
 typedef struct df_mw_hardreg *df_mw_hardreg_ptr;
 
 
-#ifndef HAVE_epilogue
-#define HAVE_epilogue 0
-#endif
 #ifndef HAVE_prologue
 #define HAVE_prologue 0
 #endif
 #ifndef HAVE_sibcall_epilogue
 #define HAVE_sibcall_epilogue 0
-#endif
-
-#ifndef EPILOGUE_USES
-#define EPILOGUE_USES(REGNO)  0
 #endif
 
 /* The set of hard registers in eliminables[i].from. */
@@ -1826,7 +1819,7 @@ df_insn_change_bb (rtx_insn *insn, basic_block new_bb)
 static void
 df_ref_change_reg_with_loc_1 (struct df_reg_info *old_df,
 			      struct df_reg_info *new_df,
-			      int new_regno, rtx loc)
+			      unsigned int new_regno, rtx loc)
 {
   df_ref the_ref = old_df->reg_chain;
 
@@ -1911,25 +1904,33 @@ df_ref_change_reg_with_loc_1 (struct df_reg_info *old_df,
 }
 
 
-/* Change the regno of all refs that contained LOC from OLD_REGNO to
-   NEW_REGNO.  Refs that do not match LOC are not changed which means
-   that artificial refs are not changed since they have no loc.  This
-   call is to support the SET_REGNO macro. */
+/* Change the regno of register LOC to NEW_REGNO and update the df
+   information accordingly.  Refs that do not match LOC are not changed
+   which means that artificial refs are not changed since they have no loc.
+   This call is to support the SET_REGNO macro. */
 
 void
-df_ref_change_reg_with_loc (int old_regno, int new_regno, rtx loc)
+df_ref_change_reg_with_loc (rtx loc, unsigned int new_regno)
 {
-  if ((!df) || (old_regno == -1) || (old_regno == new_regno))
+  unsigned int old_regno = REGNO (loc);
+  if (old_regno == new_regno)
     return;
 
-  df_grow_reg_info ();
+  if (df)
+    {
+      df_grow_reg_info ();
 
-  df_ref_change_reg_with_loc_1 (DF_REG_DEF_GET (old_regno),
-				DF_REG_DEF_GET (new_regno), new_regno, loc);
-  df_ref_change_reg_with_loc_1 (DF_REG_USE_GET (old_regno),
-				DF_REG_USE_GET (new_regno), new_regno, loc);
-  df_ref_change_reg_with_loc_1 (DF_REG_EQ_USE_GET (old_regno),
-				DF_REG_EQ_USE_GET (new_regno), new_regno, loc);
+      df_ref_change_reg_with_loc_1 (DF_REG_DEF_GET (old_regno),
+				    DF_REG_DEF_GET (new_regno),
+				    new_regno, loc);
+      df_ref_change_reg_with_loc_1 (DF_REG_USE_GET (old_regno),
+				    DF_REG_USE_GET (new_regno),
+				    new_regno, loc);
+      df_ref_change_reg_with_loc_1 (DF_REG_EQ_USE_GET (old_regno),
+				    DF_REG_EQ_USE_GET (new_regno),
+				    new_regno, loc);
+    }
+  set_mode_and_regno (loc, GET_MODE (loc), new_regno);
 }
 
 
@@ -2623,7 +2624,7 @@ df_ref_record (enum df_ref_class cl,
 	  endregno = regno + subreg_nregs (reg);
 	}
       else
-	endregno = END_HARD_REGNO (reg);
+	endregno = END_REGNO (reg);
 
       /*  If this is a multiword hardreg, we create some extra
 	  datastructures that will enable us to easily build REG_DEAD
@@ -3247,12 +3248,11 @@ df_insn_refs_collect (struct df_collection_rec *collection_rec,
                          regno_reg_rtx[FRAME_POINTER_REGNUM],
                          NULL, bb, insn_info,
                          DF_REF_REG_USE, 0);
-#if !HARD_FRAME_POINTER_IS_FRAME_POINTER
-          df_ref_record (DF_REF_BASE, collection_rec,
-                         regno_reg_rtx[HARD_FRAME_POINTER_REGNUM],
-                         NULL, bb, insn_info,
-                         DF_REF_REG_USE, 0);
-#endif
+	  if (!HARD_FRAME_POINTER_IS_FRAME_POINTER)
+	    df_ref_record (DF_REF_BASE, collection_rec,
+			   regno_reg_rtx[HARD_FRAME_POINTER_REGNUM],
+			   NULL, bb, insn_info,
+			   DF_REF_REG_USE, 0);
           break;
         default:
           break;
@@ -3332,7 +3332,6 @@ df_bb_refs_collect (struct df_collection_rec *collection_rec, basic_block bb)
       return;
     }
 
-#ifdef EH_RETURN_DATA_REGNO
   if (bb_has_eh_pred (bb))
     {
       unsigned int i;
@@ -3346,7 +3345,6 @@ df_bb_refs_collect (struct df_collection_rec *collection_rec, basic_block bb)
 			 bb, NULL, DF_REF_REG_DEF, DF_REF_AT_TOP);
 	}
     }
-#endif
 
   /* Add the hard_frame_pointer if this block is the target of a
      non-local goto.  */
@@ -3444,16 +3442,15 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
 	 reference of the frame pointer.  */
       bitmap_set_bit (regular_block_artificial_uses, FRAME_POINTER_REGNUM);
 
-#if !HARD_FRAME_POINTER_IS_FRAME_POINTER
-      bitmap_set_bit (regular_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
-#endif
+      if (!HARD_FRAME_POINTER_IS_FRAME_POINTER)
+	bitmap_set_bit (regular_block_artificial_uses,
+			HARD_FRAME_POINTER_REGNUM);
 
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
-      if (fixed_regs[ARG_POINTER_REGNUM])
+      if (FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	  && fixed_regs[ARG_POINTER_REGNUM])
 	bitmap_set_bit (regular_block_artificial_uses, ARG_POINTER_REGNUM);
-#endif
 
       /* Any constant, or pseudo with constant equivalences, may
 	 require reloading from memory using the pic register.  */
@@ -3496,14 +3493,13 @@ df_get_eh_block_artificial_uses (bitmap eh_block_artificial_uses)
       if (frame_pointer_needed)
 	{
 	  bitmap_set_bit (eh_block_artificial_uses, FRAME_POINTER_REGNUM);
-#if !HARD_FRAME_POINTER_IS_FRAME_POINTER
-	  bitmap_set_bit (eh_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
-#endif
+	  if (!HARD_FRAME_POINTER_IS_FRAME_POINTER)
+	    bitmap_set_bit (eh_block_artificial_uses,
+			    HARD_FRAME_POINTER_REGNUM);
 	}
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-      if (fixed_regs[ARG_POINTER_REGNUM])
+      if (FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	  && fixed_regs[ARG_POINTER_REGNUM])
 	bitmap_set_bit (eh_block_artificial_uses, ARG_POINTER_REGNUM);
-#endif
     }
 }
 
@@ -3520,18 +3516,7 @@ df_get_eh_block_artificial_uses (bitmap eh_block_artificial_uses)
 static void
 df_mark_reg (rtx reg, void *vset)
 {
-  bitmap set = (bitmap) vset;
-  int regno = REGNO (reg);
-
-  gcc_assert (GET_MODE (reg) != BLKmode);
-
-  if (regno < FIRST_PSEUDO_REGISTER)
-    {
-      int n = hard_regno_nregs[regno][GET_MODE (reg)];
-      bitmap_set_range (set, regno, n);
-    }
-  else
-    bitmap_set_bit (set, regno);
+  bitmap_set_range ((bitmap) vset, REGNO (reg), REG_NREGS (reg));
 }
 
 
@@ -3582,34 +3567,28 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
       /* Any reference to any pseudo before reload is a potential
 	 reference of the frame pointer.  */
       bitmap_set_bit (entry_block_defs, FRAME_POINTER_REGNUM);
-#if !HARD_FRAME_POINTER_IS_FRAME_POINTER
+
       /* If they are different, also mark the hard frame pointer as live.  */
-      if (!LOCAL_REGNO (HARD_FRAME_POINTER_REGNUM))
+      if (!HARD_FRAME_POINTER_IS_FRAME_POINTER
+	  && !LOCAL_REGNO (HARD_FRAME_POINTER_REGNUM))
 	bitmap_set_bit (entry_block_defs, HARD_FRAME_POINTER_REGNUM);
-#endif
     }
 
   /* These registers are live everywhere.  */
   if (!reload_completed)
     {
-#ifdef PIC_OFFSET_TABLE_REGNUM
-      unsigned int picreg = PIC_OFFSET_TABLE_REGNUM;
-#endif
-
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
-      if (fixed_regs[ARG_POINTER_REGNUM])
+      if (FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	  && fixed_regs[ARG_POINTER_REGNUM])
 	bitmap_set_bit (entry_block_defs, ARG_POINTER_REGNUM);
-#endif
 
-#ifdef PIC_OFFSET_TABLE_REGNUM
       /* Any constant, or pseudo with constant equivalences, may
 	 require reloading from memory using the pic register.  */
+      unsigned int picreg = PIC_OFFSET_TABLE_REGNUM;
       if (picreg != INVALID_REGNUM
 	  && fixed_regs[picreg])
 	bitmap_set_bit (entry_block_defs, picreg);
-#endif
     }
 
 #ifdef INCOMING_RETURN_ADDR_RTX
@@ -3720,11 +3699,11 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
   if ((!reload_completed) || frame_pointer_needed)
     {
       bitmap_set_bit (exit_block_uses, FRAME_POINTER_REGNUM);
-#if !HARD_FRAME_POINTER_IS_FRAME_POINTER
+
       /* If they are different, also mark the hard frame pointer as live.  */
-      if (!LOCAL_REGNO (HARD_FRAME_POINTER_REGNUM))
+      if (!HARD_FRAME_POINTER_IS_FRAME_POINTER
+	  && !LOCAL_REGNO (HARD_FRAME_POINTER_REGNUM))
 	bitmap_set_bit (exit_block_uses, HARD_FRAME_POINTER_REGNUM);
-#endif
     }
 
   /* Many architectures have a GP register even without flag_pic.
@@ -3751,7 +3730,6 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
 	  bitmap_set_bit (exit_block_uses, i);
     }
 
-#ifdef EH_RETURN_DATA_REGNO
   /* Mark the registers that will contain data for the handler.  */
   if (reload_completed && crtl->calls_eh_return)
     for (i = 0; ; ++i)
@@ -3761,7 +3739,6 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
 	  break;
 	bitmap_set_bit (exit_block_uses, regno);
       }
-#endif
 
 #ifdef EH_RETURN_STACKADJ_RTX
   if ((!HAVE_epilogue || ! epilogue_completed)
@@ -3801,16 +3778,15 @@ df_exit_block_uses_collect (struct df_collection_rec *collection_rec, bitmap exi
     df_ref_record (DF_REF_ARTIFICIAL, collection_rec, regno_reg_rtx[i], NULL,
 		   EXIT_BLOCK_PTR_FOR_FN (cfun), NULL, DF_REF_REG_USE, 0);
 
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
   /* It is deliberate that this is not put in the exit block uses but
      I do not know why.  */
-  if (reload_completed
+  if (FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+      && reload_completed
       && !bitmap_bit_p (exit_block_uses, ARG_POINTER_REGNUM)
       && bb_has_eh_pred (EXIT_BLOCK_PTR_FOR_FN (cfun))
       && fixed_regs[ARG_POINTER_REGNUM])
     df_ref_record (DF_REF_ARTIFICIAL, collection_rec, regno_reg_rtx[ARG_POINTER_REGNUM], NULL,
 		   EXIT_BLOCK_PTR_FOR_FN (cfun), NULL, DF_REF_REG_USE, 0);
-#endif
 
   df_canonize_collection_rec (collection_rec);
 }

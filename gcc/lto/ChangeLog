@@ -1,3 +1,33 @@
+2015-05-22  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (hash_canonical_type): Be sure we hash only types that
+	need alias set.
+	(gimple_register_canonical_type_1): Do not produce canonical
+	types for types that do not need alias sets.
+
+2015-05-22  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (hash_canonical_type): Drop hashing of METHOD_BASETYPE.
+
+2015-05-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (gimple_canonical_types_compatible_p): Move to tree.c
+
+2015-05-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto-symtab.c (warn_type_compatibility_p): Break out from ...;
+	compare ODR types (if available) and function types.
+	(lto_symtab_merge): ... here; output ODR violation warnings
+	and call warn_types_mismatch.
+
+2015-04-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (lto_fixup_state): Call verify_type.
+
+2015-04-18  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* lto.c: Adjust for hash_table changes.
+
 2015-03-27  Jan Hubicka  <hubicka@ucw.cz>
 
 	* lto.c (lto_read_decls): Move code registering odr types out

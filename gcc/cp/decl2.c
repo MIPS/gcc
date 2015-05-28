@@ -118,6 +118,10 @@ static GTY(()) vec<tree, va_gc> *deferred_fns;
    sure are defined.  */
 static GTY(()) vec<tree, va_gc> *no_linkage_decls;
 
+/* A vector of alternating decls and identifiers, where the latter
+   is to be an alias for the former if the former is defined.  */
+static GTY(()) vec<tree, va_gc> *mangling_aliases;
+
 /* Nonzero if we're done parsing and into end-of-file activities.  */
 
 int at_eof;
@@ -191,6 +195,8 @@ change_return_type (tree new_ret, tree fntype)
   else
     newtype = build_method_type_directly
       (class_of_this_parm (fntype), new_ret, TREE_CHAIN (args));
+  if (FUNCTION_REF_QUALIFIED (fntype))
+    newtype = build_ref_qualified_type (newtype, type_memfn_rqual (fntype));
   if (raises)
     newtype = build_exception_variant (newtype, raises);
   if (attrs)
@@ -1180,6 +1186,10 @@ is_late_template_attribute (tree attr, tree decl)
       && is_attribute_p ("omp declare simd", name))
     return true;
 
+  /* An attribute pack is clearly dependent.  */
+  if (args && PACK_EXPANSION_P (args))
+    return true;
+
   /* If any of the arguments are dependent expressions, we can't evaluate
      the attribute until instantiation time.  */
   for (arg = args; arg; arg = TREE_CHAIN (arg))
@@ -1866,15 +1876,19 @@ maybe_make_one_only (tree decl)
 bool
 vague_linkage_p (tree decl)
 {
+  if (!TREE_PUBLIC (decl))
+    {
+      gcc_checking_assert (!DECL_COMDAT (decl));
+      return false;
+    }
   /* Unfortunately, import_export_decl has not always been called
      before the function is processed, so we cannot simply check
      DECL_COMDAT.  */
   if (DECL_COMDAT (decl)
-      || (((TREE_CODE (decl) == FUNCTION_DECL
-	    && DECL_DECLARED_INLINE_P (decl))
-	   || (DECL_LANG_SPECIFIC (decl)
-	       && DECL_TEMPLATE_INSTANTIATION (decl)))
-	  && TREE_PUBLIC (decl)))
+      || (TREE_CODE (decl) == FUNCTION_DECL
+	  && DECL_DECLARED_INLINE_P (decl))
+      || (DECL_LANG_SPECIFIC (decl)
+	  && DECL_TEMPLATE_INSTANTIATION (decl)))
     return true;
   else if (DECL_FUNCTION_SCOPE_P (decl))
     /* A local static in an inline effectively has vague linkage.  */
@@ -2391,9 +2405,7 @@ determine_visibility (tree decl)
     {
       /* If the specialization doesn't specify visibility, use the
 	 visibility from the template.  */
-      tree tinfo = (TREE_CODE (decl) == TYPE_DECL
-		    ? TYPE_TEMPLATE_INFO (TREE_TYPE (decl))
-		    : DECL_TEMPLATE_INFO (decl));
+      tree tinfo = get_template_info (decl);
       tree args = TI_ARGS (tinfo);
       tree attribs = (TREE_CODE (decl) == TYPE_DECL
 		      ? TYPE_ATTRIBUTES (TREE_TYPE (decl))
@@ -2651,7 +2663,12 @@ reset_type_linkage_2 (tree type)
 	if (TREE_CODE (m) == VAR_DECL)
 	  reset_decl_linkage (m);
       for (tree m = TYPE_METHODS (type); m; m = DECL_CHAIN (m))
-	reset_decl_linkage (m);
+	{
+	  reset_decl_linkage (m);
+	  if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (m))
+	    /* Also update its name, for cxx_dwarf_name.  */
+	    DECL_NAME (m) = TYPE_IDENTIFIER (type);
+	}
       binding_table_foreach (CLASSTYPE_NESTED_UTDS (type),
 			     bt_reset_linkage_2, NULL);
     }
@@ -3990,20 +4007,17 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
 }
 
 /* Java requires that we be able to reference a local address for a
-   method, and not be confused by PLT entries.  If hidden aliases are
-   supported, collect and return all the functions for which we should
-   emit a hidden alias.  */
+   method, and not be confused by PLT entries.  If supported, create a
+   hidden alias for all such methods.  */
 
-static hash_set<tree> *
-collect_candidates_for_java_method_aliases (void)
+static void
+build_java_method_aliases (void)
 {
-  struct cgraph_node *node;
-  hash_set<tree> *candidates = NULL;
-
 #ifndef HAVE_GAS_HIDDEN
-  return candidates;
+  return;
 #endif
 
+  struct cgraph_node *node;
   FOR_EACH_FUNCTION (node)
     {
       tree fndecl = node->decl;
@@ -4012,55 +4026,18 @@ collect_candidates_for_java_method_aliases (void)
 	  && TYPE_FOR_JAVA (DECL_CONTEXT (fndecl))
 	  && TARGET_USE_LOCAL_THUNK_ALIAS_P (fndecl))
 	{
-	  if (candidates == NULL)
-	    candidates = new hash_set<tree>;
-	  candidates->add (fndecl);
-	}
-    }
-
-  return candidates;
-}
-
-
-/* Java requires that we be able to reference a local address for a
-   method, and not be confused by PLT entries.  If hidden aliases are
-   supported, emit one for each java function that we've emitted.
-   CANDIDATES is the set of FUNCTION_DECLs that were gathered
-   by collect_candidates_for_java_method_aliases.  */
-
-static void
-build_java_method_aliases (hash_set<tree> *candidates)
-{
-  struct cgraph_node *node;
-
-#ifndef HAVE_GAS_HIDDEN
-  return;
-#endif
-
-  FOR_EACH_FUNCTION (node)
-    {
-      tree fndecl = node->decl;
-
-      if (TREE_ASM_WRITTEN (fndecl)
-	  && candidates->contains (fndecl))
-	{
 	  /* Mangle the name in a predictable way; we need to reference
 	     this from a java compiled object file.  */
-	  tree oid, nid, alias;
-	  const char *oname;
-	  char *nname;
-
-	  oid = DECL_ASSEMBLER_NAME (fndecl);
-	  oname = IDENTIFIER_POINTER (oid);
+	  tree oid = DECL_ASSEMBLER_NAME (fndecl);
+	  const char *oname = IDENTIFIER_POINTER (oid);
 	  gcc_assert (oname[0] == '_' && oname[1] == 'Z');
-	  nname = ACONCAT (("_ZGA", oname+2, NULL));
-	  nid = get_identifier (nname);
+	  char *nname = ACONCAT (("_ZGA", oname + 2, NULL));
 
-	  alias = make_alias_for (fndecl, nid);
+	  tree alias = make_alias_for (fndecl, get_identifier (nname));
 	  TREE_PUBLIC (alias) = 1;
 	  DECL_VISIBILITY (alias) = VISIBILITY_HIDDEN;
 
-	  assemble_alias (alias, oid);
+	  cgraph_node::create_same_body_alias (alias, fndecl);
 	}
     }
 }
@@ -4321,6 +4298,66 @@ handle_tls_init (void)
   expand_or_defer_fn (finish_function (0));
 }
 
+/* We're at the end of compilation, so generate any mangling aliases that
+   we've been saving up, if DECL is going to be output and ID2 isn't
+   already taken by another declaration.  */
+
+static void
+generate_mangling_alias (tree decl, tree id2)
+{
+  /* If there's a declaration already using this mangled name,
+     don't create a compatibility alias that conflicts.  */
+  if (IDENTIFIER_GLOBAL_VALUE (id2))
+    return;
+
+  struct cgraph_node *n = NULL;
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && !(n = cgraph_node::get (decl)))
+    /* Don't create an alias to an unreferenced function.  */
+    return;
+
+  tree alias = make_alias_for (decl, id2);
+  SET_IDENTIFIER_GLOBAL_VALUE (id2, alias);
+  DECL_IGNORED_P (alias) = 1;
+  TREE_PUBLIC (alias) = TREE_PUBLIC (decl);
+  DECL_VISIBILITY (alias) = DECL_VISIBILITY (decl);
+  if (vague_linkage_p (decl))
+    DECL_WEAK (alias) = 1;
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    n->create_same_body_alias (alias, decl);
+  else
+    varpool_node::create_extra_name_alias (alias, decl);
+}
+
+/* Note that we might want to emit an alias with the symbol ID2 for DECL at
+   the end of translation, for compatibility across bugs in the mangling
+   implementation.  */
+
+void
+note_mangling_alias (tree decl ATTRIBUTE_UNUSED, tree id2 ATTRIBUTE_UNUSED)
+{
+#ifdef ASM_OUTPUT_DEF
+  if (at_eof)
+    generate_mangling_alias (decl, id2);
+  else
+    {
+      vec_safe_push (mangling_aliases, decl);
+      vec_safe_push (mangling_aliases, id2);
+    }
+#endif
+}
+
+static void
+generate_mangling_aliases ()
+{
+  while (!vec_safe_is_empty (mangling_aliases))
+    {
+      tree id2 = mangling_aliases->pop();
+      tree decl = mangling_aliases->pop();
+      generate_mangling_alias (decl, id2);
+    }
+}
+
 /* The entire file is now complete.  If requested, dump everything
    to a file.  */
 
@@ -4393,7 +4430,6 @@ cp_write_global_declarations (void)
   unsigned ssdf_count = 0;
   int retries = 0;
   tree decl;
-  hash_set<tree> *candidates;
 
   locus = input_location;
   at_eof = 1;
@@ -4682,6 +4718,8 @@ cp_write_global_declarations (void)
     }
   while (reconsider);
 
+  generate_mangling_aliases ();
+
   /* All used inline functions must have a definition at this point.  */
   FOR_EACH_VEC_SAFE_ELT (deferred_fns, i, decl)
     {
@@ -4744,8 +4782,8 @@ cp_write_global_declarations (void)
      linkage now.  */
   pop_lang_context ();
 
-  /* Collect candidates for Java hidden aliases.  */
-  candidates = collect_candidates_for_java_method_aliases ();
+  /* Generate Java hidden aliases.  */
+  build_java_method_aliases ();
 
   timevar_stop (TV_PHASE_DEFERRED);
   timevar_start (TV_PHASE_OPT_GEN);
@@ -4784,13 +4822,6 @@ cp_write_global_declarations (void)
     }
 
   perform_deferred_noexcept_checks ();
-
-  /* Generate hidden aliases for Java.  */
-  if (candidates)
-    {
-      build_java_method_aliases (candidates);
-      delete candidates;
-    }
 
   finish_repo ();
 

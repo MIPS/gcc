@@ -204,8 +204,8 @@ static char did_you_mean_codes[NUM_RTX_CODE];
    predicate expression EXP, writing the result to CODES.  LINENO is
    the line number on which the directive containing EXP appeared.  */
 
-static void
-compute_predicate_codes (rtx exp, int lineno, char codes[NUM_RTX_CODE])
+void
+compute_test_codes (rtx exp, int lineno, char *codes)
 {
   char op0_codes[NUM_RTX_CODE];
   char op1_codes[NUM_RTX_CODE];
@@ -215,29 +215,29 @@ compute_predicate_codes (rtx exp, int lineno, char codes[NUM_RTX_CODE])
   switch (GET_CODE (exp))
     {
     case AND:
-      compute_predicate_codes (XEXP (exp, 0), lineno, op0_codes);
-      compute_predicate_codes (XEXP (exp, 1), lineno, op1_codes);
+      compute_test_codes (XEXP (exp, 0), lineno, op0_codes);
+      compute_test_codes (XEXP (exp, 1), lineno, op1_codes);
       for (i = 0; i < NUM_RTX_CODE; i++)
 	codes[i] = TRISTATE_AND (op0_codes[i], op1_codes[i]);
       break;
 
     case IOR:
-      compute_predicate_codes (XEXP (exp, 0), lineno, op0_codes);
-      compute_predicate_codes (XEXP (exp, 1), lineno, op1_codes);
+      compute_test_codes (XEXP (exp, 0), lineno, op0_codes);
+      compute_test_codes (XEXP (exp, 1), lineno, op1_codes);
       for (i = 0; i < NUM_RTX_CODE; i++)
 	codes[i] = TRISTATE_OR (op0_codes[i], op1_codes[i]);
       break;
     case NOT:
-      compute_predicate_codes (XEXP (exp, 0), lineno, op0_codes);
+      compute_test_codes (XEXP (exp, 0), lineno, op0_codes);
       for (i = 0; i < NUM_RTX_CODE; i++)
 	codes[i] = TRISTATE_NOT (op0_codes[i]);
       break;
 
     case IF_THEN_ELSE:
       /* a ? b : c  accepts the same codes as (a & b) | (!a & c).  */
-      compute_predicate_codes (XEXP (exp, 0), lineno, op0_codes);
-      compute_predicate_codes (XEXP (exp, 1), lineno, op1_codes);
-      compute_predicate_codes (XEXP (exp, 2), lineno, op2_codes);
+      compute_test_codes (XEXP (exp, 0), lineno, op0_codes);
+      compute_test_codes (XEXP (exp, 1), lineno, op1_codes);
+      compute_test_codes (XEXP (exp, 2), lineno, op2_codes);
       for (i = 0; i < NUM_RTX_CODE; i++)
 	codes[i] = TRISTATE_OR (TRISTATE_AND (op0_codes[i], op1_codes[i]),
 				TRISTATE_AND (TRISTATE_NOT (op0_codes[i]),
@@ -321,7 +321,7 @@ compute_predicate_codes (rtx exp, int lineno, char codes[NUM_RTX_CODE])
 
     default:
       error_with_line (lineno,
-		       "'%s' cannot be used in a define_predicate expression",
+		       "'%s' cannot be used in predicates or constraints",
 		       GET_RTX_NAME (GET_CODE (exp)));
       memset (codes, I, NUM_RTX_CODE);
       break;
@@ -373,7 +373,7 @@ process_define_predicate (rtx desc, int lineno)
   if (GET_CODE (desc) == DEFINE_SPECIAL_PREDICATE)
     pred->special = true;
 
-  compute_predicate_codes (XEXP (desc, 1), lineno, codes);
+  compute_test_codes (XEXP (desc, 1), lineno, codes);
 
   for (i = 0; i < NUM_RTX_CODE; i++)
     if (codes[i] != N)
@@ -880,7 +880,7 @@ subst_pattern_match (rtx x, rtx pt, int lineno)
 
       switch (fmt[i])
 	{
-	case 'i': case 'w': case 's':
+	case 'i': case 'r': case 'w': case 's':
 	  continue;
 
 	case 'e': case 'u':
@@ -1045,7 +1045,7 @@ get_alternatives_number (rtx pattern, int *n_alt, int lineno)
 		return 0;
 	  break;
 
-	case 'i': case 'w': case '0': case 's': case 'S': case 'T':
+	case 'i': case 'r': case 'w': case '0': case 's': case 'S': case 'T':
 	  break;
 
 	default:
@@ -1104,7 +1104,7 @@ collect_insn_data (rtx pattern, int *palt, int *pmax)
 	    collect_insn_data (XVECEXP (pattern, i, j), palt, pmax);
 	  break;
 
-	case 'i': case 'w': case '0': case 's': case 'S': case 'T':
+	case 'i': case 'r': case 'w': case '0': case 's': case 'S': case 'T':
 	  break;
 
 	default:
@@ -1188,7 +1188,7 @@ alter_predicate_for_insn (rtx pattern, int alt, int max_op, int lineno)
 	    }
 	  break;
 
-	case 'i': case 'w': case '0': case 's':
+	case 'i': case 'r': case 'w': case '0': case 's':
 	  break;
 
 	default:
@@ -1246,7 +1246,7 @@ alter_constraints (rtx pattern, int n_dup, constraints_handler_t alter)
 	    }
 	  break;
 
-	case 'i': case 'w': case '0': case 's':
+	case 'i': case 'r': case 'w': case '0': case 's':
 	  break;
 
 	default:
@@ -2184,7 +2184,7 @@ subst_dup (rtx pattern, int n_alt, int n_subst_alt)
 						   n_alt, n_subst_alt);
 	  break;
 
-	case 'i': case 'w': case '0': case 's': case 'S': case 'T':
+	case 'i': case 'r': case 'w': case '0': case 's': case 'S': case 'T':
 	  break;
 
 	default:
@@ -2227,11 +2227,12 @@ process_define_subst (void)
 	if (strcmp (XSTR (elem->data, 0), XSTR (elem_attr->data, 1)) == 0)
 	    goto found;
 
-	error_with_line (elem->lineno,
-			 "%s: `define_subst' must have at least one "
-			 "corresponding `define_subst_attr'",
-			 XSTR (elem->data, 0));
-	return;
+      error_with_line (elem->lineno,
+		       "%s: `define_subst' must have at least one "
+		       "corresponding `define_subst_attr'",
+		       XSTR (elem->data, 0));
+      return;
+
       found:
 	continue;
     }
@@ -2800,7 +2801,8 @@ struct std_pred_table
 
 static const struct std_pred_table std_preds[] = {
   {"general_operand", false, true, {SUBREG, REG, MEM}},
-  {"address_operand", true, true, {SUBREG, REG, MEM, PLUS, MINUS, MULT}},
+  {"address_operand", true, true, {SUBREG, REG, MEM, PLUS, MINUS, MULT,
+				   ZERO_EXTEND, SIGN_EXTEND, AND}},
   {"register_operand", false, false, {SUBREG, REG}},
   {"pmode_register_operand", true, false, {SUBREG, REG}},
   {"scratch_operand", false, false, {SCRATCH, REG}},

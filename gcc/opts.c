@@ -1386,7 +1386,7 @@ common_handle_option (struct gcc_options *opts,
 	unsigned int i;
 
 	if (lang_mask == CL_DRIVER)
-	  break;;
+	  break;
 
 	undoc_mask = ((opts->x_verbose_flag | opts->x_extra_warnings)
 		      ? 0
@@ -1584,6 +1584,8 @@ common_handle_option (struct gcc_options *opts,
 	      { "float-cast-overflow", SANITIZE_FLOAT_CAST,
 		sizeof "float-cast-overflow" - 1 },
 	      { "bounds", SANITIZE_BOUNDS, sizeof "bounds" - 1 },
+	      { "bounds-strict", SANITIZE_BOUNDS | SANITIZE_BOUNDS_STRICT,
+		sizeof "bounds-strict" - 1 },
 	      { "alignment", SANITIZE_ALIGNMENT, sizeof "alignment" - 1 },
 	      { "nonnull-attribute", SANITIZE_NONNULL_ATTRIBUTE,
 		sizeof "nonnull-attribute" - 1 },
@@ -1757,8 +1759,12 @@ common_handle_option (struct gcc_options *opts,
       break;
 
     case OPT_fdbg_cnt_:
+      /* Deferred.  */
+      break;
+
     case OPT_fdbg_cnt_list:
       /* Deferred.  */
+      opts->x_exit_after_options = true;
       break;
 
     case OPT_fdebug_prefix_map_:

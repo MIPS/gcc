@@ -494,18 +494,18 @@ static void variable_htab_free (void *);
 
 struct variable_hasher
 {
-  typedef variable_def value_type;
-  typedef void compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-  static inline void remove (value_type *);
+  typedef variable_def *value_type;
+  typedef void *compare_type;
+  static inline hashval_t hash (const variable_def *);
+  static inline bool equal (const variable_def *, const void *);
+  static inline void remove (variable_def *);
 };
 
 /* The hash function for variable_htab, computes the hash value
    from the declaration of variable X.  */
 
 inline hashval_t
-variable_hasher::hash (const value_type *v)
+variable_hasher::hash (const variable_def *v)
 {
   return dv_htab_hash (v->dv);
 }
@@ -513,7 +513,7 @@ variable_hasher::hash (const value_type *v)
 /* Compare the declaration of variable X with declaration Y.  */
 
 inline bool
-variable_hasher::equal (const value_type *v, const compare_type *y)
+variable_hasher::equal (const variable_def *v, const void *y)
 {
   decl_or_value dv = CONST_CAST2 (decl_or_value, const void *, y);
 
@@ -523,7 +523,7 @@ variable_hasher::equal (const value_type *v, const compare_type *y)
 /* Free the element of VARIABLE_HTAB (its type is struct variable_def).  */
 
 inline void
-variable_hasher::remove (value_type *var)
+variable_hasher::remove (variable_def *var)
 {
   variable_htab_free (var);
 }
@@ -1098,8 +1098,7 @@ adjust_mems (rtx loc, const_rtx old_rtx, void *data)
       tem = simplify_replace_fn_rtx (tem, old_rtx, adjust_mems, data);
       amd->store = store_save;
       amd->side_effects = alloc_EXPR_LIST (0,
-					   gen_rtx_SET (VOIDmode,
-							XEXP (loc, 0), tem),
+					   gen_rtx_SET (XEXP (loc, 0), tem),
 					   amd->side_effects);
       return addr;
     case PRE_MODIFY:
@@ -1115,8 +1114,7 @@ adjust_mems (rtx loc, const_rtx old_rtx, void *data)
 				     adjust_mems, data);
       amd->store = store_save;
       amd->side_effects = alloc_EXPR_LIST (0,
-					   gen_rtx_SET (VOIDmode,
-							XEXP (loc, 0), tem),
+					   gen_rtx_SET (XEXP (loc, 0), tem),
 					   amd->side_effects);
       return addr;
     case SUBREG:
@@ -1227,7 +1225,7 @@ adjust_insn (basic_block bb, rtx_insn *insn)
       FOR_EACH_VEC_SAFE_ELT (windowed_parm_regs, i, p)
 	{
 	  XVECEXP (rtl, 0, i * 2)
-	    = gen_rtx_SET (VOIDmode, p->incoming, p->outgoing);
+	    = gen_rtx_SET (p->incoming, p->outgoing);
 	  /* Do not clobber the attached DECL, but only the REG.  */
 	  XVECEXP (rtl, 0, i * 2 + 1)
 	    = gen_rtx_CLOBBER (GET_MODE (p->outgoing),
@@ -5883,7 +5881,7 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
 	      && find_use_val (loc, mode, cui))
 	    {
 	      gcc_checking_assert (type == MO_VAL_SET);
-	      mo.u.loc = gen_rtx_SET (VOIDmode, loc, SET_SRC (expr));
+	      mo.u.loc = gen_rtx_SET (loc, SET_SRC (expr));
 	    }
 	}
       else
@@ -5901,7 +5899,7 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
 	    }
 	  else
 	    {
-	      rtx xexpr = gen_rtx_SET (VOIDmode, loc, src);
+	      rtx xexpr = gen_rtx_SET (loc, src);
 	      if (same_variable_part_p (src, REG_EXPR (loc), REG_OFFSET (loc)))
 		{
 		  /* If this is an instruction copying (part of) a parameter
@@ -5966,7 +5964,7 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
 	    }
 	  else
 	    {
-	      rtx xexpr = gen_rtx_SET (VOIDmode, loc, src);
+	      rtx xexpr = gen_rtx_SET (loc, src);
 	      if (same_variable_part_p (SET_SRC (xexpr),
 					MEM_EXPR (loc),
 					INT_MEM_OFFSET (loc)))
@@ -6065,7 +6063,7 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
 	}
 
       if (nloc && nloc != SET_SRC (mo.u.loc))
-	oloc = gen_rtx_SET (GET_MODE (mo.u.loc), oloc, nloc);
+	oloc = gen_rtx_SET (oloc, nloc);
       else
 	{
 	  if (oloc == SET_DEST (mo.u.loc))
@@ -6511,13 +6509,7 @@ add_with_sets (rtx_insn *insn, struct cselib_set *sets, int n_sets)
       while (n1 < n2 && mos[n2].type != MO_USE)
 	n2--;
       if (n1 < n2)
-	{
-	  micro_operation sw;
-
-	  sw = mos[n1];
-	  mos[n1] = mos[n2];
-	  mos[n2] = sw;
-	}
+	std::swap (mos[n1], mos[n2]);
     }
 
   n2 = VTI (bb)->mos.length () - 1;
@@ -6528,13 +6520,7 @@ add_with_sets (rtx_insn *insn, struct cselib_set *sets, int n_sets)
       while (n1 < n2 && mos[n2].type == MO_VAL_LOC)
 	n2--;
       if (n1 < n2)
-	{
-	  micro_operation sw;
-
-	  sw = mos[n1];
-	  mos[n1] = mos[n2];
-	  mos[n2] = sw;
-	}
+	std::swap (mos[n1], mos[n2]);
     }
 
   if (CALL_P (insn))
@@ -6570,13 +6556,7 @@ add_with_sets (rtx_insn *insn, struct cselib_set *sets, int n_sets)
       while (n1 < n2 && mos[n2].type != MO_VAL_USE)
 	n2--;
       if (n1 < n2)
-	{
-	  micro_operation sw;
-
-	  sw = mos[n1];
-	  mos[n1] = mos[n2];
-	  mos[n2] = sw;
-	}
+	std::swap (mos[n1], mos[n2]);
     }
 
   n2 = VTI (bb)->mos.length () - 1;
@@ -6587,13 +6567,7 @@ add_with_sets (rtx_insn *insn, struct cselib_set *sets, int n_sets)
       while (n1 < n2 && mos[n2].type != MO_CLOBBER)
 	n2--;
       if (n1 < n2)
-	{
-	  micro_operation sw;
-
-	  sw = mos[n1];
-	  mos[n1] = mos[n2];
-	  mos[n2] = sw;
-	}
+	std::swap (mos[n1], mos[n2]);
     }
 }
 
@@ -6984,8 +6958,7 @@ vt_find_locations (void)
 {
   bb_heap_t *worklist = new bb_heap_t (LONG_MIN);
   bb_heap_t *pending = new bb_heap_t (LONG_MIN);
-  bb_heap_t *fibheap_swap = NULL;
-  sbitmap visited, in_worklist, in_pending, sbitmap_swap;
+  sbitmap visited, in_worklist, in_pending;
   basic_block bb;
   edge e;
   int *bb_order;
@@ -7016,12 +6989,8 @@ vt_find_locations (void)
 
   while (success && !pending->empty ())
     {
-      fibheap_swap = pending;
-      pending = worklist;
-      worklist = fibheap_swap;
-      sbitmap_swap = in_pending;
-      in_pending = in_worklist;
-      in_worklist = sbitmap_swap;
+      std::swap (worklist, pending);
+      std::swap (in_worklist, in_pending);
 
       bitmap_clear (visited);
 

@@ -503,7 +503,7 @@ static void add_dependence_list (rtx_insn *, rtx_insn_list *, int,
 static void add_dependence_list_and_free (struct deps_desc *, rtx_insn *,
 					  rtx_insn_list **, int, enum reg_note,
 					  bool);
-static void delete_all_dependences (rtx);
+static void delete_all_dependences (rtx_insn *);
 static void chain_to_prev_insn (rtx_insn *);
 
 static void flush_pending_lists (struct deps_desc *, rtx_insn *, int, int);
@@ -814,7 +814,7 @@ sd_lists_empty_p (const_rtx insn, sd_list_types_def list_types)
 
 /* Initialize data for INSN.  */
 void
-sd_init_insn (rtx insn)
+sd_init_insn (rtx_insn *insn)
 {
   INSN_HARD_BACK_DEPS (insn) = create_deps_list ();
   INSN_SPEC_BACK_DEPS (insn) = create_deps_list ();
@@ -827,7 +827,7 @@ sd_init_insn (rtx insn)
 
 /* Free data for INSN.  */
 void
-sd_finish_insn (rtx insn)
+sd_finish_insn (rtx_insn *insn)
 {
   /* ??? It would be nice to deallocate dependency caches here.  */
 
@@ -1621,7 +1621,7 @@ add_dependence_list_and_free (struct deps_desc *deps, rtx_insn *insn,
    occurrences removed.  */
 
 static int
-remove_from_dependence_list (rtx insn, rtx_insn_list **listp)
+remove_from_dependence_list (rtx_insn *insn, rtx_insn_list **listp)
 {
   int removed = 0;
 
@@ -1642,7 +1642,7 @@ remove_from_dependence_list (rtx insn, rtx_insn_list **listp)
 
 /* Same as above, but process two lists at once.  */
 static int
-remove_from_both_dependence_lists (rtx insn,
+remove_from_both_dependence_lists (rtx_insn *insn,
 				   rtx_insn_list **listp,
 				   rtx_expr_list **exprp)
 {
@@ -1667,7 +1667,7 @@ remove_from_both_dependence_lists (rtx insn,
 
 /* Clear all dependencies for an insn.  */
 static void
-delete_all_dependences (rtx insn)
+delete_all_dependences (rtx_insn *insn)
 {
   sd_iterator_def sd_it;
   dep_t dep;
@@ -2125,8 +2125,7 @@ mark_insn_reg_birth (rtx insn, rtx reg, bool clobber_p, bool unused_p)
 
   regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
-    mark_insn_hard_regno_birth (insn, regno,
-				hard_regno_nregs[regno][GET_MODE (reg)],
+    mark_insn_hard_regno_birth (insn, regno, REG_NREGS (reg),
 				clobber_p, unused_p);
   else
     mark_insn_pseudo_birth (insn, regno, clobber_p, unused_p);
@@ -2185,7 +2184,7 @@ mark_reg_death (rtx reg)
 
   regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
-    mark_hard_regno_death (regno, hard_regno_nregs[regno][GET_MODE (reg)]);
+    mark_hard_regno_death (regno, REG_NREGS (reg));
   else
     mark_pseudo_death (regno);
 }
@@ -2211,7 +2210,7 @@ mark_insn_reg_clobber (rtx reg, const_rtx setter, void *data)
 
 /* Set up reg pressure info related to INSN.  */
 void
-init_insn_reg_pressure_info (rtx insn)
+init_insn_reg_pressure_info (rtx_insn *insn)
 {
   int i, len;
   enum reg_class cl;
@@ -2608,8 +2607,10 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx_insn *insn)
 
       return;
 
-#ifdef HAVE_cc0
     case CC0:
+      if (!HAVE_cc0)
+	gcc_unreachable ();
+
       /* User of CC0 depends on immediately preceding insn.  */
       SCHED_GROUP_P (insn) = 1;
        /* Don't move CC0 setter to another block (it can set up the
@@ -2620,7 +2621,6 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx_insn *insn)
 	sched_deps_info->finish_rhs ();
 
       return;
-#endif
 
     case REG:
       {
@@ -2649,7 +2649,7 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx_insn *insn)
     case MEM:
       {
 	/* Reading memory.  */
-	rtx u;
+	rtx_insn_list *u;
 	rtx_insn_list *pending;
 	rtx_expr_list *pending_mem;
 	rtx t = x;
@@ -2700,11 +2700,10 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx_insn *insn)
 		pending_mem = pending_mem->next ();
 	      }
 
-	    for (u = deps->last_pending_memory_flush; u; u = XEXP (u, 1))
-	      add_dependence (insn, as_a <rtx_insn *> (XEXP (u, 0)),
-			      REG_DEP_ANTI);
+	    for (u = deps->last_pending_memory_flush; u; u = u->next ())
+	      add_dependence (insn, u->insn (), REG_DEP_ANTI);
 
-	    for (u = deps->pending_jump_insns; u; u = XEXP (u, 1))
+	    for (u = deps->pending_jump_insns; u; u = u->next ())
 	      if (deps_may_trap_p (x))
 		{
 		  if ((sched_deps_info->generate_spec_deps)
@@ -2713,11 +2712,10 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx_insn *insn)
 		      ds_t ds = set_dep_weak (DEP_ANTI, BEGIN_CONTROL,
 					      MAX_DEP_WEAK);
 		      
-		      note_dep (as_a <rtx_insn *> (XEXP (u, 0)), ds);
+		      note_dep (u->insn (), ds);
 		    }
 		  else
-		    add_dependence (insn, as_a <rtx_insn *> (XEXP (u, 0)),
-				    REG_DEP_CONTROL);
+		    add_dependence (insn, u->insn (), REG_DEP_CONTROL);
 		}
 	  }
 
@@ -3088,7 +3086,7 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx_insn *insn)
   if (DEBUG_INSN_P (insn))
     {
       rtx_insn *prev = deps->last_debug_insn;
-      rtx u;
+      rtx_insn_list *u;
 
       if (!deps->readonly)
 	deps->last_debug_insn = insn;
@@ -3100,8 +3098,8 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx_insn *insn)
 			   REG_DEP_ANTI, false);
 
       if (!sel_sched_p ())
-	for (u = deps->last_pending_memory_flush; u; u = XEXP (u, 1))
-	  add_dependence (insn, as_a <rtx_insn *> (XEXP (u, 0)), REG_DEP_ANTI);
+	for (u = deps->last_pending_memory_flush; u; u = u->next ())
+	  add_dependence (insn, u->insn (), REG_DEP_ANTI);
 
       EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i, rsi)
 	{
@@ -3530,7 +3528,7 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx_insn *insn)
 /* FIXME: Why can't this function just use flags_from_decl_or_type and
    test for ECF_NORETURN?  */
 static bool
-call_may_noreturn_p (rtx insn)
+call_may_noreturn_p (rtx_insn *insn)
 {
   rtx call;
 
@@ -3593,7 +3591,7 @@ call_may_noreturn_p (rtx insn)
    instruction of that group.  */
 
 static bool
-chain_to_prev_insn_p (rtx insn)
+chain_to_prev_insn_p (rtx_insn *insn)
 {
   rtx prev, x;
 
@@ -3644,7 +3642,7 @@ deps_analyze_insn (struct deps_desc *deps, rtx_insn *insn)
 	  rtx_insn_list *cond_deps = NULL;
 	  t = XEXP (t, 0);
 	  regno = REGNO (t);
-	  nregs = hard_regno_nregs[regno][GET_MODE (t)];
+	  nregs = REG_NREGS (t);
 	  while (nregs-- > 0)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[regno + nregs];
@@ -3843,7 +3841,7 @@ sched_analyze (struct deps_desc *deps, rtx_insn *head, rtx_insn *tail)
 /* Helper for sched_free_deps ().
    Delete INSN's (RESOLVED_P) backward dependencies.  */
 static void
-delete_dep_nodes_in_back_deps (rtx insn, bool resolved_p)
+delete_dep_nodes_in_back_deps (rtx_insn *insn, bool resolved_p)
 {
   sd_iterator_def sd_it;
   dep_t dep;
@@ -4736,11 +4734,10 @@ parse_add_or_inc (struct mem_inc_info *mii, rtx_insn *insn, bool before_mem)
   if (regs_equal && REGNO (SET_DEST (pat)) == STACK_POINTER_REGNUM)
     {
       /* Note that the sign has already been reversed for !before_mem.  */
-#ifdef STACK_GROWS_DOWNWARD
-      return mii->inc_constant > 0;
-#else
-      return mii->inc_constant < 0;
-#endif
+      if (STACK_GROWS_DOWNWARD)
+	return mii->inc_constant > 0;
+      else
+	return mii->inc_constant < 0;
     }
   return true;
 }

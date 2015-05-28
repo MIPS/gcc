@@ -621,16 +621,16 @@ struct delay_pair
 
 struct delay_i1_hasher : typed_noop_remove <delay_pair>
 {
-  typedef delay_pair value_type;
-  typedef void compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef delay_pair *value_type;
+  typedef void *compare_type;
+  static inline hashval_t hash (const delay_pair *);
+  static inline bool equal (const delay_pair *, const void *);
 };
 
 /* Returns a hash value for X, based on hashing just I1.  */
 
 inline hashval_t
-delay_i1_hasher::hash (const value_type *x)
+delay_i1_hasher::hash (const delay_pair *x)
 {
   return htab_hash_pointer (x->i1);
 }
@@ -638,23 +638,23 @@ delay_i1_hasher::hash (const value_type *x)
 /* Return true if I1 of pair X is the same as that of pair Y.  */
 
 inline bool
-delay_i1_hasher::equal (const value_type *x, const compare_type *y)
+delay_i1_hasher::equal (const delay_pair *x, const void *y)
 {
   return x->i1 == y;
 }
 
 struct delay_i2_hasher : typed_free_remove <delay_pair>
 {
-  typedef delay_pair value_type;
-  typedef void compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef delay_pair *value_type;
+  typedef void *compare_type;
+  static inline hashval_t hash (const delay_pair *);
+  static inline bool equal (const delay_pair *, const void *);
 };
 
 /* Returns a hash value for X, based on hashing just I2.  */
 
 inline hashval_t
-delay_i2_hasher::hash (const value_type *x)
+delay_i2_hasher::hash (const delay_pair *x)
 {
   return htab_hash_pointer (x->i2);
 }
@@ -662,7 +662,7 @@ delay_i2_hasher::hash (const value_type *x)
 /* Return true if I2 of pair X is the same as that of pair Y.  */
 
 inline bool
-delay_i2_hasher::equal (const value_type *x, const compare_type *y)
+delay_i2_hasher::equal (const delay_pair *x, const void *y)
 {
   return x->i2 == y;
 }
@@ -881,7 +881,7 @@ static int early_queue_to_ready (state_t, struct ready_list *);
 /* The following functions are used to implement multi-pass scheduling
    on the first cycle.  */
 static rtx_insn *ready_remove (struct ready_list *, int);
-static void ready_remove_insn (rtx);
+static void ready_remove_insn (rtx_insn *);
 
 static void fix_inter_tick (rtx_insn *, rtx_insn *);
 static int fix_tick_ready (rtx_insn *);
@@ -894,7 +894,7 @@ static void extend_h_i_d (void);
 static void init_h_i_d (rtx_insn *);
 static int haifa_speculate_insn (rtx_insn *, ds_t, rtx *);
 static void generate_recovery_code (rtx_insn *);
-static void process_insn_forw_deps_be_in_spec (rtx, rtx_insn *, ds_t);
+static void process_insn_forw_deps_be_in_spec (rtx_insn *, rtx_insn *, ds_t);
 static void begin_speculative_block (rtx_insn *);
 static void add_to_speculative_block (rtx_insn *);
 static void init_before_recovery (basic_block *);
@@ -1032,18 +1032,13 @@ initiate_reg_pressure_info (bitmap live)
 static void
 setup_ref_regs (rtx x)
 {
-  int i, j, regno;
+  int i, j;
   const RTX_CODE code = GET_CODE (x);
   const char *fmt;
 
   if (REG_P (x))
     {
-      regno = REGNO (x);
-      if (HARD_REGISTER_NUM_P (regno))
-	bitmap_set_range (region_ref_regs, regno,
-			  hard_regno_nregs[regno][GET_MODE (x)]);
-      else
-	bitmap_set_bit (region_ref_regs, REGNO (x));
+      bitmap_set_range (region_ref_regs, REGNO (x), REG_NREGS (x));
       return;
     }
   fmt = GET_RTX_FORMAT (code);
@@ -1070,7 +1065,6 @@ initiate_bb_reg_pressure_info (basic_block bb)
       if (NONDEBUG_INSN_P (insn))
 	setup_ref_regs (PATTERN (insn));
   initiate_reg_pressure_info (df_get_live_in (bb));
-#ifdef EH_RETURN_DATA_REGNO
   if (bb_has_eh_pred (bb))
     for (i = 0; ; ++i)
       {
@@ -1082,7 +1076,6 @@ initiate_bb_reg_pressure_info (basic_block bb)
 	  mark_regno_birth_or_death (curr_reg_live, curr_reg_pressure,
 				     regno, true);
       }
-#endif
 }
 
 /* Save current register pressure related info.  */
@@ -1392,7 +1385,7 @@ static rtx_insn *last_scheduled_insn;
    block, or the prev_head of the scheduling block.  Used by
    rank_for_schedule, so that insns independent of the last scheduled
    insn will be preferred over dependent instructions.  */
-static rtx last_nondebug_scheduled_insn;
+static rtx_insn *last_nondebug_scheduled_insn;
 
 /* Pointer that iterates through the list of unscheduled insns if we
    have a dbg_cnt enabled.  It always points at an insn prior to the
@@ -1600,7 +1593,7 @@ contributes_to_priority_p (dep_t dep)
 /* Compute the number of nondebug deps in list LIST for INSN.  */
 
 static int
-dep_list_size (rtx insn, sd_list_types_def list)
+dep_list_size (rtx_insn *insn, sd_list_types_def list)
 {
   sd_iterator_def sd_it;
   dep_t dep;
@@ -2789,7 +2782,7 @@ rank_for_schedule (const void *x, const void *y)
     {
       dep_t dep1;
       dep_t dep2;
-      rtx last = last_nondebug_scheduled_insn;
+      rtx_insn *last = last_nondebug_scheduled_insn;
 
       /* Classify the instructions into three classes:
          1) Data dependent on last schedule insn.
@@ -3034,7 +3027,7 @@ ready_remove (struct ready_list *ready, int index)
 
 /* Remove INSN from the ready list.  */
 static void
-ready_remove_insn (rtx insn)
+ready_remove_insn (rtx_insn *insn)
 {
   int i;
 
@@ -3289,7 +3282,7 @@ sched_setup_bb_reg_pressure_info (basic_block bb, rtx_insn *after)
    only be scheduled once their control dependency is resolved.  */
 
 static void
-check_clobbered_conditions (rtx insn)
+check_clobbered_conditions (rtx_insn *insn)
 {
   HARD_REG_SET t;
   int i;
@@ -4311,7 +4304,7 @@ struct haifa_saved_data
   state_t curr_state;
 
   rtx_insn *last_scheduled_insn;
-  rtx last_nondebug_scheduled_insn;
+  rtx_insn *last_nondebug_scheduled_insn;
   rtx_insn *nonscheduled_insns_begin;
   int cycle_issued_insns;
 
@@ -4341,7 +4334,7 @@ static struct haifa_saved_data *backtrack_queue;
 /* For every dependency of INSN, set the FEEDS_BACKTRACK_INSN bit according
    to SET_P.  */
 static void
-mark_backtrack_feeds (rtx insn, int set_p)
+mark_backtrack_feeds (rtx_insn *insn, int set_p)
 {
   sd_iterator_def sd_it;
   dep_t dep;
@@ -4487,7 +4480,7 @@ undo_replacements_for_backtrack (struct haifa_saved_data *save)
    queued nowhere.  */
 
 static void
-unschedule_insns_until (rtx insn)
+unschedule_insns_until (rtx_insn *insn)
 {
   auto_vec<rtx_insn *> recompute_vec;
 
@@ -5135,7 +5128,7 @@ queue_to_ready (struct ready_list *ready)
 {
   rtx_insn *insn;
   rtx_insn_list *link;
-  rtx skip_insn;
+  rtx_insn *skip_insn;
 
   q_ptr = NEXT_Q (q_ptr);
 
@@ -5144,7 +5137,7 @@ queue_to_ready (struct ready_list *ready)
        nonscheduled insn.  */
     skip_insn = first_nonscheduled_insn ();
   else
-    skip_insn = NULL_RTX;
+    skip_insn = NULL;
 
   /* Add all pending insns that can be scheduled without stalls to the
      ready list.  */
@@ -5239,11 +5232,10 @@ queue_to_ready (struct ready_list *ready)
    addition) depending on user flags and target hooks.  */
 
 static bool
-ok_for_early_queue_removal (rtx insn)
+ok_for_early_queue_removal (rtx_insn *insn)
 {
   if (targetm.sched.is_costly_dependence)
     {
-      rtx prev_insn;
       int n_cycles;
       int i = scheduled_insns.length ();
       for (n_cycles = flag_sched_stalled_insns_dep; n_cycles; n_cycles--)
@@ -5252,7 +5244,7 @@ ok_for_early_queue_removal (rtx insn)
 	    {
 	      int cost;
 
-	      prev_insn = scheduled_insns[i];
+	      rtx_insn *prev_insn = scheduled_insns[i];
 
 	      if (!NOTE_P (prev_insn))
 		{
@@ -6470,7 +6462,7 @@ schedule_block (basic_block *target_bb, state_t init_state)
 
   /* We start inserting insns after PREV_HEAD.  */
   last_scheduled_insn = prev_head;
-  last_nondebug_scheduled_insn = NULL_RTX;
+  last_nondebug_scheduled_insn = NULL;
   nonscheduled_insns_begin = NULL;
 
   gcc_assert ((NOTE_P (last_scheduled_insn)
@@ -7186,9 +7178,8 @@ void
 sched_init (void)
 {
   /* Disable speculative loads in their presence if cc0 defined.  */
-#ifdef HAVE_cc0
+  if (HAVE_cc0)
   flag_schedule_speculative_load = 0;
-#endif
 
   if (targetm.sched.dispatch (NULL, IS_DISPATCH_ON))
     targetm.sched.dispatch_do (NULL, DISPATCH_INIT);
@@ -7803,7 +7794,7 @@ generate_recovery_code (rtx_insn *insn)
    Tries to add speculative dependencies of type FS between instructions
    in deps_list L and TWIN.  */
 static void
-process_insn_forw_deps_be_in_spec (rtx insn, rtx_insn *twin, ds_t fs)
+process_insn_forw_deps_be_in_spec (rtx_insn *insn, rtx_insn *twin, ds_t fs)
 {
   sd_iterator_def sd_it;
   dep_t dep;

@@ -354,7 +354,7 @@ enum reg_class
 
 #define SLOW_BYTE_ACCESS 1
 
-#define NO_FUNCTION_CSE
+#define NO_FUNCTION_CSE 1
 
 #define BRANCH_COST(speed_p, predictable_p) 4
 
@@ -437,7 +437,7 @@ do 									\
       switch_to_section (bss_section);					\
       fprintf ((FILE), "%s", COMMON_ASM_OP);				\
       assemble_name ((FILE), (NAME));					\
-      fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",          \
+      fprintf ((FILE), "," HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",          \
                (SIZE), (ALIGN) / BITS_PER_UNIT);	                \
     }									\
 }									\

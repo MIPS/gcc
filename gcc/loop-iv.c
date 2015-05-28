@@ -138,16 +138,16 @@ static struct loop *current_loop;
 
 struct biv_entry_hasher : typed_free_remove <biv_entry>
 {
-  typedef biv_entry value_type;
-  typedef rtx_def compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef biv_entry *value_type;
+  typedef rtx_def *compare_type;
+  static inline hashval_t hash (const biv_entry *);
+  static inline bool equal (const biv_entry *, const rtx_def *);
 };
 
 /* Returns hash value for biv B.  */
 
 inline hashval_t
-biv_entry_hasher::hash (const value_type *b)
+biv_entry_hasher::hash (const biv_entry *b)
 {
   return b->regno;
 }
@@ -155,7 +155,7 @@ biv_entry_hasher::hash (const value_type *b)
 /* Compares biv B and register R.  */
 
 inline bool
-biv_entry_hasher::equal (const value_type *b, const compare_type *r)
+biv_entry_hasher::equal (const biv_entry *b, const rtx_def *r)
 {
   return b->regno == REGNO (r);
 }
@@ -977,7 +977,7 @@ bool
 iv_analyze_expr (rtx_insn *insn, rtx rhs, machine_mode mode,
 		 struct rtx_iv *iv)
 {
-  rtx mby = NULL_RTX, tmp;
+  rtx mby = NULL_RTX;
   rtx op0 = NULL_RTX, op1 = NULL_RTX;
   struct rtx_iv iv0, iv1;
   enum rtx_code code = GET_CODE (rhs);
@@ -1028,11 +1028,7 @@ iv_analyze_expr (rtx_insn *insn, rtx rhs, machine_mode mode,
       op0 = XEXP (rhs, 0);
       mby = XEXP (rhs, 1);
       if (!CONSTANT_P (mby))
-	{
-	  tmp = op0;
-	  op0 = mby;
-	  mby = tmp;
-	}
+	std::swap (op0, mby);
       if (!CONSTANT_P (mby))
 	return false;
       break;
@@ -1544,7 +1540,7 @@ replace_in_expr (rtx *expr, rtx dest, rtx src)
 static bool
 implies_p (rtx a, rtx b)
 {
-  rtx op0, op1, opb0, opb1, r;
+  rtx op0, op1, opb0, opb1;
   machine_mode mode;
 
   if (rtx_equal_p (a, b))
@@ -1559,7 +1555,7 @@ implies_p (rtx a, rtx b)
 	  || (GET_CODE (op0) == SUBREG
 	      && REG_P (SUBREG_REG (op0))))
 	{
-	  r = simplify_replace_rtx (b, op0, op1);
+	  rtx r = simplify_replace_rtx (b, op0, op1);
 	  if (r == const_true_rtx)
 	    return true;
 	}
@@ -1568,7 +1564,7 @@ implies_p (rtx a, rtx b)
 	  || (GET_CODE (op1) == SUBREG
 	      && REG_P (SUBREG_REG (op1))))
 	{
-	  r = simplify_replace_rtx (b, op1, op0);
+	  rtx r = simplify_replace_rtx (b, op1, op0);
 	  if (r == const_true_rtx)
 	    return true;
 	}
@@ -1604,18 +1600,10 @@ implies_p (rtx a, rtx b)
     {
 
       if (GET_CODE (a) == GT)
-	{
-	  r = op0;
-	  op0 = op1;
-	  op1 = r;
-	}
+	std::swap (op0, op1);
 
       if (GET_CODE (b) == GE)
-	{
-	  r = opb0;
-	  opb0 = opb1;
-	  opb1 = r;
-	}
+	std::swap (opb0, opb1);
 
       if (SCALAR_INT_MODE_P (mode)
 	  && rtx_equal_p (op1, opb1)
@@ -1707,7 +1695,6 @@ implies_p (rtx a, rtx b)
 rtx
 canon_condition (rtx cond)
 {
-  rtx tem;
   rtx op0, op1;
   enum rtx_code code;
   machine_mode mode;
@@ -1719,9 +1706,7 @@ canon_condition (rtx cond)
   if (swap_commutative_operands_p (op0, op1))
     {
       code = swap_condition (code);
-      tem = op0;
-      op0 = op1;
-      op1 = tem;
+      std::swap (op0, op1);
     }
 
   mode = GET_MODE (op0);
@@ -1729,39 +1714,42 @@ canon_condition (rtx cond)
     mode = GET_MODE (op1);
   gcc_assert (mode != VOIDmode);
 
-  if (CONST_INT_P (op1)
-      && GET_MODE_CLASS (mode) != MODE_CC
-      && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
+  if (CONST_SCALAR_INT_P (op1) && GET_MODE_CLASS (mode) != MODE_CC)
     {
-      HOST_WIDE_INT const_val = INTVAL (op1);
-      unsigned HOST_WIDE_INT uconst_val = const_val;
-      unsigned HOST_WIDE_INT max_val
-	= (unsigned HOST_WIDE_INT) GET_MODE_MASK (mode);
+      rtx_mode_t const_val (op1, mode);
 
       switch (code)
 	{
 	case LE:
-	  if ((unsigned HOST_WIDE_INT) const_val != max_val >> 1)
-	    code = LT, op1 = gen_int_mode (const_val + 1, GET_MODE (op0));
+	  if (wi::ne_p (const_val, wi::max_value (mode, SIGNED)))
+	    {
+	      code = LT;
+	      op1 = immed_wide_int_const (wi::add (const_val, 1),  mode);
+	    }
 	  break;
 
-	/* When cross-compiling, const_val might be sign-extended from
-	   BITS_PER_WORD to HOST_BITS_PER_WIDE_INT */
 	case GE:
-	  if ((HOST_WIDE_INT) (const_val & max_val)
-	      != (((HOST_WIDE_INT) 1
-		   << (GET_MODE_BITSIZE (GET_MODE (op0)) - 1))))
-	    code = GT, op1 = gen_int_mode (const_val - 1, mode);
+	  if (wi::ne_p (const_val, wi::min_value (mode, SIGNED)))
+	    {
+	      code = GT;
+	      op1 = immed_wide_int_const (wi::sub (const_val, 1), mode);
+	    }
 	  break;
 
 	case LEU:
-	  if (uconst_val < max_val)
-	    code = LTU, op1 = gen_int_mode (uconst_val + 1, mode);
+	  if (wi::ne_p (const_val, -1))
+	    {
+	      code = LTU;
+	      op1 = immed_wide_int_const (wi::add (const_val, 1), mode);
+	    }
 	  break;
 
 	case GEU:
-	  if (uconst_val != 0)
-	    code = GTU, op1 = gen_int_mode (uconst_val - 1, mode);
+	  if (wi::ne_p (const_val, 0))
+	    {
+	      code = GTU;
+	      op1 = immed_wide_int_const (wi::sub (const_val, 1), mode);
+	    }
 	  break;
 
 	default:
@@ -2357,7 +2345,7 @@ determine_max_iter (struct loop *loop, struct niter_desc *desc, rtx old_niter)
   if (andmax)
     nmax = MIN (nmax, andmax);
   if (dump_file)
-    fprintf (dump_file, ";; Determined upper bound %"PRId64".\n",
+    fprintf (dump_file, ";; Determined upper bound %" PRId64".\n",
 	     nmax);
   return nmax;
 }

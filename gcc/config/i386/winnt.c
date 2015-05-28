@@ -599,7 +599,7 @@ i386_pe_asm_output_aligned_decl_common (FILE *stream, tree decl,
   assemble_name (stream, name);
   if (use_pe_aligned_common)
     fprintf (stream, ", " HOST_WIDE_INT_PRINT_DEC ", %d\n",
-	   size ? size : (HOST_WIDE_INT) 1,
+	   size ? size : HOST_WIDE_INT_1,
 	   exact_log2 (align) - exact_log2 (CHAR_BIT));
   else
     fprintf (stream, ", " HOST_WIDE_INT_PRINT_DEC "\t" ASM_COMMENT_START
@@ -738,15 +738,15 @@ i386_pe_record_stub (const char *name)
 
 struct wrapped_symbol_hasher : typed_noop_remove <char>
 {
-  typedef char value_type;
-  typedef char compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-  static inline void remove (value_type *);
+  typedef const char *value_type;
+  typedef const char *compare_type;
+  static inline hashval_t hash (const char *);
+  static inline bool equal (const char *, const char *);
+  static inline void remove (const char *);
 };
 
 inline hashval_t
-wrapped_symbol_hasher::hash (const value_type *v)
+wrapped_symbol_hasher::hash (const char *v)
 {
   return htab_hash_string (v);
 }
@@ -754,7 +754,7 @@ wrapped_symbol_hasher::hash (const value_type *v)
 /*  Hash table equality helper function.  */
 
 inline bool
-wrapped_symbol_hasher::equal (const value_type *x, const compare_type *y)
+wrapped_symbol_hasher::equal (const char *x, const char *y)
 {
   return !strcmp (x, y);
 }

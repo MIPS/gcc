@@ -1872,7 +1872,6 @@ struct asmname_hasher
 {
   typedef symtab_node *value_type;
   typedef const_tree compare_type;
-  typedef int store_values_directly;
 
   static hashval_t hash (symtab_node *n);
   static bool equal (symtab_node *n, const_tree t);
@@ -2993,7 +2992,7 @@ symtab_node::get_availability (void)
   if (is_a <cgraph_node *> (this))
     return dyn_cast <cgraph_node *> (this)->get_availability ();
   else
-    return dyn_cast <varpool_node *> (this)->get_availability ();;
+    return dyn_cast <varpool_node *> (this)->get_availability ();
 }
 
 /* Call calback on symtab node and aliases associated to this node.

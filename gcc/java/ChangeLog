@@ -1,3 +1,12 @@
+2015-05-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* jcf-parse.c (set_source_filename): Replace write through
+	ORDINARY_MAP_FILE_NAME with direct access to "to_file".
+
+2015-04-18  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* jcf-io.c: Adjust for hash_table changes.
+
 2015-01-30  Joseph Myers  <joseph@codesourcery.com>
 
 	* class.c, expr.c, jcf-parse.c, jvspec.c: All callers of

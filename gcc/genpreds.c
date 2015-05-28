@@ -640,12 +640,14 @@ struct constraint_data
   const char *regclass;  /* for register constraints */
   rtx exp;               /* for other constraints */
   unsigned int lineno;   /* line of definition */
-  unsigned int is_register  : 1;
-  unsigned int is_const_int : 1;
-  unsigned int is_const_dbl : 1;
-  unsigned int is_extra     : 1;
-  unsigned int is_memory    : 1;
-  unsigned int is_address   : 1;
+  unsigned int is_register	: 1;
+  unsigned int is_const_int	: 1;
+  unsigned int is_const_dbl	: 1;
+  unsigned int is_extra		: 1;
+  unsigned int is_memory	: 1;
+  unsigned int is_address	: 1;
+  unsigned int maybe_allows_reg : 1;
+  unsigned int maybe_allows_mem : 1;
 };
 
 /* Overview of all constraints beginning with a given letter.  */
@@ -691,6 +693,9 @@ static unsigned int satisfied_start;
 static unsigned int const_int_start, const_int_end;
 static unsigned int memory_start, memory_end;
 static unsigned int address_start, address_end;
+static unsigned int maybe_allows_none_start, maybe_allows_none_end;
+static unsigned int maybe_allows_reg_start, maybe_allows_reg_end;
+static unsigned int maybe_allows_mem_start, maybe_allows_mem_end;
 
 /* Convert NAME, which contains angle brackets and/or underscores, to
    a string that can be used as part of a C identifier.  The string
@@ -866,7 +871,17 @@ add_constraint (const char *name, const char *regclass,
   c->is_extra = !(regclass || is_const_int || is_const_dbl);
   c->is_memory = is_memory;
   c->is_address = is_address;
-
+  c->maybe_allows_reg = true;
+  c->maybe_allows_mem = true;
+  if (exp)
+    {
+      char codes[NUM_RTX_CODE];
+      compute_test_codes (exp, lineno, codes);
+      if (!codes[REG] && !codes[SUBREG])
+	c->maybe_allows_reg = false;
+      if (!codes[MEM])
+	c->maybe_allows_mem = false;
+    }
   c->next_this_letter = *slot;
   *slot = c;
 
@@ -940,8 +955,30 @@ choose_enum_order (void)
       enum_order[next++] = c;
   address_end = next;
 
+  maybe_allows_none_start = next;
   FOR_ALL_CONSTRAINTS (c)
-    if (!c->is_register && !c->is_const_int && !c->is_memory && !c->is_address)
+    if (!c->is_register && !c->is_const_int && !c->is_memory && !c->is_address
+	&& !c->maybe_allows_reg && !c->maybe_allows_mem)
+      enum_order[next++] = c;
+  maybe_allows_none_end = next;
+
+  maybe_allows_reg_start = next;
+  FOR_ALL_CONSTRAINTS (c)
+    if (!c->is_register && !c->is_const_int && !c->is_memory && !c->is_address
+	&& c->maybe_allows_reg && !c->maybe_allows_mem)
+      enum_order[next++] = c;
+  maybe_allows_reg_end = next;
+
+  maybe_allows_mem_start = next;
+  FOR_ALL_CONSTRAINTS (c)
+    if (!c->is_register && !c->is_const_int && !c->is_memory && !c->is_address
+	&& !c->maybe_allows_reg && c->maybe_allows_mem)
+      enum_order[next++] = c;
+  maybe_allows_mem_end = next;
+
+  FOR_ALL_CONSTRAINTS (c)
+    if (!c->is_register && !c->is_const_int && !c->is_memory && !c->is_address
+	&& c->maybe_allows_reg && c->maybe_allows_mem)
       enum_order[next++] = c;
   gcc_assert (next == num_constraints);
 }
@@ -1229,6 +1266,41 @@ write_range_function (const char *name, unsigned int start, unsigned int end)
 	    "}\n\n", name);
 }
 
+/* Write a definition for insn_extra_constraint_allows_reg_mem function.  */
+static void
+write_allows_reg_mem_function (void)
+{
+  printf ("static inline void\n"
+	  "insn_extra_constraint_allows_reg_mem (enum constraint_num c,\n"
+	  "\t\t\t\t      bool *allows_reg, bool *allows_mem)\n"
+	  "{\n");
+  if (maybe_allows_none_start != maybe_allows_none_end)
+    printf ("  if (c >= CONSTRAINT_%s && c <= CONSTRAINT_%s)\n"
+	    "    return;\n",
+	    enum_order[maybe_allows_none_start]->c_name,
+	    enum_order[maybe_allows_none_end - 1]->c_name);
+  if (maybe_allows_reg_start != maybe_allows_reg_end)
+    printf ("  if (c >= CONSTRAINT_%s && c <= CONSTRAINT_%s)\n"
+	    "    {\n"
+	    "      *allows_reg = true;\n"
+	    "      return;\n"
+	    "    }\n",
+	    enum_order[maybe_allows_reg_start]->c_name,
+	    enum_order[maybe_allows_reg_end - 1]->c_name);
+  if (maybe_allows_mem_start != maybe_allows_mem_end)
+    printf ("  if (c >= CONSTRAINT_%s && c <= CONSTRAINT_%s)\n"
+	    "    {\n"
+	    "      *allows_mem = true;\n"
+	    "      return;\n"
+	    "    }\n",
+	    enum_order[maybe_allows_mem_start]->c_name,
+	    enum_order[maybe_allows_mem_end - 1]->c_name);
+  printf ("  (void) c;\n"
+	  "  *allows_reg = true;\n"
+	  "  *allows_mem = true;\n"
+	  "}\n\n");
+}
+
 /* VEC is a list of key/value pairs, with the keys being lower bounds
    of a range.  Output a decision tree that handles the keys covered by
    [VEC[START], VEC[END]), returning FALLBACK for keys lower then VEC[START]'s.
@@ -1326,6 +1398,7 @@ write_tm_preds_h (void)
 			    memory_start, memory_end);
       write_range_function ("insn_extra_address_constraint",
 			    address_start, address_end);
+      write_allows_reg_mem_function ();
 
       if (constraint_max_namelen > 1)
         {
@@ -1419,6 +1492,7 @@ write_insn_preds_c (void)
 #include \"rtl.h\"\n\
 #include \"hash-set.h\"\n\
 #include \"machmode.h\"\n\
+#include \"hash-map.h\"\n\
 #include \"vec.h\"\n\
 #include \"double-int.h\"\n\
 #include \"input.h\"\n\

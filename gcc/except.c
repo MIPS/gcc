@@ -174,12 +174,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "builtins.h"
 
-/* Provide defaults for stuff that may not be defined when using
-   sjlj exceptions.  */
-#ifndef EH_RETURN_DATA_REGNO
-#define EH_RETURN_DATA_REGNO(N) INVALID_REGNUM
-#endif
-
 static GTY(()) int call_site_base;
 
 struct tree_hash_traits : default_hashmap_traits
@@ -227,20 +221,21 @@ struct action_record
 
 struct action_record_hasher : typed_free_remove <action_record>
 {
-  typedef action_record value_type;
-  typedef action_record compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef action_record *value_type;
+  typedef action_record *compare_type;
+  static inline hashval_t hash (const action_record *);
+  static inline bool equal (const action_record *, const action_record *);
 };
 
 inline hashval_t
-action_record_hasher::hash (const value_type *entry)
+action_record_hasher::hash (const action_record *entry)
 {
   return entry->next * 1009 + entry->filter;
 }
 
 inline bool
-action_record_hasher::equal (const value_type *entry, const compare_type *data)
+action_record_hasher::equal (const action_record *entry,
+			     const action_record *data)
 {
   return entry->filter == data->filter && entry->next == data->next;
 }
@@ -654,7 +649,7 @@ duplicate_eh_regions (struct function *ifun,
   data.label_map_data = map_data;
   data.eh_map = new hash_map<void *, void *>;
 
-  outer_region = get_eh_region_from_lp_number (outer_lp);
+  outer_region = get_eh_region_from_lp_number_fn (cfun, outer_lp);
 
   /* Copy all the regions in the subtree.  */
   if (copy_region)
@@ -742,23 +737,23 @@ struct ttypes_filter {
 
 struct ttypes_filter_hasher : typed_free_remove <ttypes_filter>
 {
-  typedef ttypes_filter value_type;
-  typedef tree_node compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef ttypes_filter *value_type;
+  typedef tree_node *compare_type;
+  static inline hashval_t hash (const ttypes_filter *);
+  static inline bool equal (const ttypes_filter *, const tree_node *);
 };
 
 /* Compare ENTRY (a ttypes_filter entry in the hash table) with DATA
    (a tree) for a @TTypes type node we are thinking about adding.  */
 
 inline bool
-ttypes_filter_hasher::equal (const value_type *entry, const compare_type *data)
+ttypes_filter_hasher::equal (const ttypes_filter *entry, const tree_node *data)
 {
   return entry->t == data;
 }
 
 inline hashval_t
-ttypes_filter_hasher::hash (const value_type *entry)
+ttypes_filter_hasher::hash (const ttypes_filter *entry)
 {
   return TREE_HASH (entry->t);
 }
@@ -770,10 +765,10 @@ typedef hash_table<ttypes_filter_hasher> ttypes_hash_type;
 
 struct ehspec_hasher : typed_free_remove <ttypes_filter>
 {
-  typedef ttypes_filter value_type;
-  typedef ttypes_filter compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef ttypes_filter *value_type;
+  typedef ttypes_filter *compare_type;
+  static inline hashval_t hash (const ttypes_filter *);
+  static inline bool equal (const ttypes_filter *, const ttypes_filter *);
 };
 
 /* Compare ENTRY with DATA (both struct ttypes_filter) for a @TTypes
@@ -782,7 +777,7 @@ struct ehspec_hasher : typed_free_remove <ttypes_filter>
    should put these in some canonical order.  */
 
 inline bool
-ehspec_hasher::equal (const value_type *entry, const compare_type *data)
+ehspec_hasher::equal (const ttypes_filter *entry, const ttypes_filter *data)
 {
   return type_list_equal (entry->t, data->t);
 }
@@ -790,7 +785,7 @@ ehspec_hasher::equal (const value_type *entry, const compare_type *data)
 /* Hash function for exception specification lists.  */
 
 inline hashval_t
-ehspec_hasher::hash (const value_type *entry)
+ehspec_hasher::hash (const ttypes_filter *entry)
 {
   hashval_t h = 0;
   tree list;
@@ -1131,6 +1126,21 @@ sjlj_mark_call_sites (void)
       if (LABEL_P (insn))
 	last_call_site = -2;
 
+      /* If the function allocates dynamic stack space, the context must
+	 be updated after every allocation/deallocation accordingly.  */
+      if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_UPDATE_SJLJ_CONTEXT)
+	{
+	  rtx buf_addr;
+
+	  start_sequence ();
+	  buf_addr = plus_constant (Pmode, XEXP (crtl->eh.sjlj_fc, 0),
+				    sjlj_fc_jbuf_ofs);
+	  expand_builtin_update_setjmp_buf (buf_addr);
+	  p = get_insns ();
+	  end_sequence ();
+	  emit_insn_before (p, insn);
+	}
+
       if (! INSN_P (insn))
 	continue;
 
@@ -1354,7 +1364,7 @@ sjlj_emit_dispatch_table (rtx_code_label *dispatch_label, int num_dispatch)
     if (lp && lp->post_landing_pad)
       {
 	rtx_insn *seq2;
-	rtx label;
+	rtx_code_label *label;
 
 	start_sequence ();
 
@@ -1368,7 +1378,7 @@ sjlj_emit_dispatch_table (rtx_code_label *dispatch_label, int num_dispatch)
 	    t = build_int_cst (integer_type_node, disp_index);
 	    case_elt = build_case_label (t, NULL, t_label);
 	    dispatch_labels.quick_push (case_elt);
-	    label = label_rtx (t_label);
+	    label = jump_target_rtx (t_label);
 	  }
 	else
 	  label = gen_label_rtx ();
@@ -1498,6 +1508,18 @@ sjlj_build_landing_pads (void)
     }
 
   sjlj_lp_call_site_index.release ();
+}
+
+/* Update the sjlj function context.  This function should be called
+   whenever we allocate or deallocate dynamic stack space.  */
+
+void
+update_sjlj_context (void)
+{
+  if (!flag_exceptions)
+    return;
+
+  emit_note (NOTE_INSN_UPDATE_SJLJ_CONTEXT);
 }
 
 /* After initial rtl generation, call back to finish generating
@@ -1699,7 +1721,7 @@ for_each_eh_label (void (*callback) (rtx))
   direct call cases) and just pull the data out of the trees.  */
 
 void
-make_reg_eh_region_note (rtx insn, int ecf_flags, int lp_nr)
+make_reg_eh_region_note (rtx_insn *insn, int ecf_flags, int lp_nr)
 {
   rtx value;
   if (ecf_flags & ECF_NOTHROW)
@@ -1716,7 +1738,7 @@ make_reg_eh_region_note (rtx insn, int ecf_flags, int lp_nr)
    already exists.  */
 
 void
-make_reg_eh_region_note_nothrow_nononlocal (rtx insn)
+make_reg_eh_region_note_nothrow_nononlocal (rtx_insn *insn)
 {
   rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
   rtx intmin = GEN_INT (INT_MIN);
@@ -1946,7 +1968,7 @@ insn_nothrow_p (const_rtx insn)
 /* ??? This test is here in this file because it (ab)uses REG_EH_REGION.  */
 
 bool
-can_nonlocal_goto (const_rtx insn)
+can_nonlocal_goto (const rtx_insn *insn)
 {
   if (nonlocal_goto_handler_labels && CALL_P (insn))
     {
@@ -2190,14 +2212,13 @@ expand_builtin_extract_return_addr (tree addr_tree)
     }
 
   /* First mask out any unwanted bits.  */
-#ifdef MASK_RETURN_ADDR
-  expand_and (Pmode, addr, MASK_RETURN_ADDR, addr);
-#endif
+  rtx mask = MASK_RETURN_ADDR;
+  if (mask)
+    expand_and (Pmode, addr, mask, addr);
 
   /* Then adjust to find the real return address.  */
-#if defined (RETURN_ADDR_OFFSET)
-  addr = plus_constant (Pmode, addr, RETURN_ADDR_OFFSET);
-#endif
+  if (RETURN_ADDR_OFFSET)
+    addr = plus_constant (Pmode, addr, RETURN_ADDR_OFFSET);
 
   return addr;
 }
@@ -2213,10 +2234,11 @@ expand_builtin_frob_return_addr (tree addr_tree)
 
   addr = convert_memory_address (Pmode, addr);
 
-#ifdef RETURN_ADDR_OFFSET
-  addr = force_reg (Pmode, addr);
-  addr = plus_constant (Pmode, addr, -RETURN_ADDR_OFFSET);
-#endif
+  if (RETURN_ADDR_OFFSET)
+    {
+      addr = force_reg (Pmode, addr);
+      addr = plus_constant (Pmode, addr, -RETURN_ADDR_OFFSET);
+    }
 
   return addr;
 }

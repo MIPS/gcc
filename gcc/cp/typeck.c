@@ -606,12 +606,7 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
 
     If either type is a pointer to void, make sure it is T1.  */
   if (TYPE_PTR_P (t2) && VOID_TYPE_P (TREE_TYPE (t2)))
-    {
-      tree t;
-      t = t1;
-      t1 = t2;
-      t2 = t;
-    }
+    std::swap (t1, t2);
 
   /* Now, if T1 is a pointer to void, merge the qualifiers.  */
   if (TYPE_PTR_P (t1) && VOID_TYPE_P (TREE_TYPE (t1)))
@@ -1310,7 +1305,6 @@ structural_comptypes (tree t1, tree t2, int strict)
 
     case POINTER_TYPE:
       if (TYPE_MODE (t1) != TYPE_MODE (t2)
-	  || TYPE_REF_CAN_ALIAS_ALL (t1) != TYPE_REF_CAN_ALIAS_ALL (t2)
 	  || !same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	return false;
       break;
@@ -2298,7 +2292,8 @@ build_class_member_access_expr (tree object, tree member,
   if (DECL_P (member))
     {
       member_scope = DECL_CLASS_CONTEXT (member);
-      mark_used (member);
+      if (!mark_used (member, complain) && !(complain & tf_error))
+	return error_mark_node;
       if (TREE_DEPRECATED (member))
 	warn_deprecated_use (member, NULL_TREE);
     }
@@ -2736,6 +2731,14 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
 		  return error_mark_node;
 		}
 	      tree val = lookup_enumerator (scope, name);
+	      if (!val)
+		{
+		  if (complain & tf_error)
+		    error ("%qD is not a member of %qD",
+			   name, scope);
+		  return error_mark_node;
+		}
+	      
 	      if (TREE_SIDE_EFFECTS (object))
 		val = build2 (COMPOUND_EXPR, TREE_TYPE (val), object, val);
 	      return val;
@@ -3486,7 +3489,9 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
         the failure for the single call expression. The check is 
         technically redundant since we also would have failed in
         add_function_candidate. */
-      if (flag_concepts && !constraints_satisfied_p (function))
+      if (flag_concepts 
+          && (complain & tf_error) 
+          && !constraints_satisfied_p (function))
         {
           error ("cannot call function %qD", function);
           location_t loc = DECL_SOURCE_LOCATION (function);
@@ -3494,7 +3499,9 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
           return error_mark_node;
         }
 
-      mark_used (function);
+      if (!mark_used (function, complain) && !(complain & tf_error))
+	return error_mark_node;
+
       fndecl = function;
 
       /* Convert anything with function type to a pointer-to-function.  */
@@ -3611,8 +3618,8 @@ warn_args_num (location_t loc, tree fndecl, bool too_many_p)
 		  ? G_("too many arguments to function %q#D")
 		  : G_("too few arguments to function %q#D"),
 		  fndecl);
-      inform (DECL_SOURCE_LOCATION (fndecl),
-	      "declared here");
+      if (!DECL_IS_BUILTIN (fndecl))
+	inform (DECL_SOURCE_LOCATION (fndecl), "declared here");
     }
   else
     {
@@ -4342,11 +4349,20 @@ cp_build_binary_op (location_t location,
 	}
       else if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	{
+	  tree const_op0 = fold_non_dependent_expr (op0);
+	  if (TREE_CODE (const_op0) != INTEGER_CST)
+	    const_op0 = op0;
 	  tree const_op1 = fold_non_dependent_expr (op1);
 	  if (TREE_CODE (const_op1) != INTEGER_CST)
 	    const_op1 = op1;
 	  result_type = type0;
 	  doing_shift = true;
+	  if (TREE_CODE (const_op0) == INTEGER_CST
+	      && tree_int_cst_sgn (const_op0) < 0
+	      && (complain & tf_warning)
+	      && c_inhibit_evaluation_warnings == 0)
+	    warning (OPT_Wshift_negative_value,
+		     "left shift of negative value");
 	  if (TREE_CODE (const_op1) == INTEGER_CST)
 	    {
 	      if (tree_int_cst_lt (const_op1, integer_zero_node))
@@ -5393,7 +5409,8 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
 	 and the created OFFSET_REF.  */
       tree base = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (arg, 0)));
       tree fn = get_first_fn (TREE_OPERAND (arg, 1));
-      mark_used (fn);
+      if (!mark_used (fn, complain) && !(complain & tf_error))
+	return error_mark_node;
 
       if (! flag_ms_extensions)
 	{
@@ -5580,7 +5597,8 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
 	 function.  */
       gcc_assert (TREE_CODE (fn) == FUNCTION_DECL
 		  && DECL_STATIC_FUNCTION_P (fn));
-      mark_used (fn);
+      if (!mark_used (fn, complain) && !(complain & tf_error))
+	return error_mark_node;
       val = build_address (fn);
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (arg, 0)))
 	/* Do not lose object's side effects.  */

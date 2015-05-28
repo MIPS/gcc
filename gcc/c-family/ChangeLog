@@ -1,3 +1,203 @@
+2015-05-25  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_shift): Use type0.
+
+2015-05-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c/47043
+	* c-common.c (handle_deprecated_attribute): Allow CONST_DECL.
+
+2015-05-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Use if instead of #if with
+	STACK_GROWS_DOWNWARD.
+
+2015-05-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Check the value of
+	STACK_GROWS_DOWNWARD rather than if it is defined.
+
+2015-05-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+	
+	PR c/52952
+	* c-format.c (location_column_from_byte_offset): New.
+	(location_from_offset): New.
+	(struct format_wanted_type): Add offset_loc field.
+	(check_format_info): Move handling of location for extra arguments
+	closer to the point of warning.
+	(check_format_info_main): Pass the result of location_from_offset
+	to warning_at.
+	(format_type_warning): Pass the result of location_from_offset
+	to warning_at.
+
+2015-05-20  Marek Polacek  <polacek@redhat.com>
+
+	* c-omp.c (check_omp_for_incr_expr): Use BINARY_CLASS_P.
+
+2015-05-20  Marek Polacek  <polacek@redhat.com>
+
+	* c-ada-spec.c (dump_sloc): Use DECL_P.
+
+2015-05-20  Marek Polacek  <polacek@redhat.com>
+
+	* c-pragma.c: Use VAR_OR_FUNCTION_DECL_P throughout.
+	* c-common.c: Likewise.
+
+2015-05-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.h (fe_file_change): Strengthen param from
+	const line_map * to const line_map_ordinary *.
+	(pp_file_change): Likewise.
+	* c-lex.c (fe_file_change): Likewise.
+	(cb_define): Use linemap_check_ordinary when invoking
+	SOURCE_LINE.
+	(cb_undef): Likewise.
+	* c-opts.c (c_finish_options): Use linemap_check_ordinary when
+	invoking cb_file_change.
+	(c_finish_options): Likewise.
+	(push_command_line_include): Likewise.
+	(cb_file_change): Strengthen param "new_map" from
+	const line_map * to const line_map_ordinary *.
+	* c-ppoutput.c (cb_define): Likewise for local "map".
+	(pp_file_change): Likewise for param "map" and local "from".
+
+2015-05-19  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* c-common.c (shorten_compare): Use std::swap instead of explicit swaps.
+
+2015-05-18  Tom de Vries  <tom@codesourcery.com>
+
+	* c-common.c (build_va_arg_1): New function.
+	(build_va_arg): Add address operator to va_list operand if necessary.
+
+2015-05-15  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c/48956
+	* c-common.c (int_safely_convertible_to_real_p): Define.
+	(unsafe_conversion_p): Check conversions involving complex types.
+	(conversion_warning): Add new warning message for conversions which
+	discard imaginary component.
+	* c-common.h: (enum conversion_safety): Add new enumerator for such
+	conversions.
+
+2015-05-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66066
+	PR c/66127
+	* c-common.c (c_fully_fold): Pass false down to c_fully_fold_internal.
+	(c_fully_fold_internal): Fold C_MAYBE_CONST_EXPRs with
+	C_MAYBE_CONST_EXPR_INT_OPERANDS set.  Add FOR_INT_CONST argument and
+	use it.  If FOR_INT_CONST, require that all evaluated operands be
+	INTEGER_CSTs.
+
+2015-05-12  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.h (warn_for_misleading_indentation): New prototype.
+	* c-indentation.c: New file.
+	* c.opt (Wmisleading-indentation): New option.
+
+2015-05-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66010
+	* c-common.c (build_va_arg): Don't mark ap addressable unless necessary.
+
+2015-05-09  Jason Merrill  <jason@redhat.com>
+
+	* c-opts.c (c_common_post_options): Also clear
+	cpp_opts->cpp_warn_cxx11_compat.
+
+	* c-common.h (enum cxx_dialect): Add cxx_unset.
+	* c-common.c (cxx_dialect): Initialize to cxx_unset.
+	* c-opts.c (c_common_post_options): Set C++ dialect to C++98 if unset.
+
+	* c.opt (std=c++14): Remove Undocumented flag and experimental warning.
+	(std=gnu++0x): Mark as Undocumented.
+	(std=gnu++1y): Add deprecated message.
+
+2015-05-08  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wc++11-compat): Make primary.  Rename var warn_cxx11_compat.
+	* c-opts.c: Adjust.
+
+	* c.opt (Wc++0x-compat): Also set cpp_warn_cxx11_compat.
+
+2015-05-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64918
+	* c.opt (Woverride-init-side-effects): New option.
+
+2015-05-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65179
+	* c-common.c (c_fully_fold_internal): Warn when left shifting a
+	negative value.
+	* c.opt (Wshift-negative-value): New option.
+	* c-opts.c (c_common_post_options): Set warn_shift_negative_value
+	when -Wextra and C99/C++11 mode.
+
+2015-05-07  Marek Polacek  <polacek@redhat.com>
+	    Martin Uecker  <uecker@eecs.berkeley.edu>
+
+	* c-ubsan.c (ubsan_instrument_bounds): Don't skip instrumenting
+	flexible member array-like members if SANITIZE_BOUNDS_STRICT.
+
+2015-05-05  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wterminate): New.
+
+2015-04-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.c (maybe_warn_bool_compare): When comparing with 0/1,
+	require that the non-constant be of a boolean type.
+
+2015-04-29  Josh Triplett  <josh@joshtriplett.org>
+
+	* c-common.c (handle_section_attribute): Refactor to reduce
+	nesting and distinguish between error cases.
+
+2015-04-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64610
+	* c-common.c (maybe_warn_bool_compare): Warn when comparing a boolean
+	with 0/1.
+
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.h (omp_clause_mask): Unconditionally define as a class.
+	Use uint64_t instead of unsigned HOST_WIDE_INT and 64 instead of
+	HOST_BITS_PER_WIDE_INT.
+
+2015-04-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/65887
+	* c-common.c (build_va_arg): Mark va_arg ap argument as addressable.
+
+2015-04-28  Eric Botcazou  <ebotcazou@adacore.com>
+	    Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* c-ada-spec.c (in_function): Delete.
+	(dump_generic_ada_node): Do not change in_function and remove the
+	redundant code dealing with it.
+	(print_ada_declaration): Do not change in_function.  Use INDENT_INCR.
+	(print_ada_methods): Output the static member functions in a nested
+	package after the regular methods as well as associated renamings.
+
+2015-04-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65830
+	* c-common.c (c_fully_fold_internal): Use OPT_Wshift_count_negative
+	and OPT_Wshift_count_overflow.
+
+	PR c/63357
+	* c-common.c (warn_logical_operator): Warn if the operands have the
+	same expressions.
+
+2015-04-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61534
+	* c-common.c (warn_logical_operator): Bail if either operand comes
+	from a macro expansion.
+
 2015-04-10  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
 
 	PR target/55143

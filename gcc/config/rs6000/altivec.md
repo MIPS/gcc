@@ -262,7 +262,7 @@
     RTVEC_ELT (v, i) = constm1_rtx;
 
   emit_insn (gen_vec_initv4si (dest, gen_rtx_PARALLEL (mode, v)));
-  emit_insn (gen_rtx_SET (VOIDmode, dest, gen_rtx_ASHIFT (mode, dest, dest)));
+  emit_insn (gen_rtx_SET (dest, gen_rtx_ASHIFT (mode, dest, dest)));
   DONE;
 })
 
@@ -353,8 +353,8 @@
       (use (reg:P 0))
       (set (mem:V4SI (plus:P (match_operand:P 2 "gpc_reg_operand" "b")
 			     (match_operand:P 3 "short_cint_operand" "I")))
-	   (match_operand:V4SI 4 "gpc_reg_operand" "v"))])]
-  ""
+	   (match_operand:V4SI 4 "altivec_register_operand" "v"))])]
+  "TARGET_ALTIVEC"
   "bl %1"
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
@@ -367,8 +367,8 @@
       (use (reg:P 0))
       (set (mem:V4SI (plus:P (match_operand:P 2 "gpc_reg_operand" "b")
 			     (match_operand:P 3 "short_cint_operand" "I")))
-	   (match_operand:V4SI 4 "gpc_reg_operand" "v"))])]
-  ""
+	   (match_operand:V4SI 4 "altivec_register_operand" "v"))])]
+  "TARGET_ALTIVEC"
   "bl %1"
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
@@ -379,10 +379,10 @@
       (use (match_operand:P 1 "symbol_ref_operand" "s"))
       (clobber (reg:P 11))
       (use (reg:P 0))
-      (set (match_operand:V4SI 2 "gpc_reg_operand" "=v")
+      (set (match_operand:V4SI 2 "altivec_register_operand" "=v")
 	   (mem:V4SI (plus:P (match_operand:P 3 "gpc_reg_operand" "b")
 			     (match_operand:P 4 "short_cint_operand" "I"))))])]
-  ""
+  "TARGET_ALTIVEC"
   "bl %1"
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
@@ -393,10 +393,10 @@
       (use (match_operand:P 1 "symbol_ref_operand" "s"))
       (clobber (reg:P 12))
       (use (reg:P 0))
-      (set (match_operand:V4SI 2 "gpc_reg_operand" "=v")
+      (set (match_operand:V4SI 2 "altivec_register_operand" "=v")
 	   (mem:V4SI (plus:P (match_operand:P 3 "gpc_reg_operand" "b")
 			     (match_operand:P 4 "short_cint_operand" "I"))))])]
-  ""
+  "TARGET_ALTIVEC"
   "bl %1"
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
@@ -887,7 +887,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V16QImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -947,7 +947,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V8HImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1001,7 +1001,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V4SImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1076,7 +1076,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V16QImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1136,7 +1136,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V8HImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1190,7 +1190,7 @@
     }
 
   x = gen_rtx_VEC_SELECT (V4SImode, x, gen_rtx_PARALLEL (VOIDmode, v));
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1700,7 +1700,7 @@
   v = gen_rtvec (1, operands[2]);
   x = gen_rtx_VEC_SELECT (QImode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
   x = gen_rtx_VEC_DUPLICATE (V16QImode, x);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1748,7 +1748,7 @@
   v = gen_rtvec (1, operands[2]);
   x = gen_rtx_VEC_SELECT (HImode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
   x = gen_rtx_VEC_DUPLICATE (V8HImode, x);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1796,7 +1796,7 @@
   v = gen_rtvec (1, operands[2]);
   x = gen_rtx_VEC_SELECT (SImode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
   x = gen_rtx_VEC_DUPLICATE (V4SImode, x);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -1844,7 +1844,7 @@
   v = gen_rtvec (1, operands[2]);
   x = gen_rtx_VEC_SELECT (SFmode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
   x = gen_rtx_VEC_DUPLICATE (V4SFmode, x);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  emit_insn (gen_rtx_SET (operands[0], x));
   DONE;
 })
 
@@ -2318,7 +2318,7 @@
       constv = force_reg (V16QImode, constv);
       vperm = gen_rtx_UNSPEC (V16QImode, gen_rtvec (3, mask, mask, constv),
                               UNSPEC_VPERM);
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0], vperm));
+      emit_insn (gen_rtx_SET (operands[0], vperm));
     }
   DONE;
 })
@@ -2350,7 +2350,7 @@
       constv = force_reg (V16QImode, constv);
       vperm = gen_rtx_UNSPEC (V16QImode, gen_rtvec (3, mask, mask, constv),
                               UNSPEC_VPERM);
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0], vperm));
+      emit_insn (gen_rtx_SET (operands[0], vperm));
     }
   DONE;
 })
@@ -2376,8 +2376,7 @@
 
   addr = XEXP (operands[1], 0);
   temp = gen_reg_rtx (GET_MODE (addr));
-  emit_insn (gen_rtx_SET (VOIDmode, temp, 
-			  gen_rtx_NEG (GET_MODE (addr), addr)));
+  emit_insn (gen_rtx_SET (temp, gen_rtx_NEG (GET_MODE (addr), addr)));
   emit_insn (gen_altivec_lvsr (operands[0], 
 			       replace_equiv_address (operands[1], temp)));
   DONE;
@@ -2455,7 +2454,7 @@
     }
 })
 
-(define_insn "*altivec_lvx_<mode>_internal"
+(define_insn "altivec_lvx_<mode>_internal"
   [(parallel
     [(set (match_operand:VM2 0 "register_operand" "=v")
 	  (match_operand:VM2 1 "memory_operand" "Z"))
@@ -2478,7 +2477,7 @@
     }
 })
 
-(define_insn "*altivec_stvx_<mode>_internal"
+(define_insn "altivec_stvx_<mode>_internal"
   [(parallel
     [(set (match_operand:VM2 0 "memory_operand" "=Z")
 	  (match_operand:VM2 1 "register_operand" "v"))

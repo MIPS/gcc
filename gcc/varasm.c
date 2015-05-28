@@ -187,6 +187,13 @@ section *in_section;
    at the cold section.  */
 bool in_cold_section_p;
 
+/* The following global holds the "function name" for the code in the
+   cold section of a function, if hot/cold function splitting is enabled
+   and there was actually code that went into the cold section.  A
+   pseudo function name is needed for the cold section of code for some
+   debugging tools that perform symbolization. */
+tree cold_function_name = NULL_TREE;
+
 /* A linked list of all the unnamed sections.  */
 static GTY(()) section *unnamed_sections;
 
@@ -776,6 +783,18 @@ default_no_function_rodata_section (tree decl ATTRIBUTE_UNUSED)
   return readonly_data_section;
 }
 
+/* A subroutine of mergeable_string_section and mergeable_constant_section.  */
+
+static const char *
+function_mergeable_rodata_prefix (void)
+{
+  section *s = targetm.asm_out.function_rodata_section (current_function_decl);
+  if (SECTION_STYLE (s) == SECTION_NAMED)
+    return s->named.name;
+  else
+    return targetm.asm_out.mergeable_rodata_prefix;
+}
+
 /* Return the section to use for string merging.  */
 
 static section *
@@ -797,7 +816,7 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
       const char *str;
       HOST_WIDE_INT i;
       int j, unit;
-      const char *prefix = targetm.asm_out.mergeable_rodata_prefix;
+      const char *prefix = function_mergeable_rodata_prefix ();
       char *name = (char *) alloca (strlen (prefix) + 30);
 
       mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (decl)));
@@ -850,7 +869,7 @@ mergeable_constant_section (machine_mode mode ATTRIBUTE_UNUSED,
       && align <= 256
       && (align & (align - 1)) == 0)
     {
-      const char *prefix = targetm.asm_out.mergeable_rodata_prefix;
+      const char *prefix = function_mergeable_rodata_prefix ();
       char *name = (char *) alloca (strlen (prefix) + 30);
 
       sprintf (name, "%s.cst%d", prefix, (int) (align / 8));
@@ -1410,7 +1429,7 @@ make_decl_rtl (tree decl)
 	     confused with that register and be eliminated.  This usage is
 	     somewhat suspect...  */
 
-	  SET_DECL_RTL (decl, gen_rtx_raw_REG (mode, reg_number));
+	  SET_DECL_RTL (decl, gen_raw_REG (mode, reg_number));
 	  ORIGINAL_REGNO (DECL_RTL (decl)) = reg_number;
 	  REG_USERVAR_P (DECL_RTL (decl)) = 1;
 
@@ -1719,6 +1738,7 @@ assemble_start_function (tree decl, const char *fnname)
       ASM_GENERATE_INTERNAL_LABEL (tmp_label, "LCOLDE", const_labelno);
       crtl->subsections.cold_section_end_label = ggc_strdup (tmp_label);
       const_labelno++;
+      cold_function_name = NULL_TREE;
     }
   else
     {
@@ -1856,6 +1876,12 @@ assemble_end_function (tree decl, const char *fnname ATTRIBUTE_UNUSED)
 
       save_text_section = in_section;
       switch_to_section (unlikely_text_section ());
+#ifdef ASM_DECLARE_COLD_FUNCTION_SIZE
+      if (cold_function_name != NULL_TREE)
+	ASM_DECLARE_COLD_FUNCTION_SIZE (asm_out_file,
+					IDENTIFIER_POINTER (cold_function_name),
+					decl);
+#endif
       ASM_OUTPUT_LABEL (asm_out_file, crtl->subsections.cold_section_end_label);
       if (first_function_block_is_cold)
 	switch_to_section (text_section);
@@ -1957,11 +1983,9 @@ emit_bss (tree decl ATTRIBUTE_UNUSED,
 	  unsigned HOST_WIDE_INT size ATTRIBUTE_UNUSED,
 	  unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
 {
-#if defined ASM_OUTPUT_ALIGNED_BSS
   ASM_OUTPUT_ALIGNED_BSS (asm_out_file, decl, name, size,
 			  get_variable_align (decl));
   return true;
-#endif
 }
 #endif
 
@@ -3944,8 +3968,12 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc,
   /* Output the label.  */
   targetm.asm_out.internal_label (asm_out_file, "LC", desc->labelno);
 
-  /* Output the data.  */
-  output_constant_pool_2 (desc->mode, x, align);
+  /* Output the data.
+     Pass actual alignment value while emitting string constant to asm code
+     as function 'output_constant_pool_1' explicitly passes the alignment as 1
+     assuming that the data is already aligned which prevents the generation 
+     of fix-up table entries.  */
+  output_constant_pool_2 (desc->mode, x, desc->align);
 
   /* Make sure all constants in SECTION_MERGE and not SECTION_STRINGS
      sections have proper size.  */
@@ -5781,21 +5809,20 @@ struct tm_clone_hasher : ggc_cache_hasher<tree_map *>
   static hashval_t hash (tree_map *m) { return tree_map_hash (m); }
   static bool equal (tree_map *a, tree_map *b) { return tree_map_eq (a, b); }
 
-  static void handle_cache_entry (tree_map *&e)
+  static void
+  handle_cache_entry (tree_map *&e)
   {
-    if (e != HTAB_EMPTY_ENTRY || e != HTAB_DELETED_ENTRY)
-      {
-	extern void gt_ggc_mx (tree_map *&);
-	if (ggc_marked_p (e->base.from))
-	  gt_ggc_mx (e);
-	else
-	  e = static_cast<tree_map *> (HTAB_DELETED_ENTRY);
-      }
+    extern void gt_ggc_mx (tree_map *&);
+    if (e == HTAB_EMPTY_ENTRY || e == HTAB_DELETED_ENTRY)
+      return;
+    else if (ggc_marked_p (e->base.from))
+      gt_ggc_mx (e);
+    else
+      e = static_cast<tree_map *> (HTAB_DELETED_ENTRY);
   }
 };
 
-static GTY((cache))
-     hash_table<tm_clone_hasher> *tm_clone_hash;
+static GTY((cache)) hash_table<tm_clone_hasher> *tm_clone_hash;
 
 void
 record_tm_clone_pair (tree o, tree n)
@@ -6809,9 +6836,13 @@ resolution_local_p (enum ld_plugin_symbol_resolution resolution)
 	  || resolution == LDPR_RESOLVED_EXEC);
 }
 
-static bool
+/* COMMON_LOCAL_P is true means that the linker can guarantee that an
+   uninitialized common symbol in the executable will still be defined
+   (through COPY relocation) in the executable.  */
+
+bool
 default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
-			 bool extern_protected_data)
+			 bool extern_protected_data, bool common_local_p)
 {
   /* A non-decl is an entry in the constant pool.  */
   if (!DECL_P (exp))
@@ -6836,7 +6867,16 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
      because dynamic linking might overwrite symbols
      in shared libraries.  */
   bool resolved_locally = false;
-  bool defined_locally = !DECL_EXTERNAL (exp);
+
+  bool uninited_common = (DECL_COMMON (exp)
+			  && (DECL_INITIAL (exp) == NULL
+			      || (!in_lto_p
+				  && DECL_INITIAL (exp) == error_mark_node)));
+
+  /* A non-external variable is defined locally only if it isn't
+     uninitialized COMMON variable or common_local_p is true.  */
+  bool defined_locally = (!DECL_EXTERNAL (exp)
+			  && (!uninited_common || common_local_p));
   if (symtab_node *node = symtab_node::get (exp))
     {
       if (node->in_other_partition)
@@ -6878,10 +6918,7 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
 
   /* Uninitialized COMMON variable may be unified with symbols
      resolved from other modules.  */
-  if (DECL_COMMON (exp)
-      && !resolved_locally
-      && (DECL_INITIAL (exp) == NULL
-	  || (!in_lto_p && DECL_INITIAL (exp) == error_mark_node)))
+  if (uninited_common && !resolved_locally)
     return false;
 
   /* Otherwise we're left with initialized (or non-common) global data
@@ -6895,21 +6932,22 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
 bool
 default_binds_local_p (const_tree exp)
 {
-  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false);
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false, false);
 }
 
-/* Similar to default_binds_local_p, but protected data may be
-   external.  */
+/* Similar to default_binds_local_p, but common symbol may be local.  */
+
 bool
 default_binds_local_p_2 (const_tree exp)
 {
-  return default_binds_local_p_3 (exp, flag_shlib != 0, true, true);
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false,
+				  !flag_pic);
 }
 
 bool
 default_binds_local_p_1 (const_tree exp, int shlib)
 {
-  return default_binds_local_p_3 (exp, shlib != 0, false, false);
+  return default_binds_local_p_3 (exp, shlib != 0, false, false, false);
 }
 
 /* Return true when references to DECL must bind to current definition in
@@ -7346,6 +7384,8 @@ output_object_block (struct object_block *block)
       if (CONSTANT_POOL_ADDRESS_P (symbol))
 	{
 	  desc = SYMBOL_REF_CONSTANT (symbol);
+	  /* Pass 1 for align as we have already laid out everything in the block.
+	     So aligning shouldn't be necessary.  */
 	  output_constant_pool_1 (desc, 1);
 	  offset += GET_MODE_SIZE (desc->mode);
 	}

@@ -161,23 +161,23 @@ static cost_classes_t *regno_cost_classes;
 
 struct cost_classes_hasher
 {
-  typedef cost_classes value_type;
-  typedef cost_classes compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-  static inline void remove (value_type *);
+  typedef cost_classes *value_type;
+  typedef cost_classes *compare_type;
+  static inline hashval_t hash (const cost_classes *);
+  static inline bool equal (const cost_classes *, const cost_classes *);
+  static inline void remove (cost_classes *);
 };
 
 /* Returns hash value for cost classes info HV.  */
 inline hashval_t
-cost_classes_hasher::hash (const value_type *hv)
+cost_classes_hasher::hash (const cost_classes *hv)
 {
   return iterative_hash (&hv->classes, sizeof (enum reg_class) * hv->num, 0);
 }
 
 /* Compares cost classes info HV1 and HV2.  */
 inline bool
-cost_classes_hasher::equal (const value_type *hv1, const compare_type *hv2)
+cost_classes_hasher::equal (const cost_classes *hv1, const cost_classes *hv2)
 {
   return (hv1->num == hv2->num
 	  && memcmp (hv1->classes, hv2->classes,
@@ -186,7 +186,7 @@ cost_classes_hasher::equal (const value_type *hv1, const compare_type *hv2)
 
 /* Delete cost classes info V from the hash table.  */
 inline void
-cost_classes_hasher::remove (value_type *v)
+cost_classes_hasher::remove (cost_classes *v)
 {
   ira_free (v);
 }
@@ -1380,8 +1380,6 @@ record_operand_costs (rtx_insn *insn, enum reg_class *pref)
       rtx dest = SET_DEST (set);
       rtx src = SET_SRC (set);
 
-      dest = SET_DEST (set);
-      src = SET_SRC (set);
       if (GET_CODE (dest) == SUBREG
 	  && (GET_MODE_SIZE (GET_MODE (dest))
 	      == GET_MODE_SIZE (GET_MODE (SUBREG_REG (dest)))))
@@ -1638,7 +1636,7 @@ find_costs_and_classes (FILE *dump_file)
   int i, k, start, max_cost_classes_num;
   int pass;
   basic_block bb;
-  enum reg_class *regno_best_class;
+  enum reg_class *regno_best_class, new_class;
 
   init_recog ();
   regno_best_class
@@ -1879,6 +1877,18 @@ find_costs_and_classes (FILE *dump_file)
 		= ira_reg_class_superunion[best][alt_class];
 	      ira_assert (regno_aclass[i] != NO_REGS
 			  && ira_reg_allocno_class_p[regno_aclass[i]]);
+	    }
+	  if ((new_class
+	       = (reg_class) (targetm.ira_change_pseudo_allocno_class
+			      (i, regno_aclass[i]))) != regno_aclass[i])
+	    {
+	      regno_aclass[i] = new_class;
+	      if (hard_reg_set_subset_p (reg_class_contents[new_class],
+					 reg_class_contents[best]))
+		best = new_class;
+	      if (hard_reg_set_subset_p (reg_class_contents[new_class],
+					 reg_class_contents[alt_class]))
+		alt_class = new_class;
 	    }
 	  if (pass == flag_expensive_optimizations)
 	    {

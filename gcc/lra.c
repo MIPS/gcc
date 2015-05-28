@@ -329,8 +329,8 @@ emit_add3_insn (rtx x, rtx y, rtx z)
       return insn;
     }
 
-  rtx_insn *insn = emit_insn (gen_rtx_SET (VOIDmode, x,
-					   gen_rtx_PLUS (GET_MODE (y), y, z)));
+  rtx_insn *insn = emit_insn (gen_rtx_SET (x, gen_rtx_PLUS (GET_MODE (y),
+							    y, z)));
   if (recog_memoized (insn) < 0)
     {
       delete_insns_since (last);
@@ -1104,10 +1104,7 @@ lra_set_insn_recog_data (rtx_insn *insn)
 	    regno = REGNO (XEXP (XEXP (link, 0), 0));
 	    lra_assert (regno < FIRST_PSEUDO_REGISTER);
 	    /* It is an argument register.  */
-	    for (i = (hard_regno_nregs
-		      [regno][GET_MODE (XEXP (XEXP (link, 0), 0))]) - 1;
-		 i >= 0;
-		 i--)
+	    for (i = REG_NREGS (XEXP (XEXP (link, 0), 0)) - 1; i >= 0; i--)
 	      arg_hard_regs[n_hard_regs++] = regno + i;
 	  }
       if (n_hard_regs != 0)

@@ -22,7 +22,13 @@
 
 include $(top_srcdir)/fragment.am
 
-SUBDIRS = c++98 c++11
+if ENABLE_FILESYSTEM_TS
+filesystem_dir = filesystem
+else
+filesystem_dir =
+endif
+
+SUBDIRS = c++98 c++11 $(filesystem_dir)
 
 # Cross compiler support.
 if VTV_CYGMIN
@@ -52,6 +58,9 @@ endif
 
 vpath % $(top_srcdir)/src/c++98
 vpath % $(top_srcdir)/src/c++11
+if ENABLE_FILESYSTEM_TS
+vpath % $(top_srcdir)/src/filesystem
+endif
 
 if GLIBCXX_LDBL_COMPAT
 ldbl_compat_sources = compatibility-ldbl.cc
@@ -159,6 +168,7 @@ compatibility-condvar.o: compatibility-condvar.cc
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
 # as the occasion calls for it.
 AM_CXXFLAGS = \
+	-std=gnu++98 \
 	$(glibcxx_compiler_pic_flag) \
 	$(XTEMPLATE_FLAGS) $(VTV_CXXFLAGS) \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS) $(CONFIG_CXXFLAGS)

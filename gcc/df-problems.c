@@ -933,12 +933,11 @@ df_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
 	 reference of the frame pointer.  */
       bitmap_set_bit (&df->hardware_regs_used, FRAME_POINTER_REGNUM);
 
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
-      if (fixed_regs[ARG_POINTER_REGNUM])
+      if (FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	  && fixed_regs[ARG_POINTER_REGNUM])
 	bitmap_set_bit (&df->hardware_regs_used, ARG_POINTER_REGNUM);
-#endif
 
       /* Any constant, or pseudo with constant equivalences, may
 	 require reloading from memory using the pic register.  */
@@ -2864,7 +2863,7 @@ df_remove_dead_eq_notes (rtx_insn *insn, bitmap live)
 /* Set a NOTE_TYPE note for REG in INSN.  */
 
 static inline void
-df_set_note (enum reg_note note_type, rtx insn, rtx reg)
+df_set_note (enum reg_note note_type, rtx_insn *insn, rtx reg)
 {
   gcc_checking_assert (!DEBUG_INSN_P (insn));
   add_reg_note (insn, note_type, reg);
@@ -3574,12 +3573,7 @@ df_simulate_one_insn_forwards (basic_block bb, rtx_insn *insn, bitmap live)
 	case REG_UNUSED:
 	  {
 	    rtx reg = XEXP (link, 0);
-	    int regno = REGNO (reg);
-	    if (HARD_REGISTER_NUM_P (regno))
-	      bitmap_clear_range (live, regno,
-				  hard_regno_nregs[regno][GET_MODE (reg)]);
-	    else
-	      bitmap_clear_bit (live, regno);
+	    bitmap_clear_range (live, REGNO (reg), REG_NREGS (reg));
 	  }
 	  break;
 	default:
@@ -3597,7 +3591,7 @@ df_simulate_one_insn_forwards (basic_block bb, rtx_insn *insn, bitmap live)
 /* Return an OR of MEMREF_NORMAL or MEMREF_VOLATILE for the MEMs in X.  */
 
 static int
-find_memory (rtx insn)
+find_memory (rtx_insn *insn)
 {
   int flags = 0;
   subrtx_iterator::array_type array;
@@ -3820,9 +3814,7 @@ can_move_insns_across (rtx_insn *from, rtx_insn *to,
 	  if (bitmap_intersect_p (merge_set, test_use)
 	      || bitmap_intersect_p (merge_use, test_set))
 	    break;
-#ifdef HAVE_cc0
-	  if (!sets_cc0_p (insn))
-#endif
+	  if (!HAVE_cc0 || !sets_cc0_p (insn))
 	    max_to = insn;
 	}
       next = NEXT_INSN (insn);
@@ -3861,10 +3853,7 @@ can_move_insns_across (rtx_insn *from, rtx_insn *to,
       if (NONDEBUG_INSN_P (insn))
 	{
 	  if (!bitmap_intersect_p (test_set, local_merge_live)
-#ifdef HAVE_cc0
-	      && !sets_cc0_p (insn)
-#endif
-	      )
+	      && (!HAVE_cc0 || !sets_cc0_p (insn)))
 	    {
 	      max_to = insn;
 	      break;

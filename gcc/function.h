@@ -41,19 +41,17 @@ struct GTY(()) emit_status {
   /* Lowest label number in current function.  */
   int x_first_label_num;
 
-  /* The ends of the doubly-linked chain of rtl for the current function.
-     Both are reset to null at the start of rtl generation for the function.
+  /* seq.first and seq.last are the ends of the doubly-linked chain of
+     rtl for the current function.  Both are reset to null at the
+     start of rtl generation for the function. 
 
-     start_sequence saves both of these on `sequence_stack' and then starts
-     a new, nested sequence of insns.  */
-  rtx_insn *x_first_insn;
-  rtx_insn *x_last_insn;
+     start_sequence saves both of these on seq.next and then starts
+     a new, nested sequence of insns.
 
-  /* Stack of pending (incomplete) sequences saved by `start_sequence'.
-     Each element describes one pending sequence.
-     The main insn-chain is saved in the last element of the chain,
-     unless the chain is empty.  */
-  struct sequence_stack *sequence_stack;
+     seq.next is a stack of pending (incomplete) sequences saved by
+     start_sequence.  Each element describes one pending sequence.
+     The main insn-chain is the last element of the chain.  */
+  struct sequence_stack seq;
 
   /* INSN_UID for next insn emitted.
      Reset to 1 for each function compiled.  */
@@ -88,7 +86,6 @@ extern GTY ((length ("crtl->emit.x_reg_rtx_no"))) rtx * regno_reg_rtx;
 
 /* For backward compatibility... eventually these should all go away.  */
 #define reg_rtx_no (crtl->emit.x_reg_rtx_no)
-#define seq_stack (crtl->emit.sequence_stack)
 
 #define REGNO_POINTER_ALIGN(REGNO) (crtl->emit.regno_pointer_align[REGNO])
 
@@ -899,6 +896,8 @@ extern int get_next_funcdef_no (void);
 extern int get_last_funcdef_no (void);
 extern void allocate_struct_function (tree, bool);
 extern void push_struct_function (tree fndecl);
+extern void push_dummy_function (bool);
+extern void pop_dummy_function (void);
 extern void init_dummy_function_start (void);
 extern void init_function_start (tree);
 extern void stack_protect_epilogue (void);
@@ -918,7 +917,7 @@ extern rtx get_arg_pointer_save_area (void);
 extern void maybe_copy_prologue_epilogue_insn (rtx, rtx);
 extern int prologue_epilogue_contains (const_rtx);
 extern void emit_return_into_block (bool simple_p, basic_block bb);
-extern void set_return_jump_label (rtx);
+extern void set_return_jump_label (rtx_insn *);
 extern bool active_insn_between (rtx_insn *head, rtx_insn *tail);
 extern vec<edge> convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 					   vec<edge> unconverted);

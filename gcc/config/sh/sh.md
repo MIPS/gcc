@@ -1998,6 +1998,45 @@
   [(set (match_dup 0) (minus:SI (match_dup 1) (match_dup 2)))
    (set (match_dup 0) (plus:SI (match_dup 0) (const_int 1)))])
 
+
+;; The tree optimiziers canonicalize 
+;;    reg + (reg & 1)
+;; into
+;;    (reg + 1) & -2
+;;
+;; On SH2A an add-bclr sequence will be used to handle this.
+;; On non-SH2A re-emit the add-and sequence to improve register utilization.
+(define_insn_and_split "*round_int_even"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(and:SI (plus:SI (match_operand:SI 1 "arith_reg_operand")
+			 (const_int 1))
+		(const_int -2)))]
+  "TARGET_SH1 && !TARGET_SH2A && can_create_pseudo_p ()
+   && !reg_overlap_mentioned_p (operands[0], operands[1])"
+  "#"
+  "&& 1"
+  [(set (match_dup 0) (const_int -2))
+   (set (match_dup 2) (plus:SI (match_dup 1) (const_int 1)))
+   (set (match_dup 0) (and:SI (match_dup 0) (match_dup 2)))]
+{
+  operands[2] = gen_reg_rtx (SImode);
+})
+
+;; If the *round_int_even pattern is combined with another plus,
+;; convert it into an addc pattern to emit an shlr-addc sequence.
+;; This split is taken by combine on non-SH2A and SH2A.
+(define_split
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(plus:SI (and:SI (plus:SI (match_operand:SI 1 "arith_reg_operand")
+				  (const_int 1))
+			 (const_int -2))
+		 (match_operand:SI 2 "arith_reg_operand")))]
+  "TARGET_SH1 && can_create_pseudo_p ()"
+  [(parallel [(set (match_dup 0)
+		   (plus:SI (plus:SI (match_dup 1) (match_dup 2))
+			    (and:SI (match_dup 1) (const_int 1))))
+	      (clobber (reg:SI T_REG))])])
+
 ;; Split 'reg + T' into 'reg + 0 + T' to utilize the addc insn.
 ;; If the 0 constant can be CSE-ed, this becomes a one instruction
 ;; operation, as opposed to sequences such as
@@ -2040,8 +2079,8 @@
 (define_insn_and_split "*addc_2r_t"
   [(set (match_operand:SI 0 "arith_reg_dest")
 	(plus:SI (match_operand 1 "treg_set_expr")
-		 (mult:SI (match_operand:SI 2 "arith_reg_operand")
-			  (const_int 2))))
+		 (ashift:SI (match_operand:SI 2 "arith_reg_operand")
+			    (const_int 1))))
    (clobber (reg:SI T_REG))]
   "TARGET_SH1 && can_create_pseudo_p ()"
   "#"
@@ -2052,8 +2091,8 @@
 
 (define_insn_and_split "*addc_2r_t"
   [(set (match_operand:SI 0 "arith_reg_dest")
-	(plus:SI (mult:SI (match_operand:SI 1 "arith_reg_operand")
-			  (const_int 2))
+	(plus:SI (ashift:SI (match_operand:SI 1 "arith_reg_operand")
+			    (const_int 1))
 		 (match_operand 2 "treg_set_expr")))
    (clobber (reg:SI T_REG))]
   "TARGET_SH1 && can_create_pseudo_p ()"
@@ -5964,7 +6003,7 @@ label:
    When we're here, the not:SI pattern obviously has been matched already
    and we only have to see whether the following insn is the left shift.  */
 
-  rtx i = next_nonnote_insn_bb (curr_insn);
+  rtx_insn *i = next_nonnote_insn_bb (curr_insn);
   if (i == NULL_RTX || !NONJUMP_INSN_P (i))
     FAIL;
 
@@ -10417,7 +10456,7 @@ label:
 	       mach as operand 2, so let the instructions that
 	       preserve r0 be optimized away if r0 turns out to be
 	       dead.  */
-	    emit_insn_before (gen_rtx_SET (SImode, tmp, r0), insn);
+	    emit_insn_before (gen_rtx_SET (tmp, r0), insn);
 	    emit_move_insn (r0, tmp);
 	    break;
 	  }
@@ -14683,7 +14722,11 @@ label:
        || REGNO (operands[2]) == REGNO (operands[5]))"
   [(const_int 0)]
 {
-  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[3]));
+  if (REGNO (operands[1]) == REGNO (operands[2]))
+      operands[2] = gen_rtx_REG (SImode, REGNO (operands[0]));
+
+  sh_check_add_incdec_notes (emit_insn (gen_rtx_SET (operands[2],
+						     operands[3])));
   emit_insn (gen_tstsi_t (operands[2],
 			  gen_rtx_REG (SImode, (REGNO (operands[1])))));
 })
@@ -14710,7 +14753,8 @@ label:
        || REGNO (operands[2]) == REGNO (operands[5]))"
   [(const_int 0)]
 {
-  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[3]));
+  sh_check_add_incdec_notes (emit_insn (gen_rtx_SET (operands[2],
+						     operands[3])));
   emit_insn (gen_tstsi_t (operands[2],
 			  gen_rtx_REG (SImode, (REGNO (operands[1])))));
 })

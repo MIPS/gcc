@@ -406,6 +406,14 @@ h8300_option_override (void)
                - Option ignored!");
    }
 
+#ifdef H8300_LINUX 
+ if ((TARGET_NORMAL_MODE))
+   {
+      error ("-mn is not supported for linux targets");
+      target_flags ^= MASK_NORMAL_MODE;
+   }
+#endif
+
   /* Some of the shifts are optimized for speed by default.
      See http://gcc.gnu.org/ml/gcc-patches/2002-07/msg01858.html
      If optimizing for size, change shift_alg for those shift to
@@ -719,13 +727,12 @@ h8300_push_pop (int regno, int nregs, bool pop_p, bool return_p)
 	  lhs = gen_rtx_MEM (SImode, plus_constant (Pmode, sp, (j + 1) * -4));
 	  rhs = gen_rtx_REG (SImode, regno + j);
 	}
-      RTVEC_ELT (vec, i + j) = gen_rtx_SET (VOIDmode, lhs, rhs);
+      RTVEC_ELT (vec, i + j) = gen_rtx_SET (lhs, rhs);
     }
 
   /* Add the stack adjustment.  */
   offset = GEN_INT ((pop_p ? nregs : -nregs) * 4);
-  RTVEC_ELT (vec, i + j) = gen_rtx_SET (VOIDmode, sp,
-					gen_rtx_PLUS (Pmode, sp, offset));
+  RTVEC_ELT (vec, i + j) = gen_rtx_SET (sp, gen_rtx_PLUS (Pmode, sp, offset));
 
   x = gen_rtx_PARALLEL (VOIDmode, vec);
   if (!pop_p)
@@ -1006,12 +1013,12 @@ h8300_file_start (void)
 {
   default_file_start ();
 
-  if (TARGET_H8300H)
-    fputs (TARGET_NORMAL_MODE ? "\t.h8300hn\n" : "\t.h8300h\n", asm_out_file);
-  else if (TARGET_H8300SX)
+  if (TARGET_H8300SX)
     fputs (TARGET_NORMAL_MODE ? "\t.h8300sxn\n" : "\t.h8300sx\n", asm_out_file);
   else if (TARGET_H8300S)
     fputs (TARGET_NORMAL_MODE ? "\t.h8300sn\n" : "\t.h8300s\n", asm_out_file);
+  else if (TARGET_H8300H)
+    fputs (TARGET_NORMAL_MODE ? "\t.h8300hn\n" : "\t.h8300h\n", asm_out_file);
 }
 
 /* Output assembly language code for the end of file.  */
@@ -2764,7 +2771,7 @@ h8300_swap_into_er6 (rtx addr)
 				 2 * UNITS_PER_WORD));
   else
     add_reg_note (insn, REG_CFA_ADJUST_CFA,
-		  gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+		  gen_rtx_SET (stack_pointer_rtx,
 			       plus_constant (Pmode, stack_pointer_rtx, 4)));
 
   emit_move_insn (hard_frame_pointer_rtx, addr);
@@ -2792,7 +2799,7 @@ h8300_swap_out_of_er6 (rtx addr)
 				 2 * UNITS_PER_WORD));
   else
     add_reg_note (insn, REG_CFA_ADJUST_CFA,
-		  gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+		  gen_rtx_SET (stack_pointer_rtx,
 			       plus_constant (Pmode, stack_pointer_rtx, -4)));
 }
 
@@ -3691,13 +3698,13 @@ h8300_expand_branch (rtx operands[])
   rtx tmp;
 
   tmp = gen_rtx_COMPARE (VOIDmode, op0, op1);
-  emit_insn (gen_rtx_SET (VOIDmode, cc0_rtx, tmp));
+  emit_insn (gen_rtx_SET (cc0_rtx, tmp));
 
   tmp = gen_rtx_fmt_ee (code, VOIDmode, cc0_rtx, const0_rtx);
   tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp,
 			      gen_rtx_LABEL_REF (VOIDmode, label),
 			      pc_rtx);
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, tmp));
+  emit_jump_insn (gen_rtx_SET (pc_rtx, tmp));
 }
 
 
@@ -3713,10 +3720,10 @@ h8300_expand_store (rtx operands[])
   rtx tmp;
 
   tmp = gen_rtx_COMPARE (VOIDmode, op0, op1);
-  emit_insn (gen_rtx_SET (VOIDmode, cc0_rtx, tmp));
+  emit_insn (gen_rtx_SET (cc0_rtx, tmp));
 
   tmp = gen_rtx_fmt_ee (code, GET_MODE (dest), cc0_rtx, const0_rtx);
-  emit_insn (gen_rtx_SET (VOIDmode, dest, tmp));
+  emit_insn (gen_rtx_SET (dest, tmp));
 }
 
 /* Shifts.
@@ -3873,7 +3880,7 @@ expand_a_shift (machine_mode mode, enum rtx_code code, rtx operands[])
   emit_insn (gen_rtx_PARALLEL
 	     (VOIDmode,
 	      gen_rtvec (2,
-			 gen_rtx_SET (VOIDmode, copy_rtx (operands[0]),
+			 gen_rtx_SET (copy_rtx (operands[0]),
 				      gen_rtx_fmt_ee (code, mode,
 						      copy_rtx (operands[0]), operands[2])),
 			 gen_rtx_CLOBBER (VOIDmode,
@@ -4094,10 +4101,10 @@ get_shift_alg (enum shift_type shift_type, enum shift_mode shift_mode,
   /* Find the target CPU.  */
   if (TARGET_H8300)
     cpu = H8_300;
-  else if (TARGET_H8300H)
-    cpu = H8_300H;
-  else
+  else if (TARGET_H8300S)
     cpu = H8_S;
+  else
+    cpu = H8_300H;
 
   /* Find the shift algorithm.  */
   info->alg = SHIFT_LOOP;
@@ -4540,10 +4547,10 @@ h8300_shift_needs_scratch_p (int count, machine_mode mode)
   /* Find out the target CPU.  */
   if (TARGET_H8300)
     cpu = H8_300;
-  else if (TARGET_H8300H)
-    cpu = H8_300H;
-  else
+  else if (TARGET_H8300S)
     cpu = H8_S;
+  else
+    cpu = H8_300H;
 
   /* Find the shift algorithm.  */
   switch (mode)

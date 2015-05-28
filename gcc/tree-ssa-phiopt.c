@@ -83,10 +83,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-inline.h"
 
-#ifndef HAVE_conditional_move
-#define HAVE_conditional_move (0)
-#endif
-
 static unsigned int tree_ssa_phiopt_worker (bool, bool);
 static bool conditional_replacement (basic_block, basic_block,
 				     edge, edge, gphi *, tree, tree);
@@ -1332,10 +1328,10 @@ struct name_to_bb
 
 struct ssa_names_hasher : typed_free_remove <name_to_bb>
 {
-  typedef name_to_bb value_type;
-  typedef name_to_bb compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef name_to_bb *value_type;
+  typedef name_to_bb *compare_type;
+  static inline hashval_t hash (const name_to_bb *);
+  static inline bool equal (const name_to_bb *, const name_to_bb *);
 };
 
 /* Used for quick clearing of the hash-table when we see calls.
@@ -1345,7 +1341,7 @@ static unsigned int nt_call_phase;
 /* The hash function.  */
 
 inline hashval_t
-ssa_names_hasher::hash (const value_type *n)
+ssa_names_hasher::hash (const name_to_bb *n)
 {
   return n->ssa_name_ver ^ (((hashval_t) n->store) << 31)
          ^ (n->offset << 6) ^ (n->size << 3);
@@ -1354,7 +1350,7 @@ ssa_names_hasher::hash (const value_type *n)
 /* The equality function of *P1 and *P2.  */
 
 inline bool
-ssa_names_hasher::equal (const value_type *n1, const compare_type *n2)
+ssa_names_hasher::equal (const name_to_bb *n1, const name_to_bb *n2)
 {
   return n1->ssa_name_ver == n2->ssa_name_ver
          && n1->store == n2->store
@@ -1911,8 +1907,8 @@ hoist_adjacent_loads (basic_block bb0, basic_block bb1,
   for (gsi = gsi_start_phis (bb3); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gphi *phi_stmt = gsi.phi ();
-      gimple def1, def2, defswap;
-      tree arg1, arg2, ref1, ref2, field1, field2, fieldswap;
+      gimple def1, def2;
+      tree arg1, arg2, ref1, ref2, field1, field2;
       tree tree_offset1, tree_offset2, tree_size2, next;
       int offset1, offset2, size2;
       unsigned align1;
@@ -1987,12 +1983,8 @@ hoist_adjacent_loads (basic_block bb0, basic_block bb1,
 	  if (next != field1)
 	    continue;
 
-	  fieldswap = field1;
-	  field1 = field2;
-	  field2 = fieldswap;
-	  defswap = def1;
-	  def1 = def2;
-	  def2 = defswap;
+	  std::swap (field1, field2);
+	  std::swap (def1, def2);
 	}
 
       bb_for_def1 = gimple_bb (def1);

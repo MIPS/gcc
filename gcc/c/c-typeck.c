@@ -229,15 +229,13 @@ require_complete_type (tree value)
 void
 c_incomplete_type_error (const_tree value, const_tree type)
 {
-  const char *type_code_string;
-
   /* Avoid duplicate error message.  */
   if (TREE_CODE (type) == ERROR_MARK)
     return;
 
   if (value != 0 && (TREE_CODE (value) == VAR_DECL
 		     || TREE_CODE (value) == PARM_DECL))
-    error ("%qD has an incomplete type", value);
+    error ("%qD has an incomplete type %qT", value, type);
   else
     {
     retry:
@@ -246,15 +244,8 @@ c_incomplete_type_error (const_tree value, const_tree type)
       switch (TREE_CODE (type))
 	{
 	case RECORD_TYPE:
-	  type_code_string = "struct";
-	  break;
-
 	case UNION_TYPE:
-	  type_code_string = "union";
-	  break;
-
 	case ENUMERAL_TYPE:
-	  type_code_string = "enum";
 	  break;
 
 	case VOID_TYPE:
@@ -280,11 +271,10 @@ c_incomplete_type_error (const_tree value, const_tree type)
 	}
 
       if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
-	error ("invalid use of undefined type %<%s %E%>",
-	       type_code_string, TYPE_NAME (type));
+	error ("invalid use of undefined type %qT", type);
       else
 	/* If this type has a typedef-name, the TYPE_NAME is a TYPE_DECL.  */
-	error ("invalid use of incomplete typedef %qD", TYPE_NAME (type));
+	error ("invalid use of incomplete typedef %qT", type);
     }
 }
 
@@ -2039,7 +2029,7 @@ convert_lvalue_to_rvalue (location_t loc, struct c_expr exp,
       /* Remove the qualifiers for the rest of the expressions and
 	 create the VAL temp variable to hold the RHS.  */
       nonatomic_type = build_qualified_type (expr_type, TYPE_UNQUALIFIED);
-      tmp = create_tmp_var (nonatomic_type);
+      tmp = create_tmp_var_raw (nonatomic_type);
       tmp_addr = build_unary_op (loc, ADDR_EXPR, tmp, 0);
       TREE_ADDRESSABLE (tmp) = 1;
       TREE_NO_WARNING (tmp) = 1;
@@ -2055,7 +2045,8 @@ convert_lvalue_to_rvalue (location_t loc, struct c_expr exp,
       mark_exp_read (exp.value);
 
       /* Return tmp which contains the value loaded.  */
-      exp.value = build2 (COMPOUND_EXPR, nonatomic_type, func_call, tmp);
+      exp.value = build4 (TARGET_EXPR, nonatomic_type, tmp, func_call,
+			  NULL_TREE, NULL_TREE);
     }
   return exp;
 }
@@ -2483,7 +2474,6 @@ build_array_ref (location_t loc, tree array, tree index)
       /* Allow vector[index] but not index[vector].  */
       && TREE_CODE (TREE_TYPE (array)) != VECTOR_TYPE)
     {
-      tree temp;
       if (TREE_CODE (TREE_TYPE (index)) != ARRAY_TYPE
 	  && TREE_CODE (TREE_TYPE (index)) != POINTER_TYPE)
 	{
@@ -2492,9 +2482,7 @@ build_array_ref (location_t loc, tree array, tree index)
 
 	  return error_mark_node;
 	}
-      temp = array;
-      array = index;
-      index = temp;
+      std::swap (array, index);
       swapped = true;
     }
 
@@ -2684,9 +2672,8 @@ build_external_ref (location_t loc, tree id, int fun, tree *type)
     }
   else if (current_function_decl != 0
 	   && !DECL_FILE_SCOPE_P (current_function_decl)
-	   && (TREE_CODE (ref) == VAR_DECL
-	       || TREE_CODE (ref) == PARM_DECL
-	       || TREE_CODE (ref) == FUNCTION_DECL))
+	   && (VAR_OR_FUNCTION_DECL_P (ref)
+	       || TREE_CODE (ref) == PARM_DECL))
     {
       tree context = decl_function_context (ref);
 
@@ -2866,9 +2853,10 @@ build_function_call (location_t loc, tree function, tree params)
 
 /* Give a note about the location of the declaration of DECL.  */
 
-static void inform_declaration (tree decl)
+static void
+inform_declaration (tree decl)
 {
-  if (decl && (TREE_CODE (decl) != FUNCTION_DECL || !DECL_BUILT_IN (decl)))
+  if (decl && (TREE_CODE (decl) != FUNCTION_DECL || !DECL_IS_BUILTIN (decl)))
     inform (DECL_SOURCE_LOCATION (decl), "declared here");
 }
 
@@ -3686,10 +3674,11 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
      the VAL temp variable to hold the RHS.  */
   nonatomic_lhs_type = build_qualified_type (lhs_type, TYPE_UNQUALIFIED);
   nonatomic_rhs_type = build_qualified_type (rhs_type, TYPE_UNQUALIFIED);
-  val = create_tmp_var (nonatomic_rhs_type);
+  val = create_tmp_var_raw (nonatomic_rhs_type);
   TREE_ADDRESSABLE (val) = 1;
   TREE_NO_WARNING (val) = 1;
-  rhs = build2 (MODIFY_EXPR, nonatomic_rhs_type, val, rhs);
+  rhs = build4 (TARGET_EXPR, nonatomic_rhs_type, val, rhs, NULL_TREE,
+		NULL_TREE);
   SET_EXPR_LOCATION (rhs, loc);
   add_stmt (rhs);
 
@@ -3715,12 +3704,12 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
     }
 
   /* Create the variables and labels required for the op= form.  */
-  old = create_tmp_var (nonatomic_lhs_type);
+  old = create_tmp_var_raw (nonatomic_lhs_type);
   old_addr = build_unary_op (loc, ADDR_EXPR, old, 0);
   TREE_ADDRESSABLE (old) = 1;
   TREE_NO_WARNING (old) = 1;
 
-  newval = create_tmp_var (nonatomic_lhs_type);
+  newval = create_tmp_var_raw (nonatomic_lhs_type);
   newval_addr = build_unary_op (loc, ADDR_EXPR, newval, 0);
   TREE_ADDRESSABLE (newval) = 1;
 
@@ -3736,7 +3725,9 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
   params->quick_push (old_addr);
   params->quick_push (seq_cst);
   func_call = c_build_function_call_vec (loc, vNULL, fndecl, params, NULL);
-  add_stmt (func_call);
+  old = build4 (TARGET_EXPR, nonatomic_lhs_type, old, func_call, NULL_TREE,
+		NULL_TREE);
+  add_stmt (old);
   params->truncate (0);
 
   /* Create the expressions for floating-point environment
@@ -3755,12 +3746,14 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
 
   /* newval = old + val;  */
   rhs = build_binary_op (loc, modifycode, old, val, 1);
+  rhs = c_fully_fold (rhs, false, NULL);
   rhs = convert_for_assignment (loc, UNKNOWN_LOCATION, nonatomic_lhs_type,
 				rhs, NULL_TREE, ic_assign, false, NULL_TREE,
 				NULL_TREE, 0);
   if (rhs != error_mark_node)
     {
-      rhs = build2 (MODIFY_EXPR, nonatomic_lhs_type, newval, rhs);
+      rhs = build4 (TARGET_EXPR, nonatomic_lhs_type, newval, rhs, NULL_TREE,
+		    NULL_TREE);
       SET_EXPR_LOCATION (rhs, loc);
       add_stmt (rhs);
     }
@@ -3782,7 +3775,7 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
   stmt = build3 (COND_EXPR, void_type_node, func_call, goto_stmt, NULL_TREE);
   SET_EXPR_LOCATION (stmt, loc);
   add_stmt (stmt);
-  
+
   if (clear_call)
     add_stmt (clear_call);
 
@@ -3790,7 +3783,7 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
   goto_stmt  = build1 (GOTO_EXPR, void_type_node, loop_decl);
   SET_EXPR_LOCATION (goto_stmt, loc);
   add_stmt (goto_stmt);
- 
+
   /* done:  */
   add_stmt (done_label);
 
@@ -6868,7 +6861,7 @@ digest_init (location_t init_loc, tree type, tree init, tree origtype,
 	  inside_init = error_mark_node;
 	}
       else if (require_constant && !maybe_const)
-	pedwarn_init (init_loc, 0,
+	pedwarn_init (init_loc, OPT_Wpedantic,
 		      "initializer element is not a constant expression");
 
       /* Added to enable additional -Wsuggest-attribute=format warnings.  */
@@ -7133,10 +7126,7 @@ start_init (tree decl, tree asmspec_tree ATTRIBUTE_UNUSED, int top_level)
 	= ((TREE_STATIC (decl) || (pedantic && !flag_isoc99))
 	   /* For a scalar, you can always use any value to initialize,
 	      even within braces.  */
-	   && (TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
-	       || TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE
-	       || TREE_CODE (TREE_TYPE (decl)) == UNION_TYPE
-	       || TREE_CODE (TREE_TYPE (decl)) == QUAL_UNION_TYPE));
+	   && AGGREGATE_TYPE_P (TREE_TYPE (decl)));
       locus = identifier_to_locale (IDENTIFIER_POINTER (DECL_NAME (decl)));
     }
   else
@@ -7920,7 +7910,7 @@ set_init_label (location_t loc, tree fieldname,
   field = lookup_field (constructor_type, fieldname);
 
   if (field == 0)
-    error ("unknown field %qE specified in initializer", fieldname);
+    error_at (loc, "unknown field %qE specified in initializer", fieldname);
   else
     do
       {
@@ -7972,7 +7962,7 @@ add_pending_init (location_t loc, tree purpose, tree value, tree origtype,
 	      if (!implicit)
 		{
 		  if (TREE_SIDE_EFFECTS (p->value))
-		    warning_init (loc, 0,
+		    warning_init (loc, OPT_Woverride_init_side_effects,
 				  "initialized field with side-effects "
 				  "overwritten");
 		  else if (warn_override_init)
@@ -8002,7 +7992,7 @@ add_pending_init (location_t loc, tree purpose, tree value, tree origtype,
 	      if (!implicit)
 		{
 		  if (TREE_SIDE_EFFECTS (p->value))
-		    warning_init (loc, 0,
+		    warning_init (loc, OPT_Woverride_init_side_effects,
 				  "initialized field with side-effects "
 				  "overwritten");
 		  else if (warn_override_init)
@@ -8534,7 +8524,7 @@ output_init_element (location_t loc, tree value, tree origtype,
       if (!implicit)
 	{
 	  if (TREE_SIDE_EFFECTS (constructor_elements->last ().value))
-	    warning_init (loc, 0,
+	    warning_init (loc, OPT_Woverride_init_side_effects,
 			  "initialized field with side-effects overwritten");
 	  else if (warn_override_init)
 	    warning_init (loc, OPT_Woverride_init,
@@ -10701,6 +10691,17 @@ build_binary_op (location_t location, enum tree_code code,
 	  && code1 == INTEGER_TYPE)
 	{
 	  doing_shift = true;
+	  if (TREE_CODE (op0) == INTEGER_CST
+	      && tree_int_cst_sgn (op0) < 0)
+	    {
+	      /* Don't reject a left shift of a negative value in a context
+		 where a constant expression is needed in C90.  */
+	      if (flag_isoc99)
+		int_const = false;
+	      if (c_inhibit_evaluation_warnings == 0)
+		warning_at (location, OPT_Wshift_negative_value,
+			    "left shift of negative value");
+	    }
 	  if (TREE_CODE (op1) == INTEGER_CST)
 	    {
 	      if (tree_int_cst_sgn (op1) < 0)
@@ -12639,7 +12640,15 @@ c_build_qualified_type (tree type, int type_quals)
 tree
 c_build_va_arg (location_t loc, tree expr, tree type)
 {
-  if (warn_cxx_compat && TREE_CODE (type) == ENUMERAL_TYPE)
+  if (error_operand_p (type))
+    return error_mark_node;
+  else if (!COMPLETE_TYPE_P (type))
+    {
+      error_at (loc, "second argument to %<va_arg%> is of incomplete "
+		"type %qT", type);
+      return error_mark_node;
+    }
+  else if (warn_cxx_compat && TREE_CODE (type) == ENUMERAL_TYPE)
     warning_at (loc, OPT_Wc___compat,
 		"C++ requires promoted type, not enum type, in %<va_arg%>");
   return build_va_arg (loc, expr, type);
