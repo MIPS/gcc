@@ -1760,9 +1760,9 @@ rs6000_cpu_name_lookup (const char *name)
 }
 
 
-/* Helper function to separate IEEE 128-bit floating point from other scalar
-   float modes, since IEEE 128-bit is either passed by reference (V4) or in a
-   vector register (VSX).  */
+/* Helper function to separate IEEE 128-bit floating point (using
+   -mfloat128-software) that uses a single 128-bit vector register from other
+   scalar float modes that use floating point registers in 64-bit chunks.  */
 
 static inline bool
 scalar_float_not_ieee128_p (machine_mode mode)
@@ -1770,7 +1770,7 @@ scalar_float_not_ieee128_p (machine_mode mode)
   if (!SCALAR_FLOAT_MODE_P (mode))
     return false;
 
-  if (IEEE_128BIT_P (mode))
+  if (FLOAT128_VECTOR_P (mode))
     return false;
 
   return true;
@@ -2951,6 +2951,12 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[SFmode].reload_store    = CODE_FOR_reload_sf_di_store;
 	  reg_addr[SFmode].reload_load     = CODE_FOR_reload_sf_di_load;
 
+	  if (TARGET_IEEEQUAD && TARGET_FLOAT128)
+	    {
+	      reg_addr[TFmode].reload_store = CODE_FOR_reload_tf_di_store;
+	      reg_addr[TFmode].reload_load  = CODE_FOR_reload_tf_di_load;
+	    }
+
 	  /* Only provide a reload handler for SDmode if lfiwzx/stfiwx are
 	     available.  */
 	  if (TARGET_NO_SDMODE_STACK)
@@ -3012,6 +3018,12 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[DDmode].reload_load     = CODE_FOR_reload_dd_si_load;
 	  reg_addr[SFmode].reload_store    = CODE_FOR_reload_sf_si_store;
 	  reg_addr[SFmode].reload_load     = CODE_FOR_reload_sf_si_load;
+
+	  if (TARGET_IEEEQUAD && TARGET_FLOAT128)
+	    {
+	      reg_addr[TFmode].reload_store = CODE_FOR_reload_tf_si_store;
+	      reg_addr[TFmode].reload_load  = CODE_FOR_reload_tf_si_load;
+	    }
 
 	  /* Only provide a reload handler for SDmode if lfiwzx/stfiwx are
 	     available.  */
