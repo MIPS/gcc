@@ -1,5 +1,14 @@
 2015-05-28  Tom de Vries  <tom@codesourcery.com>
 
+	PR tree-optimization/65443
+	* tree-parloops.c (replace_imm_uses, replace_uses_in_bb_by)
+	(replace_uses_in_bbs_by, transform_to_exit_first_loop_alt)
+	(try_transform_to_exit_first_loop_alt): New function.
+	(transform_to_exit_first_loop): Use
+	try_transform_to_exit_first_loop_alt.
+
+2015-05-28  Tom de Vries  <tom@codesourcery.com>
+
 	PR tree-optimization/65419
 	* cfgexpand.c (pass_data_expand): Add PROP_gimple_lompifn to
 	properties_required field.

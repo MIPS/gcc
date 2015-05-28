@@ -1,5 +1,12 @@
 2015-05-28  Tom de Vries  <tom@codesourcery.com>
 
+	PR tree-optimization/65443
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-2.c: New test.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-3.c: New test.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt.c: New test.
+
+2015-05-28  Tom de Vries  <tom@codesourcery.com>
+
 	PR tree-optimization/65419
 	* testsuite/libgomp.oacc-c-c++-common/goacc-data-end.c: New test.
 
