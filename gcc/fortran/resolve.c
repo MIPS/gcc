@@ -7287,11 +7287,6 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
   gfc_expr *stat, *errmsg, *pe, *qe;
   gfc_alloc *a, *p, *q;
 
-  /* When this flag is set already, then this allocate has already been
-     resolved.  Doing so again, would result in an endless loop.  */
-  if (code->ext.alloc.arr_spec_from_expr3)
-    return;
-
   stat = code->expr1;
   errmsg = code->expr2;
 
@@ -7469,99 +7464,6 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	  /* Mark the allocate to have to take the array specification
 	     from the expr3.  */
 	  code->ext.alloc.arr_spec_from_expr3 = 1;
-
-	  if (code->expr3->expr_type == EXPR_ARRAY
-	      || code->expr3->expr_type == EXPR_FUNCTION)
-	    {
-	      /* The trans stage can not cope with expr3->expr_type
-		 being EXPR_ARRAY or EXPR_FUNCTION, therefore create a
-		 temporary variable and assign expr3 to it, substituting
-		 the variable in expr3.  */
-	      char name[25];
-	      static unsigned int alloc_sym_count = 0;
-	      gfc_symbol *temp_var_sym;
-	      gfc_expr *temp_var;
-	      gfc_code *ass, *old_alloc;
-	      gfc_namespace *ns =
-		  code->ext.alloc.list->expr->symtree->n.sym->ns;
-	      gfc_array_spec *as;
-	      int dim;
-	      mpz_t dim_size;
-
-	      /* The name of the new variable.  */
-	      sprintf (name, "alloc_arr_init.%d", alloc_sym_count++);
-	      gfc_get_symbol (name, ns, &temp_var_sym);
-	      temp_var_sym->attr.artificial = 1;
-	      temp_var_sym->attr.flavor = FL_VARIABLE;
-	      temp_var_sym->ts = code->expr3->ts;
-	      /* Build an EXPR_VARIABLE node.  */
-	      temp_var = gfc_get_expr ();
-	      temp_var->expr_type = EXPR_VARIABLE;
-	      temp_var->symtree = gfc_find_symtree (ns->sym_root, name);
-	      temp_var->ts = code->expr3->ts;
-	      temp_var->where = code->expr3->where;
-
-	      /* Now to the most important: Set the array specification
-		 correctly.  */
-	      as = gfc_get_array_spec ();
-	      temp_var->rank = as->rank = code->expr3->rank;
-	      if (code->expr3->expr_type == EXPR_ARRAY)
-		{
-		  /* For EXPR_ARRAY the as can be deduced from the shape.  */
-		  as->type = AS_EXPLICIT;
-		  for (dim = 0; dim < as->rank; ++dim)
-		    {
-		      if (!gfc_array_dimen_size (code->expr3, dim, &dim_size))
-			{
-			  /* When the array dimensions can not be determined at
-			     compile time, use a deferred type array.  */
-			  as->type = AS_DEFERRED;
-			  while (dim >= 0)
-			    {
-			      as->lower[dim] = as->upper[dim] = NULL;
-			      --dim;
-			    }
-			  temp_var_sym->attr.allocatable = 1;
-			  break;
-			}
-		      as->lower[dim] = gfc_get_int_expr (gfc_index_integer_kind,
-							&code->expr3->where, 1);
-		      as->upper[dim] = gfc_get_int_expr (gfc_index_integer_kind,
-							 &code->expr3->where,
-							 mpz_get_si (dim_size));
-		    }
-		}
-	      else if (code->expr3->expr_type == EXPR_FUNCTION)
-		{
-		  /* For functions this is far more complicated.  */
-		  as->type = AS_DEFERRED;
-		  temp_var_sym->attr.allocatable = 1;
-		}
-	      else
-		gcc_unreachable ();
-
-	      temp_var_sym->as = as;
-	      temp_var_sym->attr.dimension = 1;
-	      gfc_add_full_array_ref (temp_var, as);
-
-	      ass = gfc_get_code (EXEC_ASSIGN);
-	      ass->expr1 = gfc_copy_expr (temp_var);
-	      ass->expr2 = code->expr3;
-	      ass->loc = code->expr3->where;
-
-	      gfc_resolve_code (ass, ns);
-	      /* Now add the new code before this ones.  */
-	      old_alloc = gfc_get_code (EXEC_ALLOCATE);
-	      *old_alloc = *code;
-	      *code = *ass;
-	      code->next = old_alloc;
-
-	      /* Do not gfc_free_expr (temp_var), because it is inserted
-		 without copy into expr3.  */
-	      old_alloc->expr3 = temp_var;
-	      gfc_set_sym_referenced (temp_var_sym);
-	      gfc_commit_symbol (temp_var_sym);
-	    }
 	}
     }
   else
