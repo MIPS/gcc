@@ -5240,14 +5240,12 @@ gfc_trans_allocate (gfc_code * code)
 	    }
 	  else
 	    tmp = se.expr;
-	  if (!code->expr3->mold)
+	  if (code->ext.alloc.arr_spec_from_expr3)
+	    expr3_desc = tmp;
+	  else if (!code->expr3->mold)
 	    expr3 = tmp;
 	  else
 	    expr3_tmp = tmp;
-	  /* Insert this check for security reasons.  A array descriptor
-	     for a complicated expr3 is very unlikely.  */
-	  if (code->ext.alloc.arr_spec_from_expr3)
-	    gcc_unreachable ();
 	  /* When he length of a char array is easily available
 		 here, fix it for future use.  */
 	  if (se.string_length)
@@ -5306,6 +5304,7 @@ gfc_trans_allocate (gfc_code * code)
 	}
       else
 	{
+	  tree inexpr3;
 	  /* When the object to allocate is polymorphic type, then it
 	     needs its vtab set correctly, so deduce the required _vtab
 	     and _len from the source expression.  */
@@ -5354,7 +5353,9 @@ gfc_trans_allocate (gfc_code * code)
 	     don't have to take care about scalar to array treatment and
 	     will benefit of every enhancements gfc_trans_assignment ()
 	     gets.  */
-	  if (expr3 != NULL_TREE && DECL_P (expr3) && DECL_ARTIFICIAL (expr3))
+	  inexpr3 = expr3_desc ? expr3_desc : expr3;
+	  if (inexpr3 != NULL_TREE && DECL_P (inexpr3)
+	      && DECL_ARTIFICIAL (inexpr3))
 	    {
 	      /* Build a temporary symtree and symbol.  Do not add it to
 		 the current namespace to prevent accidently modifying
@@ -5364,11 +5365,11 @@ gfc_trans_allocate (gfc_code * code)
 		 gfc_create_var () took care about generating the
 		 identifier.  */
 	      newsym->name = gfc_get_string (IDENTIFIER_POINTER (
-					       DECL_NAME (expr3)));
+					       DECL_NAME (inexpr3)));
 	      newsym->n.sym = gfc_new_symbol (newsym->name, NULL);
 	      /* The backend_decl is known.  It is expr3, which is inserted
 		 here.  */
-	      newsym->n.sym->backend_decl = expr3;
+	      newsym->n.sym->backend_decl = inexpr3;
 	      e3rhs = gfc_get_expr ();
 	      e3rhs->ts = code->expr3->ts;
 	      e3rhs->rank = code->expr3->rank;
@@ -5394,7 +5395,7 @@ gfc_trans_allocate (gfc_code * code)
 		  newsym->n.sym->as = arr;
 		  gfc_add_full_array_ref (e3rhs, arr);
 		}
-	      else if (POINTER_TYPE_P (TREE_TYPE (expr3)))
+	      else if (POINTER_TYPE_P (TREE_TYPE (inexpr3)))
 		newsym->n.sym->attr.pointer = 1;
 	      /* The string length is known to.  Set it for char arrays.  */
 	      if (e3rhs->ts.type == BT_CHARACTER)
@@ -5506,7 +5507,7 @@ gfc_trans_allocate (gfc_code * code)
 	tmp = expr3_esize;
       if (!gfc_array_allocate (&se, expr, stat, errmsg, errlen,
 			       label_finish, tmp, &nelems,
-			       code->expr3, expr3_desc))
+			       e3rhs ? e3rhs : code->expr3, expr3_desc))
 	{
 	  /* A scalar or derived type.  First compute the size to
 	     allocate.
