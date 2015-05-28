@@ -19642,12 +19642,8 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
   if (declaration)
     add_AT_flag (var_die, DW_AT_declaration, 1);
 
-  if (decl && (DECL_ABSTRACT_P (decl) || declaration || old_die == NULL
-	       /* If we make it to a specialization, we have already
-		  handled the declaration by virtue of early dwarf.
-		  If so, make a new assocation if available, so late
-		  dwarf can find it.  */
-	       || (specialization_p && early_dwarf)))
+  if (decl && (DECL_ABSTRACT_P (decl)
+	       || !old_die || is_declaration_die (old_die)))
     equate_decl_number_to_die (decl, var_die);
 
  gen_variable_die_location:
