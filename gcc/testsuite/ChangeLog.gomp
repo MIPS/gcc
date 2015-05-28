@@ -1,5 +1,20 @@
 2015-05-28  Tom de Vries  <tom@codesourcery.com>
 
+	* c-c++-common/goacc/kernels-counter-vars-function-scope.c: Add check
+	for num_gangs (32).
+	* c-c++-common/goacc/kernels-loop-2.c: Same.
+	* c-c++-common/goacc/kernels-loop-data-2.c: Same.
+	* c-c++-common/goacc/kernels-loop-data-enter-exit-2.c: Same.
+	* c-c++-common/goacc/kernels-loop-data-enter-exit.c: Same.
+	* c-c++-common/goacc/kernels-loop-data-update.c: Same.
+	* c-c++-common/goacc/kernels-loop-data.c: Same.
+	* c-c++-common/goacc/kernels-loop-mod-not-zero.c: Same.
+	* c-c++-common/goacc/kernels-loop.c: Same.
+	* c-c++-common/goacc/kernels-one-counter-var.c: Same.
+	* c-c++-common/goacc/kernels-parallel-loop-data-enter-exit.c: Same.
+
+2015-05-28  Tom de Vries  <tom@codesourcery.com>
+
 	* c-c++-common/goacc/kernels-loop-3.c: New test.
 
 2015-05-28  Tom de Vries  <tom@codesourcery.com>
