@@ -7640,20 +7640,32 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
 	pop_gimplify_context (NULL);
       if (ort == ORT_TARGET_DATA)
 	{
-	  enum built_in_function end_ix;
 	  switch (TREE_CODE (expr))
 	    {
 	    case OACC_DATA:
-	      end_ix = BUILT_IN_GOACC_DATA_END;
+	      /* Rather than building a call to BUILT_IN_GOACC_DATA_END, we use
+		 this ifn which is similar, but has a pointer argument, which
+		 will be later set to the &.omp_data_arr of the corresponding
+		 BUILT_IN_GOACC_DATA_START.
+		 This allows us to pretend that the &.omp_data_arr argument of
+		 BUILT_IN_GOACC_DATA_START does not escape.  */
+	      g = gimple_build_call_internal (IFN_GOACC_DATA_END_WITH_ARG, 1,
+					      null_pointer_node);
+	      /* Clear the tentatively set PROP_gimple_lompifn, to indicate that
+		 IFN_GOACC_DATA_END_WITH_ARG needs to be expanded.  The argument
+		 is not abi-compatible with the GOACC_data_end function, which
+		 has no arguments.  */
+	      cfun->curr_properties &= ~PROP_gimple_lompifn;
 	      break;
 	    case OMP_TARGET_DATA:
-	      end_ix = BUILT_IN_GOMP_TARGET_END_DATA;
+	      {
+		tree fn = builtin_decl_explicit (BUILT_IN_GOMP_TARGET_END_DATA);
+		g = gimple_build_call (fn, 0);
+	      }
 	      break;
 	    default:
 	      gcc_unreachable ();
 	    }
-	  tree fn = builtin_decl_explicit (end_ix);
-	  g = gimple_build_call (fn, 0);
 	  gimple_seq cleanup = NULL;
 	  gimple_seq_add_stmt (&cleanup, g);
 	  g = gimple_build_try (body, cleanup, GIMPLE_TRY_FINALLY);
@@ -9483,6 +9495,9 @@ gimplify_function_tree (tree fndecl)
   /* Tentatively set PROP_gimple_lva here, and reset it in gimplify_va_arg_expr
      if necessary.  */
   cfun->curr_properties |= PROP_gimple_lva;
+
+  /* Tentatively set PROP_gimple_lompifn.  */
+  cfun->curr_properties |= PROP_gimple_lompifn;
 
   for (parm = DECL_ARGUMENTS (fndecl); parm ; parm = DECL_CHAIN (parm))
     {
