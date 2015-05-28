@@ -5054,7 +5054,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
       /* Set lower bound.  */
       gfc_init_se (&se, NULL);
       if (expr3_desc != NULL_TREE)
-	se.expr = gfc_conv_descriptor_lbound_get (expr3_desc, gfc_rank_cst[n]);
+	se.expr = gfc_index_one_node;
       else
 	{
 	  ubound = upper[n];
@@ -5088,7 +5088,18 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
       /* Set upper bound.  */
       gfc_init_se (&se, NULL);
       if (expr3_desc != NULL_TREE)
-	se.expr = gfc_conv_descriptor_ubound_get (expr3_desc, gfc_rank_cst[n]);
+	{
+	  /* Set the upper bound to be (desc.ubound - desc.lbound)+ 1.  */
+	  tmp = fold_build2_loc (input_location, MINUS_EXPR,
+				 gfc_array_index_type,
+				 gfc_conv_descriptor_ubound_get (
+				   expr3_desc, gfc_rank_cst[n]),
+				 gfc_conv_descriptor_lbound_get (
+				   expr3_desc, gfc_rank_cst[n]));
+	  se.expr = fold_build2_loc (input_location, PLUS_EXPR,
+				     gfc_array_index_type, tmp,
+				     gfc_index_one_node);
+	}
       else
 	{
 	  gcc_assert (ubound);
