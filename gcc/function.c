@@ -2170,7 +2170,7 @@ use_register_for_decl (const_tree decl)
       /* When not optimizing, disregard register keyword for variables with
 	 types containing methods, otherwise the methods won't be callable
 	 from the debugger.  */
-      if (TYPE_METHODS (TREE_TYPE (decl)))
+      if (TYPE_METHODS (TYPE_MAIN_VARIANT (TREE_TYPE (decl))))
 	return false;
       break;
     default:
@@ -5224,8 +5224,8 @@ diddle_return_value_1 (void (*doit) (rtx, void *), void *arg, rtx outgoing)
 void
 diddle_return_value (void (*doit) (rtx, void *), void *arg)
 {
-  diddle_return_value_1 (doit, arg, crtl->return_rtx);
   diddle_return_value_1 (doit, arg, crtl->return_bnd);
+  diddle_return_value_1 (doit, arg, crtl->return_rtx);
 }
 
 static void
@@ -5786,7 +5786,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 	    dest = simple_return_rtx;
 	  else
 	    dest = ret_rtx;
-	  if (!redirect_jump (jump, dest, 0))
+	  if (!redirect_jump (as_a <rtx_jump_insn *> (jump), dest, 0))
 	    {
 	      if (HAVE_simple_return && simple_p)
 		{

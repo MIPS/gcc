@@ -1,3 +1,169 @@
+2015-05-27  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (check_redeclaration_exception_specification): Depend on
+	-Wsystem-headers rather than -pedantic.
+
+	* decl.c (warn_extern_redeclared_static): Use the location of
+	newdecl in diagnostics, not input_location.
+	(validate_constexpr_redeclaration): Likewise.
+	(check_redeclaration_no_default_args): Likewise.
+	(duplicate_decls): Likewise.
+	(check_redeclaration_exception_specification): Likewise.
+	Change second diagnostic to inform.
+
+2015-05-24  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/66243
+	* decl.c (build_enumerator): Don't silently convert scoped enums.
+
+2015-05-24  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/66180
+	* mangle.c (mangle_decl): Mangle anonymous namespace types as
+	"<anon>".
+
+2015-05-23  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/65936
+	* pt.c (lookup_template_class_1): Copy may_alias attribute too.
+
+2015-05-22  Jim Wilson  <jim.wilson@linaro.org>
+
+	* Make-lang.in (check_g++_parallelize): Update comment.
+
+2015-05-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/65598
+	* decl.c (grokdeclarator): Use the correct location in error
+	messages about 'explicit'.
+
+2015-05-22  Marek Polacek  <polacek@redhat.com>
+	    Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c/47043
+	* cp-tree.h (build_enumerator): Update declaration.
+	* decl.c (build_enumerator): Add attributes parameter.  Call
+	cplus_decl_attributes.
+	* init.c (constant_value_1): Pass tf_none to mark_used.
+	* parser.c (cp_parser_enumerator_definition): Parse attributes and
+	pass them down to build_enumerator.
+	* pt.c (tsubst_enum): Pass decl attributes to build_enumerator.
+	* semantics.c (finish_id_expression): Don't warn_deprecated_use here.
+
+2015-05-21  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/60943
+	* decl2.c (change_return_type): Propagate FUNCTION_REF_QUALIFIED.
+
+2015-05-21  Marek Polacek  <polacek@redhat.com>
+
+	* typeck.c (warn_args_num): Don't print "declare here" for builtins.
+
+2015-05-20  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (tsubst_decl) [VAR_DECL]: SET_DECL_IMPLICIT_INSTANTIATION
+	before register_specialization.
+
+	* decl.c (grok_op_properties): Don't complain about size_t
+	placement delete here.
+	* call.c (second_parm_is_size_t): Split out from...
+	(non_placement_deallocation_fn_p): ...here.
+	(build_op_delete_call): Warn about size_t placement delete with
+	-Wc++14-compat.
+
+2015-05-19  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/65954
+	* typeck.c (finish_class_member_access_expr): Diagnose failed
+	lookup of enum class member.
+
+2015-05-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/66199
+	* parser.c (cp_parser_omp_for_loop): Don't add
+	OMP_CLAUSE_SHARED to OMP_PARALLEL_CLAUSES when moving
+	OMP_CLAUSE_LASTPRIVATE clause to OMP_FOR_CLAUSES.
+	(cp_parser_omp_teams): Set OMP_TEAMS_COMBINED for combined
+	constructs.
+
+2015-05-19  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* typeck.c (composite_pointer_type): Use std::swap instead of explicit
+	swaps.
+
+2015-05-18  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (retrieve_specialization): Make sure our arguments have
+	gone through strip_typedefs.
+
+	* pt.c (tsubst_decl) [VAR_DECL]: Call coerce_innermost_template_parms.
+	(determine_specialization): Call coerce_template_parms.
+
+	DR 1391
+	* pt.c (type_unification_real): Check convertibility here.
+	(unify_one_argument): Not here.
+
+	* tree.c (strip_typedefs_expr) [TRAIT_EXPR]: Fix typo.
+	(strip_typedefs) [DECLTYPE_TYPE]: Fix typedef of decltype.
+	[TREE_LIST]: Fix no-change case.
+
+	* ptree.c (cxx_print_xnode): Handle TRAIT_EXPR.
+
+2015-05-16  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* error.c (cp_diagnostic_starter): Use diagnostic_location
+	function.
+	(cp_print_error_function): Likewise.
+	(cp_printer): Replace locus pointer with accessor function.
+
+2015-05-12  David Malcolm  <dmalcolm@redhat.com>
+
+	* parser.c (cp_parser_selection_statement): Add location and
+	guard_kind arguments to calls to
+	cp_parser_implicitly_scoped_statement.
+	(cp_parser_iteration_statement): Likewise for calls to
+	cp_parser_already_scoped_statement.
+	(cp_parser_implicitly_scoped_statement): Add "guard_loc" and
+	"guard_kind" params; use them to warn for misleading
+	indentation.
+	(cp_parser_already_scoped_statement): Likewise.
+
+2015-05-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* class.c (fixup_type_variants): Do not copy TYPE_METHODS
+	(one_inheriting_sig): Assert tat we always set TYPE_METHODS of main variant.
+	* semantics.c (finish_member_declaration): Likewise.
+	* method.c (lazily_declare_fn): Allways add method to main variant list.
+
+2015-05-09  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR bootstrap/66085
+	* decl2.c (note_mangling_alias): Declare arguments as unused.
+
+2015-05-08  Jason Merrill  <jason@redhat.com>
+
+	* cp-gimplify.c, parser.c: Adjust to -Wc++11-compat replacing
+	-Wc++0x-compat.
+
+2015-05-08  Jason Merrill  <jason@redhat.com>
+
+	* decl2.c (mangling_aliases): New variable.
+	(note_mangling_alias, generate_mangling_aliases): New.
+	(cp_write_global_declarations): Call generate_mangling_aliases.
+	(generate_mangling_alias): Split out from...
+	* mangle.c (mangle_decl): ...here.
+	* cp-tree.h: Declare note_mangling_alias.
+
+2015-05-08  Aldy Hernandez  <aldyh@redhat.com>
+
+	* decl2.c (collect_candidates_for_java_method_aliases): Remove.
+	(build_java_method_aliases): Adapt to use create_same_body_alias
+	instead of assemble_alias.  Move variable declarations to
+	definition and tidy up.
+	(cp_write_global_declarations): Call build_java_method_aliases
+	instead of collecting candidates first.
+
 2015-05-07  Jason Merrill  <jason@redhat.com>
 
 	PR c++/59012

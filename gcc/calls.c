@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
 
+
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
 
@@ -225,6 +226,12 @@ prepare_call_address (tree fndecl_or_type, rtx funexp, rtx static_chain_value,
 	       && targetm.small_register_classes_for_mode_p (FUNCTION_MODE))
 	      ? force_not_mem (memory_address (FUNCTION_MODE, funexp))
 	      : memory_address (FUNCTION_MODE, funexp));
+  else if (flag_pic && !flag_plt && fndecl_or_type
+	   && TREE_CODE (fndecl_or_type) == FUNCTION_DECL
+	   && !targetm.binds_local_p (fndecl_or_type))
+    {
+      funexp = force_reg (Pmode, funexp);
+    }
   else if (! sibcallp)
     {
       if (!NO_FUNCTION_CSE && optimize && ! flag_no_function_cse)
@@ -1974,11 +1981,12 @@ mem_overlaps_already_clobbered_arg_p (rtx addr, unsigned HOST_WIDE_INT size)
     return true;
   else
     i = INTVAL (val);
-#ifdef STACK_GROWS_DOWNWARD
-  i -= crtl->args.pretend_args_size;
-#else
-  i += crtl->args.pretend_args_size;
-#endif
+
+  if (STACK_GROWS_DOWNWARD)
+    i -= crtl->args.pretend_args_size;
+  else
+    i += crtl->args.pretend_args_size;
+
 
   if (ARGS_GROW_DOWNWARD)
     i = -i - size;
@@ -2908,12 +2916,13 @@ expand_call (tree exp, rtx target, int ignore)
       if (pass == 0)
 	{
 	  argblock = crtl->args.internal_arg_pointer;
-	  argblock
-#ifdef STACK_GROWS_DOWNWARD
-	    = plus_constant (Pmode, argblock, crtl->args.pretend_args_size);
-#else
-	    = plus_constant (Pmode, argblock, -crtl->args.pretend_args_size);
-#endif
+	  if (STACK_GROWS_DOWNWARD)
+	    argblock
+	      = plus_constant (Pmode, argblock, crtl->args.pretend_args_size);
+	  else
+	    argblock
+	      = plus_constant (Pmode, argblock, -crtl->args.pretend_args_size);
+
 	  stored_args_map = sbitmap_alloc (args_size.constant);
 	  bitmap_clear (stored_args_map);
 	}
@@ -3224,6 +3233,15 @@ expand_call (tree exp, rtx target, int ignore)
 	  if (args[i].partial != 0 && ! args[i].pass_on_stack)
 	    {
 	      rtx_insn *before_arg = get_last_insn ();
+
+	     /* On targets with weird calling conventions (e.g. PA) it's
+		hard to ensure that all cases of argument overlap between
+		stack and registers work.  Play it safe and bail out.  */
+	      if (ARGS_GROW_DOWNWARD && !STACK_GROWS_DOWNWARD)
+		{
+		  sibcall_failure = 1;
+		  break;
+		}
 
 	      if (store_one_arg (&args[i], argblock, flags,
 				 adjusted_args_size.var != 0,
@@ -3632,12 +3650,9 @@ expand_call (tree exp, rtx target, int ignore)
 	  stack_usage_map = initial_stack_usage_map;
 	}
 
-      /* If this was alloca, record the new stack level for nonlocal gotos.
-	 Check for the handler slots since we might not have a save area
-	 for non-local gotos.  */
-
-      if ((flags & ECF_MAY_BE_ALLOCA) && cfun->nonlocal_goto_save_area != 0)
-	update_nonlocal_goto_save_area ();
+      /* If this was alloca, record the new stack level.  */
+      if (flags & ECF_MAY_BE_ALLOCA)
+	record_new_stack_level ();
 
       /* Free up storage we no longer need.  */
       for (i = 0; i < num_actuals; ++i)
@@ -4270,7 +4285,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 			  partial, reg, 0, argblock,
 			  GEN_INT (argvec[argnum].locate.offset.constant),
 			  reg_parm_stack_space,
-			  ARGS_SIZE_RTX (argvec[argnum].locate.alignment_pad));
+			  ARGS_SIZE_RTX (argvec[argnum].locate.alignment_pad), false);
 
 	  /* Now mark the segment we just used.  */
 	  if (ACCUMULATE_OUTGOING_ARGS)
@@ -4880,10 +4895,11 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 
       /* This isn't already where we want it on the stack, so put it there.
 	 This can either be done with push or copy insns.  */
-      emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), NULL_RTX,
+      if (!emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), NULL_RTX,
 		      parm_align, partial, reg, used - size, argblock,
 		      ARGS_SIZE_RTX (arg->locate.offset), reg_parm_stack_space,
-		      ARGS_SIZE_RTX (arg->locate.alignment_pad));
+		      ARGS_SIZE_RTX (arg->locate.alignment_pad), true))
+	sibcall_failure = 1;
 
       /* Unless this is a partially-in-register argument, the argument is now
 	 in the stack.  */
@@ -4988,7 +5004,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
       emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), size_rtx,
 		      parm_align, partial, reg, excess, argblock,
 		      ARGS_SIZE_RTX (arg->locate.offset), reg_parm_stack_space,
-		      ARGS_SIZE_RTX (arg->locate.alignment_pad));
+		      ARGS_SIZE_RTX (arg->locate.alignment_pad), false);
 
       /* Unless this is a partially-in-register argument, the argument is now
 	 in the stack.

@@ -1,3 +1,990 @@
+2015-05-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66314
+	* gcc.dg/asan/pr66314.c: New testcase.
+
+2015-05-29  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* lib/gcc-dg.exp (cleanup-ipa-dump, cleanup-rtl-dump,
+	cleanup-tree-dump, cleanup-dump, cleanup-saved-temps): Remove.
+	Adjust all callers.
+	(schedule-cleanups, dg-keep-saved-temps): New proc.
+	(gcc-dg-test-1): Schedule cleanups.
+	* lib/profopt.exp (profopt-execute): Likewise.
+	* g++.dg/cdce3.C: Adjust expected line numbers.
+	* gcc.dg/cdce1.c: Likewise.
+	* gcc.dg/cdce2.c: Likewise.
+	* gcc.dg/strlenopt-22.c: Fix comment delimiter.
+	* gcc.dg/strlenopt-24.c: Likewise.
+	* gcc.dg/tree-ssa/vrp26.c: Likewise.
+	* gcc.dg/tree-ssa/vrp28.c: Likewise.
+	* obj-c++.dg/encode-2.mm: Likewise.
+
+2015-05-28  DJ Delorie  <dj@redhat.com>
+
+	* gcc.c-torture/execute/pr65369.c: Don't assume int is 32 bits.
+
+2015-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr43.adb: New test.
+
+2015-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/varsize_temp.adb: Rename into...
+	* gnat.dg/varsize1.adb: ...this.
+	* gnat.dg/varsize_copy.ad[sb]: Rename into...
+	* gnat.dg/varsize2.ad[sb]: ...this.
+	* gnat.dg/varsize3_1.adb: New test.
+	* gnat.dg/varsize3_2.adb: Likewise.
+	* gnat.dg/varsize3_3.adb: Likewise.
+	* gnat.dg/varsize3_4.adb: Likewise.
+	* gnat.dg/varsize3_5.adb: Likewise.
+	* gnat.dg/varsize3_6.adb: Likewise.
+	* gnat.dg/varsize3_pkg1.ads: New helper.
+	* gnat.dg/varsize3_pkg2.ads: Likewise.
+	* gnat.dg/varsize3_pkg3.ads: Likewise.
+
+2015-05-28  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/slp-reduc-sad.c: New testcase.
+
+2015-05-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66142
+	* gcc.dg/tree-ssa/ssa-fre-44.c: Fixup.
+
+2015-05-28  Lawrence Velázquez  <vq@larryv.me>
+
+	PR target/63810
+	* gcc.dg/darwin-minversion-3.c: Update testcase.
+	* gcc.dg/darwin-minversion-4.c: Ditto.
+	* gcc.dg/darwin-minversion-5.c: New testcase.
+	* gcc.dg/darwin-minversion-6.c: Ditto.
+	* gcc.dg/darwin-minversion-7.c: Ditto.
+	* gcc.dg/darwin-minversion-8.c: Ditto.
+	* gcc.dg/darwin-minversion-9.c: Ditto.
+	* gcc.dg/darwin-minversion-10.c: Ditto.
+	* gcc.dg/darwin-minversion-11.c: Ditto.
+	* gcc.dg/darwin-minversion-12.c: Ditto.
+
+2015-05-28  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR rtl-optimization/66168
+	* gcc.c-torture/compile/pr66168.c: New test.
+
+2015-05-27  Jeff Law  <law@redhat.com>
+
+	PR target/39726
+	* gcc.dg/target/m68k/pr39726-1.c: New test.
+
+2015-05-27  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/66270
+	* g++.dg/ext/alias-canon3.C: New.
+
+2015-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66272
+	Revert parts of
+	2014-08-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62031
+	* gcc.dg/torture/pr66272.c: New testcase.
+
+2015-05-27  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/slp-reduc-7.c: New testcase.
+
+2015-05-27  Honggyu Kim  <hong.gyu.kim@lge.com>
+
+	PR target/65358
+	* gcc.dg/pr65358.c: New test. 
+
+2015-05-27  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/65548
+	* gfortran.dg/allocate_with_source_5.f90: Correct errorneous
+	semantic.
+	* gfortran.dg/allocate_with_source_6.f90: New test.
+
+2015-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/atomic7_1.adb: New test.
+	* gnat.dg/atomic7_2.adb: Likewise.
+	* gnat.dg/atomic7_pkg1.ads: New helper.
+	* gnat.dg/atomic7_pkg2.ad[sb]: Likewise.
+
+2015-05-26  Michael Matz  <matz@suse.de>
+
+	PR middle-end/66251
+	* gcc.dg/vect/pr66251.c: New test.
+
+2015-05-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66142
+	* gcc.dg/tree-ssa/ssa-fre-44.c: New testcase.
+
+2015-05-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/66082
+	* gfortran.dg/allocatable_scalar_13.f90: New test
+
+2015-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/warn11.adb: New test.
+	* gnat.dg/specs/alignment2.ads: Add dg-warning directive.
+
+2015-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/vfa1_1.adb: New test.
+	* gnat.dg/vfa1_2.adb: Likewise.
+	* gnat.dg/vfa1_3.adb: Likewise.
+	* gnat.dg/vfa1_4.adb: Likewise.
+	* gnat.dg/vfa1_pkg.ads: New helper.
+
+2015-05-25  Alexander Monakov  <amonakov@ispras.ru>
+
+	* gcc.target/i386/pr66232-1.c: Adjust scan pattern.
+	* gcc.target/i386/pr66232-3.c: Likewise.
+
+2015-05-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66274
+	* gcc.target/i386/pr66274.c: New test.
+
+2015-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/renaming6.ad[sb]: New test.
+
+2015-05-25  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* gcc.target/i386/pr64317.c: Use 'dg-require-effective-target ia32'
+	and 'dg-require-effective-target pie'.
+
+2015-05-23  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/66243
+	* g++.dg/cpp0x/pr66243.C: New.
+
+2015-05-24  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/66180
+	* g++.dg/lto/pr66180_0.C: New testcase.
+	* g++.dg/lto/pr66180_1.C: New testcase.
+
+2015-05-24  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/66257
+	* typebound_call_27.f90: New file.
+
+2015-05-23  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/65936
+	* g++.dg/template/pr65936.C: New.
+
+2015-05-22  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/63387
+	* gcc.dg/pr63387-2.c: New testcase.
+
+2015-05-22  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/simd-1.c: Update to the new message.
+
+2015-05-22  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/nand.c: New testcase.
+
+2015-05-22  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/advsimd-intrinsics.exp:
+	Set dg-do-what-default to compile only on ARM targets without
+	arm_neon_hw execution support.  Remove redundant c-torture-execute
+	in loop over test cases.
+
+2015-05-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/65491
+	* gcc.target/aarch64/pr65491_1.c: New test.
+	* gcc.target/aarch64/aapcs64/type-def.h (vlf1_t): New typedef.
+	* gcc.target/aarch64/aapcs64/func-ret-1.c: Add test for vlf1_t.
+
+2015-05-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/65598
+	* g++.dg/cpp0x/explicit9.C: New.
+	* g++.dg/cpp0x/explicit8.C: Check the locations too.
+
+2015-05-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66251
+	* gfortran.fortran-torture/compile/pr66251.f90: New testcase.
+
+2015-05-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c/47043
+	* c-c++-common/attributes-enum-1.c: New test.
+	* c-c++-common/attributes-enum-2.c: New test.
+	* g++.dg/cpp0x/attributes-enum-1.C: New test.
+	* g++.dg/cpp1y/attributes-enum-1.C: New test.
+
+2015-05-21  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc.target/arm/simd/simd.exp: Skip all tests if no arm_neon_ok
+	effective target support.  If no arm_neon_hw support, do not attempt
+	to execute the tests; only compile them.
+	* gcc.target/arm/simd/vextf32_1.c: Remove explicit "dg-do run"
+	and "dg-require-effective-target arm_neon_ok".
+	* gcc.target/arm/simd/vextp16_1.c: Likewise.
+	* gcc.target/arm/simd/vextp64_1.c: Likewise.
+	* gcc.target/arm/simd/vextp8_1.c: Likewise.
+	* gcc.target/arm/simd/vextQf32_1.c: Likewise.
+	* gcc.target/arm/simd/vextQp16_1.c: Likewise.
+	* gcc.target/arm/simd/vextQp64_1.c: Likewise.
+	* gcc.target/arm/simd/vextQp8_1.c: Likewise.
+	* gcc.target/arm/simd/vextQs16_1.c: Likewise.
+	* gcc.target/arm/simd/vextQs32_1.c: Likewise.
+	* gcc.target/arm/simd/vextQs64_1.c: Likewise.
+	* gcc.target/arm/simd/vextQs8_1.c: Likewise.
+	* gcc.target/arm/simd/vextQu16_1.c: Likewise.
+	* gcc.target/arm/simd/vextQu32_1.c: Likewise.
+	* gcc.target/arm/simd/vextQu64_1.c: Likewise.
+	* gcc.target/arm/simd/vextQu8_1.c: Likewise.
+	* gcc.target/arm/simd/vexts16_1.c: Likewise.
+	* gcc.target/arm/simd/vexts32_1.c: Likewise.
+	* gcc.target/arm/simd/vexts64_1.c: Likewise.
+	* gcc.target/arm/simd/vexts8_1.c: Likewise.
+	* gcc.target/arm/simd/vextu16_1.c: Likewise.
+	* gcc.target/arm/simd/vextu32_1.c: Likewise.
+	* gcc.target/arm/simd/vextu64_1.c: Likewise.
+	* gcc.target/arm/simd/vextu8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev16p8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev16qp8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev16qs8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev16qu8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev16s8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev16u8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32p16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32p8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32qp16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32qp8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32qs16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32qs8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32qu16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32qu8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32s16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32s8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32u16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev32u8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64f32_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64p16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64p8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64qf32_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64qp16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64qp8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64qs16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64qs32_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64qs8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64qu16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64qu32_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64qu8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64s16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64s32_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64s8_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64u16_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64u32_1.c: Likewise.
+	* gcc.target/arm/simd/vrev64u8_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnf32_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnp16_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnp8_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnqf32_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnqp16_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnqp8_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnqs16_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnqs32_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnqs8_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnqu16_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnqu32_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnqu8_1.c: Likewise.
+	* gcc.target/arm/simd/vtrns16_1.c: Likewise.
+	* gcc.target/arm/simd/vtrns32_1.c: Likewise.
+	* gcc.target/arm/simd/vtrns8_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnu16_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnu32_1.c: Likewise.
+	* gcc.target/arm/simd/vtrnu8_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpf32_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpp16_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpp8_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpqf32_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpqp16_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpqp8_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpqs16_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpqs32_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpqs8_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpqu16_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpqu32_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpqu8_1.c: Likewise.
+	* gcc.target/arm/simd/vuzps16_1.c: Likewise.
+	* gcc.target/arm/simd/vuzps32_1.c: Likewise.
+	* gcc.target/arm/simd/vuzps8_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpu16_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpu32_1.c: Likewise.
+	* gcc.target/arm/simd/vuzpu8_1.c: Likewise.
+	* gcc.target/arm/simd/vzipf32_1.c: Likewise.
+	* gcc.target/arm/simd/vzipp16_1.c: Likewise.
+	* gcc.target/arm/simd/vzipp8_1.c: Likewise.
+	* gcc.target/arm/simd/vzipqf32_1.c: Likewise.
+	* gcc.target/arm/simd/vzipqp16_1.c: Likewise.
+	* gcc.target/arm/simd/vzipqp8_1.c: Likewise.
+	* gcc.target/arm/simd/vzipqs16_1.c: Likewise.
+	* gcc.target/arm/simd/vzipqs32_1.c: Likewise.
+	* gcc.target/arm/simd/vzipqs8_1.c: Likewise.
+	* gcc.target/arm/simd/vzipqu16_1.c: Likewise.
+	* gcc.target/arm/simd/vzipqu32_1.c: Likewise.
+	* gcc.target/arm/simd/vzipqu8_1.c: Likewise.
+	* gcc.target/arm/simd/vzips16_1.c: Likewise.
+	* gcc.target/arm/simd/vzips32_1.c: Likewise.
+	* gcc.target/arm/simd/vzips8_1.c: Likewise.
+	* gcc.target/arm/simd/vzipu16_1.c: Likewise.
+	* gcc.target/arm/simd/vzipu32_1.c: Likewise.
+	* gcc.target/arm/simd/vzipu8_1.c: Likewise.
+
+2015-05-21  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc.dg/vect/bb-slp-pr65935.c: Remove explicit "dg-do run".
+	* gcc.dg/vect/pr59354.c: Likewise.
+	* gcc.dg/vect/pr64252.c: Likewise.
+	* gcc.dg/vect/pr64404.c: Likewise.
+	* gcc.dg/vect/pr64493.c: Likewise.
+	* gcc.dg/vect/pr64495.c: Likewise.
+	* gcc.dg/vect/pr64844.c: Likewise.
+	* gcc.dg/vect/pr65518.c: Likewise.
+	* gcc.dg/vect/vect-aggressive-1.c: Likewise.
+
+2015-05-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/66210
+	* g++.dg/cpp1y/var-templ28.C: New.
+
+2015-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/66232
+	* gcc.target/i386/pr66232-1.c: New test.
+	* gcc.target/i386/pr66232-2.c: Likewise.
+	* gcc.target/i386/pr66232-3.c: Likewise.
+	* gcc.target/i386/pr66232-4.c: Likewise.
+	* gcc.target/i386/pr66232-5.c: Likewise.
+
+2015-05-21  Nathan Sidwell  <nathan@acm.org>
+
+	* g++.dg/cpp1y/pr60943.C: New.
+
+2015-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/66233
+	* gcc.c-torture/execute/pr66233.c: New test.
+
+2015-05-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66176
+	* gfortran.dg/inline_matmul_11.f90:  New test.
+
+2015-05-21  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* gcc.target/i386/pr32219-1.c: Use 'dg-require-effective-target pie'
+	instead of listing several targets on its own.
+	* gcc.target/i386/pr32219-2.c: Likewise.
+	* gcc.target/i386/pr32219-3.c: Likewise.
+	* gcc.target/i386/pr32219-4.c: Likewise.
+	* gcc.target/i386/pr32219-5.c: Likewise.
+	* gcc.target/i386/pr32219-6.c: Likewise
+	* gcc.target/i386/pr32219-7.c: Likewise.
+	* gcc.target/i386/pr32219-8.c: Likewise.
+	* gcc.target/i386/pr39013-1.c: Likewise.
+	* gcc.target/i386/pr39013-2.c: Likewise.
+	* gcc.target/i386/pr64317.c: Likewise.
+
+2015-05-21  Jeff Law  <law@redhat.com>
+
+	* gcc.target/hppa/shadd-3.c: New test.
+	* gcc.target/hppa/shadd-4.c: New test.
+
+2015-05-21  Michael Matz  <matz@suse.de>
+
+	* gcc.dg/vect/vect-strided-store.c: New test.
+	* gfortran.dg/vect/fast-math-pr37021.f90: Adjust.
+	* gfortran.dg/vect/fast-math-rnflow-trs2a2.f90: Adjust.
+
+2015-05-21  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* lib/target-supports.exp (check_effective_target_sqrt_insn): New check.
+	* gcc.dg/pow-sqrt-synth-1.c: New test.
+	* gcc.target/aarch64/pow-sqrt-synth-1.c: Delete.
+
+2015-05-21  Richard Biener  <rguenther@suse.de>
+
+	PR c++/66211
+	* g++.dg/conversion/pr66211.C: New testcase.
+	* gcc.dg/tree-ssa/forwprop-18.c: Adjust.
+
+2015-05-21  Jeff Law  <law@redhat.com>
+
+	* gcc.target/hppa/shadd-2.c: New test.
+
+2015-05-21  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54236
+	* gcc.target/sh/pr54236-2.c: Fix typo in comment.
+
+2015-05-21  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/65937
+	* gcc.target/arm/pr26702.c: Adjust target selector.
+
+2015-05-21  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR middle-end/66221
+	* gcc.dg/lto/pr66221_0.c: New test.
+	* gcc.dg/lto/pr66221_1.c: New test.
+
+2015-05-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/52952
+	* gcc.dg/redecl-4.c: Update column numbers.
+	* gcc.dg/format/bitfld-1.c: Likewise.
+	* gcc.dg/format/attr-2.c: Likewise.
+	* gcc.dg/format/attr-6.c: Likewise.
+	* gcc.dg/format/attr-7.c (baz): Likewise.
+	* gcc.dg/format/asm_fprintf-1.c: Likewise.
+	* gcc.dg/format/attr-4.c: Likewise.
+	* gcc.dg/format/branch-1.c: Likewise.
+	* gcc.dg/format/c90-printf-1.c: Likewise. Add tests for column
+	locations within strings with embedded escape sequences.
+
+2015-05-20  Jeff Law  <law@redhat.com>
+
+	* gcc.target/hppa/hppa.exp: New target test driver.
+	* gcc.target/hppa/shadd-1.c: New test.
+
+2015-05-20  Alex Velenko  <Alex.Velenko@arm.com>
+
+	* gcc.target/arm/thumb1-far-jump-2.c (r4): Added int in definition.
+
+2015-05-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-c++-common/Wmisleading-indentation.c (fn_32): New.
+	(fn_33_k_and_r_style): New.
+	(fn_33_stroustrup_style): New.
+	(fn_33_allman_style): New.
+	(fn_33_whitesmiths_style): New.
+	(fn_33_horstmann_style): New.
+	(fn_33_ratliff_banner_style): New.
+	(fn_33_lisp_style): New.
+	(fn_34_indent_dash_gnu): New.
+	(fn_34_indent_dash_kr): New.
+	(fn_34_indent_dash_orig): New.
+	(fn_34_indent_linux_style): New.
+
+2015-05-20  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/65548
+	* gfortran.dg/allocate_with_source_5.f90: Extend test.
+
+2015-05-20  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/65447
+	* gcc.dg/tree-ssa/pr65447.c: New test.
+
+2015-05-19  Nathan sidwell  <nathan@acm.org>
+
+	* g++.dg/cpp0x/pr65954.C: New.
+
+2015-05-20  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* gcc.target/sh/pr64366.c: Remove -m4 -ml from dg-options.
+
+2015-05-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* lib/target-supports.exp: Vector do not always have natural
+	alignment on s390*.
+
+2015-05-19  David Sherwood  <david.sherwood@arm.com>
+
+	* gcc.dg/loop-invariant.c: New testcase.
+
+2015-05-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* lib/target-supports.exp: Vector do not always have natural
+	alignment on s390*.
+
+2015-05-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.dg/tree-ssa/gen-vect-11b.c: Disable vector instructions on
+	s390*.
+	* gcc.dg/tree-ssa/gen-vect-11c.c: Likewise.
+
+2015-05-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/zvector/vec-dbl-math-compile-1.c: New test.
+	* gcc.target/s390/zvector/vec-genbytemask-1.c: New test.
+	* gcc.target/s390/zvector/vec-genmask-1.c: New test.
+	* gcc.target/s390/zvector/vec-lcbb-1.c: New test.
+	* gcc.target/s390/zvector/vec-overloading-1.c: New test.
+	* gcc.target/s390/zvector/vec-overloading-2.c: New test.
+	* gcc.target/s390/zvector/vec-overloading-3.c: New test.
+	* gcc.target/s390/zvector/vec-overloading-4.c: New test.
+	* gcc.target/s390/zvector/vec-test-mask-1.c: New test.
+	* gcc.target/s390/zvector/vec-elem-1.c: New test.
+
+2015-05-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vector/vec-scalar-cmp-1.c: New test.
+
+2015-05-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/s390.exp
+	(check_effective_target_vector): New check.
+	* gcc.target/s390/vector/vec-abi-1.c: New test.
+	* gcc.target/s390/vector/vec-abi-2.c: New test.
+	* gcc.target/s390/vector/vec-abi-3.c: New test.
+	* gcc.target/s390/vector/vec-abi-4.c: New test.
+	* gcc.target/s390/vector/vec-abi-align-1.c: New test.
+	* gcc.target/s390/vector/vec-abi-single-1.c: New test.
+	* gcc.target/s390/vector/vec-abi-single-2.c: New test.
+	* gcc.target/s390/vector/vec-abi-struct-1.c: New test.
+	* gcc.target/s390/vector/vec-abi-vararg-1.c: New test.
+	* gcc.target/s390/vector/vec-abi-vararg-2.c: New test.
+	* gcc.target/s390/vector/vec-clobber-1.c: New test.
+	* gcc.target/s390/vector/vec-cmp-1.c: New test.
+	* gcc.target/s390/vector/vec-cmp-2.c: New test.
+	* gcc.target/s390/vector/vec-dbl-math-compile-1.c: New test.
+	* gcc.target/s390/vector/vec-genbytemask-1.c: New test.
+	* gcc.target/s390/vector/vec-genbytemask-2.c: New test.
+	* gcc.target/s390/vector/vec-genmask-1.c: New test.
+	* gcc.target/s390/vector/vec-genmask-2.c: New test.
+	* gcc.target/s390/vector/vec-init-1.c: New test.
+	* gcc.target/s390/vector/vec-int-math-compile-1.c: New test.
+	* gcc.target/s390/vector/vec-shift-1.c: New test.
+	* gcc.target/s390/vector/vec-sub-1.c: New test.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqshrun_n.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqshrn_n.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqshlu_n.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqshl_n.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqshl.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqrshrun_n.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqrshrn_n.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqrshl.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqrdmulh_n.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqrdmulh_lane.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqrdmulh.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqmovun.c: New file.
+
+2015-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqmovn.c: New file.
+
+2015-05-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/66187
+	* gcc.c-torture/execute/pr66187.c: New test.
+	* gcc.dg/pr66187-1.c: New test.
+	* gcc.dg/pr66187-2.c: New test.
+
+2015-05-19  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/vect/bb-slp-35.c: Adjust.
+
+2015-05-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66165
+	* gcc.dg/torture/pr66165.c: New testcase.
+
+	PR tree-optimization/66185
+	* gcc.dg/torture/pr66185.c: New testcase.
+
+2015-05-19  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54236
+	* gcc.target/sh/pr54236-2.c: Adjust expected insn counts.
+
+2015-05-19  Sameera Deshpande  <sameera.deshpande@imgtec.com>
+
+	* gcc.target/mips/p5600-bonding.c : New file.
+
+2015-05-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66106
+	* gfortran.dg/interface_operator_1.f90: New tests.
+
+2015-05-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66057
+	* gfortran.dg/generic_29.f90: New tests.
+
+2015-05-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66043
+	* gfortran.dg/storage_size_6.f90: New tests.
+
+2015-05-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66045
+	* gfortran.dg/null1.f90: New test.
+
+2015-05-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66044
+	* gfortran.dg/entry_21.f90: New test.
+
+2015-05-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66043
+	* gfortran.dg/storage_size_6.f90: New tests.
+
+2015-05-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66040
+	* gfortran.dg/misplaced_statement.f90: New test.
+
+2015-05-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66039
+	* gfortran.dg/filepos1.f90: New test
+
+2015-05-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/64925
+	* gfortran.dg/pr64925.f90: New test.
+
+2015-05-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/lto/pr41521_0.f90: Move INTERFACE statement in program
+	unit.
+	* gfortran.dg/lto/pr41576_1.f90: Ditto.
+
+2015-05-12  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* lib/target-supports.exp (check_effective_target_pie): Add *-*-freebsd*
+	to the family of pie capable targets.
+
+2015-05-18  Alex Velenko <Alex.Velenko@arm.com>
+
+	* gcc.target/arm/bics_1.c : New testcase.
+	* gcc.target/arm/bics_2.c : New testcase.
+	* gcc.target/arm/bics_3.c : New testcase.
+	* gcc.target/arm/bics_4.c : New testcase.
+
+2015-05-18  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* gcc.target/mips/umips-attr.c: New test.
+
+2015-05-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/20150120-1.c (dg-final): Cleanup original tree dump.
+	* gcc.dg/20150120-2.c (dg-final): Ditto.
+	* gcc.dg/20150120-2.c (dg-final): Ditto.
+	* gfortran.dg/inline_matmul_1.f90 (dg-final): Ditto.
+
+2015-05-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66174
+	* gcc.target/i386/pr66174.c: New test.
+
+2015-05-17  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/37131
+	* gfortran.dg/matmul_bounds_6.f90:  New test.
+	* gfortran.dg/matmul_bounds_7.f90:  New test.
+
+2015-05-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gfortran.dg/lto/20091028-2_1.c: Fix return value.
+	* gfortran.dg/lto/pr41576_1.f90: Add interface.
+	* gfortran.dg/lto/pr41521_0.f90: Disable lto-type-mismatch
+	* gfortran.dg/lto/pr60635_0.f90: Disable lto-type-mismatch.
+	* gfortran.dg/lto/20091028-1_1.c: Fix return type.
+	* gcc.dg/lto/20120723_0.c: Disbale lto-type-mismatch.
+
+2015-05-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/65903
+	* gfortran.dg/continuation_13.f90: Update test.
+	* gfortran.dg/pr65903.f90: New test.
+
+2015-05-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66113
+	* gfortran.dg/block_14.f90:  New test.
+
+2015-05-16  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* lib/gfortran-dg.exp: Update regex to handle two locations for
+	the same diagnostic without caret.
+	* gfortran.dg/badline.f: Test also that line numbers are correct
+	before and after "left but not entered" warning.
+
+2015-05-16  Kugan Vivekanandarajah  <kuganv@linaro.org>
+	    Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	PR target/65768
+	* gcc.target/arm/maskdata.c: New test.
+
+2015-05-16  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/65792
+	* gfortran.dg/derived_constructor_components_5: New test
+
+2015-05-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66140
+	* gcc.target/alpha/pr66140.c: New test.
+
+2015-05-15  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c/48956
+	* gcc.dg/Wconversion-complex-c99.c: New test.
+	* gcc.dg/Wconversion-complex-gnu.c: New test.
+
+2015-05-15  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/64454
+	* gcc.dg/modmod.c: New testcase.
+
+2015-05-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.dg/lto/chkp-wrap-asm-name_0.c: New.
+
+2015-05-15  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR middle-end/66134
+	* gcc.target/i386/mpx/pr66134.c: New test.
+
+2015-05-14  Rohit Arul Raj  <rohitrulraj@freescale.com>
+
+	* gcc.target/powerpc/pr60158.c: New test.
+
+2015-05-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	* gcc.target/i386/sibcall-7.c: New test.
+	* gcc.target/i386/sibcall-8.c: New test.
+
+2015-05-14  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* gcc.target/aarch64/abs_1.c (abs64): Update test for new abs expansion.
+	(abs64_in_dreg): Likewise.
+
+2015-05-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66066
+	PR c/66127
+	* gcc.dg/pr14649-1.c: Add -Wpedantic.
+	* gcc.dg/pr19984.c: Likewise.
+	* gcc.dg/pr66066-1.c: New test.
+	* gcc.dg/pr66066-2.c: New test.
+	* gcc.dg/pr66066-3.c: New test.
+
+2015-05-13  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/pow-sqrt-synth-1.c: New test.
+	* gcc.dg/pow-sqrt.x: New file.
+	* gcc.dg/pow-sqrt-1.c: New test.
+	* gcc.dg/pow-sqrt-2.c: Likewise.
+	* gcc.dg/pow-sqrt-3.c: Likewise.
+
+2015-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66123
+	* gcc.dg/torture/pr66123.c: New testcase.
+
+2015-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/66110
+	* gcc.dg/alias-2.c: Adjust.
+	* gcc.dg/tree-ssa/ssa-dse-17.c: New testcase.
+
+2015-05-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/65103
+	* gcc.target/i386/pr65103-3.c: New.
+
+2015-05-13  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/ipa/pr65557.C: Remove unnecessary dump flag.
+
+2015-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/66112
+	* gcc.target/i386/pr66112-2.c: New test.
+
+	PR target/66112
+	* gcc.target/i386/pr66112-1.c: New test.
+
+2015-05-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/66048
+	* gcc.target/i386/mpx/pr66048.cc: New.
+
+2015-05-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR rtl-optimization/64616
+	* gcc.dg/loop-8.c: New test.
+	* gcc.dg/loop-9.c: New test.
+
+2015-05-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR target/pr66047.c
+	* gcc.target/i386/pr66047.c: New testcase.
+
+2015-05-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65873
+	* gcc.c-torture/compile/pr65873.c: New testcase.
+
+2015-05-12  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66111
+	* gfortran.dg/inline_matmul_10.f90:  New test.
+
+2015-05-12  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-c++-common/Wmisleading-indentation.c: New testcase.
+	* c-c++-common/Wmisleading-indentation-2.c: New testcase.
+	* c-c++-common/Wmisleading-indentation-2.md: New file.
+
+2015-05-12 Sandra Loosemore <sandra@codesourcery.com>
+
+	* gcc.target/nios2/nios2-trap-insn.c: Expect "trap" instead of
+	"break".
+	* gcc.target/nios2/nios2-stack-check-1.c: Likewise.
+
+2015-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66101
+	* gcc.dg/torture/pr66101.c: New testcase.
+
+2015-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/37021
+	* gcc.target/i386/vect-addsub.c: New testcase.
+
+2015-05-12  Alexander Monakov  <amonakov@ispras.ru>
+
+	* gcc.target/i386/pr65753.c: Use -O2 instead of -O.
+
+2015-05-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66010
+	* gcc.dg/tree-ssa/stdarg-2.c: Undo scan xfails for f15.
+
+2015-05-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/65133
+	* g++.dg/cpp0x/trailing10.C: New.
+
+2015-05-12  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/bb-slp-35.c: New testcase.
+
+2015-05-11  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/66100
+	* gfortran.dg/bound_simplification_6.f90: New.
+
+2015-05-11  Steve Ellcey  <sellcey@mips.com>
+
+	* gcc.target/mips/branch-1.c: Pass argument to bar().
+
+2015-05-11  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR target/65753
+	* gcc.target/i386/pr65753.c: New test.
+
+2015-05-11  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR rtl-optimization/66076
+	* gcc.dg/torture/pr66076.c: New test.
+
+2015-05-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66041
+	* gfortran.dg/inline_matmul_7.f90:  New test.
+	* gfortran.dg/inline_matmul_8.f90:  New test.
+	* gfortran.dg/inline_matmul_9.f90:  New test.
+
+2015-05-10  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* gfortran.dg/bound_simplification_5.f90: New.
+
+2015-05-09  Jason Merrill  <jason@redhat.com>
+
+	* lib/target-supports.exp (cxx_default): New global.
+	(check_effective_target_c++11_only)
+	(check_effective_target_c++14_only)
+	(check_effective_target_c++98_only)
+	(check_effective_target_c++1z_only): Check it.
+
+2015-05-09  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/64454
+	* gcc.dg/tree-ssa/vrp97.c: New file.
+	* gcc.dg/vect/slp-perm-7.c: Update.
+
+2015-05-09  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/65894
+	* gfortran.dg/elemental_subroutine_11.f90: New test.
+
+2015-05-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66036
+	* gcc.dg/vect/slp-41.c: New testcase.
+
+2015-05-08  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* gfortran.dg/elemental_optional_args_7.f90: New.
+
+2015-05-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/singleton_intrinsics_1.c: Generalize regex to
+	allow cmlt or sshr.
+
 2015-05-08  Marek Polacek  <polacek@redhat.com>
 
 	PR c/64918

@@ -676,6 +676,9 @@ const char *mips_hi_relocs[NUM_SYMBOL_TYPES];
 /* Target state for MIPS16.  */
 struct target_globals *mips16_globals;
 
+/* Target state for MICROMIPS.  */
+struct target_globals *micromips_globals;
+
 /* Cached value of can_issue_more. This is cached in mips_variable_issue hook
    and returned from mips_sched_reorder2.  */
 static int cached_can_issue_more;
@@ -8440,7 +8443,6 @@ mips_print_operand_punct_valid_p (unsigned char code)
    'x'	Print the low 16 bits of CONST_INT OP in hexadecimal format.
    'd'	Print CONST_INT OP in decimal.
    'm'	Print one less than CONST_INT OP in decimal.
-   'y'	Print exact log2 of CONST_INT OP in decimal.
    'h'	Print the high-part relocation associated with OP, after stripping
 	  any outermost HIGH.
    'R'	Print the low-part relocation associated with OP.
@@ -8500,19 +8502,6 @@ mips_print_operand (FILE *file, rtx op, int letter)
     case 'm':
       if (CONST_INT_P (op))
 	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (op) - 1);
-      else
-	output_operand_lossage ("invalid use of '%%%c'", letter);
-      break;
-
-    case 'y':
-      if (CONST_INT_P (op))
-	{
-	  int val = exact_log2 (INTVAL (op));
-	  if (val != -1)
-	    fprintf (file, "%d", val);
-	  else
-	    output_operand_lossage ("invalid use of '%%%c'", letter);
-	}
       else
 	output_operand_lossage ("invalid use of '%%%c'", letter);
       break;
@@ -13106,7 +13095,7 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
       model = MEMMODEL_ACQUIRE;
       break;
     default:
-      model = (enum memmodel) INTVAL (operands[memmodel_attr]);
+      model = memmodel_from_int (INTVAL (operands[memmodel_attr]));
     }
 
   mips_multi_start ();
@@ -16799,13 +16788,14 @@ mips16_split_long_branches (void)
   do
     {
       rtx_insn *insn;
+      rtx_jump_insn *jump_insn;
 
       shorten_branches (get_insns ());
       something_changed = false;
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-	if (JUMP_P (insn)
-	    && get_attr_length (insn) > 4
-	    && (any_condjump_p (insn) || any_uncondjump_p (insn)))
+	if ((jump_insn = dyn_cast <rtx_jump_insn *> (insn))
+	    && get_attr_length (jump_insn) > 4
+	    && (any_condjump_p (jump_insn) || any_uncondjump_p (jump_insn)))
 	  {
 	    rtx old_label, temp, saved_temp;
 	    rtx_code_label *new_label;
@@ -16820,7 +16810,7 @@ mips16_split_long_branches (void)
 	    emit_move_insn (saved_temp, temp);
 
 	    /* Load the branch target into TEMP.  */
-	    old_label = JUMP_LABEL (insn);
+	    old_label = JUMP_LABEL (jump_insn);
 	    target = gen_rtx_LABEL_REF (Pmode, old_label);
 	    mips16_load_branch_target (temp, target);
 
@@ -16835,7 +16825,7 @@ mips16_split_long_branches (void)
 	       a PC-relative constant pool.  */
 	    mips16_lay_out_constants (false);
 
-	    if (simplejump_p (insn))
+	    if (simplejump_p (jump_insn))
 	      /* We're going to replace INSN with a longer form.  */
 	      new_label = NULL;
 	    else
@@ -16849,11 +16839,11 @@ mips16_split_long_branches (void)
 	    jump_sequence = get_insns ();
 	    end_sequence ();
 
-	    emit_insn_after (jump_sequence, insn);
+	    emit_insn_after (jump_sequence, jump_insn);
 	    if (new_label)
-	      invert_jump (insn, new_label, false);
+	      invert_jump (jump_insn, new_label, false);
 	    else
-	      delete_insn (insn);
+	      delete_insn (jump_insn);
 	    something_changed = true;
 	  }
     }
@@ -17175,6 +17165,13 @@ mips_set_compression_mode (unsigned int compression_mode)
 	mips16_globals = save_target_globals_default_opts ();
       else
 	restore_target_globals (mips16_globals);
+    }
+  else if (compression_mode & MASK_MICROMIPS)
+    {
+      if (!micromips_globals)
+	micromips_globals = save_target_globals_default_opts ();
+      else
+	restore_target_globals (micromips_globals);
     }
   else
     restore_target_globals (&default_target_globals);
@@ -18230,6 +18227,66 @@ umips_load_store_pair_p_1 (bool load_p, bool swap_p,
     return false;
 
   if (!UMIPS_12BIT_OFFSET_P (offset1))
+    return false;
+
+  return true;
+}
+
+bool
+mips_load_store_bonding_p (rtx *operands, machine_mode mode, bool load_p)
+{
+  rtx reg1, reg2, mem1, mem2, base1, base2;
+  enum reg_class rc1, rc2;
+  HOST_WIDE_INT offset1, offset2;
+
+  if (load_p)
+    {
+      reg1 = operands[0];
+      reg2 = operands[2];
+      mem1 = operands[1];
+      mem2 = operands[3];
+    }
+  else
+    {
+      reg1 = operands[1];
+      reg2 = operands[3];
+      mem1 = operands[0];
+      mem2 = operands[2];
+    }
+
+  if (mips_address_insns (XEXP (mem1, 0), mode, false) == 0
+      || mips_address_insns (XEXP (mem2, 0), mode, false) == 0)
+    return false;
+
+  mips_split_plus (XEXP (mem1, 0), &base1, &offset1);
+  mips_split_plus (XEXP (mem2, 0), &base2, &offset2);
+
+  /* Base regs do not match.  */
+  if (!REG_P (base1) || !rtx_equal_p (base1, base2))
+    return false;
+
+  /* Either of the loads is clobbering base register.  It is legitimate to bond
+     loads if second load clobbers base register.  However, hardware does not
+     support such bonding.  */
+  if (load_p
+      && (REGNO (reg1) == REGNO (base1)
+	  || (REGNO (reg2) == REGNO (base1))))
+    return false;
+
+  /* Loading in same registers.  */
+  if (load_p
+      && REGNO (reg1) == REGNO (reg2))
+    return false;
+
+  /* The loads/stores are not of same type.  */
+  rc1 = REGNO_REG_CLASS (REGNO (reg1));
+  rc2 = REGNO_REG_CLASS (REGNO (reg2));
+  if (rc1 != rc2
+      && !reg_class_subset_p (rc1, rc2)
+      && !reg_class_subset_p (rc2, rc1))
+    return false;
+
+  if (abs (offset1 - offset2) != GET_MODE_SIZE (mode))
     return false;
 
   return true;

@@ -104,7 +104,10 @@ generic_subrtx_iterator <T>::add_single_to_queue (array_type &array,
 	  return base;
 	}
       gcc_checking_assert (i == LOCAL_ELEMS);
-      vec_safe_grow (array.heap, i + 1);
+      /* A previous iteration might also have moved from the stack to the
+	 heap, in which case the heap array will already be big enough.  */
+      if (vec_safe_length (array.heap) <= i)
+	vec_safe_grow (array.heap, i + 1);
       base = array.heap->address ();
       memcpy (base, array.stack, sizeof (array.stack));
       base[LOCAL_ELEMS] = x;
@@ -1197,7 +1200,7 @@ record_hard_reg_sets (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 /* Examine INSN, and compute the set of hard registers written by it.
    Store it in *PSET.  Should only be called after reload.  */
 void
-find_all_hard_reg_sets (const_rtx insn, HARD_REG_SET *pset, bool implicit)
+find_all_hard_reg_sets (const rtx_insn *insn, HARD_REG_SET *pset, bool implicit)
 {
   rtx link;
 
@@ -1368,7 +1371,7 @@ set_noop_p (const_rtx set)
    value to itself.  */
 
 int
-noop_move_p (const_rtx insn)
+noop_move_p (const rtx_insn *insn)
 {
   rtx pat = PATTERN (insn);
 
@@ -1442,9 +1445,8 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 	 clobber a virtual register.  In fact, we could be more precise,
 	 but it isn't worth it.  */
       if ((x_regno == STACK_POINTER_REGNUM
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	   || x_regno == ARG_POINTER_REGNUM
-#endif
+	   || (FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	       && x_regno == ARG_POINTER_REGNUM)
 	   || x_regno == FRAME_POINTER_REGNUM)
 	  && regno >= FIRST_VIRTUAL_REGISTER && regno <= LAST_VIRTUAL_REGISTER)
 	return true;
@@ -2015,7 +2017,7 @@ find_reg_fusage (const_rtx insn, enum rtx_code code, const_rtx datum)
 
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
-	  unsigned int end_regno = END_HARD_REGNO (datum);
+	  unsigned int end_regno = END_REGNO (datum);
 	  unsigned int i;
 
 	  for (i = regno; i < end_regno; i++)
@@ -2049,7 +2051,7 @@ find_regno_fusage (const_rtx insn, enum rtx_code code, unsigned int regno)
       if (GET_CODE (op = XEXP (link, 0)) == code
 	  && REG_P (reg = XEXP (op, 0))
 	  && REGNO (reg) <= regno
-	  && END_HARD_REGNO (reg) > regno)
+	  && END_REGNO (reg) > regno)
 	return 1;
     }
 
@@ -2117,7 +2119,7 @@ add_int_reg_note (rtx insn, enum reg_note kind, int datum)
 /* Add a register note like NOTE to INSN.  */
 
 void
-add_shallow_copy_of_reg_note (rtx insn, rtx note)
+add_shallow_copy_of_reg_note (rtx_insn *insn, rtx note)
 {
   if (GET_CODE (note) == INT_LIST)
     add_int_reg_note (insn, REG_NOTE_KIND (note), XINT (note, 0));
@@ -2159,7 +2161,7 @@ remove_note (rtx insn, const_rtx note)
 /* Remove REG_EQUAL and/or REG_EQUIV notes if INSN has such notes.  */
 
 void
-remove_reg_equal_equiv_notes (rtx insn)
+remove_reg_equal_equiv_notes (rtx_insn *insn)
 {
   rtx *loc;
 
@@ -2205,16 +2207,16 @@ remove_reg_equal_equiv_notes_for_regno (unsigned int regno)
    return 1 if it is found.  A simple equality test is used to determine if
    NODE matches.  */
 
-int
-in_expr_list_p (const_rtx listp, const_rtx node)
+bool
+in_insn_list_p (const rtx_insn_list *listp, const rtx_insn *node)
 {
   const_rtx x;
 
   for (x = listp; x; x = XEXP (x, 1))
     if (node == XEXP (x, 0))
-      return 1;
+      return true;
 
-  return 0;
+  return false;
 }
 
 /* Search LISTP (an EXPR_LIST) for an entry whose first operand is NODE and
@@ -2914,7 +2916,8 @@ rtx_referenced_p (const_rtx x, const_rtx body)
 bool
 tablejump_p (const rtx_insn *insn, rtx *labelp, rtx_jump_table_data **tablep)
 {
-  rtx label, table;
+  rtx label;
+  rtx_insn *table;
 
   if (!JUMP_P (insn))
     return false;
@@ -2990,7 +2993,7 @@ computed_jump_p_1 (const_rtx x)
    we can recognize them by a (use (label_ref)).  */
 
 int
-computed_jump_p (const_rtx insn)
+computed_jump_p (const rtx_insn *insn)
 {
   int i;
   if (JUMP_P (insn))

@@ -954,6 +954,7 @@ proc check_effective_target_shared { } {
 
 proc check_effective_target_pie { } {
     if { [istarget *-*-darwin\[912\]*]
+	 || [istarget *-*-freebsd*]
 	 || [istarget *-*-linux*]
 	 || [istarget *-*-gnu*] } {
 	return 1;
@@ -4349,7 +4350,8 @@ proc check_effective_target_vect_natural_alignment { } {
     } else {
         set et_vect_natural_alignment_saved 1
         if { [check_effective_target_arm_eabi]
-	     || [istarget nvptx-*-*] } {
+	     || [istarget nvptx-*-*]
+	     || [istarget s390*-*-*] } {
             set et_vect_natural_alignment_saved 0
         }
     }
@@ -4666,6 +4668,27 @@ proc check_effective_target_vect_call_copysignf { } {
 
     verbose "check_effective_target_vect_call_copysignf: returning $et_vect_call_copysignf_saved" 2
     return $et_vect_call_copysignf_saved
+}
+
+# Return 1 if the target supports hardware square root instructions.
+
+proc check_effective_target_sqrt_insn { } {
+    global et_sqrt_insn_saved
+
+    if [info exists et_sqrt_insn_saved] {
+	verbose "check_effective_target_hw_sqrt: using cached result" 2
+    } else {
+	set et_sqrt_insn_saved 0
+	if { [istarget x86_64-*-*]
+	     || [istarget powerpc*-*-*]
+	     || [istarget aarch64*-*-*]
+	     || ([istarget arm*-*-*] && [check_effective_target_arm_vfp_ok]) } {
+	   set et_sqrt_insn_saved 1
+	}
+    }
+
+    verbose "check_effective_target_hw_sqrt: returning et_sqrt_insn_saved" 2
+    return $et_sqrt_insn_saved
 }
 
 # Return 1 if the target supports vector sqrtf calls.
@@ -5892,15 +5915,23 @@ proc check_effective_target_c++ { } {
  return 0
 }
 
+set cxx_default "c++98"
 # Check whether the current active language standard supports the features
-# of C++11/C++14 by checking for the presence of one of the -std
-# flags.  This assumes that the default for the compiler is C++98, and that
+# of C++11/C++14 by checking for the presence of one of the -std flags.
+# This assumes that the default for the compiler is $cxx_default, and that
 # there will never be multiple -std= arguments on the command line.
 proc check_effective_target_c++11_only { } {
+    global cxx_default
     if ![check_effective_target_c++] {
 	return 0
     }
-    return [check-flags { { } { } { -std=c++0x -std=gnu++0x -std=c++11 -std=gnu++11 } }]
+    if [check-flags { { } { } { -std=c++0x -std=gnu++0x -std=c++11 -std=gnu++11 } }] {
+	return 1
+    }
+    if { $cxx_default == "c++11" && [check-flags { { } { } { } { -std=* } }] } {
+	return 1
+    }
+    return 0
 }
 proc check_effective_target_c++11 { } {
     if [check_effective_target_c++11_only] {
@@ -5912,14 +5943,21 @@ proc check_effective_target_c++11_down { } {
     if ![check_effective_target_c++] {
 	return 0
     }
-    return ![check_effective_target_c++14]
+    return [expr ![check_effective_target_c++14] ]
 }
 
 proc check_effective_target_c++14_only { } {
+    global cxx_default
     if ![check_effective_target_c++] {
 	return 0
     }
-    return [check-flags { { } { } { -std=c++14 -std=gnu++14 -std=c++14 -std=gnu++14 } }]
+    if [check-flags { { } { } { -std=c++14 -std=gnu++14 -std=c++14 -std=gnu++14 } }] {
+	return 1
+    }
+    if { $cxx_default == "c++14" && [check-flags { { } { } { } { -std=* } }] } {
+	return 1
+    }
+    return 0
 }
 
 proc check_effective_target_c++14 { } {
@@ -5932,21 +5970,35 @@ proc check_effective_target_c++14_down { } {
     if ![check_effective_target_c++] {
 	return 0
     }
-    return ![check_effective_target_c++1z]
+    return [expr ![check_effective_target_c++1z] ]
 }
 
 proc check_effective_target_c++98_only { } {
+    global cxx_default
     if ![check_effective_target_c++] {
 	return 0
     }
-    return ![check_effective_target_c++11]
+    if [check-flags { { } { } { -std=c++98 -std=gnu++98 -std=c++03 -std=gnu++03 } }] {
+	return 1
+    }
+    if { $cxx_default == "c++98" && [check-flags { { } { } { } { -std=* } }] } {
+	return 1
+    }
+    return 0
 }
 
 proc check_effective_target_c++1z_only { } {
+    global cxx_default
     if ![check_effective_target_c++] {
 	return 0
     }
-    return [check-flags { { } { } { -std=c++1z -std=gnu++1z } }]
+    if [check-flags { { } { } { -std=c++17 -std=gnu++17 -std=c++1z -std=gnu++1z } }] {
+	return 1
+    }
+    if { $cxx_default == "c++17" && [check-flags { { } { } { } { -std=* } }] } {
+	return 1
+    }
+    return 0
 }
 proc check_effective_target_c++1z { } {
     return [check_effective_target_c++1z_only]

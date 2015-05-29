@@ -173,6 +173,7 @@ enum reg_class
 {
   NO_REGS,
   SIB_REGS,
+  IJMP_REGS,
   GP_REGS,
   ALL_REGS,
   LIM_REG_CLASSES
@@ -183,6 +184,7 @@ enum reg_class
 #define REG_CLASS_NAMES   \
   {  "NO_REGS",		  \
      "SIB_REGS",	  \
+     "IJMP_REGS",	  \
      "GP_REGS",           \
      "ALL_REGS" }
 
@@ -190,10 +192,11 @@ enum reg_class
 
 #define REG_CLASS_CONTENTS			\
   {						\
-    /* NO_REGS  */ { 0, 0},			\
-    /* SIB_REGS */ { 0xfe0c, 0},		\
-    /* GP_REGS  */ {~0, 0},			\
-    /* ALL_REGS */ {~0,~0}			\
+    /* NO_REGS    */ { 0, 0},			\
+    /* SIB_REGS   */ { 0xfe0c, 0},		\
+    /* IJMP_REGS  */ { 0x7fffffff, 0},		\
+    /* GP_REGS    */ {~0, 0},			\
+    /* ALL_REGS   */ {~0,~0}			\
   }
 
 
@@ -227,7 +230,7 @@ enum reg_class
 #define TRAMPOLINE_SIZE 20
 
 /* Stack layout.  */
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 #define STARTING_FRAME_OFFSET 0
 #define FIRST_PARM_OFFSET(FUNDECL) 0
 
@@ -435,7 +438,7 @@ do                                                                      \
   {									\
     fprintf ((FILE), "%s", COMMON_ASM_OP);				\
     assemble_name ((FILE), (NAME));					\
-    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", (SIZE),	\
+    fprintf ((FILE), "," HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", (SIZE),	\
 	     (ALIGN) / BITS_PER_UNIT);					\
   }									\
 while (0)

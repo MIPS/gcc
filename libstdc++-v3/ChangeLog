@@ -1,3 +1,371 @@
+2015-05-28  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/65352
+	* include/profile/array (array::data): Use _S_ptr.
+	* include/debug/array (array::data): Likewise.
+
+	PR libstdc++/65352
+	* include/std/array (__array_traits::_S_ptr): New function.
+	(array::data): Use _S_ptr to avoid creating invalid reference.
+	* testsuite/23_containers/array/tuple_interface/get_neg.cc: Adjust
+	dg-error line numbers.
+	* testsuite/23_containers/array/tuple_interface/tuple_element_neg.cc:
+	likewise.
+
+2015-05-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/stl_tree.h (_Rb_tree::_M_end()): Return _Base_ptr
+	instead of downcasting.
+	(_Rb_tree::_M_copy): Change second parameter to _Base_ptr.
+	(_Rb_tree::_M_lower_bound, _Rb_tree:_M_upper_bound): Likewise.
+	(_Rb_tree::_S_iter): Remove.
+	(_Rb_tree::_S_lower_bound_tr, _Rb_tree::_S_upper_bound_tr): Remove.
+	(_Rb_tree::_M_find_tr(const _Kt&) const): Call _M_lower_bound_tr
+	instead of _S_lower_bound_tr
+	(_Rb_tree::_M_find_tr(const _Kt&)): Call const overload.
+	(_Rb_tree::_M_lower_bound_tr(const _Kt&) const): Do the search here
+	instead of calling _S_lower_bound_tr.
+	(_Rb_tree::_M_lower_bound_tr(const _Kt&)): Call const overload.
+	(_Rb_tree::_M_upper_bound_tr(const _Kt&) const): Do the search here
+	instead of calling _S_upper_bound_tr.
+	(_Rb_tree::_M_upper_bound_tr(const _Kt&)): Call const overload.
+	(_Rb_tree::_M_equal_range_tr(const _Kt&)): Likewise.
+	(_Rb_tree::equal_range): Use _Base_ptr for end pointer.
+	(_Rb_tree::_M_get_insert_unique_pos): Likewise.
+	(_Rb_tree::_M_get_insert_equal_pos): Likewise.
+	(_Rb_tree::_M_insert_equal_lower_node): Likewise.
+	(_Rb_tree::_M_insert_unique, _Rb_tree::_M_emplace_unique,
+	_Rb_tree::_M_emplace_hint_unique): Remove static_cast.
+
+	PR libstdc++/66017
+	* include/bits/stl_tree.h (_Rb_tree_node): Use __aligned_membuf.
+	(_Rb_tree_iterator, _Rb_tree_const_iterator): Support construction
+	from _Base_ptr.
+	(_Rb_tree_const_iterator::_M_const_cast): Remove static_cast.
+	(_Rb_tree::begin, _Rb_tree::end): Remove static_cast.
+	* include/ext/aligned_buffer.h (__aligned_membuf): New type using
+	alignment of _Tp as a member subobject, not as a complete object.
+	* python/libstdcxx/v6/printers.py (StdRbtreeIteratorPrinter): Lookup
+	_Link_type manually as it might not be in the debug info.
+
+2015-05-26  Doug Evans  <dje@google.com>
+
+	* python/libstdcxx/v6/xmethods.py (UniquePtrMethodsMatcher): Add
+	operator-> support.
+	* testsuite/libstdc++-xmethods/unique_ptr.cc: Add tests for
+	operator->.
+
+2015-05-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/locale_conv.h: Fix copyright years.
+	* include/bits/quoted_string.h: Likewise.
+	* src/filesystem/Makefile.am: Likewise.
+	* testsuite/22_locale/conversions/buffer/1.cc: Likewise.
+	* testsuite/22_locale/conversions/buffer/requirements/typedefs.cc:
+	Likewise.
+	* testsuite/22_locale/conversions/string/1.cc: Likewise.
+	* testsuite/22_locale/conversions/string/2.cc: Likewise.
+	* testsuite/22_locale/conversions/string/3.cc: Likewise.
+	* testsuite/22_locale/conversions/string/requirements/typedefs-2.cc:
+	Likewise.
+	* testsuite/22_locale/conversions/string/requirements/typedefs.cc:
+	Likewise.
+	* testsuite/util/testsuite_fs.h: Likewise.
+
+2015-05-23  François Dumont  fdumont@gcc.gnu.org>
+
+	PR libstdc++/64657
+	* include/debug/functions.h (__check_sorted_aux): Cast expression to
+	void.
+
+2015-05-21  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/66224
+	* config/cpu/powerpc/atomic_word.h (_GLIBCXX_READ_MEM_BARRIER):
+	Don't use isync. Use lwsync if available.
+	* configure.host (atomic_word_dir) [aix[56789]*]: Delete to use
+	powerpc cpu definition.
+
+2015-05-21  Jason Merrill  <jason@redhat.com>
+
+	* libsupc++/del_opv.cc: Suppress -Wsized-deallocation.
+	* libsupc++/del_op.cc: Likewise.
+
+2015-05-20  François Dumont  fdumont@gcc.gnu.org>
+
+	* include/debug/formatter.h (_GLIBCXX_TYPEID): New macro to simplify
+	usage of typeid.
+	(_Error_formatter::_M_print_type): New.
+	* src/c++11/debug.cc
+	(_Error_formatter::_Parameter::_M_print_field): Use latter.
+	(_Error_formatter::_M_print_type): Implement latter using
+	__cxaabiv1::__cxa_demangle to print demangled type name.
+
+	* include/bits/cpp_type_traits.h
+	(std::move_iterator): Delete declaration.
+	(std::__is_move_iterator<move_iterator>): Move partial specialization...
+	* include/bits/stl_iterator.h: ... here.
+	(std::__miter_base): Overloads for std::reverse_iterator and
+	std::move_iterator.
+	* include/bits/stl_algobase.h (std::__miter_base): Provide default
+	implementation.
+
+2015-05-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/util/testsuite_fs.h (nonexistent_path): Don't use tempnam.
+
+	PR libstdc++/66078
+	* include/bits/stl_iterator.h (__make_move_if_noexcept_iterator): Add
+	overload for pointers.
+	* testsuite/20_util/specialized_algorithms/uninitialized_copy/
+	808590.cc: Add -std=gnu++03 switch.
+	* testsuite/20_util/specialized_algorithms/uninitialized_copy/
+	808590-cxx11.cc: Copy of 808590.cc to test with -std=gnu++11.
+	* testsuite/23_containers/vector/modifiers/push_back/
+	strong_guarantee.cc: New.
+
+2015-05-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/stl_list.h (_M_resize_pos(size_type&)): Declare.
+	(operator==(const list&, const list&)): If size() is O(1) compare
+	sizes before comparing each element.
+	* include/bits/list.tcc (list::_M_resize_pos(size_type&)): Define.
+	(list::resize): Use _M_resize_pos.
+
+2015-05-19  François Dumont  <fdumont@gcc.gnu.org>
+
+	* testsuite/23_containers/unordered_map/cons/66055.cc: Add constructor
+	invocations.
+	* testsuite/23_containers/unordered_multimap/cons/66055.cc: Likewise.
+	* testsuite/23_containers/unordered_multiset/cons/66055.cc: Likewise.
+	* testsuite/23_containers/unordered_set/cons/66055.cc: Likewise.
+
+2015-05-17  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* configure.host: Define cpu_defines_dir for ARM.
+	* config/cpu/arm/cpu_defines.h: New file.
+
+2015-05-17  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/unordered_map.h (unordered_map, unordered_multimap): Add
+	missing constructors.
+	* include/bits/unordered_set.h (unordered_set, unordered_multiset):
+	Likewise.
+	* include/debug/unordered_map (unordered_map, unordered_multimap): Add
+	missing constructors.
+	* include/debug/unordered_set (unordered_set, unordered_multiset):
+	Likewise.
+	* include/profile/unordered_map (unordered_map, unordered_multimap): Add
+	missing constructors.
+	* include/profile/unordered_set (unordered_set, unordered_multiset):
+	Likewise.
+
+2015-05-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	* src/filesystem/ops.cc (stat_type): Define alias for struct stat and
+	use throughout the file.
+	(make_file_type): New function.
+	(file_size(const path&, error_code&)): Report an error for anything
+	that isn't a regular file.
+	(status(const path&), symlink_status(const path&)): Do not throw for
+	file_type::not_found.
+	(temp_directory_path()): Check additional environment variables.
+	* testsuite/experimental/filesystem/operations/exists.cc: New.
+	* testsuite/experimental/filesystem/operations/file_size.cc: New.
+	* testsuite/experimental/filesystem/operations/status.cc: New.
+	* testsuite/experimental/filesystem/operations/temp_directory_path.cc:
+	New.
+
+2015-05-14  Nathan Myers  <ncm@cantrip.org>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/66055
+	* include/std/unordered_map (unordered_map, unordered_multimap): Add
+	missing constructors.
+	* include/std/unordered_set (unordered_set, unordered_multiset):
+	Likewise.
+	* testsuite/23_containers/unordered_map/cons/66055.cc: New.
+	* testsuite/23_containers/unordered_multimap/cons/66055.cc: New.
+	* testsuite/23_containers/unordered_multiset/cons/66055.cc: New.
+	* testsuite/23_containers/unordered_set/cons/66055.cc: New.
+
+2015-05-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/66011
+	* acinclude.m4 (GLIBCXX_CHECK_FILESYSTEM_DEPS): Check for fchmod and
+	sendfile.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* src/filesystem/ops.cc (do_copy_file): Fix arguments to open(). Do
+	not return after copying contents. Use fchmod, fchmodat, and sendfile
+	when available.
+	(current_path, permissions, space): Use errno not return value.
+
+	PR libstdc++/66018
+	* acinclude.m4 (GLIBCXX_CHECK_FILESYSTEM_DEPS): Check for struct
+	dirent.d_type.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac (AC_STRUCT_DIRENT_D_TYPE): Remove.
+
+2015-05-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_SJLJ_EXCEPTIONS): Delete.
+	* configure.ac: Remove GLIBCXX_ENABLE_SJLJ_EXCEPTIONS.
+	* config.h.in: Regenerate.
+	* configure: Likewise.
+	* libsupc++/eh_personality.cc: Replace _GLIBCXX_SJLJ_EXCEPTIONS by
+	__USING_SJLJ_EXCEPTIONS__.
+	* libsupc++/eh_throw.cc: Likewise.
+	* libsupc++/eh_ptr.cc: Likewise.
+	* doc/html/manual/appendix_porting.html: Remove
+	GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
+	* doc/xml/manual/build_hacking.xml: Likewise.
+	* doc/html/manual/configure.html: Remove --enable-sjlj-exceptions.
+	* doc/xml/manual/configure.xml: Likewise.
+
+2015-05-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/shared_ptr_base.h (__shared_count(unique_ptr&&)): Check
+	for nullptr (LWG 2415).
+	* testsuite/20_util/shared_ptr/cons/unique_ptr_deleter.cc: Test
+	construction from empty unique_ptr.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Adjust dg-error.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Likewise.
+
+	* include/bits/stl_raw_storage_iter.h (raw_storage_iterator::base()):
+	Define (LWG 2454).
+	* testsuite/20_util/raw_storage_iterator/base.cc: New.
+
+	* include/std/future (packaged_task(allocator_arg_t, const A&, F&&):
+	Remove explicit (LWG 2407).
+
+	* include/bits/basic_string.h (basic_string::basic_string()): Make
+	noexcept conditional on allocator (LWG 2455).
+
+	* include/std/complex (polar): Check for negative rho (LWG 2459).
+
+	* include/experimental/tuple (apply): Handle pointers to member (LWG
+	2418).
+	* include/std/functional (_Mem_fn_base): Make constructors constexpr.
+	(_Maybe_wrap_member_pointer::__do_wrap): Make constexpr.
+	* testsuite/experimental/tuple/apply.cc: Test pointer to member.
+
+	* include/bits/random.h (seed_seq): More noexcept (LWG 2440).
+
+	* include/bits/alloc_traits.h (_S_max_size): Implement LWG 2466.
+	* testsuite/20_util/allocator_traits/members/max_size.cc: Adjust.
+	* testsuite/23_containers/forward_list/allocator/minimal.cc:
+	Likewise.
+	* testsuite/23_containers/map/allocator/minimal.cc: Likewise.
+	* testsuite/23_containers/multimap/allocator/minimal.cc: Likewise.
+	* testsuite/23_containers/multiset/allocator/minimal.cc: Likewise.
+	* testsuite/23_containers/set/allocator/minimal.cc: Likewise.
+	* testsuite/23_containers/unordered_map/allocator/minimal.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_multimap/allocator/minimal.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_multiset/allocator/minimal.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_set/allocator/minimal.cc:
+	Likewise.
+	* testsuite/util/testsuite_allocator.h: Remove unused parameter.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_FILESYSTEM_TS): Re-enable on solaris.
+	* configure: Regenerate.
+
+2015-05-13  Michael Haubenwallner  <michael.haubenwallner@ssi-schaefer.com>
+
+	* Makefile.in: Regenerated with automake-1.11.6.
+	* aclocal.m4: Likewise.
+	* configure: Likewise.
+	* doc/Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* python/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* src/c++11/Makefile.in: Likewise.
+	* src/c++98/Makefile.in: Likewise.
+	* src/filesystem/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2015-05-09  Jason Merrill  <jason@redhat.com>
+
+	* testsuite/20_util/headers/functional/synopsis.cc: Add
+	_GLIBCXX14_CONSTEXPR.
+	* testsuite/25_algorithms/headers/algorithm/synopsis.cc: Likewise.
+
+2015-05-08  Jason Merrill  <jason@redhat.com>
+
+	* testsuite/19_diagnostics/headers/system_error/std_c++0x_neg.cc: Add -std=c++98.
+	* testsuite/20_util/auto_ptr/1.cc: Add -std=c++98.
+	* testsuite/20_util/auto_ptr/2.cc: Add -std=c++98.
+	* testsuite/20_util/auto_ptr/3.cc: Add -std=c++98.
+	* testsuite/20_util/auto_ptr/4.cc: Add -std=c++98.
+	* testsuite/20_util/auto_ptr/5.cc: Add -std=c++98.
+	* testsuite/20_util/auto_ptr/6.cc: Add -std=c++98.
+	* testsuite/20_util/auto_ptr/7.cc: Add -std=c++98.
+	* testsuite/20_util/auto_ptr/3946.cc: Add -std=c++98.
+	* testsuite/20_util/auto_ptr/assign_neg.cc: Add -std=c++98.
+	* testsuite/20_util/auto_ptr/requirements/explicit_instantiation/1.cc:
+	Likewise.
+	* testsuite/20_util/headers/functional/synopsis.cc: Add -Wno-deprecated.
+	* testsuite/23_containers/deque/requirements/dr438/assign_neg.cc:
+	Adjust expected errors.
+	* testsuite/23_containers/deque/requirements/dr438/constructor_1_neg.cc:
+	Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/constructor_2_neg.cc:
+	Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/constructor_1_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/constructor_2_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438
+	/constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438
+	/constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/ext/array_allocator/1.cc: Add -Wno-deprecated.
+	* testsuite/ext/array_allocator/2.cc: Add -Wno-deprecated.
+	* testsuite/ext/array_allocator/26875.cc: Add -Wno-deprecated.
+	* testsuite/ext/array_allocator/3.cc: Add -Wno-deprecated.
+	* testsuite/ext/array_allocator/check_allocate_max_size.cc:
+	Add -Wno-deprecated.
+	* testsuite/ext/array_allocator/check_deallocate_null.cc:
+	Add -Wno-deprecated.
+	* testsuite/ext/array_allocator/check_delete.cc: Add -Wno-deprecated.
+	* testsuite/ext/array_allocator/check_new.cc: Add -Wno-deprecated.
+	* testsuite/ext/profile/mutex_extensions_neg.cc: Prune follow-on error.
+	* testsuite/tr1/2_general_utilities/shared_ptr/assign/auto_ptr.cc:
+	Add -std=c++98.
+	* testsuite/tr1/2_general_utilities/shared_ptr/assign/auto_ptr_neg.cc:
+	Add -std=c++98.
+	* testsuite/tr1/2_general_utilities/shared_ptr/assign
+	/auto_ptr_rvalue_neg.cc: Add -std=c++98.
+	* testsuite/tr1/2_general_utilities/shared_ptr/cons/43820_neg.cc:
+	Add -std=c++98 -fno-show-column.
+	* testsuite/tr1/2_general_utilities/shared_ptr/cons/auto_ptr.cc:
+	Add -std=c++98.
+	* testsuite/tr1/2_general_utilities/shared_ptr/cons/auto_ptr_neg.cc:
+	Add -std=c++98.
+	* testsuite/tr1/6_containers/utility/pair.cc: Add -std=c++98.
+	* testsuite/tr1/8_c_compatibility/cmath/pow_cmath.cc: Add -std=c++98.
+
+	* src/c++98/Makefile.am (AM_CXXFLAGS): Add -std=gnu++98.
+	* src/c++98/Makefile.in: Regenerate.
+	* src/Makefile.am (AM_CXXFLAGS): Add -std=gnu++98.
+	* src/Makefile.in: Regenerate.
+
 2015-05-02  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/51617

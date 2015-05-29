@@ -5400,7 +5400,7 @@ extern bool xref_basetypes			(tree, tree);
 extern tree start_enum				(tree, tree, tree, bool, bool *);
 extern void finish_enum_value_list		(tree);
 extern void finish_enum				(tree);
-extern void build_enumerator			(tree, tree, tree, location_t);
+extern void build_enumerator			(tree, tree, tree, tree, location_t);
 extern tree lookup_enumerator			(tree, tree);
 extern bool start_preparsed_function		(tree, tree, int);
 extern bool start_function			(cp_decl_specifier_seq *,
@@ -5447,6 +5447,7 @@ extern tree finish_case_label			(location_t, tree, tree);
 extern tree cxx_maybe_build_cleanup		(tree, tsubst_flags_t);
 
 /* in decl2.c */
+extern void note_mangling_alias			(tree, tree);
 extern bool check_java_method			(tree);
 extern tree build_memfn_type			(tree, tree, cp_cv_quals, cp_ref_qualifier);
 extern tree build_pointer_ptrmemfn_type	(tree);

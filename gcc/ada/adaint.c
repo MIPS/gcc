@@ -38,6 +38,12 @@
 #define _REENTRANT
 #define _THREAD_SAFE
 
+/* Use 64 bit Large File API */
+#ifndef _LARGEFILE_SOURCE
+#define _LARGEFILE_SOURCE
+#endif
+#define _FILE_OFFSET_BITS 64
+
 #ifdef __vxworks
 
 /* No need to redefine exit here.  */
@@ -1164,23 +1170,37 @@ __gnat_tmp_name (char *tmp_filename)
     sprintf (tmp_filename, "%s/gnat-XXXXXX", tmpdir);
 
   close (mkstemp(tmp_filename));
-#elif defined (__vxworks) && !(defined (__RTP__) || defined (VTHREADS))
-  int             index;
-  char *          pos;
-  ushort_t        t;
+#elif defined (__vxworks) && !defined (VTHREADS)
+  int index;
+  char *pos;
+  char *savepos;
   static ushort_t seed = 0; /* used to generate unique name */
 
-  /* generate unique name */
+  /* Generate a unique name.  */
   strcpy (tmp_filename, "tmp");
 
-  /* fill up the name buffer from the last position */
   index = 5;
-  pos = tmp_filename + strlen (tmp_filename) + index;
+  savepos = pos = tmp_filename + strlen (tmp_filename) + index;
   *pos = '\0';
 
-  seed++;
-  for (t = seed; 0 <= --index; t >>= 3)
-      *--pos = '0' + (t & 07);
+  while (1)
+    {
+      FILE *f;
+      ushort_t t;
+
+      /* Fill up the name buffer from the last position.  */
+      seed++;
+      for (t = seed; 0 <= --index; t >>= 3)
+        *--pos = '0' + (t & 07);
+
+      /* Check to see if its unique, if not bump the seed and try again.  */
+      f = fopen (tmp_filename, "r");
+      if (f == NULL)
+        break;
+      fclose (f);
+      pos = savepos;
+      index = 5;
+    }
 #else
   tmpnam (tmp_filename);
 #endif

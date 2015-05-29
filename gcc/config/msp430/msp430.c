@@ -1696,7 +1696,7 @@ msp430_output_aligned_decl_common (FILE *                 stream,
     {
       fprintf (stream, COMMON_ASM_OP);
       assemble_name (stream, name);
-      fprintf (stream, ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",
+      fprintf (stream, "," HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",
 	       size, align / BITS_PER_UNIT);
     }
   else
@@ -2248,7 +2248,7 @@ static struct
 }
   const_shift_helpers[] =
 {
-#define CSH(N,C,X,G) { "__mspabi_"N, C, X, gen_##G }
+#define CSH(N,C,X,G) { "__mspabi_" N, C, X, gen_##G }
 
   CSH ("slli", 1, 1, slli_1),
   CSH ("slll", 1, 1, slll_1),

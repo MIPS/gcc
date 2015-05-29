@@ -2909,10 +2909,6 @@ static int call_site_count = -1;
 /* Number of tail call sites in the current function.  */
 static int tail_call_site_count = -1;
 
-/* Vector mapping block numbers to DW_TAG_{lexical_block,inlined_subroutine}
-   DIEs.  */
-static vec<dw_die_ref> block_map;
-
 /* A cached location list.  */
 struct GTY ((for_user)) cached_dw_loc_list_def {
   /* The DECL_UID of the decl that this entry describes.  */
@@ -5447,7 +5443,7 @@ print_dw_val (dw_val_node *val, bool recurse, FILE *outfile)
       fprintf (outfile, HOST_WIDE_INT_PRINT_UNSIGNED, val->v.val_unsigned);
       break;
     case dw_val_class_const_double:
-      fprintf (outfile, "constant ("HOST_WIDE_INT_PRINT_DEC","\
+      fprintf (outfile, "constant (" HOST_WIDE_INT_PRINT_DEC","\
 			HOST_WIDE_INT_PRINT_UNSIGNED")",
 	       val->v.val_double.high,
 	       val->v.val_double.low);
@@ -11148,7 +11144,7 @@ reg_loc_descriptor (rtx rtl, enum var_init_status initialized)
 
   regs = targetm.dwarf_register_span (rtl);
 
-  if (hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)] > 1 || regs)
+  if (REG_NREGS (rtl) > 1 || regs)
     return multiple_reg_loc_descriptor (rtl, regs, initialized);
   else
     {
@@ -11205,7 +11201,7 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs,
 #endif
 
       gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
-      nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
+      nregs = REG_NREGS (rtl);
 
       size = GET_MODE_SIZE (GET_MODE (rtl)) / nregs;
 
@@ -18369,8 +18365,7 @@ gen_call_site_die (tree decl, dw_die_ref subr_die,
 	 && block != DECL_INITIAL (decl)
 	 && TREE_CODE (block) == BLOCK)
     {
-      if (block_map.length () > BLOCK_NUMBER (block))
-	stmt_die = block_map[BLOCK_NUMBER (block)];
+      stmt_die = BLOCK_DIE (block);
       if (stmt_die)
 	break;
       block = BLOCK_SUPERCONTEXT (block);
@@ -19470,11 +19465,7 @@ gen_lexical_block_die (tree stmt, dw_die_ref context_die)
   dw_die_ref stmt_die = new_die (DW_TAG_lexical_block, context_die, stmt);
 
   if (call_arg_locations)
-    {
-      if (block_map.length () <= BLOCK_NUMBER (stmt))
-	block_map.safe_grow_cleared (BLOCK_NUMBER (stmt) + 1);
-      block_map[BLOCK_NUMBER (stmt)] = stmt_die;
-    }
+    BLOCK_DIE (stmt) = stmt_die;
 
   if (! BLOCK_ABSTRACT (stmt) && TREE_ASM_WRITTEN (stmt))
     add_high_low_attributes (stmt, stmt_die);
@@ -19507,11 +19498,7 @@ gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die)
 	= new_die (DW_TAG_inlined_subroutine, context_die, stmt);
 
       if (call_arg_locations)
-	{
-	  if (block_map.length () <= BLOCK_NUMBER (stmt))
-	    block_map.safe_grow_cleared (BLOCK_NUMBER (stmt) + 1);
-	  block_map[BLOCK_NUMBER (stmt)] = subr_die;
-	}
+	BLOCK_DIE (stmt) = subr_die;
       add_abstract_origin_attribute (subr_die, decl);
       if (TREE_ASM_WRITTEN (stmt))
         add_high_low_attributes (stmt, subr_die);
@@ -19946,23 +19933,26 @@ gen_member_die (tree type, dw_die_ref context_die)
 	gen_decl_die (member, NULL, context_die);
     }
 
+  /* We do not keep type methods in type variants.  */
+  gcc_assert (TYPE_MAIN_VARIANT (type) == type);
   /* Now output info about the function members (if any).  */
-  for (member = TYPE_METHODS (type); member; member = DECL_CHAIN (member))
-    {
-      /* Don't include clones in the member list.  */
-      if (DECL_ABSTRACT_ORIGIN (member))
-	continue;
-      /* Nor constructors for anonymous classes.  */
-      if (DECL_ARTIFICIAL (member)
-	  && dwarf2_name (member, 0) == NULL)
-	continue;
+  if (TYPE_METHODS (type) != error_mark_node)
+    for (member = TYPE_METHODS (type); member; member = DECL_CHAIN (member))
+      {
+	/* Don't include clones in the member list.  */
+	if (DECL_ABSTRACT_ORIGIN (member))
+	  continue;
+	/* Nor constructors for anonymous classes.  */
+	if (DECL_ARTIFICIAL (member)
+	    && dwarf2_name (member, 0) == NULL)
+	  continue;
 
-      child = lookup_decl_die (member);
-      if (child)
-	splice_child_die (context_die, child);
-      else
-	gen_decl_die (member, NULL, context_die);
-    }
+	child = lookup_decl_die (member);
+	if (child)
+	  splice_child_die (context_die, child);
+	else
+	  gen_decl_die (member, NULL, context_die);
+      }
 }
 
 /* Generate a DIE for a structure or union type.  If TYPE_DECL_SUPPRESS_DEBUG
@@ -21405,7 +21395,6 @@ dwarf2out_function_decl (tree decl)
   call_arg_loc_last = NULL;
   call_site_count = -1;
   tail_call_site_count = -1;
-  block_map.release ();
   decl_loc_table->empty ();
   cached_dw_loc_list_table->empty ();
 }
@@ -25006,7 +24995,6 @@ dwarf2out_c_finalize (void)
   call_arg_loc_last = NULL;
   call_site_count = -1;
   tail_call_site_count = -1;
-  //block_map = NULL;
   cached_dw_loc_list_table = NULL;
   abbrev_die_table = NULL;
   abbrev_die_table_allocated = 0;
