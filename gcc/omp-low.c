@@ -243,6 +243,11 @@ typedef struct omp_context
   tree ganglocal_ptr;
   tree ganglocal_size;
   tree ganglocal_size_host;
+
+  /* For OpenACC offloaded regions, variables holding the worker id and count
+     of workers.  */
+  tree worker_var;
+  tree worker_count;
 } omp_context;
 
 /* A structure holding the elements of:
@@ -12300,6 +12305,35 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     }
 }
 
+/* A subroutine of lower_omp_target.  Build variables holding the
+   worker count and index for use inside in ganglocal memory allocations.  */
+
+static void
+oacc_init_count_vars (omp_context *ctx, tree clauses ATTRIBUTE_UNUSED)
+{
+  tree gettid = builtin_decl_explicit (BUILT_IN_GOACC_TID);
+  tree getntid = builtin_decl_explicit (BUILT_IN_GOACC_NTID);
+  tree worker_var, worker_count;
+  tree u1 = fold_convert (unsigned_type_node, integer_one_node);
+  tree u0 = fold_convert (unsigned_type_node, integer_zero_node);
+  if (ctx->gwv_this & MASK_WORKER)
+    {
+      worker_var = create_tmp_var (unsigned_type_node, ".worker");
+      worker_count = create_tmp_var (unsigned_type_node, ".workercount");
+      gimple call1 = gimple_build_call (gettid, 1, u1);
+      gimple_call_set_lhs (call1, worker_var);
+      gimple_seq_add_stmt (&ctx->ganglocal_init, call1);
+      gimple call2 = gimple_build_call (getntid, 1, u1);
+      gimple_call_set_lhs (call2, worker_count);
+      gimple_seq_add_stmt (&ctx->ganglocal_init, call2);
+    }
+  else
+    worker_var = u0, worker_count = u1;
+
+  ctx->worker_var = worker_var;
+  ctx->worker_count = worker_count;
+}
+
 /* Lower the GIMPLE_OMP_TARGET in the current statement
    in GSI_P.  CTX holds context information for the directive.  */
 
@@ -12464,6 +12498,9 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   irlist = NULL;
   orlist = NULL;
+
+  if (is_gimple_omp_oacc (stmt))
+    oacc_init_count_vars (ctx, clauses);
 
   if (has_reduction)
     {

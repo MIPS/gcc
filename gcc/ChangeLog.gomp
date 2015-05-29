@@ -1,5 +1,10 @@
 2015-05-29  Bernd Schmidt  <bernds@codesourcery.com>
 
+	* omp-low.c (struct omp_context): Add worker_var and worker_count
+	fields.
+	(oacc_init_count_vars): New function.
+	(lower_omp_target): Call it.
+
 	* config/nvptx/nvptx.md (UNSPECV_BARSYNC): New constant.
 	(oacc_threadbarrier): New expander.
 	(threadbarrier_insn): New pattern.
