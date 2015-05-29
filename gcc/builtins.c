@@ -5946,6 +5946,19 @@ expand_builtin_acc_on_device (tree exp, rtx target)
 #endif
 }
 
+/* Expand a thread synchronization point for OpenACC threads.  */
+static void
+expand_oacc_threadbarrier (void)
+{
+#ifdef HAVE_oacc_threadbarrier
+  rtx insn = GEN_FCN (CODE_FOR_oacc_threadbarrier) ();
+  if (insn != NULL_RTX)
+    {
+      emit_insn (insn);
+    }
+#endif
+}
+
 
 /* Expand a thread-id/thread-count builtin for OpenACC.  */
 static rtx
@@ -7216,6 +7229,10 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
     case BUILT_IN_GOACC_THREAD_BROADCAST:
     case BUILT_IN_GOACC_THREAD_BROADCAST_LL:
       return expand_builtin_oacc_thread_broadcast (exp, target);
+
+    case BUILT_IN_GOACC_THREADBARRIER:
+      expand_oacc_threadbarrier ();
+      return const0_rtx;
 
     default:	/* just do library call, if unknown builtin */
       break;

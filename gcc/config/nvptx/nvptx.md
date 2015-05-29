@@ -62,6 +62,7 @@
    UNSPECV_CAS
    UNSPECV_XCHG
    UNSPECV_WARP_BCAST
+   UNSPECV_BARSYNC
 ])
 
 (define_attr "subregs_ok" "false,true"
@@ -1457,3 +1458,16 @@
 	(match_dup 1))]
   "<MODE>mode == SImode || TARGET_SM35"
   "%.\\tatom%A1.b%T0.<logic>\\t%0, %1, %2;")
+
+;; ??? Mark as not predicable later?
+(define_insn "threadbarrier_insn"
+  [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")] UNSPECV_BARSYNC)]
+  ""
+  "bar.sync\\t%0;")
+
+(define_expand "oacc_threadbarrier"
+  [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")] UNSPECV_BARSYNC)]
+  ""
+{
+  operands[0] = const0_rtx;
+})

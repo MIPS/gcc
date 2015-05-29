@@ -1,5 +1,13 @@
 2015-05-29  Bernd Schmidt  <bernds@codesourcery.com>
 
+	* config/nvptx/nvptx.md (UNSPECV_BARSYNC): New constant.
+	(oacc_threadbarrier): New expander.
+	(threadbarrier_insn): New pattern.
+	* config/nvptx/nvptx.c (nvptx_cannot_copy_insn_p):
+	* omp-builtins.def (BUILT_IN_GOACC_THREADBARRIER): Define.
+	* builtins.c (expand_oacc_threadbarrier): Expand it.
+	(expand_builtin): Handle it.
+
 	* gimple.def (GIMPLE_OMP_ENTRY_END): New code.
 	* gimple.h (gimple_build_omp_entry_end): Declare.
 	(CASE_GIMPLE_OMP): Add GIMPLE_OMP_ENTRY_END.
