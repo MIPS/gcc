@@ -9480,6 +9480,11 @@ expand_omp_target (struct omp_region *region)
 	}
     }
 
+  basic_block entry_succ_bb = single_succ (entry_bb);
+  gsi = gsi_last_bb (entry_succ_bb);
+  if (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_ENTRY_END)
+    gsi_remove (&gsi, true);
+
   if (offloaded
       && do_splitoff)
     {
@@ -9501,7 +9506,6 @@ expand_omp_target (struct omp_region *region)
       tree data_arg = gimple_omp_target_data_arg (entry_stmt);
       if (data_arg)
 	{
-	  basic_block entry_succ_bb = single_succ (entry_bb);
 	  gimple_stmt_iterator gsi;
 	  tree arg, narg;
 	  gimple tgtcopy_stmt = NULL;
@@ -10131,6 +10135,8 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 	  gcc_assert (parent);
 	  parent->cont = bb;
 	}
+      else if (code == GIMPLE_OMP_ENTRY_END)
+	gcc_assert (parent);
       else if (code == GIMPLE_OMP_SECTIONS_SWITCH)
 	{
 	  /* GIMPLE_OMP_SECTIONS_SWITCH is part of
@@ -10307,6 +10313,9 @@ predicate_bb (basic_block bb, struct omp_region *parent)
 
   basic_block skip_dest_bb = NULL;
   basic_block *adjust_bb_ptr = NULL;
+
+  if (gimple_code (stmt) == GIMPLE_OMP_ENTRY_END)
+    return;
 
   if (gimple_code (stmt) == GIMPLE_COND)
     {
@@ -12705,6 +12714,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   if (offloaded)
     {
+      gimple_seq_add_stmt (&new_body, gimple_build_omp_entry_end ());
       if (has_reduction)
 	{
 	  gimple_seq_add_seq (&irlist, tgt_body);
@@ -13442,6 +13452,7 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
       fallthru = false;
       break;
 
+    case GIMPLE_OMP_ENTRY_END:
     case GIMPLE_OMP_ATOMIC_LOAD:
     case GIMPLE_OMP_ATOMIC_STORE:
        fallthru = true;

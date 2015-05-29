@@ -1351,6 +1351,7 @@ gimple gimple_build_omp_taskgroup (gimple_seq);
 gomp_continue *gimple_build_omp_continue (tree, tree);
 gimple gimple_build_omp_ordered (gimple_seq);
 gimple gimple_build_omp_return (bool);
+gimple gimple_build_omp_entry_end ();
 gomp_sections *gimple_build_omp_sections (gimple_seq, tree);
 gimple gimple_build_omp_sections_switch (void);
 gomp_single *gimple_build_omp_single (gimple_seq, tree);
@@ -5597,6 +5598,7 @@ gimple_return_set_retbnd (gimple gs, tree retval)
     case GIMPLE_OMP_ORDERED:			\
     case GIMPLE_OMP_CRITICAL:			\
     case GIMPLE_OMP_RETURN:			\
+    case GIMPLE_OMP_ENTRY_END:			\
     case GIMPLE_OMP_ATOMIC_LOAD:		\
     case GIMPLE_OMP_ATOMIC_STORE:		\
     case GIMPLE_OMP_CONTINUE

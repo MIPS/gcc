@@ -1,3 +1,18 @@
+2015-05-29  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* gimple.def (GIMPLE_OMP_ENTRY_END): New code.
+	* gimple.h (gimple_build_omp_entry_end): Declare.
+	(CASE_GIMPLE_OMP): Add GIMPLE_OMP_ENTRY_END.
+	* gimple.c (gimple_build_omp_entry_end): New function.
+	* gimple-low.c (lower_stmt): Handle GIMPLE_OMP_ENTRY_END.
+	* omp-low.c (expand_omp_target): Remove the entry end statement.
+	(predicate_bb): Don't predicate a block ending with
+	GIMPLE_OMP_ENTRY_END.
+	(lower_omp_target): Append a GIMPLE_OMP_ENTRY_END after the
+	ganglocal data allocation.
+	(make_gimple_omp_edges): Handle GIMPLE_OMP_ENTRY_END.
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Likewise.
+
 2015-05-28  Tom de Vries  <tom@codesourcery.com>
 
 	* passes.def: Replace pass_copy_prop with pass_fre. Surround with
