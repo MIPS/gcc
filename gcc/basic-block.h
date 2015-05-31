@@ -187,7 +187,7 @@ enum cfg_bb_flags
    the bit masks that are *not* cleared by clear_bb_flags.  */
 #define BB_FLAGS_TO_PRESERVE					\
   (BB_DISABLE_SCHEDULE | BB_RTL | BB_NON_LOCAL_GOTO_TARGET	\
-   | BB_HOT_PARTITION | BB_COLD_PARTITION)
+   | BB_HOT_PARTITION | BB_COLD_PARTITION | BB_CALL_UNWIND_RESUME)
 
 /* Dummy bitmask for convenience in the hot/cold partitioning code.  */
 #define BB_UNPARTITIONED	0

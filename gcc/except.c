@@ -972,9 +972,10 @@ emit_to_new_bb_before (rtx_insn *seq, rtx insn)
   last = emit_insn_before (seq, insn);
   if (BARRIER_P (last))
     last = PREV_INSN (last);
+  int resume = BLOCK_FOR_INSN (insn)->flags & BB_CALL_UNWIND_RESUME;
   bb = create_basic_block (seq, last, BLOCK_FOR_INSN (insn)->prev_bb);
   update_bb_for_insn (bb);
-  bb->flags |= BB_SUPERBLOCK;
+  bb->flags |= BB_SUPERBLOCK | resume;
   return bb;
 }
 

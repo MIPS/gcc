@@ -1351,7 +1351,8 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	     allocate such regs in this case.  */
 	  if (!cfun->has_nonlocal_label && bb_has_abnormal_call_pred (bb))
 	    for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
-	      if (call_used_regs[px])
+	      if (call_used_regs[px]
+		  || (bb->flags & BB_CALL_UNWIND_RESUME))
 		make_hard_regno_born (px);
 	}
 

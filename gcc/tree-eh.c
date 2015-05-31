@@ -3320,6 +3320,7 @@ lower_resx (basic_block bb, gresx *stmt,
 	  gimple_call_set_lhs (x, var);
 	  gsi_insert_before (&gsi, x, GSI_SAME_STMT);
 
+	  bb->flags |= BB_CALL_UNWIND_RESUME;
 	  fn = builtin_decl_implicit (BUILT_IN_UNWIND_RESUME);
 	  x = gimple_build_call (fn, 1, var);
 	  gsi_insert_before (&gsi, x, GSI_SAME_STMT);
