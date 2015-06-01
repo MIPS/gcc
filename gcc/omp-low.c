@@ -162,6 +162,8 @@ struct omp_region
 
   /* For an OpenACC loop, the level of parallelism requested.  */
   int gwv_this;
+
+  tree broadcast_array;
 };
 
 /* Levels of parallelism as defined by OpenACC.  Increasing numbers
@@ -248,6 +250,11 @@ typedef struct omp_context
      of workers.  */
   tree worker_var;
   tree worker_count;
+
+  /* For offloaded regions, at runtime this variable holds a pointer
+     to the location that should be used for thread
+     synchronization.  */
+  tree worker_sync_elt;
 } omp_context;
 
 /* A structure holding the elements of:
@@ -1490,7 +1497,7 @@ alloc_var_ganglocal (tree underlying_var, tree vartype, omp_context *ctx,
   /* If this is a pointer mapping, then we need to create too mappings, one
      for the pointer, and another to the data.  Add the offset for the pointer
      to size.  */
-  bool pointer = is_reference (underlying_var);
+  bool pointer = underlying_var ? is_reference (underlying_var) : false;
 
   if (pointer)
     size = fold_build2 (PLUS_EXPR, TREE_TYPE (size), size,
@@ -9394,6 +9401,25 @@ expand_omp_atomic (struct omp_region *region)
   expand_omp_atomic_mutex (load_bb, store_bb, addr, loaded_val, stored_val);
 }
 
+/* Allocate storage for OpenACC worker threads in CTX to broadcast
+   condition results.  CLAUSES are the clauses of the parallel construct.  */
+
+static void
+oacc_alloc_broadcast_storage (omp_context *ctx, tree clauses)
+{
+  tree vull_type_node = build_qualified_type (long_long_unsigned_type_node,
+					       TYPE_QUAL_VOLATILE);
+  tree uptr_node = build_pointer_type (vull_type_node);
+
+  tree clause = find_omp_clause (clauses, OMP_CLAUSE_NUM_WORKERS);
+  tree host_count = integer_one_node;
+  if (clause)
+    host_count = OMP_CLAUSE_NUM_WORKERS_EXPR (clause);
+
+  ctx->worker_sync_elt
+    = alloc_var_ganglocal (NULL_TREE, long_long_unsigned_type_node,
+			   ctx, TYPE_SIZE_UNIT (long_long_unsigned_type_node));
+}
 
 /* Expand the GIMPLE_OMP_TARGET starting at REGION.  */
 
@@ -10080,7 +10106,8 @@ find_omp_for_region_data (struct omp_region *region, gimple stmt)
    OMP_TARGET STMT.  */
 
 static void
-find_omp_target_region_data (struct omp_region *region, gimple stmt)
+find_omp_target_region_data (struct omp_region *region,
+			     gomp_target *stmt)
 {
   if (!is_gimple_omp_oacc (stmt))
     return;
@@ -10092,6 +10119,7 @@ find_omp_target_region_data (struct omp_region *region, gimple stmt)
     region->gwv_this |= MASK_WORKER;
   if (find_omp_clause (clauses, OMP_CLAUSE_VECTOR_LENGTH))
     region->gwv_this |= MASK_VECTOR;
+  region->broadcast_array = gimple_omp_target_broadcast_array (stmt);
 }
 
 /* Helper for build_omp_regions.  Scan the dominator tree starting at
@@ -10163,7 +10191,8 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 		case GF_OMP_TARGET_KIND_OACC_PARALLEL:
 		case GF_OMP_TARGET_KIND_OACC_KERNELS:
 		case GF_OMP_TARGET_KIND_OACC_DATA:
-		  find_omp_target_region_data (region, stmt);
+		  find_omp_target_region_data (region,
+					       as_a <gomp_target *> (stmt));
 		  break;
 		case GF_OMP_TARGET_KIND_UPDATE:
 		case GF_OMP_TARGET_KIND_OACC_UPDATE:
@@ -10244,34 +10273,54 @@ enclosing_target_region (omp_region *region)
   return region;
 }
 
-/* Return true if basic blocks in REGION require OpenACC vector
-   predication.  */
-static bool
-requires_vector_predicate (struct omp_region *region)
+/* Return a mask of GWV_ values indicating the kind of OpenACC
+   predication required for basic blocks in REGION.  */
+
+static int
+required_predication_mask (omp_region *region)
 {
   while (region
 	 && region->type != GIMPLE_OMP_FOR && region->type != GIMPLE_OMP_TARGET)
     region = region->outer;
   if (!region)
-    return false;
-  omp_region *outer_target = enclosing_target_region (region);
-  if (!outer_target || (outer_target->gwv_this & MASK_VECTOR) == 0)
-    return false;
-  if (region->type == GIMPLE_OMP_FOR && (region->gwv_this & MASK_VECTOR) == 0)
-    return true;
-  return false;
+    return 0;
+
+  int outer_masks = region->gwv_this;
+  omp_region *outer_target = region;
+  while (outer_target != NULL && outer_target->type != GIMPLE_OMP_TARGET)
+    {
+      if (outer_target->type == GIMPLE_OMP_FOR)
+	outer_masks |= outer_target->gwv_this;
+      outer_target = outer_target->outer;
+    }
+  if (!outer_target)
+    return 0;
+
+  int mask = 0;
+  if ((outer_target->gwv_this & MASK_WORKER) != 0
+      && (region->type == GIMPLE_OMP_TARGET
+	  || (outer_masks & MASK_WORKER) == 0))
+    mask |= MASK_WORKER;
+  if ((outer_target->gwv_this & MASK_VECTOR) != 0
+      && (region->type == GIMPLE_OMP_TARGET
+	  || (outer_masks & MASK_VECTOR) == 0))
+    mask |= MASK_VECTOR;
+  return mask;
 }
 
 /* Generate a broadcast across OpenACC vector threads (a warp on GPUs)
-   so that VAR is broadcast to DEST_VAR.  The new statements are
-   added after WHERE.  */
-static void
+   so that VAR is broadcast to DEST_VAR.  The new statements are added
+   after WHERE.  Return the stmt after which the block should be split.  */
+
+static gimple
 generate_vector_broadcast (tree dest_var, tree var,
 			   gimple_stmt_iterator &where)
 {
+  gimple retval = gsi_stmt (where);
   tree vartype = TREE_TYPE (var);
   tree call_arg_type = unsigned_type_node;
   enum built_in_function fn = BUILT_IN_GOACC_THREAD_BROADCAST;
+
   if (TYPE_PRECISION (vartype) > TYPE_PRECISION (call_arg_type))
     {
       fn = BUILT_IN_GOACC_THREAD_BROADCAST_LL;
@@ -10299,16 +10348,106 @@ generate_vector_broadcast (tree dest_var, tree var,
       gsi_insert_after (&where, conv2, GSI_CONTINUE_LINKING);
     }
   gimple_call_set_lhs (call, casted_dest);
-
+  return retval;
 }
 
-/* Apply OpenACC vector predication to basic block BB which is in
-   region PARENT.  */
+/* Generate a broadcast across OpenACC threads in REGION so that VAR
+   is broadcast to DEST_VAR.  MASK specifies the parallelism level and
+   thereby the broadcast method.  If it is equal to MASK_VECTOR, we
+   can use a warp broadcast, otherwise we fall back to memory
+   store/load.  */
+
+static gimple
+generate_oacc_broadcast (omp_region *region, tree dest_var, tree var,
+			 gimple_stmt_iterator &where, int mask)
+{
+  if (mask == MASK_VECTOR)
+    return generate_vector_broadcast (dest_var, var, where);
+
+  omp_region *parent = enclosing_target_region (region);
+
+  tree elttype = build_qualified_type (TREE_TYPE (var), TYPE_QUAL_VOLATILE);
+  tree ptr = create_tmp_var (build_pointer_type (elttype));
+  gassign *cast1 = gimple_build_assign (ptr, NOP_EXPR,
+				       parent->broadcast_array);
+  gsi_insert_after (&where, cast1, GSI_NEW_STMT);
+  gassign *st = gimple_build_assign (build_simple_mem_ref (ptr), var);
+  gsi_insert_after (&where, st, GSI_NEW_STMT);
+
+  tree fndecl = builtin_decl_explicit (BUILT_IN_GOACC_THREADBARRIER);
+  gcall *sync_bar = gimple_build_call (fndecl, 0);
+  gsi_insert_after (&where, sync_bar, GSI_NEW_STMT);
+
+  gassign *cast2 = gimple_build_assign (ptr, NOP_EXPR,
+					parent->broadcast_array);
+  gsi_insert_after (&where, cast2, GSI_NEW_STMT);
+  gassign *ld = gimple_build_assign (dest_var, build_simple_mem_ref (ptr));
+  gsi_insert_after (&where, ld, GSI_NEW_STMT);
+
+  return st;
+}
+
+/* Build a test for OpenACC predication.  TRUE_EDGE is the edge that should be
+   taken if the block should be executed.  SKIP_DEST_BB is the destination to
+   jump to otherwise.  MASK specifies the type of predication, it can contain
+   the bits MASK_VECTOR and/or MASK_WORKER.  */
 
 static void
-predicate_bb (basic_block bb, struct omp_region *parent)
+make_predication_test (edge true_edge, basic_block skip_dest_bb, int mask)
 {
-  if (!requires_vector_predicate (parent))
+  basic_block cond_bb = true_edge->src;
+  
+  gimple_stmt_iterator tmp_gsi = gsi_last_bb (cond_bb);
+  tree decl = builtin_decl_explicit (BUILT_IN_GOACC_TID);
+
+  tree vvar = NULL_TREE, wvar = NULL_TREE;
+  tree comp_var = NULL_TREE;
+  if (mask & MASK_VECTOR)
+    {
+      gimple call = gimple_build_call (decl, 1, integer_zero_node);
+      vvar = create_tmp_var (unsigned_type_node);
+      comp_var = vvar;
+      gimple_call_set_lhs (call, vvar);
+      gsi_insert_after (&tmp_gsi, call, GSI_NEW_STMT);
+    }
+  if (mask & MASK_WORKER)
+    {
+      gimple call = gimple_build_call (decl, 1, integer_one_node);
+      wvar = create_tmp_var (unsigned_type_node);
+      comp_var = wvar;
+      gimple_call_set_lhs (call, wvar);
+      gsi_insert_after (&tmp_gsi, call, GSI_NEW_STMT);
+    }
+  if (wvar && vvar)
+    {
+      comp_var = create_tmp_var (unsigned_type_node);
+      gassign *ior = gimple_build_assign (comp_var, BIT_IOR_EXPR, wvar, vvar);
+      gsi_insert_after (&tmp_gsi, ior, GSI_NEW_STMT);
+    }
+  tree cond = build2 (EQ_EXPR, boolean_type_node, comp_var,
+		      fold_convert (unsigned_type_node, integer_zero_node));
+  gimple cond_stmt = gimple_build_cond_empty (cond);
+  gsi_insert_after (&tmp_gsi, cond_stmt, GSI_NEW_STMT);
+
+  true_edge->flags = EDGE_TRUE_VALUE;
+  make_edge (cond_bb, skip_dest_bb, EDGE_FALSE_VALUE);
+}
+
+/* Apply OpenACC predication to basic block BB which is in
+   region PARENT.  MASK has a bitmask of levels that need to be
+   applied; MASK_VECTOR and/or MASK_WORKER may be set.  */
+
+static void
+predicate_bb (basic_block bb, struct omp_region *parent, int mask)
+{
+  /* We handle worker-single vector-partitioned loops by jumping
+     around them if not in the controlling worker.  Don't insert
+     unnecessary (and incorrect) predication.  */
+  if (parent->type == GIMPLE_OMP_FOR
+      && (parent->gwv_this & MASK_VECTOR))
+    mask &= ~MASK_WORKER;
+
+  if (mask == 0)
     return;
 
   gimple_stmt_iterator gsi;
@@ -10336,9 +10475,11 @@ predicate_bb (basic_block bb, struct omp_region *parent)
       gsi_insert_before (&gsi, asgn, GSI_CONTINUE_LINKING);
       gimple_stmt_iterator gsi_asgn = gsi_for_stmt (asgn);
 
-      generate_vector_broadcast (broadcast_cond, cond_var, gsi_asgn);
+      gimple splitpoint = generate_oacc_broadcast (parent, broadcast_cond,
+						   cond_var, gsi_asgn,
+						   mask);
 
-      edge e = split_block (bb, asgn);
+      edge e = split_block (bb, splitpoint);
       skip_dest_bb = e->dest;
 
       gimple_cond_set_condition (as_a <gcond *> (stmt), EQ_EXPR,
@@ -10354,9 +10495,10 @@ predicate_bb (basic_block bb, struct omp_region *parent)
       gsi_insert_before (&gsi, asgn, GSI_CONTINUE_LINKING);
       gimple_stmt_iterator gsi_asgn = gsi_for_stmt (asgn);
 
-      generate_vector_broadcast (new_var, var, gsi_asgn);
+      gimple splitpoint = generate_oacc_broadcast (parent, new_var, var,
+						   gsi_asgn, mask);
 
-      edge e = split_block (bb, asgn);
+      edge e = split_block (bb, splitpoint);
       skip_dest_bb = e->dest;
 
       gimple_switch_set_index (sstmt, new_var);
@@ -10364,21 +10506,58 @@ predicate_bb (basic_block bb, struct omp_region *parent)
   else if (is_gimple_omp (stmt))
     {
       gsi_prev (&gsi);
+      gimple split_stmt = gsi_stmt (gsi);
+
+      /* First, see if we must predicate away an entire loop.  */
+      if (gimple_code (stmt) == GIMPLE_OMP_FOR)
+	{
+	  omp_region *inner;
+	  inner = *bb_region_map->get (FALLTHRU_EDGE (bb)->dest);
+	  skip_dest_bb = single_succ (inner->exit);
+	  gcc_assert (inner->entry == bb);
+	  if ((inner->gwv_this & (MASK_VECTOR | MASK_WORKER)) == MASK_VECTOR
+	      && (mask & MASK_WORKER) != 0)
+	    {
+	      gimple_stmt_iterator head_gsi = gsi_start_bb (bb);
+	      gsi_prev (&head_gsi);
+	      edge e0 = split_block (bb, gsi_stmt (head_gsi));
+
+	      if (!split_stmt)
+		{
+		  /* The simple case: nothing here except the for,
+		     so we just need to make one branch around the
+		     entire loop.  */
+		  inner->entry = e0->dest;
+		  make_predication_test (e0, skip_dest_bb,
+					 mask & ~MASK_VECTOR);
+		  return;
+		}
+	      basic_block for_block = e0->dest;
+	      /* The general case, make two conditions - a full one around the
+		 code preceding the for, and one branch around the loop.  */
+	      edge e1 = split_block (for_block, split_stmt);
+	      basic_block bb3 = e1->dest;
+	      edge e2 = split_block (for_block, split_stmt);
+	      basic_block bb2 = e2->dest;
+
+	      make_predication_test (e0, bb2, mask);
+	      make_predication_test (single_pred_edge (bb3), skip_dest_bb,
+				     mask & ~MASK_VECTOR);
+	      inner->entry = bb3;
+	      return;
+	    }
+	}
+
       /* Only a few statements need special treatment.  */
       if (gimple_code (stmt) != GIMPLE_OMP_FOR
-	  && gimple_code (stmt) != GIMPLE_OMP_CONTINUE)
+	       && gimple_code (stmt) != GIMPLE_OMP_CONTINUE
+	       && gimple_code (stmt) != GIMPLE_OMP_RETURN)
 	{
 	  edge e = single_succ_edge (bb);
 	  skip_dest_bb = e->dest;
-	  if (gimple_code (stmt) == GIMPLE_OMP_RETURN)
-	    {
-	      gcc_assert (parent->exit == bb);
-	      adjust_bb_ptr = &parent->exit;
-	    }
 	}
       else
 	{
-	  gimple split_stmt = gsi_stmt (gsi);
 	  if (!split_stmt)
 	    return;
 	  edge e = split_block (bb, split_stmt);
@@ -10387,6 +10566,11 @@ predicate_bb (basic_block bb, struct omp_region *parent)
 	    {
 	      gcc_assert (parent->cont == bb);
 	      parent->cont = skip_dest_bb;
+	    }
+	  else if (gimple_code (stmt) == GIMPLE_OMP_RETURN)
+	    {
+	      gcc_assert (parent->exit == bb);
+	      parent->exit = skip_dest_bb;
 	    }
 	  else if (gimple_code (stmt) == GIMPLE_OMP_FOR)
 	    {
@@ -10412,37 +10596,18 @@ predicate_bb (basic_block bb, struct omp_region *parent)
       gimple_stmt_iterator head_gsi = gsi_start_bb (bb);
       gsi_prev (&head_gsi);
       edge e2 = split_block (bb, gsi_stmt (head_gsi));
-      basic_block cond_bb = e2->src;
-
-      if (adjust_bb_ptr)
-	*adjust_bb_ptr = e2->dest;
-
-      gimple_stmt_iterator tmp_gsi = gsi_last_bb (cond_bb);
-
-      tree decl = builtin_decl_explicit (BUILT_IN_GOACC_TID);
-      gimple call = gimple_build_call (decl, 1, integer_zero_node);
-      tree tmp_var = create_tmp_var (unsigned_type_node);
-      gimple_call_set_lhs (call, tmp_var);
-
-      gsi_insert_after (&tmp_gsi, call, GSI_NEW_STMT);
-
-      tree cond = build2 (EQ_EXPR, boolean_type_node, tmp_var,
-			  fold_convert (unsigned_type_node, integer_zero_node));
-      gimple cond_stmt = gimple_build_cond_empty (cond);
-      gsi_insert_after (&tmp_gsi, cond_stmt, GSI_CONTINUE_LINKING);
-
-      e2->flags = EDGE_TRUE_VALUE;
-      make_edge (cond_bb, skip_dest_bb, EDGE_FALSE_VALUE);
+      make_predication_test (e2, skip_dest_bb, mask);
     }
 }
 
 /* Walk the dominator tree starting at BB to collect basic blocks in
    WORKLIST which need OpenACC vector predication applied to them.  */
+
 static void
 find_predicatable_bbs (basic_block bb, vec<basic_block> &worklist)
 {
   struct omp_region *parent = *bb_region_map->get (bb);
-  if (requires_vector_predicate (parent))
+  if (required_predication_mask (parent) != 0)
     worklist.safe_push (bb);
   basic_block son;
   for (son = first_dom_son (CDI_DOMINATORS, bb);
@@ -10453,6 +10618,7 @@ find_predicatable_bbs (basic_block bb, vec<basic_block> &worklist)
 
 /* Apply OpenACC vector predication to all basic blocks.  HEAD_BB is the
    first.  */
+
 static void
 predicate_omp_regions (basic_block head_bb)
 {
@@ -10461,7 +10627,11 @@ predicate_omp_regions (basic_block head_bb)
   int i;
   basic_block bb;
   FOR_EACH_VEC_ELT (worklist, i, bb)
-    predicate_bb (bb, *bb_region_map->get (bb));
+    {
+      omp_region *region = *bb_region_map->get (bb);
+      int mask = required_predication_mask (region);
+      predicate_bb (bb, region, mask);
+    }
 }
 
 /* Main entry point for expanding OMP-GIMPLE into runtime calls.  */
@@ -12503,7 +12673,10 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   orlist = NULL;
 
   if (is_gimple_omp_oacc (stmt))
-    oacc_init_count_vars (ctx, clauses);
+    {
+      oacc_init_count_vars (ctx, clauses);
+      oacc_alloc_broadcast_storage (ctx, clauses);
+    }
 
   if (has_reduction)
     {
@@ -12790,7 +12963,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gsi_insert_seq_before (gsi_p, sz_ilist, GSI_SAME_STMT);
 
   gimple_omp_target_set_ganglocal_size (stmt, sz);
-
+  gimple_omp_target_set_broadcast_array (stmt, ctx->worker_sync_elt);
   pop_gimplify_context (NULL);
 }
 

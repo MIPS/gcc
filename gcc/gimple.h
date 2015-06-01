@@ -580,6 +580,10 @@ struct GTY((tag("GSS_OMP_PARALLEL_LAYOUT")))
   /* [ WORD 11 ]
      Size of the gang-local memory to allocate.  */
   tree ganglocal_size;
+
+  /* [ WORD 12 ]
+     A pointer to the array to be used for broadcasting across threads.  */
+  tree broadcast_array;
 };
 
 /* GIMPLE_OMP_PARALLEL or GIMPLE_TASK */
@@ -5240,6 +5244,25 @@ static inline void
 gimple_omp_target_set_ganglocal_size (gomp_target *omp_target_stmt, tree size)
 {
   omp_target_stmt->ganglocal_size = size;
+}
+
+
+/* Return the pointer to the broadcast array associated with OMP_TARGET GS.  */
+
+static inline tree
+gimple_omp_target_broadcast_array (const gomp_target *omp_target_stmt)
+{
+  return omp_target_stmt->broadcast_array;
+}
+
+
+/* Set PTR to be the broadcast array associated with OMP_TARGET
+   GS.  */
+
+static inline void
+gimple_omp_target_set_broadcast_array (gomp_target *omp_target_stmt, tree ptr)
+{
+  omp_target_stmt->broadcast_array = ptr;
 }
 
 

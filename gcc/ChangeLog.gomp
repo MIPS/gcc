@@ -1,3 +1,29 @@
+2015-06-01  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* gimple.h (struct gimple_statement_omp_parallel_layout): Add a
+	broadcast_array field.
+	(gimple_omp_target_broadcast_array,
+	gimple_omp_target_set_broadcast_array): New inline functions.
+	* omp-low.c (struct omp_region): Add a broadcast_array field.
+	(find_omp_target_region_data): Initialize it.  Change STMT arg to
+	be a gomp_target *.  All callers changed.
+	(struct omp_context): Add worker_sync_elt field.
+	(alloc_var_ganglocal): Properly handle a NULL underlying_var.
+	(oacc_alloc_broadcast_storage): Likewise.
+	(required_predication_mask): New function.
+	(requires_vector_predicate): Remove.  All callers changed to use
+	required_predication_mask.
+	(generate_vector_broadcast): Return a statement suitable as a
+	block splitting point.
+	(generate_oacc_broadcast, make_predication_test): New static
+	functions.
+	(predicate_bb): New arg MASK.  All callers changed.  Use
+	generate_oacc_braodcast and use the split point it returns.
+	Handle WSVP regions by jumping across entire loops.  Use
+	make_predication_test.  Correctly handle GIMPLE_OMP_RETURN.
+	(lower_omp_target): Call oacc_alloc_broadcast_storage.  Call
+	gimple_omp_target_set_broadcast_array on the stmt.
+
 2015-06-01  Tom de Vries  <tom@codesourcery.com>
 
 	* builtin-attrs.def (DOT_DOT_r_r_r): Remove DEF_ATTR_FOR_STRING.
