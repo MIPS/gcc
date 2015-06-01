@@ -4044,7 +4044,7 @@ case "${target}" in
 		;;
 
 	powerpc*-*-* | rs6000-*-*)
-		supported_defaults="abi cpu cpu_32 cpu_64 float tune tune_32 tune_64"
+		supported_defaults="abi cpu cpu_32 cpu_64 float tune tune_32 tune_64 advance_toolchain"
 
 		for which in cpu cpu_32 cpu_64 tune tune_32 tune_64; do
 			eval "val=\$with_$which"
@@ -4091,6 +4091,38 @@ case "${target}" in
 			exit 1
 			;;
 		esac
+
+		if test "x$with_advance_toolchain" != x; then
+		    if test -d "/opt/$with_advance_toolchain/." -a \
+			-d "/opt/$with_advance_toolchain/bin/." -a \
+			-d "/opt/$with_advance_toolchain/include/."; then
+
+			tm_file="$tm_file ./advance-toolchain.h"
+			(at="/opt/$with_advance_toolchain"; \
+			 echo "#undef  INCLUDE_EXTRA_SPEC"; \
+			 echo "#define INCLUDE_EXTRA_SPEC" \
+			      "\"-isystem $at/include\""; \
+			 echo; \
+			 echo "#undef  LINK_OS_EXTRA_SPEC32"; \
+			 echo "#define LINK_OS_EXTRA_SPEC32" \
+			      "\"%{!static:--enable-new-dtags" \
+			      "-rpath $at/lib}" \
+			      "-L $at/lib\""; \
+			 echo; \
+			 echo "#undef  LINK_OS_EXTRA_SPEC64"; \
+			 echo "#define LINK_OS_EXTRA_SPEC64" \
+			      "\"%{!static:--enable-new-dtags" \
+			      "-rpath $at/lib64}" \
+			      "-L $at/lib64\""; \
+			 echo; \
+			 echo "#undef  DYNAMIC_LINKER_PREFIX"; \
+			 echo "#define DYNAMIC_LINKER_PREFIX \"$at\"") \
+			    > advance-toolchain.h
+		    else
+			echo "Unknown advance-toolchain $with_advance_toolchain"
+			exit 1
+		    fi
+		fi
 		;;
 
 	s390*-*-*)
