@@ -1,5 +1,16 @@
 2015-06-01  Tom de Vries  <tom@codesourcery.com>
 
+	* builtin-attrs.def (DOT_DOT_r_r_r): Remove DEF_ATTR_FOR_STRING.
+	(DOT_DOT_DOT_DOT_r_r_r): Add DEF_ATTR_FOR_STRING.
+	(ATTR_FNSPEC_DOT_DOT_r_r_r_NOTHROW_LIST): Remove DEF_ATTR_TREE_LIST.
+	(ATTR_FNSPEC_DOT_DOT_DOT_DOT_r_r_r_NOTHROW_LIST): Add
+	DEF_ATTR_TREE_LIST.
+	* omp-builtins.def (BUILT_IN_GOACC_DATA_START)
+	(BUILT_IN_GOACC_ENTER_EXIT_DATA, BUILT_IN_GOACC_KERNELS_INTERNAL)
+	(BUILT_IN_GOACC_UPDATE): Fix fnspec.
+
+2015-06-01  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (expand_omp_target): Fix GIMPLE_OMP_ENTRY_END handling for
 	ssa.
 
