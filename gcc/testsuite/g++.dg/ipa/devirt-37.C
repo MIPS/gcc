@@ -1,4 +1,4 @@
-/* { dg-options "-fpermissive -O2 -fno-indirect-inlining -fno-devirtualize-speculatively -fdump-tree-fre3-details -fno-early-inlining"  } */
+/* { dg-options "-fpermissive -O2 -fno-indirect-inlining -fno-devirtualize-speculatively -fdump-tree-fre4-details -fno-early-inlining"  } */
 #include <stdlib.h>
 struct A {virtual void test() {abort ();}};
 struct B:A
@@ -30,8 +30,8 @@ t()
 /* After inlining the call within constructor needs to be checked to not go into a basetype.
    We should see the vtbl store and we should notice extcall as possibly clobbering the
    type but ignore it because b is in static storage.  */
-/* { dg-final { scan-tree-dump "No dynamic type change found."  "fre3"  } } */
-/* { dg-final { scan-tree-dump "Checking vtbl store:"  "fre3"  } } */
-/* { dg-final { scan-tree-dump "Function call may change dynamic type:extcall"  "fre3"  } } */
-/* { dg-final { scan-tree-dump "converting indirect call to function virtual void"  "fre3"  } } */
-/* { dg-final { cleanup-tree-dump "fre3" } } */
+/* { dg-final { scan-tree-dump "No dynamic type change found."  "fre4"  } } */
+/* { dg-final { scan-tree-dump "Checking vtbl store:"  "fre4"  } } */
+/* { dg-final { scan-tree-dump "Function call may change dynamic type:extcall"  "fre4"  } } */
+/* { dg-final { scan-tree-dump "converting indirect call to function virtual void"  "fre4"  } } */
+/* { dg-final { cleanup-tree-dump "fre4" } } */

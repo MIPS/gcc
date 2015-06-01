@@ -1,5 +1,5 @@
 /* { dg-do link } */
-/* { dg-options "-O2 -fipa-pta -fdump-ipa-pta-details -fdump-tree-fre3 -fno-ipa-icf" } */
+/* { dg-options "-O2 -fipa-pta -fdump-ipa-pta-details -fdump-tree-fre4 -fno-ipa-icf" } */
 
 static int x, y;
 
@@ -54,9 +54,9 @@ int main()
   local_address_taken (&y);
   /* As we are computing flow- and context-insensitive we may not
      CSE the load of x here.  */
-  /* { dg-final { scan-tree-dump " = x;" "fre3" } } */
+  /* { dg-final { scan-tree-dump " = x;" "fre4" } } */
   return x;
 }
 
 /* { dg-final { cleanup-ipa-dump "pta" } } */
-/* { dg-final { cleanup-tree-dump "fre3" } } */
+/* { dg-final { cleanup-tree-dump "fre4" } } */
