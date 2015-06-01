@@ -4116,7 +4116,13 @@ case "${target}" in
 			      "-L $at/lib64\""; \
 			 echo; \
 			 echo "#undef  DYNAMIC_LINKER_PREFIX"; \
-			 echo "#define DYNAMIC_LINKER_PREFIX \"$at\"") \
+			 echo "#define DYNAMIC_LINKER_PREFIX \"$at\"" \
+			 echo; \
+			 echo "#undef  MD_EXEC_PREFIX"; \
+			 echo "#define MD_EXEC_PREFIX \"$at\""; \
+			 echo; \
+			 echo "#undef  MD_STARTFILE_PREFIX"; \
+			 echo "#define MD_STARTFILE_PREFIX \"$at\"") \
 			    > advance-toolchain.h
 		    else
 			echo "Unknown advance-toolchain $with_advance_toolchain"
