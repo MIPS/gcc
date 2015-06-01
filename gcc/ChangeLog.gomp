@@ -1,3 +1,11 @@
+2015-06-01  Tom de Vries  <tom@codesourcery.com>
+
+	Revert:
+	2015-05-28  Tom de Vries  <tom@codesourcery.com>
+
+	* passes.def: Replace pass_copy_prop with pass_fre. Surround with
+	pass_tree_loop_done and pass_tree_loop_init.
+
 2015-06-01  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* gimple.h (struct gimple_statement_omp_parallel_layout): Add a

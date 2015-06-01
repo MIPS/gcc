@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -fdump-tree-fre4-details"  } */
+/* { dg-options "-O2 -fdump-tree-fre3-details"  } */
 typedef enum
 {
 } UErrorCode;
@@ -19,5 +19,5 @@ A::m_fn1 (UnicodeString &, int &p2, UErrorCode &) const
   UnicodeString a[2];
 }
 
-/* { dg-final { scan-tree-dump-not "\\n  OBJ_TYPE_REF" "fre4"  } } */
-/* { dg-final { cleanup-tree-dump "fre4" } } */
+/* { dg-final { scan-tree-dump-not "\\n  OBJ_TYPE_REF" "fre3"  } } */
+/* { dg-final { cleanup-tree-dump "fre3" } } */
