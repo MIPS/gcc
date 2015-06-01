@@ -9486,9 +9486,12 @@ expand_omp_target (struct omp_region *region)
     }
 
   basic_block entry_succ_bb = single_succ (entry_bb);
-  gsi = gsi_last_bb (entry_succ_bb);
-  if (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_ENTRY_END)
-    gsi_remove (&gsi, true);
+  if (!gimple_in_ssa_p (cfun))
+    {
+      gsi = gsi_last_bb (entry_succ_bb);
+      if (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_ENTRY_END)
+	gsi_remove (&gsi, true);
+    }
 
   if (offloaded
       && do_splitoff)

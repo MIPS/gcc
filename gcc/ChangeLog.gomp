@@ -1,3 +1,8 @@
+2015-06-01  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (expand_omp_target): Fix GIMPLE_OMP_ENTRY_END handling for
+	ssa.
+
 2015-05-29  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* omp-low.c (struct omp_context): Add worker_var and worker_count
