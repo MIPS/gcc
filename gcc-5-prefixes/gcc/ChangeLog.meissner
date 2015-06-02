@@ -6,6 +6,9 @@
 	directory.  Fix MD_EXECUTABLE_PREF and MD_STARTFILE_PREFIX.
 	* config/rs6000/linux64.h: Likewise.
 
+	* doc/install.texi (--with-advance-toolchain=<xxx>): Add warning
+	that this is not ready for general use.
+
 2015-06-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config.gcc (powerpc*-*-*): Add support for a new configure
