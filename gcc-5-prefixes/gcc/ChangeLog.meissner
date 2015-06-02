@@ -1,3 +1,11 @@
+2015-06-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config.gcc: (--with-advance-toolchain=<xxx>): Do not use AT
+	includes on AT 8.0 system.  Separate --enable-new-dtags to
+	separate spec file.  Add -rpath/-L for libraries in the prefix
+	directory.  Fix MD_EXECUTABLE_PREF and MD_STARTFILE_PREFIX.
+	* config/rs6000/linux64.h: Likewise.
+
 2015-06-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config.gcc (powerpc*-*-*): Add support for a new configure

@@ -210,6 +210,7 @@ extern int dot_symbols;
   { "link_os_linux_spec64",	LINK_OS_LINUX_SPEC64 },			\
   { "link_os_extra_spec32",	LINK_OS_EXTRA_SPEC32 },			\
   { "link_os_extra_spec64",	LINK_OS_EXTRA_SPEC64 },			\
+  { "link_os_new_dtags",	LINK_OS_NEW_DTAGS_SPEC },		\
   { "include_extra",		INCLUDE_EXTRA_SPEC },			\
   { "dynamic_linker_prefix",	DYNAMIC_LINKER_PREFIX },
 
@@ -227,6 +228,10 @@ extern int dot_symbols;
 
 #ifndef LINK_OS_EXTRA_SPEC64
 #define LINK_OS_EXTRA_SPEC64	""
+#endif
+
+#ifndef LINK_OS_NEW_DTAGS_SPEC
+#define LINK_OS_NEW_DTAGS_SPEC	""
 #endif
 
 #ifndef DYNAMIC_LINKER_PREFIX
