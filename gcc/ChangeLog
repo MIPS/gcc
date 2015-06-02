@@ -103,8 +103,7 @@
 	check_global_declaration_1.
 	Adapt to use symtab infrastructure.
 	(check_global_declarations): Remove.
-	(emit_debug_global_declarations): Rename global_decl to
-	late_global_decl.
+	(emit_debug_global_declarations): Remove.
 	(compile_file): Remove call to final_write_globals langhook.
 	Run the actual compilation process.
 	Perform any post compilation parser cleanups.
@@ -113,6 +112,7 @@
 	(check_global_declaration_1): Remove.
 	(check_global_declarations): Remove.
 	(write_global_declarations): Remove.
+	(emit_debug_global_declarations): Remove.
 	(global_decl_processing): New.
 	* tree-core.h (struct tree_block): Add DIE field.
 	* tree.h (BLOCK_DIE): New.

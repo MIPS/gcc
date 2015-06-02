@@ -556,27 +556,6 @@ check_global_declaration (tree decl)
 	     "%q+D defined but not used", decl);
 }
 
-/* Emit late debugging information (post compilation) for all global
-   declarations in VEC.  */
-
-void
-emit_debug_global_declarations (tree *vec, int len)
-{
-  int i;
-
-  /* Avoid confusing the debug information machinery when there are errors.  */
-  if (seen_error ())
-    return;
-  /* No need for debug info in object files when producing slimLTO.  */
-  if (!in_lto_p && flag_lto && !flag_fat_lto_objects)
-    return;
-
-  timevar_push (TV_SYMOUT);
-  for (i = 0; i < len; i++)
-    debug_hooks->late_global_decl (vec[i]);
-  timevar_pop (TV_SYMOUT);
-}
-
 /* Compile an entire translation unit.  Write a file of assembly
    output and various debugging dumps.  */
 
