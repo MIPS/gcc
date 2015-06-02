@@ -1733,3 +1733,19 @@ cxx_omp_finish_clause (tree c, gimple_seq *)
   if (make_shared)
     OMP_CLAUSE_CODE (c) = OMP_CLAUSE_SHARED;
 }
+
+/* Return true if DECL's DECL_VALUE_EXPR (if any) should be
+   disregarded in OpenMP construct, because it is going to be
+   remapped during OpenMP lowering.  SHARED is true if DECL
+   is going to be shared, false if it is going to be privatized.  */
+
+bool
+cxx_omp_disregard_value_expr (tree decl, bool shared)
+{
+  return !shared
+	 && VAR_P (decl)
+	 && DECL_HAS_VALUE_EXPR_P (decl)
+	 && DECL_ARTIFICIAL (decl)
+	 && DECL_LANG_SPECIFIC (decl)
+	 && DECL_OMP_PRIVATIZED_MEMBER (decl);
+}

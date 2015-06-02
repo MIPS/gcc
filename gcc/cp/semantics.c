@@ -77,6 +77,11 @@ static tree maybe_convert_cond (tree);
 static tree finalize_nrv_r (tree *, int *, void *);
 static tree capture_decltype (tree);
 
+/* Used for OpenMP non-static data member privatization.  */
+
+static hash_map<tree, tree> *omp_private_member_map;
+static vec<tree> omp_private_member_vec;
+
 
 /* Deferred Access Checking Overview
    ---------------------------------
@@ -1716,6 +1721,8 @@ tree
 finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 {
   gcc_assert (TREE_CODE (decl) == FIELD_DECL);
+  bool try_omp_private = !object && omp_private_member_map;
+  tree ret;
 
   if (!object)
     {
@@ -1767,17 +1774,17 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	  type = cp_build_qualified_type (type, quals);
 	}
 
-      return (convert_from_reference
+      ret = (convert_from_reference
 	      (build_min (COMPONENT_REF, type, object, decl, NULL_TREE)));
     }
   /* If PROCESSING_TEMPLATE_DECL is nonzero here, then
      QUALIFYING_SCOPE is also non-null.  Wrap this in a SCOPE_REF
      for now.  */
   else if (processing_template_decl)
-    return build_qualified_name (TREE_TYPE (decl),
-				 qualifying_scope,
-				 decl,
-				 /*template_p=*/false);
+    ret = build_qualified_name (TREE_TYPE (decl),
+				qualifying_scope,
+				decl,
+				/*template_p=*/false);
   else
     {
       tree access_type = TREE_TYPE (object);
@@ -1794,11 +1801,18 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 				     &binfo);
 	}
 
-      return build_class_member_access_expr (object, decl,
-					     /*access_path=*/NULL_TREE,
-					     /*preserve_reference=*/false,
-					     tf_warning_or_error);
+      ret = build_class_member_access_expr (object, decl,
+					    /*access_path=*/NULL_TREE,
+					    /*preserve_reference=*/false,
+					    tf_warning_or_error);
     }
+  if (try_omp_private)
+    {
+      tree *v = omp_private_member_map->get (decl);
+      if (v)
+	ret = convert_from_reference (*v);
+    }
+  return ret;
 }
 
 /* If we are currently parsing a template and we encountered a typedef
@@ -5296,7 +5310,7 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
    Remove any elements from the list that are invalid.  */
 
 tree
-finish_omp_clauses (tree clauses)
+finish_omp_clauses (tree clauses, bool allow_fields)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head;
@@ -5314,21 +5328,26 @@ finish_omp_clauses (tree clauses)
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
       bool remove = false;
+      bool field_ok = false;
 
       switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_SHARED:
 	  goto check_dup_generic;
 	case OMP_CLAUSE_PRIVATE:
+	  field_ok = allow_fields;
 	  goto check_dup_generic;
 	case OMP_CLAUSE_REDUCTION:
+	  field_ok = allow_fields;
 	  goto check_dup_generic;
 	case OMP_CLAUSE_COPYPRIVATE:
 	  copyprivate_seen = true;
+	  field_ok = allow_fields;
 	  goto check_dup_generic;
 	case OMP_CLAUSE_COPYIN:
 	  goto check_dup_generic;
 	case OMP_CLAUSE_LINEAR:
+	  field_ok = allow_fields;
 	  t = OMP_CLAUSE_DECL (c);
 	  if (!type_dependent_expression_p (t))
 	    {
@@ -5391,7 +5410,8 @@ finish_omp_clauses (tree clauses)
 	  goto check_dup_generic;
 	check_dup_generic:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
+	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
+	      && (!field_ok || TREE_CODE (t) != FIELD_DECL))
 	    {
 	      if (processing_template_decl)
 		break;
@@ -5412,11 +5432,70 @@ finish_omp_clauses (tree clauses)
 	    }
 	  else
 	    bitmap_set_bit (&generic_head, DECL_UID (t));
+	  if (!field_ok)
+	    break;
+	handle_field_decl:
+	  if (!remove && TREE_CODE (t) == FIELD_DECL)
+	    {
+	      tree m = finish_non_static_data_member (t, NULL_TREE, NULL_TREE);
+	      if (m == error_mark_node)
+		{
+		  remove = true;
+		  break;
+		}
+	      if (!omp_private_member_map)
+		omp_private_member_map = new hash_map<tree, tree>;
+	      if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
+		{
+		  gcc_assert (TREE_CODE (m) == INDIRECT_REF);
+		  m = TREE_OPERAND (m, 0);
+		}
+	      tree &v = omp_private_member_map->get_or_insert (t);
+	      if (v == NULL_TREE)
+		{
+		  v = create_temporary_var (TREE_TYPE (m));
+		  if (!DECL_LANG_SPECIFIC (v))
+		    retrofit_lang_decl (v);
+		  DECL_OMP_PRIVATIZED_MEMBER (v) = 1;
+		  SET_DECL_VALUE_EXPR (v, m);
+		  DECL_HAS_VALUE_EXPR_P (v) = 1;
+		  omp_private_member_vec.safe_push (t);
+		}
+	      OMP_CLAUSE_DECL (c) = v;
+	    }
+	  else if (!remove
+		   && VAR_P (t)
+		   && DECL_HAS_VALUE_EXPR_P (t)
+		   && DECL_ARTIFICIAL (t)
+		   && DECL_LANG_SPECIFIC (t)
+		   && DECL_OMP_PRIVATIZED_MEMBER (t))
+	    {
+	      tree f = DECL_VALUE_EXPR (t);
+	      if (TREE_CODE (f) == INDIRECT_REF)
+		f = TREE_OPERAND (f, 0);
+	      if (TREE_CODE (f) == COMPONENT_REF)
+		{
+		  f = TREE_OPERAND (f, 1);
+		  gcc_assert (TREE_CODE (f) == FIELD_DECL);
+		  if (!omp_private_member_map)
+		    omp_private_member_map = new hash_map<tree, tree>;
+		  tree &v = omp_private_member_map->get_or_insert (f);
+		  if (v == NULL_TREE)
+		    {
+		      v = t;
+		      omp_private_member_vec.safe_push (f);
+		      /* Signal that we don't want to create
+			 DECL_EXPR for this dummy var.  */
+		      omp_private_member_vec.safe_push (integer_zero_node);
+		    }
+		}
+	    }
 	  break;
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
+	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
+	      && (!allow_fields || TREE_CODE (t) != FIELD_DECL))
 	    {
 	      if (processing_template_decl)
 		break;
@@ -5434,11 +5513,12 @@ finish_omp_clauses (tree clauses)
 	    }
 	  else
 	    bitmap_set_bit (&firstprivate_head, DECL_UID (t));
-	  break;
+	  goto handle_field_decl;
 
 	case OMP_CLAUSE_LASTPRIVATE:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
+	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
+	      && (!allow_fields || TREE_CODE (t) != FIELD_DECL))
 	    {
 	      if (processing_template_decl)
 		break;
@@ -5456,7 +5536,7 @@ finish_omp_clauses (tree clauses)
 	    }
 	  else
 	    bitmap_set_bit (&lastprivate_head, DECL_UID (t));
-	  break;
+	  goto handle_field_decl;
 
 	case OMP_CLAUSE_IF:
 	  t = OMP_CLAUSE_IF_EXPR (c);
@@ -6057,6 +6137,7 @@ finish_omp_clauses (tree clauses)
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_REDUCTION:
+	case OMP_CLAUSE_LINEAR:
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_COPYPRIVATE:
@@ -6166,8 +6247,25 @@ finish_omp_clauses (tree clauses)
 	    }
 	  if (share_name)
 	    {
-	      error ("%qE is predetermined %qs for %qs",
-		     t, share_name, omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      tree pt = t;
+	      if (VAR_P (t)
+		  && DECL_HAS_VALUE_EXPR_P (t)
+		  && DECL_ARTIFICIAL (t)
+		  && DECL_LANG_SPECIFIC (t)
+		  && DECL_OMP_PRIVATIZED_MEMBER (t))
+		{
+		  tree f = DECL_VALUE_EXPR (t);
+		  if (TREE_CODE (f) == INDIRECT_REF)
+		    f = TREE_OPERAND (f, 0);
+		  if (TREE_CODE (f) == COMPONENT_REF)
+		    {
+		      f = TREE_OPERAND (f, 1);
+		      gcc_assert (TREE_CODE (f) == FIELD_DECL);
+		      pt = f;
+		    }
+		}
+	      error ("%qE is predetermined %qs for %qs", pt, share_name,
+		     omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
 	}
@@ -6203,6 +6301,108 @@ finish_omp_clauses (tree clauses)
 
   bitmap_obstack_release (NULL);
   return clauses;
+}
+
+/* Start processing OpenMP clauses that can include any
+   privatization clauses for non-static data members.  */
+
+tree
+push_omp_privatization_clauses (void)
+{
+  if (omp_private_member_map)
+    omp_private_member_vec.safe_push (error_mark_node);
+  return push_stmt_list ();
+}
+
+/* Revert remapping of any non-static data members since
+   the last push_omp_privatization_clauses () call.  */
+
+void
+pop_omp_privatization_clauses (tree stmt)
+{
+  stmt = pop_stmt_list (stmt);
+  if (omp_private_member_map)
+    {
+      while (!omp_private_member_vec.is_empty ())
+	{
+	  tree t = omp_private_member_vec.pop ();
+	  if (t == error_mark_node)
+	    {
+	      add_stmt (stmt);
+	      return;
+	    }
+	  bool no_decl_expr = t == integer_zero_node;
+	  if (no_decl_expr)
+	    t = omp_private_member_vec.pop ();
+	  tree *v = omp_private_member_map->get (t);
+	  gcc_assert (v);
+	  if (!no_decl_expr)
+	    add_decl_expr (*v);
+	  omp_private_member_map->remove (t);
+	}
+      delete omp_private_member_map;
+      omp_private_member_map = NULL;
+    }
+  add_stmt (stmt);
+}
+
+/* Remember OpenMP privatization clauses mapping and clear it.
+   Used for lambdas.  */
+
+void
+save_omp_privatization_clauses (vec<tree> &save)
+{
+  save = vNULL;
+  if (!omp_private_member_map)
+    return;
+  while (!omp_private_member_vec.is_empty ())
+    {
+      tree t = omp_private_member_vec.pop ();
+      if (t == error_mark_node)
+	{
+	  save.safe_push (t);
+	  continue;
+	}
+      tree n = t;
+      if (t == integer_zero_node)
+	t = omp_private_member_vec.pop ();
+      tree *v = omp_private_member_map->get (t);
+      gcc_assert (v);
+      save.safe_push (*v);
+      save.safe_push (t);
+      if (n != t)
+	save.safe_push (n);
+    }
+  delete omp_private_member_map;
+  omp_private_member_map = NULL;
+}
+
+/* Restore OpenMP privatization clauses mapping saved by the
+   above function.  */
+
+void
+restore_omp_privatization_clauses (vec<tree> &save)
+{
+  gcc_assert (omp_private_member_vec.is_empty ());
+  if (save.is_empty ())
+    return;
+  omp_private_member_map = new hash_map <tree, tree>;
+  while (!save.is_empty ())
+    {
+      tree t = save.pop ();
+      tree n = t;
+      if (t != error_mark_node)
+	{
+	  if (t == integer_zero_node)
+	    t = save.pop ();
+	  tree &v = omp_private_member_map->get_or_insert (t);
+	  v = save.pop ();
+	}
+      omp_private_member_vec.safe_push (t);
+      if (n != t)
+	omp_private_member_vec.safe_push (n);
+    }
+  save.release ();
 }
 
 /* For all variables in the tree_list VARS, mark them as thread local.  */
@@ -6954,7 +7154,7 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
       OMP_CLAUSE_OPERAND (c, 0)
 	= cilk_for_number_of_iterations (omp_for);
       OMP_CLAUSE_CHAIN (c) = clauses;
-      OMP_PARALLEL_CLAUSES (omp_par) = finish_omp_clauses (c);
+      OMP_PARALLEL_CLAUSES (omp_par) = finish_omp_clauses (c, false);
       add_stmt (omp_par);
       return omp_par;
     }

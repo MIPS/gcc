@@ -1,3 +1,9 @@
+2015-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/taskloop-5.C: New test.
+	* testsuite/libgomp.c++/member-1.C: New test.
+	* testsuite/libgomp.c++/member-2.C: New test.
+
 2015-05-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c++/ctor-13.C: New test.

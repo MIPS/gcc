@@ -8949,7 +8949,7 @@ can_complete_type_without_circularity (tree type)
     return 1;
 }
 
-static tree tsubst_omp_clauses (tree, bool, tree, tsubst_flags_t, tree);
+static tree tsubst_omp_clauses (tree, bool, bool, tree, tsubst_flags_t, tree);
 
 /* Apply any attributes which had to be deferred until instantiation
    time.  DECL_P, ATTRIBUTES and ATTR_FLAGS are as cplus_decl_attributes;
@@ -8998,10 +8998,10 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 		  && TREE_VALUE (t))
 		{
 		  tree clauses = TREE_VALUE (TREE_VALUE (t));
-		  clauses = tsubst_omp_clauses (clauses, true, args,
+		  clauses = tsubst_omp_clauses (clauses, true, false, args,
 						complain, in_decl);
 		  c_omp_declare_simd_clauses_to_decls (*decl_p, clauses);
-		  clauses = finish_omp_clauses (clauses);
+		  clauses = finish_omp_clauses (clauses, false);
 		  tree parms = DECL_ARGUMENTS (*decl_p);
 		  clauses
 		    = c_omp_declare_simd_clauses_to_numbers (parms, clauses);
@@ -13432,7 +13432,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 /* Like tsubst_copy, but specifically for OpenMP clauses.  */
 
 static tree
-tsubst_omp_clauses (tree clauses, bool declare_simd,
+tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 		    tree args, tsubst_flags_t complain, tree in_decl)
 {
   tree new_clauses = NULL, nc, oc;
@@ -13532,11 +13532,80 @@ tsubst_omp_clauses (tree clauses, bool declare_simd,
 	default:
 	  gcc_unreachable ();
 	}
+      if (allow_fields)
+	switch (OMP_CLAUSE_CODE (nc))
+	  {
+	  case OMP_CLAUSE_PRIVATE:
+	  case OMP_CLAUSE_FIRSTPRIVATE:
+	  case OMP_CLAUSE_LASTPRIVATE:
+	  case OMP_CLAUSE_COPYPRIVATE:
+	  case OMP_CLAUSE_LINEAR:
+	  case OMP_CLAUSE_REDUCTION:
+	    /* tsubst_expr on SCOPE_REF results in returning
+	       finish_non_static_data_member result.  Undo that here.  */
+	    if (TREE_CODE (OMP_CLAUSE_DECL (oc)) == SCOPE_REF
+		&& (TREE_CODE (TREE_OPERAND (OMP_CLAUSE_DECL (oc), 1))
+		    == IDENTIFIER_NODE))
+	      {
+		tree t = OMP_CLAUSE_DECL (nc);
+		if (TREE_CODE (t) == INDIRECT_REF)
+		  t = TREE_OPERAND (t, 0);
+		if (TREE_CODE (t) != COMPONENT_REF)
+		  {
+		    if (VAR_P (t)
+			&& DECL_LANG_SPECIFIC (t)
+			&& DECL_OMP_PRIVATIZED_MEMBER (t))
+		      OMP_CLAUSE_DECL (nc) = t;
+		    break;
+		  }
+		tree v = t;
+		while (v)
+		  switch (TREE_CODE (v))
+		    {
+		    case COMPONENT_REF:
+		    case MEM_REF:
+		    case INDIRECT_REF:
+		    CASE_CONVERT:
+		    case POINTER_PLUS_EXPR:
+		      v = TREE_OPERAND (v, 0);
+		      continue;
+		    case PARM_DECL:
+		      if (DECL_CONTEXT (v) == current_function_decl
+			  && DECL_ARTIFICIAL (v)
+			  && DECL_NAME (v) == this_identifier)
+			OMP_CLAUSE_DECL (nc) = TREE_OPERAND (t, 1);
+		      /* FALLTHRU */
+		    default:
+		      v = NULL_TREE;
+		      break;
+		    }
+	      }
+	    else if (VAR_P (OMP_CLAUSE_DECL (oc))
+		     && DECL_HAS_VALUE_EXPR_P (OMP_CLAUSE_DECL (oc))
+		     && DECL_ARTIFICIAL (OMP_CLAUSE_DECL (oc))
+		     && DECL_LANG_SPECIFIC (OMP_CLAUSE_DECL (oc))
+		     && DECL_OMP_PRIVATIZED_MEMBER (OMP_CLAUSE_DECL (oc)))
+	      {
+		tree decl = OMP_CLAUSE_DECL (nc);
+		if (TREE_CODE (decl) == INDIRECT_REF)
+		  decl = TREE_OPERAND (decl, 0);
+		if (VAR_P (decl))
+		  {
+		    if (!DECL_LANG_SPECIFIC (decl))
+		      retrofit_lang_decl (decl);
+		    DECL_OMP_PRIVATIZED_MEMBER (decl) = 1;
+		    OMP_CLAUSE_DECL (nc) = decl;
+		  }
+	      }
+	    break;
+	  default:
+	    break;
+	  }
     }
 
   new_clauses = nreverse (new_clauses);
   if (!declare_simd)
-    new_clauses = finish_omp_clauses (new_clauses);
+    new_clauses = finish_omp_clauses (new_clauses, allow_fields);
   return new_clauses;
 }
 
@@ -13676,7 +13745,7 @@ tsubst_omp_for_iterator (tree t, int i, tree declv, tree initv,
 	{
 	  c = build_omp_clause (input_location, OMP_CLAUSE_PRIVATE);
 	  OMP_CLAUSE_DECL (c) = decl;
-	  c = finish_omp_clauses (c);
+	  c = finish_omp_clauses (c, false);
 	  if (c)
 	    {
 	      OMP_CLAUSE_CHAIN (c) = *clauses;
@@ -14137,20 +14206,24 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       break;
 
     case OMP_PARALLEL:
-      tmp = tsubst_omp_clauses (OMP_PARALLEL_CLAUSES (t), false,
+      r = push_omp_privatization_clauses ();
+      tmp = tsubst_omp_clauses (OMP_PARALLEL_CLAUSES (t), false, true,
 				args, complain, in_decl);
       stmt = begin_omp_parallel ();
       RECUR (OMP_PARALLEL_BODY (t));
       OMP_PARALLEL_COMBINED (finish_omp_parallel (tmp, stmt))
 	= OMP_PARALLEL_COMBINED (t);
+      pop_omp_privatization_clauses (r);
       break;
 
     case OMP_TASK:
-      tmp = tsubst_omp_clauses (OMP_TASK_CLAUSES (t), false,
+      r = push_omp_privatization_clauses ();
+      tmp = tsubst_omp_clauses (OMP_TASK_CLAUSES (t), false, true,
 				args, complain, in_decl);
       stmt = begin_omp_task ();
       RECUR (OMP_TASK_BODY (t));
       finish_omp_task (tmp, stmt);
+      pop_omp_privatization_clauses (r);
       break;
 
     case OMP_FOR:
@@ -14165,7 +14238,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	tree incrv = NULL_TREE;
 	int i;
 
-	clauses = tsubst_omp_clauses (OMP_FOR_CLAUSES (t), false,
+	r = push_omp_privatization_clauses ();
+	clauses = tsubst_omp_clauses (OMP_FOR_CLAUSES (t), false, true,
 				      args, complain, in_decl);
 	if (OMP_FOR_INIT (t) != NULL_TREE)
 	  {
@@ -14206,13 +14280,15 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	  }
 
 	add_stmt (finish_omp_structured_block (stmt));
+	pop_omp_privatization_clauses (r);
       }
       break;
 
     case OMP_SECTIONS:
     case OMP_SINGLE:
     case OMP_TEAMS:
-      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false,
+      r = push_omp_privatization_clauses ();
+      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false, true,
 				args, complain, in_decl);
       stmt = push_stmt_list ();
       RECUR (OMP_BODY (t));
@@ -14222,11 +14298,12 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       OMP_BODY (t) = stmt;
       OMP_CLAUSES (t) = tmp;
       add_stmt (t);
+      pop_omp_privatization_clauses (r);
       break;
 
     case OMP_TARGET_DATA:
     case OMP_TARGET:
-      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false,
+      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false, false,
 				args, complain, in_decl);
       keep_next_level (true);
       stmt = begin_omp_structured_block ();
@@ -14241,7 +14318,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       break;
 
     case OMP_TARGET_UPDATE:
-      tmp = tsubst_omp_clauses (OMP_TARGET_UPDATE_CLAUSES (t), false,
+      tmp = tsubst_omp_clauses (OMP_TARGET_UPDATE_CLAUSES (t), false, false,
 				args, complain, in_decl);
       t = copy_node (t);
       OMP_TARGET_UPDATE_CLAUSES (t) = tmp;

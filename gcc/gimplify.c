@@ -6061,19 +6061,38 @@ omp_check_private (struct gimplify_omp_ctx *ctx, tree decl, bool copyprivate)
     {
       ctx = ctx->outer_context;
       if (ctx == NULL)
-	return !(is_global_var (decl)
-		 /* References might be private, but might be shared too,
-		    when checking for copyprivate, assume they might be
-		    private, otherwise assume they might be shared.  */
-		 || (!copyprivate
-		     && lang_hooks.decls.omp_privatize_by_reference (decl)));
+	{
+	  if (is_global_var (decl))
+	    return false;
+
+	  /* References might be private, but might be shared too,
+	     when checking for copyprivate, assume they might be
+	     private, otherwise assume they might be shared.  */
+	  if (copyprivate)
+	    return true;
+
+	  if (lang_hooks.decls.omp_privatize_by_reference (decl))
+	    return false;
+
+	  /* Treat C++ privatized non-static data members outside
+	     of the privatization the same.  */
+	  if (omp_member_access_dummy_var (decl))
+	    return false;
+
+	  return true;
+	}
 
       if ((ctx->region_type & (ORT_TARGET | ORT_TARGET_DATA)) != 0)
 	continue;
 
       n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
       if (n != NULL)
-	return (n->value & GOVD_SHARED) == 0;
+	{
+	  if ((n->value & GOVD_LOCAL) != 0
+	      && omp_member_access_dummy_var (decl))
+	    return false;
+	  return (n->value & GOVD_SHARED) == 0;
+	}
     }
   while (ctx->region_type == ORT_WORKSHARE
 	 || ctx->region_type == ORT_SIMD);
@@ -6356,6 +6375,17 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    {
 	      remove = true;
 	      break;
+	    }
+	  if (DECL_NAME (decl) == NULL_TREE && (flags & GOVD_SHARED) == 0)
+	    {
+	      tree t = omp_member_access_dummy_var (decl);
+	      if (t)
+		{
+		  tree v = DECL_VALUE_EXPR (decl);
+		  DECL_NAME (decl) = DECL_NAME (TREE_OPERAND (v, 1));
+		  if (outer_ctx)
+		    omp_notice_variable (outer_ctx, t, true);
+		}
 	    }
 	  omp_add_variable (ctx, decl, flags);
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION

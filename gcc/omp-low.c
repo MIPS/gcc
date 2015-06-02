@@ -337,6 +337,73 @@ oacc_max_threads (omp_context *ctx)
   return nthreads;
 }
 
+/* If DECL is the artificial dummy VAR_DECL created for non-static
+   data member privatization, return the underlying "this" parameter,
+   otherwise return NULL.  */
+
+tree
+omp_member_access_dummy_var (tree decl)
+{
+  if (!VAR_P (decl)
+      || !DECL_ARTIFICIAL (decl)
+      || !DECL_IGNORED_P (decl)
+      || !DECL_HAS_VALUE_EXPR_P (decl)
+      || !lang_hooks.decls.omp_disregard_value_expr (decl, false))
+    return NULL_TREE;
+
+  tree v = DECL_VALUE_EXPR (decl);
+  if (TREE_CODE (v) != COMPONENT_REF)
+    return NULL_TREE;
+
+  while (1)
+    switch (TREE_CODE (v))
+      {
+      case COMPONENT_REF:
+      case MEM_REF:
+      case INDIRECT_REF:
+      CASE_CONVERT:
+      case POINTER_PLUS_EXPR:
+	v = TREE_OPERAND (v, 0);
+	continue;
+      case PARM_DECL:
+	if (DECL_CONTEXT (v) == current_function_decl
+	    && DECL_ARTIFICIAL (v)
+	    && TREE_CODE (TREE_TYPE (v)) == POINTER_TYPE)
+	  return v;
+	return NULL_TREE;
+      default:
+	return NULL_TREE;
+      }
+}
+
+/* Helper for unshare_and_remap, called through walk_tree.  */
+
+static tree
+unshare_and_remap_1 (tree *tp, int *walk_subtrees, void *data)
+{
+  tree *pair = (tree *) data;
+  if (*tp == pair[0])
+    {
+      *tp = unshare_expr (pair[1]);
+      *walk_subtrees = 0;
+    }
+  else if (IS_TYPE_OR_DECL_P (*tp))
+    *walk_subtrees = 0;
+  return NULL_TREE;
+}
+
+/* Return unshare_expr (X) with all occurrences of FROM
+   replaced with TO.  */
+
+static tree
+unshare_and_remap (tree x, tree from, tree to)
+{
+  tree pair[2] = { from, to };
+  x = unshare_expr (x);
+  walk_tree (&x, unshare_and_remap_1, pair, NULL);
+  return x;
+}
+
 /* Holds offload tables with decls.  */
 vec<tree, va_gc> *offload_funcs, *offload_vars;
 
@@ -1103,7 +1170,7 @@ use_pointer_for_field (tree decl, omp_context *shared_ctx)
 	  tree outer;
 	maybe_mark_addressable_and_ret:
 	  outer = maybe_lookup_decl_in_outer_ctx (decl, shared_ctx);
-	  if (is_gimple_reg (outer))
+	  if (is_gimple_reg (outer) && !omp_member_access_dummy_var (outer))
 	    {
 	      /* Taking address of OUTER in lower_send_shared_vars
 		 might need regimplification of everything that uses the
@@ -1241,7 +1308,8 @@ build_outer_var_ref (tree var, omp_context *ctx, bool lastprivate = false)
 
 	  x = build_simple_mem_ref (ctx->outer->receiver_decl);
 	  x = omp_build_component_ref (x, field);
-	  x = build_simple_mem_ref (x);
+	  if (use_pointer_for_field (var, ctx->outer))
+	    x = build_simple_mem_ref (x);
 	}
     }
   else if (ctx->outer)
@@ -1250,8 +1318,24 @@ build_outer_var_ref (tree var, omp_context *ctx, bool lastprivate = false)
     /* This can happen with orphaned constructs.  If var is reference, it is
        possible it is shared and as such valid.  */
     x = var;
+  else if (omp_member_access_dummy_var (var))
+    x = var;
   else
     gcc_unreachable ();
+
+  if (x == var)
+    {
+      tree t = omp_member_access_dummy_var (var);
+      if (t)
+	{
+	  x = DECL_VALUE_EXPR (var);
+	  tree o = maybe_lookup_decl_in_outer_ctx (t, ctx);
+	  if (o != t)
+	    x = unshare_and_remap (x, t, o);
+	  else
+	    x = unshare_expr (x);
+	}
+    }
 
   if (is_reference (var))
     x = build_simple_mem_ref (x);
@@ -1758,10 +1842,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    break;
 	  by_ref = use_pointer_for_field (decl, ctx);
 	  if (OMP_CLAUSE_SHARED_FIRSTPRIVATE (c))
-	    {
-	      gcc_assert (by_ref);
-	      break;
-	    }
+	    break;
 	  if (! TREE_READONLY (decl)
 	      || TREE_ADDRESSABLE (decl)
 	      || by_ref
@@ -2046,7 +2127,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    break;
 	  if (OMP_CLAUSE_SHARED_FIRSTPRIVATE (c))
 	    {
-	      install_var_field (decl, true, 11, ctx);
+	      bool by_ref = use_pointer_for_field (decl, ctx);
+	      install_var_field (decl, by_ref, 11, ctx);
 	      break;
 	    }
 	  fixup_remapped_decl (decl, ctx, false);
@@ -4843,7 +4925,7 @@ static void
 lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
     		    omp_context *ctx)
 {
-  tree c;
+  tree c, t;
   int ignored_looptemp = 0;
 
   /* For taskloop, ignore first two _looptemp_ clauses, those are initialized
@@ -4890,6 +4972,17 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 	  && is_global_var (var))
 	continue;
 
+      t = omp_member_access_dummy_var (var);
+      if (t)
+	{
+	  var = DECL_VALUE_EXPR (var);
+	  tree o = maybe_lookup_decl_in_outer_ctx (t, ctx);
+	  if (o != t)
+	    var = unshare_and_remap (var, t, o);
+	  else
+	    var = unshare_expr (var);
+	}
+
       if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SHARED)
 	{
 	  /* Handle taskloop firstprivate/lastprivate, where the
@@ -4900,9 +4993,9 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 	      splay_tree_lookup (ctx->sfield_map
 				 ? ctx->sfield_map : ctx->field_map,
 				 (splay_tree_key) &DECL_UID (val))->value;
-	  gcc_assert (use_pointer_for_field (val, ctx));
 	  x = omp_build_component_ref (ctx->sender_decl, f);
-	  var = build_fold_addr_expr (var);
+	  if (use_pointer_for_field (val, ctx))
+	    var = build_fold_addr_expr (var);
 	  gimplify_assign (x, var, ilist);
 	  DECL_ABSTRACT_ORIGIN (f) = NULL;
 	  continue;
@@ -4969,7 +5062,7 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 static void
 lower_send_shared_vars (gimple_seq *ilist, gimple_seq *olist, omp_context *ctx)
 {
-  tree var, ovar, nvar, f, x, record_type;
+  tree var, ovar, nvar, t, f, x, record_type;
 
   if (ctx->record_type == NULL)
     return;
@@ -4989,6 +5082,17 @@ lower_send_shared_vars (gimple_seq *ilist, gimple_seq *olist, omp_context *ctx)
 	 enclosing parallel or workshare construct that contains a
 	 mapping for OVAR.  */
       var = lookup_decl_in_outer_ctx (ovar, ctx);
+
+      t = omp_member_access_dummy_var (var);
+      if (t)
+	{
+	  var = DECL_VALUE_EXPR (var);
+	  tree o = maybe_lookup_decl_in_outer_ctx (t, ctx);
+	  if (o != t)
+	    var = unshare_and_remap (var, t, o);
+	  else
+	    var = unshare_expr (var);
+	}
 
       if (use_pointer_for_field (ovar, ctx))
 	{
@@ -11615,22 +11719,19 @@ create_task_copyfn (gomp_task *task_stmt, omp_context *ctx)
   for (c = gimple_omp_task_clauses (task_stmt); c; c = OMP_CLAUSE_CHAIN (c))
     switch (OMP_CLAUSE_CODE (c))
       {
+	splay_tree_key key;
       case OMP_CLAUSE_SHARED:
 	decl = OMP_CLAUSE_DECL (c);
-	n = splay_tree_lookup (ctx->field_map, (splay_tree_key) decl);
+	key = (splay_tree_key) decl;
+	if (OMP_CLAUSE_SHARED_FIRSTPRIVATE (c))
+	  key = (splay_tree_key) &DECL_UID (decl);
+	n = splay_tree_lookup (ctx->field_map, key);
 	if (n == NULL)
 	  break;
-	if (OMP_CLAUSE_SHARED_FIRSTPRIVATE (c))
-	  {
-	    decl = (tree) n->value;
-	    n = splay_tree_lookup (ctx->field_map, (splay_tree_key) decl);
-	    if (n == NULL)
-	      break;
-	  }
 	f = (tree) n->value;
 	if (tcctx.cb.decl_map)
 	  f = *tcctx.cb.decl_map->get (f);
-	n = splay_tree_lookup (ctx->sfield_map, (splay_tree_key) decl);
+	n = splay_tree_lookup (ctx->sfield_map, key);
 	sf = (tree) n->value;
 	if (tcctx.cb.decl_map)
 	  sf = *tcctx.cb.decl_map->get (sf);
@@ -12424,8 +12525,71 @@ lower_omp_regimplify_p (tree *tp, int *walk_subtrees,
   if (data == NULL && TREE_CODE (t) == ADDR_EXPR)
     recompute_tree_invariant_for_addr_expr (t);
 
-  *walk_subtrees = !TYPE_P (t) && !DECL_P (t);
+  *walk_subtrees = !IS_TYPE_OR_DECL_P (t);
   return NULL_TREE;
+}
+
+/* Data to be communicated between lower_omp_regimplify_operands and
+   lower_omp_regimplify_operands_p.  */
+
+struct lower_omp_regimplify_operands_data
+{
+  omp_context *ctx;
+  vec<tree> *decls;
+};
+
+/* Helper function for lower_omp_regimplify_operands.  Find
+   omp_member_access_dummy_var vars and adjust temporarily their
+   DECL_VALUE_EXPRs if needed.  */
+
+static tree
+lower_omp_regimplify_operands_p (tree *tp, int *walk_subtrees,
+				 void *data)
+{
+  tree t = omp_member_access_dummy_var (*tp);
+  if (t)
+    {
+      struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+      lower_omp_regimplify_operands_data *ldata
+	= (lower_omp_regimplify_operands_data *) wi->info;
+      tree o = maybe_lookup_decl (t, ldata->ctx);
+      if (o != t)
+	{
+	  ldata->decls->safe_push (DECL_VALUE_EXPR (*tp));
+	  ldata->decls->safe_push (*tp);
+	  tree v = unshare_and_remap (DECL_VALUE_EXPR (*tp), t, o);
+	  SET_DECL_VALUE_EXPR (*tp, v);
+	}
+    }
+  *walk_subtrees = !IS_TYPE_OR_DECL_P (*tp);
+  return NULL_TREE;
+}
+
+/* Wrapper around gimple_regimplify_operands that adjusts DECL_VALUE_EXPRs
+   of omp_member_access_dummy_var vars during regimplification.  */
+
+static void
+lower_omp_regimplify_operands (omp_context *ctx, gimple stmt,
+			       gimple_stmt_iterator *gsi_p)
+{
+  auto_vec<tree, 10> decls;
+  if (ctx)
+    {
+      struct walk_stmt_info wi;
+      memset (&wi, '\0', sizeof (wi));
+      struct lower_omp_regimplify_operands_data data;
+      data.ctx = ctx;
+      data.decls = &decls;
+      wi.info = &data;
+      walk_gimple_op (stmt, lower_omp_regimplify_operands_p, &wi);
+    }
+  gimple_regimplify_operands (stmt, gsi_p);
+  while (!decls.is_empty ())
+    {
+      tree t = decls.pop ();
+      tree v = decls.pop ();
+      SET_DECL_VALUE_EXPR (t, v);
+    }
 }
 
 static void
@@ -12462,7 +12626,7 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		|| walk_tree (gimple_cond_rhs_ptr (cond_stmt),
 			      lower_omp_regimplify_p,
 			      ctx ? NULL : &wi, NULL)))
-	  gimple_regimplify_operands (cond_stmt, gsi_p);
+	  lower_omp_regimplify_operands (ctx, cond_stmt, gsi_p);
       }
       break;
     case GIMPLE_CATCH:
@@ -12535,7 +12699,7 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  && walk_tree (gimple_omp_atomic_load_rhs_ptr (
 			  as_a <gomp_atomic_load *> (stmt)),
 			lower_omp_regimplify_p, ctx ? NULL : &wi, NULL))
-	gimple_regimplify_operands (stmt, gsi_p);
+	lower_omp_regimplify_operands (ctx, stmt, gsi_p);
       break;
     case GIMPLE_OMP_TARGET:
       ctx = maybe_lookup_ctx (stmt);
@@ -12616,7 +12780,7 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      gsi_replace (gsi_p, gimple_build_nop (), true);
 	      break;
 	    }
-	  gimple_regimplify_operands (stmt, gsi_p);
+	  lower_omp_regimplify_operands (ctx, stmt, gsi_p);
 	}
       break;
     }

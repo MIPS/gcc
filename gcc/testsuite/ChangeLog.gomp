@@ -1,3 +1,10 @@
+2015-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/clause-1.C (T::test): Remove dg-error
+	on privatization of non-static data members.
+	* g++.dg/gomp/member-1.C: New test.
+	* g++.dg/gomp/member-2.C: New test.
+
 2015-05-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/gomp/task-1.C: Remove both dg-error directives.

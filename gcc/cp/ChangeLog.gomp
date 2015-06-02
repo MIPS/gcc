@@ -1,3 +1,42 @@
+2015-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_lambda_body): Call
+	save_omp_privatization_clauses and restore_omp_privatization_clauses
+	around lambda body parsing.
+	(cp_parser_oacc_all_clauses, cp_parser_omp_all_clauses,
+	cp_parser_omp_for_loop, cp_omp_split_clauses, cp_parser_oacc_cache,
+	cp_parser_cilk_for): Adjust finish_omp_clauses callers.
+	(cp_parser_pragma): Call push_omp_privatization_clauses and
+	pop_omp_privatization_clauses around OpenMP pragma parsing.
+	* cp-gimplify.c (cxx_omp_disregard_value_expr): New function.
+	* pt.c (apply_late_template_attributes): Adjust finish_omp_clauses
+	and tsubst_omp_clauses callers.
+	(tsubst_omp_clauses): Add ALLOW_FIELDS argument, adjust possible
+	non-static data member arguments and pass ALLOW_FIELDS down to
+	finish_omp_clauses.
+	(tsubst_omp_for_iterator): Adjust finish_omp_clauses caller.
+	(tsubst_expr): Adjust tsubst_omp_clauses caller, call
+	push_omp_privatization_clauses and pop_omp_privatization_clauses
+	around instantiation of the constructs.
+	* cp-tree.h (DECL_OMP_PRIVATIZED_MEMBER): Define.
+	(finish_omp_clauses): Add ALLOW_FIELDS argument to prototype.
+	(push_omp_privatization_clauses, pop_omp_privatization_clauses,
+	save_omp_privatization_clauses, restore_omp_privatization_clauses,
+	cxx_omp_disregard_value_expr): New prototypes.
+	* cp-objcp-common.h (LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR): Redefine.
+	* semantics.c (omp_private_member_map, omp_private_member_vec): New
+	variables.
+	(finish_non_static_data_member): Return dummy decl for privatized
+	non-static data members.
+	(finish_omp_clauses): Add ALLOW_FIELDS argument.  Handle
+	non-static data member privatization in {,first,last,copy}private,
+	reduction and linear clauses.  Diagnose linear with predetermined
+	decls.
+	(push_omp_privatization_clauses, pop_omp_privatization_clauses,
+	save_omp_privatization_clauses, restore_omp_privatization_clauses):
+	New functions.
+	(finish_omp_for): Adjust finish_omp_clauses caller.
+
 2015-05-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-gimplify.c (cxx_omp_finish_clause): Don't complain about

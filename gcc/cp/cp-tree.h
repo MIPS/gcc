@@ -2023,6 +2023,7 @@ struct GTY(()) lang_decl_base {
   unsigned repo_available_p : 1;	   /* var or fn */
   unsigned threadprivate_or_deleted_p : 1; /* var or fn */
   unsigned anticipated_p : 1;		   /* fn, type or template */
+  /* Reused as DECL_OMP_PRIVATIZED_MEMBER in  var */
   unsigned friend_attr : 1;		   /* fn, type or template */
   unsigned template_conv_p : 1;		   /* var or template */
   unsigned odr_used : 1;		   /* var or fn */
@@ -3306,6 +3307,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define DECL_ANTICIPATED(NODE) \
   (DECL_LANG_SPECIFIC (TYPE_FUNCTION_OR_TEMPLATE_DECL_CHECK (NODE)) \
    ->u.base.anticipated_p)
+
+/* True for artificial decls added for OpenMP privatized non-static
+   data members.  */
+#define DECL_OMP_PRIVATIZED_MEMBER(NODE) \
+  (DECL_LANG_SPECIFIC (VAR_DECL_CHECK (NODE))->u.base.anticipated_p)
 
 /* Nonzero if NODE is a FUNCTION_DECL which was declared as a friend
    within a class but has not been declared in the surrounding scope.
@@ -5988,7 +5994,11 @@ extern void note_decl_for_pch			(tree);
 extern tree omp_reduction_id			(enum tree_code, tree, tree);
 extern tree cp_remove_omp_priv_cleanup_stmt	(tree *, int *, void *);
 extern void cp_check_omp_declare_reduction	(tree);
-extern tree finish_omp_clauses			(tree);
+extern tree finish_omp_clauses			(tree, bool);
+extern tree push_omp_privatization_clauses	(void);
+extern void pop_omp_privatization_clauses	(tree);
+extern void save_omp_privatization_clauses	(vec<tree> &);
+extern void restore_omp_privatization_clauses	(vec<tree> &);
 extern void finish_omp_threadprivate		(tree);
 extern tree begin_omp_structured_block		(void);
 extern tree finish_omp_structured_block		(tree);
@@ -6372,6 +6382,7 @@ extern tree cxx_omp_clause_assign_op		(tree, tree, tree);
 extern tree cxx_omp_clause_dtor			(tree, tree);
 extern void cxx_omp_finish_clause		(tree, gimple_seq *);
 extern bool cxx_omp_privatize_by_reference	(const_tree);
+extern bool cxx_omp_disregard_value_expr	(tree, bool);
 
 /* in name-lookup.c */
 extern void suggest_alternatives_for            (location_t, tree);

@@ -1,3 +1,29 @@
+2015-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (omp_check_private): Handle
+	omp_member_access_dummy_var vars.
+	(gimplify_scan_omp_clauses): Set DECL_NAME on
+	omp_member_access_dummy_var vars.
+	* omp-low.c (omp_member_access_dummy_var, unshare_and_remap_1,
+	unshare_and_remap): New functions.
+	(use_pointer_for_field): omp_member_access_dummy_var vars
+	don't need to be made addressable.
+	(build_outer_var_ref): Handle omp_member_access_dummy_var vars.
+	Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE references.
+	(lower_send_clauses): Likewise.
+	(scan_sharing_clauses): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE
+	references.
+	(lower_send_shared_vars): Handle omp_member_access_dummy_var vars.
+	(create_task_copyfn): Fix up handling of
+	OMP_CLAUSE_SHARED_FIRSTPRIVATE decls.
+	(lower_omp_regimplify_p): Use IS_TYPE_OR_DECL_P macro.
+	(struct lower_omp_regimplify_operands_data): New type.
+	(lower_omp_regimplify_operands_p, lower_omp_regimplify_operands): New
+	functions.
+	(lower_omp_1): Use lower_omp_regimplify_operands instead of
+	gimple_regimplify_operands.
+	* omp-low.h (omp_member_access_dummy_var): New prototype.
+
 2015-05-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (lower_rec_input_clauses): Unshare new_var

@@ -9483,6 +9483,8 @@ cp_parser_lambda_body (cp_parser* parser, tree lambda_expr)
     /* Still increment function_depth so that we don't GC in the
        middle of an expression.  */
     ++function_depth;
+  vec<tree> omp_privatization_save;
+  save_omp_privatization_clauses (omp_privatization_save);
   /* Clear this in case we're in the middle of a default argument.  */
   parser->local_variables_forbidden_p = false;
 
@@ -9584,6 +9586,7 @@ cp_parser_lambda_body (cp_parser* parser, tree lambda_expr)
       expand_or_defer_fn (fn);
   }
 
+  restore_omp_privatization_clauses (omp_privatization_save);
   parser->local_variables_forbidden_p = local_variables_forbidden_p;
   if (nested)
     pop_function_context();
@@ -29520,7 +29523,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
   cp_parser_skip_to_pragma_eol (parser, pragma_tok);
 
   if (finish_p)
-    return finish_omp_clauses (clauses);
+    return finish_omp_clauses (clauses, false);
 
   return clauses;
 }
@@ -29805,7 +29808,7 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
   if (!(flag_cilkplus && pragma_tok == NULL))
     cp_parser_skip_to_pragma_eol (parser, pragma_tok);
   if (finish_p)
-    return finish_omp_clauses (clauses);
+    return finish_omp_clauses (clauses, true);
   return clauses;
 }
 
@@ -30795,7 +30798,7 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 	    {
 	      c = build_omp_clause (loc, OMP_CLAUSE_PRIVATE);
 	      OMP_CLAUSE_DECL (c) = decl;
-	      c = finish_omp_clauses (c);
+	      c = finish_omp_clauses (c, false);
 	      if (c)
 		{
 		  OMP_CLAUSE_CHAIN (c) = clauses;
@@ -30934,7 +30937,7 @@ cp_omp_split_clauses (location_t loc, enum tree_code code,
   c_omp_split_clauses (loc, code, mask, clauses, cclauses);
   for (i = 0; i < C_OMP_CLAUSE_SPLIT_COUNT; i++)
     if (cclauses[i])
-      cclauses[i] = finish_omp_clauses (cclauses[i]);
+      cclauses[i] = finish_omp_clauses (cclauses[i], true);
 }
 
 /* OpenMP 4.0:
@@ -32027,7 +32030,7 @@ cp_parser_oacc_cache (cp_parser *parser, cp_token *pragma_tok)
   tree stmt, clauses;
 
   clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE__CACHE_, NULL_TREE);
-  clauses = finish_omp_clauses (clauses);
+  clauses = finish_omp_clauses (clauses, false);
 
   cp_parser_require_pragma_eol (parser, cp_lexer_peek_token (parser->lexer));
 
@@ -33529,6 +33532,8 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
 {
   cp_token *pragma_tok;
   unsigned int id;
+  tree stmt;
+  bool ret;
 
   pragma_tok = cp_lexer_consume_token (parser->lexer);
   gcc_assert (pragma_tok->type == CPP_PRAGMA);
@@ -33670,14 +33675,22 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
     case PRAGMA_OMP_TEAMS:
       if (context != pragma_stmt && context != pragma_compound)
 	goto bad_stmt;
+      stmt = push_omp_privatization_clauses ();
       cp_parser_omp_construct (parser, pragma_tok);
+      pop_omp_privatization_clauses (stmt);
       return true;
 
     case PRAGMA_OMP_ORDERED:
-      return cp_parser_omp_ordered (parser, pragma_tok, context);
+      stmt = push_omp_privatization_clauses ();
+      ret = cp_parser_omp_ordered (parser, pragma_tok, context);
+      pop_omp_privatization_clauses (stmt);
+      return ret;
 
     case PRAGMA_OMP_TARGET:
-      return cp_parser_omp_target (parser, pragma_tok, context);
+      stmt = push_omp_privatization_clauses ();
+      ret = cp_parser_omp_target (parser, pragma_tok, context);
+      pop_omp_privatization_clauses (stmt);
+      return ret;
 
     case PRAGMA_OMP_END_DECLARE_TARGET:
       cp_parser_omp_end_declare_target (parser, pragma_tok);
@@ -33718,7 +33731,9 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
 		    "%<#pragma simd%> must be inside a function");
 	  break;
 	}
+      stmt = push_omp_privatization_clauses ();
       cp_parser_cilk_simd (parser, pragma_tok);
+      pop_omp_privatization_clauses (stmt);
       return true;
 
     case PRAGMA_CILK_GRAINSIZE:
@@ -34099,7 +34114,7 @@ cp_parser_cilk_for (cp_parser *parser, tree grain)
   tree clauses = build_omp_clause (EXPR_LOCATION (grain), OMP_CLAUSE_SCHEDULE);
   OMP_CLAUSE_SCHEDULE_KIND (clauses) = OMP_CLAUSE_SCHEDULE_CILKFOR;
   OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clauses) = grain;
-  clauses = finish_omp_clauses (clauses);
+  clauses = finish_omp_clauses (clauses, false);
 
   tree ret = cp_parser_omp_for_loop (parser, CILK_FOR, clauses, NULL);
   if (ret)
