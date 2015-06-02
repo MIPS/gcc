@@ -17596,8 +17596,7 @@ fill_variable_array_bounds (tree type)
 {
   if (TREE_ASM_WRITTEN (type)
       && TREE_CODE (type) == ARRAY_TYPE
-      && TYPE_SIZE (type)
-      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+      && variably_modified_type_p (type, NULL))
     {
       dw_die_ref array_die = lookup_type_die (type);
       if (!array_die)
@@ -20409,8 +20408,10 @@ static void
 gen_struct_or_union_type_die (tree type, dw_die_ref context_die,
 				enum debug_info_usage usage)
 {
-  /* Fill in the size of variable-length fields in late dwarf.  */
+  /* Fill in the bound of variable-length fields in late dwarf if
+     still incomplete.  */
   if (TREE_ASM_WRITTEN (type)
+      && variably_modified_type_p (type, NULL)
       && !early_dwarf)
     {
       tree member;
@@ -20780,8 +20781,7 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 	   && TREE_CODE (type) != RECORD_TYPE
 	   && TREE_CODE (type) != UNION_TYPE
 	   && TREE_CODE (type) != QUAL_UNION_TYPE)
-	  || (TYPE_SIZE (type)
-	      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST))
+	  || !variably_modified_type_p (type, NULL))
 	return;
     }
 
