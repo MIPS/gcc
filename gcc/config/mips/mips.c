@@ -676,6 +676,9 @@ const char *mips_hi_relocs[NUM_SYMBOL_TYPES];
 /* Target state for MIPS16.  */
 struct target_globals *mips16_globals;
 
+/* Target state for MICROMIPS.  */
+struct target_globals *micromips_globals;
+
 /* Cached value of can_issue_more. This is cached in mips_variable_issue hook
    and returned from mips_sched_reorder2.  */
 static int cached_can_issue_more;
@@ -2825,8 +2828,7 @@ mips_emit_move_or_split (rtx dest, rtx src, enum mips_split_type split_type)
 static void
 mips_emit_unary (enum rtx_code code, rtx target, rtx op0)
 {
-  emit_insn (gen_rtx_SET (VOIDmode, target,
-			  gen_rtx_fmt_e (code, GET_MODE (op0), op0)));
+  emit_insn (gen_rtx_SET (target, gen_rtx_fmt_e (code, GET_MODE (op0), op0)));
 }
 
 /* Compute (CODE OP0) and store the result in a new register of mode MODE.
@@ -2847,8 +2849,8 @@ mips_force_unary (machine_mode mode, enum rtx_code code, rtx op0)
 void
 mips_emit_binary (enum rtx_code code, rtx target, rtx op0, rtx op1)
 {
-  emit_insn (gen_rtx_SET (VOIDmode, target,
-			  gen_rtx_fmt_ee (code, GET_MODE (target), op0, op1)));
+  emit_insn (gen_rtx_SET (target, gen_rtx_fmt_ee (code, GET_MODE (target),
+						  op0, op1)));
 }
 
 /* Compute (CODE OP0 OP1) and store the result in a new register
@@ -3228,8 +3230,8 @@ mips_call_tls_get_addr (rtx sym, enum mips_symbol_type type, rtx v0)
 
   start_sequence ();
 
-  emit_insn (gen_rtx_SET (Pmode, a0,
-			  gen_rtx_LO_SUM (Pmode, pic_offset_table_rtx, loc)));
+  emit_insn (gen_rtx_SET (a0, gen_rtx_LO_SUM (Pmode, pic_offset_table_rtx,
+					      loc)));
   insn = mips_expand_call (MIPS_CALL_NORMAL, v0, mips_tls_symbol,
 			   const0_rtx, NULL_RTX, false);
   RTL_CONST_CALL_P (insn) = 1;
@@ -3432,7 +3434,7 @@ mips_move_integer (rtx temp, rtx dest, unsigned HOST_WIDE_INT value)
     {
       if (!can_create_pseudo_p ())
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, temp, x));
+	  emit_insn (gen_rtx_SET (temp, x));
 	  x = temp;
 	}
       else
@@ -3440,7 +3442,7 @@ mips_move_integer (rtx temp, rtx dest, unsigned HOST_WIDE_INT value)
       x = gen_rtx_fmt_ee (codes[i].code, mode, x, GEN_INT (codes[i].value));
     }
 
-  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+  emit_insn (gen_rtx_SET (dest, x));
 }
 
 /* Subroutine of mips_legitimize_move.  Move constant SRC into register
@@ -3462,7 +3464,7 @@ mips_legitimize_const_move (machine_mode mode, rtx dest, rtx src)
   /* Split moves of symbolic constants into high/low pairs.  */
   if (mips_split_symbol (dest, src, MAX_MACHINE_MODE, &src))
     {
-      emit_insn (gen_rtx_SET (VOIDmode, dest, src));
+      emit_insn (gen_rtx_SET (dest, src));
       return;
     }
 
@@ -5220,20 +5222,19 @@ mips_expand_conditional_move (rtx *operands)
       rtx temp = gen_reg_rtx (mode);
       rtx temp2 = gen_reg_rtx (mode);
 
-      emit_insn (gen_rtx_SET (VOIDmode, temp,
+      emit_insn (gen_rtx_SET (temp,
 			      gen_rtx_IF_THEN_ELSE (mode, cond,
 						    operands[2], const0_rtx)));
 
       /* Flip the test for the second operand.  */
       cond = gen_rtx_fmt_ee ((code == EQ) ? NE : EQ, GET_MODE (op0), op0, op1);
 
-      emit_insn (gen_rtx_SET (VOIDmode, temp2,
+      emit_insn (gen_rtx_SET (temp2,
 			      gen_rtx_IF_THEN_ELSE (mode, cond,
 						    operands[3], const0_rtx)));
 
       /* Merge the two results, at least one is guaranteed to be zero.  */
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0],
-			      gen_rtx_IOR (mode, temp, temp2)));
+      emit_insn (gen_rtx_SET (operands[0], gen_rtx_IOR (mode, temp, temp2)));
     }
   else
     {
@@ -5243,7 +5244,7 @@ mips_expand_conditional_move (rtx *operands)
 	  operands[3] = force_reg (GET_MODE (operands[0]), operands[3]);
 	}
 
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+      emit_insn (gen_rtx_SET (operands[0],
 			      gen_rtx_IF_THEN_ELSE (GET_MODE (operands[0]), cond,
 						    operands[2], operands[3])));
     }
@@ -6603,7 +6604,7 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
       && mips_ok_for_lazy_binding_p (addr))
     {
       addr = mips_got_load (dest, addr, SYMBOL_GOTOFF_CALL);
-      emit_insn (gen_rtx_SET (VOIDmode, dest, addr));
+      emit_insn (gen_rtx_SET (dest, addr));
       return true;
     }
   else
@@ -7773,8 +7774,7 @@ mips_expand_atomic_qihi (union mips_gen_fn_ptrs generator,
 
   /* Compute the equivalent exclusive mask.  */
   inverted_mask = gen_reg_rtx (SImode);
-  emit_insn (gen_rtx_SET (VOIDmode, inverted_mask,
-			  gen_rtx_NOT (SImode, mask)));
+  emit_insn (gen_rtx_SET (inverted_mask, gen_rtx_NOT (SImode, mask)));
 
   /* Shift the old value into place.  */
   if (oldval != const0_rtx)
@@ -8443,7 +8443,6 @@ mips_print_operand_punct_valid_p (unsigned char code)
    'x'	Print the low 16 bits of CONST_INT OP in hexadecimal format.
    'd'	Print CONST_INT OP in decimal.
    'm'	Print one less than CONST_INT OP in decimal.
-   'y'	Print exact log2 of CONST_INT OP in decimal.
    'h'	Print the high-part relocation associated with OP, after stripping
 	  any outermost HIGH.
    'R'	Print the low-part relocation associated with OP.
@@ -8503,19 +8502,6 @@ mips_print_operand (FILE *file, rtx op, int letter)
     case 'm':
       if (CONST_INT_P (op))
 	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (op) - 1);
-      else
-	output_operand_lossage ("invalid use of '%%%c'", letter);
-      break;
-
-    case 'y':
-      if (CONST_INT_P (op))
-	{
-	  int val = exact_log2 (INTVAL (op));
-	  if (val != -1)
-	    fprintf (file, "%d", val);
-	  else
-	    output_operand_lossage ("invalid use of '%%%c'", letter);
-	}
       else
 	output_operand_lossage ("invalid use of '%%%c'", letter);
       break;
@@ -9364,7 +9350,7 @@ mips_frame_set (rtx mem, rtx reg)
 {
   rtx set;
 
-  set = gen_rtx_SET (VOIDmode, mem, reg);
+  set = gen_rtx_SET (mem, reg);
   RTX_FRAME_RELATED_P (set) = 1;
 
   return set;
@@ -9572,10 +9558,10 @@ mips16e_save_restore_reg (bool restore_p, bool reg_parm_p,
   if (restore_p)
     {
       mips_add_cfa_restore (reg);
-      return gen_rtx_SET (VOIDmode, reg, mem);
+      return gen_rtx_SET (reg, mem);
     }
   if (reg_parm_p)
-    return gen_rtx_SET (VOIDmode, mem, reg);
+    return gen_rtx_SET (mem, reg);
   return mips_frame_set (mem, reg);
 }
 
@@ -9625,7 +9611,7 @@ mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
   n = 0;
 
   /* Add the stack pointer adjustment.  */
-  set = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+  set = gen_rtx_SET (stack_pointer_rtx,
 		     plus_constant (Pmode, stack_pointer_rtx,
 				    restore_p ? size : -size));
   RTX_FRAME_RELATED_P (set) = 1;
@@ -10890,7 +10876,7 @@ umips_build_save_restore (mips_save_restore_fn fn,
 	set = mips_frame_set (mem, reg);
       else
 	{
-	  set = gen_rtx_SET (VOIDmode, reg, mem);
+	  set = gen_rtx_SET (reg, mem);
 	  mips_add_cfa_restore (reg);
 	}
       XVECEXP (pattern, 0, j) = set;
@@ -10907,7 +10893,7 @@ umips_build_save_restore (mips_save_restore_fn fn,
 	set = mips_frame_set (mem, reg);
       else
 	{
-	  set = gen_rtx_SET (VOIDmode, reg, mem);
+	  set = gen_rtx_SET (reg, mem);
 	  mips_add_cfa_restore (reg);
 	}
       XVECEXP (pattern, 0, j) = set;
@@ -11318,20 +11304,18 @@ mips_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
       /* Step 2: compute initial and final value of the loop counter.  */
 
       /* TEST_ADDR = SP + FIRST.  */
-      emit_insn (gen_rtx_SET (VOIDmode, r3,
-			      plus_constant (Pmode, stack_pointer_rtx,
-					     -first)));
+      emit_insn (gen_rtx_SET (r3, plus_constant (Pmode, stack_pointer_rtx,
+						 -first)));
 
       /* LAST_ADDR = SP + FIRST + ROUNDED_SIZE.  */
       if (rounded_size > 32768)
 	{
           emit_move_insn (r12, GEN_INT (rounded_size));
-	  emit_insn (gen_rtx_SET (VOIDmode, r12,
-			          gen_rtx_MINUS (Pmode, r3, r12)));
+	  emit_insn (gen_rtx_SET (r12, gen_rtx_MINUS (Pmode, r3, r12)));
 	}
       else
-	emit_insn (gen_rtx_SET (VOIDmode, r12,
-			        plus_constant (Pmode, r3, -rounded_size)));
+	emit_insn (gen_rtx_SET (r12, plus_constant (Pmode, r3,
+						    -rounded_size)));
 
 
       /* Step 3: the loop
@@ -11618,7 +11602,7 @@ mips_expand_prologue (void)
 
 	  /* Describe the combined effect of the previous instructions.  */
 	  mips_set_frame_expr
-	    (gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+	    (gen_rtx_SET (stack_pointer_rtx,
 			  plus_constant (Pmode, stack_pointer_rtx, -size)));
 	}
       mips_frame_barrier ();
@@ -11649,7 +11633,7 @@ mips_expand_prologue (void)
 				    hard_frame_pointer_rtx,
 				    MIPS_PROLOGUE_TEMP (Pmode)));
 	  mips_set_frame_expr
-	    (gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx,
+	    (gen_rtx_SET (hard_frame_pointer_rtx,
 			  plus_constant (Pmode, stack_pointer_rtx, offset)));
 	}
     }
@@ -13111,7 +13095,7 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
       model = MEMMODEL_ACQUIRE;
       break;
     default:
-      model = (enum memmodel) INTVAL (operands[memmodel_attr]);
+      model = memmodel_from_int (INTVAL (operands[memmodel_attr]));
     }
 
   mips_multi_start ();
@@ -16777,10 +16761,9 @@ mips16_load_branch_target (rtx dest, rtx src)
 	mips_emit_move (dest, pic_offset_table_rtx);
       page = mips_unspec_address (src, SYMBOL_GOTOFF_PAGE);
       low = mips_unspec_address (src, SYMBOL_GOT_PAGE_OFST);
-      emit_insn (gen_rtx_SET (VOIDmode, dest,
+      emit_insn (gen_rtx_SET (dest,
 			      PMODE_INSN (gen_unspec_got, (dest, page))));
-      emit_insn (gen_rtx_SET (VOIDmode, dest,
-			      gen_rtx_LO_SUM (Pmode, dest, low)));
+      emit_insn (gen_rtx_SET (dest, gen_rtx_LO_SUM (Pmode, dest, low)));
     }
   else
     {
@@ -16805,13 +16788,14 @@ mips16_split_long_branches (void)
   do
     {
       rtx_insn *insn;
+      rtx_jump_insn *jump_insn;
 
       shorten_branches (get_insns ());
       something_changed = false;
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-	if (JUMP_P (insn)
-	    && get_attr_length (insn) > 4
-	    && (any_condjump_p (insn) || any_uncondjump_p (insn)))
+	if ((jump_insn = dyn_cast <rtx_jump_insn *> (insn))
+	    && get_attr_length (jump_insn) > 4
+	    && (any_condjump_p (jump_insn) || any_uncondjump_p (jump_insn)))
 	  {
 	    rtx old_label, temp, saved_temp;
 	    rtx_code_label *new_label;
@@ -16826,7 +16810,7 @@ mips16_split_long_branches (void)
 	    emit_move_insn (saved_temp, temp);
 
 	    /* Load the branch target into TEMP.  */
-	    old_label = JUMP_LABEL (insn);
+	    old_label = JUMP_LABEL (jump_insn);
 	    target = gen_rtx_LABEL_REF (Pmode, old_label);
 	    mips16_load_branch_target (temp, target);
 
@@ -16841,7 +16825,7 @@ mips16_split_long_branches (void)
 	       a PC-relative constant pool.  */
 	    mips16_lay_out_constants (false);
 
-	    if (simplejump_p (insn))
+	    if (simplejump_p (jump_insn))
 	      /* We're going to replace INSN with a longer form.  */
 	      new_label = NULL;
 	    else
@@ -16855,11 +16839,11 @@ mips16_split_long_branches (void)
 	    jump_sequence = get_insns ();
 	    end_sequence ();
 
-	    emit_insn_after (jump_sequence, insn);
+	    emit_insn_after (jump_sequence, jump_insn);
 	    if (new_label)
-	      invert_jump (insn, new_label, false);
+	      invert_jump (jump_insn, new_label, false);
 	    else
-	      delete_insn (insn);
+	      delete_insn (jump_insn);
 	    something_changed = true;
 	  }
     }
@@ -17181,6 +17165,13 @@ mips_set_compression_mode (unsigned int compression_mode)
 	mips16_globals = save_target_globals_default_opts ();
       else
 	restore_target_globals (mips16_globals);
+    }
+  else if (compression_mode & MASK_MICROMIPS)
+    {
+      if (!micromips_globals)
+	micromips_globals = save_target_globals_default_opts ();
+      else
+	restore_target_globals (micromips_globals);
     }
   else
     restore_target_globals (&default_target_globals);
@@ -18241,6 +18232,66 @@ umips_load_store_pair_p_1 (bool load_p, bool swap_p,
   return true;
 }
 
+bool
+mips_load_store_bonding_p (rtx *operands, machine_mode mode, bool load_p)
+{
+  rtx reg1, reg2, mem1, mem2, base1, base2;
+  enum reg_class rc1, rc2;
+  HOST_WIDE_INT offset1, offset2;
+
+  if (load_p)
+    {
+      reg1 = operands[0];
+      reg2 = operands[2];
+      mem1 = operands[1];
+      mem2 = operands[3];
+    }
+  else
+    {
+      reg1 = operands[1];
+      reg2 = operands[3];
+      mem1 = operands[0];
+      mem2 = operands[2];
+    }
+
+  if (mips_address_insns (XEXP (mem1, 0), mode, false) == 0
+      || mips_address_insns (XEXP (mem2, 0), mode, false) == 0)
+    return false;
+
+  mips_split_plus (XEXP (mem1, 0), &base1, &offset1);
+  mips_split_plus (XEXP (mem2, 0), &base2, &offset2);
+
+  /* Base regs do not match.  */
+  if (!REG_P (base1) || !rtx_equal_p (base1, base2))
+    return false;
+
+  /* Either of the loads is clobbering base register.  It is legitimate to bond
+     loads if second load clobbers base register.  However, hardware does not
+     support such bonding.  */
+  if (load_p
+      && (REGNO (reg1) == REGNO (base1)
+	  || (REGNO (reg2) == REGNO (base1))))
+    return false;
+
+  /* Loading in same registers.  */
+  if (load_p
+      && REGNO (reg1) == REGNO (reg2))
+    return false;
+
+  /* The loads/stores are not of same type.  */
+  rc1 = REGNO_REG_CLASS (REGNO (reg1));
+  rc2 = REGNO_REG_CLASS (REGNO (reg2));
+  if (rc1 != rc2
+      && !reg_class_subset_p (rc1, rc2)
+      && !reg_class_subset_p (rc2, rc1))
+    return false;
+
+  if (abs (offset1 - offset2) != GET_MODE_SIZE (mode))
+    return false;
+
+  return true;
+}
+
 /* OPERANDS describes the operands to a pair of SETs, in the order
    dest1, src1, dest2, src2.  Return true if the operands can be used
    in an LWP or SWP instruction; LOAD_P says which.  */
@@ -18644,7 +18695,7 @@ mips_expand_vselect (rtx target, rtx op0,
 
   x = gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nelt, rperm));
   x = gen_rtx_VEC_SELECT (GET_MODE (target), op0, x);
-  x = gen_rtx_SET (VOIDmode, target, x);
+  x = gen_rtx_SET (target, x);
 
   insn = emit_insn (x);
   if (recog_memoized (insn) < 0)
@@ -18765,14 +18816,14 @@ mips_expand_vpc_loongson_pshufh (struct expand_vec_perm_d *d)
       merge = force_reg (V4HImode, merge);
 
       x = gen_rtx_AND (V4HImode, merge, t1);
-      emit_insn (gen_rtx_SET (VOIDmode, t1, x));
+      emit_insn (gen_rtx_SET (t1, x));
 
       x = gen_rtx_NOT (V4HImode, merge);
       x = gen_rtx_AND (V4HImode, x, t0);
-      emit_insn (gen_rtx_SET (VOIDmode, t0, x));
+      emit_insn (gen_rtx_SET (t0, x));
 
       x = gen_rtx_IOR (V4HImode, t0, t1);
-      emit_insn (gen_rtx_SET (VOIDmode, d->target, x));
+      emit_insn (gen_rtx_SET (d->target, x));
     }
 
   return true;
@@ -19154,7 +19205,7 @@ mips_expand_vector_init (rtx target, rtx vals)
       rtx op0 = force_reg (imode, XVECEXP (vals, 0, 0));
       rtx op1 = force_reg (imode, XVECEXP (vals, 0, 1));
       x = gen_rtx_VEC_CONCAT (vmode, op0, op1);
-      emit_insn (gen_rtx_SET (VOIDmode, target, x));
+      emit_insn (gen_rtx_SET (target, x));
       return;
     }
 
@@ -19266,14 +19317,14 @@ mips_expand_vec_minmax (rtx target, rtx op0, rtx op1,
   emit_insn (cmp (tc, op0, op1));
 
   x = gen_rtx_AND (vmode, tc, (min_p ? op1 : op0));
-  emit_insn (gen_rtx_SET (VOIDmode, t0, x));
+  emit_insn (gen_rtx_SET (t0, x));
 
   x = gen_rtx_NOT (vmode, tc);
   x = gen_rtx_AND (vmode, x, (min_p ? op0 : op1));
-  emit_insn (gen_rtx_SET (VOIDmode, t1, x));
+  emit_insn (gen_rtx_SET (t1, x));
 
   x = gen_rtx_IOR (vmode, t0, t1);
-  emit_insn (gen_rtx_SET (VOIDmode, target, x));
+  emit_insn (gen_rtx_SET (target, x));
 }
 
 /* Implement HARD_REGNO_CALLER_SAVE_MODE.  */

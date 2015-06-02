@@ -749,6 +749,9 @@ operands_match_p (rtx x, rtx y, int y_hard_regno)
 
  slow:
 
+  if (code == REG && REG_P (y))
+    return REGNO (x) == REGNO (y);
+
   if (code == REG && GET_CODE (y) == SUBREG && REG_P (SUBREG_REG (y))
       && x == SUBREG_REG (y))
     return true;
@@ -1060,9 +1063,8 @@ emit_spill_move (bool to_p, rtx mem_pseudo, rtx val)
 	  LRA_SUBREG_P (mem_pseudo) = 1;
 	}
     }
-  return as_a <rtx_insn *> (to_p
-			    ? gen_move_insn (mem_pseudo, val)
-			    : gen_move_insn (val, mem_pseudo));
+  return to_p ? gen_move_insn (mem_pseudo, val)
+	      : gen_move_insn (val, mem_pseudo);
 }
 
 /* Process a special case insn (register move), return true if we
@@ -2688,7 +2690,7 @@ base_to_reg (struct address_info *ad)
                                    : *ad->disp_term);
   if (!valid_address_p (ad->mode, new_inner, ad->as))
     return NULL_RTX;
-  insn = emit_insn (gen_rtx_SET (ad->mode, new_reg, *ad->base_term));
+  insn = emit_insn (gen_rtx_SET (new_reg, *ad->base_term));
   code = recog_memoized (insn);
   if (code < 0)
     {
@@ -2960,42 +2962,42 @@ process_address_1 (int nop, bool check_only_p,
 	  rtx addr = *ad.inner;
 
 	  new_reg = lra_create_new_reg (Pmode, NULL_RTX, cl, "addr");
-#ifdef HAVE_lo_sum
-	  {
-	    rtx_insn *insn;
-	    rtx_insn *last = get_last_insn ();
+	  if (HAVE_lo_sum)
+	    {
+	      rtx_insn *insn;
+	      rtx_insn *last = get_last_insn ();
 
-	    /* addr => lo_sum (new_base, addr), case (2) above.  */
-	    insn = emit_insn (gen_rtx_SET
-			      (VOIDmode, new_reg,
-			       gen_rtx_HIGH (Pmode, copy_rtx (addr))));
-	    code = recog_memoized (insn);
-	    if (code >= 0)
-	      {
-		*ad.inner = gen_rtx_LO_SUM (Pmode, new_reg, addr);
-		if (! valid_address_p (ad.mode, *ad.outer, ad.as))
-		  {
-		    /* Try to put lo_sum into register.  */
-		    insn = emit_insn (gen_rtx_SET
-				      (VOIDmode, new_reg,
-				       gen_rtx_LO_SUM (Pmode, new_reg, addr)));
-		    code = recog_memoized (insn);
-		    if (code >= 0)
-		      {
-			*ad.inner = new_reg;
-			if (! valid_address_p (ad.mode, *ad.outer, ad.as))
-			  {
-			    *ad.inner = addr;
-			    code = -1;
-			  }
-		      }
-		    
-		  }
-	      }
-	    if (code < 0)
-	      delete_insns_since (last);
-	  }
-#endif
+	      /* addr => lo_sum (new_base, addr), case (2) above.  */
+	      insn = emit_insn (gen_rtx_SET
+				(new_reg,
+				 gen_rtx_HIGH (Pmode, copy_rtx (addr))));
+	      code = recog_memoized (insn);
+	      if (code >= 0)
+		{
+		  *ad.inner = gen_rtx_LO_SUM (Pmode, new_reg, addr);
+		  if (! valid_address_p (ad.mode, *ad.outer, ad.as))
+		    {
+		      /* Try to put lo_sum into register.  */
+		      insn = emit_insn (gen_rtx_SET
+					(new_reg,
+					 gen_rtx_LO_SUM (Pmode, new_reg, addr)));
+		      code = recog_memoized (insn);
+		      if (code >= 0)
+			{
+			  *ad.inner = new_reg;
+			  if (! valid_address_p (ad.mode, *ad.outer, ad.as))
+			    {
+			      *ad.inner = addr;
+			      code = -1;
+			    }
+			}
+
+		    }
+		}
+	      if (code < 0)
+		delete_insns_since (last);
+	    }
+
 	  if (code < 0)
 	    {
 	      /* addr => new_base, case (2) above.  */
@@ -3293,15 +3295,9 @@ simple_move_p (void)
 static inline void
 swap_operands (int nop)
 {
-  machine_mode mode = curr_operand_mode[nop];
-  curr_operand_mode[nop] = curr_operand_mode[nop + 1];
-  curr_operand_mode[nop + 1] = mode;
-  mode = original_subreg_reg_mode[nop];
-  original_subreg_reg_mode[nop] = original_subreg_reg_mode[nop + 1];
-  original_subreg_reg_mode[nop + 1] = mode;
-  rtx x = *curr_id->operand_loc[nop];
-  *curr_id->operand_loc[nop] = *curr_id->operand_loc[nop + 1];
-  *curr_id->operand_loc[nop + 1] = x;
+  std::swap (curr_operand_mode[nop], curr_operand_mode[nop + 1]);
+  std::swap (original_subreg_reg_mode[nop], original_subreg_reg_mode[nop + 1]);
+  std::swap (*curr_id->operand_loc[nop], *curr_id->operand_loc[nop + 1]);
   /* Swap the duplicates too.  */
   lra_update_dup (curr_id, nop);
   lra_update_dup (curr_id, nop + 1);
@@ -4141,7 +4137,7 @@ contains_deleted_insn_p (rtx_insn_list *list)
 
 /* Return true if X contains a pseudo dying in INSN.  */
 static bool
-dead_pseudo_p (rtx x, rtx insn)
+dead_pseudo_p (rtx x, rtx_insn *insn)
 {
   int i, j;
   const char *fmt;
@@ -4766,7 +4762,7 @@ inherit_reload_reg (bool def_p, int original_regno,
 		   "    Inheritance reuse change %d->%d (bb%d):\n",
 		   original_regno, REGNO (new_reg),
 		   BLOCK_FOR_INSN (usage_insn)->index);
-	  dump_insn_slim (lra_dump_file, usage_insn);
+	  dump_insn_slim (lra_dump_file, as_a <rtx_insn *> (usage_insn));
 	}
     }
   if (lra_dump_file != NULL)
@@ -5026,7 +5022,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
 	{
 	  fprintf (lra_dump_file, "    Split reuse change %d->%d:\n",
 		   original_regno, REGNO (new_reg));
-	  dump_insn_slim (lra_dump_file, usage_insn);
+	  dump_insn_slim (lra_dump_file, as_a <rtx_insn *> (usage_insn));
 	}
     }
   lra_assert (NOTE_P (usage_insn) || NONDEBUG_INSN_P (usage_insn));

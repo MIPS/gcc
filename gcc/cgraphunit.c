@@ -866,9 +866,8 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 		  (TREE_TYPE (targets[i]->decl))
 		   == METHOD_TYPE
 	      && !type_in_anonymous_namespace_p
-		   (method_class_type
-		     (TREE_TYPE (targets[i]->decl))))
-	  enqueue_node (targets[i]);
+		   (TYPE_METHOD_BASETYPE (TREE_TYPE (targets[i]->decl))))
+	    enqueue_node (targets[i]);
 	}
     }
 
@@ -2019,14 +2018,14 @@ expand_all_functions (void)
 
       if (node->process)
 	{
-     expanded_func_count++;
-     if(node->tp_first_run)
-       profiled_func_count++;
+	  expanded_func_count++;
+	  if(node->tp_first_run)
+	    profiled_func_count++;
 
-    if (symtab->dump_file)
-	  fprintf (symtab->dump_file,
-		   "Time profile order in expand_all_functions:%s:%d\n",
-		   node->asm_name (), node->tp_first_run);
+	  if (symtab->dump_file)
+	    fprintf (symtab->dump_file,
+		     "Time profile order in expand_all_functions:%s:%d\n",
+		     node->asm_name (), node->tp_first_run);
 	  node->process = 0;
 	  node->expand ();
 	}

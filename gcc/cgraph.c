@@ -1281,6 +1281,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
   tree lhs = gimple_call_lhs (e->call_stmt);
   gcall *new_stmt;
   gimple_stmt_iterator gsi;
+  bool skip_bounds = false;
 #ifdef ENABLE_CHECKING
   cgraph_node *node;
 #endif
@@ -1325,7 +1326,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	  if (dump_file)
 	    fprintf (dump_file,
 		     "Expanding speculative call of %s/%i -> %s/%i count:"
-		     "%"PRId64"\n",
+		     "%" PRId64"\n",
 		     xstrdup_for_dump (e->caller->name ()),
 		     e->caller->order,
 		     xstrdup_for_dump (e->callee->name ()),
@@ -1389,8 +1390,16 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	}
     }
 
+  /* We might propagate instrumented function pointer into
+     not instrumented function and vice versa.  In such a
+     case we need to either fix function declaration or
+     remove bounds from call statement.  */
+  if (flag_check_pointer_bounds && e->callee)
+    skip_bounds = chkp_redirect_edge (e);
+
   if (e->indirect_unknown_callee
-      || decl == e->callee->decl)
+      || (decl == e->callee->decl
+	  && !skip_bounds))
     return e->call_stmt;
 
 #ifdef ENABLE_CHECKING
@@ -1415,13 +1424,19 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	}
     }
 
-  if (e->callee->clone.combined_args_to_skip)
+  if (e->callee->clone.combined_args_to_skip
+      || skip_bounds)
     {
       int lp_nr;
 
-      new_stmt
-	= gimple_call_copy_skip_args (e->call_stmt,
-				      e->callee->clone.combined_args_to_skip);
+      new_stmt = e->call_stmt;
+      if (e->callee->clone.combined_args_to_skip)
+	new_stmt
+	  = gimple_call_copy_skip_args (new_stmt,
+					e->callee->clone.combined_args_to_skip);
+      if (skip_bounds)
+	new_stmt = chkp_copy_call_skip_bounds (new_stmt);
+
       gimple_call_set_fndecl (new_stmt, e->callee->decl);
       gimple_call_set_fntype (new_stmt, gimple_call_fntype (e->call_stmt));
 
@@ -1449,8 +1464,10 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
       update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), new_stmt);
     }
 
-  /* If the call becomes noreturn, remove the lhs.  */
-  if (lhs && (gimple_call_flags (new_stmt) & ECF_NORETURN))
+  /* If the call becomes noreturn, remove the LHS if possible.  */
+  if (lhs
+      && (gimple_call_flags (new_stmt) & ECF_NORETURN)
+      && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST)
     {
       if (TREE_CODE (lhs) == SSA_NAME)
 	{
@@ -1943,7 +1960,7 @@ cgraph_edge::dump_edge_flags (FILE *f)
   if (indirect_inlining_edge)
     fprintf (f, "(indirect_inlining) ");
   if (count)
-    fprintf (f, "(%"PRId64"x) ", (int64_t)count);
+    fprintf (f, "(%" PRId64"x) ", (int64_t)count);
   if (frequency)
     fprintf (f, "(%.2f per call) ", frequency / (double)CGRAPH_FREQ_BASE);
   if (can_throw_external)
@@ -1979,7 +1996,7 @@ cgraph_node::dump (FILE *f)
   fprintf (f, "  First run: %i\n", tp_first_run);
   fprintf (f, "  Function flags:");
   if (count)
-    fprintf (f, " executed %"PRId64"x",
+    fprintf (f, " executed %" PRId64"x",
 	     (int64_t)count);
   if (origin)
     fprintf (f, " nested in: %s", origin->asm_name ());
@@ -2955,11 +2972,11 @@ cgraph_node::verify_node (void)
 	  }
 	else
 	  ref_found = true;
-	if (!ref_found)
-	  {
-	    error ("Analyzed alias has no reference");
-	    error_found = true;
-	  }
+      if (!ref_found)
+	{
+	  error ("Analyzed alias has no reference");
+	  error_found = true;
+	}
     }
 
   /* Check instrumented version reference.  */

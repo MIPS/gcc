@@ -960,6 +960,9 @@ is_tagged_type (const_tree type)
   if (!type || !RECORD_OR_UNION_TYPE_P (type))
     return false;
 
+  /* TYPE_METHODS is only set on the main variant.  */
+  type = TYPE_MAIN_VARIANT (type);
+
   for (tmp = TYPE_METHODS (type); tmp; tmp = TREE_CHAIN (tmp))
     if (TREE_CODE (tmp) == FUNCTION_DECL && DECL_VINDEX (tmp))
       return true;
@@ -987,6 +990,9 @@ has_nontrivial_methods (tree type)
   /* A non-trivial type has non-trivial special methods.  */
   if (!cpp_check (type, IS_TRIVIAL))
     return true;
+
+  /* TYPE_METHODS is only set on the main variant.  */
+  type = TYPE_MAIN_VARIANT (type);
 
   /* If there are user-defined methods, they are deemed non-trivial.  */
   for (tmp = TYPE_METHODS (type); tmp; tmp = TREE_CHAIN (tmp))
@@ -1629,7 +1635,7 @@ dump_sloc (pretty_printer *buffer, tree node)
 
   xloc.file = NULL;
 
-  if (TREE_CODE_CLASS (TREE_CODE (node)) == tcc_declaration)
+  if (DECL_P (node))
     xloc = expand_location (DECL_SOURCE_LOCATION (node));
   else if (EXPR_HAS_LOCATION (node))
     xloc = expand_location (EXPR_LOCATION (node));

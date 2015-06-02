@@ -1052,24 +1052,30 @@ expand_ifn_va_arg_1 (function *fun)
 
 	type = TREE_TYPE (TREE_TYPE (gimple_call_arg (stmt, 1)));
 	ap = gimple_call_arg (stmt, 0);
+
+	/* Balanced out the &ap, usually added by build_va_arg.  */
 	ap = build_fold_indirect_ref (ap);
 
 	push_gimplify_context (false);
 
-	expr = gimplify_va_arg_internal (ap, type, gimple_location (stmt),
-					 &pre, &post);
+	/* Make it easier for the backends by protecting the valist argument
+	   from multiple evaluations.  */
+	gimplify_expr (&ap, &pre, &post, is_gimple_min_lval, fb_lvalue);
+
+	expr = targetm.gimplify_va_arg_expr (ap, type, &pre, &post);
 
 	lhs = gimple_call_lhs (stmt);
 	if (lhs != NULL_TREE)
 	  {
+	    unsigned int nargs = gimple_call_num_args (stmt);
 	    gcc_assert (useless_type_conversion_p (TREE_TYPE (lhs), type));
 
-	    if (gimple_call_num_args (stmt) == 3)
+	    if (nargs == 3)
 	      {
 		/* We've transported the size of with WITH_SIZE_EXPR here as
-		   the 3rd argument of the internal fn call.  Now reinstate
+		   the last argument of the internal fn call.  Now reinstate
 		   it.  */
-		tree size = gimple_call_arg (stmt, 2);
+		tree size = gimple_call_arg (stmt, nargs - 1);
 		expr = build2 (WITH_SIZE_EXPR, TREE_TYPE (expr), expr, size);
 	      }
 

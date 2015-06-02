@@ -340,21 +340,31 @@ static const struct cpu_vector_cost xgene1_vector_cost =
 #define AARCH64_FUSE_ADRP_LDR	(1 << 3)
 #define AARCH64_FUSE_CMP_BRANCH	(1 << 4)
 
+/* Generic costs for branch instructions.  */
+static const struct cpu_branch_cost generic_branch_cost =
+{
+  2,  /* Predictable.  */
+  2   /* Unpredictable.  */
+};
+
 static const struct tune_params generic_tunings =
 {
   &cortexa57_extra_costs,
   &generic_addrcost_table,
   &generic_regmove_cost,
   &generic_vector_cost,
+  &generic_branch_cost,
   4, /* memmov_cost  */
   2, /* issue_rate  */
-  AARCH64_FUSE_NOTHING, /* fuseable_ops  */
+  AARCH64_FUSE_NOTHING, /* fusible_ops  */
   8,	/* function_align.  */
   8,	/* jump_align.  */
   4,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
-  1	/* vec_reassoc_width.  */
+  1,	/* vec_reassoc_width.  */
+  2,	/* min_div_recip_mul_sf.  */
+  2	/* min_div_recip_mul_df.  */
 };
 
 static const struct tune_params cortexa53_tunings =
@@ -363,16 +373,19 @@ static const struct tune_params cortexa53_tunings =
   &generic_addrcost_table,
   &cortexa53_regmove_cost,
   &generic_vector_cost,
+  &generic_branch_cost,
   4, /* memmov_cost  */
   2, /* issue_rate  */
   (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
-   | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR), /* fuseable_ops  */
+   | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR), /* fusible_ops  */
   8,	/* function_align.  */
   8,	/* jump_align.  */
   4,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
-  1	/* vec_reassoc_width.  */
+  1,	/* vec_reassoc_width.  */
+  2,	/* min_div_recip_mul_sf.  */
+  2	/* min_div_recip_mul_df.  */
 };
 
 static const struct tune_params cortexa57_tunings =
@@ -381,16 +394,19 @@ static const struct tune_params cortexa57_tunings =
   &cortexa57_addrcost_table,
   &cortexa57_regmove_cost,
   &cortexa57_vector_cost,
+  &generic_branch_cost,
   4, /* memmov_cost  */
   3, /* issue_rate  */
   (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
-   | AARCH64_FUSE_MOVK_MOVK), /* fuseable_ops  */
+   | AARCH64_FUSE_MOVK_MOVK), /* fusible_ops  */
   16,	/* function_align.  */
   8,	/* jump_align.  */
   4,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
-  1	/* vec_reassoc_width.  */
+  1,	/* vec_reassoc_width.  */
+  2,	/* min_div_recip_mul_sf.  */
+  2	/* min_div_recip_mul_df.  */
 };
 
 static const struct tune_params thunderx_tunings =
@@ -399,15 +415,18 @@ static const struct tune_params thunderx_tunings =
   &generic_addrcost_table,
   &thunderx_regmove_cost,
   &generic_vector_cost,
+  &generic_branch_cost,
   6, /* memmov_cost  */
   2, /* issue_rate  */
-  AARCH64_FUSE_CMP_BRANCH, /* fuseable_ops  */
+  AARCH64_FUSE_CMP_BRANCH, /* fusible_ops  */
   8,	/* function_align.  */
   8,	/* jump_align.  */
   8,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
-  1	/* vec_reassoc_width.  */
+  1,	/* vec_reassoc_width.  */
+  2,	/* min_div_recip_mul_sf.  */
+  2	/* min_div_recip_mul_df.  */
 };
 
 static const struct tune_params xgene1_tunings =
@@ -416,15 +435,18 @@ static const struct tune_params xgene1_tunings =
   &xgene1_addrcost_table,
   &xgene1_regmove_cost,
   &xgene1_vector_cost,
+  &generic_branch_cost,
   6, /* memmov_cost  */
   4, /* issue_rate  */
-  AARCH64_FUSE_NOTHING, /* fuseable_ops  */
+  AARCH64_FUSE_NOTHING, /* fusible_ops  */
   16,	/* function_align.  */
   8,	/* jump_align.  */
   16,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
-  1	/* vec_reassoc_width.  */
+  1,	/* vec_reassoc_width.  */
+  2,	/* min_div_recip_mul_sf.  */
+  2	/* min_div_recip_mul_df.  */
 };
 
 /* A processor implementing AArch64.  */
@@ -513,9 +535,11 @@ static const char * const aarch64_condition_codes[] =
 };
 
 static unsigned int
-aarch64_min_divisions_for_recip_mul (enum machine_mode mode ATTRIBUTE_UNUSED)
+aarch64_min_divisions_for_recip_mul (enum machine_mode mode)
 {
-  return 2;
+  if (GET_MODE_UNIT_SIZE (mode) == 4)
+    return aarch64_tune_params->min_div_recip_mul_sf;
+  return aarch64_tune_params->min_div_recip_mul_df;
 }
 
 static int
@@ -689,7 +713,7 @@ aarch64_is_extend_from_extract (machine_mode mode, rtx mult_imm,
 inline static rtx
 emit_set_insn (rtx x, rtx y)
 {
-  return emit_insn (gen_rtx_SET (VOIDmode, x, y));
+  return emit_insn (gen_rtx_SET (x, y));
 }
 
 /* X and Y are two things to compare using CODE.  Emit the compare insn and
@@ -801,7 +825,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
       }
 
     case SYMBOL_TINY_ABSOLUTE:
-      emit_insn (gen_rtx_SET (Pmode, dest, imm));
+      emit_insn (gen_rtx_SET (dest, imm));
       return;
 
     case SYMBOL_SMALL_GOT:
@@ -870,7 +894,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	if (mode != Pmode)
 	  tp = gen_lowpart (mode, tp);
 
-	emit_insn (gen_rtx_SET (mode, dest, gen_rtx_PLUS (mode, tp, x0)));
+	emit_insn (gen_rtx_SET (dest, gen_rtx_PLUS (mode, tp, x0)));
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
@@ -904,7 +928,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	    emit_insn (gen_tlsie_small_sidi (tmp_reg, imm));
 	  }
 
-	emit_insn (gen_rtx_SET (mode, dest, gen_rtx_PLUS (mode, tp, tmp_reg)));
+	emit_insn (gen_rtx_SET (dest, gen_rtx_PLUS (mode, tp, tmp_reg)));
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
@@ -1162,7 +1186,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
   if (CONST_INT_P (imm) && aarch64_move_imm (INTVAL (imm), mode))
     {
       if (generate)
-	emit_insn (gen_rtx_SET (VOIDmode, dest, imm));
+	emit_insn (gen_rtx_SET (dest, imm));
       num_insns++;
       return num_insns;
     }
@@ -1174,8 +1198,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
 	 us anything.  */
       if (generate)
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, dest,
-				  GEN_INT (INTVAL (imm) & 0xffff)));
+	  emit_insn (gen_rtx_SET (dest, GEN_INT (INTVAL (imm) & 0xffff)));
 	  emit_insn (gen_insv_immsi (dest, GEN_INT (16),
 				     GEN_INT ((INTVAL (imm) >> 16) & 0xffff)));
 	}
@@ -1212,7 +1235,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
       mask = 0xffffll << first_not_ffff_match;
       if (generate)
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, dest, GEN_INT (val | mask)));
+	  emit_insn (gen_rtx_SET (dest, GEN_INT (val | mask)));
 	  emit_insn (gen_insv_immdi (dest, GEN_INT (first_not_ffff_match),
 				     GEN_INT ((val >> first_not_ffff_match)
 					      & 0xffff)));
@@ -1234,8 +1257,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
 	  if (generate)
 	    {
 	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-	      emit_insn (gen_rtx_SET (VOIDmode, subtarget,
-				      GEN_INT (val & mask)));
+	      emit_insn (gen_rtx_SET (subtarget, GEN_INT (val & mask)));
 	      emit_insn (gen_adddi3 (dest, subtarget,
 				     GEN_INT (val - (val & mask))));
 	    }
@@ -1247,7 +1269,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
 	  if (generate)
 	    {
 	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-	      emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+	      emit_insn (gen_rtx_SET (subtarget,
 				      GEN_INT ((val + comp) & mask)));
 	      emit_insn (gen_adddi3 (dest, subtarget,
 				     GEN_INT (val - ((val + comp) & mask))));
@@ -1260,7 +1282,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
 	  if (generate)
 	    {
 	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-	      emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+	      emit_insn (gen_rtx_SET (subtarget,
 				      GEN_INT ((val - comp) | ~mask)));
 	      emit_insn (gen_adddi3 (dest, subtarget,
 				     GEN_INT (val - ((val - comp) | ~mask))));
@@ -1273,8 +1295,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
 	  if (generate)
 	    {
 	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-	      emit_insn (gen_rtx_SET (VOIDmode, subtarget,
-				      GEN_INT (val | ~mask)));
+	      emit_insn (gen_rtx_SET (subtarget, GEN_INT (val | ~mask)));
 	      emit_insn (gen_adddi3 (dest, subtarget,
 				     GEN_INT (val - (val | ~mask))));
 	    }
@@ -1296,7 +1317,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
 	  if (generate)
 	    {
 	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-	      emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+	      emit_insn (gen_rtx_SET (subtarget,
 				      GEN_INT (aarch64_bitmasks[i])));
 	      emit_insn (gen_adddi3 (dest, subtarget,
 				     GEN_INT (val - aarch64_bitmasks[i])));
@@ -1311,7 +1332,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
 	    {
 	      if (generate)
 		{
-		  emit_insn (gen_rtx_SET (VOIDmode, dest,
+		  emit_insn (gen_rtx_SET (dest,
 					  GEN_INT (aarch64_bitmasks[i])));
 		  emit_insn (gen_insv_immdi (dest, GEN_INT (j),
 					     GEN_INT ((val >> j) & 0xffff)));
@@ -1335,7 +1356,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
 		if (generate)
 		  {
 		    subtarget = subtargets ? gen_reg_rtx (mode) : dest;
-		    emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+		    emit_insn (gen_rtx_SET (subtarget,
 					    GEN_INT (aarch64_bitmasks[i])));
 		    emit_insn (gen_iordi3 (dest, subtarget,
 					   GEN_INT (aarch64_bitmasks[j])));
@@ -1354,7 +1375,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
 		if (generate)
 		  {
 		    subtarget = subtargets ? gen_reg_rtx (mode) : dest;
-		    emit_insn (gen_rtx_SET (VOIDmode, subtarget,
+		    emit_insn (gen_rtx_SET (subtarget,
 					    GEN_INT (aarch64_bitmasks[j])));
 		    emit_insn (gen_anddi3 (dest, subtarget,
 					   GEN_INT (aarch64_bitmasks[i])));
@@ -1370,7 +1391,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
       /* Set either first three quarters or all but the third.	 */
       mask = 0xffffll << (16 - first_not_ffff_match);
       if (generate)
-	emit_insn (gen_rtx_SET (VOIDmode, dest,
+	emit_insn (gen_rtx_SET (dest,
 				GEN_INT (val | mask | 0xffffffff00000000ull)));
       num_insns ++;
 
@@ -1399,8 +1420,7 @@ aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
 	  if (first)
 	    {
 	      if (generate)
-		emit_insn (gen_rtx_SET (VOIDmode, dest,
-					GEN_INT (val & mask)));
+		emit_insn (gen_rtx_SET (dest, GEN_INT (val & mask)));
 	      num_insns ++;
 	      first = false;
 	    }
@@ -1454,7 +1474,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	  gcc_assert (mem);
 	  if (mode != ptr_mode)
 	    mem = gen_rtx_ZERO_EXTEND (mode, mem);
-	  emit_insn (gen_rtx_SET (VOIDmode, dest, mem));
+	  emit_insn (gen_rtx_SET (dest, mem));
 	  return;
 
         case SYMBOL_SMALL_TLSGD:
@@ -1486,12 +1506,12 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
   if (!CONST_INT_P (imm))
     {
       if (GET_CODE (imm) == HIGH)
-	emit_insn (gen_rtx_SET (VOIDmode, dest, imm));
+	emit_insn (gen_rtx_SET (dest, imm));
       else
         {
 	  rtx mem = force_const_mem (mode, imm);
 	  gcc_assert (mem);
-	  emit_insn (gen_rtx_SET (VOIDmode, dest, mem));
+	  emit_insn (gen_rtx_SET (dest, mem));
 	}
 
       return;
@@ -2439,7 +2459,7 @@ aarch64_expand_prologue (void)
 	  insn = emit_insn (gen_add2_insn (stack_pointer_rtx, op0));
 
 	  add_reg_note (insn, REG_CFA_ADJUST_CFA,
-			gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+			gen_rtx_SET (stack_pointer_rtx,
 				     plus_constant (Pmode, stack_pointer_rtx,
 						    -frame_size)));
 	  RTX_FRAME_RELATED_P (insn) = 1;
@@ -2870,19 +2890,19 @@ aarch64_add_constant (int regnum, int scratchreg, HOST_WIDE_INT delta)
     {
       if (mdelta >= 4096)
 	{
-	  emit_insn (gen_rtx_SET (Pmode, scratch_rtx, GEN_INT (mdelta / 4096)));
+	  emit_insn (gen_rtx_SET (scratch_rtx, GEN_INT (mdelta / 4096)));
 	  rtx shift = gen_rtx_ASHIFT (Pmode, scratch_rtx, GEN_INT (12));
 	  if (delta < 0)
-	    emit_insn (gen_rtx_SET (Pmode, this_rtx,
+	    emit_insn (gen_rtx_SET (this_rtx,
 				    gen_rtx_MINUS (Pmode, this_rtx, shift)));
 	  else
-	    emit_insn (gen_rtx_SET (Pmode, this_rtx,
+	    emit_insn (gen_rtx_SET (this_rtx,
 				    gen_rtx_PLUS (Pmode, this_rtx, shift)));
 	}
       if (mdelta % 4096 != 0)
 	{
 	  scratch_rtx = GEN_INT ((delta < 0 ? -1 : 1) * (mdelta % 4096));
-	  emit_insn (gen_rtx_SET (Pmode, this_rtx,
+	  emit_insn (gen_rtx_SET (this_rtx,
 				  gen_rtx_PLUS (Pmode, this_rtx, scratch_rtx)));
 	}
     }
@@ -4902,8 +4922,9 @@ aarch64_class_max_nregs (reg_class_t regclass, machine_mode mode)
     case FP_REGS:
     case FP_LO_REGS:
       return
-	aarch64_vector_mode_p (mode) ? (GET_MODE_SIZE (mode) + 15) / 16 :
-				       (GET_MODE_SIZE (mode) + 7) / 8;
+	aarch64_vector_mode_p (mode)
+	  ? (GET_MODE_SIZE (mode) + UNITS_PER_VREG - 1) / UNITS_PER_VREG
+	  : (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
     case STACK_REG:
       return 1;
 
@@ -5397,6 +5418,23 @@ aarch64_address_cost (rtx x,
   return cost;
 }
 
+/* Return the cost of a branch.  If SPEED_P is true then the compiler is
+   optimizing for speed.  If PREDICTABLE_P is true then the branch is predicted
+   to be taken.  */
+
+int
+aarch64_branch_cost (bool speed_p, bool predictable_p)
+{
+  /* When optimizing for speed, use the cost of unpredictable branches.  */
+  const struct cpu_branch_cost *branch_costs =
+    aarch64_tune_params->branch_costs;
+
+  if (!speed_p || predictable_p)
+    return branch_costs->predictable;
+  else
+    return branch_costs->unpredictable;
+}
+
 /* Return true if the RTX X in mode MODE is a zero or sign extract
    usable in an ADD or SUB (extended register) instruction.  */
 static bool
@@ -5580,16 +5618,6 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
      above this default.  */
   *cost = COSTS_N_INSNS (1);
 
-  /* TODO: The cost infrastructure currently does not handle
-     vector operations.  Assume that all vector operations
-     are equally expensive.  */
-  if (VECTOR_MODE_P (mode))
-    {
-      if (speed)
-	*cost += extra_cost->vect.alu;
-      return true;
-    }
-
   switch (code)
     {
     case SET:
@@ -5604,7 +5632,9 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 	  if (speed)
 	    {
 	      rtx address = XEXP (op0, 0);
-	      if (GET_MODE_CLASS (mode) == MODE_INT)
+	      if (VECTOR_MODE_P (mode))
+		*cost += extra_cost->ldst.storev;
+	      else if (GET_MODE_CLASS (mode) == MODE_INT)
 		*cost += extra_cost->ldst.store;
 	      else if (mode == SFmode)
 		*cost += extra_cost->ldst.storef;
@@ -5625,15 +5655,22 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 
 	  /* Fall through.  */
 	case REG:
+	  /* The cost is one per vector-register copied.  */
+	  if (VECTOR_MODE_P (GET_MODE (op0)) && REG_P (op1))
+	    {
+	      int n_minus_1 = (GET_MODE_SIZE (GET_MODE (op0)) - 1)
+			      / GET_MODE_SIZE (V4SImode);
+	      *cost = COSTS_N_INSNS (n_minus_1 + 1);
+	    }
 	  /* const0_rtx is in general free, but we will use an
 	     instruction to set a register to 0.  */
-          if (REG_P (op1) || op1 == const0_rtx)
-            {
-              /* The cost is 1 per register copied.  */
-              int n_minus_1 = (GET_MODE_SIZE (GET_MODE (op0)) - 1)
+	  else if (REG_P (op1) || op1 == const0_rtx)
+	    {
+	      /* The cost is 1 per register copied.  */
+	      int n_minus_1 = (GET_MODE_SIZE (GET_MODE (op0)) - 1)
 			      / UNITS_PER_WORD;
-              *cost = COSTS_N_INSNS (n_minus_1 + 1);
-            }
+	      *cost = COSTS_N_INSNS (n_minus_1 + 1);
+	    }
           else
 	    /* Cost is just the cost of the RHS of the set.  */
 	    *cost += rtx_cost (op1, SET, 1, speed);
@@ -5731,7 +5768,9 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 	     approximation for the additional cost of the addressing
 	     mode.  */
 	  rtx address = XEXP (x, 0);
-	  if (GET_MODE_CLASS (mode) == MODE_INT)
+	  if (VECTOR_MODE_P (mode))
+	    *cost += extra_cost->ldst.loadv;
+	  else if (GET_MODE_CLASS (mode) == MODE_INT)
 	    *cost += extra_cost->ldst.load;
 	  else if (mode == SFmode)
 	    *cost += extra_cost->ldst.loadf;
@@ -5747,6 +5786,16 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 
     case NEG:
       op0 = XEXP (x, 0);
+
+      if (VECTOR_MODE_P (mode))
+	{
+	  if (speed)
+	    {
+	      /* FNEG.  */
+	      *cost += extra_cost->vect.alu;
+	    }
+	  return false;
+	}
 
       if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
        {
@@ -5786,7 +5835,12 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
     case CLRSB:
     case CLZ:
       if (speed)
-        *cost += extra_cost->alu.clz;
+	{
+	  if (VECTOR_MODE_P (mode))
+	    *cost += extra_cost->vect.alu;
+	  else
+	    *cost += extra_cost->alu.clz;
+	}
 
       return false;
 
@@ -5872,6 +5926,20 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
           return false;
         }
 
+      if (VECTOR_MODE_P (mode))
+	{
+	  /* Vector compare.  */
+	  if (speed)
+	    *cost += extra_cost->vect.alu;
+
+	  if (aarch64_float_const_zero_rtx_p (op1))
+	    {
+	      /* Vector cm (eq|ge|gt|lt|le) supports constant 0.0 for no extra
+		 cost.  */
+	      return true;
+	    }
+	  return false;
+	}
       return false;
 
     case MINUS:
@@ -5880,6 +5948,8 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 	op1 = XEXP (x, 1);
 
 cost_minus:
+	*cost += rtx_cost (op0, MINUS, 0, speed);
+
 	/* Detect valid immediates.  */
 	if ((GET_MODE_CLASS (mode) == MODE_INT
 	     || (GET_MODE_CLASS (mode) == MODE_CC
@@ -5887,13 +5957,10 @@ cost_minus:
 	    && CONST_INT_P (op1)
 	    && aarch64_uimm12_shift (INTVAL (op1)))
 	  {
-	    *cost += rtx_cost (op0, MINUS, 0, speed);
-
 	    if (speed)
 	      /* SUB(S) (immediate).  */
 	      *cost += extra_cost->alu.arith;
 	    return true;
-
 	  }
 
 	/* Look for SUB (extended register).  */
@@ -5918,7 +5985,6 @@ cost_minus:
 	    *cost += aarch64_rtx_mult_cost (new_op1, MULT,
 					    (enum rtx_code) code,
 					    speed);
-	    *cost += rtx_cost (op0, MINUS, 0, speed);
 	    return true;
 	  }
 
@@ -5926,12 +5992,21 @@ cost_minus:
 
 	if (speed)
 	  {
-	    if (GET_MODE_CLASS (mode) == MODE_INT)
-	      /* SUB(S).  */
-	      *cost += extra_cost->alu.arith;
+	    if (VECTOR_MODE_P (mode))
+	      {
+		/* Vector SUB.  */
+		*cost += extra_cost->vect.alu;
+	      }
+	    else if (GET_MODE_CLASS (mode) == MODE_INT)
+	      {
+		/* SUB(S).  */
+		*cost += extra_cost->alu.arith;
+	      }
 	    else if (GET_MODE_CLASS (mode) == MODE_FLOAT)
-	      /* FSUB.  */
-	      *cost += extra_cost->fp[mode == DFmode].addsub;
+	      {
+		/* FSUB.  */
+		*cost += extra_cost->fp[mode == DFmode].addsub;
+	      }
 	  }
 	return true;
       }
@@ -5965,6 +6040,8 @@ cost_plus:
 	    return true;
 	  }
 
+	*cost += rtx_cost (op1, PLUS, 1, speed);
+
 	/* Look for ADD (extended register).  */
         if (aarch64_rtx_arith_op_extract_p (op0, mode))
 	  {
@@ -5986,21 +6063,28 @@ cost_plus:
 	  {
 	    *cost += aarch64_rtx_mult_cost (new_op0, MULT, PLUS,
 					    speed);
-	    *cost += rtx_cost (op1, PLUS, 1, speed);
 	    return true;
 	  }
 
-	*cost += (rtx_cost (new_op0, PLUS, 0, speed)
-		  + rtx_cost (op1, PLUS, 1, speed));
+	*cost += rtx_cost (new_op0, PLUS, 0, speed);
 
 	if (speed)
 	  {
-	    if (GET_MODE_CLASS (mode) == MODE_INT)
-	      /* ADD.  */
-	      *cost += extra_cost->alu.arith;
+	    if (VECTOR_MODE_P (mode))
+	      {
+		/* Vector ADD.  */
+		*cost += extra_cost->vect.alu;
+	      }
+	    else if (GET_MODE_CLASS (mode) == MODE_INT)
+	      {
+		/* ADD.  */
+		*cost += extra_cost->alu.arith;
+	      }
 	    else if (GET_MODE_CLASS (mode) == MODE_FLOAT)
-	      /* FADD.  */
-	      *cost += extra_cost->fp[mode == DFmode].addsub;
+	      {
+		/* FADD.  */
+		*cost += extra_cost->fp[mode == DFmode].addsub;
+	      }
 	  }
 	return true;
       }
@@ -6009,8 +6093,12 @@ cost_plus:
       *cost = COSTS_N_INSNS (1);
 
       if (speed)
-        *cost += extra_cost->alu.rev;
-
+	{
+	  if (VECTOR_MODE_P (mode))
+	    *cost += extra_cost->vect.alu;
+	  else
+	    *cost += extra_cost->alu.rev;
+	}
       return false;
 
     case IOR:
@@ -6018,10 +6106,14 @@ cost_plus:
         {
           *cost = COSTS_N_INSNS (1);
 
-          if (speed)
-            *cost += extra_cost->alu.rev;
-
-          return true;
+	  if (speed)
+	    {
+	      if (VECTOR_MODE_P (mode))
+		*cost += extra_cost->vect.alu;
+	      else
+		*cost += extra_cost->alu.rev;
+	    }
+	  return true;
         }
 
       if (aarch64_extr_rtx_p (x, &op0, &op1))
@@ -6039,6 +6131,13 @@ cost_plus:
     cost_logic:
       op0 = XEXP (x, 0);
       op1 = XEXP (x, 1);
+
+      if (VECTOR_MODE_P (mode))
+	{
+	  if (speed)
+	    *cost += extra_cost->vect.alu;
+	  return true;
+	}
 
       if (code == AND
           && GET_CODE (op0) == MULT
@@ -6107,6 +6206,13 @@ cost_plus:
     case NOT:
       x = XEXP (x, 0);
       op0 = aarch64_strip_shift (x);
+
+      if (VECTOR_MODE_P (mode))
+	{
+	  /* Vector NOT.  */
+	  *cost += extra_cost->vect.alu;
+	  return false;
+	}
 
       /* MVN-shifted-reg.  */
       if (op0 != x)
@@ -6179,10 +6285,19 @@ cost_plus:
 	  return true;
 	}
 
-      /* UXTB/UXTH.  */
       if (speed)
-	*cost += extra_cost->alu.extend;
-
+	{
+	  if (VECTOR_MODE_P (mode))
+	    {
+	      /* UMOV.  */
+	      *cost += extra_cost->vect.alu;
+	    }
+	  else
+	    {
+	      /* UXTB/UXTH.  */
+	      *cost += extra_cost->alu.extend;
+	    }
+	}
       return false;
 
     case SIGN_EXTEND:
@@ -6202,7 +6317,12 @@ cost_plus:
 	}
 
       if (speed)
-	*cost += extra_cost->alu.extend;
+	{
+	  if (VECTOR_MODE_P (mode))
+	    *cost += extra_cost->vect.alu;
+	  else
+	    *cost += extra_cost->alu.extend;
+	}
       return false;
 
     case ASHIFT:
@@ -6211,10 +6331,20 @@ cost_plus:
 
       if (CONST_INT_P (op1))
         {
-	  /* LSL (immediate), UBMF, UBFIZ and friends.  These are all
-	     aliases.  */
 	  if (speed)
-	    *cost += extra_cost->alu.shift;
+	    {
+	      if (VECTOR_MODE_P (mode))
+		{
+		  /* Vector shift (immediate).  */
+		  *cost += extra_cost->vect.alu;
+		}
+	      else
+		{
+		  /* LSL (immediate), UBMF, UBFIZ and friends.  These are all
+		     aliases.  */
+		  *cost += extra_cost->alu.shift;
+		}
+	    }
 
           /* We can incorporate zero/sign extend for free.  */
           if (GET_CODE (op0) == ZERO_EXTEND
@@ -6226,10 +6356,19 @@ cost_plus:
         }
       else
         {
-	  /* LSLV.  */
 	  if (speed)
-	    *cost += extra_cost->alu.shift_reg;
-
+	    {
+	      if (VECTOR_MODE_P (mode))
+		{
+		  /* Vector shift (register).  */
+		  *cost += extra_cost->vect.alu;
+		}
+	      else
+		{
+		  /* LSLV.  */
+		  *cost += extra_cost->alu.shift_reg;
+		}
+	    }
 	  return false;  /* All arguments need to be in registers.  */
         }
 
@@ -6244,7 +6383,12 @@ cost_plus:
 	{
 	  /* ASR (immediate) and friends.  */
 	  if (speed)
-	    *cost += extra_cost->alu.shift;
+	    {
+	      if (VECTOR_MODE_P (mode))
+		*cost += extra_cost->vect.alu;
+	      else
+		*cost += extra_cost->alu.shift;
+	    }
 
 	  *cost += rtx_cost (op0, (enum rtx_code) code, 0, speed);
 	  return true;
@@ -6254,8 +6398,12 @@ cost_plus:
 
 	  /* ASR (register) and friends.  */
 	  if (speed)
-	    *cost += extra_cost->alu.shift_reg;
-
+	    {
+	      if (VECTOR_MODE_P (mode))
+		*cost += extra_cost->vect.alu;
+	      else
+		*cost += extra_cost->alu.shift_reg;
+	    }
 	  return false;  /* All arguments need to be in registers.  */
 	}
 
@@ -6303,7 +6451,12 @@ cost_plus:
     case SIGN_EXTRACT:
       /* UBFX/SBFX.  */
       if (speed)
-	*cost += extra_cost->alu.bfx;
+	{
+	  if (VECTOR_MODE_P (mode))
+	    *cost += extra_cost->vect.alu;
+	  else
+	    *cost += extra_cost->alu.bfx;
+	}
 
       /* We can trust that the immediates used will be correct (there
 	 are no by-register forms), so we need only cost op0.  */
@@ -6320,7 +6473,9 @@ cost_plus:
     case UMOD:
       if (speed)
 	{
-	  if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
+	  if (VECTOR_MODE_P (mode))
+	    *cost += extra_cost->vect.alu;
+	  else if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
 	    *cost += (extra_cost->mult[GET_MODE (x) == DImode].add
 		      + extra_cost->mult[GET_MODE (x) == DImode].idiv);
 	  else if (GET_MODE (x) == DFmode)
@@ -6337,7 +6492,9 @@ cost_plus:
     case SQRT:
       if (speed)
 	{
-	  if (GET_MODE_CLASS (mode) == MODE_INT)
+	  if (VECTOR_MODE_P (mode))
+	    *cost += extra_cost->vect.alu;
+	  else if (GET_MODE_CLASS (mode) == MODE_INT)
 	    /* There is no integer SQRT, so only DIV and UDIV can get
 	       here.  */
 	    *cost += extra_cost->mult[mode == DImode].idiv;
@@ -6369,7 +6526,12 @@ cost_plus:
       op2 = XEXP (x, 2);
 
       if (speed)
-	*cost += extra_cost->fp[mode == DFmode].fma;
+	{
+	  if (VECTOR_MODE_P (mode))
+	    *cost += extra_cost->vect.alu;
+	  else
+	    *cost += extra_cost->fp[mode == DFmode].fma;
+	}
 
       /* FMSUB, FNMADD, and FNMSUB are free.  */
       if (GET_CODE (op0) == NEG)
@@ -6407,14 +6569,36 @@ cost_plus:
       *cost += rtx_cost (op2, FMA, 2, speed);
       return true;
 
+    case FLOAT:
+    case UNSIGNED_FLOAT:
+      if (speed)
+	*cost += extra_cost->fp[mode == DFmode].fromint;
+      return false;
+
     case FLOAT_EXTEND:
       if (speed)
-	*cost += extra_cost->fp[mode == DFmode].widen;
+	{
+	  if (VECTOR_MODE_P (mode))
+	    {
+	      /*Vector truncate.  */
+	      *cost += extra_cost->vect.alu;
+	    }
+	  else
+	    *cost += extra_cost->fp[mode == DFmode].widen;
+	}
       return false;
 
     case FLOAT_TRUNCATE:
       if (speed)
-	*cost += extra_cost->fp[mode == DFmode].narrow;
+	{
+	  if (VECTOR_MODE_P (mode))
+	    {
+	      /*Vector conversion.  */
+	      *cost += extra_cost->vect.alu;
+	    }
+	  else
+	    *cost += extra_cost->fp[mode == DFmode].narrow;
+	}
       return false;
 
     case FIX:
@@ -6435,13 +6619,23 @@ cost_plus:
         }
 
       if (speed)
-        *cost += extra_cost->fp[GET_MODE (x) == DFmode].toint;
-
+	{
+	  if (VECTOR_MODE_P (mode))
+	    *cost += extra_cost->vect.alu;
+	  else
+	    *cost += extra_cost->fp[GET_MODE (x) == DFmode].toint;
+	}
       *cost += rtx_cost (x, (enum rtx_code) code, 0, speed);
       return true;
 
     case ABS:
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+      if (VECTOR_MODE_P (mode))
+	{
+	  /* ABS (vector).  */
+	  if (speed)
+	    *cost += extra_cost->vect.alu;
+	}
+      else if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	{
 	  op0 = XEXP (x, 0);
 
@@ -6474,10 +6668,15 @@ cost_plus:
     case SMIN:
       if (speed)
 	{
-	  /* FMAXNM/FMINNM/FMAX/FMIN.
-	     TODO: This may not be accurate for all implementations, but
-	     we do not model this in the cost tables.  */
-	  *cost += extra_cost->fp[mode == DFmode].addsub;
+	  if (VECTOR_MODE_P (mode))
+	    *cost += extra_cost->vect.alu;
+	  else
+	    {
+	      /* FMAXNM/FMINNM/FMAX/FMIN.
+	         TODO: This may not be accurate for all implementations, but
+	         we do not model this in the cost tables.  */
+	      *cost += extra_cost->fp[mode == DFmode].addsub;
+	    }
 	}
       return false;
 
@@ -7008,18 +7207,6 @@ aarch64_override_options (void)
 #endif
     }
 
-  /* If not opzimizing for size, set the default
-     alignment to what the target wants */
-  if (!optimize_size)
-    {
-      if (align_loops <= 0)
-	align_loops = aarch64_tune_params->loop_align;
-      if (align_jumps <= 0)
-	align_jumps = aarch64_tune_params->jump_align;
-      if (align_functions <= 0)
-	align_functions = aarch64_tune_params->function_align;
-    }
-
   if (AARCH64_TUNE_FMA_STEERING)
     aarch64_register_fma_steering ();
 
@@ -7035,6 +7222,18 @@ aarch64_override_options_after_change (void)
     flag_omit_leaf_frame_pointer = false;
   else if (flag_omit_leaf_frame_pointer)
     flag_omit_frame_pointer = true;
+
+  /* If not optimizing for size, set the default
+     alignment to what the target wants */
+  if (!optimize_size)
+    {
+      if (align_loops <= 0)
+	align_loops = aarch64_tune_params->loop_align;
+      if (align_jumps <= 0)
+	align_jumps = aarch64_tune_params->jump_align;
+      if (align_functions <= 0)
+	align_functions = aarch64_tune_params->function_align;
+    }
 }
 
 static struct machine_function *
@@ -7957,6 +8156,26 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
   return -1;
 }
 
+/* Return TRUE if the type, as described by TYPE and MODE, is a short vector
+   type as described in AAPCS64 \S 4.1.2.
+
+   See the comment above aarch64_composite_type_p for the notes on MODE.  */
+
+static bool
+aarch64_short_vector_p (const_tree type,
+			machine_mode mode)
+{
+  HOST_WIDE_INT size = -1;
+
+  if (type && TREE_CODE (type) == VECTOR_TYPE)
+    size = int_size_in_bytes (type);
+  else if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT
+	    || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+    size = GET_MODE_SIZE (mode);
+
+  return (size == 8 || size == 16);
+}
+
 /* Return TRUE if the type, as described by TYPE and MODE, is a composite
    type as described in AAPCS64 \S 4.3.  This includes aggregate, union and
    array types.  The C99 floating-point complex types are also considered
@@ -7978,6 +8197,9 @@ static bool
 aarch64_composite_type_p (const_tree type,
 			  machine_mode mode)
 {
+  if (aarch64_short_vector_p (type, mode))
+    return false;
+
   if (type && (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == COMPLEX_TYPE))
     return true;
 
@@ -7987,27 +8209,6 @@ aarch64_composite_type_p (const_tree type,
     return true;
 
   return false;
-}
-
-/* Return TRUE if the type, as described by TYPE and MODE, is a short vector
-   type as described in AAPCS64 \S 4.1.2.
-
-   See the comment above aarch64_composite_type_p for the notes on MODE.  */
-
-static bool
-aarch64_short_vector_p (const_tree type,
-			machine_mode mode)
-{
-  HOST_WIDE_INT size = -1;
-
-  if (type && TREE_CODE (type) == VECTOR_TYPE)
-    size = int_size_in_bytes (type);
-  else if (!aarch64_composite_type_p (type, mode)
-	   && (GET_MODE_CLASS (mode) == MODE_VECTOR_INT
-	       || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT))
-    size = GET_MODE_SIZE (mode);
-
-  return (size == 8 || size == 16) ? true : false;
 }
 
 /* Return TRUE if an argument, whose type is described by TYPE and MODE,
@@ -9162,8 +9363,8 @@ aarch64_expand_compare_and_swap (rtx operands[])
      unlikely event of fail being ACQUIRE and succ being RELEASE we need to
      promote succ to ACQ_REL so that we don't lose the acquire semantics.  */
 
-  if (INTVAL (mod_f) == MEMMODEL_ACQUIRE
-      && INTVAL (mod_s) == MEMMODEL_RELEASE)
+  if (is_mm_acquire (memmodel_from_int (INTVAL (mod_f)))
+      && is_mm_release (memmodel_from_int (INTVAL (mod_s))))
     mod_s = GEN_INT (MEMMODEL_ACQ_REL);
 
   switch (mode)
@@ -9205,7 +9406,24 @@ aarch64_expand_compare_and_swap (rtx operands[])
 
   x = gen_rtx_REG (CCmode, CC_REGNUM);
   x = gen_rtx_EQ (SImode, x, const0_rtx);
-  emit_insn (gen_rtx_SET (VOIDmode, bval, x));
+  emit_insn (gen_rtx_SET (bval, x));
+}
+
+/* Emit a barrier, that is appropriate for memory model MODEL, at the end of a
+   sequence implementing an atomic operation.  */
+
+static void
+aarch64_emit_post_barrier (enum memmodel model)
+{
+  const enum memmodel base_model = memmodel_base (model);
+
+  if (is_mm_sync (model)
+      && (base_model == MEMMODEL_ACQUIRE
+	  || base_model == MEMMODEL_ACQ_REL
+	  || base_model == MEMMODEL_SEQ_CST))
+    {
+      emit_insn (gen_mem_thread_fence (GEN_INT (MEMMODEL_SEQ_CST)));
+    }
 }
 
 /* Split a compare and swap pattern.  */
@@ -9218,14 +9436,18 @@ aarch64_split_compare_and_swap (rtx operands[])
   bool is_weak;
   rtx_code_label *label1, *label2;
   rtx x, cond;
+  enum memmodel model;
+  rtx model_rtx;
 
   rval = operands[0];
   mem = operands[1];
   oldval = operands[2];
   newval = operands[3];
   is_weak = (operands[4] != const0_rtx);
+  model_rtx = operands[5];
   scratch = operands[7];
   mode = GET_MODE (mem);
+  model = memmodel_from_int (INTVAL (model_rtx));
 
   label1 = NULL;
   if (!is_weak)
@@ -9235,31 +9457,41 @@ aarch64_split_compare_and_swap (rtx operands[])
     }
   label2 = gen_label_rtx ();
 
-  aarch64_emit_load_exclusive (mode, rval, mem, operands[5]);
+  /* The initial load can be relaxed for a __sync operation since a final
+     barrier will be emitted to stop code hoisting.  */
+  if (is_mm_sync (model))
+    aarch64_emit_load_exclusive (mode, rval, mem,
+				 GEN_INT (MEMMODEL_RELAXED));
+  else
+    aarch64_emit_load_exclusive (mode, rval, mem, model_rtx);
 
   cond = aarch64_gen_compare_reg (NE, rval, oldval);
   x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
   x = gen_rtx_IF_THEN_ELSE (VOIDmode, x,
 			    gen_rtx_LABEL_REF (Pmode, label2), pc_rtx);
-  aarch64_emit_unlikely_jump (gen_rtx_SET (VOIDmode, pc_rtx, x));
+  aarch64_emit_unlikely_jump (gen_rtx_SET (pc_rtx, x));
 
-  aarch64_emit_store_exclusive (mode, scratch, mem, newval, operands[5]);
+  aarch64_emit_store_exclusive (mode, scratch, mem, newval, model_rtx);
 
   if (!is_weak)
     {
       x = gen_rtx_NE (VOIDmode, scratch, const0_rtx);
       x = gen_rtx_IF_THEN_ELSE (VOIDmode, x,
 				gen_rtx_LABEL_REF (Pmode, label1), pc_rtx);
-      aarch64_emit_unlikely_jump (gen_rtx_SET (VOIDmode, pc_rtx, x));
+      aarch64_emit_unlikely_jump (gen_rtx_SET (pc_rtx, x));
     }
   else
     {
       cond = gen_rtx_REG (CCmode, CC_REGNUM);
       x = gen_rtx_COMPARE (CCmode, scratch, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, cond, x));
+      emit_insn (gen_rtx_SET (cond, x));
     }
 
   emit_label (label2);
+
+  /* Emit any final barrier needed for a __sync operation.  */
+  if (is_mm_sync (model))
+    aarch64_emit_post_barrier (model);
 }
 
 /* Split an atomic operation.  */
@@ -9270,6 +9502,8 @@ aarch64_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
 {
   machine_mode mode = GET_MODE (mem);
   machine_mode wmode = (mode == DImode ? DImode : SImode);
+  const enum memmodel model = memmodel_from_int (INTVAL (model_rtx));
+  const bool is_sync = is_mm_sync (model);
   rtx_code_label *label;
   rtx x;
 
@@ -9284,7 +9518,13 @@ aarch64_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
     old_out = new_out;
   value = simplify_gen_subreg (wmode, value, mode, 0);
 
-  aarch64_emit_load_exclusive (mode, old_out, mem, model_rtx);
+  /* The initial load can be relaxed for a __sync operation since a final
+     barrier will be emitted to stop code hoisting.  */
+ if (is_sync)
+    aarch64_emit_load_exclusive (mode, old_out, mem,
+				 GEN_INT (MEMMODEL_RELAXED));
+  else
+    aarch64_emit_load_exclusive (mode, old_out, mem, model_rtx);
 
   switch (code)
     {
@@ -9294,9 +9534,9 @@ aarch64_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
 
     case NOT:
       x = gen_rtx_AND (wmode, old_out, value);
-      emit_insn (gen_rtx_SET (VOIDmode, new_out, x));
+      emit_insn (gen_rtx_SET (new_out, x));
       x = gen_rtx_NOT (wmode, new_out);
-      emit_insn (gen_rtx_SET (VOIDmode, new_out, x));
+      emit_insn (gen_rtx_SET (new_out, x));
       break;
 
     case MINUS:
@@ -9309,7 +9549,7 @@ aarch64_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
 
     default:
       x = gen_rtx_fmt_ee (code, wmode, old_out, value);
-      emit_insn (gen_rtx_SET (VOIDmode, new_out, x));
+      emit_insn (gen_rtx_SET (new_out, x));
       break;
     }
 
@@ -9319,7 +9559,11 @@ aarch64_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
   x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
   x = gen_rtx_IF_THEN_ELSE (VOIDmode, x,
 			    gen_rtx_LABEL_REF (Pmode, label), pc_rtx);
-  aarch64_emit_unlikely_jump (gen_rtx_SET (VOIDmode, pc_rtx, x));
+  aarch64_emit_unlikely_jump (gen_rtx_SET (pc_rtx, x));
+
+  /* Emit any final barrier needed for a __sync operation.  */
+  if (is_sync)
+    aarch64_emit_post_barrier (model);
 }
 
 static void
@@ -10691,7 +10935,7 @@ aarch64_gen_ccmp_next (rtx *prep_seq, rtx *gen_seq, rtx prev, int cmp_code,
 static bool
 aarch64_macro_fusion_p (void)
 {
-  return aarch64_tune_params->fuseable_ops != AARCH64_FUSE_NOTHING;
+  return aarch64_tune_params->fusible_ops != AARCH64_FUSE_NOTHING;
 }
 
 
@@ -10711,7 +10955,7 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
     return false;
 
   if (simple_sets_p
-      && (aarch64_tune_params->fuseable_ops & AARCH64_FUSE_MOV_MOVK))
+      && (aarch64_tune_params->fusible_ops & AARCH64_FUSE_MOV_MOVK))
     {
       /* We are trying to match:
          prev (mov)  == (set (reg r0) (const_int imm16))
@@ -10736,7 +10980,7 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
     }
 
   if (simple_sets_p
-      && (aarch64_tune_params->fuseable_ops & AARCH64_FUSE_ADRP_ADD))
+      && (aarch64_tune_params->fusible_ops & AARCH64_FUSE_ADRP_ADD))
     {
 
       /*  We're trying to match:
@@ -10762,7 +11006,7 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
     }
 
   if (simple_sets_p
-      && (aarch64_tune_params->fuseable_ops & AARCH64_FUSE_MOVK_MOVK))
+      && (aarch64_tune_params->fusible_ops & AARCH64_FUSE_MOVK_MOVK))
     {
 
       /* We're trying to match:
@@ -10791,7 +11035,7 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
 
     }
   if (simple_sets_p
-      && (aarch64_tune_params->fuseable_ops & AARCH64_FUSE_ADRP_LDR))
+      && (aarch64_tune_params->fusible_ops & AARCH64_FUSE_ADRP_LDR))
     {
       /* We're trying to match:
           prev (adrp) == (set (reg r0)
@@ -10822,7 +11066,7 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
         }
     }
 
-  if ((aarch64_tune_params->fuseable_ops & AARCH64_FUSE_CMP_BRANCH)
+  if ((aarch64_tune_params->fusible_ops & AARCH64_FUSE_CMP_BRANCH)
       && any_condjump_p (curr))
     {
       enum attr_type prev_type = get_attr_type (prev);
@@ -11314,14 +11558,13 @@ aarch64_gen_adjusted_ldpstp (rtx *operands, bool load,
     }
 
   /* Emit adjusting instruction.  */
-  emit_insn (gen_rtx_SET (VOIDmode, operands[8],
-			  plus_constant (DImode, base, adj_off)));
+  emit_insn (gen_rtx_SET (operands[8], plus_constant (DImode, base, adj_off)));
   /* Emit ldp/stp instructions.  */
-  t1 = gen_rtx_SET (VOIDmode, operands[0], operands[1]);
-  t2 = gen_rtx_SET (VOIDmode, operands[2], operands[3]);
+  t1 = gen_rtx_SET (operands[0], operands[1]);
+  t2 = gen_rtx_SET (operands[2], operands[3]);
   emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
-  t1 = gen_rtx_SET (VOIDmode, operands[4], operands[5]);
-  t2 = gen_rtx_SET (VOIDmode, operands[6], operands[7]);
+  t1 = gen_rtx_SET (operands[4], operands[5]);
+  t2 = gen_rtx_SET (operands[6], operands[7]);
   emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
   return true;
 }

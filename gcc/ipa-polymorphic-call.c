@@ -269,7 +269,8 @@ ipa_polymorphic_call_context::restrict_to_inner_class (tree otr_type,
 		 types.  Testing it here may help us to avoid speculation.  */
 	      if (otr_type && TREE_CODE (outer_type) == RECORD_TYPE
 		  && (!in_lto_p || odr_type_p (outer_type))
-		  && type_known_to_have_no_deriavations_p (outer_type))
+		  && type_with_linkage_p (outer_type)
+		  && type_known_to_have_no_derivations_p (outer_type))
 		maybe_derived_type = false;
 
 	      /* Type can not contain itself on an non-zero offset.  In that case
@@ -393,7 +394,7 @@ ipa_polymorphic_call_context::restrict_to_inner_class (tree otr_type,
 	    goto no_useful_type_info;
 
 	  cur_offset = new_offset;
-	  type = subtype;
+	  type = TYPE_MAIN_VARIANT (subtype);
 	  if (!speculative)
 	    {
 	      outer_type = type;
@@ -587,7 +588,7 @@ decl_maybe_in_construction_p (tree base, tree outer_type,
        block = BLOCK_SUPERCONTEXT (block))
     if (tree fn = inlined_polymorphic_ctor_dtor_block_p (block, check_clones))
       {
-	tree type = TYPE_MAIN_VARIANT (method_class_type (TREE_TYPE (fn)));
+	tree type = TYPE_METHOD_BASETYPE (TREE_TYPE (fn));
 
 	if (!outer_type || !types_odr_comparable (type, outer_type))
 	  {
@@ -617,7 +618,7 @@ decl_maybe_in_construction_p (tree base, tree outer_type,
 		  && !DECL_CXX_DESTRUCTOR_P (function)))
 	    return false;
 	}
-      tree type = TYPE_MAIN_VARIANT (method_class_type (TREE_TYPE (function)));
+      tree type = TYPE_METHOD_BASETYPE (TREE_TYPE (function));
       if (!outer_type || !types_odr_comparable (type, outer_type))
 	{
 	  if (TREE_CODE (type) == RECORD_TYPE
@@ -652,7 +653,7 @@ ipa_polymorphic_call_context::dump (FILE *f, bool newline) const
 	    fprintf (f, " (or a derived type)");
 	  if (maybe_in_construction)
 	    fprintf (f, " (maybe in construction)");
-	  fprintf (f, " offset "HOST_WIDE_INT_PRINT_DEC,
+	  fprintf (f, " offset " HOST_WIDE_INT_PRINT_DEC,
 		   offset);
 	}
       if (speculative_outer_type)
@@ -663,7 +664,7 @@ ipa_polymorphic_call_context::dump (FILE *f, bool newline) const
 	  print_generic_expr (f, speculative_outer_type, TDF_SLIM);
 	  if (speculative_maybe_derived_type)
 	    fprintf (f, " (or a derived type)");
-	  fprintf (f, " at offset "HOST_WIDE_INT_PRINT_DEC,
+	  fprintf (f, " at offset " HOST_WIDE_INT_PRINT_DEC,
 		   speculative_offset);
 	}
     }
@@ -1402,7 +1403,7 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
 	  && gimple_call_num_args (stmt))
       {
 	tree op = walk_ssa_copies (gimple_call_arg (stmt, 0));
-	tree type = method_class_type (TREE_TYPE (fn));
+	tree type = TYPE_METHOD_BASETYPE (TREE_TYPE (fn));
 	HOST_WIDE_INT offset = 0, size, max_size;
 	bool reverse;
 
@@ -1565,6 +1566,11 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
 	{
 	  ref = OBJ_TYPE_REF_EXPR (ref);
 	  ref = walk_ssa_copies (ref);
+
+	  /* If call target is already known, no need to do the expensive
+ 	     memory walk.  */
+	  if (is_gimple_min_invariant (ref))
+	    return false;
 
 	  /* Check if definition looks like vtable lookup.  */
 	  if (TREE_CODE (ref) == SSA_NAME

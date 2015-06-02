@@ -790,8 +790,7 @@ schedule_reg_moves (partial_schedule_ptr ps)
 	  move->old_reg = old_reg;
 	  move->new_reg = gen_reg_rtx (GET_MODE (prev_reg));
 	  move->num_consecutive_stages = distances[0] && distances[1] ? 2 : 1;
-	  move->insn = as_a <rtx_insn *> (gen_move_insn (move->new_reg,
-							 copy_rtx (prev_reg)));
+	  move->insn = gen_move_insn (move->new_reg, copy_rtx (prev_reg));
 	  bitmap_clear (move->uses);
 
 	  prev_reg = move->new_reg;
@@ -1482,15 +1481,15 @@ sms_schedule (void)
 	      if (profile_info && flag_branch_probabilities)
 	    	{
 	      	  fprintf (dump_file, "SMS loop-count ");
-	      	  fprintf (dump_file, "%"PRId64,
+	      	  fprintf (dump_file, "%" PRId64,
 	             	   (int64_t) bb->count);
 	      	  fprintf (dump_file, "\n");
                   fprintf (dump_file, "SMS trip-count ");
-                  fprintf (dump_file, "%"PRId64,
+                  fprintf (dump_file, "%" PRId64,
                            (int64_t) trip_count);
                   fprintf (dump_file, "\n");
 	      	  fprintf (dump_file, "SMS profile-sum-max ");
-	      	  fprintf (dump_file, "%"PRId64,
+	      	  fprintf (dump_file, "%" PRId64,
 	          	   (int64_t) profile_info->sum_max);
 	      	  fprintf (dump_file, "\n");
 	    	}
@@ -1604,11 +1603,11 @@ sms_schedule (void)
 	  if (profile_info && flag_branch_probabilities)
 	    {
 	      fprintf (dump_file, "SMS loop-count ");
-	      fprintf (dump_file, "%"PRId64,
+	      fprintf (dump_file, "%" PRId64,
 	               (int64_t) bb->count);
 	      fprintf (dump_file, "\n");
 	      fprintf (dump_file, "SMS profile-sum-max ");
-	      fprintf (dump_file, "%"PRId64,
+	      fprintf (dump_file, "%" PRId64,
 	               (int64_t) profile_info->sum_max);
 	      fprintf (dump_file, "\n");
 	    }
@@ -1635,7 +1634,7 @@ sms_schedule (void)
       if (dump_file && count_init)
         {
           fprintf (dump_file, "SMS const-doloop ");
-          fprintf (dump_file, "%"PRId64,
+          fprintf (dump_file, "%" PRId64,
 		     loop_count);
           fprintf (dump_file, "\n");
         }
@@ -1696,9 +1695,9 @@ sms_schedule (void)
 		  fprintf (dump_file, "SMS failed... \n");
 		  fprintf (dump_file, "SMS sched-failed (stage-count=%d,"
 			   " loop-count=", stage_count);
-		  fprintf (dump_file, "%"PRId64, loop_count);
+		  fprintf (dump_file, "%" PRId64, loop_count);
 		  fprintf (dump_file, ", trip-count=");
-		  fprintf (dump_file, "%"PRId64, trip_count);
+		  fprintf (dump_file, "%" PRId64, trip_count);
 		  fprintf (dump_file, ")\n");
 		}
 	      break;
@@ -2203,7 +2202,7 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
 	{
 	  int u = nodes_order[i];
   	  ddg_node_ptr u_node = &ps->g->nodes[u];
-	  rtx insn = u_node->insn;
+	  rtx_insn *insn = u_node->insn;
 
 	  if (!NONDEBUG_INSN_P (insn))
 	    {

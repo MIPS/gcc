@@ -123,7 +123,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
     {									\
       fprintf ((FILE), "\t%s\t", TLS_COMMON_ASM_OP);			\
       assemble_name ((FILE), (NAME));					\
-      fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
+      fprintf ((FILE), "," HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
 	       (SIZE), DECL_ALIGN (DECL) / BITS_PER_UNIT);		\
     }									\
   while (0)
@@ -1229,6 +1229,30 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define ARGS_GROW_DOWNWARD 0
 #endif
 
+#ifndef STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 0
+#endif
+
+#ifndef STACK_PUSH_CODE
+#if STACK_GROWS_DOWNWARD
+#define STACK_PUSH_CODE PRE_DEC
+#else
+#define STACK_PUSH_CODE PRE_INC
+#endif
+#endif
+
+/* Default value for flag_pie when flag_pie is initialized to -1:
+   --enable-default-pie: Default flag_pie to -fPIE.
+   --disable-default-pie: Default flag_pie to 0.
+ */
+#ifdef ENABLE_DEFAULT_PIE
+# ifndef DEFAULT_FLAG_PIE
+#  define DEFAULT_FLAG_PIE 2
+# endif
+#else
+# define DEFAULT_FLAG_PIE 0
+#endif
+
 #ifdef GCC_INSN_FLAGS_H
 /* Dependent default target macro definitions
 
@@ -1426,6 +1450,66 @@ gen_return ()
 #define HAVE_epilogue 0
 static inline rtx
 gen_epilogue ()
+{
+  gcc_unreachable ();
+  return NULL;
+}
+#endif
+
+#ifndef HAVE_mem_thread_fence
+#define HAVE_mem_thread_fence 0
+static inline rtx
+gen_mem_thread_fence (rtx)
+{
+  gcc_unreachable ();
+  return NULL;
+}
+#endif
+
+#ifndef HAVE_memory_barrier
+#define HAVE_memory_barrier 0
+static inline rtx
+gen_memory_barrier ()
+{
+  gcc_unreachable ();
+  return NULL;
+}
+#endif
+
+#ifndef HAVE_mem_signal_fence
+#define HAVE_mem_signal_fence 0
+static inline rtx
+gen_mem_signal_fence (rtx)
+{
+  gcc_unreachable ();
+  return NULL;
+}
+#endif
+
+#ifndef HAVE_load_multiple
+#define HAVE_load_multiple 0
+static inline rtx
+gen_load_multiple (rtx, rtx, rtx)
+{
+  gcc_unreachable ();
+  return NULL;
+}
+#endif
+
+#ifndef HAVE_store_multiple
+#define HAVE_store_multiple 0
+static inline rtx
+gen_store_multiple (rtx, rtx, rtx)
+{
+  gcc_unreachable ();
+  return NULL;
+}
+#endif
+
+#ifndef HAVE_tablejump
+#define HAVE_tablejump 0
+static inline rtx
+gen_tablejump (rtx, rtx)
 {
   gcc_unreachable ();
   return NULL;

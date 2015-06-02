@@ -1181,7 +1181,7 @@ warn_extern_redeclared_static (tree newdecl, tree olddecl)
       && DECL_ARTIFICIAL (olddecl))
     return;
 
-  if (permerror (input_location,
+  if (permerror (DECL_SOURCE_LOCATION (newdecl),
 		 "%qD was declared %<extern%> and later %<static%>", newdecl))
     inform (input_location, "previous declaration of %q+D", olddecl);
 }
@@ -1213,14 +1213,19 @@ check_redeclaration_exception_specification (tree new_decl,
      all declarations, including the definition and an explicit
      specialization, of that function shall have an
      exception-specification with the same set of type-ids.  */
-  if ((pedantic || ! DECL_IN_SYSTEM_HEADER (old_decl))
-      && ! DECL_IS_BUILTIN (old_decl)
+  if (! DECL_IS_BUILTIN (old_decl)
       && flag_exceptions
       && !comp_except_specs (new_exceptions, old_exceptions, ce_normal))
     {
-      error ("declaration of %qF has a different exception specifier",
-	     new_decl);
-      error ("from previous declaration %q+F", old_decl);
+      const char *msg
+	= "declaration of %q+F has a different exception specifier";
+      bool complained = true;
+      if (! DECL_IN_SYSTEM_HEADER (old_decl))
+	error (msg, new_decl);
+      else
+	complained = pedwarn (0, OPT_Wsystem_headers, msg, new_decl);
+      if (complained)
+	inform (0, "from previous declaration %q+F", old_decl);
     }
 }
 
@@ -1254,7 +1259,7 @@ validate_constexpr_redeclaration (tree old_decl, tree new_decl)
 	  && DECL_TEMPLATE_SPECIALIZATION (new_decl))
 	return true;
 
-      error ("redeclaration %qD differs in %<constexpr%>", new_decl);
+      error ("redeclaration %q+D differs in %<constexpr%>", new_decl);
       error ("from previous declaration %q+D", old_decl);
       return false;
     }
@@ -1276,7 +1281,7 @@ check_redeclaration_no_default_args (tree decl)
     if (TREE_PURPOSE (t))
       {
 	permerror (input_location,
-		   "redeclaration of %q#D may not have default "
+		   "redeclaration of %q+#D may not have default "
 		   "arguments", decl);
 	return;
       }
@@ -1394,10 +1399,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  /* If the built-in is not ansi, then programs can override
 	     it even globally without an error.  */
 	  else if (! DECL_BUILT_IN (olddecl))
-	    warning (0, "library function %q#D redeclared as non-function %q#D",
+	    warning (0, "library function %q#D redeclared as non-function %q+#D",
 		     olddecl, newdecl);
 	  else
-	    error ("declaration of %q#D conflicts with built-in "
+	    error ("declaration of %q+#D conflicts with built-in "
 		   "declaration %q#D", newdecl, olddecl);
 	  return NULL_TREE;
 	}
@@ -1457,7 +1462,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	      /* A near match; override the builtin.  */
 
 	      if (TREE_PUBLIC (newdecl))
-		warning (0, "new declaration %q#D ambiguates built-in "
+		warning (0, "new declaration %q+#D ambiguates built-in "
 			 "declaration %q#D", newdecl, olddecl);
 	      else
 		warning (OPT_Wshadow, 
@@ -1571,7 +1576,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  if (TREE_CODE (DECL_TEMPLATE_RESULT (olddecl)) == TYPE_DECL
 	      || TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == TYPE_DECL)
 	    {
-	      error ("conflicting declaration of template %q#D", newdecl);
+	      error ("conflicting declaration of template %q+#D", newdecl);
 	      inform (DECL_SOURCE_LOCATION (olddecl),
 		      "previous declaration %q#D", olddecl);
 	      return error_mark_node;
@@ -1587,7 +1592,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		   && same_type_p (TREE_TYPE (TREE_TYPE (newdecl)),
 				   TREE_TYPE (TREE_TYPE (olddecl))))
 	    {
-	      error ("ambiguating new declaration %q#D", newdecl);
+	      error ("ambiguating new declaration %q+#D", newdecl);
 	      inform (DECL_SOURCE_LOCATION (olddecl),
 		      "old declaration %q#D", olddecl);
 	    }
@@ -1597,7 +1602,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	{
 	  if (DECL_EXTERN_C_P (newdecl) && DECL_EXTERN_C_P (olddecl))
 	    {
-	      error ("conflicting declaration of C function %q#D",
+	      error ("conflicting declaration of C function %q+#D",
 		     newdecl);
 	      inform (DECL_SOURCE_LOCATION (olddecl),
 		      "previous declaration %q#D", olddecl);
@@ -1610,7 +1615,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		   && compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
 			      TYPE_ARG_TYPES (TREE_TYPE (olddecl))))
 	    {
-	      error ("ambiguating new declaration of %q#D", newdecl);
+	      error ("ambiguating new declaration of %q+#D", newdecl);
 	      inform (DECL_SOURCE_LOCATION (olddecl),
 		      "old declaration %q#D", olddecl);
               return error_mark_node;
@@ -1620,7 +1625,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	}
       else
 	{
-	  error ("conflicting declaration %q#D", newdecl);
+	  error ("conflicting declaration %q+#D", newdecl);
 	  inform (DECL_SOURCE_LOCATION (olddecl),
 		  "previous declaration as %q#D", olddecl);
 	  return error_mark_node;
@@ -1674,7 +1679,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	 A namespace-name defined at global scope shall not be
 	 declared as the name of any other entity in any global scope
 	 of the program.  */
-      error ("conflicting declaration of namespace %qD", newdecl);
+      error ("conflicting declaration of namespace %q+D", newdecl);
       inform (DECL_SOURCE_LOCATION (olddecl),
 	      "previous declaration of namespace %qD here", olddecl);
       return error_mark_node;
@@ -1699,7 +1704,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	{
 	  /* Prototype decl follows defn w/o prototype.  */
 	  if (warning_at (DECL_SOURCE_LOCATION (newdecl), 0,
-			  "prototype specified for %q#D", newdecl))
+			  "prototype specified for %q+#D", newdecl))
 	    inform (DECL_SOURCE_LOCATION (olddecl),
 		    "previous non-prototype definition here");
 	}
@@ -1740,7 +1745,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 	  else
 	    {
-	      error ("conflicting declaration of %q#D with %qL linkage",
+	      error ("conflicting declaration of %q+#D with %qL linkage",
 		     newdecl, DECL_LANGUAGE (newdecl));
 	      inform (DECL_SOURCE_LOCATION (olddecl),
 		      "previous declaration with %qL linkage",
@@ -1853,7 +1858,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	      || DECL_TEMPLATE_SPECIALIZATION (olddecl)))
 	{
 	  if (warning (OPT_Wredundant_decls,
-		       "redundant redeclaration of %qD in same scope",
+		       "redundant redeclaration of %q+D in same scope",
 		       newdecl))
 	    inform (DECL_SOURCE_LOCATION (olddecl),
 		    "previous declaration of %qD", olddecl);
@@ -1864,7 +1869,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	{
 	  if (DECL_DELETED_FN (newdecl))
 	    {
-	      error ("deleted definition of %qD", newdecl);
+	      error ("deleted definition of %q+D", newdecl);
 	      inform (DECL_SOURCE_LOCATION (olddecl),
 		      "previous declaration of %qD", olddecl);
 	    }
@@ -4825,8 +4830,11 @@ start_decl (const cp_declarator *declarator,
 
   was_public = TREE_PUBLIC (decl);
 
-  /* Enter this declaration into the symbol table.  */
-  decl = maybe_push_decl (decl);
+  /* Enter this declaration into the symbol table.  Don't push the plain
+     VAR_DECL for a variable template.  */
+  if (!template_parm_scope_p ()
+      || TREE_CODE (decl) != VAR_DECL)
+    decl = maybe_push_decl (decl);
 
   if (processing_template_decl)
     decl = push_template_decl (decl);
@@ -10263,12 +10271,15 @@ grokdeclarator (const cp_declarator *declarator,
 	 in the declaration of a constructor or conversion function within
 	 a class definition.  */
       if (!current_class_type)
-	error ("%<explicit%> outside class declaration");
+	error_at (declspecs->locations[ds_explicit],
+		  "%<explicit%> outside class declaration");
       else if (friendp)
-	error ("%<explicit%> in friend declaration");
+	error_at (declspecs->locations[ds_explicit],
+		  "%<explicit%> in friend declaration");
       else
-	error ("only declarations of constructors and conversion operators "
-	       "can be %<explicit%>");
+	error_at (declspecs->locations[ds_explicit],
+		  "only declarations of constructors and conversion operators "
+		  "can be %<explicit%>");
       explicitp = 0;
     }
 
@@ -11764,16 +11775,6 @@ grok_op_properties (tree decl, bool complain)
 	      error ("%qD may not be declared as static", decl);
 	      return false;
 	    }
-	  if (!flag_sized_deallocation && warn_cxx14_compat)
-	    {
-	      tree parm = FUNCTION_ARG_CHAIN (decl);
-	      if (parm && same_type_p (TREE_VALUE (parm), size_type_node)
-		  && TREE_CHAIN (parm) == void_list_node)
-		warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wc__14_compat,
-			    "%qD is a usual (non-placement) deallocation "
-			    "function in C++14 (or with -fsized-deallocation)",
-			    decl);
-	    }
 	}
     }
 
@@ -13064,11 +13065,12 @@ finish_enum (tree enumtype)
 
 /* Build and install a CONST_DECL for an enumeration constant of the
    enumeration type ENUMTYPE whose NAME and VALUE (if any) are provided.
-   LOC is the location of NAME.
+   Apply ATTRIBUTES if available.  LOC is the location of NAME.
    Assignment of sequential values by default is handled here.  */
 
 void
-build_enumerator (tree name, tree value, tree enumtype, location_t loc)
+build_enumerator (tree name, tree value, tree enumtype, tree attributes,
+		  location_t loc)
 {
   tree decl;
   tree context;
@@ -13100,7 +13102,8 @@ build_enumerator (tree name, tree value, tree enumtype, location_t loc)
 	      if (tmp_value)
 		value = tmp_value;
 	    }
-	  else if (! INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (value)))
+	  else if (! INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P
+		   (TREE_TYPE (value)))
 	    value = perform_implicit_conversion_flags
 	      (ENUM_UNDERLYING_TYPE (enumtype), value, tf_warning_or_error,
 	       LOOKUP_IMPLICIT | LOOKUP_NO_NARROWING);
@@ -13230,6 +13233,9 @@ incremented enumerator value is too large for %<long%>");
   TREE_CONSTANT (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_INITIAL (decl) = value;
+
+  if (attributes)
+    cplus_decl_attributes (&decl, attributes, 0);
 
   if (context && context == current_class_type && !SCOPED_ENUM_P (enumtype))
     /* In something like `struct S { enum E { i = 7 }; };' we put `i'

@@ -173,7 +173,7 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
      x < 0 || ((unsigned) x >> (uprecm1 - y))
      if > 1, is undefined.  */
   if (code == LSHIFT_EXPR
-      && !TYPE_UNSIGNED (TREE_TYPE (op0))
+      && !TYPE_UNSIGNED (type0)
       && (cxx_dialect >= cxx11))
     {
       tree x = fold_build2 (MINUS_EXPR, op1_utype, uprecm1,
@@ -301,9 +301,11 @@ ubsan_instrument_bounds (location_t loc, tree array, tree *index,
     bound = fold_build2 (PLUS_EXPR, TREE_TYPE (bound), bound,
 			 build_int_cst (TREE_TYPE (bound), 1));
 
-  /* Detect flexible array members and suchlike.  */
+  /* Detect flexible array members and suchlike, unless
+     -fsanitize=bounds-strict.  */
   tree base = get_base_address (array);
-  if (TREE_CODE (array) == COMPONENT_REF
+  if ((flag_sanitize & SANITIZE_BOUNDS_STRICT) == 0
+      && TREE_CODE (array) == COMPONENT_REF
       && base && (TREE_CODE (base) == INDIRECT_REF
 		  || TREE_CODE (base) == MEM_REF))
     {

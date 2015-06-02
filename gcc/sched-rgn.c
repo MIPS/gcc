@@ -240,10 +240,10 @@ static edgeset *ancestor_edges;
 static int check_live_1 (int, rtx);
 static void update_live_1 (int, rtx);
 static int is_pfree (rtx, int, int);
-static int find_conditional_protection (rtx, int);
+static int find_conditional_protection (rtx_insn *, int);
 static int is_conditionally_protected (rtx, int, int);
 static int is_prisky (rtx, int, int);
-static int is_exception_free (rtx, int, int);
+static int is_exception_free (rtx_insn *, int, int);
 
 static bool sets_likely_spilled (rtx);
 static void sets_likely_spilled_1 (rtx, const_rtx, void *);
@@ -1720,7 +1720,7 @@ check_live_1 (int src, rtx x)
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
 	  /* Check for hard registers.  */
-	  int j = hard_regno_nregs[regno][GET_MODE (reg)];
+	  int j = REG_NREGS (reg);
 	  while (--j >= 0)
 	    {
 	      for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
@@ -1801,12 +1801,7 @@ update_live_1 (int src, rtx x)
       for (i = 0; i < candidate_table[src].update_bbs.nr_members; i++)
 	{
 	  basic_block b = candidate_table[src].update_bbs.first_member[i];
-
-	  if (HARD_REGISTER_NUM_P (regno))
-	    bitmap_set_range (df_get_live_in (b), regno,
-			      hard_regno_nregs[regno][GET_MODE (reg)]);
-	  else
-	    bitmap_set_bit (df_get_live_in (b), regno);
+	  bitmap_set_range (df_get_live_in (b), regno, REG_NREGS (reg));
 	}
     }
 }
@@ -1841,7 +1836,7 @@ check_live (rtx_insn *insn, int src)
    block src to trg.  */
 
 static void
-update_live (rtx insn, int src)
+update_live (rtx_insn *insn, int src)
 {
   /* Find the registers set by instruction.  */
   if (GET_CODE (PATTERN (insn)) == SET
@@ -1882,7 +1877,7 @@ set_spec_fed (rtx load_insn)
 branch depending on insn, that guards the speculative load.  */
 
 static int
-find_conditional_protection (rtx insn, int load_insn_bb)
+find_conditional_protection (rtx_insn *insn, int load_insn_bb)
 {
   sd_iterator_def sd_it;
   dep_t dep;
@@ -2042,7 +2037,7 @@ is_prisky (rtx load_insn, int bb_src, int bb_trg)
    and 0 otherwise.  */
 
 static int
-is_exception_free (rtx insn, int bb_src, int bb_trg)
+is_exception_free (rtx_insn *insn, int bb_src, int bb_trg)
 {
   int insn_class = haifa_classify_insn (insn);
 

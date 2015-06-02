@@ -649,7 +649,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   tree vectype;
   tree base, base_addr;
   bool base_aligned;
-  tree misalign;
+  tree misalign = NULL_TREE;
   tree aligned_to;
   unsigned HOST_WIDE_INT alignment;
 
@@ -663,12 +663,14 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   /* Initialize misalignment to unknown.  */
   SET_DR_MISALIGNMENT (dr, -1);
 
-  /* Strided loads perform only component accesses, misalignment information
+  /* Strided accesses perform only component accesses, misalignment information
      is irrelevant for them.  */
-  if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
+  if (STMT_VINFO_STRIDED_P (stmt_info)
+      && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
     return true;
 
-  misalign = DR_INIT (dr);
+  if (tree_fits_shwi_p (DR_STEP (dr)))
+    misalign = DR_INIT (dr);
   aligned_to = DR_ALIGNED_TO (dr);
   base_addr = DR_BASE_ADDRESS (dr);
   vectype = STMT_VINFO_VECTYPE (stmt_info);
@@ -682,9 +684,9 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   if (loop && nested_in_vect_loop_p (loop, stmt))
     {
       tree step = DR_STEP (dr);
-      HOST_WIDE_INT dr_step = TREE_INT_CST_LOW (step);
 
-      if (dr_step % GET_MODE_SIZE (TYPE_MODE (vectype)) == 0)
+      if (tree_fits_shwi_p (step)
+	  && tree_to_shwi (step) % GET_MODE_SIZE (TYPE_MODE (vectype)) == 0)
         {
           if (dump_enabled_p ())
             dump_printf_loc (MSG_NOTE, vect_location,
@@ -710,9 +712,9 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   if (!loop)
     {
       tree step = DR_STEP (dr);
-      HOST_WIDE_INT dr_step = TREE_INT_CST_LOW (step);
 
-      if (dr_step % GET_MODE_SIZE (TYPE_MODE (vectype)) != 0)
+      if (tree_fits_shwi_p (step)
+	  && tree_to_shwi (step) % GET_MODE_SIZE (TYPE_MODE (vectype)) != 0)
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -940,9 +942,10 @@ vect_verify_datarefs_alignment (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
           || !STMT_VINFO_VECTORIZABLE (stmt_info))
         continue;
 
-      /* Strided loads perform only component accesses, alignment is
+      /* Strided accesses perform only component accesses, alignment is
 	 irrelevant for them.  */
-      if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
+      if (STMT_VINFO_STRIDED_P (stmt_info)
+	  && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
 	continue;
 
       supportable_dr_alignment = vect_supportable_dr_alignment (dr, false);
@@ -1407,9 +1410,10 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       if (integer_zerop (DR_STEP (dr)))
 	continue;
 
-      /* Strided loads perform only component accesses, alignment is
+      /* Strided accesses perform only component accesses, alignment is
 	 irrelevant for them.  */
-      if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
+      if (STMT_VINFO_STRIDED_P (stmt_info)
+	  && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
 	continue;
 
       supportable_dr_alignment = vect_supportable_dr_alignment (dr, true);
@@ -1537,16 +1541,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       || !slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
     do_peeling = false;
 
-  /* If we don't know how many times the peeling loop will run
-     assume it will run VF-1 times and disable peeling if the remaining
-     iters are less than the vectorization factor.  */
-  if (do_peeling
-      && all_misalignments_unknown
-      && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-      && (LOOP_VINFO_INT_NITERS (loop_vinfo)
-	  < 2 * (unsigned) LOOP_VINFO_VECT_FACTOR (loop_vinfo) - 1))
-    do_peeling = false;
-
   if (do_peeling
       && all_misalignments_unknown
       && vect_supportable_dr_alignment (dr0, false))
@@ -1615,12 +1609,17 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
         }
 
       /* In case there are only loads with different unknown misalignments, use
-         peeling only if it may help to align other accesses in the loop.  */
+         peeling only if it may help to align other accesses in the loop or
+	 if it may help improving load bandwith when we'd end up using
+	 unaligned loads.  */
+      tree dr0_vt = STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (dr0)));
       if (!first_store
 	  && !STMT_VINFO_SAME_ALIGN_REFS (
 		  vinfo_for_stmt (DR_STMT (dr0))).length ()
-          && vect_supportable_dr_alignment (dr0, false)
-              != dr_unaligned_supported)
+	  && (vect_supportable_dr_alignment (dr0, false)
+	      != dr_unaligned_supported
+	      || (builtin_vectorization_cost (vector_load, dr0_vt, 0)
+		  == builtin_vectorization_cost (unaligned_load, dr0_vt, -1))))
         do_peeling = false;
     }
 
@@ -1637,14 +1636,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 						   &body_cost_vec);
       if (!dr0 || !npeel)
         do_peeling = false;
-
-      /* If peeling by npeel will result in a remaining loop not iterating
-         enough to be vectorized then do not peel.  */
-      if (do_peeling
-	  && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-	  && (LOOP_VINFO_INT_NITERS (loop_vinfo)
-	      < LOOP_VINFO_VECT_FACTOR (loop_vinfo) + npeel))
-	do_peeling = false;
     }
 
   if (do_peeling)
@@ -1699,9 +1690,10 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 	      && GROUP_FIRST_ELEMENT (stmt_info) != stmt)
 	    continue;
 
-	  /* Strided loads perform only component accesses, alignment is
+	  /* Strided accesses perform only component accesses, alignment is
 	     irrelevant for them.  */
-	  if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
+	  if (STMT_VINFO_STRIDED_P (stmt_info)
+	      && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
 	    continue;
 
 	  save_misalignment = DR_MISALIGNMENT (dr);
@@ -1728,6 +1720,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 	    }
         }
 
+      /* Cost model #1 - honor --param vect-max-peeling-for-alignment.  */
       if (do_peeling)
         {
           unsigned max_allowed_peel
@@ -1751,6 +1744,18 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                 }
             }
         }
+
+      /* Cost model #2 - if peeling may result in a remaining loop not
+	 iterating enough to be vectorized then do not peel.  */
+      if (do_peeling
+	  && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
+	{
+	  unsigned max_peel
+	    = npeel == 0 ? LOOP_VINFO_VECT_FACTOR (loop_vinfo) - 1 : npeel;
+	  if (LOOP_VINFO_INT_NITERS (loop_vinfo)
+	      < LOOP_VINFO_VECT_FACTOR (loop_vinfo) + max_peel)
+	    do_peeling = false;
+	}
 
       if (do_peeling)
         {
@@ -1819,10 +1824,15 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 		  && GROUP_FIRST_ELEMENT (stmt_info) != stmt))
 	    continue;
 
-	  /* Strided loads perform only component accesses, alignment is
-	     irrelevant for them.  */
-	  if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
-	    continue;
+	  if (STMT_VINFO_STRIDED_P (stmt_info))
+	    {
+	      /* Strided loads perform only component accesses, alignment is
+		 irrelevant for them.  */
+	      if (!STMT_VINFO_GROUPED_ACCESS (stmt_info))
+		continue;
+	      do_versioning = false;
+	      break;
+	    }
 
 	  supportable_dr_alignment = vect_supportable_dr_alignment (dr, false);
 
@@ -2035,7 +2045,7 @@ vect_analyze_group_access (struct data_reference *dr)
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   bb_vec_info bb_vinfo = STMT_VINFO_BB_VINFO (stmt_info);
-  HOST_WIDE_INT dr_step = TREE_INT_CST_LOW (step);
+  HOST_WIDE_INT dr_step = -1;
   HOST_WIDE_INT groupsize, last_accessed_element = 1;
   bool slp_impossible = false;
   struct loop *loop = NULL;
@@ -2045,7 +2055,13 @@ vect_analyze_group_access (struct data_reference *dr)
 
   /* For interleaving, GROUPSIZE is STEP counted in elements, i.e., the
      size of the interleaving group (including gaps).  */
-  groupsize = absu_hwi (dr_step) / type_size;
+  if (tree_fits_shwi_p (step))
+    {
+      dr_step = tree_to_shwi (step);
+      groupsize = absu_hwi (dr_step) / type_size;
+    }
+  else
+    groupsize = 0;
 
   /* Not consecutive access is possible only if it is a part of interleaving.  */
   if (!GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)))
@@ -2120,7 +2136,6 @@ vect_analyze_group_access (struct data_reference *dr)
       tree prev_init = DR_INIT (data_ref);
       gimple prev = stmt;
       HOST_WIDE_INT diff, gaps = 0;
-      unsigned HOST_WIDE_INT count_in_bytes;
 
       while (next)
         {
@@ -2185,30 +2200,12 @@ vect_analyze_group_access (struct data_reference *dr)
           count++;
         }
 
-      /* COUNT is the number of accesses found, we multiply it by the size of
-         the type to get COUNT_IN_BYTES.  */
-      count_in_bytes = type_size * count;
+      if (groupsize == 0)
+        groupsize = count + gaps;
 
-      /* Check that the size of the interleaving (including gaps) is not
-         greater than STEP.  */
-      if (dr_step != 0
-	  && absu_hwi (dr_step) < count_in_bytes + gaps * type_size)
-        {
-          if (dump_enabled_p ())
-            {
-              dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                               "interleaving size is greater than step for ");
-              dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
-                                 DR_REF (dr));
-              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
-            }
-          return false;
-        }
-
-      /* Check that the size of the interleaving is equal to STEP for stores,
+      /* Check that the size of the interleaving is equal to count for stores,
          i.e., that there are no gaps.  */
-      if (dr_step != 0
-	  && absu_hwi (dr_step) != count_in_bytes)
+      if (groupsize != count)
         {
           if (DR_IS_READ (dr))
             {
@@ -2226,26 +2223,6 @@ vect_analyze_group_access (struct data_reference *dr)
               return false;
             }
         }
-
-      /* Check that STEP is a multiple of type size.  */
-      if (dr_step != 0
-	  && (dr_step % type_size) != 0)
-        {
-          if (dump_enabled_p ())
-            {
-              dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                               "step is not a multiple of type size: step ");
-              dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, step);
-              dump_printf (MSG_MISSED_OPTIMIZATION, " size ");
-              dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
-                                 TYPE_SIZE_UNIT (scalar_type));
-              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
-            }
-          return false;
-        }
-
-      if (groupsize == 0)
-        groupsize = count + gaps;
 
       GROUP_SIZE (vinfo_for_stmt (stmt)) = groupsize;
       if (dump_enabled_p ())
@@ -2310,18 +2287,22 @@ vect_analyze_data_ref_access (struct data_reference *dr)
       return false;
     }
 
-  /* Allow invariant loads in not nested loops.  */
+  /* Allow loads with zero step in inner-loop vectorization.  */
   if (loop_vinfo && integer_zerop (step))
     {
       GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) = NULL;
-      if (nested_in_vect_loop_p (loop, stmt))
+      if (!nested_in_vect_loop_p (loop, stmt))
+	return DR_IS_READ (dr);
+      /* Allow references with zero step for outer loops marked
+	 with pragma omp simd only - it guarantees absence of
+	 loop-carried dependencies between inner loop iterations.  */
+      if (!loop->force_vectorize)
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_NOTE, vect_location,
 			     "zero step in inner loop of nest\n");
 	  return false;
 	}
-      return DR_IS_READ (dr);
     }
 
   if (loop && nested_in_vect_loop_p (loop, stmt))
@@ -2366,9 +2347,12 @@ vect_analyze_data_ref_access (struct data_reference *dr)
       return false;
     }
 
+
   /* Assume this is a DR handled by non-constant strided load case.  */
   if (TREE_CODE (step) != INTEGER_CST)
-    return STMT_VINFO_STRIDE_LOAD_P (stmt_info);
+    return (STMT_VINFO_STRIDED_P (stmt_info)
+	    && (!STMT_VINFO_GROUPED_ACCESS (stmt_info)
+		|| vect_analyze_group_access (dr)));
 
   /* Not consecutive access - check if it's a part of interleaving group.  */
   return vect_analyze_group_access (dr);
@@ -2570,15 +2554,16 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
 	      || !gimple_assign_single_p (DR_STMT (drb)))
 	    break;
 
-	  /* Check that the data-refs have the same constant size and step.  */
+	  /* Check that the data-refs have the same constant size.  */
 	  tree sza = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra)));
 	  tree szb = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb)));
 	  if (!tree_fits_uhwi_p (sza)
 	      || !tree_fits_uhwi_p (szb)
-	      || !tree_int_cst_equal (sza, szb)
-	      || !tree_fits_shwi_p (DR_STEP (dra))
-	      || !tree_fits_shwi_p (DR_STEP (drb))
-	      || !tree_int_cst_equal (DR_STEP (dra), DR_STEP (drb)))
+	      || !tree_int_cst_equal (sza, szb))
+	    break;
+
+	  /* Check that the data-refs have the same step.  */
+	  if (!operand_equal_p (DR_STEP (dra), DR_STEP (drb), 0))
 	    break;
 
 	  /* Do not place the same access in the interleaving chain twice.  */
@@ -2602,11 +2587,24 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
 	  if ((init_b - init_a) % type_size_a != 0)
 	    break;
 
-	  /* The step (if not zero) is greater than the difference between
-	     data-refs' inits.  This splits groups into suitable sizes.  */
-	  HOST_WIDE_INT step = tree_to_shwi (DR_STEP (dra));
-	  if (step != 0 && step <= (init_b - init_a))
+	  /* If we have a store, the accesses are adjacent.  This splits
+	     groups into chunks we support (we don't support vectorization
+	     of stores with gaps).  */
+	  if (!DR_IS_READ (dra)
+	      && (init_b - (HOST_WIDE_INT) TREE_INT_CST_LOW
+					     (DR_INIT (datarefs_copy[i-1]))
+		  != type_size_a))
 	    break;
+
+	  /* If the step (if not zero or non-constant) is greater than the
+	     difference between data-refs' inits this splits groups into
+	     suitable sizes.  */
+	  if (tree_fits_shwi_p (DR_STEP (dra)))
+	    {
+	      HOST_WIDE_INT step = tree_to_shwi (DR_STEP (dra));
+	      if (step != 0 && step <= (init_b - init_a))
+		break;
+	    }
 
 	  if (dump_enabled_p ())
 	    {
@@ -3773,8 +3771,7 @@ again:
       else if (loop_vinfo
 	       && TREE_CODE (DR_STEP (dr)) != INTEGER_CST)
 	{
-	  if (nested_in_vect_loop_p (loop, stmt)
-	      || !DR_IS_READ (dr))
+	  if (nested_in_vect_loop_p (loop, stmt))
 	    {
 	      if (dump_enabled_p ())
 		{
@@ -3786,7 +3783,7 @@ again:
 		}
 	      return false;
 	    }
-	  STMT_VINFO_STRIDE_LOAD_P (stmt_info) = true;
+	  STMT_VINFO_STRIDED_P (stmt_info) = true;
 	}
     }
 
@@ -5028,7 +5025,7 @@ vect_grouped_load_supported (tree vectype, unsigned HOST_WIDE_INT count)
 		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 				     "shuffle of 3 loads is not supported by"
 				     " target\n");
-		    return false;
+		  return false;
 		}
 	      for (i = 0, j = 0; i < nelt; i++)
 		if (3 * i + k < 2 * nelt)

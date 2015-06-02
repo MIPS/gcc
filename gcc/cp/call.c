@@ -3436,7 +3436,6 @@ print_z_candidates (location_t loc, struct z_candidate *candidates)
 {
   struct z_candidate *cand1;
   struct z_candidate **cand2;
-  int n_candidates;
 
   if (!candidates)
     return;
@@ -3477,9 +3476,6 @@ print_z_candidates (location_t loc, struct z_candidate *candidates)
 	    cand2 = &(*cand2)->next;
 	}
     }
-
-  for (n_candidates = 0, cand1 = candidates; cand1; cand1 = cand1->next)
-    n_candidates++;
 
   for (; candidates; candidates = candidates->next)
     print_z_candidate (loc, "candidate:", candidates);
@@ -5752,6 +5748,18 @@ build_new_op (location_t loc, enum tree_code code, int flags,
   return ret;
 }
 
+/* Returns true if FN has two parameters, of which the second has type
+   size_t.  */
+
+static bool
+second_parm_is_size_t (tree fn)
+{
+  tree t = FUNCTION_ARG_CHAIN (fn);
+  return (t
+	  && same_type_p (TREE_VALUE (t), size_type_node)
+	  && TREE_CHAIN (t) == void_list_node);
+}
+
 /* Returns true iff T, an element of an OVERLOAD chain, is a usual
    deallocation function (3.7.4.2 [basic.stc.dynamic.deallocation]).  */
 
@@ -5772,11 +5780,9 @@ non_placement_deallocation_fn_p (tree t)
      of which has type std::size_t (18.2), then this function is a usual
      deallocation function.  */
   bool global = DECL_NAMESPACE_SCOPE_P (t);
-  t = FUNCTION_ARG_CHAIN (t);
-  if (t == void_list_node
-      || (t && same_type_p (TREE_VALUE (t), size_type_node)
-	  && (!global || flag_sized_deallocation)
-	  && TREE_CHAIN (t) == void_list_node))
+  if (FUNCTION_ARG_CHAIN (t) == void_list_node
+      || ((!global || flag_sized_deallocation)
+	  && second_parm_is_size_t (t)))
     return true;
   return false;
 }
@@ -5863,23 +5869,49 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	 function (3.7.4.2) and that function, considered as a placement
 	 deallocation function, would have been selected as a match for the
 	 allocation function, the program is ill-formed."  */
-      if (non_placement_deallocation_fn_p (fn))
+      if (second_parm_is_size_t (fn))
 	{
+	  const char *msg1
+	    = G_("exception cleanup for this placement new selects "
+		 "non-placement operator delete");
+	  const char *msg2
+	    = G_("%q+D is a usual (non-placement) deallocation "
+		 "function in C++14 (or with -fsized-deallocation)");
+
 	  /* But if the class has an operator delete (void *), then that is
 	     the usual deallocation function, so we shouldn't complain
 	     about using the operator delete (void *, size_t).  */
-	  for (t = BASELINK_P (fns) ? BASELINK_FUNCTIONS (fns) : fns;
-	       t; t = OVL_NEXT (t))
+	  if (DECL_CLASS_SCOPE_P (fn))
+	    for (t = BASELINK_P (fns) ? BASELINK_FUNCTIONS (fns) : fns;
+		 t; t = OVL_NEXT (t))
+	      {
+		tree elt = OVL_CURRENT (t);
+		if (non_placement_deallocation_fn_p (elt)
+		    && FUNCTION_ARG_CHAIN (elt) == void_list_node)
+		  goto ok;
+	      }
+	  /* Before C++14 a two-parameter global deallocation function is
+	     always a placement deallocation function, but warn if
+	     -Wc++14-compat.  */
+	  else if (!flag_sized_deallocation)
 	    {
-	      tree elt = OVL_CURRENT (t);
-	      if (non_placement_deallocation_fn_p (elt)
-		  && FUNCTION_ARG_CHAIN (elt) == void_list_node)
-		goto ok;
+	      if ((complain & tf_warning)
+		  && warning (OPT_Wc__14_compat, msg1))
+		inform (0, msg2, fn);
+	      goto ok;
 	    }
-	  if (complain & tf_error)
+
+	  if (complain & tf_warning_or_error)
 	    {
-	      permerror (0, "non-placement deallocation function %q+D", fn);
-	      permerror (input_location, "selected for placement delete");
+	      if (permerror (input_location, msg1))
+		{
+		  /* Only mention C++14 for namespace-scope delete.  */
+		  if (DECL_NAMESPACE_SCOPE_P (fn))
+		    inform (0, msg2, fn);
+		  else
+		    inform (0, "%q+D is a usual (non-placement) deallocation "
+			    "function", fn);
+		}
 	    }
 	  else
 	    return error_mark_node;
@@ -6243,19 +6275,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	tree convfn = cand->fn;
 	unsigned i;
 
-	/* When converting from an init list we consider explicit
-	   constructors, but actually trying to call one is an error.  */
-	if (DECL_NONCONVERTING_P (convfn) && DECL_CONSTRUCTOR_P (convfn)
-	    /* Unless this is for direct-list-initialization.  */
-	    && !DIRECT_LIST_INIT_P (expr))
-	  {
-	    if (!(complain & tf_error))
-	      return error_mark_node;
-	    error ("converting to %qT from initializer list would use "
-		   "explicit constructor %qD", totype, convfn);
-	  }
-
-	/* If we're initializing from {}, it's value-initialization.  */
+	/* If we're initializing from {}, it's value-initialization.  Note
+	   that under the resolution of core 1630, value-initialization can
+	   use explicit constructors.  */
 	if (BRACE_ENCLOSED_INITIALIZER_P (expr)
 	    && CONSTRUCTOR_NELTS (expr) == 0
 	    && TYPE_HAS_DEFAULT_CONSTRUCTOR (totype))
@@ -6269,6 +6291,18 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 		TARGET_EXPR_DIRECT_INIT_P (expr) = direct;
 	      }
 	    return expr;
+	  }
+
+	/* When converting from an init list we consider explicit
+	   constructors, but actually trying to call one is an error.  */
+	if (DECL_NONCONVERTING_P (convfn) && DECL_CONSTRUCTOR_P (convfn)
+	    /* Unless this is for direct-list-initialization.  */
+	    && !DIRECT_LIST_INIT_P (expr))
+	  {
+	    if (!(complain & tf_error))
+	      return error_mark_node;
+	    error ("converting to %qT from initializer list would use "
+		   "explicit constructor %qD", totype, convfn);
 	  }
 
 	expr = mark_rvalue_use (expr);

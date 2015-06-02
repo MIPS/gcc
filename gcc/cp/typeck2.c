@@ -962,10 +962,13 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
 	}
       else if (complain & tf_error)
 	{
+	  int savederrorcount = errorcount;
 	  global_dc->pedantic_errors = 1;
 	  pedwarn (EXPR_LOC_OR_LOC (init, input_location), OPT_Wnarrowing,
-		   "narrowing conversion of %qE from %qT to %qT inside { }",
-		   init, ftype, type);
+		   "narrowing conversion of %qE from %qT to %qT "
+		   "inside { }", init, ftype, type);
+	  if (errorcount == savederrorcount)
+	    ok = true;
 	  global_dc->pedantic_errors = flag_pedantic_errors;
 	}
     }
@@ -1096,6 +1099,19 @@ digest_init_r (tree type, tree init, bool nested, int flags,
 	      || TREE_CODE (type) == RECORD_TYPE
 	      || TREE_CODE (type) == UNION_TYPE
 	      || TREE_CODE (type) == COMPLEX_TYPE);
+
+  /* "If T is a class type and the initializer list has a single
+     element of type cv U, where U is T or a class derived from T,
+     the object is initialized from that element."  */
+  if (cxx_dialect >= cxx11
+      && BRACE_ENCLOSED_INITIALIZER_P (init)
+      && CONSTRUCTOR_NELTS (init) == 1
+      && (CLASS_TYPE_P (type) || VECTOR_TYPE_P (type)))
+    {
+      tree elt = CONSTRUCTOR_ELT (init, 0)->value;
+      if (reference_related_p (type, TREE_TYPE (elt)))
+	init = elt;
+    }
 
   if (BRACE_ENCLOSED_INITIALIZER_P (init)
       && !TYPE_NON_AGGREGATE_CLASS (type))
@@ -1286,7 +1302,6 @@ process_init_constructor_array (tree type, tree init,
 	       we can't rely on the back end to do it for us, so make the
 	       initialization explicit by list-initializing from T{}.  */
 	    next = build_constructor (init_list_type_node, NULL);
-	    CONSTRUCTOR_IS_DIRECT_INIT (next) = true;
 	    next = massage_init_elt (TREE_TYPE (type), next, complain);
 	    if (initializer_zerop (next))
 	      /* The default zero-initialization is fine for us; don't
@@ -1397,9 +1412,6 @@ process_init_constructor_record (tree type, tree init,
 	     for us, so build up TARGET_EXPRs.  If the type in question is
 	     a class, just build one up; if it's an array, recurse.  */
 	  next = build_constructor (init_list_type_node, NULL);
-	  /* Call this direct-initialization pending DR 1518 resolution so
-	     that explicit default ctors don't break valid C++03 code.  */
-	  CONSTRUCTOR_IS_DIRECT_INIT (next) = true;
 	  next = massage_init_elt (TREE_TYPE (field), next, complain);
 
 	  /* Warn when some struct elements are implicitly initialized.  */

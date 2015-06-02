@@ -2118,7 +2118,7 @@ expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
       branch_expander = gen_branch_false;
     default: ;
     }
-  emit_insn (gen_rtx_SET (VOIDmode, get_t_reg_rtx (),
+  emit_insn (gen_rtx_SET (get_t_reg_rtx (),
 			  gen_rtx_fmt_ee (comparison, SImode,
 					  operands[1], operands[2])));
   rtx_insn *jump = emit_jump_insn (branch_expander (operands[3]));
@@ -2432,7 +2432,7 @@ sh_emit_scc_to_t (enum rtx_code code, rtx op0, rtx op1)
       || (TARGET_SH2E && GET_MODE_CLASS (mode) == MODE_FLOAT))
     op1 = force_reg (mode, op1);
 
-  sh_emit_set_t_insn (gen_rtx_SET (VOIDmode, t_reg,
+  sh_emit_set_t_insn (gen_rtx_SET (t_reg,
 			           gen_rtx_fmt_ee (code, SImode, op0, op1)),
 		      mode);
 }
@@ -2561,8 +2561,7 @@ sh_emit_compare_and_branch (rtx *operands, machine_mode mode)
       gcc_unreachable ();
     }
 
-  insn = gen_rtx_SET (VOIDmode,
-		      get_t_reg_rtx (),
+  insn = gen_rtx_SET (get_t_reg_rtx (),
 		      gen_rtx_fmt_ee (branch_code, SImode, op0, op1));
 
   sh_emit_set_t_insn (insn, mode);
@@ -2747,7 +2746,8 @@ output_far_jump (rtx_insn *insn, rtx op)
 
   if (TARGET_SH2
       && offset >= -32764
-      && offset - get_attr_length (insn) <= 32766)
+      && offset - get_attr_length (insn) <= 32766
+      && ! CROSSING_JUMP_P (insn))
     {
       far = 0;
       jump =   "mov.w	%O0,%1" "\n"
@@ -3973,7 +3973,7 @@ gen_shifty_op (int code, rtx *operands)
       /* This can happen even when optimizing, if there were subregs before
 	 reload.  Don't output a nop here, as this is never optimized away;
 	 use a no-op move instead.  */
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[0]));
+      emit_insn (gen_rtx_SET (operands[0], operands[0]));
       return;
     }
 
@@ -4648,13 +4648,30 @@ gen_datalabel_ref (rtx sym)
 }
 
 
-static alloc_pool label_ref_list_pool;
-
 typedef struct label_ref_list_d
 {
   rtx_code_label *label;
   struct label_ref_list_d *next;
+
+  /* Pool allocation new operator.  */
+  inline void *operator new (size_t)
+  {
+    return pool.allocate ();
+  }
+
+  /* Delete operator utilizing pool allocation.  */
+  inline void operator delete (void *ptr)
+  {
+    pool.remove ((label_ref_list_d *) ptr);
+  }
+
+  /* Memory allocation pool.  */
+  static pool_allocator<label_ref_list_d> pool;
+
 } *label_ref_list_t;
+
+pool_allocator<label_ref_list_d> label_ref_list_d::pool
+  ("label references list", 30);
 
 /* The SH cannot load a large constant into a register, constants have to
    come from a pc relative load.  The reference of a pc relative load
@@ -4775,7 +4792,7 @@ add_constant (rtx x, machine_mode mode, rtx last_value)
 		}
 	      if (lab && pool_window_label)
 		{
-		  newref = (label_ref_list_t) pool_alloc (label_ref_list_pool);
+		  newref = new label_ref_list_d;
 		  newref->label = pool_window_label;
 		  ref = pool_vector[pool_window_last].wend;
 		  newref->next = ref;
@@ -4804,7 +4821,7 @@ add_constant (rtx x, machine_mode mode, rtx last_value)
   pool_vector[pool_size].part_of_sequence_p = (lab == 0);
   if (lab && pool_window_label)
     {
-      newref = (label_ref_list_t) pool_alloc (label_ref_list_pool);
+      newref = new label_ref_list_d;
       newref->label = pool_window_label;
       ref = pool_vector[pool_window_last].wend;
       newref->next = ref;
@@ -5876,7 +5893,7 @@ static void
 gen_far_branch (struct far_branch *bp)
 {
   rtx_insn *insn = bp->insert_place;
-  rtx_insn *jump;
+  rtx_jump_insn *jump;
   rtx_code_label *label = gen_label_rtx ();
   int ok;
 
@@ -5907,7 +5924,7 @@ gen_far_branch (struct far_branch *bp)
       JUMP_LABEL (jump) = pat;
     }
 
-  ok = invert_jump (insn, label, 1);
+  ok = invert_jump (as_a <rtx_jump_insn *> (insn), label, 1);
   gcc_assert (ok);
 
   /* If we are branching around a jump (rather than a return), prevent
@@ -6359,9 +6376,6 @@ sh_reorg (void)
 
   /* Scan the function looking for move instructions which have to be
      changed to pc-relative loads and insert the literal tables.  */
-  label_ref_list_pool = create_alloc_pool ("label references list",
-					   sizeof (struct label_ref_list_d),
-					   30);
   mdep_reorg_phase = SH_FIXUP_PCLOAD;
   for (insn = first, num_mova = 0; insn; insn = NEXT_INSN (insn))
     {
@@ -6545,7 +6559,7 @@ sh_reorg (void)
 		      newsrc = gen_rtx_LABEL_REF (VOIDmode, lab);
 		      newsrc = gen_const_mem (mode, newsrc);
 		    }
-		  *patp = gen_rtx_SET (VOIDmode, dst, newsrc);
+		  *patp = gen_rtx_SET (dst, newsrc);
 		  INSN_CODE (scan) = -1;
 		}
 	    }
@@ -6553,7 +6567,7 @@ sh_reorg (void)
 	  insn = barrier;
 	}
     }
-  free_alloc_pool (label_ref_list_pool);
+  label_ref_list_d::pool.release ();
   for (insn = first; insn; insn = NEXT_INSN (insn))
     PUT_MODE (insn, VOIDmode);
 
@@ -6700,7 +6714,7 @@ split_branches (rtx_insn *first)
 		    bp->insert_place = insn;
 		    bp->address = addr;
 		  }
-		ok = redirect_jump (insn, label, 0);
+		ok = redirect_jump (as_a <rtx_jump_insn *> (insn), label, 0);
 		gcc_assert (ok);
 	      }
 	    else
@@ -6753,6 +6767,13 @@ split_branches (rtx_insn *first)
 
 	    if (type == TYPE_JUMP)
 	      {
+		if (CROSSING_JUMP_P (insn))
+		  {
+		    emit_insn_before (gen_block_branch_redirect (const0_rtx),
+				      insn);
+		    continue;
+		  }
+
 		far_label = as_a <rtx_insn *> (
 			      XEXP (SET_SRC (PATTERN (insn)), 0));
 		dest_uid = get_dest_uid (far_label, max_uid);
@@ -6768,7 +6789,7 @@ split_branches (rtx_insn *first)
 			JUMP_LABEL (insn) = far_label;
 			LABEL_NUSES (far_label)++;
 		      }
-		    redirect_jump (insn, ret_rtx, 1);
+		    redirect_jump (as_a <rtx_jump_insn *> (insn), ret_rtx, 1);
 		    far_label = 0;
 		  }
 	      }
@@ -7079,9 +7100,8 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	      insn = emit_fn (GEN_ADD3 (reg, reg, const_reg));
 	    }
 	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			gen_rtx_SET (VOIDmode, reg,
-				     gen_rtx_PLUS (SImode, reg,
-						   GEN_INT (size))));
+			gen_rtx_SET (reg, gen_rtx_PLUS (SImode, reg,
+							GEN_INT (size))));
 	}
     }
 }
@@ -7151,7 +7171,7 @@ pop (int rn)
 		  : SET_DEST (PATTERN (x)));
   add_reg_note (x, REG_CFA_RESTORE, reg);
   add_reg_note (x, REG_CFA_ADJUST_CFA,
-		gen_rtx_SET (SImode, sp_reg,
+		gen_rtx_SET (sp_reg,
 			     plus_constant (SImode, sp_reg,
 					    GET_MODE_SIZE (GET_MODE (reg)))));
   add_reg_note (x, REG_INC, gen_rtx_REG (SImode, STACK_POINTER_REGNUM));
@@ -7234,11 +7254,10 @@ push_regs (HARD_REG_SET *mask, int interrupt_handler)
 	    {
 	      mem = gen_rtx_MEM (SImode, plus_constant (Pmode, sp_reg, i * 4));
 	      reg = gen_rtx_REG (SImode, i);
-	      add_reg_note (x, REG_CFA_OFFSET, gen_rtx_SET (SImode, mem, reg));
+	      add_reg_note (x, REG_CFA_OFFSET, gen_rtx_SET (mem, reg));
 	    }
 
-	  set = gen_rtx_SET (SImode, sp_reg,
-			     plus_constant (Pmode, sp_reg, - 32));
+	  set = gen_rtx_SET (sp_reg, plus_constant (Pmode, sp_reg, - 32));
 	  add_reg_note (x, REG_CFA_ADJUST_CFA, set);
 	  emit_insn (gen_blockage ());
 	}
@@ -7909,7 +7928,7 @@ sh_expand_prologue (void)
 	      {
 		rtx set;
 
-		set = gen_rtx_SET (VOIDmode, mem_rtx, orig_reg_rtx);
+		set = gen_rtx_SET (mem_rtx, orig_reg_rtx);
 		add_reg_note (insn, REG_FRAME_RELATED_EXPR, set);
 	      }
 
@@ -7922,7 +7941,7 @@ sh_expand_prologue (void)
 							   stack_pointer_rtx,
 							   GEN_INT (offset)));
 
-		set = gen_rtx_SET (VOIDmode, mem_rtx, reg_rtx);
+		set = gen_rtx_SET (mem_rtx, reg_rtx);
 		add_reg_note (insn, REG_FRAME_RELATED_EXPR, set);
 	      }
 	  }
@@ -14165,7 +14184,7 @@ sh_recog_treg_set_expr (rtx op, machine_mode mode)
      have to capture its current state and restore it afterwards.  */
   recog_data_d prev_recog_data = recog_data;
 
-  rtx_insn* i = make_insn_raw (gen_rtx_SET (VOIDmode, get_t_reg_rtx (), op));
+  rtx_insn* i = make_insn_raw (gen_rtx_SET (get_t_reg_rtx (), op));
   SET_PREV_INSN (i) = NULL;
   SET_NEXT_INSN (i) = NULL;
 
@@ -14278,7 +14297,7 @@ sh_split_treg_set_expr (rtx x, rtx_insn* curr_insn)
 
   scope_counter in_treg_set_expr (sh_recog_treg_set_expr_reent_count);
 
-  rtx_insn* i = make_insn_raw (gen_rtx_SET (VOIDmode, get_t_reg_rtx (), x));
+  rtx_insn* i = make_insn_raw (gen_rtx_SET (get_t_reg_rtx (), x));
   SET_PREV_INSN (i) = NULL;
   SET_NEXT_INSN (i) = NULL;
 

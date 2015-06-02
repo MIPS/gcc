@@ -2170,7 +2170,7 @@ use_register_for_decl (const_tree decl)
       /* When not optimizing, disregard register keyword for variables with
 	 types containing methods, otherwise the methods won't be callable
 	 from the debugger.  */
-      if (TYPE_METHODS (TREE_TYPE (decl)))
+      if (TYPE_METHODS (TYPE_MAIN_VARIANT (TREE_TYPE (decl))))
 	return false;
       break;
     default:
@@ -5094,7 +5094,8 @@ expand_function_start (tree subr)
   if (cfun->static_chain_decl)
     {
       tree parm = cfun->static_chain_decl;
-      rtx local, chain, insn;
+      rtx local, chain;
+     rtx_insn *insn;
 
       local = gen_reg_rtx (Pmode);
       chain = targetm.calls.static_chain (current_function_decl, true);
@@ -5223,8 +5224,8 @@ diddle_return_value_1 (void (*doit) (rtx, void *), void *arg, rtx outgoing)
 void
 diddle_return_value (void (*doit) (rtx, void *), void *arg)
 {
-  diddle_return_value_1 (doit, arg, crtl->return_rtx);
   diddle_return_value_1 (doit, arg, crtl->return_bnd);
+  diddle_return_value_1 (doit, arg, crtl->return_rtx);
 }
 
 static void
@@ -5657,7 +5658,8 @@ prologue_epilogue_contains (const_rtx insn)
 static void
 emit_use_return_register_into_block (basic_block bb)
 {
-  rtx seq, insn;
+  rtx seq;
+ rtx_insn *insn;
   start_sequence ();
   use_return_register ();
   seq = get_insns ();
@@ -5701,7 +5703,7 @@ emit_return_into_block (bool simple_p, basic_block bb)
 /* Set JUMP_LABEL for a return insn.  */
 
 void
-set_return_jump_label (rtx returnjump)
+set_return_jump_label (rtx_insn *returnjump)
 {
   rtx pat = PATTERN (returnjump);
   if (GET_CODE (pat) == PARALLEL)
@@ -5784,7 +5786,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 	    dest = simple_return_rtx;
 	  else
 	    dest = ret_rtx;
-	  if (!redirect_jump (jump, dest, 0))
+	  if (!redirect_jump (as_a <rtx_jump_insn *> (jump), dest, 0))
 	    {
 	      if (HAVE_simple_return && simple_p)
 		{

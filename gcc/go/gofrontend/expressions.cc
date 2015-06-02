@@ -3668,7 +3668,12 @@ Unary_expression::do_flatten(Gogo* gogo, Named_object*,
 
   if (this->op_ == OPERATOR_AND)
     {
-      if (this->expr_->var_expression() != NULL)
+      // If this->escapes_ is false at this point, then it was set to
+      // false by an explicit call to set_does_not_escape, and the
+      // value does not escape.  If this->escapes_ is true, we may be
+      // able to set it to false if taking the address of a variable
+      // that does not escape.
+      if (this->escapes_ && this->expr_->var_expression() != NULL)
 	{
 	  Named_object* var = this->expr_->var_expression()->named_object();
 	  if (var->is_variable())
@@ -5120,13 +5125,15 @@ Binary_expression::do_flatten(Gogo* gogo, Named_object*,
   if (this->left_->type()->is_string_type()
       && this->op_ == OPERATOR_PLUS)
     {
-      if (!this->left_->is_variable())
+      if (!this->left_->is_variable()
+	  && !this->left_->is_constant())
         {
           temp = Statement::make_temporary(NULL, this->left_, loc);
           inserter->insert(temp);
           this->left_ = Expression::make_temporary_reference(temp, loc);
         }
-      if (!this->right_->is_variable())
+      if (!this->right_->is_variable()
+	  && !this->right_->is_constant())
         {
           temp =
               Statement::make_temporary(this->left_->type(), this->right_, loc);

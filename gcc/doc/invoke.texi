@@ -262,16 +262,18 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-int-to-pointer-cast -Wno-invalid-offsetof @gol
 -Winvalid-pch -Wlarger-than=@var{len}  -Wunsafe-loop-optimizations @gol
 -Wlogical-op -Wlogical-not-parentheses -Wlong-long @gol
--Wmain -Wmaybe-uninitialized -Wmemset-transposed-args -Wmissing-braces @gol
+-Wmain -Wmaybe-uninitialized -Wmemset-transposed-args @gol
+-Wmisleading-indentation -Wmissing-braces @gol
 -Wmissing-field-initializers -Wmissing-include-dirs @gol
 -Wno-multichar  -Wnonnull  -Wnormalized=@r{[}none@r{|}id@r{|}nfc@r{|}nfkc@r{]} @gol
 -Wodr  -Wno-overflow  -Wopenmp-simd @gol
+-Woverride-init-side-effects @gol
 -Woverlength-strings  -Wpacked  -Wpacked-bitfield-compat  -Wpadded @gol
 -Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
 -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls  -Wno-return-local-addr @gol
 -Wreturn-type  -Wsequence-point  -Wshadow  -Wno-shadow-ivar @gol
--Wshift-count-negative -Wshift-count-overflow @gol
+-Wshift-count-negative -Wshift-count-overflow -Wshift-negative-value @gol
 -Wsign-compare  -Wsign-conversion -Wfloat-conversion @gol
 -Wno-scalar-storage-order @gol
 -Wsizeof-pointer-memaccess  -Wsizeof-array-argument @gol
@@ -513,6 +515,7 @@ Objective-C and Objective-C++ Dialects}.
 -momit-leaf-frame-pointer  -mno-omit-leaf-frame-pointer @gol
 -mtls-dialect=desc  -mtls-dialect=traditional @gol
 -mfix-cortex-a53-835769  -mno-fix-cortex-a53-835769 @gol
+-mfix-cortex-a53-843419  -mno-fix-cortex-a53-843419 @gol
 -march=@var{name}  -mcpu=@var{name}  -mtune=@var{name}}
 
 @emph{Adapteva Epiphany Options}
@@ -649,6 +652,9 @@ Objective-C and Objective-C++ Dialects}.
 @emph{FR30 Options}
 @gccoptlist{-msmall-model -mno-lsim}
 
+@emph{FT32 Options}
+@gccoptlist{-msim -mlra}
+
 @emph{FRV Options}
 @gccoptlist{-mgpr-32  -mgpr-64  -mfpr-32  -mfpr-64 @gol
 -mhard-float  -msoft-float @gol
@@ -668,7 +674,7 @@ Objective-C and Objective-C++ Dialects}.
 -mcpu=@var{cpu}}
 
 @emph{GNU/Linux Options}
-@gccoptlist{-mglibc -muclibc -mbionic -mandroid @gol
+@gccoptlist{-mglibc -muclibc -mmusl -mbionic -mandroid @gol
 -tno-android-cc -tno-android-ld}
 
 @emph{H8/300 Options}
@@ -827,6 +833,7 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{MSP430 Options}
 @gccoptlist{-msim -masm-hex -mmcu= -mcpu= -mlarge -msmall -mrelax @gol
+-mcode-region= -mdata-region= @gol
 -mhwmult= -minrt}
 
 @emph{NDS32 Options}
@@ -1126,7 +1133,7 @@ See S/390 and zSeries Options.
 -finstrument-functions-exclude-function-list=@var{sym},@var{sym},@dots{} @gol
 -finstrument-functions-exclude-file-list=@var{file},@var{file},@dots{} @gol
 -fno-common  -fno-ident @gol
--fpcc-struct-return  -fpic  -fPIC -fpie -fPIE @gol
+-fpcc-struct-return  -fpic  -fPIC -fpie -fPIE -fno-plt @gol
 -fno-jump-tables @gol
 -frecord-gcc-switches @gol
 -freg-struct-return  -fshort-enums @gol
@@ -2687,13 +2694,21 @@ For example:
 
 int main() @{
   int64_t i64 = 123;
-  printf("My int64: %"PRId64"\n", i64);
+  printf("My int64: %" PRId64"\n", i64);
 @}
 @end smallexample
 
 In this case, @code{PRId64} is treated as a separate preprocessing token.
 
 This warning is enabled by default.
+
+@item -Wlto-type-mismatch
+@opindex Wlto-type-mismatch
+@opindex Wno-lto-type-mistmach
+
+During the link-time optimization warn about type mismatches in between
+global declarations from different compilation units.
+Requires @option{-flto} to be enabled.  Enabled by default.
 
 @item -Wnarrowing @r{(C++ and Objective-C++ only)}
 @opindex Wnarrowing
@@ -2881,6 +2896,12 @@ Warn when overload resolution chooses a promotion from unsigned or
 enumerated type to a signed type, over a conversion to an unsigned type of
 the same size.  Previous versions of G++ tried to preserve
 unsignedness, but the standard mandates the current behavior.
+
+@item -Wno-terminate @r{(C++ and Objective-C++ only)}
+@opindex Wterminate
+@opindex Wno-terminate
+Disable the warning about a throw-expression that will immediately
+result in a call to @code{terminate}.
 @end table
 
 @node Objective-C and Objective-C++ Dialect Options
@@ -3482,6 +3503,7 @@ name is still supported, but the newer name is more descriptive.)
 -Wsign-compare  @gol
 -Wtype-limits  @gol
 -Wuninitialized  @gol
+-Wshift-negative-value  @gol
 -Wunused-parameter @r{(only with} @option{-Wunused} @r{or} @option{-Wall}@r{)} @gol
 -Wunused-but-set-parameter @r{(only with} @option{-Wunused} @r{or} @option{-Wall}@r{)}  @gol
 }
@@ -3757,6 +3779,45 @@ arguments, two, or three arguments of appropriate types.  This warning
 is enabled by default in C++ and is enabled by either @option{-Wall}
 or @option{-Wpedantic}.
 
+@item -Wmisleading-indentation @r{(C and C++ only)}
+@opindex Wmisleading-indentation
+@opindex Wno-misleading-indentation
+Warn when the indentation of the code does not reflect the block structure.
+Specifically, a warning is issued for @code{if}, @code{else}, @code{while}, and
+@code{for} clauses with a guarded statement that does not use braces,
+followed by an unguarded statement with the same indentation.
+
+This warning is disabled by default.
+
+In the following example, the call to ``bar'' is misleadingly indented as
+if it were guarded by the ``if'' conditional.
+
+@smallexample
+  if (some_condition ())
+    foo ();
+    bar ();  /* Gotcha: this is not guarded by the "if".  */
+@end smallexample
+
+In the case of mixed tabs and spaces, the warning uses the
+@option{-ftabstop=} option to determine if the statements line up
+(defaulting to 8).
+
+The warning is not issued for code involving multiline preprocessor logic
+such as the following example.
+
+@smallexample
+  if (flagA)
+    foo (0);
+#if SOME_CONDITION_THAT_DOES_NOT_HOLD
+  if (flagB)
+#endif
+    foo (1);
+@end smallexample
+
+The warning is not issued after a @code{#line} directive, since this
+typically indicates autogenerated code, and no assumptions can be made
+about the layout of the file that the directive references.
+
 @item -Wmissing-braces
 @opindex Wmissing-braces
 @opindex Wno-missing-braces
@@ -3914,6 +3975,12 @@ Warn if shift count is negative. This warning is enabled by default.
 @opindex Wshift-count-overflow
 @opindex Wno-shift-count-overflow
 Warn if shift count >= width of type. This warning is enabled by default.
+
+@item -Wshift-negative-value
+@opindex Wshift-negative-value
+@opindex Wno-shift-negative-value
+Warn if left shifting a negative value.  This warning is enabled by
+@option{-Wextra} in C99 and C++11 modes (and newer).
 
 @item -Wswitch
 @opindex Wswitch
@@ -5188,6 +5255,13 @@ This warning is included in @option{-Wextra}.  To get other
 @option{-Wextra} warnings without this one, use @option{-Wextra
 -Wno-override-init}.
 
+@item -Woverride-init-side-effects @r{(C and Objective-C only)}
+@opindex Woverride-init-side-effects
+@opindex Wno-override-init-side-effects
+Warn if an initialized field with side effects is overridden when
+using designated initializers (@pxref{Designated Inits, , Designated
+Initializers}).  This warning is enabled by default.
+
 @item -Wpacked
 @opindex Wpacked
 @opindex Wno-packed
@@ -5733,6 +5807,13 @@ a++;
 This option enables instrumentation of array bounds.  Various out of bounds
 accesses are detected.  Flexible array members, flexible array member-like
 arrays, and initializers of variables with static storage are not instrumented.
+
+@item -fsanitize=bounds-strict
+@opindex fsanitize=bounds-strict
+This option enables strict instrumentation of array bounds.  Most out of bounds
+accesses are detected, including flexible array members and flexible array
+member-like arrays.  Initializers of variables with static storage are not
+instrumented.
 
 @item -fsanitize=alignment
 @opindex fsanitize=alignment
@@ -8020,10 +8101,12 @@ Enabled by @option{-Os}.
 @item -fdelete-null-pointer-checks
 @opindex fdelete-null-pointer-checks
 Assume that programs cannot safely dereference null pointers, and that
-no code or data element resides there.  This enables simple constant
+no code or data element resides at address zero.
+This option enables simple constant
 folding optimizations at all optimization levels.  In addition, other
 optimization passes in GCC use this flag to control global dataflow
 analyses that eliminate useless checks for null pointers; these assume
+that a memory access to address zero always results in a trap, so
 that if a pointer is checked after it has already been dereferenced,
 it cannot be null.
 
@@ -8031,9 +8114,10 @@ Note however that in some environments this assumption is not true.
 Use @option{-fno-delete-null-pointer-checks} to disable this optimization
 for programs that depend on that behavior.
 
-Some targets, especially embedded ones, disable this option at all levels.
-Otherwise it is enabled at all levels: @option{-O0}, @option{-O1},
-@option{-O2}, @option{-O3}, @option{-Os}.  Passes that use the information
+This option is enabled by default on most targets.  On Nios II ELF, it
+defaults to off.  On AVR and CR16, this option is completely disabled.  
+
+Passes that use the dataflow information
 are enabled independently at different optimization levels.
 
 @item -fdevirtualize
@@ -8516,7 +8600,8 @@ This flag is enabled by default at @option{-O2} and @option{-Os}.
 Detect paths that trigger erroneous or undefined behavior due to
 dereferencing a null pointer.  Isolate those paths from the main control
 flow and turn the statement with erroneous or undefined behavior into a trap.
-This flag is enabled by default at @option{-O2} and higher.
+This flag is enabled by default at @option{-O2} and higher and depends on
+@option{-fdelete-null-pointer-checks} also being enabled.
 
 @item -fisolate-erroneous-paths-attribute
 @opindex fisolate-erroneous-paths-attribute
@@ -11223,6 +11308,10 @@ For predictable results, you must also specify the same set of options
 used for compilation (@option{-fpie}, @option{-fPIE},
 or model suboptions) when you specify this linker option.
 
+@item -no-pie
+@opindex no-pie
+Don't produce a position independent executable.
+
 @item -rdynamic
 @opindex rdynamic
 Pass the flag @option{-export-dynamic} to the ELF linker, on targets
@@ -12202,6 +12291,7 @@ platform.
 * Darwin Options::
 * DEC Alpha Options::
 * FR30 Options::
+* FT32 Options::
 * FRV Options::
 * GNU/Linux Options::
 * H8/300 Options::
@@ -12329,6 +12419,14 @@ of TLS variables.
 Enable or disable the workaround for the ARM Cortex-A53 erratum number 835769.
 This involves inserting a NOP instruction between memory instructions and
 64-bit integer multiply-accumulate instructions.
+
+@item -mfix-cortex-a53-843419
+@itemx -mno-fix-cortex-a53-843419
+@opindex mfix-cortex-a53-843419
+@opindex mno-fix-cortex-a53-843419
+Enable or disable the workaround for the ARM Cortex-A53 erratum number 843419.
+This erratum workaround is made at link time and this will only pass the
+corresponding flag to the linker.
 
 @item -march=@var{name}
 @opindex march
@@ -13231,9 +13329,9 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{arm10e}, @samp{arm1020e}, @samp{arm1022e},
 @samp{arm1136j-s}, @samp{arm1136jf-s}, @samp{mpcore}, @samp{mpcorenovfp},
 @samp{arm1156t2-s}, @samp{arm1156t2f-s}, @samp{arm1176jz-s}, @samp{arm1176jzf-s},
-@samp{cortex-a5}, @samp{cortex-a7}, @samp{cortex-a8}, @samp{cortex-a9},
-@samp{cortex-a12}, @samp{cortex-a15}, @samp{cortex-a53},
-@samp{cortex-a57}, @samp{cortex-a72},
+@samp{generic-armv7-a}, @samp{cortex-a5}, @samp{cortex-a7}, @samp{cortex-a8},
+@samp{cortex-a9}, @samp{cortex-a12}, @samp{cortex-a15}, @samp{cortex-a17},
+@samp{cortex-a53}, @samp{cortex-a57}, @samp{cortex-a72},
 @samp{cortex-r4},
 @samp{cortex-r4f}, @samp{cortex-r5}, @samp{cortex-r7}, @samp{cortex-m7},
 @samp{cortex-m4},
@@ -13253,8 +13351,8 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 
 Additionally, this option can specify that GCC should tune the performance
 of the code for a big.LITTLE system.  Permissible names are:
-@samp{cortex-a15.cortex-a7}, @samp{cortex-a57.cortex-a53},
-@samp{cortex-a72.cortex-a53}.
+@samp{cortex-a15.cortex-a7}, @samp{cortex-a17.cortex-a7},
+@samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53}.
 
 @option{-mtune=generic-@var{arch}} specifies that GCC should tune the
 performance for a blend of processors within architecture @var{arch}.
@@ -15027,6 +15125,29 @@ command line.
 
 @end table
 
+@node FT32 Options
+@subsection FT32 Options
+@cindex FT32 Options
+
+These options are defined specifically for the FT32 port.
+
+@table @gcctabopt
+
+@item -msim
+@opindex msim
+Specifies that the program will be run on the simulator.  This causes
+an alternate runtime startup and library to be linked.
+You must not use this option when generating programs that will run on
+real hardware; you must provide your own runtime library for whatever
+I/O functions are needed.
+
+@item -mlra
+@opindex mlra
+Enable Local Register Allocation.  This is still experimental for FT32,
+so by default the compiler uses standard reload.
+
+@end table
+
 @node FRV Options
 @subsection FRV Options
 @cindex FRV Options
@@ -15348,12 +15469,18 @@ These @samp{-m} options are defined for GNU/Linux targets:
 @item -mglibc
 @opindex mglibc
 Use the GNU C library.  This is the default except
-on @samp{*-*-linux-*uclibc*} and @samp{*-*-linux-*android*} targets.
+on @samp{*-*-linux-*uclibc*}, @samp{*-*-linux-*musl*} and
+@samp{*-*-linux-*android*} targets.
 
 @item -muclibc
 @opindex muclibc
 Use uClibc C library.  This is the default on
 @samp{*-*-linux-*uclibc*} targets.
+
+@item -mmusl
+@opindex mmusl
+Use the musl C library.  This is the default on
+@samp{*-*-linux-*musl*} targets.
 
 @item -mbionic
 @opindex mbionic
@@ -18157,6 +18284,19 @@ initializers or constructors.  This is intended for memory-constrained
 devices.  The compiler includes special symbols in some objects
 that tell the linker and runtime which code fragments are required.
 
+@item -mcode-region=
+@itemx -mdata-region=
+@opindex mcode-region
+@opindex mdata-region
+These options tell the compiler where to place functions and data that
+do not have one of the @code{lower}, @code{upper}, @code{either} or
+@code{section} attributes.  Possible values are @code{lower},
+@code{upper}, @code{either} or @code{any}.  The first three behave
+like the corresponding attribute.  The fourth possible value -
+@code{any} - is the default.  It leaves placement entirely up to the
+linker script and how it assigns the standard sections (.text, .data
+etc) to the memory regions.
+
 @end table
 
 @node NDS32 Options
@@ -20320,7 +20460,8 @@ The default is to not print debug information.
 Generate code that runs on @var{cpu-type}, which is the name of a system
 representing a certain processor type.  Possible values for
 @var{cpu-type} are @samp{g5}, @samp{g6}, @samp{z900}, @samp{z990},
-@samp{z9-109}, @samp{z9-ec}, @samp{z10},  @samp{z196}, and @samp{zEC12}.
+@samp{z9-109}, @samp{z9-ec}, @samp{z10},  @samp{z196}, @samp{zEC12},
+and @samp{z13}.
 When generating code using the instructions available on z/Architecture,
 the default is @option{-march=z900}.  Otherwise, the default is
 @option{-march=g5}.
@@ -23726,6 +23867,16 @@ used during linking.
 @option{-fpie} and @option{-fPIE} both define the macros
 @code{__pie__} and @code{__PIE__}.  The macros have the value 1
 for @option{-fpie} and 2 for @option{-fPIE}.
+
+@item -fno-plt
+@opindex fno-plt
+Do not use PLT for external function calls in position-independent code.
+Instead, load callee address at call site from GOT and branch to it.
+This leads to more efficient code by eliminating PLT stubs and exposing
+GOT load to optimizations.  On architectures such as 32-bit x86 where
+PLT stubs expect GOT pointer in a specific register, this gives more
+register allocation freedom to the compiler.  Lazy binding requires PLT:
+with @option{-fno-plt} all external symbols are resolved at load time.
 
 @item -fno-jump-tables
 @opindex fno-jump-tables

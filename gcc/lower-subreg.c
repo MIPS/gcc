@@ -68,13 +68,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "lower-subreg.h"
 #include "rtl-iter.h"
 
-#ifdef STACK_GROWS_DOWNWARD
-# undef STACK_GROWS_DOWNWARD
-# define STACK_GROWS_DOWNWARD 1
-#else
-# define STACK_GROWS_DOWNWARD 0
-#endif
-
 
 /* Decompose multi-word pseudo-registers into individual
    pseudo-registers when possible and profitable.  This is possible
@@ -302,9 +295,9 @@ init_lower_subreg (void)
 
   twice_word_mode = GET_MODE_2XWIDER_MODE (word_mode);
 
-  rtxes.target = gen_rtx_REG (word_mode, FIRST_PSEUDO_REGISTER);
-  rtxes.source = gen_rtx_REG (word_mode, FIRST_PSEUDO_REGISTER + 1);
-  rtxes.set = gen_rtx_SET (VOIDmode, rtxes.target, rtxes.source);
+  rtxes.target = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 1);
+  rtxes.source = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 2);
+  rtxes.set = gen_rtx_SET (rtxes.target, rtxes.source);
   rtxes.zext = gen_rtx_ZERO_EXTEND (twice_word_mode, rtxes.source);
   rtxes.shift = gen_rtx_ASHIFT (twice_word_mode, rtxes.source, const0_rtx);
 
