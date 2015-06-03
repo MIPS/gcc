@@ -9402,23 +9402,17 @@ expand_omp_atomic (struct omp_region *region)
 }
 
 /* Allocate storage for OpenACC worker threads in CTX to broadcast
-   condition results.  CLAUSES are the clauses of the parallel construct.  */
+   condition results.  */
 
 static void
-oacc_alloc_broadcast_storage (omp_context *ctx, tree clauses)
+oacc_alloc_broadcast_storage (omp_context *ctx)
 {
   tree vull_type_node = build_qualified_type (long_long_unsigned_type_node,
-					       TYPE_QUAL_VOLATILE);
-  tree uptr_node = build_pointer_type (vull_type_node);
-
-  tree clause = find_omp_clause (clauses, OMP_CLAUSE_NUM_WORKERS);
-  tree host_count = integer_one_node;
-  if (clause)
-    host_count = OMP_CLAUSE_NUM_WORKERS_EXPR (clause);
+					      TYPE_QUAL_VOLATILE);
 
   ctx->worker_sync_elt
-    = alloc_var_ganglocal (NULL_TREE, long_long_unsigned_type_node,
-			   ctx, TYPE_SIZE_UNIT (long_long_unsigned_type_node));
+    = alloc_var_ganglocal (NULL_TREE, vull_type_node, ctx,
+			   TYPE_SIZE_UNIT (vull_type_node));
 }
 
 /* Expand the GIMPLE_OMP_TARGET starting at REGION.  */
@@ -9512,7 +9506,7 @@ expand_omp_target (struct omp_region *region)
     }
 
   basic_block entry_succ_bb = single_succ (entry_bb);
-  if (!gimple_in_ssa_p (cfun))
+  if (offloaded && !gimple_in_ssa_p (cfun))
     {
       gsi = gsi_last_bb (entry_succ_bb);
       if (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_ENTRY_END)
@@ -10447,7 +10441,7 @@ predicate_bb (basic_block bb, struct omp_region *parent, int mask)
       && (parent->gwv_this & MASK_VECTOR))
     mask &= ~MASK_WORKER;
 
-  if (mask == 0)
+  if (mask == 0 || parent->type == GIMPLE_OMP_ATOMIC_LOAD)
     return;
 
   gimple_stmt_iterator gsi;
@@ -10459,7 +10453,6 @@ predicate_bb (basic_block bb, struct omp_region *parent, int mask)
     return;
 
   basic_block skip_dest_bb = NULL;
-  basic_block *adjust_bb_ptr = NULL;
 
   if (gimple_code (stmt) == GIMPLE_OMP_ENTRY_END)
     return;
@@ -10507,29 +10500,33 @@ predicate_bb (basic_block bb, struct omp_region *parent, int mask)
     {
       gsi_prev (&gsi);
       gimple split_stmt = gsi_stmt (gsi);
+      enum gimple_code code = gimple_code (stmt);
 
-      /* First, see if we must predicate away an entire loop.  */
-      if (gimple_code (stmt) == GIMPLE_OMP_FOR)
+      /* First, see if we must predicate away an entire loop or atomic region.  */
+      if (code == GIMPLE_OMP_FOR
+	  || code == GIMPLE_OMP_ATOMIC_LOAD)
 	{
 	  omp_region *inner;
 	  inner = *bb_region_map->get (FALLTHRU_EDGE (bb)->dest);
 	  skip_dest_bb = single_succ (inner->exit);
 	  gcc_assert (inner->entry == bb);
-	  if ((inner->gwv_this & (MASK_VECTOR | MASK_WORKER)) == MASK_VECTOR
-	      && (mask & MASK_WORKER) != 0)
+	  if (code != GIMPLE_OMP_FOR
+	      || ((inner->gwv_this & (MASK_VECTOR | MASK_WORKER)) == MASK_VECTOR
+		  && (mask & MASK_WORKER) != 0))
 	    {
 	      gimple_stmt_iterator head_gsi = gsi_start_bb (bb);
 	      gsi_prev (&head_gsi);
 	      edge e0 = split_block (bb, gsi_stmt (head_gsi));
-
-	      if (!split_stmt)
+	      int mask2 = mask;
+	      if (code == GIMPLE_OMP_FOR)
+		mask2 &= ~MASK_VECTOR;
+	      if (!split_stmt || code != GIMPLE_OMP_FOR)
 		{
 		  /* The simple case: nothing here except the for,
 		     so we just need to make one branch around the
 		     entire loop.  */
 		  inner->entry = e0->dest;
-		  make_predication_test (e0, skip_dest_bb,
-					 mask & ~MASK_VECTOR);
+		  make_predication_test (e0, skip_dest_bb, mask2);
 		  return;
 		}
 	      basic_block for_block = e0->dest;
@@ -10542,7 +10539,7 @@ predicate_bb (basic_block bb, struct omp_region *parent, int mask)
 
 	      make_predication_test (e0, bb2, mask);
 	      make_predication_test (single_pred_edge (bb3), skip_dest_bb,
-				     mask & ~MASK_VECTOR);
+				     mask2);
 	      inner->entry = bb3;
 	      return;
 	    }
@@ -10550,8 +10547,8 @@ predicate_bb (basic_block bb, struct omp_region *parent, int mask)
 
       /* Only a few statements need special treatment.  */
       if (gimple_code (stmt) != GIMPLE_OMP_FOR
-	       && gimple_code (stmt) != GIMPLE_OMP_CONTINUE
-	       && gimple_code (stmt) != GIMPLE_OMP_RETURN)
+	  && gimple_code (stmt) != GIMPLE_OMP_CONTINUE
+	  && gimple_code (stmt) != GIMPLE_OMP_RETURN)
 	{
 	  edge e = single_succ_edge (bb);
 	  skip_dest_bb = e->dest;
@@ -12675,7 +12672,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   if (is_gimple_omp_oacc (stmt))
     {
       oacc_init_count_vars (ctx, clauses);
-      oacc_alloc_broadcast_storage (ctx, clauses);
+      oacc_alloc_broadcast_storage (ctx);
     }
 
   if (has_reduction)

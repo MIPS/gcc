@@ -1,3 +1,10 @@
+2015-06-02  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* omp-low.c (oacc_alloc_broadcast_storage): Remove unused parameter
+	CLAUSES and unnecessary code.  All callers changed.
+	(expand_omp_target): Only look for entry-end statement if offloaded.
+	(predicate_bb): Extend code to also jump around atomic regions.
+
 2015-06-01  Tom de Vries  <tom@codesourcery.com>
 
 	Revert:
