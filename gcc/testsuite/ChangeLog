@@ -1,3 +1,31 @@
+2015-06-02  Andres Tiraboschi  <andres.tiraboschi@tallertechnologies.com>
+
+	* g++.dg/plugin/plugin.exp: Add def-plugin-test.C.
+	* g++.dg/plugin/def_plugin.c: New file.
+	* g++.dg/plugin/def-plugin-test.C: New file.
+
+2015-06-03  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/bb-slp-36.c: New testcase.
+
+2015-06-03  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.dg/lto/chkp-removed-alias_0.c: New.
+
+2015-06-03  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.dg/lto/chkp-privatize-1_0.c: New.
+	* gcc.dg/lto/chkp-privatize-1_1.c: New.
+	* gcc.dg/lto/chkp-privatize-2_0.c: New.
+	* gcc.dg/lto/chkp-privatize-2_1.c: New.
+
+2015-06-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64223
+	PR c/29358
+	* gcc.dg/pr64223-1.c: New test.
+	* gcc.dg/pr64223-2.c: New test.
+
 2015-06-03  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/63916
