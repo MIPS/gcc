@@ -1,3 +1,106 @@
+2015-06-03  Martin Liska  <mliska@suse.cz>
+
+	* alloc-pool.h (struct pool_usage): Correct GNU coding style.
+	* bitmap.h (struct bitmap_usage): Likewise.
+	* ggc-common.c (struct ggc_usage): Likewise.
+	* mem-stats.h (struct mem_location): Likewise.
+	(struct mem_usage): Likewise.
+	* vec.c (struct vec_usage): Likewise.
+
+2015-06-03  Benigno B. Junior  <bbj@gentoo.org>
+
+	* config/netbsd-elf.h (NETBSD_LINK_SPEC_ELF): Turn -symbolic into
+	-Bsymbolic.
+
+2015-06-02  Andres Tiraboschi  <andres.tiraboschi@tallertechnologies.com>
+	
+	* doc/plugins.texi (enum plugin_event): New event.
+	* plugin.c (register_callback): Handle PLUGIN_START_PARSE_FUNCTION
+	and PLUGIN_FINISH_FUNCTION.
+	* plugin.def (PLUGIN_START_PARSE_FUNCTION): Add plugin event
+	(PLUGIN_FINISH_PARSE_FUNCTION): Likewise.
+
+2015-06-03  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-data-refs.c (vect_analyze_group_access): Properly
+	compute GROUP_GAP for the first element.
+	* tree-vect-slp.c (vect_build_slp_tree_1): Remove restriction
+	on in-group gaps.
+
+2015-06-03  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78-real.md: Add peepholes to avoid a register
+	copy when calling a function.
+	* config/rl78/rl78.c (need_to_save): Do not push the frame
+	pointer in an interrupt handler prologue if it is never used.
+
+2015-06-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* ifcvt (end_ifcvt_sequence): Fix typo in comment above.
+
+2015-06-03  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-chkp.c (chkp_maybe_create_clone): Create alias
+	reference when cloning alias node.
+
+2015-06-03  Martin Liska  <mliska@suse.cz>
+
+	* alloc-pool.h (struct pool_usage): Correct space padding.
+	* ggc-page.c (ggc_print_statistics): Align columns in a report.
+	* mem-stats.h (struct mem_usage): Add argument to print_dash_line.
+	* tree.c (dump_tree_statistics): Align columns in a report.
+
+2015-06-03  Martin Liska  <mliska@suse.cz>
+
+	* alloc-pool.c (allocate_pool_descriptor): Remove.
+	(struct pool_output_info): Likewise.
+	(print_alloc_pool_statistics): Likewise.
+	(dump_alloc_pool_statistics): Likewise.
+	* alloc-pool.h (struct pool_usage): New struct.
+	(pool_allocator::initialize): Change usage of memory statistics
+	to a new interface.
+	(pool_allocator::release): Likewise.
+	(pool_allocator::allocate): Likewise.
+	(pool_allocator::remove): Likewise.
+	* mem-stats-traits.h (enum mem_alloc_origin): Add new enum value
+	for a pool allocator.
+	* mem-stats.h (struct mem_location): Add new ctor.
+	(struct mem_usage): Add counter for number of
+	instances.
+	(mem_alloc_description::register_descriptor): New overload of
+	* mem-stats.h (mem_location::to_string): New function.
+	* bitmap.h (struct bitmap_usage): Use this new function.
+	* ggc-common.c (struct ggc_usage): Likewise.
+	the function.
+
+2015-06-03  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* defaults.h (SWITCHABLE_TARGET, TARGET_SUPPORTS_WIDE_INT): Move out
+	of GCC_INSN_FLAGS_H block.
+
+2015-06-03  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* explow.c (plus_constant): Update check after force_const_mem call
+	to see if the value returned is not a NULL_RTX.
+
+2015-06-03  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa.c (symbol_table::remove_unreachable_nodes): Don't
+	remove instumentation thunks calling reachable functions.
+	* lto-cgraph.c (output_refs): Always output IPA_REF_CHKP.
+	* lto/lto-partition.c (privatize_symbol_name_1): New.
+	(privatize_symbol_name): Privatize both decl and orig_decl
+	names for instrumented functions.
+	* cgraph.c (cgraph_node::verify_node): Add transparent
+	alias chain check for instrumented node.
+
+2015-06-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64223
+	PR c/29358
+	* tree.c (attribute_value_equal): Handle attribute format.
+	(cmp_attrib_identifiers): Factor out of lookup_ident_attribute.
+
 2015-06-03  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/63916
@@ -2771,6 +2874,14 @@
 	* config/alpha/alpha.c (get_aligned_mem): Also look for reload
 	replacements in memory addresses.
 	(get_unaligned_address): Ditto.
+
+2015-05-16  James Bowman  <james.bowman@ftdichip.com>
+
+	* config/ft32/*: New files for FT32 port.
+	* doc/install.texi: Add FT32 information.
+	* doc/invoke.texi: Add FT32 information.
+	* doc/md.texi: Add FT32 information.
+	* doc/contrib.texi: Self added.
 
 2015-05-15  Marc Glisse  <marc.glisse@inria.fr>
 
