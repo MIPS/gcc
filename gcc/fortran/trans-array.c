@@ -5036,10 +5036,10 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 
   or_expr = boolean_false_node;
 
-  /* When expr3_desc is set, use its rank, because we want to allocate an
-     array with the array_spec coming from source=.  */
-  if (expr3_desc != NULL_TREE)
-    rank = GFC_TYPE_ARRAY_RANK (TREE_TYPE (expr3_desc));
+//  /* When expr3_desc is set, use its rank, because we want to allocate an
+//     array with the array_spec coming from source=.  */
+//  if (expr3_desc != NULL_TREE)
+//    rank = GFC_TYPE_ARRAY_RANK (TREE_TYPE (expr3_desc));
 
   for (n = 0; n < rank; n++)
     {
@@ -5055,7 +5055,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
       /* Set lower bound.  */
       gfc_init_se (&se, NULL);
       if (expr3_desc != NULL_TREE)
-	se.expr = gfc_index_one_node;
+	se.expr = gfc_conv_descriptor_lbound_get (expr3_desc, gfc_rank_cst[n]);
       else if (lower == NULL)
 	se.expr = gfc_index_one_node;
       else
@@ -5085,18 +5085,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
       /* Set upper bound.  */
       gfc_init_se (&se, NULL);
       if (expr3_desc != NULL_TREE)
-	{
-	  /* Set the upper bound to be (desc.ubound - desc.lbound)+ 1.  */
-	  tmp = fold_build2_loc (input_location, MINUS_EXPR,
-				 gfc_array_index_type,
-				 gfc_conv_descriptor_ubound_get (
-				   expr3_desc, gfc_rank_cst[n]),
-				 gfc_conv_descriptor_lbound_get (
-				   expr3_desc, gfc_rank_cst[n]));
-	  se.expr = fold_build2_loc (input_location, PLUS_EXPR,
-				     gfc_array_index_type, tmp,
-				     gfc_index_one_node);
-	}
+	se.expr = gfc_conv_descriptor_ubound_get (expr3_desc, gfc_rank_cst[n]);
       else
 	{
 	  gcc_assert (ubound);
