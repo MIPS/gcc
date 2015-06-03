@@ -185,6 +185,21 @@ A<Q>::m1 ()
       if (a != n || b != 2 * n || r != 3 * n || T<Q>::t != 4 * n)
 	__builtin_abort ();
     }
+  a = 0;
+  b = 0;
+  R::r = 0;
+  T<Q>::t = 0;
+  #pragma omp parallel for reduction (+: A::a, T<Q>::t, b, R::r)
+  for (int i = 0; i < 30; i++)
+    {
+      a += i;
+      A::b += 2 * i;
+      r += 3 * i;
+      T<Q>::t += 4 * i;
+      take (a, b, r, T<Q>::t);
+    }
+  if (A::a != 435 || b != 2 * 435 || R::r != 3 * 435 || T<Q>::t != 4 * 435)
+    __builtin_abort ();
 }
 
 int

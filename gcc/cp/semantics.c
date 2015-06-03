@@ -5107,6 +5107,30 @@ find_omp_placeholder_r (tree *tp, int *, void *data)
   return NULL_TREE;
 }
 
+/* Adjust DECL if needed for printing using %qE.  */
+
+static tree
+omp_clause_printable_decl (tree decl)
+{
+  if (VAR_P (decl)
+      && DECL_HAS_VALUE_EXPR_P (decl)
+      && DECL_ARTIFICIAL (decl)
+      && DECL_LANG_SPECIFIC (decl)
+      && DECL_OMP_PRIVATIZED_MEMBER (decl))
+    {
+      tree f = DECL_VALUE_EXPR (decl);
+      if (TREE_CODE (f) == INDIRECT_REF)
+	f = TREE_OPERAND (f, 0);
+      if (TREE_CODE (f) == COMPONENT_REF)
+	{
+	  f = TREE_OPERAND (f, 1);
+	  gcc_assert (TREE_CODE (f) == FIELD_DECL);
+	  return f;
+	}
+    }
+  return decl;
+}
+
 /* Helper function of finish_omp_clauses.  Handle OMP_CLAUSE_REDUCTION C.
    Return true if there is some error and the clause should be removed.  */
 
@@ -5152,7 +5176,8 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
       }
   else if (TREE_CODE (type) == ARRAY_TYPE || TYPE_READONLY (type))
     {
-      error ("%qE has invalid type for %<reduction%>", t);
+      error ("%qE has invalid type for %<reduction%>",
+	     omp_clause_printable_decl (t));
       return true;
     }
   else if (!processing_template_decl)
@@ -5300,7 +5325,8 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
     *need_dtor = true;
   else
     {
-      error ("user defined reduction not found for %qD", t);
+      error ("user defined reduction not found for %qE",
+	     omp_clause_printable_decl (t));
       return true;
     }
   return false;
@@ -6247,24 +6273,8 @@ finish_omp_clauses (tree clauses, bool allow_fields)
 	    }
 	  if (share_name)
 	    {
-	      tree pt = t;
-	      if (VAR_P (t)
-		  && DECL_HAS_VALUE_EXPR_P (t)
-		  && DECL_ARTIFICIAL (t)
-		  && DECL_LANG_SPECIFIC (t)
-		  && DECL_OMP_PRIVATIZED_MEMBER (t))
-		{
-		  tree f = DECL_VALUE_EXPR (t);
-		  if (TREE_CODE (f) == INDIRECT_REF)
-		    f = TREE_OPERAND (f, 0);
-		  if (TREE_CODE (f) == COMPONENT_REF)
-		    {
-		      f = TREE_OPERAND (f, 1);
-		      gcc_assert (TREE_CODE (f) == FIELD_DECL);
-		      pt = f;
-		    }
-		}
-	      error ("%qE is predetermined %qs for %qs", pt, share_name,
+	      error ("%qE is predetermined %qs for %qs",
+		     omp_clause_printable_decl (t), share_name,
 		     omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }

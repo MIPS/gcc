@@ -1,3 +1,8 @@
+2015-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (omp_clause_printable_decl): New function.
+	(finish_omp_reduction_clause, finish_omp_clauses): Use it.
+
 2015-06-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_lambda_body): Call

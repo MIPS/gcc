@@ -1,3 +1,9 @@
+2015-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/member-1.C (A::m1): Add tests for
+	reductions.
+	* testsuite/libgomp.c++/member-2.C (A<Q>::m1): Likewise.
+
 2015-06-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c++/taskloop-5.C: New test.

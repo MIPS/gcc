@@ -6,6 +6,7 @@ int d;
 struct A
 {
   A () : a(2), b(3), c(d) {}
+  A (int x) : a(2), b(x), c(d) {}
   int a;
   A (const A &);
   A &operator= (const A &);
@@ -29,6 +30,10 @@ struct B : public A
   int m4 () const;
 };
 
+void foo (A &);
+
+#pragma omp declare reduction (+:A:omp_out.b += omp_in.b) initializer (foo (omp_priv))
+
 int
 B::m1 ()
 {
@@ -46,6 +51,9 @@ B::m1 ()
 	b++;
 	c++;
       }
+  #pragma omp parallel for reduction (+:a, b, c, e, f)
+    for (int i = 0; i < 10; i++)
+      ;
   return 0;
 }
 
@@ -60,6 +68,12 @@ B::m2 ()
     for (int i = 0; i < 10; i++)
       ;
   #pragma omp simd linear (h : 1)	// { dg-error "is predetermined .shared. for .linear." }
+    for (int i = 0; i < 10; i++)
+      ;
+  #pragma omp parallel for reduction (+:h)	// { dg-error "is predetermined .shared. for .reduction." }
+    for (int i = 0; i < 10; i++)
+      ;
+  #pragma omp parallel for reduction (+:g)	// { dg-error "has invalid type for .reduction." }
     for (int i = 0; i < 10; i++)
       ;
   #pragma omp parallel shared (a)	// { dg-error "is not a variable in clause" }
@@ -95,6 +109,9 @@ B::m3 () const
 	b++;
 	c++;
       }
+  #pragma omp parallel for reduction (+:b, c, f)
+    for (int i = 0; i < 10; i++)
+      ;
   return 0;
 }
 
@@ -111,6 +128,9 @@ B::m4 () const
   #pragma omp simd linear (a : 1)	// { dg-error "is predetermined .shared. for .linear." }
     for (int i = 0; i < 10; i++)
       ;
+  #pragma omp parallel for reduction (+:a)	// { dg-error "is predetermined .shared. for .reduction." }
+    for (int i = 0; i < 10; i++)
+      ;
   #pragma omp parallel private (h)	// { dg-error "is predetermined .shared. for .private." }
     ;
   #pragma omp parallel firstprivate (h)
@@ -119,6 +139,15 @@ B::m4 () const
     for (int i = 0; i < 10; i++)
       ;
   #pragma omp simd linear (h : 1)	// { dg-error "is predetermined .shared. for .linear." }
+    for (int i = 0; i < 10; i++)
+      ;
+  #pragma omp parallel for reduction (+:h)	// { dg-error "is predetermined .shared. for .reduction." }
+    for (int i = 0; i < 10; i++)
+      ;
+  #pragma omp parallel for reduction (+:e)	// { dg-error "has invalid type for .reduction." }
+    for (int i = 0; i < 10; i++)
+      ;
+  #pragma omp parallel for reduction (+:g)	// { dg-error "has invalid type for .reduction." }
     for (int i = 0; i < 10; i++)
       ;
   #pragma omp parallel shared (a)	// { dg-error "is not a variable in clause" }

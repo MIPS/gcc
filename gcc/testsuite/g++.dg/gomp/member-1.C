@@ -103,6 +103,25 @@ S::foo ()
 #pragma omp taskloop firstprivate (a, t) lastprivate (t)
   for (int i = 0; i < a; i++)
     t++;
+  a = 1;
+  t = 0;
+#pragma omp parallel sections reduction (*: S::a) reduction (+: t)
+  {
+    {
+      a = 1;
+      t = 2;
+    }
+    #pragma omp section
+    {
+      a = 2;
+      t = 3;
+    }
+    #pragma omp section
+    {
+      a = 3;
+      t = 4;
+    }
+  }
 }
 
 template <typename T>
@@ -204,6 +223,25 @@ V<T>::foo ()
 #pragma omp taskloop firstprivate (a, U<T>::t) lastprivate (U<T>::t)
   for (int i = 0; i < a; i++)
     U<T>::t++;
+  a = 1;
+  U<T>::t = 0;
+#pragma omp parallel sections reduction (*: V::a) reduction (+: U<T>::t)
+  {
+    {
+      a = 1;
+      U<T>::t = 2;
+    }
+    #pragma omp section
+    {
+      a = 2;
+      U<T>::t = 3;
+    }
+    #pragma omp section
+    {
+      a = 3;
+      U<T>::t = 4;
+    }
+  }
 }
 
 void
