@@ -12843,31 +12843,37 @@ s390_reorg (void)
 
       /* Insert NOPs for hotpatching. */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-	{
-	  if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_FUNCTION_BEG)
-	    break;
-	}
-      gcc_assert (insn);
-      /* Output a series of NOPs after the NOTE_INSN_FUNCTION_BEG.  */
-      while (hw_after > 0)
+	/* Emit NOPs
+	    1. inside the area covered by debug information to allow setting
+	       breakpoints at the NOPs,
+	    2. before any insn which results in an asm instruction,
+	    3. before in-function labels to avoid jumping to the NOPs, for
+	       example as part of a loop,
+	    4. before any barrier in case the function is completely empty
+	       (__builtin_unreachable ()) and has neither internal labels nor
+	       active insns.
+	*/
+	if (active_insn_p (insn) || BARRIER_P (insn) || LABEL_P (insn))
+	  break;
+      /* Output a series of NOPs before the first active insn.  */
+      while (insn && hw_after > 0)
 	{
 	  if (hw_after >= 3 && TARGET_CPU_ZARCH)
 	    {
-	      insn = emit_insn_after (gen_nop_6_byte (), insn);
+	      emit_insn_before (gen_nop_6_byte (), insn);
 	      hw_after -= 3;
 	    }
 	  else if (hw_after >= 2)
 	    {
-	      insn = emit_insn_after (gen_nop_4_byte (), insn);
+	      emit_insn_before (gen_nop_4_byte (), insn);
 	      hw_after -= 2;
 	    }
 	  else
 	    {
-	      insn = emit_insn_after (gen_nop_2_byte (), insn);
+	      emit_insn_before (gen_nop_2_byte (), insn);
 	      hw_after -= 1;
 	    }
 	}
-      gcc_assert (hw_after == 0);
     }
 }
 
@@ -13339,6 +13345,8 @@ s390_option_override (void)
     }
 
   /* Sanity checks.  */
+  if (s390_arch == PROCESSOR_NATIVE || s390_tune == PROCESSOR_NATIVE)
+    gcc_unreachable ();
   if (TARGET_ZARCH && !TARGET_CPU_ZARCH)
     error ("z/Architecture mode not supported on %s", s390_arch_string);
   if (TARGET_64BIT && !TARGET_ZARCH)
