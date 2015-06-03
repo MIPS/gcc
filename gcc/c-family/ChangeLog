@@ -1,3 +1,26 @@
+2015-06-02  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/66220:
+	* c-indentation.c (should_warn_for_misleading_indentation): Use
+	expand_location rather than expand_location_to_spelling_point.
+	Don't warn if the guarding statement is more indented than the
+	next/body stmts.
+
+2015-06-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-indentation.c (warn_for_misleading_indentation): Bail out
+	immediately if -Wmisleading-indentation isn't enabled.
+
+2015-06-01  Martin Liska  <mliska@suse.cz>
+
+	* c-format.c (check_format_arg):Use new type-based pool allocator.
+	(check_format_info_main) Likewise.
+
+2015-05-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-ada-spec.c (is_tagged_type): Test for TYPE_METHODS on main variant.
+	(has_nontrivial_methods): Likewise.
+
 2015-05-25  Marek Polacek  <polacek@redhat.com>
 
 	* c-ubsan.c (ubsan_instrument_shift): Use type0.

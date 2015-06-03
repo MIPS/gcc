@@ -4341,7 +4341,8 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 		/* It's OK to use the target directly if it's being
 		   initialized. */
 		use_target = true;
-	      else if (variably_modified_type_p (TREE_TYPE (*to_p), NULL_TREE))
+	      else if (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (*to_p)))
+		       != INTEGER_CST)
 		/* Always use the target and thus RSO for variable-sized types.
 		   GIMPLE cannot deal with a variable-sized assignment
 		   embedded in a call statement.  */
@@ -4706,12 +4707,14 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
     return gimplify_modify_expr_complex_part (expr_p, pre_p, want_value);
 
   /* Try to alleviate the effects of the gimplification creating artificial
-     temporaries (see for example is_gimple_reg_rhs) on the debug info.  */
+     temporaries (see for example is_gimple_reg_rhs) on the debug info, but
+     make sure not to create DECL_DEBUG_EXPR links across functions.  */
   if (!gimplify_ctxp->into_ssa
       && TREE_CODE (*from_p) == VAR_DECL
       && DECL_IGNORED_P (*from_p)
       && DECL_P (*to_p)
-      && !DECL_IGNORED_P (*to_p))
+      && !DECL_IGNORED_P (*to_p)
+      && decl_function_context (*to_p) == current_function_decl)
     {
       if (!DECL_NAME (*from_p) && DECL_NAME (*to_p))
 	DECL_NAME (*from_p)
