@@ -2,7 +2,7 @@
 # aclocal -I ../config && autoconf && autoheader && automake
 
 AC_PREREQ(2.64)
-AC_INIT([GNU OpenMP Runtime Library], 1.0,,[libgomp])
+AC_INIT([GNU Offloading and Multi Processing Runtime Library], 1.0,,[libgomp])
 AC_CONFIG_HEADER(config.h)
 
 # -------
@@ -170,35 +170,36 @@ AC_SUBST(libtool_VERSION)
 AC_STDC_HEADERS
 AC_HEADER_TIME
 ACX_HEADER_STRING
-AC_CHECK_HEADERS(unistd.h semaphore.h sys/loadavg.h sys/time.h sys/time.h)
+AC_CHECK_HEADERS(pthread.h unistd.h semaphore.h sys/loadavg.h sys/time.h sys/time.h)
 
 GCC_HEADER_STDINT(gstdint.h)
 
-# Check to see if -pthread or -lpthread is needed.  Prefer the former.
-# In case the pthread.h system header is not found, this test will fail.
 XPCFLAGS=""
-CFLAGS="$CFLAGS -pthread"
-AC_LINK_IFELSE(
- [AC_LANG_PROGRAM(
-  [#include <pthread.h>
-   void *g(void *d) { return NULL; }],
-  [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
- [XPCFLAGS=" -Wc,-pthread"],
- [CFLAGS="$save_CFLAGS" LIBS="-lpthread $LIBS"
-  AC_LINK_IFELSE(
-   [AC_LANG_PROGRAM(
-    [#include <pthread.h>
-     void *g(void *d) { return NULL; }],
-    [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
-   [],
-   [AC_MSG_ERROR([Pthreads are required to build libgomp])])])
+case "$host" in
+  *-*-rtems*)
+    # RTEMS supports Pthreads, but the library is not available at GCC build time.
+    ;;
+  *)
+    # Check to see if -pthread or -lpthread is needed.  Prefer the former.
+    # In case the pthread.h system header is not found, this test will fail.
+    CFLAGS="$CFLAGS -pthread"
+    AC_LINK_IFELSE(
+     [AC_LANG_PROGRAM(
+      [#include <pthread.h>
+       void *g(void *d) { return NULL; }],
+      [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
+     [XPCFLAGS=" -Wc,-pthread"],
+     [CFLAGS="$save_CFLAGS" LIBS="-lpthread $LIBS"
+      AC_LINK_IFELSE(
+       [AC_LANG_PROGRAM(
+        [#include <pthread.h>
+         void *g(void *d) { return NULL; }],
+        [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
+       [],
+       [AC_MSG_ERROR([Pthreads are required to build libgomp])])])
+esac
 
-plugin_support=yes
-AC_CHECK_LIB(dl, dlsym, , [plugin_support=no])
-if test x"$plugin_support" = xyes; then
-  AC_DEFINE(PLUGIN_SUPPORT, 1,
-    [Define if all infrastructure, needed for plugins, is supported.])
-fi
+m4_include([plugin/configfrag.ac])
 
 # Check for functions needed.
 AC_CHECK_FUNCS(getloadavg clock_gettime strtoull)
@@ -283,40 +284,6 @@ else
   multilib_arg=
 fi
 
-# Get accel target and path to install tree of accel compiler
-offload_additional_options=
-offload_additional_lib_paths=
-offload_targets=
-if test x"$enable_offload_targets" != x; then
-  for tgt in `echo $enable_offload_targets | sed -e 's#,# #g'`; do
-    tgt_dir=`echo $tgt | grep '=' | sed 's/.*=//'`
-    tgt=`echo $tgt | sed 's/=.*//'`
-    case $tgt in
-      *-intelmic-* | *-intelmicemul-*)
-	tgt_name="intelmic" ;;
-      *)
-	AC_MSG_ERROR([unknown offload target specified]) ;;
-    esac
-    if test x"$offload_targets" = x; then
-      offload_targets=$tgt_name
-    else
-      offload_targets=$offload_targets,$tgt_name
-    fi
-    if test x"$tgt_dir" != x; then
-      offload_additional_options="$offload_additional_options -B$tgt_dir/libexec/gcc/\$(target_alias)/\$(gcc_version) -B$tgt_dir/bin"
-      offload_additional_lib_paths="$offload_additional_lib_paths:$tgt_dir/lib64:$tgt_dir/lib"
-    else
-      offload_additional_options="$offload_additional_options -B\$(libexecdir)/gcc/\$(target_alias)/\$(gcc_version) -B\$(bindir)"
-      offload_additional_lib_paths="$offload_additional_lib_paths:$toolexeclibdir"
-    fi
-  done
-fi
-AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
-  [Define to hold the list of target names suitable for offloading.])
-AC_SUBST(offload_targets)
-AC_SUBST(offload_additional_options)
-AC_SUBST(offload_additional_lib_paths)
-
 # Set up the set of libraries that we need to link against for libgomp.
 # Note that the GOMP_SELF_SPEC in gcc.c may force -pthread,
 # which will force linkage against -lpthread (or equivalent for the system).
@@ -391,4 +358,5 @@ CFLAGS="$save_CFLAGS"
 
 AC_CONFIG_FILES(omp.h omp_lib.h omp_lib.f90 libgomp_f.h)
 AC_CONFIG_FILES(Makefile testsuite/Makefile libgomp.spec)
+AC_CONFIG_FILES([testsuite/libgomp-test-support.pt.exp:testsuite/libgomp-test-support.exp.in])
 AC_OUTPUT

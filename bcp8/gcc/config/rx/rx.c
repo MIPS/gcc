@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Renesas RX processors.
-   Copyright (C) 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2008-2015 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -26,6 +26,15 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
 #include "stor-layout.h"
@@ -38,12 +47,16 @@
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -1554,6 +1567,10 @@ rx_get_stack_layout (unsigned int * lowest,
      has specified --fixed-<reg-name> on the command line and in such
      circumstances we do not want to touch the fixed registers at all.
 
+     Note also that the code in the prologue/epilogue handlers will
+     automatically merge multiple PUSHes of adjacent registers into a single
+     PUSHM.
+
      FIXME: Is it worth improving this heuristic ?  */
   pushed_mask = (-1 << low) & ~(-1 << (high + 1));
   unneeded_pushes = (pushed_mask & (~ save_mask)) & pushed_mask;
@@ -1620,14 +1637,13 @@ gen_rx_store_vector (unsigned int low, unsigned int high)
   vector = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
 
   XVECEXP (vector, 0, 0) =
-    gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+    gen_rtx_SET (stack_pointer_rtx,
 		 gen_rtx_MINUS (SImode, stack_pointer_rtx,
 				GEN_INT ((count - 1) * UNITS_PER_WORD)));
 
   for (i = 0; i < count - 1; i++)
     XVECEXP (vector, 0, i + 1) =
-      gen_rtx_SET (VOIDmode,
-		   gen_rtx_MEM (SImode,
+      gen_rtx_SET (gen_rtx_MEM (SImode,
 				gen_rtx_MINUS (SImode, stack_pointer_rtx,
 					       GEN_INT ((i + 1) * UNITS_PER_WORD))),
 		   gen_rtx_REG (SImode, high - i));
@@ -1695,14 +1711,26 @@ gen_safe_add (rtx dest, rtx src, rtx val, bool is_frame_related)
 	   as the dwarf2out code cannot be expected to grok
 	   our unspec.  */
 	add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-		      gen_rtx_SET (SImode, dest,
-				   gen_rtx_PLUS (SImode, src, val)));
+		      gen_rtx_SET (dest, gen_rtx_PLUS (SImode, src, val)));
       return;
     }
 
   if (is_frame_related)
     RTX_FRAME_RELATED_P (insn) = 1;
   return;
+}
+
+static void
+push_regs (unsigned int high, unsigned int low)
+{
+  rtx insn;
+
+  if (low == high)
+    insn = emit_insn (gen_stack_push (gen_rtx_REG (SImode, low)));
+  else
+    insn = emit_insn (gen_stack_pushm (GEN_INT (((high - low) + 1) * UNITS_PER_WORD),
+				       gen_rx_store_vector (low, high)));
+  mark_frame_related (insn);
 }
 
 void
@@ -1714,7 +1742,6 @@ rx_expand_prologue (void)
   unsigned int low;
   unsigned int high;
   unsigned int reg;
-  rtx insn;
 
   /* Naked functions use their own, programmer provided prologues.  */
   if (is_naked_func (NULL_TREE))
@@ -1724,7 +1751,7 @@ rx_expand_prologue (void)
 
   if (flag_stack_usage_info)
     current_function_static_stack_size = frame_size + stack_size;
-
+  
   /* If we use any of the callee-saved registers, save them now.  */
   if (mask)
     {
@@ -1732,20 +1759,25 @@ rx_expand_prologue (void)
       for (reg = CC_REGNUM; reg --;)
 	if (mask & (1 << reg))
 	  {
-	    insn = emit_insn (gen_stack_push (gen_rtx_REG (SImode, reg)));
-	    mark_frame_related (insn);
+	    low = high = reg;
+
+	    /* Look for a span of registers.
+	       Note - we do not have to worry about -Os and whether
+	       it is better to use a single, longer PUSHM as
+	       rx_get_stack_layout has already done that for us.  */
+	    while (reg-- > 0)
+	      if ((mask & (1 << reg)) == 0)
+		break;
+	      else
+		--low;
+
+	    push_regs (high, low);
+	    if (reg == (unsigned) -1)
+	      break;
 	  }
     }
   else if (low)
-    {
-      if (high == low)
-	insn = emit_insn (gen_stack_push (gen_rtx_REG (SImode, low)));
-      else
-	insn = emit_insn (gen_stack_pushm (GEN_INT (((high - low) + 1)
-						    * UNITS_PER_WORD),
-					   gen_rx_store_vector (low, high)));
-      mark_frame_related (insn);
-    }
+    push_regs (high, low);
 
   if (MUST_SAVE_ACC_REGISTER)
     {
@@ -1953,13 +1985,12 @@ gen_rx_rtsd_vector (unsigned int adjust, unsigned int low, unsigned int high)
   vector = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
 
   XVECEXP (vector, 0, 0) =
-    gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+    gen_rtx_SET (stack_pointer_rtx,
 		 plus_constant (Pmode, stack_pointer_rtx, adjust));
 
   for (i = 0; i < count - 2; i++)
     XVECEXP (vector, 0, i + 1) =
-      gen_rtx_SET (VOIDmode,
-		   gen_rtx_REG (SImode, low + i),
+      gen_rtx_SET (gen_rtx_REG (SImode, low + i),
 		   gen_rtx_MEM (SImode,
 				i == 0 ? stack_pointer_rtx
 				: plus_constant (Pmode, stack_pointer_rtx,
@@ -1982,14 +2013,13 @@ gen_rx_popm_vector (unsigned int low, unsigned int high)
   vector = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
 
   XVECEXP (vector, 0, 0) =
-    gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+    gen_rtx_SET (stack_pointer_rtx,
 		 plus_constant (Pmode, stack_pointer_rtx,
 				(count - 1) * UNITS_PER_WORD));
 
   for (i = 0; i < count - 1; i++)
     XVECEXP (vector, 0, i + 1) =
-      gen_rtx_SET (VOIDmode,
-		   gen_rtx_REG (SImode, low + i),
+      gen_rtx_SET (gen_rtx_REG (SImode, low + i),
 		   gen_rtx_MEM (SImode,
 				i == 0 ? stack_pointer_rtx
 				: plus_constant (Pmode, stack_pointer_rtx,
@@ -2020,6 +2050,16 @@ rx_can_use_simple_return (void)
   return (register_mask == 0
 	  && (frame_size + stack_size) == 0
 	  && low == 0);
+}
+
+static void
+pop_regs (unsigned int high, unsigned int low)
+{
+  if (high == low)
+    emit_insn (gen_stack_pop (gen_rtx_REG (SImode, low)));
+  else
+    emit_insn (gen_stack_popm (GEN_INT (((high - low) + 1) * UNITS_PER_WORD),
+			       gen_rx_popm_vector (low, high)));
 }
 
 void
@@ -2134,16 +2174,16 @@ rx_expand_epilogue (bool is_sibcall)
 	{
 	  for (reg = 0; reg < CC_REGNUM; reg ++)
 	    if (register_mask & (1 << reg))
-	      emit_insn (gen_stack_pop (gen_rtx_REG (SImode, reg)));
+	      {
+		low = high = reg;
+		while (register_mask & (1 << high))
+		  high ++;
+		pop_regs (high - 1, low);
+		reg = high;
+	      }
 	}
       else if (low)
-	{
-	  if (high == low)
-	    emit_insn (gen_stack_pop (gen_rtx_REG (SImode, low)));
-	  else
-	    emit_insn (gen_stack_popm (GEN_INT (regs_size),
-				       gen_rx_popm_vector (low, high)));
-	}
+	pop_regs (high, low);
 
       if (is_fast_interrupt_func (NULL_TREE))
 	{
@@ -2607,7 +2647,12 @@ rx_expand_builtin (tree exp,
 	(op, gen_mvtachi, true);
     case RX_BUILTIN_MVTACLO: return rx_expand_void_builtin_1_arg
 	(op, gen_mvtaclo, true);
-    case RX_BUILTIN_RMPA:    emit_insn (gen_rmpa ()); return NULL_RTX;
+    case RX_BUILTIN_RMPA:
+      if (rx_allow_string_insns)
+	emit_insn (gen_rmpa ());
+      else
+	error ("-mno-allow-string-insns forbids the generation of the RMPA instruction");
+      return NULL_RTX;
     case RX_BUILTIN_MVFC:    return rx_expand_builtin_mvfc (arg, target);
     case RX_BUILTIN_MVTC:    return rx_expand_builtin_mvtc (exp);
     case RX_BUILTIN_MVTIPL:  return rx_expand_builtin_mvtipl (op);
@@ -3170,12 +3215,12 @@ rx_split_cbranch (machine_mode cc_mode, enum rtx_code cmp1,
 
   flags = gen_rtx_REG (cc_mode, CC_REG);
   x = gen_rtx_COMPARE (cc_mode, c1, c2);
-  x = gen_rtx_SET (VOIDmode, flags, x);
+  x = gen_rtx_SET (flags, x);
   emit_insn (x);
 
   x = gen_rtx_fmt_ee (cmp1, VOIDmode, flags, const0_rtx);
   x = gen_rtx_IF_THEN_ELSE (VOIDmode, x, label, pc_rtx);
-  x = gen_rtx_SET (VOIDmode, pc_rtx, x);
+  x = gen_rtx_SET (pc_rtx, x);
   emit_jump_insn (x);
 }
 

@@ -1,7 +1,7 @@
 // { dg-do run }
 // { dg-options "-g -O0" }
 
-// Copyright (C) 2014 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -82,6 +82,19 @@ main ()
 // { dg-final { note-test bv3.at(1) true } }
 // { dg-final { note-test bv3.at(63) true } }
 // { dg-final { note-test bv3.at(64) false } }
+
+// { dg-final { whatis-test v0.empty() bool } }
+// { dg-final { whatis-test v0.size() std::size_t } }
+// { dg-final { whatis-test v1.front() int } }
+// { dg-final { whatis-test v1.back() int } }
+// { dg-final { whatis-test v1\[0\] int } }
+// { dg-final { whatis-test v1.at(1) int } }
+// { dg-final { whatis-test bv0.empty() bool } }
+// { dg-final { whatis-test bv0.size() std::size_t } }
+// { dg-final { whatis-test bv1.front() bool } }
+// { dg-final { whatis-test bv1.back() bool } }
+// { dg-final { whatis-test bv1\[0\] bool } }
+// { dg-final { whatis-test bv1.at(1) bool } }
 
   return 0;  // Mark SPOT
 }

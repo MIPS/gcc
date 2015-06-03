@@ -1,6 +1,6 @@
 // Debugging vector implementation -*- C++ -*-
 
-// Copyright (C) 2003-2014 Free Software Foundation, Inc.
+// Copyright (C) 2003-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -69,13 +69,17 @@ namespace __gnu_debug
 
       _Safe_vector&
       operator=(const _Safe_vector&) noexcept
-      { _M_update_guaranteed_capacity(); }
+      {
+	_M_update_guaranteed_capacity();
+	return *this;
+      }
 
       _Safe_vector&
       operator=(_Safe_vector&& __x) noexcept
       {
 	_M_update_guaranteed_capacity();
 	__x._M_guaranteed_capacity = 0;
+	return *this;
       }
 #endif
 
@@ -738,8 +742,7 @@ namespace __debug
     {
       size_t
       operator()(const __debug::vector<bool, _Alloc>& __b) const noexcept
-      { return std::hash<_GLIBCXX_STD_C::vector<bool, _Alloc>>()
-	  (__b._M_base()); }
+      { return std::hash<_GLIBCXX_STD_C::vector<bool, _Alloc>>()(__b); }
     };
 #endif
 

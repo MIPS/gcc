@@ -1,5 +1,5 @@
 /* CFG cleanup for trees.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,15 +21,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
-#include "tm_p.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
-#include "hard-reg-set.h"
+#include "vec.h"
+#include "double-int.h"
 #include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "tm_p.h"
+#include "predict.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -54,6 +59,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
@@ -561,13 +579,15 @@ remove_forwarder_block (basic_block bb)
   return true;
 }
 
-/* STMT is a call that has been discovered noreturn.  Fixup the CFG
-   and remove LHS.  Return true if something changed.  */
+/* STMT is a call that has been discovered noreturn.  Split the
+   block to prepare fixing up the CFG and remove LHS.
+   Return true if cleanup-cfg needs to run.  */
 
 bool
 fixup_noreturn_call (gimple stmt)
 {
   basic_block bb = gimple_bb (stmt);
+  bool changed = false;
 
   if (gimple_call_builtin_p (stmt, BUILT_IN_RETURN))
     return false;
@@ -586,12 +606,17 @@ fixup_noreturn_call (gimple stmt)
 	    gsi_remove (&gsi, true);
 	}
       else
-	split_block (bb, stmt);
+	{
+	  split_block (bb, stmt);
+	  changed = true;
+	}
     }
 
-  /* If there is an LHS, remove it.  */
+  /* If there is an LHS, remove it, but only if its type has fixed size.
+     The LHS will need to be recreated during RTL expansion and creating
+     temporaries of variable-sized types is not supported.  */
   tree lhs = gimple_call_lhs (stmt);
-  if (lhs)
+  if (lhs && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST)
     {
       gimple_call_set_lhs (stmt, NULL_TREE);
 
@@ -607,34 +632,16 @@ fixup_noreturn_call (gimple stmt)
       update_stmt (stmt);
     }
 
-  return remove_fallthru_edge (bb->succs);
-}
-
-
-/* Split basic blocks on calls in the middle of a basic block that are now
-   known not to return, and remove the unreachable code.  */
-
-static bool
-split_bb_on_noreturn_calls (basic_block bb)
-{
-  bool changed = false;
-  gimple_stmt_iterator gsi;
-
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  /* Mark the call as altering control flow.  */
+  if (!gimple_call_ctrl_altering_p (stmt))
     {
-      gimple stmt = gsi_stmt (gsi);
-
-      if (!is_gimple_call (stmt))
-	continue;
-
-      if (gimple_call_noreturn_p (stmt))
-	changed |= fixup_noreturn_call (stmt);
+      gimple_call_set_ctrl_altering (stmt, true);
+      changed = true;
     }
 
-  if (changed)
-    bitmap_set_bit (cfgcleanup_altered_bbs, bb->index);
   return changed;
 }
+
 
 /* Tries to cleanup cfg in basic block BB.  Returns true if anything
    changes.  */
@@ -654,8 +661,18 @@ cleanup_tree_cfg_bb (basic_block bb)
   if (single_succ_p (bb)
       && can_merge_blocks_p (bb, single_succ (bb)))
     {
-      merge_blocks (bb, single_succ (bb));
-      return true;
+      /* If there is a merge opportunity with the predecessor
+         do nothing now but wait until we process the predecessor.
+	 This happens when we visit BBs in a non-optimal order and
+	 avoids quadratic behavior with adjusting stmts BB pointer.  */
+      if (single_pred_p (bb)
+	  && can_merge_blocks_p (single_pred (bb), bb))
+	;
+      else
+	{
+	  merge_blocks (bb, single_succ (bb));
+	  return true;
+	}
     }
 
   return retval;
@@ -685,10 +702,7 @@ cleanup_tree_cfg_1 (void)
     {
       bb = BASIC_BLOCK_FOR_FN (cfun, i);
       if (bb)
-	{
-	  retval |= cleanup_tree_cfg_bb (bb);
-	  retval |= split_bb_on_noreturn_calls (bb);
-	}
+	retval |= cleanup_tree_cfg_bb (bb);
     }
 
   /* Now process the altered blocks, as long as any are available.  */
@@ -704,10 +718,6 @@ cleanup_tree_cfg_1 (void)
 	continue;
 
       retval |= cleanup_tree_cfg_bb (bb);
-
-      /* Rerun split_bb_on_noreturn_calls, in case we have altered any noreturn
-	 calls.  */
-      retval |= split_bb_on_noreturn_calls (bb);
     }
 
   end_recording_case_labels ();
@@ -1093,9 +1103,12 @@ make_pass_merge_phi (gcc::context *ctxt)
 static unsigned int
 execute_cleanup_cfg_post_optimizing (void)
 {
-  unsigned int todo = 0;
+  unsigned int todo = execute_fixup_cfg ();
   if (cleanup_tree_cfg ())
-    todo |= TODO_update_ssa;
+    {
+      todo &= ~TODO_cleanup_cfg;
+      todo |= TODO_update_ssa;
+    }
   maybe_remove_unreachable_handlers ();
   cleanup_dead_labels ();
   group_case_labels ();

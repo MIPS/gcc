@@ -1,5 +1,5 @@
 /* Array things
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -338,6 +338,9 @@ gfc_resolve_array_spec (gfc_array_spec *as, int check_constant)
   if (as == NULL)
     return true;
 
+  if (as->resolved)
+    return true;
+
   for (i = 0; i < as->rank + as->corank; i++)
     {
       e = as->lower[i];
@@ -363,6 +366,8 @@ gfc_resolve_array_spec (gfc_array_spec *as, int check_constant)
 		      as->upper[i]->value.integer, 1);
 	}
     }
+
+  as->resolved = true;
 
   return true;
 }
@@ -1308,6 +1313,9 @@ check_constructor (gfc_constructor_base ctor, bool (*check_function) (gfc_expr *
   for (c = gfc_constructor_first (ctor); c; c = gfc_constructor_next (c))
     {
       e = c->expr;
+
+      if (!e)
+	continue;
 
       if (e->expr_type != EXPR_ARRAY)
 	{

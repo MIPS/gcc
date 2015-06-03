@@ -1,7 +1,7 @@
 /* Generate pattern matching and transform code shared between
    GENERIC and GIMPLE folding code from match-and-simplify description.
 
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Richard Biener <rguenther@suse.de>
    and Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "errors.h"
 #include "hashtab.h"
 #include "hash-table.h"
+#include "inchash.h"
 #include "hash-map.h"
 #include "hash-set.h"
 #include "vec.h"
@@ -58,7 +59,7 @@ __attribute__((format (printf, 6, 0)))
 error_cb (cpp_reader *, int errtype, int, source_location location,
 	  unsigned int, const char *msg, va_list *ap)
 {
-  const line_map *map;
+  const line_map_ordinary *map;
   linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
   expanded_location loc = linemap_expand_location (line_table, map, location);
   fprintf (stderr, "%s:%d:%d %s: ", loc.file, loc.line, loc.column,
@@ -134,7 +135,7 @@ static void
 output_line_directive (FILE *f, source_location location,
 		       bool dumpfile = false)
 {
-  const line_map *map;
+  const line_map_ordinary *map;
   linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
   expanded_location loc = linemap_expand_location (line_table, map, location);
   if (dumpfile)
@@ -190,21 +191,21 @@ struct id_base : typed_noop_remove<id_base>
   const char *id;
 
   /* hash_table support.  */
-  typedef id_base value_type;
-  typedef id_base compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline int equal (const value_type *, const compare_type *);
+  typedef id_base *value_type;
+  typedef id_base *compare_type;
+  static inline hashval_t hash (const id_base *);
+  static inline int equal (const id_base *, const id_base *);
 };
 
 inline hashval_t
-id_base::hash (const value_type *op)
+id_base::hash (const id_base *op)
 {
   return op->hashval;
 }
 
 inline int
-id_base::equal (const value_type *op1,
-			const compare_type *op2)
+id_base::equal (const id_base *op1,
+			const id_base *op2)
 {
   return (op1->hashval == op2->hashval
 	  && strcmp (op1->id, op2->id) == 0);
@@ -982,6 +983,7 @@ replace_id (operand *o, user_id *id, id_base *with)
     {
       expr *ne = new expr (e->operation == id ? with : e->operation,
 			   e->is_commutative);
+      ne->expr_type = e->expr_type;
       for (unsigned i = 0; i < e->ops.length (); ++i)
 	ne->append_op (replace_id (e->ops[i], id, with));
       return ne;
@@ -1741,22 +1743,18 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
 
   if (gimple)
     {
-      /* ???  Have another helper that is like gimple_build but may
-	 fail if seq == NULL.  */
-      fprintf (f, "  if (!seq)\n"
-	       "    {\n"
-	       "      res = gimple_simplify (%s, %s", opr, type);
+      /* ???  Building a stmt can fail for various reasons here, seq being
+         NULL or the stmt referencing SSA names occuring in abnormal PHIs.
+	 So if we fail here we should continue matching other patterns.  */
+      fprintf (f, "  code_helper tem_code = %s;\n"
+	       "  tree tem_ops[3] = { ", opr);
       for (unsigned i = 0; i < ops.length (); ++i)
-	fprintf (f, ", ops%d[%u]", depth, i);
-      fprintf (f, ", seq, valueize);\n");
-      fprintf (f, "      if (!res) return false;\n");
-      fprintf (f, "    }\n");
-      fprintf (f, "  else\n");
-      fprintf (f, "    res = gimple_build (seq, UNKNOWN_LOCATION, %s, %s",
-	       opr, type);
-      for (unsigned i = 0; i < ops.length (); ++i)
-	fprintf (f, ", ops%d[%u]", depth, i);
-      fprintf (f, ", valueize);\n");
+	fprintf (f, "ops%d[%u]%s", depth, i,
+		 i == ops.length () - 1 ? " };\n" : ", ");
+      fprintf (f, "  gimple_resimplify%d (seq, &tem_code, %s, tem_ops, valueize);\n",
+	       ops.length (), type);
+      fprintf (f, "  res = maybe_push_res_to_seq (tem_code, %s, tem_ops, seq);\n"
+	       "  if (!res) return false;\n", type);
     }
   else
     {
@@ -1770,7 +1768,7 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
 	fprintf (f, ", ops%d[%u]", depth, i);
       fprintf (f, ");\n");
     }
-  fprintf (f, "  %s = res;\n", dest);
+  fprintf (f, "%s = res;\n", dest);
   fprintf (f, "}\n");
 }
 
@@ -2916,7 +2914,12 @@ parser::parse_operation ()
 
   user_id *p = dyn_cast<user_id *> (op);
   if (p && p->is_oper_list)
-    record_operlist (id_tok->src_loc, p);
+    {
+      if (active_fors.length() == 0)
+	record_operlist (id_tok->src_loc, p);
+      else
+	fatal_at (id_tok, "operator-list %s cannot be exapnded inside 'for'", id);
+    }
   return op;
 }
 
@@ -3332,8 +3335,13 @@ parser::parse_for (source_location)
 		      "others with arity %d", oper, idb->nargs, arity);
 
 	  user_id *p = dyn_cast<user_id *> (idb);
-	  if (p && p->is_oper_list)
-	    op->substitutes.safe_splice (p->substitutes);
+	  if (p)
+	    {
+	      if (p->is_oper_list)
+		op->substitutes.safe_splice (p->substitutes);
+	      else
+		fatal_at (token, "iterator cannot be used as operator-list");
+	    }
 	  else 
 	    op->substitutes.safe_push (idb);
 	}
@@ -3429,6 +3437,11 @@ parser::parse_operator_list (source_location)
       else
 	op->substitutes.safe_push (idb);
     }
+
+  // Check that there is no junk after id-list
+  token = peek();
+  if (token->type != CPP_CLOSE_PAREN)
+    fatal_at (token, "expected identifier got %s", cpp_type2name (token->type, 0));
 
   if (op->substitutes.length () == 0)
     fatal_at (token, "operator-list cannot be empty");

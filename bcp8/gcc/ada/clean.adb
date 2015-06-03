@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2003-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 2003-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -897,9 +897,9 @@ package body Clean is
                      --  object directory.
 
                      if (Unit.File_Names (Impl) /= null
-                         and then
-                           In_Extension_Chain
-                             (Unit.File_Names (Impl).Project, Project))
+                          and then
+                            In_Extension_Chain
+                              (Unit.File_Names (Impl).Project, Project))
                        or else
                          (Unit.File_Names (Spec) /= null
                            and then
@@ -1383,6 +1383,14 @@ package body Clean is
 
       if Project_File_Name /= null then
 
+         --  Warn about 'gnatclean -P'
+
+         if Project_File_Name /= null then
+            Put_Line
+              ("warning: gnatclean -P is obsolete and will not be available "
+               & "in the next release; use gprclean instead.");
+         end if;
+
          --  A project file was specified by a -P switch
 
          if Opt.Verbose_Mode then
@@ -1621,6 +1629,55 @@ package body Clean is
 
       Check_Version_And_Help ("GNATCLEAN", "2003");
 
+      --  First, for native gnatclean, check for switch -P and, if found and
+      --  gprclean is available, silently invoke gprclean.
+
+      Find_Program_Name;
+
+      if Name_Buffer (1 .. Name_Len) = "gnatclean" then
+         declare
+            Call_Gprclean : Boolean := False;
+
+         begin
+            for J in 1 .. Argument_Count loop
+               declare
+                  Arg : constant String := Argument (J);
+               begin
+                  if Arg'Length >= 2
+                    and then Arg (Arg'First .. Arg'First + 1) = "-P"
+                  then
+                     Call_Gprclean := True;
+                     exit;
+                  end if;
+               end;
+            end loop;
+
+            if Call_Gprclean then
+               declare
+                  Gprclean : String_Access :=
+                               Locate_Exec_On_Path (Exec_Name => "gprclean");
+                  Args     : Argument_List (1 .. Argument_Count);
+                  Success  : Boolean;
+
+               begin
+                  if Gprclean /= null then
+                     for J in 1 .. Argument_Count loop
+                        Args (J) := new String'(Argument (J));
+                     end loop;
+
+                     Spawn (Gprclean.all, Args, Success);
+
+                     Free (Gprclean);
+
+                     if Success then
+                        Exit_Program (E_Success);
+                     end if;
+                  end if;
+               end;
+            end if;
+         end;
+      end if;
+
       Index := 1;
       while Index <= Last loop
          declare
@@ -1647,8 +1704,9 @@ package body Clean is
 
                   case Arg (2) is
                      when '-' =>
-                        if Arg'Length > Subdirs_Option'Length and then
-                          Arg (1 .. Subdirs_Option'Length) = Subdirs_Option
+                        if Arg'Length > Subdirs_Option'Length
+                          and then
+                            Arg (1 .. Subdirs_Option'Length) = Subdirs_Option
                         then
                            Subdirs :=
                              new String'
@@ -1678,10 +1736,10 @@ package body Clean is
                            Bad_Argument;
                         end if;
 
-                     when 'c'    =>
+                     when 'c' =>
                         Compile_Only := True;
 
-                     when 'D'    =>
+                     when 'D' =>
                         if Object_Directory_Path /= null then
                            Fail ("duplicate -D switch");
 
@@ -1782,7 +1840,8 @@ package body Clean is
                            declare
                               Prj : constant String := Arg (3 .. Arg'Last);
                            begin
-                              if Prj'Length > 1 and then Prj (Prj'First) = '='
+                              if Prj'Length > 1
+                                 and then Prj (Prj'First) = '='
                               then
                                  Project_File_Name :=
                                    new String'

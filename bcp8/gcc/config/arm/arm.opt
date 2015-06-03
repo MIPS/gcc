@@ -1,6 +1,6 @@
 ; Options for the ARM port of the compiler.
 
-; Copyright (C) 2005-2014 Free Software Foundation, Inc.
+; Copyright (C) 2005-2015 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -143,10 +143,6 @@ mfpu=
 Target RejectNegative Joined Enum(arm_fpu) Var(arm_fpu_index)
 Specify the name of the target floating point hardware/format
 
-mlra
-Target Report Var(arm_lra_flag) Init(1) Save
-Use LRA instead of reload (transitional)
-
 mhard-float
 Target RejectNegative Alias(mfloat-abi=, hard) Undocumented
 
@@ -225,6 +221,12 @@ Thumb: Generate (leaf) stack frames even if not needed
 mtune=
 Target RejectNegative ToLower Joined Enum(processor_type) Var(arm_tune_option) Init(arm_none)
 Tune code for the given processor
+
+mprint-tune-info
+Target Report RejectNegative Var(print_tune_info) Init(0)
+Print CPU tuning information as comment in assembler file.  This is
+an option used only for regression testing of the compiler and not
+intended for ordinary use in compiling code.
 
 ; Other processor_type values are loaded from arm-tables.opt
 ; but that is a generated file and this is an odd-one-out.

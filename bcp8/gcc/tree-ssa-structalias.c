@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -37,7 +37,13 @@
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
+#include "double-int.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stmt.h"
 #include "hash-table.h"
@@ -55,6 +61,17 @@
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-inline.h"
@@ -63,7 +80,6 @@
 #include "alloc-pool.h"
 #include "splay-tree.h"
 #include "params.h"
-#include "alias.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
 #include "tree-pretty-print.h"
@@ -338,7 +354,8 @@ static varinfo_t lookup_vi_for_tree (tree);
 static inline bool type_can_have_subvars (const_tree);
 
 /* Pool of variable info structures.  */
-static alloc_pool variable_info_pool;
+static pool_allocator<variable_info> variable_info_pool
+  ("Variable info pool", 30);
 
 /* Map varinfo to final pt_solution.  */
 static hash_map<varinfo_t, pt_solution *> *final_solutions;
@@ -379,7 +396,7 @@ static varinfo_t
 new_var_info (tree t, const char *name)
 {
   unsigned index = varmap.length ();
-  varinfo_t ret = (varinfo_t) pool_alloc (variable_info_pool);
+  varinfo_t ret = variable_info_pool.allocate ();
 
   ret->id = index;
   ret->name = name;
@@ -393,6 +410,7 @@ new_var_info (tree t, const char *name)
   ret->may_have_pointers = true;
   ret->only_restrict_pointers = false;
   ret->is_restrict_var = false;
+  ret->ruid = 0;
   ret->is_global_var = (t == NULL_TREE);
   ret->is_fn_info = false;
   if (t && DECL_P (t))
@@ -537,7 +555,7 @@ struct constraint
 /* List of constraints that we use to build the constraint graph from.  */
 
 static vec<constraint_t> constraints;
-static alloc_pool constraint_pool;
+static pool_allocator<constraint> constraint_pool ("Constraint pool", 30);
 
 /* The constraint graph is represented as an array of bitmaps
    containing successor nodes.  */
@@ -659,7 +677,7 @@ static constraint_t
 new_constraint (const struct constraint_expr lhs,
 		const struct constraint_expr rhs)
 {
-  constraint_t ret = (constraint_t) pool_alloc (constraint_pool);
+  constraint_t ret = constraint_pool.allocate ();
   ret->lhs = lhs;
   ret->rhs = rhs;
   return ret;
@@ -1923,16 +1941,17 @@ typedef const struct equiv_class_label *const_equiv_class_label_t;
 
 struct equiv_class_hasher : typed_free_remove <equiv_class_label>
 {
-  typedef equiv_class_label value_type;
-  typedef equiv_class_label compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef equiv_class_label *value_type;
+  typedef equiv_class_label *compare_type;
+  static inline hashval_t hash (const equiv_class_label *);
+  static inline bool equal (const equiv_class_label *,
+			    const equiv_class_label *);
 };
 
 /* Hash function for a equiv_class_label_t */
 
 inline hashval_t
-equiv_class_hasher::hash (const value_type *ecl)
+equiv_class_hasher::hash (const equiv_class_label *ecl)
 {
   return ecl->hashcode;
 }
@@ -1940,7 +1959,8 @@ equiv_class_hasher::hash (const value_type *ecl)
 /* Equality function for two equiv_class_label_t's.  */
 
 inline bool
-equiv_class_hasher::equal (const value_type *eql1, const compare_type *eql2)
+equiv_class_hasher::equal (const equiv_class_label *eql1,
+			   const equiv_class_label *eql2)
 {
   return (eql1->hashcode == eql2->hashcode
 	  && bitmap_equal_p (eql1->labels, eql2->labels));
@@ -3475,6 +3495,9 @@ get_constraint_for_1 (tree t, vec<ce_s> *results, bool address_p,
 	  case ARRAY_REF:
 	  case ARRAY_RANGE_REF:
 	  case COMPONENT_REF:
+	  case IMAGPART_EXPR:
+	  case REALPART_EXPR:
+	  case BIT_FIELD_REF:
 	    get_constraint_for_component_ref (t, results, address_p, lhs_p);
 	    return;
 	  case VIEW_CONVERT_EXPR:
@@ -4695,11 +4718,7 @@ find_func_aliases (struct function *fn, gimple origt)
 
 	  get_constraint_for (lhsop, &lhsc);
 
-	  if (FLOAT_TYPE_P (TREE_TYPE (lhsop)))
-	    /* If the operation produces a floating point result then
-	       assume the value is not produced to transfer a pointer.  */
-	    ;
-	  else if (code == POINTER_PLUS_EXPR)
+	  if (code == POINTER_PLUS_EXPR)
 	    get_constraint_for_ptr_offset (gimple_assign_rhs1 (t),
 					   gimple_assign_rhs2 (t), &rhsc);
 	  else if (code == BIT_AND_EXPR
@@ -5457,7 +5476,7 @@ create_function_info_for (tree decl, const char *name)
       const char *newname;
       char *tempname;
 
-      asprintf (&tempname, "%s.clobber", name);
+      tempname = xasprintf ("%s.clobber", name);
       newname = ggc_strdup (tempname);
       free (tempname);
 
@@ -5471,7 +5490,7 @@ create_function_info_for (tree decl, const char *name)
       prev_vi->next = clobbervi->id;
       prev_vi = clobbervi;
 
-      asprintf (&tempname, "%s.use", name);
+      tempname = xasprintf ("%s.use", name);
       newname = ggc_strdup (tempname);
       free (tempname);
 
@@ -5493,7 +5512,7 @@ create_function_info_for (tree decl, const char *name)
       const char *newname;
       char *tempname;
 
-      asprintf (&tempname, "%s.chain", name);
+      tempname = xasprintf ("%s.chain", name);
       newname = ggc_strdup (tempname);
       free (tempname);
 
@@ -5521,7 +5540,7 @@ create_function_info_for (tree decl, const char *name)
       if (DECL_RESULT (decl))
 	resultdecl = DECL_RESULT (decl);
 
-      asprintf (&tempname, "%s.result", name);
+      tempname = xasprintf ("%s.result", name);
       newname = ggc_strdup (tempname);
       free (tempname);
 
@@ -5551,7 +5570,7 @@ create_function_info_for (tree decl, const char *name)
       if (arg)
 	argdecl = arg;
 
-      asprintf (&tempname, "%s.arg%d", name, i);
+      tempname = xasprintf ("%s.arg%d", name, i);
       newname = ggc_strdup (tempname);
       free (tempname);
 
@@ -5580,7 +5599,7 @@ create_function_info_for (tree decl, const char *name)
       char *tempname;
       tree decl;
 
-      asprintf (&tempname, "%s.varargs", name);
+      tempname = xasprintf ("%s.varargs", name);
       newname = ggc_strdup (tempname);
       free (tempname);
 
@@ -5717,8 +5736,10 @@ create_variable_info_for_1 (tree decl, const char *name)
 
       if (dump_file)
 	{
-	  asprintf (&tempname, "%s." HOST_WIDE_INT_PRINT_DEC
-		    "+" HOST_WIDE_INT_PRINT_DEC, name, fo->offset, fo->size);
+	  tempname
+	    = xasprintf ("%s." HOST_WIDE_INT_PRINT_DEC
+			 "+" HOST_WIDE_INT_PRINT_DEC, name,
+			 fo->offset, fo->size);
 	  newname = ggc_strdup (tempname);
 	  free (tempname);
 	}
@@ -5945,16 +5966,17 @@ typedef const struct shared_bitmap_info *const_shared_bitmap_info_t;
 
 struct shared_bitmap_hasher : typed_free_remove <shared_bitmap_info>
 {
-  typedef shared_bitmap_info value_type;
-  typedef shared_bitmap_info compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef shared_bitmap_info *value_type;
+  typedef shared_bitmap_info *compare_type;
+  static inline hashval_t hash (const shared_bitmap_info *);
+  static inline bool equal (const shared_bitmap_info *,
+			    const shared_bitmap_info *);
 };
 
 /* Hash function for a shared_bitmap_info_t */
 
 inline hashval_t
-shared_bitmap_hasher::hash (const value_type *bi)
+shared_bitmap_hasher::hash (const shared_bitmap_info *bi)
 {
   return bi->hashcode;
 }
@@ -5962,7 +5984,8 @@ shared_bitmap_hasher::hash (const value_type *bi)
 /* Equality function for two shared_bitmap_info_t's. */
 
 inline bool
-shared_bitmap_hasher::equal (const value_type *sbi1, const compare_type *sbi2)
+shared_bitmap_hasher::equal (const shared_bitmap_info *sbi1,
+			     const shared_bitmap_info *sbi2)
 {
   return bitmap_equal_p (sbi1->pt_vars, sbi2->pt_vars);
 }
@@ -6659,10 +6682,6 @@ init_alias_vars (void)
   bitmap_obstack_initialize (&oldpta_obstack);
   bitmap_obstack_initialize (&predbitmap_obstack);
 
-  constraint_pool = create_alloc_pool ("Constraint pool",
-				       sizeof (struct constraint), 30);
-  variable_info_pool = create_alloc_pool ("Variable info pool",
-					  sizeof (struct variable_info), 30);
   constraints.create (8);
   varmap.create (8);
   vi_for_tree = new hash_map<tree, varinfo_t>;
@@ -6942,8 +6961,8 @@ delete_points_to_sets (void)
   free (graph);
 
   varmap.release ();
-  free_alloc_pool (variable_info_pool);
-  free_alloc_pool (constraint_pool);
+  variable_info_pool.release ();
+  constraint_pool.release ();
 
   obstack_free (&fake_var_decl_obstack, NULL);
 
@@ -7350,7 +7369,8 @@ ipa_pta_execute (void)
 	 constraints for parameters.  */
       if (node->used_from_other_partition
 	  || node->externally_visible
-	  || node->force_output)
+	  || node->force_output
+	  || node->address_taken)
 	{
 	  intra_create_variable_infos (func);
 

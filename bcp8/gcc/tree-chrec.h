@@ -1,5 +1,5 @@
 /* Chains of recurrences.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -59,9 +59,9 @@ enum ev_direction scev_direction (const_tree);
 extern tree chrec_fold_plus (tree, tree, tree);
 extern tree chrec_fold_minus (tree, tree, tree);
 extern tree chrec_fold_multiply (tree, tree, tree);
-extern tree chrec_convert (tree, tree, gimple);
+extern tree chrec_convert (tree, tree, gimple, bool = true);
 extern tree chrec_convert_rhs (tree, tree, gimple);
-extern tree chrec_convert_aggressive (tree, tree);
+extern tree chrec_convert_aggressive (tree, tree, bool *);
 
 /* Operations.  */
 extern tree chrec_apply (unsigned, tree, tree);

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for MMIX.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
 This file is part of GCC.
@@ -43,10 +43,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgcleanup.h"
 #include "basic-block.h"
 #include "flags.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "calls.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "recog.h"
@@ -1641,7 +1654,7 @@ mmix_print_operand (FILE *stream, rtx x, int code)
 	  fatal_insn ("MMIX Internal: Bad value for 'm', not a CONST_INT",
 		      x);
 	}
-      fprintf (stream, "%"PRId64,
+      fprintf (stream, "%" PRId64,
 	       (int64_t) (mmix_intval (x) - 1));
       return;
 
@@ -2089,8 +2102,7 @@ mmix_expand_prologue (void)
 			     tmpreg);
       RTX_FRAME_RELATED_P (insn) = 1;
       add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-		    gen_rtx_SET (VOIDmode,
-				 gen_rtx_MEM (DImode,
+		    gen_rtx_SET (gen_rtx_MEM (DImode,
 					      plus_constant (Pmode,
 							     stack_pointer_rtx,
 							     offset)),
@@ -2314,7 +2326,7 @@ mmix_output_register_setting (FILE *stream,
     fprintf (stream, "\t");
 
   if (insn_const_int_ok_for_constraint (value, CONSTRAINT_K))
-    fprintf (stream, "NEGU %s,0,%"PRId64, reg_names[regno], -value);
+    fprintf (stream, "NEGU %s,0,%" PRId64, reg_names[regno], -value);
   else if (mmix_shiftable_wyde_value ((uint64_t) value))
     {
       /* First, the one-insn cases.  */
@@ -2508,7 +2520,7 @@ mmix_output_shiftvalue_op_from_str (FILE *stream,
   if (! mmix_shiftable_wyde_value (value))
     {
       char s[sizeof ("0xffffffffffffffff")];
-      sprintf (s, "%#"PRIx64, value);
+      sprintf (s, "%#" PRIx64, value);
       internal_error ("MMIX Internal: %s is not a shiftable int", s);
     }
 
@@ -2550,7 +2562,7 @@ mmix_output_octa (FILE *stream, int64_t value, int do_begin_end)
     fprintf (stream, "#" HOST_WIDE_INT_PRINT_HEX_PURE,
 	     (HOST_WIDE_INT) value);
   else /* Need to avoid the hex output; there's no ...WIDEST...HEX_PURE.  */
-    fprintf (stream, "%"PRIu64, value);
+    fprintf (stream, "%" PRIu64, value);
 
   if (do_begin_end)
     fprintf (stream, "\n");
@@ -2567,7 +2579,7 @@ mmix_output_shifted_value (FILE *stream, int64_t value)
   if (! mmix_shiftable_wyde_value (value))
     {
       char s[16+2+1];
-      sprintf (s, "%#"PRIx64, value);
+      sprintf (s, "%#" PRIx64, value);
       internal_error ("MMIX Internal: %s is not a shiftable int", s);
     }
 

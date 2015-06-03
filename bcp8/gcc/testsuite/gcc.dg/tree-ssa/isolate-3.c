@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O2 -fdump-tree-isolate-paths" } */
+/* { dg-options "-O2 -fdump-tree-isolate-paths -fdelete-null-pointer-checks" } */
 /* { dg-skip-if "" keeps_null_pointer_checks } */
 
 
@@ -63,6 +63,5 @@ init_alias_analysis (void)
    started with a PHI, but by the time the path isolation code runs
    its explicit in the IL.  */
 /* { dg-final { scan-tree-dump-times "__builtin_trap" 1 "isolate-paths"} } */
-/* { dg-final { cleanup-tree-dump "isolate-paths" } } */
 
 

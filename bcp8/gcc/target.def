@@ -1,5 +1,5 @@
 /* Target hook definitions.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -1868,6 +1868,13 @@ recorded in the offload function and variable table.",
  void, (tree),
  hook_void_tree)
 
+DEFHOOKPOD
+(absolute_biggest_alignment,
+ "If defined, this target hook specifies the absolute biggest alignment\n\
+that a type or variable can have on this machine, otherwise,\n\
+@code{BIGGEST_ALIGNMENT} is used.",
+ HOST_WIDE_INT, BIGGEST_ALIGNMENT)
+
 /* Allow target specific overriding of option settings after options have
   been changed by an attribute or pragma or when it is reset at the
   end of the code affected by an attribute or pragma.  */
@@ -1968,7 +1975,7 @@ merging.",
 DEFHOOKPOD
 (attribute_table,
  "If defined, this target hook points to an array of @samp{struct\n\
-attribute_spec} (defined in @file{tree.h}) specifying the machine\n\
+attribute_spec} (defined in @file{tree-core.h}) specifying the machine\n\
 specific attributes for this target and some of the restrictions on the\n\
 entities to which these attributes are applied and the arguments they\n\
 take.",
@@ -2542,24 +2549,31 @@ modes and they have different conditional execution capability, such as ARM.",
 
 DEFHOOK
 (gen_ccmp_first,
- "This function emits a comparison insn for the first of a sequence of\n\
- conditional comparisions.  It returns a comparison expression appropriate\n\
- for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.  @var{code} is\n\
+ "This function prepares to emit a comparison insn for the first compare in a\n\
+ sequence of conditional comparisions.  It returns a appropriate @code{CC}\n\
+ for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.  The insns to\n\
+ prepare the compare are saved in @var{prep_seq} and the compare insns are\n\
+ saved in @var{gen_seq}.  They will be emitted when all the compares in the\n\
+ the conditional comparision are generated without error.  @var{code} is\n\
  the @code{rtx_code} of the compare for @var{op0} and @var{op1}.",
- rtx, (int code, rtx op0, rtx op1),
+ rtx, (rtx *prep_seq, rtx *gen_seq, int code, tree op0, tree op1),
  NULL)
 
 DEFHOOK
 (gen_ccmp_next,
- "This function emits a conditional comparison within a sequence of\n\
- conditional comparisons.  The @var{prev} expression is the result of a\n\
- prior call to @code{gen_ccmp_first} or @code{gen_ccmp_next}.  It may return\n\
- @code{NULL} if the combination of @var{prev} and this comparison is\n\
+ "This function prepare to emit a conditional comparison within a sequence of\n\
+ conditional comparisons.  It returns a appropriate @code{CC} for passing to\n\
+ @code{gen_ccmp_next} or @code{cbranch_optab}.  The insns to prepare the\n\
+ compare are saved in @var{prep_seq} and the compare insns are saved in\n\
+ @var{gen_seq}.  They will be emitted when all the compares in the conditional\n\
+ comparision are generated without error.  The @var{prev} expression is the\n\
+ result of a prior call to @code{gen_ccmp_first} or @code{gen_ccmp_next}.  It\n\
+ may return @code{NULL} if the combination of @var{prev} and this comparison is\n\
  not supported, otherwise the result must be appropriate for passing to\n\
  @code{gen_ccmp_next} or @code{cbranch_optab}.  @var{code} is the\n\
  @code{rtx_code} of the compare for @var{op0} and @var{op1}.  @var{bit_code}\n\
  is @code{AND} or @code{IOR}, which is the op on the two compares.",
- rtx, (rtx prev, int cmp_code, rtx op0, rtx op1, int bit_code),
+ rtx, (rtx *prep_seq, rtx *gen_seq, rtx prev, int cmp_code, tree op0, tree op1, int bit_code),
  NULL)
 
 /* Return a new value for loop unroll size.  */
@@ -3728,20 +3742,22 @@ machines.  One reason you may need to define this target hook is if\n\
  rtx, (void),
  default_builtin_setjmp_frame_value)
 
-/* This target hook should add STRING_CST trees for any hard regs
-   the port wishes to automatically clobber for an asm.  */
+/* This target hook should manipulate the outputs, inputs, constraints,
+   and clobbers the port wishes for pre-processing the asm.  */
 DEFHOOK
-(md_asm_clobbers,
- "This target hook should add to @var{clobbers} @code{STRING_CST} trees for\n\
-any hard regs the port wishes to automatically clobber for an asm.\n\
-It should return the result of the last @code{tree_cons} used to add a\n\
-clobber.  The @var{outputs}, @var{inputs} and @var{clobber} lists are the\n\
-corresponding parameters to the asm and may be inspected to avoid\n\
-clobbering a register that is an input or output of the asm.  You can use\n\
-@code{tree_overlaps_hard_reg_set}, declared in @file{tree.h}, to test\n\
-for overlap with regards to asm-declared registers.",
- tree, (tree outputs, tree inputs, tree clobbers),
- hook_tree_tree_tree_tree_3rd_identity)
+(md_asm_adjust,
+ "This target hook may add @dfn{clobbers} to @var{clobbers} and\n\
+@var{clobbered_regs} for any hard regs the port wishes to automatically\n\
+clobber for an asm.  The @var{outputs} and @var{inputs} may be inspected\n\
+to avoid clobbering a register that is already used by the asm.\n\
+\n\
+It may modify the @var{outputs}, @var{inputs}, and @var{constraints}\n\
+as necessary for other pre-processing.  In this case the return value is\n\
+a sequence of insns to emit after the asm.",
+ rtx_insn *,
+ (vec<rtx>& outputs, vec<rtx>& inputs, vec<const char *>& constraints,
+  vec<rtx>& clobbers, HARD_REG_SET& clobbered_regs),
+ NULL)
 
 /* This target hook allows the backend to specify a calling convention
    in the debug information.  This function actually returns an
@@ -4747,6 +4763,16 @@ This is currently used only by the C and C++ front ends.",
  tree, (tree type, tree expr),
  hook_tree_tree_tree_null)
 
+/* Change pseudo allocno class calculated by IRA.  */
+DEFHOOK
+(ira_change_pseudo_allocno_class,
+ "A target hook which can change allocno class for given pseudo from\n\
+  allocno class calculated by IRA.\n\
+  \n\
+  The default version of this target hook always returns given class.",
+ reg_class_t, (int, reg_class_t),
+ default_ira_change_pseudo_allocno_class)
+
 /* Return true if we use LRA instead of reload.  */
 DEFHOOK
 (lra_p,
@@ -5486,6 +5512,15 @@ DEFHOOK
 information in the @code{struct cl_target_option} structure for\n\
 function-specific options to the @code{struct gcc_options} structure.",
  void, (struct gcc_options *opts, struct cl_target_option *ptr), NULL)
+
+/* Function to update target-specific option information after being
+   streamed in.  */
+DEFHOOK
+(post_stream_in,
+ "This hook is called to update target-specific information in the\n\
+@code{struct cl_target_option} structure after it is streamed in from\n\
+LTO bytecode.",
+ void, (struct cl_target_option *ptr), NULL)
 
 /* Function to print any extra target state from the target options
    structure.  */

@@ -1,5 +1,5 @@
 /* A type-safe hash table template.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Lawrence Crowl <crowl@google.com>
 
 This file is part of GCC.
@@ -199,6 +199,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "hashtab.h"
 #include <new>
+#include "mem-stats-traits.h"
 
 template<typename, typename, typename> class hash_map;
 template<typename, typename> class hash_set;
@@ -278,7 +279,6 @@ struct pointer_hash : typed_noop_remove <Type>
 {
   typedef Type *value_type;
   typedef Type *compare_type;
-  typedef int store_values_directly;
 
   static inline hashval_t hash (const value_type &);
 
@@ -310,7 +310,6 @@ struct ggc_hasher
 {
   typedef T value_type;
   typedef T compare_type;
-  typedef int store_values_directly;
 
   static void remove (T) {}
 
@@ -342,7 +341,6 @@ struct ggc_cache_hasher
 {
   typedef T value_type;
   typedef T compare_type;
-  typedef int store_values_directly;
 
   static void remove (T &) {}
 
@@ -437,26 +435,6 @@ hash_table_mod2 (hashval_t hash, unsigned int index)
   gcc_checking_assert (sizeof (hashval_t) * CHAR_BIT <= 32);
   return 1 + mul_mod (hash, p->prime - 2, p->inv_m2, p->shift);
 }
-
-/* The below is some template meta programming to decide if we should use the
-   hash table partial specialization that directly stores value_type instead of
-   pointers to value_type.  If the Descriptor type defines the type
-   Descriptor::store_values_directly then values are stored directly otherwise
-   pointers to them are stored.  */
-template<typename T> struct notype { typedef void type; };
-
-template<typename T, typename = void>
-struct storage_tester
-{
-  static const bool value = false;
-};
-
-template<typename T>
-struct storage_tester<T, typename notype<typename
-					 T::store_values_directly>::type>
-{
-  static const bool value = true;
-};
 
  template<typename Traits>
  struct has_is_deleted
@@ -574,11 +552,11 @@ struct mark_empty_helper<Type *, Traits, false>
   }
 };
 
+class mem_usage;
+
 /* User-facing hash table type.
 
-   The table stores elements of type Descriptor::value_type, or pointers to
-   objects of type value_type if the descriptor does not define the type
-   store_values_directly.
+   The table stores elements of type Descriptor::value_type.
 
    It hashes values with the hash member function.
      The table currently works with relatively weak hash functions.
@@ -601,531 +579,25 @@ struct mark_empty_helper<Type *, Traits, false>
 
 */
 template <typename Descriptor,
-	 template<typename Type> class Allocator= xcallocator,
-	 bool Storage = storage_tester<Descriptor>::value>
+	 template<typename Type> class Allocator = xcallocator>
 class hash_table
 {
-};
-
-template <typename Descriptor,
-	 template<typename Type> class Allocator>
-class hash_table<Descriptor, Allocator, false>
-{
   typedef typename Descriptor::value_type value_type;
   typedef typename Descriptor::compare_type compare_type;
 
 public:
-  hash_table (size_t);
-  ~hash_table ();
-
-  /* Current size (in entries) of the hash table.  */
-  size_t size () const { return m_size; }
-
-  /* Return the current number of elements in this hash table. */
-  size_t elements () const { return m_n_elements - m_n_deleted; }
-
-  /* Return the current number of elements in this hash table. */
-  size_t elements_with_deleted () const { return m_n_elements; }
-
-  /* This function clears all entries in the given hash table.  */
-  void empty ();
-
-  /* This function clears a specified SLOT in a hash table.  It is
-     useful when you've already done the lookup and don't want to do it
-     again. */
-
-  void clear_slot (value_type **);
-
-  /* This function searches for a hash table entry equal to the given
-     COMPARABLE element starting with the given HASH value.  It cannot
-     be used to insert or delete an element. */
-  value_type *find_with_hash (const compare_type *, hashval_t);
-
-/* Like find_slot_with_hash, but compute the hash value from the element.  */
-  value_type *find (const value_type *value)
-    {
-      return find_with_hash (value, Descriptor::hash (value));
-    }
-
-  value_type **find_slot (const value_type *value, insert_option insert)
-    {
-      return find_slot_with_hash (value, Descriptor::hash (value), insert);
-    }
-
-  /* This function searches for a hash table slot containing an entry
-     equal to the given COMPARABLE element and starting with the given
-     HASH.  To delete an entry, call this with insert=NO_INSERT, then
-     call clear_slot on the slot returned (possibly after doing some
-     checks).  To insert an entry, call this with insert=INSERT, then
-     write the value you want into the returned slot.  When inserting an
-     entry, NULL may be returned if memory allocation fails. */
-  value_type **find_slot_with_hash (const compare_type *comparable,
-				    hashval_t hash, enum insert_option insert);
-
-  /* This function deletes an element with the given COMPARABLE value
-     from hash table starting with the given HASH.  If there is no
-     matching element in the hash table, this function does nothing. */
-  void remove_elt_with_hash (const compare_type *, hashval_t);
-
-/* Like remove_elt_with_hash, but compute the hash value from the element.  */
-  void remove_elt (const value_type *value)
-    {
-      remove_elt_with_hash (value, Descriptor::hash (value));
-    }
-
-  /* This function scans over the entire hash table calling CALLBACK for
-     each live entry.  If CALLBACK returns false, the iteration stops.
-     ARGUMENT is passed as CALLBACK's second argument. */
-  template <typename Argument,
-	    int (*Callback) (value_type **slot, Argument argument)>
-  void traverse_noresize (Argument argument);
-
-  /* Like traverse_noresize, but does resize the table when it is too empty
-     to improve effectivity of subsequent calls.  */
-  template <typename Argument,
-	    int (*Callback) (value_type **slot, Argument argument)>
-  void traverse (Argument argument);
-
-  class iterator
-  {
-  public:
-    iterator () : m_slot (NULL), m_limit (NULL) {}
-
-    iterator (value_type **slot, value_type **limit) :
-      m_slot (slot), m_limit (limit) {}
-
-    inline value_type *operator * () { return *m_slot; }
-    void slide ();
-    inline iterator &operator ++ ();
-    bool operator != (const iterator &other) const
-      {
-	return m_slot != other.m_slot || m_limit != other.m_limit;
-      }
-
-  private:
-    value_type **m_slot;
-    value_type **m_limit;
-  };
-
-  iterator begin () const
-    {
-      iterator iter (m_entries, m_entries + m_size);
-      iter.slide ();
-      return iter;
-    }
-
-  iterator end () const { return iterator (); }
-
-  double collisions () const
-    {
-      return m_searches ? static_cast <double> (m_collisions) / m_searches : 0;
-    }
-
-private:
-
-  value_type **find_empty_slot_for_expand (hashval_t);
-  void expand ();
-
-  /* Table itself.  */
-  typename Descriptor::value_type **m_entries;
-
-  size_t m_size;
-
-  /* Current number of elements including also deleted elements.  */
-  size_t m_n_elements;
-
-  /* Current number of deleted elements in the table.  */
-  size_t m_n_deleted;
-
-  /* The following member is used for debugging. Its value is number
-     of all calls of `htab_find_slot' for the hash table. */
-  unsigned int m_searches;
-
-  /* The following member is used for debugging.  Its value is number
-     of collisions fixed for time of work with the hash table. */
-  unsigned int m_collisions;
-
-  /* Current size (in entries) of the hash table, as an index into the
-     table of primes.  */
-  unsigned int m_size_prime_index;
-};
-
-template<typename Descriptor, template<typename Type> class Allocator>
-hash_table<Descriptor, Allocator, false>::hash_table (size_t size) :
-  m_n_elements (0), m_n_deleted (0), m_searches (0), m_collisions (0)
-{
-  unsigned int size_prime_index;
-
-  size_prime_index = hash_table_higher_prime_index (size);
-  size = prime_tab[size_prime_index].prime;
-
-  m_entries = Allocator <value_type*> ::data_alloc (size);
-  gcc_assert (m_entries != NULL);
-  m_size = size;
-  m_size_prime_index = size_prime_index;
-}
-
-template<typename Descriptor, template<typename Type> class Allocator>
-hash_table<Descriptor, Allocator, false>::~hash_table ()
-{
-  for (size_t i = m_size - 1; i < m_size; i--)
-    if (m_entries[i] != HTAB_EMPTY_ENTRY && m_entries[i] != HTAB_DELETED_ENTRY)
-      Descriptor::remove (m_entries[i]);
-
-  Allocator <value_type *> ::data_free (m_entries);
-}
-
-/* Similar to find_slot, but without several unwanted side effects:
-    - Does not call equal when it finds an existing entry.
-    - Does not change the count of elements/searches/collisions in the
-      hash table.
-   This function also assumes there are no deleted entries in the table.
-   HASH is the hash value for the element to be inserted.  */
-
-template<typename Descriptor, template<typename Type> class Allocator>
-typename hash_table<Descriptor, Allocator, false>::value_type **
-hash_table<Descriptor, Allocator, false>
-::find_empty_slot_for_expand (hashval_t hash)
-{
-  hashval_t index = hash_table_mod1 (hash, m_size_prime_index);
-  size_t size = m_size;
-  value_type **slot = m_entries + index;
-  hashval_t hash2;
-
-  if (*slot == HTAB_EMPTY_ENTRY)
-    return slot;
-  gcc_checking_assert (*slot != HTAB_DELETED_ENTRY);
-
-  hash2 = hash_table_mod2 (hash, m_size_prime_index);
-  for (;;)
-    {
-      index += hash2;
-      if (index >= size)
-        index -= size;
-
-      slot = m_entries + index;
-      if (*slot == HTAB_EMPTY_ENTRY)
-        return slot;
-      gcc_checking_assert (*slot != HTAB_DELETED_ENTRY);
-    }
-}
-
-/* The following function changes size of memory allocated for the
-   entries and repeatedly inserts the table elements.  The occupancy
-   of the table after the call will be about 50%.  Naturally the hash
-   table must already exist.  Remember also that the place of the
-   table entries is changed.  If memory allocation fails, this function
-   will abort.  */
-
-template<typename Descriptor, template<typename Type> class Allocator>
-void
-hash_table<Descriptor, Allocator, false>::expand ()
-{
-  value_type **oentries = m_entries;
-  unsigned int oindex = m_size_prime_index;
-  size_t osize = size ();
-  value_type **olimit = oentries + osize;
-  size_t elts = elements ();
-
-  /* Resize only when table after removal of unused elements is either
-     too full or too empty.  */
-  unsigned int nindex;
-  size_t nsize;
-  if (elts * 2 > osize || (elts * 8 < osize && osize > 32))
-    {
-      nindex = hash_table_higher_prime_index (elts * 2);
-      nsize = prime_tab[nindex].prime;
-    }
-  else
-    {
-      nindex = oindex;
-      nsize = osize;
-    }
-
-  value_type **nentries = Allocator <value_type *> ::data_alloc (nsize);
-  gcc_assert (nentries != NULL);
-  m_entries = nentries;
-  m_size = nsize;
-  m_size_prime_index = nindex;
-  m_n_elements -= m_n_deleted;
-  m_n_deleted = 0;
-
-  value_type **p = oentries;
-  do
-    {
-      value_type *x = *p;
-
-      if (x != HTAB_EMPTY_ENTRY && x != HTAB_DELETED_ENTRY)
-        {
-          value_type **q = find_empty_slot_for_expand (Descriptor::hash (x));
-
-          *q = x;
-        }
-
-      p++;
-    }
-  while (p < olimit);
-
-  Allocator <value_type *> ::data_free (oentries);
-}
-
-template<typename Descriptor, template<typename Type> class Allocator>
-void
-hash_table<Descriptor, Allocator, false>::empty ()
-{
-  size_t size = m_size;
-  value_type **entries = m_entries;
-  int i;
-
-  for (i = size - 1; i >= 0; i--)
-    if (entries[i] != HTAB_EMPTY_ENTRY && entries[i] != HTAB_DELETED_ENTRY)
-      Descriptor::remove (entries[i]);
-
-  /* Instead of clearing megabyte, downsize the table.  */
-  if (size > 1024*1024 / sizeof (PTR))
-    {
-      int nindex = hash_table_higher_prime_index (1024 / sizeof (PTR));
-      int nsize = prime_tab[nindex].prime;
-
-      Allocator <value_type *> ::data_free (m_entries);
-      m_entries = Allocator <value_type *> ::data_alloc (nsize);
-      m_size = nsize;
-      m_size_prime_index = nindex;
-    }
-  else
-    memset (entries, 0, size * sizeof (value_type *));
-  m_n_deleted = 0;
-  m_n_elements = 0;
-}
-
-/* This function clears a specified SLOT in a hash table.  It is
-   useful when you've already done the lookup and don't want to do it
-   again. */
-
-template<typename Descriptor, template<typename Type> class Allocator>
-void
-hash_table<Descriptor, Allocator, false>::clear_slot (value_type **slot)
-{
-  gcc_checking_assert (!(slot < m_entries || slot >= m_entries + size ()
-		         || *slot == HTAB_EMPTY_ENTRY
-			 || *slot == HTAB_DELETED_ENTRY));
-
-  Descriptor::remove (*slot);
-
-  *slot = static_cast <value_type *> (HTAB_DELETED_ENTRY);
-  m_n_deleted++;
-}
-
-/* This function searches for a hash table entry equal to the given
-   COMPARABLE element starting with the given HASH value.  It cannot
-   be used to insert or delete an element. */
-
-template<typename Descriptor, template<typename Type> class Allocator>
-typename hash_table<Descriptor, Allocator, false>::value_type *
-hash_table<Descriptor, Allocator, false>
-::find_with_hash (const compare_type *comparable, hashval_t hash)
-{
-  m_searches++;
-  size_t size = m_size;
-  hashval_t index = hash_table_mod1 (hash, m_size_prime_index);
-
-  value_type *entry = m_entries[index];
-  if (entry == HTAB_EMPTY_ENTRY
-      || (entry != HTAB_DELETED_ENTRY && Descriptor::equal (entry, comparable)))
-    return entry;
-
-  hashval_t hash2 = hash_table_mod2 (hash, m_size_prime_index);
-  for (;;)
-    {
-      m_collisions++;
-      index += hash2;
-      if (index >= size)
-        index -= size;
-
-      entry = m_entries[index];
-      if (entry == HTAB_EMPTY_ENTRY
-          || (entry != HTAB_DELETED_ENTRY
-	      && Descriptor::equal (entry, comparable)))
-        return entry;
-    }
-}
-
-/* This function searches for a hash table slot containing an entry
-   equal to the given COMPARABLE element and starting with the given
-   HASH.  To delete an entry, call this with insert=NO_INSERT, then
-   call clear_slot on the slot returned (possibly after doing some
-   checks).  To insert an entry, call this with insert=INSERT, then
-   write the value you want into the returned slot.  When inserting an
-   entry, NULL may be returned if memory allocation fails. */
-
-template<typename Descriptor, template<typename Type> class Allocator>
-typename hash_table<Descriptor, Allocator, false>::value_type **
-hash_table<Descriptor, Allocator, false>
-::find_slot_with_hash (const compare_type *comparable, hashval_t hash,
-		       enum insert_option insert)
-{
-  if (insert == INSERT && m_size * 3 <= m_n_elements * 4)
-    expand ();
-
-  m_searches++;
-
-  value_type **first_deleted_slot = NULL;
-  hashval_t index = hash_table_mod1 (hash, m_size_prime_index);
-  hashval_t hash2 = hash_table_mod2 (hash, m_size_prime_index);
-  value_type *entry = m_entries[index];
-  size_t size = m_size;
-  if (entry == HTAB_EMPTY_ENTRY)
-    goto empty_entry;
-  else if (entry == HTAB_DELETED_ENTRY)
-    first_deleted_slot = &m_entries[index];
-  else if (Descriptor::equal (entry, comparable))
-    return &m_entries[index];
-
-  for (;;)
-    {
-      m_collisions++;
-      index += hash2;
-      if (index >= size)
-	index -= size;
-
-      entry = m_entries[index];
-      if (entry == HTAB_EMPTY_ENTRY)
-	goto empty_entry;
-      else if (entry == HTAB_DELETED_ENTRY)
-	{
-	  if (!first_deleted_slot)
-	    first_deleted_slot = &m_entries[index];
-	}
-      else if (Descriptor::equal (entry, comparable))
-	return &m_entries[index];
-    }
-
- empty_entry:
-  if (insert == NO_INSERT)
-    return NULL;
-
-  if (first_deleted_slot)
-    {
-      m_n_deleted--;
-      *first_deleted_slot = static_cast <value_type *> (HTAB_EMPTY_ENTRY);
-      return first_deleted_slot;
-    }
-
-  m_n_elements++;
-  return &m_entries[index];
-}
-
-/* This function deletes an element with the given COMPARABLE value
-   from hash table starting with the given HASH.  If there is no
-   matching element in the hash table, this function does nothing. */
-
-template<typename Descriptor, template<typename Type> class Allocator>
-void
-hash_table<Descriptor, Allocator, false>
-::remove_elt_with_hash (const compare_type *comparable, hashval_t hash)
-{
-  value_type **slot = find_slot_with_hash (comparable, hash, NO_INSERT);
-  if (*slot == HTAB_EMPTY_ENTRY)
-    return;
-
-  Descriptor::remove (*slot);
-
-  *slot = static_cast <value_type *> (HTAB_DELETED_ENTRY);
-  m_n_deleted++;
-}
-
-/* This function scans over the entire hash table calling CALLBACK for
-   each live entry.  If CALLBACK returns false, the iteration stops.
-   ARGUMENT is passed as CALLBACK's second argument. */
-
-template<typename Descriptor, template<typename Type> class Allocator>
-template<typename Argument,
-	  int (*Callback) (typename hash_table<Descriptor, Allocator,
-					       false>::value_type **slot,
-			   Argument argument)>
-void
-hash_table<Descriptor, Allocator, false>::traverse_noresize (Argument argument)
-{
-  value_type **slot = m_entries;
-  value_type **limit = slot + size ();
-
-  do
-    {
-      value_type *x = *slot;
-
-      if (x != HTAB_EMPTY_ENTRY && x != HTAB_DELETED_ENTRY)
-        if (! Callback (slot, argument))
-          break;
-    }
-  while (++slot < limit);
-}
-
-/* Like traverse_noresize, but does resize the table when it is too empty
-   to improve effectivity of subsequent calls.  */
-
-template <typename Descriptor,
-	  template <typename Type> class Allocator>
-template <typename Argument,
-	  int (*Callback) (typename hash_table<Descriptor, Allocator,
-					       false>::value_type **slot,
-			   Argument argument)>
-void
-hash_table<Descriptor, Allocator, false>::traverse (Argument argument)
-{
-  size_t size = m_size;
-  if (elements () * 8 < size && size > 32)
-    expand ();
-
-  traverse_noresize <Argument, Callback> (argument);
-}
-
-/* Slide down the iterator slots until an active entry is found.  */
-
-template<typename Descriptor, template<typename Type> class Allocator>
-void
-hash_table<Descriptor, Allocator, false>::iterator::slide ()
-{
-  for ( ; m_slot < m_limit; ++m_slot )
-    {
-      value_type *x = *m_slot;
-      if (x != HTAB_EMPTY_ENTRY && x != HTAB_DELETED_ENTRY)
-        return;
-    }
-  m_slot = NULL;
-  m_limit = NULL;
-}
-
-/* Bump the iterator.  */
-
-template<typename Descriptor, template<typename Type> class Allocator>
-inline typename hash_table<Descriptor, Allocator, false>::iterator &
-hash_table<Descriptor, Allocator, false>::iterator::operator ++ ()
-{
-  ++m_slot;
-  slide ();
-  return *this;
-}
-
-/* A partial specialization used when values should be stored directly.  */
-
-template <typename Descriptor,
-	 template<typename Type> class Allocator>
-class hash_table<Descriptor, Allocator, true>
-{
-  typedef typename Descriptor::value_type value_type;
-  typedef typename Descriptor::compare_type compare_type;
-
-public:
-  explicit hash_table (size_t, bool ggc = false);
+  explicit hash_table (size_t, bool ggc = false, bool gather_mem_stats = true,
+		       mem_alloc_origin origin = HASH_TABLE
+		       CXX_MEM_STAT_INFO);
   ~hash_table ();
 
   /* Create a hash_table in gc memory.  */
 
   static hash_table *
-  create_ggc (size_t n)
+  create_ggc (size_t n CXX_MEM_STAT_INFO)
   {
     hash_table *table = ggc_alloc<hash_table> ();
-    new (table) hash_table (n, true);
+    new (table) hash_table (n, true, true, HASH_TABLE PASS_MEM_STAT);
     return table;
   }
 
@@ -1245,7 +717,7 @@ private:
   template<typename T> friend void gt_pch_nx (hash_table<T> *,
 					      gt_pointer_operator, void *);
 
-  value_type *alloc_entries (size_t n) const;
+  value_type *alloc_entries (size_t n CXX_MEM_STAT_INFO) const;
   value_type *find_empty_slot_for_expand (hashval_t);
   void expand ();
   static bool is_deleted (value_type &v)
@@ -1292,25 +764,47 @@ private:
 
   /* if m_entries is stored in ggc memory.  */
   bool m_ggc;
+
+  /* If we should gather memory statistics for the table.  */
+  bool m_gather_mem_stats;
 };
 
+/* As mem-stats.h heavily utilizes hash maps (hash tables), we have to include
+   mem-stats.h after hash_table declaration.  */
+
+#include "mem-stats.h"
+#include "hash-map.h"
+#include "vec.h"
+
+extern mem_alloc_description<mem_usage> hash_table_usage;
+
+/* Support function for statistics.  */
+extern void dump_hash_table_loc_statistics (void);
+
 template<typename Descriptor, template<typename Type> class Allocator>
-hash_table<Descriptor, Allocator, true>::hash_table (size_t size, bool ggc) :
+hash_table<Descriptor, Allocator>::hash_table (size_t size, bool ggc, bool
+					       gather_mem_stats,
+					       mem_alloc_origin origin
+					       MEM_STAT_DECL) :
   m_n_elements (0), m_n_deleted (0), m_searches (0), m_collisions (0),
-  m_ggc (ggc)
+  m_ggc (ggc), m_gather_mem_stats (gather_mem_stats)
 {
   unsigned int size_prime_index;
 
   size_prime_index = hash_table_higher_prime_index (size);
   size = prime_tab[size_prime_index].prime;
 
-  m_entries = alloc_entries (size);
+  if (m_gather_mem_stats)
+    hash_table_usage.register_descriptor (this, origin, ggc
+					  FINAL_PASS_MEM_STAT);
+
+  m_entries = alloc_entries (size PASS_MEM_STAT);
   m_size = size;
   m_size_prime_index = size_prime_index;
 }
 
 template<typename Descriptor, template<typename Type> class Allocator>
-hash_table<Descriptor, Allocator, true>::~hash_table ()
+hash_table<Descriptor, Allocator>::~hash_table ()
 {
   for (size_t i = m_size - 1; i < m_size; i--)
     if (!is_empty (m_entries[i]) && !is_deleted (m_entries[i]))
@@ -1320,20 +814,28 @@ hash_table<Descriptor, Allocator, true>::~hash_table ()
     Allocator <value_type> ::data_free (m_entries);
   else
     ggc_free (m_entries);
+
+  if (m_gather_mem_stats)
+    hash_table_usage.release_instance_overhead (this,
+						sizeof (value_type) * m_size,
+						true);
 }
 
 /* This function returns an array of empty hash table elements.  */
 
 template<typename Descriptor, template<typename Type> class Allocator>
-inline typename hash_table<Descriptor, Allocator, true>::value_type *
-hash_table<Descriptor, Allocator, true>::alloc_entries (size_t n) const
+inline typename hash_table<Descriptor, Allocator>::value_type *
+hash_table<Descriptor, Allocator>::alloc_entries (size_t n MEM_STAT_DECL) const
 {
   value_type *nentries;
+
+  if (m_gather_mem_stats)
+    hash_table_usage.register_instance_overhead (sizeof (value_type) * n, this);
 
   if (!m_ggc)
     nentries = Allocator <value_type> ::data_alloc (n);
   else
-    nentries = ::ggc_cleared_vec_alloc<value_type> (n);
+    nentries = ::ggc_cleared_vec_alloc<value_type> (n PASS_MEM_STAT);
 
   gcc_assert (nentries != NULL);
   for (size_t i = 0; i < n; i++)
@@ -1350,9 +852,8 @@ hash_table<Descriptor, Allocator, true>::alloc_entries (size_t n) const
    HASH is the hash value for the element to be inserted.  */
 
 template<typename Descriptor, template<typename Type> class Allocator>
-typename hash_table<Descriptor, Allocator, true>::value_type *
-hash_table<Descriptor, Allocator, true>
-::find_empty_slot_for_expand (hashval_t hash)
+typename hash_table<Descriptor, Allocator>::value_type *
+hash_table<Descriptor, Allocator>::find_empty_slot_for_expand (hashval_t hash)
 {
   hashval_t index = hash_table_mod1 (hash, m_size_prime_index);
   size_t size = m_size;
@@ -1390,7 +891,7 @@ hash_table<Descriptor, Allocator, true>
 
 	  template<typename Descriptor, template<typename Type> class Allocator>
 void
-hash_table<Descriptor, Allocator, true>::expand ()
+hash_table<Descriptor, Allocator>::expand ()
 {
   value_type *oentries = m_entries;
   unsigned int oindex = m_size_prime_index;
@@ -1414,6 +915,11 @@ hash_table<Descriptor, Allocator, true>::expand ()
     }
 
   value_type *nentries = alloc_entries (nsize);
+
+  if (m_gather_mem_stats)
+    hash_table_usage.release_instance_overhead (this, sizeof (value_type)
+						    * osize);
+
   m_entries = nentries;
   m_size = nsize;
   m_size_prime_index = nindex;
@@ -1444,7 +950,7 @@ hash_table<Descriptor, Allocator, true>::expand ()
 
 template<typename Descriptor, template<typename Type> class Allocator>
 void
-hash_table<Descriptor, Allocator, true>::empty ()
+hash_table<Descriptor, Allocator>::empty ()
 {
   size_t size = m_size;
   value_type *entries = m_entries;
@@ -1481,7 +987,7 @@ hash_table<Descriptor, Allocator, true>::empty ()
 
 template<typename Descriptor, template<typename Type> class Allocator>
 void
-hash_table<Descriptor, Allocator, true>::clear_slot (value_type *slot)
+hash_table<Descriptor, Allocator>::clear_slot (value_type *slot)
 {
   gcc_checking_assert (!(slot < m_entries || slot >= m_entries + size ()
 		         || is_empty (*slot) || is_deleted (*slot)));
@@ -1497,8 +1003,8 @@ hash_table<Descriptor, Allocator, true>::clear_slot (value_type *slot)
    be used to insert or delete an element. */
 
 template<typename Descriptor, template<typename Type> class Allocator>
-typename hash_table<Descriptor, Allocator, true>::value_type &
-hash_table<Descriptor, Allocator, true>
+typename hash_table<Descriptor, Allocator>::value_type &
+hash_table<Descriptor, Allocator>
 ::find_with_hash (const compare_type &comparable, hashval_t hash)
 {
   m_searches++;
@@ -1534,8 +1040,8 @@ hash_table<Descriptor, Allocator, true>
    entry, NULL may be returned if memory allocation fails. */
 
 template<typename Descriptor, template<typename Type> class Allocator>
-typename hash_table<Descriptor, Allocator, true>::value_type *
-hash_table<Descriptor, Allocator, true>
+typename hash_table<Descriptor, Allocator>::value_type *
+hash_table<Descriptor, Allocator>
 ::find_slot_with_hash (const compare_type &comparable, hashval_t hash,
 		       enum insert_option insert)
 {
@@ -1596,7 +1102,7 @@ hash_table<Descriptor, Allocator, true>
 
 template<typename Descriptor, template<typename Type> class Allocator>
 void
-hash_table<Descriptor, Allocator, true>
+hash_table<Descriptor, Allocator>
 ::remove_elt_with_hash (const compare_type &comparable, hashval_t hash)
 {
   value_type *slot = find_slot_with_hash (comparable, hash, NO_INSERT);
@@ -1616,11 +1122,11 @@ hash_table<Descriptor, Allocator, true>
 template<typename Descriptor,
 	  template<typename Type> class Allocator>
 template<typename Argument,
-	  int (*Callback) (typename hash_table<Descriptor, Allocator,
-					       true>::value_type *slot,
-			   Argument argument)>
+	  int (*Callback)
+     (typename hash_table<Descriptor, Allocator>::value_type *slot,
+      Argument argument)>
 void
-hash_table<Descriptor, Allocator, true>::traverse_noresize (Argument argument)
+hash_table<Descriptor, Allocator>::traverse_noresize (Argument argument)
 {
   value_type *slot = m_entries;
   value_type *limit = slot + size ();
@@ -1642,11 +1148,11 @@ hash_table<Descriptor, Allocator, true>::traverse_noresize (Argument argument)
 template <typename Descriptor,
 	  template <typename Type> class Allocator>
 template <typename Argument,
-	  int (*Callback) (typename hash_table<Descriptor, Allocator,
-					       true>::value_type *slot,
-			   Argument argument)>
+	  int (*Callback)
+     (typename hash_table<Descriptor, Allocator>::value_type *slot,
+      Argument argument)>
 void
-hash_table<Descriptor, Allocator, true>::traverse (Argument argument)
+hash_table<Descriptor, Allocator>::traverse (Argument argument)
 {
   size_t size = m_size;
   if (elements () * 8 < size && size > 32)
@@ -1659,7 +1165,7 @@ hash_table<Descriptor, Allocator, true>::traverse (Argument argument)
 
 template<typename Descriptor, template<typename Type> class Allocator>
 void
-hash_table<Descriptor, Allocator, true>::iterator::slide ()
+hash_table<Descriptor, Allocator>::iterator::slide ()
 {
   for ( ; m_slot < m_limit; ++m_slot )
     {
@@ -1674,8 +1180,8 @@ hash_table<Descriptor, Allocator, true>::iterator::slide ()
 /* Bump the iterator.  */
 
 template<typename Descriptor, template<typename Type> class Allocator>
-inline typename hash_table<Descriptor, Allocator, true>::iterator &
-hash_table<Descriptor, Allocator, true>::iterator::operator ++ ()
+inline typename hash_table<Descriptor, Allocator>::iterator &
+hash_table<Descriptor, Allocator>::iterator::operator ++ ()
 {
   ++m_slot;
   slide ();

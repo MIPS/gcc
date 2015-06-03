@@ -1,5 +1,5 @@
 /* LTO partitioning logic routines.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,6 +26,7 @@ struct ltrans_partition_def
   lto_symtab_encoder_t encoder;
   const char * name;
   int insns;
+  int symbols;
   hash_set<symtab_node *> *initializers_visited;
 };
 

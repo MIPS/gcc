@@ -1,5 +1,5 @@
 /* Reassociation for trees.
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
 This file is part of GCC.
@@ -25,15 +25,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
-#include "tree.h"
-#include "stor-layout.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
-#include "hard-reg-set.h"
+#include "vec.h"
+#include "double-int.h"
 #include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "stor-layout.h"
+#include "predict.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -59,6 +64,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
+#include "hashtab.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
@@ -67,7 +85,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "langhooks.h"
 #include "cfgloop.h"
-#include "flags.h"
 #include "target.h"
 #include "params.h"
 #include "diagnostic-core.h"
@@ -218,7 +235,8 @@ typedef struct operand_entry
   unsigned int count;
 } *operand_entry_t;
 
-static alloc_pool operand_entry_pool;
+static pool_allocator<operand_entry> operand_entry_pool ("operand entry pool",
+							 30);
 
 /* This is used to assign a unique ID to each struct operand_entry
    so that qsort results are identical on different hosts.  */
@@ -400,10 +418,6 @@ insert_operand_rank (tree e, long rank)
 static long
 get_rank (tree e)
 {
-  /* Constants have rank 0.  */
-  if (is_gimple_min_invariant (e))
-    return 0;
-
   /* SSA_NAME's have the rank of the expression they are the result
      of.
      For globals and uninitialized values, the rank is 0.
@@ -443,9 +457,9 @@ get_rank (tree e)
 
   if (TREE_CODE (e) == SSA_NAME)
     {
+      ssa_op_iter iter;
       gimple stmt;
       long rank;
-      int i, n;
       tree op;
 
       if (SSA_NAME_IS_DEFAULT_DEF (e))
@@ -455,8 +469,7 @@ get_rank (tree e)
       if (gimple_code (stmt) == GIMPLE_PHI)
 	return phi_rank (stmt);
 
-      if (!is_gimple_assign (stmt)
-	  || gimple_vdef (stmt))
+      if (!is_gimple_assign (stmt))
 	return bb_rank[gimple_bb (stmt)->index];
 
       /* If we already have a rank for this expression, use that.  */
@@ -467,34 +480,12 @@ get_rank (tree e)
       /* Otherwise, find the maximum rank for the operands.  As an
 	 exception, remove the bias from loop-carried phis when propagating
 	 the rank so that dependent operations are not also biased.  */
+      /* Simply walk over all SSA uses - this takes advatage of the
+         fact that non-SSA operands are is_gimple_min_invariant and
+	 thus have rank 0.  */
       rank = 0;
-      if (gimple_assign_single_p (stmt))
-	{
-	  tree rhs = gimple_assign_rhs1 (stmt);
-	  n = TREE_OPERAND_LENGTH (rhs);
-	  if (n == 0)
-	    rank = propagate_rank (rank, rhs);
-	  else
-	    {
-	      for (i = 0; i < n; i++)
-		{
-		  op = TREE_OPERAND (rhs, i);
-
-		  if (op != NULL_TREE)
-		    rank = propagate_rank (rank, op);
-		}
-	    }
-	}
-      else
-	{
-	  n = gimple_num_ops (stmt);
-	  for (i = 1; i < n; i++)
-	    {
-	      op = gimple_op (stmt, i);
-	      gcc_assert (op);
-	      rank = propagate_rank (rank, op);
-	    }
-	}
+      FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
+	rank = propagate_rank (rank, op);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -508,7 +499,7 @@ get_rank (tree e)
       return (rank + 1);
     }
 
-  /* Globals, etc,  are rank 0 */
+  /* Constants, globals, etc., are rank 0 */
   return 0;
 }
 
@@ -602,7 +593,7 @@ sort_by_operand_rank (const void *pa, const void *pb)
 static void
 add_to_ops_vec (vec<operand_entry_t> *ops, tree op)
 {
-  operand_entry_t oe = (operand_entry_t) pool_alloc (operand_entry_pool);
+  operand_entry_t oe = operand_entry_pool.allocate ();
 
   oe->op = op;
   oe->rank = get_rank (op);
@@ -618,7 +609,7 @@ static void
 add_repeat_to_ops_vec (vec<operand_entry_t> *ops, tree op,
 		       HOST_WIDE_INT repeat)
 {
-  operand_entry_t oe = (operand_entry_t) pool_alloc (operand_entry_pool);
+  operand_entry_t oe = operand_entry_pool.allocate ();
 
   oe->op = op;
   oe->rank = get_rank (op);
@@ -1044,7 +1035,6 @@ struct oecount_hasher
 {
   typedef int value_type;
   typedef int compare_type;
-  typedef int store_values_directly;
   static inline hashval_t hash (const value_type &);
   static inline bool equal (const value_type &, const compare_type &);
   static bool is_deleted (int &v) { return v == 1; }
@@ -2160,10 +2150,18 @@ update_range_test (struct range_entry *range, struct range_entry *otherrange,
 
   tem = fold_convert_loc (loc, optype, tem);
   gsi = gsi_for_stmt (stmt);
+  unsigned int uid = gimple_uid (stmt);
   /* In rare cases range->exp can be equal to lhs of stmt.
      In that case we have to insert after the stmt rather then before
-     it.  */
-  if (op == range->exp)
+     it.  If stmt is a PHI, insert it at the start of the basic block.  */
+  if (op != range->exp)
+    {
+      gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
+      tem = force_gimple_operand_gsi (&gsi, tem, true, NULL_TREE, true,
+				      GSI_SAME_STMT);
+      gsi_prev (&gsi);
+    }
+  else if (gimple_code (stmt) != GIMPLE_PHI)
     {
       gsi_insert_seq_after (&gsi, seq, GSI_CONTINUE_LINKING);
       tem = force_gimple_operand_gsi (&gsi, tem, true, NULL_TREE, false,
@@ -2171,16 +2169,32 @@ update_range_test (struct range_entry *range, struct range_entry *otherrange,
     }
   else
     {
+      gsi = gsi_after_labels (gimple_bb (stmt));
+      if (!gsi_end_p (gsi))
+	uid = gimple_uid (gsi_stmt (gsi));
+      else
+	{
+	  gsi = gsi_start_bb (gimple_bb (stmt));
+	  uid = 1;
+	  while (!gsi_end_p (gsi))
+	    {
+	      uid = gimple_uid (gsi_stmt (gsi));
+	      gsi_next (&gsi);
+	    }
+	}
       gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
       tem = force_gimple_operand_gsi (&gsi, tem, true, NULL_TREE, true,
 				      GSI_SAME_STMT);
-      gsi_prev (&gsi);
+      if (gsi_end_p (gsi))
+	gsi = gsi_last_bb (gimple_bb (stmt));
+      else
+	gsi_prev (&gsi);
     }
   for (; !gsi_end_p (gsi); gsi_prev (&gsi))
     if (gimple_uid (gsi_stmt (gsi)))
       break;
     else
-      gimple_set_uid (gsi_stmt (gsi), gimple_uid (stmt));
+      gimple_set_uid (gsi_stmt (gsi), uid);
 
   oe->op = tem;
   range->exp = exp;
@@ -2398,26 +2412,25 @@ extract_bit_test_mask (tree exp, int prec, tree totallow, tree low, tree high,
 	      && TREE_CODE (exp) == PLUS_EXPR
 	      && TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST)
 	    {
+	      tree ret = TREE_OPERAND (exp, 0);
+	      STRIP_NOPS (ret);
 	      widest_int bias
 	        = wi::neg (wi::sext (wi::to_widest (TREE_OPERAND (exp, 1)),
 				     TYPE_PRECISION (TREE_TYPE (low))));
-	      tree tbias = wide_int_to_tree (TREE_TYPE (low), bias);
+	      tree tbias = wide_int_to_tree (TREE_TYPE (ret), bias);
 	      if (totallowp)
 		{
 		  *totallowp = tbias;
-		  exp = TREE_OPERAND (exp, 0);
-		  STRIP_NOPS (exp);
-		  return exp;
+		  return ret;
 		}
 	      else if (!tree_int_cst_lt (totallow, tbias))
 		return NULL_TREE;
+	      bias = wi::to_widest (tbias);
 	      bias -= wi::to_widest (totallow);
 	      if (wi::ges_p (bias, 0) && wi::lts_p (bias, prec - max))
 		{
 		  *mask = wi::lshift (*mask, bias);
-		  exp = TREE_OPERAND (exp, 0);
-		  STRIP_NOPS (exp);
-		  return exp;
+		  return ret;
 		}
 	    }
 	}
@@ -2951,7 +2964,7 @@ get_ops (tree var, enum tree_code code, vec<operand_entry_t> *ops,
 	&& !get_ops (rhs[i], code, ops, loop)
 	&& has_single_use (rhs[i]))
       {
-	operand_entry_t oe = (operand_entry_t) pool_alloc (operand_entry_pool);
+	operand_entry_t oe = operand_entry_pool.allocate ();
 
 	oe->op = rhs[i];
 	oe->rank = code;
@@ -3184,8 +3197,7 @@ maybe_optimize_range_tests (gimple stmt)
 	      && has_single_use (rhs))
 	    {
 	      /* Otherwise, push the _234 range test itself.  */
-	      operand_entry_t oe
-		= (operand_entry_t) pool_alloc (operand_entry_pool);
+	      operand_entry_t oe = operand_entry_pool.allocate ();
 
 	      oe->op = rhs;
 	      oe->rank = code;
@@ -3217,8 +3229,7 @@ maybe_optimize_range_tests (gimple stmt)
 			   loop_containing_stmt (stmt))))
 	{
 	  /* Or push the GIMPLE_COND stmt itself.  */
-	  operand_entry_t oe
-	    = (operand_entry_t) pool_alloc (operand_entry_pool);
+	  operand_entry_t oe = operand_entry_pool.allocate ();
 
 	  oe->op = NULL;
 	  oe->rank = (e->flags & EDGE_TRUE_VALUE)
@@ -3491,7 +3502,7 @@ rewrite_expr_tree (gimple stmt, unsigned int opindex,
 
   /* The final recursion case for this function is that you have
      exactly two operations left.
-     If we had one exactly one op in the entire list to start with, we
+     If we had exactly one op in the entire list to start with, we
      would have never called this function, and the tail recursion
      rewrites them one at a time.  */
   if (opindex + 2 == ops.length ())
@@ -3512,7 +3523,11 @@ rewrite_expr_tree (gimple stmt, unsigned int opindex,
 	      print_gimple_stmt (dump_file, stmt, 0, 0);
 	    }
 
-	  if (changed)
+	  /* Even when changed is false, reassociation could have e.g. removed
+	     some redundant operations, so unless we are just swapping the
+	     arguments or unless there is no change at all (then we just
+	     return lhs), force creation of a new SSA_NAME.  */
+	  if (changed || ((rhs1 != oe2->op || rhs2 != oe1->op) && opindex))
 	    {
 	      gimple insert_point = find_insert_point (stmt, oe1->op, oe2->op);
 	      lhs = make_ssa_name (TREE_TYPE (lhs));
@@ -4074,8 +4089,6 @@ linearize_expr_tree (vec<operand_entry_t> *ops, gimple stmt,
 
   if (!binlhsisreassoc)
     {
-      tree temp;
-
       /* If this is not a associative operation like division, give up.  */
       if (!is_associative)
 	{
@@ -4127,9 +4140,7 @@ linearize_expr_tree (vec<operand_entry_t> *ops, gimple stmt,
 
       /* We want to make it so the lhs is always the reassociative op,
 	 so swap.  */
-      temp = binlhs;
-      binlhs = binrhs;
-      binrhs = temp;
+      std::swap (binlhs, binrhs);
     }
   else if (binrhsisreassoc)
     {
@@ -4506,7 +4517,7 @@ attempt_builtin_powi (gimple stmt, vec<operand_entry_t> *ops)
 		      if (elt < vec_len - 1)
 			fputs (" * ", dump_file);
 		    }
-		  fprintf (dump_file, ")^"HOST_WIDE_INT_PRINT_DEC"\n",
+		  fprintf (dump_file, ")^" HOST_WIDE_INT_PRINT_DEC"\n",
 			   power);
 		}
 	    }
@@ -4540,7 +4551,7 @@ attempt_builtin_powi (gimple stmt, vec<operand_entry_t> *ops)
 		  if (elt < vec_len - 1)
 		    fputs (" * ", dump_file);
 		}
-	      fprintf (dump_file, ")^"HOST_WIDE_INT_PRINT_DEC"\n", power);
+	      fprintf (dump_file, ")^" HOST_WIDE_INT_PRINT_DEC"\n", power);
 	    }
 
 	  reassociate_stats.pows_created++;
@@ -4996,8 +5007,6 @@ init_reassoc (void)
 
   memset (&reassociate_stats, 0, sizeof (reassociate_stats));
 
-  operand_entry_pool = create_alloc_pool ("operand entry pool",
-					  sizeof (struct operand_entry), 30);
   next_operand_entry_id = 0;
 
   /* Reverse RPO (Reverse Post Order) will give us something where
@@ -5046,7 +5055,7 @@ fini_reassoc (void)
 			    reassociate_stats.pows_created);
 
   delete operand_rank;
-  free_alloc_pool (operand_entry_pool);
+  operand_entry_pool.release ();
   free (bb_rank);
   plus_negates.release ();
   free_dominance_info (CDI_POST_DOMINATORS);

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -923,6 +923,12 @@ package body Rtsfind is
          end loop;
       end Save_Private_Visibility;
 
+      --  Local variables
+
+      GM : constant Ghost_Mode_Type := Ghost_Mode;
+      --  Save the current Ghost mode in effect to ensure a clean environment
+      --  when analyzing the unit.
+
    --  Start of processing for Load_RTU
 
    begin
@@ -931,6 +937,10 @@ package body Rtsfind is
       if Present (U.Entity) then
          return;
       end if;
+
+      --  Provide a clean environment for the unit
+
+      Ghost_Mode := None;
 
       --  Note if secondary stack is used
 
@@ -969,7 +979,7 @@ package body Rtsfind is
 
       if U.Unum = No_Unit then
          Load_Fail ("not found", U_Id, Id);
-      elsif Fatal_Error (U.Unum) then
+      elsif Fatal_Error (U.Unum) = Error_Detected then
          Load_Fail ("had parser errors", U_Id, Id);
       end if;
 
@@ -1015,7 +1025,7 @@ package body Rtsfind is
                Semantics (Cunit (U.Unum));
                Restore_Private_Visibility;
 
-               if Fatal_Error (U.Unum) then
+               if Fatal_Error (U.Unum) = Error_Detected then
                   Load_Fail ("had semantic errors", U_Id, Id);
                end if;
             end if;
@@ -1032,6 +1042,10 @@ package body Rtsfind is
       if Use_Setting then
          Set_Is_Potentially_Use_Visible (U.Entity, True);
       end if;
+
+      --  Restore the original Ghost mode now that analysis has taken place
+
+      Ghost_Mode := GM;
    end Load_RTU;
 
    --------------------
@@ -1309,7 +1323,7 @@ package body Rtsfind is
            RE_Str (RE_Str'First + 3 .. RE_Str'Last);
 
          Nam := Name_Find;
-         Ent := Entity_Id (Get_Name_Table_Info (Nam));
+         Ent := Entity_Id (Get_Name_Table_Int (Nam));
 
          Name_Len := Save_Nam'Length;
          Name_Buffer (1 .. Name_Len) := Save_Nam;

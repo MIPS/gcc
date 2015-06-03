@@ -1,5 +1,5 @@
 /* toplev.h - Various declarations for functions found in toplev.c
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,7 +28,8 @@ extern unsigned int save_decoded_options_count;
 class toplev
 {
 public:
-  toplev (bool use_TV_TOTAL);
+  toplev (bool use_TV_TOTAL,
+	  bool init_signals);
   ~toplev ();
 
   int main (int argc, char **argv);
@@ -40,6 +41,7 @@ private:
   void start_timevars ();
 
   bool m_use_TV_TOTAL;
+  bool m_init_signals;
 };
 
 extern void rest_of_decl_compilation (tree, int, int);
@@ -78,7 +80,7 @@ extern bool user_defined_section_attribute;
 /* See toplev.c.  */
 extern int flag_rerun_cse_after_global_opts;
 
-extern void print_version (FILE *, const char *);
+extern void print_version (FILE *, const char *, bool);
 
 /* The hashtable, so that the C front ends can pass it to cpplib.  */
 extern struct ht *ident_hash;

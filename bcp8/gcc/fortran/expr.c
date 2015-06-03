@@ -1,5 +1,5 @@
 /* Routines for manipulation of expression nodes.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1270,12 +1270,23 @@ depart:
 static gfc_constructor *
 find_component_ref (gfc_constructor_base base, gfc_ref *ref)
 {
-  gfc_component *comp;
-  gfc_component *pick;
+  gfc_component *pick = ref->u.c.component;
   gfc_constructor *c = gfc_constructor_first (base);
 
-  comp = ref->u.c.sym->components;
-  pick = ref->u.c.component;
+  gfc_symbol *dt = ref->u.c.sym;
+  int ext = dt->attr.extension;
+
+  /* For extended types, check if the desired component is in one of the
+   * parent types.  */
+  while (ext > 0 && gfc_find_component (dt->components->ts.u.derived,
+					pick->name, true, true))
+    {
+      dt = dt->components->ts.u.derived;
+      c = gfc_constructor_first (c->expr->value.constructor);
+      ext--;
+    }
+
+  gfc_component *comp = dt->components;
   while (comp != pick)
     {
       comp = comp->next;
@@ -2201,7 +2212,7 @@ check_alloc_comp_init (gfc_expr *e)
        ctor = gfc_constructor_first (e->value.constructor);
        comp; comp = comp->next, ctor = gfc_constructor_next (ctor))
     {
-      if (comp->attr.allocatable
+      if (comp->attr.allocatable && ctor->expr
           && ctor->expr->expr_type != EXPR_NULL)
         {
 	  gfc_error ("Invalid initialization expression for ALLOCATABLE "
@@ -2286,8 +2297,8 @@ check_inquiry (gfc_expr *e, int not_restricted)
 	if (strcmp (functions[i], name) == 0)
 	  break;
 
-	if (functions[i] == NULL)
-	  return MATCH_ERROR;
+      if (functions[i] == NULL)
+	return MATCH_ERROR;
     }
 
   /* At this point we have an inquiry function with a variable argument.  The
@@ -2830,6 +2841,18 @@ check_references (gfc_ref* ref, bool (*checker) (gfc_expr*))
   return check_references (ref->next, checker);
 }
 
+/*  Return true if ns is a parent of the current ns.  */
+
+static bool
+is_parent_of_current_ns (gfc_namespace *ns)
+{
+  gfc_namespace *p;
+  for (p = gfc_current_ns->parent; p; p = p->parent)
+    if (ns == p)
+      return true;
+
+  return false;
+}
 
 /* Verify that an expression is a restricted expression.  Like its
    cousin check_init_expr(), an error message is generated if we
@@ -2918,9 +2941,7 @@ check_restricted (gfc_expr *e)
 	    || sym->attr.dummy
 	    || sym->attr.implied_index
 	    || sym->attr.flavor == FL_PARAMETER
-	    || (sym->ns && sym->ns == gfc_current_ns->parent)
-	    || (sym->ns && gfc_current_ns->parent
-		  && sym->ns == gfc_current_ns->parent->parent)
+	    || is_parent_of_current_ns (sym->ns)
 	    || (sym->ns->proc_name != NULL
 		  && sym->ns->proc_name->attr.flavor == FL_MODULE)
 	    || (gfc_is_formal_arg () && (sym->ns == gfc_current_ns)))
@@ -3107,19 +3128,22 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 	bad_proc = true;
 
       /* (ii) The assignment is in the main program; or  */
-      if (gfc_current_ns->proc_name->attr.is_main_program)
+      if (gfc_current_ns->proc_name
+	  && gfc_current_ns->proc_name->attr.is_main_program)
 	bad_proc = true;
 
       /* (iii) A module or internal procedure...  */
-      if ((gfc_current_ns->proc_name->attr.proc == PROC_INTERNAL
-	   || gfc_current_ns->proc_name->attr.proc == PROC_MODULE)
+      if (gfc_current_ns->proc_name
+	  && (gfc_current_ns->proc_name->attr.proc == PROC_INTERNAL
+	      || gfc_current_ns->proc_name->attr.proc == PROC_MODULE)
 	  && gfc_current_ns->parent
 	  && (!(gfc_current_ns->parent->proc_name->attr.function
 		|| gfc_current_ns->parent->proc_name->attr.subroutine)
 	      || gfc_current_ns->parent->proc_name->attr.is_main_program))
 	{
 	  /* ... that is not a function...  */
-	  if (!gfc_current_ns->proc_name->attr.function)
+	  if (gfc_current_ns->proc_name
+	      && !gfc_current_ns->proc_name->attr.function)
 	    bad_proc = true;
 
 	  /* ... or is not an entry and has a different name.  */
@@ -4041,6 +4065,7 @@ gfc_expr *
 gfc_lval_expr_from_sym (gfc_symbol *sym)
 {
   gfc_expr *lval;
+  gfc_array_spec *as;
   lval = gfc_get_expr ();
   lval->expr_type = EXPR_VARIABLE;
   lval->where = sym->declared_at;
@@ -4048,10 +4073,10 @@ gfc_lval_expr_from_sym (gfc_symbol *sym)
   lval->symtree = gfc_find_symtree (sym->ns->sym_root, sym->name);
 
   /* It will always be a full array.  */
-  lval->rank = sym->as ? sym->as->rank : 0;
+  as = IS_CLASS_ARRAY (sym) ? CLASS_DATA (sym)->as : sym->as;
+  lval->rank = as ? as->rank : 0;
   if (lval->rank)
-    gfc_add_full_array_ref (lval, sym->ts.type == BT_CLASS ?
-			    CLASS_DATA (sym)->as : sym->as);
+    gfc_add_full_array_ref (lval, as);
   return lval;
 }
 
@@ -4290,6 +4315,40 @@ bool
 gfc_is_proc_ptr_comp (gfc_expr *expr)
 {
   return (gfc_get_proc_ptr_comp (expr) != NULL);
+}
+
+
+/* Determine if an expression is a function with an allocatable class scalar
+   result.  */
+bool
+gfc_is_alloc_class_scalar_function (gfc_expr *expr)
+{
+  if (expr->expr_type == EXPR_FUNCTION
+      && expr->value.function.esym
+      && expr->value.function.esym->result
+      && expr->value.function.esym->result->ts.type == BT_CLASS
+      && !CLASS_DATA (expr->value.function.esym->result)->attr.dimension
+      && CLASS_DATA (expr->value.function.esym->result)->attr.allocatable)
+    return true;
+
+  return false;
+}
+
+
+/* Determine if an expression is a function with an allocatable class array
+   result.  */
+bool
+gfc_is_alloc_class_array_function (gfc_expr *expr)
+{
+  if (expr->expr_type == EXPR_FUNCTION
+      && expr->value.function.esym
+      && expr->value.function.esym->result
+      && expr->value.function.esym->result->ts.type == BT_CLASS
+      && CLASS_DATA (expr->value.function.esym->result)->attr.dimension
+      && CLASS_DATA (expr->value.function.esym->result)->attr.allocatable)
+    return true;
+
+  return false;
 }
 
 
@@ -4935,7 +4994,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       if (!gfc_check_vardef_context (assoc->target, pointer, false, false, NULL))
 	{
 	  if (context)
-	    gfc_error_1 ("Associate-name '%s' can not appear in a variable"
+	    gfc_error ("Associate-name %qs can not appear in a variable"
 		       " definition context (%s) at %L because its target"
 		       " at %L can not, either",
 		       name, context, &e->where,
@@ -4977,12 +5036,12 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 			  if (gfc_dep_compare_expr (ec, en) == 0)
 			    {
 			      if (context)
-				gfc_error_now_1 ("Elements with the same value "
-						 "at %L and %L in vector "
-						 "subscript in a variable "
-						 "definition context (%s)",
-						 &(ec->where), &(en->where),
-						 context);
+				gfc_error_now ("Elements with the same value "
+					       "at %L and %L in vector "
+					       "subscript in a variable "
+					       "definition context (%s)",
+					       &(ec->where), &(en->where),
+					       context);
 			      return false;
 			    }
 			}

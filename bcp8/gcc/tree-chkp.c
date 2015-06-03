@@ -1,5 +1,5 @@
 /* Pointer Bounds Checker insrumentation pass.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Ilya Enkovich (ilya.enkovich@intel.com)
 
 This file is part of GCC.
@@ -21,10 +21,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree-core.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
-#include "tree.h"
 #include "target.h"
 #include "tree-iterator.h"
 #include "tree-cfg.h"
@@ -55,6 +65,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "gimplify-me.h"
 #include "print-tree.h"
+#include "hashtab.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-ssa-propagate.h"
 #include "gimple-fold.h"
@@ -65,8 +91,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "lto-streamer.h"
 #include "cgraph.h"
-#include "ipa-chkp.h"
-#include "params.h"
 #include "ipa-chkp.h"
 #include "params.h"
 
@@ -474,6 +498,100 @@ chkp_expand_bounds_reset_for_mem (tree mem, tree ptr)
 
   expand_assignment (bnd, zero_bnd, false);
   expand_normal (bndstx);
+}
+
+/* Build retbnd call for returned value RETVAL.
+
+   If BNDVAL is not NULL then result is stored
+   in it.  Otherwise a temporary is created to
+   hold returned value.
+
+   GSI points to a position for a retbnd call
+   and is set to created stmt.
+
+   Cgraph edge is created for a new call if
+   UPDATE_EDGE is 1.
+
+   Obtained bounds are returned.  */
+tree
+chkp_insert_retbnd_call (tree bndval, tree retval,
+			 gimple_stmt_iterator *gsi)
+{
+  gimple call;
+
+  if (!bndval)
+    bndval = create_tmp_reg (pointer_bounds_type_node, "retbnd");
+
+  call = gimple_build_call (chkp_ret_bnd_fndecl, 1, retval);
+  gimple_call_set_lhs (call, bndval);
+  gsi_insert_after (gsi, call, GSI_CONTINUE_LINKING);
+
+  return bndval;
+}
+
+/* Build a GIMPLE_CALL identical to CALL but skipping bounds
+   arguments.  */
+
+gcall *
+chkp_copy_call_skip_bounds (gcall *call)
+{
+  bitmap bounds;
+  unsigned i;
+
+  bitmap_obstack_initialize (NULL);
+  bounds = BITMAP_ALLOC (NULL);
+
+  for (i = 0; i < gimple_call_num_args (call); i++)
+    if (POINTER_BOUNDS_P (gimple_call_arg (call, i)))
+      bitmap_set_bit (bounds, i);
+
+  if (!bitmap_empty_p (bounds))
+    call = gimple_call_copy_skip_args (call, bounds);
+  gimple_call_set_with_bounds (call, false);
+
+  BITMAP_FREE (bounds);
+  bitmap_obstack_release (NULL);
+
+  return call;
+}
+
+/* Redirect edge E to the correct node according to call_stmt.
+   Return 1 if bounds removal from call_stmt should be done
+   instead of redirection.  */
+
+bool
+chkp_redirect_edge (cgraph_edge *e)
+{
+  bool instrumented = false;
+  tree decl = e->callee->decl;
+
+  if (e->callee->instrumentation_clone
+      || chkp_function_instrumented_p (decl))
+    instrumented = true;
+
+  if (instrumented
+      && !gimple_call_with_bounds_p (e->call_stmt))
+    e->redirect_callee (cgraph_node::get_create (e->callee->orig_decl));
+  else if (!instrumented
+	   && gimple_call_with_bounds_p (e->call_stmt)
+	   && !chkp_gimple_call_builtin_p (e->call_stmt, BUILT_IN_CHKP_BNDCL)
+	   && !chkp_gimple_call_builtin_p (e->call_stmt, BUILT_IN_CHKP_BNDCU)
+	   && !chkp_gimple_call_builtin_p (e->call_stmt, BUILT_IN_CHKP_BNDSTX))
+    {
+      if (e->callee->instrumented_version)
+	e->redirect_callee (e->callee->instrumented_version);
+      else
+	{
+	  tree args = TYPE_ARG_TYPES (TREE_TYPE (decl));
+	  /* Avoid bounds removal if all args will be removed.  */
+	  if (!args || TREE_VALUE (args) != void_type_node)
+	    return true;
+	  else
+	    gimple_call_set_with_bounds (e->call_stmt, false);
+	}
+    }
+
+  return false;
 }
 
 /* Mark statement S to not be instrumented.  */
@@ -1018,7 +1136,8 @@ static basic_block
 chkp_get_entry_block (void)
 {
   if (!entry_block)
-    entry_block = split_block (ENTRY_BLOCK_PTR_FOR_FN (cfun), NULL)->dest;
+    entry_block
+      = split_block_after_labels (ENTRY_BLOCK_PTR_FOR_FN (cfun))->dest;
 
   return entry_block;
 }
@@ -1043,7 +1162,20 @@ chkp_get_bounds_var (tree ptr_var)
   return bnd_var;
 }
 
+/* If BND is an abnormal bounds copy, return a copied value.
+   Otherwise return BND.  */
+static tree
+chkp_get_orginal_bounds_for_abnormal_copy (tree bnd)
+{
+  if (bitmap_bit_p (chkp_abnormal_copies, SSA_NAME_VERSION (bnd)))
+    {
+      gimple bnd_def = SSA_NAME_DEF_STMT (bnd);
+      gcc_checking_assert (gimple_code (bnd_def) == GIMPLE_ASSIGN);
+      bnd = gimple_assign_rhs1 (bnd_def);
+    }
 
+  return bnd;
+}
 
 /* Register bounds BND for object PTR in global bounds table.
    A copy of bounds may be created for abnormal ssa names.
@@ -1087,11 +1219,7 @@ chkp_maybe_copy_and_register_bounds (tree ptr, tree bnd)
       /* For abnormal copies we may just find original
 	 bounds and use them.  */
       if (!abnormal_ptr && !SSA_NAME_IS_DEFAULT_DEF (bnd))
-	{
-	  gimple bnd_def = SSA_NAME_DEF_STMT (bnd);
-	  gcc_checking_assert (gimple_code (bnd_def) == GIMPLE_ASSIGN);
-	  bnd = gimple_assign_rhs1 (bnd_def);
-	}
+	bnd = chkp_get_orginal_bounds_for_abnormal_copy (bnd);
       /* For undefined values we usually use none bounds
 	 value but in case of abnormal edge it may cause
 	 coalescing failures.  Use default definition of
@@ -1118,11 +1246,12 @@ chkp_maybe_copy_and_register_bounds (tree ptr, tree bnd)
 	  gimple_stmt_iterator gsi;
 
 	  if (bnd_var)
-	    copy = make_ssa_name (bnd_var, gimple_build_nop ());
+	    copy = make_ssa_name (bnd_var);
 	  else
 	    copy = make_temp_ssa_name (pointer_bounds_type_node,
-				       gimple_build_nop (),
+				       NULL,
 				       CHKP_BOUND_TMP_NAME);
+	  bnd = chkp_get_orginal_bounds_for_abnormal_copy (bnd);
 	  assign = gimple_build_assign (copy, bnd);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1244,7 +1373,8 @@ chkp_check_lower (tree addr, tree bounds,
   gimple check;
   tree node;
 
-  if (bounds == chkp_get_zero_bounds ())
+  if (!chkp_function_instrumented_p (current_function_decl)
+      && bounds == chkp_get_zero_bounds ())
     return;
 
   if (dirflag == integer_zero_node
@@ -1290,7 +1420,8 @@ chkp_check_upper (tree addr, tree bounds,
   gimple check;
   tree node;
 
-  if (bounds == chkp_get_zero_bounds ())
+  if (!chkp_function_instrumented_p (current_function_decl)
+      && bounds == chkp_get_zero_bounds ())
     return;
 
   if (dirflag == integer_zero_node
@@ -1478,7 +1609,7 @@ chkp_find_bounds_for_elem (tree elem, tree *all_bounds,
     {
       if (!all_bounds[offs / POINTER_SIZE])
 	{
-	  tree temp = make_temp_ssa_name (type, gimple_build_nop (), "");
+	  tree temp = make_temp_ssa_name (type, NULL, "");
 	  gimple assign = gimple_build_assign (temp, elem);
 	  gimple_stmt_iterator gsi;
 
@@ -1662,9 +1793,8 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_OBJECT_SIZE)
     return;
 
-  /* Do nothing for calls to legacy functions.  */
-  if (fndecl
-      && lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl)))
+  /* Do nothing for calls to not instrumentable functions.  */
+  if (fndecl && !chkp_instrumentable_p (fndecl))
     return;
 
   /* Ignore CHKP_INIT_PTR_BOUNDS, CHKP_NULL_PTR_BOUNDS
@@ -1813,6 +1943,7 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       new_call = gimple_build_call_vec (gimple_op (call, 1), new_args);
       gimple_call_set_lhs (new_call, gimple_call_lhs (call));
       gimple_call_copy_flags (new_call, call);
+      gimple_call_set_chain (new_call, gimple_call_chain (call));
     }
   new_args.release ();
 
@@ -1847,33 +1978,6 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   gimple_call_set_with_bounds (new_call, true);
 }
 
-/* Return constant static bounds var with specified LB and UB
-   if such var exists in varpool.  Return NULL otherwise.  */
-static tree
-chkp_find_const_bounds_var (HOST_WIDE_INT lb,
-			    HOST_WIDE_INT ub)
-{
-  tree val = targetm.chkp_make_bounds_constant (lb, ub);
-  struct varpool_node *node;
-
-  /* We expect bounds constant is represented as a complex value
-     of two pointer sized integers.  */
-  gcc_assert (TREE_CODE (val) == COMPLEX_CST);
-
-  FOR_EACH_VARIABLE (node)
-    if (POINTER_BOUNDS_P (node->decl)
-	&& TREE_READONLY (node->decl)
-	&& DECL_INITIAL (node->decl)
-	&& TREE_CODE (DECL_INITIAL (node->decl)) == COMPLEX_CST
-	&& tree_int_cst_equal (TREE_REALPART (DECL_INITIAL (node->decl)),
-			       TREE_REALPART (val))
-	&& tree_int_cst_equal (TREE_IMAGPART (DECL_INITIAL (node->decl)),
-			       TREE_IMAGPART (val)))
-      return node->decl;
-
-  return NULL;
-}
-
 /* Return constant static bounds var with specified bounds LB and UB.
    If such var does not exists then new var is created with specified NAME.  */
 static tree
@@ -1881,37 +1985,43 @@ chkp_make_static_const_bounds (HOST_WIDE_INT lb,
 			       HOST_WIDE_INT ub,
 			       const char *name)
 {
+  tree id = get_identifier (name);
   tree var;
+  varpool_node *node;
+  symtab_node *snode;
+
+  var  = build_decl (UNKNOWN_LOCATION, VAR_DECL, id,
+		     pointer_bounds_type_node);
+  TREE_STATIC (var) = 1;
+  TREE_PUBLIC (var) = 1;
 
   /* With LTO we may have constant bounds already in varpool.
      Try to find it.  */
-  var = chkp_find_const_bounds_var (lb, ub);
+  if ((snode = symtab_node::get_for_asmname (DECL_ASSEMBLER_NAME (var))))
+    {
+      /* We don't allow this symbol usage for non bounds.  */
+      if (snode->type != SYMTAB_VARIABLE
+	  || !POINTER_BOUNDS_P (snode->decl))
+	sorry ("-fcheck-pointer-bounds requires '%s' "
+	       "name for internal usage",
+	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (var)));
 
-  if (var)
-    return var;
+      return snode->decl;
+    }
 
-  var  = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-		     get_identifier (name), pointer_bounds_type_node);
-
-  TREE_PUBLIC (var) = 1;
   TREE_USED (var) = 1;
   TREE_READONLY (var) = 1;
-  TREE_STATIC (var) = 1;
   TREE_ADDRESSABLE (var) = 0;
   DECL_ARTIFICIAL (var) = 1;
   DECL_READ_P (var) = 1;
+  DECL_INITIAL (var) = targetm.chkp_make_bounds_constant (lb, ub);
+  make_decl_one_only (var, DECL_ASSEMBLER_NAME (var));
   /* We may use this symbol during ctors generation in chkp_finish_file
      when all symbols are emitted.  Force output to avoid undefined
      symbols in ctors.  */
-  if (!in_lto_p)
-    {
-      DECL_INITIAL (var) = targetm.chkp_make_bounds_constant (lb, ub);
-      DECL_COMDAT (var) = 1;
-      varpool_node::get_create (var)->set_comdat_group (DECL_ASSEMBLER_NAME (var));
-      varpool_node::get_create (var)->force_output = 1;
-    }
-  else
-    DECL_EXTERNAL (var) = 1;
+  node = varpool_node::get_create (var);
+  node->force_output = 1;
+
   varpool_node::finalize_decl (var);
 
   return var;
@@ -1975,14 +2085,6 @@ tree
 chkp_get_zero_bounds_var (void)
 {
   if (!chkp_zero_bounds_var)
-    {
-      tree id = get_identifier (CHKP_ZERO_BOUNDS_VAR_NAME);
-      symtab_node *node = symtab_node::get_for_asmname (id);
-      if (node)
-	chkp_zero_bounds_var = node->decl;
-    }
-
-  if (!chkp_zero_bounds_var)
     chkp_zero_bounds_var
       = chkp_make_static_const_bounds (0, -1,
 				       CHKP_ZERO_BOUNDS_VAR_NAME);
@@ -1993,14 +2095,6 @@ chkp_get_zero_bounds_var (void)
 tree
 chkp_get_none_bounds_var (void)
 {
-  if (!chkp_none_bounds_var)
-    {
-      tree id = get_identifier (CHKP_NONE_BOUNDS_VAR_NAME);
-      symtab_node *node = symtab_node::get_for_asmname (id);
-      if (node)
-	chkp_none_bounds_var = node->decl;
-    }
-
   if (!chkp_none_bounds_var)
     chkp_none_bounds_var
       = chkp_make_static_const_bounds (-1, 0,
@@ -2024,7 +2118,7 @@ chkp_get_zero_bounds (void)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      zero_bounds = chkp_get_tmp_reg (gimple_build_nop ());
+      zero_bounds = chkp_get_tmp_reg (NULL);
       stmt = gimple_build_assign (zero_bounds, chkp_get_zero_bounds_var ());
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
@@ -2054,7 +2148,7 @@ chkp_get_none_bounds (void)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      none_bounds = chkp_get_tmp_reg (gimple_build_nop ());
+      none_bounds = chkp_get_tmp_reg (NULL);
       stmt = gimple_build_assign (none_bounds, chkp_get_none_bounds_var ());
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
@@ -2090,13 +2184,19 @@ chkp_call_returns_bounds_p (gcall *call)
   if (gimple_call_internal_p (call))
     return false;
 
+  if (gimple_call_builtin_p (call, BUILT_IN_CHKP_NARROW_PTR_BOUNDS)
+      || chkp_gimple_call_builtin_p (call, BUILT_IN_CHKP_NARROW))
+    return true;
+
+  if (gimple_call_with_bounds_p (call))
+    return true;
+
   tree fndecl = gimple_call_fndecl (call);
 
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return false;
 
-  if (fndecl
-      && lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl)))
+  if (fndecl && !chkp_instrumentable_p (fndecl))
     return false;
 
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
@@ -2122,6 +2222,7 @@ chkp_build_returned_bound (gcall *call)
   tree bounds;
   gimple stmt;
   tree fndecl = gimple_call_fndecl (call);
+  unsigned int retflags;
 
   /* To avoid fixing alloca expands in targets we handle
      it separately.  */
@@ -2165,12 +2266,11 @@ chkp_build_returned_bound (gcall *call)
     }
   /* Do not use retbnd when returned bounds are equal to some
      of passed bounds.  */
-  else if (gimple_call_return_flags (call) & ERF_RETURNS_ARG)
+  else if (((retflags = gimple_call_return_flags (call)) & ERF_RETURNS_ARG)
+	   && (retflags & ERF_RETURN_ARG_MASK) < gimple_call_num_args (call))
     {
       gimple_stmt_iterator iter = gsi_for_stmt (call);
-      unsigned int retarg = 0, argno;
-      if (gimple_call_return_flags (call) & ERF_RETURNS_ARG)
-	retarg = gimple_call_return_flags (call) & ERF_RETURN_ARG_MASK;
+      unsigned int retarg = retflags & ERF_RETURN_ARG_MASK, argno;
       if (gimple_call_with_bounds_p (call))
 	{
 	  for (argno = 0; argno < gimple_call_num_args (call); argno++)
@@ -2703,7 +2803,7 @@ chkp_get_bounds_by_definition (tree node, gimple def_stmt,
 	  var = chkp_get_bounds_var (SSA_NAME_VAR (node));
 	else
 	  var = make_temp_ssa_name (pointer_bounds_type_node,
-				    gimple_build_nop (),
+				    NULL,
 				    CHKP_BOUND_TMP_NAME);
       else
 	var = chkp_get_tmp_var ();
@@ -2883,7 +2983,7 @@ chkp_generate_extern_var_bounds (tree var)
   gimple_seq_add_stmt (&seq, stmt);
 
   lb = chkp_build_addr_expr (var);
-  size = make_ssa_name (chkp_get_size_tmp_var (), gimple_build_nop ());
+  size = make_ssa_name (chkp_get_size_tmp_var ());
 
   if (flag_chkp_zero_dynamic_size_as_infinite)
     {
@@ -2980,7 +3080,7 @@ chkp_get_bounds_for_decl_addr (tree decl)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      bounds = chkp_get_tmp_reg (gimple_build_nop ());
+      bounds = chkp_get_tmp_reg (NULL);
       stmt = gimple_build_assign (bounds, bnd_var);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
@@ -3024,7 +3124,7 @@ chkp_get_bounds_for_string_cst (tree cst)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      bounds = chkp_get_tmp_reg (gimple_build_nop ());
+      bounds = chkp_get_tmp_reg (NULL);
       stmt = gimple_build_assign (bounds, bnd_var);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
@@ -4277,6 +4377,10 @@ chkp_fini (void)
   free_dominance_info (CDI_POST_DOMINATORS);
 
   bitmap_obstack_release (NULL);
+
+  entry_block = NULL;
+  zero_bounds = NULL_TREE;
+  none_bounds = NULL_TREE;
 }
 
 /* Main instrumentation pass function.  */
@@ -4302,8 +4406,10 @@ chkp_execute (void)
 static bool
 chkp_gate (void)
 {
-  return cgraph_node::get (cfun->decl)->instrumentation_clone
-    || lookup_attribute ("chkp ctor", DECL_ATTRIBUTES (cfun->decl));
+  cgraph_node *node = cgraph_node::get (cfun->decl);
+  return ((node != NULL
+	   && node->instrumentation_clone)
+	   || lookup_attribute ("chkp ctor", DECL_ATTRIBUTES (cfun->decl)));
 }
 
 namespace {

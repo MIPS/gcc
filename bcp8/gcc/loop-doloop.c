@@ -1,5 +1,5 @@
 /* Perform doloop optimizations
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Based on code by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz)
 
 This file is part of GCC.
@@ -24,14 +24,31 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "flags.h"
-#include "expr.h"
-#include "hard-reg-set.h"
-#include "vec.h"
+#include "symtab.h"
 #include "hashtab.h"
 #include "hash-set.h"
+#include "vec.h"
 #include "machmode.h"
+#include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
 #include "predict.h"
@@ -124,7 +141,7 @@ doloop_condition_get (rtx doloop_pat)
   if (GET_CODE (pattern) != PARALLEL)
     {
       rtx cond;
-      rtx prev_insn = prev_nondebug_insn (doloop_pat);
+      rtx_insn *prev_insn = prev_nondebug_insn (doloop_pat);
       rtx cmp_arg1, cmp_arg2;
       rtx cmp_orig;
 
@@ -348,7 +365,7 @@ static bool
 add_test (rtx cond, edge *e, basic_block dest)
 {
   rtx_insn *seq, *jump;
-  rtx label;
+  rtx_code_label *label;
   machine_mode mode;
   rtx op0 = XEXP (cond, 0), op1 = XEXP (cond, 1);
   enum rtx_code code = GET_CODE (cond);
@@ -362,8 +379,7 @@ add_test (rtx cond, edge *e, basic_block dest)
   op0 = force_operand (op0, NULL_RTX);
   op1 = force_operand (op1, NULL_RTX);
   label = block_label (dest);
-  do_compare_rtx_and_jump (op0, op1, code, 0, mode, NULL_RTX,
-			   NULL_RTX, label, -1);
+  do_compare_rtx_and_jump (op0, op1, code, 0, mode, NULL_RTX, NULL, label, -1);
 
   jump = get_last_insn ();
   if (!jump || !JUMP_P (jump))
@@ -415,7 +431,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
   rtx tmp, noloop = NULL_RTX;
   rtx_insn *sequence;
   rtx_insn *jump_insn;
-  rtx jump_label;
+  rtx_code_label *jump_label;
   int nonneg = 0;
   bool increment_count;
   basic_block loop_end = desc->out_edge->src;
@@ -429,7 +445,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
     {
       fprintf (dump_file, "Doloop: Inserting doloop pattern (");
       if (desc->const_iter)
-	fprintf (dump_file, "%"PRId64, desc->niter);
+	fprintf (dump_file, "%" PRId64, desc->niter);
       else
 	fputs ("runtime", dump_file);
       fputs (" iterations).\n", dump_file);
@@ -610,7 +626,7 @@ doloop_optimize (struct loop *loop)
   rtx doloop_seq, doloop_pat, doloop_reg;
   rtx count;
   widest_int iterations, iterations_max;
-  rtx start_label;
+  rtx_code_label *start_label;
   rtx condition;
   unsigned level, est_niter;
   int max_cost;

@@ -1,5 +1,5 @@
 /* Loop unrolling.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,16 +22,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "profile.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -41,6 +45,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "insn-codes.h"
 #include "optabs.h"
+#include "hashtab.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "hash-table.h"
 #include "recog.h"
@@ -109,17 +126,17 @@ struct var_to_expand
 
 struct iv_split_hasher : typed_free_remove <iv_to_split>
 {
-  typedef iv_to_split value_type;
-  typedef iv_to_split compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef iv_to_split *value_type;
+  typedef iv_to_split *compare_type;
+  static inline hashval_t hash (const iv_to_split *);
+  static inline bool equal (const iv_to_split *, const iv_to_split *);
 };
 
 
 /* A hash function for information about insns to split.  */
 
 inline hashval_t
-iv_split_hasher::hash (const value_type *ivts)
+iv_split_hasher::hash (const iv_to_split *ivts)
 {
   return (hashval_t) INSN_UID (ivts->insn);
 }
@@ -127,7 +144,7 @@ iv_split_hasher::hash (const value_type *ivts)
 /* An equality functions for information about insns to split.  */
 
 inline bool
-iv_split_hasher::equal (const value_type *i1, const compare_type *i2)
+iv_split_hasher::equal (const iv_to_split *i1, const iv_to_split *i2)
 {
   return i1->insn == i2->insn;
 }
@@ -136,16 +153,16 @@ iv_split_hasher::equal (const value_type *i1, const compare_type *i2)
 
 struct var_expand_hasher : typed_free_remove <var_to_expand>
 {
-  typedef var_to_expand value_type;
-  typedef var_to_expand compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef var_to_expand *value_type;
+  typedef var_to_expand *compare_type;
+  static inline hashval_t hash (const var_to_expand *);
+  static inline bool equal (const var_to_expand *, const var_to_expand *);
 };
 
 /* Return a hash for VES.  */
 
 inline hashval_t
-var_expand_hasher::hash (const value_type *ves)
+var_expand_hasher::hash (const var_to_expand *ves)
 {
   return (hashval_t) INSN_UID (ves->insn);
 }
@@ -153,7 +170,7 @@ var_expand_hasher::hash (const value_type *ves)
 /* Return true if I1 and I2 refer to the same instruction.  */
 
 inline bool
-var_expand_hasher::equal (const value_type *i1, const compare_type *i2)
+var_expand_hasher::equal (const var_to_expand *i1, const var_to_expand *i2)
 {
   return i1->insn == i2->insn;
 }
@@ -777,10 +794,11 @@ split_edge_and_insert (edge e, rtx_insn *insns)
    in order to create a jump.  */
 
 static rtx_insn *
-compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob,
-		      rtx_insn *cinsn)
+compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp,
+		      rtx_code_label *label, int prob, rtx_insn *cinsn)
 {
-  rtx_insn *seq, *jump;
+  rtx_insn *seq;
+  rtx_jump_insn *jump;
   rtx cond;
   machine_mode mode;
 
@@ -799,8 +817,7 @@ compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob,
       gcc_assert (rtx_equal_p (op0, XEXP (cond, 0)));
       gcc_assert (rtx_equal_p (op1, XEXP (cond, 1)));
       emit_jump_insn (copy_insn (PATTERN (cinsn)));
-      jump = get_last_insn ();
-      gcc_assert (JUMP_P (jump));
+      jump = as_a <rtx_jump_insn *> (get_last_insn ());
       JUMP_LABEL (jump) = JUMP_LABEL (cinsn);
       LABEL_NUSES (JUMP_LABEL (jump))++;
       redirect_jump (jump, label, 0);
@@ -812,10 +829,9 @@ compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob,
       op0 = force_operand (op0, NULL_RTX);
       op1 = force_operand (op1, NULL_RTX);
       do_compare_rtx_and_jump (op0, op1, comp, 0,
-			       mode, NULL_RTX, NULL_RTX, label, -1);
-      jump = get_last_insn ();
-      gcc_assert (JUMP_P (jump));
-      JUMP_LABEL (jump) = label;
+			       mode, NULL_RTX, NULL, label, -1);
+      jump = as_a <rtx_jump_insn *> (get_last_insn ());
+      jump->set_jump_target (label);
       LABEL_NUSES (label)++;
     }
   add_int_reg_note (jump, REG_BR_PROB, prob);

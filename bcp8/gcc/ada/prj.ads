@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -60,6 +60,15 @@ package Prj is
    Subdirs : String_Ptr := null;
    --  The value after the equal sign in switch --subdirs=...
    --  Contains the relative subdirectory.
+
+   Build_Tree_Dir : String_Ptr := null;
+   --  A root directory for building out-of-tree projects. All relative object
+   --  directories will be rooted at this location.
+
+   Root_Dir : String_Ptr := null;
+   --  When using out-of-tree build we need to keep information about the root
+   --  directory of artifacts to properly relocate them. Note that the root
+   --  directory is not necessarily the directory of the main project.
 
    type Library_Support is (None, Static_Only, Full);
    --  Support for Library Project File.
@@ -2051,6 +2060,11 @@ private
       Allow_Invalid_External     : Error_Warning;
       Missing_Source_Files       : Error_Warning;
       Ignore_Missing_With        : Boolean;
+
+      Incomplete_Withs : Boolean := False;
+      --  This flag is set to True when the projects are parsed while ignoring
+      --  missing withed project and some withed projects are not found.
+
    end record;
 
    Gprbuild_Flags   : constant Processing_Flags :=
@@ -2063,7 +2077,8 @@ private
                          Require_Obj_Dirs           => Error,
                          Allow_Invalid_External     => Error,
                          Missing_Source_Files       => Error,
-                         Ignore_Missing_With        => False);
+                         Ignore_Missing_With        => False,
+                         Incomplete_Withs           => False);
 
    Gprinstall_Flags : constant Processing_Flags :=
                         (Report_Error               => null,
@@ -2075,7 +2090,8 @@ private
                          Require_Obj_Dirs           => Silent,
                          Allow_Invalid_External     => Error,
                          Missing_Source_Files       => Error,
-                         Ignore_Missing_With        => False);
+                         Ignore_Missing_With        => False,
+                         Incomplete_Withs           => False);
 
    Gprclean_Flags   : constant Processing_Flags :=
                         (Report_Error               => null,
@@ -2087,7 +2103,8 @@ private
                          Require_Obj_Dirs           => Warning,
                          Allow_Invalid_External     => Error,
                          Missing_Source_Files       => Error,
-                         Ignore_Missing_With        => False);
+                         Ignore_Missing_With        => False,
+                         Incomplete_Withs           => False);
 
    Gprexec_Flags    : constant Processing_Flags :=
                         (Report_Error               => null,
@@ -2099,7 +2116,8 @@ private
                          Require_Obj_Dirs           => Silent,
                          Allow_Invalid_External     => Error,
                          Missing_Source_Files       => Silent,
-                         Ignore_Missing_With        => False);
+                         Ignore_Missing_With        => False,
+                         Incomplete_Withs           => False);
 
    Gnatmake_Flags   : constant Processing_Flags :=
                         (Report_Error               => null,
@@ -2111,6 +2129,7 @@ private
                          Require_Obj_Dirs           => Error,
                          Allow_Invalid_External     => Error,
                          Missing_Source_Files       => Error,
-                         Ignore_Missing_With        => False);
+                         Ignore_Missing_With        => False,
+                         Incomplete_Withs           => False);
 
 end Prj;

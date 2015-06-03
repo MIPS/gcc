@@ -1,6 +1,6 @@
 /* An SH specific RTL pass that tries to combine comparisons and redundant
    condition code register stores across multiple basic blocks.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -46,8 +46,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "tree-pass.h"
 #include "target.h"
-#include "tree-core.h"
+#include "symtab.h"
+#include "inchash.h"
+#include "tree.h"
 #include "optabs.h"
+#include "flags.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 
 #include <algorithm>
@@ -945,8 +960,8 @@ sh_treg_combine::make_not_reg_insn (rtx dst_reg, rtx src_reg) const
 
   start_sequence ();
 
-  emit_insn (gen_rtx_SET (VOIDmode, m_ccreg,
-			  gen_rtx_fmt_ee (EQ, SImode, src_reg, const0_rtx)));
+  emit_insn (gen_rtx_SET (m_ccreg, gen_rtx_fmt_ee (EQ, SImode,
+						   src_reg, const0_rtx)));
 
   if (GET_MODE (dst_reg) == SImode)
     emit_move_insn (dst_reg, m_ccreg);
@@ -968,7 +983,7 @@ rtx_insn *
 sh_treg_combine::make_inv_ccreg_insn (void) const
 {
   start_sequence ();
-  rtx_insn *i = emit_insn (gen_rtx_SET (VOIDmode, m_ccreg,
+  rtx_insn *i = emit_insn (gen_rtx_SET (m_ccreg,
                                         gen_rtx_fmt_ee (XOR, GET_MODE (m_ccreg),
                                                         m_ccreg, const1_rtx)));
   end_sequence ();

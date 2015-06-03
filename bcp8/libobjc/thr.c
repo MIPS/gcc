@@ -1,5 +1,5 @@
 /* GNU Objective C Runtime Thread Interface
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
    Contributed by Galen C. Hunt (gchunt@cs.rochester.edu)
 
 This file is part of GCC.
@@ -25,11 +25,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "objc-private/common.h"
 #include "objc-private/error.h"
 #define _LIBOBJC
-/* The line below is needed for declarations of functions such as
-   pthread_mutexattr_settype, without which gthr-posix.h may fail to
-   compile within libobjc.  While we only need XPG5 for this, Solaris
-   requires XPG6 for C99 and later.  */
-#define _XOPEN_SOURCE 600
 #include "config.h"
 #include "tconfig.h"
 #include "coretypes.h"

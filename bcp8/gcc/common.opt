@@ -1,6 +1,6 @@
 ; Options for the language- and target-independent parts of the compiler.
 
-; Copyright (C) 2003-2014 Free Software Foundation, Inc.
+; Copyright (C) 2003-2015 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -529,6 +529,10 @@ Warray-bounds
 Common Var(warn_array_bounds) Warning
 Warn if an array is accessed out of bounds
 
+Warray-bounds=
+Common Joined RejectNegative UInteger Var(warn_array_bounds) Warning
+Warn if an array is accessed out of bounds
+
 Wattributes
 Common Var(warn_attributes) Init(1) Warning
 Warn about inappropriate attribute usage
@@ -602,6 +606,10 @@ Warn about some C++ One Definition Rule violations during link time optimization
 Woverflow
 Common Var(warn_overflow) Init(1) Warning
 Warn about overflow in arithmetic expressions
+
+Wlto-type-mismatch
+Common Var(warn_lto_type_mismatch) Init(1) Warning
+During link time optimization warn about mismatched types of global declarations
 
 Wpacked
 Common Var(warn_packed) Warning
@@ -802,7 +810,8 @@ Driver Undocumented
 ;
 ; 1: The version of the ABI first used in G++ 3.2.  No longer selectable.
 ;
-; 2: The version of the ABI first used in G++ 3.4 (and current default).
+; 2: The version of the ABI first used in G++ 3.4, and the default
+;    until GCC 4.9.
 ;
 ; 3: The version of the ABI that fixes the missing underscore
 ;    in template non-type arguments of pointer type.
@@ -827,7 +836,11 @@ Driver Undocumented
 ;
 ; 8: The version of the ABI that corrects the substitution behavior of
 ;    function types with function-cv-qualifiers.
-;    First selectable in G++ 4.9.
+;    First selectable in G++ 4.9 and default in G++ 5.
+;
+; 9: The version of the ABI that mangles attributes that affect type
+;    identity, such as ia32 calling convention attributes (stdcall, etc.)
+;    Default in G++ 6 (set in c_common_post_options).
 ;
 ; Additional positive integers will be assigned as new versions of
 ; the ABI become the default version of the ABI.
@@ -891,6 +904,11 @@ fasan-shadow-offset=
 Common Joined RejectNegative Var(common_deferred_options) Defer
 -fasan-shadow-offset=<number>	Use custom shadow memory offset.
 
+fsanitize-sections=
+Common Joined RejectNegative Var(common_deferred_options) Defer
+-fsanitize-sections=<sec1,sec2,...>	Sanitize global variables
+in user-defined sections.
+
 fsanitize-recover=
 Common Report Joined
 After diagnosing undefined behavior attempt to continue execution
@@ -908,11 +926,11 @@ Common Report Var(flag_asynchronous_unwind_tables) Optimization
 Generate unwind tables that are exact at each instruction boundary
 
 fauto-inc-dec
-Common Report Var(flag_auto_inc_dec) Init(1)
+Common Report Var(flag_auto_inc_dec) Init(1) Optimization
 Generate auto-inc/dec instructions
 
 fauto-profile
-Common Report Var(flag_auto_profile) Optimization
+Common Report Var(flag_auto_profile)
 Use sample profile information for call graph node weights. The default
 profile file is fbdata.afdo in 'pwd'.
 
@@ -977,7 +995,7 @@ Common Report Var(flag_combine_stack_adjustments) Optimization
 Looks for opportunities to reduce stack adjustments and stack references.
 
 fcommon
-Common Report Var(flag_no_common,0) Optimization
+Common Report Var(flag_no_common,0)
 Do not put uninitialized globals in the common section
 
 fcompare-debug
@@ -1025,7 +1043,7 @@ Common Report Var(flag_cx_fortran_rules) Optimization
 Complex multiplication and division follow Fortran rules
 
 fdata-sections
-Common Report Var(flag_data_sections) Optimization
+Common Report Var(flag_data_sections)
 Place data items into their own section
 
 fdbg-cnt-list
@@ -1055,16 +1073,16 @@ Common Report Var(flag_delayed_branch) Optimization
 Attempt to fill delay slots of branch instructions
 
 fdelete-dead-exceptions
-Common Report Var(flag_delete_dead_exceptions) Init(0)
+Common Report Var(flag_delete_dead_exceptions) Init(0) Optimization
 Delete dead instructions that may throw exceptions
 
 fdelete-null-pointer-checks
-Common Report Var(flag_delete_null_pointer_checks) Init(1) Optimization
+Common Report Var(flag_delete_null_pointer_checks) Init(-1) Optimization
 Delete useless null pointer checks
 
 fdevirtualize-at-ltrans
 Common Report Var(flag_ltrans_devirtualize)
-Perofrm extra streaming to support more agressive devirtualization at LTO ltrans stage.
+Stream extra data to support more aggressive devirtualization in LTO local transformation mode
 
 fdevirtualize-speculatively
 Common Report Var(flag_devirtualize_speculatively) Optimization
@@ -1155,6 +1173,10 @@ Common Driver Var(flag_report_bug)
 Collect and dump debug information into temporary file if ICE in C/C++
 compiler occured.
 
+fdump-internal-locations
+Common Var(flag_dump_locations) Init(0)
+Dump detailed information on GCC's internal representation of source code locations
+
 fdump-passes
 Common Var(flag_dump_passes) Init(0)
 Dump optimization passes
@@ -1185,7 +1207,7 @@ Perform interprocedural reduction of aggregates
 
 feliminate-unused-debug-symbols
 Common Report Var(flag_debug_only_used_symbols)
-Perform unused type elimination in debug info
+Perform unused symbol elimination in debug info
 
 feliminate-unused-debug-types
 Common Report Var(flag_eliminate_unused_debug_types) Init(1)
@@ -1244,7 +1266,7 @@ Common Report Var(flag_forward_propagate) Optimization
 Perform a forward propagation pass on RTL
 
 ffp-contract=
-Common Joined RejectNegative Enum(fp_contract_mode) Var(flag_fp_contract_mode) Init(FP_CONTRACT_FAST)
+Common Joined RejectNegative Enum(fp_contract_mode) Var(flag_fp_contract_mode) Init(FP_CONTRACT_FAST) Optimization
 -ffp-contract=[off|on|fast] Perform floating-point expression contraction.
 
 Enum
@@ -1264,7 +1286,7 @@ Enum(fp_contract_mode) String(fast) Value(FP_CONTRACT_FAST)
 ; Used for compiling the Unix kernel, where strange substitutions are
 ; done on the assembly output.
 ffunction-cse
-Common Report Var(flag_no_function_cse,0)
+Common Report Var(flag_no_function_cse,0) Optimization
 Allow function addresses to be held in registers
 
 ffunction-sections
@@ -1295,7 +1317,7 @@ has finished
 
 ; This option is not documented yet as its semantics will change.
 fgraphite
-Common Report Var(flag_graphite)
+Common Report Var(flag_graphite) Optimization
 Enable in and out of Graphite representation
 
 fgraphite-identity
@@ -1344,7 +1366,7 @@ Common Report Var(flag_loop_optimize_isl) Optimization
 Enable the ISL based loop nest optimizer
 
 fstrict-volatile-bitfields
-Common Report Var(flag_strict_volatile_bitfields) Init(-1)
+Common Report Var(flag_strict_volatile_bitfields) Init(-1) Optimization
 Force bitfield accesses to match their type width
 
 fguess-branch-probability
@@ -1368,7 +1390,7 @@ Common Report Var(flag_if_conversion2) Optimization
 Perform conversion of conditional jumps to conditional execution
 
 fstack-reuse=
-Common Joined RejectNegative Enum(stack_reuse_level) Var(flag_stack_reuse) Init(SR_ALL)
+Common Joined RejectNegative Enum(stack_reuse_level) Var(flag_stack_reuse) Init(SR_ALL) Optimization
 -fstack-reuse=[all|named_vars|none] Set stack reuse level for local variables.
 
 Enum
@@ -1452,6 +1474,10 @@ fipa-cp-clone
 Common Report Var(flag_ipa_cp_clone) Optimization
 Perform cloning to make Interprocedural constant propagation stronger
 
+fipa-cp-alignment
+Common Report Var(flag_ipa_cp_alignment) Optimization
+Perform alignment discovery and propagation to make Interprocedural constant propagation stronger
+
 fipa-profile
 Common Report Var(flag_ipa_profile) Init(0) Optimization
 Perform interprocedural profile propagation
@@ -1473,7 +1499,7 @@ Common Report Var(flag_ipa_icf_functions) Optimization
 Perform Identical Code Folding for functions
 
 fipa-icf-variables
-Common Report Var(flag_ipa_icf_variables) Optimization
+Common Report Var(flag_ipa_icf_variables)
 Perform Identical Code Folding for variables
 
 fipa-reference
@@ -1489,7 +1515,7 @@ Common Ignore
 Does nothing. Preserved for backward compatibility.
 
 fira-algorithm=
-Common Joined RejectNegative Enum(ira_algorithm) Var(flag_ira_algorithm) Init(IRA_ALGORITHM_CB)
+Common Joined RejectNegative Enum(ira_algorithm) Var(flag_ira_algorithm) Init(IRA_ALGORITHM_CB) Optimization
 -fira-algorithm=[CB|priority] Set the used IRA algorithm
 
 Enum
@@ -1502,7 +1528,7 @@ EnumValue
 Enum(ira_algorithm) String(priority) Value(IRA_ALGORITHM_PRIORITY)
 
 fira-region=
-Common Joined RejectNegative Enum(ira_region) Var(flag_ira_region) Init(IRA_REGION_AUTODETECT)
+Common Joined RejectNegative Enum(ira_region) Var(flag_ira_region) Init(IRA_REGION_AUTODETECT) Optimization
 -fira-region=[one|all|mixed] Set regions for IRA
 
 Enum
@@ -1528,11 +1554,11 @@ Use IRA based register pressure calculation
 in RTL loop optimizations.
 
 fira-share-save-slots
-Common Report Var(flag_ira_share_save_slots) Init(1)
+Common Report Var(flag_ira_share_save_slots) Init(1) Optimization
 Share slots for saving different hard registers.
 
 fira-share-spill-slots
-Common Report Var(flag_ira_share_spill_slots) Init(1)
+Common Report Var(flag_ira_share_spill_slots) Init(1) Optimization
 Share stack slots for spilled pseudo-registers.
 
 fira-verbose=
@@ -1634,11 +1660,11 @@ Report on permanent memory allocation in WPA only
 ; string constants and constants from constant pool, if 2 also constant
 ; variables.
 fmerge-all-constants
-Common Report Var(flag_merge_constants,2) Init(1) Optimization
+Common Report Var(flag_merge_constants,2) Init(1)
 Attempt to merge identical constants and constant variables
 
 fmerge-constants
-Common Report Var(flag_merge_constants,1) Optimization
+Common Report Var(flag_merge_constants,1)
 Attempt to merge identical constants across compilation units
 
 fmerge-debug-strings
@@ -1654,7 +1680,7 @@ Common Report Var(flag_modulo_sched) Optimization
 Perform SMS based modulo scheduling before the first scheduling pass
 
 fmodulo-sched-allow-regmoves
-Common Report Var(flag_modulo_sched_allow_regmoves)
+Common Report Var(flag_modulo_sched_allow_regmoves) Optimization
 Perform SMS based modulo scheduling with register moves allowed
 
 fmove-loop-invariants
@@ -1715,7 +1741,7 @@ Common Report Var(flag_optimize_sibling_calls) Optimization
 Optimize sibling and tail recursive calls
 
 fpartial-inlining
-Common Report Var(flag_partial_inlining)
+Common Report Var(flag_partial_inlining) Optimization
 Perform partial inlining
 
 fpre-ipa-mem-report
@@ -1755,7 +1781,7 @@ Common Report Var(flag_pic,2) Negative(fPIE)
 Generate position-independent code if possible (large mode)
 
 fPIE
-Common Report Var(flag_pie,2) Negative(fpic)
+Common Report Var(flag_pie,2) Negative(fpic) Init(-1)
 Generate position-independent code for executables if possible (large mode)
 
 fpic
@@ -1763,8 +1789,12 @@ Common Report Var(flag_pic,1) Negative(fpie)
 Generate position-independent code if possible (small mode)
 
 fpie
-Common Report Var(flag_pie,1) Negative(fPIC)
+Common Report Var(flag_pie,1) Negative(fPIC) Init(-1)
 Generate position-independent code for executables if possible (small mode)
+
+fplt
+Common Report Var(flag_plt) Init(1) Optimization
+Use PLT for PIC calls (-fno-plt: load the address from GOT at call site)
 
 fplugin=
 Common Joined RejectNegative Var(common_deferred_options) Defer
@@ -1851,6 +1881,11 @@ Return small aggregates in registers
 fregmove
 Common Ignore
 Does nothing. Preserved for backward compatibility.
+
+flifetime-dse
+Common Report Var(flag_lifetime_dse) Init(1) Optimization
+Tell DSE that the storage for a C++ object is dead when the constructor
+starts and when the destructor finishes.
 
 flive-range-shrinkage
 Common Report Var(flag_live_range_shrinkage) Init(0) Optimization
@@ -1962,7 +1997,7 @@ Common Report Var(flag_sched_stalled_insns) Optimization UInteger
 Allow premature scheduling of queued insns
 
 fsched-stalled-insns=
-Common RejectNegative Joined UInteger
+Common RejectNegative Joined UInteger Optimization
 -fsched-stalled-insns=<number>	Set number of queued insns that can be prematurely scheduled
 
 ; sched_stalled_insns_dep controls how many recently scheduled cycles will
@@ -1974,7 +2009,7 @@ Common Report Var(flag_sched_stalled_insns_dep,1) Init(1) Optimization UInteger
 Set dependence distance checking in premature scheduling of queued insns
 
 fsched-stalled-insns-dep=
-Common RejectNegative Joined UInteger
+Common RejectNegative Joined UInteger Optimization
 -fsched-stalled-insns-dep=<number>	Set dependence distance checking in premature scheduling of queued insns
 
 fsched-group-heuristic
@@ -2054,6 +2089,10 @@ fssa-phiopt
 Common Report Var(flag_ssa_phiopt) Optimization
 Optimize conditional patterns using SSA PHI nodes
 
+fstdarg-opt
+Common Report Var(flag_stdarg_opt) Init(1) Optimization
+Optimize amount of stdarg registers saved to stack at start of function
+
 fvariable-expansion-in-unroller
 Common Report Var(flag_variable_expansion_in_unroller) Optimization
 Apply variable expansion when loops are unrolled
@@ -2089,6 +2128,10 @@ fstack-protector-strong
 Common Report RejectNegative Var(flag_stack_protect, 3)
 Use a smart stack protection method for certain functions
 
+fstack-protector-explicit
+Common Report RejectNegative Var(flag_stack_protect, 4)
+Use stack protection method only for functions with the stack_protect attribute
+
 fstack-usage
 Common RejectNegative Var(flag_stack_usage)
 Output stack usage information on a per-function basis
@@ -2106,7 +2149,7 @@ Common Report Var(flag_strict_aliasing) Optimization
 Assume strict aliasing rules apply
 
 fstrict-overflow
-Common Report Var(flag_strict_overflow)
+Common Report Var(flag_strict_overflow) Optimization
 Treat signed overflow as undefined
 
 fsync-libcalls
@@ -2149,11 +2192,11 @@ EnumValue
 Enum(tls_model) String(local-exec) Value(TLS_MODEL_LOCAL_EXEC)
 
 ftoplevel-reorder
-Common Report Var(flag_toplevel_reorder) Init(2) Optimization
+Common Report Var(flag_toplevel_reorder) Init(2)
 Reorder top level functions, variables, and asms
 
 ftracer
-Common Report Var(flag_tracer)
+Common Report Var(flag_tracer) Optimization
 Perform superblock formation via tail duplication
 
 ; Zero means that floating-point math operations cannot generate a
@@ -2241,16 +2284,16 @@ Enable string length optimizations on trees
 
 fisolate-erroneous-paths-dereference
 Common Report Var(flag_isolate_erroneous_paths_dereference) Optimization
-Detect paths which trigger erroneous or undefined behaviour due to
-dereferencing a NULL pointer.  Isolate those paths from the main control
-flow and turn the statement with erroneous or undefined behaviour into a trap.
+Detect paths that trigger erroneous or undefined behavior due to
+dereferencing a null pointer.  Isolate those paths from the main control
+flow and turn the statement with erroneous or undefined behavior into a trap.
 
 fisolate-erroneous-paths-attribute
 Common Report Var(flag_isolate_erroneous_paths_attribute) Optimization
-Detect paths which trigger erroneous or undefined behaviour due a NULL value
-being used in a way which is forbidden by a returns_nonnull or nonnull
+Detect paths that trigger erroneous or undefined behavior due a null value
+being used in a way forbidden by a returns_nonnull or nonnull
 attribute.  Isolate those paths from the main control flow and turn the
-statement with erroneous or undefined behaviour into a trap. 
+statement with erroneous or undefined behavior into a trap. 
 
 ftree-loop-distribution
 Common Report Var(flag_tree_loop_distribution) Optimization
@@ -2277,7 +2320,7 @@ Common Report Var(flag_tree_loop_optimize) Init(1) Optimization
 Enable loop optimizations on tree level
 
 ftree-parallelize-loops=
-Common Report Joined RejectNegative UInteger Var(flag_tree_parallelize_loops) Init(1)
+Common Report Joined RejectNegative UInteger Var(flag_tree_parallelize_loops) Init(1) Optimization
 Enable automatic parallelization of loops
 
 ftree-phiprop
@@ -2329,7 +2372,7 @@ Common Report Var(flag_tree_vrp) Init(0) Optimization
 Perform Value Range Propagation on trees
 
 funit-at-a-time
-Common Report Var(flag_unit_at_a_time) Init(1) Optimization
+Common Report Var(flag_unit_at_a_time) Init(1)
 Compile whole compilation unit at a time
 
 funroll-loops
@@ -2348,12 +2391,12 @@ Common Report Var(flag_unsafe_loop_optimizations) Optimization
 Allow loop optimizations to assume that the loops behave in normal way
 
 fassociative-math
-Common Report Var(flag_associative_math) SetByCombined
+Common Report Var(flag_associative_math) SetByCombined Optimization
 Allow optimization for floating-point arithmetic which may change the
 result of the operation due to rounding.
 
 freciprocal-math
-Common Report Var(flag_reciprocal_math) SetByCombined
+Common Report Var(flag_reciprocal_math) SetByCombined Optimization
 Same as -fassociative-math for expressions which include division.
 
 ; Nonzero means that unsafe floating-point math optimizations are allowed
@@ -2431,11 +2474,11 @@ Common Report Var(flag_tree_slp_vectorize) Optimization
 Enable basic block vectorization (SLP) on trees
 
 fvect-cost-model=
-Common Joined RejectNegative Enum(vect_cost_model) Var(flag_vect_cost_model) Init(VECT_COST_MODEL_DEFAULT)
+Common Joined RejectNegative Enum(vect_cost_model) Var(flag_vect_cost_model) Init(VECT_COST_MODEL_DEFAULT) Optimization
 Specifies the cost model for vectorization
  
 fsimd-cost-model=
-Common Joined RejectNegative Enum(vect_cost_model) Var(flag_simd_cost_model) Init(VECT_COST_MODEL_UNLIMITED)
+Common Joined RejectNegative Enum(vect_cost_model) Var(flag_simd_cost_model) Init(VECT_COST_MODEL_UNLIMITED) Optimization
 Specifies the vectorization cost model for code marked with a simd directive
 
 Enum
@@ -2532,7 +2575,7 @@ Common Report Var(flag_tree_builtin_call_dce) Init(0) Optimization
 Enable conditional dead code elimination for builtin calls
 
 fwhole-program
-Common Report Var(flag_whole_program) Init(0) Optimization
+Common Report Var(flag_whole_program) Init(0)
 Perform whole program optimizations
 
 fwrapv
@@ -2823,8 +2866,12 @@ Driver
 symbolic
 Driver
 
-pie
+no-pie
 Driver RejectNegative Negative(shared)
+Don't create a position independent executable
+
+pie
+Driver RejectNegative Negative(no-pie)
 Create a position independent executable
 
 z

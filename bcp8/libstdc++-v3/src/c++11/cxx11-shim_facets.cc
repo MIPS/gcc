@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 2014 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -87,13 +87,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       union {
 	const void* _M_p;
 	char* _M_pc;
+#ifdef _GLIBCXX_USE_WCHAR_T
 	wchar_t* _M_pwc;
+#endif
       };
       size_t _M_len;
       char _M_unused[16];
 
       operator const char*() const { return _M_pc; }
+#ifdef _GLIBCXX_USE_WCHAR_T
       operator const wchar_t*() const { return _M_pwc; }
+#endif
     };
     union {
       __str_rep _M_str;
@@ -143,6 +147,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     // The returned object will match the caller's string ABI, even when the
     // stored string doesn't.
     template<typename C>
+      _GLIBCXX_DEFAULT_ABI_TAG
       operator basic_string<C>() const
       {
 	if (!_M_dtor)
@@ -166,8 +171,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename C>
     void
-    __numpunct_fill_cache(other_abi, const facet*, __numpunct_cache<C>*,
-			  const char*&, size_t&);
+    __numpunct_fill_cache(other_abi, const facet*, __numpunct_cache<C>*);
 
   template<typename C>
     int
@@ -231,28 +235,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	numpunct_shim(const facet* f, __cache_type* c = new __cache_type)
 	: std::numpunct<_CharT>(c), __shim(f), _M_cache(c)
 	{
-	  __numpunct_fill_cache(other_abi{}, f, c, _M_grouping,
-				_M_grouping_size);
+	  __numpunct_fill_cache(other_abi{}, f, c);
 	}
 
-	~numpunct_shim() { delete[] _M_grouping; }
+	~numpunct_shim()
+	{
+	  // Stop GNU locale's ~numpunct() from freeing the cached string.
+	  _M_cache->_M_grouping_size = 0;
+	}
 
-	virtual string
-	do_grouping() const
-	{ return string(_M_grouping, _M_grouping_size); }
-
-	// No need to override other virtual functions, the base definitions
+	// No need to override any virtual functions, the base definitions
 	// will return the cached data.
 
 	__cache_type* _M_cache;
-	// numpunct uses __numpunct_cache<C>::_M_grouping for its own purposes
-	// so we can't store that in the cache
-	const char* _M_grouping;
-	size_t _M_grouping_size;
       };
-
-    template class numpunct_shim<char>;
-    template class numpunct_shim<wchar_t>;
 
     template<typename _CharT>
       struct collate_shim : std::collate<_CharT>, facet::__shim
@@ -278,9 +274,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  return st;
 	}
       };
-
-    template class collate_shim<char>;
-    template class collate_shim<wchar_t>;
 
     template<typename _CharT>
       struct time_get_shim : std::time_get<_CharT>, facet::__shim
@@ -350,7 +343,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 	~moneypunct_shim()
 	{
-	  // stop GNU locale's ~moneypunct() from freeing these strings
+	  // Stop GNU locale's ~moneypunct() from freeing the cached strings.
 	  _M_cache->_M_grouping_size = 0;
 	  _M_cache->_M_curr_symbol_size = 0;
 	  _M_cache->_M_positive_sign_size = 0;
@@ -362,11 +355,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 	__cache_type* _M_cache;
       };
-
-    template class moneypunct_shim<char, true>;
-    template class moneypunct_shim<char, false>;
-    template class moneypunct_shim<wchar_t, true>;
-    template class moneypunct_shim<wchar_t, false>;
 
     template<typename _CharT>
       struct money_get_shim : std::money_get<_CharT>, facet::__shim
@@ -409,9 +397,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
       };
 
-    template class money_get_shim<char>;
-    template class money_get_shim<wchar_t>;
-
     template<typename _CharT>
       struct money_put_shim : std::money_put<_CharT>, facet::__shim
       {
@@ -440,10 +425,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 			     &st);
 	}
       };
-
-    template class money_put_shim<char>;
-    template class money_put_shim<wchar_t>;
-
 
     template<typename _CharT>
       struct messages_shim : std::messages<_CharT>, facet::__shim
@@ -477,8 +458,22 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
       };
 
+    template class numpunct_shim<char>;
+    template class collate_shim<char>;
+    template class moneypunct_shim<char, true>;
+    template class moneypunct_shim<char, false>;
+    template class money_get_shim<char>;
+    template class money_put_shim<char>;
     template class messages_shim<char>;
+#ifdef _GLIBCXX_USE_WCHAR_T
+    template class numpunct_shim<wchar_t>;
+    template class collate_shim<wchar_t>;
+    template class moneypunct_shim<wchar_t, true>;
+    template class moneypunct_shim<wchar_t, false>;
+    template class money_get_shim<wchar_t>;
+    template class money_put_shim<wchar_t>;
     template class messages_shim<wchar_t>;
+#endif
 
     template<typename C>
       inline size_t
@@ -497,36 +492,37 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // Now define and instantiate the functions that will be called by the
   // shim facets defined when this file is recompiled for the other ABI.
 
+  // Cache the values returned by the numpunct facet f.
+  // Sets c->_M_allocated so that the __numpunct_cache destructor will
+  // delete[] the strings allocated by this function.
   template<typename C>
     void
-    __numpunct_fill_cache(current_abi, const facet* f, __numpunct_cache<C>* c,
-			  const char*& grouping, size_t& grouping_size)
+    __numpunct_fill_cache(current_abi, const facet* f, __numpunct_cache<C>* c)
     {
       auto* m = static_cast<const numpunct<C>*>(f);
 
       c->_M_decimal_point = m->decimal_point();
       c->_M_thousands_sep = m->thousands_sep();
 
+      c->_M_grouping = nullptr;
       c->_M_truename = nullptr;
       c->_M_falsename = nullptr;
       // set _M_allocated so that if any allocation fails the previously
-      // allocated strings will be deleted in ~__numpunct_c()
+      // allocated strings will be deleted in ~__numpunct_cache()
       c->_M_allocated = true;
 
+      c->_M_grouping_size = __copy(c->_M_grouping, m->grouping());
       c->_M_truename_size = __copy(c->_M_truename, m->truename());
       c->_M_falsename_size = __copy(c->_M_falsename, m->falsename());
-      // Set grouping last as it is only deleted by ~numpunct_shim() which
-      // won't run if this function throws an exception.
-      grouping_size = __copy(grouping, m->grouping());
     }
 
   template void
-  __numpunct_fill_cache(current_abi, const facet*, __numpunct_cache<char>*,
-			const char*&, size_t&);
+  __numpunct_fill_cache(current_abi, const facet*, __numpunct_cache<char>*);
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template void
-  __numpunct_fill_cache(current_abi, const facet*, __numpunct_cache<wchar_t>*,
-			const char*&, size_t&);
+  __numpunct_fill_cache(current_abi, const facet*, __numpunct_cache<wchar_t>*);
+#endif
 
   template<typename C>
     int
@@ -540,9 +536,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   __collate_compare(current_abi, const facet*, const char*, const char*,
 		    const char*, const char*);
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template int
   __collate_compare(current_abi, const facet*, const wchar_t*, const wchar_t*,
 		    const wchar_t*, const wchar_t*);
+#endif
 
   template<typename C>
     void
@@ -557,10 +555,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   __collate_transform(current_abi, const facet*, __any_string&,
 		      const char*, const char*);
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template void
   __collate_transform(current_abi, const facet*, __any_string&,
 		      const wchar_t*, const wchar_t*);
+#endif
 
+  // Cache the values returned by the moneypunct facet, f.
+  // Sets c->_M_allocated so that the __moneypunct_cache destructor will
+  // delete[] the strings allocated by this function.
   template<typename C, bool Intl>
     void
     __moneypunct_fill_cache(current_abi, const facet* f,
@@ -576,8 +579,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       c->_M_curr_symbol = nullptr;
       c->_M_positive_sign = nullptr;
       c->_M_negative_sign = nullptr;
-      // set _M_allocated so that if any allocation fails the previously
-      // allocated strings will be deleted in ~__moneypunct_c()
+      // Set _M_allocated so that if any allocation fails the previously
+      // allocated strings will be deleted in ~__moneypunct_cache().
       c->_M_allocated = true;
 
       c->_M_grouping_size = __copy(c->_M_grouping, m->grouping());
@@ -599,6 +602,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   __moneypunct_fill_cache(current_abi, const facet*,
 			  __moneypunct_cache<char, false>*);
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template void
   __moneypunct_fill_cache(current_abi, const facet*,
 			  __moneypunct_cache<wchar_t, true>*);
@@ -606,6 +610,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template void
   __moneypunct_fill_cache(current_abi, const facet*,
 			  __moneypunct_cache<wchar_t, false>*);
+#endif
 
   template<typename C>
     messages_base::catalog
@@ -621,9 +626,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   __messages_open<char>(current_abi, const facet*, const char*, size_t,
 			const locale&);
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template messages_base::catalog
   __messages_open<wchar_t>(current_abi, const facet*, const char*, size_t,
 			   const locale&);
+#endif
 
   template<typename C>
     void
@@ -639,9 +646,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   __messages_get(current_abi, const facet*, __any_string&,
 		 messages_base::catalog, int, int, const char*, size_t);
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template void
   __messages_get(current_abi, const facet*, __any_string&,
 		 messages_base::catalog, int, int, const wchar_t*, size_t);
+#endif
 
   template<typename C>
     void
@@ -653,9 +662,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template void
   __messages_close<char>(current_abi, const facet*, messages_base::catalog c);
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template void
   __messages_close<wchar_t>(current_abi, const facet*,
 			    messages_base::catalog c);
+#endif
 
   template<typename C>
     time_base::dateorder
@@ -665,8 +676,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template time_base::dateorder
   __time_get_dateorder<char>(current_abi, const facet*);
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template time_base::dateorder
   __time_get_dateorder<wchar_t>(current_abi, const facet*);
+#endif
 
   template<typename C>
     istreambuf_iterator<C>
@@ -697,10 +710,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	     istreambuf_iterator<char>, istreambuf_iterator<char>,
 	     ios_base&, ios_base::iostate&, tm*, char);
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template istreambuf_iterator<wchar_t>
   __time_get(current_abi, const facet*,
 	     istreambuf_iterator<wchar_t>, istreambuf_iterator<wchar_t>,
 	     ios_base&, ios_base::iostate&, tm*, char);
+#endif
 
   template<typename C>
     istreambuf_iterator<C>
@@ -725,11 +740,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      bool, ios_base&, ios_base::iostate&,
 	      long double*, __any_string*);
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template istreambuf_iterator<wchar_t>
   __money_get(current_abi, const facet*,
 	      istreambuf_iterator<wchar_t>, istreambuf_iterator<wchar_t>,
 	      bool, ios_base&, ios_base::iostate&,
 	      long double*, __any_string*);
+#endif
 
   template<typename C>
     ostreambuf_iterator<C>
@@ -748,9 +765,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   __money_put(current_abi, const facet*, ostreambuf_iterator<char>,
 		bool, ios_base&, char, long double, const __any_string*);
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template ostreambuf_iterator<wchar_t>
   __money_put(current_abi, const facet*, ostreambuf_iterator<wchar_t>,
 		bool, ios_base&, wchar_t, long double, const __any_string*);
+#endif
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace __facet_shims
@@ -768,9 +787,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   {
     using namespace __facet_shims;
 
+#if __cpp_rtti
     // If this is already a shim just use its underlying facet.
     if (auto* p = dynamic_cast<const __shim*>(this))
       return p->_M_get();
+#endif
 
     if (which == &numpunct<char>::id)
       return new numpunct_shim<char>{this};

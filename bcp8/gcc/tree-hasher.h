@@ -1,5 +1,5 @@
 /* Hash Table Helper for Trees
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Lawrence Crowl <crowl@google.com>
 
 This file is part of GCC.
@@ -34,7 +34,6 @@ struct int_tree_hasher
 {
   typedef int_tree_map value_type;
   typedef int_tree_map compare_type;
-  typedef int store_values_directly;
   static inline hashval_t hash (const value_type &);
   static inline bool equal (const value_type &, const compare_type &);
   static bool is_deleted (const value_type &v)

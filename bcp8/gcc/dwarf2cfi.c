@@ -1,5 +1,5 @@
 /* Dwarf2 Call Frame Information helper routines.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,14 +24,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "version.h"
 #include "flags.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
 #include "stor-layout.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "cfgbuild.h"
 #include "dwarf2.h"
@@ -45,6 +50,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 
 #include "except.h"		/* expand_builtin_dwarf_sp_column */
+#include "hashtab.h"
+#include "statistics.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"		/* init_return_column_size */
 #include "regs.h"		/* expand_builtin_init_dwarf_reg_sizes */
 #include "output.h"		/* asm_out_file */
@@ -166,20 +182,20 @@ typedef dw_trace_info *dw_trace_info_ref;
 
 struct trace_info_hasher : typed_noop_remove <dw_trace_info>
 {
-  typedef dw_trace_info value_type;
-  typedef dw_trace_info compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef dw_trace_info *value_type;
+  typedef dw_trace_info *compare_type;
+  static inline hashval_t hash (const dw_trace_info *);
+  static inline bool equal (const dw_trace_info *, const dw_trace_info *);
 };
 
 inline hashval_t
-trace_info_hasher::hash (const value_type *ti)
+trace_info_hasher::hash (const dw_trace_info *ti)
 {
   return INSN_UID (ti->head);
 }
 
 inline bool
-trace_info_hasher::equal (const value_type *a, const compare_type *b)
+trace_info_hasher::equal (const dw_trace_info *a, const dw_trace_info *b)
 {
   return a->head == b->head;
 }
@@ -202,7 +218,7 @@ static GTY(()) reg_saved_in_data *cie_return_save;
 static GTY(()) unsigned long dwarf2out_cfi_label_num;
 
 /* The insn after which a new CFI note should be emitted.  */
-static rtx add_cfi_insn;
+static rtx_insn *add_cfi_insn;
 
 /* When non-null, add_cfi will add the CFI to this vector.  */
 static cfi_vec *add_cfi_vec;
@@ -904,7 +920,7 @@ reg_save (unsigned int reg, unsigned int sreg, HOST_WIDE_INT offset)
    and adjust data structures to match.  */
 
 static void
-notice_args_size (rtx insn)
+notice_args_size (rtx_insn *insn)
 {
   HOST_WIDE_INT args_size, delta;
   rtx note;
@@ -928,9 +944,9 @@ notice_args_size (rtx insn)
 
       /* Convert a change in args_size (always a positive in the
 	 direction of stack growth) to a change in stack pointer.  */
-#ifndef STACK_GROWS_DOWNWARD
-      delta = -delta;
-#endif
+      if (!STACK_GROWS_DOWNWARD)
+	delta = -delta;
+
       cur_cfa->offset += delta;
     }
 }
@@ -2331,9 +2347,9 @@ maybe_record_trace_start_abnormal (rtx_insn *start, rtx_insn *origin)
     {
       /* Convert a change in args_size (always a positive in the
 	 direction of stack growth) to a change in stack pointer.  */
-#ifndef STACK_GROWS_DOWNWARD
-      delta = -delta;
-#endif
+      if (!STACK_GROWS_DOWNWARD)
+	delta = -delta;
+
       cur_row->cfa.offset += delta;
     }
   
@@ -2925,7 +2941,6 @@ create_cie_data (void)
   dw_trace_info cie_trace;
 
   dw_stack_pointer_regnum = DWARF_FRAME_REGNUM (STACK_POINTER_REGNUM);
-  dw_frame_pointer_regnum = DWARF_FRAME_REGNUM (HARD_FRAME_POINTER_REGNUM);
 
   memset (&cie_trace, 0, sizeof (cie_trace));
   cur_trace = &cie_trace;
@@ -2978,6 +2993,9 @@ create_cie_data (void)
 static unsigned int
 execute_dwarf2_frame (void)
 {
+  /* Different HARD_FRAME_POINTER_REGNUM might coexist in the same file.  */
+  dw_frame_pointer_regnum = DWARF_FRAME_REGNUM (HARD_FRAME_POINTER_REGNUM);
+
   /* The first time we're called, compute the incoming frame state.  */
   if (cie_cfi_vec == NULL)
     create_cie_data ();
@@ -3242,7 +3260,7 @@ output_cfi_directive (FILE *f, dw_cfi_ref cfi)
     case DW_CFA_offset_extended:
     case DW_CFA_offset_extended_sf:
       r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 1);
-      fprintf (f, "\t.cfi_offset %lu, "HOST_WIDE_INT_PRINT_DEC"\n",
+      fprintf (f, "\t.cfi_offset %lu, " HOST_WIDE_INT_PRINT_DEC"\n",
 	       r, cfi->dw_cfi_oprnd2.dw_cfi_offset);
       break;
 
@@ -3265,7 +3283,7 @@ output_cfi_directive (FILE *f, dw_cfi_ref cfi)
     case DW_CFA_def_cfa:
     case DW_CFA_def_cfa_sf:
       r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 1);
-      fprintf (f, "\t.cfi_def_cfa %lu, "HOST_WIDE_INT_PRINT_DEC"\n",
+      fprintf (f, "\t.cfi_def_cfa %lu, " HOST_WIDE_INT_PRINT_DEC"\n",
 	       r, cfi->dw_cfi_oprnd2.dw_cfi_offset);
       break;
 
@@ -3300,13 +3318,13 @@ output_cfi_directive (FILE *f, dw_cfi_ref cfi)
 	  fprintf (f, "\t.cfi_escape %#x,", DW_CFA_GNU_args_size);
 	  dw2_asm_output_data_uleb128_raw (cfi->dw_cfi_oprnd1.dw_cfi_offset);
 	  if (flag_debug_asm)
-	    fprintf (f, "\t%s args_size "HOST_WIDE_INT_PRINT_DEC,
+	    fprintf (f, "\t%s args_size " HOST_WIDE_INT_PRINT_DEC,
 		     ASM_COMMENT_START, cfi->dw_cfi_oprnd1.dw_cfi_offset);
 	  fputc ('\n', f);
 	}
       else
 	{
-	  fprintf (f, "\t.cfi_GNU_args_size "HOST_WIDE_INT_PRINT_DEC "\n",
+	  fprintf (f, "\t.cfi_GNU_args_size " HOST_WIDE_INT_PRINT_DEC "\n",
 		   cfi->dw_cfi_oprnd1.dw_cfi_offset);
 	}
       break;

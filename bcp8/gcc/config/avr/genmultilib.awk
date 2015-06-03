@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2014 Free Software Foundation, Inc.
+# Copyright (C) 2011-2015 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -97,7 +97,7 @@ BEGIN {
 	cores[n_cores] = core
 	n_cores++
 	tiny_stack[core] = 0
-	option[core] = "march=" core
+	option[core] = "mmcu=" core
 
 	next
     }

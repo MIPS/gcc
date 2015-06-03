@@ -1,5 +1,5 @@
 @c -*-texinfo-*-
-@c Copyright (C) 2001-2014 Free Software Foundation, Inc.
+@c Copyright (C) 2001-2015 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -543,7 +543,7 @@ When changes need to be applied to a function in its @code{GIMPLE}
 representation, @dfn{GIMPLE statement iterators} should be used.  These
 iterators provide an integrated abstraction of the flow graph and the
 instruction stream.  Block statement iterators are constructed using
-the @code{gimple_stmt_iterator} data structure and several modifier are
+the @code{gimple_stmt_iterator} data structure and several modifiers are
 available, including the following:
 
 @ftable @code

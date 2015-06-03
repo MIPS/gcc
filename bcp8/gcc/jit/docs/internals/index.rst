@@ -1,4 +1,4 @@
-.. Copyright (C) 2014 Free Software Foundation, Inc.
+.. Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Originally contributed by David Malcolm <dmalcolm@redhat.com>
 
    This is free software: you can redistribute it and/or modify it
@@ -31,7 +31,7 @@ the JIT library like this:
   cd build
   ../src/configure \
      --enable-host-shared \
-     --enable-languages=jit \
+     --enable-languages=jit,c++ \
      --disable-bootstrap \
      --enable-checking=release \
      --prefix=$PREFIX
@@ -54,10 +54,19 @@ Here's what those configuration options mean:
   position-independent code, which incurs a slight performance hit,
   but it necessary for a shared library.
 
-.. option:: --enable-languages=jit
+.. option:: --enable-languages=jit,c++
 
   This specifies which frontends to build.  The JIT library looks like
   a frontend to the rest of the code.
+
+  The C++ portion of the JIT test suite requires the C++ frontend to be
+  enabled at configure-time, or you may see errors like this when
+  running the test suite:
+
+  .. code-block:: console
+
+    xgcc: error: /home/david/jit/src/gcc/testsuite/jit.dg/test-quadratic.cc: C++ compiler not installed on this system
+    c++: error trying to exec 'cc1plus': execvp: No such file or directory
 
 .. option:: --disable-bootstrap
 
@@ -116,7 +125,7 @@ and once a test has been compiled, you can debug it directly:
            LD_LIBRARY_PATH=. \
            LIBRARY_PATH=. \
              gdb --args \
-               testsuite/jit/test-factorial.exe
+               testsuite/jit/test-factorial.c.exe
 
 Running under valgrind
 **********************
@@ -152,11 +161,11 @@ For example, the following invocation verbosely runs the testcase
 
   $ less testsuite/jit/jit.sum
   (...other results...)
-  XFAIL: jit.dg/test-sum-of-squares.c: test-sum-of-squares.exe.valgrind.txt: definitely lost: 8 bytes in 1 blocks
-  XFAIL: jit.dg/test-sum-of-squares.c: test-sum-of-squares.exe.valgrind.txt: unsuppressed errors: 1
+  XFAIL: jit.dg/test-sum-of-squares.c: test-sum-of-squares.c.exe.valgrind.txt: definitely lost: 8 bytes in 1 blocks
+  XFAIL: jit.dg/test-sum-of-squares.c: test-sum-of-squares.c.exe.valgrind.txt: unsuppressed errors: 1
   (...other results...)
 
-  $ less testsuite/jit/test-sum-of-squares.exe.valgrind.txt
+  $ less testsuite/jit/test-sum-of-squares.c.exe.valgrind.txt
   (...shows full valgrind report for this test case...)
 
 When running under valgrind, it's best to have configured gcc with
@@ -227,6 +236,54 @@ variables:
       ./jit-hello-world
   hello world
 
+Packaging notes
+---------------
+The configure-time option :option:`--enable-host-shared` is needed when
+building the jit in order to get position-independent code.  This will
+slow down the regular compiler by a few percent.  Hence when packaging gcc
+with libgccjit, please configure and build twice:
+
+  * once without :option:`--enable-host-shared` for most languages, and
+
+  * once with :option:`--enable-host-shared` for the jit
+
+For example:
+
+.. code-block:: bash
+
+  # Configure and build with --enable-host-shared
+  # for the jit:
+  mkdir configuration-for-jit
+  pushd configuration-for-jit
+  $(SRCDIR)/configure \
+    --enable-host-shared \
+    --enable-languages=jit \
+    --prefix=$(DESTDIR)
+  make
+  popd
+
+  # Configure and build *without* --enable-host-shared
+  # for maximum speed:
+  mkdir standard-configuration
+  pushd standard-configuration
+  $(SRCDIR)/configure \
+    --enable-languages=all \
+    --prefix=$(DESTDIR)
+  make
+  popd
+
+  # Both of the above are configured to install to $(DESTDIR)
+  # Install the configuration with --enable-host-shared first
+  # *then* the one without, so that the faster build
+  # of "cc1" et al overwrites the slower build.
+  pushd configuration-for-jit
+  make install
+  popd
+
+  pushd standard-configuration
+  make install
+  popd
+
 Overview of code structure
 --------------------------
 
@@ -259,3 +316,22 @@ Here is a high-level summary from ``jit-common.h``:
 .. include:: ../../jit-common.h
   :start-after: This comment is included by the docs.
   :end-before: End of comment for inclusion in the docs.  */
+
+.. _example-of-log-file:
+
+Another way to understand the structure of the code is to enable logging,
+via :c:func:`gcc_jit_context_set_logfile`.  Here is an example of a log
+generated via this call:
+
+.. literalinclude:: test-hello-world.exe.log.txt
+    :lines: 1-
+
+Design notes
+------------
+It should not be possible for client code to cause an internal compiler
+error.  If this *does* happen, the root cause should be isolated (perhaps
+using :c:func:`gcc_jit_context_dump_reproducer_to_file`) and the cause
+should be rejected via additional checking.  The checking ideally should
+be within the libgccjit API entrypoints in libgccjit.c, since this is as
+close as possible to the error; failing that, a good place is within
+``recording::context::validate ()`` in jit-recording.c.

@@ -1,10 +1,10 @@
-@c Copyright (C) 2004-2014 Free Software Foundation, Inc.
+@c Copyright (C) 2004-2015 Free Software Foundation, Inc.
 @c This is part of the GNU Fortran manual.   
 @c For copying conditions, see the file gfortran.texi.
 
 @ignore
 @c man begin COPYRIGHT
-Copyright @copyright{} 2004-2014 Free Software Foundation, Inc.
+Copyright @copyright{} 2004-2015 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -119,8 +119,8 @@ by type.  Explanations are in the following sections.
 -fdefault-real-8 -fdollar-ok -ffixed-line-length-@var{n} @gol
 -ffixed-line-length-none -ffree-form -ffree-line-length-@var{n} @gol
 -ffree-line-length-none -fimplicit-none -finteger-4-integer-8 @gol
--fmax-identifier-length -fmodule-private -fno-fixed-form -fno-range-check @gol
--fopenmp -freal-4-real-10 -freal-4-real-16 -freal-4-real-8 @gol
+-fmax-identifier-length -fmodule-private -ffixed-form -fno-range-check @gol
+-fopenacc -fopenmp -freal-4-real-10 -freal-4-real-16 -freal-4-real-8 @gol
 -freal-8-real-10 -freal-8-real-16 -freal-8-real-4 -std=@var{std}
 }
 
@@ -178,6 +178,7 @@ and warnings}.
 -finit-character=@var{n} -finit-integer=@var{n} -finit-local-zero @gol
 -finit-logical=@var{<true|false>}
 -finit-real=@var{<zero|inf|-inf|nan|snan>} @gol
+-finline-matmul-limit=@var{n} @gol
 -fmax-array-constructor=@var{n} -fmax-stack-var-size=@var{n}
 -fno-align-commons @gol
 -fno-automatic -fno-protect-parens -fno-underscoring @gol
@@ -199,7 +200,7 @@ accepted by the compiler:
 @item -ffree-form
 @itemx -ffixed-form
 @opindex @code{ffree-form}
-@opindex @code{fno-fixed-form}
+@opindex @code{ffixed-form}
 @cindex options, Fortran dialect
 @cindex file format, free
 @cindex file format, fixed
@@ -301,6 +302,20 @@ Specify that no implicit typing is allowed, unless overridden by explicit
 @opindex @code{fcray-pointer}
 Enable the Cray pointer extension, which provides C-like pointer
 functionality.
+
+@item -fopenacc
+@opindex @code{fopenacc}
+@cindex OpenACC
+Enable the OpenACC extensions.  This includes OpenACC @code{!$acc}
+directives in free form and @code{c$acc}, @code{*$acc} and
+@code{!$acc} directives in fixed form, @code{!$} conditional
+compilation sentinels in free form and @code{c$}, @code{*$} and
+@code{!$} sentinels in fixed form, and when linking arranges for the
+OpenACC runtime library to be linked in.
+
+Note that this is an experimental feature, incomplete, and subject to
+change in future versions of GCC.  See
+@w{@uref{https://gcc.gnu.org/wiki/OpenACC}} for more information.
 
 @item -fopenmp
 @opindex @code{fopenmp}
@@ -790,7 +805,9 @@ Warn when a character assignment will truncate the assigned string.
 @opindex @code{Wline-truncation}
 @cindex warnings, line truncation
 Warn when a source code line will be truncated.  This option is
-implied by @option{-Wall}.
+implied by @option{-Wall}.  For free-form source code, the default is
+@option{-Werror=line-truncation} such that truncations are reported as
+error.
 
 @item -Wconversion
 @opindex @code{Wconversion}
@@ -1521,6 +1538,22 @@ geometric mean of the dimensions of the argument and result matrices.
 
 The default value for @var{n} is 30.
 
+@item -finline-matmul-limit=@var{n}
+@opindex @code{finline-matmul-limit}
+When front-end optimiztion is active, some calls to the @code{MATMUL}
+intrinsic function will be inlined.  This may result in code size
+increase if the size of the matrix cannot be determined at compile
+time, as code for both cases is generated.  Setting
+@code{-finline-matmul-limit=0} will disable inlining in all cases.
+Setting this option with a value of @var{n} will produce inline code
+for matrices with size up to @var{n}. If the matrices involved are not
+square, the size comparison is performed using the geometric mean of
+the dimensions of the argument and result matrices.
+
+The default value for @var{n} is the value specified for
+@code{-fblas-matmul-limit} if this option is specified, or unlimitited
+otherwise.
+
 @item -frecursive
 @opindex @code{frecursive}
 Allow indirect recursion by forcing all local arrays to be allocated
@@ -1616,11 +1649,12 @@ if @option{-ffrontend-optimize} is in effect.
 @cindex Front-end optimization
 This option performs front-end optimization, based on manipulating
 parts the Fortran parse tree.  Enabled by default by any @option{-O}
-option.  Optimizations enabled by this option include elimination of
-identical function calls within expressions, removing unnecessary
-calls to @code{TRIM} in comparisons and assignments and replacing
-@code{TRIM(a)} with @code{a(1:LEN_TRIM(a))}. 
-It can be deselected by specifying @option{-fno-frontend-optimize}.
+option.  Optimizations enabled by this option include inlining calls
+to @code{MATMUL}, elimination of identical function calls within
+expressions, removing unnecessary calls to @code{TRIM} in comparisons
+and assignments and replacing @code{TRIM(a)} with
+@code{a(1:LEN_TRIM(a))}.  It can be deselected by specifying
+@option{-fno-frontend-optimize}.
 @end table
 
 @xref{Code Gen Options,,Options for Code Generation Conventions,

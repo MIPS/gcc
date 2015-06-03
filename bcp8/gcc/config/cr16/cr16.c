@@ -1,5 +1,5 @@
 /* Output routines for CR16 processor.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by KPIT Cummins Infosystems Limited.
   
    This file is part of GCC.
@@ -23,7 +23,17 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "tm_p.h"
@@ -36,13 +46,18 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "recog.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "optabs.h"
 #include "diagnostic-core.h"
@@ -1866,8 +1881,7 @@ cr16_create_dwarf_for_multi_push (rtx insn)
 		}
 	      reg = gen_rtx_REG (mode, j);
 	      offset += 2 * inc;
-	      tmp = gen_rtx_SET (VOIDmode,
-				 gen_frame_mem (mode,
+	      tmp = gen_rtx_SET (gen_frame_mem (mode,
 						plus_constant
 						(Pmode, stack_pointer_rtx,
 						 total_push_bytes - offset)),
@@ -1897,7 +1911,7 @@ cr16_create_dwarf_for_multi_push (rtx insn)
       from = i--;
     }
 
-  tmp = gen_rtx_SET (SImode, stack_pointer_rtx,
+  tmp = gen_rtx_SET (stack_pointer_rtx,
 		     gen_rtx_PLUS (SImode, stack_pointer_rtx,
 				   GEN_INT (-offset)));
   RTX_FRAME_RELATED_P (tmp) = 1;

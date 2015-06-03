@@ -1,3 +1,8 @@
+2015-06-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 224098.
+	* REVISION: Update subversion id.
+
 2014-12-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (bcp8_comparison_operator): New

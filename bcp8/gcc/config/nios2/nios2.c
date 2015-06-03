@@ -1,5 +1,5 @@
 /* Target machine subroutines for Altera Nios II.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Jonah Graham (jgraham@altera.com), 
    Will Reece (wreece@altera.com), and Jeff DaSilva (jdasilva@altera.com).
    Contributed by Mentor Graphics, Inc.
@@ -25,7 +25,17 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -34,15 +44,21 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "ggc.h"
 #include "predict.h"
 #include "dominance.h"
@@ -61,11 +77,8 @@
 #include "langhooks.h"
 #include "df.h"
 #include "debug.h"
-#include "real.h"
 #include "reload.h"
 #include "stor-layout.h"
-#include "varasm.h"
-#include "calls.h"
 #include "builtins.h"
 
 /* Forward function declarations.  */
@@ -476,6 +489,21 @@ nios2_emit_stack_limit_check (void)
 /* Temp regno used inside prologue/epilogue.  */
 #define TEMP_REG_NUM 8
 
+static rtx
+nios2_emit_add_constant (rtx reg, HOST_WIDE_INT immed)
+{
+  rtx insn;
+  if (SMALL_INT (immed))
+    insn = emit_insn (gen_add2_insn (reg, gen_int_mode (immed, Pmode)));
+  else
+    {
+      rtx tmp = gen_rtx_REG (Pmode, TEMP_REG_NUM);
+      emit_move_insn (tmp, gen_int_mode (immed, Pmode));
+      insn = emit_insn (gen_add2_insn (reg, tmp));
+    }
+  return insn;
+}
+
 void
 nios2_expand_prologue (void)
 {
@@ -538,7 +566,7 @@ nios2_expand_prologue (void)
   if (sp_offset)
     {
       rtx sp_adjust
-	= gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+	= gen_rtx_SET (stack_pointer_rtx,
 		       plus_constant (Pmode, stack_pointer_rtx, sp_offset));
       if (SMALL_INT (sp_offset))
 	insn = emit_insn (sp_adjust);
@@ -604,7 +632,7 @@ nios2_expand_epilogue (bool sibcall_p)
       emit_move_insn (tmp, gen_int_mode (cfun->machine->save_regs_offset,
 					 Pmode));
       insn = emit_insn (gen_add2_insn (stack_pointer_rtx, tmp));
-      cfa_adj = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+      cfa_adj = gen_rtx_SET (stack_pointer_rtx,
 			     plus_constant (Pmode, stack_pointer_rtx,
 					    cfun->machine->save_regs_offset));
       add_reg_note (insn, REG_CFA_ADJUST_CFA, cfa_adj);
@@ -631,7 +659,7 @@ nios2_expand_epilogue (bool sibcall_p)
     {
       insn = emit_insn (gen_add2_insn (stack_pointer_rtx,
 				       gen_int_mode (sp_adjust, Pmode)));
-      cfa_adj = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+      cfa_adj = gen_rtx_SET (stack_pointer_rtx,
 			     plus_constant (Pmode, stack_pointer_rtx,
 					    sp_adjust));
       add_reg_note (insn, REG_CFA_ADJUST_CFA, cfa_adj);
@@ -872,7 +900,8 @@ nios2_custom_check_insns (void)
 		 "-fno-math-errno is specified", N2FPU_NAME (i));
 
   if (errors || custom_code_conflict)
-    fatal_error ("conflicting use of -mcustom switches, target attributes, "
+    fatal_error (input_location,
+		 "conflicting use of -mcustom switches, target attributes, "
 		 "and/or __builtin_custom_ functions");
 }
 
@@ -1025,9 +1054,14 @@ nios2_option_override (void)
     = (global_options_set.x_g_switch_value
        ? g_switch_value : NIOS2_DEFAULT_GVALUE);
 
-  /* Default to -mgpopt unless -fpic or -fPIC.  */
-  if (TARGET_GPOPT == -1 && flag_pic)
-    TARGET_GPOPT = 0;
+  if (nios2_gpopt_option == gpopt_unspecified)
+    {
+      /* Default to -mgpopt unless -fpic or -fPIC.  */
+      if (flag_pic)
+	nios2_gpopt_option = gpopt_none;
+      else
+	nios2_gpopt_option = gpopt_local;
+    }
 
   /* If we don't have mul, we don't have mulx either!  */
   if (!TARGET_HAS_MUL && TARGET_HAS_MULX)
@@ -1210,12 +1244,12 @@ nios2_unspec_offset (rtx loc, int unspec)
 
 /* Generate GOT pointer based address with large offset.  */
 static rtx
-nios2_large_got_address (rtx offset)
+nios2_large_got_address (rtx offset, rtx tmp)
 {
-  rtx addr = gen_reg_rtx (Pmode);
-  emit_insn (gen_add3_insn (addr, pic_offset_table_rtx,
-			    force_reg (Pmode, offset)));
-  return addr;
+  if (!tmp)
+    tmp = gen_reg_rtx (Pmode);
+  emit_move_insn (tmp, offset);
+  return gen_rtx_PLUS (Pmode, tmp, pic_offset_table_rtx);
 }
 
 /* Generate a GOT pointer based address.  */
@@ -1226,7 +1260,7 @@ nios2_got_address (rtx loc, int unspec)
   crtl->uses_pic_offset_table = 1;
 
   if (nios2_large_offset_p (unspec))
-    return nios2_large_got_address (offset);
+    return force_reg (Pmode, nios2_large_got_address (offset, NULL_RTX));
 
   return gen_rtx_PLUS (Pmode, pic_offset_table_rtx, offset);
 }
@@ -1644,8 +1678,7 @@ nios2_in_small_data_p (const_tree exp)
       if (DECL_SECTION_NAME (exp))
 	{
 	  const char *section = DECL_SECTION_NAME (exp);
-	  if (nios2_section_threshold > 0
-	      && nios2_small_section_name_p (section))
+	  if (nios2_small_section_name_p (section))
 	    return true;
 	}
       else
@@ -1668,19 +1701,63 @@ nios2_in_small_data_p (const_tree exp)
 bool
 nios2_symbol_ref_in_small_data_p (rtx sym)
 {
-  gcc_assert (GET_CODE (sym) == SYMBOL_REF);
-  return
-    (TARGET_GPOPT
-     /* GP-relative access cannot be used for externally defined symbols,
-	because the compilation unit that defines the symbol may place it
-	in a section that cannot be reached from GP.  */
-     && !SYMBOL_REF_EXTERNAL_P (sym)
-     /* True if a symbol is both small and not weak.  */
-     && SYMBOL_REF_SMALL_P (sym)
-     && !(SYMBOL_REF_DECL (sym) && DECL_WEAK (SYMBOL_REF_DECL (sym)))
-     /* TLS variables are not accessed through the GP.  */
-     && SYMBOL_REF_TLS_MODEL (sym) == 0);
+  tree decl;
 
+  gcc_assert (GET_CODE (sym) == SYMBOL_REF);
+  decl = SYMBOL_REF_DECL (sym);
+
+  /* TLS variables are not accessed through the GP.  */
+  if (SYMBOL_REF_TLS_MODEL (sym) != 0)
+    return false;
+
+  /* If the user has explicitly placed the symbol in a small data section
+     via an attribute, generate gp-relative addressing even if the symbol
+     is external, weak, or larger than we'd automatically put in the
+     small data section.  OTOH, if the symbol is located in some
+     non-small-data section, we can't use gp-relative accesses on it
+     unless the user has requested gpopt_data or gpopt_all.  */
+
+  switch (nios2_gpopt_option)
+    {
+    case gpopt_none:
+      /* Don't generate a gp-relative addressing mode if that's been
+	 disabled.  */
+      return false;
+
+    case gpopt_local:
+      /* Use GP-relative addressing for small data symbols that are
+	 not external or weak, plus any symbols that have explicitly
+	 been placed in a small data section.  */
+      if (decl && DECL_SECTION_NAME (decl))
+	return nios2_small_section_name_p (DECL_SECTION_NAME (decl));
+      return (SYMBOL_REF_SMALL_P (sym)
+	      && !SYMBOL_REF_EXTERNAL_P (sym)
+	      && !(decl && DECL_WEAK (decl)));
+
+    case gpopt_global:
+      /* Use GP-relative addressing for small data symbols, even if
+	 they are external or weak.  Note that SYMBOL_REF_SMALL_P
+         is also true of symbols that have explicitly been placed
+         in a small data section.  */
+      return SYMBOL_REF_SMALL_P (sym);
+
+    case gpopt_data:
+      /* Use GP-relative addressing for all data symbols regardless
+	 of the object size, but not for code symbols.  This option
+	 is equivalent to the user asserting that the entire data
+	 section is accessible from the GP.  */
+      return !SYMBOL_REF_FUNCTION_P (sym);
+
+    case gpopt_all:
+      /* Use GP-relative addressing for everything, including code.
+	 Effectively, the user has asserted that the entire program
+	 fits within the 64K range of the GP offset.  */
+      return true;
+
+    default:
+      /* We shouldn't get here.  */
+      return false;
+    }
 }
 
 /* Implement TARGET_SECTION_TYPE_FLAGS.  */
@@ -1722,13 +1799,17 @@ nios2_load_pic_register (void)
 
 /* Generate a PIC address as a MEM rtx.  */
 static rtx
-nios2_load_pic_address (rtx sym, int unspec)
+nios2_load_pic_address (rtx sym, int unspec, rtx tmp)
 {
   if (flag_pic == 2
       && GET_CODE (sym) == SYMBOL_REF
       && nios2_symbol_binds_local_p (sym))
     /* Under -fPIC, generate a GOTOFF address for local symbols.  */
-    return nios2_got_address (sym, UNSPEC_PIC_GOTOFF_SYM);
+    {
+      rtx offset = nios2_unspec_offset (sym, UNSPEC_PIC_GOTOFF_SYM);
+      crtl->uses_pic_offset_table = 1;
+      return nios2_large_got_address (offset, tmp);
+    }
 
   return gen_const_mem (Pmode, nios2_got_address (sym, unspec));
 }
@@ -1766,7 +1847,7 @@ nios2_legitimize_constant_address (rtx addr)
   if (nios2_tls_symbol_p (base))
     base = nios2_legitimize_tls_address (base);
   else if (flag_pic)
-    base = nios2_load_pic_address (base, UNSPEC_PIC_SYM);
+    base = nios2_load_pic_address (base, UNSPEC_PIC_SYM, NULL_RTX);
   else
     return addr;
 
@@ -1881,18 +1962,24 @@ nios2_emit_move_sequence (rtx *operands, machine_mode mode)
 
 /* The function with address *ADDR is being called.  If the address
    needs to be loaded from the GOT, emit the instruction to do so and
-   update *ADDR to point to the rtx for the loaded value.  */
+   update *ADDR to point to the rtx for the loaded value.
+   If REG != NULL_RTX, it is used as the target/scratch register in the
+   GOT address calculation.  */
 void
-nios2_adjust_call_address (rtx *call_op)
+nios2_adjust_call_address (rtx *call_op, rtx reg)
 {
-  rtx addr;
-  gcc_assert (MEM_P (*call_op));
-  addr = XEXP (*call_op, 0);
+  if (MEM_P (*call_op))
+    call_op = &XEXP (*call_op, 0);
+
+  rtx addr = *call_op;
   if (flag_pic && CONSTANT_P (addr))
     {
-      rtx reg = gen_reg_rtx (Pmode);
-      emit_move_insn (reg, nios2_load_pic_address (addr, UNSPEC_PIC_CALL_SYM));
-      XEXP (*call_op, 0) = reg;
+      rtx tmp = reg ? reg : NULL_RTX;
+      if (!reg)
+	reg = gen_reg_rtx (Pmode);
+      addr = nios2_load_pic_address (addr, UNSPEC_PIC_CALL_SYM, tmp);
+      emit_insn (gen_rtx_SET (reg, addr));
+      *call_op = reg;
     }
 }
 
@@ -2160,6 +2247,18 @@ nios2_output_dwarf_dtprel (FILE *file, int size, rtx x)
   fprintf (file, "\t.4byte\t%%tls_ldo(");
   output_addr_const (file, x);
   fprintf (file, ")");
+}
+
+/* Implemet TARGET_ASM_FILE_END.  */
+
+static void
+nios2_asm_file_end (void)
+{
+  /* The Nios II Linux stack is mapped non-executable by default, so add a
+     .note.GNU-stack section for switching to executable stacks only when
+     trampolines are generated.  */
+  if (TARGET_LINUX_ABI && trampolines_created)
+    file_end_indicate_exec_stack ();
 }
 
 /* Implement TARGET_ASM_FUNCTION_PROLOGUE.  */
@@ -2489,7 +2588,8 @@ nios2_expand_fpu_builtin (tree exp, unsigned int code, rtx target)
   bool has_target_p = (dst_mode != VOIDmode);
 
   if (N2FPU_N (code) < 0)
-    fatal_error ("Cannot call %<__builtin_custom_%s%> without specifying switch"
+    fatal_error (input_location,
+		 "Cannot call %<__builtin_custom_%s%> without specifying switch"
 		 " %<-mcustom-%s%>", N2FPU_NAME (code), N2FPU_NAME (code));
   if (has_target_p)
     create_output_operand (&ops[opno++], target, dst_mode);
@@ -2611,7 +2711,7 @@ nios2_expand_custom_builtin (tree exp, unsigned int index, rtx target)
     unspec_args[argno] = const0_rtx;
 
   insn = (has_target_p
-	  ? gen_rtx_SET (VOIDmode, target,
+	  ? gen_rtx_SET (target,
 			 gen_rtx_UNSPEC_VOLATILE (tmode,
 						  gen_rtvec_v (3, unspec_args),
 						  UNSPECV_CUSTOM_XNXX))
@@ -3244,6 +3344,73 @@ nios2_merge_decl_attributes (tree olddecl, tree newdecl)
 			   DECL_ATTRIBUTES (newdecl));
 }
 
+/* Implement TARGET_ASM_OUTPUT_MI_THUNK.  */
+static void
+nios2_asm_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
+			   HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
+			   tree function)
+{
+  rtx this_rtx, funexp;
+  rtx_insn *insn;
+
+  /* Pretend to be a post-reload pass while generating rtl.  */
+  reload_completed = 1;
+
+  if (flag_pic)
+    nios2_load_pic_register ();
+
+  /* Mark the end of the (empty) prologue.  */
+  emit_note (NOTE_INSN_PROLOGUE_END);
+
+  /* Find the "this" pointer.  If the function returns a structure,
+     the structure return pointer is in $5.  */
+  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function)), function))
+    this_rtx = gen_rtx_REG (Pmode, FIRST_ARG_REGNO + 1);
+  else
+    this_rtx = gen_rtx_REG (Pmode, FIRST_ARG_REGNO);
+
+  /* Add DELTA to THIS_RTX.  */
+  nios2_emit_add_constant (this_rtx, delta);
+
+  /* If needed, add *(*THIS_RTX + VCALL_OFFSET) to THIS_RTX.  */
+  if (vcall_offset)
+    {
+      rtx tmp;
+
+      tmp = gen_rtx_REG (Pmode, 2);
+      emit_move_insn (tmp, gen_rtx_MEM (Pmode, this_rtx));
+      nios2_emit_add_constant (tmp, vcall_offset);
+      emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp));
+      emit_insn (gen_add2_insn (this_rtx, tmp));
+    }
+
+  /* Generate a tail call to the target function.  */
+  if (!TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  funexp = XEXP (DECL_RTL (function), 0);
+  /* Function address needs to be constructed under PIC,
+     provide r2 to use here.  */
+  nios2_adjust_call_address (&funexp, gen_rtx_REG (Pmode, 2));
+  insn = emit_call_insn (gen_sibcall_internal (funexp, const0_rtx));
+  SIBLING_CALL_P (insn) = 1;
+
+  /* Run just enough of rest_of_compilation to get the insns emitted.
+     There's not really enough bulk here to make other passes such as
+     instruction scheduling worth while.  Note that use_thunk calls
+     assemble_start_function and assemble_end_function.  */
+  insn = get_insns ();
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1);
+  final_end_function ();
+
+  /* Stop pretending to be a post-reload pass.  */
+  reload_completed = 0;
+}
+
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_FUNCTION_PROLOGUE
@@ -3340,6 +3507,9 @@ nios2_merge_decl_attributes (tree olddecl, tree newdecl)
 #undef TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA
 #define TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA nios2_output_addr_const_extra
 
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END nios2_asm_file_end
+
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE nios2_option_override
 
@@ -3360,6 +3530,13 @@ nios2_merge_decl_attributes (tree olddecl, tree newdecl)
 
 #undef TARGET_MERGE_DECL_ATTRIBUTES
 #define TARGET_MERGE_DECL_ATTRIBUTES nios2_merge_decl_attributes
+
+#undef  TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK \
+  hook_bool_const_tree_hwi_hwi_const_tree_true
+
+#undef  TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK nios2_asm_output_mi_thunk
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

@@ -1,5 +1,5 @@
 /* Passes for transactional memory support.
-   Copyright (C) 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2008-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -21,12 +21,19 @@
 #include "system.h"
 #include "coretypes.h"
 #include "hash-table.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -176,6 +183,9 @@ static void *expand_regions (struct tm_region *,
 static tree
 get_attrs_for (const_tree x)
 {
+  if (x == NULL_TREE)
+    return NULL_TREE;
+
   switch (TREE_CODE (x))
     {
     case FUNCTION_DECL:
@@ -184,16 +194,16 @@ get_attrs_for (const_tree x)
 
     default:
       if (TYPE_P (x))
-	return NULL;
+	return NULL_TREE;
       x = TREE_TYPE (x);
       if (TREE_CODE (x) != POINTER_TYPE)
-	return NULL;
+	return NULL_TREE;
       /* FALLTHRU */
 
     case POINTER_TYPE:
       x = TREE_TYPE (x);
       if (TREE_CODE (x) != FUNCTION_TYPE && TREE_CODE (x) != METHOD_TYPE)
-	return NULL;
+	return NULL_TREE;
       /* FALLTHRU */
 
     case FUNCTION_TYPE:
@@ -964,23 +974,23 @@ typedef struct tm_log_entry
 
 struct log_entry_hasher
 {
-  typedef tm_log_entry value_type;
-  typedef tm_log_entry compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-  static inline void remove (value_type *);
+  typedef tm_log_entry *value_type;
+  typedef tm_log_entry *compare_type;
+  static inline hashval_t hash (const tm_log_entry *);
+  static inline bool equal (const tm_log_entry *, const tm_log_entry *);
+  static inline void remove (tm_log_entry *);
 };
 
 /* Htab support.  Return hash value for a `tm_log_entry'.  */
 inline hashval_t
-log_entry_hasher::hash (const value_type *log)
+log_entry_hasher::hash (const tm_log_entry *log)
 {
   return iterative_hash_expr (log->addr, 0);
 }
 
 /* Htab support.  Return true if two log entries are the same.  */
 inline bool
-log_entry_hasher::equal (const value_type *log1, const compare_type *log2)
+log_entry_hasher::equal (const tm_log_entry *log1, const tm_log_entry *log2)
 {
   /* FIXME:
 
@@ -1006,7 +1016,7 @@ log_entry_hasher::equal (const value_type *log1, const compare_type *log2)
 
 /* Htab support.  Free one tm_log_entry.  */
 inline void
-log_entry_hasher::remove (value_type *lp)
+log_entry_hasher::remove (tm_log_entry *lp)
 {
   lp->stmts.release ();
   free (lp);
@@ -1039,20 +1049,20 @@ typedef struct tm_new_mem_map
 
 struct tm_mem_map_hasher : typed_free_remove <tm_new_mem_map_t>
 {
-  typedef tm_new_mem_map_t value_type;
-  typedef tm_new_mem_map_t compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef tm_new_mem_map_t *value_type;
+  typedef tm_new_mem_map_t *compare_type;
+  static inline hashval_t hash (const tm_new_mem_map_t *);
+  static inline bool equal (const tm_new_mem_map_t *, const tm_new_mem_map_t *);
 };
 
 inline hashval_t
-tm_mem_map_hasher::hash (const value_type *v)
+tm_mem_map_hasher::hash (const tm_new_mem_map_t *v)
 {
   return (intptr_t)v->val >> 4;
 }
 
 inline bool
-tm_mem_map_hasher::equal (const value_type *v, const compare_type *c)
+tm_mem_map_hasher::equal (const tm_new_mem_map_t *v, const tm_new_mem_map_t *c)
 {
   return v->val == c->val;
 }
@@ -3340,15 +3350,15 @@ typedef struct tm_memop
 
 struct tm_memop_hasher : typed_free_remove <tm_memop>
 {
-  typedef tm_memop value_type;
-  typedef tm_memop compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef tm_memop *value_type;
+  typedef tm_memop *compare_type;
+  static inline hashval_t hash (const tm_memop *);
+  static inline bool equal (const tm_memop *, const tm_memop *);
 };
 
 /* Htab support.  Return a hash value for a `tm_memop'.  */
 inline hashval_t
-tm_memop_hasher::hash (const value_type *mem)
+tm_memop_hasher::hash (const tm_memop *mem)
 {
   tree addr = mem->addr;
   /* We drill down to the SSA_NAME/DECL for the hash, but equality is
@@ -3360,7 +3370,7 @@ tm_memop_hasher::hash (const value_type *mem)
 
 /* Htab support.  Return true if two tm_memop's are the same.  */
 inline bool
-tm_memop_hasher::equal (const value_type *mem1, const compare_type *mem2)
+tm_memop_hasher::equal (const tm_memop *mem1, const tm_memop *mem2)
 {
   return operand_equal_p (mem1->addr, mem2->addr, 0);
 }
@@ -4957,6 +4967,8 @@ ipa_tm_create_version (struct cgraph_node *old_node)
   new_node->externally_visible = old_node->externally_visible;
   new_node->lowered = true;
   new_node->tm_clone = 1;
+  if (!old_node->implicit_section)
+    new_node->set_section (old_node->get_section ());
   get_cg_data (&old_node, true)->clone = new_node;
 
   if (old_node->get_availability () >= AVAIL_INTERPOSABLE)

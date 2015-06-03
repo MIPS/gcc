@@ -1,5 +1,5 @@
 /* Common block and equivalence list handling
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Canqun Yang <canqun@nudt.edu.cn>
 
 This file is part of GCC.
@@ -97,7 +97,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -397,7 +407,7 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
 	 blank common blocks may be of different sizes.  */
       if (!tree_int_cst_equal (DECL_SIZE_UNIT (decl), size)
 	  && strcmp (com->name, BLANK_COMMON_NAME))
-	gfc_warning ("Named COMMON block %qs at %L shall be of the "
+	gfc_warning (0, "Named COMMON block %qs at %L shall be of the "
 		     "same size as elsewhere (%lu vs %lu bytes)", com->name,
 		     &com->where,
 		     (unsigned long) TREE_INT_CST_LOW (size),
@@ -908,8 +918,8 @@ confirm_condition (segment_info *s1, gfc_equiv *eq1, segment_info *s2,
   offset2 = calculate_offset (eq2->expr);
 
   if (s1->offset + offset1 != s2->offset + offset2)
-    gfc_error_1 ("Inconsistent equivalence rules involving '%s' at %L and "
-	       "'%s' at %L", s1->sym->name, &s1->sym->declared_at,
+    gfc_error ("Inconsistent equivalence rules involving %qs at %L and "
+	       "%qs at %L", s1->sym->name, &s1->sym->declared_at,
 	       s2->sym->name, &s2->sym->declared_at);
 }
 
@@ -1136,12 +1146,14 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
 	      if (warn_align_commons)
 		{
 		  if (strcmp (common->name, BLANK_COMMON_NAME))
-		    gfc_warning ("Padding of %d bytes required before %qs in "
+		    gfc_warning (0,
+				 "Padding of %d bytes required before %qs in "
 				 "COMMON %qs at %L; reorder elements or use "
 				 "-fno-align-commons", (int)offset,
 				 s->sym->name, common->name, &common->where);
 		  else
-		    gfc_warning ("Padding of %d bytes required before %qs in "
+		    gfc_warning (0,
+				 "Padding of %d bytes required before %qs in "
 				 "COMMON at %L; reorder elements or use "
 				 "-fno-align-commons", (int)offset,
 				 s->sym->name, &common->where);

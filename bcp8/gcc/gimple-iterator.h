@@ -1,5 +1,5 @@
 /* Header file for gimple iterators.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -90,6 +90,7 @@ extern basic_block gsi_insert_seq_on_edge_immediate (edge, gimple_seq);
 extern void gsi_commit_edge_inserts (void);
 extern void gsi_commit_one_edge_insert (edge, basic_block *);
 extern gphi_iterator gsi_start_phis (basic_block);
+extern void update_modified_stmts (gimple_seq);
 
 /* Return a new iterator pointing to GIMPLE_SEQ's first statement.  */
 
@@ -250,7 +251,7 @@ gsi_next_nondebug (gimple_stmt_iterator *i)
   while (!gsi_end_p (*i) && is_gimple_debug (gsi_stmt (*i)));
 }
 
-/* Advance the iterator to the next non-debug gimple statement.  */
+/* Advance the iterator to the previous non-debug gimple statement.  */
 
 static inline void
 gsi_prev_nondebug (gimple_stmt_iterator *i)

@@ -1,5 +1,5 @@
 ;; Machine Description for Altera Nios II.
-;; Copyright (C) 2012-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2015 Free Software Foundation, Inc.
 ;; Contributed by Jonah Graham (jgraham@altera.com) and 
 ;; Will Reece (wreece@altera.com).
 ;; Contributed by Mentor Graphics, Inc.
@@ -697,7 +697,7 @@
 ; check or adjust for overflow.
 
 (define_insn "indirect_jump"
-  [(set (pc) (match_operand:SI 0 "register_operand" "r"))]
+  [(set (pc) (match_operand:SI 0 "register_operand" "c"))]
   ""
   "jmp\\t%0"
   [(set_attr "type" "control")])
@@ -726,7 +726,7 @@
                     (match_operand 1 "" ""))
               (clobber (reg:SI RA_REGNO))])]
   ""
-  "nios2_adjust_call_address (&operands[0]);")
+  "nios2_adjust_call_address (&operands[0], NULL_RTX);")
 
 (define_expand "call_value"
   [(parallel [(set (match_operand 0 "" "")
@@ -734,7 +734,7 @@
                          (match_operand 2 "" "")))
               (clobber (reg:SI RA_REGNO))])]
   ""
-  "nios2_adjust_call_address (&operands[1]);")
+  "nios2_adjust_call_address (&operands[1], NULL_RTX);")
 
 (define_insn "*call"
   [(call (mem:QI (match_operand:SI 0 "call_operand" "i,r"))
@@ -762,7 +762,7 @@
                     (match_operand 1 "" ""))
               (return)])]
   ""
-  "nios2_adjust_call_address (&operands[0]);")
+  "nios2_adjust_call_address (&operands[0], NULL_RTX);")
 
 (define_expand "sibcall_value"
   [(parallel [(set (match_operand 0 "" "")
@@ -770,9 +770,9 @@
                          (match_operand 2 "" "")))
               (return)])]
   ""
-  "nios2_adjust_call_address (&operands[1]);")
+  "nios2_adjust_call_address (&operands[1], NULL_RTX);")
 
-(define_insn "*sibcall"
+(define_insn "sibcall_internal"
  [(call (mem:QI (match_operand:SI 0 "call_operand" "i,j"))
         (match_operand 1 "" ""))
   (return)]
@@ -782,7 +782,7 @@
    jmp\\t%0"
   [(set_attr "type" "control")])
 
-(define_insn "*sibcall_value"
+(define_insn "sibcall_value_internal"
  [(set (match_operand 0 "register_operand" "")
        (call (mem:QI (match_operand:SI 1 "call_operand" "i,j"))
              (match_operand 2 "" "")))
@@ -811,7 +811,7 @@
 
 (define_insn "*tablejump"
   [(set (pc)
-        (match_operand:SI 0 "register_operand" "r"))
+        (match_operand:SI 0 "register_operand" "c"))
    (use (label_ref (match_operand 1 "" "")))]
   ""
   "jmp\\t%0"
@@ -1000,7 +1000,7 @@
 (define_insn "trap"
   [(trap_if (const_int 1) (const_int 3))]
   ""
-  "break\\t3"
+  "trap\\t3"
   [(set_attr "type" "control")])
 
 (define_insn "ctrapsi4"
@@ -1009,7 +1009,7 @@
                (match_operand:SI 2 "reg_or_0_operand" "rM")])
             (match_operand 3 "const_int_operand" "i"))]
   ""
-  "b%R0\\t%z1, %z2, 1f\;break\\t%3\;1:"
+  "b%R0\\t%z1, %z2, 1f\;trap\\t%3\;1:"
   [(set_attr "type" "control")
    (set_attr "length" "8")])
   

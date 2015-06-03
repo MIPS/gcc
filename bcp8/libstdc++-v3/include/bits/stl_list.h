@@ -1,6 +1,6 @@
 // List implementation -*- C++ -*-
 
-// Copyright (C) 2001-2014 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -1789,6 +1789,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	    _S_do_it(_M_get_Node_allocator(), __x._M_get_Node_allocator()))
 	  __builtin_abort();
       }
+
+      // Used to implement resize.
+      const_iterator
+      _M_resize_pos(size_type& __new_size) const;
     };
 _GLIBCXX_END_NAMESPACE_CXX11
 
@@ -1806,6 +1810,11 @@ _GLIBCXX_END_NAMESPACE_CXX11
     inline bool
     operator==(const list<_Tp, _Alloc>& __x, const list<_Tp, _Alloc>& __y)
     {
+#if _GLIBCXX_USE_CXX11_ABI
+      if (__x.size() != __y.size())
+	return false;
+#endif
+
       typedef typename list<_Tp, _Alloc>::const_iterator const_iterator;
       const_iterator __end1 = __x.end();
       const_iterator __end2 = __y.end();
@@ -1868,6 +1877,45 @@ _GLIBCXX_END_NAMESPACE_CXX11
     { __x.swap(__y); }
 
 _GLIBCXX_END_NAMESPACE_CONTAINER
+
+#if _GLIBCXX_USE_CXX11_ABI
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
+  // Detect when distance is used to compute the size of the whole list.
+  template<typename _Tp>
+    inline ptrdiff_t
+    __distance(_GLIBCXX_STD_C::_List_iterator<_Tp> __first,
+	       _GLIBCXX_STD_C::_List_iterator<_Tp> __last,
+	       input_iterator_tag __tag)
+    {
+      typedef _GLIBCXX_STD_C::_List_const_iterator<_Tp> _CIter;
+      return std::__distance(_CIter(__first), _CIter(__last), __tag);
+    }
+
+  template<typename _Tp>
+    inline ptrdiff_t
+    __distance(_GLIBCXX_STD_C::_List_const_iterator<_Tp> __first,
+	       _GLIBCXX_STD_C::_List_const_iterator<_Tp> __last,
+	       input_iterator_tag)
+    {
+      typedef _GLIBCXX_STD_C::_List_node<size_t> _Sentinel;
+      _GLIBCXX_STD_C::_List_const_iterator<_Tp> __beyond = __last;
+      ++__beyond;
+      bool __whole = __first == __beyond;
+      if (__builtin_constant_p (__whole) && __whole)
+	return static_cast<const _Sentinel*>(__last._M_node)->_M_data;
+
+      ptrdiff_t __n = 0;
+      while (__first != __last)
+	{
+	  ++__first;
+	  ++__n;
+	}
+      return __n;
+    }
+
+_GLIBCXX_END_NAMESPACE_VERSION
+#endif
 } // namespace std
 
 #endif /* _STL_LIST_H */

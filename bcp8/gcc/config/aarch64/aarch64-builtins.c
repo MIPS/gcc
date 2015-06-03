@@ -1,5 +1,5 @@
 /* Builtins' description for AArch64 SIMD architecture.
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -23,10 +23,34 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "calls.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tm_p.h"
 #include "recog.h"
@@ -35,15 +59,8 @@
 #include "insn-codes.h"
 #include "optabs.h"
 #include "hash-table.h"
-#include "vec.h"
 #include "ggc.h"
 #include "predict.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfgrtl.h"
@@ -695,7 +712,8 @@ aarch64_init_simd_builtins (void)
   aarch64_init_simd_builtin_scalar_types ();
  
   tree lane_check_fpr = build_function_type_list (void_type_node,
-						  intSI_type_node,
+						  size_type_node,
+						  size_type_node,
 						  intSI_type_node,
 						  NULL);
   aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_LANE_CHECK] =
@@ -984,20 +1002,30 @@ aarch64_simd_expand_builtin (int fcode, tree exp, rtx target)
 {
   if (fcode == AARCH64_SIMD_BUILTIN_LANE_CHECK)
     {
-      tree nlanes = CALL_EXPR_ARG (exp, 0);
-      gcc_assert (TREE_CODE (nlanes) == INTEGER_CST);
-      rtx lane_idx = expand_normal (CALL_EXPR_ARG (exp, 1));
-      if (CONST_INT_P (lane_idx))
-	aarch64_simd_lane_bounds (lane_idx, 0, TREE_INT_CST_LOW (nlanes), exp);
+      rtx totalsize = expand_normal (CALL_EXPR_ARG (exp, 0));
+      rtx elementsize = expand_normal (CALL_EXPR_ARG (exp, 1));
+      if (CONST_INT_P (totalsize) && CONST_INT_P (elementsize)
+	  && UINTVAL (elementsize) != 0
+	  && UINTVAL (totalsize) != 0)
+	{
+	  rtx lane_idx = expand_normal (CALL_EXPR_ARG (exp, 2));
+          if (CONST_INT_P (lane_idx))
+	    aarch64_simd_lane_bounds (lane_idx, 0,
+				      UINTVAL (totalsize)
+				       / UINTVAL (elementsize),
+				      exp);
+          else
+	    error ("%Klane index must be a constant immediate", exp);
+	}
       else
-	error ("%Klane index must be a constant immediate", exp);
+	error ("%Ktotal size and element size must be a non-zero constant immediate", exp);
       /* Don't generate any RTL.  */
       return const0_rtx;
     }
   aarch64_simd_builtin_datum *d =
 		&aarch64_simd_builtin_data[fcode - AARCH64_SIMD_PATTERN_START];
   enum insn_code icode = d->code;
-  builtin_simd_arg args[SIMD_MAX_BUILTIN_ARGS];
+  builtin_simd_arg args[SIMD_MAX_BUILTIN_ARGS + 1];
   int num_args = insn_data[d->code].n_operands;
   int is_void = 0;
   int k;

@@ -1,5 +1,5 @@
 /* RTL reader for GCC.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -704,7 +704,7 @@ initialize_iterators (void)
 
 /* Provide a version of a function to read a long long if the system does
    not provide one.  */
-#if HOST_BITS_PER_WIDE_INT > HOST_BITS_PER_LONG && !defined(HAVE_ATOLL) && !defined(HAVE_ATOQ)
+#if HOST_BITS_PER_WIDE_INT > HOST_BITS_PER_LONG && !HAVE_DECL_ATOLL && !defined(HAVE_ATOQ)
 HOST_WIDE_INT atoll (const char *);
 
 HOST_WIDE_INT
@@ -1328,7 +1328,7 @@ read_rtx_code (const char *code_name)
 #else
 	/* Prefer atoll over atoq, since the former is in the ISO C99 standard.
 	   But prefer not to use our hand-rolled function above either.  */
-#if defined(HAVE_ATOLL) || !defined(HAVE_ATOQ)
+#if HAVE_DECL_ATOLL || !defined(HAVE_ATOQ)
 	tmp_wide = atoll (name.string);
 #else
 	tmp_wide = atoq (name.string);
@@ -1344,6 +1344,13 @@ read_rtx_code (const char *code_name)
 	read_name (&name);
 	record_potential_iterator_use (&ints, &XINT (return_rtx, i),
 				       name.string);
+	break;
+
+      case 'r':
+	read_name (&name);
+	validate_const_int (name.string);
+	set_regno_raw (return_rtx, atoi (name.string), 1);
+	REG_ATTRS (return_rtx) = NULL;
 	break;
 
       default:

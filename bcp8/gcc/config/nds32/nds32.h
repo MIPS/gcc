@@ -1,5 +1,5 @@
 /* Definitions of target machine of Andes NDS32 cpu for GNU compiler
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Andes Technology Corporation.
 
    This file is part of GCC.
@@ -24,6 +24,14 @@
 /* The following are auxiliary macros or structure declarations
    that are used all over the nds32.c and nds32.h.  */
 
+/* Use SYMBOL_FLAG_MACH_DEP to define our own symbol_ref flag.
+   It is used in nds32_encode_section_info() to store flag in symbol_ref
+   in case the symbol should be placed in .rodata section.
+   So that we can check it in nds32_legitimate_address_p().  */
+#define NDS32_SYMBOL_FLAG_RODATA \
+  (SYMBOL_FLAG_MACH_DEP << 0)
+#define NDS32_SYMBOL_REF_RODATA_P(x) \
+  ((SYMBOL_REF_FLAGS (x) & NDS32_SYMBOL_FLAG_RODATA) != 0)
 
 /* Computing the Length of an Insn.  */
 #define ADJUST_INSN_LENGTH(INSN, LENGTH) \
@@ -210,15 +218,17 @@ struct GTY(()) machine_function
   /* Number of bytes on the stack for saving $lp.  */
   int lp_size;
 
-  /* Number of bytes on the stack for saving callee-saved registers.  */
-  int callee_saved_regs_size;
-  /* The padding bytes in callee-saved area may be required.  */
-  int callee_saved_area_padding_bytes;
+  /* Number of bytes on the stack for saving general purpose
+     callee-saved registers.  */
+  int callee_saved_gpr_regs_size;
 
-  /* The first required callee-saved register.  */
-  int callee_saved_regs_first_regno;
-  /* The last required callee-saved register.  */
-  int callee_saved_regs_last_regno;
+  /* The padding bytes in callee-saved area may be required.  */
+  int callee_saved_area_gpr_padding_bytes;
+
+  /* The first required general purpose callee-saved register.  */
+  int callee_saved_first_gpr_regno;
+  /* The last required general purpose callee-saved register.  */
+  int callee_saved_last_gpr_regno;
 
   /* The padding bytes in varargs area may be required.  */
   int va_args_area_padding_bytes;
@@ -344,6 +354,19 @@ enum nds32_builtins
 #define TARGET_ISA_V3   (nds32_arch_option == ARCH_V3)
 #define TARGET_ISA_V3M  (nds32_arch_option == ARCH_V3M)
 
+#define TARGET_CMODEL_SMALL \
+   (nds32_cmodel_option == CMODEL_SMALL)
+#define TARGET_CMODEL_MEDIUM \
+   (nds32_cmodel_option == CMODEL_MEDIUM)
+#define TARGET_CMODEL_LARGE \
+   (nds32_cmodel_option == CMODEL_LARGE)
+
+/* When -mcmodel=small or -mcmodel=medium,
+   compiler may generate gp-base instruction directly.  */
+#define TARGET_GP_DIRECT \
+   (nds32_cmodel_option == CMODEL_SMALL\
+    || nds32_cmodel_option == CMODEL_MEDIUM)
+
 #define TARGET_SOFT_FLOAT 1
 #define TARGET_HARD_FLOAT 0
 
@@ -360,13 +383,10 @@ enum nds32_builtins
 #define ASM_SPEC \
   " %{mbig-endian:-EB} %{mlittle-endian:-EL}"
 
-/* If user issues -mrelax, -mforce-fp-as-gp, or -mex9,
-   we need to pass '--relax' to linker.
-   Besides, for -mex9, we need to further pass '--mex9'.  */
+/* If user issues -mrelax, we need to pass '--relax' to linker.  */
 #define LINK_SPEC \
   " %{mbig-endian:-EB} %{mlittle-endian:-EL}" \
-  " %{mrelax|mforce-fp-as-gp|mex9:--relax}" \
-  " %{mex9:--mex9}"
+  " %{mrelax:--relax}"
 
 #define LIB_SPEC \
   " -lc -lgloss"
@@ -391,16 +411,21 @@ enum nds32_builtins
 #define ENDFILE_SPEC \
   " %{!mno-ctor-dtor:crtend1.o%s}"
 
-/* The TARGET_BIG_ENDIAN_DEFAULT is defined if we configure gcc
-   with --target=nds32be-* setting.
-   Check gcc/config.gcc for more information.
-   In addition, currently we only have elf toolchain,
-   where mgp-direct is always the default.  */
+/* The TARGET_BIG_ENDIAN_DEFAULT is defined if we
+   configure gcc with --target=nds32be-* setting.
+   Check gcc/config.gcc for more information.  */
 #ifdef TARGET_BIG_ENDIAN_DEFAULT
-#define MULTILIB_DEFAULTS { "mbig-endian", "mgp-direct" }
+#  define NDS32_ENDIAN_DEFAULT "mbig-endian"
 #else
-#define MULTILIB_DEFAULTS { "mlittle-endian", "mgp-direct" }
+#  define NDS32_ENDIAN_DEFAULT "mlittle-endian"
 #endif
+
+/* Currently we only have elf toolchain,
+   where -mcmodel=medium is always the default.  */
+#define NDS32_CMODEL_DEFAULT "mcmodel=medium"
+
+#define MULTILIB_DEFAULTS \
+  { NDS32_ENDIAN_DEFAULT, NDS32_CMODEL_DEFAULT }
 
 
 /* Run-time Target Specification.  */
@@ -671,7 +696,7 @@ enum reg_class
 
 /* Stack Layout and Calling Conventions.  */
 
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 #define FRAME_GROWS_DOWNWARD 1
 
@@ -806,7 +831,7 @@ enum reg_class
 
 #define SLOW_BYTE_ACCESS 1
 
-#define NO_FUNCTION_CSE
+#define NO_FUNCTION_CSE 1
 
 
 /* Adjusting the Instruction Scheduler.  */

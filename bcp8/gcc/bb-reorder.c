@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -82,6 +82,15 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
 #include "regs.h"
@@ -89,14 +98,21 @@
 #include "output.h"
 #include "target.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "tm_p.h"
 #include "obstack.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "optabs.h"
 #include "params.h"
@@ -125,15 +141,6 @@
    when partitioning hot and cold basic blocks into separate sections of
    the object file there will be an extra round.  */
 #define N_ROUNDS 5
-
-/* Stubs in case we don't have a return insn.
-   We have to check at run time too, not only compile time.  */
-
-#ifndef HAVE_return
-#define HAVE_return 0
-#define gen_return() NULL_RTX
-#endif
-
 
 struct target_bb_reorder default_target_bb_reorder;
 #if SWITCHABLE_TARGET
@@ -1729,9 +1736,11 @@ set_edge_can_fallthru_flag (void)
 	continue;
       if (!any_condjump_p (BB_END (bb)))
 	continue;
-      if (!invert_jump (BB_END (bb), JUMP_LABEL (BB_END (bb)), 0))
+
+      rtx_jump_insn *bb_end_jump = as_a <rtx_jump_insn *> (BB_END (bb));
+      if (!invert_jump (bb_end_jump, JUMP_LABEL (bb_end_jump), 0))
 	continue;
-      invert_jump (BB_END (bb), JUMP_LABEL (BB_END (bb)), 0);
+      invert_jump (bb_end_jump, JUMP_LABEL (bb_end_jump), 0);
       EDGE_SUCC (bb, 0)->flags |= EDGE_CAN_FALLTHRU;
       EDGE_SUCC (bb, 1)->flags |= EDGE_CAN_FALLTHRU;
     }
@@ -1805,7 +1814,6 @@ fix_up_fall_thru_edges (void)
   edge succ2;
   edge fall_thru;
   edge cond_jump = NULL;
-  edge e;
   bool cond_jump_crosses;
   int invert_worked;
   rtx_insn *old_jump;
@@ -1886,17 +1894,21 @@ fix_up_fall_thru_edges (void)
 
 		      fall_thru_label = block_label (fall_thru->dest);
 
-		      if (old_jump && JUMP_P (old_jump) && fall_thru_label)
-			invert_worked = invert_jump (old_jump,
-						     fall_thru_label,0);
+		      if (old_jump && fall_thru_label)
+			{
+			  rtx_jump_insn *old_jump_insn =
+				dyn_cast <rtx_jump_insn *> (old_jump);
+			  if (old_jump_insn)
+			    invert_worked = invert_jump (old_jump_insn,
+							 fall_thru_label, 0);
+			}
+
 		      if (invert_worked)
 			{
 			  fall_thru->flags &= ~EDGE_FALLTHRU;
 			  cond_jump->flags |= EDGE_FALLTHRU;
 			  update_br_prob_note (cur_bb);
-			  e = fall_thru;
-			  fall_thru = cond_jump;
-			  cond_jump = e;
+			  std::swap (fall_thru, cond_jump);
 			  cond_jump->flags |= EDGE_CROSSING;
 			  fall_thru->flags &= ~EDGE_CROSSING;
 			}
@@ -2005,10 +2017,9 @@ fix_crossing_conditional_branches (void)
   edge succ2;
   edge crossing_edge;
   edge new_edge;
-  rtx_insn *old_jump;
   rtx set_src;
   rtx old_label = NULL_RTX;
-  rtx new_label;
+  rtx_code_label *new_label;
 
   FOR_EACH_BB_FN (cur_bb, cfun)
     {
@@ -2033,7 +2044,7 @@ fix_crossing_conditional_branches (void)
 
       if (crossing_edge)
 	{
-	  old_jump = BB_END (cur_bb);
+	  rtx_insn *old_jump = BB_END (cur_bb);
 
 	  /* Check to make sure the jump instruction is a
 	     conditional jump.  */
@@ -2056,6 +2067,9 @@ fix_crossing_conditional_branches (void)
 
 	  if (set_src && (GET_CODE (set_src) == IF_THEN_ELSE))
 	    {
+	      rtx_jump_insn *old_jump_insn =
+			as_a <rtx_jump_insn *> (old_jump);
+
 	      if (GET_CODE (XEXP (set_src, 1)) == PC)
 		old_label = XEXP (set_src, 2);
 	      else if (GET_CODE (XEXP (set_src, 2)) == PC)
@@ -2072,7 +2086,8 @@ fix_crossing_conditional_branches (void)
 	      else
 		{
 		  basic_block last_bb;
-		  rtx_insn *new_jump;
+		  rtx_code_label *old_jump_target;
+		  rtx_jump_insn *new_jump;
 
 		  /* Create new basic block to be dest for
 		     conditional jump.  */
@@ -2083,9 +2098,10 @@ fix_crossing_conditional_branches (void)
 		  emit_label (new_label);
 
 		  gcc_assert (GET_CODE (old_label) == LABEL_REF);
-		  old_label = JUMP_LABEL (old_jump);
-		  new_jump = emit_jump_insn (gen_jump (old_label));
-		  JUMP_LABEL (new_jump) = old_label;
+		  old_jump_target = old_jump_insn->jump_target ();
+		  new_jump = as_a <rtx_jump_insn *>
+				(emit_jump_insn (gen_jump (old_jump_target)));
+		  new_jump->set_jump_target (old_jump_target);
 
 		  last_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
 		  new_bb = create_basic_block (new_label, new_jump, last_bb);
@@ -2101,7 +2117,7 @@ fix_crossing_conditional_branches (void)
 
 	      /* Make old jump branch to new bb.  */
 
-	      redirect_jump (old_jump, new_label, 0);
+	      redirect_jump (old_jump_insn, new_label, 0);
 
 	      /* Remove crossing_edge as predecessor of 'dest'.  */
 

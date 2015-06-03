@@ -1,4 +1,4 @@
-/* Copyright (C) 2012-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2012-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -1194,7 +1194,11 @@ vtv_generate_init_routine (void)
       TREE_STATIC (vtv_fndecl) = 1;
       TREE_USED (vtv_fndecl) = 1;
       DECL_PRESERVE_P (vtv_fndecl) = 1;
+#if defined (TARGET_PECOFF)
+      if (flag_vtable_verify == VTV_PREINIT_PRIORITY && !TARGET_PECOFF)
+#else
       if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
+#endif
         DECL_STATIC_CONSTRUCTOR (vtv_fndecl) = 0;
 
       gimplify_function_tree (vtv_fndecl);
@@ -1202,7 +1206,11 @@ vtv_generate_init_routine (void)
 
       symtab->process_new_functions ();
 
+#if defined (TARGET_PECOFF)
+      if (flag_vtable_verify == VTV_PREINIT_PRIORITY && !TARGET_PECOFF)
+#else
       if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
+#endif
         assemble_vtv_preinit_initializer (vtv_fndecl);
 
     }

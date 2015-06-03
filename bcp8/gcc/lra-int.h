@@ -1,5 +1,5 @@
 /* Local Register Allocator (LRA) intercommunication header file.
-   Copyright (C) 2010-2014 Free Software Foundation, Inc.
+   Copyright (C) 2010-2015 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -54,6 +54,21 @@ struct lra_live_range
   lra_live_range_t next;
   /* Pointer to structures with the same start.	 */
   lra_live_range_t start_next;
+
+  /* Pool allocation new operator.  */
+  inline void *operator new (size_t)
+  {
+    return pool.allocate ();
+  }
+
+  /* Delete operator utilizing pool allocation.  */
+  inline void operator delete (void *ptr)
+  {
+    pool.remove ((lra_live_range *) ptr);
+  }
+
+  /* Memory allocation pool.  */
+  static pool_allocator<lra_live_range> pool;
 };
 
 typedef struct lra_copy *lra_copy_t;
@@ -69,6 +84,22 @@ struct lra_copy
   int regno1, regno2;
   /* Next copy with correspondingly REGNO1 and REGNO2.	*/
   lra_copy_t regno1_next, regno2_next;
+
+  /* Pool allocation new operator.  */
+  inline void *operator new (size_t)
+  {
+    return pool.allocate ();
+  }
+
+  /* Delete operator utilizing pool allocation.  */
+  inline void operator delete (void *ptr)
+  {
+    pool.remove ((lra_copy *) ptr);
+  }
+
+  /* Memory allocation pool.  */
+  static pool_allocator<lra_copy> pool;
+
 };
 
 /* Common info about a register (pseudo or hard register).  */
@@ -176,6 +207,21 @@ struct lra_insn_reg
   int regno;
   /* Next reg info of the same insn.  */
   struct lra_insn_reg *next;
+
+  /* Pool allocation new operator.  */
+  inline void *operator new (size_t)
+  {
+    return pool.allocate ();
+  }
+
+  /* Delete operator utilizing pool allocation.  */
+  inline void operator delete (void *ptr)
+  {
+    pool.remove ((lra_insn_reg *) ptr);
+  }
+
+  /* Memory allocation pool.  */
+  static pool_allocator<lra_insn_reg> pool;
 };
 
 /* Static part (common info for insns with the same ICODE) of LRA
@@ -271,6 +317,14 @@ typedef struct lra_insn_recog_data *lra_insn_recog_data_t;
 #error wrong LRA_MAX_INHERITANCE_PASSES value
 #endif
 
+/* Analogous macro to the above one but for rematerialization.  */
+#define LRA_MAX_REMATERIALIZATION_PASSES 2
+
+#if LRA_MAX_REMATERIALIZATION_PASSES <= 0 \
+    || LRA_MAX_REMATERIALIZATION_PASSES >= LRA_MAX_ASSIGNMENT_ITERATION_NUMBER - 8
+#error wrong LRA_MAX_REMATERIALIZATION_PASSES value
+#endif
+
 /* lra.c: */
 
 extern FILE *lra_dump_file;
@@ -321,9 +375,11 @@ extern void lra_create_copy (int, int, int);
 extern lra_copy_t lra_get_copy (int);
 extern bool lra_former_scratch_p (int);
 extern bool lra_former_scratch_operand_p (rtx_insn *, int);
+extern void lra_register_new_scratch_op (rtx_insn *, int);
 
 extern int lra_new_regno_start;
 extern int lra_constraint_new_regno_start;
+extern int lra_bad_spill_regno_start;
 extern bitmap_head lra_inheritance_pseudos;
 extern bitmap_head lra_split_regs;
 extern bitmap_head lra_subreg_reload_pseudos;
@@ -391,6 +447,7 @@ extern void lra_final_code_change (void);
 
 /* lra-remat.c:  */
 
+extern int lra_rematerialization_iter;
 extern bool lra_remat (void);
 
 /* lra-elimination.c: */

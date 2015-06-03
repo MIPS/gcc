@@ -1,5 +1,5 @@
 /* Vectorizer
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -59,14 +59,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "dumpfile.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "tree-pretty-print.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -112,20 +118,20 @@ struct simduid_to_vf : typed_free_remove<simduid_to_vf>
   int vf;
 
   /* hash_table support.  */
-  typedef simduid_to_vf value_type;
-  typedef simduid_to_vf compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline int equal (const value_type *, const compare_type *);
+  typedef simduid_to_vf *value_type;
+  typedef simduid_to_vf *compare_type;
+  static inline hashval_t hash (const simduid_to_vf *);
+  static inline int equal (const simduid_to_vf *, const simduid_to_vf *);
 };
 
 inline hashval_t
-simduid_to_vf::hash (const value_type *p)
+simduid_to_vf::hash (const simduid_to_vf *p)
 {
   return p->simduid;
 }
 
 inline int
-simduid_to_vf::equal (const value_type *p1, const value_type *p2)
+simduid_to_vf::equal (const simduid_to_vf *p1, const simduid_to_vf *p2)
 {
   return p1->simduid == p2->simduid;
 }
@@ -148,20 +154,22 @@ struct simd_array_to_simduid : typed_free_remove<simd_array_to_simduid>
   unsigned int simduid;
 
   /* hash_table support.  */
-  typedef simd_array_to_simduid value_type;
-  typedef simd_array_to_simduid compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline int equal (const value_type *, const compare_type *);
+  typedef simd_array_to_simduid *value_type;
+  typedef simd_array_to_simduid *compare_type;
+  static inline hashval_t hash (const simd_array_to_simduid *);
+  static inline int equal (const simd_array_to_simduid *,
+			   const simd_array_to_simduid *);
 };
 
 inline hashval_t
-simd_array_to_simduid::hash (const value_type *p)
+simd_array_to_simduid::hash (const simd_array_to_simduid *p)
 {
   return DECL_UID (p->decl);
 }
 
 inline int
-simd_array_to_simduid::equal (const value_type *p1, const value_type *p2)
+simd_array_to_simduid::equal (const simd_array_to_simduid *p1,
+			      const simd_array_to_simduid *p2)
 {
   return p1->decl == p2->decl;
 }
@@ -390,6 +398,39 @@ fold_loop_vectorized_call (gimple g, tree value)
       update_stmt (use_stmt);
     }
 }
+/* Set the uids of all the statements in basic blocks inside loop
+   represented by LOOP_VINFO. LOOP_VECTORIZED_CALL is the internal
+   call guarding the loop which has been if converted.  */
+static void
+set_uid_loop_bbs (loop_vec_info loop_vinfo, gimple loop_vectorized_call)
+{
+  tree arg = gimple_call_arg (loop_vectorized_call, 1);
+  basic_block *bbs;
+  unsigned int i;
+  struct loop *scalar_loop = get_loop (cfun, tree_to_shwi (arg));
+
+  LOOP_VINFO_SCALAR_LOOP (loop_vinfo) = scalar_loop;
+  gcc_checking_assert (vect_loop_vectorized_call
+		       (LOOP_VINFO_SCALAR_LOOP (loop_vinfo))
+		       == loop_vectorized_call);
+  bbs = get_loop_body (scalar_loop);
+  for (i = 0; i < scalar_loop->num_nodes; i++)
+    {
+      basic_block bb = bbs[i];
+      gimple_stmt_iterator gsi;
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple phi = gsi_stmt (gsi);
+	  gimple_set_uid (phi, 0);
+	}
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  gimple_set_uid (stmt, 0);
+	}
+    }
+  free (bbs);
+}
 
 /* Function vectorize_loops.
 
@@ -453,37 +494,7 @@ vectorize_loops (void)
 
 	gimple loop_vectorized_call = vect_loop_vectorized_call (loop);
 	if (loop_vectorized_call)
-	  {
-	    tree arg = gimple_call_arg (loop_vectorized_call, 1);
-	    basic_block *bbs;
-	    unsigned int i;
-	    struct loop *scalar_loop = get_loop (cfun, tree_to_shwi (arg));
-
-	    LOOP_VINFO_SCALAR_LOOP (loop_vinfo) = scalar_loop;
-	    gcc_checking_assert (vect_loop_vectorized_call
-					(LOOP_VINFO_SCALAR_LOOP (loop_vinfo))
-				 == loop_vectorized_call);
-	    bbs = get_loop_body (scalar_loop);
-	    for (i = 0; i < scalar_loop->num_nodes; i++)
-	      {
-		basic_block bb = bbs[i];
-		gimple_stmt_iterator gsi;
-		for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
-		     gsi_next (&gsi))
-		  {
-		    gimple phi = gsi_stmt (gsi);
-		    gimple_set_uid (phi, 0);
-		  }
-		for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
-		     gsi_next (&gsi))
-		  {
-		    gimple stmt = gsi_stmt (gsi);
-		    gimple_set_uid (stmt, 0);
-		  }
-	      }
-	    free (bbs);
-	  }
-
+	  set_uid_loop_bbs (loop_vinfo, loop_vectorized_call);
         if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOCATION
 	    && dump_enabled_p ())
           dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
@@ -713,14 +724,7 @@ increase_alignment (void)
 
       if (vect_can_force_dr_alignment_p (decl, alignment))
         {
-          DECL_ALIGN (decl) = TYPE_ALIGN (vectype);
-          DECL_USER_ALIGN (decl) = 1;
-	  if (TREE_STATIC (decl))
-	    {
-	      tree target = symtab_node::get (decl)->ultimate_alias_target ()->decl;
-              DECL_ALIGN (target) = TYPE_ALIGN (vectype);
-              DECL_USER_ALIGN (target) = 1;
-	    }
+	  vnode->increase_alignment (TYPE_ALIGN (vectype));
           dump_printf (MSG_NOTE, "Increasing alignment of decl: ");
           dump_generic_expr (MSG_NOTE, TDF_SLIM, decl);
           dump_printf (MSG_NOTE, "\n");

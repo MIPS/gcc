@@ -1,6 +1,6 @@
 /* Functions and structures shared between arm and aarch64.
 
-   Copyright (C) 1991-2014 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -102,6 +102,8 @@ struct mem_cost_table
   const int storef;		/* SFmode.  */
   const int stored;		/* DFmode.  */
   const int store_unaligned;	/* Extra for unaligned stores.  */
+  const int loadv;		/* Vector load.  */
+  const int storev;		/* Vector store.  */
 };
 
 struct fp_cost_table

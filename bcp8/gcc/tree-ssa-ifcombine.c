@@ -1,5 +1,5 @@
 /* Combining of if-expressions on trees.
-   Copyright (C) 2007-2014 Free Software Foundation, Inc.
+   Copyright (C) 2007-2015 Free Software Foundation, Inc.
    Contributed by Richard Guenther <rguenther@suse.de>
 
 This file is part of GCC.
@@ -26,13 +26,19 @@ along with GCC; see the file COPYING3.  If not see
    BRANCH_COST.  */
 #include "rtl.h"
 #include "tm_p.h"
-#include "tree.h"
-#include "stor-layout.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "stor-layout.h"
+#include "predict.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -432,25 +438,13 @@ ifcombine_ifandif (basic_block inner_cond_bb, bool inner_inv,
 	;
       else if (bits1 == bits2)
 	{
-	  t = name2;
-	  name2 = bits2;
-	  bits2 = t;
-	  t = name1;
-	  name1 = bits1;
-	  bits1 = t;
+	  std::swap (name2, bits2);
+	  std::swap (name1, bits1);
 	}
       else if (name1 == bits2)
-	{
-	  t = name2;
-	  name2 = bits2;
-	  bits2 = t;
-	}
+	std::swap (name2, bits2);
       else if (bits1 == name2)
-	{
-	  t = name1;
-	  name1 = bits1;
-	  bits1 = t;
-	}
+	std::swap (name1, bits1);
       else
 	return false;
 

@@ -1,7 +1,7 @@
 /* Definitions for systems using, at least optionally, a GNU
    (glibc-based) userspace or other userspace with libc derived from
    glibc (e.g. uClibc) or for which similar specs are appropriate.
-   Copyright (C) 1995-2014 Free Software Foundation, Inc.
+   Copyright (C) 1995-2015 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu (hjl@lucon.org).
 
@@ -42,8 +42,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #if defined HAVE_LD_PIE
 #define GNU_USER_TARGET_STARTFILE_SPEC \
-  "%{!shared: %{pg|p|profile:gcrt1.o%s;pie:Scrt1.o%s;:crt1.o%s}} \
-   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s} \
+  "%{!shared: %{pg|p|profile:gcrt1.o%s;: \
+    %{" PIE_SPEC ":Scrt1.o%s} %{" NO_PIE_SPEC ":crt1.o%s}}} \
+   crti.o%s %{static:crtbeginT.o%s;: %{shared:crtbeginS.o%s} \
+	      %{" PIE_SPEC ":crtbeginS.o%s} \
+	      %{" NO_PIE_SPEC ":crtbegin.o%s}} \
    %{fvtable-verify=none:%s; \
      fvtable-verify=preinit:vtv_start_preinit.o%s; \
      fvtable-verify=std:vtv_start.o%s}"

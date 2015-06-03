@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -897,7 +897,9 @@ package body Makeutl is
          Add_It : Boolean := True;
 
       begin
-         if Value /= No_Path then
+         if Value /= No_Path
+           and then Is_Directory (Get_Name_String (Value))
+         then
             for Index in 1 .. Directories.Last loop
                if Directories.Table (Index) = Value then
                   Add_It := False;
@@ -2557,8 +2559,11 @@ package body Makeutl is
             for J in 1 .. Q.Last loop
                if Source.Id.Path.Name = Q.Table (J).Info.Id.Path.Name
                  and then Source.Id.Index = Q.Table (J).Info.Id.Index
-                 and then Source.Id.Project.Path.Name =
-                            Q.Table (J).Info.Id.Project.Path.Name
+                 and then
+                   Ultimate_Extending_Project_Of (Source.Id.Project).Path.Name
+                     =
+                   Ultimate_Extending_Project_Of (Q.Table (J).Info.Id.Project).
+                                                                     Path.Name
                then
                   --  No need to insert this source in the queue, but still
                   --  return True as we may need to insert its roots.

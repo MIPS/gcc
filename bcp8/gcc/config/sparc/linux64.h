@@ -1,5 +1,5 @@
 /* Definitions for 64-bit SPARC running Linux-based GNU systems with ELF.
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
    Contributed by David S. Miller (davem@caip.rutgers.edu)
 
 This file is part of GCC.
@@ -208,7 +208,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #undef ASM_SPEC
 #define ASM_SPEC "\
 -s \
-%{fpic|fPIC|fpie|fPIE:-K PIC} \
+%{" FPIE_OR_FPIC_SPEC ":-K PIC} \
 %{!.c:%{findirect-dispatch:-K PIC}} \
 %(asm_cpu) %(asm_arch) %(asm_relax)"
 

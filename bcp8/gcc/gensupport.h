@@ -1,5 +1,5 @@
 /* Declarations for rtx-reader support for gen* routines.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -109,5 +109,6 @@ struct pattern_stats
 };
 
 extern void get_pattern_stats (struct pattern_stats *ranges, rtvec vec);
+extern void compute_test_codes (rtx, int, char *);
 
 #endif /* GCC_GENSUPPORT_H */

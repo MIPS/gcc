@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -23,7 +23,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Casing;   use Casing;
 with Einfo;    use Einfo;
@@ -35,7 +34,6 @@ with Lib;      use Lib;
 with Opt;      use Opt;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
-with Snames;   use Snames;
 with Stand;    use Stand;
 with Uname;    use Uname;
 
@@ -111,6 +109,8 @@ package body Restrict is
 
    No_Use_Of_Pragma : array (Pragma_Id) of Source_Ptr :=
                         (others => No_Location);
+   --  Source location of pragma No_Use_Of_Pragma for given pragma, a value
+   --  of System_Location indicates occurrence in system.ads.
 
    No_Use_Of_Pragma_Warning : array (Pragma_Id) of Boolean :=
                                 (others => False);
@@ -127,6 +127,10 @@ package body Restrict is
    --  outputs the appropriate message or messages taking care of warning vs
    --  real violation, serious vs non-serious, implicit vs explicit, the second
    --  message giving the profile name if needed, and the location information.
+
+   function Same_Entity (E1, E2 : Node_Id) return Boolean;
+   --  Returns True iff E1 and E2 represent the same entity. Used for handling
+   --  of No_Use_Of_Entity => fully_qualified_ENTITY restriction case.
 
    function Same_Unit (U1, U2 : Node_Id) return Boolean;
    --  Returns True iff U1 and U2 represent the same library unit. Used for
@@ -681,6 +685,98 @@ package body Restrict is
    end Check_Restriction_No_Use_Of_Attribute;
 
    ----------------------------------------
+   -- Check_Restriction_No_Use_Of_Entity --
+   ----------------------------------------
+
+   procedure Check_Restriction_No_Use_Of_Entity (N : Node_Id) is
+   begin
+      --  Error defence (not clearly necessary, but better safe)
+
+      if No (Entity (N)) then
+         return;
+      end if;
+
+      --  If simple name of entity not flagged with Boolean2 flag, then there
+      --  cannot be a matching entry in the table, so skip the search.
+
+      if Get_Name_Table_Boolean2 (Chars (Entity (N))) = False then
+         return;
+      end if;
+
+      --  Restriction is only recognized within a configuration
+      --  pragma file, or within a unit of the main extended
+      --  program. Note: the test for Main_Unit is needed to
+      --  properly include the case of configuration pragma files.
+
+      if Current_Sem_Unit /= Main_Unit
+        and then not In_Extended_Main_Source_Unit (N)
+      then
+         return;
+      end if;
+
+      --  Here we must search the table
+
+      for J in No_Use_Of_Entity.First .. No_Use_Of_Entity.Last loop
+         declare
+            NE_Ent : NE_Entry renames No_Use_Of_Entity.Table (J);
+            Ent    : Entity_Id;
+            Expr   : Node_Id;
+
+         begin
+            Ent  := Entity (N);
+            Expr := NE_Ent.Entity;
+            loop
+               --  Here if at outer level of entity name in reference
+
+               if Scope (Ent) = Standard_Standard then
+                  if Nkind_In (Expr, N_Identifier, N_Operator_Symbol)
+                    and then Chars (Ent) = Chars (Expr)
+                  then
+                     Error_Msg_Node_1 := N;
+                     Error_Msg_Warn := NE_Ent.Warn;
+                     Error_Msg_Sloc := Sloc (NE_Ent.Entity);
+                     Error_Msg_N
+                       ("<*<reference to & violates restriction "
+                        & "No_Use_Of_Entity #", N);
+                     return;
+
+                  else
+                     goto Continue;
+                  end if;
+
+               --  Here if at outer level of entity name in table
+
+               elsif Nkind_In (Expr, N_Identifier, N_Operator_Symbol) then
+                  goto Continue;
+
+               --  Here if neither at the outer level
+
+               else
+                  pragma Assert (Nkind (Expr) = N_Selected_Component);
+
+                  if Chars (Selector_Name (Expr)) /= Chars (Ent) then
+                     goto Continue;
+                  end if;
+               end if;
+
+               --  Move up a level
+
+               loop
+                  Ent := Scope (Ent);
+                  exit when not Is_Internal_Name (Chars (Ent));
+               end loop;
+
+               Expr := Prefix (Expr);
+
+               --  Entry did not match
+
+               <<Continue>> null;
+            end loop;
+         end;
+      end loop;
+   end Check_Restriction_No_Use_Of_Entity;
+
+   ----------------------------------------
    -- Check_Restriction_No_Use_Of_Pragma --
    ----------------------------------------
 
@@ -863,6 +959,27 @@ package body Restrict is
          return False;
       end if;
    end OK_No_Dependence_Unit_Name;
+
+   ------------------------------
+   -- OK_No_Use_Of_Entity_Name --
+   ------------------------------
+
+   function OK_No_Use_Of_Entity_Name (N : Node_Id) return Boolean is
+   begin
+      if Nkind (N) = N_Selected_Component then
+         return
+           OK_No_Use_Of_Entity_Name (Prefix (N))
+             and then
+           OK_No_Use_Of_Entity_Name (Selector_Name (N));
+
+      elsif Nkind_In (N, N_Identifier, N_Operator_Symbol) then
+         return True;
+
+      else
+         Error_Msg_N ("wrong form for entity name for No_Use_Of_Entity", N);
+         return False;
+      end if;
+   end OK_No_Use_Of_Entity_Name;
 
    ----------------------------------
    -- Process_Restriction_Synonyms --
@@ -1146,6 +1263,30 @@ package body Restrict is
       end if;
    end Restriction_Msg;
 
+   -----------------
+   -- Same_Entity --
+   -----------------
+
+   function Same_Entity (E1, E2 : Node_Id) return Boolean is
+   begin
+      if Nkind_In (E1, N_Identifier, N_Operator_Symbol)
+           and then
+         Nkind_In (E2, N_Identifier, N_Operator_Symbol)
+      then
+         return Chars (E1) = Chars (E2);
+
+      elsif Nkind_In (E1, N_Selected_Component, N_Expanded_Name)
+              and then
+            Nkind_In (E2, N_Selected_Component, N_Expanded_Name)
+      then
+         return Same_Unit (Prefix (E1), Prefix (E2))
+                  and then
+                Same_Unit (Selector_Name (E1), Selector_Name (E2));
+      else
+         return False;
+      end if;
+   end Same_Entity;
+
    ---------------
    -- Same_Unit --
    ---------------
@@ -1360,6 +1501,54 @@ package body Restrict is
       No_Dependences.Append ((Unit, Warn, Profile));
    end Set_Restriction_No_Dependence;
 
+   --------------------------------------
+   -- Set_Restriction_No_Use_Of_Entity --
+   --------------------------------------
+
+   procedure Set_Restriction_No_Use_Of_Entity
+     (Entity  : Node_Id;
+      Warn    : Boolean;
+      Profile : Profile_Name := No_Profile)
+   is
+      Nam : Node_Id;
+
+   begin
+      --  Loop to check for duplicate entry
+
+      for J in No_Use_Of_Entity.First .. No_Use_Of_Entity.Last loop
+
+         --  Case of entry already in table
+
+         if Same_Entity (Entity, No_Use_Of_Entity.Table (J).Entity) then
+
+            --  Error has precedence over warning
+
+            if not Warn then
+               No_Use_Of_Entity.Table (J).Warn := False;
+            end if;
+
+            return;
+         end if;
+      end loop;
+
+      --  Entry is not currently in table
+
+      No_Use_Of_Entity.Append ((Entity, Warn, Profile));
+
+      --  Now we need to find the direct name and set Boolean2 flag
+
+      if Nkind_In (Entity, N_Identifier, N_Operator_Symbol) then
+         Nam := Entity;
+
+      else
+         pragma Assert (Nkind (Entity) = N_Selected_Component);
+         Nam := Selector_Name (Entity);
+         pragma Assert (Nkind_In (Nam, N_Identifier, N_Operator_Symbol));
+      end if;
+
+      Set_Name_Table_Boolean2 (Chars (Nam), True);
+   end Set_Restriction_No_Use_Of_Entity;
+
    ------------------------------------------------
    -- Set_Restriction_No_Specification_Of_Aspect --
    ------------------------------------------------
@@ -1378,6 +1567,13 @@ package body Restrict is
       end if;
 
       No_Specification_Of_Aspect_Set := True;
+   end Set_Restriction_No_Specification_Of_Aspect;
+
+   procedure Set_Restriction_No_Specification_Of_Aspect (A_Id : Aspect_Id) is
+   begin
+      No_Specification_Of_Aspect_Set := True;
+      No_Specification_Of_Aspects (A_Id) := System_Location;
+      No_Specification_Of_Aspect_Warning (A_Id) := False;
    end Set_Restriction_No_Specification_Of_Aspect;
 
    -----------------------------------------
@@ -1399,6 +1595,13 @@ package body Restrict is
       end if;
    end Set_Restriction_No_Use_Of_Attribute;
 
+   procedure Set_Restriction_No_Use_Of_Attribute (A_Id : Attribute_Id) is
+   begin
+      No_Use_Of_Attribute_Set := True;
+      No_Use_Of_Attribute (A_Id) := System_Location;
+      No_Use_Of_Attribute_Warning (A_Id) := False;
+   end Set_Restriction_No_Use_Of_Attribute;
+
    --------------------------------------
    -- Set_Restriction_No_Use_Of_Pragma --
    --------------------------------------
@@ -1416,6 +1619,13 @@ package body Restrict is
       if Warning = False then
          No_Use_Of_Pragma_Warning (A_Id) := False;
       end if;
+   end Set_Restriction_No_Use_Of_Pragma;
+
+   procedure Set_Restriction_No_Use_Of_Pragma (A_Id : Pragma_Id) is
+   begin
+      No_Use_Of_Pragma_Set := True;
+      No_Use_Of_Pragma (A_Id) := System_Location;
+      No_Use_Of_Pragma_Warning (A_Id) := False;
    end Set_Restriction_No_Use_Of_Pragma;
 
    --------------------------------

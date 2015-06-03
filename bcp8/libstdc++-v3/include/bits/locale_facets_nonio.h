@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 2007-2014 Free Software Foundation, Inc.
+// Copyright (C) 2007-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -766,6 +766,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       time_get_byname(const char*, size_t __refs = 0)
       : time_get<_CharT, _InIter>(__refs) { }
 
+#if __cplusplus >= 201103L
+      explicit
+      time_get_byname(const string& __s, size_t __refs = 0)
+      : time_get_byname(__s.c_str(), __refs) { }
+#endif
+
     protected:
       virtual
       ~time_get_byname() { }
@@ -893,6 +899,12 @@ _GLIBCXX_END_NAMESPACE_CXX11
       time_put_byname(const char*, size_t __refs = 0)
       : time_put<_CharT, _OutIter>(__refs)
       { };
+
+#if __cplusplus >= 201103L
+      explicit
+      time_put_byname(const string& __s, size_t __refs = 0)
+      : time_put_byname(__s.c_str(), __refs) { }
+#endif
 
     protected:
       virtual
@@ -1418,6 +1430,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	    this->_S_destroy_c_locale(__tmp);
 	  }
       }
+
+#if __cplusplus >= 201103L
+      explicit
+      moneypunct_byname(const string& __s, size_t __refs = 0)
+      : moneypunct_byname(__s.c_str(), __refs) { }
+#endif
 
     protected:
       virtual
@@ -1968,6 +1986,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 
       explicit
       messages_byname(const char* __s, size_t __refs = 0);
+
+#if __cplusplus >= 201103L
+      explicit
+      messages_byname(const string& __s, size_t __refs = 0)
+      : messages_byname(__s.c_str(), __refs) { }
+#endif
 
     protected:
       virtual

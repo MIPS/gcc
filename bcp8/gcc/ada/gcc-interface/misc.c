@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -29,7 +29,17 @@
 #include "opts.h"
 #include "options.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "print-tree.h"
 #include "diagnostic.h"
@@ -326,9 +336,9 @@ internal_error_function (diagnostic_context *context,
 
   xloc = expand_location (input_location);
   if (context->show_column && xloc.column != 0)
-    asprintf (&loc, "%s:%d:%d", xloc.file, xloc.line, xloc.column);
+    loc = xasprintf ("%s:%d:%d", xloc.file, xloc.line, xloc.column);
   else
-    asprintf (&loc, "%s:%d", xloc.file, xloc.line);
+    loc = xasprintf ("%s:%d", xloc.file, xloc.line);
   temp_loc.Low_Bound = 1;
   temp_loc.High_Bound = strlen (loc);
   sp_loc.Bounds = &temp_loc;
@@ -359,8 +369,6 @@ gnat_init (void)
 
   sbitsize_one_node = sbitsize_int (1);
   sbitsize_unit_node = sbitsize_int (BITS_PER_UNIT);
-
-  ptr_void_type_node = build_pointer_type (void_type_node);
 
   /* Show that REFERENCE_TYPEs are internal and should be Pmode.  */
   internal_reference_types ();
@@ -596,8 +604,7 @@ gnat_get_alias_set (tree type)
       get_alias_set (TREE_TYPE (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (type)))));
 
   /* If the type can alias any other types, return the alias set 0.  */
-  else if (TYPE_P (type)
-	   && TYPE_UNIVERSAL_ALIASING_P (TYPE_MAIN_VARIANT (type)))
+  else if (TYPE_P (type) && TYPE_UNIVERSAL_ALIASING_P (type))
     return 0;
 
   return -1;
@@ -840,7 +847,12 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
 	      || fmt == &ieee_extended_intel_96_format
 	      || fmt == &ieee_extended_intel_96_round_53_format
 	      || fmt == &ieee_extended_intel_128_format)
-	    fp_arith_may_widen = true;
+	    {
+#ifdef TARGET_FPMATH_DEFAULT
+	      if (TARGET_FPMATH_DEFAULT == FPMATH_387)
+#endif
+		fp_arith_may_widen = true;
+	    }
 
 	  if (fmt->b == 2)
 	    digs = (fmt->p - 1) * 1233 / 4096; /* scale by log (2) */

@@ -22,7 +22,7 @@ LIST = aarch64-elf aarch64-linux-gnu \
   bfin-elf bfin-uclinux bfin-linux-uclibc bfin-rtems bfin-openbsd \
   c6x-elf c6x-uclinux cr16-elf cris-elf cris-linux crisv32-elf crisv32-linux \
   epiphany-elf epiphany-elfOPT-with-stack-offset=16 fido-elf \
-  fr30-elf frv-elf frv-linux h8300-elf h8300-rtems hppa-linux-gnu \
+  fr30-elf frv-elf frv-linux ft32-elf h8300-elf h8300-rtems hppa-linux-gnu \
   hppa-linux-gnuOPT-enable-sjlj-exceptions=yes hppa64-linux-gnu \
   hppa2.0-hpux10.1 hppa64-hpux11.3 \
   hppa64-hpux11.0OPT-enable-sjlj-exceptions=yes hppa2.0-hpux11.9 \
@@ -70,7 +70,7 @@ LIST = aarch64-elf aarch64-linux-gnu \
   sparc64-netbsd sparc64-openbsd spu-elf \
   tilegx-linux-gnu tilegxbe-linux-gnu tilepro-linux-gnu \
   v850e-elf v850-elf v850-rtems vax-linux-gnu \
-  vax-netbsdelf vax-openbsd x86_64-apple-darwin \
+  vax-netbsdelf vax-openbsd visium-elf x86_64-apple-darwin \
   x86_64-pc-linux-gnuOPT-with-fpmath=avx \
   x86_64-elfOPT-with-fpmath=sse x86_64-freebsd6 x86_64-netbsd \
   x86_64-knetbsd-gnu x86_64-w64-mingw32 \
@@ -97,8 +97,7 @@ $(LIST): make-log-dir
 	-mkdir $@
 	(											\
 		cd $@ &&									\
-		echo $@ &&									\
-		TGT=`echo $@ | sed -e 's/^\(.*\)OPT.*$$/\1/'` &&				\
+		TGT=`echo $@ | awk 'BEGIN { FS = "OPT" }; { print $$1 }'` &&			\
 		TGT=`../../gcc/config.sub $$TGT` &&						\
 		case $$TGT in									\
 			*-*-darwin* | *-*-cygwin* | *-*-mingw* | *-*-aix*)			\

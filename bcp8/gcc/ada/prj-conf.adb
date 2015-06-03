@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 2006-2014, Free Software Foundation, Inc.       --
+--            Copyright (C) 2006-2015, Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -633,8 +633,9 @@ package body Prj.Conf is
          else
             if Tgt_Name /= No_Name then
                Raise_Invalid_Config
-                 ("invalid target name """
-                  & Get_Name_String (Tgt_Name) & """ in configuration");
+                 ("mismatched targets: """
+                  & Get_Name_String (Tgt_Name) & """ in configuration, """
+                  & Target & """ specified");
             else
                Raise_Invalid_Config
                  ("no target specified in configuration file");
@@ -961,17 +962,55 @@ package body Prj.Conf is
 
          --  First, find the object directory of the Conf_Project
 
+         --  If the object directory is a relative one and Build_Tree_Dir is
+         --  set, first add it.
+
+         Name_Len := 0;
+
          if Obj_Dir = Nil_Variable_Value or else Obj_Dir.Default then
-            Get_Name_String (Conf_Project.Directory.Display_Name);
+
+            if Build_Tree_Dir /= null then
+               Add_Str_To_Name_Buffer (Build_Tree_Dir.all);
+
+               if Get_Name_String (Conf_Project.Directory.Display_Name)'Length
+                                                         < Root_Dir'Length
+               then
+                  Raise_Invalid_Config
+                    ("cannot relocate deeper than object directory");
+               end if;
+
+               Add_Str_To_Name_Buffer
+                 (Relative_Path
+                    (Get_Name_String (Conf_Project.Directory.Display_Name),
+                     Root_Dir.all));
+            else
+               Get_Name_String (Conf_Project.Directory.Display_Name);
+            end if;
 
          else
             if Is_Absolute_Path (Get_Name_String (Obj_Dir.Value)) then
                Get_Name_String (Obj_Dir.Value);
 
             else
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer
-                 (Get_Name_String (Conf_Project.Directory.Display_Name));
+               if Build_Tree_Dir /= null then
+                  if Get_Name_String
+                    (Conf_Project.Directory.Display_Name)'Length <
+                                                          Root_Dir'Length
+                  then
+                     Raise_Invalid_Config
+                       ("cannot relocate deeper than object directory");
+                  end if;
+
+                  Add_Str_To_Name_Buffer (Build_Tree_Dir.all);
+                  Add_Str_To_Name_Buffer
+                    (Relative_Path
+                       (Get_Name_String (Conf_Project.Directory.Display_Name),
+                        Root_Dir.all));
+               else
+                  Add_Str_To_Name_Buffer
+                    (Get_Name_String (Conf_Project.Directory.Display_Name));
+               end if;
+
                Add_Str_To_Name_Buffer (Get_Name_String (Obj_Dir.Value));
             end if;
          end if;
@@ -1603,6 +1642,8 @@ package body Prj.Conf is
       Target_Try_Again : Boolean := True;
       Config_Try_Again : Boolean;
 
+      Finalization : Prj.Part.Errout_Mode := Prj.Part.Always_Finalize;
+
       S : State := No_State;
 
       Conf_File_Name : String_Access := new String'(Config_File_Name);
@@ -1652,6 +1693,8 @@ package body Prj.Conf is
 
       --  Parse the user project tree
 
+      Project_Node_Tree.Incomplete_With := False;
+      Env.Flags.Incomplete_Withs := False;
       Prj.Initialize (Project_Tree);
 
       Main_Project := No_Project;
@@ -1660,12 +1703,14 @@ package body Prj.Conf is
         (In_Tree           => Project_Node_Tree,
          Project           => User_Project_Node,
          Project_File_Name => Project_File_Name,
-         Errout_Handling   => Prj.Part.Finalize_If_Error,
+         Errout_Handling   => Finalization,
          Packages_To_Check => Packages_To_Check,
          Current_Directory => Current_Directory,
          Is_Config_File    => False,
          Env               => Env,
          Implicit_Project  => Implicit_Project);
+
+      Finalization := Prj.Part.Finalize_If_Error;
 
       if User_Project_Node = Empty_Node then
          return;

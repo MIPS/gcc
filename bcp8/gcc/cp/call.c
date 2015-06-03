@@ -1,5 +1,5 @@
 /* Functions related to invoking methods and overloaded functions.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -26,6 +26,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "trans-mem.h"
@@ -43,16 +52,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "wide-int.h"
+#include "internal-fn.h"
 
 /* The various kinds of conversion.  */
 
@@ -333,13 +339,16 @@ build_call_n (tree function, int n, ...)
 void
 set_flags_from_callee (tree call)
 {
-  int nothrow;
+  bool nothrow;
   tree decl = get_callee_fndecl (call);
 
   /* We check both the decl and the type; a function may be known not to
      throw without being declared throw().  */
-  nothrow = ((decl && TREE_NOTHROW (decl))
-	     || TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (call)))));
+  nothrow = decl && TREE_NOTHROW (decl);
+  if (CALL_EXPR_FN (call))
+    nothrow |= TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (call))));
+  else if (internal_fn_flags (CALL_EXPR_IFN (call)) & ECF_NOTHROW)
+    nothrow = true;
 
   if (!nothrow && at_function_scope_p () && cfun && cp_function_chain)
     cp_function_chain->can_throw = 1;
@@ -1684,6 +1693,19 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
      of the underlying type with the argument expression.  Any
      difference in top-level cv-qualification is subsumed by the
      initialization itself and does not constitute a conversion.  */
+
+  /* [dcl.init.ref]
+
+     Otherwise, the reference shall be an lvalue reference to a
+     non-volatile const type, or the reference shall be an rvalue
+     reference.
+
+     We try below to treat this as a bad conversion to improve diagnostics,
+     but if TO is an incomplete class, we need to reject this conversion
+     now to avoid unnecessary instantiation.  */
+  if (!CP_TYPE_CONST_NON_VOLATILE_P (to) && !TYPE_REF_IS_RVALUE (rto)
+      && !COMPLETE_TYPE_P (to))
+    return NULL;
 
   /* We're generating a temporary now, but don't bind any more in the
      conversion (specifically, don't slice the temporary returned by a
@@ -3414,7 +3436,6 @@ print_z_candidates (location_t loc, struct z_candidate *candidates)
 {
   struct z_candidate *cand1;
   struct z_candidate **cand2;
-  int n_candidates;
 
   if (!candidates)
     return;
@@ -3455,9 +3476,6 @@ print_z_candidates (location_t loc, struct z_candidate *candidates)
 	    cand2 = &(*cand2)->next;
 	}
     }
-
-  for (n_candidates = 0, cand1 = candidates; cand1; cand1 = cand1->next)
-    n_candidates++;
 
   for (; candidates; candidates = candidates->next)
     print_z_candidate (loc, "candidate:", candidates);
@@ -5730,6 +5748,18 @@ build_new_op (location_t loc, enum tree_code code, int flags,
   return ret;
 }
 
+/* Returns true if FN has two parameters, of which the second has type
+   size_t.  */
+
+static bool
+second_parm_is_size_t (tree fn)
+{
+  tree t = FUNCTION_ARG_CHAIN (fn);
+  return (t
+	  && same_type_p (TREE_VALUE (t), size_type_node)
+	  && TREE_CHAIN (t) == void_list_node);
+}
+
 /* Returns true iff T, an element of an OVERLOAD chain, is a usual
    deallocation function (3.7.4.2 [basic.stc.dynamic.deallocation]).  */
 
@@ -5750,11 +5780,9 @@ non_placement_deallocation_fn_p (tree t)
      of which has type std::size_t (18.2), then this function is a usual
      deallocation function.  */
   bool global = DECL_NAMESPACE_SCOPE_P (t);
-  t = FUNCTION_ARG_CHAIN (t);
-  if (t == void_list_node
-      || (t && same_type_p (TREE_VALUE (t), size_type_node)
-	  && (!global || flag_sized_deallocation)
-	  && TREE_CHAIN (t) == void_list_node))
+  if (FUNCTION_ARG_CHAIN (t) == void_list_node
+      || ((!global || flag_sized_deallocation)
+	  && second_parm_is_size_t (t)))
     return true;
   return false;
 }
@@ -5841,23 +5869,49 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	 function (3.7.4.2) and that function, considered as a placement
 	 deallocation function, would have been selected as a match for the
 	 allocation function, the program is ill-formed."  */
-      if (non_placement_deallocation_fn_p (fn))
+      if (second_parm_is_size_t (fn))
 	{
+	  const char *msg1
+	    = G_("exception cleanup for this placement new selects "
+		 "non-placement operator delete");
+	  const char *msg2
+	    = G_("%q+D is a usual (non-placement) deallocation "
+		 "function in C++14 (or with -fsized-deallocation)");
+
 	  /* But if the class has an operator delete (void *), then that is
 	     the usual deallocation function, so we shouldn't complain
 	     about using the operator delete (void *, size_t).  */
-	  for (t = BASELINK_P (fns) ? BASELINK_FUNCTIONS (fns) : fns;
-	       t; t = OVL_NEXT (t))
+	  if (DECL_CLASS_SCOPE_P (fn))
+	    for (t = BASELINK_P (fns) ? BASELINK_FUNCTIONS (fns) : fns;
+		 t; t = OVL_NEXT (t))
+	      {
+		tree elt = OVL_CURRENT (t);
+		if (non_placement_deallocation_fn_p (elt)
+		    && FUNCTION_ARG_CHAIN (elt) == void_list_node)
+		  goto ok;
+	      }
+	  /* Before C++14 a two-parameter global deallocation function is
+	     always a placement deallocation function, but warn if
+	     -Wc++14-compat.  */
+	  else if (!flag_sized_deallocation)
 	    {
-	      tree elt = OVL_CURRENT (t);
-	      if (non_placement_deallocation_fn_p (elt)
-		  && FUNCTION_ARG_CHAIN (elt) == void_list_node)
-		goto ok;
+	      if ((complain & tf_warning)
+		  && warning (OPT_Wc__14_compat, msg1))
+		inform (0, msg2, fn);
+	      goto ok;
 	    }
-	  if (complain & tf_error)
+
+	  if (complain & tf_warning_or_error)
 	    {
-	      permerror (0, "non-placement deallocation function %q+D", fn);
-	      permerror (input_location, "selected for placement delete");
+	      if (permerror (input_location, msg1))
+		{
+		  /* Only mention C++14 for namespace-scope delete.  */
+		  if (DECL_NAMESPACE_SCOPE_P (fn))
+		    inform (0, msg2, fn);
+		  else
+		    inform (0, "%q+D is a usual (non-placement) deallocation "
+			    "function", fn);
+		}
 	    }
 	  else
 	    return error_mark_node;
@@ -5946,7 +6000,8 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  argarray[0] = addr;
 	  for (i = 1; i < nargs; i++)
 	    argarray[i] = CALL_EXPR_ARG (placement, i);
-	  mark_used (fn);
+	  if (!mark_used (fn, complain) && !(complain & tf_error))
+	    return error_mark_node;
 	  return build_cxx_call (fn, nargs, argarray, complain);
 	}
       else
@@ -5998,12 +6053,22 @@ enforce_access (tree basetype_path, tree decl, tree diag_decl,
       if (complain & tf_error)
 	{
 	  if (TREE_PRIVATE (decl))
-	    error ("%q+#D is private", diag_decl);
+	    {
+	      error ("%q#D is private within this context", diag_decl);
+	      inform (DECL_SOURCE_LOCATION (diag_decl),
+		      "declared private here");
+	    }
 	  else if (TREE_PROTECTED (decl))
-	    error ("%q+#D is protected", diag_decl);
+	    {
+	      error ("%q#D is protected within this context", diag_decl);
+	      inform (DECL_SOURCE_LOCATION (diag_decl),
+		      "declared protected here");
+	    }
 	  else
-	    error ("%q+#D is inaccessible", diag_decl);
-	  error ("within this context");
+	    {
+	      error ("%q#D is inaccessible within this context", diag_decl);
+	      inform (DECL_SOURCE_LOCATION (diag_decl), "declared here");
+	    }
 	}
       return false;
     }
@@ -6210,19 +6275,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	tree convfn = cand->fn;
 	unsigned i;
 
-	/* When converting from an init list we consider explicit
-	   constructors, but actually trying to call one is an error.  */
-	if (DECL_NONCONVERTING_P (convfn) && DECL_CONSTRUCTOR_P (convfn)
-	    /* Unless this is for direct-list-initialization.  */
-	    && !DIRECT_LIST_INIT_P (expr))
-	  {
-	    if (!(complain & tf_error))
-	      return error_mark_node;
-	    error ("converting to %qT from initializer list would use "
-		   "explicit constructor %qD", totype, convfn);
-	  }
-
-	/* If we're initializing from {}, it's value-initialization.  */
+	/* If we're initializing from {}, it's value-initialization.  Note
+	   that under the resolution of core 1630, value-initialization can
+	   use explicit constructors.  */
 	if (BRACE_ENCLOSED_INITIALIZER_P (expr)
 	    && CONSTRUCTOR_NELTS (expr) == 0
 	    && TYPE_HAS_DEFAULT_CONSTRUCTOR (totype))
@@ -6236,6 +6291,18 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 		TARGET_EXPR_DIRECT_INIT_P (expr) = direct;
 	      }
 	    return expr;
+	  }
+
+	/* When converting from an init list we consider explicit
+	   constructors, but actually trying to call one is an error.  */
+	if (DECL_NONCONVERTING_P (convfn) && DECL_CONSTRUCTOR_P (convfn)
+	    /* Unless this is for direct-list-initialization.  */
+	    && !DIRECT_LIST_INIT_P (expr))
+	  {
+	    if (!(complain & tf_error))
+	      return error_mark_node;
+	    error ("converting to %qT from initializer list would use "
+		   "explicit constructor %qD", totype, convfn);
 	  }
 
 	expr = mark_rvalue_use (expr);
@@ -7368,7 +7435,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	 the implementation elided its use.  */
       if (!trivial || DECL_DELETED_FN (fn))
 	{
-	  mark_used (fn);
+	  if (!mark_used (fn, complain) && !(complain & tf_error))
+	    return error_mark_node;
 	  already_used = true;
 	}
 
@@ -7464,7 +7532,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
     }
 
   if (!already_used
-      && !mark_used (fn))
+      && !mark_used (fn, complain))
     return error_mark_node;
 
   if (DECL_VINDEX (fn) && (flags & LOOKUP_NONVIRTUAL) == 0
@@ -7998,7 +8066,11 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
      that would be captured if the call turns out to be to a
      non-static member function.  Do not actually capture it at this
      point.  */
-  first_mem_arg = maybe_resolve_dummy (instance, false);
+  if (DECL_CONSTRUCTOR_P (fn))
+    /* Constructors don't use the enclosing 'this'.  */
+    first_mem_arg = instance;
+  else
+    first_mem_arg = maybe_resolve_dummy (instance, false);
 
   /* Get the high-water mark for the CONVERSION_OBSTACK.  */
   p = conversion_obstack_alloc (0);

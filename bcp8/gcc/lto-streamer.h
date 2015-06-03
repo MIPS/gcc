@@ -1,7 +1,7 @@
 /* Data structures and declarations used for reading and writing
    GIMPLE to a file stream.
 
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Doug Kwan <dougkwan@google.com>
 
 This file is part of GCC.
@@ -248,6 +248,7 @@ enum lto_section_type
   LTO_section_ipcp_transform,
   LTO_section_ipa_icf,
   LTO_section_offload_table,
+  LTO_section_mode_table,
   LTO_N_SECTION_TYPES		/* Must be last.  */
 };
 
@@ -306,18 +307,86 @@ typedef void (lto_free_section_data_f) (struct lto_file_decl_data *,
 					const char *,
 					size_t);
 
+/* The location cache holds expanded locations for streamed in trees.
+   This is done to reduce memory usage of libcpp linemap that strongly preffers
+   locations to be inserted in the soruce order.  */
+
+class lto_location_cache
+{
+public:
+  /* Apply all changes in location cache.  Add locations into linemap and patch
+     trees.  */
+  bool apply_location_cache ();
+  /* Tree merging did not suceed; mark all changes in the cache as accepted.  */
+  void accept_location_cache ();
+  /* Tree merging did suceed; throw away recent changes.  */
+  void revert_location_cache ();
+  void input_location (location_t *loc, struct bitpack_d *bp,
+		       struct data_in *data_in);
+  lto_location_cache ()
+     : loc_cache (), accepted_length (0), current_file (NULL), current_line (0),
+       current_col (0), current_loc (UNKNOWN_LOCATION)
+  {
+    gcc_assert (!current_cache);
+    current_cache = this;
+  }
+  ~lto_location_cache ()
+  {
+    apply_location_cache ();
+    gcc_assert (current_cache == this);
+    current_cache = NULL;
+  }
+
+  /* There can be at most one instance of location cache (combining multiple
+     would bring it out of sync with libcpp linemap); point to current
+     one.  */
+  static lto_location_cache *current_cache;
+  
+private:
+  static int cmp_loc (const void *pa, const void *pb);
+
+  struct cached_location
+  {
+    const char *file;
+    location_t *loc;
+    int line, col;
+  };
+
+  /* The location cache.  */
+
+  auto_vec<cached_location> loc_cache;
+
+  /* Accepted entries are ones used by trees that are known to be not unified
+     by tree merging.  */
+
+  int accepted_length;
+
+  /* Bookkeeping to remember state in between calls to lto_apply_location_cache
+     When streaming gimple, the location cache is not used and thus
+     lto_apply_location_cache happens per location basis.  It is then
+     useful to avoid redundant calls of linemap API.  */
+
+  const char *current_file;
+  int current_line;
+  int current_col;
+  location_t current_loc;
+};
+
 /* Structure used as buffer for reading an LTO file.  */
 class lto_input_block
 {
 public:
   /* Special constructor for the string table, it abuses this to
      do random access but use the uhwi decoder.  */
-  lto_input_block (const char *data_, unsigned int p_, unsigned int len_)
-      : data (data_), p (p_), len (len_) {}
-  lto_input_block (const char *data_, unsigned int len_)
-      : data (data_), p (0), len (len_) {}
+  lto_input_block (const char *data_, unsigned int p_, unsigned int len_,
+		   const unsigned char *mode_table_)
+      : data (data_), mode_table (mode_table_), p (p_), len (len_) {}
+  lto_input_block (const char *data_, unsigned int len_,
+		   const unsigned char *mode_table_)
+      : data (data_), mode_table (mode_table_), p (0), len (len_) {}
 
   const char *data;
+  const unsigned char *mode_table;
   unsigned int p;
   unsigned int len;
 };
@@ -527,6 +596,9 @@ struct GTY(()) lto_file_decl_data
 
   /* Map assigning declarations their resolutions.  */
   hash_map<tree, ld_plugin_symbol_resolution> * GTY((skip)) resolution_map;
+
+  /* Mode translation table.  */
+  const unsigned char *mode_table;
 };
 
 typedef struct lto_file_decl_data *lto_file_decl_data_ptr;
@@ -585,17 +657,17 @@ struct string_slot
 
 struct string_slot_hasher : typed_noop_remove <string_slot>
 {
-  typedef string_slot value_type;
-  typedef string_slot compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef string_slot *value_type;
+  typedef string_slot *compare_type;
+  static inline hashval_t hash (const string_slot *);
+  static inline bool equal (const string_slot *, const string_slot *);
 };
 
 /* Returns a hash code for DS.  Adapted from libiberty's htab_hash_string
    to support strings that may not end in '\0'.  */
 
 inline hashval_t
-string_slot_hasher::hash (const value_type *ds)
+string_slot_hasher::hash (const string_slot *ds)
 {
   hashval_t r = ds->len;
   int i;
@@ -608,7 +680,7 @@ string_slot_hasher::hash (const value_type *ds)
 /* Returns nonzero if DS1 and DS2 are equal.  */
 
 inline bool
-string_slot_hasher::equal (const value_type *ds1, const compare_type *ds2)
+string_slot_hasher::equal (const string_slot *ds1, const string_slot *ds2)
 {
   if (ds1->len == ds2->len)
     return memcmp (ds1->s, ds2->s, ds1->len) == 0;
@@ -673,6 +745,9 @@ struct data_in
 
   /* Cache of pickled nodes.  */
   struct streamer_tree_cache_d *reader_cache;
+
+  /* Cache of source code location.  */
+  lto_location_cache location_cache;
 };
 
 
@@ -744,6 +819,10 @@ extern void lto_append_block (struct lto_output_stream *);
 
 
 /* In lto-streamer.c.  */
+
+/* Set when streaming LTO for offloading compiler.  */
+extern bool lto_stream_offload_p;
+
 extern const char *lto_tag_name (enum LTO_tags);
 extern bitmap lto_bitmap_alloc (void);
 extern void lto_bitmap_free (bitmap);
@@ -771,12 +850,15 @@ extern void lto_input_variable_constructor (struct lto_file_decl_data *,
 extern void lto_input_constructors_and_inits (struct lto_file_decl_data *,
 					      const char *);
 extern void lto_input_toplevel_asms (struct lto_file_decl_data *, int);
+extern void lto_input_mode_table (struct lto_file_decl_data *);
 extern struct data_in *lto_data_in_create (struct lto_file_decl_data *,
 				    const char *, unsigned,
 				    vec<ld_plugin_symbol_resolution_t> );
 extern void lto_data_in_delete (struct data_in *);
 extern void lto_input_data_block (struct lto_input_block *, void *, size_t);
-location_t lto_input_location (struct bitpack_d *, struct data_in *);
+void lto_input_location (location_t *, struct bitpack_d *, struct data_in *);
+location_t stream_input_location_now (struct bitpack_d *bp,
+				      struct data_in *data);
 tree lto_input_tree_ref (struct lto_input_block *, struct data_in *,
 			 struct function *, enum LTO_tags);
 void lto_tag_check_set (enum LTO_tags, int, ...);
@@ -803,6 +885,7 @@ void lto_output_decl_state_refs (struct output_block *,
 			         struct lto_output_stream *,
 			         struct lto_out_decl_state *);
 void lto_output_location (struct output_block *, struct bitpack_d *, location_t);
+void lto_output_init_mode_table (void);
 
 
 /* In lto-cgraph.c  */
@@ -833,7 +916,7 @@ bool referenced_from_this_partition_p (symtab_node *,
 bool reachable_from_this_partition_p (struct cgraph_node *,
 				      lto_symtab_encoder_t);
 lto_symtab_encoder_t compute_ltrans_boundary (lto_symtab_encoder_t encoder);
-void select_what_to_stream (bool);
+void select_what_to_stream (void);
 
 /* In options-save.c.  */
 void cl_target_option_stream_out (struct output_block *, struct bitpack_d *,

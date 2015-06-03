@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O2 -fisolate-erroneous-paths-attribute -fdump-tree-isolate-paths -fdump-tree-phicprop1" } */
+/* { dg-options "-O2 -fdelete-null-pointer-checks -fisolate-erroneous-paths-attribute -fdump-tree-isolate-paths -fdump-tree-phicprop1" } */
 /* { dg-skip-if "" keeps_null_pointer_checks } */
 
 
@@ -27,7 +27,5 @@ bar (void)
    return statement so that it returns &z directly.
 /* { dg-final { scan-tree-dump-times "__builtin_trap" 2 "isolate-paths"} } */
 /* { dg-final { scan-tree-dump-times "foo .&z.;" 1 "phicprop1"} } */
-/* { dg-final { cleanup-tree-dump "isolate-paths" } } */
-/* { dg-final { cleanup-tree-dump "phicprop1" } } */
 
 

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999-2014 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -24,7 +24,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
@@ -37,16 +47,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "ggc.h"
 #include "predict.h"
 #include "dominance.h"
@@ -844,7 +858,7 @@ ia64_vms_output_aligned_decl_common (FILE *file, tree decl, const char *name,
 
   /*  Code from elfos.h.  */
   assemble_name (file, name);
-  fprintf (file, ","HOST_WIDE_INT_PRINT_UNSIGNED",%u",
+  fprintf (file, "," HOST_WIDE_INT_PRINT_UNSIGNED",%u",
            size, align / BITS_PER_UNIT);
 
   fputc ('\n', file);
@@ -1159,15 +1173,15 @@ ia64_expand_load_address (rtx dest, rtx src)
 
       tmp = gen_rtx_HIGH (Pmode, src);
       tmp = gen_rtx_PLUS (Pmode, tmp, pic_offset_table_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, dest, tmp));
+      emit_insn (gen_rtx_SET (dest, tmp));
 
       tmp = gen_rtx_LO_SUM (Pmode, gen_const_mem (Pmode, dest), src);
-      emit_insn (gen_rtx_SET (VOIDmode, dest, tmp));
+      emit_insn (gen_rtx_SET (dest, tmp));
 
       if (addend)
 	{
 	  tmp = gen_rtx_PLUS (Pmode, dest, GEN_INT (addend));
-	  emit_insn (gen_rtx_SET (VOIDmode, dest, tmp));
+	  emit_insn (gen_rtx_SET (dest, tmp));
 	}
     }
 
@@ -1361,7 +1375,7 @@ ia64_expand_move (rtx op0, rtx op1)
 	{
 	  rtx subtarget = !can_create_pseudo_p () ? op0 : gen_reg_rtx (mode);
 
-	  emit_insn (gen_rtx_SET (VOIDmode, subtarget, op1));
+	  emit_insn (gen_rtx_SET (subtarget, op1));
 
 	  op1 = expand_simple_binop (mode, PLUS, subtarget,
 				     GEN_INT (addend), op0, 1, OPTAB_DIRECT);
@@ -1606,11 +1620,11 @@ ia64_split_tmode_move (rtx operands[])
 	  || GET_CODE (XEXP (EXP, 0)) == POST_DEC))			\
     add_reg_note (insn, REG_INC, XEXP (XEXP (EXP, 0), 0))
 
-  insn = emit_insn (gen_rtx_SET (VOIDmode, out[0], in[0]));
+  insn = emit_insn (gen_rtx_SET (out[0], in[0]));
   MAYBE_ADD_REG_INC_NOTE (insn, in[0]);
   MAYBE_ADD_REG_INC_NOTE (insn, out[0]);
 
-  insn = emit_insn (gen_rtx_SET (VOIDmode, out[1], in[1]));
+  insn = emit_insn (gen_rtx_SET (out[1], in[1]));
   MAYBE_ADD_REG_INC_NOTE (insn, in[1]);
   MAYBE_ADD_REG_INC_NOTE (insn, out[1]);
 
@@ -1853,9 +1867,8 @@ ia64_expand_compare (rtx *expr, rtx *op0, rtx *op1)
 				     *op0, TFmode, *op1, TFmode,
 				     GEN_INT (magic), DImode);
       cmp = gen_reg_rtx (BImode);
-      emit_insn (gen_rtx_SET (VOIDmode, cmp,
-			      gen_rtx_fmt_ee (ncode, BImode,
-					      ret, const0_rtx)));
+      emit_insn (gen_rtx_SET (cmp, gen_rtx_fmt_ee (ncode, BImode,
+						   ret, const0_rtx)));
 
       insns = get_insns ();
       end_sequence ();
@@ -1867,8 +1880,7 @@ ia64_expand_compare (rtx *expr, rtx *op0, rtx *op1)
   else
     {
       cmp = gen_reg_rtx (BImode);
-      emit_insn (gen_rtx_SET (VOIDmode, cmp,
-			      gen_rtx_fmt_ee (code, BImode, *op0, *op1)));
+      emit_insn (gen_rtx_SET (cmp, gen_rtx_fmt_ee (code, BImode, *op0, *op1)));
       code = NE;
     }
 
@@ -1947,8 +1959,7 @@ ia64_expand_vecint_compare (enum rtx_code code, machine_mode mode,
 	case V4HImode:
 	  /* Perform a parallel unsigned saturating subtraction.  */
 	  x = gen_reg_rtx (mode);
-	  emit_insn (gen_rtx_SET (VOIDmode, x,
-				  gen_rtx_US_MINUS (mode, op0, op1)));
+	  emit_insn (gen_rtx_SET (x, gen_rtx_US_MINUS (mode, op0, op1)));
 
 	  code = EQ;
 	  op0 = x;
@@ -1962,7 +1973,7 @@ ia64_expand_vecint_compare (enum rtx_code code, machine_mode mode,
     }
 
   x = gen_rtx_fmt_ee (code, mode, op0, op1);
-  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+  emit_insn (gen_rtx_SET (dest, x));
 
   return negate;
 }
@@ -1994,12 +2005,12 @@ ia64_expand_vecint_cmov (rtx operands[])
 
       x = gen_rtx_NOT (mode, cmp);
       x = gen_rtx_AND (mode, x, of);
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+      emit_insn (gen_rtx_SET (operands[0], x));
     }
   else if (of == CONST0_RTX (mode))
     {
       x = gen_rtx_AND (mode, cmp, ot);
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+      emit_insn (gen_rtx_SET (operands[0], x));
     }
   else
     {
@@ -2007,15 +2018,15 @@ ia64_expand_vecint_cmov (rtx operands[])
 
       t = gen_reg_rtx (mode);
       x = gen_rtx_AND (mode, cmp, operands[1+negate]);
-      emit_insn (gen_rtx_SET (VOIDmode, t, x));
+      emit_insn (gen_rtx_SET (t, x));
 
       f = gen_reg_rtx (mode);
       x = gen_rtx_NOT (mode, cmp);
       x = gen_rtx_AND (mode, x, operands[2-negate]);
-      emit_insn (gen_rtx_SET (VOIDmode, f, x));
+      emit_insn (gen_rtx_SET (f, x));
 
       x = gen_rtx_IOR (mode, t, f);
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+      emit_insn (gen_rtx_SET (operands[0], x));
     }
 }
 
@@ -2039,7 +2050,7 @@ ia64_expand_vecint_minmax (enum rtx_code code, machine_mode mode,
       rtx x, tmp = gen_reg_rtx (mode);
 
       x = gen_rtx_US_MINUS (mode, operands[1], operands[2]);
-      emit_insn (gen_rtx_SET (VOIDmode, tmp, x));
+      emit_insn (gen_rtx_SET (tmp, x));
 
       emit_insn (gen_addv4hi3 (operands[0], tmp, operands[2]));
       return true;
@@ -2375,10 +2386,12 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 	{
 	case MEMMODEL_ACQ_REL:
 	case MEMMODEL_SEQ_CST:
+	case MEMMODEL_SYNC_SEQ_CST:
 	  emit_insn (gen_memory_barrier ());
 	  /* FALLTHRU */
 	case MEMMODEL_RELAXED:
 	case MEMMODEL_ACQUIRE:
+	case MEMMODEL_SYNC_ACQUIRE:
 	case MEMMODEL_CONSUME:
 	  if (mode == SImode)
 	    icode = CODE_FOR_fetchadd_acq_si;
@@ -2386,6 +2399,7 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 	    icode = CODE_FOR_fetchadd_acq_di;
 	  break;
 	case MEMMODEL_RELEASE:
+	case MEMMODEL_SYNC_RELEASE:
 	  if (mode == SImode)
 	    icode = CODE_FOR_fetchadd_rel_si;
 	  else
@@ -2412,8 +2426,7 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
      front half of the full barrier.  The end half is the cmpxchg.rel.
      For relaxed and release memory models, we don't need this.  But we
      also don't bother trying to prevent it either.  */
-  gcc_assert (model == MEMMODEL_RELAXED
-	      || model == MEMMODEL_RELEASE
+  gcc_assert (is_mm_relaxed (model) || is_mm_release (model)
 	      || MEM_VOLATILE_P (mem));
 
   old_reg = gen_reg_rtx (DImode);
@@ -2457,6 +2470,7 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
     {
     case MEMMODEL_RELAXED:
     case MEMMODEL_ACQUIRE:
+    case MEMMODEL_SYNC_ACQUIRE:
     case MEMMODEL_CONSUME:
       switch (mode)
 	{
@@ -2470,8 +2484,10 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
       break;
 
     case MEMMODEL_RELEASE:
+    case MEMMODEL_SYNC_RELEASE:
     case MEMMODEL_ACQ_REL:
     case MEMMODEL_SEQ_CST:
+    case MEMMODEL_SYNC_SEQ_CST:
       switch (mode)
 	{
 	case QImode: icode = CODE_FOR_cmpxchg_rel_qi;  break;
@@ -3216,8 +3232,7 @@ do_spill (rtx (*move_fn) (rtx, rtx, rtx), rtx reg, HOST_WIDE_INT cfa_off,
 	}
 
       add_reg_note (insn, REG_CFA_OFFSET,
-		    gen_rtx_SET (VOIDmode,
-				 gen_rtx_MEM (GET_MODE (reg),
+		    gen_rtx_SET (gen_rtx_MEM (GET_MODE (reg),
 					      plus_constant (Pmode,
 							     base, off)),
 				 frame_reg));
@@ -3281,9 +3296,8 @@ ia64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size,
   emit_move_insn (r2, GEN_INT (-(first + size)));
 
   /* Compare current value of BSP and SP registers.  */
-  emit_insn (gen_rtx_SET (VOIDmode, p6,
-			  gen_rtx_fmt_ee (LTU, BImode,
-					  r3, stack_pointer_rtx)));
+  emit_insn (gen_rtx_SET (p6, gen_rtx_fmt_ee (LTU, BImode,
+					      r3, stack_pointer_rtx)));
 
   /* Compute the address of the probe for the Backing Store (which grows
      towards higher addresses).  We probe only at the first offset of
@@ -3293,18 +3307,15 @@ ia64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size,
      size is at least 4096 - (96 + 2) * 8 = 3312 bytes, which is enough.
      Also compute the address of the last probe for the memory stack
      (which grows towards lower addresses).  */
-  emit_insn (gen_rtx_SET (VOIDmode, r3, plus_constant (Pmode, r3, 4095)));
-  emit_insn (gen_rtx_SET (VOIDmode, r2,
-			  gen_rtx_PLUS (Pmode, stack_pointer_rtx, r2)));
+  emit_insn (gen_rtx_SET (r3, plus_constant (Pmode, r3, 4095)));
+  emit_insn (gen_rtx_SET (r2, gen_rtx_PLUS (Pmode, stack_pointer_rtx, r2)));
 
   /* Compare them and raise SEGV if the former has topped the latter.  */
   emit_insn (gen_rtx_COND_EXEC (VOIDmode,
 				gen_rtx_fmt_ee (NE, VOIDmode, p6, const0_rtx),
-				gen_rtx_SET (VOIDmode, p6,
-					     gen_rtx_fmt_ee (GEU, BImode,
-							     r3, r2))));
-  emit_insn (gen_rtx_SET (VOIDmode,
-			  gen_rtx_ZERO_EXTRACT (DImode, r3, GEN_INT (12),
+				gen_rtx_SET (p6, gen_rtx_fmt_ee (GEU, BImode,
+								 r3, r2))));
+  emit_insn (gen_rtx_SET (gen_rtx_ZERO_EXTRACT (DImode, r3, GEN_INT (12),
 						const0_rtx),
 			  const0_rtx));
   emit_insn (gen_rtx_COND_EXEC (VOIDmode,
@@ -3332,7 +3343,7 @@ ia64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size,
       HOST_WIDE_INT i;
 
       emit_move_insn (r2, GEN_INT (-(first + PROBE_INTERVAL)));
-      emit_insn (gen_rtx_SET (VOIDmode, r2,
+      emit_insn (gen_rtx_SET (r2,
 			      gen_rtx_PLUS (Pmode, stack_pointer_rtx, r2)));
       emit_stack_probe (r2);
 
@@ -3341,12 +3352,12 @@ ia64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size,
 	 generate any code.  Then probe at FIRST + SIZE.  */
       for (i = 2 * PROBE_INTERVAL; i < size; i += PROBE_INTERVAL)
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, r2,
+	  emit_insn (gen_rtx_SET (r2,
 				  plus_constant (Pmode, r2, -PROBE_INTERVAL)));
 	  emit_stack_probe (r2);
 	}
 
-      emit_insn (gen_rtx_SET (VOIDmode, r2,
+      emit_insn (gen_rtx_SET (r2,
 			      plus_constant (Pmode, r2,
 					     (i - PROBE_INTERVAL) - size)));
       emit_stack_probe (r2);
@@ -3372,19 +3383,18 @@ ia64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size,
       /* Step 2: compute initial and final value of the loop counter.  */
 
       /* TEST_ADDR = SP + FIRST.  */
-      emit_insn (gen_rtx_SET (VOIDmode, r2,
+      emit_insn (gen_rtx_SET (r2,
 			      gen_rtx_PLUS (Pmode, stack_pointer_rtx, r2)));
 
       /* LAST_ADDR = SP + FIRST + ROUNDED_SIZE.  */
       if (rounded_size > (1 << 21))
 	{
 	  emit_move_insn (r3, GEN_INT (-rounded_size));
-	  emit_insn (gen_rtx_SET (VOIDmode, r3, gen_rtx_PLUS (Pmode, r2, r3)));
+	  emit_insn (gen_rtx_SET (r3, gen_rtx_PLUS (Pmode, r2, r3)));
 	}
       else
-        emit_insn (gen_rtx_SET (VOIDmode, r3,
-				gen_rtx_PLUS (Pmode, r2,
-					      GEN_INT (-rounded_size))));
+        emit_insn (gen_rtx_SET (r3, gen_rtx_PLUS (Pmode, r2,
+						  GEN_INT (-rounded_size))));
 
 
       /* Step 3: the loop
@@ -3407,9 +3417,8 @@ ia64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size,
       /* TEMP = SIZE - ROUNDED_SIZE.  */
       if (size != rounded_size)
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, r2,
-				  plus_constant (Pmode, r2,
-						 rounded_size - size)));
+	  emit_insn (gen_rtx_SET (r2, plus_constant (Pmode, r2,
+						     rounded_size - size)));
 	  emit_stack_probe (r2);
 	}
     }
@@ -3612,8 +3621,7 @@ ia64_expand_prologue (void)
 	{
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	  add_reg_note (insn, REG_CFA_REGISTER,
-			gen_rtx_SET (VOIDmode,
-				     ar_pfs_save_reg,
+			gen_rtx_SET (ar_pfs_save_reg,
 				     gen_rtx_REG (DImode, AR_PFS_REGNUM)));
 	}
     }
@@ -3655,8 +3663,7 @@ ia64_expand_prologue (void)
 	{
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	  add_reg_note (insn, REG_CFA_ADJUST_CFA,
-			gen_rtx_SET (VOIDmode,
-				     stack_pointer_rtx,
+			gen_rtx_SET (stack_pointer_rtx,
 				     gen_rtx_PLUS (DImode,
 						   stack_pointer_rtx,
 						   frame_size_rtx)));
@@ -3803,8 +3810,7 @@ ia64_expand_prologue (void)
           reg_emitted (reg_save_b0);
 	  insn = emit_move_insn (alt_reg, reg);
 	  RTX_FRAME_RELATED_P (insn) = 1;
-	  add_reg_note (insn, REG_CFA_REGISTER,
-			gen_rtx_SET (VOIDmode, alt_reg, pc_rtx));
+	  add_reg_note (insn, REG_CFA_REGISTER, gen_rtx_SET (alt_reg, pc_rtx));
 
 	  /* Even if we're not going to generate an epilogue, we still
 	     need to save the register so that EH works.  */
@@ -4110,8 +4116,7 @@ ia64_expand_epilogue (int sibcall_p)
 
       RTX_FRAME_RELATED_P (insn) = 1;
       add_reg_note (insn, REG_CFA_ADJUST_CFA,
-		    gen_rtx_SET (VOIDmode,
-				 stack_pointer_rtx,
+		    gen_rtx_SET (stack_pointer_rtx,
 				 gen_rtx_PLUS (DImode,
 					       stack_pointer_rtx,
 					       frame_size_rtx)));
@@ -8595,16 +8600,16 @@ finish_bundle_states (void)
 
 struct bundle_state_hasher : typed_noop_remove <bundle_state>
 {
-  typedef bundle_state value_type;
-  typedef bundle_state compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef bundle_state *value_type;
+  typedef bundle_state *compare_type;
+  static inline hashval_t hash (const bundle_state *);
+  static inline bool equal (const bundle_state *, const bundle_state *);
 };
 
 /* The function returns hash of BUNDLE_STATE.  */
 
 inline hashval_t
-bundle_state_hasher::hash (const value_type *state)
+bundle_state_hasher::hash (const bundle_state *state)
 {
   unsigned result, i;
 
@@ -8617,8 +8622,8 @@ bundle_state_hasher::hash (const value_type *state)
 /* The function returns nonzero if the bundle state keys are equal.  */
 
 inline bool
-bundle_state_hasher::equal (const value_type *state1,
-			    const compare_type *state2)
+bundle_state_hasher::equal (const bundle_state *state1,
+			    const bundle_state *state2)
 {
   return (state1->insn_num == state2->insn_num
 	  && memcmp (state1->dfa_state, state2->dfa_state,
@@ -10018,7 +10023,7 @@ process_cfa_adjust_cfa (FILE *asm_out_file, rtx pat, rtx insn,
 	      gcc_assert (!frame_pointer_needed);
 	      if (unwind)
 		fprintf (asm_out_file,
-			 "\t.fframe "HOST_WIDE_INT_PRINT_DEC"\n",
+			 "\t.fframe " HOST_WIDE_INT_PRINT_DEC"\n",
 			 -INTVAL (op1));
 	    }
 	  else
@@ -11276,7 +11281,7 @@ expand_vselect (rtx target, rtx op0, const unsigned char *perm, unsigned nelt)
 
   x = gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nelt, rperm));
   x = gen_rtx_VEC_SELECT (GET_MODE (target), op0, x);
-  x = gen_rtx_SET (VOIDmode, target, x);
+  x = gen_rtx_SET (target, x);
 
   rtx_insn *insn = emit_insn (x);
   if (recog_memoized (insn) < 0)
@@ -11556,7 +11561,10 @@ expand_vec_perm_interleave_2 (struct expand_vec_perm_d *d)
       gcc_assert (e < nelt);
       dfinal.perm[i] = e;
     }
-  dfinal.op0 = gen_reg_rtx (dfinal.vmode);
+  if (d->testing_p)
+    dfinal.op0 = gen_raw_REG (dfinal.vmode, LAST_VIRTUAL_REGISTER + 1);
+  else
+    dfinal.op0 = gen_reg_rtx (dfinal.vmode);
   dfinal.op1 = dfinal.op0;
   dfinal.one_operand_p = true;
   dremap.target = dfinal.op0;
@@ -11613,14 +11621,14 @@ expand_vec_perm_v4hi_5 (struct expand_vec_perm_d *d)
   gcc_assert (ok);
 
   x = gen_rtx_AND (V4HImode, mask, t0);
-  emit_insn (gen_rtx_SET (VOIDmode, t0, x));
+  emit_insn (gen_rtx_SET (t0, x));
 
   x = gen_rtx_NOT (V4HImode, mask);
   x = gen_rtx_AND (V4HImode, x, t1);
-  emit_insn (gen_rtx_SET (VOIDmode, t1, x));
+  emit_insn (gen_rtx_SET (t1, x));
 
   x = gen_rtx_IOR (V4HImode, t0, t1);
-  emit_insn (gen_rtx_SET (VOIDmode, d->target, x));
+  emit_insn (gen_rtx_SET (d->target, x));
 
   return true;
 }

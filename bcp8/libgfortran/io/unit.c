@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -608,7 +608,7 @@ init_units (void)
       u->flags.position = POSITION_ASIS;
       u->flags.sign = SIGN_SUPPRESS;
       u->flags.decimal = DECIMAL_POINT;
-      u->flags.delim = DECIMAL_UNSPECIFIED;
+      u->flags.delim = DELIM_UNSPECIFIED;
       u->flags.encoding = ENCODING_DEFAULT;
       u->flags.async = ASYNC_NO;
       u->flags.round = ROUND_UNSPECIFIED;
@@ -829,7 +829,7 @@ filename_from_unit (int n)
     }
 
   /* Get the filename.  */
-  if (u != NULL)
+  if (u != NULL && u->filename != NULL)
     return strdup (u->filename);
   else
     return (char *) NULL;

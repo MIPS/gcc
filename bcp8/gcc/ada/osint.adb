@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -2642,31 +2642,33 @@ package body Osint is
          return;
       end if;
 
-      --  Print out the file name, if requested, and if it's not part of the
-      --  runtimes, store it in File_Name_Chars.
+      --  If it's a Source file, print out the file name, if requested, and if
+      --  it's not part of the runtimes, store it in File_Name_Chars. We don't
+      --  want to print non-Source files, like GNAT-TEMP-000001.TMP used to
+      --  pass information from gprbuild to gcc. We don't want to save runtime
+      --  file names, because we don't want users to send them in bug reports.
 
-      declare
-         Name : String renames Name_Buffer (1 .. Name_Len);
-         Inc  : String renames Include_Dir_Default_Prefix.all;
+      if T = Source then
+         declare
+            Name : String renames Name_Buffer (1 .. Name_Len);
+            Inc  : String renames Include_Dir_Default_Prefix.all;
 
-      begin
-         if Debug.Debug_Flag_Dot_N then
-            Write_Line (Name);
-         end if;
+            Part_Of_Runtimes : constant Boolean :=
+              Inc /= ""
+                and then Inc'Length < Name_Len
+                and then Name_Buffer (1 .. Inc'Length) = Inc;
 
-         if Inc /= ""
-           and then Inc'Length < Name_Len
-           and then Name_Buffer (1 .. Inc'Length) = Inc
-         then
-            --  Part of runtimes, so ignore it
+         begin
+            if Debug.Debug_Flag_Dot_N then
+               Write_Line (Name);
+            end if;
 
-            null;
-
-         else
-            File_Name_Chars.Append_All (File_Name_Chars.Table_Type (Name));
-            File_Name_Chars.Append (ASCII.LF);
-         end if;
-      end;
+            if not Part_Of_Runtimes then
+               File_Name_Chars.Append_All (File_Name_Chars.Table_Type (Name));
+               File_Name_Chars.Append (ASCII.LF);
+            end if;
+         end;
+      end if;
 
       --  Prepare to read data from the file
 
@@ -3282,12 +3284,9 @@ package body Osint is
 
    procedure Write_With_Check (A  : Address; N  : Integer) is
       Ignore : Boolean;
-      pragma Warnings (Off, Ignore);
-
    begin
       if N = Write (Output_FD, A, N) then
          return;
-
       else
          Write_Str ("error: disk full writing ");
          Write_Name_Decoded (Output_File_Name);

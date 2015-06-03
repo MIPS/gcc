@@ -1,5 +1,5 @@
 /* Interprocedural analyses.
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,15 +20,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -40,6 +46,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "stor-layout.h"
 #include "print-tree.h"
@@ -66,7 +86,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-inline.h"
 #include "ipa-inline.h"
-#include "flags.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "lto-streamer.h"
@@ -79,7 +98,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "domwalk.h"
 #include "builtins.h"
-#include "calls.h"
 
 /* Intermediate information that we get from alias analysis about a particular
    parameter in a particular basic_block.  When a parameter or the memory it
@@ -158,7 +176,8 @@ struct ipa_cst_ref_desc
 
 /* Allocation pool for reference descriptions.  */
 
-static alloc_pool ipa_refdesc_pool;
+static pool_allocator<ipa_cst_ref_desc> ipa_refdesc_pool
+  ("IPA-PROP ref descriptions", 32);
 
 /* Return true if DECL_FUNCTION_SPECIFIC_OPTIMIZATION of the decl associated
    with NODE should prevent us from analyzing it for the purposes of IPA-CP.  */
@@ -333,7 +352,7 @@ ipa_print_node_jump_functions_for_edge (FILE *f, struct cgraph_edge *cs)
       else if (type == IPA_JF_ANCESTOR)
 	{
 	  fprintf (f, "ANCESTOR: ");
-	  fprintf (f, "%d, offset "HOST_WIDE_INT_PRINT_DEC,
+	  fprintf (f, "%d, offset " HOST_WIDE_INT_PRINT_DEC,
 		   jump_func->value.ancestor.formal_id,
 		   jump_func->value.ancestor.offset);
 	  if (jump_func->value.ancestor.agg_preserved)
@@ -490,11 +509,8 @@ ipa_set_jf_constant (struct ipa_jump_func *jfunc, tree constant,
       && TREE_CODE (TREE_OPERAND (constant, 0)) == FUNCTION_DECL)
     {
       struct ipa_cst_ref_desc *rdesc;
-      if (!ipa_refdesc_pool)
-	ipa_refdesc_pool = create_alloc_pool ("IPA-PROP ref descriptions",
-					sizeof (struct ipa_cst_ref_desc), 32);
 
-      rdesc = (struct ipa_cst_ref_desc *) pool_alloc (ipa_refdesc_pool);
+      rdesc = ipa_refdesc_pool.allocate ();
       rdesc->cs = cs;
       rdesc->next_duplicate = NULL;
       rdesc->refcount = 1;
@@ -697,18 +713,8 @@ param_type_may_change_p (tree function, tree arg, gimple call)
 	  /* Walk the inline stack and watch out for ctors/dtors.  */
 	  for (tree block = gimple_block (call); block && TREE_CODE (block) == BLOCK;
 	       block = BLOCK_SUPERCONTEXT (block))
-	    if (BLOCK_ABSTRACT_ORIGIN (block)
-	        && TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block)) == FUNCTION_DECL)
-	      {
-		tree fn = BLOCK_ABSTRACT_ORIGIN (block);
-
-		if (flags_from_decl_or_type (fn) & (ECF_PURE | ECF_CONST))
-		  continue;
-		if (TREE_CODE (TREE_TYPE (fn)) == METHOD_TYPE
-		    && (DECL_CXX_CONSTRUCTOR_P (fn)
-		        || DECL_CXX_DESTRUCTOR_P (fn)))
-		  return true;
-	      }
+	    if (inlined_polymorphic_ctor_dtor_block_p (block, false))
+	      return true;
 	  return false;
 	}
     }
@@ -2618,9 +2624,29 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target,
       target = canonicalize_constructor_val (target, NULL);
       if (!target || TREE_CODE (target) != FUNCTION_DECL)
 	{
-	  if (ie->indirect_info->member_ptr)
-	    /* Member pointer call that goes through a VMT lookup.  */
-	    return NULL;
+	  /* Member pointer call that goes through a VMT lookup.  */
+	  if (ie->indirect_info->member_ptr
+	      /* Or if target is not an invariant expression and we do not
+		 know if it will evaulate to function at runtime.
+		 This can happen when folding through &VAR, where &VAR
+		 is IP invariant, but VAR itself is not.
+
+		 TODO: Revisit this when GCC 5 is branched.  It seems that
+		 member_ptr check is not needed and that we may try to fold
+		 the expression and see if VAR is readonly.  */
+	      || !is_gimple_ip_invariant (target))
+	    {
+	      if (dump_enabled_p ())
+		{
+		  location_t loc = gimple_location_safe (ie->call_stmt);
+		  dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc,
+				   "discovered direct call non-invariant "
+				   "%s/%i\n",
+				   ie->caller->name (), ie->caller->order);
+		}
+	      return NULL;
+	    }
+
 
           if (dump_enabled_p ())
 	    {
@@ -2730,7 +2756,20 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target,
 		       ie->caller->name (), callee->name ());
     }
   if (!speculative)
-    ie = ie->make_direct (callee);
+    {
+      struct cgraph_edge *orig = ie;
+      ie = ie->make_direct (callee);
+      /* If we resolved speculative edge the cost is already up to date
+	 for direct call (adjusted by inline_edge_duplication_hook).  */
+      if (ie == orig)
+	{
+	  es = inline_edge_summary (ie);
+	  es->call_stmt_size -= (eni_size_weights.indirect_call_cost
+				 - eni_size_weights.call_cost);
+	  es->call_stmt_time -= (eni_time_weights.indirect_call_cost
+				 - eni_time_weights.call_cost);
+	}
+    }
   else
     {
       if (!callee->can_be_discarded_p ())
@@ -2740,14 +2779,10 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target,
 	  if (alias)
 	    callee = alias;
 	}
+      /* make_speculative will update ie's cost to direct call cost. */
       ie = ie->make_speculative
 	     (callee, ie->count * 8 / 10, ie->frequency * 8 / 10);
     }
-  es = inline_edge_summary (ie);
-  es->call_stmt_size -= (eni_size_weights.indirect_call_cost
-			 - eni_size_weights.call_cost);
-  es->call_stmt_time -= (eni_time_weights.indirect_call_cost
-			 - eni_time_weights.call_cost);
 
   return ie;
 }
@@ -2958,7 +2993,7 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 		  || !possible_polymorphic_call_target_p
 		       (ie, cgraph_node::get (t)))
 		{
-		  /* Do not speculate builtin_unreachable, it is stpid!  */
+		  /* Do not speculate builtin_unreachable, it is stupid!  */
 		  if (!ie->indirect_info->vptr_changed)
 		    target = ipa_impossible_devirt_target (ie, target);
 		}
@@ -2986,6 +3021,7 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
      ctx, &final);
   if (final && targets.length () <= 1)
     {
+      speculative = false;
       if (targets.length () == 1)
 	target = targets[0]->decl;
       else
@@ -3047,6 +3083,7 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
       struct cgraph_indirect_call_info *ici = ie->indirect_info;
       struct ipa_jump_func *jfunc;
       int param_index;
+      cgraph_node *spec_target = NULL;
 
       next_ie = ie->next_callee;
 
@@ -3063,6 +3100,14 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
       param_index = ici->param_index;
       jfunc = ipa_get_ith_jump_func (top, param_index);
 
+      if (ie->speculative)
+	{
+	  struct cgraph_edge *de;
+          struct ipa_ref *ref;
+	  ie->speculative_call_info (de, ie, ref);
+	  spec_target = de->callee;
+	}
+
       if (!opt_for_fn (node->decl, flag_indirect_inlining))
 	new_direct_edge = NULL;
       else if (ici->polymorphic)
@@ -3075,11 +3120,14 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
 	new_direct_edge = try_make_edge_direct_simple_call (ie, jfunc,
 							    new_root_info);
       /* If speculation was removed, then we need to do nothing.  */
-      if (new_direct_edge && new_direct_edge != ie)
+      if (new_direct_edge && new_direct_edge != ie
+	  && new_direct_edge->callee == spec_target)
 	{
 	  new_direct_edge->indirect_inlining_edge = 1;
 	  top = IPA_EDGE_REF (cs);
 	  res = true;
+	  if (!new_direct_edge->speculative)
+	    continue;
 	}
       else if (new_direct_edge)
 	{
@@ -3095,29 +3143,39 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
 	      res = true;
 	    }
 	  top = IPA_EDGE_REF (cs);
+	  /* If speculative edge was introduced we still need to update
+	     call info of the indirect edge.  */
+	  if (!new_direct_edge->speculative)
+	    continue;
 	}
-      else if (jfunc->type == IPA_JF_PASS_THROUGH
-	       && ipa_get_jf_pass_through_operation (jfunc) == NOP_EXPR)
+      if (jfunc->type == IPA_JF_PASS_THROUGH
+          && ipa_get_jf_pass_through_operation (jfunc) == NOP_EXPR)
 	{
-	  if ((ici->agg_contents
-	       && !ipa_get_jf_pass_through_agg_preserved (jfunc))
-	      || (ici->polymorphic
-		  && !ipa_get_jf_pass_through_type_preserved (jfunc)))
+	  if (ici->agg_contents
+	      && !ipa_get_jf_pass_through_agg_preserved (jfunc)
+	      && !ici->polymorphic)
 	    ici->param_index = -1;
 	  else
-	    ici->param_index = ipa_get_jf_pass_through_formal_id (jfunc);
+	    {
+	      ici->param_index = ipa_get_jf_pass_through_formal_id (jfunc);
+	      if (ici->polymorphic
+		  && !ipa_get_jf_pass_through_type_preserved (jfunc))
+		ici->vptr_changed = true;
+	    }
 	}
       else if (jfunc->type == IPA_JF_ANCESTOR)
 	{
-	  if ((ici->agg_contents
-	       && !ipa_get_jf_ancestor_agg_preserved (jfunc))
-	      || (ici->polymorphic
-		  && !ipa_get_jf_ancestor_type_preserved (jfunc)))
+	  if (ici->agg_contents
+	      && !ipa_get_jf_ancestor_agg_preserved (jfunc)
+	      && !ici->polymorphic)
 	    ici->param_index = -1;
 	  else
 	    {
 	      ici->param_index = ipa_get_jf_ancestor_formal_id (jfunc);
 	      ici->offset += ipa_get_jf_ancestor_offset (jfunc);
+	      if (ici->polymorphic
+		  && !ipa_get_jf_ancestor_type_preserved (jfunc))
+		ici->vptr_changed = true;
 	    }
 	}
       else
@@ -3457,9 +3515,7 @@ ipa_edge_duplication_hook (struct cgraph_edge *src, struct cgraph_edge *dst,
 	      gcc_checking_assert (ref);
 	      dst->caller->clone_reference (ref, ref->stmt);
 
-	      gcc_checking_assert (ipa_refdesc_pool);
-	      struct ipa_cst_ref_desc *dst_rdesc
-		= (struct ipa_cst_ref_desc *) pool_alloc (ipa_refdesc_pool);
+	      struct ipa_cst_ref_desc *dst_rdesc = ipa_refdesc_pool.allocate ();
 	      dst_rdesc->cs = dst;
 	      dst_rdesc->refcount = src_rdesc->refcount;
 	      dst_rdesc->next_duplicate = NULL;
@@ -3467,10 +3523,7 @@ ipa_edge_duplication_hook (struct cgraph_edge *src, struct cgraph_edge *dst,
 	    }
 	  else if (src_rdesc->cs == src)
 	    {
-	      struct ipa_cst_ref_desc *dst_rdesc;
-	      gcc_checking_assert (ipa_refdesc_pool);
-	      dst_rdesc
-		= (struct ipa_cst_ref_desc *) pool_alloc (ipa_refdesc_pool);
+	      struct ipa_cst_ref_desc *dst_rdesc = ipa_refdesc_pool.allocate ();
 	      dst_rdesc->cs = dst;
 	      dst_rdesc->refcount = src_rdesc->refcount;
 	      dst_rdesc->next_duplicate = src_rdesc->next_duplicate;
@@ -3616,13 +3669,12 @@ ipa_free_all_structures_after_ipa_cp (void)
     {
       ipa_free_all_edge_args ();
       ipa_free_all_node_params ();
-      free_alloc_pool (ipcp_sources_pool);
-      free_alloc_pool (ipcp_cst_values_pool);
-      free_alloc_pool (ipcp_poly_ctx_values_pool);
-      free_alloc_pool (ipcp_agg_lattice_pool);
+      ipcp_sources_pool.release ();
+      ipcp_cst_values_pool.release ();
+      ipcp_poly_ctx_values_pool.release ();
+      ipcp_agg_lattice_pool.release ();
       ipa_unregister_cgraph_hooks ();
-      if (ipa_refdesc_pool)
-	free_alloc_pool (ipa_refdesc_pool);
+      ipa_refdesc_pool.release ();
     }
 }
 
@@ -3635,16 +3687,11 @@ ipa_free_all_structures_after_iinln (void)
   ipa_free_all_edge_args ();
   ipa_free_all_node_params ();
   ipa_unregister_cgraph_hooks ();
-  if (ipcp_sources_pool)
-    free_alloc_pool (ipcp_sources_pool);
-  if (ipcp_cst_values_pool)
-    free_alloc_pool (ipcp_cst_values_pool);
-  if (ipcp_poly_ctx_values_pool)
-    free_alloc_pool (ipcp_poly_ctx_values_pool);
-  if (ipcp_agg_lattice_pool)
-    free_alloc_pool (ipcp_agg_lattice_pool);
-  if (ipa_refdesc_pool)
-    free_alloc_pool (ipa_refdesc_pool);
+  ipcp_sources_pool.release ();
+  ipcp_cst_values_pool.release ();
+  ipcp_poly_ctx_values_pool.release ();
+  ipcp_agg_lattice_pool.release ();
+  ipa_refdesc_pool.release ();
 }
 
 /* Print ipa_tree_map data structures of all functions in the
@@ -4818,7 +4865,7 @@ ipa_prop_read_section (struct lto_file_decl_data *file_data, const char *data,
   unsigned int count;
 
   lto_input_block ib_main ((const char *) data + main_offset,
-			   header->main_size);
+			   header->main_size, file_data->mode_table);
 
   data_in =
     lto_data_in_create (file_data, (const char *) data + string_offset,
@@ -5039,7 +5086,7 @@ read_replacements_section (struct lto_file_decl_data *file_data,
   unsigned int count;
 
   lto_input_block ib_main ((const char *) data + main_offset,
-			   header->main_size);
+			   header->main_size, file_data->mode_table);
 
   data_in = lto_data_in_create (file_data, (const char *) data + string_offset,
 				header->string_size, vNULL);

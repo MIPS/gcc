@@ -1,5 +1,5 @@
 /* Allocation for dataflow support routines.
-   Copyright (C) 1999-2014 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -642,7 +642,6 @@ void
 df_finish_pass (bool verify ATTRIBUTE_UNUSED)
 {
   int i;
-  int removed = 0;
 
 #ifdef ENABLE_DF_CHECKING
   int saved_flags;
@@ -658,21 +657,15 @@ df_finish_pass (bool verify ATTRIBUTE_UNUSED)
   saved_flags = df->changeable_flags;
 #endif
 
-  for (i = 0; i < df->num_problems_defined; i++)
+  /* We iterate over problems by index as each problem removed will
+     lead to problems_in_order to be reordered.  */
+  for (i = 0; i < DF_LAST_PROBLEM_PLUS1; i++)
     {
-      struct dataflow *dflow = df->problems_in_order[i];
-      struct df_problem *problem = dflow->problem;
+      struct dataflow *dflow = df->problems_by_index[i];
 
-      if (dflow->optional_p)
-	{
-	  gcc_assert (problem->remove_problem_fun);
-	  (problem->remove_problem_fun) ();
-	  df->problems_in_order[i] = NULL;
-	  df->problems_by_index[problem->id] = NULL;
-	  removed++;
-	}
+      if (dflow && dflow->optional_p)
+	df_remove_problem (dflow);
     }
-  df->num_problems_defined -= removed;
 
   /* Clear all of the flags.  */
   df->changeable_flags = 0;

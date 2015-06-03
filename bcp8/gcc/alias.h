@@ -1,5 +1,5 @@
 /* Exported functions from alias.c
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -41,6 +41,7 @@ extern int alias_sets_conflict_p (alias_set_type, alias_set_type);
 extern int alias_sets_must_conflict_p (alias_set_type, alias_set_type);
 extern int objects_must_conflict_p (tree, tree);
 extern int nonoverlapping_memrefs_p (const_rtx, const_rtx, bool);
+extern void dump_alias_stats_in_alias_c (FILE *s);
 tree reference_alias_ptr_type (tree);
 bool alias_ptr_types_compatible_p (tree, tree);
 

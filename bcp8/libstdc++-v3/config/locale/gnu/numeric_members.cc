@@ -1,6 +1,6 @@
 // std::numpunct implementation details, GNU version -*- C++ -*-
 
-// Copyright (C) 2001-2014 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -117,7 +117,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       if (_M_data->_M_grouping_size)
 	delete [] _M_data->_M_grouping;
-      _M_data->_M_grouping = 0;
       delete _M_data;
     }
    
@@ -210,7 +209,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       if (_M_data->_M_grouping_size)
 	delete [] _M_data->_M_grouping;
-      _M_data->_M_grouping = 0;
       delete _M_data;
     }
  #endif

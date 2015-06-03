@@ -1,5 +1,5 @@
 (* Auto-generate ARM Neon intrinsics tests.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by CodeSourcery.
 
    This file is part of GCC.
@@ -138,7 +138,6 @@ let emit_epilogue chan features regexps =
      else
        ()
     );
-    Printf.fprintf chan "/* { dg-final { cleanup-saved-temps } } */\n"
 
 (* Check a list of C types to determine which ones are pointers and which
    ones are const.  *)

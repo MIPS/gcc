@@ -1,5 +1,5 @@
 /* Optimize jump instructions, for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -56,6 +56,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfg.h"
 #include "cfgrtl.h"
 #include "basic-block.h"
+#include "symtab.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "except.h"
 #include "diagnostic-core.h"
@@ -152,7 +168,30 @@ cleanup_barriers (void)
 	  if (BARRIER_P (prev))
 	    delete_insn (insn);
 	  else if (prev != PREV_INSN (insn))
-	    reorder_insns_nobb (insn, insn, prev);
+	    {
+	      basic_block bb = BLOCK_FOR_INSN (prev);
+	      rtx_insn *end = PREV_INSN (insn);
+	      reorder_insns_nobb (insn, insn, prev);
+	      if (bb)
+		{
+		  /* If the backend called in machine reorg compute_bb_for_insn
+		     and didn't free_bb_for_insn again, preserve basic block
+		     boundaries.  Move the end of basic block to PREV since
+		     it is followed by a barrier now, and clear BLOCK_FOR_INSN
+		     on the following notes.
+		     ???  Maybe the proper solution for the targets that have
+		     cfg around after machine reorg is not to run cleanup_barriers
+		     pass at all.  */
+		  BB_END (bb) = prev;
+		  do
+		    {
+		      prev = NEXT_INSN (prev);
+		      if (prev != insn && BLOCK_FOR_INSN (prev) == bb)
+			BLOCK_FOR_INSN (prev) = NULL;
+		    }
+		  while (prev != end);
+		}
+	    }
 	}
     }
   return 0;
@@ -1005,8 +1044,6 @@ jump_to_label_p (const rtx_insn *insn)
 	  && JUMP_LABEL (insn) != NULL && !ANY_RETURN_P (JUMP_LABEL (insn)));
 }
 
-#ifdef HAVE_cc0
-
 /* Return nonzero if X is an RTX that only sets the condition codes
    and has no side effects.  */
 
@@ -1055,7 +1092,6 @@ sets_cc0_p (const_rtx x)
     }
   return 0;
 }
-#endif
 
 /* Find all CODE_LABELs referred to in X, and increment their use
    counts.  If INSN is a JUMP_INSN and there is at least one
@@ -1467,7 +1503,7 @@ redirect_exp_1 (rtx *loc, rtx olabel, rtx nlabel, rtx insn)
     {
       x = redirect_target (nlabel);
       if (GET_CODE (x) == LABEL_REF && loc == &PATTERN (insn))
- 	x = gen_rtx_SET (VOIDmode, pc_rtx, x);
+ 	x = gen_rtx_SET (pc_rtx, x);
       validate_change (insn, loc, x, 1);
       return;
     }
@@ -1509,7 +1545,7 @@ redirect_exp_1 (rtx *loc, rtx olabel, rtx nlabel, rtx insn)
    not see how to do that.  */
 
 int
-redirect_jump_1 (rtx jump, rtx nlabel)
+redirect_jump_1 (rtx_insn *jump, rtx nlabel)
 {
   int ochanges = num_validated_changes ();
   rtx *loc, asmop;
@@ -1544,9 +1580,9 @@ redirect_jump_1 (rtx jump, rtx nlabel)
    (this can only occur when trying to produce return insns).  */
 
 int
-redirect_jump (rtx jump, rtx nlabel, int delete_unused)
+redirect_jump (rtx_jump_insn *jump, rtx nlabel, int delete_unused)
 {
-  rtx olabel = JUMP_LABEL (jump);
+  rtx olabel = jump->jump_label ();
 
   if (!nlabel)
     {
@@ -1576,7 +1612,7 @@ redirect_jump (rtx jump, rtx nlabel, int delete_unused)
    If DELETE_UNUSED is positive, delete related insn to OLABEL if its ref
    count has dropped to zero.  */
 void
-redirect_jump_2 (rtx jump, rtx olabel, rtx nlabel, int delete_unused,
+redirect_jump_2 (rtx_jump_insn *jump, rtx olabel, rtx nlabel, int delete_unused,
 		 int invert)
 {
   rtx note;
@@ -1664,7 +1700,7 @@ invert_exp_1 (rtx x, rtx insn)
    inversion and redirection.  */
 
 int
-invert_jump_1 (rtx_insn *jump, rtx nlabel)
+invert_jump_1 (rtx_jump_insn *jump, rtx nlabel)
 {
   rtx x = pc_set (jump);
   int ochanges;
@@ -1688,7 +1724,7 @@ invert_jump_1 (rtx_insn *jump, rtx nlabel)
    NLABEL instead of where it jumps now.  Return true if successful.  */
 
 int
-invert_jump (rtx_insn *jump, rtx nlabel, int delete_unused)
+invert_jump (rtx_jump_insn *jump, rtx nlabel, int delete_unused)
 {
   rtx olabel = JUMP_LABEL (jump);
 

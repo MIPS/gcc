@@ -1,6 +1,6 @@
 /* Handle modules, which amounts to loading and saving symbols and
    their attendant structures.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -73,6 +73,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "parse.h" /* FIXME */
 #include "constructor.h"
 #include "cpp.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "scanner.h"
@@ -82,7 +92,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Don't put any single quote (') in MOD_VERSION, if you want it to be
    recognized.  */
-#define MOD_VERSION "13"
+#define MOD_VERSION "14"
 
 
 /* Structure that describes a position within a module file.  */
@@ -1526,7 +1536,10 @@ static void
 write_atom (atom_type atom, const void *v)
 {
   char buffer[20];
-  int i, len;
+
+  /* Workaround -Wmaybe-uninitialized false positive during
+     profiledbootstrap by initializing them.  */
+  int i = 0, len;
   const char *p;
 
   switch (atom)
@@ -1880,7 +1893,8 @@ typedef enum
   AB_IS_BIND_C, AB_IS_C_INTEROP, AB_IS_ISO_C, AB_ABSTRACT, AB_ZERO_COMP,
   AB_IS_CLASS, AB_PROCEDURE, AB_PROC_POINTER, AB_ASYNCHRONOUS, AB_CODIMENSION,
   AB_COARRAY_COMP, AB_VTYPE, AB_VTAB, AB_CONTIGUOUS, AB_CLASS_POINTER,
-  AB_IMPLICIT_PURE, AB_ARTIFICIAL, AB_UNLIMITED_POLY, AB_OMP_DECLARE_TARGET
+  AB_IMPLICIT_PURE, AB_ARTIFICIAL, AB_UNLIMITED_POLY, AB_OMP_DECLARE_TARGET,
+  AB_ARRAY_OUTER_DEPENDENCY
 }
 ab_attribute;
 
@@ -1936,6 +1950,7 @@ static const mstring attr_bits[] =
     minit ("IMPLICIT_PURE", AB_IMPLICIT_PURE),
     minit ("UNLIMITED_POLY", AB_UNLIMITED_POLY),
     minit ("OMP_DECLARE_TARGET", AB_OMP_DECLARE_TARGET),
+    minit ("ARRAY_OUTER_DEPENDENCY", AB_ARRAY_OUTER_DEPENDENCY),
     minit (NULL, -1)
 };
 
@@ -2116,6 +2131,8 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_VTAB, attr_bits);
       if (attr->omp_declare_target)
 	MIO_NAME (ab_attribute) (AB_OMP_DECLARE_TARGET, attr_bits);
+      if (attr->array_outer_dependency)
+	MIO_NAME (ab_attribute) (AB_ARRAY_OUTER_DEPENDENCY, attr_bits);
 
       mio_rparen ();
 
@@ -2281,6 +2298,9 @@ mio_symbol_attribute (symbol_attribute *attr)
 	      break;
 	    case AB_OMP_DECLARE_TARGET:
 	      attr->omp_declare_target = 1;
+	      break;
+	    case AB_ARRAY_OUTER_DEPENDENCY:
+	      attr->array_outer_dependency =1;
 	      break;
 	    }
 	}
@@ -4529,71 +4549,6 @@ load_equiv (void)
 }
 
 
-/* This function loads the sym_root of f2k_derived with the extensions to
-   the derived type.  */
-static void
-load_derived_extensions (void)
-{
-  int symbol, j;
-  gfc_symbol *derived;
-  gfc_symbol *dt;
-  gfc_symtree *st;
-  pointer_info *info;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
-  char module[GFC_MAX_SYMBOL_LEN + 1];
-  const char *p;
-
-  mio_lparen ();
-  while (peek_atom () != ATOM_RPAREN)
-    {
-      mio_lparen ();
-      mio_integer (&symbol);
-      info = get_integer (symbol);
-      derived = info->u.rsym.sym;
-
-      /* This one is not being loaded.  */
-      if (!info || !derived)
-	{
-	  while (peek_atom () != ATOM_RPAREN)
-	    skip_list ();
-	  continue;
-	}
-
-      gcc_assert (derived->attr.flavor == FL_DERIVED);
-      if (derived->f2k_derived == NULL)
-	derived->f2k_derived = gfc_get_namespace (NULL, 0);
-
-      while (peek_atom () != ATOM_RPAREN)
-	{
-	  mio_lparen ();
-	  mio_internal_string (name);
-	  mio_internal_string (module);
-
-          /* Only use one use name to find the symbol.  */
-	  j = 1;
-	  p = find_use_name_n (name, &j, false);
-	  if (p)
-	    {
-	      st = gfc_find_symtree (gfc_current_ns->sym_root, p);
-	      dt = st->n.sym;
-	      st = gfc_find_symtree (derived->f2k_derived->sym_root, name);
-	      if (st == NULL)
-		{
-		  /* Only use the real name in f2k_derived to ensure a single
-		    symtree.  */
-		  st = gfc_new_symtree (&derived->f2k_derived->sym_root, name);
-		  st->n.sym = dt;
-		  st->n.sym->refs++;
-		}
-	    }
-	  mio_rparen ();
-	}
-      mio_rparen ();
-    }
-  mio_rparen ();
-}
-
-
 /* This function loads OpenMP user defined reductions.  */
 static void
 load_omp_udrs (void)
@@ -4847,19 +4802,21 @@ read_cleanup (pointer_info *p)
 /* It is not quite enough to check for ambiguity in the symbols by
    the loaded symbol and the new symbol not being identical.  */
 static bool
-check_for_ambiguous (gfc_symbol *st_sym, pointer_info *info)
+check_for_ambiguous (gfc_symtree *st, pointer_info *info)
 {
   gfc_symbol *rsym;
   module_locus locus;
   symbol_attribute attr;
+  gfc_symbol *st_sym;
 
-  if (gfc_current_ns->proc_name && st_sym->name == gfc_current_ns->proc_name->name)
+  if (gfc_current_ns->proc_name && st->name == gfc_current_ns->proc_name->name)
     {
       gfc_error ("%qs of module %qs, imported at %C, is also the name of the "
-		 "current program unit", st_sym->name, module_name);
+		 "current program unit", st->name, module_name);
       return true;
     }
 
+  st_sym = st->n.sym;
   rsym = info->u.rsym.sym;
   if (st_sym == rsym)
     return false;
@@ -4894,11 +4851,13 @@ check_for_ambiguous (gfc_symbol *st_sym, pointer_info *info)
 static void
 read_module (void)
 {
-  module_locus operator_interfaces, user_operators, extensions, omp_udrs;
+  module_locus operator_interfaces, user_operators, omp_udrs;
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   int i;
-  int ambiguous, j, nuse, symbol;
+  /* Workaround -Wmaybe-uninitialized false positive during
+     profiledbootstrap by initializing them.  */
+  int ambiguous = 0, j, nuse, symbol = 0;
   pointer_info *info, *q;
   gfc_use_rename *u = NULL;
   gfc_symtree *st;
@@ -4911,11 +4870,8 @@ read_module (void)
   skip_list ();
   skip_list ();
 
-  /* Skip commons, equivalences and derived type extensions for now.  */
+  /* Skip commons and equivalences for now.  */
   skip_list ();
-  skip_list ();
-
-  get_module_locus (&extensions);
   skip_list ();
 
   /* Skip OpenMP UDRs.  */
@@ -5090,7 +5046,7 @@ read_module (void)
 	  if (st != NULL)
 	    {
 	      /* Check for ambiguous symbols.  */
-	      if (check_for_ambiguous (st->n.sym, info))
+	      if (check_for_ambiguous (st, info))
 		st->ambiguous = 1;
 	      else
 		info->u.rsym.symtree = st;
@@ -5222,11 +5178,6 @@ read_module (void)
 		 "in module %qs", gfc_op2string (u->op), &u->where,
 		 module_name);
     }
-
-  /* Now we should be in a position to fill f2k_derived with derived type
-     extensions, since everything has been loaded.  */
-  set_module_locus (&extensions);
-  load_derived_extensions ();
 
   /* Clean up symbol nodes that were never loaded, create references
      to hidden symbols.  */
@@ -5442,49 +5393,6 @@ write_equiv (void)
       num++;
       mio_rparen ();
     }
-}
-
-
-/* Write derived type extensions to the module.  */
-
-static void
-write_dt_extensions (gfc_symtree *st)
-{
-  if (!gfc_check_symbol_access (st->n.sym))
-    return;
-  if (!(st->n.sym->ns && st->n.sym->ns->proc_name
-	&& st->n.sym->ns->proc_name->attr.flavor == FL_MODULE))
-    return;
-
-  mio_lparen ();
-  mio_pool_string (&st->name);
-  if (st->n.sym->module != NULL)
-    mio_pool_string (&st->n.sym->module);
-  else
-    {
-      char name[GFC_MAX_SYMBOL_LEN + 1];
-      if (iomode == IO_OUTPUT)
-	strcpy (name, module_name);
-      mio_internal_string (name);
-      if (iomode == IO_INPUT)
-	module_name = gfc_get_string (name);
-    }
-  mio_rparen ();
-}
-
-static void
-write_derived_extensions (gfc_symtree *st)
-{
-  if (!((st->n.sym->attr.flavor == FL_DERIVED)
-	  && (st->n.sym->f2k_derived != NULL)
-	  && (st->n.sym->f2k_derived->sym_root != NULL)))
-    return;
-
-  mio_lparen ();
-  mio_symbol_ref (&(st->n.sym));
-  gfc_traverse_symtree (st->n.sym->f2k_derived->sym_root,
-			write_dt_extensions);
-  mio_rparen ();
 }
 
 
@@ -5880,13 +5788,6 @@ write_module (void)
 
   mio_lparen ();
   write_equiv ();
-  mio_rparen ();
-  write_char ('\n');
-  write_char ('\n');
-
-  mio_lparen ();
-  gfc_traverse_symtree (gfc_current_ns->sym_root,
-			write_derived_extensions);
   mio_rparen ();
   write_char ('\n');
   write_char ('\n');
@@ -6599,7 +6500,7 @@ use_iso_fortran_env_module (void)
 
 	      if ((flag_default_integer || flag_default_real)
 		  && symbol[i].id == ISOFORTRANENV_NUMERIC_STORAGE_SIZE)
-		gfc_warning_now ("Use of the NUMERIC_STORAGE_SIZE named "
+		gfc_warning_now (0, "Use of the NUMERIC_STORAGE_SIZE named "
 				 "constant from intrinsic module "
 				 "ISO_FORTRAN_ENV at %L is incompatible with "
 				 "option %qs", &u->where,
@@ -6666,7 +6567,8 @@ use_iso_fortran_env_module (void)
 
 	  if ((flag_default_integer || flag_default_real)
 	      && symbol[i].id == ISOFORTRANENV_NUMERIC_STORAGE_SIZE)
-	    gfc_warning_now ("Use of the NUMERIC_STORAGE_SIZE named constant "
+	    gfc_warning_now (0,
+			     "Use of the NUMERIC_STORAGE_SIZE named constant "
 			     "from intrinsic module ISO_FORTRAN_ENV at %C is "
 			     "incompatible with option %s",
 			     flag_default_integer

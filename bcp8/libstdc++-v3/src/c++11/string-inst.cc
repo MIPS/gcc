@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997-2014 Free Software Foundation, Inc.
+// Copyright (C) 1997-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -111,18 +111,5 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template bool operator==(const S::iterator&, const S::iterator&);
   template bool operator==(const S::const_iterator&, const S::const_iterator&);
 
-_GLIBCXX_END_NAMESPACE_VERSION
-} // namespace
-
-// TODO does not belong here!
-#include <locale>
-namespace std _GLIBCXX_VISIBILITY(default)
-{
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-_GLIBCXX_BEGIN_NAMESPACE_CXX11
-  template istreambuf_iterator<C> time_get<C, istreambuf_iterator<C> >::get(iter_type, iter_type, ios_base&, ios_base::iostate&, tm*, char, char) const;
-  template istreambuf_iterator<C> time_get<C, istreambuf_iterator<C> >::do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, tm*, char, char) const;
-  template istreambuf_iterator<C> time_get<C, istreambuf_iterator<C> >::get(iter_type, iter_type, ios_base&, ios_base::iostate&, tm*, const char_type*, const char_type*) const;
-_GLIBCXX_END_NAMESPACE_CXX11
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace

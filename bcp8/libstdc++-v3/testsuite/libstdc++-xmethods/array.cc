@@ -1,7 +1,7 @@
 // { dg-do run }
 // { dg-options "-std=gnu++11 -g -O0" }
 
-// Copyright (C) 2014 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -39,6 +39,13 @@ main ()
 // { dg-final { note-test a\[0\] 100 } }
 // { dg-final { note-test a\[4\] 104 } }
 // { dg-final { note-test a\[9\] 109 } }
+
+// { dg-final { whatis-test a.size() std::size_t } }
+// { dg-final { whatis-test a.empty() bool } }
+// { dg-final { whatis-test a.front() int } }
+// { dg-final { whatis-test a.back() int } }
+// { dg-final { whatis-test a.at(5) int } }
+// { dg-final { whatis-test a\[0\] int } }
 
   return 0;  // Mark SPOT
 }

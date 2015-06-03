@@ -1,5 +1,5 @@
 /* Primary expression subroutines
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -143,8 +143,8 @@ gfc_check_digit (char c, int radix)
 
 
 /* Match the digit string part of an integer if signflag is not set,
-   the signed digit string part if signflag is set.  If the buffer 
-   is NULL, we just count characters for the resolution pass.  Returns 
+   the signed digit string part if signflag is set.  If the buffer
+   is NULL, we just count characters for the resolution pass.  Returns
    the number of characters matched, -1 for no match.  */
 
 static int
@@ -192,7 +192,7 @@ match_digits (int signflag, int radix, char *buffer)
 }
 
 
-/* Match an integer (digit string and optional kind).  
+/* Match an integer (digit string and optional kind).
    A sign will be accepted if signflag is set.  */
 
 static match
@@ -259,7 +259,7 @@ match_hollerith_constant (gfc_expr **result)
   gfc_expr *e = NULL;
   const char *msg;
   int num, pad;
-  int i;  
+  int i;
 
   old_loc = gfc_current_locus;
   gfc_gobble_whitespace ();
@@ -518,7 +518,7 @@ match_real_constant (gfc_expr **result, int signflag)
 	  if (seen_dp)
 	    goto done;
 
-	  /* Check to see if "." goes with a following operator like 
+	  /* Check to see if "." goes with a following operator like
 	     ".eq.".  */
 	  temp_loc = gfc_current_locus;
 	  c = gfc_next_ascii_char ();
@@ -865,7 +865,7 @@ next_string_char (gfc_char_t delimiter, int *ret)
 	gfc_current_locus = old_locus;
 
       if (!(gfc_option.allow_std & GFC_STD_GNU) && !inhibit_warnings)
-	gfc_warning ("Extension: backslash character at %C");
+	gfc_warning (0, "Extension: backslash character at %C");
     }
 
   if (c != delimiter)
@@ -1274,8 +1274,7 @@ static match
 match_complex_constant (gfc_expr **result)
 {
   gfc_expr *e, *real, *imag;
-  gfc_error_buf old_error_1;
-  output_buffer old_error;
+  gfc_error_buffer old_error;
   gfc_typespec target;
   locus old_loc;
   int kind;
@@ -1288,18 +1287,18 @@ match_complex_constant (gfc_expr **result)
   if (m != MATCH_YES)
     return m;
 
-  gfc_push_error (&old_error, &old_error_1);
+  gfc_push_error (&old_error);
 
   m = match_complex_part (&real);
   if (m == MATCH_NO)
     {
-      gfc_free_error (&old_error, &old_error_1);
+      gfc_free_error (&old_error);
       goto cleanup;
     }
 
   if (gfc_match_char (',') == MATCH_NO)
     {
-      gfc_pop_error (&old_error, &old_error_1);
+      gfc_pop_error (&old_error);
       m = MATCH_NO;
       goto cleanup;
     }
@@ -1311,10 +1310,10 @@ match_complex_constant (gfc_expr **result)
 
   if (m == MATCH_ERROR)
     {
-      gfc_free_error (&old_error, &old_error_1);
+      gfc_free_error (&old_error);
       goto cleanup;
     }
-  gfc_pop_error (&old_error, &old_error_1);
+  gfc_pop_error (&old_error);
 
   m = match_complex_part (&imag);
   if (m == MATCH_NO)
@@ -1504,7 +1503,7 @@ match_actual_arg (gfc_expr **result)
 
 	  if (sym->attr.in_common && !sym->attr.proc_pointer)
 	    {
-	      if (!gfc_add_flavor (&sym->attr, FL_VARIABLE, 
+	      if (!gfc_add_flavor (&sym->attr, FL_VARIABLE,
 				   sym->name, &sym->declared_at))
 		return MATCH_ERROR;
 	      break;
@@ -1857,7 +1856,10 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
      Thus if we have one and parentheses follow, we have to assume that it
      actually is one for now.  The final decision will be made at
      resolution time, of course.  */
-  if (sym->assoc && gfc_peek_ascii_char () == '(')
+  if (sym->assoc && gfc_peek_ascii_char () == '('
+      && !(sym->assoc->dangling && sym->assoc->st
+	   && sym->assoc->st->n.sym
+	   && sym->assoc->st->n.sym->attr.dimension == 0))
     sym->attr.dimension = 1;
 
   if ((equiv_flag && gfc_peek_ascii_char () == '(')
@@ -2135,7 +2137,7 @@ check_substring:
 symbol_attribute
 gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
 {
-  int dimension, codimension, pointer, allocatable, target;
+  int dimension, codimension, pointer, allocatable, target, n;
   symbol_attribute attr;
   gfc_ref *ref;
   gfc_symbol *sym;
@@ -2192,7 +2194,25 @@ gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
 	    break;
 
 	  case AR_UNKNOWN:
-	    gfc_internal_error ("gfc_variable_attr(): Bad array reference");
+	    /* If any of start, end or stride is not integer, there will
+	       already have been an error issued.  */
+	    for (n = 0; n < ref->u.ar.as->rank; n++)
+	      {
+		int errors;
+		gfc_get_errors (NULL, &errors);
+		if (((ref->u.ar.start[n]
+		      && ref->u.ar.start[n]->ts.type == BT_UNKNOWN)
+		     ||
+		     (ref->u.ar.end[n]
+		      && ref->u.ar.end[n]->ts.type == BT_UNKNOWN)
+		     ||
+		     (ref->u.ar.stride[n]
+		      && ref->u.ar.stride[n]->ts.type == BT_UNKNOWN))
+		    && errors > 0)
+		  break;
+	      }
+	    if (n == ref->u.ar.as->rank)
+	      gfc_internal_error ("gfc_variable_attr(): Bad array reference");
 	  }
 
 	break;
@@ -2344,8 +2364,8 @@ build_actual_constructor (gfc_structure_ctor_component **comp_head,
 						      &gfc_current_locus);
 	  value->ts = comp->ts;
 
-	  if (!build_actual_constructor (comp_head, 
-					 &value->value.constructor, 
+	  if (!build_actual_constructor (comp_head,
+					 &value->value.constructor,
 					 comp->ts.u.derived))
 	    {
 	      gfc_free_expr (value);
@@ -2367,7 +2387,16 @@ build_actual_constructor (gfc_structure_ctor_component **comp_head,
 		return false;
 	      value = gfc_copy_expr (comp->initializer);
 	    }
-	  else if (!comp->attr.deferred_parameter)
+	  else if (comp->attr.allocatable
+		   || (comp->ts.type == BT_CLASS
+		       && CLASS_DATA (comp)->attr.allocatable))
+	    {
+	      if (!gfc_notify_std (GFC_STD_F2008, "No initializer for "
+				   "allocatable component '%qs' given in the "
+				   "structure constructor at %C", comp->name))
+		return false;
+	    }
+	  else if (!comp->attr.artificial)
 	    {
 	      gfc_error ("No initializer for component %qs given in the"
 			 " structure constructor at %C!", comp->name);
@@ -2449,7 +2478,7 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
 	{
 	  /* Components without name are not allowed after the first named
 	     component initializer!  */
-	  if (!comp || comp->attr.deferred_parameter)
+	  if (!comp || comp->attr.artificial)
 	    {
 	      if (last_name)
 		gfc_error ("Component initializer without name after component"
@@ -2488,7 +2517,7 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
       actual->expr = NULL;
 
       /* Check if this component is already given a value.  */
-      for (comp_iter = comp_head; comp_iter != comp_tail; 
+      for (comp_iter = comp_head; comp_iter != comp_tail;
 	   comp_iter = comp_iter->next)
 	{
 	  gcc_assert (comp_iter);
@@ -2585,13 +2614,13 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
       expr->expr_type = EXPR_STRUCTURE;
     }
 
-  gfc_current_locus = old_locus; 
+  gfc_current_locus = old_locus;
   if (parent)
     *arglist = actual;
   return true;
 
   cleanup:
-  gfc_current_locus = old_locus; 
+  gfc_current_locus = old_locus;
 
   for (comp_iter = comp_head; comp_iter; )
     {
@@ -2758,7 +2787,7 @@ gfc_match_rvalue (gfc_expr **result)
 	      || sym->ns == gfc_current_ns->parent))
 	{
 	  gfc_entry_list *el = NULL;
-	  
+
 	  for (el = sym->ns->entries; el; el = el->next)
 	    if (sym == el->sym)
 	      goto variable;
@@ -2788,7 +2817,7 @@ gfc_match_rvalue (gfc_expr **result)
 
     case FL_PARAMETER:
       /* A statement of the form "REAL, parameter :: a(0:10) = 1" will
-	 end up here.  Unfortunately, sym->value->expr_type is set to 
+	 end up here.  Unfortunately, sym->value->expr_type is set to
 	 EXPR_CONSTANT, and so the if () branch would be followed without
 	 the !sym->as check.  */
       if (sym->value && sym->value->expr_type != EXPR_ARRAY && !sym->as)
@@ -3046,7 +3075,7 @@ gfc_match_rvalue (gfc_expr **result)
       if (m2 != MATCH_YES)
 	{
 	  /* Try to figure out whether we're dealing with a character type.
-	     We're peeking ahead here, because we don't want to call 
+	     We're peeking ahead here, because we don't want to call
 	     match_substring if we're dealing with an implicitly typed
 	     non-character variable.  */
 	  implicit_char = false;
@@ -3067,7 +3096,7 @@ gfc_match_rvalue (gfc_expr **result)
 	      e->expr_type = EXPR_VARIABLE;
 
 	      if (sym->attr.flavor != FL_VARIABLE
-		  && !gfc_add_flavor (&sym->attr, FL_VARIABLE, 
+		  && !gfc_add_flavor (&sym->attr, FL_VARIABLE,
 				      sym->name, NULL))
 		{
 		  m = MATCH_ERROR;
@@ -3288,7 +3317,7 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
 	implicit_ns = gfc_current_ns;
       else
 	implicit_ns = sym->ns;
-	
+
       if (gfc_peek_ascii_char () == '%'
 	  && sym->ts.type == BT_UNKNOWN
 	  && gfc_get_default_type (sym->name, implicit_ns)->type == BT_DERIVED)

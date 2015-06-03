@@ -1,6 +1,6 @@
 ## Makefile for the C++03 sources of the GNU C++ Standard library.
 ##
-## Copyright (C) 1997-2014 Free Software Foundation, Inc.
+## Copyright (C) 1997-2015 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -108,9 +108,7 @@ inst_sources = \
 	allocator-inst.cc \
 	concept-inst.cc \
 	ext-inst.cc \
-	locale-inst.cc \
-	misc-inst.cc \
-	wlocale-inst.cc
+	misc-inst.cc
 else
 # XTEMPLATE_FLAGS =
 inst_sources =
@@ -178,6 +176,16 @@ numeric_members_cow.o: numeric_members_cow.cc
 	$(CXXCOMPILE) $(GLIBCXX_ABI_FLAGS) -fimplicit-templates -c $<
 endif
 
+# XXX TODO move locale_init.cc and localename.cc to src/c++11
+locale_init.lo: locale_init.cc
+	$(LTCXXCOMPILE) -std=gnu++11 -c $<
+locale_init.o: locale_init.cc
+	$(LTCXXCOMPILE) -std=gnu++11 -c $<
+localename.lo: localename.cc
+	$(LTCXXCOMPILE) -std=gnu++11 -c $<
+localename.o: localename.cc
+	$(LTCXXCOMPILE) -std=gnu++11 -c $<
+
 # Use special rules for the deprecated source files so that they find
 # deprecated include files.
 GLIBCXX_INCLUDE_DIR=$(glibcxx_builddir)/include
@@ -207,6 +215,7 @@ parallel_settings.o: parallel_settings.cc
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
 # as the occasion calls for it.
 AM_CXXFLAGS = \
+	-std=gnu++98 \
 	$(glibcxx_lt_pic_flag) $(glibcxx_compiler_shared_flag) \
 	$(XTEMPLATE_FLAGS) $(VTV_CXXFLAGS) \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS) $(CONFIG_CXXFLAGS)

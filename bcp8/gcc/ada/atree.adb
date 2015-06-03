@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,6 +39,7 @@ pragma Style_Checks (All_Checks);
 with Aspects; use Aspects;
 with Debug;   use Debug;
 with Nlists;  use Nlists;
+with Opt;     use Opt;
 with Output;  use Output;
 with Sinput;  use Sinput;
 with Tree_IO; use Tree_IO;
@@ -569,10 +570,10 @@ package body Atree is
       then
          New_Id := Src;
 
-      else
-         --  We are allocating a new node, or extending a node
-         --  other than Nodes.Last.
+      --  We are allocating a new node, or extending a node other than
+      --  Nodes.Last.
 
+      else
          if Present (Src) then
             Nodes.Append (Nodes.Table (Src));
             Flags.Append (Flags.Table (Src));
@@ -585,6 +586,17 @@ package body Atree is
          Orig_Nodes.Append (New_Id);
          Node_Count := Node_Count + 1;
       end if;
+
+      --  Mark the node as ignored Ghost if it is created in an ignored Ghost
+      --  region.
+
+      if Ghost_Mode = Ignore then
+         Set_Is_Ignored_Ghost_Node (New_Id);
+      end if;
+
+      --  Clear Check_Actuals to False
+
+      Set_Check_Actuals (New_Id, False);
 
       --  Specifically copy Paren_Count to deal with creating new table entry
       --  if the parentheses count is at the maximum possible value already.
@@ -642,6 +654,15 @@ package body Atree is
         (Union_Id_Ptr'
           (Nodes.Table (E + 2).Field12'Unrestricted_Access)).Convention := Val;
    end Basic_Set_Convention;
+
+   -------------------
+   -- Check_Actuals --
+   -------------------
+
+   function Check_Actuals (N : Node_Id) return Boolean is
+   begin
+      return Flags.Table (N).Check_Actuals;
+   end Check_Actuals;
 
    --------------------------
    -- Check_Error_Detected --
@@ -1080,6 +1101,30 @@ package body Atree is
    end Ekind_In;
 
    function Ekind_In
+     (T  : Entity_Kind;
+      V1 : Entity_Kind;
+      V2 : Entity_Kind;
+      V3 : Entity_Kind;
+      V4 : Entity_Kind;
+      V5 : Entity_Kind;
+      V6 : Entity_Kind;
+      V7 : Entity_Kind;
+      V8 : Entity_Kind;
+      V9 : Entity_Kind) return Boolean
+   is
+   begin
+      return T = V1 or else
+             T = V2 or else
+             T = V3 or else
+             T = V4 or else
+             T = V5 or else
+             T = V6 or else
+             T = V7 or else
+             T = V8 or else
+             T = V9;
+   end Ekind_In;
+
+   function Ekind_In
      (E  : Entity_Id;
       V1 : Entity_Kind;
       V2 : Entity_Kind) return Boolean
@@ -1161,6 +1206,22 @@ package body Atree is
    is
    begin
       return Ekind_In (Ekind (E), V1, V2, V3, V4, V5, V6, V7, V8);
+   end Ekind_In;
+
+   function Ekind_In
+     (E  : Entity_Id;
+      V1 : Entity_Kind;
+      V2 : Entity_Kind;
+      V3 : Entity_Kind;
+      V4 : Entity_Kind;
+      V5 : Entity_Kind;
+      V6 : Entity_Kind;
+      V7 : Entity_Kind;
+      V8 : Entity_Kind;
+      V9 : Entity_Kind) return Boolean
+   is
+   begin
+      return Ekind_In (Ekind (E), V1, V2, V3, V4, V5, V6, V7, V8, V9);
    end Ekind_In;
 
    ------------------------
@@ -1381,6 +1442,15 @@ package body Atree is
       Set_Name1 (Error, Error_Name);
       Set_Error_Posted (Error, True);
    end Initialize;
+
+   ---------------------------
+   -- Is_Ignored_Ghost_Node --
+   ---------------------------
+
+   function Is_Ignored_Ghost_Node (N : Node_Id) return Boolean is
+   begin
+      return Flags.Table (N).Is_Ignored_Ghost_Node;
+   end Is_Ignored_Ghost_Node;
 
    --------------------------
    -- Is_Rewrite_Insertion --
@@ -1983,6 +2053,15 @@ package body Atree is
       Nodes.Table (N).Analyzed := Val;
    end Set_Analyzed;
 
+   -----------------------
+   -- Set_Check_Actuals --
+   -----------------------
+
+   procedure Set_Check_Actuals (N : Node_Id; Val : Boolean := True) is
+   begin
+      Flags.Table (N).Check_Actuals := Val;
+   end Set_Check_Actuals;
+
    ---------------------------
    -- Set_Comes_From_Source --
    ---------------------------
@@ -2030,6 +2109,15 @@ package body Atree is
       pragma Assert (N <= Nodes.Last);
       Nodes.Table (N).Has_Aspects := Val;
    end Set_Has_Aspects;
+
+   -------------------------------
+   -- Set_Is_Ignored_Ghost_Node --
+   -------------------------------
+
+   procedure Set_Is_Ignored_Ghost_Node (N : Node_Id; Val : Boolean := True) is
+   begin
+      Flags.Table (N).Is_Ignored_Ghost_Node := Val;
+   end Set_Is_Ignored_Ghost_Node;
 
    -----------------------
    -- Set_Original_Node --
@@ -2487,6 +2575,42 @@ package body Atree is
          return Nodes.Table (N + 5).Field11;
       end Field35;
 
+      function Field36 (N : Node_Id) return Union_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Nodes.Table (N + 6).Field6;
+      end Field36;
+
+      function Field37 (N : Node_Id) return Union_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Nodes.Table (N + 6).Field7;
+      end Field37;
+
+      function Field38 (N : Node_Id) return Union_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Nodes.Table (N + 6).Field8;
+      end Field38;
+
+      function Field39 (N : Node_Id) return Union_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Nodes.Table (N + 6).Field9;
+      end Field39;
+
+      function Field40 (N : Node_Id) return Union_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Nodes.Table (N + 6).Field10;
+      end Field40;
+
+      function Field41 (N : Node_Id) return Union_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Nodes.Table (N + 6).Field11;
+      end Field41;
+
       function Node1 (N : Node_Id) return Node_Id is
       begin
          pragma Assert (N <= Nodes.Last);
@@ -2696,6 +2820,42 @@ package body Atree is
          pragma Assert (Nkind (N) in N_Entity);
          return Node_Id (Nodes.Table (N + 5).Field11);
       end Node35;
+
+      function Node36 (N : Node_Id) return Node_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Node_Id (Nodes.Table (N + 6).Field6);
+      end Node36;
+
+      function Node37 (N : Node_Id) return Node_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Node_Id (Nodes.Table (N + 6).Field7);
+      end Node37;
+
+      function Node38 (N : Node_Id) return Node_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Node_Id (Nodes.Table (N + 6).Field8);
+      end Node38;
+
+      function Node39 (N : Node_Id) return Node_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Node_Id (Nodes.Table (N + 6).Field9);
+      end Node39;
+
+      function Node40 (N : Node_Id) return Node_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Node_Id (Nodes.Table (N + 6).Field10);
+      end Node40;
+
+      function Node41 (N : Node_Id) return Node_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Node_Id (Nodes.Table (N + 6).Field11);
+      end Node41;
 
       function List1 (N : Node_Id) return List_Id is
       begin
@@ -3114,6 +3274,17 @@ package body Atree is
             return From_Union (U);
          end if;
       end Uint22;
+
+      function Uint24 (N : Node_Id) return Uint is
+         pragma Assert (Nkind (N) in N_Entity);
+         U : constant Union_Id := Nodes.Table (N + 4).Field6;
+      begin
+         if U = 0 then
+            return Uint_0;
+         else
+            return From_Union (U);
+         end if;
+      end Uint24;
 
       function Ureal3 (N : Node_Id) return Ureal is
       begin
@@ -5257,6 +5428,42 @@ package body Atree is
          Nodes.Table (N + 5).Field11 := Val;
       end Set_Field35;
 
+      procedure Set_Field36 (N : Node_Id; Val : Union_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field6 := Val;
+      end Set_Field36;
+
+      procedure Set_Field37 (N : Node_Id; Val : Union_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field7 := Val;
+      end Set_Field37;
+
+      procedure Set_Field38 (N : Node_Id; Val : Union_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field8 := Val;
+      end Set_Field38;
+
+      procedure Set_Field39 (N : Node_Id; Val : Union_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field9 := Val;
+      end Set_Field39;
+
+      procedure Set_Field40 (N : Node_Id; Val : Union_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field10 := Val;
+      end Set_Field40;
+
+      procedure Set_Field41 (N : Node_Id; Val : Union_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field11 := Val;
+      end Set_Field41;
+
       procedure Set_Node1 (N : Node_Id; Val : Node_Id) is
       begin
          pragma Assert (N <= Nodes.Last);
@@ -5466,6 +5673,42 @@ package body Atree is
          pragma Assert (Nkind (N) in N_Entity);
          Nodes.Table (N + 5).Field11 := Union_Id (Val);
       end Set_Node35;
+
+      procedure Set_Node36 (N : Node_Id; Val : Node_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field6 := Union_Id (Val);
+      end Set_Node36;
+
+      procedure Set_Node37 (N : Node_Id; Val : Node_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field7 := Union_Id (Val);
+      end Set_Node37;
+
+      procedure Set_Node38 (N : Node_Id; Val : Node_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field8 := Union_Id (Val);
+      end Set_Node38;
+
+      procedure Set_Node39 (N : Node_Id; Val : Node_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field9 := Union_Id (Val);
+      end Set_Node39;
+
+      procedure Set_Node40 (N : Node_Id; Val : Node_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field10 := Union_Id (Val);
+      end Set_Node40;
+
+      procedure Set_Node41 (N : Node_Id; Val : Node_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 6).Field11 := Union_Id (Val);
+      end Set_Node41;
 
       procedure Set_List1 (N : Node_Id; Val : List_Id) is
       begin
@@ -5719,6 +5962,12 @@ package body Atree is
          pragma Assert (Nkind (N) in N_Entity);
          Nodes.Table (N + 3).Field9 := To_Union (Val);
       end Set_Uint22;
+
+      procedure Set_Uint24 (N : Node_Id; Val : Uint) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 4).Field6 := To_Union (Val);
+      end Set_Uint24;
 
       procedure Set_Ureal3 (N : Node_Id; Val : Ureal) is
       begin

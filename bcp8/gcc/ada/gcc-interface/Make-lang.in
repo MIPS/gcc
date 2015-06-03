@@ -174,7 +174,7 @@ else
   # Build is different from host so we are either building a canadian cross
   # or a cross-native compiler. We provide defaults for tools targeting the
   # host platform, but they can be overriden by just setting <tool>_FOR_HOST
-  # variables. 
+  # variables.
   GNATMAKE_FOR_HOST=$(host)-gnatmake
   GNATBIND_FOR_HOST=$(host)-gnatbind
   GNATLINK_FOR_HOST=$(host)-gnatlink
@@ -223,8 +223,8 @@ GCC_LLINK=$(LLINKER) $(GCC_LINKERFLAGS) $(LDFLAGS)
 # Object files for gnat1 from C sources.
 GNAT1_C_OBJS = ada/adadecode.o ada/adaint.o ada/argv.o ada/cio.o \
  ada/cstreams.o ada/env.o ada/init.o ada/initialize.o ada/raise.o \
- ada/seh_init.o ada/targext.o ada/cuintp.o ada/decl.o \
- ada/misc.o ada/utils.o ada/utils2.o ada/trans.o ada/targtyps.o
+ ada/seh_init.o ada/targext.o ada/cuintp.o ada/decl.o ada/rtfinal.o \
+ ada/rtinit.o ada/misc.o ada/utils.o ada/utils2.o ada/trans.o ada/targtyps.o
 
 # Object files from Ada sources that are used by gnat1
 GNAT_ADA_OBJS =	\
@@ -282,6 +282,7 @@ GNAT_ADA_OBJS =	\
  ada/exp_smem.o	\
  ada/exp_strm.o	\
  ada/exp_tss.o	\
+ ada/exp_unst.o \
  ada/exp_util.o	\
  ada/expander.o	\
  ada/fmap.o	\
@@ -297,6 +298,7 @@ GNAT_ADA_OBJS =	\
  ada/g-u3spch.o	\
  ada/get_spark_xrefs.o	\
  ada/get_targ.o	\
+ ada/ghost.o	\
  ada/gnat.o	\
  ada/gnatvsn.o	\
  ada/hostparm.o	\
@@ -513,6 +515,8 @@ GNATBIND_OBJS = \
  ada/raise.o      \
  ada/restrict.o   \
  ada/rident.o     \
+ ada/rtfinal.o    \
+ ada/rtinit.o     \
  ada/s-addope.o   \
  ada/s-assert.o   \
  ada/s-carun8.o   \
@@ -807,6 +811,7 @@ ada.mostlyclean:
 	-$(RM) ada/*$(coverageexts)
 	-$(RM) ada/sdefault.adb ada/stamp-sdefault ada/stamp-snames
 	-$(RMDIR) ada/tools
+	-$(RM) gnatbind$(exeext) gnat1$(exeext)
 ada.clean:
 ada.distclean:
 	-$(RM) ada/Makefile

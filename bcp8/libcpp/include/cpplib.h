@@ -1,5 +1,5 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995-2014 Free Software Foundation, Inc.
+   Copyright (C) 1995-2015 Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
 This program is free software; you can redistribute it and/or modify it
@@ -484,6 +484,9 @@ struct cpp_options
   /* True if warn about differences between C90 and C99.  */
   signed char cpp_warn_c90_c99_compat;
 
+  /* True if warn about differences between C++98 and C++11.  */
+  bool cpp_warn_cxx11_compat;
+
   /* Dependency generation.  */
   struct
   {
@@ -546,7 +549,7 @@ struct cpp_callbacks
      The line_map is for the new file.  It is NULL if there is no new file.
      (In C this happens when done with <built-in>+<command line> and also
      when done with a main file.)  This can be used for resource cleanup.  */
-  void (*file_change) (cpp_reader *, const struct line_map *);
+  void (*file_change) (cpp_reader *, const line_map_ordinary *);
 
   void (*dir_change) (cpp_reader *, const char *);
   void (*include) (cpp_reader *, source_location, const unsigned char *,
@@ -960,7 +963,8 @@ enum {
   CPP_W_LITERAL_SUFFIX,
   CPP_W_DATE_TIME,
   CPP_W_PEDANTIC,
-  CPP_W_C90_C99_COMPAT
+  CPP_W_C90_C99_COMPAT,
+  CPP_W_CXX11_COMPAT
 };
 
 /* Output a diagnostic of some kind.  */

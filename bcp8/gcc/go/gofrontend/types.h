@@ -8,6 +8,7 @@
 #define GO_TYPES_H
 
 #include "go-linemap.h"
+#include "escape.h"
 
 class Gogo;
 class Package;
@@ -81,6 +82,8 @@ static const int RUNTIME_TYPE_KIND_STRING = 24;
 static const int RUNTIME_TYPE_KIND_STRUCT = 25;
 static const int RUNTIME_TYPE_KIND_UNSAFE_POINTER = 26;
 
+static const int RUNTIME_TYPE_KIND_DIRECT_IFACE = (1 << 5);
+static const int RUNTIME_TYPE_KIND_GC_PROG = (1 << 6);
 static const int RUNTIME_TYPE_KIND_NO_POINTERS = (1 << 7);
 
 // GC instruction opcodes.  These must match the values in libgo/runtime/mgc0.h.
@@ -940,18 +943,18 @@ class Type
   // in bytes and return true.  Otherwise, return false.  This queries
   // the backend.
   bool
-  backend_type_size(Gogo*, unsigned long* psize);
+  backend_type_size(Gogo*, int64_t* psize);
 
   // If the alignment of the type can be determined, set *PALIGN to
   // the alignment in bytes and return true.  Otherwise, return false.
   bool
-  backend_type_align(Gogo*, unsigned long* palign);
+  backend_type_align(Gogo*, int64_t* palign);
 
   // If the alignment of a struct field of this type can be
   // determined, set *PALIGN to the alignment in bytes and return
   // true.  Otherwise, return false.
   bool
-  backend_type_field_align(Gogo*, unsigned long* palign);
+  backend_type_field_align(Gogo*, int64_t* palign);
 
   // Whether the backend size is known.
   bool
@@ -1776,13 +1779,23 @@ class Function_type : public Type
     : Type(TYPE_FUNCTION),
       receiver_(receiver), parameters_(parameters), results_(results),
       location_(location), is_varargs_(false), is_builtin_(false),
-      fnbtype_(NULL)
+      has_escape_info_(false), fnbtype_(NULL), parameter_escape_states_(NULL)
   { }
 
   // Get the receiver.
   const Typed_identifier*
   receiver() const
   { return this->receiver_; }
+
+  // Get the escape state of the receiver.
+  const Node::Escapement_lattice&
+  receiver_escape_state() const
+  { return this->receiver_escape_state_; }
+
+  // Set the escape state of the receiver.
+  void
+  set_receiver_escape_state(const Node::Escapement_lattice& e)
+  { this->receiver_escape_state_ = e; }
 
   // Get the return names and types.
   const Typed_identifier_list*
@@ -1794,6 +1807,16 @@ class Function_type : public Type
   parameters() const
   { return this->parameters_; }
 
+  // Get the escape states associated with each parameter.
+  const Node::Escape_states*
+  parameter_escape_states() const
+  { return this->parameter_escape_states_; }
+
+  // Set the escape states of the parameters.
+  void
+  set_parameter_escape_states(Node::Escape_states* states)
+  { this->parameter_escape_states_ = states; }
+
   // Whether this is a varargs function.
   bool
   is_varargs() const
@@ -1803,6 +1826,11 @@ class Function_type : public Type
   bool
   is_builtin() const
   { return this->is_builtin_; }
+
+  // Whether this contains escape information.
+  bool
+  has_escape_info() const
+  { return this->has_escape_info_; }
 
   // The location where this type was defined.
   Location
@@ -1833,6 +1861,11 @@ class Function_type : public Type
   void
   set_is_builtin()
   { this->is_builtin_ = true; }
+
+  // Record that this has escape information.
+  void
+  set_has_escape_info()
+  { this->has_escape_info_ = true; }
 
   // Import a function type.
   static Function_type*
@@ -1945,9 +1978,16 @@ class Function_type : public Type
   // Whether this is a special builtin function which can not simply
   // be called.  This is used for len, cap, etc.
   bool is_builtin_;
+  // Whether escape information for the receiver and parameters has been
+  // recorded.
+  bool has_escape_info_;
   // The backend representation of this type for backend function
   // declarations and definitions.
   Btype* fnbtype_;
+  // The escape state of the receiver.
+  Node::Escapement_lattice receiver_escape_state_;
+  // The escape states of each parameter.
+  Node::Escape_states* parameter_escape_states_;
 };
 
 // The type of a function's backend representation.
@@ -2261,7 +2301,7 @@ class Struct_type : public Type
   // determined, set *POFFSET to the offset in bytes and return true.
   // Otherwise, return false.
   bool
-  backend_field_offset(Gogo*, unsigned int index, unsigned int* poffset);
+  backend_field_offset(Gogo*, unsigned int index, int64_t* poffset);
 
   // Finish the backend representation of all the fields.
   void

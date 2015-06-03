@@ -1,6 +1,6 @@
 // random number generation -*- C++ -*-
 
-// Copyright (C) 2009-2014 Free Software Foundation, Inc.
+// Copyright (C) 2009-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -6023,13 +6023,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    */
   class seed_seq
   {
-
   public:
     /** The type of the seed vales. */
     typedef uint_least32_t result_type;
 
     /** Default constructor. */
-    seed_seq()
+    seed_seq() noexcept
     : _M_v()
     { }
 
@@ -6045,7 +6044,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       generate(_RandomAccessIterator __begin, _RandomAccessIterator __end);
 
     // property functions
-    size_t size() const
+    size_t size() const noexcept
     { return _M_v.size(); }
 
     template<typename OutputIterator>
@@ -6053,8 +6052,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       param(OutputIterator __dest) const
       { std::copy(_M_v.begin(), _M_v.end(), __dest); }
 
+    // no copy functions
+    seed_seq(const seed_seq&) = delete;
+    seed_seq& operator=(const seed_seq&) = delete;
+
   private:
-    ///
     std::vector<result_type> _M_v;
   };
 

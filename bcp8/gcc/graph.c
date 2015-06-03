@@ -1,5 +1,5 @@
 /* Output routines for graphical representation.
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
    Contributed by Ulrich Drepper <drepper@cygnus.com>, 1998.
    Rewritten for DOT output by Steven Bosscher, 2012.
 
@@ -63,7 +63,7 @@ open_graph_file (const char *base, const char *mode)
 
   fp = fopen (buf, mode);
   if (fp == NULL)
-    fatal_error ("can%'t open %s: %m", buf);
+    fatal_error (input_location, "can%'t open %s: %m", buf);
 
   return fp;
 }
@@ -292,9 +292,10 @@ print_graph_cfg (const char *base, struct function *fun)
   pretty_printer graph_slim_pp;
   graph_slim_pp.buffer->stream = fp;
   pretty_printer *const pp = &graph_slim_pp;
-  pp_printf (pp, "subgraph \"%s\" {\n"
-	         "\tcolor=\"black\";\n"
-		 "\tlabel=\"%s\";\n",
+  pp_printf (pp, "subgraph \"cluster_%s\" {\n"
+		 "\tstyle=\"dashed\";\n"
+		 "\tcolor=\"black\";\n"
+		 "\tlabel=\"%s ()\";\n",
 		 funcname, funcname);
   draw_cfg_nodes (pp, fun);
   draw_cfg_edges (pp, fun);

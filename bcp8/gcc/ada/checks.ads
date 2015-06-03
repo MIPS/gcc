@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -81,11 +81,11 @@ package Checks is
 
    function Overflow_Check_Mode return Overflow_Mode_Type;
    --  Returns current overflow checking mode, taking into account whether
-   --  we are inside an assertion expression.
+   --  we are inside an assertion expression and the assertion policy.
 
-   ------------------------------------------
-   --  Control of Alignment Check Warnings --
-   ------------------------------------------
+   -----------------------------------------
+   -- Control of Alignment Check Warnings --
+   -----------------------------------------
 
    --  When we have address clauses, there is an issue of whether the address
    --  specified is appropriate to the alignment. In the general case where the
@@ -242,7 +242,7 @@ package Checks is
    --  flags Do_Division_Check or Do_Overflow_Check is set, then this routine
    --  ensures that the appropriate checks are made. Note that overflow can
    --  occur in the signed case for the case of the largest negative number
-   --  divided by minus one.
+   --  divided by minus one. This procedure only applies to Integer types.
 
    procedure Apply_Parameter_Aliasing_Checks
      (Call : Node_Id;

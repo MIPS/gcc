@@ -41,7 +41,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'libgccjit'
-copyright = u'2014, Free Software Foundation'
+copyright = u'2014-2015 Free Software Foundation, Inc.'
 
 # GCC-specific: extract version information from "gcc" src subdir for
 # use in "version" and "release" below.
@@ -107,7 +107,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'pyramid'
+html_theme = 'sphinxdoc'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

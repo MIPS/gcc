@@ -181,8 +181,10 @@ Expression::convert_for_assignment(Gogo* gogo, Type* lhs_type,
       // represented as non-zero-sized.
       // TODO(cmang): This check is for a GCC-specific issue, and should be
       // removed from the frontend.  FIXME.
-      size_t lhs_size = gogo->backend()->type_size(lhs_type->get_backend(gogo));
-      size_t rhs_size = gogo->backend()->type_size(rhs_type->get_backend(gogo));
+      int64_t lhs_size =
+	gogo->backend()->type_size(lhs_type->get_backend(gogo));
+      int64_t rhs_size =
+	gogo->backend()->type_size(rhs_type->get_backend(gogo));
       if (rhs_size == 0 || lhs_size == 0)
 	return rhs;
 
@@ -2112,6 +2114,48 @@ Expression::make_integer_sl(long val, Type *type, Location location)
   return ret;
 }
 
+// Store an int64_t in an uninitialized mpz_t.
+
+static void
+set_mpz_from_int64(mpz_t* zval, int64_t val)
+{
+  if (val >= 0)
+    {
+      unsigned long ul = static_cast<unsigned long>(val);
+      if (static_cast<int64_t>(ul) == val)
+	{
+	  mpz_init_set_ui(*zval, ul);
+	  return;
+	}
+    }
+  uint64_t uv;
+  if (val >= 0)
+    uv = static_cast<uint64_t>(val);
+  else
+    uv = static_cast<uint64_t>(- val);
+  unsigned long ul = uv & 0xffffffffUL;
+  mpz_init_set_ui(*zval, ul);
+  mpz_t hval;
+  mpz_init_set_ui(hval, static_cast<unsigned long>(uv >> 32));
+  mpz_mul_2exp(hval, hval, 32);
+  mpz_add(*zval, *zval, hval);
+  mpz_clear(hval);
+  if (val < 0)
+    mpz_neg(*zval, *zval);
+}
+
+// Build a new integer value from an int64_t.
+
+Expression*
+Expression::make_integer_int64(int64_t val, Type* type, Location location)
+{
+  mpz_t zval;
+  set_mpz_from_int64(&zval, val);
+  Expression* ret = Expression::make_integer_z(&zval, type, location);
+  mpz_clear(zval);
+  return ret;
+}
+
 // Build a new character constant value.
 
 Expression*
@@ -2450,7 +2494,7 @@ Complex_expression::export_complex(String_dump* exp, const mpc_t val)
   if (!mpfr_zero_p(mpc_realref(val)))
     {
       Float_expression::export_float(exp, mpc_realref(val));
-      if (mpfr_sgn(mpc_imagref(val)) > 0)
+      if (mpfr_sgn(mpc_imagref(val)) >= 0)
 	exp->write_c_string("+");
     }
   Float_expression::export_float(exp, mpc_imagref(val));
@@ -2973,100 +3017,7 @@ Expression::make_iota()
   return &iota_expression;
 }
 
-// A type conversion expression.
-
-class Type_conversion_expression : public Expression
-{
- public:
-  Type_conversion_expression(Type* type, Expression* expr,
-			     Location location)
-    : Expression(EXPRESSION_CONVERSION, location),
-      type_(type), expr_(expr), may_convert_function_types_(false)
-  { }
-
-  // Return the type to which we are converting.
-  Type*
-  type() const
-  { return this->type_; }
-
-  // Return the expression which we are converting.
-  Expression*
-  expr() const
-  { return this->expr_; }
-
-  // Permit converting from one function type to another.  This is
-  // used internally for method expressions.
-  void
-  set_may_convert_function_types()
-  {
-    this->may_convert_function_types_ = true;
-  }
-
-  // Import a type conversion expression.
-  static Expression*
-  do_import(Import*);
-
- protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  Expression*
-  do_lower(Gogo*, Named_object*, Statement_inserter*, int);
-
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
-  bool
-  do_is_constant() const;
-
-  bool
-  do_is_immutable() const;
-
-  bool
-  do_numeric_constant_value(Numeric_constant*) const;
-
-  bool
-  do_string_constant_value(std::string*) const;
-
-  Type*
-  do_type()
-  { return this->type_; }
-
-  void
-  do_determine_type(const Type_context*)
-  {
-    Type_context subcontext(this->type_, false);
-    this->expr_->determine_type(&subcontext);
-  }
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return new Type_conversion_expression(this->type_, this->expr_->copy(),
-					  this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context* context);
-
-  void
-  do_export(Export*) const;
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The type to convert to.
-  Type* type_;
-  // The expression to convert.
-  Expression* expr_;
-  // True if this is permitted to convert function types.  This is
-  // used internally for method expressions.
-  bool may_convert_function_types_;
-};
+// Class Type_conversion_expression.
 
 // Traversal.
 
@@ -3254,6 +3205,15 @@ Type_conversion_expression::do_string_constant_value(std::string* val) const
   // FIXME: Could handle conversion from const []int here.
 
   return false;
+}
+
+// Determine the resulting type of the conversion.
+
+void
+Type_conversion_expression::do_determine_type(const Type_context*)
+{
+  Type_context subcontext(this->type_, false);
+  this->expr_->determine_type(&subcontext);
 }
 
 // Check that types are convertible.
@@ -3694,7 +3654,7 @@ Unary_expression::do_flatten(Gogo* gogo, Named_object*,
       if (!ptype->is_void_type())
         {
           Btype* pbtype = ptype->get_backend(gogo);
-          size_t s = gogo->backend()->type_size(pbtype);
+          int64_t s = gogo->backend()->type_size(pbtype);
           if (s >= 4096 || this->issue_nil_check_)
             {
               Temporary_statement* temp =
@@ -3704,6 +3664,24 @@ Unary_expression::do_flatten(Gogo* gogo, Named_object*,
                   Expression::make_temporary_reference(temp, location);
             }
         }
+    }
+
+  if (this->op_ == OPERATOR_AND)
+    {
+      // If this->escapes_ is false at this point, then it was set to
+      // false by an explicit call to set_does_not_escape, and the
+      // value does not escape.  If this->escapes_ is true, we may be
+      // able to set it to false if taking the address of a variable
+      // that does not escape.
+      if (this->escapes_ && this->expr_->var_expression() != NULL)
+	{
+	  Named_object* var = this->expr_->var_expression()->named_object();
+	  if (var->is_variable())
+	    this->escapes_ = var->var_value()->escapes();
+	  if (var->is_result_variable())
+	    this->escapes_ = var->result_var_value()->escapes();
+	}
+      this->expr_->address_taken(this->escapes_);
     }
 
   if (this->create_temp_ && !this->expr_->is_variable())
@@ -4026,10 +4004,7 @@ Unary_expression::do_check_types(Gogo*)
 	    }
 	}
       else
-        {
-          this->expr_->address_taken(this->escapes_);
-          this->expr_->issue_nil_check();
-        }
+	this->expr_->issue_nil_check();
       break;
 
     case OPERATOR_MULT:
@@ -4182,7 +4157,7 @@ Unary_expression::do_get_backend(Translate_context* context)
         Btype* pbtype = ptype->get_backend(gogo);
         if (!ptype->is_void_type())
 	  {
-            size_t s = gogo->backend()->type_size(pbtype);
+            int64_t s = gogo->backend()->type_size(pbtype);
 	    if (s >= 4096 || this->issue_nil_check_)
 	      {
                 go_assert(this->expr_->is_variable());
@@ -5150,13 +5125,15 @@ Binary_expression::do_flatten(Gogo* gogo, Named_object*,
   if (this->left_->type()->is_string_type()
       && this->op_ == OPERATOR_PLUS)
     {
-      if (!this->left_->is_variable())
+      if (!this->left_->is_variable()
+	  && !this->left_->is_constant())
         {
           temp = Statement::make_temporary(NULL, this->left_, loc);
           inserter->insert(temp);
           this->left_ = Expression::make_temporary_reference(temp, loc);
         }
-      if (!this->right_->is_variable())
+      if (!this->right_->is_variable()
+	  && !this->right_->is_constant())
         {
           temp =
               Statement::make_temporary(this->left_->type(), this->right_, loc);
@@ -6316,12 +6293,15 @@ Bound_method_expression::create_thunk(Gogo* gogo, const Method* method,
 
   Function_type* new_fntype = orig_fntype->copy_with_names();
 
-  Named_object* new_no = gogo->start_function(Gogo::thunk_name(), new_fntype,
+  std::string thunk_name = Gogo::thunk_name();
+  Named_object* new_no = gogo->start_function(thunk_name, new_fntype,
 					      false, loc);
 
   Variable* cvar = new Variable(closure_type, NULL, false, false, false, loc);
   cvar->set_is_used();
-  Named_object* cp = Named_object::make_variable("$closure", NULL, cvar);
+  cvar->set_is_closure();
+  Named_object* cp = Named_object::make_variable("$closure" + thunk_name,
+						 NULL, cvar);
   new_no->func_value()->set_closure_var(cp);
 
   gogo->start_block(loc);
@@ -7360,7 +7340,7 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
       if (this->seen_)
         return false;
 
-      unsigned long ret;
+      int64_t ret;
       if (this->code_ == BUILTIN_SIZEOF)
 	{
           this->seen_ = true;
@@ -7388,7 +7368,10 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
       else
 	go_unreachable();
 
-      nc->set_unsigned_long(Type::lookup_integer_type("uintptr"), ret);
+      mpz_t zval;
+      set_mpz_from_int64(&zval, ret);
+      nc->set_int(Type::lookup_integer_type("uintptr"), zval);
+      mpz_clear(zval);
       return true;
     }
   else if (this->code_ == BUILTIN_OFFSETOF)
@@ -7402,7 +7385,7 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
       if (this->seen_)
         return false;
 
-      unsigned int total_offset = 0;
+      int64_t total_offset = 0;
       while (true)
         {
           Expression* struct_expr = farg->expr();
@@ -7411,7 +7394,7 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
             return false;
           if (st->named_type() != NULL)
             st->named_type()->convert(this->gogo_);
-          unsigned int offset;
+          int64_t offset;
           this->seen_ = true;
           bool ok = st->struct_type()->backend_field_offset(this->gogo_,
 							    farg->field_index(),
@@ -7428,8 +7411,10 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
             }
           break;
         }
-      nc->set_unsigned_long(Type::lookup_integer_type("uintptr"),
-			    static_cast<unsigned long>(total_offset));
+      mpz_t zval;
+      set_mpz_from_int64(&zval, total_offset);
+      nc->set_int(Type::lookup_integer_type("uintptr"), zval);
+      mpz_clear(zval);
       return true;
     }
   else if (this->code_ == BUILTIN_REAL || this->code_ == BUILTIN_IMAG)
@@ -7909,7 +7894,10 @@ Builtin_call_expression::do_check_types(Gogo*)
 	Type* arg1_type = args->front()->type();
 	Type* arg2_type = args->back()->type();
 	if (arg1_type->is_error() || arg2_type->is_error())
-	  break;
+	  {
+	    this->set_is_error();
+	    break;
+	  }
 
 	Type* e1;
 	if (arg1_type->is_slice_type())
@@ -7951,7 +7939,10 @@ Builtin_call_expression::do_check_types(Gogo*)
 	  }
 	if (args->front()->type()->is_error()
 	    || args->back()->type()->is_error())
-	  break;
+	  {
+	    this->set_is_error();
+	    break;
+	  }
 
 	Array_type* at = args->front()->type()->array_type();
 	Type* e = at->element_type();
@@ -8024,7 +8015,9 @@ Builtin_call_expression::do_copy()
 {
   Call_expression* bce =
     new Builtin_call_expression(this->gogo_, this->fn()->copy(),
-				this->args()->copy(),
+				(this->args() == NULL
+				 ? NULL
+				 : this->args()->copy()),
 				this->is_varargs(),
 				this->location());
 
@@ -8328,10 +8321,10 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 
 	Type* element_type = at->element_type();
 	Btype* element_btype = element_type->get_backend(gogo);
-	size_t element_size = gogo->backend()->type_size(element_btype);
-	Expression* size_expr = Expression::make_integer_ul(element_size,
-							    length->type(),
-							    location);
+	int64_t element_size = gogo->backend()->type_size(element_btype);
+	Expression* size_expr = Expression::make_integer_int64(element_size,
+							       length->type(),
+							       location);
         Expression* bytecount =
             Expression::make_binary(OPERATOR_MULT, size_expr, length, location);
         Expression* copy = Runtime::make_call(Runtime::COPY, location, 3,
@@ -8354,7 +8347,7 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
         go_assert(arg2->is_variable());
 	Expression* arg2_val;
 	Expression* arg2_len;
-	unsigned long size;
+	int64_t size;
 	if (arg2->type()->is_string_type()
 	    && element_type->integer_type() != NULL
 	    && element_type->integer_type()->is_byte())
@@ -8373,7 +8366,7 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 	    size = gogo->backend()->type_size(element_btype);
 	  }
         Expression* element_size =
-	  Expression::make_integer_ul(size, NULL, location);
+	  Expression::make_integer_int64(size, NULL, location);
 
         Expression* append = Runtime::make_call(Runtime::APPEND, location, 4,
                                                 arg1, arg2_val, arg2_len,
@@ -8579,6 +8572,17 @@ Call_expression::do_lower(Gogo* gogo, Named_object* function,
 	{
 	  Call_expression* call = this->args_->front()->call_expression();
 	  call->set_is_multi_value_arg();
+	  if (this->is_varargs_)
+	    {
+	      // It is not clear which result of a multiple result call
+	      // the ellipsis operator should be applied to.  If we unpack the
+	      // the call into its individual results here, the ellipsis will be
+	      // applied to the last result.
+	      error_at(call->location(),
+		       _("multiple-value argument in single-value context"));
+	      return Expression::make_error(call->location());
+	    }
+
 	  Expression_list* args = new Expression_list;
 	  for (size_t i = 0; i < rc; ++i)
 	    args->push_back(Expression::make_call_result(call, i));
@@ -9328,19 +9332,11 @@ Call_expression::do_get_backend(Translate_context* context)
       fn_args[0] = first_arg->get_backend(context);
     }
 
-  if (!has_closure_arg)
-    go_assert(closure == NULL);
+  Bexpression* bclosure = NULL;
+  if (has_closure_arg)
+    bclosure = closure->get_backend(context);
   else
-    {
-      // Pass the closure argument by calling the function function
-      // __go_set_closure.  In the order_evaluations pass we have
-      // ensured that if any parameters contain call expressions, they
-      // will have been moved out to temporary variables.
-      go_assert(closure != NULL);
-      Expression* set_closure =
-          Runtime::make_call(Runtime::SET_CLOSURE, location, 1, closure);
-      fn = Expression::make_compound(set_closure, fn, location);
-    }
+    go_assert(closure == NULL);
 
   Bexpression* bfn = fn->get_backend(context);
 
@@ -9356,7 +9352,8 @@ Call_expression::do_get_backend(Translate_context* context)
       bfn = gogo->backend()->convert_expression(bft, bfn, location);
     }
 
-  Bexpression* call = gogo->backend()->call_expression(bfn, fn_args, location);
+  Bexpression* call = gogo->backend()->call_expression(bfn, fn_args,
+						       bclosure, location);
 
   if (this->results_ != NULL)
     {
@@ -9445,52 +9442,7 @@ Expression::make_call(Expression* fn, Expression_list* args, bool is_varargs,
   return new Call_expression(fn, args, is_varargs, location);
 }
 
-// A single result from a call which returns multiple results.
-
-class Call_result_expression : public Expression
-{
- public:
-  Call_result_expression(Call_expression* call, unsigned int index)
-    : Expression(EXPRESSION_CALL_RESULT, call->location()),
-      call_(call), index_(index)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return new Call_result_expression(this->call_->call_expression(),
-				      this->index_);
-  }
-
-  bool
-  do_must_eval_in_order() const
-  { return true; }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The underlying call expression.
-  Expression* call_;
-  // Which result we want.
-  unsigned int index_;
-};
+// Class Call_result_expression.
 
 // Traverse a call result.
 
@@ -9753,85 +9705,7 @@ Expression::make_index(Expression* left, Expression* start, Expression* end,
   return new Index_expression(left, start, end, cap, location);
 }
 
-// An array index.  This is used for both indexing and slicing.
-
-class Array_index_expression : public Expression
-{
- public:
-  Array_index_expression(Expression* array, Expression* start,
-			 Expression* end, Expression* cap, Location location)
-    : Expression(EXPRESSION_ARRAY_INDEX, location),
-      array_(array), start_(start), end_(end), cap_(cap), type_(NULL)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return Expression::make_array_index(this->array_->copy(),
-					this->start_->copy(),
-					(this->end_ == NULL
-					 ? NULL
-					 : this->end_->copy()),
-					(this->cap_ == NULL
-					 ? NULL
-					 : this->cap_->copy()),
-					this->location());
-  }
-
-  bool
-  do_must_eval_subexpressions_in_order(int* skip) const
-  {
-    *skip = 1;
-    return true;
-  }
-
-  bool
-  do_is_addressable() const;
-
-  void
-  do_address_taken(bool escapes)
-  { this->array_->address_taken(escapes); }
-
-  void
-  do_issue_nil_check()
-  { this->array_->issue_nil_check(); }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-  
- private:
-  // The array we are getting a value from.
-  Expression* array_;
-  // The start or only index.
-  Expression* start_;
-  // The end index of a slice.  This may be NULL for a simple array
-  // index, or it may be a nil expression for the length of the array.
-  Expression* end_;
-  // The capacity argument of a slice.  This may be NULL for an array index or
-  // slice.
-  Expression* cap_;
-  // The type of the expression.
-  Type* type_;
-};
+// Class Array_index_expression.
 
 // Array index traversal.
 
@@ -11127,12 +11001,15 @@ Interface_field_reference_expression::create_thunk(Gogo* gogo,
 
   Function_type* new_fntype = orig_fntype->copy_with_names();
 
-  Named_object* new_no = gogo->start_function(Gogo::thunk_name(), new_fntype,
+  std::string thunk_name = Gogo::thunk_name();
+  Named_object* new_no = gogo->start_function(thunk_name, new_fntype,
 					      false, loc);
 
   Variable* cvar = new Variable(closure_type, NULL, false, false, false, loc);
   cvar->set_is_used();
-  Named_object* cp = Named_object::make_variable("$closure", NULL, cvar);
+  cvar->set_is_closure();
+  Named_object* cp = Named_object::make_variable("$closure" + thunk_name,
+						 NULL, cvar);
   new_no->func_value()->set_closure_var(cp);
 
   gogo->start_block(loc);
@@ -11532,43 +11409,31 @@ Expression::make_selector(Expression* left, const std::string& name,
   return new Selector_expression(left, name, location);
 }
 
-// Implement the builtin function new.
+// Class Allocation_expression.
 
-class Allocation_expression : public Expression
+int
+Allocation_expression::do_traverse(Traverse* traverse)
 {
- public:
-  Allocation_expression(Type* type, Location location)
-    : Expression(EXPRESSION_ALLOCATION, location),
-      type_(type)
-  { }
+  return Type::traverse(this->type_, traverse);
+}
 
- protected:
-  int
-  do_traverse(Traverse* traverse)
-  { return Type::traverse(this->type_, traverse); }
+Type*
+Allocation_expression::do_type()
+{
+  return Type::make_pointer_type(this->type_);
+}
 
-  Type*
-  do_type()
-  { return Type::make_pointer_type(this->type_); }
+// Make a copy of an allocation expression.
 
-  void
-  do_determine_type(const Type_context*)
-  { }
-
-  Expression*
-  do_copy()
-  { return new Allocation_expression(this->type_, this->location()); }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-  
- private:
-  // The type we are allocating.
-  Type* type_;
-};
+Expression*
+Allocation_expression::do_copy()
+{
+  Allocation_expression* alloc =
+    new Allocation_expression(this->type_, this->location());
+  if (this->allocate_on_stack_)
+    alloc->set_allocate_on_stack();
+  return alloc;
+}
 
 // Return the backend representation for an allocation expression.
 
@@ -11577,9 +11442,17 @@ Allocation_expression::do_get_backend(Translate_context* context)
 {
   Gogo* gogo = context->gogo();
   Location loc = this->location();
+
+  Btype* btype = this->type_->get_backend(gogo);
+  if (this->allocate_on_stack_)
+    {
+      int64_t size = gogo->backend()->type_size(btype);
+      return gogo->backend()->stack_allocation_expression(size, loc);
+    }
+
   Bexpression* space = 
     gogo->allocate_memory(this->type_, loc)->get_backend(context);
-  Btype* pbtype = gogo->backend()->pointer_type(this->type_->get_backend(gogo));
+  Btype* pbtype = gogo->backend()->pointer_type(btype);
   return gogo->backend()->convert_expression(pbtype, space, loc);
 }
 
@@ -11602,80 +11475,7 @@ Expression::make_allocation(Type* type, Location location)
   return new Allocation_expression(type, location);
 }
 
-// Construct a struct.
-
-class Struct_construction_expression : public Expression
-{
- public:
-  Struct_construction_expression(Type* type, Expression_list* vals,
-				 Location location)
-    : Expression(EXPRESSION_STRUCT_CONSTRUCTION, location),
-      type_(type), vals_(vals), traverse_order_(NULL)
-  { }
-
-  // Set the traversal order, used to ensure that we implement the
-  // order of evaluation rules.  Takes ownership of the argument.
-  void
-  set_traverse_order(std::vector<int>* traverse_order)
-  { this->traverse_order_ = traverse_order; }
-
-  // Return whether this is a constant initializer.
-  bool
-  is_constant_struct() const;
-
- protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  bool
-  do_is_immutable() const;
-
-  Type*
-  do_type()
-  { return this->type_; }
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    Struct_construction_expression* ret =
-      new Struct_construction_expression(this->type_,
-					 (this->vals_ == NULL
-					  ? NULL
-					  : this->vals_->copy()),
-					 this->location());
-    if (this->traverse_order_ != NULL)
-      ret->set_traverse_order(this->traverse_order_);
-    return ret;
-  }
-
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_export(Export*) const;
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The type of the struct to construct.
-  Type* type_;
-  // The list of values, in order of the fields in the struct.  A NULL
-  // entry means that the field should be zero-initialized.
-  Expression_list* vals_;
-  // If not NULL, the order in which to traverse vals_.  This is used
-  // so that we implement the order of evaluation rules correctly.
-  std::vector<int>* traverse_order_;
-};
+// Class Struct_construction_expression.
 
 // Traversal.
 
@@ -11942,80 +11742,7 @@ Expression::make_struct_composite_literal(Type* type, Expression_list* vals,
   return new Struct_construction_expression(type, vals, location);
 }
 
-// Construct an array.  This class is not used directly; instead we
-// use the child classes, Fixed_array_construction_expression and
-// Slice_construction_expression.
-
-class Array_construction_expression : public Expression
-{
- protected:
-  Array_construction_expression(Expression_classification classification,
-				Type* type,
-				const std::vector<unsigned long>* indexes,
-				Expression_list* vals, Location location)
-    : Expression(classification, location),
-      type_(type), indexes_(indexes), vals_(vals)
-  { go_assert(indexes == NULL || indexes->size() == vals->size()); }
-
- public:
-  // Return whether this is a constant initializer.
-  bool
-  is_constant_array() const;
-
-  // Return the number of elements.
-  size_t
-  element_count() const
-  { return this->vals_ == NULL ? 0 : this->vals_->size(); }
-
-protected:
-  virtual int
-  do_traverse(Traverse* traverse);
-
-  bool
-  do_is_immutable() const;
-
-  Type*
-  do_type()
-  { return this->type_; }
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  void
-  do_export(Export*) const;
-
-  // The indexes.
-  const std::vector<unsigned long>*
-  indexes()
-  { return this->indexes_; }
-
-  // The list of values.
-  Expression_list*
-  vals()
-  { return this->vals_; }
-
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
-  // Get the backend constructor for the array values.
-  Bexpression*
-  get_constructor(Translate_context* context, Btype* btype);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The type of the array to construct.
-  Type* type_;
-  // The list of indexes into the array, one for each value.  This may
-  // be NULL, in which case the indexes start at zero and increment.
-  const std::vector<unsigned long>* indexes_;
-  // The list of values.  This may be NULL if there are no values.
-  Expression_list* vals_;
-};
+// Class Array_construction_expression.
 
 // Traversal.
 
@@ -12271,34 +11998,14 @@ Array_construction_expression::do_dump_expression(
 
 }
 
-// Construct a fixed array.
+// Class Fixed_array_construction_expression.
 
-class Fixed_array_construction_expression :
-  public Array_construction_expression
-{
- public:
-  Fixed_array_construction_expression(Type* type,
-				      const std::vector<unsigned long>* indexes,
-				      Expression_list* vals, Location location)
-    : Array_construction_expression(EXPRESSION_FIXED_ARRAY_CONSTRUCTION,
-				    type, indexes, vals, location)
-  { go_assert(type->array_type() != NULL && !type->is_slice_type()); }
-
- protected:
-  Expression*
-  do_copy()
-  {
-    return new Fixed_array_construction_expression(this->type(),
-						   this->indexes(),
-						   (this->vals() == NULL
-						    ? NULL
-						    : this->vals()->copy()),
-						   this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-};
+Fixed_array_construction_expression::Fixed_array_construction_expression(
+    Type* type, const std::vector<unsigned long>* indexes,
+    Expression_list* vals, Location location)
+  : Array_construction_expression(EXPRESSION_FIXED_ARRAY_CONSTRUCTION,
+				  type, indexes, vals, location)
+{ go_assert(type->array_type() != NULL && !type->is_slice_type()); }
 
 // Return the backend representation for constructing a fixed array.
 
@@ -12318,60 +12025,34 @@ Expression::make_array_composite_literal(Type* type, Expression_list* vals,
   return new Fixed_array_construction_expression(type, NULL, vals, location);
 }
 
-// Construct a slice.
+// Class Slice_construction_expression.
 
-class Slice_construction_expression : public Array_construction_expression
+Slice_construction_expression::Slice_construction_expression(
+  Type* type, const std::vector<unsigned long>* indexes,
+  Expression_list* vals, Location location)
+  : Array_construction_expression(EXPRESSION_SLICE_CONSTRUCTION,
+				  type, indexes, vals, location),
+    valtype_(NULL)
 {
- public:
-  Slice_construction_expression(Type* type,
-				const std::vector<unsigned long>* indexes,
-				Expression_list* vals, Location location)
-    : Array_construction_expression(EXPRESSION_SLICE_CONSTRUCTION,
-				    type, indexes, vals, location),
-      valtype_(NULL)
-  {
-    go_assert(type->is_slice_type());
+  go_assert(type->is_slice_type());
 
-    unsigned long lenval;
-    Expression* length;
-    if (vals == NULL || vals->empty())
-      lenval = 0;
-    else
-      {
-	if (this->indexes() == NULL)
-	  lenval = vals->size();
-	else
-	  lenval = indexes->back() + 1;
-      }
-    Type* int_type = Type::lookup_integer_type("int");
-    length = Expression::make_integer_ul(lenval, int_type, location);
-    Type* element_type = type->array_type()->element_type();
-    this->valtype_ = Type::make_array_type(element_type, length);
-  }
+  unsigned long lenval;
+  Expression* length;
+  if (vals == NULL || vals->empty())
+    lenval = 0;
+  else
+    {
+      if (this->indexes() == NULL)
+	lenval = vals->size();
+      else
+	lenval = indexes->back() + 1;
+    }
+  Type* int_type = Type::lookup_integer_type("int");
+  length = Expression::make_integer_ul(lenval, int_type, location);
+  Type* element_type = type->array_type()->element_type();
+  this->valtype_ = Type::make_array_type(element_type, length);
+}
 
- protected:
-  // Note that taking the address of a slice literal is invalid.
-
-  int
-  do_traverse(Traverse* traverse);
-
-  Expression*
-  do_copy()
-  {
-    return new Slice_construction_expression(this->type(), this->indexes(),
-					     (this->vals() == NULL
-					      ? NULL
-					      : this->vals()->copy()),
-					     this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
- private:
-  // The type of the values in this slice.
-  Type* valtype_;
-};
 
 // Traversal.
 
@@ -12453,63 +12134,7 @@ Expression::make_slice_composite_literal(Type* type, Expression_list* vals,
   return new Slice_construction_expression(type, NULL, vals, location);
 }
 
-// Construct a map.
-
-class Map_construction_expression : public Expression
-{
- public:
-  Map_construction_expression(Type* type, Expression_list* vals,
-			      Location location)
-    : Expression(EXPRESSION_MAP_CONSTRUCTION, location),
-      type_(type), vals_(vals), element_type_(NULL), constructor_temp_(NULL)
-  { go_assert(vals == NULL || vals->size() % 2 == 0); }
-
- protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
-  Type*
-  do_type()
-  { return this->type_; }
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return new Map_construction_expression(this->type_,
-					   (this->vals_ == NULL
-					    ? NULL
-					    : this->vals_->copy()),
-					   this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_export(Export*) const;
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-  
- private:
-  // The type of the map to construct.
-  Type* type_;
-  // The list of values.
-  Expression_list* vals_;
-  // The type of the key-value pair struct for each map element.
-  Struct_type* element_type_;
-  // A temporary reference to the variable storing the constructor initializer.
-  Temporary_statement* constructor_temp_;
-};
+// Class Map_construction_expression.
 
 // Traversal.
 
@@ -12937,7 +12562,8 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
 	       pf != st->fields()->end();
 	       ++pf)
 	    {
-	      if (Gogo::is_hidden_name(pf->field_name()))
+	      if (Gogo::is_hidden_name(pf->field_name())
+		  || pf->is_embedded_builtin(gogo))
 		error_at(this->location(),
 			 "assignment of unexported field %qs in %qs literal",
 			 Gogo::message_name(pf->field_name()).c_str(),
@@ -13114,7 +12740,8 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
 
       if (type->named_type() != NULL
 	  && type->named_type()->named_object()->package() != NULL
-	  && Gogo::is_hidden_name(sf->field_name()))
+	  && (Gogo::is_hidden_name(sf->field_name())
+	      || sf->is_embedded_builtin(gogo)))
 	error_at(name_expr->location(),
 		 "assignment of unexported field %qs in %qs literal",
 		 Gogo::message_name(sf->field_name()).c_str(),
@@ -13617,53 +13244,11 @@ Expression::make_type_guard(Expression* expr, Type* type,
 
 // Class Heap_expression.
 
-// When you take the address of an escaping expression, it is allocated
-// on the heap.  This class implements that.
+// Return the type of the expression stored on the heap.
 
-class Heap_expression : public Expression
-{
- public:
-  Heap_expression(Expression* expr, Location location)
-    : Expression(EXPRESSION_HEAP, location),
-      expr_(expr)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse* traverse)
-  { return Expression::traverse(&this->expr_, traverse); }
-
-  Type*
-  do_type()
-  { return Type::make_pointer_type(this->expr_->type()); }
-
-  void
-  do_determine_type(const Type_context*)
-  { this->expr_->determine_type_no_context(); }
-
-  Expression*
-  do_copy()
-  {
-    return Expression::make_heap_expression(this->expr_->copy(),
-                                            this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  // We only export global objects, and the parser does not generate
-  // this in global scope.
-  void
-  do_export(Export*) const
-  { go_unreachable(); }
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The expression which is being put on the heap.
-  Expression* expr_;
-};
+Type*
+Heap_expression::do_type()
+{ return Type::make_pointer_type(this->expr_->type()); }
 
 // Return the backend representation for allocating an expression on the heap.
 
@@ -14020,7 +13605,7 @@ Type_info_expression::do_get_backend(Translate_context* context)
 {
   Btype* btype = this->type_->get_backend(context->gogo());
   Gogo* gogo = context->gogo();
-  size_t val;
+  int64_t val;
   switch (this->type_info_)
     {
     case TYPE_INFO_SIZE:
@@ -14035,13 +13620,9 @@ Type_info_expression::do_get_backend(Translate_context* context)
     default:
       go_unreachable();
     }
-  mpz_t cst;
-  mpz_init_set_ui(cst, val);
-  Btype* int_btype = this->type()->get_backend(gogo);
-  Bexpression* ret =
-    gogo->backend()->integer_constant_expression(int_btype, cst);
-  mpz_clear(cst);
-  return ret;
+  Expression* e = Expression::make_integer_int64(val, this->type(),
+						 this->location());
+  return e->get_backend(context);
 }
 
 // Dump ast representation for a type info expression.
@@ -14772,11 +14353,11 @@ Struct_field_offset_expression::do_get_backend(Translate_context* context)
   Gogo* gogo = context->gogo();
   Btype* btype = this->type_->get_backend(gogo);
 
-  size_t offset = gogo->backend()->type_field_offset(btype, i);
+  int64_t offset = gogo->backend()->type_field_offset(btype, i);
   Type* uptr_type = Type::lookup_integer_type("uintptr");
   Expression* ret =
-    Expression::make_integer_ul(offset, uptr_type,
-				Linemap::predeclared_location());
+    Expression::make_integer_int64(offset, uptr_type,
+				   Linemap::predeclared_location());
   return ret->get_backend(context);
 }
 
@@ -14905,48 +14486,7 @@ Expression::make_label_addr(Label* label, Location location)
   return new Label_addr_expression(label, location);
 }
 
-// Conditional expressions.
-
-class Conditional_expression : public Expression
-{
- public:
-  Conditional_expression(Expression* cond, Expression* then_expr,
-                         Expression* else_expr, Location location)
-      : Expression(EXPRESSION_CONDITIONAL, location),
-        cond_(cond), then_(then_expr), else_(else_expr)
-  {}
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  Expression*
-  do_copy()
-  {
-    return new Conditional_expression(this->cond_->copy(), this->then_->copy(),
-                                      this->else_->copy(), this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context* context);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The condition to be checked.
-  Expression* cond_;
-  // The expression to execute if the condition is true.
-  Expression* then_;
-  // The expression to execute if the condition is false.
-  Expression* else_;
-};
+// Class Conditional_expression.
 
 // Traversal.
 
@@ -15025,44 +14565,7 @@ Expression::make_conditional(Expression* cond, Expression* then,
   return new Conditional_expression(cond, then, else_expr, location);
 }
 
-// Compound expressions.
-
-class Compound_expression : public Expression
-{
- public:
-  Compound_expression(Expression* init, Expression* expr, Location location)
-      : Expression(EXPRESSION_COMPOUND, location), init_(init), expr_(expr)
-  {}
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  Expression*
-  do_copy()
-  {
-    return new Compound_expression(this->init_->copy(), this->expr_->copy(),
-                                   this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context* context);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The expression that is evaluated first and discarded.
-  Expression* init_;
-  // The expression that is evaluated and returned.
-  Expression* expr_;
-};
+// Class Compound_expression.
 
 // Traversal.
 
@@ -15557,7 +15060,7 @@ bool
 Numeric_constant::set_type(Type* type, bool issue_error, Location loc)
 {
   bool ret;
-  if (type == NULL)
+  if (type == NULL || type->is_error())
     ret = true;
   else if (type->integer_type() != NULL)
     ret = this->check_int_type(type->integer_type(), issue_error, loc);

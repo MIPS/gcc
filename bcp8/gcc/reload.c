@@ -1,5 +1,5 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -95,6 +95,31 @@ a register with any other reload.  */
 #include "rtl-error.h"
 #include "tm_p.h"
 #include "insn-config.h"
+#include "symtab.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -107,14 +132,6 @@ a register with any other reload.  */
 #include "reload.h"
 #include "regs.h"
 #include "addresses.h"
-#include "hard-reg-set.h"
-#include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "params.h"
 #include "target.h"
 #include "ira.h"
@@ -918,7 +935,7 @@ can_reload_into (rtx in, int regno, machine_mode mode)
   /* If we can make a simple SET insn that does the job, everything should
      be fine.  */
   dst =  gen_rtx_REG (mode, regno);
-  test_insn = make_insn_raw (gen_rtx_SET (VOIDmode, dst, in));
+  test_insn = make_insn_raw (gen_rtx_SET (dst, in));
   save_recog_data = recog_data;
   if (recog_memoized (test_insn) >= 0)
     {
@@ -2689,12 +2706,10 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
   if (JUMP_P (insn) || CALL_P (insn))
     no_output_reloads = 1;
 
-#ifdef HAVE_cc0
-  if (reg_referenced_p (cc0_rtx, PATTERN (insn)))
+  if (HAVE_cc0 && reg_referenced_p (cc0_rtx, PATTERN (insn)))
     no_input_reloads = 1;
-  if (reg_set_p (cc0_rtx, PATTERN (insn)))
+  if (HAVE_cc0 && reg_set_p (cc0_rtx, PATTERN (insn)))
     no_output_reloads = 1;
-#endif
 
 #ifdef SECONDARY_MEMORY_NEEDED
   /* The eliminated forms of any secondary memory locations are per-insn, so
@@ -3049,9 +3064,6 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 
 	  if (swapped)
 	    {
-	      enum reg_class tclass;
-	      int t;
-
 	      recog_data.operand[commutative] = substed_operand[commutative + 1];
 	      recog_data.operand[commutative + 1] = substed_operand[commutative];
 	      /* Swap the duplicates too.  */
@@ -3061,17 +3073,12 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		  *recog_data.dup_loc[i]
 		    = recog_data.operand[(int) recog_data.dup_num[i]];
 
-	      tclass = preferred_class[commutative];
-	      preferred_class[commutative] = preferred_class[commutative + 1];
-	      preferred_class[commutative + 1] = tclass;
-
-	      t = pref_or_nothing[commutative];
-	      pref_or_nothing[commutative] = pref_or_nothing[commutative + 1];
-	      pref_or_nothing[commutative + 1] = t;
-
-	      t = address_reloaded[commutative];
-	      address_reloaded[commutative] = address_reloaded[commutative + 1];
-	      address_reloaded[commutative + 1] = t;
+	      std::swap (preferred_class[commutative],
+			 preferred_class[commutative + 1]);
+	      std::swap (pref_or_nothing[commutative],
+			 pref_or_nothing[commutative + 1]);
+	      std::swap (address_reloaded[commutative],
+			 address_reloaded[commutative + 1]);
 	    }
 
 	  this_earlyclobber = 0;
@@ -3803,9 +3810,6 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 
 	  if (swapped)
 	    {
-	      enum reg_class tclass;
-	      int t;
-
 	      /* If the commutative operands have been swapped, swap
 		 them back in order to check the next alternative.  */
 	      recog_data.operand[commutative] = substed_operand[commutative];
@@ -3818,17 +3822,12 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		    = recog_data.operand[(int) recog_data.dup_num[i]];
 
 	      /* Unswap the operand related information as well.  */
-	      tclass = preferred_class[commutative];
-	      preferred_class[commutative] = preferred_class[commutative + 1];
-	      preferred_class[commutative + 1] = tclass;
-
-	      t = pref_or_nothing[commutative];
-	      pref_or_nothing[commutative] = pref_or_nothing[commutative + 1];
-	      pref_or_nothing[commutative + 1] = t;
-
-	      t = address_reloaded[commutative];
-	      address_reloaded[commutative] = address_reloaded[commutative + 1];
-	      address_reloaded[commutative + 1] = t;
+	      std::swap (preferred_class[commutative],
+			 preferred_class[commutative + 1]);
+	      std::swap (pref_or_nothing[commutative],
+			 pref_or_nothing[commutative + 1]);
+	      std::swap (address_reloaded[commutative],
+			 address_reloaded[commutative + 1]);
 	    }
 	}
     }
@@ -3877,18 +3876,12 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 
   if (goal_alternative_swapped)
     {
-      rtx tem;
-
-      tem = substed_operand[commutative];
-      substed_operand[commutative] = substed_operand[commutative + 1];
-      substed_operand[commutative + 1] = tem;
-      tem = recog_data.operand[commutative];
-      recog_data.operand[commutative] = recog_data.operand[commutative + 1];
-      recog_data.operand[commutative + 1] = tem;
-      tem = *recog_data.operand_loc[commutative];
-      *recog_data.operand_loc[commutative]
-	= *recog_data.operand_loc[commutative + 1];
-      *recog_data.operand_loc[commutative + 1] = tem;
+      std::swap (substed_operand[commutative],
+		 substed_operand[commutative + 1]);
+      std::swap (recog_data.operand[commutative],
+		 recog_data.operand[commutative + 1]);
+      std::swap (*recog_data.operand_loc[commutative],
+		 *recog_data.operand_loc[commutative + 1]);
 
       for (i = 0; i < n_reloads; i++)
 	{
@@ -4562,16 +4555,14 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 	    rld[j].in = 0;
 	  }
 
-#ifdef HAVE_cc0
   /* If we made any reloads for addresses, see if they violate a
      "no input reloads" requirement for this insn.  But loads that we
      do after the insn (such as for output addresses) are fine.  */
-  if (no_input_reloads)
+  if (HAVE_cc0 && no_input_reloads)
     for (i = 0; i < n_reloads; i++)
       gcc_assert (rld[i].in == 0
 		  || rld[i].when_needed == RELOAD_FOR_OUTADDR_ADDRESS
 		  || rld[i].when_needed == RELOAD_FOR_OUTPUT_ADDRESS);
-#endif
 
   /* Compute reload_mode and reload_nregs.  */
   for (i = 0; i < n_reloads; i++)
@@ -5193,9 +5184,8 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 #if !HARD_FRAME_POINTER_IS_FRAME_POINTER
 	   || operand == hard_frame_pointer_rtx
 #endif
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	   || operand == arg_pointer_rtx
-#endif
+	   || (FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	       && operand == arg_pointer_rtx)
 	   || operand == stack_pointer_rtx)
 	  && ! maybe_memory_address_addr_space_p
 		(mode, ad, as, &XEXP (XEXP (ad, 0), 1 - op_index)))
@@ -5856,7 +5846,7 @@ find_reloads_address_1 (machine_mode mode, addr_space_t as,
 	      enum insn_code icode = optab_handler (add_optab, GET_MODE (x));
 	      if (insn && NONJUMP_INSN_P (insn) && equiv
 		  && memory_operand (equiv, GET_MODE (equiv))
-#ifdef HAVE_cc0
+#if HAVE_cc0
 		  && ! sets_cc0_p (PATTERN (insn))
 #endif
 		  && ! (icode != CODE_FOR_nothing
@@ -6599,7 +6589,7 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 	  return 0;
 	}
 
-      endregno = END_HARD_REGNO (x);
+      endregno = END_REGNO (x);
 
       return refers_to_regno_for_reload_p (regno, endregno, in, (rtx*) 0);
     }

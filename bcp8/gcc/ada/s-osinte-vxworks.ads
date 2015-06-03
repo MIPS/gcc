@@ -7,7 +7,7 @@
 --                                   S p e c                                --
 --                                                                          --
 --            Copyright (C) 1991-1994, Florida State University             --
---          Copyright (C) 1995-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1995-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -192,9 +192,6 @@ package System.OS_Interface is
    function c_signal (sig : Signal; handler : isr_address) return isr_address;
    pragma Import (C, c_signal, "signal");
 
-   function sigwait (set : access sigset_t; sig : access Signal) return int;
-   pragma Inline (sigwait);
-
    function pthread_sigmask
      (how  : int;
       set  : access sigset_t;
@@ -230,9 +227,11 @@ package System.OS_Interface is
    --  If we are in the kernel space, lock interrupts. It typically maps to
    --  intLock.
 
-   function Int_Unlock return int renames System.VxWorks.Ext.Int_Unlock;
+   function Int_Unlock (Old : int) return int
+     renames System.VxWorks.Ext.Int_Unlock;
    --  If we are in the kernel space, unlock interrupts. It typically maps to
-   --  intUnlock.
+   --  intUnlock. The parameter Old is only used on PowerPC where it contains
+   --  the returned value from Int_Lock (the old MPSR).
 
    ----------
    -- Time --
@@ -253,6 +252,12 @@ package System.OS_Interface is
 
    function To_Timespec (D : Duration) return timespec;
    pragma Inline (To_Timespec);
+   --  Convert a Duration value to a timespec value. Note that in VxWorks,
+   --  timespec is always non-negative (since time_t is defined above as
+   --  unsigned long). This means that there is a potential problem if a
+   --  negative argument is passed for D. However, in actual usage, the
+   --  value of the input argument D is always non-negative, so no problem
+   --  arises in practice.
 
    function To_Clock_Ticks (D : Duration) return int;
    --  Convert a duration value (in seconds) into clock ticks

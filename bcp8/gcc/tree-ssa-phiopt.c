@@ -1,5 +1,5 @@
 /* Optimization of PHI nodes by converting them into straightline code.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,17 +22,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "hash-table.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -52,6 +57,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-pass.h"
@@ -60,16 +78,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "tree-data-ref.h"
 #include "gimple-pretty-print.h"
-#include "insn-config.h"
-#include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "tree-scalar-evolution.h"
 #include "tree-inline.h"
-
-#ifndef HAVE_conditional_move
-#define HAVE_conditional_move (0)
-#endif
 
 static unsigned int tree_ssa_phiopt_worker (bool, bool);
 static bool conditional_replacement (basic_block, basic_block,
@@ -79,8 +91,6 @@ static int value_replacement (basic_block, basic_block,
 static bool minmax_replacement (basic_block, basic_block,
 				edge, edge, gimple, tree, tree);
 static bool abs_replacement (basic_block, basic_block,
-			     edge, edge, gimple, tree, tree);
-static bool neg_replacement (basic_block, basic_block,
 			     edge, edge, gimple, tree, tree);
 static bool cond_store_replacement (basic_block, basic_block, edge, edge,
 				    hash_set<tree> *);
@@ -192,23 +202,6 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
   if (do_store_elim)
     /* Calculate the set of non-trapping memory accesses.  */
     nontrap = get_non_trapping ();
-
-  /* The replacement of conditional negation with a non-branching
-     sequence is really only a win when optimizing for speed and we
-     can avoid transformations by gimple if-conversion that result
-     in poor RTL generation.
-
-     Ideally either gimple if-conversion or the RTL expanders will
-     be improved and the code to emit branchless conditional negation
-     can be removed.  */
-  bool replace_conditional_negation = false;
-  if (!do_store_elim)
-    replace_conditional_negation
-      = ((!optimize_size && optimize >= 2)
-	 || (((flag_tree_loop_vectorize || cfun->has_force_vectorize_loops)
-	      && flag_tree_loop_if_convert != 0)
-	     || flag_tree_loop_if_convert == 1
-	     || flag_tree_loop_if_convert_stores == 1));
 
   /* Search every basic block for COND_EXPR we may be able to optimize.
 
@@ -363,9 +356,6 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
 	  if (conditional_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	    cfgchanged = true;
 	  else if (abs_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
-	    cfgchanged = true;
-	  else if (replace_conditional_negation
-		   && neg_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	    cfgchanged = true;
 	  else if (minmax_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	    cfgchanged = true;
@@ -901,6 +891,31 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
 	      && absorbing_element_p (code_def, cond_rhs))))
     {
       gsi = gsi_for_stmt (cond);
+      if (INTEGRAL_TYPE_P (TREE_TYPE (lhs)))
+	{
+	  /* Moving ASSIGN might change VR of lhs, e.g. when moving u_6
+	     def-stmt in:
+	     if (n_5 != 0)
+	       goto <bb 3>;
+	     else
+	       goto <bb 4>;
+
+	     <bb 3>:
+	     # RANGE [0, 4294967294]
+	     u_6 = n_5 + 4294967295;
+
+	     <bb 4>:
+	     # u_3 = PHI <u_6(3), 4294967295(2)>  */
+	  SSA_NAME_RANGE_INFO (lhs) = NULL;
+	  SSA_NAME_ANTI_RANGE_P (lhs) = 0;
+	  /* If available, we can use VR of phi result at least.  */
+	  tree phires = gimple_phi_result (phi);
+	  struct range_info_def *phires_range_info
+	    = SSA_NAME_RANGE_INFO (phires);
+	  if (phires_range_info)
+	    duplicate_ssa_name_range_info (lhs, SSA_NAME_RANGE_TYPE (phires),
+					   phires_range_info);
+	}
       gimple_stmt_iterator gsi_from = gsi_for_stmt (assign);
       gsi_move_before (&gsi_from, &gsi);
       replace_phi_edge_with_variable (cond_bb, e1, phi, lhs);
@@ -1278,140 +1293,6 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
   return true;
 }
 
-/*  The function neg_replacement replaces conditional negation with
-    equivalent straight line code.  Returns TRUE if replacement is done,
-    otherwise returns FALSE.
-
-    COND_BB branches around negation occuring in MIDDLE_BB.
-
-    E0 and E1 are edges out of COND_BB.  E0 reaches MIDDLE_BB and
-    E1 reaches the other successor which should contain PHI with
-    arguments ARG0 and ARG1.
-
-    Assuming negation is to occur when the condition is true,
-    then the non-branching sequence is:
-
-       result = (rhs ^ -cond) + cond
-
-    Inverting the condition or its result gives us negation
-    when the original condition is false.  */
-
-static bool
-neg_replacement (basic_block cond_bb, basic_block middle_bb,
-		 edge e0 ATTRIBUTE_UNUSED, edge e1,
-		 gimple phi, tree arg0, tree arg1)
-{
-  gimple new_stmt, cond;
-  gimple_stmt_iterator gsi;
-  gimple assign;
-  edge true_edge, false_edge;
-  tree rhs, lhs;
-  enum tree_code cond_code;
-  bool invert = false;
-
-  /* This transformation performs logical operations on the
-     incoming arguments.  So force them to be integral types.   */
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (arg0)))
-    return false;
-
-  /* OTHER_BLOCK must have only one executable statement which must have the
-     form arg0 = -arg1 or arg1 = -arg0.  */
-
-  assign = last_and_only_stmt (middle_bb);
-  /* If we did not find the proper negation assignment, then we can not
-     optimize.  */
-  if (assign == NULL)
-    return false;
-
-  /* If we got here, then we have found the only executable statement
-     in OTHER_BLOCK.  If it is anything other than arg0 = -arg1 or
-     arg1 = -arg0, then we can not optimize.  */
-  if (gimple_code (assign) != GIMPLE_ASSIGN)
-    return false;
-
-  lhs = gimple_assign_lhs (assign);
-
-  if (gimple_assign_rhs_code (assign) != NEGATE_EXPR)
-    return false;
-
-  rhs = gimple_assign_rhs1 (assign);
-
-  /* The assignment has to be arg0 = -arg1 or arg1 = -arg0.  */
-  if (!(lhs == arg0 && rhs == arg1)
-      && !(lhs == arg1 && rhs == arg0))
-    return false;
-
-  /* The basic sequence assumes we negate when the condition is true.
-     If we need the opposite, then we will either need to invert the
-     condition or its result.  */
-  extract_true_false_edges_from_block (cond_bb, &true_edge, &false_edge);
-  invert = false_edge->dest == middle_bb;
-
-  /* Unlike abs_replacement, we can handle arbitrary conditionals here.  */
-  cond = last_stmt (cond_bb);
-  cond_code = gimple_cond_code (cond);
-
-  /* If inversion is needed, first try to invert the test since
-     that's cheapest.  */
-  if (invert)
-    {
-      bool honor_nans = HONOR_NANS (gimple_cond_lhs (cond));
-      enum tree_code new_code = invert_tree_comparison (cond_code, honor_nans);
-
-      /* If invert_tree_comparison was successful, then use its return
-	 value as the new code and note that inversion is no longer
-	 needed.  */
-      if (new_code != ERROR_MARK)
-	{
-	  cond_code = new_code;
-	  invert = false;
-	}
-    }
-
-  tree cond_val = make_ssa_name (boolean_type_node);
-  new_stmt = gimple_build_assign (cond_val, cond_code,
-				  gimple_cond_lhs (cond),
-				  gimple_cond_rhs (cond));
-  gsi = gsi_last_bb (cond_bb);
-  gsi_insert_before (&gsi, new_stmt, GSI_NEW_STMT);
-
-  /* If we still need inversion, then invert the result of the
-     condition.  */
-  if (invert)
-    {
-      tree tmp = make_ssa_name (boolean_type_node);
-      new_stmt = gimple_build_assign (tmp, BIT_XOR_EXPR, cond_val,
-				      boolean_true_node);
-      gsi_insert_after (&gsi, new_stmt, GSI_NEW_STMT);
-      cond_val = tmp;
-    }
-
-  /* Get the condition in the right type so that we can perform
-     logical and arithmetic operations on it.  */
-  tree cond_val_converted = make_ssa_name (TREE_TYPE (rhs));
-  new_stmt = gimple_build_assign (cond_val_converted, NOP_EXPR, cond_val);
-  gsi_insert_after (&gsi, new_stmt, GSI_NEW_STMT);
-
-  tree neg_cond_val_converted = make_ssa_name (TREE_TYPE (rhs));
-  new_stmt = gimple_build_assign (neg_cond_val_converted, NEGATE_EXPR,
-				  cond_val_converted);
-  gsi_insert_after (&gsi, new_stmt, GSI_NEW_STMT);
-
-  tree tmp = make_ssa_name (TREE_TYPE (rhs));
-  new_stmt = gimple_build_assign (tmp, BIT_XOR_EXPR, rhs,
-				  neg_cond_val_converted);
-  gsi_insert_after (&gsi, new_stmt, GSI_NEW_STMT);
-
-  tree new_lhs = make_ssa_name (TREE_TYPE (rhs));
-  new_stmt = gimple_build_assign (new_lhs, PLUS_EXPR, tmp, cond_val_converted);
-  gsi_insert_after (&gsi, new_stmt, GSI_NEW_STMT);
-
-  replace_phi_edge_with_variable (cond_bb, e1, phi, new_lhs);
-
-  /* Note that we optimized this PHI.  */
-  return true;
-}
-
 /* Auxiliary functions to determine the set of memory accesses which
    can't trap because they are preceded by accesses to the same memory
    portion.  We do that for MEM_REFs, so we only need to track
@@ -1447,10 +1328,10 @@ struct name_to_bb
 
 struct ssa_names_hasher : typed_free_remove <name_to_bb>
 {
-  typedef name_to_bb value_type;
-  typedef name_to_bb compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef name_to_bb *value_type;
+  typedef name_to_bb *compare_type;
+  static inline hashval_t hash (const name_to_bb *);
+  static inline bool equal (const name_to_bb *, const name_to_bb *);
 };
 
 /* Used for quick clearing of the hash-table when we see calls.
@@ -1460,7 +1341,7 @@ static unsigned int nt_call_phase;
 /* The hash function.  */
 
 inline hashval_t
-ssa_names_hasher::hash (const value_type *n)
+ssa_names_hasher::hash (const name_to_bb *n)
 {
   return n->ssa_name_ver ^ (((hashval_t) n->store) << 31)
          ^ (n->offset << 6) ^ (n->size << 3);
@@ -1469,7 +1350,7 @@ ssa_names_hasher::hash (const value_type *n)
 /* The equality function of *P1 and *P2.  */
 
 inline bool
-ssa_names_hasher::equal (const value_type *n1, const compare_type *n2)
+ssa_names_hasher::equal (const name_to_bb *n1, const name_to_bb *n2)
 {
   return n1->ssa_name_ver == n2->ssa_name_ver
          && n1->store == n2->store
@@ -2026,8 +1907,8 @@ hoist_adjacent_loads (basic_block bb0, basic_block bb1,
   for (gsi = gsi_start_phis (bb3); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gphi *phi_stmt = gsi.phi ();
-      gimple def1, def2, defswap;
-      tree arg1, arg2, ref1, ref2, field1, field2, fieldswap;
+      gimple def1, def2;
+      tree arg1, arg2, ref1, ref2, field1, field2;
       tree tree_offset1, tree_offset2, tree_size2, next;
       int offset1, offset2, size2;
       unsigned align1;
@@ -2102,12 +1983,8 @@ hoist_adjacent_loads (basic_block bb0, basic_block bb1,
 	  if (next != field1)
 	    continue;
 
-	  fieldswap = field1;
-	  field1 = field2;
-	  field2 = fieldswap;
-	  defswap = def1;
-	  def1 = def2;
-	  def2 = defswap;
+	  std::swap (field1, field2);
+	  std::swap (def1, def2);
 	}
 
       bb_for_def1 = gimple_bb (def1);

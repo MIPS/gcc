@@ -1,6 +1,6 @@
 /* Definitions of target machine needed for option handling for GNU compiler,
    for IBM RS/6000.
-   Copyright (C) 2010-2014 Free Software Foundation, Inc.
+   Copyright (C) 2010-2015 Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@linux.vnet.ibm.com)
 
    This file is part of GCC.
@@ -77,6 +77,15 @@ enum fpu_type_t
   FPU_DF_LITE,			/* Limited Double Precision FPU */
   FPU_SF_FULL,			/* Full Single Precision FPU */
   FPU_DF_FULL			/* Full Double Single Precision FPU */
+};
+
+
+/* Float128 support.  */
+enum float128_type_t
+{
+  FLOAT128_UNSET	= -1,	/* Initial value.  */
+  FLOAT128_NONE,		/* No __float128 support.  */
+  FLOAT128_SW			/* software __float128 support.  */
 };
 
 /* Types of costly dependences.  */

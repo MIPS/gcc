@@ -1,5 +1,5 @@
 # Top level -*- makefile -*- fragment for libgccjit.so.
-#   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+#   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -62,11 +62,14 @@ jit: $(LIBGCCJIT_FILENAME) \
 jit_OBJS = attribs.o \
 	jit/dummy-frontend.o \
 	jit/libgccjit.o \
+	jit/jit-logging.o \
 	jit/jit-recording.o \
 	jit/jit-playback.o \
 	jit/jit-result.o \
 	jit/jit-tempdir.o \
-	jit/jit-builtins.o
+	jit/jit-builtins.o \
+	jit/jit-spec.o \
+	gcc.o
 
 # Use strict warnings for this front end.
 jit-warn = $(STRICT_WARN)
@@ -76,10 +79,12 @@ jit-warn = $(STRICT_WARN)
 $(LIBGCCJIT_FILENAME): $(jit_OBJS) \
 	libbackend.a libcommon-target.a libcommon.a \
 	$(CPPLIB) $(LIBDECNUMBER) \
-	$(LIBDEPS) $(srcdir)/jit/libgccjit.map
+	$(LIBDEPS) $(srcdir)/jit/libgccjit.map \
+	$(EXTRA_GCC_OBJS)
 	+$(LLINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) -o $@ -shared \
 	     $(jit_OBJS) libbackend.a libcommon-target.a libcommon.a \
 	     $(CPPLIB) $(LIBDECNUMBER) $(LIBS) $(BACKENDLIBS) \
+	     $(EXTRA_GCC_OBJS) \
 	     -Wl,--version-script=$(srcdir)/jit/libgccjit.map \
 	     -Wl,-soname,$(LIBGCCJIT_SONAME)
 
@@ -246,6 +251,11 @@ jit.man:
 jit.srcman:
 
 lang_checks += check-jit
+lang_checks_parallelized += check-jit
+# This number is somewhat arbitrary.  Two tests are much slower
+# than all the others (test-combination.c and test-threads.c) so
+# we want them to be placed in different "buckets".
+check_jit_parallelize = 10
 
 #
 # Install hooks:
@@ -275,6 +285,10 @@ jit.uninstall:
 # We just have to delete files specific to us.
 
 jit.mostlyclean:
+	-rm -f $(LIBGCCJIT_FILENAME) $(LIBGCCJIT_SYMLINK)
+	-rm -f $(LIBGCCJIT_LINKER_NAME_SYMLINK) $(FULL_DRIVER_NAME)
+	-rm -f $(LIBGCCJIT_SONAME)
+	-rm -f $(jit_OBJS)
 
 jit.clean:
 

@@ -1,5 +1,5 @@
 # Makefile.am -- Backtrace Makefile.
-# Copyright (C) 2012-2014 Free Software Foundation, Inc.
+# Copyright (C) 2012-2015 Free Software Foundation, Inc.
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -56,6 +56,7 @@ BACKTRACE_FILES = \
 
 FORMAT_FILES = \
 	elf.c \
+	pecoff.c \
 	unknown.c
 
 VIEW_FILES = \
@@ -124,6 +125,7 @@ fileline.lo: config.h backtrace.h internal.h
 mmap.lo: config.h backtrace.h internal.h
 mmapio.lo: config.h backtrace.h internal.h
 nounwind.lo: config.h internal.h
+pecoff.lo: config.h backtrace.h internal.h
 posix.lo: config.h backtrace.h internal.h
 print.lo: config.h backtrace.h internal.h
 read.lo: config.h backtrace.h internal.h

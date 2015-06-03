@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 systems using GNU userspace.
-   Copyright (C) 1994-2014 Free Software Foundation, Inc.
+   Copyright (C) 1994-2015 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
 
@@ -128,27 +128,6 @@ along with GCC; see the file COPYING3.  If not see
         goto DONE;							\
       }									\
   } while (0)
-
-/* Used by crtstuff.c to initialize the base of data-relative relocations.
-   These are GOT relative on x86, so return the pic register.  */
-#ifdef __PIC__
-#define CRT_GET_RFIB_DATA(BASE)			\
-  {						\
-    register void *ebx_ __asm__("ebx");		\
-    BASE = ebx_;				\
-  }
-#else
-#define CRT_GET_RFIB_DATA(BASE)						\
-  __asm__ ("call\t.LPR%=\n"						\
-	   ".LPR%=:\n\t"						\
-	   "pop{l}\t%0\n\t"						\
-	   /* Due to a GAS bug, this cannot use EAX.  That encodes	\
-	      smaller than the traditional EBX, which results in the	\
-	      offset being off by one.  */				\
-	   "add{l}\t{$_GLOBAL_OFFSET_TABLE_+[.-.LPR%=],%0"		\
-		   "|%0,_GLOBAL_OFFSET_TABLE_+(.-.LPR%=)}"		\
-	   : "=d"(BASE))
-#endif
 
 #ifdef TARGET_LIBC_PROVIDES_SSP
 /* i386 glibc provides __stack_chk_guard in %gs:0x14.  */

@@ -1,5 +1,5 @@
 /* The Blackfin code generation auxiliary output file.
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
    This file is part of GCC.
@@ -31,19 +31,33 @@
 #include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
 #include "calls.h"
 #include "flags.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "target.h"
 #include "target-def.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "recog.h"
@@ -385,7 +399,7 @@ expand_prologue_reg_save (rtx spreg, int saveall, bool is_inthandler)
 
       XVECEXP (pat, 0, 0) = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, val),
 					    UNSPEC_PUSH_MULTIPLE);
-      XVECEXP (pat, 0, total_consec + 1) = gen_rtx_SET (VOIDmode, spreg,
+      XVECEXP (pat, 0, total_consec + 1) = gen_rtx_SET (spreg,
 							gen_rtx_PLUS (Pmode,
 								      spreg,
 								      val));
@@ -401,14 +415,12 @@ expand_prologue_reg_save (rtx spreg, int saveall, bool is_inthandler)
 	  rtx subpat;
 	  if (d_to_save > 0)
 	    {
-	      subpat = gen_rtx_SET (VOIDmode, memref, gen_rtx_REG (word_mode,
-								   dregno++));
+	      subpat = gen_rtx_SET (memref, gen_rtx_REG (word_mode, dregno++));
 	      d_to_save--;
 	    }
 	  else
 	    {
-	      subpat = gen_rtx_SET (VOIDmode, memref, gen_rtx_REG (word_mode,
-								   pregno++));
+	      subpat = gen_rtx_SET (memref, gen_rtx_REG (word_mode, pregno++));
 	    }
 	  XVECEXP (pat, 0, i + 1) = subpat;
 	  RTX_FRAME_RELATED_P (subpat) = 1;
@@ -515,9 +527,8 @@ expand_epilogue_reg_restore (rtx spreg, bool saveall, bool is_inthandler)
     {
       rtx pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (total_consec + 1));
       XVECEXP (pat, 0, 0)
-	= gen_rtx_SET (VOIDmode, spreg,
-		       gen_rtx_PLUS (Pmode, spreg,
-				     GEN_INT (total_consec * 4)));
+	= gen_rtx_SET (spreg, gen_rtx_PLUS (Pmode, spreg,
+					    GEN_INT (total_consec * 4)));
 
       if (npregs_consec > 0)
 	regno = REG_P5 + 1;
@@ -533,7 +544,7 @@ expand_epilogue_reg_restore (rtx spreg, bool saveall, bool is_inthandler)
 
 	  regno--;
 	  XVECEXP (pat, 0, i + 1)
-	    = gen_rtx_SET (VOIDmode, gen_rtx_REG (word_mode, regno), memref);
+	    = gen_rtx_SET (gen_rtx_REG (word_mode, regno), memref);
 
 	  if (npregs_consec > 0)
 	    {
@@ -2119,7 +2130,7 @@ bfin_expand_call (rtx retval, rtx fnaddr, rtx callarg1, rtx cookie, int sibcall)
   call = gen_rtx_CALL (VOIDmode, fnaddr, callarg1);
 
   if (retval)
-    call = gen_rtx_SET (VOIDmode, retval, call);
+    call = gen_rtx_SET (retval, call);
 
   pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (nelts));
   n = 0;
@@ -2542,8 +2553,7 @@ bfin_gen_compare (rtx cmp, machine_mode mode ATTRIBUTE_UNUSED)
 	code2 = EQ;
 	break;
       }
-      emit_insn (gen_rtx_SET (VOIDmode, tem,
-			      gen_rtx_fmt_ee (code1, BImode, op0, op1)));
+      emit_insn (gen_rtx_SET (tem, gen_rtx_fmt_ee (code1, BImode, op0, op1)));
     }
 
   return gen_rtx_fmt_ee (code2, BImode, tem, CONST0_RTX (BImode));
@@ -3834,7 +3844,8 @@ hwloop_optimize (hwloop_info loop)
 
   delete_insn (loop->loop_end);
   /* Insert the loop end label before the last instruction of the loop.  */
-  emit_label_before (loop->end_label, loop->last_insn);
+  emit_label_before (as_a <rtx_code_label *> (loop->end_label),
+		     loop->last_insn);
 
   return true;
 }
@@ -4507,7 +4518,7 @@ workaround_speculation (void)
 
 		  if (delay_needed > cycles_since_jump)
 		    {
-		      rtx prev = prev_real_insn (label);
+		      rtx_insn *prev = prev_real_insn (label);
 		      delay_needed -= cycles_since_jump;
 		      if (dump_file)
 			fprintf (dump_file, "Adding %d nops after %d\n",
@@ -4573,7 +4584,7 @@ add_sched_insns_for_speculation (void)
 	  if (any_condjump_p (insn)
 	      && !cbranch_predicted_taken_p (insn))
 	    {
-	      rtx n = next_real_insn (insn);
+	      rtx_insn *n = next_real_insn (insn);
 	      emit_insn_before (gen_stall (GEN_INT (3)), n);
 	    }
 	}

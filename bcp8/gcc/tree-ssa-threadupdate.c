@@ -1,5 +1,5 @@
 /* Thread edges through blocks and update the control flow and SSA graphs.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,13 +20,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
-#include "flags.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "flags.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -153,10 +160,10 @@ struct redirection_data : typed_free_remove<redirection_data>
   struct el *incoming_edges;
 
   /* hash_table support.  */
-  typedef redirection_data value_type;
-  typedef redirection_data compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline int equal (const value_type *, const compare_type *);
+  typedef redirection_data *value_type;
+  typedef redirection_data *compare_type;
+  static inline hashval_t hash (const redirection_data *);
+  static inline int equal (const redirection_data *, const redirection_data *);
 };
 
 /* Dump a jump threading path, including annotations about each
@@ -190,6 +197,9 @@ dump_jump_thread_path (FILE *dump_file, vec<jump_thread_edge *> path,
       if (path[i]->type == EDGE_NO_COPY_SRC_BLOCK)
        fprintf (dump_file, " (%d, %d) nocopy;",
 		 path[i]->e->src->index, path[i]->e->dest->index);
+      if (path[0]->type == EDGE_FSM_THREAD)
+	fprintf (dump_file, " (%d, %d) ",
+		 path[i]->e->src->index, path[i]->e->dest->index);
     }
   fputc ('\n', dump_file);
 }
@@ -199,7 +209,7 @@ dump_jump_thread_path (FILE *dump_file, vec<jump_thread_edge *> path,
    path.  So hash on the block index of the final edge in the path.  */
 
 inline hashval_t
-redirection_data::hash (const value_type *p)
+redirection_data::hash (const redirection_data *p)
 {
   vec<jump_thread_edge *> *path = p->path;
   return path->last ()->e->dest->index;
@@ -208,7 +218,7 @@ redirection_data::hash (const value_type *p)
 /* Given two hash table entries, return true if they have the same
    jump threading path.  */
 inline int
-redirection_data::equal (const value_type *p1, const compare_type *p2)
+redirection_data::equal (const redirection_data *p1, const redirection_data *p2)
 {
   vec<jump_thread_edge *> *path1 = p1->path;
   vec<jump_thread_edge *> *path2 = p2->path;
@@ -595,25 +605,25 @@ any_remaining_duplicated_blocks (vec<jump_thread_edge *> *path,
    For example, assume we have the following control flow and identified
    jump threading paths:
 
-                A     B     C
-                 \    |    /
-               Ea \   |Eb / Ec
-                   \  |  /
-                    v v v
-                      J       <-- Joiner
-                     / \
-                Eoff/   \Eon
-                   /     \
-                  v       v
-                Soff     Son  <--- Normal
-                         /\
-                      Ed/  \ Ee
-                       /    \
-                      v     v
-                      D      E
+		A     B     C
+		 \    |    /
+	       Ea \   |Eb / Ec
+		   \  |  /
+		    v v v
+		      J       <-- Joiner
+		     / \
+		Eoff/   \Eon
+		   /     \
+		  v       v
+		Soff     Son  <--- Normal
+			 /\
+		      Ed/  \ Ee
+		       /    \
+		      v     v
+		      D      E
 
-            Jump threading paths: A -> J -> Son -> D (path 1)
-                                  C -> J -> Son -> E (path 2)
+	    Jump threading paths: A -> J -> Son -> D (path 1)
+				  C -> J -> Son -> E (path 2)
 
    Note that the control flow could be more complicated:
    - Each jump threading path may have more than one incoming edge.  I.e. A and
@@ -629,22 +639,22 @@ any_remaining_duplicated_blocks (vec<jump_thread_edge *> *path,
    In the aboe example, after all jump threading is complete, we will
    end up with the following control flow:
 
-                A          B            C
-                |          |            |
-              Ea|          |Eb          |Ec
-                |          |            |
-                v          v            v
-               Ja          J           Jc
-               / \        / \Eon'     / \
-          Eona/   \   ---/---\--------   \Eonc
-             /     \ /  /     \           \
-            v       v  v       v          v
-           Sona     Soff      Son        Sonc
-             \                 /\         /
-              \___________    /  \  _____/
-                          \  /    \/
-                           vv      v
-                            D      E
+		A	  B	    C
+		|	  |	    |
+	      Ea|	  |Eb	  |Ec
+		|	  |	    |
+		v	  v	    v
+	       Ja	  J	   Jc
+	       / \	/ \Eon'     / \
+	  Eona/   \   ---/---\--------   \Eonc
+	     /     \ /  /     \	   \
+	    v       v  v       v	  v
+	   Sona     Soff      Son	Sonc
+	     \		 /\	 /
+	      \___________    /  \  _____/
+			  \  /    \/
+			   vv      v
+			    D      E
 
    The main issue to notice here is that when we are processing path 1
    (A->J->Son->D) we need to figure out the outgoing edge weights to
@@ -674,10 +684,10 @@ any_remaining_duplicated_blocks (vec<jump_thread_edge *> *path,
 
 static bool
 compute_path_counts (struct redirection_data *rd,
-                     ssa_local_info_t *local_info,
-                     gcov_type *path_in_count_ptr,
-                     gcov_type *path_out_count_ptr,
-                     int *path_in_freq_ptr)
+		     ssa_local_info_t *local_info,
+		     gcov_type *path_in_count_ptr,
+		     gcov_type *path_out_count_ptr,
+		     int *path_in_freq_ptr)
 {
   edge e = rd->incoming_edges->e;
   vec<jump_thread_edge *> *path = THREAD_PATH (e);
@@ -689,13 +699,13 @@ compute_path_counts (struct redirection_data *rd,
 
   /* Start by accumulating incoming edge counts to the path's first bb
      into a couple buckets:
-        path_in_count: total count of incoming edges that flow into the
-                  current path.
-        nonpath_count: total count of incoming edges that are not
-                  flowing along *any* path.  These are the counts
-                  that will still flow along the original path after
-                  all path duplication is done by potentially multiple
-                  calls to this routine.
+	path_in_count: total count of incoming edges that flow into the
+		  current path.
+	nonpath_count: total count of incoming edges that are not
+		  flowing along *any* path.  These are the counts
+		  that will still flow along the original path after
+		  all path duplication is done by potentially multiple
+		  calls to this routine.
      (any other incoming edge counts are for a different jump threading
      path that will be handled by a later call to this routine.)
      To make this easier, start by recording all incoming edges that flow into
@@ -717,23 +727,23 @@ compute_path_counts (struct redirection_data *rd,
       vec<jump_thread_edge *> *ein_path = THREAD_PATH (ein);
       /* Simply check the incoming edge src against the set captured above.  */
       if (ein_path
-          && bitmap_bit_p (in_edge_srcs, (*ein_path)[0]->e->src->index))
-        {
-          /* It is necessary but not sufficient that the last path edges
-             are identical.  There may be different paths that share the
-             same last path edge in the case where the last edge has a nocopy
-             source block.  */
-          gcc_assert (ein_path->last ()->e == elast);
-          path_in_count += ein->count;
-          path_in_freq += EDGE_FREQUENCY (ein);
-        }
+	  && bitmap_bit_p (in_edge_srcs, (*ein_path)[0]->e->src->index))
+	{
+	  /* It is necessary but not sufficient that the last path edges
+	     are identical.  There may be different paths that share the
+	     same last path edge in the case where the last edge has a nocopy
+	     source block.  */
+	  gcc_assert (ein_path->last ()->e == elast);
+	  path_in_count += ein->count;
+	  path_in_freq += EDGE_FREQUENCY (ein);
+	}
       else if (!ein_path)
-        {
-          /* Keep track of the incoming edges that are not on any jump-threading
-             path.  These counts will still flow out of original path after all
-             jump threading is complete.  */
-            nonpath_count += ein->count;
-        }
+	{
+	  /* Keep track of the incoming edges that are not on any jump-threading
+	     path.  These counts will still flow out of original path after all
+	     jump threading is complete.  */
+	    nonpath_count += ein->count;
+	}
     }
 
   /* This is needed due to insane incoming frequencies.  */
@@ -776,31 +786,31 @@ compute_path_counts (struct redirection_data *rd,
       edge epath = (*path)[i]->e;
       gcov_type cur_count = epath->count;
       if ((*path)[i]->type == EDGE_COPY_SRC_JOINER_BLOCK)
-        {
-          has_joiner = true;
-          cur_count = apply_probability (cur_count, onpath_scale);
-        }
+	{
+	  has_joiner = true;
+	  cur_count = apply_probability (cur_count, onpath_scale);
+	}
       /* In the joiner case we need to update nonpath_count for any edges
-         coming into the path that will contribute to the count flowing
-         into the path successor.  */
+	 coming into the path that will contribute to the count flowing
+	 into the path successor.  */
       if (has_joiner && epath != elast)
       {
-        /* Look for other incoming edges after joiner.  */
-        FOR_EACH_EDGE (ein, ei, epath->dest->preds)
-          {
-            if (ein != epath
-                /* Ignore in edges from blocks we have duplicated for a
-                   threading path, which have duplicated edge counts until
-                   they are redirected by an invocation of this routine.  */
-                && !bitmap_bit_p (local_info->duplicate_blocks,
-                                  ein->src->index))
-              nonpath_count += ein->count;
-          }
+	/* Look for other incoming edges after joiner.  */
+	FOR_EACH_EDGE (ein, ei, epath->dest->preds)
+	  {
+	    if (ein != epath
+		/* Ignore in edges from blocks we have duplicated for a
+		   threading path, which have duplicated edge counts until
+		   they are redirected by an invocation of this routine.  */
+		&& !bitmap_bit_p (local_info->duplicate_blocks,
+				  ein->src->index))
+	      nonpath_count += ein->count;
+	  }
       }
       if (cur_count < path_out_count)
-        path_out_count = cur_count;
+	path_out_count = cur_count;
       if (epath->count < min_path_count)
-        min_path_count = epath->count;
+	min_path_count = epath->count;
     }
 
   /* We computed path_out_count above assuming that this path targeted
@@ -840,7 +850,7 @@ compute_path_counts (struct redirection_data *rd,
    and the duplicate edge EDUP will have a count of PATH_OUT_COUNT.  */
 static void
 update_profile (edge epath, edge edup, gcov_type path_in_count,
-                gcov_type path_out_count, int path_in_freq)
+		gcov_type path_out_count, int path_in_freq)
 {
 
   /* First update the duplicated block's count / frequency.  */
@@ -889,22 +899,22 @@ recompute_probabilities (basic_block bb)
   FOR_EACH_EDGE (esucc, ei, bb->succs)
     {
       if (!bb->count)
-        continue;
+	continue;
 
       /* Prevent overflow computation due to insane profiles.  */
       if (esucc->count < bb->count)
-        esucc->probability = GCOV_COMPUTE_SCALE (esucc->count,
-                                                 bb->count);
+	esucc->probability = GCOV_COMPUTE_SCALE (esucc->count,
+						 bb->count);
       else
-        /* Can happen with missing/guessed probabilities, since we
-           may determine that more is flowing along duplicated
-           path than joiner succ probabilities allowed.
-           Counts and freqs will be insane after jump threading,
-           at least make sure probability is sane or we will
-           get a flow verification error.
-           Not much we can do to make counts/freqs sane without
-           redoing the profile estimation.  */
-        esucc->probability = REG_BR_PROB_BASE;
+	/* Can happen with missing/guessed probabilities, since we
+	   may determine that more is flowing along duplicated
+	   path than joiner succ probabilities allowed.
+	   Counts and freqs will be insane after jump threading,
+	   at least make sure probability is sane or we will
+	   get a flow verification error.
+	   Not much we can do to make counts/freqs sane without
+	   redoing the profile estimation.  */
+	esucc->probability = REG_BR_PROB_BASE;
     }
 }
 
@@ -917,8 +927,8 @@ recompute_probabilities (basic_block bb)
 
 static void
 update_joiner_offpath_counts (edge epath, basic_block dup_bb,
-                              gcov_type path_in_count,
-                              gcov_type path_out_count)
+			      gcov_type path_in_count,
+			      gcov_type path_out_count)
 {
   /* Compute the count that currently flows off path from the joiner.
      In other words, the total count of joiner's out edges other than
@@ -933,7 +943,7 @@ update_joiner_offpath_counts (edge epath, basic_block dup_bb,
   FOR_EACH_EDGE (enonpath, ei, epath->src->succs)
     {
       if (enonpath == epath)
-        continue;
+	continue;
       total_orig_off_path_count += enonpath->count;
     }
 
@@ -949,31 +959,31 @@ update_joiner_offpath_counts (edge epath, basic_block dup_bb,
     {
       /* Look for edges going off of the threading path.  */
       if (enonpath == epath)
-        continue;
+	continue;
 
       /* Find the corresponding edge out of the duplicated joiner.  */
       edge enonpathdup = find_edge (dup_bb, enonpath->dest);
       gcc_assert (enonpathdup);
 
       /* We can't use the original probability of the joiner's out
-         edges, since the probabilities of the original branch
-         and the duplicated branches may vary after all threading is
-         complete.  But apportion the duplicated joiner's off-path
-         total edge count computed earlier (total_dup_off_path_count)
-         among the duplicated off-path edges based on their original
-         ratio to the full off-path count (total_orig_off_path_count).
-         */
+	 edges, since the probabilities of the original branch
+	 and the duplicated branches may vary after all threading is
+	 complete.  But apportion the duplicated joiner's off-path
+	 total edge count computed earlier (total_dup_off_path_count)
+	 among the duplicated off-path edges based on their original
+	 ratio to the full off-path count (total_orig_off_path_count).
+	 */
       int scale = GCOV_COMPUTE_SCALE (enonpath->count,
-                                      total_orig_off_path_count);
+				      total_orig_off_path_count);
       /* Give the duplicated offpath edge a portion of the duplicated
-         total.  */
+	 total.  */
       enonpathdup->count = apply_scale (scale,
-                                        total_dup_off_path_count);
+					total_dup_off_path_count);
       /* Now update the original offpath edge count, handling underflow
-         due to rounding errors.  */
+	 due to rounding errors.  */
       enonpath->count -= enonpathdup->count;
       if (enonpath->count < 0)
-        enonpath->count = 0;
+	enonpath->count = 0;
     }
 }
 
@@ -993,7 +1003,7 @@ estimated_freqs_path (struct redirection_data *rd)
   FOR_EACH_EDGE (ein, ei, e->dest->preds)
     {
       if (ein->count)
-        return false;
+	return false;
       non_zero_freq |= ein->src->frequency != 0;
     }
 
@@ -1001,15 +1011,15 @@ estimated_freqs_path (struct redirection_data *rd)
     {
       edge epath = (*path)[i]->e;
       if (epath->src->count)
-        return false;
+	return false;
       non_zero_freq |= epath->src->frequency != 0;
       edge esucc;
       FOR_EACH_EDGE (esucc, ei, epath->src->succs)
-        {
-          if (esucc->count)
-            return false;
-          non_zero_freq |= esucc->src->frequency != 0;
-        }
+	{
+	  if (esucc->count)
+	    return false;
+	  non_zero_freq |= esucc->src->frequency != 0;
+	}
     }
   return non_zero_freq;
 }
@@ -1035,10 +1045,10 @@ freqs_to_counts_path (struct redirection_data *rd)
   FOR_EACH_EDGE (ein, ei, e->dest->preds)
     {
       /* Scale up the frequency by REG_BR_PROB_BASE, to avoid rounding
-         errors applying the probability when the frequencies are very
-         small.  */
+	 errors applying the probability when the frequencies are very
+	 small.  */
       ein->count = apply_probability (ein->src->frequency * REG_BR_PROB_BASE,
-                                      ein->probability);
+				      ein->probability);
     }
 
   for (unsigned int i = 1; i < path->length (); i++)
@@ -1046,12 +1056,12 @@ freqs_to_counts_path (struct redirection_data *rd)
       edge epath = (*path)[i]->e;
       edge esucc;
       /* Scale up the frequency by REG_BR_PROB_BASE, to avoid rounding
-         errors applying the edge probability when the frequencies are very
-         small.  */
+	 errors applying the edge probability when the frequencies are very
+	 small.  */
       epath->src->count = epath->src->frequency * REG_BR_PROB_BASE;
       FOR_EACH_EDGE (esucc, ei, epath->src->succs)
-        esucc->count = apply_probability (esucc->src->count,
-                                          esucc->probability);
+	esucc->count = apply_probability (esucc->src->count,
+					  esucc->probability);
     }
 }
 
@@ -1078,7 +1088,7 @@ clear_counts_path (struct redirection_data *rd)
     {
       edge epath = (*path)[i]->e;
       FOR_EACH_EDGE (esucc, ei, epath->src->succs)
-        esucc->count = 0;
+	esucc->count = 0;
       epath->src->count = 0;
     }
   /* Also need to clear the counts along duplicated path.  */
@@ -1086,9 +1096,9 @@ clear_counts_path (struct redirection_data *rd)
     {
       basic_block dup = rd->dup_blocks[i];
       if (!dup)
-        continue;
+	continue;
       FOR_EACH_EDGE (esucc, ei, dup->succs)
-        esucc->count = 0;
+	esucc->count = 0;
       dup->count = 0;
     }
 }
@@ -1118,7 +1128,7 @@ ssa_fix_duplicate_block_edges (struct redirection_data *rd,
      to see if the paths through RD are using estimated frequencies because
      the routine had zero profile counts.  */
   bool do_freqs_to_counts = (profile_status_for_fn (cfun) != PROFILE_READ
-                             || estimated_freqs_path (rd));
+			     || estimated_freqs_path (rd));
   if (do_freqs_to_counts)
     freqs_to_counts_path (rd);
 
@@ -1129,8 +1139,8 @@ ssa_fix_duplicate_block_edges (struct redirection_data *rd,
      non-joiner case the path_in_count and path_out_count should be the
      same.  */
   bool has_joiner = compute_path_counts (rd, local_info,
-                                         &path_in_count, &path_out_count,
-                                         &path_in_freq);
+					 &path_in_count, &path_out_count,
+					 &path_in_freq);
 
   int cur_path_freq = path_in_freq;
   for (unsigned int count = 0, i = 1; i < path->length (); i++)
@@ -1146,7 +1156,7 @@ ssa_fix_duplicate_block_edges (struct redirection_data *rd,
 	  edge victim;
 	  edge e2;
 
-          gcc_assert (has_joiner);
+	  gcc_assert (has_joiner);
 
 	  /* This updates the PHIs at the destination of the duplicate
 	     block.  Pass 0 instead of i if we are threading a path which
@@ -1211,7 +1221,7 @@ ssa_fix_duplicate_block_edges (struct redirection_data *rd,
 	  /* Next we need to update the counts of the original and duplicated
 	     edges from the joiner that go off path.  */
 	  update_joiner_offpath_counts (epath, e2->src, path_in_count,
-                                        path_out_count);
+					path_out_count);
 
 	  /* Finally, we need to set the probabilities on the duplicated
 	     edges out of the duplicated joiner (e2->src).  The probabilities
@@ -1245,7 +1255,7 @@ ssa_fix_duplicate_block_edges (struct redirection_data *rd,
 			  cur_path_freq);
 	}
       else
-        {
+	{
 	  /* No copy case.  In this case we don't have an equivalent block
 	     on the duplicated thread path to update, but we do need
 	     to remove the portion of the counts/freqs that were moved
@@ -1264,9 +1274,9 @@ ssa_fix_duplicate_block_edges (struct redirection_data *rd,
 	}
 
       /* Increment the index into the duplicated path when we processed
-         a duplicated block.  */
+	 a duplicated block.  */
       if ((*path)[i]->type == EDGE_COPY_SRC_JOINER_BLOCK
-          || (*path)[i]->type == EDGE_COPY_SRC_BLOCK)
+	  || (*path)[i]->type == EDGE_COPY_SRC_BLOCK)
       {
 	  count++;
       }
@@ -1310,7 +1320,7 @@ ssa_create_duplicates (struct redirection_data **slot,
 	  || (*path)[i]->type == EDGE_COPY_SRC_JOINER_BLOCK)
 	{
 	  create_block_for_threading ((*path)[i]->e->src, rd, 1,
-                                      &local_info->duplicate_blocks);
+				      &local_info->duplicate_blocks);
 	  break;
 	}
     }
@@ -1320,7 +1330,7 @@ ssa_create_duplicates (struct redirection_data **slot,
   if (local_info->template_block == NULL)
     {
       create_block_for_threading ((*path)[1]->e->src, rd, 0,
-                                  &local_info->duplicate_blocks);
+				  &local_info->duplicate_blocks);
       local_info->template_block = rd->dup_blocks[0];
 
       /* We do not create any outgoing edges for the template.  We will
@@ -1330,7 +1340,7 @@ ssa_create_duplicates (struct redirection_data **slot,
   else
     {
       create_block_for_threading (local_info->template_block, rd, 0,
-                                  &local_info->duplicate_blocks);
+				  &local_info->duplicate_blocks);
 
       /* Go ahead and wire up outgoing edges and update PHIs for the duplicate
 	 block.   */
@@ -1439,7 +1449,8 @@ redirection_block_p (basic_block bb)
   while (!gsi_end_p (gsi)
 	 && (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL
 	     || is_gimple_debug (gsi_stmt (gsi))
-	     || gimple_nop_p (gsi_stmt (gsi))))
+	     || gimple_nop_p (gsi_stmt (gsi))
+	     || gimple_clobber_p (gsi_stmt (gsi))))
     gsi_next (&gsi);
 
   /* Check if this is an empty block.  */
@@ -1636,9 +1647,7 @@ thread_single_edge (edge e)
   vec<jump_thread_edge *> *path = THREAD_PATH (e);
   edge eto = (*path)[1]->e;
 
-  for (unsigned int i = 0; i < path->length (); i++)
-    delete (*path)[i];
-  delete path;
+  delete_jump_thread_path (path);
   e->aux = NULL;
 
   thread_stats.num_threaded_edges++;
@@ -1682,6 +1691,7 @@ thread_single_edge (edge e)
   redirect_edge_and_branch (e, rd.dup_blocks[0]);
   flush_pending_stmts (e);
 
+  delete_jump_thread_path (npath);
   return rd.dup_blocks[0];
 }
 
@@ -2146,13 +2156,20 @@ mark_threaded_blocks (bitmap threaded_blocks)
       vec<jump_thread_edge *> *path = paths[i];
 
       if ((*path)[1]->type == EDGE_COPY_SRC_JOINER_BLOCK)
-        {
+	{
 	  /* Attach the path to the starting edge if none is yet recorded.  */
-          if ((*path)[0]->e->aux == NULL)
-            (*path)[0]->e->aux = path;
-	  else if (dump_file && (dump_flags & TDF_DETAILS))
-	    dump_jump_thread_path (dump_file, *path, false);
-        }
+	  if ((*path)[0]->e->aux == NULL)
+	    {
+	      (*path)[0]->e->aux = path;
+	    }
+	  else
+	    {
+	      paths.unordered_remove (i);
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		dump_jump_thread_path (dump_file, *path, false);
+	      delete_jump_thread_path (path);
+	    }
+	}
     }
   /* Second, look for paths that have any other jump thread attached to
      them, and either finish converting them or cancel them.  */
@@ -2175,8 +2192,10 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	  else
 	    {
 	      e->aux = NULL;
+	      paths.unordered_remove (i);
 	      if (dump_file && (dump_flags & TDF_DETAILS))
-	        dump_jump_thread_path (dump_file, *path, false);
+		dump_jump_thread_path (dump_file, *path, false);
+	      delete_jump_thread_path (path);
 	    }
 	}
     }
@@ -2318,36 +2337,32 @@ bb_ends_with_multiway_branch (basic_block bb ATTRIBUTE_UNUSED)
   return false;
 }
 
-/* Verify that the REGION is a Single Entry Multiple Exits region: make sure no
-   edge other than ENTRY is entering the REGION.  */
+/* Verify that the REGION is a valid jump thread.  A jump thread is a special
+   case of SEME Single Entry Multiple Exits region in which all nodes in the
+   REGION have exactly one incoming edge.  The only exception is the first block
+   that may not have been connected to the rest of the cfg yet.  */
 
 DEBUG_FUNCTION void
-verify_seme (edge entry, basic_block *region, unsigned n_region)
+verify_jump_thread (basic_block *region, unsigned n_region)
 {
-  bitmap bbs = BITMAP_ALLOC (NULL);
-
   for (unsigned i = 0; i < n_region; i++)
-    bitmap_set_bit (bbs, region[i]->index);
-
-  for (unsigned i = 0; i < n_region; i++)
-    {
-      edge e;
-      edge_iterator ei;
-      basic_block bb = region[i];
-
-      /* All predecessors other than ENTRY->src should be in the region.  */
-      for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); ei_next (&ei))
-	if (e != entry)
-	  gcc_assert (bitmap_bit_p (bbs, e->src->index));
-    }
-
-  BITMAP_FREE (bbs);
+    gcc_assert (EDGE_COUNT (region[i]->preds) <= 1);
 }
 
-/* Duplicates a Single Entry Multiple Exit REGION (set of N_REGION basic
-   blocks).  The ENTRY edge is redirected to the duplicate of the region.  If
-   REGION is not a Single Entry region, ignore any incoming edges other than
-   ENTRY: this makes the copied region a Single Entry region.
+/* Return true when BB is one of the first N items in BBS.  */
+
+static inline bool
+bb_in_bbs (basic_block bb, basic_block *bbs, int n)
+{
+  for (int i = 0; i < n; i++)
+    if (bb == bbs[i])
+      return true;
+
+  return false;
+}
+
+/* Duplicates a jump-thread path of N_REGION basic blocks.
+   The ENTRY edge is redirected to the duplicate of the region.
 
    Remove the last conditional statement in the last basic block in the REGION,
    and create a single fallthru edge pointing to the same destination as the
@@ -2359,7 +2374,7 @@ verify_seme (edge entry, basic_block *region, unsigned n_region)
    Returns false if it is unable to copy the region, true otherwise.  */
 
 static bool
-duplicate_seme_region (edge entry, edge exit,
+duplicate_thread_path (edge entry, edge exit,
 		       basic_block *region, unsigned n_region,
 		       basic_block *region_copy)
 {
@@ -2418,7 +2433,53 @@ duplicate_seme_region (edge entry, edge exit,
     }
 
   copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop,
-	    split_edge_bb_loc (entry), 0);
+	    split_edge_bb_loc (entry), false);
+
+  /* Fix up: copy_bbs redirects all edges pointing to copied blocks.  The
+     following code ensures that all the edges exiting the jump-thread path are
+     redirected back to the original code: these edges are exceptions
+     invalidating the property that is propagated by executing all the blocks of
+     the jump-thread path in order.  */
+
+  for (i = 0; i < n_region; i++)
+    {
+      edge e;
+      edge_iterator ei;
+      basic_block bb = region_copy[i];
+
+      if (single_succ_p (bb))
+	{
+	  /* Make sure the successor is the next node in the path.  */
+	  gcc_assert (i + 1 == n_region
+		      || region_copy[i + 1] == single_succ_edge (bb)->dest);
+	  continue;
+	}
+
+      /* Special case the last block on the path: make sure that it does not
+	 jump back on the copied path.  */
+      if (i + 1 == n_region)
+	{
+	  FOR_EACH_EDGE (e, ei, bb->succs)
+	    if (bb_in_bbs (e->dest, region_copy, n_region - 1))
+	      {
+		basic_block orig = get_bb_original (e->dest);
+		if (orig)
+		  redirect_edge_and_branch_force (e, orig);
+	      }
+	  continue;
+	}
+
+      /* Redirect all other edges jumping to non-adjacent blocks back to the
+	 original code.  */
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	if (region_copy[i + 1] != e->dest)
+	  {
+	    basic_block orig = get_bb_original (e->dest);
+	    if (orig)
+	      redirect_edge_and_branch_force (e, orig);
+	  }
+    }
+
   if (total_count)
     {
       scale_bbs_frequencies_gcov_type (region, n_region,
@@ -2435,8 +2496,7 @@ duplicate_seme_region (edge entry, edge exit,
     }
 
 #ifdef ENABLE_CHECKING
-  /* Make sure no edge other than ENTRY is entering the copied region.  */
-  verify_seme (entry, region_copy, n_region);
+  verify_jump_thread (region_copy, n_region);
 #endif
 
   /* Remove the last branch in the jump thread path.  */
@@ -2463,6 +2523,21 @@ duplicate_seme_region (edge entry, edge exit,
     free (region_copy);
 
   free_original_copy_tables ();
+  return true;
+}
+
+/* Return true when PATH is a valid jump-thread path.  */
+
+static bool
+valid_jump_thread_path (vec<jump_thread_edge *> *path)
+{
+  unsigned len = path->length ();
+
+  /* Check that the path is connected.  */
+  for (unsigned int j = 0; j < len - 1; j++)
+    if ((*path)[j]->e->dest != (*path)[j+1]->e->src)
+      return false;
+
   return true;
 }
 
@@ -2498,12 +2573,25 @@ thread_through_all_blocks (bool may_peel_loop_headers)
       vec<jump_thread_edge *> *path = paths[i];
       edge entry = (*path)[0]->e;
 
-      if ((*path)[0]->type != EDGE_FSM_THREAD
-	  /* Do not jump-thread twice from the same block.  */
-	  || bitmap_bit_p (threaded_blocks, entry->src->index)) {
-	i++;
-	continue;
-      }
+      /* Only code-generate FSM jump-threads in this loop.  */
+      if ((*path)[0]->type != EDGE_FSM_THREAD)
+	{
+	  i++;
+	  continue;
+	}
+
+      /* Do not jump-thread twice from the same block.  */
+      if (bitmap_bit_p (threaded_blocks, entry->src->index)
+	  /* Verify that the jump thread path is still valid: a
+	     previous jump-thread may have changed the CFG, and
+	     invalidated the current path.  */
+	  || !valid_jump_thread_path (path))
+	{
+	  /* Remove invalid FSM jump-thread paths.  */
+	  delete_jump_thread_path (path);
+	  paths.unordered_remove (i);
+	  continue;
+	}
 
       unsigned len = path->length ();
       edge exit = (*path)[len - 1]->e;
@@ -2512,7 +2600,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
       for (unsigned int j = 0; j < len - 1; j++)
 	region[j] = (*path)[j]->e->dest;
 
-      if (duplicate_seme_region (entry, exit, region, len - 1, NULL))
+      if (duplicate_thread_path (entry, exit, region, len - 1, NULL))
 	{
 	  /* We do not update dominance info.  */
 	  free_dominance_info (CDI_DOMINATORS);
@@ -2626,13 +2714,13 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 		    }
 
 		/* Our path is still valid, thread it.  */
-	        if (e->aux)
+		if (e->aux)
 		  {
 		    if (thread_block ((*path)[0]->e->dest, false))
 		      e->aux = NULL;
 		    else
 		      {
-		        delete_jump_thread_path (path);
+			delete_jump_thread_path (path);
 			e->aux = NULL;
 			ei_next (&ei);
 		      }

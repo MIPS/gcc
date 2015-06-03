@@ -1,4 +1,4 @@
-/* Copyright (C) 2013-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -135,12 +135,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -261,14 +268,15 @@ vtbl_map_node_registration_insert (struct vtbl_map_node *node,
 /* Hashtable functions for vtable_registration hashtables.  */
 
 inline hashval_t
-registration_hasher::hash (const value_type *p)
+registration_hasher::hash (const vtable_registration *p)
 {
   const struct vtable_registration *n = (const struct vtable_registration *) p;
   return (hashval_t) (DECL_UID (n->vtable_decl));
 }
 
 inline bool
-registration_hasher::equal (const value_type *p1, const compare_type *p2)
+registration_hasher::equal (const vtable_registration *p1,
+			    const vtable_registration *p2)
 {
   const struct vtable_registration *n1 =
                                     (const struct vtable_registration *) p1;
@@ -285,16 +293,16 @@ registration_hasher::equal (const value_type *p1, const compare_type *p2)
 
 struct vtbl_map_hasher : typed_noop_remove <struct vtbl_map_node>
 {
-  typedef struct vtbl_map_node value_type;
-  typedef struct vtbl_map_node compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef struct vtbl_map_node *value_type;
+  typedef struct vtbl_map_node *compare_type;
+  static inline hashval_t hash (const vtbl_map_node *);
+  static inline bool equal (const vtbl_map_node *, const vtbl_map_node *);
 };
 
 /* Returns a hash code for P.  */
 
 inline hashval_t
-vtbl_map_hasher::hash (const value_type *p)
+vtbl_map_hasher::hash (const vtbl_map_node *p)
 {
   const struct vtbl_map_node n = *((const struct vtbl_map_node *) p);
   return (hashval_t) IDENTIFIER_HASH_VALUE (n.class_name);
@@ -303,7 +311,7 @@ vtbl_map_hasher::hash (const value_type *p)
 /* Returns nonzero if P1 and P2 are equal.  */
 
 inline bool
-vtbl_map_hasher::equal (const value_type *p1, const compare_type *p2)
+vtbl_map_hasher::equal (const vtbl_map_node *p1, const vtbl_map_node *p2)
 {
   const struct vtbl_map_node n1 = *((const struct vtbl_map_node *) p1);
   const struct vtbl_map_node n2 = *((const struct vtbl_map_node *) p2);

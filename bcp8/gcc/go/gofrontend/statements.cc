@@ -14,6 +14,7 @@
 #include "backend.h"
 #include "statements.h"
 #include "ast-dump.h"
+#include "dataflow.h"
 
 // Class Statement.
 
@@ -520,45 +521,7 @@ Statement::make_temporary(Type* type, Expression* init,
   return new Temporary_statement(type, init, location);
 }
 
-// An assignment statement.
-
-class Assignment_statement : public Statement
-{
- public:
-  Assignment_statement(Expression* lhs, Expression* rhs,
-		       Location location)
-    : Statement(STATEMENT_ASSIGNMENT, location),
-      lhs_(lhs), rhs_(rhs)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  bool
-  do_traverse_assignments(Traverse_assignments*);
-
-  void
-  do_determine_types();
-
-  void
-  do_check_types(Gogo*);
-
-  Statement*
-  do_flatten(Gogo*, Named_object*, Block*, Statement_inserter*);
-
-  Bstatement*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_statement(Ast_dump_context*) const;
-
- private:
-  // Left hand side--the lvalue.
-  Expression* lhs_;
-  // Right hand side--the rvalue.
-  Expression* rhs_;
-};
+// Class Assignment_statement.
 
 // Traversal.
 
@@ -3150,41 +3113,7 @@ Statement::make_unnamed_label_statement(Unnamed_label* label)
   return new Unnamed_label_statement(label);
 }
 
-// An if statement.
-
-class If_statement : public Statement
-{
- public:
-  If_statement(Expression* cond, Block* then_block, Block* else_block,
-	       Location location)
-    : Statement(STATEMENT_IF, location),
-      cond_(cond), then_block_(then_block), else_block_(else_block)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  void
-  do_determine_types();
-
-  void
-  do_check_types(Gogo*);
-
-  bool
-  do_may_fall_through() const;
-
-  Bstatement*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_statement(Ast_dump_context*) const;
-
- private:
-  Expression* cond_;
-  Block* then_block_;
-  Block* else_block_;
-};
+// Class If_statement.
 
 // Traversal.
 
@@ -4279,11 +4208,8 @@ Type_case_clauses::dump_clauses(Ast_dump_context* ast_dump_context) const
 int
 Type_switch_statement::do_traverse(Traverse* traverse)
 {
-  if (this->var_ == NULL)
-    {
-      if (this->traverse_expression(traverse, &this->expr_) == TRAVERSE_EXIT)
-	return TRAVERSE_EXIT;
-    }
+  if (this->traverse_expression(traverse, &this->expr_) == TRAVERSE_EXIT)
+    return TRAVERSE_EXIT;
   if (this->clauses_ != NULL)
     return this->clauses_->traverse(traverse);
   return TRAVERSE_CONTINUE;
@@ -4306,10 +4232,7 @@ Type_switch_statement::do_lower(Gogo*, Named_object*, Block* enclosing,
 
   Block* b = new Block(enclosing, loc);
 
-  Type* val_type = (this->var_ != NULL
-		    ? this->var_->var_value()->type()
-		    : this->expr_->type());
-
+  Type* val_type = this->expr_->type();
   if (val_type->interface_type() == NULL)
     {
       if (!val_type->is_error())
@@ -4326,15 +4249,10 @@ Type_switch_statement::do_lower(Gogo*, Named_object*, Block* enclosing,
   // descriptor_temp = ifacetype(val_temp) FIXME: This should be
   // inlined.
   bool is_empty = val_type->interface_type()->is_empty();
-  Expression* ref;
-  if (this->var_ == NULL)
-    ref = this->expr_;
-  else
-    ref = Expression::make_var_reference(this->var_, loc);
   Expression* call = Runtime::make_call((is_empty
 					 ? Runtime::EFACETYPE
 					 : Runtime::IFACETYPE),
-					loc, 1, ref);
+					loc, 1, this->expr_);
   Temporary_reference_expression* lhs =
     Expression::make_temporary_reference(descriptor_temp, loc);
   lhs->set_is_lvalue();
@@ -4384,7 +4302,9 @@ Type_switch_statement::do_dump_statement(Ast_dump_context* ast_dump_context)
     const
 {
   ast_dump_context->print_indent();
-  ast_dump_context->ostream() << "switch " << this->var_->name() << " = ";
+  ast_dump_context->ostream() << "switch ";
+  if (!this->name_.empty())
+    ast_dump_context->ostream() << this->name_ << " = ";
   ast_dump_context->dump_expression(this->expr_);
   ast_dump_context->ostream() << " .(type)";
   if (ast_dump_context->dump_subblocks())
@@ -4399,10 +4319,10 @@ Type_switch_statement::do_dump_statement(Ast_dump_context* ast_dump_context)
 // Make a type switch statement.
 
 Type_switch_statement*
-Statement::make_type_switch_statement(Named_object* var, Expression* expr,
+Statement::make_type_switch_statement(const std::string& name, Expression* expr,
 				      Location location)
 {
-  return new Type_switch_statement(var, expr, location);
+  return new Type_switch_statement(name, expr, location);
 }
 
 // Class Send_statement.
@@ -4685,7 +4605,6 @@ Select_clauses::Select_clause::lower(Gogo* gogo, Named_object* function,
   // through here.
   this->is_lowered_ = true;
   this->val_ = NULL;
-  this->var_ = NULL;
 }
 
 // Lower a default clause in a select statement.
@@ -4849,6 +4768,22 @@ Select_clauses::Select_clause::check_types()
     error_at(this->location(), "invalid receive on send-only channel");
 }
 
+// Analyze the dataflow across each case statement.
+
+void
+Select_clauses::Select_clause::analyze_dataflow(Dataflow* dataflow)
+{
+  if (this->is_default_)
+    return;
+
+  // For a CommClause, the dataflow analysis should record a definition of
+  // VAR and CLOSEDVAR
+  if (this->var_ != NULL && !this->var_->is_sink())
+    dataflow->add_def(this->var_, this->channel_, NULL, false);
+  if (this->closedvar_ != NULL && !this->closedvar_->is_sink())
+    dataflow->add_def(this->closedvar_, this->channel_, NULL, false);
+}
+
 // Whether this clause may fall through to the statement which follows
 // the overall select statement.
 
@@ -4965,6 +4900,17 @@ Select_clauses::check_types()
        p != this->clauses_.end();
        ++p)
     p->check_types();
+}
+
+// Analyze the dataflow across each case statement.
+
+void
+Select_clauses::analyze_dataflow(Dataflow* dataflow)
+{
+  for (Clauses::iterator p = this->clauses_.begin();
+       p != this->clauses_.end();
+       ++p)
+    p->analyze_dataflow(dataflow);
 }
 
 // Return whether these select clauses fall through to the statement
@@ -5558,8 +5504,9 @@ For_range_statement::lower_range_array(Gogo* gogo,
 
   // The loop we generate:
   //   len_temp := len(range)
+  //   range_temp := range
   //   for index_temp = 0; index_temp < len_temp; index_temp++ {
-  //           value_temp = range[index_temp]
+  //           value_temp = range_temp[index_temp]
   //           index = index_temp
   //           value = value_temp
   //           original body
@@ -5573,9 +5520,11 @@ For_range_statement::lower_range_array(Gogo* gogo,
   Block* init = new Block(enclosing, loc);
 
   Expression* ref = this->make_range_ref(range_object, range_temp, loc);
+  range_temp = Statement::make_temporary(NULL, ref, loc);
   Expression* len_call = this->call_builtin(gogo, "len", ref, loc);
   Temporary_statement* len_temp = Statement::make_temporary(index_temp->type(),
 							    len_call, loc);
+  init->add_statement(range_temp);
   init->add_statement(len_temp);
 
   Expression* zexpr = Expression::make_integer_ul(0, NULL, loc);
@@ -5605,7 +5554,7 @@ For_range_statement::lower_range_array(Gogo* gogo,
     {
       iter_init = new Block(body_block, loc);
 
-      ref = this->make_range_ref(range_object, range_temp, loc);
+      ref = Expression::make_temporary_reference(range_temp, loc);
       Expression* ref2 = Expression::make_temporary_reference(index_temp, loc);
       Expression* index = Expression::make_index(ref, ref2, NULL, NULL, loc);
 

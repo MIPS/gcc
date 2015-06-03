@@ -1,5 +1,5 @@
 /* Lower TLS operations to emulation functions.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,14 +20,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -359,9 +366,14 @@ new_emutls_decl (tree decl, tree alias_of)
   else if (!alias_of)
     varpool_node::add (to);
   else 
-    varpool_node::create_alias (to,
-				varpool_node::get_for_asmname
-				  (DECL_ASSEMBLER_NAME (DECL_VALUE_EXPR (alias_of)))->decl);
+    {
+      varpool_node *n;
+      varpool_node *t = varpool_node::get_for_asmname
+	 (DECL_ASSEMBLER_NAME (DECL_VALUE_EXPR (alias_of)));
+
+      n = varpool_node::create_alias (to, t->decl);
+      n->resolve_alias (t);
+    }
   return to;
 }
 
@@ -741,17 +753,19 @@ ipa_lower_emutls (void)
   cgraph_node *func;
   bool any_aliases = false;
   tree ctor_body = NULL;
-
+  hash_set <varpool_node *> visited;
   auto_vec <varpool_node *> tls_vars;
 
   /* Examine all global variables for TLS variables.  */
   FOR_EACH_VARIABLE (var)
-    if (DECL_THREAD_LOCAL_P (var->decl))
+    if (DECL_THREAD_LOCAL_P (var->decl)
+	&& !visited.add (var))
       {
 	gcc_checking_assert (TREE_STATIC (var->decl)
 			     || DECL_EXTERNAL (var->decl));
 	tls_vars.safe_push (var);
-	if (var->alias && var->definition)
+	if (var->alias && var->definition
+	    && !visited.add (var->ultimate_alias_target ()))
 	  tls_vars.safe_push (var->ultimate_alias_target ());
       }
 
@@ -773,7 +787,7 @@ ipa_lower_emutls (void)
       if (var->alias && !var->analyzed)
 	any_aliases = true;
       else if (!var->alias)
-	var->call_for_node_and_aliases (create_emultls_var, &ctor_body, true);
+	var->call_for_symbol_and_aliases (create_emultls_var, &ctor_body, true);
     }
 
   /* If there were any aliases, then frob the alias_pairs vector.  */

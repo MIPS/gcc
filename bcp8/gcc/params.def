@@ -1,5 +1,5 @@
 /* params.def - Run-time parameters.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -190,7 +190,7 @@ DEFPARAM(PARAM_LARGE_UNIT_INSNS,
 DEFPARAM(PARAM_INLINE_UNIT_GROWTH,
 	 "inline-unit-growth",
 	 "How much can given compilation unit grow because of the inlining (in percent)",
-	 30, 0, 0)
+	 20, 0, 0)
 DEFPARAM(PARAM_IPCP_UNIT_GROWTH,
 	 "ipcp-unit-growth",
 	 "How much can given compilation unit grow because of the interprocedural constant propagation (in percent)",
@@ -198,7 +198,7 @@ DEFPARAM(PARAM_IPCP_UNIT_GROWTH,
 DEFPARAM(PARAM_EARLY_INLINING_INSNS,
 	 "early-inlining-insns",
 	 "Maximal estimated growth of function body caused by early inlining of single call",
-	 11, 0, 0)
+	 14, 0, 0)
 DEFPARAM(PARAM_LARGE_STACK_FRAME,
 	 "large-stack-frame",
 	 "The size of stack frame to be considered large",
@@ -261,6 +261,14 @@ DEFPARAM(PARAM_MAX_HOIST_DEPTH,
 	 "max-hoist-depth",
 	 "Maximum depth of search in the dominator tree for expressions to hoist",
 	 30, 0, 0)
+
+
+/* When synthesizing expnonentiation by a real constant operations using square
+   roots, this controls how deep sqrt chains we are willing to generate.  */
+DEFPARAM(PARAM_MAX_POW_SQRT_DEPTH,
+	 "max-pow-sqrt-depth",
+	 "Maximum depth of sqrt chains to use when synthesizing exponentiation by a real constant",
+	 5, 1, 32)
 
 /* This parameter limits the number of insns in a loop that will be unrolled,
    and by how much the loop is unrolled.
@@ -668,6 +676,11 @@ DEFPARAM (PARAM_SCHED_MEM_TRUE_DEP_COST,
 	  "Minimal distance between possibly conflicting store and load",
 	  1, 0, 0)
 
+DEFPARAM (PARAM_SCHED_AUTOPREF_QUEUE_DEPTH,
+	  "sched-autopref-queue-depth",
+	  "Hardware autoprefetcher scheduler model control flag.  Number of lookahead cycles the model looks into; at '0' only enable instruction sorting heuristic.  Disabled by default.",
+	  -1, 0, 0)
+
 DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
 	 "max-last-value-rtl",
 	 "The maximum number of RTL nodes that can be recorded as combiner's last value",
@@ -831,6 +844,11 @@ DEFPARAM (PARAM_LRA_MAX_CONSIDERED_RELOAD_PSEUDOS,
 	  "The max number of reload pseudos which are considered during spilling a non-reload pseudo",
 	  500, 0, 0)
 
+DEFPARAM (PARAM_LRA_INHERITANCE_EBB_PROBABILITY_CUTOFF,
+	  "lra-inheritance-ebb-probability-cutoff",
+	  "Minimal fall-through edge probability in percentage used to add BB to inheritance EBB in LRA",
+	  40, 0, 100)
+
 /* Switch initialization conversion will refuse to create arrays that are
    bigger than this parameter times the number of switch branches.  */
 
@@ -989,6 +1007,18 @@ DEFPARAM (PARAM_IPA_CP_EVAL_THRESHOLD,
 	  "beneficial to clone.",
 	  500, 0, 0)
 
+DEFPARAM (PARAM_IPA_CP_RECURSION_PENALTY,
+	  "ipa-cp-recursion-penalty",
+	  "Percentage penalty the recursive functions will receive when they "
+	  "are evaluated for cloning.",
+	  40, 0, 100)
+
+DEFPARAM (PARAM_IPA_CP_SINGLE_CALL_PENALTY,
+	  "ipa-cp-single-call-penalty",
+	  "Percentage penalty functions containg a single call to another "
+	  "function will receive when they are evaluated for cloning.",
+	  15, 0, 100)
+
 DEFPARAM (PARAM_IPA_MAX_AGG_ITEMS,
 	  "ipa-max-agg-items",
 	  "Maximum number of aggregate content items for a parameter in "
@@ -1078,7 +1108,7 @@ DEFPARAM (PARAM_MAX_TRACKED_STRLENS,
 	  "max-tracked-strlens",
 	  "Maximum number of strings for which strlen optimization pass will "
 	  "track string lengths",
-	  1000, 0, 0)
+	  10000, 0, 0)
 
 /* Keep this in sync with the sched_pressure_algorithm enum.  */
 DEFPARAM (PARAM_SCHED_PRESSURE_ALGORITHM,

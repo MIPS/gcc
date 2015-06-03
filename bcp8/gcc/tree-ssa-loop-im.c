@@ -1,5 +1,5 @@
 /* Loop invariant motion.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,13 +21,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
-#include "tm_p.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "tm_p.h"
+#include "predict.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -166,16 +172,16 @@ typedef struct im_mem_ref
 
 struct mem_ref_hasher : typed_noop_remove <im_mem_ref>
 {
-  typedef im_mem_ref value_type;
-  typedef tree_node compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef im_mem_ref *value_type;
+  typedef tree_node *compare_type;
+  static inline hashval_t hash (const im_mem_ref *);
+  static inline bool equal (const im_mem_ref *, const tree_node *);
 };
 
 /* A hash function for struct im_mem_ref object OBJ.  */
 
 inline hashval_t
-mem_ref_hasher::hash (const value_type *mem)
+mem_ref_hasher::hash (const im_mem_ref *mem)
 {
   return mem->hash;
 }
@@ -184,7 +190,7 @@ mem_ref_hasher::hash (const value_type *mem)
    memory reference OBJ2.  */
 
 inline bool
-mem_ref_hasher::equal (const value_type *mem1, const compare_type *obj2)
+mem_ref_hasher::equal (const im_mem_ref *mem1, const tree_node *obj2)
 {
   return operand_equal_p (mem1->mem.ref, (const_tree) obj2, 0);
 }
@@ -1236,7 +1242,11 @@ move_computations_dom_walker::before_dom_children (basic_block bb)
 	  && (!ALWAYS_EXECUTED_IN (bb)
 	      || (ALWAYS_EXECUTED_IN (bb) != level
 		  && !flow_loop_nested_p (ALWAYS_EXECUTED_IN (bb), level))))
-	SSA_NAME_RANGE_INFO (gimple_assign_lhs (new_stmt)) = NULL;
+	{
+	  tree lhs = gimple_assign_lhs (new_stmt);
+	  SSA_NAME_RANGE_INFO (lhs) = NULL;
+	  SSA_NAME_ANTI_RANGE_P (lhs) = 0;
+	}
       gsi_insert_on_edge (loop_preheader_edge (level), new_stmt);
       remove_phi_node (&bsi, false);
     }
@@ -1302,7 +1312,11 @@ move_computations_dom_walker::before_dom_children (basic_block bb)
 	  && (!ALWAYS_EXECUTED_IN (bb)
 	      || !(ALWAYS_EXECUTED_IN (bb) == level
 		   || flow_loop_nested_p (ALWAYS_EXECUTED_IN (bb), level))))
-	SSA_NAME_RANGE_INFO (gimple_get_lhs (stmt)) = NULL;
+	{
+	  tree lhs = gimple_get_lhs (stmt);
+	  SSA_NAME_RANGE_INFO (lhs) = NULL;
+	  SSA_NAME_ANTI_RANGE_P (lhs) = 0;
+	}
       /* In case this is a stmt that is not unconditionally executed
          when the target loop header is executed and the stmt may
 	 invoke undefined integer or pointer overflow rewrite it to

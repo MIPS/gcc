@@ -18,7 +18,6 @@
 #include "arch.h"
 #include "defs.h"
 #include "malloc.h"
-#include "race.h"
 #include "go-type.h"
 #include "go-defer.h"
 
@@ -51,7 +50,7 @@ extern void __splitstack_block_signals_context (void *context[10], int *,
 #if defined(USING_SPLIT_STACK) && defined(LINKER_SUPPORTS_SPLIT_STACK)
 # define StackMin PTHREAD_STACK_MIN
 #else
-# define StackMin 2 * 1024 * 1024
+# define StackMin ((sizeof(char *) < 8) ? 2 * 1024 * 1024 : 4 * 1024 * 1024)
 #endif
 
 uintptr runtime_stacks_sys;
@@ -125,6 +124,30 @@ static inline void
 fixcontext(ucontext_t* c)
 {
 	c->uc_mcontext._mc_tlsbase = tlsbase;
+}
+
+# elif defined(__sparc__)
+
+static inline void
+initcontext(void)
+{
+}
+
+static inline void
+fixcontext(ucontext_t *c)
+{
+	/* ??? Using 
+	     register unsigned long thread __asm__("%g7");
+	     c->uc_mcontext.gregs[REG_G7] = thread;
+	   results in
+	     error: variable ‘thread’ might be clobbered by \
+		‘longjmp’ or ‘vfork’ [-Werror=clobbered]
+	   which ought to be false, as %g7 is a fixed register.  */
+
+	if (sizeof (c->uc_mcontext.gregs[REG_G7]) == 8)
+		asm ("stx %%g7, %0" : "=m"(c->uc_mcontext.gregs[REG_G7]));
+	else
+		asm ("st %%g7, %0" : "=m"(c->uc_mcontext.gregs[REG_G7]));
 }
 
 # else
@@ -349,7 +372,6 @@ enum
 Sched	runtime_sched;
 int32	runtime_gomaxprocs;
 uint32	runtime_needextram = 1;
-bool	runtime_iscgo = true;
 M	runtime_m0;
 G	runtime_g0;	// idle goroutine for m0
 G*	runtime_lastg;
@@ -365,6 +387,8 @@ static	Lock allglock;	// the following vars are protected by this lock or by sto
 G**	runtime_allg;
 uintptr runtime_allglen;
 static	uintptr allgcap;
+
+bool	runtime_isarchive;
 
 void* runtime_mstart(void*);
 static void runqput(P*, G*);
@@ -404,6 +428,8 @@ static void injectglist(G*);
 static bool preemptall(void);
 static bool exitsyscallfast(void);
 static void allgadd(G*);
+
+bool runtime_isstarted;
 
 // The bootstrap sequence is:
 //
@@ -462,13 +488,68 @@ runtime_schedinit(void)
 
 	// Can not enable GC until all roots are registered.
 	// mstats.enablegc = 1;
-
-	// if(raceenabled)
-	//	g->racectx = runtime_raceinit();
 }
 
 extern void main_init(void) __asm__ (GOSYM_PREFIX "__go_init_main");
 extern void main_main(void) __asm__ (GOSYM_PREFIX "main.main");
+
+// Used to determine the field alignment.
+
+struct field_align
+{
+  char c;
+  Hchan *p;
+};
+
+// main_init_done is a signal used by cgocallbackg that initialization
+// has been completed.  It is made before _cgo_notify_runtime_init_done,
+// so all cgo calls can rely on it existing.  When main_init is
+// complete, it is closed, meaning cgocallbackg can reliably receive
+// from it.
+Hchan *runtime_main_init_done;
+
+// The chan bool type, for runtime_main_init_done.
+
+extern const struct __go_type_descriptor bool_type_descriptor
+  __asm__ (GOSYM_PREFIX "__go_tdn_bool");
+
+static struct __go_channel_type chan_bool_type_descriptor =
+  {
+    /* __common */
+    {
+      /* __code */
+      GO_CHAN,
+      /* __align */
+      __alignof (Hchan *),
+      /* __field_align */
+      offsetof (struct field_align, p) - 1,
+      /* __size */
+      sizeof (Hchan *),
+      /* __hash */
+      0, /* This value doesn't matter.  */
+      /* __hashfn */
+      __go_type_hash_error,
+      /* __equalfn */
+      __go_type_equal_error,
+      /* __gc */
+      NULL, /* This value doesn't matter */
+      /* __reflection */
+      NULL, /* This value doesn't matter */
+      /* __uncommon */
+      NULL,
+      /* __pointer_to_this */
+      NULL,
+      /* __zero */
+      NULL /* This value doesn't matter */
+    },
+    /* __element_type */
+    &bool_type_descriptor,
+    /* __dir */
+    CHANNEL_BOTH_DIR
+  };
+
+extern Hchan *__go_new_channel (ChanType *, uintptr);
+extern void closechan(Hchan *) __asm__ (GOSYM_PREFIX "runtime.closechan");
 
 static void
 initDone(void *arg __attribute__ ((unused))) {
@@ -515,7 +596,14 @@ runtime_main(void* dummy __attribute__((unused)))
 	if(m != &runtime_m0)
 		runtime_throw("runtime_main not on m0");
 	__go_go(runtime_MHeap_Scavenger, nil);
+
+	runtime_main_init_done = __go_new_channel(&chan_bool_type_descriptor, 0);
+
+	_cgo_notify_runtime_init_done();
+
 	main_init();
+
+	closechan(runtime_main_init_done);
 
 	if(g->defer != &d || d.__pfn != initDone)
 		runtime_throw("runtime: bad defer entry after init");
@@ -527,9 +615,15 @@ runtime_main(void* dummy __attribute__((unused)))
 	// roots.
 	mstats.enablegc = 1;
 
+	if(runtime_isarchive) {
+		// This is not a complete program, but is instead a
+		// library built using -buildmode=c-archive or
+		// c-shared.  Now that we are initialized, there is
+		// nothing further to do.
+		return;
+	}
+
 	main_main();
-	if(raceenabled)
-		runtime_racefini();
 
 	// Make racy client program work: if panicking on
 	// another goroutine at the same time as main returns,
@@ -993,8 +1087,14 @@ runtime_mstart(void* mp)
 
 	// Install signal handlers; after minit so that minit can
 	// prepare the thread to be able to handle the signals.
-	if(m == &runtime_m0)
+	if(m == &runtime_m0) {
+		if(runtime_iscgo && !runtime_cgoHasExtraM) {
+			runtime_cgoHasExtraM = true;
+			runtime_newextram();
+			runtime_needextram = 0;
+		}
 		runtime_initsig();
+	}
 	
 	if(m->mstartfn)
 		m->mstartfn();
@@ -1848,8 +1948,6 @@ runtime_goexit(void)
 {
 	if(g->status != Grunning)
 		runtime_throw("bad g status");
-	if(raceenabled)
-		runtime_racegoend();
 	runtime_mcall(goexit0);
 }
 
@@ -2731,6 +2829,13 @@ checkdead(void)
 	int32 run, grunning, s;
 	uintptr i;
 
+	// For -buildmode=c-shared or -buildmode=c-archive it's OK if
+	// there are no running goroutines.  The calling program is
+	// assumed to be running.
+	if(runtime_isarchive) {
+		return;
+	}
+
 	// -1 for sysmon
 	run = runtime_sched.mcount - runtime_sched.nmidle - runtime_sched.nmidlelocked - 1 - countextra();
 	if(run > 0)
@@ -3316,26 +3421,7 @@ void
 runtime_proc_scan(struct Workbuf** wbufp, void (*enqueue1)(struct Workbuf**, Obj))
 {
 	enqueue1(wbufp, (Obj){(byte*)&runtime_sched, sizeof runtime_sched, 0});
-}
-
-// When a function calls a closure, it passes the closure value to
-// __go_set_closure immediately before the function call.  When a
-// function uses a closure, it calls __go_get_closure immediately on
-// function entry.  This is a hack, but it will work on any system.
-// It would be better to use the static chain register when there is
-// one.  It is also worth considering expanding these functions
-// directly in the compiler.
-
-void
-__go_set_closure(void* v)
-{
-	g->closure = v;
-}
-
-void *
-__go_get_closure(void)
-{
-	return g->closure;
+	enqueue1(wbufp, (Obj){(byte*)&runtime_main_init_done, sizeof runtime_main_init_done, 0});
 }
 
 // Return whether we are waiting for a GC.  This gc toolchain uses

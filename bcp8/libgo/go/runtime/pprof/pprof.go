@@ -345,7 +345,14 @@ func printStackRecord(w io.Writer, stk []uintptr, allFrames bool) {
 			// Hide runtime.goexit and any runtime functions at the beginning.
 			// This is useful mainly for allocation traces.
 			wasPanic = name == "runtime.panic"
-			if name == "runtime.goexit" || !show && strings.HasPrefix(name, "runtime.") {
+			if name == "runtime.goexit" || !show && (strings.HasPrefix(name, "runtime.") || strings.HasPrefix(name, "runtime_")) {
+				continue
+			}
+			if !show && !strings.Contains(name, ".") && strings.HasPrefix(name, "__go_") {
+				continue
+			}
+			if !show && name == "" {
+				// This can happen due to http://gcc.gnu.org/PR65797.
 				continue
 			}
 			show = true
@@ -578,12 +585,6 @@ func StartCPUProfile(w io.Writer) error {
 	// convert sample counts to seconds.  Instead of requiring
 	// each client to specify the frequency, we hard code it.
 	const hz = 100
-
-	// Avoid queueing behind StopCPUProfile.
-	// Could use TryLock instead if we had it.
-	if cpu.profiling {
-		return fmt.Errorf("cpu profiling already in use")
-	}
 
 	cpu.Lock()
 	defer cpu.Unlock()

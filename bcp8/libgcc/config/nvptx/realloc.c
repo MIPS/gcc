@@ -1,6 +1,6 @@
 /* Implement realloc with the help of the malloc and free wrappers.
 
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -21,8 +21,7 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-#include <stdlib.h>
-#include <string.h>
+#include <stddef.h>
 #include "nvptx-malloc.h"
 
 void *
@@ -44,7 +43,7 @@ __nvptx_realloc (void *ptr, size_t newsz)
       oldsz = *sp;
     }
   if (oldsz != 0)
-    memcpy (newptr, ptr, oldsz > newsz ? newsz : oldsz);
+    __builtin_memcpy (newptr, ptr, oldsz > newsz ? newsz : oldsz);
 
   __nvptx_free (ptr);
   return newptr;

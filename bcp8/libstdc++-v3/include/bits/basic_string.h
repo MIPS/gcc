@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997-2014 Free Software Foundation, Inc.
+// Copyright (C) 1997-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -324,7 +324,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
         _S_copy_chars(_CharT* __p, _Iterator __k1, _Iterator __k2)
 	_GLIBCXX_NOEXCEPT
         {
-	  for (; __k1 != __k2; ++__k1, ++__p)
+	  for (; __k1 != __k2; ++__k1, (void)++__p)
 	    traits_type::assign(*__p, *__k1); // These types are off.
 	}
 
@@ -377,7 +377,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       /**
        *  @brief  Default constructor creates an empty string.
        */
-      basic_string() _GLIBCXX_NOEXCEPT
+      basic_string()
+#if __cplusplus >= 201103L
+      noexcept(is_nothrow_default_constructible<_Alloc>::value)
+#endif
       : _M_dataplus(_M_local_data())
       { _M_set_length(0); }
 
@@ -476,9 +479,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       {
 	if (__str._M_is_local())
 	  {
-	    if (__str.length())
-	      traits_type::copy(_M_local_buf, __str._M_local_buf,
-				_S_local_capacity + 1);
+	    traits_type::copy(_M_local_buf, __str._M_local_buf,
+			      _S_local_capacity + 1);
 	  }
 	else
 	  {
@@ -2780,7 +2782,7 @@ _GLIBCXX_END_NAMESPACE_CXX11
         _S_copy_chars(_CharT* __p, _Iterator __k1, _Iterator __k2)
 	_GLIBCXX_NOEXCEPT
         {
-	  for (; __k1 != __k2; ++__k1, ++__p)
+	  for (; __k1 != __k2; ++__k1, (void)++__p)
 	    traits_type::assign(*__p, *__k1); // These types are off.
 	}
 

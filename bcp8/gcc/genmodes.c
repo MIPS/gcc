@@ -1,5 +1,5 @@
 /* Generate the machine mode enumeration and associated tables.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1600,11 +1600,7 @@ emit_mode_int_n (void)
   for (i = 0; i<n_modes - 1; i++)
     for (j = i + 1; j < n_modes; j++)
       if (mode_sort[i]->int_n > mode_sort[j]->int_n)
-	{
-	  m = mode_sort[i];
-	  mode_sort[i] = mode_sort[j];
-	  mode_sort[j] = m;
-	}
+	std::swap (mode_sort[i], mode_sort[j]);
 
   for (i = 0; i < n_modes; i ++)
     {

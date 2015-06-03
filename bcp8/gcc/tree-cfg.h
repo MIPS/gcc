@@ -1,5 +1,5 @@
 /* Data and Control Flow Analysis for Trees.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -103,5 +103,6 @@ extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern unsigned int execute_fixup_cfg (void);
 extern unsigned int split_critical_edges (void);
 extern basic_block insert_cond_bb (basic_block, gimple, gimple);
+extern bool gimple_find_sub_bbs (gimple_seq, gimple_stmt_iterator *);
 
 #endif /* _TREE_CFG_H  */

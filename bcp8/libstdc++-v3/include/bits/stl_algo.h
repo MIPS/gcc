@@ -1,6 +1,6 @@
 // Algorithm implementation -*- C++ -*-
 
-// Copyright (C) 2001-2014 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -1237,16 +1237,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return __m;
     }
 
+  inline namespace _V2
+  {
+
   /// This is a helper function for the rotate algorithm.
   template<typename _ForwardIterator>
-    void
+    _ForwardIterator
     __rotate(_ForwardIterator __first,
 	     _ForwardIterator __middle,
 	     _ForwardIterator __last,
 	     forward_iterator_tag)
     {
-      if (__first == __middle || __last  == __middle)
-	return;
+      if (__first == __middle)
+	return __last;
+      else if (__last  == __middle)
+	return __first;
 
       _ForwardIterator __first2 = __middle;
       do
@@ -1258,6 +1263,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    __middle = __first2;
 	}
       while (__first2 != __last);
+
+      _ForwardIterator __ret = __first;
 
       __first2 = __middle;
 
@@ -1271,11 +1278,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  else if (__first2 == __last)
 	    __first2 = __middle;
 	}
+      return __ret;
     }
 
    /// This is a helper function for the rotate algorithm.
   template<typename _BidirectionalIterator>
-    void
+    _BidirectionalIterator
     __rotate(_BidirectionalIterator __first,
 	     _BidirectionalIterator __middle,
 	     _BidirectionalIterator __last,
@@ -1285,8 +1293,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __glibcxx_function_requires(_Mutable_BidirectionalIteratorConcept<
 				  _BidirectionalIterator>)
 
-      if (__first == __middle || __last  == __middle)
-	return;
+      if (__first == __middle)
+	return __last;
+      else if (__last  == __middle)
+	return __first;
 
       std::__reverse(__first,  __middle, bidirectional_iterator_tag());
       std::__reverse(__middle, __last,   bidirectional_iterator_tag());
@@ -1298,14 +1308,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
 
       if (__first == __middle)
-	std::__reverse(__middle, __last,   bidirectional_iterator_tag());
+	{
+	  std::__reverse(__middle, __last,   bidirectional_iterator_tag());
+	  return __last;
+	}
       else
-	std::__reverse(__first,  __middle, bidirectional_iterator_tag());
+	{
+	  std::__reverse(__first,  __middle, bidirectional_iterator_tag());
+	  return __first;
+	}
     }
 
   /// This is a helper function for the rotate algorithm.
   template<typename _RandomAccessIterator>
-    void
+    _RandomAccessIterator
     __rotate(_RandomAccessIterator __first,
 	     _RandomAccessIterator __middle,
 	     _RandomAccessIterator __last,
@@ -1315,8 +1331,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 				  _RandomAccessIterator>)
 
-      if (__first == __middle || __last  == __middle)
-	return;
+      if (__first == __middle)
+	return __last;
+      else if (__last  == __middle)
+	return __first;
 
       typedef typename iterator_traits<_RandomAccessIterator>::difference_type
 	_Distance;
@@ -1329,10 +1347,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       if (__k == __n - __k)
 	{
 	  std::swap_ranges(__first, __middle, __middle);
-	  return;
+	  return __middle;
 	}
 
       _RandomAccessIterator __p = __first;
+      _RandomAccessIterator __ret = __first + (__last - __middle);
 
       for (;;)
 	{
@@ -1343,7 +1362,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		  _ValueType __t = _GLIBCXX_MOVE(*__p);
 		  _GLIBCXX_MOVE3(__p + 1, __p + __n, __p);
 		  *(__p + __n - 1) = _GLIBCXX_MOVE(__t);
-		  return;
+		  return __ret;
 		}
 	      _RandomAccessIterator __q = __p + __k;
 	      for (_Distance __i = 0; __i < __n - __k; ++ __i)
@@ -1354,7 +1373,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		}
 	      __n %= __k;
 	      if (__n == 0)
-		return;
+		return __ret;
 	      std::swap(__n, __k);
 	      __k = __n - __k;
 	    }
@@ -1366,7 +1385,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		  _ValueType __t = _GLIBCXX_MOVE(*(__p + __n - 1));
 		  _GLIBCXX_MOVE_BACKWARD3(__p, __p + __n - 1, __p + __n);
 		  *__p = _GLIBCXX_MOVE(__t);
-		  return;
+		  return __ret;
 		}
 	      _RandomAccessIterator __q = __p + __n;
 	      __p = __q - __k;
@@ -1378,19 +1397,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		}
 	      __n %= __k;
 	      if (__n == 0)
-		return;
+		return __ret;
 	      std::swap(__n, __k);
 	    }
 	}
     }
 
+   // _GLIBCXX_RESOLVE_LIB_DEFECTS
+   // DR 488. rotate throws away useful information
   /**
    *  @brief Rotate the elements of a sequence.
    *  @ingroup mutating_algorithms
    *  @param  __first   A forward iterator.
    *  @param  __middle  A forward iterator.
    *  @param  __last    A forward iterator.
-   *  @return  Nothing.
+   *  @return  first + (last - middle).
    *
    *  Rotates the elements of the range @p [__first,__last) by 
    *  @p (__middle - __first) positions so that the element at @p __middle
@@ -1406,7 +1427,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  for each @p n in the range @p [0,__last-__first).
   */
   template<typename _ForwardIterator>
-    inline void
+    inline _ForwardIterator
     rotate(_ForwardIterator __first, _ForwardIterator __middle,
 	   _ForwardIterator __last)
     {
@@ -1416,9 +1437,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __glibcxx_requires_valid_range(__first, __middle);
       __glibcxx_requires_valid_range(__middle, __last);
 
-      std::__rotate(__first, __middle, __last,
-		    std::__iterator_category(__first));
+      return std::__rotate(__first, __middle, __last,
+			   std::__iterator_category(__first));
     }
+
+  } // namespace _V2
 
   /**
    *  @brief Copy a sequence, rotating its elements.
@@ -2782,7 +2805,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	else if (__comp(__first1, __first2))
 	  ++__first1;
 	else
-	  ++__first1, ++__first2;
+	  {
+	    ++__first1;
+	    ++__first2;
+	  }
 
       return __first2 == __last2;
     }
@@ -3085,7 +3111,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		      _OutputIterator __result,
 		      _Predicate __pred, const _Tp& __new_value)
     {
-      for (; __first != __last; ++__first, ++__result)
+      for (; __first != __last; ++__first, (void)++__result)
 	if (__pred(__first))
 	  *__result = __new_value;
 	else
@@ -3209,7 +3235,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return __last;
 
       _ForwardIterator __next = __first;
-      for (++__next; __next != __last; __first = __next, ++__next)
+      for (++__next; __next != __last; __first = __next, (void)++__next)
 	if (__comp(__next, __first))
 	  return __next;
       return __next;
@@ -3468,7 +3494,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       // Efficiently compare identical prefixes:  O(N) if sequences
       // have the same elements in the same order.
-      for (; __first1 != __last1; ++__first1, ++__first2)
+      for (; __first1 != __last1; ++__first1, (void)++__first2)
 	if (!__pred(__first1, __first2))
 	  break;
 
@@ -3583,7 +3609,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       // Efficiently compare identical prefixes:  O(N) if sequences
       // have the same elements in the same order.
-      for (; __first1 != __last1; ++__first1, ++__first2)
+      for (; __first1 != __last1 && __first2 != __last2;
+	  ++__first1, (void)++__first2)
 	if (!__pred(__first1, __first2))
 	  break;
 
@@ -4147,7 +4174,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
             __typeof__(__unary_op(*__first))>)
       __glibcxx_requires_valid_range(__first, __last);
 
-      for (; __first != __last; ++__first, ++__result)
+      for (; __first != __last; ++__first, (void)++__result)
 	*__result = __unary_op(*__first);
       return __result;
     }
@@ -4186,7 +4213,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
             __typeof__(__binary_op(*__first1,*__first2))>)
       __glibcxx_requires_valid_range(__first1, __last1);
 
-      for (; __first1 != __last1; ++__first1, ++__first2, ++__result)
+      for (; __first1 != __last1; ++__first1, (void)++__first2, ++__result)
 	*__result = __binary_op(*__first1, *__first2);
       return __result;
     }
@@ -4396,6 +4423,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
 				std::__iterator_category(__result));
     }
 
+#if _GLIBCXX_HOSTED
   /**
    *  @brief Randomly shuffle the elements of a sequence.
    *  @ingroup mutating_algorithms
@@ -4426,6 +4454,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
 	      std::iter_swap(__i, __j);
 	  }
     }
+#endif
 
   /**
    *  @brief Shuffle the elements of a sequence using a random number

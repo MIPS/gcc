@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -509,5 +509,6 @@ extern tree add_builtin_type (const char *name, tree type);
 
 extern bool lang_GNU_C (void);
 extern bool lang_GNU_CXX (void);
+extern bool lang_GNU_Fortran (void);
  
 #endif /* GCC_LANG_HOOKS_H */

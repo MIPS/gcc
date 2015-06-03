@@ -1,5 +1,5 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -76,18 +76,38 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
+#include "hashtab.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "gimple-pretty-print.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
@@ -985,6 +1005,22 @@ dr_analyze_indices (struct data_reference *dr, loop_p nest, loop_p loop)
 				fold_convert (ssizetype, memoff));
 	      memoff = build_int_cst (TREE_TYPE (memoff), 0);
 	    }
+	  /* Adjust the offset so it is a multiple of the access type
+	     size and thus we separate bases that can possibly be used
+	     to produce partial overlaps (which the access_fn machinery
+	     cannot handle).  */
+	  wide_int rem;
+	  if (TYPE_SIZE_UNIT (TREE_TYPE (ref))
+	      && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (ref))) == INTEGER_CST
+	      && !integer_zerop (TYPE_SIZE_UNIT (TREE_TYPE (ref))))
+	    rem = wi::mod_trunc (off, TYPE_SIZE_UNIT (TREE_TYPE (ref)), SIGNED);
+	  else
+	    /* If we can't compute the remainder simply force the initial
+	       condition to zero.  */
+	    rem = off;
+	  off = wide_int_to_tree (ssizetype, wi::sub (off, rem));
+	  memoff = wide_int_to_tree (TREE_TYPE (memoff), rem);
+	  /* And finally replace the initial condition.  */
 	  access_fn = chrec_replace_initial_condition
 	      (access_fn, fold_convert (orig_type, off));
 	  /* ???  This is still not a suitable base object for
@@ -1000,6 +1036,7 @@ dr_analyze_indices (struct data_reference *dr, loop_p nest, loop_p loop)
 				 base, memoff);
 	  MR_DEPENDENCE_CLIQUE (ref) = MR_DEPENDENCE_CLIQUE (old);
 	  MR_DEPENDENCE_BASE (ref) = MR_DEPENDENCE_BASE (old);
+	  DR_UNCONSTRAINED_BASE (dr) = true;
 	  access_fns.safe_push (access_fn);
 	}
     }
@@ -1417,7 +1454,8 @@ dr_may_alias_p (const struct data_reference *a, const struct data_reference *b,
      offset/overlap based analysis but have to rely on points-to
      information only.  */
   if (TREE_CODE (addr_a) == MEM_REF
-      && TREE_CODE (TREE_OPERAND (addr_a, 0)) == SSA_NAME)
+      && (DR_UNCONSTRAINED_BASE (a)
+	  || TREE_CODE (TREE_OPERAND (addr_a, 0)) == SSA_NAME))
     {
       /* For true dependences we can apply TBAA.  */
       if (flag_strict_aliasing
@@ -1433,7 +1471,8 @@ dr_may_alias_p (const struct data_reference *a, const struct data_reference *b,
 				       build_fold_addr_expr (addr_b));
     }
   else if (TREE_CODE (addr_b) == MEM_REF
-	   && TREE_CODE (TREE_OPERAND (addr_b, 0)) == SSA_NAME)
+	   && (DR_UNCONSTRAINED_BASE (b)
+	       || TREE_CODE (TREE_OPERAND (addr_b, 0)) == SSA_NAME))
     {
       /* For true dependences we can apply TBAA.  */
       if (flag_strict_aliasing
@@ -2375,18 +2414,6 @@ lambda_matrix_row_add (lambda_matrix mat, int n, int r1, int r2, int const1)
     mat[r2][i] += const1 * mat[r1][i];
 }
 
-/* Swap rows R1 and R2 in matrix MAT.  */
-
-static void
-lambda_matrix_row_exchange (lambda_matrix mat, int r1, int r2)
-{
-  lambda_vector row;
-
-  row = mat[r1];
-  mat[r1] = mat[r2];
-  mat[r2] = row;
-}
-
 /* Multiply vector VEC1 of length SIZE by a constant CONST1,
    and store the result in VEC2.  */
 
@@ -2467,10 +2494,10 @@ lambda_matrix_right_hermite (lambda_matrix A, int m, int n,
 		  factor = sigma * (a / b);
 
 		  lambda_matrix_row_add (S, n, i, i-1, -factor);
-		  lambda_matrix_row_exchange (S, i, i-1);
+		  std::swap (S[i], S[i-1]);
 
 		  lambda_matrix_row_add (U, m, i, i-1, -factor);
-		  lambda_matrix_row_exchange (U, i, i-1);
+		  std::swap (U[i], U[i-1]);
 		}
 	    }
 	}

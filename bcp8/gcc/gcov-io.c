@@ -1,5 +1,5 @@
 /* File format for coverage information
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -39,7 +39,7 @@ static void gcov_allocate (unsigned);
 /* Optimum number of gcov_unsigned_t's read from or written to disk.  */
 #define GCOV_BLOCK_SIZE (1 << 10)
 
-GCOV_LINKAGE ATTRIBUTE_HIDDEN struct gcov_var
+struct gcov_var
 {
   FILE *file;
   gcov_position_t start;	/* Position of first byte of block */

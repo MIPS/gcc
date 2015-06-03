@@ -89,6 +89,12 @@
 #endif
 
 
+/* Define if your target supports default PIE and it is enabled. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_DEFAULT_PIE
+#endif
+
+
 /* Define if you want more run-time sanity checks for dataflow. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_DF_CHECKING
@@ -244,6 +250,18 @@
 /* mcontext_t fields start with __ */
 #ifndef USED_FOR_TARGET
 #undef HAS_MCONTEXT_T_UNDERSCORES
+#endif
+
+
+/* Define if your avr assembler supports --mlink-relax option. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_AVR_MLINK_RELAX_OPTION
+#endif
+
+
+/* Define if your avr assembler supports -mrmw option. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_AVR_MRMW_OPTION
 #endif
 
 
@@ -606,12 +624,6 @@
 #endif
 
 
-/* Define to 1 if you have the `atoll' function. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_ATOLL
-#endif
-
-
 /* Define to 1 if you have the `atoq' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_ATOQ
@@ -668,8 +680,15 @@
 #endif
 
 
-/* Define to 1 if we found a declaration for 'basename', otherwise define to
-   0. */
+/* Define to 1 if we found a declaration for 'atoll', otherwise define to 0.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_ATOLL
+#endif
+
+
+/* Define to 1 if you have the declaration of `basename(const char*)', and to
+   0 if you don't. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_DECL_BASENAME
 #endif
@@ -945,8 +964,8 @@
 #endif
 
 
-/* Define to 1 if we found a declaration for 'strstr', otherwise define to 0.
-   */
+/* Define to 1 if you have the declaration of `strstr(const char*,const
+   char*)', and to 0 if you don't. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_DECL_STRSTR
 #endif
@@ -1095,6 +1114,12 @@
 /* Define to 1 if you have the `fread_unlocked' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_FREAD_UNLOCKED
+#endif
+
+
+/* Define to 1 if you have the <ftw.h> header file. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_FTW_H
 #endif
 
 
@@ -1889,6 +1914,12 @@
 /* Specify plugin linker */
 #ifndef USED_FOR_TARGET
 #undef PLUGIN_LD_SUFFIX
+#endif
+
+
+/* Define to .TOC. alignment forced by your linker. */
+#ifndef USED_FOR_TARGET
+#undef POWERPC64_TOC_POINTER_ALIGNMENT
 #endif
 
 

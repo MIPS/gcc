@@ -147,7 +147,6 @@ GLIBCXX_ENABLE_HOSTED
 GLIBCXX_ENABLE_VERBOSE
 
 # Enable compiler support that doesn't require linking.
-GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
 GLIBCXX_ENABLE_PCH($is_hosted)
 GLIBCXX_ENABLE_THREADS
 GLIBCXX_ENABLE_ATOMIC_BUILTINS
@@ -401,6 +400,11 @@ GLIBCXX_CONFIGURE_TESTSUITE
 
 # For gthread support.  Depends on GLIBCXX_ENABLE_SYMVERS.
 GLIBCXX_CHECK_GTHREADS
+
+# For Filesystem TS.
+AC_CHECK_HEADERS([fcntl.h dirent.h sys/statvfs.h utime.h])
+GLIBCXX_ENABLE_FILESYSTEM_TS
+GLIBCXX_CHECK_FILESYSTEM_DEPS
 
 # Define documentation rules conditionally.
 

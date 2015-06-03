@@ -1,5 +1,5 @@
 /* Machine description for AArch64 architecture.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -41,7 +41,7 @@
 
   BUILTIN_VDC (COMBINE, combine, 0)
   BUILTIN_VB (BINOP, pmul, 0)
-  BUILTIN_VDQF (UNOP, sqrt, 2)
+  BUILTIN_VDQF_DF (UNOP, sqrt, 2)
   BUILTIN_VD_BHSI (BINOP, addp, 0)
   VAR1 (UNOP, addp, 0, di)
   BUILTIN_VDQ_BHSI (UNOP, clrsb, 2)
@@ -250,6 +250,16 @@
   BUILTIN_VDQF (BINOP, smax_nan, 3)
   BUILTIN_VDQF (BINOP, smin_nan, 3)
 
+  /* Implemented by aarch64_<maxmin_uns>p<mode>.  */
+  BUILTIN_VDQ_BHSI (BINOP, smaxp, 0)
+  BUILTIN_VDQ_BHSI (BINOP, sminp, 0)
+  BUILTIN_VDQ_BHSI (BINOP, umaxp, 0)
+  BUILTIN_VDQ_BHSI (BINOP, uminp, 0)
+  BUILTIN_VDQF (BINOP, smaxp, 0)
+  BUILTIN_VDQF (BINOP, sminp, 0)
+  BUILTIN_VDQF (BINOP, smax_nanp, 0)
+  BUILTIN_VDQF (BINOP, smin_nanp, 0)
+
   /* Implemented by <frint_pattern><mode>2.  */
   BUILTIN_VDQF (UNOP, btrunc, 2)
   BUILTIN_VDQF (UNOP, ceil, 2)
@@ -348,7 +358,8 @@
 
   /* Implemented by a mixture of abs2 patterns.  Note the DImode builtin is
      only ever used for the int64x1_t intrinsic, there is no scalar version.  */
-  BUILTIN_VALLDI (UNOP, abs, 2)
+  BUILTIN_VSDQ_I_DI (UNOP, abs, 0)
+  BUILTIN_VDQF (UNOP, abs, 2)
 
   VAR1 (UNOP, vec_unpacks_hi_, 10, v4sf)
   VAR1 (BINOP, float_truncate_hi_, 0, v4sf)

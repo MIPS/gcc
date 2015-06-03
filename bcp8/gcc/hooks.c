@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -376,14 +376,6 @@ unsigned int
 hook_uint_mode_0 (machine_mode m ATTRIBUTE_UNUSED)
 {
   return 0;
-}
-
-/* Generic hook that takes three trees and returns the last one as is.  */
-tree
-hook_tree_tree_tree_tree_3rd_identity (tree a ATTRIBUTE_UNUSED,
-				       tree b ATTRIBUTE_UNUSED, tree c)
-{
-  return c;
 }
 
 /* Generic hook that takes no arguments and returns a NULL const string.  */

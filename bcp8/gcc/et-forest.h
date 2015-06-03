@@ -1,5 +1,5 @@
 /* Et-forest data structure implementation.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -66,6 +66,21 @@ struct et_node
 
   struct et_occ *rightmost_occ;	/* The rightmost occurrence.  */
   struct et_occ *parent_occ;	/* The occurrence of the parent node.  */
+
+  /* Pool allocation new operator.  */
+  inline void *operator new (size_t)
+  {
+    return pool.allocate ();
+  }
+
+  /* Delete operator utilizing pool allocation.  */
+  inline void operator delete (void *ptr)
+  {
+    pool.remove ((et_node *) ptr);
+  }
+
+  /* Memory allocation pool.  */
+  static pool_allocator<et_node> pool;
 };
 
 struct et_node *et_new_tree (void *data);

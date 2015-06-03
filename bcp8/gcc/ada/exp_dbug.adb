@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1996-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -634,15 +634,12 @@ package body Exp_Dbug is
             Add_Real_To_Buffer (Small_Value (E));
          end if;
 
-      --  Discrete case where bounds do not match size. Match only biased
-      --  types when asked to output as little encodings as possible.
+      --  Discrete case where bounds do not match size. Not necessary if we can
+      --  emit standard DWARF.
 
-      elsif ((GNAT_Encodings /= DWARF_GNAT_Encodings_Minimal
-               and then Is_Discrete_Type (E))
-             or else
-             (GNAT_Encodings = DWARF_GNAT_Encodings_Minimal
-               and then Has_Biased_Representation (E)))
-            and then not Bounds_Match_Size (E)
+      elsif GNAT_Encodings /= DWARF_GNAT_Encodings_Minimal
+        and then Is_Discrete_Type (E)
+        and then not Bounds_Match_Size (E)
       then
          declare
             Lo : constant Node_Id := Type_Low_Bound (E);
@@ -1101,10 +1098,21 @@ package body Exp_Dbug is
    procedure Qualify_All_Entity_Names is
       E   : Entity_Id;
       Ent : Entity_Id;
+      Nod : Node_Id;
 
    begin
       for J in Name_Qualify_Units.First .. Name_Qualify_Units.Last loop
-         E := Defining_Entity (Name_Qualify_Units.Table (J));
+         Nod := Name_Qualify_Units.Table (J);
+
+         --  When a scoping construct is ignored Ghost, it is rewritten as
+         --  a null statement. Skip such constructs as they no longer carry
+         --  names.
+
+         if Nkind (Nod) = N_Null_Statement then
+            goto Continue;
+         end if;
+
+         E := Defining_Entity (Nod);
          Reset_Buffers;
          Qualify_Entity_Name (E);
 
@@ -1128,6 +1136,9 @@ package body Exp_Dbug is
                exit when Ent = E;
             end loop;
          end if;
+
+         <<Continue>>
+         null;
       end loop;
    end Qualify_All_Entity_Names;
 

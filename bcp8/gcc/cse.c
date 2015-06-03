@@ -1,5 +1,5 @@
 /* Common subexpression elimination for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -41,6 +41,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
+#include "symtab.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
@@ -265,7 +281,6 @@ struct qty_table_elem
 /* The table of all qtys, indexed by qty number.  */
 static struct qty_table_elem *qty_table;
 
-#ifdef HAVE_cc0
 /* For machines that have a CC0, we do not record its value in the hash
    table since its use is guaranteed to be the insn immediately following
    its definition and any other insn is presumed to invalidate it.
@@ -277,7 +292,6 @@ static struct qty_table_elem *qty_table;
 
 static rtx this_insn_cc0, prev_insn_cc0;
 static machine_mode this_insn_cc0_mode, prev_insn_cc0_mode;
-#endif
 
 /* Insn being scanned.  */
 
@@ -868,9 +882,7 @@ new_basic_block (void)
 	}
     }
 
-#ifdef HAVE_cc0
   prev_insn_cc0 = 0;
-#endif
 }
 
 /* Say that register REG contains a quantity in mode MODE not in any
@@ -1791,6 +1803,8 @@ merge_equiv_classes (struct table_elt *class1, struct table_elt *class2)
 	    }
 	  new_elt = insert (exp, class1, hash, mode);
 	  new_elt->in_memory = hash_arg_in_memory;
+	  if (GET_CODE (exp) == ASM_OPERANDS && elt->cost == MAX_COST)
+	    new_elt->cost = MAX_COST;
 	}
     }
 }
@@ -1880,7 +1894,7 @@ invalidate (rtx x, machine_mode full_mode)
 	  {
 	    HOST_WIDE_INT in_table
 	      = TEST_HARD_REG_BIT (hard_regs_in_table, regno);
-	    unsigned int endregno = END_HARD_REGNO (x);
+	    unsigned int endregno = END_REGNO (x);
 	    unsigned int tregno, tendregno, rn;
 	    struct table_elt *p, *next;
 
@@ -1906,7 +1920,7 @@ invalidate (rtx x, machine_mode full_mode)
 		      continue;
 
 		    tregno = REGNO (p->exp);
-		    tendregno = END_HARD_REGNO (p->exp);
+		    tendregno = END_REGNO (p->exp);
 		    if (tendregno > regno && tregno < endregno)
 		      remove_from_table (p, hash);
 		  }
@@ -1966,6 +1980,22 @@ invalidate (rtx x, machine_mode full_mode)
       gcc_unreachable ();
     }
 }
+
+/* Invalidate DEST.  Used when DEST is not going to be added
+   into the hash table for some reason, e.g. do_not_record
+   flagged on it.  */
+
+static void
+invalidate_dest (rtx dest)
+{
+  if (REG_P (dest)
+      || GET_CODE (dest) == SUBREG
+      || MEM_P (dest))
+    invalidate (dest, VOIDmode);
+  else if (GET_CODE (dest) == STRICT_LOW_PART
+	   || GET_CODE (dest) == ZERO_EXTRACT)
+    invalidate (XEXP (dest, 0), GET_MODE (dest));
+}
 
 /* Remove all expressions that refer to register REGNO,
    since they are already invalid, and we are about to
@@ -1982,8 +2012,7 @@ remove_invalid_refs (unsigned int regno)
     for (p = table[i]; p; p = next)
       {
 	next = p->next_same_hash;
-	if (!REG_P (p->exp)
-	    && refers_to_regno_p (regno, regno + 1, p->exp, (rtx *) 0))
+	if (!REG_P (p->exp) && refers_to_regno_p (regno, p->exp))
 	  remove_from_table (p, i);
       }
 }
@@ -2011,7 +2040,7 @@ remove_invalid_subreg_refs (unsigned int regno, unsigned int offset,
 		|| (((SUBREG_BYTE (exp)
 		      + (GET_MODE_SIZE (GET_MODE (exp)) - 1)) >= offset)
 		    && SUBREG_BYTE (exp) <= end))
-	    && refers_to_regno_p (regno, regno + 1, p->exp, (rtx *) 0))
+	    && refers_to_regno_p (regno, p->exp))
 	  remove_from_table (p, i);
       }
 }
@@ -2110,7 +2139,7 @@ invalidate_for_call (void)
 	    continue;
 
 	  regno = REGNO (p->exp);
-	  endregno = END_HARD_REGNO (p->exp);
+	  endregno = END_REGNO (p->exp);
 
 	  for (i = regno; i < endregno; i++)
 	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
@@ -3093,8 +3122,10 @@ fold_rtx (rtx x, rtx_insn *insn)
   int changed = 0;
 
   /* Operands of X.  */
-  rtx folded_arg0;
-  rtx folded_arg1;
+  /* Workaround -Wmaybe-uninitialized false positive during
+     profiledbootstrap by initializing them.  */
+  rtx folded_arg0 = NULL_RTX;
+  rtx folded_arg1 = NULL_RTX;
 
   /* Constant equivalents of first three operands of X;
      0 when no such equivalent is known.  */
@@ -3115,6 +3146,15 @@ fold_rtx (rtx x, rtx_insn *insn)
     {
     case MEM:
     case SUBREG:
+    /* The first operand of a SIGN/ZERO_EXTRACT has a different meaning
+       than it would in other contexts.  Basically its mode does not
+       signify the size of the object read.  That information is carried
+       by size operand.    If we happen to have a MEM of the appropriate
+       mode in our tables with a constant value we could simplify the
+       extraction incorrectly if we allowed substitution of that value
+       for the MEM.   */
+    case ZERO_EXTRACT:
+    case SIGN_EXTRACT:
       if ((new_rtx = equiv_constant (x)) != NULL_RTX)
         return new_rtx;
       return x;
@@ -3131,10 +3171,8 @@ fold_rtx (rtx x, rtx_insn *insn)
     case EXPR_LIST:
       return x;
 
-#ifdef HAVE_cc0
     case CC0:
       return prev_insn_cc0;
-#endif
 
     case ASM_OPERANDS:
       if (insn)
@@ -3145,12 +3183,10 @@ fold_rtx (rtx x, rtx_insn *insn)
 	}
       return x;
 
-#ifdef NO_FUNCTION_CSE
     case CALL:
-      if (CONSTANT_P (XEXP (XEXP (x, 0), 0)))
+      if (NO_FUNCTION_CSE && CONSTANT_P (XEXP (XEXP (x, 0), 0)))
 	return x;
       break;
-#endif
 
     /* Anything else goes through the loop below.  */
     default:
@@ -3188,7 +3224,6 @@ fold_rtx (rtx x, rtx_insn *insn)
 	    const_arg = folded_arg;
 	    break;
 
-#ifdef HAVE_cc0
 	  case CC0:
 	    /* The cc0-user and cc0-setter may be in different blocks if
 	       the cc0-setter potentially traps.  In that case PREV_INSN_CC0
@@ -3212,7 +3247,6 @@ fold_rtx (rtx x, rtx_insn *insn)
 		const_arg = equiv_constant (folded_arg);
 	      }
 	    break;
-#endif
 
 	  default:
 	    folded_arg = fold_rtx (folded_arg, insn);
@@ -4258,7 +4292,7 @@ find_sets_in_insn (rtx_insn *insn, struct set **psets)
     {
       int i, lim = XVECLEN (x, 0);
 
-      /* Go over the epressions of the PARALLEL in forward order, to
+      /* Go over the expressions of the PARALLEL in forward order, to
 	 put them in the same order in the SETS array.  */
       for (i = 0; i < lim; i++)
 	{
@@ -4487,11 +4521,9 @@ cse_insn (rtx_insn *insn)
     sets = XALLOCAVEC (struct set, XVECLEN (x, 0));
 
   this_insn = insn;
-#ifdef HAVE_cc0
   /* Records what this insn does to set CC0.  */
   this_insn_cc0 = 0;
   this_insn_cc0_mode = VOIDmode;
-#endif
 
   /* Find all regs explicitly clobbered in this insn,
      to ensure they are not replaced with any other regs
@@ -4634,12 +4666,27 @@ cse_insn (rtx_insn *insn)
 	  && REGNO (dest) >= FIRST_PSEUDO_REGISTER)
 	sets[i].src_volatile = 1;
 
-      /* Also do not record result of a non-volatile inline asm with
-	 more than one result or with clobbers, we do not want CSE to
-	 break the inline asm apart.  */
       else if (GET_CODE (src) == ASM_OPERANDS
 	       && GET_CODE (x) == PARALLEL)
-	sets[i].src_volatile = 1;
+	{
+	  /* Do not record result of a non-volatile inline asm with
+	     more than one result.  */
+	  if (n_sets > 1)
+	    sets[i].src_volatile = 1;
+
+	  int j, lim = XVECLEN (x, 0);
+	  for (j = 0; j < lim; j++)
+	    {
+	      rtx y = XVECEXP (x, 0, j);
+	      /* And do not record result of a non-volatile inline asm
+		 with "memory" clobber.  */
+	      if (GET_CODE (y) == CLOBBER && MEM_P (XEXP (y, 0)))
+		{
+		  sets[i].src_volatile = 1;
+		  break;
+		}
+	    }
+	}
 
 #if 0
       /* It is no longer clear why we used to do this, but it doesn't
@@ -5230,8 +5277,8 @@ cse_insn (rtx_insn *insn)
 	    ;
 
 	  /* Look for a substitution that makes a valid insn.  */
-	  else if (validate_unshare_change
-		     (insn, &SET_SRC (sets[i].rtl), trial, 0))
+	  else if (validate_unshare_change (insn, &SET_SRC (sets[i].rtl),
+					    trial, 0))
 	    {
 	      rtx new_rtx = canon_reg (SET_SRC (sets[i].rtl), insn);
 
@@ -5476,20 +5523,21 @@ cse_insn (rtx_insn *insn)
 
       else if (do_not_record)
 	{
-	  if (REG_P (dest) || GET_CODE (dest) == SUBREG)
-	    invalidate (dest, VOIDmode);
-	  else if (MEM_P (dest))
-	    invalidate (dest, VOIDmode);
-	  else if (GET_CODE (dest) == STRICT_LOW_PART
-		   || GET_CODE (dest) == ZERO_EXTRACT)
-	    invalidate (XEXP (dest, 0), GET_MODE (dest));
+	  invalidate_dest (dest);
 	  sets[i].rtl = 0;
 	}
 
       if (sets[i].rtl != 0 && dest != SET_DEST (sets[i].rtl))
-	sets[i].dest_hash = HASH (SET_DEST (sets[i].rtl), mode);
+	{
+	  do_not_record = 0;
+	  sets[i].dest_hash = HASH (SET_DEST (sets[i].rtl), mode);
+	  if (do_not_record)
+	    {
+	      invalidate_dest (SET_DEST (sets[i].rtl));
+	      sets[i].rtl = 0;
+	    }
+	}
 
-#ifdef HAVE_cc0
       /* If setting CC0, record what it was set to, or a constant, if it
 	 is equivalent to a constant.  If it is being set to a floating-point
 	 value, make a COMPARE with the appropriate constant of 0.  If we
@@ -5504,7 +5552,6 @@ cse_insn (rtx_insn *insn)
 	    this_insn_cc0 = gen_rtx_COMPARE (VOIDmode, this_insn_cc0,
 					     CONST0_RTX (mode));
 	}
-#endif
     }
 
   /* Now enter all non-volatile source expressions in the hash table
@@ -5593,6 +5640,12 @@ cse_insn (rtx_insn *insn)
 		  }
 		elt = insert (src, classp, sets[i].src_hash, mode);
 		elt->in_memory = sets[i].src_in_memory;
+		/* If inline asm has any clobbers, ensure we only reuse
+		   existing inline asms and never try to put the ASM_OPERANDS
+		   into an insn that isn't inline asm.  */
+		if (GET_CODE (src) == ASM_OPERANDS
+		    && GET_CODE (x) == PARALLEL)
+		  elt->cost = MAX_COST;
 		sets[i].src_elt = classp = elt;
 	      }
 	    if (sets[i].src_const && sets[i].src_const_elt == 0
@@ -5906,6 +5959,9 @@ cse_insn (rtx_insn *insn)
 		      }
 		    src_elt = insert (new_src, classp, src_hash, new_mode);
 		    src_elt->in_memory = elt->in_memory;
+		    if (GET_CODE (new_src) == ASM_OPERANDS
+			&& elt->cost == MAX_COST)
+		      src_elt->cost = MAX_COST;
 		  }
 		else if (classp && classp != src_elt->first_same_value)
 		  /* Show that two things that we've seen before are
@@ -6466,8 +6522,7 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 		  && check_for_label_ref (insn))
 		recorded_label_ref = true;
 
-#ifdef HAVE_cc0
-	      if (NONDEBUG_INSN_P (insn))
+	      if (HAVE_cc0 && NONDEBUG_INSN_P (insn))
 		{
 		  /* If the previous insn sets CC0 and this insn no
 		     longer references CC0, delete the previous insn.
@@ -6494,7 +6549,6 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 		      prev_insn_cc0_mode = this_insn_cc0_mode;
 		    }
 		}
-#endif
 	    }
 	}
 
@@ -6543,11 +6597,9 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 	  record_jump_equiv (insn, taken);
 	}
 
-#ifdef HAVE_cc0
       /* Clear the CC0-tracking related insns, they can't provide
 	 useful information across basic block boundaries.  */
       prev_insn_cc0 = 0;
-#endif
     }
 
   gcc_assert (next_qty <= max_qty);
@@ -6798,21 +6850,17 @@ static bool
 set_live_p (rtx set, rtx_insn *insn ATTRIBUTE_UNUSED, /* Only used with HAVE_cc0.  */
 	    int *counts)
 {
-#ifdef HAVE_cc0
   rtx tem;
-#endif
 
   if (set_noop_p (set))
     ;
 
-#ifdef HAVE_cc0
   else if (GET_CODE (SET_DEST (set)) == CC0
 	   && !side_effects_p (SET_SRC (set))
 	   && ((tem = next_nonnote_nondebug_insn (insn)) == NULL_RTX
 	       || !INSN_P (tem)
 	       || !reg_referenced_p (cc0_rtx, PATTERN (tem))))
     return false;
-#endif
   else if (!is_dead_reg (SET_DEST (set), counts)
 	   || side_effects_p (SET_SRC (set)))
     return true;
@@ -7083,7 +7131,7 @@ delete_trivially_dead_insns (rtx_insn *insns, int nreg)
 
 static void
 cse_change_cc_mode (subrtx_ptr_iterator::array_type &array,
-		    rtx *loc, rtx insn, rtx newreg)
+		    rtx *loc, rtx_insn *insn, rtx newreg)
 {
   FOR_EACH_SUBRTX_PTR (iter, array, loc, NONCONST)
     {

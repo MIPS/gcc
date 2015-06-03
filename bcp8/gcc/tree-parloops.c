@@ -1,5 +1,5 @@
 /* Loop autoparallelization.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr> 
    Zdenek Dvorak <dvorakz@suse.cz> and Razya Ladelsky <razya@il.ibm.com>.
 
@@ -22,12 +22,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
 #include "hash-set.h"
 #include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -68,6 +75,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-parloops.h"
 #include "omp-low.h"
 #include "tree-nested.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 
 /* This pass tries to distribute iterations of loops into several threads.
    The implementation is straightforward -- for each loop we test whether its
@@ -218,22 +228,22 @@ struct reduction_info
 
 struct reduction_hasher : typed_free_remove <reduction_info>
 {
-  typedef reduction_info value_type;
-  typedef reduction_info compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef reduction_info *value_type;
+  typedef reduction_info *compare_type;
+  static inline hashval_t hash (const reduction_info *);
+  static inline bool equal (const reduction_info *, const reduction_info *);
 };
 
 /* Equality and hash functions for hashtab code.  */
 
 inline bool
-reduction_hasher::equal (const value_type *a, const compare_type *b)
+reduction_hasher::equal (const reduction_info *a, const reduction_info *b)
 {
   return (a->reduc_phi == b->reduc_phi);
 }
 
 inline hashval_t
-reduction_hasher::hash (const value_type *a)
+reduction_hasher::hash (const reduction_info *a)
 {
   return a->reduc_version;
 }
@@ -270,22 +280,22 @@ struct name_to_copy_elt
 
 struct name_to_copy_hasher : typed_free_remove <name_to_copy_elt>
 {
-  typedef name_to_copy_elt value_type;
-  typedef name_to_copy_elt compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef name_to_copy_elt *value_type;
+  typedef name_to_copy_elt *compare_type;
+  static inline hashval_t hash (const name_to_copy_elt *);
+  static inline bool equal (const name_to_copy_elt *, const name_to_copy_elt *);
 };
 
 /* Equality and hash functions for hashtab code.  */
 
 inline bool
-name_to_copy_hasher::equal (const value_type *a, const compare_type *b)
+name_to_copy_hasher::equal (const name_to_copy_elt *a, const name_to_copy_elt *b)
 {
   return a->version == b->version;
 }
 
 inline hashval_t
-name_to_copy_hasher::hash (const value_type *a)
+name_to_copy_hasher::hash (const name_to_copy_elt *a)
 {
   return (hashval_t) a->version;
 }
@@ -1104,7 +1114,8 @@ create_call_for_reduction_1 (reduction_info **slot, struct clsn_data *clsn_data)
   /* Create phi node.  */
   bb = clsn_data->load_bb;
 
-  e = split_block (bb, t);
+  gsi = gsi_last_bb (bb);
+  e = split_block (bb, gsi_stmt (gsi));
   new_bb = e->dest;
 
   tmp_load = create_tmp_var (TREE_TYPE (TREE_TYPE (addr)));
@@ -1414,21 +1425,14 @@ separate_decls_in_region (edge entry, edge exit,
     }
 }
 
-/* Bitmap containing uids of functions created by parallelization.  We cannot
-   allocate it from the default obstack, as it must live across compilation
-   of several functions; we make it gc allocated instead.  */
-
-static GTY(()) bitmap parallelized_functions;
-
-/* Returns true if FN was created by create_loop_fn.  */
+/* Returns true if FN was created to run in parallel.  */
 
 bool
-parallelized_function_p (tree fn)
+parallelized_function_p (tree fndecl)
 {
-  if (!parallelized_functions || !DECL_ARTIFICIAL (fn))
-    return false;
-
-  return bitmap_bit_p (parallelized_functions, DECL_UID (fn));
+  cgraph_node *node = cgraph_node::get (fndecl);
+  gcc_assert (node != NULL);
+  return node->parallelized_function;
 }
 
 /* Creates and returns an empty function that will receive the body of
@@ -1451,10 +1455,6 @@ create_loop_fn (location_t loc)
   type = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
 
   decl = build_decl (loc, FUNCTION_DECL, name, type);
-  if (!parallelized_functions)
-    parallelized_functions = BITMAP_GGC_ALLOC ();
-  bitmap_set_bit (parallelized_functions, DECL_UID (decl));
-
   TREE_STATIC (decl) = 1;
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
@@ -2145,7 +2145,7 @@ try_create_reduction_list (loop_p loop,
    primitives.  Returns true if some loop was parallelized, false
    otherwise.  */
 
-bool
+static bool
 parallelize_loops (void)
 {
   unsigned n_threads = flag_tree_parallelize_loops;
@@ -2306,6 +2306,3 @@ make_pass_parallelize_loops (gcc::context *ctxt)
 {
   return new pass_parallelize_loops (ctxt);
 }
-
-
-#include "gt-tree-parloops.h"

@@ -1,3 +1,485 @@
+2015-06-02  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/66220:
+	* c-indentation.c (should_warn_for_misleading_indentation): Use
+	expand_location rather than expand_location_to_spelling_point.
+	Don't warn if the guarding statement is more indented than the
+	next/body stmts.
+
+2015-06-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-indentation.c (warn_for_misleading_indentation): Bail out
+	immediately if -Wmisleading-indentation isn't enabled.
+
+2015-06-01  Martin Liska  <mliska@suse.cz>
+
+	* c-format.c (check_format_arg):Use new type-based pool allocator.
+	(check_format_info_main) Likewise.
+
+2015-05-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-ada-spec.c (is_tagged_type): Test for TYPE_METHODS on main variant.
+	(has_nontrivial_methods): Likewise.
+
+2015-05-25  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_shift): Use type0.
+
+2015-05-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c/47043
+	* c-common.c (handle_deprecated_attribute): Allow CONST_DECL.
+
+2015-05-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Use if instead of #if with
+	STACK_GROWS_DOWNWARD.
+
+2015-05-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Check the value of
+	STACK_GROWS_DOWNWARD rather than if it is defined.
+
+2015-05-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+	
+	PR c/52952
+	* c-format.c (location_column_from_byte_offset): New.
+	(location_from_offset): New.
+	(struct format_wanted_type): Add offset_loc field.
+	(check_format_info): Move handling of location for extra arguments
+	closer to the point of warning.
+	(check_format_info_main): Pass the result of location_from_offset
+	to warning_at.
+	(format_type_warning): Pass the result of location_from_offset
+	to warning_at.
+
+2015-05-20  Marek Polacek  <polacek@redhat.com>
+
+	* c-omp.c (check_omp_for_incr_expr): Use BINARY_CLASS_P.
+
+2015-05-20  Marek Polacek  <polacek@redhat.com>
+
+	* c-ada-spec.c (dump_sloc): Use DECL_P.
+
+2015-05-20  Marek Polacek  <polacek@redhat.com>
+
+	* c-pragma.c: Use VAR_OR_FUNCTION_DECL_P throughout.
+	* c-common.c: Likewise.
+
+2015-05-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.h (fe_file_change): Strengthen param from
+	const line_map * to const line_map_ordinary *.
+	(pp_file_change): Likewise.
+	* c-lex.c (fe_file_change): Likewise.
+	(cb_define): Use linemap_check_ordinary when invoking
+	SOURCE_LINE.
+	(cb_undef): Likewise.
+	* c-opts.c (c_finish_options): Use linemap_check_ordinary when
+	invoking cb_file_change.
+	(c_finish_options): Likewise.
+	(push_command_line_include): Likewise.
+	(cb_file_change): Strengthen param "new_map" from
+	const line_map * to const line_map_ordinary *.
+	* c-ppoutput.c (cb_define): Likewise for local "map".
+	(pp_file_change): Likewise for param "map" and local "from".
+
+2015-05-19  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* c-common.c (shorten_compare): Use std::swap instead of explicit swaps.
+
+2015-05-18  Tom de Vries  <tom@codesourcery.com>
+
+	* c-common.c (build_va_arg_1): New function.
+	(build_va_arg): Add address operator to va_list operand if necessary.
+
+2015-05-15  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c/48956
+	* c-common.c (int_safely_convertible_to_real_p): Define.
+	(unsafe_conversion_p): Check conversions involving complex types.
+	(conversion_warning): Add new warning message for conversions which
+	discard imaginary component.
+	* c-common.h: (enum conversion_safety): Add new enumerator for such
+	conversions.
+
+2015-05-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66066
+	PR c/66127
+	* c-common.c (c_fully_fold): Pass false down to c_fully_fold_internal.
+	(c_fully_fold_internal): Fold C_MAYBE_CONST_EXPRs with
+	C_MAYBE_CONST_EXPR_INT_OPERANDS set.  Add FOR_INT_CONST argument and
+	use it.  If FOR_INT_CONST, require that all evaluated operands be
+	INTEGER_CSTs.
+
+2015-05-12  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.h (warn_for_misleading_indentation): New prototype.
+	* c-indentation.c: New file.
+	* c.opt (Wmisleading-indentation): New option.
+
+2015-05-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66010
+	* c-common.c (build_va_arg): Don't mark ap addressable unless necessary.
+
+2015-05-09  Jason Merrill  <jason@redhat.com>
+
+	* c-opts.c (c_common_post_options): Also clear
+	cpp_opts->cpp_warn_cxx11_compat.
+
+	* c-common.h (enum cxx_dialect): Add cxx_unset.
+	* c-common.c (cxx_dialect): Initialize to cxx_unset.
+	* c-opts.c (c_common_post_options): Set C++ dialect to C++98 if unset.
+
+	* c.opt (std=c++14): Remove Undocumented flag and experimental warning.
+	(std=gnu++0x): Mark as Undocumented.
+	(std=gnu++1y): Add deprecated message.
+
+2015-05-08  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wc++11-compat): Make primary.  Rename var warn_cxx11_compat.
+	* c-opts.c: Adjust.
+
+	* c.opt (Wc++0x-compat): Also set cpp_warn_cxx11_compat.
+
+2015-05-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64918
+	* c.opt (Woverride-init-side-effects): New option.
+
+2015-05-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65179
+	* c-common.c (c_fully_fold_internal): Warn when left shifting a
+	negative value.
+	* c.opt (Wshift-negative-value): New option.
+	* c-opts.c (c_common_post_options): Set warn_shift_negative_value
+	when -Wextra and C99/C++11 mode.
+
+2015-05-07  Marek Polacek  <polacek@redhat.com>
+	    Martin Uecker  <uecker@eecs.berkeley.edu>
+
+	* c-ubsan.c (ubsan_instrument_bounds): Don't skip instrumenting
+	flexible member array-like members if SANITIZE_BOUNDS_STRICT.
+
+2015-05-05  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wterminate): New.
+
+2015-04-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.c (maybe_warn_bool_compare): When comparing with 0/1,
+	require that the non-constant be of a boolean type.
+
+2015-04-29  Josh Triplett  <josh@joshtriplett.org>
+
+	* c-common.c (handle_section_attribute): Refactor to reduce
+	nesting and distinguish between error cases.
+
+2015-04-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64610
+	* c-common.c (maybe_warn_bool_compare): Warn when comparing a boolean
+	with 0/1.
+
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.h (omp_clause_mask): Unconditionally define as a class.
+	Use uint64_t instead of unsigned HOST_WIDE_INT and 64 instead of
+	HOST_BITS_PER_WIDE_INT.
+
+2015-04-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/65887
+	* c-common.c (build_va_arg): Mark va_arg ap argument as addressable.
+
+2015-04-28  Eric Botcazou  <ebotcazou@adacore.com>
+	    Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* c-ada-spec.c (in_function): Delete.
+	(dump_generic_ada_node): Do not change in_function and remove the
+	redundant code dealing with it.
+	(print_ada_declaration): Do not change in_function.  Use INDENT_INCR.
+	(print_ada_methods): Output the static member functions in a nested
+	package after the regular methods as well as associated renamings.
+
+2015-04-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65830
+	* c-common.c (c_fully_fold_internal): Use OPT_Wshift_count_negative
+	and OPT_Wshift_count_overflow.
+
+	PR c/63357
+	* c-common.c (warn_logical_operator): Warn if the operands have the
+	same expressions.
+
+2015-04-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61534
+	* c-common.c (warn_logical_operator): Bail if either operand comes
+	from a macro expansion.
+
+2015-04-10  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	PR target/55143
+	* c-common.c (c_default_pointer_mode): Add definition.
+	* c-common.h (c_default_pointer_mode): Add declaration.
+
+2015-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.c (c_common_nodes_and_builtins): Don't call xstrdup
+	on record_builtin_type argument.
+
+2015-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/65120
+	* c-common.c (warn_logical_not_parentheses): Don't warn for
+	!x == 0 or !x != 0.
+
+2015-03-07  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/65280
+	* c-ubsan.c (ubsan_instrument_bounds): Check for COMPONENT_REF
+	before trying to figure out whether we have a flexible array member.
+
+2015-03-06  Eric Botcazou  <ebotcazou@adacore.com>
+            Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* c-ada-spec.c (dump_ada_double_name): Fix pasto.
+
+2015-03-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/65319
+	* c-ada-spec.c (print_destructor): Remove obsolete code.
+
+2015-03-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-ada-spec.c (is_tagged_type): Add guard for DECL_VINDEX.
+	(dump_template_types): Adjust DECL_TEMPLATE_INSTANTIATIONS and
+	DECL_TEMPLATE_RESULT emulations.
+	(dump_ada_template)): Add guard for TYPE_METHODS.
+
+2015-02-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65040
+	* c.opt (Wformat-signedness): Don't enable by -Wformat=2.
+
+2015-02-27  Kai Tietz  <ktietz@redhat.com>
+
+	PR c/35330
+	* c-pragma.c (handle_pragma_weak): Do not try to create
+	weak/alias of declarations not being function, or variable
+	declarations.
+
+2015-02-24  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR libgomp/64625
+	* c-common.c (DEF_FUNCTION_TYPE_VAR_8, DEF_FUNCTION_TYPE_VAR_12):
+	Remove macros.
+	(DEF_FUNCTION_TYPE_VAR_7, DEF_FUNCTION_TYPE_VAR_11): New macros.
+
+2015-02-16  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65066
+	* c-format.c (check_format_types): Handle null param.
+
+2015-02-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65040
+	* c-format.c (check_format_types): Don't warn about different
+	signedness if the original value is in the range of WANTED_TYPE.
+
+2015-02-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64956
+	* c-opts.c (c_common_post_options): Change flag_abi_version from 0
+	to the current highest version.
+	* c-cppbuiltin.c (c_cpp_builtins): Assert that it isn't 0.
+
+2015-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64824
+	PR c/64868
+	* c-omp.c (c_finish_omp_atomic): Use TRUNC_DIV_EXPR
+	instead of RDIV_EXPR.  Use build_binary_op instead of
+	build2_loc.
+
+2015-01-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-opts.c, c-pch.c, cppspec.c: All callers of fatal_error changed
+	to pass input_location as first argument.
+
+2015-01-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/64672
+	* c.opt (fopenacc): Mark as LTO option.
+
+2015-01-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/64707
+	* c.opt (fopenmp): Mark as LTO option.
+
+2015-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/63307
+	* cilk.c (fill_decls_vec): Only put decls into vector v.                                                                                   
+	(compare_decls): Fix up formatting.
+
+2015-01-21  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/63307
+	* cilk.c: Include vec.h.
+	(struct cilk_decls): New structure.
+	(wrapper_parm_cb): Split this function to...
+	(fill_decls_vec): ...this...
+	(create_parm_list): ...and this.
+	(compare_decls): New function.
+	(for_local_cb): Remove.
+	(wrapper_local_cb): Ditto.
+	(build_wrapper_type): For now first traverse and fill vector of
+	declarations then sort it and then deal with sorted vector.
+	(cilk_outline): Ditto.
+	(declare_one_free_variable): Ditto.
+
+2015-01-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64629
+	* c-format.c (check_format_arg): Call decl_constant_value.
+
+2015-01-19  Martin Liska  <mliska@suse.cz>
+
+	* c-common.c (handle_noicf_attribute): New function.
+
+2015-01-15  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Ilmir Usmanov  <i.usmanov@samsung.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* c.opt (fopenacc): New option.
+	* c-cppbuiltin.c (c_cpp_builtins): Conditionally define _OPENACC.
+	* c-common.c (DEF_FUNCTION_TYPE_VAR_8, DEF_FUNCTION_TYPE_VAR_12):
+	New macros.
+	* c-common.h (c_finish_oacc_wait): New prototype.
+	* c-omp.c: Include "omp-low.h" and "gomp-constants.h".
+	(c_finish_oacc_wait): New function.
+	* c-pragma.c (oacc_pragmas): New variable.
+	(c_pp_lookup_pragma, init_pragma): Handle it.
+	* c-pragma.h (enum pragma_kind): Add PRAGMA_OACC_CACHE,
+	PRAGMA_OACC_DATA, PRAGMA_OACC_ENTER_DATA, PRAGMA_OACC_EXIT_DATA,
+	PRAGMA_OACC_KERNELS, PRAGMA_OACC_LOOP, PRAGMA_OACC_PARALLEL,
+	PRAGMA_OACC_UPDATE, PRAGMA_OACC_WAIT.
+	(enum pragma_omp_clause): Add PRAGMA_OACC_CLAUSE_ASYNC,
+	PRAGMA_OACC_CLAUSE_AUTO, PRAGMA_OACC_CLAUSE_COLLAPSE,
+	PRAGMA_OACC_CLAUSE_COPY, PRAGMA_OACC_CLAUSE_COPYIN,
+	PRAGMA_OACC_CLAUSE_COPYOUT, PRAGMA_OACC_CLAUSE_CREATE,
+	PRAGMA_OACC_CLAUSE_DELETE, PRAGMA_OACC_CLAUSE_DEVICE,
+	PRAGMA_OACC_CLAUSE_DEVICEPTR, PRAGMA_OACC_CLAUSE_FIRSTPRIVATE,
+	PRAGMA_OACC_CLAUSE_GANG, PRAGMA_OACC_CLAUSE_HOST,
+	PRAGMA_OACC_CLAUSE_IF, PRAGMA_OACC_CLAUSE_NUM_GANGS,
+	PRAGMA_OACC_CLAUSE_NUM_WORKERS, PRAGMA_OACC_CLAUSE_PRESENT,
+	PRAGMA_OACC_CLAUSE_PRESENT_OR_COPY,
+	PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYIN,
+	PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYOUT,
+	PRAGMA_OACC_CLAUSE_PRESENT_OR_CREATE, PRAGMA_OACC_CLAUSE_PRIVATE,
+	PRAGMA_OACC_CLAUSE_REDUCTION, PRAGMA_OACC_CLAUSE_SELF,
+	PRAGMA_OACC_CLAUSE_SEQ, PRAGMA_OACC_CLAUSE_VECTOR,
+	PRAGMA_OACC_CLAUSE_VECTOR_LENGTH, PRAGMA_OACC_CLAUSE_WAIT,
+	PRAGMA_OACC_CLAUSE_WORKER.
+
+2015-01-14  Marcos Diaz <marcos.diaz@tallertechnologies.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): New cpp define __SSP_EXPLICIT__
+	for the new option fstack-protector_explicit.
+	* c-common.c (c_common_attribute_table): Add stack_protect attribute.
+	(handle_stack_protect_attribute): New function.
+
+2015-01-13  Martin Uecker <uecker@eecs.berkeley.edu>
+
+	* c.opt: New option -Warray-bounds=.
+
+2015-01-09  Michael Collison  <michael.collison@linaro.org>
+
+	* array-notation-common.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, and inchash.h due to flattening of tree.h.
+	* c-ada-spec.c: Ditto.
+	* c-cilkplus.c: Ditto.
+	* c-common.c: Include input.h due to flattening of tree.h.
+	Define macro GCC_C_COMMON_C.
+	* c-common.h: Flatten tree.h header files into c-common.h.
+	Remove include of tree-core.h.
+	* c-cppbuiltin.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, and inchash.h due to
+	flattening of tree.h.
+	* c-dump.c: Ditto.
+	* c-format.c: Flatten tree.h header files into c-common.h.
+	* c-cppbuiltin.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, and inchash.h due to
+	flattening of tree.h.
+	* c-dump.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, and inchash.h due to
+	flattening of tree.h.
+	* c-format.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, inchash.h and real.h due to
+	flattening of tree.h.
+	* c-gimplify.c: Include hash-set.h, machmode.h,
+	vec.h, double-int.h, input.h, alias.h, symtab.h, options.h
+	fold-const.h, wide-int.h, and inchash.h due to
+	flattening of tree.h.
+	* cilk.c: Ditto.
+	* c-lex.c: Ditto.
+	* c-omp.c: Ditto.
+	* c-opts.c: Ditto.
+	* c-pch.c: Ditto.
+	* c-ppoutput.c: Ditto.
+	* c-pragma.c: Ditto.
+	* c-pretty-print.c: Ditto.
+	* c-semantics.c: Ditto.
+	* c-ubsan.c: Ditto.
+	* stub-objc.c: Ditto.
+
+2015-01-08  Jason Merrill  <jason@redhat.com>
+
+	* c-ubsan.c (ubsan_maybe_instrument_array_ref): Use
+	do_ubsan_in_current_function.
+	(ubsan_maybe_instrument_reference_or_call): Likewise.
+	* c-ubsan.h: Declare it.
+
+2015-01-08  Mike Stump  <mikestump@comcast.net>
+
+	* c-common.c (c_common_attribute_table): Add no_sanitize_thread.
+
+2015-01-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64440
+	* c-common.c (c_fully_fold_internal): Warn for division and modulo
+	if orig_op1 isn't INTEGER_CST, op1 is INTEGER_CST and is zero.
+
+2015-01-05  Trevor Saunders  <tsaunders@mozilla.com>
+
+	PR c++/31397
+	* c.opt (Wsuggest-override): New option.
+
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2015-01-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64423
+	* c-common.c (warn_array_subscript_with_type_char): Add location_t
+	parameter.  Use it.
+	* c-common.h (warn_array_subscript_with_type_char): Update
+	declaration.
+
 2014-12-20  Edward Smith-Rowland  <3dw4rd@verizon.net>
 
 	* c-cppbuiltin.c (__cpp_sized_deallocation): Uncomment and move macro.
@@ -172,11 +654,11 @@
 
 2014-10-28  Andrew MacLeod  <amacleod@redhat.com>
 
-	* c-family/c-common.c: Adjust include files.
-	* c-family/c-gimplify.c: Ditto.
-	* c-family/cilk.c: Ditto.
-	* c-family/c-pragma.c: Ditto.
-	* c-family/c-ubsan.c: Ditto.
+	* c-common.c: Adjust include files.
+	* c-gimplify.c: Ditto.
+	* cilk.c: Ditto.
+	* c-pragma.c: Ditto.
+	* c-ubsan.c: Ditto.
 
 2014-10-27  Andrew MacLeod  <amacleod@redhat.com>
 
@@ -277,7 +759,7 @@
 
 2014-10-06  Edward Smith-Rowland  <3dw4rd@verizon.net>
 
-	* c-family/c-cppbuiltin.c: Move __cpp_attribute_deprecated to the
+	* c-cppbuiltin.c: Move __cpp_attribute_deprecated to the
 	C++11 section.
 
 2014-10-03  Marc Glisse  <marc.glisse@inria.fr>
@@ -734,7 +1216,7 @@
 
 2014-06-11  Jan Hubicka  <hubicka@ucw.cz>
 
-	* c-family/c-common.c (handle_section_attribute): Update handling for
+	* c-common.c (handle_section_attribute): Update handling for
 	section names that are no longer trees.
 
 2014-06-10  Jakub Jelinek  <jakub@redhat.com>
@@ -1554,8 +2036,8 @@
 
 2013-10-26  Jeff Law  <law@redhat.com>
 
-	* c-family/c-common.c (c_define_builtins): Remove mudflap support.
-	* c-family/c.opt: Ignore and warn for mudflap options.
+	* c-common.c (c_define_builtins): Remove mudflap support.
+	* c.opt: Ignore and warn for mudflap options.
 
 2013-10-24  Tobias Burnus  <burnus@net-b.de>
 
@@ -1956,7 +2438,7 @@
 
 2013-07-08  Graham Stott  <graham.stott@btinternet.com>
 
-	* c-family/array-notation-common.c (length_mismatch_in_expr_p): Delete
+	* array-notation-common.c (length_mismatch_in_expr_p): Delete
 	unused variables l_length and l_node.
 
 2013-07-04  Joern Rennecke  <joern.rennecke@embecosm.com>
@@ -3489,7 +3971,7 @@
 
 2011-03-25  Jeff Law  <law@redhat.com>
 
-	* c-family/c-common.c (def_fn_type): Add missing va_end.
+	* c-common.c (def_fn_type): Add missing va_end.
 
 2011-03-25  Jason Merrill  <jason@redhat.com>
 
@@ -4340,7 +4822,7 @@
 
 2010-07-03  Manuel López-Ibáñez  <manu@gcc.gnu.org>
 
-	* c-family/c-common.c (IN_GCC_FRONTEND): Do not undef.
+	* c-common.c (IN_GCC_FRONTEND): Do not undef.
 	Do not include expr.h
 	(vector_mode_valid_p): Move here.
 
@@ -4521,7 +5003,7 @@
 	* c-common.c: Include gt-c-family-c-common.h.
 	* c-pragma.c: Include gt-c-family-c-pragma.h.
 
-Copyright (C) 2010-2014 Free Software Foundation, Inc.
+Copyright (C) 2010-2015 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

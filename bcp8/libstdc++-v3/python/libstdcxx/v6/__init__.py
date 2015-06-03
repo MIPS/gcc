@@ -1,4 +1,4 @@
-# Copyright (C) 2014 Free Software Foundation, Inc.
+# Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 import gdb
 
 # Load the pretty-printers.
-from printers import register_libstdcxx_printers
+from .printers import register_libstdcxx_printers
 register_libstdcxx_printers(gdb.current_objfile())
 
 # Load the xmethods if GDB supports them.
@@ -28,5 +28,5 @@ def gdb_has_xmethods():
         return False
 
 if gdb_has_xmethods():
-    from xmethods import register_libstdcxx_xmethods
+    from .xmethods import register_libstdcxx_xmethods
     register_libstdcxx_xmethods(gdb.current_objfile())

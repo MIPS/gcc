@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2015 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -207,7 +207,10 @@
   if (!REG_P (op))
     return 0;
 
-  if (REGNO (op) >= ARG_POINTER_REGNUM && !CA_REGNO_P (REGNO (op)))
+  if (REGNO (op) >= FIRST_PSEUDO_REGISTER)
+    return 1;
+
+  if (TARGET_ALTIVEC && ALTIVEC_REGNO_P (REGNO (op)))
     return 1;
 
   if (TARGET_VSX && VSX_REGNO_P (REGNO (op)))
@@ -357,17 +360,6 @@
     (match_operand 0 "short_cint_operand")
     (match_operand 0 "gpc_reg_operand")))
 
-;; Return 1 if op is a constant integer valid whose negation is valid for
-;; D field or non-special register register.
-;; Do not allow a constant zero because all patterns that call this
-;; predicate use "addic r1,r2,-const" to set carry when r2 is greater than
-;; or equal to const, which does not work for zero.
-(define_predicate "reg_or_neg_short_operand"
-  (if_then_else (match_code "const_int")
-    (match_test "satisfies_constraint_P (op)
-		 && INTVAL (op) != 0")
-    (match_operand 0 "gpc_reg_operand")))
-
 ;; Return 1 if op is a constant integer valid for DS field
 ;; or non-special register.
 (define_predicate "reg_or_aligned_short_operand"
@@ -432,9 +424,6 @@
 (define_predicate "easy_fp_constant"
   (match_code "const_double")
 {
-  long k[4];
-  REAL_VALUE_TYPE rv;
-
   if (GET_MODE (op) != mode
       || (!SCALAR_FLOAT_MODE_P (mode) && mode != DImode))
     return 0;
@@ -446,8 +435,7 @@
     return 1;
 
   /* The constant 0.0 is easy under VSX.  */
-  if ((mode == SFmode || mode == DFmode || mode == SDmode || mode == DDmode)
-      && VECTOR_UNIT_VSX_P (DFmode) && op == CONST0_RTX (mode))
+  if (TARGET_VSX && SCALAR_FLOAT_MODE_P (mode) && op == CONST0_RTX (mode))
     return 1;
 
   if (DECIMAL_FLOAT_MODE_P (mode))
@@ -464,82 +452,28 @@
     return 0;
 #endif
 
+  /* If we have real FPRs, consider floating point constants hard (other than
+     0.0 under VSX), so that the constant gets pushed to memory during the
+     early RTL phases.  This has the advantage that double precision constants
+     that can be represented in single precision without a loss of precision
+     will use single precision loads.  */
+
   switch (mode)
     {
     case TFmode:
-      if (TARGET_E500_DOUBLE)
-	return 0;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-      REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
-
-      return (num_insns_constant_wide ((HOST_WIDE_INT) k[0]) == 1
-	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1
-	      && num_insns_constant_wide ((HOST_WIDE_INT) k[2]) == 1
-	      && num_insns_constant_wide ((HOST_WIDE_INT) k[3]) == 1);
-
     case DFmode:
-      /* Force constants to memory before reload to utilize
-	 compress_float_constant.
-	 Avoid this when flag_unsafe_math_optimizations is enabled
-	 because RDIV division to reciprocal optimization is not able
-	 to regenerate the division.  */
-      if (TARGET_E500_DOUBLE
-          || (!reload_in_progress && !reload_completed
-	      && !flag_unsafe_math_optimizations))
-        return 0;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-      REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
-
-      return (num_insns_constant_wide ((HOST_WIDE_INT) k[0]) == 1
-	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1);
-
     case SFmode:
-      /* Force constants to memory before reload to utilize
-	 compress_float_constant.
-	 Avoid this when flag_unsafe_math_optimizations is enabled
-	 because RDIV division to reciprocal optimization is not able
-	 to regenerate the division.  */
-      if (!reload_in_progress && !reload_completed
-          && !flag_unsafe_math_optimizations)
-	return 0;
+      return 0;
 
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-      REAL_VALUE_TO_TARGET_SINGLE (rv, k[0]);
+    case DImode:
+      return (num_insns_constant (op, DImode) <= 2);
 
-      return num_insns_constant_wide (k[0]) == 1;
+    case SImode:
+      return 1;
 
-  case DImode:
-    return (num_insns_constant (op, DImode) <= 2);
-
-  case SImode:
-    return 1;
-
-  default:
-    gcc_unreachable ();
-  }
-})
-
-;; Return 1 if the operand must be loaded from memory.  This is used by a
-;; define_split to insure constants get pushed to the constant pool before
-;; reload.  If -ffast-math is used, easy_fp_constant will allow move insns to
-;; have constants in order not interfere with reciprocal estimation.  However,
-;; with -mupper-regs support, these constants must be moved to the constant
-;; pool before register allocation.
-
-(define_predicate "memory_fp_constant"
-  (match_code "const_double")
-{
-  if (TARGET_VSX && op == CONST0_RTX (mode))
-    return 0;
-
-  if (!TARGET_HARD_FLOAT || !TARGET_FPRS
-      || (mode == SFmode && !TARGET_SINGLE_FLOAT)
-      || (mode == DFmode && !TARGET_DOUBLE_FLOAT))
-    return 0;
-	  
-  return 1;
+    default:
+      gcc_unreachable ();
+    }
 })
 
 ;; Return 1 if the operand is a CONST_VECTOR and can be loaded into a
@@ -770,15 +704,6 @@
 		&& (indexed_address (XEXP (op, 0), mode)
 		    || (GET_CODE (XEXP (op, 0)) == PRE_MODIFY
 			&& indexed_address (XEXP (XEXP (op, 0), 1), mode))))"))
-
-;; Used for the destination of the fix_truncdfsi2 expander.
-;; If stfiwx will be used, the result goes to memory; otherwise,
-;; we're going to emit a store and a load of a subreg, so the dest is a
-;; register.
-(define_predicate "fix_trunc_dest_operand"
-  (if_then_else (match_test "! TARGET_E500_DOUBLE && TARGET_PPC_GFXOPT")
-   (match_operand 0 "memory_operand")
-   (match_operand 0 "gpc_reg_operand")))
 
 ;; Return 1 if the operand is either a non-special register or can be used
 ;; as the operand of a `mode' add insn.
@@ -1022,7 +947,8 @@
 
 ;; Return 1 if the operand is CONST_DOUBLE 0, register or memory operand.
 (define_predicate "zero_reg_mem_operand"
-  (ior (match_operand 0 "zero_fp_constant")
+  (ior (and (match_test "TARGET_VSX")
+	    (match_operand 0 "zero_fp_constant"))
        (match_operand 0 "reg_or_mem_operand")))
 
 ;; Return 1 if the operand is a CONST_INT and it is the element for 64-bit

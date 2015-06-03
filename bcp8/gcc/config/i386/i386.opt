@@ -1,6 +1,6 @@
 ; Options for the IA-32 and AMD64 ports of the compiler.
 
-; Copyright (C) 2005-2014 Free Software Foundation, Inc.
+; Copyright (C) 2005-2015 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -59,6 +59,10 @@ const char *x_ix86_tune_string
 ;; CPU schedule model
 TargetSave
 unsigned char schedule
+
+;; True if processor has SSE prefetch instruction.
+TargetSave
+unsigned char prefetch_sse
 
 ;; branch cost
 TargetSave

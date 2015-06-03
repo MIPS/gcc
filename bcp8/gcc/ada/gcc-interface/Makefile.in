@@ -1,5 +1,5 @@
 # Makefile for GNU Ada Compiler (GNAT).
-#   Copyright (C) 1994-2014 Free Software Foundation, Inc.
+#   Copyright (C) 1994-2015 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -266,6 +266,9 @@ TGT_LIB =
 TOOLS_LIBS = ../link.o ../targext.o ../../ggc-none.o ../../libcommon-target.a \
   ../../libcommon.a ../../../libcpp/libcpp.a $(LIBGNAT) $(LIBINTL) $(LIBICONV) \
   ../$(LIBBACKTRACE) ../$(LIBIBERTY) $(SYSLIBS) $(TGT_LIB)
+
+# Add -no-pie to TOOLS_LIBS since some of them are compiled with -fno-PIE.
+TOOLS_LIBS += @NO_PIE_FLAG@
 
 # Specify the directories to be searched for header files.
 # Both . and srcdir are used, in that order,
@@ -972,6 +975,7 @@ ifeq ($(strip $(filter-out %86 wrs vxworks vxworks7,$(target_cpu) $(target_vendo
 
   ifneq ($(strip $(filter-out vxworks7%, $(target_os))),)
     GCC_SPEC_FILES+=vxworks-x86-link.spec
+    GCC_SPEC_FILES+=vxworks-cert-x86-link.spec
     GCC_SPEC_FILES+=vxworks-smp-x86-link.spec
   endif
 endif
@@ -2320,7 +2324,9 @@ ifeq ($(strip $(filter-out darwin%,$(target_os))),)
       s-intman.adb<s-intman-posix.adb \
       s-osprim.adb<s-osprim-posix.adb \
       a-numaux.ads<a-numaux-darwin.ads \
-      a-numaux.adb<a-numaux-darwin.adb
+      a-numaux.adb<a-numaux-darwin.adb \
+      $(ATOMICS_TARGET_PAIRS) \
+      $(ATOMICS_BUILTINS_TARGET_PAIRS)
 
     ifeq ($(strip $(MULTISUBDIR)),/ppc64)
       LIBGNAT_TARGET_PAIRS += \
@@ -2332,11 +2338,12 @@ ifeq ($(strip $(filter-out darwin%,$(target_os))),)
     endif
   endif
 
-  ifeq ($(strip $(filter-out arm,$(arch))),)
+  ifeq ($(strip $(filter-out arm,$(target_cpu))),)
     LIBGNAT_TARGET_PAIRS += \
       s-intman.adb<s-intman-susv3.adb \
       s-osprim.adb<s-osprim-darwin.adb \
-      $(ATOMICS_TARGET_PAIRS)
+      $(ATOMICS_TARGET_PAIRS) \
+      $(ATOMICS_BUILTINS_TARGET_PAIRS)
 
     LIBGNAT_TARGET_PAIRS += \
       system.ads<system-darwin-arm.ads
@@ -2352,27 +2359,6 @@ ifeq ($(strip $(filter-out darwin%,$(target_os))),)
   LIBRARY_VERSION := $(LIB_VERSION)
   soext = .dylib
   GCC_LINK_FLAGS=-static-libstdc++
-endif
-
-# ARM Nucleus
-ifeq ($(strip $(filter-out arm nucleus%,$(target_cpu) $(target_os))),)
-  LIBGNAT_TARGET_PAIRS = \
-  system.ads<system-nucleus-arm.ads \
-  a-numaux.ads<a-numaux-vxworks.ads \
-  a-intnam.ads<a-intnam-nucleus.ads \
-  s-inmaop.adb<s-inmaop-posix.adb \
-  s-intman.adb<s-intman-posix.adb \
-  s-osinte.ads<s-osinte-nucleus.ads \
-  s-osinte.adb<s-osinte-nucleus.adb \
-  s-osprim.adb<s-osprim-nucleus.adb \
-  s-parame.adb<s-parame-vxworks.adb \
-  s-taprop.adb<s-taprop-posix.adb \
-  s-taspri.ads<s-taspri-posix.ads \
-  s-tpopsp.adb<s-tpopsp-posix.adb \
-  $(DUMMY_SOCKETS_TARGET_PAIRS)
-
-  LIBRARY_VERSION := $(LIB_VERSION)
-  GNATRTL_SOCKETS_OBJS =
 endif
 
 ifeq ($(EH_MECHANISM),-gcc)
@@ -2400,7 +2386,7 @@ endif
 # thread.c is special as put into GNATRTL_TASKING_OBJS by Makefile.rtl
 LIBGNAT_OBJS = adadecode.o adaint.o argv.o aux-io.o 			\
   cal.o cio.o cstreams.o ctrl_c.o					\
-  env.o errno.o exit.o expect.o final.o 				\
+  env.o errno.o exit.o expect.o final.o rtfinal.o rtinit.o		\
   init.o initialize.o locales.o mkdir.o					\
   raise.o seh_init.o socket.o sysdep.o					\
   targext.o terminals.o tracebak.o 					\
@@ -2481,9 +2467,16 @@ GCC_LINK=$(CXX) $(GCC_LINK_FLAGS) $(ADA_INCLUDES) $(LDFLAGS)
 # Build directory for the tools. Let's copy the target-dependent
 # sources using the same mechanism as for gnatlib. The other sources are
 # accessed using the vpath directive below
-# Note: dummy target, stamp-tools is mainly handled by gnattools.
 
 ../stamp-tools:
+	-$(RM) tools/*
+	-$(RMDIR) tools
+	-$(MKDIR) tools
+	-(cd tools; $(LN_S) ../sdefault.adb ../snames.ads ../snames.adb .)
+	-$(foreach PAIR,$(TOOLS_TARGET_PAIRS), \
+	          $(RM) tools/$(word 1,$(subst <, ,$(PAIR)));\
+	          $(LN_S) $(fsrcpfx)ada/$(word 2,$(subst <, ,$(PAIR))) \
+	                tools/$(word 1,$(subst <, ,$(PAIR)));)
 	touch ../stamp-tools
 
 # when compiling the tools, the runtime has to be first on the path so that
@@ -3039,6 +3032,8 @@ errno.o   : errno.c
 exit.o    : adaint.h exit.c
 expect.o  : expect.c
 final.o   : final.c
+rtfinal.o : rtfinal.c
+rtinit.o  : rtinit.c
 locales.o : locales.c
 mkdir.o   : mkdir.c
 socket.o  : socket.c gsocket.h
