@@ -1,5 +1,70 @@
+2014-12-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (bcp8_comparison_operator): New
+	predicate to recognize branch conditional+8 insn sequences.
+
+	* config/rs6000/rs6000-cpus.def (POWERPC_MASKS): Mark -mbcp8 as an
+	option that can be set/cleared by -mcpu=<xxx> switches.
+
+	* config/rs6000/rs6000-protos.h (output_cbranch): Take an
+	additional argument for branch conditional+8 optimizations.
+	(rs6000_output_bcp8): New function declarations for branch
+	condtional + 8 optimizations.
+
+	* config/rs6000/rs6000.opt (-mbcp8): New option to enable branch
+	conditional+8 optimizations.
+	(-mbc+8): Alternative spelling of -mbcp8.
+	(-mbcp8-nop): New option to control whether extra NOPs are
+	generated with branch conditional+8 optimizations.
+	(-mbcp8-nop=<n>): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print branch
+	conditional+8 optimization options.
+	(rs6000_option_override_internal): Set up defaults for -mbcp8.
+	Disallow -mbcp8 and -misel at the same time.
+	(output_cbranch): Add an extra argument to say whether this branch
+	is part of branch conditional+8 optimizations, and to disable
+	branch around branch code.
+	(rs6000_emit_cmove): Add support for -mbcp8.
+	(rs6000_emit_int_cmove): Call into mov<mode>cc_internal for
+	expansion of -misel and -mbcp8 codes.
+	(rs6000_bcp8_align_p): New functions for -mbcp8 support.
+	(rs6000_bcp8_disable_p): Likewise.
+	(rs6000_output_bcp8): Likewise.
+	(rs6000_rtx_costs): Add -mbcp8 support.
+	(rs6000_opt_masks): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_ISEL_64): Rename from
+	TARGET_ISEL64.
+	(TARGET_BCP8_64): New macro for -mbcp8 & 64-bit support.
+	(OPTION_MASK_ISEL_OR_BCP8): Combine OPTION_MASK_ISEL and
+	OPTION_MASK_BCP8.
+	(TARGET_ISEL_OR_BCP8): New macro for -mbcp8 or -misel.
+	(TARGET_ISEL_OR_BCP8_64): New macro for -mbcp8 or -misel on
+	64-bit.
+	(MASK_BCP8): Alternative name for OPTION_MASK_BCP8.
+	(MASK_BCP8_ALIGN): New macros for -mbcp8 support.
+	(MASK_BCP8_CMP_ALIGN): Likewise.
+	(MASK_BCP8_HAZARD): Likewise.
+	(MASK_BCP8_GROUP_END): Likewise.
+	(MASK_BCP8_DEFAULT): Likewise.
+	(TARGET_BCP8_ALIGN): Likewise.
+	(TARGET_CMP_ALIGN): Likewise.
+	(TARGET_BCP8_HAZARD): Likewise.
+	(TARGET_BCP8_GROUP_END): Likewise.
+
+	* config/rs6000/rs6000.md (sel): Put an '_' in front of the 64, to
+	make BCP8_64 more readable.
+	(mov<mode>cc, GPR modes): Add -mbcp8 support.
+	(mov<mode>cc_internal, GPR modes): New insns to generate the
+	correct code for doing either -misel or -mbcp8.
+	(bcp8<mode>): New insns for -mbcp8 support.
+	(conditional branch insns): Add additional argument to
+	output_cbranch calls.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document -mbcp8.
+
 2014-12-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from subversion id 219031.
 	* REVISION: New file, track subversion id.
-

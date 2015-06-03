@@ -37,7 +37,7 @@
 #define ISA_2_5_MASKS_SERVER	(ISA_2_5_MASKS_EMBEDDED | OPTION_MASK_DFP)
 
   /* For ISA 2.06, don't add ISEL, since in general it isn't a win, but
-     altivec is a win so enable it.  */
+     altivec is a win so enable it.  Consider adding BCP8 instead of ISEL.  */
   /* OPTION_MASK_VSX_TIMODE should be set, but disable it for now until
      PR 58587 is fixed.  */
 #define ISA_2_6_MASKS_EMBEDDED	(ISA_2_5_MASKS_EMBEDDED | OPTION_MASK_POPCNTD)
@@ -73,6 +73,7 @@
 
 /* Mask of all options to set the default isa flags based on -mcpu=<xxx>.  */
 #define POWERPC_MASKS		(OPTION_MASK_ALTIVEC			\
+				 | OPTION_MASK_BCP8			\
 				 | OPTION_MASK_CMPB			\
 				 | OPTION_MASK_CRYPTO			\
 				 | OPTION_MASK_DFP			\

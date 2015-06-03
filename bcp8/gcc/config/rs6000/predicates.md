@@ -1266,6 +1266,53 @@
   (and (match_operand 0 "branch_comparison_operator")
        (match_code "eq,lt,gt,ltu,gtu,unordered")))
 
+;; Return 1 if OP is a comparison operation that is valid for a branch insn for
+;; integer comparisons used in merging the comparison and branch conditional +
+;; 8 into a single insn.
+(define_predicate "bcp8_comparison_operator"
+  (ior (match_operand 0 "signed_comparison_operator")
+       (match_operand 0 "unsigned_comparison_operator"))
+{
+  rtx op0 = XEXP (op, 0);
+  rtx op1 = XEXP (op, 1);
+  enum machine_mode op0_mode = GET_MODE (op0);
+  enum machine_mode op1_mode = GET_MODE (op1);
+
+  if (op0_mode != SImode && (!TARGET_POWERPC64 || op0_mode != DImode))
+    return 0;
+
+  if (!int_reg_operand (op0, op0_mode))
+    return 0;
+
+  if (CONST_INT_P (op1))
+    {
+      switch (GET_CODE (op))
+	{
+	case EQ:
+	case NE:
+	case LT:
+	case LE:
+	case GT:
+	case GE:
+	  return satisfies_constraint_I (op1);
+
+	case LTU:
+	case LEU:
+	case GTU:
+	case GEU:
+	  return satisfies_constraint_K (op1);
+
+	default:
+	  return 0;
+	}
+    }
+
+  if (op0_mode != op1_mode)
+    return 0;
+
+  return int_reg_operand (op1, op1_mode);
+})
+
 ;; Return 1 if OP is a load multiple operation, known to be a PARALLEL.
 (define_predicate "load_multiple_operation"
   (match_code "parallel")

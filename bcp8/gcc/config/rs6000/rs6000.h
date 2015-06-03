@@ -402,6 +402,23 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_DEBUG_TARGET	(rs6000_debug & MASK_DEBUG_TARGET)
 #define TARGET_DEBUG_BUILTIN	(rs6000_debug & MASK_DEBUG_BUILTIN)
 
+/* Branch conditional+8 tuning options.  */
+#define MASK_BCP8_ALIGN		0x0001	/* align bc+8/op to not cross cache. */
+#define MASK_BCP8_CMP_ALIGN	0x0002	/* only align if cmp.  */
+#define MASK_BCP8_HAZARD	0x0004	/* if next insn hazard, disable bc+8.*/
+#define MASK_BCP8_GROUP_END	0x0008	/* use group ending nops.  */
+
+#define MASK_BCP8_DEFAULT	(MASK_BCP8_ALIGN			\
+				 | MASK_BCP8_CMP_ALIGN			\
+				 | MASK_BCP8_HAZARD			\
+				 | MASK_BCP8_GROUP_END)
+
+
+#define TARGET_BCP8_ALIGN	((TARGET_BCP8_NOP & MASK_BCP8_ALIGN)     != 0)
+#define TARGET_BCP8_CMP_ALIGN	((TARGET_BCP8_NOP & MASK_BCP8_CMP_ALIGN) != 0)
+#define TARGET_BCP8_HAZARD	((TARGET_BCP8_NOP & MASK_BCP8_HAZARD)    != 0)
+#define TARGET_BCP8_GROUP_END	((TARGET_BCP8_NOP & MASK_BCP8_GROUP_END) != 0)
+
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];
 
@@ -505,11 +522,18 @@ extern int rs6000_vector_align[];
 
 #define TARGET_SPE_ABI 0
 #define TARGET_SPE 0
-#define TARGET_ISEL64 (TARGET_ISEL && TARGET_POWERPC64)
+#define TARGET_ISEL_64 (TARGET_ISEL && TARGET_POWERPC64)
+#define TARGET_BCP8_64 (TARGET_BCP8 && TARGET_POWERPC64)
 #define TARGET_FPRS 1
 #define TARGET_E500_SINGLE 0
 #define TARGET_E500_DOUBLE 0
 #define CHECK_E500_OPTIONS do { } while (0)
+
+#define OPTION_MASK_ISEL_OR_BCP8	(OPTION_MASK_ISEL | OPTION_MASK_BCP8)
+#define TARGET_ISEL_OR_BCP8 \
+  ((rs6000_isa_flags & (OPTION_MASK_ISEL_OR_BCP8)) != 0)
+
+#define TARGET_ISEL_OR_BCP8_64 (TARGET_ISEL_OR_BCP8 && TARGET_POWERPC64)
 
 /* ISA 2.01 allowed FCFID to be done in 32-bit, previously it was 64-bit only.
    Enable 32-bit fcfid's on any of the switches for newer ISA machines or
@@ -553,6 +577,7 @@ extern int rs6000_vector_align[];
    machinery creates OPTION_MASK_<xxx> instead of MASK_<xxx>.  For now map
    OPTION_MASK_<xxx> back into MASK_<xxx>.  */
 #define MASK_ALTIVEC			OPTION_MASK_ALTIVEC
+#define MASK_BCP8			OPTION_MASK_BCP8
 #define MASK_CMPB			OPTION_MASK_CMPB
 #define MASK_CRYPTO			OPTION_MASK_CRYPTO
 #define MASK_DFP			OPTION_MASK_DFP

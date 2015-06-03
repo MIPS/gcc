@@ -924,6 +924,7 @@ See RS/6000 and PowerPC Options.
 -mblock-move-inline-limit=@var{num} @gol
 -misel -mno-isel @gol
 -misel=yes  -misel=no @gol
+-mbcp8 -mno-bcp8 @gol
 -mspe -mno-spe @gol
 -mspe=yes  -mspe=no @gol
 -mpaired @gol
@@ -19769,6 +19770,12 @@ This switch enables or disables the generation of ISEL instructions.
 @item -misel=@var{yes/no}
 This switch has been deprecated.  Use @option{-misel} and
 @option{-mno-isel} instead.
+
+@item -mbcp8
+@itemx -mno-bcp8
+@opindex mbcp8
+@opindex mno-bcp8
+This switch enables or disables the generation of branch+8 instructions.
 
 @item -mspe
 @itemx -mno-spe

@@ -341,6 +341,26 @@ misel=yes
 Target RejectNegative Alias(misel)
 Deprecated option.  Use -misel instead
 
+mbcp8
+Target Report Mask(BCP8) Var(rs6000_isa_flags)
+Generate branch+8 sequences for conditional moves
+
+mbc+8
+Target Alias(mbcp8)
+Synonym for -mbcp8
+
+mbcp8-nop
+Target Undocumented Var(TARGET_BCP8_NOP, 15) Init(-1) Save
+Add NOPs in branch+8 sequences
+
+mno-bcp8-nop
+Target Undocumented Var(TARGET_BCP8_NOP, 0) Save
+Do not add NOPs in branch+8 sequences
+
+mbcp8-nop=
+Target Undocumented RejectNegative Joined UInteger Var(TARGET_BCP8_NOP)
+-mbcp8-nop=<n> Set branch conditional+8 tuning options
+
 mspe
 Target Var(rs6000_spe) Save
 Generate SPE SIMD instructions on E500

@@ -2025,6 +2025,7 @@ rs6000_debug_reg_global (void)
   char costly_num[20];
   char nop_num[20];
   char flags_buffer[40];
+  char bcp8_buffer[60];
   const char *costly_str;
   const char *nop_str;
   const char *trace_str;
@@ -2416,6 +2417,17 @@ rs6000_debug_reg_global (void)
 	   (int)END_BUILTINS);
   fprintf (stderr, DEBUG_FMT_D, "Number of rs6000 builtins",
 	   (int)RS6000_BUILTIN_COUNT);
+
+  if (TARGET_BCP8)
+    {
+      sprintf (bcp8_buffer, "align=%c, cmp=%c, hazard=%c, group end=%c",
+	       TARGET_BCP8_ALIGN     ? 'y' : 'n',
+	       TARGET_BCP8_CMP_ALIGN ? 'y' : 'n',
+	       TARGET_BCP8_HAZARD    ? 'y' : 'n',
+	       TARGET_BCP8_GROUP_END ? 'y' : 'n');
+
+      fprintf (stderr, DEBUG_FMT_S, "bc+8", bcp8_buffer);
+    }
 
   if (TARGET_VSX)
     fprintf (stderr, DEBUG_FMT_D, "VSX easy 64-bit scalar element",
@@ -3522,6 +3534,31 @@ rs6000_option_override_internal (bool global_init_p)
 	error ("-mhard-dfp requires -mhard-float");
       rs6000_isa_flags &= ~OPTION_MASK_DFP;
     }
+
+  /* Isel and bc+8 are mutually exclusive.  If the user did an explict -misel
+     or -mbcp8, and the other was set by the machine, let the explicit switch
+     win.  Complain if both are explicit.  */
+  if (TARGET_BCP8 && TARGET_ISEL)
+    {
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_ISEL_OR_BCP8)
+	  == OPTION_MASK_ISEL_OR_BCP8)
+	{
+	  error ("-misel and -mbcp8 are mutually exlusive");
+	  rs6000_isa_flags &= ~ OPTION_MASK_ISEL;
+	}
+
+      else if ((rs6000_isa_flags_explicit & OPTION_MASK_ISEL) != 0)
+	rs6000_isa_flags &= ~ OPTION_MASK_BCP8;
+
+      else
+	rs6000_isa_flags &= ~ OPTION_MASK_ISEL;
+    }
+
+  /* Turn off adding NOPs for bc+8 if we are optimizing for space.  */
+  if (TARGET_BCP8_NOP < 0)
+    TARGET_BCP8_NOP = ((!TARGET_BCP8 || optimize < 2
+			|| optimize_function_for_size_p (cfun))
+		       ? 0 : MASK_BCP8_DEFAULT);
 
   /* Allow an explicit -mupper-regs to set both -mupper-regs-df and
      -mupper-regs-sf, depending on the cpu, unless the user explicitly also set
@@ -19529,17 +19566,22 @@ rs6000_emit_cbranch (machine_mode mode, rtx operands[])
 
    REVERSED is nonzero if we should reverse the sense of the comparison.
 
-   INSN is the insn.  */
+   INSN is the insn.
+
+   MAYBE_LONGBRANCH is true if possibly this branch is a branch around a
+   branch.  */
 
 char *
-output_cbranch (rtx op, const char *label, int reversed, rtx_insn *insn)
+output_cbranch (rtx op, const char *label, int reversed, rtx_insn *insn,
+		bool maybe_longbranch)
 {
   static char string[64];
   enum rtx_code code = GET_CODE (op);
   rtx cc_reg = XEXP (op, 0);
   machine_mode mode = GET_MODE (cc_reg);
   int cc_regno = REGNO (cc_reg) - CR0_REGNO;
-  int need_longbranch = label != NULL && get_attr_length (insn) == 8;
+  int need_longbranch = (maybe_longbranch && label != NULL
+			 && get_attr_length (insn) == 8);
   int really_reversed = reversed ^ need_longbranch;
   char *s = string;
   const char *ccode;
@@ -19929,9 +19971,9 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 
   /* These modes should always match.  */
   if (GET_MODE (op1) != compare_mode
-      /* In the isel case however, we can use a compare immediate, so
+      /* In the isel/bc+8 case however, we can use a compare immediate, so
 	 op1 may be a small constant.  */
-      && (!TARGET_ISEL || !short_cint_operand (op1, VOIDmode)))
+      && (!TARGET_ISEL_OR_BCP8 || !short_cint_operand (op1, VOIDmode)))
     return 0;
   if (GET_MODE (true_cond) != result_mode)
     return 0;
@@ -19947,7 +19989,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
      if it's too slow....  */
   if (!FLOAT_MODE_P (compare_mode))
     {
-      if (TARGET_ISEL)
+      if (TARGET_ISEL_OR_BCP8)
 	return rs6000_emit_int_cmove (dest, op, true_cond, false_cond);
       return 0;
     }
@@ -20107,49 +20149,41 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 static int
 rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 {
-  rtx condition_rtx, cr;
-  machine_mode mode = GET_MODE (dest);
-  enum rtx_code cond_code;
-  rtx (*isel_func) (rtx, rtx, rtx, rtx, rtx);
-  bool signedp;
+  rtx cond_rtx, cr;
+  enum machine_mode mode = GET_MODE (dest);
+  enum machine_mode cond_mode = GET_MODE (XEXP (op, 0));
+  rtx insn;
 
   if (mode != SImode && (!TARGET_POWERPC64 || mode != DImode))
-    return 0;
+    return false;
 
-  /* We still have to do the compare, because isel doesn't do a
-     compare, it just looks at the CRx bits set by a previous compare
-     instruction.  */
-  condition_rtx = rs6000_generate_compare (op, mode);
-  cond_code = GET_CODE (condition_rtx);
-  cr = XEXP (condition_rtx, 0);
-  signedp = GET_MODE (cr) == CCmode;
+  if (!TARGET_ISEL && !TARGET_BCP8)
+    return false;
 
-  isel_func = (mode == SImode
-	       ? (signedp ? gen_isel_signed_si : gen_isel_unsigned_si)
-	       : (signedp ? gen_isel_signed_di : gen_isel_unsigned_di));
-
-  switch (cond_code)
+  if (cond_mode == VOIDmode)
     {
-    case LT: case GT: case LTU: case GTU: case EQ:
-      /* isel handles these directly.  */
-      break;
-
-    default:
-      /* We need to swap the sense of the comparison.  */
-      {
-	std::swap (false_cond, true_cond);
-	PUT_CODE (condition_rtx, reverse_condition (cond_code));
-      }
-      break;
+      cond_mode = GET_MODE (XEXP (op, 1));
+      if (cond_mode == VOIDmode)
+	return false;
     }
 
-  false_cond = force_reg (mode, false_cond);
-  if (true_cond != const0_rtx)
-    true_cond = force_reg (mode, true_cond);
+  /* Do the compare, because isel/branch conditional + 8 don't do a compare, it
+     just looks at the CRx bits set by a previous compare instruction.  */
+  cond_rtx = rs6000_generate_compare (op, cond_mode);
+  cr = XEXP (cond_rtx, 0);
 
-  emit_insn (isel_func (dest, condition_rtx, true_cond, false_cond, cr));
+  if (mode == SImode)
+    insn = gen_movsicc_internal (dest, cond_rtx, true_cond, false_cond, cr);
+  else
+    insn = gen_movdicc_internal (dest, cond_rtx, true_cond, false_cond, cr);
 
-  return 1;
+  if (insn)
+    {
+      emit_insn (insn);
+      return true;
+    }
+  else
+    return false;
 }
 
 const char *
@@ -20204,6 +20238,220 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
     emit_move_insn (dest, target);
 }
 
+
+/* Determine if we need to align the branch conditional + 8 so that the branch
+   does not end in one cache block, and the single instruction it is jumping
+   around is in the next cache block.  Either we do this unconditionally, or we
+   look back on the insn chain and see if the previous insn set the condtion
+   code.  This is to enable putting a group ending NOP if a branch conditional
+   + 8 would be in the last word in a cache block.  INSN is the current insn,
+   and CC_REG is the condition code register that is used in the current
+   instruction.  */
+
+static bool
+rs6000_bcp8_align_p (rtx_insn *insn, rtx cc_reg)
+{
+  rtx_insn *prev_insn;
+
+  if (!TARGET_BCP8_ALIGN)
+    return false;
+
+  if (!TARGET_BCP8_CMP_ALIGN)
+    return true;
+
+  prev_insn = prev_nonnote_insn_bb (insn);
+  if (prev_insn && GET_CODE (prev_insn) == INSN)
+    {
+      rtx pattern = single_set (prev_insn);
+
+      if (pattern && GET_CODE (SET_SRC (pattern)) == COMPARE
+	  && rtx_equal_p (SET_DEST (pattern), cc_reg))
+	return true;
+
+      else
+	{
+	  pattern = PATTERN (prev_insn);
+
+	  if (GET_CODE (pattern) == PARALLEL)
+	    {
+	      int i;
+
+	      for (i = 0; i < XVECLEN (pattern, 0); i++)
+		{
+		  rtx sub = XVECEXP (pattern, 0, i);
+		  switch (GET_CODE (sub))
+		    {
+		    case USE:
+		    case CLOBBER:
+		      break;
+
+		    case SET:
+		      if (GET_CODE (SET_SRC (sub)) == COMPARE
+			  && rtx_equal_p (SET_DEST (sub), cc_reg))
+			return true;
+
+		    default:
+		      return false;
+		    }
+		}
+	    }
+	}
+    }
+
+  return false;
+}
+
+/* Look ahead on the insn chain and see if the next insn uses the register set
+   in a bc+8 operation.  This is to convert a bc+8 operation into a bc+12 to
+   disable the special bc+8 semantics.  INSN is the current insn, and BCP8_REG
+   is the register set in a bc+8 operation.  If the insn in question is a USE
+   operation for a return, allow it.  */
+
+static bool
+rs6000_bcp8_disable_p (rtx_insn *insn, rtx bcp8_reg)
+{
+  rtx_insn *next_insn;
+
+  if (!TARGET_BCP8_HAZARD)
+    return false;
+
+  next_insn = next_nonnote_insn_bb (insn);
+  if (next_insn && GET_CODE (next_insn) == INSN)
+    {
+      rtx pattern = PATTERN (next_insn);
+
+      if (GET_CODE (pattern) != USE && reg_mentioned_p (bcp8_reg, pattern))
+	return true;
+    }
+
+  return false;
+}
+
+/* Output a branch conditional + 8 (bc+8) sequence to set DEST based on the
+   comparison COND to either TRUE_VALUE or FALSE_VALUE.
+
+   Power7 has a performance problem if the comparison and bc+8 are back to
+   back, and the bc+8 is at the end of a cache block.  If bc+8 nops are
+   enabled, we tell the assembler to insert a group ending nop using .p2alignl
+   and the nop is only inserted if the jump would be in the last word of a
+   32-byte block.
+
+   In addition, if the next insn uses the result of the bc+8, we need to
+   convert the bc+8 into a normal if/move operation to prevent some performance
+   stalls.
+
+   INSN is the insn for the instruction.
+
+   If REVERSE_P is true, reverse the sense of the jump.
+
+   If EMIT_NOP_P is true, possibly emit a group ending nop between the compare
+   and bc+8 if the bc+8 jump is in the last block of the cache.
+
+   If DISABLE_BCP8_P is true, convert the bc+8 into a bc+12 to turn off the
+   optimization.  */
+
+const char *
+rs6000_output_bcp8 (rtx dest,
+		    rtx cond,
+		    rtx true_value,
+		    rtx false_value,
+		    rtx_insn *insn,
+		    bool reverse_p)
+{
+  rtx operands[3];
+  rtx op, op1;
+  bool align_nop_p = rs6000_bcp8_align_p (insn, XEXP (cond, 0));
+  bool disable_bcp8_p = rs6000_bcp8_disable_p (insn, dest);
+
+  operands[0] = dest;
+  operands[1] = op = (reverse_p) ? true_value : false_value;
+
+  /* Possibly emit a normal nop or a group ending nop between the compare and
+     the jump.  */
+  if (align_nop_p && !disable_bcp8_p)
+    {
+      if (TARGET_BCP8_GROUP_END)
+	fprintf (asm_out_file,
+		 "\t.p2alignl 5,0x60420000,4\t\t%s bc+8 align: ori %s,%s,0\n",
+		 ASM_COMMENT_START,
+		 reg_names[FIRST_GPR_REGNO+2],
+		 reg_names[FIRST_GPR_REGNO+2]);
+      else
+	fprintf (asm_out_file,
+		 "\t.p2alignl 5,0x60000000,4\t\t%s bc+8 align: nop\n",
+		 ASM_COMMENT_START);
+    }
+
+  /* Emit the branch.  */
+  output_asm_insn (output_cbranch (cond, "1f", reverse_p, insn, false),
+		   operands);
+
+  /* Now emit the single instruction to set the destination.  */
+  switch (GET_CODE (op))
+    {
+    case REG:
+    case SUBREG:
+      gcc_assert (gpc_reg_operand (op, GET_MODE (op)));
+      output_asm_insn ("mr %0,%1", operands);
+      break;
+
+    case CONST_INT:
+      if (satisfies_constraint_I (op))
+	output_asm_insn ("{lil|li} %0,%1", operands);
+      else if (satisfies_constraint_L (op))
+	output_asm_insn ("{liu|lis} %0,%v1", operands);
+      else
+	gcc_unreachable ();
+      break;
+
+    case AND:
+    case IOR:
+    case XOR:
+      gcc_assert (rtx_equal_p (dest, XEXP (op, 0)));
+      op1 = XEXP (op, 1);
+      gcc_assert (gpc_reg_operand (op1, GET_MODE (op1)));
+      operands[2] = op1;
+
+      output_asm_insn ("%q1 %0,%2", operands);
+      break;
+
+    case PLUS:
+      gcc_assert (rtx_equal_p (dest, XEXP (op, 0)));
+      op1 = XEXP (op, 1);
+      operands[2] = op1;
+
+      if (gpc_reg_operand (op1, GET_MODE (op1)))
+	output_asm_insn ("{cax|add} %0,%0,%2", operands);
+      else if (GET_CODE (op1) != CONST_INT)
+	gcc_unreachable ();
+      else if (satisfies_constraint_I (op1))
+	output_asm_insn ("{cal %0,%2(%0)|addi %0,%0,%2}", operands);
+      else if (satisfies_constraint_L (op1))
+	output_asm_insn ("{cau|addis} %0,%0,%v2", operands);
+      else
+	gcc_unreachable ();
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  if (disable_bcp8_p)
+    {
+      if (TARGET_BCP8_GROUP_END)
+	fprintf (asm_out_file, "\tori %s,%s,0\t\t%s disable bc+8\n",
+		 reg_names[FIRST_GPR_REGNO+2],
+		 reg_names[FIRST_GPR_REGNO+2],
+		 ASM_COMMENT_START);
+      else
+	fprintf (asm_out_file, "\tnop\t\t\t%s disable bc+8\n",
+		 ASM_COMMENT_START);
+    }
+
+  fputs ("1:\n", asm_out_file);
+  return "";
+}
+
 /* A subroutine of the atomic operation splitters.  Jump to LABEL if
    COND is true.  Mark the jump as unlikely to be taken.  */
 
@@ -30406,7 +30654,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	{
 	  if (XEXP (x, 1) == const0_rtx)
 	    {
-	      if (TARGET_ISEL && !TARGET_MFCRF)
+	      if (TARGET_ISEL_OR_BCP8 && !TARGET_MFCRF)
 		*total = COSTS_N_INSNS (8);
 	      else
 		*total = COSTS_N_INSNS (2);
@@ -30425,7 +30673,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case UNORDERED:
       if (outer_code == SET && (XEXP (x, 1) == const0_rtx))
 	{
-	  if (TARGET_ISEL && !TARGET_MFCRF)
+	  if (TARGET_ISEL_OR_BCP8 && !TARGET_MFCRF)
 	    *total = COSTS_N_INSNS (8);
 	  else
 	    *total = COSTS_N_INSNS (2);
@@ -32027,6 +32275,7 @@ struct rs6000_opt_mask {
 static struct rs6000_opt_mask const rs6000_opt_masks[] =
 {
   { "altivec",			OPTION_MASK_ALTIVEC,		false, true  },
+  { "bcp8",			OPTION_MASK_BCP8,		false, true  },
   { "cmpb",			OPTION_MASK_CMPB,		false, true  },
   { "crypto",			OPTION_MASK_CRYPTO,		false, true  },
   { "direct-move",		OPTION_MASK_DIRECT_MOVE,	false, true  },
