@@ -1,3 +1,37 @@
+2015-06-02  Patrick Palka <patrick@parcs.ath.cx>
+
+	* cp-tree.h (init_error): Remove declaration.
+	* error.c (scratch_pretty_printer): Rename to ...
+	(actual_pretty_printer): ... this.
+	(cxx_pp): Constify and update accordingly.
+	(init_error): Remove definition.
+	* lex.c (cxx_init): Do not call init_error.
+
+2015-06-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61683
+	* parser.c (cp_parser_mem_initializer): Allow for decltype-specifier.
+
+2015-06-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65942
+	* decl2.c (mark_used): Don't always instantiate constexpr fns.
+	* constexpr.c (cxx_eval_call_expression): Instantiate them here.
+
+	PR c++/44282
+	* mangle.c (attr_strcmp): New.
+	(write_CV_qualifiers_for_type): Also write out attributes that
+	affect type identity.
+	(write_type): Strip all attributes after writing qualifiers.
+
+2015-05-31  Jason Merrill  <jason@redhat.com>
+
+	* constexpr.c (cxx_eval_indirect_ref): Try folding first.
+
+	PR c++/66320
+	* constexpr.c (cxx_eval_constant_expression): Treat a placeholder
+	with the wrong type as non-constant.
+
 2015-05-27  Jason Merrill  <jason@redhat.com>
 
 	* decl.c (check_redeclaration_exception_specification): Depend on
