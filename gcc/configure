@@ -9574,7 +9574,7 @@ fi
 
 
 
-for ac_func in times clock kill getrlimit setrlimit atoll atoq \
+for ac_func in times clock kill getrlimit setrlimit atoq \
 	popen sysconf strsignal getrusage nl_langinfo \
 	gettimeofday mbstowcs wcswidth mmap setlocale \
 	clearerr_unlocked feof_unlocked   ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked   fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked   putchar_unlocked putc_unlocked madvise
@@ -10837,7 +10837,7 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
-for ac_func in getenv atol asprintf sbrk abort atof getcwd getwd \
+for ac_func in getenv atol atoll asprintf sbrk abort atof getcwd getwd \
 	madvise stpcpy strnlen strsignal strverscmp \
 	strtol strtoul strtoll strtoull \
 	errno snprintf vsnprintf vasprintf malloc realloc calloc \
@@ -28728,8 +28728,8 @@ $as_echo_n "checking for -fno-PIE option... " >&6; }
 if test "${gcc_cv_c_no_fpie+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
-  saved_CFLAGS="$CFLAGS"
-   CFLAGS="$CFLAGS -fno-PIE"
+  saved_CXXFLAGS="$CXXFLAGS"
+   CXXFLAGS="$CXXFLAGS -fno-PIE"
    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 int main(void) {return 0;}
@@ -28740,7 +28740,7 @@ else
   gcc_cv_c_no_fpie=no
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-   CFLAGS="$saved_CFLAGS"
+   CXXFLAGS="$saved_CXXFLAGS"
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_c_no_fpie" >&5
 $as_echo "$gcc_cv_c_no_fpie" >&6; }
