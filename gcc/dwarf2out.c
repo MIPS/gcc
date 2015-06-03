@@ -18006,11 +18006,18 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
 	    }
 	  else
 	    {
-	      /* Reuse DIE even with a differing context.
+	      /* FIXME: Reuse DIE even with a differing context.
 
 		 This happens when called through
 		 dwarf2out_abstract_function for formal parameter
-		 packs.  */
+		 packs.  The issue is that we're calling
+		 dwarf2out_abstract_function to build debug info for
+		 the abstract instance of a function for which we have
+		 already generated a DIE in
+		 dwarf2out_early_global_decl.
+
+	         Once we remove dwarf2out_abstract_function, this
+	         gcc_assert should be a gcc_unreachable.  */
 	      gcc_assert (parm_die->die_parent->die_tag
 			  == DW_TAG_GNU_formal_parameter_pack);
 	    }
@@ -18407,7 +18414,16 @@ set_decl_abstract_flags (tree decl, vec<tree> &abstract_vec)
 }
 
 /* Generate the DWARF2 info for the "abstract" instance of a function which we
-   may later generate inlined and/or out-of-line instances of.  */
+   may later generate inlined and/or out-of-line instances of.
+
+   FIXME: In the early-dwarf world, this function, and most of the
+          DECL_ABSTRACT code should be obsoleted.  The early DIE _is_
+          the abstract instance.  All we would need to do is annotate
+          the early DIE with the appropriate DW_AT_inline in late
+          dwarf (perhaps in gen_inlined_subroutine_die).
+
+	  However, we can't do this yet, because LTO streaming of DIEs
+	  has not been implemented yet.  */
 
 static void
 dwarf2out_abstract_function (tree decl)
