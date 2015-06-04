@@ -109,6 +109,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-section-names.h"
 #include "gomp-constants.h"
 #include "gimple-pretty-print.h"
+#include "set"
 
 
 /* Lowering of OMP parallel and workshare constructs proceeds in two
@@ -291,6 +292,8 @@ static vec<omp_context *> taskreg_contexts;
 
 static void scan_omp (gimple_seq *, omp_context *);
 static tree scan_omp_1_op (tree *, int *, void *);
+static void oacc_broadcast (basic_block, basic_block, struct omp_region *,
+			    struct omp_for_data *);
 
 #define WALK_SUBSTMTS  \
     case GIMPLE_BIND: \
@@ -7131,6 +7134,9 @@ expand_omp_for_static_nochunk (struct omp_region *region,
     }
   exit_bb = region->exit;
 
+  /* Broadcast variables to OpenACC threads.  */
+  oacc_broadcast (entry_bb, fin_bb, region, fd);
+
   /* Iteration space partitioning goes in ENTRY_BB.  */
   gsi = gsi_last_bb (entry_bb);
   gcc_assert (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_FOR);
@@ -7535,6 +7541,10 @@ expand_omp_for_static_chunk (struct omp_region *region,
   cont_bb = region->cont;
   gcc_assert (EDGE_COUNT (iter_part_bb->succs) == 2);
   fin_bb = BRANCH_EDGE (iter_part_bb)->dest;
+
+  /* Broadcast variables to OpenACC threads.  */
+  oacc_broadcast (entry_bb, fin_bb, region, fd);
+
   gcc_assert (broken_loop
 	      || fin_bb == FALLTHRU_EDGE (cont_bb)->dest);
   seq_start_bb = split_edge (FALLTHRU_EDGE (iter_part_bb));
@@ -10320,12 +10330,24 @@ generate_vector_broadcast (tree dest_var, tree var,
       fn = BUILT_IN_GOACC_THREAD_BROADCAST_LL;
       call_arg_type = long_long_unsigned_type_node;
     }
+
   bool need_conversion = !types_compatible_p (vartype, call_arg_type);
   tree casted_var = var;
+
   if (need_conversion)
     {
+      gassign *conv1 = NULL;
       casted_var = create_tmp_var (call_arg_type);
-      gassign *conv1 = gimple_build_assign (casted_var, NOP_EXPR, var);
+
+      /* Handle floats and doubles.  */
+      if (!INTEGRAL_TYPE_P (vartype))
+	{
+	  tree t = fold_build1 (VIEW_CONVERT_EXPR, call_arg_type, var);
+	  conv1 = gimple_build_assign (casted_var, t);
+	}
+      else
+	conv1 = gimple_build_assign (casted_var, NOP_EXPR, var);
+
       gsi_insert_after (&where, conv1, GSI_CONTINUE_LINKING);
     }
 
@@ -10333,14 +10355,23 @@ generate_vector_broadcast (tree dest_var, tree var,
   gimple call = gimple_build_call (decl, 1, casted_var);
   gsi_insert_after (&where, call, GSI_NEW_STMT);
   tree casted_dest = dest_var;
+
   if (need_conversion)
     {
+      gassign *conv2 = NULL;
       casted_dest = create_tmp_var (call_arg_type);
-      create_tmp_var (call_arg_type);
-      gassign *conv2 = gimple_build_assign (dest_var, NOP_EXPR,
-					    casted_dest);
+
+      if (!INTEGRAL_TYPE_P (vartype))
+	{
+	  tree t = fold_build1 (VIEW_CONVERT_EXPR, vartype, casted_dest);
+	  conv2 = gimple_build_assign (dest_var, t);
+	}
+      else
+	conv2 = gimple_build_assign (dest_var, NOP_EXPR, casted_dest);
+
       gsi_insert_after (&where, conv2, GSI_CONTINUE_LINKING);
     }
+
   gimple_call_set_lhs (call, casted_dest);
   return retval;
 }
@@ -10629,6 +10660,145 @@ predicate_omp_regions (basic_block head_bb)
       int mask = required_predication_mask (region);
       predicate_bb (bb, region, mask);
     }
+}
+
+/* USE and GET sets for variable broadcasting.  */
+static std::set<tree> use, gen;
+
+static tree
+populate_loop_use (tree *tp, int *walk_subtrees, void *data_)
+{
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data_;
+  std::set<tree>::iterator it;
+
+  /* There isn't much to do for LHS ops. There shouldn't be any pointers
+     or references here.  */
+  if (wi && wi->is_lhs)
+    return NULL_TREE;
+
+  if (VAR_P (*tp))
+    {
+      tree type;
+
+      *walk_subtrees = 0;
+
+      /* Filter out incompatible decls.  */
+      if (INDIRECT_REF_P (*tp) || is_global_var (*tp))
+	return NULL_TREE;
+
+      type = TREE_TYPE (*tp);
+
+      /* Aggregate types aren't supported either.  */
+      if (AGGREGATE_TYPE_P (type))
+	return NULL_TREE;
+
+      /* Filter out decls inside GEN.  */
+      it = gen.find (*tp);
+      if (it == gen.end ())
+	use.insert (*tp);
+    }
+  else if (IS_TYPE_OR_DECL_P (*tp))
+    *walk_subtrees = 0;
+
+  return NULL_TREE;
+}
+
+/* INIT is true if this is the first time this function is called.  */
+
+static void
+oacc_broadcast_1 (basic_block entry_bb, basic_block exit_bb, bool init,
+		  int mask)
+{
+  basic_block son;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+  tree block, var;
+
+  if (entry_bb == exit_bb)
+    return;
+
+  /* Populate the GEN set.  */
+
+  gsi = gsi_start_bb (entry_bb);
+  stmt = gsi_stmt (gsi);
+
+  /* There's nothing to do if stmt is empty or if this is the entry basic
+     block to the vector loop.  The entry basic block to pre-expanded loops
+     do not have an entry label.  As such, the scope containing the initial
+     entry_bb should not be added to the gen set.  */
+  if (stmt != NULL && !init && (block = gimple_block (stmt)) != NULL)
+    for (var = BLOCK_VARS (block); var; var = DECL_CHAIN (var))
+      gen.insert(var);
+
+  /* Populate the USE set.  */
+
+  for (gsi = gsi_start_bb (entry_bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      struct walk_stmt_info wi;
+
+      memset (&wi, 0, sizeof (wi));
+      stmt = gsi_stmt (gsi);
+
+      walk_gimple_op (stmt, populate_loop_use, &wi);
+    }
+
+  /* Continue processing the children of this basic block.  */
+  for (son = first_dom_son (CDI_DOMINATORS, entry_bb);
+       son;
+       son = next_dom_son (CDI_DOMINATORS, son))
+    oacc_broadcast_1 (son, exit_bb, false, mask);
+}
+
+/* Broadcast variables to OpenACC vector loops.  This function scans
+   all of the basic blocks withing an acc vector loop.  It maintains
+   two sets of decls, a GEN set and a USE set.  The GEN set contains
+   all of the decls in the the basic block's scope.  The USE set
+   consists of decls used in current basic block, but are not in the
+   GEN set, globally defined or were transferred into the the accelerator
+   via a data movement clause.
+
+   The vector loop begins at ENTRY_BB and end at EXIT_BB, where EXIT_BB
+   is a latch back to ENTRY_BB.  Once a set of used variables have been
+   determined, they will get broadcasted in a pre-header to ENTRY_BB.  */
+
+static void
+oacc_broadcast (basic_block entry_bb, basic_block exit_bb, omp_region *region,
+		struct omp_for_data *fd)
+{
+  gimple_stmt_iterator gsi;
+  std::set<tree>::iterator it;
+  int mask = 0;
+
+  if (fd->worker == integer_one_node)
+    mask = MASK_WORKER;
+  if (fd->vector == integer_one_node)
+    mask |= MASK_VECTOR;
+
+  /* Nothing to do if this isn't an acc worker or vector loop.  */
+  if (mask == 0)
+    return;
+
+  use.empty ();
+  gen.empty ();
+
+  /* Currently, subroutines aren't supported.  */
+  gcc_assert (!lookup_attribute ("oacc function",
+				 DECL_ATTRIBUTES (current_function_decl)));
+
+  /* Populate the set of used decls.  */
+  oacc_broadcast_1 (entry_bb, exit_bb, true, mask);
+
+  /* Broadcast all decls in USE right before the last instruction in
+     entry_bb.  */
+  gsi = gsi_last_bb (entry_bb);
+
+  gimple_seq seq = NULL;
+  gimple_stmt_iterator g2 = gsi_start (seq);
+
+  for (it = use.begin (); it != use.end (); it++)
+    generate_oacc_broadcast (region, *it, *it, g2, mask);
+
+  gsi_insert_seq_before (&gsi, seq, GSI_CONTINUE_LINKING);
 }
 
 /* Main entry point for expanding OMP-GIMPLE into runtime calls.  */

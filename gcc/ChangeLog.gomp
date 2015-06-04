@@ -1,3 +1,16 @@
+2015-06-03  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* builtins.c (expand_builtin_oacc_thread_broadcast): Allow
+	constant value operads.
+	* omp-low.c (expand_omp_for_static_nochunk): Broadcast variables
+	to openacc vector threads when necessary.
+	(expand_omp_for_static_chunk): Likewise.
+	(generate_vector_broadcast): Teach how to handle non-integral typed
+	variables.
+	(populate_loop_use): New function.
+	(oacc_broadcast_1): New function.
+	(oacc_broadcast): New function.
+
 2015-06-02  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* omp-low.c (oacc_alloc_broadcast_storage): Remove unused parameter

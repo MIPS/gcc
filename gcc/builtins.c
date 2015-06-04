@@ -6057,11 +6057,14 @@ expand_builtin_oacc_thread_broadcast (tree exp, rtx target)
   rtx tmp = target;
   machine_mode mode0 = insn_data[icode].operand[0].mode;
   machine_mode mode1 = insn_data[icode].operand[1].mode;
-  if (!REG_P (tmp) || GET_MODE (tmp) != mode0)
+  if (!tmp || !REG_P (tmp) || GET_MODE (tmp) != mode0)
     tmp = gen_reg_rtx (mode0);
   rtx op1 = expand_expr (arg0, NULL_RTX, mode1, EXPAND_NORMAL);
   if (GET_MODE (op1) != mode1)
     op1 = convert_to_mode (mode1, op1, 0);
+
+  /* op1 might be an immediate, place it inside a register.  */
+  op1 = force_reg (mode1, op1);
 
   rtx insn = GEN_FCN (icode) (tmp, op1);
   if (insn != NULL_RTX)
