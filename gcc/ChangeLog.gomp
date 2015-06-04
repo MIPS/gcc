@@ -1,5 +1,10 @@
 2015-06-04  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (release_dangling_ssa_names): Factor out of ...
+	(pass_expand_omp_ssa::execute): ... here.
+
+2015-06-04  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (release_first_vuse_in_edge_dest): Add missing comment.
 
 2015-06-04  Tom de Vries  <tom@codesourcery.com>

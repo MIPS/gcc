@@ -10952,6 +10952,46 @@ make_pass_expand_omp (gcc::context *ctxt)
   return new pass_expand_omp (ctxt);
 }
 
+/* After running pass_expand_omp_ssa to expand the oacc kernels
+   directive, we are left in the original function with anonymous
+   SSA_NAMEs, with a defining statement that has been deleted.  This
+   pass finds those SSA_NAMEs and releases them.
+   TODO: Either fix this elsewhere, or make the fix unnecessary.  */
+
+static void
+release_dangling_ssa_names (void)
+{
+  unsigned int i;
+  for (i = 1; i < num_ssa_names; ++i)
+    {
+      tree name = ssa_name (i);
+      if (name == NULL_TREE)
+	continue;
+
+      gimple stmt = SSA_NAME_DEF_STMT (name);
+      bool found = false;
+
+      ssa_op_iter op_iter;
+      def_operand_p def_p;
+      FOR_EACH_PHI_OR_STMT_DEF (def_p, stmt, op_iter, SSA_OP_ALL_DEFS)
+	{
+	  tree def = DEF_FROM_PTR (def_p);
+	  if (def == name)
+	    {
+	      found = true;
+	      break;
+	    }
+	}
+
+      if (!found)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "Released dangling ssa name %u\n", i);
+	  release_ssa_name (name);
+	}
+    }
+}
+
 namespace {
 
 const pass_data pass_data_expand_omp_ssa =
@@ -10983,42 +11023,7 @@ public:
   virtual unsigned int execute (function *)
     {
       unsigned res = execute_expand_omp ();
-
-      /* After running pass_expand_omp_ssa to expand the oacc kernels
-	 directive, we are left in the original function with anonymous
-	 SSA_NAMEs, with a defining statement that has been deleted.  This
-	 pass finds those SSA_NAMEs and releases them.
-	 TODO: Either fix this elsewhere, or make the fix unnecessary.  */
-      unsigned int i;
-      for (i = 1; i < num_ssa_names; ++i)
-	{
-	  tree name = ssa_name (i);
-	  if (name == NULL_TREE)
-	    continue;
-
-	  gimple stmt = SSA_NAME_DEF_STMT (name);
-	  bool found = false;
-
-	  ssa_op_iter op_iter;
-	  def_operand_p def_p;
-	  FOR_EACH_PHI_OR_STMT_DEF (def_p, stmt, op_iter, SSA_OP_ALL_DEFS)
-	    {
-	      tree def = DEF_FROM_PTR (def_p);
-	      if (def == name)
-		{
-		  found = true;
-		  break;
-		}
-	    }
-
-	  if (!found)
-	    {
-	      if (dump_file)
-		fprintf (dump_file, "Released dangling ssa name %u\n", i);
-	      release_ssa_name (name);
-	    }
-	}
-
+      release_dangling_ssa_names ();
       return res;
     }
   opt_pass * clone () { return new pass_expand_omp_ssa (m_ctxt); }
