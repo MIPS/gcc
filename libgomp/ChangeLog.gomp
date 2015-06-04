@@ -1,3 +1,10 @@
+2015-06-04  Julian Brown  <julian@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/worker-single-{1,1a,2,3,4,5,6}.c:
+	New tests.
+	* testsuite/libgomp.oacc-c-c++-common/worker-partn-{1,2,3,4,5,6,7}.c:
+	New tests.
+
 2015-06-03  Cesar Philippidis  <cesar@codesourcery.com>
 
 	libgomp/
