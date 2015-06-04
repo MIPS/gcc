@@ -1,5 +1,11 @@
 2015-06-04  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (gimple_stmt_ssa_operand_references_var_p): Remove function.
+	(gimple_stmt_omp_data_i_init_p): Rewrite without
+	gimple_stmt_ssa_operand_references_var_p.
+
+2015-06-04  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (release_dangling_ssa_names): Factor out of ...
 	(pass_expand_omp_ssa::execute): ... here.
 

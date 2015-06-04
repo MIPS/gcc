@@ -15368,39 +15368,40 @@ omp_finish_file (void)
     }
 }
 
-static bool
-gimple_stmt_ssa_operand_references_var_p (gimple stmt, const char **varnames,
-					  unsigned int nr_varnames,
-					  unsigned int flags)
-{
-  tree use;
-  ssa_op_iter iter;
-  const char *s;
-
-  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, flags)
-    {
-      if (SSA_NAME_IDENTIFIER (use) == NULL_TREE)
-	continue;
-      s = IDENTIFIER_POINTER (SSA_NAME_IDENTIFIER (use));
-
-      unsigned int i;
-      for (i = 0; i < nr_varnames; ++i)
-	if (strcmp (varnames[i], s) == 0)
-	  return true;
-    }
-
-  return false;
-}
-
-/* Return true if STMT is .omp_data_i init.  */
+/* Return true if STMT is copy assignment .omp_data_i = &.omp_data_arr.  */
 
 bool
 gimple_stmt_omp_data_i_init_p (gimple stmt)
 {
-  const char *varnames[] = { ".omp_data_i" };
-  unsigned int nr_varnames = sizeof (varnames) / sizeof (varnames[0]);
-  return gimple_stmt_ssa_operand_references_var_p (stmt, varnames, nr_varnames,
-						   SSA_OP_DEF);
+  /* Extract obj from stmt 'a = &obj.  */
+  if (!gimple_assign_cast_p (stmt)
+      && !gimple_assign_single_p (stmt))
+    return false;
+  tree rhs = gimple_assign_rhs1 (stmt);
+  if (TREE_CODE (rhs) != ADDR_EXPR)
+    return false;
+  tree obj = TREE_OPERAND (rhs, 0);
+
+  /* Check that the last statement in the preceding bb is an oacc kernels
+     stmt.  */
+  basic_block bb = gimple_bb (stmt);
+  if (!single_pred_p (bb))
+    return false;
+  gimple last = last_stmt (single_pred (bb));
+  if (last == NULL
+      || gimple_code (last) != GIMPLE_OMP_TARGET)
+    return false;
+  gomp_target *kernels = as_a <gomp_target *> (last);
+  if (gimple_omp_target_kind (kernels)
+      != GF_OMP_TARGET_KIND_OACC_KERNELS)
+    return false;
+
+  /* Get omp_data_arr from the oacc kernels stmt.  */
+  tree data_arg = gimple_omp_target_data_arg (kernels);
+  tree omp_data_arr = TREE_VEC_ELT (data_arg, 0);
+
+  /* If obj is omp_data_arr, we've found the .omp_data_i init statement.  */
+  return operand_equal_p (obj, omp_data_arr, 0);
 }
 
 namespace {
