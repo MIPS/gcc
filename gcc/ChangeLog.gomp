@@ -1,5 +1,9 @@
 2015-06-04  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (release_first_vuse_in_edge_dest): Add missing comment.
+
+2015-06-04  Tom de Vries  <tom@codesourcery.com>
+
 	* cfgloop.h (struct loop): Add in_oacc_kernels_region field.
 	* omp-low.c (mark_loops_in_oacc_kernels_region): New function.
 	(loop_get_oacc_kernels_region_entry): New function.

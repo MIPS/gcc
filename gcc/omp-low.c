@@ -5929,6 +5929,9 @@ expand_omp_build_assign (gimple_stmt_iterator *gsi_p, tree to, tree from)
     }
 }
 
+/* Release the first vuse in bb E->dest, either normal or phi arg for
+   edge E.  */
+
 static void
 release_first_vuse_in_edge_dest (edge e)
 {
