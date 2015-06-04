@@ -29,8 +29,7 @@ extern tree omp_reduction_init (tree, tree);
 extern bool make_gimple_omp_edges (basic_block, struct omp_region **, int *);
 extern void omp_finish_file (void);
 extern bool gimple_stmt_omp_data_i_init_p (gimple);
-extern bool loop_in_oacc_kernels_region_p (struct loop *, basic_block *,
-					   basic_block *);
+extern basic_block loop_get_oacc_kernels_region_entry (struct loop *);
 
 extern GTY(()) vec<tree, va_gc> *offload_funcs;
 extern GTY(()) vec<tree, va_gc> *offload_vars;

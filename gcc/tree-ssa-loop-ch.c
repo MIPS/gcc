@@ -225,7 +225,7 @@ pass_ch_execute (function *fun, bool oacc_kernels_p)
 	continue;
 
       if (oacc_kernels_p
-	  && !loop_in_oacc_kernels_region_p (loop, NULL, NULL))
+	  && !loop->in_oacc_kernels_region)
 	continue;
 
       /* Iterate the header copying up to limit; this takes care of the cases

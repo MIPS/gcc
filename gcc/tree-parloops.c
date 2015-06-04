@@ -2629,7 +2629,7 @@ parallelize_loops (bool oacc_kernels_p)
   struct obstack parloop_obstack;
   HOST_WIDE_INT estimated;
   source_location loop_loc;
-  basic_block region_entry, region_exit;
+  basic_block region_entry = NULL;
 
   /* Do not parallelize loops in the functions created by parallelization.  */
   if (parallelized_function_p (cfun->decl))
@@ -2649,8 +2649,7 @@ parallelize_loops (bool oacc_kernels_p)
 
       if (oacc_kernels_p)
 	{
-	  if (!loop_in_oacc_kernels_region_p (loop, &region_entry,
-					      &region_exit))
+	  if (!loop->in_oacc_kernels_region)
 	    continue;
 
 	  /* TODO: Allow nested loops.  */
@@ -2661,6 +2660,8 @@ parallelize_loops (bool oacc_kernels_p)
 	    fprintf (dump_file,
 		     "Trying loop %d with header bb %d in oacc kernels region\n",
 		     loop->num, loop->header->index);
+
+	  region_entry = loop_get_oacc_kernels_region_entry (loop);
 	}
 
       if (dump_file && (dump_flags & TDF_DETAILS))
