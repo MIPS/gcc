@@ -505,6 +505,100 @@ void t13()
 }
 
 
+/* Test condition in worker-partitioned mode.  */
+
+void t14()
+{
+  int arr[32 * 32 * 8], i;
+
+  for (i = 0; i < 32 * 32 * 8; i++)
+    arr[i] = i;
+
+  #pragma acc parallel copy(arr) \
+		       num_gangs(8) num_workers(8) vector_length(32)
+  {
+    int j;
+    #pragma acc loop gang
+    for (j = 0; j < 32; j++)
+      {
+	int k;
+	#pragma acc loop worker
+	for (k = 0; k < 8; k++)
+	  {
+	    int m;
+	    if ((k % 2) == 0)
+	      {
+		#pragma acc loop vector
+		for (m = 0; m < 32; m++)
+		  arr[j * 32 * 8 + k * 32 + m]++;
+	      }
+	    else
+	      {
+		#pragma acc loop vector
+		for (m = 0; m < 32; m++)
+		  arr[j * 32 * 8 + k * 32 + m] += 2;
+	      }
+	  }
+      }
+  }
+
+  for (i = 0; i < 32 * 32 * 8; i++)
+    assert (arr[i] == i + ((i / 32) % 2) + 1);
+}
+
+
+/* Test switch in worker-partitioned mode.  */
+
+void t15()
+{
+  int arr[32 * 32 * 8], i;
+
+  for (i = 0; i < 32 * 32 * 8; i++)
+    arr[i] = i;
+
+  #pragma acc parallel copy(arr) \
+		       num_gangs(8) num_workers(8) vector_length(32)
+  {
+    int j;
+    #pragma acc loop gang
+    for (j = 0; j < 32; j++)
+      {
+	int k;
+	#pragma acc loop worker
+	for (k = 0; k < 8; k++)
+	  {
+	    int m;
+	    switch ((j * 32 + k) % 3)
+	    {
+	    case 0:
+	      #pragma acc loop vector
+	      for (m = 0; m < 32; m++)
+		arr[j * 32 * 8 + k * 32 + m]++;
+	      break;
+
+	    case 1:
+	      #pragma acc loop vector
+	      for (m = 0; m < 32; m++)
+		arr[j * 32 * 8 + k * 32 + m] += 2;
+	      break;
+
+	    case 2:
+	      #pragma acc loop vector
+	      for (m = 0; m < 32; m++)
+		arr[j * 32 * 8 + k * 32 + m] += 3;
+	      break;
+
+	    default: ;
+	    }
+	  }
+      }
+  }
+
+  for (i = 0; i < 32 * 32 * 8; i++)
+    assert (arr[i] == i + ((i / 32) % 3) + 1);
+}
+
+
 /* Test worker-single/worker-partitioned transitions.  */
 
 void t16()
@@ -914,6 +1008,53 @@ void t25()
 }
 
 
+/* Test multiple conditional vector-partitioned loops in worker-single
+   mode.  */
+
+void t26()
+{
+  int arr[32 * 32], i;
+
+  for (i = 0; i < 32 * 32; i++)
+    arr[i] = i;
+
+  #pragma acc parallel copy(arr) \
+		       num_gangs(8) num_workers(8) vector_length(32)
+  {
+    int j;
+    #pragma acc loop gang
+    for (j = 0; j < 32; j++)
+      {
+	int k;
+	if ((j % 3) == 0)
+	  {
+	    #pragma acc loop vector
+	    for (k = 0; k < 32; k++)
+	      {
+		#pragma acc atomic
+		arr[j * 32 + k] += 3;
+	      }
+	  }
+	else if ((j % 3) == 1)
+	  {
+	    #pragma acc loop vector
+	    for (k = 0; k < 32; k++)
+	      {
+		#pragma acc atomic
+		arr[j * 32 + k] += 7;
+	      }
+	  }
+      }
+  }
+
+  for (i = 0; i < 32 * 32; i++)
+    {
+      int j = (i / 32) % 3;
+      assert (arr[i] == i + ((j == 0) ? 3 : (j == 1) ? 7 : 0));
+    }
+}
+
+
 /* Test worker-single, vector-partitioned, gang-redundant mode.  */
 
 #define ACTUAL_GANGS 8
@@ -1004,6 +1145,8 @@ int main()
   t11();
   t12();
   t13();
+  t14();
+  t15();
   t16();
   t17();
   t18();
@@ -1014,6 +1157,7 @@ int main()
   t23();
   t24();
   t25();
+  t26();
   t27();
   t28();
 

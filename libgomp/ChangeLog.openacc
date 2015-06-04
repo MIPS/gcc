@@ -1,3 +1,8 @@
+2015-06-04  Julian Brown  <julian@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/mode-transitions.c: Update:
+	worker.
+
 2015-05-19  Julian Brown  <julian@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/mode-transitions.c: Update:
