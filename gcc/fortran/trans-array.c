@@ -5006,7 +5006,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 		     gfc_expr ** lower, gfc_expr ** upper, stmtblock_t * pblock,
 		     stmtblock_t * descriptor_block, tree * overflow,
 		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3,
-		     tree expr3_desc)
+		     tree expr3_desc, bool e3_is_array_constr)
 {
   tree type;
   tree tmp;
@@ -5036,11 +5036,6 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 
   or_expr = boolean_false_node;
 
-  /* When expr3_desc is set, use its rank, because we want to allocate an
-     array with the array_spec coming from source=.  */
-  if (expr3_desc != NULL_TREE)
-    gcc_assert (rank == GFC_TYPE_ARRAY_RANK (TREE_TYPE (expr3_desc)));
-
   for (n = 0; n < rank; n++)
     {
       tree conv_lbound;
@@ -5056,7 +5051,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
       gfc_init_se (&se, NULL);
       if (expr3_desc != NULL_TREE)
 	{
-	  if (expr3 && expr3->expr_type == EXPR_ARRAY)
+	  if (e3_is_array_constr)
 	    /* The lbound of a constant array [] starts at zero, but when
 	       allocating it, the standard expects the array to start at
 	       one.  */
@@ -5095,7 +5090,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
       gfc_init_se (&se, NULL);
       if (expr3_desc != NULL_TREE)
 	{
-	  if (expr3 && expr3->expr_type == EXPR_ARRAY)
+	  if (e3_is_array_constr)
 	    {
 	      /* The lbound of a constant array [] starts at zero, but when
 	       allocating it, the standard expects the array to start at
@@ -5324,7 +5319,8 @@ retrieve_last_ref (gfc_ref **ref_in, gfc_ref **prev_ref_in)
 bool
 gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 		    tree errlen, tree label_finish, tree expr3_elem_size,
-		    tree *nelems, gfc_expr *expr3, tree e3_arr_desc)
+		    tree *nelems, gfc_expr *expr3, tree e3_arr_desc,
+		    bool e3_is_array_constr)
 {
   tree tmp;
   tree pointer;
@@ -5414,7 +5410,8 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 							   : ref->u.ar.as->rank,
 			      ref->u.ar.as->corank, &offset, lower, upper,
 			      &se->pre, &set_descriptor_block, &overflow,
-			      expr3_elem_size, nelems, expr3, e3_arr_desc);
+			      expr3_elem_size, nelems, expr3, e3_arr_desc,
+			      e3_is_array_constr);
 
   if (dimension)
     {
