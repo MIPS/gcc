@@ -1,3 +1,27 @@
+2015-06-04  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-array-notation.c: Adjust includes for restructured coretypes.h.
+	* c-aux-info.c: Likewise.
+	* c-convert.c: Likewise.
+	* c-decl.c: Likewise.
+	* c-errors.c: Likewise.
+	* c-lang.c: Likewise.
+	* c-objc-common.c: Likewise.
+	* c-parser.c: Likewise.
+	* c-typeck.c: Likewise.
+
+2015-06-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66341
+	* c-typeck.c (build_c_cast): Wrap VALUE into NON_LVALUE_EXPR if
+	it is a lvalue.
+
+2015-06-03  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* c-decl.c (warn_cxx_compat_finish_struct): New parameters code, record_loc.
+	Warn for empty struct.
+	(finish_struct): Pass TREE_CODE(t) and loc to warn_cxx_compat_finish_struct.
+
 2015-06-02  Andres Tiraboschi  <andres.tiraboschi@tallertechnologies.com>
 
 	* c-decl.c (start_function): Call plugin before parsing.
