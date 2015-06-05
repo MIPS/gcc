@@ -1241,6 +1241,30 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #endif
 #endif
 
+/* Default value for flag_pie when flag_pie is initialized to -1:
+   --enable-default-pie: Default flag_pie to -fPIE.
+   --disable-default-pie: Default flag_pie to 0.
+ */
+#ifdef ENABLE_DEFAULT_PIE
+# ifndef DEFAULT_FLAG_PIE
+#  define DEFAULT_FLAG_PIE 2
+# endif
+#else
+# define DEFAULT_FLAG_PIE 0
+#endif
+
+#ifndef SWITCHABLE_TARGET
+#define SWITCHABLE_TARGET 0
+#endif
+
+/* If the target supports integers that are wider than two
+   HOST_WIDE_INTs on the host compiler, then the target should define
+   TARGET_SUPPORTS_WIDE_INT and make the appropriate fixups.
+   Otherwise the compiler really is not robust.  */
+#ifndef TARGET_SUPPORTS_WIDE_INT
+#define TARGET_SUPPORTS_WIDE_INT 0
+#endif
+
 #ifdef GCC_INSN_FLAGS_H
 /* Dependent default target macro definitions
 
@@ -1400,18 +1424,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    pointer to a function.  */
 #ifndef TARGET_VTABLE_USES_DESCRIPTORS
 #define TARGET_VTABLE_USES_DESCRIPTORS 0
-#endif
-
-#ifndef SWITCHABLE_TARGET
-#define SWITCHABLE_TARGET 0
-#endif
-
-/* If the target supports integers that are wider than two
-   HOST_WIDE_INTs on the host compiler, then the target should define
-   TARGET_SUPPORTS_WIDE_INT and make the appropriate fixups.
-   Otherwise the compiler really is not robust.  */
-#ifndef TARGET_SUPPORTS_WIDE_INT
-#define TARGET_SUPPORTS_WIDE_INT 0
 #endif
 
 #ifndef HAVE_simple_return
