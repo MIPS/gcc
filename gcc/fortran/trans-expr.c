@@ -4630,6 +4630,10 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
     }
 
   base_object = NULL_TREE;
+  /* For _vprt->_copy () routines no formal symbol is present.  Nevertheless
+     is the third and fourth argument to such a function call a value
+     denoting the number of elements to copy (i.e., most of the time the
+     length of a deferred length string).  */
   ulim_copy = formal == NULL && UNLIMITED_POLY (sym)
       && strcmp ("_copy", comp->name) == 0;
 
@@ -4737,6 +4741,12 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_init_se (&parmse, se);
 	  parm_kind = ELEMENTAL;
 
+	  /* When no fsym is present, ulim_copy is set and this is a third or
+	     fourth argument, use call-by-value instead of by reference to
+	     hand the length properties to the copy routine (i.e., most of the
+	     time this will be a call to a __copy_character_* routine where the
+	     third and fourth arguments are the lengths of a deferred length
+	     char array).  */
 	  if ((fsym && fsym->attr.value)
 	      || (ulim_copy && (argc == 3 || argc == 4)))
 	    gfc_conv_expr (&parmse, e);
