@@ -33,13 +33,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -82,8 +79,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "rtl.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -12855,6 +12850,17 @@ verify_type_variant (const_tree t, tree tv)
       debug_tree (TREE_TYPE (t));
       return false;
     }
+  if (type_with_alias_set_p (t)
+      && !gimple_canonical_types_compatible_p (t, tv, false))
+    {
+      error ("type is not compatible with its vairant");
+      debug_tree (tv);
+      error ("type variant's TREE_TYPE");
+      debug_tree (TREE_TYPE (tv));
+      error ("type's TREE_TYPE");
+      debug_tree (TREE_TYPE (t));
+      return false;
+    }
   return true;
 #undef verify_variant_match
 }
@@ -12879,7 +12885,13 @@ bool
 gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
 				     bool trust_type_canonical)
 {
-  /* Before starting to set up the SCC machinery handle simple cases.  */
+  /* Type variants should be same as the main variant.  When not doing sanity
+     checking to verify this fact, go to main variants and save some work.  */
+  if (trust_type_canonical)
+    {
+      t1 = TYPE_MAIN_VARIANT (t1);
+      t2 = TYPE_MAIN_VARIANT (t2);
+    }
 
   /* Check first for the obvious case of pointer identity.  */
   if (t1 == t2)
@@ -12913,7 +12925,8 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
     return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
 
   /* Can't be the same type if the types don't have the same code.  */
-  if (TREE_CODE (t1) != TREE_CODE (t2))
+  if (tree_code_for_canonical_type_merging (TREE_CODE (t1))
+      != tree_code_for_canonical_type_merging (TREE_CODE (t2)))
     return false;
 
   /* Qualifiers do not matter for canonical type comparison purposes.  */
