@@ -34,8 +34,7 @@ program assumed_shape_01
   deallocate(iv)
 
   allocate(u, source=[cstruct( 4, [1.1,2.2] )] )
-  print *, u(0)
-  if (any(u(:)%i /= 4) .or. any(abs(u(0)%r(:) - [1.1,2.2]) > 1E-6)) call abort()
+  if (any(u(:)%i /= 4) .or. any(abs(u(1)%r(:) - [1.1,2.2]) > 1E-6)) call abort()
   deallocate (u)
 
   allocate(iv, source= arrval())
