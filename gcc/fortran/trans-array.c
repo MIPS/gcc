@@ -5006,7 +5006,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 		     gfc_expr ** lower, gfc_expr ** upper, stmtblock_t * pblock,
 		     stmtblock_t * descriptor_block, tree * overflow,
 		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3,
-		     tree expr3_desc)
+		     tree expr3_desc, bool e3_is_array_constr)
 {
   tree type;
   tree tmp;
@@ -5036,11 +5036,6 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 
   or_expr = boolean_false_node;
 
-//  /* When expr3_desc is set, use its rank, because we want to allocate an
-//     array with the array_spec coming from source=.  */
-//  if (expr3_desc != NULL_TREE)
-//    rank = GFC_TYPE_ARRAY_RANK (TREE_TYPE (expr3_desc));
-
   for (n = 0; n < rank; n++)
     {
       tree conv_lbound;
@@ -5055,7 +5050,16 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
       /* Set lower bound.  */
       gfc_init_se (&se, NULL);
       if (expr3_desc != NULL_TREE)
-	se.expr = gfc_conv_descriptor_lbound_get (expr3_desc, gfc_rank_cst[n]);
+	{
+	  if (e3_is_array_constr)
+	    /* The lbound of a constant array [] starts at zero, but when
+	       allocating it, the standard expects the array to start at
+	       one.  */
+	    se.expr = gfc_index_one_node;
+	  else
+	    se.expr = gfc_conv_descriptor_lbound_get (expr3_desc,
+						      gfc_rank_cst[n]);
+	}
       else if (lower == NULL)
 	se.expr = gfc_index_one_node;
       else
@@ -5085,7 +5089,27 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
       /* Set upper bound.  */
       gfc_init_se (&se, NULL);
       if (expr3_desc != NULL_TREE)
-	se.expr = gfc_conv_descriptor_ubound_get (expr3_desc, gfc_rank_cst[n]);
+	{
+	  if (e3_is_array_constr)
+	    {
+	      /* The lbound of a constant array [] starts at zero, but when
+	       allocating it, the standard expects the array to start at
+	       one.  Therefore fix the upper bound to be
+	       (desc.ubound - desc.lbound)+ 1.  */
+	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
+				     gfc_array_index_type,
+				     gfc_conv_descriptor_ubound_get (
+				       expr3_desc, gfc_rank_cst[n]),
+				     gfc_conv_descriptor_lbound_get (
+				       expr3_desc, gfc_rank_cst[n]));
+	      se.expr = fold_build2_loc (input_location, PLUS_EXPR,
+					 gfc_array_index_type, tmp,
+					 gfc_index_one_node);
+	    }
+	  else
+	    se.expr = gfc_conv_descriptor_ubound_get (expr3_desc,
+						      gfc_rank_cst[n]);
+	}
       else
 	{
 	  gcc_assert (ubound);
@@ -5295,7 +5319,8 @@ retrieve_last_ref (gfc_ref **ref_in, gfc_ref **prev_ref_in)
 bool
 gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 		    tree errlen, tree label_finish, tree expr3_elem_size,
-		    tree *nelems, gfc_expr *expr3, tree e3_arr_desc)
+		    tree *nelems, gfc_expr *expr3, tree e3_arr_desc,
+		    bool e3_is_array_constr)
 {
   tree tmp;
   tree pointer;
@@ -5385,7 +5410,8 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 							   : ref->u.ar.as->rank,
 			      ref->u.ar.as->corank, &offset, lower, upper,
 			      &se->pre, &set_descriptor_block, &overflow,
-			      expr3_elem_size, nelems, expr3, e3_arr_desc);
+			      expr3_elem_size, nelems, expr3, e3_arr_desc,
+			      e3_is_array_constr);
 
   if (dimension)
     {
