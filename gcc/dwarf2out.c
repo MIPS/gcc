@@ -2697,7 +2697,7 @@ comdat_type_node;
    missing bits.  */
 typedef struct GTY(()) limbo_die_struct {
   dw_die_ref die;
-  /* The tree for which this DIE was created for.  We use this to
+  /* The tree for which this DIE was created.  We use this to
      determine ancestry later.  */
   tree created_for;
   struct limbo_die_struct *next;
@@ -5620,10 +5620,9 @@ print_die (dw_die_ref die, FILE *outfile)
   unsigned ix;
 
   print_spaces (outfile);
-  fprintf (outfile, "DIE %4ld: %s (%p)",
+  fprintf (outfile, "DIE %4ld: %s (%p)\n",
 	   die->die_offset, dwarf_tag_name (die->die_tag),
 	   (void*) die);
-  fputc ('\n', outfile);
   print_spaces (outfile);
   fprintf (outfile, "  abbrev id: %lu", die->die_abbrev);
   fprintf (outfile, " offset: %ld", die->die_offset);
@@ -19065,11 +19064,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   if (debug_info_level <= DINFO_LEVEL_TERSE)
     ;
   else if (declaration)
-    {
-      /* Only generate a prototype's parameters once.  */
-      if (!old_die)
-	gen_formal_types_die (decl, subr_die);
-    }
+    gen_formal_types_die (decl, subr_die);
   else
     {
       /* Generate DIEs to represent all known formal parameters.  */

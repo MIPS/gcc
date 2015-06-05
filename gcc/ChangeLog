@@ -15,7 +15,6 @@
 	(reparent_child): New function abstracted from...
 	(splice_child_die): ...here.
 	(new_die): ICE if a DIE ends up in limbo too late.
-	(print_die): Display "(DUMPED EARLY)" if appropriate.
 	(check_die): New.
 	(defer_location): Remove.
 	(add_subscript_info): Reuse DW_TAG_subrange_type if available.
