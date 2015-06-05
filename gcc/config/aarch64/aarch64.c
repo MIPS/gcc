@@ -26,13 +26,10 @@
 #include "rtl.h"
 #include "insn-attr.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -57,8 +54,6 @@
 #include "function.h"
 #include "flags.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -7207,8 +7202,7 @@ aarch64_override_options (void)
 #endif
     }
 
-  if (AARCH64_TUNE_FMA_STEERING)
-    aarch64_register_fma_steering ();
+  aarch64_register_fma_steering ();
 
   aarch64_override_options_after_change ();
 }
