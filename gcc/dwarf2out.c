@@ -2630,8 +2630,6 @@ typedef struct GTY((chain_circular ("%h.die_sib"), for_user)) die_struct {
   /* Die is used and must not be pruned as unused.  */
   BOOL_BITFIELD die_perennial_p : 1;
   BOOL_BITFIELD comdat_type_p : 1; /* DIE has a type signature */
-  /* Die was generated early via dwarf2out_early_global_decl.  */
-  BOOL_BITFIELD dumped_early : 1;
   /* Lots of spare bits.  */
 }
 die_node;
@@ -4932,9 +4930,6 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 
   die->die_tag = tag_value;
 
-  if (early_dwarf)
-    die->dumped_early = true;
-
   if (parent_die != NULL)
     add_child_die (parent_die, die);
   else
@@ -5628,14 +5623,6 @@ print_die (dw_die_ref die, FILE *outfile)
   fprintf (outfile, "DIE %4ld: %s (%p)",
 	   die->die_offset, dwarf_tag_name (die->die_tag),
 	   (void*) die);
-  if (die->dumped_early)
-    {
-      fprintf (outfile, " (DUMPED EARLY");
-      const char *name = get_AT_string (die, DW_AT_name);
-      if (name)
-	fprintf (outfile, ": %s", name);
-      fputc (')', outfile);
-    }
   fputc ('\n', outfile);
   print_spaces (outfile);
   fprintf (outfile, "  abbrev id: %lu", die->die_abbrev);
@@ -8885,10 +8872,9 @@ output_die (dw_die_ref die)
   if (! die->comdat_type_p && die->die_id.die_symbol)
     output_die_symbol (die);
 
-  dw2_asm_output_data_uleb128 (die->die_abbrev, "(DIE (%#lx) %s)%s",
+  dw2_asm_output_data_uleb128 (die->die_abbrev, "(DIE (%#lx) %s)",
 			       (unsigned long)die->die_offset,
-			       dwarf_tag_name (die->die_tag),
-			       die->dumped_early ? " (early)" : "");
+			       dwarf_tag_name (die->die_tag));
 
   FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
     {
@@ -18701,7 +18687,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       && debug_info_level > DINFO_LEVEL_TERSE)
     old_die = force_decl_die (decl);
 
-  bool dumped_early = false;
   /* An inlined instance, tag a new DIE with DW_AT_abstract_origin.  */
   if (origin != NULL)
     {
@@ -18738,8 +18723,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	 additional information.  */
       if (declaration)
 	return;
-
-      dumped_early = old_die->dumped_early;
 
       if (!get_AT_flag (old_die, DW_AT_declaration)
 	  /* We can have a normal definition following an inline one in the
@@ -19084,7 +19067,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   else if (declaration)
     {
       /* Only generate a prototype's parameters once.  */
-      if (!dumped_early)
+      if (!old_die)
 	gen_formal_types_die (decl, subr_die);
     }
   else
@@ -19400,6 +19383,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
   tree ultimate_origin;
   dw_die_ref var_die;
   dw_die_ref old_die = decl ? lookup_decl_die (decl) : NULL;
+  dw_die_ref origin_die = NULL;
   bool declaration = (DECL_EXTERNAL (decl_or_origin)
 		      || class_or_namespace_scope_p (context_die));
   bool specialization_p = false;
@@ -19514,59 +19498,29 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
       return;
     }
 
-  dw_die_ref origin_die = NULL;
-
-  if (old_die && old_die->dumped_early)
+  if (old_die)
     {
-      if (decl_will_get_specification_p (old_die, decl, declaration))
-	{
-	  /* If we already have a DW_AT_specification, all we need is
-	     location info.  */
-	  if (get_AT (old_die, DW_AT_specification))
-	    {
-	      var_die = old_die;
-	      goto gen_variable_die_location;
-	    }
-	  /* Otherwise fall-thru so we can make a new variable die
-	     along with a DW_AT_specification.  */
-	}
-      else if (declaration)
+      if (declaration)
 	{
 	  /* A declaration that has been previously dumped, needs no
 	     further annotations, since it doesn't need location on
 	     the second pass.  */
 	  return;
 	}
-      else if (old_die->die_parent != context_die)
+      else if (decl_will_get_specification_p (old_die, decl, declaration)
+	       && !get_AT (old_die, DW_AT_specification))
 	{
-	  /* If the contexts differ, it means we _MAY_ not be talking
-	     about the same thing.  */
-	  if (origin)
-	    {
-	      /* If we will be creating an inlined instance, we need a
-		 new DIE that will get annotated with
-		 DW_AT_abstract_origin.  Clear things so we can get a
-		 new DIE.  */
-	      gcc_assert (!DECL_ABSTRACT_P (decl));
-	      old_die = NULL;
-	    }
-	  else
-	    {
-	      /* In some cases we end up with different contexts because
-		 the context_die is set to the context of the containing
-		 function, whereas the cached die is correctly set to the
-		 (possible) enclosing lexical scope (DW_TAG_lexical_block).
-		 In which case, special case it (hack).
-
-		 See dwarf2out_decl and its use of
-		 local_function_static to see how this can happened.
-		 In java, it can happen with non local statics, hence
-		 we do not check for TREE_STATIC here.  */
-	      gcc_assert (!DECL_CONTEXT (decl)
-			  || TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL);
-	      var_die = old_die;
-	      goto gen_variable_die_location;
-	    }
+	  /* Fall-thru so we can make a new variable die along with a
+	     DW_AT_specification.  */
+	}
+      else if (origin && old_die->die_parent != context_die)
+	{
+	  /* If we will be creating an inlined instance, we need a
+	     new DIE that will get annotated with
+	     DW_AT_abstract_origin.  Clear things so we can get a
+	     new DIE.  */
+	  gcc_assert (!DECL_ABSTRACT_P (decl));
+	  old_die = NULL;
 	}
       else
 	{
@@ -19576,13 +19530,6 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	  goto gen_variable_die_location;
 	}
     }
-
-  /* If the compiler emitted a definition for the DECL declaration
-     and we already emitted a DIE for it, don't emit a second
-     DIE for it again. Allow re-declarations of DECLs that are
-     inside functions, though.  */
-  else if (old_die && !declaration && !local_scope_p (context_die))
-    return;
 
   /* For static data members, the declaration in the class is supposed
      to have DW_TAG_member tag; the specification should still be
@@ -21813,15 +21760,6 @@ dwarf2out_decl (tree decl)
 {
   dw_die_ref context_die = comp_unit_die ();
 
-#ifdef ENABLE_CHECKING
-  /* Save some info so we can later determine if we erroneously
-     created a DIE for something we had already created a DIE for.
-     We should always be reusing DIEs created early.  */
-  dw_die_ref early_die = NULL;
-  if (decl_die_table)
-    early_die = lookup_decl_die (decl);
-#endif
-
   switch (TREE_CODE (decl))
     {
     case ERROR_MARK:
@@ -21934,15 +21872,6 @@ dwarf2out_decl (tree decl)
   dw_die_ref die = lookup_decl_die (decl);
   if (die)
     check_die (die);
-#ifdef ENABLE_CHECKING
-  /* If we early created a DIE, make sure it didn't get re-created by
-     mistake.  */
-  if (early_die && early_die->dumped_early)
-    gcc_assert (early_die == die
-		/* We can have a differing DIE if and only if, the
-		   new one is a specification of the old one.  */
-		|| get_AT_ref (die, DW_AT_specification) == early_die);
-#endif
 }
 
 /* Write the debugging output for DECL.  */
@@ -25079,14 +25008,6 @@ dwarf2out_finish (const char *filename)
 {
   comdat_type_node *ctnode;
   dw_die_ref main_comp_unit_die;
-
-  /* If the limbo list has anything, it should be things that were
-     created after the compilation proper.  Anything from the early
-     dwarf pass, should have parents and should never be in the limbo
-     list this late.  */
-  for (limbo_die_node *node = limbo_die_list; node; node = node->next)
-    gcc_assert (node->die->die_tag == DW_TAG_compile_unit
-		|| !node->die->dumped_early);
 
   /* Flush out any latecomers to the limbo party.  */
   dwarf2out_early_finish ();

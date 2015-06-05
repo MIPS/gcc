@@ -11,4 +11,4 @@ void f()
   }
 }
 
-// { dg-final { scan-assembler "DW_TAG_pointer_type. .early.\[^)\]*. DW_TAG_structure_type" } }
+// { dg-final { scan-assembler "DW_TAG_pointer_type.\[^)\]*. DW_TAG_structure_type" } }

@@ -4,7 +4,6 @@
 	(dwarf2_debug_hooks): Add early_finish hook.
 	Remove global_decl hook.
 	Add early_global_decl and late_global_decl hook.
-	Add dumped_early bit to die_struct.
 	New global early_dwarf.
 	New structure set_early_dwarf.
 	(output_die): Indicate whether a DIE was generated early
@@ -15,8 +14,7 @@
 	(remove_child_TAG): Clear die_parent.
 	(reparent_child): New function abstracted from...
 	(splice_child_die): ...here.
-	(new_die): Set dumped_early field if appropriate.
-	ICE if a DIE ends up in limbo too late.
+	(new_die): ICE if a DIE ends up in limbo too late.
 	(print_die): Display "(DUMPED EARLY)" if appropriate.
 	(check_die): New.
 	(defer_location): Remove.

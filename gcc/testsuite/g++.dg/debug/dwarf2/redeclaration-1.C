@@ -2,7 +2,7 @@
 // { dg-options "-g -dA" }
 // { dg-do compile }
 
-// { dg-final { scan-assembler-times "\[^\n\r\]*\\(DIE \[^\n\r\]*DW_TAG_lexical_block\\) \\(early\\)\[\n\r\]{1,2}\[^\n\r\]*DW_AT_low_pc\[\n\r\]{1,2}\[^\n\r\]*DW_AT_high_pc\[\n\r\]{1,2}\[^\n\r\]*\\(DIE \[^\n\r\]*DW_TAG_variable\\) \\(early\\)\[\n\r\]{1,2}\[^\n\r\]*DW_AT_name" 2 } }
+// { dg-final { scan-assembler-times "\[^\n\r\]*\\(DIE \[^\n\r\]*DW_TAG_lexical_block\\)\[\n\r\]{1,2}\[^\n\r\]*DW_AT_low_pc\[\n\r\]{1,2}\[^\n\r\]*DW_AT_high_pc\[\n\r\]{1,2}\[^\n\r\]*\\(DIE \[^\n\r\]*DW_TAG_variable\\)\[\n\r\]{1,2}\[^\n\r\]*DW_AT_name" 2 } }
 
 namespace S
 {
