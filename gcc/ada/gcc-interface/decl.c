@@ -28,13 +28,10 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -4252,7 +4249,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		  = maybe_pad_type (gnu_return_type,
 				    max_size (TYPE_SIZE (gnu_return_type),
 					      true),
-				    0, gnat_entity, false, false, false, true);
+				    0, gnat_entity, false, false, definition,
+				    true);
 
 		/* Declare it now since it will never be declared otherwise.
 		   This is necessary to ensure that its subtrees are properly
