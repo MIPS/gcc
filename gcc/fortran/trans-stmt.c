@@ -5183,7 +5183,9 @@ gfc_trans_allocate (gfc_code * code)
 		gfc_conv_expr_descriptor (&se, code->expr3);
 	      else
 		gfc_conv_expr_reference (&se, code->expr3);
-	      /* Create a temp variable only for component refs.  */
+	      /* Create a temp variable only for component refs to prevent
+		 having to go the full deref-chain each time and to simplfy
+		 computation of array properties.  */
 	      temp_var_needed = TREE_CODE (se.expr) == COMPONENT_REF;
 	      expr3_len = se.string_length;
 	      gfc_add_block_to_block (&block, &se.pre);
