@@ -77,14 +77,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -95,8 +92,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "flags.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -1036,6 +1031,7 @@ dr_analyze_indices (struct data_reference *dr, loop_p nest, loop_p loop)
 				 base, memoff);
 	  MR_DEPENDENCE_CLIQUE (ref) = MR_DEPENDENCE_CLIQUE (old);
 	  MR_DEPENDENCE_BASE (ref) = MR_DEPENDENCE_BASE (old);
+	  DR_UNCONSTRAINED_BASE (dr) = true;
 	  access_fns.safe_push (access_fn);
 	}
     }
@@ -1453,7 +1449,8 @@ dr_may_alias_p (const struct data_reference *a, const struct data_reference *b,
      offset/overlap based analysis but have to rely on points-to
      information only.  */
   if (TREE_CODE (addr_a) == MEM_REF
-      && TREE_CODE (TREE_OPERAND (addr_a, 0)) == SSA_NAME)
+      && (DR_UNCONSTRAINED_BASE (a)
+	  || TREE_CODE (TREE_OPERAND (addr_a, 0)) == SSA_NAME))
     {
       /* For true dependences we can apply TBAA.  */
       if (flag_strict_aliasing
@@ -1469,7 +1466,8 @@ dr_may_alias_p (const struct data_reference *a, const struct data_reference *b,
 				       build_fold_addr_expr (addr_b));
     }
   else if (TREE_CODE (addr_b) == MEM_REF
-	   && TREE_CODE (TREE_OPERAND (addr_b, 0)) == SSA_NAME)
+	   && (DR_UNCONSTRAINED_BASE (b)
+	       || TREE_CODE (TREE_OPERAND (addr_b, 0)) == SSA_NAME))
     {
       /* For true dependences we can apply TBAA.  */
       if (flag_strict_aliasing

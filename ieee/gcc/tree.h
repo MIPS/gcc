@@ -1589,6 +1589,7 @@ extern void protected_set_expr_location (tree, location_t);
 #define BLOCK_CHAIN(NODE) (BLOCK_CHECK (NODE)->block.chain)
 #define BLOCK_ABSTRACT_ORIGIN(NODE) (BLOCK_CHECK (NODE)->block.abstract_origin)
 #define BLOCK_ABSTRACT(NODE) (BLOCK_CHECK (NODE)->block.abstract_flag)
+#define BLOCK_DIE(NODE) (BLOCK_CHECK (NODE)->block.die)
 
 /* True if BLOCK has the same ranges as its BLOCK_SUPERCONTEXT.  */
 #define BLOCK_SAME_RANGE(NODE) (BLOCK_CHECK (NODE)->base.u.bits.nameless_flag)
@@ -4563,14 +4564,61 @@ extern tree walk_tree_without_duplicates_1 (tree*, walk_tree_fn, void*,
 #define walk_tree_without_duplicates(a,b,c) \
 	walk_tree_without_duplicates_1 (a, b, c, NULL)
 
-extern tree get_base_address (tree t);
 extern tree drop_tree_overflow (tree);
+
+/* Given a memory reference expression T, return its base address.
+   The base address of a memory reference expression is the main
+   object being referenced.  */
+extern tree get_base_address (tree t);
+
+/* Return a tree of sizetype representing the size, in bytes, of the element
+   of EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
+extern tree array_ref_element_size (tree);
+
+/* Return a tree representing the upper bound of the array mentioned in
+   EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
+extern tree array_ref_up_bound (tree);
+
+/* Return a tree representing the lower bound of the array mentioned in
+   EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
+extern tree array_ref_low_bound (tree);
+
+/* Returns true if REF is an array reference to an array at the end of
+   a structure.  If this is the case, the array may be allocated larger
+   than its upper bound implies.  */
+extern bool array_at_struct_end_p (tree);
+
+/* Return a tree representing the offset, in bytes, of the field referenced
+   by EXP.  This does not include any offset in DECL_FIELD_BIT_OFFSET.  */
+extern tree component_ref_field_offset (tree);
+
 extern int tree_map_base_eq (const void *, const void *);
 extern unsigned int tree_map_base_hash (const void *);
 extern int tree_map_base_marked_p (const void *);
 extern void DEBUG_FUNCTION verify_type (const_tree t);
 extern bool gimple_canonical_types_compatible_p (const_tree, const_tree,
 						 bool trust_type_canonical = true);
+/* Return simplified tree code of type that is used for canonical type merging.  */
+inline enum tree_code
+tree_code_for_canonical_type_merging (enum tree_code code)
+{
+  /* By C standard, each enumerated type shall be compatible with char,
+     a signed integer, or an unsigned integer.  The choice of type is
+     implementation defined (in our case it depends on -fshort-enum).
+
+     For this reason we make no distinction between ENUMERAL_TYPE and INTEGER
+     type and compare only by their signedness and precision.  */
+  if (code == ENUMERAL_TYPE)
+    return INTEGER_TYPE;
+  /* To allow inter-operability between languages having references and
+     C, we consider reference types and pointers alike.  Note that this is
+     not strictly necessary for C-Fortran 2008 interoperability because
+     Fortran define C_PTR type that needs to be compatible with C pointers
+     and we handle this one as ptr_type_node.  */
+  if (code == REFERENCE_TYPE)
+    return POINTER_TYPE;
+  return code;
+}
 
 #define tree_map_eq tree_map_base_eq
 extern unsigned int tree_map_hash (const void *);
@@ -5051,12 +5099,6 @@ tree_int_cst_compare (const_tree t1, const_tree t2)
 extern void set_decl_rtl (tree, rtx);
 extern bool complete_ctor_at_level_p (const_tree, HOST_WIDE_INT, const_tree);
 
-/* Return a tree representing the upper bound of the array mentioned in
-   EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
-extern tree array_ref_up_bound (tree);
-
-extern tree build_personality_function (const char *);
-
 /* Given an expression EXP that is a handled_component_p,
    look for the ultimate containing object, which is returned and specify
    the access position and size.  */
@@ -5064,10 +5106,7 @@ extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 				 tree *, machine_mode *, int *, int *,
 				 bool);
 
-/* Return a tree representing the lower bound of the array mentioned in
-   EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
-extern tree array_ref_low_bound (tree);
-
+extern tree build_personality_function (const char *);
 
 struct GTY(()) int_n_trees_t {
   /* These parts are initialized at runtime */

@@ -24,14 +24,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -5362,6 +5359,7 @@ gfc_trans_allocate (gfc_code * code)
 		 bug.  */
 	      newsym->n.sym->attr.referenced = 1;
 	      e3rhs->expr_type = EXPR_VARIABLE;
+	      e3rhs->where = code->expr3->where;
 	      /* Set the symbols type, upto it was BT_UNKNOWN.  */
 	      newsym->n.sym->ts = e3rhs->ts;
 	      /* Check whether the expr3 is array valued.  */

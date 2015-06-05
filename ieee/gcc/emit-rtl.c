@@ -38,15 +38,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "rtl.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -61,7 +57,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "hashtab.h"
 #include "statistics.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -454,7 +449,7 @@ set_mode_and_regno (rtx x, machine_mode mode, unsigned int regno)
 rtx
 gen_raw_REG (machine_mode mode, unsigned int regno)
 {
-  rtx x = rtx_alloc_stat (REG PASS_MEM_STAT);
+  rtx x = rtx_alloc_stat (REG MEM_STAT_INFO);
   set_mode_and_regno (x, mode, regno);
   REG_ATTRS (x) = NULL;
   ORIGINAL_REGNO (x) = regno;

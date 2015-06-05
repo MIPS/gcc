@@ -531,8 +531,9 @@ extern tree gnat_type_for_size (unsigned precision, int unsignedp);
    an unsigned type; otherwise a signed type is returned.  */
 extern tree gnat_type_for_mode (machine_mode mode, int unsignedp);
 
-/* Emit debug info for all global variable declarations.  */
-extern void gnat_write_global_declarations (void);
+/* Keep track of types used at the global level and emit debug info
+   for all global types.  */
+extern void note_types_used_by_globals (void);
 
 /* Return the unsigned version of a TYPE_NODE, a scalar type.  */
 extern tree gnat_unsigned_type (tree type_node);
@@ -711,12 +712,6 @@ create_var_decl_1 (tree var_name, tree asm_name, tree type, tree var_init,
   create_var_decl_1 (var_name, asm_name, type, var_init,		\
 		     const_flag, public_flag, extern_flag,		\
 		     static_flag, false, attr_list, gnat_node)
-
-/* Record DECL as a global non-constant renaming.  */
-extern void record_global_nonconstant_renaming (tree decl);
-
-/* Invalidate the global non-constant renamings.  */
-extern void invalidate_global_nonconstant_renamings (void);
 
 /* Return a FIELD_DECL node.  FIELD_NAME is the field's name, FIELD_TYPE is
    its type and RECORD_TYPE is the type of the enclosing record.  If SIZE is
@@ -920,6 +915,11 @@ extern tree gnat_build_constructor (tree type, vec<constructor_elt, va_gc> *v);
 /* Return a COMPONENT_REF to access a field that is given by COMPONENT,
    an IDENTIFIER_NODE giving the name of the field, FIELD, a FIELD_DECL,
    for the field, or both.  Don't fold the result if NO_FOLD_P.  */
+extern tree build_simple_component_ref (tree record_variable, tree component,
+					tree field, bool no_fold_p);
+
+/* Likewise, but generate a Constraint_Error if the reference could not be
+   found.  */
 extern tree build_component_ref (tree record_variable, tree component,
                                  tree field, bool no_fold_p);
 
@@ -965,18 +965,21 @@ extern tree gnat_protect_expr (tree exp);
 
 /* This is equivalent to stabilize_reference in tree.c but we know how to
    handle our own nodes and we take extra arguments.  FORCE says whether to
-   force evaluation of everything.  We set SUCCESS to true unless we walk
-   through something we don't know how to stabilize.  */
-extern tree gnat_stabilize_reference (tree ref, bool force, bool *success);
+   force evaluation of everything in REF.  INIT is set to the first arm of
+   a COMPOUND_EXPR present in REF, if any.  */
+extern tree gnat_stabilize_reference (tree ref, bool force, tree *init);
+
+/* Rewrite reference REF and call FUNC on each expression within REF in the
+   process.  DATA is passed unmodified to FUNC.  INIT is set to the first
+   arm of a COMPOUND_EXPR present in REF, if any.  */
+typedef tree (*rewrite_fn) (tree, void *);
+extern tree gnat_rewrite_reference (tree ref, rewrite_fn func, void *data,
+				    tree *init);
 
 /* This is equivalent to get_inner_reference in expr.c but it returns the
    ultimate containing object only if the reference (lvalue) is constant,
    i.e. if it doesn't depend on the context in which it is evaluated.  */
 extern tree get_inner_constant_reference (tree exp);
-
-/* Return true if REF is a constant reference, i.e. a reference (lvalue) that
-   doesn't depend on the context in which it is evaluated.  */
-extern bool gnat_constant_reference_p (tree ref);
 
 /* If EXPR is an expression that is invariant in the current function, in the
    sense that it can be evaluated anywhere in the function and any number of
@@ -1073,4 +1076,45 @@ static inline unsigned HOST_WIDE_INT
 ceil_pow2 (unsigned HOST_WIDE_INT x)
 {
   return (unsigned HOST_WIDE_INT) 1 << (floor_log2 (x - 1) + 1);
+}
+
+/* Return true if EXP, a CALL_EXPR, is an atomic load.  */
+
+static inline bool
+call_is_atomic_load (tree exp)
+{
+  tree fndecl = get_callee_fndecl (exp);
+
+  if (!(fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL))
+    return false;
+
+  enum built_in_function code = DECL_FUNCTION_CODE (fndecl);
+  return BUILT_IN_ATOMIC_LOAD_N <= code && code <= BUILT_IN_ATOMIC_LOAD_16;
+}
+
+/* Return true if TYPE is padding a self-referential type.  */
+
+static inline bool
+type_is_padding_self_referential (tree type)
+{
+  if (!TYPE_IS_PADDING_P (type))
+    return false;
+
+  return CONTAINS_PLACEHOLDER_P (DECL_SIZE (TYPE_FIELDS (type)));
+}
+
+/* Return true if a function returning TYPE doesn't return a fixed size.  */
+
+static inline bool
+return_type_with_variable_size_p (tree type)
+{
+  if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    return true;
+
+  /* Return true for an unconstrained type with default discriminant, see
+     the E_Subprogram_Type case of gnat_to_gnu_entity.  */
+  if (type_is_padding_self_referential (type))
+    return true;
+
+  return false;
 }

@@ -79,7 +79,6 @@ enum fpu_type_t
   FPU_DF_FULL			/* Full Double Single Precision FPU */
 };
 
-
 /* Float128 support.  */
 enum float128_type_t
 {

@@ -1652,6 +1652,14 @@ should not be built.
 Specify that the compiler should
 use DWARF 2 debugging information as the default.
 
+@item --with-advance-toolchain=@var{at}
+On 64-bit PowerPC Linux systems, configure the compiler to use the
+header files, library files, and the dynamic linker from the Advance
+Toolchain release @var{at} instead of the default versions that are
+provided by the Linux distribution.  In general, this option is
+intended for the developers of GCC, and it is not intended for general
+use.
+
 @item --enable-targets=all
 @itemx --enable-targets=@var{target_list}
 Some GCC targets, e.g.@: powerpc64-linux, build bi-arch compilers.
@@ -1665,6 +1673,9 @@ On mips-linux, this will build a tri-arch compiler (ABI o32/n32/64),
 defaulted to o32.
 Currently, this option only affects sparc-linux, powerpc-linux, x86-linux,
 mips-linux and s390-linux.
+
+@item --enable-default-pie
+Turn on @option{-fPIE} and @option{-pie} by default.
 
 @item --enable-secureplt
 This option enables @option{-msecure-plt} by default for powerpc-linux.

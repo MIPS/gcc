@@ -129,7 +129,7 @@ package body Exp_Ch7 is
 
    function Find_Node_To_Be_Wrapped (N : Node_Id) return Node_Id;
    --  N is a node which may generate a transient scope. Loop over the parent
-   --  pointers of N until it find the appropriate node to wrap. If it returns
+   --  pointers of N until we find the appropriate node to wrap. If it returns
    --  Empty, it means that no transient scope is needed in this context.
 
    procedure Insert_Actions_In_Scope_Around
@@ -1440,6 +1440,13 @@ package body Exp_Ch7 is
             --  resides, there is no need for elaboration checks.
 
             Set_Kill_Elaboration_Checks (Fin_Id);
+
+            --  Inlining the finalizer produces a substantial speedup at -O2.
+            --  It is inlined by default at -O3. Either way, it is called
+            --  exactly twice (once on the normal path, and once for
+            --  exceptions/abort), so this won't bloat the code too much.
+
+            Set_Is_Inlined  (Fin_Id);
          end if;
 
          --  Step 2: Creation of the finalizer specification

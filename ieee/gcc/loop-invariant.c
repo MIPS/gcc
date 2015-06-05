@@ -46,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "hashtab.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "input.h"
 #include "function.h"
 #include "dominance.h"
@@ -57,11 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "symtab.h"
 #include "flags.h"
 #include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "insn-config.h"
@@ -1630,7 +1625,7 @@ move_invariant_reg (struct loop *loop, unsigned invno)
       if (REG_P (reg))
 	regno = REGNO (reg);
 
-      if (!can_move_invariant_reg (loop, inv, reg))
+      if (!can_move_invariant_reg (loop, inv, dest))
 	{
 	  reg = gen_reg_rtx_and_attrs (dest);
 

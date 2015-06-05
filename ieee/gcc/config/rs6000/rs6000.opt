@@ -622,4 +622,3 @@ Enum(float128_type_t) String(hardware) Value(FLOAT128_HW)
 
 EnumValue
 Enum(float128_type_t) String(hw) Value(FLOAT128_HW)
-

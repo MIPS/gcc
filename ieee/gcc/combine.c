@@ -81,13 +81,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
@@ -106,8 +103,6 @@ along with GCC; see the file COPYING3.  If not see
 /* Include expr.h after insn-config.h so we get HAVE_conditional_move.  */
 #include "hashtab.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -5157,7 +5152,8 @@ find_split_point (rtx *loc, rtx_insn *insn, bool set_src)
          worthless to try this split.  */
       if (!set_src
 	  && (GET_CODE (XEXP (x, 0)) == MULT
-	      || GET_CODE (XEXP (x, 0)) == ASHIFT))
+	      || (GET_CODE (XEXP (x, 0)) == ASHIFT
+		  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)))
         return loc;
 
     default:

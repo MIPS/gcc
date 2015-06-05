@@ -23,13 +23,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -41,8 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "flags.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -1560,6 +1555,11 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
 	{
 	  ref = OBJ_TYPE_REF_EXPR (ref);
 	  ref = walk_ssa_copies (ref);
+
+	  /* If call target is already known, no need to do the expensive
+ 	     memory walk.  */
+	  if (is_gimple_min_invariant (ref))
+	    return false;
 
 	  /* Check if definition looks like vtable lookup.  */
 	  if (TREE_CODE (ref) == SSA_NAME
