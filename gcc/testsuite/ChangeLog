@@ -1,3 +1,78 @@
+2015-06-05  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* gcc.target/arm/neon-reload-class.c: Remove movw and movt.
+
+2015-06-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* obj-c++.dg/tls/diag-5.mm: Adjust per r224097.
+
+2015-06-04  Sriraman Tallam  <tmsriram@google.com>
+
+	* testsuite/gcc.target/i386/noplt-1.c: New test.
+	* testsuite/gcc.target/i386/noplt-2.c: New test.
+	* testsuite/gcc.target/i386/noplt-3.c: New test.
+	* testsuite/gcc.target/i386/noplt-4.c: New test.
+
+2015-06-04  Thomas Koenig  <tkoenig@netcologne.de>
+
+	PR fortran/58749
+	* gfortran.dg/adjustl_1.f90:  New test.
+
+2015-06-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/lto/c-compatible-types_0.c: New testcase.
+	* gcc.dg/lto/c-compatible-types_1.c: New testcase.
+
+2015-06-03  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (iterative_hash_canonical_type,
+	gimple_register_canonical_type): only hash main variants of types
+
+2015-06-04  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/advsimd-intrinsics.exp:
+	Move set of dg-do-what-default after early return.
+
+2015-06-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66341
+	* gcc.dg/lvalue-8.c: New test.
+
+2015-06-03  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/66130
+	* g++.dg/other/pr66130.C: New.
+	* g++.dg/cpp0x/pr66130.C: Likewise.
+
+2015-06-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp0x/decl-loc1.C: New.
+	* g++.dg/cpp0x/constexpr-neg1.C: Adjust.
+	* g++.dg/cpp0x/constexpr-object1.C: Likewise.
+	* g++.dg/init/ctor8.C: Likewise.
+	* g++.dg/parse/semicolon4.C: Likewise.
+
+2015-06-03  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/66190
+	* g++.dg/ubsan/static-init-1.C: New test.
+	* g++.dg/ubsan/static-init-2.C: New test.
+	* g++.dg/ubsan/static-init-3.C: New test.
+
+2015-06-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66275
+	* gcc.target/i386/pr66275.c: New test.
+
+2015-06-03  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/Wcxx-compat-22.c: New testcase.
+	* c-c++-common/Wsizeof-pointer-memaccess1.c: Pass -Wno-c++-compat.
+	* c-c++-common/Wsizeof-pointer-memaccess2.c: Likewise.
+	* c-c++-common/pr58346-1.c: Likewise.
+	* c-c++-common/transparent-union-1.c: Likewise.
+
 2015-06-02  Andres Tiraboschi  <andres.tiraboschi@tallertechnologies.com>
 
 	* g++.dg/plugin/plugin.exp: Add def-plugin-test.C.
