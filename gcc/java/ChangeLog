@@ -1,4 +1,4 @@
-2015-05-07  Aldy Hernandez  <aldyh@redhat.com>
+2015-06-05  Aldy Hernandez  <aldyh@redhat.com>
 
 	* class.c: Remove pending_static_fields.
 	(add_field): Remove use of pending_static_fields.

@@ -1,4 +1,4 @@
-2015-05-07  Aldy Hernandez  <aldyh@redhat.com>
+2015-06-05  Aldy Hernandez  <aldyh@redhat.com>
 
 	* g++.dg/cpp0x/pr57101.C: Add warning.
 	* g++.dg/debug/dwarf2/dwarf4-typedef.C: Same.

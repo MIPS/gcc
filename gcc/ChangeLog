@@ -1,4 +1,4 @@
-2015-05-07  Aldy Hernandez  <aldyh@redhat.com>
+2015-06-05  Aldy Hernandez  <aldyh@redhat.com>
 
 	* dwarf2out.c: Remove deferred_locations*.
 	(dwarf2_debug_hooks): Add early_finish hook.

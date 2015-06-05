@@ -1,4 +1,4 @@
-2015-05-07  Aldy Hernandez  <aldyh@redhat.com>
+2015-06-05  Aldy Hernandez  <aldyh@redhat.com>
 
 	* objc-act.c (objc_write_global_declarations): Adjust comment.
 	* objc-gnu-runtime-abi-01.c (build_selector_table_decl): Set

@@ -1,4 +1,4 @@
-2015-05-07  Aldy Hernandez  <aldyh@redhat.com>
+2015-06-05  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-decl.c (finish_struct): Save C_TYPE_INCOMPLETE_VARS and
 	immediately clobber it.

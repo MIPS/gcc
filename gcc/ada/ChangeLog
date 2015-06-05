@@ -1,4 +1,4 @@
-2015-05-07  Aldy Hernandez  <aldyh@redhat.com>
+2015-06-05  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gcc-interface/gigi.h (note_types_used_by_globals): Rename from
 	gnat_write_global_declarations.
