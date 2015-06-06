@@ -1,3 +1,9 @@
+2015-06-06  Gary Funck  <gary@intrepid.com>
+
+	* config/rs6000/rs6000.c (rs6000_pass_by_reference):
+	Check for UPC struct pointer-to-shared type,
+	if using V4 ABI (typical of 32 bit target).
+
 2015-06-01  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 223920 into gupc branch.

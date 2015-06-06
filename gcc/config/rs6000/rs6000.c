@@ -10847,7 +10847,16 @@ rs6000_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
   if (!type)
     return 0;
 
-  if (DEFAULT_ABI == ABI_V4 && AGGREGATE_TYPE_P (type))
+  /* TYPE is a UPC pointer-to-shared type
+     and its underlying representation is an aggregate.  */
+  bool upc_struct_pts_p = (POINTER_TYPE_P (type)
+                             && upc_shared_type_p (TREE_TYPE (type)))
+                           && AGGREGATE_TYPE_P (upc_pts_rep_type_node);
+  /* If TYPE is a UPC struct PTS type, handle it as an aggregate type.  */
+  bool aggregate_p = AGGREGATE_TYPE_P (type)
+                     || upc_struct_pts_p;
+
+  if (DEFAULT_ABI == ABI_V4 && aggregate_p)
     {
       if (TARGET_DEBUG_ARG)
 	fprintf (stderr, "function_arg_pass_by_reference: V4 aggregate\n");
