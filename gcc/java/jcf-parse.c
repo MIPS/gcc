@@ -55,6 +55,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "cgraph.h"
 #include "bitmap.h"
 #include "target.h"
+#include "toplev.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -1996,6 +1997,9 @@ java_parse_file (void)
   /* Arrange for any necessary initialization to happen.  */
   java_emit_static_constructor ();
   gcc_assert (global_bindings_p ());
+
+  /* Do final processing on globals.  */
+  global_decl_processing ();
 }
 
 
