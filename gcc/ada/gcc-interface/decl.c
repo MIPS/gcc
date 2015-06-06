@@ -28,13 +28,10 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -4266,7 +4263,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		  = maybe_pad_type (gnu_return_type,
 				    max_size (TYPE_SIZE (gnu_return_type),
 					      true),
-				    0, gnat_entity, false, false, false, true);
+				    0, gnat_entity, false, false, definition,
+				    true);
 
 		/* Declare it now since it will never be declared otherwise.
 		   This is necessary to ensure that its subtrees are properly
@@ -5201,6 +5199,13 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       && !Present (Alias (gnat_entity))
       && !(Present (Renamed_Object (gnat_entity)) && saved))
     {
+      /* ??? DECL_ARTIFICIAL, and possibly DECL_IGNORED_P below, should
+	 be set before calling rest_of_decl_compilation above (through
+	 create_var_decl_1).  This is because rest_of_decl_compilation
+	 calls the debugging backend and will create a DIE without
+	 DW_AT_artificial.
+
+	 This is currently causing gnat.dg/specs/debug1.ads to FAIL.  */
       if (!Comes_From_Source (gnat_entity))
 	DECL_ARTIFICIAL (gnu_decl) = 1;
 

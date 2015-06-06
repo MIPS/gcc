@@ -31,13 +31,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "hashtab.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -365,7 +362,7 @@ df_scan_start_dump (FILE *file ATTRIBUTE_UNUSED)
   fprintf (file, ";;  regs ever live \t");
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (df_regs_ever_live_p (i))
-      fprintf (file, " %d[%s]", i, reg_names[i]);
+      fprintf (file, " %d [%s]", i, reg_names[i]);
   fprintf (file, "\n;;  ref usage \t");
 
   for (i = 0; i < (int)df->regs_inited; i++)
