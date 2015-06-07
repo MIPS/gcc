@@ -1,3 +1,52 @@
+2015-06-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2017.xml: Update status tables.
+	* doc/html/manual/*: Regenerate.
+	* include/std/type_traits (bool_constant): Define.
+	* testsuite/20_util/bool_constant/requirements.cc: New.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc:
+	Likewise.
+
+	* include/std/shared_mutex (__shared_mutex_pthread,
+	__shared_mutex_cv): New helper types implementing the shared mutex
+	requirements.
+	(shared_mutex): New type for C++17.
+	(shared_timed_mutex): Derive from one of the new helper types.
+	* testsuite/30_threads/shared_mutex/cons/1.cc: New.
+	* testsuite/30_threads/shared_mutex/cons/assign_neg.cc: New.
+	* testsuite/30_threads/shared_mutex/cons/copy_neg.cc: New.
+	* testsuite/30_threads/shared_mutex/requirements/standard_layout.cc:
+	New.
+	* testsuite/30_threads/shared_mutex/try_lock/1.cc: New.
+	* testsuite/30_threads/shared_mutex/try_lock/2.cc: New.
+
+2015-06-05  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Add __is_nothrow_swappable and take it into use.
+	* include/bits/algorithmfwd.h (swap): Only declare for C++98 mode.
+	* include/bits/move.h (swap): Add constraints in C++11 and later.
+	* include/bits/stl_pair.h (swap): Use __is_nothrow_swappable
+	for the free swap function for pair.
+	* include/bits/stl_queue.h (swap): Use __is_nothrow_swappable
+	for the free swap functions for queue and priority_queue.
+	* include/bits/stl_stack.h (swap): Use __is_nothrow_swappable
+	for the free swap function for stack.
+	* include/debug/array (swap): Use __is_nothrow_swappable
+	for the free swap function for array.
+	* include/profile/array (swap): Likewise.
+	* include/std/array (swap): Likewise.
+	* include/std/tuple (_Tuple_impl::_M_swap): Use __is_nothrow_swappable.
+	* include/std/type_traits (__is_swappable_impl::__is_swappable,
+	__is_nothrow_swappable_impl, __is_nothrow_swappable): New.
+	* testsuite/20_util/is_nothrow_swappable/requirements/
+	explicit_instantiation.cc: New.
+	* testsuite/20_util/is_nothrow_swappable/requirements/typedefs.cc:
+	New.
+	* testsuite/20_util/is_nothrow_swappable/value.cc: New.
+
 2015-06-03  François Dumont  fdumont@gcc.gnu.org>
 
 	* testsuite/23_containers/list/61347.cc: Add dg-require-normal-mode.
