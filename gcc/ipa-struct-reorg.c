@@ -385,6 +385,149 @@ typedef struct type_wrapper
   tree domain;
 }type_wrapper_t;
 
+/* A formal of struct type to be replaced by transformation 
+   by formal(s) of new types.  */
+
+struct struct_formal
+{
+  unsigned op_n; /* Operand number.  */
+  tree type;     /* Type of operand.  */
+};
+
+typedef struct struct_formal *formal;
+
+/* Function call that contain formal of tructure type(s).  */
+struct func_call
+{
+  gimple call_stmt;
+  vec<formal> formals; /* Formals of struct types to be transformed.  */
+};
+
+typedef struct func_call *call_with_structs;
+static vec<call_with_structs> calls_with_structs;
+
+/* */
+static inline int
+is_in_formals (vec<formal> formals, unsigned op_n)
+{
+  unsigned i;
+  formal f;
+  if (formals.exists ())
+    {
+      FOR_EACH_VEC_ELT (formals, i, f)
+	{
+	  if (f->op_n == op_n)
+	    return (int)i;
+	}
+    }
+  return -1;
+}
+
+/* This function looks for the entry with the call statment CALL in 
+   calls_with_structs vector. It returns an index of the entry, 
+   if it's found, and -1 otherwise.  */
+
+static inline int
+is_in_calls_with_structs (gimple call)
+{
+  unsigned int i;
+  call_with_structs str_call; 
+  if (calls_with_structs.exists ())
+    {
+      FOR_EACH_VEC_ELT (calls_with_structs, i, str_call)
+	{
+	  if (call == str_call->call_stmt)
+	    return (int)i;
+	}	  
+    }
+  return -1;
+}
+
+/* This function adds an operands number OP_N and its structure 
+   type STR_DECL to its call statement allocated 
+   in calls_with_stucts vector.  */
+
+static void
+add_formal_to_call_with_struct (gimple call, tree str_decl, unsigned op_n)
+{
+  call_with_structs fcall;
+  formal form;
+  int i;
+  
+  i = is_in_calls_with_structs (call);
+  if (i == -1)
+    {
+      fcall = XNEW (struct func_call);
+      fcall->call_stmt = call;
+      fcall->formals.create (0);
+      if (!calls_with_structs.exists ())
+	calls_with_structs.create (0);
+      calls_with_structs.safe_push (fcall);      
+    }
+  else
+      fcall = calls_with_structs[i];
+
+  i = is_in_formals (fcall->formals, op_n);
+  if (dump_file)
+      fprintf (dump_file, "\ni = %d ", i);
+
+  if (i != -1)
+    {
+      gcc_assert (fcall->formals[i]->type == str_decl);
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nOperand %d of struct type ", op_n);
+	  print_generic_expr (dump_file, str_decl, TDF_VOPS);
+	  fprintf (dump_file, " of the call ");      
+	  print_gimple_stmt (dump_file, call, 0, TDF_VOPS);
+	  fprintf (dump_file, " already in calls_with_structs vector.");
+	}
+    }
+  else
+    {
+      form = XNEW (struct struct_formal);
+      form->op_n = op_n;
+      form->type = str_decl;
+      fcall->formals.safe_push (form);
+          
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nAdding operand %d of struct type ", op_n);
+	  print_generic_expr (dump_file, str_decl, TDF_VOPS);
+	  fprintf (dump_file, " to the call ");      
+	  print_gimple_stmt (dump_file, call, 0, TDF_VOPS);
+	  fprintf (dump_file, " to calls_with_structs vector.");
+	}
+    }
+} 
+
+/* */
+
+static void
+free_calls_with_structs (void)
+{
+  call_with_structs fcall;
+  formal form;
+  unsigned int i, j;
+
+  if (calls_with_structs.exists ())
+    {
+      FOR_EACH_VEC_ELT (calls_with_structs, i, fcall)
+	{
+	  if (fcall->formals.exists ())
+	    {
+	      FOR_EACH_VEC_ELT (fcall->formals, j, form)
+		{
+		  free (form);
+		}
+	      fcall->formals.release ();
+	    }      
+	  free (fcall);
+	}
+      calls_with_structs.release ();
+    }
+}
+
 /* This structure represents allocation site of the structure.  */
 typedef struct alloc_site
 {
@@ -396,8 +539,8 @@ typedef alloc_site_t * alloc_site_p;
 static vec<alloc_site_p> alloc_sites; 
 
 
-/* This function looks for the entry with the type TYPE in 
-   struct_symbols_vec. It returns an index of the entry, if it's found, 
+/* This function looks for the entry with the allocation statement STMT in 
+   alloc_sites vector. It returns an index of the entry, if it's found, 
    and -1 otherwise.  */
 
 static inline int
@@ -1070,10 +1213,16 @@ build_data_structure (void)
 	    p = TYPE_ARG_TYPES (TREE_TYPE(target));
 	    if (p)
 	      {
-		if (dump_file) 
-		  fprintf (dump_file, " Continuing...");
-		continue;
+		if (dump_file)
+		  {
+		    fprintf (dump_file, " TREE_TYPE(target): ");
+		    print_generic_expr (dump_file, TREE_TYPE (target), 0);
+		    fprintf (dump_file, " TYPE_ARG_TYPES (TREE_TYPE (target)): ");		    
+		    print_generic_expr (dump_file, TYPE_ARG_TYPES (TREE_TYPE (target)), 0);
+		  }
 	      }
+	    else
+	      continue;
 
 	    for (i = 0; i < gimple_num_ops (stmt); i++) 
 	      {
@@ -1636,6 +1785,19 @@ generate_new_types (void)
   create_new_types ();
 }
 
+static bool
+is_alloc_or_free (symtab_node *sbl)
+{
+  cgraph_node *node = dyn_cast <cgraph_node> (sbl);
+  if (node 
+      && (DECL_FUNCTION_CODE (node->decl) == BUILT_IN_ALLOCA
+	  || DECL_FUNCTION_CODE (node->decl) == BUILT_IN_ALLOCA_WITH_ALIGN
+	  || DECL_FUNCTION_CODE (node->decl) == BUILT_IN_FREE))
+    return true;
+  else
+    return false;
+}
+
 static unsigned int
 propagate (void)
 {
@@ -1691,10 +1853,22 @@ propagate (void)
 		  fprintf (dump_file, " has resolution %s.\nType ",
 			   ld_plugin_symbol_resolution_names[(int)sbl->resolution]);
 		  print_generic_expr (dump_file, struct_symbols_vec[i]->struct_decl, 0);
-		  fprintf (dump_file, "escapes.\n");
+		  fprintf (dump_file, " might escapes.");
 		}
-	      escape = true;
-	      break;
+
+	      /* If symbol is allocation or free function, it is not real escape.  */
+	      if (is_alloc_or_free (sbl))
+		{
+		  if (dump_file)
+		    fprintf (dump_file, " But it is not.");		    
+		}
+	      else
+		{
+		  if (dump_file)
+		    fprintf (dump_file, " In fact, it is.");		    
+		  escape = true;
+		  break;
+		}
 	    }
 	}
       /* We remove all externally visible structures and 
@@ -2619,6 +2793,89 @@ collect_alloc_sites (struct cgraph_node *node)
 	      
 	      if (is_alloc_of_struct (stmt, &i))
 		add_alloc_site (node, stmt, struct_symbols_vec[i]); 
+	    }
+	}
+    }
+}
+
+/* */
+static void
+check_func_args (gimple stmt)
+{
+  tree arg, t;
+  unsigned i;
+  int j;
+  
+  for (i = 0; i < gimple_call_num_args (stmt); i++) 
+    {
+      arg = gimple_call_arg (stmt, i);
+      if (!arg)
+	continue;
+
+      t = strip_type (get_type_of_var (arg));
+      if (dump_file) 
+	{
+	  fprintf (dump_file, "\narg %d:", i);
+	  print_generic_expr (dump_file, arg, 0);
+	  //debug_tree(arg);
+	}
+
+      j = is_in_struct_symbols_vec (t);
+      if (j != -1)
+	{
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, " Type ");
+	      print_generic_expr (dump_file, t, 0);
+	      fprintf (dump_file,  " is in symbols_vec. \n");
+	    }
+	  add_formal_to_call_with_struct (stmt, struct_symbols_vec[j]->struct_decl, i);
+	} 
+      else 
+	{
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, " Type ");
+	      print_generic_expr (dump_file, t, 0);
+	      fprintf (dump_file,  " is not in symbols_vec. \n");
+	    }
+	}
+    }
+  return;
+}
+
+/* This function collects function calls of current function 
+   that have parameters of struct types. We intend to transform these 
+   function calls to have parameters of new struct types. Function calls
+   that are allocation or free sites are omitted here. They are 
+   treated as part of allocation or general access sites.  */
+
+static void
+collect_func_calls (struct cgraph_node *node)
+{
+  struct cgraph_edge *cs;
+  
+  if (!node->analyzed || !node->decl)
+    return;
+
+  for (cs = node->callees; cs; cs = cs->next_callee)
+    {
+      gimple stmt = cs->call_stmt;
+
+      if (stmt)
+	{
+	  tree decl;
+
+	  if (is_gimple_call (stmt)
+	      && (decl = gimple_call_fndecl (stmt)))
+	    {
+	      
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "\ncollect function calls, func call: ");
+		  print_generic_expr (dump_file, decl, 0);
+		}
+	      check_func_args (stmt);
 	    }
 	}
     }
@@ -3878,6 +4135,26 @@ is_final_alloc_stmt (gimple alloc_stmt, gimple stmt)
    sites. It returns false otherwise.  */
 
 static bool
+is_part_of_calls_with_structs (gimple stmt)
+{
+  if (calls_with_structs.exists ())
+    {
+      call_with_structs call;
+      unsigned i;
+
+      FOR_EACH_VEC_ELT (calls_with_structs, i, call)
+	{
+	  if (call->call_stmt == stmt)
+	    return true;
+	}
+    }
+  return false;
+}
+
+/* This function returns true if STMT is one of allocation
+   sites. It returns false otherwise.  */
+
+static bool
 is_part_of_malloc (gimple stmt)
 {
   if (alloc_sites.exists ())
@@ -3908,7 +4185,8 @@ exclude_from_accs (void **slot, void *data)
   struct_symbols str = (struct_symbols)data;
 
   if (is_part_of_malloc (acc->stmt)
-      || is_part_of_field_access (acc->stmt, str))
+      || is_part_of_field_access (acc->stmt, str)
+      || is_part_of_calls_with_structs (acc->stmt))
     {
       (acc->vars).release ();
       free (acc);
@@ -4904,16 +5182,21 @@ do_reorg_for_func (struct cgraph_node *node)
   create_new_local_vars ();
   create_new_tmp_vars ();
   collect_alloc_sites (node);
+  collect_func_calls (node);
   create_new_alloc_sites (node);
   collect_data_accesses ();
   if (dump_file)
-    fprintf (dump_file, "\nPrinting loop_father before transform.");
-  print_loop_fathers ();
+    {
+      fprintf (dump_file, "\nPrinting loop_father before transform.");
+      print_loop_fathers ();
+    }
   create_new_accesses ();
   update_ssa (TODO_update_ssa);
   if (dump_file)
-    fprintf (dump_file, "\nPrinting loop_father after transform.");
-  print_loop_fathers ();
+    {
+      fprintf (dump_file, "\nPrinting loop_father after transform.");
+      print_loop_fathers ();
+    }
   cleanup_tree_cfg ();
   cgraph_rebuild_references (); 
 
@@ -4922,6 +5205,7 @@ do_reorg_for_func (struct cgraph_node *node)
   free_new_vars_htab (new_local_vars);
   free_new_vars_htab (new_tmp_vars);
   free_data_accesses ();
+  free_calls_with_structs ();
 }
 
 /* Implementation of function_transform function for struct-reorg.  */
@@ -4939,6 +5223,8 @@ struct_reorg_func_transform (struct cgraph_node *node)
 
   gcc_checking_assert (cfun);
   gcc_checking_assert (current_function_decl);
+
+  print_struct_symbol_vec ();
 
   do_reorg_for_func (node);
   return 0;
