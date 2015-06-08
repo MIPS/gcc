@@ -1,3 +1,12 @@
+2015-06-08  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.c (hsa_one_image): New type.
+	(hsa_image_info): MOst stuff moved to hsa_one_image, new field
+	first_image.
+	(init_hsa_image): Allow for for more brig images.
+	(__hsa_launch_kernel): Likewise.
+	(__hsa_register_image): Likewise.
+
 2015-04-29  Martin Jambor  <mjambor@suse.cz>
 
 	* Makefile.am (libgomp_la_SOURCES): USe hsa.c instead of hsaokra.c.

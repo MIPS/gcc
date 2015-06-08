@@ -57,12 +57,18 @@ struct hsa_kernel_info
   void *kernarg_addr;
 };
 
-struct hsa_image_info
+struct hsa_one_image
 {
-  bool initialized;
+  struct hsa_one_image *next;
   void ***host_functions;
   struct hsa_image_desc *image_descriptor;
   struct hsa_kernel_info *kernels;
+};
+
+struct hsa_image_info
+{
+  bool initialized;
+  struct hsa_one_image *first_image;
 };
 
 /* Print to stderr information about what is going on when true.  */
@@ -224,48 +230,54 @@ static void
 init_hsa_image (struct hsa_image_info *ii)
 {
   hsa_status_t status;
-  const char *p;
-  int count = 0;
-  struct hsa_kernel_info *kernel;
 
   if (hsa_program.finalized)
     gomp_fatal ("Sorry, re-finalization not yet supported.");
   if (!hsa_program.created)
     create_hsa_program ();
-  status = hsa_ext_program_add_module(hsa_program.handle,
-				      image_info.image_descriptor->module);
-  if (status != HSA_STATUS_SUCCESS)
-    gomp_fatal ("Could not add a module to the HSA program");
-  if (debug)
-    fprintf (stderr, "Added a module to the HSA program\n");
-
-  p = ii->image_descriptor->names;
-  while (*p)
+  struct hsa_one_image *img = ii->first_image;
+  while (img)
     {
-      count++;
-      do
-	p++;
-      while (*p);
-      p++;
-    }
+      const char *p;
+      int count = 0;
+      struct hsa_kernel_info *kernel;
 
-  if (debug)
-    fprintf (stderr, "Encountered %d kernels in an image\n", count);
+      status = hsa_ext_program_add_module (hsa_program.handle,
+					   img->image_descriptor->module);
+      if (status != HSA_STATUS_SUCCESS)
+	gomp_fatal ("Could not add a module to the HSA program");
+      if (debug)
+	fprintf (stderr, "Added a module to the HSA program\n");
 
-  ii->kernels = gomp_malloc_cleared (sizeof (struct hsa_kernel_info) * count);
-  if (!ii->kernels)
-    gomp_fatal ("Could not allocate memory for HSA kertnel descriptors");
+      p = img->image_descriptor->names;
+      while (*p)
+	{
+	  count++;
+	  do
+	    p++;
+	  while (*p);
+	  p++;
+	}
 
-  p = ii->image_descriptor->names;
-  kernel = ii->kernels;
-  while (*p)
-    {
-      kernel->name = p;
-      kernel++;
-      do
-	p++;
-      while (*p);
-      p++;
+      if (debug)
+	fprintf (stderr, "Encountered %d kernels an image\n", count);
+      img->kernels = gomp_malloc_cleared (sizeof (struct hsa_kernel_info)
+					  * count);
+      if (!img->kernels)
+	gomp_fatal ("Could not allocate memory for HSA kertnel descriptors");
+
+      p = img->image_descriptor->names;
+      kernel = img->kernels;
+      while (*p)
+	{
+	  kernel->name = p;
+	  kernel++;
+	  do
+	    p++;
+	  while (*p);
+	  p++;
+	}
+      img = img->next;
     }
 
   ii->initialized = true;
@@ -364,14 +376,15 @@ void
 __hsa_launch_kernel (void *host_fn, struct __hsa_launch_attributes *attrs,
 		     uint64_t *args)
 {
-  struct hsa_kernel_info *ki;
+  struct hsa_kernel_info *ki = NULL;
   hsa_kernel_dispatch_packet_t *packet;
+  struct hsa_one_image *img;
   void **hf;
   uint16_t header;
   uint64_t index;
   int i;
 
-  if (!image_info.host_functions)
+  if (!image_info.first_image)
     gomp_fatal ("Call to launch_kernel before register_image");
 
   if (!hsa_context.initialized)
@@ -381,18 +394,34 @@ __hsa_launch_kernel (void *host_fn, struct __hsa_launch_attributes *attrs,
   if (!hsa_program.finalized)
     finalize_hsa_program ();
 
-  i = 0;
-  hf = image_info.host_functions[0];
-  while (*hf != host_fn)
+  img = image_info.first_image;
+  while (img)
     {
-      if (hf == image_info.host_functions[1])
-	gomp_fatal ("Could not map host function to an HSA kernel");
-      hf++;
-      i++;
+      bool found = false;
+      i = 0;
+      hf = img->host_functions[0];
+      while (hf != img->host_functions[1])
+	{
+	  if (*hf == host_fn)
+	    {
+	      found = true;
+	      break;
+	    }
+	  hf++;
+	  i++;
+	}
+      if (found)
+	{
+	  if (debug)
+	    fprintf (stderr, "Identified kernel %d\n", i);
+	  ki = &img->kernels[i];
+	  break;
+	}
+      else
+	img = img->next;
     }
-  if (debug)
-    fprintf (stderr, "Identified kernel %d\n", i);
-  ki = &image_info.kernels[i];
+  if (!ki)
+    gomp_fatal ("Could not map host function to an HSA kernel");
 
   if (!ki->initialized)
     init_hsa_kernel (ki, &image_info);
@@ -474,8 +503,11 @@ __hsa_register_image (void *host_table,
   */
   if (!host_table || !target_data)
     gomp_fatal ("Invalid image registration parameters");
-  if (image_info.host_functions)
-    gomp_fatal ("At this point we only allow one HSA module per program");
-  image_info.host_functions = host_table;
-  image_info.image_descriptor = target_data;
+
+  struct hsa_one_image *img;
+  img = gomp_malloc_cleared (sizeof (struct hsa_one_image));
+  img->host_functions = host_table;
+  img->image_descriptor = target_data;
+  img->next = image_info.first_image;
+  image_info.first_image = img;
 }
