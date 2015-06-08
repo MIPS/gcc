@@ -1,3 +1,8 @@
+2015-06-08  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (brig_init): Fix module name generation for the
+	uncommon cases.
+
 2015-04-30  Martin Jambor  <mjambor@suse.cz>
 
 	* README.hsa: Updated to reflect changes brought about by transition

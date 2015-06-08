@@ -399,11 +399,13 @@ brig_init (void)
   moddir.base.byteCount = htole16 (sizeof (moddir));
 
   char *modname;
-  if (!in_lto_p && main_input_filename)
+  if (main_input_filename && *main_input_filename != '\0')
     {
       const char *part = strrchr (main_input_filename, '/');
       if (!part)
 	part = main_input_filename;
+      else
+	part++;
       asprintf (&modname, "&%s", part);
       char* extension = strchr (modname, '.');
       if (extension)
@@ -412,7 +414,7 @@ brig_init (void)
       free (modname);
     }
   else
-    moddir.name = brig_emit_string (main_input_filename);
+    moddir.name = brig_emit_string ("unnamed_brig_module", '&');
   moddir.base.kind = htole16 (BRIG_KIND_DIRECTIVE_MODULE);
   moddir.hsailMajor = htole32 (BRIG_VERSION_HSAIL_MAJOR) ;
   moddir.hsailMinor = htole32 (BRIG_VERSION_HSAIL_MINOR);
