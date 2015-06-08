@@ -1,5 +1,13 @@
 2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/declare-3.c: Add XFAIL.
+
+2015-06-08  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/declare-3.c: New file.
+
+2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
+
 	* testsuite/libgomp.oacc-c-c++-common/enter-data.c: Add XFAIL.
 
 2015-05-13  Cesar Philippidis  <cesar@codesourcery.com>
