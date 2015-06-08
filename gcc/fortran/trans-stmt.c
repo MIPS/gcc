@@ -5163,6 +5163,7 @@ gfc_trans_allocate (gfc_code * code)
 	   al = al->next)
 	vtab_needed = (al->expr->ts.type == BT_CLASS);
 
+      gfc_init_se (&se, NULL);
       /* When expr3 is a variable, i.e., a very simple expression,
 	     then convert it once here.  */
       if (code->expr3->expr_type == EXPR_VARIABLE
@@ -5174,31 +5175,22 @@ gfc_trans_allocate (gfc_code * code)
 	      || vtab_needed
 	      || code->ext.alloc.arr_spec_from_expr3)
 	    {
-	      /* Convert expr3 to a tree.  */
-	      gfc_init_se (&se, NULL);
-	      /* For all "simple" expression just get the descriptor
-		 or the reference, respectively, depending on the
-		 rank of the expr.  */
+	      /* Convert expr3 to a tree.  For all "simple" expression just
+		 get the descriptor or the reference, respectively, depending
+		 on the rank of the expr.  */
 	      if (code->ext.alloc.arr_spec_from_expr3 || code->expr3->rank != 0)
 		gfc_conv_expr_descriptor (&se, code->expr3);
 	      else
 		gfc_conv_expr_reference (&se, code->expr3);
 	      /* Create a temp variable only for component refs to prevent
-		 having to go the full deref-chain each time and to simplfy
-		 computation of array properties.  */
+		 having to go through the full deref-chain each time and to
+		 simplfy computation of array properties.  */
 	      temp_var_needed = TREE_CODE (se.expr) == COMPONENT_REF;
-	      expr3_len = se.string_length;
-	      gfc_add_block_to_block (&block, &se.pre);
-	      gfc_add_block_to_block (&post, &se.post);
 	    }
-	  else
-	    se.expr = NULL_TREE;
 	}
       else
 	{
-	  /* In all other cases evaluate the expr3 and create a
-		 temporary.  */
-	  gfc_init_se (&se, NULL);
+	  /* In all other cases evaluate the expr3.  */
 	  symbol_attribute attr;
 	  /* Get the descriptor for all arrays, that are not allocatable or
 	     pointer, because the latter are descriptors already.  */
@@ -5213,13 +5205,9 @@ gfc_trans_allocate (gfc_code * code)
 				     false, true,
 				     false, false);
 	  temp_var_needed = !VAR_P (se.expr);
-	  gfc_add_block_to_block (&block, &se.pre);
-	  gfc_add_block_to_block (&post, &se.post);
-	  /* When he length of a char array is easily available
-	     here, fix it for future use.  */
-	  if (se.string_length)
-	    expr3_len = gfc_evaluate_now (se.string_length, &block);
 	}
+      gfc_add_block_to_block (&block, &se.pre);
+      gfc_add_block_to_block (&post, &se.post);
       /* Prevent aliasing, i.e., se.expr may be already a
 	     variable declaration.  */
       if (se.expr != NULL_TREE && temp_var_needed)
@@ -5230,7 +5218,7 @@ gfc_trans_allocate (gfc_code * code)
 	      : build_fold_indirect_ref_loc (input_location, se.expr);
 	  /* We need a regular (non-UID) symbol here, therefore give a
 	     prefix.  */
-	  var = gfc_create_var (TREE_TYPE (tmp), "atmp");
+	  var = gfc_create_var (TREE_TYPE (tmp), "source");
 	  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr)))
 	    {
 	      gfc_allocate_lang_decl (var);
@@ -5238,9 +5226,14 @@ gfc_trans_allocate (gfc_code * code)
 	    }
 	  gfc_add_modify_loc (input_location, &block, var, tmp);
 	  expr3 = var;
+	  if (se.string_length)
+	    expr3_len = gfc_evaluate_now (se.string_length, &block);
 	}
       else
-	expr3 = se.expr;
+	{
+	  expr3 = se.expr;
+	  expr3_len = se.string_length;
+	}
       /* Store what the expr3 is to be used for.  */
       e3_is = expr3 != NULL_TREE ?
 	    (code->ext.alloc.arr_spec_from_expr3 ?
