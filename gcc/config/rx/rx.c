@@ -27,13 +27,10 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
@@ -50,8 +47,6 @@
 #include "function.h"
 #include "hashtab.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -482,11 +477,18 @@ rx_print_operand_address (FILE * file, rtx addr)
 	  addr = XEXP (addr, 0);
 	  gcc_assert (XINT (addr, 1) == UNSPEC_CONST);
 
-	  /* FIXME: Putting this case label here is an appalling abuse of the C language.  */
-	case UNSPEC:
           addr = XVECEXP (addr, 0, 0);
 	  gcc_assert (CONST_INT_P (addr));
+	  fprintf (file, "#");
+	  output_addr_const (file, addr);
+	  break;
 	}
+      fprintf (file, "#");
+      output_addr_const (file, XEXP (addr, 0));
+      break;
+
+    case UNSPEC:
+      addr = XVECEXP (addr, 0, 0);
       /* Fall through.  */
     case LABEL_REF:
     case SYMBOL_REF:
@@ -1179,6 +1181,8 @@ rx_function_value (const_tree ret_type,
   if (GET_MODE_SIZE (mode) > 0
       && GET_MODE_SIZE (mode) < 4
       && ! COMPLEX_MODE_P (mode)
+      && ! VECTOR_TYPE_P (ret_type)
+      && ! VECTOR_MODE_P (mode)
       )
     return gen_rtx_REG (SImode, FUNC_RETURN_REGNUM);
     
@@ -1198,6 +1202,8 @@ rx_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
   if (for_return != 1
       || GET_MODE_SIZE (mode) >= 4
       || COMPLEX_MODE_P (mode)
+      || VECTOR_MODE_P (mode)
+      || VECTOR_TYPE_P (type)
       || GET_MODE_SIZE (mode) < 1)
     return mode;
 
@@ -1717,7 +1723,6 @@ gen_safe_add (rtx dest, rtx src, rtx val, bool is_frame_related)
 
   if (is_frame_related)
     RTX_FRAME_RELATED_P (insn) = 1;
-  return;
 }
 
 static void
@@ -1751,7 +1756,7 @@ rx_expand_prologue (void)
 
   if (flag_stack_usage_info)
     current_function_static_stack_size = frame_size + stack_size;
-  
+
   /* If we use any of the callee-saved registers, save them now.  */
   if (mask)
     {
@@ -1857,7 +1862,7 @@ rx_expand_prologue (void)
 		      GEN_INT (- (HOST_WIDE_INT) frame_size), true);
       else
 	gen_safe_add (stack_pointer_rtx, frame_pointer_rtx, NULL_RTX,
-		      true);
+		      false /* False because the epilogue will use the FP not the SP.  */);
     }
 }
 

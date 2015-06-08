@@ -743,8 +743,8 @@ __gnat_rmdir (char *path)
 #endif
 }
 
-#if defined (_WIN32) || defined (linux) || defined (sun) \
-  || defined (__FreeBSD__)
+#if defined (_WIN32) || defined (__linux__) || defined (__sun__) \
+  || defined (__FreeBSD__) || defined(__DragonFly__)
 #define HAS_TARGET_WCHAR_T
 #endif
 
@@ -982,7 +982,8 @@ __gnat_open_new_temp (char *path, int fmode)
   strcpy (path, "GNAT-XXXXXX");
 
 #if (defined (__FreeBSD__) || defined (__NetBSD__) || defined (__OpenBSD__) \
-  || defined (linux) || defined(__GLIBC__)) && !defined (__vxworks)
+  || defined (__linux__) || defined (__GLIBC__)) && !defined (__vxworks) \
+  || defined (__DragonFly__)
   return mkstemp (path);
 #elif defined (__Lynx__)
   mktemp (path);
@@ -1153,8 +1154,9 @@ __gnat_tmp_name (char *tmp_filename)
     free (pname);
   }
 
-#elif defined (linux) || defined (__FreeBSD__) || defined (__NetBSD__) \
-  || defined (__OpenBSD__) || defined(__GLIBC__) || defined (__ANDROID__)
+#elif defined (__linux__) || defined (__FreeBSD__) || defined (__NetBSD__) \
+  || defined (__OpenBSD__) || defined (__GLIBC__) || defined (__ANDROID__) \
+  || defined (__DragonFly__)
 #define MAX_SAFE_PATH 1000
   char *tmpdir = getenv ("TMPDIR");
 
@@ -1224,7 +1226,7 @@ DIR* __gnat_opendir (char *name)
 /* Read the next entry in a directory.  The returned string points somewhere
    in the buffer.  */
 
-#if defined (sun) && defined (__SVR4)
+#if defined (__sun__)
 /* For Solaris, be sure to use the 64-bit version, otherwise NFS reads may
    fail with EOVERFLOW if the server uses 64-bit cookies.  */
 #define dirent dirent64
@@ -2160,7 +2162,7 @@ __gnat_is_symbolic_link (char *name ATTRIBUTE_UNUSED)
    return __gnat_is_symbolic_link_attr (name, &attr);
 }
 
-#if defined (sun) && defined (__SVR4)
+#if defined (__sun__)
 /* Using fork on Solaris will duplicate all the threads. fork1, which
    duplicates only the active thread, must be used instead, or spawning
    subprocess from a program with tasking will lead into numerous problems.  */
@@ -2267,7 +2269,9 @@ __gnat_number_of_cpus (void)
 {
   int cores = 1;
 
-#if defined (linux) || defined (sun) || defined (AIX) || defined (__APPLE__)
+#if defined (__linux__) || defined (__sun__) || defined (_AIX) \
+  || defined (__APPLE__) || defined (__FreeBSD__) || defined (__OpenBSD__) \
+  || defined (__DragonFly__) || defined (__NetBSD__)
   cores = (int) sysconf (_SC_NPROCESSORS_ONLN);
 
 #elif defined (__hpux__)
@@ -3066,7 +3070,7 @@ __gnat_lwp_self (void)
    return (void *) pthread_self ();
 }
 
-#elif defined (linux)
+#elif defined (__linux__)
 /* There is no function in the glibc to retrieve the LWP of the current
    thread. We need to do a system call in order to retrieve this
    information. */
@@ -3155,7 +3159,7 @@ __gnat_cpu_set (int cpu, size_t count ATTRIBUTE_UNUSED, cpu_set_t *set)
   CPU_SET (cpu - 1, set);
 }
 #endif /* !CPU_ALLOC */
-#endif /* linux */
+#endif /* __linux__ */
 
 /* Return the load address of the executable, or 0 if not known.  In the
    specific case of error, (void *)-1 can be returned. Beware: this unit may
@@ -3164,8 +3168,6 @@ __gnat_cpu_set (int cpu, size_t count ATTRIBUTE_UNUSED, cpu_set_t *set)
 
 #if defined (__APPLE__)
 #include <mach-o/dyld.h>
-#elif 0 && defined (__linux__)
-#include <link.h>
 #endif
 
 const void *

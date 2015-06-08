@@ -25,13 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "tm.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -59,8 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "flags.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -301,13 +296,12 @@ again:
       oprnd_info = (*oprnds_info)[i];
 
       if (!vect_is_simple_use (oprnd, NULL, loop_vinfo, bb_vinfo, &def_stmt,
-			       &def, &dt)
-	  || (!def_stmt && dt != vect_constant_def))
+			       &def, &dt))
 	{
 	  if (dump_enabled_p ())
 	    {
 	      dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			       "Build SLP failed: can't find def for ");
+			       "Build SLP failed: can't analyze def for ");
 	      dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, oprnd);
               dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 	    }
@@ -778,17 +772,13 @@ vect_build_slp_tree_1 (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo,
 		    (*max_nunits, group_size) / group_size;
               /* FORNOW: Check that there is no gap between the loads
 		 and no gap between the groups when we need to load
-		 multiple groups at once.
-		 ???  We should enhance this to only disallow gaps
-		 inside vectors.  */
-              if ((unrolling_factor > 1
-		   && ((GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) == stmt
-			&& GROUP_GAP (vinfo_for_stmt (stmt)) != 0)
-		       /* If the group is split up then GROUP_GAP
-			  isn't correct here, nor is GROUP_FIRST_ELEMENT.  */
-		       || GROUP_SIZE (vinfo_for_stmt (stmt)) > group_size))
-		  || (GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) != stmt
-		      && GROUP_GAP (vinfo_for_stmt (stmt)) != 1))
+		 multiple groups at once.  */
+              if (unrolling_factor > 1
+		  && ((GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) == stmt
+		       && GROUP_GAP (vinfo_for_stmt (stmt)) != 0)
+		      /* If the group is split up then GROUP_GAP
+			 isn't correct here, nor is GROUP_FIRST_ELEMENT.  */
+		      || GROUP_SIZE (vinfo_for_stmt (stmt)) > group_size))
                 {
                   if (dump_enabled_p ())
                     {
@@ -1092,6 +1082,35 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo,
 			       vectorization_factor, matches,
 			       npermutes, &this_tree_size, max_tree_size))
 	{
+	  /* If we have all children of child built up from scalars then just
+	     throw that away and build it up this node from scalars.  */
+	  if (!SLP_TREE_CHILDREN (child).is_empty ())
+	    {
+	      unsigned int j;
+	      slp_tree grandchild;
+
+	      FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (child), j, grandchild)
+		if (grandchild != NULL)
+		  break;
+	      if (!grandchild)
+		{
+		  /* Roll back.  */
+		  *max_nunits = old_max_nunits;
+		  loads->truncate (old_nloads);
+		  FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (child), j, grandchild)
+		      vect_free_slp_tree (grandchild);
+		  SLP_TREE_CHILDREN (child).truncate (0);
+
+		  dump_printf_loc (MSG_NOTE, vect_location,
+				   "Building parent vector operands from "
+				   "scalars instead\n");
+		  oprnd_info->def_stmts = vNULL;
+		  vect_free_slp_tree (child);
+		  SLP_TREE_CHILDREN (*node).quick_push (NULL);
+		  continue;
+		}
+	    }
+
 	  oprnd_info->def_stmts = vNULL;
 	  SLP_TREE_CHILDREN (*node).quick_push (child);
 	  continue;
@@ -1478,47 +1497,14 @@ vect_supported_load_permutation_p (slp_instance slp_instn)
       return true;
     }
 
-  /* FORNOW: the only supported permutation is 0..01..1.. of length equal to
-     GROUP_SIZE and where each sequence of same drs is of GROUP_SIZE length as
-     well (unless it's reduction).  */
-  if (SLP_INSTANCE_LOADS (slp_instn).length () != group_size)
-    return false;
-  FOR_EACH_VEC_ELT (SLP_INSTANCE_LOADS (slp_instn), i, node)
-    if (!node->load_permutation.exists ())
-      return false;
-
-  load_index = sbitmap_alloc (group_size);
-  bitmap_clear (load_index);
-  FOR_EACH_VEC_ELT (SLP_INSTANCE_LOADS (slp_instn), i, node)
-    {
-      unsigned int lidx = node->load_permutation[0];
-      if (bitmap_bit_p (load_index, lidx))
-	{
-	  sbitmap_free (load_index);
-	  return false;
-	}
-      bitmap_set_bit (load_index, lidx);
-      FOR_EACH_VEC_ELT (node->load_permutation, j, k)
-	if (k != lidx)
-	  {
-	    sbitmap_free (load_index);
-	    return false;
-	  }
-    }
-  for (i = 0; i < group_size; i++)
-    if (!bitmap_bit_p (load_index, i))
-      {
-	sbitmap_free (load_index);
-	return false;
-      }
-  sbitmap_free (load_index);
-
+  /* For loop vectorization verify we can generate the permutation.  */
   FOR_EACH_VEC_ELT (SLP_INSTANCE_LOADS (slp_instn), i, node)
     if (node->load_permutation.exists ()
 	&& !vect_transform_slp_perm_load
 	      (node, vNULL, NULL,
 	       SLP_INSTANCE_UNROLLING_FACTOR (slp_instn), slp_instn, true))
       return false;
+
   return true;
 }
 
@@ -2031,21 +2017,27 @@ vect_detect_hybrid_slp_stmts (slp_tree node, unsigned i, slp_vect_type stype)
     {
       /* Check if a pure SLP stmt has uses in non-SLP stmts.  */
       gcc_checking_assert (PURE_SLP_STMT (stmt_vinfo));
+      /* We always get the pattern stmt here, but for immediate
+	 uses we have to use the LHS of the original stmt.  */
+      gcc_checking_assert (!STMT_VINFO_IN_PATTERN_P (stmt_vinfo));
+      if (STMT_VINFO_RELATED_STMT (stmt_vinfo))
+	stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
       if (TREE_CODE (gimple_op (stmt, 0)) == SSA_NAME)
 	FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, gimple_op (stmt, 0))
-	  if (gimple_bb (use_stmt)
-	      && flow_bb_inside_loop_p (loop, gimple_bb (use_stmt))
-	      && (use_vinfo = vinfo_for_stmt (use_stmt))
-	      && !STMT_SLP_TYPE (use_vinfo)
-	      && (STMT_VINFO_RELEVANT (use_vinfo)
-		  || VECTORIZABLE_CYCLE_DEF (STMT_VINFO_DEF_TYPE (use_vinfo))
-		  || (STMT_VINFO_IN_PATTERN_P (use_vinfo)
-		      && STMT_VINFO_RELATED_STMT (use_vinfo)
-		      && !STMT_SLP_TYPE (vinfo_for_stmt
-			    (STMT_VINFO_RELATED_STMT (use_vinfo)))))
-	      && !(gimple_code (use_stmt) == GIMPLE_PHI
-		   && STMT_VINFO_DEF_TYPE (use_vinfo) == vect_reduction_def))
-	    stype = hybrid;
+	  {
+	    if (!flow_bb_inside_loop_p (loop, gimple_bb (use_stmt)))
+	      continue;
+	    use_vinfo = vinfo_for_stmt (use_stmt);
+	    if (STMT_VINFO_IN_PATTERN_P (use_vinfo)
+		&& STMT_VINFO_RELATED_STMT (use_vinfo))
+	      use_vinfo = vinfo_for_stmt (STMT_VINFO_RELATED_STMT (use_vinfo));
+	    if (!STMT_SLP_TYPE (use_vinfo)
+		&& (STMT_VINFO_RELEVANT (use_vinfo)
+		    || VECTORIZABLE_CYCLE_DEF (STMT_VINFO_DEF_TYPE (use_vinfo)))
+		&& !(gimple_code (use_stmt) == GIMPLE_PHI
+		     && STMT_VINFO_DEF_TYPE (use_vinfo) == vect_reduction_def))
+	      stype = hybrid;
+	  }
     }
 
   if (stype == hybrid)
@@ -3257,6 +3249,8 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
   if (!STMT_VINFO_GROUPED_ACCESS (stmt_info))
     return false;
 
+  stmt_info = vinfo_for_stmt (GROUP_FIRST_ELEMENT (stmt_info));
+
   /* Generate permutation masks for every NODE. Number of masks for each NODE
      is equal to GROUP_SIZE.
      E.g., we have a group of three nodes with three loads from the same
@@ -3291,7 +3285,7 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
           for (k = 0; k < group_size; k++)
             {
 	      i = SLP_TREE_LOAD_PERMUTATION (node)[k];
-              first_mask_element = i + j * group_size;
+              first_mask_element = i + j * STMT_VINFO_GROUP_SIZE (stmt_info);
               if (!vect_get_mask_element (stmt, first_mask_element, 0,
 					  nunits, only_one_vec, index,
 					  mask, &current_mask_element,
