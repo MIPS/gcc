@@ -2498,11 +2498,12 @@ rs6000_debug_reg_global (void)
 
   if (TARGET_BCP8)
     {
-      sprintf (bcp8_buffer, "align=%c, cmp=%c, hazard=%c, group end=%c",
-	       TARGET_BCP8_ALIGN     ? 'y' : 'n',
-	       TARGET_BCP8_CMP_ALIGN ? 'y' : 'n',
-	       TARGET_BCP8_HAZARD    ? 'y' : 'n',
-	       TARGET_BCP8_GROUP_END ? 'y' : 'n');
+      sprintf (bcp8_buffer, "align=%c%c, cmp=%c, hazard=%c%c",
+	       TARGET_BCP8_ALIGN	? 'y' : 'n',
+	       TARGET_BCP8_ALIGN_GROUP	? 'g' : '-',
+	       TARGET_BCP8_CMP_ALIGN	? 'y' : 'n',
+	       TARGET_BCP8_HAZARD	? 'y' : 'n',
+	       TARGET_BCP8_HAZARD_GROUP	? 'g' : '-');
 
       fprintf (stderr, DEBUG_FMT_S, "bc+8", bcp8_buffer);
     }
@@ -20641,7 +20642,7 @@ rs6000_output_bcp8 (rtx dest,
      the jump.  */
   if (align_nop_p && !disable_bcp8_p)
     {
-      if (TARGET_BCP8_GROUP_END)
+      if (TARGET_BCP8_ALIGN_GROUP)
 	fprintf (asm_out_file,
 		 "\t.p2alignl 5,0x60420000,4\t\t%s bc+8 align: ori %s,%s,0\n",
 		 ASM_COMMENT_START,
@@ -20709,7 +20710,7 @@ rs6000_output_bcp8 (rtx dest,
 
   if (disable_bcp8_p)
     {
-      if (TARGET_BCP8_GROUP_END)
+      if (TARGET_BCP8_HAZARD_GROUP)
 	fprintf (asm_out_file, "\tori %s,%s,0\t\t%s disable bc+8\n",
 		 reg_names[FIRST_GPR_REGNO+2],
 		 reg_names[FIRST_GPR_REGNO+2],

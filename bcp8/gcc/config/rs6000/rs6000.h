@@ -407,6 +407,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define MASK_BCP8_CMP_ALIGN	0x0002	/* only align if cmp.  */
 #define MASK_BCP8_HAZARD	0x0004	/* if next insn hazard, disable bc+8.*/
 #define MASK_BCP8_GROUP_END	0x0008	/* use group ending nops.  */
+#define MASK_BCP8_ALIGN_GROUP	0x0010	/* align uses group ending nops.  */
+#define MASK_BCP8_HAZARD_GROUP	0x0020	/* hazard uses group ending nops.  */
 
 #define MASK_BCP8_DEFAULT	(MASK_BCP8_ALIGN			\
 				 | MASK_BCP8_CMP_ALIGN			\
@@ -417,7 +419,12 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_BCP8_ALIGN	((TARGET_BCP8_NOP & MASK_BCP8_ALIGN)     != 0)
 #define TARGET_BCP8_CMP_ALIGN	((TARGET_BCP8_NOP & MASK_BCP8_CMP_ALIGN) != 0)
 #define TARGET_BCP8_HAZARD	((TARGET_BCP8_NOP & MASK_BCP8_HAZARD)    != 0)
-#define TARGET_BCP8_GROUP_END	((TARGET_BCP8_NOP & MASK_BCP8_GROUP_END) != 0)
+#define TARGET_BCP8_ALIGN_GROUP	((TARGET_BCP8_NOP			\
+				  & (MASK_BCP8_GROUP_END		\
+				     | MASK_BCP8_ALIGN_GROUP)) != 0)
+#define TARGET_BCP8_HAZARD_GROUP ((TARGET_BCP8_NOP			\
+				   & (MASK_BCP8_GROUP_END		\
+				      | MASK_BCP8_ALIGN_GROUP)) != 0)
 
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];
