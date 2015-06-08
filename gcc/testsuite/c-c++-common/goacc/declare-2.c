@@ -1,11 +1,10 @@
 /* Test invalid uses of declare directive.  */
 /* { dg-do compile } */
-/* { dg-skip-if "not yet" { c++ } } */
 
 #pragma acc declare /* { dg-error "no valid clauses" } */
 
 #pragma acc declare create(undeclared) /* { dg-error "undeclared" } */
-/* { dg-error "no valid clauses" "second error" { target *-*-* } 7 } */
+/* { dg-error "no valid clauses" "second error" { target *-*-* } 6 } */
 
 int v0[10];
 #pragma acc declare create(v0[1:3]) /* { dg-error "subarray" } */
@@ -42,7 +41,7 @@ void
 f (void)
 {
   int va0;
-#pragma acc declare link(va0) /* { dg-error "invalid variable" } */
+#pragma acc declare link(va0) /* { dg-error "global variable" } */
 
   extern int ve0;
 #pragma acc declare copy(ve0) /* { dg-error "invalid use of" } */

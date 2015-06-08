@@ -1,5 +1,10 @@
 ! { dg-do run  { target openacc_nvidia_accel_selected } }
 
+module vars
+  integer z
+  !$acc declare create (z)
+end module vars
+
 subroutine subr6 (a, d)
   integer, parameter :: N = 8
   integer :: i
@@ -200,6 +205,7 @@ subroutine subr0 (a, b, c, d)
 end subroutine
 
 program main
+  use vars
   use openacc
   integer, parameter :: N = 8
   integer :: a(N)
@@ -211,6 +217,8 @@ program main
   b(:) = 3
   c(:) = 4
   d(:) = 5
+
+  if (acc_is_present (z) .neqv. .true.) call abort
 
   call subr0 (a, b, c, d)
 
@@ -225,5 +233,6 @@ program main
     if (c(i) .ne. 8) call abort
     if (d(i) .ne. 16) call abort
   end do
+
 
 end program

@@ -5819,9 +5819,25 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
   splay_tree_node n;
   unsigned flags = in_code ? GOVD_SEEN : 0;
   bool ret = false, shared;
+  bool device_resident = false;
 
   if (error_operand_p (decl))
     return false;
+
+  if (flag_openacc && is_global_var (decl))
+    {
+      tree attr = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (decl));
+      if (attr)
+	{
+	  tree t, c;
+	  for (t = TREE_VALUE (attr); t; t = TREE_PURPOSE (t))
+	    {
+	      c = TREE_VALUE (t);
+	      if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_DEVICE_RESIDENT)
+		device_resident = true;
+	    }
+	}
+    }
 
   /* Threadprivate variables are predetermined.  */
   if (is_global_var (decl))
@@ -5899,7 +5915,9 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 		     by default are firstprivate (gang-local) in parallel.  */
 		  if (!n2 && !AGGREGATE_TYPE_P (type))
 		    {
-		      if (ctx->acc_region_kind == ARK_PARALLEL)
+		      if (device_resident)
+			flags |= GOVD_MAP_TO_ONLY;
+		      else if (ctx->acc_region_kind == ARK_PARALLEL)
 			flags |= (GOVD_GANGLOCAL | GOVD_MAP_TO_ONLY);
 		      /* Scalars under kernels are default 'copy'.  */
 		      else if (ctx->acc_region_kind == ARK_KERNELS)
@@ -7729,6 +7747,10 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
 
   switch (TREE_CODE (expr))
     {
+    case OACC_DECLARE:
+      kind = GF_OMP_TARGET_KIND_OACC_DECLARE;
+      ork = ORK_OACC;
+      break;
     case OACC_ENTER_DATA:
       kind = GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA;
       ork = ORK_OACC;
@@ -8707,11 +8729,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = gimplify_oacc_host_data (expr_p, pre_p);
 	  break;
 	  
-	case OACC_DECLARE:
-	  sorry ("directive not yet implemented");
-	  ret = GS_ALL_DONE;
-	  break;
-
 	case OACC_KERNELS:
 	case OACC_PARALLEL:
 	case OACC_DATA:
@@ -8724,6 +8741,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
+	case OACC_DECLARE:
 	case OACC_ENTER_DATA:
 	case OACC_EXIT_DATA:
 	case OACC_UPDATE:

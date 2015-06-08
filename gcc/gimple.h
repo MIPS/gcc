@@ -100,7 +100,7 @@ enum gf_mask {
     GF_OMP_FOR_KIND_CILKSIMD	= GF_OMP_FOR_SIMD | 1,
     GF_OMP_FOR_COMBINED		= 1 << 3,
     GF_OMP_FOR_COMBINED_INTO	= 1 << 4,
-    GF_OMP_TARGET_KIND_MASK	= (1 << 3) - 1,
+    GF_OMP_TARGET_KIND_MASK	= (1 << 4) - 1,
     GF_OMP_TARGET_KIND_REGION	= 0,
     GF_OMP_TARGET_KIND_DATA	= 1,
     GF_OMP_TARGET_KIND_UPDATE	= 2,
@@ -109,6 +109,7 @@ enum gf_mask {
     GF_OMP_TARGET_KIND_OACC_DATA = 5,
     GF_OMP_TARGET_KIND_OACC_UPDATE = 6,
     GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA = 7,
+    GF_OMP_TARGET_KIND_OACC_DECLARE = 8,
 
     /* True on an GIMPLE_OMP_RETURN statement if the return does not require
        a thread synchronization via some sort of barrier.  The exact barrier
@@ -5663,6 +5664,7 @@ is_gimple_omp_oacc (const_gimple stmt)
 	case GF_OMP_TARGET_KIND_OACC_DATA:
 	case GF_OMP_TARGET_KIND_OACC_UPDATE:
 	case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
+	case GF_OMP_TARGET_KIND_OACC_DECLARE:
 	  return true;
 	default:
 	  return false;

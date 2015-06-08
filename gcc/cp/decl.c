@@ -78,6 +78,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cilk.h"
 #include "wide-int.h"
 #include "builtins.h"
+#include "gomp-constants.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -14113,6 +14114,314 @@ maybe_save_function_definition (tree fun)
     register_constexpr_fundef (fun, DECL_SAVED_TREE (fun));
 }
 
+static tree
+check_oacc_vars_1 (tree *tp, int *, void *l)
+{
+  if (TREE_CODE (*tp) == VAR_DECL && TREE_PUBLIC (*tp))
+    {
+      location_t loc = DECL_SOURCE_LOCATION (*tp);
+      tree attrs;
+      attrs = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (*tp));
+      if (attrs)
+	{
+	  tree t;
+
+	  for (t = TREE_VALUE (attrs); t; t = TREE_CHAIN (t))
+	    {
+	      loc = EXPR_LOCATION ((tree) l);
+
+	      if (OMP_CLAUSE_MAP_KIND (TREE_VALUE (t)) == GOMP_MAP_LINK)
+		{
+		  error_at (loc, "%<link%> clause cannot be used with %qE",
+			    *tp);
+		  break;
+		}
+	    }
+	}
+      else
+	error_at (loc, "no %<#pragma acc declare%> for %qE", *tp);
+    }
+  return NULL_TREE;
+}
+
+static tree
+check_oacc_vars (tree *tp, int *, void *)
+{
+  if (TREE_CODE (*tp) == STATEMENT_LIST)
+    {
+      tree_stmt_iterator i;
+
+      for (i = tsi_start (*tp); !tsi_end_p (i); tsi_next (&i))
+	{
+	  tree t = tsi_stmt (i);
+	  walk_tree_without_duplicates (&t, check_oacc_vars_1, t);
+	}
+    }
+
+  return NULL_TREE;
+}
+
+static struct oacc_return
+{
+  tree_stmt_iterator iter;
+  tree stmt;
+  int op;
+  struct oacc_return *next;
+} *oacc_returns;
+
+static tree
+find_oacc_return (tree *tp, int *, void *)
+{
+  if (TREE_CODE (*tp) == STATEMENT_LIST)
+    {
+      tree_stmt_iterator i;
+
+      for (i = tsi_start (*tp); !tsi_end_p (i); tsi_next (&i))
+	{
+	  tree t;
+	  struct oacc_return *r;
+
+	  t = tsi_stmt (i);
+
+	  if (TREE_CODE (t) == RETURN_EXPR)
+	    {
+	      r = XNEW (struct oacc_return);
+	      r->iter = i;
+	      r->stmt = NULL_TREE;
+	      r->op = 1;
+	      r->next = NULL;
+
+	      if (oacc_returns)
+		r->next = oacc_returns;
+
+	      oacc_returns = r;
+	    }
+	  else if (TREE_CODE (t) == IF_STMT)
+	    {
+	       bool op1, op2;
+	       tree op;
+
+	       op1 = op2 = false;
+
+	       op = TREE_OPERAND (t, 1);
+	       op1 = (op && TREE_CODE (op) == RETURN_EXPR);
+
+	       op = TREE_OPERAND (t, 2);
+	       op2 = (op && TREE_CODE (op) == RETURN_EXPR);
+
+	       if (op1 || op2)
+		{
+		  r = XNEW (struct oacc_return);
+		  r->stmt = t;
+		  r->op = op1 ? 1 : 2;
+		  r->next = NULL;
+
+		  if (oacc_returns)
+		    r->next = oacc_returns;
+
+		  oacc_returns = r;
+		}
+	    }
+	}
+    }
+
+  return NULL_TREE;
+}
+
+static void
+finish_oacc_declare (tree fndecl, tree decls)
+{
+  tree t, stmt, list, c, ret_clauses, clauses;
+  location_t loc;
+  tree_stmt_iterator i;
+
+  list = cur_stmt_list;
+
+  if (lookup_attribute ("oacc function", DECL_ATTRIBUTES (fndecl)))
+    {
+      if (lookup_attribute ("oacc declare", DECL_ATTRIBUTES (fndecl)))
+	{
+	  location_t loc = DECL_SOURCE_LOCATION (fndecl);
+	  error_at (loc, "%<#pragma acc declare%> not allowed in %qE", fndecl);
+	}
+
+      walk_tree_without_duplicates (&list, check_oacc_vars, NULL);
+      return;
+    }
+
+  if (!decls)
+    return;
+
+  walk_tree_without_duplicates (&list, find_oacc_return, NULL);
+
+  clauses = NULL_TREE;
+
+  for (t = decls; t; t = TREE_CHAIN (t))
+    {
+      c = TREE_VALUE (TREE_VALUE (t));
+
+      if (clauses)
+	OMP_CLAUSE_CHAIN (c) = clauses;
+      else
+	loc = OMP_CLAUSE_LOCATION (c);
+
+      clauses = c;
+    }
+
+  ret_clauses = NULL_TREE;
+
+  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    {
+      bool ret = false;
+      HOST_WIDE_INT kind, new_op;
+
+      kind = OMP_CLAUSE_MAP_KIND (c);
+
+      switch (kind)
+	{
+	  case GOMP_MAP_ALLOC:
+	  case GOMP_MAP_FORCE_ALLOC:
+	  case GOMP_MAP_FORCE_TO:
+	    new_op = GOMP_MAP_FORCE_DEALLOC;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_FORCE_FROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_ALLOC);
+	    new_op = GOMP_MAP_FORCE_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_FORCE_TOFROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_TO);
+	    new_op = GOMP_MAP_FORCE_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_FROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_ALLOC);
+	    new_op = GOMP_MAP_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_TOFROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TO);
+	    new_op = GOMP_MAP_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_DEVICE_RESIDENT:
+	  case GOMP_MAP_FORCE_DEVICEPTR:
+	  case GOMP_MAP_FORCE_PRESENT:
+	  case GOMP_MAP_POINTER:
+	  case GOMP_MAP_TO:
+	    break;
+
+	  case GOMP_MAP_LINK:
+	    continue;
+
+	  default:
+	    gcc_unreachable ();
+	    break;
+	}
+
+      if (ret)
+	{
+	  t = copy_node (c);
+
+	  OMP_CLAUSE_SET_MAP_KIND (t, new_op);
+
+	  if (ret_clauses)
+	    OMP_CLAUSE_CHAIN (t) = ret_clauses;
+
+	  ret_clauses = t;
+	}
+    }
+
+   i = tsi_start (list);
+   if (!tsi_end_p (i))
+     {
+	t = tsi_stmt (i);
+	if (TREE_CODE (t) == BIND_EXPR)
+	  list = BIND_EXPR_BODY (t);
+      }
+
+  if (clauses)
+    {
+      bool found = false;
+
+      stmt = make_node (OACC_DECLARE);
+      TREE_TYPE (stmt) = void_type_node;
+      OMP_STANDALONE_CLAUSES (stmt) = clauses;
+      SET_EXPR_LOCATION (stmt, loc);
+
+      c = OMP_CLAUSE_DECL (TREE_VALUE (TREE_VALUE (decls)));
+
+      for (i = tsi_start (list); !tsi_end_p (i); tsi_next (&i))
+	{
+	  tree it;
+
+	  it = tsi_stmt (i);
+
+	  if ((TREE_CODE (it) == DECL_EXPR) && (DECL_EXPR_DECL (it) == c))
+	    {
+	      tsi_link_after (&i, stmt, TSI_CONTINUE_LINKING);
+	      found = true;
+	      break;
+	    }
+	}
+
+	if (!found)
+	  {
+	    i = tsi_start (list);
+	    tsi_link_before (&i, stmt, TSI_CONTINUE_LINKING);
+	  }
+    }
+
+    while (oacc_returns)
+      {
+	struct oacc_return *r;
+
+	stmt = make_node (OACC_DECLARE);
+	TREE_TYPE (stmt) = void_type_node;
+	OMP_STANDALONE_CLAUSES (stmt) = ret_clauses;
+	SET_EXPR_LOCATION (stmt, loc);
+
+	r = oacc_returns;
+	if (r->stmt)
+	  {
+	    tree l;
+
+	    l = alloc_stmt_list ();
+	    append_to_statement_list (stmt, &l);
+	    stmt = TREE_OPERAND (r->stmt, r->op);
+	    append_to_statement_list (stmt, &l);
+	    TREE_OPERAND (r->stmt, r->op) = l;
+	  }
+	else
+	  tsi_link_before (&r->iter, stmt, TSI_CONTINUE_LINKING);
+
+	oacc_returns = r->next;
+	free (r);
+     }
+
+  for (i = tsi_start (list); !tsi_end_p (i); tsi_next (&i))
+    {
+      if (tsi_end_p (i))
+	break;
+    }
+
+  stmt = make_node (OACC_DECLARE);
+  TREE_TYPE (stmt) = void_type_node;
+  OMP_STANDALONE_CLAUSES (stmt) = ret_clauses;
+  SET_EXPR_LOCATION (stmt, loc);
+
+  tsi_link_before (&i, stmt, TSI_CONTINUE_LINKING);
+
+  DECL_ATTRIBUTES (fndecl)
+	  = remove_attribute ("oacc declare", DECL_ATTRIBUTES (fndecl));
+}
+
 /* Finish up a function declaration and compile that function
    all the way to assembler language output.  The free the storage
    for the function definition.
@@ -14140,6 +14449,9 @@ finish_function (int flags)
 
   gcc_assert (!defer_mark_used_calls);
   defer_mark_used_calls = true;
+
+  tree decls = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (fndecl));
+  finish_oacc_declare (fndecl, decls);
 
   record_key_method_defined (fndecl);
 

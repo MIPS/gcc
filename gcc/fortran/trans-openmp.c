@@ -1784,12 +1784,12 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	case OMP_LIST_USE_DEVICE:
 	  clause_code = OMP_CLAUSE_USE_DEVICE;
 	  goto add_clause;
-	case OMP_LIST_DEVICE_RESIDENT:
-	  clause_code = OMP_CLAUSE_DEVICE_RESIDENT;
-	  goto add_clause;
 	case OMP_LIST_CACHE:
 	  clause_code = OMP_CLAUSE__CACHE_;
 	  goto add_clause;
+	case OMP_LIST_DEVICE_RESIDENT:
+	case OMP_LIST_LINK:
+	  continue;
 
 	add_clause:
 	  omp_clauses
@@ -1935,6 +1935,9 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	  for (; n != NULL; n = n->next)
 	    {
 	      if (!n->sym->attr.referenced)
+		continue;
+
+	      if (n->sym->attr.use_assoc && n->sym->attr.oacc_declare_link)
 		continue;
 
 	      tree node = build_omp_clause (input_location, OMP_CLAUSE_MAP);
@@ -2159,6 +2162,9 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		  break;
 		case OMP_MAP_FORCE_TO_GANGLOCAL:
 		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_TO_GANGLOCAL);
+		  break;
+		case OMP_MAP_DEVICE_RESIDENT:
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_DEVICE_RESIDENT);
 		  break;
 		default:
 		  gcc_unreachable ();
@@ -4391,25 +4397,18 @@ tree
 gfc_trans_oacc_declare (gfc_code *code)
 {
   stmtblock_t block;
-  struct gfc_oacc_declare *d;
-  tree stmt, clauses = NULL_TREE;
+  tree stmt, oacc_clauses;
+  enum tree_code construct_code;
 
   gfc_start_block (&block);
 
-  for (d = code->ext.oacc_declare; d; d = d->next)
-    {
-      tree t;
+  construct_code = OACC_DECLARE;
 
-      t = gfc_trans_omp_clauses (&block, d->clauses, d->clauses->loc);
-
-      if (clauses)
-	OMP_CLAUSE_CHAIN (clauses) = t;
-      else
-	clauses = t;
-    }
-
-  stmt = gfc_trans_omp_code (code->block->next, true);
-  stmt = build2_loc (input_location, OACC_DATA, void_type_node, stmt, clauses);
+  gfc_start_block (&block);
+  oacc_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
+					code->loc);
+  stmt = build1_loc (input_location, construct_code, void_type_node,
+		     oacc_clauses);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }

@@ -82,6 +82,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "builtins.h"
 #include "gomp-constants.h"
+#include "tree-iterator.h"
 
 
 /* Initialization routine for this file.  */
@@ -1472,6 +1473,316 @@ c_parser_external_declaration (c_parser *parser)
     }
 }
 
+static tree
+check_oacc_vars_1 (tree *tp, int *, void *l)
+{
+  if (TREE_CODE (*tp) == VAR_DECL && TREE_PUBLIC (*tp))
+    {
+      location_t loc = DECL_SOURCE_LOCATION (*tp);
+      tree attrs;
+      attrs = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (*tp));
+      if (attrs)
+	{
+	  tree t;
+
+	  for (t = TREE_VALUE (attrs); t; t = TREE_CHAIN (t))
+	    {
+	      loc = EXPR_LOCATION ((tree) l);
+
+	      if (OMP_CLAUSE_MAP_KIND (TREE_VALUE (t)) == GOMP_MAP_LINK)
+		{
+		  error_at (loc, "%<link%> clause cannot be used with %qE",
+			    *tp);
+		  break;
+		}
+	    }
+	}
+      else
+	error_at (loc, "no %<#pragma acc declare%> for %qE", *tp);
+    }
+  return NULL_TREE;
+}
+
+static tree
+check_oacc_vars (tree *tp, int *, void *)
+{
+  if (TREE_CODE (*tp) == STATEMENT_LIST)
+    {
+      tree_stmt_iterator i;
+
+      for (i = tsi_start (*tp); !tsi_end_p (i); tsi_next (&i))
+	{
+	  tree t = tsi_stmt (i);
+	  walk_tree_without_duplicates (&t, check_oacc_vars_1, t);
+	}
+    }
+
+  return NULL_TREE;
+}
+
+static struct oacc_return
+{
+  tree_stmt_iterator iter;
+  tree stmt;
+  int op;
+  struct oacc_return *next;
+} *oacc_returns;
+
+static tree
+find_oacc_return (tree *tp, int *, void *)
+{
+  if (TREE_CODE (*tp) == STATEMENT_LIST)
+    {
+      tree_stmt_iterator i;
+
+      for (i = tsi_start (*tp); !tsi_end_p (i); tsi_next (&i))
+	{
+	  tree t;
+	  struct oacc_return *r;
+
+	  t = tsi_stmt (i);
+
+	  if (TREE_CODE (t) == RETURN_EXPR)
+	    {
+	      r = XNEW (struct oacc_return);
+	      r->iter = i;
+	      r->stmt = NULL_TREE;
+	      r->op = 1;
+	      r->next = NULL;
+
+	      if (oacc_returns)
+		r->next = oacc_returns;
+
+	      oacc_returns = r;
+	    }
+	  else if (TREE_CODE (t) == COND_EXPR)
+	    {
+	       bool op1, op2;
+	       tree op;
+
+	       op1 = op2 = false;
+
+	       op = TREE_OPERAND (t, 1);
+	       op1 = (op && TREE_CODE (op) == RETURN_EXPR);
+
+	       op = TREE_OPERAND (t, 2);
+	       op2 = (op && TREE_CODE (op) == RETURN_EXPR);
+
+	       if (op1 || op2)
+		{
+		  r = XNEW (struct oacc_return);
+		  r->stmt = t;
+		  r->op = op1 ? 1 : 2;
+		  r->next = NULL;
+
+		  if (oacc_returns)
+		    r->next = oacc_returns;
+
+		  oacc_returns = r;
+		}
+	    }
+	}
+    }
+
+  return NULL_TREE;
+}
+
+static void
+finish_oacc_declare (tree fnbody, tree decls)
+{
+  tree t, stmt, body, c, ret_clauses, clauses;
+  location_t loc;
+  tree_stmt_iterator i;
+  tree fndecl = current_function_decl;
+
+  if (lookup_attribute ("oacc function", DECL_ATTRIBUTES (fndecl)))
+    {
+      if (lookup_attribute ("oacc declare", DECL_ATTRIBUTES (fndecl)))
+	{
+	  location_t loc = DECL_SOURCE_LOCATION (fndecl);
+	  error_at (loc, "%<#pragma acc declare%> not allowed in %qE", fndecl);
+	}
+
+      walk_tree_without_duplicates (&fnbody, check_oacc_vars, NULL);
+      return;
+    }
+
+  if (!decls)
+    return;
+
+  body = BIND_EXPR_BODY (fnbody);
+
+  if (TREE_CODE (body) != STATEMENT_LIST)
+    {
+      tree list;
+
+      list = alloc_stmt_list ();
+      append_to_statement_list (body, &list);
+      BIND_EXPR_BODY (fnbody) = list;
+      body = list;
+    }
+
+  walk_tree_without_duplicates (&body, find_oacc_return, NULL);
+
+  clauses = NULL_TREE;
+
+  for (t = decls; t; t = TREE_CHAIN (t))
+    {
+      c = TREE_VALUE (TREE_VALUE (t));
+
+      if (clauses)
+	OMP_CLAUSE_CHAIN (c) = clauses;
+      else
+	loc = OMP_CLAUSE_LOCATION (c);
+
+      clauses = c;
+    }
+
+  ret_clauses = NULL_TREE;
+
+  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    {
+      bool ret = false;
+      HOST_WIDE_INT kind, new_op;
+
+      kind = OMP_CLAUSE_MAP_KIND (c);
+
+      switch (kind)
+	{
+	  case GOMP_MAP_ALLOC:
+	  case GOMP_MAP_FORCE_ALLOC:
+	  case GOMP_MAP_FORCE_TO:
+	    new_op = GOMP_MAP_FORCE_DEALLOC;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_FORCE_FROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_ALLOC);
+	    new_op = GOMP_MAP_FORCE_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_FORCE_TOFROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_TO);
+	    new_op = GOMP_MAP_FORCE_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_FROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_ALLOC);
+	    new_op = GOMP_MAP_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_TOFROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TO);
+	    new_op = GOMP_MAP_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_DEVICE_RESIDENT:
+	  case GOMP_MAP_FORCE_DEVICEPTR:
+	  case GOMP_MAP_FORCE_PRESENT:
+	  case GOMP_MAP_LINK:
+	  case GOMP_MAP_POINTER:
+	  case GOMP_MAP_TO:
+	    break;
+
+	  default:
+	    gcc_unreachable ();
+	    break;
+	}
+
+      if (ret)
+	{
+	  t = copy_node (c);
+
+	  OMP_CLAUSE_SET_MAP_KIND (t, new_op);
+
+	  if (ret_clauses)
+	    OMP_CLAUSE_CHAIN (t) = ret_clauses;
+
+	  ret_clauses = t;
+	}
+    }
+
+  if (clauses)
+    {
+      bool found = false;
+
+      stmt = make_node (OACC_DECLARE);
+      TREE_TYPE (stmt) = void_type_node;
+      OACC_DECLARE_CLAUSES (stmt) = clauses;
+      SET_EXPR_LOCATION (stmt, loc);
+
+      c = OMP_CLAUSE_DECL (TREE_VALUE (TREE_VALUE (decls)));
+
+      for (i = tsi_start (body); !tsi_end_p (i); tsi_next (&i))
+	{
+	  tree it;
+
+	  it = tsi_stmt (i);
+
+	  if ((TREE_CODE (it) == DECL_EXPR) && (DECL_EXPR_DECL (it) == c))
+	    {
+	      tsi_link_after (&i, stmt, TSI_CONTINUE_LINKING);
+	      found = true;
+	      break;
+	    }
+	}
+
+	if (!found)
+	  {
+	    i = tsi_start (body);
+	    tsi_link_before (&i, stmt, TSI_CONTINUE_LINKING);
+	  }
+    }
+
+    while (oacc_returns)
+      {
+	struct oacc_return *r;
+
+	stmt = make_node (OACC_DECLARE);
+	TREE_TYPE (stmt) = void_type_node;
+	OACC_DECLARE_CLAUSES (stmt) = ret_clauses;
+	SET_EXPR_LOCATION (stmt, loc);
+
+	r = oacc_returns;
+	if (r->stmt)
+	  {
+	    tree l;
+
+	    l = alloc_stmt_list ();
+	    append_to_statement_list (stmt, &l);
+	    stmt = TREE_OPERAND (r->stmt, r->op);
+	    append_to_statement_list (stmt, &l);
+	    TREE_OPERAND (r->stmt, r->op) = l;
+	  }
+	else
+	  tsi_link_before (&r->iter, stmt, TSI_CONTINUE_LINKING);
+
+	oacc_returns = r->next;
+	free (r);
+     }
+
+  for (i = tsi_start (body); !tsi_end_p (i); tsi_next (&i))
+    {
+      if (tsi_end_p (i))
+	break;
+    }
+
+  stmt = make_node (OACC_DECLARE);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_DECLARE_CLAUSES (stmt) = ret_clauses;
+  SET_EXPR_LOCATION (stmt, loc);
+
+  tsi_link_before (&i, stmt, TSI_CONTINUE_LINKING);
+
+  DECL_ATTRIBUTES (fndecl)
+	  = remove_attribute ("oacc declare", DECL_ATTRIBUTES (fndecl));
+}
+
+
 static void c_finish_omp_declare_simd (c_parser *, tree, tree, vec<c_token>);
 static void c_finish_oacc_routine (c_parser *, tree, tree, bool);
 
@@ -2019,6 +2330,9 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
       fnbody = c_parser_compound_statement (parser);
       if (flag_cilkplus && contains_array_notation_expr (fnbody))
 	fnbody = expand_array_notation_exprs (fnbody);
+      tree decls = lookup_attribute ("oacc declare",
+				     DECL_ATTRIBUTES (current_function_decl));
+      finish_oacc_declare (fnbody, decls);
       if (nested)
 	{
 	  tree decl = current_function_decl;
@@ -12426,6 +12740,8 @@ c_parser_oacc_data (location_t loc, c_parser *parser)
    # pragma acc declare oacc-data-clause[optseq] new-line
 */
 
+static int oacc_dcl_idx = 0;
+
 #define OACC_DECLARE_CLAUSE_MASK					\
 	( (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_COPY)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_COPYIN)		\
@@ -12445,6 +12761,7 @@ c_parser_oacc_declare (c_parser *parser)
 {
   location_t pragma_loc = c_parser_peek_token (parser)->location;
   tree clauses;
+  bool error = false;
 
   c_parser_consume_pragma (parser);
 
@@ -12460,18 +12777,23 @@ c_parser_oacc_declare (c_parser *parser)
     {
       location_t loc = OMP_CLAUSE_LOCATION (t);
       tree decl = OMP_CLAUSE_DECL (t);
+      tree devres = NULL_TREE;
       if (!DECL_P (decl))
 	{
 	  error_at (loc, "subarray in %<#pragma acc declare%>");
+	  error = true;
 	  continue;
 	}
-      gcc_assert (OMP_CLAUSE_CODE (t) == OMP_CLAUSE_MAP);
+
       switch (OMP_CLAUSE_MAP_KIND (t))
 	{
 	case GOMP_MAP_FORCE_ALLOC:
 	case GOMP_MAP_FORCE_TO:
 	case GOMP_MAP_FORCE_DEVICEPTR:
+	  break;
+
 	case GOMP_MAP_DEVICE_RESIDENT:
+	  devres = t;
 	  break;
 
 	case GOMP_MAP_POINTER:
@@ -12483,8 +12805,10 @@ c_parser_oacc_declare (c_parser *parser)
 	  if (!global_bindings_p () && !DECL_EXTERNAL (decl))
 	    {
 	      error_at (loc,
-			"invalid variable %qD in %<#pragma acc declare link%>",
+			"%qD must be a global variable in"
+			"%<#pragma acc declare link%>",
 			decl);
+	      error = true;
 	      continue;
 	    }
 	  break;
@@ -12493,6 +12817,7 @@ c_parser_oacc_declare (c_parser *parser)
 	  if (global_bindings_p ())
 	    {
 	      error_at (loc, "invalid OpenACC clause at file scope");
+	      error = true;
 	      continue;
 	    }
 	  if (DECL_EXTERNAL (decl))
@@ -12500,6 +12825,7 @@ c_parser_oacc_declare (c_parser *parser)
 	      error_at (loc,
 			"invalid use of %<extern%> variable %qD "
 			"in %<#pragma acc declare%>", decl);
+	      error = true;
 	      continue;
 	    }
 	  break;
@@ -12516,17 +12842,23 @@ c_parser_oacc_declare (c_parser *parser)
 	  if (prev_attr)
 	    {
 	      tree p = TREE_VALUE (prev_attr);
-	      error_at (loc,
-			"variable %qD used more than once with "
-			"%<#pragma acc declare%>", decl);
-	      inform (OMP_CLAUSE_LOCATION (TREE_VALUE (p)),
-		      "previous directive was here");
-	      continue;
+	      tree cl = TREE_VALUE (p);
+
+	      if (!devres
+		  && OMP_CLAUSE_MAP_KIND (cl) != GOMP_MAP_DEVICE_RESIDENT)
+		{
+		  error_at (loc,
+			    "variable %qD used more than once with "
+			    "%<#pragma acc declare%>", decl);
+		  inform (OMP_CLAUSE_LOCATION (cl),
+			  "previous directive was here");
+		  error = true;
+		  continue;
+		}
 	    }
 	}
       else
 	{
-	  bool ok = true;
 	  decl_for_attr = current_function_decl;
 	  tree prev_attr = lookup_attribute ("oacc declare",
 					     DECL_ATTRIBUTES (decl_for_attr));
@@ -12544,17 +12876,82 @@ c_parser_oacc_declare (c_parser *parser)
 			    "%<#pragma acc declare%>", decl);
 		  inform (OMP_CLAUSE_LOCATION (cl),
 			  "previous directive was here");
-		  ok = false;
+		  error = true;
 		  break;
 		}
 	    }
-	  if (!ok)
-	    continue;
 	}
-      tree attr = tree_cons (NULL_TREE, t, NULL_TREE);
-      tree attrs = tree_cons (get_identifier ("oacc declare"),
-			      attr, NULL_TREE);
-      decl_attributes (&decl_for_attr, attrs, 0);
+
+      if (!error)
+	{
+	  tree attr = tree_cons (NULL_TREE, t, NULL_TREE);
+	  tree attrs = tree_cons (get_identifier ("oacc declare"),
+				  attr, NULL_TREE);
+	  decl_attributes (&decl_for_attr, attrs, 0);
+	}
+    }
+
+  if (error)
+    return;
+
+  if (global_bindings_p ())
+    {
+      char buf[128];
+      struct c_declarator *target;
+      tree stmt, attrs;
+      c_arg_info *arg_info = build_arg_info ();
+      struct c_declarator *declarator;
+      struct c_declspecs *specs;
+      struct c_typespec spec;
+      location_t loc = UNKNOWN_LOCATION;
+      tree f, t, fnbody, call_fn;
+
+      sprintf (buf, "__openacc_c_constructor__%d", oacc_dcl_idx++);
+      target = build_id_declarator (get_identifier (buf));
+      arg_info->types = void_list_node;
+      declarator = build_function_declarator (arg_info, target);
+
+      specs = build_null_declspecs ();
+      spec.kind = ctsk_resword;
+      spec.spec = get_identifier ("void");
+      spec.expr = NULL_TREE;
+      spec.expr_const_operands = true;
+
+      declspecs_add_type (pragma_loc, specs, spec);
+      finish_declspecs (specs);
+
+      attrs = tree_cons (get_identifier ("constructor") , NULL_TREE, NULL_TREE);
+      start_function (specs, declarator, attrs);
+      store_parm_decls ();
+      f = c_begin_compound_stmt (true);
+      TREE_USED (current_function_decl) = 1;
+      call_fn = builtin_decl_explicit (BUILT_IN_GOACC_STATIC);
+      TREE_SIDE_EFFECTS (call_fn) = 1;
+
+      for (t = clauses; t; t = OMP_CLAUSE_CHAIN (t))
+	{
+	  tree d, a1, a2, a3;
+	  vec<tree, va_gc> *args;
+	  vec_alloc (args, 3);
+
+	  d = OMP_CLAUSE_DECL (t);
+
+	  a1 = build_unary_op (loc, ADDR_EXPR, d, 0);
+	  a2 = DECL_SIZE_UNIT (d);
+	  a3 = build_int_cst (unsigned_type_node, OMP_CLAUSE_MAP_KIND (t));
+
+	  args->quick_push (a1);
+	  args->quick_push (a2);
+	  args->quick_push (a3);
+
+	  stmt = build_function_call_vec (loc, vNULL, call_fn, args, NULL);
+	  add_stmt (stmt);
+	}
+
+	fnbody = c_end_compound_stmt (loc, f, true);
+	add_stmt (fnbody);
+
+      finish_function ();
     }
 }
 

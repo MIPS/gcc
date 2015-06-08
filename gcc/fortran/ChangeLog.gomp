@@ -1,3 +1,39 @@
+2015-06-08  James Norris  <jnorris@codesourcery.com>
+
+	* f95-lang.c (gfc_attribute_table): New entry.
+	* gfortran.h (symbol_attribute): New attributes. 
+	(gfc_omp_map_op): New enums.
+	(OMP_LIST_LINK): New enum.
+	(gfc_oacc_declare): Add member: module_var.
+	(finish_oacc_declare): Add calling parm.
+	* module.c (ab_attribute): Add enums.
+	(attr_bits): Add initialization of new attribute bits.
+	(mio_symbol_attribute): Add handling of new attribute bits.
+	* openmp.c (OMP_CLAUSE_LINK): New defintion.
+	(gfc_match_omp_clauses): Add handling of link clause.
+	(OACC_DECLARE_CLAUSES): Update declare directive clauses.
+	(gfc_match_oacc_declare): Add handling of device_resident
+	and link clauses.
+	(gfc_resolve_oacc_declare): Add handling of link clause.
+	* symbol.c (check_conflict): Add checks for declare clauses in modules.
+	(gfc_add_oacc_declare_create, gfc_add_declare_copyin,
+	gfc_add_oacc_declare_deviceptr, gfc_add_oacc_declare_device_resident):
+	New functions.
+	(gfc_add_target): Add checks for declare attrs.
+	* trans-decl.c (add_attributes_to_decl): Add creation of attribute.
+	(oacc_return): New structure.
+	(oacc_returns, module_oacc_clauses): New variables.
+	(find_oacc_return, add_clause, find_module_oacc_declare_clauses):
+	New functions.
+	(finish_oacc_declare): Rename from insert_oacc_declare and rewrite.
+	(gfc_generate_function_code): Change calling of finish_oacc_declare.
+	* trans-openmp.c (gfc_trans_omp_clauses): Add handling of link and
+	device_resident clauses.
+	(gfc_trans_oacc_declare): Rewrite.
+	* trans-stmt.c (gfc_trans_block_construct): Change calling of
+	finish_oacc_declare.
+	* types.def (BT_FN_VOID_PTR_INT_UINT): New type.
+
 2015-05-19  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* types.def (BT_FN_ULONGLONG_ULONGLONG): Define.

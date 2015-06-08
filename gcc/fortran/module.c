@@ -1894,7 +1894,9 @@ typedef enum
   AB_IS_CLASS, AB_PROCEDURE, AB_PROC_POINTER, AB_ASYNCHRONOUS, AB_CODIMENSION,
   AB_COARRAY_COMP, AB_VTYPE, AB_VTAB, AB_CONTIGUOUS, AB_CLASS_POINTER,
   AB_IMPLICIT_PURE, AB_ARTIFICIAL, AB_UNLIMITED_POLY, AB_OMP_DECLARE_TARGET,
-  AB_ARRAY_OUTER_DEPENDENCY
+  AB_ARRAY_OUTER_DEPENDENCY, AB_OACC_DECLARE_CREATE, AB_OACC_DECLARE_COPYIN,
+  AB_OACC_DECLARE_DEVICEPTR, AB_OACC_DECLARE_DEVICE_RESIDENT,
+  AB_OACC_DECLARE_LINK
 }
 ab_attribute;
 
@@ -1951,6 +1953,11 @@ static const mstring attr_bits[] =
     minit ("UNLIMITED_POLY", AB_UNLIMITED_POLY),
     minit ("OMP_DECLARE_TARGET", AB_OMP_DECLARE_TARGET),
     minit ("ARRAY_OUTER_DEPENDENCY", AB_ARRAY_OUTER_DEPENDENCY),
+    minit ("OACC_DECLARE_CREATE", AB_OACC_DECLARE_CREATE),
+    minit ("OACC_DECLARE_COPYIN", AB_OACC_DECLARE_COPYIN),
+    minit ("OACC_DECLARE_DEVICEPTR", AB_OACC_DECLARE_DEVICEPTR),
+    minit ("OACC_DECLARE_DEVICE_RESIDENT", AB_OACC_DECLARE_DEVICE_RESIDENT),
+    minit ("OACC_DECLARE_LINK", AB_OACC_DECLARE_LINK),
     minit (NULL, -1)
 };
 
@@ -2133,6 +2140,16 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_OMP_DECLARE_TARGET, attr_bits);
       if (attr->array_outer_dependency)
 	MIO_NAME (ab_attribute) (AB_ARRAY_OUTER_DEPENDENCY, attr_bits);
+      if (attr->oacc_declare_create)
+	MIO_NAME (ab_attribute) (AB_OACC_DECLARE_CREATE, attr_bits);
+      if (attr->oacc_declare_copyin)
+	MIO_NAME (ab_attribute) (AB_OACC_DECLARE_COPYIN, attr_bits);
+      if (attr->oacc_declare_deviceptr)
+	MIO_NAME (ab_attribute) (AB_OACC_DECLARE_DEVICEPTR, attr_bits);
+      if (attr->oacc_declare_device_resident)
+	MIO_NAME (ab_attribute) (AB_OACC_DECLARE_DEVICE_RESIDENT, attr_bits);
+      if (attr->oacc_declare_link)
+	MIO_NAME (ab_attribute) (AB_OACC_DECLARE_LINK, attr_bits);
 
       mio_rparen ();
 
@@ -2301,6 +2318,21 @@ mio_symbol_attribute (symbol_attribute *attr)
 	      break;
 	    case AB_ARRAY_OUTER_DEPENDENCY:
 	      attr->array_outer_dependency =1;
+	      break;
+	    case AB_OACC_DECLARE_CREATE:
+	      attr->oacc_declare_create = 1;
+	      break;
+	    case AB_OACC_DECLARE_COPYIN:
+	      attr->oacc_declare_copyin = 1;
+	      break;
+	    case AB_OACC_DECLARE_DEVICEPTR:
+	      attr->oacc_declare_deviceptr = 1;
+	      break;
+	    case AB_OACC_DECLARE_DEVICE_RESIDENT:
+	      attr->oacc_declare_device_resident = 1;
+	      break;
+	    case AB_OACC_DECLARE_LINK:
+	      attr->oacc_declare_link = 1;
 	      break;
 	    }
 	}

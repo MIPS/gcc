@@ -1,3 +1,9 @@
+2015-06-08  James Norris  <jnorris@codesourcery.com>
+
+	* c-c++-common/goacc/declare-1.c: Update tests.
+	* c-c++-common/goacc/declare-2.c: Likewise.
+	* gfortran.dg/goacc/declare-1.f95: Update tests.
+
 2015-06-01  Tom de Vries  <tom@codesourcery.com>
 
 	Revert:

@@ -1,3 +1,23 @@
+2015-06-08  James Norris  <jnorris@codesourcery.com>
+
+	* builtin-types.def (BT_FN_VOID_PTR_INT_UINT): New type.
+	* gimple-pretty-print.c (dump_gimple_omp_target): Handle declare
+	directive.
+	* gimple.h (gf_mask): Add enum.
+	(is_gimple_omp_oacc): Add declare directive.
+	* gimplify.c (omp_notice_variable): Handle device_resident.
+	(gimplify_omp_target_update): Handle declare directive.
+	(gimplify_expr): Handle declare directive.
+	* omp-builtins.def (BUILT_IN_GOACC_STATIC, BUILT_IN_GOACC_DECLARE):
+	New types.
+	* omp-low.c (expand_omp_target): Handle declare directive.
+	(build_omp_regions_1): Likewise.
+	(lower_omp_target): Likewise.
+	(make_gimple_omp_edges): Likewise.
+	* varpool.c (gomp-constants.h): Add inclusion.
+	(make_offloadable_1, make_offloadable): New functions.
+	(get_create): Add calls to make_offloadable.
+
 2015-06-08  Tom de Vries  <tom@codesourcery.com>
 
 	backport from trunk:

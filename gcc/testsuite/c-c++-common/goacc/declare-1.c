@@ -1,6 +1,5 @@
 /* Test valid uses of declare directive.  */
 /* { dg-do compile } */
-/* { dg-skip-if "not yet" { c++ } } */
 
 int v0;
 #pragma acc declare create(v0)

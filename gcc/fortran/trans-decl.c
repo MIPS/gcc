@@ -1309,6 +1309,16 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
     list = tree_cons (get_identifier ("omp declare target"),
 		      NULL_TREE, list);
 
+  if (sym_attr.oacc_declare_create
+      || sym_attr.oacc_declare_copyin
+      || sym_attr.oacc_declare_deviceptr
+      || sym_attr.oacc_declare_device_resident
+      || sym_attr.oacc_declare_link)
+    {
+      list = tree_cons (get_identifier ("oacc declare"),
+			NULL_TREE, list);
+    }
+
   if (sym_attr.oacc_function)
     list = tree_cons (get_identifier ("oacc function"),
 		      NULL_TREE, list);
@@ -5754,13 +5764,48 @@ is_ieee_module_used (gfc_namespace *ns)
 }
 
 
+static struct oacc_return
+{
+  gfc_code *code;
+  struct oacc_return *next;
+} *oacc_returns;
+
+
+static void
+find_oacc_return (gfc_code *code)
+{
+  if (code->next)
+    {
+      if (code->next->op == EXEC_RETURN)
+	{
+	  struct oacc_return *r;
+
+	  r = XCNEW (struct oacc_return);
+	  r->code = code;
+	  r->next = NULL;
+
+	  if (oacc_returns)
+	    r->next = oacc_returns;
+
+	  oacc_returns = r;
+	}
+      else
+	{
+	  find_oacc_return (code->next);
+	}
+    }
+
+  if (code->block)
+    find_oacc_return (code->block);
+
+  return;
+}
+
+
 static gfc_code *
 find_end (gfc_code *code)
 {
   gcc_assert (code);
-
-  if (code->op == EXEC_END_PROCEDURE)
-    return code;
 
   if (code->next)
     {
@@ -5774,38 +5819,284 @@ find_end (gfc_code *code)
 }
 
 
-void
-insert_oacc_declare (gfc_namespace *ns)
+static gfc_omp_clauses *module_oacc_clauses;
+
+
+static void
+add_clause (gfc_symbol *sym, gfc_omp_map_op map_op)
 {
-  gfc_code *code;
+  gfc_omp_namelist *n;
+
+  n = gfc_get_omp_namelist ();
+  n->sym = sym;
+  n->u.map_op = map_op;
+
+  if (!module_oacc_clauses)
+    module_oacc_clauses = gfc_get_omp_clauses ();
+
+  if (module_oacc_clauses->lists[OMP_LIST_MAP])
+    n->next = module_oacc_clauses->lists[OMP_LIST_MAP];
+
+  module_oacc_clauses->lists[OMP_LIST_MAP] = n;
+}
+
+
+static void
+find_module_oacc_declare_clauses (gfc_symbol *sym)
+{
+  if (sym->attr.use_assoc)
+    {
+      gfc_omp_map_op map_op;
+
+      sym->attr.referenced = sym->attr.oacc_declare_create
+			     | sym->attr.oacc_declare_copyin
+			     | sym->attr.oacc_declare_deviceptr
+			     | sym->attr.oacc_declare_device_resident;
+
+      if (sym->attr.oacc_declare_create)
+	map_op = OMP_MAP_FORCE_ALLOC;
+
+      if (sym->attr.oacc_declare_copyin)
+	map_op = OMP_MAP_FORCE_TO;
+
+      if (sym->attr.oacc_declare_deviceptr)
+	map_op = OMP_MAP_FORCE_DEVICEPTR;
+
+      if (sym->attr.oacc_declare_device_resident)
+	map_op = OMP_MAP_DEVICE_RESIDENT;
+
+      if (sym->attr.referenced)
+	add_clause (sym, map_op);
+    }
+}
+
+
+void
+finish_oacc_declare (gfc_namespace *ns, enum sym_flavor flavor)
+{
+  gfc_code *code, *end_c, *code2;
+  gfc_oacc_declare *oc;
+  gfc_omp_clauses *omp_clauses = NULL, *ret_clauses = NULL;
+  gfc_omp_namelist *n;
+  locus where = gfc_current_locus;
+
+  gfc_traverse_ns (ns, find_module_oacc_declare_clauses);
+
+  if (module_oacc_clauses && flavor == FL_PROGRAM)
+    {
+      gfc_oacc_declare *new_oc;
+
+      new_oc = gfc_get_oacc_declare ();
+      new_oc->next = ns->oacc_declare;
+      new_oc->clauses = module_oacc_clauses;
+
+      ns->oacc_declare = new_oc;
+      module_oacc_clauses = NULL;
+    }
+
+  if (!ns->oacc_declare)
+    return;
+
+  for (oc = ns->oacc_declare; oc; oc = oc->next)
+    {
+      if (oc->module_var)
+	continue;
+
+      if (oc->clauses)
+	{
+	  if (omp_clauses)
+	    {
+	      gfc_omp_namelist *p;
+
+	      for (n = omp_clauses->lists[OMP_LIST_MAP]; n; n = n->next)
+		p = n;
+
+	      p->next = oc->clauses->lists[OMP_LIST_MAP];
+	    }
+	  else
+	    {
+	      omp_clauses = oc->clauses;
+	    }
+	}
+    }
+
+  while (ns->oacc_declare)
+    {
+      oc = ns->oacc_declare;
+      ns->oacc_declare = oc->next;
+      free (oc);
+    }
 
   code = XCNEW (gfc_code);
   code->op = EXEC_OACC_DECLARE;
-  code->loc = ns->oacc_declare->where;
+  code->loc = where;
+  code->ext.omp_clauses = omp_clauses;
 
-  code->ext.oacc_declare = ns->oacc_declare;
+  for (n = omp_clauses->lists[OMP_LIST_MAP]; n; n = n->next)
+    {
+      bool ret = false;
+      gfc_omp_map_op new_op;
 
-  code->block = XCNEW (gfc_code);
-  code->block->op = EXEC_OACC_DECLARE;
-  code->block->loc = ns->oacc_declare->where;
+      switch (n->u.map_op)
+	{
+	case OMP_MAP_ALLOC:
+	case OMP_MAP_FORCE_ALLOC:
+	  new_op = OMP_MAP_FORCE_DEALLOC;
+	  ret = true;
+	  break;
+
+	case OMP_MAP_DEVICE_RESIDENT:
+	  n->u.map_op = OMP_MAP_FORCE_ALLOC;
+	  new_op = OMP_MAP_FORCE_DEALLOC;
+	  ret = true;
+	  break;
+
+	case OMP_MAP_FORCE_FROM:
+	  n->u.map_op = OMP_MAP_FORCE_ALLOC;
+	  new_op = OMP_MAP_FORCE_FROM;
+	  ret = true;
+	  break;
+
+	case OMP_MAP_FORCE_TO:
+	  new_op = OMP_MAP_FORCE_DEALLOC;
+	  ret = true;
+	  break;
+
+	case OMP_MAP_FORCE_TOFROM:
+	  n->u.map_op = OMP_MAP_FORCE_TO;
+	  new_op = OMP_MAP_FORCE_FROM;
+	  ret = true;
+	  break;
+
+	case OMP_MAP_FROM:
+	  n->u.map_op = OMP_MAP_FORCE_ALLOC;
+	  new_op = OMP_MAP_FROM;
+	  ret = true;
+	  break;
+
+	case OMP_MAP_FORCE_DEVICEPTR:
+	case OMP_MAP_FORCE_PRESENT:
+	case OMP_MAP_LINK:
+	case OMP_MAP_TO:
+	  break;
+
+	case OMP_MAP_TOFROM:
+	  n->u.map_op = OMP_MAP_TO;
+	  new_op = OMP_MAP_FROM;
+	  ret = true;
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	  break;
+	}
+
+      if (ret)
+	{
+	  gfc_omp_namelist *new_n;
+
+	  new_n = gfc_get_omp_namelist ();
+	  new_n->sym = n->sym;
+	  new_n->u.map_op = new_op;
+
+	  if (!ret_clauses)
+	    ret_clauses = gfc_get_omp_clauses ();
+
+	  if (ret_clauses->lists[OMP_LIST_MAP])
+	    new_n->next = ret_clauses->lists[OMP_LIST_MAP];
+
+	  ret_clauses->lists[OMP_LIST_MAP] = new_n;
+	  ret = false;
+	}
+    }
+
+  if (!ret_clauses)
+    {
+      code->next = ns->code;
+      ns->code = code;
+      return;
+    }
+
+  code2 = XCNEW (gfc_code);
+  code2->op = EXEC_OACC_DECLARE;
+  code2->loc = where;
+  code2->ext.omp_clauses = ret_clauses;
 
   if (ns->code)
     {
-      gfc_code *c;
+      find_oacc_return (ns->code);
 
-      c = find_end (ns->code);
-      if (c)
+      if (ns->code->op == EXEC_END_PROCEDURE)
 	{
-	  code->next = c->next;
-	  c->next = NULL;
+	  code2->next = ns->code;
+	  code->next = code2;
 	}
+      else
+	{
+	  end_c = find_end (ns->code);
+	  if (end_c)
+	    {
+	      code2->next = end_c->next;
+	      end_c->next = code2;
+	      code->next = ns->code;
+	    }
+	  else
+	    {
+	      gfc_code *last;
 
-      code->block->next = ns->code;
-      code->block->ext.oacc_declare = NULL;
+	      last = ns->code;
+
+	      while (last->next)
+		last = last->next;
+
+	      last->next = code2;
+	      code->next = ns->code;
+	    }
+	}
+    }
+  else
+    {
+      code->next = code2;
     }
 
-  ns->code = code;
-  ns->oacc_declare = NULL;
+  while (oacc_returns)
+    {
+      struct oacc_return *r;
+
+      r = oacc_returns;
+
+      ret_clauses = gfc_get_omp_clauses ();
+
+      for (n = omp_clauses->lists[OMP_LIST_MAP]; n; n = n->next)
+	{
+	  if (n->u.map_op == OMP_MAP_FORCE_ALLOC
+	      || n->u.map_op == OMP_MAP_FORCE_TO)
+	    {
+	      gfc_omp_namelist *new_n;
+
+	      new_n = gfc_get_omp_namelist ();
+	      new_n->sym = n->sym;
+	      new_n->u.map_op = OMP_MAP_FORCE_DEALLOC;
+
+	      if (ret_clauses->lists[OMP_LIST_MAP])
+		new_n->next = ret_clauses->lists[OMP_LIST_MAP];
+
+	      ret_clauses->lists[OMP_LIST_MAP] = new_n;
+	    }
+	}
+
+      code2 = XCNEW (gfc_code);
+      code2->op = EXEC_OACC_DECLARE;
+      code2->loc = where;
+      code2->ext.omp_clauses = ret_clauses;
+      code2->next = r->code->next;
+      r->code->next = code2;
+
+      oacc_returns = r->next;
+      free (r);
+    }
+
+    ns->code = code;
 }
 
 
@@ -5946,8 +6237,7 @@ gfc_generate_function_code (gfc_namespace * ns)
     add_argument_checking (&body, sym);
 
   /* Generate !$ACC DECLARE directive. */
-  if (ns->oacc_declare)
-    insert_oacc_declare (ns);
+  finish_oacc_declare (ns, sym->attr.flavor);
 
   tmp = gfc_trans_code (ns->code);
   gfc_add_expr_to_block (&body, tmp);

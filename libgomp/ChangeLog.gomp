@@ -1,3 +1,25 @@
+2015-06-08  James Norris  <jnorris@codesourcery.com>
+
+	* libgomp.map: Add GOACC_declare and GOACC_register_static.
+	* oacc-init.c (acc_shutdown_1): Add call to acc_deallocate_static.
+	(acc_init): Add call to acc_allocate_static.
+	* oacc-int.h (goacc_allocate_static, goacc_deallocate_static):
+	New declarations.
+	* oacc-parallel.c (oacc_static): New structure.
+	(oacc_statics): New variable.
+	(goacc_allocate_static, goacc_deallocate_static, GOACC_register_static,
+	GOACC_declare): New functions.
+	* testsuite/libgomp.oacc-c++/declare-1.C: New file.
+	* testsuite/libgomp.oacc-c-c++-common/declare-1.c: New file.
+	* testsuite/libgomp.oacc-c-c++-common/declare-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/declare-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/declare-4.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/declare-1.f90: Update test.
+	* testsuite/libgomp.oacc-fortran/declare-2.f90: New file. 
+	* testsuite/libgomp.oacc-fortran/declare-3.f90: Likewise. 
+	* testsuite/libgomp.oacc-fortran/declare-4.f90: Likewise. 
+	* testsuite/libgomp.oacc-fortran/declare-5.f90: Likewise. 
+
 2015-06-04  Julian Brown  <julian@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/worker-single-{1,1a,2,3,4,5,6}.c:

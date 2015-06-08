@@ -861,6 +861,13 @@ typedef struct
   /* Mentioned in OMP DECLARE TARGET.  */
   unsigned omp_declare_target:1;
 
+  /* Mentioned in OACC DECLARE.  */
+  unsigned oacc_declare_create:1;
+  unsigned oacc_declare_copyin:1;
+  unsigned oacc_declare_deviceptr:1;
+  unsigned oacc_declare_device_resident:1;
+  unsigned oacc_declare_link:1;
+
   /* This is an OpenACC acclerator function.  */
   unsigned oacc_function:1;
 
@@ -1132,6 +1139,8 @@ typedef enum
   OMP_MAP_FORCE_TOFROM,
   OMP_MAP_FORCE_PRESENT,
   OMP_MAP_FORCE_DEVICEPTR,
+  OMP_MAP_DEVICE_RESIDENT,
+  OMP_MAP_LINK,
   OMP_MAP_FORCE_TO_GANGLOCAL
 }
 gfc_omp_map_op;
@@ -1174,6 +1183,7 @@ enum
   OMP_LIST_FROM,
   OMP_LIST_REDUCTION,
   OMP_LIST_DEVICE_RESIDENT,
+  OMP_LIST_LINK,
   OMP_LIST_USE_DEVICE,
   OMP_LIST_CACHE,
   OMP_LIST_NUM
@@ -1269,6 +1279,7 @@ typedef struct gfc_oacc_declare
 {
   struct gfc_oacc_declare *next;
   locus where;
+  bool module_var;
   gfc_omp_clauses *clauses;
 }
 gfc_oacc_declare;
@@ -3276,6 +3287,6 @@ void gfc_convert_mpz_to_signed (mpz_t, int);
 
 /* trans-decl.c */
 
-void insert_oacc_declare (gfc_namespace *);
+void finish_oacc_declare (gfc_namespace *, enum sym_flavor);
 
 #endif /* GCC_GFORTRAN_H  */

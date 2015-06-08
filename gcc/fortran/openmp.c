@@ -475,6 +475,7 @@ match_oacc_clause_gang (gfc_omp_clauses *cp)
 #define OMP_CLAUSE_BIND			((uint64_t) 1 << 58)
 #define OMP_CLAUSE_NOHOST		((uint64_t) 1 << 59)
 #define OMP_CLAUSE_DEVICE_TYPE		((uint64_t) 1 << 60)
+#define OMP_CLAUSE_LINK			((uint64_t) 1 << 61)
 
 /* Helper function for OpenACC and OpenMP clauses involving memory
    mapping.  */
@@ -746,6 +747,12 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
       if ((mask & OMP_CLAUSE_DEVICE_RESIDENT)
 	  && gfc_match_omp_variable_list ("device_resident (",
 					  &c->lists[OMP_LIST_DEVICE_RESIDENT],
+					  true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_LINK)
+	  && gfc_match_omp_variable_list ("link (",
+					  &c->lists[OMP_LIST_LINK],
 					  true)
 	     == MATCH_YES)
 	continue;
@@ -1352,7 +1359,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
    | OMP_CLAUSE_CREATE | OMP_CLAUSE_DEVICEPTR | OMP_CLAUSE_DEVICE_RESIDENT    \
    | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY                          \
    | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT             \
-   | OMP_CLAUSE_PRESENT_OR_CREATE)
+   | OMP_CLAUSE_PRESENT_OR_CREATE | OMP_CLAUSE_LINK)
 #define OACC_UPDATE_CLAUSES \
   (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_HOST \
    | OMP_CLAUSE_OACC_DEVICE | OMP_CLAUSE_WAIT | OMP_CLAUSE_DEVICE_TYPE)
@@ -1501,11 +1508,17 @@ gfc_match_oacc_declare (void)
   gfc_omp_namelist *n;
   gfc_namespace *ns = gfc_current_ns;
   gfc_oacc_declare *new_oc, *oc;
-  locus where = gfc_current_locus;
+  bool module_var = false;
 
   if (gfc_match_omp_clauses (&c, OACC_DECLARE_CLAUSES, 0, false, false, true)
       != MATCH_YES)
     return MATCH_ERROR;
+
+  for (n = c->lists[OMP_LIST_DEVICE_RESIDENT]; n != NULL; n = n->next)
+    n->sym->attr.oacc_declare_device_resident = 1;
+
+  for (n = c->lists[OMP_LIST_LINK]; n != NULL; n = n->next)
+    n->sym->attr.oacc_declare_link = 1;
 
   for (n = c->lists[OMP_LIST_MAP]; n != NULL; n = n->next)
     {
@@ -1520,6 +1533,14 @@ gfc_match_oacc_declare (void)
 			 "$!ACC DECLARE at %C");
 	      return MATCH_ERROR;
 	    }
+
+	  module_var = true;
+	}
+
+      if (ns->proc_name->attr.oacc_function)
+	{
+	  gfc_error ("Invalid declare in routine with " "$!ACC DECLARE at %C");
+	  return MATCH_ERROR;
 	}
 
       if (s->attr.in_common)
@@ -1543,12 +1564,31 @@ gfc_match_oacc_declare (void)
 		     "$!ACC DECLARE at %C");
 	  return MATCH_ERROR;
 	}
+
+      switch (n->u.map_op)
+	{
+	  case OMP_MAP_FORCE_ALLOC:
+	    s->attr.oacc_declare_create = 1;
+	    break;
+
+	  case OMP_MAP_FORCE_TO:
+	    s->attr.oacc_declare_copyin = 1;
+	    break;
+
+	  case OMP_MAP_FORCE_DEVICEPTR:
+	    s->attr.oacc_declare_deviceptr = 1;
+	    break;
+
+	  default:
+	    break;
+	}
     }
 
   new_oc = gfc_get_oacc_declare ();
   new_oc->next = ns->oacc_declare;
-  new_oc->where = where;
+  new_oc->module_var = module_var;
   new_oc->clauses = c;
+  new_oc->where = gfc_current_locus;
 
   for (oc = new_oc; oc; oc = oc->next)
     {
@@ -4960,6 +5000,33 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
 	      gfc_error ("Subarray: %qs not allowed in $!ACC DECLARE at %L",
 			 n->sym->name, &loc);
 	}
+    }
+
+  for (oc = ns->oacc_declare; oc; oc = oc->next)
+    {
+      for (list = OMP_LIST_LINK; list <= OMP_LIST_LINK; list++)
+	for (n = oc->clauses->lists[list]; n; n = n->next)
+	  n->sym->mark = 0;
+    }
+
+  for (oc = ns->oacc_declare; oc; oc = oc->next)
+    {
+      for (list = OMP_LIST_LINK; list <= OMP_LIST_LINK; list++)
+	for (n = oc->clauses->lists[list]; n; n = n->next)
+	  {
+	    if (n->sym->mark)
+	      gfc_error ("Symbol %qs present on multiple clauses at %L",
+			 n->sym->name, &loc);
+	    else
+	      n->sym->mark = 1;
+	  }
+    }
+
+  for (oc = ns->oacc_declare; oc; oc = oc->next)
+    {
+      for (list = OMP_LIST_LINK; list <= OMP_LIST_LINK; list++)
+	for (n = oc->clauses->lists[list]; n; n = n->next)
+	  n->sym->mark = 0;
     }
 }
 

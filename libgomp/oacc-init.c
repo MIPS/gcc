@@ -205,6 +205,8 @@ acc_shutdown_1 (acc_device_t d)
   if (!base_dev)
     gomp_fatal ("device %s not supported", name_of_acc_device_t (d));
 
+  goacc_deallocate_static (d);
+
   gomp_mutex_lock (&goacc_thread_lock);
 
   /* Free target-specific TLS data and close all devices.  */
@@ -373,7 +375,9 @@ goacc_attach_host_thread_to_device (int ord)
 void
 acc_init (acc_device_t d)
 {
-  if (!cached_base_dev)
+  bool init = !cached_base_dev;
+
+  if (init)
     gomp_init_targets_once ();
 
   gomp_mutex_lock (&acc_device_lock);
@@ -381,6 +385,9 @@ acc_init (acc_device_t d)
   cached_base_dev = acc_init_1 (d);
 
   gomp_mutex_unlock (&acc_device_lock);
+
+  if (init)
+    goacc_allocate_static (d);
   
   goacc_attach_host_thread_to_device (-1);
 }

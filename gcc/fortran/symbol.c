@@ -375,6 +375,11 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
     *contiguous = "CONTIGUOUS", *generic = "GENERIC";
   static const char *threadprivate = "THREADPRIVATE";
   static const char *omp_declare_target = "OMP DECLARE TARGET";
+  static const char *oacc_declare_copyin = "OACC DECLARE COPYIN";
+  static const char *oacc_declare_create = "OACC DECLARE CREATE";
+  static const char *oacc_declare_deviceptr = "OACC DECLARE DEVICEPTR";
+  static const char *oacc_declare_device_resident =
+						"OACC DECLARE DEVICE_RESIDENT";
 
   const char *a1, *a2;
   int standard;
@@ -506,6 +511,10 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
   conf (in_equivalence, allocatable);
   conf (in_equivalence, threadprivate);
   conf (in_equivalence, omp_declare_target);
+  conf (in_equivalence, oacc_declare_create);
+  conf (in_equivalence, oacc_declare_copyin);
+  conf (in_equivalence, oacc_declare_deviceptr);
+  conf (in_equivalence, oacc_declare_device_resident);
 
   conf (dummy, result);
   conf (entry, result);
@@ -555,6 +564,10 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
   conf (cray_pointee, in_equivalence);
   conf (cray_pointee, threadprivate);
   conf (cray_pointee, omp_declare_target);
+  conf (cray_pointee, oacc_declare_create);
+  conf (cray_pointee, oacc_declare_copyin);
+  conf (cray_pointee, oacc_declare_deviceptr);
+  conf (cray_pointee, oacc_declare_device_resident);
 
   conf (data, dummy);
   conf (data, function);
@@ -609,6 +622,10 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
   conf (proc_pointer, abstract)
 
   conf (entry, omp_declare_target)
+  conf (entry, oacc_declare_create)
+  conf (entry, oacc_declare_copyin)
+  conf (entry, oacc_declare_deviceptr)
+  conf (entry, oacc_declare_device_resident)
 
   a1 = gfc_code2string (flavors, attr->flavor);
 
@@ -646,6 +663,10 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
       conf2 (subroutine);
       conf2 (threadprivate);
       conf2 (omp_declare_target);
+      conf2 (oacc_declare_create);
+      conf2 (oacc_declare_copyin);
+      conf2 (oacc_declare_deviceptr);
+      conf2 (oacc_declare_device_resident);
 
       if (attr->access == ACCESS_PUBLIC || attr->access == ACCESS_PRIVATE)
 	{
@@ -728,6 +749,10 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
       conf2 (threadprivate);
       conf2 (result);
       conf2 (omp_declare_target);
+      conf2 (oacc_declare_create);
+      conf2 (oacc_declare_copyin);
+      conf2 (oacc_declare_deviceptr);
+      conf2 (oacc_declare_device_resident);
 
       if (attr->intent != INTENT_UNKNOWN)
 	{
@@ -1234,6 +1259,62 @@ gfc_add_omp_declare_target (symbol_attribute *attr, const char *name,
     return true;
 
   attr->omp_declare_target = 1;
+  return check_conflict (attr, name, where);
+}
+
+
+bool
+gfc_add_oacc_declare_create (symbol_attribute *attr, const char *name, locus *where)
+{
+  if (check_used (attr, name, where))
+    return false;
+
+  if (attr->oacc_declare_create)
+    return true;
+
+  attr->oacc_declare_create = 1;
+  return check_conflict (attr, name, where);
+}
+
+
+bool
+gfc_add_oacc_declare_copyin (symbol_attribute *attr, const char *name, locus *where)
+{
+  if (check_used (attr, name, where))
+    return false;
+
+  if (attr->oacc_declare_copyin)
+    return true;
+
+  attr->oacc_declare_copyin = 1;
+  return check_conflict (attr, name, where);
+}
+
+
+bool
+gfc_add_oacc_declare_deviceptr (symbol_attribute *attr, const char *name, locus *where)
+{
+  if (check_used (attr, name, where))
+    return false;
+
+  if (attr->oacc_declare_deviceptr)
+    return true;
+
+  attr->oacc_declare_deviceptr = 1;
+  return check_conflict (attr, name, where);
+}
+
+
+bool
+gfc_add_oacc_declare_device_resident (symbol_attribute *attr, const char *name, locus *where)
+{
+  if (check_used (attr, name, where))
+    return false;
+
+  if (attr->oacc_declare_device_resident)
+    return true;
+
+  attr->oacc_declare_device_resident = 1;
   return check_conflict (attr, name, where);
 }
 
@@ -1795,6 +1876,18 @@ gfc_copy_attr (symbol_attribute *dest, symbol_attribute *src, locus *where)
     goto fail;
   if (src->omp_declare_target
       && !gfc_add_omp_declare_target (dest, NULL, where))
+    goto fail;
+  if (src->oacc_declare_create
+      && !gfc_add_oacc_declare_create (dest, NULL, where))
+    goto fail;
+  if (src->oacc_declare_copyin
+      && !gfc_add_oacc_declare_copyin (dest, NULL, where))
+    goto fail;
+  if (src->oacc_declare_deviceptr
+      && !gfc_add_oacc_declare_deviceptr (dest, NULL, where))
+    goto fail;
+  if (src->oacc_declare_device_resident
+      && !gfc_add_oacc_declare_device_resident (dest, NULL, where))
     goto fail;
   if (src->target && !gfc_add_target (dest, where))
     goto fail;

@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 #include "context.h"
 #include "omp-low.h"
+#include "gomp-constants.h"
 
 const char * const tls_model_names[]={"none", "emulated",
 				      "global-dynamic", "local-dynamic",
@@ -161,6 +162,58 @@ varpool_node::create_empty (void)
   return node;
 }   
 
+static void
+make_offloadable_1 (varpool_node *node, tree decl)
+{
+  node->offloadable = 1;
+#ifdef ENABLE_OFFLOADING
+  g->have_offload = true;
+  if (!in_lto_p)
+    vec_safe_push (offload_vars, decl);
+  node->force_output = 1;
+#endif
+}
+
+void
+make_offloadable (varpool_node *node, tree decl)
+{
+  tree attrs;
+
+  if (node->offloadable)
+    return;
+
+  if (flag_openmp)
+    {
+      make_offloadable_1 (node, decl);
+      return;
+    }
+
+  attrs = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (decl));
+  if (attrs)
+    {
+      tree *t;
+      int total = 0, skip = 0;
+
+      gcc_assert (&TREE_VALUE (attrs));
+
+      for (t = &TREE_VALUE (attrs); *t; t = &TREE_CHAIN (*t))
+	{
+	  HOST_WIDE_INT kind = OMP_CLAUSE_MAP_KIND (TREE_VALUE (*t));
+
+	  total++;
+
+	  if (kind == GOMP_MAP_LINK)
+	    skip++;
+	}
+
+      if (total - skip > 0)
+	make_offloadable_1 (node, decl);
+
+      DECL_ATTRIBUTES (decl)
+	  = remove_attribute ("oacc declare", DECL_ATTRIBUTES (decl));
+    }
+}
+
 /* Return varpool node assigned to DECL.  Create new one when needed.  */
 varpool_node *
 varpool_node::get_create (tree decl)
@@ -168,22 +221,18 @@ varpool_node::get_create (tree decl)
   varpool_node *node = varpool_node::get (decl);
   gcc_checking_assert (TREE_CODE (decl) == VAR_DECL);
   if (node)
-    return node;
+    {
+      if (flag_openacc && !DECL_EXTERNAL (decl))
+	make_offloadable (node, decl);
+      return node;
+    }
 
   node = varpool_node::create_empty ();
   node->decl = decl;
 
   if ((flag_openacc || flag_openmp) && !DECL_EXTERNAL (decl)
       && lookup_attribute ("omp declare target", DECL_ATTRIBUTES (decl)))
-    {
-      node->offloadable = 1;
-#ifdef ENABLE_OFFLOADING
-      g->have_offload = true;
-      if (!in_lto_p)
-	vec_safe_push (offload_vars, decl);
-      node->force_output = 1;
-#endif
-    }
+    make_offloadable (node, decl);
 
   node->register_symbol ();
   return node;

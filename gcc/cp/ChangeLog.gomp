@@ -1,3 +1,16 @@
+2015-06-08  James Norris  <jnorris@codesourcery.com>
+
+	* decl.c (gomp-constants.h): Add inclusion.
+	(check_oacc_vars1, check_oacc_vsars, find_oacc_return,
+	finish_oacc_declare): New functions.
+	(finish_function): Add call to finish_oacc_declare.
+	* parser.c (tree-iterator.h): Add inclusion.
+	(oacc_dcl_idx): New variable.
+	(OACC_DECLARE_CLAUSE_MASK): New macro.
+	(cp_parser_oacc_declare): New function.
+	(cp_parser_pragma): Handle parsing of declare directive.
+	* pt.c (tsubr_expr): Add handling of declare directive.
+
 2015-05-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* parser.h (typedef struct cp_parser): Add bool oacc_parallel_region

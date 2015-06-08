@@ -1,3 +1,14 @@
+2015-06-08  James Norris  <jnorris@codesourcery.com>
+
+	* c-parser.c (tree-iterator.h): Add inclusion.
+	(check_oacc_vars1, check_oacc_vars, find_oacc_return,
+	finish_oacc_declare): New functions.
+	(oacc_return): New structure.
+	(oacc_returns): New variable.
+	(c_parser_declaration_or_fndef): Add call to finish_oacc_declare.
+	(oacc_dcl_idx): New variable.
+	(c_parser_oacc_declare): Rewrite.
+
 2015-05-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-parser.c (typedef struct c_parser): Add BOOL_BITFIELDS
