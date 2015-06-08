@@ -1086,6 +1086,7 @@ struct GTY(()) saved_scope {
   cp_binding_level *bindings;
 
   hash_map<tree, tree> *GTY((skip)) x_local_specializations;
+  hash_map<tree, tree> *GTY((skip)) fold_map;
 
   struct saved_scope *prev;
 };

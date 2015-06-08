@@ -1786,8 +1786,15 @@ cxx_omp_finish_clause (tree c, gimple_seq *)
 tree
 cp_fully_fold (tree x)
 {
-  hash_map<tree, tree> fold_hash;
-  return cp_fold (x, &fold_hash);
+  hash_map<tree, tree> *ctx = (scope_chain ? scope_chain->fold_map : NULL);
+
+  if (!ctx)
+    {
+      hash_map<tree, tree> fold_hash;
+      return cp_fold (x, &fold_hash);
+    }
+
+  return cp_fold (x, ctx);
 }
 
 static tree

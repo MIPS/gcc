@@ -420,7 +420,9 @@ strip_using_decl (tree decl)
   if (decl == NULL_TREE)
     return NULL_TREE;
 
-  while (TREE_CODE (decl) == USING_DECL && !DECL_DEPENDENT_P (decl))
+  while (TREE_CODE (decl) == USING_DECL
+	 && !DECL_DEPENDENT_P (decl)
+	 && !uses_template_parms (USING_DECL_SCOPE (decl)))
     decl = USING_DECL_DECLS (decl);
 
   if (TREE_CODE (decl) == USING_DECL && DECL_DEPENDENT_P (decl)
@@ -6122,6 +6124,7 @@ push_to_top_level (void)
   struct saved_scope *s;
   cp_binding_level *b;
   cxx_saved_binding *sb;
+  hash_map<tree, tree> *fm;
   size_t i;
   bool need_pop;
 
@@ -6139,6 +6142,10 @@ push_to_top_level (void)
   else
     need_pop = false;
 
+  if (scope_chain)
+    fm = scope_chain->fold_map;
+  else
+    fm = NULL;
   if (scope_chain && previous_class_level)
     store_class_bindings (previous_class_level->class_shadowed,
 			  &s->old_bindings);
@@ -6170,6 +6177,9 @@ push_to_top_level (void)
   FOR_EACH_VEC_SAFE_ELT (s->old_bindings, i, sb)
     IDENTIFIER_MARKED (sb->identifier) = 0;
 
+  if (!fm)
+    fm = new hash_map<tree, tree>;
+
   s->prev = scope_chain;
   s->bindings = b;
   s->need_pop_function_context = need_pop;
@@ -6177,6 +6187,7 @@ push_to_top_level (void)
   s->unevaluated_operand = cp_unevaluated_operand;
   s->inhibit_evaluation_warnings = c_inhibit_evaluation_warnings;
   s->x_stmt_tree.stmts_are_full_exprs_p = true;
+  s->fold_map = fm;
 
   scope_chain = s;
   current_function_decl = NULL_TREE;
@@ -6194,6 +6205,7 @@ pop_from_top_level_1 (void)
 {
   struct saved_scope *s = scope_chain;
   cxx_saved_binding *saved;
+  hash_map<tree, tree> *fm = s->fold_map;
   size_t i;
 
   /* Clear out class-level bindings cache.  */
@@ -6219,6 +6231,11 @@ pop_from_top_level_1 (void)
   current_function_decl = s->function_decl;
   cp_unevaluated_operand = s->unevaluated_operand;
   c_inhibit_evaluation_warnings = s->inhibit_evaluation_warnings;
+  if (fm && (!scope_chain || scope_chain->fold_map != fm))
+    {
+      delete fm;
+      s->fold_map = NULL;
+    }
 }
 
 /* Wrapper for pop_from_top_level_1.  */
