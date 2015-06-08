@@ -1,3 +1,8 @@
+2015-06-08  James Norris  <jnorris@codesourcery.com>
+
+	* openmp.c (gfc_match_oacc_declare): Add handling of
+	device_resident and link clauses.
+
 2015-05-13  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* gfortranspec.c (lang_specific_driver): Add -Xoffload options to
