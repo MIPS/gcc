@@ -23,20 +23,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "flags.h"
-#include "statistics.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -50,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "alloc-pool.h"
 #include "cselib.h"
-#include "hash-map.h"
 #include "langhooks.h"
 #include "timevar.h"
 #include "dumpfile.h"
@@ -1072,8 +1066,9 @@ get_alias_set (tree t)
     }
   /* In LTO the rules above needs to be part of canonical type machinery.
      For now just punt.  */
-  else if (POINTER_TYPE_P (t) && t != ptr_type_node && in_lto_p)
-    set = get_alias_set (ptr_type_node);
+  else if (POINTER_TYPE_P (t)
+	   && t != TYPE_CANONICAL (ptr_type_node) && in_lto_p)
+    set = get_alias_set (TYPE_CANONICAL (ptr_type_node));
 
   /* Otherwise make a new alias set for this type.  */
   else
@@ -2546,6 +2541,19 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
 
   if (! DECL_P (exprx) || ! DECL_P (expry))
     return 0;
+
+  /* If we refer to different gimple registers, or one gimple register
+     and one non-gimple-register, we know they can't overlap.  First,
+     gimple registers don't have their addresses taken.  Now, there
+     could be more than one stack slot for (different versions of) the
+     same gimple register, but we can presumably tell they don't
+     overlap based on offsets from stack base addresses elsewhere.
+     It's important that we don't proceed to DECL_RTL, because gimple
+     registers may not pass DECL_RTL_SET_P, and make_decl_rtl won't be
+     able to do anything about them since no SSA information will have
+     remained to guide it.  */
+  if (is_gimple_reg (exprx) || is_gimple_reg (expry))
+    return exprx != expry;
 
   /* With invalid code we can end up storing into the constant pool.
      Bail out to avoid ICEing when creating RTL for this.

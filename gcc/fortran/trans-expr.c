@@ -25,13 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "gfortran.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -4747,7 +4744,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	     third and fourth arguments are the lengths of a deferred length
 	     char array).  */
 	  if ((fsym && fsym->attr.value)
-	      || (ulim_copy && (argc == 3 || argc == 4)))
+	      || (ulim_copy && (argc == 2 || argc == 3)))
 	    gfc_conv_expr (&parmse, e);
 	  else
 	    gfc_conv_expr_reference (&parmse, e);

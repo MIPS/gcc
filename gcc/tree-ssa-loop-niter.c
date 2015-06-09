@@ -21,22 +21,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "fold-const.h"
 #include "calls.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -3959,7 +3954,11 @@ loop_exits_before_overflow (tree base, tree step,
 	if (!CONVERT_EXPR_P (e) || !operand_equal_p (e, unsigned_base, 0))
 	  continue;
 	e = TREE_OPERAND (e, 0);
-	gcc_assert (operand_equal_p (e, base, 0));
+	/* If E has an unsigned type, the operand equality test below
+	   would fail, but the equality test above would have already
+	   verified the equality, so we can proceed with it.  */
+	gcc_assert (TYPE_UNSIGNED (TREE_TYPE (e))
+		    || operand_equal_p (e, base, 0));
 	if (tree_int_cst_sign_bit (step))
 	  {
 	    code = LT_EXPR;
