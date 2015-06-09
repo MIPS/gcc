@@ -1,5 +1,13 @@
 
 2015-06-09   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.cc (meltgc_readmacrostringsequence): Move warning
+	about quoted macro string with $%s symbol.
+
+	* melt/warmelt-moremacro.melt (mexpand_quote): More verbose
+	messages when quote gets more than one argument, perhaps should
+	handle it differently...
+
+2015-06-09   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate all.
 2015-06-09   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{New feature: magic symbols MELT_SOURCE_FILE & MELT_SOURCE_LINE

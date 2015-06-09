@@ -7346,8 +7346,6 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
 	if (ISLOWER(tinybuf[lnam]))
 	  tinybuf[lnam] = TOUPPER(tinybuf[lnam]);
       tinybuf[lnam] = (char)0;
-      if (quoted)
-	MELT_READ_WARNING ("quoted macro string with $%s symbol", tinybuf);
       if (MELT_UNLIKELY(tinybuf[0] == 'M' && tinybuf[1] == 'E')) {
       if (!strcmp(tinybuf, MELT_MAGICSYMB_FILE))
 	symbv = (*rd->rpfilnam)?(*rd->rpfilnam):MELT_PREDEF(UNKNOWN_LOCATION);
@@ -7355,8 +7353,11 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
 	symbv = meltgc_new_int((meltobject_ptr_t) MELT_PREDEF(DISCR_INTEGER),
 	                       rd->rlineno);
     };
-      if (MELT_LIKELY(!symbv))
+      if (MELT_LIKELY(!symbv)) {	
+	if (quoted)
+	  MELT_READ_WARNING ("quoted macro string with $%s symbol", tinybuf);
 	symbv = melthookproc_HOOK_NAMED_SYMBOL(tinybuf, (long) MELT_CREATE);
+      }
     }
       else
 	{
