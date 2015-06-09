@@ -8,7 +8,7 @@
        and Jeremie Salvucci  <jeremie.salvucci@free.fr>
        and Alexandre Lissy  <alissy@mandriva.com>
 
-     Indented with GNU indent.
+     Indented with astyle.
 
 This file is part of GCC.
 
@@ -104,15 +104,18 @@ std::vector<std::string> melt_done_modes_vector;
 ///// the asked modes
 std::vector<std::string> melt_asked_modes_vector;
 
+#define MELT_MAGICSYMB_FILE "MELT_SOURCE_FILE"
+#define MELT_MAGICSYMB_LINE "MELT_SOURCE_LINE"
+
 ////// builtin MELT parameter settings
 
 
 /* The GC minor zone size, in kilowords, should be comparable to or
    perhaps twice as biggger as the L3 or L4 cache size on desktop
    processors. So, some megabytes i.e. thousands of kilowords. */
-#define MELT_MIN_MINORSIZE_KW 384
+#define MELT_MIN_MINORSIZE_KW 512
 #define MELT_DEFAULT_MINORSIZE_KW 1024
-#define MELT_MAX_MINORSIZE_KW 16384
+#define MELT_MAX_MINORSIZE_KW 32678
 
 /* The full GC threshold size, in kilowords, is the allocation
    threshold for triggering the full GC.  When MELT cumulated
@@ -121,15 +124,15 @@ std::vector<std::string> melt_asked_modes_vector;
    most MELT are temporary so don't survive minor GCs, and this
    threshold can be quite high; in principle it is nearly useless so
    could be very high.  */
-#define MELT_MIN_FULLTHRESHOLD_KW 32768
-#define MELT_DEFAULT_FULLTHRESHOLD_KW 98304
+#define MELT_MIN_FULLTHRESHOLD_KW 49152
+#define MELT_DEFAULT_FULLTHRESHOLD_KW 131072
 #define MELT_MAX_FULLTHRESHOLD_KW 4194304
 
 /* Periodically the full GC [including Ggc] is forcibly run after a
    MELT minor GC. You don't want that to happen often, so the default
    period is quite high; in principle it could be very high. */
-#define MELT_MIN_PERIODFULL 384
-#define MELT_DEFAULT_PERIODFULL 1024
+#define MELT_MIN_PERIODFULL 512
+#define MELT_DEFAULT_PERIODFULL 2048
 #define MELT_MAX_PERIODFULL 262144
 
 ////// end of MELT parameter settings
@@ -7205,6 +7208,8 @@ end:
 
 
 
+
+
 /**
    macrostring so #{if ($A>0) printf("%s", $B);}# is parsed as would
    be parsed the s-expr ("if (" A ">0) printf(\"%s\", " B ");")
@@ -7225,6 +7230,9 @@ end:
    A $ followed by a left square bracket [ is read as a embedded
    sequence of S-epxressions, it should end with a balanced right
    square bracket ]
+
+   $MELT_SOURCE_FILE is expanded at *read time* to the source file name
+   $MELT_SOURCE_LINE is expanded at *read time* to the source line number
 
 **/
 static melt_ptr_t
@@ -7285,143 +7293,157 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
       melt_dbgread_value (curlocbuf, seqv);
 
 #define melt_macrostring_flush_sbufv() do {                             \
-      if (sbufv && melt_strbuf_usedlength((melt_ptr_t)sbufv)>0) {       \
-        strv = meltgc_new_stringdup                                     \
-          ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),                \
-           melt_strbuf_str((melt_ptr_t) sbufv));                        \
-	melt_dbgread_value ("readmacrostringsequence strv=", strv);	\
-        meltgc_append_list((melt_ptr_t) seqv,                           \
-                           (melt_ptr_t) strv);                          \
-        if (!escaped                                                    \
-            && strstr (melt_string_str ((melt_ptr_t) strv), "}#"))      \
-          warning_at(rd->rsrcloc, 0,                                    \
-                     "MELT macrostring starting at line %d"             \
-                     " containing }# might be suspicious",              \
-                     lineno);                                           \
-        if (!escaped                                                    \
-            && strstr (melt_string_str ((melt_ptr_t) strv), "#{"))      \
-          warning_at(rd->rsrcloc, 0,                                    \
-                     "MELT macrostring starting at line %d"             \
-                     " containing #{ might be suspicious",              \
-                     lineno);                                           \
-        strv = NULL;                                                    \
-        sbufv = NULL;                                                   \
-      }                                                                 \
-    } while(0)
+	if (sbufv && melt_strbuf_usedlength((melt_ptr_t)sbufv)>0) {	\
+	  strv = meltgc_new_stringdup					\
+	    ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),		\
+	     melt_strbuf_str((melt_ptr_t) sbufv));			\
+	  melt_dbgread_value ("readmacrostringsequence strv=", strv);	\
+	  meltgc_append_list((melt_ptr_t) seqv,				\
+			     (melt_ptr_t) strv);			\
+	  if (!escaped							\
+	      && strstr (melt_string_str ((melt_ptr_t) strv), "}#"))	\
+	    warning_at(rd->rsrcloc, 0,					\
+		       "MELT macrostring starting at line %d"		\
+		       " containing }# might be suspicious",		\
+		       lineno);						\
+	  if (!escaped							\
+	      && strstr (melt_string_str ((melt_ptr_t) strv), "#{"))	\
+	    warning_at(rd->rsrcloc, 0,					\
+		       "MELT macrostring starting at line %d"		\
+		       " containing #{ might be suspicious",		\
+		       lineno);						\
+	  strv = NULL;							\
+	  sbufv = NULL;							\
+	}								\
+      } while(0)
 
       if (rdcurc()=='}' && rdfollowc(1)=='#')
         {
-          melt_macrostring_flush_sbufv ();
-          rdnext ();
-          rdnext ();
+      melt_macrostring_flush_sbufv ();
+      rdnext ();
+      rdnext ();
 
-          break;
-        }
+      break;
+    }
       else if (rdcurc()=='$')
         {
-          /* $ followed by letters or underscore makes a symbol */
-          if (ISALPHA(rdfollowc(1)) || rdfollowc(1)=='_')
-            {
-              int lnam = 1;
-              char tinybuf[64];
-              melt_macrostring_flush_sbufv ();
-              while (ISALNUM(rdfollowc(lnam)) || rdfollowc(lnam) == '_')
-                lnam++;
-              if (lnam< (int)sizeof(tinybuf)-2)
-                {
-                  memset(tinybuf, 0, sizeof(tinybuf));
-                  memcpy(tinybuf, &rdfollowc(1), lnam-1);
-                  tinybuf[lnam] = (char)0;
-                  if (quoted)
-                    MELT_READ_WARNING ("quoted macro string with $%s symbol", tinybuf);
-                  symbv = melthookproc_HOOK_NAMED_SYMBOL(tinybuf, (long) MELT_CREATE);
-                }
-              else
-                {
-                  char *nambuf = (char*) xcalloc(lnam+2, 1);
-                  memcpy(nambuf, &rdfollowc(1), lnam-1);
-                  nambuf[lnam] = (char)0;
-                  symbv = melthookproc_HOOK_NAMED_SYMBOL(nambuf, (long) MELT_CREATE);
-                  if (quoted)
-                    MELT_READ_WARNING ("quoted macro string with $%s symbol", nambuf);
-                  free(nambuf);
-                }
-              rd->rcol += lnam;
-              /* skip the hash # if just after the symbol */
-              if (rdcurc() == '#')
-                rdnext();
-              /* append the symbol */
-              meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) symbv);;
-              melt_dbgread_value ("readmacrostringsequence symbv=", symbv);
-              symbv = NULL;
-            }
-          /* $. is silently skipped */
-          else if (rdfollowc(1) == '.')
-            {
-              escaped = 1;
-              rdnext();
-              rdnext();
-            }
-          /* $$ is handled as a single dollar $ */
-          else if (rdfollowc(1) == '$')
-            {
-              if (!sbufv)
-                sbufv = (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t) MELT_PREDEF(DISCR_STRBUF), (char*)0);
-              meltgc_add_strbuf_raw_len((melt_ptr_t)sbufv, "$", 1);
-              rdnext();
-              rdnext();
-            }
-          /* $# is handled as a single hash # */
-          else if (rdfollowc(1) == '#')
-            {
-              escaped = 1;
-              if (!sbufv)
-                sbufv = (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t) MELT_PREDEF(DISCR_STRBUF), (char*)0);
-              meltgc_add_strbuf_raw_len((melt_ptr_t)sbufv, "#", 1);
-              rdnext();
-              rdnext();
-            }
-          /* $(some s-expr) is acceptable to embed a single s-expression */
-          else if (rdfollowc(1) == '(')
-            {
-              melt_macrostring_flush_sbufv ();
-              rdnext ();
-              rdnext ();
-              compv = meltgc_readsexpr (rd, ')');
-              melt_dbgread_value ("readmacrostringsequence sexpr compv=", compv);
-              /* append the s-expr */
-              meltgc_append_list((melt_ptr_t) seqv, (melt_ptr_t) compv);
-              compv = NULL;
-            }
-          /* $[several sub-expr] is acceptable to embed a sequence of s-expressions */
-          else if (rdfollowc(1) == '[')
-            {
-              melt_macrostring_flush_sbufv ();
-              rdnext ();
-              rdnext ();
-              subseqv = meltgc_readseqlist(rd, ']');
-              if (melt_magic_discr ((melt_ptr_t)subseqv) == MELTOBMAG_LIST)
-                {
-                  compv = NULL;
-                  for (pairv = (melt_ptr_t) ((struct meltlist_st*)(subseqv))->first;
-                       pairv && melt_magic_discr((melt_ptr_t)pairv) == MELTOBMAG_PAIR;
-                       pairv = (melt_ptr_t) ((struct meltpair_st*)(pairv))->tl)
-                    {
-                      compv = (melt_ptr_t) ((struct meltpair_st*)(pairv))->hd;
-                      if (compv)
-                        {
-                          meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) compv);
-                          melt_dbgread_value ("readmacrostringsequence sexpr compv=", compv);
-                        }
-                    }
-                  pairv = NULL;
-                  compv = NULL;
-                }
-            }
-          /* any other dollar something is an error */
-          else MELT_READ_FAILURE("unexpected dollar escape in macrostring %.4s started line %d",
-                                   &rdcurc(), lineno);
-        }
+      /* $ followed by letters or underscore makes a symbol */
+      if (ISALPHA(rdfollowc(1)) || rdfollowc(1)=='_')
+	{
+      int lnam = 1;
+      char tinybuf[80];
+      memset(tinybuf, 0, sizeof(tinybuf));
+      melt_macrostring_flush_sbufv ();
+      symbv = NULL;
+      gcc_assert(sizeof(tinybuf)-1 >= sizeof(MELT_MAGICSYMB_FILE));
+      gcc_assert(sizeof(tinybuf)-1 >= sizeof(MELT_MAGICSYMB_LINE));
+      while (ISALNUM(rdfollowc(lnam)) || rdfollowc(lnam) == '_')
+	lnam++;
+      if (lnam< (int)sizeof(tinybuf)-2)
+	{
+      memcpy(tinybuf, &rdfollowc(1), lnam-1);
+      for (int ix=0; ix<lnam; ix++)
+	if (ISLOWER(tinybuf[lnam]))
+	  tinybuf[lnam] = TOUPPER(tinybuf[lnam]);
+      tinybuf[lnam] = (char)0;
+      if (quoted)
+	MELT_READ_WARNING ("quoted macro string with $%s symbol", tinybuf);
+      if (MELT_UNLIKELY(tinybuf[0] == 'M' && tinybuf[1] == 'E')) {
+      if (!strcmp(tinybuf, MELT_MAGICSYMB_FILE))
+	symbv = (*rd->rpfilnam)?(*rd->rpfilnam):MELT_PREDEF(UNKNOWN_LOCATION);
+      else if (!strcmp(tinybuf, MELT_MAGICSYMB_LINE))
+	symbv = meltgc_new_int((meltobject_ptr_t) MELT_PREDEF(DISCR_INTEGER),
+	                       rd->rlineno);
+    };
+      if (MELT_LIKELY(!symbv))
+	symbv = melthookproc_HOOK_NAMED_SYMBOL(tinybuf, (long) MELT_CREATE);
+    }
+      else
+	{
+      char *nambuf = (char*) xcalloc(lnam+2, 1);
+      memcpy(nambuf, &rdfollowc(1), lnam-1);
+      nambuf[lnam] = (char)0;
+      symbv = melthookproc_HOOK_NAMED_SYMBOL(nambuf, (long) MELT_CREATE);
+      if (quoted)
+	MELT_READ_WARNING ("quoted macro string with $%s symbol", nambuf);
+      free(nambuf);
+    }
+      rd->rcol += lnam;
+      /* skip the hash # if just after the symbol */
+      if (rdcurc() == '#')
+	rdnext();
+      /* append the symbol */
+      meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) symbv);;
+      melt_dbgread_value ("readmacrostringsequence symbv=", symbv);
+      symbv = NULL;
+    }
+      /* $. is silently skipped */
+      else if (rdfollowc(1) == '.')
+	{
+      escaped = 1;
+      rdnext();
+      rdnext();
+    }
+      /* $$ is handled as a single dollar $ */
+      else if (rdfollowc(1) == '$')
+	{
+      if (!sbufv)
+	sbufv = (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t) MELT_PREDEF(DISCR_STRBUF), (char*)0);
+      meltgc_add_strbuf_raw_len((melt_ptr_t)sbufv, "$", 1);
+      rdnext();
+      rdnext();
+    }
+      /* $# is handled as a single hash # */
+      else if (rdfollowc(1) == '#')
+	{
+      escaped = 1;
+      if (!sbufv)
+	sbufv = (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t) MELT_PREDEF(DISCR_STRBUF), (char*)0);
+      meltgc_add_strbuf_raw_len((melt_ptr_t)sbufv, "#", 1);
+      rdnext();
+      rdnext();
+    }
+      /* $(some s-expr) is acceptable to embed a single s-expression */
+      else if (rdfollowc(1) == '(')
+	{
+      melt_macrostring_flush_sbufv ();
+      rdnext ();
+      rdnext ();
+      compv = meltgc_readsexpr (rd, ')');
+      melt_dbgread_value ("readmacrostringsequence sexpr compv=", compv);
+      /* append the s-expr */
+      meltgc_append_list((melt_ptr_t) seqv, (melt_ptr_t) compv);
+      compv = NULL;
+    }
+      /* $[several sub-expr] is acceptable to embed a sequence of s-expressions */
+      else if (rdfollowc(1) == '[')
+	{
+      melt_macrostring_flush_sbufv ();
+      rdnext ();
+      rdnext ();
+      subseqv = meltgc_readseqlist(rd, ']');
+      if (melt_magic_discr ((melt_ptr_t)subseqv) == MELTOBMAG_LIST)
+	{
+      compv = NULL;
+      for (pairv = (melt_ptr_t) ((struct meltlist_st*)(subseqv))->first;
+      pairv && melt_magic_discr((melt_ptr_t)pairv) == MELTOBMAG_PAIR;
+      pairv = (melt_ptr_t) ((struct meltpair_st*)(pairv))->tl)
+	{
+      compv = (melt_ptr_t) ((struct meltpair_st*)(pairv))->hd;
+      if (compv)
+	{
+      meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) compv);
+      melt_dbgread_value ("readmacrostringsequence sexpr compv=", compv);
+    }
+    }
+      pairv = NULL;
+      compv = NULL;
+    }
+    }
+      /* any other dollar something is an error */
+      else MELT_READ_FAILURE("unexpected dollar escape in macrostring %.4s started line %d",
+	&rdcurc(), lineno);
+    }
       else if ( ISALNUM(rdcurc()) || ISSPACE(rdcurc()) )
         {
           /* handle efficiently the common case of alphanum and spaces */
@@ -7886,6 +7908,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
     }
   else if (c == ':')
     {
+      readv = NULL;
       if (!ISALPHA (rdfollowc(1)))
         MELT_READ_FAILURE ("MELT: colon should be followed by letter for keyword, but got %c",
                            rdfollowc(1));
@@ -7899,8 +7922,17 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
     }
   else if (ISALPHA (c) || strchr (EXTRANAMECHARS, c) != NULL)
     {
+      readv = NULL;
       nam = melt_readsimplename (rd);
-      readv = melthookproc_HOOK_NAMED_SYMBOL (nam, (long) MELT_CREATE);
+      if (MELT_UNLIKELY(((nam[0]=='M' || nam[0]=='m') && (nam[1]=='E' || nam[1]=='e')))) {
+	if (!strcasecmp(nam, MELT_MAGICSYMB_FILE))
+	  readv = (*rd->rpfilnam)?(*rd->rpfilnam):MELT_PREDEF(UNKNOWN_LOCATION);
+	else if (!strcasecmp(nam,  MELT_MAGICSYMB_LINE))
+	  readv = meltgc_new_int((meltobject_ptr_t) MELT_PREDEF(DISCR_INTEGER),
+				 rd->rlineno);	    
+      }
+      if (!readv)
+	readv = melthookproc_HOOK_NAMED_SYMBOL (nam, (long) MELT_CREATE);
       melt_dbgread_value ("readval symbol readv=", readv);
       *pgot = TRUE;
       goto end;

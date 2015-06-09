@@ -1,4 +1,20 @@
 
+2015-06-09   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{New feature: magic symbols MELT_SOURCE_FILE & MELT_SOURCE_LINE
+	are expanded at parse time to the file name and the line number.
+	Garbage collection threshold are increased.}}
+	* melt-predef.list (UNKNOWN_LOCATION): new predefined.
+	* melt-runtime.cc
+	(MELT_MIN_MINORSIZE_KW, MELT_MAX_MINORSIZE_KW)
+	(MELT_MIN_FULLTHRESHOLD_KW, MELT_DEFAULT_FULLTHRESHOLD_KW)
+	(MELT_MIN_PERIODFULL, MELT_DEFAULT_PERIODFULL): Increase GC
+	thresholds.
+	(meltgc_readmacrostringsequence, meltgc_readval): Magic processing
+	for MELT_SOURCE_FILE and MELT_SOURCE_LINE symbols, always parsed
+	magically!
+	* melt/warmelt-first.melt: Predefine :UNKNOWN_LOCATION keyword.
+	* melt-module.mk: Pass -DMELTBUILD_BASE=$(basename $<)...
+
 2015-05-27   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{ensure that MELT can be compiled with --enable-checks=release}}
 	* melt-runtime.h (MELT_LOCATION_HERE,MELT_LOCATION_HERE_PRINTF):

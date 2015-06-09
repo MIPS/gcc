@@ -185,6 +185,7 @@
   INITIAL_SYSTEM_DATA
   JSON_FALSE
   TRUE
+  UNKNOWN_LOCATION
 # the predefined below are for some testing, don't use them in "production"
   _ZXTRA1PREDEF
   _ZXTRA2PREDEF

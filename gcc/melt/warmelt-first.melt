@@ -4377,14 +4377,16 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
 		:doc #{$FOREACH_IN_LIST is obsolete for $FOREACH_PAIR_COMPONENT_IN_LIST}#)
 
 
-;; we predefine :true and as the TRUE and the :json_false symbol. Currently no handcoded C function
-;; uses it, but perhaps that could change!!
+;; we predefine :true and as the TRUE and the :json_false symbol and
+;; the :unknown_location symbol
 
 (let ( (true_keyword :true)
        (json_false_keyword :json_false)
+       (unknown_location_keyword :unknown_location)
        )
   (code_chunk storetruekeyword #{MELT_STORE_PREDEF(TRUE, (melt_ptr_t) $TRUE_KEYWORD)}#)
   (code_chunk storejsonfalse #{MELT_STORE_PREDEF(JSON_FALSE, (melt_ptr_t) $JSON_FALSE_KEYWORD)}#)
+  (code_chunk storeunknown_location #{MELT_STORE_PREDEF(UNKNOWN_LOCATION, (melt_ptr_t) $UNKNOWN_LOCATION_KEYWORD)}#)
   )
 
 

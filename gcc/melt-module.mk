@@ -1,7 +1,7 @@
 ## file melt-module.mk
 ## a -*- Makefile -*- for GNU make. 
 
-# Copyright (C) 2009 - 2014 Free Software Foundation, Inc.
+# Copyright (C) 2009 - 2015 Free Software Foundation, Inc.
 # Contributed by Basile Starynkevitch  <basile@starynkevitch.net>
 # This file is part of GCC.
 
@@ -193,7 +193,7 @@ $(GCCMELTGEN_BUILD)%.quicklybuilt.meltpic.o:
 	@$(GCCMELT_VERBOSE_ECHO) @+@melt-module quicklybuilt.meltpic at= $@ left= $< question= $? \
 	   caret= $^  realpathleft= $(realpath $<)
 	if [ -z "$(filter %.mdsumed.cc, $(realpath $<))" ]; then \
-	   $(GCCMELT_COMPILER) $(GCCMELT_QUICKLYBUILT_PREPROFLAGS) $(GCCMELT_PREPROFLAGS) \
+	   $(GCCMELT_COMPILER) -DMELTBUILD_BASE=$(basename $<) $(GCCMELT_QUICKLYBUILT_PREPROFLAGS) $(GCCMELT_PREPROFLAGS) \
               $(GCCMELT_COMMON_FLAGS) $(GCCMELT_QUICKLYBUILT_FLAGS) $(GCCMELT_CFLAGS) $(GCCMELT_PACKAGES_CFLAGS) \
 	        -fPIC -c -o $@ $< ; \
 	else \
@@ -221,7 +221,7 @@ $(GCCMELTGEN_BUILD)%.optimized.meltpic.o: | $(GCCMELT_MODULE_DEPENDENCIES)
 	@$(GCCMELT_VERBOSE_ECHO) @+@melt-module optimized.meltpic at= $@ left= $< \
 	   question= $? caret= $^ realpathleft= $(realpath $<)
 	if [ -z "$(filter %.mdsumed.cc, $(realpath $<))" ]; then \
-	   $(GCCMELT_COMPILER) $(GCCMELT_OPTIMIZED_PREPROFLAGS)  $(GCCMELT_PREPROFLAGS) \
+	   $(GCCMELT_COMPILER) -DMELTBUILD_BASE=$(basename $<)  $(GCCMELT_OPTIMIZED_PREPROFLAGS)  $(GCCMELT_PREPROFLAGS) \
               $(GCCMELT_COMMON_FLAGS) $(GCCMELT_OPTIMIZED_FLAGS) $(GCCMELT_CFLAGS)  $(GCCMELT_PACKAGES_CFLAGS) \
 	        -fPIC -c -o $@ $< ; \
 	else \
@@ -243,7 +243,7 @@ $(GCCMELTGEN_BUILD)%.debugnoline.meltpic.o: | $(GCCMELT_MODULE_DEPENDENCIES)
 	@$(GCCMELT_VERBOSE_ECHO) @+@melt-module debugnoline.meltpic at= $@ left= $< \
 	   question= $? caret= $^ realpathleft= $(realpath $<)
 	if [ -z "$(filter %.mdsumed.cc, $(realpath $<))" ]; then \
-	   $(GCCMELT_COMPILER) $(GCCMELT_DEBUGNOLINE_PREPROFLAGS)  $(GCCMELT_PREPROFLAGS) \
+	   $(GCCMELT_COMPILER)  -DMELTBUILD_BASE=$(basename $<) $(GCCMELT_DEBUGNOLINE_PREPROFLAGS)  $(GCCMELT_PREPROFLAGS) \
              $(GCCMELT_COMMON_FLAGS)  $(GCCMELT_DEBUGNOLINE_FLAGS) $(GCCMELT_CFLAGS)  $(GCCMELT_PACKAGES_CFLAGS) \
 	        -fPIC -c -o $@ $< ; \
 	else \
