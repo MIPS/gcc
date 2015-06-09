@@ -5227,6 +5227,7 @@ gfc_trans_allocate (gfc_code * code)
 	  gfc_add_modify_loc (input_location, &block, var, tmp);
 	  expr3 = var;
 	  if (se.string_length)
+	    /* Evaluate it assuming that it also is complicated like expr3.  */
 	    expr3_len = gfc_evaluate_now (se.string_length, &block);
 	}
       else

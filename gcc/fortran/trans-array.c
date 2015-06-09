@@ -5017,7 +5017,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
   tree var;
   stmtblock_t thenblock;
   stmtblock_t elseblock;
-  gfc_expr *ubound = NULL;
+  gfc_expr *ubound;
   gfc_se se;
   int n;
 
@@ -5031,6 +5031,11 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
   gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (type));
 
   or_expr = boolean_false_node;
+
+  /* When expr3_desc is set, use its rank, because we want to allocate an
+       array with the array_spec coming from source=.  */
+  if (expr3_desc != NULL_TREE)
+    gcc_assert (rank == GFC_TYPE_ARRAY_RANK (TREE_TYPE (expr3_desc)));
 
   for (n = 0; n < rank; n++)
     {
@@ -5047,12 +5052,12 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
       gfc_init_se (&se, NULL);
       if (expr3_desc != NULL_TREE)
 	{
-	  if (e3_is_array_constr)
-	    /* The lbound of a constant array [] starts at zero, but when
-	       allocating it, the standard expects the array to start at
-	       one.  */
-	    se.expr = gfc_index_one_node;
-	  else
+//	  if (e3_is_array_constr)
+//	    /* The lbound of a constant array [] starts at zero, but when
+//	       allocating it, the standard expects the array to start at
+//	       one.  */
+//	    se.expr = gfc_index_one_node;
+//	  else
 	    se.expr = gfc_conv_descriptor_lbound_get (expr3_desc,
 						      gfc_rank_cst[n]);
 	}
@@ -5088,21 +5093,23 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 	{
 	  if (e3_is_array_constr)
 	    {
-	      /* The lbound of a constant array [] starts at zero, but when
-	       allocating it, the standard expects the array to start at
-	       one.  Therefore fix the upper bound to be
-	       (desc.ubound - desc.lbound)+ 1.  */
-	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
-				     gfc_array_index_type,
-				     gfc_conv_descriptor_ubound_get (
-				       expr3_desc, gfc_rank_cst[n]),
-				     gfc_conv_descriptor_lbound_get (
-				       expr3_desc, gfc_rank_cst[n]));
-	      se.expr = fold_build2_loc (input_location, PLUS_EXPR,
-					 gfc_array_index_type, tmp,
-					 gfc_index_one_node);
+//	      /* The lbound of a constant array [] starts at zero, but when
+//	       allocating it, the standard expects the array to start at
+//	       one.  Therefore fix the upper bound to be
+//	       (desc.ubound - desc.lbound)+ 1.  */
+//	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
+//				     gfc_array_index_type,
+//				     gfc_conv_descriptor_ubound_get (
+//				       expr3_desc, gfc_rank_cst[n]),
+//				     gfc_conv_descriptor_lbound_get (
+//				       expr3_desc, gfc_rank_cst[n]));
+//	      tmp = fold_build2_loc (input_location, PLUS_EXPR,
+//				     gfc_array_index_type, tmp,
+//				     gfc_index_one_node);
+//	      se.expr = gfc_evaluate_now (tmp, pblock)
+	      ;
 	    }
-	  else
+//	  else
 	    se.expr = gfc_conv_descriptor_ubound_get (expr3_desc,
 						      gfc_rank_cst[n]);
 	}
