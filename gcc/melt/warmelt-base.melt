@@ -128,6 +128,122 @@ melt_dbgcounter++;
 #endif
 }#)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; dynamically make a MELT s-expression, notably useful for macros and
+;; quotes this function is used for quotes and backquotes macro, so
+;; should appear early, so before warmelt-macro.melt; we cannot use
+;; error_at here so we use code chunks instead. And we cannot use
+;; debug here...
+(defun melt_make_sexpr (loc :rest)
+  :doc #{Dynamically build an s-expression of $CLASS_SEXPR with
+  location $LOC and other arguments. Also used by $BACKQUOTE and
+  $QUOTE macros.}#
+  (let ( (cont (make_list discr_list))
+	 (vloc (cond ( (is_mixint loc)
+		       loc
+		       )
+		     ( (is_mixloc loc)
+		       loc)
+		     ( (is_a loc class_located)
+		       (unsafe_get_field :loca_location loc))
+		     (:else ())))
+	 (sexpr (instance class_sexpr
+			  :loca_location vloc
+			  :sexp_contents cont))
+	 )
+    (forever 
+     argloop
+     (variadic 
+      ( ()
+	(exit argloop))
+      ( (:cstring str)
+	(let ( (bs (constant_box str))
+	       )
+	  (list_append cont bs)))
+      ( (:long num)
+	(let ( (bs (constant_box num))
+	       )
+	  (list_append cont bs)))
+      ( (:value v)
+	(cond ( (null v)
+		(list_append cont v))
+	      ( (is_object v)
+		(list_append cont v))
+	      ( (is_integerbox v)
+		(list_append cont v))
+	      ( (is_string v)
+		(list_append cont v))
+	      ( (is_multiple v)
+		(foreach_in_multiple
+		 (v)
+		 (comp :long ix)
+		 (list_append cont comp)))
+	      ( (is_list v)
+		(foreach_pair_component_in_list
+		 (v)
+		 (curpair curcomp)
+		 (list_append cont curcomp)))
+	      ;; try to reify locations
+	      ( (is_mixloc v)
+		(let ( (:long locline (mixloc_locline v))
+		       (:cstring locfile (mixloc_locfile v))
+		       )
+		  (if (and (>i locline 0)
+			   (cstring_non_empty locfile))
+		      (list_append cont (instance class_sexpr
+						  :loca_location loc
+						  :sexp_contents (list 'hook_melt_make_location 
+								       (constant_box locfile) 
+								       (constant_box locline))))
+		    (list_append cont ())))
+		)
+	      ( (and (is_mixint v)
+		     (is_string (mixint_val v))
+		     )
+		(let ( (:long locline (get_int v))
+		       )
+		  (list_append cont (instance class_sexpr
+					      :loca_location loc
+					      :sexp_contents (list 'hook_melt_make_location 
+								   (mixint_val v) 
+								   (constant_box locline))))
+		  (list_append cont ()))
+		)
+	      ( (is_closure v)
+		(v cont))
+	      (:else
+	       (let ( (discrname (get_field :named_name (discrim v)))
+		      (:long vix (variadic_index))
+		      )
+		 ;; we cannot use error_at in this warmelt-base.melt file
+		 (error_strv vloc "in MELT_MAKE_SEXPR unexpected value of discriminant" discrname)
+		 (code_chunk errbadval_chk 
+			     #{ /* melt_make_sexpr $ERRBADVAL_CHK */
+			     inform (UNKNOWN_LOCATION, 
+				     "unexpected value index in MELT_MAKE_SEXPR is %d", (int) $VIX) ;
+			     }#)
+		 (return ())
+		 ))))
+      (:else
+       (let ( (ctyname (get_field :named_name (variadic_ctype 0)))
+	      (:long vix (variadic_index))
+	      )
+	 (error_strv vloc "in MELT_MAKE_SEXPR unexpected thing of ctype" ctyname)
+	 (code_chunk errbadthing_chk 
+		     #{ /* melt_make_sexpr $ERRBADTHING_CHK */
+		     inform (UNKNOWN_LOCATION, 
+			     "unexpected thing index in MELT_MAKE_SEXPR is %d", (int) $VIX) ;
+		     }#)
+	 (return ())
+	 )))
+     )
+    (return sexpr)
+    ))
+
+;; it is also called make_sexpr for simplicity
+(export_values melt_make_sexpr)
+(export_synonym make_sexpr melt_make_sexpr)
+
 ;; for breakpoint
 (defprimitive cbreak_msg (:cstring msg) :void
   :doc #{Low level primitive for GDB breakpoints. Use it temporarily,
@@ -1958,7 +2074,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   :valdesc_struct '"meltobject_st"
   :valdesc_unionmem '"u_object"
   :valdesc_membchunk #{$' /* from VALDESC_OBJECT in warmelt-base.melt */
-// in file %_MELT_FILE_ line %_MELT_LINE_
+// in file $_MELT_FILE_ line $_MELT_LINE_
   unsigned obj_hash;		/* hash code of the object */
   unsigned short obj_num;
   unsigned short obj_len;
@@ -3560,122 +3676,6 @@ typedef struct melthook_st *melthook_ptr_t;
 
 
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; dynamically make a MELT s-expression, notably useful for macros and
-;; quotes this function is used for quotes and backquotes macro, so
-;; should appear early, so before warmelt-macro.melt; we cannot use
-;; error_at here so we use code chunks instead. And we cannot use
-;; debug here...
-(defun melt_make_sexpr (loc :rest)
-  :doc #{Dynamically build an s-expression of $CLASS_SEXPR with
-  location $LOC and other arguments. Also used by $BACKQUOTE and
-  $QUOTE macros.}#
-  (let ( (cont (make_list discr_list))
-	 (vloc (cond ( (is_mixint loc)
-		       loc
-		       )
-		     ( (is_mixloc loc)
-		       loc)
-		     ( (is_a loc class_located)
-		       (unsafe_get_field :loca_location loc))
-		     (:else ())))
-	 (sexpr (instance class_sexpr
-			  :loca_location vloc
-			  :sexp_contents cont))
-	 )
-    (forever 
-     argloop
-     (variadic 
-      ( ()
-	(exit argloop))
-      ( (:cstring str)
-	(let ( (bs (constant_box str))
-	       )
-	  (list_append cont bs)))
-      ( (:long num)
-	(let ( (bs (constant_box num))
-	       )
-	  (list_append cont bs)))
-      ( (:value v)
-	(cond ( (null v)
-		(list_append cont v))
-	      ( (is_object v)
-		(list_append cont v))
-	      ( (is_integerbox v)
-		(list_append cont v))
-	      ( (is_string v)
-		(list_append cont v))
-	      ( (is_multiple v)
-		(foreach_in_multiple
-		 (v)
-		 (comp :long ix)
-		 (list_append cont comp)))
-	      ( (is_list v)
-		(foreach_pair_component_in_list
-		 (v)
-		 (curpair curcomp)
-		 (list_append cont curcomp)))
-	      ;; try to reify locations
-	      ( (is_mixloc v)
-		(let ( (:long locline (mixloc_locline v))
-		       (:cstring locfile (mixloc_locfile v))
-		       )
-		  (if (and (>i locline 0)
-			   (cstring_non_empty locfile))
-		      (list_append cont (instance class_sexpr
-						  :loca_location loc
-						  :sexp_contents (list 'hook_melt_make_location 
-								       (constant_box locfile) 
-								       (constant_box locline))))
-		    (list_append cont ())))
-		)
-	      ( (and (is_mixint v)
-		     (is_string (mixint_val v))
-		     )
-		(let ( (:long locline (get_int v))
-		       )
-		  (list_append cont (instance class_sexpr
-					      :loca_location loc
-					      :sexp_contents (list 'hook_melt_make_location 
-								   (mixint_val v) 
-								   (constant_box locline))))
-		  (list_append cont ()))
-		)
-	      ( (is_closure v)
-		(v cont))
-	      (:else
-	       (let ( (discrname (get_field :named_name (discrim v)))
-		      (:long vix (variadic_index))
-		      )
-		 ;; we cannot use error_at in this warmelt-base.melt file
-		 (error_strv vloc "in MELT_MAKE_SEXPR unexpected value of discriminant" discrname)
-		 (code_chunk errbadval_chk 
-			     #{ /* melt_make_sexpr $ERRBADVAL_CHK */
-			     inform (UNKNOWN_LOCATION, 
-				     "unexpected value index in MELT_MAKE_SEXPR is %d", (int) $VIX) ;
-			     }#)
-		 (return ())
-		 ))))
-      (:else
-       (let ( (ctyname (get_field :named_name (variadic_ctype 0)))
-	      (:long vix (variadic_index))
-	      )
-	 (error_strv vloc "in MELT_MAKE_SEXPR unexpected thing of ctype" ctyname)
-	 (code_chunk errbadthing_chk 
-		     #{ /* melt_make_sexpr $ERRBADTHING_CHK */
-		     inform (UNKNOWN_LOCATION, 
-			     "unexpected thing index in MELT_MAKE_SEXPR is %d", (int) $VIX) ;
-		     }#)
-	 (return ())
-	 )))
-     )
-    (return sexpr)
-    ))
-
-;; it is also called make_sexpr for simplicity
-(export_values melt_make_sexpr)
-(export_synonym make_sexpr melt_make_sexpr)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defhook hook_sort_compare_less
