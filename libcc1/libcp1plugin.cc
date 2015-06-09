@@ -665,7 +665,7 @@ plugin_build_add_enum_constant (cc1_plugin::connection *,
   gcc_assert (TREE_CODE (enum_type) == ENUMERAL_TYPE);
 
   build_enumerator (get_identifier (name), build_int_cst (enum_type, value),
-		    enum_type, BUILTINS_LOCATION);
+		    enum_type, NULL_TREE, BUILTINS_LOCATION);
 
   return 1;
 }
