@@ -22,12 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -64,10 +61,8 @@ along with GCC; see the file COPYING3.  If not see
 
 /* FIXME: A lot of code here deals with expanding to RTL.  All that code
    should be in cfgexpand.c.  */
-#include "hashtab.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -300,7 +295,6 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
   rtx dest_rtx, seq, x;
   machine_mode dest_mode, src_mode;
   int unsignedp;
-  tree var;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -322,12 +316,12 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
 
   start_sequence ();
 
-  var = SSA_NAME_VAR (partition_to_var (SA.map, dest));
+  tree name = partition_to_var (SA.map, dest);
   src_mode = TYPE_MODE (TREE_TYPE (src));
   dest_mode = GET_MODE (dest_rtx);
-  gcc_assert (src_mode == TYPE_MODE (TREE_TYPE (var)));
+  gcc_assert (src_mode == TYPE_MODE (TREE_TYPE (name)));
   gcc_assert (!REG_P (dest_rtx)
-	      || dest_mode == promote_decl_mode (var, &unsignedp));
+	      || dest_mode == promote_ssa_mode (name, &unsignedp));
 
   if (src_mode != dest_mode)
     {
@@ -703,13 +697,12 @@ elim_backward (elim_graph g, int T)
 static rtx
 get_temp_reg (tree name)
 {
-  tree var = TREE_CODE (name) == SSA_NAME ? SSA_NAME_VAR (name) : name;
-  tree type = TREE_TYPE (var);
+  tree type = TREE_TYPE (name);
   int unsignedp;
-  machine_mode reg_mode = promote_decl_mode (var, &unsignedp);
+  machine_mode reg_mode = promote_ssa_mode (name, &unsignedp);
   rtx x = gen_reg_rtx (reg_mode);
   if (POINTER_TYPE_P (type))
-    mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (var))));
+    mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (type)));
   return x;
 }
 
@@ -1009,7 +1002,7 @@ remove_ssa_form (bool perform_ter, struct ssaexpand *sa)
 
   /* Return to viewing the variable list as just all reference variables after
      coalescing has been performed.  */
-  partition_view_normal (map, false);
+  partition_view_normal (map);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
