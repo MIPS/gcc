@@ -1,5 +1,8 @@
 
 2015-06-09   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate all.
+
+2015-06-09   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.cc (meltgc_readmacrostringsequence): Move warning
 	about quoted macro string with $%s symbol.
 
