@@ -28,15 +28,11 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -6809,7 +6805,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	       self-referential since we want to allocate the fixed size.  */
 	    if (TREE_CODE (gnu_ret_val) == COMPONENT_REF
 		&& type_is_padding_self_referential
-		   (TREE_OPERAND (gnu_ret_val, 0)))
+		   (TREE_TYPE (TREE_OPERAND (gnu_ret_val, 0))))
 	      gnu_ret_val = TREE_OPERAND (gnu_ret_val, 0);
 
 	    /* If the function returns by direct reference, return a pointer

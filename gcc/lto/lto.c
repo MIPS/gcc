@@ -24,17 +24,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "toplev.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
 #include "inchash.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -319,7 +314,7 @@ hash_canonical_type (tree type)
      smaller sets; when searching for existing matching types to merge,
      only existing types having the same features as the new type will be
      checked.  */
-  hstate.add_int (TREE_CODE (type));
+  hstate.add_int (tree_code_for_canonical_type_merging (TREE_CODE (type)));
   hstate.add_int (TYPE_MODE (type));
 
   /* Incorporate common features of numerical types.  */
@@ -342,12 +337,12 @@ hash_canonical_type (tree type)
   if (TREE_CODE (type) == COMPLEX_TYPE)
     hstate.add_int (TYPE_UNSIGNED (type));
 
-  /* For pointer and reference types, fold in information about the type
-     pointed to but do not recurse to the pointed-to type.  */
+  /* Fortran standard define C_PTR type that is compatible with every
+     C pointer.  For this reason we need to glob all pointers into one.
+     Still pointers in different address spaces are not compatible.  */
   if (POINTER_TYPE_P (type))
     {
       hstate.add_int (TYPE_ADDR_SPACE (TREE_TYPE (type)));
-      hstate.add_int (TREE_CODE (TREE_TYPE (type)));
     }
 
   /* For integer types hash only the string flag.  */
@@ -413,6 +408,9 @@ static void
 iterative_hash_canonical_type (tree type, inchash::hash &hstate)
 {
   hashval_t v;
+
+  /* All type variants have same TYPE_CANONICAL.  */
+  type = TYPE_MAIN_VARIANT (type);
   /* An already processed type.  */
   if (TYPE_CANONICAL (type))
     {
@@ -498,7 +496,15 @@ gimple_register_canonical_type (tree t)
   if (TYPE_CANONICAL (t) || !type_with_alias_set_p (t))
     return;
 
-  gimple_register_canonical_type_1 (t, hash_canonical_type (t));
+  /* Canonical types are same among all complete variants.  */
+  if (TYPE_CANONICAL (TYPE_MAIN_VARIANT (t)))
+    TYPE_CANONICAL (t) = TYPE_CANONICAL (TYPE_MAIN_VARIANT (t));
+  else
+    {
+      gimple_register_canonical_type_1 (TYPE_MAIN_VARIANT (t),
+					hash_canonical_type (TYPE_MAIN_VARIANT (t)));
+      TYPE_CANONICAL (t) = TYPE_CANONICAL (TYPE_MAIN_VARIANT (t));
+    }
 }
 
 /* Re-compute TYPE_CANONICAL for NODE and related types.  */

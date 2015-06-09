@@ -25,17 +25,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "hashtab.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "input.h"
 #include "statistics.h"
 #include "vec.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
 #include "flags.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -932,6 +927,8 @@ extern tree upc_num_threads (void);
 
 /* This is the basic parsing function.  */
 extern void c_parse_file (void);
+
+extern void c_parse_final_cleanups (void);
 
 extern void warn_for_omitted_condop (location_t, tree);
 

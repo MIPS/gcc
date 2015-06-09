@@ -37,13 +37,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl-error.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -57,8 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "rtl.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -3125,8 +3120,8 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	    }
 	  else
 	    t = op1;
-	  rtx pat = gen_extend_insn (op0, t, promoted_nominal_mode,
-				     data->passed_mode, unsignedp);
+	  rtx_insn *pat = gen_extend_insn (op0, t, promoted_nominal_mode,
+					   data->passed_mode, unsignedp);
 	  emit_insn (pat);
 	  insns = get_insns ();
 
@@ -5309,8 +5304,6 @@ set_insn_locations (rtx_insn *insn, int loc)
 void
 expand_function_end (void)
 {
-  rtx clobber_after;
-
   /* If arg_pointer_save_area was referenced only from a nested
      function, we will not have initialized it yet.  Do that now.  */
   if (arg_pointer_save_area && ! crtl->arg_pointer_save_area_init)
@@ -5359,7 +5352,7 @@ expand_function_end (void)
 
      We delay actual code generation after the current_function_value_rtx
      is computed.  */
-  clobber_after = get_last_insn ();
+  rtx_insn *clobber_after = get_last_insn ();
 
   /* Output the label for the actual return from the function.  */
   emit_label (return_label);
@@ -5509,11 +5502,9 @@ expand_function_end (void)
      certainly doesn't fall thru into the exit block.  */
   if (!BARRIER_P (clobber_after))
     {
-      rtx seq;
-
       start_sequence ();
       clobber_return_register ();
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
 
       emit_insn_after (seq, clobber_after);
@@ -5540,11 +5531,11 @@ expand_function_end (void)
   if (! EXIT_IGNORE_STACK
       && cfun->calls_alloca)
     {
-      rtx tem = 0, seq;
+      rtx tem = 0;
 
       start_sequence ();
       emit_stack_save (SAVE_FUNCTION, &tem);
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
       emit_insn_before (seq, parm_birth_insn);
 
@@ -5571,15 +5562,13 @@ get_arg_pointer_save_area (void)
 
   if (! crtl->arg_pointer_save_area_init)
     {
-      rtx seq;
-
       /* Save the arg pointer at the beginning of the function.  The
 	 generated stack slot may not be a valid memory address, so we
 	 have to check it and fix it if necessary.  */
       start_sequence ();
       emit_move_insn (validize_mem (copy_rtx (ret)),
                       crtl->args.internal_arg_pointer);
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
 
       push_topmost_sequence ();
@@ -5672,13 +5661,11 @@ prologue_epilogue_contains (const_rtx insn)
 static void
 emit_use_return_register_into_block (basic_block bb)
 {
-  rtx seq;
- rtx_insn *insn;
   start_sequence ();
   use_return_register ();
-  seq = get_insns ();
+  rtx_insn *seq = get_insns ();
   end_sequence ();
-  insn = BB_END (bb);
+  rtx_insn *insn = BB_END (bb);
   if (HAVE_cc0 && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
     insn = prev_cc0_setter (insn);
 
@@ -5705,9 +5692,9 @@ gen_return_pattern (bool simple_p)
 void
 emit_return_into_block (bool simple_p, basic_block bb)
 {
-  rtx jump, pat;
-  jump = emit_jump_insn_after (gen_return_pattern (simple_p), BB_END (bb));
-  pat = PATTERN (jump);
+  rtx_jump_insn *jump = emit_jump_insn_after (gen_return_pattern (simple_p),
+					      BB_END (bb));
+  rtx pat = PATTERN (jump);
   if (GET_CODE (pat) == PARALLEL)
     pat = XVECEXP (pat, 0, 0);
   gcc_assert (ANY_RETURN_P (pat));
@@ -5752,7 +5739,6 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 {
   int i;
   basic_block bb;
-  rtx label;
   edge_iterator ei;
   edge e;
   auto_vec<basic_block> src_bbs (EDGE_COUNT (last_bb->preds));
@@ -5761,7 +5747,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
     if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
       src_bbs.quick_push (e->src);
 
-  label = BB_HEAD (last_bb);
+  rtx_insn *label = BB_HEAD (last_bb);
 
   FOR_EACH_VEC_ELT (src_bbs, i, bb)
     {
