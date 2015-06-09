@@ -79,13 +79,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "gfortran.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "gimple-expr.h"
@@ -5017,7 +5014,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
   tree var;
   stmtblock_t thenblock;
   stmtblock_t elseblock;
-  gfc_expr *ubound = NULL;
+  gfc_expr *ubound;
   gfc_se se;
   int n;
 
@@ -5031,6 +5028,11 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
   gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (type));
 
   or_expr = boolean_false_node;
+
+  /* When expr3_desc is set, use its rank, because we want to allocate an
+       array with the array_spec coming from source=.  */
+  if (expr3_desc != NULL_TREE)
+    gcc_assert (rank == GFC_TYPE_ARRAY_RANK (TREE_TYPE (expr3_desc)));
 
   for (n = 0; n < rank; n++)
     {
@@ -5098,9 +5100,10 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 				       expr3_desc, gfc_rank_cst[n]),
 				     gfc_conv_descriptor_lbound_get (
 				       expr3_desc, gfc_rank_cst[n]));
-	      se.expr = fold_build2_loc (input_location, PLUS_EXPR,
-					 gfc_array_index_type, tmp,
-					 gfc_index_one_node);
+	      tmp = fold_build2_loc (input_location, PLUS_EXPR,
+				     gfc_array_index_type, tmp,
+				     gfc_index_one_node);
+	      se.expr = gfc_evaluate_now (tmp, pblock);
 	    }
 	  else
 	    se.expr = gfc_conv_descriptor_ubound_get (expr3_desc,

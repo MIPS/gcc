@@ -24,12 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "tm_p.h"
@@ -37,8 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -51,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "libfuncs.h"
-#include "ggc.h"
 #include "recog.h"
 #include "langhooks.h"
 #include "target.h"
@@ -850,6 +844,28 @@ promote_decl_mode (const_tree decl, int *punsignedp)
     *punsignedp = unsignedp;
   return pmode;
 }
+
+/* Return the promoted mode for name.  If it is a named SSA_NAME, it
+   is the same as promote_decl_mode.  Otherwise, it is the promoted
+   mode of a temp decl of same type as the SSA_NAME, if we had created
+   one.  */
+
+machine_mode
+promote_ssa_mode (const_tree name, int *punsignedp)
+{
+  gcc_assert (TREE_CODE (name) == SSA_NAME);
+
+  tree type = TREE_TYPE (name);
+  int unsignedp = TYPE_UNSIGNED (type);
+  machine_mode mode = TYPE_MODE (type);
+
+  machine_mode pmode = promote_mode (type, mode, &unsignedp);
+  if (punsignedp)
+    *punsignedp = unsignedp;
+
+  return pmode;
+}
+
 
 
 /* Controls the behaviour of {anti_,}adjust_stack.  */

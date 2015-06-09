@@ -21,12 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -40,8 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfg.h"
 #include "cfganal.h"
 #include "basic-block.h"
-#include "hash-table.h"
-#include "hash-map.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
@@ -55,6 +50,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "domwalk.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
+#include "bitmap.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-live.h"
+#include "tree-ssa-coalesce.h"
 
 /* The basic structure describing an equivalency created by traversing
    an edge.  Traversing the edge effectively means that we can assume
