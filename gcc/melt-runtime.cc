@@ -104,8 +104,8 @@ std::vector<std::string> melt_done_modes_vector;
 ///// the asked modes
 std::vector<std::string> melt_asked_modes_vector;
 
-#define MELT_MAGICSYMB_FILE "MELT_SOURCE_FILE"
-#define MELT_MAGICSYMB_LINE "MELT_SOURCE_LINE"
+#define MELT_MAGICSYMB_FILE "_MELT_FILE_"
+#define MELT_MAGICSYMB_LINE "_MELT_LINE_"
 
 ////// builtin MELT parameter settings
 
@@ -7346,7 +7346,10 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
 	if (ISLOWER(tinybuf[lnam]))
 	  tinybuf[lnam] = TOUPPER(tinybuf[lnam]);
       tinybuf[lnam] = (char)0;
-      if (MELT_UNLIKELY(tinybuf[0] == 'M' && tinybuf[1] == 'E')) {
+      // handle the magic symbols _MELT_FILE_ & _MELT_LINE_ to expand
+      // them at read time to the file name and the line number
+      // respectively
+      if (MELT_UNLIKELY(tinybuf[0] == '_' && tinybuf[1] == 'M')) {
       if (!strcmp(tinybuf, MELT_MAGICSYMB_FILE))
 	symbv = (*rd->rpfilnam)?(*rd->rpfilnam):MELT_PREDEF(UNKNOWN_LOCATION);
       else if (!strcmp(tinybuf, MELT_MAGICSYMB_LINE))
@@ -7925,7 +7928,10 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
     {
       readv = NULL;
       nam = melt_readsimplename (rd);
-      if (MELT_UNLIKELY(((nam[0]=='M' || nam[0]=='m') && (nam[1]=='E' || nam[1]=='e')))) {
+      // handle the magic symbols _MELT_FILE_ and _MELT_LINE_ to
+      // expand them to the file name and the line number respectively
+      // at read time!
+      if (MELT_UNLIKELY(((nam[0]=='_') && (nam[1]=='M' || nam[1]=='M')))) {
 	if (!strcasecmp(nam, MELT_MAGICSYMB_FILE))
 	  readv = (*rd->rpfilnam)?(*rd->rpfilnam):MELT_PREDEF(UNKNOWN_LOCATION);
 	else if (!strcasecmp(nam,  MELT_MAGICSYMB_LINE))
