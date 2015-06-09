@@ -1,5 +1,7 @@
 
 2015-06-09   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate all.
+2015-06-09   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{New feature: magic symbols MELT_SOURCE_FILE & MELT_SOURCE_LINE
 	are expanded at parse time to the file name and the line number.
 	Garbage collection threshold are increased.}}
