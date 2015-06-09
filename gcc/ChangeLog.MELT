@@ -1,5 +1,8 @@
 
 2015-06-09   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate all.
+
+2015-06-09   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{ The magic symbols are _MELT_FILE_ & _MELT_LINE_, mimicking the
 	__FILE__ and __LINE__ C magical macros. }}
 	* melt-runtime.cc (MELT_MAGICSYMB_FILE) is now "_MELT_FILE_"

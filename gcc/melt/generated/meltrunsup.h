@@ -766,6 +766,7 @@ struct GTY((variable_size)) meltobject_st /* when MELTOBMAG_OBJECT */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_OBJECT in warmelt-base.melt */
+// in file %_MELT_FILE_ line %_MELT_LINE_
     unsigned obj_hash;		/* hash code of the object */
     unsigned short obj_num;
     unsigned short obj_len;

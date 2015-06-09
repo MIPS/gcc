@@ -10781,8 +10781,7 @@ NANT)\n    goto end;\n  if (!melt_is_instance_of((melt_ptr_t)newdiscrv\
 \
 \n\t  if (src->entab)\n            for (ix=0; ix<oldlen; \
 \n\t\t ix++) {\n\t       melt_ptr_t curva = src->entab[ix].e_va;\
-\n\t \
-      ";
+\n\t       ";
                                     /*^apply.arg*/
                                     argtab[13].meltbp_aptr = (melt_ptr_t*) &/*_.TYCNAME__V27*/ meltfptr[26];
                                     /*^apply.arg*/
@@ -11090,8 +11089,7 @@ NANT)\n    goto end;\n  if (!melt_is_instance_of((melt_ptr_t)newdiscrv\
                                     /*^apply.arg*/
                                     argtab[14].meltbp_cstring =  "), 0);\n\t\t     *dst = *src;\n\t\t     dst->discr = (meltobject_ptr_t\
 )newdiscrv;\n\t\t     resv = (melt_ptr_t) dst;\
-\n\t\t   }\n\t\t \
-  break; ";
+\n\t\t   }\n\t\t   break; ";
                                     /*_.ADD2OUT__V50*/ meltfptr[32] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[2])), (melt_ptr_t)(/*_.OUTBUF__V5*/ meltfptr[4]), (MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un*)0);
                                 }
                                 ;
@@ -11161,7 +11159,8 @@ NANT)\n    goto end;\n  if (!melt_is_instance_of((melt_ptr_t)newdiscrv\
                                                 argtab[13].meltbp_aptr = (melt_ptr_t*) &/*_.CLONEVALCHK__V45*/ meltfptr[27];
                                                 /*^apply.arg*/
                                                 argtab[14].meltbp_cstring =  ";\n\t\t     if (dst) \n\t\t        resv = (melt_ptr_t) dst;\
-\n\t\t   };\n\t\t   break;";
+\n\t\t   };\n\t\t \
+  break;";
                                                 /*_.ADD2OUT__V52*/ meltfptr[34] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[2])), (melt_ptr_t)(/*_.OUTBUF__V5*/ meltfptr[4]), (MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un*)0);
                                             }
                                             ;
@@ -23508,8 +23507,7 @@ meltlab_endgetargs:
                                         /*^apply.arg*/
                                         argtab[8].meltbp_cstring =  "*)map_p)->meltmap_aux = val_p;\n\t\t   meltgc_touch_dest (map_p, val_p\
 );\n                 }\n\t\t return NULL;\
-\n\t       }\n\t \
-      ";
+\n\t       }\n\t       ";
                                         /*_.ADD2OUT__V77*/ meltfptr[74] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[8])), (melt_ptr_t)(/*_.OUTBUF__V4*/ meltfptr[3]), (MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un*)0);
                                     }
                                     ;
@@ -27117,7 +27115,8 @@ meltlab_endgetargs:
                                                 argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.HKNAME__V8*/ meltfptr[7];
                                                 /*^apply.arg*/
                                                 argtab[4].meltbp_cstring =  "\",\n\t\t\t\t !strncmp (melthkp->hookname,\
-\n\t\t\t\t\t   \"";
+\n\t\t\t\
+\t\t   \"";
                                                 /*^apply.arg*/
                                                 argtab[5].meltbp_aptr = (melt_ptr_t*) &/*_.HKNAME__V8*/ meltfptr[7];
                                                 /*^apply.arg*/
