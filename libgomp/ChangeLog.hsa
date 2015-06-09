@@ -1,3 +1,19 @@
+2015-06-09  Martin Jambor  <mjambor@suse.cz>
+
+	* Makefile.in: Regenerated.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+	* libgomp-plugin.h (offload_target_type): Added
+	OFFLOAD_TARGET_TYPE_HSA.
+	* plugin/Makefrag.am: Conditionally build HSA plugin.
+	* plugin/configfrag.ac: New options for providing path to HSA
+	run-time.  Test that it is available if building the plugin.
+	* plugin/plugin-hsa.c: New file.
+	* target.c (GOMP_target): Do not re-map arguments when the device is
+	capable of sharing memory.
+	(GOMP_target_data): Likewise.
+	* testsuite/Makefile.in (): Regenerated.
+
 2015-06-08  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa.c (hsa_one_image): New type.

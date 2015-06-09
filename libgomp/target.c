@@ -992,9 +992,12 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
       fn_addr = (void *) tgt_fn->tgt_offset;
     }
 
-  struct target_mem_desc *tgt_vars
-    = gomp_map_vars (devicep, mapnum, hostaddrs, NULL, sizes, kinds, false,
-		     true);
+  struct target_mem_desc *tgt_vars;
+  if (devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
+    tgt_vars = NULL;
+  else
+    tgt_vars = gomp_map_vars (devicep, mapnum, hostaddrs, NULL, sizes, kinds,
+			      false, true);
   struct gomp_thread old_thr, *thr = gomp_thread ();
   old_thr = *thr;
   memset (thr, '\0', sizeof (*thr));
@@ -1003,10 +1006,12 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
       thr->place = old_thr.place;
       thr->ts.place_partition_len = gomp_places_list_len;
     }
-  devicep->run_func (devicep->target_id, fn_addr, (void *) tgt_vars->tgt_start);
+  devicep->run_func (devicep->target_id, fn_addr,
+		     tgt_vars ? (void *) tgt_vars->tgt_start : hostaddrs);
   gomp_free_thread (thr);
   *thr = old_thr;
-  gomp_unmap_vars (tgt_vars, true);
+  if (tgt_vars)
+    gomp_unmap_vars (tgt_vars, true);
 }
 
 void
@@ -1016,9 +1021,10 @@ GOMP_target_data (int device, const void *unused, size_t mapnum,
   struct gomp_device_descr *devicep = resolve_device (device);
 
   if (devicep == NULL
+      || (devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
       || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
     {
-      /* Host fallback.  */
+      /* Host fallback or accelerators with memory coherent access.  */
       struct gomp_task_icv *icv = gomp_icv (false);
       if (icv->target_data)
 	{

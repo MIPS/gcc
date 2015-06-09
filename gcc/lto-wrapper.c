@@ -727,6 +727,11 @@ compile_images_for_offload_targets (unsigned in_argc, char *in_argv[],
   offload_names = XCNEWVEC (char *, num_targets + 1);
   for (unsigned i = 0; i < num_targets; i++)
     {
+      /* HSA does not use LTO-like streaming and a different compiler, skip
+	 it. */
+      if (strncmp(names[i], "hsa", 3) == 0)
+	continue;
+
       offload_names[i]
 	= compile_offload_image (names[i], compiler_path, in_argc, in_argv,
 				 compiler_opts, compiler_opt_count,

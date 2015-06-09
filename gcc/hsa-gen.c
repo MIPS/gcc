@@ -2306,26 +2306,24 @@ sanitize_hsa_name (char *p)
 }
 
 /* Genrate HSAIL reprezentation of the current function and write into a
-   special section of the output file.  */
+   special section of the output file.  If KERNEL is set, the function will be
+   considered an HSA kernel callable from the host, otherwise it will be
+   compiled as an HSA function callable from other HSA code.  */
 
 static unsigned int
-generate_hsa (void)
+generate_hsa (bool kernel)
 {
   vec <hsa_op_reg_p> ssa_map = vNULL;
 
   hsa_init_data_for_cfun ();
-
-  bool kern_p = lookup_attribute ("hsa",
-				  DECL_ATTRIBUTES (current_function_decl))
-    || lookup_attribute ("hsakernel", DECL_ATTRIBUTES (current_function_decl));
-  hsa_cfun.kern_p = kern_p;
+  hsa_cfun.kern_p = kernel;
 
   ssa_map.safe_grow_cleared (SSANAMES (cfun)->length ());
   hsa_cfun.name
     = xstrdup (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
   sanitize_hsa_name (hsa_cfun.name);
 
-  if (kern_p)
+  if (hsa_cfun.kern_p)
     hsa_add_kern_decl_mapping (current_function_decl, hsa_cfun.name);
 
   gen_function_parameters (ssa_map);
@@ -2572,18 +2570,24 @@ public:
 bool
 pass_gen_hsail::gate (function *)
 {
-  return true;
+#ifdef ENABLE_HSA
+  return !flag_disable_hsa;
+#else
+  return false;
+#endif
 }
 
 unsigned int
 pass_gen_hsail::execute (function *)
 {
-  if (lookup_attribute ("hsa", DECL_ATTRIBUTES (current_function_decl))
-      || lookup_attribute ("hsafunc",
-			   DECL_ATTRIBUTES (current_function_decl))
+  if (cgraph_node::get_create (current_function_decl)->offloadable
+      || lookup_attribute ("hsa", DECL_ATTRIBUTES (current_function_decl))
       || lookup_attribute ("hsakernel",
 			   DECL_ATTRIBUTES (current_function_decl)))
-    return generate_hsa ();
+    return generate_hsa (true);
+  else if (lookup_attribute ("hsafunc",
+			     DECL_ATTRIBUTES (current_function_decl)))
+    return generate_hsa (false);
   else
     return wrap_all_hsa_calls ();
 }

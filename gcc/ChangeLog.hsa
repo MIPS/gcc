@@ -1,3 +1,26 @@
+2015-06-09  Martin Jambor  <mjambor@suse.cz>
+
+	* builtin-types.def (BT_FN_VOID_PTR_INT_PTR): New.
+	* common.opt (flag_disable_hsa): Likewise.
+	* config.in: Regenrate.
+	* configure : Likewise.
+	* configure.ac (accel_dir_suffix): Set ENABLE_HSA when hsa is
+	listed as accelerator, do not set ENABLE_OFFLOADING if it is the
+	only one.
+	* hsa-brig.c (hsa_dtor_statements): New variable.
+	(hsa_output_kernel_mapping): Generate libgomp registration and
+	unregistration calls.
+	* hsa-gen.c (generate_hsa): New parameter kernel, use it rather
+	than parameters.
+	(pass_gen_hsail::gate): Make conditional on ENABLE_HSA.
+	(pass_gen_hsail::execute): Detect kernels.
+	* lto-wrapper.c (compile_images_for_offload_targets): Do not
+	attempt to invoke an external hsa accelerator compiler.
+	* omp-builtins.def (BUILT_IN_GOMP_OFFLOAD_REGISTER): New.
+	(BUILT_IN_GOMP_OFFLOAD_UNREGISTER): Likewise.
+	* opts.c (common_handle_option): Disable HSA if requested on the
+	command line.
+
 2015-06-08  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-brig.c (brig_init): Fix module name generation for the

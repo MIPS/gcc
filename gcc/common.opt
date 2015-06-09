@@ -223,6 +223,10 @@ unsigned int flag_sanitize_recover = SANITIZE_UNDEFINED | SANITIZE_NONDEFAULT | 
 Variable
 bool dump_base_name_prefixed = false
 
+; Flag whether HSA generation has been explicitely disabled
+Variable
+bool flag_disable_hsa = false
+
 ###
 Driver
 
