@@ -5495,7 +5495,7 @@ gfc_trans_allocate (gfc_code * code)
 			       label_finish, tmp, &nelems,
 			       e3rhs ? e3rhs : code->expr3,
 			       e3_is == E3_DESC ? expr3 : NULL_TREE,
-			       code->expr3 != NULL
+			       code->expr3 != NULL && e3_is == E3_DESC
 			       && code->expr3->expr_type == EXPR_ARRAY))
 	{
 	  /* A scalar or derived type.  First compute the size to
