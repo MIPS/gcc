@@ -1,4 +1,18 @@
 
+2015-06-10   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (melt_gcc_optimize): New inline function giving
+	optimize.  #undef the optimize from gcc/options.h in build tree.
+	(MELT_LOW_OPTIMIZATION): New attribute, to compile with -Og some
+	generated routines.
+	(MELT_FLEXIBLE_DIM) set to 1 to avoid using flexible array
+	members.
+
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine) Emit
+	the meltmod*initialmeltchunk* and melt_start_this_module functions
+	with MELT_LOW_OPTIMIZATION.
+
+	* melt/xtramelt-playground: temporarily define playgr_foo.
+
 2015-06-09   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-base.melt (melt_make_sexpr): Moved near front.
 

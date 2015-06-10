@@ -2,7 +2,7 @@
 ;; file xtramelt-playground.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2013 - 2014 Free Software Foundation, Inc.
+    Copyright 2013 - 2015  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -29,5 +29,9 @@
 ;; This MELT module is GPL compatible since it is GPLv3+ licensed.
 (module_is_gpl_compatible "GPLv3+")
 
+(definstance playgr_foo class_reference
+  :referenced_value #{$' /* here $_MELT_FILE_ and $_MELT_LINE_ */}#)
+
+(export_values playgr_foo)
 	
 ;; eof xtramelt-playground.melt

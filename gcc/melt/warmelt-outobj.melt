@@ -2121,7 +2121,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl declbuf 0)
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl declbuf 0)
-    (add2out declbuf "MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/")
+    (add2out declbuf "MELT_EXTERN MELT_LOW_OPTIMIZATION void* melt_start_this_module (void*); /*mandatory start of module*/")
     (add2sbuf_indentnl declbuf 0)
     (add2sbuf_indentnl declbuf 0)
     (cond ( (is_string omodgpl)
@@ -2242,7 +2242,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     ;; 
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
-    (add2sbuf_strconst implbuf "void* melt_start_this_module (void* modargp_) {")
+    (add2sbuf_strconst implbuf "void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_) {")
     (add2sbuf_indentnl implbuf 0)
     ;; generate the initial data structure
     (add2sbuf_indentnl implbuf 1)
@@ -2346,7 +2346,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (chunktup)
 	 (curchunk :long chunkix)
 	 (add2sbuf_indentnl declbuf 0)
-	 (add2sbuf_strconst declbuf "void MELT_MODULE_VISIBILITY meltmod__")
+	 (add2sbuf_strconst declbuf "void MELT_MODULE_VISIBILITY MELT_LOW_OPTIMIZATION meltmod__")
 	 (add2sbuf_cident declbuf omodnam)
 	 (add2sbuf_strconst declbuf "__initialmeltchunk_")
 	 (add2sbuf_longdec declbuf chunkix)

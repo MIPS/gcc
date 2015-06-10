@@ -41,13 +41,23 @@ along with GCC; see the file COPYING3.   If not see
 
 #include "diagnostic-core.h"
 
+// optimize is defined in gcc/options.h of the build tree, we might need to access it, but we could use it as an attribute, so...
+static inline int melt_gcc_optimize (void) { return optimize; }
+#undef optimize /* it is defined in gcc/options.h in build tree */
+
 #if __GNUC__ >= 4
 #define MELT_MODULE_VISIBILITY  __attribute__ ((visibility ("hidden")))
 #define MELT_PUBLIC_VISIBILITY  __attribute__ ((visibility ("default")))
-#else /* not GCC 4*/
+#ifdef __OPTIMIZE__
+#define MELT_LOW_OPTIMIZATION __attribute__ ((optimize("-Og")))
+#else
+#define MELT_LOW_OPTIMIZATION
+#endif /*__OPTIMIZE__*/
+#else /* not GCC 4 at least*/
 #define MELT_MODULE_VISIBILITY
 #define MELT_PUBLIC_VISIBILITY
-#endif /*GCC 4*/
+#define MELT_LOW_OPTIMIZATION
+#endif /*GCC 4 at least*/
 
 #define MELT_EXTERN extern "C"
 
@@ -389,7 +399,8 @@ melt_need_debug_limit (int depth, int lim)
 }
 
 /* unspecified flexible dimension in structure, we use 1 not 0 for standard compliance... */
-#if (__clang__ || __GNUC__ || MELT_FORCE_FLEXIBLE_DIM) && !MELT_FORCE_INFLEXIBLE_DIM
+#if ((__clang__ || __GNUC__) && MELT_FORCE_FLEXIBLE_DIM)
+#pragma message "MELT runtime uses flexible array members"
 #define MELT_FLEXIBLE_DIM /*Clang/GCC flexible*/
 #define MELT_HAVE_FLEXIBLE_DIM 1
 #else
