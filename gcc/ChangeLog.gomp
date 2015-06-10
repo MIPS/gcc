@@ -1,3 +1,9 @@
+2015-06-10  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (enclosing_target_ctx): Un-ifdef. Remove null checking
+	assert.
+	(scan_omp_for): Check for incompatible combination of acc loop clauses.
+
 2015-06-09  Tom de Vries  <tom@codesourcery.com>
 
 	backport from trunk:

@@ -2910,18 +2910,14 @@ finish_taskreg_scan (omp_context *ctx)
     }
 }
 
-
-#if 0
 static omp_context *
 enclosing_target_ctx (omp_context *ctx)
 {
   while (ctx != NULL
 	 && gimple_code (ctx->stmt) != GIMPLE_OMP_TARGET)
     ctx = ctx->outer;
-  gcc_assert (ctx != NULL);
   return ctx;
 }
-#endif
 
 static bool
 oacc_loop_or_target_p (gimple stmt)
@@ -2945,6 +2941,9 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
   omp_context *ctx;
   size_t i;
   tree clauses = gimple_omp_for_clauses (stmt);
+  bool gwv_clause = false;
+  bool auto_clause = false;
+  bool seq_clause = false;
 
   if (outer_ctx)
     outer_type = gimple_code (outer_ctx->stmt);
@@ -2959,11 +2958,30 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
 	{
 	  int val;
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_GANG)
-	    val = MASK_GANG;
+	    {
+	      val = MASK_GANG;
+	      gwv_clause = true;
+	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_WORKER)
-	    val = MASK_WORKER;
+	    {
+	      val = MASK_WORKER;
+	      gwv_clause = true;
+	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_VECTOR)
-	    val = MASK_VECTOR;
+	    {
+	      val = MASK_VECTOR;
+	      gwv_clause = true;
+	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SEQ)
+	    {
+	      seq_clause = true;
+	      continue;
+	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_AUTO)
+	    {
+	      auto_clause = true;
+	      continue;
+	    }
 	  else
 	    continue;
 	  ctx->gwv_this |= val;
@@ -2979,8 +2997,23 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
 	    }
 	  if (outer_type == GIMPLE_OMP_FOR)
 	    outer_ctx->gwv_below |= val;
+	  if (OMP_CLAUSE_OPERAND (c, 0) != NULL_TREE)
+	    {
+	      omp_context *enclosing = enclosing_target_ctx (outer_ctx);
+	      /* Enclosing may be null if we are inside an acc routine. If
+		 that's the case, treat this loop as a parallel.  */
+	      if (enclosing == NULL || gimple_omp_target_kind (enclosing->stmt)
+		  == GF_OMP_TARGET_KIND_OACC_PARALLEL)
+		error_at (gimple_location (stmt),
+			  "no arguments allowed to gang, worker and vector clauses inside parallel");
+	    }
 	}
     }
+
+  if ((gwv_clause && auto_clause) || (auto_clause && seq_clause))
+    error_at (gimple_location (stmt), "incompatible use of clause auto");
+  else if (gwv_clause && seq_clause)
+    error_at (gimple_location (stmt), "incompatible use of clause seq");
 
   scan_sharing_clauses (clauses, ctx);
 

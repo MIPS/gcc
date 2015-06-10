@@ -1,3 +1,9 @@
+2015-06-10  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/loop-2.c (main): New test.
+	* c-c++-common/goacc/nesting-fail-1.c (f_acc_parallel): Update error
+	messages.
+
 2015-06-08  James Norris  <jnorris@codesourcery.com>
 
 	* c-c++-common/goacc/declare-1.c: Update tests.

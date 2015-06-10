@@ -28344,17 +28344,6 @@ cp_parser_oacc_shape_clause (cp_parser *parser, pragma_omp_clause c_kind,
   if (op1)
     OMP_CLAUSE_OPERAND (c, 1) = op1;
   OMP_CLAUSE_CHAIN (c) = list;
-
-  if (parser->oacc_parallel_region && (op0 != NULL || op1 != NULL))
-    {
-      if (c_kind != PRAGMA_OACC_CLAUSE_GANG)
-	cp_parser_error (parser, c_kind == PRAGMA_OACC_CLAUSE_WORKER ?
-			 "worker clause arguments are not supported in OpenACC parallel regions"
-			 : "vector clause arguments are not supported in OpenACC parallel regions");
-      else if (op0 != NULL)
-	cp_parser_error (parser, "non-static argument to clause gang");
-    }
-
   return c;
 }
 
@@ -32434,10 +32423,7 @@ static tree
 cp_parser_oacc_loop (cp_parser *parser, cp_token *pragma_tok, char *p_name,
 		     omp_clause_mask mask, tree *cclauses)
 {
-  tree stmt, clauses, block, c;
-  bool gwv = false;
-  bool auto_clause = false;
-  bool seq_clause = false;
+  tree stmt, clauses, block;
   int save;
 
   strcat (p_name, " loop");
@@ -32449,33 +32435,6 @@ cp_parser_oacc_loop (cp_parser *parser, cp_token *pragma_tok, char *p_name,
 
   if (cclauses)
     clauses = oacc_split_loop_clauses (clauses, cclauses);
-
-  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-    {
-      switch (OMP_CLAUSE_CODE (c))
-	{
-	case OMP_CLAUSE_GANG:
-	case OMP_CLAUSE_WORKER:
-	case OMP_CLAUSE_VECTOR:
-	  gwv = true;
-	  break;
-	case OMP_CLAUSE_AUTO:
-	  auto_clause = true;
-	  break;
-	case OMP_CLAUSE_SEQ:
-	  seq_clause = true;
-	  break;
-	default:
-	  ;
-	}
-    }
-
-  if (gwv && auto_clause)
-    cp_parser_error (parser, "incompatible use of clause %<auto%>");
-  else if (gwv && seq_clause)
-    cp_parser_error (parser, "incompatible use of clause %<seq%>");
-  else if (auto_clause && seq_clause)
-    cp_parser_error (parser, "incompatible use of clause %<seq%> and %<auto%>");
 
   block = begin_omp_structured_block ();
   save = cp_parser_begin_omp_structured_block (parser);
@@ -32554,21 +32513,13 @@ cp_parser_oacc_parallel_kernels (cp_parser *parser, cp_token *pragma_tok,
   cp_lexer *lexer = parser->lexer;
   omp_clause_mask mask, dtype_mask;
 
-  if (parser->oacc_parallel_region || parser->oacc_kernels_region)
-    {
-      cp_parser_error (parser, is_parallel ? "nested parallel region"
-		       : "nested kernels region");
-    }
-
   if (is_parallel)
     {
-      parser->oacc_parallel_region = true;
       mask = OACC_PARALLEL_CLAUSE_MASK;
       strcat (p_name, " parallel");
     }
   else
     {
-      parser->oacc_kernels_region = true;
       mask = OACC_KERNELS_CLAUSE_MASK;
       strcat (p_name, " kernels");
     }
@@ -32587,10 +32538,6 @@ cp_parser_oacc_parallel_kernels (cp_parser *parser, cp_token *pragma_tok,
 			       &combined_clauses);
 	  stmt = is_parallel ? finish_oacc_parallel (combined_clauses, block)
 	    : finish_oacc_kernels (combined_clauses, block);
-	  if (is_parallel)
-	    parser->oacc_parallel_region = false;
-	  else
-	    parser->oacc_kernels_region = false;
 	  return stmt;
 	}
     }
@@ -32607,10 +32554,6 @@ cp_parser_oacc_parallel_kernels (cp_parser *parser, cp_token *pragma_tok,
   cp_parser_end_omp_structured_block (parser, save);
   stmt = is_parallel ? finish_oacc_parallel (clauses, block)
     : finish_oacc_kernels (clauses, block);
-  if (is_parallel)
-    parser->oacc_parallel_region = false;
-  else
-    parser->oacc_kernels_region = false;
   return stmt;
 }
 

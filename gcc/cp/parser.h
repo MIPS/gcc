@@ -377,11 +377,6 @@ typedef struct GTY(()) cp_parser {
   cp_omp_declare_simd_data * GTY((skip)) oacc_routine;
   vec <tree, va_gc> *named_oacc_routines;
 
-    /* True if we are inside a OpenACC parallel region.  */
-  bool oacc_parallel_region;
-  /* True if we are inside a OpenACC kernels region.  */
-  bool oacc_kernels_region;
-
   /* Nonzero if parsing a parameter list where 'auto' should trigger an implicit
      template parameter.  */
   bool auto_is_implicit_function_template_parm_p;

@@ -7,7 +7,7 @@ f_acc_parallel (void)
 {
 #pragma acc parallel
   {
-#pragma acc parallel /* { dg-error "nested parallel region" } */
+#pragma acc parallel /* { dg-error "parallel construct inside of parallel region" } */
     ;
 #pragma acc kernels /* { dg-error " kernels construct inside of parallel" } */
     ;
@@ -26,9 +26,9 @@ f_acc_kernels (void)
 {
 #pragma acc kernels
   {
-#pragma acc parallel /* { dg-error "nested parallel region" } */
+#pragma acc parallel /* { dg-error "parallel construct inside of kernels region" } */
     ;
-#pragma acc kernels /* { dg-error "nested kernels region" } */
+#pragma acc kernels /* { dg-error "kernels construct inside of kernels region" } */
     ;
 #pragma acc data /* { dg-error "data construct inside of kernels region" } */
     ;
@@ -37,8 +37,3 @@ f_acc_kernels (void)
 #pragma acc exit data delete(i) /* { dg-error "enter/exit data construct inside of kernels region" } */
   }
 }
-
-// { dg-error "parallel construct inside of parallel" "" { target *-*-* } 10 }
-
-// { dg-error "parallel construct inside of kernels" "" { target *-*-* } 29 }
-// { dg-error "kernels construct inside of kernels" "" { target *-*-* } 31 }

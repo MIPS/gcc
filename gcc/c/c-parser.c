@@ -235,10 +235,6 @@ typedef struct GTY(()) c_parser {
   /* True if we are in a context where the Objective-C "Property attribute"
      keywords are valid.  */
   BOOL_BITFIELD objc_property_attr_context : 1;
-  /* True if we are inside a OpenACC parallel region.  */
-  BOOL_BITFIELD oacc_parallel_region : 1;
-  /* True if we are inside a OpenACC kernels region.  */
-  BOOL_BITFIELD oacc_kernels_region : 1;
 
   /* Cilk Plus specific parser/lexer information.  */
 
@@ -11171,17 +11167,6 @@ c_parser_oacc_shape_clause (c_parser *parser, pragma_omp_clause c_kind,
   if (op1)
     OMP_CLAUSE_OPERAND (c, 1) = op1;
   OMP_CLAUSE_CHAIN (c) = list;
-
-  if (parser->oacc_parallel_region && (op0 != NULL || op1 != NULL))
-    {
-      if (c_kind != PRAGMA_OACC_CLAUSE_GANG)
-	c_parser_error (parser, c_kind == PRAGMA_OACC_CLAUSE_WORKER ?
-			"worker clause arguments are not supported in OpenACC parallel regions"
-			: "vector clause arguments are not supported in OpenACC parallel regions");
-      else if (op0 != NULL)
-	c_parser_error (parser, "non-static argument to clause gang");
-    }
-
   return c;
 }
 
@@ -13134,10 +13119,7 @@ static tree
 c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name,
 		    omp_clause_mask mask, tree *cclauses)
 {
-  tree stmt, clauses, block, c;
-  bool gwv = false;
-  bool auto_clause = false;
-  bool seq_clause = false;
+  tree stmt, clauses, block;
 
   strcat (p_name, " loop");
   mask |= OACC_LOOP_CLAUSE_MASK;
@@ -13147,33 +13129,6 @@ c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name,
 				       cclauses == NULL);
   if (cclauses)
     clauses = oacc_split_loop_clauses (clauses, cclauses);
-
-  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-    {
-      switch (OMP_CLAUSE_CODE (c))
-	{
-	case OMP_CLAUSE_GANG:
-	case OMP_CLAUSE_WORKER:
-	case OMP_CLAUSE_VECTOR:
-	  gwv = true;
-	  break;
-	case OMP_CLAUSE_AUTO:
-	  auto_clause = true;
-	  break;
-	case OMP_CLAUSE_SEQ:
-	  seq_clause = true;
-	  break;
-	default:
-	  ;
-	}
-    }
-
-  if (gwv && auto_clause)
-    c_parser_error (parser, "incompatible use of clause %<auto%>");
-  else if (gwv && seq_clause)
-    c_parser_error (parser, "incompatible use of clause %<seq%>");
-  else if (auto_clause && seq_clause)
-    c_parser_error (parser, "incompatible use of clause %<seq%> and %<auto%>");
 
   block = c_begin_compound_stmt (true);
   stmt = c_parser_omp_for_loop (loc, parser, OACC_LOOP, clauses, NULL);
@@ -13217,13 +13172,6 @@ c_parser_oacc_kernels (location_t loc, c_parser *parser, char *p_name)
 
   strcat (p_name, " kernels");
 
-  if (parser->oacc_parallel_region || parser->oacc_kernels_region)
-    {
-      c_parser_error (parser, "nested kernels region");
-    }
-
-  parser->oacc_kernels_region = true;
-
   mask = OACC_KERNELS_CLAUSE_MASK;
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
@@ -13237,7 +13185,6 @@ c_parser_oacc_kernels (location_t loc, c_parser *parser, char *p_name)
 	  block = c_begin_omp_parallel ();
 	  c_parser_oacc_loop (loc, parser, p_name, mask, &kernel_clauses);
 	  stmt = c_finish_oacc_kernels (loc, kernel_clauses, block);
-	  parser->oacc_kernels_region = false;
 	  return stmt;
 	}
     }
@@ -13248,7 +13195,6 @@ c_parser_oacc_kernels (location_t loc, c_parser *parser, char *p_name)
   block = c_begin_omp_parallel ();
   add_stmt (c_parser_omp_structured_block (parser));
   stmt = c_finish_oacc_kernels (loc, clauses, block);
-  parser->oacc_kernels_region = false;
   return stmt;
 }
 
@@ -13295,13 +13241,6 @@ c_parser_oacc_parallel (location_t loc, c_parser *parser, char *p_name)
 
   strcat (p_name, " parallel");
 
-  if (parser->oacc_parallel_region || parser->oacc_kernels_region)
-    {
-      c_parser_error (parser, "nested parallel region");
-    }
-
-  parser->oacc_parallel_region = true;
-
   mask = OACC_PARALLEL_CLAUSE_MASK;
   dmask = OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK;
   if (c_parser_next_token_is (parser, CPP_NAME))
@@ -13316,7 +13255,6 @@ c_parser_oacc_parallel (location_t loc, c_parser *parser, char *p_name)
 	  block = c_begin_omp_parallel ();
 	  c_parser_oacc_loop (loc, parser, p_name, mask, &parallel_clauses);
 	  stmt = c_finish_oacc_parallel (loc, parallel_clauses, block);
-	  parser->oacc_parallel_region = false;
 	  return stmt;
 	}
     }
@@ -13326,7 +13264,6 @@ c_parser_oacc_parallel (location_t loc, c_parser *parser, char *p_name)
   block = c_begin_omp_parallel ();
   add_stmt (c_parser_omp_structured_block (parser));
   stmt = c_finish_oacc_parallel (loc, clauses, block);
-  parser->oacc_parallel_region = false;
   return stmt;
 }
 
