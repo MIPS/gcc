@@ -22,12 +22,9 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -41,8 +38,6 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -67,7 +62,6 @@
 #include "predict.h"
 #include "basic-block.h"
 #include "df.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
@@ -976,7 +970,8 @@ msp430_asm_integer (rtx x, unsigned int size, int aligned_p)
   switch (size)
     {
     case 4:
-      if (c == SYMBOL_REF || c == CONST || c == LABEL_REF || c == CONST_INT)
+      if (c == SYMBOL_REF || c == CONST || c == LABEL_REF || c == CONST_INT
+	  || c == PLUS || c == MINUS)
 	{
 	  fprintf (asm_out_file, "\t.long\t");
 	  output_addr_const (asm_out_file, x);

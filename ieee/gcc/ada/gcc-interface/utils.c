@@ -27,7 +27,6 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
 #include "vec.h"
 #include "input.h"
 #include "alias.h"
@@ -53,7 +52,6 @@
 #include "is-a.h"
 #include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -5182,12 +5180,10 @@ smaller_form_type_p (tree type, tree orig_type)
   return tree_int_cst_lt (size, osize) != 0;
 }
 
-/* Perform final processing on global variables.  */
-
-static GTY (()) tree dummy_global;
-
 /* Keep track of types used at the global level and emit debug info
    for all global types.  */
+
+static GTY (()) tree dummy_global;
 
 void
 note_types_used_by_globals (void)
@@ -5219,10 +5215,10 @@ note_types_used_by_globals (void)
 	}
     }
 
-  /* Output debug information for all global type declarations first.  This
-     ensures that global types whose compilation haven't been finalized yet,
-     for example pointers to Taft amendment types, have their compilation
-     finalized in the right context.  */
+  /* Output debug information for all global type declarations.  This ensures
+     that global types whose compilation cannot been finalized earlier, e.g.
+     pointers to Taft amendment types, have their compilation finalized in
+     the right context.  */
   FOR_EACH_VEC_SAFE_ELT (type_decls, i, iter)
     if (!DECL_IGNORED_P (iter))
       debug_hooks->type_decl (iter, false);
