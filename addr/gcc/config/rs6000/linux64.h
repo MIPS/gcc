@@ -207,7 +207,36 @@ extern int dot_symbols;
   { "asm_spec32",		ASM_SPEC32 },				\
   { "asm_spec64",		ASM_SPEC64 },				\
   { "link_os_linux_spec32",	LINK_OS_LINUX_SPEC32 },			\
-  { "link_os_linux_spec64",	LINK_OS_LINUX_SPEC64 },
+  { "link_os_linux_spec64",	LINK_OS_LINUX_SPEC64 },			\
+  { "link_os_extra_spec32",	LINK_OS_EXTRA_SPEC32 },			\
+  { "link_os_extra_spec64",	LINK_OS_EXTRA_SPEC64 },			\
+  { "link_os_new_dtags",	LINK_OS_NEW_DTAGS_SPEC },		\
+  { "include_extra",		INCLUDE_EXTRA_SPEC },			\
+  { "dynamic_linker_prefix",	DYNAMIC_LINKER_PREFIX },
+
+/* Optional specs used for overriding the system include directory, default
+   -rpath links, and prefix for the dynamic linker.  Normally, there are not
+   defined, but if the user configure with the --with-advance-toolchain=<xxx>
+   option, the advance-toolchain.h file will override these.  */
+#ifndef INCLUDE_EXTRA_SPEC
+#define INCLUDE_EXTRA_SPEC	""
+#endif
+
+#ifndef LINK_OS_EXTRA_SPEC32
+#define LINK_OS_EXTRA_SPEC32	""
+#endif
+
+#ifndef LINK_OS_EXTRA_SPEC64
+#define LINK_OS_EXTRA_SPEC64	""
+#endif
+
+#ifndef LINK_OS_NEW_DTAGS_SPEC
+#define LINK_OS_NEW_DTAGS_SPEC	""
+#endif
+
+#ifndef DYNAMIC_LINKER_PREFIX
+#define DYNAMIC_LINKER_PREFIX	""
+#endif
 
 #undef	MULTILIB_DEFAULTS
 #if DEFAULT_ARCH64_P
@@ -341,7 +370,7 @@ extern int dot_symbols;
   while (0)
 
 #undef  CPP_OS_DEFAULT_SPEC
-#define CPP_OS_DEFAULT_SPEC "%(cpp_os_linux)"
+#define CPP_OS_DEFAULT_SPEC "%(cpp_os_linux) %(include_extra)"
 
 #undef  LINK_SHLIB_SPEC
 #define LINK_SHLIB_SPEC "%{shared:-shared} %{!shared: %{static:-static}}"
@@ -362,19 +391,27 @@ extern int dot_symbols;
 #define LINK_OS_DEFAULT_SPEC "%(link_os_linux)"
 
 #ifdef CONFIGURE_STARTFILE_PREFIX
-#define GLIBC_DYNAMIC_LINKER32 "%:find-dynamic-linker(/lib/ld.so.1)"
+#define GLIBC_DYNAMIC_LINKER32 "%:find-dynamic-linker(%(dynamic_linker_prefix)/lib/ld.so.1)"
 #ifdef LINUX64_DEFAULT_ABI_ELFv2
-#define GLIBC_DYNAMIC_LINKER64 "%:find-dynamic-linker(%{mabi=elfv1:/lib64/ld64.so.1;:/lib64/ld64.so.2})"
+#define GLIBC_DYNAMIC_LINKER64 \
+"%:find-dynamic-linker(%{mabi=elfv1:%(dynamic_linker_prefix)/lib64/ld64.so.1;" \
+":%(dynamic_linker_prefix)/lib64/ld64.so.2})"
 #else
-#define GLIBC_DYNAMIC_LINKER64 "%:find-dynamic-linker(%{mabi=elfv2:/lib64/ld64.so.2;:/lib64/ld64.so.1})"
+#define GLIBC_DYNAMIC_LINKER64 \
+"%:find-dynamic-linker(%{mabi=elfv2:%(dynamic_linker_prefix)/lib64/ld64.so.2;" \
+":%(dynamic_linker_prefix)/lib64/ld64.so.1})"
 #endif
 
 #else
-#define GLIBC_DYNAMIC_LINKER32 "/lib/ld.so.1"
+#define GLIBC_DYNAMIC_LINKER32 "%(dynamic_linker_prefix)/lib/ld.so.1"
 #ifdef LINUX64_DEFAULT_ABI_ELFv2
-#define GLIBC_DYNAMIC_LINKER64 "%{mabi=elfv1:/lib64/ld64.so.1;:/lib64/ld64.so.2}"
+#define GLIBC_DYNAMIC_LINKER64 \
+"%{mabi=elfv1:%(dynamic_linker_prefix)/lib64/ld64.so.1;" \
+":%(dynamic_linker_prefix)/lib64/ld64.so.2}"
 #else
-#define GLIBC_DYNAMIC_LINKER64 "%{mabi=elfv2:/lib64/ld64.so.2;:/lib64/ld64.so.1}"
+#define GLIBC_DYNAMIC_LINKER64 \
+"%{mabi=elfv2:%(dynamic_linker_prefix)/lib64/ld64.so.2;" \
+":%(dynamic_linker_prefix)/lib64/ld64.so.1}"
 #endif
 #endif
 
@@ -434,14 +471,16 @@ LINK_OS_LINUX_EMUL32 \
 LINUX_EXTRA_STATIC_LIBDIRS32 \
 "%{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
-  -dynamic-linker " GNU_USER_DYNAMIC_LINKER32 "}}"
+  -dynamic-linker " GNU_USER_DYNAMIC_LINKER32 "}} \
+  %(link_os_extra_spec32)"
 
 #define LINK_OS_LINUX_SPEC64 \
 LINK_OS_LINUX_EMUL64 \
 LINUX_EXTRA_STATIC_LIBDIRS64 \
 "%{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
-  -dynamic-linker " GNU_USER_DYNAMIC_LINKER64 "}}"
+  -dynamic-linker " GNU_USER_DYNAMIC_LINKER64 "}} \
+  %(link_os_extra_spec64)"
 
 #undef  TOC_SECTION_ASM_OP
 #define TOC_SECTION_ASM_OP \

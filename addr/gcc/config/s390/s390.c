@@ -25,15 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "print-tree.h"
@@ -52,10 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "function.h"
 #include "recog.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -73,14 +63,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
-#include "ggc.h"
 #include "target.h"
 #include "target-def.h"
 #include "debug.h"
 #include "langhooks.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -12843,31 +12831,37 @@ s390_reorg (void)
 
       /* Insert NOPs for hotpatching. */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-	{
-	  if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_FUNCTION_BEG)
-	    break;
-	}
-      gcc_assert (insn);
-      /* Output a series of NOPs after the NOTE_INSN_FUNCTION_BEG.  */
-      while (hw_after > 0)
+	/* Emit NOPs
+	    1. inside the area covered by debug information to allow setting
+	       breakpoints at the NOPs,
+	    2. before any insn which results in an asm instruction,
+	    3. before in-function labels to avoid jumping to the NOPs, for
+	       example as part of a loop,
+	    4. before any barrier in case the function is completely empty
+	       (__builtin_unreachable ()) and has neither internal labels nor
+	       active insns.
+	*/
+	if (active_insn_p (insn) || BARRIER_P (insn) || LABEL_P (insn))
+	  break;
+      /* Output a series of NOPs before the first active insn.  */
+      while (insn && hw_after > 0)
 	{
 	  if (hw_after >= 3 && TARGET_CPU_ZARCH)
 	    {
-	      insn = emit_insn_after (gen_nop_6_byte (), insn);
+	      emit_insn_before (gen_nop_6_byte (), insn);
 	      hw_after -= 3;
 	    }
 	  else if (hw_after >= 2)
 	    {
-	      insn = emit_insn_after (gen_nop_4_byte (), insn);
+	      emit_insn_before (gen_nop_4_byte (), insn);
 	      hw_after -= 2;
 	    }
 	  else
 	    {
-	      insn = emit_insn_after (gen_nop_2_byte (), insn);
+	      emit_insn_before (gen_nop_2_byte (), insn);
 	      hw_after -= 1;
 	    }
 	}
-      gcc_assert (hw_after == 0);
     }
 }
 
@@ -13339,6 +13333,8 @@ s390_option_override (void)
     }
 
   /* Sanity checks.  */
+  if (s390_arch == PROCESSOR_NATIVE || s390_tune == PROCESSOR_NATIVE)
+    gcc_unreachable ();
   if (TARGET_ZARCH && !TARGET_CPU_ZARCH)
     error ("z/Architecture mode not supported on %s", s390_arch_string);
   if (TARGET_64BIT && !TARGET_ZARCH)

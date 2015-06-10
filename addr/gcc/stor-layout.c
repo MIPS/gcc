@@ -22,15 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -42,10 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -59,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "regs.h"
 #include "params.h"
-#include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
@@ -321,7 +310,6 @@ finalize_size_functions (void)
       set_cfun (NULL);
       dump_function (TDI_original, fndecl);
       gimplify_function_tree (fndecl);
-      dump_function (TDI_generic, fndecl);
       cgraph_node::finalize_function (fndecl, false);
     }
 

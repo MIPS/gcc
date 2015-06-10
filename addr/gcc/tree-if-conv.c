@@ -84,15 +84,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -129,11 +123,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-address.h"
 #include "tree-pass.h"
 #include "dbgcnt.h"
-#include "hashtab.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -145,7 +135,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "hash-map.h"
 
 /* List of basic blocks in if-conversion-suitable order.  */
 static basic_block *ifc_bbs;
@@ -594,7 +583,8 @@ if_convertible_phi_p (struct loop *loop, basic_block bb, gphi *phi,
 
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, gimple_phi_result (phi))
 	{
-	  if (gimple_code (USE_STMT (use_p)) == GIMPLE_PHI)
+	  if (gimple_code (USE_STMT (use_p)) == GIMPLE_PHI
+	      && USE_STMT (use_p) != (gimple) phi)
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "Difficult to handle this virtual phi.\n");

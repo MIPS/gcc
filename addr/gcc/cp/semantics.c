@@ -27,15 +27,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stmt.h"
 #include "varasm.h"
@@ -50,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "timevar.h"
 #include "diagnostic.h"
-#include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
 #include "hard-reg-set.h"
@@ -60,7 +53,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "target.h"
-#include "hash-table.h"
 #include "gimplify.h"
 #include "bitmap.h"
 #include "omp-low.h"
@@ -3136,7 +3128,11 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
 	   form, so wait until instantiation time.  */
 	return decl;
       else if (decl_constant_var_p (decl))
-	return scalar_constant_value (decl);
+	{
+	  tree t = maybe_constant_value (convert_from_reference (decl));
+	  if (TREE_CONSTANT (t))
+	    return t;
+	}
     }
 
   if (parsing_nsdmi ())
@@ -7237,7 +7233,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 
   expr = resolve_nondeduced_context (expr);
 
-  if (invalid_nonstatic_memfn_p (expr, complain))
+  if (invalid_nonstatic_memfn_p (input_location, expr, complain))
     return error_mark_node;
 
   if (type_unknown_p (expr))

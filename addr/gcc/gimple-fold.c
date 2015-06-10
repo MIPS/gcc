@@ -22,26 +22,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -72,7 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "tree-ssa-propagate.h"
 #include "target.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -2530,7 +2519,7 @@ gimple_fold_builtin_snprintf (gimple_stmt_iterator *gsi)
 	return false;
 
       tree orig_len = get_maxval_strlen (orig, 0);
-      if (!orig_len)
+      if (!orig_len || TREE_CODE (orig_len) != INTEGER_CST)
 	return false;
 
       /* We could expand this as

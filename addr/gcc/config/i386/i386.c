@@ -22,15 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -50,10 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "function.h"
 #include "recog.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -72,18 +62,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
-#include "ggc.h"
 #include "target.h"
 #include "target-def.h"
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "reload.h"
-#include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -6149,6 +6136,7 @@ bool
 ix86_function_arg_regno_p (int regno)
 {
   int i;
+  enum calling_abi call_abi;
   const int *parm_regs;
 
   if (TARGET_MPX && BND_REGNO_P (regno))
@@ -6174,16 +6162,18 @@ ix86_function_arg_regno_p (int regno)
   /* TODO: The function should depend on current function ABI but
      builtins.c would need updating then. Therefore we use the
      default ABI.  */
+  call_abi = ix86_cfun_abi ();
 
   /* RAX is used as hidden argument to va_arg functions.  */
-  if (ix86_abi == SYSV_ABI && regno == AX_REG)
+  if (call_abi == SYSV_ABI && regno == AX_REG)
     return true;
 
-  if (ix86_abi == MS_ABI)
+  if (call_abi == MS_ABI)
     parm_regs = x86_64_ms_abi_int_parameter_registers;
   else
     parm_regs = x86_64_int_parameter_registers;
-  for (i = 0; i < (ix86_abi == MS_ABI
+
+  for (i = 0; i < (call_abi == MS_ABI
 		   ? X86_64_MS_REGPARM_MAX : X86_64_REGPARM_MAX); i++)
     if (regno == parm_regs[i])
       return true;
@@ -8212,10 +8202,10 @@ ix86_function_value_regno_p (const unsigned int regno)
     case AX_REG:
       return true;
     case DX_REG:
-      return (!TARGET_64BIT || ix86_abi != MS_ABI);
+      return (!TARGET_64BIT || ix86_cfun_abi () != MS_ABI);
     case DI_REG:
     case SI_REG:
-      return TARGET_64BIT && ix86_abi != MS_ABI;
+      return TARGET_64BIT && ix86_cfun_abi () != MS_ABI;
 
     case BND0_REG:
     case BND1_REG:
@@ -8227,7 +8217,7 @@ ix86_function_value_regno_p (const unsigned int regno)
       /* TODO: The function should depend on current function ABI but
        builtins.c would need updating then. Therefore we use the
        default ABI.  */
-      if (TARGET_64BIT && ix86_abi == MS_ABI)
+      if (TARGET_64BIT && ix86_cfun_abi () == MS_ABI)
 	return false;
       return TARGET_FLOAT_RETURNS_IN_80387;
 
@@ -22868,7 +22858,7 @@ ix86_split_long_move (rtx operands[])
 	 Do an lea to the last part and use only one colliding move.  */
       else if (collisions > 1)
 	{
-	  rtx base;
+	  rtx base, addr, tls_base = NULL_RTX;
 
 	  collisions = 1;
 
@@ -22879,10 +22869,50 @@ ix86_split_long_move (rtx operands[])
 	  if (GET_MODE (base) != Pmode)
 	    base = gen_rtx_REG (Pmode, REGNO (base));
 
-	  emit_insn (gen_rtx_SET (base, XEXP (part[1][0], 0)));
+	  addr = XEXP (part[1][0], 0);
+	  if (TARGET_TLS_DIRECT_SEG_REFS)
+	    {
+	      struct ix86_address parts;
+	      int ok = ix86_decompose_address (addr, &parts);
+	      gcc_assert (ok);
+	      if (parts.seg == DEFAULT_TLS_SEG_REG)
+		{
+		  /* It is not valid to use %gs: or %fs: in
+		     lea though, so we need to remove it from the
+		     address used for lea and add it to each individual
+		     memory loads instead.  */
+		  addr = copy_rtx (addr);
+		  rtx *x = &addr;
+		  while (GET_CODE (*x) == PLUS)
+		    {
+		      for (i = 0; i < 2; i++)
+			{
+			  rtx u = XEXP (*x, i);
+			  if (GET_CODE (u) == ZERO_EXTEND)
+			    u = XEXP (u, 0);
+			  if (GET_CODE (u) == UNSPEC
+			      && XINT (u, 1) == UNSPEC_TP)
+			    {
+			      tls_base = XEXP (*x, i);
+			      *x = XEXP (*x, 1 - i);
+			      break;
+			    }
+			}
+		      if (tls_base)
+			break;
+		      x = &XEXP (*x, 0);
+		    }
+		  gcc_assert (tls_base);
+		}
+	    }
+	  emit_insn (gen_rtx_SET (base, addr));
+	  if (tls_base)
+	    base = gen_rtx_PLUS (GET_MODE (base), base, tls_base);
 	  part[1][0] = replace_equiv_address (part[1][0], base);
 	  for (i = 1; i < nparts; i++)
 	    {
+	      if (tls_base)
+		base = copy_rtx (base);
 	      tmp = plus_constant (Pmode, base, UNITS_PER_WORD * i);
 	      part[1][i] = replace_equiv_address (part[1][i], tmp);
 	    }
@@ -25497,13 +25527,19 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
     }
   else
     {
-      /* Static functions and indirect calls don't need the pic register.  */
+      /* Static functions and indirect calls don't need the pic register.  Also,
+	 check if PLT was explicitly avoided via no-plt or "noplt" attribute, making
+	 it an indirect call.  */
       if (flag_pic
 	  && (!TARGET_64BIT
 	      || (ix86_cmodel == CM_LARGE_PIC
 		  && DEFAULT_ABI != MS_ABI))
 	  && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
-	  && ! SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0)))
+	  && !SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0))
+	  && flag_plt
+	  && (SYMBOL_REF_DECL ((XEXP (fnaddr, 0))) == NULL_TREE
+	      || !lookup_attribute ("noplt",
+		     DECL_ATTRIBUTES (SYMBOL_REF_DECL (XEXP (fnaddr, 0))))))
 	{
 	  use_reg (&use, gen_rtx_REG (Pmode, REAL_PIC_OFFSET_TABLE_REGNUM));
 	  if (ix86_use_pseudo_pic_reg ())
@@ -25599,6 +25635,31 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   return call;
 }
 
+/* Return true if the function being called was marked with attribute "noplt"
+   or using -fno-plt and we are compiling for non-PIC and x86_64.  We need to
+   handle the non-PIC case in the backend because there is no easy interface
+   for the front-end to force non-PLT calls to use the GOT.  This is currently
+   used only with 64-bit ELF targets to call the function marked "noplt"
+   indirectly.  */
+
+static bool
+ix86_nopic_noplt_attribute_p (rtx call_op)
+{
+  if (flag_pic || ix86_cmodel == CM_LARGE
+      || !TARGET_64BIT || TARGET_MACHO || TARGET_SEH || TARGET_PECOFF
+      || SYMBOL_REF_LOCAL_P (call_op))
+    return false;
+
+  tree symbol_decl = SYMBOL_REF_DECL (call_op);
+
+  if (!flag_plt
+      || (symbol_decl != NULL_TREE
+          && lookup_attribute ("noplt", DECL_ATTRIBUTES (symbol_decl))))
+    return true;
+
+  return false;
+}
+
 /* Output the assembly for a call instruction.  */
 
 const char *
@@ -25610,7 +25671,9 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
 
   if (SIBLING_CALL_P (insn))
     {
-      if (direct_p)
+      if (direct_p && ix86_nopic_noplt_attribute_p (call_op))
+	xasm = "%!jmp\t*%p0@GOTPCREL(%%rip)";
+      else if (direct_p)
 	xasm = "%!jmp\t%P0";
       /* SEH epilogue detection requires the indirect branch case
 	 to include REX.W.  */
@@ -25653,7 +25716,9 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
 	seh_nop_p = true;
     }
 
-  if (direct_p)
+  if (direct_p && ix86_nopic_noplt_attribute_p (call_op))
+    xasm = "%!call\t*%p0@GOTPCREL(%%rip)";
+  else if (direct_p)
     xasm = "%!call\t%P0";
   else
     xasm = "%!call\t%A0";

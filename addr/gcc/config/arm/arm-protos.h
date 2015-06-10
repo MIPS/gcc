@@ -210,6 +210,9 @@ extern int arm_dllexport_p (tree);
 extern int arm_dllimport_p (tree);
 extern void arm_mark_dllexport (tree);
 extern void arm_mark_dllimport (tree);
+extern bool arm_change_mode_p (tree);
+extern tree arm_valid_target_attribute_tree (tree, struct gcc_options *,
+					     struct gcc_options *);
 #endif
 
 extern void arm_pr_long_calls (struct cpp_reader *);
@@ -291,14 +294,14 @@ struct tune_params
   /* Prefer to inline string operations like memset by using Neon.  */
   enum {PREF_NEON_STRINGOPS_FALSE, PREF_NEON_STRINGOPS_TRUE}
     string_ops_prefer_neon: 1;
-  /* Bitfield encoding the fuseable pairs of instructions.  Use FUSE_OPS
+  /* Bitfield encoding the fusible pairs of instructions.  Use FUSE_OPS
      in an initializer if multiple fusion operations are supported on a
      target.  */
   enum fuse_ops
   {
     FUSE_NOTHING   = 0,
     FUSE_MOVW_MOVT = 1 << 0
-  } fuseable_ops: 1;
+  } fusible_ops: 1;
   /* Depth of scheduling queue to check for L2 autoprefetcher.  */
   enum {SCHED_AUTOPREF_OFF, SCHED_AUTOPREF_RANK, SCHED_AUTOPREF_FULL}
     sched_autopref: 2;
@@ -325,6 +328,8 @@ extern bool arm_expand_vec_perm_const (rtx target, rtx op0, rtx op1, rtx sel);
 extern bool arm_autoinc_modes_ok_p (machine_mode, enum arm_auto_incmodes);
 
 extern void arm_emit_eabi_attribute (const char *, int, int);
+
+extern void arm_reset_previous_fndecl (void);
 
 /* Defined in gcc/common/config/arm-common.c.  */
 extern const char *arm_rewrite_selected_cpu (const char *name);
