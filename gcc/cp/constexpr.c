@@ -3212,6 +3212,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       /* These differ from cxx_eval_unary_expression in that this doesn't
 	 check for a constant operand or result; an address can be
 	 constant without its operand being, and vice versa.  */
+    case MEM_REF:
     case INDIRECT_REF:
       r = cxx_eval_indirect_ref (ctx, t, lval,
 				 non_constant_p, overflow_p);
