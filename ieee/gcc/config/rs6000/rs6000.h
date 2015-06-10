@@ -917,9 +917,11 @@ enum data_align { align_abi, align_opt, align_both };
    aligned to 4 or 8 bytes.  */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
-   || (SCALAR_FLOAT_MODE_P (MODE) && (ALIGN) < 32)			\
+   || (SCALAR_FLOAT_MODE_P (MODE) && (ALIGN) < 32			\
+       && !FLOAT128_VECTOR_P (MODE))					\
    || (!TARGET_EFFICIENT_UNALIGNED_VSX                                  \
-       && (VECTOR_MODE_P ((MODE)) && (((int)(ALIGN)) < VECTOR_ALIGN (MODE)))))
+       && ((VECTOR_MODE_P (MODE) || FLOAT128_VECTOR_P (MODE))		\
+	   && (((int)(ALIGN)) < VECTOR_ALIGN (MODE)))))
 
 
 /* Standard register usage.  */
