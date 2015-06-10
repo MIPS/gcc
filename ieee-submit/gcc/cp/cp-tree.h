@@ -21,16 +21,10 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CP_TREE_H
 #define GCC_CP_TREE_H
 
-#include "ggc.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
-#include "hash-map.h"
 
 /* In order for the format checking to accept the C++ front end
    diagnostic framework extensions, you must include this file before
@@ -161,6 +155,7 @@ c-common.h, not after.
       LABEL_DECL_CONTINUE (in LABEL_DECL)
    2: DECL_THIS_EXTERN (in VAR_DECL or FUNCTION_DECL).
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
+      TEMPLATE_DECL_COMPLEX_ALIAS_P (in TEMPLATE_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
       DECL_ANON_UNION_VAR_P (in a VAR_DECL)
@@ -2738,6 +2733,10 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 #define TYPE_DECL_ALIAS_P(NODE) \
   DECL_LANG_FLAG_6 (TYPE_DECL_CHECK (NODE))
 
+/* Nonzero for TEMPLATE_DECL means that it is a 'complex' alias template.  */
+#define TEMPLATE_DECL_COMPLEX_ALIAS_P(NODE) \
+  DECL_LANG_FLAG_2 (TEMPLATE_DECL_CHECK (NODE))
+
 /* Nonzero for a type which is an alias for another type; i.e, a type
    which declaration was written 'using name-of-type =
    another-type'.  */
@@ -4101,7 +4100,8 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
   (DECL_LANG_SPECIFIC (NODE)->u.base.not_really_extern)
 
 #define DECL_REALLY_EXTERN(NODE) \
-  (DECL_EXTERNAL (NODE) && ! DECL_NOT_REALLY_EXTERN (NODE))
+  (DECL_EXTERNAL (NODE)				\
+   && (!DECL_LANG_SPECIFIC (NODE) || !DECL_NOT_REALLY_EXTERN (NODE)))
 
 /* A thunk is a stub function.
 
@@ -5469,7 +5469,7 @@ extern tree cp_reconstruct_complex_type		(tree, tree);
 extern bool attributes_naming_typedef_ok	(tree);
 extern void cplus_decl_attributes		(tree *, tree, int);
 extern void finish_anon_union			(tree);
-extern void cp_write_global_declarations	(void);
+extern void cxx_post_compilation_parsing_cleanups (void);
 extern tree coerce_new_type			(tree);
 extern tree coerce_delete_type			(tree);
 extern void comdat_linkage			(tree);
@@ -5490,7 +5490,7 @@ extern bool mark_used			        (tree, tsubst_flags_t);
 extern void finish_static_data_member_decl	(tree, tree, bool, tree, int);
 extern tree cp_build_parm_decl			(tree, tree);
 extern tree get_guard				(tree);
-extern tree get_guard_cond			(tree);
+extern tree get_guard_cond			(tree, bool);
 extern tree set_guard				(tree);
 extern tree get_tls_wrapper_fn			(tree);
 extern void mark_needed				(tree);
@@ -6281,7 +6281,8 @@ extern tree build_address			(tree);
 extern tree build_nop				(tree, tree);
 extern tree non_reference			(tree);
 extern tree lookup_anon_field			(tree, tree);
-extern bool invalid_nonstatic_memfn_p		(tree, tsubst_flags_t);
+extern bool invalid_nonstatic_memfn_p		(location_t, tree,
+						 tsubst_flags_t);
 extern tree convert_member_func_to_ptr		(tree, tree, tsubst_flags_t);
 extern tree convert_ptrmem			(tree, tree, bool, bool,
 						 tsubst_flags_t);

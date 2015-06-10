@@ -1,3 +1,7 @@
+2015-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 224342.
+
 2015-06-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-protos.h

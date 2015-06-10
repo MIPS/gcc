@@ -31,15 +31,9 @@
 #include "flags.h"
 #include "recog.h"
 #include "obstack.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -47,11 +41,7 @@
 #include "calls.h"
 #include "print-tree.h"
 #include "varasm.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -74,7 +64,6 @@
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -83,7 +72,6 @@
 #include "reload.h"
 #include "cfgloop.h"
 #include "sched-int.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -101,7 +89,6 @@
 #include "opts.h"
 #include "tree-vectorizer.h"
 #include "dumpfile.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -1619,17 +1606,6 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_STACK_PROTECT_FAIL
 #define TARGET_STACK_PROTECT_FAIL rs6000_stack_protect_fail
 #endif
-
-/* MPC604EUM 3.5.2 Weak Consistency between Multiple Processors
-   The PowerPC architecture requires only weak consistency among
-   processors--that is, memory accesses between processors need not be
-   sequentially consistent and memory accesses among processors can occur
-   in any order. The ability to order memory accesses weakly provides
-   opportunities for more efficient use of the system bus. Unless a
-   dependency exists, the 604e allows read operations to precede store
-   operations.  */
-#undef TARGET_RELAXED_ORDERING
-#define TARGET_RELAXED_ORDERING true
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL

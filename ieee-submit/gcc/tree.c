@@ -32,15 +32,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -48,7 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "varasm.h"
 #include "tm_p.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "obstack.h"
@@ -73,7 +66,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimplify.h"
 #include "gimple-ssa.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -81,9 +73,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -12855,6 +12844,17 @@ verify_type_variant (const_tree t, tree tv)
       debug_tree (TREE_TYPE (t));
       return false;
     }
+  if (type_with_alias_set_p (t)
+      && !gimple_canonical_types_compatible_p (t, tv, false))
+    {
+      error ("type is not compatible with its vairant");
+      debug_tree (tv);
+      error ("type variant's TREE_TYPE");
+      debug_tree (TREE_TYPE (tv));
+      error ("type's TREE_TYPE");
+      debug_tree (TREE_TYPE (t));
+      return false;
+    }
   return true;
 #undef verify_variant_match
 }
@@ -12879,7 +12879,13 @@ bool
 gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
 				     bool trust_type_canonical)
 {
-  /* Before starting to set up the SCC machinery handle simple cases.  */
+  /* Type variants should be same as the main variant.  When not doing sanity
+     checking to verify this fact, go to main variants and save some work.  */
+  if (trust_type_canonical)
+    {
+      t1 = TYPE_MAIN_VARIANT (t1);
+      t2 = TYPE_MAIN_VARIANT (t2);
+    }
 
   /* Check first for the obvious case of pointer identity.  */
   if (t1 == t2)
@@ -12913,7 +12919,8 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
     return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
 
   /* Can't be the same type if the types don't have the same code.  */
-  if (TREE_CODE (t1) != TREE_CODE (t2))
+  if (tree_code_for_canonical_type_merging (TREE_CODE (t1))
+      != tree_code_for_canonical_type_merging (TREE_CODE (t2)))
     return false;
 
   /* Qualifiers do not matter for canonical type comparison purposes.  */
@@ -12941,21 +12948,17 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
 	  || TYPE_UNSIGNED (t1) != TYPE_UNSIGNED (t2))
 	return false;
 
-      if (TREE_CODE (t1) == INTEGER_TYPE
-	  && TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2))
-	return false;
+      /* Fortran's C_SIGNED_CHAR is !TYPE_STRING_FLAG but needs to be
+	 interoperable with "signed char".  Unless all frontends are revisited
+	 to agree on these types, we must ignore the flag completely.  */
 
-      /* For canonical type comparisons we do not want to build SCCs
-	 so we cannot compare pointed-to types.  But we can, for now,
-	 require the same pointed-to type kind and match what
-	 useless_type_conversion_p would do.  */
+      /* Fortran standard define C_PTR type that is compatible with every
+ 	 C pointer.  For this reason we need to glob all pointers into one.
+	 Still pointers in different address spaces are not compatible.  */
       if (POINTER_TYPE_P (t1))
 	{
 	  if (TYPE_ADDR_SPACE (TREE_TYPE (t1))
 	      != TYPE_ADDR_SPACE (TREE_TYPE (t2)))
-	    return false;
-
-	  if (TREE_CODE (TREE_TYPE (t1)) != TREE_CODE (TREE_TYPE (t2)))
 	    return false;
 	}
 

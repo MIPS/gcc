@@ -28,15 +28,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "insn-config.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -44,12 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "calls.h"
 #include "varasm.h"
 #include "flags.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -82,8 +72,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "sched-int.h"
 #include "params.h"
-#include "ggc.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -14241,7 +14229,7 @@ sh_try_split_insn_simple (rtx_insn* i, rtx_insn* curr_insn, int n = 0)
       fprintf (dump_file, "\n");
     }
 
-  rtx_insn* seq = safe_as_a<rtx_insn*> (split_insns (PATTERN (i), curr_insn));
+  rtx_insn* seq = split_insns (PATTERN (i), curr_insn);
 
   if (seq == NULL)
     return std::make_pair (i, i);

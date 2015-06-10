@@ -22,16 +22,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
@@ -39,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h" /* TDF_DIAGNOSTIC */
 #include "langhooks.h"
 #include "langhooks-def.h"
-#include "vec.h"
 #include "intl.h"
 
 /* Prints out, if necessary, the name of the current function

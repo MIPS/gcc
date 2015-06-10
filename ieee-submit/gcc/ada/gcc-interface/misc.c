@@ -29,14 +29,10 @@
 #include "opts.h"
 #include "options.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -51,13 +47,8 @@
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "plugin.h"
-#include "real.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"	/* For pass_by_reference.  */
 #include "dwarf2out.h"
 
@@ -122,6 +113,8 @@ gnat_parse_file (void)
 
   /* Call the front end.  */
   _ada_gnat1drv ();
+
+  note_types_used_by_globals ();
 }
 
 /* Return language mask for option processing.  */
@@ -974,8 +967,6 @@ gnat_init_ts (void)
 #define LANG_HOOKS_GETDECLS		lhd_return_null_tree_v
 #undef  LANG_HOOKS_PUSHDECL
 #define LANG_HOOKS_PUSHDECL		gnat_return_tree
-#undef  LANG_HOOKS_WRITE_GLOBALS
-#define LANG_HOOKS_WRITE_GLOBALS	gnat_write_global_declarations
 #undef  LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET	gnat_get_alias_set
 #undef  LANG_HOOKS_PRINT_DECL
