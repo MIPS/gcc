@@ -1,0 +1,93 @@
+2015-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 224342.
+
+2015-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223705.
+
+2015-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223451.
+
+2015-05-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-1.c: Use -mfloat128-software, not
+	-mfloat128.
+	* gcc.target/powerpc/float128-2.c: Likewise.
+
+2015-05-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223167.
+
+2015-05-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223094.
+
+2015-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222884.
+
+2015-05-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222823.
+
+2015-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-1.c: Allow running on 32-bit big
+	endian VSX systems.
+	* gcc.target/powerpc/float128-2.c: Likewise.
+
+2015-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222474.
+
+2015-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-1.c: Add #ifdef DEBUG suport, and
+	ability to run test on x86.  Add multiply, divide, subtract
+	tests.
+	* gcc.target/powerpc/float128-2.c: Likewise.
+	* gcc.target/powerpc/float128-3.c: Add more debug support.
+	* gcc.target/powerpc/float128-4.c: Likewise.
+
+2015-04-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222241.
+
+2015-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-3.c (main): Do not print TYPE_NAME
+	in debug output.
+	* gcc.target/powerpc/float128-4.c (main): Likewise.
+
+2015-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222060.
+
+2015-04-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 221977.
+
+2015-03-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 221543.
+
+2015-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 220491.
+
+2015-02-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 220351.
+
+2015-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-1.c: New file to test __float128.
+	* gcc.target/powerpc/float128-2.c: Likewise.
+	* gcc.target/powerpc/float128-3.c: Likewise.
+	* gcc.target/powerpc/float128-4.c: Likewise.
+
+2015-01-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from subverison id 219907.

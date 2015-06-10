@@ -1,0 +1,607 @@
+2015-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Recreate branch with subversion id 224342.
+	* REVISION: Update subversion id.
+
+2015-05-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Make sure
+	IEEE 128-bit types that use vector registers get vector
+	registers.
+	(rs6000_debug_reg_global): Remove duplicate __float128 debug
+	printing.
+	(rs6000_option_override_internal): Simplify test somewhat.
+
+2015-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223451.
+	* REVISION: Update subversion id.
+
+2015-05-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* machmode.h: Undo all IEEE 128-bit changes.
+	* optabs.c: Likewise.
+	* rtlanal.c: Likewise.
+	* cse.c: Likewise.
+	* machmode.def: Likewise.
+	* expr.c: Likewise.
+	* dse.c: Likewise.
+	* genmodes.c: Likewise.
+	* expmed.c: Likewise.
+	* emit-rtl.c: Likewise.
+	* explow.c: Likewise.
+	* combine.c: Likewise.
+	* reginfo.c: Likewise.
+
+	* config/rs6000/predicates.md (easy_fp_constant): Add support for
+	IFmode.
+
+	* config/rs6000/rs6000-modes.def (IFmode): Change to use
+	fractional floating point modes for IFmode/KFmode.  Don't use
+	SPECIAL_FLOAT_MODE any more.
+
+2015-05-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* machmode.h (GET_MODE_WIDER_MODE_SPECIAL): Delete, replace with
+	FOR_EACH_MODE_CLASS.
+	(FOR_EACH_MODE_CLASS): New iterator for handling all modes of a
+	static class.
+	* optabs.c (prepare_cmp_insn): Use FOR_EACH_MODE_CLASS.
+	* expr.c (init_expr_target): Likewise.
+	* expmed.c (extract_fixed_bit_field_1): Likewise.
+	* emit-rtl.c (init_derived_machine_modes): Likewise.
+	* explow.c (hard_function_value): Likewise.
+	* reginfo.c (choose_hard_reg_mode): Likewise.
+	* genmodes.c (emit_mode_wider): Do not emit the special wider
+	table.
+
+2015-05-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_c_mode_for_suffix): Allow 'w' and
+	'W' as the suffix for __ibm128.
+
+	* doc/extend.texi (Float Types): Document the 'w' and 'W' floating
+	point suffixes.
+
+2015-05-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Change
+	-mfloat128 to -mfloat128-{none,software,hardware}.
+	(POWERPC_MASKS): Likewise.
+	(power7 cpu): Likewise.
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros):
+	Likewise.
+	(rs6000_cpu_cpp_builtins): Likewise.
+	* config/rs6000/rs6000.opt (-mfloat128): Likewise.
+	(-mfloat128-<xxx>): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Disallow
+	128-bit floating point types from going into any register if the
+	type is not allowed.
+	(rs6000_debug_reg_global): Print -mfloat128-<xxx> status.
+	(rs6000_option_override_internal): Change -mfloat128 to
+	-mfloat128-{none,software,hardware}.
+	(rs6000_opt_masks): Likewise.
+	(rs6000_float128_vars): Likewise.
+	(rs6000_inner_target_options): Likewise.
+	* config/rs6000/rs6000.h (MASK_FLOAT128): Likewise.
+	* config/rs6000/rs6000-opts.h (float128_type_t): Likewise.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Likewise.
+
+	Merge up to 223167.
+	* REVISION: Update subversion id.
+
+2015-05-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223094.
+	* REVISION: Update subversion id.
+
+2015-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222884.
+	* REVISION: Update subversion id.
+
+2015-05-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222823.
+	* REVISION: Update subversion id.
+
+2015-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_gen_le_vsx_permute): Only use
+	ROTATE on IEEE 128-bit floating point, not on TImode or V1TImode.
+	(rs6000_emit_le_vsx_load): Revert changes.
+	(rs6000_emit_le_vsx_store): Fix typo in comment.
+
+	* config/rs6000/vsx.md (VSX_LE_128): Only do little endian swap
+	via ROTATE for IEEE 128-bit floating point.
+
+	* config/rs6000/rs6000.h (SLOW_UNALIGNED_ACCESS): Fix thinko in
+	merging up -mefficient-unaligned-vsx code.
+
+2015-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Delete old
+	-mfloat128-{vsx,ref}.  Only support __float128 for VSX systems
+	using the switch -mfloat128.
+	(POWERPC_MASKS): Likewise.
+	(power7): Likewise.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros):
+	Likewise.
+
+	* config/rs6000/rs6000.opt (-mfloat128-vsx): Delete.
+	(-mfloat128-ref): Delete.
+	(-mfloat128): Repalcement switch.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Delete old
+	-mfloat128-{vsx,ref}.  Only support __float128 for VSX systems
+	using the switch -mfloat128.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_return_in_memory): Likewise.
+	(rs6000_pass_by_reference): Likewise.
+	(init_float128_ieee): Likewise.
+	(rs6000_opt_masks): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_FLOAT128): Delete.
+	(FLOAT128_2REG_P): Drop -mfloat128-{ref,vsx}.  Add -mfloat128.
+	(MASK_FLOAT128_VSX): Likewise.
+	(MASK_FLOAT128_REF): Likewise.
+	(MASK_FLOAT128): Likewise.
+
+	* config/rs6000/rs6000.md (FMOVE128_FPR): Drop
+	-mfloat128-{ref,vsx}.  Add -mfloat128.
+	(neg<mode>2, TFIFKF mode): Likewise.
+	(abs<mode>2, TFIFKF mode): Likewise.
+	(ieee_128bit_vsx_neg<mode>2): Likewise.
+	(ieee_128bit_vsx_abs<mode>2): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2): Likewise.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Drop
+	-mfloat128-{ref,vsx}.  Add -mfloat128.
+
+	Merge up to 222474.
+	* REVISION: Update subversion number.
+
+2015-04-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222241.
+	* REVISION: Update subversion id.
+
+2015-04-20  Bill Schmidt  &lt;wschmidt@linux.vnet.ibm.com&gt;
+
+	* config/rs6000/altivec.md (*altivec_lvx_<mode>_internal): Remove
+	asterisk from name so this can be generated directly.
+	(*altivec_stvx_<mode>_internal): Likewise.
+	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_store): Add assert
+	that this is never called during or after reload/lra.
+	(rs6000_frame_related): Remove split_reg
+	argument and logic that references it.
+	(emit_frame_save): Remove last parameter from call to
+	rs6000_frame_related.
+	(rs6000_emit_prologue): Remove last parameter from eight calls to
+	rs6000_frame_related.  Force generation of stvx instruction for
+	Altivec register saves.  Remove split_reg handling, which is no
+	longer needed.
+	(rs6000_emit_epilogue):  Force generation of lvx instruction for
+	Altivec register restores.
+
+2015-04-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_load): Use rotate 64
+	instead of mapping non-vector types to V2DImode for little endian
+	word swapping.
+	(rs6000_emit_le_vsx_load): Likewise.
+	(rs6000_emit_le_vsx_store): Likewise.
+
+	* config/rs6000/vsx.md (VSX_LE): Move types that aren't 2 element
+	vectors to VSX_LE_128 from VSX_LE.
+	(VSX_LE_128): Likewise.
+	(VSX_F128): Delete, no longer used.
+	(vsx_le_permute_<mode>, VSX_LE_128 case): Use rotate instead of
+	vec_select for the 128-bit scalar types and V1TImode.  Add
+	combine insn to eliminate unneded double rotates.
+	(vsx_le_undo_permute_<mode>): Likewise.
+	(vsx_le_perm_load_<mode>, VSX_LE_128 case): Likewise.
+	(vsx_le_perm_store_<mode>, VSX_LE_128 case): Likewise.
+	(define_splits for VSX_LE_128 store): Likewise.
+
+2015-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222060.
+	* REVISION: Update subversion id.
+
+2015-04-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi: Fix references that used -mfloat128-fpr instead
+	of -mfloat128-ref.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/rs6000/rs6000.md: Likewise.
+
+	Merge up to 221977.
+	* REVISION: Update subversion id.
+
+2015-03-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 221543.
+	* REVISION: Update subversion id.
+
+2015-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(patch ~/patches/gcc-power7.patch400-gcc5.0)
+
+	* configure.ac (--with-extra-prefix=): Add configure time switches
+	to add additional prefix directories for the compiler to search for
+	extra executables, startfiles, and directories to add to the list
+	of shared library locations.
+	(--with-extra-exec-prefix=): Likewise.
+	(--with-extra-include-prefix=): Likewise.
+	(--with-extra-startfile-prefix=): Likewise.
+	(--with-extra-rpath-prefix=): Likewise.
+	* configure: Regenerate.
+
+	* doc/install.texi (--with-extra-prefix=): Document new configure
+	switches.
+	(--with-extra-exec-prefix=): Likewise.
+	(--with-extra-include-prefix=): Likewise.
+	(--with-extra-startfile-prefix=): Likewise.
+	(--with-extra-rpath-prefix=): Likewise.
+
+	* gcc.c (LINK_RPATH_DIRS_SPEC): Add support for configuration time
+	additional executable, startfile, include, and shared library
+	location prefixes.  Add %find-dynamic-linker(), %extra-rpath-dirs(),
+	%extra-cpu-dirs() as spec functions.
+	(LINK_COMMAND_SPEC): Likewise.
+	(CONFIGURE_INCLUDE_PREFIX): Likewise.
+	(CONFIGURE_STARTFILE_PREFIX): Likewise.
+	(configure_include_prefix): Likewise.
+	(configure_startfile_prefix): Likewise.
+	(configure_exec_prefix): Likewise.
+	(static_spec_functions): Likewise.
+	(IS_STD_DIR): Likewise.
+	(config_rpath): Likewise.
+	(build_rpath_or_cpu_dirs): Likewise.
+	(get_rpath_dirs): Likewise.
+	(extra_rpath_dirs_spec_function): Likewsie.
+	(extra_cpu_dirs_spec_function): Likewise.
+	(find_dynamic_linker_spec_function): Likewise.
+	(add_multiple_prefix): New function that is like add_prefix, but
+	splits the prefix at PATH_SEPARATOR.
+	(process_command): Simplify processing COMPILER_PATH, LPATH, and
+	LIBRARY_PATH_ENV environment variables by using the function
+	add_multiple_prefix to do the splitting of the separate prefixes.
+	Add support for the configuration switch to add new executable,
+	startfile, include, and shared library prefixes.
+
+	* gcc.h (extra_cpu_dirs_spec_function): Add declaration.
+
+	* config.in (CONFIGURE_EXEC_PREFIX): Add defines for the configure
+	switches to add executable, startfile, include, and shared library
+	configuration directories.
+	(CONFIGURE_INCLUDE_PREFIX): Likewise.
+	(CONFIGURE_STARTFILE_PREFIX): Likewise.
+	(CONFIGURE_RPATH_PREFIX): Likewise.
+
+	* config/rs6000/x-rs6000 (driver-rs6000.o): Add $(GCC_H)
+	dependency.
+
+	* config/rs6000/linux64.h (GLIBC_DYNAMIC_LINKER32): If
+	--with-extra-startfile-prefix or --with-extra-prefix was used, use
+	%find-dynamic-linker() to find the dynamic linker in the startfile
+	prefixes.
+	(GLIBC_DYNAMIC_LINKER64): Likewise.
+	(LINUX_EXTRA_STATIC_LIBDIRS64): Likewise.
+	(LINK_OS_LINUX_SPEC32): Likewise.
+	(LINK_OS_LINUX_SPEC64): Likewise.
+	* config/rs6000/rs6000.h (EXTRA_SPEC_FUNCTIONS): Likewise.
+	(LOCAL_CPU_EXTR_SPEC_FUNCTIONS): Likewise.
+	* config/rs6000/sysv4.h (GLIBC_DYNAMIC_LINKER): Likewise.
+	(LINUX_EXTRA_STATIC_LIBDIRS32): Likewise.
+	(LINK_OS_LINUX_SPEC): Likewise.
+	(rs6000_extra_static_libdirs): Likewise.
+	(SUBTARGET_EXTRA_SPEC_FUNCTIONS): Likewise.
+
+	* config/rs6000/driver-rs6000.c (toplevel): Include gcc.h.
+	(rs6000_extra_static_libdirs): If we have extra configure
+	startfile prefixes, look for a machine specific file as a
+	subdirectory in the startfile prefixes if the user used
+	-mcpu=<xxx>.
+
+2015-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 220491.
+	* REVISION: Update subversion id.
+
+2015-02-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-modes.def (IFmode): Define IFmode to be the
+	IBM 128-bit double-double type.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Handle IFmode
+	like TFmode.
+	(invalid_e500_subreg): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_emit_move): Likewise.
+	(rs6000_gimplify_va_arg): Likewise.
+	(rs6000_init_builtins): Initialize the IFmode mode.  Set up the
+	ibm128_float_type_mode variable.  Register the __ibm128 keyword.
+	(init_float128_ieee): Set up conversions to/from IFmode.
+	(rs6000_init_libfuncs): Initialize IFmode conversions.
+	(rs6000_generate_compare): Set up IFmode compares.
+	(rs6000_expand_float128_convert): Set up IFmode conversions.
+	(output_toc): Handle IFmode.
+
+	* config/rs6000/vsx.md (VSX_L): Add IFmode.
+
+	* config/rs6000/rs6000.h (IEEE_128BIT_P): Handle IFmode like
+	TFmode.
+	(RS6000_BTI_ibm128_float): Add type for IBM 128-bit floating
+	point.
+	(ibm128_float_type_node): Likewise.
+
+	* config/rs6000/rs6000.md (FP): Add IFmode to floating 128-bit
+	modes.
+	(FMOVE128): Likewise.
+	(FMOVE128_FPR): Likewise.
+	(FMOVE128_GPR): Likewise.
+	(IFKF): New iterator for non-default 128-bit floating point modes.
+	(IBM128): New iterator for IBM 128-bit floating point modes.
+	(TFKF): Delete, in favor of TFIFKF.
+	(TFIFKF): New iterator for the 128-bit floating point modes.
+	(signbittf2): Delete TFmode version, rewrite to handle both TF/IF
+	modes.
+	(signbit<mode>2): Likewise.
+	(extend<mdoe>tf2): Likewise.
+	(extend<FLOAT128_SFDFTF:mode><IFKF:mode>2): Likewise.
+	(trunckf<mode>2): Likewise.
+	(trunc<IFKF:mode><FLOAT128_SFDFTF:mode>2): Likewise.
+	(fix_trunckf<mode>2): Likewise.
+	(fix_trunc<IFKF:mode><SDI:mode>2): Likewise.
+	(fixuns_trunckf<mode>2): Likewise.
+	(fixuns_trunc<IFKF:mode><SDI:mode>2): Likewise.
+	(float<mode>kf2): Likewise.
+	(float<SDI:mode><IFKF:mode>2): Likewise.
+	(floatuns<mode>kf2): Likewise.
+	(floatuns<SDI:mode><IFKF:mode>2): Likewise.
+	(neg<mode>2): Add IFmode support.
+	(abs<mode>2): Likewise.
+	(ieee_128bit_vsx_neg<mode>2): Likewise.
+	(ieee_128bit_vsx_abs<mode>2): Likewise.
+	(ieee_128bit_vsx_abs<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2): Likewise.
+	(FP128_64): Add IFmode.
+
+	* doc/extend.texi (Additional Floating Types): Document __ibm128.
+
+2015-02-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 220351.
+	* REVISION: Update subversion id.
+
+2015-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (Floating Types): Add PowerPC support to the
+	__float128 documentation.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mfloat128-vsx and -mfloat128-fpr.
+
+	* machmode.h (GET_MODE_WIDER_MODE_SPECIAL): New macro to get the
+	wider modes that are normally skipped by default.
+
+	* rtlanal.c (init_num_sign_bit_copies_in_rep): In going from
+	narrow to wider modes, check whether we receive VOIDmode, since
+	special floating point types are not listed in the normal widening
+	tables.  When doing initializations, go through all modes in a
+	class, even special modes, that are normally skipped by default
+	widening.
+	* cse.c (cse_insn): Likewise.
+	* expr.c (init_expr_target): Likewise.
+	(compress_float_constant): Likewise.
+	* dse.c (find_shift_sequence): Likewise.
+	* emit-rtl.c (init_derived_machine_modes): Likewise.
+	(init_emit_once): Likewise.
+	* combine.c (simplify_comparison): Likewise.
+
+	* machmode.def (SPECIAL_FLOAT_MODE): New type of floating point
+	that is special, and is not automatically part of the normal
+	widening rules.
+
+	* genmodes.c (struct mode_data): Add special field.
+	(blank_mode): Initialize special.
+	(complete_mode): Complex and vector types inherit the special mode
+	class.
+	(FLOAT_MODE): Add special field for floating point to sort special
+	nodes higher than normal nodes for the same size.  The intention
+	is to allow __float128 on PowerPC (KFmode) to be higher than long
+	double (TFmode), so that automatic widening uses the long double
+	type.
+	(FRACTIONAL_FLOAT_MODE): Likewise.
+	(SPECIAL_FLOAT_MODE): Likewise.
+	(FLOAT_MODE_INTERNAL): Likewise.
+	(make_float_mode): Likewise.
+	(emit_mode_wider): Likewise.
+
+	* config/rs6000/vector.md (VEC_L): Add KFmode (IEEE 128-bit
+	floating point) to vector register iterators.
+	(VEC_M): Likewise.
+	(VEC_N): Likewise.
+	(mov<mode>): Add support for KFmode.
+
+	* config/rs6000/predicates.md (int_reg_operand_not_pseudo): New
+	predicate that only returns true for GPR hard registers.
+	(easy_fp_constant): Add support for KFmode.
+	(easy_vector_constant): If we got a 128-bit scalar floating point
+	type, call easy_fp_constant.
+
+	* config/rs6000/rs6000-modes.def (KFmode): Add mode for IEEE
+	128-bit floating point.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Add
+	IEEE 128-bit floating point support.
+	(POWERPC_MASKS): Likewise.
+	(power7 cpu): Likewise.
+
+	* config/rs6000/rs6000-protos.h (rs6000_expand_float128_convert):
+	New declarations for IEEE 128-bit floating point support.
+	(rs6000_secondary_memory_needed_mode): Fix typo, use machine_mode,
+	not enum machine_mode.
+
+	* config/rs6000/rs6000.opt (-mfloat128-vsx): Add switches for IEEE
+	128-bit floating point support.
+	(-mfloat128-ref): Likewise.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Define
+	__FLOAT128__, __FLOAT128_VSX__, __FLOAT128_REF__,
+	__LONG_DOUBLE_IEEE128__, and __LONG_DOUBLE_IBM128 as appropriate.
+
+	* config/rs6000/rs6000.c (TARGET_C_MODE_FOR_SUFFIX): Define to
+	cause the PowerPC to use 'q'/'Q' for suffixes of IEEE 128-bit
+	floating point.
+	(scalar_float_not_ieee128_p): New helper function to return true
+	on scalar modes that aren't 128-bits.
+	(rs6000_hard_regno_nregs_internal): Add support for IEEE 128-bit
+	floating point.
+	(rs6000_debug_reg_global): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(invalid_e500_subreg): Likewise.
+	(reg_offset_addressing_ok_p): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewsie.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_emit_le_vsx_load): Likewise.
+	(rs6000_emit_le_vsx_store): Likewise.
+	(rs6000_emit_move): Likewise.
+	(USE_FP_FOR_ARG_P): Likewise.
+	(rs6000_discover_homogeneous_aggregate): Likewise.
+	(rs6000_return_in_memory): Likewise.
+	(init_cumulative_args): Likewise.
+	(function_arg_boundary): Likewise.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_function_arg): Likewise.
+	(rs6000_arg_partial_bytes): Likewise.
+	(rs6000_gimplify_va_arg): Likewise.
+	(rs6000_init_builtins): Likewise.
+	(rs6000_init_libfuncs): Move floating point setup to separate
+	functions for IEEE 128-bit floating point, and IBM 128-bit
+	floating point.
+	(init_float128_ibm): New functions.
+	(init_float128_ieee): Likewise.
+	(rs6000_secondary_reload_toc_costs): Fix typo.  Use machine_mode,
+	instead of enum machine_mode.
+	(rs6000_cannot_change_mode_class): Add support for IEEE 128-bit
+	floating point.
+	(rs6000_cannot_change_mode_class): Likewise.
+	(rs6000_output_move_128bit): Use fatal_insn for abort case.
+	(print_operand): Add IEEE 128-bit floating point support.
+	(rs6000_generate_compare): Likewise.
+	(rs6000_expand_float128_convert): Expand conversion to/from IEEE
+	128-bit floating point.
+	(rs6000_split_multireg_move): Add IEEE 128-bit floating point
+	support.
+	(spe_func_has_64bit_regs_p): Likewise.
+	(rs6000_output_function_epilogue): Likewise.
+	(output_toc): Likewise.
+	(rs6000_mangle_type): Likewise.
+	(rs6000_register_move_cost): Likewise.
+	(rs6000_function_value): Likewise.
+	(rs6000_libcall_value): Likewise.
+	(rs6000_scalar_mode_supported_p): Likewise.
+	(rs6000_vector_mode_supported_p): Likewise.
+	(rs6000_c_mode_for_suffix): Use 'q'/'Q' for IEEE 128-bit floating
+	point constants.
+	(rs6000_opt_masks): Add -mfloat128-vsx, -mfloat128-ref switches.
+
+	* config/rs6000/vsx.md (VSX_L): Add KFmode to VSX vector mode
+	iterators.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+	(VSX_F128): New mode iterator for 128-bit floating point that goes
+	in a single register.
+	(VSm): Add IEEE 128-bit floating point support.
+	(VSs): Likewise.
+	(VSr): Likewise.
+	(VSa): Likewise.
+	(VSv): Likewise.
+	(vsx_le_perm_load_<mode>): New insns for IEEE 128-bit floating
+	point support.
+	(vsx_le_perm_store_<mode>): Likewise.
+	(splitters for little endian 128-bit FP moves): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_FLOAT128): New target macro to
+	return true if either -mfloat128-vsx or -mfloat128-ref is used.
+	(IEEE_128BIT_P): New macro for IEEE 128-bit floating point modes.
+	(IBM_128BIT_P): New macro for IBM 128-bit floating point modes.
+	(FLOAT128_2REG_P): New macro for 128-bit floating point that takes
+	2 registers.
+	(MASK_FLOAT128_VSX): Define shortcut macro.
+	(MASK_FLOAT128_IBM): Likewise.
+	(STRICT_ALIGNMENT): Add IEEE 128-bit floating point support.
+	(HARD_REGNO_CALL_PART_CLOBBERED): Likewise.
+	(ALTIVEC_VECTOR_MODE): Likewise.
+	(MODES_TIEABLE_P): Likewise.
+	(CUMULATIVE_ARGS): Add field to record if this is a library call.
+	(enum rs6000_builtin_type_index): Add IEEE 128-bit tree node.
+	(ieee128_float_type_node): Likewise.
+
+	* config/rs6000/altivec.md (VM): Add KFmode to Altivec register
+	iterator modes.
+	(VM2): Likewise.
+	(altivec_high_bit): New insn to create an Altivec register wtih
+	just the top bit set.
+
+	* config/rs6000/rs6000.md (FP): Add IEEE 128-bit floating point
+	support.
+	(FMOVE128): Likewise.
+	(FMOVE128_FPR): Likewise.
+	(FMOVE128_GPR): Likewise.
+	(FMOVE128_VSX): Likewise.
+	(FLOAT128_SFDFTF): Likewise.
+	(TFKF): Likewise.
+	(RELOAD): Likewise.
+	(mov<mode>_64bit_dm): Likewise.
+	(mov<mode>_32bit): Likewise.
+	(extenddftf2): Likewise.
+	(extendsftf2): Likewise.
+	(trunctfdf2): Likewise.
+	(trunctfsf2): Likewise.
+	(fix_trunctfsi2): Likewise.
+	(fixuns_trunctf<mode>2): Likewise.
+	(floatditf2): Likewise.
+	(floatuns<mode>tf2): Likewise.
+	(negtf2): Likewise.
+	(neg<mode>2): Likewise.
+	(negtf2_internal): Likewise.
+	(abstf2): Likewise.
+	(abs<mode>2): Likewise.
+	(abstf2_internal): Likewise.
+	(ieee_128bit_vsx_neg<mode>2): New insn for IEEE 128-bit floating
+	point.
+	(ieee_128bit_vsx_neg<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_abs<mode>2): Likewise.
+	(ieee_128bit_vsx_abs<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2_internal): Likewise.
+	(extend<mode>kf2): Likewise.
+	(trunckf<mode>2): Likewise.
+	(fix_trunckf<mode>2): Likewise.
+	(fixuns_trunckf<mode>2): Likewise.
+	(float<mode>kf2): Likewise.
+	(floatuns<mode>kf2): Likewise.
+	(FP128_64): Add KFmode.
+	(unpack<mode>): Add IEEE 128-bit floating point support.
+	(unpack<mode>_dm): Likewise.
+	(unpack<mode>_nodm): Likewise.
+	(unpackv1ti): Likewise.
+	(unpack<mode>): Likewise.
+	(packv1ti): Likewise.
+	(pack<mode>): Likewise.
+
+2015-01-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from subverison id 219907.
+	* REVISION: New file, track subversion id.
+

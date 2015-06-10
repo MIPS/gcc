@@ -1,0 +1,145 @@
+2015-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 224342.
+
+2015-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223705.
+
+2015-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223451.
+
+	PR libgcc/66225
+	* config/rs6000/morestack.S: Do not use .abiversion on big endian
+	systems in case an older assembler is used.  Use _ARCH_PPC64 to
+	test for 64-bit and not __powerpc64__.
+
+2015-05-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/t-float128: Change -mfloat128 to
+	-mfloat128-software.
+
+	Merge up to 223167.
+
+2015-05-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223094.
+
+2015-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222884.
+
+2015-05-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222823.
+
+2015-05-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/t-float128 (fp128_ppc_funcs): Rename trunctfkf2.c
+	file.
+	* config/rs6000/trunctfkf2: Likewise.
+
+	* config/rs6000/extendkftf2.c: Eliminate old -mfloat128-ref
+	support.
+	* config/rs6000/trunctfkf2: Likewise.
+
+2015-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config.host (powerpc*-*-linux*): Enable __float128 support on
+	32-bit big endian VSX systems.
+	* configure.ac (powerpc*-*-linux*): Likewise.
+	* configure: Regenerate.
+
+	* config/rs6000/sfp-machine.h (_FP_W_TYPE_SIZE): On 64-bit systems
+	and 32-bit VSX systems, use 64-bit integers instead of 32-bit for
+	doing the emulation support.  However, don't enable 128-bit
+	integer support (TImode) on 32-bit systems.
+	(_FP_W_TYPE): Likewise.
+	(_FP_WS_TYPE): Likewise.
+	(_FP_I_TYPE): Likewise.
+	(TItype): Likewise.
+	(UTItype): Likewise.
+	(TI_BITS): Likewise.
+	(_FP_MUL_MEAT_2_wide): Likewise.
+	(_FP_MUL_MEAT_4_wide): Likewise.
+	(_FP_DIV_MEAT_Q): Likewise.
+	(_FP_NANFRAC_Q): Likewise.
+
+2015-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/t-float128: Drop support for passing IEEE values
+	in GPRs (-mfloat128-ref).  Rename switch for VSX support
+	(-mfloat128-vsx to -mfloat128).
+
+	Merge up to 222474.
+
+2015-04-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/t-float128: Add support for converting between
+	__float128 and __ibm128.
+
+	* config/rs6000/extendkftf2.c: New file to support converting
+	__float128 to __ibm128.
+
+	* config/rs6000/trunckftf2.c: New file to support converting
+	__ibm128 to __float128.
+
+2015-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 222060.
+
+2015-04-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 221977.
+
+2015-03-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 221543.
+
+2015-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 220491.
+
+2015-02-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 220351.
+
+2015-01-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/cmpkf2.c: New file to provide __cmpkf2/_q_fcmp that
+	returns 0..7 in a form suitable for using as a PowerPC condition
+	code register.
+
+	* config/rs6000/fp128-ref-sed: Add missing sed rules.
+	* config/rs6000/fp128-vsx-sed: Likewise.
+
+	* config/rs6000/quad-vsx.h: Fully declare all functions.
+	* config/rs6000/quad-ref.h: Likewise.
+
+	* config/rs6000/libgcc-glibc.ver: Add IEEE 128-bit floating point
+	functions.
+
+	* config/rs6000/t-float128: Build the cmpkf2 function, which is
+	unique for the PPC.
+
+2015-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config.host (powerpc*-*-linux*): If 64bit, add rs6000/t-float128
+	to enable __float128 support.
+
+	* Makefile.in (EXTRA_CLEAN): New variable to add extra files that
+	should be cleaned.
+	(FLAGS_TO_PASS): Use EXTRA_CLEAN.
+	(clean): Likewise.
+
+	* config/rs6000/quad-vsx.h: New file to add __float128 support to
+	the library.
+	* config/rs6000/quad-ref.h: Likewise.
+	* config/rs6000/fp128-vsx-ref: Likewise.
+	* config/rs6000/fp128-vsx-sed: Likewise.
+	* config/rs6000/t-float128: Likewise.
+
+2015-01-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from subverison id 219907.
