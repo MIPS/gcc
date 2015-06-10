@@ -32,12 +32,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -45,7 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "varasm.h"
 #include "tm_p.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "obstack.h"
@@ -70,7 +66,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimplify.h"
 #include "gimple-ssa.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -78,7 +73,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "rtl.h"
-#include "statistics.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -12956,9 +12950,9 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
 	  || TYPE_UNSIGNED (t1) != TYPE_UNSIGNED (t2))
 	return false;
 
-      if (TREE_CODE (t1) == INTEGER_TYPE
-	  && TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2))
-	return false;
+      /* Fortran's C_SIGNED_CHAR is !TYPE_STRING_FLAG but needs to be
+	 interoperable with "signed char".  Unless all frontends are revisited
+	 to agree on these types, we must ignore the flag completely.  */
 
       /* Fortran standard define C_PTR type that is compatible with every
  	 C pointer.  For this reason we need to glob all pointers into one.

@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "cp-tree.h"
