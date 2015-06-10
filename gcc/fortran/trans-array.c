@@ -5029,11 +5029,6 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 
   or_expr = boolean_false_node;
 
-  /* When expr3_desc is set, use its rank, because we want to allocate an
-       array with the array_spec coming from source=.  */
-  if (expr3_desc != NULL_TREE)
-    gcc_assert (rank == GFC_TYPE_ARRAY_RANK (TREE_TYPE (expr3_desc)));
-
   for (n = 0; n < rank; n++)
     {
       tree conv_lbound;
