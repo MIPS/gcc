@@ -1,3 +1,18 @@
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/reduction-7.c: New test.
+	* testsuite/libgomp.c/reduction-8.c: New test.
+	* testsuite/libgomp.c/reduction-9.c: New test.
+	* testsuite/libgomp.c/reduction-10.c: New test.
+	* testsuite/libgomp.c++/taskloop-5.C (foo): Wrap #pragma omp
+	parallel bodies into #pragma omp single.
+	* testsuite/libgomp.c++/reduction-5.C: New test.
+	* testsuite/libgomp.c++/reduction-6.C: New test.
+	* testsuite/libgomp.c++/reduction-7.C: New test.
+	* testsuite/libgomp.c++/reduction-8.C: New test.
+	* testsuite/libgomp.c++/reduction-9.C: New test.
+	* testsuite/libgomp.c++/reduction-10.C: New test.
+
 2015-06-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c++/member-1.C (A::m1): Add tests for

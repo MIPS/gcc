@@ -4276,6 +4276,91 @@ cxx_omp_create_clause_info (tree c, tree type, bool need_default_ctor,
   return errorcount != save_errorcount;
 }
 
+/* If DECL is DECL_OMP_PRIVATIZED_MEMBER, return corresponding
+   FIELD_DECL, otherwise return DECL itself.  */
+
+static tree
+omp_clause_decl_field (tree decl)
+{
+  if (VAR_P (decl)
+      && DECL_HAS_VALUE_EXPR_P (decl)
+      && DECL_ARTIFICIAL (decl)
+      && DECL_LANG_SPECIFIC (decl)
+      && DECL_OMP_PRIVATIZED_MEMBER (decl))
+    {
+      tree f = DECL_VALUE_EXPR (decl);
+      if (TREE_CODE (f) == INDIRECT_REF)
+	f = TREE_OPERAND (f, 0);
+      if (TREE_CODE (f) == COMPONENT_REF)
+	{
+	  f = TREE_OPERAND (f, 1);
+	  gcc_assert (TREE_CODE (f) == FIELD_DECL);
+	  return f;
+	}
+    }
+  return NULL_TREE;
+}
+
+/* Adjust DECL if needed for printing using %qE.  */
+
+static tree
+omp_clause_printable_decl (tree decl)
+{
+  tree t = omp_clause_decl_field (decl);
+  if (t)
+    return t;
+  return decl;
+}
+
+/* For a FIELD_DECL F and corresponding DECL_OMP_PRIVATIZED_MEMBER
+   VAR_DECL T that doesn't need a DECL_EXPR added, record it for
+   privatization.  */
+
+static void
+omp_note_field_privatization (tree f, tree t)
+{
+  if (!omp_private_member_map)
+    omp_private_member_map = new hash_map<tree, tree>;
+  tree &v = omp_private_member_map->get_or_insert (f);
+  if (v == NULL_TREE)
+    {
+      v = t;
+      omp_private_member_vec.safe_push (f);
+      /* Signal that we don't want to create DECL_EXPR for this dummy var.  */
+      omp_private_member_vec.safe_push (integer_zero_node);
+    }
+}
+
+/* Privatize FIELD_DECL T, return corresponding DECL_OMP_PRIVATIZED_MEMBER
+   dummy VAR_DECL.  */
+
+static tree
+omp_privatize_field (tree t)
+{
+  tree m = finish_non_static_data_member (t, NULL_TREE, NULL_TREE);
+  if (m == error_mark_node)
+    return error_mark_node;
+  if (!omp_private_member_map)
+    omp_private_member_map = new hash_map<tree, tree>;
+  if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
+    {
+      gcc_assert (TREE_CODE (m) == INDIRECT_REF);
+      m = TREE_OPERAND (m, 0);
+    }
+  tree &v = omp_private_member_map->get_or_insert (t);
+  if (v == NULL_TREE)
+    {
+      v = create_temporary_var (TREE_TYPE (m));
+      if (!DECL_LANG_SPECIFIC (v))
+	retrofit_lang_decl (v);
+      DECL_OMP_PRIVATIZED_MEMBER (v) = 1;
+      SET_DECL_VALUE_EXPR (v, m);
+      DECL_HAS_VALUE_EXPR_P (v) = 1;
+      omp_private_member_vec.safe_push (t);
+    }
+  return v;
+}
+
 /* Helper function for handle_omp_array_sections.  Called recursively
    to handle multiple array-section-subscripts.  C is the clause,
    T current expression (initially OMP_CLAUSE_DECL), which is either
@@ -4290,7 +4375,7 @@ cxx_omp_create_clause_info (tree c, tree type, bool need_default_ctor,
    map(a[:b][2:1][:c][:2][:d][e:f][2:5])
    FIRST_NON_ONE will be 3, array-section-subscript [:b], [2:1] and [:c]
    all are or may have length of 1, array-section-subscript [:2] is the
-   first one knonwn not to have length 1.  For array-section-subscript
+   first one known not to have length 1.  For array-section-subscript
    <= FIRST_NON_ONE we diagnose non-contiguous arrays if low bound isn't
    0 or length isn't the array domain max + 1, for > FIRST_NON_ONE we
    can if MAYBE_ZERO_LEN is false.  MAYBE_ZERO_LEN will be true in the above
@@ -4333,6 +4418,9 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
       return t;
     }
 
+  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+      && TREE_CODE (TREE_CHAIN (t)) == FIELD_DECL)
+    TREE_CHAIN (t) = omp_privatize_field (TREE_CHAIN (t));
   ret = handle_omp_array_sections_1 (c, TREE_CHAIN (t), types,
 				     maybe_zero_len, first_non_one);
   if (ret == error_mark_node || ret == NULL_TREE)
@@ -4382,10 +4470,31 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
   if (length != NULL_TREE)
     {
       if (!integer_nonzerop (length))
-	maybe_zero_len = true;
+	{
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
+	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
+	    {
+	      if (integer_zerop (length))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "zero length array section in %qs clause",
+			    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  return error_mark_node;
+		}
+	    }
+	  else
+	    maybe_zero_len = true;
+	}
       if (first_non_one == types.length ()
 	  && (TREE_CODE (length) != INTEGER_CST || integer_onep (length)))
 	first_non_one++;
+    }
+  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+      && !integer_zerop (low_bound))
+    {
+      error_at (OMP_CLAUSE_LOCATION (c),
+		"%<reduction%> array section has to be zero-based");
+      return error_mark_node;
     }
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
@@ -4434,7 +4543,17 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		  return error_mark_node;
 		}
 	      if (tree_int_cst_equal (size, low_bound))
-		maybe_zero_len = true;
+		{
+		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
+		      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
+		    {
+		      error_at (OMP_CLAUSE_LOCATION (c),
+				"zero length array section in %qs clause",
+				omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		      return error_mark_node;
+		    }
+		  maybe_zero_len = true;
+		}
 	      else if (length == NULL_TREE
 		       && first_non_one == types.length ()
 		       && tree_int_cst_equal
@@ -4444,7 +4563,9 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	    }
 	  else if (length == NULL_TREE)
 	    {
-	      maybe_zero_len = true;
+	      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_DEPEND
+		  && OMP_CLAUSE_CODE (c) != OMP_CLAUSE_REDUCTION)
+		maybe_zero_len = true;
 	      if (first_non_one == types.length ())
 		first_non_one++;
 	    }
@@ -4478,7 +4599,9 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	}
       else if (length == NULL_TREE)
 	{
-	  maybe_zero_len = true;
+	  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_DEPEND
+	      && OMP_CLAUSE_CODE (c) != OMP_CLAUSE_REDUCTION)
+	    maybe_zero_len = true;
 	  if (first_non_one == types.length ())
 	    first_non_one++;
 	}
@@ -4539,7 +4662,7 @@ handle_omp_array_sections (tree c)
 {
   bool maybe_zero_len = false;
   unsigned int first_non_one = 0;
-  auto_vec<tree> types;
+  auto_vec<tree, 10> types;
   tree first = handle_omp_array_sections_1 (c, OMP_CLAUSE_DECL (c), types,
 					    maybe_zero_len, first_non_one);
   if (first == error_mark_node)
@@ -4643,7 +4766,9 @@ handle_omp_array_sections (tree c)
 	    {
 	      tree l;
 
-	      if (i > first_non_one && length && integer_nonzerop (length))
+	      if (i > first_non_one
+		  && ((length && integer_nonzerop (length))
+		      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION))
 		continue;
 	      if (length)
 		l = fold_convert (sizetype, length);
@@ -4668,6 +4793,12 @@ handle_omp_array_sections (tree c)
 	      else if (size == NULL_TREE)
 		{
 		  size = size_in_bytes (TREE_TYPE (types[i]));
+		  tree eltype = TREE_TYPE (types[num - 1]);
+		  while (TREE_CODE (eltype) == ARRAY_TYPE)
+		    eltype = TREE_TYPE (eltype);
+		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
+		    size = size_binop (EXACT_DIV_EXPR, size,
+				       size_in_bytes (eltype));
 		  size = size_binop (MULT_EXPR, size, l);
 		  if (condition)
 		    size = fold_build3 (COND_EXPR, sizetype, condition,
@@ -4681,6 +4812,24 @@ handle_omp_array_sections (tree c)
 	{
 	  if (side_effects)
 	    size = build2 (COMPOUND_EXPR, sizetype, side_effects, size);
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
+	    {
+	      size = size_binop (MINUS_EXPR, size, size_one_node);
+	      tree index_type = build_index_type (size);
+	      tree eltype = TREE_TYPE (first);
+	      while (TREE_CODE (eltype) == ARRAY_TYPE)
+		eltype = TREE_TYPE (eltype);
+	      tree type = build_array_type (eltype, index_type);
+	      tree ptype = build_pointer_type (eltype);
+	      if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE
+		  && POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (t))))
+		t = convert_from_reference (t);
+	      else if (TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)
+		t = build_fold_addr_expr (t);
+	      t = build2 (MEM_REF, type, t, build_int_cst (ptype, 0));
+	      OMP_CLAUSE_DECL (c) = t;
+	      return false;
+	    }
 	  OMP_CLAUSE_DECL (c) = first;
 	  OMP_CLAUSE_SIZE (c) = size;
 	  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
@@ -5107,30 +5256,6 @@ find_omp_placeholder_r (tree *tp, int *, void *data)
   return NULL_TREE;
 }
 
-/* Adjust DECL if needed for printing using %qE.  */
-
-static tree
-omp_clause_printable_decl (tree decl)
-{
-  if (VAR_P (decl)
-      && DECL_HAS_VALUE_EXPR_P (decl)
-      && DECL_ARTIFICIAL (decl)
-      && DECL_LANG_SPECIFIC (decl)
-      && DECL_OMP_PRIVATIZED_MEMBER (decl))
-    {
-      tree f = DECL_VALUE_EXPR (decl);
-      if (TREE_CODE (f) == INDIRECT_REF)
-	f = TREE_OPERAND (f, 0);
-      if (TREE_CODE (f) == COMPONENT_REF)
-	{
-	  f = TREE_OPERAND (f, 1);
-	  gcc_assert (TREE_CODE (f) == FIELD_DECL);
-	  return f;
-	}
-    }
-  return decl;
-}
-
 /* Helper function of finish_omp_clauses.  Handle OMP_CLAUSE_REDUCTION C.
    Return true if there is some error and the clause should be removed.  */
 
@@ -5139,9 +5264,45 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 {
   tree t = OMP_CLAUSE_DECL (c);
   bool predefined = false;
+  if (TREE_CODE (t) == TREE_LIST)
+    {
+      gcc_assert (processing_template_decl);
+      return false;
+    }
   tree type = TREE_TYPE (t);
+  if (TREE_CODE (t) == MEM_REF)
+    type = TREE_TYPE (type);
   if (TREE_CODE (type) == REFERENCE_TYPE)
     type = TREE_TYPE (type);
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      tree oatype = type;
+      gcc_assert (TREE_CODE (t) != MEM_REF);
+      while (TREE_CODE (type) == ARRAY_TYPE)
+	type = TREE_TYPE (type);
+      if (!processing_template_decl)
+	{
+	  t = require_complete_type (t);
+	  if (t == error_mark_node)
+	    return true;
+	  tree size = size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (oatype),
+				  TYPE_SIZE_UNIT (type));
+	  if (integer_zerop (size))
+	    {
+	      error ("%qE in %<reduction%> clause is a zero size array",
+		     omp_clause_printable_decl (t));
+	      return true;
+	    }
+	  size = size_binop (MINUS_EXPR, size, size_one_node);
+	  tree index_type = build_index_type (size);
+	  tree atype = build_array_type (type, index_type);
+	  tree ptype = build_pointer_type (type);
+	  if (TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)
+	    t = build_fold_addr_expr (t);
+	  t = build2 (MEM_REF, atype, t, build_int_cst (ptype, 0));
+	  OMP_CLAUSE_DECL (c) = t;
+	}
+    }
   if (type == error_mark_node)
     return true;
   else if (ARITHMETIC_TYPE_P (type))
@@ -5174,9 +5335,9 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
       default:
 	break;
       }
-  else if (TREE_CODE (type) == ARRAY_TYPE || TYPE_READONLY (type))
+  else if (TYPE_READONLY (type))
     {
-      error ("%qE has invalid type for %<reduction%>",
+      error ("%qE has const type for %<reduction%>",
 	     omp_clause_printable_decl (t));
       return true;
     }
@@ -5198,9 +5359,7 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 
   tree id = OMP_CLAUSE_REDUCTION_PLACEHOLDER (c);
 
-  type = TYPE_MAIN_VARIANT (TREE_TYPE (t));
-  if (TREE_CODE (type) == REFERENCE_TYPE)
-    type = TREE_TYPE (type);
+  type = TYPE_MAIN_VARIANT (type);
   OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = NULL_TREE;
   if (id == NULL_TREE)
     id = omp_reduction_id (OMP_CLAUSE_REDUCTION_CODE (c),
@@ -5218,7 +5377,7 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
       if (TREE_CODE (body) == STATEMENT_LIST)
 	{
 	  tree_stmt_iterator tsi;
-	  tree placeholder = NULL_TREE;
+	  tree placeholder = NULL_TREE, decl_placeholder = NULL_TREE;
 	  int i;
 	  tree stmts[7];
 	  tree atype = TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (id)));
@@ -5239,14 +5398,24 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 	      DECL_ARTIFICIAL (placeholder) = 1;
 	      DECL_IGNORED_P (placeholder) = 1;
 	      OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = placeholder;
+	      if (TREE_CODE (t) == MEM_REF)
+		{
+		  decl_placeholder = build_lang_decl (VAR_DECL, NULL_TREE,
+						      type);
+		  DECL_ARTIFICIAL (decl_placeholder) = 1;
+		  DECL_IGNORED_P (decl_placeholder) = 1;
+		  OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (c) = decl_placeholder;
+		}
 	      if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[0])))
 		cxx_mark_addressable (placeholder);
 	      if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[1]))
 		  && TREE_CODE (TREE_TYPE (OMP_CLAUSE_DECL (c)))
 		     != REFERENCE_TYPE)
-		cxx_mark_addressable (OMP_CLAUSE_DECL (c));
+		cxx_mark_addressable (decl_placeholder ? decl_placeholder
+				      : OMP_CLAUSE_DECL (c));
 	      tree omp_out = placeholder;
-	      tree omp_in = convert_from_reference (OMP_CLAUSE_DECL (c));
+	      tree omp_in = decl_placeholder ? decl_placeholder
+			    : convert_from_reference (OMP_CLAUSE_DECL (c));
 	      if (need_static_cast)
 		{
 		  tree rtype = build_reference_type (atype);
@@ -5268,10 +5437,12 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 	      gcc_assert (TREE_CODE (stmts[3]) == DECL_EXPR
 			  && TREE_CODE (stmts[4]) == DECL_EXPR);
 	      if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[3])))
-		cxx_mark_addressable (OMP_CLAUSE_DECL (c));
+		cxx_mark_addressable (decl_placeholder ? decl_placeholder
+				      : OMP_CLAUSE_DECL (c));
 	      if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[4])))
 		cxx_mark_addressable (placeholder);
-	      tree omp_priv = convert_from_reference (OMP_CLAUSE_DECL (c));
+	      tree omp_priv = decl_placeholder ? decl_placeholder
+			      : convert_from_reference (OMP_CLAUSE_DECL (c));
 	      tree omp_orig = placeholder;
 	      if (need_static_cast)
 		{
@@ -5310,7 +5481,8 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 	      else
 		{
 		  tree init;
-		  tree v = convert_from_reference (t);
+		  tree v = decl_placeholder ? decl_placeholder
+			   : convert_from_reference (t);
 		  if (AGGREGATE_TYPE_P (TREE_TYPE (v)))
 		    init = build_constructor (TREE_TYPE (v), NULL);
 		  else
@@ -5329,6 +5501,9 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 	     omp_clause_printable_decl (t));
       return true;
     }
+  if (TREE_CODE (OMP_CLAUSE_DECL (c)) == MEM_REF)
+    gcc_assert (TYPE_SIZE_UNIT (type)
+		&& TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST);
   return false;
 }
 
@@ -5365,6 +5540,32 @@ finish_omp_clauses (tree clauses, bool allow_fields)
 	  goto check_dup_generic;
 	case OMP_CLAUSE_REDUCTION:
 	  field_ok = allow_fields;
+	  t = OMP_CLAUSE_DECL (c);
+	  if (TREE_CODE (t) == TREE_LIST)
+	    {
+	      if (handle_omp_array_sections (c))
+		{
+		  remove = true;
+		  break;
+		}
+	      if (TREE_CODE (t) == TREE_LIST)
+		{
+		  while (TREE_CODE (t) == TREE_LIST)
+		    t = TREE_CHAIN (t);
+		}
+	      else
+		{
+		  gcc_assert (TREE_CODE (t) == MEM_REF);
+		  t = TREE_OPERAND (t, 0);
+		  if (TREE_CODE (t) == ADDR_EXPR
+		      || TREE_CODE (t) == INDIRECT_REF)
+		    t = TREE_OPERAND (t, 0);
+		}
+	      tree n = omp_clause_decl_field (t);
+	      if (n)
+		t = n;
+	      goto check_dup_generic_t;
+	    }
 	  goto check_dup_generic;
 	case OMP_CLAUSE_COPYPRIVATE:
 	  copyprivate_seen = true;
@@ -5435,7 +5636,15 @@ finish_omp_clauses (tree clauses, bool allow_fields)
 	    }
 	  goto check_dup_generic;
 	check_dup_generic:
-	  t = OMP_CLAUSE_DECL (c);
+	  t = omp_clause_decl_field (OMP_CLAUSE_DECL (c));
+	  if (t)
+	    {
+	      if (!remove)
+		omp_note_field_privatization (t, OMP_CLAUSE_DECL (c));
+	    }
+	  else
+	    t = OMP_CLAUSE_DECL (c);
+	check_dup_generic_t:
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
 	      && (!field_ok || TREE_CODE (t) != FIELD_DECL))
 	    {
@@ -5461,65 +5670,22 @@ finish_omp_clauses (tree clauses, bool allow_fields)
 	  if (!field_ok)
 	    break;
 	handle_field_decl:
-	  if (!remove && TREE_CODE (t) == FIELD_DECL)
+	  if (!remove
+	      && TREE_CODE (t) == FIELD_DECL
+	      && t == OMP_CLAUSE_DECL (c))
 	    {
-	      tree m = finish_non_static_data_member (t, NULL_TREE, NULL_TREE);
-	      if (m == error_mark_node)
-		{
-		  remove = true;
-		  break;
-		}
-	      if (!omp_private_member_map)
-		omp_private_member_map = new hash_map<tree, tree>;
-	      if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
-		{
-		  gcc_assert (TREE_CODE (m) == INDIRECT_REF);
-		  m = TREE_OPERAND (m, 0);
-		}
-	      tree &v = omp_private_member_map->get_or_insert (t);
-	      if (v == NULL_TREE)
-		{
-		  v = create_temporary_var (TREE_TYPE (m));
-		  if (!DECL_LANG_SPECIFIC (v))
-		    retrofit_lang_decl (v);
-		  DECL_OMP_PRIVATIZED_MEMBER (v) = 1;
-		  SET_DECL_VALUE_EXPR (v, m);
-		  DECL_HAS_VALUE_EXPR_P (v) = 1;
-		  omp_private_member_vec.safe_push (t);
-		}
-	      OMP_CLAUSE_DECL (c) = v;
-	    }
-	  else if (!remove
-		   && VAR_P (t)
-		   && DECL_HAS_VALUE_EXPR_P (t)
-		   && DECL_ARTIFICIAL (t)
-		   && DECL_LANG_SPECIFIC (t)
-		   && DECL_OMP_PRIVATIZED_MEMBER (t))
-	    {
-	      tree f = DECL_VALUE_EXPR (t);
-	      if (TREE_CODE (f) == INDIRECT_REF)
-		f = TREE_OPERAND (f, 0);
-	      if (TREE_CODE (f) == COMPONENT_REF)
-		{
-		  f = TREE_OPERAND (f, 1);
-		  gcc_assert (TREE_CODE (f) == FIELD_DECL);
-		  if (!omp_private_member_map)
-		    omp_private_member_map = new hash_map<tree, tree>;
-		  tree &v = omp_private_member_map->get_or_insert (f);
-		  if (v == NULL_TREE)
-		    {
-		      v = t;
-		      omp_private_member_vec.safe_push (f);
-		      /* Signal that we don't want to create
-			 DECL_EXPR for this dummy var.  */
-		      omp_private_member_vec.safe_push (integer_zero_node);
-		    }
-		}
+	      OMP_CLAUSE_DECL (c) = omp_privatize_field (t);
+	      if (OMP_CLAUSE_DECL (c) == error_mark_node)
+		remove = true;
 	    }
 	  break;
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	  t = OMP_CLAUSE_DECL (c);
+	  t = omp_clause_decl_field (OMP_CLAUSE_DECL (c));
+	  if (t)
+	    omp_note_field_privatization (t, OMP_CLAUSE_DECL (c));
+	  else
+	    t = OMP_CLAUSE_DECL (c);
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
 	      && (!allow_fields || TREE_CODE (t) != FIELD_DECL))
 	    {
@@ -5542,7 +5708,11 @@ finish_omp_clauses (tree clauses, bool allow_fields)
 	  goto handle_field_decl;
 
 	case OMP_CLAUSE_LASTPRIVATE:
-	  t = OMP_CLAUSE_DECL (c);
+	  t = omp_clause_decl_field (OMP_CLAUSE_DECL (c));
+	  if (t)
+	    omp_note_field_privatization (t, OMP_CLAUSE_DECL (c));
+	  else
+	    t = OMP_CLAUSE_DECL (c);
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
 	      && (!allow_fields || TREE_CODE (t) != FIELD_DECL))
 	    {

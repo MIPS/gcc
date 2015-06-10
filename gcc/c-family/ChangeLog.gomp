@@ -1,3 +1,8 @@
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_split_clauses): Copy over also
+	OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER.
+
 2015-05-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-omp.c (c_finish_omp_for): Clear DECL_INITIAL.

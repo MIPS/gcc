@@ -4,6 +4,7 @@ __attribute__((noinline, noclone)) void
 foo (int &b)
 {
 #pragma omp parallel
+#pragma omp single
   {
     bool f = false;
   #pragma omp taskloop firstprivate (b, f)
@@ -23,6 +24,7 @@ foo (int &b)
   }
   int n;
 #pragma omp parallel
+#pragma omp single
   {
     bool f = false;
   #pragma omp taskloop firstprivate (f) lastprivate (b, n)
@@ -40,6 +42,7 @@ foo (int &b)
     __builtin_abort ();
   b = 9;
 #pragma omp parallel
+#pragma omp single
   {
     bool f = false;
   #pragma omp taskloop firstprivate (b, f) lastprivate (b, n)

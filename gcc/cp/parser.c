@@ -27839,6 +27839,7 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 	    case OMP_CLAUSE_FROM:
 	    case OMP_CLAUSE_TO:
 	    case OMP_CLAUSE_DEPEND:
+	    case OMP_CLAUSE_REDUCTION:
 	      while (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SQUARE))
 		{
 		  tree low_bound = NULL_TREE, length = NULL_TREE;

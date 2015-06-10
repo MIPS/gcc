@@ -1,3 +1,21 @@
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_var_list_no_open): Allow array sections
+	for OMP_CLAUSE_REDUCTION.
+	* semantics.c (omp_clause_decl_field, omp_note_field_privatization,
+	omp_privatize_field): New functions.
+	(omp_clause_printable_decl): Use omp_clause_decl_field, move
+	earlier.
+	(handle_omp_array_sections_1): Fix a comment typo.
+	Handle OMP_CLAUSE_REDUCTION array sections.  Report zero size
+	array sections on OMP_CLAUSE_DEPEND.
+	(handle_omp_array_sections): Handle OMP_CLAUSE_REDUCTION array
+	sections.
+	(finish_omp_reduction_clause): Handle OMP_CLAUSE_REDUCTION array
+	sections and arrays.
+	(finish_omp_clauses): Likewise.  Use omp_note_field_privatization,
+	omp_clause_decl_field and omp_privatize_field.
+
 2015-06-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (omp_clause_printable_decl): New function.

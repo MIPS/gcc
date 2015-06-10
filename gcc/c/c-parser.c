@@ -10191,6 +10191,7 @@ c_parser_omp_variable_list (c_parser *parser,
 	    case OMP_CLAUSE_FROM:
 	    case OMP_CLAUSE_TO:
 	    case OMP_CLAUSE_DEPEND:
+	    case OMP_CLAUSE_REDUCTION:
 	      while (c_parser_next_token_is (parser, CPP_OPEN_SQUARE))
 		{
 		  tree low_bound = NULL_TREE, length = NULL_TREE;
@@ -11067,7 +11068,27 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 					   OMP_CLAUSE_REDUCTION, list);
 	  for (c = nl; c != list; c = OMP_CLAUSE_CHAIN (c))
 	    {
-	      tree type = TREE_TYPE (OMP_CLAUSE_DECL (c));
+	      tree d = OMP_CLAUSE_DECL (c), type;
+	      if (TREE_CODE (d) != TREE_LIST)
+		type = TREE_TYPE (d);
+	      else
+		{
+		  int cnt = 0;
+		  tree t;
+		  for (t = d; TREE_CODE (t) == TREE_LIST; t = TREE_CHAIN (t))
+		    cnt++;
+		  type = TREE_TYPE (t);
+		  while (cnt > 0)
+		    {
+		      if (TREE_CODE (type) != POINTER_TYPE
+			  && TREE_CODE (type) != ARRAY_TYPE)
+			break;
+		      type = TREE_TYPE (type);
+		      cnt--;
+		    }
+		}
+	      while (TREE_CODE (type) == ARRAY_TYPE)
+		type = TREE_TYPE (type);
 	      OMP_CLAUSE_REDUCTION_CODE (c) = code;
 	      if (code == ERROR_MARK
 		  || !(INTEGRAL_TYPE_P (type)
@@ -15084,9 +15105,13 @@ c_parser_omp_declare_reduction (c_parser *parser, enum pragma_context context)
 		  int j;
 		  tree c = initializer.value;
 		  for (j = 0; j < call_expr_nargs (c); j++)
-		    if (TREE_CODE (CALL_EXPR_ARG (c, j)) == ADDR_EXPR
-			&& TREE_OPERAND (CALL_EXPR_ARG (c, j), 0) == omp_priv)
-		      break;
+		    {
+		      tree a = CALL_EXPR_ARG (c, j);
+		      STRIP_NOPS (a);
+		      if (TREE_CODE (a) == ADDR_EXPR
+			  && TREE_OPERAND (a, 0) == omp_priv)
+			break;
+		    }
 		  if (j == call_expr_nargs (c))
 		    error ("one of the initializer call arguments should be "
 			   "%<&omp_priv%>");

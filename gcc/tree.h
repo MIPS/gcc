@@ -1458,6 +1458,8 @@ extern void protected_set_expr_location (tree, location_t);
   (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_merge
 #define OMP_CLAUSE_REDUCTION_PLACEHOLDER(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 3)
+#define OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 4)
 
 /* True if a REDUCTION clause may reference the original list item (omp_orig)
    in its OMP_CLAUSE_REDUCTION_{,GIMPLE_}INIT.  */

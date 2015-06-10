@@ -46,7 +46,7 @@ foo (int x)
     ;
 #pragma omp p reduction (*:s) // { dg-error "user defined reduction not found for" }
     ;
-#pragma omp p reduction (-:a) // { dg-error "has invalid type for" }
+#pragma omp p reduction (-:a)
     ;
   d = 0;
 #pragma omp p reduction (*:d)

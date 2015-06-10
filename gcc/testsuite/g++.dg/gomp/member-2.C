@@ -73,7 +73,7 @@ B::m2 ()
   #pragma omp parallel for reduction (+:h)	// { dg-error "is predetermined .shared. for .reduction." }
     for (int i = 0; i < 10; i++)
       ;
-  #pragma omp parallel for reduction (+:g)	// { dg-error "has invalid type for .reduction." }
+  #pragma omp parallel for reduction (+:g)	// { dg-error "has const type for .reduction." }
     for (int i = 0; i < 10; i++)
       ;
   #pragma omp parallel shared (a)	// { dg-error "is not a variable in clause" }
@@ -144,10 +144,10 @@ B::m4 () const
   #pragma omp parallel for reduction (+:h)	// { dg-error "is predetermined .shared. for .reduction." }
     for (int i = 0; i < 10; i++)
       ;
-  #pragma omp parallel for reduction (+:e)	// { dg-error "has invalid type for .reduction." }
+  #pragma omp parallel for reduction (+:e)	// { dg-error "has const type for .reduction." }
     for (int i = 0; i < 10; i++)
       ;
-  #pragma omp parallel for reduction (+:g)	// { dg-error "has invalid type for .reduction." }
+  #pragma omp parallel for reduction (+:g)	// { dg-error "has const type for .reduction." }
     for (int i = 0; i < 10; i++)
       ;
   #pragma omp parallel shared (a)	// { dg-error "is not a variable in clause" }

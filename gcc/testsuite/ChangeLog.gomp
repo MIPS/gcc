@@ -1,3 +1,12 @@
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/clause-1.c (foo): Remove one dg-error directive.
+	* g++.dg/gomp/clause-3.C (foo): Likewise.
+	* gcc.dg/gomp/reduction-1.c: New test.
+	* c-c++-common/gomp/depend-3.c: New test.
+	* c-c++-common/gomp/reduction-1.c: New test.
+	* c-c++-common/gomp/udr-1.c: New test.
+
 2015-06-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/gomp/member-1.C (S::foo, V::foo): Add tests

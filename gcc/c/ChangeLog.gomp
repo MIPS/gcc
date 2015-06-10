@@ -1,3 +1,19 @@
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_variable_list): Allow array sections
+	for OMP_CLAUSE_REDUCTION.
+	(c_parser_omp_clause_reduction): Compute element type even for
+	arrays and array sections.
+	(c_parser_omp_declare_reduction): STRIP_NOPS before checking
+	for &omp_priv.
+	* c-typeck.c (handle_omp_array_sections_1): Fix a comment typo.
+	Handle OMP_CLAUSE_REDUCTION array sections.  Report zero size
+	array sections on OMP_CLAUSE_DEPEND.
+	(handle_omp_array_sections): Use auto_vec for types, drop
+	types.release () calls.  Handle OMP_CLAUSE_REDUCTION array sections.
+	(c_finish_omp_clauses): Handle OMP_CLAUSE_REDUCTION array sections
+	and arrays.
+
 2015-05-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_pragma): Return result of

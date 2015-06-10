@@ -1236,6 +1236,9 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 		= DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
 		= info->context;
+	      if (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
+		DECL_CONTEXT (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
+		  = info->context;
 	      walk_body (convert_nonlocal_reference_stmt,
 			 convert_nonlocal_reference_op, info,
 			 &OMP_CLAUSE_REDUCTION_GIMPLE_INIT (clause));
@@ -1244,6 +1247,9 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 			 &OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
 		= old_context;
+	      if (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
+		DECL_CONTEXT (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
+		  = old_context;
 	    }
 	  break;
 
@@ -1881,6 +1887,9 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 		= DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
 		= info->context;
+	      if (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
+		DECL_CONTEXT (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
+		  = info->context;
 	      walk_body (convert_local_reference_stmt,
 			 convert_local_reference_op, info,
 			 &OMP_CLAUSE_REDUCTION_GIMPLE_INIT (clause));
@@ -1889,6 +1898,9 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 			 &OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
 		= old_context;
+	      if (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
+		DECL_CONTEXT (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
+		  = old_context;
 	    }
 	  break;
 

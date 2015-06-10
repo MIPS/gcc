@@ -1,3 +1,23 @@
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.c (omp_clause_num_ops): Bump number of OMP_CLAUSE_REDUCTION
+	arguments to 5.
+	(walk_tree_1): Adjust for 5 instead of 4 OMP_CLAUSE_REDUCTION
+	arguments.
+	* tree-core.h (OMP_CLAUSE_REDUCTION): Document
+	OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER.
+	* tree.h (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER): Define.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Temporarily adjust context of
+	OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER too if non-NULL.
+	* gimplify.c (omp_add_variable): Call omp_notice_variable
+	on TYPE_SIZE_UNIT only if it is a DECL_P.
+	(find_decl_expr): New function.
+	(gimplify_scan_omp_clauses): Handle OMP_CLAUSE_REDUCTION
+	with MEM_REF OMP_CLAUSE_DECL.
+	* omp-low.c (scan_sharing_clauses, lower_rec_input_clauses,
+	lower_reduction_clauses, lower_send_clauses): Likewise.
+
 2015-06-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (omp_check_private): Handle

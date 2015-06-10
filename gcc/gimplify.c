@@ -5739,7 +5739,7 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
       if ((flags & GOVD_SHARED) == 0)
 	{
 	  t = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (decl)));
-	  if (TREE_CODE (t) != INTEGER_CST)
+	  if (DECL_P (t))
 	    omp_notice_variable (ctx, t, true);
 	}
     }
@@ -6129,6 +6129,22 @@ omp_no_lastprivate (struct gimplify_omp_ctx *ctx)
   while (1);
 }
 
+/* Callback for walk_tree to find a DECL_EXPR for the given DECL.  */
+
+static tree
+find_decl_expr (tree *tp, int *walk_subtrees, void *data)
+{
+  tree t = *tp;
+
+  /* If this node has been visited, unmark it and keep looking.  */
+  if (TREE_CODE (t) == DECL_EXPR && DECL_EXPR_DECL (t) == (tree) data)
+    return t;
+
+  if (IS_TYPE_OR_DECL_P (t))
+    *walk_subtrees = 0;
+  return NULL_TREE;
+}
+
 /* Scan the OMP clauses in *LIST_P, installing mappings into a new
    and previous omp contexts.  */
 
@@ -6211,7 +6227,28 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_REDUCTION:
 	  flags = GOVD_REDUCTION | GOVD_SEEN | GOVD_EXPLICIT;
 	  check_non_private = "reduction";
-	  goto do_add;
+	  decl = OMP_CLAUSE_DECL (c);
+	  if (TREE_CODE (decl) == MEM_REF)
+	    {
+	      tree type = TREE_TYPE (decl);
+	      if (gimplify_expr (&TYPE_MAX_VALUE (TYPE_DOMAIN (type)), pre_p,
+				 NULL, is_gimple_val, fb_rvalue) == GS_ERROR)
+		{
+		  remove = true;
+		  break;
+		}
+	      tree v = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+	      if (DECL_P (v))
+		{
+		  omp_firstprivatize_variable (ctx, v);
+		  omp_notice_variable (ctx, v, true);
+		}
+	      decl = TREE_OPERAND (decl, 0);
+	      if (TREE_CODE (decl) == ADDR_EXPR
+		  || TREE_CODE (decl) == INDIRECT_REF)
+		decl = TREE_OPERAND (decl, 0);
+	    }
+	  goto do_add_decl;
 	case OMP_CLAUSE_LINEAR:
 	  if (gimplify_expr (&OMP_CLAUSE_LINEAR_STEP (c), pre_p, NULL,
 			     is_gimple_val, fb_rvalue) == GS_ERROR)
@@ -6371,6 +6408,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 
 	do_add:
 	  decl = OMP_CLAUSE_DECL (c);
+	do_add_decl:
 	  if (error_operand_p (decl))
 	    {
 	      remove = true;
@@ -6393,6 +6431,14 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    {
 	      omp_add_variable (ctx, OMP_CLAUSE_REDUCTION_PLACEHOLDER (c),
 				GOVD_LOCAL | GOVD_SEEN);
+	      if (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (c)
+		  && walk_tree (&OMP_CLAUSE_REDUCTION_INIT (c),
+				find_decl_expr,
+				OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (c),
+				NULL) == NULL_TREE)
+		omp_add_variable (ctx,
+				  OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (c),
+				  GOVD_LOCAL | GOVD_SEEN);
 	      gimplify_omp_ctxp = ctx;
 	      push_gimplify_context ();
 
@@ -6496,6 +6542,11 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    omp_notice_variable (outer_ctx, decl, true);
 	  if (check_non_private
 	      && region_type == ORT_WORKSHARE
+	      && (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_REDUCTION
+		  || decl == OMP_CLAUSE_DECL (c)
+		  || (TREE_CODE (OMP_CLAUSE_DECL (c)) == MEM_REF
+		      && (TREE_CODE (TREE_OPERAND (OMP_CLAUSE_DECL (c), 0))
+			  == ADDR_EXPR)))
 	      && omp_check_private (ctx, decl, false))
 	    {
 	      error ("%s variable %qE is private in outer context",

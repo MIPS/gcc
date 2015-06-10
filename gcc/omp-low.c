@@ -1856,6 +1856,27 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  OMP_CLAUSE_SET_CODE (c, OMP_CLAUSE_FIRSTPRIVATE);
 	  goto do_private;
 
+	case OMP_CLAUSE_REDUCTION:
+	  decl = OMP_CLAUSE_DECL (c);
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+	      && TREE_CODE (decl) == MEM_REF)
+	    {
+	      tree t = TREE_OPERAND (decl, 0);
+	      if (TREE_CODE (t) == INDIRECT_REF
+		  || TREE_CODE (t) == ADDR_EXPR)
+		t = TREE_OPERAND (t, 0);
+	      install_var_local (t, ctx);
+	      if (is_taskreg_ctx (ctx)
+		  && !is_global_var (maybe_lookup_decl_in_outer_ctx (t, ctx))
+		  && !is_variable_sized (t))
+		{
+		  by_ref = use_pointer_for_field (t, ctx);
+		  install_var_field (t, by_ref, 3, ctx);
+		}
+	      break;
+	    }
+	  goto do_private;
+
 	case OMP_CLAUSE_LASTPRIVATE:
 	  /* Let the corresponding firstprivate clause create
 	     the variable.  */
@@ -1870,7 +1891,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      break;
 	    }
 	  /* FALLTHRU */
-	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_LINEAR:
 	  decl = OMP_CLAUSE_DECL (c);
 	do_private:
@@ -2102,7 +2122,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    }
 	  /* FALLTHRU */
 	case OMP_CLAUSE_PRIVATE:
-	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_LINEAR:
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_variable_sized (decl))
@@ -2110,11 +2129,20 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  fixup_remapped_decl (decl, ctx,
 			       OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
 			       && OMP_CLAUSE_PRIVATE_DEBUG (c));
-	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
-	      && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	      && OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c))
 	    scan_array_reductions = true;
-	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
-		   && OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c))
+	  break;
+
+	case OMP_CLAUSE_REDUCTION:
+	  decl = OMP_CLAUSE_DECL (c);
+	  if (TREE_CODE (decl) != MEM_REF)
+	    {
+	      if (is_variable_sized (decl))
+		install_var_local (decl, ctx);
+	      fixup_remapped_decl (decl, ctx, false);
+	    }
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	    scan_array_reductions = true;
 	  break;
 
@@ -3861,11 +3889,15 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	  if (OMP_CLAUSE_LINEAR_ARRAY (c))
 	    max_vf = 1;
 	  /* FALLTHRU */
-	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_LASTPRIVATE:
 	  if (is_variable_sized (OMP_CLAUSE_DECL (c)))
+	    max_vf = 1;
+	  break;
+	case OMP_CLAUSE_REDUCTION:
+	  if (TREE_CODE (OMP_CLAUSE_DECL (c)) == MEM_REF
+	      || is_variable_sized (OMP_CLAUSE_DECL (c)))
 	    max_vf = 1;
 	  break;
 	default:
@@ -3970,6 +4002,22 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	    }
 
 	  new_var = var = OMP_CLAUSE_DECL (c);
+	  if (c_kind == OMP_CLAUSE_REDUCTION && TREE_CODE (var) == MEM_REF)
+	    {
+	      var = TREE_OPERAND (var, 0);
+	      if (TREE_CODE (var) == INDIRECT_REF
+		  || TREE_CODE (var) == ADDR_EXPR)
+		var = TREE_OPERAND (var, 0);
+	      if (is_variable_sized (var))
+		{
+		  gcc_assert (DECL_HAS_VALUE_EXPR_P (var));
+		  var = DECL_VALUE_EXPR (var);
+		  gcc_assert (TREE_CODE (var) == INDIRECT_REF);
+		  var = TREE_OPERAND (var, 0);
+		  gcc_assert (DECL_P (var));
+		}
+	      new_var = var;
+	    }
 	  if (c_kind != OMP_CLAUSE_COPYIN)
 	    new_var = lookup_decl (var, ctx);
 
@@ -3977,6 +4025,236 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	    {
 	      if (pass != 0)
 		continue;
+	    }
+	  /* C/C++ array section reductions.  */
+	  else if (c_kind == OMP_CLAUSE_REDUCTION
+		   && var != OMP_CLAUSE_DECL (c))
+	    {
+	      if (pass == 0)
+		continue;
+
+	      tree orig_var = TREE_OPERAND (OMP_CLAUSE_DECL (c), 0);
+	      if (TREE_CODE (orig_var) == INDIRECT_REF
+		  || TREE_CODE (orig_var) == ADDR_EXPR)
+		orig_var = TREE_OPERAND (orig_var, 0);
+	      tree d = OMP_CLAUSE_DECL (c);
+	      tree type = TREE_TYPE (d);
+	      gcc_assert (TREE_CODE (type) == ARRAY_TYPE);
+	      tree v = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+	      const char *name = NULL;
+	      if (DECL_NAME (orig_var))
+		name = IDENTIFIER_POINTER (DECL_NAME (orig_var));
+	      if (TREE_CONSTANT (v))
+		{
+		  x = create_tmp_var_raw (type, name);
+		  gimple_add_tmp_var (x);
+		  TREE_ADDRESSABLE (x) = 1;
+		  x = build_fold_addr_expr_loc (clause_loc, x);
+		}
+	      else
+		{
+		  tree atmp = builtin_decl_explicit (BUILT_IN_ALLOCA);
+		  tree t = maybe_lookup_decl (v, ctx);
+		  if (t)
+		    v = t;
+		  else
+		    v = maybe_lookup_decl_in_outer_ctx (v, ctx);
+		  gimplify_expr (&v, ilist, NULL, is_gimple_val, fb_rvalue);
+		  t = fold_build2_loc (clause_loc, PLUS_EXPR,
+				       TREE_TYPE (v), v,
+				       build_int_cst (TREE_TYPE (v), 1));
+		  t = fold_build2_loc (clause_loc, MULT_EXPR,
+				       TREE_TYPE (v), t,
+				       TYPE_SIZE_UNIT (TREE_TYPE (type)));
+		  x = build_call_expr_loc (clause_loc, atmp, 1, t);
+		}
+
+	      tree ptype = build_pointer_type (TREE_TYPE (type));
+	      x = fold_convert_loc (clause_loc, ptype, x);
+	      tree y = create_tmp_var (ptype, name);
+	      gimplify_assign (y, x, ilist);
+	      x = y;
+	      if (TREE_CODE (TREE_OPERAND (d, 0)) == ADDR_EXPR)
+		{
+		  if (orig_var != var)
+		    {
+		      gcc_assert (is_variable_sized (orig_var));
+		      x = fold_convert_loc (clause_loc, TREE_TYPE (new_var),
+					    x);
+		      gimplify_assign (new_var, x, ilist);
+		      tree new_orig_var = lookup_decl (orig_var, ctx);
+		      tree t = build_fold_indirect_ref (new_var);
+		      DECL_IGNORED_P (new_var) = 0;
+		      TREE_THIS_NOTRAP (t);
+		      SET_DECL_VALUE_EXPR (new_orig_var, t);
+		      DECL_HAS_VALUE_EXPR_P (new_orig_var) = 1;
+		    }
+		  else
+		    {
+		      x = build2 (MEM_REF, TREE_TYPE (new_var), x,
+				  build_int_cst (ptype, 0));
+		      SET_DECL_VALUE_EXPR (new_var, x);
+		      DECL_HAS_VALUE_EXPR_P (new_var) = 1;
+		    }
+		}
+	      else
+		{
+		  gcc_assert (orig_var == var);
+		  if (TREE_CODE (TREE_OPERAND (d, 0)) == INDIRECT_REF)
+		    {
+		      x = create_tmp_var (ptype, name);
+		      TREE_ADDRESSABLE (x) = 1;
+		      gimplify_assign (x, y, ilist);
+		      x = build_fold_addr_expr_loc (clause_loc, x);
+		    }
+		  x = fold_convert_loc (clause_loc, TREE_TYPE (new_var), x);
+		  gimplify_assign (new_var, x, ilist);
+		}
+	      tree y1 = create_tmp_var (ptype, NULL);
+	      gimplify_assign (y1, y, ilist);
+	      tree i2 = NULL_TREE, y2 = NULL_TREE;
+	      tree body2 = NULL_TREE, end2 = NULL_TREE;
+	      tree y3 = NULL_TREE, y4 = NULL_TREE;
+	      if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) || is_simd)
+		{
+		  y2 = create_tmp_var (ptype, NULL);
+		  gimplify_assign (y2, y, ilist);
+		  tree ref = build_outer_var_ref (var, ctx);
+		  /* For ref build_outer_var_ref already performs this.  */
+		  if (TREE_CODE (TREE_OPERAND (d, 0)) == INDIRECT_REF)
+		    gcc_assert (is_reference (var));
+		  else if (TREE_CODE (TREE_OPERAND (d, 0)) == ADDR_EXPR)
+		    ref = build_fold_addr_expr (ref);
+		  else if (is_reference (var))
+		    ref = build_fold_addr_expr (ref);
+		  ref = fold_convert_loc (clause_loc, ptype, ref);
+		  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c)
+		      && OMP_CLAUSE_REDUCTION_OMP_ORIG_REF (c))
+		    {
+		      y3 = create_tmp_var (ptype, NULL);
+		      gimplify_assign (y3, unshare_expr (ref), ilist);
+		    }
+		  if (is_simd)
+		    {
+		      y4 = create_tmp_var (ptype, NULL);
+		      gimplify_assign (y4, ref, dlist);
+		    }
+		}
+	      tree i = create_tmp_var (TREE_TYPE (v), NULL);
+	      gimplify_assign (i, build_int_cst (TREE_TYPE (v), 0), ilist);
+	      tree body = create_artificial_label (UNKNOWN_LOCATION);
+	      tree end = create_artificial_label (UNKNOWN_LOCATION);
+	      gimple_seq_add_stmt (ilist, gimple_build_label (body));
+	      if (y2)
+		{
+		  i2 = create_tmp_var (TREE_TYPE (v), NULL);
+		  gimplify_assign (i2, build_int_cst (TREE_TYPE (v), 0), dlist);
+		  body2 = create_artificial_label (UNKNOWN_LOCATION);
+		  end2 = create_artificial_label (UNKNOWN_LOCATION);
+		  gimple_seq_add_stmt (dlist, gimple_build_label (body2));
+		}
+	      if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+		{
+		  tree placeholder = OMP_CLAUSE_REDUCTION_PLACEHOLDER (c);
+		  tree decl_placeholder
+		    = OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (c);
+		  SET_DECL_VALUE_EXPR (decl_placeholder,
+				       build_simple_mem_ref (y1));
+		  DECL_HAS_VALUE_EXPR_P (decl_placeholder) = 1;
+		  SET_DECL_VALUE_EXPR (placeholder,
+				       y3 ? build_simple_mem_ref (y3)
+				       : error_mark_node);
+		  DECL_HAS_VALUE_EXPR_P (placeholder) = 1;
+		  x = lang_hooks.decls.omp_clause_default_ctor
+				(c, build_simple_mem_ref (y1),
+				 y3 ? build_simple_mem_ref (y3) : NULL_TREE);
+		  if (x)
+		    gimplify_and_add (x, ilist);
+		  if (OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c))
+		    {
+		      gimple_seq tseq = OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c);
+		      lower_omp (&tseq, ctx);
+		      gimple_seq_add_seq (ilist, tseq);
+		    }
+		  OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c) = NULL;
+		  if (is_simd)
+		    {
+		      SET_DECL_VALUE_EXPR (decl_placeholder,
+					   build_simple_mem_ref (y2));
+		      SET_DECL_VALUE_EXPR (placeholder,
+					   build_simple_mem_ref (y4));
+		      gimple_seq tseq = OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c);
+		      lower_omp (&tseq, ctx);
+		      gimple_seq_add_seq (dlist, tseq);
+		      OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c) = NULL;
+		    }
+		  DECL_HAS_VALUE_EXPR_P (placeholder) = 0;
+		  DECL_HAS_VALUE_EXPR_P (decl_placeholder) = 0;
+		  x = lang_hooks.decls.omp_clause_dtor
+					(c, build_simple_mem_ref (y2));
+		  if (x)
+		    {
+		      gimple_seq tseq = NULL;
+		      dtor = x;
+		      gimplify_stmt (&dtor, &tseq);
+		      gimple_seq_add_seq (dlist, tseq);
+		    }
+		}
+	      else
+		{
+		  x = omp_reduction_init (c, TREE_TYPE (type));
+		  enum tree_code code = OMP_CLAUSE_REDUCTION_CODE (c);
+
+		  /* reduction(-:var) sums up the partial results, so it
+		     acts identically to reduction(+:var).  */
+		  if (code == MINUS_EXPR)
+		    code = PLUS_EXPR;
+
+		  gimplify_assign (build_simple_mem_ref (y1), x, ilist);
+		  if (is_simd)
+		    {
+		      x = build2 (code, TREE_TYPE (type),
+				  build_simple_mem_ref (y4),
+				  build_simple_mem_ref (y2));
+		      gimplify_assign (build_simple_mem_ref (y4), x, dlist);
+		    }
+		}
+	      gimple g
+		= gimple_build_assign (y1, POINTER_PLUS_EXPR, y1,
+				       TYPE_SIZE_UNIT (TREE_TYPE (type)));
+	      gimple_seq_add_stmt (ilist, g);
+	      if (y3)
+		{
+		  g = gimple_build_assign (y3, POINTER_PLUS_EXPR, y3,
+					   TYPE_SIZE_UNIT (TREE_TYPE (type)));
+		  gimple_seq_add_stmt (ilist, g);
+		}
+	      g = gimple_build_assign (i, PLUS_EXPR, i,
+				       build_int_cst (TREE_TYPE (i), 1));
+	      gimple_seq_add_stmt (ilist, g);
+	      g = gimple_build_cond (LE_EXPR, i, v, body, end);
+	      gimple_seq_add_stmt (ilist, g);
+	      gimple_seq_add_stmt (ilist, gimple_build_label (end));
+	      if (y2)
+		{
+		  g = gimple_build_assign (y2, POINTER_PLUS_EXPR, y2,
+					   TYPE_SIZE_UNIT (TREE_TYPE (type)));
+		  gimple_seq_add_stmt (dlist, g);
+		  if (y4)
+		    {
+		      g = gimple_build_assign
+					(y4, POINTER_PLUS_EXPR, y4,
+					 TYPE_SIZE_UNIT (TREE_TYPE (type)));
+		      gimple_seq_add_stmt (dlist, g);
+		    }
+		  g = gimple_build_assign (i2, PLUS_EXPR, i2,
+					   build_int_cst (TREE_TYPE (i2), 1));
+		  gimple_seq_add_stmt (dlist, g);
+		  g = gimple_build_cond (LE_EXPR, i2, v, body2, end2);
+		  gimple_seq_add_stmt (dlist, g);
+		  gimple_seq_add_stmt (dlist, gimple_build_label (end2));
+		}
+	      continue;
 	    }
 	  else if (is_variable_sized (var))
 	    {
@@ -4770,7 +5048,8 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
   for (c = clauses; c && count < 2; c = OMP_CLAUSE_CHAIN (c))
     if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
       {
-	if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+	if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c)
+	    || TREE_CODE (OMP_CLAUSE_DECL (c)) == MEM_REF)
 	  {
 	    /* Never use OMP_ATOMIC for array reductions or UDRs.  */
 	    count = -1;
@@ -4795,16 +5074,32 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     {
-      tree var, ref, new_var;
+      tree var, ref, new_var, orig_var;
       enum tree_code code;
       location_t clause_loc = OMP_CLAUSE_LOCATION (c);
 
       if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_REDUCTION)
 	continue;
 
-      var = OMP_CLAUSE_DECL (c);
+      orig_var = var = OMP_CLAUSE_DECL (c);
+      if (TREE_CODE (var) == MEM_REF)
+	{
+	  var = TREE_OPERAND (var, 0);
+	  if (TREE_CODE (var) == INDIRECT_REF
+	      || TREE_CODE (var) == ADDR_EXPR)
+	    var = TREE_OPERAND (var, 0);
+	  orig_var = var;
+	  if (is_variable_sized (var))
+	    {
+	      gcc_assert (DECL_HAS_VALUE_EXPR_P (var));
+	      var = DECL_VALUE_EXPR (var);
+	      gcc_assert (TREE_CODE (var) == INDIRECT_REF);
+	      var = TREE_OPERAND (var, 0);
+	      gcc_assert (DECL_P (var));
+	    }
+	}
       new_var = lookup_decl (var, ctx);
-      if (is_reference (var))
+      if (var == OMP_CLAUSE_DECL (c) && is_reference (var))
 	new_var = build_simple_mem_ref_loc (clause_loc, new_var);
       ref = build_outer_var_ref (var, ctx);
       code = OMP_CLAUSE_REDUCTION_CODE (c);
@@ -4830,6 +5125,92 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	  x = build2 (OMP_ATOMIC, void_type_node, addr, x);
 	  gimplify_and_add (x, stmt_seqp);
 	  return;
+	}
+      else if (TREE_CODE (OMP_CLAUSE_DECL (c)) == MEM_REF)
+	{
+	  tree d = OMP_CLAUSE_DECL (c);
+	  tree type = TREE_TYPE (d);
+	  tree v = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+	  tree i = create_tmp_var (TREE_TYPE (v), NULL);
+	  tree ptype = build_pointer_type (TREE_TYPE (type));
+	  /* For ref build_outer_var_ref already performs this, so
+	     only new_var needs a dereference.  */
+	  if (TREE_CODE (TREE_OPERAND (d, 0)) == INDIRECT_REF)
+	    {
+	      new_var = build_simple_mem_ref_loc (clause_loc, new_var);
+	      gcc_assert (is_reference (var) && var == orig_var);
+	    }
+	  else if (TREE_CODE (TREE_OPERAND (d, 0)) == ADDR_EXPR)
+	    {
+	      if (orig_var == var)
+		{
+		  new_var = build_fold_addr_expr (new_var);
+		  ref = build_fold_addr_expr (ref);
+		}
+	    }
+	  else
+	    {
+	      gcc_assert (orig_var == var);
+	      if (is_reference (var))
+		ref = build_fold_addr_expr (ref);
+	    }
+	  if (DECL_P (v))
+	    {
+	      tree t = maybe_lookup_decl (v, ctx);
+	      if (t)
+		v = t;
+	      else
+		v = maybe_lookup_decl_in_outer_ctx (v, ctx);
+	      gimplify_expr (&v, stmt_seqp, NULL, is_gimple_val, fb_rvalue);
+	    }
+	  new_var = fold_convert_loc (clause_loc, ptype, new_var);
+	  ref = fold_convert_loc (clause_loc, ptype, ref);
+	  tree m = create_tmp_var (ptype, NULL);
+	  gimplify_assign (m, new_var, stmt_seqp);
+	  new_var = m;
+	  m = create_tmp_var (ptype, NULL);
+	  gimplify_assign (m, ref, stmt_seqp);
+	  ref = m;
+	  gimplify_assign (i, build_int_cst (TREE_TYPE (v), 0), stmt_seqp);
+	  tree body = create_artificial_label (UNKNOWN_LOCATION);
+	  tree end = create_artificial_label (UNKNOWN_LOCATION);
+	  gimple_seq_add_stmt (&sub_seq, gimple_build_label (body));
+	  tree priv = build_simple_mem_ref_loc (clause_loc, new_var);
+	  tree out = build_simple_mem_ref_loc (clause_loc, ref);
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+	    {
+	      tree placeholder = OMP_CLAUSE_REDUCTION_PLACEHOLDER (c);
+	      tree decl_placeholder
+		= OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (c);
+	      SET_DECL_VALUE_EXPR (placeholder, out);
+	      DECL_HAS_VALUE_EXPR_P (placeholder) = 1;
+	      SET_DECL_VALUE_EXPR (decl_placeholder, priv);
+	      DECL_HAS_VALUE_EXPR_P (decl_placeholder) = 1;
+	      lower_omp (&OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c), ctx);
+	      gimple_seq_add_seq (&sub_seq,
+				  OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c));
+	      OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c) = NULL;
+	      OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = NULL;
+	      OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (c) = NULL;
+	    }
+	  else
+	    {
+	      x = build2 (code, TREE_TYPE (out), out, priv);
+	      out = unshare_expr (out);
+	      gimplify_assign (out, x, &sub_seq);
+	    }
+	  gimple g = gimple_build_assign (new_var, POINTER_PLUS_EXPR, new_var,
+					  TYPE_SIZE_UNIT (TREE_TYPE (type)));
+	  gimple_seq_add_stmt (&sub_seq, g);
+	  g = gimple_build_assign (ref, POINTER_PLUS_EXPR, ref,
+				   TYPE_SIZE_UNIT (TREE_TYPE (type)));
+	  gimple_seq_add_stmt (&sub_seq, g);
+	  g = gimple_build_assign (i, PLUS_EXPR, i,
+				   build_int_cst (TREE_TYPE (i), 1));
+	  gimple_seq_add_stmt (&sub_seq, g);
+	  g = gimple_build_cond (LE_EXPR, i, v, body, end);
+	  gimple_seq_add_stmt (&sub_seq, g);
+	  gimple_seq_add_stmt (&sub_seq, gimple_build_label (end));
 	}
       else if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	{
@@ -4966,6 +5347,16 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 	}
 
       val = OMP_CLAUSE_DECL (c);
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+	  && TREE_CODE (val) == MEM_REF)
+	{
+	  val = TREE_OPERAND (val, 0);
+	  if (TREE_CODE (val) == INDIRECT_REF
+	      || TREE_CODE (val) == ADDR_EXPR)
+	    val = TREE_OPERAND (val, 0);
+	  if (is_variable_sized (val))
+	    continue;
+	}
       var = lookup_decl_in_outer_ctx (val, ctx);
 
       if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_COPYIN
@@ -5001,7 +5392,9 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 	  continue;
 	}
 
-      if (is_variable_sized (val))
+      if ((OMP_CLAUSE_CODE (c) != OMP_CLAUSE_REDUCTION
+	   || val == OMP_CLAUSE_DECL (c))
+	  && is_variable_sized (val))
 	continue;
       by_ref = use_pointer_for_field (val, NULL);
 
@@ -5031,7 +5424,10 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 
 	case OMP_CLAUSE_REDUCTION:
 	  do_in = true;
-	  do_out = !(by_ref || is_reference (val));
+	  if (val == OMP_CLAUSE_DECL (c))
+	    do_out = !(by_ref || is_reference (val));
+	  else
+	    by_ref = TREE_CODE (TREE_TYPE (val)) == ARRAY_TYPE;
 	  break;
 
 	default:
