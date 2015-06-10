@@ -6019,10 +6019,11 @@ unary_complex_lvalue (enum tree_code code, tree arg)
    address of it; it should not be allocated in a register.
    Value is true if successful.
 
-   C++: we do not allow `current_class_ptr' to be addressable.  */
+   C++: we do not allow `current_class_ptr' to be addressable unless
+   ALLOW_THIS is true.  */
 
 bool
-cxx_mark_addressable (tree exp)
+cxx_mark_addressable (tree exp, bool allow_this)
 {
   tree x = exp;
 
@@ -6040,7 +6041,8 @@ cxx_mark_addressable (tree exp)
       case PARM_DECL:
 	if (x == current_class_ptr)
 	  {
-	    error ("cannot take the address of %<this%>, which is an rvalue expression");
+	    if (!allow_this)
+	      error ("cannot take the address of %<this%>, which is an rvalue expression");
 	    TREE_ADDRESSABLE (x) = 1; /* so compiler doesn't die later.  */
 	    return true;
 	  }
@@ -6083,7 +6085,7 @@ cxx_mark_addressable (tree exp)
 
       case TARGET_EXPR:
 	TREE_ADDRESSABLE (x) = 1;
-	cxx_mark_addressable (TREE_OPERAND (x, 0));
+	cxx_mark_addressable (TREE_OPERAND (x, 0), allow_this);
 	return true;
 
       default:

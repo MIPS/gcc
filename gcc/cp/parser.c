@@ -27872,19 +27872,27 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
       tree name, decl;
 
       token = cp_lexer_peek_token (parser->lexer);
-      name = cp_parser_id_expression (parser, /*template_p=*/false,
-				      /*check_dependency_p=*/true,
-				      /*template_p=*/NULL,
-				      /*declarator_p=*/false,
-				      /*optional_p=*/false);
-      if (name == error_mark_node)
-	goto skip_comma;
+      if (current_class_ptr && cp_parser_is_keyword (token, RID_THIS))
+	{
+	  decl = current_class_ptr;
+	  cp_lexer_consume_token (parser->lexer);
+	}
+      else
+	{
+	  name = cp_parser_id_expression (parser, /*template_p=*/false,
+					  /*check_dependency_p=*/true,
+					  /*template_p=*/NULL,
+					  /*declarator_p=*/false,
+					  /*optional_p=*/false);
+	  if (name == error_mark_node)
+	    goto skip_comma;
 
-      decl = cp_parser_lookup_name_simple (parser, name, token->location);
-      if (decl == error_mark_node)
-	cp_parser_name_lookup_error (parser, name, decl, NLE_NULL,
-				     token->location);
-      else if (kind != 0)
+	  decl = cp_parser_lookup_name_simple (parser, name, token->location);
+	  if (decl == error_mark_node)
+	    cp_parser_name_lookup_error (parser, name, decl, NLE_NULL,
+					 token->location);
+	}
+      if (decl != error_mark_node && kind != 0)
 	{
 	  switch (kind)
 	    {
@@ -27958,7 +27966,7 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 	  OMP_CLAUSE_CHAIN (u) = list;
 	  list = u;
 	}
-      else
+      else if (decl != error_mark_node)
 	list = tree_cons (decl, NULL_TREE, list);
 
     get_comma:

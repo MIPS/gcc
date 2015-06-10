@@ -1,3 +1,12 @@
+2015-06-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* parser.c (cp_parser_omp_var_list_no_open): Handle RID_THIS.
+	* typeck.c (cxx_mark_addressable): Add argument ALLOW_THIS.
+	* cp-tree.h (cxx_mark_addressable): Update prototype.
+	* semantics.c (handle_omp_array_sections)
+	(finish_omp_reduction_clause, finish_omp_clauses): Pass ALLOW_THIS
+	to cxx_mark_addressable.
+
 2015-06-08  James Norris  <jnorris@codesourcery.com>
 
 	* decl.c (gomp-constants.h): Add inclusion.

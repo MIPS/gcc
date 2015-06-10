@@ -4673,7 +4673,7 @@ handle_omp_array_sections (tree c)
 	  tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 				      OMP_CLAUSE_MAP);
 	  OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
-	  if (!cxx_mark_addressable (t))
+	  if (!cxx_mark_addressable (t, true))
 	    return false;
 	  OMP_CLAUSE_DECL (c2) = t;
 	  t = build_fold_addr_expr (first);
@@ -5204,7 +5204,7 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 	      if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[1]))
 		  && TREE_CODE (TREE_TYPE (OMP_CLAUSE_DECL (c)))
 		     != REFERENCE_TYPE)
-		cxx_mark_addressable (OMP_CLAUSE_DECL (c));
+		cxx_mark_addressable (OMP_CLAUSE_DECL (c), true);
 	      tree omp_out = placeholder;
 	      tree omp_in = convert_from_reference (OMP_CLAUSE_DECL (c));
 	      if (need_static_cast)
@@ -5228,7 +5228,7 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 	      gcc_assert (TREE_CODE (stmts[3]) == DECL_EXPR
 			  && TREE_CODE (stmts[4]) == DECL_EXPR);
 	      if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[3])))
-		cxx_mark_addressable (OMP_CLAUSE_DECL (c));
+		cxx_mark_addressable (OMP_CLAUSE_DECL (c), true);
 	      if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[4])))
 		cxx_mark_addressable (placeholder);
 	      tree omp_priv = convert_from_reference (OMP_CLAUSE_DECL (c));
@@ -5844,7 +5844,7 @@ finish_omp_clauses (tree clauses, bool oacc)
 	      remove = true;
 	    }
 	  else if (!processing_template_decl
-		   && !cxx_mark_addressable (t))
+		   && !cxx_mark_addressable (t, true))
 	    remove = true;
 	  break;
 
@@ -5907,7 +5907,7 @@ finish_omp_clauses (tree clauses, bool oacc)
 	    }
 	  else if (!processing_template_decl
 		   && TREE_CODE (TREE_TYPE (t)) != REFERENCE_TYPE
-		   && !cxx_mark_addressable (t))
+		   && !cxx_mark_addressable (t, true))
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		     && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
