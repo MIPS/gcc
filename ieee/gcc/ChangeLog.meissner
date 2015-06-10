@@ -1,6 +1,27 @@
-2015-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2015-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Recreate branch with subversion id 224342.
+	* REVISION: Update subversion id.
+
+2015-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.h (SLOW_UNALIGNED_ACCESS): Rework.
+
+2015-06-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 224166.
+	* REVISION: Update subversion id.
+
+2015-05-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (scalar_float_not_ieee128_p): Use
+	FLOAT128_VECTOR_P, not just IEEE_128BIT_P.
+	(rs6000_init_hard_regno_mode_ok): Add TFmode reload handlers if
+	TFmode would go in a vector register.
+
+2015-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 223705.
 	* REVISION: Update subversion id.
 
 2015-05-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
