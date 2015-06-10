@@ -1,5 +1,9 @@
 2015-06-10  James Norris  <jnorris@codesourcery.com>
 
+	* testsuite/libgomp.oacc-fortran/atomic_rw-1.f90: New file.
+
+2015-06-10  James Norris  <jnorris@codesourcery.com>
+
 	* testsuite/libgomp.oacc-c-c++-common/atomic_rw-1.c: New file.
 
 2015-06-08  James Norris  <jnorris@codesourcery.com>
