@@ -6474,7 +6474,7 @@ cp_parser_array_notation (location_t loc, cp_parser *parser, tree *init_index,
 	 3. ARRAY [ EXP : EXP : EXP ]  */
 
       *init_index = cp_parser_expression (parser);
-      *init_index = maybe_constant_value (*init_index);
+      *init_index = cp_try_fold_to_constant (*init_index);
       if (cp_lexer_peek_token (parser->lexer)->type != CPP_COLON)
 	{  
 	  /* This indicates that we have a normal array expression.  */
@@ -6485,12 +6485,12 @@ cp_parser_array_notation (location_t loc, cp_parser *parser, tree *init_index,
       /* Consume the ':'.  */
       cp_lexer_consume_token (parser->lexer);
       length_index = cp_parser_expression (parser);
-      length_index = maybe_constant_value (length_index);
+      length_index = cp_try_fold_to_constant (length_index);
       if (cp_lexer_peek_token (parser->lexer)->type == CPP_COLON)
 	{
 	  cp_lexer_consume_token (parser->lexer);
 	  stride = cp_parser_expression (parser);
-	  stride = maybe_constant_value (stride);
+	  stride = cp_try_fold_to_constant (stride);
 	}
     }
   parser->colon_corrects_to_scope_p = saved_colon_corrects;
@@ -6584,7 +6584,7 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
      c-family/c-common.c doesn't fail for array-bounds.  */
   if (for_offsetof || decltype_p
       || (TREE_CODE (index) == NEGATE_EXPR && TREE_CODE (TREE_OPERAND (index, 0)) == INTEGER_CST))
-    index = maybe_constant_value (index);
+    index = cp_try_fold_to_constant (index);
   parser->greater_than_is_operator_p = saved_greater_than_is_operator_p;
 
   /* Look for the closing `]'.  */
@@ -9881,7 +9881,7 @@ cp_parser_label_for_labeled_statement (cp_parser* parser, tree attributes)
 	cp_lexer_consume_token (parser->lexer);
 	/* Parse the constant-expression.  */
 	expr = cp_parser_constant_expression (parser);
-	expr = maybe_constant_value (expr);
+	expr = cp_try_fold_to_constant (expr);
 	if (check_for_bare_parameter_packs (expr))
 	  expr = error_mark_node;
 
@@ -9891,7 +9891,7 @@ cp_parser_label_for_labeled_statement (cp_parser* parser, tree attributes)
 	    /* Consume the `...' token.  */
 	    cp_lexer_consume_token (parser->lexer);
 	    expr_hi = cp_parser_constant_expression (parser);
-	    expr_hi = maybe_constant_value (expr_hi);
+	    expr_hi = cp_try_fold_to_constant (expr_hi);
 	    if (check_for_bare_parameter_packs (expr_hi))
 	      expr_hi = error_mark_node;
 
@@ -16133,7 +16133,7 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
       cp_lexer_consume_token (parser->lexer);
       /* Parse the value.  */
       value = cp_parser_constant_expression (parser);
-      value = maybe_constant_value (value);
+      value = cp_try_fold_to_constant (value);
     }
   else
     value = NULL_TREE;
@@ -26722,7 +26722,7 @@ cp_parser_objc_class_ivars (cp_parser* parser)
 	      /* Get the width of the bitfield.  */
 	      width
 		= cp_parser_constant_expression (parser);
-	      width = maybe_constant_value (width);
+	      width = cp_try_fold_to_constant (width);
 	    }
 	  else
 	    {
@@ -27894,9 +27894,9 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 		    }
 		  /* So we need here fully folded values.  */
 		  if (length)
-		    length = maybe_constant_value (fold (length));
+		    length = cp_try_fold_to_constant (fold (length));
 		  if (low_bound)
-		    low_bound = maybe_constant_value (fold (low_bound));
+		    low_bound = cp_try_fold_to_constant (fold (low_bound));
 		  /* Look for the closing `]'.  */
 		  if (!cp_parser_require (parser, CPP_CLOSE_SQUARE,
 					  RT_CLOSE_SQUARE))
@@ -28214,7 +28214,7 @@ cp_parser_omp_clause_collapse (cp_parser *parser, tree list, location_t location
     return list;
 
   num = cp_parser_constant_expression (parser);
-  num = maybe_constant_value (num);
+  num = cp_try_fold_to_constant (num);
 
   if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
     cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
@@ -28834,7 +28834,7 @@ cp_parser_omp_clause_aligned (cp_parser *parser, tree list)
   if (colon)
     {
       alignment = cp_parser_constant_expression (parser);
-      alignment = maybe_constant_value (alignment);
+      alignment = cp_try_fold_to_constant (alignment);
 
       if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
 	cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
@@ -28905,7 +28905,7 @@ cp_parser_omp_clause_safelen (cp_parser *parser, tree list,
     return list;
 
   t = cp_parser_constant_expression (parser);
-  t = maybe_constant_value (t);
+  t = cp_try_fold_to_constant (t);
 
   if (t == error_mark_node
       || !cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
@@ -28935,7 +28935,7 @@ cp_parser_omp_clause_simdlen (cp_parser *parser, tree list,
     return list;
 
   t = cp_parser_constant_expression (parser);
-  t = maybe_constant_value (t);
+  t = cp_try_fold_to_constant (t);
 
   if (t == error_mark_node
       || !cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
@@ -30257,8 +30257,8 @@ cp_parser_omp_for_incr (cp_parser *parser, tree decl)
 	      else
 		lhs = build_x_unary_op (input_location, NEGATE_EXPR, rhs,
 					tf_warning_or_error);
-	      if (op != PLUS_EXPR && CONSTANT_CLASS_P (rhs))
-		lhs = fold (lhs);
+	      if (op != PLUS_EXPR)
+		lhs = cp_try_fold_to_constant (lhs);
 	    }
 	  else
 	    lhs = build_x_binary_op (input_location, op, lhs, ERROR_MARK, rhs,
@@ -32982,7 +32982,7 @@ cp_parser_cilk_grainsize (cp_parser *parser, cp_token *pragma_tok)
 
       /* Make sure the next token is _Cilk_for, it is invalid otherwise.  */
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_CILK_FOR))
-	cp_parser_cilk_for (parser, maybe_constant_value (exp));
+	cp_parser_cilk_for (parser, cp_try_fold_to_constant (exp));
       else
 	warning_at (cp_lexer_peek_token (parser->lexer)->location, 0,
 		    "%<#pragma cilk grainsize%> is not followed by "
@@ -33299,7 +33299,7 @@ cp_parser_cilk_simd_vectorlength (cp_parser *parser, tree clauses,
     return error_mark_node;
 
   expr = cp_parser_constant_expression (parser);
-  expr = maybe_constant_value (expr);
+  expr = cp_try_fold_to_constant (expr);
 
   /* If expr == error_mark_node, then don't emit any errors nor
      create a clause.  if any of the above functions returns
@@ -33400,7 +33400,7 @@ cp_parser_cilk_simd_linear (cp_parser *parser, tree clauses)
 	      cp_lexer_consume_token (parser->lexer);
 
 	      e = cp_parser_assignment_expression (parser);
-	      e = maybe_constant_value (e);
+	      e = cp_try_fold_to_constant (e);
 
 	      if (e == error_mark_node)
 		{
