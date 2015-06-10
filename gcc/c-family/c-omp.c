@@ -1109,6 +1109,7 @@ oacc_filter_device_types (tree clauses)
   tree dtype = NULL_TREE;
   tree seen_nvidia = NULL_TREE;
   tree seen_default = NULL_TREE;
+  int device = 0;
 
   /* First scan for all device_type clauses.  */
   for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
@@ -1119,33 +1120,43 @@ oacc_filter_device_types (tree clauses)
 
 	  if (code == GOMP_DEVICE_DEFAULT)
 	    {
-	      if (seen_default)
+	      if (device & (1 << GOMP_DEVICE_DEFAULT))
 		{
 		  seen_default = NULL_TREE;
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "duplicate device_type (*)");
 		  goto filter_error;
 		}
-	      else
-		seen_default = OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
+
+	      seen_default = OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
 	    }
-	  if (code & (1 << GOMP_DEVICE_NVIDIA_PTX))
+	  else if (code & (1 << GOMP_DEVICE_NVIDIA_PTX))
 	    {
-	      if (seen_nvidia)
+	      if (device & code)
 		{
 		  seen_nvidia = NULL_TREE;
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "duplicate device_type (nvidia)");
 		  goto filter_error;
 		}
-	      else
-		seen_nvidia = OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
+
+	      seen_nvidia = OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
 	    }
+	  else
+	    {
+	      if (device & (1 << code))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "duplicate device_type");
+		  goto filter_error;
+		}
+	    }
+	  device |= (1 << code);
 	}
     }
 
   /* Don't do anything if there aren't any device_type clauses.  */
-  if (seen_nvidia == NULL_TREE && seen_default == NULL_TREE)
+  if (device == 0)
     return clauses;
 
   dtype = seen_nvidia ? seen_nvidia : seen_default;
