@@ -1,0 +1,89 @@
+# Support for adding __float128 to the powerpc.
+
+# The standard 128-bit floating point support functions are TFmode.  Most
+# PowerPC targets use a long double format that has a pair of doubles to give
+# you more precision, but no extra expoenent range.  This long double format is
+# mostly compatible with the format used by the IBM XL compilers.  Some of the
+# names used by the IBM double-double format use TF in them, so we rename
+# all of the functions provided for the new IEEE 128-bit support.
+#
+# All functions in soft-fp for 128-bit support.  We use sed to transform the
+# names in the files, these names are just used for the source file that we
+# create.
+
+fp128_orig_funcs	= addkf3 subkf3 mulkf3 divkf3 \
+			  negkf2 eqkf2 gekf2 lekf2 unordkf2 \
+			  extendsfkf2 extenddfkf2 trunckfsf2 trunckfdf2 \
+			  fixkfsi fixkfdi fixunskfsi fixunskfdi \
+			  floatsikf floatdikf floatunsikf floatundikf
+
+fp128_ppc_funcs		= cmpkf2 extendkftf2 trunktfkf2
+fp128_funcs		= $(fp128_orig_funcs) $(fp128_ppc_funcs)
+
+fp128_orig_src1		= $(subst kf,tf,$(fp128_orig_funcs))
+fp128_orig_src2		= $(addsuffix .c,$(fp128_orig_src1))
+fp128_orig_src		= $(addprefix $(srcdir)/soft-fp/,$(fp128_orig_src2))
+
+fp128_vsx_orig_src	= $(addsuffix -vsx.c,$(fp128_orig_funcs))
+fp128_vsx_ppc_src	= $(addsuffix -vsx.c,$(fp128_ppc_funcs))
+fp128_vsx_src		= $(fp128_vsx_orig_src) $(fp128_vsx_ppc_src)
+fp128_vsx_static_obj	= $(addsuffix -vsx$(objext),$(fp128_funcs))
+fp128_vsx_shared_obj	= $(addsuffix -vsx_s$(objext),$(fp128_funcs))
+fp128_vsx_obj		= $(fp128_vsx_static_obj) $(fp128_vsx_shared_obj)
+fp128_vsx_sed		= $(srcdir)/config/rs6000/fp128-vsx-sed
+fp128_vsx_dep		= $(fp128_vsx_sed) $(srcdir)/config/rs6000/t-float128
+
+fp128_includes		= $(srcdir)/soft-fp/double.h \
+			  $(srcdir)/soft-fp/op-1.h \
+			  $(srcdir)/soft-fp/op-4.h \
+			  $(srcdir)/soft-fp/op-common.h \
+			  $(srcdir)/soft-fp/single.h \
+			  $(srcdir)/soft-fp/extended.h \
+			  $(srcdir)/soft-fp/op-2.h \
+			  $(srcdir)/soft-fp/op-8.h \
+			  $(srcdir)/soft-fp/quad.h \
+			  $(srcdir)/soft-fp/soft-fp.h
+
+EXTRA_CLEAN	    += *-vsx.c
+
+# Defining TF to be 'KF' forces TFtype to be:
+# typedef float TFtype __attribute__ ((mode (KF)));
+# which uses __float128 instead of long double
+FP128_CFLAGS_COMMON  = -Wno-type-limits -I$(srcdir)/soft-fp \
+		       -I$(srcdir)/config/rs6000
+
+FP128_CFLAGS_VSX     = -mvsx -mfloat128-software
+
+$(fp128_vsx_obj) : INTERNAL_CFLAGS += $(FP128_CFLAGS_COMMON) $(FP128_CFLAGS_VSX)
+$(fp128_vsx_obj) : $(fp128_includes) $(srcdir)/config/rs6000/quad-vsx.h
+
+$(fp128_vsx_orig_src) : $(srcdir)/soft-fp/$(subst -vsx,,$(subst kf,tf,$@)) $(fp128_vsx_dep)
+	@src="$(srcdir)/soft-fp/$(subst -vsx,,$(subst kf,tf,$@))"; \
+	echo "Create $@"; \
+	(echo "/* file created from $$src */"; \
+	 echo; \
+	 echo '#pragma GCC target ("vsx,float128-software")'; \
+	 echo; \
+	 sed -f $(fp128_vsx_sed) < $$src) > $@
+
+$(fp128_vsx_ppc_src) : $(srcdir)/config/rs6000/$(subst -vsx,,$@) $(fp128_vsx_dep)
+	@src="$(srcdir)/config/rs6000/$(subst -vsx,,$@)"; \
+	echo "Create $@"; \
+	(echo "/* file created from $$src */"; \
+	 echo; \
+	 echo '#pragma GCC target ("vsx,float128-software")'; \
+	 echo; \
+	 sed -f $(fp128_vsx_sed) < $$src) > $@
+
+test: $(fp128_vsx_src)
+	@echo "fp128_vsx_src = $(fp128_vsx_src)"; \
+	 echo "fp128_vsx_obj = $(fp128_vsx_obj)";
+
+xtest:
+	@echo "fp128_vsx_src = $(fp128_vsx_src)"; \
+	 echo "fp128_vsx_obj = $(fp128_vsx_obj)";
+
+# For now, only put it in the static library
+# LIB2ADD += $(fp128_vsx_src)
+
+LIB2ADD_ST += $(fp128_vsx_src)

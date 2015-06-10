@@ -603,7 +603,7 @@ Analyze and remove doubleword swaps from VSX computations.
 
 mfloat128-
 Target RejectNegative Joined Enum(float128_type_t) Var(TARGET_FLOAT128) Init(FLOAT128_UNSET) Save
--mfloat128-{software,none} - Specify how IEEE 128-bit floating point is used.
+-mfloat128-{hardware,software,none} - Specify how IEEE 128-bit floating point is used.
 
 Enum
 Name(float128_type_t) Type(enum float128_type_t)
@@ -616,3 +616,9 @@ Enum(float128_type_t) String(software) Value(FLOAT128_SW)
 
 EnumValue
 Enum(float128_type_t) String(sw) Value(FLOAT128_SW)
+
+EnumValue
+Enum(float128_type_t) String(hardware) Value(FLOAT128_HW)
+
+EnumValue
+Enum(float128_type_t) String(hw) Value(FLOAT128_HW)

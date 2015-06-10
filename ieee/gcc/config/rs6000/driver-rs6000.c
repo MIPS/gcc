@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include <stdlib.h>
+#include "gcc.h"
 
 #ifdef _AIX
 # include <sys/systemcfg.h>
@@ -532,3 +533,32 @@ host_detect_local_cpu (int argc, const char **argv)
 
 #endif /* GCC_VERSION */
 
+
+#ifdef CONFIGURE_STARTFILE_PREFIX
+/* Add -L for all of the machine dependent directories found in the extra rpath
+   directories.  We don't need to do this for dynamic links, since the dynamic
+   linker will pick up the right library based on the machine that is currently
+   running.  */
+
+const char *
+rs6000_extra_static_libdirs (int argc, const char **argv)
+{
+  const char *new_argv[2];
+  const char *cpu;
+
+  if (argc == 1 && strncmp (argv[0], "mcpu=", sizeof ("-mcpu=")-1) == 0)
+    cpu = argv[0] + sizeof ("-mcpu=") - 1;
+
+  else if (argc == 2 && strcmp (argv[0], "-") == 0
+	   && strncmp (argv[1], "mcpu=", sizeof ("mcpu=")-1) == 0)
+    cpu = argv[1] + sizeof ("mcpu=") - 1;
+
+  else
+    abort ();
+
+  new_argv[0] = cpu;
+  new_argv[1] = NULL;
+  return extra_cpu_dirs_spec_function (1, new_argv);
+}
+
+#endif /* !CONFIGURE_STARTFILE_PREFIX */
