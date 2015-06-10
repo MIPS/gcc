@@ -4575,7 +4575,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		      omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	  return error_mark_node;
 	}
-      else if (TREE_CODE (t) == PARM_DECL
+      else if (ort == C_ORT_OMP
+	       && TREE_CODE (t) == PARM_DECL
 	       && DECL_ARTIFICIAL (t)
 	       && DECL_NAME (t) == this_identifier)
 	{
@@ -5078,7 +5079,8 @@ handle_omp_array_sections (tree c, enum c_omp_region_type ort)
 	  else
 	    OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_FIRSTPRIVATE_POINTER);
 	  if (OMP_CLAUSE_MAP_KIND (c2) != GOMP_MAP_FIRSTPRIVATE_POINTER
-	      && !cxx_mark_addressable (t))
+	      && !cxx_mark_addressable (t,
+					CXX_MARK_ADDRESSABLE_FLAGS_ALLOW_THIS))
 	    return false;
 	  OMP_CLAUSE_DECL (c2) = t;
 	  t = build_fold_addr_expr (first);
@@ -5667,7 +5669,8 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 		  && TREE_CODE (TREE_TYPE (OMP_CLAUSE_DECL (c)))
 		     != REFERENCE_TYPE)
 		cxx_mark_addressable (decl_placeholder ? decl_placeholder
-				      : OMP_CLAUSE_DECL (c));
+				      : OMP_CLAUSE_DECL (c),
+				      CXX_MARK_ADDRESSABLE_FLAGS_ALLOW_THIS);
 	      tree omp_out = placeholder;
 	      tree omp_in = decl_placeholder ? decl_placeholder
 			    : convert_from_reference (OMP_CLAUSE_DECL (c));
@@ -5693,7 +5696,8 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 			  && TREE_CODE (stmts[4]) == DECL_EXPR);
 	      if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[3])))
 		cxx_mark_addressable (decl_placeholder ? decl_placeholder
-				      : OMP_CLAUSE_DECL (c));
+				      : OMP_CLAUSE_DECL (c),
+				      CXX_MARK_ADDRESSABLE_FLAGS_ALLOW_THIS);
 	      if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[4])))
 		cxx_mark_addressable (placeholder);
 	      tree omp_priv = decl_placeholder ? decl_placeholder
@@ -6634,7 +6638,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      remove = true;
 	    }
 	  else if (!processing_template_decl
-		   && !cxx_mark_addressable (t))
+		   && !cxx_mark_addressable (t,
+					     CXX_MARK_ADDRESSABLE_FLAGS_ALLOW_THIS))
 	    remove = true;
 	  break;
 
@@ -6782,7 +6787,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		   && (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP
 		       || (OMP_CLAUSE_MAP_KIND (c)
 			   != GOMP_MAP_FIRSTPRIVATE_POINTER))
-		   && !cxx_mark_addressable (t))
+		   && !cxx_mark_addressable (t,
+					     CXX_MARK_ADDRESSABLE_FLAGS_ALLOW_THIS))
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		     && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER

@@ -31594,7 +31594,7 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 	  OMP_CLAUSE_CHAIN (u) = list;
 	  list = u;
 	}
-      else
+      else if (decl != error_mark_node)
 	list = tree_cons (decl, NULL_TREE, list);
 
     get_comma:

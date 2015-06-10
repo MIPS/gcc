@@ -1,3 +1,18 @@
+2015-06-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* parser.c (cp_parser_omp_var_list_no_open): Handle RID_THIS.
+	* semantics.c (handle_omp_array_sections_1)
+	(handle_omp_array_sections, finish_omp_reduction_clause)
+	(finish_omp_clauses): Pass CXX_MARK_ADDRESSABLE_FLAGS_ALLOW_THIS
+	to cxx_mark_addressable.
+	* typeck.c (cxx_mark_addressable): Handle
+	CXX_MARK_ADDRESSABLE_FLAGS_ALLOW_THIS.
+
+2016-07-06  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* cp-tree.h (enum cxx_mark_addressable_flags): New.
+	(cxx_mark_addressable): Use it.  Adjust users.
+
 2015-05-11  James Norris  <jnorris@codesourcery.com>
 
 	* parser.c (cp_parser_oacc_enter_exit_data): Use existing local
