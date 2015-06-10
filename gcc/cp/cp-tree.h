@@ -6367,6 +6367,7 @@ extern tree cxx_omp_clause_dtor			(tree, tree);
 extern void cxx_omp_finish_clause		(tree, gimple_seq *);
 extern bool cxx_omp_privatize_by_reference	(const_tree);
 extern tree cp_fully_fold			(tree);
+extern tree cp_try_fold_to_constant		(tree);
 
 /* in name-lookup.c */
 extern void suggest_alternatives_for            (location_t, tree);
