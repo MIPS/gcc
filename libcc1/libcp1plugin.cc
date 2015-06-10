@@ -153,22 +153,6 @@ struct string_hasher : typed_noop_remove<const char>
 
 
 
-// A wrapper for pushdecl that doesn't let gdb have a chance to
-// instantiate a symbol.
-
-static void
-pushdecl_safe (tree decl)
-{
-  void (*save) (enum cp_oracle_request, tree identifier);
-
-  save = cp_binding_oracle;
-  cp_binding_oracle = NULL;
-  pushdecl (decl);
-  cp_binding_oracle = save;
-}
-
-
-
 struct plugin_context : public cc1_plugin::connection
 {
   plugin_context (int fd);
@@ -831,10 +815,14 @@ plugin_build_constant (cc1_plugin::connection *self, gcc_type type_in,
   tree type = convert_in (type_in);
 
   cst = build_int_cst (type, value);
+  if (!TYPE_READONLY (type))
+    type = build_qualified_type (type, TYPE_QUAL_CONST);
   decl = build_decl (ctx->get_source_location (filename, line_number),
-		     CONST_DECL, get_identifier (name), type);
-  DECL_INITIAL (decl) = cst;
-  pushdecl_safe (decl);
+		     VAR_DECL, get_identifier (name), type);
+  TREE_STATIC (decl) = 1;
+  TREE_READONLY (decl) = 1;
+  cp_finish_decl (decl, cst, true, NULL, LOOKUP_ONLYCONVERTING);
+  pushdecl_maybe_friend (decl, false);
 
   return 1;
 }
