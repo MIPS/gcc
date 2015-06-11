@@ -1,5 +1,10 @@
 
 2015-06-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-modes.melt (output_for_runtime): New function.
+	(generate_runtypesupport_enum_objmagic)
+	(generate_runtypesupport_gty): Use it sometimes.
+
+2015-06-11   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (meltgc_new_list_from_pair): New declaration.
 
 	* melt-runtime.cc (meltgc_new_list_from_pair): New function.
