@@ -26,11 +26,23 @@
 ;; releases.  It is a playground for testing purposes.
 
 
+;; NOTICE: this module is not loaded in any
+;; melt-default-modules*modlis (because it does not define any mode)
+;; for testing purposes please load it explicitly, or edit your own
+;; *modlis file.
+
 ;; This MELT module is GPL compatible since it is GPLv3+ licensed.
 (module_is_gpl_compatible "GPLv3+")
 
 (definstance playgr_foo class_reference
   :referenced_value #{$' /* here $_MELT_FILE_ and $_MELT_LINE_ */}#)
+
+(code_chunk playgrbreak_chk #{
+	    printf("$PLAYGRBREAK_CHK melt_dbgcounter=%ld\n", melt_dbgcounter);
+	    melt_cbreak("$PLAYGRBREAK_CHK");
+	    }#)
+
+(debug "playground playgr_foo=" playgr_foo)
 
 (export_values playgr_foo)
 	

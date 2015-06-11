@@ -99,6 +99,11 @@ used to create new environments in modules. Only for gurus and MELT itself.}#
   :doc #{Gives a pseudo-random non-zero number suitable as an hash code.}# 
   "(melt_nonzerohash())")
 
+;; primitive to make a list from its initial pair
+(defprimitive make_list_from_pair (discr pair) :value
+  :doc #{Make a new list value of given discriminant $DISCR from some
+  given $PAIR, hence scan all the pairs to find the last one.}#
+  #{(meltgc_new_list_from_pair((meltobject_ptr_t)($DISCR), (melt_ptr_t)($PAIR)))}#)
 
 ;; primitives to force garbage collection
 (defprimitive minor_garbcoll (:long siz) :void 
@@ -4395,6 +4400,7 @@ given object map $MAPO}#
  list_nth_element
  list_remove_last_element
  longbacktrace_dbg
+ make_list_from_pair
  make_mixint
  make_mixloc
  make_pair

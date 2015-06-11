@@ -1,4 +1,14 @@
 
+2015-06-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (meltgc_new_list_from_pair): New declaration.
+
+	* melt-runtime.cc (meltgc_new_list_from_pair): New function.
+
+	* melt/warmelt-base.melt (make_list_from_pair): New primitive.
+
+	* melt/warmelt-moremacro.melt (mexpand_quote): Use it for multiarg
+	quote of macrostrings.
+
 2015-06-10   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (melt_gcc_optimize): New inline function giving
 	optimize.  #undef the optimize from gcc/options.h in build tree.

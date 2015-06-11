@@ -2087,6 +2087,9 @@ melt_ptr_t meltgc_new_subseq_multiple (melt_ptr_t oldmul_p,
 
 /* allocate a new (empty) list */
 melt_ptr_t meltgc_new_list (meltobject_ptr_t discr_p);
+/* allocate a new list from a given pair, so has to scan all the pairs
+   to find the last one. */
+melt_ptr_t meltgc_new_list_from_pair (meltobject_ptr_t discr_p, melt_ptr_t pair_p);
 /* append to the tail of a list */
 void meltgc_append_list (melt_ptr_t list_p, melt_ptr_t val_p);
 /* prepend to the head of a list */

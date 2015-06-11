@@ -3486,6 +3486,46 @@ end:
 #undef object_discrv
 }
 
+melt_ptr_t
+meltgc_new_list_from_pair (meltobject_ptr_t discr_p, melt_ptr_t pair_p)
+{
+  MELT_ENTERFRAME (5, NULL);
+#define discrv meltfram__.mcfr_varptr[0]
+#define newlist meltfram__.mcfr_varptr[1]
+#define pairv meltfram__.mcfr_varptr[2]
+#define firstpairv meltfram__.mcfr_varptr[3]
+#define lastpairv meltfram__.mcfr_varptr[4]
+#define object_discrv ((meltobject_ptr_t)(discrv))
+#define list_newlist ((struct meltlist_st*)(newlist))
+  discrv = (melt_ptr_t) discr_p;
+  pairv = (melt_ptr_t) pair_p;
+  newlist = NULL;
+  if (melt_magic_discr ((melt_ptr_t) discrv) != MELTOBMAG_OBJECT)
+    goto end;
+  if (object_discrv->meltobj_magic != MELTOBMAG_LIST)
+    goto end;
+  if (melt_magic_discr((melt_ptr_t) pairv) == MELTOBMAG_PAIR) {
+    firstpairv = pairv;
+    lastpairv = firstpairv;
+    while (melt_magic_discr((melt_ptr_t) lastpairv) == MELTOBMAG_PAIR
+	   && (((struct meltpair_st *)lastpairv)->tl) != NULL)
+      lastpairv = (melt_ptr_t)(((struct meltpair_st *)lastpairv)->tl);
+  }
+  newlist = (melt_ptr_t) meltgc_allocate (sizeof (struct meltlist_st), 0);
+  list_newlist->discr = object_discrv;
+  list_newlist->first = (struct meltpair_st*)firstpairv;
+  list_newlist->last = (struct meltpair_st*)lastpairv;
+end:
+  MELT_EXITFRAME ();
+  return (melt_ptr_t) newlist;
+#undef newlist
+#undef discrv
+#undef firstpair
+#undef lastpair
+#undef list_newlist
+#undef object_discrv
+}
+
 /* allocate a pair of given head and tail */
 melt_ptr_t
 meltgc_new_pair (meltobject_ptr_t discr_p, void *head_p, void *tail_p)
