@@ -1818,6 +1818,10 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
   if (x == error_mark_node || !x || CONSTANT_CLASS_P (x))
     return x;
+  if (!fold_hash
+      || TREE_CODE (x) == VAR_DECL
+      || processing_template_decl)
+    return x;
 
   /* Don't even try to hash on VAR_DECLs.  */
   if (!fold_hash || TREE_CODE (x) == VAR_DECL)
@@ -1828,13 +1832,26 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     return *slot;
   switch (TREE_CODE (x))
   {
+  case SIZEOF_EXPR:
+    if (SIZEOF_EXPR_TYPE_P (x))
+        r = cxx_sizeof_or_alignof_type (TREE_TYPE (TREE_OPERAND (x, 0)),
+                                        SIZEOF_EXPR, false);
+    else if (TYPE_P (TREE_OPERAND (x, 0)))
+      r = cxx_sizeof_or_alignof_type (TREE_OPERAND (x, 0),
+                                      SIZEOF_EXPR, false);
+    else
+      r = cxx_sizeof_or_alignof_expr (TREE_OPERAND (x, 0),
+                                      SIZEOF_EXPR, false);
+    if (r == error_mark_node)
+      r = size_one_node;
+    x = r;
+    break;
   case CONVERT_EXPR:
   case VIEW_CONVERT_EXPR:
   case NOP_EXPR:
     if (VOID_TYPE_P (TREE_TYPE (x)))
       return x;
     /* Fall through.  */
-  case SIZEOF_EXPR:
   case ALIGNOF_EXPR:
   case SAVE_EXPR:
   case ADDR_EXPR:
@@ -1921,8 +1938,14 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
       if (TREE_CODE (x) == COMPOUND_EXPR && op0 == NULL_TREE)
 	op0 = build_empty_stmt (loc);
 
-      if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1))
-        r = fold_build2_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1);
+      if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1)
+	  || !TREE_TYPE (x))
+        {
+          if (TREE_TYPE (x))
+            r = fold_build2_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1);
+	  else
+	    r = build2_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1);
+        }
       if (!r)
 	r = fold_binary_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1);
       if (r)
@@ -1936,7 +1959,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     {
       location_t loc = EXPR_LOCATION (x);
       tree op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
-      if (CONSTANT_CLASS_P (op0))
+      if (CONSTANT_CLASS_P (op0) && TREE_CODE (op0) == INTEGER_CST)
 	{
 	  if (integer_zerop (op0) && !TREE_SIDE_EFFECTS (TREE_OPERAND (x, 1)))
 	    x = cp_fold (TREE_OPERAND (x, 2), fold_hash);
@@ -1945,7 +1968,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	  break;
 	}
 
-      if (VOID_TYPE_P (TREE_TYPE (x)))
+      if (!TREE_TYPE (x) || VOID_TYPE_P (TREE_TYPE (x)))
 	break;
 
       tree op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);

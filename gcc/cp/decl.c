@@ -8697,7 +8697,10 @@ create_array_type_for_decl (tree name, tree type, tree size)
 
   /* Figure out the index type for the array.  */
   if (size)
-    itype = compute_array_index_type (name, size, tf_warning_or_error);
+    {
+      size = cp_try_fold_to_constant (size);
+      itype = compute_array_index_type (name, size, tf_warning_or_error);
+    }
 
   /* [dcl.array]
      T is called the array element type; this type shall not be [...] an
