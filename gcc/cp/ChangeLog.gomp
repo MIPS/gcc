@@ -1,3 +1,17 @@
+2015-06-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_map): Handle release
+	map kind.  Adjust to use GOMP_MAP_ALWAYS_* and only on
+	clauses where it makes sense.
+	(cp_parser_omp_target_data): Diagnose invalid map-kind
+	for the construct.
+	(cp_parser_omp_target_enter_data): Adjust for new encoding
+	of always,from, always,to and always,tofrom.  Accept
+	GOMP_MAP_POINTER.
+	(cp_parser_omp_target_exit_data): Likewise.
+	(cp_parser_omp_target): Diagnose invalid map-kind for the
+	construct.
+
 2015-06-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_var_list_no_open): Allow array sections

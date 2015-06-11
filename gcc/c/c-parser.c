@@ -11661,7 +11661,7 @@ c_parser_omp_clause_depend (c_parser *parser, tree list)
 
    OpenMP 4.1:
    map-kind:
-     alloc | to | from | tofrom | delete
+     alloc | to | from | tofrom | release | delete
 
    map ( always [,] map-kind: variable-list ) */
 
@@ -11702,6 +11702,7 @@ c_parser_omp_clause_map (c_parser *parser, tree list)
 		  || strcmp ("to", p) == 0
 		  || strcmp ("from", p) == 0
 		  || strcmp ("tofrom", p) == 0
+		  || strcmp ("release", p) == 0
 		  || strcmp ("delete", p) == 0)
 		{
 		  c_parser_consume_token (parser);
@@ -11718,13 +11719,15 @@ c_parser_omp_clause_map (c_parser *parser, tree list)
       if (strcmp ("alloc", p) == 0)
 	kind = GOMP_MAP_ALLOC;
       else if (strcmp ("to", p) == 0)
-	kind = GOMP_MAP_TO;
+	kind = always ? GOMP_MAP_ALWAYS_TO : GOMP_MAP_TO;
       else if (strcmp ("from", p) == 0)
-	kind = GOMP_MAP_FROM;
+	kind = always ? GOMP_MAP_ALWAYS_FROM : GOMP_MAP_FROM;
       else if (strcmp ("tofrom", p) == 0)
-	kind = GOMP_MAP_TOFROM;
+	kind = always ? GOMP_MAP_ALWAYS_TOFROM : GOMP_MAP_TOFROM;
+      else if (strcmp ("release", p) == 0)
+	kind = GOMP_MAP_RELEASE;
       else if (strcmp ("delete", p) == 0)
-	kind = GOMP_MAP_FORCE_DEALLOC;
+	kind = GOMP_MAP_DELETE;
       else
 	{
 	  c_parser_error (parser, "invalid map kind");
@@ -11732,8 +11735,6 @@ c_parser_omp_clause_map (c_parser *parser, tree list)
 				     "expected %<)%>");
 	  return list;
 	}
-      if (always)
-	kind = (enum gomp_map_kind) (kind | GOMP_MAP_FLAG_FORCE);
       c_parser_consume_token (parser);
       c_parser_consume_token (parser);
     }
@@ -14237,11 +14238,40 @@ c_parser_omp_target_data (location_t loc, c_parser *parser)
   tree clauses
     = c_parser_omp_all_clauses (parser, OMP_TARGET_DATA_CLAUSE_MASK,
 				"#pragma omp target data");
-  if (find_omp_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
+  int map_seen = 0;
+  for (tree *pc = &clauses; *pc;)
     {
-      error_at (loc,
-		"%<#pragma omp target data%> must contain at least one "
-		"%<map%> clause");
+      if (OMP_CLAUSE_CODE (*pc) == OMP_CLAUSE_MAP)
+	switch (OMP_CLAUSE_MAP_KIND (*pc))
+	  {
+	  case GOMP_MAP_TO:
+	  case GOMP_MAP_ALWAYS_TO:
+	  case GOMP_MAP_FROM:
+	  case GOMP_MAP_ALWAYS_FROM:
+	  case GOMP_MAP_TOFROM:
+	  case GOMP_MAP_ALWAYS_TOFROM:
+	  case GOMP_MAP_ALLOC:
+	  case GOMP_MAP_POINTER:
+	    map_seen = 3;
+	    break;
+	  default:
+	    map_seen |= 1;
+	    error_at (OMP_CLAUSE_LOCATION (*pc),
+		      "%<#pragma omp target data%> with map-type other "
+		      "than %<to%>, %<from%>, %<tofrom%> or %<alloc%> "
+		      "on %<map%> clause");
+	    *pc = OMP_CLAUSE_CHAIN (*pc);
+	    continue;
+	  }
+      pc = &OMP_CLAUSE_CHAIN (*pc);
+    }
+
+  if (map_seen != 3)
+    {
+      if (map_seen == 0)
+	error_at (loc,
+		  "%<#pragma omp target data%> must contain at least "
+		  "one %<map%> clause");
       return NULL_TREE;
     }
 
@@ -14348,10 +14378,12 @@ c_parser_omp_target_enter_data (location_t loc, c_parser *parser,
   for (tree *pc = &clauses; *pc;)
     {
       if (OMP_CLAUSE_CODE (*pc) == OMP_CLAUSE_MAP)
-	switch (OMP_CLAUSE_MAP_KIND (*pc) & ~GOMP_MAP_FLAG_FORCE)
+	switch (OMP_CLAUSE_MAP_KIND (*pc))
 	  {
 	  case GOMP_MAP_TO:
+	  case GOMP_MAP_ALWAYS_TO:
 	  case GOMP_MAP_ALLOC:
+	  case GOMP_MAP_POINTER:
 	    map_seen = 3;
 	    break;
 	  default:
@@ -14430,17 +14462,21 @@ c_parser_omp_target_exit_data (location_t loc, c_parser *parser,
   for (tree *pc = &clauses; *pc;)
     {
       if (OMP_CLAUSE_CODE (*pc) == OMP_CLAUSE_MAP)
-	switch (OMP_CLAUSE_MAP_KIND (*pc) & ~GOMP_MAP_FLAG_FORCE)
+	switch (OMP_CLAUSE_MAP_KIND (*pc))
 	  {
 	  case GOMP_MAP_FROM:
-	  case GOMP_MAP_FORCE_DEALLOC & ~GOMP_MAP_FLAG_FORCE:
+	  case GOMP_MAP_ALWAYS_FROM:
+	  case GOMP_MAP_RELEASE:
+	  case GOMP_MAP_DELETE:
+	  case GOMP_MAP_POINTER:
 	    map_seen = 3;
 	    break;
 	  default:
 	    map_seen |= 1;
 	    error_at (OMP_CLAUSE_LOCATION (*pc),
 		      "%<#pragma omp target exit data%> with map-type other "
-		      "than %<from%> or %<delete%> on %<map%> clause");
+		      "than %<from%>, %<release> or %<delete%> on %<map%>"
+		      " clause");
 	    *pc = OMP_CLAUSE_CHAIN (*pc);
 	    continue;
 	  }
@@ -14480,6 +14516,7 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
 {
   location_t loc = c_parser_peek_token (parser)->location;
   c_parser_consume_pragma (parser);
+  tree *pc = NULL, stmt, block;
 
   if (context != pragma_stmt && context != pragma_compound)
     {
@@ -14519,7 +14556,8 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
 	  OMP_TARGET_CLAUSES (stmt) = cclauses[C_OMP_CLAUSE_SPLIT_TARGET];
 	  OMP_TARGET_BODY (stmt) = block;
 	  add_stmt (stmt);
-	  return true;
+	  pc = &OMP_TARGET_CLAUSES (stmt);
+	  goto check_clauses;
 	}
       else if (!flag_openmp)  /* flag_openmp_simd  */
 	{
@@ -14551,19 +14589,46 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
 	}
     }
 
-  tree stmt = make_node (OMP_TARGET);
+  stmt = make_node (OMP_TARGET);
   TREE_TYPE (stmt) = void_type_node;
 
   OMP_TARGET_CLAUSES (stmt)
     = c_parser_omp_all_clauses (parser, OMP_TARGET_CLAUSE_MASK,
 				"#pragma omp target");
+  pc = &OMP_TARGET_CLAUSES (stmt);
   keep_next_level ();
-  tree block = c_begin_compound_stmt (true);
+  block = c_begin_compound_stmt (true);
   add_stmt (c_parser_omp_structured_block (parser));
   OMP_TARGET_BODY (stmt) = c_end_compound_stmt (loc, block, true);
 
   SET_EXPR_LOCATION (stmt, loc);
   add_stmt (stmt);
+
+check_clauses:
+  while (*pc)
+    {
+      if (OMP_CLAUSE_CODE (*pc) == OMP_CLAUSE_MAP)
+	switch (OMP_CLAUSE_MAP_KIND (*pc))
+	  {
+	  case GOMP_MAP_TO:
+	  case GOMP_MAP_ALWAYS_TO:
+	  case GOMP_MAP_FROM:
+	  case GOMP_MAP_ALWAYS_FROM:
+	  case GOMP_MAP_TOFROM:
+	  case GOMP_MAP_ALWAYS_TOFROM:
+	  case GOMP_MAP_ALLOC:
+	  case GOMP_MAP_POINTER:
+	    break;
+	  default:
+	    error_at (OMP_CLAUSE_LOCATION (*pc),
+		      "%<#pragma omp target%> with map-type other "
+		      "than %<to%>, %<from%>, %<tofrom%> or %<alloc%> "
+		      "on %<map%> clause");
+	    *pc = OMP_CLAUSE_CHAIN (*pc);
+	    continue;
+	  }
+      pc = &OMP_CLAUSE_CHAIN (*pc);
+    }
   return true;
 }
 

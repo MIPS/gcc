@@ -560,25 +560,37 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 	  pp_string (pp, "tofrom");
 	  break;
 	case GOMP_MAP_FORCE_ALLOC:
-	  pp_string (pp, "always,alloc");
+	  pp_string (pp, "force_alloc");
 	  break;
 	case GOMP_MAP_FORCE_TO:
-	  pp_string (pp, "always,to");
+	  pp_string (pp, "force_to");
 	  break;
 	case GOMP_MAP_FORCE_FROM:
-	  pp_string (pp, "always,from");
+	  pp_string (pp, "force_from");
 	  break;
 	case GOMP_MAP_FORCE_TOFROM:
-	  pp_string (pp, "always,tofrom");
+	  pp_string (pp, "force_tofrom");
 	  break;
 	case GOMP_MAP_FORCE_PRESENT:
 	  pp_string (pp, "force_present");
 	  break;
 	case GOMP_MAP_FORCE_DEALLOC:
-	  pp_string (pp, "always,delete");
+	  pp_string (pp, "delete");
 	  break;
 	case GOMP_MAP_FORCE_DEVICEPTR:
 	  pp_string (pp, "force_deviceptr");
+	  break;
+	case GOMP_MAP_ALWAYS_TO:
+	  pp_string (pp, "always,to");
+	  break;
+	case GOMP_MAP_ALWAYS_FROM:
+	  pp_string (pp, "always,from");
+	  break;
+	case GOMP_MAP_ALWAYS_TOFROM:
+	  pp_string (pp, "always,tofrom");
+	  break;
+	case GOMP_MAP_RELEASE:
+	  pp_string (pp, "release");
 	  break;
 	default:
 	  gcc_unreachable ();

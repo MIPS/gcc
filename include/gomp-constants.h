@@ -41,6 +41,8 @@
 #define GOMP_MAP_FLAG_SPECIAL_1		(1 << 3)
 #define GOMP_MAP_FLAG_SPECIAL		(GOMP_MAP_FLAG_SPECIAL_1 \
 					 | GOMP_MAP_FLAG_SPECIAL_0)
+/* OpenMP always flag.  */
+#define GOMP_MAP_FLAG_ALWAYS		(1 << 6)
 /* Flag to force a specific behavior (or else, trigger a run-time error).  */
 #define GOMP_MAP_FLAG_FORCE		(1 << 7)
 
@@ -77,7 +79,21 @@ enum gomp_map_kind
     /* ..., and copy from device.  */
     GOMP_MAP_FORCE_FROM =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_FROM),
     /* ..., and copy to and from device.  */
-    GOMP_MAP_FORCE_TOFROM =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TOFROM)
+    GOMP_MAP_FORCE_TOFROM =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TOFROM),
+    /* If not already present, allocate.  And unconditionally copy to
+       device.  */
+    GOMP_MAP_ALWAYS_TO =		(GOMP_MAP_FLAG_ALWAYS | GOMP_MAP_TO),
+    /* If not already present, allocate.  And unconditionally copy from
+       device.  */
+    GOMP_MAP_ALWAYS_FROM =		(GOMP_MAP_FLAG_ALWAYS | GOMP_MAP_FROM),
+    /* If not already present, allocate.  And unconditionally copy to and from
+       device.  */
+    GOMP_MAP_ALWAYS_TOFROM =		(GOMP_MAP_FLAG_ALWAYS | GOMP_MAP_TOFROM),
+    /* OpenMP 4.1 alias for forced deallocation.  */
+    GOMP_MAP_DELETE =			GOMP_MAP_FORCE_DEALLOC,
+    /* Decrement usage count and deallocate if zero.  */
+    GOMP_MAP_RELEASE =			(GOMP_MAP_FLAG_ALWAYS
+					 | GOMP_MAP_FORCE_DEALLOC)
   };
 
 #define GOMP_MAP_COPY_TO_P(X) \

@@ -1,3 +1,11 @@
+2015-06-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_omp_target): Accept GOMP_MAP_RELEASE,
+	GOMP_MAP_ALWAYS_TO, GOMP_MAP_ALWAYS_FROM and GOMP_MAP_ALWAYS_TOFROM.
+	Accept GOMP_MAP_FORCE* except for FORCE_DEALLOC only for OpenACC.
+	* tree-pretty-print.c (dump_omp_clause): Print GOMP_MAP_FORCE_*
+	as force_*, handle GOMP_MAP_ALWAYS_*.
+
 2015-06-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.c (omp_clause_num_ops): Bump number of OMP_CLAUSE_REDUCTION

@@ -12511,13 +12511,17 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  case GOMP_MAP_TOFROM:
 	  case GOMP_MAP_POINTER:
 	  case GOMP_MAP_TO_PSET:
+	  case GOMP_MAP_FORCE_DEALLOC:
+	  case GOMP_MAP_RELEASE:
+	  case GOMP_MAP_ALWAYS_TO:
+	  case GOMP_MAP_ALWAYS_FROM:
+	  case GOMP_MAP_ALWAYS_TOFROM:
+	    break;
 	  case GOMP_MAP_FORCE_ALLOC:
 	  case GOMP_MAP_FORCE_TO:
 	  case GOMP_MAP_FORCE_FROM:
 	  case GOMP_MAP_FORCE_TOFROM:
 	  case GOMP_MAP_FORCE_PRESENT:
-	  case GOMP_MAP_FORCE_DEALLOC:
-	    break;
 	  case GOMP_MAP_FORCE_DEVICEPTR:
 	    gcc_assert (is_gimple_omp_oacc (stmt));
 	    break;
