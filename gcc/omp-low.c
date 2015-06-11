@@ -755,13 +755,26 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
       fd->loop.cond_code = LT_EXPR;
     }
 
-  /* For OpenACC loops, force a chunk size of one, as this avoids the default
-    scheduling where several subsequent iterations are being executed by the
-    same thread.  */
+  /* For OpenACC loops, force a chunk size of one, unless a gang loop
+     contains a static argument.  This avoids the default scheduling where
+     several subsequent iterations are being executed by the same thread.  */
   if (gimple_omp_for_kind (for_stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
     {
       gcc_assert (fd->chunk_size == NULL_TREE);
-      fd->chunk_size = build_int_cst (TREE_TYPE (fd->loop.v), 1);
+
+      tree gang = find_omp_clause (gimple_omp_for_clauses (for_stmt),
+				   OMP_CLAUSE_GANG);
+      tree chunk_size = NULL_TREE;
+
+      if (gang)
+	{
+	  chunk_size = OMP_CLAUSE_GANG_STATIC_EXPR (gang);
+	}
+
+      if (!chunk_size || chunk_size == integer_minus_one_node)
+	chunk_size = build_int_cst (TREE_TYPE (fd->loop.v), 1);
+
+      fd->chunk_size = chunk_size;
     }
 
   /* Extract the OpenACC gang, worker and vector clauses.  */

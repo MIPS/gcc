@@ -1,3 +1,10 @@
+2015-06-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-openmp.c (gfc_trans_omp_clauses): Handle the static
+	argument to the gang clause.
+	(gfc_trans_oacc_combined_directive): Pass the gang_expr, gang_static,
+	worker_expr and vector_expr members to loop_clauses.
+
 2015-06-08  James Norris  <jnorris@codesourcery.com>
 
 	* f95-lang.c (gfc_attribute_table): New entry.

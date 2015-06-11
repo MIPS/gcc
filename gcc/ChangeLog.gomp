@@ -1,3 +1,8 @@
+2015-06-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (extract_omp_for_data): Adjust the chunk_size
+	based on the static argument of the gang clause.
+
 2015-06-10  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (enclosing_target_ctx): Un-ifdef. Remove null checking

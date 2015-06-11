@@ -1,3 +1,9 @@
+2015-06-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/gang-static-1.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/gang-static-2.c: New test.
+	* testsuite/libgomp.oacc-fortran/gang-static-1.f90: New test.
+
 2015-06-10  James Norris  <jnorris@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/atomic_rw-1.f90: New file.
