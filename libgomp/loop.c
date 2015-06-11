@@ -169,13 +169,16 @@ GOMP_loop_runtime_start (long start, long end, long incr,
   switch (icv->run_sched_var)
     {
     case GFS_STATIC:
-      return gomp_loop_static_start (start, end, incr, icv->run_sched_modifier,
+      return gomp_loop_static_start (start, end, incr,
+				     icv->run_sched_chunk_size,
 				     istart, iend);
     case GFS_DYNAMIC:
-      return gomp_loop_dynamic_start (start, end, incr, icv->run_sched_modifier,
+      return gomp_loop_dynamic_start (start, end, incr,
+				      icv->run_sched_chunk_size,
 				      istart, iend);
     case GFS_GUIDED:
-      return gomp_loop_guided_start (start, end, incr, icv->run_sched_modifier,
+      return gomp_loop_guided_start (start, end, incr,
+				     icv->run_sched_chunk_size,
 				     istart, iend);
     case GFS_AUTO:
       /* For now map to schedule(static), later on we could play with feedback
@@ -266,15 +269,15 @@ GOMP_loop_ordered_runtime_start (long start, long end, long incr,
     {
     case GFS_STATIC:
       return gomp_loop_ordered_static_start (start, end, incr,
-					     icv->run_sched_modifier,
+					     icv->run_sched_chunk_size,
 					     istart, iend);
     case GFS_DYNAMIC:
       return gomp_loop_ordered_dynamic_start (start, end, incr,
-					      icv->run_sched_modifier,
+					      icv->run_sched_chunk_size,
 					      istart, iend);
     case GFS_GUIDED:
       return gomp_loop_ordered_guided_start (start, end, incr,
-					     icv->run_sched_modifier,
+					     icv->run_sched_chunk_size,
 					     istart, iend);
     case GFS_AUTO:
       /* For now map to schedule(static), later on we could play with feedback
@@ -484,7 +487,7 @@ GOMP_parallel_loop_runtime_start (void (*fn) (void *), void *data,
 {
   struct gomp_task_icv *icv = gomp_icv (false);
   gomp_parallel_loop_start (fn, data, num_threads, start, end, incr,
-			    icv->run_sched_var, icv->run_sched_modifier, 0);
+			    icv->run_sched_var, icv->run_sched_chunk_size, 0);
 }
 
 ialias_redirect (GOMP_parallel_end)
@@ -529,7 +532,7 @@ GOMP_parallel_loop_runtime (void (*fn) (void *), void *data,
 {
   struct gomp_task_icv *icv = gomp_icv (false);
   gomp_parallel_loop_start (fn, data, num_threads, start, end, incr,
-			    icv->run_sched_var, icv->run_sched_modifier,
+			    icv->run_sched_var, icv->run_sched_chunk_size,
 			    flags);
   fn (data);
   GOMP_parallel_end ();

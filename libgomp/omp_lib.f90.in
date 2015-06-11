@@ -199,28 +199,28 @@
         end interface
 
         interface omp_set_schedule
-          subroutine omp_set_schedule (kind, modifier)
+          subroutine omp_set_schedule (kind, chunk_size)
             use omp_lib_kinds
             integer (omp_sched_kind), intent (in) :: kind
-            integer (4), intent (in) :: modifier
+            integer (4), intent (in) :: chunk_size
           end subroutine omp_set_schedule
-          subroutine omp_set_schedule_8 (kind, modifier)
+          subroutine omp_set_schedule_8 (kind, chunk_size)
             use omp_lib_kinds
             integer (omp_sched_kind), intent (in) :: kind
-            integer (8), intent (in) :: modifier
+            integer (8), intent (in) :: chunk_size
           end subroutine omp_set_schedule_8
          end interface
 
         interface omp_get_schedule
-          subroutine omp_get_schedule (kind, modifier)
+          subroutine omp_get_schedule (kind, chunk_size)
             use omp_lib_kinds
             integer (omp_sched_kind), intent (out) :: kind
-            integer (4), intent (out) :: modifier
+            integer (4), intent (out) :: chunk_size
           end subroutine omp_get_schedule
-          subroutine omp_get_schedule_8 (kind, modifier)
+          subroutine omp_get_schedule_8 (kind, chunk_size)
             use omp_lib_kinds
             integer (omp_sched_kind), intent (out) :: kind
-            integer (8), intent (out) :: modifier
+            integer (8), intent (out) :: chunk_size
           end subroutine omp_get_schedule_8
          end interface
 

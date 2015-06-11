@@ -344,35 +344,35 @@ omp_get_wtime_ (void)
 }
 
 void
-omp_set_schedule_ (const int32_t *kind, const int32_t *modifier)
+omp_set_schedule_ (const int32_t *kind, const int32_t *chunk_size)
 {
-  omp_set_schedule (*kind, *modifier);
+  omp_set_schedule (*kind, *chunk_size);
 }
 
 void
-omp_set_schedule_8_ (const int32_t *kind, const int64_t *modifier)
+omp_set_schedule_8_ (const int32_t *kind, const int64_t *chunk_size)
 {
-  omp_set_schedule (*kind, TO_INT (*modifier));
+  omp_set_schedule (*kind, TO_INT (*chunk_size));
 }
 
 void
-omp_get_schedule_ (int32_t *kind, int32_t *modifier)
+omp_get_schedule_ (int32_t *kind, int32_t *chunk_size)
 {
   omp_sched_t k;
-  int m;
-  omp_get_schedule (&k, &m);
+  int cs;
+  omp_get_schedule (&k, &cs);
   *kind = k;
-  *modifier = m;
+  *chunk_size = cs;
 }
 
 void
-omp_get_schedule_8_ (int32_t *kind, int64_t *modifier)
+omp_get_schedule_8_ (int32_t *kind, int64_t *chunk_size)
 {
   omp_sched_t k;
-  int m;
-  omp_get_schedule (&k, &m);
+  int cs;
+  omp_get_schedule (&k, &cs);
   *kind = k;
-  *modifier = m;
+  *chunk_size = cs;
 }
 
 int32_t

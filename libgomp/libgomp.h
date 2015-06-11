@@ -234,7 +234,7 @@ struct gomp_task_icv
 {
   unsigned long nthreads_var;
   enum gomp_schedule_type run_sched_var;
-  int run_sched_modifier;
+  int run_sched_chunk_size;
   int default_device_var;
   unsigned int thread_limit_var;
   bool dyn_var;

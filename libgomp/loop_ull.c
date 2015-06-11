@@ -175,15 +175,15 @@ GOMP_loop_ull_runtime_start (bool up, gomp_ull start, gomp_ull end,
     {
     case GFS_STATIC:
       return gomp_loop_ull_static_start (up, start, end, incr,
-					 icv->run_sched_modifier,
+					 icv->run_sched_chunk_size,
 					 istart, iend);
     case GFS_DYNAMIC:
       return gomp_loop_ull_dynamic_start (up, start, end, incr,
-					  icv->run_sched_modifier,
+					  icv->run_sched_chunk_size,
 					  istart, iend);
     case GFS_GUIDED:
       return gomp_loop_ull_guided_start (up, start, end, incr,
-					 icv->run_sched_modifier,
+					 icv->run_sched_chunk_size,
 					 istart, iend);
     case GFS_AUTO:
       /* For now map to schedule(static), later on we could play with feedback
@@ -279,15 +279,15 @@ GOMP_loop_ull_ordered_runtime_start (bool up, gomp_ull start, gomp_ull end,
     {
     case GFS_STATIC:
       return gomp_loop_ull_ordered_static_start (up, start, end, incr,
-						 icv->run_sched_modifier,
+						 icv->run_sched_chunk_size,
 						 istart, iend);
     case GFS_DYNAMIC:
       return gomp_loop_ull_ordered_dynamic_start (up, start, end, incr,
-						  icv->run_sched_modifier,
+						  icv->run_sched_chunk_size,
 						  istart, iend);
     case GFS_GUIDED:
       return gomp_loop_ull_ordered_guided_start (up, start, end, incr,
-						 icv->run_sched_modifier,
+						 icv->run_sched_chunk_size,
 						 istart, iend);
     case GFS_AUTO:
       /* For now map to schedule(static), later on we could play with feedback

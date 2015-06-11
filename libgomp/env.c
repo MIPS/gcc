@@ -58,7 +58,7 @@ struct gomp_task_icv gomp_global_icv = {
   .nthreads_var = 1,
   .thread_limit_var = UINT_MAX,
   .run_sched_var = GFS_DYNAMIC,
-  .run_sched_modifier = 1,
+  .run_sched_chunk_size = 1,
   .default_device_var = 0,
   .dyn_var = false,
   .nest_var = false,
@@ -124,7 +124,7 @@ parse_schedule (void)
     ++env;
   if (*env == '\0')
     {
-      gomp_global_icv.run_sched_modifier
+      gomp_global_icv.run_sched_chunk_size
 	= gomp_global_icv.run_sched_var != GFS_STATIC;
       return;
     }
@@ -150,7 +150,7 @@ parse_schedule (void)
 
   if (value == 0 && gomp_global_icv.run_sched_var != GFS_STATIC)
     value = 1;
-  gomp_global_icv.run_sched_modifier = value;
+  gomp_global_icv.run_sched_chunk_size = value;
   return;
 
  unknown:
@@ -1341,21 +1341,21 @@ omp_get_nested (void)
 }
 
 void
-omp_set_schedule (omp_sched_t kind, int modifier)
+omp_set_schedule (omp_sched_t kind, int chunk_size)
 {
   struct gomp_task_icv *icv = gomp_icv (true);
   switch (kind)
     {
     case omp_sched_static:
-      if (modifier < 1)
-	modifier = 0;
-      icv->run_sched_modifier = modifier;
+      if (chunk_size < 1)
+	chunk_size = 0;
+      icv->run_sched_chunk_size = chunk_size;
       break;
     case omp_sched_dynamic:
     case omp_sched_guided:
-      if (modifier < 1)
-	modifier = 1;
-      icv->run_sched_modifier = modifier;
+      if (chunk_size < 1)
+	chunk_size = 1;
+      icv->run_sched_chunk_size = chunk_size;
       break;
     case omp_sched_auto:
       break;
@@ -1366,11 +1366,11 @@ omp_set_schedule (omp_sched_t kind, int modifier)
 }
 
 void
-omp_get_schedule (omp_sched_t *kind, int *modifier)
+omp_get_schedule (omp_sched_t *kind, int *chunk_size)
 {
   struct gomp_task_icv *icv = gomp_icv (false);
   *kind = icv->run_sched_var;
-  *modifier = icv->run_sched_modifier;
+  *chunk_size = icv->run_sched_chunk_size;
 }
 
 int
