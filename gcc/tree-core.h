@@ -1264,6 +1264,14 @@ enum omp_clause_proc_bind_kind
   OMP_CLAUSE_PROC_BIND_LAST
 };
 
+enum omp_clause_linear_kind
+{
+  OMP_CLAUSE_LINEAR_DEFAULT,
+  OMP_CLAUSE_LINEAR_REF,
+  OMP_CLAUSE_LINEAR_VAL,
+  OMP_CLAUSE_LINEAR_UVAL
+};
+
 struct GTY(()) tree_exp {
   struct tree_typed typed;
   location_t locus;
@@ -1328,6 +1336,7 @@ struct GTY(()) tree_omp_clause {
     unsigned char		   map_kind;
     enum omp_clause_proc_bind_kind proc_bind_kind;
     enum tree_code                 reduction_code;
+    enum omp_clause_linear_kind    linear_kind;
   } GTY ((skip)) subcode;
 
   /* The gimplification of OMP_CLAUSE_REDUCTION_{INIT,MERGE} for omp-low's

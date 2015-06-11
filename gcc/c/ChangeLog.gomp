@@ -1,5 +1,8 @@
 2015-06-11  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-parser.c (c_parser_omp_clause_linear): Handle linear clause
+	modifiers.
+
 	* c-parser.c (c_parser_omp_clause_map): Handle release
 	map kind.  Adjust to use GOMP_MAP_ALWAYS_* and only on
 	clauses where it makes sense.

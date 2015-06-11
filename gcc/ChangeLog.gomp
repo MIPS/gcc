@@ -1,5 +1,11 @@
 2015-06-11  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-core.h (enum omp_clause_linear_kind): New.
+	(struct tree_omp_clause): Add subcode.linear_kind.
+	* tree.h (OMP_CLAUSE_LINEAR_KIND): Define.
+	* tree-pretty-print.h (dump_omp_clause): Dump linear
+	clause modifiers.
+
 	* omp-low.c (lower_omp_target): Accept GOMP_MAP_RELEASE,
 	GOMP_MAP_ALWAYS_TO, GOMP_MAP_ALWAYS_FROM and GOMP_MAP_ALWAYS_TOFROM.
 	Accept GOMP_MAP_FORCE* except for FORCE_DEALLOC only for OpenACC.

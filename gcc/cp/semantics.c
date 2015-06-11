@@ -5579,6 +5579,15 @@ finish_omp_clauses (tree clauses, bool allow_fields)
 	  if (!type_dependent_expression_p (t))
 	    {
 	      tree type = TREE_TYPE (t);
+	      if (OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_REF
+		  && TREE_CODE (type) != REFERENCE_TYPE)
+		{
+		  error ("linear clause with %<ref%> modifier applied to "
+			 "non-reference variable with %qT type",
+			 TREE_TYPE (t));
+		  remove = true;
+		  break;
+		}
 	      if (TREE_CODE (type) == REFERENCE_TYPE)
 		type = TREE_TYPE (type);
 	      if (!INTEGRAL_TYPE_P (type)
@@ -5616,7 +5625,16 @@ finish_omp_clauses (tree clauses, bool allow_fields)
 		  tree type = TREE_TYPE (OMP_CLAUSE_DECL (c));
 		  if (TREE_CODE (type) == REFERENCE_TYPE)
 		    type = TREE_TYPE (type);
-		  if (TREE_CODE (type) == POINTER_TYPE)
+		  if (OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_REF)
+		    {
+		      type = TREE_TYPE (OMP_CLAUSE_DECL (c));
+		      t = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+					    sizetype, t);
+		      t = fold_build2_loc (OMP_CLAUSE_LOCATION (c),
+					   MULT_EXPR, sizetype, t,
+					   TYPE_SIZE_UNIT (type));
+		    }
+		  else if (TREE_CODE (type) == POINTER_TYPE)
 		    {
 		      tree d = convert_from_reference (OMP_CLAUSE_DECL (c));
 		      t = pointer_int_sum (OMP_CLAUSE_LOCATION (c), PLUS_EXPR,
