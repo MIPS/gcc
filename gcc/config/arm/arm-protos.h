@@ -216,8 +216,6 @@ extern void arm_pr_long_calls (struct cpp_reader *);
 extern void arm_pr_no_long_calls (struct cpp_reader *);
 extern void arm_pr_long_calls_off (struct cpp_reader *);
 
-extern void arm_lang_object_attributes_init(void);
-
 extern const char *arm_mangle_type (const_tree);
 extern const char *arm_mangle_builtin_type (const_tree);
 
@@ -293,14 +291,14 @@ struct tune_params
   /* Prefer to inline string operations like memset by using Neon.  */
   enum {PREF_NEON_STRINGOPS_FALSE, PREF_NEON_STRINGOPS_TRUE}
     string_ops_prefer_neon: 1;
-  /* Bitfield encoding the fuseable pairs of instructions.  Use FUSE_OPS
+  /* Bitfield encoding the fusible pairs of instructions.  Use FUSE_OPS
      in an initializer if multiple fusion operations are supported on a
      target.  */
   enum fuse_ops
   {
     FUSE_NOTHING   = 0,
     FUSE_MOVW_MOVT = 1 << 0
-  } fuseable_ops: 1;
+  } fusible_ops: 1;
   /* Depth of scheduling queue to check for L2 autoprefetcher.  */
   enum {SCHED_AUTOPREF_OFF, SCHED_AUTOPREF_RANK, SCHED_AUTOPREF_FULL}
     sched_autopref: 2;
@@ -330,6 +328,10 @@ extern void arm_emit_eabi_attribute (const char *, int, int);
 
 /* Defined in gcc/common/config/arm-common.c.  */
 extern const char *arm_rewrite_selected_cpu (const char *name);
+
+/* Defined in gcc/common/config/arm-c.c.  */
+extern void arm_lang_object_attributes_init (void);
+extern void arm_cpu_cpp_builtins (struct cpp_reader *);
 
 extern bool arm_is_constant_pool_ref (rtx);
 

@@ -114,7 +114,7 @@ static uint32_t brig_insn_count;
 static bool brig_initialized = false;
 
 /* Mapping between emitted HSA functions and their offset in code segment.  */
-static hash_map <tree, BrigCodeOffset32_t> function_offsets;
+static hash_map<tree, BrigCodeOffset32_t> *function_offsets;
 
 struct function_linkage_pair
 {
@@ -565,7 +565,9 @@ emit_function_directives (void)
   fndir.modifier.allBits |= BRIG_EXECUTABLE_DEFINITION;
   memset (&fndir.reserved, 0, sizeof (fndir.reserved));
 
-  function_offsets.put (cfun->decl, brig_code.total_size);
+  if (!function_offsets)
+    function_offsets = new hash_map<tree, BrigCodeOffset32_t> ();
+  function_offsets->put (cfun->decl, brig_code.total_size);
 
   brig_code.add (&fndir, sizeof (fndir));
   /* XXX terrible hack: we need to set instCount after we emit all
@@ -1830,7 +1832,12 @@ hsa_output_brig (void)
     {
       function_linkage_pair p = function_call_linkage[i];
 
-      BrigCodeOffset32_t *func_offset = function_offsets.get (p.function_decl);
+      if (!function_offsets)
+	{
+	  sorry ("Missing offset to a HSA function in call instruction");
+	  return;
+	}
+      BrigCodeOffset32_t *func_offset = function_offsets->get (p.function_decl);
       if (*func_offset)
         {
 	  BrigOperandCodeRef *code_ref = (BrigOperandCodeRef *)

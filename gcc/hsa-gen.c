@@ -92,22 +92,22 @@ static GTY (()) vec<hsa_decl_kernel_map_element, va_gc> *hsa_decl_kernel_mapping
 
 /* Alloc pools for allocating basic hsa structures such as operands,
    instructions and other basic entitie.s */
-static alloc_pool hsa_allocp_operand_address;
-static alloc_pool hsa_allocp_operand_immed;
-static alloc_pool hsa_allocp_operand_reg;
-static alloc_pool hsa_allocp_operand_code_list;
-static alloc_pool hsa_allocp_inst_basic;
-static alloc_pool hsa_allocp_inst_phi;
-static alloc_pool hsa_allocp_inst_mem;
-static alloc_pool hsa_allocp_inst_atomic;
-static alloc_pool hsa_allocp_inst_addr;
-static alloc_pool hsa_allocp_inst_seg;
-static alloc_pool hsa_allocp_inst_cmp;
-static alloc_pool hsa_allocp_inst_br;
-static alloc_pool hsa_allocp_inst_call;
-static alloc_pool hsa_allocp_inst_call_block;
-static alloc_pool hsa_allocp_bb;
-static alloc_pool hsa_allocp_symbols;
+static pool_allocator<hsa_op_address> *hsa_allocp_operand_address;
+static pool_allocator<hsa_op_immed> *hsa_allocp_operand_immed;
+static pool_allocator<hsa_op_reg> *hsa_allocp_operand_reg;
+static pool_allocator<hsa_op_code_list> *hsa_allocp_operand_code_list;
+static pool_allocator<hsa_insn_basic> *hsa_allocp_inst_basic;
+static pool_allocator<hsa_insn_phi> *hsa_allocp_inst_phi;
+static pool_allocator<hsa_insn_mem> *hsa_allocp_inst_mem;
+static pool_allocator<hsa_insn_atomic> *hsa_allocp_inst_atomic;
+static pool_allocator<hsa_insn_addr> *hsa_allocp_inst_addr;
+static pool_allocator<hsa_insn_seg> *hsa_allocp_inst_seg;
+static pool_allocator<hsa_insn_cmp> *hsa_allocp_inst_cmp;
+static pool_allocator<hsa_insn_br> *hsa_allocp_inst_br;
+static pool_allocator<hsa_insn_call> *hsa_allocp_inst_call;
+static pool_allocator<hsa_insn_call_block> *hsa_allocp_inst_call_block;
+static pool_allocator<hsa_bb> *hsa_allocp_bb;
+static pool_allocator<hsa_symbol> *hsa_allocp_symbols;
 
 /* Vectors with selected instructions and operands that need
    a destruction.  */
@@ -156,57 +156,40 @@ hsa_init_data_for_cfun ()
 
   hsa_init_compilation_unit_data ();
   hsa_allocp_operand_address
-    = create_alloc_pool ("HSA address operands",
-			 sizeof (struct hsa_op_address), 8);
+    = new pool_allocator<hsa_op_address> ("HSA address operands", 8);
   hsa_allocp_operand_immed
-    = create_alloc_pool ("HSA immedate operands",
-			 sizeof (struct hsa_op_immed), 32);
+    = new pool_allocator<hsa_op_immed> ("HSA immedate operands", 32);
   hsa_allocp_operand_reg
-    = create_alloc_pool ("HSA register operands",
-			 sizeof (struct hsa_op_reg), 64);
+    = new pool_allocator<hsa_op_reg> ("HSA register operands", 64);
   hsa_allocp_operand_code_list
-    = create_alloc_pool ("HSA code list operands",
-			 sizeof (struct hsa_op_code_list), 64);
+    = new pool_allocator<hsa_op_code_list> ("HSA code list operands", 64);
   hsa_allocp_inst_basic
-    = create_alloc_pool ("HSA basic instructions",
-			 sizeof (struct hsa_insn_basic), 64);
+    = new pool_allocator<hsa_insn_basic> ("HSA basic instructions", 64);
   hsa_allocp_inst_phi
-    = create_alloc_pool ("HSA phi operands",
-			 sizeof (struct hsa_insn_phi), 16);
+    = new pool_allocator<hsa_insn_phi> ("HSA phi operands", 16);
   hsa_allocp_inst_mem
-    = create_alloc_pool ("HSA memory instructions",
-			 sizeof (struct hsa_insn_mem), 32);
+    = new pool_allocator<hsa_insn_mem> ("HSA memory instructions", 32);
   hsa_allocp_inst_atomic
-    = create_alloc_pool ("HSA atomic instructions",
-			 sizeof (struct hsa_insn_atomic), 32);
+    = new pool_allocator<hsa_insn_atomic> ("HSA atomic instructions", 32);
   hsa_allocp_inst_addr
-    = create_alloc_pool ("HSA address instructions",
-			 sizeof (struct hsa_insn_addr), 32);
+    = new pool_allocator<hsa_insn_addr> ("HSA address instructions", 32);
   hsa_allocp_inst_seg
-    = create_alloc_pool ("HSA segment conversion instructions",
-			 sizeof (struct hsa_insn_seg), 16);
+    = new pool_allocator<hsa_insn_seg> ("HSA segment conversion instructions",
+					16);
   hsa_allocp_inst_cmp
-    = create_alloc_pool ("HSA comparison instructions",
-			 sizeof (struct hsa_insn_cmp), 16);
+    = new pool_allocator<hsa_insn_cmp> ("HSA comparison instructions", 16);
   hsa_allocp_inst_br
-    = create_alloc_pool ("HSA branching instructions",
-			 sizeof (struct hsa_insn_br), 16);
+    = new pool_allocator<hsa_insn_br> ("HSA branching instructions", 16);
   hsa_allocp_inst_call
-    = create_alloc_pool ("HSA call instructions",
-			 sizeof (struct hsa_insn_call), 16);
+    = new pool_allocator<hsa_insn_call> ("HSA call instructions", 16);
   hsa_allocp_inst_call_block
-    = create_alloc_pool ("HSA call block instructions",
-			 sizeof (struct hsa_insn_call_block), 16);
-
-  hsa_allocp_bb
-    = create_alloc_pool ("HSA basic blocks",
-			 sizeof (struct hsa_bb), 8);
+    = new pool_allocator<hsa_insn_call_block> ("HSA call block instructions",
+					       16);
+  hsa_allocp_bb = new pool_allocator<hsa_bb> ("HSA basic blocks", 8);
 
   sym_init_len = (vec_safe_length (cfun->local_decls) / 2) + 1;
-  hsa_allocp_symbols
-    = create_alloc_pool ("HSA symbols",
-			 sizeof (struct hsa_op_address), sym_init_len);
-
+  hsa_allocp_symbols = new pool_allocator<hsa_symbol> ("HSA symbols",
+						       sym_init_len);
   memset (&hsa_cfun, 0, sizeof (hsa_cfun));
   hsa_cfun.prologue.label_ref.kind = BRIG_KIND_OPERAND_CODE_REF;
   hsa_cfun.local_symbols
@@ -248,23 +231,23 @@ hsa_deinit_data_for_cfun (void)
   hsa_list_insn_call_block.release ();
   hsa_list_insn_call.release ();
 
-  free_alloc_pool (hsa_allocp_operand_address);
-  free_alloc_pool (hsa_allocp_operand_immed);
-  free_alloc_pool (hsa_allocp_operand_reg);
-  free_alloc_pool (hsa_allocp_operand_code_list);
-  free_alloc_pool (hsa_allocp_inst_basic);
-  free_alloc_pool (hsa_allocp_inst_phi);
-  free_alloc_pool (hsa_allocp_inst_atomic);
-  free_alloc_pool (hsa_allocp_inst_mem);
-  free_alloc_pool (hsa_allocp_inst_addr);
-  free_alloc_pool (hsa_allocp_inst_seg);
-  free_alloc_pool (hsa_allocp_inst_cmp);
-  free_alloc_pool (hsa_allocp_inst_br);
-  free_alloc_pool (hsa_allocp_inst_call);
-  free_alloc_pool (hsa_allocp_inst_call_block);
-  free_alloc_pool (hsa_allocp_bb);
+  delete hsa_allocp_operand_address;
+  delete hsa_allocp_operand_immed;
+  delete hsa_allocp_operand_reg;
+  delete hsa_allocp_operand_code_list;
+  delete hsa_allocp_inst_basic;
+  delete hsa_allocp_inst_phi;
+  delete hsa_allocp_inst_atomic;
+  delete hsa_allocp_inst_mem;
+  delete hsa_allocp_inst_addr;
+  delete hsa_allocp_inst_seg;
+  delete hsa_allocp_inst_cmp;
+  delete hsa_allocp_inst_br;
+  delete hsa_allocp_inst_call;
+  delete hsa_allocp_inst_call_block;
+  delete hsa_allocp_bb;
 
-  free_alloc_pool (hsa_allocp_symbols);
+  delete hsa_allocp_symbols;
   delete hsa_cfun.local_symbols;
   free (hsa_cfun.input_args);
   free (hsa_cfun.output_arg);
@@ -567,7 +550,7 @@ get_symbol_for_decl (tree decl)
       if (*slot)
 	return *slot;
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
-      sym = (struct hsa_symbol *) pool_alloc (hsa_allocp_symbols);
+      sym = hsa_allocp_symbols->allocate ();
       memset (sym, 0, sizeof (hsa_symbol));
       sym->segment = BRIG_SEGMENT_PRIVATE;
       sym->linkage = BRIG_LINKAGE_FUNCTION;
@@ -587,7 +570,7 @@ get_symbol_for_decl (tree decl)
 hsa_symbol *
 hsa_get_spill_symbol (BrigType16_t type)
 {
-  hsa_symbol *sym = (struct hsa_symbol *) pool_alloc (hsa_allocp_symbols);
+  hsa_symbol *sym = hsa_allocp_symbols->allocate ();
   memset (sym, 0, sizeof (hsa_symbol));
   sym->segment = BRIG_SEGMENT_SPILL;
   sym->linkage = BRIG_LINKAGE_FUNCTION;
@@ -601,7 +584,7 @@ hsa_get_spill_symbol (BrigType16_t type)
 static hsa_op_immed *
 hsa_alloc_immed_op (tree tree_val)
 {
-  hsa_op_immed *imm = (hsa_op_immed *) pool_alloc (hsa_allocp_operand_immed);
+  hsa_op_immed *imm = hsa_allocp_operand_immed->allocate ();
 
   gcc_checking_assert (is_gimple_min_invariant (tree_val)
 		       && !POINTER_TYPE_P (TREE_TYPE (tree_val)));
@@ -636,7 +619,7 @@ hsa_alloc_reg_op (void)
 {
   hsa_op_reg *hreg;
 
-  hreg = (hsa_op_reg *) pool_alloc (hsa_allocp_operand_reg);
+  hreg = hsa_allocp_operand_reg->allocate ();
   hsa_list_operand_reg.safe_push (hreg);
   memset (hreg, 0, sizeof (hsa_op_reg));
   hreg->kind = BRIG_KIND_OPERAND_REGISTER;
@@ -655,7 +638,7 @@ hsa_alloc_addr_op (hsa_symbol *sym, hsa_op_reg *reg, HOST_WIDE_INT offset)
 {
   hsa_op_address *addr;
 
-  addr = (hsa_op_address *) pool_alloc (hsa_allocp_operand_address);
+  addr = hsa_allocp_operand_address->allocate ();
   memset (addr, 0, sizeof (hsa_op_address));
   addr->kind = BRIG_KIND_OPERAND_ADDRESS;
   addr->symbol = sym;
@@ -671,7 +654,7 @@ static hsa_op_code_list *
 hsa_alloc_code_list_op (unsigned elements)
 {
   hsa_op_code_list *list;
-  list = (hsa_op_code_list *) pool_alloc (hsa_allocp_operand_code_list);
+  list = hsa_allocp_operand_code_list->allocate ();
   hsa_list_operand_code_list.safe_push (list);
 
   memset (list, 0, sizeof (hsa_op_code_list));
@@ -724,7 +707,7 @@ hsa_alloc_basic_insn (void)
 {
   hsa_insn_basic *hin;
 
-  hin = (hsa_insn_basic *) pool_alloc (hsa_allocp_inst_basic);
+  hin = hsa_allocp_inst_basic->allocate ();
   memset (hin, 0, sizeof (hsa_insn_basic));
   return hin;
 }
@@ -736,7 +719,7 @@ hsa_alloc_mem_insn (void)
 {
   hsa_insn_mem *mem;
 
-  mem = (hsa_insn_mem *) pool_alloc (hsa_allocp_inst_mem);
+  mem = hsa_allocp_inst_mem->allocate ();
   memset (mem, 0, sizeof (hsa_insn_mem));
   return mem;
 }
@@ -748,7 +731,7 @@ hsa_alloc_atomic_insn (void)
 {
   hsa_insn_atomic *ret;
 
-  ret = (hsa_insn_atomic *) pool_alloc (hsa_allocp_inst_atomic);
+  ret = hsa_allocp_inst_atomic->allocate ();
   memset (ret, 0, sizeof (hsa_insn_atomic));
   return ret;
 }
@@ -760,7 +743,7 @@ hsa_alloc_addr_insn (void)
 {
   hsa_insn_addr *addr;
 
-  addr = (hsa_insn_addr *) pool_alloc (hsa_allocp_inst_addr);
+  addr = hsa_allocp_inst_addr->allocate ();
   memset (addr, 0, sizeof (hsa_insn_addr));
   return addr;
 }
@@ -772,7 +755,7 @@ hsa_alloc_seg_insn (void)
 {
   hsa_insn_seg *seg;
 
-  seg = (hsa_insn_seg *) pool_alloc (hsa_allocp_inst_seg);
+  seg = hsa_allocp_inst_seg->allocate ();
   memset (seg, 0, sizeof (hsa_insn_seg));
   return seg;
 }
@@ -785,7 +768,7 @@ hsa_alloc_cmp_insn (void)
 {
   hsa_insn_cmp *cmp;
 
-  cmp = (hsa_insn_cmp *) pool_alloc (hsa_allocp_inst_cmp);
+  cmp = hsa_allocp_inst_cmp->allocate ();
   memset (cmp, 0, sizeof (hsa_insn_cmp));
   cmp->opcode = BRIG_OPCODE_CMP;
   return cmp;
@@ -799,7 +782,7 @@ hsa_build_cbr_insn (hsa_op_reg *ctrl)
 {
   hsa_insn_br *cbr;
 
-  cbr = (hsa_insn_br *) pool_alloc (hsa_allocp_inst_br);
+  cbr = hsa_allocp_inst_br->allocate ();
   memset (cbr, 0, sizeof (hsa_insn_br));
   cbr->opcode = BRIG_OPCODE_CBR;
   cbr->type = BRIG_TYPE_NONE;
@@ -816,7 +799,7 @@ hsa_alloc_call_insn (void)
 {
   hsa_insn_call *call;
 
-  call = (hsa_insn_call *) pool_alloc (hsa_allocp_inst_call);
+  call = hsa_allocp_inst_call->allocate ();
   hsa_list_insn_call.safe_push (call);
   memset (call, 0, sizeof (hsa_insn_call));
   return call;
@@ -829,7 +812,7 @@ hsa_alloc_call_block_insn (void)
 {
   hsa_insn_call_block *call_block;
 
-  call_block = (hsa_insn_call_block *) pool_alloc (hsa_allocp_inst_call_block);
+  call_block = hsa_allocp_inst_call_block->allocate ();
   hsa_list_insn_call_block.safe_push (call_block);
   memset (call_block, 0, sizeof (hsa_insn_call_block));
 
@@ -1169,7 +1152,7 @@ out:
 static hsa_op_address *
 gen_hsa_addr_for_arg (tree tree_type, int index)
 {
-  hsa_symbol *sym = (struct hsa_symbol *) pool_alloc (hsa_allocp_symbols);
+  hsa_symbol *sym = hsa_allocp_symbols->allocate ();
   memset (sym, 0, sizeof (hsa_symbol));
   sym->segment = BRIG_SEGMENT_ARG;
   sym->linkage = BRIG_LINKAGE_ARG;
@@ -1181,9 +1164,8 @@ gen_hsa_addr_for_arg (tree tree_type, int index)
     sym->name = "res";
   else /* Function call arguments.  */
     {
-      char *name = (char *) pool_alloc (hsa_allocp_symbols);
-      sprintf (name, "arg_%d", index);
-      sym->name = name;
+      sym->name = NULL;
+      sym->name_number = index;
     }
 
   return hsa_alloc_addr_op (sym, NULL, 0);
@@ -2070,7 +2052,7 @@ gen_hsa_phi_from_gimple_phi (gimple gphi, hsa_bb *hbb,
   hsa_insn_phi *hphi;
   unsigned count = gimple_phi_num_args (gphi);
 
-  hphi = (hsa_insn_phi *) pool_alloc (hsa_allocp_inst_phi);
+  hphi = hsa_allocp_inst_phi->allocate ();
   memset (hphi, 0, sizeof (hsa_insn_phi));
   hphi->opcode = HSA_OPCODE_PHI;
   hphi->bb = hbb->bb;
@@ -2124,7 +2106,7 @@ gen_hsa_phi_from_gimple_phi (gimple gphi, hsa_bb *hbb,
 hsa_bb *
 hsa_init_new_bb (basic_block bb)
 {
-  hsa_bb *hbb = (struct hsa_bb *) pool_alloc (hsa_allocp_bb);
+  hsa_bb *hbb = hsa_allocp_bb->allocate ();
   memset (hbb, 0, sizeof (hsa_bb));
 
   gcc_assert (!bb->aux);
