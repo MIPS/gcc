@@ -299,18 +299,7 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
   value.decl = *in;
   decl_addr_value *found_value = ctx->address_map.find (&value);
   if (found_value != NULL)
-    {
-      // At this point we don't need VLA sizes for gdb-supplied
-      // variables, and having them here confuses later passes, so we
-      // drop them.
-      if (C_TYPE_VARIABLE_SIZE (TREE_TYPE (*in)))
-	{
-	  TREE_TYPE (*in)
-	    = build_array_type_nelts (TREE_TYPE (TREE_TYPE (*in)), 1);
-	  DECL_SIZE (*in) = TYPE_SIZE (TREE_TYPE (*in));
-	  DECL_SIZE_UNIT (*in) = TYPE_SIZE_UNIT (TREE_TYPE (*in));
-	}
-    }
+    ;
   else if (DECL_IS_BUILTIN (*in))
     {
       gcc_address address;
@@ -418,6 +407,7 @@ plugin_build_decl (cc1_plugin::connection *self,
     {
       decl_addr_value value;
 
+      DECL_EXTERNAL (decl) = 1;
       value.decl = decl;
       if (substitution_name != NULL)
 	{
