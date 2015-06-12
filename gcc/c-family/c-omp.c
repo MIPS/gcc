@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "omp-low.h"
 #include "gomp-constants.h"
+#include "tree-hasher.h"
 
 
 /* Complete a #pragma oacc wait construct.  LOC is the location of
@@ -1097,8 +1098,19 @@ oacc_extract_device_id (const char *device)
 {
   if (!strcasecmp (device, "nvidia"))
     return GOMP_DEVICE_NVIDIA_PTX;
+  else if (!strcmp (device, "*"))
+    return GOMP_DEVICE_DEFAULT;
   return GOMP_DEVICE_NONE;
 }
+
+struct identifier_hasher : ggc_cache_hasher<tree>
+{
+  static hashval_t hash (tree t) { return htab_hash_pointer (t); }
+  static bool equal (tree a, tree b)
+  {
+    return !strcmp(IDENTIFIER_POINTER (a), IDENTIFIER_POINTER (b));
+  }
+};
 
 /* Filter out the list of unsupported OpenACC device_types.  */
 
@@ -1109,55 +1121,54 @@ oacc_filter_device_types (tree clauses)
   tree dtype = NULL_TREE;
   tree seen_nvidia = NULL_TREE;
   tree seen_default = NULL_TREE;
-  int device = 0;
+  hash_table<identifier_hasher> *dt_htab
+    = hash_table<identifier_hasher>::create_ggc (10);
 
   /* First scan for all device_type clauses.  */
   for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     {
       if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEVICE_TYPE)
 	{
-	  int code = TREE_INT_CST_LOW (OMP_CLAUSE_DEVICE_TYPE_DEVICES (c));
+	  tree t;
 
-	  if (code == GOMP_DEVICE_DEFAULT)
+	  for (t = OMP_CLAUSE_DEVICE_TYPE_DEVICES (c); t; t = TREE_CHAIN (t))
 	    {
-	      if (device & (1 << GOMP_DEVICE_DEFAULT))
-		{
-		  seen_default = NULL_TREE;
-		  error_at (OMP_CLAUSE_LOCATION (c),
-			    "duplicate device_type (*)");
-		  goto filter_error;
-		}
-
-	      seen_default = OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
-	    }
-	  else if (code & (1 << GOMP_DEVICE_NVIDIA_PTX))
-	    {
-	      if (device & code)
-		{
-		  seen_nvidia = NULL_TREE;
-		  error_at (OMP_CLAUSE_LOCATION (c),
-			    "duplicate device_type (nvidia)");
-		  goto filter_error;
-		}
-
-	      seen_nvidia = OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
-	    }
-	  else
-	    {
-	      if (device & (1 << code))
+	      if (dt_htab->find (t))
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
-			    "duplicate device_type");
-		  goto filter_error;
+			    "duplicate device_type (%s)",
+			    IDENTIFIER_POINTER (t));
+		  goto filter_dtype;
 		}
+
+	      int code = oacc_extract_device_id (IDENTIFIER_POINTER (t));
+
+	      if (code == GOMP_DEVICE_DEFAULT)
+		seen_default = OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
+	      else if (code == GOMP_DEVICE_NVIDIA_PTX)
+		seen_nvidia = OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
+	      else
+		{
+		  /* The OpenACC technical committee advises compilers
+		     to silently ignore unknown devices.  */
+		}
+
+	      tree *slot = dt_htab->find_slot (t, INSERT);
+	      *slot = t;
 	    }
-	  device |= (1 << code);
 	}
     }
 
   /* Don't do anything if there aren't any device_type clauses.  */
-  if (device == 0)
+  if (dt_htab->elements () == 0)
     return clauses;
+
+  if (seen_nvidia)
+    dtype = seen_nvidia;
+  else if (seen_default)
+    dtype = seen_default;
+  else
+    goto filter_dtype;
 
   dtype = seen_nvidia ? seen_nvidia : seen_default;
 
@@ -1186,7 +1197,7 @@ oacc_filter_device_types (tree clauses)
       prev = c;
     }
   
- filter_error:
+ filter_dtype:
   /* Remove all device_type clauses.  Those clauses are located at the
      beginning of the clause list.  */
   for (c = clauses; c && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEVICE_TYPE;

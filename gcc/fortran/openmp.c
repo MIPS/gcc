@@ -1171,17 +1171,23 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	    {
 	      char n[GFC_MAX_SYMBOL_LEN + 1];
 
-	      while (gfc_match (" %n ", n) == MATCH_YES)
-		{
-		  if (!strcasecmp ("nvidia", n))
-		    device = GOMP_DEVICE_NVIDIA_PTX;
-		  else
-		    {
-		      /* The OpenACC technical committee advises compilers
-			 to silently ignore unknown devices.  */
-		    }
-		  gfc_match (" , ");
-		}
+	      do {
+		if (gfc_match (" %n ", n) == MATCH_YES)
+		  {
+		    if (!strcasecmp ("nvidia", n))
+		      device = GOMP_DEVICE_NVIDIA_PTX;
+		    else
+		      {
+			/* The OpenACC technical committee advises compilers
+			   to silently ignore unknown devices.  */
+		      }
+		  }
+		else
+		  {
+		    gfc_error ("missing device_type argument");
+		    continue;
+		  }
+	      } while (gfc_match (" , ") == MATCH_YES);
 	    }
 
 	  /* Consume the trailing ')'.  */

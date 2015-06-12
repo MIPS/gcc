@@ -1,3 +1,8 @@
+2015-06-12  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (gfc_match_omp_clauses): Report errors on duplicate
+	device_type entries.
+
 2015-06-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-openmp.c (gfc_trans_omp_clauses): Handle the static

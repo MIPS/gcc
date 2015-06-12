@@ -28,12 +28,12 @@ program dtype
 
 end program dtype
 
-! { dg-error "Invalid character" "" { target *-*-* } 8 }
+! { dg-error "Unclassifiable OpenACC directive" "" { target *-*-* } 8 }
 ! { dg-error "Unexpected" "" { target *-*-* } 10 }
 
-! { dg-error "Invalid character" "" { target *-*-* } 14 }
+! { dg-error "Unclassifiable OpenACC directive" "" { target *-*-* } 14 }
 ! { dg-error "Unexpected" "" { target *-*-* } 15 }
 
-! { dg-error "Invalid character" "" { target *-*-* } 20 }
+! { dg-error "Unclassifiable OpenACC directive" "" { target *-*-* } 20 }
 
-! { dg-error "Invalid character" "" { target *-*-* } 27 }
+! { dg-error "Unclassifiable OpenACC directive" "" { target *-*-* } 27 }

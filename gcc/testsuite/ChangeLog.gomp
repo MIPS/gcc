@@ -1,3 +1,9 @@
+2015-06-12  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/dtype-4.c: New test.
+	* gfortran.dg/goacc/dtype-2.f95: Update error messages.
+	* gfortran.dg/goacc/dtype-3.f: New test.
+
 2015-06-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/gang-static.f95: New test.

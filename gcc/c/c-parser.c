@@ -11246,7 +11246,7 @@ c_parser_oacc_clause_device_type (c_parser *parser, omp_clause_mask mask,
 {
   tree c, clauses;
   location_t loc;
-  int dev_id = GOMP_DEVICE_NONE;
+  tree dev_id = NULL_TREE;
 
   loc = c_parser_peek_token (parser)->location;
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
@@ -11255,7 +11255,7 @@ c_parser_oacc_clause_device_type (c_parser *parser, omp_clause_mask mask,
   if (c_parser_next_token_is (parser, CPP_MULT))
     {
       c_parser_consume_token (parser);
-      dev_id = GOMP_DEVICE_DEFAULT;
+      dev_id = get_identifier ("*");
       if (!c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
 	return list;
     }
@@ -11264,7 +11264,6 @@ c_parser_oacc_clause_device_type (c_parser *parser, omp_clause_mask mask,
       do
 	{
 	  tree keyword = error_mark_node;
-	  int dev = 0;
 
 	  if (c_parser_next_token_is (parser, CPP_NAME))
 	    {
@@ -11280,9 +11279,10 @@ c_parser_oacc_clause_device_type (c_parser *parser, omp_clause_mask mask,
 	      return list;
 	    }
 
-	  dev = oacc_extract_device_id (IDENTIFIER_POINTER (keyword));
-	  if (dev)
-	    dev_id |= 1 << dev;
+	  if (dev_id)
+	    dev_id = chainon (dev_id, keyword);
+	  else
+	    dev_id = keyword;
 
 	  if (c_parser_next_token_is (parser, CPP_COMMA))
 	    c_parser_consume_token (parser);
@@ -11297,8 +11297,7 @@ c_parser_oacc_clause_device_type (c_parser *parser, omp_clause_mask mask,
   clauses = c_parser_oacc_all_clauses (parser, mask, "device_type", 0, false,
 				       false);
   OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c) = clauses;
-  OMP_CLAUSE_DEVICE_TYPE_DEVICES (c) = build_int_cst (integer_type_node,
-						      dev_id);
+  OMP_CLAUSE_DEVICE_TYPE_DEVICES (c) = dev_id;
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
