@@ -3023,14 +3023,13 @@ conversion_warning (location_t loc, tree type, tree expr)
   if (!warn_conversion && !warn_sign_conversion && !warn_float_conversion)
     return;
 
-  expr = fold (expr);
   /* This may happen, because for LHS op= RHS we preevaluate
      RHS and create C_MAYBE_CONST_EXPR <SAVE_EXPR <RHS>>, which
      means we could no longer see the code of the EXPR.  */
   if (TREE_CODE (expr) == C_MAYBE_CONST_EXPR)
     expr = C_MAYBE_CONST_EXPR_EXPR (expr);
   if (TREE_CODE (expr) == SAVE_EXPR)
-    expr = fold (TREE_OPERAND (expr, 0));
+    expr = TREE_OPERAND (expr, 0);
 
   switch (TREE_CODE (expr))
     {
@@ -3080,25 +3079,6 @@ conversion_warning (location_t loc, tree type, tree expr)
         return;
       }
 
-    case NEGATE_EXPR:
-    case BIT_NOT_EXPR:
-    case CONVERT_EXPR:
-    case VIEW_CONVERT_EXPR:
-    case NOP_EXPR:
-    case FIX_TRUNC_EXPR:
-      {
-	tree op1 = TREE_OPERAND (expr, 0);
-	tree fop1 = fold (op1);
-	if (fop1 && op1 != fop1)
-	  fop1 = fold_build1_loc (loc, TREE_CODE (expr), TREE_TYPE (expr),
-				  fop1);
-	if (fop1 && fop1 != op1)
-	  {
-	    conversion_warning (loc, type, fop1);
-	    return;
-	  }
-	/* Fall through.  */
-      }
     default: /* 'expr' is not a constant.  */
       conversion_kind = unsafe_conversion_p (loc, type, expr, true);
       if (conversion_kind == UNSAFE_REAL)
