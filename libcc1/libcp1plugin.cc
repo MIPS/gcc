@@ -290,18 +290,7 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
   value.decl = *in;
   decl_addr_value *found_value = ctx->address_map.find (&value);
   if (found_value != NULL)
-    {
-      // At this point we don't need VLA sizes for gdb-supplied
-      // variables, and having them here confuses later passes, so we
-      // drop them.
-      if (array_of_runtime_bound_p (TREE_TYPE (*in)))
-	{
-	  TREE_TYPE (*in)
-	    = build_array_type_nelts (TREE_TYPE (TREE_TYPE (*in)), 1);
-	  DECL_SIZE (*in) = TYPE_SIZE (TREE_TYPE (*in));
-	  DECL_SIZE_UNIT (*in) = TYPE_SIZE_UNIT (TREE_TYPE (*in));
-	}
-    }
+    ;
   else if (DECL_IS_BUILTIN (*in))
     {
       gcc_address address;
@@ -428,6 +417,7 @@ plugin_build_decl (cc1_plugin::connection *self,
     {
       decl_addr_value value;
 
+      DECL_EXTERNAL (decl) = 1;
       value.decl = decl;
       if (substitution_name != NULL)
 	{
@@ -761,10 +751,12 @@ plugin_build_vla_array_type (cc1_plugin::connection *self,
 {
   tree element_type = convert_in (element_type_in);
   tree upper_bound = lookup_name (get_identifier (upper_bound_name));
-  tree range = build_index_type (upper_bound);
+  tree size = fold_build2 (PLUS_EXPR, TREE_TYPE (upper_bound), upper_bound,
+			   build_one_cst (TREE_TYPE (upper_bound)));
+  tree range = compute_array_index_type (NULL_TREE, size,
+					 tf_warning_or_error);
 
   tree result = build_cplus_array_type (element_type, range);
-  // C_TYPE_VARIABLE_SIZE (result) = 1;
 
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (result));
