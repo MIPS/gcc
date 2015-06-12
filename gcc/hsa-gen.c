@@ -1851,6 +1851,37 @@ gen_hsa_insns_for_return (greturn *stmt, hsa_bb *hbb,
   hsa_append_insn (hbb, ret);
 }
 
+/* If STMT is a call of a known library function, generate code to perform
+   it and return true.  */
+
+static bool
+gen_hsa_insns_for_known_library_call (gimple stmt, hsa_bb *hbb,
+				      vec <hsa_op_reg_p> ssa_map)
+{
+  tree decl = gimple_call_fndecl (stmt);
+  gcc_checking_assert (DECL_NAME (decl));
+  const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
+
+  if (!strcmp (name, "omp_is_initial_device")
+      || strcmp (name, "omp_is_initial_device"))
+    {
+      tree lhs = gimple_call_lhs (stmt);
+      if (!lhs)
+	return true;
+
+      hsa_op_reg *dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+      hsa_op_immed *imm = hsa_alloc_immed_op (build_zero_cst (TREE_TYPE (lhs)));
+
+      hsa_build_append_simple_mov (dest, imm, hbb);
+      return true;
+    }
+  return false;
+}
+
+/* Generate HSA instructions for the given call statement STMT.  Instructions
+   will be appended to HBB.  SSA_MAP maps gimple SSA names to HSA pseudo
+   registers. */
+
 static void
 gen_hsa_insns_for_call (gimple stmt, hsa_bb *hbb,
 			vec <hsa_op_reg_p> ssa_map)
@@ -1862,11 +1893,12 @@ gen_hsa_insns_for_call (gimple stmt, hsa_bb *hbb,
 
   if (!gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
     {
-      if (!lookup_attribute ("hsafunc", DECL_ATTRIBUTES (gimple_call_fndecl (stmt))))
-	sorry ("HSA does support only call for functions with 'hsafunc' attribute");
-      else
+      if (lookup_attribute ("hsafunc",
+			    DECL_ATTRIBUTES (gimple_call_fndecl (stmt))))
         gen_hsa_insns_for_direct_call (stmt, hbb, ssa_map);
-
+      else if (!gen_hsa_insns_for_known_library_call (stmt, hbb, ssa_map))
+	sorry ("HSA does support only call for functions with 'hsafunc' "
+	       "attribute");
       return;
     }
 
@@ -1903,7 +1935,8 @@ specialop:
 	if (dest != tmp)
 	  {
 	    insn = hsa_alloc_basic_insn ();
-	    insn->opcode = dest->type == BRIG_TYPE_S32 ? BRIG_OPCODE_MOV : BRIG_OPCODE_CVT;
+	    insn->opcode = dest->type == BRIG_TYPE_S32 ? BRIG_OPCODE_MOV
+	      : BRIG_OPCODE_CVT;
 	    insn->operands[0] = dest;
 	    insn->type = dest->type;
 	    insn->operands[1] = tmp;

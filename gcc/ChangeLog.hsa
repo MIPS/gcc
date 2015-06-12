@@ -1,3 +1,8 @@
+2015-06-12  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_known_library_call): New function.
+	(gen_hsa_insns_for_call): Use it.
+
 2015-06-09  Martin Jambor  <mjambor@suse.cz>
 
 	* builtin-types.def (BT_FN_VOID_PTR_INT_PTR): New.
