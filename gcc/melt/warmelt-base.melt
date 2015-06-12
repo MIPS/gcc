@@ -2086,6 +2086,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   melt_ptr_t GTY ((length ("%h.obj_len"))) obj_vartab[MELT_FLEXIBLE_DIM];
   }#
   :valdesc_declchunk #{$' /* decl VALDESC_OBJECT */
+// in file $_MELT_FILE_ line $_MELT_LINE_
 #define meltobj_class discr
 #define meltobj_magic obj_num
 #define MELT_OBJECT_STRUCT(N) {			\
@@ -2097,6 +2098,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   long _gap; }
   }#
   :valdesc_copychunk #{$' /* from VALDESC_OBJECT file warmelt-base.melt */
+  // in file $_MELT_FILE_ line $_MELT_LINE_
   /* ggc_alloc_meltobject_st should be gengtype generated for VALDESC_OBJECT */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltobject_st
@@ -2139,6 +2141,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
 #endif /* ENABLE_CHECKING */
   }#
   :valdesc_clonechunk #{$' /* cloning, from VALDESC_OBJECT */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     unsigned newlen = 0;
     unsigned srclen = src->obj_len;
     unsigned slotix = 0;
@@ -2181,6 +2184,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
 #endif /* ENABLE_CHECKING */
   }#
   :valdesc_forwchunk #{$' /* from VALDESC_OBJECT */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     int ix = 0;
     int oblen = (int) (src->obj_len);
     for (ix = 0; ix < oblen; ix++)
@@ -2211,6 +2215,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   :valdesc_struct '"meltmapobjects_st"
   :valdesc_unionmem '"u_mapobjects"
   :valdesc_membchunk #{$' /* from VALDESC_MAPOBJECTS in warmelt-base.melt */
+  // in file $_MELT_FILE_ line $_MELT_LINE_
   unsigned count;
   unsigned char lenix;
   unsigned meltmap_hash;
@@ -2223,9 +2228,11 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   struct entryobjectsmelt_st GTY ((length ("0"))) map_space[MELT_FLEXIBLE_DIM];
   }#
   :valdesc_declchunk #{$' /* decl VALDESC_MAPOBJECTS in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     typedef struct meltmapobjects_st* meltmapobjects_ptr_t;
   }#
   :valdesc_copychunk #{$' /* copy VALDESC_MAPOBJECTS in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltmapobjects_st should be gengtype generated for VALDESC_MAPOBJECTS */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmapobjects_st
@@ -2271,6 +2278,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
      melt_forwarded_copy_byte_count += sz;
   }#
   :valdesc_clonechunk #{$' /* cloning, from VALDESC_MAPOBJECTS in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      unsigned srccount = src->count;
      unsigned srclen = melt_primtab[src->lenix];
      unsigned newlen = 4*srccount/3+4;
@@ -2296,6 +2304,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
      } /* end cloning, from VALDESC_MAPOBJECTS */
   }#
   :valdesc_forwchunk #{$' /* forwarding from VALDESC_MAPOBJECTS in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     int siz, ix;
     MELT_FORWARDED(src->meltmap_aux);
     if (!src->entab)
@@ -2339,6 +2348,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   :valdesc_struct '"meltmapstrings_st"
   :valdesc_unionmem '"u_mapstrings"
   :valdesc_membchunk #{$' /* from VALDESC_MAPSTRINGS in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   unsigned count;
   unsigned char lenix;
   unsigned meltmap_hash;
@@ -2347,6 +2357,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
     entab;
   }#
   :valdesc_copychunk #{$' /* copy VALDESC_MAPSTRINGS in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltmapstrings_st should be gengtype generated for VALDESC_MAPSTRINGS */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmapstrings_st
@@ -2392,6 +2403,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
         melt_forwarded_copy_byte_count += sz;
   }#
   :valdesc_clonechunk #{$' /* cloning from VALDESC_MAPSTRINGS in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      unsigned srccount = src->count;
      unsigned srclen = melt_primtab[src->lenix];
      unsigned newlen = 4*srccount/3+4;
@@ -2418,6 +2430,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
      /* end  cloning from VALDESC_MAPSTRINGS */
   }#
   :valdesc_forwchunk #{$' /* forwarding from VALDESC_MAPSTRINGS  in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      int ix, siz;
      MELT_FORWARDED(src->meltmap_aux);
      if (!src->entab)
@@ -2463,10 +2476,12 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   :valdesc_unionmem '"u_decay"
   :valdesc_gty #{$' mark_hook ("melt_mark_decay")}#
   :valdesc_membchunk #{$' /* from VALDESC_DECAY in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   melt_ptr_t val;
   unsigned remain;		/* remaining number of marking */
   }#
   :valdesc_copychunk #{$' /* from VALDESC_DECAY in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltdecay_st should be gengtype generated for VALDESC_DECAY */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltdecay_st
@@ -2483,6 +2498,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   }#
   :valdesc_clonechunk :true
   :valdesc_forwchunk #{$' /* from VALDESC_DECAY  in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      MELT_FORWARDED (src->val);
   }#
 )
@@ -2500,10 +2516,12 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   :valdesc_struct '"meltmultiple_st"
   :valdesc_unionmem '"u_multiple"
   :valdesc_membchunk #{$' /* from VALDESC_MULTIPLE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     unsigned nbval;
     melt_ptr_t GTY ((length ("%h.nbval"))) tabval[MELT_FLEXIBLE_DIM];
   }#
   :valdesc_declchunk #{$'  /* decl VALDESC_MULTIPLE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 #define MELT_MULTIPLE_STRUCT(N) {               \
     meltobject_ptr_t discr;                     \
     unsigned nbval;                             \
@@ -2511,6 +2529,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   typedef struct meltmultiple_st* meltmultiple_ptr_t;
   }#
   :valdesc_copychunk #{$'  /* copy chunk from VALDESC_MULTIPLE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   /* ggc_alloc_meltmultiple_st should be gengtype generated for VALDESC_MULTIPLE */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmultiple_st
@@ -2538,6 +2557,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
     /* end copy chunk from VALDESC_MULTIPLE */
   }#
   :valdesc_clonechunk #{$' /* cloning from VALDESC_MULTIPLE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     unsigned srclen = src->nbval;
     dst = 
        (struct meltmultiple_st*) meltgc_new_multiple ((meltobject_ptr_t)newdiscrv, srclen);
@@ -2550,6 +2570,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   /* end cloning from VALDESC_MULTIPLE */
   }#
   :valdesc_forwchunk #{$' /* forwarding chunk from VALDESC_MULTIPLE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      int nbval = (int) src->nbval;
      for (int ix = 0;
 	  ix < nbval;
@@ -2568,11 +2589,13 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   :valdesc_struct '"meltclosure_st"
   :valdesc_unionmem '"u_closure"
   :valdesc_membchunk #{$' /* from VALDESC_CLOSURE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     meltroutine_ptr_t rout;
     unsigned nbval;
     melt_ptr_t GTY ((length ("%h.nbval"))) tabval[MELT_FLEXIBLE_DIM];
   }#
   :valdesc_declchunk #{$' /* decl VALDESC_CLOSURE  in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 #define MELT_CLOSURE_STRUCT(N) {                \
     meltobject_ptr_t discr;                     \
     meltroutine_ptr_t rout;			\
@@ -2580,6 +2603,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
     melt_ptr_t tabval[N+1]; }
   }#
   :valdesc_copychunk #{$' /* copy VALDESC_CLOSURE in warmelt-base.melt  */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltclosure_st should be gengtype generated for VALDESC_CLOSURE */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltclosure_st
@@ -2605,6 +2629,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
        dst->tabval[ix] = src->tabval[ix];
   }#
   :valdesc_forwchunk #{$' /* forwarding from VALDESC_CLOSURE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      int nbval = (int) src->nbval;
      MELT_FORWARDED (src->rout);
      for (int ix = 0;
@@ -2613,6 +2638,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
        MELT_FORWARDED (src->tabval[ix]);
   }#
   :valdesc_clonechunk  #{$' /* cloning from VALDESC_CLOSURE  in warmelt-base.melt*/
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      unsigned nbval = (int) src->nbval;
      dst
         = (struct meltclosure_st*)meltgc_allocate (sizeof(struct meltclosure_st),
@@ -2638,6 +2664,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   :valdesc_struct '"meltroutine_st"
   :valdesc_unionmem '"u_routine"
   :valdesc_membchunk #{$' /* from VALDESC_ROUTINE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     char routdescr[MELT_ROUTDESCR_LEN];
     meltroutfun_t* GTY ((skip)) routfunad;
     melt_ptr_t routdata;
@@ -2645,6 +2672,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
     melt_ptr_t GTY ((length ("%h.nbval"))) tabval[MELT_FLEXIBLE_DIM];
   }#
   :valdesc_declchunk #{$' /* decl VALDESC_ROUTINE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 #ifndef meltroutine_ptr_t_TYPEDEFINED
 typedef struct meltroutine_st *meltroutine_ptr_t;
 #define  meltroutine_ptr_t_TYPEDEFINED
@@ -2666,6 +2694,7 @@ typedef struct meltroutine_st *meltroutine_ptr_t;
   melt_ptr_t tabval[N+1]; }
   }#
   :valdesc_copychunk #{$' /* from VALDESC_ROUTINE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   /* ggc_alloc_meltroutine_st should be gengtype generated for VALDESC_ROUTINE */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltroutine_st
@@ -2696,6 +2725,7 @@ typedef struct meltroutine_st *meltroutine_ptr_t;
   }#
   ;; don't clone routines!
   :valdesc_forwchunk #{$' /* from VALDESC_ROUTINE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      int nbval = (int) src->nbval;
      for (int ix = 0;
 	  ix < nbval;
@@ -2715,6 +2745,7 @@ typedef struct meltroutine_st *meltroutine_ptr_t;
   :valdesc_struct '"melthook_st"
   :valdesc_unionmem '"u_hook"
   :valdesc_membchunk #{$' /* from VALDESC_HOOK in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     char hookname[MELT_HOOKNAME_LEN];
     void* GTY ((skip)) hookad;
     melt_ptr_t hookdata;
@@ -2743,6 +2774,7 @@ typedef struct melthook_st *melthook_ptr_t;
   melt_ptr_t tabval[N+1]; }
   }#
   :valdesc_copychunk #{$' /* from VALDESC_HOOK in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   /* ggc_alloc_melthook_st should be gengtype generated for VALDESC_HOOK */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_melthook_st
@@ -2773,6 +2805,7 @@ typedef struct melthook_st *melthook_ptr_t;
   }#
   ;; don't clone hooks!
   :valdesc_forwchunk #{$' /* from VALDESC_HOOK in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      int nbval = (int) src->nbval;
      int ix = 0;
      for (ix = 0;
@@ -2796,6 +2829,7 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_unionmem '"u_bucketlongs"
   ;;;
   :valdesc_membchunk #{$' /* from VALDESC_BUCKETLONGS in warmelt-base.melt */ 
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      melt_ptr_t buckl_aux; /* auxiliary data */
      unsigned char buckl_lenix; /* index in melt_primtab for allocated length */
      int buckl_xnum; /* extra number */
@@ -2804,7 +2838,8 @@ typedef struct melthook_st *melthook_ptr_t;
         buckl_entab[MELT_FLEXIBLE_DIM]; /* sorted by increasing ebl_at */
   }#
   ;;;
-  :valdesc_declchunk #{$' /* decl VALDESC_BUCKETLONGS  in warmelt-base.melt */ 
+  :valdesc_declchunk #{$' /* decl VALDESC_BUCKETLONGS  in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_ 
   typedef struct meltbucketlongs_st* meltbucketlongs_ptr_t;
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltbucketlongs_st
@@ -2818,6 +2853,7 @@ typedef struct melthook_st *melthook_ptr_t;
   }#
   ;;;
   :valdesc_copychunk #{$' /* copy chunk from  VALDESC_BUCKETLONGS  in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   /* ggc_alloc_meltbucketlongs_st should be gengtype generated for VALDESC_BUCKETLONGS */
    unsigned lnix = src->buckl_lenix;
    unsigned len = melt_primtab[lnix];
@@ -2848,6 +2884,7 @@ typedef struct melthook_st *melthook_ptr_t;
    /* end copy chunk VALDESC_BUCKETLONGS */
   }#
   :valdesc_clonechunk #{$' /* cloning chunk from VALDESC_BUCKETLONGS in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
    unsigned lnix = src->buckl_lenix;
    unsigned len = melt_primtab[lnix];
    unsigned cnt = src->buckl_ucount;
@@ -2877,6 +2914,7 @@ typedef struct melthook_st *melthook_ptr_t;
   }#
   ;;
   :valdesc_forwchunk #{$' /* forwarding chunk from VALDESC_BUCKETLONGS in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
    unsigned lnix = src->buckl_lenix;
    unsigned len = melt_primtab[lnix];
    unsigned ucnt = src->buckl_ucount;
@@ -2910,6 +2948,7 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_unionmem '"u_jsonobject"
   ;;;
   :valdesc_membchunk #{$' /* from VALDESC_JSONOBJECT in warmelt-base.melt */ 
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     melt_ptr_t jsob_aux;  /* auxiliary data */
     unsigned jsob_size;   /* size of jsob_entab below */
     struct melt_jsonobentry_st GTY ((length("%h.jsob_size")))
@@ -2917,6 +2956,7 @@ typedef struct melthook_st *melthook_ptr_t;
   }#
   ;;;
   :valdesc_declchunk #{$' /* decl VALDESC_JSONOBJECT in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   typedef struct meltjsonobject_st* meltjsonobject_ptr_t;
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltjsonobject_st
@@ -2977,10 +3017,12 @@ typedef struct melthook_st *melthook_ptr_t;
     return NULL;
   }
 
+  // in file $_MELT_FILE_ line $_MELT_LINE_
   // end of small functions in VALDESC_JSONOBJECT from warmelt-base.melt
   }#
   ;;;
   :valdesc_copychunk #{$' /* copy chunk from  VALDESC_JSONOBJECT in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   /* ggc_alloc_meltjsonobject_st should be gengtype generated for VALDESC_JSONOBJECT */
   unsigned srcsize = src->jsob_size;
   size_t sz = srcsize * sizeof(melt_jsonobentry_st)
@@ -2998,6 +3040,7 @@ typedef struct melthook_st *melthook_ptr_t;
    /* end copy chunk VALDESC_JSONOBJECT */
   }#
   :valdesc_clonechunk #{$' /* cloning chunk from VALDESC_JSONOBJECT in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   unsigned srcsize = src->jsob_size;
   dst = (struct meltjsonobject_st*)meltgc_allocate(sizeof(struct meltjsonobject_st), 
                                                    srcsize*sizeof(melt_jsonobentry_st));
@@ -3008,6 +3051,7 @@ typedef struct melthook_st *melthook_ptr_t;
    /* end cloning chunk VALDESC_JSONOBJECT */
   }#
   :valdesc_forwchunk #{$' /* forwarding chunk from VALDESC_JSONOBJECT in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   unsigned srcsize = src->jsob_size;
   MELT_FORWARDED(src->jsob_aux);
   for (unsigned ix = 0; 
@@ -3030,10 +3074,12 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_struct '"meltstring_st"
   :valdesc_unionmem '"u_string"
   :valdesc_membchunk #{$' /* from VALDESC_STRING in warmelt-base.melt */ 
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     unsigned slen;                               
     char val[MELT_FLEXIBLE_DIM];	/* null terminated */
   }#
   :valdesc_declchunk #{$' /* decl VALDESC_STRING from warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 #define MELT_STRING_STRUCT(N) {			\
   meltobject_ptr_t discr;			\
   unsigned slen;                                \
@@ -3041,6 +3087,7 @@ typedef struct melthook_st *melthook_ptr_t;
   long _gap; }
   }#
   :valdesc_copychunk #{$' /* copy from VALDESC_STRING file warmelt-base.melt */  
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltstring_st should be gengtype generated for VALDESC_STRING */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltstring_st
@@ -3064,6 +3111,7 @@ typedef struct melthook_st *melthook_ptr_t;
       /* end copy from VALDESC_STRING */
   }#
   :valdesc_clonechunk #{$' /* clone from VALDESC_STRING  file warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      dst = (struct meltstring_st*)
           meltgc_new_stringdup ((meltobject_ptr_t)newdiscrv, 
 				src->val);
@@ -3081,6 +3129,7 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_struct '"meltstrbuf_st"
   :valdesc_unionmem '"u_strbuf"
   :valdesc_membchunk #{$' /* from VALDESC_STRBUF in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   /* no GTY on bufzn, it a scalar data */  
   char * bufzn;
   unsigned char buflenix;	/* allocated length index of
@@ -3093,6 +3142,7 @@ typedef struct melthook_st *melthook_ptr_t;
   char  buf_space[MELT_FLEXIBLE_DIM];
   }#
   :valdesc_copychunk #{$' /* copy chunk from VALDESC_STRBUF in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltstrbuf_st should be gengtype gengtype for VALDESC_STRBUF */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltstrbuf_st
@@ -3124,6 +3174,7 @@ typedef struct melthook_st *melthook_ptr_t;
     /* end copy chunk from VALDESC_STRBUF */
   }#
   :valdesc_clonechunk #{$' /* clone chunk from VALDESC_STRBUF in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     dst = (struct meltstrbuf_st*) 
        meltgc_new_strbuf ((meltobject_ptr_t)newdiscrv, NULL);
     resv = (melt_ptr_t) dst;
@@ -3144,13 +3195,16 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_unionmem '"u_pair"
   :valdesc_gty #{$' chain_next ("%h.tl")}#
   :valdesc_declchunk #{$' /* decl VALDESC_PAIR in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   typedef struct meltpair_st *meltpair_ptr_t;
   }#
   :valdesc_membchunk #{$' /* from VALDESC_PAIR in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     melt_ptr_t hd;
     struct meltpair_st *tl;
   }#
   :valdesc_copychunk #{$' /* copy VALDESC_PAIR in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   /* ggc_alloc_meltpair_st should be gengtype gengtype for VALDESC_PAIR */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltpair_st
@@ -3168,6 +3222,7 @@ typedef struct melthook_st *melthook_ptr_t;
   }#
   :valdesc_clonechunk :true
   :valdesc_forwchunk #{$' /* forward VALDESC_PAIR in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      MELT_FORWARDED (src->hd);
      MELT_FORWARDED (src->tl);
   }#
@@ -3183,13 +3238,16 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_struct '"meltlist_st"
   :valdesc_unionmem '"u_list"
   :valdesc_membchunk #{$' /* from VALDESC_LIST in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     struct meltpair_st *first;
     struct meltpair_st *last;
   }#
   :valdesc_declchunk #{$' /* decl VALDESC_LIST in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   typedef struct meltlist_st *meltlist_ptr_t;
   }#
   :valdesc_copychunk #{$' /* copy chunk from VALDESC_LIST */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltlist_st should be gengtype generated for VALDESC_LIST */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltlist_st
@@ -3208,6 +3266,7 @@ typedef struct melthook_st *melthook_ptr_t;
      /* end chunk from VALDESC_LIST */
   }#
   :valdesc_clonechunk #{$' /* cloning from VALDESC_LIST in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      struct meltpair_st* curpair = NULL;
      dst = (struct meltlist_st*) meltgc_new_list ((meltobject_ptr_t)newdiscrv);
      resv = (melt_ptr_t) dst;
@@ -3227,6 +3286,7 @@ typedef struct melthook_st *melthook_ptr_t;
      /* end cloning from VALDESC_LIST */
   }#
   :valdesc_forwchunk #{$' /* from VALDESC_LIST in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
      MELT_FORWARDED (src->first);
      MELT_FORWARDED (src->last);
   }#
@@ -3242,9 +3302,11 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_struct '"meltint_st"
   :valdesc_unionmem '"u_int"
   :valdesc_membchunk #{$' /* from VALDESC_INT in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     long val;
   }#
   :valdesc_declchunk #{$' /* decl VALDESC_INT in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   typedef struct meltint_st *meltint_ptr_t;
   #define melt_unsafe_boxed_int_value(V) (((meltint_ptr_t)(V))->val)
   static inline long melt_boxed_int_value(melt_ptr_t v)
@@ -3279,9 +3341,11 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_struct '"meltdouble_st"
   :valdesc_unionmem '"u_double"
   :valdesc_membchunk #{$' /* from VALDESC_DOUBLE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     double GTY ((skip)) val ;
   }#
   :valdesc_declchunk #{$' /* decl VALDESC_DOUBLE in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
   typedef struct meltdouble_st *meltdouble_ptr_t;
   #define melt_unsafe_boxed_double_value(V) (((meltdouble_ptr_t)(V))->val)
   static inline long melt_boxed_double_value(melt_ptr_t v)
@@ -3316,10 +3380,12 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_struct '"meltmixint_st"
   :valdesc_unionmem '"u_mixint"
   :valdesc_membchunk #{$' /* from VALDESC_MIXINT in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     melt_ptr_t ptrval;
     long intval;
   }#
   :valdesc_copychunk #{$' /* from VALDESC_MIXINT in warmelt-base.melt  */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltmixint_st should be gengtype generated for VALDESC_MIXINT */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmixint_st
@@ -3351,11 +3417,13 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_struct '"meltmixloc_st"
   :valdesc_unionmem '"u_mixloc"
   :valdesc_membchunk #{$' /* from VALDESC_MIXLOC in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     melt_ptr_t ptrval;
     long intval;
     location_t locval;
   }#
   :valdesc_copychunk #{$' /* from VALDESC_MIXLOC in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltmixloc_st should be gengtype generated for VALDESC_MIXLOC */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmixloc_st
@@ -3374,6 +3442,7 @@ typedef struct melthook_st *melthook_ptr_t;
   }#
   :valdesc_clonechunk :true
   :valdesc_forwchunk #{$' /* from VALDESC_MIXLOC file warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     MELT_FORWARDED (src->ptrval);
   }#
 )
@@ -3387,6 +3456,7 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_struct '"meltmixbigint_st"
   :valdesc_unionmem '"u_mixbigint"
   :valdesc_membchunk #{$' /* from VALDESC_MIXBIGINT in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* an exported array mpz compatible; since we use an exported mpz format, 
    the value can be copied and trashed by MELT garbage collector without 
    harm. */
@@ -3397,6 +3467,7 @@ typedef struct melthook_st *melthook_ptr_t;
     long tabig[MELT_FLEXIBLE_DIM];
   }#
   :valdesc_copychunk #{$' /* from VALDESC_MIXBIGINT in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltmixbigint_st should be gengtype generated for VALDESC_MIXBIGINT */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmixbigint_st
@@ -3420,6 +3491,7 @@ typedef struct melthook_st *melthook_ptr_t;
      melt_forwarded_copy_byte_count += sz;
   }#
   :valdesc_forwchunk #{$' /* from VALDESC_MIXBIGINT file warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     MELT_FORWARDED (src->ptrval);
   }#
 )
@@ -3433,10 +3505,12 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_struct '"meltreal_st"
   :valdesc_unionmem '"u_real"
   :valdesc_membchunk #{$' /* from VALDESC_REAL in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     REAL_VALUE_TYPE val;
   }#
   :valdesc_clonechunk :true
   :valdesc_copychunk #{$' /* from VALDESC_REAL in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltreal_st should be gengtype generated for VALDESC_REAL */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltreal_st
@@ -3465,6 +3539,7 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_unionmem '"u_special_data"
   :valdesc_gty #{$' mark_hook ("melt_mark_specialdata")}#
   :valdesc_membchunk #{$' /* from VALDESC_SPECIAL_DATA in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
     int meltspec_mark;
     unsigned meltspec_kind;
     struct meltspecialdata_st *GTY ((skip)) meltspec_next;
@@ -3472,6 +3547,7 @@ typedef struct melthook_st *melthook_ptr_t;
     struct meltspecialpayload_st GTY ((skip)) meltspec_payload;
   }#
   :valdesc_copychunk #{$' /* from VALDESC_SPECIAL_DATA in warmelt-base.melt */
+    // in file $_MELT_FILE_ line $_MELT_LINE_
 /* ggc_alloc_meltspecialdata_st should be gengtype generated for VALDESC_SPECIAL_DATA */
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltspecialdata_st

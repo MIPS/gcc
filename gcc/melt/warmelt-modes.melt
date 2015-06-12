@@ -2919,6 +2919,22 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
 		   break;}#
 		   )
 	  )
+	( (is_a class_sexpr clonevalchk)
+	  (add2out outbuf 
+		   ##{ /*explicit cloning for $NAMVALDESC*/
+		   case $VALOBJMAGIC: {
+		     struct $VALSTRUCT *src = (struct $VALSTRUCT*) srcvalv;
+		     struct $VALSTRUCT *dst = NULL;
+		     /* clone chunk for $NAMVALDESC:*/
+		     })
+	  (output_for_runtime outbuf clonevalchk)
+	  (add2out outbuf ##{ ;
+		     if (dst) 
+		        resv = (melt_ptr_t) dst;
+		   };
+		   break;}#
+		   )
+	  )
 	( (null clonevalchk)
 	  (add2out outbuf
 		   ##{ /*no cloning for $NAMVALDESC*/
@@ -3007,8 +3023,7 @@ melt_scanning (melt_ptr_t p)
    (add2sbuf_strconst outbuf ": {")
    (let ( (fwchk (get_field :valdesc_forwchunk curvaldesc))
 	  )
-     (if fwchk 
-	 (progn
+     (when fwchk 
 	   (add2sbuf_indentnl outbuf 2)
 	   (add2sbuf_strconst outbuf "struct ")
 	   (add2sbuf_string outbuf (get_field :valdesc_struct curvaldesc))
@@ -3016,8 +3031,8 @@ melt_scanning (melt_ptr_t p)
 	   (add2sbuf_string outbuf (get_field :valdesc_struct curvaldesc))
 	   (add2sbuf_strconst outbuf "*) p;")
 	   (add2sbuf_indentnl outbuf 2)
-	   (add2sbuf_string outbuf fwchk)
-	   )))
+	   (output_for_runtime outbuf fwchk)
+	   ))
    (add2sbuf_indentnl outbuf 2)
    (add2sbuf_strconst outbuf "break; }")
    (add2sbuf_indentnl outbuf 1)
