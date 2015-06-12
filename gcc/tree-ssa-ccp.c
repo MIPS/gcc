@@ -1796,9 +1796,6 @@ evaluate_stmt (gimple stmt)
       && (likelyvalue == CONSTANT || is_gimple_call (stmt)
 	  || (gimple_assign_single_p (stmt)
 	      && gimple_assign_rhs_code (stmt) == ADDR_EXPR))
-      && (likelyvalue == CONSTANT || is_gimple_call (stmt)
-         || (gimple_assign_single_p (stmt)
-             && gimple_assign_rhs_code (stmt) == ADDR_EXPR))
       && !is_constant)
     {
       enum gimple_code code = gimple_code (stmt);
