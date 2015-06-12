@@ -2919,7 +2919,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
 		   break;}#
 		   )
 	  )
-	( (is_a class_sexpr clonevalchk)
+	( (is_a clonevalchk  class_sexpr)
 	  (add2out outbuf 
 		   ##{ /*explicit cloning for $NAMVALDESC*/
 		   case $VALOBJMAGIC: {
@@ -2942,7 +2942,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
 		   ))
 	(:else
 	 (debug "invalid cloning in curvaldesc=" curvaldesc " valdix=" valdix)
-	 (error_at () "invalid cloning for $1" namvaldesc)
+	 (error_at () "invalid cloning for $1 ($2 of discriminant $3)"
+		   namvaldesc clonevalchk (get_field :named_name (discrim clonevalchk)))
 	 )
 	)
        )

@@ -1,5 +1,9 @@
 
 2015-06-12   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-modes.melt (generate_runtypesupport_cloning_fun)
+	thinko.
+
+2015-06-12   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-base.melt: Add a line comment like
 	// in file $_MELT_FILE_ line $_MELT_LINE_
 	in most :valdesc_* chunks.
