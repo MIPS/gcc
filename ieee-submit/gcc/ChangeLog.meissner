@@ -1,5 +1,7 @@
 2015-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* REVISION: Correct svn merge id.
+
 	* config/rs6000/rs6000.h (SCALAR_FLOAT_MODE_NOT_VECTOR_P): New
 	macro.
 	(SLOW_UNALIGNED_ACCESS): Use it.
@@ -14,7 +16,7 @@
 
 2015-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Merge up to 224342.
+	Merge up to 224339.
 
 2015-06-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
