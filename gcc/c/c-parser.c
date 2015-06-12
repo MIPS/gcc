@@ -9941,7 +9941,9 @@ c_parser_omp_clause_name (c_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_GRAINSIZE;
 	  break;
 	case 'h':
-	  if (!strcmp ("host", p))
+	  if (!strcmp ("hint", p))
+	    result = PRAGMA_OMP_CLAUSE_HINT;
+	  else if (!strcmp ("host", p))
 	    result = PRAGMA_OACC_CLAUSE_HOST;
 	  break;
 	case 'i':
@@ -10710,7 +10712,7 @@ c_parser_omp_clause_num_threads (c_parser *parser, tree list)
 static tree
 c_parser_omp_clause_num_tasks (c_parser *parser, tree list)
 {
-  location_t num_threads_loc = c_parser_peek_token (parser)->location;
+  location_t num_tasks_loc = c_parser_peek_token (parser)->location;
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       location_t expr_loc = c_parser_peek_token (parser)->location;
@@ -10739,7 +10741,7 @@ c_parser_omp_clause_num_tasks (c_parser *parser, tree list)
 
       check_no_duplicate_clause (list, OMP_CLAUSE_NUM_TASKS, "num_tasks");
 
-      c = build_omp_clause (num_threads_loc, OMP_CLAUSE_NUM_TASKS);
+      c = build_omp_clause (num_tasks_loc, OMP_CLAUSE_NUM_TASKS);
       OMP_CLAUSE_NUM_TASKS_EXPR (c) = t;
       OMP_CLAUSE_CHAIN (c) = list;
       list = c;
@@ -10754,7 +10756,7 @@ c_parser_omp_clause_num_tasks (c_parser *parser, tree list)
 static tree
 c_parser_omp_clause_grainsize (c_parser *parser, tree list)
 {
-  location_t num_threads_loc = c_parser_peek_token (parser)->location;
+  location_t grainsize_loc = c_parser_peek_token (parser)->location;
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       location_t expr_loc = c_parser_peek_token (parser)->location;
@@ -10783,7 +10785,7 @@ c_parser_omp_clause_grainsize (c_parser *parser, tree list)
 
       check_no_duplicate_clause (list, OMP_CLAUSE_GRAINSIZE, "grainsize");
 
-      c = build_omp_clause (num_threads_loc, OMP_CLAUSE_GRAINSIZE);
+      c = build_omp_clause (grainsize_loc, OMP_CLAUSE_GRAINSIZE);
       OMP_CLAUSE_GRAINSIZE_EXPR (c) = t;
       OMP_CLAUSE_CHAIN (c) = list;
       list = c;
@@ -10798,7 +10800,7 @@ c_parser_omp_clause_grainsize (c_parser *parser, tree list)
 static tree
 c_parser_omp_clause_priority (c_parser *parser, tree list)
 {
-  location_t num_threads_loc = c_parser_peek_token (parser)->location;
+  location_t priority_loc = c_parser_peek_token (parser)->location;
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       location_t expr_loc = c_parser_peek_token (parser)->location;
@@ -10828,8 +10830,40 @@ c_parser_omp_clause_priority (c_parser *parser, tree list)
 
       check_no_duplicate_clause (list, OMP_CLAUSE_PRIORITY, "priority");
 
-      c = build_omp_clause (num_threads_loc, OMP_CLAUSE_PRIORITY);
+      c = build_omp_clause (priority_loc, OMP_CLAUSE_PRIORITY);
       OMP_CLAUSE_PRIORITY_EXPR (c) = t;
+      OMP_CLAUSE_CHAIN (c) = list;
+      list = c;
+    }
+
+  return list;
+}
+
+/* OpenMP 4.1:
+   hint ( expression ) */
+
+static tree
+c_parser_omp_clause_hint (c_parser *parser, tree list)
+{
+  location_t hint_loc = c_parser_peek_token (parser)->location;
+  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+    {
+      tree c, t = c_parser_expression (parser).value;
+      mark_exp_read (t);
+      t = c_fully_fold (t, false, NULL);
+
+      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
+	{
+	  c_parser_error (parser, "expected integer expression");
+	  return list;
+	}
+
+      check_no_duplicate_clause (list, OMP_CLAUSE_HINT, "hint");
+
+      c = build_omp_clause (hint_loc, OMP_CLAUSE_HINT);
+      OMP_CLAUSE_HINT_EXPR (c) = t;
       OMP_CLAUSE_CHAIN (c) = list;
       list = c;
     }
@@ -12179,6 +12213,10 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  clauses = c_parser_omp_clause_grainsize (parser, clauses);
 	  c_name = "grainsize";
 	  break;
+	case PRAGMA_OMP_CLAUSE_HINT:
+	  clauses = c_parser_omp_clause_hint (parser, clauses);
+	  c_name = "hint";
+	  break;
 	case PRAGMA_OMP_CLAUSE_IF:
 	  clauses = c_parser_omp_clause_if (parser, clauses);
 	  c_name = "if";
@@ -13171,12 +13209,18 @@ c_parser_omp_barrier (c_parser *parser)
    # pragma omp critical [(name)] new-line
      structured-block
 
+   OpenMP 4.1:
+   # pragma omp critical [(name) [hint(expression)]] new-line
+
   LOC is the location of the #pragma itself.  */
+
+#define OMP_CRITICAL_CLAUSE_MASK		\
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_HINT) )
 
 static tree
 c_parser_omp_critical (location_t loc, c_parser *parser)
 {
-  tree stmt, name = NULL;
+  tree stmt, name = NULL_TREE, clauses = NULL_TREE;
 
   if (c_parser_next_token_is (parser, CPP_OPEN_PAREN))
     {
@@ -13189,13 +13233,20 @@ c_parser_omp_critical (location_t loc, c_parser *parser)
 	}
       else
 	c_parser_error (parser, "expected identifier");
+
+      clauses = c_parser_omp_all_clauses (parser,
+					  OMP_CRITICAL_CLAUSE_MASK,
+					  "#pragma omp critical");
     }
-  else if (c_parser_next_token_is_not (parser, CPP_PRAGMA_EOL))
-    c_parser_error (parser, "expected %<(%> or end of line");
-  c_parser_skip_to_pragma_eol (parser);
+  else
+    {
+      if (c_parser_next_token_is_not (parser, CPP_PRAGMA_EOL))
+	c_parser_error (parser, "expected %<(%> or end of line");
+      c_parser_skip_to_pragma_eol (parser);
+    }
 
   stmt = c_parser_omp_structured_block (parser);
-  return c_finish_omp_critical (loc, stmt, name);
+  return c_finish_omp_critical (loc, stmt, name, clauses);
 }
 
 /* OpenMP 2.5:

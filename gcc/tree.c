@@ -369,6 +369,7 @@ unsigned const char omp_clause_num_ops[] =
   0, /* OMP_CLAUSE_NOGROUP  */
   0, /* OMP_CLAUSE_THREADS  */
   0, /* OMP_CLAUSE_SIMD  */
+  1, /* OMP_CLAUSE_HINT  */
   1, /* OMP_CLAUSE__SIMDUID_  */
   1, /* OMP_CLAUSE__CILK_FOR_COUNT_  */
   0, /* OMP_CLAUSE_INDEPENDENT  */
@@ -434,6 +435,7 @@ const char * const omp_clause_code_name[] =
   "nogroup",
   "threads",
   "simd",
+  "hint",
   "_simduid_",
   "_Cilk_for_count_",
   "independent",
@@ -11305,6 +11307,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_PRIORITY:
 	case OMP_CLAUSE_GRAINSIZE:
 	case OMP_CLAUSE_NUM_TASKS:
+	case OMP_CLAUSE_HINT:
 	case OMP_CLAUSE__LOOPTEMP_:
 	case OMP_CLAUSE__SIMDUID_:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:

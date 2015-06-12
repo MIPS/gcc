@@ -3105,7 +3105,8 @@ gfc_trans_omp_critical (gfc_code *code)
   if (code->ext.omp_name != NULL)
     name = get_identifier (code->ext.omp_name);
   stmt = gfc_trans_code (code->block->next);
-  return build2_loc (input_location, OMP_CRITICAL, void_type_node, stmt, name);
+  return build3_loc (input_location, OMP_CRITICAL, void_type_node, stmt,
+		     NULL_TREE, name);
 }
 
 typedef struct dovar_init_d {

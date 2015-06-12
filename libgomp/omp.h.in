@@ -62,6 +62,15 @@ typedef enum omp_proc_bind_t
   omp_proc_bind_spread = 4
 } omp_proc_bind_t;
 
+typedef enum omp_lock_hint_t
+{
+  omp_lock_hint_none = 0,
+  omp_lock_hint_uncontended = 1,
+  omp_lock_hint_contended = 2,
+  omp_lock_hint_nonspeculative = 4,
+  omp_lock_hint_speculative = 8,
+} omp_lock_hint_t;
+
 #ifdef __cplusplus
 extern "C" {
 # define __GOMP_NOTHROW throw ()
@@ -84,12 +93,16 @@ extern void omp_set_nested (int) __GOMP_NOTHROW;
 extern int omp_get_nested (void) __GOMP_NOTHROW;
 
 extern void omp_init_lock (omp_lock_t *) __GOMP_NOTHROW;
+extern void omp_init_lock_with_hint (omp_lock_t *, omp_lock_hint_t)
+  __GOMP_NOTHROW;
 extern void omp_destroy_lock (omp_lock_t *) __GOMP_NOTHROW;
 extern void omp_set_lock (omp_lock_t *) __GOMP_NOTHROW;
 extern void omp_unset_lock (omp_lock_t *) __GOMP_NOTHROW;
 extern int omp_test_lock (omp_lock_t *) __GOMP_NOTHROW;
 
 extern void omp_init_nest_lock (omp_nest_lock_t *) __GOMP_NOTHROW;
+extern void omp_init_nest_lock_with_hint (omp_lock_t *, omp_lock_hint_t)
+  __GOMP_NOTHROW;
 extern void omp_destroy_nest_lock (omp_nest_lock_t *) __GOMP_NOTHROW;
 extern void omp_set_nest_lock (omp_nest_lock_t *) __GOMP_NOTHROW;
 extern void omp_unset_nest_lock (omp_nest_lock_t *) __GOMP_NOTHROW;

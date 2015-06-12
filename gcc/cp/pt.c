@@ -14287,6 +14287,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
     case OMP_SECTIONS:
     case OMP_SINGLE:
     case OMP_TEAMS:
+    case OMP_CRITICAL:
       r = push_omp_privatization_clauses ();
       tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false, true,
 				args, complain, in_decl);
@@ -14326,7 +14327,6 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       break;
 
     case OMP_SECTION:
-    case OMP_CRITICAL:
     case OMP_MASTER:
     case OMP_TASKGROUP:
     case OMP_ORDERED:

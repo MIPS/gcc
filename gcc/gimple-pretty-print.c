@@ -1549,6 +1549,7 @@ dump_gimple_omp_critical (pretty_printer *buffer, gomp_critical *gs,
 			     flags, false);
 	  pp_right_paren (buffer);
 	}
+      dump_omp_clauses (buffer, gimple_omp_critical_clauses (gs), spc, flags);
       if (!gimple_seq_empty_p (gimple_omp_body (gs)))
 	{
 	  newline_and_indent (buffer, spc + 2);

@@ -27639,7 +27639,9 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_GRAINSIZE;
 	  break;
 	case 'h':
-	  if (!strcmp ("host", p))
+	  if (!strcmp ("hint", p))
+	    result = PRAGMA_OMP_CLAUSE_HINT;
+	  else if (!strcmp ("host", p))
 	    result = PRAGMA_OACC_CLAUSE_HOST;
 	  break;
 	case 'i':
@@ -28503,6 +28505,35 @@ cp_parser_omp_clause_priority (cp_parser *parser, tree list,
 
   c = build_omp_clause (location, OMP_CLAUSE_PRIORITY);
   OMP_CLAUSE_PRIORITY_EXPR (c) = t;
+  OMP_CLAUSE_CHAIN (c) = list;
+
+  return c;
+}
+
+/* OpenMP 4.1:
+   hint ( expression ) */
+
+static tree
+cp_parser_omp_clause_hint (cp_parser *parser, tree list,
+			   location_t location)
+{
+  tree t, c;
+
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
+    return list;
+
+  t = cp_parser_expression (parser);
+
+  if (t == error_mark_node
+      || !cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+    cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
+					   /*or_comma=*/false,
+					   /*consume_paren=*/true);
+
+  check_no_duplicate_clause (list, OMP_CLAUSE_HINT, "hint", location);
+
+  c = build_omp_clause (location, OMP_CLAUSE_HINT);
+  OMP_CLAUSE_HINT_EXPR (c) = t;
   OMP_CLAUSE_CHAIN (c) = list;
 
   return c;
@@ -29648,6 +29679,11 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
 						    token->location);
 	  c_name = "grainsize";
 	  break;
+	case PRAGMA_OMP_CLAUSE_HINT:
+	  clauses = cp_parser_omp_clause_hint (parser, clauses,
+					       token->location);
+	  c_name = "hint";
+	  break;
 	case PRAGMA_OMP_CLAUSE_IF:
 	  clauses = cp_parser_omp_clause_if (parser, clauses, token->location);
 	  c_name = "if";
@@ -30360,12 +30396,19 @@ cp_parser_omp_barrier (cp_parser *parser, cp_token *pragma_tok)
 
 /* OpenMP 2.5:
    # pragma omp critical [(name)] new-line
+     structured-block
+
+   OpenMP 4.1:
+   # pragma omp critical [(name) [hint(expression)]] new-line
      structured-block  */
+
+#define OMP_CRITICAL_CLAUSE_MASK		\
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_HINT) )
 
 static tree
 cp_parser_omp_critical (cp_parser *parser, cp_token *pragma_tok)
 {
-  tree stmt, name = NULL;
+  tree stmt, name = NULL_TREE, clauses = NULL_TREE;
 
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
     {
@@ -30380,11 +30423,16 @@ cp_parser_omp_critical (cp_parser *parser, cp_token *pragma_tok)
 					       /*consume_paren=*/true);
       if (name == error_mark_node)
 	name = NULL;
+
+      clauses = cp_parser_omp_all_clauses (parser,
+					   OMP_CRITICAL_CLAUSE_MASK,
+					   "#pragma omp critical", pragma_tok);
     }
-  cp_parser_require_pragma_eol (parser, pragma_tok);
+  else
+    cp_parser_require_pragma_eol (parser, pragma_tok);
 
   stmt = cp_parser_omp_structured_block (parser);
-  return c_finish_omp_critical (input_location, stmt, name);
+  return c_finish_omp_critical (input_location, stmt, name, clauses);
 }
 
 /* OpenMP 2.5:

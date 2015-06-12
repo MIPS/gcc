@@ -1,3 +1,21 @@
+2015-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp.h.in (omp_lock_hint_t): New type.
+	(omp_init_lock_with_hint, omp_init_nest_lock_with_hint): New
+	prototypes.
+	* omp_lib.f90.in (omp_lock_hint_kind): New kind parameter.
+	(omp_lock_hint_none, omp_lock_hint_uncontended,
+	omp_lock_hint_contended, omp_lock_hint_nonspeculative,
+	omp_lock_hint_speculative): New parameters.
+	(omp_init_lock_with_hint, omp_init_nest_lock_with_hint): New
+	interfaces.
+	* omp_lib.h.in (omp_lock_hint_kind): New kind parameter.
+	(omp_lock_hint_none, omp_lock_hint_uncontended,
+	omp_lock_hint_contended, omp_lock_hint_nonspeculative,
+	omp_lock_hint_speculative): New parameters.
+	(omp_init_lock_with_hint, omp_init_nest_lock_with_hint): New
+	external procedures.
+
 2015-06-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (struct gomp_task_icv): Rename

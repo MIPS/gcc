@@ -6570,6 +6570,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_PRIORITY:
 	case OMP_CLAUSE_GRAINSIZE:
 	case OMP_CLAUSE_NUM_TASKS:
+	case OMP_CLAUSE_HINT:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
@@ -6964,6 +6965,7 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 	case OMP_CLAUSE_NOGROUP:
 	case OMP_CLAUSE_THREADS:
 	case OMP_CLAUSE_SIMD:
+	case OMP_CLAUSE_HINT:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
@@ -8935,8 +8937,13 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		g = gimple_build_omp_ordered (body);
 		break;
 	      case OMP_CRITICAL:
+		gimplify_scan_omp_clauses (&OMP_CRITICAL_CLAUSES (*expr_p),
+					   pre_p, ORT_WORKSHARE);
+		gimplify_adjust_omp_clauses (pre_p,
+					     &OMP_CRITICAL_CLAUSES (*expr_p));
 		g = gimple_build_omp_critical (body,
-		    			       OMP_CRITICAL_NAME (*expr_p));
+		    			       OMP_CRITICAL_NAME (*expr_p),
+		    			       OMP_CRITICAL_CLAUSES (*expr_p));
 		break;
 	      default:
 		gcc_unreachable ();

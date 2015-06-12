@@ -516,7 +516,10 @@ struct GTY((tag("GSS_OMP_CRITICAL")))
 {
   /* [ WORD 1-7 ] : base class */
 
-  /* [ WORD 8 ]
+  /* [ WORD 8 ]  */
+  tree clauses;
+
+  /* [ WORD 9 ]
      Critical section name.  */
   tree name;
 };
@@ -1340,7 +1343,7 @@ gdebug *gimple_build_debug_bind_stat (tree, tree, gimple MEM_STAT_DECL);
 gdebug *gimple_build_debug_source_bind_stat (tree, tree, gimple MEM_STAT_DECL);
 #define gimple_build_debug_source_bind(var,val,stmt)			\
   gimple_build_debug_source_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
-gomp_critical *gimple_build_omp_critical (gimple_seq, tree);
+gomp_critical *gimple_build_omp_critical (gimple_seq, tree, tree);
 gomp_for *gimple_build_omp_for (gimple_seq, int, tree, size_t, gimple_seq);
 gomp_parallel *gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
 gomp_task *gimple_build_omp_task (gimple_seq, tree, tree, tree, tree,
@@ -4403,7 +4406,8 @@ gimple_omp_critical_name (const gomp_critical *crit_stmt)
 }
 
 
-/* Return a pointer to the name associated with OMP critical statement GS.  */
+/* Return a pointer to the name associated with OMP critical statement
+   CRIT_STMT.  */
 
 static inline tree *
 gimple_omp_critical_name_ptr (gomp_critical *crit_stmt)
@@ -4412,12 +4416,42 @@ gimple_omp_critical_name_ptr (gomp_critical *crit_stmt)
 }
 
 
-/* Set NAME to be the name associated with OMP critical statement GS.  */
+/* Set NAME to be the name associated with OMP critical statement
+   CRIT_STMT.  */
 
 static inline void
 gimple_omp_critical_set_name (gomp_critical *crit_stmt, tree name)
 {
   crit_stmt->name = name;
+}
+
+
+/* Return the clauses associated with OMP_CRITICAL statement CRIT_STMT.  */
+
+static inline tree
+gimple_omp_critical_clauses (const gomp_critical *crit_stmt)
+{
+  return crit_stmt->clauses;
+}
+
+
+/* Return a pointer to the clauses associated with OMP critical statement
+   CRIT_STMT.  */
+
+static inline tree *
+gimple_omp_critical_clauses_ptr (gomp_critical *crit_stmt)
+{
+  return &crit_stmt->clauses;
+}
+
+
+/* Set CLAUSES to be the clauses associated with OMP critical statement
+   CRIT_STMT.  */
+
+static inline void
+gimple_omp_critical_set_clauses (gomp_critical *crit_stmt, tree clauses)
+{
+  crit_stmt->clauses = clauses;
 }
 
 

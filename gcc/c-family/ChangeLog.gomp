@@ -1,5 +1,11 @@
 2015-06-12  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-common.h (c_finish_omp_critical): Add CLAUSES argument
+	to the prototype.
+	* c-omp.c (c_finish_omp_critical): Likewise.  Set
+	OMP_CRITICAL_CLAUSES to it.
+	* c-pragma.h (enum pragma_omp_clause): Add PRAGMA_OMP_CLAUSE_HINT.
+
 	* c-omp.c (c_omp_split_clauses): Clear OMP_CLAUSE_SCHEDULE_SIMD
 	when not combined with simd construct.
 

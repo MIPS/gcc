@@ -1,5 +1,40 @@
 2015-06-12  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree.def (OMP_CRITICAL): Move before OMP_SINGLE.  Add
+	OMP_CRITICAL_CLAUSES operand.
+	* tree-core.h (enum omp_clause_code): Add OMP_CLAUSE_HINT.
+	* tree.h (OMP_BODY): Replace OMP_CRITICAL with OMP_TASKGROUP.
+	(OMP_CRITICAL_CLAUSES): Define.
+	(OMP_CRITICAL_NAME): Adjust to be 3rd operand instead of 2nd.
+	(OMP_CLAUSE_NUM_TASKS_EXPR): Formatting fix.
+	(OMP_CLAUSE_HINT_EXPR): Define.
+	* tree.c (omp_clause_num_ops): Add entry for OMP_CLAUSE_HINT.
+	(omp_clause_code_name): Likewise.
+	(walk_tree_1): Handle OMP_CLAUSE_HINT clause.
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+	(dump_generic_node): Dump OMP_CRITICAL_CLAUSES for OMP_CRITICAL.
+	* gimple.h (gomp_critical): Add clauses field before name.
+	(gimple_build_omp_critical): Adjust prototype.
+	(gimple_omp_critical_name_ptr, gimple_omp_critical_set_name): Fix
+	up function comments.
+	(gimple_omp_critical_clauses, gimple_omp_critical_clauses_ptr,
+	gimple_omp_critical_set_clauses): New functions.
+	* gimple.c (gimple_build_omp_critical): Add CLAUSES argument,
+	set it.
+	(gimple_copy): Unshare and copy gimple_omp_critical_clauses.
+	* gimple-pretty-print.c (dump_gimple_omp_critical): Print
+	gimple_omp_critical_clauses.
+	* gimple-walk.c (walk_gimple_op): Walk
+	gimple_omp_critical_clauses_ptr.
+	* gimplify.c (gimplify_scan_omp_clauses,
+	gimplify_adjust_omp_clauses): Handle OMP_CLAUSE_HINT.
+	(gimplify_expr): Gimplify OMP_CRITICAL_CLAUSES, adjust
+	gimple_build_omp_critical caller.
+	* tree-inline.c (remap_gimple_stmt): Adjust
+	gimple_build_omp_critical caller.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Handle OMP_CLAUSE_HINT clause.
+
 	* tree.h (OMP_CLAUSE_SCHEDULE_SIMD): Define.
 	* omp-low.c (struct omp_for_data): Add simd_schedule field.
 	(extract_omp_for_data): Initialize it.

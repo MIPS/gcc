@@ -29,15 +29,31 @@
         integer, parameter :: omp_nest_lock_kind = @OMP_NEST_LOCK_KIND@
         integer, parameter :: omp_sched_kind = 4
         integer, parameter :: omp_proc_bind_kind = 4
+        integer, parameter :: omp_lock_hint_kind = 4
         integer (omp_sched_kind), parameter :: omp_sched_static = 1
         integer (omp_sched_kind), parameter :: omp_sched_dynamic = 2
         integer (omp_sched_kind), parameter :: omp_sched_guided = 3
         integer (omp_sched_kind), parameter :: omp_sched_auto = 4
-        integer (omp_proc_bind_kind), parameter :: omp_proc_bind_false = 0
-        integer (omp_proc_bind_kind), parameter :: omp_proc_bind_true = 1
-        integer (omp_proc_bind_kind), parameter :: omp_proc_bind_master = 2
-        integer (omp_proc_bind_kind), parameter :: omp_proc_bind_close = 3
-        integer (omp_proc_bind_kind), parameter :: omp_proc_bind_spread = 4
+        integer (omp_proc_bind_kind), &
+                 parameter :: omp_proc_bind_false = 0
+        integer (omp_proc_bind_kind), &
+                 parameter :: omp_proc_bind_true = 1
+        integer (omp_proc_bind_kind), &
+                 parameter :: omp_proc_bind_master = 2
+        integer (omp_proc_bind_kind), &
+                 parameter :: omp_proc_bind_close = 3
+        integer (omp_proc_bind_kind), &
+                 parameter :: omp_proc_bind_spread = 4
+        integer (omp_lock_hint_kind), &
+                 parameter :: omp_lock_hint_none = 0
+        integer (omp_lock_hint_kind), &
+                 parameter :: omp_lock_hint_uncontended = 1
+        integer (omp_lock_hint_kind), &
+                 parameter :: omp_lock_hint_contended = 2
+        integer (omp_lock_hint_kind), &
+                 parameter :: omp_lock_hint_nonspeculative = 4
+        integer (omp_lock_hint_kind), &
+                 parameter :: omp_lock_hint_speculative = 8
       end module
 
       module omp_lib
@@ -53,10 +69,26 @@
         end interface
 
         interface
+          subroutine omp_init_lock_with_hint (svar, hint)
+            use omp_lib_kinds
+            integer (omp_lock_kind), intent (out) :: svar
+            integer (omp_lock_hint_kind), intent (in) :: hint
+          end subroutine omp_init_lock_with_hint
+        end interface
+
+        interface
           subroutine omp_init_nest_lock (nvar)
             use omp_lib_kinds
             integer (omp_nest_lock_kind), intent (out) :: nvar
           end subroutine omp_init_nest_lock
+        end interface
+
+        interface
+          subroutine omp_init_nest_lock_with_hint (nvar, hint)
+            use omp_lib_kinds
+            integer (omp_nest_lock_kind), intent (out) :: nvar
+            integer (omp_lock_hint_kind), intent (in) :: hint
+          end subroutine omp_init_nest_lock_with_hint
         end interface
 
         interface

@@ -1545,8 +1545,10 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	case GIMPLE_OMP_CRITICAL:
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_critical (s1,
-					    gimple_omp_critical_name (
-					      as_a <gomp_critical *> (stmt)));
+					    gimple_omp_critical_name
+					      (as_a <gomp_critical *> (stmt)),
+					    gimple_omp_critical_clauses
+					      (as_a <gomp_critical *> (stmt)));
 	  break;
 
 	case GIMPLE_TRANSACTION:

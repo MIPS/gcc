@@ -46,9 +46,23 @@
       parameter (omp_proc_bind_master = 2)
       parameter (omp_proc_bind_close = 3)
       parameter (omp_proc_bind_spread = 4)
+      integer omp_lock_hint_kind
+      parameter (omp_lock_hint_kind = 4)
+      integer (omp_lock_hint_kind) omp_lock_hint_none
+      integer (omp_lock_hint_kind) omp_lock_hint_uncontended
+      integer (omp_lock_hint_kind) omp_lock_hint_contended
+      integer (omp_lock_hint_kind) omp_lock_hint_nonspeculative
+      integer (omp_lock_hint_kind) omp_lock_hint_speculative
+      parameter (omp_lock_hint_none = 0)
+      parameter (omp_lock_hint_uncontended = 1)
+      parameter (omp_lock_hint_contended = 2)
+      parameter (omp_lock_hint_nonspeculative = 4)
+      parameter (omp_lock_hint_speculative = 8)
       parameter (openmp_version = 201307)
 
       external omp_init_lock, omp_init_nest_lock
+      external omp_init_lock_with_hint
+      external omp_init_nest_lock_with_hint
       external omp_destroy_lock, omp_destroy_nest_lock
       external omp_set_lock, omp_set_nest_lock
       external omp_unset_lock, omp_unset_nest_lock

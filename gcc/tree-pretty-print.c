@@ -741,6 +741,13 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       pp_right_paren (pp);
       break;
 
+    case OMP_CLAUSE_HINT:
+      pp_string (pp, "hint(");
+      dump_generic_node (pp, OMP_CLAUSE_HINT_EXPR (clause),
+			 spc, flags, false);
+      pp_right_paren (pp);
+      break;
+
     case OMP_CLAUSE__SIMDUID_:
       pp_string (pp, "_simduid_(");
       dump_generic_node (pp, OMP_CLAUSE__SIMDUID__DECL (clause),
@@ -2867,6 +2874,7 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
 			     flags, false);
 	  pp_right_paren (pp);
 	}
+      dump_omp_clauses (pp, OMP_CRITICAL_CLAUSES (node), spc, flags);
       goto dump_omp_body;
 
     case OMP_ATOMIC:

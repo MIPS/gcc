@@ -108,12 +108,13 @@ c_finish_omp_taskgroup (location_t loc, tree stmt)
    if it was omitted.  LOC is the location of the #pragma.  */
 
 tree
-c_finish_omp_critical (location_t loc, tree body, tree name)
+c_finish_omp_critical (location_t loc, tree body, tree name, tree clauses)
 {
   tree stmt = make_node (OMP_CRITICAL);
   TREE_TYPE (stmt) = void_type_node;
   OMP_CRITICAL_BODY (stmt) = body;
   OMP_CRITICAL_NAME (stmt) = name;
+  OMP_CRITICAL_CLAUSES (stmt) = clauses;
   SET_EXPR_LOCATION (stmt, loc);
   return add_stmt (stmt);
 }
