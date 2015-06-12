@@ -3311,6 +3311,9 @@ finish_case_label (location_t loc, tree low_value, tree high_value)
   low_value = case_conversion (type, low_value);
   high_value = case_conversion (type, high_value);
 
+  low_value = cp_fully_fold (low_value);
+  high_value = cp_fully_fold (high_value);
+
   r = c_add_case_label (loc, switch_stack->cases, cond, type,
 			low_value, high_value);
 

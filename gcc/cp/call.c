@@ -589,9 +589,9 @@ null_member_pointer_value_p (tree t)
     return false;
   else if (TYPE_PTRMEMFUNC_P (type))
     return (TREE_CODE (t) == CONSTRUCTOR
-	    && integer_zerop (fold (CONSTRUCTOR_ELT (t, 0)->value)));
+	    && integer_zerop (CONSTRUCTOR_ELT (t, 0)->value));
   else if (TYPE_PTRDATAMEM_P (type))
-    return integer_all_onesp (fold (t));
+    return integer_all_onesp (t);
   else
     return false;
 }
@@ -5092,7 +5092,7 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
   result = build3 (COND_EXPR, result_type, arg1, arg2, arg3);
   if (!cp_unevaluated_operand && !processing_template_decl)
     /* Avoid folding within decltype (c++/42013) and noexcept.  */
-    result = fold (result);
+    result = cp_try_fold_to_constant (result);
 
   /* We can't use result_type below, as fold might have returned a
      throw_expr.  */
@@ -5628,8 +5628,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 		 decaying an enumerator to its value.  */
 	      if (complain & tf_warning)
 		warn_logical_operator (loc, code, boolean_type_node,
-				       code_orig_arg1, fold (arg1),
-				       code_orig_arg2, fold (arg2));
+				       code_orig_arg1, cp_fully_fold (arg1),
+				       code_orig_arg2, cp_fully_fold (arg2));
 
 	      arg2 = convert_like (conv, arg2, complain);
 	    }
@@ -5666,8 +5666,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
       warn_logical_operator (loc, code, boolean_type_node,
-			     code_orig_arg1, fold (arg1),
-			     code_orig_arg2, fold (arg2));
+			     code_orig_arg1, cp_fully_fold (arg1),
+			     code_orig_arg2, cp_fully_fold (arg2));
       /* Fall through.  */
     case GT_EXPR:
     case LT_EXPR:
@@ -5677,7 +5677,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
     case NE_EXPR:
       if ((code_orig_arg1 == BOOLEAN_TYPE)
 	  ^ (code_orig_arg2 == BOOLEAN_TYPE))
-	maybe_warn_bool_compare (loc, code, fold (arg1), fold (arg2));
+	maybe_warn_bool_compare (loc, code, cp_fully_fold (arg1),
+				 cp_fully_fold (arg2));
       /* Fall through.  */
     case PLUS_EXPR:
     case MINUS_EXPR:

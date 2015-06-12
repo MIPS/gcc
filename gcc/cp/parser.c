@@ -17721,7 +17721,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 	     constant-expression.  */
 	  if (token->type != CPP_CLOSE_SQUARE)
 	    {
-	      bool non_constant_p = false;
+	      bool non_constant_p;
 
 	      bounds
 		= cp_parser_constant_expression (parser,
@@ -20977,7 +20977,7 @@ cp_parser_member_declaration (cp_parser* parser)
 	      /* Get the width of the bitfield.  */
 	      width
 		= cp_parser_constant_expression (parser);
-	      width = maybe_constant_value (width);
+	      width = cp_try_fold_to_constant (width);
 
 	      /* Look for attributes that apply to the bitfield.  */
 	      attributes = cp_parser_attributes_opt (parser);
