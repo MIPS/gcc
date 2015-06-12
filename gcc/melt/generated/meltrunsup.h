@@ -171,9 +171,9 @@ struct GTY (()) meltbasicblock_st   /* when MELTOBMAG_BASICBLOCK*/
     meltobject_ptr_t discr;
     basic_block val;
     operator melt_ptr_t ()
-    {
-        return reinterpret_cast<melt_ptr_t>(this);
-    }
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 }; /* end of meltbasicblock_st */
 
 struct GTY (()) entrybasicblockmelt_st   /* for MELTOBMAG_MAPBASICBLOCKS*/
@@ -199,9 +199,9 @@ struct GTY (()) meltbitmap_st   /* when MELTOBMAG_BITMAP*/
     meltobject_ptr_t discr;
     bitmap val;
     operator melt_ptr_t ()
-    {
-        return reinterpret_cast<melt_ptr_t>(this);
-    }
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 }; /* end of meltbitmap_st */
 
 struct GTY (()) entrybitmapmelt_st   /* for MELTOBMAG_MAPBITMAPS*/
@@ -227,9 +227,9 @@ struct GTY (()) meltedge_st   /* when MELTOBMAG_EDGE*/
     meltobject_ptr_t discr;
     edge val;
     operator melt_ptr_t ()
-    {
-        return reinterpret_cast<melt_ptr_t>(this);
-    }
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 }; /* end of meltedge_st */
 
 struct GTY (()) entryedgemelt_st   /* for MELTOBMAG_MAPEDGES*/
@@ -255,9 +255,9 @@ struct GTY (()) meltgimple_st   /* when MELTOBMAG_GIMPLE*/
     meltobject_ptr_t discr;
     gimple val;
     operator melt_ptr_t ()
-    {
-        return reinterpret_cast<melt_ptr_t>(this);
-    }
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 }; /* end of meltgimple_st */
 
 struct GTY (()) entrygimplemelt_st   /* for MELTOBMAG_MAPGIMPLES*/
@@ -283,9 +283,9 @@ struct GTY (()) meltgimpleseq_st   /* when MELTOBMAG_GIMPLESEQ*/
     meltobject_ptr_t discr;
     gimple_seq val;
     operator melt_ptr_t ()
-    {
-        return reinterpret_cast<melt_ptr_t>(this);
-    }
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 }; /* end of meltgimpleseq_st */
 
 struct GTY (()) entrygimpleseqmelt_st   /* for MELTOBMAG_MAPGIMPLESEQS*/
@@ -311,9 +311,9 @@ struct GTY (()) meltloop_st   /* when MELTOBMAG_LOOP*/
     meltobject_ptr_t discr;
     loop_p val;
     operator melt_ptr_t ()
-    {
-        return reinterpret_cast<melt_ptr_t>(this);
-    }
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 }; /* end of meltloop_st */
 
 struct GTY (()) entryloopmelt_st   /* for MELTOBMAG_MAPLOOPS*/
@@ -339,9 +339,9 @@ struct GTY (()) meltrtvec_st   /* when MELTOBMAG_RTVEC*/
     meltobject_ptr_t discr;
     rtvec val;
     operator melt_ptr_t ()
-    {
-        return reinterpret_cast<melt_ptr_t>(this);
-    }
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 }; /* end of meltrtvec_st */
 
 struct GTY (()) entryrtvecmelt_st   /* for MELTOBMAG_MAPRTVECS*/
@@ -367,9 +367,9 @@ struct GTY (()) meltrtx_st   /* when MELTOBMAG_RTX*/
     meltobject_ptr_t discr;
     rtx val;
     operator melt_ptr_t ()
-    {
-        return reinterpret_cast<melt_ptr_t>(this);
-    }
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 }; /* end of meltrtx_st */
 
 struct GTY (()) entryrtxmelt_st   /* for MELTOBMAG_MAPRTXS*/
@@ -395,9 +395,9 @@ struct GTY (()) melttree_st   /* when MELTOBMAG_TREE*/
     meltobject_ptr_t discr;
     tree val;
     operator melt_ptr_t ()
-    {
-        return reinterpret_cast<melt_ptr_t>(this);
-    }
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 }; /* end of melttree_st */
 
 struct GTY (()) entrytreemelt_st   /* for MELTOBMAG_MAPTREES*/
@@ -424,6 +424,7 @@ struct GTY((variable_size)) meltbucketlongs_st /* when MELTOBMAG_BUCKETLONGS */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_BUCKETLONGS in warmelt-base.melt */
+    // in file warmelt-base.melt line 2832
     melt_ptr_t buckl_aux; /* auxiliary data */
     unsigned char buckl_lenix; /* index in melt_primtab for allocated length */
     int buckl_xnum; /* extra number */
@@ -434,6 +435,7 @@ struct GTY((variable_size)) meltbucketlongs_st /* when MELTOBMAG_BUCKETLONGS */
 }; /* end meltbucketlongs_st */
 /* decl. chunk */
 /* decl VALDESC_BUCKETLONGS  in warmelt-base.melt */
+// in file warmelt-base.melt line 2842
 typedef struct meltbucketlongs_st* meltbucketlongs_ptr_t;
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltbucketlongs_st
@@ -453,6 +455,7 @@ struct GTY((variable_size)) meltclosure_st /* when MELTOBMAG_CLOSURE */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_CLOSURE in warmelt-base.melt */
+    // in file warmelt-base.melt line 2592
     meltroutine_ptr_t rout;
     unsigned nbval;
     melt_ptr_t GTY ((length ("%h.nbval"))) tabval[MELT_FLEXIBLE_DIM];
@@ -460,6 +463,7 @@ struct GTY((variable_size)) meltclosure_st /* when MELTOBMAG_CLOSURE */
 }; /* end meltclosure_st */
 /* decl. chunk */
 /* decl VALDESC_CLOSURE  in warmelt-base.melt */
+// in file warmelt-base.melt line 2598
 #define MELT_CLOSURE_STRUCT(N) {                \
     meltobject_ptr_t discr;                     \
     meltroutine_ptr_t rout;			\
@@ -474,6 +478,7 @@ struct GTY(( mark_hook ("melt_mark_decay"))) meltdecay_st /* when MELTOBMAG_DECA
 {
     meltobject_ptr_t discr;
     /* from VALDESC_DECAY in warmelt-base.melt */
+    // in file warmelt-base.melt line 2479
     melt_ptr_t val;
     unsigned remain;		/* remaining number of marking */
 
@@ -486,11 +491,13 @@ struct GTY(()) meltdouble_st /* when MELTOBMAG_DOUBLE */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_DOUBLE in warmelt-base.melt */
+    // in file warmelt-base.melt line 3344
     double GTY ((skip)) val ;
 
 }; /* end meltdouble_st */
 /* decl. chunk */
 /* decl VALDESC_DOUBLE in warmelt-base.melt */
+// in file warmelt-base.melt line 3348
 typedef struct meltdouble_st *meltdouble_ptr_t;
 #define melt_unsafe_boxed_double_value(V) (((meltdouble_ptr_t)(V))->val)
 static inline long melt_boxed_double_value(melt_ptr_t v)
@@ -506,6 +513,7 @@ struct GTY((variable_size)) melthook_st /* when MELTOBMAG_HOOK */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_HOOK in warmelt-base.melt */
+    // in file warmelt-base.melt line 2748
     char hookname[MELT_HOOKNAME_LEN];
     void* GTY ((skip)) hookad;
     melt_ptr_t hookdata;
@@ -543,11 +551,13 @@ struct GTY(()) meltint_st /* when MELTOBMAG_INT */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_INT in warmelt-base.melt */
+    // in file warmelt-base.melt line 3305
     long val;
 
 }; /* end meltint_st */
 /* decl. chunk */
 /* decl VALDESC_INT in warmelt-base.melt */
+// in file warmelt-base.melt line 3309
 typedef struct meltint_st *meltint_ptr_t;
 #define melt_unsafe_boxed_int_value(V) (((meltint_ptr_t)(V))->val)
 static inline long melt_boxed_int_value(melt_ptr_t v)
@@ -563,6 +573,7 @@ struct GTY((variable_size)) meltjsonobject_st /* when MELTOBMAG_JSONOBJECT */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_JSONOBJECT in warmelt-base.melt */
+    // in file warmelt-base.melt line 2951
     melt_ptr_t jsob_aux;  /* auxiliary data */
     unsigned jsob_size;   /* size of jsob_entab below */
     struct melt_jsonobentry_st GTY ((length("%h.jsob_size")))
@@ -571,6 +582,7 @@ struct GTY((variable_size)) meltjsonobject_st /* when MELTOBMAG_JSONOBJECT */
 }; /* end meltjsonobject_st */
 /* decl. chunk */
 /* decl VALDESC_JSONOBJECT in warmelt-base.melt */
+// in file warmelt-base.melt line 2959
 typedef struct meltjsonobject_st* meltjsonobject_ptr_t;
 #if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltjsonobject_st
@@ -637,6 +649,7 @@ melt_jsonobject_nth_value (melt_ptr_t vjob, int rk)
     return NULL;
 }
 
+// in file warmelt-base.melt line 3020
 // end of small functions in VALDESC_JSONOBJECT from warmelt-base.melt
 
 
@@ -647,12 +660,14 @@ struct GTY(()) meltlist_st /* when MELTOBMAG_LIST */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_LIST in warmelt-base.melt */
+    // in file warmelt-base.melt line 3241
     struct meltpair_st *first;
     struct meltpair_st *last;
 
 }; /* end meltlist_st */
 /* decl. chunk */
 /* decl VALDESC_LIST in warmelt-base.melt */
+// in file warmelt-base.melt line 3246
 typedef struct meltlist_st *meltlist_ptr_t;
 
 
@@ -663,6 +678,7 @@ struct GTY(()) meltmapobjects_st /* when MELTOBMAG_MAPOBJECTS */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_MAPOBJECTS in warmelt-base.melt */
+    // in file warmelt-base.melt line 2218
     unsigned count;
     unsigned char lenix;
     unsigned meltmap_hash;
@@ -677,6 +693,7 @@ struct GTY(()) meltmapobjects_st /* when MELTOBMAG_MAPOBJECTS */
 }; /* end meltmapobjects_st */
 /* decl. chunk */
 /* decl VALDESC_MAPOBJECTS in warmelt-base.melt */
+// in file warmelt-base.melt line 2231
 typedef struct meltmapobjects_st* meltmapobjects_ptr_t;
 
 
@@ -687,6 +704,7 @@ struct GTY(()) meltmapstrings_st /* when MELTOBMAG_MAPSTRINGS */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_MAPSTRINGS in warmelt-base.melt */
+    // in file warmelt-base.melt line 2351
     unsigned count;
     unsigned char lenix;
     unsigned meltmap_hash;
@@ -703,6 +721,7 @@ struct GTY((variable_size)) meltmixbigint_st /* when MELTOBMAG_MIXBIGINT */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_MIXBIGINT in warmelt-base.melt */
+    // in file warmelt-base.melt line 3459
     /* an exported array mpz compatible; since we use an exported mpz format,
        the value can be copied and trashed by MELT garbage collector without
        harm. */
@@ -721,6 +740,7 @@ struct GTY(()) meltmixint_st /* when MELTOBMAG_MIXINT */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_MIXINT in warmelt-base.melt */
+    // in file warmelt-base.melt line 3383
     melt_ptr_t ptrval;
     long intval;
 
@@ -733,6 +753,7 @@ struct GTY(()) meltmixloc_st /* when MELTOBMAG_MIXLOC */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_MIXLOC in warmelt-base.melt */
+    // in file warmelt-base.melt line 3420
     melt_ptr_t ptrval;
     long intval;
     location_t locval;
@@ -746,12 +767,14 @@ struct GTY((variable_size)) meltmultiple_st /* when MELTOBMAG_MULTIPLE */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_MULTIPLE in warmelt-base.melt */
+    // in file warmelt-base.melt line 2519
     unsigned nbval;
     melt_ptr_t GTY ((length ("%h.nbval"))) tabval[MELT_FLEXIBLE_DIM];
 
 }; /* end meltmultiple_st */
 /* decl. chunk */
 /* decl VALDESC_MULTIPLE in warmelt-base.melt */
+// in file warmelt-base.melt line 2524
 #define MELT_MULTIPLE_STRUCT(N) {               \
     meltobject_ptr_t discr;                     \
     unsigned nbval;                             \
@@ -766,7 +789,7 @@ struct GTY((variable_size)) meltobject_st /* when MELTOBMAG_OBJECT */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_OBJECT in warmelt-base.melt */
-// in file %_MELT_FILE_ line %_MELT_LINE_
+// in file warmelt-base.melt line 2082
     unsigned obj_hash;		/* hash code of the object */
     unsigned short obj_num;
     unsigned short obj_len;
@@ -775,6 +798,7 @@ struct GTY((variable_size)) meltobject_st /* when MELTOBMAG_OBJECT */
 }; /* end meltobject_st */
 /* decl. chunk */
 /* decl VALDESC_OBJECT */
+// in file warmelt-base.melt line 2089
 #define meltobj_class discr
 #define meltobj_magic obj_num
 #define MELT_OBJECT_STRUCT(N) {			\
@@ -793,12 +817,14 @@ struct GTY(( chain_next ("%h.tl"))) meltpair_st /* when MELTOBMAG_PAIR */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_PAIR in warmelt-base.melt */
+    // in file warmelt-base.melt line 3202
     melt_ptr_t hd;
     struct meltpair_st *tl;
 
 }; /* end meltpair_st */
 /* decl. chunk */
 /* decl VALDESC_PAIR in warmelt-base.melt */
+// in file warmelt-base.melt line 3198
 typedef struct meltpair_st *meltpair_ptr_t;
 
 
@@ -809,6 +835,7 @@ struct GTY(()) meltreal_st /* when MELTOBMAG_REAL */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_REAL in warmelt-base.melt */
+    // in file warmelt-base.melt line 3508
     REAL_VALUE_TYPE val;
 
 }; /* end meltreal_st */
@@ -820,6 +847,7 @@ struct GTY((variable_size)) meltroutine_st /* when MELTOBMAG_ROUTINE */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_ROUTINE in warmelt-base.melt */
+    // in file warmelt-base.melt line 2667
     char routdescr[MELT_ROUTDESCR_LEN];
     meltroutfun_t* GTY ((skip)) routfunad;
     melt_ptr_t routdata;
@@ -829,6 +857,7 @@ struct GTY((variable_size)) meltroutine_st /* when MELTOBMAG_ROUTINE */
 }; /* end meltroutine_st */
 /* decl. chunk */
 /* decl VALDESC_ROUTINE in warmelt-base.melt */
+// in file warmelt-base.melt line 2675
 #ifndef meltroutine_ptr_t_TYPEDEFINED
 typedef struct meltroutine_st *meltroutine_ptr_t;
 #define  meltroutine_ptr_t_TYPEDEFINED
@@ -857,6 +886,7 @@ struct GTY(( mark_hook ("melt_mark_specialdata"))) meltspecialdata_st /* when ME
 {
     meltobject_ptr_t discr;
     /* from VALDESC_SPECIAL_DATA in warmelt-base.melt */
+    // in file warmelt-base.melt line 3542
     int meltspec_mark;
     unsigned meltspec_kind;
     struct meltspecialdata_st *GTY ((skip)) meltspec_next;
@@ -872,6 +902,7 @@ struct GTY(()) meltstrbuf_st /* when MELTOBMAG_STRBUF */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_STRBUF in warmelt-base.melt */
+    // in file warmelt-base.melt line 3132
     /* no GTY on bufzn, it a scalar data */
     char * bufzn;
     unsigned char buflenix;	/* allocated length index of
@@ -892,12 +923,14 @@ struct GTY((variable_size)) meltstring_st /* when MELTOBMAG_STRING */
 {
     meltobject_ptr_t discr;
     /* from VALDESC_STRING in warmelt-base.melt */
+    // in file warmelt-base.melt line 3077
     unsigned slen;
     char val[MELT_FLEXIBLE_DIM];	/* null terminated */
 
 }; /* end meltstring_st */
 /* decl. chunk */
 /* decl VALDESC_STRING from warmelt-base.melt */
+// in file warmelt-base.melt line 3082
 #define MELT_STRING_STRUCT(N) {			\
   meltobject_ptr_t discr;			\
   unsigned slen;                                \
@@ -2794,5 +2827,5 @@ MELT_EXTERN melt_ptr_t melthookproc_HOOK_SYMBOL_IMPORTER(const char* meltin_SYMN
 MELT_EXTERN void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t meltin_VAL_p1, melt_ptr_t meltin_CONTENV_p2);
 /* end of declarations generated by generate_runtypesupport_predefined_hooks for 161 predefined */
 
-/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2015 Jun 09
- * by GCC MELT 6.0.0 20150415 (experimental) MELT_1.2-pre-merged . ***/
+/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2015 Jun 12
+ * by GCC MELT 6.0.0 20150415 (experimental) [melt-branch revision 224408] MELT_1.2-pre-merged . ***/
