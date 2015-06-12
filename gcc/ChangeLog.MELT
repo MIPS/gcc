@@ -1,6 +1,10 @@
 
 2015-06-12   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-modes.melt (generate_runtypesupport_cloning_fun)
+	typo emitting a buggy cloning.
+
+2015-06-12   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-modes.melt (generate_runtypesupport_cloning_fun)
 	thinko.
 
 2015-06-12   Basile Starynkevitch  <basile@starynkevitch.net>

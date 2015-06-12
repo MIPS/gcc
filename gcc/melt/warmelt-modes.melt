@@ -2919,14 +2919,14 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
 		   break;}#
 		   )
 	  )
-	( (is_a clonevalchk  class_sexpr)
+	( (is_a clonevalchk class_sexpr)
 	  (add2out outbuf 
 		   ##{ /*explicit cloning for $NAMVALDESC*/
 		   case $VALOBJMAGIC: {
 		     struct $VALSTRUCT *src = (struct $VALSTRUCT*) srcvalv;
 		     struct $VALSTRUCT *dst = NULL;
-		     /* clone chunk for $NAMVALDESC:*/
-		     })
+		     /* explicit clone chunk for $NAMVALDESC:*/
+		     }#)
 	  (output_for_runtime outbuf clonevalchk)
 	  (add2out outbuf ##{ ;
 		     if (dst) 
