@@ -1,3 +1,8 @@
+2015-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_schedule): Parse optional
+	simd: modifier in schedule clause.
+
 2015-06-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_clause_linear): Handle linear clause

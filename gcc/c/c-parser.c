@@ -11112,7 +11112,13 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 
    schedule-kind:
      static | dynamic | guided | runtime | auto
-*/
+
+   OpenMP 4.1:
+   schedule ( schedule-modifier : schedule-kind )
+   schedule ( schedule-modifier : schedule-kind , expression )
+
+   schedule-modifier:
+     simd  */
 
 static tree
 c_parser_omp_clause_schedule (c_parser *parser, tree list)
@@ -11124,6 +11130,19 @@ c_parser_omp_clause_schedule (c_parser *parser, tree list)
     return list;
 
   c = build_omp_clause (loc, OMP_CLAUSE_SCHEDULE);
+
+  if (c_parser_next_token_is (parser, CPP_NAME))
+    {
+      tree kind = c_parser_peek_token (parser)->value;
+      const char *p = IDENTIFIER_POINTER (kind);
+      if (strcmp ("simd", p) == 0
+	  && c_parser_peek_2nd_token (parser)->type == CPP_COLON)
+	{
+	  OMP_CLAUSE_SCHEDULE_SIMD (c) = 1;
+	  c_parser_consume_token (parser);
+	  c_parser_consume_token (parser);
+	}
+    }
 
   if (c_parser_next_token_is (parser, CPP_NAME))
     {

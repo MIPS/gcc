@@ -1526,6 +1526,10 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_SCHEDULE_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE)->omp_clause.subcode.schedule_kind)
 
+/* True if a SCHEDULE clause has the simd modifier on it.  */
+#define OMP_CLAUSE_SCHEDULE_SIMD(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE)->base.public_flag)
+
 #define OMP_CLAUSE_DEFAULT_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEFAULT)->omp_clause.subcode.default_kind)
 

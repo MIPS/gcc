@@ -28707,7 +28707,14 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
    schedule ( schedule-kind , expression )
 
    schedule-kind:
-     static | dynamic | guided | runtime | auto  */
+     static | dynamic | guided | runtime | auto
+
+   OpenMP 4.1:
+   schedule ( schedule-modifier : schedule-kind )
+   schedule ( schedule-modifier : schedule-kind , expression )
+
+   schedule-modifier:
+     simd  */
 
 static tree
 cp_parser_omp_clause_schedule (cp_parser *parser, tree list, location_t location)
@@ -28718,6 +28725,19 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list, location_t location
     return list;
 
   c = build_omp_clause (location, OMP_CLAUSE_SCHEDULE);
+
+  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+    {
+      tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+      const char *p = IDENTIFIER_POINTER (id);
+      if (strcmp ("simd", p) == 0
+	  && cp_lexer_nth_token_is (parser->lexer, 2, CPP_COLON))
+	{
+	  OMP_CLAUSE_SCHEDULE_SIMD (c) = 1;
+	  cp_lexer_consume_token (parser->lexer);
+	  cp_lexer_consume_token (parser->lexer);
+	}
+    }
 
   if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {

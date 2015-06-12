@@ -251,7 +251,7 @@ struct omp_for_data
   gomp_for *for_stmt;
   tree pre, iter_type;
   int collapse;
-  bool have_nowait, have_ordered;
+  bool have_nowait, have_ordered, simd_schedule;
   enum omp_clause_schedule_kind sched_kind;
   struct omp_for_data_loop *loops;
 };
@@ -514,6 +514,7 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
   fd->have_ordered = false;
   fd->sched_kind = OMP_CLAUSE_SCHEDULE_STATIC;
   fd->chunk_size = NULL_TREE;
+  fd->simd_schedule = false;
   if (gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_CILKFOR)
     fd->sched_kind = OMP_CLAUSE_SCHEDULE_CILKFOR;
   collapse_iter = NULL;
@@ -532,6 +533,7 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 	gcc_assert (!distribute && !taskloop);
 	fd->sched_kind = OMP_CLAUSE_SCHEDULE_KIND (t);
 	fd->chunk_size = OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (t);
+	fd->simd_schedule = OMP_CLAUSE_SCHEDULE_SIMD (t);
 	break;
       case OMP_CLAUSE_DIST_SCHEDULE:
 	gcc_assert (distribute);
@@ -870,6 +872,29 @@ workshare_safe_to_combine_p (basic_block ws_entry_bb)
 }
 
 
+static int omp_max_vf (void);
+
+/* Adjust CHUNK_SIZE from SCHEDULE clause, depending on simd modifier
+   presence (SIMD_SCHEDULE).  */
+
+static tree
+omp_adjust_chunk_size (tree chunk_size, bool simd_schedule)
+{
+  if (!simd_schedule)
+    return chunk_size;
+
+  int vf = omp_max_vf ();
+  if (vf == 1)
+    return chunk_size;
+
+  tree type = TREE_TYPE (chunk_size);
+  chunk_size = fold_build2 (PLUS_EXPR, type, chunk_size,
+			    build_int_cst (type, vf - 1));
+  return fold_build2 (BIT_AND_EXPR, type, chunk_size,
+		      build_int_cst (type, -vf));
+}
+
+
 /* Collect additional arguments needed to emit a combined
    parallel+workshare call.  WS_STMT is the workshare directive being
    expanded.  */
@@ -917,6 +942,7 @@ get_ws_args_for (gimple par_stmt, gimple ws_stmt)
       if (fd.chunk_size)
 	{
 	  t = fold_convert_loc (loc, long_integer_type_node, fd.chunk_size);
+	  t = omp_adjust_chunk_size (t, fd.simd_schedule);
 	  ws_args->quick_push (t);
 	}
 
@@ -7019,6 +7045,7 @@ expand_omp_for_generic (struct omp_region *region,
 	  if (fd->chunk_size)
 	    {
 	      t = fold_convert (fd->iter_type, fd->chunk_size);
+	      t = omp_adjust_chunk_size (t, fd->simd_schedule);
 	      t = build_call_expr (builtin_decl_explicit (start_fn),
 				   6, t0, t1, t2, t, t3, t4);
 	    }
@@ -7044,6 +7071,7 @@ expand_omp_for_generic (struct omp_region *region,
 	    {
 	      tree bfn_decl = builtin_decl_explicit (start_fn);
 	      t = fold_convert (fd->iter_type, fd->chunk_size);
+	      t = omp_adjust_chunk_size (t, fd->simd_schedule);
 	      t = build_call_expr (bfn_decl, 7, t5, t0, t1, t2, t, t3, t4);
 	    }
 	  else
@@ -7830,9 +7858,11 @@ expand_omp_for_static_chunk (struct omp_region *region,
 				 true, NULL_TREE, true, GSI_SAME_STMT);
   step = force_gimple_operand_gsi (&gsi, fold_convert (itype, step),
 				   true, NULL_TREE, true, GSI_SAME_STMT);
-  fd->chunk_size
-    = force_gimple_operand_gsi (&gsi, fold_convert (itype, fd->chunk_size),
-				true, NULL_TREE, true, GSI_SAME_STMT);
+  tree chunk_size = fold_convert (itype, fd->chunk_size);
+  chunk_size = omp_adjust_chunk_size (chunk_size, fd->simd_schedule);
+  chunk_size
+    = force_gimple_operand_gsi (&gsi, chunk_size, true, NULL_TREE, true,
+				GSI_SAME_STMT);
 
   t = build_int_cst (itype, (fd->loop.cond_code == LT_EXPR ? -1 : 1));
   t = fold_build2 (PLUS_EXPR, itype, step, t);
@@ -7866,7 +7896,7 @@ expand_omp_for_static_chunk (struct omp_region *region,
     = gimple_build_assign (trip_init, build_int_cst (itype, 0));
   gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
 
-  t = fold_build2 (MULT_EXPR, itype, threadid, fd->chunk_size);
+  t = fold_build2 (MULT_EXPR, itype, threadid, chunk_size);
   t = fold_build2 (MULT_EXPR, itype, t, step);
   if (POINTER_TYPE_P (type))
     t = fold_build_pointer_plus (n1, t);
@@ -7883,11 +7913,11 @@ expand_omp_for_static_chunk (struct omp_region *region,
 
   t = fold_build2 (MULT_EXPR, itype, trip_main, nthreads);
   t = fold_build2 (PLUS_EXPR, itype, t, threadid);
-  t = fold_build2 (MULT_EXPR, itype, t, fd->chunk_size);
+  t = fold_build2 (MULT_EXPR, itype, t, chunk_size);
   s0 = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 				 false, GSI_CONTINUE_LINKING);
 
-  t = fold_build2 (PLUS_EXPR, itype, s0, fd->chunk_size);
+  t = fold_build2 (PLUS_EXPR, itype, s0, chunk_size);
   t = fold_build2 (MIN_EXPR, itype, t, n);
   e0 = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 				 false, GSI_CONTINUE_LINKING);

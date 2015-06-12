@@ -1,3 +1,8 @@
+2015-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_split_clauses): Clear OMP_CLAUSE_SCHEDULE_SIMD
+	when not combined with simd construct.
+
 2015-06-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-omp.c (c_omp_split_clauses): Copy over also

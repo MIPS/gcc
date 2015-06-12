@@ -439,6 +439,8 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 
     case OMP_CLAUSE_SCHEDULE:
       pp_string (pp, "schedule(");
+      if (OMP_CLAUSE_SCHEDULE_SIMD (clause))
+	pp_string (pp, "simd:");
       switch (OMP_CLAUSE_SCHEDULE_KIND (clause))
 	{
 	case OMP_CLAUSE_SCHEDULE_STATIC:

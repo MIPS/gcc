@@ -766,9 +766,13 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	  s = C_OMP_CLAUSE_SPLIT_PARALLEL;
 	  break;
 	case OMP_CLAUSE_ORDERED:
-	case OMP_CLAUSE_SCHEDULE:
 	case OMP_CLAUSE_NOWAIT:
 	  s = C_OMP_CLAUSE_SPLIT_FOR;
+	  break;
+	case OMP_CLAUSE_SCHEDULE:
+	  s = C_OMP_CLAUSE_SPLIT_FOR;
+	  if (code != OMP_SIMD)
+	    OMP_CLAUSE_SCHEDULE_SIMD (clauses) = 0;
 	  break;
 	case OMP_CLAUSE_SAFELEN:
 	case OMP_CLAUSE_SIMDLEN:

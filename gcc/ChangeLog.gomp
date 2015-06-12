@@ -1,3 +1,14 @@
+2015-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_CLAUSE_SCHEDULE_SIMD): Define.
+	* omp-low.c (struct omp_for_data): Add simd_schedule field.
+	(extract_omp_for_data): Initialize it.
+	(omp_adjust_chunk_size): New function.
+	(get_ws_args_for, expand_omp_for_generic,
+	expand_omp_for_static_chunk): Use it.
+	* tree-pretty-print.c (dump_omp_clause): Print simd: modifier
+	on OMP_CLAUSE_SCHEDULE.
+
 2015-06-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-core.h (enum omp_clause_linear_kind): New.
