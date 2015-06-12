@@ -425,6 +425,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    || ((MODE) == TDmode)						\
    || (!TARGET_FLOAT128 && IEEE_128BIT_P (MODE)))
 
+/* Return true for floating point that does not use a vector register.  */
+#define SCALAR_FLOAT_MODE_NOT_VECTOR_P(MODE)				\
+  (SCALAR_FLOAT_MODE_P (MODE) && !FLOAT128_VECTOR_P (MODE))
+
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];
 

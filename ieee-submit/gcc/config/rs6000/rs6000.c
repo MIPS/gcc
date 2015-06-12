@@ -1733,22 +1733,6 @@ rs6000_cpu_name_lookup (const char *name)
 }
 
 
-/* Helper function to separate IEEE 128-bit floating point (using
-   -mfloat128-software) that uses a single 128-bit vector register from other
-   scalar float modes that use floating point registers in 64-bit chunks.  */
-
-static inline bool
-scalar_float_not_ieee128_p (machine_mode mode)
-{
-  if (!SCALAR_FLOAT_MODE_P (mode))
-    return false;
-
-  if (FLOAT128_VECTOR_P (mode))
-    return false;
-
-  return true;
-}
-
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
    This is ordinarily the length in words of a value of mode MODE
@@ -8996,7 +8980,7 @@ rs6000_member_type_forces_blk (const_tree field, machine_mode mode)
 
 /* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE)		\
-  (scalar_float_not_ieee128_p (MODE)		\
+  (SCALAR_FLOAT_MODE_NOT_VECTOR_P (MODE)	\
    && (CUM)->fregno <= FP_ARG_MAX_REG		\
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
@@ -9438,7 +9422,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 		      <= 8))
 		rs6000_returns_struct = true;
 	    }
-	  if (scalar_float_not_ieee128_p (return_mode))
+	  if (SCALAR_FLOAT_MODE_NOT_VECTOR_P (return_mode))
 	    rs6000_passes_float = true;
 	  else if (ALTIVEC_OR_VSX_VECTOR_MODE (return_mode)
 		   || SPE_VECTOR_MODE (return_mode))
@@ -9851,7 +9835,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
   if (DEFAULT_ABI == ABI_V4
       && cum->escapes)
     {
-      if (scalar_float_not_ieee128_p (mode))
+      if (SCALAR_FLOAT_MODE_NOT_VECTOR_P (mode))
 	rs6000_passes_float = true;
       else if (named && ALTIVEC_OR_VSX_VECTOR_MODE (mode))
 	rs6000_passes_vector = true;
@@ -10024,8 +10008,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
 
       cum->words = align_words + n_words;
 
-      if (scalar_float_not_ieee128_p (elt_mode) && TARGET_HARD_FLOAT
-	  && TARGET_FPRS)
+      if (SCALAR_FLOAT_MODE_P (elt_mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
 	{
 	  /* _Decimal128 must be passed in an even/odd float register pair.
 	     This assumes that the register number is odd when fregno is
@@ -32175,7 +32158,7 @@ rs6000_function_value (const_tree valtype,
     {
       int first_reg, n_regs;
 
-      if (scalar_float_not_ieee128_p (elt_mode))
+      if (SCALAR_FLOAT_MODE_NOT_VECTOR_P (elt_mode))
 	{
 	  /* _Decimal128 must use even/odd register pairs.  */
 	  first_reg = (elt_mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
@@ -32212,7 +32195,7 @@ rs6000_function_value (const_tree valtype,
   if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     /* _Decimal128 must use an even/odd register pair.  */
     regno = (mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
-  else if (scalar_float_not_ieee128_p (mode) && TARGET_HARD_FLOAT && TARGET_FPRS
+  else if (SCALAR_FLOAT_MODE_NOT_VECTOR_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS
 	   && ((TARGET_SINGLE_FLOAT && (mode == SFmode)) || TARGET_DOUBLE_FLOAT))
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
@@ -32249,7 +32232,7 @@ rs6000_libcall_value (machine_mode mode)
   if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     /* _Decimal128 must use an even/odd register pair.  */
     regno = (mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
-  else if (scalar_float_not_ieee128_p (mode)
+  else if (SCALAR_FLOAT_MODE_NOT_VECTOR_P (mode)
 	   && TARGET_HARD_FLOAT && TARGET_FPRS
            && ((TARGET_SINGLE_FLOAT && mode == SFmode) || TARGET_DOUBLE_FLOAT))
     regno = FP_ARG_RETURN;
