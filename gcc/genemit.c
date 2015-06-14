@@ -378,27 +378,15 @@ gen_insn (rtx insn, int lineno)
 
   /* Output code to construct and return the rtl for the instruction body.  */
 
-  if (XVECLEN (insn, 1) == 1)
-    {
-      printf ("  return ");
-      gen_exp (XVECEXP (insn, 1, 0), DEFINE_INSN, NULL);
-      printf (";\n}\n\n");
-    }
-  else
-    {
-      char *used = XCNEWVEC (char, stats.num_generator_args);
-
-      printf ("  return gen_rtx_PARALLEL (VOIDmode, gen_rtvec (%d",
-	      XVECLEN (insn, 1));
-
-      for (i = 0; i < XVECLEN (insn, 1); i++)
-	{
-	  printf (",\n\t\t");
-	  gen_exp (XVECEXP (insn, 1, i), DEFINE_INSN, used);
-	}
-      printf ("));\n}\n\n");
-      XDELETEVEC (used);
-    }
+  rtx pattern = add_implicit_parallel (XVEC (insn, 1));
+  /* ??? This is the traditional behavior, but seems suspect.  */
+  char *used = (XVECLEN (insn, 1) == 1
+		? NULL
+		: XCNEWVEC (char, stats.num_generator_args));
+  printf ("  return ");
+  gen_exp (pattern, DEFINE_INSN, used);
+  printf (";\n}\n\n");
+  XDELETEVEC (used);
 }
 
 /* Generate the `gen_...' function for a DEFINE_EXPAND.  */
@@ -450,7 +438,7 @@ gen_expand (rtx expand)
     printf ("  rtx operand%d;\n", i);
   for (; i <= stats.max_scratch_opno; i++)
     printf ("  rtx operand%d ATTRIBUTE_UNUSED;\n", i);
-  printf ("  rtx _val = 0;\n");
+  printf ("  rtx_insn *_val = 0;\n");
   printf ("  start_sequence ();\n");
 
   /* The fourth operand of DEFINE_EXPAND is some code to be executed
@@ -808,28 +796,18 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"system.h\"\n");
   printf ("#include \"coretypes.h\"\n");
   printf ("#include \"tm.h\"\n");
-  printf ("#include \"hash-set.h\"\n");
-  printf ("#include \"machmode.h\"\n");
-  printf ("#include \"vec.h\"\n");
-  printf ("#include \"double-int.h\"\n");
   printf ("#include \"input.h\"\n");
   printf ("#include \"alias.h\"\n");
   printf ("#include \"symtab.h\"\n");
-  printf ("#include \"wide-int.h\"\n");
-  printf ("#include \"inchash.h\"\n");
   printf ("#include \"tree.h\"\n");
   printf ("#include \"varasm.h\"\n");
   printf ("#include \"stor-layout.h\"\n");
   printf ("#include \"calls.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"tm_p.h\"\n");
-  printf ("#include \"hashtab.h\"\n");
   printf ("#include \"hard-reg-set.h\"\n");
   printf ("#include \"function.h\"\n");
   printf ("#include \"flags.h\"\n");
-  printf ("#include \"statistics.h\"\n");
-  printf ("#include \"real.h\"\n");
-  printf ("#include \"fixed-value.h\"\n");
   printf ("#include \"insn-config.h\"\n");
   printf ("#include \"expmed.h\"\n");
   printf ("#include \"dojump.h\"\n");

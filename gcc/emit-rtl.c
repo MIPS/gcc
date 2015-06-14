@@ -37,12 +37,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -55,8 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "flags.h"
 #include "stringpool.h"
-#include "hashtab.h"
-#include "statistics.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -3662,7 +3657,7 @@ try_split (rtx pat, rtx_insn *trial, int last)
   int probability;
   rtx_insn *insn_last, *insn;
   int njumps = 0;
-  rtx call_insn = NULL_RTX;
+  rtx_insn *call_insn = NULL;
 
   /* We're not good at redistributing frame information.  */
   if (RTX_FRAME_RELATED_P (trial))
@@ -4684,10 +4679,10 @@ emit_pattern_after_setloc (rtx pattern, rtx uncast_after, int loc,
 			   rtx_insn *(*make_raw) (rtx))
 {
   rtx_insn *after = safe_as_a <rtx_insn *> (uncast_after);
-  rtx last = emit_pattern_after_noloc (pattern, after, NULL, make_raw);
+  rtx_insn *last = emit_pattern_after_noloc (pattern, after, NULL, make_raw);
 
   if (pattern == NULL_RTX || !loc)
-    return safe_as_a <rtx_insn *> (last);
+    return last;
 
   after = NEXT_INSN (after);
   while (1)
@@ -4700,7 +4695,7 @@ emit_pattern_after_setloc (rtx pattern, rtx uncast_after, int loc,
 	break;
       after = NEXT_INSN (after);
     }
-  return safe_as_a <rtx_insn *> (last);
+  return last;
 }
 
 /* Insert PATTERN after AFTER.  MAKE_RAW indicates how to turn PATTERN
@@ -6320,20 +6315,17 @@ insn_location (const rtx_insn *insn)
 bool
 need_atomic_barrier_p (enum memmodel model, bool pre)
 {
-  switch (model & MEMMODEL_MASK)
+  switch (model & MEMMODEL_BASE_MASK)
     {
     case MEMMODEL_RELAXED:
     case MEMMODEL_CONSUME:
       return false;
     case MEMMODEL_RELEASE:
-    case MEMMODEL_SYNC_RELEASE:
       return pre;
     case MEMMODEL_ACQUIRE:
-    case MEMMODEL_SYNC_ACQUIRE:
       return !pre;
     case MEMMODEL_ACQ_REL:
     case MEMMODEL_SEQ_CST:
-    case MEMMODEL_SYNC_SEQ_CST:
       return true;
     default:
       gcc_unreachable ();

@@ -22,12 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -41,8 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "insn-config.h"
 #include "insn-attr.h"
-#include "hashtab.h"
-#include "statistics.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -72,7 +67,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -6895,8 +6889,10 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	blkmode_bitfield = true;
 
       *punsignedp = DECL_UNSIGNED (field);
+      /* ??? Fortran can take COMPONENT_REF of a void type.  */
       *preversep
-        = TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0)))
+        = !VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0)))
+	  && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0)))
 	  && !AGGREGATE_TYPE_P (TREE_TYPE (exp));
     }
   else if (TREE_CODE (exp) == BIT_FIELD_REF)
@@ -10649,7 +10645,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	      if ((icode = optab_handler (movmisalign_optab, mode))
 		  != CODE_FOR_nothing)
 		{
-		  rtx reg, insn;
+		  rtx reg;
 
 		  op0 = adjust_address (op0, mode, 0);
 		  /* We've already validated the memory, and we're creating a
@@ -10658,7 +10654,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 		  reg = gen_reg_rtx (mode);
 
 		  /* Nor can the insn generator.  */
-		  insn = GEN_FCN (icode) (reg, op0);
+		  rtx_insn *insn = GEN_FCN (icode) (reg, op0);
 		  emit_insn (insn);
 		  return reg;
 		}
