@@ -457,7 +457,7 @@
   if (TARGET_VSX && SCALAR_FLOAT_MODE_P (mode) && op == CONST0_RTX (mode))
     return 1;
 
-  if (DECIMAL_FLOAT_MODE_P (mode) || mode == KFmode || mode == IFmode)
+  if (DECIMAL_FLOAT_MODE_P (mode))
     return 0;
 
   /* If we are using V.4 style PIC, consider all constants to be hard.  */

@@ -1,3 +1,20 @@
+2015-06-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (easp_fp_constant): Remove
+	KFmode/IFmode additions, that are handled later in the code.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs_internal):
+	Simplify test.
+	(rs6000_emit_move): Collapse KFmode test into other 128-bit
+	floating point modes.
+	(rs6000_function_arg_advance_1): Use DECIMAL_FLOAT_MODE_P instead
+	of testing for each of the decimal modes.
+	(rs6000_function_arg): Likewise.
+	(rs6000_darwin64_record_arg_recurse): Use FLOAT128_2REG_P instead
+	of testing TFmode/TDmode.
+	(rs6000_gimplify_va_arg): Use FLOAT128_2REG_P and
+	DECIMAL_FLOAT_MODE_P instead of testing individual modes.
+
 2015-06-15  Michael Meissner  <meissner@the-meissners.org>
 
 	Merge up to 224486.

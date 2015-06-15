@@ -1754,9 +1754,10 @@ rs6000_hard_regno_nregs_internal (int regno, machine_mode mode)
   unsigned HOST_WIDE_INT reg_size;
 
   /* 128-bit floating point usually takes 2 registers, unless it is IEEE
-     128-bit floating point that can go in vector registers.  */
+     128-bit floating point that can go in vector registers, which has VSX
+     memory addressing.  */
   if (FP_REGNO_P (regno))
-    reg_size = ((VECTOR_MEM_VSX_P (mode) && !FLOAT128_2REG_P (mode))
+    reg_size = (VECTOR_MEM_VSX_P (mode)
 		? UNITS_PER_VSX_WORD
 		: UNITS_PER_FP_WORD);
 
@@ -8794,14 +8795,10 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
 	operands[1] = force_const_mem (mode, operands[1]);
       break;
 
-    case KFmode:
-      if (CONSTANT_P (operands[1]) && !easy_fp_constant (operands[1], mode))
-	operands[1] = force_const_mem (mode, operands[1]);
-      break;
-
     case TFmode:
     case TDmode:
     case IFmode:
+    case KFmode:
       if (FLOAT128_2REG_P (mode))
 	rs6000_eliminate_indexed_memrefs (operands);
       /* fall through */
@@ -9991,7 +9988,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
 	  && ((TARGET_SINGLE_FLOAT && mode == SFmode)
 	      || (TARGET_DOUBLE_FLOAT && mode == DFmode)
 	      || FLOAT128_2REG_P (mode)
-	      || mode == SDmode || mode == DDmode || mode == TDmode))
+	      || DECIMAL_FLOAT_MODE_P (mode)))
 	{
 	  /* _Decimal128 must use an even/odd register pair.  This assumes
 	     that the register number is odd when fregno is odd.  */
@@ -10298,7 +10295,7 @@ rs6000_darwin64_record_arg_recurse (CUMULATIVE_ARGS *cum, const_tree type,
 	      = gen_rtx_EXPR_LIST (VOIDmode,
 				   gen_rtx_REG (mode, cum->fregno++),
 				   GEN_INT (bitpos / BITS_PER_UNIT));
-	    if (mode == TFmode || mode == TDmode)
+	    if (FLOAT128_2REG_P (mode))
 	      cum->fregno++;
 	  }
 	else if (cum->named && USE_ALTIVEC_FOR_ARG_P (cum, mode, 1))
@@ -10652,7 +10649,7 @@ rs6000_function_arg (cumulative_args_t cum_v, machine_mode mode,
 	  && ((TARGET_SINGLE_FLOAT && mode == SFmode)
 	      || (TARGET_DOUBLE_FLOAT && mode == DFmode)
 	      || FLOAT128_2REG_P (mode)
-	      || mode == SDmode || mode == DDmode || mode == TDmode))
+	      || DECIMAL_FLOAT_MODE_P (mode)))
 	{
 	  /* _Decimal128 must use an even/odd register pair.  This assumes
 	     that the register number is odd when fregno is odd.  */
@@ -11577,12 +11574,8 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
       && ((TARGET_SINGLE_FLOAT && TYPE_MODE (type) == SFmode)
           || (TARGET_DOUBLE_FLOAT 
               && (TYPE_MODE (type) == DFmode 
- 	          || TYPE_MODE (type) == TFmode
- 	          || TYPE_MODE (type) == IFmode
- 	          || TYPE_MODE (type) == KFmode
-	          || TYPE_MODE (type) == SDmode
-	          || TYPE_MODE (type) == DDmode
-	          || TYPE_MODE (type) == TDmode))))
+		  || FLOAT128_2REG_P (TYPE_MODE (type))
+		  || DECIMAL_FLOAT_MODE_P (TYPE_MODE (type))))))
     {
       /* FP args go in FP registers, if present.  */
       reg = fpr;
