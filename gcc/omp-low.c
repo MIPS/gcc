@@ -291,8 +291,8 @@ static vec<omp_context *> taskreg_contexts;
 
 static void scan_omp (gimple_seq *, omp_context *);
 static tree scan_omp_1_op (tree *, int *, void *);
-static void oacc_broadcast (basic_block, basic_block, struct omp_region *,
-			    struct omp_for_data *);
+static basic_block oacc_broadcast (basic_block, basic_block,
+				   struct omp_region *);
 
 #define WALK_SUBSTMTS  \
     case GIMPLE_BIND: \
@@ -7326,7 +7326,8 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   exit_bb = region->exit;
 
   /* Broadcast variables to OpenACC threads.  */
-  oacc_broadcast (entry_bb, fin_bb, region, fd);
+  entry_bb = oacc_broadcast (entry_bb, fin_bb, region);
+  region->entry = entry_bb;
 
   /* Iteration space partitioning goes in ENTRY_BB.  */
   gsi = gsi_last_bb (entry_bb);
@@ -7738,7 +7739,8 @@ expand_omp_for_static_chunk (struct omp_region *region,
   fin_bb = BRANCH_EDGE (iter_part_bb)->dest;
 
   /* Broadcast variables to OpenACC threads.  */
-  oacc_broadcast (entry_bb, fin_bb, region, fd);
+  entry_bb = oacc_broadcast (entry_bb, fin_bb, region);
+  region->entry = entry_bb;
 
   gcc_assert (broken_loop
 	      || fin_bb == FALLTHRU_EDGE (cont_bb)->dest);
@@ -10681,6 +10683,8 @@ generate_oacc_broadcast (omp_region *region, tree dest_var, tree var,
   gassign *ld = gimple_build_assign (dest_var, build_simple_mem_ref (ptr));
   gsi_insert_after (&where, ld, GSI_NEW_STMT);
 
+  gsi_insert_after (&where, build_oacc_threadbarrier (), GSI_NEW_STMT);
+
   return st;
 }
 
@@ -10946,7 +10950,77 @@ predicate_omp_regions (basic_block head_bb)
 }
 
 /* USE and GET sets for variable broadcasting.  */
-static std::set<tree> use, gen;
+static std::set<tree> use, gen, live_in;
+
+/* This is an extremely conservative live in analysis.  We only want to
+   detect is any compiler temporary used inside an acc loop is local to
+   that loop or not.  So record all decl uses in all the basic blocks
+   post-dominating the acc loop in question.  */
+static tree
+populate_loop_live_in (tree *tp, int *walk_subtrees,
+		       void *data_ ATTRIBUTE_UNUSED)
+{
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data_;
+
+  if (wi && wi->is_lhs)
+    {
+      if (VAR_P (*tp))
+	live_in.insert (*tp);
+    }
+  else if (IS_TYPE_OR_DECL_P (*tp))
+    *walk_subtrees = 0;
+
+  return NULL_TREE;
+}
+
+static void
+oacc_populate_live_in_1 (basic_block entry_bb, basic_block exit_bb,
+			 basic_block loop_bb)
+{
+  basic_block son;
+  gimple_stmt_iterator gsi;
+
+  if (entry_bb == exit_bb)
+    return;
+
+  if (!dominated_by_p (CDI_DOMINATORS, loop_bb, entry_bb))
+    return;
+
+  for (gsi = gsi_start_bb (entry_bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      struct walk_stmt_info wi;
+      gimple stmt;
+
+      memset (&wi, 0, sizeof (wi));
+      stmt = gsi_stmt (gsi);
+
+      walk_gimple_op (stmt, populate_loop_live_in, &wi);
+    }
+
+  /* Continue walking the dominator tree.  */
+  for (son = first_dom_son (CDI_DOMINATORS, entry_bb);
+       son;
+       son = next_dom_son (CDI_DOMINATORS, son))
+    oacc_populate_live_in_1 (son, exit_bb, loop_bb);
+}
+
+static void
+oacc_populate_live_in (basic_block entry_bb, omp_region *region)
+{
+  /* Find the innermost OMP_TARGET region.  */
+  while (region  && region->type != GIMPLE_OMP_TARGET)
+    region = region->outer;
+
+  if (!region)
+    return;
+
+  basic_block son;
+
+  for (son = first_dom_son (CDI_DOMINATORS, region->entry);
+       son;
+       son = next_dom_son (CDI_DOMINATORS, son))
+    oacc_populate_live_in_1 (son, region->exit, entry_bb);
+}
 
 static tree
 populate_loop_use (tree *tp, int *walk_subtrees, void *data_)
@@ -11044,44 +11118,91 @@ oacc_broadcast_1 (basic_block entry_bb, basic_block exit_bb, bool init,
    is a latch back to ENTRY_BB.  Once a set of used variables have been
    determined, they will get broadcasted in a pre-header to ENTRY_BB.  */
 
-static void
-oacc_broadcast (basic_block entry_bb, basic_block exit_bb, omp_region *region,
-		struct omp_for_data *fd)
+static basic_block
+oacc_broadcast (basic_block entry_bb, basic_block exit_bb, omp_region *region)
 {
   gimple_stmt_iterator gsi;
   std::set<tree>::iterator it;
-  int mask = 0;
-
-  if (fd->worker == integer_one_node)
-    mask = MASK_WORKER;
-  if (fd->vector == integer_one_node)
-    mask |= MASK_VECTOR;
+  int mask = region->gwv_this;
 
   /* Nothing to do if this isn't an acc worker or vector loop.  */
   if (mask == 0)
-    return;
+    return entry_bb;
 
   use.empty ();
   gen.empty ();
+  live_in.empty ();
 
   /* Currently, subroutines aren't supported.  */
   gcc_assert (!lookup_attribute ("oacc function",
 				 DECL_ATTRIBUTES (current_function_decl)));
 
+  /* Populate live_in.  */
+  oacc_populate_live_in (entry_bb, region);
+
   /* Populate the set of used decls.  */
   oacc_broadcast_1 (entry_bb, exit_bb, true, mask);
 
-  /* Broadcast all decls in USE right before the last instruction in
-     entry_bb.  */
-  gsi = gsi_last_bb (entry_bb);
-
-  gimple_seq seq = NULL;
-  gimple_stmt_iterator g2 = gsi_start (seq);
-
+  /* Filter out all of the GEN decls from the USE set.  Also filter out
+     any compiler temporaries that which are not present in LIVE_IN.  */
   for (it = use.begin (); it != use.end (); it++)
-    generate_oacc_broadcast (region, *it, *it, g2, mask);
+    {
+      std::set<tree>::iterator git, lit;
 
-  gsi_insert_seq_before (&gsi, seq, GSI_CONTINUE_LINKING);
+      git = gen.find (*it);
+      lit = live_in.find (*it);
+      if (git != gen.end () || lit == live_in.end ())
+	use.erase (it);
+    }
+
+  if (mask == MASK_VECTOR)
+    {
+      /* Broadcast all decls in USE right before the last instruction in
+	 entry_bb.  */
+      gsi = gsi_last_bb (entry_bb);
+
+      gimple_seq seq = NULL;
+      gimple_stmt_iterator g2 = gsi_start (seq);
+
+      for (it = use.begin (); it != use.end (); it++)
+	generate_oacc_broadcast (region, *it, *it, g2, mask);
+
+      gsi_insert_seq_before (&gsi, seq, GSI_CONTINUE_LINKING);
+    }
+  else if (mask & MASK_WORKER)
+    {
+      if (use.empty ())
+	return entry_bb;
+
+      /* If this loop contains a worker, then each broadcast must be
+	 predicated.  */
+
+      for (it = use.begin (); it != use.end (); it++)
+	{
+	  /* Worker broadcasting requires predication.  To do that, there
+	     needs to be several new parent basic blocks before the omp
+	     for instruction.  */
+
+	  gimple_seq seq = NULL;
+	  gimple_stmt_iterator g2 = gsi_start (seq);
+	  gimple splitpoint = generate_oacc_broadcast (region, *it, *it,
+						       g2, mask);
+	  gsi = gsi_last_bb (entry_bb);
+	  gsi_insert_seq_before (&gsi, seq, GSI_CONTINUE_LINKING);
+	  edge e = split_block (entry_bb, splitpoint);
+	  e->flags |= EDGE_ABNORMAL;
+	  basic_block dest_bb = e->dest;
+	  gsi_prev (&gsi);
+	  edge e2 = split_block (entry_bb, gsi_stmt (gsi));
+	  e2->flags |= EDGE_ABNORMAL;
+	  make_predication_test (e2, dest_bb, mask);
+
+	  /* Update entry_bb.  */
+	  entry_bb = dest_bb;
+	}
+    }
+
+  return entry_bb;
 }
 
 /* Main entry point for expanding OMP-GIMPLE into runtime calls.  */
