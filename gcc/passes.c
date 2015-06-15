@@ -94,6 +94,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h" /* for dump_function_header */
 #include "context.h"
 #include "pass_manager.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
 
@@ -329,7 +332,7 @@ rest_of_decl_compilation (tree decl,
       */
       && !decl_function_context (decl)
       && !current_function_decl
-
+      && DECL_SOURCE_LOCATION (decl) != BUILTINS_LOCATION
       && !decl_type_context (decl))
     (*debug_hooks->early_global_decl) (decl);
 }
