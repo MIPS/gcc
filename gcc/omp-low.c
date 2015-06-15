@@ -275,7 +275,6 @@ struct omp_for_data
   tree chunk_size;
   gomp_for *for_stmt;
   tree pre, iter_type;
-  tree gang, worker, vector;
   int collapse;
   bool have_nowait, have_ordered;
   enum omp_clause_schedule_kind sched_kind;
@@ -776,16 +775,6 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 
       fd->chunk_size = chunk_size;
     }
-
-  /* Extract the OpenACC gang, worker and vector clauses.  */
-  t = find_omp_clause (gimple_omp_for_clauses (for_stmt), OMP_CLAUSE_GANG);
-  fd->gang = (t == NULL_TREE) ? integer_zero_node : integer_one_node;
-
-  t = find_omp_clause (gimple_omp_for_clauses (for_stmt), OMP_CLAUSE_WORKER);
-  fd->worker = (t == NULL_TREE) ? integer_zero_node : integer_one_node;
-
-  t = find_omp_clause (gimple_omp_for_clauses (for_stmt), OMP_CLAUSE_VECTOR);
-  fd->vector = (t == NULL_TREE) ? integer_zero_node : integer_one_node;
 }
 
 
@@ -4978,6 +4967,159 @@ is_atomic_compatible_reduction (tree var, omp_context *ctx)
   return true;
 }
 
+
+/* Find the total number of threads used by a region partitioned by
+   GWV_BITS.  Setup code required for the calculation is added to SEQ.  Note
+   that this is currently used from both OMP-lowering and OMP-expansion phases,
+   and uses builtins specific to NVidia PTX: this will need refactoring into a
+   generic interface when support for other targets is added.   */
+
+static tree
+expand_oacc_get_num_threads (gimple_seq *seq, int gwv_bits)
+{
+  tree res = NULL_TREE;
+  tree u0 = fold_convert (unsigned_type_node, integer_zero_node);
+  tree u1 = fold_convert (unsigned_type_node, integer_one_node);
+
+  if (gwv_bits & MASK_GANG)
+    {
+      tree decl = builtin_decl_explicit (BUILT_IN_GOACC_NCTAID);
+      tree gang_count = create_tmp_var (unsigned_type_node);
+      gimple call = gimple_build_call (decl, 1, u0);
+      gimple_call_set_lhs (call, gang_count);
+      gimple_seq_add_stmt (seq, call);
+      res = gang_count;
+    }
+  
+  if (gwv_bits & MASK_WORKER)
+    {
+      tree decl = builtin_decl_explicit (BUILT_IN_GOACC_NTID);
+      tree worker_count = create_tmp_var (unsigned_type_node);
+      gimple call = gimple_build_call (decl, 1, u1);
+      gimple_call_set_lhs (call, worker_count);
+      gimple_seq_add_stmt (seq, call);
+      if (res != NULL_TREE)
+        res = fold_build2 (MULT_EXPR, unsigned_type_node, res, worker_count);
+      else
+        res = worker_count;
+    }
+  
+  if (gwv_bits & MASK_VECTOR)
+    {
+      tree decl = builtin_decl_explicit (BUILT_IN_GOACC_NTID);
+      tree vector_length = create_tmp_var (unsigned_type_node);
+      gimple call = gimple_build_call (decl, 1, u0);
+      gimple_call_set_lhs (call, vector_length);
+      gimple_seq_add_stmt (seq, call);
+      if (res != NULL_TREE)
+	res = fold_build2 (MULT_EXPR, unsigned_type_node, res, vector_length);
+      else
+	res = vector_length;
+    }
+
+  if (res == NULL_TREE)
+    res = u1;
+  
+  return res;
+}
+
+
+/* Find the current thread number to use within a region partitioned by
+   GWV_BITS.  Setup code required for the calculation is added to SEQ.  See
+   note for expand_oacc_get_num_threads above re: builtin usage.  */
+
+static tree
+expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
+{
+  tree res = NULL_TREE;
+  tree u0 = fold_convert (unsigned_type_node, integer_zero_node);
+  tree u1 = fold_convert (unsigned_type_node, integer_one_node);
+  tree vector_count = NULL_TREE;
+  tree tid_decl = builtin_decl_explicit (BUILT_IN_GOACC_TID);
+  tree ntid_decl = builtin_decl_explicit (BUILT_IN_GOACC_NTID);
+
+  if (gwv_bits & MASK_VECTOR)
+    {
+      tree vector_id = create_tmp_var (unsigned_type_node);
+      gimple call = gimple_build_call (tid_decl, 1, u0);
+      gimple_call_set_lhs (call, vector_id);
+      gimple_seq_add_stmt (seq, call);
+      res = vector_id;
+    }
+
+  if (gwv_bits & MASK_WORKER)
+    {
+      tree worker_id = create_tmp_var (unsigned_type_node);
+      gimple call = gimple_build_call (tid_decl, 1, u1);
+      gimple_call_set_lhs (call, worker_id);
+      gimple_seq_add_stmt (seq, call);
+      if (res != NULL_TREE)
+	{
+	  vector_count = create_tmp_var (unsigned_type_node);
+	  call = gimple_build_call (ntid_decl, 1, u0);
+	  gimple_call_set_lhs (call, vector_count);
+	  gimple_seq_add_stmt (seq, call);
+	  res = fold_build2 (PLUS_EXPR, unsigned_type_node,
+			     fold_build2 (MULT_EXPR, unsigned_type_node,
+					  vector_count, worker_id), res);
+	}
+      else
+	res = worker_id;
+    }
+
+  if (gwv_bits & MASK_GANG)
+    {
+      tree worker_count;
+      tree ctaid_decl = builtin_decl_explicit (BUILT_IN_GOACC_CTAID);
+      tree gang_id = create_tmp_var (unsigned_type_node);
+      gimple call = gimple_build_call (ctaid_decl, 1, u0);
+      gimple_call_set_lhs (call, gang_id);
+      gimple_seq_add_stmt (seq, call);
+
+      if (gwv_bits & MASK_WORKER)
+	{
+	  worker_count = create_tmp_var (unsigned_type_node);
+	  call = gimple_build_call (ntid_decl, 1, u1);
+	  gimple_call_set_lhs (call, worker_count);
+	  gimple_seq_add_stmt (seq, call);
+	}
+      else
+	worker_count = u1;
+
+      if (gwv_bits & MASK_VECTOR)
+	{
+	  if (vector_count == NULL_TREE)
+	    {
+	      vector_count = create_tmp_var (unsigned_type_node);
+	      call = gimple_build_call (ntid_decl, 1, u0);
+	      gimple_call_set_lhs (call, vector_count);
+	      gimple_seq_add_stmt (seq, call);
+	    }
+	}
+      else
+	vector_count = u1;
+
+      if (gwv_bits & (MASK_WORKER | MASK_VECTOR))
+	{
+	  gcc_assert (res != NULL_TREE);
+	  res = fold_build2 (PLUS_EXPR, unsigned_type_node,
+		  fold_build2 (MULT_EXPR, unsigned_type_node,
+			       fold_build2 (MULT_EXPR, unsigned_type_node,
+					    worker_count, vector_count),
+			       gang_id),
+		  res);
+	}
+      else
+	res = gang_id;
+    }
+
+  if (res == NULL_TREE)
+    res = u0;
+
+  return res;
+}
+
+
 static void
 oacc_finalize_reduction_data (tree clauses, tree nthreads, tree tid,
 			      gimple_seq *stmt_seqp, omp_context *ctx,
@@ -4995,7 +5137,6 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
   gimple stmt;
   tree x, c, tid = NULL_TREE;
   int count = 0;
-  tree gang = NULL_TREE, worker = NULL_TREE, vector = NULL_TREE;
 
   /* SIMD reductions are handled in lower_rec_input_clauses.  */
   if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
@@ -5025,21 +5166,8 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	   && oacc_needs_global_memory (clauses, ctx))
       && !is_oacc_parallel (ctx))
     {
-      x = find_omp_clause (clauses, OMP_CLAUSE_GANG);
-      gang = (x == NULL_TREE) ? integer_zero_node : integer_one_node;
-
-      x = find_omp_clause (clauses, OMP_CLAUSE_WORKER);
-      worker = (x == NULL_TREE) ? integer_zero_node : integer_one_node;
-
-      x = find_omp_clause (clauses, OMP_CLAUSE_VECTOR);
-      vector = (x == NULL_TREE) ? integer_zero_node : integer_one_node;
-
       /* Get the current thread id.  */
-      tree call = builtin_decl_explicit (BUILT_IN_GOACC_GET_THREAD_NUM);
-      tid = create_tmp_var (TREE_TYPE (TREE_TYPE (call)));
-      gimple stmt = gimple_build_call (call, 3, gang, worker, vector);
-      gimple_call_set_lhs (stmt, tid);
-      gimple_seq_add_stmt (stmt_seqp, stmt);
+      tid = expand_oacc_get_thread_num (stmt_seqp, ctx->gwv_this);
     }
 
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
@@ -5114,16 +5242,7 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	  /* Find the total number of threads.  A reduction clause
 	     only appears inside a loop construction or a combined
 	     parallel and loop construct.  */
-
-	  t = create_tmp_var (integer_type_node, NULL);
-	  call = builtin_decl_explicit (BUILT_IN_GOACC_GET_NUM_THREADS);
-	  stmt = gimple_build_call (call, 3, gang, worker, vector);
-	  gimple_call_set_lhs (stmt, t);
-	  gimple_seq_add_stmt (stmt_seqp, stmt);
-
-	  nthreads = create_tmp_var (sizetype, NULL);
-	  gimplify_assign (nthreads, fold_build1 (NOP_EXPR, sizetype, t),
-			   stmt_seqp);
+	  nthreads = expand_oacc_get_num_threads (stmt_seqp, ctx->gwv_this);
 
 	  /* Now insert the partial reductions into the array.  */
 
@@ -7263,12 +7382,12 @@ expand_omp_for_static_nochunk (struct omp_region *region,
       threadid = build_call_expr (threadid, 0);
       break;
     case GF_OMP_FOR_KIND_OACC_LOOP:
-      nthreads = builtin_decl_explicit (BUILT_IN_GOACC_GET_NUM_THREADS);
-      nthreads = build_call_expr (nthreads, 3, fd->gang, fd->worker,
-				  fd->vector);
-      threadid = builtin_decl_explicit (BUILT_IN_GOACC_GET_THREAD_NUM);
-      threadid = build_call_expr (threadid, 3, fd->gang, fd->worker,
-				  fd->vector);
+      {
+	gimple_seq seq = NULL;
+	nthreads = expand_oacc_get_num_threads (&seq, region->gwv_this);
+	threadid = expand_oacc_get_thread_num (&seq, region->gwv_this);
+	gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
+      }
       break;
     default:
       gcc_unreachable ();
@@ -7683,12 +7802,12 @@ expand_omp_for_static_chunk (struct omp_region *region,
       threadid = build_call_expr (threadid, 0);
       break;
     case GF_OMP_FOR_KIND_OACC_LOOP:
-      nthreads = builtin_decl_explicit (BUILT_IN_GOACC_GET_NUM_THREADS);
-      nthreads = build_call_expr (nthreads, 3, fd->gang, fd->worker,
-				  fd->vector);
-      threadid = builtin_decl_explicit (BUILT_IN_GOACC_GET_THREAD_NUM);
-      threadid = build_call_expr (threadid, 3, fd->gang, fd->worker,
-				  fd->vector);
+      {
+	gimple_seq seq = NULL;
+	nthreads = expand_oacc_get_num_threads (&seq, region->gwv_this);
+	threadid = expand_oacc_get_thread_num (&seq, region->gwv_this);
+	gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
+      }
       break;
     default:
       gcc_unreachable ();

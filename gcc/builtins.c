@@ -5978,8 +5978,8 @@ expand_oacc_builtin (enum built_in_function fcode, tree exp, rtx target)
     case BUILT_IN_GOACC_NTID:
 #ifdef HAVE_oacc_ntid
       icode = CODE_FOR_oacc_ntid;
-      result = const1_rtx;
 #endif
+      result = const1_rtx;
       break;
     case BUILT_IN_GOACC_TID:
 #ifdef HAVE_oacc_tid
@@ -5989,8 +5989,8 @@ expand_oacc_builtin (enum built_in_function fcode, tree exp, rtx target)
     case BUILT_IN_GOACC_NCTAID:
 #ifdef HAVE_oacc_nctaid
       icode = CODE_FOR_oacc_nctaid;
-      result = const1_rtx;
 #endif
+      result = const1_rtx;
       break;
     case BUILT_IN_GOACC_CTAID:
 #ifdef HAVE_oacc_ctaid

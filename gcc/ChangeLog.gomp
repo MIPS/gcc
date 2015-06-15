@@ -1,3 +1,19 @@
+2015-06-15  Julian Brown  <julian@codesourcery.com>
+
+	* builtins.c (expand_oacc_builtin): Return const1_rtx for
+	ntid/nctaid builtins when the associated patterns are not present.
+	* omp-builtins.def (BUILT_IN_GOACC_GET_THREAD_NUM)
+	(BUILT_IN_GOACC_GET_NUM_THREADS): Remove.
+	* omp-low.c (struct omp_for_data): Remove gang, worker, vector
+	fields.
+	(extract_omp_for_data): Don't initialise deleted gang, worker,
+	vector fields.
+	(expand_oacc_get_num_threads, expand_oacc_get_thread_num): New
+	functions.
+	(lower_reduction_clauses): Use above functions.
+	(expand_omp_for_static_nochunk): Likewise.
+	(expand_omp_for_static_chunk): Likewise.
+
 2015-06-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (extract_omp_for_data): Adjust the chunk_size
