@@ -1552,8 +1552,9 @@ finalize_task_copyfn (gomp_task *task_stmt)
   pop_cfun ();
 
   /* Inform the callgraph about the new function.  */
+  cgraph_node *node = cgraph_node::get_create (child_fn);
+  node->parallelized_function = 1;
   cgraph_node::add_new_function (child_fn, false);
-  cgraph_node::get (child_fn)->parallelized_function = 1;
 }
 
 /* Destroy a omp_context data structures.  Called through the splay tree
@@ -5589,8 +5590,9 @@ expand_omp_taskreg (struct omp_region *region)
 
       /* Inform the callgraph about the new function.  */
       DECL_STRUCT_FUNCTION (child_fn)->curr_properties = cfun->curr_properties;
+      cgraph_node *node = cgraph_node::get_create (child_fn);
+      node->parallelized_function = 1;
       cgraph_node::add_new_function (child_fn, true);
-      cgraph_node::get (child_fn)->parallelized_function = 1;
 
       /* Fix the callgraph edges for child_cfun.  Those for cfun will be
 	 fixed in a following pass.  */
@@ -8957,6 +8959,8 @@ expand_omp_target (struct omp_region *region)
 
       /* Inform the callgraph about the new function.  */
       DECL_STRUCT_FUNCTION (child_fn)->curr_properties = cfun->curr_properties;
+      cgraph_node *node = cgraph_node::get_create (child_fn);
+      node->parallelized_function = 1;
       cgraph_node::add_new_function (child_fn, true);
 
 #ifdef ENABLE_OFFLOADING
@@ -8972,8 +8976,7 @@ expand_omp_target (struct omp_region *region)
 #ifdef ENABLE_OFFLOADING
       /* Prevent IPA from removing child_fn as unreachable, since there are no
 	 refs from the parent function to child_fn in offload LTO mode.  */
-      struct cgraph_node *node = cgraph_node::get (child_fn);
-      node->mark_force_output ();
+      cgraph_node::get (child_fn)->mark_force_output ();
 #endif
 
       /* Some EH regions might become dead, see PR34608.  If
