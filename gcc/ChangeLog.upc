@@ -1,3 +1,12 @@
+2015-06-15  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 224475 into gupc branch.
+
+	* tree-upc.c, c/c-upc-lang.c, c-family/c-upc.c, c-family/c-upc-low.c,
+	c-family/c-upc-pts-ops.c, c-family/c-upc-pts-packed.c,
+	c-family/c-upc-pts-struct.c:
+	Remove #include's made redundant by changes to coretypes.h.
+
 2015-06-08  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 224210 into gupc branch.
@@ -5,7 +14,7 @@
 	* tree-upc.c, c/c-upc-lang.c, c-family/c-upc.c,
 	c-family/c-upc-low.c, c-family/c-upc-pts-ops.c,
 	c-family/c-upc-pts-packed.c, c-family/c-upc-pts-struct.c:
-	Remove #include's made redundant by change to coretypes.h.
+	Remove #include's made redundant by changes to coretypes.h.
 
 2015-06-06  Gary Funck  <gary@intrepid.com>
 

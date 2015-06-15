@@ -25,13 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "gfortran.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -5873,6 +5870,20 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 
   fntype = TREE_TYPE (TREE_TYPE (se->expr));
   se->expr = build_call_vec (TREE_TYPE (fntype), se->expr, arglist);
+
+  /* Allocatable scalar function results must be freed and nullified
+     after use. This necessitates the creation of a temporary to
+     hold the result to prevent duplicate calls.  */
+  if (!byref && sym->ts.type != BT_CHARACTER
+      && sym->attr.allocatable && !sym->attr.dimension)
+    {
+      tmp = gfc_create_var (TREE_TYPE (se->expr), NULL);
+      gfc_add_modify (&se->pre, tmp, se->expr);
+      se->expr = tmp;
+      tmp = gfc_call_free (tmp);
+      gfc_add_expr_to_block (&post, tmp);
+      gfc_add_modify (&post, se->expr, build_int_cst (TREE_TYPE (se->expr), 0));
+    }
 
   /* If we have a pointer function, but we don't want a pointer, e.g.
      something like
