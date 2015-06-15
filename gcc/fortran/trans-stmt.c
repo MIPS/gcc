@@ -5221,6 +5221,18 @@ gfc_trans_allocate (gfc_code * code)
 	      GFC_DECL_SAVED_DESCRIPTOR (var) = se.expr;
 	    }
 	  gfc_add_modify_loc (input_location, &block, var, tmp);
+
+	  /* Deallocate any allocatable components after all the allocations
+	     and assignments of expr3 have been completed.  */
+	  if (code->expr3->ts.type == BT_DERIVED
+	      && code->expr3->rank == 0
+	      && code->expr3->ts.u.derived->attr.alloc_comp)
+	    {
+	      tmp = gfc_deallocate_alloc_comp (code->expr3->ts.u.derived,
+					       var, 0);
+	      gfc_add_expr_to_block (&post, tmp);
+	    }
+
 	  expr3 = var;
 	  if (se.string_length)
 	    /* Evaluate it assuming that it also is complicated like expr3.  */
