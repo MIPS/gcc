@@ -10694,7 +10694,16 @@ make_predication_test (edge true_edge, basic_block skip_dest_bb, int mask)
   gsi_insert_after (&tmp_gsi, cond_stmt, GSI_NEW_STMT);
 
   true_edge->flags = EDGE_TRUE_VALUE;
-  make_edge (cond_bb, skip_dest_bb, EDGE_FALSE_VALUE);
+
+  /* Force an abnormal edge before a broadcast operation that might be present
+     in SKIP_DEST_BB.  This is only done for the non-execution edge (with
+     respect to the predication done by this function) -- the opposite
+     (execution) edge that reaches the broadcast operation must be made
+     abnormal also, e.g. in this function's caller.  */
+  edge e = make_edge (cond_bb, skip_dest_bb, EDGE_FALSE_VALUE);
+  basic_block false_abnorm_bb = split_edge (e);
+  edge abnorm_edge = single_succ_edge (false_abnorm_bb);
+  abnorm_edge->flags |= EDGE_ABNORMAL;
 }
 
 /* Apply OpenACC predication to basic block BB which is in
@@ -10743,6 +10752,7 @@ predicate_bb (basic_block bb, struct omp_region *parent, int mask)
 						   mask);
 
       edge e = split_block (bb, splitpoint);
+      e->flags = EDGE_ABNORMAL;
       skip_dest_bb = e->dest;
 
       gimple_cond_set_condition (as_a <gcond *> (stmt), EQ_EXPR,
@@ -10762,6 +10772,7 @@ predicate_bb (basic_block bb, struct omp_region *parent, int mask)
 						   gsi_asgn, mask);
 
       edge e = split_block (bb, splitpoint);
+      e->flags = EDGE_ABNORMAL;
       skip_dest_bb = e->dest;
 
       gimple_switch_set_index (sstmt, new_var);

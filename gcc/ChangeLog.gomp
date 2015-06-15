@@ -1,5 +1,12 @@
 2015-06-15  Julian Brown  <julian@codesourcery.com>
 
+	* omp-low.c (make_predication_test): Split false edge out of
+	cond_bb, making latter part abnormal.
+	(predicate_bb): Set EDGE_ABNORMAL on edges before broadcast
+	operations.
+
+2015-06-15  Julian Brown  <julian@codesourcery.com>
+
 	* builtins.c (expand_oacc_builtin): Return const1_rtx for
 	ntid/nctaid builtins when the associated patterns are not present.
 	* omp-builtins.def (BUILT_IN_GOACC_GET_THREAD_NUM)
