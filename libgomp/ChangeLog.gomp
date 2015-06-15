@@ -1,3 +1,9 @@
+2015-06-15  Julian Brown  <julian@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/worker-partn-5.c: Remove
+	XFAIL.
+	* testsuite/libgomp.oacc-c-c++-common/worker-partn-6.c: Likewise.
+
 2015-06-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/gang-static-1.c: New test.

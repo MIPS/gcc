@@ -1,5 +1,23 @@
 2015-06-15  Julian Brown  <julian@codesourcery.com>
 
+	* omp-low.c (build_oacc_threadbarrier): New function.
+	(oacc_loop_needs_threadbarrier_p): New function.
+	(expand_omp_for_static_nochunk, expand_omp_for_static_chunk):
+	Insert threadbarrier after worker loops.
+	(find_omp_for_region_data): Rename to...
+	(find_omp_for_region_gwv): This. Return mask, rather than modifying
+	REGION structure.
+	(build_omp_regions_1): Move modification of REGION structure to
+	here, after calling above function with new name.
+	(generate_oacc_broadcast): Use new build_oacc_threadbarrier
+	function.
+	(make_gimple_omp_edges): Make edges out of OpenACC worker loop exit
+	block abnormal.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1): Add
+	BUILT_IN_GOACC_THREADBARRIER.
+
+2015-06-15  Julian Brown  <julian@codesourcery.com>
+
 	* omp-low.c (make_predication_test): Split false edge out of
 	cond_bb, making latter part abnormal.
 	(predicate_bb): Set EDGE_ABNORMAL on edges before broadcast

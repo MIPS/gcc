@@ -3738,6 +3738,15 @@ build_omp_barrier (tree lhs)
   return g;
 }
 
+/* Build a call to GOACC_threadbarrier.  */
+
+static gcall *
+build_oacc_threadbarrier (void)
+{
+  tree fndecl = builtin_decl_explicit (BUILT_IN_GOACC_THREADBARRIER);
+  return gimple_build_call (fndecl, 0);
+}
+
 /* If a context was created for STMT when it was scanned, return it.  */
 
 static omp_context *
@@ -7226,6 +7235,20 @@ expand_omp_for_generic (struct omp_region *region,
 }
 
 
+/* True if a barrier is needed after a loop partitioned over
+   gangs/workers/vectors as specified by GWV_BITS.  OpenACC semantics specify
+   that a (conceptual) barrier is needed after worker and vector-partitioned
+   loops, but not after gang-partitioned loops.  Currently we are relying on
+   warp reconvergence to synchronise threads within a warp after vector loops,
+   so an explicit barrier is not helpful after those.  */
+
+static bool
+oacc_loop_needs_threadbarrier_p (int gwv_bits)
+{
+  return (gwv_bits & (MASK_GANG | MASK_WORKER)) == MASK_WORKER;
+}
+
+
 /* A subroutine of expand_omp_for.  Generate code for a parallel
    loop with static schedule and no specified chunk size.  Given
    parameters:
@@ -7571,7 +7594,11 @@ expand_omp_for_static_nochunk (struct omp_region *region,
     {
       t = gimple_omp_return_lhs (gsi_stmt (gsi));
       if (gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
-	gcc_checking_assert (t == NULL_TREE);
+	{
+	  gcc_checking_assert (t == NULL_TREE);
+	  if (oacc_loop_needs_threadbarrier_p (region->gwv_this))
+	    gsi_insert_after (&gsi, build_oacc_threadbarrier (), GSI_SAME_STMT);
+	}
       else
 	gsi_insert_after (&gsi, build_omp_barrier (t), GSI_SAME_STMT);
     }
@@ -8008,7 +8035,11 @@ expand_omp_for_static_chunk (struct omp_region *region,
     {
       t = gimple_omp_return_lhs (gsi_stmt (gsi));
       if (gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
-	gcc_checking_assert (t == NULL_TREE);
+        {
+	  gcc_checking_assert (t == NULL_TREE);
+	  if (oacc_loop_needs_threadbarrier_p (region->gwv_this))
+	    gsi_insert_after (&gsi, build_oacc_threadbarrier (), GSI_SAME_STMT);
+	}
       else
 	gsi_insert_after (&gsi, build_omp_barrier (t), GSI_SAME_STMT);
     }
@@ -10326,22 +10357,26 @@ expand_omp (struct omp_region *region)
 /* Map each basic block to an omp_region.  */
 static hash_map<basic_block, omp_region *> *bb_region_map;
 
-/* Fill in additional data for a region REGION associated with an
+/* Return a mask of GWV bits for region REGION associated with an
    OMP_FOR STMT.  */
 
-static void
-find_omp_for_region_data (struct omp_region *region, gimple stmt)
+static int
+find_omp_for_region_gwv (gimple stmt)
 {
+  int tmp = 0;
+
   if (!is_gimple_omp_oacc (stmt))
-    return;
+    return 0;
 
   tree clauses = gimple_omp_for_clauses (stmt);
   if (find_omp_clause (clauses, OMP_CLAUSE_GANG))
-    region->gwv_this |= MASK_GANG;
+    tmp |= MASK_GANG;
   if (find_omp_clause (clauses, OMP_CLAUSE_WORKER))
-    region->gwv_this |= MASK_WORKER;
+    tmp |= MASK_WORKER;
   if (find_omp_clause (clauses, OMP_CLAUSE_VECTOR))
-    region->gwv_this |= MASK_VECTOR;
+    tmp |= MASK_VECTOR;
+
+  return tmp;
 }
 
 /* Fill in additional data for a region REGION associated with an
@@ -10448,7 +10483,7 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 		}
 	    }
 	  else if (code == GIMPLE_OMP_FOR)
-	    find_omp_for_region_data (region, stmt);
+	    region->gwv_this = find_omp_for_region_gwv (stmt);
 	  /* ..., this directive becomes the parent for a new region.  */
 	  if (region)
 	    parent = region;
@@ -10638,9 +10673,7 @@ generate_oacc_broadcast (omp_region *region, tree dest_var, tree var,
   gassign *st = gimple_build_assign (build_simple_mem_ref (ptr), var);
   gsi_insert_after (&where, st, GSI_NEW_STMT);
 
-  tree fndecl = builtin_decl_explicit (BUILT_IN_GOACC_THREADBARRIER);
-  gcall *sync_bar = gimple_build_call (fndecl, 0);
-  gsi_insert_after (&where, sync_bar, GSI_NEW_STMT);
+  gsi_insert_after (&where, build_oacc_threadbarrier (), GSI_NEW_STMT);
 
   gassign *cast2 = gimple_build_assign (ptr, NOP_EXPR,
 					parent->broadcast_array);
@@ -14098,11 +14131,29 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
        break;
 
     case GIMPLE_OMP_RETURN:
-      /* In the case of a GIMPLE_OMP_SECTION, the edge will go
-	 somewhere other than the next block.  This will be
-	 created later.  */
       cur_region->exit = bb;
-      fallthru = cur_region->type != GIMPLE_OMP_SECTION;
+      gimple for_stmt;
+      if (cur_region->type == GIMPLE_OMP_FOR
+	  && gimple_omp_for_kind (as_a <gomp_for *>
+				  ((for_stmt = last_stmt (cur_region->entry))))
+	     == GF_OMP_FOR_KIND_OACC_LOOP)
+        {
+	  /* Called before OMP expansion, so this information has not been
+	     recorded in cur_region->gwv_this yet.  */
+	  int gwv_bits = find_omp_for_region_gwv (for_stmt);
+	  if (oacc_loop_needs_threadbarrier_p (gwv_bits))
+	    {
+	      make_edge (bb, bb->next_bb, EDGE_FALLTHRU | EDGE_ABNORMAL);
+	      fallthru = false;
+	    }
+	  else
+	    fallthru = true;
+	}
+      else
+	/* In the case of a GIMPLE_OMP_SECTION, the edge will go
+	   somewhere other than the next block.  This will be
+	   created later.  */
+	fallthru = cur_region->type != GIMPLE_OMP_SECTION;
       cur_region = cur_region->outer;
       break;
 
