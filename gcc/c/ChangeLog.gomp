@@ -1,3 +1,11 @@
+2015-06-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_all_clauses): Call
+	c_oacc_filter_device_types instead of oacc_filter_device_types.
+	(oacc_split_loop_clauses): Remove.
+	(c_parser_oacc_loop): Call c_oacc_split_loop_clauses
+	instead of oacc_split_loop_clauses.
+
 2015-06-12  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_clause_device_type): Switch

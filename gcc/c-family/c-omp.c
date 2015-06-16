@@ -1093,8 +1093,8 @@ c_omp_predetermined_sharing (tree decl)
    only device_type(nvidia) is supported.  All device_type parameters
    are treated as case-insensitive keywords.  */
 
-int
-oacc_extract_device_id (const char *device)
+static int
+c_oacc_extract_device_id (const char *device)
 {
   if (!strcasecmp (device, "nvidia"))
     return GOMP_DEVICE_NVIDIA_PTX;
@@ -1115,7 +1115,7 @@ struct identifier_hasher : ggc_cache_hasher<tree>
 /* Filter out the list of unsupported OpenACC device_types.  */
 
 tree
-oacc_filter_device_types (tree clauses)
+c_oacc_filter_device_types (tree clauses)
 {
   tree c, prev;
   tree dtype = NULL_TREE;
@@ -1141,7 +1141,7 @@ oacc_filter_device_types (tree clauses)
 		  goto filter_dtype;
 		}
 
-	      int code = oacc_extract_device_id (IDENTIFIER_POINTER (t));
+	      int code = c_oacc_extract_device_id (IDENTIFIER_POINTER (t));
 
 	      if (code == GOMP_DEVICE_DEFAULT)
 		seen_default = OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
@@ -1213,4 +1213,50 @@ oacc_filter_device_types (tree clauses)
 
   OMP_CLAUSE_CHAIN (prev) = dtype;
   return clauses;
+}
+
+/* Split the 'clauses' into a set of 'loop' clauses and a set of
+   'not-loop' clauses.  */
+
+tree
+c_oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses)
+{
+  tree loop_clauses, next, c;
+
+  loop_clauses = *not_loop_clauses = NULL_TREE;
+
+  for (; clauses ; clauses = next)
+    {
+      next = OMP_CLAUSE_CHAIN (clauses);
+
+      switch (OMP_CLAUSE_CODE (clauses))
+        {
+	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_REDUCTION:
+	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_SEQ:
+	  OMP_CLAUSE_CHAIN (clauses) = loop_clauses;
+	  loop_clauses = clauses;
+	  break;
+
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_PRIVATE:
+	  c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
+			        OMP_CLAUSE_CODE (clauses));
+          OMP_CLAUSE_DECL (c) = OMP_CLAUSE_DECL (clauses);
+	  OMP_CLAUSE_CHAIN (c) = loop_clauses;
+	  loop_clauses = c;
+	  /* FALL THROUGH  */
+
+	default:
+	  OMP_CLAUSE_CHAIN (clauses) = *not_loop_clauses;
+	  *not_loop_clauses = clauses;
+	  break;
+	}
+    }
+
+  return loop_clauses;
 }

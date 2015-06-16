@@ -29748,7 +29748,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 
   if (finish_p)
     {
-      clauses = oacc_filter_device_types (clauses);
+      clauses = c_oacc_filter_device_types (clauses);
       return finish_omp_clauses (clauses, true);
     }
 
@@ -32339,58 +32339,6 @@ cp_parser_oacc_enter_exit_data (cp_parser *parser, cp_token *pragma_tok,
   return stmt;
 }
 
-/* Split the 'clauses' into a set of 'loop' clauses and a set of
-   'not-loop' clauses.  */
-
-static tree
-oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses)
-{
-  tree loop_clauses, next, c;
-
-  loop_clauses = *not_loop_clauses = NULL_TREE;
-
-  for (; clauses ; clauses = next)
-    {
-      next = OMP_CLAUSE_CHAIN (clauses);
-
-      switch (OMP_CLAUSE_CODE (clauses))
-        {
-	case OMP_CLAUSE_COLLAPSE:
-	case OMP_CLAUSE_REDUCTION:
-	case OMP_CLAUSE_GANG:
-	case OMP_CLAUSE_VECTOR:
-	case OMP_CLAUSE_WORKER:
-	case OMP_CLAUSE_AUTO:
-	case OMP_CLAUSE_SEQ:
-	  OMP_CLAUSE_CHAIN (clauses) = loop_clauses;
-	  loop_clauses = clauses;
-	  break;
-
-	case OMP_CLAUSE_FIRSTPRIVATE:
-	case OMP_CLAUSE_PRIVATE:
-	  c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
-			        OMP_CLAUSE_CODE (clauses));
-          OMP_CLAUSE_DECL (c) = OMP_CLAUSE_DECL (clauses);
-	  OMP_CLAUSE_CHAIN (c) = loop_clauses;
-	  loop_clauses = c;
-	  /* FALL THROUGH  */
-
-	default:
-	  OMP_CLAUSE_CHAIN (clauses) = *not_loop_clauses;
-	  *not_loop_clauses = clauses;
-	  break;
-	}
-    }
-
-  if (*not_loop_clauses)
-    finish_omp_clauses (*not_loop_clauses, true);
-
-  if (loop_clauses)
-    finish_omp_clauses (loop_clauses, true);
-
-  return loop_clauses;
-}
-
 /* OpenACC 2.0:
    # pragma acc loop oacc-loop-clause[optseq] new-line
      structured-block  */
@@ -32433,7 +32381,15 @@ cp_parser_oacc_loop (cp_parser *parser, cp_token *pragma_tok, char *p_name,
 					cclauses == NULL);
 
   if (cclauses)
-    clauses = oacc_split_loop_clauses (clauses, cclauses);
+    {
+      clauses = c_oacc_split_loop_clauses (clauses, cclauses);
+
+      if (*cclauses)
+	finish_omp_clauses (*cclauses, true);
+
+      if (clauses)
+	finish_omp_clauses (clauses, true);
+    }
 
   block = begin_omp_structured_block ();
   save = cp_parser_begin_omp_structured_block (parser);

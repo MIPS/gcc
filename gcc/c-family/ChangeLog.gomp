@@ -1,3 +1,15 @@
+2015-06-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-common.h (c_oacc_split_loop_clauses): Declare.
+	(oacc_extract_device_id): Remove declaration.
+	(oacc_filter_device_types): Rename to ...
+	(c_oacc_filter_device_types): ... this.
+	* c-omp.c (oacc_extract_device_id): Rename to ...
+	(c_oacc_extract_device_id): ... this and make static.
+	(oacc_filter_device_types): Rename to ...
+	(c_oacc_filter_device_types): ... this.
+	(c_oacc_split_loop_clauses): New function.
+
 2015-06-12  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-omp.c (oacc_extract_device_id): Recognize GOMP_DEVICE_DEFAULT.
