@@ -5246,7 +5246,7 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	     lower_omp_for (for openacc), the values of array will be
 	     combined.  */
 
-	  tree t, array, call, nthreads, ptr;
+	  tree t, array, nthreads, ptr;
 	  tree type = get_base_type (var);
 	  omp_context *octx;
 	  gimple stmt;
