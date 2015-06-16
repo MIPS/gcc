@@ -1,3 +1,17 @@
+2015-06-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.h (FLOAT128_IEEE_P): Rename IEEE_128BIT_P
+	to FLOAT128_IEEE_P.  Rename IBM_128BIT_P to FLOAT128_IBM_P.
+	(FLOAT128_IBM_P): Likewise.
+	(FLOAT128_VECTOR_P): Likewise.
+	(FLOAT128_2REG_P): Likewise.
+	(HARD_REGNO_CALLER_SAVE_MODE): Likewise.
+	(HARD_REGNO_CALL_PART_CLOBBERED): Likewise.
+	(ALTIVEC_VECTOR_MODE): Likewise.
+	* config/rs6000/rs6000.c: Change all occurrences of IEEE_128BIT_P
+	and IBM_128BIT_P.
+	* config/rs6000/rs6000.md: Likewise.
+
 2015-06-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (easp_fp_constant): Remove

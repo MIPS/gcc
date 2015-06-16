@@ -414,22 +414,22 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    even if the default for long double is the IBM long double format.
    Similarly IFmode is the IBM long double format even if the default is IEEE
    128-bit.  */
-#define IEEE_128BIT_P(MODE)						\
+#define FLOAT128_IEEE_P(MODE)						\
   (((MODE) == KFmode)							\
    || (((MODE) == TFmode) && TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128))
 
-#define IBM_128BIT_P(MODE)						\
+#define FLOAT128_IBM_P(MODE)						\
   ((((MODE) == TFmode) && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)	\
    || ((MODE) == IFmode))
 
 /* Helper macros to say whether a 128-bit floating point type can go in a
    single vector register, or whether it needs paired scalar values.  */
-#define FLOAT128_VECTOR_P(MODE) (TARGET_FLOAT128 && IEEE_128BIT_P (MODE))
+#define FLOAT128_VECTOR_P(MODE) (TARGET_FLOAT128 && FLOAT128_IEEE_P (MODE))
 
 #define FLOAT128_2REG_P(MODE)						\
-  (IBM_128BIT_P (MODE)							\
+  (FLOAT128_IBM_P (MODE)						\
    || ((MODE) == TDmode)						\
-   || (!TARGET_FLOAT128 && IEEE_128BIT_P (MODE)))
+   || (!TARGET_FLOAT128 && FLOAT128_IEEE_P (MODE)))
 
 /* Return true for floating point that does not use a vector register.  */
 #define SCALAR_FLOAT_MODE_NOT_VECTOR_P(MODE)				\
@@ -1206,7 +1206,7 @@ enum data_align { align_abi, align_opt, align_both };
    ? V2DFmode								\
    : TARGET_E500_DOUBLE && ((MODE) == VOIDmode || (MODE) == DFmode)	\
    ? DFmode								\
-   : !TARGET_E500_DOUBLE && IBM_128BIT_P (MODE) && FP_REGNO_P (REGNO)	\
+   : !TARGET_E500_DOUBLE && FLOAT128_IBM_P (MODE) && FP_REGNO_P (REGNO)	\
    ? DFmode								\
    : !TARGET_E500_DOUBLE && (MODE) == TDmode && FP_REGNO_P (REGNO)	\
    ? DImode								\

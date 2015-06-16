@@ -8604,7 +8604,7 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
   /* 128-bit constant floating-point values on Darwin should really be loaded
      as two parts.  However, this premature splitting is a problem when DFmode
      values can go into Altivec registers.  */
-  if (IBM_128BIT_P (mode) && !reg_addr[DFmode].scalar_in_vmx_p
+  if (FLOAT128_IBM_P (mode) && !reg_addr[DFmode].scalar_in_vmx_p
       && GET_CODE (operands[1]) == CONST_DOUBLE)
     {
       rs6000_emit_move (simplify_gen_subreg (DFmode, operands[0], mode, 0),
@@ -9336,7 +9336,7 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
     }
 
   if (DEFAULT_ABI == ABI_V4 && TARGET_IEEEQUAD
-      && IEEE_128BIT_P (TYPE_MODE (type)))
+      && FLOAT128_IEEE_P (TYPE_MODE (type)))
     return true;
 
   return false;
@@ -10001,7 +10001,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
 	  else
 	    {
 	      cum->fregno = FP_ARG_V4_MAX_REG + 1;
-	      if (mode == DFmode || FLOAT128_2REG_P (mode)
+	      if (mode == DFmode || FLOAT128_IBM_P (mode)
 		  || mode == DDmode || mode == TDmode)
 		cum->words += cum->words & 1;
 	      cum->words += rs6000_arg_size (mode, type);
@@ -10896,7 +10896,7 @@ rs6000_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 			  bool named ATTRIBUTE_UNUSED)
 {
   if (DEFAULT_ABI == ABI_V4 && TARGET_IEEEQUAD
-      && IEEE_128BIT_P (TYPE_MODE (type)))
+      && FLOAT128_IEEE_P (TYPE_MODE (type)))
     {
       if (TARGET_DEBUG_ARG)
 	fprintf (stderr, "function_arg_pass_by_reference: V4 IEEE 128-bit\n");
@@ -19754,7 +19754,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
   /* IEEE 128-bit support without hardware.  The ge/le comparison functions
      return -2 for unordered, -1 for less than, 0 for equal, and +1 for greater
      than.  For now, don't support IEEE Nan's in tests.  */
-  else if(IEEE_128BIT_P (mode))
+  else if(FLOAT128_IEEE_P (mode))
     {
       rtx and_reg = gen_reg_rtx (SImode);
       rtx dest = gen_reg_rtx (SImode);
@@ -19859,7 +19859,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
       /* Generate XLC-compatible TFmode compare as PARALLEL with extra
 	 CLOBBERs to match cmptf_internal2 pattern.  */
       if (comp_mode == CCFPmode && TARGET_XL_COMPAT
-	  && IBM_128BIT_P (GET_MODE (op0))
+	  && FLOAT128_IBM_P (GET_MODE (op0))
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
 	emit_insn (gen_rtx_PARALLEL (VOIDmode,
 	  gen_rtvec (10,
@@ -19893,7 +19893,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
   /* Some kinds of FP comparisons need an OR operation;
      under flag_finite_math_only we don't bother.  */
   if (FLOAT_MODE_P (mode)
-      && !IEEE_128BIT_P (mode)
+      && !FLOAT128_IEEE_P (mode)
       && !flag_finite_math_only
       && !(TARGET_HARD_FLOAT && !TARGET_FPRS)
       && (code == LE || code == GE
@@ -19947,28 +19947,28 @@ rs6000_expand_float128_convert (rtx dest, rtx src, bool unsigned_p)
   if (dest_mode == src_mode)
     gcc_unreachable ();
 
-  if (IEEE_128BIT_P (dest_mode))
+  if (FLOAT128_IEEE_P (dest_mode))
     {
       if (src_mode == SFmode
 	  || src_mode == DFmode
-	  || IBM_128BIT_P (src_mode))
+	  || FLOAT128_IBM_P (src_mode))
 	cvt = sext_optab;
 
       else if (GET_MODE_CLASS (src_mode) == MODE_INT)
 	cvt = (unsigned_p) ? ufloat_optab : sfloat_optab;
 
-      else if (IEEE_128BIT_P (src_mode))
+      else if (FLOAT128_IEEE_P (src_mode))
 	emit_move_insn (dest, gen_lowpart (dest_mode, src));
 
       else
 	gcc_unreachable ();
     }
 
-  else if (IEEE_128BIT_P (src_mode))
+  else if (FLOAT128_IEEE_P (src_mode))
     {
       if (dest_mode == SFmode
 	  || dest_mode == DFmode
-	  || IBM_128BIT_P (dest_mode))
+	  || FLOAT128_IBM_P (dest_mode))
 	cvt = trunc_optab;
 
       else if (GET_MODE_CLASS (dest_mode) == MODE_INT)
@@ -32515,7 +32515,7 @@ rs6000_function_value (const_tree valtype,
     regno = ALTIVEC_ARG_RETURN;
   else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
 	   && (mode == DFmode || mode == DCmode
-	       || IBM_128BIT_P (mode) || mode == TCmode))
+	       || FLOAT128_IBM_P (mode) || mode == TCmode))
     return spe_build_register_parallel (mode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;
@@ -32551,7 +32551,7 @@ rs6000_libcall_value (machine_mode mode)
     return rs6000_complex_function_value (mode);
   else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
 	   && (mode == DFmode || mode == DCmode
-	       || IBM_128BIT_P (mode) || mode == TCmode))
+	       || FLOAT128_IBM_P (mode) || mode == TCmode))
     return spe_build_register_parallel (mode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;
@@ -32797,7 +32797,7 @@ rs6000_vector_mode_supported_p (machine_mode mode)
   /* There is no vector form for IEEE 128-bit.  If we return true for IEEE
      128-bit, the compiler might try to widen IEEE 128-bit to IBM
      double-double.  */
-  else if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode) && !IEEE_128BIT_P (mode))
+  else if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode) && !FLOAT128_IEEE_P (mode))
     return true;
 
   else
