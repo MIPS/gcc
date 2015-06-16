@@ -242,6 +242,9 @@ GOMP_4.0.1 {
 
 GOMP_4.1 {
   global:
+	GOMP_target_41;
+	GOMP_target_data_41;
+	GOMP_target_enter_exit_data;
 	GOMP_taskloop;
 	GOMP_taskloop_ull;
 } GOMP_4.0.1;

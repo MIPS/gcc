@@ -1,3 +1,25 @@
+2015-06-16  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* libgomp.map (GOMP_4.1): Add GOMP_target_41, GOMP_target_data_41,
+	GOMP_target_enter_exit_data.
+	* libgomp_g.h: Declare GOMP_target_41, GOMP_target_data_41,
+	GOMP_target_enter_exit_data.
+	* target.c (resolve_device): Call gomp_init_device here instead of
+	GOMP_target*.
+	(get_kind): Rename is_openacc to short_mapkind.
+	(gomp_map_vars): Likewise.
+	(gomp_unmap_vars): Likewise.
+	(gomp_update): Likewise.
+	(gomp_target_fallback): New static function.
+	(gomp_get_target_fn_addr): New static function.
+	(GOMP_target): Move host fallback and fn lookup to the new functions.
+	(GOMP_target_41): New function.
+	(gomp_target_data_fallback): New static function.
+	(GOMP_target_data): Move host fallback to the new function.
+	(GOMP_target_data_41): New function.
+	(GOMP_target_update): Do not call gomp_init_device.
+	(GOMP_target_enter_exit_data): New function.
+
 2015-06-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp.h.in (omp_lock_hint_t): New type.

@@ -1,3 +1,19 @@
+2015-06-16  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* builtin-types.def (BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR): New.
+	(BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR): Remove.
+	* omp-builtins.def (BUILT_IN_GOMP_TARGET): Replace GOMP_target with
+	GOMP_target_41.
+	(BUILT_IN_GOMP_TARGET_DATA): Replace GOMP_target_data with
+	GOMP_target_data_41.
+	(BUILT_IN_GOMP_TARGET_ENTER_EXIT_DATA): New.
+	* omp-low.c (expand_omp_target): Use
+	BUILT_IN_GOMP_TARGET_ENTER_EXIT_DATA for GF_OMP_TARGET_KIND_ENTER_DATA
+	and GF_OMP_TARGET_KIND_EXIT_DATA.
+	Do not pass obsolete pointer to new builtins.
+	(lower_omp_target): Use unsigned short for map kinds, except
+	BUILT_IN_GOMP_TARGET_UPDATE.
+
 2015-06-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.def (OMP_CRITICAL): Move before OMP_SINGLE.  Add

@@ -10226,8 +10226,7 @@ expand_omp_target (struct omp_region *region)
       break;
     case GF_OMP_TARGET_KIND_ENTER_DATA:
     case GF_OMP_TARGET_KIND_EXIT_DATA:
-      /* FIXME */
-      start_ix = BUILT_IN_GOMP_TARGET_UPDATE;
+      start_ix = BUILT_IN_GOMP_TARGET_ENTER_EXIT_DATA;
       break;
     case GF_OMP_TARGET_KIND_OACC_PARALLEL:
     case GF_OMP_TARGET_KIND_OACC_KERNELS:
@@ -10264,7 +10263,8 @@ expand_omp_target (struct omp_region *region)
 	 defined/used for the OpenMP target ones.  */
       gcc_checking_assert (start_ix == BUILT_IN_GOMP_TARGET
 			   || start_ix == BUILT_IN_GOMP_TARGET_DATA
-			   || start_ix == BUILT_IN_GOMP_TARGET_UPDATE);
+			   || start_ix == BUILT_IN_GOMP_TARGET_UPDATE
+			   || start_ix == BUILT_IN_GOMP_TARGET_ENTER_EXIT_DATA);
 
       device = OMP_CLAUSE_DEVICE_ID (c);
       clause_loc = OMP_CLAUSE_LOCATION (c);
@@ -10351,23 +10351,10 @@ expand_omp_target (struct omp_region *region)
   args.quick_push (device);
   if (offloaded)
     args.quick_push (build_fold_addr_expr (child_fn));
-  switch (start_ix)
-    {
-    case BUILT_IN_GOMP_TARGET:
-    case BUILT_IN_GOMP_TARGET_DATA:
-    case BUILT_IN_GOMP_TARGET_UPDATE:
-      /* This const void * is part of the current ABI, but we're not actually
-	 using it.  */
-      args.quick_push (build_zero_cst (ptr_type_node));
-      break;
-    case BUILT_IN_GOACC_DATA_START:
-    case BUILT_IN_GOACC_ENTER_EXIT_DATA:
-    case BUILT_IN_GOACC_PARALLEL:
-    case BUILT_IN_GOACC_UPDATE:
-      break;
-    default:
-      gcc_unreachable ();
-    }
+  /* This const void * is part of the current ABI, but we're not actually using
+     it.  */
+  if (start_ix == BUILT_IN_GOMP_TARGET_UPDATE)
+    args.quick_push (build_zero_cst (ptr_type_node));
   args.quick_push (t1);
   args.quick_push (t2);
   args.quick_push (t3);
@@ -10378,6 +10365,7 @@ expand_omp_target (struct omp_region *region)
     case BUILT_IN_GOMP_TARGET:
     case BUILT_IN_GOMP_TARGET_DATA:
     case BUILT_IN_GOMP_TARGET_UPDATE:
+    case BUILT_IN_GOMP_TARGET_ENTER_EXIT_DATA:
       break;
     case BUILT_IN_GOACC_PARALLEL:
       {
@@ -12633,7 +12621,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       TREE_STATIC (TREE_VEC_ELT (t, 1)) = 1;
       tree tkind_type;
       int talign_shift;
-      if (is_gimple_omp_oacc (stmt))
+      if (is_gimple_omp_oacc (stmt)
+	  || gimple_omp_target_kind (stmt) != GF_OMP_TARGET_KIND_UPDATE)
 	{
 	  tkind_type = short_unsigned_type_node;
 	  talign_shift = 8;
@@ -12782,9 +12771,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      default:
 		gcc_unreachable ();
 	      }
-	    /* FIXME: Temporary hack.  */
-	    if (talign_shift == 3)
-	      tkind &= ~GOMP_MAP_FLAG_FORCE;
 	    gcc_checking_assert (tkind
 				 < (HOST_WIDE_INT_C (1U) << talign_shift));
 	    talign = ceil_log2 (talign);

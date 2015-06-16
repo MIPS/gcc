@@ -1,3 +1,8 @@
+2015-06-16  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* types.def (BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR): New.
+	(BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR): Remove.
+
 2015-06-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-openmp.c (gfc_trans_omp_critical): Adjust
