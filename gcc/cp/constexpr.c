@@ -23,16 +23,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
 #include "cp-tree.h"
@@ -1238,6 +1232,15 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
       else if (TREE_CODE (t) == AGGR_INIT_EXPR
 	       && AGGR_INIT_ZERO_FIRST (t))
 	return build_zero_init (DECL_CONTEXT (fun), NULL_TREE, false);
+    }
+
+  /* We can't defer instantiating the function any longer.  */
+  if (!DECL_INITIAL (fun)
+      && DECL_TEMPLOID_INSTANTIATION (fun))
+    {
+      ++function_depth;
+      instantiate_decl (fun, /*defer_ok*/false, /*expl_inst*/false);
+      --function_depth;
     }
 
   /* If in direct recursive call, optimize definition search.  */
@@ -2668,11 +2671,13 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
     }
   release_tree_vector (refs);
 
-  if ((AGGREGATE_TYPE_P (TREE_TYPE (t)) || VECTOR_TYPE_P (TREE_TYPE (t))))
+  if (AGGREGATE_TYPE_P (type) || VECTOR_TYPE_P (type))
     {
       /* Create a new CONSTRUCTOR in case evaluation of the initializer
 	 wants to modify it.  */
-      *valp = new_ctx.ctor = build_constructor (TREE_TYPE (t), NULL);
+      new_ctx.ctor = build_constructor (type, NULL);
+      if (*valp == NULL_TREE)
+	*valp = new_ctx.ctor;
       CONSTRUCTOR_NO_IMPLICIT_ZERO (new_ctx.ctor) = true;
       new_ctx.object = target;
     }
@@ -2680,8 +2685,16 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
   init = cxx_eval_constant_expression (&new_ctx, init, false,
 				       non_constant_p, overflow_p);
   if (target == object)
-    /* The hash table might have moved since the get earlier.  */
-    ctx->values->put (object, init);
+    {
+      /* The hash table might have moved since the get earlier.  */
+      valp = ctx->values->get (object);
+      if (TREE_CODE (init) == CONSTRUCTOR)
+	/* An outer ctx->ctor might be pointing to *valp, so just replace
+	   its contents.  */
+	CONSTRUCTOR_ELTS (*valp) = CONSTRUCTOR_ELTS (init);
+      else
+	*valp = init;
+    }
   else
     *valp = init;
 
@@ -4448,6 +4461,11 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	  diagnose_non_constexpr_vec_init (t);
 	}
       return false;
+
+    case TYPE_DECL:
+    case TAG_DEFN:
+      /* We can see these in statement-expressions.  */
+      return true;
 
     default:
       if (objc_is_property_ref (t))

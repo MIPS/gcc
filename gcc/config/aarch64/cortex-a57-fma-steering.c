@@ -31,11 +31,8 @@
 #include "predict.h"
 #include "basic-block.h"
 #include "insn-attr.h"
-#include "machmode.h"
 #include "recog.h"
 #include "output.h"
-#include "vec.h"
-#include "hash-map.h"
 #include "bitmap.h"
 #include "obstack.h"
 #include "df.h"
@@ -1053,7 +1050,7 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      return optimize >= 2;
+      return AARCH64_TUNE_FMA_STEERING && optimize >= 2;
     }
 
   virtual unsigned int execute (function *)

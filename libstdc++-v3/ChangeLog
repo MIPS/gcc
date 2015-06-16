@@ -1,3 +1,164 @@
+2015-06-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/precompiled/stdc++.h: Include <codecvt> and <shared_mutex>.
+
+	PR libstdc++/66464
+	* src/c++11/codecvt.cc (codecvt_utf16_base<char32_t>::do_max_length):
+	Return 4 not 3.
+
+2015-06-12  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR c++/66192
+	PR target/66200
+	* config/cpu/alpha/atomic_word.h: Remove.
+	* config/cpu/ia64/atomic_word.h: Remove.
+	* config/cpu/powerpc/atomic_word.h: Remove.
+	* config/os/aix/atomic_word.h: Remove.
+	* configure.host (atomic_word_dir) [ia64, aix*, powerpc, alpha]:
+	Use generic definition.
+
+2015-06-12  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/66200
+	PR c++/66192
+	* * config/cpu/generic/atomic_word.h (_GLIBCXX_READ_MEM_BARRIER): Define
+	(_GLIBCXX_WRITE_MEM_BARRIER): Likewise
+	* include/bits/shared_ptr_base.h: Use ACQ_REL barrier.
+	* include/ext/atomicity.h: Likewise.
+	* include/tr1/shared_ptr.h: Likewise.
+	* libsupc++/guard.cc (__test_and_acquire): Rewrite with atomics.
+	Update comment.
+	(__set_and_release): Likewise.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc (test01): Adjust for
+	line numbers.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/cons/43820_neg.cc:
+	Likewise.
+
+2015-06-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/tuple (__is_tuple_like_impl): Disambiguate array in
+	debug and profile modes.
+	* testsuite/25_algorithms/headers/algorithm/synopsis.cc: Adjust tests
+	for swap in C++11 and later.
+
+2015-06-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/66030
+	* config/abi/pre/gnu.ver: Export codecvt_byname and codecvt symbols
+	for mingw32.
+
+2015-06-08  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/66441
+	* testsuite/22_locale/conversions/string/66441.cc: New.
+	* include/bits/locale_conv.h (__do_str_codecvt): Reserve enough space
+	in the output string for BOM and complete result.
+
+	PR libstdc++/66417
+	* src/c++11/codecvt.cc (write_utf16_code_point): Use adjust_byte_order
+	for single UTF-16 units.
+	* testsuite/22_locale/codecvt/codecvt_utf16/66417.cc: New.
+
+2015-06-07  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/stl_tree.h (_Rb_tree<>::__is_transparent<>): Move to
+	outer scope and rename to ...
+	(std::__hash_is_transparent<>): ... this.
+	* include/debug/stl_map.h (map::find<>,
+	map::lower_bound<>, map::upper_bound<>, map::equal_range<>): New
+	member function templates to perform heterogeneous lookup.
+	* include/debug/stl_multimap.h (multimap::find<>,
+	multimap::lower_bound<>, multimap::upper_bound<>,
+	multimap::equal_range<>): Likewise.
+	* include/debug/stl_multiset.h (multiset::find<>,
+	multiset::lower_bound<>, multiset::upper_bound<>,
+	multiset::equal_range<>): Likewise.
+	* include/debug/stl_set.h (set::find<>,
+	set::lower_bound<>, set::upper_bound<>, set::equal_range<>): Likewise.
+	* include/profile/stl_map.h (map::find<>, map::count<>,
+	map::lower_bound<>, map::upper_bound<>, map::equal_range<>): Likewise.
+	* include/profile/stl_multimap.h (multimap::find<>, multimap::count<>,
+	multimap::lower_bound<>, multimap::upper_bound<>,
+	multimap::equal_range<>): Likewise.
+	* include/profile/stl_multiset.h (multiset::find<>, multiset::count<>,
+	multiset::lower_bound<>, multiset::upper_bound<>,
+	multiset::equal_range<>): Likewise.
+	* include/profile/stl_set.h (set::find<>, set::count<>,
+	set::lower_bound<>, set::upper_bound<>, set::equal_range<>): Likewise.
+	* testsuite/23_containers/map/operations/1.cc: Check const variants.
+	* testsuite/23_containers/multimap/operations/1.cc: Likewise.
+	* testsuite/23_containers/multiset/operations/1.cc: Likewise.
+	* testsuite/23_containers/set/operations/1.cc: Likewise.
+
+2015-06-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2017.xml: Update status tables.
+	* doc/html/manual/*: Regenerate.
+	* include/std/type_traits (bool_constant): Define.
+	* testsuite/20_util/bool_constant/requirements.cc: New.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc:
+	Likewise.
+
+	* include/std/shared_mutex (__shared_mutex_pthread,
+	__shared_mutex_cv): New helper types implementing the shared mutex
+	requirements.
+	(shared_mutex): New type for C++17.
+	(shared_timed_mutex): Derive from one of the new helper types.
+	* testsuite/30_threads/shared_mutex/cons/1.cc: New.
+	* testsuite/30_threads/shared_mutex/cons/assign_neg.cc: New.
+	* testsuite/30_threads/shared_mutex/cons/copy_neg.cc: New.
+	* testsuite/30_threads/shared_mutex/requirements/standard_layout.cc:
+	New.
+	* testsuite/30_threads/shared_mutex/try_lock/1.cc: New.
+	* testsuite/30_threads/shared_mutex/try_lock/2.cc: New.
+
+2015-06-05  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Add __is_nothrow_swappable and take it into use.
+	* include/bits/algorithmfwd.h (swap): Only declare for C++98 mode.
+	* include/bits/move.h (swap): Add constraints in C++11 and later.
+	* include/bits/stl_pair.h (swap): Use __is_nothrow_swappable
+	for the free swap function for pair.
+	* include/bits/stl_queue.h (swap): Use __is_nothrow_swappable
+	for the free swap functions for queue and priority_queue.
+	* include/bits/stl_stack.h (swap): Use __is_nothrow_swappable
+	for the free swap function for stack.
+	* include/debug/array (swap): Use __is_nothrow_swappable
+	for the free swap function for array.
+	* include/profile/array (swap): Likewise.
+	* include/std/array (swap): Likewise.
+	* include/std/tuple (_Tuple_impl::_M_swap): Use __is_nothrow_swappable.
+	* include/std/type_traits (__is_swappable_impl::__is_swappable,
+	__is_nothrow_swappable_impl, __is_nothrow_swappable): New.
+	* testsuite/20_util/is_nothrow_swappable/requirements/
+	explicit_instantiation.cc: New.
+	* testsuite/20_util/is_nothrow_swappable/requirements/typedefs.cc:
+	New.
+	* testsuite/20_util/is_nothrow_swappable/value.cc: New.
+
+2015-06-03  François Dumont  fdumont@gcc.gnu.org>
+
+	* testsuite/23_containers/list/61347.cc: Add dg-require-normal-mode.
+
+2015-06-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/abi.xml: Document versioning for 5.1.0 release.
+	* doc/html/manual/*: Regenerate.
+
+	* doc/html/ext/lwg-active.html: Update to R93.
+	* doc/html/ext/lwg-closed.html: Likewise.
+	* doc/html/ext/lwg-defects.html: Likewise.
+	* doc/html/manual/*: Regenerate.
+	* doc/xml/manual/intro.xml: Document status of several DRs.
+
+2015-06-02  Renlin Li  <renlin.li@arm.com>
+
+	* testsuite/27_io/fpos/14775.cc: Add _GLIBCXX_HAVE_LIMIT_FSIZE check.
+
 2015-06-01  Jonathan Wakely  <jwakely@redhat.com>
 
 	* testsuite/lib/libstdc++.exp (libstdc++_init): Unset LANGUAGE

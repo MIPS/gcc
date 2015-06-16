@@ -40,10 +40,6 @@
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "input.h"
 #include "function.h"
 #include "dominance.h"
@@ -54,7 +50,6 @@
 #include "alloc-pool.h"
 #include "et-forest.h"
 #include "timevar.h"
-#include "hash-map.h"
 #include "graphds.h"
 #include "bitmap.h"
 

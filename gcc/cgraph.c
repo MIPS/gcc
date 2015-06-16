@@ -27,15 +27,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -43,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-tree.h"
 #include "tree-inline.h"
 #include "langhooks.h"
-#include "hashtab.h"
 #include "toplev.h"
 #include "flags.h"
 #include "debug.h"
@@ -52,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
-#include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
 #include "hard-reg-set.h"
@@ -83,9 +75,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "cfgloop.h"
 #include "gimple-pretty-print.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -1464,8 +1453,10 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
       update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), new_stmt);
     }
 
-  /* If the call becomes noreturn, remove the lhs.  */
-  if (lhs && (gimple_call_flags (new_stmt) & ECF_NORETURN))
+  /* If the call becomes noreturn, remove the LHS if possible.  */
+  if (lhs
+      && (gimple_call_flags (new_stmt) & ECF_NORETURN)
+      && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST)
     {
       if (TREE_CODE (lhs) == SSA_NAME)
 	{
@@ -3030,6 +3021,20 @@ cgraph_node::verify_node (void)
       if (!ref_found)
 	{
 	  error ("Analyzed node has no reference to instrumented version");
+	  error_found = true;
+	}
+    }
+
+  if (instrumentation_clone
+      && DECL_BUILT_IN_CLASS (decl) == NOT_BUILT_IN)
+    {
+      tree name = DECL_ASSEMBLER_NAME (decl);
+      tree orig_name = DECL_ASSEMBLER_NAME (orig_decl);
+
+      if (!IDENTIFIER_TRANSPARENT_ALIAS (name)
+	  || TREE_CHAIN (name) != orig_name)
+	{
+	  error ("Alias chain for instrumented node is broken");
 	  error_found = true;
 	}
     }
