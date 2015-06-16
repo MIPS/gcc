@@ -163,7 +163,7 @@ varpool_node::create_empty (void)
 }   
 
 static void
-make_offloadable_1 (varpool_node *node, tree decl)
+make_offloadable_1 (varpool_node *node, tree decl ATTRIBUTE_UNUSED)
 {
   node->offloadable = 1;
 #ifdef ENABLE_OFFLOADING

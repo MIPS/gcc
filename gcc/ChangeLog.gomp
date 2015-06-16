@@ -1,5 +1,9 @@
 2015-06-16  Tom de Vries  <tom@codesourcery.com>
 
+	* varpool.c (make_offloadable_1): Declare decl with ATTRIBUTE_UNUSED.
+
+2015-06-16  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (lower_reduction_clauses): Remove unused variable call.
 
 2015-06-16  Chung-Lin Tang  <cltang@codesourcery.com>
