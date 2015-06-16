@@ -1,3 +1,13 @@
+2015-06-16  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* omp-low.c (struct omp_region): Add inside_kernels_p field.
+	(expand_omp_for_generic): Adjust to generate a 'sequential' loop
+	when GOMP builtin arguments are BUILT_IN_NONE.
+	(expand_omp_for): Use expand_omp_for_generic() to generate a
+	non-parallelized loop for OMP_FORs inside OpenACC kernels regions.
+	(expand_omp): Mark inside_kernels_p field true for regions
+	nested inside OpenACC kernels constructs.
+
 2015-06-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (expand_omp_for_static_nochunk): Update entry_bb after
