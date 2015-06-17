@@ -1,3 +1,99 @@
+2015-06-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/forward_list.h
+	(_Fwd_list_base(const _Node_alloc_type&)): Change parameter to
+	rvalue-reference.
+	(_Fwd_list_base(_Fwd_list_base&&, const _Node_alloc_type&)): Likewise.
+	(forward_list(const _Alloc&)): Split default constructor out to
+	separate function.
+	(forward_list(forward_list&&, const _Alloc&)): Move elements if base
+	class didn't do so.
+	(forward_list::_M_move_assign(forward_list&&, true_type)): Replace
+	swap call with two assignments.
+	* include/bits/forward_list.tcc
+	(_Fwd_list_base(_Fwd_list_base&&, const _Node_alloc_type&)): Don't
+	move elements when allocators are not equal.
+	* include/debug/forward_list (forward_list(const allocator_type&)):
+	Split default constructor out to separate function.
+	* include/profile/forward_list (forward_list(const _Alloc&)):
+	Likewise.
+
+	* include/bits/forward_list.h (forward_list::_M_get_Node_allocator):
+	Remove unnecessary uses of operator& and static_cast.
+	* include/bits/forward_list.tcc
+	(forward_list::operator=(const forward_list&)): Use __addressof
+	instead of operator&.
+	(forward_list::remove(const _Tp&), forward_list::remove(_Pred)):
+	Remove invalid static_casts.
+	* include/debug/forward_list: Use __addressof instead of operator&.
+	* testsuite/23_containers/forward_list/modifiers/addressof.cc: New.
+
+	* include/ext/alloc_traits.h (__alloc_traits::_S_nothrow_swap()): Use
+	__is_nothrow_swappable.
+
+2015-06-16  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/allocated_ptr.h (__allocated_ptr): Use __addressof.
+
+	* include/bits/list.tcc (list::operator=(const list&), list::merge):
+	Use __addressof instead of operator&.
+	(list::sort): Use array-to-pointer decay instead of operator&.
+	* include/bits/stl_list.h (list::splice): Use __addressof instead of
+	operator&.
+	* include/debug/formatter.h (_Error_formatter::_Parameter::_Parameter):
+	Likewise.
+	* include/debug/functions.h (__check_singular): Likewise.
+	* include/debug/list (list::splice, list::merge): Likewise.
+	* testsuite/23_containers/list/modifiers/addressof.cc: New.
+
+	PR libstdc++/65393
+	* src/c++11/thread.cc (thread::_M_make_thread): Replace shared_ptr
+	copies with moves.
+
+2015-06-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/precompiled/stdc++.h: Include <codecvt> and <shared_mutex>.
+
+	PR libstdc++/66464
+	* src/c++11/codecvt.cc (codecvt_utf16_base<char32_t>::do_max_length):
+	Return 4 not 3.
+
+2015-06-12  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR c++/66192
+	PR target/66200
+	* config/cpu/alpha/atomic_word.h: Remove.
+	* config/cpu/ia64/atomic_word.h: Remove.
+	* config/cpu/powerpc/atomic_word.h: Remove.
+	* config/os/aix/atomic_word.h: Remove.
+	* configure.host (atomic_word_dir) [ia64, aix*, powerpc, alpha]:
+	Use generic definition.
+
+2015-06-12  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/66200
+	PR c++/66192
+	* * config/cpu/generic/atomic_word.h (_GLIBCXX_READ_MEM_BARRIER): Define
+	(_GLIBCXX_WRITE_MEM_BARRIER): Likewise
+	* include/bits/shared_ptr_base.h: Use ACQ_REL barrier.
+	* include/ext/atomicity.h: Likewise.
+	* include/tr1/shared_ptr.h: Likewise.
+	* libsupc++/guard.cc (__test_and_acquire): Rewrite with atomics.
+	Update comment.
+	(__set_and_release): Likewise.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc (test01): Adjust for
+	line numbers.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/cons/43820_neg.cc:
+	Likewise.
+
+2015-06-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/tuple (__is_tuple_like_impl): Disambiguate array in
+	debug and profile modes.
+	* testsuite/25_algorithms/headers/algorithm/synopsis.cc: Adjust tests
+	for swap in C++11 and later.
+
 2015-06-09  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/66030

@@ -28,7 +28,6 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "vec.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "inchash.h"
@@ -49,7 +48,6 @@
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "hash-map.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "hard-reg-set.h"
 #include "function.h"
@@ -667,7 +665,10 @@ static tree
 get_global_context (void)
 {
   if (!global_context)
-    global_context = build_translation_unit_decl (NULL_TREE);
+    {
+      global_context = build_translation_unit_decl (NULL_TREE);
+      debug_hooks->register_main_translation_unit (global_context);
+    }
   return global_context;
 }
 

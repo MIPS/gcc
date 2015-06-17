@@ -25,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 #ifdef VMS_DEBUGGING_INFO
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -38,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "langhooks.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "target.h"
 
@@ -194,6 +192,7 @@ const struct gcc_debug_hooks vmsdbg_debug_hooks
    vmsdbgout_end_epilogue,
    vmsdbgout_begin_function,
    vmsdbgout_end_function,
+   debug_nothing_tree,		  /* register_main_translation_unit */
    vmsdbgout_function_decl,
    vmsdbgout_early_global_decl,
    vmsdbgout_late_global_decl,

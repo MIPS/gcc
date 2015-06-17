@@ -25,7 +25,6 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -63,7 +62,6 @@
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -1703,8 +1701,8 @@ const struct tune_params arm_slowmul_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1726,8 +1724,8 @@ const struct tune_params arm_fastmul_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1752,8 +1750,8 @@ const struct tune_params arm_strongarm_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1775,8 +1773,8 @@ const struct tune_params arm_xscale_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1798,8 +1796,8 @@ const struct tune_params arm_9e_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1821,8 +1819,8 @@ const struct tune_params arm_marvell_pj4_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1844,8 +1842,8 @@ const struct tune_params arm_v6t2_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1869,8 +1867,8 @@ const struct tune_params arm_cortex_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1892,8 +1890,8 @@ const struct tune_params arm_cortex_a8_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1915,8 +1913,8 @@ const struct tune_params arm_cortex_a7_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1938,8 +1936,8 @@ const struct tune_params arm_cortex_a15_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1961,8 +1959,8 @@ const struct tune_params arm_cortex_a53_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1984,8 +1982,8 @@ const struct tune_params arm_cortex_a57_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -2007,8 +2005,8 @@ const struct tune_params arm_xgene1_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2033,8 +2031,8 @@ const struct tune_params arm_cortex_a5_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_FALSE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_FALSE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -2056,8 +2054,8 @@ const struct tune_params arm_cortex_a9_tune =
   ARM_PREFETCH_BENEFICIAL(4,32,32),
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2079,8 +2077,8 @@ const struct tune_params arm_cortex_a12_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -2109,8 +2107,8 @@ const struct tune_params arm_v7m_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_FALSE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_FALSE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2134,8 +2132,8 @@ const struct tune_params arm_cortex_m7_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2159,8 +2157,8 @@ const struct tune_params arm_v6m_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_FALSE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_FALSE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2182,8 +2180,8 @@ const struct tune_params arm_fa726te_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2788,7 +2786,10 @@ arm_option_params_internal (struct gcc_options *opts)
         max_insns_skipped = opts->x_arm_restrict_it ? 1 : 4;
     }
   else
-    max_insns_skipped = current_tune->max_insns_skipped;
+    /* When -mrestrict-it is in use tone down the if-conversion.  */
+    max_insns_skipped
+      = (TARGET_THUMB2_P (opts->x_target_flags) && opts->x_arm_restrict_it)
+         ? 1 : current_tune->max_insns_skipped;
 }
 
 /* Options after initial target override.  */
