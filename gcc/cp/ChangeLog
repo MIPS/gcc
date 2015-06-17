@@ -1,3 +1,33 @@
+2015-06-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59682
+	* parser.c (cp_parser_new_placement): Reject an empty expression-list.
+
+2015-06-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66536
+	* tree.c (replace_placeholders_r) [CONSTRUCTOR]: Handle type
+	mismatch.
+
+	PR c++/58063
+	* tree.c (bot_manip): Remap SAVE_EXPR.
+
+	PR c++/66387
+	* pt.c (tsubst_copy) [VAR_DECL]: Use process_outer_var_ref.
+
+2015-06-15  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/58583
+	* cp-tree.h (DECL_INSTANTIATING_NSDMI_P): New.
+	* init.c (get_nsdmi): Check for DEFAULT_ARG in template case and
+	protect it from recursive instantiation.
+
+2015-06-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51048
+	* decl2.c (no_linkage_error): Do not issue a permerror if the DECL
+	using a local type is pure virtual.
+
 2015-06-13  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	* call.c: Remove comment documenting the long-deleted
