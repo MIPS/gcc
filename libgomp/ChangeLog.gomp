@@ -1,3 +1,18 @@
+2015-06-17  Julian Brown  <julian@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-par-gang-{1,2,3}.c:
+	New tests.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-local-gang-1.c:
+	New test.
+	* testsuite/libgomp.oacc-c-c++-common/
+	private-vars-loop-gang-{1,2,3,4,5,6}.c: New tests.
+	* testsuite/libgomp.oacc-c-c++-common/
+	private-vars-loop-worker-{1,2,3,4,5,6,7}.c: New tests.
+	* testsuite/libgomp.oacc-c-c++-common/
+	private-vars-local-worker-{1,2,3,4,5}.c: New tests.
+	* testsuite/libgomp.oacc-c-c++-common/
+	private-vars-loop-vector-{1,2}.c: New tests.
+
 2015-06-15  Julian Brown  <julian@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/worker-partn-5.c: Remove
