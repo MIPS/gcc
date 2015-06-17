@@ -91,8 +91,7 @@
 (define_expand "mov<mode>"
   [(set (match_operand:VEC_M 0 "nonimmediate_operand" "")
 	(match_operand:VEC_M 1 "any_operand" ""))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
-   || (<MODE>mode == KFmode && TARGET_FLOAT128)"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
   if (can_create_pseudo_p ())
     {
