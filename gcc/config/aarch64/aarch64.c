@@ -7417,16 +7417,13 @@ aarch64_valid_floating_const (machine_mode mode, rtx x)
   if (!CONST_DOUBLE_P (x))
     return false;
 
-  /* TODO: We could handle moving 0.0 to a TFmode register,
-     but first we would like to refactor the movtf_aarch64
-     to be more amicable to split moves properly and
-     correctly gate on TARGET_SIMD.  For now - reject all
-     constants which are not to SFmode or DFmode registers.  */
+  if (aarch64_float_const_zero_rtx_p (x))
+    return true;
+
+  /* We only handle moving 0.0 to a TFmode register.  */
   if (!(mode == SFmode || mode == DFmode))
     return false;
 
-  if (aarch64_float_const_zero_rtx_p (x))
-    return true;
   return aarch64_float_const_representable_p (x);
 }
 
@@ -8890,9 +8887,9 @@ aarch64_simd_lane_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high,
   if (lane < low || lane >= high)
   {
     if (exp)
-      error ("%Klane %ld out of range %ld - %ld", exp, lane, low, high - 1);
+      error ("%Klane %wd out of range %wd - %wd", exp, lane, low, high - 1);
     else
-      error ("lane %ld out of range %ld - %ld", lane, low, high - 1);
+      error ("lane %wd out of range %wd - %wd", lane, low, high - 1);
   }
 }
 

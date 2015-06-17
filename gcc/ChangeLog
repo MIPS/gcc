@@ -1,3 +1,144 @@
+2015-06-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66251
+	* tree-vect-stmts.c (vectorizable_store): Fix gathering of vectorized
+	stmts for SLP strided stores.
+
+	Revert
+	2015-05-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66251
+	* tree-vect-stmts.c (vectorizable_conversion): Properly
+	set STMT_VINFO_VEC_STMT even for the SLP case.
+
+	2015-05-26  Michael Matz  <matz@suse.de>
+
+	PR middle-end/66251
+	* tree-vect-stmts.c (vect_create_vectorized_demotion_stmts): Always set
+	STMT_VINFO_VEC_STMT, also with SLP.
+
+2015-06-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/56766
+	* config/i386/sse.md (*avx_addsubv4df3_1): New insn pattern.
+	(*avx_addsubv4df3_1s): Ditto.
+	(*sse3_addsubv2df3_1): Ditto.
+	(*sse3_addsubv2df3_1s): Ditto.
+	(*avx_addsubv8sf3_1): Ditto.
+	(*avx_addsubv8sf3_1s): Ditto.
+	(*sse3_addsubv4sf3_1): Ditto.
+	(*sse3_addsubv4sf3_1s): Ditto.
+
+2015-06-16  Steve Ellcey  <sellcey@imgtec.com>
+
+	* config/mips/mti-linux.h (MIPS_SYSVERSION_SPEC): New.
+	(SYSROOT_SUFFIX_SPEC): Update.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): New.
+	(STARTFILE_PREFIX_SPEC): Update.
+	* config/mips/t-mti-linux (MULTILIB_EXCEPTIONS): Remove.
+	(MULTILIB_REQUIRED): New.
+	(MULTILIB_OSDIRNAMES): New.
+	* config/mips/t-img-linux (MULTILIB_EXCEPTIONS): Remove.
+	(MULTILIB_REQUIRED): New.
+	(MULTILIB_OSDIRNAMES): New.
+
+2015-06-16  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* config/aarch64/aarch64-arches.def: Add "armv8.1-a".
+	* config/aarch64/aarch64-options-extensions.def: Update "fP",
+	"simd" and "crypto".  Add "lse", "pan", "lor" and "rdma".
+	* gcc/config/aarch64/aarch64.h (AARCH64_FL_LSE): New.
+	(AARCH64_FL_PAN): New.
+	(AARCH64_FL_LOR): New.
+	(AARCH64_FL_RDMA): New.
+	(AARCH64_FL_FOR_ARCH8_1): New.
+	* doc/invoke.texi (AArch64 Options): Add "armv8.1-a" to
+	-march. Add "lse", "pan", "lor", "rdma" to feature modifiers.
+
+2015-06-16  Martin Liska  <mliska@suse.cz>
+
+	* bitmap.c (dump_bitmap_statistics): Fix GNU coding style.
+	* hash-table.c (void dump_hash_table_loc_statistics): Add missing
+	guard.
+
+2015-06-16  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-stmts.c (vectorizable_store): Adjust.
+	(vectorizable_load): Likewise.
+	* tree-vect-data-refs.c (vect_create_addr_base_for_vector_ref):
+	Simplify.
+	(vect_create_data_ref_ptr): Likewise.
+	(bump_vector_ptr): Adjust.
+
+2015-06-16  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-stmts.c (vectorizable_load): Properly start loads
+	with the first element if this is grouped loads.
+
+2015-06-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/arm-protos.h (struct tune_params): Rename
+	log_op_non_sc to log_op_non_short_circuit, and rename enum
+	values to expand SC to SHORT_CIRCUIT.
+	* config/arm/arm.c (arm_slowmul_tune): Expand LOG_OP_NON_SC
+	to LOG_OP_NON_SHORT_CIRCUIT.
+	(arm_fastmul_tune):Likewise
+	(arm_strongarm_tune): Likewise.
+	(arm_xscale_tune): Likewise.
+	(arm_9e_tune): Likewise.
+	(arm_marvell_pj4_tune): Likewise.
+	(arm_v6t2_tune): Likewise.
+	(arm_cortex_tune): Likewise.
+	(arm_cortex_a8_tune): Likewise.
+	(arm_cortex_a7_tune): Likewise.
+	(arm_cortex_a15_tune): Likewise.
+	(arm_cortex_a53_tune): Likewise.
+	(arm_cortex_a57_tune): Likewise.
+	(arm_xgene1_tune): Likewise.
+	(arm_cortex_a5_tune): Likewise.
+	(arm_cortex_a9_tune): Likewise.
+	(arm_cortex_a12_tune): Likewise.
+	(arm_v7m_tune): Likewise.
+	(arm_cortex_m7_tune): Likewise.
+	(arm_v6m_tune): Likewise.
+	(arm_fa726te_tune): Likewise.
+
+2015-06-15  David Edelsohn  <dje.gcc@gmail.com>
+
+	* altivec.md: Delete UNSPEC_VMLADDUHM.
+	(mulv4si3_p8): New pattern.
+	(mulv4si3): Use it for POWER8.
+	(mulv8hi3): Use vmladduhm with zero addend.
+	(altivec_vmladduhm): Descriptive RTL.
+
+2015-06-15  Jim Wilson  <jim.wilson@linaro.org>
+
+	* config/aarch64/aarch64.md (mov<mode>_aarch64): Change alternative 2
+	to use neon_move instead of mov_imm.
+	(movdi_aarch64): Change alternative 14 to use neon_move not fmov.
+	(movtf_aarch64): Change alternative 4 to use neon_move_q not fconstd.
+
+	* config/aarch64/aarch64.c (aarch64_valid_floating_const): Move
+	aarch64_float_const_zero_rtx_p check before TFmode check.
+	* config/aarch64/aarch64.md (movtf): Don't call force_reg if op1 is
+	an fp zero.
+	(movtf_aarch64): Separate ?rY alternative into two.  Adjust assembly
+	code and attributes to match.  Change condition from register_operand
+	to aarch64_reg_or_fp_zero for op1.  Change type for ldp from
+	neon_load1_2reg to load2.  Change type for stp from neon_store1_2reg
+	to store2.
+
+2015-06-15  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR debug/66535
+	* dwarf2out.c (gen_subprogram_die): Do not check a parent's tag if
+	there is no parent.
+
+2015-06-14  Shiva Chen  <shiva0217@gmail.com>
+
+	* aarch64.c (aarch64_simd_lane_bounds): Change %ld to %wd for
+	HOST_WIDE_INT parameter.
+
 2015-06-14  Jan Hubicka  <hubicka@ucw.cz>
 
 	PR ipa/66181
@@ -16023,14 +16164,8 @@
 
 2015-01-12  Martin Liska  <mliska@suse.cz>
 
-	* ipa-icf.c (sem_function::equals_wpa): Add indirect_calls as indication
-	that a function is not leaf.
-	(sem_function::compare_polymorphic_p): Likewise.
-
-2015-01-12  Martin Liska  <mliska@suse.cz>
-
-	* ipa-icf.c (sem_function::equals_wpa): Add indirect_calls as indication
-	that a function is not leaf.
+	* ipa-icf.c (sem_function::equals_wpa): Add indirect_calls as
+	indication that a function is not leaf.
 	(sem_function::compare_polymorphic_p): Likewise.
 
 2015-01-12  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>

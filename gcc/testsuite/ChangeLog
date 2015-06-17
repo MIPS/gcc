@@ -1,7 +1,95 @@
+2015-06-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66251
+	* gfortran.fortran-torture/compile/pr66251-2.f90: New testcase.
+
+2015-06-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59682
+	* g++.dg/parse/new-placement1.C: New.
+
+2015-06-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/all-non-failing-tests.h: Add test-compound-assignment.c.
+	* jit.dg/test-compound-assignment.c: New testcase.
+
+2015-06-16  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/66539
+	* jit.dg/all-non-failing-tests.h: Add test-debug-strings.c
+	to "testcases" array.
+
+2015-06-16  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/66539
+	* jit.dg/all-non-failing-tests.h: Add test-debug-strings.c.
+	* jit.dg/test-debug-strings.c: New test case.
+	* jit.dg/test-quadratic.c (make_calc_discriminant): Verify that
+	the discriminant has a sane debug string.
+
+2015-06-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/56766
+	* gcc.target/i386/pr56766-1.c: New test.
+	* gcc.target/i386/pr56766-2.c: Ditto.
+
+2015-06-16  Steve Ellcey  <sellcey@imgtec.com>
+
+	* gcc.target/mips/loongson-shift-count-truncated-1.c:
+	Skip on mips*-mti-linux* and mips*-img-linux* targets.
+	* gcc.target/mips/loongson-simd.c: Ditto.
+
+2015-06-16  Richard Biener  <rguenther@suse.de>
+
+	* gcc.target/i386/recip-vec-sqrtf-avx.c: Disable unrolling.
+
+2015-06-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/arm/pr65647.c: Do not override -mfloat-abi directives
+	passed by the testsuite driver.
+
+2015-06-16  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/slp-perm-11.c: New testcase.
+
+2015-06-16  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/arm/thumb-ifcvt.c: Add -mno-restrict-it to
+	dg-options.
+
+2015-06-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/advsimd-intrinsics.exp:
+	Reinstate calls to torture-init and torture-finalize.
+
+2015-06-16  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/arm/attr_thumb.c: Add -mno-restrict-it to dg-options.
+
+2015-06-15  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/58583
+	* g++.dg/cpp0x/nsdmi-template14.C: New test.
+
+2015-06-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51048
+	* g++.dg/cpp0x/local-type1.C: New.
+
+2015-06-15  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/44672
+	PR fortran/45440
+	PR fortran/57307
+	* gfortran.dg/allocate_with_source_3.f90: Removed check for
+	unimplemented error.
+	* gfortran.dg/allocate_with_source_7.f08: New test.
+	* gfortran.dg/allocate_with_source_8.f08: New test.
+
 2015-06-13  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	PR c++/65168
-	g++.dg/warn/Walways-true-3.C: New test.
+	* g++.dg/warn/Walways-true-3.C: New test.
 
 2015-06-13  Tom de Vries  <tom@codesourcery.com>
 
