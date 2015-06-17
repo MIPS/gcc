@@ -1,5 +1,41 @@
 2015-06-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	(ieee patch #3)
+
+	* config/rs6000/vector.md (VEC_L): Add IEEE 128-bit floating point
+	types to iterators, except for TFmode to the move operation.
+	(VEC_M): Likewise.
+	(VEC_N): Likewise.
+	(mov<mode>, VEC_M modes): Add support for IEEE 128-bit floating
+	point in vector registers.
+
+	* config/rs6000/predicates.md (int_reg_operand_not_pseudo): New
+	predicate that only matches GPR hard registers.
+	(easy_fp_constant): Add support for IEEE 128-bit floating point.
+	(easy_vector_constant): Likewise.
+
+	* config/rs6000/vsx.md (VSX_LE_128): New iterator for doing little
+	endian conversion on IEEE 128-bit floating point.
+	(VSX_L): Add IEEE 128-bit floating point modes to the iterators.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+	(VSm): Add IEEE 128-bit floating point modes to the attributes.
+	(VSs): Likewise.
+	(VSr): Likewise.
+	(VSa): Likewise.
+	(VSv): Likewise.
+	(vsx_le_permute_<mode>, VSX_LE_128 modes): Add little endian
+	conversion for IEEE 128-bit floating point.
+	(vsx_le_undo_permute_<mode>, VSX_LE_128 modes): Likewise.
+	(vsx_le_perm_load_<mode>, VSX_LE_128 modes): Likewise.
+	(IEEE 128-bit move splitters): Likewise.
+
+	* config/rs6000/altivec.md (VM): Add IEEE 128-bit floating point
+	modes to the iterators.
+	(VM2): Likewise.
+	(altivec_high_bit): New insn to load vector register with high bit
+	set.
+
 	(ieee patch #2)
 
 	* config/rs6000/rs6000-protos.h (rs6000_secondary_reload_memory):
