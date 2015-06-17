@@ -1318,7 +1318,8 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
       addr = gen_hsa_addr (rhs, hbb, ssa_map);
       mem->opcode = BRIG_OPCODE_LD;
       /* Not dest->type, that's possibly extended.  */
-      mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type (type, false));
+      mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type (type,
+								    false));
       mem->operands[0] = dest;
       mem->operands[1] = addr;
       set_reg_def (dest, mem);
@@ -1331,6 +1332,9 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
 	   rhs);
 }
 
+/* Generate HSAIL instructions storing into memory.  LHS is the destination of
+   the store, SRC is the source operand.  Add instructions to HBB, use SSA_MAP
+   for HSA SSA lookup.  */
 
 static void
 gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
@@ -1343,7 +1347,8 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
   mem->opcode = BRIG_OPCODE_ST;
   if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (src))
     reg->uses.safe_push (mem);
-  mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
+  mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs),
+								false));
 
   /* XXX The HSAIL disasm has another constraint: if the source
      is an immediate then it must match the destination type.  If
@@ -1351,7 +1356,32 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
      We're always allocating new operands so we can modify the above
      in place.  */
   if (hsa_op_immed *imm = dyn_cast <hsa_op_immed *> (src))
-    imm->type = mem->type;
+    {
+      if ((imm->type & BRIG_TYPE_PACK_MASK) == BRIG_TYPE_PACK_NONE)
+	imm->type = mem->type;
+      else
+	{
+	  /* ...and all vector immediates apparently need to be vectors of
+	     unsigned bytes. */
+	  BrigType16_t bt = bittype_for_type (imm->type);
+	  gcc_assert (bt == bittype_for_type (mem->type));
+	  switch (bt)
+	    {
+	    case BRIG_TYPE_B32:
+	      imm->type = BRIG_TYPE_U8X4;
+	      break;
+	    case BRIG_TYPE_B64:
+	      imm->type = BRIG_TYPE_U8X8;
+	      break;
+	    case BRIG_TYPE_B128:
+	      imm->type = BRIG_TYPE_U8X16;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
+    }
+
   mem->operands[0] = src;
   mem->operands[1] = addr;
   if (addr->reg)

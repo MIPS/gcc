@@ -1,3 +1,12 @@
+2015-06-16  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (hsa_get_imm_brig_type_len): New function.
+	(emit_immediate_scalar_to_data_section): Likewise.
+	(emit_immediate_operand): Reimplemented.
+	* hsa-gen.c (gen_hsa_insns_for_load): Trimmed long line.
+	(gen_hsa_insns_for_store): Added missing comment, trimmed long line,
+	added another type exception for vector immediates.
+
 2015-06-12  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-gen.c (gen_hsa_insns_for_known_library_call): New function.

@@ -785,14 +785,64 @@ enqueue_op (hsa_op_base *op)
   return ret;
 }
 
-/* Emit an immediate BRIG operand IMM.  */
+/* Return the length of the birg type TYPE that is going to be streamed out as
+   an immediate constant (so it must not be B1).  */
 
-static void
-emit_immediate_operand (hsa_op_immed *imm)
+static unsigned
+hsa_get_imm_brig_type_len (BrigType16_t type)
 {
-  struct BrigOperandConstantBytes out;
-  uint32_t byteCount;
+  BrigType16_t base_type = type & BRIG_TYPE_BASE_MASK;
+  BrigType16_t pack_type = type & BRIG_TYPE_PACK_MASK;
 
+  switch (pack_type)
+    {
+    case BRIG_TYPE_PACK_NONE:
+      break;
+    case BRIG_TYPE_PACK_32:
+      return 4;
+    case BRIG_TYPE_PACK_64:
+      return 8;
+    case BRIG_TYPE_PACK_128:
+      return 16;
+    default:
+      gcc_unreachable ();
+    }
+
+  switch (base_type)
+    {
+    case BRIG_TYPE_U8:
+    case BRIG_TYPE_S8:
+    case BRIG_TYPE_B8:
+      return 1;
+    case BRIG_TYPE_U16:
+    case BRIG_TYPE_S16:
+    case BRIG_TYPE_F16:
+    case BRIG_TYPE_B16:
+      return 2;
+    case BRIG_TYPE_U32:
+    case BRIG_TYPE_S32:
+    case BRIG_TYPE_F32:
+    case BRIG_TYPE_B32:
+      return 4;
+    case BRIG_TYPE_U64:
+    case BRIG_TYPE_S64:
+    case BRIG_TYPE_F64:
+    case BRIG_TYPE_B64:
+      return 8;
+    case BRIG_TYPE_B128:
+      return 16;
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Emit one scalar VALUE to the data BRIG section.  If NEED_LEN is not equal to
+   zero, shrink or extend the value to NEED_LEN bytes.  Return how many bytes
+   were written.  */
+
+static int
+emit_immediate_scalar_to_data_section (tree value, unsigned need_len)
+{
   union
   {
     uint8_t b8;
@@ -800,103 +850,105 @@ emit_immediate_operand (hsa_op_immed *imm)
     uint32_t b32;
     uint64_t b64;
   } bytes;
-  unsigned len;
+
+  memset (&bytes, 0, sizeof (bytes));
+  tree type = TREE_TYPE (value);
+  gcc_checking_assert (TREE_CODE (type) != VECTOR_TYPE);
+  unsigned data_len = tree_to_uhwi (TYPE_SIZE (type))/BITS_PER_UNIT;
+  if (INTEGRAL_TYPE_P (type))
+    switch (data_len)
+      {
+      case 1:
+	bytes.b8 = (uint8_t) TREE_INT_CST_LOW (value);
+	break;
+      case 2:
+	bytes.b16 = (uint16_t) TREE_INT_CST_LOW (value);
+	break;
+      case 4:
+	bytes.b32 = (uint32_t) TREE_INT_CST_LOW (value);
+	break;
+      case 8:
+	bytes.b64 = (uint64_t) int_cst_value (value);
+	break;
+      default:
+	gcc_unreachable ();
+      }
+  else if (SCALAR_FLOAT_TYPE_P (type))
+    {
+      if (data_len == 2)
+	{
+	  sorry ("Support for HSA does not implement immediate 16 bit FPU "
+		 "operands");
+	  return 2;
+	}
+      unsigned int_len = GET_MODE_SIZE (TYPE_MODE (type));
+      /* There are always 32 bits in each long, no matter the size of
+	 the hosts long.  */
+      long tmp[6];
+
+      real_to_target (tmp, TREE_REAL_CST_PTR (value), TYPE_MODE (type));
+
+      if (int_len == 4)
+	bytes.b32 = (uint32_t) tmp[0];
+      else
+	{
+	  bytes.b64 = (uint64_t)(uint32_t) tmp[1];
+	  bytes.b64 <<= 32;
+	  bytes.b64 |= (uint32_t) tmp[0];
+	}
+    }
+  else
+    gcc_unreachable ();
+
+  int len;
+  if (need_len == 0)
+    len = data_len;
+  else
+    len = need_len;
+
+  brig_data.add (&bytes, len);
+  return len;
+}
+
+/* Emit an immediate BRIG operand IMM.  The BRIG type of the immedaite might
+   have been massaged to comply with various HSA/BRIG type requirements, so the
+   ony important aspect of that is the length (because HSAIL might expect
+   smaller constants or become bit-data).  The data should be represented
+   according to what is in the tree representation.  */
+
+static void
+emit_immediate_operand (hsa_op_immed *imm)
+{
+  struct BrigOperandConstantBytes out;
+  unsigned total_len = hsa_get_imm_brig_type_len (imm->type);
+
+  /* We do not produce HSAIL array types anywhere.  */
+  gcc_assert (!(imm->type & BRIG_TYPE_ARRAY));
 
   memset (&out, 0, sizeof (out));
-  switch (imm->type)
-    {
-    case BRIG_TYPE_U8:
-    case BRIG_TYPE_S8:
-      len = 1;
-      bytes.b8 = (uint8_t) TREE_INT_CST_LOW (imm->value);
-      break;
-    case BRIG_TYPE_U16:
-    case BRIG_TYPE_S16:
-      bytes.b16 = (uint16_t) TREE_INT_CST_LOW (imm->value);
-      len = 2;
-      break;
-
-    case BRIG_TYPE_F16:
-      sorry ("Support for HSA does not implement immediate 16 bit FPU "
-	     "operands");
-      len = 2;
-      break;
-
-    case BRIG_TYPE_U32:
-    case BRIG_TYPE_S32:
-      bytes.b32 = (uint32_t) TREE_INT_CST_LOW (imm->value);
-      len = 4;
-      break;
-
-    case BRIG_TYPE_U64:
-    case BRIG_TYPE_S64:
-      bytes.b64 = (uint64_t) int_cst_value (imm->value);
-      len = 8;
-      break;
-
-    case BRIG_TYPE_F32:
-    case BRIG_TYPE_F64:
-      {
-	tree expr = imm->value;
-	tree type = TREE_TYPE (expr);
-
-	len = GET_MODE_SIZE (TYPE_MODE (type));
-
-	/* There are always 32 bits in each long, no matter the size of
-	   the hosts long.  */
-	long tmp[6];
-
-	gcc_assert (len == 4 || len == 8);
-
-	real_to_target (tmp, TREE_REAL_CST_PTR (expr), TYPE_MODE (type));
-
-	if (len == 4)
-	  bytes.b32 = (uint32_t) tmp[0];
-	else
-	  {
-	    bytes.b64 = (uint64_t)(uint32_t) tmp[1];
-	    bytes.b64 <<= 32;
-	    bytes.b64 |= (uint32_t) tmp[0];
-	  }
-
-	break;
-      }
-
-    case BRIG_TYPE_U8X4:
-    case BRIG_TYPE_S8X4:
-    case BRIG_TYPE_U16X2:
-    case BRIG_TYPE_S16X2:
-    case BRIG_TYPE_F16X2:
-      len = 4;
-      sorry ("Support for HSA does not implement immediate 32bit "
-	     "vector operands. ");
-      break;
-
-    case BRIG_TYPE_U8X8:
-    case BRIG_TYPE_S8X8:
-    case BRIG_TYPE_U16X4:
-    case BRIG_TYPE_S16X4:
-    case BRIG_TYPE_F16X4:
-    case BRIG_TYPE_U32X2:
-    case BRIG_TYPE_S32X2:
-    case BRIG_TYPE_F32X2:
-      len = 8;
-      sorry ("Support for HSA does not implement immediate 32bit "
-	     "vector operands. ");
-      break;
-
-    default:
-      gcc_unreachable ();
-    }
-
   out.base.byteCount = htole16 (sizeof (out));
   out.base.kind = htole16 (BRIG_KIND_OPERAND_CONSTANT_BYTES);
-  byteCount = htole32 (len);
+  uint32_t byteCount = htole32 (total_len);
   out.type = htole16 (imm->type);
-  out.bytes = brig_data.add (&byteCount, sizeof (byteCount));
-  brig_data.add (&bytes, len);
-
+  out.bytes = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_operand.add (&out, sizeof(out));
+
+  if (TREE_CODE (imm->value) == VECTOR_CST)
+    {
+      int i, num = VECTOR_CST_NELTS (imm->value);
+      for (i = 0; i < num; i++)
+	{
+	  unsigned actual;
+	  actual = emit_immediate_scalar_to_data_section
+	    (VECTOR_CST_ELT (imm->value, i), 0);
+	  total_len -= actual;
+	}
+      /* Vectors should have the exact size.  */
+      gcc_assert (total_len == 0);
+    }
+  else
+    emit_immediate_scalar_to_data_section (imm->value, total_len);
+
   brig_data.round_size_up (4);
 }
 
