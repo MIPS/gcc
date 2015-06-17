@@ -1,3 +1,8 @@
+2015-06-17  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/gang-static-2.c: Update
+	the expected behavior for gang(static:*).
+
 2015-06-17  Julian Brown  <julian@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/private-vars-par-gang-{1,2,3}.c:

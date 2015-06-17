@@ -771,9 +771,12 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
       if (gang)
 	{
 	  chunk_size = OMP_CLAUSE_GANG_STATIC_EXPR (gang);
-	}
 
-      if (!chunk_size || chunk_size == integer_minus_one_node)
+	  /* gang (static:*) is represented by -1.  */
+	  if (chunk_size == integer_minus_one_node)
+	    chunk_size = NULL_TREE;
+	}
+      else
 	chunk_size = build_int_cst (TREE_TYPE (fd->loop.v), 1);
 
       fd->chunk_size = chunk_size;
