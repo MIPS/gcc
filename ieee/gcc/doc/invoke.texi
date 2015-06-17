@@ -20154,16 +20154,6 @@ that is compatible with functions compiled with older versions of
 GCC.
 
 The @option{-mno-compat-align-parm} option is the default.
-
-@item -mfloat128
-@itemx -mno-float128
-@opindex mfloat128
-Enable (do not enable) the type @code{__float128} which is the IEEE
-128-bit floating point type.  The @code{__float128} type is passed and
-returned in a single register, and it requires the VSX instruction set
-extension.  The @option{-mfloat128} option is enabled by default
-if @option{-mvsx}, @option{-mcpu=power7}, or @option{-mcpu=power8}
-options are used.
 @end table
 
 @node RX Options

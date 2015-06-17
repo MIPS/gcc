@@ -2,6 +2,15 @@
 
 	* config/rs6000/vector.md (mov<mode>): Drop test for KFmode, since
 	VECTOR_MEM_ALTIVEC_OR_VSX_P covers it.
+	(VEC_L): Add TFmode.
+	(VEC_N): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_store): Drop
+	unimportant change.
+
+	* config/rs6000/rs6000.md (FP): Simplify some tests.
+	(FMOVE128_FPR): Likewise.
+	(RELOAD): Add TFmode.
 
 	Merge up to 224572.
 	* REVISION: Update subversion id.
