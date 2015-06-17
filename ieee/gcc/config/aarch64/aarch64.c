@@ -25,7 +25,6 @@
 #include "insn-codes.h"
 #include "rtl.h"
 #include "insn-attr.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -70,7 +69,6 @@
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "optabs.h"
@@ -7417,16 +7415,13 @@ aarch64_valid_floating_const (machine_mode mode, rtx x)
   if (!CONST_DOUBLE_P (x))
     return false;
 
-  /* TODO: We could handle moving 0.0 to a TFmode register,
-     but first we would like to refactor the movtf_aarch64
-     to be more amicable to split moves properly and
-     correctly gate on TARGET_SIMD.  For now - reject all
-     constants which are not to SFmode or DFmode registers.  */
+  if (aarch64_float_const_zero_rtx_p (x))
+    return true;
+
+  /* We only handle moving 0.0 to a TFmode register.  */
   if (!(mode == SFmode || mode == DFmode))
     return false;
 
-  if (aarch64_float_const_zero_rtx_p (x))
-    return true;
   return aarch64_float_const_representable_p (x);
 }
 

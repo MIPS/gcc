@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -36,10 +35,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "debug.h"
 #include "convert.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -2423,6 +2420,29 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
       *walk_subtrees = 0;
       return NULL_TREE;
     }
+  if (TREE_CODE (*tp) == SAVE_EXPR)
+    {
+      t = *tp;
+      splay_tree_node n = splay_tree_lookup (target_remap,
+					     (splay_tree_key) t);
+      if (n)
+	{
+	  *tp = (tree)n->value;
+	  *walk_subtrees = 0;
+	}
+      else
+	{
+	  copy_tree_r (tp, walk_subtrees, NULL);
+	  splay_tree_insert (target_remap,
+			     (splay_tree_key)t,
+			     (splay_tree_value)*tp);
+	  /* Make sure we don't remap an already-remapped SAVE_EXPR.  */
+	  splay_tree_insert (target_remap,
+			     (splay_tree_key)*tp,
+			     (splay_tree_value)*tp);
+	}
+      return NULL_TREE;
+    }
 
   /* Make a copy of this node.  */
   t = copy_tree_r (tp, walk_subtrees, NULL);
@@ -2576,7 +2596,12 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 	    if (TREE_CODE (*valp) == CONSTRUCTOR
 		&& AGGREGATE_TYPE_P (type))
 	      {
-		subob = build_ctor_subob_ref (ce->index, type, obj);
+		/* If we're looking at the initializer for OBJ, then build
+		   a sub-object reference.  If we're looking at an
+		   initializer for another object, just pass OBJ down.  */
+		if (same_type_ignoring_top_level_qualifiers_p
+		    (TREE_TYPE (*t), TREE_TYPE (obj)))
+		  subob = build_ctor_subob_ref (ce->index, type, obj);
 		if (TREE_CODE (*valp) == TARGET_EXPR)
 		  valp = &TARGET_EXPR_INITIAL (*valp);
 	      }
