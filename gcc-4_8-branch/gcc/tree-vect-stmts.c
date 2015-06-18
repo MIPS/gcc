@@ -4319,6 +4319,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   int i, j, group_size;
   tree msq = NULL_TREE, lsq;
   tree offset = NULL_TREE;
+  tree byte_offset = NULL_TREE;
   tree realignment_token = NULL_TREE;
   gimple phi = NULL;
   vec<tree> dr_chain = vNULL;
@@ -4431,6 +4432,22 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
       gcc_assert (! nested_in_vect_loop && !STMT_VINFO_GATHER_P (stmt_info));
 
       first_stmt = GROUP_FIRST_ELEMENT (stmt_info);
+
+      /* If this is single-element interleaving with an element distance
+         that leaves unused vector loads around punt - we at least create
+	 very sub-optimal code in that case (and blow up memory,
+	 see PR65518).  */
+      if (first_stmt == stmt
+	  && !GROUP_NEXT_ELEMENT (stmt_info)
+	  && GROUP_SIZE (stmt_info) > TYPE_VECTOR_SUBPARTS (vectype))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "single-element interleaving not supported "
+			     "for not adjacent vector loads\n");
+	  return false;
+	}
+
       if (!slp && !PURE_SLP_STMT (stmt_info))
 	{
 	  group_size = GROUP_SIZE (vinfo_for_stmt (first_stmt));
@@ -4934,7 +4951,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
       if (alignment_support_scheme == dr_explicit_realign_optimized)
 	{
 	  phi = SSA_NAME_DEF_STMT (msq);
-	  offset = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+	  byte_offset = size_binop (MINUS_EXPR, TYPE_SIZE_UNIT (vectype),
+				    size_one_node);
 	}
     }
   else
@@ -4955,7 +4973,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
       if (j == 0)
         dataref_ptr = vect_create_data_ref_ptr (first_stmt, aggr_type, at_loop,
 						offset, &dummy, gsi,
-						&ptr_incr, false, &inv_p);
+						&ptr_incr, false, &inv_p,
+						byte_offset);
       else
         dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, gsi, stmt,
 				       TYPE_SIZE_UNIT (aggr_type));
@@ -6444,7 +6463,21 @@ supportable_widening_operation (enum tree_code code, gimple stmt,
 					     stmt, vectype_out, vectype_in,
 					     code1, code2, multi_step_cvt,
 					     interm_types))
-	return true;
+        {
+          /* Elements in a vector with vect_used_by_reduction property cannot
+             be reordered if the use chain with this property does not have the
+             same operation.  One such an example is s += a * b, where elements
+             in a and b cannot be reordered.  Here we check if the vector defined
+             by STMT is only directly used in the reduction statement.  */
+          tree lhs = gimple_assign_lhs (stmt);
+          use_operand_p dummy;
+          gimple use_stmt;
+          stmt_vec_info use_stmt_info = NULL;
+          if (single_imm_use (lhs, &dummy, &use_stmt)
+              && (use_stmt_info = vinfo_for_stmt (use_stmt))
+              && STMT_VINFO_DEF_TYPE (use_stmt_info) == vect_reduction_def)
+            return true;
+        }
       c1 = VEC_WIDEN_MULT_LO_EXPR;
       c2 = VEC_WIDEN_MULT_HI_EXPR;
       break;

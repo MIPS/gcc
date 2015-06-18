@@ -2853,6 +2853,7 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
       return MATCH_ERROR;
     }
 
+  gfc_save_symbol_data (sym);
   gfc_set_sym_referenced (sym);
   if (!sym->attr.generic
       && gfc_add_generic (&sym->attr, sym->name, NULL) == FAILURE)
@@ -2877,6 +2878,8 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
       sym->generic = intr;
       sym->attr.if_source = IFSRC_DECL;
     }
+  else
+    gfc_save_symbol_data (dt_sym);
 
   gfc_set_sym_referenced (dt_sym);
 

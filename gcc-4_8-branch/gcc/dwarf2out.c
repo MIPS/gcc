@@ -13882,6 +13882,10 @@ loc_list_from_tree (tree loc, int want_address)
       have_address = 1;
       break;
 
+    case TARGET_MEM_REF:
+    case SSA_NAME:
+      return NULL;
+
     case COMPOUND_EXPR:
       return loc_list_from_tree (TREE_OPERAND (loc, 1), want_address);
 
@@ -18810,6 +18814,9 @@ gen_producer_string (void)
       case OPT__sysroot_:
       case OPT_nostdinc:
       case OPT_nostdinc__:
+      case OPT_fpreprocessed:
+      case OPT_fltrans_output_list_:
+      case OPT_fresolution_:
 	/* Ignore these.  */
 	continue;
       default:
@@ -19690,6 +19697,28 @@ is_naming_typedef_decl (const_tree decl)
 	  && TYPE_NAME (TREE_TYPE (decl)) == decl
 	  && (TYPE_STUB_DECL (TREE_TYPE (decl))
 	      != TYPE_NAME (TREE_TYPE (decl))));
+}
+
+/* Looks up the DIE for a context.  */
+
+static inline dw_die_ref
+lookup_context_die (tree context)
+{
+  if (context)
+    {
+      /* Find die that represents this context.  */
+      if (TYPE_P (context))
+	{
+	  context = TYPE_MAIN_VARIANT (context);
+	  dw_die_ref ctx = lookup_type_die (context);
+	  if (!ctx)
+	    return NULL;
+	  return strip_naming_typedef (context, ctx);
+	}
+      else
+	return lookup_decl_die (context);
+    }
+  return comp_unit_die ();
 }
 
 /* Returns the DIE for a context.  */
@@ -22942,8 +22971,25 @@ resolve_addr (dw_die_ref die)
 		&& DECL_EXTERNAL (tdecl)
 		&& DECL_ABSTRACT_ORIGIN (tdecl) == NULL_TREE)
 	      {
-		force_decl_die (tdecl);
-		tdie = lookup_decl_die (tdecl);
+		dw_die_ref cdie;
+		if (!in_lto_p)
+		  {
+		    force_decl_die (tdecl);
+		    tdie = lookup_decl_die (tdecl);
+		  }
+		else if ((cdie = lookup_context_die (DECL_CONTEXT (tdecl))))
+		  {
+		    /* Creating a full DIE for tdecl is overly expensive and
+		       at this point even wrong when in the LTO phase
+		       as it can end up generating new type DIEs we didn't
+		       output and thus optimize_external_refs will crash.  */
+		    tdie = new_die (DW_TAG_subprogram, cdie, NULL_TREE);
+		    add_AT_flag (tdie, DW_AT_external, 1);
+		    add_AT_flag (tdie, DW_AT_declaration, 1);
+		    add_linkage_attr (tdie, tdecl);
+		    add_name_and_src_coords_attributes (tdie, tdecl);
+		    equate_decl_number_to_die (tdecl, tdie);
+		  }
 	      }
 	    if (tdie)
 	      {
@@ -23510,8 +23556,13 @@ dwarf2out_finish (const char *filename)
   gen_remaining_tmpl_value_param_die_attribute ();
 
   /* Add the name for the main input file now.  We delayed this from
-     dwarf2out_init to avoid complications with PCH.  */
-  add_name_attribute (comp_unit_die (), remap_debug_filename (filename));
+     dwarf2out_init to avoid complications with PCH.
+     For LTO produced units use a fixed artificial name to avoid
+     leaking tempfile names into the dwarf.  */
+  if (!in_lto_p)
+    add_name_attribute (comp_unit_die (), remap_debug_filename (filename));
+  else
+    add_name_attribute (comp_unit_die (), "<artificial>");
   if (!IS_ABSOLUTE_PATH (filename) || targetm.force_at_comp_dir)
     add_comp_dir_attribute (comp_unit_die ());
   else if (get_AT (comp_unit_die (), DW_AT_comp_dir) == NULL)

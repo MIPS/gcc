@@ -1,3 +1,35 @@
+2015-03-30 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/59513
+	* io/transfer.c (data_transfer_init): Do not error for
+	-std=legacy.
+
+2015-03-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/60956
+	Backport from mainline
+	* io/fbuf.c (fbuf_flush_list): New function that only flushes
+	if current fbuf position exceeds a limit.
+	* io/fbuf.h: Declare the new function.
+	* io/io.h (enum unit_mode): Add two new modes.
+	* io/list_read.c (list_formatted_read_scalar): Call new function.
+	* io/write.c: Include fbuf.h. (list_formatted_write_scalar):
+	Call new function.
+
+2014-12-19  Release Manager
+
+	* GCC 4.8.4 released.
+
+2014-10-20  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/63589
+	* configure.ac: Check for strtok_r.
+	* runtime/main.c (gfstrtok_r): Fallback implementation of
+	strtok_r.
+	(find_addr2line): Use strtok_r to split PATH.
+	* config.h.in: Regenerated.
+	* configure: Regenerated.
+
 2014-08-20  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR libgfortran/62188
