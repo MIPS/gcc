@@ -5630,8 +5630,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 		 decaying an enumerator to its value.  */
 	      if (complain & tf_warning)
 		warn_logical_operator (loc, code, boolean_type_node,
-				       code_orig_arg1, cp_fully_fold (arg1),
-				       code_orig_arg2, cp_fully_fold (arg2));
+				       code_orig_arg1, fold (arg1),
+				       code_orig_arg2, fold (arg2));
 
 	      arg2 = convert_like (conv, arg2, complain);
 	    }
@@ -5668,8 +5668,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
       warn_logical_operator (loc, code, boolean_type_node,
-			     code_orig_arg1, cp_fully_fold (arg1),
-			     code_orig_arg2, cp_fully_fold (arg2));
+			     code_orig_arg1, fold (arg1),
+			     code_orig_arg2, fold (arg2));
       /* Fall through.  */
     case GT_EXPR:
     case LT_EXPR:
@@ -5679,8 +5679,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
     case NE_EXPR:
       if ((code_orig_arg1 == BOOLEAN_TYPE)
 	  ^ (code_orig_arg2 == BOOLEAN_TYPE))
-	maybe_warn_bool_compare (loc, code, cp_fully_fold (arg1),
-				 cp_fully_fold (arg2));
+	maybe_warn_bool_compare (loc, code, fold (arg1),
+				 fold (arg2));
       /* Fall through.  */
     case PLUS_EXPR:
     case MINUS_EXPR:
