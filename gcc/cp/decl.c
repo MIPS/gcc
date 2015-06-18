@@ -3292,6 +3292,11 @@ finish_case_label (location_t loc, tree low_value, tree high_value)
     {
       tree label;
 
+      /* For build_case_label we need to make sure that arguments
+	 got fully folded.  */
+      low_value = cp_fully_fold (low_value);
+      high_value = cp_fully_fold (high_value);
+
       /* For templates, just add the case label; we'll do semantic
 	 analysis at instantiation-time.  */
       label = build_decl (loc, LABEL_DECL, NULL_TREE, NULL_TREE);
@@ -8472,7 +8477,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
     }
 
   /* We need to do fully folding to determine if we have VLA, or not.  */
-  tree size_constant = cp_try_fold_to_constant (size);
+  tree size_constant = cp_fully_fold (size);
   /* Normally, the array-bound will be a constant.  */
   if (TREE_CODE (size_constant) == INTEGER_CST)
     {
@@ -8559,7 +8564,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 				  cp_convert (ssizetype, integer_one_node,
 					      complain),
 				  complain);
-      itype = cp_try_fold_to_constant (itype);
+      itype = cp_fully_fold (itype);
       processing_template_decl = saved_processing_template_decl;
 
       if (!TREE_CONSTANT (itype))
@@ -8700,10 +8705,7 @@ create_array_type_for_decl (tree name, tree type, tree size)
 
   /* Figure out the index type for the array.  */
   if (size)
-    {
-      size = cp_try_fold_to_constant (size);
-      itype = compute_array_index_type (name, size, tf_warning_or_error);
-    }
+    itype = compute_array_index_type (name, size, tf_warning_or_error);
 
   /* [dcl.array]
      T is called the array element type; this type shall not be [...] an
@@ -13045,8 +13047,9 @@ build_enumerator (tree name, tree value, tree enumtype, tree attributes,
   if (value)
     STRIP_TYPE_NOPS (value);
 
+  /* TODO: Replace by simple fold of CST-expressions.  */
   if (value)
-    value = cp_try_fold_to_constant (value);
+    value = maybe_constant_value (value);
   if (! processing_template_decl)
     {
       /* Validate and default VALUE.  */

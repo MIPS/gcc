@@ -5090,9 +5090,11 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 
  valid_operands:
   result = build3 (COND_EXPR, result_type, arg1, arg2, arg3);
+/*
   if (!cp_unevaluated_operand && !processing_template_decl)
+*/
     /* Avoid folding within decltype (c++/42013) and noexcept.  */
-    result = cp_try_fold_to_constant (result);
+/*    result = fold (result); */
 
   /* We can't use result_type below, as fold might have returned a
      throw_expr.  */

@@ -1846,11 +1846,12 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
       r = size_one_node;
     x = r;
     break;
-  case CONVERT_EXPR:
   case VIEW_CONVERT_EXPR:
+  case CONVERT_EXPR:
   case NOP_EXPR:
     if (VOID_TYPE_P (TREE_TYPE (x)))
       return x;
+
     /* Fall through.  */
   case ALIGNOF_EXPR:
   case SAVE_EXPR:
@@ -1868,7 +1869,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
   case UNARY_PLUS_EXPR:
   case CLEANUP_POINT_EXPR:
   case INDIRECT_REF:
-  case NON_LVALUE_EXPR:
+  /*case NON_LVALUE_EXPR:*/
   case RETURN_EXPR:
   case EXPR_STMT:
   case STMT_EXPR:
@@ -1878,8 +1879,10 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     {
       location_t loc = EXPR_LOCATION (x);
       tree op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
-      if (!op0) op0 = TREE_OPERAND (x, 0);
-      if (op0 != TREE_OPERAND (x, 0))
+      if (!op0)
+	op0 = TREE_OPERAND (x, 0);
+
+      if (!r && op0 != TREE_OPERAND (x, 0))
         r = fold_build1_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0);
       if (!r)
 	r = fold_unary_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0);

@@ -649,10 +649,10 @@ cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
       tree folded = maybe_constant_value (expr);
       tree stripped = folded;
       tree folded_result;
-      folded = cp_fully_fold (folded);
+      folded = fold (folded);
       folded_result
 	= folded != expr ? cp_convert (type, folded, complain) : result;
-      folded_result = cp_fully_fold (folded_result);
+      folded_result = fold (folded_result);
 
       /* The maybe_constant_value wraps an INTEGER_CST with TREE_OVERFLOW
 	 in a NOP_EXPR so that it isn't TREE_CONSTANT anymore.  */
@@ -1534,8 +1534,9 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   tree basetype = TREE_TYPE (expr);
   tree conv = NULL_TREE;
   tree winner = NULL_TREE;
-  /* Want to see if EXPR is a constant.  See below checks for null_node.  */
-  tree expr_folded = cp_try_fold_to_constant (expr);
+  /* Want to see if EXPR is a constant.  See below checks for null_node.
+     TODO: Replace it by simple folding of CST-expression.  */
+  tree expr_folded = maybe_constant_value (expr);
 
   STRIP_NOPS (expr_folded);
   if (expr_folded == null_node
