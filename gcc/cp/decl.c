@@ -8476,8 +8476,9 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
       return itype;
     }
 
-  /* We need to do fully folding to determine if we have VLA, or not.  */
-  tree size_constant = cp_fully_fold (size);
+  /* TODO: We need to do folding to determine if we have VLA, or not.  */
+  tree size_constant = maybe_constant_value (size);
+
   /* Normally, the array-bound will be a constant.  */
   if (TREE_CODE (size_constant) == INTEGER_CST)
     {
@@ -8564,7 +8565,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 				  cp_convert (ssizetype, integer_one_node,
 					      complain),
 				  complain);
-      itype = cp_fully_fold (itype);
+      itype = maybe_constant_value (itype);
       processing_template_decl = saved_processing_template_decl;
 
       if (!TREE_CONSTANT (itype))
