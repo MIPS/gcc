@@ -368,15 +368,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "regs.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -394,10 +387,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgcleanup.h"
 #include "basic-block.h"
 #include "df.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -414,7 +403,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "reload.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "ira-int.h"
 #include "lra.h"
 #include "dce.h"
@@ -1767,8 +1755,8 @@ setup_prohibited_mode_move_regs (void)
   if (ira_prohibited_mode_move_regs_initialized_p)
     return;
   ira_prohibited_mode_move_regs_initialized_p = true;
-  test_reg1 = gen_rtx_REG (word_mode, FIRST_PSEUDO_REGISTER);
-  test_reg2 = gen_rtx_REG (word_mode, FIRST_PSEUDO_REGISTER);
+  test_reg1 = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 1);
+  test_reg2 = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 2);
   move_pat = gen_rtx_SET (test_reg1, test_reg2);
   move_insn = gen_rtx_INSN (VOIDmode, 0, 0, 0, move_pat, 0, -1, 0);
   for (i = 0; i < NUM_MACHINE_MODES; i++)
@@ -4988,7 +4976,7 @@ split_live_ranges_for_shrink_wrap (void)
 
       if (newreg)
 	{
-	  rtx new_move = gen_move_insn (newreg, dest);
+	  rtx_insn *new_move = gen_move_insn (newreg, dest);
 	  emit_insn_after (new_move, bb_note (call_dom));
 	  if (dump_file)
 	    {

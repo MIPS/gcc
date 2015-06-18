@@ -24,15 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "timevar.h"
 #include "cpplib.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "print-tree.h"
 #include "stringpool.h"
@@ -45,11 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "diagnostic-core.h"
 #include "target.h"
-#include "hash-map.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -7567,6 +7557,9 @@ cp_parser_new_placement (cp_parser* parser)
 		      /*allow_expansion_p=*/true,
 		      /*non_constant_p=*/NULL));
 
+  if (expression_list && expression_list->is_empty ())
+    error ("expected expression-list or type-id");
+
   return expression_list;
 }
 
@@ -12806,11 +12799,12 @@ cp_parser_mem_initializer (cp_parser* parser)
 
    mem-initializer-id:
      :: [opt] nested-name-specifier [opt] class-name
+     decltype-specifier (C++11)
      identifier
 
-   Returns a TYPE indicating the class to be initializer for the first
-   production.  Returns an IDENTIFIER_NODE indicating the data member
-   to be initialized for the second production.  */
+   Returns a TYPE indicating the class to be initialized for the first
+   production (and the second in C++11).  Returns an IDENTIFIER_NODE
+   indicating the data member to be initialized for the last production.  */
 
 static tree
 cp_parser_mem_initializer_id (cp_parser* parser)
@@ -12868,14 +12862,18 @@ cp_parser_mem_initializer_id (cp_parser* parser)
 				 /*is_declaration=*/true);
   /* Otherwise, we could also be looking for an ordinary identifier.  */
   cp_parser_parse_tentatively (parser);
-  /* Try a class-name.  */
-  id = cp_parser_class_name (parser,
-			     /*typename_keyword_p=*/true,
-			     /*template_keyword_p=*/false,
-			     none_type,
-			     /*check_dependency_p=*/true,
-			     /*class_head_p=*/false,
-			     /*is_declaration=*/true);
+  if (cp_lexer_next_token_is_decltype (parser->lexer))
+    /* Try a decltype-specifier.  */
+    id = cp_parser_decltype (parser);
+  else
+    /* Otherwise, try a class-name.  */
+    id = cp_parser_class_name (parser,
+			       /*typename_keyword_p=*/true,
+			       /*template_keyword_p=*/false,
+			       none_type,
+			       /*check_dependency_p=*/true,
+			       /*class_head_p=*/false,
+			       /*is_declaration=*/true);
   /* If we found one, we're done.  */
   if (cp_parser_parse_definitely (parser))
     return id;
@@ -16086,7 +16084,13 @@ cp_parser_enumerator_list (cp_parser* parser, tree type)
      enumerator = constant-expression
 
    enumerator:
-     identifier  */
+     identifier
+
+   GNU Extensions:
+
+   enumerator-definition:
+     enumerator attributes [opt]
+     enumerator attributes [opt] = constant-expression  */
 
 static void
 cp_parser_enumerator_definition (cp_parser* parser, tree type)
@@ -16103,6 +16107,9 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
   identifier = cp_parser_identifier (parser);
   if (identifier == error_mark_node)
     return;
+
+  /* Parse any specified attributes.  */
+  tree attrs = cp_parser_attributes_opt (parser);
 
   /* If the next token is an '=', then there is an explicit value.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_EQ))
@@ -16121,7 +16128,7 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
     value = error_mark_node;
 
   /* Create the enumerator.  */
-  build_enumerator (identifier, value, type, loc);
+  build_enumerator (identifier, value, type, attrs, loc);
 }
 
 /* Parse a namespace-name.
@@ -25380,6 +25387,7 @@ cp_parser_cache_defarg (cp_parser *parser, bool nsdmi)
 		 the default argument; otherwise the default
 		 argument continues.  */
 	      bool error = false;
+	      cp_token *peek;
 
 	      /* Set ITALP so cp_parser_parameter_declaration_list
 		 doesn't decide to commit to this parse.  */
@@ -25387,19 +25395,39 @@ cp_parser_cache_defarg (cp_parser *parser, bool nsdmi)
 	      parser->in_template_argument_list_p = true;
 
 	      cp_parser_parse_tentatively (parser);
-	      cp_lexer_consume_token (parser->lexer);
 
 	      if (nsdmi)
 		{
-		  int ctor_dtor_or_conv_p;
-		  cp_parser_declarator (parser, CP_PARSER_DECLARATOR_NAMED,
-					&ctor_dtor_or_conv_p,
-					/*parenthesized_p=*/NULL,
-					/*member_p=*/true,
-					/*friend_p=*/false);
+		  /* Parse declarators until we reach a non-comma or
+		     somthing that cannot be an initializer.
+		     Just checking whether we're looking at a single
+		     declarator is insufficient.  Consider:
+		       int var = tuple<T,U>::x;
+		     The template parameter 'U' looks exactly like a
+		     declarator.  */
+		  do
+		    {
+		      int ctor_dtor_or_conv_p;
+		      cp_lexer_consume_token (parser->lexer);
+		      cp_parser_declarator (parser, CP_PARSER_DECLARATOR_NAMED,
+					    &ctor_dtor_or_conv_p,
+					    /*parenthesized_p=*/NULL,
+					    /*member_p=*/true,
+					    /*friend_p=*/false);
+		      peek = cp_lexer_peek_token (parser->lexer);
+		      if (cp_parser_error_occurred (parser))
+			break;
+		    }
+		  while (peek->type == CPP_COMMA);
+		  /* If we met an '=' or ';' then the original comma
+		     was the end of the NSDMI.  Otherwise assume
+		     we're still in the NSDMI.  */
+		  error = (peek->type != CPP_EQ
+			   && peek->type != CPP_SEMICOLON);
 		}
 	      else
 		{
+		  cp_lexer_consume_token (parser->lexer);
 		  begin_scope (sk_function_parms, NULL_TREE);
 		  cp_parser_parameter_declaration_list (parser, &error);
 		  pop_bindings_and_leave_scope ();

@@ -21,16 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -41,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "is-a.h"
 #include "tree-ssa-alias.h"
 #include "predict.h"
 #include "basic-block.h"
@@ -308,7 +300,7 @@ chkp_copy_function_type_adding_bounds (tree orig_type)
   if (!arg_type)
     return orig_type;
 
-  type = copy_node (orig_type);
+  type = build_distinct_type_copy (orig_type);
   TYPE_ARG_TYPES (type) = copy_list (TYPE_ARG_TYPES (type));
 
   for (arg_type = TYPE_ARG_TYPES (type);
@@ -616,12 +608,7 @@ chkp_maybe_create_clone (tree fndecl)
 
       /* Clone all aliases.  */
       for (i = 0; node->iterate_direct_aliases (i, ref); i++)
-	{
-	  struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
-	  struct cgraph_node *chkp_alias
-	    = chkp_maybe_create_clone (alias->decl);
-	  chkp_alias->create_reference (clone, IPA_REF_ALIAS, NULL);
-	}
+	chkp_maybe_create_clone (ref->referring->decl);
 
       /* Clone all thunks.  */
       for (e = node->callers; e; e = e->next_caller)
@@ -645,7 +632,10 @@ chkp_maybe_create_clone (tree fndecl)
 
 	  ref = node->ref_list.first_reference ();
 	  if (ref)
-	    chkp_maybe_create_clone (ref->referred->decl);
+	    {
+	      target = chkp_maybe_create_clone (ref->referred->decl);
+	      clone->create_reference (target, IPA_REF_ALIAS);
+	    }
 
 	  if (node->alias_target)
 	    {

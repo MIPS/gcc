@@ -22,19 +22,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "langhooks.h"
 #include "gimple-pretty-print.h"
@@ -47,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
@@ -1037,6 +1028,7 @@ expand_ifn_va_arg_1 (function *fun)
   bool modified = false;
   basic_block bb;
   gimple_stmt_iterator i;
+  location_t saved_location;
 
   FOR_EACH_BB_FN (bb, fun)
     for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
@@ -1057,6 +1049,8 @@ expand_ifn_va_arg_1 (function *fun)
 	ap = build_fold_indirect_ref (ap);
 
 	push_gimplify_context (false);
+	saved_location = input_location;
+	input_location = gimple_location (stmt);
 
 	/* Make it easier for the backends by protecting the valist argument
 	   from multiple evaluations.  */
@@ -1087,6 +1081,7 @@ expand_ifn_va_arg_1 (function *fun)
 	else
 	  gimplify_expr (&expr, &pre, &post, is_gimple_lvalue, fb_lvalue);
 
+	input_location = saved_location;
 	pop_gimplify_context (NULL);
 
 	gimple_seq_add_seq (&pre, post);

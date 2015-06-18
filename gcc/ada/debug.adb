@@ -101,7 +101,7 @@ package body Debug is
    --  d.h  Minimize the creation of public internal symbols for concatenation
    --  d.i  Ignore Warnings pragmas
    --  d.j  Generate listing of frontend inlined calls
-   --  d.k
+   --  d.k  Kill referenced run-time library unit line numbers
    --  d.l  Use Ada 95 semantics for limited function returns
    --  d.m  For -gnatl, print full source only for main unit
    --  d.n  Print source file names
@@ -534,6 +534,9 @@ package body Debug is
    --       be used in particular to disable Warnings (Off) to check if any of
    --       these statements are inappropriate.
 
+   --  d.k  If an error message contains a reference to a location in an
+   --       internal unit, then suppress the line number in this reference.
+
    --  d.j  Generate listing of frontend inlined calls and inline calls passed
    --       to the backend. This is useful to locate skipped calls that must be
    --       inlined by the frontend.
@@ -689,11 +692,11 @@ package body Debug is
    --       the order in which units are walked. This is primarily for use in
    --       debugging CodePeer mode.
 
-   --  d.X  A previous version of GNAT allowed indexing aspects to be
-   --       redefined on derived container types, while the default iterator
-   --       was inherited from the aprent type. This non-standard extension
-   --       is preserved temporarily for use by the modelling project under
-   --       debug flag d.X.
+   --  d.X  A previous version of GNAT allowed indexing aspects to be redefined
+   --       on derived container types, while the default iterator was
+   --       inherited from the aprent type. This non-standard extension is
+   --       preserved temporarily for use by the modelling project under debug
+   --       flag d.X.
 
    --  d.Z  Normally we always enable expansion in configurable run-time mode
    --       to make sure we get error messages about unsupported features even

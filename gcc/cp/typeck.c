@@ -28,15 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -1810,7 +1803,7 @@ cxx_alignas_expr (tree e)
    violates these rules.  */
 
 bool
-invalid_nonstatic_memfn_p (tree expr, tsubst_flags_t complain)
+invalid_nonstatic_memfn_p (location_t loc, tree expr, tsubst_flags_t complain)
 {
   if (expr == NULL_TREE)
     return false;
@@ -1822,7 +1815,17 @@ invalid_nonstatic_memfn_p (tree expr, tsubst_flags_t complain)
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (expr))
     {
       if (complain & tf_error)
-        error ("invalid use of non-static member function");
+	{
+	  if (DECL_P (expr))
+	    {
+	      error_at (loc, "invalid use of non-static member function %qD",
+			expr);
+	      inform (DECL_SOURCE_LOCATION (expr), "declared here");
+	    }
+	  else
+	    error_at (loc, "invalid use of non-static member function of "
+		      "type %qT", TREE_TYPE (expr));
+	}
       return true;
     }
   return false;
@@ -1946,7 +1949,7 @@ decay_conversion (tree exp, tsubst_flags_t complain)
 	error_at (loc, "void value not ignored as it ought to be");
       return error_mark_node;
     }
-  if (invalid_nonstatic_memfn_p (exp, complain))
+  if (invalid_nonstatic_memfn_p (loc, exp, complain))
     return error_mark_node;
   if (code == FUNCTION_TYPE || is_overloaded_fn (exp))
     return cp_build_addr_expr (exp, complain);
@@ -2731,6 +2734,14 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
 		  return error_mark_node;
 		}
 	      tree val = lookup_enumerator (scope, name);
+	      if (!val)
+		{
+		  if (complain & tf_error)
+		    error ("%qD is not a member of %qD",
+			   name, scope);
+		  return error_mark_node;
+		}
+	      
 	      if (TREE_SIDE_EFFECTS (object))
 		val = build2 (COMPOUND_EXPR, TREE_TYPE (val), object, val);
 	      return val;
@@ -3126,15 +3137,6 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
 	  && ! int_fits_type_p (idx, TYPE_DOMAIN (TREE_TYPE (array))))
 	{
 	  if (!cxx_mark_addressable (array))
-	    return error_mark_node;
-	}
-
-      if (!lvalue_p (array))
-	{
-	  if (complain & tf_error)
-	    pedwarn (loc, OPT_Wpedantic, 
-		     "ISO C++ forbids subscripting non-lvalue array");
-	  else
 	    return error_mark_node;
 	}
 
@@ -3590,8 +3592,8 @@ warn_args_num (location_t loc, tree fndecl, bool too_many_p)
 		  ? G_("too many arguments to function %q#D")
 		  : G_("too few arguments to function %q#D"),
 		  fndecl);
-      inform (DECL_SOURCE_LOCATION (fndecl),
-	      "declared here");
+      if (!DECL_IS_BUILTIN (fndecl))
+	inform (DECL_SOURCE_LOCATION (fndecl), "declared here");
     }
   else
     {
@@ -4427,6 +4429,23 @@ cp_build_binary_op (location_t location,
 		warning (OPT_Waddress, "the address of %qD will never be NULL",
 			 TREE_OPERAND (op0, 0));
 	    }
+
+	  if (CONVERT_EXPR_P (op0)
+	      && TREE_CODE (TREE_TYPE (TREE_OPERAND (op0, 0)))
+		 == REFERENCE_TYPE)
+	    {
+	      tree inner_op0 = op0;
+	      STRIP_NOPS (inner_op0);
+
+	      if ((complain & tf_warning)
+		  && c_inhibit_evaluation_warnings == 0
+		  && !TREE_NO_WARNING (op0)
+		  && DECL_P (inner_op0))
+		warning_at (location, OPT_Waddress,
+			    "the compiler can assume that the address of "
+			    "%qD will never be NULL",
+			    inner_op0);
+	    }
 	}
       else if (((code1 == POINTER_TYPE || TYPE_PTRDATAMEM_P (type1))
 		&& null_ptr_cst_p (op0))
@@ -4448,6 +4467,23 @@ cp_build_binary_op (location_t location,
 		  && !TREE_NO_WARNING (op1))
 		warning (OPT_Waddress, "the address of %qD will never be NULL",
 			 TREE_OPERAND (op1, 0));
+	    }
+
+	  if (CONVERT_EXPR_P (op1)
+	      && TREE_CODE (TREE_TYPE (TREE_OPERAND (op1, 0)))
+		 == REFERENCE_TYPE)
+	    {
+	      tree inner_op1 = op1;
+	      STRIP_NOPS (inner_op1);
+
+	      if ((complain & tf_warning)
+		  && c_inhibit_evaluation_warnings == 0
+		  && !TREE_NO_WARNING (op1)
+		  && DECL_P (inner_op1))
+		warning_at (location, OPT_Waddress,
+			    "the compiler can assume that the address of "
+			    "%qD will never be NULL",
+			    inner_op1);
 	    }
 	}
       else if ((code0 == POINTER_TYPE && code1 == POINTER_TYPE)

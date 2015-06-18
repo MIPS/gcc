@@ -33,25 +33,18 @@ along with GCC; see the file COPYING3.  If not see
 /* These headers all define things which are not available in
    generator programs.  */
 #ifndef GENERATOR_FILE
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "print-tree.h"
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "predict.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
+#include "alloc-pool.h"
 #include "cselib.h"
 #include "dumpfile.h"	/* for dump_flags */
 #include "dwarf2out.h"
@@ -771,7 +764,7 @@ debug_rtx_range (const rtx_insn *start, const rtx_insn *end)
    and then call debug_rtx_list to print it, using DEBUG_RTX_COUNT.
    The found insn is returned to enable further debugging analysis.  */
 
-DEBUG_FUNCTION const_rtx
+DEBUG_FUNCTION const rtx_insn *
 debug_rtx_find (const rtx_insn *x, int uid)
 {
   while (x != 0 && INSN_UID (x) != uid)

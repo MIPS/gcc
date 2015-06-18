@@ -157,6 +157,52 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       return __ret;
     }
 
+  // Return a const_iterator indicating the position to start inserting or
+  // erasing elements (depending whether the list is growing or shrinking),
+  // and set __new_size to the number of new elements that must be appended.
+  // Equivalent to the following, but performed optimally:
+  // if (__new_size < size()) {
+  //   __new_size = 0;
+  //   return std::next(begin(), __new_size);
+  // } else {
+  //   __newsize -= size();
+  //   return end();
+  // }
+  template<typename _Tp, typename _Alloc>
+    typename list<_Tp, _Alloc>::const_iterator
+    list<_Tp, _Alloc>::
+    _M_resize_pos(size_type& __new_size) const
+    {
+      const_iterator __i;
+#if _GLIBCXX_USE_CXX11_ABI
+      const size_type __len = size();
+      if (__new_size < __len)
+	{
+	  if (__new_size <= __len / 2)
+	    {
+	      __i = begin();
+	      std::advance(__i, __new_size);
+	    }
+	  else
+	    {
+	      __i = end();
+	      ptrdiff_t __num_erase = __len - __new_size;
+	      std::advance(__i, -__num_erase);
+	    }
+	  __new_size = 0;
+	  return __i;
+	}
+      else
+	__i = end();
+#else
+      size_type __len = 0;
+      for (__i = begin(); __i != end() && __len < __new_size; ++__i, ++__len)
+        ;
+#endif
+      __new_size -= __len;
+      return __i;
+    }
+
 #if __cplusplus >= 201103L
   template<typename _Tp, typename _Alloc>
     void
@@ -182,14 +228,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     list<_Tp, _Alloc>::
     resize(size_type __new_size)
     {
-      iterator __i = begin();
-      size_type __len = 0;
-      for (; __i != end() && __len < __new_size; ++__i, ++__len)
-        ;
-      if (__len == __new_size)
+      const_iterator __i = _M_resize_pos(__new_size);
+      if (__new_size)
+	_M_default_append(__new_size);
+      else
         erase(__i, end());
-      else                          // __i == end()
-	_M_default_append(__new_size - __len);
     }
 
   template<typename _Tp, typename _Alloc>
@@ -197,14 +240,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     list<_Tp, _Alloc>::
     resize(size_type __new_size, const value_type& __x)
     {
-      iterator __i = begin();
-      size_type __len = 0;
-      for (; __i != end() && __len < __new_size; ++__i, ++__len)
-        ;
-      if (__len == __new_size)
+      const_iterator __i = _M_resize_pos(__new_size);
+      if (__new_size)
+        insert(end(), __new_size, __x);
+      else
         erase(__i, end());
-      else                          // __i == end()
-        insert(end(), __new_size - __len, __x);
     }
 #else
   template<typename _Tp, typename _Alloc>
@@ -212,14 +252,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     list<_Tp, _Alloc>::
     resize(size_type __new_size, value_type __x)
     {
-      iterator __i = begin();
-      size_type __len = 0;
-      for (; __i != end() && __len < __new_size; ++__i, ++__len)
-        ;
-      if (__len == __new_size)
-        erase(__i, end());
-      else                          // __i == end()
-        insert(end(), __new_size - __len, __x);
+      const_iterator __i = _M_resize_pos(__new_size);
+      if (__new_size)
+        insert(end(), __new_size, __x);
+      else
+        erase(__i._M_const_cast(), end());
     }
 #endif
 
@@ -228,7 +265,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     list<_Tp, _Alloc>::
     operator=(const list& __x)
     {
-      if (this != &__x)
+      if (this != std::__addressof(__x))
 	{
 	  iterator __first1 = begin();
 	  iterator __last1 = end();
@@ -336,7 +373,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 300. list::merge() specification incomplete
-      if (this != &__x)
+      if (this != std::__addressof(__x))
 	{
 	  _M_check_equal_allocators(__x); 
 
@@ -373,7 +410,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       {
 	// _GLIBCXX_RESOLVE_LIB_DEFECTS
 	// 300. list::merge() specification incomplete
-	if (this != &__x)
+	if (this != std::__addressof(__x))
 	  {
 	    _M_check_equal_allocators(__x);
 
@@ -409,14 +446,14 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       {
         list __carry;
         list __tmp[64];
-        list * __fill = &__tmp[0];
+        list * __fill = __tmp;
         list * __counter;
 
         do
 	  {
 	    __carry.splice(__carry.begin(), *this, begin());
 
-	    for(__counter = &__tmp[0];
+	    for(__counter = __tmp;
 		__counter != __fill && !__counter->empty();
 		++__counter)
 	      {
@@ -429,7 +466,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	  }
 	while ( !empty() );
 
-        for (__counter = &__tmp[1]; __counter != __fill; ++__counter)
+        for (__counter = __tmp + 1; __counter != __fill; ++__counter)
           __counter->merge(*(__counter - 1));
         swap( *(__fill - 1) );
       }
@@ -486,14 +523,14 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	  {
 	    list __carry;
 	    list __tmp[64];
-	    list * __fill = &__tmp[0];
+	    list * __fill = __tmp;
 	    list * __counter;
 
 	    do
 	      {
 		__carry.splice(__carry.begin(), *this, begin());
 
-		for(__counter = &__tmp[0];
+		for(__counter = __tmp;
 		    __counter != __fill && !__counter->empty();
 		    ++__counter)
 		  {
@@ -506,7 +543,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	      }
 	    while ( !empty() );
 
-	    for (__counter = &__tmp[1]; __counter != __fill; ++__counter)
+	    for (__counter = __tmp + 1; __counter != __fill; ++__counter)
 	      __counter->merge(*(__counter - 1), __comp);
 	    swap(*(__fill - 1));
 	  }

@@ -23,18 +23,10 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -51,10 +43,6 @@
 #include "flags.h"
 #include "reload.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -74,12 +62,9 @@
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
-#include "ggc.h"
 #include "except.h"
 #include "tm_p.h"
 #include "target.h"
@@ -94,6 +79,7 @@
 #include "opts.h"
 #include "dumpfile.h"
 #include "gimple-expr.h"
+#include "target-globals.h"
 #include "builtins.h"
 #include "tm-constrs.h"
 #include "rtl-iter.h"
@@ -265,6 +251,9 @@ static tree arm_build_builtin_va_list (void);
 static void arm_expand_builtin_va_start (tree, rtx);
 static tree arm_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 static void arm_option_override (void);
+static void arm_set_current_function (tree);
+static bool arm_can_inline_p (tree, tree);
+static bool arm_valid_target_attribute_p (tree, tree, tree, int);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (machine_mode);
 static bool arm_macro_fusion_p (void);
 static bool arm_cannot_copy_insn_p (rtx_insn *);
@@ -413,6 +402,9 @@ static const struct attribute_spec arm_attribute_table[] =
 #undef  TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE arm_output_function_epilogue
 
+#undef TARGET_CAN_INLINE_P
+#define TARGET_CAN_INLINE_P arm_can_inline_p
+
 #undef  TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE arm_option_override
 
@@ -430,6 +422,12 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef  TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST arm_adjust_cost
+
+#undef TARGET_SET_CURRENT_FUNCTION
+#define TARGET_SET_CURRENT_FUNCTION arm_set_current_function
+
+#undef TARGET_OPTION_VALID_ATTRIBUTE_P
+#define TARGET_OPTION_VALID_ATTRIBUTE_P arm_valid_target_attribute_p
 
 #undef TARGET_SCHED_REORDER
 #define TARGET_SCHED_REORDER arm_sched_reorder
@@ -1024,7 +1022,9 @@ const struct cpu_cost_table cortexa9_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (1),	/* storef.  */
     COSTS_N_INSNS (1),	/* stored.  */
-    COSTS_N_INSNS (1)	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1125,7 +1125,9 @@ const struct cpu_cost_table cortexa8_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (1),	/* storef.  */
     COSTS_N_INSNS (1),	/* stored.  */
-    COSTS_N_INSNS (1)	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1227,7 +1229,9 @@ const struct cpu_cost_table cortexa5_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (2),	/* storef.  */
     COSTS_N_INSNS (2),	/* stored.  */
-    COSTS_N_INSNS (1)	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1330,7 +1334,9 @@ const struct cpu_cost_table cortexa7_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (2),	/* storef.  */
     COSTS_N_INSNS (2),	/* stored.  */
-    COSTS_N_INSNS (1)	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1431,7 +1437,9 @@ const struct cpu_cost_table cortexa12_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (2),	/* storef.  */
     COSTS_N_INSNS (2),	/* stored.  */
-    0			/* store_unaligned.  */
+    0,			/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1532,7 +1540,9 @@ const struct cpu_cost_table cortexa15_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     0,			/* storef.  */
     0,			/* stored.  */
-    0			/* store_unaligned.  */
+    0,			/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1633,7 +1643,9 @@ const struct cpu_cost_table v7m_extra_costs =
     1,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (2),	/* storef.  */
     COSTS_N_INSNS (3),	/* stored.  */
-    COSTS_N_INSNS (1)  /* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1689,8 +1701,8 @@ const struct tune_params arm_slowmul_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1712,8 +1724,8 @@ const struct tune_params arm_fastmul_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1738,8 +1750,8 @@ const struct tune_params arm_strongarm_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1761,8 +1773,8 @@ const struct tune_params arm_xscale_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1784,8 +1796,8 @@ const struct tune_params arm_9e_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1807,8 +1819,8 @@ const struct tune_params arm_marvell_pj4_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1830,8 +1842,8 @@ const struct tune_params arm_v6t2_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1855,8 +1867,8 @@ const struct tune_params arm_cortex_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1878,8 +1890,8 @@ const struct tune_params arm_cortex_a8_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1901,8 +1913,8 @@ const struct tune_params arm_cortex_a7_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1924,8 +1936,8 @@ const struct tune_params arm_cortex_a15_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1947,8 +1959,8 @@ const struct tune_params arm_cortex_a53_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1970,8 +1982,8 @@ const struct tune_params arm_cortex_a57_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1993,8 +2005,8 @@ const struct tune_params arm_xgene1_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2019,8 +2031,8 @@ const struct tune_params arm_cortex_a5_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_FALSE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_FALSE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -2042,8 +2054,8 @@ const struct tune_params arm_cortex_a9_tune =
   ARM_PREFETCH_BENEFICIAL(4,32,32),
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2065,8 +2077,8 @@ const struct tune_params arm_cortex_a12_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -2095,8 +2107,8 @@ const struct tune_params arm_v7m_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_FALSE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_FALSE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2120,8 +2132,8 @@ const struct tune_params arm_cortex_m7_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2145,8 +2157,8 @@ const struct tune_params arm_v6m_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_FALSE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_FALSE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2168,8 +2180,8 @@ const struct tune_params arm_fa726te_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2688,35 +2700,37 @@ arm_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 static void
 arm_option_check_internal (struct gcc_options *opts)
 {
+  int flags = opts->x_target_flags;
+
   /* Make sure that the processor choice does not conflict with any of the
      other command line choices.  */
-  if (TREE_TARGET_ARM (opts) && !(insn_flags & FL_NOTM))
+  if (TARGET_ARM_P (flags) && !(insn_flags & FL_NOTM))
     error ("target CPU does not support ARM mode");
 
   /* TARGET_BACKTRACE calls leaf_function_p, which causes a crash if done
      from here where no function is being compiled currently.  */
-  if ((TARGET_TPCS_FRAME || TARGET_TPCS_LEAF_FRAME) && TREE_TARGET_ARM (opts))
+  if ((TARGET_TPCS_FRAME || TARGET_TPCS_LEAF_FRAME) && TARGET_ARM_P (flags))
     warning (0, "enabling backtrace support is only meaningful when compiling for the Thumb");
 
-  if (TREE_TARGET_ARM (opts) && TARGET_CALLEE_INTERWORKING)
+  if (TARGET_ARM_P (flags) && TARGET_CALLEE_INTERWORKING)
     warning (0, "enabling callee interworking support is only meaningful when compiling for the Thumb");
 
   /* If this target is normally configured to use APCS frames, warn if they
      are turned off and debugging is turned on.  */
-  if (TREE_TARGET_ARM (opts)
+  if (TARGET_ARM_P (flags)
       && write_symbols != NO_DEBUG
       && !TARGET_APCS_FRAME
       && (TARGET_DEFAULT & MASK_APCS_FRAME))
     warning (0, "-g with -mno-apcs-frame may not give sensible debugging");
 
   /* iWMMXt unsupported under Thumb mode.  */
-  if (TREE_TARGET_THUMB (opts) && TARGET_IWMMXT)
+  if (TARGET_THUMB_P (flags) && TARGET_IWMMXT)
     error ("iWMMXt unsupported under Thumb mode");
 
-  if (TARGET_HARD_TP && TREE_TARGET_THUMB1 (opts))
+  if (TARGET_HARD_TP && TARGET_THUMB1_P (flags))
     error ("can not use -mtp=cp15 with 16-bit Thumb");
 
-  if (TREE_TARGET_THUMB (opts) && TARGET_VXWORKS_RTP && flag_pic)
+  if (TARGET_THUMB_P (flags) && TARGET_VXWORKS_RTP && flag_pic)
     {
       error ("RTP PIC is incompatible with Thumb");
       flag_pic = 0;
@@ -2725,7 +2739,7 @@ arm_option_check_internal (struct gcc_options *opts)
   /* We only support -mslow-flash-data on armv7-m targets.  */
   if (target_slow_flash_data
       && ((!(arm_arch7 && !arm_arch_notm) && !arm_arch7em)
-	  || (TREE_TARGET_THUMB1 (opts) || flag_pic || TARGET_NEON)))
+	  || (TARGET_THUMB1_P (flags) || flag_pic || TARGET_NEON)))
     error ("-mslow-flash-data only supports non-pic code on armv7-m targets");
 }
 
@@ -2733,9 +2747,11 @@ arm_option_check_internal (struct gcc_options *opts)
 static void
 arm_option_params_internal (struct gcc_options *opts)
 {
+  int flags = opts->x_target_flags;
+
  /* If we are not using the default (ARM mode) section anchor offset
      ranges, then set the correct ranges now.  */
-  if (TREE_TARGET_THUMB1 (opts))
+  if (TARGET_THUMB1_P (flags))
     {
       /* Thumb-1 LDR instructions cannot have negative offsets.
          Permissible positive offset ranges are 5-bit (for byte loads),
@@ -2745,7 +2761,7 @@ arm_option_params_internal (struct gcc_options *opts)
       targetm.min_anchor_offset = 0;
       targetm.max_anchor_offset = 127;
     }
-  else if (TREE_TARGET_THUMB2 (opts))
+  else if (TARGET_THUMB2_P (flags))
     {
       /* The minimum is set such that the total size of the block
          for a particular anchor is 248 + 1 + 4095 bytes, which is
@@ -2766,25 +2782,31 @@ arm_option_params_internal (struct gcc_options *opts)
       max_insns_skipped = 6;
 
       /* For THUMB2, we limit the conditional sequence to one IT block.  */
-      if (TREE_TARGET_THUMB2 (opts))
+      if (TARGET_THUMB2_P (flags))
         max_insns_skipped = opts->x_arm_restrict_it ? 1 : 4;
     }
   else
-    max_insns_skipped = current_tune->max_insns_skipped;
+    /* When -mrestrict-it is in use tone down the if-conversion.  */
+    max_insns_skipped
+      = (TARGET_THUMB2_P (opts->x_target_flags) && opts->x_arm_restrict_it)
+         ? 1 : current_tune->max_insns_skipped;
 }
+
+/* Options after initial target override.  */
+static GTY(()) tree init_optimize;
 
 /* Reset options between modes that the user has specified.  */
 static void
 arm_option_override_internal (struct gcc_options *opts,
 			      struct gcc_options *opts_set)
 {
-  if (TREE_TARGET_THUMB (opts) && !(insn_flags & FL_THUMB))
+  if (TARGET_THUMB_P (opts->x_target_flags) && !(insn_flags & FL_THUMB))
     {
       warning (0, "target CPU does not support THUMB instructions");
       opts->x_target_flags &= ~MASK_THUMB;
     }
 
-  if (TARGET_APCS_FRAME && TREE_TARGET_THUMB (opts))
+  if (TARGET_APCS_FRAME && TARGET_THUMB_P (opts->x_target_flags))
     {
       /* warning (0, "ignoring -mapcs-frame because -mthumb was used"); */
       opts->x_target_flags &= ~MASK_APCS_FRAME;
@@ -2792,25 +2814,32 @@ arm_option_override_internal (struct gcc_options *opts,
 
   /* Callee super interworking implies thumb interworking.  Adding
      this to the flags here simplifies the logic elsewhere.  */
-  if (TREE_TARGET_THUMB (opts) && TARGET_CALLEE_INTERWORKING)
+  if (TARGET_THUMB_P (opts->x_target_flags) && TARGET_CALLEE_INTERWORKING)
     opts->x_target_flags |= MASK_INTERWORK;
+
+  /* need to remember initial values so combinaisons of options like
+     -mflip-thumb -mthumb -fno-schedule-insns work for any attribute.  */
+  cl_optimization *to = TREE_OPTIMIZATION (init_optimize);
 
   if (! opts_set->x_arm_restrict_it)
     opts->x_arm_restrict_it = arm_arch8;
 
-  if (!TREE_TARGET_THUMB2 (opts))
+  if (!TARGET_THUMB2_P (opts->x_target_flags))
     opts->x_arm_restrict_it = 0;
 
-  if (TREE_TARGET_THUMB1 (opts))
-    {
-      /* Don't warn since it's on by default in -O2.  */
-      opts->x_flag_schedule_insns = 0;
-    }
+  /* Don't warn since it's on by default in -O2.  */
+  if (TARGET_THUMB1_P (opts->x_target_flags))
+    opts->x_flag_schedule_insns = 0;
+  else
+    opts->x_flag_schedule_insns = to->x_flag_schedule_insns;
 
   /* Disable shrink-wrap when optimizing function for size, since it tends to
      generate additional returns.  */
-  if (optimize_function_for_size_p (cfun) && TREE_TARGET_THUMB2 (opts))
+  if (optimize_function_for_size_p (cfun)
+      && TARGET_THUMB2_P (opts->x_target_flags))
     opts->x_flag_shrink_wrap = false;
+  else
+    opts->x_flag_shrink_wrap = to->x_flag_shrink_wrap;
 
   /* In Thumb1 mode, we emit the epilogue in RTL, but the last insn
      - epilogue_insns - does not accurately model the corresponding insns
@@ -2820,12 +2849,14 @@ arm_option_override_internal (struct gcc_options *opts,
      finding out about it.  Therefore, disable fipa-ra in Thumb1 mode.
      TODO: Accurately model clobbers for epilogue_insns and reenable
      fipa-ra.  */
-  if (TREE_TARGET_THUMB1 (opts))
+  if (TARGET_THUMB1_P (opts->x_target_flags))
     opts->x_flag_ipa_ra = 0;
+  else
+    opts->x_flag_ipa_ra = to->x_flag_ipa_ra;
 
   /* Thumb2 inline assembly code should always use unified syntax.
      This will apply to ARM and Thumb1 eventually.  */
-  opts->x_inline_asm_unified = TREE_TARGET_THUMB2 (opts);
+  opts->x_inline_asm_unified = TARGET_THUMB2_P (opts->x_target_flags);
 }
 
 /* Fix up any incompatible options that the user has specified.  */
@@ -3324,12 +3355,20 @@ arm_option_override (void)
       && (!arm_arch7 || !current_tune->prefer_ldrd_strd))
     flag_schedule_fusion = 0;
 
+  /* Need to remember initial options before they are overriden.  */
+  init_optimize = build_optimization_node (&global_options);
+
   arm_option_override_internal (&global_options, &global_options_set);
   arm_option_check_internal (&global_options);
   arm_option_params_internal (&global_options);
 
   /* Register global variables with the garbage collector.  */
   arm_add_gc_roots ();
+
+  /* Save the initial options in case the user does function specific
+     options.  */
+  target_option_default_node = target_option_current_node
+    = build_target_option_node (&global_options);
 }
 
 static void
@@ -3483,13 +3522,20 @@ arm_warn_func_return (tree decl)
 static void
 arm_asm_trampoline_template (FILE *f)
 {
+  if (TARGET_UNIFIED_ASM)
+    fprintf (f, "\t.syntax unified\n");
+  else
+    fprintf (f, "\t.syntax divided\n");
+
   if (TARGET_ARM)
     {
+      fprintf (f, "\t.arm\n");
       asm_fprintf (f, "\tldr\t%r, [%r, #0]\n", STATIC_CHAIN_REGNUM, PC_REGNUM);
       asm_fprintf (f, "\tldr\t%r, [%r, #0]\n", PC_REGNUM, PC_REGNUM);
     }
   else if (TARGET_THUMB2)
     {
+      fprintf (f, "\t.thumb\n");
       /* The Thumb-2 trampoline is similar to the arm implementation.
 	 Unlike 16-bit Thumb, we enter the stub in thumb mode.  */
       asm_fprintf (f, "\tldr.w\t%r, [%r, #4]\n",
@@ -9239,7 +9285,8 @@ static bool
 arm_unspec_cost (rtx x, enum rtx_code /* outer_code */, bool speed_p, int *cost)
 {
   const struct cpu_cost_table *extra_cost = current_tune->insn_extra_cost;
-  gcc_assert (GET_CODE (x) == UNSPEC);
+  rtx_code code = GET_CODE (x);
+  gcc_assert (code == UNSPEC || code == UNSPEC_VOLATILE);
 
   switch (XINT (x, 1))
     {
@@ -9285,7 +9332,7 @@ arm_unspec_cost (rtx x, enum rtx_code /* outer_code */, bool speed_p, int *cost)
       *cost = COSTS_N_INSNS (2);
       break;
     }
-  return false;
+  return true;
 }
 
 /* Cost of a libcall.  We assume one insn per argument, an amount for the
@@ -10841,6 +10888,7 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
       *cost = LIBCALL_COST (1);
       return false;
 
+    case UNSPEC_VOLATILE:
     case UNSPEC:
       return arm_unspec_cost (x, outer_code, speed_p, cost);
 
@@ -24185,6 +24233,24 @@ arm_init_expanders (void)
     mark_reg_pointer (arg_pointer_rtx, PARM_BOUNDARY);
 }
 
+/* Check that FUNC is called with a different mode.  */
+
+bool
+arm_change_mode_p (tree func)
+{
+  if (TREE_CODE (func) != FUNCTION_DECL)
+    return false;
+
+  tree callee_tree = DECL_FUNCTION_SPECIFIC_TARGET (func);
+
+  if (!callee_tree)
+    callee_tree = target_option_default_node;
+
+  struct cl_target_option *callee_opts = TREE_TARGET_OPTION (callee_tree);
+  int flags = callee_opts->x_target_flags;
+
+  return (TARGET_THUMB_P (flags) != TARGET_THUMB);
+}
 
 /* Like arm_compute_initial_elimination offset.  Simpler because there
    isn't an ABI specified frame pointer for Thumb.  Instead, we set it
@@ -25501,8 +25567,8 @@ arm_print_tune_info (void)
 	       (int) current_tune->string_ops_prefer_neon);
   asm_fprintf (asm_out_file, "\t\t@max_insns_inline_memset:\t%d\n",
 	       current_tune->max_insns_inline_memset);
-  asm_fprintf (asm_out_file, "\t\t@fuseable_ops:\t%u\n",
-	       current_tune->fuseable_ops);
+  asm_fprintf (asm_out_file, "\t\t@fusible_ops:\t%u\n",
+	       current_tune->fusible_ops);
   asm_fprintf (asm_out_file, "\t\t@sched_autopref:\t%d\n",
 	       (int) current_tune->sched_autopref);
 }
@@ -25511,9 +25577,6 @@ static void
 arm_file_start (void)
 {
   int val;
-
-  if (TARGET_UNIFIED_ASM)
-    asm_fprintf (asm_out_file, "\t.syntax unified\n");
 
   if (TARGET_BPABI)
     {
@@ -29139,7 +29202,7 @@ arm_gen_setmem (rtx *operands)
 static bool
 arm_macro_fusion_p (void)
 {
-  return current_tune->fuseable_ops != tune_params::FUSE_NOTHING;
+  return current_tune->fusible_ops != tune_params::FUSE_NOTHING;
 }
 
 
@@ -29160,7 +29223,7 @@ aarch_macro_fusion_pair_p (rtx_insn* prev, rtx_insn* curr)
   if (!arm_macro_fusion_p ())
     return false;
 
-  if (current_tune->fuseable_ops & tune_params::FUSE_MOVW_MOVT)
+  if (current_tune->fusible_ops & tune_params::FUSE_MOVW_MOVT)
     {
       /* We are trying to fuse
 	 movw imm / movt imm
@@ -29261,9 +29324,196 @@ arm_is_constant_pool_ref (rtx x)
 	  && CONSTANT_POOL_ADDRESS_P (XEXP (x, 0)));
 }
 
+/* Remember the last target of arm_set_current_function.  */
+static GTY(()) tree arm_previous_fndecl;
+
+/* Invalidate arm_previous_fndecl.  */
+void
+arm_reset_previous_fndecl (void)
+{
+  arm_previous_fndecl = NULL_TREE;
+}
+
+/* Establish appropriate back-end context for processing the function
+   FNDECL.  The argument might be NULL to indicate processing at top
+   level, outside of any function scope.  */
+static void
+arm_set_current_function (tree fndecl)
+{
+  if (!fndecl || fndecl == arm_previous_fndecl)
+    return;
+
+  tree old_tree = (arm_previous_fndecl
+		   ? DECL_FUNCTION_SPECIFIC_TARGET (arm_previous_fndecl)
+		   : NULL_TREE);
+
+  tree new_tree = DECL_FUNCTION_SPECIFIC_TARGET (fndecl);
+
+  arm_previous_fndecl = fndecl;
+  if (old_tree == new_tree)
+    ;
+
+  else if (new_tree)
+    {
+      cl_target_option_restore (&global_options,
+				TREE_TARGET_OPTION (new_tree));
+
+      if (TREE_TARGET_GLOBALS (new_tree))
+	restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
+      else
+	TREE_TARGET_GLOBALS (new_tree)
+	  = save_target_globals_default_opts ();
+    }
+
+  else if (old_tree)
+    {
+      new_tree = target_option_current_node;
+
+      cl_target_option_restore (&global_options,
+				TREE_TARGET_OPTION (new_tree));
+      if (TREE_TARGET_GLOBALS (new_tree))
+	restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
+      else if (new_tree == target_option_default_node)
+	restore_target_globals (&default_target_globals);
+      else
+	TREE_TARGET_GLOBALS (new_tree)
+	  = save_target_globals_default_opts ();
+    }
+
+  arm_option_params_internal (&global_options);
+}
+
+/* Hook to determine if one function can safely inline another.  */
+
+static bool
+arm_can_inline_p (tree caller ATTRIBUTE_UNUSED, tree callee ATTRIBUTE_UNUSED)
+{
+  /* Overidde default hook: Always OK to inline between different modes. 
+     Function with mode specific instructions, e.g using asm, must be explicitely 
+     protected with noinline.  */
+  return true;
+}
+
+/* Inner function to process the attribute((target(...))), take an argument and
+   set the current options from the argument.  If we have a list, recursively
+   go over the list.  */
+
+static bool
+arm_valid_target_attribute_rec (tree args,  struct gcc_options *opts)
+{
+  if (TREE_CODE (args) == TREE_LIST)
+    {
+      bool ret = true;
+      for (; args; args = TREE_CHAIN (args))
+	if (TREE_VALUE (args)
+	    && !arm_valid_target_attribute_rec (TREE_VALUE (args), opts))
+	  ret = false;
+      return ret;
+    }
+
+  else if (TREE_CODE (args) != STRING_CST)
+    {
+      error ("attribute %<target%> argument not a string");
+      return false;
+    }
+
+  char *argstr = ASTRDUP (TREE_STRING_POINTER (args));
+  while (argstr && *argstr != '\0')
+    {
+      while (ISSPACE (*argstr))
+	argstr++;
+
+      if (!strcmp (argstr, "thumb"))
+	{
+	  opts->x_target_flags |= MASK_THUMB;
+	  arm_option_check_internal (opts);
+	  return true;
+	}
+
+      if (!strcmp (argstr, "arm"))
+	{
+	  opts->x_target_flags &= ~MASK_THUMB;
+	  arm_option_check_internal (opts);
+	  return true;
+	}
+
+      warning (0, "attribute(target(\"%s\")) is unknown", argstr);
+      return false;
+    }
+
+  return false;
+}
+
+/* Return a TARGET_OPTION_NODE tree of the target options listed or NULL.  */
+
+tree
+arm_valid_target_attribute_tree (tree args, struct gcc_options *opts,
+				 struct gcc_options *opts_set)
+{
+  if (!arm_valid_target_attribute_rec (args, opts))
+    return NULL_TREE;
+
+  /* Do any overrides, such as global options arch=xxx.  */
+  arm_option_override_internal (opts, opts_set);
+
+  return build_target_option_node (opts);
+}
+
+/* Hook to validate attribute((target("string"))).  */
+
+static bool
+arm_valid_target_attribute_p (tree fndecl, tree ARG_UNUSED (name),
+			      tree args, int ARG_UNUSED (flags))
+{
+  bool ret = true;
+  struct gcc_options func_options;
+  tree cur_tree, new_optimize;
+  gcc_assert ((fndecl != NULL_TREE) && (args != NULL_TREE));
+
+  /* Get the optimization options of the current function.  */
+  tree func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
+
+  /* If the function changed the optimization levels as well as setting target
+     options, start with the optimizations specified.  */
+  if (!func_optimize)
+    func_optimize = optimization_default_node;
+
+  /* Init func_options.  */
+  memset (&func_options, 0, sizeof (func_options));
+  init_options_struct (&func_options, NULL);
+  lang_hooks.init_options_struct (&func_options);
+
+  /* Initialize func_options to the defaults.  */
+  cl_optimization_restore (&func_options,
+			   TREE_OPTIMIZATION (func_optimize));
+
+  cl_target_option_restore (&func_options,
+			    TREE_TARGET_OPTION (target_option_default_node));
+
+  /* Set func_options flags with new target mode.  */
+  cur_tree = arm_valid_target_attribute_tree (args, &func_options,
+					      &global_options_set);
+
+  if (cur_tree == NULL_TREE)
+    ret = false;
+
+  new_optimize = build_optimization_node (&func_options);
+
+  DECL_FUNCTION_SPECIFIC_TARGET (fndecl) = cur_tree;
+
+  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl) = new_optimize;
+
+  return ret;
+}
+
 void
 arm_declare_function_name (FILE *stream, const char *name, tree decl)
 {
+  if (TARGET_UNIFIED_ASM)
+    fprintf (stream, "\t.syntax unified\n");
+  else
+    fprintf (stream, "\t.syntax divided\n");
+
   if (TARGET_THUMB)
     {
       if (is_called_in_ARM_mode (decl)
@@ -29275,6 +29525,8 @@ arm_declare_function_name (FILE *stream, const char *name, tree decl)
       else
 	fprintf (stream, "\t.thumb\n\t.thumb_func\n");
     }
+  else
+    fprintf (stream, "\t.arm\n");
 
   if (TARGET_POKE_FUNCTION_NAME)
     arm_poke_function_name (stream, (const char *) name);

@@ -42,138 +42,19 @@ with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
 with Snames;   use Snames;
-with Table;
 with Tbuild;   use Tbuild;
 with Uintp;    use Uintp;
 
 package body Exp_Unst is
-
-   ---------------------------
-   -- Terminology for Calls --
-   ---------------------------
-
-   --  The level of a subprogram in the nest being analyzed is defined to be
-   --  the level of nesting, so the outer level subprogram (the one passed to
-   --  Unnest_Subprogram) is 1, subprograms immediately nested within this
-   --  outer level subprogram have a level of 2, etc.
-
-   --  Calls within the nest being analyzed are of three types:
-
-   --    Downward call: this is a call from a subprogram to a subprogram that
-   --    is immediately nested with in the caller, and thus has a level that
-   --    is one greater than the caller. It is a fundamental property of the
-   --    nesting structure and visibility that it is not possible to make a
-   --    call from level N to level M, where M is greater than N + 1.
-
-   --    Parallel call: this is a call from a nested subprogram to another
-   --    nested subprogram that is at the same level.
-
-   --    Upward call: this is a call from a subprogram to a subprogram that
-   --    encloses the caller. The level of the callee is less than the level
-   --    of the caller, and there is no limit on the difference, e.g. for an
-   --    uplevel call, a subprogram at level 5 can call one at level 2 or even
-   --    the outer level subprogram at level 1.
-
-   -----------
-   -- Subps --
-   -----------
-
-   --  Table to record subprograms within the nest being currently analyzed
-
-   type Subp_Entry is record
-      Ent : Entity_Id;
-      --  Entity of the subprogram
-
-      Bod : Node_Id;
-      --  Subprogram_Body node for this subprogram
-
-      Lev : Nat;
-      --  Subprogram level (1 = outer subprogram (Subp argument), 2 = nested
-      --  immediately within this outer subprogram etc.)
-
-      Reachable : Boolean;
-      --  This flag is set True if there is a call path from the outer level
-      --  subprogram to this subprogram. If Reachable is False, it means that
-      --  the subprogram is declared but not actually referenced. We remove
-      --  such subprograms from the tree, which simplifies our task, because
-      --  we don't have to worry about e.g. uplevel references from such an
-      --  unreferenced subpogram, which might require (useless) activation
-      --  records to be created. This is computed by setting the outer level
-      --  subprogram (Subp itself) as reachable, and then doing a transitive
-      --  closure following all calls.
-
-      Uplevel_Ref : Nat;
-      --  The outermost level which defines entities which this subprogram
-      --  references either directly or indirectly via a call. This cannot
-      --  be greater than Lev. If it is equal to Lev, then it means that the
-      --  subprogram does not make any uplevel references and that thus it
-      --  does not need an activation record pointer passed. If it is less than
-      --  Lev, then an activation record pointer is needed, since there is at
-      --  least one uplevel reference. This is computed by initially setting
-      --  Uplevel_Ref to Lev for all subprograms. Then on the initial tree
-      --  traversal, decreasing Uplevel_Ref for an explicit uplevel reference,
-      --  and finally by doing a transitive closure that follows calls (if A
-      --  calls B and B has an uplevel reference to level X, then A references
-      --  level X indirectly).
-
-      Declares_AREC : Boolean;
-      --  This is set True for a subprogram which include the declarations
-      --  for a local activation record to be passed on downward calls. It
-      --  is set True for the target level of an uplevel reference, and for
-      --  all intervening nested subprograms. For example, if a subprogram X
-      --  at level 5 makes an uplevel reference to an entity declared in a
-      --  level 2 subprogram, then the subprograms at levels 4,3,2 enclosing
-      --  the level 5 subprogram will have this flag set True.
-
-      Uents : Elist_Id;
-      --  This is a list of entities declared in this subprogram which are
-      --  uplevel referenced. It contains both objects (which will be put in
-      --  the corresponding AREC activation record), and types. The types are
-      --  not put in the AREC activation record, but referenced bounds (i.e.
-      --  generated _FIRST and _LAST entites, and formal parameters) will be
-      --  in the list in their own right.
-
-      ARECnF : Entity_Id;
-      --  This entity is defined for all subprograms which need an extra formal
-      --  that contains a pointer to the activation record needed for uplevel
-      --  references. ARECnF must be defined for any subprogram which has a
-      --  direct or indirect uplevel reference (i.e. Reference_Level < Lev).
-
-      ARECn   : Entity_Id;
-      ARECnT  : Entity_Id;
-      ARECnPT : Entity_Id;
-      ARECnP  : Entity_Id;
-      --  These AREC entities are defined only for subprograms for which we
-      --  generate an activation record declaration, i.e. for subprograms for
-      --  which the Declares_AREC flag is set True.
-
-      ARECnU : Entity_Id;
-      --  This AREC entity is the uplink component. It is other than Empty only
-      --  for nested subprograms that declare an activation record as indicated
-      --  by Declares_AREC being Ture, and which have uplevel references (Lev
-      --  greater than Uplevel_Ref). It is the additional component in the
-      --  activation record that references the ARECnF pointer (which points
-      --  the activation record one level higher, thus forming the chain).
-
-   end record;
-
-   subtype SI_Type is Nat;
-
-   package Subps is new Table.Table (
-     Table_Component_Type => Subp_Entry,
-     Table_Index_Type     => SI_Type,
-     Table_Low_Bound      => 1,
-     Table_Initial        => 100,
-     Table_Increment      => 200,
-     Table_Name           => "Unnest_Subps");
-   --  Records the subprograms in the nest whose outer subprogram is Subp
 
    -----------
    -- Calls --
    -----------
 
    --  Table to record calls within the nest being analyzed. These are the
-   --  calls which may need to have an AREC actual added.
+   --  calls which may need to have an AREC actual added. This table is built
+   --  new for each subprogram nest and cleared at the end of processing each
+   --  subprogram nest.
 
    type Call_Entry is record
       N : Node_Id;
@@ -207,7 +88,9 @@ package body Exp_Unst is
    --  constants, formal parameters). These are the references that will
    --  need rewriting to use the activation table (AREC) pointers. Also
    --  included are implicit and explicit uplevel references to types, but
-   --  these do not get rewritten by the front end.
+   --  these do not get rewritten by the front end. This table is built new
+   --  for each subprogram nest and cleared at the end of processing each
+   --  subprogram nest.
 
    type Uref_Entry is record
       Ref : Node_Id;
@@ -241,8 +124,8 @@ package body Exp_Unst is
    -----------------------
 
    procedure Unnest_Subprogram (Subp : Entity_Id; Subp_Body : Node_Id) is
-      function AREC_String (Lev : Pos) return String;
-      --  Given a level value, 1, 2, ... returns the string AREC, AREC2, ...
+      function AREC_Name (J : Pos; S : String) return Name_Id;
+      --  Returns name for string ARECjS, where j is the decimal value of j
 
       function Enclosing_Subp (Subp : SI_Type) return SI_Type;
       --  Subp is the index of a subprogram which has a Lev greater than 1.
@@ -254,30 +137,32 @@ package body Exp_Unst is
       --  function returns the level of nesting (Subp = 1, subprograms that
       --  are immediately nested within Subp = 2, etc).
 
+      function Img_Pos (N : Pos) return String;
+      --  Return image of N without leading blank
+
       function Subp_Index (Sub : Entity_Id) return SI_Type;
       --  Given the entity for a subprogram, return corresponding Subps index
 
-      function Upref_Name (Ent : Entity_Id; Clist : List_Id) return Name_Id;
+      function Upref_Name
+        (Ent   : Entity_Id;
+         Index : Pos;
+         Clist : List_Id) return Name_Id;
       --  This function returns the name to be used in the activation record to
       --  reference the variable uplevel. Clist is the list of components that
-      --  have been created in the activation record so far. Normally this is
-      --  just a copy of the Chars field of the entity. The exception is when
-      --  the name has already been used, in which case we suffix the name with
-      --  the entity number to avoid duplication. This happens with declare
-      --  blocks and generic parameters at least.
+      --  have been created in the activation record so far. Normally the name
+      --  is just a copy of the Chars field of the entity. The exception is
+      --  when the name has already been used, in which case we suffix the name
+      --  with the index value Index to avoid duplication. This happens with
+      --  declare blocks and generic parameters at least.
 
-      -----------------
-      -- AREC_String --
-      -----------------
+      ---------------
+      -- AREC_Name --
+      ---------------
 
-      function AREC_String (Lev : Pos) return String is
+      function AREC_Name (J : Pos; S : String) return Name_Id is
       begin
-         if Lev > 9 then
-            return AREC_String (Lev / 10) & Character'Val (Lev mod 10 + 48);
-         else
-            return "AREC" & Character'Val (Lev + 48);
-         end if;
-      end AREC_String;
+         return Name_Find_Str ("AREC" & Img_Pos (J) & S);
+      end AREC_Name;
 
       --------------------
       -- Enclosing_Subp --
@@ -299,7 +184,6 @@ package body Exp_Unst is
       function Get_Level (Sub : Entity_Id) return Nat is
          Lev : Nat;
          S   : Entity_Id;
-
       begin
          Lev := 1;
          S   := Sub;
@@ -312,6 +196,27 @@ package body Exp_Unst is
             end if;
          end loop;
       end Get_Level;
+
+      -------------
+      -- Img_Pos --
+      -------------
+
+      function Img_Pos (N : Pos) return String is
+         Buf : String (1 .. 20);
+         Ptr : Natural;
+         NV  : Nat;
+
+      begin
+         Ptr := Buf'Last;
+         NV := N;
+         while NV /= 0 loop
+            Buf (Ptr) := Character'Val (48 + NV mod 10);
+            Ptr := Ptr - 1;
+            NV := NV / 10;
+         end loop;
+
+         return Buf (Ptr + 1 .. Buf'Last);
+      end Img_Pos;
 
       ----------------
       -- Subp_Index --
@@ -327,21 +232,20 @@ package body Exp_Unst is
       -- Upref_Name --
       ----------------
 
-      function Upref_Name (Ent : Entity_Id; Clist : List_Id) return Name_Id is
+      function Upref_Name
+        (Ent   : Entity_Id;
+         Index : Pos;
+         Clist : List_Id) return Name_Id
+      is
          C : Node_Id;
-
       begin
          C := First (Clist);
          loop
             if No (C) then
                return Chars (Ent);
-
             elsif Chars (Defining_Identifier (C)) = Chars (Ent) then
-               Get_Name_String (Chars (Ent));
-               Add_Str_To_Name_Buffer ("__");
-               Add_Nat_To_Name_Buffer (Nat (Ent));
-               return Name_Enter;
-
+               return Name_Find_Str
+                        (Get_Name_String (Chars (Ent)) & Img_Pos (Index));
             else
                Next (C);
             end if;
@@ -383,7 +287,7 @@ package body Exp_Unst is
 
       --  First populate the above tables
 
-      Subps.Init;
+      Subps_First := Subps.Last + 1;
       Calls.Init;
       Urefs.Init;
 
@@ -637,6 +541,7 @@ package body Exp_Unst is
                       Uplevel_Ref   => L,
                       Declares_AREC => False,
                       Uents         => No_Elist,
+                      Last          => 0,
                       ARECnF        => Empty,
                       ARECn         => Empty,
                       ARECnT        => Empty,
@@ -907,7 +812,7 @@ package body Exp_Unst is
 
       begin
          New_SI := 0;
-         for J in Subps.First .. Subps.Last loop
+         for J in Subps_First .. Subps.Last loop
             declare
                STJ  : Subp_Entry renames Subps.Table (J);
                Spec : Node_Id;
@@ -1040,15 +945,19 @@ package body Exp_Unst is
          end;
       end loop;
 
+      --  The tables are now complete, so we can record the last index in the
+      --  Subps table for later reference in Cprint.
+
+      Subps.Table (Subps_First).Last := Subps.Last;
+
       --  Next step, create the entities for code we will insert. We do this
       --  at the start so that all the entities are defined, regardless of the
       --  order in which we do the code insertions.
 
-      Create_Entities : for J in Subps.First .. Subps.Last loop
+      Create_Entities : for J in Subps_First .. Subps.Last loop
          declare
             STJ : Subp_Entry renames Subps.Table (J);
             Loc : constant Source_Ptr := Sloc (STJ.Bod);
-            ARS : constant String     := AREC_String (STJ.Lev);
 
          begin
             --  First we create the ARECnF entity for the additional formal for
@@ -1056,32 +965,26 @@ package body Exp_Unst is
 
             if STJ.Uplevel_Ref < STJ.Lev then
                STJ.ARECnF :=
-                 Make_Defining_Identifier (Loc,
-                   Chars => Name_Find_Str (AREC_String (STJ.Lev - 1) & "F"));
+                 Make_Defining_Identifier (Loc, Chars => AREC_Name (J, "F"));
             end if;
 
             --  Define the AREC entities for the activation record if needed
 
             if STJ.Declares_AREC then
                STJ.ARECn   :=
-                 Make_Defining_Identifier (Loc, Name_Find_Str (ARS));
+                 Make_Defining_Identifier (Loc, AREC_Name (J, ""));
                STJ.ARECnT  :=
-                 Make_Defining_Identifier (Loc, Name_Find_Str (ARS & "T"));
+                 Make_Defining_Identifier (Loc, AREC_Name (J, "T"));
                STJ.ARECnPT :=
-                 Make_Defining_Identifier (Loc, Name_Find_Str (ARS & "PT"));
+                 Make_Defining_Identifier (Loc, AREC_Name (J, "PT"));
                STJ.ARECnP  :=
-                 Make_Defining_Identifier (Loc, Name_Find_Str (ARS & "P"));
+                 Make_Defining_Identifier (Loc, AREC_Name (J, "P"));
 
                --  Define uplink component entity if inner nesting case
 
                if Present (STJ.ARECnF) then
-                  declare
-                     ARS1 : constant String := AREC_String (STJ.Lev - 1);
-                  begin
-                     STJ.ARECnU :=
-                       Make_Defining_Identifier (Loc,
-                         Chars => Name_Find_Str (ARS1 & "U"));
-                  end;
+                  STJ.ARECnU :=
+                    Make_Defining_Identifier (Loc, AREC_Name (J, "U"));
                end if;
             end if;
          end;
@@ -1093,7 +996,7 @@ package body Exp_Unst is
          Addr : constant Entity_Id := RTE (RE_Address);
 
       begin
-         for J in Subps.First .. Subps.Last loop
+         for J in Subps_First .. Subps.Last loop
             declare
                STJ : Subp_Entry renames Subps.Table (J);
 
@@ -1193,10 +1096,16 @@ package body Exp_Unst is
                      Comp  : Entity_Id;
 
                      Decl_ARECnT  : Node_Id;
-                     Decl_ARECn   : Node_Id;
                      Decl_ARECnPT : Node_Id;
+                     Decl_ARECn   : Node_Id;
                      Decl_ARECnP  : Node_Id;
                      --  Declaration nodes for the AREC entities we build
+
+                     Decl_Assign : Node_Id;
+                     --  Assigment to set uplink, Empty if none
+
+                     Decls : List_Id;
+                     --  List of new declarations we create
 
                   begin
                      --  Build list of component declarations for ARECnT
@@ -1205,15 +1114,14 @@ package body Exp_Unst is
 
                      --  If we are in a subprogram that has a static link that
                      --  is passed in (as indicated by ARECnF being defined),
-                     --  then include ARECnU : ARECnPT := ARECnF where n is
-                     --  one less than the current level and the entity ARECnPT
-                     --  comes from the enclosing subprogram.
+                     --  then include ARECnU : ARECmPT where ARECmPT comes from
+                     --  the level one higher than the current level, and the
+                     --  entity ARECnPT comes from the enclosing subprogram.
 
                      if Present (STJ.ARECnF) then
                         declare
                            STJE : Subp_Entry
                                     renames Subps.Table (Enclosing_Subp (J));
-
                         begin
                            Append_To (Clist,
                              Make_Component_Declaration (Loc,
@@ -1221,9 +1129,7 @@ package body Exp_Unst is
                                Component_Definition =>
                                  Make_Component_Definition (Loc,
                                    Subtype_Indication =>
-                                     New_Occurrence_Of (STJE.ARECnPT, Loc)),
-                               Expression           =>
-                                 New_Occurrence_Of (STJ.ARECnF, Loc)));
+                                     New_Occurrence_Of (STJE.ARECnPT, Loc))));
                         end;
                      end if;
 
@@ -1234,14 +1140,20 @@ package body Exp_Unst is
                            Elmt : Elmt_Id;
                            Uent : Entity_Id;
 
+                           Indx : Nat;
+                           --  1's origin of index in list of elements. This is
+                           --  used to uniquify names if needed in Upref_Name.
+
                         begin
                            Elmt := First_Elmt (STJ.Uents);
+                           Indx := 0;
                            while Present (Elmt) loop
                               Uent := Node (Elmt);
+                              Indx := Indx + 1;
 
                               Comp :=
                                 Make_Defining_Identifier (Loc,
-                                  Chars => Upref_Name (Uent, Clist));
+                                  Chars => Upref_Name (Uent, Indx, Clist));
 
                               Set_Activation_Record_Component
                                 (Uent, Comp);
@@ -1271,15 +1183,7 @@ package body Exp_Unst is
                              Component_List =>
                                Make_Component_List (Loc,
                                  Component_Items => Clist)));
-
-                     --  ARECn : aliased ARECnT;
-
-                     Decl_ARECn :=
-                       Make_Object_Declaration (Loc,
-                         Defining_Identifier => STJ.ARECn,
-                           Aliased_Present   => True,
-                           Object_Definition =>
-                             New_Occurrence_Of (STJ.ARECnT, Loc));
+                     Decls := New_List (Decl_ARECnT);
 
                      --  type ARECnPT is access all ARECnT;
 
@@ -1291,6 +1195,17 @@ package body Exp_Unst is
                              All_Present        => True,
                              Subtype_Indication =>
                                New_Occurrence_Of (STJ.ARECnT, Loc)));
+                     Append_To (Decls, Decl_ARECnPT);
+
+                     --  ARECn : aliased ARECnT;
+
+                     Decl_ARECn :=
+                       Make_Object_Declaration (Loc,
+                         Defining_Identifier => STJ.ARECn,
+                           Aliased_Present   => True,
+                           Object_Definition =>
+                             New_Occurrence_Of (STJ.ARECnT, Loc));
+                     Append_To (Decls, Decl_ARECn);
 
                      --  ARECnP : constant ARECnPT := ARECn'Access;
 
@@ -1305,10 +1220,31 @@ package body Exp_Unst is
                              Prefix           =>
                                New_Occurrence_Of (STJ.ARECn, Loc),
                              Attribute_Name => Name_Access));
+                     Append_To (Decls, Decl_ARECnP);
 
-                     Prepend_List_To (Declarations (STJ.Bod),
-                       New_List
-                         (Decl_ARECnT, Decl_ARECn, Decl_ARECnPT, Decl_ARECnP));
+                     --  If we are in a subprogram that has a static link that
+                     --  is passed in (as indicated by ARECnF being defined),
+                     --  then generate ARECn.ARECmU := ARECmF where m is
+                     --  one less than the current level to set the uplink.
+
+                     if Present (STJ.ARECnF) then
+                        Decl_Assign :=
+                          Make_Assignment_Statement (Loc,
+                            Name       =>
+                              Make_Selected_Component (Loc,
+                                Prefix        =>
+                                  New_Occurrence_Of (STJ.ARECn, Loc),
+                                Selector_Name =>
+                                  New_Occurrence_Of (STJ.ARECnU, Loc)),
+                            Expression =>
+                              New_Occurrence_Of (STJ.ARECnF, Loc));
+                        Append_To (Decls, Decl_Assign);
+
+                     else
+                        Decl_Assign := Empty;
+                     end if;
+
+                     Prepend_List_To (Declarations (STJ.Bod), Decls);
 
                      --  Analyze the newly inserted declarations. Note that we
                      --  do not need to establish the whole scope stack, since
@@ -1322,10 +1258,20 @@ package body Exp_Unst is
 
                      Push_Scope (STJ.Ent);
                      Analyze (Decl_ARECnT,  Suppress => All_Checks);
-                     Analyze (Decl_ARECn,   Suppress => All_Checks);
                      Analyze (Decl_ARECnPT, Suppress => All_Checks);
+                     Analyze (Decl_ARECn,   Suppress => All_Checks);
                      Analyze (Decl_ARECnP,  Suppress => All_Checks);
+
+                     if Present (Decl_Assign) then
+                        Analyze (Decl_Assign,  Suppress => All_Checks);
+                     end if;
+
                      Pop_Scope;
+
+                     --  Mark the types as needing typedefs
+
+                     Set_Needs_Typedef (STJ.ARECnT);
+                     Set_Needs_Typedef (STJ.ARECnPT);
 
                      --  Next step, for each uplevel referenced entity, add
                      --  assignment operations to set the component in the
@@ -1516,15 +1462,22 @@ package body Exp_Unst is
 
                --     (((AREC5F.AREC4U).AREC3U).AREC2U).X
 
-               Pfx := New_Occurrence_Of (STJR.ARECnF, Loc);
+               --  In the above, ARECnF and ARECnU are pointers, so there are
+               --  explicit dereferences required for these occurrences.
+
+               Pfx :=
+                 Make_Explicit_Dereference (Loc,
+                   Prefix => New_Occurrence_Of (STJR.ARECnF, Loc));
                SI := RS_Caller;
                for L in STJE.Lev .. STJR.Lev - 2 loop
                   SI := Enclosing_Subp (SI);
                   Pfx :=
-                    Make_Selected_Component (Loc,
-                      Prefix        => Pfx,
-                      Selector_Name =>
-                        New_Occurrence_Of (Subps.Table (SI).ARECnU, Loc));
+                    Make_Explicit_Dereference (Loc,
+                      Prefix =>
+                        Make_Selected_Component (Loc,
+                          Prefix        => Pfx,
+                          Selector_Name =>
+                            New_Occurrence_Of (Subps.Table (SI).ARECnU, Loc)));
                end loop;
 
                --  Get activation record component (must exist)

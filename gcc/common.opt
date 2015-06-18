@@ -836,8 +836,11 @@ Driver Undocumented
 ;
 ; 8: The version of the ABI that corrects the substitution behavior of
 ;    function types with function-cv-qualifiers.
-;    First selectable in G++ 4.9 and default in G++ 5
-;    (set in c_common_post_options).
+;    First selectable in G++ 4.9 and default in G++ 5.
+;
+; 9: The version of the ABI that mangles attributes that affect type
+;    identity, such as ia32 calling convention attributes (stdcall, etc.)
+;    Default in G++ 6 (set in c_common_post_options).
 ;
 ; Additional positive integers will be assigned as new versions of
 ; the ABI become the default version of the ABI.
@@ -1778,7 +1781,7 @@ Common Report Var(flag_pic,2) Negative(fPIE)
 Generate position-independent code if possible (large mode)
 
 fPIE
-Common Report Var(flag_pie,2) Negative(fpic)
+Common Report Var(flag_pie,2) Negative(fpic) Init(-1)
 Generate position-independent code for executables if possible (large mode)
 
 fpic
@@ -1786,7 +1789,7 @@ Common Report Var(flag_pic,1) Negative(fpie)
 Generate position-independent code if possible (small mode)
 
 fpie
-Common Report Var(flag_pie,1) Negative(fPIC)
+Common Report Var(flag_pie,1) Negative(fPIC) Init(-1)
 Generate position-independent code for executables if possible (small mode)
 
 fplt
@@ -2863,8 +2866,12 @@ Driver
 symbolic
 Driver
 
-pie
+no-pie
 Driver RejectNegative Negative(shared)
+Don't create a position independent executable
+
+pie
+Driver RejectNegative Negative(no-pie)
 Create a position independent executable
 
 z

@@ -55,11 +55,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -67,13 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "symtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -87,7 +76,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "diagnostic-core.h"
 #include "df.h"
-#include "hash-table.h"
 #include "dumpfile.h"
 #include "rtl-iter.h"
 
@@ -2041,7 +2029,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 
 	      for (pnote = &cond_list; *pnote; pnote = pnote_next)
 		{
-		  rtx note = *pnote;
+		  rtx_expr_list *note = *pnote;
 		  rtx old_cond = XEXP (note, 0);
 
 		  pnote_next = (rtx_expr_list **)&XEXP (note, 1);
@@ -2075,7 +2063,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	      /* Likewise for the conditions.  */
 	      for (pnote = &cond_list; *pnote; pnote = pnote_next)
 		{
-		  rtx note = *pnote;
+		  rtx_expr_list *note = *pnote;
 		  rtx old_cond = XEXP (note, 0);
 
 		  pnote_next = (rtx_expr_list **)&XEXP (note, 1);

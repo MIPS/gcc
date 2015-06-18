@@ -415,173 +415,201 @@ package body Exp_Ch4 is
    ------------------------------
 
    function Current_Anonymous_Master return Entity_Id is
-      Decls     : List_Id;
-      Loc       : Source_Ptr;
-      Subp_Body : Node_Id;
+      function Create_Anonymous_Master
+        (Unit_Id   : Entity_Id;
+         Unit_Decl : Node_Id) return Entity_Id;
+      --  Create a new anonymous master for a compilation unit denoted by its
+      --  entity Unit_Id and declaration Unit_Decl. The declaration of the new
+      --  master along with any specialized initialization is inserted at the
+      --  top of the unit's declarations (see body for special cases). Return
+      --  the entity of the anonymous master.
+
+      -----------------------------
+      -- Create_Anonymous_Master --
+      -----------------------------
+
+      function Create_Anonymous_Master
+        (Unit_Id   : Entity_Id;
+         Unit_Decl : Node_Id) return Entity_Id
+      is
+         Insert_Nod : Node_Id := Empty;
+         --  The point of insertion into the declarative list of the unit. All
+         --  nodes are inserted before Insert_Nod.
+
+         procedure Insert_And_Analyze (Decls : List_Id; N : Node_Id);
+         --  Insert arbitrary node N in declarative list Decls and analyze it
+
+         ------------------------
+         -- Insert_And_Analyze --
+         ------------------------
+
+         procedure Insert_And_Analyze (Decls : List_Id; N : Node_Id) is
+         begin
+            --  The declarative list is already populated, the nodes are
+            --  inserted at the top of the list, preserving their order.
+
+            if Present (Insert_Nod) then
+               Insert_Before (Insert_Nod, N);
+
+            --  Otherwise append to the declarations to preserve order
+
+            else
+               Append_To (Decls, N);
+            end if;
+
+            Analyze (N);
+         end Insert_And_Analyze;
+
+         --  Local variables
+
+         Loc       : constant Source_Ptr := Sloc (Unit_Id);
+         Spec_Id   : constant Entity_Id  := Corresponding_Spec_Of (Unit_Decl);
+         Decls     : List_Id;
+         FM_Id     : Entity_Id;
+         Pref      : Character;
+         Unit_Spec : Node_Id;
+
+      --  Start of processing for Create_Anonymous_Master
+
+      begin
+         --  Find the declarative list of the unit
+
+         if Nkind (Unit_Decl) = N_Package_Declaration then
+            Unit_Spec := Specification (Unit_Decl);
+            Decls := Visible_Declarations (Unit_Spec);
+
+            if No (Decls) then
+               Decls := New_List (Make_Null_Statement (Loc));
+               Set_Visible_Declarations (Unit_Spec, Decls);
+            end if;
+
+         --  Package or subprogram body
+
+         --  ??? A subprogram declaration that acts as a compilation unit may
+         --  contain a formal parameter of an anonymous access-to-controlled
+         --  type initialized by an allocator.
+
+         --    procedure Comp_Unit_Proc (Param : access Ctrl := new Ctrl);
+
+         --  There is no suitable place to create the anonymous master as the
+         --  subprogram is not in a declarative list.
+
+         else
+            Decls := Declarations (Unit_Decl);
+
+            if No (Decls) then
+               Decls := New_List (Make_Null_Statement (Loc));
+               Set_Declarations (Unit_Decl, Decls);
+            end if;
+         end if;
+
+         --  The anonymous master and all initialization actions are inserted
+         --  before the first declaration (if any).
+
+         Insert_Nod := First (Decls);
+
+         --  Since the anonymous master and all its initialization actions are
+         --  inserted at top level, use the scope of the unit when analyzing.
+
+         Push_Scope (Spec_Id);
+
+         --  Step 1: Anonymous master creation
+
+         --  Use a unique prefix in case the same unit requires two anonymous
+         --  masters, one for the spec (S) and one for the body (B).
+
+         if Ekind_In (Unit_Id, E_Function, E_Package, E_Procedure) then
+            Pref := 'S';
+         else
+            Pref := 'B';
+         end if;
+
+         FM_Id :=
+           Make_Defining_Identifier (Loc,
+             New_External_Name
+               (Related_Id => Chars (Unit_Id),
+                Suffix     => "AM",
+                Prefix     => Pref));
+
+         Set_Anonymous_Master (Unit_Id, FM_Id);
+
+         --  Generate:
+         --    <FM_Id> : Finalization_Master;
+
+         Insert_And_Analyze (Decls,
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => FM_Id,
+             Object_Definition   =>
+               New_Occurrence_Of (RTE (RE_Finalization_Master), Loc)));
+
+         --  Step 2: Initialization actions
+
+         --  Do not set the base pool and mode of operation on .NET/JVM since
+         --  those targets do not support pools and all VM masters defaulted to
+         --  heterogeneous.
+
+         if VM_Target = No_VM then
+
+            --  Generate:
+            --    Set_Base_Pool
+            --      (<FM_Id>, Global_Pool_Object'Unrestricted_Access);
+
+            Insert_And_Analyze (Decls,
+              Make_Procedure_Call_Statement (Loc,
+                Name                   =>
+                  New_Occurrence_Of (RTE (RE_Set_Base_Pool), Loc),
+                Parameter_Associations => New_List (
+                  New_Occurrence_Of (FM_Id, Loc),
+                  Make_Attribute_Reference (Loc,
+                    Prefix         =>
+                      New_Occurrence_Of (RTE (RE_Global_Pool_Object), Loc),
+                    Attribute_Name => Name_Unrestricted_Access))));
+
+            --  Generate:
+            --    Set_Is_Heterogeneous (<FM_Id>);
+
+            Insert_And_Analyze (Decls,
+              Make_Procedure_Call_Statement (Loc,
+                Name                   =>
+                  New_Occurrence_Of (RTE (RE_Set_Is_Heterogeneous), Loc),
+                Parameter_Associations => New_List (
+                  New_Occurrence_Of (FM_Id, Loc))));
+         end if;
+
+         Pop_Scope;
+         return FM_Id;
+      end Create_Anonymous_Master;
+
+      --  Local declarations
+
       Unit_Decl : Node_Id;
       Unit_Id   : Entity_Id;
 
+   --  Start of processing for Current_Anonymous_Master
+
    begin
-      Unit_Id := Cunit_Entity (Current_Sem_Unit);
-
-      --  Find the entity of the current unit
-
-      if Ekind (Unit_Id) = E_Subprogram_Body then
-
-         --  When processing subprogram bodies, the proper scope is always that
-         --  of the spec.
-
-         Subp_Body := Unit_Id;
-         while Present (Subp_Body)
-           and then Nkind (Subp_Body) /= N_Subprogram_Body
-         loop
-            Subp_Body := Parent (Subp_Body);
-         end loop;
-
-         Unit_Id := Corresponding_Spec (Subp_Body);
-      end if;
-
-      Loc := Sloc (Unit_Id);
       Unit_Decl := Unit (Cunit (Current_Sem_Unit));
+      Unit_Id   := Defining_Entity (Unit_Decl);
 
-      --  Find the declarations list of the current unit
+      --  The compilation unit is a package instantiation. In this case the
+      --  anonymous master is associated with the package spec as both the
+      --  spec and body appear at the same level.
 
-      if Nkind (Unit_Decl) = N_Package_Declaration then
-         Unit_Decl := Specification (Unit_Decl);
-         Decls := Visible_Declarations (Unit_Decl);
-
-         if No (Decls) then
-            Decls := New_List (Make_Null_Statement (Loc));
-            Set_Visible_Declarations (Unit_Decl, Decls);
-
-         elsif Is_Empty_List (Decls) then
-            Append_To (Decls, Make_Null_Statement (Loc));
-         end if;
-
-      else
-         Decls := Declarations (Unit_Decl);
-
-         if No (Decls) then
-            Decls := New_List (Make_Null_Statement (Loc));
-            Set_Declarations (Unit_Decl, Decls);
-
-         elsif Is_Empty_List (Decls) then
-            Append_To (Decls, Make_Null_Statement (Loc));
-         end if;
+      if Nkind (Unit_Decl) = N_Package_Body
+        and then Nkind (Original_Node (Unit_Decl)) = N_Package_Instantiation
+      then
+         Unit_Id   := Corresponding_Spec (Unit_Decl);
+         Unit_Decl := Unit_Declaration_Node (Unit_Id);
       end if;
 
-      --  The current unit has an existing anonymous master, traverse its
-      --  declarations and locate the entity.
+      if Present (Anonymous_Master (Unit_Id)) then
+         return Anonymous_Master (Unit_Id);
 
-      if Has_Anonymous_Master (Unit_Id) then
-         declare
-            Decl       : Node_Id;
-            Fin_Mas_Id : Entity_Id;
-
-         begin
-            Decl := First (Decls);
-            while Present (Decl) loop
-
-               --  Look for the first variable in the declarations whole type
-               --  is Finalization_Master.
-
-               if Nkind (Decl) = N_Object_Declaration then
-                  Fin_Mas_Id := Defining_Identifier (Decl);
-
-                  if Ekind (Fin_Mas_Id) = E_Variable
-                    and then Etype (Fin_Mas_Id) = RTE (RE_Finalization_Master)
-                  then
-                     return Fin_Mas_Id;
-                  end if;
-               end if;
-
-               Next (Decl);
-            end loop;
-
-            --  The master was not found even though the unit was labeled as
-            --  having one.
-
-            raise Program_Error;
-         end;
-
-      --  Create a new anonymous master
+      --  Create a new anonymous master when allocating an object of anonymous
+      --  access-to-controlled type for the first time.
 
       else
-         declare
-            First_Decl : constant Node_Id := First (Decls);
-            Action     : Node_Id;
-            Fin_Mas_Id : Entity_Id;
-
-         begin
-            --  Since the master and its associated initialization is inserted
-            --  at top level, use the scope of the unit when analyzing.
-
-            Push_Scope (Unit_Id);
-
-            --  Create the finalization master
-
-            Fin_Mas_Id :=
-              Make_Defining_Identifier (Loc,
-                Chars => New_External_Name (Chars (Unit_Id), "AM"));
-
-            --  Generate:
-            --    <Fin_Mas_Id> : Finalization_Master;
-
-            Action :=
-              Make_Object_Declaration (Loc,
-                Defining_Identifier => Fin_Mas_Id,
-                Object_Definition =>
-                  New_Occurrence_Of (RTE (RE_Finalization_Master), Loc));
-
-            Insert_Before_And_Analyze (First_Decl, Action);
-
-            --  Mark the unit to prevent the generation of multiple masters
-
-            Set_Has_Anonymous_Master (Unit_Id);
-
-            --  Do not set the base pool and mode of operation on .NET/JVM
-            --  since those targets do not support pools and all VM masters
-            --  are heterogeneous by default.
-
-            if VM_Target = No_VM then
-
-               --  Generate:
-               --    Set_Base_Pool
-               --      (<Fin_Mas_Id>, Global_Pool_Object'Unrestricted_Access);
-
-               Action :=
-                 Make_Procedure_Call_Statement (Loc,
-                   Name =>
-                     New_Occurrence_Of (RTE (RE_Set_Base_Pool), Loc),
-
-                   Parameter_Associations => New_List (
-                     New_Occurrence_Of (Fin_Mas_Id, Loc),
-                     Make_Attribute_Reference (Loc,
-                       Prefix =>
-                         New_Occurrence_Of (RTE (RE_Global_Pool_Object), Loc),
-                       Attribute_Name => Name_Unrestricted_Access)));
-
-               Insert_Before_And_Analyze (First_Decl, Action);
-
-               --  Generate:
-               --    Set_Is_Heterogeneous (<Fin_Mas_Id>);
-
-               Action :=
-                 Make_Procedure_Call_Statement (Loc,
-                   Name =>
-                     New_Occurrence_Of (RTE (RE_Set_Is_Heterogeneous), Loc),
-                   Parameter_Associations => New_List (
-                     New_Occurrence_Of (Fin_Mas_Id, Loc)));
-
-               Insert_Before_And_Analyze (First_Decl, Action);
-            end if;
-
-            --  Restore the original state of the scope stack
-
-            Pop_Scope;
-
-            return Fin_Mas_Id;
-         end;
+         return Create_Anonymous_Master (Unit_Id, Unit_Decl);
       end if;
    end Current_Anonymous_Master;
 
@@ -830,7 +858,6 @@ package body Exp_Ch4 is
                           Make_Exception_Handler (Loc,
                             Exception_Choices => New_List (
                               Make_Others_Choice (Loc)),
-
                             Statements        => New_List (
                               New_Copy_Tree (Free_Stmt),
                               Make_Raise_Statement (Loc))))));
@@ -6272,7 +6299,10 @@ package body Exp_Ch4 is
 
       --    The prefix of an address or bit or size attribute reference
 
-      --  The following circuit detects these exceptions
+      --  The following circuit detects these exceptions. Note that we need to
+      --  deal with implicit dereferences when climbing up the parent chain,
+      --  with the additional difficulty that the type of parents may have yet
+      --  to be resolved since prefixes are usually resolved first.
 
       declare
          Child : Node_Id := N;
@@ -6324,10 +6354,21 @@ package body Exp_Ch4 is
             then
                return;
 
-            elsif Nkind_In (Parnt, N_Indexed_Component, N_Selected_Component)
+            elsif Nkind (Parnt) = N_Indexed_Component
               and then Prefix (Parnt) = Child
             then
                null;
+
+            elsif Nkind (Parnt) = N_Selected_Component
+              and then Prefix (Parnt) = Child
+              and then not (Present (Etype (Selector_Name (Parnt)))
+                              and then
+                            Is_Access_Type (Etype (Selector_Name (Parnt))))
+            then
+               null;
+
+            --  If the parent is a dereference, either implicit or explicit,
+            --  then the packed reference needs to be expanded.
 
             else
                Expand_Packed_Element_Reference (N);
@@ -7286,12 +7327,12 @@ package body Exp_Ch4 is
          --  Where the component type is elementary we can use a block bit
          --  comparison (if supported on the target) exception in the case
          --  of floating-point (negative zero issues require element by
-         --  element comparison), and atomic types (where we must be sure
+         --  element comparison), and atomic/VFA types (where we must be sure
          --  to load elements independently) and possibly unaligned arrays.
 
          elsif Is_Elementary_Type (Component_Type (Typl))
            and then not Is_Floating_Point_Type (Component_Type (Typl))
-           and then not Is_Atomic (Component_Type (Typl))
+           and then not Is_Atomic_Or_VFA (Component_Type (Typl))
            and then not Is_Possibly_Unaligned_Object (Lhs)
            and then not Is_Possibly_Unaligned_Object (Rhs)
            and then Support_Composite_Compare_On_Target
@@ -7492,7 +7533,31 @@ package body Exp_Ch4 is
 
       Rewrite_Comparison (N);
 
+      --  Special optimization of length comparison
+
       Optimize_Length_Comparison (N);
+
+      --  One more special case: if we have a comparison of X'Result = expr
+      --  in floating-point, then if not already there, change expr to be
+      --  f'Machine (expr) to eliminate surprise from extra precision.
+
+      if Is_Floating_Point_Type (Typl)
+        and then Nkind (Original_Node (Lhs)) = N_Attribute_Reference
+        and then Attribute_Name (Original_Node (Lhs)) = Name_Result
+      then
+         --  Stick in the Typ'Machine call if not already there
+
+         if Nkind (Rhs) /= N_Attribute_Reference
+           or else Attribute_Name (Rhs) /= Name_Machine
+         then
+            Rewrite (Rhs,
+              Make_Attribute_Reference (Loc,
+                Prefix         => New_Occurrence_Of (Typl, Loc),
+                Attribute_Name => Name_Machine,
+                Expressions    => New_List (Relocate_Node (Rhs))));
+            Analyze_And_Resolve (Rhs, Typl);
+         end if;
+      end if;
    end Expand_N_Op_Eq;
 
    -----------------------
@@ -7514,6 +7579,33 @@ package body Exp_Ch4 is
       Ent    : Entity_Id;
       Etyp   : Entity_Id;
       Xnode  : Node_Id;
+
+      function Wrap_MA (Exp : Node_Id) return Node_Id;
+      --  Given an expression Exp, if the root type is Float or Long_Float,
+      --  then wrap the expression in a call of Bastyp'Machine, to stop any
+      --  extra precision. This is done to ensure that X**A = X**B when A is
+      --  a static constant and B is a variable with the same value. For any
+      --  other type, the node Exp is returned unchanged.
+
+      -------------
+      -- Wrap_MA --
+      -------------
+
+      function Wrap_MA (Exp : Node_Id) return Node_Id is
+         Loc : constant Source_Ptr := Sloc (Exp);
+      begin
+         if Rtyp = Standard_Float or else Rtyp = Standard_Long_Float then
+            return
+              Make_Attribute_Reference (Loc,
+                Attribute_Name => Name_Machine,
+                Prefix         => New_Occurrence_Of (Bastyp, Loc),
+                Expressions    => New_List (Relocate_Node (Exp)));
+         else
+            return Exp;
+         end if;
+      end Wrap_MA;
+
+   --  Start of processing for Expand_N_Op
 
    begin
       Binary_Op_Validity_Checks (N);
@@ -7572,7 +7664,7 @@ package body Exp_Ch4 is
          --  could fold small negative exponents for the real case, but we
          --  can't because we are required to raise Constraint_Error for
          --  the case of 0.0 ** (negative) even if Machine_Overflows = False.
-         --  See ACVC test C4A012B.
+         --  See ACVC test C4A012B, and it is not worth generating the test.
 
          if Expv >= 0 and then Expv <= 4 then
 
@@ -7601,20 +7693,22 @@ package body Exp_Ch4 is
 
             elsif Expv = 2 then
                Xnode :=
-                 Make_Op_Multiply (Loc,
-                   Left_Opnd  => Duplicate_Subexpr (Base),
-                   Right_Opnd => Duplicate_Subexpr_No_Checks (Base));
+                 Wrap_MA (
+                   Make_Op_Multiply (Loc,
+                     Left_Opnd  => Duplicate_Subexpr (Base),
+                     Right_Opnd => Duplicate_Subexpr_No_Checks (Base)));
 
             --  X ** 3 = X * X * X
 
             elsif Expv = 3 then
                Xnode :=
-                 Make_Op_Multiply (Loc,
-                   Left_Opnd =>
-                     Make_Op_Multiply (Loc,
-                       Left_Opnd  => Duplicate_Subexpr (Base),
-                       Right_Opnd => Duplicate_Subexpr_No_Checks (Base)),
-                   Right_Opnd  => Duplicate_Subexpr_No_Checks (Base));
+                 Wrap_MA (
+                   Make_Op_Multiply (Loc,
+                     Left_Opnd =>
+                       Make_Op_Multiply (Loc,
+                         Left_Opnd  => Duplicate_Subexpr (Base),
+                         Right_Opnd => Duplicate_Subexpr_No_Checks (Base)),
+                   Right_Opnd  => Duplicate_Subexpr_No_Checks (Base)));
 
             --  X ** 4  ->
 
@@ -7635,16 +7729,18 @@ package body Exp_Ch4 is
                        Constant_Present    => True,
                        Object_Definition   => New_Occurrence_Of (Typ, Loc),
                        Expression =>
-                         Make_Op_Multiply (Loc,
-                           Left_Opnd  =>
-                             Duplicate_Subexpr (Base),
-                           Right_Opnd =>
-                             Duplicate_Subexpr_No_Checks (Base)))),
+                         Wrap_MA (
+                           Make_Op_Multiply (Loc,
+                             Left_Opnd  =>
+                               Duplicate_Subexpr (Base),
+                             Right_Opnd =>
+                               Duplicate_Subexpr_No_Checks (Base))))),
 
                    Expression =>
-                     Make_Op_Multiply (Loc,
-                       Left_Opnd  => New_Occurrence_Of (Temp, Loc),
-                       Right_Opnd => New_Occurrence_Of (Temp, Loc)));
+                     Wrap_MA (
+                       Make_Op_Multiply (Loc,
+                         Left_Opnd  => New_Occurrence_Of (Temp, Loc),
+                         Right_Opnd => New_Occurrence_Of (Temp, Loc))));
             end if;
 
             Rewrite (N, Xnode);
@@ -7653,34 +7749,40 @@ package body Exp_Ch4 is
          end if;
       end if;
 
-      --  Case of (2 ** expression) appearing as an argument of an integer
-      --  multiplication, or as the right argument of a division of a non-
-      --  negative integer. In such cases we leave the node untouched, setting
-      --  the flag Is_Natural_Power_Of_2_for_Shift set, then the expansion
-      --  of the higher level node converts it into a shift.
-
-      --  Another case is 2 ** N in any other context. We simply convert
-      --  this to 1 * 2 ** N, and then the above transformation applies.
-
-      --  Note: this transformation is not applicable for a modular type with
-      --  a non-binary modulus in the multiplication case, since we get a wrong
-      --  result if the shift causes an overflow before the modular reduction.
+      --  Deal with optimizing 2 ** expression to shift where possible
 
       --  Note: we used to check that Exptyp was an unsigned type. But that is
       --  an unnecessary check, since if Exp is negative, we have a run-time
       --  error that is either caught (so we get the right result) or we have
       --  suppressed the check, in which case the code is erroneous anyway.
 
-      if Nkind (Base) = N_Integer_Literal
+      if Is_Integer_Type (Rtyp)
+
+        --  The base value must be "safe compile-time known", and exactly 2
+
+        and then Nkind (Base) = N_Integer_Literal
         and then CRT_Safe_Compile_Time_Known_Value (Base)
         and then Expr_Value (Base) = Uint_2
+
+        --  We only handle cases where the right type is a integer
+
         and then Is_Integer_Type (Root_Type (Exptyp))
         and then Esize (Root_Type (Exptyp)) <= Esize (Standard_Integer)
-        and then not Ovflo
-      then
-         --  First the multiply and divide cases
 
-         if Nkind_In (Parent (N), N_Op_Divide, N_Op_Multiply) then
+        --  This transformation is not applicable for a modular type with a
+        --  nonbinary modulus because we do not handle modular reduction in
+        --  a correct manner if we attempt this transformation in this case.
+
+        and then not Non_Binary_Modulus (Typ)
+      then
+         --  Handle the cases where our parent is a division or multiplication
+         --  specially. In these cases we can convert to using a shift at the
+         --  parent level if we are not doing overflow checking, since it is
+         --  too tricky to combine the overflow check at the parent level.
+
+         if not Ovflo
+           and then Nkind_In (Parent (N), N_Op_Divide, N_Op_Multiply)
+         then
             declare
                P : constant Node_Id := Parent (N);
                L : constant Node_Id := Left_Opnd (P);
@@ -7688,12 +7790,12 @@ package body Exp_Ch4 is
 
             begin
                if (Nkind (P) = N_Op_Multiply
-                   and then not Non_Binary_Modulus (Typ)
-                   and then
-                     ((Is_Integer_Type (Etype (L)) and then R = N)
-                         or else
-                      (Is_Integer_Type (Etype (R)) and then L = N))
-                   and then not Do_Overflow_Check (P))
+                    and then
+                      ((Is_Integer_Type (Etype (L)) and then R = N)
+                          or else
+                       (Is_Integer_Type (Etype (R)) and then L = N))
+                    and then not Do_Overflow_Check (P))
+
                  or else
                   (Nkind (P) = N_Op_Divide
                     and then Is_Integer_Type (Etype (L))
@@ -7706,15 +7808,120 @@ package body Exp_Ch4 is
                end if;
             end;
 
-         --  Now the other cases
+         --  Here we just have 2 ** N on its own, so we can convert this to a
+         --  shift node. We are prepared to deal with overflow here, and we
+         --  also have to handle proper modular reduction for binary modular.
 
-         elsif not Non_Binary_Modulus (Typ) then
-            Rewrite (N,
-              Make_Op_Multiply (Loc,
-                Left_Opnd  => Make_Integer_Literal (Loc, 1),
-                Right_Opnd => Relocate_Node (N)));
-            Analyze_And_Resolve (N, Typ);
-            return;
+         else
+            declare
+               OK : Boolean;
+               Lo : Uint;
+               Hi : Uint;
+
+               MaxS : Uint;
+               --  Maximum shift count with no overflow
+
+               TestS : Boolean;
+               --  Set True if we must test the shift count
+
+               Test_Gt : Node_Id;
+               --  Node for test against TestS
+
+            begin
+               --  Compute maximum shift based on the underlying size. For a
+               --  modular type this is one less than the size.
+
+               if Is_Modular_Integer_Type (Typ) then
+
+                  --  For modular integer types, this is the size of the value
+                  --  being shifted minus one. Any larger values will cause
+                  --  modular reduction to a result of zero. Note that we do
+                  --  want the RM_Size here (e.g. mod 2 ** 7, we want a result
+                  --  of 6, since 2**7 should be reduced to zero).
+
+                  MaxS := RM_Size (Rtyp) - 1;
+
+                  --  For signed integer types, we use the size of the value
+                  --  being shifted minus 2. Larger values cause overflow.
+
+               else
+                  MaxS := Esize (Rtyp) - 2;
+               end if;
+
+               --  Determine range to see if it can be larger than MaxS
+
+               Determine_Range
+                 (Right_Opnd (N), OK, Lo, Hi, Assume_Valid => True);
+               TestS := (not OK) or else Hi > MaxS;
+
+               --  Signed integer case
+
+               if Is_Signed_Integer_Type (Typ) then
+
+                  --  Generate overflow check if overflow is active. Note that
+                  --  we can simply ignore the possibility of overflow if the
+                  --  flag is not set (means that overflow cannot happen or
+                  --  that overflow checks are suppressed).
+
+                  if Ovflo and TestS then
+                     Insert_Action (N,
+                       Make_Raise_Constraint_Error (Loc,
+                         Condition =>
+                           Make_Op_Gt (Loc,
+                             Left_Opnd  => Duplicate_Subexpr (Right_Opnd (N)),
+                             Right_Opnd => Make_Integer_Literal (Loc, MaxS)),
+                         Reason    => CE_Overflow_Check_Failed));
+                  end if;
+
+                  --  Now rewrite node as Shift_Left (1, right-operand)
+
+                  Rewrite (N,
+                    Make_Op_Shift_Left (Loc,
+                      Left_Opnd  => Make_Integer_Literal (Loc, Uint_1),
+                      Right_Opnd => Right_Opnd (N)));
+
+               --  Modular integer case
+
+               else pragma Assert (Is_Modular_Integer_Type (Typ));
+
+                  --  If shift count can be greater than MaxS, we need to wrap
+                  --  the shift in a test that will reduce the result value to
+                  --  zero if this shift count is exceeded.
+
+                  if TestS then
+
+                     --  Note: build node for the comparison first, before we
+                     --  reuse the Right_Opnd, so that we have proper parents
+                     --  in place for the Duplicate_Subexpr call.
+
+                     Test_Gt :=
+                       Make_Op_Gt (Loc,
+                         Left_Opnd  => Duplicate_Subexpr (Right_Opnd (N)),
+                         Right_Opnd => Make_Integer_Literal (Loc, MaxS));
+
+                     Rewrite (N,
+                       Make_If_Expression (Loc,
+                         Expressions => New_List (
+                           Test_Gt,
+                           Make_Integer_Literal (Loc, Uint_0),
+                           Make_Op_Shift_Left (Loc,
+                             Left_Opnd  => Make_Integer_Literal (Loc, Uint_1),
+                             Right_Opnd => Right_Opnd (N)))));
+
+                  --  If we know shift count cannot be greater than MaxS, then
+                  --  it is safe to just rewrite as a shift with no test.
+
+                  else
+                     Rewrite (N,
+                       Make_Op_Shift_Left (Loc,
+                         Left_Opnd  => Make_Integer_Literal (Loc, Uint_1),
+                         Right_Opnd => Right_Opnd (N)));
+                  end if;
+               end if;
+
+               Analyze_And_Resolve (N, Typ);
+               return;
+            end;
          end if;
       end if;
 
@@ -7724,10 +7931,10 @@ package body Exp_Ch4 is
 
       if Is_Modular_Integer_Type (Rtyp) then
 
-         --  Non-binary case, we call the special exponentiation routine for
-         --  the non-binary case, converting the argument to Long_Long_Integer
-         --  and passing the modulus value. Then the result is converted back
-         --  to the base type.
+         --  Nonbinary modular case, we call the special exponentiation
+         --  routine for the nonbinary case, converting the argument to
+         --  Long_Long_Integer and passing the modulus value. Then the
+         --  result is converted back to the base type.
 
          if Non_Binary_Modulus (Rtyp) then
             Rewrite (N,
@@ -7740,9 +7947,9 @@ package body Exp_Ch4 is
                     Make_Integer_Literal (Loc, Modulus (Rtyp)),
                     Exp))));
 
-         --  Binary case, in this case, we call one of two routines, either the
-         --  unsigned integer case, or the unsigned long long integer case,
-         --  with a final "and" operation to do the required mod.
+         --  Binary modular case, in this case, we call one of two routines,
+         --  either the unsigned integer case, or the unsigned long long
+         --  integer case, with a final "and" operation to do the required mod.
 
          else
             if UI_To_Int (Esize (Rtyp)) <= Standard_Integer_Size then
@@ -7810,16 +8017,32 @@ package body Exp_Ch4 is
             Rent := RE_Exn_Integer;
          end if;
 
-      --  Floating-point cases, always done using Long_Long_Float. We do not
-      --  need separate routines for the overflow case here, since in the case
-      --  of floating-point, we generate infinities anyway as a rule (either
-      --  that or we automatically trap overflow), and if there is an infinity
-      --  generated and a range check is required, the check will fail anyway.
+      --  Floating-point cases. We do not need separate routines for the
+      --  overflow case here, since in the case of floating-point, we generate
+      --  infinities anyway as a rule (either that or we automatically trap
+      --  overflow), and if there is an infinity generated and a range check
+      --  is required, the check will fail anyway.
+
+      --  Historical note: we used to convert everything to Long_Long_Float
+      --  and call a single common routine, but this had the undesirable effect
+      --  of giving different results for small static exponent values and the
+      --  same dynamic values.
 
       else
          pragma Assert (Is_Floating_Point_Type (Rtyp));
-         Etyp := Standard_Long_Long_Float;
-         Rent := RE_Exn_Long_Long_Float;
+
+         if Rtyp = Standard_Float then
+            Etyp := Standard_Float;
+            Rent := RE_Exn_Float;
+
+         elsif Rtyp = Standard_Long_Float then
+            Etyp := Standard_Long_Float;
+            Rent := RE_Exn_Long_Float;
+
+         else
+            Etyp := Standard_Long_Long_Float;
+            Rent := RE_Exn_Long_Long_Float;
+         end if;
       end if;
 
       --  Common processing for integer cases and floating-point cases.
@@ -7830,9 +8053,10 @@ package body Exp_Ch4 is
         and then Rtyp /= Universal_Real
       then
          Rewrite (N,
-           Make_Function_Call (Loc,
-             Name                   => New_Occurrence_Of (RTE (Rent), Loc),
-             Parameter_Associations => New_List (Base, Exp)));
+           Wrap_MA (
+             Make_Function_Call (Loc,
+               Name                   => New_Occurrence_Of (RTE (Rent), Loc),
+               Parameter_Associations => New_List (Base, Exp))));
 
       --  Otherwise we have to introduce conversions (conversions are also
       --  required in the universal cases, since the runtime routine is
@@ -8976,7 +9200,7 @@ package body Exp_Ch4 is
       --  where Bits is the shift count mod Esize (the mod operation here
       --  deals with ludicrous large shift counts, which are apparently OK).
 
-      --  What about non-binary modulus ???
+      --  What about nonbinary modulus ???
 
       declare
          Loc : constant Source_Ptr := Sloc (N);
@@ -9029,7 +9253,7 @@ package body Exp_Ch4 is
       --  where Bits is the shift count mod Esize (the mod operation here
       --  deals with ludicrous large shift counts, which are apparently OK).
 
-      --  What about non-binary modulus ???
+      --  What about nonbinary modulus ???
 
       declare
          Loc : constant Source_Ptr := Sloc (N);
@@ -9166,7 +9390,7 @@ package body Exp_Ch4 is
       --  to the word size, since in this case (not (Shift_Right (Mask, bits)))
       --  generates all 1'bits.
 
-      --  What about non-binary modulus ???
+      --  What about nonbinary modulus ???
 
       declare
          Loc   : constant Source_Ptr := Sloc (N);

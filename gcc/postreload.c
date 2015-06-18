@@ -22,26 +22,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "obstack.h"
 #include "insn-config.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "input.h"
 #include "function.h"
 #include "symtab.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -63,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "reload.h"
 #include "recog.h"
+#include "alloc-pool.h"
 #include "cselib.h"
 #include "diagnostic-core.h"
 #include "except.h"
@@ -234,7 +224,7 @@ reload_cse_regs_1 (void)
   bool cfg_changed = false;
   basic_block bb;
   rtx_insn *insn;
-  rtx testreg = gen_rtx_REG (word_mode, FIRST_PSEUDO_REGISTER);
+  rtx testreg = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 1);
 
   cselib_init (CSELIB_RECORD_MEMORY);
   init_alias_analysis ();
@@ -1356,9 +1346,12 @@ reload_combine (void)
       if (CALL_P (insn))
 	{
 	  rtx link;
+	  HARD_REG_SET used_regs;
+
+	  get_call_reg_set_usage (insn, &used_regs, call_used_reg_set);
 
 	  for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
-	    if (call_used_regs[r])
+	    if (TEST_HARD_REG_BIT (used_regs, r))
 	      {
 		reg_state[r].use_index = RELOAD_COMBINE_MAX_USES;
 		reg_state[r].store_ruid = reload_combine_ruid;

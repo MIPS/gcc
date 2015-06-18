@@ -21,16 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -41,8 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-pass.h"
 #include "diagnostic.h"
-#include "ggc.h"
-#include "is-a.h"
 #include "cfgloop.h"
 #include "stringpool.h"
 #include "tree-ssa-alias.h"
@@ -65,15 +56,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "gimplify-me.h"
 #include "print-tree.h"
-#include "hashtab.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -527,6 +514,71 @@ chkp_insert_retbnd_call (tree bndval, tree retval,
   gsi_insert_after (gsi, call, GSI_CONTINUE_LINKING);
 
   return bndval;
+}
+
+/* Build a GIMPLE_CALL identical to CALL but skipping bounds
+   arguments.  */
+
+gcall *
+chkp_copy_call_skip_bounds (gcall *call)
+{
+  bitmap bounds;
+  unsigned i;
+
+  bitmap_obstack_initialize (NULL);
+  bounds = BITMAP_ALLOC (NULL);
+
+  for (i = 0; i < gimple_call_num_args (call); i++)
+    if (POINTER_BOUNDS_P (gimple_call_arg (call, i)))
+      bitmap_set_bit (bounds, i);
+
+  if (!bitmap_empty_p (bounds))
+    call = gimple_call_copy_skip_args (call, bounds);
+  gimple_call_set_with_bounds (call, false);
+
+  BITMAP_FREE (bounds);
+  bitmap_obstack_release (NULL);
+
+  return call;
+}
+
+/* Redirect edge E to the correct node according to call_stmt.
+   Return 1 if bounds removal from call_stmt should be done
+   instead of redirection.  */
+
+bool
+chkp_redirect_edge (cgraph_edge *e)
+{
+  bool instrumented = false;
+  tree decl = e->callee->decl;
+
+  if (e->callee->instrumentation_clone
+      || chkp_function_instrumented_p (decl))
+    instrumented = true;
+
+  if (instrumented
+      && !gimple_call_with_bounds_p (e->call_stmt))
+    e->redirect_callee (cgraph_node::get_create (e->callee->orig_decl));
+  else if (!instrumented
+	   && gimple_call_with_bounds_p (e->call_stmt)
+	   && !chkp_gimple_call_builtin_p (e->call_stmt, BUILT_IN_CHKP_BNDCL)
+	   && !chkp_gimple_call_builtin_p (e->call_stmt, BUILT_IN_CHKP_BNDCU)
+	   && !chkp_gimple_call_builtin_p (e->call_stmt, BUILT_IN_CHKP_BNDSTX))
+    {
+      if (e->callee->instrumented_version)
+	e->redirect_callee (e->callee->instrumented_version);
+      else
+	{
+	  tree args = TYPE_ARG_TYPES (TREE_TYPE (decl));
+	  /* Avoid bounds removal if all args will be removed.  */
+	  if (!args || TREE_VALUE (args) != void_type_node)
+	    return true;
+	  else
+	    gimple_call_set_with_bounds (e->call_stmt, false);
+	}
+    }
+
+  return false;
 }
 
 /* Mark statement S to not be instrumented.  */
@@ -1181,10 +1233,10 @@ chkp_maybe_copy_and_register_bounds (tree ptr, tree bnd)
 	  gimple_stmt_iterator gsi;
 
 	  if (bnd_var)
-	    copy = make_ssa_name (bnd_var, gimple_build_nop ());
+	    copy = make_ssa_name (bnd_var);
 	  else
 	    copy = make_temp_ssa_name (pointer_bounds_type_node,
-				       gimple_build_nop (),
+				       NULL,
 				       CHKP_BOUND_TMP_NAME);
 	  bnd = chkp_get_orginal_bounds_for_abnormal_copy (bnd);
 	  assign = gimple_build_assign (copy, bnd);
@@ -1544,7 +1596,7 @@ chkp_find_bounds_for_elem (tree elem, tree *all_bounds,
     {
       if (!all_bounds[offs / POINTER_SIZE])
 	{
-	  tree temp = make_temp_ssa_name (type, gimple_build_nop (), "");
+	  tree temp = make_temp_ssa_name (type, NULL, "");
 	  gimple assign = gimple_build_assign (temp, elem);
 	  gimple_stmt_iterator gsi;
 
@@ -2053,7 +2105,7 @@ chkp_get_zero_bounds (void)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      zero_bounds = chkp_get_tmp_reg (gimple_build_nop ());
+      zero_bounds = chkp_get_tmp_reg (NULL);
       stmt = gimple_build_assign (zero_bounds, chkp_get_zero_bounds_var ());
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
@@ -2083,7 +2135,7 @@ chkp_get_none_bounds (void)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      none_bounds = chkp_get_tmp_reg (gimple_build_nop ());
+      none_bounds = chkp_get_tmp_reg (NULL);
       stmt = gimple_build_assign (none_bounds, chkp_get_none_bounds_var ());
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
@@ -2738,7 +2790,7 @@ chkp_get_bounds_by_definition (tree node, gimple def_stmt,
 	  var = chkp_get_bounds_var (SSA_NAME_VAR (node));
 	else
 	  var = make_temp_ssa_name (pointer_bounds_type_node,
-				    gimple_build_nop (),
+				    NULL,
 				    CHKP_BOUND_TMP_NAME);
       else
 	var = chkp_get_tmp_var ();
@@ -2918,7 +2970,7 @@ chkp_generate_extern_var_bounds (tree var)
   gimple_seq_add_stmt (&seq, stmt);
 
   lb = chkp_build_addr_expr (var);
-  size = make_ssa_name (chkp_get_size_tmp_var (), gimple_build_nop ());
+  size = make_ssa_name (chkp_get_size_tmp_var ());
 
   if (flag_chkp_zero_dynamic_size_as_infinite)
     {
@@ -3015,7 +3067,7 @@ chkp_get_bounds_for_decl_addr (tree decl)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      bounds = chkp_get_tmp_reg (gimple_build_nop ());
+      bounds = chkp_get_tmp_reg (NULL);
       stmt = gimple_build_assign (bounds, bnd_var);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
@@ -3059,7 +3111,7 @@ chkp_get_bounds_for_string_cst (tree cst)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      bounds = chkp_get_tmp_reg (gimple_build_nop ());
+      bounds = chkp_get_tmp_reg (NULL);
       stmt = gimple_build_assign (bounds, bnd_var);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }

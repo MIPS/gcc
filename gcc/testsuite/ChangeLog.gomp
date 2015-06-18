@@ -1,3 +1,8 @@
+2015-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/66571
+	* g++.dg/gomp/pr66571-2.C: New test.
+
 2015-06-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/schedule-simd-1.c: New test.

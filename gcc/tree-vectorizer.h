@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree-data-ref.h"
 #include "target.h"
-#include "hash-table.h"
 
 /* Used for naming of new temporaries.  */
 enum vect_var_kind {
@@ -128,9 +127,6 @@ typedef struct _slp_instance {
   /* The unrolling factor required to vectorized this SLP instance.  */
   unsigned int unrolling_factor;
 
-  /* Vectorization costs associated with SLP instance.  */
-  stmt_vector_for_cost body_cost_vec;
-
   /* The group of nodes that contain loads of this SLP instance.  */
   vec<slp_tree> loads;
 } *slp_instance;
@@ -140,7 +136,6 @@ typedef struct _slp_instance {
 #define SLP_INSTANCE_TREE(S)                     (S)->root
 #define SLP_INSTANCE_GROUP_SIZE(S)               (S)->group_size
 #define SLP_INSTANCE_UNROLLING_FACTOR(S)         (S)->unrolling_factor
-#define SLP_INSTANCE_BODY_COST_VEC(S)            (S)->body_cost_vec
 #define SLP_INSTANCE_LOADS(S)                    (S)->loads
 
 #define SLP_TREE_CHILDREN(S)                     (S)->children
@@ -163,6 +158,7 @@ typedef struct _slp_oprnd_info
   enum vect_def_type first_dt;
   tree first_op_type;
   bool first_pattern;
+  bool second_pattern;
 } *slp_oprnd_info;
 
 
@@ -646,7 +642,9 @@ typedef struct _stmt_vec_info {
 
   /* For loads only, true if this is a gather load.  */
   bool gather_p;
-  bool stride_load_p;
+
+  /* True if this is an access with loop-invariant stride.  */
+  bool strided_p;
 
   /* For both loads and stores.  */
   bool simd_lane_access_p;
@@ -664,7 +662,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_VECTORIZABLE(S)         (S)->vectorizable
 #define STMT_VINFO_DATA_REF(S)             (S)->data_ref_info
 #define STMT_VINFO_GATHER_P(S)		   (S)->gather_p
-#define STMT_VINFO_STRIDE_LOAD_P(S)	   (S)->stride_load_p
+#define STMT_VINFO_STRIDED_P(S)	   	   (S)->strided_p
 #define STMT_VINFO_SIMD_LANE_ACCESS_P(S)   (S)->simd_lane_access_p
 
 #define STMT_VINFO_DR_BASE_ADDRESS(S)      (S)->dr_base_address
@@ -1111,8 +1109,9 @@ extern void vect_free_slp_instance (slp_instance);
 extern bool vect_transform_slp_perm_load (slp_tree, vec<tree> ,
                                           gimple_stmt_iterator *, int,
                                           slp_instance, bool);
+extern bool vect_slp_analyze_operations (vec<slp_instance> slp_instances,
+					 void *);
 extern bool vect_schedule_slp (loop_vec_info, bb_vec_info);
-extern void vect_update_slp_costs_according_to_vf (loop_vec_info);
 extern bool vect_analyze_slp (loop_vec_info, bb_vec_info, unsigned);
 extern bool vect_make_slp_decision (loop_vec_info);
 extern void vect_detect_hybrid_slp (loop_vec_info);

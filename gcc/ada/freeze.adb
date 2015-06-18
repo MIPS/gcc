@@ -942,13 +942,13 @@ package body Freeze is
                      Packed_Size_Known := False;
                   end if;
 
-                  --  We do not know the packed size if we have an atomic type
+                  --  We do not know the packed size for an atomic/VFA type
                   --  or component, or an independent type or component, or a
-                  --  by reference type or aliased component (because packing
+                  --  by-reference type or aliased component (because packing
                   --  does not touch these).
 
-                  if Is_Atomic (Ctyp)
-                    or else Is_Atomic (Comp)
+                  if        Is_Atomic_Or_VFA (Ctyp)
+                    or else Is_Atomic_Or_VFA (Comp)
                     or else Is_Independent (Ctyp)
                     or else Is_Independent (Comp)
                     or else Is_By_Reference_Type (Ctyp)
@@ -1036,11 +1036,11 @@ package body Freeze is
                                  and then Is_Modular_Integer_Type
                                             (Packed_Array_Impl_Type (Ctyp)))
                      then
-                        --  Packed size unknown if we have an atomic type
-                        --  or a by reference type, since the back end
-                        --  knows how these are layed out.
+                        --  Packed size unknown if we have an atomic/VFA type
+                        --  or a by-reference type, since the back end knows
+                        --  how these are layed out.
 
-                        if Is_Atomic (Ctyp)
+                        if Is_Atomic_Or_VFA (Ctyp)
                           or else Is_By_Reference_Type (Ctyp)
                         then
                            Packed_Size_Known := False;
@@ -1455,21 +1455,19 @@ package body Freeze is
       end loop;
    end Check_Unsigned_Type;
 
-   -------------------------
-   -- Is_Atomic_Aggregate --
-   -------------------------
+   -----------------------------
+   -- Is_Atomic_VFA_Aggregate --
+   -----------------------------
 
-   function  Is_Atomic_Aggregate
-     (E   : Entity_Id;
-      Typ : Entity_Id) return Boolean
-   is
-      Loc   : constant Source_Ptr := Sloc (E);
+   function Is_Atomic_VFA_Aggregate (N : Node_Id) return Boolean is
+      Loc   : constant Source_Ptr := Sloc (N);
       New_N : Node_Id;
       Par   : Node_Id;
       Temp  : Entity_Id;
+      Typ   : Entity_Id;
 
    begin
-      Par := Parent (E);
+      Par := Parent (N);
 
       --  Array may be qualified, so find outer context
 
@@ -1477,25 +1475,46 @@ package body Freeze is
          Par := Parent (Par);
       end if;
 
-      if Nkind_In (Par, N_Object_Declaration, N_Assignment_Statement)
-        and then Comes_From_Source (Par)
-      then
-         Temp := Make_Temporary (Loc, 'T', E);
-         New_N :=
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Temp,
-             Object_Definition   => New_Occurrence_Of (Typ, Loc),
-             Expression          => Relocate_Node (E));
-         Insert_Before (Par, New_N);
-         Analyze (New_N);
-
-         Set_Expression (Par, New_Occurrence_Of (Temp, Loc));
-         return True;
-
-      else
+      if not Comes_From_Source (Par) then
          return False;
       end if;
-   end Is_Atomic_Aggregate;
+
+      case Nkind (Par) is
+         when N_Assignment_Statement =>
+            Typ := Etype (Name (Par));
+
+            if not Is_Atomic_Or_VFA (Typ)
+              and then not (Is_Entity_Name (Name (Par))
+                             and then Is_Atomic_Or_VFA (Entity (Name (Par))))
+            then
+               return False;
+            end if;
+
+         when N_Object_Declaration =>
+            Typ := Etype (Defining_Identifier (Par));
+
+            if not Is_Atomic_Or_VFA (Typ)
+              and then not Is_Atomic_Or_VFA (Defining_Identifier (Par))
+            then
+               return False;
+            end if;
+
+         when others =>
+            return False;
+      end case;
+
+      Temp := Make_Temporary (Loc, 'T', N);
+      New_N :=
+        Make_Object_Declaration (Loc,
+          Defining_Identifier => Temp,
+          Object_Definition   => New_Occurrence_Of (Typ, Loc),
+          Expression          => Relocate_Node (N));
+      Insert_Before (Par, New_N);
+      Analyze (New_N);
+
+      Set_Expression (Par, New_Occurrence_Of (Temp, Loc));
+      return True;
+   end Is_Atomic_VFA_Aggregate;
 
    -----------------------------------------------
    -- Explode_Initialization_Compound_Statement --
@@ -1862,8 +1881,8 @@ package body Freeze is
       Formal : Entity_Id;
       Indx   : Node_Id;
 
-      Test_E : Entity_Id := E;
-      --  This could use a comment ???
+      Has_Default_Initialization : Boolean := False;
+      --  This flag gets set to true for a variable with default initialization
 
       Late_Freezing : Boolean := False;
       --  Used to detect attempt to freeze function declared in another unit
@@ -1871,8 +1890,8 @@ package body Freeze is
       Result : List_Id := No_List;
       --  List of freezing actions, left at No_List if none
 
-      Has_Default_Initialization : Boolean := False;
-      --  This flag gets set to true for a variable with default initialization
+      Test_E : Entity_Id := E;
+      --  This could use a comment ???
 
       procedure Add_To_Result (N : Node_Id);
       --  N is a freezing action to be appended to the Result
@@ -2226,7 +2245,7 @@ package body Freeze is
 
             --  Propagate flags for component type
 
-            if Is_Controlled (Component_Type (Arr))
+            if Is_Controlled_Active (Component_Type (Arr))
               or else Has_Controlled_Component (Ctyp)
             then
                Set_Has_Controlled_Component (Arr);
@@ -2423,12 +2442,12 @@ package body Freeze is
                end if;
             end;
 
-            --  Check for Aliased or Atomic_Components/Atomic with unsuitable
-            --  packing or explicit component size clause given.
+            --  Check for Aliased or Atomic_Components/Atomic/VFA with
+            --  unsuitable packing or explicit component size clause given.
 
             if (Has_Aliased_Components (Arr)
                  or else Has_Atomic_Components (Arr)
-                 or else Is_Atomic (Ctyp))
+                 or else Is_Atomic_Or_VFA (Ctyp))
               and then
                 (Has_Component_Size_Clause (Arr) or else Is_Packed (Arr))
             then
@@ -2436,8 +2455,8 @@ package body Freeze is
 
                   procedure Complain_CS (T : String);
                   --  Outputs error messages for incorrect CS clause or pragma
-                  --  Pack for aliased or atomic components (T is "aliased" or
-                  --  "atomic");
+                  --  Pack for aliased or atomic/VFA components (T is "aliased"
+                  --  or "atomic/vfa");
 
                   -----------------
                   -- Complain_CS --
@@ -2498,9 +2517,13 @@ package body Freeze is
                   elsif Has_Aliased_Components (Arr) then
                      Complain_CS ("aliased");
 
-                  elsif Has_Atomic_Components (Arr) or else Is_Atomic (Ctyp)
+                  elsif Has_Atomic_Components (Arr)
+                    or else Is_Atomic (Ctyp)
                   then
                      Complain_CS ("atomic");
+
+                  elsif Is_Volatile_Full_Access (Ctyp) then
+                     Complain_CS ("volatile full access");
                   end if;
                end Alias_Atomic_Check;
             end if;
@@ -2509,8 +2532,8 @@ package body Freeze is
             --  packing or explicit component size clause given.
 
             if (Has_Independent_Components (Arr) or else Is_Independent (Ctyp))
-              and then
-                (Has_Component_Size_Clause (Arr) or else Is_Packed (Arr))
+                  and then
+               (Has_Component_Size_Clause  (Arr) or else Is_Packed (Arr))
             then
                begin
                   --  If object size of component type isn't known, we cannot
@@ -2772,7 +2795,7 @@ package body Freeze is
 
          --  For non-packed arrays set the alignment of the array to the
          --  alignment of the component type if it is unknown. Skip this
-         --  in atomic case (atomic arrays may need larger alignments).
+         --  in atomic/VFA case (atomic/VFA arrays may need larger alignments).
 
          if not Is_Packed (Arr)
            and then Unknown_Alignment (Arr)
@@ -2780,7 +2803,7 @@ package body Freeze is
            and then Known_Static_Component_Size (Arr)
            and then Known_Static_Esize (Ctyp)
            and then Esize (Ctyp) = Component_Size (Arr)
-           and then not Is_Atomic (Arr)
+           and then not Is_Atomic_Or_VFA (Arr)
          then
             Set_Alignment (Arr, Alignment (Component_Type (Arr)));
          end if;
@@ -3048,7 +3071,9 @@ package body Freeze is
                Set_Etype (Formal, F_Type);
             end if;
 
-            Freeze_And_Append (F_Type, N, Result);
+            if not From_Limited_With (F_Type) then
+               Freeze_And_Append (F_Type, N, Result);
+            end if;
 
             if Is_Private_Type (F_Type)
               and then Is_Private_Type (Base_Type (F_Type))
@@ -3355,9 +3380,20 @@ package body Freeze is
             end if;
          end if;
 
-         --  Check suspicious use of Import in pure unit
+         --  Check suspicious use of Import in pure unit (cases where the RM
+         --  allows calls to be omitted).
 
-         if Is_Imported (E) and then Is_Pure (Cunit_Entity (Current_Sem_Unit))
+         if Is_Imported (E)
+
+           --  It might be suspicious if the compilation unit has the Pure
+           --  aspect/pragma.
+
+           and then Has_Pragma_Pure (Cunit_Entity (Current_Sem_Unit))
+
+           --  The RM allows omission of calls only in the case of
+           --  library-level subprograms (see RM-10.2.1(18)).
+
+           and then Is_Library_Level_Entity (E)
 
            --  Ignore internally generated entity. This happens in some cases
            --  of subprograms in specs, where we generate an implied body.
@@ -4089,7 +4125,7 @@ package body Freeze is
                    (Has_Controlled_Component (Etype (Comp))
                      or else
                        (Chars (Comp) /= Name_uParent
-                         and then Is_Controlled (Etype (Comp)))
+                         and then Is_Controlled_Active (Etype (Comp)))
                      or else
                        (Is_Protected_Type (Etype (Comp))
                          and then
@@ -4288,21 +4324,32 @@ package body Freeze is
             end if;
          end if;
 
-         --  Make sure that if we have aspect Iterator_Element, then we have
+         --  Make sure that if we have an iterator aspect, then we have
          --  either Constant_Indexing or Variable_Indexing.
 
-         if Has_Aspect (Rec, Aspect_Iterator_Element) then
-            if Has_Aspect (Rec, Aspect_Constant_Indexing)
-                 or else
-               Has_Aspect (Rec, Aspect_Variable_Indexing)
-            then
-               null;
-            else
-               Error_Msg_N
-                 ("Iterator_Element requires indexing aspect",
-                  Find_Aspect (Rec, Aspect_Iterator_Element));
+         declare
+            Iterator_Aspect : Node_Id;
+
+         begin
+            Iterator_Aspect := Find_Aspect (Rec, Aspect_Iterator_Element);
+
+            if No (Iterator_Aspect) then
+               Iterator_Aspect := Find_Aspect (Rec, Aspect_Default_Iterator);
             end if;
-         end if;
+
+            if Present (Iterator_Aspect) then
+               if Has_Aspect (Rec, Aspect_Constant_Indexing)
+                    or else
+                  Has_Aspect (Rec, Aspect_Variable_Indexing)
+               then
+                  null;
+               else
+                  Error_Msg_N
+                    ("Iterator_Element requires indexing aspect",
+                     Iterator_Aspect);
+               end if;
+            end if;
+         end;
 
          --  All done if not a full record definition
 
@@ -4604,7 +4651,7 @@ package body Freeze is
       --  Ignore. Set the mode now to ensure that any nodes generated during
       --  freezing are properly flagged as ignored Ghost.
 
-      Set_Ghost_Mode_For_Freeze (E, N);
+      Set_Ghost_Mode_From_Entity (E);
 
       --  We are going to test for various reasons why this entity need not be
       --  frozen here, but in the case of an Itype that's defined within a
@@ -4789,11 +4836,11 @@ package body Freeze is
          --  than component-wise (the assignment to the temp may be done
          --  component-wise, but that is harmless).
 
-         elsif Is_Atomic (E)
+         elsif Is_Atomic_Or_VFA (E)
            and then Nkind (Parent (E)) = N_Object_Declaration
            and then Present (Expression (Parent (E)))
            and then Nkind (Expression (Parent (E))) = N_Aggregate
-           and then Is_Atomic_Aggregate (Expression (Parent (E)), Etype (E))
+           and then Is_Atomic_VFA_Aggregate (Expression (Parent (E)))
          then
             null;
          end if;
@@ -5243,22 +5290,24 @@ package body Freeze is
                   if Sloc (SC) > Sloc (AC) then
                      Loc := SC;
                      Error_Msg_NE
-                       ("??size is not a multiple of alignment for &", Loc, E);
+                       ("?Z?size is not a multiple of alignment for &",
+                        Loc, E);
                      Error_Msg_Sloc := Sloc (AC);
                      Error_Msg_Uint_1 := Alignment (E);
-                     Error_Msg_N ("\??alignment of ^ specified #", Loc);
+                     Error_Msg_N ("\?Z?alignment of ^ specified #", Loc);
 
                   else
                      Loc := AC;
                      Error_Msg_NE
-                       ("??size is not a multiple of alignment for &", Loc, E);
+                       ("?Z?size is not a multiple of alignment for &",
+                        Loc, E);
                      Error_Msg_Sloc := Sloc (SC);
                      Error_Msg_Uint_1 := RM_Size (E);
-                     Error_Msg_N ("\??size of ^ specified #", Loc);
+                     Error_Msg_N ("\?Z?size of ^ specified #", Loc);
                   end if;
 
                   Error_Msg_Uint_1 := ((RM_Size (E) / Abits) + 1) * Abits;
-                  Error_Msg_N ("\??Object_Size will be increased to ^", Loc);
+                  Error_Msg_N ("\?Z?Object_Size will be increased to ^", Loc);
                end if;
             end;
          end if;

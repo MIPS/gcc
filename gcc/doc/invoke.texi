@@ -1085,7 +1085,7 @@ See RS/6000 and PowerPC Options.
 -maes -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma -mprefetchwt1 @gol
 -mclflushopt -mxsavec -mxsaves @gol
 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt @gol
--mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mmpx -mthreads @gol
+-mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mmpx -mmwaitx -mthreads @gol
 -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically -mstringop-strategy=@var{alg} @gol
 -mmemcpy-strategy=@var{strategy} -mmemset-strategy=@var{strategy} @gol
@@ -11302,6 +11302,10 @@ For predictable results, you must also specify the same set of options
 used for compilation (@option{-fpie}, @option{-fPIE},
 or model suboptions) when you specify this linker option.
 
+@item -no-pie
+@opindex no-pie
+Don't produce a position independent executable.
+
 @item -rdynamic
 @opindex rdynamic
 Pass the flag @option{-export-dynamic} to the ELF linker, on targets
@@ -12423,7 +12427,7 @@ corresponding flag to the linker.
 Specify the name of the target architecture, optionally suffixed by one or
 more feature modifiers.  This option has the form
 @option{-march=@var{arch}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}, where the
-only permissible value for @var{arch} is @samp{armv8-a}.
+permissible values for @var{arch} are @samp{armv8-a} or @samp{armv8.1-a}.
 The permissible values for @var{feature} are documented in the sub-section
 below.  Additionally on native AArch64 GNU/Linux systems the value
 @samp{native} is available.  This option causes the compiler to pick the
@@ -12508,6 +12512,14 @@ Enable floating-point instructions.
 Enable Advanced SIMD instructions.  This implies floating-point instructions
 are enabled.  This is the default for all current possible values for options
 @option{-march} and @option{-mcpu=}.
+@item lse
+Enable Large System Extension instructions.
+@item pan
+Enable Privileged Access Never support.
+@item lor
+Enable Limited Ordering Regions support.
+@item rdma
+Enable ARMv8.1 Advanced SIMD instructions.
 @end table
 
 @node Adapteva Epiphany Options
@@ -13507,6 +13519,10 @@ states.  The default for most configurations is to generate code
 that executes in ARM state, but the default can be changed by
 configuring GCC with the @option{--with-mode=}@var{state}
 configure option.
+
+You can also override the ARM and Thumb mode for each function
+by using the @code{target("thumb")} and @code{target("arm")} function attributes
+(@pxref{ARM Function Attributes}) or pragmas (@pxref{Function Specific Option Pragmas}).
 
 @item -mtpcs-frame
 @opindex mtpcs-frame
@@ -20450,7 +20466,8 @@ The default is to not print debug information.
 Generate code that runs on @var{cpu-type}, which is the name of a system
 representing a certain processor type.  Possible values for
 @var{cpu-type} are @samp{g5}, @samp{g6}, @samp{z900}, @samp{z990},
-@samp{z9-109}, @samp{z9-ec}, @samp{z10},  @samp{z196}, and @samp{zEC12}.
+@samp{z9-109}, @samp{z9-ec}, @samp{z10},  @samp{z196}, @samp{zEC12},
+and @samp{z13}.
 When generating code using the instructions available on z/Architecture,
 the default is @option{-march=z900}.  Otherwise, the default is
 @option{-march=g5}.
@@ -22867,10 +22884,13 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @need 200
 @itemx -mmpx
 @opindex mmpx
+@need 200
+@itemx -mmwaitx
+@opindex mmwaitx
 These switches enable the use of instructions in the MMX, SSE,
 SSE2, SSE3, SSSE3, SSE4.1, AVX, AVX2, AVX512F, AVX512PF, AVX512ER, AVX512CD,
 SHA, AES, PCLMUL, FSGSBASE, RDRND, F16C, FMA, SSE4A, FMA4, XOP, LWP, ABM,
-BMI, BMI2, FXSR, XSAVE, XSAVEOPT, LZCNT, RTM, MPX or 3DNow!@:
+BMI, BMI2, FXSR, XSAVE, XSAVEOPT, LZCNT, RTM, MPX, MWAITX or 3DNow!@:
 extended instruction sets.  Each has a corresponding @option{-mno-} option
 to disable use of these instructions.
 
@@ -23866,6 +23886,14 @@ GOT load to optimizations.  On architectures such as 32-bit x86 where
 PLT stubs expect GOT pointer in a specific register, this gives more
 register allocation freedom to the compiler.  Lazy binding requires PLT:
 with @option{-fno-plt} all external symbols are resolved at load time.
+
+Alternatively, function attribute @code{noplt} can be used to avoid PLT
+for calls to specific external functions by marking those functions with
+this attribute.
+
+Additionally, a few targets also convert calls to those functions that are
+marked to not use the PLT to use the GOT instead for non-position independent
+code.
 
 @item -fno-jump-tables
 @opindex fno-jump-tables

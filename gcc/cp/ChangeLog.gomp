@@ -1,3 +1,13 @@
+2015-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/66571
+	* pt.c (tsubst_omp_clause_decl): Use tsubst_expr instead of
+	tsubst_copy.  Undo convert_from_reference if non-REFERENCE_REF_P
+	became REFERENCE_REF_P after tsubst_expr.
+	(tsubst_omp_clauses): Use tsubst_omp_clause_decl instead of
+	tsubst_copy for OMP_CLAUSE_DECL on all clauses.  Remove earlier
+	INDIRECT_REF adjustments in the allow_fields handling.
+
 2015-06-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_clause_name): Parse hint clause.

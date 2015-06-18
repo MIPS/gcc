@@ -28,11 +28,6 @@
 #include "addresses.h"
 #include "hard-reg-set.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -45,6 +40,7 @@
 #include "tree-pass.h"
 #include "df.h"
 #include "rtl-iter.h"
+#include "emit-rtl.h"
 
 /* The following code does forward propagation of hard register copies.
    The object is to eliminate as many dependencies as possible, so that
@@ -62,6 +58,21 @@ struct queued_debug_insn_change
   rtx_insn *insn;
   rtx *loc;
   rtx new_rtx;
+
+  /* Pool allocation new operator.  */
+  inline void *operator new (size_t)
+  {
+    return pool.allocate ();
+  }
+
+  /* Delete operator utilizing pool allocation.  */
+  inline void operator delete (void *ptr)
+  {
+    pool.remove ((queued_debug_insn_change *) ptr);
+  }
+
+  /* Memory allocation pool.  */
+  static pool_allocator<queued_debug_insn_change> pool;
 };
 
 /* For each register, we have a list of registers that contain the same
@@ -85,7 +96,9 @@ struct value_data
   unsigned int n_debug_insn_changes;
 };
 
-static alloc_pool debug_insn_changes_pool;
+pool_allocator<queued_debug_insn_change> queued_debug_insn_change::pool
+  ("debug insn changes pool", 256);
+
 static bool skip_debug_insn_p;
 
 static void kill_value_one_regno (unsigned, struct value_data *);
@@ -124,7 +137,7 @@ free_debug_insn_changes (struct value_data *vd, unsigned int regno)
     {
       next = cur->next;
       --vd->n_debug_insn_changes;
-      pool_free (debug_insn_changes_pool, cur);
+      delete cur;
     }
   vd->e[regno].debug_insn_changes = NULL;
 }
@@ -495,8 +508,7 @@ replace_oldest_value_reg (rtx *loc, enum reg_class cl, rtx_insn *insn,
 	    fprintf (dump_file, "debug_insn %u: queued replacing reg %u with %u\n",
 		     INSN_UID (insn), REGNO (*loc), REGNO (new_rtx));
 
-	  change = (struct queued_debug_insn_change *)
-		   pool_alloc (debug_insn_changes_pool);
+	  change = new queued_debug_insn_change;
 	  change->next = vd->e[REGNO (new_rtx)].debug_insn_changes;
 	  change->insn = insn;
 	  change->loc = loc;
@@ -1244,11 +1256,6 @@ pass_cprop_hardreg::execute (function *fun)
   visited = sbitmap_alloc (last_basic_block_for_fn (fun));
   bitmap_clear (visited);
 
-  if (MAY_HAVE_DEBUG_INSNS)
-    debug_insn_changes_pool
-      = create_alloc_pool ("debug insn changes pool",
-			   sizeof (struct queued_debug_insn_change), 256);
-
   FOR_EACH_BB_FN (bb, fun)
     {
       bitmap_set_bit (visited, bb->index);
@@ -1308,7 +1315,7 @@ pass_cprop_hardreg::execute (function *fun)
 		}
 	  }
 
-      free_alloc_pool (debug_insn_changes_pool);
+      queued_debug_insn_change::pool.release ();
     }
 
   sbitmap_free (visited);

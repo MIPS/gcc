@@ -31,15 +31,8 @@
 #include "insn-codes.h"
 #include "flags.h"
 #include "reload.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -48,11 +41,7 @@
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "output.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -64,7 +53,6 @@
 #include "obstack.h"
 #include "recog.h"
 #include "optabs.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "tm_p.h"
 #include "target.h"
@@ -4379,9 +4367,9 @@ avr_out_load_psi_reg_no_disp_tiny (rtx_insn *insn, rtx *op, int *plen)
     }
   else
     {
-      return avr_asm_len ("ld %A0,%1+"  CR_TAB
-                          "ld %B0,%1+"  CR_TAB
-                          "ld %C0,%1", op, plen, -3);
+      avr_asm_len ("ld %A0,%1+"  CR_TAB
+		   "ld %B0,%1+"  CR_TAB
+		   "ld %C0,%1", op, plen, -3);
 
       if (reg_dest != reg_base - 2 &&
           !reg_unused_after (insn, base))

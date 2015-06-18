@@ -23,27 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
-#include "hashtab.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -60,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -73,7 +61,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "bitmap.h"
 #include "gimple-ssa.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -87,6 +74,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-low.h"
 #include "cilk.h"
 #include "gomp-constants.h"
+#include "tree-dump.h"
 
 #include "langhooks-def.h"	/* FIXME: for lhd_set_decl_assembler_name */
 #include "tree-pass.h"		/* FIXME: only for PROP_gimple_any */
@@ -4222,7 +4210,7 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 	      {
 		if (TREE_THIS_VOLATILE (t) != volatile_p)
 		  {
-		    if (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_declaration)
+		    if (DECL_P (t))
 		      t = build_simple_mem_ref_loc (EXPR_LOCATION (*from_p),
 						    build_fold_addr_expr (t));
 		    if (REFERENCE_CLASS_P (t))
@@ -4341,7 +4329,8 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 		/* It's OK to use the target directly if it's being
 		   initialized. */
 		use_target = true;
-	      else if (variably_modified_type_p (TREE_TYPE (*to_p), NULL_TREE))
+	      else if (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (*to_p)))
+		       != INTEGER_CST)
 		/* Always use the target and thus RSO for variable-sized types.
 		   GIMPLE cannot deal with a variable-sized assignment
 		   embedded in a call statement.  */
@@ -4713,12 +4702,14 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
     return gimplify_modify_expr_complex_part (expr_p, pre_p, want_value);
 
   /* Try to alleviate the effects of the gimplification creating artificial
-     temporaries (see for example is_gimple_reg_rhs) on the debug info.  */
+     temporaries (see for example is_gimple_reg_rhs) on the debug info, but
+     make sure not to create DECL_DEBUG_EXPR links across functions.  */
   if (!gimplify_ctxp->into_ssa
       && TREE_CODE (*from_p) == VAR_DECL
       && DECL_IGNORED_P (*from_p)
       && DECL_P (*to_p)
-      && !DECL_IGNORED_P (*to_p))
+      && !DECL_IGNORED_P (*to_p)
+      && decl_function_context (*to_p) == current_function_decl)
     {
       if (!DECL_NAME (*from_p) && DECL_NAME (*to_p))
 	DECL_NAME (*from_p)
@@ -9768,6 +9759,8 @@ gimplify_function_tree (tree fndecl)
   cfun->curr_properties |= PROP_gimple_any;
 
   pop_cfun ();
+
+  dump_function (TDI_generic, fndecl);
 }
 
 /* Return a dummy expression of type TYPE in order to keep going after an

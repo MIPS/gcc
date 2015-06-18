@@ -1438,7 +1438,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	if (__position == __i || __position == __j)
 	  return;
 
-	if (this != &__x)
+	if (this != std::__addressof(__x))
 	  _M_check_equal_allocators(__x);
 
 	this->_M_transfer(__position._M_const_cast(),
@@ -1501,7 +1501,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       {
 	if (__first != __last)
 	  {
-	    if (this != &__x)
+	    if (this != std::__addressof(__x))
 	      _M_check_equal_allocators(__x);
 
 	    size_t __n = this->_M_distance(__first._M_node, __last._M_node);
@@ -1789,6 +1789,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	    _S_do_it(_M_get_Node_allocator(), __x._M_get_Node_allocator()))
 	  __builtin_abort();
       }
+
+      // Used to implement resize.
+      const_iterator
+      _M_resize_pos(size_type& __new_size) const;
     };
 _GLIBCXX_END_NAMESPACE_CXX11
 
@@ -1806,6 +1810,11 @@ _GLIBCXX_END_NAMESPACE_CXX11
     inline bool
     operator==(const list<_Tp, _Alloc>& __x, const list<_Tp, _Alloc>& __y)
     {
+#if _GLIBCXX_USE_CXX11_ABI
+      if (__x.size() != __y.size())
+	return false;
+#endif
+
       typedef typename list<_Tp, _Alloc>::const_iterator const_iterator;
       const_iterator __end1 = __x.end();
       const_iterator __end2 = __y.end();

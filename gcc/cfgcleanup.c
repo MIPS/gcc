@@ -34,15 +34,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "hard-reg-set.h"
 #include "regs.h"
@@ -50,19 +43,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "recog.h"
 #include "diagnostic-core.h"
+#include "alloc-pool.h"
 #include "cselib.h"
 #include "params.h"
 #include "tm_p.h"
 #include "target.h"
-#include "hashtab.h"
 #include "function.h" /* For inline functions in emit-rtl.h they need crtl.  */
 #include "emit-rtl.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -190,7 +180,8 @@ try_simplify_condjump (basic_block cbranch_block)
     return false;
 
   /* Invert the conditional branch.  */
-  if (!invert_jump (cbranch_insn, block_label (jump_dest_block), 0))
+  if (!invert_jump (as_a <rtx_jump_insn *> (cbranch_insn),
+		    block_label (jump_dest_block), 0))
     return false;
 
   if (dump_file)

@@ -2023,7 +2023,7 @@ package body Sem_Ch3 is
       --  The parent type may be a private view with unknown discriminants,
       --  and thus unconstrained. Regular components must be constrained.
 
-      if Is_Indefinite_Subtype (T) and then Chars (Id) /= Name_uParent then
+      if not Is_Definite_Subtype (T) and then Chars (Id) /= Name_uParent then
          if Is_Class_Wide_Type (T) then
             Error_Msg_N
                ("class-wide subtype with unknown discriminants" &
@@ -2556,8 +2556,9 @@ package body Sem_Ch3 is
    -----------------------------------
 
    procedure Analyze_Full_Type_Declaration (N : Node_Id) is
-      Def    : constant Node_Id   := Type_Definition (N);
-      Def_Id : constant Entity_Id := Defining_Identifier (N);
+      Def    : constant Node_Id         := Type_Definition (N);
+      Def_Id : constant Entity_Id       := Defining_Identifier (N);
+      GM     : constant Ghost_Mode_Type := Ghost_Mode;
       T      : Entity_Id;
       Prev   : Entity_Id;
 
@@ -2574,6 +2575,9 @@ package body Sem_Ch3 is
       --  primitives will be added to the full type's primitive operations
       --  list later in Sem_Disp.Check_Operation_From_Incomplete_Type (which
       --  is called from Process_Incomplete_Dependents).
+
+      procedure Restore_Globals;
+      --  Restore the values of all saved global variables
 
       ------------------------------------
       -- Check_Ops_From_Incomplete_Type --
@@ -2611,6 +2615,15 @@ package body Sem_Ch3 is
             end loop;
          end if;
       end Check_Ops_From_Incomplete_Type;
+
+      ---------------------
+      -- Restore_Globals --
+      ---------------------
+
+      procedure Restore_Globals is
+      begin
+         Ghost_Mode := GM;
+      end Restore_Globals;
 
    --  Start of processing for Analyze_Full_Type_Declaration
 
@@ -2760,6 +2773,7 @@ package body Sem_Ch3 is
       end if;
 
       if Etype (T) = Any_Type then
+         Restore_Globals;
          return;
       end if;
 
@@ -2772,7 +2786,7 @@ package body Sem_Ch3 is
       --  A type declared within a Ghost region is automatically Ghost
       --  (SPARK RM 6.9(2)).
 
-      if Comes_From_Source (T) and then Ghost_Mode > None then
+      if Ghost_Mode > None then
          Set_Is_Ghost_Entity (T);
       end if;
 
@@ -2900,6 +2914,8 @@ package body Sem_Ch3 is
             Analyze_Aspect_Specifications (N, Def_Id);
          end if;
       end if;
+
+      Restore_Globals;
    end Analyze_Full_Type_Declaration;
 
    ----------------------------------
@@ -2907,12 +2923,18 @@ package body Sem_Ch3 is
    ----------------------------------
 
    procedure Analyze_Incomplete_Type_Decl (N : Node_Id) is
-      F : constant Boolean := Is_Pure (Current_Scope);
-      T : Entity_Id;
+      F  : constant Boolean         := Is_Pure (Current_Scope);
+      GM : constant Ghost_Mode_Type := Ghost_Mode;
+      T  : Entity_Id;
 
    begin
       Check_SPARK_05_Restriction ("incomplete type is not allowed", N);
 
+      --  The incomplete type declaration may be subject to pragma Ghost with
+      --  policy Ignore. Set the mode now to ensure that any nodes generated
+      --  during analysis and expansion are properly flagged as ignored Ghost.
+
+      Set_Ghost_Mode (N);
       Generate_Definition (Defining_Identifier (N));
 
       --  Process an incomplete declaration. The identifier must not have been
@@ -2962,6 +2984,11 @@ package body Sem_Ch3 is
 
       Set_Private_Dependents (T, New_Elmt_List);
       Set_Is_Pure            (T, F);
+
+      --  Restore the original Ghost mode once analysis and expansion have
+      --  taken place.
+
+      Ghost_Mode := GM;
    end Analyze_Incomplete_Type_Decl;
 
    -----------------------------------
@@ -3036,11 +3063,29 @@ package body Sem_Ch3 is
    --------------------------------
 
    procedure Analyze_Number_Declaration (N : Node_Id) is
-      Id    : constant Entity_Id := Defining_Identifier (N);
+      GM : constant Ghost_Mode_Type := Ghost_Mode;
+
+      procedure Restore_Globals;
+      --  Restore the values of all saved global variables
+
+      ---------------------
+      -- Restore_Globals --
+      ---------------------
+
+      procedure Restore_Globals is
+      begin
+         Ghost_Mode := GM;
+      end Restore_Globals;
+
+      --  Local variables
+
       E     : constant Node_Id   := Expression (N);
-      T     : Entity_Id;
+      Id    : constant Entity_Id := Defining_Identifier (N);
       Index : Interp_Index;
       It    : Interp;
+      T     : Entity_Id;
+
+   --  Start of processing for Analyze_Number_Declaration
 
    begin
       --  The number declaration may be subject to pragma Ghost with policy
@@ -3068,6 +3113,8 @@ package body Sem_Ch3 is
          Set_Etype     (Id, Universal_Integer);
          Set_Ekind     (Id, E_Named_Integer);
          Set_Is_Frozen (Id, True);
+
+         Restore_Globals;
          return;
       end if;
 
@@ -3169,6 +3216,8 @@ package body Sem_Ch3 is
          Set_Ekind               (Id, E_Constant);
          Set_Never_Set_In_Source (Id, True);
          Set_Is_True_Constant    (Id, True);
+
+         Restore_Globals;
          return;
       end if;
 
@@ -3182,6 +3231,8 @@ package body Sem_Ch3 is
          Rewrite (E, Make_Integer_Literal (Sloc (N), 1));
          Set_Etype (E, Any_Type);
       end if;
+
+      Restore_Globals;
    end Analyze_Number_Declaration;
 
    -----------------------------
@@ -3205,6 +3256,8 @@ package body Sem_Ch3 is
          return;
       end if;
 
+      --  Constant related checks
+
       if Ekind (Obj_Id) = E_Constant then
 
          --  A constant cannot be effectively volatile. This check is only
@@ -3223,6 +3276,8 @@ package body Sem_Ch3 is
          then
             Error_Msg_N ("constant cannot be volatile", Obj_Id);
          end if;
+
+      --  Variable related checks
 
       else pragma Assert (Ekind (Obj_Id) = E_Variable);
 
@@ -3323,15 +3378,15 @@ package body Sem_Ch3 is
          if Seen then
             Check_External_Properties (Obj_Id, AR_Val, AW_Val, ER_Val, EW_Val);
          end if;
+      end if;
 
-         --  Check whether the lack of indicator Part_Of agrees with the
-         --  placement of the variable with respect to the state space.
+      --  Check whether the lack of indicator Part_Of agrees with the placement
+      --  of the object with respect to the state space.
 
-         Prag := Get_Pragma (Obj_Id, Pragma_Part_Of);
+      Prag := Get_Pragma (Obj_Id, Pragma_Part_Of);
 
-         if No (Prag) then
-            Check_Missing_Part_Of (Obj_Id);
-         end if;
+      if No (Prag) then
+         Check_Missing_Part_Of (Obj_Id);
       end if;
 
       --  A ghost object cannot be imported or exported (SPARK RM 6.9(8))
@@ -3351,10 +3406,11 @@ package body Sem_Ch3 is
    --------------------------------
 
    procedure Analyze_Object_Declaration (N : Node_Id) is
-      Loc   : constant Source_Ptr := Sloc (N);
-      Id    : constant Entity_Id  := Defining_Identifier (N);
-      T     : Entity_Id;
+      Loc   : constant Source_Ptr      := Sloc (N);
+      GM    : constant Ghost_Mode_Type := Ghost_Mode;
+      Id    : constant Entity_Id       := Defining_Identifier (N);
       Act_T : Entity_Id;
+      T     : Entity_Id;
 
       E : Node_Id := Expression (N);
       --  E is set to Expression (N) throughout this routine. When
@@ -3380,6 +3436,9 @@ package body Sem_Ch3 is
       --  before the analysis of the object declaration is complete.
 
       --  Any other relevant delayed aspects on object declarations ???
+
+      procedure Restore_Globals;
+      --  Restore the values of all saved global variables
 
       -----------------
       -- Count_Tasks --
@@ -3458,6 +3517,15 @@ package body Sem_Ch3 is
 
          return False;
       end Delayed_Aspect_Present;
+
+      ---------------------
+      -- Restore_Globals --
+      ---------------------
+
+      procedure Restore_Globals is
+      begin
+         Ghost_Mode := GM;
+      end Restore_Globals;
 
    --  Start of processing for Analyze_Object_Declaration
 
@@ -3798,6 +3866,7 @@ package body Sem_Ch3 is
            and then Analyzed (N)
            and then No (Expression (N))
          then
+            Restore_Globals;
             return;
          end if;
 
@@ -3932,7 +4001,7 @@ package body Sem_Ch3 is
 
       --  Case of unconstrained type
 
-      if Is_Indefinite_Subtype (T) then
+      if not Is_Definite_Subtype (T) then
 
          --  In SPARK, a declaration of unconstrained type is allowed
          --  only for constants of type string.
@@ -4051,7 +4120,7 @@ package body Sem_Ch3 is
 
                   --  The Ghost policy in effect at the point of declaration
                   --  and at the point of completion must match
-                  --  (SPARK RM 6.9(15)).
+                  --  (SPARK RM 6.9(14)).
 
                   if Present (Prev_Entity)
                     and then Is_Ghost_Entity (Prev_Entity)
@@ -4069,6 +4138,8 @@ package body Sem_Ch3 is
                Set_Renamed_Object (Id, E);
                Freeze_Before (N, T);
                Set_Is_Frozen (Id);
+
+               Restore_Globals;
                return;
 
             else
@@ -4233,7 +4304,7 @@ package body Sem_Ch3 is
          Set_Is_Ghost_Entity (Id);
 
          --  The Ghost policy in effect at the point of declaration and at the
-         --  point of completion must match (SPARK RM 6.9(16)).
+         --  point of completion must match (SPARK RM 6.9(14)).
 
          if Present (Prev_Entity) and then Is_Ghost_Entity (Prev_Entity) then
             Check_Ghost_Completion (Prev_Entity, Id);
@@ -4259,7 +4330,8 @@ package body Sem_Ch3 is
            and then Is_Record_Type (T)
            and then not Is_Constrained (T)
            and then Has_Discriminants (T)
-           and then (Ada_Version < Ada_2005 or else Is_Indefinite_Subtype (T))
+           and then (Ada_Version < Ada_2005
+                      or else not Is_Definite_Subtype (T))
          then
             Set_Actual_Subtype (Id, Build_Default_Subtype (T, N));
          end if;
@@ -4382,7 +4454,7 @@ package body Sem_Ch3 is
         and then not Is_Constrained (Underlying_Type (T))
         and then not Is_Aliased (Id)
         and then not Is_Class_Wide_Type (T)
-        and then not Is_Controlled (T)
+        and then not Is_Controlled_Active (T)
         and then not Has_Controlled_Component (Base_Type (T))
         and then Expander_Active
       then
@@ -4414,7 +4486,8 @@ package body Sem_Ch3 is
 
       --  Deal with setting In_Private_Part flag if in private part
 
-      if Ekind (Scope (Id)) = E_Package and then In_Private_Part (Scope (Id))
+      if Ekind (Scope (Id)) = E_Package
+        and then In_Private_Part (Scope (Id))
       then
          Set_In_Private_Part (Id);
       end if;
@@ -4448,6 +4521,8 @@ package body Sem_Ch3 is
       if Ekind (Id) = E_Variable then
          Check_No_Hidden_State (Id);
       end if;
+
+      Restore_Globals;
    end Analyze_Object_Declaration;
 
    ---------------------------
@@ -4468,10 +4543,11 @@ package body Sem_Ch3 is
    -------------------------------------------
 
    procedure Analyze_Private_Extension_Declaration (N : Node_Id) is
-      T           : constant Entity_Id := Defining_Identifier (N);
-      Indic       : constant Node_Id   := Subtype_Indication (N);
-      Parent_Type : Entity_Id;
+      GM          : constant Ghost_Mode_Type := Ghost_Mode;
+      Indic       : constant Node_Id         := Subtype_Indication (N);
+      T           : constant Entity_Id       := Defining_Identifier (N);
       Parent_Base : Entity_Id;
+      Parent_Type : Entity_Id;
 
    begin
       --  The private extension declaration may be subject to pragma Ghost with
@@ -4693,6 +4769,11 @@ package body Sem_Ch3 is
       if Has_Aspects (N) then
          Analyze_Aspect_Specifications (N, T);
       end if;
+
+      --  Restore the original Ghost mode once analysis and expansion have
+      --  taken place.
+
+      Ghost_Mode := GM;
    end Analyze_Private_Extension_Declaration;
 
    ---------------------------------
@@ -4703,9 +4784,10 @@ package body Sem_Ch3 is
      (N    : Node_Id;
       Skip : Boolean := False)
    is
+      GM       : constant Ghost_Mode_Type := Ghost_Mode;
       Id       : constant Entity_Id := Defining_Identifier (N);
-      T        : Entity_Id;
       R_Checks : Check_Result;
+      T        : Entity_Id;
 
    begin
       --  The subtype declaration may be subject to pragma Ghost with policy
@@ -5311,6 +5393,11 @@ package body Sem_Ch3 is
       end if;
 
       Analyze_Dimension (N);
+
+      --  Restore the original Ghost mode once analysis and expansion have
+      --  taken place.
+
+      Ghost_Mode := GM;
    end Analyze_Subtype_Declaration;
 
    --------------------------------
@@ -5610,7 +5697,7 @@ package body Sem_Ch3 is
          Set_Packed_Array_Impl_Type (Implicit_Base, Empty);
          Set_Has_Controlled_Component (Implicit_Base,
            Has_Controlled_Component (Element_Type)
-             or else Is_Controlled  (Element_Type));
+             or else Is_Controlled_Active  (Element_Type));
          Set_Finalize_Storage_Only (Implicit_Base,
            Finalize_Storage_Only (Element_Type));
 
@@ -5636,7 +5723,7 @@ package body Sem_Ch3 is
          Set_Has_Controlled_Component (T, Has_Controlled_Component
                                                         (Element_Type)
                                             or else
-                                          Is_Controlled (Element_Type));
+                                          Is_Controlled_Active (Element_Type));
          Set_Finalize_Storage_Only    (T, Finalize_Storage_Only
                                                         (Element_Type));
          Set_Default_SSO              (T);
@@ -5726,7 +5813,7 @@ package body Sem_Ch3 is
       --  that all the indexes are unconstrained but we still need to make sure
       --  that the element type is constrained.
 
-      if Is_Indefinite_Subtype (Element_Type) then
+      if not Is_Definite_Subtype (Element_Type) then
          Error_Msg_N
            ("unconstrained element type in array declaration",
             Subtype_Indication (Component_Def));
@@ -5834,7 +5921,11 @@ package body Sem_Ch3 is
             Set_Scope  (Typ, Current_Scope);
             Push_Scope (Typ);
 
-            Process_Formals (Parameter_Specifications (Spec), Spec);
+            --  Nothing to do if procedure is parameterless
+
+            if Present (Parameter_Specifications (Spec)) then
+               Process_Formals (Parameter_Specifications (Spec), Spec);
+            end if;
 
             if Nkind (Spec) = N_Access_Function_Definition then
                declare
@@ -7343,16 +7434,18 @@ package body Sem_Ch3 is
             Error_Msg_N ("cannot add discriminants to untagged type", N);
          end if;
 
-         Set_Stored_Constraint (Derived_Type, No_Elist);
-         Set_Is_Constrained    (Derived_Type, Is_Constrained (Parent_Type));
-         Set_Is_Controlled     (Derived_Type, Is_Controlled  (Parent_Type));
+         Set_Stored_Constraint  (Derived_Type, No_Elist);
+         Set_Is_Constrained     (Derived_Type, Is_Constrained (Parent_Type));
+         Set_Is_Controlled      (Derived_Type, Is_Controlled  (Parent_Type));
+         Set_Disable_Controlled (Derived_Type, Disable_Controlled
+                                                              (Parent_Type));
          Set_Has_Controlled_Component
-                               (Derived_Type, Has_Controlled_Component
-                                                             (Parent_Type));
+                                (Derived_Type, Has_Controlled_Component
+                                                              (Parent_Type));
 
          --  Direct controlled types do not inherit Finalize_Storage_Only flag
 
-         if not Is_Controlled  (Parent_Type) then
+         if not Is_Controlled_Active (Parent_Type) then
             Set_Finalize_Storage_Only
               (Base_Type (Derived_Type), Finalize_Storage_Only (Parent_Type));
          end if;
@@ -8964,16 +9057,18 @@ package body Sem_Ch3 is
    begin
       --  Set common attributes
 
-      Set_Scope          (Derived_Type, Current_Scope);
+      Set_Scope              (Derived_Type, Current_Scope);
 
-      Set_Etype          (Derived_Type,                Parent_Base);
-      Set_Ekind          (Derived_Type, Ekind         (Parent_Base));
-      Set_Has_Task       (Derived_Type, Has_Task      (Parent_Base));
-      Set_Has_Protected  (Derived_Type, Has_Protected (Parent_Base));
+      Set_Etype              (Derived_Type,                Parent_Base);
+      Set_Ekind              (Derived_Type, Ekind         (Parent_Base));
+      Set_Has_Task           (Derived_Type, Has_Task      (Parent_Base));
+      Set_Has_Protected      (Derived_Type, Has_Protected (Parent_Base));
 
-      Set_Size_Info      (Derived_Type,                 Parent_Type);
-      Set_RM_Size        (Derived_Type, RM_Size        (Parent_Type));
-      Set_Is_Controlled  (Derived_Type, Is_Controlled  (Parent_Type));
+      Set_Size_Info          (Derived_Type,                     Parent_Type);
+      Set_RM_Size            (Derived_Type, RM_Size            (Parent_Type));
+      Set_Is_Controlled      (Derived_Type, Is_Controlled      (Parent_Type));
+      Set_Disable_Controlled (Derived_Type, Disable_Controlled (Parent_Type));
+
       Set_Is_Tagged_Type (Derived_Type, Is_Tagged_Type (Parent_Type));
       Set_Is_Volatile    (Derived_Type, Is_Volatile    (Parent_Type));
 
@@ -10796,7 +10891,6 @@ package body Sem_Ch3 is
       ----------------
 
       procedure Post_Error is
-
          procedure Missing_Body;
          --  Output missing body message
 
@@ -10822,7 +10916,6 @@ package body Sem_Ch3 is
 
       begin
          if not Comes_From_Source (E) then
-
             if Ekind_In (E, E_Task_Type, E_Protected_Type) then
 
                --  It may be an anonymous protected type created for a
@@ -10927,12 +11020,6 @@ package body Sem_Ch3 is
       E := First_Entity (Pack_Id);
       while Present (E) loop
          if Is_Intrinsic_Subprogram (E) then
-            null;
-
-         --  A Ghost entity declared in a non-Ghost package does not force the
-         --  need for a body (SPARK RM 6.9(11)).
-
-         elsif not Is_Ghost_Entity (Pack_Id) and then Is_Ghost_Entity (E) then
             null;
 
          --  The following situation requires special handling: a child unit
@@ -12899,6 +12986,13 @@ package body Sem_Ch3 is
 
          if No (Def_Id) then
             Def_Id := Create_Itype (E_Void, Related_Nod, Related_Id, Suffix);
+
+            --  Elaborate itype now, as it may be used in a subsequent
+            --  synchronized operation in another scope.
+
+            if Nkind (Related_Nod) = N_Full_Type_Declaration then
+               Build_Itype_Reference (Def_Id, Related_Nod);
+            end if;
          end if;
 
          Constrain_Discriminated_Type (Def_Id, SI, Related_Nod);
@@ -17852,7 +17946,7 @@ package body Sem_Ch3 is
       N : Node_Id := Empty) return Boolean
    is
       Original_Comp  : Entity_Id := Empty;
-      Original_Scope : Entity_Id;
+      Original_Type : Entity_Id;
       Type_Scope     : Entity_Id;
 
       function Is_Local_Type (Typ : Entity_Id) return Boolean;
@@ -17896,13 +17990,13 @@ package body Sem_Ch3 is
          return False;
 
       else
-         Original_Scope := Scope (Original_Comp);
+         Original_Type := Scope (Original_Comp);
          Type_Scope     := Scope (Base_Type (Scope (C)));
       end if;
 
       --  This test only concerns tagged types
 
-      if not Is_Tagged_Type (Original_Scope) then
+      if not Is_Tagged_Type (Original_Type) then
          return True;
 
       --  If it is _Parent or _Tag, there is no visibility issue
@@ -17916,7 +18010,7 @@ package body Sem_Ch3 is
 
       elsif Ekind (Original_Comp) = E_Discriminant
         and then
-          (not Has_Unknown_Discriminants (Original_Scope)
+          (not Has_Unknown_Discriminants (Original_Type)
             or else (Present (N)
                       and then Nkind (N) = N_Selected_Component
                       and then Nkind (Prefix (N)) = N_Type_Conversion
@@ -17944,11 +18038,11 @@ package body Sem_Ch3 is
       --  visible. The latter suppression of visibility is needed for cases
       --  that are tested in B730006.
 
-      elsif Is_Private_Type (Original_Scope)
+      elsif Is_Private_Type (Original_Type)
         or else
           (not Is_Private_Descendant (Type_Scope)
             and then not In_Open_Scopes (Type_Scope)
-            and then Has_Private_Declaration (Original_Scope))
+            and then Has_Private_Declaration (Original_Type))
       then
          --  If the type derives from an entity in a formal package, there
          --  are no additional visible components.
@@ -17968,7 +18062,7 @@ package body Sem_Ch3 is
          else
             return
               Is_Child_Unit (Cunit_Entity (Current_Sem_Unit))
-                and then In_Open_Scopes (Scope (Original_Scope))
+                and then In_Open_Scopes (Scope (Original_Type))
                 and then Is_Local_Type (Type_Scope);
          end if;
 
@@ -17991,9 +18085,22 @@ package body Sem_Ch3 is
 
          begin
             loop
-               if Ancestor = Original_Scope then
+               if Ancestor = Original_Type then
                   return True;
+
+               --  The ancestor may have a partial view of the original
+               --  type, but if the full view is in scope, as in a child
+               --  body, the component is visible.
+
+               elsif In_Private_Part (Scope (Original_Type))
+                 and then Full_View (Ancestor) = Original_Type
+               then
+                  return True;
+
                elsif Ancestor = Etype (Ancestor) then
+
+                  --  No further ancestors to examine.
+
                   return False;
                end if;
 
@@ -18488,7 +18595,7 @@ package body Sem_Ch3 is
             Set_Modular_Size (Bits);
             return;
 
-         --  Non-binary case
+         --  Nonbinary case
 
          elsif M_Val < 2 ** Bits then
             Check_SPARK_05_Restriction ("modulus should be a power of 2", T);
@@ -18503,7 +18610,7 @@ package body Sem_Ch3 is
                return;
 
             else
-               --  In the non-binary case, set size as per RM 13.3(55)
+               --  In the nonbinary case, set size as per RM 13.3(55)
 
                Set_Modular_Size (Bits);
                return;
@@ -19555,8 +19662,8 @@ package body Sem_Ch3 is
          --  not completed with an unconstrained type. A separate error message
          --  is produced if the full type has defaulted discriminants.
 
-         if not Is_Indefinite_Subtype (Priv_T)
-           and then Is_Indefinite_Subtype (Full_T)
+         if Is_Definite_Subtype (Priv_T)
+           and then not Is_Definite_Subtype (Full_T)
          then
             Error_Msg_Sloc := Sloc (Parent (Priv_T));
             Error_Msg_NE
@@ -19949,14 +20056,10 @@ package body Sem_Ch3 is
             Private_To_Full_View => True);
       end if;
 
-      --  Propagate the attributes related to pragma Ghost from the private to
-      --  the full view.
-
       if Is_Ghost_Entity (Priv_T) then
-         Set_Is_Ghost_Entity (Full_T);
 
          --  The Ghost policy in effect at the point of declaration and at the
-         --  point of completion must match (SPARK RM 6.9(15)).
+         --  point of completion must match (SPARK RM 6.9(14)).
 
          Check_Ghost_Completion (Priv_T, Full_T);
 
@@ -19967,6 +20070,11 @@ package body Sem_Ch3 is
          if Is_Derived_Type (Full_T) then
             Check_Ghost_Derivation (Full_T);
          end if;
+
+         --  Propagate the attributes related to pragma Ghost from the private
+         --  to the full view.
+
+         Mark_Full_View_As_Ghost (Priv_T, Full_T);
       end if;
 
       --  Propagate invariants to full type
@@ -21161,7 +21269,7 @@ package body Sem_Ch3 is
          end;
       end if;
 
-      Final_Storage_Only := not Is_Controlled (T);
+      Final_Storage_Only := not Is_Controlled_Active (T);
 
       --  Ada 2005: Check whether an explicit Limited is present in a derived
       --  type declaration.
@@ -21227,7 +21335,8 @@ package body Sem_Ch3 is
          elsif not Is_Class_Wide_Equivalent_Type (T)
            and then (Has_Controlled_Component (Etype (Component))
                       or else (Chars (Component) /= Name_uParent
-                                and then Is_Controlled (Etype (Component))))
+                                and then Is_Controlled_Active
+                                           (Etype (Component))))
          then
             Set_Has_Controlled_Component (T, True);
             Final_Storage_Only :=

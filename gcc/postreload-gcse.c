@@ -23,17 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 
-#include "hash-table.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -48,10 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgrtl.h"
 #include "basic-block.h"
 #include "profile.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -1115,8 +1103,8 @@ eliminate_partially_redundant_load (basic_block bb, rtx_insn *insn,
 
 	  /* Make sure we can generate a move from register avail_reg to
 	     dest.  */
-	  rtx_insn *move = as_a <rtx_insn *>
-	    (gen_move_insn (copy_rtx (dest), copy_rtx (avail_reg)));
+	  rtx_insn *move = gen_move_insn (copy_rtx (dest),
+					  copy_rtx (avail_reg));
 	  extract_insn (move);
 	  if (! constrain_operands (1, get_preferred_alternatives (insn,
 								   pred_bb))

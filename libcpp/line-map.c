@@ -26,6 +26,18 @@ along with this program; see the file COPYING3.  If not see
 #include "internal.h"
 #include "hashtab.h"
 
+/* Do not track column numbers higher than this one.  As a result, the
+   range of column_bits is [7, 18] (or 0 if column numbers are
+   disabled).  */
+const unsigned int LINE_MAP_MAX_COLUMN_NUMBER = (1U << 17);
+
+/* Do not track column numbers if locations get higher than this.  */
+const source_location LINE_MAP_MAX_LOCATION_WITH_COLS = 0x60000000;
+
+/* Highest possible source location encoded within an ordinary or
+   macro map.  */
+const source_location LINE_MAP_MAX_SOURCE_LOCATION = 0x70000000;
+
 static void trace_include (const struct line_maps *, const line_map_ordinary *);
 static const line_map_ordinary * linemap_ordinary_map_lookup (struct line_maps *,
 							      source_location);
@@ -381,31 +393,30 @@ linemap_add (struct line_maps *set, enum lc_reason reason,
 	}
     }
 
-  ORDINARY_MAP_IN_SYSTEM_HEADER_P (map) = sysp;
-  MAP_START_LOCATION (map) = start_location;
-  ORDINARY_MAP_FILE_NAME (map) = to_file;
-  ORDINARY_MAP_STARTING_LINE_NUMBER (map) = to_line;
+  map->sysp = sysp;
+  map->start_location = start_location;
+  map->to_file = to_file;
+  map->to_line = to_line;
   LINEMAPS_ORDINARY_CACHE (set) = LINEMAPS_ORDINARY_USED (set) - 1;
-  SET_ORDINARY_MAP_NUMBER_OF_COLUMN_BITS (map, 0);
+  map->column_bits = 0;
   set->highest_location = start_location;
   set->highest_line = start_location;
   set->max_column_hint = 0;
 
   if (reason == LC_ENTER)
     {
-      ORDINARY_MAP_INCLUDER_FILE_INDEX (map) = 
+      map->included_from =
 	set->depth == 0 ? -1 : (int) (LINEMAPS_ORDINARY_USED (set) - 2);
       set->depth++;
       if (set->trace_includes)
 	trace_include (set, map);
     }
   else if (reason == LC_RENAME)
-    ORDINARY_MAP_INCLUDER_FILE_INDEX (map) =
-      ORDINARY_MAP_INCLUDER_FILE_INDEX (&map[-1]);
+    map->included_from = ORDINARY_MAP_INCLUDER_FILE_INDEX (&map[-1]);
   else if (reason == LC_LEAVE)
     {
       set->depth--;
-      ORDINARY_MAP_INCLUDER_FILE_INDEX (map) =
+      map->included_from =
 	ORDINARY_MAP_INCLUDER_FILE_INDEX (INCLUDED_FROM (set, map - 1));
     }
 
@@ -464,14 +475,14 @@ linemap_enter_macro (struct line_maps *set, struct cpp_hashnode *macro_node,
 
   map = linemap_check_macro (new_linemap (set, LC_ENTER_MACRO));
 
-  MAP_START_LOCATION (map) = start_location;
-  MACRO_MAP_MACRO (map) = macro_node;
-  MACRO_MAP_NUM_MACRO_TOKENS (map) = num_tokens;
-  MACRO_MAP_LOCATIONS (map)
+  map->start_location = start_location;
+  map->macro = macro_node;
+  map->n_tokens = num_tokens;
+  map->macro_locations
     = (source_location*) reallocator (NULL,
 				      2 * num_tokens
 				      * sizeof (source_location));
-  MACRO_MAP_EXPANSION_POINT_LOCATION (map) = expansion;
+  map->expansion = expansion;
   memset (MACRO_MAP_LOCATIONS (map), 0,
 	  num_tokens * sizeof (source_location));
 
@@ -545,22 +556,23 @@ linemap_line_start (struct line_maps *set, linenum_type to_line,
       || (max_column_hint >= (1U << ORDINARY_MAP_NUMBER_OF_COLUMN_BITS (map)))
       || (max_column_hint <= 80
 	  && ORDINARY_MAP_NUMBER_OF_COLUMN_BITS (map) >= 10)
-      || (highest > 0x60000000
-	  && (set->max_column_hint || highest > 0x70000000)))
+      || (highest > LINE_MAP_MAX_LOCATION_WITH_COLS
+	  && (set->max_column_hint || highest >= LINE_MAP_MAX_SOURCE_LOCATION)))
     add_map = true;
   else
     max_column_hint = set->max_column_hint;
   if (add_map)
     {
       int column_bits;
-      if (max_column_hint > 100000 || highest > 0x60000000)
+      if (max_column_hint > LINE_MAP_MAX_COLUMN_NUMBER
+	  || highest > LINE_MAP_MAX_LOCATION_WITH_COLS)
 	{
 	  /* If the column number is ridiculous or we've allocated a huge
 	     number of source_locations, give up on column numbers. */
 	  max_column_hint = 0;
-	  if (highest > 0x70000000)
-	    return 0;
 	  column_bits = 0;
+	  if (highest > LINE_MAP_MAX_SOURCE_LOCATION)
+	    return 0;
 	}
       else
 	{
@@ -580,7 +592,7 @@ linemap_line_start (struct line_maps *set, linenum_type to_line,
 				ORDINARY_MAP_IN_SYSTEM_HEADER_P (map),
 				ORDINARY_MAP_FILE_NAME (map),
 				to_line)));
-      SET_ORDINARY_MAP_NUMBER_OF_COLUMN_BITS (map, column_bits);
+      map->column_bits = column_bits;
       r = (MAP_START_LOCATION (map)
 	   + ((to_line - ORDINARY_MAP_STARTING_LINE_NUMBER (map))
 	      << column_bits));
@@ -616,7 +628,8 @@ linemap_position_for_column (struct line_maps *set, unsigned int to_column)
 
   if (to_column >= set->max_column_hint)
     {
-      if (r >= 0xC000000 || to_column > 100000)
+      if (r > LINE_MAP_MAX_LOCATION_WITH_COLS
+	  || to_column > LINE_MAP_MAX_COLUMN_NUMBER)
 	{
 	  /* Running low on source_locations - disable column numbers.  */
 	  return r;
@@ -675,15 +688,17 @@ linemap_position_for_loc_and_offset (struct line_maps *set,
   /* We find the real location and shift it.  */
   loc = linemap_resolve_location (set, loc, LRK_SPELLING_LOCATION, &map);
   /* The new location (loc + offset) should be higher than the first
-     location encoded by MAP.  */
-  if (linemap_assert_fails (MAP_START_LOCATION (map) < loc + offset))
+     location encoded by MAP.
+     FIXME: We used to linemap_assert_fails here and in the if below,
+     but that led to PR66415.  So give up for now.  */
+  if ((MAP_START_LOCATION (map) >= loc + offset))
     return loc;
 
   /* If MAP is not the last line map of its set, then the new location
      (loc + offset) should be less than the first location encoded by
      the next line map of the set.  */
   if (map != LINEMAPS_LAST_ORDINARY_MAP (set))
-    if (linemap_assert_fails (loc + offset < MAP_START_LOCATION (&map[1])))
+    if ((loc + offset >= MAP_START_LOCATION (&map[1])))
       return loc;
 
   offset += SOURCE_COLUMN (map, loc);

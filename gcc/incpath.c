@@ -20,8 +20,6 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "machmode.h"
-#include "vec.h"
 #include "target.h"
 #include "tm.h"
 #include "cpplib.h"

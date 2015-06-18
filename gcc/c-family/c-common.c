@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "c-common.h"
 #include "tm.h"
 #include "intl.h"
@@ -47,16 +46,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "diagnostic.h"
 #include "tree-iterator.h"
-#include "hashtab.h"
 #include "opts.h"
-#include "hash-map.h"
-#include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -357,6 +349,7 @@ static tree handle_mode_attribute (tree *, tree, tree, int, bool *);
 static tree handle_section_attribute (tree *, tree, tree, int, bool *);
 static tree handle_aligned_attribute (tree *, tree, tree, int, bool *);
 static tree handle_weak_attribute (tree *, tree, tree, int, bool *) ;
+static tree handle_noplt_attribute (tree *, tree, tree, int, bool *) ;
 static tree handle_alias_ifunc_attribute (bool, tree *, tree, tree, bool *);
 static tree handle_ifunc_attribute (tree *, tree, tree, int, bool *);
 static tree handle_alias_attribute (tree *, tree, tree, int, bool *);
@@ -706,6 +699,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_aligned_attribute, false },
   { "weak",                   0, 0, true,  false, false,
 			      handle_weak_attribute, false },
+  { "noplt",                   0, 0, true,  false, false,
+			      handle_noplt_attribute, false },
   { "ifunc",                  1, 1, true,  false, false,
 			      handle_ifunc_attribute, false },
   { "alias",                  1, 1, true,  false, false,
@@ -4975,6 +4970,20 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	tree totype = TREE_TYPE (expr);
 	tree fromtype = TREE_TYPE (TREE_OPERAND (expr, 0));
 
+	if (POINTER_TYPE_P (totype)
+	    && TREE_CODE (fromtype) == REFERENCE_TYPE)
+	  {
+	    tree inner = expr;
+	    STRIP_NOPS (inner);
+
+	    if (DECL_P (inner))
+	      warning_at (location,
+			  OPT_Waddress,
+			  "the compiler can assume that the address of "
+			  "%qD will always evaluate to %<true%>",
+			  inner);
+	  }
+
 	/* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
 	   since that affects how `default_conversion' will behave.  */
 	if (TREE_CODE (totype) == REFERENCE_TYPE
@@ -7414,7 +7423,7 @@ handle_externally_visible_attribute (tree *pnode, tree name,
 {
   tree node = *pnode;
 
-  if (TREE_CODE (node) == FUNCTION_DECL || TREE_CODE (node) == VAR_DECL)
+  if (VAR_OR_FUNCTION_DECL_P (node))
     {
       if ((!TREE_STATIC (node) && TREE_CODE (node) != FUNCTION_DECL
 	   && !DECL_EXTERNAL (node)) || !TREE_PUBLIC (node))
@@ -7445,7 +7454,7 @@ handle_no_reorder_attribute (tree *pnode,
 {
   tree node = *pnode;
 
-  if ((TREE_CODE (node) != FUNCTION_DECL && TREE_CODE (node) != VAR_DECL)
+  if (!VAR_OR_FUNCTION_DECL_P (node)
 	&& !(TREE_STATIC (node) || DECL_EXTERNAL (node)))
     {
       warning (OPT_Wattributes,
@@ -7901,7 +7910,7 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 
   user_defined_section_attribute = true;
 
-  if (TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
+  if (!VAR_OR_FUNCTION_DECL_P (decl))
     {
       error ("section attribute not allowed for %q+D", *node);
       goto fail;
@@ -8180,8 +8189,7 @@ handle_weak_attribute (tree *node, tree name,
       *no_add_attrs = true;
       return NULL_TREE;
     }
-  else if (TREE_CODE (*node) == FUNCTION_DECL
-	   || TREE_CODE (*node) == VAR_DECL)
+  else if (VAR_OR_FUNCTION_DECL_P (*node))
     {
       struct symtab_node *n = symtab_node::get (*node);
       if (n && n->refuse_visibility_changes)
@@ -8191,6 +8199,25 @@ handle_weak_attribute (tree *node, tree name,
   else
     warning (OPT_Wattributes, "%qE attribute ignored", name);
 
+  return NULL_TREE;
+}
+
+/* Handle a "noplt" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_noplt_attribute (tree *node, tree name,
+		       tree ARG_UNUSED (args),
+		       int ARG_UNUSED (flags),
+		       bool * ARG_UNUSED (no_add_attrs))
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes,
+	       "%qE attribute is only applicable on functions", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
   return NULL_TREE;
 }
 
@@ -8317,7 +8344,7 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
      such symbols do not even have a DECL_WEAK field.  */
   if (decl_function_context (*node)
       || current_function_decl
-      || (TREE_CODE (*node) != VAR_DECL && TREE_CODE (*node) != FUNCTION_DECL))
+      || !VAR_OR_FUNCTION_DECL_P (*node))
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
@@ -8474,8 +8501,7 @@ handle_visibility_attribute (tree *node, tree name, tree args,
 bool
 c_determine_visibility (tree decl)
 {
-  gcc_assert (TREE_CODE (decl) == VAR_DECL
-	      || TREE_CODE (decl) == FUNCTION_DECL);
+  gcc_assert (VAR_OR_FUNCTION_DECL_P (decl));
 
   /* If the user explicitly specified the visibility with an
      attribute, honor that.  DECL_VISIBILITY will have been set during
@@ -9022,8 +9048,7 @@ handle_tm_wrap_attribute (tree *node, tree name, tree args,
       if (error_operand_p (wrap_decl))
         ;
       else if (TREE_CODE (wrap_decl) != IDENTIFIER_NODE
-	       && TREE_CODE (wrap_decl) != VAR_DECL
-	       && TREE_CODE (wrap_decl) != FUNCTION_DECL)
+	       && !VAR_OR_FUNCTION_DECL_P (wrap_decl))
 	error ("%qE argument not an identifier", name);
       else
 	{
@@ -9097,9 +9122,9 @@ handle_deprecated_attribute (tree *node, tree name,
 
       if (TREE_CODE (decl) == TYPE_DECL
 	  || TREE_CODE (decl) == PARM_DECL
-	  || TREE_CODE (decl) == VAR_DECL
-	  || TREE_CODE (decl) == FUNCTION_DECL
+	  || VAR_OR_FUNCTION_DECL_P (decl)
 	  || TREE_CODE (decl) == FIELD_DECL
+	  || TREE_CODE (decl) == CONST_DECL
 	  || objc_method_decl (TREE_CODE (decl)))
 	TREE_DEPRECATED (decl) = 1;
       else

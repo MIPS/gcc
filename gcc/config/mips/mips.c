@@ -33,15 +33,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "recog.h"
 #include "output.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -49,11 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "calls.h"
 #include "function.h"
-#include "hashtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -65,9 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "libfuncs.h"
 #include "reload.h"
 #include "tm_p.h"
-#include "ggc.h"
 #include "gstab.h"
-#include "hash-table.h"
 #include "debug.h"
 #include "target.h"
 #include "target-def.h"
@@ -88,7 +75,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "bitmap.h"
@@ -97,7 +83,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "tree-pass.h"
 #include "context.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -16788,13 +16773,14 @@ mips16_split_long_branches (void)
   do
     {
       rtx_insn *insn;
+      rtx_jump_insn *jump_insn;
 
       shorten_branches (get_insns ());
       something_changed = false;
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-	if (JUMP_P (insn)
-	    && get_attr_length (insn) > 4
-	    && (any_condjump_p (insn) || any_uncondjump_p (insn)))
+	if ((jump_insn = dyn_cast <rtx_jump_insn *> (insn))
+	    && get_attr_length (jump_insn) > 4
+	    && (any_condjump_p (jump_insn) || any_uncondjump_p (jump_insn)))
 	  {
 	    rtx old_label, temp, saved_temp;
 	    rtx_code_label *new_label;
@@ -16809,7 +16795,7 @@ mips16_split_long_branches (void)
 	    emit_move_insn (saved_temp, temp);
 
 	    /* Load the branch target into TEMP.  */
-	    old_label = JUMP_LABEL (insn);
+	    old_label = JUMP_LABEL (jump_insn);
 	    target = gen_rtx_LABEL_REF (Pmode, old_label);
 	    mips16_load_branch_target (temp, target);
 
@@ -16824,7 +16810,7 @@ mips16_split_long_branches (void)
 	       a PC-relative constant pool.  */
 	    mips16_lay_out_constants (false);
 
-	    if (simplejump_p (insn))
+	    if (simplejump_p (jump_insn))
 	      /* We're going to replace INSN with a longer form.  */
 	      new_label = NULL;
 	    else
@@ -16838,11 +16824,11 @@ mips16_split_long_branches (void)
 	    jump_sequence = get_insns ();
 	    end_sequence ();
 
-	    emit_insn_after (jump_sequence, insn);
+	    emit_insn_after (jump_sequence, jump_insn);
 	    if (new_label)
-	      invert_jump (insn, new_label, false);
+	      invert_jump (jump_insn, new_label, false);
 	    else
-	      delete_insn (insn);
+	      delete_insn (jump_insn);
 	    something_changed = true;
 	  }
     }
@@ -19414,6 +19400,33 @@ mips_lra_p (void)
 {
   return mips_lra_flag;
 }
+
+/* Implement TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS.  */
+
+static reg_class_t
+mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
+{
+  /* LRA will allocate an FPR for an integer mode pseudo instead of spilling
+     to memory if an FPR is present in the allocno class.  It is rare that
+     we actually need to place an integer mode value in an FPR so where
+     possible limit the allocation to GR_REGS.  This will slightly pessimize
+     code that involves integer to/from float conversions as these will have
+     to reload into FPRs in LRA.  Such reloads are sometimes eliminated and
+     sometimes only partially eliminated.  We choose to take this penalty
+     in order to eliminate usage of FPRs in code that does not use floating
+     point data.
+
+     This change has a similar effect to increasing the cost of FPR->GPR
+     register moves for integer modes so that they are higher than the cost
+     of memory but changing the allocno class is more reliable.
+
+     This is also similar to forbidding integer mode values in FPRs entirely
+     but this would lead to an inconsistency in the integer to/from float
+     instructions that say integer mode values must be placed in FPRs.  */
+  if (INTEGRAL_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS)
+    return GR_REGS;
+  return allocno_class;
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -19670,6 +19683,8 @@ mips_lra_p (void)
 #define TARGET_SPILL_CLASS mips_spill_class
 #undef TARGET_LRA_P
 #define TARGET_LRA_P mips_lra_p
+#undef TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS
+#define TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS mips_ira_change_pseudo_allocno_class
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
