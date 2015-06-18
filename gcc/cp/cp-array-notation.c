@@ -530,6 +530,11 @@ expand_an_in_modify_expr (location_t location, tree lhs,
   vec<vec<an_parts> > lhs_an_info = vNULL, rhs_an_info = vNULL;
   vec<an_loop_parts> lhs_an_loop_info = vNULL, rhs_an_loop_info = vNULL;
 
+  /* LHS and RHS need to be simpified to constant-expression.  We might
+     be able to do simple CST-folding instead (TODO).  */
+  lhs = maybe_constant_value (lhs);
+  rhs = maybe_constant_value (rhs);
+
   if (!find_rank (location, rhs, rhs, false, &rhs_rank))
     return error_mark_node;
   extract_array_notation_exprs (rhs, false, &rhs_list);
@@ -566,6 +571,7 @@ expand_an_in_modify_expr (location_t location, tree lhs,
     }
   lhs_rank = 0;
   rhs_rank = 0;
+
   if (!find_rank (location, lhs, lhs, true, &lhs_rank)
       || !find_rank (location, rhs, rhs, true, &rhs_rank))
     {
