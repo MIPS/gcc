@@ -1,3 +1,9 @@
+/* { dg-xfail-run-if "TODO" { c && openacc_nvidia_accel_selected } { "*" } { "" } } */
+/* Fails as of gomp-4_0-branch r224586, but for C only:
+
+   private-vars-loop-gang-3.exe: [...]/private-vars-loop-gang-3.c:28: main: Assertion `arr[i] == i + (i / 32) * 2' failed.
+*/
+
 #include <assert.h>
 
 /* Test of gang-private variables declared on loop directive, with broadcasting

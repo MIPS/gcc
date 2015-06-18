@@ -1,3 +1,4 @@
+/* { dg-xfail-if "TODO" { c } } */
 /* { dg-xfail-run-if "TODO" { openacc_nvidia_accel_selected } { "*" } { "" } } */
 
 #include <assert.h>

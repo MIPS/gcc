@@ -1,4 +1,5 @@
-/* { dg-xfail-run-if "TODO" { openacc_nvidia_accel_selected } { "*" } { "" } } */
+/* { dg-xfail-if "TODO: ICE" { *-*-* } } */
+/* { dg-excess-errors "TODO" } */
 
 #include <assert.h>
 

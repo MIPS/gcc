@@ -19,6 +19,10 @@ if ![info exists DEFAULT_CFLAGS] then {
     set DEFAULT_CFLAGS "-O2"
 }
 
+proc check_effective_target_c { } {
+    return 1
+}
+
 # Initialize dg.
 dg-init
 
