@@ -530,11 +530,6 @@ expand_an_in_modify_expr (location_t location, tree lhs,
   vec<vec<an_parts> > lhs_an_info = vNULL, rhs_an_info = vNULL;
   vec<an_loop_parts> lhs_an_loop_info = vNULL, rhs_an_loop_info = vNULL;
 
-  /* LHS and RHS need to be simpified to constant-expression.  We might
-     be able to do simple CST-folding instead (TODO).  */
-  lhs = maybe_constant_value (lhs);
-  rhs = maybe_constant_value (rhs);
-
   if (!find_rank (location, rhs, rhs, false, &rhs_rank))
     return error_mark_node;
   extract_array_notation_exprs (rhs, false, &rhs_list);
@@ -1393,7 +1388,12 @@ build_array_notation_ref (location_t loc, tree array, tree start, tree length,
     
   if (!stride) 
     stride = build_one_cst (ptrdiff_type_node);
-  
+
+  stride = maybe_constant_value (stride);
+  length = maybe_constant_value (length);
+  if (start)
+    start = maybe_constant_value (start);
+
   /* When dealing with templates, triplet type-checking will be done in pt.c 
      after type substitution.  */
   if (processing_template_decl 
