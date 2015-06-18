@@ -217,6 +217,7 @@ static tree template_parm_to_arg (tree t);
 static tree current_template_args (void);
 static tree tsubst_template_parm (tree, tree, tsubst_flags_t);
 static tree instantiate_alias_template (tree, tree, tsubst_flags_t);
+static bool complex_alias_template_p (const_tree tmpl);
 
 /* Make the current scope suitable for access checking when we are
    processing T.  T can be FUNCTION_DECL for instantiated function
@@ -4418,6 +4419,7 @@ get_template_parm_index (tree parm)
 	   || TREE_CODE (parm) == TEMPLATE_DECL)
     parm = TREE_TYPE (parm);
   if (TREE_CODE (parm) == TEMPLATE_TYPE_PARM
+      || TREE_CODE (parm) == BOUND_TEMPLATE_TEMPLATE_PARM
       || TREE_CODE (parm) == TEMPLATE_TEMPLATE_PARM)
     parm = TEMPLATE_TYPE_PARM_INDEX (parm);
   gcc_assert (TREE_CODE (parm) == TEMPLATE_PARM_INDEX);
@@ -5094,6 +5096,11 @@ template arguments to %qD do not match original template %qD",
 	  if (TREE_CODE (parm) == TEMPLATE_DECL)
 	    DECL_CONTEXT (parm) = tmpl;
 	}
+
+      if (TREE_CODE (decl) == TYPE_DECL
+	  && TYPE_DECL_ALIAS_P (decl)
+	  && complex_alias_template_p (tmpl))
+	TEMPLATE_DECL_COMPLEX_ALIAS_P (tmpl) = true;
     }
 
   /* The DECL_TI_ARGS of DECL contains full set of arguments referring
@@ -5351,13 +5358,56 @@ alias_template_specialization_p (const_tree t)
   return false;
 }
 
-/* Return TRUE iff T is a specialization of an alias template with
+/* An alias template is complex from a SFINAE perspective if a template-id
+   using that alias can be ill-formed when the expansion is not, as with
+   the void_t template.  We determine this by checking whether the
+   expansion for the alias template uses all its template parameters.  */
+
+struct uses_all_template_parms_data
+{
+  int level;
+  bool *seen;
+};
+
+static int
+uses_all_template_parms_r (tree t, void *data_)
+{
+  struct uses_all_template_parms_data &data
+    = *(struct uses_all_template_parms_data*)data_;
+  tree idx = get_template_parm_index (t);
+
+  if (TEMPLATE_PARM_LEVEL (idx) == data.level)
+    data.seen[TEMPLATE_PARM_IDX (idx)] = true;
+  return 0;
+}
+
+static bool
+complex_alias_template_p (const_tree tmpl)
+{
+  struct uses_all_template_parms_data data;
+  tree pat = DECL_ORIGINAL_TYPE (DECL_TEMPLATE_RESULT (tmpl));
+  tree parms = DECL_TEMPLATE_PARMS (tmpl);
+  data.level = TMPL_PARMS_DEPTH (parms);
+  int len = TREE_VEC_LENGTH (INNERMOST_TEMPLATE_PARMS (parms));
+  data.seen = XALLOCAVEC (bool, len);
+  for (int i = 0; i < len; ++i)
+    data.seen[i] = false;
+
+  for_each_template_parm (pat, uses_all_template_parms_r, &data, NULL, true);
+  for (int i = 0; i < len; ++i)
+    if (!data.seen[i])
+      return true;
+  return false;
+}
+
+/* Return TRUE iff T is a specialization of a complex alias template with
    dependent template-arguments.  */
 
 bool
 dependent_alias_template_spec_p (const_tree t)
 {
   return (alias_template_specialization_p (t)
+	  && TEMPLATE_DECL_COMPLEX_ALIAS_P (DECL_TI_TEMPLATE (TYPE_NAME (t)))
 	  && (any_dependent_template_arguments_p
 	      (INNERMOST_TEMPLATE_ARGS (TYPE_TI_ARGS (t)))));
 }
@@ -11299,8 +11349,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	  {
 	    /* T is a static data member or namespace-scope entity.
 	       We have to substitute into namespace-scope variables
-	       (even though such entities are never templates) because
-	       of cases like:
+	       (not just variable templates) because of cases like:
 	       
 	         template <class T> void f() { extern T t; }
 
@@ -11461,6 +11510,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	       initializer is present.  We mimic the non-template
 	       processing here.  */
 	    DECL_EXTERNAL (r) = 1;
+	    if (DECL_NAMESPACE_SCOPE_P (t))
+	      DECL_NOT_REALLY_EXTERN (r) = 1;
 
 	    DECL_TEMPLATE_INFO (r) = build_template_info (tmpl, argvec);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
@@ -13060,10 +13111,8 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		      if (TREE_STATIC (r))
 			rest_of_decl_compilation (r, toplevel_bindings_p (),
 						  at_eof);
-		      else if (decl_constant_var_p (r))
-			/* A use of a local constant decays to its value.
-			   FIXME update for core DR 696.  */
-			r = scalar_constant_value (r);
+		      else
+			r = process_outer_var_ref (r, complain);
 		    }
 		}
 	      /* Remember this for subsequent uses.  */
@@ -13478,6 +13527,32 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     }
 }
 
+/* Helper function for tsubst_omp_clauses, used for instantiation of
+   OMP_CLAUSE_DECL of clauses that handles also OpenMP array sections
+   represented with TREE_LIST.  */
+
+static tree
+tsubst_omp_clause_decl (tree decl, tree args, tsubst_flags_t complain,
+			tree in_decl)
+{
+  if (TREE_CODE (decl) == TREE_LIST)
+    {
+      tree low_bound
+	= tsubst_expr (TREE_PURPOSE (decl), args, complain, in_decl,
+		       /*integral_constant_expression_p=*/false);
+      tree length = tsubst_expr (TREE_VALUE (decl), args, complain, in_decl,
+				 /*integral_constant_expression_p=*/false);
+      tree chain = tsubst_omp_clause_decl (TREE_CHAIN (decl), args, complain,
+					   in_decl);
+      if (TREE_PURPOSE (decl) == low_bound
+	  && TREE_VALUE (decl) == length
+	  && TREE_CHAIN (decl) == chain)
+	return decl;
+      return tree_cons (low_bound, length, chain);
+    }
+  return tsubst_copy (decl, args, complain, in_decl);
+}
+
 /* Like tsubst_copy, but specifically for OpenMP clauses.  */
 
 static tree
@@ -13509,16 +13584,23 @@ tsubst_omp_clauses (tree clauses, bool declare_simd,
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COPYPRIVATE:
+	case OMP_CLAUSE_UNIFORM:
+	  OMP_CLAUSE_DECL (nc) = tsubst_copy (OMP_CLAUSE_DECL (oc), args,
+					      complain, in_decl);
+	  break;
+	case OMP_CLAUSE_DEPEND:
+	case OMP_CLAUSE_FROM:
+	case OMP_CLAUSE_TO:
+	case OMP_CLAUSE_MAP:
+	  OMP_CLAUSE_DECL (nc)
+	    = tsubst_omp_clause_decl (OMP_CLAUSE_DECL (oc), args, complain,
+				      in_decl);
+	  break;
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
 	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_FINAL:
-	case OMP_CLAUSE_DEPEND:
-	case OMP_CLAUSE_FROM:
-	case OMP_CLAUSE_TO:
-	case OMP_CLAUSE_UNIFORM:
-	case OMP_CLAUSE_MAP:
 	case OMP_CLAUSE_DEVICE:
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_NUM_TEAMS:
@@ -13545,20 +13627,17 @@ tsubst_omp_clauses (tree clauses, bool declare_simd,
 	      else
 		gcc_assert (identifier_p (placeholder));
 	    }
-	  OMP_CLAUSE_OPERAND (nc, 0)
-	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 0), args, complain,
-			   in_decl, /*integral_constant_expression_p=*/false);
+	  OMP_CLAUSE_DECL (nc) = tsubst_copy (OMP_CLAUSE_DECL (oc), args,
+					      complain, in_decl);
 	  break;
 	case OMP_CLAUSE_LINEAR:
 	case OMP_CLAUSE_ALIGNED:
-	  OMP_CLAUSE_OPERAND (nc, 0)
-	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 0), args, complain,
-			   in_decl, /*integral_constant_expression_p=*/false);
+	  OMP_CLAUSE_DECL (nc) = tsubst_copy (OMP_CLAUSE_DECL (oc), args,
+					      complain, in_decl);
 	  OMP_CLAUSE_OPERAND (nc, 1)
 	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 1), args, complain,
 			   in_decl, /*integral_constant_expression_p=*/false);
 	  break;
-
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
@@ -20929,9 +21008,7 @@ dependent_type_p_r (tree type)
     return true;
   /* For an alias template specialization, check the arguments both to the
      class template and the alias template.  */
-  else if (alias_template_specialization_p (type)
-	   && (any_dependent_template_arguments_p
-	       (INNERMOST_TEMPLATE_ARGS (TYPE_TI_ARGS (type)))))
+  else if (dependent_alias_template_spec_p (type))
     return true;
 
   /* All TYPEOF_TYPEs, DECLTYPE_TYPEs, and UNDERLYING_TYPEs are

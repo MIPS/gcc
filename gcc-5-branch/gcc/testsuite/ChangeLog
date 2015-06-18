@@ -1,3 +1,42 @@
+2015-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/66571
+	* g++.dg/gomp/pr66571-1.C: New test.
+
+	PR middle-end/66429
+	* c-c++-common/gomp/pr66429.c: New test.
+
+2015-06-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR testsuite/65944
+	* g++.dg/lto/pr65276_0.C: Add std2::exception::~exception() function.
+
+2015-06-17  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	Backport from mainline r223929.
+	2015-06-01  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/65527
+	* gcc.target/i386/mpx/chkp-fix-calls-1.c: New.
+	* gcc.target/i386/mpx/chkp-fix-calls-2.c: New.
+	* gcc.target/i386/mpx/chkp-fix-calls-3.c: New.
+	* gcc.target/i386/mpx/chkp-fix-calls-4.c: New.
+
+2015-06-17  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	Backport from mainline r224063.
+	2015-06-03  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.dg/lto/chkp-privatize-1_0.c: New.
+	* gcc.dg/lto/chkp-privatize-1_1.c: New.
+	* gcc.dg/lto/chkp-privatize-2_0.c: New.
+	* gcc.dg/lto/chkp-privatize-2_1.c: New.
+
+2015-06-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66385
+	* gfortran.dg/forall_17.f90:  New test.
+
 2015-06-10  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/66473
