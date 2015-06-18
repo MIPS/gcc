@@ -115,7 +115,7 @@ static void gomp_task_maybe_wait_for_dependencies (void **depend);
 void
 GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	   long arg_size, long arg_align, bool if_clause, unsigned flags,
-	   void **depend)
+	   void **depend, int priority)
 {
   struct gomp_thread *thr = gomp_thread ();
   struct gomp_team *team = thr->ts.team;
@@ -135,6 +135,11 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       && (gomp_team_barrier_cancelled (&team->barrier)
 	  || (thr->task->taskgroup && thr->task->taskgroup->cancelled)))
     return;
+
+  if ((flags & GOMP_TASK_FLAG_PRIORITY) == 0)
+    priority = 0;
+  /* FIXME, use priority.  */
+  (void) priority;
 
   if (!if_clause || team == NULL
       || (thr->task && thr->task->final_task)

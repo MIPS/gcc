@@ -1,5 +1,10 @@
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-omp.c (c_omp_split_clauses): Split OMP_CLAUSE_PRIORITY
+	to OMP_TASKLOOP.
+	* c-common.c (DEF_FUNCTION_TYPE_9, DEF_FUNCTION_TYPE_11): Define.
+	(DEF_FUNCTION_TYPE_10): Fix up a pasto.
+
 	* c-omp.c (c_omp_split_clauses): Fix up a comment.  Put
 	OMP_CLAUSE_LINEAR on OMP_FOR if not combined with OMP_SIMD.
 

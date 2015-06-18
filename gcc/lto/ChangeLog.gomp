@@ -1,3 +1,8 @@
+2015-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* lto-lang.c (DEF_FUNCTION_TYPE_9, DEF_FUNCTION_TYPE_11): Define.
+	(DEF_FUNCTION_TYPE_10): Fix up a pasto.
+
 2015-05-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* lto-lang.c (DEF_FUNCTION_TYPE_10): Define.

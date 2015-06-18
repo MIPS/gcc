@@ -1,5 +1,10 @@
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
+	* libgomp_g.h (GOMP_task): Add priority argument to the prototype.
+	(GOMP_taskloop, GOMP_taskloop_ull): New prototypes.
+	* task.c (GOMP_task): Add priority argument.
+	* taskloop.c (GOMP_taskloop): Likewise.
+
 	* testsuite/libgomp.c/pr66199-3.c: New test.
 	* testsuite/libgomp.c/pr66199-4.c: New test.
 	* testsuite/libgomp.c/linear-1.c: New test.

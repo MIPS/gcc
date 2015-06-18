@@ -1,5 +1,21 @@
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
+	* omp-builtins.def (BUILT_IN_GOMP_TASK,
+	BUILT_IN_GOMP_TASKLOOP, BUILT_IN_GOMP_TASKLOOP_ULL): Add
+	priority argument (BT_INT).
+	* gcc/builtin-types.def
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_ULL_ULL_ULL):
+	Removed.
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR_INT,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_INT_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_INT_ULL_ULL_ULL):
+	New.
+	* omp-low.c (expand_task_call): Add priority argument to
+	GOMP_task* calls.  Or in GOMP_TASK_FLAG_PRIORITY into flags
+	if priority is present for GOMP_task call.
+
 	* gimplify.c (gimplify_scan_omp_clauses): For linear clause
 	on worksharing loop combined with parallel add shared clause
 	on the parallel.

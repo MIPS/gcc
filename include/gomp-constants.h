@@ -134,6 +134,7 @@ enum gomp_map_kind
 #define GOMP_TASK_FLAG_FINAL		(1 << 1)
 #define GOMP_TASK_FLAG_MERGEABLE	(1 << 2)
 #define GOMP_TASK_FLAG_DEPEND		(1 << 3)
+#define GOMP_TASK_FLAG_PRIORITY		(1 << 4)
 #define GOMP_TASK_FLAG_UP		(1 << 8)
 #define GOMP_TASK_FLAG_GRAINSIZE	(1 << 9)
 #define GOMP_TASK_FLAG_IF		(1 << 10)

@@ -779,6 +779,7 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_NOGROUP:
+	case OMP_CLAUSE_PRIORITY:
 	  s = C_OMP_CLAUSE_SPLIT_TASKLOOP;
 	  break;
 	/* Duplicate this to all of taskloop, distribute, for and simd.  */

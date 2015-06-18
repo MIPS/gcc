@@ -1,3 +1,7 @@
+2015-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gomp-constants.h (GOMP_TASK_FLAG_PRIORITY): Define.
+
 2015-06-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* gomp-constants.h (GOMP_MAP_FLAG_ALWAYS): Define.

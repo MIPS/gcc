@@ -5776,6 +5776,7 @@ expand_task_call (struct omp_region *region, basic_block bb,
   tree mergeable = find_omp_clause (clauses, OMP_CLAUSE_MERGEABLE);
   tree depend = find_omp_clause (clauses, OMP_CLAUSE_DEPEND);
   tree finalc = find_omp_clause (clauses, OMP_CLAUSE_FINAL);
+  tree priority = find_omp_clause (clauses, OMP_CLAUSE_PRIORITY);
 
   unsigned int iflags
     = (untied ? GOMP_TASK_FLAG_UNTIED : 0)
@@ -5823,6 +5824,8 @@ expand_task_call (struct omp_region *region, basic_block bb,
 	iflags |= GOMP_TASK_FLAG_NOGROUP;
       ull = fd.iter_type == long_long_unsigned_type_node;
     }
+  else if (priority)
+    iflags |= GOMP_TASK_FLAG_PRIORITY;
 
   tree flags = build_int_cst (unsigned_type_node, iflags);
 
@@ -5856,6 +5859,11 @@ expand_task_call (struct omp_region *region, basic_block bb,
     depend = OMP_CLAUSE_DECL (depend);
   else
     depend = build_int_cst (ptr_type_node, 0);
+  if (priority)
+    priority = fold_convert (integer_type_node,
+			     OMP_CLAUSE_PRIORITY_EXPR (priority));
+  else
+    priority = integer_zero_node;
 
   gsi = gsi_last_bb (bb);
   tree t = gimple_omp_task_data_arg (entry_stmt);
@@ -5874,16 +5882,16 @@ expand_task_call (struct omp_region *region, basic_block bb,
     t = build_call_expr (ull
 			 ? builtin_decl_explicit (BUILT_IN_GOMP_TASKLOOP_ULL)
 			 : builtin_decl_explicit (BUILT_IN_GOMP_TASKLOOP),
-			 10, t1, t2, t3,
+			 11, t1, t2, t3,
 			 gimple_omp_task_arg_size (entry_stmt),
 			 gimple_omp_task_arg_align (entry_stmt), flags,
-			 num_tasks, startvar, endvar, step);
+			 num_tasks, priority, startvar, endvar, step);
   else
     t = build_call_expr (builtin_decl_explicit (BUILT_IN_GOMP_TASK),
-			 8, t1, t2, t3,
+			 9, t1, t2, t3,
 			 gimple_omp_task_arg_size (entry_stmt),
 			 gimple_omp_task_arg_align (entry_stmt), cond, flags,
-			 depend);
+			 depend, priority);
 
   force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 			    false, GSI_CONTINUE_LINKING);

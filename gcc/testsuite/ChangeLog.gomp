@@ -1,5 +1,7 @@
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-c++-common/gomp/priority-1.c: New test.
+
 	PR c++/66571
 	* g++.dg/gomp/pr66571-2.C: New test.
 

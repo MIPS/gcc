@@ -1,5 +1,7 @@
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
+	* parser.c (OMP_TASKLOOP_CLAUSE_MASK): Add priority clause.
+
 	PR c++/66571
 	* pt.c (tsubst_omp_clause_decl): Use tsubst_expr instead of
 	tsubst_copy.  Undo convert_from_reference if non-REFERENCE_REF_P

@@ -33,7 +33,7 @@
 void
 GOMP_taskloop (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	       long arg_size, long arg_align, unsigned flags,
-	       unsigned long num_tasks,
+	       unsigned long num_tasks, int priority,
 	       TYPE start, TYPE end, TYPE step)
 {
   struct gomp_thread *thr = gomp_thread ();
@@ -154,6 +154,9 @@ GOMP_taskloop (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
     }
   else
     ialias_call (GOMP_taskgroup_start) ();
+
+  /* FIXME, use priority.  */
+  (void) priority;
 
   if ((flags & GOMP_TASK_FLAG_IF) == 0 || team == NULL
       || (thr->task && thr->task->final_task)
