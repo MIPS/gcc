@@ -649,7 +649,6 @@ cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
       tree folded = maybe_constant_value (expr);
       tree stripped = folded;
       tree folded_result;
-      folded = fold (folded);
       folded_result
 	= folded != expr ? cp_convert (type, folded, complain) : result;
       folded_result = fold (folded_result);
