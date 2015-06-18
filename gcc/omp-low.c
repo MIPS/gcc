@@ -3949,7 +3949,11 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		}
 	    case OMP_CLAUSE_FIRSTPRIVATE:
 	    case OMP_CLAUSE_COPYIN:
+	      break;
 	    case OMP_CLAUSE_LINEAR:
+	      if (!OMP_CLAUSE_LINEAR_NO_COPYIN (c)
+		  && !OMP_CLAUSE_LINEAR_NO_COPYOUT (c))
+		lastprivate_firstprivate = true;
 	      break;
 	    case OMP_CLAUSE_REDUCTION:
 	      if (OMP_CLAUSE_REDUCTION_OMP_ORIG_REF (c))
@@ -6983,6 +6987,9 @@ expand_omp_for_generic (struct omp_region *region,
 							    zero_iter_bb));
 	}
     }
+  gimple_stmt_iterator gsif = gsi;
+  gsi_prev (&gsif);
+
   if (in_combined_parallel)
     {
       /* In a combined parallel loop, emit a call to
@@ -7080,6 +7087,10 @@ expand_omp_for_generic (struct omp_region *region,
   /* Remove the GIMPLE_OMP_FOR statement.  */
   gsi_remove (&gsi, true);
 
+  if (gsi_end_p (gsif))
+    gsif = gsi_after_labels (gsi_bb (gsif));
+  gsi_next (&gsif);
+
   /* Iteration setup for sequential loop goes in L0_BB.  */
   tree startvar = fd->loop.v;
   tree endvar = NULL_TREE;
@@ -7131,6 +7142,54 @@ expand_omp_for_generic (struct omp_region *region,
 	assign_stmt = gimple_build_assign (fd->loop.v, NOP_EXPR, iend);
       gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
     }
+  /* Handle linear clause adjustments.  */
+  tree itercnt = NULL_TREE;
+  if (gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_FOR)
+    for (tree c = gimple_omp_for_clauses (fd->for_stmt);
+	 c; c = OMP_CLAUSE_CHAIN (c))
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	  && !OMP_CLAUSE_LINEAR_NO_COPYIN (c))
+	{
+	  tree d = OMP_CLAUSE_DECL (c);
+	  bool is_ref = is_reference (d);
+	  tree t = d, a, dest;
+	  if (is_ref)
+	    t = build_simple_mem_ref_loc (OMP_CLAUSE_LOCATION (c), t);
+	  tree type = TREE_TYPE (t);
+	  if (POINTER_TYPE_P (type))
+	    type = sizetype;
+	  dest = unshare_expr (t);
+	  tree v = create_tmp_var (TREE_TYPE (t), NULL);
+	  expand_omp_build_assign (&gsif, v, t);
+	  if (itercnt == NULL_TREE)
+	    {
+	      itercnt = startvar;
+	      tree n1 = fd->loop.n1;
+	      if (POINTER_TYPE_P (TREE_TYPE (itercnt)))
+		{
+		  itercnt
+		    = fold_convert (signed_type_for (TREE_TYPE (itercnt)),
+				    itercnt);
+		  n1 = fold_convert (TREE_TYPE (itercnt), n1);
+		}
+	      itercnt = fold_build2 (MINUS_EXPR, TREE_TYPE (itercnt),
+				     itercnt, n1);
+	      itercnt = fold_build2 (EXACT_DIV_EXPR, TREE_TYPE (itercnt),
+				     itercnt, fd->loop.step);
+	      itercnt = force_gimple_operand_gsi (&gsi, itercnt, true,
+						  NULL_TREE, false,
+						  GSI_CONTINUE_LINKING);
+	    }
+	  a = fold_build2 (MULT_EXPR, type,
+			   fold_convert (type, itercnt),
+			   fold_convert (type, OMP_CLAUSE_LINEAR_STEP (c)));
+	  t = fold_build2 (type == TREE_TYPE (t) ? PLUS_EXPR
+			   : POINTER_PLUS_EXPR, TREE_TYPE (t), v, a);
+	  t = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
+					false, GSI_CONTINUE_LINKING);
+	  assign_stmt = gimple_build_assign (dest, t);
+	  gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
+	}
   if (fd->collapse > 1)
     expand_omp_for_init_vars (fd, &gsi, counts, inner_stmt, startvar);
 
@@ -7562,6 +7621,49 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 	assign_stmt = gimple_build_assign (fd->loop.v, NOP_EXPR, e);
       gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
     }
+  /* Handle linear clause adjustments.  */
+  tree itercnt = NULL_TREE;
+  if (gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_FOR)
+    for (tree c = gimple_omp_for_clauses (fd->for_stmt);
+	 c; c = OMP_CLAUSE_CHAIN (c))
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	  && !OMP_CLAUSE_LINEAR_NO_COPYIN (c))
+	{
+	  tree d = OMP_CLAUSE_DECL (c);
+	  bool is_ref = is_reference (d);
+	  tree t = d, a, dest;
+	  if (is_ref)
+	    t = build_simple_mem_ref_loc (OMP_CLAUSE_LOCATION (c), t);
+	  if (itercnt == NULL_TREE)
+	    {
+	      if (gimple_omp_for_combined_into_p (fd->for_stmt))
+		{
+		  itercnt = fold_build2 (MINUS_EXPR, itype,
+					 fold_convert (itype, n1),
+					 fold_convert (itype, fd->loop.n1));
+		  itercnt = fold_build2 (EXACT_DIV_EXPR, itype, itercnt, step);
+		  itercnt = fold_build2 (PLUS_EXPR, itype, itercnt, s0);
+		  itercnt = force_gimple_operand_gsi (&gsi, itercnt, true,
+						      NULL_TREE, false,
+						      GSI_CONTINUE_LINKING);
+		}
+	      else
+		itercnt = s0;
+	    }
+	  tree type = TREE_TYPE (t);
+	  if (POINTER_TYPE_P (type))
+	    type = sizetype;
+	  a = fold_build2 (MULT_EXPR, type,
+			   fold_convert (type, itercnt),
+			   fold_convert (type, OMP_CLAUSE_LINEAR_STEP (c)));
+	  dest = unshare_expr (t);
+	  t = fold_build2 (type == TREE_TYPE (t) ? PLUS_EXPR
+			   : POINTER_PLUS_EXPR, TREE_TYPE (t), t, a);
+	  t = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
+					false, GSI_CONTINUE_LINKING);
+	  assign_stmt = gimple_build_assign (dest, t);
+	  gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
+	}
   if (fd->collapse > 1)
     expand_omp_for_init_vars (fd, &gsi, counts, inner_stmt, startvar);
 
@@ -7899,6 +8001,8 @@ expand_omp_for_static_chunk (struct omp_region *region,
   /* Remove the GIMPLE_OMP_FOR.  */
   gsi_remove (&gsi, true);
 
+  gimple_stmt_iterator gsif = gsi;
+
   /* Iteration space partitioning goes in ITER_PART_BB.  */
   gsi = gsi_last_bb (iter_part_bb);
 
@@ -7969,6 +8073,56 @@ expand_omp_for_static_chunk (struct omp_region *region,
 	assign_stmt = gimple_build_assign (fd->loop.v, NOP_EXPR, e);
       gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
     }
+  /* Handle linear clause adjustments.  */
+  tree itercnt = NULL_TREE, itercntbias = NULL_TREE;
+  if (gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_FOR)
+    for (tree c = gimple_omp_for_clauses (fd->for_stmt);
+	 c; c = OMP_CLAUSE_CHAIN (c))
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	  && !OMP_CLAUSE_LINEAR_NO_COPYIN (c))
+	{
+	  tree d = OMP_CLAUSE_DECL (c);
+	  bool is_ref = is_reference (d);
+	  tree t = d, a, dest;
+	  if (is_ref)
+	    t = build_simple_mem_ref_loc (OMP_CLAUSE_LOCATION (c), t);
+	  tree type = TREE_TYPE (t);
+	  if (POINTER_TYPE_P (type))
+	    type = sizetype;
+	  dest = unshare_expr (t);
+	  tree v = create_tmp_var (TREE_TYPE (t), NULL);
+	  expand_omp_build_assign (&gsif, v, t);
+	  if (itercnt == NULL_TREE)
+	    {
+	      if (gimple_omp_for_combined_into_p (fd->for_stmt))
+		{
+		  itercntbias
+		    = fold_build2 (MINUS_EXPR, itype, fold_convert (itype, n1),
+				   fold_convert (itype, fd->loop.n1));
+		  itercntbias = fold_build2 (EXACT_DIV_EXPR, itype,
+					     itercntbias, step);
+		  itercntbias
+		    = force_gimple_operand_gsi (&gsif, itercntbias, true,
+						NULL_TREE, true,
+						GSI_SAME_STMT);
+		  itercnt = fold_build2 (PLUS_EXPR, itype, itercntbias, s0);
+		  itercnt = force_gimple_operand_gsi (&gsi, itercnt, true,
+						      NULL_TREE, false,
+						      GSI_CONTINUE_LINKING);
+		}
+	      else
+		itercnt = s0;
+	    }
+	  a = fold_build2 (MULT_EXPR, type,
+			   fold_convert (type, itercnt),
+			   fold_convert (type, OMP_CLAUSE_LINEAR_STEP (c)));
+	  t = fold_build2 (type == TREE_TYPE (t) ? PLUS_EXPR
+			   : POINTER_PLUS_EXPR, TREE_TYPE (t), v, a);
+	  t = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
+					false, GSI_CONTINUE_LINKING);
+	  assign_stmt = gimple_build_assign (dest, t);
+	  gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
+	}
   if (fd->collapse > 1)
     expand_omp_for_init_vars (fd, &gsi, counts, inner_stmt, startvar);
 
@@ -11918,6 +12072,18 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   extract_omp_for_data (stmt, &fd, NULL);
 
   lower_omp_for_lastprivate (&fd, &body, &dlist, ctx);
+
+  if (gimple_omp_for_kind (stmt) == GF_OMP_FOR_KIND_FOR)
+    for (tree c = gimple_omp_for_clauses (stmt); c; c = OMP_CLAUSE_CHAIN (c))
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	  && !OMP_CLAUSE_LINEAR_NO_COPYIN (c))
+	{
+	  OMP_CLAUSE_DECL (c) = lookup_decl (OMP_CLAUSE_DECL (c), ctx);
+	  if (DECL_P (OMP_CLAUSE_LINEAR_STEP (c)))
+	    OMP_CLAUSE_LINEAR_STEP (c)
+	      = maybe_lookup_decl_in_outer_ctx (OMP_CLAUSE_LINEAR_STEP (c),
+						ctx);
+	}
 
   gimple_seq_add_stmt (&body, stmt);
   gimple_seq_add_seq (&body, gimple_omp_body (stmt));

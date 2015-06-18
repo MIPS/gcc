@@ -1,3 +1,17 @@
+2015-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): For linear clause
+	on worksharing loop combined with parallel add shared clause
+	on the parallel.
+	* omp-low.c (lower_rec_input_clauses): Set lastprivate_firstprivate
+	flag for linear that needs copyin and copyout.
+	(expand_omp_for_generic, expand_omp_for_static_nochunk,
+	expand_omp_for_static_chunk): Handle linear clauses on worksharing
+	loop.
+	(lower_omp_for): Adjust OMP_CLAUSE_DECL and OMP_CLAUSE_LINEAR_STEP
+	so that expand_omp_for_* can use it during expansion for linear
+	adjustments.
+
 2015-06-16  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* builtin-types.def (BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR): New.

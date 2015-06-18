@@ -770,7 +770,6 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	  break;
 	case OMP_CLAUSE_SAFELEN:
 	case OMP_CLAUSE_SIMDLEN:
-	case OMP_CLAUSE_LINEAR:
 	case OMP_CLAUSE_ALIGNED:
 	  s = C_OMP_CLAUSE_SPLIT_SIMD;
 	  break;
@@ -919,7 +918,8 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	    }
 	  s = C_OMP_CLAUSE_SPLIT_SIMD;
 	  break;
-	/* Shared and default clauses are allowed on private and teams.  */
+	/* Shared and default clauses are allowed on parallel, teams and
+	   taskloop.  */
 	case OMP_CLAUSE_SHARED:
 	case OMP_CLAUSE_DEFAULT:
 	  if (code == OMP_TEAMS)
@@ -1006,6 +1006,14 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	    s = C_OMP_CLAUSE_SPLIT_PARALLEL;
 	  else
 	    s = C_OMP_CLAUSE_SPLIT_TARGET;
+	  break;
+	case OMP_CLAUSE_LINEAR:
+	  /* Linear clause is allowed on simd and for.  Put it on the
+	     innermost construct.  */
+	  if (code == OMP_SIMD)
+	    s = C_OMP_CLAUSE_SPLIT_SIMD;
+	  else
+	    s = C_OMP_CLAUSE_SPLIT_FOR;
 	  break;
 	default:
 	  gcc_unreachable ();

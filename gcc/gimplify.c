@@ -6267,6 +6267,11 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		      decl = NULL_TREE;
 		      break;
 		    }
+		  flags = GOVD_SEEN;
+		  if (!OMP_CLAUSE_LINEAR_NO_COPYIN (c))
+		    flags |= GOVD_FIRSTPRIVATE;
+		  if (!OMP_CLAUSE_LINEAR_NO_COPYOUT (c))
+		    flags |= GOVD_LASTPRIVATE;
 		  if (octx
 		      && octx->region_type == ORT_WORKSHARE
 		      && octx->combined_loop)
@@ -6284,16 +6289,16 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			   && (octx->region_type & ORT_TASK) != 0
 			   && octx->combined_loop)
 		    ;
+		  else if (octx
+			   && octx->region_type == ORT_COMBINED_PARALLEL
+			   && ctx->region_type == ORT_WORKSHARE
+			   && octx == outer_ctx)
+		    flags = GOVD_SEEN | GOVD_SHARED;
 		  else
 		    break;
 		  gcc_checking_assert (splay_tree_lookup (octx->variables,
 							  (splay_tree_key)
 							  decl) == NULL);
-		  flags = GOVD_SEEN;
-		  if (!OMP_CLAUSE_LINEAR_NO_COPYIN (c))
-		    flags |= GOVD_FIRSTPRIVATE;
-		  if (!OMP_CLAUSE_LINEAR_NO_COPYOUT (c))
-		    flags |= GOVD_LASTPRIVATE;
 		  omp_add_variable (octx, decl, flags);
 		  if (octx->outer_context == NULL)
 		    break;

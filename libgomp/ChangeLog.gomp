@@ -1,3 +1,12 @@
+2015-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/pr66199-3.c: New test.
+	* testsuite/libgomp.c/pr66199-4.c: New test.
+	* testsuite/libgomp.c/linear-1.c: New test.
+	* testsuite/libgomp.c/linear-2.c: New test.
+	* testsuite/libgomp.c++/linear-1.C: New test.
+	* testsuite/libgomp.c++/linear-2.C: New test.
+
 2015-06-16  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* libgomp.map (GOMP_4.1): Add GOMP_target_41, GOMP_target_data_41,

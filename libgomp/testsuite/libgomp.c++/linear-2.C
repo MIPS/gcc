@@ -1,0 +1,250 @@
+#pragma omp declare target
+int a[256];
+#pragma omp end declare target
+
+template <typename T>
+__attribute__((noinline, noclone)) void
+f1 (T &i)
+{
+  #pragma omp target teams distribute parallel for linear (i: 4)
+  for (int j = 16; j < 64; j++)
+    {
+      a[i] = j;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f2 (short int i, char k)
+{
+  #pragma omp target teams distribute parallel for linear (i: k + 1)
+  for (long j = 16; j < 64; j++)
+    {
+      a[i] = j;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f3 (long long int &i, long long int k)
+{
+  #pragma omp target teams distribute parallel for linear (i: k)
+  for (short j = 16; j < 64; j++)
+    {
+      a[i] = j;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f4 (int i)
+{
+  #pragma omp target teams distribute parallel for linear (i: 4) schedule(static, 3)
+  for (int j = 16; j < 64; j++)
+    {
+      a[i] = j;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f5 (short int i, char k)
+{
+  #pragma omp target teams distribute parallel for linear (i: k + 1) schedule(static, 5)
+  for (long j = 16; j < 64; j++)
+    {
+      a[i] = j;
+      i += 4;
+    }
+}
+
+template <int N>
+__attribute__((noinline, noclone)) void
+f6 (long long int &i, long long int k)
+{
+  #pragma omp target teams distribute parallel for linear (i: k) schedule(static, 7)
+  for (short j = 16; j < 64; j++)
+    {
+      a[i] = j;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f7 (int i)
+{
+  #pragma omp target teams distribute parallel for linear (i: 4) schedule(dynamic, 3)
+  for (int j = 16; j < 64; j++)
+    {
+      a[i] = j;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f8 (short int &i, char &k)
+{
+  #pragma omp target teams distribute parallel for linear (i: k + 1) schedule(dynamic, 5)
+  for (long j = 16; j < 64; j++)
+    {
+      a[i] = j;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f9 (long long int i, long long int k)
+{
+  #pragma omp target teams distribute parallel for linear (i: k) schedule(dynamic, 7)
+  for (short j = 16; j < 64; j++)
+    {
+      a[i] = j;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f10 (int i, char start, long step)
+{
+  #pragma omp target teams distribute parallel for linear (i: 4)
+  for (int j = start; j < 112; j += step)
+    {
+      a[i] = j / 2 + 8;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f11 (short int &i, char &k, long &start, char step)
+{
+  #pragma omp target teams distribute parallel for linear (i: k + 1)
+  for (long j = start; j < 112; j += step)
+    {
+      a[i] = j / 2 + 8;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f12 (long long int i, long long int k, long long int start, int step)
+{
+  #pragma omp target teams distribute parallel for linear (i: k)
+  for (short j = start; j < 112; j += step)
+    {
+      a[i] = j / 2 + 8;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f13 (int i, int start, long long int step)
+{
+  #pragma omp target teams distribute parallel for linear (i: 4) schedule(static, 3)
+  for (int j = start; j < 112; j += step)
+    {
+      a[i] = j / 2 + 8;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f14 (short int i, char k, unsigned long long int start, int step)
+{
+  #pragma omp target teams distribute parallel for linear (i: k + 1) schedule(static, 5)
+  for (long j = start; j < 112; j += step)
+    {
+      a[i] = j / 2 + 8;
+      i += 4;
+    }
+}
+
+template <typename T>
+__attribute__((noinline, noclone)) void
+f15 (T &i, T k, char &start, long int &step)
+{
+  #pragma omp target teams distribute parallel for linear (i: k) schedule(static, 7)
+  for (short j = start; j < 112; j += step)
+    {
+      a[i] = j / 2 + 8;
+      i += 4;
+    }
+}
+
+template <typename T>
+__attribute__((noinline, noclone)) void
+f16 (T i, T start, long long int step)
+{
+  #pragma omp target teams distribute parallel for linear (i: 4) schedule(dynamic, 3)
+  for (int j = start; j < 112; j += step)
+    {
+      a[i] = j / 2 + 8;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f17 (short int i, char k, long start, int step)
+{
+  #pragma omp target teams distribute parallel for linear (i: k + 1) schedule(dynamic, 5)
+  for (long j = start; j < 112; j += step)
+    {
+      a[i] = j / 2 + 8;
+      i += 4;
+    }
+}
+
+__attribute__((noinline, noclone)) void
+f18 (long long int i, long long int k, short start, long int step)
+{
+  #pragma omp target teams distribute parallel for linear (i: k) schedule(dynamic, 7)
+  for (short j = start; j < 112; j += step)
+    {
+      a[i] = j / 2 + 8;
+      i += 4;
+    }
+}
+
+int
+main ()
+{
+#define TEST(x) \
+  x;						\
+  for (int i = 0; i < 256; i++)			\
+    if (a[i] != (((i & 3) == 0 && i >= 8	\
+		  && i < 8 + 48 * 4)		\
+		 ? ((i - 8) / 4) + 16 : 0))	\
+      __builtin_abort ();			\
+  __builtin_memset (a, 0, sizeof (a))
+  int vi = 8;
+  TEST (f1 (vi));
+  TEST (f2 (8, 3));
+  long long int vll = 8LL;
+  TEST (f3 (vll, 4LL));
+  TEST (f4 (8));
+  TEST (f5 (8, 3));
+  vll = 8LL;
+  TEST (f6<9> (vll, 4LL));
+  TEST (f7 (8));
+  short int vs = 8;
+  char vk = 3;
+  TEST (f8 (vs, vk));
+  TEST (f9 (8LL, 4LL));
+  TEST (f10 (8, 16, 2));
+  vs = 8;
+  vk = 3;
+  long int vl = 16;
+  TEST (f11 (vs, vk, vl, 2));
+  TEST (f12 (8LL, 4LL, 16, 2));
+  TEST (f13 (8, 16, 2));
+  TEST (f14 (8, 3, 16, 2));
+  vll = 8LL;
+  vk = 16;
+  vl = 2;
+  TEST (f15 (vll, 4LL, vk, vl));
+  vi = 8;
+  int vi2 = 16;
+  TEST (f16<int &> (vi, vi2, 2));
+  TEST (f17 (8, 3, 16, 2));
+  TEST (f18 (8LL, 4LL, 16, 2));
+  return 0;
+}
