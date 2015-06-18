@@ -3226,7 +3226,7 @@ proc check_effective_target_mips_nanlegacy { } {
     } "-mnan=legacy"]
 }
 
-# Return 1 if a msa program can be compiled to object
+# Return 1 if an MSA program can be compiled to object
 
 proc check_effective_target_mips_msa { } {
   if ![check_effective_target_nomips16] {
@@ -4621,8 +4621,8 @@ proc check_effective_target_vect_condition { } {
 	     || [istarget ia64-*-*]
 	     || [istarget i?86-*-*] || [istarget x86_64-*-*]
 	     || [istarget spu-*-*]
-	     || [istarget mips*-*-*]
-		 && [et-is-effective-target "mips_msa"]
+	     || ([istarget mips*-*-*]
+		 && [et-is-effective-target "mips_msa"])
 	     || ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok]) } {
 	   set et_vect_cond_saved($et_targets_idx) 1
 	}
@@ -4645,8 +4645,8 @@ proc check_effective_target_vect_cond_mixed { } {
 	set et_vect_cond_mixed_saved($et_targets_idx) 0
 	if { [istarget i?86-*-*] || [istarget x86_64-*-*]
 	     || [istarget powerpc*-*-*]
-	     || [istarget mips*-*-*]
-		 && [et-is-effective-target "mips_msa"] } {
+	     || ([istarget mips*-*-*]
+		 && [et-is-effective-target "mips_msa"]) } {
 	   set et_vect_cond_mixed_saved($et_targets_idx) 1
 	}
     }
