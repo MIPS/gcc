@@ -5848,11 +5848,6 @@ find_module_oacc_declare_clauses (gfc_symbol *sym)
     {
       gfc_omp_map_op map_op;
 
-      sym->attr.referenced = sym->attr.oacc_declare_create
-			     | sym->attr.oacc_declare_copyin
-			     | sym->attr.oacc_declare_deviceptr
-			     | sym->attr.oacc_declare_device_resident;
-
       if (sym->attr.oacc_declare_create)
 	map_op = OMP_MAP_FORCE_ALLOC;
 
@@ -5865,8 +5860,14 @@ find_module_oacc_declare_clauses (gfc_symbol *sym)
       if (sym->attr.oacc_declare_device_resident)
 	map_op = OMP_MAP_DEVICE_RESIDENT;
 
-      if (sym->attr.referenced)
-	add_clause (sym, map_op);
+      if (sym->attr.oacc_declare_create
+	  || sym->attr.oacc_declare_copyin
+	  || sym->attr.oacc_declare_deviceptr
+	  || sym->attr.oacc_declare_device_resident)
+	{
+	  sym->attr.referenced = 1;
+	  add_clause (sym, map_op);
+	}
     }
 }
 

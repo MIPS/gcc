@@ -1,3 +1,8 @@
+2015-06-18  James Norris  <jnorris@codesourcery.com>
+
+	* trans-decl.c (find_module_oacc_declare_clauses): Fix setting of
+	attribute referenced field.
+
 2015-06-12  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* openmp.c (gfc_match_omp_clauses): Report errors on duplicate
