@@ -1,5 +1,10 @@
 2015-06-18  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Move pass_fre later in pass group pass_oacc_kernels,
+	replacing pass_copy_prop.
+
+2015-06-18  Tom de Vries  <tom@codesourcery.com>
+
 	* tree-parloops.c (rewrite_virtuals_into_loop_closed_ssa): New function.
 	(transform_to_exit_first_loop_alt): Use
 	rewrite_virtuals_into_loop_closed_ssa.

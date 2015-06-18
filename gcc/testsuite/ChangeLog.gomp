@@ -1,5 +1,16 @@
 2015-06-18  Tom de Vries  <tom@codesourcery.com>
 
+	* gfortran.dg/goacc/kernels-loop-2.f95: Add check for num_gangs (32).
+	* gfortran.dg/goacc/kernels-loop-data-2.f95: Same.
+	* gfortran.dg/goacc/kernels-loop-data-enter-exit-2.f95: Same.
+	* gfortran.dg/goacc/kernels-loop-data-enter-exit.f95: Same.
+	* gfortran.dg/goacc/kernels-loop-data-update.f95: Same.
+	* gfortran.dg/goacc/kernels-loop-data.f95: Same.
+	* gfortran.dg/goacc/kernels-loop.f95: Same.
+	* gfortran.dg/goacc/kernels-parallel-loop-data-enter-exit.f95:  Same.
+
+2015-06-18  Tom de Vries  <tom@codesourcery.com>
+
 	* gfortran.dg/parloops-exit-first-loop-alt-2.f95: New test.
 	* gfortran.dg/parloops-exit-first-loop-alt.f95: New test.
 
