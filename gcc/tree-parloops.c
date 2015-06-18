@@ -1526,6 +1526,74 @@ replace_uses_in_bbs_by (tree name, tree val, bitmap bbs)
     }
 }
 
+/* Ensure a virtual phi is present in the exit block, if LOOP contains a vdef.
+   In other words, ensure loop-closed ssa normal form for virtuals.  */
+
+static void
+rewrite_virtuals_into_loop_closed_ssa (struct loop *loop)
+{
+  gphi *phi;
+  edge exit = single_dom_exit (loop);
+
+  phi = NULL;
+  for (gphi_iterator gsi = gsi_start_phis (loop->header);
+       !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    {
+      if (virtual_operand_p (PHI_RESULT (gsi.phi ())))
+	{
+	  phi = gsi.phi ();
+	  break;
+	}
+    }
+
+  if (phi == NULL)
+    return;
+
+  tree final_loop = PHI_ARG_DEF_FROM_EDGE (phi, single_succ_edge (loop->latch));
+
+  phi = NULL;
+  for (gphi_iterator gsi = gsi_start_phis (exit->dest);
+       !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    {
+      if (virtual_operand_p (PHI_RESULT (gsi.phi ())))
+	{
+	  phi = gsi.phi ();
+	  break;
+	}
+    }
+
+  if (phi != NULL)
+    {
+      tree final_exit = PHI_ARG_DEF_FROM_EDGE (phi, exit);
+      gcc_assert (operand_equal_p (final_loop, final_exit, 0));
+      return;
+    }
+
+  tree res_new = copy_ssa_name (final_loop, NULL);
+  gphi *nphi = create_phi_node (res_new, exit->dest);
+
+  /* Gather the bbs dominated by the exit block.  */
+  bitmap exit_dominated = BITMAP_ALLOC (NULL);
+  bitmap_set_bit (exit_dominated, exit->dest->index);
+  vec<basic_block> exit_dominated_vec
+    = get_dominated_by (CDI_DOMINATORS, exit->dest);
+
+  int i;
+  basic_block dom_bb;
+  FOR_EACH_VEC_ELT (exit_dominated_vec, i, dom_bb)
+    bitmap_set_bit (exit_dominated, dom_bb->index);
+
+  exit_dominated_vec.release ();
+
+  replace_uses_in_bbs_by (final_loop, res_new, exit_dominated);
+
+  add_phi_arg (nphi, final_loop, exit, UNKNOWN_LOCATION);
+
+  BITMAP_FREE (exit_dominated);
+}
+
 /* Do transformation from:
 
      <bb preheader>:
@@ -1646,18 +1714,11 @@ transform_to_exit_first_loop_alt (struct loop *loop,
   tree control = gimple_cond_lhs (cond_stmt);
   edge e;
 
-  /* Gather the bbs dominated by the exit block.  */
-  bitmap exit_dominated = BITMAP_ALLOC (NULL);
-  bitmap_set_bit (exit_dominated, exit_block->index);
-  vec<basic_block> exit_dominated_vec
-    = get_dominated_by (CDI_DOMINATORS, exit_block);
-
-  int i;
-  basic_block dom_bb;
-  FOR_EACH_VEC_ELT (exit_dominated_vec, i, dom_bb)
-    bitmap_set_bit (exit_dominated, dom_bb->index);
-
-  exit_dominated_vec.release ();
+  /* Rewriting virtuals into loop-closed ssa normal form makes this
+     transformation simpler.  It also ensures that the virtuals are in
+     loop-closed ssa normal from after the transformation, which is required by
+     create_parallel_loop.  */
+  rewrite_virtuals_into_loop_closed_ssa (loop);
 
   /* Create the new_header block.  */
   basic_block new_header = split_block_before_cond_jump (exit->src);
@@ -1690,6 +1751,7 @@ transform_to_exit_first_loop_alt (struct loop *loop,
   vec<edge_var_map> *v = redirect_edge_var_map_vector (post_inc_edge);
   edge_var_map *vm;
   gphi_iterator gsi;
+  int i;
   for (gsi = gsi_start_phis (header), i = 0;
        !gsi_end_p (gsi) && v->iterate (i, &vm);
        gsi_next (&gsi), i++)
@@ -1707,10 +1769,9 @@ transform_to_exit_first_loop_alt (struct loop *loop,
       /* Replace ivtmp/sum_b with ivtmp/sum_c in header phi.  */
       add_phi_arg (phi, res_c, post_cond_edge, UNKNOWN_LOCATION);
 
-      /* Replace sum_b with sum_c in exit phi.  Loop-closed ssa does not hold
-	 for virtuals, so we cannot get away with exit_block only.  */
+      /* Replace sum_b with sum_c in exit phi.  */
       tree res_b = redirect_edge_var_map_def (vm);
-      replace_uses_in_bbs_by (res_b, res_c, exit_dominated);
+      replace_uses_in_bb_by (res_b, res_c, exit_block);
 
       struct reduction_info *red = reduction_phi (reduction_list, phi);
       gcc_assert (virtual_operand_p (res_a)
@@ -1725,7 +1786,6 @@ transform_to_exit_first_loop_alt (struct loop *loop,
 	}
     }
   gcc_assert (gsi_end_p (gsi) && !v->iterate (i, &vm));
-  BITMAP_FREE (exit_dominated);
 
   /* Set the preheader argument of the new phis to ivtmp/sum_init.  */
   flush_pending_stmts (entry);

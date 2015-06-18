@@ -1,5 +1,11 @@
 2015-06-18  Tom de Vries  <tom@codesourcery.com>
 
+	* tree-parloops.c (rewrite_virtuals_into_loop_closed_ssa): New function.
+	(transform_to_exit_first_loop_alt): Use
+	rewrite_virtuals_into_loop_closed_ssa.
+
+2015-06-18  Tom de Vries  <tom@codesourcery.com>
+
 	* tree-parloops.c (transform_to_exit_first_loop_alt): Add update_stmt
 	for cond_stmt.
 	(try_get_loop_niter): Declare forward.
