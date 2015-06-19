@@ -446,7 +446,7 @@ static BrigAlignment8_t
 get_alignment (BrigType16_t type)
 {
   unsigned bit_size ;
-  bit_size = hsa_type_bit_size (type) ;
+  bit_size = hsa_type_bit_size (type & ~BRIG_TYPE_ARRAY);
 
   if (bit_size == 1)
     return BRIG_ALIGNMENT_1;
@@ -515,8 +515,8 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.align = get_alignment (dirvar.type);
   gcc_assert (symbol->linkage);
   dirvar.linkage = symbol->linkage;
-  dirvar.dim.lo = htole32 (symbol->dimLo);
-  dirvar.dim.hi = htole32 (symbol->dimHi);
+  dirvar.dim.lo = (uint32_t) symbol->dim;
+  dirvar.dim.hi = (uint32_t) ((unsigned long long) symbol->dim >> 32);
   dirvar.modifier.allBits |= BRIG_VARIABLE_DEFINITION;
   dirvar.reserved = 0;
 

@@ -1,3 +1,15 @@
+2015-06-19  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (hsa_type_for_scalar_tree_type): Use
+	hsa_get_segment_addr_type.  Assert type is not scalar.  Rename
+	last argument.
+	(hsa_type_for_tree_type): Handle aggregates.  Return dimension in
+	only one parameter.
+	(fillup_sym_for_decl): Adapt to changes in hsa_symbol.
+	(gen_hsa_addr_for_arg): Likewise.
+	* hsa-brig.c (get_alignment): Handle array type.
+	(emit_directive_variable): Adapt to changes in hsa_symbol.
+
 2015-06-18  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa.c (hsa_type_bit_size): New function.

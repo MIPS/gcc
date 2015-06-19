@@ -60,8 +60,8 @@ struct hsa_symbol
   /* The HSA kind of linkage.  */
   BrigLinkage8_t linkage;
 
-  /* Array dimensions, if non-zero.  */
-  uint32_t dimLo, dimHi;
+  /* Array dimension, if non-zero.  */
+  unsigned HOST_WIDE_INT dim;
 };
 
 /* Abstract class for HSA instruction operands. */

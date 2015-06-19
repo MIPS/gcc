@@ -235,24 +235,22 @@ hsa_get_segment_addr_type (BrigSegment8_t segment)
 }
 
 /* Return HSA type for tree TYPE, which has to fit into BrigType16_t.  Pointers
-   are assumed to use flat addressing.  */
+   are assumed to use flat addressing.  If min32int is true, always expand
+   integer types to one that has at least 32 bits.  */
 
 static BrigType16_t
-hsa_type_for_scalar_tree_type (const_tree type, bool for_operand)
+hsa_type_for_scalar_tree_type (const_tree type, bool min32int)
 {
   HOST_WIDE_INT bsize;
   const_tree base;
   BrigType16_t res = BRIG_TYPE_NONE;
 
   gcc_checking_assert (TYPE_P (type));
+  gcc_checking_assert (!AGGREGATE_TYPE_P (type));
   if (POINTER_TYPE_P (type))
-    /* Don't use hsa_get_segment_addr_type here, it gives addresses
-       as B32/B64, but we need U32/U64.  */
-    return hsa_machine_large_p () ? BRIG_TYPE_U64 : BRIG_TYPE_U32;
+    return hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
 
-  /* XXX ARRAY_TYPEs need to decend into pointers, at least for
-     global variables.  Same for RECORD_TYPES.  */
-  if (TREE_CODE (type) == VECTOR_TYPE || TREE_CODE (type) == ARRAY_TYPE)
+  if (TREE_CODE (type) == VECTOR_TYPE)
     base = TREE_TYPE (type);
   else
     base = type;
@@ -350,7 +348,8 @@ hsa_type_for_scalar_tree_type (const_tree type, bool for_operand)
 	  sorry ("Support for HSA does not implement type %T", type);
 	}
     }
-  else if (for_operand)
+
+  if (min32int)
     {
       /* Registers/immediate operands can only be 32bit or more except for
          f16.  */
@@ -377,6 +376,74 @@ mem_type_for_type (BrigType16_t type)
     return BRIG_TYPE_B128;
   return type;
 }
+
+/* Return HSA type for tree TYPE.  If it cannot fit into BrigType16_t, some
+   kind of array will be generated, setting DIM appropriately.  Otherwise, it
+   will be set to zero.  */
+
+static BrigType16_t
+hsa_type_for_tree_type (const_tree type, unsigned HOST_WIDE_INT *dim_p)
+{
+  gcc_checking_assert (TYPE_P (type));
+  if (!tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
+    {
+      sorry ("Support for HSA does not implement huge or variable-sized type %T",
+	     type);
+      return BRIG_TYPE_NONE;
+    }
+
+  if (RECORD_OR_UNION_TYPE_P (type))
+    {
+      *dim_p = tree_to_uhwi (TYPE_SIZE_UNIT (type));
+      gcc_assert (*dim_p);
+      return BRIG_TYPE_U8 | BRIG_TYPE_ARRAY;
+    }
+
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      /* We try to be nice and use the real base-type when this is an array of
+	 scalars and only resort to an array of bytes if the type is more
+	 complex.  */
+
+      unsigned HOST_WIDE_INT dim = 1;
+
+      while (TREE_CODE (type) == ARRAY_TYPE)
+	{
+	  tree domain = TYPE_DOMAIN (type);
+	  if (!TYPE_MIN_VALUE (domain)
+	      || !TYPE_MAX_VALUE (domain)
+	      || !tree_fits_shwi_p (TYPE_MIN_VALUE (domain))
+	      || !tree_fits_shwi_p (TYPE_MAX_VALUE (domain)))
+	    {
+	      sorry ("Support for HSA does not implement array %T with unknown "
+		     "bounds", type);
+	      return BRIG_TYPE_NONE;
+	    }
+	  HOST_WIDE_INT min = tree_to_shwi (TYPE_MIN_VALUE (domain));
+	  HOST_WIDE_INT max = tree_to_shwi (TYPE_MAX_VALUE (domain));
+	  dim = dim * (unsigned HOST_WIDE_INT) (max - min + 1);
+	  type = TREE_TYPE (type);
+	}
+
+      BrigType16_t res;
+      if (RECORD_OR_UNION_TYPE_P (type))
+	{
+	  dim = dim * tree_to_uhwi (TYPE_SIZE_UNIT (type));
+	  res = BRIG_TYPE_U8;
+	}
+      else
+	res = hsa_type_for_scalar_tree_type (type, false);
+
+      *dim_p = dim;
+      return res | BRIG_TYPE_ARRAY;
+    }
+
+  /* Scalar case: */
+  *dim_p = 0;
+  return hsa_type_for_scalar_tree_type (type, false);
+}
+
+/* Return true iff TYPE is a floating point number type.  */
 
 static bool
 hsa_type_float_p (BrigType16_t type)
@@ -407,20 +474,6 @@ hsa_needs_cvt (BrigType16_t dtype, BrigType16_t stype)
   return false;
 }
 
-/* Return HSA type for tree TYPE.  If it cannot fit into BrigType16_t, some
-   kind of array will be generated, setting DIMLO and DIMHI appropriately.
-   Otherwise, they will be set to zero.  */
-
-static BrigType16_t
-hsa_type_for_tree_type (const_tree type, uint32_t *dimLo, uint32_t *dimHi,
-			bool for_operand)
-{
-  /* FIXME: Not yet implemented for non-scalars.  */
-  *dimLo = 0;
-  *dimHi = 0;
-  return hsa_type_for_scalar_tree_type (type, for_operand);
-}
-
 /* Fill in those values into SYM according to DECL, which are determined
    independently from whether it is parameter, result, or a variable, local or
    global.  */
@@ -429,8 +482,7 @@ static void
 fillup_sym_for_decl (tree decl, struct hsa_symbol *sym)
 {
   sym->decl = decl;
-  sym->type = hsa_type_for_tree_type (TREE_TYPE (decl), &sym->dimLo,
-				      &sym->dimHi, false);
+  sym->type = hsa_type_for_tree_type (TREE_TYPE (decl), &sym->dim);
 }
 
 /* Lookup or create the associated hsa_symbol structure with a given VAR_DECL
@@ -1073,8 +1125,7 @@ gen_hsa_addr_for_arg (tree tree_type, int index)
   sym->segment = BRIG_SEGMENT_ARG;
   sym->linkage = BRIG_LINKAGE_ARG;
 
-  sym->type = hsa_type_for_tree_type (tree_type, &sym->dimLo,
-				      &sym->dimHi, false);
+  sym->type = hsa_type_for_tree_type (tree_type, &sym->dim);
 
   if (index == -1) /* Function result.  */
     sym->name = "res";
