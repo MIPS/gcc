@@ -604,23 +604,26 @@ struct hsa_function_representation
   bool kern_p;
 };
 
-/* In hsa-gen.c.  */
+/* in hsa.c */
 extern struct hsa_function_representation hsa_cfun;
 extern hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
+void hsa_init_compilation_unit_data (void);
+void hsa_deinit_compilation_unit_data (void);
 bool hsa_machine_large_p (void);
-BrigType16_t hsa_get_segment_addr_type (BrigSegment8_t);
 bool hsa_full_profile_p (void);
 bool hsa_opcode_op_output_p (BrigOpcode16_t, int);
+void hsa_add_kern_decl_mapping (tree decl, char *name);
+unsigned hsa_get_number_decl_kernel_mappings (void);
+tree hsa_get_decl_kernel_mapping_decl (unsigned i);
+char *hsa_get_decl_kernel_mapping_name (unsigned i);
+void hsa_free_decl_kernel_mapping (void);
+
+/* In hsa-gen.c.  */
 void hsa_build_append_simple_mov (hsa_op_reg *, hsa_op_base *, hsa_bb *);
 hsa_symbol *hsa_get_spill_symbol (BrigType16_t);
 hsa_op_reg *hsa_spill_in (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_op_reg *hsa_spill_out (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_bb *hsa_init_new_bb (basic_block);
-void hsa_deinit_compilation_unit_data (void);
-unsigned hsa_get_number_decl_kernel_mappings (void);
-tree hsa_get_decl_kernel_mapping_decl (unsigned i);
-char *hsa_get_decl_kernel_mapping_name (unsigned i);
-void hsa_free_decl_kernel_mapping (void);
 
 /* In hsa-regalloc.c.  */
 void hsa_regalloc (void);

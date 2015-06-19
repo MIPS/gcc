@@ -72,24 +72,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-tree.h"
 #include "hsa.h"
 
-/* Structure containing intermediate HSA representation of the generated
-   function. */
-struct hsa_function_representation hsa_cfun;
-
-/* Element of the mapping vector between a host decl and an HSA kernel.  */
-
-struct GTY(()) hsa_decl_kernel_map_element
-{
-  /* The decl of the host function.  */
-  tree decl;
-  /* Name of the HSA kernel in BRIG.  */
-  char * GTY((skip)) name;
-};
-
-/* Mapping between decls and corresponding HSA kernels in this compilation
-   unit.  */
-static GTY (()) vec<hsa_decl_kernel_map_element, va_gc> *hsa_decl_kernel_mapping;
-
 /* Alloc pools for allocating basic hsa structures such as operands,
    instructions and other basic entitie.s */
 static pool_allocator<hsa_op_address> *hsa_allocp_operand_address;
@@ -115,37 +97,6 @@ static vec <hsa_op_code_list *> hsa_list_operand_code_list;
 static vec <hsa_op_reg *> hsa_list_operand_reg;
 static vec <hsa_insn_call_block *> hsa_list_insn_call_block;
 static vec <hsa_insn_call *> hsa_list_insn_call;
-
-/* Hash function to lookup a symbol for a decl.  */
-hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
-
-/* True if compilation unit-wide data are already allocated and initialized.  */
-static bool compilation_unit_data_initialized;
-
-/* Allocate HSA structures that are are used when dealing with different
-   functions.  */
-
-void
-hsa_init_compilation_unit_data (void)
-{
-  if (compilation_unit_data_initialized)
-    return;
-
-  compilation_unit_data_initialized = true;
-  hsa_global_variable_symbols = new hash_table <hsa_free_symbol_hasher> (8);
-}
-
-/* Free data structures that are used when dealing with different
-   functions.  */
-
-void
-hsa_deinit_compilation_unit_data (void)
-{
-  if (!compilation_unit_data_initialized)
-    return;
-
-  delete hsa_global_variable_symbols;
-}
 
 /* Allocate HSA structures that we need only while generating with this.  */
 
@@ -258,26 +209,9 @@ hsa_deinit_data_for_cfun (void)
   hsa_cfun.spill_symbols.release();
 }
 
-/* Return true if we are generating large HSA machine model.  */
-
-bool
-hsa_machine_large_p (void)
-{
-  /* FIXME: I suppose this is techically wrong but should work for me now.  */
-  return (GET_MODE_BITSIZE (Pmode) == 64);
-}
-
-/* Return the HSA profile we are using.  */
-
-bool
-hsa_full_profile_p (void)
-{
-  return true;
-}
-
 /* Return the type which holds addresses in the given SEGMENT.  */
 
-BrigType16_t
+static BrigType16_t
 hsa_get_segment_addr_type (BrigSegment8_t segment)
 {
   switch (segment)
@@ -298,23 +232,6 @@ hsa_get_segment_addr_type (BrigSegment8_t segment)
       return BRIG_TYPE_U32;
     }
   gcc_unreachable ();
-}
-
-/* Return true if operand number OPNUM of instruction with OPCODE is an output.
-   False if it is an input.  */
-
-bool
-hsa_opcode_op_output_p (BrigOpcode16_t opcode, int opnum)
-{
-  switch (opcode)
-    {
-    case BRIG_OPCODE_CBR:
-    case BRIG_OPCODE_ST:
-      /* FIXME: There are probably missing cases here, double check.  */
-      return false;
-    default:
-     return opnum == 0;
-    }
 }
 
 /* Return HSA type for tree TYPE, which has to fit into BrigType16_t.  Pointers
@@ -2295,51 +2212,6 @@ gen_function_parameters (vec <hsa_op_reg_p> ssa_map)
       gcc_assert (!*slot);
       *slot = hsa_cfun.output_arg;
     }
-}
-
-/* Create a mapping between the original function DECL and kernel name NAME.  */
-
-static void
-hsa_add_kern_decl_mapping (tree decl, char *name)
-{
-  hsa_decl_kernel_map_element dkm;
-  dkm.decl = decl;
-  dkm.name = name;
-  vec_safe_push (hsa_decl_kernel_mapping, dkm);
-}
-
-/* Return the number of kernel decl name mappings.  */
-
-unsigned
-hsa_get_number_decl_kernel_mappings (void)
-{
-  return vec_safe_length (hsa_decl_kernel_mapping);
-}
-
-/* Return the decl in the Ith kernel decl name mapping.  */
-
-tree
-hsa_get_decl_kernel_mapping_decl (unsigned i)
-{
-  return (*hsa_decl_kernel_mapping)[i].decl;
-}
-
-/* Return the name in the Ith kernel decl name mapping.  */
-
-char *
-hsa_get_decl_kernel_mapping_name (unsigned i)
-{
-  return (*hsa_decl_kernel_mapping)[i].name;
-}
-
-/* Free the mapping between original decls and kernel names.  */
-
-void
-hsa_free_decl_kernel_mapping (void)
-{
-  for (unsigned i = 0; i < hsa_decl_kernel_mapping->length (); ++i)
-    free ((*hsa_decl_kernel_mapping)[i].name);
-  ggc_free (hsa_decl_kernel_mapping);
 }
 
 static void

@@ -1280,6 +1280,7 @@ OBJS = \
 	graphite-sese-to-poly.o \
 	gtype-desc.o \
 	haifa-sched.o \
+	hsa.o \
 	hsa-gen.o \
 	hsa-regalloc.o \
 	hsa-brig.o \
@@ -2365,6 +2366,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/sanopt.c \
   $(srcdir)/ipa-devirt.c \
   $(srcdir)/internal-fn.h \
+  $(srcdir)/hsa.c \
   $(srcdir)/hsa-gen.c \
   @all_gtfiles@
 

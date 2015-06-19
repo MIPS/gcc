@@ -1,3 +1,26 @@
+2015-06-18  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.c: New file.
+	* Makefile.in (OBJS): Add hsa.o.
+	(GTFILES): Add hsa.c.
+	* hsa-gen.c (hsa_cfun): Move to hsa.c.
+	(hsa_decl_kernel_map_element): Likewise.
+	(hsa_decl_kernel_mapping): Likewise.
+	(hsa_global_variable_symbols): Likewise.
+	(compilation_unit_data_initialized): Likewise.
+	(hsa_init_compilation_unit_data): Likewise.
+	(hsa_deinit_compilation_unit_data): Likewise.
+	(hsa_machine_large_p): Likewise.
+	(hsa_full_profile_p): Likewise.
+	(hsa_get_segment_addr_type): Made static.
+	(hsa_opcode_op_output_p): Moved to hsa.c.
+	(hsa_add_kern_decl_mapping): Likewise.
+	(hsa_get_number_decl_kernel_mappings): Likewise.
+	(hsa_get_decl_kernel_mapping_decl): Likewise.
+	(hsa_get_decl_kernel_mapping_name): Likewise.
+	(hsa_free_decl_kernel_mapping): Likewise.
+	* hsa.h: Reorganize declarations to match the other changes.
+
 2015-06-16  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-brig.c (hsa_get_imm_brig_type_len): New function.
