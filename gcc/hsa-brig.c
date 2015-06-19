@@ -307,14 +307,6 @@ brig_string_slot_hasher::remove (value_type ds)
 
 static hash_table<brig_string_slot_hasher> *brig_string_htab;
 
-static void
-sanitize_hsa_name (char *p)
-{
-  for (; *p; p++)
-    if (*p == '.')
-      *p = '_';
-}
-
 /* Emit a null terminated string STR to the data section and return its
    offset in it.  If PREFIX is non-zero, output it just before STR too.  */
 
@@ -330,7 +322,7 @@ brig_emit_string (const char *str, char prefix = 0)
 
   /* XXX Sanitize the names without all the strdup.  */
   str2 = xstrdup (str);
-  sanitize_hsa_name (str2);
+  hsa_sanitize_name (str2);
   s_slot.s = str2;
   s_slot.len = slen;
   s_slot.prefix = prefix;

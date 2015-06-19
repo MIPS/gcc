@@ -1,5 +1,12 @@
 2015-06-19  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.c (hsa_sanitize_name): Moved here from...
+	* hsa-gen.c (sanitize_hsa_name): ...here...
+	* hsa-brig.c (sanitize_hsa_name): ...and here.
+	* hsa.h (hsa_sanitize_name): Declare.
+
+2015-06-19  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (hsa_type_for_scalar_tree_type): Use
 	hsa_get_segment_addr_type.  Assert type is not scalar.  Rename
 	last argument.
@@ -9,6 +16,7 @@
 	(gen_hsa_addr_for_arg): Likewise.
 	* hsa-brig.c (get_alignment): Handle array type.
 	(emit_directive_variable): Adapt to changes in hsa_symbol.
+	* hsa.h (hsa_symbol): Make dimension represented by one number.
 
 2015-06-18  Martin Jambor  <mjambor@suse.cz>
 

@@ -292,4 +292,14 @@ hsa_free_decl_kernel_mapping (void)
   ggc_free (hsa_decl_kernel_mapping);
 }
 
+/* Modify the name P in-place so that it is a valid HSA identifier.  */
+
+void
+hsa_sanitize_name (char *p)
+{
+  for (; *p; p++)
+    if (*p == '.')
+      *p = '_';
+}
+
 #include "gt-hsa.h"

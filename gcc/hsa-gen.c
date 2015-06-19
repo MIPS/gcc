@@ -2266,14 +2266,6 @@ gen_function_parameters (vec <hsa_op_reg_p> ssa_map)
     }
 }
 
-static void
-sanitize_hsa_name (char *p)
-{
-  for (; *p; p++)
-    if (*p == '.')
-      *p = '_';
-}
-
 /* Genrate HSAIL reprezentation of the current function and write into a
    special section of the output file.  If KERNEL is set, the function will be
    considered an HSA kernel callable from the host, otherwise it will be
@@ -2290,7 +2282,7 @@ generate_hsa (bool kernel)
   ssa_map.safe_grow_cleared (SSANAMES (cfun)->length ());
   hsa_cfun.name
     = xstrdup (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
-  sanitize_hsa_name (hsa_cfun.name);
+  hsa_sanitize_name (hsa_cfun.name);
 
   if (hsa_cfun.kern_p)
     hsa_add_kern_decl_mapping (current_function_decl, hsa_cfun.name);
