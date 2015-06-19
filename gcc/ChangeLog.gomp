@@ -1,3 +1,11 @@
+2015-06-19  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (struct reduction_info): Add reduc_addr field.
+	(create_call_for_reduction_1): Handle case that reduc_addr is non-NULL.
+	(gen_parallel_loop): Init clsn_data for oacc_kernels_p case.
+	(try_create_reduction_list): Add and handle oacc_kernels_p parameter.
+	(parallelize_loops): Add argument to call to try_create_reduction_list.
+
 2015-06-18  Tom de Vries  <tom@codesourcery.com>
 
 	* passes.def: Move pass_fre later in pass group pass_oacc_kernels,

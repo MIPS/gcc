@@ -218,6 +218,8 @@ struct reduction_info
 				   of the reduction variable when existing the loop. */
   tree initial_value;		/* The initial value of the reduction var before entering the loop.  */
   tree field;			/*  the name of the field in the parloop data structure intended for reduction.  */
+  tree reduc_addr;		/* The address of the reduction variable for
+				   openacc reductions.  */
   tree init;			/* reduction initialization value.  */
   gphi *new_phi;		/* (helper field) Newly created phi node whose result
 				   will be passed to the atomic operation.  Represents
@@ -1107,10 +1109,30 @@ create_call_for_reduction_1 (reduction_info **slot, struct clsn_data *clsn_data)
   tree tmp_load, name;
   gimple load;
 
-  load_struct = build_simple_mem_ref (clsn_data->load);
-  t = build3 (COMPONENT_REF, type, load_struct, reduc->field, NULL_TREE);
+  if (reduc->reduc_addr == NULL_TREE)
+    {
+      load_struct = build_simple_mem_ref (clsn_data->load);
+      t = build3 (COMPONENT_REF, type, load_struct, reduc->field, NULL_TREE);
 
-  addr = build_addr (t, current_function_decl);
+      addr = build_addr (t, current_function_decl);
+    }
+  else
+    {
+      /* Set the address for the atomic store.  */
+      addr = reduc->reduc_addr;
+
+      /* Remove the non-atomic store '*addr = sum'.  */
+      tree res = PHI_RESULT (reduc->keep_res);
+      use_operand_p use_p;
+      gimple stmt;
+      bool single_use_p = single_imm_use (res, &use_p, &stmt);
+      gcc_assert (single_use_p);
+      replace_uses_by (gimple_vdef (stmt),
+		       gimple_vuse (stmt));
+      gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+      gsi_remove (&gsi, true);
+    }
+
 
   /* Create phi node.  */
   bb = clsn_data->load_bb;
@@ -2441,6 +2463,10 @@ gen_parallel_loop (struct loop *loop,
     {
       arg_struct = NULL_TREE;
       new_arg_struct = NULL_TREE;
+      clsn_data.load = NULL_TREE;
+      clsn_data.load_bb = exit->dest;
+      clsn_data.store = NULL_TREE;
+      clsn_data.store_bb = NULL;
     }
 
   /* Create the parallel constructs.  */
@@ -2591,7 +2617,8 @@ try_get_loop_niter (loop_p loop, struct tree_niter_desc *niter)
 
 static bool
 try_create_reduction_list (loop_p loop,
-			   reduction_info_table_type *reduction_list)
+			   reduction_info_table_type *reduction_list,
+			   bool oacc_kernels_p)
 {
   edge exit = single_dom_exit (loop);
   gphi_iterator gsi;
@@ -2680,6 +2707,61 @@ try_create_reduction_list (loop_p loop,
 	}
     }
 
+
+  if (oacc_kernels_p)
+    {
+      edge e = loop_preheader_edge (loop);
+
+      for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
+	{
+	  gphi *phi = gsi.phi ();
+	  tree def = PHI_RESULT (phi);
+	  affine_iv iv;
+
+	  if (!virtual_operand_p (def) && !simple_iv (loop, loop, def, &iv, true))
+	    {
+	      struct reduction_info *red;
+	      red = reduction_phi (reduction_list, phi);
+
+	      /* Look for pattern:
+
+		 <bb preheader>
+		   .omp_data_i = &.omp_data_arr;
+		   addr = .omp_data_i->sum;
+		   sum_a = *addr;
+
+		 <bb header>:
+		   sum_b = PHI <sum_a (preheader), sum_c (latch)>
+
+		 and assign addr to reduc->reduc_addr.  */
+
+	      tree arg = PHI_ARG_DEF_FROM_EDGE (phi, e);
+	      gimple stmt = SSA_NAME_DEF_STMT (arg);
+	      if (!gimple_assign_single_p (stmt))
+		return false;
+	      tree memref = gimple_assign_rhs1 (stmt);
+	      if (TREE_CODE (memref) != MEM_REF)
+		return false;
+	      tree addr = TREE_OPERAND (memref, 0);
+
+	      gimple stmt2 = SSA_NAME_DEF_STMT (addr);
+	      if (!gimple_assign_single_p (stmt2))
+		return false;
+	      tree compref = gimple_assign_rhs1 (stmt2);
+	      if (TREE_CODE (compref) != COMPONENT_REF)
+		return false;
+	      tree addr2 = TREE_OPERAND (compref, 0);
+	      if (TREE_CODE (addr2) != MEM_REF)
+		return false;
+	      addr2 = TREE_OPERAND (addr2, 0);
+	      if (TREE_CODE (addr2) != SSA_NAME
+		  || !gimple_stmt_omp_data_i_init_p (SSA_NAME_DEF_STMT (addr2)))
+		return false;
+	      red->reduc_addr = addr;
+	    }
+	}
+    }
 
   return true;
 }
@@ -2784,7 +2866,7 @@ parallelize_loops (bool oacc_kernels_p)
       if (!try_get_loop_niter (loop, &niter_desc))
 	continue;
 
-      if (!try_create_reduction_list (loop, &reduction_list))
+      if (!try_create_reduction_list (loop, &reduction_list, oacc_kernels_p))
 	continue;
 
       if (!flag_loop_parallelize_all

@@ -1,3 +1,7 @@
+2015-06-19  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/kernels-reduction.c: New test.
+
 2015-06-18  James Norris  <jnorris@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/default-1.c: New file.
