@@ -1,7 +1,3 @@
-/* { dg-do run } */
-
-#include <stdlib.h>
-
 int
 main (int argc, char **argv)
 {
@@ -11,7 +7,7 @@ main (int argc, char **argv)
   b = 0.0;
 
 #pragma acc parallel default (shared) /* { dg-error "expected 'none'" } */
-  /* { dg-error "expected '\\\)'" "" { target c++ } 13 } */
+  /* { dg-error "expected '\\\)'" "" { target c++ } 9 } */
   {
     b = a;
     a = 1.0;
