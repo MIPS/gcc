@@ -896,16 +896,23 @@ emit_register_operand (hsa_op_reg *reg)
   out.base.kind = htole16 (BRIG_KIND_OPERAND_REGISTER);
   out.regNum = htole32 (reg->hard_num);
 
-  if (BRIG_TYPE_B32 == regtype_for_type (reg->type))
-    out.regKind = BRIG_REGISTER_KIND_SINGLE;
-  else if (BRIG_TYPE_B64 == regtype_for_type (reg->type))
-    out.regKind = BRIG_REGISTER_KIND_DOUBLE;
-  else if (BRIG_TYPE_B128 == regtype_for_type (reg->type))
-    out.regKind = BRIG_REGISTER_KIND_QUAD;
-  else if (BRIG_TYPE_B1 == regtype_for_type (reg->type))
-    out.regKind = BRIG_REGISTER_KIND_CONTROL;
-  else
-    gcc_unreachable ();
+  switch (regtype_for_type (reg->type))
+    {
+    case BRIG_TYPE_B32:
+      out.regKind = BRIG_REGISTER_KIND_SINGLE;
+      break;
+    case BRIG_TYPE_B64:
+      out.regKind = BRIG_REGISTER_KIND_DOUBLE;
+      break;
+    case BRIG_TYPE_B128:
+      out.regKind = BRIG_REGISTER_KIND_QUAD;
+      break;
+    case BRIG_TYPE_B1:
+      out.regKind = BRIG_REGISTER_KIND_CONTROL;
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
   brig_operand.add (&out, sizeof (out));
 }
@@ -1043,7 +1050,7 @@ emit_memory_insn (hsa_insn_mem *mem)
   brig_insn_count++;
 }
 
-/* Emit an HSA memory instruction and all necessary directives, schedule
+/* Emit an HSA atomic memory instruction and all necessary directives, schedule
    necessary operands for writing .  */
 
 static void

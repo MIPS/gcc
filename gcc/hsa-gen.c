@@ -577,8 +577,6 @@ hsa_alloc_reg_op (void)
   hsa_list_operand_reg.safe_push (hreg);
   memset (hreg, 0, sizeof (hsa_op_reg));
   hreg->kind = BRIG_KIND_OPERAND_REGISTER;
-  /* TODO: Try removing later on.  I suppose this is not necessary but I'd
-     rather avoid surprises.  */
   hreg->order = hsa_cfun.reg_count++;
   return hreg;
 }
