@@ -1796,20 +1796,6 @@ cp_fully_fold (tree x)
   return cp_fold (x, ctx);
 }
 
-/* Try to fold the expression X to a constant value by using
-   caching fold, if possible.  If X could be folded to a constant
-   it gets returned, otherwise X is returned.  */
-
-tree
-cp_try_fold_to_constant (tree x)
-{
-  tree r = cp_fully_fold (x);
-
-  if (r && CONSTANT_CLASS_P (r))
-    return r;
-  return x;
-}
-
 static tree
 cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 {
