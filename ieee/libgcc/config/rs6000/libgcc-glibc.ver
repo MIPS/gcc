@@ -73,7 +73,7 @@ GCC_4.2.0 {
 }
 
 
-# IEEE 128-bit support (__float128) was introduced with GCC 5.0.
+# IEEE 128-bit support (__float128) was introduced with GCC 6.0.
 
 %exclude {
   __addkf3
@@ -150,7 +150,7 @@ GCC_4.2.0 {
   _q_utoq_q
 }
 
-GCC_5.0.0 {
+GCC_6.0.0 {
   __addkf3
   __cmpkf2
   __divkf3

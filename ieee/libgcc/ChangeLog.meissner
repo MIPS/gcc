@@ -1,3 +1,11 @@
+2015-06-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/libgcc-glibc.ver: Change IEEE 128-bit floating
+	point minimum revision to 6.0.
+
+	* config/rs6000/fp128-ref-sed: Delete, no longer used.
+	* config/rs6000/quad-ref.h: Likewise.
+
 2015-06-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 224572.
