@@ -6658,7 +6658,8 @@ finish_struct_1 (tree t)
   set_method_tm_attributes (t);
 
   /* Complete the rtl for any static member objects of the type we're
-     working on.  */
+     working on and rewrite the type of array fields with scalar
+     component if the enclosing type has reverse storage order.  */
   for (x = TYPE_FIELDS (t); x; x = DECL_CHAIN (x))
     if (VAR_P (x) && TREE_STATIC (x)
         && TREE_TYPE (x) != error_mark_node
@@ -6669,17 +6670,17 @@ finish_struct_1 (tree t)
 	     && TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE)
       {
 	tree ftype = TREE_TYPE (x);
-	do
-	  ftype = TREE_TYPE (ftype);
-	while (TREE_CODE (ftype) == ARRAY_TYPE);
-	if (!RECORD_OR_UNION_TYPE_P (ftype))
+	if (!RECORD_OR_UNION_TYPE_P (strip_array_types (ftype)))
 	  {
-	    tree *ftypep = &TREE_TYPE (x);
+	    tree fmain_type = TYPE_MAIN_VARIANT (ftype);
+	    tree *typep = &fmain_type;
 	    do {
-	      *ftypep = build_distinct_type_copy (*ftypep);
-	      TYPE_REVERSE_STORAGE_ORDER (*ftypep) = 1;
-	      ftypep = &TREE_TYPE (*ftypep);
-	    } while (TREE_CODE (*ftypep) == ARRAY_TYPE);
+	      *typep = build_distinct_type_copy (*typep);
+	      TYPE_REVERSE_STORAGE_ORDER (*typep) = 1;
+	      typep = &TREE_TYPE (*typep);
+	    } while (TREE_CODE (*typep) == ARRAY_TYPE);
+	    TREE_TYPE (x)
+	      = cp_build_qualified_type (fmain_type, TYPE_QUALS (ftype));
 	  }
       }
 

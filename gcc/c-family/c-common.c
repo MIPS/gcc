@@ -690,10 +690,10 @@ const struct attribute_spec c_common_attribute_table[] =
   /* The same comments as for noreturn attributes apply to const ones.  */
   { "const",                  0, 0, true,  false, false,
 			      handle_const_attribute, false },
-  { "transparent_union",      0, 0, false, false, false,
-			      handle_transparent_union_attribute, false },
   { "scalar_storage_order",   1, 1, false, false, false,
 			      handle_scalar_storage_order_attribute, false },
+  { "transparent_union",      0, 0, false, false, false,
+			      handle_transparent_union_attribute, false },
   { "constructor",            0, 1, true,  false, false,
 			      handle_constructor_attribute, false },
   { "destructor",             0, 1, true,  false, false,
@@ -7494,6 +7494,55 @@ handle_const_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   return NULL_TREE;
 }
 
+/* Handle a "scalar_storage_order" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_scalar_storage_order_attribute (tree *node, tree name, tree args,
+				       int flags, bool *no_add_attrs)
+{
+  tree id = TREE_VALUE (args);
+  tree type;
+
+  *no_add_attrs = true;
+
+  if (TREE_CODE (*node) == TYPE_DECL
+      && ! (flags & ATTR_FLAG_CXX11))
+    node = &TREE_TYPE (*node);
+  type = *node;
+
+  if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN)
+    error ("scalar_storage_order is not supported");
+
+  if (RECORD_OR_UNION_TYPE_P (type))
+    {
+      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+	goto ignored;
+
+      if (TREE_CODE (id) == STRING_CST
+	  && strcmp (TREE_STRING_POINTER (id), "big-endian") == 0)
+	{
+	  if (!BYTES_BIG_ENDIAN)
+	    TYPE_REVERSE_STORAGE_ORDER (type) = 1;
+	}
+      else if (TREE_CODE (id) == STRING_CST
+	       && strcmp (TREE_STRING_POINTER (id), "little-endian") == 0)
+	{
+	  if (BYTES_BIG_ENDIAN)
+	    TYPE_REVERSE_STORAGE_ORDER (type) = 1;
+	}
+      else
+	error ("scalar_storage_order argument must be one of \"big-endian\" "
+	       "or \"little-endian\"");
+
+      return NULL_TREE;
+    }
+
+ ignored:
+  warning (OPT_Wattributes, "%qE attribute ignored", name);
+  return NULL_TREE;
+}
+
 /* Handle a "transparent_union" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -7542,55 +7591,6 @@ handle_transparent_union_attribute (tree *node, tree name,
 	}
 
       TYPE_TRANSPARENT_AGGR (type) = 1;
-      return NULL_TREE;
-    }
-
- ignored:
-  warning (OPT_Wattributes, "%qE attribute ignored", name);
-  return NULL_TREE;
-}
-
-/* Handle a "scalar_storage_order" attribute; arguments as in
-   struct attribute_spec.handler.  */
-
-static tree
-handle_scalar_storage_order_attribute (tree *node, tree name, tree args,
-				       int flags, bool *no_add_attrs)
-{
-  tree id = TREE_VALUE (args);
-  tree type;
-
-  *no_add_attrs = true;
-
-  if (TREE_CODE (*node) == TYPE_DECL
-      && ! (flags & ATTR_FLAG_CXX11))
-    node = &TREE_TYPE (*node);
-  type = *node;
-
-  if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN)
-    error ("scalar_storage_order is not supported");
-
-  if (RECORD_OR_UNION_TYPE_P (type))
-    {
-      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-	goto ignored;
-
-      if (TREE_CODE (id) == STRING_CST
-	  && strcmp (TREE_STRING_POINTER (id), "big-endian") == 0)
-	{
-	  if (!BYTES_BIG_ENDIAN)
-	    TYPE_REVERSE_STORAGE_ORDER (type) = 1;
-	}
-      else if (TREE_CODE (id) == STRING_CST
-	       && strcmp (TREE_STRING_POINTER (id), "little-endian") == 0)
-	{
-	  if (BYTES_BIG_ENDIAN)
-	    TYPE_REVERSE_STORAGE_ORDER (type) = 1;
-	}
-      else
-	error ("scalar_storage_order argument must be one of \"big-endian\" "
-	       "or \"little-endian\"");
-
       return NULL_TREE;
     }
 

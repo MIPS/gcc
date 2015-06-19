@@ -6064,53 +6064,6 @@ S *p = (S *)malloc (sizeof(S) + 100);
 p->data[10] = 0; //OK
 @end smallexample
 
-@item scalar_storage_order
-@itemx scalar_storage_order ("@var{endianness}")
-@cindex @code{scalar_storage_order} type attribute
-When attached to a @code{union} or a @code{struct}, this attribute sets
-the storage order, aka endianness, of the scalar fields of the type, as
-well as the array fields whose component is scalar.  The supported
-endianness are @code{big-endian} and @code{little-endian}.  The attribute
-has no effects on fields which are themselves a @code{union}, a @code{struct}
-or an array whose component is a @code{union} or a @code{struct}, and it is
-possible to have fields with a different scalar storage order than the
-enclosing type.
-
-This attribute is supported only for targets that use a uniform default
-scalar storage order (fortunately, most of them), i.e. targets that store
-the scalars either all in big-endian or all in little-endian.
-
-Additional restrictions are enforced for types with the reverse scalar
-storage order with regard to the scalar storage order of the target:
-
-@itemize
-@item Taking the address of a scalar field of a @code{union} or a
-@code{struct} with reverse scalar storage order is illegal and will
-yield an error
-@item Taking the address of an array field, whose component is scalar, of
-a @code{union} or a @code{struct} with reverse scalar storage order is
-permitted but will yield a warning, unless @option{-Wno-scalar-storage-order}
-is specified
-@item Taking the address of a @code{union} or a @code{struct} with reverse
-scalar storage order is permitted
-@end itemize
-
-These restrictions exist because the storage order attribute is lost when
-the address of a scalar or the address of an array with scalar component
-is taken, so storing indirectly through this address will generally not work.
-The second case is nevertheless allowed to be able to perform a block copy
-from or to the array.
-
-@item unused
-@cindex @code{unused} type attribute
-When attached to a type (including a @code{union} or a @code{struct}),
-this attribute means that variables of that type are meant to appear
-possibly unused.  GCC does not produce a warning for any variables of
-that type, even if the variable appears to do nothing.  This is often
-the case with lock or thread classes, which are usually defined and then
-not referenced, but contain constructors and destructors that have
-nontrivial bookkeeping functions.
-
 @item deprecated
 @itemx deprecated (@var{msg})
 @cindex @code{deprecated} type attribute
@@ -6204,6 +6157,42 @@ definition, specifies that each member (other than zero-width bit-fields)
 of the structure or union is placed to minimize the memory required.  When
 attached to an @code{enum} definition, it indicates that the smallest
 integral type should be used.
+
+@item scalar_storage_order ("@var{endianness}")
+@cindex @code{scalar_storage_order} type attribute
+When attached to a @code{union} or a @code{struct}, this attribute sets
+the storage order, aka endianness, of the scalar fields of the type, as
+well as the array fields whose component is scalar.  The supported
+endianness are @code{big-endian} and @code{little-endian}.  The attribute
+has no effects on fields which are themselves a @code{union}, a @code{struct}
+or an array whose component is a @code{union} or a @code{struct}, and it is
+possible to have fields with a different scalar storage order than the
+enclosing type.
+
+This attribute is supported only for targets that use a uniform default
+scalar storage order (fortunately, most of them), i.e. targets that store
+the scalars either all in big-endian or all in little-endian.
+
+Additional restrictions are enforced for types with the reverse scalar
+storage order with regard to the scalar storage order of the target:
+
+@itemize
+@item Taking the address of a scalar field of a @code{union} or a
+@code{struct} with reverse scalar storage order is not permitted and will
+yield an error
+@item Taking the address of an array field, whose component is scalar, of
+a @code{union} or a @code{struct} with reverse scalar storage order is
+permitted but will yield a warning, unless @option{-Wno-scalar-storage-order}
+is specified
+@item Taking the address of a @code{union} or a @code{struct} with reverse
+scalar storage order is permitted
+@end itemize
+
+These restrictions exist because the storage order attribute is lost when
+the address of a scalar or the address of an array with scalar component
+is taken, so storing indirectly through this address will generally not work.
+The second case is nevertheless allowed to be able to perform a block copy
+from or to the array.
 
 @item transparent_union
 @cindex @code{transparent_union} type attribute

@@ -7733,7 +7733,7 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
     error ("type %qT is too large", t);
 
   /* Give bit-fields their proper types and rewrite the type of array fields
-     if the enclosing type has reverse storage order.  */
+     with scalar component if the enclosing type has reverse storage order.  */
   for (tree field = fieldlist; field; field = DECL_CHAIN (field))
     {
       if (TREE_CODE (field) == FIELD_DECL
@@ -7756,17 +7756,17 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 	       && TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE)
 	{
 	  tree ftype = TREE_TYPE (field);
-	  do
-	    ftype = TREE_TYPE (ftype);
-	  while (TREE_CODE (ftype) == ARRAY_TYPE);
-	  if (!RECORD_OR_UNION_TYPE_P (ftype))
+	  if (!RECORD_OR_UNION_TYPE_P (strip_array_types (ftype)))
 	    {
-	      tree *ftypep = &TREE_TYPE (field);
+	      tree fmain_type = TYPE_MAIN_VARIANT (ftype);
+	      tree *typep = &fmain_type;
 	      do {
-		*ftypep = build_distinct_type_copy (*ftypep);
-		TYPE_REVERSE_STORAGE_ORDER (*ftypep) = 1;
-		ftypep = &TREE_TYPE (*ftypep);
-	      } while (TREE_CODE (*ftypep) == ARRAY_TYPE);
+		*typep = build_distinct_type_copy (*typep);
+		TYPE_REVERSE_STORAGE_ORDER (*typep) = 1;
+		typep = &TREE_TYPE (*typep);
+	      } while (TREE_CODE (*typep) == ARRAY_TYPE);
+	      TREE_TYPE (field)
+		= c_build_qualified_type (fmain_type, TYPE_QUALS (ftype));
 	    }
 	}
     }

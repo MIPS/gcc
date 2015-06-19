@@ -2,17 +2,17 @@
 
 /* { dg-do compile } */
 
-struct __attribute__((scalar_storage_order("big-endian"))) S1
+struct S1
 {
   int i;
-};
+} __attribute__((scalar_storage_order("big-endian")));
 
-struct __attribute__((scalar_storage_order("little-endian"))) S2
+struct S2
 {
   int i;
-};
+} __attribute__((scalar_storage_order("little-endian")));
 
-struct __attribute__((scalar_storage_order("other"))) S3 { int i; }; /* { dg-error "must be one of .big-endian. or .little-endian." } */
+struct S3 { int i; } __attribute__((scalar_storage_order("other"))); /* { dg-error "must be one of .big-endian. or .little-endian." } */
 
 void incompatible_assign (struct S1 *s1, struct S2 *s2)
 {
@@ -24,17 +24,17 @@ int *addr1 (int which, struct S1 *s1, struct S2 *s2)
   return (which == 1 ? &s1->i : &s2->i); /* { dg-error "address of scalar with reverse storage order" } */
 }
 
-struct __attribute__((scalar_storage_order("big-endian"))) S4
+struct S4
 {
   int a[4];
   struct S2 s2;
-};
+} __attribute__((scalar_storage_order("big-endian")));
 
-struct __attribute__((scalar_storage_order("little-endian"))) S5
+struct S5
 {
   int a[4];
   struct S1 s1;
-};
+} __attribute__((scalar_storage_order("little-endian")));
 
 void *addr2 (int which, struct S4 *s4, struct S5 *s5)
 {
@@ -56,17 +56,17 @@ void *addr5 (int which, struct S4 *s4, struct S5 *s5)
   return (which == 1 ? (void *)&s4->s2 : (void *) &s5->s1); /* ok */
 }
 
-struct __attribute__((scalar_storage_order("big-endian"))) S6
+struct S6
 {
   int a[4][2];
   struct S2 s2[2];
-};
+}  __attribute__((scalar_storage_order("big-endian")));
 
-struct __attribute__((scalar_storage_order("little-endian"))) S7
+struct S7
 {
   int a[4][2];
   struct S1 s1[2];
-};
+}  __attribute__((scalar_storage_order("little-endian")));
 
 void *addr6 (int which, struct S6 *s6, struct S7 *s7)
 {
