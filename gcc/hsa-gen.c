@@ -793,6 +793,40 @@ hsa_append_insn (hsa_bb *hbb, hsa_insn_basic *insn)
     hbb->first_insn = insn;
 }
 
+/* Insert HSA instruction NEW_INSN immediately before an existing instruction
+   OLD_INSN.  */
+
+static void
+hsa_insert_insn_before (hsa_insn_basic *new_insn, hsa_insn_basic *old_insn)
+{
+  hsa_bb *hbb = hsa_bb_for_bb (old_insn->bb);
+
+  if (hbb->first_insn == old_insn)
+    hbb->first_insn = new_insn;
+  new_insn->prev = old_insn->prev;
+  new_insn->next = old_insn;
+  if (old_insn->prev)
+    old_insn->prev->next = new_insn;
+  old_insn->prev = new_insn;
+}
+
+/* Append HSA instruction NEW_INSN immediately after an existing instruction
+   OLD_INSN.  */
+
+static void
+hsa_append_insn_after (hsa_insn_basic *new_insn, hsa_insn_basic *old_insn)
+{
+  hsa_bb *hbb = hsa_bb_for_bb (old_insn->bb);
+
+  if (hbb->last_insn == old_insn)
+    hbb->last_insn = new_insn;
+  new_insn->prev = old_insn;
+  new_insn->next = old_insn->next;
+  if (old_insn->next)
+    old_insn->next->prev = new_insn;
+  old_insn->next = new_insn;
+}
+
 /* Lookup or create a HSA pseudo register for a given gimple SSA name and if
    necessary, convert it to REQTYPE.  SSA_MAP is a vector mapping gimple
    SSA names to HSA registers.  Append an new conversion statements to HBB.  */
@@ -1378,9 +1412,11 @@ gen_hsa_insns_for_single_assignment (gimple assign, hsa_bb *hbb,
     }
 }
 
-/* Prepend before INSN a load from SPILL_SYM.  Return the register into which
-   we loaded.  We assume we are out of SSA so the returned register does not
-   have its definition set.  */
+/* Prepend before INSN a load from spill symbol of SPILL_REG.  Return the
+   register into which we loaded.  If this required another register to convert
+   from a B1 type, return it in *PTMP2, otherwise store NULL into it.  We
+   assume we are out of SSA so the returned register does not have its
+   definition set.  */
 
 hsa_op_reg *
 hsa_spill_in (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
@@ -1389,21 +1425,13 @@ hsa_spill_in (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
   hsa_insn_mem *mem = hsa_alloc_mem_insn ();
   hsa_op_reg *reg = hsa_alloc_reg_op ();
   hsa_op_address *addr = hsa_alloc_addr_op (spill_sym, NULL, 0);
-  hsa_bb *hbb = hsa_bb_for_bb (insn->bb);
 
   mem->opcode = BRIG_OPCODE_LD;
   mem->type = spill_sym->type;
   reg->type = spill_sym->type;
   mem->operands[0] = reg;
   mem->operands[1] = addr;
-
-  if (hbb->first_insn == insn)
-    hbb->first_insn = mem;
-  mem->prev = insn->prev;
-  mem->next = insn;
-  if (insn->prev)
-    insn->prev->next = mem;
-  insn->prev = mem;
+  hsa_insert_insn_before (mem, insn);
 
   *ptmp2 = NULL;
   if (spill_reg->type == BRIG_TYPE_B1)
@@ -1419,17 +1447,15 @@ hsa_spill_in (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
       cvtinsn->operands[1] = *ptmp2;
       cvtinsn->type = reg->type;
 
-      cvtinsn->prev = insn->prev;
-      cvtinsn->next = insn;
-      insn->prev->next = cvtinsn;
-      insn->prev = cvtinsn;
+      hsa_insert_insn_before (cvtinsn, insn);
     }
   return reg;
 }
 
-/* Append after INSN a store to SPILL_SYM.  Return the register from which we
-   stored.  We assume we are out of SSA so the returned register does not have
-   its use updated.  */
+/* Append after INSN a store to spill symbol of SPILL_REG.  Return the register
+   from which we stored.  If this required another register to convert to a B1
+   type, return it in *PTMP2, otherwise store NULL into it.  We assume we are
+   out of SSA so the returned register does not have its use updated.  */
 
 hsa_op_reg *
 hsa_spill_out (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
@@ -1438,7 +1464,6 @@ hsa_spill_out (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
   hsa_insn_mem *mem = hsa_alloc_mem_insn ();
   hsa_op_reg *reg = hsa_alloc_reg_op ();
   hsa_op_address *addr = hsa_alloc_addr_op (spill_sym, NULL, 0);
-  hsa_bb *hbb = hsa_bb_for_bb (insn->bb);
   hsa_op_reg *returnreg;
 
   *ptmp2 = NULL;
@@ -1456,15 +1481,8 @@ hsa_spill_out (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
       cvtinsn->operands[1] = returnreg;
       cvtinsn->type = (*ptmp2)->type;
 
-      if (hbb->last_insn == insn)
-	hbb->last_insn = cvtinsn;
-      cvtinsn->prev = insn;
-      cvtinsn->next = insn->next;
-      if (insn->next)
-	insn->next->prev = cvtinsn;
-      insn->next = cvtinsn;
+      hsa_append_insn_after (cvtinsn, insn);
       insn = cvtinsn;
-
       reg = *ptmp2;
     }
 
@@ -1474,13 +1492,7 @@ hsa_spill_out (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
   mem->operands[0] = reg;
   mem->operands[1] = addr;
 
-  if (hbb->last_insn == insn)
-    hbb->last_insn = mem;
-  mem->prev = insn;
-  mem->next = insn->next;
-  if (insn->next)
-    insn->next->prev = mem;
-  insn->next = mem;
+  hsa_append_insn_after (mem, insn);
 
   return returnreg;
 }

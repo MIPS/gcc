@@ -1,5 +1,12 @@
 2015-06-19  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (hsa_append_insn_after): New function.
+	(hsa_spill_out): Use it, update comment.
+	(hsa_insert_insn_before): New function.
+	(hsa_spill_in): Use it, update comment.
+
+2015-06-19  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-brig.c (float_type_p): Moved from here...
 	* hsa-gen.c (hsa_type_float_p): ...and here...
 	* hsa.c (hsa_type_float_p): ...to here.
