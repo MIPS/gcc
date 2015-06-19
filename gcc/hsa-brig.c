@@ -445,20 +445,20 @@ brig_release_data (void)
 static BrigAlignment8_t
 get_alignment (BrigType16_t type)
 {
-  BrigType16_t bit_type ;
-  bit_type = bittype_for_type (type) ;
+  unsigned bit_size ;
+  bit_size = hsa_type_bit_size (type) ;
 
-  if (bit_type == BRIG_TYPE_B1)
+  if (bit_size == 1)
     return BRIG_ALIGNMENT_1;
-  if (bit_type == BRIG_TYPE_B8)
+  if (bit_size == 8)
     return BRIG_ALIGNMENT_1;
-  if (bit_type == BRIG_TYPE_B16)
+  if (bit_size == 16)
     return BRIG_ALIGNMENT_2;
-  if (bit_type == BRIG_TYPE_B32)
+  if (bit_size == 32)
     return BRIG_ALIGNMENT_4;
-  if (bit_type == BRIG_TYPE_B64)
+  if (bit_size == 64)
     return BRIG_ALIGNMENT_8;
-  if (bit_type == BRIG_TYPE_B128)
+  if (bit_size == 128)
     return BRIG_ALIGNMENT_16;
   gcc_unreachable ();
 }
@@ -619,71 +619,6 @@ emit_bb_label_directive (hsa_bb *hbb)
 
   hbb->label_ref.directive_offset = brig_code.add (&lbldir, sizeof (lbldir));
   brig_insn_count++;
-}
-
-BrigType16_t
-bittype_for_type (BrigType16_t t)
-{
-  switch (t)
-    {
-    case BRIG_TYPE_B1:
-      return BRIG_TYPE_B1;
-
-    case BRIG_TYPE_U8:
-    case BRIG_TYPE_S8:
-    case BRIG_TYPE_B8:
-      return BRIG_TYPE_B8;
-
-    case BRIG_TYPE_U16:
-    case BRIG_TYPE_S16:
-    case BRIG_TYPE_B16:
-    case BRIG_TYPE_F16:
-      return BRIG_TYPE_B16;
-
-    case BRIG_TYPE_U32:
-    case BRIG_TYPE_S32:
-    case BRIG_TYPE_B32:
-    case BRIG_TYPE_F32:
-    case BRIG_TYPE_U8X4:
-    case BRIG_TYPE_U16X2:
-    case BRIG_TYPE_S8X4:
-    case BRIG_TYPE_S16X2:
-    case BRIG_TYPE_F16X2:
-      return BRIG_TYPE_B32;
-
-    case BRIG_TYPE_U64:
-    case BRIG_TYPE_S64:
-    case BRIG_TYPE_F64:
-    case BRIG_TYPE_B64:
-    case BRIG_TYPE_U8X8:
-    case BRIG_TYPE_U16X4:
-    case BRIG_TYPE_U32X2:
-    case BRIG_TYPE_S8X8:
-    case BRIG_TYPE_S16X4:
-    case BRIG_TYPE_S32X2:
-    case BRIG_TYPE_F16X4:
-    case BRIG_TYPE_F32X2:
-
-      return BRIG_TYPE_B64;
-
-    case BRIG_TYPE_B128:
-    case BRIG_TYPE_U8X16:
-    case BRIG_TYPE_U16X8:
-    case BRIG_TYPE_U32X4:
-    case BRIG_TYPE_U64X2:
-    case BRIG_TYPE_S8X16:
-    case BRIG_TYPE_S16X8:
-    case BRIG_TYPE_S32X4:
-    case BRIG_TYPE_S64X2:
-    case BRIG_TYPE_F16X8:
-    case BRIG_TYPE_F32X4:
-    case BRIG_TYPE_F64X2:
-      return BRIG_TYPE_B128;
-
-    default:
-      gcc_assert (seen_error ());
-      return t;
-    }
 }
 
 /* Map a normal HSAIL type to the type of the equivalent BRIG operand

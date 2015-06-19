@@ -401,9 +401,8 @@ hsa_needs_cvt (BrigType16_t dtype, BrigType16_t stype)
   /* float <-> int conversions are real converts.  */
   if (hsa_type_float_p (dtype) != hsa_type_float_p (stype))
     return true;
-  /* When both types have different size (equivalent to different
-     underlying bit types), then we need CVT as well.  */
-  if (bittype_for_type (dtype) != bittype_for_type (stype))
+  /* When both types have different size, then we need CVT as well.  */
+  if (hsa_type_bit_size (dtype) != hsa_type_bit_size (stype))
     return true;
   return false;
 }
@@ -816,8 +815,8 @@ gen_address_calculation (tree exp, hsa_bb *hbb, vec <hsa_op_reg_p> ssa_map,
        hsa_op_immed *imm = hsa_alloc_immed_op (exp);
        if (addrtype != imm->type)
 	 {
-	   gcc_assert (bittype_for_type (addrtype)
-		       > bittype_for_type (imm->type));
+	   gcc_assert (hsa_type_bit_size (addrtype)
+		       > hsa_type_bit_size (imm->type));
 	   imm->type = addrtype;
 	 }
        return imm;
@@ -1181,12 +1180,13 @@ hsa_build_append_simple_mov (hsa_op_reg *dest, hsa_op_base *src, hsa_bb *hbb)
   insn->operands[1] = src;
   if (hsa_op_reg *sreg = dyn_cast <hsa_op_reg *> (src))
     {
-      gcc_assert (bittype_for_type (dest->type) == bittype_for_type (sreg->type));
+      gcc_assert (hsa_type_bit_size (dest->type)
+		  == hsa_type_bit_size (sreg->type));
       sreg->uses.safe_push (insn);
     }
   else
-    gcc_assert (bittype_for_type (dest->type)
-		== bittype_for_type (as_a <hsa_op_immed *> (src)->type));
+    gcc_assert (hsa_type_bit_size (dest->type)
+		== hsa_type_bit_size (as_a <hsa_op_immed *> (src)->type));
   set_reg_def (dest, insn);
   hsa_append_insn (hbb, insn);
 }
@@ -1280,17 +1280,17 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
 	{
 	  /* ...and all vector immediates apparently need to be vectors of
 	     unsigned bytes. */
-	  BrigType16_t bt = bittype_for_type (imm->type);
-	  gcc_assert (bt == bittype_for_type (mem->type));
-	  switch (bt)
+	  unsigned bs = hsa_type_bit_size (imm->type);
+	  gcc_assert (bs == hsa_type_bit_size (mem->type));
+	  switch (bs)
 	    {
-	    case BRIG_TYPE_B32:
+	    case 32:
 	      imm->type = BRIG_TYPE_U8X4;
 	      break;
-	    case BRIG_TYPE_B64:
+	    case 64:
 	      imm->type = BRIG_TYPE_U8X8;
 	      break;
-	    case BRIG_TYPE_B128:
+	    case 128:
 	      imm->type = BRIG_TYPE_U8X16;
 	      break;
 	    default:
@@ -1954,7 +1954,8 @@ specialop:
 	atominsn->opcode = BRIG_OPCODE_ATOMIC;
 	/* Should check what the memory scope is */
 	atominsn->memoryscope = BRIG_MEMORY_SCOPE_WORKGROUP;
-	atominsn->type = bittype_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
+	atominsn->type = hsa_bittype_for_type
+	  (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
 	atominsn->operands[0] = dest;
 	atominsn->operands[1] = addr;
 	atominsn->operands[2]

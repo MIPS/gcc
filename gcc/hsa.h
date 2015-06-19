@@ -612,6 +612,8 @@ void hsa_deinit_compilation_unit_data (void);
 bool hsa_machine_large_p (void);
 bool hsa_full_profile_p (void);
 bool hsa_opcode_op_output_p (BrigOpcode16_t, int);
+unsigned hsa_type_bit_size (BrigType16_t t);
+BrigType16_t hsa_bittype_for_type (BrigType16_t t);
 void hsa_add_kern_decl_mapping (tree decl, char *name);
 unsigned hsa_get_number_decl_kernel_mappings (void);
 tree hsa_get_decl_kernel_mapping_decl (unsigned i);
