@@ -1031,7 +1031,8 @@ powerpc*-*-linux*)
 	tmake_file="${tmake_file} rs6000/t-ppccomm rs6000/t-savresfgpr rs6000/t-crtstuff rs6000/t-linux t-dfprules rs6000/t-ppc64-fp t-slibgcc-libgcc"
 	tmake_file="${tmake_file} t-stack rs6000/t-stack-rs6000"
 	case $ppc_fp_type in
-	64)
+	64 | vsx)
+		tmake_file="${tmake_file} rs6000/t-float128"
 		;;
 	hard)
 		tmake_file="${tmake_file} t-hardfp-sfdf t-hardfp"

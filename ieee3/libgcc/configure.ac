@@ -317,7 +317,9 @@ AC_MSG_RESULT([$glibc_version_major.$glibc_version_minor])
 case ${host} in
 powerpc*-*-linux*)
   cat > conftest.c <<EOF
-#ifdef __powerpc64__
+#if defined __VSX__
+ppc_fp_type=vsx
+#elif defined __powerpc64__
 ppc_fp_type=64
 #elif defined _SOFT_FLOAT
 ppc_fp_type=soft
