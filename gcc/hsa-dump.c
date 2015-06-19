@@ -577,7 +577,7 @@ hsa_memscope_name (enum BrigMemoryScope scope)
     }
 }
 
-/* Return textual name for atomic operation. */
+/* Return textual name for atomic operation.  */
 
 static const char *
 hsa_atomicop_name (enum BrigAtomicOperation op)
@@ -653,7 +653,7 @@ dump_hsa_immed (FILE *f, hsa_op_immed *imm)
   fprintf (f, " (%s)", hsa_type_name (imm->type));
 }
 
-/* Dump textual representation of HSA IL register or immedate value OP to file
+/* Dump textual representation of HSA IL register or immediate value OP to file
    F.  */
 
 static void

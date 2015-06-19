@@ -33,6 +33,7 @@ typedef hsa_insn_basic *hsa_insn_basic_p;
 
 /* Class representing an input argument, output argument (result) or a
    variable, that will eventually end up being a symbol directive.  */
+
 struct hsa_symbol
 {
   /* Pointer to the original tree, which is PARM_DECL for input parameters and
@@ -121,7 +122,7 @@ struct hsa_op_reg : public hsa_op_with_type
   /* If NON-NULL, gimple SSA that we come from.  NULL if none.  */
   tree gimple_ssa;
 
-  /* Defining instrution while still in the SSA.  */
+  /* Defining instruction while still in the SSA.  */
   hsa_insn_basic *def_insn;
   /* Uses of the value while still in SSA.  */
   auto_vec <hsa_insn_basic_p> uses;
@@ -138,7 +139,7 @@ struct hsa_op_reg : public hsa_op_with_type
   /* Zero if the register is not yet allocated.  After, allocation, this must
      be 'c', 's', 'd' or 'q'.  */
   char reg_class;
-  /* If allocated, the number of the hw register (within its HSA register
+  /* If allocated, the number of the HW register (within its HSA register
      class). */
   char hard_num;
 };
@@ -260,7 +261,7 @@ struct hsa_insn_phi : public hsa_insn_basic
   /* Destination.  */
   struct hsa_op_reg *dest;
 
-  /* FIXME: In order to handle BBs with more than 5 predecesores we will need
+  /* FIXME: In order to handle BBs with more than 5 predecessors we will need
      more operands.  */
 };
 
@@ -328,10 +329,10 @@ struct hsa_insn_mem : public hsa_insn_basic
   /* HSA equiv class, basically an alias set number. */
   uint8_t equiv_class;
 
-  /* Things like aquire/release/aligned.  */
+  /* Things like acquire/release/aligned.  */
   enum BrigMemoryOrder memoryorder;
 
-  /* Scope of the atomic opeeration. */
+  /* Scope of the atomic operation. */
   enum BrigMemoryScope memoryscope;
 
   /* TODO:  Add width modifier, perhaps also other things.  */
@@ -470,7 +471,7 @@ struct hsa_insn_call_block: hsa_insn_basic
   /* Output argument load instruction.  */
   hsa_insn_mem *output_arg_insn;
 
-  /* Call isntruction.  */
+  /* Call instruction.  */
   hsa_insn_call *call_insn;
 };
 
@@ -491,7 +492,7 @@ struct hsa_bb
   /* The real CFG BB that this HBB belongs to.  */
   basic_block bb;
 
-  /* The operand that referes to the label to this BB.  */
+  /* The operand that refers to the label to this BB.  */
   hsa_op_code_ref label_ref;
 
   /* The first and last instruction.  */

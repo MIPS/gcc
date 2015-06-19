@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-/* TODO: Some of the following includes might be redundand because of ongoing
+/* TODO: Some of the following includes might be redundant because of ongoing
    header cleanups.  */
 
 #include "config.h"
@@ -73,7 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hsa.h"
 
 /* Alloc pools for allocating basic hsa structures such as operands,
-   instructions and other basic entitie.s */
+   instructions and other basic entities.s */
 static pool_allocator<hsa_op_address> *hsa_allocp_operand_address;
 static pool_allocator<hsa_op_immed> *hsa_allocp_operand_immed;
 static pool_allocator<hsa_op_reg> *hsa_allocp_operand_reg;
@@ -109,7 +109,7 @@ hsa_init_data_for_cfun ()
   hsa_allocp_operand_address
     = new pool_allocator<hsa_op_address> ("HSA address operands", 8);
   hsa_allocp_operand_immed
-    = new pool_allocator<hsa_op_immed> ("HSA immedate operands", 32);
+    = new pool_allocator<hsa_op_immed> ("HSA immediate operands", 32);
   hsa_allocp_operand_reg
     = new pool_allocator<hsa_op_reg> ("HSA register operands", 64);
   hsa_allocp_operand_code_list
@@ -150,7 +150,7 @@ hsa_init_data_for_cfun ()
   hsa_cfun.in_ssa = true;	/* We start in SSA.  */
 }
 
-/* Deinitialize HSA subsysterm and free all allocated memory.  */
+/* Deinitialize HSA subsystem and free all allocated memory.  */
 
 static void
 hsa_deinit_data_for_cfun (void)
@@ -509,7 +509,8 @@ get_symbol_for_decl (tree decl)
       sym = XCNEW (struct hsa_symbol);
       sym->segment = BRIG_SEGMENT_GLOBAL;
       sym->linkage = BRIG_LINKAGE_FUNCTION;
-      warning (0, "referring to global symbol %q+D by name from HSA code won't work", decl);
+      warning (0, "referring to global symbol %q+D by name from HSA code "
+	       "won't work", decl);
     }
   else
     {
@@ -566,6 +567,7 @@ hsa_alloc_immed_op (tree tree_val)
 }
 
 /* Verify register operand.  */
+
 void
 hsa_op_reg::verify ()
 {
@@ -598,7 +600,7 @@ hsa_alloc_reg_op (void)
 }
 
 /* Allocate and set up a new address operand consisting of base symbol SYM,
-   register REG ans immediate OFFSET.  If the machine model is not large and
+   register REG and immediate OFFSET.  If the machine model is not large and
    offset is 64 bit, the upper, 32 bits have to be zero.  */
 
 static hsa_op_address *
@@ -728,7 +730,7 @@ hsa_alloc_seg_insn (void)
   return seg;
 }
 
-/* Allocate, clear and return a comprison instruction structure.  Also sets the
+/* Allocate, clear and return a comparison instruction structure.  Also sets the
    opcode.  */
 
 static hsa_insn_cmp *
@@ -742,7 +744,7 @@ hsa_alloc_cmp_insn (void)
   return cmp;
 }
 
-/* Allocate, clear, fill in and return a comprison instruction structure.  Also
+/* Allocate, clear and return a conditional jump instruction structure.  Also
    sets the opcode.  CTRL is the controlling register.  */
 
 static hsa_insn_br *
@@ -773,7 +775,7 @@ hsa_alloc_call_insn (void)
   return call;
 }
 
-/* Allocate, clear and return a arg block instruction structure.  */
+/* Allocate, clear and return an argument block instruction structure.  */
 
 static hsa_insn_call_block *
 hsa_alloc_call_block_insn (void)
@@ -788,13 +790,12 @@ hsa_alloc_call_block_insn (void)
   return call_block;
 }
 
-
 /* Append HSA instruction INSN to basic block HBB.  */
 
 static void
 hsa_append_insn (hsa_bb *hbb, hsa_insn_basic *insn)
 {
-  /* Make usre we did not forget to set the kind.  */
+  /* Make sure we did not forget to set the kind.  */
   gcc_assert (insn->opcode != 0);
   gcc_assert (!insn->bb);
 
@@ -810,7 +811,7 @@ hsa_append_insn (hsa_bb *hbb, hsa_insn_basic *insn)
 
 /* Lookup or create a HSA pseudo register for a given gimple SSA name and if
    necessary, convert it to REQTYPE.  SSA_MAP is a vector mapping gimple
-   SSAnames to HSA registers.  Append an new conversion statements to HBB.  */
+   SSA names to HSA registers.  Append an new conversion statements to HBB.  */
 
 static hsa_op_reg *
 hsa_reg_for_gimple_ssa_reqtype (tree ssa, vec <hsa_op_reg_p> ssa_map,
@@ -835,10 +836,10 @@ hsa_reg_for_gimple_ssa_reqtype (tree ssa, vec <hsa_op_reg_p> ssa_map,
 }
 
 /* Return a register containing the calculated value of EXP which must be an
-   expression conisting of PLUS_EXPRs, MULT_EXPRS, NOP_EXPRs, SSA_NAMEs and
+   expression consisting of PLUS_EXPRs, MULT_EXPRs, NOP_EXPRs, SSA_NAMEs and
    integer constants as returned by get_inner_reference.  SSA_MAP is used to
    lookup HSA equivalent of SSA_NAMEs, newly generated HSA instructions will be
-   appended to hbb.  Perform all calculations in ADDRTYPE.  If NEW_USE is
+   appended to HBB.  Perform all calculations in ADDRTYPE.  If NEW_USE is
    non-NULL, any register result is going to have it appended to the list of
    uses.  */
 
@@ -908,7 +909,7 @@ gen_address_calculation (tree exp, hsa_bb *hbb, vec <hsa_op_reg_p> ssa_map,
 }
 
 /* If R1 is NULL, just return R2, otherwise append an instruction adding them
-   to HPP and return the register holding the result.  */
+   to HBB and return the register holding the result.  */
 
 static hsa_op_reg *
 add_addr_regs_if_needed (hsa_op_reg *r1, hsa_op_reg *r2, hsa_bb *hbb)
@@ -935,7 +936,7 @@ add_addr_regs_if_needed (hsa_op_reg *r1, hsa_op_reg *r2, hsa_bb *hbb)
 
 /* Helper of gen_hsa_addr.  Update *SYMBOL, *ADDRTYPE, *REG and *OFFSET to
    reflect BASE which is the first operand of a MEM_REF or a TARGET_MEM_REF.
-   Use SSA_MAP to find registers correspongoing to gimple SSA_NAMEs.  */
+   Use SSA_MAP to find registers corresponding to gimple SSA_NAMEs.  */
 
 static void
 process_mem_base (tree base, hsa_symbol **symbol, BrigType16_t *addrtype,
@@ -965,7 +966,7 @@ process_mem_base (tree base, hsa_symbol **symbol, BrigType16_t *addrtype,
 /* Generate HSA address operand for a given tree memory reference REF.  If
    instructions need to be created to calculate the address, they will be added
    to the end of HBB, SSA_MAP is an array mapping gimple SSA names to HSA
-   pseudoregisters.  */
+   pseudo-registers.  */
 
 static hsa_op_address *
 gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> ssa_map)
@@ -1020,7 +1021,7 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> ssa_map)
   switch (TREE_CODE (ref))
     {
     case SSA_NAME:
-      /* THe SSA_NAME and ADDR_EXPR cases cannot occur in a valid gimple memory
+      /* The SSA_NAME and ADDR_EXPR cases cannot occur in a valid gimple memory
 	 reference but we also use this function to generate addresses of
 	 instructions representing operands of atomic memory access builtins
 	 which are just addresses and not references.  */
@@ -1217,8 +1218,8 @@ hsa_reg_or_immed_for_gimple_op (tree op, hsa_bb *hbb,
   return tmp;
 }
 
-/* Create a simple movement instruction with register destination dest and
-   register or immedate source SRC and append it to the end of HBB.  */
+/* Create a simple movement instruction with register destination DEST and
+   register or immediate source SRC and append it to the end of HBB.  */
 
 void
 hsa_build_append_simple_mov (hsa_op_reg *dest, hsa_op_base *src, hsa_bb *hbb)
@@ -1242,6 +1243,9 @@ hsa_build_append_simple_mov (hsa_op_reg *dest, hsa_op_base *src, hsa_bb *hbb)
   hsa_append_insn (hbb, insn);
 }
 
+/* Generate HSAIL instructions loading something into register DEST.  RHS is
+   tree representation of the loaded data, which are loaded as type TYPE.  Add
+   instructions to HBB, use SSA_MAP for HSA SSA lookup.  */
 
 static void
 gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
@@ -1391,7 +1395,7 @@ gen_hsa_insns_for_single_assignment (gimple assign, hsa_bb *hbb,
 }
 
 /* Prepend before INSN a load from SPILL_SYM.  Return the register into which
-   we loaded.  We assume we are out of SSA so the returned register does ot
+   we loaded.  We assume we are out of SSA so the returned register does not
    have its definition set.  */
 
 hsa_op_reg *
@@ -1440,7 +1444,7 @@ hsa_spill_in (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
 }
 
 /* Append after INSN a store to SPILL_SYM.  Return the register from which we
-   stored.  We assume we are out of SSA so the returned register does ot have
+   stored.  We assume we are out of SSA so the returned register does not have
    its use updated.  */
 
 hsa_op_reg *
@@ -1497,7 +1501,6 @@ hsa_spill_out (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
   return returnreg;
 }
 
-
 /* Generate a comparison instruction that will compare LHS and RHS with
    comparison specified by CODE and put result into register DEST.  DEST has to
    have its type set already but must not have its definition set yet.
@@ -1545,9 +1548,8 @@ gen_hsa_cmp_insn_from_gimple (enum tree_code code, tree lhs, tree rhs,
   hsa_append_insn (hbb, cmp);
 }
 
-
 /* Generate HSA instruction for an assignment ASSIGN with an operation.
-   Instructions will be apended to HBB.  SSA_MAP maps gimple SSA names to HSA
+   Instructions will be appended to HBB.  SSA_MAP maps gimple SSA names to HSA
    pseudo registers.  */
 
 static void
@@ -1557,7 +1559,7 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
   hsa_insn_basic *insn;
   hsa_op_reg *dest;
   int opcode;
-  
+
   switch (gimple_assign_rhs_code (assign))
     {
     CASE_CONVERT:
@@ -1663,7 +1665,7 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
       return;
 
     default:
-      /* Implement others as we com accorss them.  */
+      /* Implement others as we come across them.  */
       sorry ("Support for HSA does not implement operation %s",
 	     get_tree_code_name (gimple_assign_rhs_code (assign)));
       return;
@@ -1718,7 +1720,7 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
 }
 
 /* Generate HSA instructions for a given gimple condition statement COND.
-   Instructions will be apended to HBB, which also needs to be the
+   Instructions will be appended to HBB, which also needs to be the
    corresponding structure to the basic_block of COND.  SSA_MAP maps gimple SSA
    names to HSA pseudo registers.  */
 
@@ -1739,8 +1741,8 @@ gen_hsa_insns_for_cond_stmt (gimple cond, hsa_bb *hbb,
   hsa_append_insn (hbb, cbr);
 }
 
-/* Generate HSA instructions for a direct call isntruction.
-   Instructions will be apended to HBB, which also needs to be the
+/* Generate HSA instructions for a direct call instruction.
+   Instructions will be appended to HBB, which also needs to be the
    corresponding structure to the basic_block of STMT. SSA_MAP maps gimple SSA
    names to HSA pseudo registers.  */
 
@@ -1767,7 +1769,8 @@ gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
 
       addr = gen_hsa_addr_for_arg (TREE_TYPE (parm), i);
       mem->opcode = BRIG_OPCODE_ST;
-      mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (parm), false));
+      mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type
+				     (TREE_TYPE (parm), false));
       mem->operands[0] = src;
       mem->operands[1] = addr;
 
@@ -1795,7 +1798,8 @@ gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
 	  hsa_op_reg *dst = hsa_reg_for_gimple_ssa (result, ssa_map);
 
 	  result_insn->opcode = BRIG_OPCODE_LD;
-	  result_insn->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (result), false));
+	  result_insn->type = mem_type_for_type
+	    (hsa_type_for_scalar_tree_type (TREE_TYPE (result), false));
 	  result_insn->operands[0] = dst;
 	  result_insn->operands[1] = addr;
 	  set_reg_def (dst, result_insn);
@@ -1818,8 +1822,8 @@ gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
   hsa_append_insn (hbb, call_block_insn);
 }
 
-/* Generate HSA instructions for a return value isntruction.
-   Instructions will be apended to HBB, which also needs to be the
+/* Generate HSA instructions for a return value instruction.
+   Instructions will be appended to HBB, which also needs to be the
    corresponding structure to the basic_block of STMT. SSA_MAP maps gimple SSA
    names to HSA pseudo registers.  */
 
@@ -1837,7 +1841,8 @@ gen_hsa_insns_for_return (greturn *stmt, hsa_bb *hbb,
 
       hsa_op_address *addr = hsa_alloc_addr_op (hsa_cfun.output_arg, NULL, 0);
       mem->opcode = BRIG_OPCODE_ST;
-      mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (retval), false));
+      mem->type = mem_type_for_type
+	(hsa_type_for_scalar_tree_type (TREE_TYPE (retval), false));
       mem->operands[0] = src;
       mem->operands[1] = addr;
       hsa_append_insn (hbb, mem);
@@ -1914,9 +1919,10 @@ specialop:
       {
 	hsa_op_reg *tmp;
 	dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
-	/* We're using just one-dimensional kernels, so hardcode
+	/* We're using just one-dimensional kernels, so hard-coded
 	   dimension X.  */
-	hsa_op_immed *imm = hsa_alloc_immed_op (build_zero_cst (uint32_type_node));
+	hsa_op_immed *imm = hsa_alloc_immed_op (build_zero_cst
+						(uint32_type_node));
 	insn = hsa_alloc_basic_insn ();
 	if (dest->type != BRIG_TYPE_U32)
 	  {
@@ -1946,7 +1952,7 @@ specialop:
 
     case BUILT_IN_SQRT:
     case BUILT_IN_SQRTF:
-      /* FIXME: Since calls without a LHS are not removed, souble check that
+      /* FIXME: Since calls without a LHS are not removed, double check that
 	 they cannot have side effects.  */
       if (!lhs)
 	return;
@@ -1978,7 +1984,8 @@ specialop:
 	meminsn->opcode = BRIG_OPCODE_LD;
 	/* Should check what the memory scope is */
 	meminsn->memoryscope = BRIG_MEMORY_SCOPE_WORKGROUP;
-	meminsn->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
+	meminsn->type = mem_type_for_type (hsa_type_for_scalar_tree_type
+					   (TREE_TYPE (lhs), false));
 	meminsn->operands[0] = dest;
 	meminsn->operands[1] = addr;
 	meminsn->memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
@@ -2032,8 +2039,7 @@ specialop:
     }
 }
 
-
-/* Generate HSA instrutions for a given gimple statement.  Instructions will be
+/* Generate HSA instructions for a given gimple statement.  Instructions will be
    appended to HBB.  SSA_MAP maps gimple SSA names to HSA pseudo registers.  */
 
 static void
@@ -2064,7 +2070,8 @@ gen_hsa_insns_for_gimple_stmt (gimple stmt, hsa_bb *hbb,
     {
       tree label = gimple_label_label (as_a <glabel *> (stmt));
       if (FORCED_LABEL (label))
-	sorry ("Support for HSA does not implement gimple label with address taken");
+	sorry ("Support for HSA does not implement gimple label with address "
+	       "taken");
 
       break;
     }
@@ -2090,7 +2097,7 @@ gen_hsa_phi_from_gimple_phi (gimple gphi, hsa_bb *hbb,
   hphi->bb = hbb->bb;
   hphi->dest = hsa_reg_for_gimple_ssa (gimple_phi_result (gphi), ssa_map);
   set_reg_def (hphi->dest, hphi);
-  /* FIXME: Of course we will have to handle more predecesors, but just not
+  /* FIXME: Of course we will have to handle more predecessors, but just not
      yet.  */
   if (count > HSA_OPERANDS_PER_INSN)
     {
@@ -2130,7 +2137,6 @@ gen_hsa_phi_from_gimple_phi (gimple gphi, hsa_bb *hbb,
   if (!hbb->first_phi)
     hbb->first_phi = hphi;
 }
-
 
 /* Create and initialize and return a new hsa_bb structure for a given CFG
    basic block BB.  */
@@ -2190,7 +2196,7 @@ gen_body_from_gimple (vec <hsa_op_reg_p> ssa_map)
 }
 
 /* Generate the vector of parameters of the HSA representation of the current
-   function.  This also includes the output parameter representing ther
+   function.  This also includes the output parameter representing the
    result.  */
 
 static void
@@ -2241,7 +2247,8 @@ gen_function_parameters (vec <hsa_op_reg_p> ssa_map)
 
 	      addr = gen_hsa_addr (parm, &hsa_cfun.prologue, ssa_map);
 	      mem->opcode = BRIG_OPCODE_LD;
-	      mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (ddef), false));
+	      mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type
+					     (TREE_TYPE (ddef), false));
 	      mem->operands[0] = dest;
 	      mem->operands[1] = addr;
 	      set_reg_def (dest, mem);
@@ -2266,7 +2273,7 @@ gen_function_parameters (vec <hsa_op_reg_p> ssa_map)
     }
 }
 
-/* Genrate HSAIL reprezentation of the current function and write into a
+/* Generate HSAIL representation of the current function and write into a
    special section of the output file.  If KERNEL is set, the function will be
    considered an HSA kernel callable from the host, otherwise it will be
    compiled as an HSA function callable from other HSA code.  */
@@ -2375,6 +2382,7 @@ insert_store_range_dim (gimple_stmt_iterator *gsi, tree range_var,
   gsi_insert_before (gsi, gimple_build_assign (ref, value), GSI_SAME_STMT);
 }
 
+/* Generate call to invoke kernel implementing function FNDECL.  */
 
 static void
 wrap_hsa_kernel_call (gimple_stmt_iterator *gsi, tree fndecl)
@@ -2473,6 +2481,8 @@ wrap_hsa_kernel_call (gimple_stmt_iterator *gsi, tree fndecl)
   gsi_remove (gsi, true);
 }
 
+/* Replace calls of functions which have been turned into HSA kernels into
+   their invocation via HSA run-time.  */
 
 static unsigned int
 wrap_all_hsa_calls (void)
@@ -2524,9 +2534,9 @@ public:
   bool gate (function *);
   unsigned int execute (function *);
 
-}; // class pass_sra
+}; // class pass_gen_hsail
 
-/* Determine wheter or not to run generation of HSAIL.  */
+/* Determine whether or not to run generation of HSAIL.  */
 
 bool
 pass_gen_hsail::gate (function *)

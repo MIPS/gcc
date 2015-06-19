@@ -67,7 +67,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* FIXME: The code below uses endian.h routines to convert numbers to
    little-endian.  I suspect this only works on glibc platforms, so we might
-   need an alternative solutin later.  */
+   need an alternative solution later.  */
 
 /* Chunks of BRIG binary data.  */
 
@@ -80,7 +80,7 @@ struct hsa_brig_data_chunk
   char *data;
 };
 
-/* Structure represeting a BRIC section, holding and writing its data.  */
+/* Structure representing a BRIG section, holding and writing its data.  */
 
 class hsa_brig_section
 {
@@ -129,6 +129,7 @@ struct function_linkage_pair
 };
 
 /* Vector of function calls where we need to resolve function offsets.  */
+
 static auto_vec <function_linkage_pair> function_call_linkage;
 
 /* Add a new chunk, allocate data for it and initialize it.  */
@@ -213,7 +214,7 @@ hsa_brig_section::add (const void *data, unsigned len)
   return offset;
 }
 
-/* Add padding to section so that its size is divisble by FACTOR.  */
+/* Add padding to section so that its size is divisible by FACTOR.  */
 
 void
 hsa_brig_section::round_size_up (int factor)
@@ -261,7 +262,7 @@ struct brig_string_slot
   uint32_t offset;
 };
 
-/* Hashtable helpers.  */
+/* Hash table helpers.  */
 
 struct brig_string_slot_hasher
 {
@@ -298,12 +299,16 @@ brig_string_slot_hasher::equal (const value_type ds1, const compare_type ds2)
   return 0;
 }
 
+/* Deallocate memory for DS upon its removal.  */
+
 inline void
 brig_string_slot_hasher::remove (value_type ds)
 {
   free (const_cast<char*> (ds->s));
   free (ds);
 }
+
+/* Hash for strings we output in order not to duplicate them needlessly.  */
 
 static hash_table<brig_string_slot_hasher> *brig_string_htab;
 
@@ -334,7 +339,7 @@ brig_emit_string (const char *str, char prefix = 0)
       brig_string_slot *new_slot = XCNEW (brig_string_slot);
 
       /* In theory we should fill in BrigData but that would mean copying
-         the string to a buffer for no reason, so we just emaulate it. */
+         the string to a buffer for no reason, so we just emulate it. */
       offset = brig_data.add (&hdr_len, sizeof (hdr_len));
       if (prefix)
         brig_data.add (&prefix, 1);
@@ -370,7 +375,7 @@ static struct operand_queue
 
 } op_queue;
 
-/* Unless already initialized, initialzie infrastructure to produce BRIG.  */
+/* Unless already initialized, initialize infrastructure to produce BRIG.  */
 
 static void
 brig_init (void)
@@ -479,7 +484,8 @@ emit_directive_variable (struct hsa_symbol *symbol)
       prefix = '&';
       dirvar.allocation = BRIG_ALLOCATION_PROGRAM ;
       if (TREE_CODE (symbol->decl) == VAR_DECL)
-	warning (0, "referring to global symbol %q+D by name from HSA code won't work", symbol->decl);
+	warning (0, "referring to global symbol %q+D by name from HSA code "
+		 "won't work", symbol->decl);
     }
   else
     prefix = '%';
@@ -712,7 +718,7 @@ enqueue_op (hsa_op_base *op)
   return ret;
 }
 
-/* Return the length of the birg type TYPE that is going to be streamed out as
+/* Return the length of the BRIG type TYPE that is going to be streamed out as
    an immediate constant (so it must not be B1).  */
 
 static unsigned
@@ -837,9 +843,9 @@ emit_immediate_scalar_to_data_section (tree value, unsigned need_len)
   return len;
 }
 
-/* Emit an immediate BRIG operand IMM.  The BRIG type of the immedaite might
+/* Emit an immediate BRIG operand IMM.  The BRIG type of the immediate might
    have been massaged to comply with various HSA/BRIG type requirements, so the
-   ony important aspect of that is the length (because HSAIL might expect
+   only important aspect of that is the length (because HSAIL might expect
    smaller constants or become bit-data).  The data should be represented
    according to what is in the tree representation.  */
 
@@ -1002,7 +1008,7 @@ emit_memory_insn (hsa_insn_mem *mem)
 
   hsa_op_address *addr = as_a <hsa_op_address *> (mem->operands[1]);
 
-  /* This is necessary because of the errorneous typedef of
+  /* This is necessary because of the erroneous typedef of
      BrigMemoryModifier8_t which introduces padding which may then contain
      random stuff (which we do not want so that we can test things don't
      change).  */
@@ -1049,7 +1055,7 @@ emit_atomic_insn (hsa_insn_atomic *mem)
 
   hsa_op_address *addr = as_a <hsa_op_address *> (mem->operands[1]);
 
-  /* This is necessary because of the errorneous typedef of
+  /* This is necessary because of the erroneous typedef of
      BrigMemoryModifier8_t which introduces padding which may then contain
      random stuff (which we do not want so that we can test things don't
      change).  */
@@ -1240,6 +1246,8 @@ emit_branch_insn (hsa_insn_br *br)
   brig_insn_count++;
 }
 
+/* Return true iff TYPE is a floating point number type.  */
+
 static bool
 float_type_p (BrigType16_t t)
 {
@@ -1407,7 +1415,7 @@ emit_call_block_insn (hsa_insn_call_block *insn)
 }
 
 /* Emit a basic HSA instruction and all necessary directives, schedule
-   necessary operands for writing .  */
+   necessary operands for writing.  */
 
 static void
 emit_basic_insn (hsa_insn_basic *insn)
@@ -1615,11 +1623,12 @@ hsa_brig_emit_function (void)
   emit_queued_operands ();
 }
 
+/* Unit constructor and destructor statements.  */
+
 static GTY(()) tree hsa_ctor_statements;
 static GTY(()) tree hsa_dtor_statements;
 
-
-/* Create a static initializator that will register out brig stufgf with
+/* Create a static constructor that will register out brig stuff with
    libgomp.  */
 
 static void
@@ -1792,6 +1801,7 @@ hsa_output_kernel_mapping (tree brig_decl)
   cgraph_build_static_cdtor ('D', hsa_dtor_statements, DEFAULT_INIT_PRIORITY);
 }
 
+/* Required HSA section alignment. */
 
 #define HSA_SECTION_ALIGNMENT 16
 

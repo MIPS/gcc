@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-/* TODO: Some of the following includes might be redundand because of ongoing
+/* TODO: Some of the following includes might be redundant because of ongoing
    header cleanups.  */
 
 #include "config.h"
@@ -88,8 +88,8 @@ struct GTY(()) hsa_decl_kernel_map_element
 
 /* Mapping between decls and corresponding HSA kernels in this compilation
    unit.  */
-static GTY (()) vec<hsa_decl_kernel_map_element, va_gc> *hsa_decl_kernel_mapping;
 
+static GTY (()) vec<hsa_decl_kernel_map_element, va_gc> *hsa_decl_kernel_mapping;
 
 /* Hash function to lookup a symbol for a decl.  */
 hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
@@ -127,7 +127,7 @@ hsa_deinit_compilation_unit_data (void)
 bool
 hsa_machine_large_p (void)
 {
-  /* FIXME: I suppose this is techically wrong but should work for me now.  */
+  /* FIXME: I suppose this is technically wrong but should work for me now.  */
   return (GET_MODE_BITSIZE (Pmode) == 64);
 }
 

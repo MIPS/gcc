@@ -1,5 +1,14 @@
 2015-06-19  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.h: Fixed spelling and coding style errors, added missing
+	comments.
+	* hsa.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+
+2015-06-19  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.c (hsa_sanitize_name): Moved here from...
 	* hsa-gen.c (sanitize_hsa_name): ...here...
 	* hsa-brig.c (sanitize_hsa_name): ...and here.
