@@ -3738,10 +3738,14 @@ rs6000_option_override_internal (bool global_init_p)
       && optimize >= 3)
     rs6000_isa_flags |= OPTION_MASK_P8_FUSION_SIGN;
 
-  /* Set the appropriate IEEE 128-bit floating option.  Do not enable float128
-     support by default until the libgcc support is added.  */
+  /* Set the appropriate IEEE 128-bit floating option.  */
   if (TARGET_FLOAT128 == FLOAT128_UNSET)
-    TARGET_FLOAT128 = FLOAT128_NONE;
+    {
+      if (TARGET_VSX)
+	TARGET_FLOAT128 = FLOAT128_SW;
+      else
+	TARGET_FLOAT128 = FLOAT128_NONE;
+    }
   else if (TARGET_FLOAT128 == FLOAT128_SW && !TARGET_VSX)
     error ("-mfloat128-software requires VSX support");
 
