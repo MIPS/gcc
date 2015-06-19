@@ -1246,22 +1246,6 @@ emit_branch_insn (hsa_insn_br *br)
   brig_insn_count++;
 }
 
-/* Return true iff TYPE is a floating point number type.  */
-
-static bool
-float_type_p (BrigType16_t t)
-{
-  switch (t & BRIG_TYPE_BASE_MASK)
-    {
-    case BRIG_TYPE_F16:
-    case BRIG_TYPE_F32:
-    case BRIG_TYPE_F64:
-      return true;
-    default:
-      return false;
-    }
-}
-
 /* Emit a HSA convert instruction and all necessary directives, schedule
    necessary operands for writing.  */
 
@@ -1300,8 +1284,8 @@ emit_cvt_insn (hsa_insn_basic *insn)
   repr.modifier.allBits = 0;
   /* float to smaller float requires a rounding setting (we default
      to 'near'.  */
-  if (float_type_p (insn->type)
-      && (!float_type_p (srctype)
+  if (hsa_type_float_p (insn->type)
+      && (!hsa_type_float_p (srctype)
          || ((insn->type & BRIG_TYPE_BASE_MASK)
              < (srctype & BRIG_TYPE_BASE_MASK))))
     repr.round = BRIG_ROUND_FLOAT_NEAR_EVEN;
@@ -1469,7 +1453,7 @@ emit_basic_insn (hsa_insn_basic *insn)
 
   if ((type & BRIG_TYPE_PACK_MASK) != BRIG_TYPE_PACK_NONE)
     {
-      if (float_type_p (type))
+      if (hsa_type_float_p (type))
 	repr.round = BRIG_ROUND_FLOAT_NEAR_EVEN;
       else
 	repr.round = 0;

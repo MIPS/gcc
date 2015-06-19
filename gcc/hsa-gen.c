@@ -443,22 +443,6 @@ hsa_type_for_tree_type (const_tree type, unsigned HOST_WIDE_INT *dim_p)
   return hsa_type_for_scalar_tree_type (type, false);
 }
 
-/* Return true iff TYPE is a floating point number type.  */
-
-static bool
-hsa_type_float_p (BrigType16_t type)
-{
-  switch (type & BRIG_TYPE_BASE_MASK)
-    {
-    case BRIG_TYPE_F16:
-    case BRIG_TYPE_F32:
-    case BRIG_TYPE_F64:
-      return true;
-    default:
-      return false;
-    }
-}
-
 /* Returns true if converting from STYPE into DTYPE needs the _CVT
    opcode.  If false a normal _MOV is enough.  */
 

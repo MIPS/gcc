@@ -247,6 +247,22 @@ hsa_bittype_for_type (BrigType16_t t)
     }
 }
 
+/* Return true iff TYPE is a floating point number type.  */
+
+bool
+hsa_type_float_p (BrigType16_t type)
+{
+  switch (type & BRIG_TYPE_BASE_MASK)
+    {
+    case BRIG_TYPE_F16:
+    case BRIG_TYPE_F32:
+    case BRIG_TYPE_F64:
+      return true;
+    default:
+      return false;
+    }
+}
+
 /* Create a mapping between the original function DECL and kernel name NAME.  */
 
 void

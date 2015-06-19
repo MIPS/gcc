@@ -1,5 +1,12 @@
 2015-06-19  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-brig.c (float_type_p): Moved from here...
+	* hsa-gen.c (hsa_type_float_p): ...and here...
+	* hsa.c (hsa_type_float_p): ...to here.
+	* hsa.h (hsa_type_float_p): Declare.
+
+2015-06-19  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h: Fixed spelling and coding style errors, added missing
 	comments.
 	* hsa.c: Likewise.
