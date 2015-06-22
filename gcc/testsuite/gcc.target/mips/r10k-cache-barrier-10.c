@@ -1,4 +1,4 @@
-/* { dg-options "-mr10k-cache-barrier=store -mips4 -mbranch-likely -mno-abicalls" } */
+/* { dg-options "-mr10k-cache-barrier=store -mips4 -mbranch-likely -mno-abicalls -mno-micromips" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 unsigned char *bar (int);
