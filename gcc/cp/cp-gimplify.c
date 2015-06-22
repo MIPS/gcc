@@ -382,7 +382,10 @@ genericize_omp_for_stmt (tree *stmt_p, int *walk_subtrees, void *data)
   cp_walk_tree (&OMP_FOR_CLAUSES (stmt), cp_genericize_r, data, NULL);
   cp_walk_tree (&OMP_FOR_INIT (stmt), cp_genericize_r, data, NULL);
   cp_walk_tree (&OMP_FOR_COND (stmt), cp_genericize_r, data, NULL);
-  cp_walk_tree (&OMP_FOR_INCR (stmt), cp_genericize_r, data, NULL);
+  /* We don't call cp_walk_tree for OMP_FOR_INCR here due this can lead
+     to unsupported pattern in c-family's omp_for code.  Issue is that
+     fold seems to prefer pattern (type) (X + Y), if alternative could be
+     (type) X + (type) Y.  */
   cp_walk_tree (&OMP_FOR_PRE_BODY (stmt), cp_genericize_r, data, NULL);
   *walk_subtrees = 0;
 
