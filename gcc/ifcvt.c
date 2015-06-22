@@ -25,7 +25,6 @@
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "flags.h"
 #include "insn-config.h"
@@ -1217,7 +1216,7 @@ noce_try_store_flag_constants (struct noce_if_info *if_info)
 
       if (reversep)
 	{
-	  tmp = itrue; itrue = ifalse; ifalse = tmp;
+	  std::swap (itrue, ifalse);
 	  diff = trunc_int_for_mode (-(unsigned HOST_WIDE_INT) diff, mode);
 	}
 
@@ -1679,11 +1678,9 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 
       if (reversep)
 	{
-	  rtx tmp;
-	  rtx_insn *tmp_insn;
 	  code = reversed_comparison_code (if_info->cond, if_info->jump);
-	  tmp = a, a = b, b = tmp;
-	  tmp_insn = insn_a, insn_a = insn_b, insn_b = tmp_insn;
+	  std::swap (a, b);
+	  std::swap (insn_a, insn_b);
 	}
     }
 
@@ -1865,9 +1862,7 @@ noce_get_alt_condition (struct noce_if_info *if_info, rtx target,
 
 	      if (CONST_INT_P (op_a))
 		{
-		  rtx tmp = op_a;
-		  op_a = op_b;
-		  op_b = tmp;
+		  std::swap (op_a, op_b);
 		  code = swap_condition (code);
 		}
 	    }
@@ -2070,7 +2065,7 @@ noce_try_abs (struct noce_if_info *if_info)
     negate = 0;
   else if (GET_CODE (b) == NEG && rtx_equal_p (XEXP (b, 0), a))
     {
-      c = a; a = b; b = c;
+      std::swap (a, b);
       negate = 1;
     }
   else if (GET_CODE (a) == NOT && rtx_equal_p (XEXP (a, 0), b))
@@ -2080,7 +2075,7 @@ noce_try_abs (struct noce_if_info *if_info)
     }
   else if (GET_CODE (b) == NOT && rtx_equal_p (XEXP (b, 0), a))
     {
-      c = a; a = b; b = c;
+      std::swap (a, b);
       negate = 1;
       one_cmpl = true;
     }
@@ -3395,11 +3390,7 @@ find_if_header (basic_block test_bb, int pass)
   if (then_edge->flags & EDGE_FALLTHRU)
     ;
   else if (else_edge->flags & EDGE_FALLTHRU)
-    {
-      edge e = else_edge;
-      else_edge = then_edge;
-      then_edge = e;
-    }
+    std::swap (then_edge, else_edge);
   else
     /* Otherwise this must be a multiway branch of some sort.  */
     return NULL;

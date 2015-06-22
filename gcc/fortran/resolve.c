@@ -2384,14 +2384,11 @@ resolve_global_procedure (gfc_symbol *sym, locus *where,
       if (!gsym->ns->resolved)
 	{
 	  gfc_dt_list *old_dt_list;
-	  struct gfc_omp_saved_state old_omp_state;
 
 	  /* Stash away derived types so that the backend_decls do not
 	     get mixed up.  */
 	  old_dt_list = gfc_derived_types;
 	  gfc_derived_types = NULL;
-	  /* And stash away openmp state.  */
-	  gfc_omp_save_and_clear_state (&old_omp_state);
 
 	  gfc_resolve (gsym->ns);
 
@@ -2401,8 +2398,6 @@ resolve_global_procedure (gfc_symbol *sym, locus *where,
 
 	  /* Restore the derived types of this namespace.  */
 	  gfc_derived_types = old_dt_list;
-	  /* And openmp state.  */
-	  gfc_omp_restore_state (&old_omp_state);
 	}
 
       /* Make sure that translation for the gsymbol occurs before
@@ -6805,7 +6800,7 @@ conformable_arrays (gfc_expr *e1, gfc_expr *e2)
    have a trailing array reference that gives the size of the array.  */
 
 static bool
-resolve_allocate_expr (gfc_expr *e, gfc_code *code)
+resolve_allocate_expr (gfc_expr *e, gfc_code *code, bool *array_alloc_wo_spec)
 {
   int i, pointer, allocatable, dimension, is_abstract;
   int codimension;
@@ -7104,13 +7099,24 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
   if (!ref2 || ref2->type != REF_ARRAY || ref2->u.ar.type == AR_FULL
       || (dimension && ref2->u.ar.dimen == 0))
     {
-      gfc_error ("Array specification required in ALLOCATE statement "
-		 "at %L", &e->where);
-      goto failure;
+      /* F08:C633.  */
+      if (code->expr3)
+	{
+	  if (!gfc_notify_std (GFC_STD_F2008, "Array specification required "
+			       "in ALLOCATE statement at %L", &e->where))
+	    goto failure;
+	  *array_alloc_wo_spec = true;
+	}
+      else
+	{
+	  gfc_error ("Array specification required in ALLOCATE statement "
+		     "at %L", &e->where);
+	  goto failure;
+	}
     }
 
   /* Make sure that the array section reference makes sense in the
-    context of an ALLOCATE specification.  */
+     context of an ALLOCATE specification.  */
 
   ar = &ref2->u.ar;
 
@@ -7125,7 +7131,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 
   for (i = 0; i < ar->dimen; i++)
     {
-      if (ref2->u.ar.type == AR_ELEMENT)
+      if (ar->type == AR_ELEMENT || ar->type == AR_FULL)
 	goto check_symbols;
 
       switch (ar->dimen_type[i])
@@ -7201,6 +7207,7 @@ success:
 failure:
   return false;
 }
+
 
 static void
 resolve_allocate_deallocate (gfc_code *code, const char *fcn)
@@ -7376,8 +7383,16 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 
   if (strcmp (fcn, "ALLOCATE") == 0)
     {
+      bool arr_alloc_wo_spec = false;
       for (a = code->ext.alloc.list; a; a = a->next)
-	resolve_allocate_expr (a->expr, code);
+	resolve_allocate_expr (a->expr, code, &arr_alloc_wo_spec);
+
+      if (arr_alloc_wo_spec && code->expr3)
+	{
+	  /* Mark the allocate to have to take the array specification
+	     from the expr3.  */
+	  code->ext.alloc.arr_spec_from_expr3 = 1;
+	}
     }
   else
     {
@@ -15071,6 +15086,7 @@ gfc_resolve (gfc_namespace *ns)
 {
   gfc_namespace *old_ns;
   code_stack *old_cs_base;
+  struct gfc_omp_saved_state old_omp_state;
 
   if (ns->resolved)
     return;
@@ -15078,6 +15094,11 @@ gfc_resolve (gfc_namespace *ns)
   ns->resolved = -1;
   old_ns = gfc_current_ns;
   old_cs_base = cs_base;
+
+  /* As gfc_resolve can be called during resolution of an OpenMP construct
+     body, we should clear any state associated to it, so that say NS's
+     DO loops are not interpreted as OpenMP loops.  */
+  gfc_omp_save_and_clear_state (&old_omp_state);
 
   resolve_types (ns);
   component_assignment_level = 0;
@@ -15088,4 +15109,6 @@ gfc_resolve (gfc_namespace *ns)
   ns->resolved = 1;
 
   gfc_run_passes (ns);
+
+  gfc_omp_restore_state (&old_omp_state);
 }

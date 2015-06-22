@@ -70,7 +70,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -101,7 +100,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "emit-rtl.h"
 #include "stmt.h"
 #include "expr.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -380,6 +378,7 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   debug_nothing_tree,		         /* begin_function */
 #endif
   debug_nothing_int,		         /* end_function */
+  debug_nothing_tree,			 /* register_main_translation_unit */
   dbxout_function_decl,
   dbxout_early_global_decl,		 /* early_global_decl */
   dbxout_late_global_decl,		 /* late_global_decl */
@@ -418,6 +417,7 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   xcoffout_end_epilogue,
   debug_nothing_tree,		         /* begin_function */
   xcoffout_end_function,
+  debug_nothing_tree,			 /* register_main_translation_unit */
   debug_nothing_tree,		         /* function_decl */
   dbxout_early_global_decl,		 /* early_global_decl */
   dbxout_late_global_decl,		 /* late_global_decl */
