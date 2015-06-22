@@ -1927,9 +1927,11 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
       if (TREE_CODE (x) == COMPOUND_EXPR && op0 == NULL_TREE)
 	op0 = build_empty_stmt (loc);
-
-      if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1)
-	  || !TREE_TYPE (x))
+      if (TREE_CODE (x) == POSTINCREMENT_EXPR
+	  || TREE_CODE (x) == POSTDECREMENT_EXPR)
+	r = build2_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1);
+      else if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1)
+	       || !TREE_TYPE (x))
         {
           if (TREE_TYPE (x))
             r = fold_build2_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1);
