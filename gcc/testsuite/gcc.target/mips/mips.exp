@@ -1311,6 +1311,12 @@ proc mips-dg-options { args } {
 	    if { [mips_have_test_option_p options "-mdsp"] } {
 		mips_make_test_option options "-mfp64"
 	    }
+	    if { ([mips_have_test_option_p options "-mmicromips"]
+		 && ([mips_have_test_option_p options "-mdsp"]
+		     || [mips_have_test_option_p options "-mdspr2"])) } {
+		mips_make_test_option options "-mdspr3"
+	    }
+
 	    mips_make_test_option options "-mno-fix-r10000"
 	    mips_make_test_option options "-mno-paired-single"
 	    mips_make_test_option options "-mnan=2008"
@@ -1319,6 +1325,12 @@ proc mips-dg-options { args } {
 	if { [regexp {^-march=octeon} $arch] } {
 	    mips_make_test_option options "-mno-micromips"
 	}
+	# There is no MSA support for micromips r2 or r6.
+	if { ([mips_have_test_option_p options "-mmicromips"]
+	       && ([mips_have_test_option_p options "-mmsa"])) } {
+		mips_make_test_option options "-mno-msa"
+	}
+
 
 	unset arch
 	unset isa
