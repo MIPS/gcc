@@ -33,5 +33,26 @@
        D2 ("nop") "\n\t" \
        D1 ("nop"))
 
+/* Emit something that is 0xfffa bytes long, which is the largest
+   permissible range for micromips forward branches when branches
+   have delay slots.  */
+#define OCCUPY_0xfffa \
+  asm (D13 ("nop32") "\n\t" \
+       D12 ("nop32") "\n\t" \
+       D11 ("nop32") "\n\t" \
+       D10 ("nop32") "\n\t" \
+       D9 ("nop32") "\n\t" \
+       D8 ("nop32") "\n\t" \
+       D7 ("nop32") "\n\t" \
+       D6 ("nop32") "\n\t" \
+       D5 ("nop32") "\n\t" \
+       D4 ("nop32") "\n\t" \
+       D3 ("nop32") "\n\t" \
+       D2 ("nop32") "\n\t" \
+       D1 ("nop32") "\n\t" \
+       D0 ("nop16"))
 /* Likewise emit something that is 0x1fffc bytes long.  */
 #define OCCUPY_0x1fffc do { asm ("nop"); OCCUPY_0x1fff8; } while (0)
+
+/* Likewise emit something that is 0xfffc bytes long.  */
+#define OCCUPY_0xfffc do { asm ("nop16"); OCCUPY_0xfffa; } while (0)
