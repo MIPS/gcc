@@ -1,4 +1,4 @@
-/* { dg-options "-mshared -mabi=n32" } */
+/* { dg-options "-mshared -mabi=n32 -mno-micromips" } */
 /* { dg-final { scan-assembler-not "(\\\$25|\\\$28|%gp_rel|%got)" } } */
 /* { dg-final { scan-assembler-not "\tjr\t\\\$1\n" } } */
 
