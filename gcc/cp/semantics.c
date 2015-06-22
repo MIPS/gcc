@@ -6290,6 +6290,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
       cond = error_mark_node;
       break;
     }
+  cond = cp_fully_fold (cond);
   if (cond == error_mark_node)
     {
       error_at (elocus, "invalid controlling predicate");
@@ -6298,6 +6299,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   diff = build_x_binary_op (elocus, MINUS_EXPR, TREE_OPERAND (cond, 1),
 			    ERROR_MARK, iter, ERROR_MARK, NULL,
 			    tf_warning_or_error);
+  diff = cp_fully_fold (diff);
   if (error_operand_p (diff))
     return true;
   if (TREE_CODE (TREE_TYPE (diff)) != INTEGER_TYPE)
