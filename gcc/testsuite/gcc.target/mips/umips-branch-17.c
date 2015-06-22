@@ -1,17 +1,18 @@
-/* An executable version of branch-3.c.  */
+/* An executable version of branch-2.c.  */
+/* { dg-options "-mmicromips" } */
 /* { dg-do run } */
 
 #include "branch-helper.h"
 
-void
-NOCOMPRESSION foo (volatile int *x)
+void __attribute__((noinline))
+foo (volatile int *x)
 {
   if (__builtin_expect (*x == 0, 1))
-    OCCUPY_0x1fffc;
+    OCCUPY_0xfffc;
 }
 
 int
-NOCOMPRESSION main (void)
+main (void)
 {
   int x = 0;
   int y = 1;

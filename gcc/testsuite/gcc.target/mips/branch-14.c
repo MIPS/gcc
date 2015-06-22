@@ -4,14 +4,14 @@
 #include "branch-helper.h"
 
 void __attribute__((noinline))
-foo (volatile int *x)
+NOCOMPRESSION foo (volatile int *x)
 {
   if (__builtin_expect (*x == 0, 1))
     OCCUPY_0x1fff8;
 }
 
 int
-main (void)
+NOCOMPRESSION main (void)
 {
   int x = 0;
   int y = 1;
