@@ -1,3 +1,34 @@
+2015-06-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-builtins.def (BUILT_IN_GOACC_NTID, BUILTIN_NCTAID): Replace
+	with ...
+	(BUILT_IN_GOACC_NID): ... this.
+	(BUILT_IN_GOACC_TID, BUILTIN_CTAID): Replace with ...
+	(BUILT_IN_GOACC_ID): ... this.
+	* builtins.c: Include omp-low.h.
+	(expand_oacc_buoltin): Replace with ...
+	(expand_oacc_id): ... this.
+	(expand_builtin, is_simple_builtin): Adjust.oo
+	* omp-low.h (enum oacc_loop_levels): New.
+	* omp-low.c (MASK_GANG, MASK_WORKER, MASK_VECTOR): Replace with ...
+	(OACC_LOOP_MASK): ... this.
+	(scan_omp_for, scan_omp_target): Adjust.
+	(expand_oacc_get_num_threads): Adjust and use a loop.
+	(expand_oacc_get_thread_num): Likewise.
+	(oacc_loop_needs_thread_barrier_p, find_omp_for_region_gwv,
+	find_omp_taarget_region_data, required_predication_mask,
+	generate_vector_broadcast, generate_oacc_broadcast): Adjust.
+	(make_predication_test): Adjust and use a loop.
+	(predicate_bb, oacc_broadcast, oacc_init_count_vars): Adjust.
+	* config/nvptx/nvptx.md (UNSPEC_NTID, UNSPEC_TID, UNSPEC_NCTAID,
+	UNSPEC_CTAID): Replace with ...
+	(UNSPEC_NID, UNSPEC_ID): ... these.
+	(*oacc_ntid_insn, oacc_ntid, *oacc_tid_insn, oacc_tid,
+	*oacc_nctaid_insn, oacc_nctaid, *oacc_ctaid_insn,
+	oacc_ctaid): Replace with ...
+	(oacc_nid, oacc_id): ... these.
+	* config/nvptx/nvptx.c (nvptx_print_operand [CASE 'd']): Remove.
+
 2015-06-19  Tom de Vries  <tom@codesourcery.com>
 
 	* tree-parloops.c (struct reduction_info): Add reduc_addr field.

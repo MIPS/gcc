@@ -49,10 +49,8 @@
 
    UNSPEC_ALLOCA
 
-   UNSPEC_NTID
-   UNSPEC_TID
-   UNSPEC_NCTAID
-   UNSPEC_CTAID
+   UNSPEC_NID
+   UNSPEC_ID
 
    UNSPEC_SHARED_DATA
 ])
@@ -1263,65 +1261,32 @@
   DONE;
 })
 
-(define_insn "*oacc_ntid_insn"
-  [(set (match_operand:SI 0 "nvptx_register_operand" "=R")
-	(unspec:SI [(match_operand:SI 1 "const_int_operand" "n")] UNSPEC_NTID))]
-  ""
-  "%.\\tmov.u32 %0, %%ntid%d1;")
-
-(define_expand "oacc_ntid"
+(define_insn "oacc_nid"
   [(set (match_operand:SI 0 "nvptx_register_operand" "")
-	(unspec:SI [(match_operand:SI 1 "const_int_operand" "")] UNSPEC_NTID))]
+	(unspec:SI [(match_operand:SI 1 "const_int_operand" "")] UNSPEC_NID))]
   ""
 {
-  if (INTVAL (operands[1]) < 0 || INTVAL (operands[1]) > 2)
-    FAIL;
+  static const char *const asms[] =
+{ /* Must match oacc_loop_levels ordering.  */
+  "%.\\tmov.u32 %0, %%nctaid.x;",/* gang */
+  "%.\\tmov.u32 %0, %%ntid.y;",	/* worker */
+  "%.\\tmov.u32 %0, %%ntid.x;",	/* vector */
+};
+  return asms[INTVAL (operands[1])];
 })
 
-(define_insn "*oacc_tid_insn"
-  [(set (match_operand:SI 0 "nvptx_register_operand" "=R")
-	(unspec:SI [(match_operand:SI 1 "const_int_operand" "n")] UNSPEC_TID))]
-  ""
-  "%.\\tmov.u32 %0, %%tid%d1;")
-
-(define_expand "oacc_tid"
+(define_insn "oacc_id"
   [(set (match_operand:SI 0 "nvptx_register_operand" "")
-	(unspec:SI [(match_operand:SI 1 "const_int_operand" "")] UNSPEC_TID))]
+	(unspec:SI [(match_operand:SI 1 "const_int_operand" "")] UNSPEC_ID))]
   ""
 {
-  if (INTVAL (operands[1]) < 0 || INTVAL (operands[1]) > 2)
-    FAIL;
-})
-
-;; Number of CUDA grids (CPA = Cooperative Thread Arrays)
-(define_insn "*oacc_nctaid_insn"
-  [(set (match_operand:SI 0 "nvptx_register_operand" "=R")
-	(unspec:SI [(match_operand:SI 1 "const_int_operand" "n")] UNSPEC_NCTAID))]
-  ""
-  "%.\\tmov.u32 %0, %%nctaid%d1;")
-
-(define_expand "oacc_nctaid"
-  [(set (match_operand:SI 0 "nvptx_register_operand" "")
-	(unspec:SI [(match_operand:SI 1 "const_int_operand" "")] UNSPEC_NCTAID))]
-  ""
-{
-  if (INTVAL (operands[1]) < 0 || INTVAL (operands[1]) > 2)
-    FAIL;
-})
-
-(define_insn "*oacc_ctaid_insn"
-  [(set (match_operand:SI 0 "nvptx_register_operand" "=R")
-	(unspec:SI [(match_operand:SI 1 "const_int_operand" "n")] UNSPEC_CTAID))]
-  ""
-  "%.\\tmov.u32 %0, %%ctaid%d1;")
-
-(define_expand "oacc_ctaid"
-  [(set (match_operand:SI 0 "nvptx_register_operand" "")
-	(unspec:SI [(match_operand:SI 1 "const_int_operand" "")] UNSPEC_CTAID))]
-  ""
-{
-  if (INTVAL (operands[1]) < 0 || INTVAL (operands[1]) > 2)
-    FAIL;
+  static const char *const asms[] =
+{ /* Must match oacc_loop_levels ordering.  */
+  "%.\\tmov.u32 %0, %%ctaid.x;",/* gang */
+  "%.\\tmov.u32 %0, %%tid.y;",	/* worker */
+  "%.\\tmov.u32 %0, %%tid.x;",	/* vector */
+};
+  return asms[INTVAL (operands[1])];
 })
 
 (define_insn "oacc_thread_broadcastsi"

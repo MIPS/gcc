@@ -35,38 +35,38 @@ main ()
 
 #pragma acc parallel loop gang (static:*) num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_ctaid (0);
+    a[i] = __builtin_GOACC_id (0);
 
   test_nonstatic (a, 10);
 
 #pragma acc parallel loop gang (static:1) num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_ctaid (0);
+    a[i] = __builtin_GOACC_id (0);
 
   test_static (a, 10, 1);
 
 #pragma acc parallel loop gang (static:2) num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_ctaid (0);
+    a[i] = __builtin_GOACC_id (0);
 
   test_static (a, 10, 2);
 
 #pragma acc parallel loop gang (static:5) num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_ctaid (0);
+    a[i] = __builtin_GOACC_id (0);
 
   test_static (a, 10, 5);
 
 #pragma acc parallel loop gang (static:20) num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_ctaid (0);
+    a[i] = __builtin_GOACC_id (0);
 
   test_static (a, 10, 20);
 
   /* Non-static gang.  */
 #pragma acc parallel loop gang num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_ctaid (0);
+    a[i] = __builtin_GOACC_id (0);
 
   test_nonstatic (a, 10);
 

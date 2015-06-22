@@ -1673,7 +1673,6 @@ condition_unidirectional_p (rtx cond)
 
    A -- print an address space identifier for a MEM
    c -- print an opcode suffix for a comparison operator, including a type code
-   d -- print a CONST_INT as a vector dimension (x, y, or z)
    f -- print a full reg even for something that must always be split
    t -- print a type opcode suffix, promoting QImode to 32 bits
    T -- print a type size in bits
@@ -1716,18 +1715,6 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 	addr_space_t as = nvptx_addr_space_from_address (XEXP (x, 0));
 	fputs (nvptx_section_from_addr_space (as), file);
       }
-      break;
-
-    case 'd':
-      gcc_assert (x_code == CONST_INT);
-      if (INTVAL (x) == 0)
-	fputs (".x", file);
-      else if (INTVAL (x) == 1)
-	fputs (".y", file);
-      else if (INTVAL (x) == 2)
-	fputs (".z", file);
-      else
-	gcc_unreachable ();
       break;
 
     case 't':

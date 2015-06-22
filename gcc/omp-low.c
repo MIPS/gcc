@@ -172,9 +172,7 @@ struct omp_region
 
 /* Levels of parallelism as defined by OpenACC.  Increasing numbers
    correspond to deeper loop nesting levels.  */
-#define MASK_GANG 1
-#define MASK_WORKER 2
-#define MASK_VECTOR 4
+#define OACC_LOOP_MASK(X) (1 << (X))
 
 /* Context structure.  Used to store information about each parallel
    directive in the code.  */
@@ -2967,17 +2965,17 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
 	  int val;
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_GANG)
 	    {
-	      val = MASK_GANG;
+	      val = OACC_LOOP_MASK (OACC_gang);
 	      gwv_clause = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_WORKER)
 	    {
-	      val = MASK_WORKER;
+	      val = OACC_LOOP_MASK (OACC_worker);
 	      gwv_clause = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_VECTOR)
 	    {
-	      val = MASK_VECTOR;
+	      val = OACC_LOOP_MASK (OACC_vector);
 	      gwv_clause = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SEQ)
@@ -3122,11 +3120,11 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
       for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
 	{
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_NUM_GANGS)
-	    ctx->gwv_this |= MASK_GANG;
+	    ctx->gwv_this |= OACC_LOOP_MASK (OACC_gang);
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_NUM_WORKERS)
-	    ctx->gwv_this |= MASK_WORKER;
+	    ctx->gwv_this |= OACC_LOOP_MASK (OACC_worker);
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_VECTOR_LENGTH)
-	    ctx->gwv_this |= MASK_VECTOR;
+	    ctx->gwv_this |= OACC_LOOP_MASK (OACC_vector);
 	}
     }
 
@@ -4992,52 +4990,24 @@ is_atomic_compatible_reduction (tree var, omp_context *ctx)
 static tree
 expand_oacc_get_num_threads (gimple_seq *seq, int gwv_bits)
 {
-  tree res = NULL_TREE;
-  tree u0 = fold_convert (unsigned_type_node, integer_zero_node);
-  tree u1 = fold_convert (unsigned_type_node, integer_one_node);
+  tree res = build_int_cst (unsigned_type_node, 1);
+  tree  decl = builtin_decl_explicit (BUILT_IN_GOACC_NID);
+  unsigned ix;
 
-  if (gwv_bits & MASK_GANG)
-    {
-      tree decl = builtin_decl_explicit (BUILT_IN_GOACC_NCTAID);
-      tree gang_count = create_tmp_var (unsigned_type_node);
-      gimple call = gimple_build_call (decl, 1, u0);
-      gimple_call_set_lhs (call, gang_count);
-      gimple_seq_add_stmt (seq, call);
-      res = gang_count;
-    }
-  
-  if (gwv_bits & MASK_WORKER)
-    {
-      tree decl = builtin_decl_explicit (BUILT_IN_GOACC_NTID);
-      tree worker_count = create_tmp_var (unsigned_type_node);
-      gimple call = gimple_build_call (decl, 1, u1);
-      gimple_call_set_lhs (call, worker_count);
-      gimple_seq_add_stmt (seq, call);
-      if (res != NULL_TREE)
-        res = fold_build2 (MULT_EXPR, unsigned_type_node, res, worker_count);
-      else
-        res = worker_count;
-    }
-  
-  if (gwv_bits & MASK_VECTOR)
-    {
-      tree decl = builtin_decl_explicit (BUILT_IN_GOACC_NTID);
-      tree vector_length = create_tmp_var (unsigned_type_node);
-      gimple call = gimple_build_call (decl, 1, u0);
-      gimple_call_set_lhs (call, vector_length);
-      gimple_seq_add_stmt (seq, call);
-      if (res != NULL_TREE)
-	res = fold_build2 (MULT_EXPR, unsigned_type_node, res, vector_length);
-      else
-	res = vector_length;
-    }
-
-  if (res == NULL_TREE)
-    res = u1;
+  for (ix = 0; (1 << ix) <= gwv_bits; ix++)
+    if ((1 << ix) & gwv_bits)
+      {
+	tree arg = build_int_cst (unsigned_type_node, ix);
+	tree count = create_tmp_var (unsigned_type_node);
+	gimple call = gimple_build_call (decl, 1, arg);
+	
+	gimple_call_set_lhs (call, count);
+	gimple_seq_add_stmt (seq, call);
+	res = fold_build2 (MULT_EXPR, unsigned_type_node, res, count);
+      }
   
   return res;
 }
-
 
 /* Find the current thread number to use within a region partitioned by
    GWV_BITS.  Setup code required for the calculation is added to SEQ.  See
@@ -5047,90 +5017,43 @@ static tree
 expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
 {
   tree res = NULL_TREE;
-  tree u0 = fold_convert (unsigned_type_node, integer_zero_node);
-  tree u1 = fold_convert (unsigned_type_node, integer_one_node);
-  tree vector_count = NULL_TREE;
-  tree tid_decl = builtin_decl_explicit (BUILT_IN_GOACC_TID);
-  tree ntid_decl = builtin_decl_explicit (BUILT_IN_GOACC_NTID);
+  tree id_decl = builtin_decl_explicit (BUILT_IN_GOACC_ID);
+  tree nid_decl = builtin_decl_explicit (BUILT_IN_GOACC_NID);
+  unsigned ix;
 
-  if (gwv_bits & MASK_VECTOR)
-    {
-      tree vector_id = create_tmp_var (unsigned_type_node);
-      gimple call = gimple_build_call (tid_decl, 1, u0);
-      gimple_call_set_lhs (call, vector_id);
-      gimple_seq_add_stmt (seq, call);
-      res = vector_id;
-    }
+  /* Start at gang level, and examine relevant dimension indices.  */
+  for (ix = 0; (1 << ix) <= gwv_bits; ix++)
+    if ((1 << ix) & gwv_bits)
+      {
+	tree arg = build_int_cst (unsigned_type_node, ix);
 
-  if (gwv_bits & MASK_WORKER)
-    {
-      tree worker_id = create_tmp_var (unsigned_type_node);
-      gimple call = gimple_build_call (tid_decl, 1, u1);
-      gimple_call_set_lhs (call, worker_id);
-      gimple_seq_add_stmt (seq, call);
-      if (res != NULL_TREE)
-	{
-	  vector_count = create_tmp_var (unsigned_type_node);
-	  call = gimple_build_call (ntid_decl, 1, u0);
-	  gimple_call_set_lhs (call, vector_count);
-	  gimple_seq_add_stmt (seq, call);
-	  res = fold_build2 (PLUS_EXPR, unsigned_type_node,
-			     fold_build2 (MULT_EXPR, unsigned_type_node,
-					  vector_count, worker_id), res);
-	}
-      else
-	res = worker_id;
-    }
+	if (res)
+	  {
+	    /* We had an outer index, so scale that by the size of
+	       this dimension.  */
+	    tree n = create_tmp_var (unsigned_type_node);
+	    gimple call = gimple_build_call (nid_decl, 1, arg);
+	    
+	    gimple_call_set_lhs (call, n);
+	    gimple_seq_add_stmt (seq, call);
+	    res = fold_build2 (MULT_EXPR, unsigned_type_node, res, n);
+	  }
 
-  if (gwv_bits & MASK_GANG)
-    {
-      tree worker_count;
-      tree ctaid_decl = builtin_decl_explicit (BUILT_IN_GOACC_CTAID);
-      tree gang_id = create_tmp_var (unsigned_type_node);
-      gimple call = gimple_build_call (ctaid_decl, 1, u0);
-      gimple_call_set_lhs (call, gang_id);
-      gimple_seq_add_stmt (seq, call);
-
-      if (gwv_bits & MASK_WORKER)
-	{
-	  worker_count = create_tmp_var (unsigned_type_node);
-	  call = gimple_build_call (ntid_decl, 1, u1);
-	  gimple_call_set_lhs (call, worker_count);
-	  gimple_seq_add_stmt (seq, call);
-	}
-      else
-	worker_count = u1;
-
-      if (gwv_bits & MASK_VECTOR)
-	{
-	  if (vector_count == NULL_TREE)
-	    {
-	      vector_count = create_tmp_var (unsigned_type_node);
-	      call = gimple_build_call (ntid_decl, 1, u0);
-	      gimple_call_set_lhs (call, vector_count);
-	      gimple_seq_add_stmt (seq, call);
-	    }
-	}
-      else
-	vector_count = u1;
-
-      if (gwv_bits & (MASK_WORKER | MASK_VECTOR))
-	{
-	  gcc_assert (res != NULL_TREE);
-	  res = fold_build2 (PLUS_EXPR, unsigned_type_node,
-		  fold_build2 (MULT_EXPR, unsigned_type_node,
-			       fold_build2 (MULT_EXPR, unsigned_type_node,
-					    worker_count, vector_count),
-			       gang_id),
-		  res);
-	}
-      else
-	res = gang_id;
-    }
+	/* Determine index in this dimension.  */
+	tree id = create_tmp_var (unsigned_type_node);
+	gimple call = gimple_build_call (id_decl, 1, arg);
+	
+	gimple_call_set_lhs (call, id);
+	gimple_seq_add_stmt (seq, call);
+	if (res)
+	  res = fold_build2 (PLUS_EXPR, unsigned_type_node, res, id);
+	else
+	  res = id;
+      }
 
   if (res == NULL_TREE)
-    res = u0;
-
+    res = build_int_cst (unsigned_type_node, 0);
+			 
   return res;
 }
 
@@ -7278,9 +7201,9 @@ expand_omp_for_generic (struct omp_region *region,
 static bool
 oacc_loop_needs_threadbarrier_p (int gwv_bits)
 {
-  return (gwv_bits & (MASK_GANG | MASK_WORKER)) == MASK_WORKER;
+  return !(gwv_bits & OACC_LOOP_MASK (OACC_gang))
+    && (gwv_bits & OACC_LOOP_MASK (OACC_worker));
 }
-
 
 /* A subroutine of expand_omp_for.  Generate code for a parallel
    loop with static schedule and no specified chunk size.  Given
@@ -10416,11 +10339,11 @@ find_omp_for_region_gwv (gimple stmt)
 
   tree clauses = gimple_omp_for_clauses (stmt);
   if (find_omp_clause (clauses, OMP_CLAUSE_GANG))
-    tmp |= MASK_GANG;
+    tmp |= OACC_LOOP_MASK (OACC_gang);
   if (find_omp_clause (clauses, OMP_CLAUSE_WORKER))
-    tmp |= MASK_WORKER;
+    tmp |= OACC_LOOP_MASK (OACC_worker);
   if (find_omp_clause (clauses, OMP_CLAUSE_VECTOR))
-    tmp |= MASK_VECTOR;
+    tmp |= OACC_LOOP_MASK (OACC_vector);
 
   return tmp;
 }
@@ -10437,11 +10360,11 @@ find_omp_target_region_data (struct omp_region *region,
 
   tree clauses = gimple_omp_target_clauses (stmt);
   if (find_omp_clause (clauses, OMP_CLAUSE_NUM_GANGS))
-    region->gwv_this |= MASK_GANG;
+    region->gwv_this |= OACC_LOOP_MASK (OACC_gang);
   if (find_omp_clause (clauses, OMP_CLAUSE_NUM_WORKERS))
-    region->gwv_this |= MASK_WORKER;
+    region->gwv_this |= OACC_LOOP_MASK (OACC_worker);
   if (find_omp_clause (clauses, OMP_CLAUSE_VECTOR_LENGTH))
-    region->gwv_this |= MASK_VECTOR;
+    region->gwv_this |= OACC_LOOP_MASK (OACC_vector);
   region->broadcast_array = gimple_omp_target_broadcast_array (stmt);
 }
 
@@ -10621,14 +10544,14 @@ required_predication_mask (omp_region *region)
     return 0;
 
   int mask = 0;
-  if ((outer_target->gwv_this & MASK_WORKER) != 0
+  if ((outer_target->gwv_this & OACC_LOOP_MASK (OACC_worker)) != 0
       && (region->type == GIMPLE_OMP_TARGET
-	  || (outer_masks & MASK_WORKER) == 0))
-    mask |= MASK_WORKER;
-  if ((outer_target->gwv_this & MASK_VECTOR) != 0
+	  || (outer_masks & OACC_LOOP_MASK (OACC_worker)) == 0))
+    mask |= OACC_LOOP_MASK (OACC_worker);
+  if ((outer_target->gwv_this & OACC_LOOP_MASK (OACC_vector)) != 0
       && (region->type == GIMPLE_OMP_TARGET
-	  || (outer_masks & MASK_VECTOR) == 0))
-    mask |= MASK_VECTOR;
+	  || (outer_masks & OACC_LOOP_MASK (OACC_vector)) == 0))
+    mask |= OACC_LOOP_MASK (OACC_vector);
   return mask;
 }
 
@@ -10698,7 +10621,7 @@ generate_vector_broadcast (tree dest_var, tree var,
 
 /* Generate a broadcast across OpenACC threads in REGION so that VAR
    is broadcast to DEST_VAR.  MASK specifies the parallelism level and
-   thereby the broadcast method.  If it is equal to MASK_VECTOR, we
+   thereby the broadcast method.  If it is only vector, we
    can use a warp broadcast, otherwise we fall back to memory
    store/load.  */
 
@@ -10706,7 +10629,7 @@ static gimple
 generate_oacc_broadcast (omp_region *region, tree dest_var, tree var,
 			 gimple_stmt_iterator &where, int mask)
 {
-  if (mask == MASK_VECTOR)
+  if (mask == OACC_LOOP_MASK (OACC_vector))
     return generate_vector_broadcast (dest_var, var, where);
 
   omp_region *parent = enclosing_target_region (region);
@@ -10735,7 +10658,7 @@ generate_oacc_broadcast (omp_region *region, tree dest_var, tree var,
 /* Build a test for OpenACC predication.  TRUE_EDGE is the edge that should be
    taken if the block should be executed.  SKIP_DEST_BB is the destination to
    jump to otherwise.  MASK specifies the type of predication, it can contain
-   the bits MASK_VECTOR and/or MASK_WORKER.  */
+   the bits for VECTOR and/or WORKER.  */
 
 static void
 make_predication_test (edge true_edge, basic_block skip_dest_bb, int mask)
@@ -10743,32 +10666,31 @@ make_predication_test (edge true_edge, basic_block skip_dest_bb, int mask)
   basic_block cond_bb = true_edge->src;
   
   gimple_stmt_iterator tmp_gsi = gsi_last_bb (cond_bb);
-  tree decl = builtin_decl_explicit (BUILT_IN_GOACC_TID);
-
-  tree vvar = NULL_TREE, wvar = NULL_TREE;
+  tree decl = builtin_decl_explicit (BUILT_IN_GOACC_ID);
   tree comp_var = NULL_TREE;
-  if (mask & MASK_VECTOR)
-    {
-      gimple call = gimple_build_call (decl, 1, integer_zero_node);
-      vvar = create_tmp_var (unsigned_type_node);
-      comp_var = vvar;
-      gimple_call_set_lhs (call, vvar);
-      gsi_insert_after (&tmp_gsi, call, GSI_NEW_STMT);
-    }
-  if (mask & MASK_WORKER)
-    {
-      gimple call = gimple_build_call (decl, 1, integer_one_node);
-      wvar = create_tmp_var (unsigned_type_node);
-      comp_var = wvar;
-      gimple_call_set_lhs (call, wvar);
-      gsi_insert_after (&tmp_gsi, call, GSI_NEW_STMT);
-    }
-  if (wvar && vvar)
-    {
-      comp_var = create_tmp_var (unsigned_type_node);
-      gassign *ior = gimple_build_assign (comp_var, BIT_IOR_EXPR, wvar, vvar);
-      gsi_insert_after (&tmp_gsi, ior, GSI_NEW_STMT);
-    }
+  unsigned ix;
+
+  for (ix = OACC_worker; ix <= OACC_vector; ix++)
+    if (mask & (1 << ix))
+      {
+	gimple call = gimple_build_call
+	  (decl, 1, build_int_cst (unsigned_type_node, ix));
+	tree var = create_tmp_var (unsigned_type_node);
+
+	gimple_call_set_lhs (call, var);
+	gsi_insert_after (&tmp_gsi, call, GSI_NEW_STMT);
+	if (comp_var)
+	  {
+	    tree new_comp = create_tmp_var (unsigned_type_node);
+	    gassign *ior = gimple_build_assign (new_comp,
+						BIT_IOR_EXPR, comp_var, var);
+	    gsi_insert_after (&tmp_gsi, ior, GSI_NEW_STMT);
+	    comp_var = new_comp;
+	  }
+	else
+	  comp_var = var;
+      }
+
   tree cond = build2 (EQ_EXPR, boolean_type_node, comp_var,
 		      fold_convert (unsigned_type_node, integer_zero_node));
   gimple cond_stmt = gimple_build_cond_empty (cond);
@@ -10789,7 +10711,7 @@ make_predication_test (edge true_edge, basic_block skip_dest_bb, int mask)
 
 /* Apply OpenACC predication to basic block BB which is in
    region PARENT.  MASK has a bitmask of levels that need to be
-   applied; MASK_VECTOR and/or MASK_WORKER may be set.  */
+   applied; VECTOR and/or WORKER may be set.  */
 
 static void
 predicate_bb (basic_block bb, struct omp_region *parent, int mask)
@@ -10798,8 +10720,8 @@ predicate_bb (basic_block bb, struct omp_region *parent, int mask)
      around them if not in the controlling worker.  Don't insert
      unnecessary (and incorrect) predication.  */
   if (parent->type == GIMPLE_OMP_FOR
-      && (parent->gwv_this & MASK_VECTOR))
-    mask &= ~MASK_WORKER;
+      && (parent->gwv_this & OACC_LOOP_MASK (OACC_vector)))
+    mask &= ~OACC_LOOP_MASK (OACC_worker);
 
   if (mask == 0 || parent->type == GIMPLE_OMP_ATOMIC_LOAD)
     return;
@@ -10873,15 +10795,16 @@ predicate_bb (basic_block bb, struct omp_region *parent, int mask)
 	  skip_dest_bb = single_succ (inner->exit);
 	  gcc_assert (inner->entry == bb);
 	  if (code != GIMPLE_OMP_FOR
-	      || ((inner->gwv_this & (MASK_VECTOR | MASK_WORKER)) == MASK_VECTOR
-		  && (mask & MASK_WORKER) != 0))
+	      || ((inner->gwv_this & OACC_LOOP_MASK (OACC_vector))
+		  && !(inner->gwv_this & OACC_LOOP_MASK (OACC_worker))
+		  && (mask & OACC_LOOP_MASK  (OACC_worker))))
 	    {
 	      gimple_stmt_iterator head_gsi = gsi_start_bb (bb);
 	      gsi_prev (&head_gsi);
 	      edge e0 = split_block (bb, gsi_stmt (head_gsi));
 	      int mask2 = mask;
 	      if (code == GIMPLE_OMP_FOR)
-		mask2 &= ~MASK_VECTOR;
+		mask2 &= ~OACC_LOOP_MASK (OACC_vector);
 	      if (!split_stmt || code != GIMPLE_OMP_FOR)
 		{
 		  /* The simple case: nothing here except the for,
@@ -11199,7 +11122,7 @@ oacc_broadcast (basic_block entry_bb, basic_block exit_bb, omp_region *region)
 	use.erase (it);
     }
 
-  if (mask == MASK_VECTOR)
+  if (mask == OACC_LOOP_MASK (OACC_vector))
     {
       /* Broadcast all decls in USE right before the last instruction in
 	 entry_bb.  */
@@ -11213,7 +11136,7 @@ oacc_broadcast (basic_block entry_bb, basic_block exit_bb, omp_region *region)
 
       gsi_insert_seq_before (&gsi, seq, GSI_CONTINUE_LINKING);
     }
-  else if (mask & MASK_WORKER)
+  else if (mask & OACC_LOOP_MASK (OACC_worker))
     {
       if (use.empty ())
 	return entry_bb;
@@ -13104,25 +13027,31 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 static void
 oacc_init_count_vars (omp_context *ctx, tree clauses ATTRIBUTE_UNUSED)
 {
-  tree gettid = builtin_decl_explicit (BUILT_IN_GOACC_TID);
-  tree getntid = builtin_decl_explicit (BUILT_IN_GOACC_NTID);
+  tree getid = builtin_decl_explicit (BUILT_IN_GOACC_ID);
+  tree getnid = builtin_decl_explicit (BUILT_IN_GOACC_NID);
   tree worker_var, worker_count;
-  tree u1 = fold_convert (unsigned_type_node, integer_one_node);
-  tree u0 = fold_convert (unsigned_type_node, integer_zero_node);
-  if (ctx->gwv_this & MASK_WORKER)
+  
+  if (ctx->gwv_this & OACC_LOOP_MASK (OACC_worker))
     {
+      tree arg = build_int_cst (unsigned_type_node, OACC_worker);
+      
       worker_var = create_tmp_var (unsigned_type_node, ".worker");
       worker_count = create_tmp_var (unsigned_type_node, ".workercount");
-      gimple call1 = gimple_build_call (gettid, 1, u1);
+      
+      gimple call1 = gimple_build_call (getid, 1, arg);
       gimple_call_set_lhs (call1, worker_var);
       gimple_seq_add_stmt (&ctx->ganglocal_init, call1);
-      gimple call2 = gimple_build_call (getntid, 1, u1);
+
+      gimple call2 = gimple_build_call (getnid, 1, arg);
       gimple_call_set_lhs (call2, worker_count);
       gimple_seq_add_stmt (&ctx->ganglocal_init, call2);
     }
   else
-    worker_var = u0, worker_count = u1;
-
+    {
+      worker_var = build_int_cst (unsigned_type_node, 0);
+      worker_count = build_int_cst (unsigned_type_node, 1);
+    }
+  
   ctx->worker_var = worker_var;
   ctx->worker_count = worker_count;
 }

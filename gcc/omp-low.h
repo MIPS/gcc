@@ -20,6 +20,14 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_OMP_LOW_H
 #define GCC_OMP_LOW_H
 
+enum oacc_loop_levels
+  {
+    OACC_gang,
+    OACC_worker,
+    OACC_vector,
+    OACC_HWM
+  };
+
 struct omp_region;
 
 extern tree find_omp_clause (tree, enum omp_clause_code);

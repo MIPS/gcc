@@ -1,3 +1,8 @@
+2015-06-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/gang-static-2.c: Replace
+	GOACC_ctaid builtin with GOACC_id.
+
 2015-06-19  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/kernels-reduction.c: New test.

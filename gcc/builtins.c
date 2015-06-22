@@ -85,7 +85,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
 #include "gomp-constants.h"
-
+#include "omp-low.h"
 
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));
 
@@ -5962,44 +5962,42 @@ expand_oacc_threadbarrier (void)
 
 
 /* Expand a thread-id/thread-count builtin for OpenACC.  */
+
 static rtx
-expand_oacc_builtin (enum built_in_function fcode, tree exp, rtx target)
+expand_oacc_id (enum built_in_function fcode, tree exp, rtx target)
 {
   tree arg0 = CALL_EXPR_ARG (exp, 0);
   rtx result = const0_rtx;
   rtx arg;
 
-  gcc_assert (TREE_CODE (arg0) == INTEGER_CST);
   arg = expand_normal (arg0);
+  if (GET_CODE (arg) != CONST_INT
+      || (unsigned HOST_WIDE_INT)INTVAL (arg) >= OACC_HWM)
+    {
+      error ("argument to %D must be constant in range 0 to %d",
+	     get_callee_fndecl (exp), OACC_HWM - 1);
+      return result;
+    }
 
   enum insn_code icode = CODE_FOR_nothing;
   switch (fcode)
     {
-    case BUILT_IN_GOACC_NTID:
-#ifdef HAVE_oacc_ntid
-      icode = CODE_FOR_oacc_ntid;
+    case BUILT_IN_GOACC_NID:
+#ifdef HAVE_oacc_nid
+      icode = CODE_FOR_oacc_nid;
 #endif
       result = const1_rtx;
       break;
-    case BUILT_IN_GOACC_TID:
-#ifdef HAVE_oacc_tid
-      icode = CODE_FOR_oacc_tid;
-#endif
-      break;
-    case BUILT_IN_GOACC_NCTAID:
-#ifdef HAVE_oacc_nctaid
-      icode = CODE_FOR_oacc_nctaid;
-#endif
-      result = const1_rtx;
-      break;
-    case BUILT_IN_GOACC_CTAID:
-#ifdef HAVE_oacc_ctaid
-      icode = CODE_FOR_oacc_ctaid;
+    case BUILT_IN_GOACC_ID:
+#ifdef HAVE_oacc_id
+      icode = CODE_FOR_oacc_id;
 #endif
       break;
     default:
+      gcc_unreachable ();
       break;
     }
+
   if (icode != CODE_FOR_nothing)
     {
       machine_mode mode = insn_data[icode].operand[0].mode;
@@ -7218,11 +7216,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
 	return target;
       break;
 
-    case BUILT_IN_GOACC_NTID:
-    case BUILT_IN_GOACC_TID:
-    case BUILT_IN_GOACC_NCTAID:
-    case BUILT_IN_GOACC_CTAID:
-      return expand_oacc_builtin (fcode, exp, target);
+    case BUILT_IN_GOACC_ID:
+    case BUILT_IN_GOACC_NID:
+      return expand_oacc_id (fcode, exp, target);
 
     case BUILT_IN_GOACC_GET_GANGLOCAL_PTR:
       target = expand_oacc_ganglocal_ptr (target);
@@ -12590,9 +12586,8 @@ is_simple_builtin (tree decl)
       case BUILT_IN_EH_FILTER:
       case BUILT_IN_EH_POINTER:
       case BUILT_IN_EH_COPY_VALUES:
-	/* Just a special register access.  */
-      case BUILT_IN_GOACC_NTID:
-      case BUILT_IN_GOACC_TID:
+	/* Just a special register read.  */
+      case BUILT_IN_GOACC_NID:
 	return true;
 
       default:
