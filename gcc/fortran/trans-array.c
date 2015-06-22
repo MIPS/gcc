@@ -6947,6 +6947,22 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       if (expr->ts.type == BT_CHARACTER)
 	se->string_length =  gfc_get_expr_charlen (expr);
 
+      /* If we have an array section or are assigning make sure that
+	 the lower bound is 1.  References to the full
+	 array should otherwise keep the original bounds.  */
+      if (!info->ref || info->ref->u.ar.type != AR_FULL)
+	for (dim = 0; dim < loop.dimen; dim++)
+	  if (!integer_onep (loop.from[dim]))
+	    {
+	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
+				     gfc_array_index_type, gfc_index_one_node,
+				     loop.from[dim]);
+	      loop.to[dim] = fold_build2_loc (input_location, PLUS_EXPR,
+					      gfc_array_index_type,
+					      loop.to[dim], tmp);
+	      loop.from[dim] = gfc_index_one_node;
+	    }
+
       desc = info->descriptor;
       if (se->direct_byref && !se->byref_noassign)
 	{
@@ -7040,20 +7056,6 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	  from = loop.from[dim];
 	  to = loop.to[dim];
 
-	  /* If we have an array section or are assigning make sure that
-	     the lower bound is 1.  References to the full
-	     array should otherwise keep the original bounds.  */
-	  if ((!info->ref
-	          || info->ref->u.ar.type != AR_FULL)
-	      && !integer_onep (from))
-	    {
-	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
-				     gfc_array_index_type, gfc_index_one_node,
-				     from);
-	      to = fold_build2_loc (input_location, PLUS_EXPR,
-				    gfc_array_index_type, to, tmp);
-	      from = gfc_index_one_node;
-	    }
 	  onebased = integer_onep (from);
 	  gfc_conv_descriptor_lbound_set (&loop.pre, parm,
 					  gfc_rank_cst[dim], from);
@@ -7079,7 +7081,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	    {
 	      tmp = gfc_conv_array_lbound (desc, n);
 	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
-				     TREE_TYPE (base), tmp, loop.from[dim]);
+				     TREE_TYPE (base), tmp, from);
 	      tmp = fold_build2_loc (input_location, MULT_EXPR,
 				     TREE_TYPE (base), tmp,
 				     gfc_conv_array_stride (desc, n));
