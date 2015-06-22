@@ -6,5 +6,5 @@ foo (int i)
 {
   switch (i)
   case 0 * (1 / 0): /* { dg-warning "division by zero" } */
-    ;  /* { dg-error "division by zero" "" 10 } */
+    ;  /* { dg-error "division by zero" "" { target *-*-* } 10 } */
 }
