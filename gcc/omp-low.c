@@ -4994,8 +4994,8 @@ expand_oacc_get_num_threads (gimple_seq *seq, int gwv_bits)
   tree  decl = builtin_decl_explicit (BUILT_IN_GOACC_NID);
   unsigned ix;
 
-  for (ix = 0; (1 << ix) <= gwv_bits; ix++)
-    if ((1 << ix) & gwv_bits)
+  for (ix = OACC_gang; ix != OACC_HWM; ix++)
+    if (OACC_LOOP_MASK(ix) & gwv_bits)
       {
 	tree arg = build_int_cst (unsigned_type_node, ix);
 	tree count = create_tmp_var (unsigned_type_node);
@@ -5022,8 +5022,8 @@ expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
   unsigned ix;
 
   /* Start at gang level, and examine relevant dimension indices.  */
-  for (ix = 0; (1 << ix) <= gwv_bits; ix++)
-    if ((1 << ix) & gwv_bits)
+  for (ix = OACC_gang; ix != OACC_HWM; ix++)
+    if (OACC_LOOP_MASK (ix) & gwv_bits)
       {
 	tree arg = build_int_cst (unsigned_type_node, ix);
 
@@ -10671,7 +10671,7 @@ make_predication_test (edge true_edge, basic_block skip_dest_bb, int mask)
   unsigned ix;
 
   for (ix = OACC_worker; ix <= OACC_vector; ix++)
-    if (mask & (1 << ix))
+    if (OACC_LOOP_MASK (ix) & mask)
       {
 	gimple call = gimple_build_call
 	  (decl, 1, build_int_cst (unsigned_type_node, ix));

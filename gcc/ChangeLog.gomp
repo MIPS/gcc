@@ -1,5 +1,9 @@
 2015-06-22  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* omp-low.c (expand_oacc_get_num_threads): Use OACC enum.
+	(expand_oacc_get_thread_num, make_predication_test): Likewise.
+	* builtins.c (expand_oacc_id): Use UINTVAL.
+
 	* omp-builtins.def (BUILT_IN_GOACC_NTID, BUILTIN_NCTAID): Replace
 	with ...
 	(BUILT_IN_GOACC_NID): ... this.

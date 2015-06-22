@@ -5971,8 +5971,7 @@ expand_oacc_id (enum built_in_function fcode, tree exp, rtx target)
   rtx arg;
 
   arg = expand_normal (arg0);
-  if (GET_CODE (arg) != CONST_INT
-      || (unsigned HOST_WIDE_INT)INTVAL (arg) >= OACC_HWM)
+  if (GET_CODE (arg) != CONST_INT || UINTVAL (arg) >= OACC_HWM)
     {
       error ("argument to %D must be constant in range 0 to %d",
 	     get_callee_fndecl (exp), OACC_HWM - 1);
