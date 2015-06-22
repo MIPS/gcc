@@ -3017,7 +3017,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
   constexpr_ctx new_ctx;
   tree r = t;
 
-  if (!t || t == error_mark_node)
+  if (t == error_mark_node)
     {
       *non_constant_p = true;
       return error_mark_node;
