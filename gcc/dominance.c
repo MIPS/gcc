@@ -40,7 +40,6 @@
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "predict.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -485,11 +484,7 @@ link_roots (struct dom_info *di, TBB v, TBB w)
   di->path_min[s] = di->path_min[w];
   di->set_size[v] += di->set_size[w];
   if (di->set_size[v] < 2 * di->set_size[w])
-    {
-      TBB tmp = s;
-      s = di->set_child[v];
-      di->set_child[v] = tmp;
-    }
+    std::swap (di->set_child[v], s);
 
   /* Merge all subtrees.  */
   while (s)

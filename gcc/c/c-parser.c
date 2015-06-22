@@ -40,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"			/* For rtl.h: needs enum reg_class.  */
 #include "symtab.h"
-#include "input.h"
 #include "alias.h"
 #include "flags.h"
 #include "tree.h"
@@ -51,7 +50,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "trans-mem.h"
 #include "langhooks.h"
-#include "input.h"
 #include "cpplib.h"
 #include "timevar.h"
 #include "c-family/c-pragma.h"
@@ -65,7 +63,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-upc-pts-ops.h"
 #include "output.h"
 #include "target.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "hard-reg-set.h"
 #include "function.h"
