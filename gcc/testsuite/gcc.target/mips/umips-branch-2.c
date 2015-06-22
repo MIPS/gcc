@@ -1,4 +1,4 @@
-/* { dg-options "(-mmicromips)" } */
+/* { dg-options "(-mmicromips) -mips32r2" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 int MICROMIPS

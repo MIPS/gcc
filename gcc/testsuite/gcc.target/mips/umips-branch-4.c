@@ -1,4 +1,4 @@
-/* { dg-options "(-mmicromips) addressing=absolute" } */
+/* { dg-options "(-mmicromips) addressing=absolute -mips32r2" } */
 
 void foo (void);
 
