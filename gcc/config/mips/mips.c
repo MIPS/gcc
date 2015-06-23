@@ -22238,6 +22238,9 @@ mips_option_override (void)
 	      "-mcompact-branches=never");
     }
 
+  if (is_micromips && TARGET_MSA)
+    error ("unsupported combination: %s", "-mmicromips -mmsa");
+
   /* Enable the use of interAptiv MIPS32 SAVE/RESTORE instructions.  */
   if (TARGET_USE_SAVE_RESTORE == -1)
     {
