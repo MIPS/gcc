@@ -1,3 +1,10 @@
+2015-06-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Port from trunk.
+	* config/nvptx/nvptx.md (sel_true<mode>, sel_false<mode>): New
+	conditional selects.
+	(setcc_int<mode>, setcc_float<mode>): Reformat.
+
 2015-06-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (expand_oacc_get_num_threads): Use OACC enum.
