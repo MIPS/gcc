@@ -18,6 +18,8 @@ program associate_18
 
   integer :: iv(5) = 17
   integer :: im(4,5) = 23
+  integer :: expect(20) = 23
+  integer :: c
 
   allocate(av(2))
   associate(i => av(1))
@@ -57,8 +59,22 @@ program associate_18
   associate(pam => im(2:3, 2:3))
     pam = 9
     pam(1,2) = 10
+    do c = 1, 2
+        pam(2, c) = 0
+    end do
   end associate
-  if (any (reshape(im, [20]) /= [23,23,23,23, 23,9,9,23, &
-        23,10,9,23, 23,23,23,23, 23,23,23,23])) call abort()
+  if (any (reshape(im, [20]) /= [23,23,23,23, 23,9,0,23, &
+        23,10,0,23, 23,23,23,23, 23,23,23,23])) call abort()
+
+  expect(2:3) = 9
+  do c = 1, 5
+    im = 23
+    associate(pam => im(:, c))
+      pam(2:3) = 9
+    end associate
+    if (any (reshape(im, [20]) /= expect)) call abort()
+    ! Shift expect
+    expect = [expect(17:), expect(:16)]
+  end do
 end program
 
