@@ -1,3 +1,10 @@
+2015-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/taskloop-6.C: New test.
+	* testsuite/libgomp.c++/taskloop-7.C: New test.
+	* testsuite/libgomp.c++/taskloop-8.C: New test.
+	* testsuite/libgomp.c++/taskloop-9.C: New test.
+
 2015-06-23  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* libgomp.h (struct target_var_desc): New.

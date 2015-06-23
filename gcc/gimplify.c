@@ -7230,7 +7230,8 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	    {
 	      TREE_OPERAND (t, 1)
 		= get_initialized_tmp_var (TREE_OPERAND (t, 1),
-					   pre_p, NULL);
+					   gimple_seq_empty_p (for_pre_body)
+					   ? pre_p : &for_pre_body, NULL);
 	      tree c = build_omp_clause (input_location,
 					 OMP_CLAUSE_FIRSTPRIVATE);
 	      OMP_CLAUSE_DECL (c) = TREE_OPERAND (t, 1);
@@ -7250,7 +7251,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 
 	      if (!is_gimple_constant (*tp))
 		{
-		  *tp = get_initialized_tmp_var (*tp, pre_p, NULL);
+		  gimple_seq *seq = gimple_seq_empty_p (for_pre_body)
+				    ? pre_p : &for_pre_body;
+		  *tp = get_initialized_tmp_var (*tp, seq, NULL);
 		  tree c = build_omp_clause (input_location,
 					     OMP_CLAUSE_FIRSTPRIVATE);
 		  OMP_CLAUSE_DECL (c) = *tp;
@@ -7683,7 +7686,6 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	  {
 	  /* These clauses are allowed on task, move them there.  */
 	  case OMP_CLAUSE_SHARED:
-	  case OMP_CLAUSE_PRIVATE:
 	  case OMP_CLAUSE_FIRSTPRIVATE:
 	  case OMP_CLAUSE_DEFAULT:
 	  case OMP_CLAUSE_IF:
@@ -7693,6 +7695,26 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	  case OMP_CLAUSE_PRIORITY:
 	    *gtask_clauses_ptr = c;
 	    gtask_clauses_ptr = &OMP_CLAUSE_CHAIN (c);
+	    break;
+	  case OMP_CLAUSE_PRIVATE:
+	    if (OMP_CLAUSE_PRIVATE_TASKLOOP_IV (c))
+	      {
+		/* We want private on outer for and firstprivate
+		   on task.  */
+		*gtask_clauses_ptr
+		  = build_omp_clause (OMP_CLAUSE_LOCATION (c),
+				      OMP_CLAUSE_FIRSTPRIVATE);
+		OMP_CLAUSE_DECL (*gtask_clauses_ptr) = OMP_CLAUSE_DECL (c);
+		lang_hooks.decls.omp_finish_clause (*gtask_clauses_ptr, NULL);
+		gtask_clauses_ptr = &OMP_CLAUSE_CHAIN (*gtask_clauses_ptr);
+		*gforo_clauses_ptr = c;
+		gforo_clauses_ptr = &OMP_CLAUSE_CHAIN (c);
+	      }
+	    else
+	      {
+		*gtask_clauses_ptr = c;
+		gtask_clauses_ptr = &OMP_CLAUSE_CHAIN (c);
+	      }
 	    break;
 	  /* These clauses go into outer taskloop clauses.  */
 	  case OMP_CLAUSE_GRAINSIZE:
@@ -7712,6 +7734,26 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	     a shared clause on task.  If the same decl is also firstprivate,
 	     add also firstprivate clause on the inner taskloop.  */
 	  case OMP_CLAUSE_LASTPRIVATE:
+	    if (OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV (c))
+	      {
+		/* For taskloop C++ lastprivate IVs, we want:
+		   1) private on outer taskloop
+		   2) firstprivate and shared on task
+		   3) lastprivate on inner taskloop  */
+		*gtask_clauses_ptr
+		  = build_omp_clause (OMP_CLAUSE_LOCATION (c),
+				      OMP_CLAUSE_FIRSTPRIVATE);
+		OMP_CLAUSE_DECL (*gtask_clauses_ptr) = OMP_CLAUSE_DECL (c);
+		lang_hooks.decls.omp_finish_clause (*gtask_clauses_ptr, NULL);
+		gtask_clauses_ptr = &OMP_CLAUSE_CHAIN (*gtask_clauses_ptr);
+		OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (c) = 1;
+		*gforo_clauses_ptr = build_omp_clause (OMP_CLAUSE_LOCATION (c),
+						       OMP_CLAUSE_PRIVATE);
+		OMP_CLAUSE_DECL (*gforo_clauses_ptr) = OMP_CLAUSE_DECL (c);
+		OMP_CLAUSE_PRIVATE_TASKLOOP_IV (*gforo_clauses_ptr) = 1;
+		TREE_TYPE (*gforo_clauses_ptr) = TREE_TYPE (c);
+		gforo_clauses_ptr = &OMP_CLAUSE_CHAIN (*gforo_clauses_ptr);
+	      }
 	    *gfor_clauses_ptr = c;
 	    gfor_clauses_ptr = &OMP_CLAUSE_CHAIN (c);
 	    *gtask_clauses_ptr
@@ -7735,7 +7777,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       g = gimple_build_bind (NULL_TREE, g, NULL_TREE);
       gomp_for *gforo
 	= gimple_build_omp_for (g, GF_OMP_FOR_KIND_TASKLOOP, outer_for_clauses,
-				gimple_omp_for_collapse (gfor), NULL);
+				gimple_omp_for_collapse (gfor),
+				gimple_omp_for_pre_body (gfor));
+      gimple_omp_for_set_pre_body (gfor, NULL);
       gimple_omp_for_set_combined_p (gforo, true);
       gimple_omp_for_set_combined_into_p (gfor, true);
       for (i = 0; i < (int) gimple_omp_for_collapse (gfor); i++)

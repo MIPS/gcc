@@ -2169,6 +2169,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    break;
 	  if (OMP_CLAUSE_SHARED_FIRSTPRIVATE (c))
 	    {
+	      if (is_global_var (maybe_lookup_decl_in_outer_ctx (decl,
+								 ctx->outer)))
+		break;
 	      bool by_ref = use_pointer_for_field (decl, ctx);
 	      install_var_field (decl, by_ref, 11, ctx);
 	      break;
@@ -4965,7 +4968,18 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 	      OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c) = NULL;
 	    }
 
-	  x = build_outer_var_ref (var, ctx, true);
+	  x = NULL_TREE;
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
+	      && OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV (c))
+	    {
+	      gcc_checking_assert (is_taskloop_ctx (ctx));
+	      tree ovar = maybe_lookup_decl_in_outer_ctx (var,
+							  ctx->outer->outer);
+	      if (is_global_var (ovar))
+		x = ovar;
+	    }
+	  if (!x)
+	    x = build_outer_var_ref (var, ctx, true);
 	  if (is_reference (var))
 	    new_var = build_simple_mem_ref_loc (clause_loc, new_var);
 	  x = lang_hooks.decls.omp_clause_assign_op (c, x, new_var);
@@ -5326,11 +5340,15 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 {
   tree c, t;
   int ignored_looptemp = 0;
+  bool is_taskloop = false;
 
   /* For taskloop, ignore first two _looptemp_ clauses, those are initialized
      by GOMP_taskloop.  */
   if (is_task_ctx (ctx) && gimple_omp_task_taskloop_p (ctx->stmt))
-    ignored_looptemp = 2;
+    {
+      ignored_looptemp = 2;
+      is_taskloop = true;
+    }
 
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     {
@@ -5375,7 +5393,16 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 	  if (is_variable_sized (val))
 	    continue;
 	}
-      var = lookup_decl_in_outer_ctx (val, ctx);
+
+      /* For OMP_CLAUSE_SHARED_FIRSTPRIVATE, look beyond the
+	 outer taskloop region.  */
+      omp_context *ctx_for_o = ctx;
+      if (is_taskloop
+	  && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SHARED
+	  && OMP_CLAUSE_SHARED_FIRSTPRIVATE (c))
+	ctx_for_o = ctx->outer;
+
+      var = lookup_decl_in_outer_ctx (val, ctx_for_o);
 
       if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_COPYIN
 	  && is_global_var (var))
@@ -5385,7 +5412,7 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
       if (t)
 	{
 	  var = DECL_VALUE_EXPR (var);
-	  tree o = maybe_lookup_decl_in_outer_ctx (t, ctx);
+	  tree o = maybe_lookup_decl_in_outer_ctx (t, ctx_for_o);
 	  if (o != t)
 	    var = unshare_and_remap (var, t, o);
 	  else

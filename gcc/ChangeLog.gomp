@@ -1,3 +1,17 @@
+2015-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_CLAUSE_PRIVATE_TASKLOOP_IV,
+	OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV): Define.
+	* gimplify.c (gimplify_omp_for): Handle gimplification of
+	OMP_TASKLOOP with C++ random access iterator clauses.
+	* omp-low.c (scan_sharing_clauses): Ignore
+	OMP_CLAUSE_SHARED with OMP_CLAUSE_SHARED_FIRSTPRIVATE if
+	it is a global var outside of the outer taskloop for.
+	(lower_lastprivate_clauses): Handle
+	OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV lastprivate if the
+	decl is global outside of outer taskloop for.
+	(lower_send_clauses): Look beyond the outer taskloop for.
+
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-builtins.def (BUILT_IN_GOMP_TASK,

@@ -1356,6 +1356,12 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_PRIVATE_OUTER_REF(NODE) \
   TREE_PRIVATE (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIVATE))
 
+/* True if a PRIVATE clause is for a C++ class IV on taskloop construct
+   (thus should be private on the outer taskloop and firstprivate on
+   task).  */
+#define OMP_CLAUSE_PRIVATE_TASKLOOP_IV(NODE) \
+  TREE_PROTECTED (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIVATE))
+
 /* True on a LASTPRIVATE clause if a FIRSTPRIVATE clause for the same
    decl is present in the chain.  */
 #define OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE(NODE) \
@@ -1366,6 +1372,12 @@ extern void protected_set_expr_location (tree, location_t);
 		      1)
 #define OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ(NODE) \
   (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_init
+
+/* True if a LASTPRIVATE clause is for a C++ class IV on taskloop construct
+   (thus should be lastprivate on the outer taskloop and firstprivate on
+   task).  */
+#define OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV(NODE) \
+  TREE_PROTECTED (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LASTPRIVATE))
 
 /* True on a SHARED clause if a FIRSTPRIVATE clause for the same
    decl is present in the chain (this can happen only for taskloop

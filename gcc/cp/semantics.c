@@ -6791,9 +6791,10 @@ finish_omp_task (tree clauses, tree body)
    into integral iterator.  Return FALSE if successful.  */
 
 static bool
-handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
-			       tree condv, tree incrv, tree *body,
-			       tree *pre_body, tree clauses, tree *lastp)
+handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
+			       tree declv, tree initv, tree condv, tree incrv,
+			       tree *body, tree *pre_body, tree &clauses,
+			       tree *lastp)
 {
   tree diff, iter_init, iter_incr = NULL, last;
   tree incr_var = NULL, orig_pre_body, orig_body, c;
@@ -6951,10 +6952,25 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
     }
 
   incr = cp_convert (TREE_TYPE (diff), incr, tf_warning_or_error);
+  bool taskloop_iv_seen = false;
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
 	&& OMP_CLAUSE_DECL (c) == iter)
-      break;
+      {
+	if (code == OMP_TASKLOOP)
+	  {
+	    taskloop_iv_seen = true;
+	    OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV (c) = 1;
+	  }
+	break;
+      }
+    else if (code == OMP_TASKLOOP
+	     && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+	     && OMP_CLAUSE_DECL (c) == iter)
+      {
+	taskloop_iv_seen = true;
+	OMP_CLAUSE_PRIVATE_TASKLOOP_IV (c) = 1;
+      }
 
   decl = create_temporary_var (TREE_TYPE (diff));
   pushdecl (decl);
@@ -6962,13 +6978,32 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   last = create_temporary_var (TREE_TYPE (diff));
   pushdecl (last);
   add_decl_expr (last);
-  if (c && iter_incr == NULL)
+  if (c && iter_incr == NULL && TREE_CODE (incr) != INTEGER_CST)
     {
       incr_var = create_temporary_var (TREE_TYPE (diff));
       pushdecl (incr_var);
       add_decl_expr (incr_var);
     }
   gcc_assert (stmts_are_full_exprs_p ());
+  tree diffvar = NULL_TREE;
+  if (code == OMP_TASKLOOP)
+    {
+      if (!taskloop_iv_seen)
+	{
+	  tree ivc = build_omp_clause (locus, OMP_CLAUSE_FIRSTPRIVATE);
+	  OMP_CLAUSE_DECL (ivc) = iter;
+	  cxx_omp_finish_clause (ivc, NULL);
+	  OMP_CLAUSE_CHAIN (ivc) = clauses;
+	  clauses = ivc;
+	}
+      tree lvc = build_omp_clause (locus, OMP_CLAUSE_FIRSTPRIVATE);
+      OMP_CLAUSE_DECL (lvc) = last;
+      OMP_CLAUSE_CHAIN (lvc) = clauses;
+      clauses = lvc;
+      diffvar = create_temporary_var (TREE_TYPE (diff));
+      pushdecl (diffvar);
+      add_decl_expr (diffvar);
+    }
 
   orig_pre_body = *pre_body;
   *pre_body = push_stmt_list ();
@@ -6981,10 +7016,13 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   init = build_int_cst (TREE_TYPE (diff), 0);
   if (c && iter_incr == NULL)
     {
-      finish_expr_stmt (build_x_modify_expr (elocus,
-					     incr_var, NOP_EXPR,
-					     incr, tf_warning_or_error));
-      incr = incr_var;
+      if (incr_var)
+	{
+	  finish_expr_stmt (build_x_modify_expr (elocus,
+						 incr_var, NOP_EXPR,
+						 incr, tf_warning_or_error));
+	  incr = incr_var;
+	}
       iter_incr = build_x_modify_expr (elocus,
 				       iter, PLUS_EXPR, incr,
 				       tf_warning_or_error);
@@ -6992,6 +7030,13 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   finish_expr_stmt (build_x_modify_expr (elocus,
 					 last, NOP_EXPR, init,
 					 tf_warning_or_error));
+  if (diffvar)
+    {
+      finish_expr_stmt (build_x_modify_expr (elocus,
+					     diffvar, NOP_EXPR,
+					     diff, tf_warning_or_error));
+      diff = diffvar;
+    }
   *pre_body = pop_stmt_list (*pre_body);
 
   cond = cp_build_binary_op (elocus,
@@ -7176,8 +7221,8 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
 	    }
 	  if (code == CILK_FOR && i == 0)
 	    orig_decl = decl;
-	  if (handle_omp_for_class_iterator (i, locus, declv, initv, condv,
-					     incrv, &body, &pre_body,
+	  if (handle_omp_for_class_iterator (i, locus, code, declv, initv,
+					     condv, incrv, &body, &pre_body,
 					     clauses, &last))
 	    return NULL;
 	  continue;
