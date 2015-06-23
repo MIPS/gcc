@@ -3755,6 +3755,10 @@ fold_simple_on_cst_1 (tree t)
 {
   tree op1, op2;
 
+  if (TREE_CODE (t) == VAR_DECL
+      || processing_template_decl)
+    return NULL_TREE;
+
   switch (TREE_CODE (t))
     {
     case INTEGER_CST:
@@ -3818,6 +3822,7 @@ fold_simple_on_cst_1 (tree t)
 	op1 = TREE_OPERAND (t, 0);
       if (!op2)
 	op2 = TREE_OPERAND (t, 1);
+
       t = fold_build2_loc (EXPR_LOCATION (t), TREE_CODE (t), TREE_TYPE (t),
 			   op1, op2);
       break;

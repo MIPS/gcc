@@ -5825,8 +5825,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 {
   tree expr_type;
 
-  /* TODO: We might want to do simple CST-expression folding here.
-  expr = maybe_constant_value (expr); */
+  expr = fold_simple_on_cst (expr);
 
   /* Detect immediately string literals as invalid non-type argument.
      This special-case is not needed for correctness (we would easily
@@ -5886,7 +5885,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
   /* 14.3.2/5: The null pointer{,-to-member} conversion is applied
      to a non-type argument of "nullptr".  */
   if (expr == nullptr_node && TYPE_PTR_OR_PTRMEM_P (type))
-    expr = convert (type, expr);
+    expr = fold_simple_on_cst (convert (type, expr));
 
   /* In C++11, integral or enumeration non-type template arguments can be
      arbitrary constant expressions.  Pointer and pointer to
@@ -5903,8 +5902,8 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 	expr = maybe_constant_value (expr);
       else if (TYPE_PTR_OR_PTRMEM_P (type))
 	{
-	  tree folded = maybe_constant_value (expr);
-	  /* TODO: Do simple-CST-folding on EXPR.  */
+	  tree folded = fold_simple_on_cst (expr);
+
 	  if (TYPE_PTR_P (type) ? integer_zerop (folded)
 	      : null_member_pointer_value_p (folded))
 	    expr = folded;

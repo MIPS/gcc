@@ -1129,9 +1129,9 @@ grokbitfield (const cp_declarator *declarator,
 	  && !INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (width)))
 	error ("width of bit-field %qD has non-integral type %qT", value,
 	       TREE_TYPE (width));
-      /* TODO: Do we need to make sure that WIDTH gets reduced to CST,
-         if possible?  */
-      DECL_INITIAL (value) = width;
+      /* We need to make sure that WIDTH gets reduced to CST,
+         if possible.  */
+      DECL_INITIAL (value) = fold_simple_on_cst (width);
       SET_DECL_C_BIT_FIELD (value);
     }
 

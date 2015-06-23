@@ -2562,23 +2562,7 @@ finish_unary_op_expr (location_t loc, enum tree_code code, tree expr,
   tree result_ovl =  result;
 
   STRIP_NOPS (expr_ovl);
-  /* TODO: Replace by helper-routine folding unary-operations on
-     CST-expressions.  */
-  switch (code)
-    {
-    case ABS_EXPR:
-    case NEGATE_EXPR:
-      if (TREE_CODE (expr) == INTEGER_CST
-         || TREE_CODE (expr) == REAL_CST
-         || TREE_CODE (expr) == VECTOR_CST
-         || TREE_CODE (expr) == FIXED_CST
-         || TREE_CODE (expr) == COMPLEX_CST)
-        result_ovl = fold (result);
-      break;
-    default:
-      break;
-    }
-
+  result_ovl = fold_simple_on_cst (result);
 
   if ((complain & tf_warning)
       && TREE_OVERFLOW_P (result_ovl) && !TREE_OVERFLOW_P (expr_ovl))

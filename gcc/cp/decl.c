@@ -8475,8 +8475,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
       return itype;
     }
 
-  /* TODO: We need to do folding to determine if we have VLA, or not.  */
-  tree size_constant = maybe_constant_value (size);
+  tree size_constant = fold_simple_on_cst (size);
 
   /* Normally, the array-bound will be a constant.  */
   if (TREE_CODE (size_constant) == INTEGER_CST)
@@ -13047,9 +13046,9 @@ build_enumerator (tree name, tree value, tree enumtype, tree attributes,
   if (value)
     STRIP_TYPE_NOPS (value);
 
-  /* TODO: Replace by simple fold of CST-expressions.  */
   if (value)
-    value = maybe_constant_value (value);
+    value = fold_simple_on_cst (value);
+
   if (! processing_template_decl)
     {
       /* Validate and default VALUE.  */

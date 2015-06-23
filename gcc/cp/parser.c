@@ -6575,12 +6575,8 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
   /* For offsetof and declaration of types we need
      constant integeral values.
      Also we meed to fold for negative constants so that diagnostic in
-     c-family/c-common.c doesn't fail for array-bounds. 
-    TODO: simple CST-expression folding. */
-  if (for_offsetof || decltype_p
-      || (TREE_CODE (index) == NEGATE_EXPR
-	  && TREE_CODE (TREE_OPERAND (index, 0)) == INTEGER_CST))
-    index = maybe_constant_value (index);
+     c-family/c-common.c doesn't fail for array-bounds.  */
+  index = fold_simple_on_cst (index);
   parser->greater_than_is_operator_p = saved_greater_than_is_operator_p;
 
   /* Look for the closing `]'.  */
@@ -28827,8 +28823,7 @@ cp_parser_omp_clause_aligned (cp_parser *parser, tree list)
   if (colon)
     {
       alignment = cp_parser_constant_expression (parser);
-      /* TODO: It might be enough to do simple folding on CST.  */
-      alignment = cp_fully_fold (alignment);
+      alignment = fold_simple_on_cst (alignment);
 
       if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
 	cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
@@ -32973,10 +32968,9 @@ cp_parser_cilk_grainsize (cp_parser *parser, cp_token *pragma_tok)
 	  return;
 	}
 
-      /* Make sure the next token is _Cilk_for, it is invalid otherwise.
-	 TODO: See if simple CST-expression fold is suitable here too.  */
+      /* Make sure the next token is _Cilk_for, it is invalid otherwise.  */
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_CILK_FOR))
-	cp_parser_cilk_for (parser, maybe_constant_value (exp));
+	cp_parser_cilk_for (parser, fold_simple_on_cst (exp));
       else
 	warning_at (cp_lexer_peek_token (parser->lexer)->location, 0,
 		    "%<#pragma cilk grainsize%> is not followed by "
@@ -33293,9 +33287,7 @@ cp_parser_cilk_simd_vectorlength (cp_parser *parser, tree clauses,
     return error_mark_node;
 
   expr = cp_parser_constant_expression (parser);
-  /* TODO: It might be enough for doing here just simple CST-expression
-     folding.  */
-  expr = maybe_constant_value (expr);
+  expr = fold_simple_on_cst (expr);
 
   /* If expr == error_mark_node, then don't emit any errors nor
      create a clause.  if any of the above functions returns
@@ -33396,9 +33388,7 @@ cp_parser_cilk_simd_linear (cp_parser *parser, tree clauses)
 	      cp_lexer_consume_token (parser->lexer);
 
 	      e = cp_parser_assignment_expression (parser);
-	      /* TODO: A simple folding of CST-expressions might be enough
-		 here.  */
-	      e = maybe_constant_value (e);
+	      e = fold_simple_on_cst (e);
 
 	      if (e == error_mark_node)
 		{

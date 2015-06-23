@@ -1805,13 +1805,11 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
   if (x == error_mark_node || !x || CONSTANT_CLASS_P (x))
     return x;
+
+  /* Don't even try to hash on VAR_DECLs.  */
   if (!fold_hash
       || TREE_CODE (x) == VAR_DECL
       || processing_template_decl)
-    return x;
-
-  /* Don't even try to hash on VAR_DECLs.  */
-  if (!fold_hash || TREE_CODE (x) == VAR_DECL)
     return x;
 
   slot = fold_hash->get (org_x);
