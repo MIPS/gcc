@@ -1,3 +1,8 @@
+2015-06-23  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/deviceptr-1.c: Additional
+	testing.
+
 2015-06-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/gang-static-2.c: Replace

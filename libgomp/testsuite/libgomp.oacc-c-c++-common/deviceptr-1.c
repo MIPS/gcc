@@ -28,5 +28,26 @@ int main (void)
     abort ();
 #endif
 
+  a_1 = a_2 = 0;
+
+#pragma acc data deviceptr (a)
+#pragma acc parallel copyout (a_1, a_2)
+  {
+    a_1 = a;
+    a_2 = &a;
+  }
+
+  if (a != A)
+    abort ();
+  if (a_1 != a)
+    abort ();
+#if ACC_MEM_SHARED
+  if (a_2 != &a)
+    abort ();
+#else
+  if (a_2 == &a)
+    abort ();
+#endif
+
   return 0;
 }
