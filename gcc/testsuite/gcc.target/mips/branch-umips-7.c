@@ -10,5 +10,5 @@ NOMIPS16 void
 foo (volatile int *x)
 {
   if (__builtin_expect (*x == 0, 1))
-    OCCUPY_0xfffa;
+    OCCUPY_0xfffc;
 }
