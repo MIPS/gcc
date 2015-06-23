@@ -13,7 +13,7 @@ int main ()
 
       /* Set dd on target to 0 for the further check.  */
       #pragma omp target map(always to: dd)
-	{ dd; }
+	;
 
       dd = 1;
       #pragma omp target map(tofrom: aa) map(always to: bb) \

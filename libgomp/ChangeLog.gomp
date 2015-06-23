@@ -1,3 +1,7 @@
+2015-06-23  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* testsuite/libgomp.c/target-11.c (main): Remove dd from target region.
+
 2015-06-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c++/taskloop-6.C: New test.

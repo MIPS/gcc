@@ -6870,7 +6870,8 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 	  if (!DECL_P (decl))
 	    break;
 	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
-	  if (ctx->region_type == ORT_TARGET && !(n->value & GOVD_SEEN))
+	  if (ctx->region_type == ORT_TARGET && !(n->value & GOVD_SEEN)
+	      && !(OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_FLAG_ALWAYS))
 	    remove = true;
 	  else if (DECL_SIZE (decl)
 		   && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST

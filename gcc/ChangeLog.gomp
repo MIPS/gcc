@@ -1,3 +1,8 @@
+2015-06-23  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* gimplify.c (gimplify_adjust_omp_clauses): Don't remove map clause if
+	it has map-type-modifier always.
+
 2015-06-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.h (OMP_CLAUSE_PRIVATE_TASKLOOP_IV,
