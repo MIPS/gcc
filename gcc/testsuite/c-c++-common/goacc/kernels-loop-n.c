@@ -8,6 +8,10 @@
 #define N ((1024 * 512) + 1)
 #define COUNTERTYPE unsigned int
 
+#ifndef ACC_LOOP
+#define ACC_LOOP
+#endif
+
 int
 foo (COUNTERTYPE n)
 {
@@ -27,6 +31,7 @@ foo (COUNTERTYPE n)
 
 #pragma acc kernels copyin (a[0:n], b[0:n]) copyout (c[0:n])
   {
+    #pragma ACC_LOOP
     for (COUNTERTYPE ii = 0; ii < n; ii++)
       c[ii] = a[ii] + b[ii];
   }

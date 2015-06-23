@@ -1,3 +1,15 @@
+2015-06-23  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-loop.c (ACC_LOOP): Add #ifndef/#define.
+	(main): Tag loops inside kernels construct with '#pragma ACC_LOOP'.
+	* c-c++-common/goacc/kernels-loop-2.c: Likewise.
+	* c-c++-common/goacc/kernels-loop-3.c: Likewise.
+	* c-c++-common/goacc/kernels-loop-n.c: Likewise.
+	* c-c++-common/goacc/kernels-loop-acc-loop.c: New test.
+	* c-c++-common/goacc/kernels-loop-2-acc-loop.c: New test.
+	* c-c++-common/goacc/kernels-loop-3-acc-loop.c: New test.
+	* c-c++-common/goacc/kernels-loop-n-acc-loop.c: New test.
+
 2015-06-19  Tom de Vries  <tom@codesourcery.com>
 
 	* c-c++-common/goacc/kernels-reduction.c: New test.
