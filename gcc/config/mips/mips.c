@@ -19614,7 +19614,7 @@ mips_option_override (void)
 	      "-mcompact-branches=never");
     }
 
-  if (is_micromips && TARGET_MSA && mips_isa_rev >= 6)
+  if (is_micromips && TARGET_MSA)
     error ("unsupported combination: %s", "-mmicromips -mmsa");
 
   /* Require explicit relocs for MIPS R6 onwards.  This enables simplification
