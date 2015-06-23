@@ -1,3 +1,8 @@
+2015-06-23  Gary Funck  <gary@intrepid.com>
+
+	* function.c (assign_parm_setup_reg): Improve check for
+	struct PTS.
+
 2015-06-22  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 224722 into gupc branch.
