@@ -2442,12 +2442,19 @@ cxx_eval_indirect_ref (const constexpr_ctx *ctx, tree t,
 		       bool lval,
 		       bool *non_constant_p, bool *overflow_p)
 {
-  tree orig_op0 = TREE_OPERAND (t, 0);
+  tree r, orig_op0 = TREE_OPERAND (t, 0);
   bool empty_base = false;
 
+  if (TREE_CODE (t) == MEM_REF
+      && (!TREE_OPERAND (t, 1) || !integer_zerop (TREE_OPERAND (t, 1))))
+    {
+      *non_constant_p = true;
+      return t;
+    }
+
   /* First try to simplify it directly.  */
-  tree r = cxx_fold_indirect_ref (EXPR_LOCATION (t), TREE_TYPE (t), orig_op0,
-				  &empty_base);
+  r = cxx_fold_indirect_ref (EXPR_LOCATION (t), TREE_TYPE (t), orig_op0,
+			     &empty_base);
   if (!r)
     {
       /* If that didn't work, evaluate the operand first.  */
@@ -3738,6 +3745,113 @@ tree
 cxx_constant_value (tree t, tree decl)
 {
   return cxx_eval_outermost_constant_expr (t, false, true, decl);
+}
+
+/* Helper routine for fold_simple_on_cst function.  Either return simplified
+   expression T, otherwise NULL_TREE.  */
+
+static tree
+fold_simple_on_cst_1 (tree t)
+{
+  tree op1, op2;
+
+  switch (TREE_CODE (t))
+    {
+    case INTEGER_CST:
+    case REAL_CST:
+    case VECTOR_CST:
+    case FIXED_CST:
+    case COMPLEX_CST:
+      return t;
+    case ABS_EXPR:
+    case NEGATE_EXPR:
+    case BIT_NOT_EXPR:
+    case TRUTH_NOT_EXPR:
+      /* Fall through.  */
+    case NOP_EXPR:
+    case VIEW_CONVERT_EXPR:
+    case CONVERT_EXPR:
+      op1 = fold_simple_on_cst_1 (TREE_OPERAND (t, 0));
+      if (!op1 || (TREE_CODE (t) == NOP_EXPR && TREE_OVERFLOW (op1)))
+	return NULL_TREE;
+
+      t = fold_build1_loc (EXPR_LOCATION (t), TREE_CODE (t), TREE_TYPE (t),
+			   op1);
+      break;
+
+    case BIT_AND_EXPR:
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+    case TRUNC_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case TRUNC_MOD_EXPR:
+    case CEIL_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+    case RDIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case MIN_EXPR:
+    case MAX_EXPR:
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
+    case TRUTH_AND_EXPR:
+    case TRUTH_XOR_EXPR:
+    case LT_EXPR: case LE_EXPR:
+    case GT_EXPR: case GE_EXPR:
+    case EQ_EXPR: case NE_EXPR:
+    case UNORDERED_EXPR: case ORDERED_EXPR:
+    case UNLT_EXPR: case UNLE_EXPR:
+    case UNGT_EXPR: case UNGE_EXPR:
+    case UNEQ_EXPR: case LTGT_EXPR:
+
+      op1 = fold_simple_on_cst_1 (TREE_OPERAND (t, 0));
+      op2 = fold_simple_on_cst_1 (TREE_OPERAND (t, 1));
+      if (!op1 && !op2)
+	return NULL_TREE;
+      if (!op1)
+	op1 = TREE_OPERAND (t, 0);
+      if (!op2)
+	op2 = TREE_OPERAND (t, 1);
+      t = fold_build2_loc (EXPR_LOCATION (t), TREE_CODE (t), TREE_TYPE (t),
+			   op1, op2);
+      break;
+
+    default:
+      return NULL_TREE;
+    }
+  switch (TREE_CODE (t))
+    {
+    case INTEGER_CST:
+    case REAL_CST:
+    case VECTOR_CST:
+    case FIXED_CST:
+    case COMPLEX_CST:
+      break;
+    default:
+      return NULL_TREE;
+    }
+
+  return t;
+}
+
+/* If T is a simple constant expression, returns its simplified value.
+   Otherwise returns T.  In contrast to maybe_constant_value do we
+   simplify only few operations on constant-expressions, and we don't
+   try to simplify constexpressions.  */
+
+tree
+fold_simple_on_cst (tree t)
+{
+  tree r = fold_simple_on_cst_1 (t);
+  if (!r)
+    r = t;
+  return r;
 }
 
 /* If T is a constant expression, returns its reduced value.
