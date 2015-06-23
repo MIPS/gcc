@@ -651,7 +651,7 @@ gomp_acc_remove_pointer (void *h, bool force_copyfrom, int async, int mapnum)
     }
 
   if (force_copyfrom)
-    t->list[0]->copy_from = 1;
+    t->list[0].copy_from = 1;
 
   gomp_mutex_unlock (&acc_dev->lock);
 

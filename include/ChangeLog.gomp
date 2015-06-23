@@ -1,3 +1,8 @@
+2015-06-23  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* gomp-constants.h (GOMP_MAP_ALWAYS_TO_P,
+	GOMP_MAP_ALWAYS_FROM_P): Define.
+
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* gomp-constants.h (GOMP_TASK_FLAG_PRIORITY): Define.

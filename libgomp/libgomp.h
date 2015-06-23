@@ -636,6 +636,15 @@ typedef struct splay_tree_node_s *splay_tree_node;
 typedef struct splay_tree_s *splay_tree;
 typedef struct splay_tree_key_s *splay_tree_key;
 
+struct target_var_desc {
+  /* Splay key.  */
+  splay_tree_key key;
+  /* True if data should be copied from device to host at the end.  */
+  bool copy_from;
+  /* True if data always should be copied from device to host at the end.  */
+  bool always_copy_from;
+};
+
 struct target_mem_desc {
   /* Reference count.  */
   uintptr_t refcount;
@@ -655,9 +664,9 @@ struct target_mem_desc {
   /* Corresponding target device descriptor.  */
   struct gomp_device_descr *device_descr;
 
-  /* List of splay keys to remove (or decrease refcount)
+  /* List of target items to remove (or decrease refcount)
      at the end of region.  */
-  splay_tree_key list[];
+  struct target_var_desc list[];
 };
 
 struct splay_tree_key_s {
@@ -673,8 +682,6 @@ struct splay_tree_key_s {
   uintptr_t refcount;
   /* Asynchronous reference count.  */
   uintptr_t async_refcount;
-  /* True if data should be copied from device to host at the end.  */
-  bool copy_from;
 };
 
 #include "splay-tree.h"

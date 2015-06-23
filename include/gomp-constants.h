@@ -107,6 +107,12 @@ enum gomp_map_kind
 #define GOMP_MAP_POINTER_P(X) \
   ((X) == GOMP_MAP_POINTER)
 
+#define GOMP_MAP_ALWAYS_TO_P(X) \
+  (((X) == GOMP_MAP_ALWAYS_TO) || ((X) == GOMP_MAP_ALWAYS_TOFROM))
+
+#define GOMP_MAP_ALWAYS_FROM_P(X) \
+  (((X) == GOMP_MAP_ALWAYS_FROM) || ((X) == GOMP_MAP_ALWAYS_TOFROM))
+
 
 /* Asynchronous behavior.  Keep in sync with
    libgomp/{openacc.h,openacc.f90,openacc_lib.h}:acc_async_t.  */

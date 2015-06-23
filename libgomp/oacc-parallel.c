@@ -135,8 +135,8 @@ GOACC_parallel (int device, void (*fn) (void *),
 
   devaddrs = gomp_alloca (sizeof (void *) * mapnum);
   for (i = 0; i < mapnum; i++)
-    devaddrs[i] = (void *) (tgt->list[i]->tgt->tgt_start
-			    + tgt->list[i]->tgt_offset);
+    devaddrs[i] = (void *) (tgt->list[i].key->tgt->tgt_start
+			    + tgt->list[i].key->tgt_offset);
 
   acc_dev->openacc.exec_func (tgt_fn, mapnum, hostaddrs, devaddrs, sizes, kinds,
 			      num_gangs, num_workers, vector_length, async,
