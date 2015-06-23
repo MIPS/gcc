@@ -1,3 +1,124 @@
+2015-06-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66636
+	* tree-vect-stmts.c (vectorizable_store): Properly compute the
+	def type for further defs for strided stores.
+
+2015-06-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.md (sel_true<mode>, sel_false<mode>): New
+	conditional selects.
+	(setcc_int<mode>, setcc_float<mode>): Reformat.
+
+2015-06-23  Marek Polacek  <polacek@redhat.com>
+
+	* match.pd ((x + y) - (x | y) -> x & y,
+	(x + y) - (x & y) -> x | y): New patterns.
+
+2015-06-23  Ludovic Courtès  <ludo@gnu.org>
+
+	PR 65711
+	* config/arm/linux-elf.h (LINUX_TARGET_LINK_SPEC): Move
+	'-dynamic-linker' within %{!shared: ...}.
+
+2015-06-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66560
+	* config/i386/predicates.md (addsub_vm_operator): New predicate.
+	(addsub_vs_operator): Ditto.
+	(addsub_vs_parallel): Ditto.
+	* config/i386/sse.md (ssedoublemode): Add V4SF and V2DF modes.
+	(avx_addsubv4df3, avx_addsubv8sf3, sse3_addsubv2df3, sse3_addsubv4sf3):
+	Put minus RTX before plus and adjust vec_merge selector.
+	(*avx_addsubv4df3_1, *avx_addsubv4df3_1s, *sse3_addsubv2df3_1)
+	(*sse_addsubv2df3_1s, *avx_addsubv8sf3_1, *avx_addsubv8sf3_1s)
+	(*sse3_addsubv4sf3_1, *sse_addsubv4sf3_1s): Remove insn patterns.
+	(addsub vec_merge splitters): New combiner splitters.
+	(addsub vec_select/vec_concat splitters): Ditto.
+
+2015-06-23  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/66449
+	* tree-ssa-loop-niter.c (loop_exits_before_overflow): Use
+	POINTER_PLUS_EXPR for pointers.
+
+2015-06-23  Alan Modra  <amodra@gmail.com>
+
+	* rtlanal.c (commutative_operand_precedence): Correct comments.
+	* simplify-rtx.c (simplify_plus_minus_op_data_cmp): Delete forward
+	declaration.  Return an int.  Distinguish REG,REG return from
+	others.
+	(struct simplify_plus_minus_op_data): Make local to function.
+	(simplify_plus_minus): Don't set canonicalized if merely sorting
+	registers.  Avoid packing ops if nothing changes.  White space fixes.
+
+2015-06-22  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* gcc.c (default_compilers): Pass "-o %g.s" to cc1 for headers even if
+	-fdump-ada-spec is passed but not if -fsyntax-only is.
+
+2015-06-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR bootstrap/63740
+	* lra-lives.c (process_bb_lives): Check insn copying the same
+	reload pseudo and don't create a copy for it.
+
+2015-06-22  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (transform_to_exit_first_loop_alt): Add update_stmt
+	for cond_stmt.
+
+2015-06-22  Tom de Vries  <tom@codesourcery.com>
+
+	* builtins.def (DEF_GOMP_BUILTIN): Test
+	'flag_tree_parallelize_loops > 1' instead of
+	'flag_tree_parallelize_loops'.  Test flag_cilkplus.
+
+2015-06-22  Tom de Vries  <tom@codesourcery.com>
+
+	* dominance.c (calculate_dominance_info): Verify dominators if
+	early-out.
+
+2015-06-22  Marek Polacek  <polacek@redhat.com>
+
+	* match.pd ((x ^ y) ^ (x | y) -> x & y,
+	(x & y) + (x ^ y) -> x | y, (x & y) | (x ^ y) -> x | y,
+	(x & y) ^ (x ^ y) -> x | y, (x & y) + (x | y) -> x + y,
+	(x | y) - (x ^ y) -> x & y, (x | y) - (x & y) -> x ^ y): New patterns.
+
+2015-06-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/65871
+	* config/i386/i386.c (ix86_rtx_costs) <case COMPARE>: Ignore the
+	cost of embedded comparison.
+
+2015-06-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/65914
+	* config/rs6000/predicates.md (altivec_register_operand): Permit
+	virtual stack registers.
+	(vsx_register_operand): Likewise.
+	(vfloat_operand): Likewise.
+	(vint_operand): Likewise.
+	(vlogical_operand): Likewise.
+
+2015-06-22  Richard Biener  <rguenther@suse.de>
+
+	* tree-vectorizer.h (_loop_vec_info): Add scalar_cost_vec
+	and single_scalar_iteration_cost members.
+	(LOOP_VINFO_SCALAR_ITERATION_COST): New.
+	(LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST): Likewise.
+	(vect_get_single_scalar_iteration_cost): Remove.
+	* tree-vect-data-refs.c (vect_peeling_hash_get_lowest_cost):
+	Use LOOP_VINFO_SCALAR_ITERATION_COST.
+	* tree-vect-loop.c (destroy_loop_vec_info): Free
+	scalar_cost_vec.
+	(vect_get_single_scalar_iteration_cost): Compute result into
+	LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST and
+	LOOP_VINFO_SCALAR_ITERATION_COST.  Make static.
+	(vect_analyze_loop_2): Call vect_get_single_scalar_iteration_cost.
+	(vect_estimate_min_profitable_iters): Use them.
+
 2015-06-22  Christian Bruel  <christian.bruel@st.com>
 
 	PR target/52144
