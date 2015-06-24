@@ -6224,9 +6224,13 @@ pop_from_top_level_1 (void)
       delete fm;
       s->fold_map = NULL;
     }
-  if (scope_chain && scope_chain->fold_map)
+
+  fm = NULL;
+  if (scope_chain)
+    fm = scope_chain->fold_map;
+  if (fm)
     {
-      delete scope_chain->fold_map;
+      delete fm;
       scope_chain->fold_map = new hash_map<tree, tree>;
     }
 }

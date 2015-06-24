@@ -1790,7 +1790,7 @@ cp_fully_fold (tree x)
 
   /* FIXME:  Condition shouldn't be always true.  Issue is that
      scope_chain's fold_map lives too long.  */
-  if (!ctx)
+  if (!ctx || x)
     {
       hash_map<tree, tree> fold_hash;
       return cp_fold (x, &fold_hash);
@@ -1838,7 +1838,9 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
   case NOP_EXPR:
     if (VOID_TYPE_P (TREE_TYPE (x)))
       return x;
-
+    if (!TREE_OPERAND (x, 0)
+	|| TREE_CODE (TREE_OPERAND (x, 0)) == NON_LVALUE_EXPR)
+      return x;
     /* Fall through.  */
   case ALIGNOF_EXPR:
   case SAVE_EXPR:
