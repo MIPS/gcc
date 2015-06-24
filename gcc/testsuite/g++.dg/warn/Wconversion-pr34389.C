@@ -50,5 +50,5 @@ short  mask5(int x)
 
 short  mask6(short x)
 {
-  return x & -1; // { dg-warning "conversion" }
+  return x & -1;
 }
