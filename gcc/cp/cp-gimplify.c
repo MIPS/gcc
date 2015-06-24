@@ -1788,7 +1788,9 @@ cp_fully_fold (tree x)
 {
   hash_map<tree, tree> *ctx = (scope_chain ? scope_chain->fold_map : NULL);
 
-  if (!ctx)
+  /* FIXME:  Condition shouldn't be always true.  Issue is that
+     scope_chain's fold_map lives too long.  */
+  if (!ctx || x)
     {
       hash_map<tree, tree> fold_hash;
       return cp_fold (x, &fold_hash);
