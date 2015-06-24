@@ -6219,19 +6219,10 @@ pop_from_top_level_1 (void)
   current_function_decl = s->function_decl;
   cp_unevaluated_operand = s->unevaluated_operand;
   c_inhibit_evaluation_warnings = s->inhibit_evaluation_warnings;
-  if (fm && (!scope_chain || scope_chain->fold_map != fm))
-    {
-      delete fm;
-      s->fold_map = NULL;
-    }
-
-  fm = NULL;
-  if (scope_chain)
-    fm = scope_chain->fold_map;
   if (fm)
     {
       delete fm;
-      scope_chain->fold_map = new hash_map<tree, tree>;
+      s->fold_map = NULL;
     }
 }
 
