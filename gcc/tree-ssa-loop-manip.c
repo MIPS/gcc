@@ -588,6 +588,21 @@ replace_uses_in_bbs_by (tree name, tree val, bitmap bbs)
     }
 }
 
+/* Replace uses of OLD_VAL with NEW_VAL in bbs dominated by BB.  */
+
+static void
+replace_uses_in_dominated_bbs (tree old_val, tree new_val, basic_block bb)
+{
+  bitmap dominated = BITMAP_ALLOC (NULL);
+
+  bitmap_get_dominated_by (CDI_DOMINATORS, bb, dominated);
+  bitmap_set_bit (dominated, bb->index);
+
+  replace_uses_in_bbs_by (old_val, new_val, dominated);
+
+  BITMAP_FREE (dominated);
+}
+
 /* Ensure a virtual phi is present in the exit block, if LOOP contains a vdef.
    In other words, ensure loop-closed ssa normal form for virtuals.  */
 
@@ -635,17 +650,8 @@ rewrite_virtuals_into_loop_closed_ssa (struct loop *loop)
 
   tree res_new = copy_ssa_name (final_loop, NULL);
   gphi *nphi = create_phi_node (res_new, exit->dest);
-
-  /* Gather the bbs dominated by the exit block.  */
-  bitmap exit_dominated = BITMAP_ALLOC (NULL);
-  bitmap_get_dominated_by (CDI_DOMINATORS, exit->dest, exit_dominated);
-  bitmap_set_bit (exit_dominated, exit->dest->index);
-
-  replace_uses_in_bbs_by (final_loop, res_new, exit_dominated);
-
+  replace_uses_in_dominated_bbs (final_loop, res_new, exit->dest);
   add_phi_arg (nphi, final_loop, exit, UNKNOWN_LOCATION);
-
-  BITMAP_FREE (exit_dominated);
 }
 
 /* Check invariants of the loop closed ssa form for the USE in BB.  */
