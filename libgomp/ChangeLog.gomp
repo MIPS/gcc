@@ -1,3 +1,46 @@
+2015-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp.h.in (omp_get_num_places, omp_get_place_num_procs,
+	omp_get_place_proc_ids, omp_get_place_num,
+	omp_get_partition_num_places, omp_get_partition_place_nums): New
+	prototypes.
+	* omp_lib.f90.in (omp_get_num_places, omp_get_place_num_procs,
+	omp_get_place_proc_ids, omp_get_place_num,
+	omp_get_partition_num_places, omp_get_partition_place_nums): New
+	interfaces.
+	* omp_lib.h.in (omp_get_num_places, omp_get_place_num_procs,
+	omp_get_place_proc_ids, omp_get_place_num,
+	omp_get_partition_num_places, omp_get_partition_place_nums): New
+	externs.
+	* libgomp.map (OMP_4.1): Export omp_get_num_places,
+	omp_get_place_num_procs, omp_get_place_proc_ids, omp_get_place_num,
+	omp_get_partition_num_places, omp_get_partition_place_nums,
+	omp_get_num_places_, omp_get_place_num_procs_,
+	omp_get_place_num_procs_8_, omp_get_place_proc_ids_,
+	omp_get_place_proc_ids_8_, omp_get_place_num_,
+	omp_get_partition_num_places_, omp_get_partition_place_nums_
+	and omp_get_partition_place_nums_8_.
+	* libgomp.h (gomp_get_place_proc_ids_8): New prototype.
+	* env.c (omp_get_num_places, omp_get_place_num,
+	omp_get_partition_num_places, omp_get_partition_place_nums): New
+	functions, add ialias for them.
+	* fortran.c (omp_get_num_places, omp_get_place_num, 
+	omp_get_partition_num_places, omp_get_partition_place_nums,
+	omp_get_place_num_procs, omp_get_place_proc_ids): New
+	ialias_redirects.
+	(omp_get_num_places_, omp_get_place_num_procs_,
+	omp_get_place_num_procs_8_, omp_get_place_proc_ids_,
+	omp_get_place_proc_ids_8_, omp_get_place_num_,
+	omp_get_partition_num_places_, omp_get_partition_place_nums_,
+	omp_get_partition_place_nums_8_): New functions.
+	* config/linux/affinity.c (omp_get_place_num_procs,
+	omp_get_place_proc_ids, gomp_get_place_proc_ids_8): New functions.
+	* config/posix/affinity.c (omp_get_place_num_procs,
+	omp_get_place_proc_ids, gomp_get_place_proc_ids_8): New functions.
+	* testsuite/libgomp.c/affinity-2.c: New test.
+	* testsuite/libgomp.fortran/affinity1.f90: New test.
+	* testsuite/libgomp.fortran/affinity2.f90: New test.
+
 2015-06-23  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* testsuite/libgomp.c/target-11.c (main): Remove dd from target region.

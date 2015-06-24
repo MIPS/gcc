@@ -1460,6 +1460,53 @@ omp_is_initial_device (void)
   return 1;
 }
 
+int
+omp_get_num_places (void)
+{
+  return gomp_places_list_len;
+}
+
+int
+omp_get_place_num (void)
+{
+  if (gomp_places_list == NULL)
+    return -1;
+
+  struct gomp_thread *thr = gomp_thread ();
+  if (thr->place == 0)
+    gomp_init_affinity ();
+
+  return (int) thr->place - 1;
+}
+
+int
+omp_get_partition_num_places (void)
+{
+  if (gomp_places_list == NULL)
+    return 0;
+
+  struct gomp_thread *thr = gomp_thread ();
+  if (thr->place == 0)
+    gomp_init_affinity ();
+
+  return thr->ts.place_partition_len;
+}
+
+void
+omp_get_partition_place_nums (int *place_nums)
+{
+  if (gomp_places_list == NULL)
+    return;
+
+  struct gomp_thread *thr = gomp_thread ();
+  if (thr->place == 0)
+    gomp_init_affinity ();
+
+  unsigned int i;
+  for (i = 0; i < thr->ts.place_partition_len; i++)
+    *place_nums++ = thr->ts.place_partition_off + i;
+}
+
 ialias (omp_set_dynamic)
 ialias (omp_set_nested)
 ialias (omp_set_num_threads)
@@ -1480,3 +1527,7 @@ ialias (omp_get_num_teams)
 ialias (omp_get_team_num)
 ialias (omp_is_initial_device)
 ialias (omp_get_max_task_priority)
+ialias (omp_get_num_places)
+ialias (omp_get_place_num)
+ialias (omp_get_partition_num_places)
+ialias (omp_get_partition_place_nums)
