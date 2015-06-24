@@ -3753,7 +3753,7 @@ cxx_constant_value (tree t, tree decl)
 static tree
 fold_simple_on_cst_1 (tree t)
 {
-  tree op1, op2;
+  tree op1, op2, op3;
 
   if (TREE_CODE (t) == VAR_DECL
       || processing_template_decl)
@@ -3816,8 +3816,7 @@ fold_simple_on_cst_1 (tree t)
 
       op1 = fold_simple_on_cst_1 (TREE_OPERAND (t, 0));
       op2 = fold_simple_on_cst_1 (TREE_OPERAND (t, 1));
-      if (!op1 && !op2)
-	return NULL_TREE;
+
       if (!op1)
 	op1 = TREE_OPERAND (t, 0);
       if (!op2)
@@ -3827,6 +3826,31 @@ fold_simple_on_cst_1 (tree t)
 			   op1, op2);
       break;
 
+    case VEC_COND_EXPR:
+    case COND_EXPR:
+      if (VOID_TYPE_P (TREE_TYPE (t)))
+	return NULL_TREE;
+      op1 = TREE_OPERAND (t, 0);
+      op1 = fold_simple_on_cst_1 (op1);
+      op2 = TREE_OPERAND (t, 1);
+      op3 = TREE_OPERAND (t, 2);
+      if (!op1)
+	return NULL_TREE;
+      if (integer_zerop (op1) && !TREE_SIDE_EFFECTS (op2))
+	{
+	  t = fold_simple_on_cst_1 (op3);
+	  if (!t)
+	     t = op3;
+	}
+      else if (!integer_zerop (op1) && !TREE_SIDE_EFFECTS (op3))
+	{
+	  t = fold_simple_on_cst_1 (op2);
+	  if (!t)
+	    t = op2;
+	}
+      else
+	return NULL_TREE;
+      break;
     default:
       return NULL_TREE;
     }
