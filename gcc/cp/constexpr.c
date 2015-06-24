@@ -3767,6 +3767,21 @@ fold_simple_on_cst_1 (tree t)
     case FIXED_CST:
     case COMPLEX_CST:
       return t;
+
+    case SIZEOF_EXPR:
+      if (SIZEOF_EXPR_TYPE_P (t))
+        t = cxx_sizeof_or_alignof_type (TREE_TYPE (TREE_OPERAND (t, 0)),
+                                        SIZEOF_EXPR, false);
+      else if (TYPE_P (TREE_OPERAND (t, 0)))
+        t = cxx_sizeof_or_alignof_type (TREE_OPERAND (t, 0),
+                                        SIZEOF_EXPR, false);
+      else
+        t = cxx_sizeof_or_alignof_expr (TREE_OPERAND (t, 0),
+                                        SIZEOF_EXPR, false);
+      if (t == error_mark_node)
+        t = size_one_node;
+      break;
+
     case ABS_EXPR:
     case NEGATE_EXPR:
     case BIT_NOT_EXPR:
