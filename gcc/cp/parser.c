@@ -32123,6 +32123,14 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
 	      error = true;
 	      continue;
 	    }
+	  else if (TREE_PUBLIC (decl))
+	    {
+	      error_at (loc,
+			"invalid use of %<global%> variable %qD "
+			"in %<#pragma acc declare%>", decl);
+	      error = true;
+	      continue;
+	    }
 	  break;
 	}
 

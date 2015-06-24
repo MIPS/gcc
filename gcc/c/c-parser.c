@@ -1767,12 +1767,15 @@ finish_oacc_declare (tree fnbody, tree decls)
 	break;
     }
 
-  stmt = make_node (OACC_DECLARE);
-  TREE_TYPE (stmt) = void_type_node;
-  OACC_DECLARE_CLAUSES (stmt) = ret_clauses;
-  SET_EXPR_LOCATION (stmt, loc);
+  if (ret_clauses)
+    {
+      stmt = make_node (OACC_DECLARE);
+      TREE_TYPE (stmt) = void_type_node;
+      OACC_DECLARE_CLAUSES (stmt) = ret_clauses;
+      SET_EXPR_LOCATION (stmt, loc);
 
-  tsi_link_before (&i, stmt, TSI_CONTINUE_LINKING);
+      tsi_link_before (&i, stmt, TSI_CONTINUE_LINKING);
+    }
 
   DECL_ATTRIBUTES (fndecl)
 	  = remove_attribute ("oacc declare", DECL_ATTRIBUTES (fndecl));
@@ -12808,6 +12811,14 @@ c_parser_oacc_declare (c_parser *parser)
 	    {
 	      error_at (loc,
 			"invalid use of %<extern%> variable %qD "
+			"in %<#pragma acc declare%>", decl);
+	      error = true;
+	      continue;
+	    }
+	  else if (TREE_PUBLIC (decl))
+	    {
+	      error_at (loc,
+			"invalid use of %<global%> variable %qD "
 			"in %<#pragma acc declare%>", decl);
 	      error = true;
 	      continue;

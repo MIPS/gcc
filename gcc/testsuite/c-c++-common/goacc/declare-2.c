@@ -63,4 +63,6 @@ f (void)
 
   extern int ve6;
 #pragma acc declare present_or_create(ve6) /* { dg-error "invalid use of" } */
+
+#pragma acc declare present (v9) /* { dg-error "invalid use of" } */
 }

@@ -4,6 +4,26 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define N 8
+
+void
+subr1 (int *a)
+{
+  int f[N];
+#pragma acc declare copy (f)
+
+#pragma acc parallel copy (a[0:N])
+  {
+    int i;
+
+    for (i = 0; i < N; i++)
+      {
+	f[i] = a[i];
+	a[i] = f[i] + f[i];
+      }
+  }
+}
+
 int b[8];
 #pragma acc declare create (b)
 
@@ -13,7 +33,6 @@ int d[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
 int
 main (int argc, char **argv)
 {
-  const int N = 8;
   int a[N];
   int e[N];
 #pragma acc declare create (e)
@@ -58,6 +77,19 @@ main (int argc, char **argv)
   for (i = 0; i < N; i++)
     {
       if (a[i] != (i + 1) * 2)
+	abort ();
+    }
+
+  for (i = 0; i < N; i++)
+    {
+      a[i] = 1234;
+    }
+
+  subr1 (&a[0]);
+
+  for (i = 0; i < N; i++)
+    {
+      if (a[i] != 1234 * 2)
 	abort ();
     }
 

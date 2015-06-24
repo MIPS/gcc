@@ -1,3 +1,11 @@
+2015-06-24  James Norris  <jnorris@codesourcery.com>
+
+	* c/c-parser.c (finish_oacc_declare): Additional syntax checking
+	and add restriction.
+	* cp/decl.c (finish_oacc_declare): Handle null statement list and
+	add restriction.
+	* cp/parser.c (cp_parser_oacc_declare): Additional syntax checking.
+
 2015-06-24  Tom de Vries  <tom@codesourcery.com>
 
 	* tree-ssa-loop-manip.c (get_virtual_phi): Factor out of ...

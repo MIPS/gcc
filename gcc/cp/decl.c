@@ -14343,7 +14343,17 @@ finish_oacc_declare (tree fndecl, tree decls)
      {
 	t = tsi_stmt (i);
 	if (TREE_CODE (t) == BIND_EXPR)
-	  list = BIND_EXPR_BODY (t);
+	  {
+	    list = BIND_EXPR_BODY (t);
+	    if (TREE_CODE (list) != STATEMENT_LIST)
+	      {
+		stmt = list;
+		list = alloc_stmt_list ();
+		BIND_EXPR_BODY (t) = list;
+		i = tsi_start (list);
+		tsi_link_after (&i, stmt, TSI_CONTINUE_LINKING);
+	      }
+	  }
       }
 
   if (clauses)
@@ -14371,11 +14381,11 @@ finish_oacc_declare (tree fndecl, tree decls)
 	    }
 	}
 
-	if (!found)
-	  {
-	    i = tsi_start (list);
-	    tsi_link_before (&i, stmt, TSI_CONTINUE_LINKING);
-	  }
+      if (!found)
+	{
+	  i = tsi_start (list);
+	  tsi_link_before (&i, stmt, TSI_CONTINUE_LINKING);
+	}
     }
 
     while (oacc_returns)
@@ -14405,18 +14415,21 @@ finish_oacc_declare (tree fndecl, tree decls)
 	free (r);
      }
 
-  for (i = tsi_start (list); !tsi_end_p (i); tsi_next (&i))
+  if (ret_clauses)
     {
-      if (tsi_end_p (i))
-	break;
+      for (i = tsi_start (list); !tsi_end_p (i); tsi_next (&i))
+	{
+	  if (tsi_end_p (i))
+	    break;
+	}
+
+      stmt = make_node (OACC_DECLARE);
+      TREE_TYPE (stmt) = void_type_node;
+      OMP_STANDALONE_CLAUSES (stmt) = ret_clauses;
+      SET_EXPR_LOCATION (stmt, loc);
+
+      tsi_link_before (&i, stmt, TSI_CONTINUE_LINKING);
     }
-
-  stmt = make_node (OACC_DECLARE);
-  TREE_TYPE (stmt) = void_type_node;
-  OMP_STANDALONE_CLAUSES (stmt) = ret_clauses;
-  SET_EXPR_LOCATION (stmt, loc);
-
-  tsi_link_before (&i, stmt, TSI_CONTINUE_LINKING);
 
   DECL_ATTRIBUTES (fndecl)
 	  = remove_attribute ("oacc declare", DECL_ATTRIBUTES (fndecl));
