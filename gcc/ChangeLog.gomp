@@ -1,5 +1,10 @@
 2015-06-24  Tom de Vries  <tom@codesourcery.com>
 
+	* tree-ssa-loop-manip.c (get_virtual_phi): Factor out of ...
+	(rewrite_virtuals_into_loop_closed_ssa): ... here.
+
+2015-06-24  Tom de Vries  <tom@codesourcery.com>
+
 	* tree-ssa-loop-manip.c (replace_uses_in_dominated_bbs): Factor out
 	of ...
 	(rewrite_virtuals_into_loop_closed_ssa): ... here.

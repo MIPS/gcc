@@ -603,6 +603,24 @@ replace_uses_in_dominated_bbs (tree old_val, tree new_val, basic_block bb)
   BITMAP_FREE (dominated);
 }
 
+/* Return the virtual phi in BB.  */
+
+static gphi *
+get_virtual_phi (basic_block bb)
+{
+  for (gphi_iterator gsi = gsi_start_phis (bb);
+       !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    {
+      gphi *phi = gsi.phi ();
+
+      if (virtual_operand_p (PHI_RESULT (phi)))
+	return phi;
+    }
+
+  return NULL;
+}
+
 /* Ensure a virtual phi is present in the exit block, if LOOP contains a vdef.
    In other words, ensure loop-closed ssa normal form for virtuals.  */
 
@@ -612,35 +630,13 @@ rewrite_virtuals_into_loop_closed_ssa (struct loop *loop)
   gphi *phi;
   edge exit = single_dom_exit (loop);
 
-  phi = NULL;
-  for (gphi_iterator gsi = gsi_start_phis (loop->header);
-       !gsi_end_p (gsi);
-       gsi_next (&gsi))
-    {
-      if (virtual_operand_p (PHI_RESULT (gsi.phi ())))
-	{
-	  phi = gsi.phi ();
-	  break;
-	}
-    }
-
+  phi = get_virtual_phi (loop->header);
   if (phi == NULL)
     return;
 
   tree final_loop = PHI_ARG_DEF_FROM_EDGE (phi, single_succ_edge (loop->latch));
 
-  phi = NULL;
-  for (gphi_iterator gsi = gsi_start_phis (exit->dest);
-       !gsi_end_p (gsi);
-       gsi_next (&gsi))
-    {
-      if (virtual_operand_p (PHI_RESULT (gsi.phi ())))
-	{
-	  phi = gsi.phi ();
-	  break;
-	}
-    }
-
+  phi = get_virtual_phi (exit->dest);
   if (phi != NULL)
     {
       tree final_exit = PHI_ARG_DEF_FROM_EDGE (phi, exit);
