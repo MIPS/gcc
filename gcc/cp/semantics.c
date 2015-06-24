@@ -2561,9 +2561,10 @@ finish_unary_op_expr (location_t loc, enum tree_code code, tree expr,
   tree result = build_x_unary_op (loc, code, expr, complain);
   tree result_ovl =  result;
 
+  expr_ovl = fold_simple_on_cst (expr_ovl);
   STRIP_NOPS (expr_ovl);
   result_ovl = fold_simple_on_cst (result);
-
+ 
   if ((complain & tf_warning)
       && TREE_OVERFLOW_P (result_ovl) && !TREE_OVERFLOW_P (expr_ovl))
     overflow_warning (input_location, result_ovl);
