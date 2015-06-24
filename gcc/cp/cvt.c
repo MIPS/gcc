@@ -656,7 +656,7 @@ cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
       /* The maybe_constant_value wraps an INTEGER_CST with TREE_OVERFLOW
 	 in a NOP_EXPR so that it isn't TREE_CONSTANT anymore.  */
       STRIP_NOPS (stripped);
-
+      folded = cp_fully_fold (folded);
       if (!TREE_OVERFLOW_P (stripped)
 	  && folded_result != error_mark_node)
 	warnings_for_convert_and_check (input_location, type, folded,
