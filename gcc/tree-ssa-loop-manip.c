@@ -569,6 +569,93 @@ rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
   free (use_blocks);
 }
 
+/* Replace uses of NAME by VAL in blocks BBS.  */
+
+static void
+replace_uses_in_bbs_by (tree name, tree val, bitmap bbs)
+{
+  gimple use_stmt;
+  imm_use_iterator imm_iter;
+
+  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, name)
+    {
+      if (!bitmap_bit_p (bbs, gimple_bb (use_stmt)->index))
+	continue;
+
+      use_operand_p use_p;
+      FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+	SET_USE (use_p, val);
+    }
+}
+
+/* Ensure a virtual phi is present in the exit block, if LOOP contains a vdef.
+   In other words, ensure loop-closed ssa normal form for virtuals.  */
+
+void
+rewrite_virtuals_into_loop_closed_ssa (struct loop *loop)
+{
+  gphi *phi;
+  edge exit = single_dom_exit (loop);
+
+  phi = NULL;
+  for (gphi_iterator gsi = gsi_start_phis (loop->header);
+       !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    {
+      if (virtual_operand_p (PHI_RESULT (gsi.phi ())))
+	{
+	  phi = gsi.phi ();
+	  break;
+	}
+    }
+
+  if (phi == NULL)
+    return;
+
+  tree final_loop = PHI_ARG_DEF_FROM_EDGE (phi, single_succ_edge (loop->latch));
+
+  phi = NULL;
+  for (gphi_iterator gsi = gsi_start_phis (exit->dest);
+       !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    {
+      if (virtual_operand_p (PHI_RESULT (gsi.phi ())))
+	{
+	  phi = gsi.phi ();
+	  break;
+	}
+    }
+
+  if (phi != NULL)
+    {
+      tree final_exit = PHI_ARG_DEF_FROM_EDGE (phi, exit);
+      gcc_assert (operand_equal_p (final_loop, final_exit, 0));
+      return;
+    }
+
+  tree res_new = copy_ssa_name (final_loop, NULL);
+  gphi *nphi = create_phi_node (res_new, exit->dest);
+
+  /* Gather the bbs dominated by the exit block.  */
+  bitmap exit_dominated = BITMAP_ALLOC (NULL);
+  bitmap_set_bit (exit_dominated, exit->dest->index);
+  vec<basic_block> exit_dominated_vec
+    = get_dominated_by (CDI_DOMINATORS, exit->dest);
+
+  int i;
+  basic_block dom_bb;
+  FOR_EACH_VEC_ELT (exit_dominated_vec, i, dom_bb)
+    bitmap_set_bit (exit_dominated, dom_bb->index);
+
+  exit_dominated_vec.release ();
+
+  replace_uses_in_bbs_by (final_loop, res_new, exit_dominated);
+
+  add_phi_arg (nphi, final_loop, exit, UNKNOWN_LOCATION);
+
+  BITMAP_FREE (exit_dominated);
+}
+
 /* Check invariants of the loop closed ssa form for the USE in BB.  */
 
 static void

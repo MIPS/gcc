@@ -1,3 +1,11 @@
+2015-06-24  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (replace_uses_in_bbs_by)
+	(rewrite_virtuals_into_loop_closed_ssa): Move to ...
+	* tree-ssa-loop-manip.c: here.
+	* tree-ssa-loop-manip.h (rewrite_virtuals_into_loop_closed_ssa):
+	Declare.
+
 2015-06-23  Nathan Sidwell  <nathan@codesourcery.com>
 
 	Port from trunk.
