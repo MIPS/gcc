@@ -635,25 +635,24 @@ cp_convert (tree type, tree expr, tsubst_flags_t complain)
 tree
 cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
 {
-  tree result, r, x;
+  tree result;
 
   if (TREE_TYPE (expr) == type)
     return expr;
 
+  if (expr == error_mark_node)
+    return expr;
   result = cp_convert (type, expr, complain);
-
-  x = cp_fully_fold (expr);
-  r = fold (cp_convert (type, x, complain));
 
   if ((complain & tf_warning)
       && c_inhibit_evaluation_warnings == 0)
     {
-      tree folded = maybe_constant_value (x);
+      tree folded = maybe_constant_value (expr);
       tree stripped = folded;
       tree folded_result;
       folded_result
-	= folded != x ? fold (cp_convert (type, folded, complain)) : r;
-
+	= folded != expr ? cp_convert (type, folded, complain) : result;
+      folded_result = cp_fully_fold (folded_result);
       /* The maybe_constant_value wraps an INTEGER_CST with TREE_OVERFLOW
 	 in a NOP_EXPR so that it isn't TREE_CONSTANT anymore.  */
       STRIP_NOPS (stripped);
