@@ -757,6 +757,27 @@ set_immediate_dominator (enum cdi_direction dir, basic_block bb,
     dom_computed[dir_index] = DOM_NO_FAST_QUERY;
 }
 
+/* Returns in BBS the list of basic blocks immediately dominated by BB, in the
+   direction DIR.  As get_dominated_by, but returns result as a bitmap.  */
+
+void
+bitmap_get_dominated_by (enum cdi_direction dir, basic_block bb, bitmap bbs)
+{
+  unsigned int dir_index = dom_convert_dir_to_idx (dir);
+  struct et_node *node = bb->dom[dir_index], *son = node->son, *ason;
+
+  bitmap_clear (bbs);
+
+  gcc_checking_assert (dom_computed[dir_index]);
+
+  if (!son)
+    return;
+
+  bitmap_set_bit (bbs, ((basic_block) son->data)->index);
+  for (ason = son->right; ason != son; ason = ason->right)
+    bitmap_set_bit (bbs, ((basic_block) son->data)->index);
+}
+
 /* Returns the list of basic blocks immediately dominated by BB, in the
    direction DIR.  */
 vec<basic_block> 

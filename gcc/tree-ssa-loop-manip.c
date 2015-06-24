@@ -638,16 +638,8 @@ rewrite_virtuals_into_loop_closed_ssa (struct loop *loop)
 
   /* Gather the bbs dominated by the exit block.  */
   bitmap exit_dominated = BITMAP_ALLOC (NULL);
+  bitmap_get_dominated_by (CDI_DOMINATORS, exit->dest, exit_dominated);
   bitmap_set_bit (exit_dominated, exit->dest->index);
-  vec<basic_block> exit_dominated_vec
-    = get_dominated_by (CDI_DOMINATORS, exit->dest);
-
-  int i;
-  basic_block dom_bb;
-  FOR_EACH_VEC_ELT (exit_dominated_vec, i, dom_bb)
-    bitmap_set_bit (exit_dominated, dom_bb->index);
-
-  exit_dominated_vec.release ();
 
   replace_uses_in_bbs_by (final_loop, res_new, exit_dominated);
 

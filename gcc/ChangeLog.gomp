@@ -1,5 +1,12 @@
 2015-06-24  Tom de Vries  <tom@codesourcery.com>
 
+	* dominance.c (bitmap_get_dominated_by): New function.
+	* dominance.h (bitmap_get_dominated_by): Declare.
+	* tree-ssa-loop-manip.c (rewrite_virtuals_into_loop_closed_ssa): Use
+	bitmap_get_dominated_by.
+
+2015-06-24  Tom de Vries  <tom@codesourcery.com>
+
 	* tree-parloops.c (replace_uses_in_bbs_by)
 	(rewrite_virtuals_into_loop_closed_ssa): Move to ...
 	* tree-ssa-loop-manip.c: here.
