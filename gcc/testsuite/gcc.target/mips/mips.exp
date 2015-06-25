@@ -1161,6 +1161,11 @@ proc mips-dg-options { args } {
 		       || [mips_have_test_option_p options "-mnan=legacy"]
 		       || [mips_have_test_option_p options "-mabs=legacy"]
 		       || [mips_have_test_option_p options "!HAS_LSA"]) } {
+	    if { [istarget "mips-img-linux-gnu"]
+	         && ([mips_have_test_option_p options "-mpaired-single"] 
+		     || [mips_have_test_option_p options "-mips16"])} {
+	       error "No mips-img-linux-gnu multilib support to downgrade test"
+	    }
 	    if { $gp_size == 32 } {
 		mips_make_test_option options "-mips32r5"
 	    } else {
