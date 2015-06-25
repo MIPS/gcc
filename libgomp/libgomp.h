@@ -644,6 +644,12 @@ struct target_var_desc {
   bool copy_from;
   /* True if data always should be copied from device to host at the end.  */
   bool always_copy_from;
+  /* Used for unmapping of array sections, can be nonzero only when
+     always_copy_from is true.  */
+  uintptr_t offset;
+  /* Used for unmapping of array sections, can be less than the size of the
+     whole object only when always_copy_from is true.  */
+  uintptr_t length;
 };
 
 struct target_mem_desc {

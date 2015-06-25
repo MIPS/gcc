@@ -1,3 +1,13 @@
+2015-06-25  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* libgomp.h (struct target_var_desc): Add offset and length.
+	* target.c (gomp_map_vars_existing): New argument tgt_var, fill it.
+	(gomp_map_vars): Move filling of tgt->list[i] into
+	gomp_map_vars_existing.  Add missed case GOMP_MAP_ALWAYS_FROM.
+	(gomp_unmap_vars): Add list[i].offset to host and target addresses,
+	use list[i].length instead of k->host_end - k->host_start.
+	* testsuite/libgomp.c/target-11.c: Extend for testing array sections.
+
 2015-06-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp.h.in (omp_get_num_places, omp_get_place_num_procs,
