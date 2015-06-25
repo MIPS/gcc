@@ -1,3 +1,11 @@
+2015-06-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-regalloc.c (visit_insn): New function.
+	(linear_scan_regalloc): Use the newly added function and
+	visit also all insns that belong to a call block insn.
+	(merge_live_range_for_insn): Likewise.
+	(linear_scan_regalloc): Likewise.
+
 2015-06-19  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-gen.c (hsa_append_insn_after): New function.
