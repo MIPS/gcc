@@ -422,6 +422,8 @@ microblaze*-*-*)
 mips*-*-*)
 	cpu_type=mips
 	need_64bit_hwint=yes
+	c_target_objs="mips-c.o"
+	cxx_target_objs="mips-c.o"
 	extra_headers="loongson.h msa.h"
 	extra_options="${extra_options} g.opt mips/mips-tables.opt"
 	;;
@@ -1964,6 +1966,7 @@ mips*-img-linux*)
 	gnu_ld=yes
 	gas=yes
 	TM_MULTILIB_EXCEPTIONS_CONFIG="*mclib=*"
+	default_gnu_indirect_function=no
 	;;
 mips*-mti-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/linux.h mips/linux-common.h mips/mti-linux.h"
@@ -1975,10 +1978,12 @@ mips*-mti-linux*)
 	gnu_ld=yes
 	gas=yes
 	TM_MULTILIB_EXCEPTIONS_CONFIG="*mclib=*"
+	default_gnu_indirect_function=no
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/linux.h mips/linux-common.h"
 	extra_options="${extra_options} linux-android.opt"
+	default_gnu_indirect_function=yes
 	case ${target} in
 		mips64*android*)
 			default_mips_arch=mips64r6

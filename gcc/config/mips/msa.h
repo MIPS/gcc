@@ -27,7 +27,12 @@
 #ifndef _MSA_H
 #define _MSA_H 1
 
-#if defined(__mips_msa)
+#ifndef __mips_msa
+#pragma GCC push_options
+#pragma GCC target("msa")
+#define __disable_mips_msa_
+#endif
+
 typedef signed char v16i8 __attribute__((vector_size(16), aligned(16)));
 typedef signed char v16i8_b __attribute__((vector_size(16), aligned(1)));
 typedef unsigned char v16u8 __attribute__((vector_size(16), aligned(16)));
@@ -582,5 +587,10 @@ typedef double v2f64_d __attribute__ ((vector_size(16), aligned(8)));
 #define __msa_cast_to_vector_double __builtin_msa_cast_to_vector_double
 #define __msa_cast_to_scalar_float __builtin_msa_cast_to_scalar_float
 #define __msa_cast_to_scalar_double __builtin_msa_cast_to_scalar_double
-#endif /* defined(__mips_msa) */
+
+#ifdef __disable_mips_msa_
+#undef __disable_mips_msa_
+#pragma GCC pop_options
+#endif /* __disable_mips_msa_ */
+
 #endif /* _MSA_H */

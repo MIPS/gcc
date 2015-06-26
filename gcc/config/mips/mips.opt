@@ -62,8 +62,62 @@ mimadd
 Target Report Mask(IMADD)
 Use integer madd/msub instructions
 
+;; Definitions that will be added to the cl_target_option structure
+
+;; Target flags that were passed by the user
+Variable
+int mips_target_flags_explicit
+
+TargetSave
+HOST_WIDE_INT x_mips_target_flags_explicit
+
+;; Base state of options
+TargetSave
+HOST_WIDE_INT mips_base_target_flags
+
+;; State of compression mode
+TargetSave
+unsigned HOST_WIDE_INT mips_base_compression_flags
+
+;; The current architecture
+TargetSave
+unsigned char mips_arch
+
+;; The architecture that was passed by the user
+Variable
+int mips_arch_option_explicit
+
+TargetSave
+HOST_WIDE_INT x_mips_arch_option_explicit
+
+;; The ISA level associated with mips_arch
+TargetSave
+int mips_isa
+
+;; The ISA revision level.  This is 0 for MIPS I to V and N for MIPS{32,64}rN
+TargetSave
+int mips_isa_rev
+
+;; The ISA that was passed by the user
+Variable
+int mips_isa_option_explicit
+
+TargetSave
+HOST_WIDE_INT x_mips_isa_option_explicit
+
+;; The processor that we should tune the code for
+TargetSave
+unsigned char mips_tune
+
+;; The tune option that was passed by the user
+Variable
+int mips_tune_option_explicit
+
+TargetSave
+HOST_WIDE_INT x_mips_tune_option_explicit
+
 march=
-Target RejectNegative Joined Var(mips_arch_option) ToLower Enum(mips_arch_opt_value)
+Target RejectNegative Joined Var(mips_arch_option) ToLower Enum(mips_arch_opt_value) Save
 -march=ISA	Generate code for the given ISA
 
 mbranch-cost=
@@ -198,15 +252,15 @@ Target Report Var(TARGET_FP_EXCEPTIONS) Init(1)
 FP exceptions are enabled
 
 mfp32
-Target Report RejectNegative InverseMask(FLOAT64)
+Target Report RejectNegative InverseMask(FLOAT64) Save
 Use 32-bit floating-point registers
 
 mfpxx
-Target Report RejectNegative Mask(FLOATXX)
+Target Report RejectNegative Mask(FLOATXX) Save
 Conform to the o32 FPXX ABI
 
 mfp64
-Target Report RejectNegative Mask(FLOAT64)
+Target Report RejectNegative Mask(FLOAT64) Save
 Use 64-bit floating-point registers
 
 mflush-func=
@@ -264,7 +318,7 @@ Target Report Var(TARGET_INTERLINK_COMPRESSED) Init(0)
 An alias for minterlink-compressed provided for backward-compatibility.
 
 mips
-Target RejectNegative Joined ToLower Enum(mips_mips_opt_value) Var(mips_isa_option)
+Target RejectNegative Joined ToLower Enum(mips_mips_opt_value) Var(mips_isa_option) Save
 -mipsN	Generate code for ISA level N
 
 mips16
@@ -308,7 +362,7 @@ Target Report Mask(MICROMIPS) Var(mips_ase_flags) Save
 Use microMIPS instructions
 
 mmsa
-Target Report Var(TARGET_MSA)
+Target Report Mask(MSA) Var(mips_ase_flags) Save
 Use MIPS MSA Extension instructions
 
 mmt
@@ -397,11 +451,11 @@ Target Report Mask(SYNCI)
 Use synci instruction to invalidate i-cache
 
 mlra
-Target Report Var(mips_lra_flag) Init(1) Save
+Target Report Var(mips_lra_flag) Init(1)
 Use LRA instead of reload
 
 mtune=
-Target RejectNegative Joined Var(mips_tune_option) ToLower Enum(mips_arch_opt_value)
+Target RejectNegative Joined Var(mips_tune_option) ToLower Enum(mips_arch_opt_value) Save
 -mtune=PROCESSOR	Optimize the output for PROCESSOR
 
 muninit-const-in-rodata
@@ -425,7 +479,7 @@ Target Report Var(TARGET_XGOT)
 Lift restrictions on GOT size
 
 modd-spreg
-Target Report Mask(ODD_SPREG)
+Target Report Mask(ODD_SPREG) Save
 Enable use of odd-numbered single-precision registers
 
 mframe-header-opt

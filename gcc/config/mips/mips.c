@@ -7256,6 +7256,42 @@ mips_start_unique_function (const char *name)
 static void
 mips_start_function_definition (const char *name, bool mips16_p)
 {
+  tree target_opts = NULL_TREE;
+
+  if (current_function_decl)
+    target_opts = DECL_FUNCTION_SPECIFIC_TARGET (current_function_decl);
+
+  if (target_opts)
+    {
+      cl_target_option *opt = TREE_TARGET_OPTION (target_opts);
+
+      fputs ("\t.set\tpush\n", asm_out_file);
+
+      if (opt->x_mips_arch_option_explicit)
+	fprintf (asm_out_file, "\t.set\tarch=%s\n",
+		 mips_cpu_info_table[opt->x_mips_arch_option].name);
+
+      if (TARGET_FLOATXX)
+	fputs ("\t.set\tfp=xx\n", asm_out_file);
+      else if (TARGET_FLOAT64)
+	fputs ("\t.set\tfp=64\n", asm_out_file);
+      else
+	fputs ("\t.set\tfp=32\n", asm_out_file);
+
+      if (TARGET_ODD_SPREG)
+	fputs ("\t.set\toddspreg\n", asm_out_file);
+      else
+	fputs ("\t.set\tnooddspreg\n", asm_out_file);
+
+      if (TARGET_MSA)
+	fputs ("\t.set\tmsa\n", asm_out_file);
+
+      if (TARGET_DSPR2)
+	fputs ("\t.set\tdspr2\n", asm_out_file);
+      else if (TARGET_DSP)
+	fputs ("\t.set\tdsp\n", asm_out_file);
+    }
+
   if (mips16_p)
     fprintf (asm_out_file, "\t.set\tmips16\n");
   else
@@ -7287,6 +7323,14 @@ mips_start_function_definition (const char *name, bool mips16_p)
 static void
 mips_end_function_definition (const char *name)
 {
+  tree target_opts = NULL_TREE;
+
+  if (current_function_decl)
+    target_opts = DECL_FUNCTION_SPECIFIC_TARGET (current_function_decl);
+
+  if (target_opts)
+    fputs ("\t.set\tpop\n", asm_out_file);
+
   if (!flag_inhibit_size_directive)
     {
       fputs ("\t.end\t", asm_out_file);
@@ -17291,7 +17335,12 @@ mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   gcc_assert (fcode < ARRAY_SIZE (mips_builtins));
   d = &mips_builtins[fcode];
   avail = d->avail ();
-  gcc_assert (avail != 0);
+  if (avail == 0)
+    {
+      error ("built-in function %qE requires target pragma or attribute",
+	     DECL_NAME (fndecl));
+      return const0_rtx;
+    }
   if (TARGET_MIPS16 && !(avail & BUILTIN_AVAIL_MIPS16))
     {
       error ("built-in function %qE not supported for MIPS16",
@@ -18167,6 +18216,8 @@ mips_annotate_pic_calls (void)
     FOR_BB_INSNS (bb, insn)
     {
       rtx call, reg, symbol, second_call;
+      rtx call_decl;
+      tree ifunc = NULL_TREE;
 
       second_call = 0;
       call = mips_call_expr_from_insn (insn, &second_call);
@@ -18179,6 +18230,12 @@ mips_annotate_pic_calls (void)
 
       symbol = mips_find_pic_call_symbol (insn, reg, true);
       if (symbol)
+	{
+	  tree fndecl = XTREE (symbol, 1);
+	  if (fndecl && TREE_CODE (fndecl) == FUNCTION_DECL)
+	    ifunc = lookup_attribute ("ifunc", DECL_ATTRIBUTES (fndecl));
+	}
+      if (symbol && !ifunc)
 	{
 	  mips_annotate_pic_call_expr (call, symbol);
 	  if (second_call)
@@ -19721,6 +19778,25 @@ mips_set_compression_mode (unsigned int compression_mode)
   old_compression_mode = compression_mode;
 }
 
+/* Remember the last target of mips_set_current_function.  */
+static GTY(()) tree mips_previous_fndecl;
+
+void
+mips_reset_previous_fndecl (void)
+{
+  tree new_tree = target_option_current_node;
+  cl_target_option_restore (&global_options,
+			    TREE_TARGET_OPTION (new_tree));
+  if (TREE_TARGET_GLOBALS (new_tree))
+    restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
+  else if (new_tree == target_option_default_node)
+    restore_target_globals (&default_target_globals);
+  else
+    TREE_TARGET_GLOBALS (new_tree) =
+     save_target_globals_default_opts();
+  mips_previous_fndecl = NULL_TREE;
+}
+
 /* Implement TARGET_SET_CURRENT_FUNCTION.  Decide whether the current
    function should use the MIPS16 or microMIPS ISA and switch modes
    accordingly.  */
@@ -19728,6 +19804,45 @@ mips_set_compression_mode (unsigned int compression_mode)
 static void
 mips_set_current_function (tree fndecl)
 {
+  tree old_tree;
+
+  /* Only change the context if the function changes.  This hook is called
+     several times in the course of compiling a function, and we don't want to
+     slow things down too much or call target_reinit when it isn't safe.  */
+  if (fndecl == mips_previous_fndecl)
+    return;
+
+  if (mips_previous_fndecl == NULL_TREE)
+    old_tree = target_option_current_node;
+  else if (DECL_FUNCTION_SPECIFIC_TARGET (mips_previous_fndecl))
+    old_tree = DECL_FUNCTION_SPECIFIC_TARGET (mips_previous_fndecl);
+  else
+    old_tree = target_option_current_node;
+
+  if (fndecl == NULL_TREE)
+    {
+      if (old_tree != target_option_current_node)
+	mips_reset_previous_fndecl ();
+      return;
+    }
+
+  tree new_tree = DECL_FUNCTION_SPECIFIC_TARGET (fndecl);
+  if (new_tree == NULL_TREE)
+    new_tree = target_option_default_node;
+
+  if (old_tree != new_tree)
+    {
+      cl_target_option_restore (&global_options,
+				TREE_TARGET_OPTION (new_tree));
+      if (TREE_TARGET_GLOBALS (new_tree))
+	restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
+      else if (new_tree == target_option_default_node)
+	restore_target_globals (&default_target_globals);
+      else
+	TREE_TARGET_GLOBALS (new_tree) = save_target_globals_default_opts ();
+    }
+
+  mips_previous_fndecl = fndecl;
   mips_set_compression_mode (mips_get_compress_mode (fndecl));
 }
 
@@ -19779,6 +19894,18 @@ mips_cpu_info_from_opt (int opt)
     }
 }
 
+/* Return a default mips_cpu_info entry determined by an option string STR,
+   or -1 if the ISA isn't valid.  */
+
+static int
+mips_cpu_info_from_name (const char *str)
+{
+  unsigned int i;
+  for (i = 0; i < ARRAY_SIZE (mips_cpu_info_table); i++)
+    if (strcmp (mips_cpu_info_table[i].name, str) == 0)
+      return i;
+  return -1;
+}
 /* Return a default mips_cpu_info entry, given that no -march= option
    was explicitly specified.  */
 
@@ -19800,6 +19927,17 @@ mips_default_arch (void)
 #endif
 }
 
+/* Return a CPU revision number.  */
+
+static int
+mips_get_isa_rev (int mips_isa)
+{
+  if (mips_isa < 32)
+    return 0;
+  else
+    return (mips_isa & 31) + 1;
+}
+
 /* Set up globals to generate code for the ISA or processor
    described by INFO.  */
 
@@ -19811,10 +19949,7 @@ mips_set_architecture (const struct mips_cpu_info *info)
       mips_arch_info = info;
       mips_arch = info->cpu;
       mips_isa = info->isa;
-      if (mips_isa < 32)
-	mips_isa_rev = 0;
-      else
-	mips_isa_rev = (mips_isa & 31) + 1;
+      mips_isa_rev = mips_get_isa_rev (mips_isa);
     }
 }
 
@@ -19830,15 +19965,24 @@ mips_set_tune (const struct mips_cpu_info *info)
     }
 }
 
-/* Implement TARGET_OPTION_OVERRIDE.  */
+/* Override settings based on options.  MAIN_ARGS_P is true for options
+   coming from the command line, otherwise they are from attributes.  */
 
-static void
-mips_option_override (void)
+void
+mips_option_override_internal (bool main_args_p)
 {
   int i, start, regno, mode;
   unsigned int is_micromips;
 
-  if (global_options_set.x_mips_isa_option)
+  if (main_args_p)
+    {
+      mips_target_flags_explicit = global_options_set.x_target_flags;
+      mips_arch_option_explicit = global_options_set.x_mips_arch_option;
+      mips_isa_option_explicit = global_options_set.x_mips_isa_option;
+      mips_tune_option_explicit = global_options_set.x_mips_tune_option;
+    }
+
+  if (mips_isa_option_explicit)
     mips_isa_option_info = &mips_cpu_info_table[mips_isa_option];
 
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
@@ -19864,7 +20008,7 @@ mips_option_override (void)
   if (TARGET_NO_FLOAT)
     {
       target_flags |= MASK_SOFT_FLOAT_ABI;
-      target_flags_explicit |= MASK_SOFT_FLOAT_ABI;
+      mips_target_flags_explicit |= MASK_SOFT_FLOAT_ABI;
     }
 
   if (TARGET_FLIP_MIPS16)
@@ -19879,7 +20023,7 @@ mips_option_override (void)
      Similar code was added to GAS 2.14 (see tc-mips.c:md_after_parse_args()).
      The GAS and GCC code should be kept in sync as much as possible.  */
 
-  if (global_options_set.x_mips_arch_option)
+  if (mips_arch_option_explicit)
     mips_set_architecture (mips_cpu_info_from_opt (mips_arch_option));
 
   if (mips_isa_option_info != 0)
@@ -19901,13 +20045,13 @@ mips_option_override (void)
 	   mips_arch_info->name);
 
   /* Optimize for mips_arch, unless -mtune selects a different processor.  */
-  if (global_options_set.x_mips_tune_option)
+  if (mips_tune_option_explicit)
     mips_set_tune (mips_cpu_info_from_opt (mips_tune_option));
 
   if (mips_tune_info == 0)
     mips_set_tune (mips_arch_info);
 
-  if ((target_flags_explicit & MASK_64BIT) != 0)
+  if ((mips_target_flags_explicit & MASK_64BIT) != 0)
     {
       /* The user specified the size of the integer registers.  Make sure
 	 it agrees with the ABI and ISA.  */
@@ -19929,7 +20073,7 @@ mips_option_override (void)
 	target_flags |= MASK_64BIT;
     }
 
-  if ((target_flags_explicit & MASK_FLOAT64) != 0)
+  if ((mips_target_flags_explicit & MASK_FLOAT64) != 0)
     {
       if (mips_isa_rev >= 6 && !TARGET_FLOAT64)
 	error ("the %qs architecture does not support %<-mfp32%>",
@@ -19983,7 +20127,7 @@ mips_option_override (void)
 
   /* If a -mlong* option was given, check that it matches the ABI,
      otherwise infer the -mlong* setting from the other options.  */
-  if ((target_flags_explicit & MASK_LONG64) != 0)
+  if ((mips_target_flags_explicit & MASK_LONG64) != 0)
     {
       if (TARGET_LONG64)
 	{
@@ -20033,7 +20177,7 @@ mips_option_override (void)
      architecture and tuning flags.  Annulled delay slots are a
      size win, so we only consider the processor-specific tuning
      for !optimize_size.  */
-  if ((target_flags_explicit & MASK_BRANCHLIKELY) == 0)
+  if ((mips_target_flags_explicit & MASK_BRANCHLIKELY) == 0)
     {
       if (ISA_HAS_BRANCHLIKELY
 	  && ((optimize_size && strncmp (mips_arch_info->name, "mips", 4) != 0)
@@ -20049,7 +20193,7 @@ mips_option_override (void)
   /* If the user hasn't specified -mimadd or -mno-imadd set
      MASK_IMADD based on the target architecture and tuning
      flags.  */
-  if ((target_flags_explicit & MASK_IMADD) == 0)
+  if ((mips_target_flags_explicit & MASK_IMADD) == 0)
     {
       if (ISA_HAS_MADD_MSUB &&
           (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0)
@@ -20063,7 +20207,7 @@ mips_option_override (void)
 
   /* If neither -modd-spreg nor -mno-odd-spreg was given on the command
      line, set MASK_ODD_SPREG based on the ISA and ABI.  */
-  if ((target_flags_explicit & MASK_ODD_SPREG) == 0)
+  if ((mips_target_flags_explicit & MASK_ODD_SPREG) == 0)
     {
       /* Disable TARGET_ODD_SPREG when using the o32 FPXX ABI.  */
       if (!ISA_HAS_ODD_SPREG || TARGET_FLOATXX)
@@ -20139,12 +20283,12 @@ mips_option_override (void)
   /* -mvr4130-align is a "speed over size" optimization: it usually produces
      faster code, but at the expense of more nops.  Enable it at -O3 and
      above.  */
-  if (optimize > 2 && (target_flags_explicit & MASK_VR4130_ALIGN) == 0)
+  if (optimize > 2 && (mips_target_flags_explicit & MASK_VR4130_ALIGN) == 0)
     target_flags |= MASK_VR4130_ALIGN;
 
   /* Prefer a call to memcpy over inline code when optimizing for size,
      though see MOVE_RATIO in mips.h.  */
-  if (optimize_size && (target_flags_explicit & MASK_MEMCPY) == 0)
+  if (optimize_size && (mips_target_flags_explicit & MASK_MEMCPY) == 0)
     target_flags |= MASK_MEMCPY;
 
   /* If we have a nonzero small-data limit, check that the -mgpopt
@@ -20203,7 +20347,7 @@ mips_option_override (void)
   /* Make sure that the user didn't turn off paired single support when
      MIPS-3D support is requested.  */
   if (TARGET_MIPS3D
-      && (target_flags_explicit & MASK_PAIRED_SINGLE_FLOAT)
+      && (mips_target_flags_explicit & MASK_PAIRED_SINGLE_FLOAT)
       && !TARGET_PAIRED_SINGLE_FLOAT)
     error ("%<-mips3d%> requires %<-mpaired-single%>");
 
@@ -20334,19 +20478,19 @@ mips_option_override (void)
 
   /* Default to working around R4000 errata only if the processor
      was selected explicitly.  */
-  if ((target_flags_explicit & MASK_FIX_R4000) == 0
+  if ((mips_target_flags_explicit & MASK_FIX_R4000) == 0
       && strcmp (mips_arch_info->name, "r4000") == 0)
     target_flags |= MASK_FIX_R4000;
 
   /* Default to working around R4400 errata only if the processor
      was selected explicitly.  */
-  if ((target_flags_explicit & MASK_FIX_R4400) == 0
+  if ((mips_target_flags_explicit & MASK_FIX_R4400) == 0
       && strcmp (mips_arch_info->name, "r4400") == 0)
     target_flags |= MASK_FIX_R4400;
 
   /* Default to working around R10000 errata only if the processor
      was selected explicitly.  */
-  if ((target_flags_explicit & MASK_FIX_R10000) == 0
+  if ((mips_target_flags_explicit & MASK_FIX_R10000) == 0
       && strcmp (mips_arch_info->name, "r10000") == 0)
     target_flags |= MASK_FIX_R10000;
 
@@ -20357,7 +20501,7 @@ mips_option_override (void)
 	2. The selected ISA does not support branch-likely and
 	   the command line does not include -mbranch-likely.  */
   if (TARGET_FIX_R10000
-      && ((target_flags_explicit & MASK_BRANCHLIKELY) == 0
+      && ((mips_target_flags_explicit & MASK_BRANCHLIKELY) == 0
           ? !ISA_HAS_BRANCHLIKELY
           : !TARGET_BRANCHLIKELY))
     sorry ("%qs requires branch-likely instructions", "-mfix-r10000");
@@ -20403,6 +20547,446 @@ mips_option_override (void)
 
   if (TARGET_HARD_FLOAT_ABI && TARGET_MIPS5900)
     REAL_MODE_FORMAT (SFmode) = &spu_single_format;
+
+  /* Save the initial options in case the user overrides the options via
+     function attributes.  */
+  if (main_args_p)
+    target_option_default_node = target_option_current_node
+      = build_target_option_node (&global_options);
+}
+
+/* Implement TARGET_OPTION_OVERRIDE.  */
+
+static void
+mips_option_override (void)
+{
+  mips_option_override_internal (true);
+}
+
+/* Inner function to process the attribute((target(...))).  */
+
+bool
+mips_valid_attribute_inner_p (tree args, struct gcc_options *opts)
+{
+  bool ret = true;
+
+#define MIPS_ATTR_STR(S,O)  { S, sizeof(S)-1, mips_opt_type_str, O }
+#define MIPS_ATTR_NOPT(S,O) { S, sizeof(S)-1, mips_opt_type_nopt, O }
+
+  enum mips_opt_type
+  {
+    mips_opt_type_unknown,
+    mips_opt_type_str,
+    mips_opt_type_nopt
+  };
+
+  enum mips_opt
+  {
+    mips_opt_none,
+    mips_opt_arch,
+    mips_opt_tune,
+    mips_opt_fp
+  };
+
+  static const struct
+  {
+    const char *str;
+    size_t len;
+    enum mips_opt_type type;
+    int opt;
+  } mips_target_option[] = {
+    MIPS_ATTR_STR ("arch=", mips_opt_arch),
+    MIPS_ATTR_STR ("tune=", mips_opt_tune),
+    MIPS_ATTR_STR ("fp=",   mips_opt_fp),
+    MIPS_ATTR_NOPT ("odd-spreg", OPT_modd_spreg),
+    MIPS_ATTR_NOPT ("dsp",       OPT_mdsp),
+    MIPS_ATTR_NOPT ("dspr2",     OPT_mdspr2),
+    MIPS_ATTR_NOPT ("msa",       OPT_mmsa)
+  };
+
+  if (TREE_CODE (args) == STRING_CST)
+    {
+      /* Comma separated list of options.  */
+      char *p = ASTRDUP (TREE_STRING_POINTER (args));
+      char *orig_p = p;
+      char *q;
+
+      while ((q = strtok (p, ",")) != NULL)
+	{
+	  enum mips_opt_type type = mips_opt_type_unknown;
+	  int opt = N_OPTS;
+	  bool opt_set_p;
+	  size_t len, opt_len;
+	  unsigned i;
+	  char *opt_arg;
+
+	  p = NULL;
+	  orig_p = q;
+
+	  len = strlen(q);
+
+	  /* Recognize no-opt.  */
+	  if (strncmp (q, "no-", 3) == 0)
+	    {
+	      opt_set_p = false;
+	      q += 3;
+	      len -= 3;
+	    }
+	  else
+	    opt_set_p = true;
+
+	  for (i = 0; i < ARRAY_SIZE (mips_target_option); i++)
+	    {
+	      opt_len = mips_target_option[i].len;
+	      type = mips_target_option[i].type;
+
+	      /* Handle the negative form i.e. "no-".  */
+	      if ((type == mips_opt_type_str ? opt_len < len : opt_len == len)
+		   && strncmp (q, mips_target_option[i].str, opt_len) == 0)
+		{
+		  opt_arg = opt_len + q;
+
+		  /* Reject all negative forms.  */
+		  if (opt_set_p)
+		    opt = mips_target_option[i].opt;
+
+		  break;
+		}
+	    }
+
+	  if (opt == N_OPTS)
+	    error ("attribute(target(\"%s\")) is unknown or unsupported",
+		   orig_p);
+	  else if (type == mips_opt_type_str)
+	    {
+	      if (opt == mips_opt_arch)
+		{
+		  int arch_index = mips_cpu_info_from_name (opt_arg);
+		  if (arch_index < 0)
+		    {
+		      error ("unrecognized argument in the target attribute "
+			     "arch=%<%s%>", opt_arg);
+		      ret = false;
+		    }
+		  else
+		    {
+		      int isa = opts->x_mips_isa_option;
+		      const struct mips_cpu_info *info =
+			mips_cpu_info_from_opt (isa);
+		      const struct mips_cpu_info *info_attr =
+			mips_cpu_info_from_opt (arch_index);
+		      int isa_rev = mips_get_isa_rev (info->isa);
+		      int isa_rev_attr = mips_get_isa_rev (info_attr->isa);
+
+		      if ((isa_rev < 6 && isa_rev_attr >= 6)
+			  || (isa_rev >= 6 && isa_rev_attr < 6))
+			{
+			  error ("target attribute: mixing R6 and pre-R6 "
+				 "code not supported");
+			  ret = false;
+			}
+		      else if (info->isa > info_attr->isa)
+			{
+			  error ("target attribute: %<%s%> must be equal or "
+				 "greater than %<%s%>",
+				 info_attr->name, info->name);
+			  ret = false;
+			}
+
+		      /* We override the ISA settings to avoid conflicts
+			 with -march= settings.  */
+		      opts->x_mips_isa_option = arch_index;
+		      opts->x_mips_isa_option_explicit = arch_index;
+
+		      opts->x_mips_arch_option = arch_index;
+		      opts->x_mips_arch_option_explicit = arch_index;
+		    }
+		}
+	      else if (opt == mips_opt_tune)
+		{
+		  int tune_index = mips_cpu_info_from_name (opt_arg);
+		  if (tune_index < 0)
+		    {
+		      error ("unrecognized argument in the target attribute "
+			     "tune=%<%s%>", opt_arg);
+		      ret = false;
+		    }
+		  else
+		    {
+		      opts->x_mips_tune_option = tune_index;
+		      opts->x_mips_tune_option_explicit = tune_index;
+		    }
+		}
+	      else if (opt == mips_opt_fp)
+		{
+		  struct cl_decoded_option decoded;
+		  size_t opt_index;
+
+		  if (strcmp (opt_arg, "32") == 0)
+		    {
+		      opt_index = OPT_mfp32;
+		      if (opts->x_mips_target_flags_explicit & MASK_FLOAT64
+			  && TARGET_FLOAT64_P (opts->x_target_flags))
+			{
+			  error ("unsupported combination: -mfp64 with "
+				 "target attribute -mfp32");
+			  ret = false;
+			}
+		    }
+		  else if (strcmp (opt_arg, "xx") == 0)
+		    opt_index = OPT_mfpxx;
+		  else if (strcmp (opt_arg, "64") == 0)
+		    {
+		      opt_index = OPT_mfp64;
+		      if (opts->x_mips_target_flags_explicit & MASK_FLOAT64
+			  && !TARGET_FLOAT64_P (opts->x_target_flags))
+			{
+			  error ("unsupported combination: -mfp32 with "
+				 "target attribute -mfp64");
+			  ret = false;
+			}
+		    }
+		  else
+		    {
+		      error ("unrecognized argument in the target attribute "
+			     "fp=%<%s%>", opt_arg);
+		      inform (0, "valid arguments to %<fp=%> are: 32 xx 64");
+		      ret = false;
+		    }
+
+		  if (ret)
+		    {
+		      generate_option (opt_index, NULL, true, CL_TARGET,
+				       &decoded);
+		      mips_handle_option (opts, &global_options_set,
+					  &decoded, input_location);
+		    }
+		}
+	      else
+		gcc_unreachable ();
+	    }
+	  else if (type == mips_opt_type_nopt)
+	    {
+	      struct cl_decoded_option decoded;
+
+	      generate_option (opt, NULL, opt_set_p, CL_TARGET, &decoded);
+	      mips_handle_option (opts, &global_options_set, &decoded,
+				  input_location);
+
+	      /* Try to set fp=64 implicitly for msa attribute.  */
+	      if (decoded.opt_index == OPT_mmsa)
+		{
+		  tree fp64 = build_string (5, "fp=64");
+		  ret = mips_valid_attribute_inner_p (fp64, opts);
+		}
+	    }
+	  else
+	    gcc_unreachable ();
+	}
+    }
+  else if (TREE_CODE (args) == TREE_LIST)
+    {
+      bool ret = true;
+
+      for (; args; args = TREE_CHAIN (args))
+	if (TREE_VALUE (args)
+	    && ! mips_valid_attribute_inner_p (TREE_VALUE (args), opts))
+	  ret = false;
+      return ret;
+    }
+  else if (TREE_CODE (args) != STRING_CST)
+    {
+      error ("the %<target%> attribute requires a string argument");
+      return false;
+    }
+  else
+    gcc_unreachable ();
+
+  return ret;
+}
+
+/* Add any new builtins that may not have been declared.  This happens e.g. if
+   an ASE extension was not specified on the command line but function specific
+   target attribute or #pragma GCC target was used.  */
+
+static void
+mips_add_new_builtins ()
+{
+  unsigned int i;
+  const struct mips_builtin_description *d;
+
+  for (i = 0; i < ARRAY_SIZE (mips_builtins); i++)
+    {
+      d = &mips_builtins[i];
+      if (d->avail () && !mips_builtin_decls[i])
+	{
+	  mips_builtin_decls[i] = add_builtin_function_ext_scope (
+				   d->name,
+				   mips_build_function_type (d->function_type),
+				   i, BUILT_IN_MD, NULL, NULL);
+	  mips_get_builtin_decl_index[d->icode] = i;
+	}
+    }
+}
+
+/* Return a TARGET_OPTION_NODE tree of the target options listed or NULL.  */
+
+tree
+mips_valid_attribute_tree (tree args, struct gcc_options *opts)
+{
+  tree t = NULL_TREE;
+
+  if (!mips_valid_attribute_inner_p (args, opts))
+    return t;
+
+  /* Setup any additional state.  */
+  mips_option_override_internal (false);
+
+  /* Add builtin functions for the new target.  */
+  mips_add_new_builtins ();
+
+  return build_target_option_node (opts);
+}
+
+/* Implement TARGET_OPTION_VALID_ATTRIBUTE_P to validate
+   attribute((target("string"))).  */
+
+static bool
+mips_valid_attribute_p (tree fndecl,
+			tree ARG_UNUSED (name),
+			tree args,
+			int  ARG_UNUSED (flags))
+{
+  struct cl_target_option curr_target;
+  tree new_target, old_optimize, new_optimize, func_optimize;
+  bool ret = true;
+
+  old_optimize = build_optimization_node (&global_options);
+  func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
+
+  /* Start with the function optimization options if the function change
+     them.  Some target flags depend on the optimization level.  */
+  if (func_optimize && func_optimize != old_optimize)
+    cl_optimization_restore (&global_options,
+			     TREE_OPTIMIZATION (func_optimize));
+
+  cl_target_option_save (&curr_target, &global_options);
+  new_target = mips_valid_attribute_tree (args, &global_options);
+
+  /* The target attributes may change some of the optimization flags,
+     so update the optimization options if necessary.  */
+  new_optimize = build_optimization_node (&global_options);
+
+  if (!new_target)
+    ret = false;
+  else if (fndecl)
+    {
+      DECL_FUNCTION_SPECIFIC_TARGET (fndecl) = new_target;
+
+      if (old_optimize != new_optimize)
+	DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl) = new_optimize;
+    }
+
+  cl_target_option_restore (&global_options, &curr_target);
+
+  if (old_optimize != new_optimize)
+    cl_optimization_restore (&global_options,
+			     TREE_OPTIMIZATION (old_optimize));
+  return ret;
+}
+
+/* Implement TARGET_OPTION_SAVE.  */
+
+static void
+mips_option_save (struct cl_target_option *ptr, struct gcc_options *opts)
+{
+  ptr->mips_arch = mips_arch;
+  ptr->mips_tune = mips_tune;
+  ptr->mips_isa = mips_isa;
+  ptr->mips_isa_rev = mips_isa_rev;
+  ptr->mips_base_target_flags = mips_base_target_flags;
+  ptr->mips_base_compression_flags = mips_base_compression_flags;
+  ptr->x_target_flags = opts->x_target_flags;
+  ptr->x_mips_target_flags_explicit = opts->x_mips_target_flags_explicit;
+  ptr->x_mips_ase_flags = opts->x_mips_ase_flags;
+  ptr->x_mips_arch_option = opts->x_mips_arch_option;
+  ptr->x_mips_arch_option_explicit = opts->x_mips_arch_option_explicit;
+  ptr->x_mips_isa_option = opts->x_mips_isa_option;
+  ptr->x_mips_isa_option_explicit = opts->x_mips_isa_option_explicit;
+  ptr->x_mips_tune_option = opts->x_mips_tune_option;
+  ptr->x_mips_tune_option_explicit = opts->x_mips_tune_option_explicit;
+
+  /* Make sure the values fit in the fields.  */
+  gcc_assert (ptr->mips_arch == mips_arch);
+  gcc_assert (ptr->mips_tune == mips_tune);
+}
+
+/* Implement TARGET_OPTION_RESTORE.  */
+
+static void
+mips_option_restore (struct gcc_options *opts, struct cl_target_option *ptr)
+{
+  /* We can't save the pointers in the cl_target_option structure cleanly.
+     The pointers will be restored if the options are explicitly set, but if
+     they are not then we need to nullify them here to keep the correct
+     state.  */
+  if (!ptr->x_mips_arch_option_explicit)
+    mips_arch_info = NULL;
+  if (!ptr->x_mips_isa_option_explicit)
+    mips_isa_option_info = NULL;
+  if (!ptr->x_mips_tune_option_explicit)
+    mips_tune_info = NULL;
+
+  mips_arch = (enum processor) ptr->mips_arch;
+  mips_tune = (enum processor) ptr->mips_tune;
+  mips_isa = ptr->mips_isa;
+  mips_isa_rev = ptr->mips_isa_rev;
+  mips_base_target_flags = ptr->mips_base_target_flags;
+  mips_base_compression_flags = ptr->mips_base_compression_flags;
+  opts->x_target_flags = ptr->x_target_flags;
+  opts->x_mips_target_flags_explicit = ptr->x_mips_target_flags_explicit;
+  opts->x_mips_ase_flags = ptr->x_mips_ase_flags;
+  opts->x_mips_arch_option = ptr->x_mips_arch_option;
+  opts->x_mips_arch_option_explicit = ptr->x_mips_arch_option_explicit;
+  opts->x_mips_isa_option = ptr->x_mips_isa_option;
+  opts->x_mips_isa_option_explicit = ptr->x_mips_isa_option_explicit;
+  opts->x_mips_tune_option = ptr->x_mips_tune_option;
+  opts->x_mips_tune_option_explicit = ptr->x_mips_tune_option_explicit;
+
+  mips_option_override_internal (false);
+}
+
+/* Implement TARGET_OPTION_PRINT.  */
+
+static void
+mips_option_print (FILE *file, int indent, struct cl_target_option *ptr)
+{
+  if (ptr->x_mips_arch_option_explicit)
+    fprintf (file, "%*sarch = %d (%s)\n", indent, "",
+	     ptr->x_mips_arch_option,
+	     mips_cpu_info_table[ptr->x_mips_arch_option].name);
+  if (ptr->x_mips_isa_option_explicit)
+    fprintf (file, "%*sisa = %d (%s)\n", indent, "",
+	     ptr->x_mips_isa_option,
+	     mips_cpu_info_table[ptr->x_mips_isa_option].name);
+  if (ptr->x_mips_tune_option_explicit)
+    fprintf (file, "%*stune = %d (%s)\n", indent, "",
+	     ptr->x_mips_tune_option,
+	     mips_cpu_info_table[ptr->x_mips_tune_option].name);
+
+  fprintf (file, "%*starget_flags:\n", indent, "");
+  fprintf (file, "%*sfp = %s\n", indent + 2, "",
+	   ptr->x_target_flags & MASK_FLOATXX
+	   ? "xx" : (ptr->x_target_flags & MASK_FLOAT64
+		     ? "64" : "32"));
+  fprintf (file, "%*sodd-spreg = %d\n", indent + 2, "",
+	   ptr->x_target_flags & MASK_ODD_SPREG ? 1 : 0);
+
+  fprintf (file, "%*smips_ase_flags:\n", indent, "");
+  fprintf (file, "%*sdsp = %d\n", indent + 2, "",
+	   ptr->x_mips_ase_flags & OPTION_MASK_DSP ? 1 : 0);
+  fprintf (file, "%*smsa = %d\n", indent + 2, "",
+	   ptr->x_mips_ase_flags & OPTION_MASK_MSA ? 1 : 0);
 }
 
 /* Swap the register information for registers I and I + 1, which
@@ -22747,6 +23331,14 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE mips_option_override
+#undef TARGET_OPTION_VALID_ATTRIBUTE_P
+#define TARGET_OPTION_VALID_ATTRIBUTE_P mips_valid_attribute_p
+#undef TARGET_OPTION_SAVE
+#define TARGET_OPTION_SAVE mips_option_save
+#undef TARGET_OPTION_RESTORE
+#define TARGET_OPTION_RESTORE mips_option_restore
+#undef TARGET_OPTION_PRINT
+#define TARGET_OPTION_PRINT mips_option_print
 
 #undef TARGET_LEGITIMIZE_ADDRESS
 #define TARGET_LEGITIMIZE_ADDRESS mips_legitimize_address

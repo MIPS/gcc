@@ -28,13 +28,14 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Implement TARGET_HANDLE_OPTION.  */
 
-static bool
+bool
 mips_handle_option (struct gcc_options *opts,
 		    struct gcc_options *opts_set ATTRIBUTE_UNUSED,
 		    const struct cl_decoded_option *decoded,
 		    location_t loc ATTRIBUTE_UNUSED)
 {
   size_t code = decoded->opt_index;
+  int value = decoded->value;
 
   switch (code)
     {
@@ -45,10 +46,58 @@ mips_handle_option (struct gcc_options *opts,
     case OPT_mfp32:
     case OPT_mfp64:
       opts->x_target_flags &= ~MASK_FLOATXX;
+      opts->x_mips_target_flags_explicit &= ~MASK_FLOATXX;
+      if (code == OPT_mfp64)
+	{
+	  opts->x_target_flags |= MASK_FLOAT64;
+	  opts->x_mips_target_flags_explicit |= MASK_FLOAT64;
+	}
+      else
+	{
+	  opts->x_target_flags &= ~MASK_FLOAT64;
+	  opts->x_mips_target_flags_explicit |= MASK_FLOAT64;
+	}
       return true;
 
     case OPT_mfpxx:
       opts->x_target_flags &= ~MASK_FLOAT64;
+      opts->x_mips_target_flags_explicit &= ~MASK_FLOAT64;
+      opts->x_target_flags |= MASK_FLOATXX;
+      opts->x_mips_target_flags_explicit |= MASK_FLOATXX;
+      return true;
+
+    case OPT_modd_spreg:
+      if (value)
+	{
+	  opts->x_target_flags |= MASK_ODD_SPREG;
+	  opts->x_mips_target_flags_explicit |= MASK_ODD_SPREG;
+	}
+      else
+	{
+	  opts->x_target_flags &= ~MASK_ODD_SPREG;
+	  opts->x_mips_target_flags_explicit |= MASK_ODD_SPREG;
+	}
+      return true;
+
+    case OPT_mdsp:
+      if (value)
+	opts->x_mips_ase_flags |= OPTION_MASK_DSP;
+      else
+	opts->x_mips_ase_flags &= ~OPTION_MASK_DSP;
+      return true;
+
+    case OPT_mdspr2:
+      if (value)
+	opts->x_mips_ase_flags |= OPTION_MASK_DSPR2;
+      else
+	opts->x_mips_ase_flags &= ~OPTION_MASK_DSPR2;
+      return true;
+
+    case OPT_mmsa:
+      if (value)
+	opts->x_mips_ase_flags |= OPTION_MASK_MSA;
+      else
+	opts->x_mips_ase_flags &= ~OPTION_MASK_MSA;
       return true;
 
     default:
