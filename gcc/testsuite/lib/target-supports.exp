@@ -1477,6 +1477,13 @@ proc check_effective_target_mips_msa_runtime { } {
     return 0
 }
 
+proc check_effective_target_mips_nomsa_runtime { } {
+    if [check_effective_target_mips_msa_runtime] {
+	return 0
+    }
+    return 1
+}
+
 # Return 1 if the target supports running AVX executables, 0 otherwise.
 
 proc check_effective_target_avx_runtime { } {
@@ -3100,6 +3107,23 @@ proc check_effective_target_mips_msa { } {
      }
      #endif
   } "-mmsa" ]
+}
+
+# Return 1 if this is a MIPS target that supports an ifunc callback function.
+
+proc check_effective_target_mips_ifunc_callback { } {
+    return [check_no_compiler_messages mips_ifunc_callback object {
+	#include <sys/dlifnctl.h>
+	extern void h();
+	extern void i();
+	void *g(int hwcap, int (*cb) (int, int))
+	{
+	  if (cb (DL_IFUNC_MIPS_FR_MODE_SWITCH, 1) == 1)
+	    return h;
+	  return i;
+	}
+	void f() __attribute__((ifunc("g")));
+    }]
 }
 
 # Return 1 if this is an ARM target that adheres to the ABI for the ARM
