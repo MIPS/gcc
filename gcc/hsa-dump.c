@@ -720,7 +720,8 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
       bool first = true;
       dump_hsa_reg (f, phi->dest, true);
       fprintf (f, " = PHI <");
-      for (int i = 0; i < HSA_OPERANDS_PER_INSN; i++)
+      unsigned count = phi->operands.length ();
+      for (unsigned i = 0; i < count; i++)
 	{
 	  if (!phi->operands[i])
 	    break;
@@ -780,17 +781,16 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
       dump_hsa_address (f, addr);
       fprintf (f, "\n");
     }
-  else if (is_a <hsa_insn_addr *> (insn))
+  else if (insn->opcode == BRIG_OPCODE_LDA)
     {
-      hsa_insn_addr *ia = as_a <hsa_insn_addr *> (insn);
-      hsa_op_address *addr = as_a <hsa_op_address *> (ia->operands[1]);
+      hsa_op_address *addr = as_a <hsa_op_address *> (insn->operands[1]);
 
-      fprintf (f, "%s", hsa_opcode_name (ia->opcode));
+      fprintf (f, "%s", hsa_opcode_name (insn->opcode));
       if (addr->symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->symbol->segment));
-      fprintf (f, "_%s ", hsa_type_name (ia->type));
+      fprintf (f, "_%s ", hsa_type_name (insn->type));
 
-      dump_hsa_imm_or_reg (f, ia->operands[0]);
+      dump_hsa_imm_or_reg (f, insn->operands[0]);
       fprintf (f, ", ");
       dump_hsa_address (f, addr);
       fprintf (f, "\n");
@@ -891,7 +891,8 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
       fprintf (f, "%s_%s ", hsa_opcode_name (insn->opcode),
 	       hsa_type_name (insn->type));
 
-      for (int i = 0; i < HSA_OPERANDS_PER_INSN; i++)
+      unsigned count = insn->operands.length ();
+      for (unsigned i = 0; i < count; i++)
 	{
 	  hsa_op_base *op = insn->operands[i];
 
@@ -972,9 +973,9 @@ dump_hsa_cfun (FILE *f)
 {
   basic_block bb;
 
-  fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun.name);
+  fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun->name);
 
-  dump_hsa_bb (f, &hsa_cfun.prologue);
+  dump_hsa_bb (f, &hsa_cfun->prologue);
   FOR_EACH_BB_FN (bb, cfun)
   {
     hsa_bb *hbb = (struct hsa_bb *) bb->aux;

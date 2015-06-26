@@ -1,3 +1,110 @@
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_bb): Made a class with constructors, destructor and a
+	new operator.
+	(hsa_function_representation): Turned into a class, added
+	constructor and destructor.
+	(hsa_cfun): Turned into a pointer update all users.
+
+	* hsa-gen.c (hsa_bb::hsa_bb): New.
+	(hsa_bb::operator new): Likewise.
+	(hsa_bb::~hsa_bb): Likewise.
+	(hsa_deinit_data_for_cfun): Call destructor.
+
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_insn_basic): Use class keyword, added constructors and
+	new operator, operands turned into a vector.
+	(hsa_insn_phi): Use class keyword, added a constructor and new
+	operator.
+	(hsa_insn_br): Likewise.
+	(hsa_insn_cmp): Likewise.
+	(hsa_insn_mem): Likewise.
+	(hsa_insn_atomic): Likewise.
+	(hsa_insn_seg): Likewise.
+	(hsa_insn_addr): Removed, converted all users to use hsa_insn_basic.
+	(hsa_insn_call): Use class keyword, added a constructor and new
+	operator.
+	(hsa_insn_call_block): Likewise.
+	* hsa-gen.c (hsa_insn_basic::hsa_insn_basic): New.
+	(hsa_insn_basic::operator new) Likewise.
+	(hsa_alloc_basic_insn): Removed, turned all users into uses of
+	operator new.
+	(hsa_insn_phi::hsa_insn_phi): New.
+	(hsa_insn_phi::operator new): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Use operator new.  Removed max
+	predecessor number limitation.
+	(hsa_insn_br::hsa_insn_br): New.
+	(hsa_insn_br::operator new): Likewise.
+	(hsa_build_cbr_insn): Removed, turned all users into uses of
+	operator new.
+	(hsa_insn_cmp::hsa_insn_cmp): New.
+	(hsa_insn_cmp::operator new): Likewise.
+	(hsa_alloc_cmp_insn): Removed, turned all users into uses of
+	operator new.
+	(hsa_insn_mem::hsa_insn_mem): New.
+	(hsa_insn_mem::operator new): Likewise.
+	(hsa_alloc_mem_insn): Removed, turned all users into uses of
+	operator new.
+	(hsa_insn_atomic::hsa_insn_atomic) New.
+	(hsa_insn_atomic::operator new): Likewise.
+	(hsa_alloc_atomic_insn): Removed, turned all users into uses of
+	operator new.
+	(hsa_allocp_inst_addr): Removed.
+	(hsa_alloc_addr_insn): Likewise.
+	(hsa_insn_seg::hsa_insn_seg): New.
+	(hsa_insn_seg::operator new): Likewise.
+	(hsa_alloc_seg_insn): Removed, turned all users into uses of operator
+	new.
+	(hsa_insn_call::hsa_insn_call): New.
+	(hsa_insn_call::operator new): Likewise.
+	(hsa_alloc_call_insn): Removed, turned all users into uses of operator
+	new.
+	(hsa_insn_call_block::hsa_insn_call_block): New.
+	(hsa_insn_call_block::operator new): Likewise.
+	(hsa_alloc_call_block_insn): Removed, turned all users into uses of
+	operator new.
+	* hsa-brig.c (emit_insn): Check LDA instruction according to opcode,
+	not class type.
+	(emit_cvt_insn): Use auto_vec also for operand offsets.
+	(emit_basic_insn): Likewise.
+	* hsa-dump.c (dump_hsa_insn): Check for LDA instructions based on
+	opcode, not class.
+	(dump_hsa_insn): Adjusted to use operand vector.
+	(dump_hsa_insn): Likewise.
+	* hsa-regalloc.c (naive_process_phi): Likewise.
+	(linear_scan_regalloc): Likewise.
+	(hsa_num_def_ops): Handle HSA_OPCODE_CALL_BLOCK.
+
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_op_base): Use class keyword, add constructors.
+	(hsa_op_with_type): Likewise.
+	(hsa_op_immed): Use class keyword, add constructors and a new
+	operator.
+	(hsa_op_reg): Likewise.
+	(hsa_op_address): Likewise.
+	(hsa_op_code_ref): Use class keyword, add constructors.
+	(hsa_op_code_list): Use class keyword, add constructors and a new
+	operator.
+
+	* hsa-gen.c (hsa_op_with_type::hsa_op_with_type): New.
+	(hsa_op_immed): Likewise.
+	(hsa_op_immed::operator new): Likewise.
+	(hsa_alloc_immed_op): Removed, replaced all uses by allocation with
+	new.
+	(hsa_op_reg::hsa_op_reg): New.
+	(hsa_op_reg::operator new): Likewise.
+	(hsa_alloc_reg_op): Removed, replaced all uses by allocation with new.
+	(hsa_op_address::hsa_op_reg): New.
+	(hsa_op_address::operator new): Likewise.
+	(hsa_alloc_addr_op): Removed, replaced all uses by allocation with new.
+	(hsa_op_code_ref::hsa_op_code_ref): New.
+	(hsa_op_code_list::hsa_op_code_list): Likewise.
+	(hsa_op_code_list::operator new): Likewise.
+	(hsa_alloc_code_list_op): Removed, replaced all uses by allocation
+	with new.
+
 2015-06-25  Martin Liska  <mliska@suse.cz>
 
 	* hsa-regalloc.c (visit_insn): New function.

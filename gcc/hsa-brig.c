@@ -534,28 +534,28 @@ emit_function_directives (void)
   BrigDirectiveExecutable *ptr_to_fndir;
   hsa_symbol *sym;
 
-  name_offset = brig_emit_string (hsa_cfun.name, '&');
+  name_offset = brig_emit_string (hsa_cfun->name, '&');
   inarg_off = brig_code.total_size + sizeof(fndir)
-    + (hsa_cfun.output_arg ? sizeof (struct BrigDirectiveVariable) : 0);
+    + (hsa_cfun->output_arg ? sizeof (struct BrigDirectiveVariable) : 0);
   scoped_off = inarg_off
-    + hsa_cfun.input_args_count * sizeof (struct BrigDirectiveVariable);
+    + hsa_cfun->input_args_count * sizeof (struct BrigDirectiveVariable);
   for (hash_table <hsa_noop_symbol_hasher>::iterator iter
-	 = hsa_cfun.local_symbols->begin ();
-       iter != hsa_cfun.local_symbols->end ();
+	 = hsa_cfun->local_symbols->begin ();
+       iter != hsa_cfun->local_symbols->end ();
        ++iter)
     if (TREE_CODE ((*iter)->decl) == VAR_DECL)
       count++;
-  count += hsa_cfun.spill_symbols.length ();
+  count += hsa_cfun->spill_symbols.length ();
 
   next_toplev_off = scoped_off + count * sizeof (struct BrigDirectiveVariable);
 
   memset (&fndir, 0, sizeof (fndir));
   fndir.base.byteCount = htole16 (sizeof (fndir));
-  fndir.base.kind = htole16 (hsa_cfun.kern_p ? BRIG_KIND_DIRECTIVE_KERNEL
+  fndir.base.kind = htole16 (hsa_cfun->kern_p ? BRIG_KIND_DIRECTIVE_KERNEL
 			     : BRIG_KIND_DIRECTIVE_FUNCTION);
   fndir.name = htole32 (name_offset);
-  fndir.inArgCount = htole16 (hsa_cfun.input_args_count);
-  fndir.outArgCount = htole16 (hsa_cfun.output_arg ? 1 : 0);
+  fndir.inArgCount = htole16 (hsa_cfun->input_args_count);
+  fndir.outArgCount = htole16 (hsa_cfun->output_arg ? 1 : 0);
   fndir.firstInArg = htole32 (inarg_off);
   fndir.firstCodeBlockEntry = htole32 (scoped_off);
   fndir.nextModuleEntry = htole32 (next_toplev_off);
@@ -579,20 +579,20 @@ emit_function_directives (void)
                                     + brig_code.cur_chunk->size
                                     - sizeof (fndir));
 
-  if (hsa_cfun.output_arg)
-    emit_directive_variable(hsa_cfun.output_arg);
-  for (int i = 0; i < hsa_cfun.input_args_count; i++)
-    emit_directive_variable(&hsa_cfun.input_args[i]);
+  if (hsa_cfun->output_arg)
+    emit_directive_variable(hsa_cfun->output_arg);
+  for (int i = 0; i < hsa_cfun->input_args_count; i++)
+    emit_directive_variable(&hsa_cfun->input_args[i]);
   for (hash_table <hsa_noop_symbol_hasher>::iterator iter
-	 = hsa_cfun.local_symbols->begin ();
-       iter != hsa_cfun.local_symbols->end ();
+	 = hsa_cfun->local_symbols->begin ();
+       iter != hsa_cfun->local_symbols->end ();
        ++iter)
     {
       if (TREE_CODE ((*iter)->decl) == VAR_DECL)
 	brig_insn_count++;
       emit_directive_variable(*iter);
     }
-  for (int i = 0; hsa_cfun.spill_symbols.iterate (i, &sym); i++)
+  for (int i = 0; hsa_cfun->spill_symbols.iterate (i, &sym); i++)
     {
       emit_directive_variable (sym);
       brig_insn_count++;
@@ -1100,7 +1100,7 @@ emit_atomic_insn (hsa_insn_atomic *mem)
    necessary operands for writing .  */
 
 static void
-emit_addr_insn (hsa_insn_addr *insn)
+emit_addr_insn (hsa_insn_basic *insn)
 {
   struct BrigInstAddr repr;
   BrigOperandOffset32_t operand_offsets[2];
@@ -1220,8 +1220,7 @@ emit_branch_insn (hsa_insn_br *br)
   edge e;
 
   /* At the moment we only handle direct conditional jumps.  */
-  gcc_assert (br->opcode == BRIG_OPCODE_CBR
-	      && !br->operands[2]);
+  gcc_assert (br->opcode == BRIG_OPCODE_CBR);
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
   repr.base.opcode = htole16 (br->opcode);
@@ -1261,26 +1260,24 @@ emit_cvt_insn (hsa_insn_basic *insn)
 {
   struct BrigInstCvt repr;
   BrigType16_t srctype;
-  BrigOperandOffset32_t operand_offsets[HSA_OPERANDS_PER_INSN];
-  uint32_t byteCount, operand_count=0;
+  auto_vec<BrigOperandOffset32_t, HSA_BRIG_INT_STORAGE_OPERANDS> operand_offsets;
+  uint32_t byteCount, operand_count = insn->operands.length ();
 
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_CVT);
   repr.base.opcode = htole16 (insn->opcode);
   repr.base.type = htole16 (insn->type);
 
-  for (int i = 0; i < HSA_OPERANDS_PER_INSN; i++)
-    if (insn->operands[i])
-      {
-        operand_offsets[i] = htole32 (enqueue_op (insn->operands[i]));
-        operand_count = operand_count + 1;
-      }
-    else
-      operand_offsets[i] = 0;
+  operand_offsets.safe_grow_cleared (operand_count);
+  for (unsigned i = 0; i < operand_count; i++)
+    {
+      gcc_checking_assert (insn->operands[i]);
+      operand_offsets[i] = htole32 (enqueue_op (insn->operands[i]));
+    }
 
   byteCount = htole32 (4 * operand_count) ;
   repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
-  brig_data.add (&operand_offsets,
+  brig_data.add (operand_offsets.address (),
 		 operand_count * sizeof (BrigOperandOffset32_t));
 
   if (is_a <hsa_op_reg *> (insn->operands[1]))
@@ -1414,8 +1411,8 @@ emit_basic_insn (hsa_insn_basic *insn)
   /* We assume that BrigInstMod has a BrigInstBasic prefix.  */
   struct BrigInstMod repr;
   BrigType16_t type;
-  BrigOperandOffset32_t operand_offsets[HSA_OPERANDS_PER_INSN];
-  uint32_t byteCount, operand_count = 0;
+  auto_vec<BrigOperandOffset32_t, HSA_BRIG_INT_STORAGE_OPERANDS> operand_offsets;
+  uint32_t byteCount, operand_count = insn->operands.length ();
 
   if (insn->opcode == BRIG_OPCODE_CVT)
     {
@@ -1443,18 +1440,16 @@ emit_basic_insn (hsa_insn_basic *insn)
     }
   repr.base.type = htole16 (type);
 
-  for (int i = 0; i < HSA_OPERANDS_PER_INSN; i++)
-    if (insn->operands[i])
-      {
-	operand_offsets[i] = htole32 (enqueue_op (insn->operands[i]));
-	operand_count = operand_count + 1;
-      }
-    else
-      operand_offsets[i] = 0;
+  operand_offsets.safe_grow_cleared (operand_count);
+  for (unsigned i = 0; i < operand_count; i++)
+    {
+      gcc_checking_assert (insn->operands[i]);
+      operand_offsets[i] = htole32 (enqueue_op (insn->operands[i]));
+    }
 
   byteCount = htole32 (4 * operand_count) ;
   repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
-  brig_data.add (&operand_offsets,
+  brig_data.add (operand_offsets.address (),
 		 operand_count * sizeof (BrigOperandOffset32_t));
   brig_data.round_size_up (4);
 
@@ -1497,9 +1492,9 @@ emit_insn (hsa_insn_basic *insn)
       emit_memory_insn (mem);
       return;
     }
-  if (hsa_insn_addr *addr = dyn_cast <hsa_insn_addr *> (insn))
+  if (insn->opcode == BRIG_OPCODE_LDA)
     {
-      emit_addr_insn (addr);
+      emit_addr_insn (insn);
       return;
     }
   if (hsa_insn_seg *seg = dyn_cast <hsa_insn_seg *> (insn))

@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "basic-block.h"
 
-struct hsa_insn_basic;
+class hsa_insn_basic;
 typedef hsa_insn_basic *hsa_insn_basic_p;
 
 /* Class representing an input argument, output argument (result) or a
@@ -67,8 +67,10 @@ struct hsa_symbol
 
 /* Abstract class for HSA instruction operands. */
 
-struct hsa_op_base
+class hsa_op_base
 {
+public:
+
   /* Next operand scheduled to be written when writing BRIG operand
      section.  */
   hsa_op_base *next;
@@ -79,22 +81,46 @@ struct hsa_op_base
 
   /* The type of a particular operand.  */
   BrigKind16_t kind;
+
+protected:
+  hsa_op_base (BrigKind16_t k);
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_op_base () {}
 };
 
 /* Common abstract ancestor for operands which have a type.  */
 
-struct hsa_op_with_type : public hsa_op_base
+class hsa_op_with_type : public hsa_op_base
 {
+public:
   /* The type.  */
   BrigType16_t type;
+
+protected:
+  hsa_op_with_type (BrigKind16_t k, BrigType16_t t);
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_op_with_type () : hsa_op_base (BRIG_KIND_NONE) {}
 };
 
 /* An immediate HSA operand.  */
 
-struct hsa_op_immed : public hsa_op_with_type
+class hsa_op_immed : public hsa_op_with_type
 {
+public:
+  hsa_op_immed (tree tree_val);
+  void *operator new (size_t);
+
   /* Value as represented by middle end.  */
   tree value;
+
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_op_immed () : hsa_op_with_type (BRIG_KIND_NONE, BRIG_TYPE_NONE) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a an immediate operand.  */
@@ -109,12 +135,11 @@ is_a_helper <hsa_op_immed *>::test (hsa_op_base *p)
 
 /* HSA register operand.  */
 
-struct hsa_op_reg : public hsa_op_with_type
+class hsa_op_reg : public hsa_op_with_type
 {
-  /* Destructor.  */
-  ~hsa_op_reg ()
-  {
-  }
+public:
+  hsa_op_reg (BrigType16_t t);
+  void *operator new (size_t);
 
   /* Verify register operand.  */
   void verify ();
@@ -142,9 +167,16 @@ struct hsa_op_reg : public hsa_op_with_type
   /* If allocated, the number of the HW register (within its HSA register
      class). */
   char hard_num;
+
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_op_reg () : hsa_op_with_type (BRIG_KIND_NONE, BRIG_TYPE_NONE) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
-typedef struct hsa_op_reg *hsa_op_reg_p;
+typedef class hsa_op_reg *hsa_op_reg_p;
 
 /* Report whether or not P is a register operand.  */
 
@@ -158,8 +190,12 @@ is_a_helper <hsa_op_reg *>::test (hsa_op_base *p)
 
 /* An address HSA operand.  */
 
-struct hsa_op_address : public hsa_op_base
+class hsa_op_address : public hsa_op_base
 {
+public:
+  hsa_op_address (hsa_symbol *sym, hsa_op_reg *reg, HOST_WIDE_INT offset);
+  void *operator new (size_t);
+
   /* Symbol base of the address.  Can be NULL if there is none.  */
   hsa_symbol *symbol;
 
@@ -168,6 +204,12 @@ struct hsa_op_address : public hsa_op_base
 
   /* Immediate byte offset.  */
   HOST_WIDE_INT imm_offset;
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_op_address () : hsa_op_base (BRIG_KIND_NONE) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Report whether or not P is an address operand.  */
@@ -183,8 +225,11 @@ is_a_helper <hsa_op_address *>::test (hsa_op_base *p)
 /* A reference to code HSA operand. It can be either reference
    to a start of a BB or a start of a function.  */
 
-struct hsa_op_code_ref : public hsa_op_base
+class hsa_op_code_ref : public hsa_op_base
 {
+public:
+  hsa_op_code_ref ();
+
   /* Offset in the code section that this refers to.  */
   unsigned directive_offset;
 };
@@ -200,16 +245,22 @@ is_a_helper <hsa_op_code_ref *>::test (hsa_op_base *p)
 }
 
 /* Code list HSA operand.  */
-struct hsa_op_code_list: public hsa_op_base
+
+class hsa_op_code_list: public hsa_op_base
 {
-  /* Destructor.  */
-  ~hsa_op_code_list ()
-  {
-  }
+public:
+  hsa_op_code_list (unsigned elements);
+  void *operator new (size_t);
 
   /* Offset to variable-sized array in hsa_data section, where
      are offsets to entries in the hsa_code section.  */
   auto_vec<unsigned> offsets;
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_op_code_list () : hsa_op_base (BRIG_KIND_NONE) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a code list operand.  */
@@ -222,16 +273,28 @@ is_a_helper <hsa_op_code_list *>::test (hsa_op_base *p)
   return p->kind == BRIG_KIND_OPERAND_CODE_LIST;
 }
 
-#define HSA_OPERANDS_PER_INSN 5
+/* Opcodes of instructions that are not part of HSA but that we use to
+   represent it nevertheless.  */
+
+#define HSA_OPCODE_PHI (-1)
+#define HSA_OPCODE_CALL_BLOCK (-2)
+
+/* The number of operand pointers we can directly in an instruction.  */
+#define HSA_BRIG_INT_STORAGE_OPERANDS 5
 
 /* Class representing an HSA instruction.  Unlike typical ancestors for
    specialized classes, this one is also directly used for all instructions
    that are then represented as BrigInstBasic.  */
 
-struct hsa_insn_basic
+class hsa_insn_basic
 {
+public:
+  hsa_insn_basic (unsigned nops, int opc);
+  hsa_insn_basic (unsigned nops, int opc, BrigType16_t t);
+  void *operator new (size_t);
+
   /* The previous and next instruction in the basic block.  */
-  struct hsa_insn_basic *prev, *next;
+  hsa_insn_basic *prev, *next;
 
   /* Basic block this instruction belongs to.  */
   basic_block bb;
@@ -241,28 +304,43 @@ struct hsa_insn_basic
      initially we use negative values for PHI nodes and such.  */
   int opcode;
 
-  int number;
+  int number;			/* FIXME: What is this for? */
 
   /* Type of the destination of the operations.  */
   BrigType16_t type;
 
-  /* The individual operands, NULL if unused.  */
-  struct hsa_op_base *operands[HSA_OPERANDS_PER_INSN];
+  /* The individual operands.  All instructions but PHI nodes have five or
+     fewer instructions and so will fit the internal storage.  */
+  /* TODO: Vast majority of instructions have three or fewer operands, so we
+     may actually try reducing it.  */
+  auto_vec<hsa_op_base *, HSA_BRIG_INT_STORAGE_OPERANDS> operands;
+  /* !!! */
+protected:
+  /* Make the default constructor inaccessible.  */
+  hsa_insn_basic () {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
-#define HSA_OPCODE_PHI -1
-#define HSA_OPCODE_CALL_BLOCK -2
-
-/* Structure representing a PHI node of the SSA form of HSA virtual
+/* Class representing a PHI node of the SSA form of HSA virtual
    registers.  */
 
-struct hsa_insn_phi : public hsa_insn_basic
+class hsa_insn_phi : public hsa_insn_basic
 {
-  /* Destination.  */
-  struct hsa_op_reg *dest;
+public:
+  hsa_insn_phi (unsigned nops);
+  void *operator new (size_t);
 
-  /* FIXME: In order to handle BBs with more than 5 predecessors we will need
-     more operands.  */
+  /* Destination.  */
+  hsa_op_reg *dest;
+
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_insn_phi () : hsa_insn_basic (1, HSA_OPCODE_PHI) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a PHI node.  */
@@ -275,15 +353,23 @@ is_a_helper <hsa_insn_phi *>::test (hsa_insn_basic *p)
   return p->opcode == HSA_OPCODE_PHI;
 }
 
-/* HSA instruction for branches.  */
+/* HSA instruction for branches.  Currently we explicitely represent only
+   conditional branches.  */
 
-struct hsa_insn_br : public hsa_insn_basic
+class hsa_insn_br : public hsa_insn_basic
 {
-  /* FIXME: Modifiers are missing but I do not understand what ALU modifiers
-     can mean here.  */
+public:
+  hsa_insn_br (hsa_op_reg *ctrl);
+  void *operator new (size_t);
 
   /* Width as described in HSA documentation.  */
   BrigWidth8_t width;
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_insn_br () : hsa_insn_basic (1, BRIG_OPCODE_CBR) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Report whether P is a branching instruction.  */
@@ -299,14 +385,25 @@ is_a_helper <hsa_insn_br *>::test (hsa_insn_basic *p)
 
 /* HSA instruction for comparisons.  */
 
-struct hsa_insn_cmp : public hsa_insn_basic
+class hsa_insn_cmp : public hsa_insn_basic
 {
+public:
+  hsa_insn_cmp (BrigCompareOperation8_t cmp, BrigType16_t t);
+  void *operator new (size_t);
+
   /* Source type should be derived from operand types.  */
 
   /* The comparison operation.  */
   BrigCompareOperation8_t compare;
 
-  /* TODO: Modifiers are missing but so are everywhere else.  */
+  /* TODO: Modifiers and packing control are missing but so are everywhere
+     else.  */
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_insn_cmp () : hsa_insn_basic (1, BRIG_OPCODE_CMP) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a comparison instruction.  */
@@ -321,8 +418,12 @@ is_a_helper <hsa_insn_cmp *>::test (hsa_insn_basic *p)
 
 /* HSA instruction for memory operations.  */
 
-struct hsa_insn_mem : public hsa_insn_basic
+class hsa_insn_mem : public hsa_insn_basic
 {
+public:
+  hsa_insn_mem (int opc, BrigType16_t t);
+  void *operator new (size_t);
+
   /* The segment is of the memory access is either the segment of the symbol in
      the address operand or flat address is there is no symbol there.  */
 
@@ -336,6 +437,15 @@ struct hsa_insn_mem : public hsa_insn_basic
   enum BrigMemoryScope memoryscope;
 
   /* TODO:  Add width modifier, perhaps also other things.  */
+protected:
+  hsa_insn_mem (unsigned nops, int opc, BrigType16_t t);
+
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_insn_mem () : hsa_insn_basic (1, BRIG_OPCODE_LD) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a memory instruction.  */
@@ -351,10 +461,20 @@ is_a_helper <hsa_insn_mem *>::test (hsa_insn_basic *p)
 
 /* HSA instruction for atomic operations.  */
 
-struct hsa_insn_atomic : public hsa_insn_mem
+class hsa_insn_atomic : public hsa_insn_mem
 {
+public:
+  hsa_insn_atomic (int opc, enum BrigAtomicOperation aop, BrigType16_t t);
+  void *operator new (size_t);
+
   /* The operation itself.  */
   enum BrigAtomicOperation atomicop;
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_insn_atomic () : hsa_insn_mem (1, BRIG_KIND_NONE, BRIG_TYPE_NONE) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a memory instruction.  */
@@ -368,33 +488,25 @@ is_a_helper <hsa_insn_atomic *>::test (hsa_insn_basic *p)
 	  || p->opcode == BRIG_OPCODE_ATOMICNORET);
 }
 
-/* Though the HSA PRM in 19.10.1.7 says that LDA is should be BrigInstMem, the
-   verifier insists it is Brig Inst Addr, so provide it here too.  */
-
-struct hsa_insn_addr : public hsa_insn_basic
-{
-  /* The segment is of the memory access is either the segment of the symbol in
-     the address operand or flat address is there is no symbol there.  */
-};
-
-/* Report whether or not P is a memory address instruction.  */
-
-template <>
-template <>
-inline bool
-is_a_helper <hsa_insn_addr *>::test (hsa_insn_basic *p)
-{
-  return (p->opcode == BRIG_OPCODE_LDA);
-}
-
 /* HSA instruction to convert between flat addressing and segments.  */
 
-struct hsa_insn_seg : hsa_insn_basic
+class hsa_insn_seg : public hsa_insn_basic
 {
+public:
+  hsa_insn_seg (int opc, BrigType16_t destt, BrigType16_t srct,
+		BrigSegment8_t seg);
+  void *operator new (size_t);
+
   /* Source type.  Depends on the source addressing/segment.  */
   BrigType16_t src_type;
   /* The segment we are converting from or to.  */
   BrigSegment8_t segment;
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_insn_seg () : hsa_insn_basic (1, BRIG_OPCODE_STOF) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a segment conversion instruction.  */
@@ -410,18 +522,17 @@ is_a_helper <hsa_insn_seg *>::test (hsa_insn_basic *p)
 
 /* HSA instruction for function call.  */
 
-struct hsa_insn_call: hsa_insn_basic
+class hsa_insn_call : public hsa_insn_basic
 {
-  /* Destructor.  */
-  ~hsa_insn_call ()
-  {
-  }
+public:
+  hsa_insn_call (tree callee);
+  void *operator new (size_t);
 
   /* Called function */
   tree called_function;
 
   /* Called function code reference.  */
-  struct hsa_op_code_ref func;
+  hsa_op_code_ref func;
 
   /* Argument symbols.  */
   auto_vec <hsa_symbol *> args_symbols;
@@ -434,6 +545,12 @@ struct hsa_insn_call: hsa_insn_basic
 
   /* Code list for result of the function.  */
   hsa_op_code_list *result_code_list;
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_insn_call () : hsa_insn_basic (0, BRIG_OPCODE_CALL) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a call instruction.  */
@@ -452,12 +569,11 @@ is_a_helper <hsa_insn_call *>::test (hsa_insn_basic *p)
    Emission of the instruction will produce multiple
    HSAIL instructions.  */
 
-struct hsa_insn_call_block: hsa_insn_basic
+class hsa_insn_call_block : public hsa_insn_basic
 {
-  /* Destructor.  */
-  ~hsa_insn_call_block ()
-  {
-  }
+public:
+  hsa_insn_call_block ();
+  void *operator new (size_t);
 
   /* Input formal arguments.  */
   auto_vec <hsa_symbol *> input_args;
@@ -473,6 +589,10 @@ struct hsa_insn_call_block: hsa_insn_basic
 
   /* Call instruction.  */
   hsa_insn_call *call_insn;
+private:
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a call block instruction.  */
@@ -487,8 +607,14 @@ is_a_helper <hsa_insn_call_block *>::test (hsa_insn_basic *p)
 
 /* Basic block of HSA instructions.  */
 
-struct hsa_bb
+class hsa_bb
 {
+public:
+  hsa_bb (basic_block cfg_bb);
+  hsa_bb (basic_block cfg_bb, int idx);
+  ~hsa_bb ();
+  void *operator new (size_t);
+
   /* The real CFG BB that this HBB belongs to.  */
   basic_block bb;
 
@@ -496,14 +622,20 @@ struct hsa_bb
   hsa_op_code_ref label_ref;
 
   /* The first and last instruction.  */
-  struct hsa_insn_basic *first_insn, *last_insn;
+  hsa_insn_basic *first_insn, *last_insn;
   /* The first and last phi node.  */
-  struct hsa_insn_phi *first_phi, *last_phi;
+  hsa_insn_phi *first_phi, *last_phi;
 
   /* Just a number to construct names from.  */
   int index;
 
   bitmap liveout, livein;
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_bb ();
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
 };
 
 /* Return the corresponding HSA basic block structure for the given control
@@ -570,8 +702,12 @@ hsa_free_symbol_hasher::equal (const value_type a, const compare_type b)
 /* Structure that encapsulates intermediate representation of a HSA
    function.  */
 
-struct hsa_function_representation
+class hsa_function_representation
 {
+public:
+  hsa_function_representation ();
+  ~hsa_function_representation ();
+
   /* Name of the function.  */
   char *name;
 
@@ -606,7 +742,7 @@ struct hsa_function_representation
 };
 
 /* in hsa.c */
-extern struct hsa_function_representation hsa_cfun;
+extern struct hsa_function_representation *hsa_cfun;
 extern hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
 void hsa_init_compilation_unit_data (void);
 void hsa_deinit_compilation_unit_data (void);

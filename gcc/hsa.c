@@ -74,7 +74,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Structure containing intermediate HSA representation of the generated
    function. */
-struct hsa_function_representation hsa_cfun;
+class hsa_function_representation *hsa_cfun;
 
 /* Element of the mapping vector between a host decl and an HSA kernel.  */
 

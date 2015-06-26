@@ -55,7 +55,8 @@ along with GCC; see the file COPYING3.  If not see
 static void
 naive_process_phi (hsa_insn_phi *phi)
 {
-  for (int i = 0; i < HSA_OPERANDS_PER_INSN; i++)
+  unsigned count = phi->operands.length ();
+  for (unsigned i = 0; i < count; i++)
     {
       hsa_op_base *op = phi->operands[i];
       hsa_bb *hbb;
@@ -81,7 +82,7 @@ naive_outof_ssa (void)
 {
   basic_block bb;
 
-  hsa_cfun.in_ssa = false;
+  hsa_cfun->in_ssa = false;
 
   FOR_EACH_BB_FN (bb, cfun)
   {
@@ -200,8 +201,10 @@ rewrite_code_bb (basic_block bb, struct reg_class_desc *classes)
   for (insn = hbb->first_insn; insn; insn = next_insn)
     {
       next_insn = insn->next;
-      for (int i = 0; i < HSA_OPERANDS_PER_INSN && insn->operands[i]; i++)
+      unsigned count = insn->operands.length ();
+      for (unsigned i = 0; i < count; i++)
 	{
+	  gcc_checking_assert (insn->operands[i]);
 	  hsa_op_reg **regaddr = insn_reg_addr (insn, i);
 
 	  if (regaddr)
@@ -244,6 +247,7 @@ hsa_num_def_ops (hsa_insn_basic *insn)
 	return 1;
 
       case BRIG_OPCODE_NOP:
+      case HSA_OPCODE_CALL_BLOCK:
 	return 0;
 
       case BRIG_OPCODE_EXPAND:
@@ -348,9 +352,9 @@ dump_hsa_cfun_regalloc (FILE *f)
 {
   basic_block bb;
 
-  fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun.name);
+  fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun->name);
 
-  dump_hsa_bb (f, &hsa_cfun.prologue);
+  dump_hsa_bb (f, &hsa_cfun->prologue);
   FOR_EACH_BB_FN (bb, cfun)
   {
     hsa_bb *hbb = (struct hsa_bb *) bb->aux;
@@ -511,10 +515,12 @@ spill_at_interval (hsa_op_reg *reg, vec<hsa_op_reg*> *active)
 static void
 visit_insn (hsa_insn_basic *insn, vec<hsa_op_reg*> &ind2reg, int &insn_order)
 {
-  int opi;
+  unsigned opi;
+  unsigned count = insn->operands.length ();
   insn->number = insn_order++;
-  for (opi = 0; opi < HSA_OPERANDS_PER_INSN && insn->operands[opi]; opi++)
+  for (opi = 0; opi < count; opi++)
     {
+      gcc_checking_assert (insn->operands[opi]);
       hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
       if (regaddr)
 	ind2reg[(*regaddr)->order] = *regaddr;
@@ -526,16 +532,19 @@ visit_insn (hsa_insn_basic *insn, vec<hsa_op_reg*> &ind2reg, int &insn_order)
 static void
 remove_def_in_insn (bitmap &work, hsa_insn_basic *insn)
 {
-  int opi;
-  int ndefs = hsa_num_def_ops (insn);
+  unsigned opi;
+  unsigned ndefs = hsa_num_def_ops (insn);
   for (opi = 0; opi < ndefs && insn->operands[opi]; opi++)
     {
+      gcc_checking_assert (insn->operands[opi]);
       hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
       if (regaddr)
 	bitmap_clear_bit (work, (*regaddr)->order);
     }
-  for (; opi < HSA_OPERANDS_PER_INSN && insn->operands[opi]; opi++)
+  unsigned count = insn->operands.length ();
+  for (; opi < count; opi++)
     {
+      gcc_checking_assert (insn->operands[opi]);
       hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
       if (regaddr)
 	bitmap_set_bit (work, (*regaddr)->order);
@@ -547,10 +556,12 @@ remove_def_in_insn (bitmap &work, hsa_insn_basic *insn)
 static void
 merge_live_range_for_insn (hsa_insn_basic *insn)
 {
-  int opi;
-  int ndefs = hsa_num_def_ops (insn);
-  for (opi = 0; opi < HSA_OPERANDS_PER_INSN && insn->operands[opi]; opi++)
+  unsigned opi;
+  unsigned ndefs = hsa_num_def_ops (insn);
+  unsigned count = insn->operands.length ();
+  for (opi = 0; opi < count; opi++)
     {
+      gcc_checking_assert (insn->operands[opi]);
       hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
       if (regaddr)
 	{
@@ -583,7 +594,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
      and the post order for liveness analysis, which is the same
      backward.  */
   n = pre_and_rev_post_order_compute (NULL, bbs, false);
-  ind2reg.safe_grow_cleared (hsa_cfun.reg_count);
+  ind2reg.safe_grow_cleared (hsa_cfun->reg_count);
 
   /* Give all instructions a linearized number, at the same time
      build a mapping from register index to register.  */
@@ -610,7 +621,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
     }
 
   /* Initialize all live ranges to [after-end, 0).  */
-  for (i = 0; i < hsa_cfun.reg_count; i++)
+  for (i = 0; i < hsa_cfun->reg_count; i++)
     if (ind2reg[i])
       ind2reg[i]->lr_begin = insn_order, ind2reg[i]->lr_end = 0;
 
@@ -713,18 +724,18 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 
   /* All regs that have still their start at after all code actually
      are defined at the start of the routine (prologue).  */
-  for (i = 0; i < hsa_cfun.reg_count; i++)
+  for (i = 0; i < hsa_cfun->reg_count; i++)
     if (ind2reg[i] && ind2reg[i]->lr_begin == insn_order)
       ind2reg[i]->lr_begin = 0;
 
   /* Sort all intervals by increasing start point.  */
-  gcc_assert (ind2reg.length () == (size_t) hsa_cfun.reg_count);
+  gcc_assert (ind2reg.length () == (size_t) hsa_cfun->reg_count);
   ind2reg.qsort (cmp_begin);
   for (i = 0; i < 4; i++)
-    active[i].reserve_exact (hsa_cfun.reg_count);
+    active[i].reserve_exact (hsa_cfun->reg_count);
 
   /* Now comes the linear scan allocation.  */
-  for (i = 0; i < hsa_cfun.reg_count; i++)
+  for (i = 0; i < hsa_cfun->reg_count; i++)
     {
       hsa_op_reg *reg = ind2reg[i];
       if (!reg)
@@ -777,7 +788,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
       fprintf (dump_file, "------- After liveness: -------\n");
       dump_hsa_cfun_regalloc (dump_file);
       fprintf (dump_file, "  ----- Intervals:\n");
-      for (i = 0; i < hsa_cfun.reg_count; i++)
+      for (i = 0; i < hsa_cfun->reg_count; i++)
 	{
 	  hsa_op_reg *reg = ind2reg[i];
 	  if (!reg)
@@ -806,7 +817,7 @@ regalloc (void)
   reg_class_desc classes[4];
 
   /* If there are no registers used in the function, exit right away. */
-  if (hsa_cfun.reg_count == 0)
+  if (hsa_cfun->reg_count == 0)
     return;
 
   memset (classes, 0, sizeof (classes));
