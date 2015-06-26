@@ -1,3 +1,7 @@
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.c (__hsa_launch_kernel): Added extra debug dumping.
+
 2015-06-09  Martin Jambor  <mjambor@suse.cz>
 
 	* Makefile.in: Regenerated.

@@ -2544,7 +2544,7 @@ wrap_hsa_kernel_call (gimple_stmt_iterator *gsi, tree fndecl)
     {
       discard_arguents = 0;
       grid_size_1 = build_int_cst (uint32_type_node, 64);
-      group_size_1 = build_int_cst (uint32_type_node, 16);
+      group_size_1 = build_int_cst (uint32_type_node, 64);
     }
 
   tree lattrs = create_tmp_var (hsa_launch_attributes_type,

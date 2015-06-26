@@ -5075,7 +5075,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 	    t = fold_convert (uint32_type_node, region->inner->req_group_size);
 	  else
 	    {
-	      t = build_int_cst (uint32_type_node, 16);
+	      t = build_int_cst (uint32_type_node, 64);
 	      t = fold_build2_loc (loc, MIN_EXPR, uint32_type_node,
 				   fold_convert (uint32_type_node, n), t);
 	      t = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE, false,

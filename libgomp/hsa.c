@@ -460,6 +460,10 @@ __hsa_launch_kernel (void *host_fn, struct __hsa_launch_attributes *attrs,
       packet->workgroup_size_z = 1;
     }
 
+  if (debug)
+    fprintf (stderr, "grid_size_x =%d\n",packet->grid_size_x);
+  if (debug)
+    fprintf (stderr, "workgroup_size_x =%d\n",packet->workgroup_size_x);
   packet->private_segment_size = ki->private_segment_size;
   packet->group_segment_size = ki->group_segment_size;
   packet->kernel_object = ki->object;

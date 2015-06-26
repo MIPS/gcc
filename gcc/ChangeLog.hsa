@@ -1,5 +1,11 @@
 2015-06-26  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (expand_parallel_call): Bump the default grroup size
+	to 64.
+	* hsa-gen.c (wrap_hsa_kernel_call): Likewise.
+
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h (hsa_insn_basic): Make the inaccessible construcotr
 	private.
 	(hsa_destroy_insn): Declare.
