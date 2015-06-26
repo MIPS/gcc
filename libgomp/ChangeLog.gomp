@@ -1,3 +1,8 @@
+2015-06-26  Aldy Hernandez  <aldyh@redhat.com>
+
+	* libgomp.texi: Document omp_get_max_task_priority and
+	OMP_MAX_TASK_PRIORITY.
+
 2015-06-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c++/member-1.C: Remove dg-options.
