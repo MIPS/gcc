@@ -16,6 +16,10 @@
 # along with GCC; see the file COPYING3.  If not see
 # <http://www.gnu.org/licenses/>.
 
+mips-c.o: $(srcdir)/config/mips/mips-c.c $(CONFIG_H) $(SYSTEM_H) $(TM_H)
+	  $(COMPILE) $<
+	  $(POSTCOMPILE)
+
 $(srcdir)/config/mips/mips-tables.opt: $(srcdir)/config/mips/genopt.sh \
   $(srcdir)/config/mips/mips-cpus.def
 	$(SHELL) $(srcdir)/config/mips/genopt.sh $(srcdir)/config/mips > \

@@ -190,6 +190,16 @@ enum mips_split_type {
   SPLIT_FOR_SIZE
 };
 
+/* Function in mips-c.c.  */
+extern void mips_cpu_cpp_builtins (void);
+extern void mips_register_target_pragmas (void);
+
+/* Functions in mips-common.c.  */
+extern bool mips_handle_option (struct gcc_options *, struct gcc_options *,
+				const struct cl_decoded_option *, location_t);
+/* Functions in mips.c.  */
+extern tree mips_valid_attribute_tree (tree, struct gcc_options *);
+extern void mips_reset_previous_fndecl (void);
 extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_context,
 				      enum mips_symbol_type *);
 extern int mips_regno_mode_ok_for_base_p (int, machine_mode, bool);

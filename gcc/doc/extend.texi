@@ -4204,6 +4204,39 @@ On MIPS targets, you can use the @code{nocompression} function attribute
 to locally turn off MIPS16 and microMIPS code generation.  This attribute
 overrides the @option{-mips16} and @option{-mmicromips} options on the
 command line (@pxref{MIPS Options}).
+
+@item arch=@var{ARCH}
+@cindex @code{target("arch=@var{ARCH}")} function attribute, MIPS
+Specify the architecture to generate code for @var{cpu-type} in compiling
+the function.  See @xref{MIPS Options} for more information.
+
+@item tune=@var{TUNE}
+@cindex @code{target("tune=@var{TUNE}")} function attribute, MIPS
+Specify the architecture to tune for @var{cpu-type} in compiling the function.
+
+@item fp=@var{FP}
+@cindex @code{target("fp=@var{FP}")} function attribute, MIPS
+Specify the width of floating-point registers.  @var{FP} accepts @code{32},
+@code{64} and @code{xx} assuming that the floating-point registers are 32 bits,
+64 bits wide or do not assume the width of floating-point registers,
+respectively.
+
+@item dsp
+@cindex @code{target("dsp")} function attribute, MIPS
+Enable generation of the MIPS DSP revision 1 instructions.
+
+@item dspr2
+@cindex @code{target("dspr2")} function attribute, MIPS
+Enable generation of the MIPS DSP revision 2 instructions.
+
+@item msa
+@cindex @code{target("msa")} function attribute, MIPS
+Enable generation of the MIPS SIM Architecture (MSA) instructions.
+
+@item odd-spreg
+@cindex @code{target("odd-spreg")} function attribute, MIPS
+Enable the use of odd-numbered single-precision floating-point
+registers for the o32 ABI.
 @end table
 
 @node MSP430 Function Attributes
@@ -19448,7 +19481,7 @@ function.  The parenthesis around the options is optional.
 @code{target} attribute and the attribute syntax.
 
 The @code{#pragma GCC target} pragma is presently implemented for
-x86, PowerPC, and Nios II targets only.
+x86, PowerPC, Nios II, and MIPS targets only.
 @end table
 
 @table @code
