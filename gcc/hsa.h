@@ -314,8 +314,7 @@ public:
   /* TODO: Vast majority of instructions have three or fewer operands, so we
      may actually try reducing it.  */
   auto_vec<hsa_op_base *, HSA_BRIG_INT_STORAGE_OPERANDS> operands;
-  /* !!! */
-protected:
+private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_basic () {}
   /* All objects are deallocated by destroying their pool, so make delete
@@ -752,6 +751,7 @@ bool hsa_opcode_op_output_p (BrigOpcode16_t, int);
 unsigned hsa_type_bit_size (BrigType16_t t);
 BrigType16_t hsa_bittype_for_type (BrigType16_t t);
 bool hsa_type_float_p (BrigType16_t type);
+void hsa_destroy_insn (hsa_insn_basic *insn);
 void hsa_add_kern_decl_mapping (tree decl, char *name);
 unsigned hsa_get_number_decl_kernel_mappings (void);
 tree hsa_get_decl_kernel_mapping_decl (unsigned i);

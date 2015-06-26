@@ -1,5 +1,24 @@
 2015-06-26  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.h (hsa_insn_basic): Make the inaccessible construcotr
+	private.
+	(hsa_destroy_insn): Declare.
+	* hsa.c (hsa_destroy_insn): New function.
+	* hsa-gen.c (hsa_list_insn_call_block): Removed.
+	(hsa_list_insn_call): Likewise.
+	(hsa_deinit_data_for_cfun): Call destructors of
+	instructions.
+	(hsa_op_base::hsa_op_base): Make initialization consistent with
+	other constructors.
+	(hsa_op_with_type::hsa_op_with_type): Likewise.
+	(hsa_op_immed::hsa_op_immed): Likewise.
+	(hsa_insn_phi::hsa_insn_phi): Initialize dest.
+	(hsa_insn_br::hsa_insn_br): Fix whitespace.
+	(hsa_insn_call::hsa_insn_call): Add missing initialization.
+	(hsa_insn_call_block::hsa_insn_call_block): Likewise.
+
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h (hsa_bb): Made a class with constructors, destructor and a
 	new operator.
 	(hsa_function_representation): Turned into a class, added

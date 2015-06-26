@@ -263,6 +263,55 @@ hsa_type_float_p (BrigType16_t type)
     }
 }
 
+/* Call the correct destructor on a statement STMT.  */
+
+void
+hsa_destroy_insn (hsa_insn_basic *insn)
+{
+  if (hsa_insn_phi *phi = dyn_cast <hsa_insn_phi *> (insn))
+    {
+      phi->~hsa_insn_phi ();
+      return;
+    }
+  if (hsa_insn_br *br = dyn_cast <hsa_insn_br *> (insn))
+    {
+      br->~hsa_insn_br ();
+      return;
+    }
+  if (hsa_insn_cmp *cmp = dyn_cast <hsa_insn_cmp *> (insn))
+    {
+      cmp->~hsa_insn_cmp ();
+      return;
+    }
+  if (hsa_insn_mem *mem = dyn_cast <hsa_insn_mem *> (insn))
+    {
+      mem->~hsa_insn_mem ();
+      return;
+    }
+  if (hsa_insn_atomic *atomic = dyn_cast <hsa_insn_atomic *> (insn))
+    {
+      atomic->~hsa_insn_atomic ();
+      return;
+    }
+  if (hsa_insn_seg *seg = dyn_cast <hsa_insn_seg *> (insn))
+    {
+      seg->~hsa_insn_seg ();
+      return;
+    }
+  if (hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn))
+    {
+      call->~hsa_insn_call ();
+      return;
+    }
+  if (hsa_insn_call_block *block = dyn_cast <hsa_insn_call_block *> (insn))
+    {
+      block->~hsa_insn_call_block ();
+      return;
+    }
+  insn->~hsa_insn_basic ();
+  return;
+}
+
 /* Create a mapping between the original function DECL and kernel name NAME.  */
 
 void

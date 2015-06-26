@@ -94,8 +94,6 @@ static pool_allocator<hsa_symbol> *hsa_allocp_symbols;
    a destruction.  */
 static vec <hsa_op_code_list *> hsa_list_operand_code_list;
 static vec <hsa_op_reg *> hsa_list_operand_reg;
-static vec <hsa_insn_call_block *> hsa_list_insn_call_block;
-static vec <hsa_insn_call *> hsa_list_insn_call;
 
 /* Constructor of class representing global HSA function/kernel information and
    state.  */
@@ -188,7 +186,16 @@ hsa_deinit_data_for_cfun (void)
   FOR_EACH_BB_FN (bb, cfun)
     if (bb->aux)
       {
-	hsa_bb_for_bb (bb)->~hsa_bb ();
+	hsa_bb *hbb = hsa_bb_for_bb (bb);
+	hsa_insn_phi *phi;
+	for (phi = hbb->first_phi;
+	     phi;
+	     phi = phi->next ? as_a <hsa_insn_phi *> (phi->next): NULL)
+	  phi->~hsa_insn_phi ();
+	for (hsa_insn_basic *insn = hbb->first_insn; insn; insn = insn->next)
+	  hsa_destroy_insn (insn);
+
+	hbb->~hsa_bb ();
 	bb->aux = NULL;
       }
 
@@ -198,16 +205,8 @@ hsa_deinit_data_for_cfun (void)
   for (unsigned int i = 0; i < hsa_list_operand_reg.length (); i++)
     hsa_list_operand_reg[i]->~hsa_op_reg ();
 
-  for (unsigned int i = 0; i < hsa_list_insn_call_block.length (); i++)
-    hsa_list_insn_call_block[i]->~hsa_insn_call_block ();
-
-  for (unsigned int i = 0; i < hsa_list_insn_call.length (); i++)
-    hsa_list_insn_call[i]->~hsa_insn_call ();
-
   hsa_list_operand_code_list.release ();
   hsa_list_operand_reg.release ();
-  hsa_list_insn_call_block.release ();
-  hsa_list_insn_call.release ();
 
   delete hsa_allocp_operand_address;
   delete hsa_allocp_operand_immed;
@@ -554,16 +553,20 @@ hsa_get_spill_symbol (BrigType16_t type)
 /* Constructor of the ancetor if all operands.  K is BRIG kind that identified
    what the operator is.  */
 
-hsa_op_base::hsa_op_base (BrigKind16_t k) : next(0), brig_op_offset (0), kind (k)
+hsa_op_base::hsa_op_base (BrigKind16_t k)
 {
+  next = NULL;
+  brig_op_offset = 0;
+  kind = k;
 }
 
 /* Constructor of ancestor of all operands which have a type.  K is BRIG kind
    that identified what the operator is.  T is the type of the operator.  */
 
 hsa_op_with_type::hsa_op_with_type (BrigKind16_t k, BrigType16_t t)
-  : hsa_op_base (k), type (t)
+  : hsa_op_base (k)
 {
+  type = t;
 }
 
 /* Constructor of class representing HSA immediate values.  TREE_VAL is the
@@ -572,11 +575,11 @@ hsa_op_with_type::hsa_op_with_type (BrigKind16_t k, BrigType16_t t)
 hsa_op_immed::hsa_op_immed (tree tree_val)
   : hsa_op_with_type (BRIG_KIND_OPERAND_CONSTANT_BYTES,
 		      hsa_type_for_scalar_tree_type (TREE_TYPE (tree_val),
-						     true)),
-    value (tree_val)
+						     true))
 {
   gcc_checking_assert (is_gimple_min_invariant (tree_val)
 		       && !POINTER_TYPE_P (TREE_TYPE (tree_val)));
+  value = tree_val;
 }
 
 /* New operator to allocate immediate operands from pool alloc.  */
@@ -759,6 +762,7 @@ hsa_insn_basic::operator new (size_t)
 hsa_insn_phi::hsa_insn_phi (unsigned nops)
   : hsa_insn_basic (nops, HSA_OPCODE_PHI)
 {
+  dest = NULL;
 }
 
 /* Operator new for an instruction representing an HSA phi node.  */
@@ -775,7 +779,7 @@ hsa_insn_phi::operator new (size_t)
 
 hsa_insn_br::hsa_insn_br (hsa_op_reg *ctrl) : hsa_insn_basic (1, BRIG_OPCODE_CBR)
 {
-  width =  BRIG_WIDTH_1;
+  width = BRIG_WIDTH_1;
   operands[0] = ctrl;
   ctrl->uses.safe_push (this);
 }
@@ -885,10 +889,9 @@ hsa_insn_seg::operator new (size_t)
 hsa_insn_call::hsa_insn_call (tree callee) : hsa_insn_basic (0, BRIG_OPCODE_CALL)
 {
   called_function = callee;
-  func.kind = BRIG_KIND_OPERAND_CODE_REF;
+  args_code_list = NULL;
   result_symbol = NULL;
-  result_symbol = NULL;
-  hsa_list_insn_call.safe_push (this);
+  result_code_list = NULL;
 }
 
 /* Operator new for classes representing a call.  */
@@ -904,7 +907,9 @@ hsa_insn_call::operator new (size_t)
 hsa_insn_call_block::hsa_insn_call_block ()
   : hsa_insn_basic (0, HSA_OPCODE_CALL_BLOCK)
 {
-  hsa_list_insn_call_block.safe_push (this);
+  output_arg = NULL;
+  output_arg_insn = NULL;
+  call_insn = NULL;
 }
 
 /* New operator for classes representing HSAIL call blocks.  */
