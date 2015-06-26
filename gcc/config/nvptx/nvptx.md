@@ -50,7 +50,6 @@
    UNSPEC_ALLOCA
 
    UNSPEC_NID
-   UNSPEC_ID
 
    UNSPEC_SHARED_DATA
 ])
@@ -61,6 +60,7 @@
    UNSPECV_XCHG
    UNSPECV_WARP_BCAST
    UNSPECV_BARSYNC
+   UNSPECV_ID
 ])
 
 (define_attr "subregs_ok" "false,true"
@@ -1313,7 +1313,8 @@
 
 (define_insn "oacc_id"
   [(set (match_operand:SI 0 "nvptx_register_operand" "")
-	(unspec:SI [(match_operand:SI 1 "const_int_operand" "")] UNSPEC_ID))]
+	(unspec_volatile:SI [(match_operand:SI 1 "const_int_operand" "")]
+			UNSPECV_ID))]
   ""
 {
   static const char *const asms[] =

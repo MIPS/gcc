@@ -1,3 +1,10 @@
+2015-06-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.md (UNSPEC_ID): Rename to ...
+	(UNSPECV_ID): ... here.
+	(oacc_id): Make volatile.
+	* omp-builtins.def (BUILT_IN_GOACC_ID): Not a constant function.
+
 2015-06-24  James Norris  <jnorris@codesourcery.com>
 
 	* c/c-parser.c (finish_oacc_declare): Additional syntax checking
@@ -2802,3 +2809,8 @@ Copyright (C) 2013-2015 Free Software Foundation, Inc.
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
 notice and this notice are preserved.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.gomp"
+End:
