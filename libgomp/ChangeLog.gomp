@@ -1,3 +1,11 @@
+2015-06-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/member-1.C: Remove dg-options.
+	* testsuite/libgomp.c++/member-2.C: Remove dg-options.
+	* testsuite/libgomp.c++/member-3.C: New test.
+	* testsuite/libgomp.c++/member-4.C: New test.
+	* testsuite/libgomp.c++/member-5.C: New test.
+
 2015-06-25  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* libgomp.h (struct target_var_desc): Add offset and length.

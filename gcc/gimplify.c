@@ -121,7 +121,10 @@ enum omp_region_type
   /* Data region.  */
   ORT_TARGET_DATA = 16,
   /* Data region with offloading.  */
-  ORT_TARGET = 32
+  ORT_TARGET = 32,
+  /* Dummy OpenMP region, used to disable expansion of
+     DECL_VALUE_EXPRs in taskloop pre body.  */
+  ORT_NONE = 64
 };
 
 /* Gimplify hashtable helper.  */
@@ -1083,7 +1086,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
 	  struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
 
 	  /* Mark variable as local.  */
-	  if (ctx && !DECL_EXTERNAL (t)
+	  if (ctx && ctx->region_type != ORT_NONE && !DECL_EXTERNAL (t)
 	      && (! DECL_SEEN_IN_BIND_EXPR_P (t)
 		  || splay_tree_lookup (ctx->variables,
 					(splay_tree_key) t) == NULL))
@@ -5554,7 +5557,7 @@ omp_firstprivatize_variable (struct gimplify_omp_ctx *ctx, tree decl)
 {
   splay_tree_node n;
 
-  if (decl == NULL || !DECL_P (decl))
+  if (decl == NULL || !DECL_P (decl) || ctx->region_type == ORT_NONE)
     return;
 
   do
@@ -5646,7 +5649,7 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
   unsigned int nflags;
   tree t;
 
-  if (error_operand_p (decl))
+  if (error_operand_p (decl) || ctx->region_type == ORT_NONE)
     return;
 
   /* Never elide decls whose type has TREE_ADDRESSABLE set.  This means
@@ -5798,6 +5801,9 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 
   if (error_operand_p (decl))
     return false;
+
+  if (ctx->region_type == ORT_NONE)
+    return lang_hooks.decls.omp_disregard_value_expr (decl, false);
 
   /* Threadprivate variables are predetermined.  */
   if (is_global_var (decl))
@@ -7195,7 +7201,20 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	    }
 	}
     }
-  gimplify_and_add (OMP_FOR_PRE_BODY (for_stmt), &for_pre_body);
+  if (OMP_FOR_PRE_BODY (for_stmt))
+    {
+      if (TREE_CODE (for_stmt) != OMP_TASKLOOP || gimplify_omp_ctxp)
+	gimplify_and_add (OMP_FOR_PRE_BODY (for_stmt), &for_pre_body);
+      else
+	{
+	  struct gimplify_omp_ctx ctx;
+	  memset (&ctx, 0, sizeof (ctx));
+	  ctx.region_type = ORT_NONE;
+	  gimplify_omp_ctxp = &ctx;
+	  gimplify_and_add (OMP_FOR_PRE_BODY (for_stmt), &for_pre_body);
+	  gimplify_omp_ctxp = NULL;
+	}
+    }
   OMP_FOR_PRE_BODY (for_stmt) = NULL_TREE;
 
   if (OMP_FOR_INIT (for_stmt) == NULL_TREE)

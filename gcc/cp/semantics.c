@@ -70,6 +70,7 @@ static tree capture_decltype (tree);
 
 static hash_map<tree, tree> *omp_private_member_map;
 static vec<tree> omp_private_member_vec;
+static bool omp_private_member_ignore_next;
 
 
 /* Deferred Access Checking Overview
@@ -4324,7 +4325,7 @@ omp_note_field_privatization (tree f, tree t)
 /* Privatize FIELD_DECL T, return corresponding DECL_OMP_PRIVATIZED_MEMBER
    dummy VAR_DECL.  */
 
-static tree
+tree
 omp_privatize_field (tree t)
 {
   tree m = finish_non_static_data_member (t, NULL_TREE, NULL_TREE);
@@ -6517,8 +6518,14 @@ finish_omp_clauses (tree clauses, bool allow_fields)
    privatization clauses for non-static data members.  */
 
 tree
-push_omp_privatization_clauses (void)
+push_omp_privatization_clauses (bool ignore_next)
 {
+  if (omp_private_member_ignore_next)
+    {
+      omp_private_member_ignore_next = ignore_next;
+      return NULL_TREE;
+    }
+  omp_private_member_ignore_next = ignore_next;
   if (omp_private_member_map)
     omp_private_member_vec.safe_push (error_mark_node);
   return push_stmt_list ();
@@ -6530,6 +6537,8 @@ push_omp_privatization_clauses (void)
 void
 pop_omp_privatization_clauses (tree stmt)
 {
+  if (stmt == NULL_TREE)
+    return;
   stmt = pop_stmt_list (stmt);
   if (omp_private_member_map)
     {
@@ -6563,8 +6572,12 @@ void
 save_omp_privatization_clauses (vec<tree> &save)
 {
   save = vNULL;
+  if (omp_private_member_ignore_next)
+    save.safe_push (integer_one_node);
+  omp_private_member_ignore_next = false;
   if (!omp_private_member_map)
     return;
+
   while (!omp_private_member_vec.is_empty ())
     {
       tree t = omp_private_member_vec.pop ();
@@ -6594,8 +6607,16 @@ void
 restore_omp_privatization_clauses (vec<tree> &save)
 {
   gcc_assert (omp_private_member_vec.is_empty ());
+  omp_private_member_ignore_next = false;
   if (save.is_empty ())
     return;
+  if (save.length () == 1 && save[0] == integer_one_node)
+    {
+      omp_private_member_ignore_next = true;
+      save.release ();
+      return;
+    }
+    
   omp_private_member_map = new hash_map <tree, tree>;
   while (!save.is_empty ())
     {
@@ -6603,6 +6624,12 @@ restore_omp_privatization_clauses (vec<tree> &save)
       tree n = t;
       if (t != error_mark_node)
 	{
+	  if (t == integer_one_node)
+	    {
+	      omp_private_member_ignore_next = true;
+	      gcc_assert (save.is_empty ());
+	      break;
+	    }
 	  if (t == integer_zero_node)
 	    t = save.pop ();
 	  tree &v = omp_private_member_map->get_or_insert (t);
@@ -7322,6 +7349,68 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
 	TREE_VEC_ELT (OMP_FOR_INCR (omp_for), i) = TREE_VEC_ELT (orig_incr, i);
     }
   OMP_FOR_CLAUSES (omp_for) = clauses;
+
+  /* For simd loops with non-static data member iterators, we could have added
+     OMP_CLAUSE_LINEAR clauses without OMP_CLAUSE_LINEAR_STEP.  As we know the
+     step at this point, fill it in.  */
+  if (code == OMP_SIMD && !processing_template_decl
+      && TREE_VEC_LENGTH (OMP_FOR_INCR (omp_for)) == 1)
+    for (tree c = find_omp_clause (clauses, OMP_CLAUSE_LINEAR); c;
+	 c = find_omp_clause (OMP_CLAUSE_CHAIN (c), OMP_CLAUSE_LINEAR))
+      if (OMP_CLAUSE_LINEAR_STEP (c) == NULL_TREE)
+	{
+	  decl = TREE_OPERAND (TREE_VEC_ELT (OMP_FOR_INIT (omp_for), 0), 0);
+	  gcc_assert (decl == OMP_CLAUSE_DECL (c));
+	  incr = TREE_VEC_ELT (OMP_FOR_INCR (omp_for), 0);
+	  tree step, stept;
+	  switch (TREE_CODE (incr))
+	    {
+	    case PREINCREMENT_EXPR:
+	    case POSTINCREMENT_EXPR:
+	      /* c_omp_for_incr_canonicalize_ptr() should have been
+		 called to massage things appropriately.  */
+	      gcc_assert (!POINTER_TYPE_P (TREE_TYPE (decl)));
+	      OMP_CLAUSE_LINEAR_STEP (c) = build_int_cst (TREE_TYPE (decl), 1);
+	      break;
+	    case PREDECREMENT_EXPR:
+	    case POSTDECREMENT_EXPR:
+	      /* c_omp_for_incr_canonicalize_ptr() should have been
+		 called to massage things appropriately.  */
+	      gcc_assert (!POINTER_TYPE_P (TREE_TYPE (decl)));
+	      OMP_CLAUSE_LINEAR_STEP (c)
+		= build_int_cst (TREE_TYPE (decl), -1);
+	      break;
+	    case MODIFY_EXPR:
+	      gcc_assert (TREE_OPERAND (incr, 0) == decl);
+	      incr = TREE_OPERAND (incr, 1);
+	      switch (TREE_CODE (incr))
+		{
+		case PLUS_EXPR:
+		  if (TREE_OPERAND (incr, 1) == decl)
+		    step = TREE_OPERAND (incr, 0);
+		  else
+		    step = TREE_OPERAND (incr, 1);
+		  break;
+		case MINUS_EXPR:
+		case POINTER_PLUS_EXPR:
+		  gcc_assert (TREE_OPERAND (incr, 0) == decl);
+		  step = TREE_OPERAND (incr, 1);
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	      stept = TREE_TYPE (decl);
+	      if (POINTER_TYPE_P (stept))
+		stept = sizetype;
+	      step = fold_convert (stept, step);
+	      if (TREE_CODE (incr) == MINUS_EXPR)
+		step = fold_build1 (NEGATE_EXPR, stept, step);
+	      OMP_CLAUSE_LINEAR_STEP (c) = step;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
 
   if (block)
     {

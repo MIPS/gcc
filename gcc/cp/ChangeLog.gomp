@@ -1,3 +1,44 @@
+2015-06-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (push_omp_privatization_clauses): Add bool
+	argument.
+	(omp_privatize_field): New prototype.
+	* parser.c (cp_parser_omp_for_incr): For processing_template_decl
+	use cp_tree_equals.
+	(cp_parser_omp_for_loop_init): Change return type to tree,
+	handle non-static data member iterators, return decl to
+	add to private clause if one should be added.
+	(cp_parser_omp_for_loop): Adjust caller.  For OMP_SIMD,
+	add OMP_CLAUSE_LINEAR or OMP_CLAUSE_LASTPRIVATE instead of
+	OMP_CLAUSE_PRIVATE.  Handle NULL TREE_TYPE as non-pointer.
+	(cp_parser_pragma): Adjust push_omp_privatization_clauses callers.
+	* pt.c (tsubst_omp_clauses): If there is a single OMP_CLAUSE_LINEAR
+	with NULL OMP_CLAUSE_LINEAR_STEP, make sure it is NULL even after
+	finish_omp_clauses.
+	(omp_parallel_combined_clauses): New variable.
+	(tsubst_omp_for_iterator): Handle non-static data members,
+	for combined parallel for move lastprivate clause from parallel
+	to for and avoid making already private iterator private again.
+	(tsubst_expr): Adjust push_omp_privatization_clauses callers.
+	For OMP_PARALLEL with OMP_PARALLEL_COMBINED temporarily set
+	omp_parallel_combined_clauses and clear it in OMP_FOR
+	and OMP_SECTIONS.
+	(instantiate_decl): Call save_omp_privatization_clauses
+	and restore_omp_privatization_clauses if nested.
+	(dependent_omp_for_p): Return true even if the iterator
+	is non-type dependent SCOPE_REF.
+	* semantics.c (omp_private_member_ignore_next): New variable.
+	(omp_privatize_field): No longer static.
+	(push_omp_privatization_clauses): Add ignore_next argument.
+	Set omp_private_member_ignore_next to it, return NULL early
+	if omp_private_member_ignore_next was set before.
+	(pop_omp_privatization_clauses): Do nothing if stmt is NULL.
+	(save_omp_privatization_clauses): Save also
+	omp_private_member_ignore_next flag in the vector.
+	(restore_omp_privatization_clauses): And restore it.
+	(finish_omp_for): For OMP_SIMD, fill in OMP_CLAUSE_LINEAR_STEP
+	for the iterator if NULL.
+
 2015-06-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (handle_omp_for_class_iterator): Handle
