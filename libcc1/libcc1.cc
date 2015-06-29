@@ -249,19 +249,19 @@ static const struct gcc_c_fe_vtable c_vtable =
   set_callbacks,
 
 #define GCC_METHOD0(R, N) \
-  rpc<R, cc1_plugin::N>,
+  rpc<R, cc1_plugin::c::N>,
 #define GCC_METHOD1(R, N, A) \
-  rpc<R, cc1_plugin::N, A>,
+  rpc<R, cc1_plugin::c::N, A>,
 #define GCC_METHOD2(R, N, A, B) \
-  rpc<R, cc1_plugin::N, A, B>,
+  rpc<R, cc1_plugin::c::N, A, B>,
 #define GCC_METHOD3(R, N, A, B, C) \
-  rpc<R, cc1_plugin::N, A, B, C>,
+  rpc<R, cc1_plugin::c::N, A, B, C>,
 #define GCC_METHOD4(R, N, A, B, C, D) \
-  rpc<R, cc1_plugin::N, A, B, C, D>,
+  rpc<R, cc1_plugin::c::N, A, B, C, D>,
 #define GCC_METHOD5(R, N, A, B, C, D, E) \
-  rpc<R, cc1_plugin::N, A, B, C, D, E>,
+  rpc<R, cc1_plugin::c::N, A, B, C, D, E>,
 #define GCC_METHOD7(R, N, A, B, C, D, E, F, G) \
-  rpc<R, cc1_plugin::N, A, B, C, D, E, F, G>,
+  rpc<R, cc1_plugin::c::N, A, B, C, D, E, F, G>,
 
 #include "gcc-c-fe.def"
 

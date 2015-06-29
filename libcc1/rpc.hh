@@ -125,6 +125,45 @@ namespace cc1_plugin
     argument_wrapper &operator= (const argument_wrapper &);
   };
 
+#ifdef GCC_CP_INTERFACE_H
+  // Specialization for gcc_type_array.
+  template<>
+  class argument_wrapper<const gcc_vbase_array *>
+  {
+  public:
+    argument_wrapper () : m_object (NULL) { }
+    ~argument_wrapper ()
+    {
+      // It would be nicer if gcc_type_array could have a destructor.
+      // But, it is in code shared with gdb and cannot.
+      if (m_object != NULL)
+	{
+	  delete[] m_object->virtualp;
+	  delete[] m_object->elements;
+	}
+      delete m_object;
+    }
+
+    operator const gcc_vbase_array * () const
+    {
+      return m_object;
+    }
+
+    status unmarshall (connection *conn)
+    {
+      return ::cc1_plugin::unmarshall (conn, &m_object);
+    }
+
+  private:
+
+    gcc_vbase_array *m_object;
+
+    // No copying or assignment allowed.
+    argument_wrapper (const argument_wrapper &);
+    argument_wrapper &operator= (const argument_wrapper &);
+  };
+#endif /* GCC_CP_INTERFACE_H */
+
   // There are two kinds of template functions here: "call" and
   // "callback".  They are each repeated multiple times to handle
   // different numbers of arguments.  (This would be improved with

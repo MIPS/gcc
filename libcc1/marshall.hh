@@ -44,6 +44,12 @@ namespace cc1_plugin
   // integer store it in the out argument.
   status unmarshall_intlike (connection *, protocol_int *);
 
+  status marshall_array_start (connection *, char, size_t);
+  status marshall_array_elmts (connection *, size_t, void *);
+
+  status unmarshall_array_start (connection *, char, size_t *);
+  status unmarshall_array_elmts (connection *, size_t, void *);
+
   // A template function that can handle marshalling various integer
   // objects to the connection.
   template<typename T>

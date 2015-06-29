@@ -98,26 +98,67 @@ cc1_plugin::unmarshall (connection *conn, char **result)
 }
 
 cc1_plugin::status
-cc1_plugin::marshall (connection *conn, const gcc_type_array *a)
+cc1_plugin::marshall_array_start (connection *conn, char id,
+				  size_t n_elements)
 {
-  if (!conn->send ('a'))
+  if (!conn->send (id))
     return FAIL;
 
-  unsigned long long r = a->n_elements;
+  unsigned long long r = n_elements;
   if (!conn->send (&r, sizeof (r)))
     return FAIL;
 
-  return conn->send (a->elements, r * sizeof (a->elements[0]));
+  return OK;
+}
+
+cc1_plugin::status
+cc1_plugin::marshall_array_elmts (connection *conn, size_t n_bytes,
+				  void *elements)
+{
+  return conn->send (elements, n_bytes);
+}
+
+cc1_plugin::status
+cc1_plugin::unmarshall_array_start (connection *conn, char id,
+				    size_t *n_elements)
+{
+  unsigned long long len;
+
+  if (!conn->require (id))
+    return FAIL;
+  if (!conn->get (&len, sizeof (len)))
+    return FAIL;
+  
+  *n_elements = len;
+
+  return OK;
+}
+
+cc1_plugin::status
+cc1_plugin::unmarshall_array_elmts (connection *conn, size_t n_bytes,
+				    void *elements)
+{
+  return conn->get (elements, n_bytes);
+}
+
+cc1_plugin::status
+cc1_plugin::marshall (connection *conn, const gcc_type_array *a)
+{
+  size_t len = a->n_elements;
+
+  if (!marshall_array_start (conn, 'a', len))
+    return FAIL;
+
+  return marshall_array_elmts (conn, len * sizeof (a->elements[0]),
+			       a->elements);
 }
 
 cc1_plugin::status
 cc1_plugin::unmarshall (connection *conn, gcc_type_array **result)
 {
-  unsigned long long len;
+  size_t len;
 
-  if (!conn->require ('a'))
-    return FAIL;
-  if (!conn->get (&len, sizeof (len)))
+  if (!unmarshall_array_start (conn, 'a', &len))
     return FAIL;
 
   *result = new gcc_type_array;
@@ -125,7 +166,9 @@ cc1_plugin::unmarshall (connection *conn, gcc_type_array **result)
   (*result)->n_elements = len;
   (*result)->elements = new gcc_type[len];
 
-  if (!conn->get ((*result)->elements, len * sizeof ((*result)->elements[0])))
+  if (!unmarshall_array_elmts (conn,
+			       len * sizeof ((*result)->elements[0]),
+			       (*result)->elements))
     {
       delete[] (*result)->elements;
       delete *result;
