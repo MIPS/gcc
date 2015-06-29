@@ -5,24 +5,24 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-NOMIPS16 int test0 (float a, float b);
-NOMIPS16 int test1 (float a, float b);
-NOMIPS16 int test2 (float a, float b);
-NOMIPS16 int test3 (float a, float b);
-NOMIPS16 int test4 (float a, float b);
-NOMIPS16 int test5 (float a, float b);
-NOMIPS16 int test6 (float a, float b);
-NOMIPS16 int test7 (float a, float b);
-NOMIPS16 int test8 (float a, float b);
-NOMIPS16 int test9 (float a, float b);
-NOMIPS16 int test10 (float a, float b);
-NOMIPS16 int test11 (float a, float b);
-NOMIPS16 int test12 (float a, float b);
-NOMIPS16 int test13 (float a, float b);
-NOMIPS16 int test14 (float a, float b);
-NOMIPS16 int test15 (float a, float b);
+NOCOMPRESSION int test0 (float a, float b);
+NOCOMPRESSION int test1 (float a, float b);
+NOCOMPRESSION int test2 (float a, float b);
+NOCOMPRESSION int test3 (float a, float b);
+NOCOMPRESSION int test4 (float a, float b);
+NOCOMPRESSION int test5 (float a, float b);
+NOCOMPRESSION int test6 (float a, float b);
+NOCOMPRESSION int test7 (float a, float b);
+NOCOMPRESSION int test8 (float a, float b);
+NOCOMPRESSION int test9 (float a, float b);
+NOCOMPRESSION int test10 (float a, float b);
+NOCOMPRESSION int test11 (float a, float b);
+NOCOMPRESSION int test12 (float a, float b);
+NOCOMPRESSION int test13 (float a, float b);
+NOCOMPRESSION int test14 (float a, float b);
+NOCOMPRESSION int test15 (float a, float b);
 
-NOMIPS16 int main ()
+NOCOMPRESSION int main ()
 {
   float a, b;
   int i;
@@ -203,82 +203,82 @@ NOMIPS16 int main ()
   exit (0);
 }
 
-NOMIPS16 int test0 (float a, float b)
+NOCOMPRESSION int test0 (float a, float b)
 {
   return __builtin_mips_cabs_f_s (a, b);
 }
 
-NOMIPS16 int test1 (float a, float b)
+NOCOMPRESSION int test1 (float a, float b)
 {
   return __builtin_mips_cabs_un_s (a, b);
 }
 
-NOMIPS16 int test2 (float a, float b)
+NOCOMPRESSION int test2 (float a, float b)
 {
   return __builtin_mips_cabs_eq_s (a, b);
 }
 
-NOMIPS16 int test3 (float a, float b)
+NOCOMPRESSION int test3 (float a, float b)
 {
   return __builtin_mips_cabs_ueq_s (a, b);
 }
 
-NOMIPS16 int test4 (float a, float b)
+NOCOMPRESSION int test4 (float a, float b)
 {
   return __builtin_mips_cabs_olt_s (a, b);
 }
 
-NOMIPS16 int test5 (float a, float b)
+NOCOMPRESSION int test5 (float a, float b)
 {
   return __builtin_mips_cabs_ult_s (a, b);
 }
 
-NOMIPS16 int test6 (float a, float b)
+NOCOMPRESSION int test6 (float a, float b)
 {
   return __builtin_mips_cabs_ole_s (a, b);
 }
 
-NOMIPS16 int test7 (float a, float b)
+NOCOMPRESSION int test7 (float a, float b)
 {
   return __builtin_mips_cabs_ule_s (a, b);
 }
 
-NOMIPS16 int test8 (float a, float b)
+NOCOMPRESSION int test8 (float a, float b)
 {
   return __builtin_mips_cabs_sf_s (a, b);
 }
 
-NOMIPS16 int test9 (float a, float b)
+NOCOMPRESSION int test9 (float a, float b)
 {
   return __builtin_mips_cabs_ngle_s (a, b);
 }
 
-NOMIPS16 int test10 (float a, float b)
+NOCOMPRESSION int test10 (float a, float b)
 {
   return __builtin_mips_cabs_seq_s (a, b);
 }
 
-NOMIPS16 int test11 (float a, float b)
+NOCOMPRESSION int test11 (float a, float b)
 {
   return __builtin_mips_cabs_ngl_s (a, b);
 }
 
-NOMIPS16 int test12 (float a, float b)
+NOCOMPRESSION int test12 (float a, float b)
 {
   return __builtin_mips_cabs_lt_s (a, b);
 }
 
-NOMIPS16 int test13 (float a, float b)
+NOCOMPRESSION int test13 (float a, float b)
 {
   return __builtin_mips_cabs_nge_s (a, b);
 }
 
-NOMIPS16 int test14 (float a, float b)
+NOCOMPRESSION int test14 (float a, float b)
 {
   return __builtin_mips_cabs_le_s (a, b);
 }
 
-NOMIPS16 int test15 (float a, float b)
+NOCOMPRESSION int test15 (float a, float b)
 {
   return __builtin_mips_cabs_ngt_s (a, b);
 }

@@ -7,7 +7,7 @@
 
 typedef float v2sf __attribute__ ((vector_size(8)));
 
-NOMIPS16 int main ()
+NOCOMPRESSION int main ()
 {
   int little_endian;
   v2sf a, b, c, d;

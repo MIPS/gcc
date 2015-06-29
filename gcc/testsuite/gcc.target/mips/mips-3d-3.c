@@ -7,74 +7,74 @@
 
 typedef float v2sf __attribute__ ((vector_size(8)));
 
-NOMIPS16 int test0 (v2sf a, v2sf b);
-NOMIPS16 int test1 (v2sf a, v2sf b);
-NOMIPS16 int test2 (v2sf a, v2sf b);
-NOMIPS16 int test3 (v2sf a, v2sf b);
-NOMIPS16 int test4 (v2sf a, v2sf b);
-NOMIPS16 int test5 (v2sf a, v2sf b);
-NOMIPS16 int test6 (v2sf a, v2sf b);
-NOMIPS16 int test7 (v2sf a, v2sf b);
-NOMIPS16 int test8 (v2sf a, v2sf b);
-NOMIPS16 int test9 (v2sf a, v2sf b);
-NOMIPS16 int test10 (v2sf a, v2sf b);
-NOMIPS16 int test11 (v2sf a, v2sf b);
-NOMIPS16 int test12 (v2sf a, v2sf b);
-NOMIPS16 int test13 (v2sf a, v2sf b);
-NOMIPS16 int test14 (v2sf a, v2sf b);
-NOMIPS16 int test15 (v2sf a, v2sf b);
-NOMIPS16 int test16 (v2sf a, v2sf b);
-NOMIPS16 int test17 (v2sf a, v2sf b);
-NOMIPS16 int test18 (v2sf a, v2sf b);
-NOMIPS16 int test19 (v2sf a, v2sf b);
-NOMIPS16 int test20 (v2sf a, v2sf b);
-NOMIPS16 int test21 (v2sf a, v2sf b);
-NOMIPS16 int test22 (v2sf a, v2sf b);
-NOMIPS16 int test23 (v2sf a, v2sf b);
-NOMIPS16 int test24 (v2sf a, v2sf b);
-NOMIPS16 int test25 (v2sf a, v2sf b);
-NOMIPS16 int test26 (v2sf a, v2sf b);
-NOMIPS16 int test27 (v2sf a, v2sf b);
-NOMIPS16 int test28 (v2sf a, v2sf b);
-NOMIPS16 int test29 (v2sf a, v2sf b);
-NOMIPS16 int test30 (v2sf a, v2sf b);
-NOMIPS16 int test31 (v2sf a, v2sf b);
-NOMIPS16 int test32 (v2sf a, v2sf b);
-NOMIPS16 int test33 (v2sf a, v2sf b);
-NOMIPS16 int test34 (v2sf a, v2sf b);
-NOMIPS16 int test35 (v2sf a, v2sf b);
-NOMIPS16 int test36 (v2sf a, v2sf b);
-NOMIPS16 int test37 (v2sf a, v2sf b);
-NOMIPS16 int test38 (v2sf a, v2sf b);
-NOMIPS16 int test39 (v2sf a, v2sf b);
-NOMIPS16 int test40 (v2sf a, v2sf b);
-NOMIPS16 int test41 (v2sf a, v2sf b);
-NOMIPS16 int test42 (v2sf a, v2sf b);
-NOMIPS16 int test43 (v2sf a, v2sf b);
-NOMIPS16 int test44 (v2sf a, v2sf b);
-NOMIPS16 int test45 (v2sf a, v2sf b);
-NOMIPS16 int test46 (v2sf a, v2sf b);
-NOMIPS16 int test47 (v2sf a, v2sf b);
-NOMIPS16 int test48 (v2sf a, v2sf b);
-NOMIPS16 int test49 (v2sf a, v2sf b);
-NOMIPS16 int test50 (v2sf a, v2sf b);
-NOMIPS16 int test51 (v2sf a, v2sf b);
-NOMIPS16 int test52 (v2sf a, v2sf b);
-NOMIPS16 int test53 (v2sf a, v2sf b);
-NOMIPS16 int test54 (v2sf a, v2sf b);
-NOMIPS16 int test55 (v2sf a, v2sf b);
-NOMIPS16 int test56 (v2sf a, v2sf b);
-NOMIPS16 int test57 (v2sf a, v2sf b);
-NOMIPS16 int test58 (v2sf a, v2sf b);
-NOMIPS16 int test59 (v2sf a, v2sf b);
-NOMIPS16 int test60 (v2sf a, v2sf b);
-NOMIPS16 int test61 (v2sf a, v2sf b);
-NOMIPS16 int test62 (v2sf a, v2sf b);
-NOMIPS16 int test63 (v2sf a, v2sf b);
+NOCOMPRESSION int test0 (v2sf a, v2sf b);
+NOCOMPRESSION int test1 (v2sf a, v2sf b);
+NOCOMPRESSION int test2 (v2sf a, v2sf b);
+NOCOMPRESSION int test3 (v2sf a, v2sf b);
+NOCOMPRESSION int test4 (v2sf a, v2sf b);
+NOCOMPRESSION int test5 (v2sf a, v2sf b);
+NOCOMPRESSION int test6 (v2sf a, v2sf b);
+NOCOMPRESSION int test7 (v2sf a, v2sf b);
+NOCOMPRESSION int test8 (v2sf a, v2sf b);
+NOCOMPRESSION int test9 (v2sf a, v2sf b);
+NOCOMPRESSION int test10 (v2sf a, v2sf b);
+NOCOMPRESSION int test11 (v2sf a, v2sf b);
+NOCOMPRESSION int test12 (v2sf a, v2sf b);
+NOCOMPRESSION int test13 (v2sf a, v2sf b);
+NOCOMPRESSION int test14 (v2sf a, v2sf b);
+NOCOMPRESSION int test15 (v2sf a, v2sf b);
+NOCOMPRESSION int test16 (v2sf a, v2sf b);
+NOCOMPRESSION int test17 (v2sf a, v2sf b);
+NOCOMPRESSION int test18 (v2sf a, v2sf b);
+NOCOMPRESSION int test19 (v2sf a, v2sf b);
+NOCOMPRESSION int test20 (v2sf a, v2sf b);
+NOCOMPRESSION int test21 (v2sf a, v2sf b);
+NOCOMPRESSION int test22 (v2sf a, v2sf b);
+NOCOMPRESSION int test23 (v2sf a, v2sf b);
+NOCOMPRESSION int test24 (v2sf a, v2sf b);
+NOCOMPRESSION int test25 (v2sf a, v2sf b);
+NOCOMPRESSION int test26 (v2sf a, v2sf b);
+NOCOMPRESSION int test27 (v2sf a, v2sf b);
+NOCOMPRESSION int test28 (v2sf a, v2sf b);
+NOCOMPRESSION int test29 (v2sf a, v2sf b);
+NOCOMPRESSION int test30 (v2sf a, v2sf b);
+NOCOMPRESSION int test31 (v2sf a, v2sf b);
+NOCOMPRESSION int test32 (v2sf a, v2sf b);
+NOCOMPRESSION int test33 (v2sf a, v2sf b);
+NOCOMPRESSION int test34 (v2sf a, v2sf b);
+NOCOMPRESSION int test35 (v2sf a, v2sf b);
+NOCOMPRESSION int test36 (v2sf a, v2sf b);
+NOCOMPRESSION int test37 (v2sf a, v2sf b);
+NOCOMPRESSION int test38 (v2sf a, v2sf b);
+NOCOMPRESSION int test39 (v2sf a, v2sf b);
+NOCOMPRESSION int test40 (v2sf a, v2sf b);
+NOCOMPRESSION int test41 (v2sf a, v2sf b);
+NOCOMPRESSION int test42 (v2sf a, v2sf b);
+NOCOMPRESSION int test43 (v2sf a, v2sf b);
+NOCOMPRESSION int test44 (v2sf a, v2sf b);
+NOCOMPRESSION int test45 (v2sf a, v2sf b);
+NOCOMPRESSION int test46 (v2sf a, v2sf b);
+NOCOMPRESSION int test47 (v2sf a, v2sf b);
+NOCOMPRESSION int test48 (v2sf a, v2sf b);
+NOCOMPRESSION int test49 (v2sf a, v2sf b);
+NOCOMPRESSION int test50 (v2sf a, v2sf b);
+NOCOMPRESSION int test51 (v2sf a, v2sf b);
+NOCOMPRESSION int test52 (v2sf a, v2sf b);
+NOCOMPRESSION int test53 (v2sf a, v2sf b);
+NOCOMPRESSION int test54 (v2sf a, v2sf b);
+NOCOMPRESSION int test55 (v2sf a, v2sf b);
+NOCOMPRESSION int test56 (v2sf a, v2sf b);
+NOCOMPRESSION int test57 (v2sf a, v2sf b);
+NOCOMPRESSION int test58 (v2sf a, v2sf b);
+NOCOMPRESSION int test59 (v2sf a, v2sf b);
+NOCOMPRESSION int test60 (v2sf a, v2sf b);
+NOCOMPRESSION int test61 (v2sf a, v2sf b);
+NOCOMPRESSION int test62 (v2sf a, v2sf b);
+NOCOMPRESSION int test63 (v2sf a, v2sf b);
 
 float qnan = 1.0f/0.0f - 1.0f/0.0f;
 
-NOMIPS16 int main ()
+NOCOMPRESSION int main ()
 {
   int little_endian;
   v2sf a, b, c, d;
@@ -774,322 +774,322 @@ NOMIPS16 int main ()
   exit (0);
 }
 
-NOMIPS16 int test0 (v2sf a, v2sf b)
+NOCOMPRESSION int test0 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_f_ps (a, b);
 }
 
-NOMIPS16 int test1 (v2sf a, v2sf b)
+NOCOMPRESSION int test1 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_f_ps (a, b);
 }
 
-NOMIPS16 int test2 (v2sf a, v2sf b)
+NOCOMPRESSION int test2 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_f_ps (a, b);
 }
 
-NOMIPS16 int test3 (v2sf a, v2sf b)
+NOCOMPRESSION int test3 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_f_ps (a, b);
 }
 
-NOMIPS16 int test4 (v2sf a, v2sf b)
+NOCOMPRESSION int test4 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_un_ps (a, b);
 }
 
-NOMIPS16 int test5 (v2sf a, v2sf b)
+NOCOMPRESSION int test5 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_un_ps (a, b);
 }
 
-NOMIPS16 int test6 (v2sf a, v2sf b)
+NOCOMPRESSION int test6 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_un_ps (a, b);
 }
 
-NOMIPS16 int test7 (v2sf a, v2sf b)
+NOCOMPRESSION int test7 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_un_ps (a, b);
 }
 
-NOMIPS16 int test8 (v2sf a, v2sf b)
+NOCOMPRESSION int test8 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_eq_ps (a, b);
 }
 
-NOMIPS16 int test9 (v2sf a, v2sf b)
+NOCOMPRESSION int test9 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_eq_ps (a, b);
 }
 
-NOMIPS16 int test10 (v2sf a, v2sf b)
+NOCOMPRESSION int test10 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_eq_ps (a, b);
 }
 
-NOMIPS16 int test11 (v2sf a, v2sf b)
+NOCOMPRESSION int test11 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_eq_ps (a, b);
 }
 
-NOMIPS16 int test12 (v2sf a, v2sf b)
+NOCOMPRESSION int test12 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_ueq_ps (a, b);
 }
 
-NOMIPS16 int test13 (v2sf a, v2sf b)
+NOCOMPRESSION int test13 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_ueq_ps (a, b);
 }
 
-NOMIPS16 int test14 (v2sf a, v2sf b)
+NOCOMPRESSION int test14 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_ueq_ps (a, b);
 }
 
-NOMIPS16 int test15 (v2sf a, v2sf b)
+NOCOMPRESSION int test15 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_ueq_ps (a, b);
 }
 
-NOMIPS16 int test16 (v2sf a, v2sf b)
+NOCOMPRESSION int test16 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_olt_ps (a, b);
 }
 
-NOMIPS16 int test17 (v2sf a, v2sf b)
+NOCOMPRESSION int test17 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_olt_ps (a, b);
 }
 
-NOMIPS16 int test18 (v2sf a, v2sf b)
+NOCOMPRESSION int test18 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_olt_ps (a, b);
 }
 
-NOMIPS16 int test19 (v2sf a, v2sf b)
+NOCOMPRESSION int test19 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_olt_ps (a, b);
 }
 
-NOMIPS16 int test20 (v2sf a, v2sf b)
+NOCOMPRESSION int test20 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_ult_ps (a, b);
 }
 
-NOMIPS16 int test21 (v2sf a, v2sf b)
+NOCOMPRESSION int test21 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_ult_ps (a, b);
 }
 
-NOMIPS16 int test22 (v2sf a, v2sf b)
+NOCOMPRESSION int test22 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_ult_ps (a, b);
 }
 
-NOMIPS16 int test23 (v2sf a, v2sf b)
+NOCOMPRESSION int test23 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_ult_ps (a, b);
 }
 
-NOMIPS16 int test24 (v2sf a, v2sf b)
+NOCOMPRESSION int test24 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_ole_ps (a, b);
 }
 
-NOMIPS16 int test25 (v2sf a, v2sf b)
+NOCOMPRESSION int test25 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_ole_ps (a, b);
 }
 
-NOMIPS16 int test26 (v2sf a, v2sf b)
+NOCOMPRESSION int test26 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_ole_ps (a, b);
 }
 
-NOMIPS16 int test27 (v2sf a, v2sf b)
+NOCOMPRESSION int test27 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_ole_ps (a, b);
 }
 
-NOMIPS16 int test28 (v2sf a, v2sf b)
+NOCOMPRESSION int test28 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_ule_ps (a, b);
 }
 
-NOMIPS16 int test29 (v2sf a, v2sf b)
+NOCOMPRESSION int test29 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_ule_ps (a, b);
 }
 
-NOMIPS16 int test30 (v2sf a, v2sf b)
+NOCOMPRESSION int test30 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_ule_ps (a, b);
 }
 
-NOMIPS16 int test31 (v2sf a, v2sf b)
+NOCOMPRESSION int test31 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_ule_ps (a, b);
 }
 
-NOMIPS16 int test32 (v2sf a, v2sf b)
+NOCOMPRESSION int test32 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_sf_ps (a, b);
 }
 
-NOMIPS16 int test33 (v2sf a, v2sf b)
+NOCOMPRESSION int test33 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_sf_ps (a, b);
 }
 
-NOMIPS16 int test34 (v2sf a, v2sf b)
+NOCOMPRESSION int test34 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_sf_ps (a, b);
 }
 
-NOMIPS16 int test35 (v2sf a, v2sf b)
+NOCOMPRESSION int test35 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_sf_ps (a, b);
 }
 
-NOMIPS16 int test36 (v2sf a, v2sf b)
+NOCOMPRESSION int test36 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_ngle_ps (a, b);
 }
 
-NOMIPS16 int test37 (v2sf a, v2sf b)
+NOCOMPRESSION int test37 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_ngle_ps (a, b);
 }
 
-NOMIPS16 int test38 (v2sf a, v2sf b)
+NOCOMPRESSION int test38 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_ngle_ps (a, b);
 }
 
-NOMIPS16 int test39 (v2sf a, v2sf b)
+NOCOMPRESSION int test39 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_ngle_ps (a, b);
 }
 
-NOMIPS16 int test40 (v2sf a, v2sf b)
+NOCOMPRESSION int test40 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_seq_ps (a, b);
 }
 
-NOMIPS16 int test41 (v2sf a, v2sf b)
+NOCOMPRESSION int test41 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_seq_ps (a, b);
 }
 
-NOMIPS16 int test42 (v2sf a, v2sf b)
+NOCOMPRESSION int test42 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_seq_ps (a, b);
 }
 
-NOMIPS16 int test43 (v2sf a, v2sf b)
+NOCOMPRESSION int test43 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_seq_ps (a, b);
 }
 
-NOMIPS16 int test44 (v2sf a, v2sf b)
+NOCOMPRESSION int test44 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_ngl_ps (a, b);
 }
 
-NOMIPS16 int test45 (v2sf a, v2sf b)
+NOCOMPRESSION int test45 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_ngl_ps (a, b);
 }
 
-NOMIPS16 int test46 (v2sf a, v2sf b)
+NOCOMPRESSION int test46 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_ngl_ps (a, b);
 }
 
-NOMIPS16 int test47 (v2sf a, v2sf b)
+NOCOMPRESSION int test47 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_ngl_ps (a, b);
 }
 
-NOMIPS16 int test48 (v2sf a, v2sf b)
+NOCOMPRESSION int test48 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_lt_ps (a, b);
 }
 
-NOMIPS16 int test49 (v2sf a, v2sf b)
+NOCOMPRESSION int test49 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_lt_ps (a, b);
 }
 
-NOMIPS16 int test50 (v2sf a, v2sf b)
+NOCOMPRESSION int test50 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_lt_ps (a, b);
 }
 
-NOMIPS16 int test51 (v2sf a, v2sf b)
+NOCOMPRESSION int test51 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_lt_ps (a, b);
 }
 
-NOMIPS16 int test52 (v2sf a, v2sf b)
+NOCOMPRESSION int test52 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_nge_ps (a, b);
 }
 
-NOMIPS16 int test53 (v2sf a, v2sf b)
+NOCOMPRESSION int test53 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_nge_ps (a, b);
 }
 
-NOMIPS16 int test54 (v2sf a, v2sf b)
+NOCOMPRESSION int test54 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_nge_ps (a, b);
 }
 
-NOMIPS16 int test55 (v2sf a, v2sf b)
+NOCOMPRESSION int test55 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_nge_ps (a, b);
 }
 
-NOMIPS16 int test56 (v2sf a, v2sf b)
+NOCOMPRESSION int test56 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_le_ps (a, b);
 }
 
-NOMIPS16 int test57 (v2sf a, v2sf b)
+NOCOMPRESSION int test57 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_le_ps (a, b);
 }
 
-NOMIPS16 int test58 (v2sf a, v2sf b)
+NOCOMPRESSION int test58 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_le_ps (a, b);
 }
 
-NOMIPS16 int test59 (v2sf a, v2sf b)
+NOCOMPRESSION int test59 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_le_ps (a, b);
 }
 
-NOMIPS16 int test60 (v2sf a, v2sf b)
+NOCOMPRESSION int test60 (v2sf a, v2sf b)
 {
   return __builtin_mips_any_cabs_ngt_ps (a, b);
 }
 
-NOMIPS16 int test61 (v2sf a, v2sf b)
+NOCOMPRESSION int test61 (v2sf a, v2sf b)
 {
   return __builtin_mips_upper_cabs_ngt_ps (a, b);
 }
 
-NOMIPS16 int test62 (v2sf a, v2sf b)
+NOCOMPRESSION int test62 (v2sf a, v2sf b)
 {
   return __builtin_mips_lower_cabs_ngt_ps (a, b);
 }
 
-NOMIPS16 int test63 (v2sf a, v2sf b)
+NOCOMPRESSION int test63 (v2sf a, v2sf b)
 {
   return __builtin_mips_all_cabs_ngt_ps (a, b);
 }

@@ -7,42 +7,42 @@
 
 typedef float v2sf __attribute__ ((vector_size(8)));
 
-NOMIPS16 int test0 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test1 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test2 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test3 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test4 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test5 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test6 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test7 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test8 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test9 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test10 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test11 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test12 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test13 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test14 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test15 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test16 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test17 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test18 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test19 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test20 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test21 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test22 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test23 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test24 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test25 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test26 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test27 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test28 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test29 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test30 (v2sf a, v2sf b, v2sf c, v2sf d);
-NOMIPS16 int test31 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test0 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test1 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test2 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test3 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test4 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test5 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test6 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test7 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test8 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test9 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test10 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test11 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test12 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test13 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test14 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test15 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test16 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test17 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test18 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test19 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test20 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test21 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test22 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test23 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test24 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test25 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test26 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test27 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test28 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test29 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test30 (v2sf a, v2sf b, v2sf c, v2sf d);
+NOCOMPRESSION int test31 (v2sf a, v2sf b, v2sf c, v2sf d);
 
 float qnan = 1.0f/0.0f - 1.0f/0.0f;
 
-NOMIPS16 int main ()
+NOCOMPRESSION int main ()
 {
   v2sf a, b, c, d;
   int i, j;
@@ -429,162 +429,162 @@ NOMIPS16 int main ()
   exit (0);
 }
 
-NOMIPS16 int test0 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test0 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_f_4s (a, b, c, d);
 }
 
-NOMIPS16 int test1 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test1 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_f_4s (a, b, c, d);
 }
 
-NOMIPS16 int test2 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test2 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_un_4s (a, b, c, d);
 }
 
-NOMIPS16 int test3 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test3 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_un_4s (a, b, c, d);
 }
 
-NOMIPS16 int test4 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test4 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_eq_4s (a, b, c, d);
 }
 
-NOMIPS16 int test5 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test5 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_eq_4s (a, b, c, d);
 }
 
-NOMIPS16 int test6 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test6 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_ueq_4s (a, b, c, d);
 }
 
-NOMIPS16 int test7 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test7 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_ueq_4s (a, b, c, d);
 }
 
-NOMIPS16 int test8 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test8 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_olt_4s (a, b, c, d);
 }
 
-NOMIPS16 int test9 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test9 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_olt_4s (a, b, c, d);
 }
 
-NOMIPS16 int test10 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test10 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_ult_4s (a, b, c, d);
 }
 
-NOMIPS16 int test11 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test11 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_ult_4s (a, b, c, d);
 }
 
-NOMIPS16 int test12 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test12 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_ole_4s (a, b, c, d);
 }
 
-NOMIPS16 int test13 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test13 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_ole_4s (a, b, c, d);
 }
 
-NOMIPS16 int test14 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test14 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_ule_4s (a, b, c, d);
 }
 
-NOMIPS16 int test15 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test15 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_ule_4s (a, b, c, d);
 }
 
-NOMIPS16 int test16 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test16 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_sf_4s (a, b, c, d);
 }
 
-NOMIPS16 int test17 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test17 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_sf_4s (a, b, c, d);
 }
 
-NOMIPS16 int test18 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test18 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_ngle_4s (a, b, c, d);
 }
 
-NOMIPS16 int test19 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test19 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_ngle_4s (a, b, c, d);
 }
 
-NOMIPS16 int test20 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test20 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_seq_4s (a, b, c, d);
 }
 
-NOMIPS16 int test21 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test21 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_seq_4s (a, b, c, d);
 }
 
-NOMIPS16 int test22 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test22 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_ngl_4s (a, b, c, d);
 }
 
-NOMIPS16 int test23 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test23 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_ngl_4s (a, b, c, d);
 }
 
-NOMIPS16 int test24 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test24 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_lt_4s (a, b, c, d);
 }
 
-NOMIPS16 int test25 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test25 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_lt_4s (a, b, c, d);
 }
 
-NOMIPS16 int test26 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test26 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_nge_4s (a, b, c, d);
 }
 
-NOMIPS16 int test27 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test27 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_nge_4s (a, b, c, d);
 }
 
-NOMIPS16 int test28 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test28 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_le_4s (a, b, c, d);
 }
 
-NOMIPS16 int test29 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test29 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_le_4s (a, b, c, d);
 }
 
-NOMIPS16 int test30 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test30 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_any_cabs_ngt_4s (a, b, c, d);
 }
 
-NOMIPS16 int test31 (v2sf a, v2sf b, v2sf c, v2sf d)
+NOCOMPRESSION int test31 (v2sf a, v2sf b, v2sf c, v2sf d)
 {
   return __builtin_mips_all_cabs_ngt_4s (a, b, c, d);
 }
