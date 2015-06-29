@@ -17,7 +17,7 @@ enum e {
   /* But as in DR#031, the 1/0 in an evaluated subexpression means the
      whole expression violates the constraints.  */
   E4 = 0 * (1 / 0), /* { dg-warning "division by zero" } */
-  /* { dg-error "enumerator value for 'E4' is not an integer constant" "enum error" { target *-*-* } 19 } */
+  /* { dg-error "enumerator value for 'E4' is not an integer constant" "enum error" { xfail *-*-* } 19 } */
   E5 = INT_MAX + 1, /* { dg-warning "integer overflow in expression" } */
   /* { dg-error "overflow in constant expression" "constant" { target *-*-* } 21 } */
   /* { dg-error "enumerator value for 'E5' is not an integer constant" "enum error" { target *-*-* } 21 } */
@@ -68,7 +68,7 @@ g (int i)
   switch (i)
     {
     case 0 * (1/0): /* { dg-warning "division by zero" } */
-      ;  /* dg-error "is not a constant expression" "const" { target *-*-* } 70 } */
+      ;  /* { dg-error "is not a constant expression" "const" { target *-*-* } 70 } */
     case 1 + 0 * (INT_MAX + 1): /* { dg-warning "integer overflow in expression" } */
       /* { dg-error "overflow in constant expression" "constant" { target *-*-* } 72 } */
       ;
