@@ -28,31 +28,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tree-upc.h"
 
-struct tree_map_hasher : ggc_cache_hasher<tree_map *>
+struct tm_block_factor_hasher : ggc_cache_ptr_hash<tree_map>
 {
-  static inline hashval_t hash (tree_map *m) { return m->hash; }
-  static inline bool
-  equal (tree_map *a, tree_map *b)
-  {
-    return a->base.from == b->base.from;
-  }
+  static hashval_t hash (tree_map *m) { return tree_map_hash (m); }
+  static bool equal (tree_map *a, tree_map *b) { return tree_map_eq (a, b); }
 
-  static void
-  handle_cache_entry (tree_map *&m)
+  static int
+  keep_cache_entry (tree_map *&e)
   {
-    extern void gt_ggc_mx (tree_map *&);
-    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
-      return;
-    else if (ggc_marked_p (m->base.from))
-      gt_ggc_mx (m);
-    else
-      m = static_cast<tree_map *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (e->base.from);
   }
 };
 
 /* Hash table for UPC block factor lookups when the block factor
    is not 0 (the indefinite block factor) or 1 (the default).  */
-static GTY((cache)) hash_table<tree_map_hasher> *upc_block_factor_htab;
+static GTY((cache)) hash_table<tm_block_factor_hasher> *upc_block_factor_htab;
 
 /* Return the blocking factor of the UPC shared type, TYPE.
    If the blocking factor is NULL, then return the default blocking
@@ -149,7 +139,7 @@ upc_block_factor_insert (tree type,
 void
 upc_block_factor_lookup_init (void)
 {
-  upc_block_factor_htab = hash_table<tree_map_hasher>::create_ggc (17);
+  upc_block_factor_htab = hash_table<tm_block_factor_hasher>::create_ggc (17);
 }
 
 #include "gt-tree-upc.h"

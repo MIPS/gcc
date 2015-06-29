@@ -1,3 +1,13 @@
+2015-06-29  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 225113 into gupc branch.
+
+	* c-family/c-upc-low.c:
+	Remove ipa-ref.h and plugin-api.h from include list.
+	* tree-upc.c (tm_block_factor_hasher): Rename from tree_map_hasher.
+	* tree-upc.c (tm_block_factor_hasher): Inherit from ggc_cache_ptr_hash
+	rather than ggc_cache_hasher.
+
 2015-06-23  Gary Funck  <gary@intrepid.com>
 
 	* function.c (assign_parm_setup_reg): Improve check for

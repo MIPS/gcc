@@ -62,14 +62,11 @@
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "except.h"
 #include "tm_p.h"
 #include "target.h"
 #include "sched-int.h"
-#include "target-def.h"
 #include "debug.h"
 #include "langhooks.h"
 #include "df.h"
@@ -85,6 +82,9 @@
 #include "rtl-iter.h"
 #include "sched-int.h"
 #include "tree.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -5038,10 +5038,8 @@ arm_function_value(const_tree type, const_tree func,
 
 /* libcall hashtable helpers.  */
 
-struct libcall_hasher : typed_noop_remove <rtx_def>
+struct libcall_hasher : nofree_ptr_hash <const rtx_def>
 {
-  typedef const rtx_def *value_type;
-  typedef const rtx_def *compare_type;
   static inline hashval_t hash (const rtx_def *);
   static inline bool equal (const rtx_def *, const rtx_def *);
   static inline void remove (rtx_def *);
@@ -17591,7 +17589,7 @@ arm_output_multireg_pop (rtx *operands, bool return_pc, rtx cond, bool reverse,
     }
 
   conditional = reverse ? "%?%D0" : "%?%d0";
-  if ((regno_base == SP_REGNUM) && TARGET_UNIFIED_ASM)
+  if ((regno_base == SP_REGNUM) && TARGET_THUMB)
     {
       /* Output pop (not stmfd) because it has a shorter encoding.  */
       gcc_assert (update);
@@ -26389,7 +26387,7 @@ arm_dbx_register_number (unsigned int regno)
   if (IS_IWMMXT_REGNUM (regno))
     return 112 + regno - FIRST_IWMMXT_REGNUM;
 
-  gcc_unreachable ();
+  return DWARF_FRAME_REGISTERS;
 }
 
 /* Dwarf models VFPv3 registers as 32 64-bit registers.
@@ -27382,7 +27380,8 @@ vfp3_const_double_for_fract_bits (rtx operand)
     return 0;
   
   REAL_VALUE_FROM_CONST_DOUBLE (r0, operand);
-  if (exact_real_inverse (DFmode, &r0))
+  if (exact_real_inverse (DFmode, &r0)
+      && !REAL_VALUE_NEGATIVE (r0))
     {
       if (exact_real_truncate (DFmode, &r0))
 	{
