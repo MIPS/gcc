@@ -5902,7 +5902,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 	expr = maybe_constant_value (expr);
       else if (TYPE_PTR_OR_PTRMEM_P (type))
 	{
-	  tree folded = fold_simple_on_cst (expr);
+	  tree folded = maybe_constant_value (expr);
 
 	  if (TYPE_PTR_P (type) ? integer_zerop (folded)
 	      : null_member_pointer_value_p (folded))
