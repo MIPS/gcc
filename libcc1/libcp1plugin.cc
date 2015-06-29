@@ -348,15 +348,93 @@ rewrite_decls_to_addresses (void *function_in, void *)
 
 
 
+static inline tree
+safe_pushtag (tree name, tree type, tag_scope scope)
+{
+  void (*save_oracle) (enum cp_oracle_request, tree identifier);
+
+  save_oracle = cp_binding_oracle;
+  cp_binding_oracle = NULL;
+
+  tree ret = pushtag (name, type, scope);
+
+  cp_binding_oracle = save_oracle;
+
+  return ret;
+}
+
+static inline tree
+safe_pushdecl_maybe_friend (tree decl, bool is_friend)
+{
+  void (*save_oracle) (enum cp_oracle_request, tree identifier);
+
+  save_oracle = cp_binding_oracle;
+  cp_binding_oracle = NULL;
+
+  tree ret = pushdecl_maybe_friend (decl, is_friend);
+
+  cp_binding_oracle = save_oracle;
+
+  return ret;
+}
+
+
+
+int
+plugin_push_namespace (cc1_plugin::connection *self,
+		       const char *name)
+{
+  (void)self;
+
+  if (name && !*name)
+    push_to_top_level ();
+  else
+    push_namespace (name ? get_identifier (name) : NULL);
+
+  return 0;
+}
+
+int
+plugin_pop_namespace (cc1_plugin::connection *self)
+{
+  (void)self;
+
+  if (toplevel_bindings_p () && current_namespace == global_namespace)
+    pop_from_top_level ();
+  else
+    pop_namespace ();
+
+  return 0;
+}
+
 gcc_decl
-plugin_build_decl (cc1_plugin::connection *self,
-		   const char *name,
-		   enum gcc_cp_symbol_kind sym_kind,
-		   gcc_type sym_type_in,
-		   const char *substitution_name,
-		   gcc_address address,
-		   const char *filename,
-		   unsigned int line_number)
+plugin_get_current_binding_level (cc1_plugin::connection *self)
+{
+  (void)self;
+
+  tree decl;
+
+  if (current_class_type)
+    decl = TYPE_NAME (current_class_type);
+  else if (current_function_decl)
+    decl = current_function_decl;
+  else if (toplevel_bindings_p ())
+    decl = current_namespace;
+  else
+    gcc_unreachable ();
+
+  return convert_out (decl);
+}
+
+gcc_decl
+plugin_new_decl (cc1_plugin::connection *self,
+		 const char *name,
+		 enum gcc_cp_symbol_kind sym_kind,
+		 gcc_type sym_type_in,
+		 const char *substitution_name,
+		 gcc_address address,
+		 const char *filename,
+		 unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   { // FIXME in gdb:
@@ -438,64 +516,11 @@ plugin_build_decl (cc1_plugin::connection *self,
       **slot = value;
     }
 
+  decl = safe_pushdecl_maybe_friend (decl, false);
+
+  rest_of_decl_compilation (decl, toplevel_bindings_p (), 0);
+
   return convert_out (ctx->preserve (decl));
-}
-
-int
-plugin_bind (cc1_plugin::connection *,
-	     gcc_decl decl_in, int is_global)
-{
-  tree decl = convert_in (decl_in);
-
-  if (is_global)
-    push_nested_namespace (global_namespace);
-
-  pushdecl_maybe_friend (decl, false);
-
-  if (is_global)
-    pop_nested_namespace (global_namespace);
-
-  rest_of_decl_compilation (decl, is_global, 0);
-  return 1;
-}
-
-// g++ really wants types to have names, even when they're anonymous.
-// FIXME: we can't tell actual anonymous types.  We should have type
-// names specified earlier, otherwise we'll create wrong bindings
-// within class defs.  Maybe have a separate call to set scope, name
-// and base classes wouldn't be a bad idea.
-
-static tree
-get_placeholder_identifier ()
-{
-  static tree name_placeholder;
-  if (!name_placeholder)
-    name_placeholder = get_identifier ("name placeholder");
-  return name_placeholder;
-}
-
-void
-cp_pushtag (location_t loc, tree name, tree type)
-{
-  tree decl = TYPE_NAME (type);
-  DECL_SOURCE_LOCATION (decl) = loc;
-  gcc_assert (DECL_NAME (decl) == name
-	      || DECL_NAME (decl) == get_placeholder_identifier ());
-  DECL_NAME (decl) = name; // FIXME: drop name_placeholder
-  pushtag (name, type, ts_global);
-}
-
-int
-plugin_tagbind (cc1_plugin::connection *self,
-		const char *name, gcc_type tagged_type,
-		const char *filename, unsigned int line_number)
-{
-  plugin_context *ctx = static_cast<plugin_context *> (self);
-  push_nested_namespace (global_namespace); // FIXME
-  cp_pushtag (ctx->get_source_location (filename, line_number),
-	      get_identifier (name), convert_in (tagged_type));
-  pop_nested_namespace (global_namespace); // FIXME
-  return 1;
 }
 
 gcc_type
@@ -509,41 +534,74 @@ plugin_build_pointer_type (cc1_plugin::connection *,
 // TYPE_NAME needs to be a valid pointer, even if there is no name available.
 
 static tree
-build_named_class_type (enum tree_code code)
+build_named_class_type (enum tree_code code,
+			const char *name,
+			const gcc_vbase_array *base_classes,
+			source_location loc)
 {
-  tree node;
-  push_nested_namespace (global_namespace); // FIXME
-  node = make_class_type (code);
-  tree type_decl = build_decl (input_location, TYPE_DECL,
-			       get_placeholder_identifier (), node);
-  TYPE_NAME (node) = type_decl;
-  TYPE_STUB_DECL (node) = type_decl;
-  xref_basetypes (node, NULL);
-  begin_class_definition (node);
-  return node;
+  tree type = make_class_type (code);
+  tree id = name ? get_identifier (name) : make_anon_name ();
+  tree type_decl = build_decl (loc, TYPE_DECL, id, type);
+  TYPE_NAME (type) = type_decl;
+  TYPE_STUB_DECL (type) = type_decl;
+  safe_pushtag (id, type, ts_current);
+
+  tree bases = NULL;
+  if (base_classes)
+    {
+      for (int i = 0; i < base_classes->n_elements; i++)
+	{
+	  tree base = finish_base_specifier
+	    (convert_in (base_classes->elements[i]),
+	     access_default_node, base_classes->virtualp[i]);
+	  TREE_CHAIN (base) = bases;
+	  bases = base;
+	}
+      bases = nreverse (bases);
+    }
+  xref_basetypes (type, bases);
+  begin_class_definition (type);
+  return type;
 }
 
 gcc_type
-plugin_build_record_type (cc1_plugin::connection *self)
+plugin_start_new_class_type (cc1_plugin::connection *self,
+			     const char *name,
+			     const gcc_vbase_array *base_classes,
+			     const char *filename,
+			     unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  return convert_out (ctx->preserve (build_named_class_type (RECORD_TYPE)));
+
+  tree type = build_named_class_type (RECORD_TYPE, name, base_classes,
+				      ctx->get_source_location (filename,
+								line_number));
+
+  return convert_out (ctx->preserve (type));
 }
 
 gcc_type
-plugin_build_union_type (cc1_plugin::connection *self)
+plugin_start_new_union_type (cc1_plugin::connection *self,
+			     const char *name,
+			     const char *filename,
+			     unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  return convert_out (ctx->preserve (build_named_class_type (UNION_TYPE)));
+
+  tree type = build_named_class_type (UNION_TYPE, name, NULL,
+				      ctx->get_source_location (filename,
+								line_number));
+
+  return convert_out (ctx->preserve (type));
 }
 
 int
-plugin_build_add_field (cc1_plugin::connection *,
-			gcc_type record_or_union_type_in,
-			const char *field_name,
-			gcc_type field_type_in,
-			unsigned long bitsize,
-			unsigned long bitpos)
+plugin_new_field (cc1_plugin::connection *,
+		  gcc_type record_or_union_type_in,
+		  const char *field_name,
+		  gcc_type field_type_in,
+		  unsigned long bitsize,
+		  unsigned long bitpos)
 {
   tree record_or_union_type = convert_in (record_or_union_type_in);
   tree field_type = convert_in (field_type_in);
@@ -580,9 +638,6 @@ plugin_build_add_field (cc1_plugin::connection *,
   DECL_CHAIN (decl) = TYPE_FIELDS (record_or_union_type);
   TYPE_FIELDS (record_or_union_type) = decl;
 
-  // Now we may have to retrofit the newly-added binding into the
-  // active bindings.
-
   return 1;
 }
 
@@ -597,8 +652,6 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
 
   finish_struct (record_or_union_type, NULL);
 
-  pop_nested_namespace (global_namespace); // FIXME
-
   gcc_assert (compare_tree_int (TYPE_SIZE_UNIT (record_or_union_type),
 				size_in_bytes) == 0);
 
@@ -606,26 +659,36 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
 }
 
 gcc_type
-plugin_build_enum_type (cc1_plugin::connection *self,
-			gcc_type underlying_int_type_in)
+plugin_start_new_enum_type (cc1_plugin::connection *self,
+			    const char *name,
+			    gcc_type underlying_int_type_in,
+			    int scoped_enum_p,
+			    const char *filename,
+			    unsigned int line_number)
 {
+  plugin_context *ctx = static_cast<plugin_context *> (self);
   tree underlying_int_type = convert_in (underlying_int_type_in);
 
   if (underlying_int_type == error_mark_node)
     return convert_out (error_mark_node);
 
   bool is_new_type = false;
-  bool scoped_enum_p = false; // FIXME
 
-  push_nested_namespace (global_namespace); // FIXME
+  tree id = name ? get_identifier (name) : make_anon_name ();
 
-  tree result = start_enum (get_placeholder_identifier (), NULL_TREE,
-			    underlying_int_type, scoped_enum_p, &is_new_type);
+  tree type = start_enum (id, NULL_TREE,
+			  underlying_int_type, !!scoped_enum_p, &is_new_type);
 
   gcc_assert (is_new_type);
 
-  plugin_context *ctx = static_cast<plugin_context *> (self);
-  return convert_out (ctx->preserve (result));
+  source_location loc = ctx->get_source_location (filename, line_number);
+  tree type_decl = build_decl (loc, TYPE_DECL, id, type);
+  TYPE_NAME (type) = type_decl;
+  TYPE_STUB_DECL (type) = type_decl;
+
+  safe_pushtag (DECL_NAME (type_decl), type, ts_current);
+
+  return convert_out (ctx->preserve (type));
 }
 
 int
@@ -652,8 +715,6 @@ plugin_finish_enum_type (cc1_plugin::connection *,
 
   finish_enum_value_list (enum_type);
   finish_enum (enum_type);
-
-  pop_nested_namespace (global_namespace); // FIXME
 
   return 1;
 }
@@ -685,6 +746,45 @@ plugin_build_function_type (cc1_plugin::connection *self,
 
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (result));
+}
+
+gcc_type
+plugin_build_method_type (cc1_plugin::connection *self,
+			  gcc_type class_type_in,
+			  gcc_type func_type_in,
+			  enum gcc_cp_qualifiers quals_in,
+			  enum gcc_cp_ref_qualifiers rquals_in)
+{
+  tree class_type = convert_in (class_type_in);
+  tree func_type = convert_in (func_type_in);
+  cp_cv_quals quals = 0;
+  cp_ref_qualifier rquals;
+
+  if ((quals_in & GCC_CP_QUALIFIER_CONST) != 0)
+    quals |= TYPE_QUAL_CONST;
+  if ((quals_in & GCC_CP_QUALIFIER_VOLATILE) != 0)
+    quals |= TYPE_QUAL_VOLATILE;
+  gcc_assert ((quals_in & GCC_CP_QUALIFIER_RESTRICT) == 0);
+
+  switch (rquals_in)
+    {
+    case GCC_CP_REF_QUAL_NONE:
+      rquals = REF_QUAL_NONE;
+      break;
+    case GCC_CP_REF_QUAL_LVALUE:
+      rquals = REF_QUAL_LVALUE;
+      break;
+    case GCC_CP_REF_QUAL_RVALUE:
+      rquals = REF_QUAL_RVALUE;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  
+  tree method_type = build_memfn_type (class_type, func_type, quals, rquals);
+  
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  return convert_out (ctx->preserve (method_type));
 }
 
 gcc_type
@@ -768,7 +868,7 @@ plugin_build_qualified_type (cc1_plugin::connection *,
 			     enum gcc_cp_qualifiers qualifiers)
 {
   tree unqualified_type = convert_in (unqualified_type_in);
-  int quals = 0;
+  cp_cv_quals quals = 0;
 
   if ((qualifiers & GCC_CP_QUALIFIER_CONST) != 0)
     quals |= TYPE_QUAL_CONST;
@@ -814,7 +914,7 @@ plugin_build_constant (cc1_plugin::connection *self, gcc_type type_in,
   TREE_STATIC (decl) = 1;
   TREE_READONLY (decl) = 1;
   cp_finish_decl (decl, cst, true, NULL, LOOKUP_ONLYCONVERTING);
-  pushdecl_maybe_friend (decl, false);
+  safe_pushdecl_maybe_friend (decl, false);
 
   return 1;
 }
@@ -826,6 +926,105 @@ plugin_error (cc1_plugin::connection *,
   error ("%s", message);
   return convert_out (error_mark_node);
 }
+
+#if 0 // FIXME: remove me.
+gcc_decl
+plugin_build_member_decl (cc1_plugin::connection *self,
+			  gcc_decl scope_in,
+			  const char *name,
+			  enum gcc_cp_symbol_kind sym_kind,
+			  gcc_type sym_type_in,
+			  gcc_address address,
+			  const char *filename,
+			  unsigned int line_number)
+{
+  tree scope = convert_in (scope_in);
+  tree sym_type = convert_in (sym_type_in);
+  tree decl;
+  tree identifier;
+
+  if (!scope)
+    scope = global_namespace;
+
+  if (name)
+    identifier = get_identifier (name);
+  else
+    identifier = NULL_TREE;
+
+  source_location loc = ctx->get_source_location (filename, line_number);
+
+  switch (sym_kind) {
+  case GCC_CP_SYMBOL_TYPEDEF:
+    gcc_assert (identifier);
+    gcc_assert (!address);
+    decl = build_decl (loc, TYPE_DECL, identifier, sym_type);
+    break;
+
+  case GCC_CP_SYMBOL_VARIABLE:
+    gcc_assert (TREE_CODE (scope) == NAMESPACE_SCOPE
+		|| RECORD_OR_UNION_CODE_P (TREE_CODE (scope)));
+    gcc_assert (identifier);
+    gcc_assert (address);
+    decl = build_decl (loc, VAR_DECL, identifier, sym_type);
+    DECL_EXTERN (decl) = 1;
+    break;
+
+  case GCC_CP_SYMBOL_FUNCTION:
+    {
+      bool method_p = TREE_CODE (sym_type) == METHOD_TYPE;
+      bool abstract_p = method_p && !address;
+      bool virtual_p = abstract_p || method_p && (address & 1) != 0;
+
+      gcc_assert (identifier);
+      if (method_p)
+	gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (scope)));
+      else
+	{
+	  gcc_assert (address);
+	  gcc_assert (TREE_CODE (scope) == NAMESPACE_DECL
+		      || RECORD_OR_UNION_CODE_P (TREE_CODE (scope)));
+	}
+
+      if (virtual_p && !abstract_p)
+	address--;
+
+      decl = build_lang_decl (FUNCTION_DECL, identifier, sym_type);
+      DECL_EXTERN (decl) = 1;
+    }
+    break;
+    
+  case GCC_CP_SYMBOL_BASE_CLASS:
+    gcc_assert (!identifier);
+    gcc_assert (!address);
+    gcc_assert (sym_type);
+    // FIXME: xref_basetypes takes a list
+    return scope_in;
+
+  case GCC_CP_SYMBOL_NAMESPACE:
+    gcc_assert (!address);
+    gcc_assert (TREE_CODE (scope) == NAMESPACE_DECL);
+    decl = build_lang_decl (NAMESPACE_DECL, identifier, void_type_node);
+    if (identifier && !decl_anon_ns_mem_p (scope))
+      TREE_PUBLIC (decl) = 1;
+    break;
+
+  case GCC_CP_SYMBOL_TYPENAME:
+    
+
+  case GCC_CP_SYMBOL_LABEL:
+  default:
+  error:
+    gcc_unreachable ();
+  }
+
+  TREE_USED (decl) = 1;
+  TREE_ADDRESSABLE (decl) = 1;
+  DECL_CONTEXT (decl) = FROB_CONTEXT (scope);
+  /* add the decl and set its address.  */
+
+  return convert_out (ctx->preserve (decl));
+}			  
+#endif
 
 
 

@@ -54,6 +54,87 @@ namespace cc1_plugin
     *result = (enum gcc_cp_qualifiers) p;
     return OK;
   }
+
+  status
+  unmarshall (connection *conn, enum gcc_cp_ref_qualifiers *result)
+  {
+    protocol_int p;
+    if (!unmarshall_intlike (conn, &p))
+      return FAIL;
+    *result = (enum gcc_cp_ref_qualifiers) p;
+    return OK;
+  }
+
+  // Send a gcc_vbase_array marker followed by the array.
+  status
+  marshall (connection *conn, const gcc_vbase_array *a)
+  {
+    size_t len;
+
+    if (a)
+      len = a->n_elements;
+    else
+      len = (size_t)-1;
+
+    if (!marshall_array_start (conn, 'v', len))
+      return FAIL;
+
+    if (!a)
+      return OK;
+
+    if (!marshall_array_elmts (conn, len * sizeof (a->elements[0]),
+			       a->elements))
+      return FAIL;
+
+    return marshall_array_elmts (conn, len * sizeof (a->virtualp[0]),
+				 a->virtualp);
+  }
+
+  // Read a gcc_vbase_array marker, followed by a gcc_vbase_array.  The
+  // resulting array must be freed by the caller, using 'delete[]' on
+  // elements and virtualp, and 'delete' on the array object itself.
+  status
+  unmarshall (connection *conn, struct gcc_vbase_array **result)
+  {
+    size_t len;
+
+    if (!unmarshall_array_start (conn, 'v', &len))
+      return FAIL;
+
+    if (len == (size_t)-1)
+      {
+	*result = NULL;
+	return OK;
+      }
+
+    *result = new gcc_vbase_array;
+
+    (*result)->n_elements = len;
+    (*result)->elements = new gcc_type[len];
+
+    if (!unmarshall_array_elmts (conn,
+				 len * sizeof ((*result)->elements[0]),
+				 (*result)->elements))
+      {
+	delete[] (*result)->elements;
+	delete *result;
+	return FAIL;
+      }
+
+    (*result)->virtualp = new char[len];
+
+    if (!unmarshall_array_elmts (conn,
+				 len * sizeof ((*result)->virtualp[0]),
+				 (*result)->virtualp))
+      {
+	delete[] (*result)->virtualp;
+	delete[] (*result)->elements;
+	delete *result;
+	return FAIL;
+      }
+
+    return OK;
+  }
 }
 
 #endif // CC1_PLUGIN_MARSHALL_CP_HH
