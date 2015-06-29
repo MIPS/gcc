@@ -4966,20 +4966,12 @@ cp_build_binary_op (location_t location,
 
       if (short_compare)
 	{
-	  /* Don't write &op0, etc., because that would prevent op0
-	     from being kept in a register.
-	     Instead, make copies of the our local variables and
-	     pass the copies by reference, then copy them back afterward.  */
-	  tree xop0 = fold_simple_on_cst (op0), xop1 = fold_simple_on_cst (op1), xresult_type = result_type;
+	  /* We call shorten_compare only for diagnostic-reason.  */
+	  tree xop0 = fold_simple_on_cst (op0), xop1 = fold_simple_on_cst (op1),
+	       xresult_type = result_type;
 	  enum tree_code xresultcode = resultcode;
-	  tree val
-	    = shorten_compare (location, &xop0, &xop1, &xresult_type,
+	  shorten_compare (location, &xop0, &xop1, &xresult_type,
 			       &xresultcode);
-	  if (val != 0)
-	    return cp_convert (boolean_type_node, val, complain);
-	  op0 = xop0, op1 = xop1;
-	  converted = 1;
-	  resultcode = xresultcode;
 	}
 
       if ((short_compare || code == MIN_EXPR || code == MAX_EXPR)
