@@ -970,6 +970,7 @@ proc mips-dg-options { args } {
     mips_option_dependency options "-mfp64" "-mdouble-float"
     mips_option_dependency options "-mfp32" "-mdouble-float"
     mips_option_dependency options "-mfpxx" "-mdouble-float"
+    mips_option_dependency options "HAS_LSA" "-mnan=2008"
     mips_option_dependency options "-mabs=2008" "-mhard-float"
     mips_option_dependency options "-mabs=legacy" "-mhard-float"
     mips_option_dependency options "-mrelax-pic-calls" "-mno-plt"
