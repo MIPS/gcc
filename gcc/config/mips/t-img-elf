@@ -22,23 +22,30 @@
 # A multilib for mips64r6+LE
 # A multilib for mips32r6+LE+singlefloat+shortdouble
 
-MULTILIB_OPTIONS = mips64r6 mmicromips mabi=64 EL msoft-float/msingle-float fshort-double
-MULTILIB_DIRNAMES = mips64r6 micromips 64 el sof sgl short
+MULTILIB_OPTIONS = mips64r6 mmicromips mabi=64 EL msoft-float/msingle-float fshort-double mclib=small/mclib=tiny
+MULTILIB_DIRNAMES = mips64r6 micromips 64 el sof sgl short small tiny
 MULTILIB_MATCHES = EL=mel EB=meb
 
-# Don't build 64r6 with single-float
-MULTILIB_EXCEPTIONS += mips64r6/*msingle-float*
-MULTILIB_EXCEPTIONS += mips64r6/*fshort-double*
-
-MULTILIB_EXCEPTIONS += mabi=64*
-MULTILIB_EXCEPTIONS += msingle-float*
-MULTILIB_EXCEPTIONS += *msingle-float
-MULTILIB_EXCEPTIONS += fshort-double
-MULTILIB_EXCEPTIONS += EL/fshort-double
-MULTILIB_EXCEPTIONS += *msoft-float/fshort-double
-MULTILIB_EXCEPTIONS += mips64r6/mmicromips*
-MULTILIB_EXCEPTIONS += *mmicromips*/*mabi=64*
-MULTILIB_EXCEPTIONS += *mmicromips*/*fshort-double*
-MULTILIB_EXCEPTIONS += *mmicromips*/*msingle-float*
-MULTILIB_EXCEPTIONS += mmicromips/msoft-float
-MULTILIB_EXCEPTIONS += mmicromips
+MULTILIB_REQUIRED = .
+MULTILIB_REQUIRED += mips64r6
+MULTILIB_REQUIRED += EL
+MULTILIB_REQUIRED += msoft-float
+MULTILIB_REQUIRED += EL/msoft-float
+MULTILIB_REQUIRED += EL/mclib=small
+MULTILIB_REQUIRED += EL/mclib=tiny
+MULTILIB_REQUIRED += EL/msoft-float/mclib=small
+MULTILIB_REQUIRED += EL/msoft-float/mclib=tiny
+MULTILIB_REQUIRED += EL/msingle-float/fshort-double
+MULTILIB_REQUIRED += mmicromips/EL
+MULTILIB_REQUIRED += mmicromips/EL/msoft-float
+MULTILIB_REQUIRED += mmicromips/EL/mclib=small
+MULTILIB_REQUIRED += mmicromips/EL/mclib=tiny
+MULTILIB_REQUIRED += mmicromips/EL/msoft-float/mclib=small
+MULTILIB_REQUIRED += mmicromips/EL/msoft-float/mclib=tiny
+MULTILIB_REQUIRED += mips64r6/mabi=64
+MULTILIB_REQUIRED += mips64r6/EL
+MULTILIB_REQUIRED += mips64r6/msoft-float
+MULTILIB_REQUIRED += mips64r6/EL/msoft-float
+MULTILIB_REQUIRED += mips64r6/mabi=64/EL
+MULTILIB_REQUIRED += mips64r6/mabi=64/msoft-float
+MULTILIB_REQUIRED += mips64r6/mabi=64/EL/msoft-float

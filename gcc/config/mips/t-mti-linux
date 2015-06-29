@@ -158,11 +158,11 @@ MULTILIB_OSDIRNAMES += mmicromips/EL/mnan.2008=!micromipsel-r2-hard-nan2008/lib
 #MULTILIB_OSDIRNAMES += mips32/mips16/EL/msoft-float=!mipsel-r1-mips16-soft/lib
 
 # Uclibc multilibs
-#MULTILIB_REQUIRED   += muclibc
-#MULTILIB_OSDIRNAMES += muclibc=!mips-r2-hard-uclibc/lib
-#MULTILIB_REQUIRED   += muclibc/mnan=2008
-#MULTILIB_OSDIRNAMES += muclibc/mnan.2008=!mips-r2-hard-nan2008-uclibc/lib
-#MULTILIB_REQUIRED   += muclibc/EL
-#MULTILIB_OSDIRNAMES += muclibc/EL=!mipsel-r2-hard-uclibc/lib
-#MULTILIB_REQUIRED   += muclibc/EL/mnan=2008
-#MULTILIB_OSDIRNAMES += muclibc/EL/mnan.2008=!mipsel-r2-hard-nan2008-uclibc/lib
+MULTILIB_REQUIRED   += muclibc
+MULTILIB_OSDIRNAMES += muclibc=!mips-r2-hard-uclibc/lib
+MULTILIB_REQUIRED   += muclibc/mnan=2008
+MULTILIB_OSDIRNAMES += muclibc/mnan.2008=!mips-r2-hard-nan2008-uclibc/lib
+MULTILIB_REQUIRED   += muclibc/EL
+MULTILIB_OSDIRNAMES += muclibc/EL=!mipsel-r2-hard-uclibc/lib
+MULTILIB_REQUIRED   += muclibc/EL/mnan=2008
+MULTILIB_OSDIRNAMES += muclibc/EL/mnan.2008=!mipsel-r2-hard-nan2008-uclibc/lib
