@@ -56,7 +56,7 @@ void *p = 0 * (INT_MAX + 1); /* { dg-warning "integer overflow in expression" } 
 /* { dg-warning "invalid conversion from 'int' to 'void" "null" { target *-*-* } 55 } */
 
 void *q = 0 * (1 / 0); /* { dg-warning "division by zero" } */
-/* { dg-warning "invalid conversion from 'int' to 'void*'" "null" { xfail *-*-* } 58 } */
+/* { dg-warning "invalid conversion from 'int' to 'void*'" "null" { target *-*-* } 58 } */
 void *r = (1 ? 0 : INT_MAX+1); /* { dg-bogus "integer overflow in expression" "" { xfail *-*-* } } */
 
 void
