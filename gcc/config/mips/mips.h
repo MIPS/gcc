@@ -2234,7 +2234,7 @@ enum reg_class
 
 /* Stack layout; function entry, exit and calling.  */
 
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 #define FRAME_GROWS_DOWNWARD flag_stack_protect
 
@@ -2910,7 +2910,7 @@ do {									\
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(STREAM,SIZE)					\
-  fprintf (STREAM, "\t.space\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
+  fprintf (STREAM, "\t.space\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
 
 /* This is how to output a string.  */
 #undef ASM_OUTPUT_ASCII
@@ -3034,11 +3034,11 @@ while (0)
 	nop\n\
 1:	.cpload $31\n\
 	.set reorder\n\
-	jal " USER_LABEL_PREFIX #FUNC "\n\
+	la $25, " USER_LABEL_PREFIX #FUNC "\n\
+	jalr $25\n\
 	.set pop\n\
 	" TEXT_SECTION_ASM_OP);
-#elif ((defined _ABIN32 && _MIPS_SIM == _ABIN32) \
-       || (defined _ABI64 && _MIPS_SIM == _ABI64))
+#elif (defined _ABIN32 && _MIPS_SIM == _ABIN32)
 #define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)	\
    asm (SECTION_OP "\n\
 	.set push\n\
@@ -3048,7 +3048,22 @@ while (0)
 	nop\n\
 1:	.set reorder\n\
 	.cpsetup $31, $2, 1b\n\
-	jal " USER_LABEL_PREFIX #FUNC "\n\
+	la $25, " USER_LABEL_PREFIX #FUNC "\n\
+	jalr $25\n\
+	.set pop\n\
+	" TEXT_SECTION_ASM_OP);
+#elif (defined _ABI64 && _MIPS_SIM == _ABI64)
+#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)	\
+   asm (SECTION_OP "\n\
+	.set push\n\
+	.set nomips16\n\
+	.set noreorder\n\
+	bal 1f\n\
+	nop\n\
+1:	.set reorder\n\
+	.cpsetup $31, $2, 1b\n\
+	dla $25, " USER_LABEL_PREFIX #FUNC "\n\
+	jalr $25\n\
 	.set pop\n\
 	" TEXT_SECTION_ASM_OP);
 #endif
@@ -3093,6 +3108,7 @@ extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
 extern unsigned int mips_base_compression_flags;
 extern GTY(()) struct target_globals *mips16_globals;
+extern GTY(()) struct target_globals *micromips_globals;
 #endif
 
 /* Enable querying of DFA units.  */
@@ -3147,3 +3163,10 @@ extern GTY(()) struct target_globals *mips16_globals;
 #define STANDARD_STARTFILE_PREFIX_1 "/lib64/"
 #define STANDARD_STARTFILE_PREFIX_2 "/usr/lib64/"
 #endif
+
+/* Load store bonding is not supported by micromips and fix_24k.  The
+   performance can be degraded for those targets.  Hence, do not bond for
+   micromips or fix_24k.  */
+#define ENABLE_LD_ST_PAIRS \
+  (TARGET_LOAD_STORE_PAIRS && TUNE_P5600 \
+   && !TARGET_MICROMIPS && !TARGET_FIX_24K)

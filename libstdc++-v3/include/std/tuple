@@ -324,9 +324,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     protected:
       void
       _M_swap(_Tuple_impl& __in)
-      noexcept(noexcept(swap(std::declval<_Head&>(),
-			     std::declval<_Head&>()))
-	       && noexcept(_M_tail(__in)._M_swap(_M_tail(__in))))
+      noexcept(__is_nothrow_swappable<_Head>::value
+               && noexcept(_M_tail(__in)._M_swap(_M_tail(__in))))
       {
 	using std::swap;
 	swap(_M_head(*this), _M_head(__in));
@@ -451,7 +450,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     protected:
       void
       _M_swap(_Tuple_impl& __in)
-      noexcept(noexcept(swap(std::declval<_Head&>(), std::declval<_Head&>())))
+      noexcept(__is_nothrow_swappable<_Head>::value)
       {
 	using std::swap;
 	swap(_M_head(*this), _M_head(__in));
@@ -970,25 +969,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return __result_type(std::forward<_Elements>(__args)...);
     }
 
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // 2275. Why is forward_as_tuple not constexpr?
   template<typename... _Elements>
-    tuple<_Elements&&...>
+    constexpr tuple<_Elements&&...>
     forward_as_tuple(_Elements&&... __args) noexcept
     { return tuple<_Elements&&...>(std::forward<_Elements>(__args)...); }
 
-  template<typename>
-    struct __is_tuple_like_impl : false_type
-    { };
-
   template<typename... _Tps>
     struct __is_tuple_like_impl<tuple<_Tps...>> : true_type
-    { };
-
-  template<typename _T1, typename _T2>
-    struct __is_tuple_like_impl<pair<_T1, _T2>> : true_type
-    { };
-
-  template<typename _Tp, std::size_t _Nm>
-    struct __is_tuple_like_impl<array<_Tp, _Nm>> : true_type
     { };
 
   // Internal type trait that allows us to sfinae-protect tuple_cat.
@@ -1120,9 +1109,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return __concater::_S_do(std::forward<_Tpls>(__tpls)...);
     }
 
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // 2301. Why is tie not constexpr?
   /// tie
   template<typename... _Elements>
-    inline tuple<_Elements&...>
+    constexpr tuple<_Elements&...>
     tie(_Elements&... __args) noexcept
     { return tuple<_Elements&...>(__args...); }
 

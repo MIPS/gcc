@@ -21,16 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -40,13 +33,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfg.h"
 #include "cfganal.h"
 #include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
 #include "tree-ssa-alias.h"
@@ -64,11 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ubsan.h"
 #include "c-family/c-common.h"
 #include "rtl.h"
-#include "hashtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -87,6 +72,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "tree-object-size.h"
 #include "tree-eh.h"
+#include "tree-cfg.h"
 
 /* Map from a tree to a VAR_DECL tree.  */
 
@@ -95,7 +81,7 @@ struct GTY((for_user)) tree_type_map {
   tree decl;
 };
 
-struct tree_type_map_cache_hasher : ggc_cache_hasher<tree_type_map *>
+struct tree_type_map_cache_hasher : ggc_cache_ptr_hash<tree_type_map>
 {
   static inline hashval_t
   hash (tree_type_map *t)
@@ -109,16 +95,10 @@ struct tree_type_map_cache_hasher : ggc_cache_hasher<tree_type_map *>
     return a->type.from == b->type.from;
   }
 
-  static void
-  handle_cache_entry (tree_type_map *&m)
+  static int
+  keep_cache_entry (tree_type_map *&m)
   {
-    extern void gt_ggc_mx (tree_type_map *&);
-    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
-      return;
-    else if (ggc_marked_p (m->type.from))
-      gt_ggc_mx (m);
-    else
-      m = static_cast<tree_type_map *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (m->type.from);
   }
 };
 
@@ -1232,9 +1212,9 @@ instrument_mem_ref (tree mem, tree base, gimple_stmt_iterator *iter,
   tree t = TREE_OPERAND (base, 0);
   if (!POINTER_TYPE_P (TREE_TYPE (t)))
     return;
-  if (RECORD_OR_UNION_TYPE_P (TREE_TYPE (TREE_TYPE (t))) && mem != base)
+  if (RECORD_OR_UNION_TYPE_P (TREE_TYPE (base)) && mem != base)
     ikind = UBSAN_MEMBER_ACCESS;
-  tree kind = build_int_cst (TREE_TYPE (t), ikind);
+  tree kind = build_int_cst (build_pointer_type (TREE_TYPE (base)), ikind);
   tree alignt = build_int_cst (pointer_sized_int_node, align);
   gcall *g = gimple_build_call_internal (IFN_UBSAN_NULL, 3, t, kind, alignt);
   gimple_set_location (g, gimple_location (gsi_stmt (*iter)));
@@ -1420,7 +1400,7 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
       || TREE_CODE (gimple_assign_lhs (stmt)) != SSA_NAME)
     return;
 
-  bool can_throw = stmt_could_throw_p (stmt);
+  bool ends_bb = stmt_ends_bb_p (stmt);
   location_t loc = gimple_location (stmt);
   tree lhs = gimple_assign_lhs (stmt);
   tree ptype = build_pointer_type (TREE_TYPE (rhs));
@@ -1432,7 +1412,7 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
   tree mem = build2 (MEM_REF, utype, gimple_assign_lhs (g),
 		     build_int_cst (atype, 0));
   tree urhs = make_ssa_name (utype);
-  if (can_throw)
+  if (ends_bb)
     {
       gimple_assign_set_lhs (stmt, urhs);
       g = gimple_build_assign (lhs, NOP_EXPR, urhs);
@@ -1469,7 +1449,7 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
   gimple_set_location (g, loc);
   gsi_insert_after (gsi, g, GSI_NEW_STMT);
 
-  if (!can_throw)
+  if (!ends_bb)
     {
       gimple_assign_set_rhs_with_ops (&gsi2, NOP_EXPR, urhs);
       update_stmt (stmt);

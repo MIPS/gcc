@@ -23,15 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "stringpool.h"
@@ -708,10 +701,12 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 	  target_type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
 	  static_type = TYPE_MAIN_VARIANT (TREE_TYPE (exprtype));
 	  td2 = get_tinfo_decl (target_type);
-	  mark_used (td2);
+	  if (!mark_used (td2, complain) && !(complain & tf_error))
+	    return error_mark_node;
 	  td2 = cp_build_addr_expr (td2, complain);
 	  td3 = get_tinfo_decl (static_type);
-	  mark_used (td3);
+	  if (!mark_used (td3, complain) && !(complain & tf_error))
+	    return error_mark_node;
 	  td3 = cp_build_addr_expr (td3, complain);
 
 	  /* Determine how T and V are related.  */

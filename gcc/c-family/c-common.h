@@ -22,21 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "splay-tree.h"
 #include "cpplib.h"
-#include "ggc.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "statistics.h"
-#include "vec.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
 #include "flags.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 
@@ -358,6 +346,10 @@ struct c_common_resword
   const unsigned int disable   : 16;
 };
 
+/* Mode used to build pointers (VOIDmode means ptr_mode).  */
+
+extern machine_mode c_default_pointer_mode;
+
 /* Extra cpp_ttype values for C++.  */
 
 /* A token type for template-ids.  If a template-id is processed while
@@ -667,6 +659,7 @@ extern int flag_use_repository;
 /* The supported C++ dialects.  */
 
 enum cxx_dialect {
+  cxx_unset,
   /* C++98 with TC1  */
   cxx98,
   cxx03 = cxx98,
@@ -723,15 +716,22 @@ struct visibility_flags
   unsigned inlines_hidden : 1;	/* True when -finlineshidden in effect.  */
 };
 
-/* These enumerators are possible types of unsafe conversions.
-   SAFE_CONVERSION The conversion is safe
-   UNSAFE_OTHER Another type of conversion with problems
-   UNSAFE_SIGN Conversion between signed and unsigned integers
-    which are all warned about immediately, so this is unused
-   UNSAFE_REAL Conversions that reduce the precision of reals
-    including conversions from reals to integers
- */
-enum conversion_safety { SAFE_CONVERSION = 0, UNSAFE_OTHER, UNSAFE_SIGN, UNSAFE_REAL };
+/* These enumerators are possible types of unsafe conversions.  */
+enum conversion_safety {
+  /* The conversion is safe.  */
+  SAFE_CONVERSION = 0,
+  /* Another type of conversion with problems.  */
+  UNSAFE_OTHER,
+  /* Conversion between signed and unsigned integers
+     which are all warned about immediately, so this is unused.  */
+  UNSAFE_SIGN,
+  /* Conversions that reduce the precision of reals including conversions
+     from reals to integers.  */
+  UNSAFE_REAL,
+  /* Conversions from complex to reals or integers, that discard imaginary
+     component.  */
+  UNSAFE_IMAGINARY
+};
 
 /* Global visibility options.  */
 extern struct visibility_flags visibility_options;
@@ -879,6 +879,8 @@ extern HOST_WIDE_INT c_common_to_target_charset (HOST_WIDE_INT);
 
 /* This is the basic parsing function.  */
 extern void c_parse_file (void);
+
+extern void c_parse_final_cleanups (void);
 
 extern void warn_for_omitted_condop (location_t, tree);
 
@@ -1080,28 +1082,25 @@ extern const unsigned char executable_checksum[16];
 /* In c-cppbuiltin.c  */
 extern void builtin_define_std (const char *macro);
 extern void builtin_define_with_value (const char *, const char *, int);
+extern void builtin_define_with_int_value (const char *, HOST_WIDE_INT);
+extern void builtin_define_type_sizeof (const char *, tree);
 extern void c_stddef_cpp_builtins (void);
-extern void fe_file_change (const struct line_map *);
+extern void fe_file_change (const line_map_ordinary *);
 extern void c_parse_error (const char *, enum cpp_ttype, tree, unsigned char);
 
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
-extern void pp_file_change (const struct line_map *);
+extern void pp_file_change (const line_map_ordinary *);
 extern void pp_dir_change (cpp_reader *, const char *);
 extern bool check_missing_format_attribute (tree, tree);
 
 /* In c-omp.c  */
-#if HOST_BITS_PER_WIDE_INT >= 64
-typedef unsigned HOST_WIDE_INT omp_clause_mask;
-# define OMP_CLAUSE_MASK_1 ((omp_clause_mask) 1)
-#else
 struct omp_clause_mask
 {
   inline omp_clause_mask ();
-  inline omp_clause_mask (unsigned HOST_WIDE_INT l);
-  inline omp_clause_mask (unsigned HOST_WIDE_INT l,
-			  unsigned HOST_WIDE_INT h);
+  inline omp_clause_mask (uint64_t l);
+  inline omp_clause_mask (uint64_t l, uint64_t h);
   inline omp_clause_mask &operator &= (omp_clause_mask);
   inline omp_clause_mask &operator |= (omp_clause_mask);
   inline omp_clause_mask operator ~ () const;
@@ -1111,7 +1110,7 @@ struct omp_clause_mask
   inline omp_clause_mask operator << (int);
   inline bool operator == (omp_clause_mask) const;
   inline bool operator != (omp_clause_mask) const;
-  unsigned HOST_WIDE_INT low, high;
+  uint64_t low, high;
 };
 
 inline
@@ -1120,14 +1119,13 @@ omp_clause_mask::omp_clause_mask ()
 }
 
 inline
-omp_clause_mask::omp_clause_mask (unsigned HOST_WIDE_INT l)
+omp_clause_mask::omp_clause_mask (uint64_t l)
 : low (l), high (0)
 {
 }
 
 inline
-omp_clause_mask::omp_clause_mask (unsigned HOST_WIDE_INT l,
-				  unsigned HOST_WIDE_INT h)
+omp_clause_mask::omp_clause_mask (uint64_t l, uint64_t h)
 : low (l), high (h)
 {
 }
@@ -1173,18 +1171,17 @@ inline omp_clause_mask
 omp_clause_mask::operator << (int amount)
 {
   omp_clause_mask ret;
-  if (amount >= HOST_BITS_PER_WIDE_INT)
+  if (amount >= 64)
     {
       ret.low = 0;
-      ret.high = low << (amount - HOST_BITS_PER_WIDE_INT);
+      ret.high = low << (amount - 64);
     }
   else if (amount == 0)
     ret = *this;
   else
     {
       ret.low = low << amount;
-      ret.high = (low >> (HOST_BITS_PER_WIDE_INT - amount))
-		 | (high << amount);
+      ret.high = (low >> (64 - amount)) | (high << amount);
     }
   return ret;
 }
@@ -1193,17 +1190,16 @@ inline omp_clause_mask
 omp_clause_mask::operator >> (int amount)
 {
   omp_clause_mask ret;
-  if (amount >= HOST_BITS_PER_WIDE_INT)
+  if (amount >= 64)
     {
-      ret.low = high >> (amount - HOST_BITS_PER_WIDE_INT);
+      ret.low = high >> (amount - 64);
       ret.high = 0;
     }
   else if (amount == 0)
     ret = *this;
   else
     {
-      ret.low = (high << (HOST_BITS_PER_WIDE_INT - amount))
-		 | (low >> amount);
+      ret.low = (high << (64 - amount)) | (low >> amount);
       ret.high = high >> amount;
     }
   return ret;
@@ -1221,8 +1217,7 @@ omp_clause_mask::operator != (omp_clause_mask b) const
   return low != b.low || high != b.high;
 }
 
-# define OMP_CLAUSE_MASK_1 omp_clause_mask (1)
-#endif
+#define OMP_CLAUSE_MASK_1 omp_clause_mask (1)
 
 enum c_omp_clause_split
 {
@@ -1433,4 +1428,12 @@ extern bool contains_cilk_spawn_stmt (tree);
 extern tree cilk_for_number_of_iterations (tree);
 extern bool check_no_cilk (tree, const char *, const char *,
 		           location_t loc = UNKNOWN_LOCATION);
+/* In c-indentation.c.  */
+extern void
+warn_for_misleading_indentation (location_t guard_loc,
+				 location_t body_loc,
+				 location_t next_stmt_loc,
+				 enum cpp_ttype next_tok_type,
+				 const char *guard_kind);
+
 #endif /* ! GCC_C_COMMON_H */

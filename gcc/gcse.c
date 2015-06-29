@@ -140,15 +140,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -165,10 +158,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "lcm.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -178,13 +167,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "except.h"
-#include "ggc.h"
 #include "params.h"
+#include "alloc-pool.h"
 #include "cselib.h"
 #include "intl.h"
 #include "obstack.h"
 #include "tree-pass.h"
-#include "hash-table.h"
 #include "df.h"
 #include "dbgcnt.h"
 #include "target.h"
@@ -386,17 +374,16 @@ struct ls_expr
 /* Head of the list of load/store memory refs.  */
 static struct ls_expr * pre_ldst_mems = NULL;
 
-struct pre_ldst_expr_hasher : typed_noop_remove <ls_expr>
+struct pre_ldst_expr_hasher : nofree_ptr_hash <ls_expr>
 {
-  typedef ls_expr value_type;
   typedef value_type compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  static inline hashval_t hash (const ls_expr *);
+  static inline bool equal (const ls_expr *, const ls_expr *);
 };
 
 /* Hashtable helpers.  */
 inline hashval_t
-pre_ldst_expr_hasher::hash (const value_type *x)
+pre_ldst_expr_hasher::hash (const ls_expr *x)
 {
   int do_not_record_p = 0;
   return
@@ -406,8 +393,8 @@ pre_ldst_expr_hasher::hash (const value_type *x)
 static int expr_equiv_p (const_rtx, const_rtx);
 
 inline bool
-pre_ldst_expr_hasher::equal (const value_type *ptr1,
-			     const compare_type *ptr2)
+pre_ldst_expr_hasher::equal (const ls_expr *ptr1,
+			     const ls_expr *ptr2)
 {
   return expr_equiv_p (ptr1->pattern, ptr2->pattern);
 }
@@ -493,7 +480,7 @@ static int oprs_available_p (const_rtx, const rtx_insn *);
 static void insert_expr_in_table (rtx, machine_mode, rtx_insn *, int, int,
 				  int, struct gcse_hash_table_d *);
 static unsigned int hash_expr (const_rtx, machine_mode, int *, int);
-static void record_last_reg_set_info (rtx, int);
+static void record_last_reg_set_info (rtx_insn *, int);
 static void record_last_mem_set_info (rtx_insn *);
 static void record_last_set_info (rtx, const_rtx, void *);
 static void compute_hash_table (struct gcse_hash_table_d *);
@@ -516,7 +503,7 @@ static void pre_insert_copies (void);
 static int pre_delete (void);
 static int pre_gcse (struct edge_list *);
 static int one_pre_gcse_pass (void);
-static void add_label_notes (rtx, rtx);
+static void add_label_notes (rtx, rtx_insn *);
 static void alloc_code_hoist_mem (int, int);
 static void free_code_hoist_mem (void);
 static void compute_code_hoist_vbeinout (void);
@@ -544,7 +531,6 @@ static void trim_ld_motion_mems (void);
 static void update_ld_motion_stores (struct gcse_expr *);
 static void clear_modify_mem_tables (void);
 static void free_modify_mem_tables (void);
-static rtx gcse_emit_move_after (rtx, rtx, rtx_insn *);
 static bool is_too_expensive (const char *);
 
 #define GNEW(T)			((T *) gmalloc (sizeof (T)))
@@ -573,7 +559,8 @@ compute_can_copy (void)
 {
   int i;
 #ifndef AVOID_CCMODE_COPIES
-  rtx reg, insn;
+  rtx reg;
+ rtx_insn *insn;
 #endif
   memset (can_copy, 0, NUM_MACHINE_MODES);
 
@@ -585,7 +572,7 @@ compute_can_copy (void)
 	can_copy[i] = 0;
 #else
 	reg = gen_rtx_REG ((machine_mode) i, LAST_VIRTUAL_REGISTER + 1);
-	insn = emit_insn (gen_rtx_SET (VOIDmode, reg, reg));
+	insn = emit_insn (gen_rtx_SET (reg, reg));
 	if (recog (PATTERN (insn), insn, NULL) >= 0)
 	  can_copy[i] = 1;
 #endif
@@ -883,8 +870,7 @@ can_assign_to_reg_without_clobbers_p (rtx x)
   if (test_insn == 0)
     {
       test_insn
-	= make_insn_raw (gen_rtx_SET (VOIDmode,
-				      gen_rtx_REG (word_mode,
+	= make_insn_raw (gen_rtx_SET (gen_rtx_REG (word_mode,
 						   FIRST_PSEUDO_REGISTER * 2),
 				      const0_rtx));
       SET_NEXT_INSN (test_insn) = SET_PREV_INSN (test_insn) = 0;
@@ -1287,7 +1273,7 @@ hash_scan_set (rtx set, rtx_insn *insn, struct gcse_hash_table_d *table)
 	  && REG_NOTE_KIND (note) == REG_EQUAL
 	  && !REG_P (src)
 	  && want_to_gcse_p (XEXP (note, 0), NULL))
-	src = XEXP (note, 0), set = gen_rtx_SET (VOIDmode, dest, src);
+	src = XEXP (note, 0), set = gen_rtx_SET (dest, src);
 
       /* Only record sets of pseudo-regs in the hash table.  */
       if (regno >= FIRST_PSEUDO_REGISTER
@@ -1471,7 +1457,7 @@ dump_hash_table (FILE *file, const char *name, struct gcse_hash_table_d *table)
    valid, as a quick test to invalidate them.  */
 
 static void
-record_last_reg_set_info (rtx insn, int regno)
+record_last_reg_set_info (rtx_insn *insn, int regno)
 {
   struct reg_avail_info *info = &reg_avail_info[regno];
   int luid = DF_INSN_LUID (insn);
@@ -2007,7 +1993,7 @@ process_insert_insn (struct gcse_expr *expr)
      insn will be recognized (this also adds any needed CLOBBERs).  */
   else
     {
-      rtx_insn *insn = emit_insn (gen_rtx_SET (VOIDmode, reg, exp));
+      rtx_insn *insn = emit_insn (gen_rtx_SET (reg, exp));
 
       if (insn_invalid_p (insn, false))
 	gcc_unreachable ();
@@ -2048,21 +2034,23 @@ insert_insn_end_basic_block (struct gcse_expr *expr, basic_block bb)
 	  && (!single_succ_p (bb)
 	      || single_succ_edge (bb)->flags & EDGE_ABNORMAL)))
     {
-#ifdef HAVE_cc0
       /* FIXME: 'twould be nice to call prev_cc0_setter here but it aborts
 	 if cc0 isn't set.  */
-      rtx note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
-      if (note)
-	insn = safe_as_a <rtx_insn *> (XEXP (note, 0));
-      else
+      if (HAVE_cc0)
 	{
-	  rtx_insn *maybe_cc0_setter = prev_nonnote_insn (insn);
-	  if (maybe_cc0_setter
-	      && INSN_P (maybe_cc0_setter)
-	      && sets_cc0_p (PATTERN (maybe_cc0_setter)))
-	    insn = maybe_cc0_setter;
+	  rtx note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
+	  if (note)
+	    insn = safe_as_a <rtx_insn *> (XEXP (note, 0));
+	  else
+	    {
+	      rtx_insn *maybe_cc0_setter = prev_nonnote_insn (insn);
+	      if (maybe_cc0_setter
+		  && INSN_P (maybe_cc0_setter)
+		  && sets_cc0_p (PATTERN (maybe_cc0_setter)))
+		insn = maybe_cc0_setter;
+	    }
 	}
-#endif
+
       /* FIXME: What if something in cc0/jump uses value set in new insn?  */
       new_insn = emit_insn_before_noloc (pat, insn, bb);
     }
@@ -2227,7 +2215,8 @@ pre_insert_copy_insn (struct gcse_expr *expr, rtx_insn *insn)
   int regno = REGNO (reg);
   int indx = expr->bitmap_index;
   rtx pat = PATTERN (insn);
-  rtx set, first_set, new_insn;
+  rtx set, first_set;
+  rtx_insn *new_insn;
   rtx old_reg;
   int i;
 
@@ -2435,7 +2424,7 @@ single_set_gcse (rtx_insn *insn)
 /* Emit move from SRC to DEST noting the equivalence with expression computed
    in INSN.  */
 
-static rtx
+static rtx_insn *
 gcse_emit_move_after (rtx dest, rtx src, rtx_insn *insn)
 {
   rtx_insn *new_rtx;
@@ -2663,7 +2652,7 @@ one_pre_gcse_pass (void)
    necessary REG_LABEL_OPERAND and REG_LABEL_TARGET notes.  */
 
 static void
-add_label_notes (rtx x, rtx insn)
+add_label_notes (rtx x, rtx_insn *insn)
 {
   enum rtx_code code = GET_CODE (x);
   int i, j;
@@ -3961,7 +3950,6 @@ update_ld_motion_stores (struct gcse_expr * expr)
 	  rtx pat = PATTERN (insn);
 	  rtx src = SET_SRC (pat);
 	  rtx reg = expr->reaching_reg;
-	  rtx copy;
 
 	  /* If we've already copied it, continue.  */
 	  if (expr->reaching_reg == src)
@@ -3976,7 +3964,7 @@ update_ld_motion_stores (struct gcse_expr * expr)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  copy = gen_move_insn (reg, copy_rtx (SET_SRC (pat)));
+	  rtx_insn *copy = gen_move_insn (reg, copy_rtx (SET_SRC (pat)));
 	  emit_insn_before (copy, insn);
 	  SET_SRC (pat) = reg;
 	  df_insn_rescan (insn);

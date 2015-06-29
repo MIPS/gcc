@@ -21,30 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "alloc-pool.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "output.h"
 #include "toplev.h"
@@ -173,7 +157,7 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
      x < 0 || ((unsigned) x >> (uprecm1 - y))
      if > 1, is undefined.  */
   if (code == LSHIFT_EXPR
-      && !TYPE_UNSIGNED (TREE_TYPE (op0))
+      && !TYPE_UNSIGNED (type0)
       && (cxx_dialect >= cxx11))
     {
       tree x = fold_build2 (MINUS_EXPR, op1_utype, uprecm1,
@@ -301,11 +285,12 @@ ubsan_instrument_bounds (location_t loc, tree array, tree *index,
     bound = fold_build2 (PLUS_EXPR, TREE_TYPE (bound), bound,
 			 build_int_cst (TREE_TYPE (bound), 1));
 
-  /* Detect flexible array members and suchlike.  */
+  /* Detect flexible array members and suchlike, unless
+     -fsanitize=bounds-strict.  */
   tree base = get_base_address (array);
-  if (TREE_CODE (array) == COMPONENT_REF
-      && base && (TREE_CODE (base) == INDIRECT_REF
-		  || TREE_CODE (base) == MEM_REF))
+  if ((flag_sanitize & SANITIZE_BOUNDS_STRICT) == 0
+      && TREE_CODE (array) == COMPONENT_REF
+      && base && (INDIRECT_REF_P (base) || TREE_CODE (base) == MEM_REF))
     {
       tree next = NULL_TREE;
       tree cref = array;

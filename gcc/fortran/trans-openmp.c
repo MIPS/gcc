@@ -22,16 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "gimple-expr.h"
@@ -391,9 +384,11 @@ gfc_walk_alloc_comps (tree decl, tree dest, tree var,
 	  if (GFC_DESCRIPTOR_TYPE_P (ftype)
 	      && GFC_TYPE_ARRAY_AKIND (ftype) == GFC_ARRAY_ALLOCATABLE)
 	    tem = gfc_duplicate_allocatable (destf, declf, ftype,
-					     GFC_TYPE_ARRAY_RANK (ftype));
+					     GFC_TYPE_ARRAY_RANK (ftype),
+					     NULL_TREE);
 	  else if (GFC_DECL_GET_SCALAR_ALLOCATABLE (field))
-	    tem = gfc_duplicate_allocatable (destf, declf, ftype, 0);
+	    tem = gfc_duplicate_allocatable (destf, declf, ftype, 0,
+					     NULL_TREE);
 	  break;
 	}
       if (tem)
@@ -4114,6 +4109,7 @@ gfc_trans_omp_teams (gfc_code *code, gfc_omp_clauses *clausesa)
   stmtblock_t block;
   gfc_omp_clauses clausesa_buf[GFC_OMP_SPLIT_NUM];
   tree stmt, omp_clauses = NULL_TREE;
+  bool combined = true;
 
   gfc_start_block (&block);
   if (clausesa == NULL)
@@ -4130,6 +4126,7 @@ gfc_trans_omp_teams (gfc_code *code, gfc_omp_clauses *clausesa)
     case EXEC_OMP_TARGET_TEAMS:
     case EXEC_OMP_TEAMS:
       stmt = gfc_trans_omp_code (code->block->next, true);
+      combined = false;
       break;
     case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE:
     case EXEC_OMP_TEAMS_DISTRIBUTE:
@@ -4143,6 +4140,8 @@ gfc_trans_omp_teams (gfc_code *code, gfc_omp_clauses *clausesa)
     }
   stmt = build2_loc (input_location, OMP_TEAMS, void_type_node, stmt,
 		     omp_clauses);
+  if (combined)
+    OMP_TEAMS_COMBINED (stmt) = 1;
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -4163,9 +4162,14 @@ gfc_trans_omp_target (gfc_code *code)
   if (code->op == EXEC_OMP_TARGET)
     stmt = gfc_trans_omp_code (code->block->next, true);
   else
-    stmt = gfc_trans_omp_teams (code, clausesa);
-  if (TREE_CODE (stmt) != BIND_EXPR)
-    stmt = build3_v (BIND_EXPR, NULL, stmt, NULL_TREE);
+    {
+      pushlevel ();
+      stmt = gfc_trans_omp_teams (code, clausesa);
+      if (TREE_CODE (stmt) != BIND_EXPR)
+	stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0));
+      else
+	poplevel (0, 0);
+    }
   if (flag_openmp)
     stmt = build2_loc (input_location, OMP_TARGET, void_type_node, stmt,
 		       omp_clauses);

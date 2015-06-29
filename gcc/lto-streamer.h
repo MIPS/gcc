@@ -24,10 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_LTO_STREAMER_H
 
 #include "plugin-api.h"
-#include "hash-table.h"
-#include "hash-map.h"
 #include "target.h"
-#include "vec.h"
 #include "alloc-pool.h"
 #include "gcov-io.h"
 #include "diagnostic.h"
@@ -133,7 +130,7 @@ along with GCC; see the file COPYING3.  If not see
      String are represented in the table as pairs, a length in ULEB128
      form followed by the data for the string.  */
 
-#define LTO_major_version 4
+#define LTO_major_version 5
 #define LTO_minor_version 0
 
 typedef unsigned char	lto_decl_flags_t;
@@ -511,7 +508,7 @@ struct GTY((for_user)) lto_in_decl_state
 
 typedef struct lto_in_decl_state *lto_in_decl_state_ptr;
 
-struct decl_state_hasher : ggc_hasher<lto_in_decl_state *>
+struct decl_state_hasher : ggc_ptr_hash<lto_in_decl_state>
 {
   static hashval_t
   hash (lto_in_decl_state *s)
@@ -655,19 +652,17 @@ struct string_slot
 
 /* Hashtable helpers.  */
 
-struct string_slot_hasher : typed_noop_remove <string_slot>
+struct string_slot_hasher : nofree_ptr_hash <string_slot>
 {
-  typedef string_slot value_type;
-  typedef string_slot compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  static inline hashval_t hash (const string_slot *);
+  static inline bool equal (const string_slot *, const string_slot *);
 };
 
 /* Returns a hash code for DS.  Adapted from libiberty's htab_hash_string
    to support strings that may not end in '\0'.  */
 
 inline hashval_t
-string_slot_hasher::hash (const value_type *ds)
+string_slot_hasher::hash (const string_slot *ds)
 {
   hashval_t r = ds->len;
   int i;
@@ -680,7 +675,7 @@ string_slot_hasher::hash (const value_type *ds)
 /* Returns nonzero if DS1 and DS2 are equal.  */
 
 inline bool
-string_slot_hasher::equal (const value_type *ds1, const compare_type *ds2)
+string_slot_hasher::equal (const string_slot *ds1, const string_slot *ds2)
 {
   if (ds1->len == ds2->len)
     return memcmp (ds1->s, ds2->s, ds1->len) == 0;

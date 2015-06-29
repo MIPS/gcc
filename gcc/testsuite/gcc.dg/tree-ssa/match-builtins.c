@@ -25,5 +25,3 @@ double test3 (double x)
 }
 
 /* { dg-final { scan-tree-dump "gimple_simplified to \[^\n\r\]*pow \\(x_\\d\+\\(D\\), 6" "forwprop1" } } */
-
-/* { dg-final { cleanup-tree-dump "forwprop1" } } */

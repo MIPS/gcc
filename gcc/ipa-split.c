@@ -77,16 +77,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "predict.h"
@@ -100,15 +93,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "stringpool.h"
-#include "hashtab.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -123,9 +111,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify-me.h"
 #include "gimple-walk.h"
 #include "target.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
 #include "symbol-summary.h"
@@ -1230,20 +1215,6 @@ find_split_points (basic_block return_bb, int overall_time, int overall_size)
   BITMAP_FREE (current.ssa_names_to_pass);
 }
 
-/* Build and insert initialization of returned bounds RETBND
-   for returned value RETVAL.  Statements are inserted after
-   a statement pointed by GSI and GSI is modified to point to
-   the last inserted statement.  */
-
-static void
-insert_bndret_call_after (tree retbnd, tree retval, gimple_stmt_iterator *gsi)
-{
-  tree fndecl = targetm.builtin_chkp_function (BUILT_IN_CHKP_BNDRET);
-  gimple bndret = gimple_build_call (fndecl, 1, retval);
-  gimple_call_set_lhs (bndret, retbnd);
-  gsi_insert_after (gsi, bndret, GSI_CONTINUE_LINKING);
-}
-
 /* Split function at SPLIT_POINT.  */
 
 static void
@@ -1652,7 +1623,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
 		    }
 		  /* Build bndret call to obtain returned bounds.  */
 		  if (retbnd)
-		    insert_bndret_call_after (retbnd, retval, &gsi);
+		    chkp_insert_retbnd_call (retbnd, retval, &gsi);
 		  gimple_call_set_lhs (call, retval);
 		  update_stmt (call);
 		}
@@ -1702,7 +1673,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
           gsi_insert_after (&gsi, call, GSI_NEW_STMT);
 	  /* Build bndret call to obtain returned bounds.  */
 	  if (retbnd)
-	    insert_bndret_call_after (retbnd, retval, &gsi);
+	    chkp_insert_retbnd_call (retbnd, retval, &gsi);
 	  if (tsan_func_exit_call)
 	    gsi_insert_after (&gsi, tsan_func_exit_call, GSI_NEW_STMT);
 	  ret = gimple_build_return (retval);

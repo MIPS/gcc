@@ -65,21 +65,10 @@ along with GCC; see the file COPYING3.	If not see
 #include "recog.h"
 #include "output.h"
 #include "regs.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "symtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -1234,22 +1223,25 @@ do_remat (void)
 		for (i = 0; i < nregs; i++)
 		  CLEAR_HARD_REG_BIT (live_hard_regs, hard_regno + i);
 	      }
-	    else if (reg->type != OP_IN
-		     && find_regno_note (insn, REG_UNUSED, reg->regno) == NULL)
-	      {
-		if ((hard_regno = get_hard_regs (reg, nregs)) < 0)
-		  continue;
-		for (i = 0; i < nregs; i++)
-		  SET_HARD_REG_BIT (live_hard_regs, hard_regno + i);
-	      }
 	  /* Process also hard regs (e.g. CC register) which are part
 	     of insn definition.  */
 	  for (reg = static_id->hard_regs; reg != NULL; reg = reg->next)
 	    if (reg->type == OP_IN
 		&& find_regno_note (insn, REG_DEAD, reg->regno) != NULL)
 	      CLEAR_HARD_REG_BIT (live_hard_regs, reg->regno);
-	    else if (reg->type != OP_IN
-		     && find_regno_note (insn, REG_UNUSED, reg->regno) == NULL)
+	  /* Inputs have been processed, now process outputs.  */
+	  for (reg = id->regs; reg != NULL; reg = reg->next)
+	    if (reg->type != OP_IN
+		&& find_regno_note (insn, REG_UNUSED, reg->regno) == NULL)
+	      {
+		if ((hard_regno = get_hard_regs (reg, nregs)) < 0)
+		  continue;
+		for (i = 0; i < nregs; i++)
+		  SET_HARD_REG_BIT (live_hard_regs, hard_regno + i);
+	      }
+	  for (reg = static_id->hard_regs; reg != NULL; reg = reg->next)
+	    if (reg->type != OP_IN
+		&& find_regno_note (insn, REG_UNUSED, reg->regno) == NULL)
 	      SET_HARD_REG_BIT (live_hard_regs, reg->regno);
 	}
     }

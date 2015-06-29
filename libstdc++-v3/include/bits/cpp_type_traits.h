@@ -64,17 +64,6 @@
 // removed.
 //
 
-// Forward declaration hack, should really include this from somewhere.
-namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
-{
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
-  template<typename _Iterator, typename _Container>
-    class __normal_iterator;
-
-_GLIBCXX_END_NAMESPACE_VERSION
-} // namespace
-
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
@@ -331,24 +320,6 @@ __INT_N(__GLIBCXX_TYPE_INT_N_3)
     };
 
   //
-  // Normal iterator type
-  //
-  template<typename _Tp>
-    struct __is_normal_iterator
-    {
-      enum { __value = 0 };
-      typedef __false_type __type;
-    };
-
-  template<typename _Iterator, typename _Container>
-    struct __is_normal_iterator< __gnu_cxx::__normal_iterator<_Iterator,
-							      _Container> >
-    {
-      enum { __value = 1 };
-      typedef __true_type __type;
-    };
-
-  //
   // An arithmetic type is an integer type or a floating point type
   //
   template<typename _Tp>
@@ -427,18 +398,6 @@ __INT_N(__GLIBCXX_TYPE_INT_N_3)
       enum { __value = 0 };
       typedef __false_type __type;
     };
-
-#if __cplusplus >= 201103L
-  template<typename _Iterator>
-    class move_iterator;
-
-  template<typename _Iterator>
-    struct __is_move_iterator< move_iterator<_Iterator> >
-    {
-      enum { __value = 1 };
-      typedef __true_type __type;
-    };
-#endif
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace

@@ -25,15 +25,8 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -49,10 +42,6 @@
 #include "reload.h"		/* For push_reload().  */
 #include "flags.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -76,9 +65,7 @@
 #include "tm-constrs.h"
 #include "optabs.h"		/* For GEN_FCN.  */
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"		/* For add_builtin_function().  */
-#include "ggc.h"
 #include "builtins.h"
 
 /* ------------------------------------------------------------------------ */
@@ -108,7 +95,7 @@ nds32_expand_load_multiple (int base_regno, int count,
 					       new_addr, offset);
       reg      = gen_rtx_REG (SImode, base_regno + par_index);
 
-      XVECEXP (result, 0, par_index) = gen_rtx_SET (VOIDmode, reg, mem);
+      XVECEXP (result, 0, par_index) = gen_rtx_SET (reg, mem);
     }
 
   return result;
@@ -136,7 +123,7 @@ nds32_expand_store_multiple (int base_regno, int count,
 					       new_addr, offset);
       reg      = gen_rtx_REG (SImode, base_regno + par_index);
 
-      XVECEXP (result, 0, par_index) = gen_rtx_SET (VOIDmode, mem, reg);
+      XVECEXP (result, 0, par_index) = gen_rtx_SET (mem, reg);
     }
 
   return result;

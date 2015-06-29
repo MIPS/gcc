@@ -21,16 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "flags.h"
 #include "intl.h"
@@ -115,7 +108,7 @@ gfc_init_options (unsigned int decoded_options_count,
      enabled by default in Fortran.  Ideally, we should express this
      in .opt, but that is not supported yet.  */
   if (!global_options_set.x_cpp_warn_missing_include_dirs)
-    global_options.x_cpp_warn_missing_include_dirs = 1;;
+    global_options.x_cpp_warn_missing_include_dirs = 1;
 
   set_default_std_flags ();
 
@@ -378,6 +371,11 @@ gfc_post_options (const char **pfilename)
   if (!flag_automatic)
     flag_max_stack_var_size = 0;
   
+  /* If we call BLAS directly, only inline up to the BLAS limit.  */
+
+  if (flag_external_blas && flag_inline_matmul_limit < 0)
+    flag_inline_matmul_limit = flag_blas_matmul_limit;
+
   /* Optimization implies front end optimization, unless the user
      specified it directly.  */
 

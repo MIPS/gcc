@@ -22,16 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "gfortran.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "gimple-expr.h"	/* For create_tmp_var_raw.  */
@@ -321,7 +314,7 @@ gfc_build_addr_expr (tree type, tree t)
 /* Build an ARRAY_REF with its natural type.  */
 
 tree
-gfc_build_array_ref (tree base, tree offset, tree decl)
+gfc_build_array_ref (tree base, tree offset, tree decl, tree vptr)
 {
   tree type = TREE_TYPE (base);
   tree tmp;
@@ -353,30 +346,47 @@ gfc_build_array_ref (tree base, tree offset, tree decl)
   /* If the array reference is to a pointer, whose target contains a
      subreference, use the span that is stored with the backend decl
      and reference the element with pointer arithmetic.  */
-  if (decl && (TREE_CODE (decl) == FIELD_DECL
-		 || TREE_CODE (decl) == VAR_DECL
-		 || TREE_CODE (decl) == PARM_DECL)
-	&& ((GFC_DECL_SUBREF_ARRAY_P (decl)
-	      && !integer_zerop (GFC_DECL_SPAN(decl)))
+  if ((decl && (TREE_CODE (decl) == FIELD_DECL
+		|| TREE_CODE (decl) == VAR_DECL
+		|| TREE_CODE (decl) == PARM_DECL)
+       && ((GFC_DECL_SUBREF_ARRAY_P (decl)
+	    && !integer_zerop (GFC_DECL_SPAN (decl)))
 	   || GFC_DECL_CLASS (decl)))
+      || vptr)
     {
-      if (GFC_DECL_CLASS (decl))
+      if (decl)
 	{
-	  /* Allow for dummy arguments and other good things.  */
-	  if (POINTER_TYPE_P (TREE_TYPE (decl)))
-	    decl = build_fold_indirect_ref_loc (input_location, decl);
+	  if (GFC_DECL_CLASS (decl))
+	    {
+	      /* When a temporary is in place for the class array, then the
+		 original class' declaration is stored in the saved
+		 descriptor.  */
+	      if (DECL_LANG_SPECIFIC (decl) && GFC_DECL_SAVED_DESCRIPTOR (decl))
+		decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
+	      else
+		{
+		  /* Allow for dummy arguments and other good things.  */
+		  if (POINTER_TYPE_P (TREE_TYPE (decl)))
+		    decl = build_fold_indirect_ref_loc (input_location, decl);
 
-	  /* Check if '_data' is an array descriptor. If it is not,
-	     the array must be one of the components of the class object,
-	     so return a normal array reference.  */
-	  if (!GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (gfc_class_data_get (decl))))
-	    return build4_loc (input_location, ARRAY_REF, type, base,
-			       offset, NULL_TREE, NULL_TREE);
+		  /* Check if '_data' is an array descriptor.  If it is not,
+		     the array must be one of the components of the class
+		     object, so return a normal array reference.  */
+		  if (!GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (
+						gfc_class_data_get (decl))))
+		    return build4_loc (input_location, ARRAY_REF, type, base,
+				       offset, NULL_TREE, NULL_TREE);
+		}
 
-	  span = gfc_class_vtab_size_get (decl);
+	      span = gfc_class_vtab_size_get (decl);
+	    }
+	  else if (GFC_DECL_SUBREF_ARRAY_P (decl))
+	    span = GFC_DECL_SPAN (decl);
+	  else
+	    gcc_unreachable ();
 	}
-      else if (GFC_DECL_SUBREF_ARRAY_P (decl))
-	span = GFC_DECL_SPAN(decl);
+      else if (vptr)
+	span = gfc_vptr_size_get (vptr);
       else
 	gcc_unreachable ();
 
@@ -700,7 +710,8 @@ gfc_allocate_using_malloc (stmtblock_t * block, tree pointer,
     }  */
 static void
 gfc_allocate_using_lib (stmtblock_t * block, tree pointer, tree size,
-			tree token, tree status, tree errmsg, tree errlen)
+			tree token, tree status, tree errmsg, tree errlen,
+			bool lock_var)
 {
   tree tmp, pstat;
 
@@ -730,7 +741,8 @@ gfc_allocate_using_lib (stmtblock_t * block, tree pointer, tree size,
 			      MAX_EXPR, size_type_node, size,
 			      build_int_cst (size_type_node, 1)),
 	     build_int_cst (integer_type_node,
-			    GFC_CAF_COARRAY_ALLOC),
+			    lock_var ? GFC_CAF_LOCK_ALLOC
+				     : GFC_CAF_COARRAY_ALLOC),
 	     token, pstat, errmsg, errlen);
 
   tmp = fold_build2_loc (input_location, MODIFY_EXPR,
@@ -787,9 +799,22 @@ gfc_allocate_allocatable (stmtblock_t * block, tree mem, tree size, tree token,
       && gfc_expr_attr (expr).codimension)
     {
       tree cond;
+      bool lock_var = expr->ts.type == BT_DERIVED
+		      && expr->ts.u.derived->from_intmod
+			 == INTMOD_ISO_FORTRAN_ENV
+		      && expr->ts.u.derived->intmod_sym_id
+		         == ISOFORTRAN_LOCK_TYPE;
+      /* In the front end, we represent the lock variable as pointer. However,
+	 the FE only passes the pointer around and leaves the actual
+	 representation to the library. Hence, we have to convert back to the
+	 number of elements.  */
+      if (lock_var)
+	size = fold_build2_loc (input_location, TRUNC_DIV_EXPR, size_type_node,
+				size, TYPE_SIZE_UNIT (ptr_type_node));
 
       gfc_allocate_using_lib (&alloc_block, mem, size, token, status,
-			      errmsg, errlen);
+			      errmsg, errlen, lock_var);
+
       if (status != NULL_TREE)
 	{
 	  TREE_USED (label_finish) = 1;

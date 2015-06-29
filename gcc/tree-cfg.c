@@ -21,18 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
-#include "hash-map.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "trans-mem.h"
@@ -53,14 +44,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
 #include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -70,11 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-into-ssa.h"
-#include "hashtab.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -146,19 +130,18 @@ struct locus_discrim_map
 
 /* Hashtable helpers.  */
 
-struct locus_discrim_hasher : typed_free_remove <locus_discrim_map>
+struct locus_discrim_hasher : free_ptr_hash <locus_discrim_map>
 {
-  typedef locus_discrim_map value_type;
-  typedef locus_discrim_map compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  static inline hashval_t hash (const locus_discrim_map *);
+  static inline bool equal (const locus_discrim_map *,
+			    const locus_discrim_map *);
 };
 
 /* Trivial hash function for a location_t.  ITEM is a pointer to
    a hash table entry that maps a location_t to a discriminator.  */
 
 inline hashval_t
-locus_discrim_hasher::hash (const value_type *item)
+locus_discrim_hasher::hash (const locus_discrim_map *item)
 {
   return LOCATION_LINE (item->locus);
 }
@@ -167,7 +150,8 @@ locus_discrim_hasher::hash (const value_type *item)
    point to the two hash table entries to compare.  */
 
 inline bool
-locus_discrim_hasher::equal (const value_type *a, const compare_type *b)
+locus_discrim_hasher::equal (const locus_discrim_map *a,
+			     const locus_discrim_map *b)
 {
   return LOCATION_LINE (a->locus) == LOCATION_LINE (b->locus);
 }
@@ -513,16 +497,15 @@ gimple_call_initialize_ctrl_altering (gimple stmt)
 }
 
 
-/* Build a flowgraph for the sequence of stmts SEQ.  */
+/* Insert SEQ after BB and build a flowgraph.  */
 
-static void
-make_blocks (gimple_seq seq)
+static basic_block
+make_blocks_1 (gimple_seq seq, basic_block bb)
 {
   gimple_stmt_iterator i = gsi_start (seq);
   gimple stmt = NULL;
   bool start_new_block = true;
   bool first_stmt_of_seq = true;
-  basic_block bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
 
   while (!gsi_end_p (i))
     {
@@ -541,7 +524,7 @@ make_blocks (gimple_seq seq)
 	{
 	  if (!first_stmt_of_seq)
 	    gsi_split_seq_before (&i, &seq);
-	  bb = create_basic_block (seq, NULL, bb);
+	  bb = create_basic_block (seq, bb);
 	  start_new_block = false;
 	}
 
@@ -579,8 +562,16 @@ make_blocks (gimple_seq seq)
       gsi_next (&i);
       first_stmt_of_seq = false;
     }
+  return bb;
 }
 
+/* Build a flowgraph for the sequence of stmts SEQ.  */
+
+static void
+make_blocks (gimple_seq seq)
+{
+  make_blocks_1 (seq, ENTRY_BLOCK_PTR_FOR_FN (cfun));
+}
 
 /* Create and return a new empty basic block after bb AFTER.  */
 
@@ -739,7 +730,7 @@ handle_abnormal_edges (basic_block *dispatcher_bbs,
 	}
 
       /* Create the dispatcher bb.  */
-      *dispatcher = create_basic_block (NULL, NULL, for_bb);
+      *dispatcher = create_basic_block (NULL, for_bb);
       if (computed_goto)
 	{
 	  /* Factor computed gotos into a common computed goto site.  Also
@@ -807,6 +798,112 @@ handle_abnormal_edges (basic_block *dispatcher_bbs,
   make_edge (*dispatcher, for_bb, EDGE_ABNORMAL);
 }
 
+/* Creates outgoing edges for BB.  Returns 1 when it ends with an
+   computed goto, returns 2 when it ends with a statement that
+   might return to this function via an nonlocal goto, otherwise
+   return 0.  Updates *PCUR_REGION with the OMP region this BB is in.  */
+
+static int
+make_edges_bb (basic_block bb, struct omp_region **pcur_region, int *pomp_index)
+{
+  gimple last = last_stmt (bb);
+  bool fallthru = false;
+  int ret = 0;
+
+  if (!last)
+    return ret;
+
+  switch (gimple_code (last))
+    {
+    case GIMPLE_GOTO:
+      if (make_goto_expr_edges (bb))
+	ret = 1;
+      fallthru = false;
+      break;
+    case GIMPLE_RETURN:
+      {
+	edge e = make_edge (bb, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
+	e->goto_locus = gimple_location (last);
+	fallthru = false;
+      }
+      break;
+    case GIMPLE_COND:
+      make_cond_expr_edges (bb);
+      fallthru = false;
+      break;
+    case GIMPLE_SWITCH:
+      make_gimple_switch_edges (as_a <gswitch *> (last), bb);
+      fallthru = false;
+      break;
+    case GIMPLE_RESX:
+      make_eh_edges (last);
+      fallthru = false;
+      break;
+    case GIMPLE_EH_DISPATCH:
+      fallthru = make_eh_dispatch_edges (as_a <geh_dispatch *> (last));
+      break;
+
+    case GIMPLE_CALL:
+      /* If this function receives a nonlocal goto, then we need to
+	 make edges from this call site to all the nonlocal goto
+	 handlers.  */
+      if (stmt_can_make_abnormal_goto (last))
+	ret = 2;
+
+      /* If this statement has reachable exception handlers, then
+	 create abnormal edges to them.  */
+      make_eh_edges (last);
+
+      /* BUILTIN_RETURN is really a return statement.  */
+      if (gimple_call_builtin_p (last, BUILT_IN_RETURN))
+	{
+	  make_edge (bb, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
+	  fallthru = false;
+	}
+      /* Some calls are known not to return.  */
+      else
+	fallthru = !(gimple_call_flags (last) & ECF_NORETURN);
+      break;
+
+    case GIMPLE_ASSIGN:
+      /* A GIMPLE_ASSIGN may throw internally and thus be considered
+	 control-altering.  */
+      if (is_ctrl_altering_stmt (last))
+	make_eh_edges (last);
+      fallthru = true;
+      break;
+
+    case GIMPLE_ASM:
+      make_gimple_asm_edges (bb);
+      fallthru = true;
+      break;
+
+    CASE_GIMPLE_OMP:
+      fallthru = make_gimple_omp_edges (bb, pcur_region, pomp_index);
+      break;
+
+    case GIMPLE_TRANSACTION:
+      {
+	tree abort_label
+	  = gimple_transaction_label (as_a <gtransaction *> (last));
+	if (abort_label)
+	  make_edge (bb, label_to_block (abort_label), EDGE_TM_ABORT);
+	fallthru = true;
+      }
+      break;
+
+    default:
+      gcc_assert (!stmt_ends_bb_p (last));
+      fallthru = true;
+      break;
+    }
+
+  if (fallthru)
+    make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
+
+  return ret;
+}
+
 /* Join all the blocks in the flowgraph.  */
 
 static void
@@ -828,107 +925,19 @@ make_edges (void)
   /* Traverse the basic block array placing edges.  */
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple last = last_stmt (bb);
-      bool fallthru;
+      int mer;
 
       if (bb_to_omp_idx)
 	bb_to_omp_idx[bb->index] = cur_omp_region_idx;
 
-      if (last)
-	{
-	  enum gimple_code code = gimple_code (last);
-	  switch (code)
-	    {
-	    case GIMPLE_GOTO:
-	      if (make_goto_expr_edges (bb))
-		ab_edge_goto.safe_push (bb);
-	      fallthru = false;
-	      break;
-	    case GIMPLE_RETURN:
-	      {
-		edge e = make_edge (bb, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
-		e->goto_locus = gimple_location (last);
-		fallthru = false;
-	      }
-	      break;
-	    case GIMPLE_COND:
-	      make_cond_expr_edges (bb);
-	      fallthru = false;
-	      break;
-	    case GIMPLE_SWITCH:
-	      make_gimple_switch_edges (as_a <gswitch *> (last), bb);
-	      fallthru = false;
-	      break;
-	    case GIMPLE_RESX:
-	      make_eh_edges (last);
-	      fallthru = false;
-	      break;
-	    case GIMPLE_EH_DISPATCH:
-	      fallthru = make_eh_dispatch_edges (as_a <geh_dispatch *> (last));
-	      break;
+      mer = make_edges_bb (bb, &cur_region, &cur_omp_region_idx);
+      if (mer == 1)
+	ab_edge_goto.safe_push (bb);
+      else if (mer == 2)
+	ab_edge_call.safe_push (bb);
 
-	    case GIMPLE_CALL:
-	      /* If this function receives a nonlocal goto, then we need to
-		 make edges from this call site to all the nonlocal goto
-		 handlers.  */
-	      if (stmt_can_make_abnormal_goto (last))
-		ab_edge_call.safe_push (bb);
-
-	      /* If this statement has reachable exception handlers, then
-		 create abnormal edges to them.  */
-	      make_eh_edges (last);
-
-	      /* BUILTIN_RETURN is really a return statement.  */
-	      if (gimple_call_builtin_p (last, BUILT_IN_RETURN))
-		{
-		  make_edge (bb, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
-		  fallthru = false;
-		}
-	      /* Some calls are known not to return.  */
-	      else
-	        fallthru = !(gimple_call_flags (last) & ECF_NORETURN);
-	      break;
-
-	    case GIMPLE_ASSIGN:
-	       /* A GIMPLE_ASSIGN may throw internally and thus be considered
-		  control-altering. */
-	      if (is_ctrl_altering_stmt (last))
-		make_eh_edges (last);
-	      fallthru = true;
-	      break;
-
-	    case GIMPLE_ASM:
-	      make_gimple_asm_edges (bb);
-	      fallthru = true;
-	      break;
-
-	    CASE_GIMPLE_OMP:
-	      fallthru = make_gimple_omp_edges (bb, &cur_region,
-						&cur_omp_region_idx);
-	      if (cur_region && bb_to_omp_idx == NULL)
-		bb_to_omp_idx = XCNEWVEC (int, n_basic_blocks_for_fn (cfun));
-	      break;
-
-	    case GIMPLE_TRANSACTION:
-	      {
-		tree abort_label
-		  = gimple_transaction_label (as_a <gtransaction *> (last));
-		if (abort_label)
-		  make_edge (bb, label_to_block (abort_label), EDGE_TM_ABORT);
-		fallthru = true;
-	      }
-	      break;
-
-	    default:
-	      gcc_assert (!stmt_ends_bb_p (last));
-	      fallthru = true;
-	    }
-	}
-      else
-	fallthru = true;
-
-      if (fallthru)
-	make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
+      if (cur_region && bb_to_omp_idx == NULL)
+	bb_to_omp_idx = XCNEWVEC (int, n_basic_blocks_for_fn (cfun));
     }
 
   /* Computed gotos are hell to deal with, especially if there are
@@ -1006,6 +1015,43 @@ make_edges (void)
 
   /* Fold COND_EXPR_COND of each COND_EXPR.  */
   fold_cond_expr_cond ();
+}
+
+/* Add SEQ after GSI.  Start new bb after GSI, and created further bbs as
+   needed.  Returns true if new bbs were created.
+   Note: This is transitional code, and should not be used for new code.  We
+   should be able to get rid of this by rewriting all target va-arg
+   gimplification hooks to use an interface gimple_build_cond_value as described
+   in https://gcc.gnu.org/ml/gcc-patches/2015-02/msg01194.html.  */
+
+bool
+gimple_find_sub_bbs (gimple_seq seq, gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  basic_block bb = gimple_bb (stmt);
+  basic_block lastbb, afterbb;
+  int old_num_bbs = n_basic_blocks_for_fn (cfun);
+  edge e;
+  lastbb = make_blocks_1 (seq, bb);
+  if (old_num_bbs == n_basic_blocks_for_fn (cfun))
+    return false;
+  e = split_block (bb, stmt);
+  /* Move e->dest to come after the new basic blocks.  */
+  afterbb = e->dest;
+  unlink_block (afterbb);
+  link_block (afterbb, lastbb);
+  redirect_edge_succ (e, bb->next_bb);
+  bb = bb->next_bb;
+  while (bb != afterbb)
+    {
+      struct omp_region *cur_region = NULL;
+      int cur_omp_region_idx = 0;
+      int mer = make_edges_bb (bb, &cur_region, &cur_omp_region_idx);
+      gcc_assert (!mer && !cur_region);
+      add_bb_to_loop (bb, afterbb->loop_father);
+      bb = bb->next_bb;
+    }
+  return true;
 }
 
 /* Find the next available discriminator value for LOCUS.  The
@@ -3327,17 +3373,19 @@ verify_gimple_call (gcall *stmt)
        return true;
      }
 
-  if (gimple_call_lhs (stmt)
-      && (!is_gimple_lvalue (gimple_call_lhs (stmt))
-	  || verify_types_in_gimple_reference (gimple_call_lhs (stmt), true)))
+  tree lhs = gimple_call_lhs (stmt);
+  if (lhs
+      && (!is_gimple_lvalue (lhs)
+	  || verify_types_in_gimple_reference (lhs, true)))
     {
       error ("invalid LHS in gimple call");
       return true;
     }
 
-  if (gimple_call_ctrl_altering_p (stmt)
-      && gimple_call_lhs (stmt)
-      && gimple_call_noreturn_p (stmt))
+  if (lhs
+      && gimple_call_ctrl_altering_p (stmt)
+      && gimple_call_noreturn_p (stmt)
+      && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST)
     {
       error ("LHS in noreturn call");
       return true;
@@ -3345,19 +3393,18 @@ verify_gimple_call (gcall *stmt)
 
   fntype = gimple_call_fntype (stmt);
   if (fntype
-      && gimple_call_lhs (stmt)
-      && !useless_type_conversion_p (TREE_TYPE (gimple_call_lhs (stmt)),
-				     TREE_TYPE (fntype))
+      && lhs
+      && !useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (fntype))
       /* ???  At least C++ misses conversions at assignments from
 	 void * call results.
 	 ???  Java is completely off.  Especially with functions
 	 returning java.lang.Object.
 	 For now simply allow arbitrary pointer type conversions.  */
-      && !(POINTER_TYPE_P (TREE_TYPE (gimple_call_lhs (stmt)))
+      && !(POINTER_TYPE_P (TREE_TYPE (lhs))
 	   && POINTER_TYPE_P (TREE_TYPE (fntype))))
     {
       error ("invalid conversion in gimple call");
-      debug_generic_stmt (TREE_TYPE (gimple_call_lhs (stmt)));
+      debug_generic_stmt (TREE_TYPE (lhs));
       debug_generic_stmt (TREE_TYPE (fntype));
       return true;
     }
@@ -7377,7 +7424,11 @@ dump_function_to_file (tree fndecl, FILE *file, int flags)
       else
 	{
 	  if (!ignore_topmost_bind)
-	    fprintf (file, "{\n");
+	    {
+	      fprintf (file, "{\n");
+	      /* No topmost bind, pretend it's ignored for later.  */
+	      ignore_topmost_bind = true;
+	    }
 	  indent = 2;
 	}
 

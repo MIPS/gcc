@@ -22,15 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "tree-hasher.h"
@@ -42,19 +35,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "debug.h"
 #include "convert.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "splay-tree.h"
-#include "hash-table.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
-#include "wide-int.h"
+#include "attribs.h"
 
 static tree bot_manip (tree *, int *, void *);
 static tree bot_replace (tree *, int *, void *);
@@ -745,7 +732,7 @@ struct cplus_array_info
   tree domain;
 };
 
-struct cplus_array_hasher : ggc_hasher<tree>
+struct cplus_array_hasher : ggc_ptr_hash<tree_node>
 {
   typedef cplus_array_info *compare_type;
 
@@ -880,12 +867,19 @@ build_cplus_array_type (tree elt_type, tree index_type)
 	{
 	  t = build_min_array_type (elt_type, index_type);
 	  set_array_type_canon (t, elt_type, index_type);
+	  if (!dependent)
+	    {
+	      layout_type (t);
+	      /* Make sure sizes are shared with the main variant.
+		 layout_type can't be called after setting TYPE_NEXT_VARIANT,
+		 as it will overwrite alignment etc. of all variants.  */
+	      TYPE_SIZE (t) = TYPE_SIZE (m);
+	      TYPE_SIZE_UNIT (t) = TYPE_SIZE_UNIT (m);
+	    }
 
 	  TYPE_MAIN_VARIANT (t) = m;
 	  TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
 	  TYPE_NEXT_VARIANT (m) = t;
-	  if (!dependent)
-	    layout_type (t);
 	}
     }
 
@@ -1072,6 +1066,8 @@ cp_build_qualified_type_real (tree type,
 	    {
 	      t = build_variant_type_copy (t);
 	      TYPE_NAME (t) = TYPE_NAME (type);
+	      TYPE_ALIGN (t) = TYPE_ALIGN (type);
+	      TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (type);
 	    }
 	}
 
@@ -1166,6 +1162,59 @@ cv_unqualified (tree type)
   return cp_build_qualified_type (type, quals);
 }
 
+/* Subroutine of strip_typedefs.  We want to apply to RESULT the attributes
+   from ATTRIBS that affect type identity, and no others.  If any are not
+   applied, set *remove_attributes to true.  */
+
+static tree
+apply_identity_attributes (tree result, tree attribs, bool *remove_attributes)
+{
+  tree first_ident = NULL_TREE;
+  tree new_attribs = NULL_TREE;
+  tree *p = &new_attribs;
+
+  if (OVERLOAD_TYPE_P (result))
+    {
+      /* On classes and enums all attributes are ingrained.  */
+      gcc_assert (attribs == TYPE_ATTRIBUTES (result));
+      return result;
+    }
+
+  for (tree a = attribs; a; a = TREE_CHAIN (a))
+    {
+      const attribute_spec *as
+	= lookup_attribute_spec (get_attribute_name (a));
+      if (as && as->affects_type_identity)
+	{
+	  if (!first_ident)
+	    first_ident = a;
+	  else if (first_ident == error_mark_node)
+	    {
+	      *p = tree_cons (TREE_PURPOSE (a), TREE_VALUE (a), NULL_TREE);
+	      p = &TREE_CHAIN (*p);
+	    }
+	}
+      else if (first_ident)
+	{
+	  for (tree a2 = first_ident; a2; a2 = TREE_CHAIN (a2))
+	    {
+	      *p = tree_cons (TREE_PURPOSE (a2), TREE_VALUE (a2), NULL_TREE);
+	      p = &TREE_CHAIN (*p);
+	    }
+	  first_ident = error_mark_node;
+	}
+    }
+  if (first_ident != error_mark_node)
+    new_attribs = first_ident;
+
+  if (first_ident == attribs)
+    /* All attributes affected type identity.  */;
+  else
+    *remove_attributes = true;
+
+  return cp_build_type_attribute_variant (result, new_attribs);
+}
+
 /* Builds a qualified variant of T that is not a typedef variant.
    E.g. consider the following declarations:
      typedef const int ConstInt;
@@ -1184,10 +1233,14 @@ cv_unqualified (tree type)
     * If T is a type that needs structural equality
       its TYPE_CANONICAL (T) will be NULL.
     * TYPE_CANONICAL (T) desn't carry type attributes
-      and loses template parameter names.   */
+      and loses template parameter names.
+
+   If REMOVE_ATTRIBUTES is non-null, also strip attributes that don't
+   affect type identity, and set the referent to true if any were
+   stripped.  */
 
 tree
-strip_typedefs (tree t)
+strip_typedefs (tree t, bool *remove_attributes)
 {
   tree result = NULL, type = NULL, t0 = NULL;
 
@@ -1198,15 +1251,15 @@ strip_typedefs (tree t)
     {
       bool changed = false;
       vec<tree,va_gc> *vec = make_tree_vector ();
+      tree r = t;
       for (; t; t = TREE_CHAIN (t))
 	{
 	  gcc_assert (!TREE_PURPOSE (t));
-	  tree elt = strip_typedefs (TREE_VALUE (t));
+	  tree elt = strip_typedefs (TREE_VALUE (t), remove_attributes);
 	  if (elt != TREE_VALUE (t))
 	    changed = true;
 	  vec_safe_push (vec, elt);
 	}
-      tree r = t;
       if (changed)
 	r = build_tree_list_vec (vec);
       release_tree_vector (vec);
@@ -1226,28 +1279,28 @@ strip_typedefs (tree t)
   switch (TREE_CODE (t))
     {
     case POINTER_TYPE:
-      type = strip_typedefs (TREE_TYPE (t));
+      type = strip_typedefs (TREE_TYPE (t), remove_attributes);
       result = build_pointer_type (type);
       break;
     case REFERENCE_TYPE:
-      type = strip_typedefs (TREE_TYPE (t));
+      type = strip_typedefs (TREE_TYPE (t), remove_attributes);
       result = cp_build_reference_type (type, TYPE_REF_IS_RVALUE (t));
       break;
     case OFFSET_TYPE:
-      t0 = strip_typedefs (TYPE_OFFSET_BASETYPE (t));
-      type = strip_typedefs (TREE_TYPE (t));
+      t0 = strip_typedefs (TYPE_OFFSET_BASETYPE (t), remove_attributes);
+      type = strip_typedefs (TREE_TYPE (t), remove_attributes);
       result = build_offset_type (t0, type);
       break;
     case RECORD_TYPE:
       if (TYPE_PTRMEMFUNC_P (t))
 	{
-	  t0 = strip_typedefs (TYPE_PTRMEMFUNC_FN_TYPE (t));
+	  t0 = strip_typedefs (TYPE_PTRMEMFUNC_FN_TYPE (t), remove_attributes);
 	  result = build_ptrmemfunc_type (t0);
 	}
       break;
     case ARRAY_TYPE:
-      type = strip_typedefs (TREE_TYPE (t));
-      t0  = strip_typedefs (TYPE_DOMAIN (t));;
+      type = strip_typedefs (TREE_TYPE (t), remove_attributes);
+      t0  = strip_typedefs (TYPE_DOMAIN (t), remove_attributes);
       result = build_cplus_array_type (type, t0);
       break;
     case FUNCTION_TYPE:
@@ -1260,7 +1313,8 @@ strip_typedefs (tree t)
 	  {
 	    if (arg_node == void_list_node)
 	      break;
-	    arg_type = strip_typedefs (TREE_VALUE (arg_node));
+	    arg_type = strip_typedefs (TREE_VALUE (arg_node),
+				       remove_attributes);
 	    gcc_assert (arg_type);
 
 	    arg_types =
@@ -1275,7 +1329,7 @@ strip_typedefs (tree t)
 	if (arg_node)
 	  arg_types = chainon (arg_types, void_list_node);
 
-	type = strip_typedefs (TREE_TYPE (t));
+	type = strip_typedefs (TREE_TYPE (t), remove_attributes);
 	if (TREE_CODE (t) == METHOD_TYPE)
 	  {
 	    tree class_type = TREE_TYPE (TREE_VALUE (arg_types));
@@ -1316,9 +1370,9 @@ strip_typedefs (tree t)
 		tree arg = TREE_VEC_ELT (args, i);
 		tree strip_arg;
 		if (TYPE_P (arg))
-		  strip_arg = strip_typedefs (arg);
+		  strip_arg = strip_typedefs (arg, remove_attributes);
 		else
-		  strip_arg = strip_typedefs_expr (arg);
+		  strip_arg = strip_typedefs_expr (arg, remove_attributes);
 		TREE_VEC_ELT (new_args, i) = strip_arg;
 		if (strip_arg != arg)
 		  changed = true;
@@ -1334,14 +1388,16 @@ strip_typedefs (tree t)
 	    else
 	      ggc_free (new_args);
 	  }
-	result = make_typename_type (strip_typedefs (TYPE_CONTEXT (t)),
+	result = make_typename_type (strip_typedefs (TYPE_CONTEXT (t),
+						     remove_attributes),
 				     fullname, typename_type, tf_none);
       }
       break;
     case DECLTYPE_TYPE:
-      result = strip_typedefs_expr (DECLTYPE_TYPE_EXPR (t));
+      result = strip_typedefs_expr (DECLTYPE_TYPE_EXPR (t),
+				    remove_attributes);
       if (result == DECLTYPE_TYPE_EXPR (t))
-	return t;
+	result = NULL_TREE;
       else
 	result = (finish_decltype_type
 		  (result,
@@ -1358,14 +1414,25 @@ strip_typedefs (tree t)
       || TYPE_ALIGN (t) != TYPE_ALIGN (result))
     {
       gcc_assert (TYPE_USER_ALIGN (t));
-      if (TYPE_ALIGN (t) == TYPE_ALIGN (result))
-	result = build_variant_type_copy (result);
+      if (remove_attributes)
+	*remove_attributes = true;
       else
-	result = build_aligned_type (result, TYPE_ALIGN (t));
-      TYPE_USER_ALIGN (result) = true;
+	{
+	  if (TYPE_ALIGN (t) == TYPE_ALIGN (result))
+	    result = build_variant_type_copy (result);
+	  else
+	    result = build_aligned_type (result, TYPE_ALIGN (t));
+	  TYPE_USER_ALIGN (result) = true;
+	}
     }
   if (TYPE_ATTRIBUTES (t))
-    result = cp_build_type_attribute_variant (result, TYPE_ATTRIBUTES (t));
+    {
+      if (remove_attributes)
+	result = apply_identity_attributes (result, TYPE_ATTRIBUTES (t),
+					    remove_attributes);
+      else
+	result = cp_build_type_attribute_variant (result, TYPE_ATTRIBUTES (t));
+    }
   return cp_build_qualified_type (result, cp_type_quals (t));
 }
 
@@ -1380,7 +1447,7 @@ strip_typedefs (tree t)
    sizeof(TT) is replaced by sizeof(T).  */
 
 tree
-strip_typedefs_expr (tree t)
+strip_typedefs_expr (tree t, bool *remove_attributes)
 {
   unsigned i,n;
   tree r, type, *ops;
@@ -1395,7 +1462,7 @@ strip_typedefs_expr (tree t)
   /* Some expressions have type operands, so let's handle types here rather
      than check TYPE_P in multiple places below.  */
   if (TYPE_P (t))
-    return strip_typedefs (t);
+    return strip_typedefs (t, remove_attributes);
 
   code = TREE_CODE (t);
   switch (code)
@@ -1409,14 +1476,14 @@ strip_typedefs_expr (tree t)
 
     case TRAIT_EXPR:
       {
-	tree type1 = strip_typedefs (TRAIT_EXPR_TYPE1 (t));
-	tree type2 = strip_typedefs (TRAIT_EXPR_TYPE2 (t));
+	tree type1 = strip_typedefs (TRAIT_EXPR_TYPE1 (t), remove_attributes);
+	tree type2 = strip_typedefs (TRAIT_EXPR_TYPE2 (t), remove_attributes);
 	if (type1 == TRAIT_EXPR_TYPE1 (t)
 	    && type2 == TRAIT_EXPR_TYPE2 (t))
 	  return t;
 	r = copy_node (t);
-	TRAIT_EXPR_TYPE1 (t) = type1;
-	TRAIT_EXPR_TYPE2 (t) = type2;
+	TRAIT_EXPR_TYPE1 (r) = type1;
+	TRAIT_EXPR_TYPE2 (r) = type2;
 	return r;
       }
 
@@ -1427,7 +1494,7 @@ strip_typedefs_expr (tree t)
 	tree it;
 	for (it = t; it; it = TREE_CHAIN (it))
 	  {
-	    tree val = strip_typedefs_expr (TREE_VALUE (t));
+	    tree val = strip_typedefs_expr (TREE_VALUE (t), remove_attributes);
 	    vec_safe_push (vec, val);
 	    if (val != TREE_VALUE (t))
 	      changed = true;
@@ -1453,7 +1520,8 @@ strip_typedefs_expr (tree t)
 	vec_safe_reserve (vec, n);
 	for (i = 0; i < n; ++i)
 	  {
-	    tree op = strip_typedefs_expr (TREE_VEC_ELT (t, i));
+	    tree op = strip_typedefs_expr (TREE_VEC_ELT (t, i),
+					   remove_attributes);
 	    vec->quick_push (op);
 	    if (op != TREE_VEC_ELT (t, i))
 	      changed = true;
@@ -1478,17 +1546,18 @@ strip_typedefs_expr (tree t)
 	vec<constructor_elt, va_gc> *vec
 	  = vec_safe_copy (CONSTRUCTOR_ELTS (t));
 	n = CONSTRUCTOR_NELTS (t);
-	type = strip_typedefs (TREE_TYPE (t));
+	type = strip_typedefs (TREE_TYPE (t), remove_attributes);
 	for (i = 0; i < n; ++i)
 	  {
 	    constructor_elt *e = &(*vec)[i];
-	    tree op = strip_typedefs_expr (e->value);
+	    tree op = strip_typedefs_expr (e->value, remove_attributes);
 	    if (op != e->value)
 	      {
 		changed = true;
 		e->value = op;
 	      }
-	    gcc_checking_assert (e->index == strip_typedefs_expr (e->index));
+	    gcc_checking_assert
+	      (e->index == strip_typedefs_expr (e->index, remove_attributes));
 	  }
 
 	if (!changed && type == TREE_TYPE (t))
@@ -1529,12 +1598,12 @@ strip_typedefs_expr (tree t)
     case REINTERPRET_CAST_EXPR:
     case CAST_EXPR:
     case NEW_EXPR:
-      type = strip_typedefs (type);
+      type = strip_typedefs (type, remove_attributes);
       /* fallthrough */
 
     default:
       for (i = 0; i < n; ++i)
-	ops[i] = strip_typedefs_expr (TREE_OPERAND (t, i));
+	ops[i] = strip_typedefs_expr (TREE_OPERAND (t, i), remove_attributes);
       break;
     }
 
@@ -1641,7 +1710,7 @@ struct list_proxy
   tree chain;
 };
 
-struct list_hasher : ggc_hasher<tree>
+struct list_hasher : ggc_ptr_hash<tree_node>
 {
   typedef list_proxy *compare_type;
 
@@ -2126,8 +2195,8 @@ static tree
 verify_stmt_tree_r (tree* tp, int * /*walk_subtrees*/, void* data)
 {
   tree t = *tp;
-  hash_table<pointer_hash <tree_node> > *statements
-      = static_cast <hash_table<pointer_hash <tree_node> > *> (data);
+  hash_table<nofree_ptr_hash <tree_node> > *statements
+      = static_cast <hash_table<nofree_ptr_hash <tree_node> > *> (data);
   tree_node **slot;
 
   if (!STATEMENT_CODE_P (TREE_CODE (t)))
@@ -2150,7 +2219,7 @@ verify_stmt_tree_r (tree* tp, int * /*walk_subtrees*/, void* data)
 void
 verify_stmt_tree (tree t)
 {
-  hash_table<pointer_hash <tree_node> > statements (37);
+  hash_table<nofree_ptr_hash <tree_node> > statements (37);
   cp_walk_tree (&t, verify_stmt_tree_r, &statements, NULL);
 }
 
@@ -2228,14 +2297,14 @@ no_linkage_check (tree t, bool relaxed_p)
       return no_linkage_check (TYPE_PTRMEM_CLASS_TYPE (t), relaxed_p);
 
     case METHOD_TYPE:
-      r = no_linkage_check (TYPE_METHOD_BASETYPE (t), relaxed_p);
-      if (r)
-	return r;
-      /* Fall through.  */
     case FUNCTION_TYPE:
       {
-	tree parm;
-	for (parm = TYPE_ARG_TYPES (t);
+	tree parm = TYPE_ARG_TYPES (t);
+	if (TREE_CODE (t) == METHOD_TYPE)
+	  /* The 'this' pointer isn't interesting; a method has the same
+	     linkage (or lack thereof) as its enclosing class.  */
+	  parm = TREE_CHAIN (parm);
+	for (;
 	     parm && parm != void_list_node;
 	     parm = TREE_CHAIN (parm))
 	  {
@@ -2347,6 +2416,29 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
 	 break_out_target_exprs will have handled anything below this
 	 point.  */
       *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+  if (TREE_CODE (*tp) == SAVE_EXPR)
+    {
+      t = *tp;
+      splay_tree_node n = splay_tree_lookup (target_remap,
+					     (splay_tree_key) t);
+      if (n)
+	{
+	  *tp = (tree)n->value;
+	  *walk_subtrees = 0;
+	}
+      else
+	{
+	  copy_tree_r (tp, walk_subtrees, NULL);
+	  splay_tree_insert (target_remap,
+			     (splay_tree_key)t,
+			     (splay_tree_value)*tp);
+	  /* Make sure we don't remap an already-remapped SAVE_EXPR.  */
+	  splay_tree_insert (target_remap,
+			     (splay_tree_key)*tp,
+			     (splay_tree_value)*tp);
+	}
       return NULL_TREE;
     }
 
@@ -2464,12 +2556,6 @@ build_ctor_subob_ref (tree index, tree type, tree obj)
 /* Like substitute_placeholder_in_expr, but handle C++ tree codes and
    build up subexpressions as we go deeper.  */
 
-struct replace_placeholders_t
-{
-  tree obj;
-  hash_set<tree> *pset;
-};
-
 static tree
 replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 {
@@ -2484,15 +2570,15 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
   switch (TREE_CODE (*t))
     {
     case PLACEHOLDER_EXPR:
-      gcc_assert (same_type_ignoring_top_level_qualifiers_p
-		  (TREE_TYPE (*t), TREE_TYPE (obj)));
-      *t = obj;
-      *walk_subtrees = false;
-      break;
-
-    case TARGET_EXPR:
-      /* Don't mess with placeholders in an unrelated object.  */
-      *walk_subtrees = false;
+      {
+	tree x = obj;
+	for (; !(same_type_ignoring_top_level_qualifiers_p
+		 (TREE_TYPE (*t), TREE_TYPE (x)));
+	     x = TREE_OPERAND (x, 0))
+	  gcc_assert (TREE_CODE (x) == COMPONENT_REF);
+	*t = x;
+	*walk_subtrees = false;
+      }
       break;
 
     case CONSTRUCTOR:
@@ -2508,7 +2594,12 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 	    if (TREE_CODE (*valp) == CONSTRUCTOR
 		&& AGGREGATE_TYPE_P (type))
 	      {
-		subob = build_ctor_subob_ref (ce->index, type, obj);
+		/* If we're looking at the initializer for OBJ, then build
+		   a sub-object reference.  If we're looking at an
+		   initializer for another object, just pass OBJ down.  */
+		if (same_type_ignoring_top_level_qualifiers_p
+		    (TREE_TYPE (*t), TREE_TYPE (obj)))
+		  subob = build_ctor_subob_ref (ce->index, type, obj);
 		if (TREE_CODE (*valp) == TARGET_EXPR)
 		  valp = &TARGET_EXPR_INITIAL (*valp);
 	      }
@@ -2530,7 +2621,6 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 tree
 replace_placeholders (tree exp, tree obj)
 {
-  hash_set<tree> pset;
   tree *tp = &exp;
   if (TREE_CODE (exp) == TARGET_EXPR)
     tp = &TARGET_EXPR_INITIAL (exp);
@@ -3149,8 +3239,7 @@ scalarish_type_p (const_tree t)
   if (t == error_mark_node)
     return 1;
 
-  return (SCALAR_TYPE_P (t)
-	  || TREE_CODE (t) == VECTOR_TYPE);
+  return (SCALAR_TYPE_P (t) || VECTOR_TYPE_P (t));
 }
 
 /* Returns true iff T requires non-trivial default initialization.  */
@@ -3593,8 +3682,7 @@ handle_abi_tag_attribute (tree* node, tree name, tree args,
     }
   else
     {
-      if (TREE_CODE (*node) != FUNCTION_DECL
-	  && TREE_CODE (*node) != VAR_DECL)
+      if (!VAR_OR_FUNCTION_DECL_P (*node))
 	{
 	  error ("%qE attribute applied to non-function, non-variable %qD",
 		 name, *node);

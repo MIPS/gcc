@@ -36,16 +36,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "predict.h"
@@ -58,17 +51,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "stor-layout.h"
-#include "hashtab.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -436,23 +424,21 @@ lookup_cand (cand_idx idx)
 
 /* Helper for hashing a candidate chain header.  */
 
-struct cand_chain_hasher : typed_noop_remove <cand_chain>
+struct cand_chain_hasher : nofree_ptr_hash <cand_chain>
 {
-  typedef cand_chain value_type;
-  typedef cand_chain compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  static inline hashval_t hash (const cand_chain *);
+  static inline bool equal (const cand_chain *, const cand_chain *);
 };
 
 inline hashval_t
-cand_chain_hasher::hash (const value_type *p)
+cand_chain_hasher::hash (const cand_chain *p)
 {
   tree base_expr = p->base_expr;
   return iterative_hash_expr (base_expr, 0);
 }
 
 inline bool
-cand_chain_hasher::equal (const value_type *chain1, const compare_type *chain2)
+cand_chain_hasher::equal (const cand_chain *chain1, const cand_chain *chain2)
 {
   return operand_equal_p (chain1->base_expr, chain2->base_expr, 0);
 }

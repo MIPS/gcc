@@ -30,11 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "hard-reg-set.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "insn-config.h"
@@ -352,7 +347,7 @@ mark_hard_reg_live (rtx reg)
 
   if (! TEST_HARD_REG_BIT (ira_no_alloc_regs, regno))
     {
-      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
+      int last = END_REGNO (reg);
       enum reg_class aclass, pclass;
 
       while (regno < last)
@@ -478,7 +473,7 @@ mark_hard_reg_dead (rtx reg)
 
   if (! TEST_HARD_REG_BIT (ira_no_alloc_regs, regno))
     {
-      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
+      int last = END_REGNO (reg);
       enum reg_class aclass, pclass;
 
       while (regno < last)
@@ -1319,7 +1314,6 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	  curr_point++;
 	}
 
-#ifdef EH_RETURN_DATA_REGNO
       if (bb_has_eh_pred (bb))
 	for (j = 0; ; ++j)
 	  {
@@ -1328,7 +1322,6 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	      break;
 	    make_hard_regno_born (regno);
 	  }
-#endif
 
       /* Allocnos can't go in stack regs at the start of a basic block
 	 that is reached by an abnormal edge. Likewise for call

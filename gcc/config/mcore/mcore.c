@@ -22,15 +22,8 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -47,11 +40,7 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "obstack.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -60,10 +49,8 @@
 #include "expr.h"
 #include "reload.h"
 #include "recog.h"
-#include "ggc.h"
 #include "diagnostic-core.h"
 #include "target.h"
-#include "target-def.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfgrtl.h"
@@ -75,6 +62,9 @@
 #include "basic-block.h"
 #include "df.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* For dumping information about frame sizes.  */
 char * mcore_current_function_name = 0;
@@ -689,9 +679,7 @@ mcore_gen_compare (enum rtx_code code, rtx op0, rtx op1)
       break;
     }
 
-  emit_insn (gen_rtx_SET (VOIDmode,
-			  cc_reg,
-			  gen_rtx_fmt_ee (code, CCmode, op0, op1)));
+  emit_insn (gen_rtx_SET (cc_reg, gen_rtx_fmt_ee (code, CCmode, op0, op1)));
   return invert;
 }
 
@@ -1481,14 +1469,16 @@ mcore_expand_insv (rtx operands[])
       if ((INTVAL (operands[3]) & 1) == 0)
 	{
 	  mask = ~(1 << posn);
-	  emit_insn (gen_rtx_SET (SImode, operands[0],
-			      gen_rtx_AND (SImode, operands[0], GEN_INT (mask))));
+	  emit_insn (gen_rtx_SET (operands[0],
+				  gen_rtx_AND (SImode, operands[0],
+					       GEN_INT (mask))));
 	}
       else
 	{
 	  mask = 1 << posn;
-	  emit_insn (gen_rtx_SET (SImode, operands[0],
-			    gen_rtx_IOR (SImode, operands[0], GEN_INT (mask))));
+	  emit_insn (gen_rtx_SET (operands[0],
+				  gen_rtx_IOR (SImode, operands[0],
+					       GEN_INT (mask))));
 	}
       
       return 1;
@@ -1517,8 +1507,8 @@ mcore_expand_insv (rtx operands[])
       && INTVAL (operands[3]) == ((1 << width) - 1))
     {
       mreg = force_reg (SImode, GEN_INT (INTVAL (operands[3]) << posn));
-      emit_insn (gen_rtx_SET (SImode, operands[0],
-                         gen_rtx_IOR (SImode, operands[0], mreg)));
+      emit_insn (gen_rtx_SET (operands[0],
+			      gen_rtx_IOR (SImode, operands[0], mreg)));
       return 1;
     }
 
@@ -1526,8 +1516,8 @@ mcore_expand_insv (rtx operands[])
   mreg = force_reg (SImode, GEN_INT (~(((1 << width) - 1) << posn)));
 
   /* Clear the field, to overlay it later with the source.  */
-  emit_insn (gen_rtx_SET (SImode, operands[0], 
-		      gen_rtx_AND (SImode, operands[0], mreg)));
+  emit_insn (gen_rtx_SET (operands[0],
+			  gen_rtx_AND (SImode, operands[0], mreg)));
 
   /* If the source is constant 0, we've nothing to add back.  */
   if (GET_CODE (operands[3]) == CONST_INT && INTVAL (operands[3]) == 0)
@@ -1546,17 +1536,16 @@ mcore_expand_insv (rtx operands[])
   if (width + posn != (int) GET_MODE_SIZE (SImode))
     {
       ereg = force_reg (SImode, GEN_INT ((1 << width) - 1));      
-      emit_insn (gen_rtx_SET (SImode, sreg,
-                          gen_rtx_AND (SImode, sreg, ereg)));
+      emit_insn (gen_rtx_SET (sreg, gen_rtx_AND (SImode, sreg, ereg)));
     }
 
   /* Insert source value in dest.  */
   if (posn != 0)
-    emit_insn (gen_rtx_SET (SImode, sreg,
-		        gen_rtx_ASHIFT (SImode, sreg, GEN_INT (posn))));
+    emit_insn (gen_rtx_SET (sreg, gen_rtx_ASHIFT (SImode, sreg,
+						  GEN_INT (posn))));
   
-  emit_insn (gen_rtx_SET (SImode, operands[0],
-		      gen_rtx_IOR (SImode, operands[0], sreg)));
+  emit_insn (gen_rtx_SET (operands[0],
+			  gen_rtx_IOR (SImode, operands[0], sreg)));
 
   return 1;
 }
@@ -1627,7 +1616,7 @@ block_move_sequence (rtx dst_mem, rtx src_mem, int size, int align)
 	  temp[next] = gen_reg_rtx (mode[next]);
 
 	  x = adjust_address (src_mem, mode[next], offset_ld);
-	  emit_insn (gen_rtx_SET (VOIDmode, temp[next], x));
+	  emit_insn (gen_rtx_SET (temp[next], x));
 
 	  offset_ld += next_amount;
 	  size -= next_amount;
@@ -1639,7 +1628,7 @@ block_move_sequence (rtx dst_mem, rtx src_mem, int size, int align)
 	  active[phase] = false;
 	  
 	  x = adjust_address (dst_mem, mode[phase], offset_st);
-	  emit_insn (gen_rtx_SET (VOIDmode, x, temp[phase]));
+	  emit_insn (gen_rtx_SET (x, temp[phase]));
 
 	  offset_st += amount[phase];
 	}

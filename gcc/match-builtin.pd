@@ -33,9 +33,10 @@ along with GCC; see the file COPYING3.  If not see
   (mult (abs @0) { build_real (TREE_TYPE (@0), real_value_truncate (TYPE_MODE (TREE_TYPE (@0)), dconst_sqrt2 ())); })))
 /* Optimize cabs(-z) and cabs(conj(z)) as cabs(z).  */
 (for op (negate conj)
- (simplify
-  (CABS (op @0))
-  (CABS @0)))
+ (for cabsop (CABS)
+  (simplify
+   (cabsop (op @0))
+   (cabsop @0))))
 /* Don't do this when optimizing for size.  */
 (if (flag_unsafe_math_optimizations && optimize_function_for_speed_p (cfun))
  (simplify
@@ -99,9 +100,10 @@ along with GCC; see the file COPYING3.  If not see
    ???  The code in builtins.c manages to perform this recursively
    through the whole expression in arg0 of pow.  */
 (for sgnop (abs negate)
- (simplify
-  (POW (sgnop @0) REAL_CST@1)
-   (with
+ (for pows (POW)
+  (simplify
+   (pows (sgnop @0) REAL_CST@1)
+    (with
      { 
        REAL_VALUE_TYPE c = TREE_REAL_CST (@1);
        HOST_WIDE_INT n = real_to_integer (&c);
@@ -111,7 +113,7 @@ along with GCC; see the file COPYING3.  If not see
     (if (real_identical (&c, &cint)
 	 && (n & 1) == 0
 	 && flag_unsafe_math_optimizations)
-     (POW @0 @1)))))
+     (pows @0 @1))))))
 
 /* From fold_builtin_sqrt.  */
 (if (flag_unsafe_math_optimizations)

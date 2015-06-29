@@ -26,28 +26,16 @@ along with GCC; see the file COPYING3.  If not see
 #include <set>
 
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "tree-pass.h"
 #include "flags.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -65,14 +53,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-operands.h"
 #include "tree-into-ssa.h"
 #include "internal-fn.h"
-#include "is-a.h"
 #include "gimple-expr.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "value-prof.h"
 #include "coverage.h"
@@ -1143,28 +1127,28 @@ afdo_find_equiv_class (bb_set *annotated_bb)
     bb->aux = bb;
     dom_bbs = get_dominated_by (CDI_DOMINATORS, bb);
     FOR_EACH_VEC_ELT (dom_bbs, i, bb1)
-    if (bb1->aux == NULL && dominated_by_p (CDI_POST_DOMINATORS, bb, bb1)
-        && bb1->loop_father == bb->loop_father)
-      {
-        bb1->aux = bb;
-        if (bb1->count > bb->count && is_bb_annotated (bb1, *annotated_bb))
-          {
-            bb->count = bb1->count;
-            set_bb_annotated (bb, annotated_bb);
-          }
-      }
+      if (bb1->aux == NULL && dominated_by_p (CDI_POST_DOMINATORS, bb, bb1)
+	  && bb1->loop_father == bb->loop_father)
+	{
+	  bb1->aux = bb;
+	  if (bb1->count > bb->count && is_bb_annotated (bb1, *annotated_bb))
+	    {
+	      bb->count = bb1->count;
+	      set_bb_annotated (bb, annotated_bb);
+	    }
+	}
     dom_bbs = get_dominated_by (CDI_POST_DOMINATORS, bb);
     FOR_EACH_VEC_ELT (dom_bbs, i, bb1)
-    if (bb1->aux == NULL && dominated_by_p (CDI_DOMINATORS, bb, bb1)
-        && bb1->loop_father == bb->loop_father)
-      {
-        bb1->aux = bb;
-        if (bb1->count > bb->count && is_bb_annotated (bb1, *annotated_bb))
-          {
-            bb->count = bb1->count;
-            set_bb_annotated (bb, annotated_bb);
-          }
-      }
+      if (bb1->aux == NULL && dominated_by_p (CDI_DOMINATORS, bb, bb1)
+	  && bb1->loop_father == bb->loop_father)
+	{
+	  bb1->aux = bb;
+	  if (bb1->count > bb->count && is_bb_annotated (bb1, *annotated_bb))
+	    {
+	      bb->count = bb1->count;
+	      set_bb_annotated (bb, annotated_bb);
+	    }
+	}
   }
 }
 
@@ -1191,10 +1175,10 @@ afdo_propagate_edge (bool is_succ, bb_set *annotated_bb,
     gcov_type total_known_count = 0;
 
     FOR_EACH_EDGE (e, ei, is_succ ? bb->succs : bb->preds)
-    if (!is_edge_annotated (e, *annotated_edge))
-      num_unknown_edge++, unknown_edge = e;
-    else
-      total_known_count += e->count;
+      if (!is_edge_annotated (e, *annotated_edge))
+	num_unknown_edge++, unknown_edge = e;
+      else
+	total_known_count += e->count;
 
     if (num_unknown_edge == 0)
       {
@@ -1365,8 +1349,13 @@ afdo_calculate_branch_prob (bb_set *annotated_bb, edge_set *annotated_edge)
   bool has_sample = false;
 
   FOR_EACH_BB_FN (bb, cfun)
-  if (bb->count > 0)
-    has_sample = true;
+  {
+    if (bb->count > 0)
+      {
+	has_sample = true;
+	break;
+      }
+  }
 
   if (!has_sample)
     return;
@@ -1404,7 +1393,7 @@ afdo_calculate_branch_prob (bb_set *annotated_bb, edge_set *annotated_edge)
     edge_iterator ei;
 
     FOR_EACH_EDGE (e, ei, bb->succs)
-    e->count = (double)bb->count * e->probability / REG_BR_PROB_BASE;
+      e->count = (double)bb->count * e->probability / REG_BR_PROB_BASE;
     bb->aux = NULL;
   }
 
@@ -1502,7 +1491,7 @@ afdo_annotate_cfg (const stmt_set &promoted_stmts)
 
     bb->count = 0;
     FOR_EACH_EDGE (e, ei, bb->succs)
-    e->count = 0;
+      e->count = 0;
 
     if (afdo_set_bb_count (bb, promoted_stmts))
       set_bb_annotated (bb, &annotated_bb);

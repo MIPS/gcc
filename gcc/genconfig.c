@@ -346,17 +346,22 @@ main (int argc, char **argv)
     {
       /* We output CC0_P this way to make sure that X is declared
 	 somewhere.  */
+      printf ("#define HAVE_cc0 0\n");
       printf ("#define CC0_P(X) ((X) ? 0 : 0)\n");
     }
 
   if (have_cmove_flag)
     printf ("#define HAVE_conditional_move 1\n");
+  else
+    printf ("#define HAVE_conditional_move 0\n");
 
   if (have_cond_exec_flag)
     printf ("#define HAVE_conditional_execution 1\n");
 
   if (have_lo_sum_flag)
     printf ("#define HAVE_lo_sum 1\n");
+  else
+    printf ("#define HAVE_lo_sum 0\n");
 
   if (have_rotate_flag)
     printf ("#define HAVE_rotate 1\n");
@@ -366,6 +371,8 @@ main (int argc, char **argv)
 
   if (have_peephole_flag)
     printf ("#define HAVE_peephole 1\n");
+  else
+    printf ("#define HAVE_peephole 0\n");
 
   if (have_peephole2_flag)
     {

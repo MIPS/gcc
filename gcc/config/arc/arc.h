@@ -765,7 +765,7 @@ extern enum reg_class arc_regno_reg_class[];
 
 /* Define this macro if pushing a word onto the stack moves the stack
    pointer to a smaller address.  */
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 /* Define this if the nominal address of the stack frame
    is at the high-address end of the local variables;
@@ -1108,7 +1108,7 @@ arc_select_cc_mode (OP, X, Y)
 /* Define this macro if it is as good or better to call a constant
    function address than to call an address kept in a register.  */
 /* On the ARC, calling through registers is slow.  */
-#define NO_FUNCTION_CSE
+#define NO_FUNCTION_CSE 1
 
 /* Section selection.  */
 /* WARNING: These section names also appear in dwarfout.c.  */

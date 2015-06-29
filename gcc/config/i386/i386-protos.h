@@ -67,8 +67,6 @@ extern bool ix86_expand_set_or_movmem (rtx, rtx, rtx, rtx, rtx, rtx,
 extern bool constant_address_p (rtx);
 extern bool legitimate_pic_operand_p (rtx);
 extern bool legitimate_pic_address_disp_p (rtx);
-extern bool ix86_legitimize_reload_address (rtx, machine_mode,
-					    int, int, int);
 extern void print_reg (rtx, int, FILE*);
 extern void ix86_print_operand (FILE *, rtx, int);
 
@@ -306,6 +304,8 @@ extern enum attr_cpu ix86_schedule;
 #endif
 
 extern const char * ix86_output_call_insn (rtx_insn *insn, rtx call_op);
+extern bool ix86_operands_ok_for_move_multiple (rtx *operands, bool load,
+						enum machine_mode mode);
 
 #ifdef RTX_CODE
 /* Target data for multipass lookahead scheduling.

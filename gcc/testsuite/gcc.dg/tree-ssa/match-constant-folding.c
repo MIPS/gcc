@@ -126,5 +126,3 @@ int c14(int x)
   return c14_val;
 }
 /* { dg-final { scan-tree-dump "Match-and-simplified x_\\d\+\\(D\\) % t1_\\d\+ to 0" "ccp1" } } */
-
-/* { dg-final { cleanup-tree-dump "forwprop2" } } */

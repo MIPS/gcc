@@ -5665,8 +5665,6 @@ vaddlvq_u32 (uint32x4_t a)
 
 /* vcvt_high_f32_f16 not supported */
 
-static float32x2_t vdup_n_f32 (float32_t);
-
 #define vcvt_n_f32_s32(a, b)                                            \
   __extension__                                                         \
     ({                                                                  \
@@ -9824,272 +9822,6 @@ vrsqrtss_f32 (float32_t a, float32_t b)
        result;                                                          \
      })
 
-#define vst1_lane_f32(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       float32x2_t b_ = (b);                                            \
-       float32_t * a_ = (a);                                            \
-       __asm__ ("st1 {%1.s}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1_lane_f64(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       float64x1_t b_ = (b);                                            \
-       float64_t * a_ = (a);                                            \
-       __asm__ ("st1 {%1.d}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1_lane_p8(a, b, c)                                           \
-  __extension__                                                         \
-    ({                                                                  \
-       poly8x8_t b_ = (b);                                              \
-       poly8_t * a_ = (a);                                              \
-       __asm__ ("st1 {%1.b}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1_lane_p16(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       poly16x4_t b_ = (b);                                             \
-       poly16_t * a_ = (a);                                             \
-       __asm__ ("st1 {%1.h}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1_lane_s8(a, b, c)                                           \
-  __extension__                                                         \
-    ({                                                                  \
-       int8x8_t b_ = (b);                                               \
-       int8_t * a_ = (a);                                               \
-       __asm__ ("st1 {%1.b}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1_lane_s16(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       int16x4_t b_ = (b);                                              \
-       int16_t * a_ = (a);                                              \
-       __asm__ ("st1 {%1.h}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1_lane_s32(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       int32x2_t b_ = (b);                                              \
-       int32_t * a_ = (a);                                              \
-       __asm__ ("st1 {%1.s}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1_lane_s64(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       int64x1_t b_ = (b);                                              \
-       int64_t * a_ = (a);                                              \
-       __asm__ ("st1 {%1.d}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1_lane_u8(a, b, c)                                           \
-  __extension__                                                         \
-    ({                                                                  \
-       uint8x8_t b_ = (b);                                              \
-       uint8_t * a_ = (a);                                              \
-       __asm__ ("st1 {%1.b}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1_lane_u16(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       uint16x4_t b_ = (b);                                             \
-       uint16_t * a_ = (a);                                             \
-       __asm__ ("st1 {%1.h}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1_lane_u32(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       uint32x2_t b_ = (b);                                             \
-       uint32_t * a_ = (a);                                             \
-       __asm__ ("st1 {%1.s}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1_lane_u64(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       uint64x1_t b_ = (b);                                             \
-       uint64_t * a_ = (a);                                             \
-       __asm__ ("st1 {%1.d}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-
-#define vst1q_lane_f32(a, b, c)                                         \
-  __extension__                                                         \
-    ({                                                                  \
-       float32x4_t b_ = (b);                                            \
-       float32_t * a_ = (a);                                            \
-       __asm__ ("st1 {%1.s}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1q_lane_f64(a, b, c)                                         \
-  __extension__                                                         \
-    ({                                                                  \
-       float64x2_t b_ = (b);                                            \
-       float64_t * a_ = (a);                                            \
-       __asm__ ("st1 {%1.d}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1q_lane_p8(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       poly8x16_t b_ = (b);                                             \
-       poly8_t * a_ = (a);                                              \
-       __asm__ ("st1 {%1.b}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1q_lane_p16(a, b, c)                                         \
-  __extension__                                                         \
-    ({                                                                  \
-       poly16x8_t b_ = (b);                                             \
-       poly16_t * a_ = (a);                                             \
-       __asm__ ("st1 {%1.h}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1q_lane_s8(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       int8x16_t b_ = (b);                                              \
-       int8_t * a_ = (a);                                               \
-       __asm__ ("st1 {%1.b}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1q_lane_s16(a, b, c)                                         \
-  __extension__                                                         \
-    ({                                                                  \
-       int16x8_t b_ = (b);                                              \
-       int16_t * a_ = (a);                                              \
-       __asm__ ("st1 {%1.h}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1q_lane_s32(a, b, c)                                         \
-  __extension__                                                         \
-    ({                                                                  \
-       int32x4_t b_ = (b);                                              \
-       int32_t * a_ = (a);                                              \
-       __asm__ ("st1 {%1.s}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1q_lane_s64(a, b, c)                                         \
-  __extension__                                                         \
-    ({                                                                  \
-       int64x2_t b_ = (b);                                              \
-       int64_t * a_ = (a);                                              \
-       __asm__ ("st1 {%1.d}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1q_lane_u8(a, b, c)                                          \
-  __extension__                                                         \
-    ({                                                                  \
-       uint8x16_t b_ = (b);                                             \
-       uint8_t * a_ = (a);                                              \
-       __asm__ ("st1 {%1.b}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1q_lane_u16(a, b, c)                                         \
-  __extension__                                                         \
-    ({                                                                  \
-       uint16x8_t b_ = (b);                                             \
-       uint16_t * a_ = (a);                                             \
-       __asm__ ("st1 {%1.h}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1q_lane_u32(a, b, c)                                         \
-  __extension__                                                         \
-    ({                                                                  \
-       uint32x4_t b_ = (b);                                             \
-       uint32_t * a_ = (a);                                             \
-       __asm__ ("st1 {%1.s}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-#define vst1q_lane_u64(a, b, c)                                         \
-  __extension__                                                         \
-    ({                                                                  \
-       uint64x2_t b_ = (b);                                             \
-       uint64_t * a_ = (a);                                             \
-       __asm__ ("st1 {%1.d}[%2],[%0]"                                   \
-                :                                                       \
-                : "r"(a_), "w"(b_), "i"(c)                              \
-                : "memory");                                            \
-     })
-
-
 __extension__ static __inline uint8x8_t __attribute__ ((__always_inline__))
 vtst_p8 (poly8x8_t a, poly8x8_t b)
 {
@@ -11668,25 +11400,25 @@ vbslq_u64 (uint64x2_t __a, uint64x2_t __b, uint64x2_t __c)
 
 /* vaes  */
 
-static __inline uint8x16_t
+__extension__ static __inline uint8x16_t __attribute__ ((__always_inline__))
 vaeseq_u8 (uint8x16_t data, uint8x16_t key)
 {
   return __builtin_aarch64_crypto_aesev16qi_uuu (data, key);
 }
 
-static __inline uint8x16_t
+__extension__ static __inline uint8x16_t __attribute__ ((__always_inline__))
 vaesdq_u8 (uint8x16_t data, uint8x16_t key)
 {
   return __builtin_aarch64_crypto_aesdv16qi_uuu (data, key);
 }
 
-static __inline uint8x16_t
+__extension__ static __inline uint8x16_t __attribute__ ((__always_inline__))
 vaesmcq_u8 (uint8x16_t data)
 {
   return __builtin_aarch64_crypto_aesmcv16qi_uu (data);
 }
 
-static __inline uint8x16_t
+__extension__ static __inline uint8x16_t __attribute__ ((__always_inline__))
 vaesimcq_u8 (uint8x16_t data)
 {
   return __builtin_aarch64_crypto_aesimcv16qi_uu (data);
@@ -11887,7 +11619,7 @@ vceq_s32 (int32x2_t __a, int32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vceq_s64 (int64x1_t __a, int64x1_t __b)
 {
-  return (uint64x1_t) {__a[0] == __b[0] ? -1ll : 0ll};
+  return (uint64x1_t) (__a == __b);
 }
 
 __extension__ static __inline uint8x8_t __attribute__ ((__always_inline__))
@@ -11911,7 +11643,7 @@ vceq_u32 (uint32x2_t __a, uint32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vceq_u64 (uint64x1_t __a, uint64x1_t __b)
 {
-  return (uint64x1_t) {__a[0] == __b[0] ? -1ll : 0ll};
+  return (__a == __b);
 }
 
 __extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
@@ -12047,7 +11779,7 @@ vceqz_s32 (int32x2_t __a)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vceqz_s64 (int64x1_t __a)
 {
-  return (uint64x1_t) {__a[0] == 0ll ? -1ll : 0ll};
+  return (uint64x1_t) (__a == __AARCH64_INT64_C (0));
 }
 
 __extension__ static __inline uint8x8_t __attribute__ ((__always_inline__))
@@ -12071,7 +11803,7 @@ vceqz_u32 (uint32x2_t __a)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vceqz_u64 (uint64x1_t __a)
 {
-  return (uint64x1_t) {__a[0] == 0ll ? -1ll : 0ll};
+  return (__a == __AARCH64_UINT64_C (0));
 }
 
 __extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
@@ -12201,7 +11933,7 @@ vcge_s32 (int32x2_t __a, int32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vcge_s64 (int64x1_t __a, int64x1_t __b)
 {
-  return (uint64x1_t) {__a[0] >= __b[0] ? -1ll : 0ll};
+  return (uint64x1_t) (__a >= __b);
 }
 
 __extension__ static __inline uint8x8_t __attribute__ ((__always_inline__))
@@ -12225,7 +11957,7 @@ vcge_u32 (uint32x2_t __a, uint32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vcge_u64 (uint64x1_t __a, uint64x1_t __b)
 {
-  return (uint64x1_t) {__a[0] >= __b[0] ? -1ll : 0ll};
+  return (__a >= __b);
 }
 
 __extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
@@ -12349,7 +12081,7 @@ vcgez_s32 (int32x2_t __a)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vcgez_s64 (int64x1_t __a)
 {
-  return (uint64x1_t) {__a[0] >= 0ll ? -1ll : 0ll};
+  return (uint64x1_t) (__a >= __AARCH64_INT64_C (0));
 }
 
 __extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
@@ -12443,7 +12175,7 @@ vcgt_s32 (int32x2_t __a, int32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vcgt_s64 (int64x1_t __a, int64x1_t __b)
 {
-  return (uint64x1_t) (__a[0] > __b[0] ? -1ll : 0ll);
+  return (uint64x1_t) (__a > __b);
 }
 
 __extension__ static __inline uint8x8_t __attribute__ ((__always_inline__))
@@ -12467,7 +12199,7 @@ vcgt_u32 (uint32x2_t __a, uint32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vcgt_u64 (uint64x1_t __a, uint64x1_t __b)
 {
-  return (uint64x1_t) (__a[0] > __b[0] ? -1ll : 0ll);
+  return (__a > __b);
 }
 
 __extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
@@ -12591,7 +12323,7 @@ vcgtz_s32 (int32x2_t __a)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vcgtz_s64 (int64x1_t __a)
 {
-  return (uint64x1_t) {__a[0] > 0ll ? -1ll : 0ll};
+  return (uint64x1_t) (__a > __AARCH64_INT64_C (0));
 }
 
 __extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
@@ -12685,7 +12417,7 @@ vcle_s32 (int32x2_t __a, int32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vcle_s64 (int64x1_t __a, int64x1_t __b)
 {
-  return (uint64x1_t) {__a[0] <= __b[0] ? -1ll : 0ll};
+  return (uint64x1_t) (__a <= __b);
 }
 
 __extension__ static __inline uint8x8_t __attribute__ ((__always_inline__))
@@ -12709,7 +12441,7 @@ vcle_u32 (uint32x2_t __a, uint32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vcle_u64 (uint64x1_t __a, uint64x1_t __b)
 {
-  return (uint64x1_t) {__a[0] <= __b[0] ? -1ll : 0ll};
+  return (__a <= __b);
 }
 
 __extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
@@ -12833,7 +12565,7 @@ vclez_s32 (int32x2_t __a)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vclez_s64 (int64x1_t __a)
 {
-  return (uint64x1_t) {__a[0] <= 0ll ? -1ll : 0ll};
+  return (uint64x1_t) (__a <= __AARCH64_INT64_C (0));
 }
 
 __extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
@@ -12927,7 +12659,7 @@ vclt_s32 (int32x2_t __a, int32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vclt_s64 (int64x1_t __a, int64x1_t __b)
 {
-  return (uint64x1_t) {__a[0] < __b[0] ? -1ll : 0ll};
+  return (uint64x1_t) (__a < __b);
 }
 
 __extension__ static __inline uint8x8_t __attribute__ ((__always_inline__))
@@ -12951,7 +12683,7 @@ vclt_u32 (uint32x2_t __a, uint32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vclt_u64 (uint64x1_t __a, uint64x1_t __b)
 {
-  return (uint64x1_t) {__a[0] < __b[0] ? -1ll : 0ll};
+  return (__a < __b);
 }
 
 __extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
@@ -13075,7 +12807,7 @@ vcltz_s32 (int32x2_t __a)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vcltz_s64 (int64x1_t __a)
 {
-  return (uint64x1_t) {__a[0] < 0ll ? -1ll : 0ll};
+  return (uint64x1_t) (__a < __AARCH64_INT64_C (0));
 }
 
 __extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
@@ -21321,72 +21053,74 @@ vrsrad_n_u64 (uint64_t __a, uint64_t __b, const int __c)
 
 /* vsha1  */
 
-static __inline uint32x4_t
+__extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
 vsha1cq_u32 (uint32x4_t hash_abcd, uint32_t hash_e, uint32x4_t wk)
 {
   return __builtin_aarch64_crypto_sha1cv4si_uuuu (hash_abcd, hash_e, wk);
 }
-static __inline uint32x4_t
+
+__extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
 vsha1mq_u32 (uint32x4_t hash_abcd, uint32_t hash_e, uint32x4_t wk)
 {
   return __builtin_aarch64_crypto_sha1mv4si_uuuu (hash_abcd, hash_e, wk);
 }
-static __inline uint32x4_t
+
+__extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
 vsha1pq_u32 (uint32x4_t hash_abcd, uint32_t hash_e, uint32x4_t wk)
 {
   return __builtin_aarch64_crypto_sha1pv4si_uuuu (hash_abcd, hash_e, wk);
 }
 
-static __inline uint32_t
+__extension__ static __inline uint32_t __attribute__ ((__always_inline__))
 vsha1h_u32 (uint32_t hash_e)
 {
   return __builtin_aarch64_crypto_sha1hsi_uu (hash_e);
 }
 
-static __inline uint32x4_t
+__extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
 vsha1su0q_u32 (uint32x4_t w0_3, uint32x4_t w4_7, uint32x4_t w8_11)
 {
   return __builtin_aarch64_crypto_sha1su0v4si_uuuu (w0_3, w4_7, w8_11);
 }
 
-static __inline uint32x4_t
+__extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
 vsha1su1q_u32 (uint32x4_t tw0_3, uint32x4_t w12_15)
 {
   return __builtin_aarch64_crypto_sha1su1v4si_uuu (tw0_3, w12_15);
 }
 
-static __inline uint32x4_t
+__extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
 vsha256hq_u32 (uint32x4_t hash_abcd, uint32x4_t hash_efgh, uint32x4_t wk)
 {
   return __builtin_aarch64_crypto_sha256hv4si_uuuu (hash_abcd, hash_efgh, wk);
 }
 
-static __inline uint32x4_t
+__extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
 vsha256h2q_u32 (uint32x4_t hash_efgh, uint32x4_t hash_abcd, uint32x4_t wk)
 {
   return __builtin_aarch64_crypto_sha256h2v4si_uuuu (hash_efgh, hash_abcd, wk);
 }
 
-static __inline uint32x4_t
+__extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
 vsha256su0q_u32 (uint32x4_t w0_3, uint32x4_t w4_7)
 {
   return __builtin_aarch64_crypto_sha256su0v4si_uuu (w0_3, w4_7);
 }
 
-static __inline uint32x4_t
+__extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
 vsha256su1q_u32 (uint32x4_t tw0_3, uint32x4_t w8_11, uint32x4_t w12_15)
 {
   return __builtin_aarch64_crypto_sha256su1v4si_uuuu (tw0_3, w8_11, w12_15);
 }
 
-static __inline poly128_t
+__extension__ static __inline poly128_t __attribute__ ((__always_inline__))
 vmull_p64 (poly64_t a, poly64_t b)
 {
   return
     __builtin_aarch64_crypto_pmulldi_ppp (a, b);
 }
 
-static __inline poly128_t
+__extension__ static __inline poly128_t __attribute__ ((__always_inline__))
 vmull_high_p64 (poly64x2_t a, poly64x2_t b)
 {
   return __builtin_aarch64_crypto_pmullv2di_ppp (a, b);
@@ -22302,6 +22036,8 @@ vst1_u64 (uint64_t *a, uint64x1_t b)
   *a = b[0];
 }
 
+/* vst1q */
+
 __extension__ static __inline void __attribute__ ((__always_inline__))
 vst1q_f32 (float32_t *a, float32x4_t b)
 {
@@ -22313,8 +22049,6 @@ vst1q_f64 (float64_t *a, float64x2_t b)
 {
   __builtin_aarch64_st1v2df ((__builtin_aarch64_simd_df *) a, b);
 }
-
-/* vst1q */
 
 __extension__ static __inline void __attribute__ ((__always_inline__))
 vst1q_p8 (poly8_t *a, poly8x16_t b)
@@ -22380,6 +22114,154 @@ vst1q_u64 (uint64_t *a, uint64x2_t b)
 {
   __builtin_aarch64_st1v2di ((__builtin_aarch64_simd_di *) a,
 			     (int64x2_t) b);
+}
+
+/* vst1_lane */
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_f32 (float32_t *__a, float32x2_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_f64 (float64_t *__a, float64x1_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_p8 (poly8_t *__a, poly8x8_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_p16 (poly16_t *__a, poly16x4_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_s8 (int8_t *__a, int8x8_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_s16 (int16_t *__a, int16x4_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_s32 (int32_t *__a, int32x2_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_s64 (int64_t *__a, int64x1_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_u8 (uint8_t *__a, uint8x8_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_u16 (uint16_t *__a, uint16x4_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_u32 (uint32_t *__a, uint32x2_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1_lane_u64 (uint64_t *__a, uint64x1_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+/* vst1q_lane */
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_f32 (float32_t *__a, float32x4_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_f64 (float64_t *__a, float64x2_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_p8 (poly8_t *__a, poly8x16_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_p16 (poly16_t *__a, poly16x8_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_s8 (int8_t *__a, int8x16_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_s16 (int16_t *__a, int16x8_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_s32 (int32_t *__a, int32x4_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_s64 (int64_t *__a, int64x2_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_u8 (uint8_t *__a, uint8x16_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_u16 (uint16_t *__a, uint16x8_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_u32 (uint32_t *__a, uint32x4_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst1q_lane_u64 (uint64_t *__a, uint64x2_t __b, const int __lane)
+{
+  *__a = __aarch64_vget_lane_any (__b, __lane);
 }
 
 /* vstn */
@@ -23887,7 +23769,7 @@ vtst_s32 (int32x2_t __a, int32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vtst_s64 (int64x1_t __a, int64x1_t __b)
 {
-  return (uint64x1_t) {(__a[0] & __b[0]) ? -1ll : 0ll};
+  return (uint64x1_t) ((__a & __b) != __AARCH64_INT64_C (0));
 }
 
 __extension__ static __inline uint8x8_t __attribute__ ((__always_inline__))
@@ -23911,7 +23793,7 @@ vtst_u32 (uint32x2_t __a, uint32x2_t __b)
 __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vtst_u64 (uint64x1_t __a, uint64x1_t __b)
 {
-  return (uint64x1_t) {(__a[0] & __b[0]) ? -1ll : 0ll};
+  return ((__a & __b) != __AARCH64_UINT64_C (0));
 }
 
 __extension__ static __inline uint8x16_t __attribute__ ((__always_inline__))

@@ -22,16 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "predict.h"
@@ -42,14 +35,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
-#include "hashtab.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -68,9 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "cfgloop.h"
 #include "except.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "data-streamer.h"
 #include "ipa-utils.h"
@@ -521,8 +506,8 @@ func_checker::compare_operand (tree t1, tree t2)
 	    if (!types_same_for_odr (obj_type_ref_class (t1),
 				     obj_type_ref_class (t2)))
 	      return return_false_with_msg ("OBJ_TYPE_REF OTR type mismatch");
-	    if (!compare_ssa_name (OBJ_TYPE_REF_OBJECT (t1),
-				   OBJ_TYPE_REF_OBJECT (t2)))
+	    if (!compare_operand (OBJ_TYPE_REF_OBJECT (t1),
+				  OBJ_TYPE_REF_OBJECT (t2)))
 	      return return_false_with_msg ("OBJ_TYPE_REF object mismatch");
 	  }
 
@@ -706,7 +691,11 @@ func_checker::compare_bb (sem_bb *bb1, sem_bb *bb2)
 	    return return_different_stmts (s1, s2, "GIMPLE_SWITCH");
 	  break;
 	case GIMPLE_DEBUG:
+	  break;
 	case GIMPLE_EH_DISPATCH:
+	  if (gimple_eh_dispatch_region (as_a <geh_dispatch *> (s1))
+	      != gimple_eh_dispatch_region (as_a <geh_dispatch *> (s2)))
+	    return return_different_stmts (s1, s2, "GIMPLE_EH_DISPATCH");
 	  break;
 	case GIMPLE_RESX:
 	  if (!compare_gimple_resx (as_a <gresx *> (s1),
@@ -734,7 +723,7 @@ func_checker::compare_bb (sem_bb *bb1, sem_bb *bb2)
 	  break;
 	case GIMPLE_PREDICT:
 	case GIMPLE_NOP:
-	  return true;
+	  break;
 	default:
 	  return return_false_with_msg ("Unknown GIMPLE code reached");
 	}

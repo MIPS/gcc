@@ -616,7 +616,7 @@
 (define_insn_and_split "tstsi_t"
   [(set (reg:SI T_REG)
 	(eq:SI (and:SI (match_operand:SI 0 "arith_reg_operand" "%z,r")
-		       (match_operand:SI 1 "arith_or_int_operand" "K08,r"))
+		       (match_operand:SI 1 "arith_or_int_operand" "K08,?r"))
 	       (const_int 0)))]
   "TARGET_SH1
    && (can_create_pseudo_p () || arith_reg_operand (operands[1], SImode)
@@ -1998,6 +1998,45 @@
   [(set (match_dup 0) (minus:SI (match_dup 1) (match_dup 2)))
    (set (match_dup 0) (plus:SI (match_dup 0) (const_int 1)))])
 
+
+;; The tree optimiziers canonicalize 
+;;    reg + (reg & 1)
+;; into
+;;    (reg + 1) & -2
+;;
+;; On SH2A an add-bclr sequence will be used to handle this.
+;; On non-SH2A re-emit the add-and sequence to improve register utilization.
+(define_insn_and_split "*round_int_even"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(and:SI (plus:SI (match_operand:SI 1 "arith_reg_operand")
+			 (const_int 1))
+		(const_int -2)))]
+  "TARGET_SH1 && !TARGET_SH2A && can_create_pseudo_p ()
+   && !reg_overlap_mentioned_p (operands[0], operands[1])"
+  "#"
+  "&& 1"
+  [(set (match_dup 0) (const_int -2))
+   (set (match_dup 2) (plus:SI (match_dup 1) (const_int 1)))
+   (set (match_dup 0) (and:SI (match_dup 0) (match_dup 2)))]
+{
+  operands[2] = gen_reg_rtx (SImode);
+})
+
+;; If the *round_int_even pattern is combined with another plus,
+;; convert it into an addc pattern to emit an shlr-addc sequence.
+;; This split is taken by combine on non-SH2A and SH2A.
+(define_split
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(plus:SI (and:SI (plus:SI (match_operand:SI 1 "arith_reg_operand")
+				  (const_int 1))
+			 (const_int -2))
+		 (match_operand:SI 2 "arith_reg_operand")))]
+  "TARGET_SH1 && can_create_pseudo_p ()"
+  [(parallel [(set (match_dup 0)
+		   (plus:SI (plus:SI (match_dup 1) (match_dup 2))
+			    (and:SI (match_dup 1) (const_int 1))))
+	      (clobber (reg:SI T_REG))])])
+
 ;; Split 'reg + T' into 'reg + 0 + T' to utilize the addc insn.
 ;; If the 0 constant can be CSE-ed, this becomes a one instruction
 ;; operation, as opposed to sequences such as
@@ -2040,8 +2079,8 @@
 (define_insn_and_split "*addc_2r_t"
   [(set (match_operand:SI 0 "arith_reg_dest")
 	(plus:SI (match_operand 1 "treg_set_expr")
-		 (mult:SI (match_operand:SI 2 "arith_reg_operand")
-			  (const_int 2))))
+		 (ashift:SI (match_operand:SI 2 "arith_reg_operand")
+			    (const_int 1))))
    (clobber (reg:SI T_REG))]
   "TARGET_SH1 && can_create_pseudo_p ()"
   "#"
@@ -2052,8 +2091,8 @@
 
 (define_insn_and_split "*addc_2r_t"
   [(set (match_operand:SI 0 "arith_reg_dest")
-	(plus:SI (mult:SI (match_operand:SI 1 "arith_reg_operand")
-			  (const_int 2))
+	(plus:SI (ashift:SI (match_operand:SI 1 "arith_reg_operand")
+			    (const_int 1))
 		 (match_operand 2 "treg_set_expr")))
    (clobber (reg:SI T_REG))]
   "TARGET_SH1 && can_create_pseudo_p ()"
@@ -5964,7 +6003,7 @@ label:
    When we're here, the not:SI pattern obviously has been matched already
    and we only have to see whether the following insn is the left shift.  */
 
-  rtx i = next_nonnote_insn_bb (curr_insn);
+  rtx_insn *i = next_nonnote_insn_bb (curr_insn);
   if (i == NULL_RTX || !NONJUMP_INSN_P (i))
     FAIL;
 
@@ -7391,18 +7430,18 @@ label:
 ;; Q/r has to come first, otherwise PC relative loads might wrongly get
 ;; placed into delay slots.  Since there is no QImode PC relative load, the
 ;; Q constraint and general_movsrc_operand will reject it for QImode.
-;; The Snd alternatives should come before Sdd in order to avoid a preference
-;; of using r0 als the register operand for addressing modes other than
-;; displacement addressing.
+;; The Sid/Ssd alternatives should come before Sdd in order to avoid
+;; a preference of using r0 als the register operand for addressing modes
+;; other than displacement addressing.
 ;; The Sdd alternatives allow only r0 as register operand, even though on
 ;; SH2A any register could be allowed by switching to a 32 bit insn.
 ;; Generally sticking to the r0 is preferrable, since it generates smaller
 ;; code.  Obvious r0 reloads can then be eliminated with a peephole on SH2A.
 (define_insn "*mov<mode>"
   [(set (match_operand:QIHI 0 "general_movdst_operand"
-			      "=r,r,r,Snd,r,  Sdd,z,  r,l")
+			      "=r,r,r,Sid,^zr,Ssd,r,  Sdd,z,  r,l")
 	(match_operand:QIHI 1 "general_movsrc_operand"
-			       "Q,r,i,r,  Snd,z,  Sdd,l,r"))]
+			       "Q,r,i,^zr,Sid,r,  Ssd,z,  Sdd,l,r"))]
   "TARGET_SH1
    && (arith_reg_operand (operands[0], <MODE>mode)
        || arith_reg_operand (operands[1], <MODE>mode))"
@@ -7414,9 +7453,11 @@ label:
 	mov.<bw>	%1,%0
 	mov.<bw>	%1,%0
 	mov.<bw>	%1,%0
+	mov.<bw>	%1,%0
+	mov.<bw>	%1,%0
 	sts	%1,%0
 	lds	%1,%0"
-  [(set_attr "type" "pcload,move,movi8,store,load,store,load,prget,prset")
+  [(set_attr "type" "pcload,move,movi8,store,load,store,load,store,load,prget,prset")
    (set (attr "length")
 	(cond [(and (match_operand 0 "displacement_mem_operand")
 		    (not (match_operand 0 "short_displacement_mem_operand")))
@@ -10417,7 +10458,7 @@ label:
 	       mach as operand 2, so let the instructions that
 	       preserve r0 be optimized away if r0 turns out to be
 	       dead.  */
-	    emit_insn_before (gen_rtx_SET (SImode, tmp, r0), insn);
+	    emit_insn_before (gen_rtx_SET (tmp, r0), insn);
 	    emit_move_insn (r0, tmp);
 	    break;
 	  }
@@ -10551,12 +10592,18 @@ label:
   [(set_attr "in_delay_slot" "no")
    (set_attr "type" "arith")])
 
+;; Loads of the GOTPC relocation values must not be optimized away
+;; by e.g. any kind of CSE and must stay as they are.  Although there
+;; are other various ways to ensure this, we use an artificial counter
+;; operand to generate unique symbols.
 (define_expand "GOTaddr2picreg"
   [(set (reg:SI R0_REG)
-	(unspec:SI [(const:SI (unspec:SI [(match_dup 1)] UNSPEC_PIC))]
-		   UNSPEC_MOVA))
-   (set (match_dup 0) (const:SI (unspec:SI [(match_dup 1)] UNSPEC_PIC)))
-   (set (match_dup 0) (plus:SI (match_dup 0) (reg:SI R0_REG)))]
+	(unspec:SI [(const:SI (unspec:SI [(match_dup 2)
+					  (match_operand:SI 0 "" "")]
+					 UNSPEC_PIC))] UNSPEC_MOVA))
+   (set (match_dup 1)
+	(const:SI (unspec:SI [(match_dup 2) (match_dup 0)] UNSPEC_PIC)))
+   (set (match_dup 1) (plus:SI (match_dup 1) (reg:SI R0_REG)))]
   ""
 {
   if (TARGET_VXWORKS_RTP)
@@ -10567,8 +10614,8 @@ label:
       DONE;
     }
 
-  operands[0] = gen_rtx_REG (Pmode, PIC_REG);
-  operands[1] = gen_rtx_SYMBOL_REF (VOIDmode, GOT_SYMBOL_NAME);
+  operands[1] = gen_rtx_REG (Pmode, PIC_REG);
+  operands[2] = gen_rtx_SYMBOL_REF (VOIDmode, GOT_SYMBOL_NAME);
 
   if (TARGET_SHMEDIA)
     {
@@ -10577,23 +10624,23 @@ label:
       rtx lab = PATTERN (gen_call_site ());
       rtx insn, equiv;
 
-      equiv = operands[1];
-      operands[1] = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, operands[1], lab),
+      equiv = operands[2];
+      operands[2] = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, operands[2], lab),
 				    UNSPEC_PCREL_SYMOFF);
-      operands[1] = gen_rtx_CONST (Pmode, operands[1]);
+      operands[2] = gen_rtx_CONST (Pmode, operands[2]);
 
       if (Pmode == SImode)
 	{
-	  emit_insn (gen_movsi_const (pic, operands[1]));
+	  emit_insn (gen_movsi_const (pic, operands[2]));
 	  emit_insn (gen_ptrel_si (tr, pic, copy_rtx (lab)));
 	}
       else
 	{
-	  emit_insn (gen_movdi_const (pic, operands[1]));
+	  emit_insn (gen_movdi_const (pic, operands[2]));
 	  emit_insn (gen_ptrel_di (tr, pic, copy_rtx (lab)));
 	}
 
-      insn = emit_move_insn (operands[0], tr);
+      insn = emit_move_insn (operands[1], tr);
 
       set_unique_reg_note (insn, REG_EQUAL, equiv);
 
@@ -10647,7 +10694,7 @@ label:
   [(match_operand 0 "" "")]
   "flag_pic"
 {
-  emit_insn (gen_GOTaddr2picreg ());
+  emit_insn (gen_GOTaddr2picreg (const0_rtx));
   DONE;
 })
 
@@ -14683,7 +14730,22 @@ label:
        || REGNO (operands[2]) == REGNO (operands[5]))"
   [(const_int 0)]
 {
-  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[3]));
+  if (REGNO (operands[1]) == REGNO (operands[2]))
+      operands[2] = gen_rtx_REG (SImode, REGNO (operands[0]));
+
+  // We don't know what the new set insn will be in detail.  Just make sure
+  // that it still can be recognized and the constraints are satisfied.
+  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2], operands[3]));
+						     
+  recog_data_d prev_recog_data = recog_data;
+  bool i_invalid = insn_invalid_p (i, false); 
+  recog_data = prev_recog_data;
+  
+  if (i_invalid)
+    FAIL;
+    
+  sh_check_add_incdec_notes (i);
+
   emit_insn (gen_tstsi_t (operands[2],
 			  gen_rtx_REG (SImode, (REGNO (operands[1])))));
 })
@@ -14710,7 +14772,19 @@ label:
        || REGNO (operands[2]) == REGNO (operands[5]))"
   [(const_int 0)]
 {
-  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[3]));
+  // We don't know what the new set insn will be in detail.  Just make sure
+  // that it still can be recognized and the constraints are satisfied.
+  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2], operands[3]));
+
+  recog_data_d prev_recog_data = recog_data;
+  bool i_invalid = insn_invalid_p (i, false); 
+  recog_data = prev_recog_data;
+  
+  if (i_invalid)
+    FAIL;
+    
+  sh_check_add_incdec_notes (i);
+  
   emit_insn (gen_tstsi_t (operands[2],
 			  gen_rtx_REG (SImode, (REGNO (operands[1])))));
 })

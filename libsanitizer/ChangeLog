@@ -1,3 +1,36 @@
+2015-05-13  Michael Haubenwallner  <michael.haubenwallner@ssi-schaefer.com>
+
+	* Makefile.in: Regenerated with automake-1.11.6.
+	* aclocal.m4: Likewise.
+	* asan/Makefile.in: Likewise.
+	* configure: Likewise.
+	* interception/Makefile.in: Likewise.
+	* libbacktrace/Makefile.in: Likewise.
+	* lsan/Makefile.in: Likewise.
+	* sanitizer_common/Makefile.in: Likewise.
+	* tsan/Makefile.in: Likewise.
+	* ubsan/Makefile.in: Likewise.
+
+2015-04-13  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/64839
+	* sanitizer_common/sanitizer_platform.h: Cherry pick
+	upstream r234470.
+	* sanitizer_common/sanitizer_platform_limits_posix.cc: Ditto.
+	* configure.ac (RPC_DEFS): Check for precense of RPC headers.
+	* sanitizer_common/Makefile.am (DEFS): Pass info to compiler.
+	* Makefile.in: Regenerate.
+	* asan/Makefile.in: Regenerate.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* interception/Makefile.in: Regenerate.
+	* libbacktrace/Makefile.in: Regenerate.
+	* lsan/Makefile.in: Regenerate.
+	* sanitizer_common/Makefile.in: Regenerate.
+	* tsan/Makefile.in: Regenerate.
+	* ubsan/Makefile.in: Regenerate.
+
+
 2015-03-23  Christophe Lyon  <christophe.lyon@linaro.org>
 
 	PR sanitizer/59009

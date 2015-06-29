@@ -20,17 +20,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -46,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -57,11 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
-#include "hashtab.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -82,10 +69,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "tree-scalar-evolution.h"
 #include "tree-inline.h"
-
-#ifndef HAVE_conditional_move
-#define HAVE_conditional_move (0)
-#endif
 
 static unsigned int tree_ssa_phiopt_worker (bool, bool);
 static bool conditional_replacement (basic_block, basic_block,
@@ -254,12 +237,8 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
         ;
       else if (EDGE_SUCC (bb2, 0)->dest == bb1)
         {
-	  basic_block bb_tmp = bb1;
-	  edge e_tmp = e1;
-	  bb1 = bb2;
-	  bb2 = bb_tmp;
-	  e1 = e2;
-	  e2 = e_tmp;
+	  std::swap (bb1, bb2);
+	  std::swap (e1, e2);
 	}
       else if (do_store_elim
 	       && EDGE_SUCC (bb1, 0)->dest == EDGE_SUCC (bb2, 0)->dest)
@@ -1330,12 +1309,10 @@ struct name_to_bb
 
 /* Hashtable helpers.  */
 
-struct ssa_names_hasher : typed_free_remove <name_to_bb>
+struct ssa_names_hasher : free_ptr_hash <name_to_bb>
 {
-  typedef name_to_bb value_type;
-  typedef name_to_bb compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  static inline hashval_t hash (const name_to_bb *);
+  static inline bool equal (const name_to_bb *, const name_to_bb *);
 };
 
 /* Used for quick clearing of the hash-table when we see calls.
@@ -1345,7 +1322,7 @@ static unsigned int nt_call_phase;
 /* The hash function.  */
 
 inline hashval_t
-ssa_names_hasher::hash (const value_type *n)
+ssa_names_hasher::hash (const name_to_bb *n)
 {
   return n->ssa_name_ver ^ (((hashval_t) n->store) << 31)
          ^ (n->offset << 6) ^ (n->size << 3);
@@ -1354,7 +1331,7 @@ ssa_names_hasher::hash (const value_type *n)
 /* The equality function of *P1 and *P2.  */
 
 inline bool
-ssa_names_hasher::equal (const value_type *n1, const compare_type *n2)
+ssa_names_hasher::equal (const name_to_bb *n1, const name_to_bb *n2)
 {
   return n1->ssa_name_ver == n2->ssa_name_ver
          && n1->store == n2->store
@@ -1911,8 +1888,8 @@ hoist_adjacent_loads (basic_block bb0, basic_block bb1,
   for (gsi = gsi_start_phis (bb3); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gphi *phi_stmt = gsi.phi ();
-      gimple def1, def2, defswap;
-      tree arg1, arg2, ref1, ref2, field1, field2, fieldswap;
+      gimple def1, def2;
+      tree arg1, arg2, ref1, ref2, field1, field2;
       tree tree_offset1, tree_offset2, tree_size2, next;
       int offset1, offset2, size2;
       unsigned align1;
@@ -1987,12 +1964,8 @@ hoist_adjacent_loads (basic_block bb0, basic_block bb1,
 	  if (next != field1)
 	    continue;
 
-	  fieldswap = field1;
-	  field1 = field2;
-	  field2 = fieldswap;
-	  defswap = def1;
-	  def1 = def2;
-	  def2 = defswap;
+	  std::swap (field1, field2);
+	  std::swap (def1, def2);
 	}
 
       bb_for_def1 = gimple_bb (def1);

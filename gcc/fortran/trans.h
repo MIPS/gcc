@@ -49,6 +49,10 @@ typedef struct gfc_se
   /* The length of a character string value.  */
   tree string_length;
 
+  /* When expr is a reference to a class object, store its vptr access
+     here.  */
+  tree class_vptr;
+
   /* If set gfc_conv_variable will return an expression for the array
      descriptor. When set, want_pointer should also be set.
      If not set scalarizing variables will be substituted.  */
@@ -202,6 +206,9 @@ typedef struct gfc_ss_info
     /* If type is GFC_SS_SCALAR or GFC_SS_REFERENCE.  */
     struct
     {
+      /* If the scalar is passed as actual argument to an (elemental) procedure,
+	 this is the symbol of the corresponding dummy argument.  */
+      gfc_symbol *dummy_arg;
       tree value;
     }
     scalar;
@@ -528,7 +535,7 @@ tree gfc_get_function_decl (gfc_symbol *);
 tree gfc_build_addr_expr (tree, tree);
 
 /* Build an ARRAY_REF.  */
-tree gfc_build_array_ref (tree, tree, tree);
+tree gfc_build_array_ref (tree, tree, tree, tree vptr = NULL_TREE);
 
 /* Creates a label.  Decl is artificial if label_id == NULL_TREE.  */
 tree gfc_build_label_decl (tree);
@@ -591,7 +598,7 @@ void gfc_generate_module_vars (gfc_namespace *);
 /* Get the appropriate return statement for a procedure.  */
 tree gfc_generate_return (void);
 
-struct module_decl_hasher : ggc_hasher<tree_node *>
+struct module_decl_hasher : ggc_ptr_hash<tree_node>
 {
   typedef const char *compare_type;
 

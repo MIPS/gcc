@@ -24,15 +24,8 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -43,13 +36,9 @@
 #include "output.h"
 #include "insn-attr.h"
 #include "insn-codes.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -60,7 +49,6 @@
 #include "regs.h"
 #include "optabs.h"
 #include "recog.h"
-#include "ggc.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfgrtl.h"
@@ -77,14 +65,9 @@
 #include "tm-constrs.h"
 #include "df.h"
 #include "diagnostic-core.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "langhooks.h"
 #include "target.h"
-#include "target-def.h"
 #include "sel-sched.h"
 #include "debug.h"
 #include "opts.h"
@@ -93,6 +76,9 @@
 #include "dumpfile.h"
 #include "gimple-expr.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Table of supported architecture variants.  */
 typedef struct
@@ -1293,8 +1279,7 @@ c6x_expand_call (rtx retval, rtx address, bool sibcall)
       if (retval == NULL_RTX)
 	call_insn = emit_call_insn (call_insn);
       else
-	call_insn = emit_call_insn (gen_rtx_SET (GET_MODE (retval), retval,
-						 call_insn));
+	call_insn = emit_call_insn (gen_rtx_SET (retval, call_insn));
     }
   if (flag_pic)
     use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), pic_offset_table_rtx);
@@ -1493,20 +1478,20 @@ c6x_expand_compare (rtx comparison, machine_mode mode)
 
       cmp1 = gen_reg_rtx (SImode);
       cmp2 = gen_reg_rtx (SImode);
-      emit_insn (gen_rtx_SET (VOIDmode, cmp1,
-			      gen_rtx_fmt_ee (code, SImode, high[0], high[1])));
+      emit_insn (gen_rtx_SET (cmp1, gen_rtx_fmt_ee (code, SImode,
+						    high[0], high[1])));
       if (code == EQ)
 	{
 	  if (c6x_force_op_for_comparison_p (code, lo[1]))
 	    lo[1] = force_reg (SImode, lo[1]);
-	  emit_insn (gen_rtx_SET (VOIDmode, cmp2,
-				  gen_rtx_fmt_ee (code, SImode, lo[0], lo[1])));
+	  emit_insn (gen_rtx_SET (cmp2, gen_rtx_fmt_ee (code, SImode,
+							lo[0], lo[1])));
 	  emit_insn (gen_andsi3 (cmp1, cmp1, cmp2));
 	}
       else
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, cmp2,
-				  gen_rtx_EQ (SImode, high[0], high[1])));
+	  emit_insn (gen_rtx_SET (cmp2, gen_rtx_EQ (SImode, high[0],
+						    high[1])));
 	  if (code == GT)
 	    code = GTU;
 	  else if (code == LT)
@@ -1564,8 +1549,7 @@ c6x_expand_compare (rtx comparison, machine_mode mode)
 	}
 
       cmp = gen_reg_rtx (SImode);
-      emit_insn (gen_rtx_SET (VOIDmode, cmp,
-			      gen_rtx_fmt_ee (code1, SImode, op0, op1)));
+      emit_insn (gen_rtx_SET (cmp, gen_rtx_fmt_ee (code1, SImode, op0, op1)));
       fn = op_mode == DFmode ? gen_cmpdf_ior : gen_cmpsf_ior;
       emit_insn (fn (cmp, gen_rtx_fmt_ee (code2, SImode, op0, op1),
 		     op0, op1, cmp));
@@ -1641,8 +1625,8 @@ c6x_expand_compare (rtx comparison, machine_mode mode)
 	  cmp = gen_reg_rtx (SImode);
 	  if (c6x_force_op_for_comparison_p (code, op1))
 	    op1 = force_reg (SImode, op1);
-	  emit_insn (gen_rtx_SET (VOIDmode, cmp,
-				  gen_rtx_fmt_ee (code, SImode, op0, op1)));
+	  emit_insn (gen_rtx_SET (cmp, gen_rtx_fmt_ee (code, SImode,
+						       op0, op1)));
 	}
     }
 
@@ -2775,7 +2759,7 @@ emit_add_sp_const (HOST_WIDE_INT offset, bool frame_related_p)
     {
       if (REG_P (to_add))
 	add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-		      gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+		      gen_rtx_SET (stack_pointer_rtx,
 				   gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 						 orig_to_add)));
 
@@ -3532,7 +3516,7 @@ try_rename_operands (rtx_insn *head, rtx_insn *tail, unit_req_table reqs,
   best_reg =
     find_rename_reg (this_head, super_class, &unavailable, old_reg, true);
 
-  regrename_do_replace (this_head, best_reg);
+  gcc_assert (regrename_do_replace (this_head, best_reg));
 
   count_unit_reqs (new_reqs, head, PREV_INSN (tail));
   merge_unit_reqs (new_reqs);
@@ -3545,7 +3529,7 @@ try_rename_operands (rtx_insn *head, rtx_insn *tail, unit_req_table reqs,
 	       unit_req_imbalance (reqs), unit_req_imbalance (new_reqs));
     }
   if (unit_req_imbalance (new_reqs) > unit_req_imbalance (reqs))
-    regrename_do_replace (this_head, old_reg);
+    gcc_assert (regrename_do_replace (this_head, old_reg));
   else
     memcpy (reqs, new_reqs, sizeof (unit_req_table));
 
@@ -5398,7 +5382,7 @@ undo_split_delayed_nonbranch (rtx_insn *insn)
 		   && type == TYPE_LOAD_SHADOW)
 		  || (XINT (prev_pat, 1) == UNSPEC_REAL_MULT
 		      && type == TYPE_MULT_SHADOW)));
-  insn_pat = gen_rtx_SET (VOIDmode, SET_DEST (insn_pat),
+  insn_pat = gen_rtx_SET (SET_DEST (insn_pat),
 			  XVECEXP (prev_pat, 0, 1));
   insn_pat = duplicate_cond (insn_pat, prev);
   PATTERN (insn) = insn_pat;

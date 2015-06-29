@@ -23,15 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -48,11 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "recog.h"
 #include "obstack.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -64,10 +53,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "reload.h"
 #include "tm_p.h"
-#include "ggc.h"
 #include "diagnostic-core.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -79,19 +66,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "basic-block.h"
 #include "df.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "opts.h"
 #include "dumpfile.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Structure of this file:
 
@@ -1420,7 +1408,7 @@ mep_expand_mov (rtx *operands, machine_mode mode)
 
 	      n = gen_rtx_PLUS (mode, (t == 'b' ? mep_tp_rtx ()
 				       : mep_gp_rtx ()), n);
-	      n = emit_insn (gen_rtx_SET (mode, operands[0], n));
+	      n = emit_insn (gen_rtx_SET (operands[0], n));
 #if DEBUG_EXPAND_MOV
 	      fprintf(stderr, "mep_expand_mov emitting ");
 	      debug_rtx(n);
@@ -1686,8 +1674,7 @@ mep_expand_setcc_1 (enum rtx_code code, rtx dest, rtx op1, rtx op2)
     case LT:
     case LTU:
       op1 = force_reg (SImode, op1);
-      emit_insn (gen_rtx_SET (VOIDmode, dest,
-			      gen_rtx_fmt_ee (code, SImode, op1, op2)));
+      emit_insn (gen_rtx_SET (dest, gen_rtx_fmt_ee (code, SImode, op1, op2)));
       return true;
 
     case EQ:
@@ -1716,8 +1703,7 @@ mep_expand_setcc_1 (enum rtx_code code, rtx dest, rtx op1, rtx op2)
       op2 = gen_reg_rtx (SImode);
       mep_expand_setcc_1 (LTU, op2, op1, const1_rtx);
 
-      emit_insn (gen_rtx_SET (VOIDmode, dest,
-			      gen_rtx_XOR (SImode, op2, const1_rtx)));
+      emit_insn (gen_rtx_SET (dest, gen_rtx_XOR (SImode, op2, const1_rtx)));
       return true;
 
     case LE:
@@ -2629,8 +2615,7 @@ add_constant (int dest, int src, int value, int mark_frame)
     {
       RTX_FRAME_RELATED_P(insn) = 1;
       add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-		    gen_rtx_SET (SImode,
-				 gen_rtx_REG (SImode, dest),
+		    gen_rtx_SET (gen_rtx_REG (SImode, dest),
 				 gen_rtx_PLUS (SImode,
 					       gen_rtx_REG (SImode, dest),
 					       GEN_INT (value))));
@@ -2790,8 +2775,7 @@ mep_expand_prologue (void)
 	    RTX_FRAME_RELATED_P (insn) = 1;
 	    
 	    add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			  gen_rtx_SET (VOIDmode,
-				       copy_rtx (mem),
+			  gen_rtx_SET (copy_rtx (mem),
 				       gen_rtx_REG (rmode, i)));
 	    mem = gen_rtx_MEM (SImode,
 			       plus_constant (Pmode, stack_pointer_rtx,
@@ -2812,8 +2796,7 @@ mep_expand_prologue (void)
 	    RTX_FRAME_RELATED_P (insn) = 1;
 	    
 	    add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			  gen_rtx_SET (VOIDmode,
-				       copy_rtx (mem),
+			  gen_rtx_SET (copy_rtx (mem),
 				       gen_rtx_REG (rmode, i)));
 	  }
       }
@@ -4090,26 +4073,14 @@ struct GTY(()) pragma_entry {
   int flag;
 };
 
-struct pragma_traits : default_hashmap_traits
-{
-  static hashval_t hash (const char *s) { return htab_hash_string (s); }
-  static bool
-  equal_keys (const char *a, const char *b)
-  {
-    return strcmp (a, b) == 0;
-  }
-};
-
 /* Hash table of farcall-tagged sections.  */
-static GTY(()) hash_map<const char *, pragma_entry, pragma_traits> *
-  pragma_htab;
+static GTY(()) hash_map<nofree_string_hash, pragma_entry> *pragma_htab;
 
 static void
 mep_note_pragma_flag (const char *funcname, int flag)
 {
   if (!pragma_htab)
-    pragma_htab
-      = hash_map<const char *, pragma_entry, pragma_traits>::create_ggc (31);
+    pragma_htab = hash_map<nofree_string_hash, pragma_entry>::create_ggc (31);
 
   bool existed;
   const char *name = ggc_strdup (funcname);

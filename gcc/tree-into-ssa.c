@@ -22,15 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "flags.h"
@@ -44,11 +37,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfganal.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -58,11 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
-#include "hashtab.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -228,11 +215,8 @@ typedef struct var_info_d *var_info_p;
 
 /* VAR_INFOS hashtable helpers.  */
 
-struct var_info_hasher : typed_free_remove <var_info_d>
+struct var_info_hasher : free_ptr_hash <var_info_d>
 {
-  typedef var_info_d *value_type;
-  typedef var_info_d *compare_type;
-  typedef int store_values_directly;
   static inline hashval_t hash (const value_type &);
   static inline bool equal (const value_type &, const compare_type &);
 };

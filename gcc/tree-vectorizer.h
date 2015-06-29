@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree-data-ref.h"
 #include "target.h"
-#include "hash-table.h"
 
 /* Used for naming of new temporaries.  */
 enum vect_var_kind {
@@ -111,6 +110,8 @@ struct _slp_tree {
      scalar elements in one scalar iteration (GROUP_SIZE) multiplied by VF
      divided by vector size.  */
   unsigned int vec_stmts_size;
+  /* Whether the scalar computations use two different operators.  */
+  bool two_operators;
 };
 
 
@@ -126,15 +127,8 @@ typedef struct _slp_instance {
   /* The unrolling factor required to vectorized this SLP instance.  */
   unsigned int unrolling_factor;
 
-  /* Vectorization costs associated with SLP instance.  */
-  stmt_vector_for_cost body_cost_vec;
-
   /* The group of nodes that contain loads of this SLP instance.  */
   vec<slp_tree> loads;
-
-  /* The first scalar load of the instance. The created vector loads will be
-     inserted before this statement.  */
-  gimple first_load;
 } *slp_instance;
 
 
@@ -142,15 +136,14 @@ typedef struct _slp_instance {
 #define SLP_INSTANCE_TREE(S)                     (S)->root
 #define SLP_INSTANCE_GROUP_SIZE(S)               (S)->group_size
 #define SLP_INSTANCE_UNROLLING_FACTOR(S)         (S)->unrolling_factor
-#define SLP_INSTANCE_BODY_COST_VEC(S)            (S)->body_cost_vec
 #define SLP_INSTANCE_LOADS(S)                    (S)->loads
-#define SLP_INSTANCE_FIRST_LOAD_STMT(S)          (S)->first_load
 
 #define SLP_TREE_CHILDREN(S)                     (S)->children
 #define SLP_TREE_SCALAR_STMTS(S)                 (S)->stmts
 #define SLP_TREE_VEC_STMTS(S)                    (S)->vec_stmts
 #define SLP_TREE_NUMBER_OF_VEC_STMTS(S)          (S)->vec_stmts_size
 #define SLP_TREE_LOAD_PERMUTATION(S)             (S)->load_permutation
+#define SLP_TREE_TWO_OPERATORS(S)		 (S)->two_operators
 
 /* This structure is used in creation of an SLP tree.  Each instance
    corresponds to the same operand in a group of scalar stmts in an SLP
@@ -165,6 +158,7 @@ typedef struct _slp_oprnd_info
   enum vect_def_type first_dt;
   tree first_op_type;
   bool first_pattern;
+  bool second_pattern;
 } *slp_oprnd_info;
 
 
@@ -218,22 +212,20 @@ typedef struct _vect_peel_extended_info
 
 /* Peeling hashtable helpers.  */
 
-struct peel_info_hasher : typed_free_remove <_vect_peel_info>
+struct peel_info_hasher : free_ptr_hash <_vect_peel_info>
 {
-  typedef _vect_peel_info value_type;
-  typedef _vect_peel_info compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  static inline hashval_t hash (const _vect_peel_info *);
+  static inline bool equal (const _vect_peel_info *, const _vect_peel_info *);
 };
 
 inline hashval_t
-peel_info_hasher::hash (const value_type *peel_info)
+peel_info_hasher::hash (const _vect_peel_info *peel_info)
 {
   return (hashval_t) peel_info->npeel;
 }
 
 inline bool
-peel_info_hasher::equal (const value_type *a, const compare_type *b)
+peel_info_hasher::equal (const _vect_peel_info *a, const _vect_peel_info *b)
 {
   return (a->npeel == b->npeel);
 }
@@ -334,6 +326,12 @@ typedef struct _loop_vec_info {
   /* Hash table used to choose the best peeling option.  */
   hash_table<peel_info_hasher> *peeling_htab;
 
+  /* Cost vector for a single scalar iteration.  */
+  vec<stmt_info_for_cost> scalar_cost_vec;
+
+  /* Cost of a single scalar iteration.  */
+  int single_scalar_iteration_cost;
+
   /* Cost data used by the target cost model.  */
   void *target_cost_data;
 
@@ -412,6 +410,8 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_PEELING_FOR_NITER(L)    (L)->peeling_for_niter
 #define LOOP_VINFO_NO_DATA_DEPENDENCIES(L) (L)->no_data_dependencies
 #define LOOP_VINFO_SCALAR_LOOP(L)	   (L)->scalar_loop
+#define LOOP_VINFO_SCALAR_ITERATION_COST(L) (L)->scalar_cost_vec
+#define LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST(L) (L)->single_scalar_iteration_cost
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L) \
   ((L)->may_misalign_stmts.length () > 0)
@@ -648,7 +648,9 @@ typedef struct _stmt_vec_info {
 
   /* For loads only, true if this is a gather load.  */
   bool gather_p;
-  bool stride_load_p;
+
+  /* True if this is an access with loop-invariant stride.  */
+  bool strided_p;
 
   /* For both loads and stores.  */
   bool simd_lane_access_p;
@@ -666,7 +668,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_VECTORIZABLE(S)         (S)->vectorizable
 #define STMT_VINFO_DATA_REF(S)             (S)->data_ref_info
 #define STMT_VINFO_GATHER_P(S)		   (S)->gather_p
-#define STMT_VINFO_STRIDE_LOAD_P(S)	   (S)->stride_load_p
+#define STMT_VINFO_STRIDED_P(S)	   	   (S)->strided_p
 #define STMT_VINFO_SIMD_LANE_ACCESS_P(S)   (S)->simd_lane_access_p
 
 #define STMT_VINFO_DR_BASE_ADDRESS(S)      (S)->dr_base_address
@@ -1105,16 +1107,15 @@ extern int vect_get_known_peeling_cost (loop_vec_info, int, int *,
 					stmt_vector_for_cost *,
 					stmt_vector_for_cost *,
 					stmt_vector_for_cost *);
-extern int vect_get_single_scalar_iteration_cost (loop_vec_info,
-						  stmt_vector_for_cost *);
 
 /* In tree-vect-slp.c.  */
 extern void vect_free_slp_instance (slp_instance);
 extern bool vect_transform_slp_perm_load (slp_tree, vec<tree> ,
                                           gimple_stmt_iterator *, int,
                                           slp_instance, bool);
+extern bool vect_slp_analyze_operations (vec<slp_instance> slp_instances,
+					 void *);
 extern bool vect_schedule_slp (loop_vec_info, bb_vec_info);
-extern void vect_update_slp_costs_according_to_vf (loop_vec_info);
 extern bool vect_analyze_slp (loop_vec_info, bb_vec_info, unsigned);
 extern bool vect_make_slp_decision (loop_vec_info);
 extern void vect_detect_hybrid_slp (loop_vec_info);

@@ -23,15 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "cp-tree.h"
@@ -39,13 +32,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "flags.h"
@@ -905,6 +896,8 @@ struct cp_genericize_data
   hash_set<tree> *p_set;
   vec<tree> bind_expr_stack;
   struct cp_genericize_omp_taskreg *omp_ctx;
+  tree try_block;
+  bool no_sanitize_p;
 };
 
 /* Perform any pre-gimplification lowering of C++ front end trees to
@@ -1104,6 +1097,21 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 				     : OMP_CLAUSE_DEFAULT_PRIVATE);
 	      }
 	}
+      if (flag_sanitize
+	  & (SANITIZE_NULL | SANITIZE_ALIGNMENT | SANITIZE_VPTR))
+	{
+	  /* The point here is to not sanitize static initializers.  */
+	  bool no_sanitize_p = wtd->no_sanitize_p;
+	  wtd->no_sanitize_p = true;
+	  for (tree decl = BIND_EXPR_VARS (stmt);
+	       decl;
+	       decl = DECL_CHAIN (decl))
+	    if (VAR_P (decl)
+		&& TREE_STATIC (decl)
+		&& DECL_INITIAL (decl))
+	      cp_walk_tree (&DECL_INITIAL (decl), cp_genericize_r, data, NULL);
+	  wtd->no_sanitize_p = no_sanitize_p;
+	}
       wtd->bind_expr_stack.safe_push (stmt);
       cp_walk_tree (&BIND_EXPR_BODY (stmt),
 		    cp_genericize_r, data, NULL);
@@ -1193,6 +1201,54 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       wtd->omp_ctx = omp_ctx.outer;
       splay_tree_delete (omp_ctx.variables);
     }
+  else if (TREE_CODE (stmt) == TRY_BLOCK)
+    {
+      *walk_subtrees = 0;
+      tree try_block = wtd->try_block;
+      wtd->try_block = stmt;
+      cp_walk_tree (&TRY_STMTS (stmt), cp_genericize_r, data, NULL);
+      wtd->try_block = try_block;
+      cp_walk_tree (&TRY_HANDLERS (stmt), cp_genericize_r, data, NULL);
+    }
+  else if (TREE_CODE (stmt) == MUST_NOT_THROW_EXPR)
+    {
+      /* MUST_NOT_THROW_COND might be something else with TM.  */
+      if (MUST_NOT_THROW_COND (stmt) == NULL_TREE)
+	{
+	  *walk_subtrees = 0;
+	  tree try_block = wtd->try_block;
+	  wtd->try_block = stmt;
+	  cp_walk_tree (&TREE_OPERAND (stmt, 0), cp_genericize_r, data, NULL);
+	  wtd->try_block = try_block;
+	}
+    }
+  else if (TREE_CODE (stmt) == THROW_EXPR)
+    {
+      location_t loc = location_of (stmt);
+      if (TREE_NO_WARNING (stmt))
+	/* Never mind.  */;
+      else if (wtd->try_block)
+	{
+	  if (TREE_CODE (wtd->try_block) == MUST_NOT_THROW_EXPR
+	      && warning_at (loc, OPT_Wterminate,
+			     "throw will always call terminate()")
+	      && cxx_dialect >= cxx11
+	      && DECL_DESTRUCTOR_P (current_function_decl))
+	    inform (loc, "in C++11 destructors default to noexcept");
+	}
+      else
+	{
+	  if (warn_cxx11_compat && cxx_dialect < cxx11
+	      && DECL_DESTRUCTOR_P (current_function_decl)
+	      && (TYPE_RAISES_EXCEPTIONS (TREE_TYPE (current_function_decl))
+		  == NULL_TREE)
+	      && (get_defaulted_eh_spec (current_function_decl)
+		  == empty_except_spec))
+	    warning_at (loc, OPT_Wc__11_compat,
+			"in C++11 this throw will terminate because "
+			"destructors default to noexcept");
+	}
+    }
   else if (TREE_CODE (stmt) == CONVERT_EXPR)
     gcc_assert (!CONVERT_EXPR_VBASE_PATH (stmt));
   else if (TREE_CODE (stmt) == FOR_STMT)
@@ -1226,9 +1282,10 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       if (*stmt_p == error_mark_node)
 	*stmt_p = size_one_node;
       return NULL;
-    }    
-  else if (flag_sanitize
-	   & (SANITIZE_NULL | SANITIZE_ALIGNMENT | SANITIZE_VPTR))
+    }
+  else if ((flag_sanitize
+	    & (SANITIZE_NULL | SANITIZE_ALIGNMENT | SANITIZE_VPTR))
+	   && !wtd->no_sanitize_p)
     {
       if ((flag_sanitize & (SANITIZE_NULL | SANITIZE_ALIGNMENT))
 	  && TREE_CODE (stmt) == NOP_EXPR
@@ -1269,6 +1326,8 @@ cp_genericize_tree (tree* t_p)
   wtd.p_set = new hash_set<tree>;
   wtd.bind_expr_stack.create (0);
   wtd.omp_ctx = NULL;
+  wtd.try_block = NULL_TREE;
+  wtd.no_sanitize_p = false;
   cp_walk_tree (t_p, cp_genericize_r, &wtd, NULL);
   delete wtd.p_set;
   wtd.bind_expr_stack.release ();

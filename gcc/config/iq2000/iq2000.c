@@ -21,15 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -44,10 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -60,11 +49,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "diagnostic-core.h"
 #include "reload.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -77,6 +64,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "df.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Enumeration for all of the relational tests, so that we can build
    arrays indexed by the test type, and not worry about the order
@@ -1106,7 +1096,7 @@ gen_conditional_branch (rtx operands[], machine_mode mode)
       label1 = pc_rtx;
     }
 
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+  emit_jump_insn (gen_rtx_SET (pc_rtx,
 			       gen_rtx_IF_THEN_ELSE (VOIDmode,
 						     gen_rtx_fmt_ee (test_code,
 								     VOIDmode,
@@ -1820,7 +1810,7 @@ iq2000_emit_frame_related_store (rtx mem, rtx reg, HOST_WIDE_INT offset)
   rtx dwarf_mem = gen_rtx_MEM (GET_MODE (reg), dwarf_address);
 
   iq2000_annotate_frame_insn (emit_move_insn (mem, reg),
-			    gen_rtx_SET (GET_MODE (reg), dwarf_mem, reg));
+			      gen_rtx_SET (dwarf_mem, reg));
 }
 
 /* Emit instructions to save/restore registers, as determined by STORE_P.  */
@@ -2064,7 +2054,7 @@ iq2000_expand_prologue (void)
       insn = emit_insn (gen_subsi3 (stack_pointer_rtx, stack_pointer_rtx,
 				    adjustment_rtx));
 
-      dwarf_pattern = gen_rtx_SET (Pmode, stack_pointer_rtx,
+      dwarf_pattern = gen_rtx_SET (stack_pointer_rtx,
 				   plus_constant (Pmode, stack_pointer_rtx,
 						  -tsize));
 
@@ -2083,6 +2073,9 @@ iq2000_expand_prologue (void)
 	    RTX_FRAME_RELATED_P (insn) = 1;
 	}
     }
+
+  if (flag_stack_usage_info)
+    current_function_static_stack_size = cfun->machine->total_size;
 
   emit_insn (gen_blockage ());
 }
@@ -3305,8 +3298,7 @@ iq2000_legitimize_address (rtx xinsn, rtx old_x ATTRIBUTE_UNUSED,
           emit_move_insn (int_reg,
                           GEN_INT (INTVAL (xplus1) & ~ 0x7fff));
 
-          emit_insn (gen_rtx_SET (VOIDmode,
-                                  ptr_reg,
+          emit_insn (gen_rtx_SET (ptr_reg,
                                   gen_rtx_PLUS (Pmode, xplus0, int_reg)));
 
           return plus_constant (Pmode, ptr_reg, INTVAL (xplus1) & 0x7fff);

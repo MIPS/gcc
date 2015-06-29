@@ -39,6 +39,7 @@
 #include <ext/atomicity.h>
 #include <ext/alloc_traits.h>
 #include <debug/debug.h>
+
 #if __cplusplus >= 201103L
 #include <initializer_list>
 #endif
@@ -324,7 +325,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
         _S_copy_chars(_CharT* __p, _Iterator __k1, _Iterator __k2)
 	_GLIBCXX_NOEXCEPT
         {
-	  for (; __k1 != __k2; ++__k1, ++__p)
+	  for (; __k1 != __k2; ++__k1, (void)++__p)
 	    traits_type::assign(*__p, *__k1); // These types are off.
 	}
 
@@ -377,7 +378,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       /**
        *  @brief  Default constructor creates an empty string.
        */
-      basic_string() _GLIBCXX_NOEXCEPT
+      basic_string()
+#if __cplusplus >= 201103L
+      noexcept(is_nothrow_default_constructible<_Alloc>::value)
+#endif
       : _M_dataplus(_M_local_data())
       { _M_set_length(0); }
 
@@ -900,7 +904,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        */
       reference
       front() noexcept
-      { return operator[](0); }
+      {
+	_GLIBCXX_DEBUG_ASSERT(!empty());
+	return operator[](0);
+      }
 
       /**
        *  Returns a read-only (constant) reference to the data at the first
@@ -908,7 +915,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        */
       const_reference
       front() const noexcept
-      { return operator[](0); }
+      {
+	_GLIBCXX_DEBUG_ASSERT(!empty());
+	return operator[](0);
+      }
 
       /**
        *  Returns a read/write reference to the data at the last
@@ -916,7 +926,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        */
       reference
       back() noexcept
-      { return operator[](this->size() - 1); }
+      {
+	_GLIBCXX_DEBUG_ASSERT(!empty());
+	return operator[](this->size() - 1);
+      }
 
       /**
        *  Returns a read-only (constant) reference to the data at the
@@ -924,7 +937,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        */
       const_reference
       back() const noexcept
-      { return operator[](this->size() - 1); }
+      {
+	_GLIBCXX_DEBUG_ASSERT(!empty());
+	return operator[](this->size() - 1);
+      }
 #endif
 
       // Modifiers:
@@ -1503,7 +1519,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        */
       void
       pop_back() noexcept
-      { _M_erase(size()-1, 1); }
+      {
+	_GLIBCXX_DEBUG_ASSERT(!empty());
+	_M_erase(size() - 1, 1);
+      }
 #endif // C++11
 
       /**
@@ -2779,7 +2798,7 @@ _GLIBCXX_END_NAMESPACE_CXX11
         _S_copy_chars(_CharT* __p, _Iterator __k1, _Iterator __k2)
 	_GLIBCXX_NOEXCEPT
         {
-	  for (; __k1 != __k2; ++__k1, ++__p)
+	  for (; __k1 != __k2; ++__k1, (void)++__p)
 	    traits_type::assign(*__p, *__k1); // These types are off.
 	}
 
@@ -3305,7 +3324,10 @@ _GLIBCXX_END_NAMESPACE_CXX11
        */
       reference
       front()
-      { return operator[](0); }
+      {
+	_GLIBCXX_DEBUG_ASSERT(!empty());
+	return operator[](0);
+      }
 
       /**
        *  Returns a read-only (constant) reference to the data at the first
@@ -3313,7 +3335,10 @@ _GLIBCXX_END_NAMESPACE_CXX11
        */
       const_reference
       front() const _GLIBCXX_NOEXCEPT
-      { return operator[](0); }
+      {
+	_GLIBCXX_DEBUG_ASSERT(!empty());
+	return operator[](0);
+      }
 
       /**
        *  Returns a read/write reference to the data at the last
@@ -3321,7 +3346,10 @@ _GLIBCXX_END_NAMESPACE_CXX11
        */
       reference
       back()
-      { return operator[](this->size() - 1); }
+      {
+	_GLIBCXX_DEBUG_ASSERT(!empty());
+	return operator[](this->size() - 1);
+      }
 
       /**
        *  Returns a read-only (constant) reference to the data at the
@@ -3329,7 +3357,10 @@ _GLIBCXX_END_NAMESPACE_CXX11
        */
       const_reference
       back() const _GLIBCXX_NOEXCEPT
-      { return operator[](this->size() - 1); }
+      {
+	_GLIBCXX_DEBUG_ASSERT(!empty());
+	return operator[](this->size() - 1);
+      }
 #endif
 
       // Modifiers:
@@ -3816,7 +3847,10 @@ _GLIBCXX_END_NAMESPACE_CXX11
        */
       void
       pop_back() // FIXME C++11: should be noexcept.
-      { erase(size()-1, 1); }
+      {
+	_GLIBCXX_DEBUG_ASSERT(!empty());
+	erase(size() - 1, 1);
+      }
 #endif // C++11
 
       /**

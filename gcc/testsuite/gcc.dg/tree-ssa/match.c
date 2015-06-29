@@ -10,5 +10,3 @@ int match_1 (int x)
   return match_1_val;
 }  
 /* { dg-final { scan-tree-dump "gimple_simplified to match_1_val_\\d\+ = ABS_EXPR <x_\\d\+\\(D\\)" "forwprop1" } } */
-
-/* { dg-final { cleanup-tree-dump "forwprop1" } } */

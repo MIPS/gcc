@@ -21,15 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "calls.h"
@@ -45,11 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "recog.h"
 #include "diagnostic-core.h"
-#include "hashtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -59,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "debug.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -74,11 +62,13 @@ along with GCC; see the file COPYING3.  If not see
 /* ??? Need to add a dependency between m68k.o and sched-int.h.  */
 #include "sched-int.h"
 #include "insn-codes.h"
-#include "ggc.h"
 #include "opts.h"
 #include "optabs.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 enum reg_class regno_reg_class[] =
 {
@@ -959,7 +949,7 @@ m68k_emit_movem (rtx base, HOST_WIDE_INT offset,
 			   (count
 			    * GET_MODE_SIZE (mode)
 			    * (HOST_WIDE_INT) (store_p ? -1 : 1)));
-      XVECEXP (body, 0, i++) = gen_rtx_SET (VOIDmode, base, src);
+      XVECEXP (body, 0, i++) = gen_rtx_SET (base, src);
     }
 
   for (; mask != 0; mask >>= 1, regno++)
@@ -969,7 +959,7 @@ m68k_emit_movem (rtx base, HOST_WIDE_INT offset,
 	operands[!store_p] = gen_frame_mem (mode, addr);
 	operands[store_p] = gen_rtx_REG (mode, regno);
 	XVECEXP (body, 0, i++)
-	  = gen_rtx_SET (VOIDmode, operands[0], operands[1]);
+	  = gen_rtx_SET (operands[0], operands[1]);
 	offset += GET_MODE_SIZE (mode);
       }
   gcc_assert (i == XVECLEN (body, 0));
@@ -3740,8 +3730,7 @@ emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 	}
       else
 	emit_move_insn (scratch_reg, XEXP (operand1, 0));
-      emit_insn (gen_rtx_SET (VOIDmode, operand0,
-			      gen_rtx_MEM (mode, scratch_reg)));
+      emit_insn (gen_rtx_SET (operand0, gen_rtx_MEM (mode, scratch_reg)));
       return 1;
     }
   else if (fp_reg_operand (operand1, mode)
@@ -3774,8 +3763,7 @@ emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 	}
       else
 	emit_move_insn (scratch_reg, XEXP (operand0, 0));
-      emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_MEM (mode, scratch_reg),
-			      operand1));
+      emit_insn (gen_rtx_SET (gen_rtx_MEM (mode, scratch_reg), operand1));
       return 1;
     }
   /* Handle secondary reloads for loads of FP registers from constant
@@ -3802,11 +3790,10 @@ emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 	 memory location into scratch_reg.  */
       xoperands[0] = scratch_reg;
       xoperands[1] = XEXP (force_const_mem (mode, operand1), 0);
-      emit_insn (gen_rtx_SET (mode, scratch_reg, xoperands[1]));
+      emit_insn (gen_rtx_SET (scratch_reg, xoperands[1]));
 
       /* Now load the destination register.  */
-      emit_insn (gen_rtx_SET (mode, operand0,
-			      gen_rtx_MEM (mode, scratch_reg)));
+      emit_insn (gen_rtx_SET (operand0, gen_rtx_MEM (mode, scratch_reg)));
       return 1;
     }
 
@@ -5101,7 +5088,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       addr = plus_constant (Pmode, tmp, vcall_offset);
       if (!m68k_legitimate_address_p (Pmode, addr, true))
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, tmp, addr));
+	  emit_insn (gen_rtx_SET (tmp, addr));
 	  addr = tmp;
 	}
 

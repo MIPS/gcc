@@ -40,5 +40,3 @@ rotate_4 (unsigned char x)
   return rotate_4_val;
 }
 /* { dg-final { scan-tree-dump "gimple_simplified to rotate_4_val_\\d\+ = x_\\d\+\\(D\\) r<< 5" "forwprop1" } } */
-
-/* { dg-final { cleanup-tree-dump "forwprop1" } } */

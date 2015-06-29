@@ -21,17 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tree-pretty-print.h"
 #include "print-tree.h"
@@ -112,7 +104,7 @@ static tree TB_history_prev (void);
 void browse_tree (tree);
 
 /* Hashtable helpers.  */
-struct tree_upper_hasher : pointer_hash<tree_node>
+struct tree_upper_hasher : nofree_ptr_hash<tree_node>
 {
   static inline bool equal (const value_type &, const compare_type &);
 };

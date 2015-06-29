@@ -891,7 +891,8 @@ enum data_align { align_abi, align_opt, align_both };
    || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
 	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)	\
        && (ALIGN) < 32)							\
-   || (VECTOR_MODE_P ((MODE)) && (((int)(ALIGN)) < VECTOR_ALIGN (MODE))))
+   || (!TARGET_EFFICIENT_UNALIGNED_VSX                                  \
+       && (VECTOR_MODE_P ((MODE)) && (((int)(ALIGN)) < VECTOR_ALIGN (MODE)))))
 
 
 /* Standard register usage.  */
@@ -1562,7 +1563,7 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 /* Offsets recorded in opcodes are a multiple of this alignment factor.  */
 #define DWARF_CIE_DATA_ALIGNMENT (-((int) (TARGET_32BIT ? 4 : 8)))
@@ -2038,10 +2039,6 @@ do {									     \
    is undesirable.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* Define if operations between registers always perform the operation
-   on the full register even if a narrower mode is specified.  */
-#define WORD_REGISTER_OPERATIONS
-
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
@@ -2079,7 +2076,7 @@ extern unsigned rs6000_pmode;
    shouldn't be put through pseudo regs where they can be cse'd.
    Desirable on machines where ordinary constants are expensive
    but a CALL with constant address is cheap.  */
-#define NO_FUNCTION_CSE
+#define NO_FUNCTION_CSE 1
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
    few bits.
@@ -2573,9 +2570,8 @@ extern int frame_pointer_needed;
 /* Miscellaneous information.  */
 #define RS6000_BTC_SPR		0x01000000	/* function references SPRs.  */
 #define RS6000_BTC_VOID		0x02000000	/* function has no return value.  */
-#define RS6000_BTC_OVERLOADED	0x04000000	/* function is overloaded.  */
-#define RS6000_BTC_32BIT	0x08000000	/* function references SPRs.  */
-#define RS6000_BTC_64BIT	0x10000000	/* function references SPRs.  */
+#define RS6000_BTC_CR		0x04000000	/* function references a CR.  */
+#define RS6000_BTC_OVERLOADED	0x08000000	/* function is overloaded.  */
 #define RS6000_BTC_MISC_MASK	0x1f000000	/* Mask of the misc info.  */
 
 /* Convenience macros to document the instruction type.  */
@@ -2715,6 +2711,8 @@ enum rs6000_builtin_type_index
   RS6000_BTI_dfloat64,		 /* dfloat64_type_node */
   RS6000_BTI_dfloat128,		 /* dfloat128_type_node */
   RS6000_BTI_void,	         /* void_type_node */
+  RS6000_BTI_ieee128_float,	 /* ieee 128-bit floating point */
+  RS6000_BTI_ibm128_float,	 /* IBM 128-bit floating point */
   RS6000_BTI_MAX
 };
 
@@ -2769,6 +2767,8 @@ enum rs6000_builtin_type_index
 #define dfloat64_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_dfloat64])
 #define dfloat128_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_dfloat128])
 #define void_type_internal_node		 (rs6000_builtin_types[RS6000_BTI_void])
+#define ieee128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ieee128_float])
+#define ibm128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ibm128_float])
 
 extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
 extern GTY(()) tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];

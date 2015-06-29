@@ -82,5 +82,3 @@ plusminus_9(unsigned char *ptr1, unsigned char *ptr2)
   return plusminus_9_val;
 }
 /* { dg-final { scan-tree-dump "gimple_simplified to plusminus_9_val_\\d\+ = ptr2" "forwprop1" } } */
-
-/* { dg-final { cleanup-tree-dump "forwprop2" } } */

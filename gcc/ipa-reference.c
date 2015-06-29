@@ -40,35 +40,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "calls.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "splay-tree.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-utils.h"
 #include "bitmap.h"
@@ -150,6 +138,7 @@ static struct cgraph_node_hook_list *node_removal_hook_holder;
    Indexed by UID of call graph nodes.  */
 static vec<ipa_reference_vars_info_t> ipa_reference_vars_vector;
 
+/* TODO: find a place where we should release the vector.  */
 static vec<ipa_reference_optimization_summary_t> ipa_reference_opt_sum_vector;
 
 /* Return the ipa_reference_vars structure starting from the cgraph NODE.  */

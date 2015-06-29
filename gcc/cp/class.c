@@ -24,39 +24,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tm.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "attribs.h"
-#include "hash-table.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "toplev.h"
 #include "target.h"
 #include "convert.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "dumpfile.h"
 #include "splay-tree.h"
 #include "gimplify.h"
-#include "wide-int.h"
 
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
@@ -1413,7 +1399,7 @@ check_tag (tree tag, tree id, tree *tp, abi_tag_data *p)
 		       p->t, tag, *tp))
 	    inform (location_of (*tp), "%qT declared here", *tp);
 	}
-      else if (TREE_CODE (p->t) == VAR_DECL)
+      else if (VAR_P (p->t))
 	{
 	  if (warning (OPT_Wabi_tag, "%qD inherits the %E ABI tag "
 		       "that %qT (used in its type) has", p->t, tag, *tp))
@@ -1602,7 +1588,7 @@ check_abi_tags (tree t, tree subob)
 void
 check_abi_tags (tree decl)
 {
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (VAR_P (decl))
     check_abi_tags (decl, TREE_TYPE (decl));
   else if (TREE_CODE (decl) == FUNCTION_DECL
 	   && !mangle_return_type_p (decl))
@@ -1972,7 +1958,6 @@ fixup_type_variants (tree t)
 
       /* Copy whatever these are holding today.  */
       TYPE_VFIELD (variants) = TYPE_VFIELD (t);
-      TYPE_METHODS (variants) = TYPE_METHODS (t);
       TYPE_FIELDS (variants) = TYPE_FIELDS (t);
     }
 }
@@ -1989,14 +1974,23 @@ fixup_attribute_variants (tree t)
   if (!t)
     return;
 
+  tree attrs = TYPE_ATTRIBUTES (t);
+  unsigned align = TYPE_ALIGN (t);
+  bool user_align = TYPE_USER_ALIGN (t);
+
   for (variants = TYPE_NEXT_VARIANT (t);
        variants;
        variants = TYPE_NEXT_VARIANT (variants))
     {
       /* These are the two fields that check_qualified_type looks at and
 	 are affected by attributes.  */
-      TYPE_ATTRIBUTES (variants) = TYPE_ATTRIBUTES (t);
-      TYPE_ALIGN (variants) = TYPE_ALIGN (t);
+      TYPE_ATTRIBUTES (variants) = attrs;
+      unsigned valign = align;
+      if (TYPE_USER_ALIGN (variants))
+	valign = MAX (valign, TYPE_ALIGN (variants));
+      else
+	TYPE_USER_ALIGN (variants) = user_align;
+      TYPE_ALIGN (variants) = valign;
     }
 }
 
@@ -3046,7 +3040,7 @@ finish_struct_anon_r (tree field, bool complain)
 	{
 	  /* We already complained about static data members in
 	     finish_static_data_member_decl.  */
-	  if (complain && TREE_CODE (elt) != VAR_DECL)
+	  if (complain && !VAR_P (elt))
 	    {
 	      if (is_union)
 		permerror (input_location,
@@ -3229,6 +3223,7 @@ one_inheriting_sig (tree t, tree ctor, tree *parms, int nparms)
     parmlist = tree_cons (NULL_TREE, parms[i], parmlist);
   tree fn = implicitly_declare_fn (sfk_inheriting_constructor,
 				   t, false, ctor, parmlist);
+  gcc_assert (TYPE_MAIN_VARIANT (t) == t);
   if (add_method (t, fn, NULL_TREE))
     {
       DECL_CHAIN (fn) = TYPE_METHODS (t);
@@ -6258,7 +6253,7 @@ layout_class_type (tree t, tree *virtuals_p)
 		padding = size_binop (MINUS_EXPR, DECL_SIZE (field),
 				      TYPE_SIZE (integer_type));
 	    }
-#ifdef PCC_BITFIELD_TYPE_MATTERS
+
 	  /* An unnamed bitfield does not normally affect the
 	     alignment of the containing class on a target where
 	     PCC_BITFIELD_TYPE_MATTERS.  But, the C++ ABI does not
@@ -6270,7 +6265,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	      was_unnamed_p = true;
 	      DECL_NAME (field) = make_anon_name ();
 	    }
-#endif
+
 	  DECL_SIZE (field) = TYPE_SIZE (integer_type);
 	  DECL_ALIGN (field) = TYPE_ALIGN (integer_type);
 	  DECL_USER_ALIGN (field) = TYPE_USER_ALIGN (integer_type);
@@ -6825,6 +6820,7 @@ finish_struct (tree t, tree attributes)
   unreverse_member_declarations (t);
 
   cplus_decl_attributes (&t, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
+  fixup_attribute_variants (t);
 
   /* Nadger the current location so that diagnostics point to the start of
      the struct, not the end.  */
@@ -6919,7 +6915,7 @@ finish_struct (tree t, tree attributes)
 }
 
 /* Hash table to avoid endless recursion when handling references.  */
-static hash_table<pointer_hash<tree_node> > *fixed_type_or_null_ref_ht;
+static hash_table<nofree_ptr_hash<tree_node> > *fixed_type_or_null_ref_ht;
 
 /* Return the dynamic type of INSTANCE, if known.
    Used to determine whether the virtual function table is needed
@@ -7038,7 +7034,7 @@ fixed_type_or_null (tree instance, int *nonnull, int *cdtorp)
 	  /* We only need one hash table because it is always left empty.  */
 	  if (!fixed_type_or_null_ref_ht)
 	    fixed_type_or_null_ref_ht
-	      = new hash_table<pointer_hash<tree_node> > (37); 
+	      = new hash_table<nofree_ptr_hash<tree_node> > (37);
 
 	  /* Reference variables should be references to objects.  */
 	  if (nonnull)
@@ -7471,7 +7467,7 @@ pop_lang_context (void)
 static tree
 resolve_address_of_overloaded_function (tree target_type,
 					tree overload,
-					tsubst_flags_t flags,
+					tsubst_flags_t complain,
 					bool template_only,
 					tree explicit_targs,
 					tree access_path)
@@ -7531,7 +7527,7 @@ resolve_address_of_overloaded_function (tree target_type,
     target_type = build_reference_type (target_type);
   else
     {
-      if (flags & tf_error)
+      if (complain & tf_error)
 	error ("cannot resolve overloaded function %qD based on"
 	       " conversion to type %qT",
 	       DECL_NAME (OVL_FUNCTION (overload)), target_type);
@@ -7667,7 +7663,7 @@ resolve_address_of_overloaded_function (tree target_type,
   if (matches == NULL_TREE)
     {
       /* There were *no* matches.  */
-      if (flags & tf_error)
+      if (complain & tf_error)
 	{
 	  error ("no matches converting function %qD to type %q#T",
 		 DECL_NAME (OVL_CURRENT (overload)),
@@ -7695,7 +7691,7 @@ resolve_address_of_overloaded_function (tree target_type,
 
       if (match)
 	{
-	  if (flags & tf_error)
+	  if (complain & tf_error)
 	    {
 	      error ("converting overloaded function %qD to type %q#T is ambiguous",
 		     DECL_NAME (OVL_FUNCTION (overload)),
@@ -7717,11 +7713,11 @@ resolve_address_of_overloaded_function (tree target_type,
   fn = TREE_PURPOSE (matches);
 
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
-      && !(flags & tf_ptrmem_ok) && !flag_ms_extensions)
+      && !(complain & tf_ptrmem_ok) && !flag_ms_extensions)
     {
       static int explained;
 
-      if (!(flags & tf_error))
+      if (!(complain & tf_error))
 	return error_mark_node;
 
       permerror (input_location, "assuming pointer to member %qD", fn);
@@ -7742,7 +7738,7 @@ resolve_address_of_overloaded_function (tree target_type,
       if (fn == NULL)
 	return error_mark_node;
       /* Mark all the versions corresponding to the dispatcher as used.  */
-      if (!(flags & tf_conv))
+      if (!(complain & tf_conv))
 	mark_versions_used (fn);
     }
 
@@ -7750,13 +7746,13 @@ resolve_address_of_overloaded_function (tree target_type,
      determining conversion sequences, we should not consider the
      function used.  If this conversion sequence is selected, the
      function will be marked as used at this point.  */
-  if (!(flags & tf_conv))
+  if (!(complain & tf_conv))
     {
       /* Make =delete work with SFINAE.  */
-      if (DECL_DELETED_FN (fn) && !(flags & tf_error))
+      if (DECL_DELETED_FN (fn) && !(complain & tf_error))
 	return error_mark_node;
-      
-      mark_used (fn);
+      if (!mark_used (fn, complain) && !(complain & tf_error))
+	return error_mark_node;
     }
 
   /* We could not check access to member functions when this
@@ -7765,11 +7761,11 @@ resolve_address_of_overloaded_function (tree target_type,
   if (DECL_FUNCTION_MEMBER_P (fn))
     {
       gcc_assert (access_path);
-      perform_or_defer_access_check (access_path, fn, fn, flags);
+      perform_or_defer_access_check (access_path, fn, fn, complain);
     }
 
   if (TYPE_PTRFN_P (target_type) || TYPE_PTRMEMFUNC_P (target_type))
-    return cp_build_addr_expr (fn, flags);
+    return cp_build_addr_expr (fn, complain);
   else
     {
       /* The target must be a REFERENCE_TYPE.  Above, cp_build_unary_op
@@ -7783,7 +7779,7 @@ resolve_address_of_overloaded_function (tree target_type,
 
 /* This function will instantiate the type of the expression given in
    RHS to match the type of LHSTYPE.  If errors exist, then return
-   error_mark_node. FLAGS is a bit mask.  If TF_ERROR is set, then
+   error_mark_node. COMPLAIN is a bit mask.  If TF_ERROR is set, then
    we complain on errors.  If we are not complaining, never modify rhs,
    as overload resolution wants to try many possible instantiations, in
    the hope that at least one will work.
@@ -7792,16 +7788,16 @@ resolve_address_of_overloaded_function (tree target_type,
    function, or a pointer to member function.  */
 
 tree
-instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
+instantiate_type (tree lhstype, tree rhs, tsubst_flags_t complain)
 {
-  tsubst_flags_t flags_in = flags;
+  tsubst_flags_t complain_in = complain;
   tree access_path = NULL_TREE;
 
-  flags &= ~tf_ptrmem_ok;
+  complain &= ~tf_ptrmem_ok;
 
   if (lhstype == unknown_type_node)
     {
-      if (flags & tf_error)
+      if (complain & tf_error)
 	error ("not enough type information");
       return error_mark_node;
     }
@@ -7819,7 +7815,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 	;
       else
 	{
-	  if (flags & tf_error)
+	  if (complain & tf_error)
 	    error ("cannot convert %qE from type %qT to type %qT",
 		   rhs, TREE_TYPE (rhs), fntype);
 	  return error_mark_node;
@@ -7836,7 +7832,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
      deduce any type information.  */
   if (TREE_CODE (rhs) == NON_DEPENDENT_EXPR)
     {
-      if (flags & tf_error)
+      if (complain & tf_error)
 	error ("not enough type information");
       return error_mark_node;
     }
@@ -7859,7 +7855,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
       {
 	tree member = TREE_OPERAND (rhs, 1);
 
-	member = instantiate_type (lhstype, member, flags);
+	member = instantiate_type (lhstype, member, complain);
 	if (member != error_mark_node
 	    && TREE_SIDE_EFFECTS (TREE_OPERAND (rhs, 0)))
 	  /* Do not lose object's side effects.  */
@@ -7871,7 +7867,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
     case OFFSET_REF:
       rhs = TREE_OPERAND (rhs, 1);
       if (BASELINK_P (rhs))
-	return instantiate_type (lhstype, rhs, flags_in);
+	return instantiate_type (lhstype, rhs, complain_in);
 
       /* This can happen if we are forming a pointer-to-member for a
 	 member template.  */
@@ -7885,7 +7881,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 	tree args = TREE_OPERAND (rhs, 1);
 
 	return
-	  resolve_address_of_overloaded_function (lhstype, fns, flags_in,
+	  resolve_address_of_overloaded_function (lhstype, fns, complain_in,
 						  /*template_only=*/true,
 						  args, access_path);
       }
@@ -7893,7 +7889,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
     case OVERLOAD:
     case FUNCTION_DECL:
       return
-	resolve_address_of_overloaded_function (lhstype, rhs, flags_in,
+	resolve_address_of_overloaded_function (lhstype, rhs, complain_in,
 						/*template_only=*/false,
 						/*explicit_targs=*/NULL_TREE,
 						access_path);
@@ -7901,9 +7897,9 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
     case ADDR_EXPR:
     {
       if (PTRMEM_OK_P (rhs))
-	flags |= tf_ptrmem_ok;
+	complain |= tf_ptrmem_ok;
 
-      return instantiate_type (lhstype, TREE_OPERAND (rhs, 0), flags);
+      return instantiate_type (lhstype, TREE_OPERAND (rhs, 0), complain);
     }
 
     case ERROR_MARK:

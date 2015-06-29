@@ -346,8 +346,12 @@ gfc_match_end_interface (void)
 		break;
 
 	      m = MATCH_ERROR;
-	      gfc_error ("Expecting %<END INTERFACE OPERATOR (%s)%> at %C, "
-			 "but got %s", s1, s2);
+	      if (strcmp(s2, "none") == 0)
+		gfc_error ("Expecting %<END INTERFACE OPERATOR (%s)%> "
+			   "at %C, ", s1);
+	      else		
+		gfc_error ("Expecting %<END INTERFACE OPERATOR (%s)%> at %C, "
+			   "but got %s", s1, s2);
 	    }
 
 	}
@@ -484,13 +488,24 @@ gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
   if (ts1->type == BT_VOID || ts2->type == BT_VOID)
     return 1;
 
-  if (ts1->type == BT_CLASS
-      && ts1->u.derived->components->ts.u.derived->attr.unlimited_polymorphic)
+  /* The _data component is not always present, therefore check for its
+     presence before assuming, that its derived->attr is available.
+     When the _data component is not present, then nevertheless the
+     unlimited_polymorphic flag may be set in the derived type's attr.  */
+  if (ts1->type == BT_CLASS && ts1->u.derived->components
+      && ((ts1->u.derived->attr.is_class
+	   && ts1->u.derived->components->ts.u.derived->attr
+						  .unlimited_polymorphic)
+	  || ts1->u.derived->attr.unlimited_polymorphic))
     return 1;
 
   /* F2003: C717  */
   if (ts2->type == BT_CLASS && ts1->type == BT_DERIVED
-      && ts2->u.derived->components->ts.u.derived->attr.unlimited_polymorphic
+      && ts2->u.derived->components
+      && ((ts2->u.derived->attr.is_class
+	   && ts2->u.derived->components->ts.u.derived->attr
+						  .unlimited_polymorphic)
+	  || ts2->u.derived->attr.unlimited_polymorphic)
       && (ts1->u.derived->attr.sequence || ts1->u.derived->attr.is_bind_c))
     return 1;
 
@@ -2169,7 +2184,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 	    gfc_error ("Passing coarray at %L to allocatable, noncoarray, "
 		       "INTENT(OUT) dummy argument %qs", &actual->where,
 		       formal->name);
-	    return 0;
+	  return 0;
 	}
       else if (warn_surprising && where && formal->attr.intent != INTENT_IN)
 	gfc_warning (OPT_Wsurprising,
@@ -2551,7 +2566,7 @@ static int
 compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	 	       int ranks_must_agree, int is_elemental, locus *where)
 {
-  gfc_actual_arglist **new_arg, *a, *actual, temp;
+  gfc_actual_arglist **new_arg, *a, *actual;
   gfc_formal_arglist *f;
   int i, n, na;
   unsigned long actual_size, formal_size;
@@ -3014,13 +3029,8 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 
   if (na != 0)
     {
-      temp = *new_arg[0];
-      *new_arg[0] = *actual;
-      *actual = temp;
-
-      a = new_arg[0];
-      new_arg[0] = new_arg[na];
-      new_arg[na] = a;
+      std::swap (*new_arg[0], *actual);
+      std::swap (new_arg[0], new_arg[na]);
     }
 
   for (i = 0; i < n - 1; i++)

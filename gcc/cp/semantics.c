@@ -27,15 +27,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stmt.h"
 #include "varasm.h"
@@ -50,17 +43,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "timevar.h"
 #include "diagnostic.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "target.h"
-#include "hash-table.h"
 #include "gimplify.h"
 #include "bitmap.h"
 #include "omp-low.h"
@@ -2377,6 +2364,7 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
       if (!result)
 	{
 	  if (warn_sizeof_pointer_memaccess
+	      && (complain & tf_warning)
 	      && !vec_safe_is_empty (*args)
 	      && !processing_template_decl)
 	    {
@@ -2912,6 +2900,7 @@ finish_member_declaration (tree decl)
 	 CLASSTYPE_METHOD_VEC.  */
       if (add_method (current_class_type, decl, NULL_TREE))
 	{
+	  gcc_assert (TYPE_MAIN_VARIANT (current_class_type) == current_class_type);
 	  DECL_CHAIN (decl) = TYPE_METHODS (current_class_type);
 	  TYPE_METHODS (current_class_type) = decl;
 
@@ -3109,6 +3098,8 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
   if (cp_unevaluated_operand)
     /* It's not a use (3.2) if we're in an unevaluated context.  */
     return decl;
+  if (decl == error_mark_node)
+    return decl;
 
   tree context = DECL_CONTEXT (decl);
   tree containing_function = current_function_decl;
@@ -3117,7 +3108,8 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
   tree initializer = convert_from_reference (decl);
 
   /* Mark it as used now even if the use is ill-formed.  */
-  mark_used (decl);
+  if (!mark_used (decl, complain) && !(complain & tf_error))
+    return error_mark_node;
 
   /* Core issue 696: "[At the July 2009 meeting] the CWG expressed
      support for an approach in which a reference to a local
@@ -3133,7 +3125,11 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
 	   form, so wait until instantiation time.  */
 	return decl;
       else if (decl_constant_var_p (decl))
-	return scalar_constant_value (decl);
+	{
+	  tree t = maybe_constant_value (convert_from_reference (decl));
+	  if (TREE_CONSTANT (t))
+	    return t;
+	}
     }
 
   if (parsing_nsdmi ())
@@ -3165,7 +3161,7 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
 	  = decl_function_context (containing_function);
       }
 
-  if (lambda_expr && TREE_CODE (decl) == VAR_DECL
+  if (lambda_expr && VAR_P (decl)
       && DECL_ANON_UNION_VAR_P (decl))
     {
       if (complain & tf_error)
@@ -3649,11 +3645,6 @@ finish_id_expression (tree id_expression,
 	}
     }
 
-  /* Handle references (c++/56130).  */
-  tree t = REFERENCE_REF_P (decl) ? TREE_OPERAND (decl, 0) : decl;
-  if (TREE_DEPRECATED (t))
-    warn_deprecated_use (t, NULL_TREE);
-
   return decl;
 }
 
@@ -4133,7 +4124,7 @@ struct nrv_data
 
   tree var;
   tree result;
-  hash_table<pointer_hash <tree_node> > visited;
+  hash_table<nofree_ptr_hash <tree_node> > visited;
 };
 
 /* Helper function for walk_tree, used by finalize_nrv below.  */
@@ -4290,7 +4281,7 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	return error_mark_node;
       if (type_dependent_expression_p (t))
 	return NULL_TREE;
-      if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+      if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	{
 	  if (processing_template_decl)
 	    return NULL_TREE;
@@ -4305,7 +4296,7 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	  return error_mark_node;
 	}
       else if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_DEPEND
-	       && TREE_CODE (t) == VAR_DECL && DECL_THREAD_LOCAL_P (t))
+	       && VAR_P (t) && DECL_THREAD_LOCAL_P (t))
 	{
 	  error_at (OMP_CLAUSE_LOCATION (c),
 		    "%qD is threadprivate variable in %qs clause", t,
@@ -5671,7 +5662,7 @@ finish_omp_clauses (tree clauses)
 
 	case OMP_CLAUSE_ALIGNED:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	    {
 	      if (processing_template_decl)
 		break;
@@ -5741,7 +5732,7 @@ finish_omp_clauses (tree clauses)
 	    }
 	  if (t == error_mark_node)
 	    remove = true;
-	  else if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+	  else if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	    {
 	      if (processing_template_decl)
 		break;
@@ -5783,7 +5774,7 @@ finish_omp_clauses (tree clauses)
 	    }
 	  if (t == error_mark_node)
 	    remove = true;
-	  else if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+	  else if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	    {
 	      if (processing_template_decl)
 		break;
@@ -5798,7 +5789,7 @@ finish_omp_clauses (tree clauses)
 		       omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
-	  else if (TREE_CODE (t) == VAR_DECL && DECL_THREAD_LOCAL_P (t))
+	  else if (VAR_P (t) && DECL_THREAD_LOCAL_P (t))
 	    {
 	      error ("%qD is threadprivate variable in %qs clause", t,
 		     omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
@@ -6877,9 +6868,7 @@ finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
       bool swapped = false;
       if (rhs1 && cp_tree_equal (lhs, rhs))
 	{
-	  tree tem = rhs;
-	  rhs = rhs1;
-	  rhs1 = tem;
+	  std::swap (rhs, rhs1);
 	  swapped = !commutative_tree_code (opcode);
 	}
       if (rhs1 && !cp_tree_equal (lhs, rhs1))
@@ -7183,8 +7172,17 @@ finish_static_assert (tree condition, tree message, location_t location,
       input_location = location;
       if (TREE_CODE (condition) == INTEGER_CST 
           && integer_zerop (condition))
-        /* Report the error. */
-        error ("static assertion failed: %s", TREE_STRING_POINTER (message));
+	{
+	  int sz = TREE_INT_CST_LOW (TYPE_SIZE_UNIT
+				     (TREE_TYPE (TREE_TYPE (message))));
+	  int len = TREE_STRING_LENGTH (message) / sz - 1;
+          /* Report the error. */
+	  if (len == 0)
+            error ("static assertion failed");
+	  else
+            error ("static assertion failed: %s",
+		   TREE_STRING_POINTER (message));
+	}
       else if (condition && condition != error_mark_node)
 	{
 	  error ("non-constant condition for static assertion");
@@ -7239,7 +7237,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 
   expr = resolve_nondeduced_context (expr);
 
-  if (invalid_nonstatic_memfn_p (expr, complain))
+  if (invalid_nonstatic_memfn_p (input_location, expr, complain))
     return error_mark_node;
 
   if (type_unknown_p (expr))
@@ -7359,7 +7357,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 	  gcc_assert (TREE_CODE (type) != REFERENCE_TYPE);
 
 	  /* For vector types, pick a non-opaque variant.  */
-	  if (TREE_CODE (type) == VECTOR_TYPE)
+	  if (VECTOR_TYPE_P (type))
 	    type = strip_typedefs (type);
 
 	  if (clk != clk_none && !(clk & clk_class))

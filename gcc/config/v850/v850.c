@@ -22,15 +22,8 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -45,11 +38,7 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -57,10 +46,8 @@
 #include "stmt.h"
 #include "expr.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfgrtl.h"
@@ -73,6 +60,9 @@
 #include "df.h"
 #include "opts.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 #ifndef streq
 #define streq(a,b) (strcmp (a, b) == 0)
@@ -928,7 +918,7 @@ output_move_single (rtx * operands)
 	return "%S0st%W0 %.,%0";
     }
 
-  fatal_insn ("output_move_single:", gen_rtx_SET (VOIDmode, dst, src));
+  fatal_insn ("output_move_single:", gen_rtx_SET (dst, src));
   return "";
 }
 
@@ -1034,7 +1024,7 @@ v850_gen_compare (enum rtx_code cond, machine_mode mode, rtx op0, rtx op1)
       rtx cc_reg;
       mode = v850_gen_float_compare (cond, mode, op0, op1);
       cc_reg = gen_rtx_REG (mode, CC_REGNUM);
-      emit_insn (gen_rtx_SET(mode, cc_reg, gen_rtx_REG (mode, FCC_REGNUM)));  
+      emit_insn (gen_rtx_SET (cc_reg, gen_rtx_REG (mode, FCC_REGNUM)));
 
       return gen_rtx_fmt_ee (cond, mode, cc_reg, const0_rtx);
     }
@@ -1240,10 +1230,10 @@ Saved %d bytes (%d uses of register %s) in function %s, starting as insn %d, end
       && SET_SRC (PATTERN (insn)) == *p_r1)
     delete_insn (insn);
   else
-    emit_insn_before (gen_rtx_SET (Pmode, *p_r1, *p_ep), first_insn);
+    emit_insn_before (gen_rtx_SET (*p_r1, *p_ep), first_insn);
 
-  emit_insn_before (gen_rtx_SET (Pmode, *p_ep, reg), first_insn);
-  emit_insn_before (gen_rtx_SET (Pmode, *p_ep, *p_r1), last_insn);
+  emit_insn_before (gen_rtx_SET (*p_ep, reg), first_insn);
+  emit_insn_before (gen_rtx_SET (*p_ep, *p_r1), last_insn);
 }
 
 
@@ -1745,8 +1735,7 @@ expand_prologue (void)
 			  + (TARGET_DISABLE_CALLT ? (TARGET_LONG_CALLS ? 2 : 1) : 0)));
 
 	  XVECEXP (save_all, 0, 0)
-	    = gen_rtx_SET (VOIDmode,
-			   stack_pointer_rtx,
+	    = gen_rtx_SET (stack_pointer_rtx,
 			   gen_rtx_PLUS (Pmode,
 					 stack_pointer_rtx,
 					 GEN_INT(-alloc_stack)));
@@ -1754,8 +1743,7 @@ expand_prologue (void)
 	    {
 	      offset -= 4;
 	      XVECEXP (save_all, 0, i+1)
-		= gen_rtx_SET (VOIDmode,
-			       gen_rtx_MEM (Pmode,
+		= gen_rtx_SET (gen_rtx_MEM (Pmode,
 					    gen_rtx_PLUS (Pmode,
 							  stack_pointer_rtx,
 							  GEN_INT(offset))),
@@ -1903,17 +1891,16 @@ expand_epilogue (void)
 					  rtvec_alloc (num_restore + 2));
 	  XVECEXP (restore_all, 0, 0) = ret_rtx;
 	  XVECEXP (restore_all, 0, 1)
-	    = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-			    gen_rtx_PLUS (Pmode,
-					  stack_pointer_rtx,
-					  GEN_INT (alloc_stack)));
+	    = gen_rtx_SET (stack_pointer_rtx,
+			   gen_rtx_PLUS (Pmode,
+					 stack_pointer_rtx,
+					 GEN_INT (alloc_stack)));
 
 	  offset = alloc_stack - 4;
 	  for (i = 0; i < num_restore; i++)
 	    {
 	      XVECEXP (restore_all, 0, i+2)
-		= gen_rtx_SET (VOIDmode,
-			       restore_regs[i],
+		= gen_rtx_SET (restore_regs[i],
 			       gen_rtx_MEM (Pmode,
                                             gen_rtx_PLUS (Pmode,
                                                           stack_pointer_rtx,

@@ -126,6 +126,9 @@ static id_map *var_ids, **vars_tail = &var_ids;
 static const char *ptx_name;
 static const char *ptx_cfile_name;
 
+/* Shows if we should compile binaries for i386 instead of x86-64.  */
+bool target_ilp32 = false;
+
 /* Delete tempfiles.  */
 
 /* Unlink a temporary file unless requested otherwise.  */
@@ -839,6 +842,7 @@ process (FILE *in, FILE *out)
 {
   const char *input = read_file (in);
   Token *tok = tokenize (input);
+  unsigned int nvars = 0, nfuncs = 0;
 
   do
     tok = parse_file (tok);
@@ -850,16 +854,17 @@ process (FILE *in, FILE *out)
   write_stmts (out, rev_stmts (fns));
   fprintf (out, ";\n\n");
   fprintf (out, "static const char *var_mappings[] = {\n");
-  for (id_map *id = var_ids; id; id = id->next)
+  for (id_map *id = var_ids; id; id = id->next, nvars++)
     fprintf (out, "\t\"%s\"%s\n", id->ptx_name, id->next ? "," : "");
   fprintf (out, "};\n\n");
   fprintf (out, "static const char *func_mappings[] = {\n");
-  for (id_map *id = func_ids; id; id = id->next)
+  for (id_map *id = func_ids; id; id = id->next, nfuncs++)
     fprintf (out, "\t\"%s\"%s\n", id->ptx_name, id->next ? "," : "");
   fprintf (out, "};\n\n");
 
   fprintf (out, "static const void *target_data[] = {\n");
-  fprintf (out, "  ptx_code, var_mappings, func_mappings\n");
+  fprintf (out, "  ptx_code, (void*) %u, var_mappings, (void*) %u, "
+		"func_mappings\n", nvars, nfuncs);
   fprintf (out, "};\n\n");
 
   fprintf (out, "extern void GOMP_offload_register (const void *, int, void *);\n");
@@ -883,6 +888,7 @@ compile_native (const char *infile, const char *outfile, const char *compiler)
   struct obstack argv_obstack;
   obstack_init (&argv_obstack);
   obstack_ptr_grow (&argv_obstack, compiler);
+  obstack_ptr_grow (&argv_obstack, target_ilp32 ? "-m32" : "-m64");
   obstack_ptr_grow (&argv_obstack, infile);
   obstack_ptr_grow (&argv_obstack, "-c");
   obstack_ptr_grow (&argv_obstack, "-o");
@@ -960,11 +966,23 @@ main (int argc, char **argv)
      passed with @file.  Expand them into argv before processing.  */
   expandargv (&argc, &argv);
 
+  /* Find out whether we should compile binaries for i386 or x86-64.  */
+  for (int i = argc - 1; i > 0; i--)
+    if (strncmp (argv[i], "-foffload-abi=", sizeof ("-foffload-abi=") - 1) == 0)
+      {
+	if (strstr (argv[i], "ilp32"))
+	  target_ilp32 = true;
+	else if (!strstr (argv[i], "lp64"))
+	  fatal_error (input_location,
+		       "unrecognizable argument of option -foffload-abi");
+	break;
+      }
+
   struct obstack argv_obstack;
   obstack_init (&argv_obstack);
   obstack_ptr_grow (&argv_obstack, driver);
   obstack_ptr_grow (&argv_obstack, "-xlto");
-  obstack_ptr_grow (&argv_obstack, "-m64");
+  obstack_ptr_grow (&argv_obstack, target_ilp32 ? "-m32" : "-m64");
   obstack_ptr_grow (&argv_obstack, "-S");
 
   for (int ix = 1; ix != argc; ix++)

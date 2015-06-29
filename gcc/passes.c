@@ -26,16 +26,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "line-map.h"
-#include "input.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -51,10 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "function.h"
 #include "toplev.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -82,7 +70,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
@@ -95,9 +82,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-dump.h"
 #include "df.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "lto-streamer.h"
 #include "plugin.h"
@@ -105,6 +89,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h" /* for dump_function_header */
 #include "context.h"
 #include "pass_manager.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
 
@@ -293,6 +280,56 @@ rest_of_decl_compilation (tree decl,
   else if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl)
 	   && TREE_STATIC (decl))
     varpool_node::get_create (decl);
+
+  /* Generate early debug for global variables.  Any local variables will
+     be handled by either handling reachable functions from
+     finalize_compilation_unit (and by consequence, locally scoped
+     symbols), or by rest_of_type_compilation below.
+
+     Also, pick up function prototypes, which will be mostly ignored
+     by the different early_global_decl() hooks, but will at least be
+     used by Go's hijack of the debug_hooks to implement
+     -fdump-go-spec.  */
+  if (!in_lto_p
+      && (TREE_CODE (decl) != FUNCTION_DECL
+	  /* This will pick up function prototypes with no bodies,
+	     which are not visible in finalize_compilation_unit()
+	     while iterating with FOR_EACH_*_FUNCTION through the
+	     symbol table.  */
+	  || !DECL_SAVED_TREE (decl))
+
+      /* We need to check both decl_function_context and
+	 current_function_decl here to make sure local extern
+	 declarations end up with the correct context.
+
+	 For local extern declarations, decl_function_context is
+	 empty, but current_function_decl is set to the function where
+	 the extern was declared .  Without the check for
+	 !current_function_decl below, the local extern ends up
+	 incorrectly with a top-level context.
+
+	 For example:
+
+	 namespace S
+	 {
+	   int
+	   f()
+	   {
+	     {
+	       int i = 42;
+	       {
+	         extern int i; // Local extern declaration.
+		 return i;
+	       }
+	     }
+	   }
+	 }
+      */
+      && !decl_function_context (decl)
+      && !current_function_decl
+      && DECL_SOURCE_LOCATION (decl) != BUILTINS_LOCATION
+      && !decl_type_context (decl))
+    (*debug_hooks->early_global_decl) (decl);
 }
 
 /* Called after finishing a record, union or enumeral type.  */
@@ -819,32 +856,7 @@ pass_manager::register_dump_files (opt_pass *pass)
   while (pass);
 }
 
-/* Helper for pass_registry hash table.  */
-
-struct pass_registry_hasher : default_hashmap_traits
-{
-  static inline hashval_t hash (const char *);
-  static inline bool equal_keys (const char *, const char *);
-};
-
-/* Pass registry hash function.  */
-
-inline hashval_t
-pass_registry_hasher::hash (const char *name)
-{
-  return htab_hash_string (name);
-}
-
-/* Hash equal function  */
-
-inline bool
-pass_registry_hasher::equal_keys (const char *s1, const char *s2)
-{
-  return !strcmp (s1, s2);
-}
-
-static hash_map<const char *, opt_pass *, pass_registry_hasher>
-  *name_to_pass_map;
+static hash_map<nofree_string_hash, opt_pass *> *name_to_pass_map;
 
 /* Register PASS with NAME.  */
 
@@ -852,8 +864,7 @@ static void
 register_pass_name (opt_pass *pass, const char *name)
 {
   if (!name_to_pass_map)
-    name_to_pass_map
-      = new hash_map<const char *, opt_pass *, pass_registry_hasher> (256);
+    name_to_pass_map = new hash_map<nofree_string_hash, opt_pass *> (256);
 
   if (name_to_pass_map->get (name))
     return; /* Ignore plugin passes.  */
@@ -946,21 +957,9 @@ dump_passes (void)
 void
 pass_manager::dump_passes () const
 {
-  struct cgraph_node *n, *node = NULL;
+  push_dummy_function (true);
 
   create_pass_tab ();
-
-  FOR_EACH_FUNCTION (n)
-    if (DECL_STRUCT_FUNCTION (n->decl))
-      {
-	node = n;
-	break;
-      }
-
-  if (!node)
-    return;
-
-  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 
   dump_pass_list (all_lowering_passes, 1);
   dump_pass_list (all_small_ipa_passes, 1);
@@ -968,9 +967,8 @@ pass_manager::dump_passes () const
   dump_pass_list (all_late_ipa_passes, 1);
   dump_pass_list (all_passes, 1);
 
-  pop_cfun ();
+  pop_dummy_function ();
 }
-
 
 /* Returns the pass with NAME.  */
 
@@ -2350,8 +2348,9 @@ execute_one_pass (opt_pass *pass)
   if (pass->type == IPA_PASS)
     {
       struct cgraph_node *node;
-      FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
-	node->ipa_transforms_to_apply.safe_push ((ipa_opt_pass_d *)pass);
+      if (((ipa_opt_pass_d *)pass)->function_transform)
+	FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
+	  node->ipa_transforms_to_apply.safe_push ((ipa_opt_pass_d *)pass);
     }
 
   if (!current_function_decl)

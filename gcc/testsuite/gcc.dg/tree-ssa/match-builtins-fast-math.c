@@ -9,5 +9,3 @@ double test4 (double w)
 }
 
 /* { dg-final { scan-tree-dump "gimple_simplified to _\\d\+ = ABS_EXPR <w_\\d\+\\(D\\)" "forwprop1" } } */
-
-/* { dg-final { cleanup-tree-dump "forwprop1" } } */

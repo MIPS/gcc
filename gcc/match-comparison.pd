@@ -14,18 +14,6 @@
   (if (GIMPLE && useless_type_conversion_p (type, TREE_TYPE (@0)))
     @0)))
 
-/* Distribute operations in equality compares.  */
-(for op (eq ne)
- /* -exp op CST is exp op -CST.  */
- (simplify
-  /* ??? fix fold-const to use negate_expr_p  */
-  (op (negate @0) negate_expr_p@1)
-  (op @0 (negate @1)))
- /* X ^ C1 == C2 is X == (C1 ^ C2).  */
- (simplify
-  (op (bit_xor @0 INTEGER_CST@1) INTEGER_CST@2)
-  (op @0 (bit_xor @1 @2))))
-
 /* From fold_comparison, in the order of transforms in there.  */
 
 /* Transform comparisons of the form X +- C1 CMP C2 to X CMP C2 -+ C1.  */

@@ -28,22 +28,11 @@
 #include "output.h"
 #include "insn-attr.h"
 #include "recog.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -69,18 +58,14 @@
 #include "tm_p.h"
 #include "tm-constrs.h"
 #include "target.h"
-#include "target-def.h"
 #include "dwarf2.h"
 #include "timevar.h"
 #include "fold-const.h"
-#include "hash-table.h"
-#include "ggc.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -90,6 +75,9 @@
 #include "tilegx-multiply.h"
 #include "diagnostic.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* SYMBOL_REF for GOT */
 static GTY(()) rtx g_got_symbol = NULL;
@@ -2456,8 +2444,7 @@ tilegx_emit_setcc_internal (rtx res, enum rtx_code code, rtx op0, rtx op1,
     op1 = force_reg (cmp_mode, op1);
 
   /* Return the setcc comparison.  */
-  emit_insn (gen_rtx_SET (VOIDmode, res,
-			  gen_rtx_fmt_ee (code, DImode, op0, op1)));
+  emit_insn (gen_rtx_SET (res, gen_rtx_fmt_ee (code, DImode, op0, op1)));
 
   return true;
 }
@@ -2627,7 +2614,7 @@ tilegx_emit_conditional_branch (rtx operands[], machine_mode cmp_mode)
   rtx cmp_rtx =
     tilegx_emit_cc_test (GET_CODE (operands[0]), operands[1], operands[2],
 			 cmp_mode, false);
-  rtx branch_rtx = gen_rtx_SET (VOIDmode, pc_rtx,
+  rtx branch_rtx = gen_rtx_SET (pc_rtx,
 				gen_rtx_IF_THEN_ELSE (VOIDmode, cmp_rtx,
 						      gen_rtx_LABEL_REF
 						      (VOIDmode,
@@ -3778,7 +3765,7 @@ frame_emit_store (int regno, int regno_note, rtx addr, rtx cfa,
   rtx reg_note = gen_rtx_REG (DImode, regno_note);
   rtx cfa_relative_addr = gen_rtx_PLUS (Pmode, cfa, GEN_INT (cfa_offset));
   rtx cfa_relative_mem = gen_frame_mem (DImode, cfa_relative_addr);
-  rtx real = gen_rtx_SET (VOIDmode, cfa_relative_mem, reg_note);
+  rtx real = gen_rtx_SET (cfa_relative_mem, reg_note);
   add_reg_note (mov, REG_CFA_OFFSET, real);
 
   return emit_insn (mov);
@@ -3874,7 +3861,7 @@ emit_sp_adjust (int offset, int *next_scratch_regno, bool frame_related,
   /* Describe what just happened in a way that dwarf understands.  */
   if (frame_related)
     {
-      rtx real = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+      rtx real = gen_rtx_SET (stack_pointer_rtx,
 			      gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 					    imm_rtx));
       RTX_FRAME_RELATED_P (insn) = 1;
@@ -3960,7 +3947,7 @@ compute_frame_addr (int offset_from_fp, int *next_scratch_regno)
       offset_rtx = tmp_reg_rtx;
     }
 
-  emit_insn (gen_rtx_SET (VOIDmode, tmp_reg_rtx,
+  emit_insn (gen_rtx_SET (tmp_reg_rtx,
 			  gen_rtx_PLUS (Pmode, base_reg_rtx, offset_rtx)));
 
   return tmp_reg_rtx;
@@ -4097,7 +4084,7 @@ tilegx_expand_prologue (void)
 	     original stack pointer, not the one after we have pushed
 	     the frame.  */
 	  rtx p = gen_rtx_PLUS (Pmode, stack_pointer_rtx, size_rtx);
-	  emit_insn (gen_rtx_SET (VOIDmode, chain_addr, p));
+	  emit_insn (gen_rtx_SET (chain_addr, p));
 	  emit_sp_adjust (-total_size, &next_scratch_regno,
 			  !frame_pointer_needed, NULL_RTX);
 	}
@@ -4110,7 +4097,7 @@ tilegx_expand_prologue (void)
 			  !frame_pointer_needed, NULL_RTX);
 	  p = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 			    GEN_INT (UNITS_PER_WORD));
-	  emit_insn (gen_rtx_SET (VOIDmode, chain_addr, p));
+	  emit_insn (gen_rtx_SET (chain_addr, p));
 	}
 
       /* Save our frame pointer for backtrace chaining.  */
@@ -4144,7 +4131,7 @@ tilegx_expand_prologue (void)
 	       register.  */
 	    int stride = ROUND_ROBIN_SIZE * -UNITS_PER_WORD;
 	    rtx p = gen_rtx_PLUS (Pmode, r, GEN_INT (stride));
-	    emit_insn (gen_rtx_SET (VOIDmode, r, p));
+	    emit_insn (gen_rtx_SET (r, p));
 	  }
 
 	/* Save this register to the stack (but use the old fp value
@@ -4237,7 +4224,7 @@ tilegx_expand_epilogue (bool sibcall_p)
 	    /* Advance to the next stack slot to store this register.  */
 	    int stride = ROUND_ROBIN_SIZE * -UNITS_PER_WORD;
 	    rtx p = gen_rtx_PLUS (Pmode, r, GEN_INT (stride));
-	    emit_insn (gen_rtx_SET (VOIDmode, r, p));
+	    emit_insn (gen_rtx_SET (r, p));
 	  }
 
 	if (fp_copy_regno >= 0 && regno == HARD_FRAME_POINTER_REGNUM)

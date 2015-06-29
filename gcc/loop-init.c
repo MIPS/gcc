@@ -22,21 +22,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "regs.h"
 #include "obstack.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -46,9 +38,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "flags.h"
 #include "df.h"
-#include "ggc.h"
 #include "tree-ssa-loop-niter.h"
 #include "loop-unroll.h"
+#include "tree-scalar-evolution.h"
 
 
 /* Apply FLAGS to the loop state.  */
@@ -221,6 +213,9 @@ fix_loop_structure (bitmap changed_bbs)
 
   timevar_push (TV_LOOP_INIT);
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "fix_loop_structure: fixing up loops for function\n");
+
   /* We need exact and fast dominance info to be available.  */
   gcc_assert (dom_info_state (CDI_DOMINATORS) == DOM_OK);
 
@@ -290,6 +285,7 @@ fix_loop_structure (bitmap changed_bbs)
     }
 
   /* Finally free deleted loops.  */
+  bool any_deleted = false;
   FOR_EACH_VEC_ELT (*get_loops (cfun), i, loop)
     if (loop && loop->header == NULL)
       {
@@ -322,7 +318,13 @@ fix_loop_structure (bitmap changed_bbs)
 	  }
 	(*get_loops (cfun))[i] = NULL;
 	flow_loop_free (loop);
+	any_deleted = true;
       }
+
+  /* If we deleted loops then the cached scalar evolutions refering to
+     those loops become invalid.  */
+  if (any_deleted && scev_initialized_p ())
+    scev_reset_htab ();
 
   loops_state_clear (LOOPS_NEED_FIXUP);
 

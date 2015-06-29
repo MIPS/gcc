@@ -22,22 +22,14 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -51,7 +43,6 @@
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -366,6 +357,7 @@ simulate_stmt (gimple stmt)
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    add_control_edge (e);
 	}
+      return;
     }
   else if (val == SSA_PROP_INTERESTING)
     {
@@ -378,6 +370,45 @@ simulate_stmt (gimple stmt)
 	 add it to the CFG work list.  */
       if (taken_edge)
 	add_control_edge (taken_edge);
+    }
+
+  /* If there are no SSA uses on the stmt whose defs are simulated
+     again then this stmt will be never visited again.  */
+  bool has_simulate_again_uses = false;
+  use_operand_p use_p;
+  ssa_op_iter iter;
+  if (gimple_code  (stmt) == GIMPLE_PHI)
+    {
+      edge_iterator ei;
+      edge e;
+      tree arg;
+      FOR_EACH_EDGE (e, ei, gimple_bb (stmt)->preds)
+	if (!(e->flags & EDGE_EXECUTABLE)
+	    || ((arg = PHI_ARG_DEF_FROM_EDGE (stmt, e))
+		&& TREE_CODE (arg) == SSA_NAME
+		&& !SSA_NAME_IS_DEFAULT_DEF (arg)
+		&& prop_simulate_again_p (SSA_NAME_DEF_STMT (arg))))
+	  {
+	    has_simulate_again_uses = true;
+	    break;
+	  }
+    }
+  else
+    FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+      {
+	gimple def_stmt = SSA_NAME_DEF_STMT (USE_FROM_PTR (use_p));
+	if (!gimple_nop_p (def_stmt)
+	    && prop_simulate_again_p (def_stmt))
+	  {
+	    has_simulate_again_uses = true;
+	    break;
+	  }
+      }
+  if (!has_simulate_again_uses)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "marking stmt to be not simulated again\n");
+      prop_set_simulate_again (stmt, false);
     }
 }
 
@@ -1206,9 +1237,7 @@ substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
 	      && gimple_call_noreturn_p (stmt))
 	    stmts_to_fixup.safe_push (stmt);
 
-	  if (is_gimple_assign (stmt)
-	      && (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
-		  == GIMPLE_SINGLE_RHS))
+	  if (gimple_assign_single_p (stmt))
 	    {
 	      tree rhs = gimple_assign_rhs1 (stmt);
 

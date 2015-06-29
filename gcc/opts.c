@@ -741,6 +741,15 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 
   if (!opts->x_flag_opts_finished)
     {
+      /* We initialize opts->x_flag_pie to -1 so that targets can set a
+	 default value.  */
+      if (opts->x_flag_pie == -1)
+	{
+	  if (opts->x_flag_pic == 0)
+	    opts->x_flag_pie = DEFAULT_FLAG_PIE;
+	  else
+	    opts->x_flag_pie = 0;
+	}
       if (opts->x_flag_pie)
 	opts->x_flag_pic = opts->x_flag_pie;
       if (opts->x_flag_pic && !opts->x_flag_pie)
@@ -1386,7 +1395,7 @@ common_handle_option (struct gcc_options *opts,
 	unsigned int i;
 
 	if (lang_mask == CL_DRIVER)
-	  break;;
+	  break;
 
 	undoc_mask = ((opts->x_verbose_flag | opts->x_extra_warnings)
 		      ? 0
@@ -1584,6 +1593,8 @@ common_handle_option (struct gcc_options *opts,
 	      { "float-cast-overflow", SANITIZE_FLOAT_CAST,
 		sizeof "float-cast-overflow" - 1 },
 	      { "bounds", SANITIZE_BOUNDS, sizeof "bounds" - 1 },
+	      { "bounds-strict", SANITIZE_BOUNDS | SANITIZE_BOUNDS_STRICT,
+		sizeof "bounds-strict" - 1 },
 	      { "alignment", SANITIZE_ALIGNMENT, sizeof "alignment" - 1 },
 	      { "nonnull-attribute", SANITIZE_NONNULL_ATTRIBUTE,
 		sizeof "nonnull-attribute" - 1 },
@@ -1757,8 +1768,12 @@ common_handle_option (struct gcc_options *opts,
       break;
 
     case OPT_fdbg_cnt_:
+      /* Deferred.  */
+      break;
+
     case OPT_fdbg_cnt_list:
       /* Deferred.  */
+      opts->x_exit_after_options = true;
       break;
 
     case OPT_fdebug_prefix_map_:

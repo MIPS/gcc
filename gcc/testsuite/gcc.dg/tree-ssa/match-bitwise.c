@@ -84,5 +84,3 @@ int bitwise_9(int x, int y)
   return bitwise_9_val;
 }
 /* { dg-final { scan-tree-dump "gimple_simplified to bitwise_9_val_\\d\+ = 0" "forwprop1" } } */
-
-/* { dg-final { cleanup-tree-dump "forwprop2" } } */

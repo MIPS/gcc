@@ -24,27 +24,16 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "insn-codes.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -57,7 +46,6 @@
 #include "regs.h"
 #include "optabs.h"
 #include "recog.h"
-#include "ggc.h"
 #include "timevar.h"
 #include "tm_p.h"
 #include "tm-preds.h"
@@ -65,7 +53,6 @@
 #include "langhooks.h"
 #include "dbxout.h"
 #include "target.h"
-#include "target-def.h"
 #include "diagnostic.h"
 #include "predict.h"
 #include "basic-block.h"
@@ -74,11 +61,14 @@
 #include "df.h"
 #include "builtins.h"
 
+/* This file should be included last.  */
+#include "target-def.h"
+
 /* Record the function decls we've written, and the libfuncs and function
    decls corresponding to them.  */
 static std::stringstream func_decls;
 
-struct declared_libfunc_hasher : ggc_cache_hasher<rtx>
+struct declared_libfunc_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   static hashval_t hash (rtx x) { return htab_hash_pointer (x); }
   static bool equal (rtx a, rtx b) { return a == b; }
@@ -87,7 +77,7 @@ struct declared_libfunc_hasher : ggc_cache_hasher<rtx>
 static GTY((cache))
   hash_table<declared_libfunc_hasher> *declared_libfuncs_htab;
 
-  struct tree_hasher : ggc_cache_hasher<tree>
+struct tree_hasher : ggc_cache_ptr_hash<tree_node>
 {
   static hashval_t hash (tree t) { return htab_hash_pointer (t); }
   static bool equal (tree a, tree b) { return a == b; }
@@ -600,7 +590,7 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
     sz = 1;
   if (cfun->machine->has_call_with_varargs)
     fprintf (file, "\t.reg.u%d %%outargs;\n"
-	     "\t.local.align 8 .b8 %%outargs_ar["HOST_WIDE_INT_PRINT_DEC"];\n",
+	     "\t.local.align 8 .b8 %%outargs_ar[" HOST_WIDE_INT_PRINT_DEC"];\n",
 	     BITS_PER_WORD, sz);
   if (cfun->machine->punning_buffer_size > 0)
     fprintf (file, "\t.reg.u%d %%punbuffer;\n"
@@ -612,7 +602,7 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   if (sz > 0 || cfun->machine->has_call_with_sc)
     {
       fprintf (file, "\t.reg.u%d %%frame;\n"
-	       "\t.local.align 8 .b8 %%farray["HOST_WIDE_INT_PRINT_DEC"];\n",
+	       "\t.local.align 8 .b8 %%farray[" HOST_WIDE_INT_PRINT_DEC"];\n",
 	       BITS_PER_WORD, sz == 0 ? 1 : sz);
       fprintf (file, "\tcvta.local.u%d %%frame, %%farray;\n",
 	       BITS_PER_WORD);
@@ -842,7 +832,7 @@ nvptx_expand_call (rtx retval, rtx address)
     {
       if (!nvptx_register_operand (retval, GET_MODE (retval)))
 	tmp_retval = gen_reg_rtx (GET_MODE (retval));
-      t = gen_rtx_SET (VOIDmode, tmp_retval, t);
+      t = gen_rtx_SET (tmp_retval, t);
     }
   XVECEXP (pat, 0, 0) = t;
   if (!REG_P (callee)
@@ -1061,7 +1051,7 @@ nvptx_expand_compare (rtx compare)
   rtx pred = gen_reg_rtx (BImode);
   rtx cmp = gen_rtx_fmt_ee (GET_CODE (compare), BImode,
 			    XEXP (compare, 0), XEXP (compare, 1));
-  emit_insn (gen_rtx_SET (VOIDmode, pred, cmp));
+  emit_insn (gen_rtx_SET (pred, cmp));
   return gen_rtx_NE (BImode, pred, const0_rtx);
 }
 
@@ -1101,9 +1091,8 @@ nvptx_maybe_convert_symbolic_operand (rtx orig_op)
 	  : as == ADDR_SPACE_CONST ? UNSPEC_FROM_CONST
 	  : UNSPEC_FROM_PARAM);
   rtx dest = gen_reg_rtx (Pmode);
-  emit_insn (gen_rtx_SET (VOIDmode, dest,
-			  gen_rtx_UNSPEC (Pmode, gen_rtvec (1, orig_op),
-					  code)));
+  emit_insn (gen_rtx_SET (dest, gen_rtx_UNSPEC (Pmode, gen_rtvec (1, orig_op),
+						code)));
   return dest;
 }
 
@@ -1473,7 +1462,7 @@ nvptx_assemble_undefined_decl (FILE *file, const char *name, const_tree decl)
   fprintf (file, ".extern %s .b8 ", section);
   assemble_name_raw (file, name);
   if (size > 0)
-    fprintf (file, "["HOST_WIDE_INT_PRINT_DEC"]", size);
+    fprintf (file, "[" HOST_WIDE_INT_PRINT_DEC"]", size);
   fprintf (file, ";\n\n");
 }
 
@@ -1956,7 +1945,7 @@ nvptx_reorg (void)
 	      else
 		code = TRUNCATE;
 
-	      rtx pat = gen_rtx_SET (VOIDmode, new_reg,
+	      rtx pat = gen_rtx_SET (new_reg,
 				     gen_rtx_fmt_e (code, outer_mode, inner));
 	      emit_insn_before (pat, insn);
 	    }
@@ -1970,7 +1959,7 @@ nvptx_reorg (void)
 	      else
 		code = ZERO_EXTEND;
 
-	      rtx pat = gen_rtx_SET (VOIDmode, inner,
+	      rtx pat = gen_rtx_SET (inner,
 				     gen_rtx_fmt_e (code, inner_mode, new_reg));
 	      emit_insn_after (pat, insn);
 	    }

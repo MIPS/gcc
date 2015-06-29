@@ -42,6 +42,8 @@
 						\
       switch (bfin_cpu_type)			\
 	{					\
+	case BFIN_CPU_UNKNOWN:			\
+	  break;				\
 	case BFIN_CPU_BF512:			\
 	  builtin_define ("__ADSPBF512__");	\
 	  builtin_define ("__ADSPBF51x__");	\
@@ -231,7 +233,7 @@ extern const char *bfin_library_id_string;
 
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 #define STACK_PUSH_CODE PRE_DEC
 

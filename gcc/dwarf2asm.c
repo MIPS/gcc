@@ -23,16 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -41,8 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "dwarf2asm.h"
 #include "dwarf2.h"
-#include "hash-map.h"
-#include "ggc.h"
 #include "tm_p.h"
 
 
@@ -931,9 +921,9 @@ dw2_output_indirect_constants (void)
        iter != indirect_pool->end (); ++iter)
     temp.quick_push (*iter);
 
-    temp.qsort (compare_strings);
+  temp.qsort (compare_strings);
 
-    for (unsigned int i = 0; i < temp.length (); i++)
+  for (unsigned int i = 0; i < temp.length (); i++)
     dw2_output_indirect_constant_1 (temp[i].first, temp[i].second);
 }
 

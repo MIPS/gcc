@@ -27,12 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "basic-block.h"
 #include "valtrack.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "regs.h"
 #include "emit-rtl.h"
@@ -534,6 +529,22 @@ dead_debug_add (struct dead_debug_local *debug, df_ref use, unsigned int uregno)
   bitmap_set_bit (debug->used, uregno);
 }
 
+/* Like lowpart_subreg, but if a subreg is not valid for machine, force
+   it anyway - for use in debug insns.  */
+
+static rtx
+debug_lowpart_subreg (machine_mode outer_mode, rtx expr,
+		      machine_mode inner_mode)
+{
+  if (inner_mode == VOIDmode)
+    inner_mode = GET_MODE (expr);
+  int offset = subreg_lowpart_offset (outer_mode, inner_mode);
+  rtx ret = simplify_gen_subreg (outer_mode, expr, inner_mode, offset);
+  if (ret)
+    return ret;
+  return gen_rtx_raw_SUBREG (outer_mode, expr, offset);
+}
+
 /* If UREGNO is referenced by any entry in DEBUG, emit a debug insn
    before or after INSN (depending on WHERE), that binds a (possibly
    global) debug temp to the widest-mode use of UREGNO, if WHERE is
@@ -655,16 +666,14 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
 	     the debug temp to.  ??? We could bind the debug_expr to a
 	     CONCAT or PARALLEL with the split multi-registers, and
 	     replace them as we found the corresponding sets.  */
-	  else if (REGNO (reg) < FIRST_PSEUDO_REGISTER
-		   && (hard_regno_nregs[REGNO (reg)][GET_MODE (reg)]
-		       != hard_regno_nregs[REGNO (reg)][GET_MODE (dest)]))
+	  else if (REG_NREGS (reg) != REG_NREGS (dest))
 	    breg = NULL;
 	  /* Ok, it's the same (hardware) REG, but with a different
 	     mode, so SUBREG it.  */
 	  else
-	    breg = lowpart_subreg (GET_MODE (reg),
-				   cleanup_auto_inc_dec (src, VOIDmode),
-				   GET_MODE (dest));
+	    breg = debug_lowpart_subreg (GET_MODE (reg),
+					 cleanup_auto_inc_dec (src, VOIDmode),
+					 GET_MODE (dest));
 	}
       else if (GET_CODE (dest) == SUBREG)
 	{
@@ -679,14 +688,14 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
 	     setting REG in its mode would, we won't know what to bind
 	     the debug temp to.  */
 	  else if (REGNO (reg) < FIRST_PSEUDO_REGISTER
-		   && (hard_regno_nregs[REGNO (reg)][GET_MODE (reg)]
+		   && (REG_NREGS (reg)
 		       != hard_regno_nregs[REGNO (reg)][GET_MODE (dest)]))
 	    breg = NULL;
 	  /* Yay, we can use SRC, just adjust its mode.  */
 	  else
-	    breg = lowpart_subreg (GET_MODE (reg),
-				   cleanup_auto_inc_dec (src, VOIDmode),
-				   GET_MODE (dest));
+	    breg = debug_lowpart_subreg (GET_MODE (reg),
+					 cleanup_auto_inc_dec (src, VOIDmode),
+					 GET_MODE (dest));
 	}
       /* Oh well, we're out of luck.  */
       else
@@ -740,7 +749,8 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
 	*DF_REF_REAL_LOC (cur->use) = dval;
       else
 	*DF_REF_REAL_LOC (cur->use)
-	  = gen_lowpart_SUBREG (GET_MODE (*DF_REF_REAL_LOC (cur->use)), dval);
+	  = debug_lowpart_subreg (GET_MODE (*DF_REF_REAL_LOC (cur->use)), dval,
+				  GET_MODE (dval));
       /* ??? Should we simplify subreg of subreg?  */
       bitmap_set_bit (debug->to_rescan, INSN_UID (DF_REF_INSN (cur->use)));
       uses = cur->next;

@@ -108,14 +108,13 @@ match_word_omp_simd (const char *str, match (*subr) (void), locus *old_locus,
 static void
 use_modules (void)
 {
-  gfc_error_buf old_error_1;
-  output_buffer old_error;
+  gfc_error_buffer old_error;
 
-  gfc_push_error (&old_error, &old_error_1);
+  gfc_push_error (&old_error);
   gfc_buffer_error (false);
   gfc_use_modules ();
   gfc_buffer_error (true);
-  gfc_pop_error (&old_error, &old_error_1);
+  gfc_pop_error (&old_error);
   gfc_commit_symbols ();
   gfc_warning_check ();
   gfc_current_ns->old_cl_list = gfc_current_ns->cl_list;
@@ -2425,8 +2424,7 @@ verify_st_order (st_state *p, gfc_statement st, bool silent)
       break;
 
     default:
-      gfc_internal_error ("Unexpected %s statement in verify_st_order() at %C",
-			  gfc_ascii_statement (st));
+      return false;
     }
 
   /* All is well, record the statement in case we need it next time.  */
@@ -2436,7 +2434,7 @@ verify_st_order (st_state *p, gfc_statement st, bool silent)
 
 order:
   if (!silent)
-    gfc_error_1 ("%s statement at %C cannot follow %s statement at %L",
+    gfc_error ("%s statement at %C cannot follow %s statement at %L",
 	       gfc_ascii_statement (st),
 	       gfc_ascii_statement (p->last_statement), &p->where);
 
@@ -2813,7 +2811,7 @@ endType:
 		   "subcomponent exists)", c->name, &c->loc, sym->name);
 
       if (sym->attr.lock_comp && coarray && !lock_type)
-	gfc_error_1 ("Noncoarray component %s at %L of type LOCK_TYPE or with "
+	gfc_error ("Noncoarray component %s at %L of type LOCK_TYPE or with "
 		   "subcomponent of type LOCK_TYPE must have a codimension or "
 		   "be a subcomponent of a coarray. (Variables of type %s may "
 		   "not have a codimension as %s at %L has a codimension or a "
@@ -3528,7 +3526,7 @@ parse_if_block (void)
 	case ST_ELSEIF:
 	  if (seen_else)
 	    {
-	      gfc_error_1 ("ELSE IF statement at %C cannot follow ELSE "
+	      gfc_error ("ELSE IF statement at %C cannot follow ELSE "
 			 "statement at %L", &else_locus);
 
 	      reject_statement ();
@@ -3752,8 +3750,8 @@ gfc_check_do_variable (gfc_symtree *st)
   for (s=gfc_state_stack; s; s = s->previous)
     if (s->do_variable == st)
       {
-	gfc_error_now_1 ("Variable '%s' at %C cannot be redefined inside "
-			 "loop beginning at %L", st->name, &s->head->loc);
+	gfc_error_now ("Variable %qs at %C cannot be redefined inside "
+		       "loop beginning at %L", st->name, &s->head->loc);
 	return 1;
       }
 
@@ -3960,6 +3958,8 @@ parse_associate (void)
   for (a = new_st.ext.block.assoc; a; a = a->next)
     {
       gfc_symbol* sym;
+      gfc_ref *ref;
+      gfc_array_ref *array_ref;
 
       if (gfc_get_sym_tree (a->name, NULL, &a->st, false))
 	gcc_unreachable ();
@@ -3976,6 +3976,84 @@ parse_associate (void)
 	 for parsing component references on the associate-name
 	 in case of association to a derived-type.  */
       sym->ts = a->target->ts;
+
+      /* Check if the target expression is array valued.  This can not always
+	 be done by looking at target.rank, because that might not have been
+	 set yet.  Therefore traverse the chain of refs, looking for the last
+	 array ref and evaluate that.  */
+      array_ref = NULL;
+      for (ref = a->target->ref; ref; ref = ref->next)
+	if (ref->type == REF_ARRAY)
+	  array_ref = &ref->u.ar;
+      if (array_ref || a->target->rank)
+	{
+	  gfc_array_spec *as;
+	  int dim, rank = 0;
+	  if (array_ref)
+	    {
+	      /* Count the dimension, that have a non-scalar extend.  */
+	      for (dim = 0; dim < array_ref->dimen; ++dim)
+		if (array_ref->dimen_type[dim] != DIMEN_ELEMENT
+		    && !(array_ref->dimen_type[dim] == DIMEN_UNKNOWN
+			 && array_ref->end[dim] == NULL
+			 && array_ref->start[dim] != NULL))
+		  ++rank;
+	    }
+	  else
+	    rank = a->target->rank;
+	  /* When the rank is greater than zero then sym will be an array.  */
+	  if (sym->ts.type == BT_CLASS)
+	    {
+	      if ((!CLASS_DATA (sym)->as && rank != 0)
+		  || (CLASS_DATA (sym)->as
+		      && CLASS_DATA (sym)->as->rank != rank))
+		{
+		  /* Don't just (re-)set the attr and as in the sym.ts,
+		     because this modifies the target's attr and as.  Copy the
+		     data and do a build_class_symbol.  */
+		  symbol_attribute attr = CLASS_DATA (a->target)->attr;
+		  int corank = gfc_get_corank (a->target);
+		  gfc_typespec type;
+
+		  if (rank || corank)
+		    {
+		      as = gfc_get_array_spec ();
+		      as->type = AS_DEFERRED;
+		      as->rank = rank;
+		      as->corank = corank;
+		      attr.dimension = rank ? 1 : 0;
+		      attr.codimension = corank ? 1 : 0;
+		    }
+		  else
+		    {
+		      as = NULL;
+		      attr.dimension = attr.codimension = 0;
+		    }
+		  attr.class_ok = 0;
+		  type = CLASS_DATA (sym)->ts;
+		  if (!gfc_build_class_symbol (&type,
+					       &attr, &as))
+		    gcc_unreachable ();
+		  sym->ts = type;
+		  sym->ts.type = BT_CLASS;
+		  sym->attr.class_ok = 1;
+		}
+	      else
+		sym->attr.class_ok = 1;
+	    }
+	  else if ((!sym->as && rank != 0)
+		   || (sym->as && sym->as->rank != rank))
+	    {
+	      as = gfc_get_array_spec ();
+	      as->type = AS_DEFERRED;
+	      as->rank = rank;
+	      as->corank = gfc_get_corank (a->target);
+	      sym->as = as;
+	      sym->attr.dimension = 1;
+	      if (as->corank)
+		sym->attr.codimension = 1;
+	    }
+	}
     }
 
   accept_statement (ST_ASSOCIATE);
@@ -4283,7 +4361,7 @@ parse_oacc_structured_block (gfc_statement acc_st)
 	unexpected_eof ();
       else if (st != acc_end_st)
 	gfc_error ("Expecting %s at %C", gfc_ascii_statement (acc_end_st));
-	reject_statement ();
+      reject_statement ();
     }
   while (st != acc_end_st);
 
@@ -5071,10 +5149,10 @@ gfc_global_used (gfc_gsymbol *sym, locus *where)
     }
 
   if (sym->binding_label)
-    gfc_error_1 ("Global binding name '%s' at %L is already being used as a %s "
+    gfc_error ("Global binding name %qs at %L is already being used as a %s "
 	       "at %L", sym->binding_label, where, name, &sym->where);
   else
-    gfc_error_1 ("Global name '%s' at %L is already being used as a %s at %L",
+    gfc_error ("Global name %qs at %L is already being used as a %s at %L",
 	       sym->name, where, name, &sym->where);
 }
 
@@ -5544,7 +5622,7 @@ duplicate_main:
   /* If we see a duplicate main program, shut down.  If the second
      instance is an implied main program, i.e. data decls or executable
      statements, we're in for lots of errors.  */
-  gfc_error_1 ("Two main PROGRAMs at %L and %C", &prog_locus);
+  gfc_error ("Two main PROGRAMs at %L and %C", &prog_locus);
   reject_statement ();
   gfc_done_2 ();
   return true;

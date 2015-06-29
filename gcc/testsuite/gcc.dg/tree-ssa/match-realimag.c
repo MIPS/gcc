@@ -9,5 +9,3 @@ double realimag_1(double x)
   return realimag_1_val;
 }
 /* { dg-final { scan-tree-dump "gimple_simplified to realimag_1_val_\\d\+ = x_\\d\+\\(D\\)" "forwprop1" } } */
-
-/* { dg-final { cleanup-tree-dump "forwprop2" } } */

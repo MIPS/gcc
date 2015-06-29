@@ -52,24 +52,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "vec.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
 
@@ -142,12 +129,14 @@ propagate_comdat_group (struct symtab_node *symbol,
       {
 	struct symtab_node *symbol2 = edge->caller;
 
-	/* If we see inline clone, its comdat group actually
-	   corresponds to the comdat group of the function it is inlined
-	   to.  */
-
 	if (cgraph_node * cn = dyn_cast <cgraph_node *> (symbol2))
 	  {
+	    /* Thunks can not call across section boundary.  */
+	    if (cn->thunk.thunk_p)
+	      newgroup = propagate_comdat_group (symbol2, newgroup, map);
+	    /* If we see inline clone, its comdat group actually
+	       corresponds to the comdat group of the function it
+	       is inlined to.  */
 	    if (cn->global.inlined_to)
 	      symbol2 = cn->global.inlined_to;
 	  }
@@ -377,7 +366,7 @@ ipa_comdats (void)
 	      fprintf (dump_file, "To group: %s\n", IDENTIFIER_POINTER (group));
 	    }
 	  if (is_a <cgraph_node *> (symbol))
-	   dyn_cast <cgraph_node *>(symbol)->call_for_symbol_and_aliases
+	   dyn_cast <cgraph_node *>(symbol)->call_for_symbol_thunks_and_aliases
 		  (set_comdat_group_1,
 		   *comdat_head_map.get (group),
 		   true);

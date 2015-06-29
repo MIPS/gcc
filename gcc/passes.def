@@ -89,6 +89,7 @@ along with GCC; see the file COPYING3.  If not see
 	  NEXT_PASS (pass_build_ealias);
 	  NEXT_PASS (pass_fre);
 	  NEXT_PASS (pass_merge_phi);
+          NEXT_PASS (pass_dse);
 	  NEXT_PASS (pass_cd_dce);
 	  NEXT_PASS (pass_early_ipa_sra);
 	  NEXT_PASS (pass_tail_recursion);
@@ -158,7 +159,6 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_ccp);
       /* After CCP we rewrite no longer addressed locals into SSA
 	 form if possible.  */
-      NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_phiprop);
       NEXT_PASS (pass_forwprop);
@@ -172,14 +172,15 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_chkp_opt);
       NEXT_PASS (pass_dce);
+      NEXT_PASS (pass_stdarg);
       NEXT_PASS (pass_call_cdce);
       NEXT_PASS (pass_cselim);
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_tree_ifcombine);
+      NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_recursion);
       NEXT_PASS (pass_ch);
-      NEXT_PASS (pass_stdarg);
       NEXT_PASS (pass_lower_complex);
       NEXT_PASS (pass_sra);
       NEXT_PASS (pass_rename_ssa_copies);
@@ -210,7 +211,6 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_ccp);
       /* After CCP we rewrite no longer addressed locals into SSA
 	 form if possible.  */
-      NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_cse_sincos);
       NEXT_PASS (pass_optimize_bswap);
       NEXT_PASS (pass_split_crit_edges);
@@ -270,6 +270,7 @@ along with GCC; see the file COPYING3.  If not see
       PUSH_INSERT_PASSES_WITHIN (pass_tree_no_loop)
 	  NEXT_PASS (pass_slp_vectorize);
       POP_INSERT_PASSES ()
+      NEXT_PASS (pass_simduid_cleanup);
       NEXT_PASS (pass_lower_vector_ssa);
       NEXT_PASS (pass_cse_reciprocals);
       NEXT_PASS (pass_reassoc);
@@ -344,6 +345,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_tm_edges);
   POP_INSERT_PASSES ()
   NEXT_PASS (pass_vtable_verify);
+  NEXT_PASS (pass_lower_vaarg);
   NEXT_PASS (pass_lower_vector);
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_asan_O0);

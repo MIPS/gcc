@@ -21,15 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -44,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -69,12 +61,8 @@ along with GCC; see the file COPYING3.  If not see
 
 /* FIXME: Needed for optabs, but this should all be moved to a TBD interface
    between the GIMPLE and RTL worlds.  */
-#include "hashtab.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -368,8 +356,8 @@ find_or_create_group (struct mem_ref_group **groups, tree base, tree step)
 
       /* If step is an integer constant, keep the list of groups sorted
          by decreasing step.  */
-        if (cst_and_fits_in_hwi ((*groups)->step) && cst_and_fits_in_hwi (step)
-            && int_cst_value ((*groups)->step) < int_cst_value (step))
+      if (cst_and_fits_in_hwi ((*groups)->step) && cst_and_fits_in_hwi (step)
+	  && int_cst_value ((*groups)->step) < int_cst_value (step))
 	break;
     }
 

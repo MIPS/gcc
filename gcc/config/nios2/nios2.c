@@ -25,15 +25,8 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "regs.h"
@@ -44,11 +37,7 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -59,7 +48,6 @@
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "ggc.h"
 #include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -72,7 +60,6 @@
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
 #include "df.h"
@@ -80,6 +67,9 @@
 #include "reload.h"
 #include "stor-layout.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Forward function declarations.  */
 static bool prologue_saved_reg_p (unsigned);
@@ -566,7 +556,7 @@ nios2_expand_prologue (void)
   if (sp_offset)
     {
       rtx sp_adjust
-	= gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+	= gen_rtx_SET (stack_pointer_rtx,
 		       plus_constant (Pmode, stack_pointer_rtx, sp_offset));
       if (SMALL_INT (sp_offset))
 	insn = emit_insn (sp_adjust);
@@ -632,7 +622,7 @@ nios2_expand_epilogue (bool sibcall_p)
       emit_move_insn (tmp, gen_int_mode (cfun->machine->save_regs_offset,
 					 Pmode));
       insn = emit_insn (gen_add2_insn (stack_pointer_rtx, tmp));
-      cfa_adj = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+      cfa_adj = gen_rtx_SET (stack_pointer_rtx,
 			     plus_constant (Pmode, stack_pointer_rtx,
 					    cfun->machine->save_regs_offset));
       add_reg_note (insn, REG_CFA_ADJUST_CFA, cfa_adj);
@@ -659,7 +649,7 @@ nios2_expand_epilogue (bool sibcall_p)
     {
       insn = emit_insn (gen_add2_insn (stack_pointer_rtx,
 				       gen_int_mode (sp_adjust, Pmode)));
-      cfa_adj = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+      cfa_adj = gen_rtx_SET (stack_pointer_rtx,
 			     plus_constant (Pmode, stack_pointer_rtx,
 					    sp_adjust));
       add_reg_note (insn, REG_CFA_ADJUST_CFA, cfa_adj);
@@ -1978,7 +1968,7 @@ nios2_adjust_call_address (rtx *call_op, rtx reg)
       if (!reg)
 	reg = gen_reg_rtx (Pmode);
       addr = nios2_load_pic_address (addr, UNSPEC_PIC_CALL_SYM, tmp);
-      emit_insn (gen_rtx_SET (VOIDmode, reg, addr));
+      emit_insn (gen_rtx_SET (reg, addr));
       *call_op = reg;
     }
 }
@@ -2711,7 +2701,7 @@ nios2_expand_custom_builtin (tree exp, unsigned int index, rtx target)
     unspec_args[argno] = const0_rtx;
 
   insn = (has_target_p
-	  ? gen_rtx_SET (VOIDmode, target,
+	  ? gen_rtx_SET (target,
 			 gen_rtx_UNSPEC_VOLATILE (tmode,
 						  gen_rtvec_v (3, unspec_args),
 						  UNSPECV_CUSTOM_XNXX))

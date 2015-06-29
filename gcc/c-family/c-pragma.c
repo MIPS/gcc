@@ -21,26 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "attribs.h"
 #include "varasm.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"		/* For cfun.  FIXME: Does the parser know
 				   when it is inside a function, so that
 				   we don't have to look at cfun?  */
@@ -54,10 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "opts.h"
 #include "plugin.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 
 #define GCC_BAD(gmsgid) \
@@ -306,7 +290,7 @@ maybe_apply_pragma_weak (tree decl)
   /* If it's not a function or a variable, it can't be weak.
      FIXME: what kinds of things are visible outside this file but
      aren't functions or variables?   Should this be an assert instead?  */
-  if (TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
+  if (!VAR_OR_FUNCTION_DECL_P (decl))
     return;
 
   if (DECL_ASSEMBLER_NAME_SET_P (decl))
@@ -355,7 +339,7 @@ maybe_apply_pending_pragma_weaks (void)
       DECL_ARTIFICIAL (decl) = 1;
       TREE_PUBLIC (decl) = 1;
       DECL_WEAK (decl) = 1;
-      if (TREE_CODE (decl) == VAR_DECL)
+      if (VAR_P (decl))
 	TREE_STATIC (decl) = 1;
       if (!target)
 	{
@@ -399,7 +383,7 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
       if (value)
 	{
 	  DECL_EXTERNAL (decl) = 0;
-	  if (TREE_CODE (decl) == VAR_DECL)
+	  if (VAR_P (decl))
 	    TREE_STATIC (decl) = 1;
 	  assemble_alias (decl, value);
 	}
@@ -486,8 +470,7 @@ handle_pragma_redefine_extname (cpp_reader * ARG_UNUSED (dummy))
 	}
 
       if ((TREE_PUBLIC (decl) || DECL_EXTERNAL (decl))
-	  && (TREE_CODE (decl) == FUNCTION_DECL
-	      || TREE_CODE (decl) == VAR_DECL))
+	  && VAR_OR_FUNCTION_DECL_P (decl))
 	{
 	  found = true;
 	  if (DECL_ASSEMBLER_NAME_SET_P (decl))
@@ -547,7 +530,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
 
   /* The renaming pragmas are only applied to declarations with
      external linkage.  */
-  if ((TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
+  if (!VAR_OR_FUNCTION_DECL_P (decl)
       || (!TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
       || !has_c_linkage (decl))
     return asmname;

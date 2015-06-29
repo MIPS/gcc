@@ -696,7 +696,7 @@ enum reg_class
 
 /* Stack Layout and Calling Conventions.  */
 
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 #define FRAME_GROWS_DOWNWARD 1
 
@@ -831,7 +831,7 @@ enum reg_class
 
 #define SLOW_BYTE_ACCESS 1
 
-#define NO_FUNCTION_CSE
+#define NO_FUNCTION_CSE 1
 
 
 /* Adjusting the Instruction Scheduler.  */
