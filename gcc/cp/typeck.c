@@ -4970,7 +4970,7 @@ cp_build_binary_op (location_t location,
 	     from being kept in a register.
 	     Instead, make copies of the our local variables and
 	     pass the copies by reference, then copy them back afterward.  */
-	  tree xop0 = fold (op0), xop1 = fold (op1), xresult_type = result_type;
+	  tree xop0 = fold_simple_on_cst (op0), xop1 = fold_simple_on_cst (op1), xresult_type = result_type;
 	  enum tree_code xresultcode = resultcode;
 	  tree val
 	    = shorten_compare (location, &xop0, &xop1, &xresult_type,
