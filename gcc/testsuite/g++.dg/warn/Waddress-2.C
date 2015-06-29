@@ -9,7 +9,7 @@ struct S
 
   S()
   {
-    if (&S<Derived>::Unwrap != &Derived::Unwrap)
+    if (&S<Derived>::Unwrap != &Derived::Unwrap) // { dg-warning "will never be NULL" "" }
       m();
   }
 
