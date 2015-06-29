@@ -10138,22 +10138,17 @@ expand_omp_target (struct omp_region *region)
 	  = fold_convert_loc (gimple_location (entry_stmt),
 			      integer_type_node, integer_one_node);
 	/* ..., but if present, use the value specified by the respective
-	   clause, making sure that are of the correct type.  */
+	   clause.  */
 	c = find_omp_clause (clauses, OMP_CLAUSE_NUM_GANGS);
 	if (c)
-	  t_num_gangs = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
-					  integer_type_node,
-					  OMP_CLAUSE_NUM_GANGS_EXPR (c));
+	  t_num_gangs = OMP_CLAUSE_NUM_GANGS_EXPR (c);
 	c = find_omp_clause (clauses, OMP_CLAUSE_NUM_WORKERS);
 	if (c)
-	  t_num_workers = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
-					    integer_type_node,
-					    OMP_CLAUSE_NUM_WORKERS_EXPR (c));
+	  t_num_workers = OMP_CLAUSE_NUM_WORKERS_EXPR (c);
 	c = find_omp_clause (clauses, OMP_CLAUSE_VECTOR_LENGTH);
 	if (c)
-	  t_vector_length = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
-					      integer_type_node,
-					      OMP_CLAUSE_VECTOR_LENGTH_EXPR (c));
+	  t_vector_length = OMP_CLAUSE_VECTOR_LENGTH_EXPR (c);
+	 
 	args.quick_push (t_num_gangs);
 	args.quick_push (t_num_workers);
 	args.quick_push (t_vector_length);
