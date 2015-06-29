@@ -1900,25 +1900,10 @@ get_replacement (struct reg_replace *r)
    conversion copyin/copyout instructions.  */
 
 static void
-nvptx_reorg (void)
+nvptx_reorg_subreg (int max_regs)
 {
   struct reg_replace qiregs, hiregs, siregs, diregs;
   rtx_insn *insn, *next;
-
-  /* We are freeing block_for_insn in the toplev to keep compatibility
-     with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
-  compute_bb_for_insn ();
-
-  df_clear_flags (DF_LR_RUN_DCE);
-  df_analyze ();
-  regstat_init_n_sets_and_refs ();
-  int max_regs = max_reg_num ();
-
-  for (int i = LAST_VIRTUAL_REGISTER + 1; i < max_regs; i++)
-    if (REG_N_SETS (i) == 0 && REG_N_REFS (i) == 0)
-      regno_reg_rtx[i] = const0_rtx;
-
-  thread_prologue_and_epilogue_insns ();
 
   qiregs.n_allocated = 0;
   hiregs.n_allocated = 0;
@@ -2060,11 +2045,49 @@ nvptx_reorg (void)
 	    }
 	}
     }
+
   if (dump_file)
     for (int i = 0; i < max_regs; i++)
       if (cfun->machine->warp_equal_pseudos[i])
 	fprintf (dump_file, "Found warp invariant pseudo %d\n", i);
+}
+
+/* PTX-specific reorganization
+   1) mark now-unused registers, so function begin doesn't declare
+   unused registers.
+   2) replace subregs with suitable sequences.
+*/
+
+static void
+nvptx_reorg (void)
+{
+  struct reg_replace qiregs, hiregs, siregs, diregs;
+  rtx_insn *insn, *next;
+
+  /* We are freeing block_for_insn in the toplev to keep compatibility
+     with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
+  compute_bb_for_insn ();
+
+  thread_prologue_and_epilogue_insns ();
+
+  df_clear_flags (DF_LR_RUN_DCE);
+  df_set_flags (DF_NO_INSN_RESCAN | DF_NO_HARD_REGS);
+  df_analyze ();
+  regstat_init_n_sets_and_refs ();
+
+  int max_regs = max_reg_num ();
+
+  /* Mark unused regs as unused.  */
+  for (int i = LAST_VIRTUAL_REGISTER + 1; i < max_regs; i++)
+    if (REG_N_SETS (i) == 0 && REG_N_REFS (i) == 0)
+      regno_reg_rtx[i] = const0_rtx;
+
+  /* Replace subregs.  */
+  nvptx_reorg_subreg (max_regs);
+
   regstat_free_n_sets_and_refs ();
+
+  df_finish_pass (true);
 }
 
 /* Handle a "kernel" attribute; arguments as in
