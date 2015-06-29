@@ -1983,20 +1983,36 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
       break;
     }
   case CALL_EXPR:
+    {
+      int sv = optimize, nw = sv;
+      tree callee = get_callee_fndecl (x);
+
+      if (callee && DECL_BUILT_IN (callee) && !optimize
+	  && DECL_IS_BUILTIN_CONSTANT_P (callee)
+          && current_function_decl
+	  && DECL_DECLARED_CONSTEXPR_P (current_function_decl))
+	nw = 1;
+    optimize = nw;
     r = fold (x);
+    optimize = sv;
     if (TREE_CODE (r) != CALL_EXPR)
       {
 	x = cp_fold (r, fold_hash);
 	break;
       }
     {
+      x = copy_node (x);
       int i, m = call_expr_nargs (x);
       for (i = 0; i < m; i++)
         {
 	  CALL_EXPR_ARG (x, i) = cp_fold (CALL_EXPR_ARG (x, i), fold_hash);
 	}
     }
+    optimize = nw;
     r = fold (x);
+    optimize = sv;
+    }
+
     if (TREE_CODE (r) != CALL_EXPR)
       {
 	x = cp_fold (r, fold_hash);
@@ -2005,6 +2021,8 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     return org_x;
 
   case BIND_EXPR:
+    if (TREE_OPERAND (x, 0) || TREE_OPERAND (x, 1) || TREE_OPERAND (x, 2))
+      x = copy_node (x);
     if (TREE_OPERAND (x, 0))
       TREE_OPERAND (x, 0) = cp_fold (TREE_OPERAND (x, 0), fold_hash);
     if (TREE_OPERAND (x, 1))
@@ -2056,7 +2074,10 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     break;
   case DECL_EXPR:
     if (TREE_OPERAND (x, 0))
+    {
+      x = copy_node (x);
       TREE_OPERAND (x, 0) = cp_fold (TREE_OPERAND (x, 0), fold_hash);
+    }
     break;
   default:
     return org_x;
