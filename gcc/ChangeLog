@@ -1,3 +1,10 @@
+2015-06-30  Simon Dardis  <simon.dardis@imgtec.com>
+
+	* config/mips/mips.c (mips_expand_block_move,
+	mips_block_move_straight,mips_store_by_pieces_p): Enable inline
+	memcpy expansion, use halfword moves when subword aligned.
+	* config/mips/mips.h (MIPS_MIN_MOVE_MEM_ALIGN): Define. 
+
 2014-10-30  Release Manager
 
 	* GCC 4.9.2 released.

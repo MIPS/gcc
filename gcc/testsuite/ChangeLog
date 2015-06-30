@@ -1,3 +1,9 @@
+2015-06-30  Simon Dardis  <simon.dardis@imgtec.com>
+
+	* gcc.target/mips/inline-memcpy-expansion.c: New test.
+	* gcc.target/mips/inline-memcpy-low-alignment.c: New test.
+	* gcc.target/mips/inline-memcpy-swr.c: New test.
+
 2014-10-30  Release Manager
 
 	* GCC 4.9.2 released.
