@@ -58,6 +58,7 @@ naive_process_phi (hsa_insn_phi *phi)
   unsigned count = phi->operands.length ();
   for (unsigned i = 0; i < count; i++)
     {
+      gcc_checking_assert (phi->operands[i]);
       hsa_op_base *op = phi->operands[i];
       hsa_bb *hbb;
       edge e;
@@ -247,7 +248,6 @@ hsa_num_def_ops (hsa_insn_basic *insn)
 	return 1;
 
       case BRIG_OPCODE_NOP:
-      case HSA_OPCODE_CALL_BLOCK:
 	return 0;
 
       case BRIG_OPCODE_EXPAND:
@@ -311,7 +311,7 @@ hsa_num_def_ops (hsa_insn_basic *insn)
       case BRIG_OPCODE_CALL:
       case BRIG_OPCODE_SCALL:
       case BRIG_OPCODE_ICALL:
-	return 1; /* ??? */
+	return 0;
 
       case BRIG_OPCODE_RET:
 	return 0;
@@ -341,6 +341,9 @@ hsa_num_def_ops (hsa_insn_basic *insn)
       case BRIG_OPCODE_GROUPBASEPTR:
       case BRIG_OPCODE_KERNARGBASEPTR:
 	return 1; /* ??? */
+
+      case HSA_OPCODE_ARG_BLOCK:
+	return 0;
     }
 }
 
@@ -508,72 +511,6 @@ spill_at_interval (hsa_op_reg *reg, vec<hsa_op_reg*> *active)
   cand->spill_sym->name_number = cand->order;
 }
 
-/* Visit instruction INSN and fill in vector IND2REG if the instruction
-   contains a register (in memory).  Number all insns by a global counter,
-   passed by INSN_ORDER argument.  */
-
-static void
-visit_insn (hsa_insn_basic *insn, vec<hsa_op_reg*> &ind2reg, int &insn_order)
-{
-  unsigned opi;
-  unsigned count = insn->operands.length ();
-  insn->number = insn_order++;
-  for (opi = 0; opi < count; opi++)
-    {
-      gcc_checking_assert (insn->operands[opi]);
-      hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
-      if (regaddr)
-	ind2reg[(*regaddr)->order] = *regaddr;
-    }
-}
-
-/* Remove definition in INSN according to bitmap WORK list.  */
-
-static void
-remove_def_in_insn (bitmap &work, hsa_insn_basic *insn)
-{
-  unsigned opi;
-  unsigned ndefs = hsa_num_def_ops (insn);
-  for (opi = 0; opi < ndefs && insn->operands[opi]; opi++)
-    {
-      gcc_checking_assert (insn->operands[opi]);
-      hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
-      if (regaddr)
-	bitmap_clear_bit (work, (*regaddr)->order);
-    }
-  unsigned count = insn->operands.length ();
-  for (; opi < count; opi++)
-    {
-      gcc_checking_assert (insn->operands[opi]);
-      hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
-      if (regaddr)
-	bitmap_set_bit (work, (*regaddr)->order);
-    }
-}
-
-/* Merge live range for an instruction INSN.  */
-
-static void
-merge_live_range_for_insn (hsa_insn_basic *insn)
-{
-  unsigned opi;
-  unsigned ndefs = hsa_num_def_ops (insn);
-  unsigned count = insn->operands.length ();
-  for (opi = 0; opi < count; opi++)
-    {
-      gcc_checking_assert (insn->operands[opi]);
-      hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
-      if (regaddr)
-	{
-	  hsa_op_reg *reg = *regaddr;
-	  if (opi < ndefs)
-	    note_lr_begin (reg, insn->number);
-	  else
-	    note_lr_end (reg, insn->number);
-	}
-    }
-}
-
 /* Given the global register state CLASSES allocate all HSA virtual
    registers either to hardregs or to a spill symbol.  */
 
@@ -606,16 +543,14 @@ linear_scan_regalloc (struct reg_class_desc *classes)
       hsa_insn_basic *insn;
       for (insn = hbb->first_insn; insn; insn = insn->next)
 	{
-	  visit_insn (insn, ind2reg, insn_order);
-
-	  if (is_a <hsa_insn_call_block *> (insn))
+	  unsigned opi;
+	  insn->number = insn_order++;
+	  for (opi = 0; opi < insn->operands.length (); opi++)
 	    {
-	      /* HSA call block insn contains insns that are used for passing
-		 arguments and getting a return value, if returned.  */
-	      hsa_insn_call_block *call = dyn_cast <hsa_insn_call_block *>
-		(insn);
-	      for (unsigned j = 0; j < call->input_arg_insns.length (); j++)
-		visit_insn (call->input_arg_insns[j], ind2reg, insn_order);
+	      gcc_checking_assert (insn->operands[opi]);
+	      hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
+	      if (regaddr)
+		ind2reg[(*regaddr)->order] = *regaddr;
 	    }
 	}
     }
@@ -661,17 +596,21 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 	  hsa_insn_basic *insn;
 	  for (insn = hbb->last_insn; insn; insn = insn->prev)
 	    {
-	      remove_def_in_insn (work, insn);
-	      if (is_a <hsa_insn_call_block *> (insn))
+	      unsigned opi;
+	      unsigned ndefs = hsa_num_def_ops (insn);
+	      for (opi = 0; opi < ndefs && insn->operands[opi]; opi++)
 		{
-		  /* HSA call block insn contains insns that are used for
-		     passing arguments and getting a return value,
-		     if returned.  */
-		  hsa_insn_call_block *call = dyn_cast <hsa_insn_call_block *>
-		    (insn);
-
-		  for (int j = call->input_arg_insns.length () - 1; j >= 0; j--)
-		    remove_def_in_insn (work, call->input_arg_insns[j]);
+		  gcc_checking_assert (insn->operands[opi]);
+		  hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
+		  if (regaddr)
+		    bitmap_clear_bit (work, (*regaddr)->order);
+		}
+	      for (; opi < insn->operands.length (); opi++)
+		{
+		  gcc_checking_assert (insn->operands[opi]);
+		  hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
+		  if (regaddr)
+		    bitmap_set_bit (work, (*regaddr)->order);
 		}
 	    }
 
@@ -705,17 +644,20 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 
       for (insn = hbb->last_insn; insn; insn = insn->prev)
 	{
-	  merge_live_range_for_insn (insn);
-
-	  if (is_a <hsa_insn_call_block *> (insn))
+	  unsigned opi;
+	  unsigned ndefs = hsa_num_def_ops (insn);
+	  for (opi = 0; opi < insn->operands.length (); opi++)
 	    {
-	      /* HSA call block insn contains insns that are used for passing
-		 arguments and getting a return value, if returned.  */
-	      hsa_insn_call_block *call = dyn_cast <hsa_insn_call_block *>
-		(insn);
-
-	      for (int j = call->input_arg_insns.length () - 1; j >= 0; j--)
-		merge_live_range_for_insn (call->input_arg_insns[j]);
+	      gcc_checking_assert (insn->operands[opi]);
+	      hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
+	      if (regaddr)
+		{
+		  hsa_op_reg *reg = *regaddr;
+		  if (opi < ndefs)
+		    note_lr_begin (reg, insn->number);
+		  else
+		    note_lr_end (reg, insn->number);
+		}
 	    }
 	}
       if (hbb->first_insn)

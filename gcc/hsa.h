@@ -277,7 +277,7 @@ is_a_helper <hsa_op_code_list *>::test (hsa_op_base *p)
    represent it nevertheless.  */
 
 #define HSA_OPCODE_PHI (-1)
-#define HSA_OPCODE_CALL_BLOCK (-2)
+#define HSA_OPCODE_ARG_BLOCK (-2)
 
 /* The number of operand pointers we can directly in an instruction.  */
 #define HSA_BRIG_INT_STORAGE_OPERANDS 5
@@ -530,6 +530,15 @@ public:
   /* Called function */
   tree called_function;
 
+  /* Input formal arguments.  */
+  auto_vec <hsa_symbol *> input_args;
+
+  /* Input arguments store instructions.  */
+  auto_vec <hsa_insn_mem *> input_arg_insns;
+
+  /* Output argument, can be NULL for void functions.  */
+  hsa_symbol *output_arg;
+
   /* Called function code reference.  */
   hsa_op_code_ref func;
 
@@ -568,23 +577,14 @@ is_a_helper <hsa_insn_call *>::test (hsa_insn_basic *p)
    Emission of the instruction will produce multiple
    HSAIL instructions.  */
 
-class hsa_insn_call_block : public hsa_insn_basic
+class hsa_insn_arg_block : public hsa_insn_basic
 {
 public:
-  hsa_insn_call_block ();
+  hsa_insn_arg_block (BrigKind brig_kind, hsa_insn_call * call);
   void *operator new (size_t);
 
-  /* Input formal arguments.  */
-  auto_vec <hsa_symbol *> input_args;
-
-  /* Input arguments store instructions.  */
-  auto_vec <hsa_insn_mem *> input_arg_insns;
-
-  /* Output argument, can be NULL for void functions.  */
-  hsa_symbol *output_arg;
-
-  /* Output argument load instruction.  */
-  hsa_insn_mem *output_arg_insn;
+  /* Kind of argument block.  */
+  BrigKind kind;
 
   /* Call instruction.  */
   hsa_insn_call *call_insn;
@@ -599,9 +599,9 @@ private:
 template <>
 template <>
 inline bool
-is_a_helper <hsa_insn_call_block *>::test (hsa_insn_basic *p)
+is_a_helper <hsa_insn_arg_block *>::test (hsa_insn_basic *p)
 {
-  return (p->opcode == HSA_OPCODE_CALL_BLOCK);
+  return (p->opcode == HSA_OPCODE_ARG_BLOCK);
 }
 
 /* Basic block of HSA instructions.  */
@@ -713,7 +713,7 @@ public:
   /* Input arguments of the function.  */
   /* FIXME: Normally we'd use a vector, however our C++ vectors seem to have
      problems with derived classes, so for now we'll use a simple array.  */
-  int input_args_count;
+  unsigned input_args_count;
 
   /* Number of allocated register structures.  */
   int reg_count;
@@ -725,6 +725,9 @@ public:
   hash_table <hsa_noop_symbol_hasher> *local_symbols;
   /* Vector of pointers to spill symbols.  */
   vec <struct hsa_symbol *> spill_symbols;
+
+  /* Vector of called function declarations.  */
+  vec <tree> called_functions;
 
   /* Instructions to be executed before the first BB from gimple.  It's label
    is zero and must not be referenced, of course there are no PHIs.  */
@@ -738,6 +741,12 @@ public:
 
   /* True if the function is kernel function.  */
   bool kern_p;
+
+  /* True if the function representation is a declaration.  */
+  bool declaration_p;
+
+  /* Function declaration tree.  */
+  tree decl;
 };
 
 /* in hsa.c */
@@ -758,6 +767,7 @@ tree hsa_get_decl_kernel_mapping_decl (unsigned i);
 char *hsa_get_decl_kernel_mapping_name (unsigned i);
 void hsa_free_decl_kernel_mapping (void);
 void hsa_sanitize_name (char *p);
+const char *get_declaration_name (tree decl);
 
 /* In hsa-gen.c.  */
 void hsa_build_append_simple_mov (hsa_op_reg *, hsa_op_base *, hsa_bb *);
@@ -765,6 +775,7 @@ hsa_symbol *hsa_get_spill_symbol (BrigType16_t);
 hsa_op_reg *hsa_spill_in (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_op_reg *hsa_spill_out (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_bb *hsa_init_new_bb (basic_block);
+hsa_function_representation *hsa_generate_function_declaration (tree decl);
 
 /* In hsa-regalloc.c.  */
 void hsa_regalloc (void);

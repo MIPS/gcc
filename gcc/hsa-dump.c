@@ -706,10 +706,10 @@ static void indent_stream (FILE *f, int indent)
 /* Dump textual representation of HSA IL instruction INSN to file F.  */
 
 static void
-dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
+dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
 {
   gcc_checking_assert (insn);
-  indent_stream (f, indent);
+  indent_stream (f, *indent);
 
   if (insn->number)
     fprintf (f, "%5d: ", insn->number);
@@ -849,37 +849,38 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
 	  }
       fprintf (f, "BB %i\n", hsa_bb_for_bb (target)->index);
     }
-  else if (is_a <hsa_insn_call_block *> (insn))
+  else if (is_a <hsa_insn_arg_block *> (insn))
     {
-      hsa_insn_call_block *call_block = as_a <hsa_insn_call_block *> (insn);
+      hsa_insn_arg_block *arg_block = as_a <hsa_insn_arg_block *> (insn);
+      bool start_p = arg_block->kind == BRIG_KIND_DIRECTIVE_ARG_BLOCK_START;
+      char c = start_p ? '{' : '}';
 
-      fprintf (f, "{\n");
+      if (start_p)
+	{
+	  *indent += 2;
+	  indent_stream (f, 2);
+	}
 
-      for (unsigned i = 0; i < call_block->input_arg_insns.length (); i++)
-	dump_hsa_insn (f, call_block->input_arg_insns[i], indent + 2);
+      if (!start_p)
+	*indent -= 2;
 
-      dump_hsa_insn (f, call_block->call_insn, indent + 2);
-
-      if (call_block->output_arg_insn)
-	dump_hsa_insn (f, call_block->output_arg_insn, indent + 2);
-
-      indent_stream (f, indent);
-      fprintf (f, "}\n");
+      fprintf (f, "%c\n", c);
     }
   else if (is_a <hsa_insn_call *> (insn))
     {
       hsa_insn_call *call = as_a <hsa_insn_call *> (insn);
-      const char *name = xstrdup (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (call->called_function)));
+      const char *name = get_declaration_name (call->called_function);
 
       fprintf (f, "call &%s", name);
 
       if (call->result_symbol)
-	fprintf (f, "(%%%s) ", call->result_symbol->name);
+	fprintf (f, "(%%res) ");
 
       fprintf (f, "(");
       for (unsigned i = 0; i < call->args_symbols.length (); i++)
         {
-	  fprintf (f, "%%%s", call->args_symbols[i]->name);
+	  fprintf (f, "%%__arg_%u", i);
+
 	  if (i != call->args_symbols.length () - 1)
 	    fprintf (f, ", ");
 	}
@@ -929,10 +930,12 @@ dump_hsa_bb (FILE *f, hsa_bb *hbb)
   /* FIXME: Dump a label or something instead.  */
   fprintf (f, "BB %i:\n", hbb->index);
 
+  int indent = 2;
   for (insn = hbb->first_phi; insn; insn = insn->next)
-    dump_hsa_insn (f, insn, 2);
+    dump_hsa_insn (f, insn, &indent);
+
   for (insn = hbb->first_insn; insn; insn = insn->next)
-    dump_hsa_insn (f, insn, 2);
+    dump_hsa_insn (f, insn, &indent);
 
   FOR_EACH_EDGE (e, ei, hbb->bb->succs)
     if (e->flags & EDGE_TRUE_VALUE)

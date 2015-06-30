@@ -303,9 +303,9 @@ hsa_destroy_insn (hsa_insn_basic *insn)
       call->~hsa_insn_call ();
       return;
     }
-  if (hsa_insn_call_block *block = dyn_cast <hsa_insn_call_block *> (insn))
+  if (hsa_insn_arg_block *block = dyn_cast <hsa_insn_arg_block *> (insn))
     {
-      block->~hsa_insn_call_block ();
+      block->~hsa_insn_arg_block ();
       return;
     }
   insn->~hsa_insn_basic ();
@@ -352,6 +352,9 @@ hsa_get_decl_kernel_mapping_name (unsigned i)
 void
 hsa_free_decl_kernel_mapping (void)
 {
+  if (hsa_decl_kernel_mapping == NULL)
+    return;
+
   for (unsigned i = 0; i < hsa_decl_kernel_mapping->length (); ++i)
     free ((*hsa_decl_kernel_mapping)[i].name);
   ggc_free (hsa_decl_kernel_mapping);
@@ -365,6 +368,19 @@ hsa_sanitize_name (char *p)
   for (; *p; p++)
     if (*p == '.')
       *p = '_';
+}
+
+/* Return declaration name if exists.  */
+
+const char *
+get_declaration_name (tree decl)
+{
+  if (!DECL_NAME (decl))
+    sorry ("Support for HSA does not implement anonymous declarations");
+  else
+    return IDENTIFIER_POINTER (DECL_NAME (decl));
+
+  return NULL;
 }
 
 #include "gt-hsa.h"

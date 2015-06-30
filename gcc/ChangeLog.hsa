@@ -1,3 +1,54 @@
+2015-06-30  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_directive_variable): Remove assert that
+	is no longer valid.
+	(emit_function_directives): Change the function that it accepts
+	a hsa_function_representation and is used both for definitions and
+	declarations.
+	(emit_function_declaration): New function.
+	(emit_arg_block): Remove.
+	(emit_arg_block_insn): New function.
+	(emit_insn): Add support for newly added hsa_insn_arg_block
+	insn.
+	(emit_call_insn): Use offsets of called functions because
+	these function declaration are already emitted.
+	(hsa_brig_emit_function): Emit function declarations for all called
+	functions that haven't been seen yet.
+	(hsa_output_brig): Do not process pseudo-linkage.
+	* hsa-dump.c (dump_hsa_insn): Change argument type.
+	(dump_hsa_bb): Fix indentation for hsa_arg_block_insn.
+	* hsa-gen.c (hsa_deinit_data_for_cfun): Use newly added function
+	release.
+	(hsa_function_representation::hsa_function_representation): Add
+	construction for newly added members.
+	(hsa_function_representation::~hsa_function_representation): Add
+	destruction for newly added members.
+	(hsa_insn_arg_block::hsa_insn_arg_block): New function.
+	(hsa_insn_arg_block::operator new): New function.
+	(get_symbol_for_decl): Use new function.
+	(gen_hsa_insns_for_direct_call): Save all called functions.
+	(gen_hsa_insns_for_known_library_call): Use newly added function
+	get_declaration_name.
+	(get_function_arg_count): New.
+	(gen_function_decl_parameters): Likewise.
+	(gen_function_def_parameters): Add an optional argument and rename
+	from:
+	(gen_function_parameters): Removed.
+	(hsa_generate_function_declaration): New.
+	(generate_hsa): Fill up declaration for a hsa_function_representation.
+	(hsa_init_data_for_cfun): Replace hsa_insn_call_block with hsa_insn_arg_block
+	as template argument.
+	* hsa-regalloc.c (naive_process_phi): Add assert.
+	(hsa_num_def_ops): Change # of operands for call insn.
+	(visit_insn): Remove.
+	(remove_def_in_insn): Likewise.
+	(merge_live_range_for_insn): Likewise.
+	(linear_scan_regalloc): Simplify.
+	* hsa.c	(get_declaration_name): New function.
+	(hsa_free_decl_kernel_mapping): Add guard.
+	* hsa.h (struct hsa_function_representation): Add new struct fields.
+	(hsa_function_representation::release): New.
+
 2015-06-26  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (expand_parallel_call): Bump the default grroup size
