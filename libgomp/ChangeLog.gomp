@@ -1,5 +1,14 @@
 2015-06-30  Tom de Vries  <tom@codesourcery.com>
 
+	PR tree-optimization/66642
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-3.c (main): Test low
+	iteration count case.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt.c (init): New
+	function, factor out of ...
+	(main): ... here.  Test low iteration count case.
+
+2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
 	backport from trunk:
 	2015-06-30  Tom de Vries  <tom@codesourcery.com>
 
