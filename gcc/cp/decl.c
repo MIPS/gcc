@@ -7163,12 +7163,12 @@ expand_static_init (tree decl, tree init)
   gcc_assert (TREE_STATIC (decl));
 
   /* Some variables require no dynamic initialization.  */
-  if (!init
-      && TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
+  if (TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
     {
       /* Make sure the destructor is callable.  */
       cxx_maybe_build_cleanup (decl, tf_warning_or_error);
-      return;
+      if (!init)
+	return;
     }
 
   if (DECL_THREAD_LOCAL_P (decl) && DECL_GNU_TLS_P (decl)
@@ -7794,7 +7794,7 @@ grokfndecl (tree ctype,
 
   /* Members of anonymous types and local classes have no linkage; make
      them internal.  If a typedef is made later, this will be changed.  */
-  if (ctype && (TYPE_ANONYMOUS_P (ctype)
+  if (ctype && (!TREE_PUBLIC (TYPE_MAIN_DECL (ctype))
 		|| decl_function_context (TYPE_MAIN_DECL (ctype))))
     publicp = 0;
 
@@ -9529,7 +9529,8 @@ grokdeclarator (const cp_declarator *declarator,
   if (virtualp
       && (current_class_name == NULL_TREE || decl_context != FIELD))
     {
-      error ("%<virtual%> outside class declaration");
+      error_at (declspecs->locations[ds_virtual],
+		"%<virtual%> outside class declaration");
       virtualp = 0;
     }
 
@@ -10476,19 +10477,11 @@ grokdeclarator (const cp_declarator *declarator,
 
   if (decl_context == TYPENAME)
     {
-      /* Note that the grammar rejects storage classes
-	 in typenames, fields or parameters.  */
-      if (type_quals != TYPE_UNQUALIFIED)
-	type_quals = TYPE_UNQUALIFIED;
+      /* Note that here we don't care about type_quals.  */
 
       /* Special case: "friend class foo" looks like a TYPENAME context.  */
       if (friendp)
 	{
-	  if (type_quals != TYPE_UNQUALIFIED)
-	    {
-	      error ("type qualifiers specified for friend class declaration");
-	      type_quals = TYPE_UNQUALIFIED;
-	    }
 	  if (inlinep)
 	    {
 	      error ("%<inline%> specified for friend class declaration");
