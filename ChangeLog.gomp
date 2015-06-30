@@ -1,3 +1,14 @@
+2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
+	Revert:
+	2015-06-18  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (transform_to_exit_first_loop_alt): Add update_stmt
+	for cond_stmt.
+	(try_get_loop_niter): Declare forward.
+	(try_transform_to_exit_first_loop_alt): Use try_get_loop_niter to get
+	updated number of iterations.  Extract alt_bount, and instantiate it.
+
 2015-05-19  Julian Brown  <julian@codesourcery.com>
 
 	libgomp/

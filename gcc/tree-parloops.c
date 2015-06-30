@@ -1680,7 +1680,6 @@ transform_to_exit_first_loop_alt (struct loop *loop,
 
   /* Set the new loop bound.  */
   gimple_cond_set_rhs (cond_stmt, bound);
-  update_stmt (cond_stmt);
 
   /* Repair the ssa.  */
   vec<edge_var_map> *v = redirect_edge_var_map_vector (post_inc_edge);
@@ -1757,8 +1756,6 @@ transform_to_exit_first_loop_alt (struct loop *loop,
   calculate_dominance_info (CDI_DOMINATORS);
 }
 
-static bool try_get_loop_niter (loop_p, struct tree_niter_desc *);
-
 /* Tries to moves the exit condition of LOOP to the beginning of its header
    without duplication of the loop body.  NIT is the number of iterations of the
    loop.  REDUCTION_LIST describes the reductions in LOOP.  Return true if
@@ -1824,42 +1821,36 @@ try_transform_to_exit_first_loop_alt (struct loop *loop,
 	  else if (integer_minus_onep (op2))
 	    alt_bound = op1;
 	}
-    }
 
-  if (alt_bound == NULL_TREE)
-    {
-      struct tree_niter_desc niter;
-      if (try_get_loop_niter (loop, &niter))
-	{
-	  tree new_nit = niter.niter;
-	  STRIP_NOPS (new_nit);
-	  if (TREE_CODE (new_nit) == PLUS_EXPR)
-	    {
-	      tree op1 = TREE_OPERAND (new_nit, 0);
-	      tree op2 = TREE_OPERAND (new_nit, 1);
-	      if (integer_minus_onep (op1))
-		alt_bound = op2;
-	      else if (integer_minus_onep (op2))
-		alt_bound = op1;
-	    }
-	}
+      /* There is a number of test-cases for which we don't get an alt_bound
+	 here: they're listed here, with the lhs of the last stmt as the nit:
 
-      if (alt_bound != NULL_TREE)
-	{
-	  alt_bound = fold_convert (TREE_TYPE (niter.niter), alt_bound);
+	 libgomp.graphite/force-parallel-1.c:
+	 _21 = (signed long) N_6(D);
+	 _19 = _21 + -1;
+	 _7 = (unsigned long) _19;
 
-	  gimple_seq pre = NULL, post = NULL;
-	  push_gimplify_context (true);
-	  gimplify_expr (&alt_bound, &pre, &post, is_gimple_reg,
-			 fb_rvalue);
-	  pop_gimplify_context (NULL);
+	 libgomp.graphite/force-parallel-2.c:
+	 _33 = (signed long) N_9(D);
+	 _16 = _33 + -1;
+	 _37 = (unsigned long) _16;
 
-	  gimple_seq_add_seq (&pre, post);
+	 libgomp.graphite/force-parallel-5.c:
+	 <bb 6>:
+	 # graphite_IV.5_46 = PHI <0(5), graphite_IV.5_47(11)>
+	 <bb 7>:
+	 _33 = (unsigned long) graphite_IV.5_46;
 
-	  gimple_stmt_iterator gsi
-	    = gsi_last_bb (loop_preheader_edge (loop)->src);
-	  gsi_insert_seq_after (&gsi, pre, GSI_CONTINUE_LINKING);
-	}
+	 g++.dg/tree-ssa/pr34355.C:
+	 _2 = (unsigned int) i_9;
+	 _3 = 4 - _2;
+
+	 gcc.dg/pr53849.c:
+	 _5 = d.0_11 + -2;
+	 _18 = (unsigned int) _5;
+
+	 We will be able to handle some of these cases, if we can determine when
+	 it's safe to look past casts.  */
     }
 
   if (alt_bound == NULL_TREE)

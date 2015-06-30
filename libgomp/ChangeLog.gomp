@@ -1,3 +1,11 @@
+2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
+	Revert:
+	2015-06-18  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.fortran/parloops-exit-first-loop-alt-2.f95: New test.
+	* testsuite/libgomp.fortran/parloops-exit-first-loop-alt.f95: New test.
+
 2015-06-24  James Norris  <jnorris@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/declare-1.c: Additional
