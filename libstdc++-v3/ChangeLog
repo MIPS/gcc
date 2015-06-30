@@ -1,3 +1,22 @@
+2015-06-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/26_numerics/complex/value_operations/1.cc: Use
+	non-negative rho argument.
+
+	* include/debug/list (__gnu_debug::list): Use allocator-aware
+	_Safe_container base.
+	* include/debug/string (__gnu_debug::basic_string): Use
+	allocator-aware _Safe_container base for cxx11 ABI.
+
+	* include/bits/locale_conv.h (__do_str_codecvt): Handle empty range.
+	(wstring_convert): Move into __cxx11 namespace.
+	(wbuffer_convert(streambuf*, _Codecvt*, state_type)): Fix exception
+	message.
+
+	PR libstdc++/64657
+	* include/bits/stl_uninitialized.h
+	(__uninitialized_copy::__uninit_copy): Cast expression to void.
+
 2015-06-17  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/55409

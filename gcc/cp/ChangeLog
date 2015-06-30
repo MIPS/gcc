@@ -1,3 +1,42 @@
+2015-06-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65879
+	* decl.c (grokfndecl): Check the linkage of ctype, not just
+	TYPE_ANONYMOUS_P.
+	* tree.c (no_linkage_check): Skip the 'this' pointer.
+
+	PR c++/66501
+	* class.c (type_has_nontrivial_assignment): New.
+	* init.c (build_vec_init): Use it.
+	* cp-tree.h: Declare it.
+	* method.c (trivial_fn_p): Templates aren't trivial.
+
+	PR c++/66542
+	* decl.c (expand_static_init): Make sure the destructor is callable
+	here even if we have an initializer.
+
+2015-06-04  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* lang-specs.h: Pass "-o %g.s" to cc1plus for headers even if
+	-fdump-ada-spec is passed.
+
+2015-06-22  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* decl2.c (cpp_check): Deal with HAS_DEPENDENT_TEMPLATE_ARGS.
+
+2015-06-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (grokdeclarator): Use declspecs->locations[ds_virtual].
+
+2015-06-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (grokdeclarator): Remove pointless code.
+
+2015-06-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66515
+	* call.c (implicit_conversion): Only reshape for classes.
+
 2015-06-22  Mikhail Maltsev  <maltsevm@gmail.com>
 
 	* pt.c (maybe_adjust_types_for_deduction): Use std::swap instead of

@@ -1,3 +1,75 @@
+2015-06-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66636
+	* gcc.dg/vect/pr66636.c: New testcase.
+
+2015-06-23  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/fold-minus-4.c: New test.
+	* gcc.dg/fold-minus-5.c: New test.
+	* c-c++-common/ubsan/overflow-add-5.c: New test.
+
+2015-06-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Add missing testcase from r224672.
+	2015-06-19  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/vax/bswapdi-1.c: New.
+
+2015-06-23  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/64674
+	* gfortran.dg/associate_18.f08: New test.
+
+2015-06-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66560
+	* gcc.target/i386/pr66560-1.c: New test.
+	* gcc.target/i386/pr66560-2.c: Ditto.
+	* gcc.target/i386/pr66560-3.c: Ditto.
+	* gcc.target/i386/pr66560-4.c: Ditto.
+
+2015-06-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gcc.target/nvptx/nvptx.exp: New file.
+	* gcc.target/nvptx/proto-1.c: Likewise.
+
+2015-06-23  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/66449
+	* gcc.dg/vect/pr66449.c: New test.
+
+2015-06-22  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* g++.dg/other/dump-ada-spec-5.C: New test.
+	* g++.dg/other/dump-ada-spec-6.C: Likewise.
+	* g++.dg/other/dump-ada-spec-7.C: Likewise.
+
+2015-06-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/inherit/pure1.C: Test location too.
+
+2015-06-22  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/fold-ior-1.c: New test.
+	* gcc.dg/fold-minus-2.c: New test.
+	* gcc.dg/fold-minus-3.c: New test.
+	* gcc.dg/fold-plus-1.c: New test.
+	* gcc.dg/fold-plus-2.c: New test.
+	* gcc.dg/fold-xor-4.c: New test.
+	* gcc.dg/fold-xor-5.c: New test.
+
+2015-06-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/65914
+	* g++.dg/torture/pr65914.C:  New.
+
+2015-06-22  Richard Biener  <rguenther@suse.de>
+
+	* lib/c-torture.exp: Set LTO_TORTURE_OPTIONS conditional on
+	not existing TORTURE_OPTIONS only.
+	* lib/gcc-dg.exp: Likewise.
+
 2015-06-22  Christian Bruel  <christian.bruel@st.com>
 
 	PR target/52144
