@@ -1637,7 +1637,6 @@ static void
 hsa_output_kernel_mapping (tree brig_decl)
 {
   unsigned map_count = hsa_get_number_decl_kernel_mappings ();
-  gcc_assert (map_count > 0);
 
   tree int_num_of_kernels;
   int_num_of_kernels = build_int_cst (integer_type_node, (int) map_count);

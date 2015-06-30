@@ -1,5 +1,9 @@
 2015-06-30  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (hsa_output_kernel_mapping): Remove assert.
+
+2015-06-30  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_directive_variable): Remove assert that
 	is no longer valid.
 	(emit_function_directives): Change the function that it accepts
