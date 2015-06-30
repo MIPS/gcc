@@ -1,3 +1,24 @@
+2015-06-30  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (oacc_get_reduction_array_id): Remove.
+	(oacc_parallel_max_reduction_array_size): Remove.
+	(install_array_var_ganglocal): Remove.
+	(oacc_outermost_parallel_kernels_context): Remove.
+	(oacc_inside_routine): Remove.
+	(is_oacc_multithreaded): Remove.
+	(oacc_needs_global_memory): Remove.
+	(oacc_max_threads): Remove.
+	(scan_sharing_clauses): Don't allocate an array for openacc reductions.
+	(oacc_lower_reduction_var_helper): Remove.
+	(lower_reduction_clauses): Handle all OpenACC reductions using atomics.
+	(oacc_gimple_assign): Remove.
+	(oacc_initialize_reduction_data): Remove.
+	(oacc_serial_reduction): Remove.
+	(oacc_finalize_reduction_data): Remove.
+	(oacc_process_reduction_data_helper): Remove.
+	(oacc_process_reduction_data): Remove.
+	(lower_omp_target): Don't call oacc_process_reduction_data anymore.
+
 2015-06-30  Tom de Vries  <tom@codesourcery.com>
 
 	* tree-parloops.c (transform_to_exit_first_loop_alt): Insert new exit
