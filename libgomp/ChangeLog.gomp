@@ -1,5 +1,24 @@
 2015-06-30  Tom de Vries  <tom@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-2.c: Drop "-O2" in
+	dg-options and replace dg-options with dg-additional-options.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-3.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-2.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-enter-exit-2.c:
+	Same.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-enter-exit.c:
+	Same.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data-update.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-data.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-mod-not-zero.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-n.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-parallel-loop-data-enter-exit.c:
+	Same.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-reduction.c: Same.
+
+2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
 	backport from trunk:
 	2015-06-30  Tom de Vries  <tom@codesourcery.com>
 

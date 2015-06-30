@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-ftree-parallelize-loops=32 -O2" } */
+/* { dg-additional-options "-ftree-parallelize-loops=32" } */
 
 #include <stdlib.h>
 
