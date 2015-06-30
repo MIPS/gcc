@@ -1,5 +1,13 @@
 2015-06-30  Tom de Vries  <tom@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/goacc-data-end.c: Remove
+	dg-options "-O2" setting.
+	* testsuite/libgomp.oacc-c-c++-common/routine-1.c: Replace dg-options
+	with dg-additional-options.
+	* testsuite/libgomp.oacc-c-c++-common/routine-2.c: Same.
+
+2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
 	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-2.c: Drop "-O2" in
 	dg-options and replace dg-options with dg-additional-options.
 	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-3.c: Same.

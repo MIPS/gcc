@@ -1,5 +1,4 @@
 /* { dg-do run } */
-/* { dg-options "-O2" } */
 
 /* Data directive at end of function.  This is the variant that triggered
    PR65419.  */

@@ -1,7 +1,7 @@
-/* FIXME: remove -fno-var-tracking from dg-options.  */
+/* FIXME: remove -fno-var-tracking from dg-aditional-options.  */
 
 /* { dg-do run } */
-/* { dg-options "-fno-inline -fno-var-tracking" } */
+/* { dg-additional-options "-fno-inline -fno-var-tracking" } */
 
 #include <stdio.h>
 #include <stdlib.h>
