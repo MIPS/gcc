@@ -1,5 +1,10 @@
 2015-06-30  Tom de Vries  <tom@codesourcery.com>
 
+	* gfortran.dg/parloops-exit-first-loop-alt-2.f95: New test.
+	* gfortran.dg/parloops-exit-first-loop-alt.f95: New test.
+
+2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
 	backport from trunk:
 	2015-06-30  Tom de Vries  <tom@codesourcery.com>
 

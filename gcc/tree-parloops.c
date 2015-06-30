@@ -1877,8 +1877,24 @@ try_transform_to_exit_first_loop_alt (struct loop *loop,
 	alt_bound = op1;
     }
 
+  /* If not found, insert nit + 1.  */
   if (alt_bound == NULL_TREE)
-    return false;
+    {
+      alt_bound = fold_build2 (PLUS_EXPR, nit_type, nit,
+			       build_int_cst_type (nit_type, 1));
+
+      gimple_seq pre = NULL, post = NULL;
+      push_gimplify_context (true);
+      gimplify_expr (&alt_bound, &pre, &post, is_gimple_reg,
+		     fb_rvalue);
+      pop_gimplify_context (NULL);
+
+      gimple_seq_add_seq (&pre, post);
+
+      gimple_stmt_iterator gsi
+	= gsi_last_bb (loop_preheader_edge (loop)->src);
+      gsi_insert_seq_after (&gsi, pre, GSI_CONTINUE_LINKING);
+    }
 
   transform_to_exit_first_loop_alt (loop, reduction_list, alt_bound);
   return true;
