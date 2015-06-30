@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "c-family/c-common.h"
 #include "target.h"
-#include "target-def.h"
 #include "cpplib.h"
 #include "c-family/c-pragma.h"
 
@@ -560,6 +559,8 @@ ix86_target_macros (void)
 
   cpp_define_formatted (parse_in, "__ATOMIC_HLE_ACQUIRE=%d", IX86_HLE_ACQUIRE);
   cpp_define_formatted (parse_in, "__ATOMIC_HLE_RELEASE=%d", IX86_HLE_RELEASE);
+
+  cpp_define (parse_in, "__GCC_ASM_FLAG_OUTPUTS__");
 
   ix86_target_macros_internal (ix86_isa_flags,
 			       ix86_arch,

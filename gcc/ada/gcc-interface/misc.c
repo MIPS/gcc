@@ -48,7 +48,7 @@
 #include "plugin.h"
 #include "hashtab.h"
 #include "hard-reg-set.h"
-#include "function.h"	/* For pass_by_reference.  */
+#include "calls.h"	/* For pass_by_reference.  */
 #include "dwarf2out.h"
 
 #include "ada.h"
@@ -113,7 +113,8 @@ gnat_parse_file (void)
   /* Call the front end.  */
   _ada_gnat1drv ();
 
-  note_types_used_by_globals ();
+  /* Write the global declarations.  */
+  gnat_write_global_declarations ();
 }
 
 /* Return language mask for option processing.  */
@@ -260,9 +261,6 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
       && TARGET_FLT_EVAL_METHOD_NON_DEFAULT)
     sorry ("-fexcess-precision=standard for Ada");
   flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
-
-  /* ??? The warning machinery is outsmarted by Ada.  */
-  warn_unused_parameter = 0;
 
   /* No psABI change warnings for Ada.  */
   warn_psabi = 0;
@@ -1002,6 +1000,8 @@ gnat_init_ts (void)
 #define LANG_HOOKS_DEEP_UNSHARING	true
 #undef  LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS		gnat_init_ts
+#undef  LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
+#define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL hook_bool_const_tree_false
 
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 

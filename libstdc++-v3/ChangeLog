@@ -1,4 +1,249 @@
+2015-06-29  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/stl_iterator_base_types.h (_Iter_base): Limit definition
+	to pre-C++11 mode.
+	* include/debug/functions.h
+	(__gnu_debug::__valid_range, __gnu_debug::__base): Move...
+	* include/debug/safe_iterator.h
+	(__gnu_debug::_Sequence_traits): New.
+	(__gnu_debug::__get_distance_from_begin): New.
+	(__gnu_debug::__get_distance_to_end): New.
+	(__gnu_debug::_Safe_iterator<>::_M_valid_range): Expose iterator range
+	distance information. Add optional check_dereferenceable parameter,
+	default true.
+	(__gnu_debug::_Distance_precision, __gnu_debug::__get_distance): Move
+	default definition...
+	(__gnu_debug::__get_distance): New overload for _Safe_iterator.
+	(__gnu_debug::__unsafe): Likewise.
+	* include/debug/helper_functions.h: ...here. New.
+	(__gnu_debug::__unsafe): New helper function to remove safe iterator
+	layer.
+	* include/debug/stl_iterator.h: New. Include latter.
+	* include/bits/stl_iterator.h: Include latter in debug mode.
+	* include/debug/stl_iterator.tcc: Adapt.
+	* include/debug/safe_local_iterator.h (__gnu_debug::__get_distance): Add
+	overload for _Safe_local_iterator.
+	(__gnu_debug::__unsafe): Likewise.
+	* include/debug/safe_local_iterator.tcc: Adapt.
+	* include/debug/macros.h (__glibcxx_check_valid_range2): New.
+	(__glibcxx_check_insert_range): Add _Dist parameter.
+	(__glibcxx_check_insert_range_after): Likewise.
+	(__glibcxx_check_string, __glibcxx_check_string_len): Implement using
+	_GLIBCXX_DEBUG_PEDASSERT.
+	* include/debug/deque (deque<>::assign): Remove iterator debug layer
+	when possible.
+	(deque<>::insert): Likewise.
+	* include/debug/forward_list (__glibcxx_check_valid_fl_range): New.
+	(forward_list<>::splice_after): Use latter.
+	(forward_list<>::assign): Remove iterator debug layer when possible.
+	(forward_list<>::insert_after): Likewise.
+	(__gnu_debug::_Sequence_traits<>): Partial specialization.
+	* include/debug/list (list<>::assign): Remove iterator debug layer when
+	possible.
+	(list<>::insert): Likewise.
+	[__gnu_debug::_Sequence_traits<>]: Partial specialization pre C++11 ABI.
+	* include/debug/map.h (map<>::insert): Remove iterator debug layer when
+	possible.
+	* include/debug/multimap.h (multimap<>::insert): Likewise.
+	* include/debug/set.h (set<>::insert): Likewise.
+	* include/debug/multiset.h (multiset<>::insert): Likewise.
+	* include/debug/string (basic_string<>::append, basic_string<>::assign,
+	basic_string<>::insert, basic_string<>::replace): Likewise.
+	* include/debug/unordered_map
+	(unordered_map<>::insert, unordered_multimap<>::insert): Likewise.
+	* include/debug/unordered_set
+	(unordered_set<>::insert, unordered_multiset<>insert): Likewise.
+	* include/debug/vector
+	(vector<>::assign, vector<>::insert): Likewise.
+	* include/Makefile.am: Add new debug headers.
+	* include/Makefile.in: Regenerate.
+
+2015-06-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/intro.xml: Document LWG 2108 status.
+	* include/bits/alloc_traits.h (allocator_traits::is_always_equal):
+	Define.
+	* include/bits/allocator.h (allocator::is_always_equal): Likewise.
+	* include/bits/forward_list.h
+	(forward_list::operator=(forward_list&&)): Use __bool_constant.
+	(forward_list::swap(forward_list&)): Add noexcept.
+	* include/bits/hashtable.h (_Hashtable::operator=(_Hashtable&&)):
+	Likewise.
+	(_Hashtable::swap(_Hashtable&)): Likewise.
+	* include/bits/stl_deque.h (_Deque_base::_Deque_base(_Deque_base&&)):
+	Use _Alloc_traits::is_always_equal.
+	(deque::operator=(deque&&)): Likewise.
+	(deque::_M_move_assign1(deque&&, false_type)): Add comment and use
+	__bool_constant.
+	(swap(deque&, deque&)): Add noexcept.
+	* include/bits/stl_list.h (list::operator=(list&&)): Use
+	__bool_constant.
+	(swap(list&, list&)): Add noexcept.
+	* include/bits/stl_map.h (map::swap(map&)): Include _Compare in
+	noexcept.
+	(swap(map&, map&)): Add noexcept.
+	* include/bits/stl_multimap.h (multimap::swap(multimap&)): Include
+	_Compare in noexcept.
+	(swap(multimap&, multimap&)): Add noexcept.
+	* include/bits/stl_multiset.h (multiset::swap(multiset&)): Include
+	_Compare in noexcept.
+	(swap(multiset&, multiset&)): Add noexcept.
+	* include/bits/stl_set.h (set::swap(set&)): Include _Compare in
+	noexcept.
+	(swap(set&, set&)): Add noexcept.
+	* include/bits/stl_tree.h (_Rb_tree::operator=(_Rb_tree&&)): Include
+	_Compare in noexcept.
+	(_Rb_tree::_Rb_tree(_Rb_tree&&, _Node_alloc_type&&)): Use
+	is_always_equal.
+	* include/bits/stl_vector.h (vector::operator=(vector&&)): Use
+	__bool_constant.
+	(swap(vector&, vector&)): Add noexcept.
+	* include/bits/unordered_map.h (swap(unordered_map&, unordered_map&),
+	swap(unordered_multimap& unordered_multimap&)): Add noexcept.
+	* include/bits/unordered_set.h (swap(unordered_set&, unordered_set&),
+	swap(unordered_multiset& unordered_multiset&)): Add noexcept.
+	* include/ext/alloc_traits.h (__allocator_always_compares_equal):
+	Remove.
+	(__alloc_traits::_S_always_equal()): Use is_always_equal instead of
+	__allocator_always_compares_equal.
+	* include/ext/array_allocator.h (array_allocator::is_always_equal):
+	Define.
+	* include/std/scoped_allocator (__any_of, __propagate_on_copy,
+	__propagate_on_move, __propagate_on_swap): Remove.
+	(scoped_allocator_adaptor::propagate_on_container_copy_assignment,
+	scoped_allocator_adaptor::propagate_on_container_move_assignment,
+	scoped_allocator_adaptor::propagate_on_container_swap): Define with
+	__and_ instead of __any_of.
+	(scoped_allocator_adaptor::is_always_equal): Define.
+	* testsuite/20_util/allocator_traits/members/is_always_equal.cc: New.
+	* testsuite/20_util/scoped_allocator/propagation.cc: Make traits
+	derive from true_type or false_type.
+	* testsuite/23_containers/deque/allocator/move_assign-2.cc: Add
+	is_always_equal member and remove the trait specialization.
+	* testsuite/23_containers/vector/52591.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line number.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/constructor_1_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+
+	* include/bits/stl_bvector.h (vector<bool>::vector()): Add noexcept.
+	* include/bits/stl_map.h (map::map()): Likewise.
+	* include/bits/stl_multimap.h (multimap::multimap()): Likewise.
+	* include/bits/stl_multiset.h (multiset::multiset()): Likewise.
+	* include/bits/stl_set.h (set::set()): Likewise.
+
+2015-06-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/locale_conv.h (__do_str_codecvt): Set __count.
+
+2015-06-24  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/basic_string.h (basic_string<>::front()): Add !empty
+	debug check.
+	(basic_string<>::back()): Likewise.
+	(basic_string<>::pop_back()): Likewise.
+
+2015-06-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/23_containers/array/tuple_interface/get_neg.cc: Adjust
+	dg-error line numbers.
+	* testsuite/23_containers/array/tuple_interface/tuple_element_neg.cc:
+	Likewise.
+
+2015-06-23  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/debug/array: Include <array>. Add version namespace when
+	specializing tuple interface to array. Add specialization for
+	__is_tuple_like_impl.
+	* include/profile/array: Likewise.
+	* include/std/array: Include <utility>. Add specialization for
+	__is_tuple_like_impl.
+	* include/std/tuple
+	(__is_tuple_like_impl<>, __is_tuple_like_impl<pair>): Move...
+	* include/std/utility: ... here. Include <type_traits>.
+	* testsuite/23_containers/array/tuple_interface/get_debug_neg.cc: Adjust
+	dg-error line number.
+	* testsuite/23_containers/array/tuple_interface/
+	tuple_element_debug_neg.cc: Likewise.
+
+2015-06-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/26_numerics/complex/value_operations/1.cc: Use
+	non-negative rho argument.
+
+	* include/debug/list (__gnu_debug::list): Use allocator-aware
+	_Safe_container base.
+	* include/debug/string (__gnu_debug::basic_string): Use
+	allocator-aware _Safe_container base for cxx11 ABI.
+
+	* include/bits/locale_conv.h (__do_str_codecvt): Handle empty range.
+	(wstring_convert): Move into __cxx11 namespace.
+	(wbuffer_convert(streambuf*, _Codecvt*, state_type)): Fix exception
+	message.
+
+	PR libstdc++/64657
+	* include/bits/stl_uninitialized.h
+	(__uninitialized_copy::__uninit_copy): Cast expression to void.
+
 2015-06-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/55409
+	* include/bits/list.tcc (_List_base::_M_clear()): Use allocator traits.
+	(list::list(const list&)): Use allocator propagation trait. Use
+	_M_assign_dispatch to copy elements.
+	* include/bits/stl_list.h (_List_node): Use __aligned_membuf in C++11.
+	(_List_node::_M_valptr()): Add accessor for stored value.
+	(_List_iterator, _List_const_iterator, _List_base): Use _M_valptr().
+	(_List_base, list): Use allocator traits.
+	(_List_base::_M_get_Tp_allocator, _List_base::get_allocator): Remove.
+	(_List_base::_M_move_nodes): New function.
+	(_List_base(_List_base&&)): Use _M_move_nodes.
+	(_List_base(_List_base&&, _Node_alloc_type&&)): New constructor.
+	(list::_M_create_node, list::_M_erase, list::max_size): Use allocator
+	traits.
+	(list(size_type)): Add allocator parameter.
+	(list(const list&)): Use allocator propagation trait.
+	(list(const list&, const allocator_type&)): New constructor.
+	(list(list&&, const allocator_type&)): Likewise.
+	(list::operator=(list&&), list::swap(list&)): Use allocator
+	propagation traits.
+	(list::_M_move_assign): New functions.
+	* include/debug/list: Add allocator-extended constructors.
+	* include/profile/list: Likewise.
+	* python/libstdcxx/v6/printers.py (get_value_from_list_node): New
+	function to get value from _List_node.
+	(StdListPrinter): Use get_value_from_list_node.
+	* testsuite/23_containers/list/allocator/copy.cc: New.
+	* testsuite/23_containers/list/allocator/copy_assign.cc: New.
+	* testsuite/23_containers/list/allocator/minimal.cc: New.
+	* testsuite/23_containers/list/allocator/move.cc: New.
+	* testsuite/23_containers/list/allocator/move_assign.cc: New.
+	* testsuite/23_containers/list/allocator/noexcept.cc: New.
+	* testsuite/23_containers/list/allocator/swap.cc: New.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Adjust dg-prune-output line number.
+	* testsuite/23_containers/list/requirements/dr438/constructor_1_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Likewise.
 
 	* include/bits/forward_list.h
 	(_Fwd_list_base(const _Node_alloc_type&)): Change parameter to
