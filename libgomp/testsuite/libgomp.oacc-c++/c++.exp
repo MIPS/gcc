@@ -18,6 +18,11 @@ proc check_effective_target_c { } {
     return 0
 }
 
+# If a testcase doesn't have special options, use these.
+if ![info exists DEFAULT_CFLAGS] then {
+    set DEFAULT_CFLAGS "-O2"
+}
+
 # Initialize dg.
 dg-init
 
@@ -108,7 +113,7 @@ if { $lang_test_file_found } {
 	}
 	set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared"
 
-	dg-runtest $tests "$tagopt" $libstdcxx_includes
+	dg-runtest $tests "$tagopt" "$libstdcxx_includes $DEFAULT_CFLAGS"
     }
 }
 

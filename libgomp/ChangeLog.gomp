@@ -1,5 +1,15 @@
 2015-06-30  Tom de Vries  <tom@codesourcery.com>
 
+	backport from trunk:
+	2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c++/c++.exp: Set DEFAULT_CFLAGS to -O2 if not
+	already set.  Use DEFAULT_CFLAGS in dg-runtest.
+	* testsuite/libgomp.oacc-c-c++-common/collapse-3.c: Remove dg-options
+	"-O2".
+
+2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
 	* testsuite/libgomp.fortran/parloops-exit-first-loop-alt-2.f95: New test.
 	* testsuite/libgomp.fortran/parloops-exit-first-loop-alt.f95: New test.
 
