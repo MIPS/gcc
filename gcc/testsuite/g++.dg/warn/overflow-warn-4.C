@@ -131,3 +131,8 @@ h2i (int x)
   ui = INT_MIN;
   ui = x ? INT_MIN : 1U;
 }
+/* { dg-error "division by zero is not a constant.expression" "division" { target c++11 } 19 } */
+/* { dg-error "invalid conversion from" "convert" { target c++11 } 63 } */
+/* { dg-error "division by zero is not a constant.expression" "division" { target c++11 } 34 } */
+/* { dg-error "division by zero is not a constant.expression" "division" { target c++11 } 70 } */
+
