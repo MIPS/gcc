@@ -1,6 +1,8 @@
 /* { dg-do run } */
 /* { dg-options "-O2 -ftree-parallelize-loops=2" } */
 
+/* Variable bound, vector addition.  */
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -11,7 +13,8 @@ unsigned int b[N];
 unsigned int c[N];
 
 void __attribute__((noclone,noinline))
-f (unsigned int n)
+f (unsigned int n, unsigned int *__restrict__ a, unsigned int *__restrict__ b,
+   unsigned int *__restrict__ c)
 {
   int i;
 
@@ -34,7 +37,7 @@ main (void)
 	c[k] = k * 2;
       }
 
-  f (N);
+  f (N, a, b, c);
 
   for (i = 0; i < N; i++)
     {

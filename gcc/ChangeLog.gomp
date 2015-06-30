@@ -1,3 +1,22 @@
+2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66652
+	* tree-parloops.c (try_transform_to_exit_first_loop_alt): Use
+	max_loop_iterations to determine if nit + 1 overflows.
+
+	2015-06-29  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (try_transform_to_exit_first_loop_alt): Simplify
+	function structure.
+
+	2015-06-22  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (transform_to_exit_first_loop_alt): Add update_stmt
+	for cond_stmt.
+
 2015-06-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.md (nvptx_reorg_subreg): New fn, broken out of ...

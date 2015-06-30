@@ -1,5 +1,25 @@
 2015-06-30  Tom de Vries  <tom@codesourcery.com>
 
+	backport from trunk:
+	2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66652
+	* gcc.dg/parloops-exit-first-loop-alt-pr66652.c: New test.
+	* gcc.dg/parloops-exit-first-loop-alt-3.c (f):  Rewrite using restrict
+	pointers.
+	* gcc.dg/parloops-exit-first-loop-alt.c: Same.
+
+	2015-06-13  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/parloops-exit-first-loop-alt-4.c: New test.
+
+	* gcc.dg/parloops-exit-first-loop-alt-2.c: Add comment.
+	(main): Remove superfluous attributes.
+	* gcc.dg/parloops-exit-first-loop-alt-3.c: Same.
+	* gcc.dg/parloops-exit-first-loop-alt.c: Same.
+
+2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
 	Revert:
 	2015-06-18  Tom de Vries  <tom@codesourcery.com>
 

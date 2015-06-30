@@ -1,5 +1,32 @@
 2015-06-30  Tom de Vries  <tom@codesourcery.com>
 
+	backport from trunk:
+	2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66652
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-3.c (f): Rewrite
+	using restrict pointers.
+	(main): Add arguments to calls to f.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt.c: Same.
+
+	2015-06-23  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-3.c (main): Use
+	abort.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-4.c (main): Same.
+
+	2015-06-13  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-4.c: New test.
+
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-2.c: Add comment.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt.c: Same.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-3.c: Add comment.
+	(N): Define.
+	(main): Use N instead of hardcoded constants.
+
+2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
 	Revert:
 	2015-06-18  Tom de Vries  <tom@codesourcery.com>
 
