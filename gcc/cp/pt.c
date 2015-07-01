@@ -9074,7 +9074,7 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 		  clauses = tsubst_omp_clauses (clauses, true, false, args,
 						complain, in_decl);
 		  c_omp_declare_simd_clauses_to_decls (*decl_p, clauses);
-		  clauses = finish_omp_clauses (clauses, false);
+		  clauses = finish_omp_clauses (clauses, false, true);
 		  tree parms = DECL_ARGUMENTS (*decl_p);
 		  clauses
 		    = c_omp_declare_simd_clauses_to_numbers (parms, clauses);

@@ -14092,8 +14092,29 @@ simd_clone_clauses_extract (struct cgraph_node *node, tree clauses,
 		  }
 		else
 		  {
-		    clone_info->args[argno].arg_type
-		      = SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP;
+		    enum cgraph_simd_clone_arg_type arg_type;
+		    if (TREE_CODE (args[argno]) == REFERENCE_TYPE)
+		      switch (OMP_CLAUSE_LINEAR_KIND (t))
+			{
+			case OMP_CLAUSE_LINEAR_REF:
+			  arg_type
+			    = SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP;
+			  break;
+			case OMP_CLAUSE_LINEAR_UVAL:
+			  arg_type
+			    = SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP;
+			  break;
+			case OMP_CLAUSE_LINEAR_VAL:
+			case OMP_CLAUSE_LINEAR_DEFAULT:
+			  arg_type
+			    = SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP;
+			  break;
+			default:
+			  gcc_unreachable ();
+			}
+		    else
+		      arg_type = SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP;
+		    clone_info->args[argno].arg_type = arg_type;
 		    clone_info->args[argno].linear_step = tree_to_shwi (step);
 		  }
 	      }
@@ -14195,12 +14216,25 @@ simd_clone_mangle (struct cgraph_node *node,
     {
       struct cgraph_simd_clone_arg arg = clone_info->args[n];
 
-      if (arg.arg_type == SIMD_CLONE_ARG_TYPE_UNIFORM)
-	pp_character (&pp, 'u');
-      else if (arg.arg_type == SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP)
+      switch (arg.arg_type)
 	{
-	  gcc_assert (arg.linear_step != 0);
+	case SIMD_CLONE_ARG_TYPE_UNIFORM:
+	  pp_character (&pp, 'u');
+	  break;
+	case SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP:
 	  pp_character (&pp, 'l');
+	  goto mangle_linear;
+	case SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP:
+	  pp_character (&pp, 'R');
+	  goto mangle_linear;
+	case SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP:
+	  pp_character (&pp, 'L');
+	  goto mangle_linear;
+	case SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP:
+	  pp_character (&pp, 'U');
+	  goto mangle_linear;
+	mangle_linear:
+	  gcc_assert (arg.linear_step != 0);
 	  if (arg.linear_step > 1)
 	    pp_unsigned_wide_integer (&pp, arg.linear_step);
 	  else if (arg.linear_step < 0)
@@ -14209,14 +14243,14 @@ simd_clone_mangle (struct cgraph_node *node,
 	      pp_unsigned_wide_integer (&pp, (-(unsigned HOST_WIDE_INT)
 					      arg.linear_step));
 	    }
-	}
-      else if (arg.arg_type == SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP)
-	{
+	  break;
+	case SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP:
 	  pp_character (&pp, 's');
 	  pp_unsigned_wide_integer (&pp, arg.linear_step);
+	  break;
+	default:
+	  pp_character (&pp, 'v');
 	}
-      else
-	pp_character (&pp, 'v');
       if (arg.alignment)
 	{
 	  pp_character (&pp, 'a');
@@ -14394,13 +14428,22 @@ simd_clone_adjust_argument_types (struct cgraph_node *node)
       node->simdclone->args[i].orig_arg = node->definition ? parm : NULL_TREE;
       node->simdclone->args[i].orig_type = parm_type;
 
-      if (node->simdclone->args[i].arg_type != SIMD_CLONE_ARG_TYPE_VECTOR)
+      switch (node->simdclone->args[i].arg_type)
 	{
+	default:
 	  /* No adjustment necessary for scalar arguments.  */
 	  adj.op = IPA_PARM_OP_COPY;
-	}
-      else
-	{
+	  break;
+	case SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP:
+	  if (node->definition)
+	    node->simdclone->args[i].simd_array
+	      = create_tmp_simd_array (IDENTIFIER_POINTER (DECL_NAME (parm)),
+				       TREE_TYPE (parm_type),
+				       node->simdclone->simdlen);
+	  adj.op = IPA_PARM_OP_COPY;
+	  break;
+	case SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP:
+	case SIMD_CLONE_ARG_TYPE_VECTOR:
 	  if (INTEGRAL_TYPE_P (parm_type) || POINTER_TYPE_P (parm_type))
 	    veclen = node->simdclone->vecsize_int;
 	  else
@@ -14532,7 +14575,8 @@ simd_clone_init_simd_arrays (struct cgraph_node *node,
        arg;
        arg = DECL_CHAIN (arg), i++, j++)
     {
-      if (adjustments[j].op == IPA_PARM_OP_COPY)
+      if (adjustments[j].op == IPA_PARM_OP_COPY
+	  || POINTER_TYPE_P (TREE_TYPE (arg)))
 	continue;
 
       node->simdclone->args[i].vector_arg = arg;
@@ -15022,8 +15066,10 @@ simd_clone_adjust (struct cgraph_node *node)
 		  SET_USE (use_p, repl);
 	  }
       }
-    else if (node->simdclone->args[i].arg_type
-	     == SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP)
+    else if ((node->simdclone->args[i].arg_type
+	      == SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP)
+	     || (node->simdclone->args[i].arg_type
+		 == SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP))
       {
 	tree orig_arg = node->simdclone->args[i].orig_arg;
 	gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (orig_arg))
@@ -15080,6 +15126,78 @@ simd_clone_adjust (struct cgraph_node *node)
 		else
 		  FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
 		    SET_USE (use_p, iter1);
+	  }
+      }
+    else if (node->simdclone->args[i].arg_type
+	     == SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP)
+      {
+	tree orig_arg = node->simdclone->args[i].orig_arg;
+	tree def = ssa_default_def (cfun, orig_arg);
+	gcc_assert (!TREE_ADDRESSABLE (orig_arg)
+		    && TREE_CODE (TREE_TYPE (orig_arg)) == REFERENCE_TYPE);
+	if (def && !has_zero_uses (def))
+	  {
+	    tree rtype = TREE_TYPE (TREE_TYPE (orig_arg));
+	    iter1 = make_ssa_name (orig_arg);
+	    iter2 = make_ssa_name (orig_arg);
+	    tree iter3 = make_ssa_name (rtype);
+	    tree iter4 = make_ssa_name (rtype);
+	    tree iter5 = make_ssa_name (rtype);
+	    gsi = gsi_after_labels (entry_bb);
+	    gimple load
+	      = gimple_build_assign (iter3, build_simple_mem_ref (def));
+	    gsi_insert_before (&gsi, load, GSI_NEW_STMT);
+
+	    tree array = node->simdclone->args[i].simd_array;
+	    TREE_ADDRESSABLE (array) = 1;
+	    tree ptr = build_fold_addr_expr (array);
+	    phi = create_phi_node (iter1, body_bb);
+	    add_phi_arg (phi, ptr, preheader_edge, UNKNOWN_LOCATION);
+	    add_phi_arg (phi, iter2, latch_edge, UNKNOWN_LOCATION);
+	    g = gimple_build_assign (iter2, POINTER_PLUS_EXPR, iter1,
+				     TYPE_SIZE_UNIT (TREE_TYPE (iter3)));
+	    gsi = gsi_last_bb (incr_bb);
+	    gsi_insert_before (&gsi, g, GSI_SAME_STMT);
+
+	    phi = create_phi_node (iter4, body_bb);
+	    add_phi_arg (phi, iter3, preheader_edge, UNKNOWN_LOCATION);
+	    add_phi_arg (phi, iter5, latch_edge, UNKNOWN_LOCATION);
+	    enum tree_code code = INTEGRAL_TYPE_P (TREE_TYPE (iter3))
+				  ? PLUS_EXPR : POINTER_PLUS_EXPR;
+	    tree addtype = INTEGRAL_TYPE_P (TREE_TYPE (iter3))
+			   ? TREE_TYPE (iter3) : sizetype;
+	    tree addcst
+	      = build_int_cst (addtype, node->simdclone->args[i].linear_step);
+	    g = gimple_build_assign (iter5, code, iter4, addcst);
+	    gsi = gsi_last_bb (incr_bb);
+	    gsi_insert_before (&gsi, g, GSI_SAME_STMT);
+
+	    g = gimple_build_assign (build_simple_mem_ref (iter1), iter4);
+	    gsi = gsi_after_labels (body_bb);
+	    gsi_insert_before (&gsi, g, GSI_SAME_STMT);
+
+	    imm_use_iterator iter;
+	    use_operand_p use_p;
+	    gimple use_stmt;
+	    FOR_EACH_IMM_USE_STMT (use_stmt, iter, def)
+	      if (use_stmt == load)
+		continue;
+	      else
+		FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
+		  SET_USE (use_p, iter1);
+
+	    if (!TYPE_READONLY (rtype))
+	      {
+		tree v = make_ssa_name (rtype);
+		tree aref = build4 (ARRAY_REF, rtype, array,
+				    size_zero_node, NULL_TREE,
+				    NULL_TREE);
+		gsi = gsi_after_labels (new_exit_bb);
+		g = gimple_build_assign (v, aref);
+		gsi_insert_before (&gsi, g, GSI_SAME_STMT);
+		g = gimple_build_assign (build_simple_mem_ref (def), v);
+		gsi_insert_before (&gsi, g, GSI_SAME_STMT);
+	      }
 	  }
       }
 

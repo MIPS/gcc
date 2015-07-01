@@ -29969,7 +29969,12 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
   if (!(flag_cilkplus && pragma_tok == NULL))
     cp_parser_skip_to_pragma_eol (parser, pragma_tok);
   if (finish_p)
-    return finish_omp_clauses (clauses, true);
+    {
+      if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_UNIFORM)) != 0)
+	return finish_omp_clauses (clauses, false, true);
+      else
+	return finish_omp_clauses (clauses, true);
+    }
   return clauses;
 }
 

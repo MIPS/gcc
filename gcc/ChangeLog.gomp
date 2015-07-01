@@ -1,3 +1,23 @@
+2015-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* cgraph.h (enum cgraph_simd_clone_arg_type): Add
+	SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP,
+	SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP,
+	and SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP.
+	(struct cgraph_simd_clone_arg): Adjust comment.
+	* omp-low.c (simd_clone_clauses_extract): Honor
+	OMP_CLAUSE_LINEAR_KIND.
+	(simd_clone_mangle): Mangle the various linear kinds
+	per the new ABI.
+	(simd_clone_adjust_argument_types): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_*_CONSTANT_STEP.
+	(simd_clone_init_simd_arrays): Don't do anything
+	for uval.
+	(simd_clone_adjust): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP like
+	SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP.
+	Handle SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP.
+
 2015-06-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (enum omp_region_type): Add ORT_NONE.

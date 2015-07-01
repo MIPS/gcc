@@ -5495,7 +5495,7 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
    Remove any elements from the list that are invalid.  */
 
 tree
-finish_omp_clauses (tree clauses, bool allow_fields)
+finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head;
@@ -5563,12 +5563,14 @@ finish_omp_clauses (tree clauses, bool allow_fields)
 	  if (!type_dependent_expression_p (t))
 	    {
 	      tree type = TREE_TYPE (t);
-	      if (OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_REF
+	      if ((OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_REF
+		   || OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_UVAL)
 		  && TREE_CODE (type) != REFERENCE_TYPE)
 		{
-		  error ("linear clause with %<ref%> modifier applied to "
+		  error ("linear clause with %qs modifier applied to "
 			 "non-reference variable with %qT type",
-			 TREE_TYPE (t));
+			 OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_REF
+			 ? "ref" : "uval", TREE_TYPE (t));
 		  remove = true;
 		  break;
 		}
@@ -5611,12 +5613,17 @@ finish_omp_clauses (tree clauses, bool allow_fields)
 		    type = TREE_TYPE (type);
 		  if (OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_REF)
 		    {
-		      type = TREE_TYPE (OMP_CLAUSE_DECL (c));
-		      t = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
-					    sizetype, t);
+		      type = build_pointer_type (type);
+		      tree d = fold_convert (type, OMP_CLAUSE_DECL (c));
+		      t = pointer_int_sum (OMP_CLAUSE_LOCATION (c), PLUS_EXPR,
+					   d, t);
 		      t = fold_build2_loc (OMP_CLAUSE_LOCATION (c),
-					   MULT_EXPR, sizetype, t,
-					   TYPE_SIZE_UNIT (type));
+					   MINUS_EXPR, sizetype, t, d);
+		      if (t == error_mark_node)
+			{
+			  remove = true;
+			  break;
+			}
 		    }
 		  else if (TREE_CODE (type) == POINTER_TYPE)
 		    {
@@ -6357,8 +6364,11 @@ finish_omp_clauses (tree clauses, bool allow_fields)
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_REDUCTION:
-	case OMP_CLAUSE_LINEAR:
 	  need_implicitly_determined = true;
+	  break;
+	case OMP_CLAUSE_LINEAR:
+	  if (!declare_simd)
+	    need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_COPYPRIVATE:
 	  need_copy_assignment = true;

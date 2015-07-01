@@ -11532,8 +11532,6 @@ c_parser_omp_clause_linear (c_parser *parser, tree list, bool is_cilk_simd_fn)
       const char *p = IDENTIFIER_POINTER (tok->value);
       if (strcmp ("val", p) == 0)
 	kind = OMP_CLAUSE_LINEAR_VAL;
-      else if (strcmp ("uval", p) == 0)
-	kind = OMP_CLAUSE_LINEAR_UVAL;
       if (c_parser_peek_2nd_token (parser)->type != CPP_OPEN_PAREN)
 	kind = OMP_CLAUSE_LINEAR_DEFAULT;
       if (kind != OMP_CLAUSE_LINEAR_DEFAULT)
@@ -12411,7 +12409,11 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
   c_parser_skip_to_pragma_eol (parser);
 
   if (finish_p)
-    return c_finish_omp_clauses (clauses);
+    {
+      if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_UNIFORM)) != 0)
+	return c_finish_omp_clauses (clauses, true);
+      return c_finish_omp_clauses (clauses);
+    }
 
   return clauses;
 }

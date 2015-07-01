@@ -1,3 +1,9 @@
+2015-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/clause-1.c (foo): Add some linear clause tests.
+	* g++.dg/gomp/clause-3.C (foo): Likewise.
+	* g++.dg/gomp/declare-simd-3.C: New test.
+
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/priority-1.c: New test.

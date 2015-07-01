@@ -1,3 +1,13 @@
+2015-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (finish_omp_clauses): Add declare_simd argument.
+	* parser.c (cp_parser_omp_all_clauses): If mask includes uniform
+	clause, pass true to finish_omp_clauses' declare_simd.
+	* pt.c (apply_late_template_attributes): Pass true to
+	finish_omp_clauses' declare_simd.
+	* semantics.c (finish_omp_clauses): Add declare_simd argument,
+	don't set need_implicitly_determined if it is true.
+
 2015-06-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-tree.h (push_omp_privatization_clauses): Add bool
