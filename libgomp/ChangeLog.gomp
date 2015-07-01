@@ -1,3 +1,7 @@
+2015-07-01  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/lib-62.c: Only run for nvidia.
+
 2015-06-30  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/goacc-data-end.c: Remove
