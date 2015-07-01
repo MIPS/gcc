@@ -3592,7 +3592,8 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       cxx_eval_switch_expr (ctx, t,
 			    non_constant_p, overflow_p, jump_target);
       break;
-
+    case ARRAY_NOTATION_REF:
+      break;
     default:
       if (STATEMENT_CODE_P (TREE_CODE (t)))
 	{
