@@ -7504,8 +7504,6 @@ handle_scalar_storage_order_attribute (tree *node, tree name, tree args,
   tree id = TREE_VALUE (args);
   tree type;
 
-  *no_add_attrs = true;
-
   if (TREE_CODE (*node) == TYPE_DECL
       && ! (flags & ATTR_FLAG_CXX11))
     node = &TREE_TYPE (*node);
@@ -7521,16 +7519,10 @@ handle_scalar_storage_order_attribute (tree *node, tree name, tree args,
 
       if (TREE_CODE (id) == STRING_CST
 	  && strcmp (TREE_STRING_POINTER (id), "big-endian") == 0)
-	{
-	  if (!BYTES_BIG_ENDIAN)
-	    TYPE_REVERSE_STORAGE_ORDER (type) = 1;
-	}
+	TYPE_REVERSE_STORAGE_ORDER (type) = !BYTES_BIG_ENDIAN;
       else if (TREE_CODE (id) == STRING_CST
 	       && strcmp (TREE_STRING_POINTER (id), "little-endian") == 0)
-	{
-	  if (BYTES_BIG_ENDIAN)
-	    TYPE_REVERSE_STORAGE_ORDER (type) = 1;
-	}
+	TYPE_REVERSE_STORAGE_ORDER (type) = BYTES_BIG_ENDIAN;
       else
 	error ("scalar_storage_order argument must be one of \"big-endian\" "
 	       "or \"little-endian\"");
@@ -7540,6 +7532,7 @@ handle_scalar_storage_order_attribute (tree *node, tree name, tree args,
 
  ignored:
   warning (OPT_Wattributes, "%qE attribute ignored", name);
+  *no_add_attrs = true;
   return NULL_TREE;
 }
 

@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "attribs.h"
 #include "cp-tree.h"
+#include "c-family/c-pragma.h"
 #include "flags.h"
 #include "toplev.h"
 #include "target.h"
@@ -6656,6 +6657,8 @@ finish_struct_1 (tree t)
 
   finish_struct_bits (t);
   set_method_tm_attributes (t);
+
+  maybe_apply_pragma_scalar_storage_order (t);
 
   /* Complete the rtl for any static member objects of the type we're
      working on and rewrite the type of array fields with scalar
