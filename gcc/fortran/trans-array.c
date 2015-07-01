@@ -6912,9 +6912,10 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       tree from;
       tree to;
       tree base;
-      bool onebased = false;
+      bool onebased = false, rank_remap;
 
       ndim = info->ref ? info->ref->u.ar.dimen : ss->dimen;
+      rank_remap = ss->dimen < ndim;
 
       if (se->want_coarray)
 	{
@@ -6950,7 +6951,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       /* If we have an array section or are assigning make sure that
 	 the lower bound is 1.  References to the full
 	 array should otherwise keep the original bounds.  */
-      if (!info->ref || info->ref->u.ar.type != AR_FULL)
+      if ((!info->ref || info->ref->u.ar.type != AR_FULL) && !se->want_pointer)
 	for (dim = 0; dim < loop.dimen; dim++)
 	  if (!integer_onep (loop.from[dim]))
 	    {
@@ -7116,7 +7117,19 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       /* Force the offset to be -1, when the lower bound of the highest
 	 dimension is one and the symbol is present and is not a
 	 pointer/allocatable or associated.  */
-      if (onebased && se->use_offset
+      if (((se->direct_byref || GFC_ARRAY_TYPE_P (TREE_TYPE (desc)))
+	   && !se->data_not_needed)
+	  || (se->use_offset && base != NULL_TREE))
+	{
+	  /* Set the offset depending on base.  */
+	  tmp = rank_remap && !se->direct_byref ?
+		fold_build2_loc (input_location, PLUS_EXPR,
+				 gfc_array_index_type, base,
+				 offset)
+	      : base;
+	  gfc_conv_descriptor_offset_set (&loop.pre, parm, tmp);
+	}
+      else if (onebased && (!rank_remap || se->use_offset)
 	  && expr->symtree
 	  && !(expr->symtree->n.sym && expr->symtree->n.sym->ts.type == BT_CLASS
 	       && !CLASS_DATA (expr->symtree->n.sym)->attr.class_pointer)
@@ -7131,11 +7144,6 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	  tmp = gfc_conv_mpz_to_tree (minus_one, gfc_index_integer_kind);
 	  gfc_conv_descriptor_offset_set (&loop.pre, parm, tmp);
 	}
-      else if (((se->direct_byref || GFC_ARRAY_TYPE_P (TREE_TYPE (desc)))
-		&& !se->data_not_needed)
-	       || (se->use_offset && base != NULL_TREE))
-	/* Set the offset depending on base.  */
-	gfc_conv_descriptor_offset_set (&loop.pre, parm, base);
       else
 	{
 	  /* Only the callee knows what the correct offset it, so just set
