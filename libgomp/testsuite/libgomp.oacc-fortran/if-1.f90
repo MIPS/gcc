@@ -410,7 +410,7 @@ program main
   if (acc_is_present (b) .eqv. .TRUE.) call abort
 #endif
 
-  !$pragma acc enter data copyin (b(1:N)) if (zero == 1)
+  !$acc enter data copyin (b(1:N)) if (zero == 1)
 
 #if !ACC_MEM_SHARED
     if (acc_is_present (b) .eqv. .TRUE.) call abort

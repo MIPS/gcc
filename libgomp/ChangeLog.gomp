@@ -1,3 +1,7 @@
+2015-06-24  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/if-1.c: Fix syntax.
+
 2015-07-01  Tom de Vries  <tom@codesourcery.com>
 
 	PR tree-optimization/66716
