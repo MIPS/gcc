@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "varasm.h"
 #include "cp-tree.h"
+#include "c-family/c-common.h"
 #include "c-family/c-objc.h"
 #include "tree-iterator.h"
 #include "gimplify.h"
@@ -61,7 +62,7 @@ bool
 literal_type_p (tree t)
 {
   if (SCALAR_TYPE_P (t)
-      || TREE_CODE (t) == VECTOR_TYPE
+      || VECTOR_TYPE_P (t)
       || TREE_CODE (t) == REFERENCE_TYPE
       || (VOID_TYPE_P (t) && cxx_dialect >= cxx14))
     return true;
@@ -123,7 +124,7 @@ struct GTY((for_user)) constexpr_fundef {
   tree body;
 };
 
-struct constexpr_fundef_hasher : ggc_hasher<constexpr_fundef *>
+struct constexpr_fundef_hasher : ggc_ptr_hash<constexpr_fundef>
 {
   static hashval_t hash (constexpr_fundef *);
   static bool equal (constexpr_fundef *, constexpr_fundef *);
@@ -872,7 +873,7 @@ struct GTY((for_user)) constexpr_call {
   hashval_t hash;
 };
 
-struct constexpr_call_hasher : ggc_hasher<constexpr_call *>
+struct constexpr_call_hasher : ggc_ptr_hash<constexpr_call>
 {
   static hashval_t hash (constexpr_call *);
   static bool equal (constexpr_call *, constexpr_call *);
@@ -2115,7 +2116,7 @@ cxx_eval_bare_aggregate (const constexpr_ctx *ctx, tree t,
   /* We're done building this CONSTRUCTOR, so now we can interpret an
      element without an explicit initializer as value-initialized.  */
   CONSTRUCTOR_NO_IMPLICIT_ZERO (t) = false;
-  if (TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
+  if (VECTOR_TYPE_P (TREE_TYPE (t)))
     t = fold (t);
   return t;
 }
@@ -2261,7 +2262,7 @@ static tree
 cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 {
   tree sub, subtype;
-
+  op0 = cp_fully_fold (op0);
   sub = op0;
   STRIP_NOPS (sub);
   subtype = TREE_TYPE (sub);
@@ -2303,7 +2304,7 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 		   (type, TREE_TYPE (optype))))
 	return fold_build1_loc (loc, REALPART_EXPR, type, op);
       /* *(foo *)&vectorfoo => BIT_FIELD_REF<vectorfoo,...> */
-      else if (TREE_CODE (optype) == VECTOR_TYPE
+      else if (VECTOR_TYPE_P (optype)
 	       && (same_type_ignoring_top_level_qualifiers_p
 		   (type, TREE_TYPE (optype))))
 	{
@@ -2349,7 +2350,7 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 	  op00type = TREE_TYPE (op00);
 
 	  /* ((foo*)&vectorfoo)[1] => BIT_FIELD_REF<vectorfoo,...> */
-	  if (TREE_CODE (op00type) == VECTOR_TYPE
+	  if (VECTOR_TYPE_P (op00type)
 	      && (same_type_ignoring_top_level_qualifiers_p
 		  (type, TREE_TYPE (op00type))))
 	    {
@@ -3066,7 +3067,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       if (TREE_CODE (r) == TARGET_EXPR
 	  && TREE_CODE (TARGET_EXPR_INITIAL (r)) == CONSTRUCTOR)
 	r = TARGET_EXPR_INITIAL (r);
-      if (TREE_CODE (r) == VAR_DECL)
+      if (VAR_P (r))
 	if (tree *p = ctx->values->get (r))
 	  r = *p;
       if (DECL_P (r))

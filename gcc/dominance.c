@@ -646,7 +646,12 @@ calculate_dominance_info (enum cdi_direction dir)
   bool reverse = (dir == CDI_POST_DOMINATORS) ? true : false;
 
   if (dom_computed[dir_index] == DOM_OK)
-    return;
+    {
+#if ENABLE_CHECKING
+      verify_dominators (dir);
+#endif
+      return;
+    }
 
   timevar_push (TV_DOMINANCE);
   if (!dom_info_available_p (dir))
@@ -673,6 +678,12 @@ calculate_dominance_info (enum cdi_direction dir)
 
       free_dom_info (&di);
       dom_computed[dir_index] = DOM_NO_FAST_QUERY;
+    }
+  else
+    {
+#if ENABLE_CHECKING
+      verify_dominators (dir);
+#endif
     }
 
   compute_dom_fast_query (dir);

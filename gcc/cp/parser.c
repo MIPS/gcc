@@ -38,10 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "diagnostic-core.h"
 #include "target.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
@@ -4286,6 +4284,7 @@ cp_parser_primary_expression (cp_parser *parser,
     case CPP_CHAR16:
     case CPP_CHAR32:
     case CPP_WCHAR:
+    case CPP_UTF8CHAR:
     case CPP_NUMBER:
     case CPP_PREPARSED_EXPR:
       if (TREE_CODE (token->u.value) == USERDEF_LITERAL)
@@ -4347,6 +4346,7 @@ cp_parser_primary_expression (cp_parser *parser,
     case CPP_CHAR16_USERDEF:
     case CPP_CHAR32_USERDEF:
     case CPP_WCHAR_USERDEF:
+    case CPP_UTF8CHAR_USERDEF:
       return cp_parser_userdef_char_literal (parser);
 
     case CPP_STRING:
@@ -6894,6 +6894,7 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 		  case CPP_WCHAR:
 		  case CPP_CHAR16:
 		  case CPP_CHAR32:
+		  case CPP_UTF8CHAR:
 		    /* If a parameter is literal zero alone, remember it
 		       for -Wmemset-transposed-args warning.  */
 		    if (integer_zerop (tok->u.value)
@@ -10580,7 +10581,7 @@ cp_convert_range_for (tree statement, tree range_decl, tree range_expr,
     {
       tree range_temp;
 
-      if (TREE_CODE (range_expr) == VAR_DECL
+      if (VAR_P (range_expr)
 	  && array_of_runtime_bound_p (TREE_TYPE (range_expr)))
 	/* Can't bind a reference to an array of runtime bound.  */
 	range_temp = range_expr;
@@ -12180,6 +12181,7 @@ cp_parser_linkage_specification (cp_parser* parser)
 
    static_assert-declaration:
      static_assert ( constant-expression , string-literal ) ; 
+     static_assert ( constant-expression ) ; (C++1Z)
 
    If MEMBER_P, this static_assert is a class member.  */
 
@@ -12221,20 +12223,35 @@ cp_parser_static_assert(cp_parser *parser, bool member_p)
      constant value.  */
   condition = fold_non_dependent_expr (condition);
 
-  /* Parse the separating `,'.  */
-  cp_parser_require (parser, CPP_COMMA, RT_COMMA);
+  if (cp_lexer_peek_token (parser->lexer)->type == CPP_CLOSE_PAREN)
+    {
+      if (cxx_dialect < cxx1z)
+	pedwarn (input_location, OPT_Wpedantic,
+		 "static_assert without a message "
+		 "only available with -std=c++1z or -std=gnu++1z");
+      /* Eat the ')'  */
+      cp_lexer_consume_token (parser->lexer);
+      message = build_string (1, "");
+      TREE_TYPE (message) = char_array_type_node;
+      fix_string_type (message);
+    }
+  else
+    {
+      /* Parse the separating `,'.  */
+      cp_parser_require (parser, CPP_COMMA, RT_COMMA);
 
-  /* Parse the string-literal message.  */
-  message = cp_parser_string_literal (parser, 
-                                      /*translate=*/false,
-                                      /*wide_ok=*/true);
+      /* Parse the string-literal message.  */
+      message = cp_parser_string_literal (parser, 
+                                	  /*translate=*/false,
+                                	  /*wide_ok=*/true);
 
-  /* A `)' completes the static assertion.  */
-  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
-    cp_parser_skip_to_closing_parenthesis (parser, 
-                                           /*recovering=*/true, 
-                                           /*or_comma=*/false,
-					   /*consume_paren=*/true);
+      /* A `)' completes the static assertion.  */
+      if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+	cp_parser_skip_to_closing_parenthesis (parser, 
+                                               /*recovering=*/true, 
+                                               /*or_comma=*/false,
+					       /*consume_paren=*/true);
+    }
 
   /* A semicolon terminates the declaration.  */
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
@@ -14950,6 +14967,30 @@ cp_parser_simple_type_specifier (cp_parser* parser,
       maybe_warn_cpp0x (CPP0X_AUTO);
       if (parser->auto_is_implicit_function_template_parm_p)
 	{
+	  /* The 'auto' might be the placeholder return type for a function decl
+	     with trailing return type.  */
+	  bool have_trailing_return_fn_decl = false;
+	  if (cp_lexer_peek_nth_token (parser->lexer, 2)->type
+	      == CPP_OPEN_PAREN)
+	    {
+	      cp_parser_parse_tentatively (parser);
+	      cp_lexer_consume_token (parser->lexer);
+	      cp_lexer_consume_token (parser->lexer);
+	      if (cp_parser_skip_to_closing_parenthesis (parser,
+							 /*recovering*/false,
+							 /*or_comma*/false,
+							 /*consume_paren*/true))
+		have_trailing_return_fn_decl
+		  = cp_lexer_next_token_is (parser->lexer, CPP_DEREF);
+	      cp_parser_abort_tentative_parse (parser);
+	    }
+
+	  if (have_trailing_return_fn_decl)
+	    {
+	      type = make_auto ();
+	      break;
+	    }
+
 	  if (cxx_dialect >= cxx14)
 	    type = synthesize_implicit_template_parm (parser);
 	  else
@@ -19366,10 +19407,12 @@ cp_parser_initializer_clause (cp_parser* parser, bool* non_constant_p)
   /* If it is not a `{', then we are looking at an
      assignment-expression.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_BRACE))
-    initializer
-      = cp_parser_constant_expression (parser,
-				      /*allow_non_constant_p=*/true,
-				      non_constant_p);
+    {
+      initializer
+	= cp_parser_constant_expression (parser,
+					 /*allow_non_constant_p=*/true,
+					 non_constant_p);
+    }
   else
     initializer = cp_parser_braced_list (parser, non_constant_p);
 
@@ -22504,6 +22547,28 @@ cp_parser_std_attribute (cp_parser *parser)
   return attribute;
 }
 
+/* Check that the attribute ATTRIBUTE appears at most once in the
+   attribute-list ATTRIBUTES.  This is enforced for noreturn (7.6.3)
+   and deprecated (7.6.5).  Note that carries_dependency (7.6.4)
+   isn't implemented yet in GCC.  */
+
+static void
+cp_parser_check_std_attribute (tree attributes, tree attribute)
+{
+  if (attributes)
+    {
+      tree name = get_attribute_name (attribute);
+      if (is_attribute_p ("noreturn", name)
+	  && lookup_attribute ("noreturn", attributes))
+	error ("attribute noreturn can appear at most once "
+	       "in an attribute-list");
+      else if (is_attribute_p ("deprecated", name)
+	       && lookup_attribute ("deprecated", attributes))
+	error ("attribute deprecated can appear at most once "
+	       "in an attribute-list");
+    }
+}
+
 /* Parse a list of standard C++-11 attributes.
 
    attribute-list:
@@ -22526,6 +22591,7 @@ cp_parser_std_attribute_list (cp_parser *parser)
 	break;
       if (attribute != NULL_TREE)
 	{
+	  cp_parser_check_std_attribute (attributes, attribute);
 	  TREE_CHAIN (attribute) = attributes;
 	  attributes = attribute;
 	}
@@ -28068,7 +28134,7 @@ cp_parser_oacc_data_clause_deviceptr (cp_parser *parser, tree list)
 	 c_parser_omp_var_list_parens should construct a list of
 	 locations to go along with the var list.  */
 
-      if (TREE_CODE (v) != VAR_DECL)
+      if (!VAR_P (v))
 	error_at (loc, "%qD is not a variable", v);
       else if (TREE_TYPE (v) == error_mark_node)
 	;
@@ -33287,7 +33353,7 @@ cp_parser_cilk_simd_vectorlength (cp_parser *parser, tree clauses,
     return error_mark_node;
 
   expr = cp_parser_constant_expression (parser);
-  expr = fold_simple_on_cst (expr);
+  expr = maybe_constant_value (expr);
 
   /* If expr == error_mark_node, then don't emit any errors nor
      create a clause.  if any of the above functions returns
