@@ -1,5 +1,12 @@
 2015-07-01  Tom de Vries  <tom@codesourcery.com>
 
+	* oacc-init.c (acc_init_1): Move base_dev NULL test to before use.
+	* testsuite/lib/libgomp.exp
+	(check_effective_target_openacc_nvidia_accel_supported): New proc.
+	* testsuite/libgomp.oacc-c-c++-common/lib-93.c: New test.
+
+2015-07-01  Tom de Vries  <tom@codesourcery.com>
+
 	* testsuite/libgomp.oacc-c-c++-common/lib-62.c: Only run for nvidia.
 
 2015-06-30  Tom de Vries  <tom@codesourcery.com>

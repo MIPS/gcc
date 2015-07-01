@@ -176,9 +176,12 @@ acc_init_1 (acc_device_t d)
 
   base_dev = resolve_device (d);
 
+  if (!base_dev)
+    gomp_fatal ("device %s not supported", name_of_acc_device_t (d));
+
   ndevs = base_dev->get_num_devices_func ();
 
-  if (!base_dev || ndevs <= 0 || goacc_device_num >= ndevs)
+  if (ndevs <= 0 || goacc_device_num >= ndevs)
     gomp_fatal ("device %s not supported", name_of_acc_device_t (d));
 
   acc_dev = &base_dev[goacc_device_num];
