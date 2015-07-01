@@ -4209,7 +4209,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	       REFERENCE_TYPE and we might not even know if the parameter
 	       is a reference, so accept lvalue constants too.  */
 	    bool rv = processing_template_decl ? any : rval;
-	    if (!RECUR (x, rv))
+	    if (!RECUR (x, rv) && !is_builtin_fn (fun))
 	      return false;
           }
         return true;
