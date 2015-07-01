@@ -1,4 +1,4 @@
-/* { dg-options "-mmicromips" } } */
+/* { dg-options "-mmicromips" } */
 /* { dg-final { scan-assembler "\tjraddiusp\t\[1-9\]" } } */
 /* { dg-final { scan-assembler-not "\td?addiu\t(\\\$sp,)?\\\$sp,\[1-9\]" } } */
 /* { dg-final { scan-assembler "\tlw\t" } } */
