@@ -2983,6 +2983,8 @@ cxx_eval_pointer_plus_expression (const constexpr_ctx *ctx, tree t,
   if (TREE_CODE (op00) != ADDR_EXPR)
     return NULL_TREE;
 
+  op01 = cxx_eval_constant_expression (ctx, op01, lval,
+				       non_constant_p, overflow_p);
   op00 = TREE_OPERAND (op00, 0);
 
   /* &A[i] p+ j => &A[i + j] */
