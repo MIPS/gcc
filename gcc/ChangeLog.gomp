@@ -1,3 +1,9 @@
+2015-07-01  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66716
+	* tree-cfg.c (gimple_split_block_before_cond_jump): Split before
+	cond_jump, instead of split after last nondebug insn before cond_jump.
+
 2015-07-01  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* gimplify.c (gimplify_omp_for): For acc loops inside OpenACC constructs,

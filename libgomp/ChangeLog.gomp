@@ -1,3 +1,8 @@
+2015-07-01  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66716
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-g.c: New test.
+
 2015-07-01  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/reduction-4.c (main): Correct
