@@ -59,14 +59,14 @@ main(void)
   lvresult = false;
 
   /* '&&' reductions.  */
-#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc parallel num_gangs (ng) copy (lresult)
 #pragma acc loop reduction (&&:lresult) gang
   for (i = 0; i < n; i++)
     lresult = lresult && (creal(result) > creal(array[i]));
 
   /* Verify the reduction.  */
   for (i = 0; i < n; i++)
-    lvresult = lresult && (creal(result) > creal(array[i]));
+    lvresult = lvresult && (creal(result) > creal(array[i]));
 
   if (lresult != lvresult)
     abort ();
@@ -78,14 +78,14 @@ main(void)
   lvresult = false;
 
   /* '||' reductions.  */
-#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc parallel num_gangs (ng) copy (lresult)
 #pragma acc loop reduction (||:lresult) gang
   for (i = 0; i < n; i++)
     lresult = lresult || (creal(result) > creal(array[i]));
 
   /* Verify the reduction.  */
   for (i = 0; i < n; i++)
-    lvresult = lresult || (creal(result) > creal(array[i]));
+    lvresult = lvresult || (creal(result) > creal(array[i]));
 
   if (lresult != lvresult)
     abort ();

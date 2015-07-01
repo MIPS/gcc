@@ -1,3 +1,10 @@
+2015-07-01  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/reduction-4.c (main): Correct
+	the names of reduction variables in '&&' and '||' tests.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-2.h:
+	Remove uses of the firstprivate clause, remove FIXME comment.
+
 2015-07-01  Tom de Vries  <tom@codesourcery.com>
 
 	* oacc-init.c (acc_init_1): Move base_dev NULL test to before use.

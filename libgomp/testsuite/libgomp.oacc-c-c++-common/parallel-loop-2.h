@@ -1,5 +1,3 @@
-/* FIXME: Remove the firstprivate clauses from the paralle regions.  */
-
 #ifndef VARS
 #define VARS
 int a[1500];
@@ -19,7 +17,7 @@ __attribute__((noinline, noclone)) void
 N(f0) (void)
 {
   int i;
-#pragma acc parallel loop L F firstprivate (i)
+#pragma acc parallel loop L F
   for (i = 0; i < 1500; i++)
     a[i] += 2;
 }
@@ -36,7 +34,7 @@ __attribute__((noinline, noclone)) void
 N(f2) (void)
 {
   unsigned long long i;
-#pragma acc parallel loop L F firstprivate (i)
+#pragma acc parallel loop L F
   for (i = __LONG_LONG_MAX__ + 4500ULL - 27;
        i > __LONG_LONG_MAX__ - 27ULL; i -= 3)
     a[(i + 26LL - __LONG_LONG_MAX__) / 3] -= 4;
@@ -54,7 +52,7 @@ __attribute__((noinline, noclone)) void
 N(f4) (void)
 {
   unsigned int i;
-#pragma acc parallel loop L F firstprivate (i)
+#pragma acc parallel loop L F
   for (i = 30; i < 20; i += 2)
     a[i] += 10;
 }
@@ -64,7 +62,7 @@ N(f5) (int n11, int n12, int n21, int n22, int n31, int n32,
        int s1, int s2, int s3)
 {
   SC int v1, v2, v3;
-#pragma acc parallel loop L F firstprivate (v1, v2, v3)
+#pragma acc parallel loop L F
   for (v1 = n11; v1 < n12; v1 += s1)
 #pragma acc loop S
     for (v2 = n21; v2 < n22; v2 += s2)
@@ -78,7 +76,7 @@ N(f6) (int n11, int n12, int n21, int n22, long long n31, long long n32,
 {
   SC int v1, v2;
   SC long long v3;
-#pragma acc parallel loop L F firstprivate (v1, v2, v3)
+#pragma acc parallel loop L F
   for (v1 = n11; v1 > n12; v1 += s1)
 #pragma acc loop S
     for (v2 = n21; v2 > n22; v2 += s2)
@@ -91,7 +89,7 @@ N(f7) (void)
 {
   SC unsigned int v1, v3;
   SC unsigned long long v2;
-#pragma acc parallel loop L F firstprivate (v1, v2, v3)
+#pragma acc parallel loop L F
   for (v1 = 0; v1 < 20; v1 += 2)
 #pragma acc loop S
     for (v2 = __LONG_LONG_MAX__ + 16ULL;
@@ -104,7 +102,7 @@ __attribute__((noinline, noclone)) void
 N(f8) (void)
 {
   SC long long v1, v2, v3;
-#pragma acc parallel loop L F firstprivate (v1, v2, v3)
+#pragma acc parallel loop L F
   for (v1 = 0; v1 < 20; v1 += 2)
 #pragma acc loop S
     for (v2 = 30; v2 < 20; v2++)
@@ -116,7 +114,7 @@ __attribute__((noinline, noclone)) void
 N(f9) (void)
 {
   int i;
-#pragma acc parallel loop L F firstprivate (i)
+#pragma acc parallel loop L F
   for (i = 20; i < 10; i++)
     {
       a[i] += 2;
@@ -129,7 +127,7 @@ __attribute__((noinline, noclone)) void
 N(f10) (void)
 {
   SC int i;
-#pragma acc parallel loop L F firstprivate (i)
+#pragma acc parallel loop L F
   for (i = 0; i < 10; i++)
 #pragma acc loop S
     for (int j = 10; j < 8; j++)
@@ -145,7 +143,7 @@ __attribute__((noinline, noclone)) void
 N(f11) (int n)
 {
   int i;
-#pragma acc parallel loop L F firstprivate (i)
+#pragma acc parallel loop L F
   for (i = 20; i < n; i++)
     {
       a[i] += 8;
@@ -158,7 +156,7 @@ __attribute__((noinline, noclone)) void
 N(f12) (int n)
 {
   SC int i;
-#pragma acc parallel loop L F firstprivate (i)
+#pragma acc parallel loop L F
   for (i = 0; i < 10; i++)
 #pragma acc loop S
     for (int j = n; j < 8; j++)
@@ -174,7 +172,7 @@ __attribute__((noinline, noclone)) void
 N(f13) (void)
 {
   int *i;
-#pragma acc parallel loop L F firstprivate (i)
+#pragma acc parallel loop L F
   for (i = a; i < &a[1500]; i++)
     i[0] += 2;
 }
@@ -183,7 +181,7 @@ __attribute__((noinline, noclone)) void
 N(f14) (void)
 {
   SC float *i;
-#pragma acc parallel loop L F firstprivate (i)
+#pragma acc parallel loop L F
   for (i = &b[0][0][0]; i < &b[0][0][10]; i++)
 #pragma acc loop S
     for (float *j = &b[0][15][0]; j > &b[0][0][0]; j -= 10)

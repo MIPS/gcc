@@ -1,3 +1,8 @@
+2015-07-01  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gimplify.c (gimplify_omp_for): For acc loops inside OpenACC constructs,
+	notice the use of the index variable in the surrounding gimplify_omp_ctx.
+
 2015-07-01  James Norris  <jnorris@codesourcery.com>
 
 	* c/c-parser.c (OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK): Remove independent

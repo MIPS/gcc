@@ -7348,7 +7348,11 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       else if (omp_is_private (gimplify_omp_ctxp, decl, 0))
 	omp_notice_variable (gimplify_omp_ctxp, decl, true);
       else
-	omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
+	{
+	  if (ork == ORK_OACC && gimplify_omp_ctxp->outer_context)
+	    omp_notice_variable (gimplify_omp_ctxp->outer_context, decl, true);
+	  omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
+	}
 
       /* If DECL is not a gimple register, create a temporary variable to act
 	 as an iteration counter.  This is valid, since DECL cannot be
