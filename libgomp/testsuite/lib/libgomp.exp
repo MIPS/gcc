@@ -374,6 +374,17 @@ proc check_effective_target_openacc_nvidia_accel_configured { } {
     return [is-effective-target lp64]
 }
 
+# TODO: Is this actually the same as
+# check_effective_target_openacc_nvidia_accel_configured?
+proc check_effective_target_openacc_nvidia_accel_supported { } {
+    global offload_targets_s_openacc
+    set res [lsearch $offload_targets_s_openacc "nvidia" ]
+    if { $res != -1 } {
+	return 1;
+    }
+    return 0;
+}
+
 # Return 1 if at least one nvidia board is present.
 
 proc check_effective_target_openacc_nvidia_accel_present { } {

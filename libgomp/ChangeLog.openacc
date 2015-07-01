@@ -1,3 +1,9 @@
+2015-07-01  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/lib/libgomp.exp
+	(check_effective_target_openacc_nvidia_accel_supported): New proc.
+	* testsuite/libgomp.oacc-c-c++-common/lib-93.c: New test.
+
 2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/declare-3.c: Add XFAIL.
