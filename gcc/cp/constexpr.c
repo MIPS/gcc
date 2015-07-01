@@ -3823,6 +3823,9 @@ fold_simple_on_cst_1 (tree t)
     case LROTATE_EXPR:
     case RROTATE_EXPR:
     case TRUTH_AND_EXPR:
+    case TRUTH_ANDIF_EXPR:
+    case TRUTH_OR_EXPR:
+    case TRUTH_ORIF_EXPR:
     case TRUTH_XOR_EXPR:
     case LT_EXPR: case LE_EXPR:
     case GT_EXPR: case GE_EXPR:
