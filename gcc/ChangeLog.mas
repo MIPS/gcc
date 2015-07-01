@@ -1,3 +1,8 @@
+2015-07-01  Richard Biener  <rguenther@suse.de>
+
+	Merge from trunk r225116 through r225225.
+	* match-bitwise.pd: Removed and merged remains into match.pd.
+
 2015-06-29  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk r221894 through r225115.

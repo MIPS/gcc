@@ -4488,14 +4488,12 @@ build_range_check (location_t loc, tree type, tree exp, int in_p,
 {
   tree etype = TREE_TYPE (exp), value;
 
-#ifdef HAVE_canonicalize_funcptr_for_compare
   /* Disable this optimization for function pointer expressions
      on targets that require function pointer canonicalization.  */
-  if (HAVE_canonicalize_funcptr_for_compare
+  if (targetm.have_canonicalize_funcptr_for_compare ()
       && TREE_CODE (etype) == POINTER_TYPE
       && TREE_CODE (TREE_TYPE (etype)) == FUNCTION_TYPE)
     return NULL_TREE;
-#endif
 
   if (! in_p)
     {
@@ -6964,14 +6962,12 @@ fold_widened_comparison (location_t loc, enum tree_code code,
     return NULL_TREE;
   shorter_type = TREE_TYPE (arg0_unw);
 
-#ifdef HAVE_canonicalize_funcptr_for_compare
   /* Disable this optimization if we're casting a function pointer
      type on targets that require function pointer canonicalization.  */
-  if (HAVE_canonicalize_funcptr_for_compare
+  if (targetm.have_canonicalize_funcptr_for_compare ()
       && TREE_CODE (shorter_type) == POINTER_TYPE
       && TREE_CODE (TREE_TYPE (shorter_type)) == FUNCTION_TYPE)
     return NULL_TREE;
-#endif
 
   if (TYPE_PRECISION (TREE_TYPE (arg0)) <= TYPE_PRECISION (shorter_type))
     return NULL_TREE;
@@ -7059,14 +7055,12 @@ fold_sign_changed_comparison (location_t loc, enum tree_code code, tree type,
   arg0_inner = TREE_OPERAND (arg0, 0);
   inner_type = TREE_TYPE (arg0_inner);
 
-#ifdef HAVE_canonicalize_funcptr_for_compare
   /* Disable this optimization if we're casting a function pointer
      type on targets that require function pointer canonicalization.  */
-  if (HAVE_canonicalize_funcptr_for_compare
+  if (targetm.have_canonicalize_funcptr_for_compare ()
       && TREE_CODE (inner_type) == POINTER_TYPE
       && TREE_CODE (TREE_TYPE (inner_type)) == FUNCTION_TYPE)
     return NULL_TREE;
-#endif
 
   if (TYPE_PRECISION (inner_type) != TYPE_PRECISION (outer_type))
     return NULL_TREE;
@@ -8131,9 +8125,6 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 						  TREE_TYPE (targ0),
 						  targ0));
 	}
-      /* ABS_EXPR<ABS_EXPR<x>> = ABS_EXPR<x> even if flag_wrapv is on.  */
-      else if (TREE_CODE (arg0) == ABS_EXPR)
-	return arg0;
 
       /* Strip sign ops from argument.  */
       if (TREE_CODE (type) == REAL_TYPE)
@@ -8161,33 +8152,14 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
       return NULL_TREE;
 
     case BIT_NOT_EXPR:
-      /* Convert ~ (-A) to A - 1.  */
-      if (INTEGRAL_TYPE_P (type) && TREE_CODE (arg0) == NEGATE_EXPR)
-	return fold_build2_loc (loc, MINUS_EXPR, type,
-			    fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0)),
-			    build_int_cst (type, 1));
-      /* Convert ~ (A - 1) or ~ (A + -1) to -A.  */
-      else if (INTEGRAL_TYPE_P (type)
-	       && ((TREE_CODE (arg0) == MINUS_EXPR
-		    && integer_onep (TREE_OPERAND (arg0, 1)))
-		   || (TREE_CODE (arg0) == PLUS_EXPR
-		       && integer_all_onesp (TREE_OPERAND (arg0, 1)))))
-	{
-	  /* Perform the negation in ARG0's type and only then convert
-	     to TYPE as to avoid introducing undefined behavior.  */
-	  tree t = fold_build1_loc (loc, NEGATE_EXPR,
-				    TREE_TYPE (TREE_OPERAND (arg0, 0)),
-				    TREE_OPERAND (arg0, 0));
-	  return fold_convert_loc (loc, type, t);
-	}
       /* Convert ~(X ^ Y) to ~X ^ Y or X ^ ~Y if ~X or ~Y simplify.  */
-      else if (TREE_CODE (arg0) == BIT_XOR_EXPR
-	       && (tem = fold_unary_loc (loc, BIT_NOT_EXPR, type,
-			       	     fold_convert_loc (loc, type,
-						       TREE_OPERAND (arg0, 0)))))
+      if (TREE_CODE (arg0) == BIT_XOR_EXPR
+	  && (tem = fold_unary_loc (loc, BIT_NOT_EXPR, type,
+				    fold_convert_loc (loc, type,
+						      TREE_OPERAND (arg0, 0)))))
 	return fold_build2_loc (loc, BIT_XOR_EXPR, type, tem,
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg0, 1)));
+				fold_convert_loc (loc, type,
+						  TREE_OPERAND (arg0, 1)));
       else if (TREE_CODE (arg0) == BIT_XOR_EXPR
 	       && (tem = fold_unary_loc (loc, BIT_NOT_EXPR, type,
 			       	     fold_convert_loc (loc, type,
@@ -10509,19 +10481,6 @@ fold_binary_loc (location_t loc,
 			    fold_convert_loc (loc, type,
 					      TREE_OPERAND (arg0, 0)));
 
-      /* X - (X / Y) * Y is X % Y.  */
-      if ((INTEGRAL_TYPE_P (type) || VECTOR_INTEGER_TYPE_P (type))
-	  && TREE_CODE (arg1) == MULT_EXPR
-	  && TREE_CODE (TREE_OPERAND (arg1, 0)) == TRUNC_DIV_EXPR
-	  && operand_equal_p (arg0,
-			      TREE_OPERAND (TREE_OPERAND (arg1, 0), 0), 0)
-	  && operand_equal_p (TREE_OPERAND (TREE_OPERAND (arg1, 0), 1),
-			      TREE_OPERAND (arg1, 1), 0))
-	return
-	  fold_convert_loc (loc, type,
-			    fold_build2_loc (loc, TRUNC_MOD_EXPR, TREE_TYPE (arg0),
-					 arg0, TREE_OPERAND (arg1, 1)));
-
       if (! FLOAT_TYPE_P (type))
 	{
 	  /* Fold A - (A & B) into ~B & A.  */
@@ -10941,24 +10900,6 @@ fold_binary_loc (location_t loc,
 
     case BIT_IOR_EXPR:
     bit_ior:
-      /* ~X | X is -1.  */
-      if (TREE_CODE (arg0) == BIT_NOT_EXPR
-	  && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0))
-	{
-	  t1 = build_zero_cst (type);
-	  t1 = fold_unary_loc (loc, BIT_NOT_EXPR, type, t1);
-	  return omit_one_operand_loc (loc, type, t1, arg1);
-	}
-
-      /* X | ~X is -1.  */
-      if (TREE_CODE (arg1) == BIT_NOT_EXPR
-	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0))
-	{
-	  t1 = build_zero_cst (type);
-	  t1 = fold_unary_loc (loc, BIT_NOT_EXPR, type, t1);
-	  return omit_one_operand_loc (loc, type, t1, arg0);
-	}
-
       /* Canonicalize (X & C1) | C2.  */
       if (TREE_CODE (arg0) == BIT_AND_EXPR
 	  && TREE_CODE (arg1) == INTEGER_CST
@@ -11033,131 +10974,11 @@ fold_binary_loc (location_t loc,
       if (t1 != NULL_TREE)
 	return t1;
 
-      /* Convert (or (not arg0) (not arg1)) to (not (and (arg0) (arg1))).
-
-	 This results in more efficient code for machines without a NAND
-	 instruction.  Combine will canonicalize to the first form
-	 which will allow use of NAND instructions provided by the
-	 backend if they exist.  */
-      if (TREE_CODE (arg0) == BIT_NOT_EXPR
-	  && TREE_CODE (arg1) == BIT_NOT_EXPR)
-	{
-	  return
-	    fold_build1_loc (loc, BIT_NOT_EXPR, type,
-			 build2 (BIT_AND_EXPR, type,
-				 fold_convert_loc (loc, type,
-						   TREE_OPERAND (arg0, 0)),
-				 fold_convert_loc (loc, type,
-						   TREE_OPERAND (arg1, 0))));
-	}
-
       /* See if this can be simplified into a rotate first.  If that
 	 is unsuccessful continue in the association code.  */
       goto bit_rotate;
 
     case BIT_XOR_EXPR:
-      /* ~X ^ X is -1.  */
-      if (TREE_CODE (arg0) == BIT_NOT_EXPR
-	  && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0))
-	{
-	  t1 = build_zero_cst (type);
-	  t1 = fold_unary_loc (loc, BIT_NOT_EXPR, type, t1);
-	  return omit_one_operand_loc (loc, type, t1, arg1);
-	}
-
-      /* X ^ ~X is -1.  */
-      if (TREE_CODE (arg1) == BIT_NOT_EXPR
-	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0))
-	{
-	  t1 = build_zero_cst (type);
-	  t1 = fold_unary_loc (loc, BIT_NOT_EXPR, type, t1);
-	  return omit_one_operand_loc (loc, type, t1, arg0);
-	}
-
-      /* If we are XORing two BIT_AND_EXPR's, both of which are and'ing
-         with a constant, and the two constants have no bits in common,
-	 we should treat this as a BIT_IOR_EXPR since this may produce more
-	 simplifications.  */
-      if (TREE_CODE (arg0) == BIT_AND_EXPR
-	  && TREE_CODE (arg1) == BIT_AND_EXPR
-	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
-	  && TREE_CODE (TREE_OPERAND (arg1, 1)) == INTEGER_CST
-	  && wi::bit_and (TREE_OPERAND (arg0, 1),
-			  TREE_OPERAND (arg1, 1)) == 0)
-	{
-	  code = BIT_IOR_EXPR;
-	  goto bit_ior;
-	}
-
-      /* (X | Y) ^ X -> Y & ~ X*/
-      if (TREE_CODE (arg0) == BIT_IOR_EXPR
-          && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0))
-        {
-	  tree t2 = TREE_OPERAND (arg0, 1);
-	  t1 = fold_build1_loc (loc, BIT_NOT_EXPR, TREE_TYPE (arg1),
-			    arg1);
-	  t1 = fold_build2_loc (loc, BIT_AND_EXPR, type,
-			    fold_convert_loc (loc, type, t2),
-			    fold_convert_loc (loc, type, t1));
-	  return t1;
-	}
-
-      /* (Y | X) ^ X -> Y & ~ X*/
-      if (TREE_CODE (arg0) == BIT_IOR_EXPR
-          && operand_equal_p (TREE_OPERAND (arg0, 1), arg1, 0))
-        {
-	  tree t2 = TREE_OPERAND (arg0, 0);
-	  t1 = fold_build1_loc (loc, BIT_NOT_EXPR, TREE_TYPE (arg1),
-			    arg1);
-	  t1 = fold_build2_loc (loc, BIT_AND_EXPR, type,
-			    fold_convert_loc (loc, type, t2),
-			    fold_convert_loc (loc, type, t1));
-	  return t1;
-	}
-
-      /* X ^ (X | Y) -> Y & ~ X*/
-      if (TREE_CODE (arg1) == BIT_IOR_EXPR
-          && operand_equal_p (TREE_OPERAND (arg1, 0), arg0, 0))
-        {
-	  tree t2 = TREE_OPERAND (arg1, 1);
-	  t1 = fold_build1_loc (loc, BIT_NOT_EXPR, TREE_TYPE (arg0),
-			    arg0);
-	  t1 = fold_build2_loc (loc, BIT_AND_EXPR, type,
-			    fold_convert_loc (loc, type, t2),
-			    fold_convert_loc (loc, type, t1));
-	  return t1;
-	}
-
-      /* X ^ (Y | X) -> Y & ~ X*/
-      if (TREE_CODE (arg1) == BIT_IOR_EXPR
-          && operand_equal_p (TREE_OPERAND (arg1, 1), arg0, 0))
-        {
-	  tree t2 = TREE_OPERAND (arg1, 0);
-	  t1 = fold_build1_loc (loc, BIT_NOT_EXPR, TREE_TYPE (arg0),
-			    arg0);
-	  t1 = fold_build2_loc (loc, BIT_AND_EXPR, type,
-			    fold_convert_loc (loc, type, t2),
-			    fold_convert_loc (loc, type, t1));
-	  return t1;
-	}
-
-      /* Convert ~X ^ ~Y to X ^ Y.  */
-      if (TREE_CODE (arg0) == BIT_NOT_EXPR
-	  && TREE_CODE (arg1) == BIT_NOT_EXPR)
-	return fold_build2_loc (loc, code, type,
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg0, 0)),
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg1, 0)));
-
-      /* Convert ~X ^ C to X ^ ~C.  */
-      if (TREE_CODE (arg0) == BIT_NOT_EXPR
-	  && TREE_CODE (arg1) == INTEGER_CST)
-	return fold_build2_loc (loc, code, type,
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg0, 0)),
-			    fold_build1_loc (loc, BIT_NOT_EXPR, type, arg1));
-
       /* Fold (X & 1) ^ 1 as (X & 1) == 0.  */
       if (TREE_CODE (arg0) == BIT_AND_EXPR
 	  && INTEGRAL_TYPE_P (type)
@@ -11165,45 +10986,6 @@ fold_binary_loc (location_t loc,
 	  && integer_onep (arg1))
 	return fold_build2_loc (loc, EQ_EXPR, type, arg0,
 				build_zero_cst (TREE_TYPE (arg0)));
-
-      /* Fold (X & Y) ^ Y as ~X & Y.  */
-      if (TREE_CODE (arg0) == BIT_AND_EXPR
-	  && operand_equal_p (TREE_OPERAND (arg0, 1), arg1, 0))
-	{
-	  tem = fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
-	  return fold_build2_loc (loc, BIT_AND_EXPR, type,
-			      fold_build1_loc (loc, BIT_NOT_EXPR, type, tem),
-			      fold_convert_loc (loc, type, arg1));
-	}
-      /* Fold (X & Y) ^ X as ~Y & X.  */
-      if (TREE_CODE (arg0) == BIT_AND_EXPR
-	  && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0)
-	  && reorder_operands_p (TREE_OPERAND (arg0, 1), arg1))
-	{
-	  tem = fold_convert_loc (loc, type, TREE_OPERAND (arg0, 1));
-	  return fold_build2_loc (loc, BIT_AND_EXPR, type,
-			      fold_build1_loc (loc, BIT_NOT_EXPR, type, tem),
-			      fold_convert_loc (loc, type, arg1));
-	}
-      /* Fold X ^ (X & Y) as X & ~Y.  */
-      if (TREE_CODE (arg1) == BIT_AND_EXPR
-	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0))
-	{
-	  tem = fold_convert_loc (loc, type, TREE_OPERAND (arg1, 1));
-	  return fold_build2_loc (loc, BIT_AND_EXPR, type,
-			      fold_convert_loc (loc, type, arg0),
-			      fold_build1_loc (loc, BIT_NOT_EXPR, type, tem));
-	}
-      /* Fold X ^ (Y & X) as ~Y & X.  */
-      if (TREE_CODE (arg1) == BIT_AND_EXPR
-	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 1), 0)
-	  && reorder_operands_p (arg0, TREE_OPERAND (arg1, 0)))
-	{
-	  tem = fold_convert_loc (loc, type, TREE_OPERAND (arg1, 0));
-	  return fold_build2_loc (loc, BIT_AND_EXPR, type,
-			      fold_build1_loc (loc, BIT_NOT_EXPR, type, tem),
-			      fold_convert_loc (loc, type, arg0));
-	}
 
       /* See if this can be simplified into a rotate first.  If that
 	 is unsuccessful continue in the association code.  */
@@ -11467,23 +11249,6 @@ fold_binary_loc (location_t loc,
 	  if (mask == -1)
 	    return
 	      fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
-	}
-
-      /* Convert (and (not arg0) (not arg1)) to (not (or (arg0) (arg1))).
-
-	 This results in more efficient code for machines without a NOR
-	 instruction.  Combine will canonicalize to the first form
-	 which will allow use of NOR instructions provided by the
-	 backend if they exist.  */
-      if (TREE_CODE (arg0) == BIT_NOT_EXPR
-	  && TREE_CODE (arg1) == BIT_NOT_EXPR)
-	{
-	  return fold_build1_loc (loc, BIT_NOT_EXPR, type,
-			      build2 (BIT_IOR_EXPR, type,
-				      fold_convert_loc (loc, type,
-							TREE_OPERAND (arg0, 0)),
-				      fold_convert_loc (loc, type,
-							TREE_OPERAND (arg1, 0))));
 	}
 
       /* If arg0 is derived from the address of an object or function, we may

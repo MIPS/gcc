@@ -6363,11 +6363,13 @@ coerce_template_template_parm (tree parm,
 	   D<int, C> d;
 
 	 i.e. the parameter list of TT depends on earlier parameters.  */
-      if (!uses_template_parms (TREE_TYPE (arg))
-	  && !same_type_p
-	        (tsubst (TREE_TYPE (parm), outer_args, complain, in_decl),
-		 TREE_TYPE (arg)))
-	return 0;
+      if (!uses_template_parms (TREE_TYPE (arg)))
+	{
+	  tree t = tsubst (TREE_TYPE (parm), outer_args, complain, in_decl);
+	  if (!uses_template_parms (t)
+	      && !same_type_p (t, TREE_TYPE (arg)))
+	    return 0;
+	}
       
       if (TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (arg))
 	  && !TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (parm)))
@@ -11467,8 +11469,9 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		  }
 		SET_DECL_VALUE_EXPR (r, ve);
 	      }
-	    if (TREE_STATIC (r) || DECL_EXTERNAL (r))
-	      set_decl_tls_model (r, decl_tls_model (t));
+	    if (CP_DECL_THREAD_LOCAL_P (r)
+		&& !processing_template_decl)
+	      set_decl_tls_model (r, decl_default_tls_model (r));
 	  }
 	else if (DECL_SELF_REFERENCE_P (t))
 	  SET_DECL_SELF_REFERENCE_P (r);
@@ -15696,7 +15699,7 @@ tsubst_copy_and_build (tree t,
 	    && !processing_template_decl
 	    && !cp_unevaluated_operand
 	    && (TREE_STATIC (r) || DECL_EXTERNAL (r))
-	    && DECL_THREAD_LOCAL_P (r))
+	    && CP_DECL_THREAD_LOCAL_P (r))
 	  {
 	    if (tree wrap = get_tls_wrapper_fn (r))
 	      /* Replace an evaluated use of the thread_local variable with
