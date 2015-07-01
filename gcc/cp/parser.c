@@ -33388,7 +33388,7 @@ cp_parser_cilk_simd_linear (cp_parser *parser, tree clauses)
 	      cp_lexer_consume_token (parser->lexer);
 
 	      e = cp_parser_assignment_expression (parser);
-	      e = fold_simple_on_cst (e);
+	      e = maybe_constant_value (e);
 
 	      if (e == error_mark_node)
 		{
