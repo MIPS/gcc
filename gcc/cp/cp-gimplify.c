@@ -1935,6 +1935,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
     case POSTDECREMENT_EXPR:
     case POSTINCREMENT_EXPR:
+    case INIT_EXPR:
 
 	loc = EXPR_LOCATION (x);
 	op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
@@ -1984,12 +1985,14 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     case UNEQ_EXPR: case LTGT_EXPR:
     case RANGE_EXPR: case COMPLEX_EXPR:
     case MODIFY_EXPR:
-    case INIT_EXPR:
 
       loc = EXPR_LOCATION (x);
       op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
       op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);
-
+      if ((TREE_CODE (x) == COMPOUND_EXPR || TREE_CODE (x) == MODIFY_EXPR)
+	  && ((op1 && TREE_SIDE_EFFECTS (op1))
+	       || (op0 && TREE_SIDE_EFFECTS (op0))))
+	break;
       if (TREE_CODE (x) == COMPOUND_EXPR && !op0)
 	op0 = build_empty_stmt (loc);
 
