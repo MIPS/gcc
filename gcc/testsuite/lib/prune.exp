@@ -78,7 +78,7 @@ proc prune_file_path { text } {
 
     # Truncate absolute file path into relative path.
     set topdir "[file dirname [file dirname [file dirname $srcdir]]]"
-    # regsub -all "$srcdir\/" $text "" text
+    regsub -all "$srcdir\/" $text "" text
     regsub -all "$topdir\/" $text "" text
 
     return $text
