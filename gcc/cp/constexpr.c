@@ -3775,10 +3775,10 @@ fold_simple_on_cst_1 (tree t)
     case NEGATE_EXPR:
     case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
-      /* Fall through.  */
     case NOP_EXPR:
     case VIEW_CONVERT_EXPR:
     case CONVERT_EXPR:
+
       op1 = fold_simple_on_cst_1 (TREE_OPERAND (t, 0));
       if (!op1 || (TREE_CODE (t) == NOP_EXPR && TREE_OVERFLOW (op1)))
 	return NULL_TREE;
@@ -3857,6 +3857,7 @@ fold_simple_on_cst_1 (tree t)
 
   switch (TREE_CODE (t))
     {
+    case STRING_CST:
     case INTEGER_CST:
     case REAL_CST:
     case VECTOR_CST:
