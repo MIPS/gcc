@@ -72,7 +72,6 @@ static const char *expr_to_string (tree);
 static const char *fndecl_to_string (tree, int);
 static const char *op_to_string	(enum tree_code);
 static const char *parm_to_string (int);
-static const char *parms_to_string (tree);
 static const char *type_to_string (tree, int);
 
 static void dump_alias_template_specialization (cxx_pretty_printer *, tree, int);
@@ -3136,15 +3135,6 @@ cv_to_string (tree p, int v)
 }
 
 static const char *
-parms_to_string (tree p)
-{
-  reinit_cxx_pp ();
-  pp_cxx_parameter_declaration_clause (cxx_pp, p);
-  return pp_formatted_text (cxx_pp);
-}
-
-
-static const char *
 eh_spec_to_string (tree p, int /*v*/)
 {
   int flags = 0;
@@ -3568,7 +3558,6 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
     case 'K':
       percent_K_format (text);
       return true;
-    case 'Z': result = parms_to_string (next_tree);          break;
 
     default:
       return false;

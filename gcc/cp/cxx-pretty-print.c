@@ -34,6 +34,7 @@ static void pp_cxx_qualified_id (cxx_pretty_printer *, tree);
 static void pp_cxx_template_argument_list (cxx_pretty_printer *, tree);
 static void pp_cxx_type_specifier_seq (cxx_pretty_printer *, tree);
 static void pp_cxx_ptr_operator (cxx_pretty_printer *, tree);
+static void pp_cxx_parameter_declaration_clause (cxx_pretty_printer *, tree);
 static void pp_cxx_template_parameter (cxx_pretty_printer *, tree);
 static void pp_cxx_cast_expression (cxx_pretty_printer *, tree);
 static void pp_cxx_typeid_expression (cxx_pretty_printer *, tree);
@@ -1439,7 +1440,7 @@ pp_cxx_parameter_declaration (cxx_pretty_printer *pp, tree t)
       parameter-declaration
       parameter-declaration-list , parameter-declaration  */
 
-void
+static void
 pp_cxx_parameter_declaration_clause (cxx_pretty_printer *pp, tree t)
 {
   tree args;
