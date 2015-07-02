@@ -6340,7 +6340,10 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 		  incr = cp_convert (TREE_TYPE (diff), incr,
 				     tf_warning_or_error);
 		  if (TREE_CODE (rhs) == MINUS_EXPR)
-		    incr = fold_build1 (NEGATE_EXPR, TREE_TYPE (diff), incr);
+		    {
+		      incr = build1 (NEGATE_EXPR, TREE_TYPE (diff), incr);
+		      incr = fold_simple_on_cst (incr);
+		    }
 
 		  if (TREE_CODE (incr) != INTEGER_CST
 		      && (TREE_CODE (incr) != NOP_EXPR
@@ -6364,7 +6367,6 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 						 tf_warning_or_error);
 		  if (error_operand_p (iter_incr))
 		    return true;
-		  iter_incr = fold (iter_incr);
 		  iter_incr = build_x_modify_expr (EXPR_LOCATION (rhs),
 						   iter, NOP_EXPR,
 						   iter_incr,
@@ -6372,7 +6374,6 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 		  if (error_operand_p (iter_incr))
 		    return true;
 		  incr = TREE_OPERAND (rhs, 0);
-		  incr = fold (incr);
 		  iter_incr = NULL;
 		}
 	    }
