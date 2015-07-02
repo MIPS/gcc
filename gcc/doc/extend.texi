@@ -18414,8 +18414,9 @@ documented @code{__attribute__ ((scalar_storage_order))}.
 of the scalar fields to big-endian.
 @item @code{#pragma scalar_storage_order little-endian} sets the storage order
 of the scalar fields to little-endian.
-@item @code{#pragma scalar_storage_order default} goes back to the default
-endianness.
+@item @code{#pragma scalar_storage_order default} goes back to the endianness
+that was in effect when compilation started (see also command-line option
+@option{-fsso-struct=@var{endianness}} @pxref{C Dialect Options}).
 @end enumerate
 
 @node Weak Pragmas
