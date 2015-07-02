@@ -8,10 +8,10 @@ foo (int x)
   /* None of the following should pass.  */
   switch (x)
     {
-    case 1 >> -1: /* { dg-error "operand of shift" "" } } */
-    case -1 >> -1: /* { dg-error "operand of shift" "" } } */
-    case 1 << -1: /* { dg-error "operand of shift" "" } } */
-    case -1 << -1: /* { dg-error "operand of shift" "" } } */
+    case 1 >> -1: /* { dg-error "operand of shift" "" } */
+    case -1 >> -1: /* { dg-error "operand of shift" "" } */
+    case 1 << -1: /* { dg-error "operand of shift" "" } */
+    case -1 << -1: /* { dg-error "operand of shift" "" } */
       return 1;
     }
   return 0;
