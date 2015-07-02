@@ -843,7 +843,7 @@ struct GTY(()) tree_template_info {
 // - assumptions which is the result of decomposing the normalized
 //   constraints.
 //
-// The template and declarator requirements are kept to support pretty 
+// The template and declarator requirements are kept to support pretty
 // printing constrained declarations.
 struct GTY(()) tree_constraint_info {
   struct tree_base base;
@@ -5887,8 +5887,8 @@ extern void check_template_variable		(tree);
 extern tree make_auto				(void);
 extern tree make_decltype_auto			(void);
 extern tree do_auto_deduction                   (tree, tree, tree);
-extern tree do_auto_deduction                   (tree, tree, tree, 
-                                                 tsubst_flags_t, 
+extern tree do_auto_deduction                   (tree, tree, tree,
+                                                 tsubst_flags_t,
                                                  auto_deduction_context);
 extern tree type_uses_auto			(tree);
 extern tree type_uses_auto_or_concept		(tree);
@@ -6102,7 +6102,7 @@ extern bool perform_deferred_access_checks	(tsubst_flags_t);
 extern bool perform_or_defer_access_check	(tree, tree, tree,
 						 tsubst_flags_t);
 
-/* RAII sentinel to ensures that deferred access checks are popped before 
+/* RAII sentinel to ensures that deferred access checks are popped before
   a function returns.  */
 
 struct deferring_access_check_sentinel

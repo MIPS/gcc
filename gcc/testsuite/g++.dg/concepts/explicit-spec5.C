@@ -19,4 +19,3 @@ template<typename T>
   };
 
 template<> void S<int>::f() { called = 1; } // { dg-error "match" }
-

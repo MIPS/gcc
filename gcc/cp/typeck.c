@@ -3480,17 +3480,17 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
 
   if (TREE_CODE (function) == FUNCTION_DECL)
     {
-      /* If the function is a non-template member function 
-         or a non-template friend, then we need to check the 
+      /* If the function is a non-template member function
+         or a non-template friend, then we need to check the
          constraints.
-      
-        Note that if overload resolution failed with a single 
-        candidate this function will be used to explicitly diagnose 
-        the failure for the single call expression. The check is 
+
+        Note that if overload resolution failed with a single
+        candidate this function will be used to explicitly diagnose
+        the failure for the single call expression. The check is
         technically redundant since we also would have failed in
         add_function_candidate. */
-      if (flag_concepts 
-          && (complain & tf_error) 
+      if (flag_concepts
+          && (complain & tf_error)
           && !constraints_satisfied_p (function))
         {
           error ("cannot call function %qD", function);

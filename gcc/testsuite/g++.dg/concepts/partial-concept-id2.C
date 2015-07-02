@@ -13,4 +13,3 @@ struct E
 };
 
 E<double> e;
-

@@ -3505,7 +3505,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
              }
 
              template<typename T> requires !C<T>() void f(T);
-        
+
          Normalization leaves f with the associated constraint
          '!requres (T t) { ... }' which is not transformed into
          a constraint.

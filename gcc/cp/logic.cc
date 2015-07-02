@@ -65,12 +65,12 @@ template<typename I1, typename I2, typename I3>
                            Proof state
 ---------------------------------------------------------------------------*/
 
-/* A term list is a list of atomic constraints. It is used 
-   to maintain the lists of assumptions and conclusions in a 
+/* A term list is a list of atomic constraints. It is used
+   to maintain the lists of assumptions and conclusions in a
    proof goal.
 
-   Each term list maintains an iterator that refers to the current 
-   term. This can be used by various tactics to support iteration 
+   Each term list maintains an iterator that refers to the current
+   term. This can be used by various tactics to support iteration
    and stateful manipulation of the list. */
 struct term_list : std::list<tree>
 {
@@ -111,7 +111,7 @@ term_list::operator= (const term_list &x)
   return *this;
 }
 
-/* Insert the term T into the list before the current 
+/* Insert the term T into the list before the current
    position, making this term current. */
 inline void
 term_list::insert (tree t)
@@ -119,8 +119,8 @@ term_list::insert (tree t)
   current = std::list<tree>::insert (current, t);
 }
 
-/* Remove the current term from the list, repositioning to 
-   the term following the removed term. Note that the new 
+/* Remove the current term from the list, repositioning to
+   the term following the removed term. Note that the new
    position could be past the end of the list.
 
    The removed term is returned. */
@@ -154,9 +154,9 @@ term_list::done () const
 }
 
 
-/* A goal (or subgoal) models a sequent of the form 
-   'A |- C' where A and C are lists of assumptions and 
-   conclusions written as propositions in the constraint 
+/* A goal (or subgoal) models a sequent of the form
+   'A |- C' where A and C are lists of assumptions and
+   conclusions written as propositions in the constraint
    language (i.e., lists of trees).
 */
 struct proof_goal
@@ -165,8 +165,8 @@ struct proof_goal
   term_list conclusions;
 };
 
-/* A proof state owns a list of goals and tracks the 
-   current sub-goal. The class also provides facilities 
+/* A proof state owns a list of goals and tracks the
+   current sub-goal. The class also provides facilities
    for managing subgoals and constructing term lists. */
 struct proof_state : std::list<proof_goal>
 {
@@ -178,7 +178,7 @@ struct proof_state : std::list<proof_goal>
 /* An alias for proof state iterators. */
 typedef proof_state::iterator goal_iterator;
 
-/* Initialize the state with a single empty goal, 
+/* Initialize the state with a single empty goal,
    and set that goal as the current subgoal. */
 inline
 proof_state::proof_state ()
@@ -186,8 +186,8 @@ proof_state::proof_state ()
 { }
 
 
-/* Branch the current goal by creating a new subgoal, 
-   returning a reference to // the new object. This does 
+/* Branch the current goal by creating a new subgoal,
+   returning a reference to // the new object. This does
    not update the current goal. */
 inline proof_state::iterator
 proof_state::branch (iterator i)
@@ -222,9 +222,9 @@ left_conjunction (proof_state &, goal_iterator i, tree t)
   l.insert (TREE_OPERAND (t, 0));
 }
 
-/* The left logical rule for disjunction creates a new goal, 
-   adding the first operand to the original set of 
-   constraints and the second operand to the new set 
+/* The left logical rule for disjunction creates a new goal,
+   adding the first operand to the original set of
+   constraints and the second operand to the new set
    of constraints. */
 void
 left_disjunction (proof_state &s, goal_iterator i, tree t)
@@ -256,9 +256,9 @@ left_parameterized_constraint (proof_state &, goal_iterator i, tree t)
                            Decomposition
 ---------------------------------------------------------------------------*/
 
-/* The following algorithms decompose expressions into sets of 
+/* The following algorithms decompose expressions into sets of
    atomic propositions. In terms of the sequent calculus, these
-   functions exercise the logical rules only. 
+   functions exercise the logical rules only.
 
    This is equivalent, for the purpose of determining subsumption,
    to rewriting a constraint in disjunctive normal form. It also
@@ -288,8 +288,8 @@ decompose_left_term (proof_state &s, goal_iterator i)
     }
 }
 
-/* Apply the left logical rules of the sequent calculus 
-   until the current goal is fully decomposed into atomic 
+/* Apply the left logical rules of the sequent calculus
+   until the current goal is fully decomposed into atomic
    constraints. */
 void
 decompose_left_goal (proof_state &s, goal_iterator i)
@@ -300,7 +300,7 @@ decompose_left_goal (proof_state &s, goal_iterator i)
     decompose_left_term (s, i);
 }
 
-/* Apply the left logical rules of the sequent calculus 
+/* Apply the left logical rules of the sequent calculus
    until the antecedents are fully decomposed into atomic
    constraints. */
 void
@@ -373,7 +373,7 @@ bool subsumes_parameterized_constraint (tree, tree);
 bool subsumes_atomic_constraint (tree, tree);
 
 /* Returns true if the assumption A matches the conclusion C. This
-   is generally the case when A and C have the same syntax. 
+   is generally the case when A and C have the same syntax.
 
    NOTE: There will be specialized matching rules to accommodate
    type equivalence, conversion, inheritance, etc. But this is not
@@ -396,7 +396,7 @@ subsumes_atomic_constraint (tree as, tree c)
   return false;
 }
 
-/* Returns true when both operands of C are subsumed by the 
+/* Returns true when both operands of C are subsumed by the
    assumptions AS. */
 inline bool
 subsumes_conjunction (tree as, tree c)
@@ -406,7 +406,7 @@ subsumes_conjunction (tree as, tree c)
   return subsumes_constraint (as, l) && subsumes_constraint (as, r);
 }
 
-/* Returns true when either operand of C is subsumed by the 
+/* Returns true when either operand of C is subsumed by the
    assumptions AS. */
 inline bool
 subsumes_disjunction (tree as, tree c)
@@ -428,7 +428,7 @@ subsumes_parameterized_constraint (tree as, tree c)
 
 
 /* Returns true when the list of assumptions AS subsumes the
-   concluded proposition C. This is a simple recursive descent 
+   concluded proposition C. This is a simple recursive descent
    on C, matching against propositions in the assumption list AS. */
 bool
 subsumes_constraint (tree as, tree c)
@@ -467,7 +467,7 @@ subsumes_constraints_nonnull (tree left, tree right)
 
 } /* namespace */
 
-/* Returns true if the LEFT constraints subsume the RIGHT 
+/* Returns true if the LEFT constraints subsume the RIGHT
    constraints. */
 bool
 subsumes (tree left, tree right)
@@ -480,5 +480,3 @@ subsumes (tree left, tree right)
     return true;
   return subsumes_constraints_nonnull (left, right);
 }
-
-

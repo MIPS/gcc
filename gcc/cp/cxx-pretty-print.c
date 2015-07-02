@@ -1605,7 +1605,7 @@ cxx_pretty_printer::direct_declarator (tree t)
 
 /* declarator:
    direct-declarator
-   ptr-operator declarator  
+   ptr-operator declarator
 
    Concepts:
 
@@ -2679,7 +2679,7 @@ pp_cxx_expression_constraint (cxx_pretty_printer *pp, tree t)
 {
   pp_string (pp, "valid_expr");
   pp_left_paren (pp);
-  pp->expression (TREE_OPERAND (t, 0)); 
+  pp->expression (TREE_OPERAND (t, 0));
   pp_right_paren (pp);
 }
 
@@ -2688,7 +2688,7 @@ pp_cxx_type_constraint (cxx_pretty_printer *pp, tree t)
 {
   pp_string (pp, "valid_type");
   pp_left_paren (pp);
-  pp->type_id (TREE_OPERAND (t, 0)); 
+  pp->type_id (TREE_OPERAND (t, 0));
   pp_right_paren (pp);
 }
 

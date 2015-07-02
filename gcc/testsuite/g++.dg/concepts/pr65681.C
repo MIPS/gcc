@@ -1,43 +1,43 @@
 // { dg-options "-std=c++1z" }
 
 template<typename T>
-concept bool C() 
-{ 
+concept bool C()
+{
   return requires (T t) { t.mf(); };
 }
 
 template<typename T>
-concept bool CA1() 
+concept bool CA1()
 {
   return C<typename T::ca1_type>();
 }
 
 template<typename T>
-concept bool CA2() 
+concept bool CA2()
 {
   return CA1<T>() && requires () { typename T::ca2_type; };
 }
 
 template<typename T>
-concept bool CA3() 
+concept bool CA3()
 {
   return CA2<T>() && requires () { typename T::ca3_type; };
 }
 
 template<typename T>
-concept bool CB1() 
+concept bool CB1()
 {
   return requires () { typename T::cb1_type; };
 }
 
 template<typename T>
-concept bool CB2() 
+concept bool CB2()
 {
   return CB1<T>() && requires () { typename T::cb2_type; };
 }
 
 template<typename T>
-concept bool CB3() 
+concept bool CB3()
 {
   return CB2<T>() && requires () { typename T::cb3_type; };
 }

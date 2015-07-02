@@ -15,4 +15,3 @@ template<D T> void f1(T x) { }
 int main() {
   f1(0); // { dg-error "matching" }
 }
-

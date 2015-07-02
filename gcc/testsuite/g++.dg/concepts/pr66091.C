@@ -1,13 +1,13 @@
 // { dg-options "-std=c++1z" }
 
 template<typename T>
-concept bool C1() 
+concept bool C1()
 {
   return requires() { typename T::type1; };
 }
 
 template<typename T>
-concept bool C2() 
+concept bool C2()
 {
   return C1<T>() && requires() { typename T::type2; };
 }

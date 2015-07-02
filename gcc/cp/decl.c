@@ -4604,12 +4604,12 @@ check_tag_decl (cp_decl_specifier_seq *declspecs,
   return declared_type;
 }
 
-// True if the type T is a class template or a class template 
+// True if the type T is a class template or a class template
 // specialization (either explicit or partial).
 static inline bool
 is_class_template_or_specialization (tree t)
 {
-  if (CLASS_TYPE_P (t) 
+  if (CLASS_TYPE_P (t)
       && (CLASSTYPE_IS_TEMPLATE (t) || CLASSTYPE_TEMPLATE_SPECIALIZATION (t)))
     return true;
   return false;
@@ -6503,7 +6503,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 						  tf_warning_or_error);
       d_init = resolve_nondeduced_context (d_init);
       type = TREE_TYPE (decl) = do_auto_deduction (type, d_init,
-						   auto_node, 
+						   auto_node,
                                                    tf_warning_or_error,
                                                    adc_variable_type);
       if (type == error_mark_node)
@@ -8354,7 +8354,7 @@ grokvardecl (tree type,
   else
     DECL_INTERFACE_KNOWN (decl) = 1;
 
-  /* Check that the variable can be safely declared as a concept. 
+  /* Check that the variable can be safely declared as a concept.
      Note that this also forbids explicit specializations.  */
   if (conceptp)
     {
@@ -11198,9 +11198,9 @@ grokdeclarator (const cp_declarator *declarator,
 	decl = grokfndecl (ctype, type, original_name, parms, unqualified_id,
                            reqs, virtualp, flags, memfn_quals, rqual, raises,
 			   1, friendp,
-			   publicp, 
+			   publicp,
                            inlinep | (2 * constexpr_p) | (4 * concept_p),
-			   initialized == SD_DELETED, 
+			   initialized == SD_DELETED,
                            sfk,
                            funcdef_flag,
 			   template_count, in_namespace, attrlist,
@@ -12587,7 +12587,7 @@ xref_tag_1 (enum tag_types tag_code, tree name,
     {
       if (template_header_p && MAYBE_CLASS_TYPE_P (t))
         {
-          /* Check that we aren't trying to overload a class with different 
+          /* Check that we aren't trying to overload a class with different
              constraints.  */
           tree constr = NULL_TREE;
           if (current_template_parms)

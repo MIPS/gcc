@@ -11,4 +11,3 @@ template<C1 T>
 
 template<typename T>
   concept bool C2() { return X() == X(); } // OK
-

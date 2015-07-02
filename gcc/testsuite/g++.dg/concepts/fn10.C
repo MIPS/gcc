@@ -62,7 +62,7 @@ template <typename R>
 concept bool Range()
 {
   return requires( R r ) {
-    requires __is_same_as( 
+    requires __is_same_as(
       decltype(std::begin(r)), decltype(std::end(r)) );
   };
 }

@@ -2017,7 +2017,7 @@ add_function_candidate (struct z_candidate **candidates,
 
   /* Second, for a function to be viable, its constraints must be
      satisfied. */
-  if (flag_concepts && viable) 
+  if (flag_concepts && viable)
     {
       if (!constraints_satisfied_p (fn))
         {
@@ -4143,8 +4143,8 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args, bool koenig_p,
       if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
         {
           /* If overload resolution selects a specialization of a
-             function concept for non-dependent template arguments, 
-             the expression is true if the constraints are satisfied 
+             function concept for non-dependent template arguments,
+             the expression is true if the constraints are satisfied
              and false otherwise.
 
              NOTE: This is an extension of Concepts Lite TS that

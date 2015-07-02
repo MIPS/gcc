@@ -19,9 +19,8 @@ int f() { }
 // int main() { }
 
 
-int 
+int
 main()
 {
   f1(); // { dg-error "cannot call" }
 }
-

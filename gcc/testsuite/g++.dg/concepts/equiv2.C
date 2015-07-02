@@ -21,10 +21,9 @@ int main() {
 
 void f1(C, C) { }
 
-template<C T> 
+template<C T>
 void f2(T, T) { }
 
-template<typename T> 
-  requires C<T> 
+template<typename T>
+  requires C<T>
 void f3(T, T) { }
-

@@ -23,4 +23,3 @@ int main() {
   f1(s1); assert(called == 2);
   f1(s2); assert(called == 1);
 }
-

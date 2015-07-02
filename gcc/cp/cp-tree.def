@@ -486,8 +486,8 @@ DEFTREECODE (CONSTRAINT_INFO, "constraint_info", tcc_exceptional, 0)
    of the wildcard.  */
 DEFTREECODE (WILDCARD_DECL, "wildcard_decl", tcc_declaration, 0)
 
-/* A requires-expr is a binary expression. The first operand is 
-   its parameter list (possibly NULL). The second is a list of 
+/* A requires-expr is a binary expression. The first operand is
+   its parameter list (possibly NULL). The second is a list of
    requirements, which are denoted by the _REQ* tree codes
    below. */
 DEFTREECODE (REQUIRES_EXPR,   "requires_expr", tcc_expression, 2)
@@ -522,7 +522,7 @@ DEFTREECODE (CONSTEXPR_EXPR, "contexpr_expr", tcc_expression, 1)
    The operands of a constraint can be either types or expressions.
    Unlike expressions, constraints do not have a type. */
 
-/* A predicate constraint evaluates an expression E. 
+/* A predicate constraint evaluates an expression E.
 
    PRED_CONSTR_EXPR has the expression to be evaluated. */
 DEFTREECODE (PRED_CONSTR, "pred_constr", tcc_expression, 1)
@@ -540,9 +540,9 @@ DEFTREECODE (TYPE_CONSTR, "type_constr", tcc_expression, 1)
 /* An implicit conversion constraint determines if an expression
    E is implicitly convertible to a type T. Note that T may
    be dependent but does not contain any placeholders.
-   
+
    ICONV_CONSTR_EXPR has the expression E.
-   ICONV_CONSTR_TYPE has the type T. 
+   ICONV_CONSTR_TYPE has the type T.
    */
 DEFTREECODE (ICONV_CONSTR, "iconv_constr", tcc_expression, 2)
 
@@ -556,13 +556,13 @@ DEFTREECODE (ICONV_CONSTR, "iconv_constr", tcc_expression, 2)
 DEFTREECODE (DEDUCT_CONSTR, "deduct_constr", tcc_expression, 3)
 
 /* An exception constraint determines if, for an expression E,
-   noexcept(E) is true. 
+   noexcept(E) is true.
 
    EXCEPT_CONSTR_EXPR has the expression E. */
 DEFTREECODE (EXCEPT_CONSTR, "except_constr", tcc_expression, 1)
 
 /* A parameterized constraint declares constraint variables, which
-   are used in expression, type, and exception constraints. 
+   are used in expression, type, and exception constraints.
 
    PARM_CONSTR_PARMS has a TREE_LIST of parameter declarations.
    PARM_CONSTR_OPERAND has the nested constraint. */

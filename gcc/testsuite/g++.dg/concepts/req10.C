@@ -4,8 +4,8 @@
 // implicit conversion constraints.
 
 template<typename T, typename U>
-concept bool C() 
-{ 
+concept bool C()
+{
   return requires(T& t) { {t} -> U&; };
 }
 

@@ -15,4 +15,3 @@ int main() {
 }
 
 void Test::f(auto a) requires Class<decltype(a)>() { }
-

@@ -268,7 +268,7 @@ cxx_print_xnode (FILE *file, tree node, int indent)
           print_node (file, "template_reqs", cinfo->template_reqs, indent+4);
         if (cinfo->declarator_reqs)
           print_node (file, "declarator_reqs", cinfo->declarator_reqs, indent+4);
-        print_node (file, "associated_constr", 
+        print_node (file, "associated_constr",
                           cinfo->associated_constr, indent+4);
         print_node_brief (file, "assumptions", cinfo->assumptions, indent+4);
         break;

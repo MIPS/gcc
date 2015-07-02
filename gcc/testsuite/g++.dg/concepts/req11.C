@@ -18,7 +18,7 @@ concept bool Range()
   return requires (T t) { t; };
 }
 
-template<class T> 
+template<class T>
   requires Streamable<T>() and not Range<T>()
 void print(const T& x) { }
 

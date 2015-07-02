@@ -17,4 +17,3 @@ int main() {
   f1(0); // { dg-error "cannot call" }
   f2((void*)0); // { dg-error "cannot call" }
 }
-

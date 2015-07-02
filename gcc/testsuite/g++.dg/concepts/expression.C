@@ -7,7 +7,7 @@
 template<typename T>
   concept bool C1 = __is_class(T);
 
-template<typename T>  
+template<typename T>
   concept bool C2() { return __is_class(T); }
 
 template<typename T>

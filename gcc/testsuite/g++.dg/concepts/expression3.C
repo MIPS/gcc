@@ -21,4 +21,3 @@ int main()
   static_assert(C<S1>(), ""); // { dg-error "failed" }
   static_assert(C<S2>(), ""); // { dg-error "failed" }
 }
-

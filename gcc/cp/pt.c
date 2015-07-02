@@ -958,7 +958,7 @@ maybe_new_partial_specialization (tree type)
 
       return t;
     }
-  
+
   return NULL_TREE;
 }
 
@@ -1995,11 +1995,11 @@ get_template_for_ordering (tree list)
   return f;
 }
 
-/* Among candidates having the same signature, return the 
-   most constrained or NULL_TREE if there is no best candidate. 
-   If the signatures of candidates vary (e.g., template 
-   specialization vs. member function), then there can be no 
-   most constrained. 
+/* Among candidates having the same signature, return the
+   most constrained or NULL_TREE if there is no best candidate.
+   If the signatures of candidates vary (e.g., template
+   specialization vs. member function), then there can be no
+   most constrained.
 
    Note that we don't compare constraints on the functions
    themselves, but rather those of their templates. */
@@ -2010,7 +2010,7 @@ most_constrained_function (tree candidates)
   tree champ = candidates;
   for (tree c = TREE_CHAIN (champ); c; c = TREE_CHAIN (c))
     {
-      int winner = more_constrained (get_template_for_ordering (champ), 
+      int winner = more_constrained (get_template_for_ordering (champ),
                                      get_template_for_ordering (c));
       if (winner == -1)
         champ = c; // The candidate is more constrained
@@ -2020,7 +2020,7 @@ most_constrained_function (tree candidates)
 
   // Verify that the champ is better than previous candidates.
   for (tree c = candidates; c != champ; c = TREE_CHAIN (c)) {
-    if (!more_constrained (get_template_for_ordering (champ), 
+    if (!more_constrained (get_template_for_ordering (champ),
                            get_template_for_ordering (c)))
       return NULL_TREE;
   }
@@ -2231,7 +2231,7 @@ determine_specialization (tree template_id,
 
           /* Remove, from the set of candidates, all those functions
              whose constraints are not satisfied. */
-          if (flag_concepts && !constraints_satisfied_p (fn, targs)) 
+          if (flag_concepts && !constraints_satisfied_p (fn, targs))
             continue;
 
           // Then, try to form the new function type.
@@ -3078,7 +3078,7 @@ check_explicit_specialization (tree declarator,
               /* A concept cannot be specialized.  */
               if (DECL_DECLARED_CONCEPT_P (tmpl_func))
                 {
-                  error ("explicit specialization of function concept %qD", 
+                  error ("explicit specialization of function concept %qD",
                          gen_tmpl);
                   return error_mark_node;
                 }
@@ -4096,14 +4096,14 @@ process_template_parm (tree list, location_t parm_loc, tree parm,
   DECL_ARTIFICIAL (decl) = 1;
   SET_DECL_TEMPLATE_PARM_P (decl);
 
-  /* Build requirements for the type/template parameter.  
-     This must be done after SET_DECL_TEMPLATE_PARM_P or 
+  /* Build requirements for the type/template parameter.
+     This must be done after SET_DECL_TEMPLATE_PARM_P or
      process_template_parm could fail. */
   reqs = finish_shorthand_constraint (parm, constr);
 
   pushdecl (decl);
 
-  /* Build the parameter node linking the parameter declaration, 
+  /* Build the parameter node linking the parameter declaration,
      its default argument (if any), and its constraints (if any). */
   parm = build_tree_list (defval, parm);
   TEMPLATE_PARM_CONSTRAINTS (parm) = reqs;
@@ -4441,20 +4441,20 @@ process_partial_specialization (tree decl)
   /*  When defining a constrained partial specialization, DECL's type
       will have been assigned to the canonical type of the primary.
       That is:
-  
+
          template<typename T>
            struct S; // Has canonical type S<T>
-      
+
          template<C T>
            struct S<T>; // Binds to the primary template.
-  
+
       However, the constraints differ, so we should be constructing
       a new type instead of simply referring to the old one. We
-      do this by erasing the canonical type of the partial 
+      do this by erasing the canonical type of the partial
       specialization and always comparing these types structurally.
 
       TODO: Do we need to compare the current requirements to make
-      sure this isn't a redeclaration? */  
+      sure this isn't a redeclaration? */
   if (TEMPLATE_PARM_CONSTRAINTS (current_template_parms))
     SET_TYPE_STRUCTURAL_EQUALITY (type);
 
@@ -7254,8 +7254,8 @@ coerce_template_parameter_pack (tree parms,
 
       packed_args = make_tree_vec (TREE_VEC_LENGTH (packed_parms));
     }
-  /* Check if we have a placeholder pack, which indicates we're 
-     in the context of a introduction list.  In that case we want 
+  /* Check if we have a placeholder pack, which indicates we're
+     in the context of a introduction list.  In that case we want
      to match this pack to the single placeholder.  */
   else if (arg_idx < nargs
            && TREE_CODE (TREE_VEC_ELT (inner_args, arg_idx)) == WILDCARD_DECL
@@ -7648,7 +7648,7 @@ coerce_template_parms (tree parms, tree args, tree in_decl)
 
 /* Convert all template arguments to their appropriate type, and
    instantiate default arguments as needed. This returns a vector
-   containing the innermost resulting template arguments, or 
+   containing the innermost resulting template arguments, or
    error_mark_node if unsuccessful.  */
 tree
 coerce_template_parms (tree parms, tree args, tree in_decl,
@@ -8214,10 +8214,10 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       if (entry)
 	return entry->spec;
 
-      /* If the the template's constraints are not satisfied, 
+      /* If the the template's constraints are not satisfied,
          then we cannot form a valid type.
-      
-         Note that the check is deferred until after the hash 
+
+         Note that the check is deferred until after the hash
          lookup. This prevents redundant checks on previously
          instantiated specializations. */
       if (flag_concepts && !constraints_satisfied_p (gen_tmpl, arglist))
@@ -9017,17 +9017,17 @@ outermost_tinst_level (void)
 
 /* Returns TRUE if the t is a parameter that will be
    expanded into a sequence of arguments, when an argument
-   pack is substituted into it.  
+   pack is substituted into it.
 
    These arise from requires-expressions, where substitution
    during normalization produces unexpanded parameters.
    For example:
 
         template<typename T, typename... Args>
-        concept bool C() { 
+        concept bool C() {
           return requires (T t, Args... args) {
             t(args...);
-          } 
+          }
         }
 
         tempate<typename X, typename... As>
@@ -10434,7 +10434,7 @@ tsubst_pack_conjunction (tree t, tree args, tsubst_flags_t complain,
 
 /* If the resulting expression is type- or value-dependent, then
    return it after setting the result type to bool (so it can be
-   expanded as a conjunction). This happens when instantiating 
+   expanded as a conjunction). This happens when instantiating
    constrained variadic member function templates. Just rebuild
    the dependent pack expansion.  */
   if (instantiation_dependent_expression_p (terms))
@@ -10449,7 +10449,7 @@ tsubst_pack_conjunction (tree t, tree args, tsubst_flags_t complain,
     return boolean_true_node;
 
   /* Otherwise, and the terms together.  These are transformed
-     into constraints later.  */  
+     into constraints later.  */
   tree result = TREE_VEC_ELT (terms, 0);
   for (int i = 1; i < TREE_VEC_LENGTH (terms); ++i) {
     tree t = TREE_VEC_ELT (terms, i);
@@ -10479,11 +10479,11 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 
   /* If T is a parameter declaration pending expansion by
      ARGS, substitute through and form an argument pack
-     for the resulting expression. The sequence of 
+     for the resulting expression. The sequence of
      expressions is contained in the argument pack.  */
   if (pending_expansion_p (t))
     {
-      tree pack = tsubst_copy_and_build (t, args, complain, in_decl, 
+      tree pack = tsubst_copy_and_build (t, args, complain, in_decl,
                                          /*function_p=*/false,
                                          /*constexpr_p=*/false);
       gcc_assert (TREE_CODE (pack) == NONTYPE_ARGUMENT_PACK);
@@ -11849,7 +11849,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		    /* ... unless T is a member template; in which
 		       case our caller can be willing to create a
 		       specialization of that template represented
-		       by T.  
+		       by T.
 
                        NOTE: The extra check for DECL_TEMPLATE_INFO
                        is apparenly needed when checking constraints
@@ -13434,7 +13434,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     {
     case PARM_DECL:
       r = retrieve_local_specialization (t);
-      
+
       if (r == NULL_TREE)
 	{
 	  /* We get here for a use of 'this' in an NSDMI.  */
@@ -20076,7 +20076,7 @@ most_specialized_partial_spec (tree target, tsubst_flags_t complain)
 
           /* Keep the candidate only if the constraints are satisfied,
              or if we're not compiling with concepts.  */
-          if (!flag_concepts 
+          if (!flag_concepts
               || constraints_satisfied_p (spec_tmpl, spec_args))
             {
               list = tree_cons (spec_args, TREE_VALUE (t), list);
@@ -22857,18 +22857,18 @@ listify_autos (tree type, tree auto_node)
 tree
 do_auto_deduction (tree type, tree init, tree auto_node)
 {
-  return do_auto_deduction (type, init, auto_node, 
-                            tf_warning_or_error, 
+  return do_auto_deduction (type, init, auto_node,
+                            tf_warning_or_error,
                             adc_unspecified);
 }
 
 /* Replace occurrences of 'auto' in TYPE with the appropriate type deduced
-   from INIT.  AUTO_NODE is the TEMPLATE_TYPE_PARM used for 'auto' in TYPE.  
+   from INIT.  AUTO_NODE is the TEMPLATE_TYPE_PARM used for 'auto' in TYPE.
    The CONTEXT determines the context in which auto deduction is performed
    and is used to control error diagnostics.  */
 
 tree
-do_auto_deduction (tree type, tree init, tree auto_node, 
+do_auto_deduction (tree type, tree init, tree auto_node,
                    tsubst_flags_t complain, auto_deduction_context context)
 {
   tree targs;
@@ -22990,7 +22990,7 @@ do_auto_deduction (tree type, tree init, tree auto_node,
           {
             if (complain & tf_warning_or_error)
               {
-                switch (context) 
+                switch (context)
                   {
                   case adc_unspecified:
                     error("placeholder constraints not satisfied");
@@ -23275,8 +23275,8 @@ struct constr_hasher : ggc_hasher<constr_entry *>
 };
 
 
-/* A mapping from declarations to constraint information. Note that 
-   both templates and their underlying declarations are mapped to the 
+/* A mapping from declarations to constraint information. Note that
+   both templates and their underlying declarations are mapped to the
    same constraint information.
 
    FIXME: This is defined in pt.c because garbage collection
@@ -23310,9 +23310,9 @@ get_constraints (tree t)
     return NULL_TREE;
 }
 
-/* Associate the given constraint information CI with the declaration 
-   T. If T is a template, then the constraints are associated with 
-   its underlying declaration. Don't build associations if CI is 
+/* Associate the given constraint information CI with the declaration
+   T. If T is a template, then the constraints are associated with
+   its underlying declaration. Don't build associations if CI is
    NULL_TREE.  */
 void
 set_constraints (tree t, tree ci)
@@ -23330,7 +23330,7 @@ set_constraints (tree t, tree ci)
   *slot = entry;
 }
 
-/* Remove the associated constraints of the declaration T. 
+/* Remove the associated constraints of the declaration T.
    If there are no constraints associated with T, then
    return NULL_TREE.  */
 void
