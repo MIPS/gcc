@@ -414,12 +414,12 @@ plugin_get_current_binding_level (cc1_plugin::connection *self)
 
   tree decl;
 
-  if (current_class_type)
-    decl = TYPE_NAME (current_class_type);
-  else if (current_function_decl)
-    decl = current_function_decl;
-  else if (toplevel_bindings_p ())
+  if (at_namespace_scope_p ())
     decl = current_namespace;
+  else if (at_function_scope_p ())
+    decl = current_function_decl;
+  else if (at_class_scope_p ())
+    decl = TYPE_NAME (current_class_type);
   else
     gcc_unreachable ();
 
@@ -454,8 +454,13 @@ plugin_new_decl (cc1_plugin::connection *self,
   tree decl;
   tree sym_type = convert_in (sym_type_in);
 
+  bool virtualp = false;;
+
   switch (sym_kind)
     {
+    case GCC_CP_SYMBOL_VIRTUAL_FUNCTION:
+      virtualp = true;
+      /* Fallthrough.  */
     case GCC_CP_SYMBOL_FUNCTION:
       code = FUNCTION_DECL;
       break;
@@ -479,17 +484,42 @@ plugin_new_decl (cc1_plugin::connection *self,
     }
 
   source_location loc = ctx->get_source_location (filename, line_number);
+  bool class_member_p = at_class_scope_p ();
 
   if (code == FUNCTION_DECL)
     {
-      decl = build_lang_decl (code, identifier, sym_type);
-      DECL_SOURCE_LOCATION (decl) = loc;
+      decl = build_lang_decl_loc (loc, code, identifier, sym_type);
       SET_DECL_LANGUAGE (decl, lang_cplusplus); // FIXME: current_lang_name is lang_name_c while compiling an extern "C" function, and we haven't switched to a global context at this point, and this breaks function overloading.
+      if (class_member_p)
+	{
+	  if (TREE_CODE (sym_type) == FUNCTION_TYPE)
+	    DECL_STATIC_FUNCTION_P (decl) = 1;
+	  if (virtualp)
+	    DECL_VIRTUAL_P (decl) = 1;
+	  // FIXME: ctor, dtor, operators
+	}
+    }
+  else if (class_member_p)
+    {
+      decl = build_lang_decl_loc (loc, code, identifier, sym_type);
+      if (TREE_CODE (sym_type) == VAR_DECL)
+	{
+	  // This block does the same as:
+	  // set_linkage_for_static_data_member (decl);
+	  TREE_PUBLIC (decl) = 1;
+	  TREE_STATIC (decl) = 1;
+	  DECL_INTERFACE_KNOWN (decl) = 1;
+	}
     }
   else
     decl = build_decl (loc, code, identifier, sym_type);
   TREE_USED (decl) = 1;
   TREE_ADDRESSABLE (decl) = 1;
+
+  if (class_member_p)
+    DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
+  else if (at_namespace_scope_p ())
+    DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
 
   if (sym_kind != GCC_CP_SYMBOL_TYPEDEF)
     {
@@ -507,16 +537,24 @@ plugin_new_decl (cc1_plugin::connection *self,
 	  if (value.address == NULL_TREE)
 	    value.address = error_mark_node;
 	}
-      else
+      else if (address)
 	value.address = build_int_cst_type (ptr_type_node, address);
-      decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
-      gcc_assert (*slot == NULL);
-      *slot
-	= static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
-      **slot = value;
+      else
+	value.address = NULL;
+      if (value.address)
+	{
+	  decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
+	  gcc_assert (*slot == NULL);
+	  *slot
+	    = static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
+	  **slot = value;
+	}
     }
 
   decl = safe_pushdecl_maybe_friend (decl, false);
+
+  if (class_member_p)
+    finish_member_declaration (decl);
 
   rest_of_decl_compilation (decl, toplevel_bindings_p (), 0);
 
@@ -781,7 +819,7 @@ plugin_build_method_type (cc1_plugin::connection *self,
       gcc_unreachable ();
     }
   
-  tree method_type = build_memfn_type (class_type, func_type, quals, rquals);
+  tree method_type = build_memfn_type (func_type, class_type, quals, rquals);
   
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (method_type));
