@@ -1874,8 +1874,7 @@ cxx_eval_bit_field_ref (const constexpr_ctx *ctx, tree t,
     {
       tree bitpos = bit_position (field);
       if (bitpos == start && DECL_SIZE (field) == TREE_OPERAND (t, 1))
-	return cxx_eval_constant_expression (ctx, value, lval,
-					      non_constant_p, overflow_p);
+	return value;
       if (TREE_CODE (TREE_TYPE (field)) == INTEGER_TYPE
 	  && TREE_CODE (value) == INTEGER_CST
 	  && tree_fits_shwi_p (bitpos)
