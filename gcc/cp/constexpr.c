@@ -1585,15 +1585,14 @@ cxx_eval_unary_expression (const constexpr_ctx *ctx, tree t,
   enum tree_code code = TREE_CODE (t);
   tree type = TREE_TYPE (t);
   r = fold_unary_loc (loc, code, type, arg);
-  if (r == NULL_TREE || !CONSTANT_CLASS_P (r))
+  if (r == NULL_TREE)
     {
       if (arg == orig_arg)
 	r = t;
       else
 	r = build1_loc (loc, code, type, arg);
     }
-  else
-    r = unify_constant (ctx, r, overflow_p);
+
   VERIFY_CONSTANT (r);
   return r;
 }
