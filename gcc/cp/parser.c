@@ -13995,10 +13995,6 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
               }
 	    else if (check_for_bare_parameter_packs (default_argument))
 	      default_argument = error_mark_node;
-
-      /* FIXME: This appears to be a stray pop. Check again once
-         template introdutions have been disabled. */
-	    // pop_deferring_access_checks ();
 	  }
 	else
 	  default_argument = NULL_TREE;
