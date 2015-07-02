@@ -6596,6 +6596,7 @@ finish_struct_1 (tree t)
     }
 
   /* Layout the class itself.  */
+  maybe_apply_pragma_scalar_storage_order (t);
   layout_class_type (t, &virtuals);
   if (CLASSTYPE_AS_BASE (t) != t)
     /* We use the base type for trivial assignments, and hence it
@@ -6657,8 +6658,6 @@ finish_struct_1 (tree t)
 
   finish_struct_bits (t);
   set_method_tm_attributes (t);
-
-  maybe_apply_pragma_scalar_storage_order (t);
 
   /* Complete the rtl for any static member objects of the type we're
      working on and rewrite the type of array fields with scalar

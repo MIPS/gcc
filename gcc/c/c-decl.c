@@ -7724,6 +7724,8 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 
   TYPE_FIELDS (t) = fieldlist;
 
+  maybe_apply_pragma_scalar_storage_order (t);
+
   layout_type (t);
 
   if (TYPE_SIZE_UNIT (t)
@@ -7731,8 +7733,6 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
       && !TREE_OVERFLOW (TYPE_SIZE_UNIT (t))
       && !valid_constant_size_p (TYPE_SIZE_UNIT (t)))
     error ("type %qT is too large", t);
-
-  maybe_apply_pragma_scalar_storage_order (t);
 
   /* Give bit-fields their proper types and rewrite the type of array fields
      with scalar component if the enclosing type has reverse storage order.  */
