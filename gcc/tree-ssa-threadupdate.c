@@ -20,33 +20,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "flags.h"
 #include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfganal.h"
 #include "basic-block.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -135,7 +125,7 @@ struct el
    may have many incoming edges threaded to the same outgoing edge.  This
    can be naturally implemented with a hash table.  */
 
-struct redirection_data : typed_free_remove<redirection_data>
+struct redirection_data : free_ptr_hash<redirection_data>
 {
   /* We support wiring up two block duplicates in a jump threading path.
 
@@ -160,8 +150,6 @@ struct redirection_data : typed_free_remove<redirection_data>
   struct el *incoming_edges;
 
   /* hash_table support.  */
-  typedef redirection_data *value_type;
-  typedef redirection_data *compare_type;
   static inline hashval_t hash (const redirection_data *);
   static inline int equal (const redirection_data *, const redirection_data *);
 };

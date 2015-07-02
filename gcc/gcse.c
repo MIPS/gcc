@@ -140,15 +140,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -165,10 +158,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "lcm.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -178,13 +167,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "except.h"
-#include "ggc.h"
 #include "params.h"
+#include "alloc-pool.h"
 #include "cselib.h"
 #include "intl.h"
 #include "obstack.h"
 #include "tree-pass.h"
-#include "hash-table.h"
 #include "df.h"
 #include "dbgcnt.h"
 #include "target.h"
@@ -386,9 +374,8 @@ struct ls_expr
 /* Head of the list of load/store memory refs.  */
 static struct ls_expr * pre_ldst_mems = NULL;
 
-struct pre_ldst_expr_hasher : typed_noop_remove <ls_expr>
+struct pre_ldst_expr_hasher : nofree_ptr_hash <ls_expr>
 {
-  typedef ls_expr *value_type;
   typedef value_type compare_type;
   static inline hashval_t hash (const ls_expr *);
   static inline bool equal (const ls_expr *, const ls_expr *);
@@ -544,7 +531,6 @@ static void trim_ld_motion_mems (void);
 static void update_ld_motion_stores (struct gcse_expr *);
 static void clear_modify_mem_tables (void);
 static void free_modify_mem_tables (void);
-static rtx gcse_emit_move_after (rtx, rtx, rtx_insn *);
 static bool is_too_expensive (const char *);
 
 #define GNEW(T)			((T *) gmalloc (sizeof (T)))
@@ -2438,7 +2424,7 @@ single_set_gcse (rtx_insn *insn)
 /* Emit move from SRC to DEST noting the equivalence with expression computed
    in INSN.  */
 
-static rtx
+static rtx_insn *
 gcse_emit_move_after (rtx dest, rtx src, rtx_insn *insn)
 {
   rtx_insn *new_rtx;
@@ -3964,7 +3950,6 @@ update_ld_motion_stores (struct gcse_expr * expr)
 	  rtx pat = PATTERN (insn);
 	  rtx src = SET_SRC (pat);
 	  rtx reg = expr->reaching_reg;
-	  rtx copy;
 
 	  /* If we've already copied it, continue.  */
 	  if (expr->reaching_reg == src)
@@ -3979,7 +3964,7 @@ update_ld_motion_stores (struct gcse_expr * expr)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  copy = gen_move_insn (reg, copy_rtx (SET_SRC (pat)));
+	  rtx_insn *copy = gen_move_insn (reg, copy_rtx (SET_SRC (pat)));
 	  emit_insn_before (copy, insn);
 	  SET_SRC (pat) = reg;
 	  df_insn_rescan (insn);

@@ -41,19 +41,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "hard-reg-set.h"
 #include "predict.h"
-#include "hashtab.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -72,9 +64,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "insn-config.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -86,7 +75,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "cfgloop.h"
-#include "ggc.h"
 #include "tree-pass.h"
 #include "df.h"
 
@@ -97,7 +85,6 @@ static GTY(()) rtx_insn *cfg_layout_function_header;
 
 static rtx_insn *skip_insns_after_block (basic_block);
 static void record_effective_endpoints (void);
-static rtx label_for_bb (basic_block);
 static void fixup_reorder_chain (void);
 
 void verify_insn_chain (void);
@@ -1125,12 +1112,12 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
   /* Or replace possibly complicated jump insn by simple jump insn.  */
   else
     {
-      rtx target_label = block_label (target);
+      rtx_code_label *target_label = block_label (target);
       rtx_insn *barrier;
       rtx label;
       rtx_jump_table_data *table;
 
-      emit_jump_insn_after_noloc (gen_jump (target_label), insn);
+      emit_jump_insn_after_noloc (targetm.gen_jump (target_label), insn);
       JUMP_LABEL (BB_END (src)) = target_label;
       LABEL_NUSES (target_label)++;
       if (dump_file)
@@ -1208,7 +1195,7 @@ patch_jump_insn (rtx_insn *insn, rtx_insn *old_label, basic_block new_bb)
     {
       rtvec vec;
       int j;
-      rtx new_label = block_label (new_bb);
+      rtx_code_label *new_label = block_label (new_bb);
 
       if (new_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	return false;
@@ -1238,11 +1225,11 @@ patch_jump_insn (rtx_insn *insn, rtx_insn *old_label, basic_block new_bb)
   else if ((tmp = extract_asm_operands (PATTERN (insn))) != NULL)
     {
       int i, n = ASM_OPERANDS_LABEL_LENGTH (tmp);
-      rtx new_label, note;
+      rtx note;
 
       if (new_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	return false;
-      new_label = block_label (new_bb);
+      rtx_code_label *new_label = block_label (new_bb);
 
       for (i = 0; i < n; ++i)
 	{
@@ -1708,27 +1695,21 @@ force_nonfallthru_and_redirect (edge e, basic_block target, rtx jump_label)
   if (target == EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
       if (jump_label == ret_rtx)
-	{
-	  if (!HAVE_return)
-	    gcc_unreachable ();
-
-	  emit_jump_insn_after_setloc (gen_return (), BB_END (jump_block), loc);
-	}
+	emit_jump_insn_after_setloc (targetm.gen_return (),
+				     BB_END (jump_block), loc);
       else
 	{
 	  gcc_assert (jump_label == simple_return_rtx);
-	  if (!HAVE_simple_return)
-	    gcc_unreachable ();
-
-	  emit_jump_insn_after_setloc (gen_simple_return (),
+	  emit_jump_insn_after_setloc (targetm.gen_simple_return (),
 				       BB_END (jump_block), loc);
 	}
       set_return_jump_label (BB_END (jump_block));
     }
   else
     {
-      rtx label = block_label (target);
-      emit_jump_insn_after_setloc (gen_jump (label), BB_END (jump_block), loc);
+      rtx_code_label *label = block_label (target);
+      emit_jump_insn_after_setloc (targetm.gen_jump (label),
+				   BB_END (jump_block), loc);
       JUMP_LABEL (BB_END (jump_block)) = label;
       LABEL_NUSES (label)++;
     }
@@ -3469,10 +3450,10 @@ skip_insns_after_block (basic_block bb)
 
 /* Locate or create a label for a given basic block.  */
 
-static rtx
+static rtx_insn *
 label_for_bb (basic_block bb)
 {
-  rtx label = BB_HEAD (bb);
+  rtx_insn *label = BB_HEAD (bb);
 
   if (!LABEL_P (label))
     {
@@ -4344,7 +4325,7 @@ cfg_layout_finalize (void)
 #endif
   force_one_exit_fallthru ();
   rtl_register_cfg_hooks ();
-  if (reload_completed && !HAVE_epilogue)
+  if (reload_completed && !targetm.have_epilogue ())
     fixup_fallthru_exit_predecessor ();
   fixup_reorder_chain ();
 

@@ -20,27 +20,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -61,13 +49,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -212,10 +196,8 @@ struct finally_tree_node
 
 /* Hashtable helpers.  */
 
-struct finally_tree_hasher : typed_free_remove <finally_tree_node>
+struct finally_tree_hasher : free_ptr_hash <finally_tree_node>
 {
-  typedef finally_tree_node *value_type;
-  typedef finally_tree_node *compare_type;
   static inline hashval_t hash (const finally_tree_node *);
   static inline bool equal (const finally_tree_node *,
 			    const finally_tree_node *);

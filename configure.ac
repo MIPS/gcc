@@ -1445,7 +1445,7 @@ esac
 # When bootstrapping with GCC, build stage 1 in C++98 mode to ensure that a
 # C++98 compiler can still start the bootstrap.
 if test "$enable_bootstrap:$GXX" = "yes:yes"; then
-  CXX="$CXX -std=c++98"
+  CXX="$CXX -std=gnu++98"
 fi
 
 # Used for setting $lt_cv_objdir
@@ -2560,7 +2560,7 @@ case "${enable_target_optspace}:${target}" in
   :d30v-*)
     ospace_frag="config/mt-d30v"
     ;;
-  :m32r-* | :d10v-* | :fr30-*)
+  :m32r-* | :d10v-* | :fr30-* | :i?86*-*-elfiamcu)
     ospace_frag="config/mt-ospace"
     ;;
   no:* | :*)
@@ -2677,7 +2677,8 @@ AC_SUBST(BUILD_CONFIG)
 # Use same top-level configure hooks in libgcc/libstdc++/libvtv.
 AC_MSG_CHECKING([for --enable-vtable-verify])
 AC_ARG_ENABLE(vtable-verify,
-[  --enable-vtable-verify    Enable vtable verification feature ],
+[AS_HELP_STRING([--enable-vtable-verify],
+		[Enable vtable verification feature])],
 [case "$enableval" in
  yes) enable_vtable_verify=yes ;;
  no)  enable_vtable_verify=no ;;

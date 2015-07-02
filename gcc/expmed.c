@@ -25,27 +25,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "insn-config.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -1614,6 +1603,11 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       rtx_insn *last;
 
       if (target == 0 || !REG_P (target) || !valid_multiword_target_p (target))
+	target = gen_reg_rtx (mode);
+
+      /* In case we're about to clobber a base register or something 
+	 (see gcc.c-torture/execute/20040625-1.c).   */
+      if (reg_mentioned_p (target, str_rtx))
 	target = gen_reg_rtx (mode);
 
       /* Indicate for flow that the entire target reg is being set.  */
@@ -4545,11 +4539,11 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 			      quotient, 0, OPTAB_LIB_WIDEN);
 	  if (tem != quotient)
 	    emit_move_insn (quotient, tem);
-	  emit_jump_insn (gen_jump (label5));
+	  emit_jump_insn (targetm.gen_jump (label5));
 	  emit_barrier ();
 	  emit_label (label1);
 	  expand_inc (adjusted_op0, const1_rtx);
-	  emit_jump_insn (gen_jump (label4));
+	  emit_jump_insn (targetm.gen_jump (label4));
 	  emit_barrier ();
 	  emit_label (label2);
 	  do_cmp_and_jump (adjusted_op0, const0_rtx, GT, compute_mode, label3);
@@ -4557,7 +4551,7 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 			      quotient, 0, OPTAB_LIB_WIDEN);
 	  if (tem != quotient)
 	    emit_move_insn (quotient, tem);
-	  emit_jump_insn (gen_jump (label5));
+	  emit_jump_insn (targetm.gen_jump (label5));
 	  emit_barrier ();
 	  emit_label (label3);
 	  expand_dec (adjusted_op0, const1_rtx);
@@ -4651,7 +4645,7 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 	      do_cmp_and_jump (adjusted_op0, const0_rtx, NE,
 			       compute_mode, label1);
 	      emit_move_insn  (quotient, const0_rtx);
-	      emit_jump_insn (gen_jump (label2));
+	      emit_jump_insn (targetm.gen_jump (label2));
 	      emit_barrier ();
 	      emit_label (label1);
 	      expand_dec (adjusted_op0, const1_rtx);
@@ -4759,11 +4753,11 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 				  quotient, 0, OPTAB_LIB_WIDEN);
 	      if (tem != quotient)
 		emit_move_insn (quotient, tem);
-	      emit_jump_insn (gen_jump (label5));
+	      emit_jump_insn (targetm.gen_jump (label5));
 	      emit_barrier ();
 	      emit_label (label1);
 	      expand_dec (adjusted_op0, const1_rtx);
-	      emit_jump_insn (gen_jump (label4));
+	      emit_jump_insn (targetm.gen_jump (label4));
 	      emit_barrier ();
 	      emit_label (label2);
 	      do_cmp_and_jump (adjusted_op0, const0_rtx, LT,
@@ -4772,7 +4766,7 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 				  quotient, 0, OPTAB_LIB_WIDEN);
 	      if (tem != quotient)
 		emit_move_insn (quotient, tem);
-	      emit_jump_insn (gen_jump (label5));
+	      emit_jump_insn (targetm.gen_jump (label5));
 	      emit_barrier ();
 	      emit_label (label3);
 	      expand_inc (adjusted_op0, const1_rtx);

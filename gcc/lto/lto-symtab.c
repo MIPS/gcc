@@ -22,32 +22,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic-core.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
-#include "plugin-api.h"
-#include "hash-map.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "lto-streamer.h"
 #include "ipa-utils.h"
@@ -215,7 +203,7 @@ warn_type_compatibility_p (tree prevailing_type, tree type)
   int lev = 0;
   /* C++ provide a robust way to check for type compatibility via the ODR
      rule.  */
-  if (odr_or_derived_type_p (prevailing_type) && odr_type_p (type)
+  if (odr_or_derived_type_p (prevailing_type) && odr_or_derived_type_p (type)
       && !odr_types_equivalent_p (prevailing_type, type))
     lev = 2;
 
@@ -545,7 +533,9 @@ lto_symtab_merge_decls_2 (symtab_node *first, bool diagnosed_p)
 			       "declaration", decl);
 	  if (diag)
 	    warn_types_mismatch (TREE_TYPE (prevailing->decl),
-				 TREE_TYPE (decl));
+				 TREE_TYPE (decl),
+				 DECL_SOURCE_LOCATION (prevailing->decl),
+				 DECL_SOURCE_LOCATION (decl));
 	  diagnosed_p |= diag;
 	}
       else if ((DECL_USER_ALIGN (prevailing->decl)

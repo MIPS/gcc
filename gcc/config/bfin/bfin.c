@@ -31,15 +31,8 @@
 #include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -48,11 +41,6 @@
 #include "except.h"
 #include "function.h"
 #include "target.h"
-#include "target-def.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -62,7 +50,6 @@
 #include "diagnostic-core.h"
 #include "recog.h"
 #include "optabs.h"
-#include "ggc.h"
 #include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -72,10 +59,6 @@
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "langhooks.h"
 #include "bfin-protos.h"
@@ -90,6 +73,9 @@
 #include "opts.h"
 #include "dumpfile.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
@@ -1103,6 +1089,9 @@ bfin_expand_prologue (void)
   rtx pic_reg_loaded = NULL_RTX;
   tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
   bool all = lookup_attribute ("saveall", attrs) != NULL_TREE;
+
+  if (flag_stack_usage_info)
+    current_function_static_stack_size = frame_size;
 
   if (fkind != SUBROUTINE)
     {
@@ -3789,7 +3778,9 @@ hwloop_optimize (hwloop_info loop)
 	}
       else
 	{
-	  emit_jump_insn (gen_jump (label));
+	  rtx_insn *ret = emit_jump_insn (gen_jump (label));
+	  JUMP_LABEL (ret) = label;
+	  LABEL_NUSES (label)++;
 	  seq_end = emit_barrier ();
 	}
     }
@@ -3882,7 +3873,7 @@ hwloop_fail (hwloop_info loop)
   else
     {
       splitting_loops = 1;  
-      try_split (PATTERN (insn), insn, 1);
+      try_split (PATTERN (insn), safe_as_a <rtx_insn *> (insn), 1);
       splitting_loops = 0;
     }
 }

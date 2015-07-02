@@ -29,15 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "conditions.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -47,11 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "dbxout.h"
 #include "except.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -62,13 +51,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "reload.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "recog.h"
 #include "predict.h"
 #include "tm_p.h"
 #include "target.h"
 #include "common/common-target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -81,6 +68,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "opts.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Return nonzero if there is a bypass for the output of 
    OUT_INSN and the fp store IN_INSN.  */
@@ -2248,11 +2238,11 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 					  gen_rtx_HIGH (mode, operand1)));
 		  emit_move_insn (temp, gen_rtx_LO_SUM (mode, temp, operand1));
 		  if (mode == DImode)
-		    emit_insn (gen_insvdi (operand0, GEN_INT (32),
-					   const0_rtx, temp));
+		    insn = emit_insn (gen_insvdi (operand0, GEN_INT (32),
+						  const0_rtx, temp));
 		  else
-		    emit_insn (gen_insvsi (operand0, GEN_INT (32),
-					   const0_rtx, temp));
+		    insn = emit_insn (gen_insvsi (operand0, GEN_INT (32),
+						  const0_rtx, temp));
 		}
 	      else
 		{
@@ -2274,11 +2264,15 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 			}
 
 		      if (mode == DImode)
-			emit_insn (gen_insvdi (operand0, GEN_INT (len),
-					       GEN_INT (pos), GEN_INT (v5)));
+			insn = emit_insn (gen_insvdi (operand0,
+						      GEN_INT (len),
+						      GEN_INT (pos),
+						      GEN_INT (v5)));
 		      else
-			emit_insn (gen_insvsi (operand0, GEN_INT (len),
-					       GEN_INT (pos), GEN_INT (v5)));
+			insn = emit_insn (gen_insvsi (operand0,
+						      GEN_INT (len),
+						      GEN_INT (pos),
+						      GEN_INT (v5)));
 
 		      len = pos > 0 && pos < 5 ? pos : 5;
 		      pos -= len;
@@ -5285,7 +5279,7 @@ pa_print_operand (FILE *file, rtx x, int code)
     case 'o':
       gcc_assert (GET_CODE (x) == CONST_INT
 		  && (INTVAL (x) == 1 || INTVAL (x) == 2 || INTVAL (x) == 3));
-      fprintf (file, "%d", INTVAL (x));
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
       return;
     case 'O':
       gcc_assert (GET_CODE (x) == CONST_INT && exact_log2 (INTVAL (x)) >= 0);
@@ -5462,6 +5456,7 @@ pa_output_global_address (FILE *file, rtx x, int round_constant)
 
       switch (GET_CODE (XEXP (XEXP (x, 0), 0)))
 	{
+	case LABEL_REF:
 	case SYMBOL_REF:
 	  base = XEXP (XEXP (x, 0), 0);
 	  output_addr_const (file, base);
@@ -5475,6 +5470,7 @@ pa_output_global_address (FILE *file, rtx x, int round_constant)
 
       switch (GET_CODE (XEXP (XEXP (x, 0), 1)))
 	{
+	case LABEL_REF:
 	case SYMBOL_REF:
 	  base = XEXP (XEXP (x, 0), 1);
 	  output_addr_const (file, base);

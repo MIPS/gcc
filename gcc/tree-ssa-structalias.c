@@ -27,44 +27,28 @@
 #include "sbitmap.h"
 #include "flags.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
-#include "double-int.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "stmt.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -354,7 +338,8 @@ static varinfo_t lookup_vi_for_tree (tree);
 static inline bool type_can_have_subvars (const_tree);
 
 /* Pool of variable info structures.  */
-static alloc_pool variable_info_pool;
+static pool_allocator<variable_info> variable_info_pool
+  ("Variable info pool", 30);
 
 /* Map varinfo to final pt_solution.  */
 static hash_map<varinfo_t, pt_solution *> *final_solutions;
@@ -395,7 +380,7 @@ static varinfo_t
 new_var_info (tree t, const char *name)
 {
   unsigned index = varmap.length ();
-  varinfo_t ret = (varinfo_t) pool_alloc (variable_info_pool);
+  varinfo_t ret = variable_info_pool.allocate ();
 
   ret->id = index;
   ret->name = name;
@@ -554,7 +539,7 @@ struct constraint
 /* List of constraints that we use to build the constraint graph from.  */
 
 static vec<constraint_t> constraints;
-static alloc_pool constraint_pool;
+static pool_allocator<constraint> constraint_pool ("Constraint pool", 30);
 
 /* The constraint graph is represented as an array of bitmaps
    containing successor nodes.  */
@@ -676,7 +661,7 @@ static constraint_t
 new_constraint (const struct constraint_expr lhs,
 		const struct constraint_expr rhs)
 {
-  constraint_t ret = (constraint_t) pool_alloc (constraint_pool);
+  constraint_t ret = constraint_pool.allocate ();
   ret->lhs = lhs;
   ret->rhs = rhs;
   return ret;
@@ -1938,10 +1923,8 @@ typedef const struct equiv_class_label *const_equiv_class_label_t;
 
 /* Equiv_class_label hashtable helpers.  */
 
-struct equiv_class_hasher : typed_free_remove <equiv_class_label>
+struct equiv_class_hasher : free_ptr_hash <equiv_class_label>
 {
-  typedef equiv_class_label *value_type;
-  typedef equiv_class_label *compare_type;
   static inline hashval_t hash (const equiv_class_label *);
   static inline bool equal (const equiv_class_label *,
 			    const equiv_class_label *);
@@ -5963,10 +5946,8 @@ typedef const struct shared_bitmap_info *const_shared_bitmap_info_t;
 
 /* Shared_bitmap hashtable helpers.  */
 
-struct shared_bitmap_hasher : typed_free_remove <shared_bitmap_info>
+struct shared_bitmap_hasher : free_ptr_hash <shared_bitmap_info>
 {
-  typedef shared_bitmap_info *value_type;
-  typedef shared_bitmap_info *compare_type;
   static inline hashval_t hash (const shared_bitmap_info *);
   static inline bool equal (const shared_bitmap_info *,
 			    const shared_bitmap_info *);
@@ -6681,10 +6662,6 @@ init_alias_vars (void)
   bitmap_obstack_initialize (&oldpta_obstack);
   bitmap_obstack_initialize (&predbitmap_obstack);
 
-  constraint_pool = create_alloc_pool ("Constraint pool",
-				       sizeof (struct constraint), 30);
-  variable_info_pool = create_alloc_pool ("Variable info pool",
-					  sizeof (struct variable_info), 30);
   constraints.create (8);
   varmap.create (8);
   vi_for_tree = new hash_map<tree, varinfo_t>;
@@ -6964,8 +6941,8 @@ delete_points_to_sets (void)
   free (graph);
 
   varmap.release ();
-  free_alloc_pool (variable_info_pool);
-  free_alloc_pool (constraint_pool);
+  variable_info_pool.release ();
+  constraint_pool.release ();
 
   obstack_free (&fake_var_decl_obstack, NULL);
 
@@ -7372,7 +7349,8 @@ ipa_pta_execute (void)
 	 constraints for parameters.  */
       if (node->used_from_other_partition
 	  || node->externally_visible
-	  || node->force_output)
+	  || node->force_output
+	  || node->address_taken)
 	{
 	  intra_create_variable_infos (func);
 

@@ -1,7 +1,13 @@
-// { dg-do compile { target c++14 } }
+// PR c++/65719
+// { dg-do link { target c++14 } }
 
-template<typename T> 
-bool V1 = true;
+struct FunctionObject {
+    void operator()() const { }
+};
 
-template<typename T>
-bool V1<int> = false; // { dg-error "primary template" }
+template <typename T>
+constexpr FunctionObject f{};
+
+int main() {
+    f<int>();
+}

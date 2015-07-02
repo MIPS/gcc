@@ -22,21 +22,10 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "statistics.h"
-#include "vec.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
 #include "flags.h"
 #include "symtab.h"
 #include "tree-core.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "fold-const.h"
 #include "tree-check.h"
 #include "tree.h"
@@ -61,10 +50,8 @@
 #include "recog.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
-#include "ggc.h"
 #include "optabs.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
 #include "predict.h"
 #include "basic-block.h"
@@ -79,6 +66,9 @@
 #include "tree-pass.h"
 #include "context.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Machine specific function data. */
 struct GTY (()) machine_function

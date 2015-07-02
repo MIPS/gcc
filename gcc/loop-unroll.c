@@ -22,15 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "hard-reg-set.h"
 #include "obstack.h"
@@ -45,11 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "hashtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -59,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "hash-table.h"
 #include "recog.h"
 #include "target.h"
 #include "dumpfile.h"
@@ -124,10 +112,8 @@ struct var_to_expand
 
 /* Hashtable helper for iv_to_split.  */
 
-struct iv_split_hasher : typed_free_remove <iv_to_split>
+struct iv_split_hasher : free_ptr_hash <iv_to_split>
 {
-  typedef iv_to_split *value_type;
-  typedef iv_to_split *compare_type;
   static inline hashval_t hash (const iv_to_split *);
   static inline bool equal (const iv_to_split *, const iv_to_split *);
 };
@@ -151,10 +137,8 @@ iv_split_hasher::equal (const iv_to_split *i1, const iv_to_split *i2)
 
 /* Hashtable helper for iv_to_split.  */
 
-struct var_expand_hasher : typed_free_remove <var_to_expand>
+struct var_expand_hasher : free_ptr_hash <var_to_expand>
 {
-  typedef var_to_expand *value_type;
-  typedef var_to_expand *compare_type;
   static inline hashval_t hash (const var_to_expand *);
   static inline bool equal (const var_to_expand *, const var_to_expand *);
 };

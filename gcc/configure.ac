@@ -368,21 +368,21 @@ AC_ARG_ENABLE(build-format-warnings,
   [],[enable_build_format_warnings=yes])
 AS_IF([test $enable_build_format_warnings = no],
       [wf_opt=-Wno-format],[wf_opt=])
-ACX_PROG_CC_WARNING_OPTS(
+ACX_PROG_CXX_WARNING_OPTS(
 	m4_quote(m4_do([-W -Wall -Wno-narrowing -Wwrite-strings -Wcast-qual $wf_opt])), [loose_warn])
 ACX_PROG_CC_WARNING_OPTS(
 	m4_quote(m4_do([-Wstrict-prototypes -Wmissing-prototypes])),
 	[c_loose_warn])
-ACX_PROG_CC_WARNING_OPTS(
+ACX_PROG_CXX_WARNING_OPTS(
 	m4_quote(m4_do([-Wmissing-format-attribute])), [strict_warn])
-ACX_PROG_CC_WARNING_OPTS(
+ACX_PROG_CXX_WARNING_OPTS(
 	m4_quote(m4_do([-Woverloaded-virtual])), [strict_warn])
 ACX_PROG_CC_WARNING_OPTS(
 	m4_quote(m4_do([-Wold-style-definition -Wc++-compat])), [c_strict_warn])
-ACX_PROG_CC_WARNING_ALMOST_PEDANTIC(
+ACX_PROG_CXX_WARNING_ALMOST_PEDANTIC(
 	m4_quote(m4_do([-Wno-long-long -Wno-variadic-macros ], 
 		       [-Wno-overlength-strings])), [strict_warn])
-ACX_PROG_CC_WARNINGS_ARE_ERRORS([manual], [strict_warn])
+ACX_PROG_CXX_WARNINGS_ARE_ERRORS([manual], [strict_warn])
 
 # The above macros do nothing if the compiler is not GCC.  However, the
 # Makefile has more goo to add other flags, so these variables are used
@@ -1149,7 +1149,7 @@ define(gcc_UNLOCKED_FUNCS, clearerr_unlocked feof_unlocked dnl
   fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked dnl
   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked dnl
   putchar_unlocked putc_unlocked)
-AC_CHECK_FUNCS(times clock kill getrlimit setrlimit atoll atoq \
+AC_CHECK_FUNCS(times clock kill getrlimit setrlimit atoq \
 	popen sysconf strsignal getrusage nl_langinfo \
 	gettimeofday mbstowcs wcswidth mmap setlocale \
 	gcc_UNLOCKED_FUNCS madvise)
@@ -1213,7 +1213,7 @@ AC_CHECK_DECLS([basename(const char*), strstr(const char*,const char*)], , ,[
 #include "ansidecl.h"
 #include "system.h"])
 
-gcc_AC_CHECK_DECLS(getenv atol asprintf sbrk abort atof getcwd getwd \
+gcc_AC_CHECK_DECLS(getenv atol atoll asprintf sbrk abort atof getcwd getwd \
 	madvise stpcpy strnlen strsignal strverscmp \
 	strtol strtoul strtoll strtoull \
 	errno snprintf vsnprintf vasprintf malloc realloc calloc \
@@ -3562,6 +3562,13 @@ case "$target" in
         done
       fi
     fi
+    # Check if we have binutils support for relocations types needed by -fpic
+    gcc_GAS_CHECK_FEATURE([-fpic relocs], gcc_cv_as_aarch64_picreloc,,,
+    [
+	.text
+	ldr     x0, [[x2, #:gotpage_lo15:globalsym]]
+    ],,[AC_DEFINE(HAVE_AS_SMALL_PIC_RELOCS, 1,
+	[Define if your assembler supports relocs needed by -fpic.])])
     # Enable default workaround for AArch64 Cortex-A53 erratum 835769.
     AC_ARG_ENABLE(fix-cortex-a53-835769,
     [
@@ -3885,13 +3892,13 @@ foo:	nop
 
     gcc_GAS_CHECK_FEATURE([filds and fists mnemonics],
        gcc_cv_as_ix86_filds,,,
-       [filds mem; fists mem],,
+       [filds (%ebp); fists (%ebp)],,
        [AC_DEFINE(HAVE_AS_IX86_FILDS, 1,
          [Define if your assembler uses filds and fists mnemonics.])])
 
     gcc_GAS_CHECK_FEATURE([fildq and fistpq mnemonics],
        gcc_cv_as_ix86_fildq,,,
-       [fildq mem; fistpq mem],,
+       [fildq (%ebp); fistpq (%ebp)],,
        [AC_DEFINE(HAVE_AS_IX86_FILDQ, 1,
          [Define if your assembler uses fildq and fistq mnemonics.])])
 
@@ -4441,6 +4448,13 @@ pointers into PC-relative form.])
       AC_MSG_ERROR(
 	[Requesting --with-nan= requires assembler support for -mnan=])
     fi
+    ;;
+    s390*-*-*)
+    gcc_GAS_CHECK_FEATURE([.gnu_attribute support],
+      gcc_cv_as_s390_gnu_attribute, [2,18,0],,
+      [.gnu_attribute 8,1],,
+      [AC_DEFINE(HAVE_AS_GNU_ATTRIBUTE, 1,
+	  [Define if your assembler supports .gnu_attribute.])])
     ;;
 esac
 
@@ -5818,6 +5832,46 @@ AC_DEFINE_UNQUOTED(DIAGNOSTICS_COLOR_DEFAULT, $DIAGNOSTICS_COLOR_DEFAULT,
 cat > gcc-driver-name.h <<EOF
 #define GCC_DRIVER_NAME "${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}"
 EOF
+
+# Check whether --enable-default-pie was given.
+AC_ARG_ENABLE(default-pie,
+[AS_HELP_STRING([--enable-default-pie],
+  [enable Position Independent Executable as default])],
+enable_default_pie=$enableval,
+enable_default_pie=no)
+if test x$enable_default_pie == xyes ; then
+  AC_DEFINE(ENABLE_DEFAULT_PIE, 1,
+      [Define if your target supports default PIE and it is enabled.])
+fi
+AC_SUBST([enable_default_pie])
+
+# Check if -fno-PIE works.
+AC_CACHE_CHECK([for -fno-PIE option],
+  [gcc_cv_c_no_fpie],
+  [saved_CXXFLAGS="$CXXFLAGS"
+   CXXFLAGS="$CXXFLAGS -fno-PIE"
+   AC_COMPILE_IFELSE([int main(void) {return 0;}],
+     [gcc_cv_c_no_fpie=yes],
+     [gcc_cv_c_no_fpie=no])
+   CXXFLAGS="$saved_CXXFLAGS"])
+if test "$gcc_cv_c_no_fpie" = "yes"; then
+  NO_PIE_CFLAGS="-fno-PIE"
+fi
+AC_SUBST([NO_PIE_CFLAGS])
+
+# Check if -no-pie works.
+AC_CACHE_CHECK([for -no-pie option],
+  [gcc_cv_no_pie],
+  [saved_LDFLAGS="$LDFLAGS"
+   LDFLAGS="$LDFLAGS -no-pie"
+   AC_LINK_IFELSE([int main(void) {return 0;}],
+     [gcc_cv_no_pie=yes],
+     [gcc_cv_no_pie=no])
+   LDFLAGS="$saved_LDFLAGS"])
+if test "$gcc_cv_no_pie" = "yes"; then
+  NO_PIE_FLAG="-no-pie"
+fi
+AC_SUBST([NO_PIE_FLAG])
 
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)

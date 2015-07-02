@@ -24,15 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -46,11 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,9 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-pragma.h"	/* ??? */
 #include "tm_p.h"
 #include "tm-constrs.h"
-#include "ggc.h"
 #include "target.h"
-#include "target-def.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfgrtl.h"
@@ -77,6 +64,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "df.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Classifies a h8300_src_operand or h8300_dst_operand.
 
@@ -908,6 +898,12 @@ h8300_expand_prologue (void)
 
   /* Leave room for locals.  */
   h8300_emit_stack_adjustment (-1, round_frame_size (get_frame_size ()), true);
+
+  if (flag_stack_usage_info)
+    current_function_static_stack_size
+      = round_frame_size (get_frame_size ())
+      + (__builtin_popcount (saved_regs) * UNITS_PER_WORD)
+      + (frame_pointer_needed ? UNITS_PER_WORD : 0);
 }
 
 /* Return nonzero if we can use "rts" for the function currently being

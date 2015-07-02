@@ -5785,19 +5785,6 @@ for the primary source file, immediately after printing\n\
 this to be done.  The default is false.",
  bool, false)
 
-/* True if the target is allowed to reorder memory accesses unless
-   synchronization is explicitly requested.  */
-DEFHOOKPOD
-(relaxed_ordering,
- "If set to @code{true}, means that the target's memory model does not\n\
-guarantee that loads which do not depend on one another will access\n\
-main memory in the order of the instruction stream; if ordering is\n\
-important, an explicit memory barrier must be used.  This is true of\n\
-many recent processors which implement a policy of ``relaxed,''\n\
-``weak,'' or ``release'' memory consistency, such as Alpha, PowerPC,\n\
-and ia64.  The default is @code{false}.",
- bool, false)
-
 /* Returns true if we should generate exception tables for use with the
    ARM EABI.  The effects the encoding of function exception specifications.  */
 DEFHOOKPOD
@@ -5876,6 +5863,19 @@ DEFHOOK
  int, (int entity, int n), NULL)
 
 HOOK_VECTOR_END (mode_switching)
+
+#undef HOOK_PREFIX
+#define HOOK_PREFIX "TARGET_"
+
+#define DEF_TARGET_INSN(NAME, PROTO) \
+  DEFHOOK_UNDOC (have_##NAME, "", bool, (void), false)
+#include "target-insns.def"
+#undef DEF_TARGET_INSN
+
+#define DEF_TARGET_INSN(NAME, PROTO) \
+  DEFHOOK_UNDOC (gen_##NAME, "", rtx_insn *, PROTO, NULL)
+#include "target-insns.def"
+#undef DEF_TARGET_INSN
 
 /* Close the 'struct gcc_target' definition.  */
 HOOK_VECTOR_END (C90_EMPTY_HACK)

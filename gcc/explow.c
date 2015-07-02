@@ -24,16 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "tm_p.h"
@@ -41,9 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -56,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "libfuncs.h"
-#include "ggc.h"
 #include "recog.h"
 #include "langhooks.h"
 #include "target.h"
@@ -132,7 +120,9 @@ plus_constant (machine_mode mode, rtx x, HOST_WIDE_INT c,
 	{
 	  tem = plus_constant (mode, get_pool_constant (XEXP (x, 0)), c);
 	  tem = force_const_mem (GET_MODE (x), tem);
-	  if (memory_address_p (GET_MODE (tem), XEXP (tem, 0)))
+	  /* Targets may disallow some constants in the constant pool, thus
+	     force_const_mem may return NULL_RTX.  */
+	  if (tem && memory_address_p (GET_MODE (tem), XEXP (tem, 0)))
 	    return tem;
 	}
       break;

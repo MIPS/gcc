@@ -35,25 +35,14 @@
 #include "reload.h"
 #include "diagnostic-core.h"
 #include "obstack.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,12 +52,9 @@
 #include "insn-codes.h"
 #include "optabs.h"
 #include "except.h"
-#include "ggc.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
-#include "hash-table.h"
 #include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -83,11 +69,13 @@
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "df.h"
 #include "tm-constrs.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Prototypes */
 
@@ -3067,26 +3055,14 @@ m32c_insert_attributes (tree node ATTRIBUTE_UNUSED,
     }	
 }
 
-
-struct pragma_traits : default_hashmap_traits
-{
-  static hashval_t hash (const char *str) { return htab_hash_string (str); }
-  static bool
-  equal_keys (const char *a, const char *b)
-  {
-    return !strcmp (a, b);
-  }
-};
-
 /* Hash table of pragma info.  */
-static GTY(()) hash_map<const char *, unsigned, pragma_traits> *pragma_htab;
+static GTY(()) hash_map<nofree_string_hash, unsigned> *pragma_htab;
 
 void
 m32c_note_pragma_address (const char *varname, unsigned address)
 {
   if (!pragma_htab)
-    pragma_htab
-      = hash_map<const char *, unsigned, pragma_traits>::create_ggc (31);
+    pragma_htab = hash_map<nofree_string_hash, unsigned>::create_ggc (31);
 
   const char *name = ggc_strdup (varname);
   unsigned int *slot = &pragma_htab->get_or_insert (name);
@@ -4137,6 +4113,9 @@ m32c_emit_prologue (void)
       && !m32c_function_needs_enter ())
     cfun->machine->use_rts = 1;
 
+  if (flag_stack_usage_info)
+    current_function_static_stack_size = frame_size;
+  
   if (frame_size > 254)
     {
       extra_frame_size = frame_size - 254;

@@ -21,16 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "machmode.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -40,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-object-size.h"
 #include "realmpfr.h"
 #include "predict.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "cfgrtl.h"
@@ -48,15 +40,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "flags.h"
 #include "regs.h"
 #include "except.h"
 #include "insn-config.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -79,7 +67,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "asan.h"
 #include "cilk.h"
-#include "ipa-ref.h"
 #include "lto-streamer.h"
 #include "cgraph.h"
 #include "tree-chkp.h"
@@ -1565,11 +1552,10 @@ expand_builtin_apply_args (void)
        saved on entry to this function.  So we migrate the
        call to the first insn of this function.  */
     rtx temp;
-    rtx seq;
 
     start_sequence ();
     temp = expand_builtin_apply_args_1 ();
-    seq = get_insns ();
+    rtx_insn *seq = get_insns ();
     end_sequence ();
 
     apply_args_value = temp;
@@ -5476,7 +5462,8 @@ expand_builtin_atomic_compare_exchange (machine_mode mode, tree exp,
      the normal case where EXPECT is totally private, i.e. a register.  At
      which point the store can be unconditional.  */
   label = gen_label_rtx ();
-  emit_cmp_and_jump_insns (target, const0_rtx, NE, NULL, VOIDmode, 1, label);
+  emit_cmp_and_jump_insns (target, const0_rtx, NE, NULL,
+			   GET_MODE (target), 1, label);
   emit_move_insn (expect, oldval);
   emit_label (label);
 
@@ -5911,8 +5898,10 @@ expand_stack_save (void)
    acceleration device (ACCEL_COMPILER conditional).  */
 
 static rtx
-expand_builtin_acc_on_device (tree exp, rtx target)
+expand_builtin_acc_on_device (tree exp ATTRIBUTE_UNUSED,
+			      rtx target ATTRIBUTE_UNUSED)
 {
+#ifdef ACCEL_COMPILER
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 
@@ -5921,13 +5910,8 @@ expand_builtin_acc_on_device (tree exp, rtx target)
   /* Return (arg == v1 || arg == v2) ? 1 : 0.  */
   machine_mode v_mode = TYPE_MODE (TREE_TYPE (arg));
   rtx v = expand_normal (arg), v1, v2;
-#ifdef ACCEL_COMPILER
   v1 = GEN_INT (GOMP_DEVICE_NOT_HOST);
   v2 = GEN_INT (ACCEL_COMPILER_acc_device);
-#else
-  v1 = GEN_INT (GOMP_DEVICE_NONE);
-  v2 = GEN_INT (GOMP_DEVICE_HOST);
-#endif
   machine_mode target_mode = TYPE_MODE (integer_type_node);
   if (!target || !register_operand (target, target_mode))
     target = gen_reg_rtx (target_mode);
@@ -5941,6 +5925,9 @@ expand_builtin_acc_on_device (tree exp, rtx target)
   emit_label (done_label);
 
   return target;
+#else
+  return NULL;
+#endif
 }
 
 
@@ -6401,7 +6388,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
 	  rtx buf_addr = expand_expr (CALL_EXPR_ARG (exp, 0), subtarget,
 				      VOIDmode, EXPAND_NORMAL);
 	  tree label = TREE_OPERAND (CALL_EXPR_ARG (exp, 1), 0);
-	  rtx label_r = label_rtx (label);
+	  rtx_insn *label_r = label_rtx (label);
 
 	  /* This is copied from the handling of non-local gotos.  */
 	  expand_builtin_setjmp_setup (buf_addr, label_r);
@@ -6421,7 +6408,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
       if (validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
 	{
 	  tree label = TREE_OPERAND (CALL_EXPR_ARG (exp, 0), 0);
-	  rtx label_r = label_rtx (label);
+	  rtx_insn *label_r = label_rtx (label);
 
 	  expand_builtin_setjmp_receiver (label_r);
 	  return const0_rtx;

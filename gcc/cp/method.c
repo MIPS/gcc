@@ -25,15 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -44,13 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "diagnostic.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 
 /* Various flags to control the mangling process.  */
@@ -486,6 +474,8 @@ type_set_nontrivial_flag (tree ctype, special_function_kind sfk)
 bool
 trivial_fn_p (tree fn)
 {
+  if (TREE_CODE (fn) == TEMPLATE_DECL)
+    return false;
   if (!DECL_DEFAULTED_FN (fn))
     return false;
 

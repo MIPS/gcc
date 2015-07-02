@@ -22,15 +22,8 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -45,11 +38,7 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -57,10 +46,8 @@
 #include "stmt.h"
 #include "expr.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfgrtl.h"
@@ -73,6 +60,9 @@
 #include "df.h"
 #include "opts.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 #ifndef streq
 #define streq(a,b) (strcmp (a, b) == 0)

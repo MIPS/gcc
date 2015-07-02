@@ -27,15 +27,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -43,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-tree.h"
 #include "tree-inline.h"
 #include "langhooks.h"
-#include "hashtab.h"
 #include "toplev.h"
 #include "flags.h"
 #include "debug.h"
@@ -52,12 +44,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "intl.h"
 #include "tree-ssa-alias.h"
@@ -83,9 +71,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "cfgloop.h"
 #include "gimple-pretty-print.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -139,7 +124,7 @@ struct cgraph_2node_hook_list {
 
 /* Hash descriptor for cgraph_function_version_info.  */
 
-struct function_version_hasher : ggc_hasher<cgraph_function_version_info *>
+struct function_version_hasher : ggc_ptr_hash<cgraph_function_version_info>
 {
   static hashval_t hash (cgraph_function_version_info *);
   static bool equal (cgraph_function_version_info *,
@@ -171,6 +156,29 @@ function_version_hasher::equal (cgraph_function_version_info *n1,
 /* Mark as GC root all allocated nodes.  */
 static GTY(()) struct cgraph_function_version_info *
   version_info_node = NULL;
+
+/* Return true if NODE's address can be compared.  */
+
+bool
+symtab_node::address_can_be_compared_p ()
+{
+  /* Address of virtual tables and functions is never compared.  */
+  if (DECL_VIRTUAL_P (decl))
+    return false;
+  /* Address of C++ cdtors is never compared.  */
+  if (is_a <cgraph_node *> (this)
+      && (DECL_CXX_CONSTRUCTOR_P (decl)
+	  || DECL_CXX_DESTRUCTOR_P (decl)))
+    return false;
+  /* Constant pool symbols addresses are never compared.
+     flag_merge_constants permits us to assume the same on readonly vars.  */
+  if (is_a <varpool_node *> (this)
+      && (DECL_IN_CONSTANT_POOL (decl)
+	  || (flag_merge_constants >= 2
+	      && TREE_READONLY (decl) && !TREE_THIS_VOLATILE (decl))))
+    return false;
+  return true;
+}
 
 /* Get the cgraph_function_version_info node corresponding to node.  */
 cgraph_function_version_info *
@@ -1281,6 +1289,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
   tree lhs = gimple_call_lhs (e->call_stmt);
   gcall *new_stmt;
   gimple_stmt_iterator gsi;
+  bool skip_bounds = false;
 #ifdef ENABLE_CHECKING
   cgraph_node *node;
 #endif
@@ -1389,8 +1398,16 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	}
     }
 
+  /* We might propagate instrumented function pointer into
+     not instrumented function and vice versa.  In such a
+     case we need to either fix function declaration or
+     remove bounds from call statement.  */
+  if (flag_check_pointer_bounds && e->callee)
+    skip_bounds = chkp_redirect_edge (e);
+
   if (e->indirect_unknown_callee
-      || decl == e->callee->decl)
+      || (decl == e->callee->decl
+	  && !skip_bounds))
     return e->call_stmt;
 
 #ifdef ENABLE_CHECKING
@@ -1415,13 +1432,19 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	}
     }
 
-  if (e->callee->clone.combined_args_to_skip)
+  if (e->callee->clone.combined_args_to_skip
+      || skip_bounds)
     {
       int lp_nr;
 
-      new_stmt
-	= gimple_call_copy_skip_args (e->call_stmt,
-				      e->callee->clone.combined_args_to_skip);
+      new_stmt = e->call_stmt;
+      if (e->callee->clone.combined_args_to_skip)
+	new_stmt
+	  = gimple_call_copy_skip_args (new_stmt,
+					e->callee->clone.combined_args_to_skip);
+      if (skip_bounds)
+	new_stmt = chkp_copy_call_skip_bounds (new_stmt);
+
       gimple_call_set_fndecl (new_stmt, e->callee->decl);
       gimple_call_set_fntype (new_stmt, gimple_call_fntype (e->call_stmt));
 
@@ -1449,8 +1472,10 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
       update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), new_stmt);
     }
 
-  /* If the call becomes noreturn, remove the lhs.  */
-  if (lhs && (gimple_call_flags (new_stmt) & ECF_NORETURN))
+  /* If the call becomes noreturn, remove the LHS if possible.  */
+  if (lhs
+      && (gimple_call_flags (new_stmt) & ECF_NORETURN)
+      && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST)
     {
       if (TREE_CODE (lhs) == SSA_NAME)
 	{
@@ -1888,7 +1913,10 @@ cgraph_node::rtl_info (tree decl)
   if (node->decl != current_function_decl
       && !TREE_ASM_WRITTEN (node->decl))
     return NULL;
-  return &node->ultimate_alias_target ()->rtl;
+  /* Allocate if it doesnt exist.  */
+  if (node->ultimate_alias_target ()->rtl == NULL)
+    node->ultimate_alias_target ()->rtl = ggc_cleared_alloc<cgraph_rtl_info> ();
+  return node->ultimate_alias_target ()->rtl;
 }
 
 /* Return a string describing the failure REASON.  */
@@ -3015,6 +3043,20 @@ cgraph_node::verify_node (void)
       if (!ref_found)
 	{
 	  error ("Analyzed node has no reference to instrumented version");
+	  error_found = true;
+	}
+    }
+
+  if (instrumentation_clone
+      && DECL_BUILT_IN_CLASS (decl) == NOT_BUILT_IN)
+    {
+      tree name = DECL_ASSEMBLER_NAME (decl);
+      tree orig_name = DECL_ASSEMBLER_NAME (orig_decl);
+
+      if (!IDENTIFIER_TRANSPARENT_ALIAS (name)
+	  || TREE_CHAIN (name) != orig_name)
+	{
+	  error ("Alias chain for instrumented node is broken");
 	  error_found = true;
 	}
     }

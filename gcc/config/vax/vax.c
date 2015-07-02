@@ -32,15 +32,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "basic-block.h"
 #include "df.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "calls.h"
 #include "varasm.h"
@@ -52,11 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "insn-attr.h"
 #include "recog.h"
-#include "hashtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -72,8 +61,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm-constrs.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 static void vax_option_override (void);
 static bool vax_legitimate_address_p (machine_mode, rtx, bool);

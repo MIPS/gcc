@@ -21,15 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "cp-tree.h"
@@ -54,8 +47,8 @@ along with GCC; see the file COPYING3.  If not see
    tree -> string functions that are occasionally called from the
    debugger or by the front-end for things like
    __PRETTY_FUNCTION__.  */
-static cxx_pretty_printer scratch_pretty_printer;
-static cxx_pretty_printer * cxx_pp = &scratch_pretty_printer;
+static cxx_pretty_printer actual_pretty_printer;
+static cxx_pretty_printer * const cxx_pp = &actual_pretty_printer;
 
 /* Translate if being used for diagnostics, but not for dump files or
    __PRETTY_FUNCTION.  */
@@ -138,16 +131,6 @@ cxx_initialize_diagnostics (diagnostic_context *context)
   diagnostic_starter (context) = cp_diagnostic_starter;
   /* diagnostic_finalizer is already c_diagnostic_finalizer.  */
   diagnostic_format_decoder (context) = cp_printer;
-}
-
-/* Initialize the global cxx_pp that is used as the memory store for
-   the string representation of C++ AST.  See the description of
-   cxx_pp above.  */
-
-void
-init_error (void)
-{
-  new (cxx_pp) cxx_pretty_printer ();
 }
 
 /* Dump a scope, if deemed necessary.  */
@@ -694,7 +677,7 @@ dump_aggr_type (cxx_pretty_printer *pp, tree t, int flags)
       name = DECL_NAME (name);
     }
 
-  if (name == 0 || ANON_AGGRNAME_P (name))
+  if (name == 0 || anon_aggrname_p (name))
     {
       if (flags & TFF_CLASS_KEY_OR_ENUM)
 	pp_string (pp, M_("<anonymous>"));
@@ -1082,7 +1065,7 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
       dump_simple_decl (pp, t, TREE_TYPE (t), flags);
 
       /* Handle variable template specializations.  */
-      if (TREE_CODE (t) == VAR_DECL
+      if (VAR_P (t)
 	  && DECL_LANG_SPECIFIC (t)
 	  && DECL_TEMPLATE_INFO (t)
 	  && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (t)))

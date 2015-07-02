@@ -22,15 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "tm_p.h"
@@ -50,16 +43,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
-#include "hashtab.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -74,9 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "alloc-pool.h"
 #include "bitmap.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-reference.h"
 
@@ -966,11 +951,7 @@ nonoverlapping_component_refs_p (const_tree x, const_tree y)
   if (fieldsx.length () == 2)
     {
       if (ncr_compar (&fieldsx[0], &fieldsx[1]) == 1)
-	{
-	  const_tree tem = fieldsx[0];
-	  fieldsx[0] = fieldsx[1];
-	  fieldsx[1] = tem;
-	}
+	std::swap (fieldsx[0], fieldsx[1]);
     }
   else
     fieldsx.qsort (ncr_compar);
@@ -978,11 +959,7 @@ nonoverlapping_component_refs_p (const_tree x, const_tree y)
   if (fieldsy.length () == 2)
     {
       if (ncr_compar (&fieldsy[0], &fieldsy[1]) == 1)
-	{
-	  const_tree tem = fieldsy[0];
-	  fieldsy[0] = fieldsy[1];
-	  fieldsy[1] = tem;
-	}
+	std::swap (fieldsy[0], fieldsy[1]);
     }
   else
     fieldsy.qsort (ncr_compar);
@@ -1439,13 +1416,10 @@ refs_may_alias_p_1 (ao_ref *ref1, ao_ref *ref2, bool tbaa_p)
   /* Canonicalize the pointer-vs-decl case.  */
   if (ind1_p && var2_p)
     {
-      HOST_WIDE_INT tmp1;
-      tree tmp2;
-      ao_ref *tmp3;
-      tmp1 = offset1; offset1 = offset2; offset2 = tmp1;
-      tmp1 = max_size1; max_size1 = max_size2; max_size2 = tmp1;
-      tmp2 = base1; base1 = base2; base2 = tmp2;
-      tmp3 = ref1; ref1 = ref2; ref2 = tmp3;
+      std::swap (offset1, offset2);
+      std::swap (max_size1, max_size2);
+      std::swap (base1, base2);
+      std::swap (ref1, ref2);
       var1_p = true;
       ind1_p = false;
       var2_p = false;

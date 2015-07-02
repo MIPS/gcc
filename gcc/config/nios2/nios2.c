@@ -25,15 +25,8 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "regs.h"
@@ -44,11 +37,7 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -59,7 +48,6 @@
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "ggc.h"
 #include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -72,7 +60,6 @@
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
 #include "df.h"
@@ -80,6 +67,9 @@
 #include "reload.h"
 #include "stor-layout.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Forward function declarations.  */
 static bool prologue_saved_reg_p (unsigned);
@@ -1930,7 +1920,7 @@ nios2_delegitimize_address (rtx x)
 	case UNSPEC_LOAD_TLS_IE:
 	case UNSPEC_ADD_TLS_LE:
 	  x = XVECEXP (XEXP (x, 0), 0, 0);
-	  gcc_assert (GET_CODE (x) == SYMBOL_REF);
+	  gcc_assert (CONSTANT_P (x));
 	  break;
 	}
     }

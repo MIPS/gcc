@@ -24,15 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -50,10 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "function.h"
 #include "except.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,13 +52,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "recog.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
-#include "hash-table.h"
 #include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -84,7 +70,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "langhooks.h"
@@ -96,6 +81,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Processor costs */
 
@@ -807,9 +795,6 @@ char sparc_hard_reg_printed[8];
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE sparc_attribute_table
 #endif
-
-#undef TARGET_RELAXED_ORDERING
-#define TARGET_RELAXED_ORDERING SPARC_RELAXED_ORDERING
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE sparc_option_override
@@ -4748,10 +4733,14 @@ enum sparc_mode_class {
 #define CCFP_MODES (1 << (int) CCFP_MODE)
 
 /* Value is 1 if register/mode pair is acceptable on sparc.
+
    The funny mixture of D and T modes is because integer operations
    do not specially operate on tetra quantities, so non-quad-aligned
    registers can hold quadword quantities (except %o4 and %i4 because
-   they cross fixed registers).  */
+   they cross fixed registers).
+
+   ??? Note that, despite the settings, non-double-aligned parameter
+   registers can hold double-word quantities in 32-bit mode.  */
 
 /* This points to either the 32 bit or the 64 bit version.  */
 const int *hard_regno_mode_classes;

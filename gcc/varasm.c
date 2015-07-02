@@ -30,15 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -47,10 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -62,7 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "output.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "tm_p.h"
 #include "debug.h"
@@ -73,10 +61,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "asan.h"
 #include "rtl-iter.h"
@@ -202,7 +186,7 @@ static GTY(()) section *unnamed_sections;
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
    && DECL_SECTION_NAME (DECL) != NULL)
 
-struct section_hasher : ggc_hasher<section *>
+struct section_hasher : ggc_ptr_hash<section>
 {
   typedef const char *compare_type;
 
@@ -213,7 +197,7 @@ struct section_hasher : ggc_hasher<section *>
 /* Hash table of named sections.  */
 static GTY(()) hash_table<section_hasher> *section_htab;
 
-struct object_block_hasher : ggc_hasher<object_block *>
+struct object_block_hasher : ggc_ptr_hash<object_block>
 {
   typedef const section *compare_type;
 
@@ -1960,12 +1944,12 @@ emit_local (tree decl ATTRIBUTE_UNUSED,
 	    unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
 {
 #if defined ASM_OUTPUT_ALIGNED_DECL_LOCAL
-  int align = symtab_node::get (decl)->definition_alignment ();
+  unsigned int align = symtab_node::get (decl)->definition_alignment ();
   ASM_OUTPUT_ALIGNED_DECL_LOCAL (asm_out_file, decl, name,
 				 size, align);
   return true;
 #elif defined ASM_OUTPUT_ALIGNED_LOCAL
-  int align = symtab_node::get (decl)->definition_alignment ();
+  unsigned int align = symtab_node::get (decl)->definition_alignment ();
   ASM_OUTPUT_ALIGNED_LOCAL (asm_out_file, name, size, align);
   return true;
 #else
@@ -3553,7 +3537,7 @@ struct GTY((chain_next ("%h.next"), for_user)) constant_descriptor_rtx {
   int mark;
 };
 
-struct const_rtx_desc_hasher : ggc_hasher<constant_descriptor_rtx *>
+struct const_rtx_desc_hasher : ggc_ptr_hash<constant_descriptor_rtx>
 {
   static hashval_t hash (constant_descriptor_rtx *);
   static bool equal (constant_descriptor_rtx *, constant_descriptor_rtx *);
@@ -5804,21 +5788,15 @@ assemble_alias (tree decl, tree target)
    to its transaction aware clone.  Note that tm_pure functions are
    considered to be their own clone.  */
 
-struct tm_clone_hasher : ggc_cache_hasher<tree_map *>
+struct tm_clone_hasher : ggc_cache_ptr_hash<tree_map>
 {
   static hashval_t hash (tree_map *m) { return tree_map_hash (m); }
   static bool equal (tree_map *a, tree_map *b) { return tree_map_eq (a, b); }
 
-  static void
-  handle_cache_entry (tree_map *&e)
+  static int
+  keep_cache_entry (tree_map *&e)
   {
-    extern void gt_ggc_mx (tree_map *&);
-    if (e == HTAB_EMPTY_ENTRY || e == HTAB_DELETED_ENTRY)
-      return;
-    else if (ggc_marked_p (e->base.from))
-      gt_ggc_mx (e);
-    else
-      e = static_cast<tree_map *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (e->base.from);
   }
 };
 
@@ -7425,14 +7403,31 @@ output_object_block (struct object_block *block)
     }
 }
 
-/* A htab_traverse callback used to call output_object_block for
-   each member of object_block_htab.  */
+/* A callback for qsort to compare object_blocks.  */
 
-int
-output_object_block_htab (object_block **slot, void *)
+static int
+output_object_block_compare (const void *x, const void *y)
 {
-  output_object_block (*slot);
-  return 1;
+  object_block *p1 = *(object_block * const*)x;
+  object_block *p2 = *(object_block * const*)y;
+
+  if (p1->sect->common.flags & SECTION_NAMED
+      && !(p2->sect->common.flags & SECTION_NAMED))
+    return 1;
+
+  if (!(p1->sect->common.flags & SECTION_NAMED)
+      && p2->sect->common.flags & SECTION_NAMED)
+    return -1;
+
+  if (p1->sect->common.flags & SECTION_NAMED
+      && p2->sect->common.flags & SECTION_NAMED)
+    return strcmp (p1->sect->named.name, p2->sect->named.name);
+
+  unsigned f1 = p1->sect->common.flags;
+  unsigned f2 = p2->sect->common.flags;
+  if (f1 == f2)
+    return 0;
+  return f1 < f2 ? -1 : 1;
 }
 
 /* Output the definitions of all object_blocks.  */
@@ -7440,7 +7435,23 @@ output_object_block_htab (object_block **slot, void *)
 void
 output_object_blocks (void)
 {
-  object_block_htab->traverse<void *, output_object_block_htab> (NULL);
+  vec<object_block *, va_heap> v;
+  v.create (object_block_htab->elements ());
+  object_block *obj;
+  hash_table<object_block_hasher>::iterator hi;
+
+  FOR_EACH_HASH_TABLE_ELEMENT (*object_block_htab, obj, object_block *, hi)
+    v.quick_push (obj);
+
+  /* Sort them in order to output them in a deterministic manner,
+     otherwise we may get .rodata sections in different orders with
+     and without -g.  */
+  v.qsort (output_object_block_compare);
+  unsigned i;
+  FOR_EACH_VEC_ELT (v, i, obj)
+    output_object_block (obj);
+
+  v.release ();
 }
 
 /* This function provides a possible implementation of the

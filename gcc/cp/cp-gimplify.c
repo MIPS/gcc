@@ -23,15 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "cp-tree.h"
@@ -39,13 +32,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "flags.h"
@@ -840,7 +831,7 @@ omp_var_to_track (tree decl)
     type = TREE_TYPE (type);
   if (type == error_mark_node || !CLASS_TYPE_P (type))
     return false;
-  if (VAR_P (decl) && DECL_THREAD_LOCAL_P (decl))
+  if (VAR_P (decl) && CP_DECL_THREAD_LOCAL_P (decl))
     return false;
   if (cxx_omp_predetermined_sharing (decl) != OMP_CLAUSE_DEFAULT_UNSPECIFIED)
     return false;
@@ -906,6 +897,7 @@ struct cp_genericize_data
   vec<tree> bind_expr_stack;
   struct cp_genericize_omp_taskreg *omp_ctx;
   tree try_block;
+  bool no_sanitize_p;
 };
 
 /* Perform any pre-gimplification lowering of C++ front end trees to
@@ -1105,6 +1097,21 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 				     : OMP_CLAUSE_DEFAULT_PRIVATE);
 	      }
 	}
+      if (flag_sanitize
+	  & (SANITIZE_NULL | SANITIZE_ALIGNMENT | SANITIZE_VPTR))
+	{
+	  /* The point here is to not sanitize static initializers.  */
+	  bool no_sanitize_p = wtd->no_sanitize_p;
+	  wtd->no_sanitize_p = true;
+	  for (tree decl = BIND_EXPR_VARS (stmt);
+	       decl;
+	       decl = DECL_CHAIN (decl))
+	    if (VAR_P (decl)
+		&& TREE_STATIC (decl)
+		&& DECL_INITIAL (decl))
+	      cp_walk_tree (&DECL_INITIAL (decl), cp_genericize_r, data, NULL);
+	  wtd->no_sanitize_p = no_sanitize_p;
+	}
       wtd->bind_expr_stack.safe_push (stmt);
       cp_walk_tree (&BIND_EXPR_BODY (stmt),
 		    cp_genericize_r, data, NULL);
@@ -1149,6 +1156,12 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       /* Using decls inside DECL_EXPRs are just dropped on the floor.  */
       *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
       *walk_subtrees = 0;
+    }
+  else if (TREE_CODE (stmt) == DECL_EXPR)
+    {
+      tree d = DECL_EXPR_DECL (stmt);
+      if (TREE_CODE (d) == VAR_DECL)
+	gcc_assert (CP_DECL_THREAD_LOCAL_P (d) == DECL_THREAD_LOCAL_P (d));
     }
   else if (TREE_CODE (stmt) == OMP_PARALLEL || TREE_CODE (stmt) == OMP_TASK)
     {
@@ -1275,9 +1288,10 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       if (*stmt_p == error_mark_node)
 	*stmt_p = size_one_node;
       return NULL;
-    }    
-  else if (flag_sanitize
-	   & (SANITIZE_NULL | SANITIZE_ALIGNMENT | SANITIZE_VPTR))
+    }
+  else if ((flag_sanitize
+	    & (SANITIZE_NULL | SANITIZE_ALIGNMENT | SANITIZE_VPTR))
+	   && !wtd->no_sanitize_p)
     {
       if ((flag_sanitize & (SANITIZE_NULL | SANITIZE_ALIGNMENT))
 	  && TREE_CODE (stmt) == NOP_EXPR
@@ -1319,6 +1333,7 @@ cp_genericize_tree (tree* t_p)
   wtd.bind_expr_stack.create (0);
   wtd.omp_ctx = NULL;
   wtd.try_block = NULL_TREE;
+  wtd.no_sanitize_p = false;
   cp_walk_tree (t_p, cp_genericize_r, &wtd, NULL);
   delete wtd.p_set;
   wtd.bind_expr_stack.release ();

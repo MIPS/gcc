@@ -43,11 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "obstack.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -56,13 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "symtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -76,7 +65,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "target.h"
 #include "df.h"
-#include "hash-table.h"
 #include "except.h"
 #include "params.h"
 #include "regs.h"
@@ -453,10 +441,8 @@ invariant_expr_equal_p (rtx_insn *insn1, rtx e1, rtx_insn *insn2, rtx e2)
   return true;
 }
 
-struct invariant_expr_hasher : typed_free_remove <invariant_expr_entry>
+struct invariant_expr_hasher : free_ptr_hash <invariant_expr_entry>
 {
-  typedef invariant_expr_entry *value_type;
-  typedef invariant_expr_entry *compare_type;
   static inline hashval_t hash (const invariant_expr_entry *);
   static inline bool equal (const invariant_expr_entry *,
 			    const invariant_expr_entry *);
@@ -887,14 +873,13 @@ pre_check_invariant_p (bool simple, rtx dest)
   if (simple && REG_P (dest) && DF_REG_DEF_COUNT (REGNO (dest)) > 1)
     {
       df_ref use;
-      rtx ref;
       unsigned int i = REGNO (dest);
       struct df_insn_info *insn_info;
       df_ref def_rec;
 
       for (use = DF_REG_USE_CHAIN (i); use; use = DF_REF_NEXT_REG (use))
 	{
-	  ref = DF_REF_INSN (use);
+	  rtx_insn *ref = DF_REF_INSN (use);
 	  insn_info = DF_INSN_INFO_GET (ref);
 
 	  FOR_EACH_INSN_INFO_DEF (def_rec, insn_info)
@@ -1630,7 +1615,7 @@ move_invariant_reg (struct loop *loop, unsigned invno)
       if (REG_P (reg))
 	regno = REGNO (reg);
 
-      if (!can_move_invariant_reg (loop, inv, reg))
+      if (!can_move_invariant_reg (loop, inv, dest))
 	{
 	  reg = gen_reg_rtx_and_attrs (dest);
 

@@ -24,15 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -47,11 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -61,7 +50,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "except.h"
-#include "ggc.h"
 #include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -76,17 +64,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "sched-int.h"
 #include "timevar.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
 #include "tm_p.h"
-#include "hash-table.h"
 #include "langhooks.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "intl.h"
@@ -100,6 +85,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "dumpfile.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -629,11 +617,6 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P
 #define TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P \
   ia64_libgcc_floating_mode_supported_p
-
-/* ia64 architecture manual 4.4.7: ... reads, writes, and flushes may occur
-   in an order different from the specified program order.  */
-#undef TARGET_RELAXED_ORDERING
-#define TARGET_RELAXED_ORDERING true
 
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P ia64_legitimate_constant_p
@@ -8598,10 +8581,8 @@ finish_bundle_states (void)
 
 /* Hashtable helpers.  */
 
-struct bundle_state_hasher : typed_noop_remove <bundle_state>
+struct bundle_state_hasher : nofree_ptr_hash <bundle_state>
 {
-  typedef bundle_state *value_type;
-  typedef bundle_state *compare_type;
   static inline hashval_t hash (const bundle_state *);
   static inline bool equal (const bundle_state *, const bundle_state *);
 };

@@ -28,11 +28,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "hard-reg-set.h"
 #include "regs.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "profile.h"
 #include "flags.h"
@@ -48,17 +43,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "sched-int.h"
 #include "target.h"
 #include "cfgloop.h"
-#include "double-int.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -2017,9 +2006,7 @@ get_sched_window (partial_schedule_ptr ps, ddg_node_ptr u_node,
      node close to its successors.  */
   if (pss_not_empty && count_succs >= count_preds)
     {
-      int tmp = end;
-      end = start;
-      start = tmp;
+      std::swap (start, end);
       step = -1;
     }
 

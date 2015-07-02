@@ -21,16 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "flags.h"
@@ -142,9 +134,11 @@ location_from_offset (location_t loc, int offset)
   expanded_location s = expand_location_to_spelling_point (loc);
   int line_width;
   const char *line = location_get_source_line (s, &line_width);
+  if (line == NULL)
+    return loc;
   line += s.column - 1 ;
   line_width -= s.column - 1;
-  unsigned int column = 
+  unsigned int column =
     location_column_from_byte_offset (line, line_width, (unsigned) offset);
 
   return linemap_position_for_loc_and_offset (line_table, loc, column);
@@ -191,7 +185,7 @@ handle_format_arg_attribute (tree *node, tree ARG_UNUSED (name),
   if (prototype_p (type))
     {
       /* The format arg can be any string reference valid for the language and
-         target.  We cannot be more specific in this case.  */
+	target.  We cannot be more specific in this case.  */
       if (!check_format_string (type, format_num, flags, no_add_attrs, -1))
 	return NULL_TREE;
     }
@@ -1031,7 +1025,8 @@ static void check_format_arg (void *, tree, unsigned HOST_WIDE_INT);
 static void check_format_info_main (format_check_results *,
 				    function_format_info *,
 				    const char *, int, tree,
-                                    unsigned HOST_WIDE_INT, alloc_pool);
+				    unsigned HOST_WIDE_INT,
+				    pool_allocator<format_wanted_type> &);
 
 static void init_dollar_format_checking (int, tree);
 static int maybe_read_dollar_number (const char **, int,
@@ -1518,9 +1513,8 @@ check_format_arg (void *ctx, tree format_tree,
   const char *format_chars;
   tree array_size = 0;
   tree array_init;
-  alloc_pool fwt_pool;
 
-  if (TREE_CODE (format_tree) == VAR_DECL)
+  if (VAR_P (format_tree))
     {
       /* Pull out a constant value if the front end didn't.  */
       format_tree = decl_constant_value (format_tree);
@@ -1587,7 +1581,7 @@ check_format_arg (void *ctx, tree format_tree,
     {
       bool objc_str = (info->format_type == gcc_objc_string_format_type);
       /* We cannot examine this string here - but we can check that it is
-         a valid type.  */
+	 a valid type.  */
       if (TREE_CODE (format_tree) != CONST_DECL
 	  || !((objc_str && objc_string_ref_type_p (TREE_TYPE (format_tree)))
 		|| (*targetcm.string_object_ref_type_p) 
@@ -1605,9 +1599,9 @@ check_format_arg (void *ctx, tree format_tree,
 	  ++arg_num;
 	}
       /* So, we have a valid literal string object and one or more params.
-         We need to use an external helper to parse the string into format
-         info.  For Objective-C variants we provide the resource within the
-         objc tree, for target variants, via a hook.  */
+	 We need to use an external helper to parse the string into format
+	 info.  For Objective-C variants we provide the resource within the
+	 objc tree, for target variants, via a hook.  */
       if (objc_str)
 	objc_check_format_arg (format_tree, params);
       else if (targetcm.check_string_object_format_arg)
@@ -1624,7 +1618,7 @@ check_format_arg (void *ctx, tree format_tree,
       res->number_non_literal++;
       return;
     }
-  if (TREE_CODE (format_tree) == VAR_DECL
+  if (VAR_P (format_tree)
       && TREE_CODE (TREE_TYPE (format_tree)) == ARRAY_TYPE
       && (array_init = decl_constant_value (format_tree)) != format_tree
       && TREE_CODE (array_init) == STRING_CST)
@@ -1694,11 +1688,9 @@ check_format_arg (void *ctx, tree format_tree,
      will decrement it if it finds there are extra arguments, but this way
      need not adjust it for every return.  */
   res->number_other++;
-  fwt_pool = create_alloc_pool ("format_wanted_type pool",
-                                sizeof (format_wanted_type), 10);
+  pool_allocator <format_wanted_type> fwt_pool ("format_wanted_type pool", 10);
   check_format_info_main (res, info, format_chars, format_length,
-                          params, arg_num, fwt_pool);
-  free_alloc_pool (fwt_pool);
+			  params, arg_num, fwt_pool);
 }
 
 
@@ -1713,7 +1705,8 @@ static void
 check_format_info_main (format_check_results *res,
 			function_format_info *info, const char *format_chars,
 			int format_length, tree params,
-                        unsigned HOST_WIDE_INT arg_num, alloc_pool fwt_pool)
+			unsigned HOST_WIDE_INT arg_num,
+			pool_allocator<format_wanted_type> &fwt_pool)
 {
   const char *orig_format_chars = format_chars;
   tree first_fillin_param = params;
@@ -2424,8 +2417,7 @@ check_format_info_main (format_check_results *res,
 	      fci = fci->chain;
 	      if (fci)
 		{
-                  wanted_type_ptr = (format_wanted_type *)
-                      pool_alloc (fwt_pool);
+		  wanted_type_ptr = fwt_pool.allocate ();
 		  arg_num++;
 		  wanted_type = *fci->types[length_chars_val].type;
 		  wanted_type_name = fci->types[length_chars_val].name;

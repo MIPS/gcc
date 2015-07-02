@@ -31,25 +31,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "varasm.h"
 #include "stor-layout.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -58,7 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "reload.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "target.h"
 #include "tm_p.h"
@@ -76,18 +64,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "debug.h"
 #include "obstack.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "lto-streamer.h"
 #include "lto-section-names.h"
@@ -492,7 +475,7 @@ typedef struct GTY ((for_user)) machopic_indirection
   bool used;
 } machopic_indirection;
 
-struct indirection_hasher : ggc_hasher<machopic_indirection *>
+struct indirection_hasher : ggc_ptr_hash<machopic_indirection>
 {
   typedef const char *compare_type;
   static hashval_t hash (machopic_indirection *);
@@ -3286,7 +3269,7 @@ typedef struct GTY ((for_user)) cfstring_descriptor {
   tree constructor;
 } cfstring_descriptor;
 
-struct cfstring_hasher : ggc_hasher<cfstring_descriptor *>
+struct cfstring_hasher : ggc_ptr_hash<cfstring_descriptor>
 {
   static hashval_t hash (cfstring_descriptor *);
   static bool equal (cfstring_descriptor *, cfstring_descriptor *);

@@ -22,15 +22,8 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -44,10 +37,6 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -72,16 +61,17 @@
 #include "predict.h"
 #include "basic-block.h"
 #include "df.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "msp430-protos.h"
 #include "dumpfile.h"
 #include "opts.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 
 static void msp430_compute_frame_info (void);
@@ -981,7 +971,8 @@ msp430_asm_integer (rtx x, unsigned int size, int aligned_p)
   switch (size)
     {
     case 4:
-      if (c == SYMBOL_REF || c == CONST || c == LABEL_REF || c == CONST_INT)
+      if (c == SYMBOL_REF || c == CONST || c == LABEL_REF || c == CONST_INT
+	  || c == PLUS || c == MINUS)
 	{
 	  fprintf (asm_out_file, "\t.long\t");
 	  output_addr_const (asm_out_file, x);
@@ -2379,6 +2370,13 @@ msp430_subreg (machine_mode mode, rtx r, machine_mode omode, int byte)
     }
   else if (GET_CODE (r) == MEM)
     rv = adjust_address (r, mode, byte);
+  else if (GET_CODE (r) == SYMBOL_REF
+	   && (byte == 0 || byte == 2)
+	   && mode == HImode)
+    {
+      rv = gen_rtx_ZERO_EXTRACT (HImode, r, GEN_INT (16), GEN_INT (8*byte));
+      rv = gen_rtx_CONST (HImode, r);
+    }
   else
     rv = simplify_gen_subreg (mode, r, omode, byte);
 

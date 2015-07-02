@@ -21,15 +21,8 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -44,11 +37,7 @@
 #include "dbxout.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -57,7 +46,6 @@
 #include "expr.h"
 #include "recog.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfgrtl.h"
@@ -70,10 +58,12 @@
 #include "df.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm-constrs.h"
 #include "opts.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Array of valid operand punctuation characters.  */
 static char m32r_punct_chars[256];
@@ -1676,6 +1666,9 @@ m32r_expand_prologue (void)
 
   if (! current_frame_info.initialized)
     m32r_compute_frame_size (get_frame_size ());
+
+  if (flag_stack_usage_info)
+    current_function_static_stack_size = current_frame_info.total_size;
 
   gmask = current_frame_info.gmask;
 

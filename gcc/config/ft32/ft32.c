@@ -35,15 +35,8 @@
 #include "reload.h"
 #include "diagnostic-core.h"
 #include "obstack.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "calls.h"
@@ -51,9 +44,7 @@
 #include "optabs.h"
 #include "except.h"
 #include "function.h"
-#include "ggc.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
 #include "dominance.h"
@@ -67,7 +58,10 @@
 #include "basic-block.h"
 #include "df.h"
 #include "builtins.h"
+#include "emit-rtl.h"
 
+/* This file should be included last.  */
+#include "target-def.h"
 
 #include <stdint.h>
 
@@ -207,7 +201,7 @@ ft32_print_operand (FILE * file, rtx x, int code)
       return;
 
     case 'm':
-      fprintf (file, "%d", -INTVAL(x));
+      fprintf (file, "%ld", (long) (- INTVAL(x)));
       return;
 
     case 'd':                   // a DW spec, from an integer alignment (for BLKmode insns)
@@ -463,6 +457,9 @@ ft32_expand_prologue (void)
   rtx insn;
 
   ft32_compute_frame ();
+
+  if (flag_stack_usage_info)
+    current_function_static_stack_size = cfun->machine->size_for_adjusting_sp;
 
   if (!must_link () && (cfun->machine->callee_saved_reg_size == 4))
     {

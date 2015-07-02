@@ -20,17 +20,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -46,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -57,11 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
-#include "hashtab.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -250,12 +237,8 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
         ;
       else if (EDGE_SUCC (bb2, 0)->dest == bb1)
         {
-	  basic_block bb_tmp = bb1;
-	  edge e_tmp = e1;
-	  bb1 = bb2;
-	  bb2 = bb_tmp;
-	  e1 = e2;
-	  e2 = e_tmp;
+	  std::swap (bb1, bb2);
+	  std::swap (e1, e2);
 	}
       else if (do_store_elim
 	       && EDGE_SUCC (bb1, 0)->dest == EDGE_SUCC (bb2, 0)->dest)
@@ -1326,10 +1309,8 @@ struct name_to_bb
 
 /* Hashtable helpers.  */
 
-struct ssa_names_hasher : typed_free_remove <name_to_bb>
+struct ssa_names_hasher : free_ptr_hash <name_to_bb>
 {
-  typedef name_to_bb *value_type;
-  typedef name_to_bb *compare_type;
   static inline hashval_t hash (const name_to_bb *);
   static inline bool equal (const name_to_bb *, const name_to_bb *);
 };

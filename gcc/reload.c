@@ -96,22 +96,11 @@ a register with any other reload.  */
 #include "tm_p.h"
 #include "insn-config.h"
 #include "symtab.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -3882,6 +3871,12 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		 recog_data.operand[commutative + 1]);
       std::swap (*recog_data.operand_loc[commutative],
 		 *recog_data.operand_loc[commutative + 1]);
+
+      for (i = 0; i < recog_data.n_dups; i++)
+	if (recog_data.dup_num[i] == commutative
+	    || recog_data.dup_num[i] == commutative + 1)
+	  *recog_data.dup_loc[i]
+	    = recog_data.operand[(int) recog_data.dup_num[i]];
 
       for (i = 0; i < n_reloads; i++)
 	{

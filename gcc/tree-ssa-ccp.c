@@ -122,16 +122,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -139,19 +131,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -1983,7 +1972,7 @@ evaluate_stmt (gimple stmt)
   return val;
 }
 
-typedef hash_table<pointer_hash<gimple_statement_base> > gimple_htab;
+typedef hash_table<nofree_ptr_hash<gimple_statement_base> > gimple_htab;
 
 /* Given a BUILT_IN_STACK_SAVE value SAVED_VAL, insert a clobber of VAR before
    each matching BUILT_IN_STACK_RESTORE.  Mark visited phis in VISITED.  */

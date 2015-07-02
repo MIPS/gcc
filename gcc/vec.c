@@ -29,13 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "system.h"
 #include "coretypes.h"
-#include "ggc.h"
-#include "vec.h"
-#include "diagnostic-core.h"
-#include "hashtab.h"
-#include "mem-stats.h"
-#include "hash-map.h"
-#include "mem-stats.h"
+#include "hash-table.h"
 
 /* vNULL is an empty type with a template cast operation that returns
    a zero-initialized vec<T, A, L> instance.  Use this when you want
@@ -60,7 +54,8 @@ struct vec_usage: public mem_usage
     m_items (items), m_items_peak (items_peak) {}
 
   /* Comparison operator.  */
-  inline bool operator< (const vec_usage &second) const
+  inline bool
+  operator< (const vec_usage &second) const
   {
     return (m_allocated == second.m_allocated ?
 	    (m_peak == second.m_peak ? m_times < second.m_times
@@ -68,7 +63,8 @@ struct vec_usage: public mem_usage
   }
 
   /* Sum the usage with SECOND usage.  */
-  vec_usage operator+ (const vec_usage &second)
+  vec_usage
+  operator+ (const vec_usage &second)
   {
     return vec_usage (m_allocated + second.m_allocated,
 		      m_times + second.m_times,
@@ -78,7 +74,8 @@ struct vec_usage: public mem_usage
   }
 
   /* Dump usage coupled to LOC location, where TOTAL is sum of all rows.  */
-  inline void dump (mem_location *loc, mem_usage &total) const
+  inline void
+  dump (mem_location *loc, mem_usage &total) const
   {
     char s[4096];
     sprintf (s, "%s:%i (%s)", loc->get_trimmed_filename (),
@@ -93,7 +90,8 @@ struct vec_usage: public mem_usage
   }
 
   /* Dump footer.  */
-  inline void dump_footer ()
+  inline void
+  dump_footer ()
   {
     print_dash_line ();
     fprintf (stderr, "%s%55li%25li%17li\n", "Total", (long)m_allocated,
@@ -102,7 +100,8 @@ struct vec_usage: public mem_usage
   }
 
   /* Dump header with NAME.  */
-  static inline void dump_header (const char *name)
+  static inline void
+  dump_header (const char *name)
   {
     fprintf (stderr, "%-48s %11s%15s%10s%17s%11s\n", name, "Leak", "Peak",
 	     "Times", "Leak items", "Peak items");
@@ -110,7 +109,8 @@ struct vec_usage: public mem_usage
   }
 
   /* Compare wrapper used by qsort method.  */
-  static int compare (const void *first, const void *second)
+  static int
+  compare (const void *first, const void *second)
   {
     typedef std::pair<mem_location *, vec_usage *> mem_pair_t;
 
@@ -135,7 +135,8 @@ void
 vec_prefix::register_overhead (void *ptr, size_t size, size_t elements
 			       MEM_STAT_DECL)
 {
-  vec_mem_desc.register_descriptor (ptr, VEC, false FINAL_PASS_MEM_STAT);
+  vec_mem_desc.register_descriptor (ptr, VEC_ORIGIN, false
+				    FINAL_PASS_MEM_STAT);
   vec_usage *usage = vec_mem_desc.register_instance_overhead (size, ptr);
   usage->m_items += elements;
   if (usage->m_items_peak < usage->m_items)
@@ -149,7 +150,8 @@ vec_prefix::release_overhead (void *ptr, size_t size, bool in_dtor
 			      MEM_STAT_DECL)
 {
   if (!vec_mem_desc.contains_descriptor_for_instance (ptr))
-    vec_mem_desc.register_descriptor (ptr, VEC, false FINAL_PASS_MEM_STAT);
+    vec_mem_desc.register_descriptor (ptr, VEC_ORIGIN,
+				      false FINAL_PASS_MEM_STAT);
   vec_mem_desc.release_instance_overhead (ptr, size, in_dtor);
 }
 
@@ -184,5 +186,5 @@ vec_prefix::calculate_allocation_1 (unsigned alloc, unsigned desired)
 void
 dump_vec_loc_statistics (void)
 {
-  vec_mem_desc.dump (VEC);
+  vec_mem_desc.dump (VEC_ORIGIN);
 }

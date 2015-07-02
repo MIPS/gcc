@@ -23,15 +23,8 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -45,11 +38,7 @@
 #include "flags.h"
 #include "recog.h"
 #include "reload.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,7 +52,6 @@
 #include "tm_p.h"
 #include "tm-constrs.h"
 #include "target.h"
-#include "target-def.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfgrtl.h"
@@ -78,6 +66,9 @@
 #include "cfgloop.h"
 #include "dumpfile.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* This is used in the am33_2.0-linux-gnu port, in which global symbol
    names are not prefixed by underscores, to tell whether to prefix a

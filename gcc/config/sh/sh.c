@@ -28,15 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "insn-config.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -44,12 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "calls.h"
 #include "varasm.h"
 #include "flags.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -67,7 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dwarf2.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "predict.h"
 #include "dominance.h"
@@ -82,14 +70,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "sched-int.h"
 #include "params.h"
-#include "ggc.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "cfgloop.h"
@@ -101,6 +86,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -1789,10 +1777,14 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 	 target/55212.
 	 We split possible load/store to two move insns via r0 so as to
 	 shorten R0 live range.  It will make some codes worse but will
-	 win on avarage for LRA.  */
+	 win on average for LRA.
+	 Also when base+index addressing is used and the index term is
+	 a subreg, LRA assumes that more hard registers can be available
+	 in some situation.  It isn't the case for SH in the problematic
+	 case.  We can pre-allocate R0 for that index term to avoid
+	 the issue.  See PR target/66591.  */
       else if (sh_lra_p ()
 	       && TARGET_SH1 && ! TARGET_SH2A
-	       && (mode == QImode || mode == HImode)
 	       && ((REG_P (operands[0]) && MEM_P (operands[1]))
 		   || (REG_P (operands[1]) && MEM_P (operands[0]))))
 	{
@@ -1800,7 +1792,8 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 	  rtx reg = operands[load_p ? 0 : 1];
 	  rtx adr = XEXP (operands[load_p ? 1 : 0], 0);
 
-	  if (REGNO (reg) >= FIRST_PSEUDO_REGISTER
+	  if ((mode == QImode || mode == HImode)
+	      && REGNO (reg) >= FIRST_PSEUDO_REGISTER
 	      && GET_CODE (adr) == PLUS
 	      && REG_P (XEXP (adr, 0))
 	      && (REGNO (XEXP (adr, 0)) >= FIRST_PSEUDO_REGISTER)
@@ -1811,6 +1804,17 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 	      rtx r0_rtx = gen_rtx_REG (mode, R0_REG);
 	      emit_move_insn (r0_rtx, operands[1]);
 	      operands[1] = r0_rtx;
+	    }
+	  if (REGNO (reg) >= FIRST_PSEUDO_REGISTER
+	      && GET_CODE (adr) == PLUS
+	      && REG_P (XEXP (adr, 0))
+	      && (REGNO (XEXP (adr, 0)) >= FIRST_PSEUDO_REGISTER)
+	      && SUBREG_P (XEXP (adr, 1))
+	      && REG_P (SUBREG_REG (XEXP (adr, 1))))
+	    {
+	      rtx r0_rtx = gen_rtx_REG (GET_MODE (XEXP (adr, 1)), R0_REG);
+	      emit_move_insn (r0_rtx, XEXP (adr, 1));
+	      XEXP (adr, 1) = r0_rtx;
 	    }
 	}
     }
@@ -1843,12 +1847,13 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 		  || tls_kind == TLS_MODEL_LOCAL_DYNAMIC
 		  || tls_kind == TLS_MODEL_INITIAL_EXEC))
 	    {
+	      static int got_labelno;
 	      /* Don't schedule insns for getting GOT address when
 		 the first scheduling is enabled, to avoid spill
 		 failures for R0.  */
 	      if (flag_schedule_insns)
 		emit_insn (gen_blockage ());
-	      emit_insn (gen_GOTaddr2picreg ());
+	      emit_insn (gen_GOTaddr2picreg (GEN_INT (++got_labelno)));
 	      emit_use (gen_rtx_REG (SImode, PIC_REG));
 	      if (flag_schedule_insns)
 		emit_insn (gen_blockage ());
@@ -4648,13 +4653,30 @@ gen_datalabel_ref (rtx sym)
 }
 
 
-static alloc_pool label_ref_list_pool;
-
 typedef struct label_ref_list_d
 {
   rtx_code_label *label;
   struct label_ref_list_d *next;
+
+  /* Pool allocation new operator.  */
+  inline void *operator new (size_t)
+  {
+    return pool.allocate ();
+  }
+
+  /* Delete operator utilizing pool allocation.  */
+  inline void operator delete (void *ptr)
+  {
+    pool.remove ((label_ref_list_d *) ptr);
+  }
+
+  /* Memory allocation pool.  */
+  static pool_allocator<label_ref_list_d> pool;
+
 } *label_ref_list_t;
+
+pool_allocator<label_ref_list_d> label_ref_list_d::pool
+  ("label references list", 30);
 
 /* The SH cannot load a large constant into a register, constants have to
    come from a pc relative load.  The reference of a pc relative load
@@ -4775,7 +4797,7 @@ add_constant (rtx x, machine_mode mode, rtx last_value)
 		}
 	      if (lab && pool_window_label)
 		{
-		  newref = (label_ref_list_t) pool_alloc (label_ref_list_pool);
+		  newref = new label_ref_list_d;
 		  newref->label = pool_window_label;
 		  ref = pool_vector[pool_window_last].wend;
 		  newref->next = ref;
@@ -4804,7 +4826,7 @@ add_constant (rtx x, machine_mode mode, rtx last_value)
   pool_vector[pool_size].part_of_sequence_p = (lab == 0);
   if (lab && pool_window_label)
     {
-      newref = (label_ref_list_t) pool_alloc (label_ref_list_pool);
+      newref = new label_ref_list_d;
       newref->label = pool_window_label;
       ref = pool_vector[pool_window_last].wend;
       newref->next = ref;
@@ -6359,9 +6381,6 @@ sh_reorg (void)
 
   /* Scan the function looking for move instructions which have to be
      changed to pc-relative loads and insert the literal tables.  */
-  label_ref_list_pool = create_alloc_pool ("label references list",
-					   sizeof (struct label_ref_list_d),
-					   30);
   mdep_reorg_phase = SH_FIXUP_PCLOAD;
   for (insn = first, num_mova = 0; insn; insn = NEXT_INSN (insn))
     {
@@ -6553,7 +6572,7 @@ sh_reorg (void)
 	  insn = barrier;
 	}
     }
-  free_alloc_pool (label_ref_list_pool);
+  label_ref_list_d::pool.release ();
   for (insn = first; insn; insn = NEXT_INSN (insn))
     PUT_MODE (insn, VOIDmode);
 
@@ -7942,7 +7961,7 @@ sh_expand_prologue (void)
     }
 
   if (flag_pic && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
-    emit_insn (gen_GOTaddr2picreg ());
+    emit_insn (gen_GOTaddr2picreg (const0_rtx));
 
   if (SHMEDIA_REGS_STACK_ADJUST ())
     {
@@ -14227,7 +14246,7 @@ sh_try_split_insn_simple (rtx_insn* i, rtx_insn* curr_insn, int n = 0)
       fprintf (dump_file, "\n");
     }
 
-  rtx_insn* seq = safe_as_a<rtx_insn*> (split_insns (PATTERN (i), curr_insn));
+  rtx_insn* seq = split_insns (PATTERN (i), curr_insn);
 
   if (seq == NULL)
     return std::make_pair (i, i);

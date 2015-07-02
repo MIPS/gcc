@@ -28,15 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -300,10 +293,10 @@ cp_common_type (tree t1, tree t2)
 
   /* FIXME: Attributes.  */
   gcc_assert (ARITHMETIC_TYPE_P (t1)
-	      || TREE_CODE (t1) == VECTOR_TYPE
+	      || VECTOR_TYPE_P (t1)
 	      || UNSCOPED_ENUM_P (t1));
   gcc_assert (ARITHMETIC_TYPE_P (t2)
-	      || TREE_CODE (t2) == VECTOR_TYPE
+	      || VECTOR_TYPE_P (t2)
 	      || UNSCOPED_ENUM_P (t2));
 
   /* If one type is complex, form the common type of the non-complex
@@ -448,10 +441,10 @@ tree
 type_after_usual_arithmetic_conversions (tree t1, tree t2)
 {
   gcc_assert (ARITHMETIC_TYPE_P (t1)
-	      || TREE_CODE (t1) == VECTOR_TYPE
+	      || VECTOR_TYPE_P (t1)
 	      || UNSCOPED_ENUM_P (t1));
   gcc_assert (ARITHMETIC_TYPE_P (t2)
-	      || TREE_CODE (t2) == VECTOR_TYPE
+	      || VECTOR_TYPE_P (t2)
 	      || UNSCOPED_ENUM_P (t2));
 
   /* Perform the integral promotions.  We do not promote real types here.  */
@@ -793,14 +786,15 @@ merge_types (tree t1, tree t2)
 	int quals = cp_type_quals (t1);
 
 	if (code1 == POINTER_TYPE)
-	  t1 = build_pointer_type (target);
+	  {
+	    t1 = build_pointer_type (target);
+	    if (TREE_CODE (target) == METHOD_TYPE)
+	      t1 = build_ptrmemfunc_type (t1);
+	  }
 	else
 	  t1 = cp_build_reference_type (target, TYPE_REF_IS_RVALUE (t1));
 	t1 = build_type_attribute_variant (t1, attributes);
 	t1 = cp_build_qualified_type (t1, quals);
-
-	if (TREE_CODE (target) == METHOD_TYPE)
-	  t1 = build_ptrmemfunc_type (t1);
 
 	return t1;
       }
@@ -1810,7 +1804,7 @@ cxx_alignas_expr (tree e)
    violates these rules.  */
 
 bool
-invalid_nonstatic_memfn_p (tree expr, tsubst_flags_t complain)
+invalid_nonstatic_memfn_p (location_t loc, tree expr, tsubst_flags_t complain)
 {
   if (expr == NULL_TREE)
     return false;
@@ -1822,7 +1816,17 @@ invalid_nonstatic_memfn_p (tree expr, tsubst_flags_t complain)
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (expr))
     {
       if (complain & tf_error)
-        error ("invalid use of non-static member function");
+	{
+	  if (DECL_P (expr))
+	    {
+	      error_at (loc, "invalid use of non-static member function %qD",
+			expr);
+	      inform (DECL_SOURCE_LOCATION (expr), "declared here");
+	    }
+	  else
+	    error_at (loc, "invalid use of non-static member function of "
+		      "type %qT", TREE_TYPE (expr));
+	}
       return true;
     }
   return false;
@@ -1946,7 +1950,7 @@ decay_conversion (tree exp, tsubst_flags_t complain)
 	error_at (loc, "void value not ignored as it ought to be");
       return error_mark_node;
     }
-  if (invalid_nonstatic_memfn_p (exp, complain))
+  if (invalid_nonstatic_memfn_p (loc, exp, complain))
     return error_mark_node;
   if (code == FUNCTION_TYPE || is_overloaded_fn (exp))
     return cp_build_addr_expr (exp, complain);
@@ -3137,15 +3141,6 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
 	    return error_mark_node;
 	}
 
-      if (!lvalue_p (array))
-	{
-	  if (complain & tf_error)
-	    pedwarn (loc, OPT_Wpedantic, 
-		     "ISO C++ forbids subscripting non-lvalue array");
-	  else
-	    return error_mark_node;
-	}
-
       /* Note in C++ it is valid to subscript a `register' array, since
 	 it is valid to take the address of something with that
 	 storage specification.  */
@@ -3184,11 +3179,7 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
 
     /* Put the integer in IND to simplify error checking.  */
     if (TREE_CODE (TREE_TYPE (ar)) == INTEGER_TYPE)
-      {
-	tree temp = ar;
-	ar = ind;
-	ind = temp;
-      }
+      std::swap (ar, ind);
 
     if (ar == error_mark_node || ind == error_mark_node)
       return error_mark_node;
@@ -4454,6 +4445,23 @@ cp_build_binary_op (location_t location,
 		warning (OPT_Waddress, "the address of %qD will never be NULL",
 			 TREE_OPERAND (op0, 0));
 	    }
+
+	  if (CONVERT_EXPR_P (op0)
+	      && TREE_CODE (TREE_TYPE (TREE_OPERAND (op0, 0)))
+		 == REFERENCE_TYPE)
+	    {
+	      tree inner_op0 = op0;
+	      STRIP_NOPS (inner_op0);
+
+	      if ((complain & tf_warning)
+		  && c_inhibit_evaluation_warnings == 0
+		  && !TREE_NO_WARNING (op0)
+		  && DECL_P (inner_op0))
+		warning_at (location, OPT_Waddress,
+			    "the compiler can assume that the address of "
+			    "%qD will never be NULL",
+			    inner_op0);
+	    }
 	}
       else if (((code1 == POINTER_TYPE || TYPE_PTRDATAMEM_P (type1))
 		&& null_ptr_cst_p (op0))
@@ -4475,6 +4483,23 @@ cp_build_binary_op (location_t location,
 		  && !TREE_NO_WARNING (op1))
 		warning (OPT_Waddress, "the address of %qD will never be NULL",
 			 TREE_OPERAND (op1, 0));
+	    }
+
+	  if (CONVERT_EXPR_P (op1)
+	      && TREE_CODE (TREE_TYPE (TREE_OPERAND (op1, 0)))
+		 == REFERENCE_TYPE)
+	    {
+	      tree inner_op1 = op1;
+	      STRIP_NOPS (inner_op1);
+
+	      if ((complain & tf_warning)
+		  && c_inhibit_evaluation_warnings == 0
+		  && !TREE_NO_WARNING (op1)
+		  && DECL_P (inner_op1))
+		warning_at (location, OPT_Waddress,
+			    "the compiler can assume that the address of "
+			    "%qD will never be NULL",
+			    inner_op1);
 	    }
 	}
       else if ((code0 == POINTER_TYPE && code1 == POINTER_TYPE)
@@ -6974,9 +6999,9 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 		 "is conditionally-supported");
       return fold_if_not_in_template (build_nop (type, expr));
     }
-  else if (TREE_CODE (type) == VECTOR_TYPE)
+  else if (VECTOR_TYPE_P (type))
     return fold_if_not_in_template (convert_to_vector (type, expr));
-  else if (TREE_CODE (intype) == VECTOR_TYPE
+  else if (VECTOR_TYPE_P (intype)
 	   && INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     return fold_if_not_in_template (convert_to_integer (type, expr));
   else
@@ -8110,7 +8135,7 @@ convert_for_assignment (tree type, tree rhs,
   rhstype = TREE_TYPE (rhs);
   coder = TREE_CODE (rhstype);
 
-  if (TREE_CODE (type) == VECTOR_TYPE && coder == VECTOR_TYPE
+  if (VECTOR_TYPE_P (type) && coder == VECTOR_TYPE
       && vector_types_convertible_p (type, rhstype, true))
     {
       rhs = mark_rvalue_use (rhs);
@@ -8814,7 +8839,7 @@ comp_ptr_ttypes_real (tree to, tree from, int constp)
 	    constp &= TYPE_READONLY (to);
 	}
 
-      if (TREE_CODE (to) == VECTOR_TYPE)
+      if (VECTOR_TYPE_P (to))
 	is_opaque_pointer = vector_targets_convertible_p (to, from);
 
       if (!TYPE_PTR_P (to) && !TYPE_PTRDATAMEM_P (to))
@@ -8895,7 +8920,7 @@ ptr_reasonably_similar (const_tree to, const_tree from)
 			COMPARE_BASE | COMPARE_DERIVED))
 	continue;
 
-      if (TREE_CODE (to) == VECTOR_TYPE
+      if (VECTOR_TYPE_P (to)
 	  && vector_types_convertible_p (to, from, false))
 	return true;
 
@@ -8937,7 +8962,7 @@ comp_ptr_ttypes_const (tree to, tree from)
 			  TYPE_OFFSET_BASETYPE (to)))
 	  continue;
 
-      if (TREE_CODE (to) == VECTOR_TYPE)
+      if (VECTOR_TYPE_P (to))
 	is_opaque_pointer = vector_targets_convertible_p (to, from);
 
       if (!TYPE_PTR_P (to))

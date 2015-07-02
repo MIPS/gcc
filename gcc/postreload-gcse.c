@@ -23,17 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 
-#include "hash-table.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -48,10 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgrtl.h"
 #include "basic-block.h"
 #include "profile.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -132,10 +120,8 @@ struct expr
 
 /* Hashtable helpers.  */
 
-struct expr_hasher : typed_noop_remove <expr>
+struct expr_hasher : nofree_ptr_hash <expr>
 {
-  typedef expr *value_type;
-  typedef expr *compare_type;
   static inline hashval_t hash (const expr *);
   static inline bool equal (const expr *, const expr *);
 };

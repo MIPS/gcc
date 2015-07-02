@@ -37,16 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -59,9 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "flags.h"
 #include "stringpool.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -151,7 +140,7 @@ rtx_insn *invalid_insn_rtx;
 /* A hash table storing CONST_INTs whose absolute value is greater
    than MAX_SAVED_CONST_INT.  */
 
-struct const_int_hasher : ggc_cache_hasher<rtx>
+struct const_int_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   typedef HOST_WIDE_INT compare_type;
 
@@ -161,7 +150,7 @@ struct const_int_hasher : ggc_cache_hasher<rtx>
 
 static GTY ((cache)) hash_table<const_int_hasher> *const_int_htab;
 
-struct const_wide_int_hasher : ggc_cache_hasher<rtx>
+struct const_wide_int_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   static hashval_t hash (rtx x);
   static bool equal (rtx x, rtx y);
@@ -170,7 +159,7 @@ struct const_wide_int_hasher : ggc_cache_hasher<rtx>
 static GTY ((cache)) hash_table<const_wide_int_hasher> *const_wide_int_htab;
 
 /* A hash table storing register attribute structures.  */
-struct reg_attr_hasher : ggc_cache_hasher<reg_attrs *>
+struct reg_attr_hasher : ggc_cache_ptr_hash<reg_attrs>
 {
   static hashval_t hash (reg_attrs *x);
   static bool equal (reg_attrs *a, reg_attrs *b);
@@ -179,7 +168,7 @@ struct reg_attr_hasher : ggc_cache_hasher<reg_attrs *>
 static GTY ((cache)) hash_table<reg_attr_hasher> *reg_attrs_htab;
 
 /* A hash table storing all CONST_DOUBLEs.  */
-struct const_double_hasher : ggc_cache_hasher<rtx>
+struct const_double_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   static hashval_t hash (rtx x);
   static bool equal (rtx x, rtx y);
@@ -188,7 +177,7 @@ struct const_double_hasher : ggc_cache_hasher<rtx>
 static GTY ((cache)) hash_table<const_double_hasher> *const_double_htab;
 
 /* A hash table storing all CONST_FIXEDs.  */
-struct const_fixed_hasher : ggc_cache_hasher<rtx>
+struct const_fixed_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   static hashval_t hash (rtx x);
   static bool equal (rtx x, rtx y);
@@ -3658,9 +3647,8 @@ mark_label_nuses (rtx x)
    returns TRIAL.  If the insn to be returned can be split, it will be.  */
 
 rtx_insn *
-try_split (rtx pat, rtx uncast_trial, int last)
+try_split (rtx pat, rtx_insn *trial, int last)
 {
-  rtx_insn *trial = as_a <rtx_insn *> (uncast_trial);
   rtx_insn *before = PREV_INSN (trial);
   rtx_insn *after = NEXT_INSN (trial);
   rtx note;
@@ -3668,7 +3656,7 @@ try_split (rtx pat, rtx uncast_trial, int last)
   int probability;
   rtx_insn *insn_last, *insn;
   int njumps = 0;
-  rtx call_insn = NULL_RTX;
+  rtx_insn *call_insn = NULL;
 
   /* We're not good at redistributing frame information.  */
   if (RTX_FRAME_RELATED_P (trial))
@@ -3679,7 +3667,7 @@ try_split (rtx pat, rtx uncast_trial, int last)
     split_branch_probability = XINT (note, 0);
   probability = split_branch_probability;
 
-  seq = safe_as_a <rtx_insn *> (split_insns (pat, trial));
+  seq = split_insns (pat, trial);
 
   split_branch_probability = -1;
 
@@ -4690,10 +4678,10 @@ emit_pattern_after_setloc (rtx pattern, rtx uncast_after, int loc,
 			   rtx_insn *(*make_raw) (rtx))
 {
   rtx_insn *after = safe_as_a <rtx_insn *> (uncast_after);
-  rtx last = emit_pattern_after_noloc (pattern, after, NULL, make_raw);
+  rtx_insn *last = emit_pattern_after_noloc (pattern, after, NULL, make_raw);
 
   if (pattern == NULL_RTX || !loc)
-    return safe_as_a <rtx_insn *> (last);
+    return last;
 
   after = NEXT_INSN (after);
   while (1)
@@ -4706,7 +4694,7 @@ emit_pattern_after_setloc (rtx pattern, rtx uncast_after, int loc,
 	break;
       after = NEXT_INSN (after);
     }
-  return safe_as_a <rtx_insn *> (last);
+  return last;
 }
 
 /* Insert PATTERN after AFTER.  MAKE_RAW indicates how to turn PATTERN
@@ -5315,48 +5303,14 @@ set_dst_reg_note (rtx insn, enum reg_note kind, rtx datum, rtx dst)
   return NULL_RTX;
 }
 
-/* Return an indication of which type of insn should have X as a body.
-   The value is CODE_LABEL, INSN, CALL_INSN or JUMP_INSN.  */
+/* Emit the rtl pattern X as an appropriate kind of insn.  Also emit a
+   following barrier if the instruction needs one and if ALLOW_BARRIER_P
+   is true.
 
-static enum rtx_code
-classify_insn (rtx x)
-{
-  if (LABEL_P (x))
-    return CODE_LABEL;
-  if (GET_CODE (x) == CALL)
-    return CALL_INSN;
-  if (ANY_RETURN_P (x))
-    return JUMP_INSN;
-  if (GET_CODE (x) == SET)
-    {
-      if (SET_DEST (x) == pc_rtx)
-	return JUMP_INSN;
-      else if (GET_CODE (SET_SRC (x)) == CALL)
-	return CALL_INSN;
-      else
-	return INSN;
-    }
-  if (GET_CODE (x) == PARALLEL)
-    {
-      int j;
-      for (j = XVECLEN (x, 0) - 1; j >= 0; j--)
-	if (GET_CODE (XVECEXP (x, 0, j)) == CALL)
-	  return CALL_INSN;
-	else if (GET_CODE (XVECEXP (x, 0, j)) == SET
-		 && SET_DEST (XVECEXP (x, 0, j)) == pc_rtx)
-	  return JUMP_INSN;
-	else if (GET_CODE (XVECEXP (x, 0, j)) == SET
-		 && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == CALL)
-	  return CALL_INSN;
-    }
-  return INSN;
-}
-
-/* Emit the rtl pattern X as an appropriate kind of insn.
    If X is a label, it is simply added into the insn chain.  */
 
 rtx_insn *
-emit (rtx x)
+emit (rtx x, bool allow_barrier_p)
 {
   enum rtx_code code = classify_insn (x);
 
@@ -5369,7 +5323,8 @@ emit (rtx x)
     case  JUMP_INSN:
       {
 	rtx_insn *insn = emit_jump_insn (x);
-	if (any_uncondjump_p (insn) || GET_CODE (x) == RETURN)
+	if (allow_barrier_p
+	    && (any_uncondjump_p (insn) || GET_CODE (x) == RETURN))
 	  return emit_barrier ();
 	return insn;
       }
@@ -6326,20 +6281,17 @@ insn_location (const rtx_insn *insn)
 bool
 need_atomic_barrier_p (enum memmodel model, bool pre)
 {
-  switch (model & MEMMODEL_MASK)
+  switch (model & MEMMODEL_BASE_MASK)
     {
     case MEMMODEL_RELAXED:
     case MEMMODEL_CONSUME:
       return false;
     case MEMMODEL_RELEASE:
-    case MEMMODEL_SYNC_RELEASE:
       return pre;
     case MEMMODEL_ACQUIRE:
-    case MEMMODEL_SYNC_ACQUIRE:
       return !pre;
     case MEMMODEL_ACQ_REL:
     case MEMMODEL_SEQ_CST:
-    case MEMMODEL_SYNC_SEQ_CST:
       return true;
     default:
       gcc_unreachable ();

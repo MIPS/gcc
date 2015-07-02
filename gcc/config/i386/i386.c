@@ -22,15 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -50,10 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "function.h"
 #include "recog.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -72,18 +61,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
-#include "ggc.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "reload.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -115,6 +97,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
@@ -2374,6 +2359,7 @@ static rtx (*ix86_gen_sub3) (rtx, rtx, rtx);
 static rtx (*ix86_gen_sub3_carry) (rtx, rtx, rtx, rtx, rtx);
 static rtx (*ix86_gen_one_cmpl2) (rtx, rtx);
 static rtx (*ix86_gen_monitor) (rtx, rtx, rtx);
+static rtx (*ix86_gen_monitorx) (rtx, rtx, rtx);
 static rtx (*ix86_gen_andsp) (rtx, rtx, rtx);
 static rtx (*ix86_gen_allocate_stack_worker) (rtx, rtx);
 static rtx (*ix86_gen_adjust_stack_and_probe) (rtx, rtx, rtx);
@@ -2677,6 +2663,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mmpx",          OPTION_MASK_ISA_MPX },
     { "-mclwb",		OPTION_MASK_ISA_CLWB },
     { "-mpcommit",	OPTION_MASK_ISA_PCOMMIT },
+    { "-mmwaitx",	OPTION_MASK_ISA_MWAITX  },
   };
 
   /* Flag options.  */
@@ -3219,6 +3206,7 @@ ix86_option_override_internal (bool main_args_p,
 #define PTA_AVX512VBMI		(HOST_WIDE_INT_1 << 54)
 #define PTA_CLWB		(HOST_WIDE_INT_1 << 55)
 #define PTA_PCOMMIT		(HOST_WIDE_INT_1 << 56)
+#define PTA_MWAITX		(HOST_WIDE_INT_1 << 57)
 
 #define PTA_CORE2 \
   (PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3 \
@@ -3372,7 +3360,7 @@ ix86_option_override_internal (bool main_args_p,
 	| PTA_FMA4 | PTA_XOP | PTA_LWP | PTA_BMI | PTA_BMI2 
 	| PTA_TBM | PTA_F16C | PTA_FMA | PTA_PRFCHW | PTA_FXSR 
 	| PTA_XSAVE | PTA_XSAVEOPT | PTA_FSGSBASE | PTA_RDRND
-	| PTA_MOVBE},
+	| PTA_MOVBE | PTA_MWAITX},
       {"btver1", PROCESSOR_BTVER1, CPU_GENERIC,
 	PTA_64BIT | PTA_MMX |  PTA_SSE  | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4A |PTA_ABM | PTA_CX16 | PTA_PRFCHW
@@ -3445,6 +3433,10 @@ ix86_option_override_internal (bool main_args_p,
 	  || TARGET_16BIT_P (opts->x_ix86_isa_flags))
 	opts->x_ix86_isa_flags &= ~OPTION_MASK_ABI_X32;
 #endif
+      if (TARGET_64BIT_P (opts->x_ix86_isa_flags)
+	  && TARGET_IAMCU_P (opts->x_target_flags))
+	sorry ("Intel MCU psABI isn%'t supported in %s mode",
+	       TARGET_X32_P (opts->x_ix86_isa_flags) ? "x32" : "64-bit");
     }
 #endif
 
@@ -3816,6 +3808,9 @@ ix86_option_override_internal (bool main_args_p,
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512IFMA;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
+	if (processor_alias_table[i].flags & PTA_MWAITX
+	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_MWAITX))
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_MWAITX;
 
 	break;
       }
@@ -3825,6 +3820,20 @@ ix86_option_override_internal (bool main_args_p,
 
   if (TARGET_X32 && (ix86_isa_flags & OPTION_MASK_ISA_MPX))
     error ("Intel MPX does not support x32");
+
+  if (TARGET_IAMCU_P (opts->x_target_flags))
+    {
+      /* Verify that x87/MMX/SSE/AVX is off for -miamcu.  */
+      if (TARGET_80387_P (opts->x_target_flags))
+	sorry ("X87 FPU isn%'t supported in Intel MCU psABI");
+      else if ((opts->x_ix86_isa_flags & (OPTION_MASK_ISA_MMX
+					  | OPTION_MASK_ISA_SSE
+					  | OPTION_MASK_ISA_AVX)))
+	sorry ("%s isn%'t supported in Intel MCU psABI",
+	       TARGET_MMX_P (opts->x_ix86_isa_flags)
+	       ? "MMX"
+	       : TARGET_SSE_P (opts->x_ix86_isa_flags) ? "SSE" : "AVX");
+    }
 
   if (!strcmp (opts->x_ix86_arch_string, "generic"))
     error ("generic CPU can be used only for %stune=%s %s",
@@ -3913,7 +3922,16 @@ ix86_option_override_internal (bool main_args_p,
       if (opts->x_flag_asynchronous_unwind_tables == 2)
 	opts->x_flag_asynchronous_unwind_tables = !USE_IX86_FRAME_POINTER;
       if (opts->x_flag_pcc_struct_return == 2)
-	opts->x_flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
+	{
+	  /* Intel MCU psABI specifies that -freg-struct-return should
+	     be on.  Instead of setting DEFAULT_PCC_STRUCT_RETURN to 1,
+	     we check -miamcu so that -freg-struct-return is always
+	     turned on if -miamcu is used.  */
+	  if (TARGET_IAMCU_P (opts->x_target_flags))
+	    opts->x_flag_pcc_struct_return = 0;
+	  else
+	    opts->x_flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
+	}
     }
 
   ix86_tune_cost = processor_target_table[ix86_tune].cost;
@@ -3932,6 +3950,8 @@ ix86_option_override_internal (bool main_args_p,
     {
       if (TARGET_64BIT_P (opts->x_ix86_isa_flags))
 	warning (0, "-mregparm is ignored in 64-bit mode");
+      else if (TARGET_IAMCU_P (opts->x_target_flags))
+	warning (0, "-mregparm is ignored for Intel MCU psABI");
       if (opts->x_ix86_regparm > REGPARM_MAX)
 	{
 	  error ("-mregparm=%d is not between 0 and %d",
@@ -3939,7 +3959,8 @@ ix86_option_override_internal (bool main_args_p,
 	  opts->x_ix86_regparm = 0;
 	}
     }
-  if (TARGET_64BIT_P (opts->x_ix86_isa_flags))
+  if (TARGET_IAMCU_P (opts->x_target_flags)
+      || TARGET_64BIT_P (opts->x_ix86_isa_flags))
     opts->x_ix86_regparm = REGPARM_MAX;
 
   /* Default align_* from the processor table.  */
@@ -4234,6 +4255,7 @@ ix86_option_override_internal (bool main_args_p,
       ix86_gen_adjust_stack_and_probe = gen_adjust_stack_and_probedi;
       ix86_gen_probe_stack_range = gen_probe_stack_rangedi;
       ix86_gen_monitor = gen_sse3_monitor_di;
+      ix86_gen_monitorx = gen_monitorx_di;
     }
   else
     {
@@ -4246,6 +4268,7 @@ ix86_option_override_internal (bool main_args_p,
       ix86_gen_adjust_stack_and_probe = gen_adjust_stack_and_probesi;
       ix86_gen_probe_stack_range = gen_probe_stack_rangesi;
       ix86_gen_monitor = gen_sse3_monitor_si;
+      ix86_gen_monitorx = gen_monitorx_si;
     }
 
 #ifdef USE_IX86_CLD
@@ -4341,8 +4364,9 @@ ix86_option_override_internal (bool main_args_p,
     opts->x_recip_mask &= ~(RECIP_MASK_ALL & ~opts->x_recip_mask_explicit);
 
   /* Default long double to 64-bit for 32-bit Bionic and to __float128
-     for 64-bit Bionic.  */
-  if (TARGET_HAS_BIONIC
+     for 64-bit Bionic.  Also default long double to 64-bit for Intel
+     MCU psABI.  */
+  if ((TARGET_HAS_BIONIC || TARGET_IAMCU)
       && !(opts_set->x_target_flags
 	   & (MASK_LONG_DOUBLE_64 | MASK_LONG_DOUBLE_128)))
     opts->x_target_flags |= (TARGET_64BIT
@@ -4770,6 +4794,7 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("avx512ifma",	OPT_mavx512ifma),
     IX86_ATTR_ISA ("clwb",	OPT_mclwb),
     IX86_ATTR_ISA ("pcommit",	OPT_mpcommit),
+    IX86_ATTR_ISA ("mwaitx",	OPT_mmwaitx),
 
     /* enum options */
     IX86_ATTR_ENUM ("fpmath=",	OPT_mfpmath_),
@@ -6149,6 +6174,7 @@ bool
 ix86_function_arg_regno_p (int regno)
 {
   int i;
+  enum calling_abi call_abi;
   const int *parm_regs;
 
   if (TARGET_MPX && BND_REGNO_P (regno))
@@ -6174,16 +6200,18 @@ ix86_function_arg_regno_p (int regno)
   /* TODO: The function should depend on current function ABI but
      builtins.c would need updating then. Therefore we use the
      default ABI.  */
+  call_abi = ix86_cfun_abi ();
 
   /* RAX is used as hidden argument to va_arg functions.  */
-  if (ix86_abi == SYSV_ABI && regno == AX_REG)
+  if (call_abi == SYSV_ABI && regno == AX_REG)
     return true;
 
-  if (ix86_abi == MS_ABI)
+  if (call_abi == MS_ABI)
     parm_regs = x86_64_ms_abi_int_parameter_registers;
   else
     parm_regs = x86_64_int_parameter_registers;
-  for (i = 0; i < (ix86_abi == MS_ABI
+
+  for (i = 0; i < (call_abi == MS_ABI
 		   ? X86_64_MS_REGPARM_MAX : X86_64_REGPARM_MAX); i++)
     if (regno == parm_regs[i])
       return true;
@@ -7458,6 +7486,15 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, machine_mode mode,
   int res = 0;
   bool error_p = NULL;
 
+  if (TARGET_IAMCU)
+    {
+      /* Intel MCU psABI passes scalars and aggregates no larger than 8
+	 bytes in registers.  */
+      if (bytes <= 8)
+	goto pass_in_reg;
+      return res;
+    }
+
   switch (mode)
     {
     default:
@@ -7472,6 +7509,7 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, machine_mode mode,
     case SImode:
     case HImode:
     case QImode:
+pass_in_reg:
       cum->words += words;
       cum->nregs -= words;
       cum->regno += words;
@@ -7660,10 +7698,15 @@ ix86_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
       cum->force_bnd_pass = 0;
     }
 
-  if (TARGET_64BIT && (cum ? cum->call_abi : ix86_abi) == MS_ABI)
-    nregs = function_arg_advance_ms_64 (cum, bytes, words);
-  else if (TARGET_64BIT)
-    nregs = function_arg_advance_64 (cum, mode, type, words, named);
+  if (TARGET_64BIT)
+    {
+      enum calling_abi call_abi = cum ? cum->call_abi : ix86_abi;
+
+      if (call_abi == MS_ABI)
+	nregs = function_arg_advance_ms_64 (cum, bytes, words);
+      else
+	nregs = function_arg_advance_64 (cum, mode, type, words, named);
+    }
   else
     nregs = function_arg_advance_32 (cum, mode, type, bytes, words);
 
@@ -7700,6 +7743,15 @@ function_arg_32 (CUMULATIVE_ARGS *cum, machine_mode mode,
   if (mode == VOIDmode)
     return constm1_rtx;
 
+  if (TARGET_IAMCU)
+    {
+      /* Intel MCU psABI passes scalars and aggregates no larger than 8
+	 bytes in registers.  */
+      if (bytes <= 8)
+	goto pass_in_reg;
+      return NULL_RTX;
+    }
+
   switch (mode)
     {
     default:
@@ -7713,6 +7765,7 @@ function_arg_32 (CUMULATIVE_ARGS *cum, machine_mode mode,
     case SImode:
     case HImode:
     case QImode:
+pass_in_reg:
       if (words <= cum->nregs)
 	{
 	  int regno = cum->regno;
@@ -7950,10 +8003,15 @@ ix86_function_arg (cumulative_args_t cum_v, machine_mode omode,
   if (type && TREE_CODE (type) == VECTOR_TYPE)
     mode = type_natural_mode (type, cum, false);
 
-  if (TARGET_64BIT && (cum ? cum->call_abi : ix86_abi) == MS_ABI)
-    arg = function_arg_ms_64 (cum, mode, omode, named, bytes);
-  else if (TARGET_64BIT)
-    arg = function_arg_64 (cum, mode, omode, type, named);
+  if (TARGET_64BIT)
+    {
+      enum calling_abi call_abi = cum ? cum->call_abi : ix86_abi;
+
+      if (call_abi == MS_ABI)
+	arg = function_arg_ms_64 (cum, mode, omode, named, bytes);
+      else
+	arg = function_arg_64 (cum, mode, omode, type, named);
+    }
   else
     arg = function_arg_32 (cum, mode, omode, type, bytes, words);
 
@@ -7977,36 +8035,37 @@ ix86_pass_by_reference (cumulative_args_t cum_v, machine_mode mode,
       || POINTER_BOUNDS_MODE_P (mode))
     return false;
 
-  /* See Windows x64 Software Convention.  */
-  if (TARGET_64BIT && (cum ? cum->call_abi : ix86_abi) == MS_ABI)
+  if (TARGET_64BIT)
     {
-      int msize = (int) GET_MODE_SIZE (mode);
-      if (type)
+      enum calling_abi call_abi = cum ? cum->call_abi : ix86_abi;
+
+      /* See Windows x64 Software Convention.  */
+      if (call_abi == MS_ABI)
 	{
-	  /* Arrays are passed by reference.  */
-	  if (TREE_CODE (type) == ARRAY_TYPE)
-	    return true;
+	  HOST_WIDE_INT msize = GET_MODE_SIZE (mode);
 
-	  if (AGGREGATE_TYPE_P (type))
+	  if (type)
 	    {
-	      /* Structs/unions of sizes other than 8, 16, 32, or 64 bits
-	         are passed by reference.  */
-	      msize = int_size_in_bytes (type);
+	      /* Arrays are passed by reference.  */
+	      if (TREE_CODE (type) == ARRAY_TYPE)
+		return true;
+
+	      if (RECORD_OR_UNION_TYPE_P (type))
+		{
+		  /* Structs/unions of sizes other than 8, 16, 32, or 64 bits
+		     are passed by reference.  */
+		  msize = int_size_in_bytes (type);
+		}
 	    }
+
+	  /* __m128 is passed by reference.  */
+	  return msize != 1 && msize != 2 && msize != 4 && msize != 8;
 	}
-
-      /* __m128 is passed by reference.  */
-      switch (msize) {
-      case 1: case 2: case 4: case 8:
-        break;
-      default:
-        return true;
-      }
+      else if (type && int_size_in_bytes (type) == -1)
+	return true;
     }
-  else if (TARGET_64BIT && type && int_size_in_bytes (type) == -1)
-    return 1;
 
-  return 0;
+  return false;
 }
 
 /* Return true when TYPE should be 128bit aligned for 32bit argument
@@ -8212,10 +8271,10 @@ ix86_function_value_regno_p (const unsigned int regno)
     case AX_REG:
       return true;
     case DX_REG:
-      return (!TARGET_64BIT || ix86_abi != MS_ABI);
+      return (!TARGET_64BIT || ix86_cfun_abi () != MS_ABI);
     case DI_REG:
     case SI_REG:
-      return TARGET_64BIT && ix86_abi != MS_ABI;
+      return TARGET_64BIT && ix86_cfun_abi () != MS_ABI;
 
     case BND0_REG:
     case BND1_REG:
@@ -8227,7 +8286,7 @@ ix86_function_value_regno_p (const unsigned int regno)
       /* TODO: The function should depend on current function ABI but
        builtins.c would need updating then. Therefore we use the
        default ABI.  */
-      if (TARGET_64BIT && ix86_abi == MS_ABI)
+      if (TARGET_64BIT && ix86_cfun_abi () == MS_ABI)
 	return false;
       return TARGET_FLOAT_RETURNS_IN_80387;
 
@@ -8553,10 +8612,15 @@ ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
     }
   else
     {
+      size = int_size_in_bytes (type);
+
+      /* Intel MCU psABI returns scalars and aggregates no larger than 8
+	 bytes in registers.  */
+      if (TARGET_IAMCU)
+	return size > 8;
+
       if (mode == BLKmode)
 	return true;
-
-      size = int_size_in_bytes (type);
 
       if (MS_AGGREGATE_RETURN && AGGREGATE_TYPE_P (type) && size <= 8)
 	return false;
@@ -8878,9 +8942,8 @@ ix86_setup_incoming_vararg_bounds (cumulative_args_t cum_v,
     for (i = cum->regno; i < max; i++)
       {
 	rtx addr = plus_constant (Pmode, save_area, i * UNITS_PER_WORD);
-	rtx reg = gen_rtx_REG (DImode,
+	rtx ptr = gen_rtx_REG (Pmode,
 			       x86_64_int_parameter_registers[i]);
-	rtx ptr = reg;
 	rtx bounds;
 
 	if (bnd_reg <= LAST_BND_REG)
@@ -14204,7 +14267,7 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
    to symbol DECL if BEIMPORT is true.  Otherwise create or return the
    unique refptr-DECL symbol corresponding to symbol DECL.  */
 
-struct dllimport_hasher : ggc_cache_hasher<tree_map *>
+struct dllimport_hasher : ggc_cache_ptr_hash<tree_map>
 {
   static inline hashval_t hash (tree_map *m) { return m->hash; }
   static inline bool
@@ -14213,16 +14276,10 @@ struct dllimport_hasher : ggc_cache_hasher<tree_map *>
     return a->base.from == b->base.from;
   }
 
-  static void
-  handle_cache_entry (tree_map *&m)
+  static int
+  keep_cache_entry (tree_map *&m)
   {
-    extern void gt_ggc_mx (tree_map *&);
-    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
-      return;
-    else if (ggc_marked_p (m->base.from))
-      gt_ggc_mx (m);
-    else
-      m = static_cast<tree_map *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (m->base.from);
   }
 };
 
@@ -22868,7 +22925,7 @@ ix86_split_long_move (rtx operands[])
 	 Do an lea to the last part and use only one colliding move.  */
       else if (collisions > 1)
 	{
-	  rtx base;
+	  rtx base, addr, tls_base = NULL_RTX;
 
 	  collisions = 1;
 
@@ -22879,10 +22936,50 @@ ix86_split_long_move (rtx operands[])
 	  if (GET_MODE (base) != Pmode)
 	    base = gen_rtx_REG (Pmode, REGNO (base));
 
-	  emit_insn (gen_rtx_SET (base, XEXP (part[1][0], 0)));
+	  addr = XEXP (part[1][0], 0);
+	  if (TARGET_TLS_DIRECT_SEG_REFS)
+	    {
+	      struct ix86_address parts;
+	      int ok = ix86_decompose_address (addr, &parts);
+	      gcc_assert (ok);
+	      if (parts.seg == DEFAULT_TLS_SEG_REG)
+		{
+		  /* It is not valid to use %gs: or %fs: in
+		     lea though, so we need to remove it from the
+		     address used for lea and add it to each individual
+		     memory loads instead.  */
+		  addr = copy_rtx (addr);
+		  rtx *x = &addr;
+		  while (GET_CODE (*x) == PLUS)
+		    {
+		      for (i = 0; i < 2; i++)
+			{
+			  rtx u = XEXP (*x, i);
+			  if (GET_CODE (u) == ZERO_EXTEND)
+			    u = XEXP (u, 0);
+			  if (GET_CODE (u) == UNSPEC
+			      && XINT (u, 1) == UNSPEC_TP)
+			    {
+			      tls_base = XEXP (*x, i);
+			      *x = XEXP (*x, 1 - i);
+			      break;
+			    }
+			}
+		      if (tls_base)
+			break;
+		      x = &XEXP (*x, 0);
+		    }
+		  gcc_assert (tls_base);
+		}
+	    }
+	  emit_insn (gen_rtx_SET (base, addr));
+	  if (tls_base)
+	    base = gen_rtx_PLUS (GET_MODE (base), base, tls_base);
 	  part[1][0] = replace_equiv_address (part[1][0], base);
 	  for (i = 1; i < nparts; i++)
 	    {
+	      if (tls_base)
+		base = copy_rtx (base);
 	      tmp = plus_constant (Pmode, base, UNITS_PER_WORD * i);
 	      part[1][i] = replace_equiv_address (part[1][i], tmp);
 	    }
@@ -25497,13 +25594,19 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
     }
   else
     {
-      /* Static functions and indirect calls don't need the pic register.  */
+      /* Static functions and indirect calls don't need the pic register.  Also,
+	 check if PLT was explicitly avoided via no-plt or "noplt" attribute, making
+	 it an indirect call.  */
       if (flag_pic
 	  && (!TARGET_64BIT
 	      || (ix86_cmodel == CM_LARGE_PIC
 		  && DEFAULT_ABI != MS_ABI))
 	  && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
-	  && ! SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0)))
+	  && !SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0))
+	  && flag_plt
+	  && (SYMBOL_REF_DECL ((XEXP (fnaddr, 0))) == NULL_TREE
+	      || !lookup_attribute ("noplt",
+		     DECL_ATTRIBUTES (SYMBOL_REF_DECL (XEXP (fnaddr, 0))))))
 	{
 	  use_reg (&use, gen_rtx_REG (Pmode, REAL_PIC_OFFSET_TABLE_REGNUM));
 	  if (ix86_use_pseudo_pic_reg ())
@@ -25599,6 +25702,31 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   return call;
 }
 
+/* Return true if the function being called was marked with attribute "noplt"
+   or using -fno-plt and we are compiling for non-PIC and x86_64.  We need to
+   handle the non-PIC case in the backend because there is no easy interface
+   for the front-end to force non-PLT calls to use the GOT.  This is currently
+   used only with 64-bit ELF targets to call the function marked "noplt"
+   indirectly.  */
+
+static bool
+ix86_nopic_noplt_attribute_p (rtx call_op)
+{
+  if (flag_pic || ix86_cmodel == CM_LARGE
+      || !TARGET_64BIT || TARGET_MACHO || TARGET_SEH || TARGET_PECOFF
+      || SYMBOL_REF_LOCAL_P (call_op))
+    return false;
+
+  tree symbol_decl = SYMBOL_REF_DECL (call_op);
+
+  if (!flag_plt
+      || (symbol_decl != NULL_TREE
+          && lookup_attribute ("noplt", DECL_ATTRIBUTES (symbol_decl))))
+    return true;
+
+  return false;
+}
+
 /* Output the assembly for a call instruction.  */
 
 const char *
@@ -25610,7 +25738,9 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
 
   if (SIBLING_CALL_P (insn))
     {
-      if (direct_p)
+      if (direct_p && ix86_nopic_noplt_attribute_p (call_op))
+	xasm = "%!jmp\t*%p0@GOTPCREL(%%rip)";
+      else if (direct_p)
 	xasm = "%!jmp\t%P0";
       /* SEH epilogue detection requires the indirect branch case
 	 to include REX.W.  */
@@ -25653,7 +25783,9 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
 	seh_nop_p = true;
     }
 
-  if (direct_p)
+  if (direct_p && ix86_nopic_noplt_attribute_p (call_op))
+    xasm = "%!call\t*%p0@GOTPCREL(%%rip)";
+  else if (direct_p)
     xasm = "%!call\t%P0";
   else
     xasm = "%!call\t%A0";
@@ -27258,6 +27390,34 @@ ix86_constant_alignment (tree exp, int align)
   return align;
 }
 
+/* Compute the alignment for a variable for Intel MCU psABI.  TYPE is
+   the data type, and ALIGN is the alignment that the object would
+   ordinarily have.  */
+
+static int
+iamcu_alignment (tree type, int align)
+{
+  enum machine_mode mode;
+
+  if (align < 32 || TYPE_USER_ALIGN (type))
+    return align;
+
+  /* Intel MCU psABI specifies scalar types > 4 bytes aligned to 4
+     bytes.  */
+  mode = TYPE_MODE (strip_array_types (type));
+  switch (GET_MODE_CLASS (mode))
+    {
+    case MODE_INT:
+    case MODE_COMPLEX_INT:
+    case MODE_COMPLEX_FLOAT:
+    case MODE_FLOAT:
+    case MODE_DECIMAL_FLOAT:
+      return 32;
+    default:
+      return align;
+    }
+}
+
 /* Compute the alignment for a static variable.
    TYPE is the data type, and ALIGN is the alignment that
    the object would ordinarily have.  The value of this function is used
@@ -27291,6 +27451,9 @@ ix86_data_alignment (tree type, int align, bool opt)
     case ix86_align_data_type_compat: max_align = BITS_PER_WORD; break;
     case ix86_align_data_type_cacheline: break;
     }
+
+  if (TARGET_IAMCU)
+    align = iamcu_alignment (type, align);
 
   if (opt
       && AGGREGATE_TYPE_P (type)
@@ -27400,6 +27563,10 @@ ix86_local_alignment (tree exp, machine_mode mode,
 	align = GET_MODE_ALIGNMENT (DFmode);
       return align;
     }
+
+  /* Don't increase alignment for Intel MCU psABI.  */
+  if (TARGET_IAMCU)
+    return align;
 
   /* x86-64 ABI requires arrays greater than 16 bytes to be aligned
      to 16byte boundary.  Exact wording is:
@@ -30504,6 +30671,10 @@ enum ix86_builtins
   IX86_BUILTIN_CVTPH2PS256,
   IX86_BUILTIN_CVTPS2PH,
   IX86_BUILTIN_CVTPS2PH256,
+
+  /* MONITORX and MWAITX instrucions.   */
+  IX86_BUILTIN_MONITORX,
+  IX86_BUILTIN_MWAITX,
 
   /* CFString built-in for darwin */
   IX86_BUILTIN_CFSTRING,
@@ -34123,6 +34294,12 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (OPTION_MASK_ISA_CLWB, "__builtin_ia32_clwb",
 	       VOID_FTYPE_PCVOID, IX86_BUILTIN_CLWB);
 
+  /* MONITORX and MWAITX.  */
+  def_builtin (OPTION_MASK_ISA_MWAITX, "__builtin_ia32_monitorx",
+	       VOID_FTYPE_PCVOID_UNSIGNED_UNSIGNED, IX86_BUILTIN_MONITORX);
+  def_builtin (OPTION_MASK_ISA_MWAITX, "__builtin_ia32_mwaitx",
+	       VOID_FTYPE_UNSIGNED_UNSIGNED_UNSIGNED, IX86_BUILTIN_MWAITX);
+
   /* Add FMA4 multi-arg argument instructions */
   for (i = 0, d = bdesc_multi_arg; i < ARRAY_SIZE (bdesc_multi_arg); i++, d++)
     {
@@ -34878,9 +35055,7 @@ ix86_function_versions (tree fn1, tree fn2)
 	{
 	  if (attr2 != NULL_TREE)
 	    {
-	      tree tem = fn1;
-	      fn1 = fn2;
-	      fn2 = tem;
+	      std::swap (fn1, fn2);
 	      attr1 = attr2;
 	    }
 	  error_at (DECL_SOURCE_LOCATION (fn2),
@@ -38891,6 +39066,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	return 0;
 
     case IX86_BUILTIN_MONITOR:
+    case IX86_BUILTIN_MONITORX:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
       arg2 = CALL_EXPR_ARG (exp, 2);
@@ -38903,7 +39079,10 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	op1 = copy_to_mode_reg (SImode, op1);
       if (!REG_P (op2))
 	op2 = copy_to_mode_reg (SImode, op2);
-      emit_insn (ix86_gen_monitor (op0, op1, op2));
+
+      emit_insn (fcode == IX86_BUILTIN_MONITOR 
+		 ? ix86_gen_monitor (op0, op1, op2)
+		 : ix86_gen_monitorx (op0, op1, op2));
       return 0;
 
     case IX86_BUILTIN_MWAIT:
@@ -38916,6 +39095,22 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       if (!REG_P (op1))
 	op1 = copy_to_mode_reg (SImode, op1);
       emit_insn (gen_sse3_mwait (op0, op1));
+      return 0;
+
+    case IX86_BUILTIN_MWAITX:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
+      if (!REG_P (op0))
+	op0 = copy_to_mode_reg (SImode, op0);
+      if (!REG_P (op1))
+	op1 = copy_to_mode_reg (SImode, op1);
+      if (!REG_P (op2))
+	op2 = copy_to_mode_reg (SImode, op2);
+      emit_insn (gen_mwaitx (op0, op1, op2));
       return 0;
 
     case IX86_BUILTIN_VEC_INIT_V2SI:
@@ -40239,6 +40434,9 @@ ix86_load_bounds (rtx slot, rtx ptr, rtx slot_no)
       ptr = copy_addr_to_reg (slot);
     }
 
+  if (!register_operand (ptr, Pmode))
+    ptr = ix86_zero_extend_to_Pmode (ptr);
+
   emit_insn (BNDmode == BND64mode
 	     ? gen_bnd64_ldx (reg, addr, ptr)
 	     : gen_bnd32_ldx (reg, addr, ptr));
@@ -40272,6 +40470,9 @@ ix86_store_bounds (rtx ptr, rtx slot, rtx bounds, rtx slot_no)
       gcc_assert (MEM_P (slot));
       ptr = copy_addr_to_reg (slot);
     }
+
+  if (!register_operand (ptr, Pmode))
+    ptr = ix86_zero_extend_to_Pmode (ptr);
 
   gcc_assert (POINTER_BOUNDS_MODE_P (GET_MODE (bounds)));
   if (!register_operand (bounds, BNDmode))
@@ -42420,6 +42621,12 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
 		    + rtx_cost (const1_rtx, outer_code, opno, speed));
 	  return true;
 	}
+
+      /* The embedded comparison operand is completely free.  */
+      if (!general_operand (XEXP (x, 0), GET_MODE (XEXP (x, 0)))
+	  && XEXP (x, 1) == const0_rtx)
+	*total = 0;
+
       return false;
 
     case FLOAT_EXTEND:
@@ -43071,6 +43278,8 @@ x86_field_alignment (tree field, int computed)
 
   if (TARGET_64BIT || TARGET_ALIGN_DOUBLE)
     return computed;
+  if (TARGET_IAMCU)
+    return iamcu_alignment (type, computed);
   mode = TYPE_MODE (strip_array_types (type));
   if (mode == DFmode || mode == DCmode
       || GET_MODE_CLASS (mode) == MODE_INT
@@ -44655,6 +44864,8 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
 	{ gen_vec_set_lo_v4df, gen_vec_set_hi_v4df }
       };
   int i, j, n;
+  machine_mode mmode = VOIDmode;
+  rtx (*gen_blendm) (rtx, rtx, rtx, rtx);
 
   switch (mode)
     {
@@ -44871,75 +45082,64 @@ half:
     case V8DFmode:
       if (TARGET_AVX512F)
 	{
-	  tmp = gen_reg_rtx (mode);
-	  emit_insn (gen_rtx_SET (tmp, gen_rtx_VEC_DUPLICATE (mode, val)));
-	  emit_insn (gen_avx512f_blendmv8df (target, tmp, target,
-					     force_reg (QImode, GEN_INT (1 << elt))));
-	  return;
+	  mmode = QImode;
+	  gen_blendm = gen_avx512f_blendmv8df;
 	}
-      else
-	break;
+      break;
+
     case V8DImode:
       if (TARGET_AVX512F)
 	{
-	  tmp = gen_reg_rtx (mode);
-	  emit_insn (gen_rtx_SET (tmp, gen_rtx_VEC_DUPLICATE (mode, val)));
-	  emit_insn (gen_avx512f_blendmv8di (target, tmp, target,
-					     force_reg (QImode, GEN_INT (1 << elt))));
-	  return;
+	  mmode = QImode;
+	  gen_blendm = gen_avx512f_blendmv8di;
 	}
-      else
-	break;
+      break;
+
     case V16SFmode:
       if (TARGET_AVX512F)
 	{
-	  tmp = gen_reg_rtx (mode);
-	  emit_insn (gen_rtx_SET (tmp, gen_rtx_VEC_DUPLICATE (mode, val)));
-	  emit_insn (gen_avx512f_blendmv16sf (target, tmp, target,
-					      force_reg (HImode, GEN_INT (1 << elt))));
-	  return;
+	  mmode = HImode;
+	  gen_blendm = gen_avx512f_blendmv16sf;
 	}
-      else
-	break;
+      break;
+
     case V16SImode:
       if (TARGET_AVX512F)
 	{
-	  tmp = gen_reg_rtx (mode);
-	  emit_insn (gen_rtx_SET (tmp, gen_rtx_VEC_DUPLICATE (mode, val)));
-	  emit_insn (gen_avx512f_blendmv16si (target, tmp, target,
-					      force_reg (HImode, GEN_INT (1 << elt))));
-	  return;
+	  mmode = HImode;
+	  gen_blendm = gen_avx512f_blendmv16si;
 	}
-      else
-	break;
+      break;
+
     case V32HImode:
       if (TARGET_AVX512F && TARGET_AVX512BW)
 	{
-	  tmp = gen_reg_rtx (mode);
-	  emit_insn (gen_rtx_SET (tmp, gen_rtx_VEC_DUPLICATE (mode, val)));
-	  emit_insn (gen_avx512bw_blendmv32hi (target, tmp, target,
-					       force_reg (SImode, GEN_INT (1 << elt))));
-	  return;
+	  mmode = SImode;
+	  gen_blendm = gen_avx512bw_blendmv32hi;
 	}
-      else
-	break;
+      break;
+
     case V64QImode:
       if (TARGET_AVX512F && TARGET_AVX512BW)
 	{
-	  tmp = gen_reg_rtx (mode);
-	  emit_insn (gen_rtx_SET (tmp, gen_rtx_VEC_DUPLICATE (mode, val)));
-	  emit_insn (gen_avx512bw_blendmv64qi (target, tmp, target,
-					       force_reg (DImode, GEN_INT (1 << elt))));
-	  return;
+	  mmode = DImode;
+	  gen_blendm = gen_avx512bw_blendmv64qi;
 	}
-      else
-	break;
+      break;
 
     default:
       break;
     }
 
-  if (use_vec_merge)
+  if (mmode != VOIDmode)
+    {
+      tmp = gen_reg_rtx (mode);
+      emit_insn (gen_rtx_SET (tmp, gen_rtx_VEC_DUPLICATE (mode, val)));
+      emit_insn (gen_blendm (target, tmp, target,
+			     force_reg (mmode,
+					gen_int_mode (1 << elt, mmode))));
+    }
+  else if (use_vec_merge)
     {
       tmp = gen_rtx_VEC_DUPLICATE (mode, val);
       tmp = gen_rtx_VEC_MERGE (mode, tmp, target, GEN_INT (1 << elt));
@@ -45448,21 +45648,144 @@ ix86_c_mode_for_suffix (char suffix)
 
 /* Worker function for TARGET_MD_ASM_ADJUST.
 
-   We do this in the new i386 backend to maintain source compatibility
+   We implement asm flag outputs, and maintain source compatibility
    with the old cc0-based compiler.  */
 
 static rtx_insn *
-ix86_md_asm_adjust (vec<rtx> &/*outputs*/, vec<rtx> &/*inputs*/,
-		    vec<const char *> &/*constraints*/,
+ix86_md_asm_adjust (vec<rtx> &outputs, vec<rtx> &/*inputs*/,
+		    vec<const char *> &constraints,
 		    vec<rtx> &clobbers, HARD_REG_SET &clobbered_regs)
 {
-  clobbers.safe_push (gen_rtx_REG (CCmode, FLAGS_REG));
   clobbers.safe_push (gen_rtx_REG (CCFPmode, FPSR_REG));
-
-  SET_HARD_REG_BIT (clobbered_regs, FLAGS_REG);
   SET_HARD_REG_BIT (clobbered_regs, FPSR_REG);
 
-  return NULL;
+  bool saw_asm_flag = false;
+
+  start_sequence ();
+  for (unsigned i = 0, n = outputs.length (); i < n; ++i)
+    {
+      const char *con = constraints[i];
+      if (strncmp (con, "=@cc", 4) != 0)
+	continue;
+      con += 4;
+      if (strchr (con, ',') != NULL)
+	{
+	  error ("alternatives not allowed in asm flag output");
+	  continue;
+	}
+
+      bool invert = false;
+      if (con[0] == 'n')
+	invert = true, con++;
+
+      machine_mode mode = CCmode;
+      rtx_code code = UNKNOWN;
+
+      switch (con[0])
+	{
+	case 'a':
+	  if (con[1] == 0)
+	    mode = CCAmode, code = EQ;
+	  else if (con[1] == 'e' && con[2] == 0)
+	    mode = CCCmode, code = EQ;
+	  break;
+	case 'b':
+	  if (con[1] == 0)
+	    mode = CCCmode, code = EQ;
+	  else if (con[1] == 'e' && con[2] == 0)
+	    mode = CCAmode, code = NE;
+	  break;
+	case 'c':
+	  if (con[1] == 0)
+	    mode = CCCmode, code = EQ;
+	  break;
+	case 'e':
+	  if (con[1] == 0)
+	    mode = CCZmode, code = EQ;
+	  break;
+	case 'g':
+	  if (con[1] == 0)
+	    mode = CCGCmode, code = GT;
+	  else if (con[1] == 'e' && con[2] == 0)
+	    mode = CCGCmode, code = GE;
+	  break;
+	case 'l':
+	  if (con[1] == 0)
+	    mode = CCGCmode, code = LT;
+	  else if (con[1] == 'e' && con[2] == 0)
+	    mode = CCGCmode, code = LE;
+	  break;
+	case 'o':
+	  if (con[1] == 0)
+	    mode = CCOmode, code = EQ;
+	  break;
+	case 'p':
+	  if (con[1] == 0)
+	    mode = CCPmode, code = EQ;
+	  break;
+	case 's':
+	  if (con[1] == 0)
+	    mode = CCSmode, code = EQ;
+	  break;
+	case 'z':
+	  if (con[1] == 0)
+	    mode = CCZmode, code = EQ;
+	  break;
+	}
+      if (code == UNKNOWN)
+	{
+	  error ("unknown asm flag output %qs", constraints[i]);
+	  continue;
+	}
+      if (invert)
+	code = reverse_condition (code);
+
+      rtx dest = outputs[i];
+      if (!saw_asm_flag)
+	{
+	  /* This is the first asm flag output.  Here we put the flags
+	     register in as the real output and adjust the condition to
+	     allow it.  */
+	  constraints[i] = "=Bf";
+	  outputs[i] = gen_rtx_REG (CCmode, FLAGS_REG);
+	  saw_asm_flag = true;
+	}
+      else
+	{
+	  /* We don't need the flags register as output twice.  */
+	  constraints[i] = "=X";
+	  outputs[i] = gen_rtx_SCRATCH (SImode);
+	}
+
+      rtx x = gen_rtx_REG (mode, FLAGS_REG);
+      x = gen_rtx_fmt_ee (code, QImode, x, const0_rtx);
+
+      machine_mode dest_mode = GET_MODE (dest);
+      if (!SCALAR_INT_MODE_P (dest_mode))
+	{
+	  error ("invalid type for asm flag output");
+	  continue;
+	}
+      if (dest_mode != QImode)
+	{
+	  rtx destqi = gen_reg_rtx (QImode);
+	  emit_insn (gen_rtx_SET (destqi, x));
+	  x = gen_rtx_ZERO_EXTEND (dest_mode, destqi);
+	}
+      emit_insn (gen_rtx_SET (dest, x));
+    }
+  rtx_insn *seq = get_insns ();
+  end_sequence ();
+
+  if (saw_asm_flag)
+    return seq;
+  else
+    {
+      /* If we had no asm flag outputs, clobber the flags.  */
+      clobbers.safe_push (gen_rtx_REG (CCmode, FLAGS_REG));
+      SET_HARD_REG_BIT (clobbered_regs, FLAGS_REG);
+      return NULL;
+    }
 }
 
 /* Implements target vector targetm.asm.encode_section_info.  */
@@ -47886,9 +48209,7 @@ expand_vec_perm_interleave2 (struct expand_vec_perm_d *d)
 	    {
 	      /* Attempt to increase the likelihood that dfinal
 		 shuffle will be intra-lane.  */
-	      char tmph = nonzero_halves[0];
-	      nonzero_halves[0] = nonzero_halves[1];
-	      nonzero_halves[1] = tmph;
+	      std::swap (nonzero_halves[0], nonzero_halves[1]);
 	    }
 
 	  /* vperm2f128 or vperm2i128.  */

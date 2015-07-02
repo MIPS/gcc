@@ -22,24 +22,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-table.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
 #include "symtab.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -159,10 +147,8 @@ static cost_classes_t *regno_cost_classes;
 
 /* Helper for cost_classes hashing.  */
 
-struct cost_classes_hasher
+struct cost_classes_hasher : pointer_hash <cost_classes>
 {
-  typedef cost_classes *value_type;
-  typedef cost_classes *compare_type;
   static inline hashval_t hash (const cost_classes *);
   static inline bool equal (const cost_classes *, const cost_classes *);
   static inline void remove (cost_classes *);

@@ -23,17 +23,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
-#include "ggc.h"
 #include "ggc-internal.h"
 #include "diagnostic-core.h"
 #include "params.h"
 #include "hosthooks.h"
 #include "hosthooks-def.h"
 #include "plugin.h"
-#include "vec.h"
 #include "timevar.h"
-#include "mem-stats.h"
 
 /* When set, ggc_collect will do collection.  */
 bool ggc_force_collect;
@@ -241,9 +237,8 @@ struct ptr_data
 
 /* Helper for hashing saving_htab.  */
 
-struct saving_hasher : typed_free_remove <ptr_data>
+struct saving_hasher : free_ptr_hash <ptr_data>
 {
-  typedef ptr_data *value_type;
   typedef void *compare_type;
   static inline hashval_t hash (const ptr_data *);
   static inline bool equal (const ptr_data *, const void *);
@@ -843,7 +838,8 @@ struct ggc_usage: public mem_usage
     m_freed (freed), m_collected (collected), m_overhead (overhead) {}
 
   /* Comparison operator.  */
-  inline bool operator< (const ggc_usage &second) const
+  inline bool
+  operator< (const ggc_usage &second) const
   {
     return (get_balance () == second.get_balance () ?
 	    (m_peak == second.m_peak ? m_times < second.m_times
@@ -852,7 +848,8 @@ struct ggc_usage: public mem_usage
   }
 
   /* Register overhead of ALLOCATED and OVERHEAD bytes.  */
-  inline void register_overhead (size_t allocated, size_t overhead)
+  inline void
+  register_overhead (size_t allocated, size_t overhead)
   {
     m_allocated += allocated;
     m_overhead += overhead;
@@ -860,13 +857,15 @@ struct ggc_usage: public mem_usage
   }
 
   /* Release overhead of SIZE bytes.  */
-  inline void release_overhead (size_t size)
+  inline void
+  release_overhead (size_t size)
   {
     m_freed += size;
   }
 
   /* Sum the usage with SECOND usage.  */
-  ggc_usage operator+ (const ggc_usage &second)
+  ggc_usage
+  operator+ (const ggc_usage &second)
   {
     return ggc_usage (m_allocated + second.m_allocated,
 		      m_times + second.m_times,
@@ -877,7 +876,8 @@ struct ggc_usage: public mem_usage
   }
 
   /* Dump usage with PREFIX, where TOTAL is sum of all rows.  */
-  inline void dump (const char *prefix, ggc_usage &total) const
+  inline void
+  dump (const char *prefix, ggc_usage &total) const
   {
     long balance = get_balance ();
     fprintf (stderr,
@@ -892,18 +892,19 @@ struct ggc_usage: public mem_usage
   }
 
   /* Dump usage coupled to LOC location, where TOTAL is sum of all rows.  */
-  inline void dump (mem_location *loc, ggc_usage &total) const
+  inline void
+  dump (mem_location *loc, ggc_usage &total) const
   {
-    char s[4096];
-    sprintf (s, "%s:%i (%s)", loc->get_trimmed_filename (),
-	     loc->m_line, loc->m_function);
-    s[48] = '\0';
+    char *location_string = loc->to_string ();
 
-    dump (s, total);
+    dump (location_string, total);
+
+    free (location_string);
   }
 
   /* Dump footer.  */
-  inline void dump_footer ()
+  inline void
+  dump_footer ()
   {
     print_dash_line ();
     dump ("Total", *this);
@@ -911,7 +912,8 @@ struct ggc_usage: public mem_usage
   }
 
   /* Get balance which is GGC allocation leak.  */
-  inline long get_balance () const
+  inline long
+  get_balance () const
   {
     return m_allocated + m_overhead - m_collected - m_freed;
   }
@@ -919,7 +921,8 @@ struct ggc_usage: public mem_usage
   typedef std::pair<mem_location *, ggc_usage *> mem_pair_t;
 
   /* Compare wrapper used by qsort method.  */
-  static int compare (const void *first, const void *second)
+  static int
+  compare (const void *first, const void *second)
   {
     const mem_pair_t f = *(const mem_pair_t *)first;
     const mem_pair_t s = *(const mem_pair_t *)second;
@@ -928,8 +931,10 @@ struct ggc_usage: public mem_usage
   }
 
   /* Compare rows in final GGC summary dump.  */
-  static int compare_final (const void *first, const void *second)
-  {  typedef std::pair<mem_location *, ggc_usage *> mem_pair_t;
+  static int
+  compare_final (const void *first, const void *second)
+  {
+    typedef std::pair<mem_location *, ggc_usage *> mem_pair_t;
 
     const ggc_usage *f = ((const mem_pair_t *)first)->second;
     const ggc_usage *s = ((const mem_pair_t *)second)->second;
@@ -941,7 +946,8 @@ struct ggc_usage: public mem_usage
   }
 
   /* Dump header with NAME.  */
-  static inline void dump_header (const char *name)
+  static inline void
+  dump_header (const char *name)
   {
     fprintf (stderr, "%-48s %11s%17s%17s%16s%17s\n", name, "Garbage", "Freed",
 	     "Leak", "Overhead", "Times");
@@ -970,7 +976,7 @@ dump_ggc_loc_statistics (bool final)
   ggc_force_collect = true;
   ggc_collect ();
 
-  ggc_mem_desc.dump (GGC, final ? ggc_usage::compare_final : NULL);
+  ggc_mem_desc.dump (GGC_ORIGIN, final ? ggc_usage::compare_final : NULL);
 
   ggc_force_collect = false;
 }
@@ -979,7 +985,7 @@ dump_ggc_loc_statistics (bool final)
 void
 ggc_record_overhead (size_t allocated, size_t overhead, void *ptr MEM_STAT_DECL)
 {
-  ggc_usage *usage = ggc_mem_desc.register_descriptor (ptr, GGC, false
+  ggc_usage *usage = ggc_mem_desc.register_descriptor (ptr, GGC_ORIGIN, false
 						       FINAL_PASS_MEM_STAT);
 
   ggc_mem_desc.register_object_overhead (usage, allocated + overhead, ptr);

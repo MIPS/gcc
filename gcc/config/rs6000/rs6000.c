@@ -31,15 +31,8 @@
 #include "flags.h"
 #include "recog.h"
 #include "obstack.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -47,11 +40,7 @@
 #include "calls.h"
 #include "print-tree.h"
 #include "varasm.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -74,22 +63,18 @@
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "reload.h"
 #include "cfgloop.h"
 #include "sched-int.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -101,9 +86,6 @@
 #include "opts.h"
 #include "tree-vectorizer.h"
 #include "dumpfile.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "target-globals.h"
 #include "builtins.h"
@@ -115,6 +97,9 @@
 #if TARGET_MACHO
 #include "gstab.h"  /* for N_SLINE */
 #endif
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
@@ -1243,7 +1228,7 @@ struct GTY((for_user)) toc_hash_struct
   int labelno;
 };
 
-struct toc_hasher : ggc_hasher<toc_hash_struct *>
+struct toc_hasher : ggc_ptr_hash<toc_hash_struct>
 {
   static hashval_t hash (toc_hash_struct *);
   static bool equal (toc_hash_struct *, toc_hash_struct *);
@@ -1260,7 +1245,7 @@ struct GTY((for_user)) builtin_hash_struct
   unsigned char uns_p[4];	/* and whether the types are unsigned.  */
 };
 
-struct builtin_hasher : ggc_hasher<builtin_hash_struct *>
+struct builtin_hasher : ggc_ptr_hash<builtin_hash_struct>
 {
   static hashval_t hash (builtin_hash_struct *);
   static bool equal (builtin_hash_struct *, builtin_hash_struct *);
@@ -1620,17 +1605,6 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_STACK_PROTECT_FAIL rs6000_stack_protect_fail
 #endif
 
-/* MPC604EUM 3.5.2 Weak Consistency between Multiple Processors
-   The PowerPC architecture requires only weak consistency among
-   processors--that is, memory accesses between processors need not be
-   sequentially consistent and memory accesses among processors can occur
-   in any order. The ability to order memory accesses weakly provides
-   opportunities for more efficient use of the system bus. Unless a
-   dependency exists, the 604e allows read operations to precede store
-   operations.  */
-#undef TARGET_RELAXED_ORDERING
-#define TARGET_RELAXED_ORDERING true
-
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL rs6000_output_dwarf_dtprel
@@ -1816,6 +1790,16 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
     return (IN_RANGE (regno, FIRST_GPR_REGNO, LAST_GPR_REGNO)
 	    && IN_RANGE (last_regno, FIRST_GPR_REGNO, LAST_GPR_REGNO)
 	    && ((regno & 1) == 0));
+
+  /* If we don't allow 128-bit binary floating point, disallow the 128-bit
+     types from going in any registers.  Similarly if __float128 is not
+     supported, don't allow __float128/__ibm128 types.  */
+  if (!TARGET_LONG_DOUBLE_128
+      && (mode == TFmode || mode == KFmode || mode == IFmode))
+    return false;
+
+  if (!TARGET_FLOAT128 && (mode == KFmode || mode == IFmode))
+    return false;
 
   /* VSX registers that overlap the FPR registers are larger than for non-VSX
      implementations.  Don't allow an item to be split between a FP register
@@ -2086,6 +2070,7 @@ rs6000_debug_reg_global (void)
   const char *trace_str;
   const char *abi_str;
   const char *cmodel_str;
+  const char *float128_str;
   struct cl_target_option cl_opts;
 
   /* Modes we want tieable information on.  */
@@ -2099,6 +2084,8 @@ rs6000_debug_reg_global (void)
     SFmode,
     DFmode,
     TFmode,
+    IFmode,
+    KFmode,
     SDmode,
     DDmode,
     TDmode,
@@ -2444,6 +2431,15 @@ rs6000_debug_reg_global (void)
 
   fprintf (stderr, DEBUG_FMT_S, "e500_double",
 	   (TARGET_E500_DOUBLE ? "true" : "false"));
+
+  switch (TARGET_FLOAT128)
+    {
+    case FLOAT128_NONE:	float128_str = "none";		break;
+    case FLOAT128_SW:	float128_str = "software";	break;
+    default:		float128_str = "unknown";	break;
+    }
+
+  fprintf (stderr, DEBUG_FMT_S, "float128", float128_str);
 
   if (TARGET_LINK_STACK)
     fprintf (stderr, DEBUG_FMT_S, "link_stack", "true");
@@ -3702,6 +3698,13 @@ rs6000_option_override_internal (bool global_init_p)
       && optimize_function_for_speed_p (cfun)
       && optimize >= 3)
     rs6000_isa_flags |= OPTION_MASK_P8_FUSION_SIGN;
+
+  /* Set the appropriate IEEE 128-bit floating option.  Do not enable float128
+     support by default until the libgcc support is added.  */
+  if (TARGET_FLOAT128 == FLOAT128_UNSET)
+    TARGET_FLOAT128 = FLOAT128_NONE;
+  else if (TARGET_FLOAT128 == FLOAT128_SW && !TARGET_VSX)
+    error ("-mfloat128-software requires VSX support");
 
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
@@ -14320,6 +14323,8 @@ rs6000_init_builtins (void)
   tree tdecl;
   tree ftype;
   machine_mode mode;
+  machine_mode ieee128_mode;
+  machine_mode ibm128_mode;
 
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "rs6000_init_builtins%s%s%s%s\n",
@@ -14387,6 +14392,32 @@ rs6000_init_builtins (void)
   dfloat128_type_internal_node = dfloat128_type_node;
   void_type_internal_node = void_type_node;
 
+  /* 128-bit floating point support.  KFmode is IEEE 128-bit floating point.
+     IFmode is the IBM extended 128-bit format that is a pair of doubles.
+     TFmode will be either IEEE 128-bit floating point or the IBM double-double
+     format that uses a pair of doubles, depending on the switches and
+     defaults.  */
+  if (TARGET_IEEEQUAD)
+    {
+      ieee128_mode = TFmode;
+      ibm128_mode = IFmode;
+    }
+  else
+    {
+      ieee128_mode = KFmode;
+      ibm128_mode = TFmode;
+    }
+
+  ieee128_float_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (ieee128_float_type_node) = 128;
+  layout_type (ieee128_float_type_node);
+  SET_TYPE_MODE (ieee128_float_type_node, ieee128_mode);
+
+  ibm128_float_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (ibm128_float_type_node) = 128;
+  layout_type (ibm128_float_type_node);
+  SET_TYPE_MODE (ibm128_float_type_node, ibm128_mode);
+
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
      tree type node.  */
   builtin_mode_to_type[QImode][0] = integer_type_node;
@@ -14399,6 +14430,8 @@ rs6000_init_builtins (void)
   builtin_mode_to_type[TImode][1] = unsigned_intTI_type_node;
   builtin_mode_to_type[SFmode][0] = float_type_node;
   builtin_mode_to_type[DFmode][0] = double_type_node;
+  builtin_mode_to_type[IFmode][0] = ibm128_float_type_node;
+  builtin_mode_to_type[KFmode][0] = ieee128_float_type_node;
   builtin_mode_to_type[TFmode][0] = long_double_type_node;
   builtin_mode_to_type[DDmode][0] = dfloat64_type_node;
   builtin_mode_to_type[TDmode][0] = dfloat128_type_node;
@@ -20523,15 +20556,12 @@ rs6000_pre_atomic_barrier (rtx mem, enum memmodel model)
     case MEMMODEL_RELAXED:
     case MEMMODEL_CONSUME:
     case MEMMODEL_ACQUIRE:
-    case MEMMODEL_SYNC_ACQUIRE:
       break;
     case MEMMODEL_RELEASE:
-    case MEMMODEL_SYNC_RELEASE:
     case MEMMODEL_ACQ_REL:
       emit_insn (gen_lwsync ());
       break;
     case MEMMODEL_SEQ_CST:
-    case MEMMODEL_SYNC_SEQ_CST:
       emit_insn (gen_hwsync ());
       break;
     default:
@@ -20548,13 +20578,10 @@ rs6000_post_atomic_barrier (enum memmodel model)
     case MEMMODEL_RELAXED:
     case MEMMODEL_CONSUME:
     case MEMMODEL_RELEASE:
-    case MEMMODEL_SYNC_RELEASE:
       break;
     case MEMMODEL_ACQUIRE:
-    case MEMMODEL_SYNC_ACQUIRE:
     case MEMMODEL_ACQ_REL:
     case MEMMODEL_SEQ_CST:
-    case MEMMODEL_SYNC_SEQ_CST:
       emit_insn (gen_isync ());
       break;
     default:
@@ -20655,8 +20682,8 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
   oldval = operands[3];
   newval = operands[4];
   is_weak = (INTVAL (operands[5]) != 0);
-  mod_s = memmodel_from_int (INTVAL (operands[6]));
-  mod_f = memmodel_from_int (INTVAL (operands[7]));
+  mod_s = memmodel_base (INTVAL (operands[6]));
+  mod_f = memmodel_base (INTVAL (operands[7]));
   orig_mode = mode = GET_MODE (mem);
 
   mask = shift = NULL_RTX;
@@ -20775,7 +20802,7 @@ rs6000_expand_atomic_exchange (rtx operands[])
   retval = operands[0];
   mem = operands[1];
   val = operands[2];
-  model = (enum memmodel) INTVAL (operands[3]);
+  model = memmodel_base (INTVAL (operands[3]));
   mode = GET_MODE (mem);
 
   mask = shift = NULL_RTX;
@@ -20826,7 +20853,7 @@ void
 rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 			 rtx orig_before, rtx orig_after, rtx model_rtx)
 {
-  enum memmodel model = (enum memmodel) INTVAL (model_rtx);
+  enum memmodel model = memmodel_base (INTVAL (model_rtx));
   machine_mode mode = GET_MODE (mem);
   machine_mode store_mode = mode;
   rtx label, x, cond, mask, shift;
@@ -23450,7 +23477,7 @@ split_stack_arg_pointer_used_p (void)
   /* Unfortunately we also need to do some code scanning, since
      r12 may have been substituted for the pseudo.  */
   rtx_insn *insn;
-  basic_block bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
+  basic_block bb = ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb;
   FOR_BB_INSNS (bb, insn)
     if (NONDEBUG_INSN_P (insn))
       {
@@ -25941,6 +25968,13 @@ rs6000_expand_split_stack_prologue (void)
 
   if (!info->push_p)
     return;
+
+  if (global_regs[29])
+    {
+      error ("-fsplit-stack uses register r29");
+      inform (DECL_SOURCE_LOCATION (global_regs_decl[29]),
+	      "conflicts with %qD", global_regs_decl[29]);
+    }
 
   allocate = info->total_size;
   if (allocate > (unsigned HOST_WIDE_INT) 1 << 31)

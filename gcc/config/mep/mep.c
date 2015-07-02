@@ -23,15 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -48,11 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "recog.h"
 #include "obstack.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -64,10 +53,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "reload.h"
 #include "tm_p.h"
-#include "ggc.h"
 #include "diagnostic-core.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -79,19 +66,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "basic-block.h"
 #include "df.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "opts.h"
 #include "dumpfile.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Structure of this file:
 
@@ -4085,26 +4073,14 @@ struct GTY(()) pragma_entry {
   int flag;
 };
 
-struct pragma_traits : default_hashmap_traits
-{
-  static hashval_t hash (const char *s) { return htab_hash_string (s); }
-  static bool
-  equal_keys (const char *a, const char *b)
-  {
-    return strcmp (a, b) == 0;
-  }
-};
-
 /* Hash table of farcall-tagged sections.  */
-static GTY(()) hash_map<const char *, pragma_entry, pragma_traits> *
-  pragma_htab;
+static GTY(()) hash_map<nofree_string_hash, pragma_entry> *pragma_htab;
 
 static void
 mep_note_pragma_flag (const char *funcname, int flag)
 {
   if (!pragma_htab)
-    pragma_htab
-      = hash_map<const char *, pragma_entry, pragma_traits>::create_ggc (31);
+    pragma_htab = hash_map<nofree_string_hash, pragma_entry>::create_ggc (31);
 
   bool existed;
   const char *name = ggc_strdup (funcname);

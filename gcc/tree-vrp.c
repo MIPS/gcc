@@ -23,15 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -48,7 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
@@ -73,11 +65,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "tree-chrec.h"
 #include "tree-ssa-threadupdate.h"
-#include "hashtab.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -2926,33 +2914,17 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
 	     prod3.  */
 	  /* min0min1 > max0max1 */
 	  if (wi::gts_p (prod0, prod3))
-	    {
-	      vrp_int tmp = prod3;
-	      prod3 = prod0;
-	      prod0 = tmp;
-	    }
+	    std::swap (prod0, prod3);
 
 	  /* min0max1 > max0min1 */
 	  if (wi::gts_p (prod1, prod2))
-	    {
-	      vrp_int tmp = prod2;
-	      prod2 = prod1;
-	      prod1 = tmp;
-	    }
+	    std::swap (prod1, prod2);
 
 	  if (wi::gts_p (prod0, prod1))
-	    {
-	      vrp_int tmp = prod1;
-	      prod1 = prod0;
-	      prod0 = tmp;
-	    }
+	    std::swap (prod0, prod1);
 
 	  if (wi::gts_p (prod2, prod3))
-	    {
-	      vrp_int tmp = prod3;
-	      prod3 = prod2;
-	      prod2 = tmp;
-	    }
+	    std::swap (prod2, prod3);
 
 	  /* diff = max - min.  */
 	  prod2 = prod3 - prod0;
@@ -3161,14 +3133,33 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
 		 and all numbers from min to 0 for negative min.  */
 	      cmp = compare_values (vr0.max, zero);
 	      if (cmp == -1)
-		max = zero;
+		{
+		  /* When vr0.max < 0, vr1.min != 0 and value
+		     ranges for dividend and divisor are available.  */
+		  if (vr1.type == VR_RANGE
+		      && !symbolic_range_p (&vr0)
+		      && !symbolic_range_p (&vr1)
+		      && !compare_values (vr1.min, zero))
+		    max = int_const_binop (code, vr0.max, vr1.min);
+		  else
+		    max = zero;
+		}
 	      else if (cmp == 0 || cmp == 1)
 		max = vr0.max;
 	      else
 		type = VR_VARYING;
 	      cmp = compare_values (vr0.min, zero);
 	      if (cmp == 1)
-		min = zero;
+		{
+		  /* For unsigned division when value ranges for dividend
+		     and divisor are available.  */
+		  if (vr1.type == VR_RANGE
+		      && !symbolic_range_p (&vr0)
+		      && !symbolic_range_p (&vr1))
+		    min = int_const_binop (code, vr0.min, vr1.max);
+		  else
+		    min = zero;
+		}
 	      else if (cmp == 0 || cmp == -1)
 		min = vr0.min;
 	      else
@@ -3735,11 +3726,7 @@ extract_range_from_unary_expr_1 (value_range_t *vr,
 	{
           /* If the range was reversed, swap MIN and MAX.  */
 	  if (cmp == 1)
-	    {
-	      tree t = min;
-	      min = max;
-	      max = t;
-	    }
+	    std::swap (min, max);
 	}
 
       cmp = compare_values (min, max);
@@ -5372,7 +5359,9 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
   /* In the case of post-in/decrement tests like if (i++) ... and uses
      of the in/decremented value on the edge the extra name we want to
      assert for is not on the def chain of the name compared.  Instead
-     it is in the set of use stmts.  */
+     it is in the set of use stmts.
+     Similar cases happen for conversions that were simplified through
+     fold_{sign_changed,widened}_comparison.  */
   if ((comp_code == NE_EXPR
        || comp_code == EQ_EXPR)
       && TREE_CODE (val) == INTEGER_CST)
@@ -5381,29 +5370,37 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       gimple use_stmt;
       FOR_EACH_IMM_USE_STMT (use_stmt, ui, name)
 	{
-	  /* Cut off to use-stmts that are in the predecessor.  */
-	  if (gimple_bb (use_stmt) != e->src)
-	    continue;
-
 	  if (!is_gimple_assign (use_stmt))
 	    continue;
 
-	  enum tree_code code = gimple_assign_rhs_code (use_stmt);
-	  if (code != PLUS_EXPR
-	      && code != MINUS_EXPR)
-	    continue;
-
-	  tree cst = gimple_assign_rhs2 (use_stmt);
-	  if (TREE_CODE (cst) != INTEGER_CST)
+	  /* Cut off to use-stmts that are dominating the predecessor.  */
+	  if (!dominated_by_p (CDI_DOMINATORS, e->src, gimple_bb (use_stmt)))
 	    continue;
 
 	  tree name2 = gimple_assign_lhs (use_stmt);
-	  if (live_on_edge (e, name2))
+	  if (TREE_CODE (name2) != SSA_NAME
+	      || !live_on_edge (e, name2))
+	    continue;
+
+	  enum tree_code code = gimple_assign_rhs_code (use_stmt);
+	  tree cst;
+	  if (code == PLUS_EXPR
+	      || code == MINUS_EXPR)
 	    {
+	      cst = gimple_assign_rhs2 (use_stmt);
+	      if (TREE_CODE (cst) != INTEGER_CST)
+		continue;
 	      cst = int_const_binop (code, val, cst);
-	      register_new_assert_for (name2, name2, comp_code, cst,
-				       NULL, e, bsi);
 	    }
+	  else if (CONVERT_EXPR_CODE_P (code))
+	    cst = fold_convert (TREE_TYPE (name2), val);
+	  else
+	    continue;
+
+	  if (TREE_OVERFLOW_P (cst))
+	    cst = drop_tree_overflow (cst);
+	  register_new_assert_for (name2, name2, comp_code, cst,
+				   NULL, e, bsi);
 	}
     }
  

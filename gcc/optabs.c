@@ -28,15 +28,8 @@ along with GCC; see the file COPYING3.  If not see
    is properly defined.  */
 #include "insn-config.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tree-hasher.h"
 #include "stor-layout.h"
@@ -47,10 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "function.h"
 #include "except.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,7 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "libfuncs.h"
 #include "recog.h"
 #include "reload.h"
-#include "ggc.h"
 #include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -1122,7 +1110,7 @@ expand_doubleword_shift (machine_mode op1_mode, optab binoptab,
 			       unsignedp, methods))
     return false;
 
-  emit_jump_insn (gen_jump (done_label));
+  emit_jump_insn (targetm.gen_jump (done_label));
   emit_barrier ();
   emit_label (subword_label);
 
@@ -2053,7 +2041,7 @@ expand_binop (machine_mode mode, optab binoptab, rtx op0, rtx op1,
 	  if (optab_handler (mov_optab, mode) != CODE_FOR_nothing
 	      || ! rtx_equal_p (target, xtarget))
 	    {
-	      rtx temp = emit_move_insn (target, xtarget);
+	      rtx_insn *temp = emit_move_insn (target, xtarget);
 
 	      set_dst_reg_note (temp, REG_EQUAL,
 				gen_rtx_fmt_ee (optab_to_code (binoptab),
@@ -2601,7 +2589,7 @@ expand_doubleword_clz (machine_mode mode, rtx op0, rtx target)
   if (temp != result)
     convert_move (result, temp, true);
 
-  emit_jump_insn (gen_jump (after_label));
+  emit_jump_insn (targetm.gen_jump (after_label));
   emit_barrier ();
 
   /* Else clz of the full value is clz of the low word plus the number
@@ -4395,8 +4383,7 @@ prepare_float_lib_cmp (rtx x, rtx y, enum rtx_code comparison,
       if (code_to_optab (swapped)
 	  && (libfunc = optab_libfunc (code_to_optab (swapped), mode)))
 	{
-	  rtx tmp;
-	  tmp = x; x = y; y = tmp;
+	  std::swap (x, y);
 	  comparison = swapped;
 	  break;
 	}
@@ -4725,7 +4712,7 @@ emit_conditional_add (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
 /* Generate and return an insn body to add Y to X.  */
 
-rtx
+rtx_insn *
 gen_add2_insn (rtx x, rtx y)
 {
   enum insn_code icode = optab_handler (add_optab, GET_MODE (x));
@@ -4740,7 +4727,7 @@ gen_add2_insn (rtx x, rtx y)
 /* Generate and return an insn body to add r1 and c,
    storing the result in r0.  */
 
-rtx
+rtx_insn *
 gen_add3_insn (rtx r0, rtx r1, rtx c)
 {
   enum insn_code icode = optab_handler (add_optab, GET_MODE (r0));
@@ -4749,7 +4736,7 @@ gen_add3_insn (rtx r0, rtx r1, rtx c)
       || !insn_operand_matches (icode, 0, r0)
       || !insn_operand_matches (icode, 1, r1)
       || !insn_operand_matches (icode, 2, c))
-    return NULL_RTX;
+    return NULL;
 
   return GEN_FCN (icode) (r0, r1, c);
 }
@@ -4776,7 +4763,7 @@ have_add2_insn (rtx x, rtx y)
 
 /* Generate and return an insn body to add Y to X.  */
 
-rtx
+rtx_insn *
 gen_addptr3_insn (rtx x, rtx y, rtx z)
 {
   enum insn_code icode = optab_handler (addptr3_optab, GET_MODE (x));
@@ -4813,7 +4800,7 @@ have_addptr3_insn (rtx x, rtx y, rtx z)
 
 /* Generate and return an insn body to subtract Y from X.  */
 
-rtx
+rtx_insn *
 gen_sub2_insn (rtx x, rtx y)
 {
   enum insn_code icode = optab_handler (sub_optab, GET_MODE (x));
@@ -4828,7 +4815,7 @@ gen_sub2_insn (rtx x, rtx y)
 /* Generate and return an insn body to subtract r1 and c,
    storing the result in r0.  */
 
-rtx
+rtx_insn *
 gen_sub3_insn (rtx r0, rtx r1, rtx c)
 {
   enum insn_code icode = optab_handler (sub_optab, GET_MODE (r0));
@@ -4837,7 +4824,7 @@ gen_sub3_insn (rtx r0, rtx r1, rtx c)
       || !insn_operand_matches (icode, 0, r0)
       || !insn_operand_matches (icode, 1, r1)
       || !insn_operand_matches (icode, 2, c))
-    return NULL_RTX;
+    return NULL;
 
   return GEN_FCN (icode) (r0, r1, c);
 }
@@ -4883,7 +4870,7 @@ can_extend_p (machine_mode to_mode, machine_mode from_mode,
 /* Generate the body of an insn to extend Y (with mode MFROM)
    into X (with mode MTO).  Do zero-extension if UNSIGNEDP is nonzero.  */
 
-rtx
+rtx_insn *
 gen_extend_insn (rtx x, rtx y, machine_mode mto,
 		 machine_mode mfrom, int unsignedp)
 {
@@ -5101,7 +5088,7 @@ expand_float (rtx to, rtx from, int unsignedp)
 
 	      /* The sign bit is not set.  Convert as signed.  */
 	      expand_float (target, from, 0);
-	      emit_jump_insn (gen_jump (label));
+	      emit_jump_insn (targetm.gen_jump (label));
 	      emit_barrier ();
 
 	      /* The sign bit is set.
@@ -5306,7 +5293,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
 
 	  /* If not, do the signed "fix" and branch around fixup code.  */
 	  expand_fix (to, from, 0);
-	  emit_jump_insn (gen_jump (lab2));
+	  emit_jump_insn (targetm.gen_jump (lab2));
 	  emit_barrier ();
 
 	  /* Otherwise, subtract 2**(N-1), convert to signed number,
@@ -6064,7 +6051,7 @@ gen_satfractuns_conv_libfunc (convert_optab tab,
 
 /* Hashtable callbacks for libfunc_decls.  */
 
-struct libfunc_decl_hasher : ggc_hasher<tree>
+struct libfunc_decl_hasher : ggc_ptr_hash<tree_node>
 {
   static hashval_t
   hash (tree entry)
@@ -6400,12 +6387,12 @@ debug_optab_libfuncs (void)
 /* Generate insns to trap with code TCODE if OP1 and OP2 satisfy condition
    CODE.  Return 0 on failure.  */
 
-rtx
+rtx_insn *
 gen_cond_trap (enum rtx_code code, rtx op1, rtx op2, rtx tcode)
 {
   machine_mode mode = GET_MODE (op1);
   enum insn_code icode;
-  rtx insn;
+  rtx_insn *insn;
   rtx trap_rtx;
 
   if (mode == VOIDmode)
@@ -6424,7 +6411,7 @@ gen_cond_trap (enum rtx_code code, rtx op1, rtx op2, rtx tcode)
   prepare_cmp_insn (op1, op2, code, NULL_RTX, false, OPTAB_DIRECT,
 		    &trap_rtx, &mode);
   if (!trap_rtx)
-    insn = NULL_RTX;
+    insn = NULL;
   else
     insn = GEN_FCN (icode) (trap_rtx, XEXP (trap_rtx, 0), XEXP (trap_rtx, 1),
 			    tcode);
@@ -6979,11 +6966,7 @@ expand_mult_highpart (machine_mode mode, rtx op0, rtx op1,
       tab1 = uns_p ? vec_widen_umult_lo_optab : vec_widen_smult_lo_optab;
       tab2 = uns_p ? vec_widen_umult_hi_optab : vec_widen_smult_hi_optab;
       if (BYTES_BIG_ENDIAN)
-	{
-	  optab t = tab1;
-	  tab1 = tab2;
-	  tab2 = t;
-	}
+	std::swap (tab1, tab2);
       break;
     default:
       gcc_unreachable ();
@@ -7592,12 +7575,12 @@ expand_asm_memory_barrier (void)
 void
 expand_mem_thread_fence (enum memmodel model)
 {
-  if (HAVE_mem_thread_fence)
-    emit_insn (gen_mem_thread_fence (GEN_INT (model)));
+  if (targetm.have_mem_thread_fence ())
+    emit_insn (targetm.gen_mem_thread_fence (GEN_INT (model)));
   else if (!is_mm_relaxed (model))
     {
-      if (HAVE_memory_barrier)
-	emit_insn (gen_memory_barrier ());
+      if (targetm.have_memory_barrier ())
+	emit_insn (targetm.gen_memory_barrier ());
       else if (synchronize_libfunc != NULL_RTX)
 	emit_library_call (synchronize_libfunc, LCT_NORMAL, VOIDmode, 0);
       else
@@ -7611,8 +7594,8 @@ expand_mem_thread_fence (enum memmodel model)
 void
 expand_mem_signal_fence (enum memmodel model)
 {
-  if (HAVE_mem_signal_fence)
-    emit_insn (gen_mem_signal_fence (GEN_INT (model)));
+  if (targetm.have_mem_signal_fence ())
+    emit_insn (targetm.gen_mem_signal_fence (GEN_INT (model)));
   else if (!is_mm_relaxed (model))
     {
       /* By default targets are coherent between a thread and the signal
@@ -8387,7 +8370,7 @@ bool
 maybe_expand_insn (enum insn_code icode, unsigned int nops,
 		   struct expand_operand *ops)
 {
-  rtx pat = maybe_gen_insn (icode, nops, ops);
+  rtx_insn *pat = maybe_gen_insn (icode, nops, ops);
   if (pat)
     {
       emit_insn (pat);
@@ -8402,7 +8385,7 @@ bool
 maybe_expand_jump_insn (enum insn_code icode, unsigned int nops,
 			struct expand_operand *ops)
 {
-  rtx pat = maybe_gen_insn (icode, nops, ops);
+  rtx_insn *pat = maybe_gen_insn (icode, nops, ops);
   if (pat)
     {
       emit_jump_insn (pat);

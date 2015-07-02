@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree-data-ref.h"
 #include "target.h"
-#include "hash-table.h"
 
 /* Used for naming of new temporaries.  */
 enum vect_var_kind {
@@ -128,9 +127,6 @@ typedef struct _slp_instance {
   /* The unrolling factor required to vectorized this SLP instance.  */
   unsigned int unrolling_factor;
 
-  /* Vectorization costs associated with SLP instance.  */
-  stmt_vector_for_cost body_cost_vec;
-
   /* The group of nodes that contain loads of this SLP instance.  */
   vec<slp_tree> loads;
 } *slp_instance;
@@ -140,7 +136,6 @@ typedef struct _slp_instance {
 #define SLP_INSTANCE_TREE(S)                     (S)->root
 #define SLP_INSTANCE_GROUP_SIZE(S)               (S)->group_size
 #define SLP_INSTANCE_UNROLLING_FACTOR(S)         (S)->unrolling_factor
-#define SLP_INSTANCE_BODY_COST_VEC(S)            (S)->body_cost_vec
 #define SLP_INSTANCE_LOADS(S)                    (S)->loads
 
 #define SLP_TREE_CHILDREN(S)                     (S)->children
@@ -217,10 +212,8 @@ typedef struct _vect_peel_extended_info
 
 /* Peeling hashtable helpers.  */
 
-struct peel_info_hasher : typed_free_remove <_vect_peel_info>
+struct peel_info_hasher : free_ptr_hash <_vect_peel_info>
 {
-  typedef _vect_peel_info *value_type;
-  typedef _vect_peel_info *compare_type;
   static inline hashval_t hash (const _vect_peel_info *);
   static inline bool equal (const _vect_peel_info *, const _vect_peel_info *);
 };
@@ -333,6 +326,12 @@ typedef struct _loop_vec_info {
   /* Hash table used to choose the best peeling option.  */
   hash_table<peel_info_hasher> *peeling_htab;
 
+  /* Cost vector for a single scalar iteration.  */
+  vec<stmt_info_for_cost> scalar_cost_vec;
+
+  /* Cost of a single scalar iteration.  */
+  int single_scalar_iteration_cost;
+
   /* Cost data used by the target cost model.  */
   void *target_cost_data;
 
@@ -411,6 +410,8 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_PEELING_FOR_NITER(L)    (L)->peeling_for_niter
 #define LOOP_VINFO_NO_DATA_DEPENDENCIES(L) (L)->no_data_dependencies
 #define LOOP_VINFO_SCALAR_LOOP(L)	   (L)->scalar_loop
+#define LOOP_VINFO_SCALAR_ITERATION_COST(L) (L)->scalar_cost_vec
+#define LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST(L) (L)->single_scalar_iteration_cost
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L) \
   ((L)->may_misalign_stmts.length () > 0)
@@ -1106,17 +1107,15 @@ extern int vect_get_known_peeling_cost (loop_vec_info, int, int *,
 					stmt_vector_for_cost *,
 					stmt_vector_for_cost *,
 					stmt_vector_for_cost *);
-extern int vect_get_single_scalar_iteration_cost (loop_vec_info,
-						  stmt_vector_for_cost *);
 
 /* In tree-vect-slp.c.  */
 extern void vect_free_slp_instance (slp_instance);
 extern bool vect_transform_slp_perm_load (slp_tree, vec<tree> ,
                                           gimple_stmt_iterator *, int,
                                           slp_instance, bool);
-extern bool vect_slp_analyze_operations (vec<slp_instance> slp_instances);
+extern bool vect_slp_analyze_operations (vec<slp_instance> slp_instances,
+					 void *);
 extern bool vect_schedule_slp (loop_vec_info, bb_vec_info);
-extern void vect_update_slp_costs_according_to_vf (loop_vec_info);
 extern bool vect_analyze_slp (loop_vec_info, bb_vec_info, unsigned);
 extern bool vect_make_slp_decision (loop_vec_info);
 extern void vect_detect_hybrid_slp (loop_vec_info);
