@@ -1790,8 +1790,7 @@ cxx_eval_component_reference (const constexpr_ctx *ctx, tree t,
       if (field == part)
 	{
 	  if (value)
-	    return cxx_eval_constant_expression (ctx, value, lval,
-						 non_constant_p, overflow_p);
+	    return value;
 	  else
 	    /* We're in the middle of initializing it.  */
 	    break;
