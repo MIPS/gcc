@@ -63,20 +63,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 
 
-
-namespace {
-// A helper function. Returns the object pointed to by P
-// and sets P to NULL.
-template<typename T>
-inline T* release(T*& p)
-{
-  T* q = p;
-  p = NULL;
-  return q;
-}
-} // namespace
-
-
 /* The lexer.  */
 
 /* The cp_lexer_* routines mediate between the lexer proper (in libcpp

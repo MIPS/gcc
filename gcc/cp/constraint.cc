@@ -195,11 +195,6 @@ resolve_constraint_check (tree ovl, tree args)
   if (!cands || TREE_CHAIN (cands))
     return NULL_TREE;
 
-  // Constraints must be declared concepts.
-  tree decl = TREE_VALUE (cands);
-  if (!DECL_DECLARED_CONCEPT_P (decl))
-    return NULL_TREE;
-
   return cands;
 }
 
