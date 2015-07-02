@@ -3588,8 +3588,10 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       cxx_eval_switch_expr (ctx, t,
 			    non_constant_p, overflow_p, jump_target);
       break;
+
     case ARRAY_NOTATION_REF:
       break;
+
     default:
       if (STATEMENT_CODE_P (TREE_CODE (t)))
 	{
@@ -3846,32 +3848,26 @@ fold_simple_on_cst_1 (tree t)
 
     case VEC_COND_EXPR:
     case COND_EXPR:
+
       if (VOID_TYPE_P (TREE_TYPE (t)))
 	return NULL_TREE;
+
       op1 = TREE_OPERAND (t, 0);
       op1 = fold_simple_on_cst_1 (op1);
       op2 = TREE_OPERAND (t, 1);
       op3 = TREE_OPERAND (t, 2);
       if (!op1)
 	return NULL_TREE;
-      if (integer_zerop (op1) && !TREE_SIDE_EFFECTS (op2))
-	{
-	  t = fold_simple_on_cst_1 (op3);
-	  if (!t)
-	     t = op3;
-	}
-      else if (!integer_zerop (op1) && !TREE_SIDE_EFFECTS (op3))
-	{
-	  t = fold_simple_on_cst_1 (op2);
-	  if (!t)
-	    t = op2;
-	}
-      else
-	return NULL_TREE;
-      break;
+      op1 = build3 (TREE_CODE (t), TREE_TYPE (t), op1, op2, op3);
+      op1 = fold (op1);
+      if (TREE_CODE (op1) != TREE_CODE (t))
+	return fold_simple_on_cst_1 (op1);
+      return NULL_TREE;
+
     default:
       return NULL_TREE;
     }
+
   switch (TREE_CODE (t))
     {
     case INTEGER_CST:
