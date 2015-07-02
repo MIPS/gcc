@@ -1,3 +1,8 @@
+2015-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_for_loop): Parse collapse + ordered - 1
+	nested loops if ordered(n) clause is present.
+
 2015-07-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-tree.h (finish_omp_clauses): Add declare_simd argument.

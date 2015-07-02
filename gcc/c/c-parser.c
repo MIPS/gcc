@@ -13279,20 +13279,24 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
   tree decl, cond, incr, save_break, save_cont, body, init, stmt, cl;
   tree declv, condv, incrv, initv, ret = NULL;
   bool fail = false, open_brace_parsed = false;
-  int i, collapse = 1, nbraces = 0;
+  int i, collapse = 1, ordered = 0, count, nbraces = 0;
   location_t for_loc;
   vec<tree, va_gc> *for_block = make_tree_vector ();
 
   for (cl = clauses; cl; cl = OMP_CLAUSE_CHAIN (cl))
     if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_COLLAPSE)
       collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (cl));
+    else if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_ORDERED
+	     && OMP_CLAUSE_ORDERED_EXPR (cl))
+      ordered = tree_to_shwi (OMP_CLAUSE_ORDERED_EXPR (cl));
 
-  gcc_assert (collapse >= 1);
+  gcc_assert (collapse >= 1 && ordered >= 0);
+  count = collapse + (ordered > 0 ? ordered - 1 : 0);
 
-  declv = make_tree_vec (collapse);
-  initv = make_tree_vec (collapse);
-  condv = make_tree_vec (collapse);
-  incrv = make_tree_vec (collapse);
+  declv = make_tree_vec (count);
+  initv = make_tree_vec (count);
+  condv = make_tree_vec (count);
+  incrv = make_tree_vec (count);
 
   if (code != CILK_FOR
       && !c_parser_next_token_is_keyword (parser, RID_FOR))
@@ -13309,7 +13313,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
   for_loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
 
-  for (i = 0; i < collapse; i++)
+  for (i = 0; i < count; i++)
     {
       int bracecount = 0;
 
@@ -13418,7 +13422,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 	}
 
     parse_next:
-      if (i == collapse - 1)
+      if (i == count - 1)
 	break;
 
       /* FIXME: OpenMP 3.0 draft isn't very clear on what exactly is allowed
@@ -13449,7 +13453,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 		  bracecount--;
 		}
 	      fail = true;
-	      collapse = 0;
+	      count = 0;
 	      break;
 	    }
 	}
@@ -13530,10 +13534,10 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 		  c = &OMP_CLAUSE_CHAIN (*c);
 		else
 		  {
-		    for (i = 0; i < collapse; i++)
+		    for (i = 0; i < count; i++)
 		      if (TREE_VEC_ELT (declv, i) == OMP_CLAUSE_DECL (*c))
 			break;
-		    if (i == collapse)
+		    if (i == count)
 		      c = &OMP_CLAUSE_CHAIN (*c);
 		    else if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_FIRSTPRIVATE)
 		      {

@@ -1,3 +1,10 @@
+2015-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (struct omp_for_data): Add ordered field.
+	(extract_omp_for_data): Handle loops with ordered(n) clause.
+	(expand_omp_for_ordered_loops): New function.
+	(expand_omp_for_generic): Call it.
+
 2015-07-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* cgraph.h (enum cgraph_simd_clone_arg_type): Add

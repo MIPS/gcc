@@ -236,6 +236,7 @@ struct omp_for_data
   gomp_for *for_stmt;
   tree pre, iter_type;
   int collapse;
+  int ordered;
   bool have_nowait, have_ordered, simd_schedule;
   enum omp_clause_schedule_kind sched_kind;
   struct omp_for_data_loop *loops;
@@ -489,14 +490,15 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 
   fd->for_stmt = for_stmt;
   fd->pre = NULL;
-  fd->collapse = gimple_omp_for_collapse (for_stmt);
-  if (fd->collapse > 1)
+  if (gimple_omp_for_collapse (for_stmt) > 1)
     fd->loops = loops;
   else
     fd->loops = &fd->loop;
 
   fd->have_nowait = distribute || simd;
   fd->have_ordered = false;
+  fd->collapse = 1;
+  fd->ordered = 0;
   fd->sched_kind = OMP_CLAUSE_SCHEDULE_STATIC;
   fd->chunk_size = NULL_TREE;
   fd->simd_schedule = false;
@@ -513,6 +515,8 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 	break;
       case OMP_CLAUSE_ORDERED:
 	fd->have_ordered = true;
+	if (OMP_CLAUSE_ORDERED_EXPR (t))
+	  fd->ordered = tree_to_shwi (OMP_CLAUSE_ORDERED_EXPR (t));
 	break;
       case OMP_CLAUSE_SCHEDULE:
 	gcc_assert (!distribute && !taskloop);
@@ -525,6 +529,7 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 	fd->chunk_size = OMP_CLAUSE_DIST_SCHEDULE_CHUNK_EXPR (t);
 	break;
       case OMP_CLAUSE_COLLAPSE:
+	fd->collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (t));
 	if (fd->collapse > 1)
 	  {
 	    collapse_iter = &OMP_CLAUSE_COLLAPSE_ITERVAR (t);
@@ -559,9 +564,10 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 			 ? integer_zero_node : integer_one_node;
     }
 
-  for (i = 0; i < fd->collapse; i++)
+  int cnt = fd->collapse + (fd->ordered > 0 ? fd->ordered - 1 : 0);
+  for (i = 0; i < cnt; i++)
     {
-      if (fd->collapse == 1)
+      if (i == 0 && fd->collapse == 1)
 	loop = &fd->loop;
       else if (loops != NULL)
 	loop = loops + i;
@@ -589,6 +595,8 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 			  == GF_OMP_FOR_KIND_CILKFOR));
 	  break;
 	case LE_EXPR:
+	  if (i >= fd->collapse)
+	    break;
 	  if (POINTER_TYPE_P (TREE_TYPE (loop->n2)))
 	    loop->n2 = fold_build_pointer_plus_hwi_loc (loc, loop->n2, 1);
 	  else
@@ -598,6 +606,8 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 	  loop->cond_code = LT_EXPR;
 	  break;
 	case GE_EXPR:
+	  if (i >= fd->collapse)
+	    break;
 	  if (POINTER_TYPE_P (TREE_TYPE (loop->n2)))
 	    loop->n2 = fold_build_pointer_plus_hwi_loc (loc, loop->n2, -1);
 	  else
@@ -690,6 +700,9 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 	    }
 	}
 
+      if (i >= fd->collapse)
+	continue;
+
       if (collapse_count && *collapse_count == NULL)
 	{
 	  t = fold_binary (loop->cond_code, boolean_type_node,
@@ -770,6 +783,8 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
       fd->loop.step = build_int_cst (TREE_TYPE (fd->loop.v), 1);
       fd->loop.cond_code = LT_EXPR;
     }
+  else if (loops)
+    loops[0] = fd->loop;
 
   /* For OpenACC loops, force a chunk size of one, as this avoids the default
     scheduling where several subsequent iterations are being executed by the
@@ -6827,6 +6842,81 @@ extract_omp_for_update_vars (struct omp_for_data *fd, basic_block cont_bb,
 }
 
 
+/* Wrap the body into fd->ordered - 1 loops that aren't collapsed.  */
+
+static basic_block
+expand_omp_for_ordered_loops (struct omp_for_data *fd, basic_block cont_bb,
+			      basic_block body_bb)
+{
+  if (fd->ordered <= 1)
+    return cont_bb;
+
+  if (!cont_bb)
+    {
+      gimple_stmt_iterator gsi = gsi_after_labels (body_bb);
+      for (int i = fd->collapse; i < fd->collapse + fd->ordered - 1; i++)
+	{
+	  tree type = TREE_TYPE (fd->loops[i].v);
+	  tree n1 = fold_convert (type, fd->loops[i].n1);
+	  expand_omp_build_assign (&gsi, fd->loops[i].v, n1);
+	}
+      return NULL;
+    }
+
+  for (int i = fd->collapse + fd->ordered - 2; i >= fd->collapse; i--)
+    {
+      tree t, type = TREE_TYPE (fd->loops[i].v);
+      gimple_stmt_iterator gsi = gsi_after_labels (body_bb);
+      expand_omp_build_assign (&gsi, fd->loops[i].v,
+			       fold_convert (type, fd->loops[i].n1));
+      if (!gsi_end_p (gsi))
+	gsi_prev (&gsi);
+      else
+	gsi_last_bb (body_bb);
+      edge e1 = split_block (body_bb, gsi_stmt (gsi));
+      basic_block new_body = e1->dest;
+      if (body_bb == cont_bb)
+	cont_bb = new_body;
+      gsi = gsi_last_bb (cont_bb);
+      if (POINTER_TYPE_P (type))
+	t = fold_build_pointer_plus (fd->loops[i].v,
+				     fold_convert (sizetype, fd->loop.step));
+      else
+	t = fold_build2 (PLUS_EXPR, type, fd->loops[i].v,
+			 fold_convert (type, fd->loop.step));
+      expand_omp_build_assign (&gsi, fd->loops[i].v, t);
+      gsi_prev (&gsi);
+      edge e2 = split_block (cont_bb, gsi_stmt (gsi));
+      basic_block new_header = e2->dest;
+      gsi = gsi_after_labels (new_header);
+      tree v = force_gimple_operand_gsi (&gsi, fd->loops[i].v, true, NULL_TREE,
+					 true, GSI_SAME_STMT);
+      tree n2
+	= force_gimple_operand_gsi (&gsi, fold_convert (type, fd->loops[i].n2),
+				    true, NULL_TREE, true, GSI_SAME_STMT);
+      t = build2 (fd->loops[i].cond_code, boolean_type_node, v, n2);
+      gsi_insert_before (&gsi, gimple_build_cond_empty (t), GSI_NEW_STMT);
+      edge e3 = split_block (new_header, gsi_stmt (gsi));
+      cont_bb = e3->dest;
+      remove_edge (e1);
+      make_edge (body_bb, new_header, EDGE_FALLTHRU);
+      e3->flags = EDGE_FALSE_VALUE;
+      e3->probability = REG_BR_PROB_BASE / 8;
+      e1 = make_edge (new_header, new_body, EDGE_TRUE_VALUE);
+      e1->probability = REG_BR_PROB_BASE - e3->probability;
+
+      set_immediate_dominator (CDI_DOMINATORS, new_header, body_bb);
+      set_immediate_dominator (CDI_DOMINATORS, new_body, new_header);
+
+      struct loop *loop = alloc_loop ();
+      loop->header = new_header;
+      loop->latch = e2->src;
+      add_loop (loop, body_bb->loop_father);
+    }
+  return cont_bb;
+}
+
+
 /* A subroutine of expand_omp_for.  Generate code for a parallel
    loop with any schedule.  Given parameters:
 
@@ -7225,6 +7315,8 @@ expand_omp_for_generic (struct omp_region *region,
 	}
   if (fd->collapse > 1)
     expand_omp_for_init_vars (fd, &gsi, counts, inner_stmt, startvar);
+
+  cont_bb = expand_omp_for_ordered_loops (fd, cont_bb, l1_bb);
 
   if (!broken_loop)
     {
