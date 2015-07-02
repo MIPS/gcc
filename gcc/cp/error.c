@@ -1328,8 +1328,6 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
                                        flags);
 	    }
 	  pp_cxx_end_template_argument_list (pp);
-
-
 	  pp_cxx_whitespace (pp);
 	}
       nreverse(orig_parms);

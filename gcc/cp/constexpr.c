@@ -3517,7 +3517,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
         return evaluate_constraint_expression (t, NULL_TREE);
       else
         *non_constant_p = true;
-        return t;
+      return t;
 
     default:
       if (STATEMENT_CODE_P (TREE_CODE (t)))

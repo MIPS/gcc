@@ -1184,7 +1184,6 @@ check_noexcept_r (tree *tp, int * /*walk_subtrees*/, void * /*data*/)
 	      && is_sub_constant_expr (t))
 	    return NULL_TREE;
 	}
-
       if (!TYPE_NOTHROW_P (type))
 	return fn;
     }

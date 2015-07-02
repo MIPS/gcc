@@ -170,7 +170,7 @@ resolve_constraint_check (tree ovl, tree args)
 
       // Don't try to deduce checks for non-concept-like. We often
       // end up trying to resolve constraints in functional casts
-      // as part of a post-fix expression. We can save time and
+      // as part of a postfix-expression. We can save time and
       // headaches by not instantiating those declarations.
       //
       // NOTE: This masks a potential error, caused by instantiating
@@ -830,7 +830,6 @@ xform_decl (tree t)
     }
   return error_mark_node;
 }
-
 
 /* Transform a lifted expression into a constraint. This either
    returns a constraint, or it returns error_mark_node when

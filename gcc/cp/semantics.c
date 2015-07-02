@@ -3070,7 +3070,6 @@ fixup_template_type (tree type)
   return type;
 }
 
-
 /* Finish processing a template-id (which names a type) of the form
    NAME < ARGS >.  Return the TYPE_DECL for the type named by the
    template-id.  If ENTERING_SCOPE is nonzero we are about to enter
@@ -7316,7 +7315,6 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 
       return type;
     }
-
 
   /* The type denoted by decltype(e) is defined as follows:  */
 

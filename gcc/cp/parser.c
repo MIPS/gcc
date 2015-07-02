@@ -14268,6 +14268,7 @@ cp_parser_template_id (cp_parser *parser,
       gcc_assert ((DECL_FUNCTION_TEMPLATE_P (templ)
 		   || TREE_CODE (templ) == OVERLOAD
 		   || BASELINK_P (templ)));
+
       template_id = lookup_template_function (templ, arguments);
     }
 
@@ -14307,7 +14308,6 @@ cp_parser_template_id (cp_parser *parser,
     }
 
   pop_to_parent_deferring_access_checks ();
-
   return template_id;
 }
 
@@ -15530,7 +15530,6 @@ cp_parser_simple_type_specifier (cp_parser* parser,
       /* Otherwise, look for a type-name.  */
       else
 	type = cp_parser_type_name (parser);
-
       /* Keep track of all name-lookups performed in class scopes.  */
       if (type
 	  && !global_p
@@ -15635,7 +15634,6 @@ cp_parser_type_name (cp_parser* parser, bool typename_keyword_p)
 				    /*check_dependency_p=*/true,
 				    /*class_head_p=*/false,
 				    /*is_declaration=*/false);
-
   /* If it's not a class-name, keep looking.  */
   if (!cp_parser_parse_definitely (parser))
     {
@@ -15651,7 +15649,6 @@ cp_parser_type_name (cp_parser* parser, bool typename_keyword_p)
 					 /*check_dependency_p=*/true,
 					 none_type,
 					 /*is_declaration=*/false);
-
       /* Note that this must be an instantiation of an alias template
 	 because [temp.names]/6 says:
 	 
@@ -15694,7 +15691,6 @@ cp_check_type_concept (tree fn, tree proto)
     }
   return true;
 }
-
 
 /*  Check if DECL and ARGS can form a constrained-type-specifier.
     If ARGS is non-null, we try to form a concept check of the
@@ -15767,7 +15763,6 @@ cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
   return NULL_TREE;
 }
 
-
 /* If DECL refers to a concept, return a TYPE_DECL representing
    the result of using the constrained type specifier in the
    current context.  DECL refers to a concept if
@@ -15783,7 +15778,6 @@ cp_maybe_concept_name (cp_parser* parser, tree decl)
   return cp_maybe_constrained_type_specifier (parser, decl, NULL_TREE);
 }
 
-
 /* Check if DECL and ARGS form a partial-concept-id.  If so,
    assign ID to the resulting constrained placeholder.
 
@@ -15797,7 +15791,6 @@ cp_maybe_partial_concept_id (cp_parser *parser, tree decl, tree args, tree* id)
   *id = cp_maybe_constrained_type_specifier (parser, decl, args);
   return *id != NULL_TREE;
 }
-
 
 /* Parse a non-class type-name, that is, either an enum-name, a typedef-name,
    or a concept-name.
@@ -15826,8 +15819,9 @@ cp_parser_nonclass_name (cp_parser* parser)
 
   /* Look up the type-name.  */
   type_decl = cp_parser_lookup_name_simple (parser, identifier, token->location);
-  type_decl = strip_using_decl (type_decl);
 
+  type_decl = strip_using_decl (type_decl);
+  
   /* If we found an overload set, then it may refer to a concept-name. */
   if (flag_concepts
       && (TREE_CODE (type_decl) == OVERLOAD
@@ -19047,6 +19041,7 @@ cp_parser_late_return_type_opt (cp_parser* parser, cp_declarator *declarator,
     {
       /* Consume the ->.  */
       cp_lexer_consume_token (parser->lexer);
+
       type = cp_parser_trailing_type_id (parser);
     }
 
@@ -20490,7 +20485,6 @@ cp_parser_class_specifier_1 (cp_parser* parser)
   /* Parse the class-head.  */
   type = cp_parser_class_head (parser,
 			       &nested_name_specifier_p);
-
   /* If the class-head was a semantic disaster, skip the entire body
      of the class.  */
   if (!type)
@@ -21799,7 +21793,6 @@ cp_parser_member_declaration (cp_parser* parser)
 		  /* If the member was not a friend, declare it here.  */
 		  if (!friend_p)
 		    finish_member_declaration (decl);
-
 		  /* Peek at the next token.  */
 		  token = cp_lexer_peek_token (parser->lexer);
 		  /* If the next token is a semicolon, consume it.  */
@@ -34812,6 +34805,7 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
 	{
 	  /* Introduce a new template parameter list for implicit template
 	     parameters.  */
+
 	  become_template = true;
 
 	  parser->implicit_template_scope

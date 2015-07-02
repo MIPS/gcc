@@ -995,6 +995,7 @@ modify_vtable_entry (tree t,
       BV_FN (v) = fndecl;
     }
 }
+
 
 /* Add method METHOD to class TYPE.  If USING_DECL is non-null, it is
    the USING_DECL naming METHOD.  Returns true if the method could be
@@ -7653,11 +7654,11 @@ resolve_address_of_overloaded_function (tree target_type,
 	    /* Instantiation failed.  */
 	    continue;
 
-          /* Constraints must be satisfied. This is done before
-             return type deduction since that instantiates the
-             function. */
-          if (flag_concepts && !constraints_satisfied_p (instantiation))
-            continue;
+	  /* Constraints must be satisfied. This is done before
+	     return type deduction since that instantiates the
+	     function. */
+	  if (flag_concepts && !constraints_satisfied_p (instantiation))
+	    continue;
 
 	  /* And now force instantiation to do return type deduction.  */
 	  if (undeduced_auto_decl (instantiation))

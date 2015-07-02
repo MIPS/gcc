@@ -968,6 +968,7 @@ tree
 maybe_process_partial_specialization (tree type)
 {
   tree context;
+
   if (type == error_mark_node)
     return error_mark_node;
 
@@ -1595,7 +1596,6 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend,
 		 there were no definition, and vice versa.  */
 	      DECL_INITIAL (fn) = NULL_TREE;
 	      duplicate_decls (spec, fn, is_friend);
-
 	      /* The call to duplicate_decls will have applied
 		 [temp.expl.spec]:
 
@@ -1663,7 +1663,6 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend,
 
   return spec;
 }
-
 
 /* Returns true iff two spec_entry nodes are equivalent.  Only compares the
    TMPL and ARGS members, ignores SPEC.  */
@@ -2138,7 +2137,6 @@ determine_specialization (tree template_id,
 	  tree fn_arg_types;
 	  tree insttype;
 
-
 	  /* In case of explicit specialization, we need to check if
 	     the number of template headers appearing in the specialization
 	     is correct. This is usually done in check_explicit_specialization,
@@ -2165,7 +2163,6 @@ determine_specialization (tree template_id,
 	     Notice that if header_count is zero, this is not a
 	     specialization but rather a template instantiation, so there
 	     is no check we can perform here.  */
-
 	  if (header_count && header_count != template_count + 1)
 	    continue;
 
@@ -2279,7 +2276,6 @@ determine_specialization (tree template_id,
 	    /* Its enclosing class is an explicit specialization
 	       of a template class.  This is not a candidate.  */
 	    continue;
-
 
 	  if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
 			    TREE_TYPE (TREE_TYPE (fn))))
@@ -2400,7 +2396,6 @@ determine_specialization (tree template_id,
 	 function.  */
       if (TREE_CODE (fn) == TEMPLATE_DECL)
 	return fn;
-
       /* It was a specialization of an ordinary member function in a
 	 template class.  */
       return DECL_TI_TEMPLATE (fn);
@@ -5487,13 +5482,11 @@ add_inherited_template_parms (tree fn, tree inherited)
 		 inner_parms, current_template_parms);
   tree tmpl = build_template_decl (fn, parms, /*member*/true);
   tree args = template_parms_to_args (parms);
-
   DECL_TEMPLATE_INFO (fn) = build_template_info (tmpl, args);
   TREE_TYPE (tmpl) = TREE_TYPE (fn);
   DECL_TEMPLATE_RESULT (tmpl) = fn;
   DECL_ARTIFICIAL (tmpl) = true;
   DECL_PRIMARY_TEMPLATE (tmpl) = tmpl;
-
   return tmpl;
 }
 
@@ -8202,7 +8195,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	  /* comp_template_args is expensive, check it last.  */
 	  && comp_template_args (TYPE_TI_ARGS (template_type),
 				 arglist))
-        return template_type;
+	return template_type;
 
       /* If we already have this specialization, return it.  */
       elt.tmpl = gen_tmpl;
@@ -11523,10 +11516,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    maybe_retrofit_in_chrg (r);
 	    if (DECL_CONSTRUCTOR_P (r))
 	      grok_ctor_properties (ctx, r);
-
 	    if (DECL_INHERITED_CTOR_BASE (r))
 	      deduce_inheriting_ctor (r);
-
 	    /* If this is an instantiation of a member template, clone it.
 	       If it isn't, that'll be handled by
 	       clone_constructors_and_destructors.  */
@@ -12542,6 +12533,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	if (level <= levels)
 	  {
 	    arg = TMPL_ARG (args, level, idx);
+
 	    if (arg && TREE_CODE (arg) == ARGUMENT_PACK_SELECT)
 	      {
 		/* See through ARGUMENT_PACK_SELECT arguments. */
@@ -16191,7 +16183,6 @@ tsubst_copy_and_build (tree t,
 	  /* If the original type was a reference, we'll be wrapped in
 	     the appropriate INDIRECT_REF.  */
 	  r = convert_from_reference (r);
-
 	RETURN (r);
       }
 
@@ -19710,7 +19701,6 @@ more_specialized_partial_spec (tree tmpl, tree pat1, tree pat2)
       else if (len1 < len2)
         return -1;
     }
-
 
   // If still tied at this point, the most specialized is also
   // the most constrained.

@@ -1543,8 +1543,6 @@ pp_cxx_exception_specification (cxx_pretty_printer *pp, tree t)
   pp_cxx_right_paren (pp);
 }
 
-
-
 /* direct-declarator:
       declarator-id
       direct-declarator ( parameter-declaration-clause ) cv-qualifier-seq(opt)

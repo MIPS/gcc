@@ -3501,7 +3501,6 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
 
       if (!mark_used (function, complain) && !(complain & tf_error))
 	return error_mark_node;
-
       fndecl = function;
 
       /* Convert anything with function type to a pointer-to-function.  */
