@@ -9916,7 +9916,9 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 					 ? NULL_RTX : target),
 					mode, mode, false);
 	  }
-	if (reverse && modifier != EXPAND_WRITE)
+	if (reverse
+	    && modifier != EXPAND_MEMORY
+	    && modifier != EXPAND_WRITE)
 	  temp = flip_storage_order (mode, temp);
 	return temp;
       }
@@ -10445,7 +10447,9 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 
 	MEM_VOLATILE_P (op0) |= volatilep;
 
-        if (reversep)
+        if (reversep
+	    && modifier != EXPAND_MEMORY
+	    && modifier != EXPAND_WRITE)
 	  op0 = flip_storage_order (mode1, op0);
 
 	if (mode == mode1 || mode1 == BLKmode || mode1 == tmode
