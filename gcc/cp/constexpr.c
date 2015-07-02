@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "varasm.h"
 #include "cp-tree.h"
-#include "c-family/c-common.h"
 #include "c-family/c-objc.h"
 #include "tree-iterator.h"
 #include "gimplify.h"
@@ -3039,7 +3038,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
   if (t == error_mark_node)
     {
       *non_constant_p = true;
-      return error_mark_node;
+      return t;
     }
 
   if (CONSTANT_CLASS_P (t))
