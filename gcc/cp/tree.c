@@ -32,7 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
-#include "print-tree.h"
 #include "fold-const.h"
 #include "tree-hasher.h"
 #include "stor-layout.h"
