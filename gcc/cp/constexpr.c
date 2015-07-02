@@ -2260,9 +2260,8 @@ cxx_eval_vec_init (const constexpr_ctx *ctx, tree t,
 static tree
 cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 {
-  tree sub, subtype;
-  op0 = cp_fully_fold (op0);
-  sub = op0;
+  tree sub = op0, subtype;
+
   STRIP_NOPS (sub);
   subtype = TREE_TYPE (sub);
   if (!POINTER_TYPE_P (subtype))
