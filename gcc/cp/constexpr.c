@@ -901,8 +901,6 @@ struct constexpr_ctx {
   bool strict;
 };
 
-static tree unify_constant (const constexpr_ctx *, tree, bool *);
-
 /* A table of all constexpr calls that have been evaluated by the
    compiler in this translation unit.  */
 
@@ -2942,22 +2940,6 @@ cxx_eval_switch_expr (const constexpr_ctx *ctx, tree t,
   return NULL_TREE;
 }
 
-/* Attempt to reduce the constant-expression X to a constant value.
-   On failure, return error_mark_node.  */
-
-static tree
-unify_constant (const constexpr_ctx *ctx, tree x, bool *overflow_p)
-{
-  if (!CONSTANT_CLASS_P (x))
-    return x;
-
-  if (TREE_CODE (x) == PTRMEM_CST)
-    x = cplus_expand_constant (x);
-  else if (TREE_OVERFLOW (x) && (!flag_permissive || ctx->quiet))
-    *overflow_p = true;
-  return x;
-}
-
 /* Subroutine of cxx_eval_constant_expression.
    Attempt to reduce a POINTER_PLUS_EXPR expression T.  */
 
@@ -3038,7 +3020,13 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
     }
 
   if (CONSTANT_CLASS_P (t))
-    return unify_constant (ctx, t, overflow_p);
+    {
+      if (TREE_CODE (t) == PTRMEM_CST)
+	t = cplus_expand_constant (t);
+      else if (TREE_OVERFLOW (t) && (!flag_permissive || ctx->quiet))
+	*overflow_p = true;
+      return t;
+    }
 
 
   switch (TREE_CODE (t))
