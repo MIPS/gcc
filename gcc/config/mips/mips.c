@@ -1628,7 +1628,7 @@ mips_handle_interrupt_attr (tree *node, tree name, tree args,
 	      || (arg[0] != 's' && arg[0] != 'h')
 	      || arg[1] != 'w'
 	      || (arg[0] == 's' && arg[2] != '0' && arg[2] != '1')
-	      || (arg[0] == 'h' && arg[2] < '0' && arg[2] > '5'))
+	      || (arg[0] == 'h' && (arg[2] < '0' || arg[2] > '5')))
 	    {
 	      warning (OPT_Wattributes,
 		       "interrupt vector to %qE attribute is not "
