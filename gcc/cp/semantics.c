@@ -6310,8 +6310,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 				    tf_warning_or_error);
       if (error_operand_p (iter_incr))
 	return true;
-      iter_incr = fold (iter_incr);
-      if (TREE_CODE (incr) == PREINCREMENT_EXPR
+      else if (TREE_CODE (incr) == PREINCREMENT_EXPR
 	  || TREE_CODE (incr) == POSTINCREMENT_EXPR)
 	incr = integer_one_node;
       else
