@@ -447,8 +447,15 @@ plugin_tagbind (cc1_plugin::connection *self,
 		const char *filename, unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree t = convert_in (tagged_type), x;
   c_pushtag (ctx->get_source_location (filename, line_number),
-	     get_identifier (name), convert_in (tagged_type));
+	     get_identifier (name), t);
+
+  /* Propagate the newly-added type name so that previously-created
+     variant types are not disconnected from their main variants.  */
+  for (x = TYPE_MAIN_VARIANT (t); x; x = TYPE_NEXT_VARIANT (x))
+    TYPE_NAME (x) = TYPE_NAME (t);
+
   return 1;
 }
 
@@ -566,6 +573,23 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
       compute_record_mode (record_or_union_type);
       finish_bitfield_layout (record_or_union_type);
       // FIXME we have no idea about TYPE_PACKED
+    }
+
+  tree t = record_or_union_type, x;
+  for (x = TYPE_MAIN_VARIANT (t); x; x = TYPE_NEXT_VARIANT (x))
+    {
+      /* Like finish_struct, update the qualified variant types.  */
+      TYPE_FIELDS (x) = TYPE_FIELDS (t);
+      TYPE_LANG_SPECIFIC (x) = TYPE_LANG_SPECIFIC (t);
+      C_TYPE_FIELDS_READONLY (x) = C_TYPE_FIELDS_READONLY (t);
+      C_TYPE_FIELDS_VOLATILE (x) = C_TYPE_FIELDS_VOLATILE (t);
+      C_TYPE_VARIABLE_SIZE (x) = C_TYPE_VARIABLE_SIZE (t);
+      /* We copy these fields too.  */
+      TYPE_ALIGN (x) = TYPE_ALIGN (t);
+      TYPE_SIZE (x) = TYPE_SIZE (t);
+      TYPE_SIZE_UNIT (x) = TYPE_SIZE_UNIT (t);
+      if (x != record_or_union_type)
+	compute_record_mode (x);
     }
 
   return 1;
