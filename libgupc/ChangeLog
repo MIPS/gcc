@@ -1,3 +1,9 @@
+2015-07-03  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* portals4/gupcr_nb.upc (upc_memset_nb, upc_memset_nbi): Complete
+	upc_memset() with upc fence.  Otherwise it will not be completed by
+	the non-blocking sync functions.
+
 2015-05-18  Gary Funck  <gary@intrepid.com>
 
 	* configure.ac: Set minimum automake version to 1.11.6.
