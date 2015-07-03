@@ -504,7 +504,8 @@ plugin_new_decl (cc1_plugin::connection *self,
       decl = build_lang_decl_loc (loc, code, identifier, sym_type);
       if (TREE_CODE (sym_type) == VAR_DECL)
 	{
-	  // This block does the same as:
+	  DECL_THIS_STATIC (decl) = 1;
+	  // The remainder of this block does the same as:
 	  // set_linkage_for_static_data_member (decl);
 	  TREE_PUBLIC (decl) = 1;
 	  TREE_STATIC (decl) = 1;
@@ -551,10 +552,10 @@ plugin_new_decl (cc1_plugin::connection *self,
 	}
     }
 
-  decl = safe_pushdecl_maybe_friend (decl, false);
-
   if (class_member_p)
     finish_member_declaration (decl);
+  else
+    decl = safe_pushdecl_maybe_friend (decl, false);
 
   rest_of_decl_compilation (decl, toplevel_bindings_p (), 0);
 
