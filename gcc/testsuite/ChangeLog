@@ -1,3 +1,67 @@
+2015-07-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/66746.
+	* gcc.target/i386/pr66746.c: New file.
+
+2015-07-03  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vget_lane.c: New testcase.
+
+2015-07-03  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR tree-optimization/66119
+	* g++.dg/opt/pr66119.C: New.
+
+2015-07-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52846
+	* gfortran.dg/submodule_1.f90: New test
+	* gfortran.dg/submodule_2.f90: New test
+	* gfortran.dg/submodule_3.f90: New test
+	* gfortran.dg/submodule_4.f90: New test
+	* gfortran.dg/submodule_5.f90: New test
+	* gfortran.dg/submodule_6.f90: New test
+	* gfortran.dg/submodule_7.f90: New test
+
+2015-07-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR preprocessor/53690
+	* g++.dg/cpp/pr53690.C: New.
+
+2015-07-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-cmp.c: New test.
+
+2015-07-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/56520
+	* gfortran.dg/pr56520.f90: New test.
+
+2015-07-02  Steven G. Kargl   <kargl@gcc.gnu.org>
+
+	PR fortran/66545
+	* gfortran.dg/pr66545_1.f90: New test.
+	* gfortran.dg/pr66545_2.f90: New test.
+
+2015-07-02  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.dg/vect/vect-strided-a-u16-i4.c (main1): Narrow scope of x,y,z,w.
+	* gcc.dg/vect/vect-ifcvt-11.c: New testcase.
+
+2015-07-02  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/66719
+	* gcc.dg/vect/bb-slp-32.c: Re-add XFAIL for targets not supporting
+	unaligned loads.
+
+2015-07-02  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ssa-dom-cse-4.c: New testcase.
+
+2015-07-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/mpx/pr66568.c (exit): New prototype.
+
 2015-07-01  Jason Merrill  <jason@redhat.com>
 
 	* lib/target-supports.exp (cxx_default): Set to C++14.
