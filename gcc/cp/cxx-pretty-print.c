@@ -54,6 +54,8 @@ pp_cxx_nonconsecutive_character (cxx_pretty_printer *pp, int c)
    pp_c_expression_list (PP, T)
 #define pp_cxx_space_for_pointer_operator(PP, T)  \
    pp_c_space_for_pointer_operator (PP, T)
+#define pp_cxx_init_declarator(PP, T)    \
+   pp_c_init_declarator (PP, T)
 #define pp_cxx_call_argument_list(PP, T) \
    pp_c_call_argument_list (PP, T)
 
@@ -2109,45 +2111,6 @@ pp_cxx_namespace_alias_definition (cxx_pretty_printer *pp, tree t)
 				  DECL_CONTEXT (DECL_NAMESPACE_ALIAS (t)));
   pp_cxx_qualified_id (pp, DECL_NAMESPACE_ALIAS (t));
   pp_cxx_semicolon (pp);
-}
-
-/* init-declarator:
-      declarator:
-      declarator initializer(opt)
-
-   Concept extensions:
-
-   init-declarator:
-      declarator requires-clause(opt) initializer(opt)  */
-
-void
-pp_cxx_init_declarator (cxx_pretty_printer *pp, tree t)
-{
-  pp->declarator (t);
-
-  /* We don't want to output function definitions here.  There are handled
-     elsewhere (and the syntactic form is bogus anyway).  */
-  if (TREE_CODE (t) != FUNCTION_DECL && DECL_INITIAL (t))
-    {
-      tree init = DECL_INITIAL (t);
-      /* This C++ bit is handled here because it is easier to do so.
-         In templates, the C++ parser builds a TREE_LIST for a
-         direct-initialization; the TREE_PURPOSE is the variable to
-         initialize and the TREE_VALUE is the initializer.  */
-      if (TREE_CODE (init) == TREE_LIST)
-        {
-          pp_cxx_left_paren (pp);
-          pp->expression (TREE_VALUE (init));
-          pp_cxx_right_paren (pp);
-        }
-      else
-        {
-          pp_space (pp);
-          pp_equal (pp);
-          pp_space (pp);
-          pp->initializer (init);
-        }
-    }
 }
 
 /* simple-declaration:

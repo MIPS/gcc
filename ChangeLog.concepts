@@ -1,5 +1,7 @@
 2015-07-03  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_init_declarator): Revert to trunk.
+
 	* gcc/cp/cp-tree.h: Move check_nonnull closer to its uses.
 	Use 'struct' for fully public classes.
 	* gcc/cp/decl.c (check_concept_fn): Clarify error message.
