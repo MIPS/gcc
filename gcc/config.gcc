@@ -500,6 +500,10 @@ if test -f ${srcdir}/config/${cpu_type}/${cpu_type}.opt
 then
 	extra_options="${extra_options} ${cpu_type}/${cpu_type}.opt"
 fi
+if test -f ${srcdir}/config/${cpu_type}/${cpu_type}-tune.opt
+then
+	extra_options="${extra_options} ${cpu_type}/${cpu_type}-tune.opt"
+fi
 
 case ${target} in
 aarch64*-*-*)

@@ -2597,3 +2597,5 @@ Local variables:
 version-control: t
 End:
 */
+
+#include "config/i386/i386-tune.h"

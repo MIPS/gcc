@@ -1,0 +1,8 @@
+1. Modify cost.c to create a new cost model.
+2. Compile cost.c into cost.so:
+
+# gcc -o cost.so -shared -fPIC -O2 -g cost.c
+
+3. Use -mcost=cost to load new cost numbers from cost.so with
+
+# export LD_LIBRARY_PATH=directory with cost.so

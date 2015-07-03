@@ -1,0 +1,7 @@
+; Tuning options for i386.
+
+mcost=
+Target RejectNegative Joined Report Var(x86_cost_string) Undocumented
+
+mschedule=
+Target RejectNegative Joined Report Var(x86_schedule_string) Undocumented
