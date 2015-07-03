@@ -2001,7 +2001,8 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
       x = fold (x);
 
-      if (TREE_CODE (x) == COMPOUND_EXPR && TREE_OPERAND (x, 0) == NULL_TREE && TREE_OPERAND (x, 1))
+      if (TREE_CODE (x) == COMPOUND_EXPR && TREE_OPERAND (x, 0) == NULL_TREE
+	  && TREE_OPERAND (x, 1))
 	return TREE_OPERAND (x, 1);
       break;
 
