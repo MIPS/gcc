@@ -3015,8 +3015,9 @@ finish_template_decl (tree parms)
 // pair constrained for for Integral and Floating_point arguments.
 //
 // The general rule is: if a constrained specialization with matching
-// constraints is found return that type. Alos note that if TYPE is not a
+// constraints is found return that type. Also note that if TYPE is not a
 // class-type (e.g. a typename type), then no fixup is needed.
+
 static tree
 fixup_template_type (tree type)
 {

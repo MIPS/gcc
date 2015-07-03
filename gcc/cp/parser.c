@@ -9490,7 +9490,6 @@ cp_parser_lambda_declarator_opt (cp_parser* parser, tree lambda_expr)
                                        /*requires_clause*/NULL_TREE);
     declarator->id_loc = LAMBDA_EXPR_LOCATION (lambda_expr);
 
-
     fco = grokmethod (&return_type_specs,
 		      declarator,
 		      attributes);
@@ -11795,7 +11794,6 @@ cp_parser_simple_declaration (cp_parser* parser,
    decl-specifier:
      concept
 
-
    Set *DECL_SPECS to a representation of the decl-specifier-seq.
 
    The parser flags FLAGS is used to control type-specifier parsing.
@@ -13342,8 +13340,7 @@ cp_parser_operator (cp_parser* parser)
      template < template-parameter-list > template-requirement [opt]
 
    template-requirement:
-     requires logical-or-expression
-  */
+     requires logical-or-expression  */
 
 static void
 cp_parser_template_declaration (cp_parser* parser, bool member_p)
@@ -24625,7 +24622,7 @@ cp_parser_template_declaration_after_parameters (cp_parser* parser,
 
   /* Tentatively parse for a new template parameter list, which can either be
      the template keyword or a template introduction.  */
-  if(!cp_parser_template_declaration_after_export (parser, member_p))
+  if (!cp_parser_template_declaration_after_export (parser, member_p))
     {
       if (cxx_dialect >= cxx11
 	  && cp_lexer_next_token_is_keyword (parser->lexer, RID_USING))
@@ -24866,9 +24863,8 @@ cp_parser_explicit_template_declaration (cp_parser* parser, bool member_p)
   if (flag_concepts)
   {
     tree reqs = get_shorthand_constraints (current_template_parms);
-    if (tree r = cp_parser_requires_clause_opt (parser)) {
+    if (tree r = cp_parser_requires_clause_opt (parser))
       reqs = conjoin_constraints (reqs, make_predicate_constraint (r));
-     }
     TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = reqs;
   }
 

@@ -1282,7 +1282,6 @@ check_concept_refinement (tree olddecl, tree newdecl)
   return false;
 }
 
-
 /* DECL is a redeclaration of a function or function template.  If
    it does have default arguments issue a diagnostic.  Note: this
    function is used to enforce the requirements in C++11 8.3.6 about
@@ -7854,6 +7853,7 @@ grokfndecl (tree ctype,
 		     orig_declarator);
 	      return NULL_TREE;
 	    }
+
 
 	  /* A friend declaration of the form friend void f<>().  Record
 	     the information in the TEMPLATE_ID_EXPR.  */

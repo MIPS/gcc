@@ -2429,7 +2429,6 @@ determine_specialization (tree template_id,
     }
   else
     *targs_out = TREE_PURPOSE (templates);
-
   return TREE_VALUE (templates);
 }
 
@@ -11551,8 +11550,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	  RETURN (error_mark_node);
 
         /* When instantiating a constrained member, substitute
-           into the constraints to create a new constraint into
-           the  */
+           into the constraints to create a new constraint.  */
         if (tree ci = get_constraints (t)) {
           if (member)
             {
@@ -11936,7 +11934,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		       by T.
 
                        NOTE: The extra check for DECL_TEMPLATE_INFO
-                       is apparenly needed when checking constraints
+                       is apparently needed when checking constraints
                        for associated type names when the requirement
                        is satisfied by an alias declaration.  */
 		    && !(DECL_TEMPLATE_INFO (t)
@@ -23396,12 +23394,14 @@ struct constr_hasher : ggc_ptr_hash<constr_entry>
 
    FIXME: This is defined in pt.c because garbage collection
    code is not being generated for constraint.cc. */
+
 static GTY (()) hash_table<constr_hasher> *decl_constraints;
 
 /* Returns true iff cinfo contains a valid set of constraints.
    This is the case when the associated requirements have been
    successfully decomposed into lists of atomic constraints.
    That is, when the saved assumptions are not error_mark_node.  */
+
 bool
 valid_constraints_p (tree cinfo)
 {
@@ -23411,6 +23411,7 @@ valid_constraints_p (tree cinfo)
 
 /* Returns the template constraints of declaration T. If T is not
    constrained, return NULL_TREE. Note that T must be non-null. */
+
 tree
 get_constraints (tree t)
 {
@@ -23429,6 +23430,7 @@ get_constraints (tree t)
    T. If T is a template, then the constraints are associated with
    its underlying declaration. Don't build associations if CI is
    NULL_TREE.  */
+
 void
 set_constraints (tree t, tree ci)
 {
@@ -23445,9 +23447,8 @@ set_constraints (tree t, tree ci)
   *slot = entry;
 }
 
-/* Remove the associated constraints of the declaration T.
-   If there are no constraints associated with T, then
-   return NULL_TREE.  */
+/* Remove the associated constraints of the declaration T.  */
+
 void
 remove_constraints (tree t)
 {

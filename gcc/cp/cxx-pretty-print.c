@@ -1612,8 +1612,7 @@ cxx_pretty_printer::direct_declarator (tree t)
 
    basic-declarator:
      direct-declarator
-     ptr-operator declarator
-   */
+     ptr-operator declarator  */
 
 void
 cxx_pretty_printer::declarator (tree t)
