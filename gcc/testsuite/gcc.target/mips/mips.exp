@@ -1074,6 +1074,9 @@ proc mips-dg-options { args } {
 	    } else {
 		mips_make_test_option options "-mips64r6"
 	    }
+	    if { [mips_have_test_option_p options "-mnan=legacy"] } {
+		mips_make_test_option options "-mnan=2008"
+	    }
 	# We need a revision 2 or better ISA for:
 	#
 	#   - the combination of -mgp32 -mfp64
