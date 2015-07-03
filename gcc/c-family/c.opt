@@ -1071,7 +1071,7 @@ C ObjC C++ ObjC++ LTO Report Var(flag_cilkplus) Init(0)
 Enable Cilk Plus
 
 fconcepts
-C++ ObjC++ Var(flag_concepts, false)
+C++ ObjC++ Var(flag_concepts)
 Enable support for C++ concepts
 
 fcond-mismatch

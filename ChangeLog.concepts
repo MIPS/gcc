@@ -1,5 +1,7 @@
 2015-07-03  Jason Merrill  <jason@redhat.com>
 
+	* gcc/c-family/c.opt: Fix flag_concepts handling.
+
 	* gcc/cp/pt.c (do_auto_deduction): Tweak complain handling.
 
 	* gcc/cp/decl.c (grokdeclarator): Diagnose ill-formed requires-clauses.
