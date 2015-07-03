@@ -806,7 +806,8 @@ struct mips_cpu_info {
    --with-fpu is ignored if -msoft-float, -msingle-float or -mdouble-float are
      specified.
    --with-nan is ignored if -mnan is specified.
-   --with-fp-32 is ignored if -msoft-float, -msingle-float or -mfp are specified.
+   --with-fp-32 is ignored if -msoft-float, -msingle-float, -mmsa or -mfp are
+     specified.
    --with-odd-spreg-32 is ignored if -msoft-float, -msingle-float, -modd-spreg
      or -mno-odd-spreg are specified.
    --with-divide is ignored if -mdivide-traps or -mdivide-breaks are
@@ -823,7 +824,7 @@ struct mips_cpu_info {
   {"fpu", "%{!msoft-float:%{!msingle-float:%{!mdouble-float:-m%(VALUE)-float}}}" }, \
   {"nan", "%{!mnan=*:-mnan=%(VALUE)}" }, \
   {"fp_32", "%{" OPT_ARCH32 \
-	    ":%{!msoft-float:%{!msingle-float:%{!mfp*:-mfp%(VALUE)}}}}" }, \
+	    ":%{!msoft-float:%{!msingle-float:%{!mfp*:%{!mmsa:-mfp%(VALUE)}}}}}" }, \
   {"odd_spreg_32", "%{" OPT_ARCH32 ":%{!msoft-float:%{!msingle-float:" \
 		   "%{!modd-spreg:%{!mno-odd-spreg:-m%(VALUE)}}}}}" }, \
   {"divide", "%{!mdivide-traps:%{!mdivide-breaks:-mdivide-%(VALUE)}}" }, \
