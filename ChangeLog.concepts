@@ -1,5 +1,10 @@
 2015-07-03  Jason Merrill  <jason@redhat.com>
 
+	PR c++/66712
+	* gcc/cp/pt.c (tsubst_pack_expansion): Use
+	retrieve_local_specialization for requires-expression parameters.
+	(argument_pack_element_is_expansion_p): A decl pack is an expansion.
+
 	* gcc/c-family/c.opt: Fix flag_concepts handling.
 
 	* gcc/cp/pt.c (do_auto_deduction): Tweak complain handling.

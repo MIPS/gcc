@@ -10338,6 +10338,9 @@ argument_pack_element_is_expansion_p (tree arg_pack, int i)
   if (i >= TREE_VEC_LENGTH (vec))
     return 0;
   tree elt = TREE_VEC_ELT (vec, i);
+  if (DECL_P (elt))
+    /* A decl pack is itself an expansion.  */
+    elt = TREE_TYPE (elt);
   if (!PACK_EXPANSION_P (elt))
     return 0;
   if (PACK_EXPANSION_EXTRA_ARGS (elt))
@@ -10607,7 +10610,11 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
        }
       if (TREE_CODE (parm_pack) == PARM_DECL)
 	{
-	  if (PACK_EXPANSION_LOCAL_P (t))
+	  /* We know we have correct local_specializations if this
+	     expansion is at function scope, or if we're dealing with a
+	     local parameter in a requires expression; for the latter,
+	     tsubst_requires_expr set it up appropriately.  */
+	  if (PACK_EXPANSION_LOCAL_P (t) || CONSTRAINT_VAR_P (parm_pack))
 	    arg_pack = retrieve_local_specialization (parm_pack);
 	  else
 	    {
