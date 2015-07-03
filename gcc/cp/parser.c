@@ -11433,16 +11433,15 @@ cp_parser_declaration (cp_parser* parser)
 	   && token1.keyword == RID_ATTRIBUTE
 	   && cp_parser_objc_valid_prefix_attributes (parser, &attributes))
     cp_parser_objc_declaration (parser, attributes);
-  /* We must have either a block declaration or a function
-     definition.  */
+  /* At this point we may have a template declared by a concept
+     introduction.  */
+  else if (flag_concepts
+	   && cp_parser_template_declaration_after_export (parser,
+							   /*member_p=*/false))
+    /* We did.  */;
   else
-    {
-      /* At this point we may have a template declared by a concept
-         introduction.  */
-      if(!cp_parser_template_declaration_after_export (parser,
-						       /*member_p=*/false))
-	cp_parser_block_declaration (parser, /*statement_p=*/false);
-    }
+    /* Try to parse a block-declaration, or a function-definition.  */
+    cp_parser_block_declaration (parser, /*statement_p=*/false);
 
   /* Free any declarators allocated.  */
   obstack_free (&declarator_obstack, p);

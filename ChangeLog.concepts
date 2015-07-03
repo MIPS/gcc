@@ -1,3 +1,12 @@
+2015-07-03  Jason Merrill  <jason@redhat.com>
+
+	* gcc/cp/cp-tree.h: Move check_nonnull closer to its uses.
+	Use 'struct' for fully public classes.
+	* gcc/cp/decl.c (check_concept_fn): Clarify error message.
+	(grokfndecl): Use concept_p in test.
+	* gcc/cp/parser.c (cp_parser_declaration): Reorganize logic.
+	* gcc/cp/pt.c (tsubst) [TEMPLATE_TYPE_PARM]: Remove dead null check.
+
 2015-05-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fixing regression from merge.

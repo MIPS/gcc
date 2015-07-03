@@ -25,15 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "function.h"
 
-// Require that pointer P is non-null before returning.
-template<typename T>
-inline T*
-check_nonnull (T* p)
-{
-  gcc_assert (p);
-  return p;
-}
-
 /* In order for the format checking to accept the C++ front end
    diagnostic framework extensions, you must include this file before
    diagnostic-core.h, not after.  We override the definition of GCC_DIAG_STYLE
@@ -848,6 +839,15 @@ struct GTY(()) tree_constraint_info {
   tree normalized_constr;
   tree assumptions;
 };
+
+// Require that pointer P is non-null before returning.
+template<typename T>
+inline T*
+check_nonnull (T* p)
+{
+  gcc_assert (p);
+  return p;
+}
 
 // Returns true iff T is non-null and represents constraint info.
 inline tree_constraint_info *
@@ -4653,9 +4653,8 @@ extern int cp_unevaluated_operand;
 /* RAII class used to inhibit the evaluation of operands during parsing
    and template instantiation. Evaluation warnings are also inhibited. */
 
-class cp_unevaluated
+struct cp_unevaluated
 {
-public:
   cp_unevaluated ();
   ~cp_unevaluated ();
 };
@@ -4675,9 +4674,8 @@ typedef enum unification_kind_t {
 // An RAII class used to create a new pointer map for local
 // specializations. When the stack goes out of scope, the
 // previous pointer map is restored.
-class local_specialization_stack
+struct local_specialization_stack
 {
-public:
   local_specialization_stack ();
   ~local_specialization_stack ();
 

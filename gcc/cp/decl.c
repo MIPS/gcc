@@ -7694,7 +7694,7 @@ check_concept_fn (tree fn)
   if (is_auto (type))
     error ("concept %q#D declared with a deduced return type", fn);
   else if (type != boolean_type_node)
-    error ("concept %q#D with return type %qT", fn, type);
+    error ("concept %q#D with non-%<bool%> return type %qT", fn, type);
 }
 
 /* Helper function.  Replace the temporary this parameter injected
@@ -7967,7 +7967,7 @@ grokfndecl (tree ctype,
 
   // If the concept declaration specifier was found, check
   // that the declaration satisfies the necessary requirements.
-  if (inlinep & 4)
+  if (concept_p)
     {
       DECL_DECLARED_CONCEPT_P (decl) = true;
       check_concept_fn (decl);
