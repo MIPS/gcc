@@ -10936,8 +10936,11 @@ grokdeclarator (const cp_declarator *declarator,
 		  error ("a constructor cannot be %<concept%>");
 		  return error_mark_node;
 		}
-	    if (staticp && concept_p)
-	      error ("a concept cannot be a static member function");
+	    if (concept_p)
+	      {
+		error ("a concept cannot be a member function");
+		concept_p = false;
+	      }
 
 	    if (TREE_CODE (unqualified_id) == TEMPLATE_ID_EXPR)
 	      {

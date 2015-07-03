@@ -11,10 +11,10 @@ concept bool f3(); // { dg-error "no definition" }
 struct X
 {
   template<typename T>
-  concept int f4() { return 0; } // { dg-error "return type|function parameters" }
-  concept bool f5() { return true; } // { dg-error "declared with function parameters" }
+  concept int f4() { return 0; } // { dg-error "return type|member function" }
+  concept bool f5() { return true; } // { dg-error "member function" }
   template<typename T>
-  static concept bool f6() { return true; } // { dg-error "a concept cannot be a static member function" }
+  static concept bool f6() { return true; } // { dg-error "a concept cannot be a member function" }
   static concept bool x; // { dg-error "declared 'concept'" }
   concept int x2; // { dg-error "declared 'concept'" }
   concept ~X(); // { dg-error "a destructor cannot be 'concept'" }

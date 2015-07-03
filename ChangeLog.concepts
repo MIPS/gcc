@@ -1,5 +1,8 @@
 2015-07-03  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/decl.c (grokdeclarator): Give the same error for static
+	and non-static member functions.
+
 	* gcc/c-family/c-common.h (enum rid): Restore RID_IS_CONVERTIBLE_TO.
 	* gcc/c-family/c-common.c (c_common_reswords): And __is_convertible_to.
 	* gcc/cp/cxx-pretty-print.c (pp_cxx_trait_expression): Handle it.
