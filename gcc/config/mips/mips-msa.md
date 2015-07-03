@@ -2737,10 +2737,10 @@
    (set_attr "mode" "<MODE>")])
 
 (define_insn "msa_shf_<msafmt>"
-  [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "f")
-		      (match_operand 2 "const_uimm8_operand" "")]
-		     UNSPEC_MSA_SHF))]
+  [(set (match_operand:IMSA_WHB 0 "register_operand" "=f")
+	(unspec:IMSA_WHB [(match_operand:IMSA_WHB 1 "register_operand" "f")
+			  (match_operand 2 "const_uimm8_operand" "")]
+			 UNSPEC_MSA_SHF))]
   "ISA_HAS_MSA"
   "shf.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type" "simd_shf")
