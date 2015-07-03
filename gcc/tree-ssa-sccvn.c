@@ -1871,7 +1871,8 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 					   &offset2, &size2, &maxsize2,
 					   &reverse);
 	  off = offset - offset2;
-	  if (maxsize2 != -1
+	  if (!reverse
+	      && maxsize2 != -1
 	      && maxsize2 == size2
 	      && operand_equal_p (base, base2, 0)
 	      && offset2 <= offset
