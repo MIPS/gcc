@@ -1820,7 +1820,8 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       bool reverse;
       base2 = get_ref_base_and_extent (gimple_assign_lhs (def_stmt),
 				       &offset2, &size2, &maxsize2, &reverse);
-      if (maxsize2 != -1
+      if (!reverse
+	  && maxsize2 != -1
 	  && maxsize2 == size2
 	  && size2 % BITS_PER_UNIT == 0
 	  && offset2 % BITS_PER_UNIT == 0
