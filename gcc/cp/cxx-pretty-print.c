@@ -388,6 +388,7 @@ pp_cxx_userdef_literal (cxx_pretty_printer *pp, tree t)
      __is_abstract ( type-id )
      __is_base_of ( type-id , type-id )
      __is_class ( type-id )
+     __is_convertible_to ( type-id , type-id )
      __is_empty ( type-id )
      __is_enum ( type-id )
      __is_literal_type ( type-id )
@@ -2489,7 +2490,8 @@ pp_cxx_trait_expression (cxx_pretty_printer *pp, tree t)
   pp_cxx_left_paren (pp);
   pp->type_id (TRAIT_EXPR_TYPE1 (t));
 
-  if (kind == CPTK_IS_BASE_OF || kind == CPTK_IS_SAME_AS)
+  if (kind == CPTK_IS_BASE_OF || kind == CPTK_IS_SAME_AS
+      || kind == CPTK_IS_CONVERTIBLE_TO)
     {
       pp_cxx_separate_with (pp, ',');
       pp->type_id (TRAIT_EXPR_TYPE2 (t));

@@ -4275,6 +4275,7 @@ cp_parser_statement_expr (cp_parser *parser)
      __is_abstract ( type-id )
      __is_base_of ( type-id , type-id )
      __is_class ( type-id )
+     __is_convertible_to ( type-id , type-id )
      __is_empty ( type-id )
      __is_enum ( type-id )
      __is_final ( type-id )
@@ -4627,6 +4628,7 @@ cp_parser_primary_expression (cp_parser *parser,
 	case RID_IS_ABSTRACT:
 	case RID_IS_BASE_OF:
 	case RID_IS_CLASS:
+	case RID_IS_CONVERTIBLE_TO:
 	case RID_IS_EMPTY:
 	case RID_IS_ENUM:
 	case RID_IS_FINAL:
@@ -8868,6 +8870,10 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
       break;
     case RID_IS_CLASS:
       kind = CPTK_IS_CLASS;
+      break;
+    case RID_IS_CONVERTIBLE_TO:
+      kind = CPTK_IS_CONVERTIBLE_TO;
+      binary = true;
       break;
     case RID_IS_EMPTY:
       kind = CPTK_IS_EMPTY;

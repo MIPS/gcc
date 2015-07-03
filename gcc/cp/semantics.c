@@ -7715,6 +7715,7 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
 
     case CPTK_IS_TRIVIALLY_ASSIGNABLE:
     case CPTK_IS_TRIVIALLY_CONSTRUCTIBLE:
+    case CPTK_IS_CONVERTIBLE_TO:
       if (!check_trait_type (type1)
 	  || !check_trait_type (type2))
 	return error_mark_node;
@@ -7732,13 +7733,6 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
     case CPTK_IS_ENUM:
     case CPTK_IS_UNION:
     case CPTK_IS_SAME_AS:
-      break;
-
-    case CPTK_IS_CONVERTIBLE_TO:
-      if (!check_trait_type (type1))
-        return error_mark_node;
-      if (!check_trait_type (type2))
-        return error_mark_node;
       break;
 
     default:
