@@ -23026,7 +23026,7 @@ do_auto_deduction (tree type, tree init, tree auto_node,
 	= finish_decltype_type (init, id, tf_warning_or_error);
       if (type != auto_node)
 	{
-          if (complain & tf_warning_or_error)
+          if (complain & tf_error)
 	    error ("%qT as type rather than plain %<decltype(auto)%>", type);
 	  return error_mark_node;
 	}
@@ -23047,14 +23047,14 @@ do_auto_deduction (tree type, tree init, tree auto_node,
 	  if (processing_template_decl)
 	    /* Try again at instantiation time.  */
 	    return type;
-	  if (type && type != error_mark_node)
+	  if (type && type != error_mark_node
+	      && (complain & tf_error))
 	    /* If type is error_mark_node a diagnostic must have been
 	       emitted by now.  Also, having a mention to '<type error>'
 	       in the diagnostic is not really useful to the user.  */
 	    {
 	      if (cfun && auto_node == current_function_auto_return_pattern
-		  && LAMBDA_FUNCTION_P (current_function_decl)
-                  && complain & tf_warning_or_error)
+		  && LAMBDA_FUNCTION_P (current_function_decl))
 		error ("unable to deduce lambda return type from %qE", init);
 	      else
 		error ("unable to deduce %qT from %qE", type, init);
