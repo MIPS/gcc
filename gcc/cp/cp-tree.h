@@ -5297,32 +5297,6 @@ struct cp_declarator {
   } u;
 };
 
-/* Returns the declarator for a function declaration or NULL
-   if the declarator does not declare a function.  */
-
-inline cp_declarator *
-get_function_declarator (cp_declarator *declarator)
-{
-  while (declarator)
-    {
-      if (declarator->kind == cdk_function
-          && declarator->declarator
-          && declarator->declarator->kind == cdk_id)
-        return declarator;
-      if (declarator->kind == cdk_id
-          || declarator->kind == cdk_error)
-        return NULL;
-      declarator = declarator->declarator;
-    }
-  return NULL;
-}
-
-inline const cp_declarator *
-get_function_declarator (const cp_declarator *declarator)
-{
-  return get_function_declarator(const_cast<cp_declarator *>(declarator));
-}
-
 /* A level of template instantiation.  */
 struct GTY((chain_next ("%h.next"))) tinst_level {
   /* The immediately deeper level in the chain.  */

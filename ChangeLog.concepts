@@ -1,5 +1,15 @@
 2015-07-03  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/decl.c (grokdeclarator): Diagnose ill-formed requires-clauses.
+	(get_trailing_requires_clause): Remove.
+	* gcc/cp/parser.c (cp_parser_basic_declarator): Rename back to
+	cp_parser_declarator, removing the wrapper.
+	(cp_parser_late_return_type_opt): Add requires_clause parm.
+	(cp_parser_direct_declarator): Adjust.
+	(cp_parser_trailing_requires_clause): Remove.
+	(function_declarator_p): Revert.
+	* gcc/cp/cp-tree.h (get_function_declarator): Remove.
+
 	* gcc/cp/decl.c (grokdeclarator): Give the same error for static
 	and non-static member functions.
 

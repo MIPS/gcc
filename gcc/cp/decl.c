@@ -8990,19 +8990,6 @@ check_var_type (tree identifier, tree type)
   return type;
 }
 
-/* Return a trailing requires clause for a function declarator, or
-   NULL_TREE if there is no trailing requires clause or the declarator
-   is some other kind.  */
-
-static inline tree
-get_trailing_requires_clause (const cp_declarator *declarator)
-{
-  if (const cp_declarator *d = get_function_declarator (declarator))
-    return d->u.function.requires_clause;
-  else
-    return NULL_TREE;
-}
-
 /* Given declspecs and a declarator (abstract or otherwise), determine
    the name and type of the object declared and construct a DECL node
    for it.
@@ -9124,6 +9111,7 @@ grokdeclarator (const cp_declarator *declarator,
   bool array_parameter_p = false;
   source_location saved_loc = input_location;
   const char *errmsg;
+  tree reqs = NULL_TREE;
 
   signed_p = decl_spec_seq_has_spec_p (declspecs, ds_signed);
   unsigned_p = decl_spec_seq_has_spec_p (declspecs, ds_unsigned);
@@ -9132,9 +9120,6 @@ grokdeclarator (const cp_declarator *declarator,
   longlong = decl_spec_seq_has_spec_p (declspecs, ds_long_long);
   explicit_intN = declspecs->explicit_intN_p;
   thread_p = decl_spec_seq_has_spec_p (declspecs, ds_thread);
-
-  // Get a requires-clause attached to the declarator.
-  tree reqs = get_trailing_requires_clause (declarator);
 
   // Was concept_p specified? Note that ds_concept
   // implies ds_constexpr!
@@ -9946,6 +9931,10 @@ grokdeclarator (const cp_declarator *declarator,
 	    if (raises == error_mark_node)
 	      raises = NULL_TREE;
 
+	    if (reqs)
+	      error_at (location_of (reqs), "requires-clause on return type");
+	    reqs = declarator->u.function.requires_clause;
+
 	    /* Say it's a definition only for the CALL_EXPR
 	       closest to the identifier.  */
 	    funcdecl_p = inner_declarator && inner_declarator->kind == cdk_id;
@@ -10541,6 +10530,9 @@ grokdeclarator (const cp_declarator *declarator,
 	  type = error_mark_node;
 	}
 
+      if (reqs)
+	error_at (location_of (reqs), "requires-clause on typedef");
+
       if (decl_context == FIELD)
 	decl = build_lang_decl (TYPE_DECL, unqualified_id, type);
       else
@@ -10734,6 +10726,9 @@ grokdeclarator (const cp_declarator *declarator,
 	    error ("invalid qualifiers on non-member function type");
 	}
 
+      if (reqs)
+	error_at (location_of (reqs), "requires-clause on type-id");
+
       return type;
     }
   else if (unqualified_id == NULL_TREE && decl_context != PARM
@@ -10754,6 +10749,13 @@ grokdeclarator (const cp_declarator *declarator,
       error ("declaration of %qD as non-function", unqualified_id);
       return error_mark_node;
     }
+
+  if (reqs
+      && TREE_CODE (type) != FUNCTION_TYPE
+      && TREE_CODE (type) != METHOD_TYPE)
+    error_at (location_of (reqs),
+	      "requires-clause on declaration of non-function type %qT",
+	      type);
 
   /* We don't check parameter types here because we can emit a better
      error message later.  */

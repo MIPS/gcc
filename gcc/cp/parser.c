@@ -1635,7 +1635,17 @@ make_parameter_declarator (cp_decl_specifier_seq *decl_specifiers,
 static bool
 function_declarator_p (const cp_declarator *declarator)
 {
-  return get_function_declarator (declarator) != NULL;
+  while (declarator)
+    {
+      if (declarator->kind == cdk_function
+	  && declarator->declarator->kind == cdk_id)
+	return true;
+      if (declarator->kind == cdk_id
+	  || declarator->kind == cdk_error)
+	return false;
+      declarator = declarator->declarator;
+    }
+  return false;
 }
  
 /* The parser.  */
@@ -2127,7 +2137,7 @@ static cp_virt_specifiers cp_parser_virt_specifier_seq_opt
 static cp_ref_qualifier cp_parser_ref_qualifier_opt
   (cp_parser *);
 static tree cp_parser_late_return_type_opt
-  (cp_parser *, cp_declarator *, cp_cv_quals);
+  (cp_parser *, cp_declarator *, tree &, cp_cv_quals);
 static tree cp_parser_declarator_id
   (cp_parser *, bool);
 static tree cp_parser_type_id
@@ -17994,7 +18004,7 @@ cp_parser_init_declarator (cp_parser* parser,
    FRIEND_P is true iff this declarator is a friend.  */
 
 static cp_declarator *
-cp_parser_basic_declarator (cp_parser* parser,
+cp_parser_declarator (cp_parser* parser,
 		      cp_parser_declarator_kind dcl_kind,
 		      int* ctor_dtor_or_conv_p,
 		      bool* parenthesized_p,
@@ -18035,7 +18045,7 @@ cp_parser_basic_declarator (cp_parser* parser,
 	cp_parser_parse_tentatively (parser);
 
       /* Parse the dependent declarator.  */
-      declarator = cp_parser_basic_declarator (parser, dcl_kind,
+      declarator = cp_parser_declarator (parser, dcl_kind,
 					 /*ctor_dtor_or_conv_p=*/NULL,
 					 /*parenthesized_p=*/NULL,
 					 /*member_p=*/false,
@@ -18063,85 +18073,6 @@ cp_parser_basic_declarator (cp_parser* parser,
 
   if (gnu_attributes && declarator && declarator != cp_error_declarator)
     declarator->attributes = gnu_attributes;
-
-  return declarator;
-}
-
-
-// A declarator may have a trailing requires clause. Because the
-// requires clause is part of the declarator the function parameters
-// are visibile in that expression.
-static tree
-cp_parser_trailing_requires_clause (cp_parser *parser, cp_declarator *decl)
-{
-  tree reqs = NULL_TREE;
-  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
-    {
-      cp_lexer_consume_token (parser->lexer);
-      push_function_parms (decl);
-      ++cp_unevaluated_operand;
-      reqs = cp_parser_requires_clause (parser);
-      --cp_unevaluated_operand;
-      finish_scope();
-    }
-  return reqs;
-}
-
-/* Parse a declarator. See cp_parser_basic_declarator for details.
-
-   In concepts, we allow a requires-clause to be parsed at
-   after a function declarator. The program is ill-formed for
-   any other kind of declarator.
-
-     declarator:
-       basic-declarator requires-clause [opt]
-
-     basic-declarator:
-       direct-declarator
-       ptr-operator-declarator */
-
-static cp_declarator *
-cp_parser_declarator (cp_parser* parser,
-          cp_parser_declarator_kind dcl_kind,
-          int* ctor_dtor_or_conv_p,
-          bool* parenthesized_p,
-          bool member_p, bool friend_p)
-{
-  cp_declarator *declarator =
-    cp_parser_basic_declarator (parser, dcl_kind,
-                            ctor_dtor_or_conv_p,
-                            parenthesized_p,
-                            member_p,
-                            friend_p);
-  if (!declarator)
-    return declarator;
-
-  /* Function declarations may be followed by a trailing
-     requires-clause. Declarators for function declartions
-     are function declarators wrapping an id-declarator.
-     If the inner declarator is anything else, it does not
-     declare a function. These may also be reference or
-     pointer declarators enclosing such a function declarator.
-     In the declaration :
-
-        int *f(args)
-
-     the declarator is *f(args).
-
-     Abstract declarators cannot have a requires-clauses
-     because they do not declare functions. Here:
-
-        void f() -> int& requires false
-
-     The trailing return type contains an abstract declarator,
-     and the requires-clause applies to the function
-     declaration and not the abstract declarator.  */
-  if (flag_concepts && dcl_kind != CP_PARSER_DECLARATOR_ABSTRACT)
-    {
-      if (cp_declarator *fndecl = get_function_declarator (declarator))
-        fndecl->u.function.requires_clause
-          = cp_parser_trailing_requires_clause (parser, declarator);
-    }
   return declarator;
 }
 
@@ -18311,10 +18242,10 @@ cp_parser_direct_declarator (cp_parser* parser,
 		      else
 			attrs = chainon (attr, attrs);
 		    }
+		  tree requires_clause = NULL_TREE;
 		  late_return = (cp_parser_late_return_type_opt
-				 (parser, declarator,
+				 (parser, declarator, requires_clause,
 				  memfn ? cv_quals : -1));
-
 
 		  /* Parse the virt-specifier-seq.  */
 		  virt_specifiers = cp_parser_virt_specifier_seq_opt (parser);
@@ -18327,7 +18258,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 						     ref_qual,
 						     exception_specification,
 						     late_return,
-                                                     /*requires_clause=*/NULL_TREE);
+						     requires_clause);
 		  declarator->std_attributes = attrs;
 		  /* Any subsequent parameter lists are to do with
 		     return type, so are not those of the declared
@@ -19049,7 +18980,7 @@ parsing_nsdmi (void)
 
 static tree
 cp_parser_late_return_type_opt (cp_parser* parser, cp_declarator *declarator,
-				cp_cv_quals quals)
+				tree& requires_clause, cp_cv_quals quals)
 {
   cp_token *token;
   tree type = NULL_TREE;
@@ -19063,7 +18994,9 @@ cp_parser_late_return_type_opt (cp_parser* parser, cp_declarator *declarator,
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
   /* A late-specified return type is indicated by an initial '->'. */
-  if (token->type != CPP_DEREF && !(declare_simd_p || cilk_simd_fn_vector_p))
+  if (token->type != CPP_DEREF
+      && token->keyword != RID_REQUIRES
+      && !(declare_simd_p || cilk_simd_fn_vector_p))
     return NULL_TREE;
 
   tree save_ccp = current_class_ptr;
@@ -19081,6 +19014,10 @@ cp_parser_late_return_type_opt (cp_parser* parser, cp_declarator *declarator,
 
       type = cp_parser_trailing_type_id (parser);
     }
+
+  /* Function declarations may be followed by a trailing
+     requires-clause.  */
+  requires_clause = cp_parser_requires_clause_opt (parser);
 
   if (cilk_simd_fn_vector_p)
     declarator->std_attributes

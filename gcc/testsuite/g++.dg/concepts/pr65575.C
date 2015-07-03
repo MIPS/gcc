@@ -10,14 +10,11 @@ auto f4() -> int& requires false;
 auto f5() -> int* requires false;
 auto f6() -> int requires false;
 
-int (*p)() requires true; // { dg-error "expected" }
-int (&p)() requires true; // { dg-error "expected" }
-int g(int (*)() requires true); // { dg-error "expected" }
+int (*p)() requires true; // { dg-error "" }
+int (&p)() requires true; // { dg-error "" }
+int g(int (*)() requires true); // { dg-error "" }
 
 int f() { }
-
-// int main() { }
-
 
 int
 main()
