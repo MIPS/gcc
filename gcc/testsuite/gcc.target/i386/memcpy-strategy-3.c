@@ -1,6 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -march=atom -mmemcpy-strategy=vector_loop:2000:align,libcall:-1:align" } */
-/* { dg-final { scan-assembler-times "memcpy" 2  } } */
+/* { dg-final { scan-assembler-times "memcpy" 3 { target elf } } } */
+/* { dg-final { scan-assembler-times "memcpy" 2 { target { ! elf } } } } */
 
 char a[2048];
 char b[2048];

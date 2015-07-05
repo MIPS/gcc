@@ -7494,7 +7494,7 @@ elf_record_gcc_switches (print_switch_type type, const char * name)
 }
 
 /* Emit text to declare externally defined symbols. It is needed to
-   properly support non-default visibility.  */
+   properly support non-default visibility and specify symbol type.  */
 void
 default_elf_asm_output_external (FILE *file ATTRIBUTE_UNUSED,
 				 tree decl,
@@ -7503,10 +7503,28 @@ default_elf_asm_output_external (FILE *file ATTRIBUTE_UNUSED,
   /* We output the name if and only if TREE_SYMBOL_REFERENCED is
      set in order to avoid putting out names that are never really
      used.  Always output visibility specified in the source.  */
-  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
-      && (DECL_VISIBILITY_SPECIFIED (decl)
-	  || targetm.binds_local_p (decl)))
-    maybe_assemble_visibility (decl);
+  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+    {
+      if (DECL_VISIBILITY_SPECIFIED (decl)
+	  || targetm.binds_local_p (decl))
+	maybe_assemble_visibility (decl);
+
+#ifdef ASM_OUTPUT_TYPE_DIRECTIVE
+      /* We don't output symbol type for reference to external TLS
+	 symbol since assembler will generate TLS symbol type based
+	 on TLS relocation and Solaris assembler only supports the
+	 @tls_obj type directive, not the @tls_object type directive
+	 used by GNU assmbler, which doesn't understand the @tls_obj
+	 type directive.  */
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
+      else if (TREE_CODE (decl) == VAR_DECL)
+	{
+	  if (!DECL_THREAD_LOCAL_P (decl))
+	    ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "object");
+	}
+#endif
+    }
 }
 
 /* The default hook for TARGET_ASM_OUTPUT_SOURCE_FILENAME.  */

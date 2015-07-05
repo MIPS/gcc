@@ -6484,3 +6484,23 @@ proc check_effective_target_builtin_eh_return { } {
 	}
     } "" ]
 }
+
+# Returns 1 if the target is ELF.
+
+proc check_effective_target_elf { } {
+    global check_effective_target_elf_saved
+    global tool
+
+    if [info exists check_effective_target_elf_saved] {
+        verbose "check_effective_target_elf returning saved $check_effective_target_elf_saved" 2
+    } else {
+	set objformat [gcc_target_object_format]
+	if { $objformat == "elf" } {
+	    set check_effective_target_elf_saved 1
+	} else {
+	    set check_effective_target_elf_saved 0
+	}
+        verbose "check_effective_target_elf returning $check_effective_target_elf_saved" 2
+    }
+    return $check_effective_target_elf_saved
+}
