@@ -1490,10 +1490,6 @@ emit_block_move_via_loop (rtx x, rtx y, rtx size,
 void
 move_block_to_reg (int regno, rtx x, int nregs, machine_mode mode)
 {
-  int i;
-  rtx pat;
-  rtx_insn *last;
-
   if (nregs == 0)
     return;
 
@@ -1501,12 +1497,12 @@ move_block_to_reg (int regno, rtx x, int nregs, machine_mode mode)
     x = validize_mem (force_const_mem (mode, x));
 
   /* See if the machine can do this with a load multiple insn.  */
-  if (HAVE_load_multiple)
+  if (targetm.have_load_multiple ())
     {
-      last = get_last_insn ();
-      pat = gen_load_multiple (gen_rtx_REG (word_mode, regno), x,
-			       GEN_INT (nregs));
-      if (pat)
+      rtx_insn *last = get_last_insn ();
+      rtx first = gen_rtx_REG (word_mode, regno);
+      if (rtx_insn *pat = targetm.gen_load_multiple (first, x,
+						     GEN_INT (nregs)))
 	{
 	  emit_insn (pat);
 	  return;
@@ -1515,7 +1511,7 @@ move_block_to_reg (int regno, rtx x, int nregs, machine_mode mode)
 	delete_insns_since (last);
     }
 
-  for (i = 0; i < nregs; i++)
+  for (int i = 0; i < nregs; i++)
     emit_move_insn (gen_rtx_REG (word_mode, regno + i),
 		    operand_subword_force (x, i, mode));
 }
@@ -1526,18 +1522,16 @@ move_block_to_reg (int regno, rtx x, int nregs, machine_mode mode)
 void
 move_block_from_reg (int regno, rtx x, int nregs)
 {
-  int i;
-
   if (nregs == 0)
     return;
 
   /* See if the machine can do this with a store multiple insn.  */
-  if (HAVE_store_multiple)
+  if (targetm.have_store_multiple ())
     {
       rtx_insn *last = get_last_insn ();
-      rtx pat = gen_store_multiple (x, gen_rtx_REG (word_mode, regno),
-				    GEN_INT (nregs));
-      if (pat)
+      rtx first = gen_rtx_REG (word_mode, regno);
+      if (rtx_insn *pat = targetm.gen_store_multiple (x, first,
+						      GEN_INT (nregs)))
 	{
 	  emit_insn (pat);
 	  return;
@@ -1546,7 +1540,7 @@ move_block_from_reg (int regno, rtx x, int nregs)
 	delete_insns_since (last);
     }
 
-  for (i = 0; i < nregs; i++)
+  for (int i = 0; i < nregs; i++)
     {
       rtx tem = operand_subword (x, i, 1, BLKmode);
 
@@ -3630,15 +3624,6 @@ gen_move_insn (rtx x, rtx y)
   return seq;
 }
 
-/* Same as above, but return rtx (used as a callback, which must have
-   prototype compatible with other functions returning rtx).  */
-
-rtx
-gen_move_insn_uncast (rtx x, rtx y)
-{
-  return gen_move_insn (x, y);
-}
-
 /* If Y is representable exactly in a narrower mode, and the target can
    perform the extension directly from constant or memory, then emit the
    move as an extension.  */
@@ -5273,7 +5258,7 @@ store_expr_with_bounds (tree exp, rtx target, int call_param_p,
       jumpifnot (TREE_OPERAND (exp, 0), lab1, -1);
       store_expr_with_bounds (TREE_OPERAND (exp, 1), target, call_param_p,
 			      nontemporal, btarget);
-      emit_jump_insn (gen_jump (lab2));
+      emit_jump_insn (targetm.gen_jump (lab2));
       emit_barrier ();
       emit_label (lab1);
       store_expr_with_bounds (TREE_OPERAND (exp, 2), target, call_param_p,
@@ -8915,7 +8900,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	  return temp;
 
 	/* Use a compare and a jump for BLKmode comparisons, or for function
-	   type comparisons is HAVE_canonicalize_funcptr_for_compare.  */
+	   type comparisons is have_canonicalize_funcptr_for_compare.  */
 
 	if ((target == 0
 	     || modifier == EXPAND_STACK_PARM
@@ -9205,7 +9190,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 		    modifier == EXPAND_STACK_PARM,
 		    false);
 
-	emit_jump_insn (gen_jump (lab1));
+	emit_jump_insn (targetm.gen_jump (lab1));
 	emit_barrier ();
 	emit_label (lab0);
 	store_expr (treeop2, temp,
@@ -10919,8 +10904,7 @@ do_store_flag (sepops ops, rtx target, machine_mode mode)
 
   /* We won't bother with store-flag operations involving function pointers
      when function pointers must be canonicalized before comparisons.  */
-#ifdef HAVE_canonicalize_funcptr_for_compare
-  if (HAVE_canonicalize_funcptr_for_compare
+  if (targetm.have_canonicalize_funcptr_for_compare ()
       && ((TREE_CODE (TREE_TYPE (arg0)) == POINTER_TYPE
 	   && (TREE_CODE (TREE_TYPE (TREE_TYPE (arg0)))
 	       == FUNCTION_TYPE))
@@ -10928,7 +10912,6 @@ do_store_flag (sepops ops, rtx target, machine_mode mode)
 	      && (TREE_CODE (TREE_TYPE (TREE_TYPE (arg1)))
 		  == FUNCTION_TYPE))))
     return 0;
-#endif
 
   STRIP_NOPS (arg0);
   STRIP_NOPS (arg1);
@@ -11065,14 +11048,6 @@ do_store_flag (sepops ops, rtx target, machine_mode mode)
 				 && !TYPE_UNSIGNED (ops->type)) ? -1 : 1);
 }
 
-
-/* Stubs in case we haven't got a casesi insn.  */
-#ifndef HAVE_casesi
-# define HAVE_casesi 0
-# define gen_casesi(a, b, c, d, e) (0)
-# define CODE_FOR_casesi CODE_FOR_nothing
-#endif
-
 /* Attempt to generate a casesi instruction.  Returns 1 if successful,
    0 otherwise (i.e. if there is no casesi instruction).
 
@@ -11087,7 +11062,7 @@ try_casesi (tree index_type, tree index_expr, tree minval, tree range,
   machine_mode index_mode = SImode;
   rtx op1, op2, index;
 
-  if (! HAVE_casesi)
+  if (! targetm.have_casesi ())
     return 0;
 
   /* Convert the index to SImode.  */
@@ -11131,7 +11106,7 @@ try_casesi (tree index_type, tree index_expr, tree minval, tree range,
   create_fixed_operand (&ops[4], (default_label
 				  ? default_label
 				  : fallback_label));
-  expand_jump_insn (CODE_FOR_casesi, 5, ops);
+  expand_jump_insn (targetm.code_for_casesi, 5, ops);
   return 1;
 }
 
@@ -11204,7 +11179,7 @@ do_tablejump (rtx index, machine_mode mode, rtx range, rtx table_label,
   vector = gen_const_mem (CASE_VECTOR_MODE, index);
   convert_move (temp, vector, 0);
 
-  emit_jump_insn (gen_tablejump (temp, table_label));
+  emit_jump_insn (targetm.gen_tablejump (temp, table_label));
 
   /* If we are generating PIC code or if the table is PC-relative, the
      table and JUMP_INSN must be adjacent, so don't output a BARRIER.  */
@@ -11218,7 +11193,7 @@ try_tablejump (tree index_type, tree index_expr, tree minval, tree range,
 {
   rtx index;
 
-  if (! HAVE_tablejump)
+  if (! targetm.have_tablejump ())
     return 0;
 
   index_expr = fold_build2 (MINUS_EXPR, index_type,

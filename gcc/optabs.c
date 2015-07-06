@@ -1110,7 +1110,7 @@ expand_doubleword_shift (machine_mode op1_mode, optab binoptab,
 			       unsignedp, methods))
     return false;
 
-  emit_jump_insn (gen_jump (done_label));
+  emit_jump_insn (targetm.gen_jump (done_label));
   emit_barrier ();
   emit_label (subword_label);
 
@@ -2589,7 +2589,7 @@ expand_doubleword_clz (machine_mode mode, rtx op0, rtx target)
   if (temp != result)
     convert_move (result, temp, true);
 
-  emit_jump_insn (gen_jump (after_label));
+  emit_jump_insn (targetm.gen_jump (after_label));
   emit_barrier ();
 
   /* Else clz of the full value is clz of the low word plus the number
@@ -5088,7 +5088,7 @@ expand_float (rtx to, rtx from, int unsignedp)
 
 	      /* The sign bit is not set.  Convert as signed.  */
 	      expand_float (target, from, 0);
-	      emit_jump_insn (gen_jump (label));
+	      emit_jump_insn (targetm.gen_jump (label));
 	      emit_barrier ();
 
 	      /* The sign bit is set.
@@ -5293,7 +5293,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
 
 	  /* If not, do the signed "fix" and branch around fixup code.  */
 	  expand_fix (to, from, 0);
-	  emit_jump_insn (gen_jump (lab2));
+	  emit_jump_insn (targetm.gen_jump (lab2));
 	  emit_barrier ();
 
 	  /* Otherwise, subtract 2**(N-1), convert to signed number,
@@ -7575,12 +7575,12 @@ expand_asm_memory_barrier (void)
 void
 expand_mem_thread_fence (enum memmodel model)
 {
-  if (HAVE_mem_thread_fence)
-    emit_insn (gen_mem_thread_fence (GEN_INT (model)));
+  if (targetm.have_mem_thread_fence ())
+    emit_insn (targetm.gen_mem_thread_fence (GEN_INT (model)));
   else if (!is_mm_relaxed (model))
     {
-      if (HAVE_memory_barrier)
-	emit_insn (gen_memory_barrier ());
+      if (targetm.have_memory_barrier ())
+	emit_insn (targetm.gen_memory_barrier ());
       else if (synchronize_libfunc != NULL_RTX)
 	emit_library_call (synchronize_libfunc, LCT_NORMAL, VOIDmode, 0);
       else
@@ -7594,8 +7594,8 @@ expand_mem_thread_fence (enum memmodel model)
 void
 expand_mem_signal_fence (enum memmodel model)
 {
-  if (HAVE_mem_signal_fence)
-    emit_insn (gen_mem_signal_fence (GEN_INT (model)));
+  if (targetm.have_mem_signal_fence ())
+    emit_insn (targetm.gen_mem_signal_fence (GEN_INT (model)));
   else if (!is_mm_relaxed (model))
     {
       /* By default targets are coherent between a thread and the signal
@@ -8416,18 +8416,6 @@ expand_jump_insn (enum insn_code icode, unsigned int nops,
 }
 
 /* Reduce conditional compilation elsewhere.  */
-#ifndef HAVE_insv
-#define HAVE_insv	0
-#define CODE_FOR_insv	CODE_FOR_nothing
-#endif
-#ifndef HAVE_extv
-#define HAVE_extv	0
-#define CODE_FOR_extv	CODE_FOR_nothing
-#endif
-#ifndef HAVE_extzv
-#define HAVE_extzv	0
-#define CODE_FOR_extzv	CODE_FOR_nothing
-#endif
 
 /* Enumerates the possible types of structure operand to an
    extraction_insn.  */
@@ -8512,25 +8500,25 @@ get_extraction_insn (extraction_insn *insn,
   switch (pattern)
     {
     case EP_insv:
-      if (HAVE_insv
+      if (targetm.have_insv ()
 	  && get_traditional_extraction_insn (insn, type, mode,
-					      CODE_FOR_insv, 0, 3))
+					      targetm.code_for_insv, 0, 3))
 	return true;
       return get_optab_extraction_insn (insn, type, mode, insv_optab,
 					insvmisalign_optab, 2);
 
     case EP_extv:
-      if (HAVE_extv
+      if (targetm.have_extv ()
 	  && get_traditional_extraction_insn (insn, type, mode,
-					      CODE_FOR_extv, 1, 0))
+					      targetm.code_for_extv, 1, 0))
 	return true;
       return get_optab_extraction_insn (insn, type, mode, extv_optab,
 					extvmisalign_optab, 3);
 
     case EP_extzv:
-      if (HAVE_extzv
+      if (targetm.have_extzv ()
 	  && get_traditional_extraction_insn (insn, type, mode,
-					      CODE_FOR_extzv, 1, 0))
+					      targetm.code_for_extzv, 1, 0))
 	return true;
       return get_optab_extraction_insn (insn, type, mode, extzv_optab,
 					extzvmisalign_optab, 3);

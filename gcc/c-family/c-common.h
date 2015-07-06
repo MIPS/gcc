@@ -222,8 +222,8 @@ enum rid
   RID_FIRST_MODIFIER = RID_STATIC,
   RID_LAST_MODIFIER = RID_ONEWAY,
 
-  RID_FIRST_CXX0X = RID_CONSTEXPR,
-  RID_LAST_CXX0X = RID_STATIC_ASSERT,
+  RID_FIRST_CXX11 = RID_CONSTEXPR,
+  RID_LAST_CXX11 = RID_STATIC_ASSERT,
   RID_FIRST_UPC_QUAL = RID_SHARED,
   RID_LAST_UPC_QUAL = RID_STRICT,
   RID_FIRST_UPC_KW = RID_UPC_BARRIER,
@@ -400,7 +400,7 @@ extern machine_mode c_default_pointer_mode;
 #define D_CONLY		0x001	/* C only (not in C++).  */
 #define D_CXXONLY	0x002	/* C++ only (not in C).  */
 #define D_C99		0x004	/* In C, C99 only.  */
-#define D_CXX0X         0x008	/* In C++, C++0X only.  */
+#define D_CXX11         0x008	/* In C++, C++11 only.  */
 #define D_EXT		0x010	/* GCC extension.  */
 #define D_EXT89		0x020	/* GCC extension incorporated in C99.  */
 #define D_ASM		0x040	/* Disabled by -fno-asm.  */
@@ -987,9 +987,11 @@ extern tree boolean_increment (enum tree_code, tree);
 
 extern int case_compare (splay_tree_key, splay_tree_key);
 
-extern tree c_add_case_label (location_t, splay_tree, tree, tree, tree, tree);
+extern tree c_add_case_label (location_t, splay_tree, tree, tree, tree, tree,
+			      bool *);
 
-extern void c_do_switch_warnings (splay_tree, location_t, tree, tree);
+extern void c_do_switch_warnings (splay_tree, location_t, tree, tree, bool,
+				  bool);
 
 extern tree build_function_call (location_t, tree, tree);
 
@@ -1084,6 +1086,7 @@ extern void warn_for_sign_compare (location_t,
 				   tree op0, tree op1,
 				   tree result_type,
 				   enum tree_code resultcode);
+extern void do_warn_unused_parameter (tree);
 extern void do_warn_double_promotion (tree, tree, tree, const char *, 
 				      location_t);
 extern void set_underlying_type (tree);

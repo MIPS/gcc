@@ -4892,11 +4892,6 @@ init_function_start (tree subr)
 /* Expand code to verify the stack_protect_guard.  This is invoked at
    the end of a function to be protected.  */
 
-#ifndef HAVE_stack_protect_test
-# define HAVE_stack_protect_test		0
-# define gen_stack_protect_test(x, y, z)	(gcc_unreachable (), NULL_RTX)
-#endif
-
 void
 stack_protect_epilogue (void)
 {
@@ -4909,13 +4904,12 @@ stack_protect_epilogue (void)
 
   /* Allow the target to compare Y with X without leaking either into
      a register.  */
-  switch ((int) (HAVE_stack_protect_test != 0))
+  switch (targetm.have_stack_protect_test ())
     {
     case 1:
-      tmp = gen_stack_protect_test (x, y, label);
-      if (tmp)
+      if (rtx_insn *seq = targetm.gen_stack_protect_test (x, y, label))
 	{
-	  emit_insn (tmp);
+	  emit_insn (seq);
 	  break;
 	}
       /* FALLTHRU */
@@ -5226,20 +5220,6 @@ static void
 use_return_register (void)
 {
   diddle_return_value (do_use_return_reg, NULL);
-}
-
-/* Possibly warn about unused parameters.  */
-void
-do_warn_unused_parameter (tree fn)
-{
-  tree decl;
-
-  for (decl = DECL_ARGUMENTS (fn);
-       decl; decl = DECL_CHAIN (decl))
-    if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
-	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl)
-	&& !TREE_NO_WARNING (decl))
-      warning (OPT_Wunused_parameter, "unused parameter %q+D", decl);
 }
 
 /* Set the location of the insn chain starting at INSN to LOC.  */
@@ -5880,27 +5860,20 @@ thread_prologue_and_epilogue_insns (void)
       && (lookup_attribute ("no_split_stack", DECL_ATTRIBUTES (cfun->decl))
 	  == NULL))
     {
-#ifndef HAVE_split_stack_prologue
-      gcc_unreachable ();
-#else
-      gcc_assert (HAVE_split_stack_prologue);
-
       start_sequence ();
-      emit_insn (gen_split_stack_prologue ());
+      emit_insn (targetm.gen_split_stack_prologue ());
       split_prologue_seq = get_insns ();
       end_sequence ();
 
       record_insns (split_prologue_seq, NULL, &prologue_insn_hash);
       set_insn_locations (split_prologue_seq, prologue_location);
-#endif
     }
 
   prologue_seq = NULL;
-#ifdef HAVE_prologue
-  if (HAVE_prologue)
+  if (targetm.have_prologue ())
     {
       start_sequence ();
-      rtx_insn *seq = safe_as_a <rtx_insn *> (gen_prologue ());
+      rtx_insn *seq = targetm.gen_prologue ();
       emit_insn (seq);
 
       /* Insert an explicit USE for the frame pointer
@@ -5922,7 +5895,6 @@ thread_prologue_and_epilogue_insns (void)
       end_sequence ();
       set_insn_locations (prologue_seq, prologue_location);
     }
-#endif
 
   bitmap_initialize (&bb_flags, &bitmap_default_obstack);
 
@@ -6027,11 +5999,11 @@ thread_prologue_and_epilogue_insns (void)
   if (exit_fallthru_edge == NULL)
     goto epilogue_done;
 
-  if (HAVE_epilogue)
+  if (targetm.have_epilogue ())
     {
       start_sequence ();
       epilogue_end = emit_note (NOTE_INSN_EPILOGUE_BEG);
-      rtx_insn *seq = as_a <rtx_insn *> (gen_epilogue ());
+      rtx_insn *seq = targetm.gen_epilogue ();
       if (seq)
 	emit_jump_insn (seq);
 
@@ -6102,7 +6074,6 @@ epilogue_done:
     convert_to_simple_return (entry_edge, orig_entry_edge, bb_flags,
 			      returnjump, unconverted_simple_returns);
 
-#ifdef HAVE_sibcall_epilogue
   /* Emit sibling epilogues before any sibling call sites.  */
   for (ei = ei_start (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds); (e =
 							     ei_safe_edge (ei));
@@ -6110,7 +6081,6 @@ epilogue_done:
     {
       basic_block bb = e->src;
       rtx_insn *insn = BB_END (bb);
-      rtx ep_seq;
 
       if (!CALL_P (insn)
 	  || ! SIBLING_CALL_P (insn)
@@ -6122,8 +6092,7 @@ epilogue_done:
 	  continue;
 	}
 
-      ep_seq = gen_sibcall_epilogue ();
-      if (ep_seq)
+      if (rtx_insn *ep_seq = targetm.gen_sibcall_epilogue ())
 	{
 	  start_sequence ();
 	  emit_note (NOTE_INSN_EPILOGUE_BEG);
@@ -6141,7 +6110,6 @@ epilogue_done:
 	}
       ei_next (&ei);
     }
-#endif
 
   if (epilogue_end)
     {
@@ -6175,10 +6143,10 @@ epilogue_done:
 void
 reposition_prologue_and_epilogue_notes (void)
 {
-#if ! defined (HAVE_prologue) && ! defined (HAVE_sibcall_epilogue)
-  if (!HAVE_epilogue)
+  if (!targetm.have_prologue ()
+      && !targetm.have_epilogue ()
+      && !targetm.have_sibcall_epilogue ())
     return;
-#endif
 
   /* Since the hash table is created on demand, the fact that it is
      non-null is a signal that it is non-empty.  */
