@@ -8,27 +8,27 @@ f1(int i)
 {
   if (1 == 1 || f2(i >> -10)) // { dg-warning "" }
     f3();
-  if (1 == 1 || f2(i >> 128)) // { dg-warning "" }
+  if (1 == 1 || f2(i >> 128))
     f3();
-  if (1 == 1 || f2(i << -10)) // { dg-warning "" }
+  if (1 == 1 || f2(i << -10))
     f3();
-  if (1 == 1 || f2(i << 128)) // { dg-warning "" }
+  if (1 == 1 || f2(i << 128))
     f3();
-  if (1 == 1 || i < 0xffffffff) // { dg-warning "comparison" }
+  if (1 == 1 || i < 0xffffffff)
     f3();
-  if (1 == 1 || i >= -0x80000000) // { dg-warning "comparison" }
+  if (1 == 1 || i >= -0x80000000)
     f3();
-  if (1 == 0 && f2(i >> -10)) // { dg-warning "" }
+  if (1 == 0 && f2(i >> -10))
     f3();
-  if (1 == 0 && f2(i >> 128)) // { dg-warning "" }
+  if (1 == 0 && f2(i >> 128))
     f3();
-  if (1 == 0 && f2(i << -10)) // { dg-warning "" }
+  if (1 == 0 && f2(i << -10))
     f3();
-  if (1 == 0 && f2(i << 128)) // { dg-warning "" }
+  if (1 == 0 && f2(i << 128))
     f3();
-  if (1 == 0 && i < 0xffffffff) // { dg-warning "comparison" }
+  if (1 == 0 && i < 0xffffffff)
     f3();
-  if (1 == 0 && i >= -0x80000000) // { dg-warning "comparison" }
+  if (1 == 0 && i >= -0x80000000)
     f3();
   if (1 == 1 && f2(i >> -10))	/* { dg-warning "shift count is negative" } */
     f3();
