@@ -1,3 +1,8 @@
+2015-07-06  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* gcc.target/mips/near-far-3.c: Allow the call to near_func to use
+	the jals instruction.
+
 2014-10-30  Release Manager
 
 	* GCC 4.9.2 released.
