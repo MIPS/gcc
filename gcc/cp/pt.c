@@ -6949,7 +6949,9 @@ is_compatible_template_arg (tree parm, tree arg)
   if (parm_cons)
     {
       tree args = template_parms_to_args (DECL_TEMPLATE_PARMS (arg));
-      parm_cons = tsubst_constraint_info (parm_cons, args, tf_none, NULL_TREE);
+      parm_cons = tsubst_constraint_info (parm_cons,
+					  INNERMOST_TEMPLATE_ARGS (args),
+					  tf_none, NULL_TREE);
       if (parm_cons == error_mark_node)
         return false;
     }
