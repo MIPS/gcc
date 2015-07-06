@@ -6248,6 +6248,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   if (init && EXPR_HAS_LOCATION (init))
     elocus = EXPR_LOCATION (init);
 
+  cond = cp_fully_fold (cond);
   switch (TREE_CODE (cond))
     {
     case GT_EXPR:
@@ -6275,7 +6276,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
       cond = error_mark_node;
       break;
     }
-  cond = cp_fully_fold (cond);
+
   if (cond == error_mark_node)
     {
       error_at (elocus, "invalid controlling predicate");
