@@ -1,3 +1,16 @@
+2015-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-core.h (enum omp_clause_code): Add OMP_CLAUSE_DEFAULTMAP.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name): Add entries
+	for defaultmap clause.
+	(walk_tree_1): Handle OMP_CLAUSE_DEFAULTMAP.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Likewise.
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+	* gimplify.c (gimplify_scan_omp_clauses,
+	gimplify_adjust_omp_clauses): Likewise.
+	* omp-low.c (scan_sharing_clauses): Likewise.
+
 2015-07-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (struct omp_for_data): Add ordered field.

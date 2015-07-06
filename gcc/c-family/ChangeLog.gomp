@@ -1,3 +1,8 @@
+2015-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-pragma.h (enum pragma_omp_clause): Add
+	PRAGMA_OMP_CLAUSE_DEFAULTMAP.
+
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-omp.c (c_omp_split_clauses): Split OMP_CLAUSE_PRIORITY
