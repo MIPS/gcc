@@ -1,7 +1,7 @@
 // { dg-do compile }
 // { dg-options "-Wall" }
 
-// For delayed folding we will warn about code that will not be executed too.
+// Check that we don't warn about code that will not be executed too.
 extern int f2(int);
 void
 f1(int i)
