@@ -856,7 +856,7 @@ get_specialization_constraints (tree type)
 }
 
 // Returns the type of a template specialization only if that
-// specialization needs to defined. Otherwise (e.g., if the type has
+// specialization needs to be defined. Otherwise (e.g., if the type has
 // already been defined), the function returns NULL_TREE.
 static tree
 maybe_new_partial_specialization (tree type)
@@ -1004,15 +1004,15 @@ maybe_process_partial_specialization (tree type)
 	 Make sure that `C<int>' and `C<T*>' are implicit instantiations.  */
 
       if (tree t = maybe_new_partial_specialization (type))
-        {
+	{
 	  if (!check_specialization_namespace (CLASSTYPE_TI_TEMPLATE (t))
-                && !at_namespace_scope_p ())
-            return error_mark_node;
+	      && !at_namespace_scope_p ())
+	    return error_mark_node;
 	  SET_CLASSTYPE_TEMPLATE_SPECIALIZATION (t);
 	  DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (t)) = input_location;
 	  if (processing_template_decl)
 	    {
-              tree decl = push_template_decl (TYPE_MAIN_DECL (t));
+	      tree decl = push_template_decl (TYPE_MAIN_DECL (t));
 	      if (decl == error_mark_node)
 		return error_mark_node;
               return TREE_TYPE (decl);
@@ -5273,9 +5273,8 @@ push_template_decl_real (tree decl, bool is_friend)
 	}
       else
 	{
-	  tmpl = build_template_decl (decl,
-                                      current_template_parms,
-                                      member_template_p);
+	  tmpl = build_template_decl (decl, current_template_parms,
+				      member_template_p);
 	  new_template_p = 1;
 
 	  if (DECL_LANG_SPECIFIC (decl)
@@ -5317,14 +5316,15 @@ push_template_decl_real (tree decl, bool is_friend)
 	     earlier call to check_explicit_specialization.  */
 	  args = DECL_TI_ARGS (decl);
 
-	  new_tmpl = build_template_decl (decl,
-                                    current_template_parms,
-                                    member_template_p);
+	  new_tmpl
+	    = build_template_decl (decl, current_template_parms,
+				   member_template_p);
 	  DECL_TEMPLATE_RESULT (new_tmpl) = decl;
 	  TREE_TYPE (new_tmpl) = TREE_TYPE (decl);
 	  DECL_TI_TEMPLATE (decl) = new_tmpl;
 	  SET_DECL_TEMPLATE_SPECIALIZATION (new_tmpl);
-	  DECL_TEMPLATE_INFO (new_tmpl) = build_template_info (tmpl, args);
+	  DECL_TEMPLATE_INFO (new_tmpl)
+	    = build_template_info (tmpl, args);
 
 	  register_specialization (new_tmpl,
 				   most_general_template (tmpl),

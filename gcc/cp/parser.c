@@ -1525,7 +1525,7 @@ make_call_declarator (cp_declarator *target,
 		      cp_ref_qualifier ref_qualifier,
 		      tree exception_specification,
 		      tree late_return_type,
-                      tree requires_clause)
+		      tree requires_clause)
 {
   cp_declarator *declarator;
 
@@ -23647,7 +23647,7 @@ cp_parser_type_requirement (cp_parser *parser)
    type = cp_parser_type_name (parser, /*typename_keyword_p=*/true);
 
   /* If we got an alias template, unwrap its aliased type. */
-  if (DECL_P(type) && TYPE_DECL_ALIAS_P (type))
+  if (DECL_P (type) && TYPE_DECL_ALIAS_P (type))
     type = TREE_TYPE (type);
 
   parser->scope = saved_scope;
@@ -24564,38 +24564,37 @@ cp_parser_template_declaration_after_parameters (cp_parser* parser,
 
   /* Tentatively parse for a new template parameter list, which can either be
      the template keyword or a template introduction.  */
-  if (!cp_parser_template_declaration_after_export (parser, member_p))
+  if (cp_parser_template_declaration_after_export (parser, member_p))
+    /* OK */;
+  else if (cxx_dialect >= cxx11
+	   && cp_lexer_next_token_is_keyword (parser->lexer, RID_USING))
+    decl = cp_parser_alias_declaration (parser);
+  else
     {
-      if (cxx_dialect >= cxx11
-	  && cp_lexer_next_token_is_keyword (parser->lexer, RID_USING))
-	decl = cp_parser_alias_declaration (parser);
-      else
+      /* There are no access checks when parsing a template, as we do not
+	 know if a specialization will be a friend.  */
+      push_deferring_access_checks (dk_no_check);
+      cp_token *token = cp_lexer_peek_token (parser->lexer);
+      decl = cp_parser_single_declaration (parser,
+					   checks,
+					   member_p,
+                                           /*explicit_specialization_p=*/false,
+					   &friend_p);
+      pop_deferring_access_checks ();
+
+      /* If this is a member template declaration, let the front
+	 end know.  */
+      if (member_p && !friend_p && decl)
 	{
-	  /* There are no access checks when parsing a template, as we do not
-	    know if a specialization will be a friend.  */
-	  push_deferring_access_checks (dk_no_check);
-	  cp_token *token = cp_lexer_peek_token (parser->lexer);
-	  decl = cp_parser_single_declaration (parser,
-					       checks,
-					       member_p,
-					       /*explicit_specialization_p=*/false,
-					       &friend_p);
-	  pop_deferring_access_checks ();
+	  if (TREE_CODE (decl) == TYPE_DECL)
+	    cp_parser_check_access_in_redeclaration (decl, token->location);
 
-	  /* If this is a member template declaration, let the front
-	    end know.  */
-	  if (member_p && !friend_p && decl)
-	    {
-	      if (TREE_CODE (decl) == TYPE_DECL)
-		cp_parser_check_access_in_redeclaration (decl, token->location);
-
-	      decl = finish_member_template_decl (decl);
-	    }
-	  else if (friend_p && decl
-		   && DECL_DECLARES_TYPE_P (decl))
-	    make_friend_class (current_class_type, TREE_TYPE (decl),
-			       /*complain=*/true);
+	  decl = finish_member_template_decl (decl);
 	}
+      else if (friend_p && decl
+	       && DECL_DECLARES_TYPE_P (decl))
+	make_friend_class (current_class_type, TREE_TYPE (decl),
+			   /*complain=*/true);
     }
   /* We are done with the current parameter list.  */
   --parser->num_template_parameter_lists;
@@ -24697,7 +24696,7 @@ cp_parser_template_introduction (cp_parser* parser, bool member_p)
   /* Look for opening brace for introduction.  */
   cp_parser_require (parser, CPP_OPEN_BRACE, RT_OPEN_BRACE);
 
-  if (!cp_parser_parse_definitely(parser))
+  if (!cp_parser_parse_definitely (parser))
     return false;
 
   push_deferring_access_checks (dk_deferred);
@@ -24907,13 +24906,13 @@ cp_parser_single_declaration (cp_parser* parser,
     {
       if (cp_parser_declares_only_class_p (parser))
 	{
-          // If this is a declaration, but not a definition, associate
-          // any constraints with the type declaration. Constraints
-          // are associated with definitions in cp_parser_class_specifier.
-          if (declares_class_or_enum == 1)
-            associate_classtype_constraints (decl_specifiers.type);
+	  // If this is a declaration, but not a definition, associate
+	  // any constraints with the type declaration. Constraints
+	  // are associated with definitions in cp_parser_class_specifier.
+	  if (declares_class_or_enum == 1)
+	    associate_classtype_constraints (decl_specifiers.type);
 
-          decl = shadow_tag (&decl_specifiers);
+	  decl = shadow_tag (&decl_specifiers);
 
 	  /* In this case:
 
@@ -34896,7 +34895,7 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
     }
 
   // If the new parameter was constrained, we need to add that to the
-  // constraints in the tmeplate parameter list.
+  // constraints in the template parameter list.
   if (tree req = TEMPLATE_PARM_CONSTRAINTS (tree_last (new_parm)))
     {
       tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
