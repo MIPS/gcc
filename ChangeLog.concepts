@@ -1,5 +1,8 @@
 2015-07-05  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/parser.c (cp_parser_member_declaration): Revert diagnostic
+	location change.
+
 	* gcc/cp/pt.c (process_partial_specialization): Tweak diagnostic.
 
 	* gcc/cp/decl.c (push_function_parms): Remove unused function.

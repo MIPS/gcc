@@ -21822,7 +21822,7 @@ cp_parser_member_declaration (cp_parser* parser)
 		 actual semicolon is missing.  Find the previous token
 		 and use that for our error position.  */
 	      cp_token *token = cp_lexer_previous_token (parser->lexer);
-	      error_at (token->location ? token->location : input_location,
+	      error_at (token->location,
 			"expected %<;%> at end of member declaration");
 
 	      /* Assume that the user meant to provide a semicolon.  If
