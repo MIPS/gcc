@@ -6924,17 +6924,6 @@ canonicalize_type_argument (tree arg, tsubst_flags_t complain)
 static bool
 is_compatible_template_arg (tree parm, tree arg)
 {
-  // TODO: The argument may not have a decl result. This seems to
-  // happen in some classes with nested template template
-  // parameters (e.g., a rebind struct in a class taking a template
-  // template parameter. If this is the case, just return true and
-  // allow things to happen as they always did.
-  if (TREE_CODE (arg) == TEMPLATE_DECL)
-    {
-      if (!DECL_TEMPLATE_RESULT (arg))
-        return true;
-    }
-
   tree parm_cons = get_constraints (parm);
   tree arg_cons = get_constraints (arg);
 
