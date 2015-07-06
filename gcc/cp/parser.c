@@ -8257,18 +8257,18 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
 	  && TREE_CODE_CLASS (current.tree_type) == tcc_comparison
 	  && current.lhs_type == TRUTH_NOT_EXPR
 	  /* Avoid warning for !!x == y.  */
-	  && (TREE_CODE (folded) != NE_EXPR
-	      || !integer_zerop (TREE_OPERAND (folded, 1)))
-	  && (TREE_CODE (folded) != TRUTH_NOT_EXPR
-	      || (TREE_CODE (TREE_OPERAND (folded, 0)) != TRUTH_NOT_EXPR
+	  && (TREE_CODE (current.lhs) != NE_EXPR
+	      || !integer_zerop (TREE_OPERAND (current.lhs, 1)))
+	  && (TREE_CODE (current.lhs) != TRUTH_NOT_EXPR
+	      || (TREE_CODE (TREE_OPERAND (current.lhs, 0)) != TRUTH_NOT_EXPR
 		  /* Avoid warning for !b == y where b is boolean.  */
-		  && (TREE_TYPE (TREE_OPERAND (folded, 0)) == NULL_TREE
-		      || (TREE_CODE (TREE_TYPE (TREE_OPERAND (folded, 0)))
+		  && (TREE_TYPE (TREE_OPERAND (current.lhs, 0)) == NULL_TREE
+		      || (TREE_CODE (TREE_TYPE (TREE_OPERAND (current.lhs, 0)))
 			  != BOOLEAN_TYPE))))
 	  /* Avoid warning for !!b == y where b is boolean.  */
-	  && (!DECL_P (folded)
-	      || TREE_TYPE (folded) == NULL_TREE
-	      || TREE_CODE (TREE_TYPE (folded)) != BOOLEAN_TYPE))
+	  && (!DECL_P (current.lhs)
+	      || TREE_TYPE (current.lhs) == NULL_TREE
+	      || TREE_CODE (TREE_TYPE (current.lhs)) != BOOLEAN_TYPE))
 	warn_logical_not_parentheses (current.loc, current.tree_type,
 				      maybe_constant_value (rhs));
 
