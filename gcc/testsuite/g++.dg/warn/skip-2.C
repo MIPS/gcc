@@ -6,7 +6,7 @@ extern void f3();
 void
 f1(int i)
 {
-  if (1 == 1 || f2(i >> -10)) // { dg-warning "" }
+  if (1 == 1 || f2(i >> -10))
     f3();
   if (1 == 1 || f2(i >> 128))
     f3();
