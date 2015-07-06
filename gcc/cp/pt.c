@@ -4552,23 +4552,17 @@ process_partial_specialization (tree decl)
      the implicit argument list of the primary template.  */
   tree main_args
     = TI_ARGS (get_template_info (DECL_TEMPLATE_RESULT (maintmpl)));
-  if (comp_template_args (inner_args, INNERMOST_TEMPLATE_ARGS (main_args)))
+  if (comp_template_args (inner_args, INNERMOST_TEMPLATE_ARGS (main_args))
+      && (!flag_concepts
+	  || !subsumes_constraints (tmpl_constr, get_constraints (maintmpl))))
     {
       if (!flag_concepts)
-        error ("partial specialization %qD does not specialize "
-	             "any template arguments", decl);
+        error ("partial specialization %q+D does not specialize "
+	       "any template arguments", decl);
       else
-        {
-          /* If the arguments compare equal but are not not more
-             constrained, then this will not be more specialized.  */
-          if (!subsumes_constraints (tmpl_constr, get_constraints (maintmpl)))
-            {
-              error ("partial specialization is not more specialized than the "
-                     "primary template because it is not more constrained");
-              inform (DECL_SOURCE_LOCATION (maintmpl), "primary template here");
-              return decl;
-            }
-        }
+        error ("partial specialization %q+D does not specialize any "
+	       "template arguments and is not more constrained than", decl);
+      inform (DECL_SOURCE_LOCATION (maintmpl), "primary template here");
     }
 
   /* A partial specialization that replaces multiple parameters of the

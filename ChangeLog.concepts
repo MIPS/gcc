@@ -1,5 +1,7 @@
 2015-07-05  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/pt.c (process_partial_specialization): Tweak diagnostic.
+
 	* gcc/cp/decl.c (push_function_parms): Remove unused function.
 
 	* gcc/cp/pt.c (is_compatible_template_arg): Only tsubst the
