@@ -1606,16 +1606,7 @@ cxx_pretty_printer::direct_declarator (tree t)
 
 /* declarator:
    direct-declarator
-   ptr-operator declarator
-
-   Concepts:
-
-   declarator:
-     basic-declarator requires-clause(opt)
-
-   basic-declarator:
-     direct-declarator
-     ptr-operator declarator  */
+   ptr-operator declarator  */
 
 void
 cxx_pretty_printer::declarator (tree t)

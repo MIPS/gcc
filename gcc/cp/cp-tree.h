@@ -5653,7 +5653,6 @@ extern bool defer_mark_used_calls;
 extern GTY(()) vec<tree, va_gc> *deferred_mark_used_calls;
 extern tree finish_case_label			(location_t, tree, tree);
 extern tree cxx_maybe_build_cleanup		(tree, tsubst_flags_t);
-extern void push_function_parms                (cp_declarator *);
 
 /* in decl2.c */
 extern void note_mangling_alias			(tree, tree);

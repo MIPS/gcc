@@ -14082,30 +14082,6 @@ store_parm_decls (tree current_function_parms)
     current_eh_spec_block = begin_eh_spec_block ();
 }
 
-// Bring the parameters of a function declaration back into
-// scope without entering the function body. The declarator
-// must be a function declarator. The caller is responsible
-// for calling finish_scope.
-void
-push_function_parms (cp_declarator *declarator)
-{
-  // Find the actual function declarator.
-  while (declarator)
-    {
-      if (declarator->kind == cdk_function)
-        break;
-      declarator = declarator->declarator;
-    }
-
-  begin_scope (sk_function_parms, NULL_TREE);
-  tree p = declarator->u.function.parameters;
-  while (p != NULL_TREE && !VOID_TYPE_P (TREE_VALUE (p)))
-    {
-      pushdecl (TREE_VALUE (p));
-      p = TREE_CHAIN (p);
-    }
-}
-
 
 /* We have finished doing semantic analysis on DECL, but have not yet
    generated RTL for its body.  Save away our current state, so that
