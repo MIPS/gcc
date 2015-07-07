@@ -116,6 +116,9 @@ enum gimplify_omp_var_data
   /* Gang-local OpenACC variable.  */
   GOVD_GANGLOCAL = (1 << 16),
 
+  /* OpenACC deviceptr clause.  */
+  GOVD_USE_DEVPTR = (1 << 17),
+
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LINEAR
 			   | GOVD_LOCAL)
@@ -6274,7 +6277,10 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		}
 	      break;
 	    }
+
 	  flags = GOVD_MAP | GOVD_EXPLICIT;
+	  if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FORCE_DEVICEPTR)
+	    flags |= GOVD_USE_DEVPTR;
 	  goto do_add;
 
 	case OMP_CLAUSE_DEPEND:
@@ -6662,6 +6668,7 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 			       : (flags & GOVD_FORCE_MAP
 				  ? GOMP_MAP_FORCE_TOFROM
 				  : GOMP_MAP_TOFROM));
+
       if (DECL_SIZE (decl)
 	  && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
 	{
@@ -6687,7 +6694,17 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 	  OMP_CLAUSE_CHAIN (clause) = nc;
 	}
       else
-	OMP_CLAUSE_SIZE (clause) = DECL_SIZE_UNIT (decl);
+	{
+	  if (gimplify_omp_ctxp->outer_context)
+	    {
+	      struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp->outer_context;
+	      splay_tree_node on
+		    = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
+	      if (on && (on->value & GOVD_USE_DEVPTR))
+	        OMP_CLAUSE_SET_MAP_KIND (clause, GOMP_MAP_FORCE_PRESENT);
+	    }
+	  OMP_CLAUSE_SIZE (clause) = DECL_SIZE_UNIT (decl);
+	}
     }
   if (code == OMP_CLAUSE_FIRSTPRIVATE && (flags & GOVD_LASTPRIVATE) != 0)
     {

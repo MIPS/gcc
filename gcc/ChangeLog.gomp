@@ -1,3 +1,9 @@
+2015-07-07  James Norris  <jnorris@codesourcery.com>
+
+	* gimplify.c (enum gimplify_omp_var_data): Add new enum.
+	(gimplify_adjust_omp_clauses_1): Handle deviceptr clause seen in
+	outer context.
+
 2015-07-01  James Norris  <jnorris@codesourcery.com>
 
 	* c/c-parser.c (c_parser_oacc_data_clause_deviceptr): Allow parameter

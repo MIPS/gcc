@@ -1,3 +1,7 @@
+2015-07-07  James Norris  <jnorris@codesourcery.com>
+
+	* c-c++-common/goacc/deviceptr-4.c: New test.
+
 2015-07-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/dtype-1.c: Don't specify the OpenACC
