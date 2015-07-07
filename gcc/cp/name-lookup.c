@@ -6175,7 +6175,10 @@ push_to_top_level (void)
   s->unevaluated_operand = cp_unevaluated_operand;
   s->inhibit_evaluation_warnings = c_inhibit_evaluation_warnings;
   s->x_stmt_tree.stmts_are_full_exprs_p = true;
-  s->fold_map = new hash_map<tree, tree>;
+  if (cfun)
+    s->fold_map = new hash_map<tree, tree>;
+  else
+    s->fold_map = NULL;
 
   scope_chain = s;
   current_function_decl = NULL_TREE;
@@ -6223,6 +6226,12 @@ pop_from_top_level_1 (void)
     {
       delete fm;
       s->fold_map = NULL;
+    }
+  if (scope_chain && scope_chain->fold_map)
+    {
+      fm = scope_chain->fold_map;
+      delete fm;
+      scope_chain->fold_map = new hash_map<tree, tree>;
     }
 }
 
