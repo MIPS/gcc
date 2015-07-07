@@ -53,7 +53,7 @@ test ()
       for (i3 = 1; i3 < 10; i3++)
 #pragma acc loop dtype (nVidia) auto
 	for (i4 = 1; i4 < 10; i4++)
-#pragma acc loop dtype (nVidia) independent
+#pragma acc loop dtype (nVidia)
 	  for (i5 = 1; i5 < 10; i5++)
 #pragma acc loop device_type (nVidia) seq
 	    for (i6 = 1; i6 < 10; i6++)
@@ -69,7 +69,7 @@ test ()
       for (i3 = 1; i3 < 10; i3++)
 #pragma acc loop dtype (nVidia) auto device_type (*) seq
 	for (i4 = 1; i4 < 10; i4++)
-#pragma acc loop device_type (nVidia) independent device_type (*) seq
+#pragma acc loop device_type (nVidia) device_type (*) seq
 	  for (i5 = 1; i5 < 10; i5++)
 #pragma acc loop device_type (nVidia) seq
 	    for (i6 = 1; i6 < 10; i6++)
@@ -85,7 +85,7 @@ test ()
       for (i3 = 1; i3 < 10; i3++)
 #pragma acc loop device_type (nVidiaGPU) auto device_type (*) seq
 	for (i4 = 1; i4 < 10; i4++)
-#pragma acc loop dtype (nVidiaGPU) independent dtype (*) seq
+#pragma acc loop dtype (nVidiaGPU) dtype (*) seq
 	  for (i5 = 1; i5 < 10; i5++)
 #pragma acc loop device_type (nVidiaGPU) seq device_type (*) seq
 	    for (i6 = 1; i6 < 10; i6++)
@@ -147,7 +147,7 @@ test ()
 
 /* { dg-final { scan-tree-dump-times "acc loop auto private\\(i4\\)" 2 "omplower" } } */
 
-/* { dg-final { scan-tree-dump-times "acc loop private\\(i5\\)" 2 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "acc loop private\\(i5\\)" 1 "omplower" } } */
 
 /* { dg-final { scan-tree-dump-times "acc loop seq private\\(i6\\)" 3 "omplower" } } */
 
@@ -155,6 +155,6 @@ test ()
 
 /* { dg-final { scan-tree-dump-times "acc loop seq private\\(i4\\)" 1 "omplower" } } */
 
-/* { dg-final { scan-tree-dump-times "acc loop seq private\\(i5\\)" 1 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "acc loop seq private\\(i5\\)" 2 "omplower" } } */
 
 /* { dg-final { cleanup-tree-dump "omplower" } } */

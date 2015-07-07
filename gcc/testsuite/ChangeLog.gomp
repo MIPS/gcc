@@ -1,3 +1,9 @@
+2015-07-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/dtype-1.c: Don't specify the OpenACC
+	independent clause after device_type.
+	* gfortran.dg/goacc/dtype-1.f95: Likewise.
+
 2015-07-01  Tom de Vries  <tom@codesourcery.com>
 
 	PR tree-optimization/66716

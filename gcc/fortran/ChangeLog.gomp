@@ -1,3 +1,8 @@
+2015-07-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* openmp.c (OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK): Remove
+	OMP_CLAUSE_INDEPENDENT.
+
 2015-06-18  James Norris  <jnorris@codesourcery.com>
 
 	* trans-decl.c (find_module_oacc_declare_clauses): Fix setting of

@@ -54,7 +54,7 @@ program dtype
         do i3 = 1, 10
            !$acc loop device_type (nVidia) auto
            do i4 = 1, 10
-              !$acc loop dtype (nVidia) independent
+              !$acc loop dtype (nVidia)
               do i5 = 1, 10
                  !$acc loop dtype (nVidia) seq
                  do i6 = 1, 10
@@ -76,7 +76,7 @@ program dtype
         do i3 = 1, 10
            !$acc loop device_type (nVidia) auto dtype (*) seq
            do i4 = 1, 10
-              !$acc loop dtype (nVidia) independent &
+              !$acc loop dtype (nVidia) &
               !$acc& dtype (*) seq
               do i5 = 1, 10
                  !$acc loop device_type (nVidia) seq
@@ -99,7 +99,7 @@ program dtype
         do i3 = 1, 10
            !$acc loop dtype (nVidiaGPU) auto device_type (*) seq
            do i4 = 1, 10
-              !$acc loop dtype (nVidiaGPU) independent &
+              !$acc loop dtype (nVidiaGPU) &
               !$acc& dtype (*) seq
               do i5 = 1, 10
                  !$acc loop dtype (nVidiaGPU) seq device_type (*) seq
