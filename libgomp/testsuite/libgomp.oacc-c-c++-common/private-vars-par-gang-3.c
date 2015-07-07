@@ -1,5 +1,3 @@
-/* { dg-xfail-run-if "TODO" { c && openacc_nvidia_accel_selected } { "*" } { "" } } */
-
 #include <assert.h>
 
 /* Test of gang-private array variable declared on the parallel directive.  */

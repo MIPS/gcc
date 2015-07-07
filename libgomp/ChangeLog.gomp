@@ -1,5 +1,26 @@
 2015-07-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c++/c++.exp (check_effective_target_c):
+	Remove procedure.
+	* testsuite/libgomp.oacc-c/c.exp (check_effective_target_c):
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-local-worker-1.c:
+	Remove/tune XFAILs.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-local-worker-2.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-local-worker-4.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-gang-3.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-worker-2.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-worker-3.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-worker-4.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-par-gang-3.c:
+	Likewise.
+
 	* testsuite/libgomp.oacc-c-c++-common/reduction-4.c:
 	dg-xfail-run-if openacc_nvidia_accel_selected.
 

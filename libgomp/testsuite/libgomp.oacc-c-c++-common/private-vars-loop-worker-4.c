@@ -1,5 +1,3 @@
-/* { dg-xfail-run-if "TODO" { c && openacc_nvidia_accel_selected } { "*" } { "" } } */
-
 #include <assert.h>
 
 /* Test of worker-private variables declared on a loop directive, broadcasting
