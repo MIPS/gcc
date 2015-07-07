@@ -1,4 +1,5 @@
 /* { dg-do run { target { ! { hppa*-*-hpux* } } } } */
+/* { dg-xfail-run-if "libgomp: cuStreamSynchronize error: launch timeout" { openacc_nvidia_accel_selected } } */
 
 /* complex reductions.  */
 
