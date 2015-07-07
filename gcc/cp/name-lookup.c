@@ -6232,7 +6232,7 @@ pop_from_top_level_1 (void)
   cp_unevaluated_operand = s->unevaluated_operand;
   c_inhibit_evaluation_warnings = s->inhibit_evaluation_warnings;
 
-  if (fm && !same_fold_map)
+  if (fm && (!same_fold_map || !scope_chain))
     delete fm;
 
   s->fold_map = NULL;
