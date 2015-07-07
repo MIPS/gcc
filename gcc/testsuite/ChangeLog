@@ -1,3 +1,64 @@
+2015-07-07  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* gcc.target/mips/no-smartmips-lwxs.c: Change NOMIPS16 to
+	NOCOMPRESSION.
+
+2015-07-07  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/vect-over-widen-3-big-array.c: Adjust.
+
+2015-07-07  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* gcc.target/mips/call-1.c: Allow testcase to match the jrc instruction.
+	* gcc.target/mips/call-5.c: Ditto.
+	* gcc.target/mips/call-6.c: Ditto.
+
+2015-07-07  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/dx-test.c: New test-case.
+
+2015-07-07  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/66578
+	* gfortran.dg/allocate_with_source_9.f08: New test.
+
+2015-07-07  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/52144
+	* gcc.target/arm/flip-thumb.c: Fix scan.
+	* gcc.target/arm/attr_thumb.c: Test for all targets. Fix scan.
+	* gcc.target/arm/attr_arm.c: Test for all targets. Fix scan.
+	* gcc.target/arm/attr_thumb-static.c: Test for all targets.
+	Fix return value.
+
+2015-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+        PR target/65956
+        * gcc.c-torture/execute/pr65956.c: New test.
+
+2015-07-06  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/arm/aapcs/align1.c: New.
+	* gcc.target/arm/aapcs/align_rec1.c: New.
+	* gcc.target/arm/aapcs/align2.c: New.
+	* gcc.target/arm/aapcs/align_rec2.c: New.
+	* gcc.target/arm/aapcs/align3.c: New.
+	* gcc.target/arm/aapcs/align_rec3.c: New.
+	* gcc.target/arm/aapcs/align4.c: New.
+	* gcc.target/arm/aapcs/align_rec4.c: New.
+	* gcc.target/arm/aapcs/align_vararg1.c: New.
+	* gcc.target/arm/aapcs/align_vararg2.c: New.
+
+2015-07-06  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/iomsg_2.f90: New test.
+
+2015-07-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66772
+	* gcc.dg/torture/pr66772-1.c: New testcase.
+	* gcc.dg/torture/pr66772-2.c: Likewise.
+
 2015-07-06  Andrew Bennett  <andrew.bennett@imgtec.com>
 
 	* gcc.target/mips/near-far-3.c: Allow the call to near_func to use
