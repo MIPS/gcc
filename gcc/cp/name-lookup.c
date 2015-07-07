@@ -6175,8 +6175,11 @@ push_to_top_level (void)
   s->unevaluated_operand = cp_unevaluated_operand;
   s->inhibit_evaluation_warnings = c_inhibit_evaluation_warnings;
   s->x_stmt_tree.stmts_are_full_exprs_p = true;
-  if (cfun)
+  if (current_function_decl
+      && (!scope_chain || scope_chain->function_decl != current_function_decl))
     s->fold_map = new hash_map<tree, tree>;
+  else if (current_function_decl)
+    s->fold_map = scope_chain->fold_map;
   else
     s->fold_map = NULL;
 
@@ -6198,6 +6201,7 @@ pop_from_top_level_1 (void)
   cxx_saved_binding *saved;
   hash_map<tree, tree> *fm = s->fold_map;
   size_t i;
+  bool same_fold_map = false;
 
   /* Clear out class-level bindings cache.  */
   if (previous_class_level)
@@ -6219,15 +6223,21 @@ pop_from_top_level_1 (void)
      state.  */
   if (s->need_pop_function_context)
     pop_function_context ();
+
+  if (s->function_decl == current_function_decl
+      && current_function_decl)
+    same_fold_map = true;
+
   current_function_decl = s->function_decl;
   cp_unevaluated_operand = s->unevaluated_operand;
   c_inhibit_evaluation_warnings = s->inhibit_evaluation_warnings;
-  if (fm)
-    {
-      delete fm;
-      s->fold_map = NULL;
-    }
-  if (scope_chain && scope_chain->fold_map)
+
+  if (fm && !same_fold_map)
+    delete fm;
+
+  s->fold_map = NULL;
+ 
+  if (!same_fold_map && scope_chain && scope_chain->fold_map)
     {
       fm = scope_chain->fold_map;
       delete fm;
