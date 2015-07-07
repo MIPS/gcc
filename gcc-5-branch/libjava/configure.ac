@@ -1756,6 +1756,9 @@ case "${host}" in
  powerpc*-*-aix*)
     SIGNAL_HANDLER=include/aix-signal.h
     ;;
+ i?86-*-freebsd* | x86_64-*-freebsd*)
+    SIGNAL_HANDLER=include/freebsd-signal.h
+    ;;
  *)
     SIGNAL_HANDLER=include/default-signal.h
     ;;
