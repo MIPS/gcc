@@ -1,3 +1,8 @@
+2015-07-08  James Norris  <jnorris@codesourcery.com>
+
+	* oacc-parallel.c (GOACC_parallel GOACC_data_start): Handle Fortran
+	deviceptr clause.
+
 2015-07-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c++/c++.exp (check_effective_target_c):

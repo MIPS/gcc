@@ -211,6 +211,21 @@ GOACC_parallel (int device, void (*fn) (void *),
   thr = goacc_thread ();
   acc_dev = thr->dev;
 
+  for (i = 0; i < mapnum; i++)
+    {
+      unsigned short kind1 = kinds[i] & 0xff;
+      unsigned short kind2 = kinds[i+1] & 0xff;
+
+      if ((kind1 == GOMP_MAP_FORCE_DEVICEPTR && kind2 == GOMP_MAP_POINTER)
+	   && (sizes[i + 1] == 0)
+	   && (hostaddrs[i] == *(void **)hostaddrs[i + 1]))
+	{
+	  kinds[i+1] = kinds[i];
+	  sizes[i+1] = sizeof (void *);
+	  hostaddrs[i] = NULL;
+	}
+    }
+
   /* Host fallback if "if" clause is false or if the current device is set to
      the host.  */
   if (host_fallback)
@@ -263,8 +278,13 @@ GOACC_parallel (int device, void (*fn) (void *),
 
   devaddrs = gomp_alloca (sizeof (void *) * mapnum);
   for (i = 0; i < mapnum; i++)
-    devaddrs[i] = (void *) (tgt->list[i]->tgt->tgt_start
-			    + tgt->list[i]->tgt_offset);
+    {
+      if (tgt->list[i] != NULL)
+	devaddrs[i] = (void *) (tgt->list[i]->tgt->tgt_start
+				+ tgt->list[i]->tgt_offset);
+      else
+	devaddrs[i] = NULL;
+    }
 
   acc_dev->openacc.exec_func (tgt_fn, mapnum, hostaddrs, devaddrs, sizes, kinds,
 			      num_gangs, num_workers, vector_length, async,
@@ -291,6 +311,7 @@ GOACC_data_start (int device, size_t mapnum,
 {
   bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
   struct target_mem_desc *tgt;
+  int i;
 
 #ifdef HAVE_INTTYPES_H
   gomp_debug (0, "%s: mapnum=%"PRIu64", hostaddrs=%p, sizes=%p, kinds=%p\n",
@@ -304,6 +325,21 @@ GOACC_data_start (int device, size_t mapnum,
 
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
+
+  for (i = 0; i < mapnum; i++)
+    {
+      unsigned short kind1 = kinds[i] & 0xff;
+      unsigned short kind2 = kinds[i+1] & 0xff;
+
+      if ((kind1 == GOMP_MAP_FORCE_DEVICEPTR && kind2 == GOMP_MAP_POINTER)
+	   && (sizes[i + 1] == 0)
+	   && (hostaddrs[i] == *(void **)hostaddrs[i + 1]))
+	{
+	  kinds[i+1] = kinds[i];
+	  sizes[i+1] = sizeof (void *);
+	  hostaddrs[i] = NULL;
+	}
+    }
 
   /* Host fallback or 'do nothing'.  */
   if ((acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
@@ -672,8 +708,6 @@ GOACC_register_static (void *addr, int size, unsigned int mask)
 
    oacc_statics = s;
 }
-
-#include <stdio.h>
 
 void
 GOACC_declare (int device, size_t mapnum,
