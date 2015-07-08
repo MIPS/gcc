@@ -7113,7 +7113,7 @@ convert_template_argument (tree parm,
 	  else
 	    {
 	      tree parmparm = DECL_INNERMOST_TEMPLATE_PARMS (parm);
-	      tree argparm = DECL_INNERMOST_TEMPLATE_PARMS (arg);
+	      tree argparm;
 
 	      /* Strip alias templates that are equivalent to another
 		 template.  */
@@ -11934,7 +11934,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		  spec = t;
 	      }
 
-	    if (!spec && DECL_LANG_SPECIFIC (t))
+	    if (!spec)
 	      {
 		tmpl = DECL_TI_TEMPLATE (t);
 		gen_tmpl = most_general_template (tmpl);
@@ -12060,7 +12060,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    determine_visibility (r);
 	  }
 
-	if (!local_p && DECL_LANG_SPECIFIC (r))
+	if (!local_p)
 	  {
 	    /* A static data member declaration is always marked
 	       external when it is declared in-class, even if an

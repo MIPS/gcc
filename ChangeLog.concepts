@@ -1,3 +1,9 @@
+2015-07-08  Jason Merrill  <jason@redhat.com>
+
+	* gcc/cp/pt.c (convert_template_argument): Remove redundant set of
+	argparm.
+	(tsubst_decl) [VAR_DECL]: Remove unnecessary DECL_LANG_SPECIFIC check.
+
 2015-07-05  Jason Merrill  <jason@redhat.com>
 
 	* gcc/cp/pt.c (is_compatible_template_arg): Remove workaround.
