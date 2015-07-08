@@ -3728,7 +3728,7 @@ dbr_schedule (rtx first)
       fill_simple_delay_slots (1);
       fill_simple_delay_slots (0);
       if (TARGET_USE_EAGER_DELAY_FILLER_P())
-        fill_eager_delay_slots ();
+	fill_eager_delay_slots ();
       relax_delay_slots (first);
     }
 
