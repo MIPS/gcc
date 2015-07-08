@@ -380,7 +380,12 @@ global runtests
 # Special case compilation of vect-args.c so we don't have to
 # replicate it 16 times.
 if [runtest_file_p $runtests $srcdir/$subdir/vect-args.c] {
-  foreach type { "" -mmmx -m3dnow -msse -msse2 -mavx -mavx2 -mavx512f } {
+  if { [istarget *-*-elfiamcu] } then {
+    set types { "" }
+  } else {
+    set types { "" -mmmx -m3dnow -msse -msse2 -mavx -mavx2 -mavx512f }
+  }
+  foreach type $types {
     foreach level { "" -O } {
       set flags "$type $level"
       verbose -log "Testing vect-args, $flags" 1
@@ -391,7 +396,90 @@ if [runtest_file_p $runtests $srcdir/$subdir/vect-args.c] {
 
 # Everything else.
 set tests [lsort [glob -nocomplain $srcdir/$subdir/*.\[cS\]]]
-set tests [prune $tests $srcdir/$subdir/vect-args.c]
+set all_tests [prune $tests $srcdir/$subdir/vect-args.c]
+if { [istarget *-*-elfiamcu] } then {
+  # Skip tests which are incompatible with Intel MCU.
+  set tests {}
+  foreach t $all_tests {
+    if { [string match "$srcdir/$subdir/20001127-1.c" $t] \
+         || [string match "$srcdir/$subdir/20080723-1.c" $t] \
+         || [string match "$srcdir/$subdir/980226-1.c" $t] \
+         || [string match "$srcdir/$subdir/980414-1.c" $t] \
+         || [string match "$srcdir/$subdir/addr-sel-1.c" $t] \
+         || [string match "$srcdir/$subdir/incoming-5.c" $t] \
+         || [string match "$srcdir/$subdir/mcount_pic.c" $t] \
+         || [string match "$srcdir/$subdir/pause-2.c" $t] \
+         || [string match "$srcdir/$subdir/pow-1.c" $t] \
+         || [string match "$srcdir/$subdir/pr30848.c" $t] \
+         || [string match "$srcdir/$subdir/pr45296.c" $t] \
+         || [string match "$srcdir/$subdir/pr57736.c" $t] \
+         || [string match "$srcdir/$subdir/pr57848.c" $t] \
+         || [string match "$srcdir/$subdir/pr58048.c" $t] \
+         || [string match "$srcdir/$subdir/pr66047.c" $t] \
+         || [string match "$srcdir/$subdir/sibcall-6.c" $t] \
+         || [string match "$srcdir/$subdir/sse-5.c" $t] \
+         || [string match "$srcdir/$subdir/aggregate-ret*.c" $t] \
+         || [string match "$srcdir/$subdir/avx*.c" $t] \
+         || [string match "$srcdir/$subdir/funcspec-*.c" $t] \
+         || [string match "$srcdir/$subdir/long-double-*.c" $t] \
+         || [string match "$srcdir/$subdir/pr57756*.c" $t] \
+         || [string match "$srcdir/$subdir/pr59390*.c" $t] \
+         || [string match "$srcdir/$subdir/pr59794-*.c" $t] \
+         || [string match "$srcdir/$subdir/pr60205-*.c" $t] \
+         || [string match "$srcdir/$subdir/pr61925-*.c" $t] } {
+      continue
+    }
+    set options [dg-get-options $t]
+    if { ! [string match "*-mmmx*" $options] \
+         && ! [string match "*-m3dnow*" $options] \
+         && ! [string match "*-msse*" $options] \
+         && ! [string match "*-mssse*" $options] \
+         && ! [string match "*-mavx*" $options] \
+         && ! [string match "*-madx*" $options] \
+         && ! [string match "*-maes*" $options] \
+         && ! [string match "*-mbmi*" $options] \
+         && ! [string match "*-mclflushopt*" $options] \
+         && ! [string match "*-mclwb*" $options] \
+         && ! [string match "*-mf16c*" $options] \
+         && ! [string match "*-mfma*" $options] \
+         && ! [string match "*-mfxsr*" $options] \
+         && ! [string match "*-mhle*" $options] \
+         && ! [string match "*-mlzcnt*" $options] \
+         && ! [string match "*-mmwaitx*" $options] \
+         && ! [string match "*-mpclmul*" $options] \
+         && ! [string match "*-mpcommit*" $options] \
+         && ! [string match "*-mprefetchwt1*" $options] \
+         && ! [string match "*-mprfchw*" $options] \
+         && ! [string match "*-mrdrnd*" $options] \
+         && ! [string match "*-mrdseed*" $options] \
+         && ! [string match "*-mrtm*" $options] \
+         && ! [string match "*-msha*" $options] \
+         && ! [string match "*-mtbm*" $options] \
+         && ! [string match "*-mxop*" $options] \
+         && ! [string match "*-mxsave*" $options] \
+         && ! [string match "*-mvzeroupper*" $options] \
+         && ! [string match "*-march=i686*" $options] \
+         && ! [string match "*-march=atom*" $options] \
+         && ! [string match "*-march=core*" $options] \
+         && ! [string match "*-march=nocona*" $options] \
+         && ! [string match "*-march=pentium*" $options] \
+         && ! [string match "*-march=amdfam10*" $options] \
+         && ! [string match "*-march=athlon*" $options] \
+         && ! [string match "*-march=barcelona*" $options] \
+         && ! [string match "*-march=bdver*" $options] \
+         && ! [string match "*-march=k6*" $options] \
+         && ! [string match "*-march=k8*" $options] \
+         && ! [string match "*-march=opteron*" $options] \
+         && ! [string match "*-march=x86-64*" $options] \
+         && ! [string match "*-march=native*" $options] \
+         && ! [string match "*-mfpmath=*" $options] \
+         && ! [string match "*-mregparm=*" $options] } {
+      lappend tests $t
+    }
+  }
+} else {
+  set tests $all_tests
+}
 
 # Main loop.
 dg-runtest $tests "" $DEFAULT_CFLAGS
