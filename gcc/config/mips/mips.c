@@ -14255,6 +14255,14 @@ mips_sched_reorder2 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
   return cached_can_issue_more;
 }
 
+/* Implement USE_EAGER_DELAY_FILLER.  */
+
+static bool
+mips_use_eager_delay_filler_p ()
+{
+  return TARGET_CB_NEVER;
+}
+
 /* Update round-robin counters for ALU1/2 and FALU1/2.  */
 
 static void
@@ -19734,6 +19742,9 @@ mips_lra_p (void)
 
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P mips_in_small_data_p
+
+#undef TARGET_USE_EAGER_DELAY_FILLER_P
+#define TARGET_USE_EAGER_DELAY_FILLER_P mips_use_eager_delay_filler_p
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG mips_reorg
