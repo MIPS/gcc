@@ -6701,7 +6701,7 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 	    if (GET_MODE_NUNITS (mode) == TYPE_VECTOR_SUBPARTS (type)
 		&& GET_MODE_INNER (mode) == innermode)
 	      {
-		if (size == 64 && !TARGET_AVX512F)
+		if (size == 64 && !TARGET_AVX512F && !TARGET_IAMCU)
 		  {
 		    static bool warnedavx512f;
 		    static bool warnedavx512f_ret;
@@ -6721,7 +6721,7 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 
 		    return TYPE_MODE (type);
 		  }
-		else if (size == 32 && !TARGET_AVX)
+		else if (size == 32 && !TARGET_AVX && !TARGET_IAMCU)
 		  {
 		    static bool warnedavx;
 		    static bool warnedavx_ret;
@@ -6742,7 +6742,8 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 		    return TYPE_MODE (type);
 		  }
 		else if (((size == 8 && TARGET_64BIT) || size == 16)
-			 && !TARGET_SSE)
+			 && !TARGET_SSE
+			 && !TARGET_IAMCU)
 		  {
 		    static bool warnedsse;
 		    static bool warnedsse_ret;
@@ -6760,7 +6761,9 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 			  warnedsse_ret = true;
 		      }
 		  }
-		else if ((size == 8 && !TARGET_64BIT) && !TARGET_MMX)
+		else if ((size == 8 && !TARGET_64BIT)
+			 && !TARGET_MMX
+			 && !TARGET_IAMCU)
 		  {
 		    static bool warnedmmx;
 		    static bool warnedmmx_ret;
@@ -7568,7 +7571,7 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, machine_mode mode,
     {
       /* Intel MCU psABI passes scalars and aggregates no larger than 8
 	 bytes in registers.  */
-      if (bytes <= 8)
+      if (!VECTOR_MODE_P (mode) && bytes <= 8)
 	goto pass_in_reg;
       return res;
     }
@@ -7820,7 +7823,7 @@ function_arg_32 (CUMULATIVE_ARGS *cum, machine_mode mode,
     {
       /* Intel MCU psABI passes scalars and aggregates no larger than 8
 	 bytes in registers.  */
-      if (bytes <= 8)
+      if (!VECTOR_MODE_P (mode) && bytes <= 8)
 	goto pass_in_reg;
       return NULL_RTX;
     }
@@ -8684,7 +8687,7 @@ ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
       /* Intel MCU psABI returns scalars and aggregates no larger than 8
 	 bytes in registers.  */
       if (TARGET_IAMCU)
-	return size > 8;
+	return VECTOR_MODE_P (mode) || size > 8;
 
       if (mode == BLKmode)
 	return true;
