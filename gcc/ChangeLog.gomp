@@ -1,3 +1,32 @@
+2015-07-08  Tom de Vries  <tom@codesourcery.com>
+
+	revert:
+	2015-06-24  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-loop-manip.c (get_virtual_phi): Factor out of ...
+	(rewrite_virtuals_into_loop_closed_ssa): ... here.
+
+	* tree-ssa-loop-manip.c (replace_uses_in_dominated_bbs): Factor out
+	of ...
+	(rewrite_virtuals_into_loop_closed_ssa): ... here.
+
+	* dominance.c (bitmap_get_dominated_by): New function.
+	* dominance.h (bitmap_get_dominated_by): Declare.
+	* tree-ssa-loop-manip.c (rewrite_virtuals_into_loop_closed_ssa): Use
+	bitmap_get_dominated_by.
+
+	* tree-parloops.c (replace_uses_in_bbs_by)
+	(rewrite_virtuals_into_loop_closed_ssa): Move to ...
+	* tree-ssa-loop-manip.c: here.
+	* tree-ssa-loop-manip.h (rewrite_virtuals_into_loop_closed_ssa):
+	Declare.
+
+        2015-06-18  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (rewrite_virtuals_into_loop_closed_ssa): New function.
+	(transform_to_exit_first_loop_alt): Use
+	rewrite_virtuals_into_loop_closed_ssa.
+
 2015-07-07  James Norris  <jnorris@codesourcery.com>
 
 	* gimplify.c (enum gimplify_omp_var_data): Add new enum.
