@@ -1,3 +1,34 @@
+2015-07-08  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* gcc.target/mips/stack-1.c: Do not build the testcase for micromips.
+
+2015-07-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/bt-3.c: New test.
+	* gcc.target/i386/bt-4.c: Ditto.
+
+2015-07-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* g++.dg/other/dump-ada-spec-8.C: New test.
+
+2015-07-07  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/66783
+	* jit.dg/test-error-gcc_jit_context_new_field-opaque-struct.c: New
+	test case.
+	* jit.dg/test-error-gcc_jit_context_new_global-opaque-struct.c:
+	New test case.
+	* jit.dg/test-error-gcc_jit_function_new_local-opaque-struct.c:
+	New test case.
+	* jit.dg/test-error-mismatching-types-in-call.c (create_code):
+	Avoid using an opaque struct for local "f".
+
+2015-07-07  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/66779
+	* jit.dg/all-non-failing-tests.h: Add test-pr66779.c.
+	* jit.dg/test-pr66779.c: New testcase.
+
 2015-07-07  Andrew Bennett  <andrew.bennett@imgtec.com>
 
 	* gcc.target/mips/no-smartmips-lwxs.c: Change NOMIPS16 to
