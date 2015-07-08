@@ -11554,7 +11554,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	   GEN_TMPL is NULL.  */
 	if (gen_tmpl)
 	  {
-           DECL_TEMPLATE_INFO (r) = build_template_info (gen_tmpl, argvec);
+           DECL_TEMPLATE_INFO (r)
+	     = build_template_info (gen_tmpl, argvec);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 
 	    tree new_r
@@ -15770,7 +15771,7 @@ tsubst_copy_and_build (tree t,
 	      {
 		/* Expand the pack expansion and push each entry onto
 		   CALL_ARGS.  */
-	        arg = tsubst_pack_expansion (arg, args, complain, in_decl);
+		arg = tsubst_pack_expansion (arg, args, complain, in_decl);
 		if (TREE_CODE (arg) == TREE_VEC)
 		  {
 		    unsigned int len, j;

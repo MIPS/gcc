@@ -7520,7 +7520,7 @@ tree
 xvalue_result_type (tree t)
 {
   if (TREE_CODE (t) == FUNCTION_TYPE)
-    return cp_build_reference_type(t, true);
+    return cp_build_reference_type (t, true);
   else
     return t;
 }

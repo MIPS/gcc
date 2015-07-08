@@ -1,6 +1,6 @@
 // { dg-do compile { target c++14 } }
 
-template<typename T> 
+template<typename T>
 bool V1 = true;
 
 template<typename T>
