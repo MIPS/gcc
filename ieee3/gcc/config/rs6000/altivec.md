@@ -167,10 +167,27 @@
 (define_mode_iterator V [V4SI V8HI V16QI V4SF])
 ;; Vec modes for move/logical/permute ops, include vector types for move not
 ;; otherwise handled by altivec (v2df, v2di, ti)
-(define_mode_iterator VM [V4SI V8HI V16QI V4SF V2DF V2DI V1TI TI])
+(define_mode_iterator VM [V4SI
+			  V8HI
+			  V16QI
+			  V4SF
+			  V2DF
+			  V2DI
+			  V1TI
+			  TI
+			  (KF "FLOAT128_VECTOR_P (KFmode)")
+			  (TF "FLOAT128_VECTOR_P (TFmode)")])
 
 ;; Like VM, except don't do TImode
-(define_mode_iterator VM2 [V4SI V8HI V16QI V4SF V2DF V2DI V1TI])
+(define_mode_iterator VM2 [V4SI
+			   V8HI
+			   V16QI
+			   V4SF
+			   V2DF
+			   V2DI
+			   V1TI
+			   (KF "FLOAT128_VECTOR_P (KFmode)")
+			   (TF "FLOAT128_VECTOR_P (TFmode)")])
 
 (define_mode_attr VI_char [(V2DI "d") (V4SI "w") (V8HI "h") (V16QI "b")])
 (define_mode_attr VI_scalar [(V2DI "DI") (V4SI "SI") (V8HI "HI") (V16QI "QI")])
@@ -3488,3 +3505,32 @@
 				  (match_dup 3)]
 				 UNSPEC_BCD_ADD_SUB)
 		    (match_dup 4)))])])
+
+
+;; Return constant 0x80000000000000000000000000000000 in an Altivec register.
+
+(define_expand "altivec_high_bit"
+  [(set (match_dup 1)
+	(vec_duplicate:V16QI (const_int 7)))
+   (set (match_dup 2)
+	(ashift:V16QI (match_dup 1)
+		      (match_dup 1)))
+   (set (match_dup 3)
+	(match_dup 4))
+   (set (match_operand:V16QI 0 "register_operand" "")
+	(unspec:V16QI [(match_dup 2)
+		       (match_dup 3)
+		       (const_int 15)] UNSPEC_VSLDOI))]
+  "TARGET_ALTIVEC"
+{
+  if (can_create_pseudo_p ())
+    {
+      operands[1] = gen_reg_rtx (V16QImode);
+      operands[2] = gen_reg_rtx (V16QImode);
+      operands[3] = gen_reg_rtx (V16QImode);
+    }
+  else
+    operands[1] = operands[2] = operands[3] = operands[0];
+
+  operands[4] = CONST0_RTX (V16QImode);
+})

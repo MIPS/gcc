@@ -1,5 +1,148 @@
 2015-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	(ieee128-patch06b)
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Enable
+	-mfloat128-software if VSX is available.
+
+2015-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(ieee128-patch05b)
+	* config.host (powerpc*-*-linux*): Add IEEE 128-bit floating point
+	support for 64-bit and VSX 32-bit systems.
+
+	* Makefile.in (EXTRA_CLEAN): New variable of additional files to
+	clean.
+	(FLAGS_TO_PASS): Add EXTRA_CLEAN.
+	(clean): Delete EXTRA_CLEAN files.
+
+	* configure.ac (powerpc*-*-linux*): If 32-bit has been compiled
+	using --with-cpu=power7/power8, enable IEEE 128-bit floating point
+	support.
+	* configure: Regenerate.
+
+	* config/rs6000/extendkftf2.c: New files for IEEE 128-bit floating
+	point support.
+	* config/rs6000/trunktfkf2.c: Likewise.
+	* config/rs6000/cmpkf2.c: Likewise.
+	* config/rs6000/quad-vsx.h: Likewise.
+	* config/rs6000/fp128-vsx-sed: Likewise.
+	* config/rs6000/t-float128: Likewise.
+
+	* config/rs6000/sfp-machine.h (_FP_W_TYPE_SIZE): Update
+	defintiions to use 64-bit types for 64-bit systems or 32-bit VSX
+	systems with IEEE 128-bit floating point support.
+	(_FP_W_TYPE): Likewise.
+	(_FP_WS_TYPE): Likewise.
+	(_FP_I_TYPE): Likewise.
+	(TItype): Add defintions for IEEE 128-bit floating point support.
+	(UTItype): Likewise.
+	(TI_BITS): Likewise.
+	(_FP_MUL_MEAT_Q): Use 64-bit types on 64-bit systems and for
+	32-bit VSX systems with IEEE 128-bit floating point.
+	(_FP_DIV_MEAT_Q): Likewise.
+	(_FP_NANFRAC_Q): Likewise.
+
+	* config/rs6000/libgcc-glibc.ver: Add requires for GCC 6.0 adding
+	IEEE 128-bit floating point.
+
+2015-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(ieee128-patch04b)
+	* config/rs6000/rs6000-protos.h (rs6000_expand_float128_convert):
+	Add declaration.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__FLOAT128__, __FLOAT128_SOFTWARE__, __LONG_DOUBLE_IEEE128__, and
+	__LONG_DOUBLE_IBM128__ if the appropriate IEEE 128-bit floating
+	point options are defined.
+
+	* config/rs6000/rs6000.c (TARGET_C_MODE_FOR_SUFFIX): Define to
+	enable 'q' and 'w' suffixes.
+	(rs6000_init_hard_regno_mode_ok): Set up vector modes and reload
+	handlers for IEEE 128-bit floating point support.
+	(rs6000_gen_le_vsx_permute): On little endian systems use a ROTATE
+	to for IEEE 128-bit floating point that goes in vector registers.
+	(rs6000_emit_le_vsx_store): Fix typo in comment.
+	(init_cumulative_args): IEEE 128-bit floating point support
+	functions do not need to pass the arguments in both vector
+	registers and GPRs.
+	(rs6000_function_arg): Likewise.
+	(rs6000_arg_partial_bytes): Likewise.
+	(rs6000_init_builtins): If -mfloat128, enable __float128 and
+	__ibm128 keywords.
+	(init_float128_ibm): Split 128-bit floating point builtin
+	registration into IBM and IEEE floating point support.  Initialize
+	all three modes (IFmode, KFmode, and TFmode).
+	(init_float128_ieee): Likewise.
+	(rs6000_init_libfuncs): Likewise.
+	(rs6000_cannot_change_mode_class): Do not allow 128-bit floating
+	point mode that occupies a vector to change mode classes with
+	another 128-bit floating point mode that does not occupy a vector.
+	(rs6000_output_move_128bit): Always dump an insn if we can't
+	generate the 128-bit move.
+	(rs6000_generate_compare): Add support for IEEE 128-bit floating
+	point compares.
+	(rs6000_expand_float128_convert): Likewise.
+	(rs6000_mangle_type): Add support for IEEE 128-bit floating point.
+	(rs6000_c_mode_for_suffix): Use 'q' suffix for __float128, and 'w'
+	suffix for __ibm128.
+	(struct rs6000_opt_mask): Fix typo in comment.
+	(rs6000_float128_vars): Add support for #pragma target and
+	attribute target support to set IEEE 128-bit floating point
+	options.
+	(rs6000_inner_target_options): Likewise.
+
+	* config/rs6000/rs6000.h (ALTIVEC_VECTOR_MODE): Treat IEEE 128-bit
+	floating point modes that go in vectors as an altivec vector mode.
+	(MODES_TIEABLE_P): Move the vector tests before the floating point
+	tests for IEEE 128-bit floating point support.
+	(struct rs6000_args): Add libcall element to structure.
+
+	* doc/extend.texi (additional floating types): Document PowerPC
+	use of __float128 and __ibm128 types.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mfloat128-software and -mfloat128-none.
+
+2015-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(ieee128-patch03b)
+	* config/rs6000/vector.md (VEC_L): Add IEEE 128-bit floating point
+	types to iterators, except for TFmode to the move operation.
+	(VEC_M): Likewise.
+	(VEC_N): Likewise.
+	(mov<mode>, VEC_M modes): Add support for IEEE 128-bit floating
+	point in vector registers.
+
+	* config/rs6000/predicates.md (int_reg_operand_not_pseudo): New
+	predicate that only matches GPR hard registers.
+	(easy_fp_constant): Add support for IEEE 128-bit floating point.
+	(easy_vector_constant): Likewise.
+
+	* config/rs6000/vsx.md (VSX_LE_128): New iterator for doing little
+	endian conversion on IEEE 128-bit floating point.
+	(VSX_L): Add IEEE 128-bit floating point modes to the iterators.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+	(VSm): Add IEEE 128-bit floating point modes to the attributes.
+	(VSs): Likewise.
+	(VSr): Likewise.
+	(VSa): Likewise.
+	(VSv): Likewise.
+	(vsx_le_permute_<mode>, VSX_LE_128 modes): Add little endian
+	conversion for IEEE 128-bit floating point.
+	(vsx_le_undo_permute_<mode>, VSX_LE_128 modes): Likewise.
+	(vsx_le_perm_load_<mode>, VSX_LE_128 modes): Likewise.
+	(IEEE 128-bit move splitters): Likewise.
+
+	* config/rs6000/altivec.md (VM): Add IEEE 128-bit floating point
+	modes to the iterators.
+	(VM2): Likewise.
+	(altivec_high_bit): New insn to load vector register with high bit
+	set.
+
+2015-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	(ieee128-patch02b)
 	* config/rs6000/rs6000-protos.h (rs6000_secondary_reload_memory):
 	Use machine mode, not enum machine_mode in the prototype.
