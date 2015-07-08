@@ -909,6 +909,8 @@ struct mips_cpu_info {
 
 #define ISA_HAS_COMPACT_BRANCHES (mips_isa_rev >= 6)
 
+#define TARGET_USE_EAGER_DELAY_FILLER_P	mips_use_eager_delay_filler_p
+
 /* ISA has branch likely instructions (e.g. mips2).  */
 /* Disable branchlikely for tx39 until compare rewrite.  They haven't
    been generated up to this point.  */

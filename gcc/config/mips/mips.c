@@ -15303,6 +15303,14 @@ mips_sched_reorder2 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
   return cached_can_issue_more;
 }
 
+/* Implement USE_EAGER_DELAY_FILLER.  */
+
+bool
+mips_use_eager_delay_filler_p ()
+{
+  return !(ISA_HAS_COMPACT_BRANCHES && !TARGET_CB_NEVER);
+}
+
 /* Update round-robin counters for ALU1/2 and FALU1/2.  */
 
 static void

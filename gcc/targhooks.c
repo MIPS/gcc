@@ -754,6 +754,14 @@ hook_bool_const_rtx_commutative_p (const_rtx x,
   return COMMUTATIVE_P (x);
 }
 
+/* Default hook for machine predicates. */
+
+bool
+default_use_eager_delay_filler_p()
+{
+  return true;
+}
+
 rtx
 default_function_value (const_tree ret_type ATTRIBUTE_UNUSED,
 			const_tree fn_decl_or_type,
