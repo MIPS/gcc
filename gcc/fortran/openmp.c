@@ -1162,19 +1162,10 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 					   OMP_MAP_FORCE_TO))
 	    continue;
 	  if ((mask & OMP_CLAUSE_DEVICEPTR)
-	      && gfc_match ("deviceptr ( ") == MATCH_YES)
-	    {
-	      gfc_omp_namelist **list = &c->lists[OMP_LIST_MAP];
-	      gfc_omp_namelist **head = NULL;
-	      if (gfc_match_omp_variable_list ("", list, true, NULL,
-					       &head, false) == MATCH_YES)
-		{
-		  gfc_omp_namelist *n;
-		  for (n = *head; n; n = n->next)
-		    n->u.map_op = OMP_MAP_FORCE_DEVICEPTR;
-		  continue;
-		}
-	    }
+	      && gfc_match ("deviceptr ( ") == MATCH_YES
+	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
+					   OMP_MAP_FORCE_DEVICEPTR))
+	    continue;
 	  if ((mask & OMP_CLAUSE_DEVICE_RESIDENT)
 	      && gfc_match_omp_variable_list
 		   ("device_resident (",
