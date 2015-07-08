@@ -842,9 +842,12 @@ Driver Undocumented
 ;    function types with function-cv-qualifiers.
 ;    First selectable in G++ 4.9 and default in G++ 5.
 ;
-; 9: The version of the ABI that mangles attributes that affect type
-;    identity, such as ia32 calling convention attributes (stdcall, etc.)
-;    Default in G++ 6 (set in c_common_post_options).
+; 9: The version of the ABI that corrects the alignment of nullptr_t.
+;    First selectable and default in G++ 5.2.
+;
+; 10: The version of the ABI that mangles attributes that affect type
+;     identity, such as ia32 calling convention attributes (stdcall, etc.)
+;     Default in G++ 6 (set in c_common_post_options).
 ;
 ; Additional positive integers will be assigned as new versions of
 ; the ABI become the default version of the ABI.
@@ -922,7 +925,7 @@ Common Report
 This switch is deprecated; use -fsanitize-recover= instead
 
 fsanitize-undefined-trap-on-error
-Common Report Var(flag_sanitize_undefined_trap_on_error) Init(0)
+Common Driver Report Var(flag_sanitize_undefined_trap_on_error) Init(0)
 Use trap instead of a library function for undefined behavior sanitization
 
 fasynchronous-unwind-tables

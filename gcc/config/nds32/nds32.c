@@ -24,7 +24,6 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -65,9 +64,11 @@
 #include "tm-constrs.h"
 #include "optabs.h"		/* For GEN_FCN.  */
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"		/* For add_builtin_function().  */
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* ------------------------------------------------------------------------ */
 

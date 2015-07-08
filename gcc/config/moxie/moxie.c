@@ -35,7 +35,6 @@
 #include "reload.h"
 #include "diagnostic-core.h"
 #include "obstack.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -53,7 +52,6 @@
 #include "optabs.h"
 #include "except.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
 #include "dominance.h"
@@ -67,6 +65,9 @@
 #include "basic-block.h"
 #include "df.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 #define LOSE_AND_RETURN(msgid, x)		\
   do						\

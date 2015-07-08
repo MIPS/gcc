@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -55,7 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
 #include "debug.h"
 #include "langhooks.h"
@@ -73,7 +71,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "tree-pass.h"
 #include "context.h"
@@ -91,6 +88,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Specify which cpu to schedule for.  */
 enum processor_type alpha_tune;
@@ -4808,14 +4808,6 @@ alpha_multipass_dfa_lookahead (void)
 
 struct GTY(()) alpha_links;
 
-struct string_traits : default_hashmap_traits
-{
-  static bool equal_keys (const char *const &a, const char *const &b)
-  {
-    return strcmp (a, b) == 0;
-  }
-};
-
 struct GTY(()) machine_function
 {
   /* For flag_reorder_blocks_and_partition.  */
@@ -4825,7 +4817,7 @@ struct GTY(()) machine_function
   bool uses_condition_handler;
 
   /* Linkage entries.  */
-  hash_map<const char *, alpha_links *, string_traits> *links;
+  hash_map<nofree_string_hash, alpha_links *> *links;
 };
 
 /* How to allocate a 'struct machine_function'.  */
@@ -9552,7 +9544,7 @@ alpha_use_linkage (rtx func, bool lflag, bool rflag)
     }
   else
     cfun->machine->links
-      = hash_map<const char *, alpha_links *, string_traits>::create_ggc (64);
+      = hash_map<nofree_string_hash, alpha_links *>::create_ggc (64);
 
   if (al == NULL)
     {
@@ -9643,7 +9635,7 @@ alpha_write_linkage (FILE *stream, const char *funname)
 
   if (cfun->machine->links)
     {
-      hash_map<const char *, alpha_links *, string_traits>::iterator iter
+      hash_map<nofree_string_hash, alpha_links *>::iterator iter
 	= cfun->machine->links->begin ();
       for (; iter != cfun->machine->links->end (); ++iter)
 	alpha_write_one_linkage ((*iter).first, (*iter).second, stream);

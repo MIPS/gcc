@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl-error.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -542,7 +541,7 @@ try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
 	break;
       }
 
-  if (flag_shrink_wrap && HAVE_simple_return
+  if (SHRINK_WRAPPING_ENABLED
       && (targetm.profile_before_prologue () || !crtl->profile)
       && nonempty_prologue && !crtl->calls_eh_return)
     {
@@ -1005,8 +1004,8 @@ convert_to_simple_return (edge entry_edge, edge orig_entry_edge,
 
 	      bb = create_basic_block (NULL, NULL, exit_pred);
 	      BB_COPY_PARTITION (bb, e->src);
-	      rtx_jump_insn *start = emit_jump_insn_after (gen_simple_return (),
-							   BB_END (bb));
+	      rtx_insn *ret = targetm.gen_simple_return ();
+	      rtx_jump_insn *start = emit_jump_insn_after (ret, BB_END (bb));
 	      JUMP_LABEL (start) = simple_return_rtx;
 	      emit_barrier_after (start);
 

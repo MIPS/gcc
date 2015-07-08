@@ -24,14 +24,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "dumpfile.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -41,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -1880,7 +1877,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters, int
       gimple_seq new_stmts = NULL;
       bool negative = tree_int_cst_compare (DR_STEP (dr), size_zero_node) < 0;
       tree offset = negative
-	  ? size_int (-TYPE_VECTOR_SUBPARTS (vectype) + 1) : NULL_TREE;
+	  ? size_int (-TYPE_VECTOR_SUBPARTS (vectype) + 1) : size_zero_node;
       tree start_addr = vect_create_addr_base_for_vector_ref (dr_stmt,
 						&new_stmts, offset, loop);
       tree type = unsigned_type_for (TREE_TYPE (start_addr));
@@ -2146,7 +2143,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
       bool negative = tree_int_cst_compare
 	(DR_STEP (STMT_VINFO_DATA_REF (stmt_vinfo)), size_zero_node) < 0;
       tree offset = negative
-	? size_int (-TYPE_VECTOR_SUBPARTS (vectype) + 1) : NULL_TREE;
+	? size_int (-TYPE_VECTOR_SUBPARTS (vectype) + 1) : size_zero_node;
 
       /* create: addr_tmp = (int)(address_of_first_vector) */
       addr_base =

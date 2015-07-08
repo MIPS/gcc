@@ -26,8 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "line-map.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -74,9 +72,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hosthooks.h"
 #include "predict.h"
 #include "basic-block.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "opts.h"
 #include "opts-diagnostic.h"
@@ -116,10 +111,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
-#endif
-
-#ifndef HAVE_prologue
-#define HAVE_prologue 0
 #endif
 
 #include <new>
@@ -1307,20 +1298,6 @@ process_options (void)
      so we can correctly initialize debug output.  */
   no_backend = lang_hooks.post_options (&main_input_filename);
 
-  /* Set default values for parameters relation to the Scalar Reduction
-     of Aggregates passes (SRA and IP-SRA).  We must do this here, rather
-     than in opts.c:default_options_optimization as historically these
-     tuning heuristics have been based on MOVE_RATIO, which on some
-     targets requires other symbols from the backend.  */
-  maybe_set_param_value
-    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED,
-     get_move_ratio (true) * UNITS_PER_WORD,
-     global_options.x_param_values, global_options_set.x_param_values);
-  maybe_set_param_value
-    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE,
-     get_move_ratio (false) * UNITS_PER_WORD,
-     global_options.x_param_values, global_options_set.x_param_values);
-
   /* Some machines may reject certain combinations of options.  */
   targetm.target_option.override ();
 
@@ -1597,19 +1574,16 @@ process_options (void)
 	}
     }
 
-#ifndef HAVE_prefetch
-  if (flag_prefetch_loop_arrays > 0)
+  if (flag_prefetch_loop_arrays > 0 && !targetm.code_for_prefetch)
     {
       warning (0, "-fprefetch-loop-arrays not supported for this target");
       flag_prefetch_loop_arrays = 0;
     }
-#else
-  if (flag_prefetch_loop_arrays > 0 && !HAVE_prefetch)
+  else if (flag_prefetch_loop_arrays > 0 && !targetm.have_prefetch ())
     {
       warning (0, "-fprefetch-loop-arrays not supported for this target (try -march switches)");
       flag_prefetch_loop_arrays = 0;
     }
-#endif
 
   /* This combination of options isn't handled for i386 targets and doesn't
      make much sense anyway, so don't allow it.  */
@@ -1668,7 +1642,7 @@ process_options (void)
 
  /* Do not use IPA optimizations for register allocation if profiler is active
     or port does not emit prologue and epilogue as RTL.  */
-  if (profile_flag || !HAVE_prologue || !HAVE_epilogue)
+  if (profile_flag || !targetm.have_prologue () || !targetm.have_epilogue ())
     flag_ipa_ra = 0;
 
   /* Enable -Werror=coverage-mismatch when -Werror and -Wno-error

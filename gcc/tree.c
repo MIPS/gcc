@@ -32,7 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -61,13 +60,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
 #include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-phinodes.h"
 #include "stringpool.h"
@@ -198,21 +194,15 @@ struct GTY((for_user)) type_hash {
 /* Initial size of the hash table (rounded to next prime).  */
 #define TYPE_HASH_INITIAL_SIZE 1000
 
-struct type_cache_hasher : ggc_cache_hasher<type_hash *>
+struct type_cache_hasher : ggc_cache_ptr_hash<type_hash>
 {
   static hashval_t hash (type_hash *t) { return t->hash; }
   static bool equal (type_hash *a, type_hash *b);
 
-  static void
-  handle_cache_entry (type_hash *&t)
+  static int
+  keep_cache_entry (type_hash *&t)
   {
-    extern void gt_ggc_mx (type_hash *&);
-    if (t == HTAB_DELETED_ENTRY || t == HTAB_EMPTY_ENTRY)
-      return;
-    else if (ggc_marked_p (t->type))
-      gt_ggc_mx (t);
-    else
-      t = static_cast<type_hash *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (t->type);
   }
 };
 
@@ -228,7 +218,7 @@ static GTY ((cache)) hash_table<type_cache_hasher> *type_hash_table;
 /* Hash table and temporary node for larger integer const values.  */
 static GTY (()) tree int_cst_node;
 
-struct int_cst_hasher : ggc_cache_hasher<tree>
+struct int_cst_hasher : ggc_cache_ptr_hash<tree_node>
 {
   static hashval_t hash (tree t);
   static bool equal (tree x, tree y);
@@ -244,7 +234,7 @@ static GTY ((cache)) hash_table<int_cst_hasher> *int_cst_hash_table;
 static GTY (()) tree cl_optimization_node;
 static GTY (()) tree cl_target_option_node;
 
-struct cl_option_hasher : ggc_cache_hasher<tree>
+struct cl_option_hasher : ggc_cache_ptr_hash<tree_node>
 {
   static hashval_t hash (tree t);
   static bool equal (tree x, tree y);
@@ -261,7 +251,7 @@ static GTY ((cache))
 static GTY ((cache))
      hash_table<tree_decl_map_cache_hasher> *value_expr_for_decl;
 
-     struct tree_vec_map_cache_hasher : ggc_cache_hasher<tree_vec_map *>
+struct tree_vec_map_cache_hasher : ggc_cache_ptr_hash<tree_vec_map>
 {
   static hashval_t hash (tree_vec_map *m) { return DECL_UID (m->base.from); }
 
@@ -271,16 +261,10 @@ static GTY ((cache))
     return a->base.from == b->base.from;
   }
 
-  static void
-  handle_cache_entry (tree_vec_map *&m)
+  static int
+  keep_cache_entry (tree_vec_map *&m)
   {
-    extern void gt_ggc_mx (tree_vec_map *&);
-    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
-      return;
-    else if (ggc_marked_p (m->base.from))
-      gt_ggc_mx (m);
-    else
-      m = static_cast<tree_vec_map *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (m->base.from);
   }
 };
 
@@ -1096,6 +1080,24 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	}
       break;
 
+    case tcc_exceptional:
+      switch (code)
+        {
+	case TARGET_OPTION_NODE:
+	  TREE_TARGET_OPTION(t)
+			    = ggc_cleared_alloc<struct cl_target_option> ();
+	  break;
+
+	case OPTIMIZATION_NODE:
+	  TREE_OPTIMIZATION (t)
+			    = ggc_cleared_alloc<struct cl_optimization> ();
+	  break;
+
+	default:
+	  break;
+	}
+      break;
+
     default:
       /* Other classes need no special treatment.  */
       break;
@@ -1177,6 +1179,18 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	  TYPE_CACHED_VALUES (t) = NULL_TREE;
 	}
     }
+    else if (code == TARGET_OPTION_NODE)
+      {
+	TREE_TARGET_OPTION (t) = ggc_alloc<struct cl_target_option>();
+	memcpy (TREE_TARGET_OPTION (t), TREE_TARGET_OPTION (node),
+		sizeof (struct cl_target_option));
+      }
+    else if (code == OPTIMIZATION_NODE)
+      {
+	TREE_OPTIMIZATION (t) = ggc_alloc<struct cl_optimization>();
+	memcpy (TREE_OPTIMIZATION (t), TREE_OPTIMIZATION (node),
+		sizeof (struct cl_optimization));
+      }
 
   return t;
 }
@@ -1952,6 +1966,21 @@ build_complex (tree type, tree real, tree imag)
   TREE_TYPE (t) = type ? type : build_complex_type (TREE_TYPE (real));
   TREE_OVERFLOW (t) = TREE_OVERFLOW (real) | TREE_OVERFLOW (imag);
   return t;
+}
+
+/* Return the constant 1 in type TYPE.  If TYPE has several elements, each
+   element is set to 1.  In particular, this is 1 + i for complex types.  */
+
+tree
+build_each_one_cst (tree type)
+{
+  if (TREE_CODE (type) == COMPLEX_TYPE)
+    {
+      tree scalar = build_one_cst (TREE_TYPE (type));
+      return build_complex (type, scalar, scalar);
+    }
+  else
+    return build_one_cst (type);
 }
 
 /* Return a constant of arithmetic type TYPE which is the
@@ -9256,6 +9285,42 @@ clean_symbol_name (char *p)
 #endif
 	   ))
       *p = '_';
+}
+
+/* For anonymous aggregate types, we need some sort of name to
+   hold on to.  In practice, this should not appear, but it should
+   not be harmful if it does.  */
+bool 
+anon_aggrname_p(const_tree id_node)
+{
+#ifndef NO_DOT_IN_LABEL
+ return (IDENTIFIER_POINTER (id_node)[0] == '.'
+	 && IDENTIFIER_POINTER (id_node)[1] == '_');
+#else /* NO_DOT_IN_LABEL */
+#ifndef NO_DOLLAR_IN_LABEL
+  return (IDENTIFIER_POINTER (id_node)[0] == '$' \
+	  && IDENTIFIER_POINTER (id_node)[1] == '_');
+#else /* NO_DOLLAR_IN_LABEL */
+#define ANON_AGGRNAME_PREFIX "__anon_"
+  return (!strncmp (IDENTIFIER_POINTER (id_node), ANON_AGGRNAME_PREFIX, 
+		    sizeof (ANON_AGGRNAME_PREFIX) - 1));
+#endif	/* NO_DOLLAR_IN_LABEL */
+#endif	/* NO_DOT_IN_LABEL */
+}
+
+/* Return a format for an anonymous aggregate name.  */
+const char *
+anon_aggrname_format()
+{
+#ifndef NO_DOT_IN_LABEL
+ return "._%d";
+#else /* NO_DOT_IN_LABEL */
+#ifndef NO_DOLLAR_IN_LABEL
+  return "$_%d";
+#else /* NO_DOLLAR_IN_LABEL */
+  return "__anon_%d";
+#endif	/* NO_DOLLAR_IN_LABEL */
+#endif	/* NO_DOT_IN_LABEL */
 }
 
 /* Generate a name for a special-purpose function.

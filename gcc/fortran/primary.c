@@ -1254,6 +1254,9 @@ match_sym_complex_part (gfc_expr **result)
       return MATCH_ERROR;
     }
 
+  if (!sym->value)
+    goto error;
+
   if (!gfc_numeric_ts (&sym->value->ts))
     {
       gfc_error ("Numeric PARAMETER required in complex constant at %C");
@@ -1911,7 +1914,8 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
   if (sym->assoc && gfc_peek_ascii_char () == '('
       && !(sym->assoc->dangling && sym->assoc->st
 	   && sym->assoc->st->n.sym
-	   && sym->assoc->st->n.sym->attr.dimension == 0))
+	   && sym->assoc->st->n.sym->attr.dimension == 0)
+      && sym->ts.type != BT_CLASS)
     sym->attr.dimension = 1;
 
   if ((equiv_flag && gfc_peek_ascii_char () == '(')
@@ -2960,7 +2964,8 @@ gfc_match_rvalue (gfc_expr **result)
 
       st = gfc_enclosing_unit (NULL);
 
-      if (st != NULL && st->state == COMP_FUNCTION
+      if (st != NULL
+	  && st->state == COMP_FUNCTION
 	  && st->sym == sym
 	  && !sym->attr.recursive)
 	{
@@ -3264,6 +3269,7 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
      of keywords, such as 'end', being turned into variables by
      failed matching to assignments for, e.g., END INTERFACE.  */
   if (gfc_current_state () == COMP_MODULE
+      || gfc_current_state () == COMP_SUBMODULE
       || gfc_current_state () == COMP_INTERFACE
       || gfc_current_state () == COMP_CONTAINS)
     host_flag = 0;

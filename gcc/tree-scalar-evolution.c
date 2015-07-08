@@ -256,7 +256,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
@@ -284,7 +283,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -341,7 +339,7 @@ tree chrec_dont_know;
    happen, then it qualifies it with chrec_known.  */
 tree chrec_known;
 
-struct scev_info_hasher : ggc_hasher<scev_info_str *>
+struct scev_info_hasher : ggc_ptr_hash<scev_info_str>
 {
   static hashval_t hash (scev_info_str *i);
   static bool equal (const scev_info_str *a, const scev_info_str *b);

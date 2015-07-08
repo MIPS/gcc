@@ -80,7 +80,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -117,9 +116,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "valtrack.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "obstack.h"
 #include "rtl-iter.h"
@@ -5686,11 +5682,7 @@ combine_simplify_rtx (rtx x, machine_mode op0_mode, int in_dest,
 	  /* Make sure we pass the constant operand if any as the second
 	     one if this is a commutative operation.  */
 	  if (CONSTANT_P (inner_op0) && COMMUTATIVE_ARITH_P (x))
-	    {
-	      rtx tem = inner_op0;
-	      inner_op0 = inner_op1;
-	      inner_op1 = tem;
-	    }
+	    std::swap (inner_op0, inner_op1);
 	  inner = simplify_binary_operation (code == MINUS ? PLUS
 					     : code == DIV ? MULT
 					     : code,
@@ -7901,6 +7893,15 @@ make_compound_operation (rtx x, enum rtx_code in_code)
 	  new_rtx = make_extraction (GET_MODE (SUBREG_REG (XEXP (x, 0))), new_rtx, 0,
 				 XEXP (SUBREG_REG (XEXP (x, 0)), 1), i, 1,
 				 0, in_code == COMPARE);
+
+	  /* If that didn't give anything, see if the AND simplifies on
+	     its own.  */
+	  if (!new_rtx && i >= 0)
+	    {
+	      new_rtx = make_compound_operation (XEXP (x, 0), next_code);
+	      new_rtx = make_extraction (mode, new_rtx, 0, NULL_RTX, i, 1,
+					 0, in_code == COMPARE);
+	    }
 	}
       /* Same as previous, but for (xor/ior (lshiftrt...) (lshiftrt...)).  */
       else if ((GET_CODE (XEXP (x, 0)) == XOR

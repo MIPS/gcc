@@ -34,7 +34,6 @@
 #include "recog.h"
 #include "diagnostic-core.h"
 #include "obstack.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -54,7 +53,6 @@
 #include "optabs.h"
 #include "except.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
 #include "predict.h"
@@ -71,12 +69,14 @@
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "df.h"
 #include "reload.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 static rtx emit_addhi3_postreload (rtx, rtx, rtx);
 static void xstormy16_asm_out_constructor (rtx, int);

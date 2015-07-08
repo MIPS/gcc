@@ -21,7 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
@@ -173,10 +172,8 @@ typedef struct comdat_entry
 
 /* Helpers for maintaining solaris_comdat_htab.  */
 
-struct comdat_entry_hasher : typed_noop_remove <comdat_entry>
+struct comdat_entry_hasher : nofree_ptr_hash <comdat_entry>
 {
-  typedef comdat_entry *value_type;
-  typedef comdat_entry *compare_type;
   static inline hashval_t hash (const comdat_entry *);
   static inline bool equal (const comdat_entry *, const comdat_entry *);
   static inline void remove (comdat_entry *);

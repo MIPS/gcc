@@ -21,7 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "symtab.h"
-#include "input.h"
 #include "alias.h"
 #include "flags.h"
 #include "tree.h"
@@ -110,7 +109,7 @@ c_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
   switch (*spec)
     {
     case 'D':
-      if (TREE_CODE (t) == VAR_DECL && DECL_HAS_DEBUG_EXPR_P (t))
+      if (VAR_P (t) && DECL_HAS_DEBUG_EXPR_P (t))
 	{
 	  t = DECL_DEBUG_EXPR (t);
 	  if (!DECL_P (t))

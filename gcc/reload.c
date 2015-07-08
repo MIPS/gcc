@@ -97,7 +97,6 @@ a register with any other reload.  */
 #include "insn-config.h"
 #include "symtab.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "rtl.h"
 #include "flags.h"
@@ -3872,6 +3871,12 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		 recog_data.operand[commutative + 1]);
       std::swap (*recog_data.operand_loc[commutative],
 		 *recog_data.operand_loc[commutative + 1]);
+
+      for (i = 0; i < recog_data.n_dups; i++)
+	if (recog_data.dup_num[i] == commutative
+	    || recog_data.dup_num[i] == commutative + 1)
+	  *recog_data.dup_loc[i]
+	    = recog_data.operand[(int) recog_data.dup_num[i]];
 
       for (i = 0; i < n_reloads; i++)
 	{

@@ -40,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"			/* For rtl.h: needs enum reg_class.  */
 #include "symtab.h"
-#include "input.h"
 #include "alias.h"
 #include "flags.h"
 #include "tree.h"
@@ -51,7 +50,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "trans-mem.h"
 #include "langhooks.h"
-#include "input.h"
 #include "cpplib.h"
 #include "timevar.h"
 #include "c-family/c-pragma.h"
@@ -61,11 +59,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
 #include "target.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "plugin.h"
 #include "omp-low.h"
@@ -10368,7 +10363,7 @@ c_parser_oacc_data_clause_deviceptr (c_parser *parser, tree list)
 	 c_parser_omp_var_list_parens() should construct a list of
 	 locations to go along with the var list.  */
 
-      if (TREE_CODE (v) != VAR_DECL)
+      if (!VAR_P (v))
 	error_at (loc, "%qD is not a variable", v);
       else if (TREE_TYPE (v) == error_mark_node)
 	;
@@ -14768,11 +14763,11 @@ c_parser_omp_threadprivate (c_parser *parser)
 
       /* If V had already been marked threadprivate, it doesn't matter
 	 whether it had been used prior to this point.  */
-      if (TREE_CODE (v) != VAR_DECL)
+      if (!VAR_P (v))
 	error_at (loc, "%qD is not a variable", v);
       else if (TREE_USED (v) && !C_DECL_THREADPRIVATE_P (v))
 	error_at (loc, "%qE declared %<threadprivate%> after first use", v);
-      else if (! TREE_STATIC (v) && ! DECL_EXTERNAL (v))
+      else if (! is_global_var (v))
 	error_at (loc, "automatic variable %qE cannot be %<threadprivate%>", v);
       else if (TREE_TYPE (v) == error_mark_node)
 	;

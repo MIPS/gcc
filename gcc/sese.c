@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
@@ -32,7 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -42,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -63,6 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "sese.h"
 #include "tree-ssa-propagate.h"
+#include "tree-hash-traits.h"
 
 /* Helper function for debug_rename_map.  */
 
@@ -78,23 +76,7 @@ debug_rename_map_1 (tree_node *const &old_name, tree_node *const &expr,
   return true;
 }
 
-
-/* Hashtable helpers.  */
-
-struct rename_map_hasher : default_hashmap_traits
-{
-  static inline hashval_t hash (tree);
-};
-
-/* Computes a hash function for database element ELT.  */
-
-inline hashval_t
-rename_map_hasher::hash (tree old_name)
-{
-  return SSA_NAME_VERSION (old_name);
-}
-
-typedef hash_map<tree, tree, rename_map_hasher> rename_map_type;
+typedef hash_map<tree_ssa_name_hash, tree> rename_map_type;
 
 
 /* Print to stderr all the elements of RENAME_MAP.  */

@@ -28,7 +28,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "hard-reg-set.h"
 #include "regs.h"
-#include "input.h"
 #include "function.h"
 #include "profile.h"
 #include "flags.h"
@@ -363,13 +362,15 @@ ps_num_consecutive_stages (partial_schedule_ptr ps, int id)
    more than one occurrence in the loop besides the control part or the
    do-loop pattern is not of the form we expect.  */
 static rtx
-doloop_register_get (rtx_insn *head ATTRIBUTE_UNUSED, rtx_insn *tail ATTRIBUTE_UNUSED)
+doloop_register_get (rtx_insn *head, rtx_insn *tail)
 {
-#ifdef HAVE_doloop_end
   rtx reg, condition;
   rtx_insn *insn, *first_insn_not_to_check;
 
   if (!JUMP_P (tail))
+    return NULL_RTX;
+
+  if (!targetm.code_for_doloop_end)
     return NULL_RTX;
 
   /* TODO: Free SMS's dependence on doloop_condition_get.  */
@@ -407,9 +408,6 @@ doloop_register_get (rtx_insn *head ATTRIBUTE_UNUSED, rtx_insn *tail ATTRIBUTE_U
       }
 
   return reg;
-#else
-  return NULL_RTX;
-#endif
 }
 
 /* Check if COUNT_REG is set to a constant in the PRE_HEADER block, so
@@ -2007,9 +2005,7 @@ get_sched_window (partial_schedule_ptr ps, ddg_node_ptr u_node,
      node close to its successors.  */
   if (pss_not_empty && count_succs >= count_preds)
     {
-      int tmp = end;
-      end = start;
-      start = tmp;
+      std::swap (start, end);
       step = -1;
     }
 

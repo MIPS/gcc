@@ -31,7 +31,6 @@
 #include "insn-flags.h"
 #include "insn-attr.h"
 #include "recog.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -49,7 +48,6 @@
 #include "reload.h"
 #include "output.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm_p.h"
 #include "gstab.h"
 #include "dominance.h"
@@ -65,12 +63,12 @@
 #include "insn-codes.h"
 #include "optabs.h"
 #include "diagnostic-core.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 #define MICROBLAZE_VERSION_COMPARE(VA,VB) strcasecmp (VA, VB)
 

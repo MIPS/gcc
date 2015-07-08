@@ -22,7 +22,6 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -52,7 +51,6 @@
 #include "recog.h"
 #include "diagnostic-core.h"
 #include "target.h"
-#include "target-def.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfgrtl.h"
@@ -64,6 +62,9 @@
 #include "basic-block.h"
 #include "df.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* For dumping information about frame sizes.  */
 char * mcore_current_function_name = 0;

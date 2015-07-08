@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic-core.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
@@ -56,10 +55,8 @@ const char **plugin_event_name = plugin_event_name_init;
 
 /* Event hashtable helpers.  */
 
-struct event_hasher : typed_noop_remove <const char *>
+struct event_hasher : nofree_ptr_hash <const char *>
 {
-  typedef const char **value_type;
-  typedef const char **compare_type;
   static inline hashval_t hash (const char **);
   static inline bool equal (const char **, const char **);
 };

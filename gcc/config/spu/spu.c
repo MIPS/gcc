@@ -27,7 +27,6 @@
 #include "flags.h"
 #include "recog.h"
 #include "obstack.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -59,7 +58,6 @@
 #include "diagnostic-core.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "reload.h"
 #include "sched-int.h"
@@ -69,7 +67,6 @@
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "tm-constrs.h"
@@ -81,6 +78,9 @@
 #include "cfgloop.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Builtin types, data and prototypes. */
 

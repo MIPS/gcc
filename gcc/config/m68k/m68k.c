@@ -21,7 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -49,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "debug.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -68,6 +66,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 enum reg_class regno_reg_class[] =
 {

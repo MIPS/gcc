@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 
 /* In order for the format checking to accept the C++ front end
@@ -52,7 +51,7 @@ c-common.h, not after.
       AGGR_INIT_VIA_CTOR_P (in AGGR_INIT_EXPR)
       PTRMEM_OK_P (in ADDR_EXPR, OFFSET_REF, SCOPE_REF)
       PAREN_STRING_LITERAL (in STRING_CST)
-      DECL_GNU_TLS_P (in VAR_DECL)
+      CP_DECL_THREAD_LOCAL_P (in VAR_DECL)
       KOENIG_LOOKUP_P (in CALL_EXPR)
       STATEMENT_LIST_NO_SCOPE (in STATEMENT_LIST).
       EXPR_STMT_STMT_EXPR_RESULT (in EXPR_STMT)
@@ -156,6 +155,7 @@ c-common.h, not after.
    2: DECL_THIS_EXTERN (in VAR_DECL or FUNCTION_DECL).
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
       TEMPLATE_DECL_COMPLEX_ALIAS_P (in TEMPLATE_DECL)
+      DECL_INSTANTIATING_NSDMI_P (in a FIELD_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
       DECL_ANON_UNION_VAR_P (in a VAR_DECL)
@@ -1181,7 +1181,7 @@ struct GTY((for_user)) cxx_int_tree_map {
   tree to;
 };
 
-struct cxx_int_tree_map_hasher : ggc_hasher<cxx_int_tree_map *>
+struct cxx_int_tree_map_hasher : ggc_ptr_hash<cxx_int_tree_map>
 {
   static hashval_t hash (cxx_int_tree_map *);
   static bool equal (cxx_int_tree_map *, cxx_int_tree_map *);
@@ -1189,7 +1189,7 @@ struct cxx_int_tree_map_hasher : ggc_hasher<cxx_int_tree_map *>
 
 struct named_label_entry;
 
-struct named_label_hasher : ggc_hasher<named_label_entry *>
+struct named_label_hasher : ggc_ptr_hash<named_label_entry>
 {
   static hashval_t hash (named_label_entry *);
   static bool equal (named_label_entry *, named_label_entry *);
@@ -1335,7 +1335,7 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 
 /* Nonzero if NODE has no name for linkage purposes.  */
 #define TYPE_ANONYMOUS_P(NODE) \
-  (OVERLOAD_TYPE_P (NODE) && ANON_AGGRNAME_P (TYPE_LINKAGE_IDENTIFIER (NODE)))
+  (OVERLOAD_TYPE_P (NODE) && anon_aggrname_p (TYPE_LINKAGE_IDENTIFIER (NODE)))
 
 /* The _DECL for this _TYPE.  */
 #define TYPE_MAIN_DECL(NODE) (TYPE_STUB_DECL (TYPE_MAIN_VARIANT (NODE)))
@@ -2017,7 +2017,7 @@ struct GTY(()) lang_decl_base {
   unsigned repo_available_p : 1;	   /* var or fn */
   unsigned threadprivate_or_deleted_p : 1; /* var or fn */
   unsigned anticipated_p : 1;		   /* fn, type or template */
-  unsigned friend_attr : 1;		   /* fn, type or template */
+  unsigned friend_or_tls : 1;		   /* var, fn, type or template */
   unsigned template_conv_p : 1;		   /* var or template */
   unsigned odr_used : 1;		   /* var or fn */
   unsigned u2sel : 1;
@@ -2438,7 +2438,16 @@ struct GTY(()) lang_decl {
    and should not be added to the list of members for this class.  */
 #define DECL_FRIEND_P(NODE) \
   (DECL_LANG_SPECIFIC (TYPE_FUNCTION_OR_TEMPLATE_DECL_CHECK (NODE)) \
-   ->u.base.friend_attr)
+   ->u.base.friend_or_tls)
+
+/* Nonzero if the thread-local variable was declared with __thread as
+   opposed to thread_local.  */
+#define DECL_GNU_TLS_P(NODE)				\
+  (DECL_LANG_SPECIFIC (VAR_DECL_CHECK (NODE))		\
+   && DECL_LANG_SPECIFIC (NODE)->u.base.friend_or_tls)
+#define SET_DECL_GNU_TLS_P(NODE)				\
+  (retrofit_lang_decl (VAR_DECL_CHECK (NODE)),			\
+   DECL_LANG_SPECIFIC (NODE)->u.base.friend_or_tls = true)
 
 /* A TREE_LIST of the types which have befriended this FUNCTION_DECL.  */
 #define DECL_BEFRIENDING_CLASSES(NODE) \
@@ -2566,9 +2575,11 @@ struct GTY(()) lang_decl {
   (DECL_NAME (NODE) \
    && !strcmp (IDENTIFIER_POINTER (DECL_NAME (NODE)), "__PRETTY_FUNCTION__"))
 
-/* Nonzero if the thread-local variable was declared with __thread
-   as opposed to thread_local.  */
-#define DECL_GNU_TLS_P(NODE) \
+/* Nonzero if the variable was declared to be thread-local.
+   We need a special C++ version of this test because the middle-end
+   DECL_THREAD_LOCAL_P uses the symtab, so we can't use it for
+   templates.  */
+#define CP_DECL_THREAD_LOCAL_P(NODE) \
   (TREE_LANG_FLAG_0 (VAR_DECL_CHECK (NODE)))
 
 /* The _TYPE context in which this _DECL appears.  This field holds the
@@ -3784,6 +3795,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    parameter, i.e, a[] rather than *a.  */
 #define DECL_ARRAY_PARAMETER_P(NODE) \
   DECL_LANG_FLAG_1 (PARM_DECL_CHECK (NODE))
+
+/* Nonzero for a FIELD_DECL who's NSMDI is currently being
+   instantiated.  */
+#define DECL_INSTANTIATING_NSDMI_P(NODE) \
+  DECL_LANG_FLAG_2 (FIELD_DECL_CHECK (NODE))
 
 /* Nonzero for FIELD_DECL node means that this field is a base class
    of the parent object, as opposed to a member field.  */

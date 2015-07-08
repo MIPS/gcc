@@ -21,7 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
@@ -39,13 +38,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "fold-const.h"
 #include "stringpool.h"
-#include "is-a.h"
 #include "predict.h"
 #include "tree-ssa-alias.h"
 #include "basic-block.h"
 #include "gimple-expr.h"
 #include "gimple.h"
-#include "ipa-ref.h"
 #include "lto-streamer.h"
 #include "cgraph.h"
 
@@ -203,7 +200,7 @@ cp_ubsan_check_member_access_r (tree *stmt_p, int *walk_subtrees, void *data)
     {
     case ADDR_EXPR:
       t = TREE_OPERAND (stmt, 0);
-      while ((TREE_CODE (t) == MEM_REF || TREE_CODE (t) == INDIRECT_REF)
+      while ((TREE_CODE (t) == MEM_REF || INDIRECT_REF_P (t))
 	     && TREE_CODE (TREE_OPERAND (t, 0)) == ADDR_EXPR)
 	t = TREE_OPERAND (TREE_OPERAND (t, 0), 0);
       if (handled_component_p (t))

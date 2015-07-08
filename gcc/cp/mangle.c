@@ -48,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -60,12 +59,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "obstack.h"
 #include "flags.h"
 #include "target.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "attribs.h"
 
@@ -989,7 +984,8 @@ write_nested_name (const tree decl)
       write_template_prefix (decl);
       write_template_args (TI_ARGS (template_info));
     }
-  else if (TREE_CODE (TREE_TYPE (decl)) == TYPENAME_TYPE)
+  else if ((!abi_version_at_least (10) || TREE_CODE (decl) == TYPE_DECL)
+	   && TREE_CODE (TREE_TYPE (decl)) == TYPENAME_TYPE)
     {
       tree name = TYPENAME_TYPE_FULLNAME (TREE_TYPE (decl));
       if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
@@ -2200,7 +2196,7 @@ write_CV_qualifiers_for_type (const tree type)
      We don't do this with classes and enums because their attributes
      are part of their definitions, not something added on.  */
 
-  if (abi_version_at_least (9) && !OVERLOAD_TYPE_P (type))
+  if (abi_version_at_least (10) && !OVERLOAD_TYPE_P (type))
     {
       auto_vec<tree> vec;
       for (tree a = TYPE_ATTRIBUTES (type); a; a = TREE_CHAIN (a))
@@ -2234,7 +2230,7 @@ write_CV_qualifiers_for_type (const tree type)
 	    }
 
 	  ++num_qualifiers;
-	  if (abi_version_crosses (9))
+	  if (abi_version_crosses (10))
 	    G.need_abi_warning = true;
 	}
     }
@@ -2626,7 +2622,7 @@ write_template_args (tree args)
   if (args)
     length = TREE_VEC_LENGTH (args);
 
-  if (args && TREE_CODE (TREE_VEC_ELT (args, 0)) == TREE_VEC)
+  if (args && length && TREE_CODE (TREE_VEC_ELT (args, 0)) == TREE_VEC)
     {
       /* We have nested template args.  We want the innermost template
 	 argument list.  */
@@ -3534,8 +3530,7 @@ decl_implicit_alias_p (tree decl)
   if (DECL_P (decl) && DECL_ARTIFICIAL (decl)
       && DECL_IGNORED_P (decl)
       && (TREE_CODE (decl) == FUNCTION_DECL
-	  || (TREE_CODE (decl) == VAR_DECL
-	      && TREE_STATIC (decl))))
+	  || (VAR_P (decl) && TREE_STATIC (decl))))
     {
       symtab_node *n = symtab_node::get (decl);
       if (n && n->cpp_implicit_alias)
@@ -3844,7 +3839,7 @@ mangle_thunk (tree fn_decl, const int this_adjusting, tree fixed_offset,
   return result;
 }
 
-struct conv_type_hasher : ggc_hasher<tree>
+struct conv_type_hasher : ggc_ptr_hash<tree_node>
 {
   static hashval_t hash (tree);
   static bool equal (tree, tree);

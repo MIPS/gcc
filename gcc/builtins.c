@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -41,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "flags.h"
 #include "regs.h"
@@ -69,7 +67,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "asan.h"
 #include "cilk.h"
-#include "ipa-ref.h"
 #include "lto-streamer.h"
 #include "cgraph.h"
 #include "tree-chkp.h"
@@ -107,9 +104,7 @@ static int target_char_cast (tree, char *);
 static rtx get_memory_rtx (tree, tree);
 static int apply_args_size (void);
 static int apply_result_size (void);
-#if defined (HAVE_untyped_call) || defined (HAVE_untyped_return)
 static rtx result_vector (int, rtx);
-#endif
 static void expand_builtin_prefetch (tree);
 static rtx expand_builtin_apply_args (void);
 static rtx expand_builtin_apply_args_1 (void);
@@ -476,6 +471,28 @@ get_pointer_alignment_1 (tree exp, unsigned int *alignp,
   if (TREE_CODE (exp) == ADDR_EXPR)
     return get_object_alignment_2 (TREE_OPERAND (exp, 0),
 				   alignp, bitposp, true);
+  else if (TREE_CODE (exp) == POINTER_PLUS_EXPR)
+    {
+      unsigned int align;
+      unsigned HOST_WIDE_INT bitpos;
+      bool res = get_pointer_alignment_1 (TREE_OPERAND (exp, 0),
+					  &align, &bitpos);
+      if (TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST)
+	bitpos += TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)) * BITS_PER_UNIT;
+      else
+	{
+	  unsigned int trailing_zeros = tree_ctz (TREE_OPERAND (exp, 1));
+	  if (trailing_zeros < HOST_BITS_PER_INT)
+	    {
+	      unsigned int inner = (1U << trailing_zeros) * BITS_PER_UNIT;
+	      if (inner)
+		align = MIN (align, inner);
+	    }
+	}
+      *alignp = align;
+      *bitposp = bitpos & (align - 1);
+      return res;
+    }
   else if (TREE_CODE (exp) == SSA_NAME
 	   && POINTER_TYPE_P (TREE_TYPE (exp)))
     {
@@ -870,10 +887,8 @@ expand_builtin_setjmp_setup (rtx buf_addr, rtx receiver_label)
   emit_stack_save (SAVE_NONLOCAL, &stack_save);
 
   /* If there is further processing to do, do it.  */
-#ifdef HAVE_builtin_setjmp_setup
-  if (HAVE_builtin_setjmp_setup)
-    emit_insn (gen_builtin_setjmp_setup (buf_addr));
-#endif
+  if (targetm.have_builtin_setjmp_setup ())
+    emit_insn (targetm.gen_builtin_setjmp_setup (buf_addr));
 
   /* We have a nonlocal label.   */
   cfun->has_nonlocal_label = 1;
@@ -884,7 +899,7 @@ expand_builtin_setjmp_setup (rtx buf_addr, rtx receiver_label)
    If RECEIVER_LABEL is NULL, instead contruct a nonlocal goto handler.  */
 
 void
-expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
+expand_builtin_setjmp_receiver (rtx receiver_label)
 {
   rtx chain;
 
@@ -900,9 +915,7 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 
   /* Now put in the code to restore the frame pointer, and argument
      pointer, if needed.  */
-#ifdef HAVE_nonlocal_goto
-  if (! HAVE_nonlocal_goto)
-#endif
+  if (! targetm.have_nonlocal_goto ())
     {
       /* First adjust our frame pointer to its actual value.  It was
 	 previously set to the start of the virtual area corresponding to
@@ -953,17 +966,12 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
     }
 #endif
 
-#ifdef HAVE_builtin_setjmp_receiver
-  if (receiver_label != NULL && HAVE_builtin_setjmp_receiver)
-    emit_insn (gen_builtin_setjmp_receiver (receiver_label));
+  if (receiver_label != NULL && targetm.have_builtin_setjmp_receiver ())
+    emit_insn (targetm.gen_builtin_setjmp_receiver (receiver_label));
+  else if (targetm.have_nonlocal_goto_receiver ())
+    emit_insn (targetm.gen_nonlocal_goto_receiver ());
   else
-#endif
-#ifdef HAVE_nonlocal_goto_receiver
-    if (HAVE_nonlocal_goto_receiver)
-      emit_insn (gen_nonlocal_goto_receiver ());
-    else
-#endif
-      { /* Nothing */ }
+    { /* Nothing */ }
 
   /* We must not allow the code we just generated to be reordered by
      scheduling.  Specifically, the update of the frame pointer must
@@ -1000,11 +1008,9 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
   gcc_assert (value == const1_rtx);
 
   last = get_last_insn ();
-#ifdef HAVE_builtin_longjmp
-  if (HAVE_builtin_longjmp)
-    emit_insn (gen_builtin_longjmp (buf_addr));
+  if (targetm.have_builtin_longjmp ())
+    emit_insn (targetm.gen_builtin_longjmp (buf_addr));
   else
-#endif
     {
       fp = gen_rtx_MEM (Pmode, buf_addr);
       lab = gen_rtx_MEM (Pmode, plus_constant (Pmode, buf_addr,
@@ -1018,14 +1024,12 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
 
       /* Pick up FP, label, and SP from the block and jump.  This code is
 	 from expand_goto in stmt.c; see there for detailed comments.  */
-#ifdef HAVE_nonlocal_goto
-      if (HAVE_nonlocal_goto)
+      if (targetm.have_nonlocal_goto ())
 	/* We have to pass a value to the nonlocal_goto pattern that will
 	   get copied into the static_chain pointer, but it does not matter
 	   what that value is, because builtin_setjmp does not use it.  */
-	emit_insn (gen_nonlocal_goto (value, lab, stack, fp));
+	emit_insn (targetm.gen_nonlocal_goto (value, lab, stack, fp));
       else
-#endif
 	{
 	  lab = copy_to_reg (lab);
 
@@ -1147,12 +1151,10 @@ expand_builtin_nonlocal_goto (tree exp)
 
   crtl->has_nonlocal_goto = 1;
 
-#ifdef HAVE_nonlocal_goto
   /* ??? We no longer need to pass the static chain value, afaik.  */
-  if (HAVE_nonlocal_goto)
-    emit_insn (gen_nonlocal_goto (const0_rtx, r_label, r_sp, r_fp));
+  if (targetm.have_nonlocal_goto ())
+    emit_insn (targetm.gen_nonlocal_goto (const0_rtx, r_label, r_sp, r_fp));
   else
-#endif
     {
       r_label = copy_to_reg (r_label);
 
@@ -1280,18 +1282,16 @@ expand_builtin_prefetch (tree exp)
       op2 = const0_rtx;
     }
 
-#ifdef HAVE_prefetch
-  if (HAVE_prefetch)
+  if (targetm.have_prefetch ())
     {
       struct expand_operand ops[3];
 
       create_address_operand (&ops[0], op0);
       create_integer_operand (&ops[1], INTVAL (op1));
       create_integer_operand (&ops[2], INTVAL (op2));
-      if (maybe_expand_insn (CODE_FOR_prefetch, 3, ops))
+      if (maybe_expand_insn (targetm.code_for_prefetch, 3, ops))
 	return;
     }
-#endif
 
   /* Don't do anything with direct references to volatile memory, but
      generate code to handle other side effects.  */
@@ -1444,7 +1444,6 @@ apply_result_size (void)
   return size;
 }
 
-#if defined (HAVE_untyped_call) || defined (HAVE_untyped_return)
 /* Create a vector describing the result block RESULT.  If SAVEP is true,
    the result block is used to save the values; otherwise it is used to
    restore the values.  */
@@ -1473,7 +1472,6 @@ result_vector (int savep, rtx result)
       }
   return gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nelts, savevec));
 }
-#endif /* HAVE_untyped_call or HAVE_untyped_return */
 
 /* Save the state required to perform an untyped call with the same
    arguments as were passed to the current function.  */
@@ -1613,11 +1611,9 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
   NO_DEFER_POP;
 
   /* Save the stack with nonlocal if available.  */
-#ifdef HAVE_save_stack_nonlocal
-  if (HAVE_save_stack_nonlocal)
+  if (targetm.have_save_stack_nonlocal ())
     emit_stack_save (SAVE_NONLOCAL, &old_stack_level);
   else
-#endif
     emit_stack_save (SAVE_BLOCK, &old_stack_level);
 
   /* Allocate a block of memory onto the stack and copy the memory
@@ -1694,12 +1690,13 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
     function = memory_address (FUNCTION_MODE, function);
 
   /* Generate the actual call instruction and save the return value.  */
-#ifdef HAVE_untyped_call
-  if (HAVE_untyped_call)
-    emit_call_insn (gen_untyped_call (gen_rtx_MEM (FUNCTION_MODE, function),
-				      result, result_vector (1, result)));
+  if (targetm.have_untyped_call ())
+    {
+      rtx mem = gen_rtx_MEM (FUNCTION_MODE, function);
+      emit_call_insn (targetm.gen_untyped_call (mem, result,
+						result_vector (1, result)));
+    }
   else
-#endif
 #ifdef HAVE_call_value
   if (HAVE_call_value)
     {
@@ -1733,11 +1730,9 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
   add_function_usage_to (call_insn, call_fusage);
 
   /* Restore the stack.  */
-#ifdef HAVE_save_stack_nonlocal
-  if (HAVE_save_stack_nonlocal)
+  if (targetm.have_save_stack_nonlocal ())
     emit_stack_restore (SAVE_NONLOCAL, old_stack_level);
   else
-#endif
     emit_stack_restore (SAVE_BLOCK, old_stack_level);
   fixup_args_size_notes (call_insn, get_last_insn (), 0);
 
@@ -1763,14 +1758,13 @@ expand_builtin_return (rtx result)
   apply_result_size ();
   result = gen_rtx_MEM (BLKmode, result);
 
-#ifdef HAVE_untyped_return
-  if (HAVE_untyped_return)
+  if (targetm.have_untyped_return ())
     {
-      emit_jump_insn (gen_untyped_return (result, result_vector (0, result)));
+      rtx vector = result_vector (0, result);
+      emit_jump_insn (targetm.gen_untyped_return (result, vector));
       emit_barrier ();
       return;
     }
-#endif
 
   /* Restore the return value and note that each value is used.  */
   size = 0;
@@ -4739,10 +4733,9 @@ expand_builtin_assume_aligned (tree exp, rtx target)
 void
 expand_builtin_trap (void)
 {
-#ifdef HAVE_trap
-  if (HAVE_trap)
+  if (targetm.have_trap ())
     {
-      rtx_insn *insn = emit_insn (gen_trap ());
+      rtx_insn *insn = emit_insn (targetm.gen_trap ());
       /* For trap insns when not accumulating outgoing args force
 	 REG_ARGS_SIZE note to prevent crossjumping of calls with
 	 different args sizes.  */
@@ -4750,7 +4743,6 @@ expand_builtin_trap (void)
 	add_reg_note (insn, REG_ARGS_SIZE, GEN_INT (stack_pointer_delta));
     }
   else
-#endif
     emit_library_call (abort_libfunc, LCT_NORETURN, VOIDmode, 0);
   emit_barrier ();
 }
@@ -4815,20 +4807,22 @@ expand_builtin_copysign (tree exp, rtx target, rtx subtarget)
 /* Expand a call to __builtin___clear_cache.  */
 
 static rtx
-expand_builtin___clear_cache (tree exp ATTRIBUTE_UNUSED)
+expand_builtin___clear_cache (tree exp)
 {
-#ifndef HAVE_clear_cache
+  if (!targetm.code_for_clear_cache)
+    {
 #ifdef CLEAR_INSN_CACHE
-  /* There is no "clear_cache" insn, and __clear_cache() in libgcc
-     does something.  Just do the default expansion to a call to
-     __clear_cache().  */
-  return NULL_RTX;
+      /* There is no "clear_cache" insn, and __clear_cache() in libgcc
+	 does something.  Just do the default expansion to a call to
+	 __clear_cache().  */
+      return NULL_RTX;
 #else
-  /* There is no "clear_cache" insn, and __clear_cache() in libgcc
-     does nothing.  There is no need to call it.  Do nothing.  */
-  return const0_rtx;
+      /* There is no "clear_cache" insn, and __clear_cache() in libgcc
+	 does nothing.  There is no need to call it.  Do nothing.  */
+      return const0_rtx;
 #endif /* CLEAR_INSN_CACHE */
-#else
+    }
+
   /* We have a "clear_cache" insn, and it will handle everything.  */
   tree begin, end;
   rtx begin_rtx, end_rtx;
@@ -4842,7 +4836,7 @@ expand_builtin___clear_cache (tree exp ATTRIBUTE_UNUSED)
       return const0_rtx;
     }
 
-  if (HAVE_clear_cache)
+  if (targetm.have_clear_cache ())
     {
       struct expand_operand ops[2];
 
@@ -4854,11 +4848,10 @@ expand_builtin___clear_cache (tree exp ATTRIBUTE_UNUSED)
 
       create_address_operand (&ops[0], begin_rtx);
       create_address_operand (&ops[1], end_rtx);
-      if (maybe_expand_insn (CODE_FOR_clear_cache, 2, ops))
+      if (maybe_expand_insn (targetm.code_for_clear_cache, 2, ops))
 	return const0_rtx;
     }
   return const0_rtx;
-#endif /* HAVE_clear_cache */
 }
 
 /* Given a trampoline address, make sure it satisfies TRAMPOLINE_ALIGNMENT.  */

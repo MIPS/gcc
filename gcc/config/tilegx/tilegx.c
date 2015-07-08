@@ -29,7 +29,6 @@
 #include "insn-attr.h"
 #include "recog.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "flags.h"
 #include "alias.h"
@@ -59,7 +58,6 @@
 #include "tm_p.h"
 #include "tm-constrs.h"
 #include "target.h"
-#include "target-def.h"
 #include "dwarf2.h"
 #include "timevar.h"
 #include "fold-const.h"
@@ -68,7 +66,6 @@
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -78,6 +75,9 @@
 #include "tilegx-multiply.h"
 #include "diagnostic.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* SYMBOL_REF for GOT */
 static GTY(()) rtx g_got_symbol = NULL;

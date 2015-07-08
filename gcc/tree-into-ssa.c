@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -41,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -217,10 +215,8 @@ typedef struct var_info_d *var_info_p;
 
 /* VAR_INFOS hashtable helpers.  */
 
-struct var_info_hasher : typed_free_remove <var_info_d>
+struct var_info_hasher : free_ptr_hash <var_info_d>
 {
-  typedef var_info_d *value_type;
-  typedef var_info_d *compare_type;
   static inline hashval_t hash (const value_type &);
   static inline bool equal (const value_type &, const compare_type &);
 };

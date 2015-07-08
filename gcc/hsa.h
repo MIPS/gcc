@@ -648,10 +648,8 @@ hsa_bb_for_bb (basic_block bb)
 
 /* Class for hashing local hsa_symbols.  */
 
-struct hsa_noop_symbol_hasher : typed_noop_remove <hsa_symbol>
+struct hsa_noop_symbol_hasher : nofree_ptr_hash <hsa_symbol>
 {
-  typedef hsa_symbol *value_type;
-  typedef hsa_symbol *compare_type;
   static inline hashval_t hash (const value_type);
   static inline bool equal (const value_type, const compare_type);
 };
@@ -674,10 +672,8 @@ hsa_noop_symbol_hasher::equal (const value_type a, const compare_type b)
 
 /* Class for hashing global hsa_symbols.  */
 
-struct hsa_free_symbol_hasher : typed_free_remove <hsa_symbol>
+struct hsa_free_symbol_hasher : free_ptr_hash <hsa_symbol>
 {
-  typedef hsa_symbol *value_type;
-  typedef hsa_symbol *compare_type;
   static inline hashval_t hash (const value_type);
   static inline bool equal (const value_type, const compare_type);
 };

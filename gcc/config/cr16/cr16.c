@@ -23,7 +23,6 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -61,9 +60,11 @@
 #include "cfgcleanup.h"
 #include "basic-block.h"
 #include "target.h"
-#include "target-def.h"
 #include "df.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Definitions.  */
 

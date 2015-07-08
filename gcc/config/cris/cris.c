@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "conditions.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -53,7 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "tm-constrs.h"
 #include "target.h"
-#include "target-def.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "dominance.h"
@@ -67,11 +65,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "df.h"
 #include "opts.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Usable when we have an amount to add or subtract, and want the
    optimal size of the insn.  */

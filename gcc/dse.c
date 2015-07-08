@@ -27,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -66,7 +65,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
 #include "rtl-iter.h"
@@ -734,10 +732,8 @@ clear_alias_set_lookup (alias_set_type alias_set)
 /* Hashtable callbacks for maintaining the "bases" field of
    store_group_info, given that the addresses are function invariants.  */
 
-struct invariant_group_base_hasher : typed_noop_remove <group_info>
+struct invariant_group_base_hasher : nofree_ptr_hash <group_info>
 {
-  typedef group_info *value_type;
-  typedef group_info *compare_type;
   static inline hashval_t hash (const group_info *);
   static inline bool equal (const group_info *, const group_info *);
 };

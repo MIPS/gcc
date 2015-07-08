@@ -76,7 +76,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "alloc-pool.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -91,7 +90,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "stor-layout.h"
 #include "gimplify.h"
@@ -119,8 +117,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
@@ -343,10 +339,8 @@ static hash_map<tree, auto_vec<access_p> > *base_access_vec;
 
 /* Candidate hash table helpers.  */
 
-struct uid_decl_hasher : typed_noop_remove <tree_node>
+struct uid_decl_hasher : nofree_ptr_hash <tree_node>
 {
-  typedef tree_node *value_type;
-  typedef tree_node *compare_type;
   static inline hashval_t hash (const tree_node *);
   static inline bool equal (const tree_node *, const tree_node *);
 };
@@ -2551,11 +2545,20 @@ analyze_all_variable_accesses (void)
   bitmap tmp = BITMAP_ALLOC (NULL);
   bitmap_iterator bi;
   unsigned i;
-  unsigned max_scalarization_size
-    = (optimize_function_for_size_p (cfun)
-	? PARAM_VALUE (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE)
-	: PARAM_VALUE (PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED))
-      * BITS_PER_UNIT;
+  bool optimize_speed_p = !optimize_function_for_size_p (cfun);
+
+  enum compiler_param param = optimize_speed_p
+			? PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED
+			: PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE;
+
+  /* If the user didn't set PARAM_SRA_MAX_SCALARIZATION_SIZE_<...>,
+     fall back to a target default.  */
+  unsigned HOST_WIDE_INT max_scalarization_size
+    = global_options_set.x_param_values[param]
+      ? PARAM_VALUE (param)
+      : get_move_ratio (optimize_speed_p) * UNITS_PER_WORD;
+
+  max_scalarization_size *= BITS_PER_UNIT;
 
   EXECUTE_IF_SET_IN_BITMAP (candidate_bitmap, 0, i, bi)
     if (bitmap_bit_p (should_scalarize_away_bitmap, i)

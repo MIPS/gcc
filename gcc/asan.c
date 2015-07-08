@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
@@ -39,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -47,8 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "stor-layout.h"
 #include "tree-iterator.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
@@ -428,12 +424,8 @@ asan_mem_ref_get_end (const asan_mem_ref *ref, tree len)
   return asan_mem_ref_get_end (ref->start, len);
 }
 
-struct asan_mem_ref_hasher
-  : typed_noop_remove <asan_mem_ref>
+struct asan_mem_ref_hasher : nofree_ptr_hash <asan_mem_ref>
 {
-  typedef asan_mem_ref *value_type;
-  typedef asan_mem_ref *compare_type;
-
   static inline hashval_t hash (const asan_mem_ref *);
   static inline bool equal (const asan_mem_ref *, const asan_mem_ref *);
 };

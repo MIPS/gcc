@@ -21,7 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -38,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -59,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-inline.h"
 #include "tree-data-ref.h"
+#include "target.h"
 
 
 /* FIXME: Needed for optabs, but this should all be moved to a TBD interface
@@ -216,10 +215,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef ACCEPTABLE_MISS_RATE
 #define ACCEPTABLE_MISS_RATE 50
-#endif
-
-#ifndef HAVE_prefetch
-#define HAVE_prefetch 0
 #endif
 
 #define L1_CACHE_SIZE_BYTES ((unsigned) (L1_CACHE_SIZE * 1024))
@@ -1956,11 +1951,11 @@ tree_ssa_prefetch_arrays (void)
   bool unrolled = false;
   int todo_flags = 0;
 
-  if (!HAVE_prefetch
+  if (!targetm.have_prefetch ()
       /* It is possible to ask compiler for say -mtune=i486 -march=pentium4.
 	 -mtune=i486 causes us having PREFETCH_BLOCK 0, since this is part
 	 of processor costs and i486 does not have prefetch, but
-	 -march=pentium4 causes HAVE_prefetch to be true.  Ugh.  */
+	 -march=pentium4 causes targetm.have_prefetch to be true.  Ugh.  */
       || PREFETCH_BLOCK == 0)
     return 0;
 

@@ -22,7 +22,6 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "flags.h"
 #include "symtab.h"
@@ -53,7 +52,6 @@
 #include "tm_p.h"
 #include "optabs.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
 #include "predict.h"
 #include "basic-block.h"
@@ -68,6 +66,9 @@
 #include "tree-pass.h"
 #include "context.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Machine specific function data. */
 struct GTY (()) machine_function

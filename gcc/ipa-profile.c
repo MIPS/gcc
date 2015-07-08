@@ -48,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -57,12 +56,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
 #include "tree-ssa-alias.h"
@@ -105,10 +100,8 @@ static pool_allocator<histogram_entry> histogram_pool
 
 /* Hashtable support for storing SSA names hashed by their SSA_NAME_VAR.  */
 
-struct histogram_hash : typed_noop_remove <histogram_entry>
+struct histogram_hash : nofree_ptr_hash <histogram_entry>
 {
-  typedef histogram_entry *value_type;
-  typedef histogram_entry *compare_type;
   static inline hashval_t hash (const histogram_entry *);
   static inline int equal (const histogram_entry *, const histogram_entry *);
 };

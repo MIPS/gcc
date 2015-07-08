@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
@@ -62,7 +61,7 @@ bool
 literal_type_p (tree t)
 {
   if (SCALAR_TYPE_P (t)
-      || TREE_CODE (t) == VECTOR_TYPE
+      || VECTOR_TYPE_P (t)
       || TREE_CODE (t) == REFERENCE_TYPE
       || (VOID_TYPE_P (t) && cxx_dialect >= cxx14))
     return true;
@@ -124,7 +123,7 @@ struct GTY((for_user)) constexpr_fundef {
   tree body;
 };
 
-struct constexpr_fundef_hasher : ggc_hasher<constexpr_fundef *>
+struct constexpr_fundef_hasher : ggc_ptr_hash<constexpr_fundef>
 {
   static hashval_t hash (constexpr_fundef *);
   static bool equal (constexpr_fundef *, constexpr_fundef *);
@@ -538,16 +537,16 @@ build_constexpr_constructor_member_initializers (tree type, tree body)
     body = TREE_OPERAND (body, 0);
   if (TREE_CODE (body) == STATEMENT_LIST)
     {
-      tree_stmt_iterator i = tsi_start (body);
-      while (true)
+      for (tree_stmt_iterator i = tsi_start (body);
+	   !tsi_end_p (i); tsi_next (&i))
 	{
 	  body = tsi_stmt (i);
 	  if (TREE_CODE (body) == BIND_EXPR)
 	    break;
-	  tsi_next (&i);
 	}
     }
-  body = BIND_EXPR_BODY (body);
+  if (TREE_CODE (body) == BIND_EXPR)
+    body = BIND_EXPR_BODY (body);
   if (TREE_CODE (body) == CLEANUP_POINT_EXPR)
     {
       body = TREE_OPERAND (body, 0);
@@ -873,7 +872,7 @@ struct GTY((for_user)) constexpr_call {
   hashval_t hash;
 };
 
-struct constexpr_call_hasher : ggc_hasher<constexpr_call *>
+struct constexpr_call_hasher : ggc_ptr_hash<constexpr_call>
 {
   static hashval_t hash (constexpr_call *);
   static bool equal (constexpr_call *, constexpr_call *);
@@ -2102,7 +2101,7 @@ cxx_eval_bare_aggregate (const constexpr_ctx *ctx, tree t,
   /* We're done building this CONSTRUCTOR, so now we can interpret an
      element without an explicit initializer as value-initialized.  */
   CONSTRUCTOR_NO_IMPLICIT_ZERO (t) = false;
-  if (TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
+  if (VECTOR_TYPE_P (TREE_TYPE (t)))
     t = fold (t);
   return t;
 }
@@ -2290,7 +2289,7 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 		   (type, TREE_TYPE (optype))))
 	return fold_build1_loc (loc, REALPART_EXPR, type, op);
       /* *(foo *)&vectorfoo => BIT_FIELD_REF<vectorfoo,...> */
-      else if (TREE_CODE (optype) == VECTOR_TYPE
+      else if (VECTOR_TYPE_P (optype)
 	       && (same_type_ignoring_top_level_qualifiers_p
 		   (type, TREE_TYPE (optype))))
 	{
@@ -2336,7 +2335,7 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 	  op00type = TREE_TYPE (op00);
 
 	  /* ((foo*)&vectorfoo)[1] => BIT_FIELD_REF<vectorfoo,...> */
-	  if (TREE_CODE (op00type) == VECTOR_TYPE
+	  if (VECTOR_TYPE_P (op00type)
 	      && (same_type_ignoring_top_level_qualifiers_p
 		  (type, TREE_TYPE (op00type))))
 	    {
@@ -3034,7 +3033,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       if (TREE_CODE (r) == TARGET_EXPR
 	  && TREE_CODE (TARGET_EXPR_INITIAL (r)) == CONSTRUCTOR)
 	r = TARGET_EXPR_INITIAL (r);
-      if (TREE_CODE (r) == VAR_DECL)
+      if (VAR_P (r))
 	if (tree *p = ctx->values->get (r))
 	  r = *p;
       if (DECL_P (r))
@@ -3183,6 +3182,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 
     case NON_LVALUE_EXPR:
     case TRY_CATCH_EXPR:
+    case TRY_BLOCK:
     case CLEANUP_POINT_EXPR:
     case MUST_NOT_THROW_EXPR:
     case EXPR_STMT:
@@ -3191,6 +3191,17 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 					lval,
 					non_constant_p, overflow_p,
 					jump_target);
+      break;
+
+    case TRY_FINALLY_EXPR:
+      r = cxx_eval_constant_expression (ctx, TREE_OPERAND (t, 0), lval,
+					non_constant_p, overflow_p,
+					jump_target);
+      if (!*non_constant_p)
+	/* Also evaluate the cleanup.  */
+	cxx_eval_constant_expression (ctx, TREE_OPERAND (t, 1), true,
+				      non_constant_p, overflow_p,
+				      jump_target);
       break;
 
       /* These differ from cxx_eval_unary_expression in that this doesn't
@@ -4267,6 +4278,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case CLEANUP_POINT_EXPR:
     case MUST_NOT_THROW_EXPR:
     case TRY_CATCH_EXPR:
+    case TRY_BLOCK:
     case EH_SPEC_BLOCK:
     case EXPR_STMT:
     case PAREN_EXPR:
@@ -4275,6 +4287,10 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
       /* For convenience.  */
     case RETURN_EXPR:
       return RECUR (TREE_OPERAND (t, 0), want_rval);
+
+    case TRY_FINALLY_EXPR:
+      return (RECUR (TREE_OPERAND (t, 0), want_rval)
+	      && RECUR (TREE_OPERAND (t, 1), any));
 
     case SCOPE_REF:
       return RECUR (TREE_OPERAND (t, 1), want_rval);

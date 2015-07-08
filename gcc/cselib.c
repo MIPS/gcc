@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"/* FIXME: For hashing DEBUG_EXPR & friends.  */
@@ -32,7 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "input.h"
 #include "function.h"
 #include "emit-rtl.h"
 #include "diagnostic-core.h"
@@ -108,9 +106,8 @@ static rtx cselib_expand_value_rtx_1 (rtx, struct expand_value_data *, int);
      this involves walking the table entries for a given value and comparing
      the locations of the entries with the rtx we are looking up.  */
 
-struct cselib_hasher : typed_noop_remove <cselib_val>
+struct cselib_hasher : nofree_ptr_hash <cselib_val>
 {
-  typedef cselib_val *value_type;
   struct key {
     /* The rtx value and its mode (needed separately for constant
        integers).  */

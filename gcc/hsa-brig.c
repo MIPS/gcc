@@ -260,10 +260,8 @@ struct brig_string_slot
 
 /* Hash table helpers.  */
 
-struct brig_string_slot_hasher
+struct brig_string_slot_hasher : pointer_hash <brig_string_slot>
 {
-  typedef brig_string_slot *value_type;
-  typedef brig_string_slot *compare_type;
   static inline hashval_t hash (const value_type);
   static inline bool equal (const value_type, const compare_type);
   static inline void remove (value_type);

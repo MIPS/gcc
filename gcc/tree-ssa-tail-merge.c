@@ -189,7 +189,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -199,7 +198,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -211,7 +209,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -234,7 +231,7 @@ along with GCC; see the file COPYING3.  If not see
    Additionally, the hash value for the struct is cached in hashval, and
    in_worklist indicates whether it's currently part of worklist.  */
 
-struct same_succ_def
+struct same_succ_def : pointer_hash <same_succ_def>
 {
   /* The bbs that have the same successor bbs.  */
   bitmap bbs;
@@ -251,8 +248,6 @@ struct same_succ_def
   hashval_t hashval;
 
   /* hash_table support.  */
-  typedef same_succ_def *value_type;
-  typedef same_succ_def *compare_type;
   static inline hashval_t hash (const same_succ_def *);
   static int equal (const same_succ_def *, const same_succ_def *);
   static void remove (same_succ_def *);

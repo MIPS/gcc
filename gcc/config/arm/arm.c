@@ -25,7 +25,6 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -63,15 +62,11 @@
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "except.h"
 #include "tm_p.h"
 #include "target.h"
 #include "sched-int.h"
-#include "target-def.h"
 #include "debug.h"
 #include "langhooks.h"
 #include "df.h"
@@ -86,6 +81,10 @@
 #include "tm-constrs.h"
 #include "rtl-iter.h"
 #include "sched-int.h"
+#include "tree.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -220,6 +219,7 @@ static void arm_encode_section_info (tree, rtx, int);
 
 static void arm_file_end (void);
 static void arm_file_start (void);
+static void arm_insert_attributes (tree, tree *);
 
 static void arm_setup_incoming_varargs (cumulative_args_t, machine_mode,
 					tree, int *, int);
@@ -377,6 +377,9 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE arm_attribute_table
+
+#undef  TARGET_INSERT_ATTRIBUTES
+#define TARGET_INSERT_ATTRIBUTES arm_insert_attributes
 
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START arm_file_start
@@ -1703,8 +1706,8 @@ const struct tune_params arm_slowmul_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1726,8 +1729,8 @@ const struct tune_params arm_fastmul_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1752,8 +1755,8 @@ const struct tune_params arm_strongarm_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1775,8 +1778,8 @@ const struct tune_params arm_xscale_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1798,8 +1801,8 @@ const struct tune_params arm_9e_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1821,8 +1824,8 @@ const struct tune_params arm_marvell_pj4_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1844,8 +1847,8 @@ const struct tune_params arm_v6t2_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1869,8 +1872,8 @@ const struct tune_params arm_cortex_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -1892,8 +1895,8 @@ const struct tune_params arm_cortex_a8_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1915,8 +1918,8 @@ const struct tune_params arm_cortex_a7_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1938,8 +1941,8 @@ const struct tune_params arm_cortex_a15_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1961,8 +1964,8 @@ const struct tune_params arm_cortex_a53_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -1984,8 +1987,8 @@ const struct tune_params arm_cortex_a57_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -2007,8 +2010,8 @@ const struct tune_params arm_xgene1_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2033,8 +2036,8 @@ const struct tune_params arm_cortex_a5_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_FALSE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_FALSE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -2056,8 +2059,8 @@ const struct tune_params arm_cortex_a9_tune =
   ARM_PREFETCH_BENEFICIAL(4,32,32),
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2079,8 +2082,8 @@ const struct tune_params arm_cortex_a12_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
@@ -2109,8 +2112,8 @@ const struct tune_params arm_v7m_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_FALSE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_FALSE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2134,8 +2137,8 @@ const struct tune_params arm_cortex_m7_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2159,8 +2162,8 @@ const struct tune_params arm_v6m_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_FALSE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_FALSE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_FALSE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_FALSE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2182,8 +2185,8 @@ const struct tune_params arm_fa726te_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   tune_params::PREF_CONST_POOL_TRUE,
   tune_params::PREF_LDRD_FALSE,
-  tune_params::LOG_OP_NON_SC_TRUE,		/* Thumb.  */
-  tune_params::LOG_OP_NON_SC_TRUE,		/* ARM.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_FALSE,
@@ -2794,6 +2797,10 @@ arm_option_params_internal (struct gcc_options *opts)
          ? 1 : current_tune->max_insns_skipped;
 }
 
+/* True if -mflip-thumb should next add an attribute for the default
+   mode, false if it should next add an attribute for the opposite mode.  */
+static GTY(()) bool thumb_flipper;
+
 /* Options after initial target override.  */
 static GTY(()) tree init_optimize;
 
@@ -3371,6 +3378,9 @@ arm_option_override (void)
      options.  */
   target_option_default_node = target_option_current_node
     = build_target_option_node (&global_options);
+
+  /* Init initial mode for testing.  */
+  thumb_flipper = TARGET_THUMB;
 }
 
 static void
@@ -5028,10 +5038,8 @@ arm_function_value(const_tree type, const_tree func,
 
 /* libcall hashtable helpers.  */
 
-struct libcall_hasher : typed_noop_remove <rtx_def>
+struct libcall_hasher : nofree_ptr_hash <const rtx_def>
 {
-  typedef const rtx_def *value_type;
-  typedef const rtx_def *compare_type;
   static inline hashval_t hash (const rtx_def *);
   static inline bool equal (const rtx_def *, const rtx_def *);
   static inline void remove (rtx_def *);
@@ -6153,8 +6161,23 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
 static bool
 arm_needs_doubleword_align (machine_mode mode, const_tree type)
 {
-  return (GET_MODE_ALIGNMENT (mode) > PARM_BOUNDARY
-	  || (type && TYPE_ALIGN (type) > PARM_BOUNDARY));
+  if (!type)
+    return PARM_BOUNDARY < GET_MODE_ALIGNMENT (mode);
+
+  /* Scalar and vector types: Use natural alignment, i.e. of base type.  */
+  if (!AGGREGATE_TYPE_P (type))
+    return TYPE_ALIGN (TYPE_MAIN_VARIANT (type)) > PARM_BOUNDARY;
+
+  /* Array types: Use member alignment of element type.  */
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    return TYPE_ALIGN (TREE_TYPE (type)) > PARM_BOUNDARY;
+
+  /* Record/aggregate types: Use greatest member alignment of any member.  */ 
+  for (tree field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+    if (DECL_ALIGN (field) > PARM_BOUNDARY)
+      return true;
+
+  return false;
 }
 
 
@@ -17581,7 +17604,7 @@ arm_output_multireg_pop (rtx *operands, bool return_pc, rtx cond, bool reverse,
     }
 
   conditional = reverse ? "%?%D0" : "%?%d0";
-  if ((regno_base == SP_REGNUM) && TARGET_UNIFIED_ASM)
+  if ((regno_base == SP_REGNUM) && TARGET_THUMB)
     {
       /* Output pop (not stmfd) because it has a shorter encoding.  */
       gcc_assert (update);
@@ -26379,7 +26402,7 @@ arm_dbx_register_number (unsigned int regno)
   if (IS_IWMMXT_REGNUM (regno))
     return 112 + regno - FIRST_IWMMXT_REGNUM;
 
-  gcc_unreachable ();
+  return DWARF_FRAME_REGISTERS;
 }
 
 /* Dwarf models VFPv3 registers as 32 64-bit registers.
@@ -27372,7 +27395,8 @@ vfp3_const_double_for_fract_bits (rtx operand)
     return 0;
   
   REAL_VALUE_FROM_CONST_DOUBLE (r0, operand);
-  if (exact_real_inverse (DFmode, &r0))
+  if (exact_real_inverse (DFmode, &r0)
+      && !REAL_VALUE_NEGATIVE (r0))
     {
       if (exact_real_truncate (DFmode, &r0))
 	{
@@ -27605,6 +27629,8 @@ arm_split_compare_and_swap (rtx operands[])
   scratch = operands[7];
   mode = GET_MODE (mem);
 
+  bool is_armv8_sync = arm_arch8 && is_mm_sync (mod_s);
+
   bool use_acquire = TARGET_HAVE_LDACQ
                      && !(is_mm_relaxed (mod_s) || is_mm_consume (mod_s)
 			  || is_mm_release (mod_s));
@@ -27612,6 +27638,11 @@ arm_split_compare_and_swap (rtx operands[])
   bool use_release = TARGET_HAVE_LDACQ
                      && !(is_mm_relaxed (mod_s) || is_mm_consume (mod_s)
 			  || is_mm_acquire (mod_s));
+
+  /* For ARMv8, the load-acquire is too weak for __sync memory orders.  Instead,
+     a full barrier is emitted after the store-release.  */
+  if (is_armv8_sync)
+    use_acquire = false;
 
   /* Checks whether a barrier is needed and emits one accordingly.  */
   if (!(use_acquire || use_release))
@@ -27653,7 +27684,8 @@ arm_split_compare_and_swap (rtx operands[])
     emit_label (label2);
 
   /* Checks whether a barrier is needed and emits one accordingly.  */
-  if (!(use_acquire || use_release))
+  if (is_armv8_sync
+      || !(use_acquire || use_release))
     arm_post_atomic_barrier (mod_s);
 
   if (is_mm_relaxed (mod_f))
@@ -27670,6 +27702,8 @@ arm_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
   rtx_code_label *label;
   rtx x;
 
+  bool is_armv8_sync = arm_arch8 && is_mm_sync (model);
+
   bool use_acquire = TARGET_HAVE_LDACQ
                      && !(is_mm_relaxed (model) || is_mm_consume (model)
 			  || is_mm_release (model));
@@ -27677,6 +27711,11 @@ arm_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
   bool use_release = TARGET_HAVE_LDACQ
                      && !(is_mm_relaxed (model) || is_mm_consume (model)
 			  || is_mm_acquire (model));
+
+  /* For ARMv8, a load-acquire is too weak for __sync memory orders.  Instead,
+     a full barrier is emitted after the store-release.  */
+  if (is_armv8_sync)
+    use_acquire = false;
 
   /* Checks whether a barrier is needed and emits one accordingly.  */
   if (!(use_acquire || use_release))
@@ -27748,7 +27787,8 @@ arm_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
   emit_unlikely_jump (gen_cbranchsi4 (x, cond, const0_rtx, label));
 
   /* Checks whether a barrier is needed and emits one accordingly.  */
-  if (!(use_acquire || use_release))
+  if (is_armv8_sync
+      || !(use_acquire || use_release))
     arm_post_atomic_barrier (model);
 }
 
@@ -29353,9 +29393,9 @@ arm_set_current_function (tree fndecl)
 
   arm_previous_fndecl = fndecl;
   if (old_tree == new_tree)
-    ;
+    return;
 
-  else if (new_tree)
+  if (new_tree && new_tree != target_option_default_node)
     {
       cl_target_option_restore (&global_options,
 				TREE_TARGET_OPTION (new_tree));
@@ -29367,7 +29407,7 @@ arm_set_current_function (tree fndecl)
 	  = save_target_globals_default_opts ();
     }
 
-  else if (old_tree)
+  else if (old_tree && old_tree != target_option_default_node)
     {
       new_tree = target_option_current_node;
 
@@ -29459,6 +29499,52 @@ arm_valid_target_attribute_tree (tree args, struct gcc_options *opts,
   arm_option_override_internal (opts, opts_set);
 
   return build_target_option_node (opts);
+}
+
+static void 
+add_attribute  (const char * mode, tree *attributes)
+{
+  size_t len = strlen (mode);
+  tree value = build_string (len, mode);
+
+  TREE_TYPE (value) = build_array_type (char_type_node,
+					build_index_type (size_int (len)));
+
+  *attributes = tree_cons (get_identifier ("target"),
+			   build_tree_list (NULL_TREE, value),
+			   *attributes);
+}
+
+/* For testing. Insert thumb or arm modes alternatively on functions.  */
+
+static void
+arm_insert_attributes (tree fndecl, tree * attributes)
+{
+  const char *mode;
+
+  if (! TARGET_FLIP_THUMB)
+    return;
+
+  if (TREE_CODE (fndecl) != FUNCTION_DECL || DECL_EXTERNAL(fndecl)
+      || DECL_BUILT_IN (fndecl) || DECL_ARTIFICIAL (fndecl))
+   return;
+
+  /* Nested definitions must inherit mode.  */
+  if (current_function_decl)
+   {
+     mode = TARGET_THUMB ? "thumb" : "arm";      
+     add_attribute (mode, attributes);
+     return;
+   }
+
+  /* If there is already a setting don't change it.  */
+  if (lookup_attribute ("target", *attributes) != NULL)
+    return;
+
+  mode = thumb_flipper ? "thumb" : "arm";
+  add_attribute (mode, attributes);
+
+  thumb_flipper = !thumb_flipper;
 }
 
 /* Hook to validate attribute((target("string"))).  */

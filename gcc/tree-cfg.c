@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "tree.h"
@@ -45,14 +44,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
 #include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -134,10 +130,8 @@ struct locus_discrim_map
 
 /* Hashtable helpers.  */
 
-struct locus_discrim_hasher : typed_free_remove <locus_discrim_map>
+struct locus_discrim_hasher : free_ptr_hash <locus_discrim_map>
 {
-  typedef locus_discrim_map *value_type;
-  typedef locus_discrim_map *compare_type;
   static inline hashval_t hash (const locus_discrim_map *);
   static inline bool equal (const locus_discrim_map *,
 			    const locus_discrim_map *);
@@ -4007,8 +4001,22 @@ verify_gimple_assign_ternary (gassign *stmt)
 	}
       break;
 
-    case COND_EXPR:
     case VEC_COND_EXPR:
+      if (!VECTOR_INTEGER_TYPE_P (rhs1_type)
+	  || TYPE_SIGN (rhs1_type) != SIGNED
+	  || TYPE_SIZE (rhs1_type) != TYPE_SIZE (lhs_type)
+	  || TYPE_VECTOR_SUBPARTS (rhs1_type)
+	     != TYPE_VECTOR_SUBPARTS (lhs_type))
+	{
+	  error ("the first argument of a VEC_COND_EXPR must be of a signed "
+		 "integral vector type of the same size and number of "
+		 "elements as the result");
+	  debug_generic_expr (lhs_type);
+	  debug_generic_expr (rhs1_type);
+	  return true;
+	}
+      /* Fallthrough.  */
+    case COND_EXPR:
       if (!useless_type_conversion_p (lhs_type, rhs2_type)
 	  || !useless_type_conversion_p (lhs_type, rhs3_type))
 	{
