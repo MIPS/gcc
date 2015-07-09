@@ -4712,9 +4712,8 @@ process_partial_specialization (tree decl)
     gcc_assert (!COMPLETE_TYPE_P (type));
 
   // Build the template decl.
-  tree tmpl = build_template_decl (decl,
-                                   current_template_parms,
-                                   DECL_MEMBER_TEMPLATE_P (maintmpl));
+  tree tmpl = build_template_decl (decl, current_template_parms,
+				   DECL_MEMBER_TEMPLATE_P (maintmpl));
   TREE_TYPE (tmpl) = type;
   DECL_TEMPLATE_RESULT (tmpl) = decl;
   SET_DECL_TEMPLATE_SPECIALIZATION (tmpl);
@@ -11509,8 +11508,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	   GEN_TMPL is NULL.  */
 	if (gen_tmpl)
 	  {
-           DECL_TEMPLATE_INFO (r)
-	     = build_template_info (gen_tmpl, argvec);
+	    DECL_TEMPLATE_INFO (r)
+	      = build_template_info (gen_tmpl, argvec);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 
 	    tree new_r
