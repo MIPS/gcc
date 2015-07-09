@@ -19816,7 +19816,7 @@ more_specialized_partial_spec (tree tmpl, tree pat1, tree pat2)
 
   // If still tied at this point, the most specialized is also
   // the most constrained.
-  if (!winner)
+  if (!winner && any_deductions)
     return more_constrained (tmpl1, tmpl2);
 
   return winner;

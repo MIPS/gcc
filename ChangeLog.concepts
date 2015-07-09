@@ -1,5 +1,8 @@
 2015-07-08  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/pt.c (more_specialized_partial_spec): Don't consider
+	constraints if both deductions failed.
+
 	* gcc/c-family/c-common.h (enum rid): Remove RID_IS_CONVERTIBLE_TO.
 	* gcc/c-family/c-common.c (c_common_reswords): And __is_convertible_to.
 	* gcc/cp/cp-tree.h (enum cp_trait_kind): And CPTK_IS_CONVERTIBLE_TO.
