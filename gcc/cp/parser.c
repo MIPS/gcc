@@ -13834,7 +13834,6 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
       parameter_declarator->declarator->parameter_pack_p = false;
     }
 
-  tree declared_type = parameter_declarator->decl_specifiers.type;
   if (parameter_declarator->default_argument)
     {
       /* Can happen in some cases of erroneous input (c++/34892).  */
@@ -13859,11 +13858,12 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
   /* We might end up with a pack expansion as the type of the non-type
      template parameter, in which case this is a non-type template
      parameter pack.  */
-  else if (declared_type && PACK_EXPANSION_P (declared_type))
+  else if (parameter_declarator->decl_specifiers.type
+	   && PACK_EXPANSION_P (parameter_declarator->decl_specifiers.type))
     {
       *is_parameter_pack = true;
       parameter_declarator->decl_specifiers.type = 
-	PACK_EXPANSION_PATTERN (declared_type);
+	PACK_EXPANSION_PATTERN (parameter_declarator->decl_specifiers.type);
     }
 
   if (*is_parameter_pack && cp_lexer_next_token_is (parser->lexer, CPP_EQ))

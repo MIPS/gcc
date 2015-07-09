@@ -1,3 +1,8 @@
+2015-07-09  Jason Merrill  <jason@redhat.com>
+
+	* gcc/cp/parser.c (cp_parser_template_parameter): Remove
+	declared_type variable.
+
 2015-07-08  Jason Merrill  <jason@redhat.com>
 
 	* gcc/cp/pt.c (pending_expansion_p): Remove.
