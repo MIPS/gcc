@@ -7497,18 +7497,6 @@ classtype_has_nothrow_assign_or_copy_p (tree type, bool assign_p)
   return true;
 }
 
-// Returns a type for T that can be used as an xvalue. For function
-// types, this returns an rvalue reference to T. For all other types,
-// this simply returns T.
-tree
-xvalue_result_type (tree t)
-{
-  if (TREE_CODE (t) == FUNCTION_TYPE)
-    return cp_build_reference_type (t, true);
-  else
-    return t;
-}
-
 /* Actually evaluates the trait.  */
 
 static bool
@@ -7583,9 +7571,6 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
 
     case CPTK_IS_CLASS:
       return (NON_UNION_CLASS_TYPE_P (type1));
-
-    case CPTK_IS_CONVERTIBLE_TO:
-      return can_convert (type2, xvalue_result_type (type1), tf_none);
 
     case CPTK_IS_EMPTY:
       return (NON_UNION_CLASS_TYPE_P (type1) && CLASSTYPE_EMPTY_P (type1));
@@ -7699,7 +7684,6 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
 
     case CPTK_IS_TRIVIALLY_ASSIGNABLE:
     case CPTK_IS_TRIVIALLY_CONSTRUCTIBLE:
-    case CPTK_IS_CONVERTIBLE_TO:
       if (!check_trait_type (type1)
 	  || !check_trait_type (type2))
 	return error_mark_node;

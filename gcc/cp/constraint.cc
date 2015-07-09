@@ -2418,9 +2418,6 @@ diagnose_trait_expression (location_t loc, tree t, tree args)
     case CPTK_IS_CLASS:
       inform (loc, "  %qT is not a class", t1);
       break;
-    case CPTK_IS_CONVERTIBLE_TO:
-      inform (loc, "  %qT is not convertible to %qT", t1, t2);
-      break;
     case CPTK_IS_EMPTY:
       inform (loc, "  %qT is not an empty class", t1);
       break;

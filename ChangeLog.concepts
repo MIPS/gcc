@@ -1,5 +1,16 @@
 2015-07-08  Jason Merrill  <jason@redhat.com>
 
+	* gcc/c-family/c-common.h (enum rid): Remove RID_IS_CONVERTIBLE_TO.
+	* gcc/c-family/c-common.c (c_common_reswords): And __is_convertible_to.
+	* gcc/cp/cp-tree.h (enum cp_trait_kind): And CPTK_IS_CONVERTIBLE_TO.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_trait_expression): Remove handling.
+	* gcc/cp/parser.c (cp_parser_primary_expression): Likewise.
+	(cp_parser_trait_expr): Likewise.
+	* gcc/cp/constraint.cc (diagnose_trait_expression): Likewise.
+	* gcc/cp/semantics.c (finish_trait_expr): Likewise.
+	(trait_expr_value): Likewise.
+	(xvalue_result_type): Remove.
+
 	* gcc/cp/semantics.c (is_unary_trait, is_binary_trait): Remove.
 	* gcc/cp/cp-tree.h: Remove declarations.
 
