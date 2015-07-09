@@ -767,21 +767,24 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{MIPS Options}
 @gccoptlist{-EL  -EB  -march=@var{arch}  -mtune=@var{arch} @gol
--mips1  -mips2  -mips3  -mips4  -mips32  -mips32r2 @gol
--mips64  -mips64r2 @gol
+-mips1  -mips2  -mips3  -mips4  -mips32  -mips32r2  -mips32r3  -mips32r5 @gol
+-mips32r6  -mips64  -mips64r2  -mips64r3  -mips64r5  -mips64r6 @gol
 -mips16  -mno-mips16  -mflip-mips16 @gol
 -minterlink-compressed -mno-interlink-compressed @gol
 -minterlink-mips16  -mno-interlink-mips16 @gol
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
--mgp32  -mgp64  -mfp32  -mfp64  -mhard-float  -msoft-float @gol
+-mgp32  -mgp64  -mfp32  -mfpxx  -mfp64  -mhard-float  -msoft-float @gol
 -mno-float  -msingle-float  -mdouble-float @gol
+-modd-spreg -mno-odd-spreg @gol
 -mabs=@var{mode}  -mnan=@var{encoding} @gol
 -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
 -mmcu -mmno-mcu @gol
 -meva -mno-eva @gol
 -mvirt -mno-virt @gol
+-mxpa -mno-xpa @gol
 -mmicromips -mno-micromips @gol
+-mmsa -mno-msa @gol
 -mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
@@ -805,6 +808,7 @@ Objective-C and Objective-C++ Dialects}.
 -mfix-vr4130  -mno-fix-vr4130  -mfix-sb1  -mno-fix-sb1 @gol
 -mflush-func=@var{func}  -mno-flush-func @gol
 -mbranch-cost=@var{num}  -mbranch-likely  -mno-branch-likely @gol
+-mcompact-branches=@var{setting} @gol
 -mfp-exceptions -mno-fp-exceptions @gol
 -mvr4130-align -mno-vr4130-align -msynci -mno-synci @gol
 -mrelax-pic-calls -mno-relax-pic-calls -mmcount-ra-address}
@@ -17074,7 +17078,9 @@ Generate code that runs on @var{arch}, which can be the name of a
 generic MIPS ISA, or the name of a particular processor.
 The ISA names are:
 @samp{mips1}, @samp{mips2}, @samp{mips3}, @samp{mips4},
-@samp{mips32}, @samp{mips32r2}, @samp{mips64} and @samp{mips64r2}.
+@samp{mips32}, @samp{mips32r2}, @samp{mips32r3}, @samp{mips32r5},
+@samp{mips32r6}, @samp{mips64}, @samp{mips64r2}, @samp{mips64r3},
+@samp{mips64r5} and @samp{mips64r6}.
 The processor names are:
 @samp{4kc}, @samp{4km}, @samp{4kp}, @samp{4ksc},
 @samp{4kec}, @samp{4kem}, @samp{4kep}, @samp{4ksd},
@@ -17085,11 +17091,14 @@ The processor names are:
 @samp{34kc}, @samp{34kf2_1}, @samp{34kf1_1}, @samp{34kn},
 @samp{74kc}, @samp{74kf2_1}, @samp{74kf1_1}, @samp{74kf3_2},
 @samp{1004kc}, @samp{1004kf2_1}, @samp{1004kf1_1},
+@samp{interaptiv},
 @samp{loongson2e}, @samp{loongson2f}, @samp{loongson3a},
 @samp{m4k},
 @samp{m14k}, @samp{m14kc}, @samp{m14ke}, @samp{m14kec},
-@samp{octeon}, @samp{octeon+}, @samp{octeon2},
+@samp{m5100}, @samp{m5101}, @samp{m6201},
+@samp{octeon}, @samp{octeon+}, @samp{octeon2}, @samp{octeon3},
 @samp{orion},
+@samp{p5600},
 @samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},
 @samp{r4600}, @samp{r4650}, @samp{r4700}, @samp{r6000}, @samp{r8000},
 @samp{rm7000}, @samp{rm9000},
@@ -17172,9 +17181,17 @@ Equivalent to @option{-march=mips4}.
 @opindex mips32
 Equivalent to @option{-march=mips32}.
 
-@item -mips32r2
-@opindex mips32r2
-Equivalent to @option{-march=mips32r2}.
+@item -mips32r3
+@opindex mips32r3
+Equivalent to @option{-march=mips32r3}.
+
+@item -mips32r5
+@opindex mips32r5
+Equivalent to @option{-march=mips32r5}.
+
+@item -mips32r6
+@opindex mips32r6
+Equivalent to @option{-march=mips32r6}.
 
 @item -mips64
 @opindex mips64
@@ -17183,6 +17200,18 @@ Equivalent to @option{-march=mips64}.
 @item -mips64r2
 @opindex mips64r2
 Equivalent to @option{-march=mips64r2}.
+
+@item -mips64r3
+@opindex mips64r3
+Equivalent to @option{-march=mips64r3}.
+
+@item -mips64r5
+@opindex mips64r5
+Equivalent to @option{-march=mips64r5}.
+
+@item -mips64r6
+@opindex mips64r6
+Equivalent to @option{-march=mips64r6}.
 
 @item -mips16
 @itemx -mno-mips16
@@ -17244,14 +17273,27 @@ GCC supports a variant of the o32 ABI in which floating-point registers
 are 64 rather than 32 bits wide.  You can select this combination with
 @option{-mabi=32} @option{-mfp64}.  This ABI relies on the @code{mthc1}
 and @code{mfhc1} instructions and is therefore only supported for
-MIPS32R2 processors.
+MIPS32R2, MIPS32R3 and MIPS32R5 processors.
 
 The register assignments for arguments and return values remain the
 same, but each scalar value is passed in a single 64-bit register
 rather than a pair of 32-bit registers.  For example, scalar
 floating-point values are returned in @samp{$f0} only, not a
 @samp{$f0}/@samp{$f1} pair.  The set of call-saved registers also
-remains the same, but all 64 bits are saved.
+remains the same in that the even-numbered double-precision registers
+are saved.
+
+Two additional variants of the o32 ABI are supported to enable
+a transition from 32-bit to 64-bit registers.  These are FPXX
+(@option{-mfpxx}) and FP64A (@option{-mfp64} @option{-mno-odd-spreg}).
+The FPXX extension mandates that all code must execute correctly
+when run using 32-bit or 64-bit registers.  The code can be interlinked
+with either FP32 or FP64, but not both.
+The FP64A extension is similar to the FP64 extension but forbids the
+use of odd-numbered single-precision registers.  This can be used
+in conjunction with the @code{FRE} mode of FPUs in MIPS32R5
+processors and allows both FP32 and FP64A code to interlink and
+run in the same process without changing FPU modes.
 
 @item -mabicalls
 @itemx -mno-abicalls
@@ -17340,6 +17382,10 @@ Assume that floating-point registers are 32 bits wide.
 @opindex mfp64
 Assume that floating-point registers are 64 bits wide.
 
+@item -mfpxx
+@opindex mfpxx
+Do not assume the width of floating-point registers.
+
 @item -mhard-float
 @opindex mhard-float
 Use floating-point coprocessor instructions.
@@ -17370,6 +17416,15 @@ operations.
 @opindex mdouble-float
 Assume that the floating-point coprocessor supports double-precision
 operations.  This is the default.
+
+@item -modd-spreg
+@itemx -mno-odd-spreg
+@opindex modd-spreg
+@opindex mno-odd-spreg
+Enable the use of odd-numbered single-precision floating-point registers
+for the o32 ABI.  This is the default for processors that are known to
+support these registers.  When using the o32 FPXX ABI, @code{-mno-odd-spreg}
+is set by default.
 
 @item -mabs=2008
 @itemx -mabs=legacy
@@ -17509,6 +17564,12 @@ Use (do not use) the MIPS Enhanced Virtual Addressing instructions.
 @opindex mvirt
 @opindex mno-virt
 Use (do not use) the MIPS Virtualization Application Specific instructions.
+
+@item -mxpa
+@itemx -mno-xpa
+@opindex mxpa
+@opindex mno-xpa
+Use (do not use) the MIPS eXtended Physical Address (XPA) instructions.
 
 @item -mlong64
 @opindex mlong64
@@ -17927,6 +17988,21 @@ architecture.  An exception is for the MIPS32 and MIPS64 architectures
 and processors that implement those architectures; for those, Branch
 Likely instructions are not be generated by default because the MIPS32
 and MIPS64 architectures specifically deprecate their use.
+
+@item -mcompact-branches=@var{setting}
+@opindex mcompact-branches
+Set the code generation policy for branch instructions.  There are two
+classes of branch instructions in MIPS ISAs; the original branches
+which delay slots and compact branches which have no delay slots.  Where
+both types of branch are available, GCC can be directed to use only one
+type or both.  To target only delay slot branches use @code{none} as the
+setting, to target only compact branches use @code{always} as the
+setting and to target the most appropriate branch for any given scenario
+use @code{optimal} as the setting.  By default GCC uses the optimal
+setting which is appropriate for all ISA releases as it will account for
+the branches available in the selected ISA.  GCC will not use the J or
+JAL instructions for MIPS Release 6 unless compact branches are disabled
+as these are specifically deprecated; BC and BALC will be used instead.
 
 @item -mfp-exceptions
 @itemx -mno-fp-exceptions
