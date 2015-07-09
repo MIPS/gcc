@@ -377,15 +377,23 @@ genericize_omp_for_stmt (tree *stmt_p, int *walk_subtrees, void *data)
   tree stmt = *stmt_p;
   location_t locus = EXPR_LOCATION (stmt);
   tree clab = begin_bc_block (bc_continue, locus);
+  tree x;
 
   cp_walk_tree (&OMP_FOR_BODY (stmt), cp_genericize_r, data, NULL);
   cp_walk_tree (&OMP_FOR_CLAUSES (stmt), cp_genericize_r, data, NULL);
   cp_walk_tree (&OMP_FOR_INIT (stmt), cp_genericize_r, data, NULL);
-  cp_walk_tree (&OMP_FOR_COND (stmt), cp_genericize_r, data, NULL);
+ //  cp_walk_tree (&OMP_FOR_COND (stmt), cp_genericize_r, data, NULL);
+  x = OMP_FOR_COND (stmt);
+  if (x && TREE_CODE_CLASS (TREE_CODE (x)) == tcc_comparison)
+    cp_walk_tree (&TREE_OPERAND (x, 1), cp_genericize_r, data, NULL);
   /* We don't call cp_walk_tree for OMP_FOR_INCR here due this can lead
      to unsupported pattern in c-family's omp_for code.  Issue is that
      fold seems to prefer pattern (type) (X + Y), if alternative could be
      (type) X + (type) Y.  */
+  x = OMP_FOR_INCR (stmt);
+  if (x && (TREE_CODE (x) == PLUS_EXPR || TREE_CODE (x) == MINUS_EXPR
+      || TREE_CODE (x) == POINTER_PLUS_EXPR))
+    cp_walk_tree (&TREE_OPERAND (x, 1), cp_genericize_r, data, NULL);
   cp_walk_tree (&OMP_FOR_PRE_BODY (stmt), cp_genericize_r, data, NULL);
   *walk_subtrees = 0;
 
