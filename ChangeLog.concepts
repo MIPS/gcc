@@ -1,5 +1,8 @@
 2015-07-08  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/semantics.c (finish_template_type_parm): Don't give the
+	TYPE_DECL a DECL_LANG_SPECIFIC.
+
 	* gcc/cp/pt.c (more_specialized_partial_spec): Don't consider
 	constraints if both deductions failed.
 

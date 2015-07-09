@@ -2709,7 +2709,7 @@ finish_template_type_parm (tree aggr, tree identifier)
 tree
 finish_template_template_parm (tree aggr, tree identifier)
 {
-  tree decl = build_lang_decl_loc (input_location,
+  tree decl = build_decl (input_location,
 			  TYPE_DECL, identifier, NULL_TREE);
 
   tree tmpl = build_lang_decl (TEMPLATE_DECL, identifier, NULL_TREE);
