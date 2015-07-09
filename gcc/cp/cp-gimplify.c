@@ -1893,10 +1893,12 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
   /* Don't even try to hash on DECLs or constants.  */
   if (DECL_P (x) || CONSTANT_CLASS_P (x))
     {
-#if 0
-      if (!DECL_P (x) || TREE_CODE (x) == VAR_DECL)
-        return maybe_constant_value (x);
-#endif
+      r = x;
+      if (TREE_CODE (x) == VAR_DECL
+	  || TREE_CODE (x) == CONST_DECL)
+        r = maybe_constant_value (x);
+      if (x != r && TREE_CONSTANT (r))
+	x = r;
       return x;
     }
 
@@ -2141,9 +2143,18 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	    x = cp_fold (r, fold_hash);
 	    break;
 	  }
-	if (changed)
-	  x = r;
-	else
+
+	optimize = nw;
+        r = maybe_constant_value (x);
+	optimize = sv;
+
+        if (TREE_CODE (r) != CALL_EXPR)
+	  {
+	    x = r;
+	    break;
+	  }
+
+	if (!changed)
 	  x = org_x;
 	break;
       }
