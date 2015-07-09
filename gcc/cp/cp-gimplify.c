@@ -382,18 +382,46 @@ genericize_omp_for_stmt (tree *stmt_p, int *walk_subtrees, void *data)
   cp_walk_tree (&OMP_FOR_BODY (stmt), cp_genericize_r, data, NULL);
   cp_walk_tree (&OMP_FOR_CLAUSES (stmt), cp_genericize_r, data, NULL);
   cp_walk_tree (&OMP_FOR_INIT (stmt), cp_genericize_r, data, NULL);
- //  cp_walk_tree (&OMP_FOR_COND (stmt), cp_genericize_r, data, NULL);
+  /* We can't call folding on OMP_FOR_COND directly, due it might alter
+     conditional-code, which will confuses OMP code.
+     Nevertheless we need to make sure that operands getting simplified.  */
   x = OMP_FOR_COND (stmt);
   if (x && TREE_CODE_CLASS (TREE_CODE (x)) == tcc_comparison)
-    cp_walk_tree (&TREE_OPERAND (x, 1), cp_genericize_r, data, NULL);
+    {
+      cp_walk_tree (&TREE_OPERAND (x, 0), cp_genericize_r, data, NULL);
+      cp_walk_tree (&TREE_OPERAND (x, 1), cp_genericize_r, data, NULL);
+    }
+  else if (x && TREE_CODE (x) == TREE_VEC)
+    {
+       int i, n = TREE_VEC_LENGTH (x);
+       for (i = 0; i < n; i++)
+	{
+	  tree o = TREE_VEC_ELT (x, i);
+	  if (o && TREE_CODE_CLASS (TREE_CODE (o)) == tcc_comparison)
+	    cp_walk_tree (&TREE_OPERAND (o, 1), cp_genericize_r, data, NULL);
+	}
+    }
   /* We don't call cp_walk_tree for OMP_FOR_INCR here due this can lead
      to unsupported pattern in c-family's omp_for code.  Issue is that
      fold seems to prefer pattern (type) (X + Y), if alternative could be
      (type) X + (type) Y.  */
   x = OMP_FOR_INCR (stmt);
-  if (x && (TREE_CODE (x) == PLUS_EXPR || TREE_CODE (x) == MINUS_EXPR
-      || TREE_CODE (x) == POINTER_PLUS_EXPR))
-    cp_walk_tree (&TREE_OPERAND (x, 1), cp_genericize_r, data, NULL);
+  if (x && TREE_CODE (x) == TREE_VEC)
+    {
+      int i, n = TREE_VEC_LENGTH (x);
+      for (i = 0; i < n; i++)
+	{
+      tree o = TREE_VEC_ELT (x, i);
+  if (o && (TREE_CODE (o) == MODIFY_EXPR))
+    o = TREE_OPERAND (o, 1);
+  if (o && (TREE_CODE (o) == PLUS_EXPR || TREE_CODE (o) == MINUS_EXPR
+      || TREE_CODE (o) == POINTER_PLUS_EXPR))
+    {
+      cp_walk_tree (&TREE_OPERAND (o, 0), cp_genericize_r, data, NULL);
+      cp_walk_tree (&TREE_OPERAND (o, 1), cp_genericize_r, data, NULL);
+    }
+	}
+    }
   cp_walk_tree (&OMP_FOR_PRE_BODY (stmt), cp_genericize_r, data, NULL);
   *walk_subtrees = 0;
 
