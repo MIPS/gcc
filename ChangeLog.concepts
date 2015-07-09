@@ -1,5 +1,8 @@
 2015-07-08  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/pt.c (pending_expansion_p): Remove.
+	(tsubst_pack_expansion, tsubst_copy_and_build): Remove handling.
+
 	* gcc/cp/semantics.c (finish_template_type_parm): Don't give the
 	TYPE_DECL a DECL_LANG_SPECIFIC.
 

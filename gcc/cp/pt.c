@@ -9064,38 +9064,6 @@ outermost_tinst_level (void)
   return level;
 }
 
-/* Returns TRUE if the t is a parameter that will be
-   expanded into a sequence of arguments, when an argument
-   pack is substituted into it.
-
-   These arise from requires-expressions, where substitution
-   during normalization produces unexpanded parameters.
-   For example:
-
-        template<typename T, typename... Args>
-        concept bool C() {
-          return requires (T t, Args... args) {
-            t(args...);
-          }
-        }
-
-        tempate<typename X, typename... As>
-          requires C<X, As...>
-        struct S { };
-
-   When S's constraint is normalized the parameterized expression
-   is a parameter args whose type is the type pack expansion
-   As... When we instantiate S and provide a concrete argument
-   pack, we need to make sure that references to args... are
-   expanded correctly.  */
-
-static inline bool
-pending_expansion_p (tree t)
-{
-  return (TREE_CODE (t) == PARM_DECL && CONSTRAINT_VAR_P (t)
-          && PACK_EXPANSION_P (TREE_TYPE (t)));
-}
-
 /* DECL is a friend FUNCTION_DECL or TEMPLATE_DECL.  ARGS is the
    vector of template arguments, as for tsubst.
 
@@ -10555,19 +10523,6 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
   hash_map<tree, tree> *saved_local_specializations = NULL;
   bool need_local_specializations = false;
   int levels;
-
-  /* If T is a parameter declaration pending expansion by
-     ARGS, substitute through and form an argument pack
-     for the resulting expression. The sequence of
-     expressions is contained in the argument pack.  */
-  if (pending_expansion_p (t))
-    {
-      tree pack = tsubst_copy_and_build (t, args, complain, in_decl,
-                                         /*function_p=*/false,
-                                         /*constexpr_p=*/false);
-      gcc_assert (TREE_CODE (pack) == NONTYPE_ARGUMENT_PACK);
-      return TREE_OPERAND (pack, 0);
-    }
 
   gcc_assert (PACK_EXPANSION_P (t));
   pattern = PACK_EXPANSION_PATTERN (t);
@@ -15765,7 +15720,7 @@ tsubst_copy_and_build (tree t,
 	  {
 	    tree arg = CALL_EXPR_ARG (t, i);
 
-	    if (!PACK_EXPANSION_P (arg) && !pending_expansion_p (arg))
+	    if (!PACK_EXPANSION_P (arg))
 	      vec_safe_push (call_args, RECUR (CALL_EXPR_ARG (t, i)));
 	    else
 	      {
