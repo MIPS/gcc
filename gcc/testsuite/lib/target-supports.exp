@@ -784,8 +784,9 @@ proc check_effective_target_tls {} {
 
 proc check_effective_target_tls_native {} {
     # VxWorks uses emulated TLS machinery, but with non-standard helper
-    # functions, so we fail to automatically detect it.
-    if { [istarget *-*-vxworks*] } {
+    # functions, so we fail to automatically detect it.  IA MCU run-time
+    # doesn't support TLS.
+    if { [istarget *-*-vxworks*] || [istarget *-*-elfiamcu] } {
 	return 0
     }
     
@@ -799,6 +800,11 @@ proc check_effective_target_tls_native {} {
 # Return 1 if *emulated* thread local storage (TLS) is supported, 0 otherwise.
 
 proc check_effective_target_tls_emulated {} {
+    # IA MCU run-time doesn't support TLS.
+    if { [istarget *-*-elfiamcu] } {
+	return 0
+    }
+
     # VxWorks uses emulated TLS machinery, but with non-standard helper
     # functions, so we fail to automatically detect it.
     if { [istarget *-*-vxworks*] } {
