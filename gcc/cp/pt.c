@@ -22319,15 +22319,10 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
       }
 
     case TRAIT_EXPR:
-      {
-        bool l = dependent_type_p (TRAIT_EXPR_TYPE1 (*tp));
-        bool r = is_binary_trait (TRAIT_EXPR_KIND (*tp))
-                   ? dependent_type_p (TRAIT_EXPR_TYPE1 (*tp)) : false;
-        if (l || r)
-          return *tp;
-        *walk_subtrees = false;
-        return NULL_TREE;
-      }
+      if (value_dependent_expression_p (*tp))
+	return *tp;
+      *walk_subtrees = false;
+      return NULL_TREE;
 
     case COMPONENT_REF:
       if (identifier_p (TREE_OPERAND (*tp, 1)))

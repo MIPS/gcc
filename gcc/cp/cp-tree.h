@@ -6149,8 +6149,6 @@ extern tree begin_handler			(void);
 extern void finish_handler_parms		(tree, tree);
 extern void finish_handler			(tree);
 extern void finish_cleanup			(tree, tree);
-extern bool is_unary_trait                      (cp_trait_kind);
-extern bool is_binary_trait                     (cp_trait_kind);
 extern bool is_this_parameter (tree);
 extern bool is_this_parameter                   (tree);
 extern tree xvalue_result_type                  (tree);

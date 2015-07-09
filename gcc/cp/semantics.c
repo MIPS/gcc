@@ -7497,22 +7497,6 @@ classtype_has_nothrow_assign_or_copy_p (tree type, bool assign_p)
   return true;
 }
 
-// Returns true if K denotes a unary type trait.
-inline bool
-is_unary_trait (cp_trait_kind k)
-{
-  if (k == CPTK_IS_CONVERTIBLE_TO || k == CPTK_IS_BASE_OF)
-    return false;
-  return true;
-}
-
-// Returns true if K denotes a binary type trait.
-bool
-is_binary_trait (cp_trait_kind k)
-{
-  return !is_unary_trait (k);
-}
-
 // Returns a type for T that can be used as an xvalue. For function
 // types, this returns an rvalue reference to T. For all other types,
 // this simply returns T.

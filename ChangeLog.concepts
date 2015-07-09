@@ -1,5 +1,8 @@
 2015-07-08  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/semantics.c (is_unary_trait, is_binary_trait): Remove.
+	* gcc/cp/cp-tree.h: Remove declarations.
+
 	* gcc/cp/pt.c (convert_template_argument): Remove redundant set of
 	argparm.
 	(tsubst_decl) [VAR_DECL]: Remove unnecessary DECL_LANG_SPECIFIC check.
