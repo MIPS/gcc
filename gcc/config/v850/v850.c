@@ -21,24 +21,22 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
-#include "rtl.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -48,16 +46,11 @@
 #include "diagnostic-core.h"
 #include "tm_p.h"
 #include "target.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "opts.h"
 #include "builtins.h"
 
@@ -361,13 +354,10 @@ const_costs (rtx r, enum rtx_code c)
 }
 
 static bool
-v850_rtx_costs (rtx x,
-                int codearg,
-                int outer_code ATTRIBUTE_UNUSED,
-		int opno ATTRIBUTE_UNUSED,
-                int * total, bool speed)
+v850_rtx_costs (rtx x, machine_mode mode, int outer_code,
+		int opno ATTRIBUTE_UNUSED, int *total, bool speed)
 {
-  enum rtx_code code = (enum rtx_code) codearg;
+  enum rtx_code code = GET_CODE (x);
 
   switch (code)
     {
@@ -391,9 +381,7 @@ v850_rtx_costs (rtx x,
 
     case MULT:
       if (TARGET_V850E
-	  && (   GET_MODE (x) == SImode
-	      || GET_MODE (x) == HImode
-	      || GET_MODE (x) == QImode))
+	  && (mode == SImode || mode == HImode || mode == QImode))
         {
 	  if (GET_CODE (XEXP (x, 1)) == REG)
 	    *total = 4;

@@ -27,9 +27,11 @@ along with GCC; see the file COPYING3.  If not see
 typedef enum {
   HAS_DEPENDENT_TEMPLATE_ARGS,
   IS_ABSTRACT,
+  IS_CONSTEXPR,
   IS_CONSTRUCTOR,
   IS_DESTRUCTOR,
   IS_COPY_CONSTRUCTOR,
+  IS_MOVE_CONSTRUCTOR,
   IS_TEMPLATE,
   IS_TRIVIAL
 } cpp_operation;

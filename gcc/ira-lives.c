@@ -21,24 +21,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "regs.h"
+#include "backend.h"
 #include "rtl.h"
+#include "df.h"
+#include "regs.h"
 #include "tm_p.h"
 #include "target.h"
 #include "flags.h"
 #include "except.h"
-#include "hard-reg-set.h"
-#include "predict.h"
-#include "function.h"
-#include "basic-block.h"
 #include "insn-config.h"
 #include "recog.h"
 #include "diagnostic-core.h"
 #include "params.h"
-#include "df.h"
-#include "sbitmap.h"
 #include "sparseset.h"
+#include "cfgloop.h"
+#include "ira.h"
+#include "alloc-pool.h"
 #include "ira-int.h"
 
 /* The code in this file is similar to one in global but the code
@@ -1346,7 +1344,21 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	     allocate such regs in this case.  */
 	  if (!cfun->has_nonlocal_label && bb_has_abnormal_call_pred (bb))
 	    for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
-	      if (call_used_regs[px])
+	      if (call_used_regs[px]
+#ifdef REAL_PIC_OFFSET_TABLE_REGNUM
+		  /* We should create a conflict of PIC pseudo with
+		     PIC hard reg as PIC hard reg can have a wrong
+		     value after jump described by the abnormal edge.
+		     In this case we can not allocate PIC hard reg to
+		     PIC pseudo as PIC pseudo will also have a wrong
+		     value.  This code is not critical as LRA can fix
+		     it but it is better to have the right allocation
+		     earlier.  */
+		  || (px == REAL_PIC_OFFSET_TABLE_REGNUM
+		      && pic_offset_table_rtx != NULL_RTX
+		      && REGNO (pic_offset_table_rtx) >= FIRST_PSEUDO_REGISTER)
+#endif
+		  )
 		make_hard_regno_born (px);
 	}
 

@@ -21,9 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "symtab.h"
-#include "alias.h"
 #include "tree.h"
+#include "alias.h"
 #include "stringpool.h"
 #include "attribs.h"
 #include "stor-layout.h"
@@ -469,10 +468,10 @@ decl_attributes (tree *node, tree attributes, int flags)
 	  /* This is a c++11 attribute that appertains to a
 	     type-specifier, outside of the definition of, a class
 	     type.  Ignore it.  */
-	  warning (OPT_Wattributes, "attribute ignored");
-	  inform (input_location,
-		  "an attribute that appertains to a type-specifier "
-		  "is ignored");
+	  if (warning (OPT_Wattributes, "attribute ignored"))
+	    inform (input_location,
+		    "an attribute that appertains to a type-specifier "
+		    "is ignored");
 	  continue;
 	}
 
