@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "options.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "c-common.h"
 #include "c-pragma.h"
@@ -887,11 +886,11 @@ c_common_post_options (const char **pfilename)
   /* Change flag_abi_version to be the actual current ABI level for the
      benefit of c_cpp_builtins.  */
   if (flag_abi_version == 0)
-    flag_abi_version = 9;
+    flag_abi_version = 10;
 
-  /* Set C++ standard to C++98 if not specified on the command line.  */
+  /* Set C++ standard to C++14 if not specified on the command line.  */
   if (c_dialect_cxx () && cxx_dialect == cxx_unset)
-    set_std_cxx98 (/*ISO*/false);
+    set_std_cxx14 (/*ISO*/false);
 
   if (cxx_dialect >= cxx11)
     {

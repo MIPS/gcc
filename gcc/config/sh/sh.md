@@ -10751,12 +10751,6 @@ label:
 		 "__stack_chk_guard") == 0)
     stack_chk_guard_p = true;
 
-  /* Use R0 to avoid long R0 liveness which stack-protector tends to
-     produce.  */
-  if (! sh_lra_flag
-      && stack_chk_guard_p && ! reload_in_progress && ! reload_completed)
-    operands[2] = gen_rtx_REG (Pmode, R0_REG);
-
   if (TARGET_SHMEDIA)
     {
       rtx reg = operands[2];
@@ -11344,6 +11338,8 @@ label:
     LABEL_NUSES (operands[2])++;
 })
 
+;; This may be replaced with casesi_worker_2 in sh_reorg for PIC.
+;; The insn length is set to 8 for that case.
 (define_insn "casesi_worker_1"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
 	(unspec:SI [(reg:SI R0_REG)
@@ -11375,7 +11371,9 @@ label:
       gcc_unreachable ();
     }
 }
-  [(set_attr "length" "4")])
+  [(set_attr_alternative "length"
+     [(if_then_else (match_test "flag_pic") (const_int 8) (const_int 4))
+      (if_then_else (match_test "flag_pic") (const_int 8) (const_int 4))])])
 
 (define_insn "casesi_worker_2"
   [(set (match_operand:SI 0 "register_operand" "=r,r")

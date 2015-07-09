@@ -45,13 +45,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
-#include "varasm.h"
-#include "hard-reg-set.h"
 #include "rtl.h"
+#include "df.h"
+#include "alias.h"
+#include "varasm.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "insn-config.h"
@@ -61,16 +60,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "output.h"
 #include "except.h"
-#include "function.h"
 #include "rtl-error.h"
 #include "toplev.h" /* exact_log2, floor_log2 */
 #include "reload.h"
 #include "intl.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
 #include "target.h"
 #include "targhooks.h"
 #include "debug.h"
@@ -85,7 +79,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-ssa.h"
 #include "coverage.h"
-#include "df.h"
 #include "cfgloop.h"
 #include "params.h"
 #include "tree-pretty-print.h" /* for dump_function_header */
@@ -1803,12 +1796,8 @@ final_start_function (rtx_insn *first, FILE *file,
      if the profiling code comes after the prologue.  */
   if (targetm.profile_before_prologue () && crtl->profile)
     {
-      if (targetm.asm_out.function_prologue
-	  == default_function_pro_epilogue
-#ifdef HAVE_prologue
-	  && HAVE_prologue
-#endif
-	 )
+      if (targetm.asm_out.function_prologue == default_function_pro_epilogue
+	  && targetm.have_prologue ())
 	{
 	  rtx_insn *insn;
 	  for (insn = first; insn; insn = NEXT_INSN (insn))
@@ -1864,9 +1853,7 @@ final_start_function (rtx_insn *first, FILE *file,
 
   /* If the machine represents the prologue as RTL, the profiling code must
      be emitted when NOTE_INSN_PROLOGUE_END is scanned.  */
-#ifdef HAVE_prologue
-  if (! HAVE_prologue)
-#endif
+  if (! targetm.have_prologue ())
     profile_after_prologue (file);
 }
 

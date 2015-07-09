@@ -64,40 +64,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -347,6 +334,9 @@ struct ivopts_data
 
   /* The maximum invariant id.  */
   unsigned max_inv_id;
+
+  /* Obstack for iv structure.  */
+  struct obstack iv_obstack;
 
   /* Whether to consider just related and important candidates when replacing a
      use.  */
@@ -908,6 +898,7 @@ tree_ssa_iv_optimize_init (struct ivopts_data *data)
   data->inv_expr_id = 0;
   data->name_expansion_cache = NULL;
   decl_rtl_to_reset.create (20);
+  gcc_obstack_init (&data->iv_obstack);
 }
 
 /* Returns a memory object to that EXPR points.  In case we are able to
@@ -991,10 +982,12 @@ contain_complex_addr_expr (tree expr)
    for loop LOOP.  NO_OVERFLOW implies the iv doesn't overflow.  */
 
 static struct iv *
-alloc_iv (tree base, tree step, bool no_overflow = false)
+alloc_iv (struct ivopts_data *data, tree base, tree step,
+	  bool no_overflow = false)
 {
   tree expr = base;
-  struct iv *iv = XCNEW (struct iv);
+  struct iv *iv = (struct iv*) obstack_alloc (&data->iv_obstack,
+					      sizeof (struct iv));
   gcc_assert (step != NULL_TREE);
 
   /* Lower address expression in base except ones with DECL_P as operand.
@@ -1035,7 +1028,7 @@ set_iv (struct ivopts_data *data, tree iv, tree base, tree step,
   gcc_assert (!info->iv);
 
   bitmap_set_bit (data->relevant, SSA_NAME_VERSION (iv));
-  info->iv = alloc_iv (base, step, no_overflow);
+  info->iv = alloc_iv (data, base, step, no_overflow);
   info->iv->ssa_name = iv;
 }
 
@@ -1422,7 +1415,6 @@ static struct iv_use *
 find_interesting_uses_op (struct ivopts_data *data, tree op)
 {
   struct iv *iv;
-  struct iv *civ;
   gimple stmt;
   struct iv_use *use;
 
@@ -1448,14 +1440,11 @@ find_interesting_uses_op (struct ivopts_data *data, tree op)
     }
   iv->have_use_for = true;
 
-  civ = XNEW (struct iv);
-  *civ = *iv;
-
   stmt = SSA_NAME_DEF_STMT (op);
   gcc_assert (gimple_code (stmt) == GIMPLE_PHI
 	      || is_gimple_assign (stmt));
 
-  use = record_use (data, NULL, civ, stmt, USE_NONLINEAR_EXPR);
+  use = record_use (data, NULL, iv, stmt, USE_NONLINEAR_EXPR);
   iv->use_id = use->id;
 
   return use;
@@ -1534,7 +1523,7 @@ static void
 find_interesting_uses_cond (struct ivopts_data *data, gimple stmt)
 {
   tree *var_p, *bound_p;
-  struct iv *var_iv, *civ;
+  struct iv *var_iv;
 
   if (!extract_cond_operands (data, stmt, &var_p, &bound_p, &var_iv, NULL))
     {
@@ -1543,9 +1532,7 @@ find_interesting_uses_cond (struct ivopts_data *data, gimple stmt)
       return;
     }
 
-  civ = XNEW (struct iv);
-  *civ = *var_iv;
-  record_use (data, NULL, civ, stmt, USE_COMPARE);
+  record_use (data, NULL, var_iv, stmt, USE_COMPARE);
 }
 
 /* Returns the outermost loop EXPR is obviously invariant in
@@ -2030,7 +2017,7 @@ find_interesting_uses_address (struct ivopts_data *data, gimple stmt, tree *op_p
 	}
     }
 
-  civ = alloc_iv (base, step);
+  civ = alloc_iv (data, base, step);
   record_group_use (data, op_p, civ, stmt, USE_ADDRESS);
   return;
 
@@ -2673,7 +2660,7 @@ add_candidate_1 (struct ivopts_data *data,
       if (!base && !step)
 	cand->iv = NULL;
       else
-	cand->iv = alloc_iv (base, step);
+	cand->iv = alloc_iv (data, base, step);
 
       cand->pos = pos;
       if (pos != IP_ORIGINAL && cand->iv)
@@ -3285,7 +3272,7 @@ computation_cost (tree expr, bool speed)
     cost += address_cost (XEXP (rslt, 0), TYPE_MODE (type),
 			  TYPE_ADDR_SPACE (type), speed);
   else if (!REG_P (rslt))
-    cost += set_src_cost (rslt, speed);
+    cost += set_src_cost (rslt, TYPE_MODE (type), speed);
 
   return cost;
 }
@@ -7180,7 +7167,6 @@ free_loop_data (struct ivopts_data *data)
       struct version_info *info;
 
       info = ver_info (data, i);
-      free (info->iv);
       info->iv = NULL;
       info->has_nonlin_use = false;
       info->preserve_biv = false;
@@ -7199,13 +7185,11 @@ free_loop_data (struct ivopts_data *data)
 	  gcc_assert (sub->related_cands == NULL);
 	  gcc_assert (sub->n_map_members == 0 && sub->cost_map == NULL);
 
-	  free (sub->iv);
 	  pre = sub;
 	  sub = sub->next;
 	  free (pre);
 	}
 
-      free (use->iv);
       BITMAP_FREE (use->related_cands);
       for (j = 0; j < use->n_map_members; j++)
 	if (use->cost_map[j].depends_on)
@@ -7219,7 +7203,6 @@ free_loop_data (struct ivopts_data *data)
     {
       struct iv_cand *cand = iv_cand (data, i);
 
-      free (cand->iv);
       if (cand->depends_on)
 	BITMAP_FREE (cand->depends_on);
       free (cand);
@@ -7261,6 +7244,7 @@ tree_ssa_iv_optimize_finalize (struct ivopts_data *data)
   delete data->inv_expr_tab;
   data->inv_expr_tab = NULL;
   free_affine_expand_cache (&data->name_expansion_cache);
+  obstack_free (&data->iv_obstack, NULL);
 }
 
 /* Returns true if the loop body BODY includes any function calls.  */

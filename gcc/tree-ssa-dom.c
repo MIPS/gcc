@@ -21,36 +21,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "cfgloop.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "domwalk.h"
 #include "tree-pass.h"
@@ -813,7 +801,8 @@ free_all_edge_infos (void)
 static void
 build_and_record_new_cond (enum tree_code code,
                            tree op0, tree op1,
-                           vec<cond_equivalence> *p)
+                           vec<cond_equivalence> *p,
+			   bool val = true)
 {
   cond_equivalence c;
   struct hashable_expr *cond = &c.cond;
@@ -826,7 +815,7 @@ build_and_record_new_cond (enum tree_code code,
   cond->ops.binary.opnd0 = op0;
   cond->ops.binary.opnd1 = op1;
 
-  c.value = boolean_true_node;
+  c.value = val ? boolean_true_node : boolean_false_node;
   p->safe_push (c);
 }
 
@@ -865,6 +854,8 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 				 op0, op1, &edge_info->cond_equivalences);
       build_and_record_new_cond (NE_EXPR, op0, op1,
 				 &edge_info->cond_equivalences);
+      build_and_record_new_cond (EQ_EXPR, op0, op1,
+				 &edge_info->cond_equivalences, false);
       break;
 
     case GE_EXPR:

@@ -28,19 +28,17 @@ along with GCC; see the file COPYING3.	If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hard-reg-set.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "recog.h"
 #include "output.h"
 #include "regs.h"
-#include "function.h"
-#include "symtab.h"
 #include "flags.h"
 #include "alias.h"
-#include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -49,15 +47,13 @@ along with GCC; see the file COPYING3.	If not see
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "except.h"
-#include "df.h"
 #include "ira.h"
 #include "sparseset.h"
+#include "lra.h"
+#include "insn-attr.h"
+#include "insn-codes.h"
 #include "lra-int.h"
 
 /* Program points are enumerated by numbers from range
@@ -726,7 +722,7 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
 		    {
 		      insn = lra_insn_recog_data[uid]->insn;
 		      lra_substitute_pseudo_within_insn (insn, dst_regno,
-							 SET_SRC (set));
+							 SET_SRC (set), true);
 		      lra_update_insn_regno_info (insn);
 		    }
 		}
@@ -957,7 +953,18 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
 	 allocate such regs in this case.  */
       if (!cfun->has_nonlocal_label && bb_has_abnormal_call_pred (bb))
 	for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
-	  if (call_used_regs[px])
+	  if (call_used_regs[px]
+#ifdef REAL_PIC_OFFSET_TABLE_REGNUM
+	      /* We should create a conflict of PIC pseudo with PIC
+		 hard reg as PIC hard reg can have a wrong value after
+		 jump described by the abnormal edge.  In this case we
+		 can not allocate PIC hard reg to PIC pseudo as PIC
+		 pseudo will also have a wrong value.  */
+	      || (px == REAL_PIC_OFFSET_TABLE_REGNUM
+		  && pic_offset_table_rtx != NULL_RTX
+		  && REGNO (pic_offset_table_rtx) >= FIRST_PSEUDO_REGISTER)
+#endif
+	      )
 	    make_hard_regno_born (px, false);
     }
 

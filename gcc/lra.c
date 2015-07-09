@@ -103,9 +103,10 @@ along with GCC; see the file COPYING3.	If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hard-reg-set.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "insn-config.h"
@@ -114,9 +115,6 @@ along with GCC; see the file COPYING3.	If not see
 #include "output.h"
 #include "addresses.h"
 #include "flags.h"
-#include "function.h"
-#include "symtab.h"
-#include "tree.h"
 #include "optabs.h"
 #include "alias.h"
 #include "expmed.h"
@@ -127,20 +125,17 @@ along with GCC; see the file COPYING3.	If not see
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfgbuild.h"
-#include "basic-block.h"
 #include "except.h"
 #include "tree-pass.h"
 #include "timevar.h"
 #include "target.h"
 #include "ira.h"
 #include "alloc-pool.h"
+#include "lra.h"
+#include "insn-attr.h"
 #include "lra-int.h"
-#include "df.h"
 
 /* Dump bitmap SET with TITLE and BB INDEX.  */
 void
@@ -1777,9 +1772,10 @@ lra_process_new_insns (rtx_insn *insn, rtx_insn *before, rtx_insn *after,
 
 
 /* Replace all references to register OLD_REGNO in *LOC with pseudo
-   register NEW_REG.  Return true if any change was made.  */
+   register NEW_REG.  Try to simplify subreg of constant if SUBREG_P.
+   Return true if any change was made.  */
 bool
-lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg)
+lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg, bool subreg_p)
 {
   rtx x = *loc;
   bool result = false;
@@ -1791,9 +1787,25 @@ lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg)
     return false;
 
   code = GET_CODE (x);
-  if (code == REG && (int) REGNO (x) == old_regno)
+  if (code == SUBREG && subreg_p)
     {
-      machine_mode mode = GET_MODE (*loc);
+      rtx subst, inner = SUBREG_REG (x);
+      /* Transform subreg of constant while we still have inner mode
+	 of the subreg.  The subreg internal should not be an insn
+	 operand.  */
+      if (REG_P (inner) && (int) REGNO (inner) == old_regno
+	  && CONSTANT_P (new_reg)
+	  && (subst = simplify_subreg (GET_MODE (x), new_reg, GET_MODE (inner),
+				       SUBREG_BYTE (x))) != NULL_RTX)
+	{
+	  *loc = subst;
+	  return true;
+	}
+      
+    }
+  else if (code == REG && (int) REGNO (x) == old_regno)
+    {
+      machine_mode mode = GET_MODE (x);
       machine_mode inner_mode = GET_MODE (new_reg);
 
       if (mode != inner_mode
@@ -1815,26 +1827,30 @@ lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg)
     {
       if (fmt[i] == 'e')
 	{
-	  if (lra_substitute_pseudo (&XEXP (x, i), old_regno, new_reg))
+	  if (lra_substitute_pseudo (&XEXP (x, i), old_regno,
+				     new_reg, subreg_p))
 	    result = true;
 	}
       else if (fmt[i] == 'E')
 	{
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	    if (lra_substitute_pseudo (&XVECEXP (x, i, j), old_regno, new_reg))
+	    if (lra_substitute_pseudo (&XVECEXP (x, i, j), old_regno,
+				       new_reg, subreg_p))
 	      result = true;
 	}
     }
   return result;
 }
 
-/* Call lra_substitute_pseudo within an insn.  This won't update the insn ptr,
-   just the contents of the insn.  */
+/* Call lra_substitute_pseudo within an insn.  Try to simplify subreg
+   of constant if SUBREG_P.  This won't update the insn ptr, just the
+   contents of the insn.  */
 bool
-lra_substitute_pseudo_within_insn (rtx_insn *insn, int old_regno, rtx new_reg)
+lra_substitute_pseudo_within_insn (rtx_insn *insn, int old_regno,
+				   rtx new_reg, bool subreg_p)
 {
   rtx loc = insn;
-  return lra_substitute_pseudo (&loc, old_regno, new_reg);
+  return lra_substitute_pseudo (&loc, old_regno, new_reg, subreg_p);
 }
 
 
@@ -2072,7 +2088,6 @@ has_nonexceptional_receiver (void)
   return false;
 }
 
-#ifdef AUTO_INC_DEC
 
 /* Process recursively X of INSN and add REG_INC notes if necessary.  */
 static void
@@ -2100,7 +2115,6 @@ add_auto_inc_notes (rtx_insn *insn, rtx x)
     }
 }
 
-#endif
 
 /* Remove all REG_DEAD and REG_UNUSED notes and regenerate REG_INC.
    We change pseudos by hard registers without notification of DF and
@@ -2127,9 +2141,9 @@ update_inc_notes (void)
 	    else
 	      pnote = &XEXP (*pnote, 1);
 	  }
-#ifdef AUTO_INC_DEC
-	add_auto_inc_notes (insn, PATTERN (insn));
-#endif
+
+	if (AUTO_INC_DEC)
+	  add_auto_inc_notes (insn, PATTERN (insn));
       }
 }
 

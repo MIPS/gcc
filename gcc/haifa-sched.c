@@ -125,24 +125,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "diagnostic-core.h"
-#include "hard-reg-set.h"
+#include "backend.h"
 #include "rtl.h"
+#include "df.h"
+#include "diagnostic-core.h"
 #include "tm_p.h"
 #include "regs.h"
-#include "function.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "except.h"
 #include "recog.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfgbuild.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "sched-int.h"
 #include "target.h"
 #include "common/common-target.h"
@@ -8120,7 +8115,7 @@ init_before_recovery (basic_block *before_recovery_ptr)
 			     EDGE_FALLTHRU);
 
       rtx_code_label *label = block_label (empty);
-      rtx_jump_insn *x = emit_jump_insn_after (gen_jump (label),
+      rtx_jump_insn *x = emit_jump_insn_after (targetm.gen_jump (label),
 					       BB_END (single));
       JUMP_LABEL (x) = label;
       LABEL_NUSES (label)++;
@@ -8198,7 +8193,8 @@ sched_create_recovery_edges (basic_block first_bb, basic_block rec,
 
   make_edge (first_bb, rec, edge_flags);
   rtx_code_label *label = block_label (second_bb);
-  rtx_jump_insn *jump = emit_jump_insn_after (gen_jump (label), BB_END (rec));
+  rtx_jump_insn *jump = emit_jump_insn_after (targetm.gen_jump (label),
+					      BB_END (rec));
   JUMP_LABEL (jump) = label;
   LABEL_NUSES (label)++;
 

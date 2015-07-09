@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cpplib.h"
 #include "alias.h"
 #include "flags.h"
-#include "symtab.h"
 #include "tree.h"
 #include "fold-const.h"
 
@@ -214,8 +213,8 @@ enum rid
   RID_FIRST_MODIFIER = RID_STATIC,
   RID_LAST_MODIFIER = RID_ONEWAY,
 
-  RID_FIRST_CXX0X = RID_CONSTEXPR,
-  RID_LAST_CXX0X = RID_STATIC_ASSERT,
+  RID_FIRST_CXX11 = RID_CONSTEXPR,
+  RID_LAST_CXX11 = RID_STATIC_ASSERT,
   RID_FIRST_AT = RID_AT_ENCODE,
   RID_LAST_AT = RID_AT_IMPLEMENTATION,
   RID_FIRST_PQ = RID_IN,
@@ -381,7 +380,7 @@ extern machine_mode c_default_pointer_mode;
 #define D_CONLY		0x001	/* C only (not in C++).  */
 #define D_CXXONLY	0x002	/* C++ only (not in C).  */
 #define D_C99		0x004	/* In C, C99 only.  */
-#define D_CXX0X         0x008	/* In C++, C++0X only.  */
+#define D_CXX11         0x008	/* In C++, C++11 only.  */
 #define D_EXT		0x010	/* GCC extension.  */
 #define D_EXT89		0x020	/* GCC extension incorporated in C99.  */
 #define D_ASM		0x040	/* Disabled by -fno-asm.  */

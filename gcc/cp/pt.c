@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -3740,9 +3739,14 @@ reduce_template_parm_level (tree index, tree type, int levels, tree args,
 
 	/* Template template parameters need this.  */
       if (TREE_CODE (decl) == TEMPLATE_DECL)
-	DECL_TEMPLATE_PARMS (decl) = tsubst_template_parms
-	  (DECL_TEMPLATE_PARMS (TEMPLATE_PARM_DECL (index)),
-	   args, complain);
+	{
+	  DECL_TEMPLATE_RESULT (decl)
+	    = build_decl (DECL_SOURCE_LOCATION (decl),
+			  TYPE_DECL, DECL_NAME (decl), type);
+	  DECL_ARTIFICIAL (DECL_TEMPLATE_RESULT (decl)) = true;
+	  DECL_TEMPLATE_PARMS (decl) = tsubst_template_parms
+	    (DECL_TEMPLATE_PARMS (orig_decl), args, complain);
+	}
     }
 
   return TEMPLATE_PARM_DESCENDANTS (index);
@@ -6363,11 +6367,13 @@ coerce_template_template_parm (tree parm,
 	   D<int, C> d;
 
 	 i.e. the parameter list of TT depends on earlier parameters.  */
-      if (!uses_template_parms (TREE_TYPE (arg))
-	  && !same_type_p
-	        (tsubst (TREE_TYPE (parm), outer_args, complain, in_decl),
-		 TREE_TYPE (arg)))
-	return 0;
+      if (!uses_template_parms (TREE_TYPE (arg)))
+	{
+	  tree t = tsubst (TREE_TYPE (parm), outer_args, complain, in_decl);
+	  if (!uses_template_parms (t)
+	      && !same_type_p (t, TREE_TYPE (arg)))
+	    return 0;
+	}
       
       if (TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (arg))
 	  && !TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (parm)))
@@ -8253,7 +8259,7 @@ for_each_template_parm_r (tree *tp, int *walk_subtrees, void *d)
     case TYPEOF_TYPE:
     case UNDERLYING_TYPE:
       if (pfd->include_nondeduced_p
-	  && for_each_template_parm (TYPE_FIELDS (t), fn, data,
+	  && for_each_template_parm (TYPE_VALUES_RAW (t), fn, data,
 				     pfd->visited, 
 				     pfd->include_nondeduced_p))
 	return error_mark_node;
@@ -9065,7 +9071,7 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 	    {
 	      *p = TREE_CHAIN (t);
 	      TREE_CHAIN (t) = NULL_TREE;
-	      if ((flag_openmp || flag_cilkplus)
+	      if ((flag_openmp || flag_openmp_simd || flag_cilkplus)
 		  && is_attribute_p ("omp declare simd",
 				     get_attribute_name (t))
 		  && TREE_VALUE (t))
@@ -9836,6 +9842,9 @@ argument_pack_element_is_expansion_p (tree arg_pack, int i)
   if (i >= TREE_VEC_LENGTH (vec))
     return 0;
   tree elt = TREE_VEC_ELT (vec, i);
+  if (DECL_P (elt))
+    /* A decl pack is itself an expansion.  */
+    elt = TREE_TYPE (elt);
   if (!PACK_EXPANSION_P (elt))
     return 0;
   if (PACK_EXPANSION_EXTRA_ARGS (elt))
@@ -10682,22 +10691,15 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    /* Template template parameter is treated here.  */
 	    tree new_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	    if (new_type == error_mark_node)
-	      RETURN (error_mark_node);
+	      r = error_mark_node;
 	    /* If we get a real template back, return it.  This can happen in
 	       the context of most_specialized_partial_spec.  */
-	    if (TREE_CODE (new_type) == TEMPLATE_DECL)
-	      return new_type;
-
-	    r = copy_decl (t);
-	    DECL_CHAIN (r) = NULL_TREE;
-	    TREE_TYPE (r) = new_type;
-	    DECL_TEMPLATE_RESULT (r)
-	      = build_decl (DECL_SOURCE_LOCATION (decl),
-			    TYPE_DECL, DECL_NAME (decl), new_type);
-	    DECL_TEMPLATE_PARMS (r)
-	      = tsubst_template_parms (DECL_TEMPLATE_PARMS (t), args,
-				       complain);
-	    TYPE_NAME (new_type) = r;
+	    else if (TREE_CODE (new_type) == TEMPLATE_DECL)
+	      r = new_type;
+	    else
+	      /* The new TEMPLATE_DECL was built in
+		 reduce_template_parm_level.  */
+	      r = TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (new_type);
 	    break;
 	  }
 
@@ -11467,8 +11469,9 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		  }
 		SET_DECL_VALUE_EXPR (r, ve);
 	      }
-	    if (TREE_STATIC (r) || DECL_EXTERNAL (r))
-	      set_decl_tls_model (r, decl_tls_model (t));
+	    if (CP_DECL_THREAD_LOCAL_P (r)
+		&& !processing_template_decl)
+	      set_decl_tls_model (r, decl_default_tls_model (r));
 	  }
 	else if (DECL_SELF_REFERENCE_P (t))
 	  SET_DECL_SELF_REFERENCE_P (r);
@@ -15864,7 +15867,7 @@ tsubst_copy_and_build (tree t,
 	    && !processing_template_decl
 	    && !cp_unevaluated_operand
 	    && (TREE_STATIC (r) || DECL_EXTERNAL (r))
-	    && DECL_THREAD_LOCAL_P (r))
+	    && CP_DECL_THREAD_LOCAL_P (r))
 	  {
 	    if (tree wrap = get_tls_wrapper_fn (r))
 	      /* Replace an evaluated use of the thread_local variable with
@@ -21777,6 +21780,10 @@ type_dependent_expression_p (tree expression)
 	    return true;
 	  expression = TREE_OPERAND (expression, 0);
 	}
+
+      if (variable_template_p (expression))
+        return dependent_type_p (TREE_TYPE (expression));
+
       gcc_assert (TREE_CODE (expression) == OVERLOAD
 		  || TREE_CODE (expression) == FUNCTION_DECL);
 

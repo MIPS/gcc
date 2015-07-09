@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "gfortran.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -377,9 +376,10 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
     /* use the binding label rather than the mangled name */
     return get_identifier (sym->binding_label);
 
-  if (sym->module == NULL || sym->attr.proc == PROC_EXTERNAL
+  if ((sym->module == NULL || sym->attr.proc == PROC_EXTERNAL
       || (sym->module != NULL && (sym->attr.external
 	    || sym->attr.if_source == IFSRC_IFBODY)))
+      && !sym->attr.module_procedure)
     {
       /* Main program is mangled into MAIN__.  */
       if (sym->attr.is_main_program)
@@ -599,7 +599,7 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
     }
 
   /* If a variable is USE associated, it's always external.  */
-  if (sym->attr.use_assoc)
+  if (sym->attr.use_assoc || sym->attr.used_in_submodule)
     {
       DECL_EXTERNAL (decl) = 1;
       TREE_PUBLIC (decl) = 1;
@@ -1319,6 +1319,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
   gcc_assert (sym->attr.referenced
 	      || sym->attr.flavor == FL_PROCEDURE
 	      || sym->attr.use_assoc
+	      || sym->attr.used_in_submodule
 	      || sym->ns->proc_name->attr.if_source == IFSRC_IFBODY
 	      || (sym->module && sym->attr.if_source != IFSRC_DECL
 		  && sym->backend_decl));
@@ -5883,9 +5884,33 @@ gfc_generate_function_code (gfc_namespace * ns)
   tmp = gfc_trans_code (ns->code);
   gfc_add_expr_to_block (&body, tmp);
 
-  if (TREE_TYPE (DECL_RESULT (fndecl)) != void_type_node)
+  if (TREE_TYPE (DECL_RESULT (fndecl)) != void_type_node
+      || (sym->result && sym->result != sym
+	  && sym->result->ts.type == BT_DERIVED
+	  && sym->result->ts.u.derived->attr.alloc_comp))
     {
+      bool artificial_result_decl = false;
       tree result = get_proc_result (sym);
+      gfc_symbol *rsym = sym == sym->result ? sym : sym->result;
+
+      /* Make sure that a function returning an object with
+	 alloc/pointer_components always has a result, where at least
+	 the allocatable/pointer components are set to zero.  */
+      if (result == NULL_TREE && sym->attr.function
+	  && ((sym->result->ts.type == BT_DERIVED
+	       && (sym->attr.allocatable
+		   || sym->attr.pointer
+		   || sym->result->ts.u.derived->attr.alloc_comp
+		   || sym->result->ts.u.derived->attr.pointer_comp))
+	      || (sym->result->ts.type == BT_CLASS
+		  && (CLASS_DATA (sym)->attr.allocatable
+		      || CLASS_DATA (sym)->attr.class_pointer
+		      || CLASS_DATA (sym->result)->attr.alloc_comp
+		      || CLASS_DATA (sym->result)->attr.pointer_comp))))
+	{
+	  artificial_result_decl = true;
+	  result = gfc_get_fake_result_decl (sym, 0);
+	}
 
       if (result != NULL_TREE && sym->attr.function && !sym->attr.pointer)
 	{
@@ -5905,16 +5930,30 @@ gfc_generate_function_code (gfc_namespace * ns)
 							null_pointer_node));
 	    }
 	  else if (sym->ts.type == BT_DERIVED
-		   && sym->ts.u.derived->attr.alloc_comp
 		   && !sym->attr.allocatable)
 	    {
-	      rank = sym->as ? sym->as->rank : 0;
-	      tmp = gfc_nullify_alloc_comp (sym->ts.u.derived, result, rank);
-	      gfc_add_expr_to_block (&init, tmp);
+	      gfc_expr *init_exp;
+	      /* Arrays are not initialized using the default initializer of
+		 their elements.  Therefore only check if a default
+		 initializer is available when the result is scalar.  */
+	      init_exp = rsym->as ? NULL : gfc_default_initializer (&rsym->ts);
+	      if (init_exp)
+		{
+		  tmp = gfc_trans_structure_assign (result, init_exp, 0);
+		  gfc_free_expr (init_exp);
+		  gfc_add_expr_to_block (&init, tmp);
+		}
+	      else if (rsym->ts.u.derived->attr.alloc_comp)
+		{
+		  rank = rsym->as ? rsym->as->rank : 0;
+		  tmp = gfc_nullify_alloc_comp (rsym->ts.u.derived, result,
+						rank);
+		  gfc_prepend_expr_to_block (&body, tmp);
+		}
 	    }
 	}
 
-      if (result == NULL_TREE)
+      if (result == NULL_TREE || artificial_result_decl)
 	{
 	  /* TODO: move to the appropriate place in resolve.c.  */
 	  if (warn_return_type && sym == sym->result)
@@ -5924,7 +5963,7 @@ gfc_generate_function_code (gfc_namespace * ns)
 	  if (warn_return_type)
 	    TREE_NO_WARNING(sym->backend_decl) = 1;
 	}
-      else
+      if (result != NULL_TREE)
 	gfc_add_expr_to_block (&body, gfc_generate_return ());
     }
 

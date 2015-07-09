@@ -75,35 +75,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alloc-pool.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "stor-layout.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
-#include "bitmap.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -872,7 +858,7 @@ mark_parm_dereference (tree base, HOST_WIDE_INT dist, gimple stmt)
 static struct access *
 create_access_1 (tree base, HOST_WIDE_INT offset, HOST_WIDE_INT size)
 {
-  struct access *access = new struct access ();
+  struct access *access = new struct access;
 
   memset (access, 0, sizeof (struct access));
   access->base = base;
@@ -2407,7 +2393,7 @@ create_artificial_child_access (struct access *parent, struct access *model,
 
   gcc_assert (!model->grp_unscalarizable_region);
 
-  struct access *access = new struct access ();
+  struct access *access = new struct access;
   memset (access, 0, sizeof (struct access));
   if (!build_user_friendly_ref_for_offset (&expr, TREE_TYPE (expr), new_offset,
 					   model->type))
@@ -2545,11 +2531,20 @@ analyze_all_variable_accesses (void)
   bitmap tmp = BITMAP_ALLOC (NULL);
   bitmap_iterator bi;
   unsigned i;
-  unsigned max_scalarization_size
-    = (optimize_function_for_size_p (cfun)
-	? PARAM_VALUE (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE)
-	: PARAM_VALUE (PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED))
-      * BITS_PER_UNIT;
+  bool optimize_speed_p = !optimize_function_for_size_p (cfun);
+
+  enum compiler_param param = optimize_speed_p
+			? PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED
+			: PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE;
+
+  /* If the user didn't set PARAM_SRA_MAX_SCALARIZATION_SIZE_<...>,
+     fall back to a target default.  */
+  unsigned HOST_WIDE_INT max_scalarization_size
+    = global_options_set.x_param_values[param]
+      ? PARAM_VALUE (param)
+      : get_move_ratio (optimize_speed_p) * UNITS_PER_WORD;
+
+  max_scalarization_size *= BITS_PER_UNIT;
 
   EXECUTE_IF_SET_IN_BITMAP (candidate_bitmap, 0, i, bi)
     if (bitmap_bit_p (should_scalarize_away_bitmap, i)

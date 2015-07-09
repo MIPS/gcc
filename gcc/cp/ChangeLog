@@ -1,3 +1,138 @@
+2015-07-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl2.c (cpp_check): Deal with IS_CONSTEXPR.
+
+2015-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (grokfndecl): Handle flag_openmp_simd like flag_openmp.
+	* pt.c (apply_late_template_attributes): Likewise.
+
+2015-07-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/66748
+	* tree.c (handle_abi_tag_attribute): Check for CLASS_TYPE_P before
+	accessing TYPE_LANG_SPECIFIC node.
+
+2015-07-07  Andrew MacLeod  <amacleod@redhat.com>
+
+	* call.c: Adjust includes.
+	* class.c: Likewise.
+	* constexpr.c: Likewise.
+	* cp-array-notation.c: Likewise.
+	* cp-gimplify.c: Likewise.
+	* cp-lang.c: Likewise.
+	* cp-objcp-common.c: Likewise.
+	* cp-ubsan.c: Likewise.
+	* cvt.c: Likewise.
+	* decl.c: Likewise.
+	* decl2.c: Likewise.
+	* dump.c: Likewise.
+	* error.c: Likewise.
+	* except.c: Likewise.
+	* expr.c: Likewise.
+	* friend.c: Likewise.
+	* init.c: Likewise.
+	* lambda.c: Likewise.
+	* lex.c: Likewise.
+	* mangle.c: Likewise.
+	* method.c: Likewise.
+	* name-lookup.c: Likewise.
+	* optimize.c: Likewise.
+	* parser.c: Likewise.
+	* pt.c: Likewise.
+	* ptree.c: Likewise.
+	* repo.c: Likewise.
+	* rtti.c: Likewise.
+	* search.c: Likewise.
+	* semantics.c: Likewise.
+	* tree.c: Likewise.
+	* typeck.c: Likewise.
+	* typeck2.c: Likewise.
+
+2015-07-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl2.c (cpp_check): Deal with IS_MOVE_CONSTRUCTOR.
+
+2015-07-06  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (reduce_template_parm_level): Also build the TYPE_DECL
+	for a template template parameter.
+	(tsubst_decl) [TEMPLATE_DECL]: Use the TEMPLATE_DECL built
+	by reduce_template_parm_level.
+
+	* pt.c (argument_pack_element_is_expansion_p): A decl pack is an
+	expansion.
+
+2015-07-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66743
+	* pt.c (for_each_template_parm_r) [UNDERLYING_TYPE]: Use
+	TYPE_VALUES_RAW rather than TYPE_FIELDS.
+
+2015-07-02  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* pt.c (type_dependent_expression_p): Handle expressions
+	that refer to variable templates.
+
+2015-07-01  Jason Merrill  <jason@redhat.com>
+
+	* lex.c (init_reswords): s/CXX0X/CXX11/.
+	* parser.c (cp_lexer_get_preprocessor_token): Likewise.
+
+	* mangle.c (write_CV_qualifiers_for_type, write_nested_name):
+	Attribute mangling is now -fabi-version=10.
+
+	PR c++/65945
+	* decl.c (cxx_init_decl_processing): Set TYPE_ALIGN of nullptr_t.
+	* class.c (layout_nonempty_base_or_field): Warn if that affects
+	the offset of a field.
+
+2015-07-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60365
+	* parser.c (cp_parser_check_std_attribute): New.
+	(cp_parser_std_attribute_list): Call it.
+
+2015-07-01  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/66686
+	* pt.c (coerce_template_template_parm) [PARM_DECL]: Don't
+	return 0 if tsubst returns a dependent type.
+
+2015-06-30  Jason Merrill  <jason@redhat.com>
+
+	PR debug/66653
+	* decl2.c (is_late_template_attribute): True for tls_model.
+
+	PR debug/66653
+	* cp-tree.h (CP_DECL_THREAD_LOCAL_P): New.
+	(DECL_GNU_TLS_P): Use DECL_LANG_SPECIFIC field.
+	(SET_DECL_GNU_TLS_P): New.
+	* call.c (make_temporary_var_for_ref_to_temp): Use
+	CP_DECL_THREAD_LOCAL_P.
+	(set_up_extended_ref_temp): Likewise.
+	* decl.c (duplicate_decls, expand_static_init): Likewise.
+	(redeclaration_error_message, grokvardecl): Likewise.
+	(start_decl, register_dtor_fn, grokdeclarator): Likewise.
+	* decl2.c (get_guard, var_needs_tls_wrapper): Likewise.
+	(handle_tls_init): Likewise.
+	* pt.c (tsubst_decl, tsubst_copy_and_build): Likewise.
+	* semantics.c (finish_id_expression): Likewise.
+	(handle_omp_array_sections_1, finish_omp_clauses): Likewise.
+	(finish_omp_threadprivate): Likewise.
+	* tree.c (decl_storage_duration): Likewise.
+	* cp-gimplify.c (omp_var_to_track): Likewise.
+	(cp_genericize_r): Check that it matches DECL_THREAD_LOCAL_P.
+	* lex.c (retrofit_lang_decl): Return if DECL_LANG_SPECIFIC is
+	already set.
+
+2015-06-30  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Implement N4197 - Adding u8 character literals
+	* parser.c (cp_parser_primary_expression()): Treat CPP_UTF8CHAR
+	and CPP_UTF8CHAR_USERDEF tokens;
+	(cp_parser_parenthesized_expression_list()): Treat CPP_UTF8CHAR token.
+
 2015-06-29  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/65977

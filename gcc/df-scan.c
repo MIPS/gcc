@@ -24,40 +24,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "recog.h"
 #include "alias.h"
-#include "symtab.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "regs.h"
 #include "alloc-pool.h"
 #include "flags.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "sbitmap.h"
-#include "bitmap.h"
 #include "dumpfile.h"
-#include "tree.h"
 #include "target.h"
-#include "df.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
 
 
 typedef struct df_mw_hardreg *df_mw_hardreg_ptr;
 
-
-#ifndef HAVE_prologue
-#define HAVE_prologue 0
-#endif
-#ifndef HAVE_sibcall_epilogue
-#define HAVE_sibcall_epilogue 0
-#endif
 
 /* The set of hard registers in eliminables[i].from. */
 
@@ -3523,7 +3507,7 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
 
   /* Once the prologue has been generated, all of these registers
      should just show up in the first regular block.  */
-  if (HAVE_prologue && epilogue_completed)
+  if (targetm.have_prologue () && epilogue_completed)
     {
       /* Defs for the callee saved registers are inserted so that the
 	 pushes have some defining location.  */
@@ -3701,7 +3685,7 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
     if (global_regs[i] || EPILOGUE_USES (i))
       bitmap_set_bit (exit_block_uses, i);
 
-  if (HAVE_epilogue && epilogue_completed)
+  if (targetm.have_epilogue () && epilogue_completed)
     {
       /* Mark all call-saved registers that we actually used.  */
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -3721,7 +3705,7 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
       }
 
 #ifdef EH_RETURN_STACKADJ_RTX
-  if ((!HAVE_epilogue || ! epilogue_completed)
+  if ((!targetm.have_epilogue () || ! epilogue_completed)
       && crtl->calls_eh_return)
     {
       rtx tmp = EH_RETURN_STACKADJ_RTX;
@@ -3731,7 +3715,7 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
 #endif
 
 #ifdef EH_RETURN_HANDLER_RTX
-  if ((!HAVE_epilogue || ! epilogue_completed)
+  if ((!targetm.have_epilogue () || ! epilogue_completed)
       && crtl->calls_eh_return)
     {
       rtx tmp = EH_RETURN_HANDLER_RTX;
