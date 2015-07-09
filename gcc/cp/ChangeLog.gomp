@@ -1,3 +1,16 @@
+2015-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_var_list_no_open): Parse this.
+	* cp-tree.h (finish_omp_declare_simd_methods): New prototype.
+	* semantics.c (handle_omp_array_sections_1): Disallow this based
+	array sections for OpenMP.
+	(finish_omp_declare_simd_methods): New function.
+	(finish_omp_clauses): Don't attempt to adjust linear step of
+	this if it points to TYPE_BEING_DEFINED.  Disallow this in
+	all clauses expecting variable lists, except for declare simd
+	linear/uniform/aligned clauses.
+	(finish_struct_1): Call finish_omp_declare_simd_methods.
+
 2015-07-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_clause_name): Handle defaultmap clause.

@@ -4389,6 +4389,15 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		      omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	  return error_mark_node;
 	}
+      else if (TREE_CODE (t) == PARM_DECL
+	       && DECL_ARTIFICIAL (t)
+	       && DECL_NAME (t) == this_identifier)
+	{
+	  error_at (OMP_CLAUSE_LOCATION (c),
+		    "%<this%> allowed in OpenMP only in %<declare simd%>"
+		    " clauses");
+	  return error_mark_node;
+	}
       else if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_DEPEND
 	       && VAR_P (t) && CP_DECL_THREAD_LOCAL_P (t))
 	{
@@ -5490,6 +5499,39 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
   return false;
 }
 
+/* Called from finish_struct_1.  linear(this) or linear(this:step)
+   clauses might not be finalized yet because the class has been incomplete
+   when parsing #pragma omp declare simd methods.  Fix those up now.  */
+
+void
+finish_omp_declare_simd_methods (tree t)
+{
+  if (processing_template_decl)
+    return;
+
+  for (tree x = TYPE_METHODS (t); x; x = DECL_CHAIN (x))
+    {
+      if (TREE_CODE (TREE_TYPE (x)) != METHOD_TYPE)
+	continue;
+      tree ods = lookup_attribute ("omp declare simd", DECL_ATTRIBUTES (x));
+      if (!ods || !TREE_VALUE (ods))
+	continue;
+      for (tree c = TREE_VALUE (TREE_VALUE (ods)); c; c = OMP_CLAUSE_CHAIN (c))
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	    && integer_zerop (OMP_CLAUSE_DECL (c))
+	    && OMP_CLAUSE_LINEAR_STEP (c)
+	    && TREE_CODE (TREE_TYPE (OMP_CLAUSE_LINEAR_STEP (c)))
+	       == POINTER_TYPE)
+	  {
+	    tree s = OMP_CLAUSE_LINEAR_STEP (c);
+	    s = fold_convert_loc (OMP_CLAUSE_LOCATION (c), sizetype, s);
+	    s = fold_build2_loc (OMP_CLAUSE_LOCATION (c), MULT_EXPR,
+				 sizetype, s, TYPE_SIZE_UNIT (t));
+	    OMP_CLAUSE_LINEAR_STEP (c) = s;
+	  }
+    }
+}
+
 /* For all elements of CLAUSES, validate them vs OpenMP constraints.
    Remove any elements from the list that are invalid.  */
 
@@ -5625,7 +5667,15 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 			  break;
 			}
 		    }
-		  else if (TREE_CODE (type) == POINTER_TYPE)
+		  else if (TREE_CODE (type) == POINTER_TYPE
+			   /* Can't multiply the step yet if *this
+			      is still incomplete type.  */
+			   && (!declare_simd
+			       || TREE_CODE (OMP_CLAUSE_DECL (c)) != PARM_DECL
+			       || !DECL_ARTIFICIAL (OMP_CLAUSE_DECL (c))
+			       || DECL_NAME (OMP_CLAUSE_DECL (c))
+				  != this_identifier
+			       || !TYPE_BEING_DEFINED (TREE_TYPE (type))))
 		    {
 		      tree d = convert_from_reference (OMP_CLAUSE_DECL (c));
 		      t = pointer_int_sum (OMP_CLAUSE_LOCATION (c), PLUS_EXPR,
@@ -5654,6 +5704,16 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	  else
 	    t = OMP_CLAUSE_DECL (c);
 	check_dup_generic_t:
+	  if (t == current_class_ptr
+	      && (!declare_simd
+		  || (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_LINEAR
+		      && OMP_CLAUSE_CODE (c) != OMP_CLAUSE_UNIFORM)))
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	      break;
+	    }
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
 	      && (!field_ok || TREE_CODE (t) != FIELD_DECL))
 	    {
@@ -5695,6 +5755,13 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	    omp_note_field_privatization (t, OMP_CLAUSE_DECL (c));
 	  else
 	    t = OMP_CLAUSE_DECL (c);
+	  if (t == current_class_ptr)
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	      break;
+	    }
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
 	      && (!allow_fields || TREE_CODE (t) != FIELD_DECL))
 	    {
@@ -5722,6 +5789,13 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	    omp_note_field_privatization (t, OMP_CLAUSE_DECL (c));
 	  else
 	    t = OMP_CLAUSE_DECL (c);
+	  if (t == current_class_ptr)
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	      break;
+	    }
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
 	      && (!allow_fields || TREE_CODE (t) != FIELD_DECL))
 	    {
@@ -5999,6 +6073,13 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 
 	case OMP_CLAUSE_ALIGNED:
 	  t = OMP_CLAUSE_DECL (c);
+	  if (t == current_class_ptr && !declare_simd)
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	      break;
+	    }
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	    {
 	      if (processing_template_decl)
@@ -6085,6 +6166,12 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 		error ("%qE is not a variable in %<depend%> clause", t);
 	      remove = true;
 	    }
+	  else if (t == current_class_ptr)
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	    }
 	  else if (!processing_template_decl
 		   && !cxx_mark_addressable (t))
 	    remove = true;
@@ -6137,6 +6224,13 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	      error ("%qD is threadprivate variable in %qs clause", t,
 		     omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
+	    }
+	  else if (t == current_class_ptr)
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	      break;
 	    }
 	  else if (!processing_template_decl
 		   && TREE_CODE (TREE_TYPE (t)) != REFERENCE_TYPE

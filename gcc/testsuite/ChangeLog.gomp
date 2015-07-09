@@ -1,3 +1,14 @@
+2015-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/vect/simd-clone-2.cc: New test.
+	* g++.dg/vect/simd-clone-2.h: New file.
+	* g++.dg/vect/simd-clone-3.cc: New test.
+	* g++.dg/vect/simd-clone-4.cc: New test.
+	* g++.dg/vect/simd-clone-4.h: New file.
+	* g++.dg/vect/simd-clone-5.cc: New test.
+	* g++.dg/gomp/this-1.C: New test.
+	* g++.dg/gomp/this-2.C: New test.
+
 2015-07-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/gomp/clause-1.c (foo): Add some linear clause tests.
