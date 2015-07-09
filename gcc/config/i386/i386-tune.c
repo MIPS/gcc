@@ -93,6 +93,8 @@ x86_tune_options (void)
 	ix86_cost = &atom_cost;
       else if (strcmp (x86_cost_string, "slm") == 0)
 	ix86_cost = &slm_cost;
+      else if (strcmp (x86_cost_string, "iamcu") == 0)
+	ix86_cost = &iamcu_cost;
       else if (strcmp (x86_cost_string, "generic") == 0)
 	ix86_cost = &generic_cost;
       else if (strcmp (x86_cost_string, "core") == 0)
