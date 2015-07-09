@@ -13502,19 +13502,25 @@ get_unqualified_id (cp_declarator *declarator)
     return NULL_TREE;
 }
 
-/* Returns true if PARM declares a constrained-parameter. */
+/* Returns true if DECL represents a constrained-parameter.  */
 
 static inline bool
-is_constrained_parameter (cp_parameter_declarator *parm)
+is_constrained_parameter (tree decl)
 {
-  gcc_assert (parm);
-  tree decl = parm->decl_specifiers.type;
   return (decl
           && TREE_CODE (decl) == TYPE_DECL
           && DECL_INITIAL (decl)
           && DECL_SIZE_UNIT (decl)
           && (TREE_CODE (DECL_SIZE_UNIT (decl)) == FUNCTION_DECL
               || TREE_CODE (DECL_SIZE_UNIT (decl)) == VAR_DECL));
+}
+
+/* Returns true if PARM declares a constrained-parameter. */
+
+static inline bool
+is_constrained_parameter (cp_parameter_declarator *parm)
+{
+  return is_constrained_parameter (parm->decl_specifiers.type);
 }
 
 /* Check that the type parameter is only a declarator-id, and that its
@@ -13639,40 +13645,14 @@ finish_constrained_parameter (cp_parser *parser,
   return parm;
 }
 
-/* Returns the type of the given TYPE may represent the declaration of
-   a template type parameter. This is a helper function for the
-   cp_declares_type* functions below.  */
-
-static inline bool
-maybe_type_parameter (tree type)
-{
-  return type
-         && TREE_CODE (type) == TYPE_DECL
-         && DECL_SIZE_UNIT (type)
-         && TREE_TYPE (type);
-}
-
-/* Returns true if the parsed type actually represents a type or template
-   template parameter.  */
-static inline bool
-declares_type_parameter (tree type)
-{
-  if (maybe_type_parameter (type))
-    {
-      tree_code c = TREE_CODE (TREE_TYPE (type));
-      return c == TEMPLATE_TYPE_PARM || c == TEMPLATE_TEMPLATE_PARM;
-    }
-  return false;
-}
-
 /* Returns true if the parsed type actually represents the declaration
    of a type template-parameter.  */
 
 static inline bool
-declares_type_template_parameter (tree type)
+declares_constrained_type_template_parameter (tree type)
 {
-  return maybe_type_parameter (type)
-         && TREE_CODE (TREE_TYPE (type)) == TEMPLATE_TYPE_PARM;
+  return (is_constrained_parameter (type)
+	  && TREE_CODE (TREE_TYPE (type)) == TEMPLATE_TYPE_PARM);
 }
 
 
@@ -13680,10 +13660,10 @@ declares_type_template_parameter (tree type)
    a template template-parameter.  */
 
 static bool
-declares_template_template_parameter (tree type)
+declares_constrained_template_template_parameter (tree type)
 {
-  return maybe_type_parameter (type)
-         && TREE_CODE (TREE_TYPE (type)) == TEMPLATE_TEMPLATE_PARM;
+  return (is_constrained_parameter (type)
+	  && TREE_CODE (TREE_TYPE (type)) == TEMPLATE_TEMPLATE_PARM);
 }
 
 /* Parse a default argument for a type template-parameter.
@@ -15649,7 +15629,7 @@ cp_parser_type_name (cp_parser* parser, bool typename_keyword_p)
 	  && TREE_CODE (type_decl) == TYPE_DECL
 	  && TYPE_DECL_ALIAS_P (type_decl))
 	gcc_assert (DECL_TEMPLATE_INSTANTIATION (type_decl));
-      else if (maybe_type_parameter (type_decl))
+      else if (is_constrained_parameter (type_decl))
         /* Don't do anything. */ ;
       else
 	cp_parser_simulate_error (parser);
@@ -19692,12 +19672,12 @@ cp_parser_parameter_declaration (cp_parser *parser,
 	default_argument = cp_parser_cache_defarg (parser, /*nsdmi=*/false);
 
       // A constrained-type-specifier may declare a type template-parameter.
-      else if (declares_type_template_parameter (type))
+      else if (declares_constrained_type_template_parameter (type))
         default_argument
           = cp_parser_default_type_template_argument (parser);
 
       // A constrained-type-specifier may declare a template-template-parameter.
-      else if (declares_template_template_parameter (type))
+      else if (declares_constrained_template_template_parameter (type))
         default_argument
           = cp_parser_default_template_template_argument (parser);
 

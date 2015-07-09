@@ -1,5 +1,14 @@
 2015-07-09  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/parser.c (is_constrained_parameter): Add overload that
+	takes a tree.
+	(maybe_type_parameter, declares_type_parameter): Remove.
+	(declares_type_template_parameter): Rename to
+	declares_constrained_type_template_parameter.
+	(declares_template_template_parameter): Rename to
+	declares_constrained_template_template_parameter.
+	(cp_parser_type_name, cp_parser_parameter_declaration): Adjust.
+
 	* gcc/cp/parser.c (cp_parser_template_parameter): Remove
 	declared_type variable.
 
