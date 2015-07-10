@@ -1,5 +1,9 @@
 2015-07-09  Jason Merrill  <jason@redhat.com>
 
+	PR c++/66218
+	* gcc/cp/pt.c (do_auto_deduction): Don't set TREE_TYPE (auto_node)
+	in requirement context.
+
 	PR c++/66092
 	* gcc/cp/cp-tree.h (concept_template_p): New.
 	* gcc/cp/pt.c (coerce_template_parms): Concepts are also affected

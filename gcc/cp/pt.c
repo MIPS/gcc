@@ -23027,7 +23027,8 @@ do_auto_deduction (tree type, tree init, tree auto_node,
 	       auto_node, TREE_TYPE (auto_node), TREE_VEC_ELT (targs, 0));
       return error_mark_node;
     }
-  TREE_TYPE (auto_node) = TREE_VEC_ELT (targs, 0);
+  if (context != adc_requirement)
+    TREE_TYPE (auto_node) = TREE_VEC_ELT (targs, 0);
 
   if (processing_template_decl)
     targs = add_to_template_args (current_template_args (), targs);
