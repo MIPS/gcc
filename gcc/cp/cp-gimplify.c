@@ -1864,9 +1864,9 @@ cp_fully_fold (tree x)
 {
   hash_map<tree, tree> *ctx = (scope_chain ? scope_chain->fold_map : NULL);
 
-  /* FIXME:  Condition shouldn't be always true.  Issue is that
-     scope_chain's fold_map lives too long.  */
-  if (!ctx || !cfun)
+  if (cfun && !ctx)
+    ctx = scope_chain->fold_map = new hash_map <tree,tree>;
+  if (!ctx)
     {
       hash_map<tree, tree> fold_hash;
       return cp_fold (x, &fold_hash);
@@ -2170,7 +2170,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	   Due issues in maybe_constant_value for CALL_EXPR with
 	   arguments passed by reference, it is disabled.  */
 	if (callee && DECL_DECLARED_CONSTEXPR_P (callee))
-          r = /* maybe_constant_value */ (x);
+          r = maybe_constant_value (x);
 	optimize = sv;
 
         if (TREE_CODE (r) != CALL_EXPR)
