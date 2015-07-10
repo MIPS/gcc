@@ -3787,6 +3787,8 @@ fold_simple_on_cst_1 (tree t)
 
       t = fold_build1_loc (EXPR_LOCATION (t), TREE_CODE (t), TREE_TYPE (t),
 			   op1);
+      if (TREE_OVERFLOW_P (t) && !TREE_OVERFLOW_P (op1))
+	TREE_OVERFLOW (t) = false;
       break;
 
     case BIT_AND_EXPR:
