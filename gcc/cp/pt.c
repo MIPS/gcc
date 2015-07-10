@@ -7495,7 +7495,9 @@ coerce_template_parms (tree parms,
     }
   /* We can't pass a pack expansion to a non-pack parameter of an alias
      template (DR 1430).  */
-  else if (in_decl && DECL_ALIAS_TEMPLATE_P (in_decl)
+  else if (in_decl
+	   && (DECL_ALIAS_TEMPLATE_P (in_decl)
+	       || concept_template_p (in_decl))
 	   && variadic_args_p
 	   && nargs - variadic_args_p < nparms - variadic_p)
     {
@@ -7509,8 +7511,14 @@ coerce_template_parms (tree parms,
 	      if (PACK_EXPANSION_P (arg)
 		  && !template_parameter_pack_p (parm))
 		{
-		  error ("pack expansion argument for non-pack parameter "
-			 "%qD of alias template %qD", parm, in_decl);
+		  if (DECL_ALIAS_TEMPLATE_P (in_decl))
+		    error_at (location_of (arg),
+			      "pack expansion argument for non-pack parameter "
+			      "%qD of alias template %qD", parm, in_decl);
+		  else
+		    error_at (location_of (arg),
+			      "pack expansion argument for non-pack parameter "
+			      "%qD of concept %qD", parm, in_decl);
 		  inform (DECL_SOURCE_LOCATION (parm), "declared here");
 		  goto found;
 		}

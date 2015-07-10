@@ -1,5 +1,12 @@
 2015-07-09  Jason Merrill  <jason@redhat.com>
 
+	PR c++/66092
+	* gcc/cp/cp-tree.h (concept_template_p): New.
+	* gcc/cp/pt.c (coerce_template_parms): Concepts are also affected
+	by DR 1430.
+	* gcc/cp/constraint.cc (lift_template_id): Use location_of.
+	* gcc/cp/parser.c (cp_parser_template_id): SET_EXPR_LOCATION.
+
 	* gcc/cp/parser.c (is_constrained_parameter): Add overload that
 	takes a tree.
 	(maybe_type_parameter, declares_type_parameter): Remove.

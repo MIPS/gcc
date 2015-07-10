@@ -485,7 +485,8 @@ lift_template_id (tree t)
       if (TREE_CODE (fn) == TEMPLATE_DECL
           && DECL_DECLARED_CONCEPT_P (DECL_TEMPLATE_RESULT (fn)))
         {
-          error ("invalid reference to function concept %qD", fn);
+          error_at (location_of (t),
+		    "invalid reference to function concept %qD", fn);
           return error_mark_node;
         }
     }

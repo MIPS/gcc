@@ -15,8 +15,8 @@ template<typename U>
   void f1(U) { } // { dg-error "cannot be used" }
 
 template<typename U>
-  requires C2<U>
-  void f2(U) { } // { dg-error "invalid reference" }
+  requires C2<U> // { dg-error "invalid reference" }
+  void f2(U) { }
 
 template<C3 T>  // { dg-error "not a type" }
   void f(T) { } // { dg-error "declared void" }
