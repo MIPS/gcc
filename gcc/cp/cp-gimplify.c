@@ -1936,31 +1936,45 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	  || TREE_CODE (TREE_OPERAND (x, 0)) == NON_LVALUE_EXPR)
 	return x;
 
-      /* Fall through.  */
+      loc = EXPR_LOCATION (x);
+      op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
+
+      if (op0 != TREE_OPERAND (x, 0))
+        x = build1_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0);
+
+      x = fold (x);
+
+      /* Conversion of an out-of-range value has implementation-defined
+	 behavior; the language considers it different from arithmetic
+	 overflow, which is undefined.  */
+      if (TREE_OVERFLOW_P (x) && !TREE_OVERFLOW_P (op0))
+	TREE_OVERFLOW (x) = false;
+      
+      break;
 
     case ALIGNOF_EXPR:
-  case SAVE_EXPR:
-  case ADDR_EXPR:
-  case REALPART_EXPR:
-  case IMAGPART_EXPR:
-  case CONJ_EXPR:
-  case FIX_TRUNC_EXPR:
-  case FLOAT_EXPR:
-  case NEGATE_EXPR:
-  case ABS_EXPR:
-  case BIT_NOT_EXPR:
-  case TRUTH_NOT_EXPR:
-  case FIXED_CONVERT_EXPR:
-  case UNARY_PLUS_EXPR:
-  case CLEANUP_POINT_EXPR:
-  case INDIRECT_REF:
-  /* case NON_LVALUE_EXPR: */
-  case RETURN_EXPR:
-  case EXPR_STMT:
-  case STMT_EXPR:
-  case GOTO_EXPR:
-  case EXIT_EXPR:
-  case LOOP_EXPR:
+    case SAVE_EXPR:
+    case ADDR_EXPR:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+    case CONJ_EXPR:
+    case FIX_TRUNC_EXPR:
+    case FLOAT_EXPR:
+    case NEGATE_EXPR:
+    case ABS_EXPR:
+    case BIT_NOT_EXPR:
+    case TRUTH_NOT_EXPR:
+    case FIXED_CONVERT_EXPR:
+    case UNARY_PLUS_EXPR:
+    case CLEANUP_POINT_EXPR:
+    case INDIRECT_REF:
+    /* case NON_LVALUE_EXPR: */
+    case RETURN_EXPR:
+    case EXPR_STMT:
+    case STMT_EXPR:
+    case GOTO_EXPR:
+    case EXIT_EXPR:
+    case LOOP_EXPR:
 
       loc = EXPR_LOCATION (x);
       op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
@@ -1970,7 +1984,8 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
       x = fold (x);
 
-      gcc_assert (TREE_CODE (x) != COND_EXPR || !VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (x, 0))));
+      gcc_assert (TREE_CODE (x) != COND_EXPR
+		  || !VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (x, 0))));
       break;
 
     case POSTDECREMENT_EXPR:
@@ -2147,7 +2162,14 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	  }
 
 	optimize = nw;
-        r = maybe_constant_value (x);
+
+	/* Invoke maybe_constant_value for functions being declared
+	   constexpr, and are no AGGR_INIT_EXPRs ...
+	   TODO:
+	   Due issues in maybe_constant_value for CALL_EXPR with
+	   arguments passed by reference, it is disabled.  */
+	if (callee && DECL_DECLARED_CONSTEXPR_P (callee))
+          r = /* maybe_constant_value */ (x);
 	optimize = sv;
 
         if (TREE_CODE (r) != CALL_EXPR)
