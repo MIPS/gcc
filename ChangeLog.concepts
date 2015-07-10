@@ -1,3 +1,9 @@
+2015-07-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66758
+	* gcc/cp/pt.c (tsubst_constraint_variables): Clear
+	cp_unevaluated_operand.
+
 2015-07-09  Jason Merrill  <jason@redhat.com>
 
 	PR c++/66758

@@ -1517,7 +1517,12 @@ tree
 tsubst_constraint_variables (tree t, tree args,
                              tsubst_flags_t complain, tree in_decl)
 {
+  /* Clear cp_unevaluated_operand across tsubst so that we get a proper chain
+     of PARM_DECLs.  */
+  int saved_unevaluated_operand = cp_unevaluated_operand;
+  cp_unevaluated_operand = 0;
   tree vars = tsubst (t, args, complain, in_decl);
+  cp_unevaluated_operand = saved_unevaluated_operand;
   if (vars == error_mark_node)
     return error_mark_node;
   return declare_constraint_vars (t, vars);
