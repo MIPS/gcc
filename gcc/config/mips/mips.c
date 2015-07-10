@@ -21164,7 +21164,7 @@ mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
 	{
 	  rtx x = gen_rtx_UNSPEC (GET_MODE (dest),
 				  gen_rtvec (2, op0, op1), unspec);
-	  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+	  emit_insn (gen_rtx_SET (dest, x));
 	}
       break;
 
@@ -21243,7 +21243,7 @@ mips_expand_vec_cond_expr (machine_mode mode, machine_mode vimode,
       bsel = gen_rtx_UNSPEC (vimode, gen_rtvec (3, mask, src2, src1),
 			     UNSPEC_MSA_BSEL_V);
       /* The result is placed back to a register with the mask.  */
-      emit_insn (gen_rtx_SET (VOIDmode, mask, bsel));
+      emit_insn (gen_rtx_SET (mask, bsel));
       emit_move_insn (operands[0], gen_rtx_SUBREG (mode, mask, 0));
     }
 }
