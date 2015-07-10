@@ -8,5 +8,5 @@ subr (int *a)
   a[0] += 1.0;
 }
 
-/* { dg-final { scan-tree-dump-times "#pragma omp target oacc_parallel.*map\\(force_present:a \\\[len: 8\\\]\\)" 1 "gimple" } } */
+/* { dg-final { scan-tree-dump-times "#pragma omp target oacc_parallel.*map\\(force_present:a" 1 "gimple" } } */
 /* { dg-final { cleanup-tree-dump "gimple" } } */
