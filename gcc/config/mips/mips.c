@@ -18271,9 +18271,23 @@ mips_reorg_process_insns (void)
 	    }
 	  else
 	    {
+	      rtx x, set;
+	      tree t;
+
 	      /* INSN is a single instruction.  Delete it if it's an
 		 orphaned high-part relocation.  */
 	      if (mips_orphaned_high_part_p (&htab, insn))
+		delete_insn (insn);
+	      /* Handle the special case: we treat local ifuncs as global
+		 and delete the low-part relocation.  */
+	      else if (GET_CODE (insn) == INSN
+		       && (set = single_set (insn))
+		       && GET_CODE ((x = SET_SRC (set))) == LO_SUM
+		       && GET_CODE ((x = XEXP (x, 1))) == SYMBOL_REF
+		       && !mips_global_symbol_p (x)
+		       && (t = XTREE (x, 1))
+		       && TREE_CODE (t) == FUNCTION_DECL
+		       && lookup_attribute ("ifunc", DECL_ATTRIBUTES (t)))
 		delete_insn (insn);
 	      /* Also delete cache barriers if the last instruction
 		 was an annulled branch.  INSN will not be speculatively
