@@ -1864,8 +1864,8 @@ cp_fully_fold (tree x)
 {
   hash_map<tree, tree> *ctx = (scope_chain ? scope_chain->fold_map : NULL);
 
-  if (cfun && !ctx)
-    ctx = scope_chain->fold_map = new hash_map <tree,tree>;
+//  if (cfun && !ctx)
+//    ctx = scope_chain->fold_map = new hash_map <tree,tree>;
   if (!ctx)
     {
       hash_map<tree, tree> fold_hash;
@@ -1937,7 +1937,13 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	return x;
 
       loc = EXPR_LOCATION (x);
-      op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
+      op0 = TREE_OPERAND (x, 0);
+
+      if (TREE_CODE (x) == NOP_EXPR
+	  && TREE_OVERFLOW_P (op0)
+	  && TREE_TYPE (x) == TREE_TYPE (op0))
+	return x;
+      op0 = cp_fold (op0, fold_hash);
 
       if (op0 != TREE_OPERAND (x, 0))
         x = build1_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0);
@@ -2170,7 +2176,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	   Due issues in maybe_constant_value for CALL_EXPR with
 	   arguments passed by reference, it is disabled.  */
 	if (callee && DECL_DECLARED_CONSTEXPR_P (callee))
-          r = maybe_constant_value (x);
+          r = /* maybe_constant_value */ (x);
 	optimize = sv;
 
         if (TREE_CODE (r) != CALL_EXPR)
