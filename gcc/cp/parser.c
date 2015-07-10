@@ -23391,39 +23391,46 @@ cp_parser_requires_expression (cp_parser *parser)
       return error_mark_node;
     }
 
-  /* Local parameters are delared as variables within the scope
-     of the expression.  They are not visible past the end of
-     the expression.  Expressions within the requires-expression
-     are unevaluated.  */
-  struct scope_sentinel
+  tree parms, reqs;
   {
-    scope_sentinel ()
+    /* Local parameters are delared as variables within the scope
+       of the expression.  They are not visible past the end of
+       the expression.  Expressions within the requires-expression
+       are unevaluated.  */
+    struct scope_sentinel
     {
-      ++cp_unevaluated_operand;
-      begin_scope (sk_block, NULL_TREE);
-    }
+      scope_sentinel ()
+      {
+	++cp_unevaluated_operand;
+	begin_scope (sk_block, NULL_TREE);
+      }
 
-    ~scope_sentinel ()
-    {
-      pop_bindings_and_leave_scope ();
-      --cp_unevaluated_operand;
-    }
-  } s;
+      ~scope_sentinel ()
+      {
+	pop_bindings_and_leave_scope ();
+	--cp_unevaluated_operand;
+      }
+    } s;
 
-  /* Parse the optional parameter list. */
-  tree parms = NULL_TREE;
-  if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
-    {
-      parms = cp_parser_requirement_parameter_list (parser);
-      if (parms == error_mark_node)
-        return error_mark_node;
-    }
+    /* Parse the optional parameter list. */
+    if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
+      {
+	parms = cp_parser_requirement_parameter_list (parser);
+	if (parms == error_mark_node)
+	  return error_mark_node;
+      }
+    else
+      parms = NULL_TREE;
 
-  /* Parse the requirement body. */
-  tree reqs = cp_parser_requirement_body (parser);
-  if (reqs == error_mark_node)
-    return error_mark_node;
+    /* Parse the requirement body. */
+    reqs = cp_parser_requirement_body (parser);
+    if (reqs == error_mark_node)
+      return error_mark_node;
+  }
 
+  /* This needs to happen after pop_bindings_and_leave_scope, as it reverses
+     the parm chain.  */
+  grokparms (parms, &parms);
   return finish_requires_expr (parms, reqs);
 }
 
@@ -23437,9 +23444,7 @@ cp_parser_requirement_parameter_list (cp_parser *parser)
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     return error_mark_node;
 
-  tree parmlist = cp_parser_parameter_declaration_clause (parser);
-  tree parms;
-  parmlist = grokparms (parmlist, &parms);
+  tree parms = cp_parser_parameter_declaration_clause (parser);
 
   if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
     return error_mark_node;
