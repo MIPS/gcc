@@ -1,5 +1,7 @@
 2015-07-10  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/constraint.cc (build_call_check): release_tree_vector.
+
 	* gcc/cp/constraint.cc (lift_function_call, check_logical_expr)
 	(xform_atomic): Use expression locations.
 

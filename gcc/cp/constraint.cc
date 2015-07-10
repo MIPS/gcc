@@ -1083,6 +1083,7 @@ build_call_check (tree id)
   ++processing_template_decl;
   vec<tree, va_gc> *fargs = make_tree_vector();
   tree call = finish_call_expr (id, &fargs, false, false, tf_none);
+  release_tree_vector (fargs);
   --processing_template_decl;
   return call;
 }
