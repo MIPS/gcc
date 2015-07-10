@@ -187,7 +187,7 @@ GOACC_parallel (int device, void (*fn) (void *),
   struct gomp_device_descr *acc_dev;
   struct target_mem_desc *tgt;
   void **devaddrs;
-  unsigned int i;
+  int i;
   struct splay_tree_key_s k;
   splay_tree_key tgt_fn_key;
   void (*tgt_fn);
@@ -211,11 +211,12 @@ GOACC_parallel (int device, void (*fn) (void *),
   thr = goacc_thread ();
   acc_dev = thr->dev;
 
-  for (i = 0; i < mapnum; i++)
+  for (i = 0; i < (signed)(mapnum - 1); i++)
     {
       unsigned short kind1 = kinds[i] & 0xff;
       unsigned short kind2 = kinds[i+1] & 0xff;
 
+      /* Handle Fortran deviceptr clause.  */
       if ((kind1 == GOMP_MAP_FORCE_DEVICEPTR && kind2 == GOMP_MAP_POINTER)
 	   && (sizes[i + 1] == 0)
 	   && (hostaddrs[i] == *(void **)hostaddrs[i + 1]))
@@ -326,11 +327,12 @@ GOACC_data_start (int device, size_t mapnum,
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
 
-  for (i = 0; i < mapnum; i++)
+  for (i = 0; i < (signed)(mapnum - 1); i++)
     {
       unsigned short kind1 = kinds[i] & 0xff;
       unsigned short kind2 = kinds[i+1] & 0xff;
 
+      /* Handle Fortran deviceptr clause.  */
       if ((kind1 == GOMP_MAP_FORCE_DEVICEPTR && kind2 == GOMP_MAP_POINTER)
 	   && (sizes[i + 1] == 0)
 	   && (hostaddrs[i] == *(void **)hostaddrs[i + 1]))
