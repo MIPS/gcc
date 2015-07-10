@@ -1,3 +1,9 @@
+2015-07-10  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (find_parameter_packs_r): Handle variable templates.
+	(variable_template_specialization_p): New.
+	* cp-tree.h: Declare it.
+
 2015-07-09  Jason Merrill  <jason@redhat.com>
 
 	* pt.c (instantiation_dependent_r) [TRAIT_EXPR]: Call
