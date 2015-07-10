@@ -1947,7 +1947,8 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
       /* Conversion of an out-of-range value has implementation-defined
 	 behavior; the language considers it different from arithmetic
 	 overflow, which is undefined.  */
-      if (TREE_OVERFLOW_P (x) && !TREE_OVERFLOW_P (op0))
+      if (TREE_CODE (op0) == INTEGER_CST
+	  && TREE_OVERFLOW_P (x) && !TREE_OVERFLOW_P (op0))
 	TREE_OVERFLOW (x) = false;
       
       break;

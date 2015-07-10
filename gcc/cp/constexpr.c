@@ -3452,7 +3452,8 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	enum tree_code tcode = TREE_CODE (t);
 	tree oldop = TREE_OPERAND (t, 0);
 
-	if (tcode == NOP_EXPR && TREE_TYPE (t) == TREE_TYPE (oldop) && TREE_OVERFLOW_P (oldop))
+	if (tcode == NOP_EXPR
+	    && TREE_TYPE (t) == TREE_TYPE (oldop) && TREE_OVERFLOW_P (oldop))
 	  {
 	    if (!ctx->quiet)
 	      permerror (input_location, "overflow in constant expression");
@@ -3745,12 +3746,13 @@ static tree
 fold_simple_on_cst_1 (tree t)
 {
   tree op1, op2, op3;
+  enum tree_code code = TREE_CODE (t);
 
-  if (TREE_CODE (t) == VAR_DECL
+  if (code == VAR_DECL
       || processing_template_decl)
     return NULL_TREE;
 
-  switch (TREE_CODE (t))
+  switch (code)
     {
     case INTEGER_CST:
     case REAL_CST:
@@ -3782,12 +3784,12 @@ fold_simple_on_cst_1 (tree t)
     case CONVERT_EXPR:
 
       op1 = fold_simple_on_cst_1 (TREE_OPERAND (t, 0));
-      if (!op1 || (TREE_CODE (t) == NOP_EXPR && TREE_OVERFLOW (op1)))
+      if (!op1 || (code == NOP_EXPR && TREE_OVERFLOW (op1)))
 	return NULL_TREE;
 
-      t = fold_build1_loc (EXPR_LOCATION (t), TREE_CODE (t), TREE_TYPE (t),
-			   op1);
-      if (TREE_OVERFLOW_P (t) && !TREE_OVERFLOW_P (op1))
+      t = fold_build1_loc (EXPR_LOCATION (t), code, TREE_TYPE (t), op1);
+      if (CONVERT_EXPR_CODE_P (code)
+	  && TREE_OVERFLOW_P (t) && !TREE_OVERFLOW_P (op1))
 	TREE_OVERFLOW (t) = false;
       break;
 
@@ -3833,7 +3835,7 @@ fold_simple_on_cst_1 (tree t)
       if (!op2)
 	op2 = TREE_OPERAND (t, 1);
 
-      t = fold_build2_loc (EXPR_LOCATION (t), TREE_CODE (t), TREE_TYPE (t),
+      t = fold_build2_loc (EXPR_LOCATION (t), code, TREE_TYPE (t),
 			   op1, op2);
       break;
 
@@ -3849,7 +3851,7 @@ fold_simple_on_cst_1 (tree t)
       op3 = TREE_OPERAND (t, 2);
       if (!op1)
 	return NULL_TREE;
-      op1 = build3 (TREE_CODE (t), TREE_TYPE (t), op1, op2, op3);
+      op1 = build3 (code, TREE_TYPE (t), op1, op2, op3);
       op1 = fold (op1);
       if (TREE_CODE (op1) != TREE_CODE (t))
 	return fold_simple_on_cst_1 (op1);
