@@ -72,7 +72,6 @@ enum bad_spec_place {
   BSP_FIELD   /* field */
 };
 
-static tree grokparms (tree parmlist, tree *);
 static const char *redeclaration_error_message (tree, tree);
 
 static int decl_jump_unsafe (tree);
@@ -11497,7 +11496,7 @@ type_is_deprecated (tree type)
 
    *PARMS is set to the chain of PARM_DECLs created.  */
 
-static tree
+tree
 grokparms (tree parmlist, tree *parms)
 {
   tree result = NULL_TREE;

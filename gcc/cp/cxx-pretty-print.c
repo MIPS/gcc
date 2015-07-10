@@ -1449,12 +1449,12 @@ pp_cxx_parameter_declaration_clause (cxx_pretty_printer *pp, tree t)
   bool abstract;
 
   // For a requires clause or the explicit printing of a parameter list
-  // we expect T to be a TREE_LIST of PARM_DECLs. Otherwise, the list of
+  // we expect T to be a chain of PARM_DECLs. Otherwise, the list of
   // args and types are taken from the function decl T.
-  if (TREE_CODE (t) == TREE_LIST)
+  if (TREE_CODE (t) == PARM_DECL)
     {
-      args = TREE_VALUE (t);
-      types = TREE_VALUE (t);
+      args = t;
+      types = t;
       abstract = false;
     }
   else
@@ -2559,8 +2559,7 @@ pp_cxx_requires_expr (cxx_pretty_printer *pp, tree t)
   pp_string (pp, "requires");
   if (tree parms = TREE_OPERAND (t, 0))
     {
-      if (TREE_VALUE (parms) != void_type_node)
-          pp_cxx_parameter_declaration_clause (pp, parms);
+      pp_cxx_parameter_declaration_clause (pp, parms);
       pp_cxx_whitespace (pp);
     }
   pp_cxx_requirement_body (pp, TREE_OPERAND (t, 1));

@@ -5605,6 +5605,7 @@ extern tree build_ptrmemfunc_type		(tree);
 extern tree build_ptrmem_type			(tree, tree);
 /* the grokdeclarator prototype is in decl.h */
 extern tree build_this_parm			(tree, cp_cv_quals);
+extern tree grokparms				(tree, tree *);
 extern int copy_fn_p				(const_tree);
 extern bool move_fn_p                           (const_tree);
 extern bool move_signature_fn_p                 (const_tree);

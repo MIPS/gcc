@@ -1,5 +1,16 @@
 2015-07-09  Jason Merrill  <jason@redhat.com>
 
+	PR c++/66758
+	* gcc/cp/parser.c (cp_parser_requirement_parameter_list):Use grokparms.
+	* gcc/cp/constraint.cc (fixup_constraint_vars): Remove.
+	(tsubst_constraint_variables): Don't call it.
+	(declare_constraint_vars): Constraint vars aren't a TREE_LIST anymore.
+	(finish_requires_expr): Likewise.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_parameter_declaration_clause):
+	Likewise.
+	* gcc/cp/decl.c (grokparms): No longer static.
+	* gcc/cp/cp-tree.h: Declare it.
+
 	PR c++/66218
 	* gcc/cp/pt.c (do_auto_deduction): Don't set TREE_TYPE (auto_node)
 	in requirement context.

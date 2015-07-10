@@ -1482,26 +1482,6 @@ tsubst_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 namespace {
 
-/* A subroutine of tsubst_constraint_variables. In an unevaluated
-   context, the substitution of PARM_DECLs are not properly chained
-   during substitution. Do that here. */
-tree
-fixup_constraint_vars (tree parms)
-{
-  if (!parms)
-    return parms;
-
-  tree p = TREE_CHAIN (parms);
-  tree q = parms;
-  while (p && TREE_VALUE (p) != void_type_node)
-    {
-      DECL_CHAIN (TREE_VALUE (q)) = TREE_VALUE (p);
-      q = p;
-      p = TREE_CHAIN (p);
-    }
-  return parms;
-}
-
 /* A subroutine of tsubst_constraint_variables. Register local
    specializations for each of parameter in PARMS and its
    corresponding substituted constraint variable in VARS.
@@ -1509,11 +1489,9 @@ fixup_constraint_vars (tree parms)
 tree
 declare_constraint_vars (tree parms, tree vars)
 {
-  tree s = TREE_VALUE (vars);
-  for (tree p = parms; p && !VOID_TYPE_P (TREE_VALUE (p)); p = TREE_CHAIN (p))
+  tree s = vars;
+  for (tree t = parms; t; t = DECL_CHAIN (t))
     {
-      tree t = TREE_VALUE (p);
-      CONSTRAINT_VAR_P (t) = true;
       if (DECL_PACK_P (t))
         {
           tree pack = extract_fnparm_pack (t, &s);
@@ -1522,7 +1500,7 @@ declare_constraint_vars (tree parms, tree vars)
       else
         {
           register_local_specialization (s, t);
-          s = TREE_CHAIN (s);
+          s = DECL_CHAIN (s);
         }
     }
   return vars;
@@ -1542,7 +1520,7 @@ tsubst_constraint_variables (tree t, tree args,
   tree vars = tsubst (t, args, complain, in_decl);
   if (vars == error_mark_node)
     return error_mark_node;
-  return declare_constraint_vars (t, fixup_constraint_vars (vars));
+  return declare_constraint_vars (t, vars);
 }
 
 /* Substitute ARGS into the simple requirement T. Note that
@@ -2168,9 +2146,8 @@ finish_requires_expr (tree parms, tree reqs)
   /* Modify the declared parameters by removing their context
      so they don't refer to the enclosing scope and explicitly
      indicating that they are constraint variables. */
-  for (tree p = parms; p && !VOID_TYPE_P (TREE_VALUE (p)); p = TREE_CHAIN (p))
+  for (tree parm = parms; parm; parm = DECL_CHAIN (parm))
     {
-      tree parm = TREE_VALUE (p);
       DECL_CONTEXT (parm) = NULL_TREE;
       CONSTRAINT_VAR_P (parm) = true;
     }

@@ -23437,9 +23437,9 @@ cp_parser_requirement_parameter_list (cp_parser *parser)
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     return error_mark_node;
 
-  tree parms = cp_parser_parameter_declaration_clause (parser);
-  if (parms == error_mark_node)
-    return error_mark_node;
+  tree parmlist = cp_parser_parameter_declaration_clause (parser);
+  tree parms;
+  parmlist = grokparms (parmlist, &parms);
 
   if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
     return error_mark_node;
