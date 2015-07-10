@@ -1380,12 +1380,27 @@ bool
 gimple_call_same_target_p (const_gimple c1, const_gimple c2)
 {
   if (gimple_call_internal_p (c1))
-    return (gimple_call_internal_p (c2)
-	    && gimple_call_internal_fn (c1) == gimple_call_internal_fn (c2));
+    {
+      if (!gimple_call_internal_p (c2)
+	  || gimple_call_internal_fn (c1) != gimple_call_internal_fn (c2))
+	return false;
+
+      if (gimple_call_internal_unique_p (c1))
+	return false;
+      
+      return true;
+    }
+  else if (gimple_call_fn (c1) == gimple_call_fn (c2))
+    return true;
   else
-    return (gimple_call_fn (c1) == gimple_call_fn (c2)
-	    || (gimple_call_fndecl (c1)
-		&& gimple_call_fndecl (c1) == gimple_call_fndecl (c2)));
+    {
+      tree decl = gimple_call_fndecl (c1);
+
+      if (!decl || decl != gimple_call_fndecl (c2))
+	return false;
+
+      return true;
+    }
 }
 
 /* Detect flags from a GIMPLE_CALL.  This is just like

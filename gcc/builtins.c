@@ -5947,20 +5947,6 @@ expand_builtin_acc_on_device (tree exp ATTRIBUTE_UNUSED,
 #endif
 }
 
-/* Expand a thread synchronization point for OpenACC threads.  */
-static void
-expand_oacc_threadbarrier (void)
-{
-#ifdef HAVE_oacc_threadbarrier
-  rtx insn = GEN_FCN (CODE_FOR_oacc_threadbarrier) ();
-  if (insn != NULL_RTX)
-    {
-      emit_insn (insn);
-    }
-#endif
-}
-
-
 /* Expand a thread-id/thread-count builtin for OpenACC.  */
 
 static rtx
@@ -6030,47 +6016,6 @@ expand_oacc_ganglocal_ptr (rtx target ATTRIBUTE_UNUSED)
     }
 #endif
   return NULL_RTX;
-}
-
-/* Handle a GOACC_thread_broadcast builtin call EXP with target TARGET.
-   Return the result.  */
-
-static rtx
-expand_builtin_oacc_thread_broadcast (tree exp, rtx target)
-{
-  tree arg0 = CALL_EXPR_ARG (exp, 0);
-  enum insn_code icode;
-
-  enum machine_mode mode = TYPE_MODE (TREE_TYPE (arg0));
-  gcc_assert (INTEGRAL_MODE_P (mode));
-  do
-    {
-      icode = direct_optab_handler (oacc_thread_broadcast_optab, mode);
-      mode = GET_MODE_WIDER_MODE (mode);
-    }
-  while (icode == CODE_FOR_nothing && mode != VOIDmode);
-  if (icode == CODE_FOR_nothing)
-    return expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-
-  rtx tmp = target;
-  machine_mode mode0 = insn_data[icode].operand[0].mode;
-  machine_mode mode1 = insn_data[icode].operand[1].mode;
-  if (!tmp || !REG_P (tmp) || GET_MODE (tmp) != mode0)
-    tmp = gen_reg_rtx (mode0);
-  rtx op1 = expand_expr (arg0, NULL_RTX, mode1, EXPAND_NORMAL);
-  if (GET_MODE (op1) != mode1)
-    op1 = convert_to_mode (mode1, op1, 0);
-
-  /* op1 might be an immediate, place it inside a register.  */
-  op1 = force_reg (mode1, op1);
-
-  rtx insn = GEN_FCN (icode) (tmp, op1);
-  if (insn != NULL_RTX)
-    {
-      emit_insn (insn);
-      return tmp;
-    }
-  return const0_rtx;
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -7224,14 +7169,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
       if (target)
 	return target;
       break;
-
-    case BUILT_IN_GOACC_THREAD_BROADCAST:
-    case BUILT_IN_GOACC_THREAD_BROADCAST_LL:
-      return expand_builtin_oacc_thread_broadcast (exp, target);
-
-    case BUILT_IN_GOACC_THREADBARRIER:
-      expand_oacc_threadbarrier ();
-      return const0_rtx;
 
     default:	/* just do library call, if unknown builtin */
       break;

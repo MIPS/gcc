@@ -235,7 +235,6 @@ struct nvptx_pseudo_info
 struct GTY(()) machine_function
 {
   rtx_expr_list *call_args;
-  char *warp_equal_pseudos;
   rtx start_call;
   tree funtype;
   bool has_call_with_varargs;

@@ -52,15 +52,24 @@
    UNSPEC_NID
 
    UNSPEC_SHARED_DATA
+
+   UNSPEC_BIT_CONV
+
+   UNSPEC_BROADCAST
+   UNSPEC_BR_UNIFIED
 ])
 
 (define_c_enum "unspecv" [
    UNSPECV_LOCK
    UNSPECV_CAS
    UNSPECV_XCHG
-   UNSPECV_WARP_BCAST
    UNSPECV_BARSYNC
    UNSPECV_ID
+
+   UNSPECV_FORK
+   UNSPECV_FORKED
+   UNSPECV_JOINING
+   UNSPECV_JOIN
 ])
 
 (define_attr "subregs_ok" "false,true"
@@ -253,6 +262,8 @@
 (define_mode_iterator QHSIM [QI HI SI])
 (define_mode_iterator SDFM [SF DF])
 (define_mode_iterator SDCM [SC DC])
+(define_mode_iterator BITS [SI SF])
+(define_mode_iterator BITD [DI DF])
 
 ;; This mode iterator allows :P to be used for patterns that operate on
 ;; pointer-sized quantities.  Exactly one of the two alternatives will match.
@@ -813,7 +824,7 @@
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))]
   ""
-  "%j0\\tbra%U0\\t%l1;")
+  "%j0\\tbra\\t%l1;")
 
 (define_insn "br_false"
   [(set (pc)
@@ -822,7 +833,24 @@
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))]
   ""
-  "%J0\\tbra%U0\\t%l1;")
+  "%J0\\tbra\\t%l1;")
+
+;; unified conditional branch
+(define_insn "br_true_uni"
+  [(set (pc) (if_then_else
+	(ne (unspec:BI [(match_operand:BI 0 "nvptx_register_operand" "R")]
+		       UNSPEC_BR_UNIFIED) (const_int 0))
+        (label_ref (match_operand 1 "" "")) (pc)))]
+  ""
+  "%j0\\tbra.uni\\t%l1;")
+
+(define_insn "br_false_uni"
+  [(set (pc) (if_then_else
+	(eq (unspec:BI [(match_operand:BI 0 "nvptx_register_operand" "R")]
+		       UNSPEC_BR_UNIFIED) (const_int 0))
+        (label_ref (match_operand 1 "" "")) (pc)))]
+  ""
+  "%J0\\tbra.uni\\t%l1;")
 
 (define_expand "cbranch<mode>4"
   [(set (pc)
@@ -1326,36 +1354,91 @@
   return asms[INTVAL (operands[1])];
 })
 
-(define_insn "oacc_thread_broadcastsi"
-  [(set (match_operand:SI 0 "nvptx_register_operand" "")
-	(unspec_volatile:SI [(match_operand:SI 1 "nvptx_register_operand" "")]
-			    UNSPECV_WARP_BCAST))]
+(define_insn "nvptx_fork"
+  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
+		       UNSPECV_FORK)]
+  ""
+  "// fork %0;"
+)
+
+(define_insn "nvptx_forked"
+  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
+		       UNSPECV_FORKED)]
+  ""
+  "// forked %0;"
+)
+
+(define_insn "nvptx_joining"
+  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
+		       UNSPECV_JOINING)]
+  ""
+  "// joining %0;"
+)
+
+(define_insn "nvptx_join"
+  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
+		       UNSPECV_JOIN)]
+  ""
+  "// join %0;"
+)
+
+(define_expand "oacc_fork"
+  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
+		       UNSPECV_FORKED)]
+  ""
+{
+  nvptx_expand_oacc_fork (operands[0]);
+})
+
+(define_expand "oacc_join"
+  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
+		       UNSPECV_JOIN)]
+  ""
+{
+  nvptx_expand_oacc_join (operands[0]);
+})
+
+;; only 32-bit shuffles exist.
+(define_insn "nvptx_broadcast<mode>"
+  [(set (match_operand:BITS 0 "nvptx_register_operand" "")
+	(unspec:BITS
+		[(match_operand:BITS 1 "nvptx_register_operand" "")]
+		  UNSPEC_BROADCAST))]
   ""
   "%.\\tshfl.idx.b32\\t%0, %1, 0, 31;")
 
-(define_expand "oacc_thread_broadcastdi"
-  [(set (match_operand:DI 0 "nvptx_register_operand" "")
-	(unspec_volatile:DI [(match_operand:DI 1 "nvptx_register_operand" "")]
-			    UNSPECV_WARP_BCAST))]
+;; extract parts of a 64 bit object into 2 32-bit ints
+(define_insn "unpack<mode>si2"
+  [(set (match_operand:SI 0 "nvptx_register_operand" "")
+        (unspec:SI [(match_operand:BITD 2 "nvptx_register_operand" "")
+		    (const_int 0)] UNSPEC_BIT_CONV))
+   (set (match_operand:SI 1 "nvptx_register_operand" "")
+        (unspec:SI [(match_dup 2) (const_int 1)] UNSPEC_BIT_CONV))]
   ""
-{
-  rtx t = gen_reg_rtx (DImode);
-  emit_insn (gen_lshrdi3 (t, operands[1], GEN_INT (32)));
-  rtx op0 = force_reg (SImode, gen_lowpart (SImode, t));
-  rtx op1 = force_reg (SImode, gen_lowpart (SImode, operands[1]));
-  rtx targ0 = gen_reg_rtx (SImode);
-  rtx targ1 = gen_reg_rtx (SImode);
-  emit_insn (gen_oacc_thread_broadcastsi (targ0, op0));
-  emit_insn (gen_oacc_thread_broadcastsi (targ1, op1));
-  rtx t2 = gen_reg_rtx (DImode);
-  rtx t3 = gen_reg_rtx (DImode);
-  emit_insn (gen_extendsidi2 (t2, targ0));
-  emit_insn (gen_extendsidi2 (t3, targ1));
-  rtx t4 = gen_reg_rtx (DImode);
-  emit_insn (gen_ashldi3 (t4, t2, GEN_INT (32)));
-  emit_insn (gen_iordi3 (operands[0], t3, t4));
-  DONE;
-})
+  "%.\\tmov.b64 {%0,%1}, %2;")
+
+;; pack 2 32-bit ints into a 64 bit object
+(define_insn "packsi<mode>2"
+  [(set (match_operand:BITD 0 "nvptx_register_operand" "")
+        (unspec:BITD [(match_operand:SI 1 "nvptx_register_operand" "")
+		      (match_operand:SI 2 "nvptx_register_operand" "")]
+		    UNSPEC_BIT_CONV))]
+  ""
+  "%.\\tmov.b64 %0, {%1,%2};")
+
+(define_insn "worker_load<mode>"
+  [(set (match_operand:SDISDFM 0 "nvptx_register_operand" "=R")
+        (unspec:SDISDFM [(match_operand:SDISDFM 1 "memory_operand" "m")]
+			 UNSPEC_SHARED_DATA))]
+  ""
+  "%.\\tld.shared%u0\\t%0,%1;")
+
+(define_insn "worker_store<mode>"
+  [(set (unspec:SDISDFM [(match_operand:SDISDFM 1 "memory_operand" "=m")]
+			 UNSPEC_SHARED_DATA)
+	(match_operand:SDISDFM 0 "nvptx_register_operand" "R"))]
+  ""
+  "%.\\tst.shared%u1\\t%1,%0;")
 
 (define_insn "ganglocal_ptr<mode>"
   [(set (match_operand:P 0 "nvptx_register_operand" "")
@@ -1462,14 +1545,8 @@
   "%.\\tatom%A1.b%T0.<logic>\\t%0, %1, %2;")
 
 ;; ??? Mark as not predicable later?
-(define_insn "threadbarrier_insn"
-  [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")] UNSPECV_BARSYNC)]
+(define_insn "nvptx_barsync"
+  [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")]
+		    UNSPECV_BARSYNC)]
   ""
   "bar.sync\\t%0;")
-
-(define_expand "oacc_threadbarrier"
-  [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")] UNSPECV_BARSYNC)]
-  ""
-{
-  operands[0] = const0_rtx;
-})

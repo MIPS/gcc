@@ -24,6 +24,7 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-map.h"
 #include "hash-set.h"
 #include "machmode.h"
 #include "vec.h"
@@ -74,6 +75,9 @@
 #include "df.h"
 #include "dumpfile.h"
 #include "builtins.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "omp-low.h"
 
 /* Record the function decls we've written, and the libfuncs and function
    decls corresponding to them.  */
@@ -96,6 +100,16 @@ static GTY((cache))
 
 static GTY((cache)) hash_table<tree_hasher> *declared_fndecls_htab;
 static GTY((cache)) hash_table<tree_hasher> *needed_fndecls_htab;
+
+/* Size of buffer needed to broadcast across workers.  This is used
+   for both worker-neutering and worker broadcasting.   It is shared
+   by all functions emitted.  The buffer is placed in shared memory.
+   It'd be nice if PTX supported common blocks, because then this
+   could be shared across TUs (taking the largest size).  */
+static unsigned worker_bcast_hwm;
+static unsigned worker_bcast_align;
+#define worker_bcast_name "__worker_bcast"
+static GTY(()) rtx worker_bcast_sym;
 
 /* Allocate a new, cleared machine_function structure.  */
 
@@ -124,6 +138,8 @@ nvptx_option_override (void)
   needed_fndecls_htab = hash_table<tree_hasher>::create_ggc (17);
   declared_libfuncs_htab
     = hash_table<declared_libfunc_hasher>::create_ggc (17);
+
+  worker_bcast_sym = gen_rtx_SYMBOL_REF (Pmode, worker_bcast_name);
 }
 
 /* Return the mode to be used when declaring a ptx object for OBJ.
@@ -1066,6 +1082,210 @@ nvptx_expand_compare (rtx compare)
   return gen_rtx_NE (BImode, pred, const0_rtx);
 }
 
+
+/* Expand the oacc fork & join primitive into ptx-required unspecs.  */
+
+void
+nvptx_expand_oacc_fork (rtx mode)
+{
+  /* Emit fork for worker level.  */
+  if (UINTVAL (mode) == OACC_worker)
+    emit_insn (gen_nvptx_fork (mode));
+}
+
+void
+nvptx_expand_oacc_join (rtx mode)
+{
+  /* Emit joining for all pars.  */
+  emit_insn (gen_nvptx_joining (mode));
+}
+
+/* Generate instruction(s) to unpack a 64 bit object into 2 32 bit
+   objects.  */
+
+static rtx
+nvptx_gen_unpack (rtx dst0, rtx dst1, rtx src)
+{
+  rtx res;
+  
+  switch (GET_MODE (src))
+    {
+    case DImode:
+      res = gen_unpackdisi2 (dst0, dst1, src);
+      break;
+    case DFmode:
+      res = gen_unpackdfsi2 (dst0, dst1, src);
+      break;
+    default: gcc_unreachable ();
+    }
+  return res;
+}
+
+/* Generate instruction(s) to pack 2 32 bit objects into a 64 bit
+   object.  */
+
+static rtx
+nvptx_gen_pack (rtx dst, rtx src0, rtx src1)
+{
+  rtx res;
+  
+  switch (GET_MODE (dst))
+    {
+    case DImode:
+      res = gen_packsidi2 (dst, src0, src1);
+      break;
+    case DFmode:
+      res = gen_packsidf2 (dst, src0, src1);
+      break;
+    default: gcc_unreachable ();
+    }
+  return res;
+}
+
+/* Generate an instruction or sequence to broadcast register REG
+   across the vectors of a single warp.  */
+
+static rtx
+nvptx_gen_vcast (rtx reg)
+{
+  rtx res;
+
+  switch (GET_MODE (reg))
+    {
+    case SImode:
+      res = gen_nvptx_broadcastsi (reg, reg);
+      break;
+    case SFmode:
+      res = gen_nvptx_broadcastsf (reg, reg);
+      break;
+    case DImode:
+    case DFmode:
+      {
+	rtx tmp0 = gen_reg_rtx (SImode);
+	rtx tmp1 = gen_reg_rtx (SImode);
+
+	start_sequence ();
+	emit_insn (nvptx_gen_unpack (tmp0, tmp1, reg));
+	emit_insn (nvptx_gen_vcast (tmp0));
+	emit_insn (nvptx_gen_vcast (tmp1));
+	emit_insn (nvptx_gen_pack (reg, tmp0, tmp1));
+	res = get_insns ();
+	end_sequence ();
+      }
+      break;
+    case BImode:
+      {
+	rtx tmp = gen_reg_rtx (SImode);
+	
+	start_sequence ();
+	emit_insn (gen_sel_truesi (tmp, reg, GEN_INT (1), const0_rtx));
+	emit_insn (nvptx_gen_vcast (tmp));
+	emit_insn (gen_rtx_SET (BImode, reg,
+				gen_rtx_NE (BImode, tmp, const0_rtx)));
+	res = get_insns ();
+	end_sequence ();
+      }
+      break;
+      
+    case HImode:
+    case QImode:
+    default:debug_rtx (reg);gcc_unreachable ();
+    }
+  return res;
+}
+
+/* Structure used when generating a worker-level spill or fill.  */
+
+struct wcast_data_t
+{
+  rtx base;
+  rtx ptr;
+  unsigned offset;
+};
+
+/* Direction of the spill/fill and looping setup/teardown indicator.  */
+
+enum propagate_mask
+  {
+    PM_read = 1 << 0,
+    PM_write = 1 << 1,
+    PM_loop_begin = 1 << 2,
+    PM_loop_end = 1 << 3,
+
+    PM_read_write = PM_read | PM_write
+  };
+
+/* Generate instruction(s) to spill or fill register REG to/from the
+   worker broadcast array.  PM indicates what is to be done, REP
+   how many loop iterations will be executed (0 for not a loop).  */
+   
+static rtx
+nvptx_gen_wcast (rtx reg, propagate_mask pm, unsigned rep, wcast_data_t *data)
+{
+  rtx  res;
+  machine_mode mode = GET_MODE (reg);
+
+  switch (mode)
+    {
+    case BImode:
+      {
+	rtx tmp = gen_reg_rtx (SImode);
+	
+	start_sequence ();
+	if (pm & PM_read)
+	  emit_insn (gen_sel_truesi (tmp, reg, GEN_INT (1), const0_rtx));
+	emit_insn (nvptx_gen_wcast (tmp, pm, rep, data));
+	if (pm & PM_write)
+	  emit_insn (gen_rtx_SET (BImode, reg,
+				  gen_rtx_NE (BImode, tmp, const0_rtx)));
+	res = get_insns ();
+	end_sequence ();
+      }
+      break;
+
+    default:
+      {
+	rtx addr = data->ptr;
+
+	if (!addr)
+	  {
+	    unsigned align = GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT;
+
+	    if (align > worker_bcast_align)
+	      worker_bcast_align = align;
+	    data->offset = (data->offset + align - 1) & ~(align - 1);
+	    addr = data->base;
+	    if (data->offset)
+	      addr = gen_rtx_PLUS (Pmode, addr, GEN_INT (data->offset));
+	  }
+	
+	addr = gen_rtx_MEM (mode, addr);
+	addr = gen_rtx_UNSPEC (mode, gen_rtvec (1, addr), UNSPEC_SHARED_DATA);
+	if (pm & PM_read)
+	  res = gen_rtx_SET (mode, addr, reg);
+	if (pm & PM_write)
+	  res = gen_rtx_SET (mode, reg, addr);
+
+	if (data->ptr)
+	  {
+	    /* We're using a ptr, increment it.  */
+	    start_sequence ();
+	    
+	    emit_insn (res);
+	    emit_insn (gen_adddi3 (data->ptr, data->ptr,
+				   GEN_INT (GET_MODE_SIZE (GET_MODE (res)))));
+	    res = get_insns ();
+	    end_sequence ();
+	  }
+	else
+	  rep = 1;
+	data->offset += rep * GET_MODE_SIZE (GET_MODE (reg));
+      }
+      break;
+    }
+  return res;
+}
+
 /* When loading an operand ORIG_OP, verify whether an address space
    conversion to generic is required, and if so, perform it.  Also
    check for SYMBOL_REFs for function decls and call
@@ -1647,23 +1867,6 @@ nvptx_print_operand_address (FILE *file, rtx addr)
   nvptx_print_address_operand (file, addr, VOIDmode);
 }
 
-/* Return true if the value of COND is the same across all threads in a
-   warp.  */
-
-static bool
-condition_unidirectional_p (rtx cond)
-{
-  if (CONSTANT_P (cond))
-    return true;
-  if (GET_CODE (cond) == REG)
-    return cfun->machine->warp_equal_pseudos[REGNO (cond)];
-  if (GET_RTX_CLASS (GET_CODE (cond)) == RTX_COMPARE
-      || GET_RTX_CLASS (GET_CODE (cond)) == RTX_COMM_COMPARE)
-    return (condition_unidirectional_p (XEXP (cond, 0))
-	    && condition_unidirectional_p (XEXP (cond, 1)));
-  return false;
-}
-
 /* Print an operand, X, to FILE, with an optional modifier in CODE.
 
    Meaning of CODE:
@@ -1676,9 +1879,7 @@ condition_unidirectional_p (rtx cond)
    f -- print a full reg even for something that must always be split
    t -- print a type opcode suffix, promoting QImode to 32 bits
    T -- print a type size in bits
-   u -- print a type opcode suffix without promotions.
-   U -- print ".uni" if a condition consists only of values equal across all
-        threads in a warp.  */
+   u -- print a type opcode suffix without promotions.  */
 
 static void
 nvptx_print_operand (FILE *file, rtx x, int code)
@@ -1738,11 +1939,6 @@ nvptx_print_operand (FILE *file, rtx x, int code)
     case 'J':
       fprintf (file, "@!");
       goto common;
-
-    case 'U':
-      if (condition_unidirectional_p (x))
-	fprintf (file, ".uni");
-      break;
 
     case 'c':
       op_mode = GET_MODE (XEXP (x, 0));
@@ -1900,7 +2096,7 @@ get_replacement (struct reg_replace *r)
    conversion copyin/copyout instructions.  */
 
 static void
-nvptx_reorg_subreg (int max_regs)
+nvptx_reorg_subreg ()
 {
   struct reg_replace qiregs, hiregs, siregs, diregs;
   rtx_insn *insn, *next;
@@ -1913,11 +2109,6 @@ nvptx_reorg_subreg (int max_regs)
   hiregs.mode = HImode;
   siregs.mode = SImode;
   diregs.mode = DImode;
-
-  cfun->machine->warp_equal_pseudos
-    = ggc_cleared_vec_alloc<char> (max_regs);
-
-  auto_vec<unsigned> warp_reg_worklist;
 
   for (insn = get_insns (); insn; insn = next)
     {
@@ -1933,18 +2124,6 @@ nvptx_reorg_subreg (int max_regs)
       siregs.n_in_use = 0;
       diregs.n_in_use = 0;
       extract_insn (insn);
-
-      if (recog_memoized (insn) == CODE_FOR_oacc_thread_broadcastsi
-	  || (GET_CODE (PATTERN (insn)) == SET
-	      && CONSTANT_P (SET_SRC (PATTERN (insn)))))
-	{
-	  rtx dest = recog_data.operand[0];
-	  if (REG_P (dest) && REG_N_SETS (REGNO (dest)) == 1)
-	    {
-	      cfun->machine->warp_equal_pseudos[REGNO (dest)] = true;
-	      warp_reg_worklist.safe_push (REGNO (dest));
-	    }
-	}
 
       enum attr_subregs_ok s_ok = get_attr_subregs_ok (insn);
       for (int i = 0; i < recog_data.n_operands; i++)
@@ -1999,71 +2178,745 @@ nvptx_reorg_subreg (int max_regs)
 	  validate_change (insn, recog_data.operand_loc[i], new_reg, false);
 	}
     }
+}
 
-  while (!warp_reg_worklist.is_empty ())
+/* Loop structure of the function.The entire function is described as
+   a NULL loop.  We should be able to extend this to represent
+   superblocks.  */
+
+#define OACC_null OACC_HWM
+
+struct parallel
+{
+  /* Parent parallel.  */
+  parallel *parent;
+  
+  /* Next sibling parallel.  */
+  parallel *next;
+
+  /* First child parallel.  */
+  parallel *inner;
+
+  /* Partitioning mode of the parallel.  */
+  unsigned mode;
+
+  /* Partitioning used within inner parallels. */
+  unsigned inner_mask;
+
+  /* Location of parallel forked and join.  The forked is the first
+     block in the parallel and the join is the first block after of
+     the partition.  */
+  basic_block forked_block;
+  basic_block join_block;
+
+  rtx_insn *forked_insn;
+  rtx_insn *join_insn;
+
+  rtx_insn *fork_insn;
+  rtx_insn *joining_insn;
+
+  /* Basic blocks in this parallel, but not in child parallels.  The
+     FORKED and JOINING blocks are in the partition.  The FORK and JOIN
+     blocks are not.  */
+  auto_vec<basic_block> blocks;
+
+public:
+  parallel (parallel *parent, unsigned mode);
+  ~parallel ();
+};
+
+/* Constructor links the new parallel into it's parent's chain of
+   children.  */
+
+parallel::parallel (parallel *parent_, unsigned mode_)
+  :parent (parent_), next (0), inner (0), mode (mode_), inner_mask (0)
+{
+  forked_block = join_block = 0;
+  forked_insn = join_insn = 0;
+  fork_insn = joining_insn = 0;
+  
+  if (parent)
     {
-      int regno = warp_reg_worklist.pop ();
+      next = parent->inner;
+      parent->inner = this;
+    }
+}
+
+parallel::~parallel ()
+{
+  delete inner;
+  delete next;
+}
+
+/* Map of basic blocks to insns */
+typedef hash_map<basic_block, rtx_insn *> bb_insn_map_t;
+
+/* A tuple of an insn of interest and the BB in which it resides.  */
+typedef std::pair<rtx_insn *, basic_block> insn_bb_t;
+typedef auto_vec<insn_bb_t> insn_bb_vec_t;
+
+/* Split basic blocks such that each forked and join unspecs are at
+   the start of their basic blocks.  Thus afterwards each block will
+   have a single partitioning mode.  We also do the same for return
+   insns, as they are executed by every thread.  Return the
+   partitioning mode of the function as a whole.  Populate MAP with
+   head and tail blocks.  We also clear the BB visited flag, which is
+   used when finding partitions.  */
+
+static void
+nvptx_split_blocks (bb_insn_map_t *map)
+{
+  insn_bb_vec_t worklist;
+  basic_block block;
+  rtx_insn *insn;
+
+  /* Locate all the reorg instructions of interest.  */
+  FOR_ALL_BB_FN (block, cfun)
+    {
+      bool seen_insn = false;
+
+      // Clear visited flag, for use by parallel locator  */
+      block->flags &= ~BB_VISITED;
       
-      df_ref use = DF_REG_USE_CHAIN (regno);
-      for (; use; use = DF_REF_NEXT_REG (use))
+      FOR_BB_INSNS (block, insn)
 	{
-	  rtx_insn *insn;
-	  if (!DF_REF_INSN_INFO (use))
+	  if (!INSN_P (insn))
 	    continue;
-	  insn = DF_REF_INSN (use);
-	  if (DEBUG_INSN_P (insn))
-	    continue;
-
-	  /* The only insns we have to exclude are those which refer to
-	     memory.  */
-	  rtx pat = PATTERN (insn);
-	  if (GET_CODE (pat) == SET
-	      && (MEM_P (SET_SRC (pat)) || MEM_P (SET_DEST (pat))))
-	    continue;
-
-	  df_ref insn_use;
-	  bool all_equal = true;
-	  FOR_EACH_INSN_USE (insn_use, insn)
+	  switch (recog_memoized (insn))
 	    {
-	      unsigned insn_regno = DF_REF_REGNO (insn_use);
-	      if (!cfun->machine->warp_equal_pseudos[insn_regno])
-		{
-		  all_equal = false;
-		  break;
-		}
+	    default:
+	      seen_insn = true;
+	      continue;
+	    case CODE_FOR_nvptx_forked:
+	    case CODE_FOR_nvptx_join:
+	      break;
+	      
+	    case CODE_FOR_return:
+	      /* We also need to split just before return insns, as
+		 that insn needs executing by all threads, but the
+		 block it is in probably does not.  */
+	      break;
 	    }
-	  if (!all_equal)
-	    continue;
-	  df_ref insn_def;
-	  FOR_EACH_INSN_DEF (insn_def, insn)
-	    {
-	      unsigned dregno = DF_REF_REGNO (insn_def);
-	      if (cfun->machine->warp_equal_pseudos[dregno])
-		continue;
-	      cfun->machine->warp_equal_pseudos[dregno] = true;
-	      warp_reg_worklist.safe_push (dregno);
-	    }
+
+	  if (seen_insn)
+	    /* We've found an instruction that  must be at the start of
+	       a block, but isn't.  Add it to the worklist.  */
+	    worklist.safe_push (insn_bb_t (insn, block));
+	  else
+	    /* It was already the first instruction.  Just add it to
+	       the map.  */
+	    map->get_or_insert (block) = insn;
+	  seen_insn = true;
 	}
     }
 
-  if (dump_file)
-    for (int i = 0; i < max_regs; i++)
-      if (cfun->machine->warp_equal_pseudos[i])
-	fprintf (dump_file, "Found warp invariant pseudo %d\n", i);
+  /* Split blocks on the worklist.  */
+  unsigned ix;
+  insn_bb_t *elt;
+  basic_block remap = 0;
+  for (ix = 0; worklist.iterate (ix, &elt); ix++)
+    {
+      if (remap != elt->second)
+	{
+	  block = elt->second;
+	  remap = block;
+	}
+      
+      /* Split block before insn. The insn is in the new block  */
+      edge e = split_block (block, PREV_INSN (elt->first));
+
+      block = e->dest;
+      map->get_or_insert (block) = elt->first;
+    }
 }
 
-/* PTX-specific reorganization
-   1) mark now-unused registers, so function begin doesn't declare
-   unused registers.
-   2) replace subregs with suitable sequences.
-*/
+/* BLOCK is a basic block containing a head or tail instruction.
+   Locate the associated prehead or pretail instruction, which must be
+   in the single predecessor block.  */
+
+static rtx_insn *
+nvptx_discover_pre (basic_block block, int expected)
+{
+  gcc_assert (block->preds->length () == 1);
+  basic_block pre_block = (*block->preds)[0]->src;
+  rtx_insn *pre_insn;
+
+  for (pre_insn = BB_END (pre_block); !INSN_P (pre_insn);
+       pre_insn = PREV_INSN (pre_insn))
+    gcc_assert (pre_insn != BB_HEAD (pre_block));
+
+  gcc_assert (recog_memoized (pre_insn) == expected);
+  return pre_insn;
+}
+
+/*  Dump this parallel and all its inner parallels.  */
+
+static void
+nvptx_dump_pars (parallel *par, unsigned depth)
+{
+  fprintf (dump_file, "%u: mode %d head=%d, tail=%d\n",
+	   depth, par->mode,
+	   par->forked_block ? par->forked_block->index : -1,
+	   par->join_block ? par->join_block->index : -1);
+
+  fprintf (dump_file, "    blocks:");
+
+  basic_block block;
+  for (unsigned ix = 0; par->blocks.iterate (ix, &block); ix++)
+    fprintf (dump_file, " %d", block->index);
+  fprintf (dump_file, "\n");
+  if (par->inner)
+    nvptx_dump_pars (par->inner, depth + 1);
+
+  if (par->next)
+    nvptx_dump_pars (par->next, depth);
+}
+
+typedef std::pair<basic_block, parallel *> bb_par_t;
+typedef auto_vec<bb_par_t> bb_par_vec_t;
+
+/* Walk the BBG looking for fork & join markers.  Construct a
+   loop structure for the function.  MAP is a mapping of basic blocks
+   to head & taiol markers, discoveded when splitting blocks.  This
+   speeds up the discovery.  We rely on the BB visited flag having
+   been cleared when splitting blocks.  */
+
+static parallel *
+nvptx_discover_pars (bb_insn_map_t *map)
+{
+  parallel *outer_par = new parallel (0, OACC_null);
+  bb_par_vec_t worklist;
+  basic_block block;
+
+  // Mark entry and exit blocks as visited.
+  block = EXIT_BLOCK_PTR_FOR_FN (cfun);
+  block->flags |= BB_VISITED;
+  block = ENTRY_BLOCK_PTR_FOR_FN (cfun);
+  worklist.safe_push (bb_par_t (block, outer_par));
+
+  while (worklist.length ())
+    {
+      bb_par_t bb_par = worklist.pop ();
+      parallel *l = bb_par.second;
+
+      block = bb_par.first;
+
+      // Have we met this block?
+      if (block->flags & BB_VISITED)
+	continue;
+      block->flags |= BB_VISITED;
+      
+      rtx_insn **endp = map->get (block);
+      if (endp)
+	{
+	  rtx_insn *end = *endp;
+	  
+	  /* This is a block head or tail, or return instruction.  */
+	  switch (recog_memoized (end))
+	    {
+	    case CODE_FOR_return:
+	      /* Return instructions are in their own block, and we
+		 don't need to do anything more.  */
+	      continue;
+
+	    case CODE_FOR_nvptx_forked:
+	      /* Loop head, create a new inner loop and add it into
+		 our parent's child list.  */
+	      {
+		unsigned mode = UINTVAL (XVECEXP (PATTERN (end), 0, 0));
+		
+		l = new parallel (l, mode);
+		l->forked_block = block;
+		l->forked_insn = end;
+		if (mode == OACC_worker)
+		  l->fork_insn
+		    = nvptx_discover_pre (block, CODE_FOR_nvptx_fork);
+	      }
+	      break;
+
+	    case CODE_FOR_nvptx_join:
+	      /* A loop tail.  Finish the current loop and return to
+		 parent.  */
+	      {
+		unsigned mode = UINTVAL (XVECEXP (PATTERN (end), 0, 0));
+
+		gcc_assert (l->mode == mode);
+		l->join_block = block;
+		l->join_insn = end;
+		if (mode == OACC_worker)
+		  l->joining_insn
+		    = nvptx_discover_pre (block, CODE_FOR_nvptx_joining);
+		l = l->parent;
+	      }
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
+
+      /* Add this block onto the current loop's list of blocks.  */
+      l->blocks.safe_push (block);
+
+      /* Push each destination block onto the work list.  */
+      edge e;
+      edge_iterator ei;
+      FOR_EACH_EDGE (e, ei, block->succs)
+	worklist.safe_push (bb_par_t (e->dest, l));
+    }
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nLoops\n");
+      nvptx_dump_pars (outer_par, 0);
+      fprintf (dump_file, "\n");
+    }
+  
+  return outer_par;
+}
+
+/* Propagate live state at the start of a partitioned region.  BLOCK
+   provides the live register information, and might not contain
+   INSN. Propagation is inserted just after INSN. RW indicates whether
+   we are reading and/or writing state.  This
+   separation is needed for worker-level proppagation where we
+   essentially do a spill & fill.  FN is the underlying worker
+   function to generate the propagation instructions for single
+   register.  DATA is user data.
+
+   We propagate the live register set and the entire frame.  We could
+   do better by (a) propagating just the live set that is used within
+   the partitioned regions and (b) only propagating stack entries that
+   are used.  The latter might be quite hard to determine.  */
+
+static void
+nvptx_propagate (basic_block block, rtx_insn *insn, propagate_mask rw,
+		 rtx (*fn) (rtx, propagate_mask,
+			    unsigned, void *), void *data)
+{
+  bitmap live = DF_LIVE_IN (block);
+  bitmap_iterator iterator;
+  unsigned ix;
+
+  /* Copy the frame array.  */
+  HOST_WIDE_INT fs = get_frame_size ();
+  if (fs)
+    {
+      rtx tmp = gen_reg_rtx (DImode);
+      rtx idx = NULL_RTX;
+      rtx ptr = gen_reg_rtx (Pmode);
+      rtx pred = NULL_RTX;
+      rtx_code_label *label = NULL;
+
+      gcc_assert (!(fs & (GET_MODE_SIZE (DImode) - 1)));
+      fs /= GET_MODE_SIZE (DImode);
+      /* Detect single iteration loop. */
+      if (fs == 1)
+	fs = 0;
+
+      start_sequence ();
+      emit_insn (gen_rtx_SET (Pmode, ptr, frame_pointer_rtx));
+      if (fs)
+	{
+	  idx = gen_reg_rtx (SImode);
+	  pred = gen_reg_rtx (BImode);
+	  label = gen_label_rtx ();
+	  
+	  emit_insn (gen_rtx_SET (SImode, idx, GEN_INT (fs)));
+	  /* Allow worker function to initialize anything needed */
+	  rtx init = fn (tmp, PM_loop_begin, fs, data);
+	  if (init)
+	    emit_insn (init);
+	  emit_label (label);
+	  LABEL_NUSES (label)++;
+	  emit_insn (gen_addsi3 (idx, idx, GEN_INT (-1)));
+	}
+      if (rw & PM_read)
+	emit_insn (gen_rtx_SET (DImode, tmp, gen_rtx_MEM (DImode, ptr)));
+      emit_insn (fn (tmp, rw, fs, data));
+      if (rw & PM_write)
+	emit_insn (gen_rtx_SET (DImode, gen_rtx_MEM (DImode, ptr), tmp));
+      if (fs)
+	{
+	  emit_insn (gen_rtx_SET (SImode, pred,
+				  gen_rtx_NE (BImode, idx, const0_rtx)));
+	  emit_insn (gen_adddi3 (ptr, ptr, GEN_INT (GET_MODE_SIZE (DImode))));
+	  emit_insn (gen_br_true_uni (pred, label));
+	  rtx fini = fn (tmp, PM_loop_end, fs, data);
+	  if (fini)
+	    emit_insn (fini);
+	  emit_insn (gen_rtx_CLOBBER (GET_MODE (idx), idx));
+	}
+      emit_insn (gen_rtx_CLOBBER (GET_MODE (tmp), tmp));
+      emit_insn (gen_rtx_CLOBBER (GET_MODE (ptr), ptr));
+      rtx cpy = get_insns ();
+      end_sequence ();
+      insn = emit_insn_after (cpy, insn);
+    }
+
+  /* Copy live registers.  */
+  EXECUTE_IF_SET_IN_BITMAP (live, 0, ix, iterator)
+    {
+      rtx reg = regno_reg_rtx[ix];
+
+      if (REGNO (reg) >= FIRST_PSEUDO_REGISTER)
+	{
+	  rtx bcast = fn (reg, rw, 0, data);
+
+	  insn = emit_insn_after (bcast, insn);
+	}
+    }
+}
+
+/* Worker for nvptx_vpropagate.  */
+
+static rtx
+vprop_gen (rtx reg, propagate_mask pm,
+	   unsigned ARG_UNUSED (count), void *ARG_UNUSED (data))
+{
+  if (!(pm & PM_read_write))
+    return 0;
+  
+  return nvptx_gen_vcast (reg);
+}
+
+/* Propagate state that is live at start of BLOCK across the vectors
+   of a single warp.  Propagation is inserted just after INSN.   */
+
+static void
+nvptx_vpropagate (basic_block block, rtx_insn *insn)
+{
+  nvptx_propagate (block, insn, PM_read_write, vprop_gen, 0);
+}
+
+/* Worker for nvptx_wpropagate.  */
+
+static rtx
+wprop_gen (rtx reg, propagate_mask pm, unsigned rep, void *data_)
+{
+  wcast_data_t *data = (wcast_data_t *)data_;
+
+  if (pm & PM_loop_begin)
+    {
+      /* Starting a loop, initialize pointer.    */
+      unsigned align = GET_MODE_ALIGNMENT (GET_MODE (reg)) / BITS_PER_UNIT;
+
+      if (align > worker_bcast_align)
+	worker_bcast_align = align;
+      data->offset = (data->offset + align - 1) & ~(align - 1);
+
+      data->ptr = gen_reg_rtx (Pmode);
+
+      return gen_adddi3 (data->ptr, data->base, GEN_INT (data->offset));
+    }
+  else if (pm & PM_loop_end)
+    {
+      rtx clobber = gen_rtx_CLOBBER (GET_MODE (data->ptr), data->ptr);
+      data->ptr = NULL_RTX;
+      return clobber;
+    }
+  else
+    return nvptx_gen_wcast (reg, pm, rep, data);
+}
+
+/* Spill or fill live state that is live at start of BLOCK.  PRE_P
+   indicates if this is just before partitioned mode (do spill), or
+   just after it starts (do fill). Sequence is inserted just after
+   INSN.  */
+
+static void
+nvptx_wpropagate (bool pre_p, basic_block block, rtx_insn *insn)
+{
+  wcast_data_t data;
+
+  data.base = gen_reg_rtx (Pmode);
+  data.offset = 0;
+  data.ptr = NULL_RTX;
+
+  nvptx_propagate (block, insn, pre_p ? PM_read : PM_write, wprop_gen, &data);
+  if (data.offset)
+    {
+      /* Stuff was emitted, initialize the base pointer now.  */
+      rtx init = gen_rtx_SET (Pmode, data.base, worker_bcast_sym);
+      emit_insn_after (init, insn);
+      
+      if (worker_bcast_hwm < data.offset)
+	worker_bcast_hwm = data.offset;
+    }
+}
+
+/* Emit a worker-level synchronization barrier.  */
+
+static void
+nvptx_wsync (bool tail_p, rtx_insn *insn)
+{
+  emit_insn_after (gen_nvptx_barsync (GEN_INT (tail_p)), insn);
+}
+
+/* Single neutering according to MASK.  FROM is the incoming block and
+   TO is the outgoing block.  These may be the same block. Insert at
+   start of FROM:
+   
+     if (tid.<axis>) goto end.
+
+   and insert before ending branch of TO (if there is such an insn):
+
+     end:
+     <possibly-broadcast-cond>
+     <branch>
+
+   We currently only use differnt FROM and TO when skipping an entire
+   loop.  We could do more if we detected superblocks.  */
+
+static void
+nvptx_single (unsigned mask, basic_block from, basic_block to)
+{
+  rtx_insn *head = BB_HEAD (from);
+  rtx_insn *tail = BB_END (to);
+  unsigned skip_mask = mask;
+
+  /* Find first insn of from block */
+  while (head != BB_END (from) && !INSN_P (head))
+    head = NEXT_INSN (head);
+
+  /* Find last insn of to block */
+  rtx_insn *limit = from == to ? head : BB_HEAD (to);
+  while (tail != limit && !INSN_P (tail) && !LABEL_P (tail))
+    tail = PREV_INSN (tail);
+
+  /* Detect if tail is a branch.  */
+  rtx tail_branch = NULL_RTX;
+  rtx cond_branch = NULL_RTX;
+  if (tail && INSN_P (tail))
+    {
+      tail_branch = PATTERN (tail);
+      if (GET_CODE (tail_branch) != SET || SET_DEST (tail_branch) != pc_rtx)
+	tail_branch = NULL_RTX;
+      else
+	{
+	  cond_branch = SET_SRC (tail_branch);
+	  if (GET_CODE (cond_branch) != IF_THEN_ELSE)
+	    cond_branch = NULL_RTX;
+	}
+    }
+
+  if (tail == head)
+    {
+      /* If this is empty, do nothing.  */
+      if (!head || !INSN_P (head))
+	return;
+
+      /* If this is a dummy insn, do nothing.  */
+      switch (recog_memoized (head))
+	{
+	default:break;
+	case CODE_FOR_nvptx_fork:
+	case CODE_FOR_nvptx_forked:
+	case CODE_FOR_nvptx_joining:
+	case CODE_FOR_nvptx_join:
+	  return;
+	}
+
+      if (cond_branch)
+	{
+	  /* If we're only doing vector single, there's no need to
+	     emit skip code because we'll not insert anything.  */
+	  if (!(mask & OACC_LOOP_MASK (OACC_vector)))
+	    skip_mask = 0;
+	}
+      else if (tail_branch)
+	/* Block with only unconditional branch.  Nothing to do.  */
+	return;
+    }
+
+  /* Insert the vector test inside the worker test.  */
+  unsigned mode;
+  rtx_insn *before = tail;
+  for (mode = OACC_worker; mode <= OACC_vector; mode++)
+    if (OACC_LOOP_MASK (mode) & skip_mask)
+      {
+	rtx id = gen_reg_rtx (SImode);
+	rtx pred = gen_reg_rtx (BImode);
+	rtx_code_label *label = gen_label_rtx ();
+
+	emit_insn_before (gen_oacc_id (id, GEN_INT (mode)), head);
+	rtx cond = gen_rtx_SET (BImode, pred,
+				gen_rtx_NE (BImode, id, const0_rtx));
+	emit_insn_before (cond, head);
+	rtx br;
+	if (mode == OACC_vector)
+	  br = gen_br_true (pred, label);
+	else
+	  br = gen_br_true_uni (pred, label);
+	emit_insn_before (br, head);
+
+	LABEL_NUSES (label)++;
+	if (tail_branch)
+	  before = emit_label_before (label, before);
+	else
+	  emit_label_after (label, tail);
+      }
+
+  /* Now deal with propagating the branch condition.  */
+  if (cond_branch)
+    {
+      rtx pvar = XEXP (XEXP (cond_branch, 0), 0);
+
+      if (OACC_LOOP_MASK (OACC_vector) == mask)
+	{
+	  /* Vector mode only, do a shuffle.  */
+	  emit_insn_before (nvptx_gen_vcast (pvar), tail);
+	}
+      else
+	{
+	  /* Includes worker mode, do spill & fill.  by construction
+	     we should never have worker mode only. */
+	  wcast_data_t data;
+
+	  data.base = worker_bcast_sym;
+	  data.ptr = 0;
+
+	  if (worker_bcast_hwm < GET_MODE_SIZE (SImode))
+	    worker_bcast_hwm = GET_MODE_SIZE (SImode);
+
+	  data.offset = 0;
+	  emit_insn_before (nvptx_gen_wcast (pvar, PM_read, 0, &data),
+			    before);
+	  emit_insn_before (gen_nvptx_barsync (GEN_INT (2)), tail);
+	  data.offset = 0;
+	  emit_insn_before (nvptx_gen_wcast (pvar, PM_write, 0, &data),
+			    tail);
+	}
+
+      extract_insn (tail);
+      rtx unsp = gen_rtx_UNSPEC (BImode, gen_rtvec (1, pvar),
+				 UNSPEC_BR_UNIFIED);
+      validate_change (tail, recog_data.operand_loc[0], unsp, false);
+    }
+}
+
+/* PAR is a parallel that is being skipped in its entirety according to
+   MASK.  Treat this as skipping a superblock starting at forked
+   and ending at joining.  */
+
+static void
+nvptx_skip_par (unsigned mask, parallel *par)
+{
+  basic_block tail = par->join_block;
+  gcc_assert (tail->preds->length () == 1);
+
+  basic_block pre_tail = (*tail->preds)[0]->src;
+  gcc_assert (pre_tail->succs->length () == 1);
+
+  nvptx_single (mask, par->forked_block, pre_tail);
+}
+
+/* Process the parallel PAR and all its contained
+   parallels.  We do everything but the neutering.  Return mask of
+   partitioned modes used within this parallel.  */
+
+static unsigned
+nvptx_process_pars (parallel *par)
+{
+  unsigned inner_mask = OACC_LOOP_MASK (par->mode);
+  
+  /* Do the inner parallels first.  */
+  if (par->inner)
+    {
+      par->inner_mask = nvptx_process_pars (par->inner);
+      inner_mask |= par->inner_mask;
+    }
+  
+  switch (par->mode)
+    {
+    case OACC_null:
+      /* Dummy parallel.  */
+      break;
+
+    case OACC_vector:
+      nvptx_vpropagate (par->forked_block, par->forked_insn);
+      break;
+      
+    case OACC_worker:
+      {
+	nvptx_wpropagate (false, par->forked_block,
+			  par->forked_insn);
+	nvptx_wpropagate (true, par->forked_block, par->fork_insn);
+	/* Insert begin and end synchronizations.  */
+	nvptx_wsync (false, par->forked_insn);
+	nvptx_wsync (true, par->joining_insn);
+      }
+      break;
+
+    case OACC_gang:
+      break;
+
+    default:gcc_unreachable ();
+    }
+
+  /* Now do siblings.  */
+  if (par->next)
+    inner_mask |= nvptx_process_pars (par->next);
+  return inner_mask;
+}
+
+/* Neuter the parallel described by PAR.  We recurse in depth-first
+   order.  MODES are the partitioning of the execution and OUTER is
+   the partitioning of the parallels we are contained in.  */
+
+static void
+nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
+{
+  unsigned me = (OACC_LOOP_MASK (par->mode)
+		 & (OACC_LOOP_MASK (OACC_worker)
+		    | OACC_LOOP_MASK (OACC_vector)));
+  unsigned  skip_mask = 0, neuter_mask = 0;
+  
+  if (par->inner)
+    nvptx_neuter_pars (par->inner, modes, outer | me);
+
+  for (unsigned mode = OACC_worker; mode <= OACC_vector; mode++)
+    {
+      if ((outer | me) & OACC_LOOP_MASK (mode))
+	{ /* Mode is partitioned: no neutering.  */ }
+      else if (!(modes & OACC_LOOP_MASK (mode)))
+	{ /* Mode  is not used: nothing to do.  */ }
+      else if (par->inner_mask & OACC_LOOP_MASK (mode)
+	       || !par->forked_insn)
+	/* Partitioned in inner parallels, or we're not a partitioned
+	   at all: neuter individual blocks.  */
+	neuter_mask |= OACC_LOOP_MASK (mode);
+      else if (!par->parent || !par->parent->forked_insn
+	       || par->parent->inner_mask & OACC_LOOP_MASK (mode))
+	/* Parent isn't a parallel or contains this paralleling: skip
+	   parallel at this level.  */
+	skip_mask |= OACC_LOOP_MASK (mode);
+      else
+	{ /* Parent will skip this parallel itself.  */ }
+    }
+
+  if (neuter_mask)
+    {
+      basic_block block;
+
+      for (unsigned ix = 0; par->blocks.iterate (ix, &block); ix++)
+	nvptx_single (neuter_mask, block, block);
+    }
+
+  if (skip_mask)
+      nvptx_skip_par (skip_mask, par);
+  
+  if (par->next)
+    nvptx_neuter_pars (par->next, modes, outer);
+}
+
+/* NVPTX machine dependent reorg.
+   Insert vector and worker single neutering code and state
+   propagation when entering partioned mode.  Fixup subregs.  */
 
 static void
 nvptx_reorg (void)
 {
-  struct reg_replace qiregs, hiregs, siregs, diregs;
-  rtx_insn *insn, *next;
-
   /* We are freeing block_for_insn in the toplev to keep compatibility
      with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
   compute_bb_for_insn ();
@@ -2072,19 +2925,36 @@ nvptx_reorg (void)
 
   df_clear_flags (DF_LR_RUN_DCE);
   df_set_flags (DF_NO_INSN_RESCAN | DF_NO_HARD_REGS);
+  df_live_add_problem ();
+  
+  /* Split blocks and record interesting unspecs.  */
+  bb_insn_map_t bb_insn_map;
+
+    nvptx_split_blocks (&bb_insn_map);
+
+  /* Compute live regs */
   df_analyze ();
   regstat_init_n_sets_and_refs ();
 
-  int max_regs = max_reg_num ();
-
+  if (dump_file)
+    df_dump (dump_file);
+  
   /* Mark unused regs as unused.  */
+  int max_regs = max_reg_num ();
   for (int i = LAST_VIRTUAL_REGISTER + 1; i < max_regs; i++)
     if (REG_N_SETS (i) == 0 && REG_N_REFS (i) == 0)
       regno_reg_rtx[i] = const0_rtx;
 
-  /* Replace subregs.  */
-  nvptx_reorg_subreg (max_regs);
+  parallel *pars = nvptx_discover_pars (&bb_insn_map);
 
+  nvptx_process_pars (pars);
+  nvptx_neuter_pars (pars, (OACC_LOOP_MASK (OACC_vector)
+			    | OACC_LOOP_MASK (OACC_worker)), 0);
+
+  delete pars;
+
+  nvptx_reorg_subreg ();
+  
   regstat_free_n_sets_and_refs ();
 
   df_finish_pass (true);
@@ -2133,19 +3003,24 @@ nvptx_vector_alignment (const_tree type)
   return MIN (align, BIGGEST_ALIGNMENT);
 }
 
-/* Indicate that INSN cannot be duplicated.  This is true for insns
-   that generate a unique id.  To be on the safe side, we also
-   exclude instructions that have to be executed simultaneously by
-   all threads in a warp.  */
+/* Indicate that INSN cannot be duplicated.   */
 
 static bool
 nvptx_cannot_copy_insn_p (rtx_insn *insn)
 {
-  if (recog_memoized (insn) == CODE_FOR_oacc_thread_broadcastsi)
-    return true;
-  if (recog_memoized (insn) == CODE_FOR_threadbarrier_insn)
-    return true;
-  return false;
+  switch (recog_memoized (insn))
+    {
+    case CODE_FOR_nvptx_broadcastsi:
+    case CODE_FOR_nvptx_broadcastsf:
+    case CODE_FOR_nvptx_barsync:
+    case CODE_FOR_nvptx_fork:
+    case CODE_FOR_nvptx_forked:
+    case CODE_FOR_nvptx_joining:
+    case CODE_FOR_nvptx_join:
+      return true;
+    default:
+      return false;
+    }
 }
 
 /* Record a symbol for mkoffload to enter into the mapping table.  */
@@ -2185,6 +3060,21 @@ nvptx_file_end (void)
   FOR_EACH_HASH_TABLE_ELEMENT (*needed_fndecls_htab, decl, tree, iter)
     nvptx_record_fndecl (decl, true);
   fputs (func_decls.str().c_str(), asm_out_file);
+
+  if (worker_bcast_hwm)
+    {
+      /* Define the broadcast buffer.  */
+
+      if (worker_bcast_align < GET_MODE_SIZE (SImode))
+	worker_bcast_align = GET_MODE_SIZE (SImode);
+      worker_bcast_hwm = (worker_bcast_hwm + worker_bcast_align - 1)
+	& ~(worker_bcast_align - 1);
+      
+      fprintf (asm_out_file, "// BEGIN VAR DEF: %s\n", worker_bcast_name);
+      fprintf (asm_out_file, ".shared.align %d .u8 %s[%d];\n",
+	       worker_bcast_align,
+	       worker_bcast_name, worker_bcast_hwm);
+    }
 }
 
 #undef TARGET_OPTION_OVERRIDE

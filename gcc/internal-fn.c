@@ -98,6 +98,20 @@ init_internal_fns ()
   internal_fn_fnspec_array[IFN_LAST] = 0;
 }
 
+/* Return true if this internal fn call is a unique marker -- it
+   should not be duplicated or merged.  */
+
+bool
+gimple_call_internal_unique_p (const_gimple gs)
+{
+  switch (gimple_call_internal_fn (gs))
+    {
+    default: return false;
+    case IFN_GOACC_FORK: return true;
+    case IFN_GOACC_JOIN: return true;
+    }
+}
+
 /* ARRAY_TYPE is an array of vector modes.  Return the associated insn
    for load-lanes-style optab OPTAB.  The insn must exist.  */
 
@@ -1988,6 +2002,26 @@ static void
 expand_GOACC_DATA_END_WITH_ARG (gcall *stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
+}
+
+static void
+expand_GOACC_FORK (gcall *stmt)
+{
+  rtx mode = expand_normal (gimple_call_arg (stmt, 0));
+  
+#ifdef HAVE_oacc_fork
+  emit_insn (gen_oacc_fork (mode));
+#endif
+}
+
+static void
+expand_GOACC_JOIN (gcall *stmt)
+{
+  rtx mode = expand_normal (gimple_call_arg (stmt, 0));
+  
+#ifdef HAVE_oacc_join
+  emit_insn (gen_oacc_join (mode));
+#endif
 }
 
 /* Routines to expand each internal function, indexed by function number.

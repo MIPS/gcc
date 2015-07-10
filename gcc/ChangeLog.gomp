@@ -1,6 +1,114 @@
+2015-07-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Infrastructure:
+	* gimple.h (gimple_call_internal_unique_p): Declare.
+	* gimple.c (gimple_call_same_target_p): Add check for
+	gimple_call_internal_unique_p.
+	* internal-fn.c (gimple_call_internal_unique_p): New.
+	* omp-low.h (OACC_LOOP_MASK): Define here...
+	* omp-low.c (OACC_LOOP_MASK): ... not here.
+	* tree-ssa-threadedge.c	(record_temporary_equivalences_from_stmts):
+	Add check for gimple_call_internal_unique_p.
+	* tree-ssa-tail-merge.c (same_succ_def::equal): Add EQ check for
+	the gimple statements.
+
+	Additions:
+	* internal-fn.def (GOACC_FORK, GOACC_JOIN): New.
+	* internal-fn.c (gimple_call_internal_unique_p): Add check for
+	IFN_GOACC_FORK, IFN_GOACC_JOIN.
+	(expand_GOACC_FORK, expand_GOACC_JOIN): New.
+	* omp-low.c (gen_oacc_fork, gen_oacc_join): New.
+	(expand_omp_for_static_nochunk): Add oacc loop fork & join calls.
+	(expand_omp_for_static_chunk): Likewise.
+	* config/nvptx/nvptx-protos.h (nvptx_expand_oacc_fork,
+	nvptx_expand_oacc_join): Declare.
+	* config/nvptx/nvptx.md (UNSPEC_BIT_CONV, UNSPEC_BROADCAST,
+	UNSPEC_BR_UNIFIED): New unspecs.
+	(UNSPECV_FORK, UNSPECV_FORKED, UNSPECV_JOINING, UNSPECV_JOIN): New.
+	(BITS, BITD): New mode iterators.
+	(br_true_uni, br_false_uni): New unified branches.
+	(nvptx_fork, nvptx_forked, nvptx_joining, nvptx_join): New insns.
+	(oacc_fork, oacc_join): New expand
+	(nvptx_broadcast<mode>): New insn.
+	(unpack<mode>si2, packsi<mode>2): New insns.
+	(worker_load<mode>, worker_store<mode>): New insns.
+	(nvptx_barsync): Renamed from ...
+	(threadbarrier_insn): ... here.
+	* config/nvptx/nvptx.c: Include hash-map,h, dominance.h, cfg.h &
+	omp-low.h.
+	(worker_bcast_hwm, worker_bcast_align, worker_bcast_name,
+	worker_bcast_sym): New.
+	(nvptx_option_override): Initialize worker_bcast_sym.
+	(nvptx_expand_oacc_fork, nvptx_expand_oacc_join): New.
+	(nvptx_gen_unpack, nvptx_gen_pack): New.
+	(struct wcast_data_t, propagate_mask): New types.
+	(nvptx_gen_vcast, nvptx_gen_wcast): New.
+	(struct parallel): New structs.
+	(parallel::parallel, parallel::~parallel): Ctor & dtor.
+	(bb_insn_map_t): New map.
+	(insn_bb_t, insn_bb_vec_t): New tuple & vector of.
+	(nvptx_split_blocks, nvptx_discover_pre): New.
+	(bb_par_t, bb_par_vec_t); New tuple & vector of.
+	(nvptx_dump_pars,nvptx_discover_pars): New.
+	(nvptx_propagate): New.
+	(vprop_gen, nvptx_vpropagate)@ New.
+	(wprop_gen, nvptx_wpropagate): New.
+	(nvptx_wsync): New.
+	(nvptx_single, nvptx_skip_par): New.
+	(nvptx_process_pars): New.
+	(nvptx_neuter_pars): New.
+	(nvptx_reorg): Add liveness DF problem.  Call nvptx_split_blocks,
+	nvptx_discover_pars, nvptx_process_pars & nvptx_neuter_pars.
+	(nvptx_cannot_copy_insn): Check for broadcast, sync, fork & join insns.
+	(nvptx_file_end): Output worker broadcast array definition.
+
+	Deletions:
+	* builtins.c (expand_oacc_thread_barrier): Delete.
+	(expand_oacc_thread_broadcast): Delete.
+	(expand_builtin): Adjust.
+	* gimple.c (struct gimple_statement_omp_parallel_layout): Remove
+	broadcast_array member.
+	(gimple_omp_target_broadcast_array): Delete.
+	(gimple_omp_target_set_broadcast_array): Delete.
+	* omp-low.c (omp_region): Remove broadcast_array member.
+	(oacc_broadcast): Delete.
+	(build_oacc_threadbarrier): Delete.
+	(oacc_loop_needs_threadbarrier_p): Delete.
+	(oacc_alloc_broadcast_storage): Delete.
+	(find_omp_target_region): Remove call to
+	gimple_omp_target_broadcast_array.
+	(enclosing_target_region, required_predication_mask,
+	generate_vector_broadcast, generate_oacc_broadcast,
+	make_predication_test, predicate_bb, find_predicatable_bbs,
+	predicate_omp_regions): Delete.
+	(use, gen, live_in): Delete.
+	(populate_loop_live_in, oacc_populate_live_in_1,
+	oacc_populate_live_in, populate_loop_use, oacc_broadcast_1,
+	oacc_broadcast): Delete.
+	(execute_expand_omp): Remove predicate_omp_regions call.
+	(lower_omp_target): Remove oacc_alloc_broadcast_storage call.
+	Remove gimple_omp_target_set_broadcast_array call.
+	(make_gimple_omp_edges): Remove oacc_loop_needs_threadbarrier_p
+	check.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1): Remove
+	BUILT_IN_GOACC_THREADBARRIER.
+	* omp-builtins.def (BUILT_IN_GOACC_THREAD_BROADCAST,
+	BUILT_IN_GOACC_THREAD_BROADCAST_LL,
+	BUILT_IN_GOACC_THREADBARRIER): Delete.
+	* config/nvptx/nvptx.md (UNSPECV_WARPBCAST): Delete.
+	(br_true, br_false): Remove U format specifier.
+	(oacc_thread_broadcastsi, oacc_thread_broadcast_di): Delete.
+	(oacc_threadbarrier): Delete.
+	* config/.nvptx/nvptx.c (condition_unidirectional_p): Delete.
+	(nvptx_print_operand):  Remove 'U' specifier.
+	(nvptx_reorg_subreg): Remove unidirection checking.
+	(nvptx_cannot_copy_insn): Remove broadcast and barrier insns.
+	* config/nvptx/nvptx.h (machine_function): Remove
+	warp_equal_pseudos.
+
 2015-07-08  Tom de Vries  <tom@codesourcery.com>
 
-	backport from trunk:
+	Backport from trunk:
 	2015-07-07  Tom de Vries  <tom@codesourcery.com>
 	* tree-cfg.c (get_virtual_phi): New function.
 	* tree-cfg.h (get_virtual_phi): Declare.
@@ -14,7 +122,7 @@
 
 2015-07-08  Tom de Vries  <tom@codesourcery.com>
 
-	revert:
+	Revert:
 	2015-06-24  Tom de Vries  <tom@codesourcery.com>
 
 	* tree-ssa-loop-manip.c (get_virtual_phi): Factor out of ...
