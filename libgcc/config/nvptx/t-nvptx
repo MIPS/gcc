@@ -16,12 +16,10 @@ INHIBIT_LIBC_CFLAGS = -Dinhibit_libc
 
 gomp-acc_on_device.o: $(srcdir)/config/nvptx/gomp-acc_on_device.c
 	$(gcc_compile) -c -fno-builtin-acc_on_device $<
-gomp-tids.o: $(srcdir)/config/nvptx/gomp-tids.c
-	$(gcc_compile) -c -fopenacc -O $<
 gomp-atomic.o: $(srcdir)/config/nvptx/gomp-atomic.asm
 	cp $< $@
 
-OBJS_libgomp= gomp-acc_on_device.o gomp-tids.o gomp-atomic.o
+OBJS_libgomp= gomp-acc_on_device.o gomp-atomic.o
 libgomp.a: $(OBJS_libgomp)
 	$(AR_CREATE_FOR_TARGET) $@ $(OBJS_libgomp)
 libgomp.spec:
