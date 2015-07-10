@@ -583,10 +583,13 @@ same_succ::equal (const same_succ *e1, const same_succ *e2)
     {
       s1 = gsi_stmt (gsi1);
       s2 = gsi_stmt (gsi2);
-      if (gimple_code (s1) != gimple_code (s2))
-	return 0;
-      if (is_gimple_call (s1) && !gimple_call_same_target_p (s1, s2))
-	return 0;
+      if (s1 != s2)
+	{
+	  if (gimple_code (s1) != gimple_code (s2))
+	    return 0;
+	  if (is_gimple_call (s1) && !gimple_call_same_target_p (s1, s2))
+	    return 0;
+	}
       gsi_next_nondebug (&gsi1);
       gsi_next_nondebug (&gsi2);
       gsi_advance_fw_nondebug_nonlocal (&gsi1);
