@@ -379,10 +379,11 @@ lift_function_call (tree t)
 {
   gcc_assert (TREE_CODE (t) == CALL_EXPR);
   tree target = CALL_EXPR_FN (t);
-  if (VAR_P (target)) {
-    error ("%qE cannot be used as a function", target);
-    return error_mark_node;
-  }
+  if (VAR_P (target))
+    {
+      error_at (location_of (t), "%qE cannot be used as a function", target);
+      return error_mark_node;
+    }
   return lift_operands (t);
 }
 
@@ -615,8 +616,8 @@ check_logical_expr (tree t)
                                  tf_none);
   if (TREE_CODE (expr) != TREE_CODE (t))
     {
-      error ("user-defined operator %qs in constraint %qE",
-             operator_name_info[TREE_CODE (t)].name, t);
+      error ("user-defined operator %qs in constraint %q+E",
+	     operator_name_info[TREE_CODE (t)].name, t);
       return false;
     }
   return true;
@@ -769,7 +770,7 @@ xform_atomic (tree t)
     tree type = cv_unqualified (TREE_TYPE (t));
     if (!same_type_p (type, boolean_type_node))
       {
-        error ("predicate constraint %qE does not have type %<bool%>", t);
+        error ("predicate constraint %q+E does not have type %<bool%>", t);
         return error_mark_node;
       }
   }
