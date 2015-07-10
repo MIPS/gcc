@@ -126,7 +126,7 @@ function_concept_check_p (tree t)
     {
       tree f1 = get_first_fn (fn);
       if (TREE_CODE (f1) == TEMPLATE_DECL
-            && DECL_DECLARED_CONCEPT_P (DECL_TEMPLATE_RESULT (f1)))
+	  && DECL_DECLARED_CONCEPT_P (DECL_TEMPLATE_RESULT (f1)))
         return true;
     }
   return false;
@@ -466,8 +466,7 @@ lift_variable_concept (tree t)
 
    TODO: I don't think that we get template-ids for variable
    templates any more. They tend to be transformed into var-decl
-   specializations when an id-expression is parsed.
-*/
+   specializations when an id-expression is parsed.  */
 tree
 lift_template_id (tree t)
 {
@@ -694,7 +693,7 @@ xform_compound_requirement (tree t)
 /* A nested requirement T introduces a conjunction of constraints
    corresponding to its constraint-expression.
 
-   If the result of transforming T is error_mkar_node, the resulting
+   If the result of transforming T is error_mark_node, the resulting
    constraint is a predicate constraint whose operand is also
    error_mark_node. This preserves the constraint structure, but
    will guarantee that the constraint is never satisfied.  */
@@ -758,9 +757,9 @@ xform_requires_expr (tree t)
 }
 
 /* Transform an expression into an atomic predicate constraint.
-    After substitution, the expression of a predicate constraint
-    shall have type bool (temp.constr.pred).  For non-type-dependent
-    expressions, we can check that now.  */
+   After substitution, the expression of a predicate constraint
+   shall have type bool (temp.constr.pred).  For non-type-dependent
+   expressions, we can check that now.  */
 
 tree
 xform_atomic (tree t)

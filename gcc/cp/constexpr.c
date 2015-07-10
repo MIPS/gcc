@@ -3535,12 +3535,8 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
              template<typename T> requires !C<T>() void f(T);
 
          Normalization leaves f with the associated constraint
-         '!requres (T t) { ... }' which is not transformed into
-         a constraint.
-
-         NOTE: This highlights a bug in the specification, which
-         says that requires-expressions are unevaluated. Clearly,
-         they are. */
+         '!requires (T t) { ... }' which is not transformed into
+         a constraint.  */
       if (!processing_template_decl)
         return evaluate_constraint_expression (t, NULL_TREE);
       else
