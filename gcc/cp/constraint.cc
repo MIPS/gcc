@@ -1111,16 +1111,17 @@ tree
 build_concept_check_arguments (tree arg, tree rest)
 {
   gcc_assert (rest ? TREE_CODE (rest) == TREE_VEC : true);
-  int n = rest ? TREE_VEC_LENGTH (rest) : 0;
   tree args;
   if (arg)
     {
+      int n = rest ? TREE_VEC_LENGTH (rest) : 0;
       args = make_tree_vec (n + 1);
       TREE_VEC_ELT (args, 0) = arg;
       if (rest)
         for (int i = 0; i < n; ++i)
           TREE_VEC_ELT (args, i + 1) = TREE_VEC_ELT (rest, i);
-      SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (args, n + 1);
+      int def = rest ? GET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (rest) : 0;
+      SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (args, def + 1);
     }
   else
     {
