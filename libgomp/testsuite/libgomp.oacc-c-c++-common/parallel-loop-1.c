@@ -1,4 +1,5 @@
 /* { dg-do run } */
+/* { dg-xfail-run-if "cuStreamSynchronize error: unknown result code:   716" { openacc_nvidia_accel_selected } } */
 
 #include <stdlib.h>
 

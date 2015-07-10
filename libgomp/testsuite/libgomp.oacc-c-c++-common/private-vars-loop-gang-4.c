@@ -1,6 +1,3 @@
-/* { dg-xfail-if "TODO: ICE" { *-*-* } } */
-/* { dg-excess-errors "TODO" } */
-
 #include <assert.h>
 
 /* Test of gang-private addressable variable declared on loop directive, with

@@ -1,3 +1,28 @@
+2015-07-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-1.c: Add
+	XFAIL.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-local-worker-3.c:
+	Remove XFAIL.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-local-worker-4.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-local-worker-5.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-gang-2.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-gang-4.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-gang-5.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-gang-6.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-worker-5.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-worker-6.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-worker-7.c:
+	Likewise.
+
 2015-07-08  James Norris  <jnorris@codesourcery.com>
 
 	* oacc-parallel.c (GOACC_parallel GOACC_data_start): Handle Fortran

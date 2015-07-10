@@ -1,6 +1,3 @@
-/* { dg-xfail-if "TODO: ICE" { *-*-* } } */
-/* { dg-excess-errors "TODO" } */
-
 #include <assert.h>
 
 /* Test of worker-private variables declared on a loop directive, broadcasting
