@@ -2923,16 +2923,16 @@ nvptx_reorg (void)
 
   thread_prologue_and_epilogue_insns ();
 
-  df_clear_flags (DF_LR_RUN_DCE);
-  df_set_flags (DF_NO_INSN_RESCAN | DF_NO_HARD_REGS);
-  df_live_add_problem ();
-  
   /* Split blocks and record interesting unspecs.  */
   bb_insn_map_t bb_insn_map;
 
-    nvptx_split_blocks (&bb_insn_map);
+  nvptx_split_blocks (&bb_insn_map);
 
   /* Compute live regs */
+  df_clear_flags (DF_LR_RUN_DCE);
+  df_set_flags (DF_NO_INSN_RESCAN | DF_NO_HARD_REGS);
+  df_live_add_problem ();
+  df_live_set_all_dirty ();
   df_analyze ();
   regstat_init_n_sets_and_refs ();
 
