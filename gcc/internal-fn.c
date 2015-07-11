@@ -2005,21 +2005,21 @@ expand_GOACC_DATA_END_WITH_ARG (gcall *stmt ATTRIBUTE_UNUSED)
 }
 
 static void
-expand_GOACC_FORK (gcall *stmt)
+expand_GOACC_FORK (gcall *stmt ATTRIBUTE_UNUSED)
 {
+#ifdef HAVE_oacc_fork
   rtx mode = expand_normal (gimple_call_arg (stmt, 0));
   
-#ifdef HAVE_oacc_fork
   emit_insn (gen_oacc_fork (mode));
 #endif
 }
 
 static void
-expand_GOACC_JOIN (gcall *stmt)
+expand_GOACC_JOIN (gcall *stmt ATTRIBUTE_UNUSED)
 {
+#ifdef HAVE_oacc_join
   rtx mode = expand_normal (gimple_call_arg (stmt, 0));
   
-#ifdef HAVE_oacc_join
   emit_insn (gen_oacc_join (mode));
 #endif
 }

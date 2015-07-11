@@ -1,5 +1,8 @@
 2015-07-11  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* internal-fn.c (expand_GOACC_FORK, expand_GOACC_JOIN)
+	[!HAVE_oacc_fork]: Keep quiet.
+
 	* df-core.c (df_analyze_1): Don't disable df_verify call.
 
 2015-07-10  Nathan Sidwell  <nathan@codesourcery.com>
