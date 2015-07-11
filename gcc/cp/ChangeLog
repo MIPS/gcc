@@ -1,5 +1,7 @@
 2015-07-10  Jason Merrill  <jason@redhat.com>
 
+	* call.c (build_new_method_call_1): Call reshape_init.
+
 	* pt.c (find_parameter_packs_r): Handle variable templates.
 	(variable_template_specialization_p): New.
 	* cp-tree.h: Declare it.
