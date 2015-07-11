@@ -1235,12 +1235,10 @@ df_analyze_1 (void)
   if (dump_file)
     fprintf (dump_file, "df_analyze called\n");
 
-#if /* TODO */ 0
 #ifndef ENABLE_DF_CHECKING
   if (df->changeable_flags & DF_VERIFY_SCHEDULED)
 #endif
     df_verify ();
-#endif
 
   /* Skip over the DF_SCAN problem. */
   for (i = 1; i < df->num_problems_defined; i++)

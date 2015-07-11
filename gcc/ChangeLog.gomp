@@ -1,3 +1,7 @@
+2015-07-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* df-core.c (df_analyze_1): Don't disable df_verify call.
+
 2015-07-10  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_reorg): Move df problem setting, set
