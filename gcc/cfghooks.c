@@ -22,30 +22,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "dumpfile.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
+#include "backend.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "tree-ssa.h"
 #include "timevar.h"
 #include "diagnostic-core.h"
@@ -330,7 +311,7 @@ dump_bb_for_graph (pretty_printer *pp, basic_block bb)
     internal_error ("%s does not support dump_bb_for_graph",
 		    cfg_hooks->name);
   if (bb->count)
-    pp_printf (pp, "COUNT:" "%"PRId64, bb->count);
+    pp_printf (pp, "COUNT:" "%" PRId64, bb->count);
   pp_printf (pp, " FREQ:%i |", bb->frequency);
   pp_write_text_to_stream (pp);
   if (!(dump_flags & TDF_SLIM))

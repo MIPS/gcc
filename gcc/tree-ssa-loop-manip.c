@@ -20,41 +20,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
@@ -1379,15 +1358,14 @@ rewrite_all_phi_nodes_with_iv (loop_p loop, tree main_iv)
   free (bbs);
 }
 
-/* Bases all the induction variables in LOOP on a single induction
-   variable (unsigned with base 0 and step 1), whose final value is
-   compared with *NIT.  When the IV type precision has to be larger
-   than *NIT type precision, *NIT is converted to the larger type, the
-   conversion code is inserted before the loop, and *NIT is updated to
-   the new definition.  When BUMP_IN_LATCH is true, the induction
-   variable is incremented in the loop latch, otherwise it is
-   incremented in the loop header.  Return the induction variable that
-   was created.  */
+/* Bases all the induction variables in LOOP on a single induction variable
+   (with base 0 and step 1), whose final value is compared with *NIT.  When the
+   IV type precision has to be larger than *NIT type precision, *NIT is
+   converted to the larger type, the conversion code is inserted before the
+   loop, and *NIT is updated to the new definition.  When BUMP_IN_LATCH is true,
+   the induction variable is incremented in the loop latch, otherwise it is
+   incremented in the loop header.  Return the induction variable that was
+   created.  */
 
 tree
 canonicalize_loop_ivs (struct loop *loop, tree *nit, bool bump_in_latch)

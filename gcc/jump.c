@@ -36,35 +36,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "hard-reg-set.h"
 #include "regs.h"
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "recog.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
-#include "symtab.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
-#include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "alias.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -446,7 +428,6 @@ reversed_comparison_code_parts (enum rtx_code code, const_rtx arg0,
 
   if (GET_MODE_CLASS (mode) == MODE_CC || CC0_P (arg0))
     {
-      const_rtx prev;
       /* Try to search for the comparison to determine the real mode.
          This code is expensive, but with sane machine description it
          will be never used, since REVERSIBLE_CC_MODE will return true
@@ -457,9 +438,9 @@ reversed_comparison_code_parts (enum rtx_code code, const_rtx arg0,
       /* These CONST_CAST's are okay because prev_nonnote_insn just
 	 returns its argument and we assign it to a const_rtx
 	 variable.  */
-      for (prev = prev_nonnote_insn (CONST_CAST_RTX (insn));
+      for (rtx_insn *prev = prev_nonnote_insn (CONST_CAST_RTX (insn));
 	   prev != 0 && !LABEL_P (prev);
-	   prev = prev_nonnote_insn (CONST_CAST_RTX (prev)))
+	   prev = prev_nonnote_insn (prev))
 	{
 	  const_rtx set = set_of (arg0, prev);
 	  if (set && GET_CODE (set) == SET
@@ -1503,7 +1484,7 @@ redirect_exp_1 (rtx *loc, rtx olabel, rtx nlabel, rtx insn)
     {
       x = redirect_target (nlabel);
       if (GET_CODE (x) == LABEL_REF && loc == &PATTERN (insn))
- 	x = gen_rtx_SET (VOIDmode, pc_rtx, x);
+ 	x = gen_rtx_SET (pc_rtx, x);
       validate_change (insn, loc, x, 1);
       return;
     }
@@ -1545,7 +1526,7 @@ redirect_exp_1 (rtx *loc, rtx olabel, rtx nlabel, rtx insn)
    not see how to do that.  */
 
 int
-redirect_jump_1 (rtx jump, rtx nlabel)
+redirect_jump_1 (rtx_insn *jump, rtx nlabel)
 {
   int ochanges = num_validated_changes ();
   rtx *loc, asmop;
@@ -1580,9 +1561,9 @@ redirect_jump_1 (rtx jump, rtx nlabel)
    (this can only occur when trying to produce return insns).  */
 
 int
-redirect_jump (rtx jump, rtx nlabel, int delete_unused)
+redirect_jump (rtx_jump_insn *jump, rtx nlabel, int delete_unused)
 {
-  rtx olabel = JUMP_LABEL (jump);
+  rtx olabel = jump->jump_label ();
 
   if (!nlabel)
     {
@@ -1612,7 +1593,7 @@ redirect_jump (rtx jump, rtx nlabel, int delete_unused)
    If DELETE_UNUSED is positive, delete related insn to OLABEL if its ref
    count has dropped to zero.  */
 void
-redirect_jump_2 (rtx jump, rtx olabel, rtx nlabel, int delete_unused,
+redirect_jump_2 (rtx_jump_insn *jump, rtx olabel, rtx nlabel, int delete_unused,
 		 int invert)
 {
   rtx note;
@@ -1700,7 +1681,7 @@ invert_exp_1 (rtx x, rtx insn)
    inversion and redirection.  */
 
 int
-invert_jump_1 (rtx_insn *jump, rtx nlabel)
+invert_jump_1 (rtx_jump_insn *jump, rtx nlabel)
 {
   rtx x = pc_set (jump);
   int ochanges;
@@ -1724,7 +1705,7 @@ invert_jump_1 (rtx_insn *jump, rtx nlabel)
    NLABEL instead of where it jumps now.  Return true if successful.  */
 
 int
-invert_jump (rtx_insn *jump, rtx nlabel, int delete_unused)
+invert_jump (rtx_jump_insn *jump, rtx nlabel, int delete_unused)
 {
   rtx olabel = JUMP_LABEL (jump);
 

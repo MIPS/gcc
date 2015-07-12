@@ -22,37 +22,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "machmode.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
 #include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "obstack.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfgbuild.h"
-#include "basic-block.h"
 #include "recog.h"
-#include "bitmap.h"
 #include "dce.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -64,16 +46,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "regs.h"
 #include "tree-pass.h"
-#include "df.h"
 #include "lower-subreg.h"
 #include "rtl-iter.h"
-
-#ifdef STACK_GROWS_DOWNWARD
-# undef STACK_GROWS_DOWNWARD
-# define STACK_GROWS_DOWNWARD 1
-#else
-# define STACK_GROWS_DOWNWARD 0
-#endif
 
 
 /* Decompose multi-word pseudo-registers into individual
@@ -163,7 +137,7 @@ shift_cost (bool speed_p, struct cost_rtxes *rtxes, enum rtx_code code,
   PUT_MODE (rtxes->shift, mode);
   PUT_MODE (rtxes->source, mode);
   XEXP (rtxes->shift, 1) = GEN_INT (op1);
-  return set_src_cost (rtxes->shift, speed_p);
+  return set_src_cost (rtxes->shift, mode, speed_p);
 }
 
 /* For each X in the range [0, BITS_PER_WORD), set SPLITTING[X]
@@ -267,7 +241,7 @@ compute_costs (bool speed_p, struct cost_rtxes *rtxes)
       /* The only case here to check to see if moving the upper part with a
 	 zero is cheaper than doing the zext itself.  */
       PUT_MODE (rtxes->source, word_mode);
-      zext_cost = set_src_cost (rtxes->zext, speed_p);
+      zext_cost = set_src_cost (rtxes->zext, twice_word_mode, speed_p);
 
       if (LOG_COSTS)
 	fprintf (stderr, "%s %s: original cost %d, split cost %d + %d\n",
@@ -302,9 +276,9 @@ init_lower_subreg (void)
 
   twice_word_mode = GET_MODE_2XWIDER_MODE (word_mode);
 
-  rtxes.target = gen_rtx_REG (word_mode, FIRST_PSEUDO_REGISTER);
-  rtxes.source = gen_rtx_REG (word_mode, FIRST_PSEUDO_REGISTER + 1);
-  rtxes.set = gen_rtx_SET (VOIDmode, rtxes.target, rtxes.source);
+  rtxes.target = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 1);
+  rtxes.source = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 2);
+  rtxes.set = gen_rtx_SET (rtxes.target, rtxes.source);
   rtxes.zext = gen_rtx_ZERO_EXTEND (twice_word_mode, rtxes.source);
   rtxes.shift = gen_rtx_ASHIFT (twice_word_mode, rtxes.source, const0_rtx);
 

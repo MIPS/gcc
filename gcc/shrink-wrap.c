@@ -22,31 +22,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl-error.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "rtl-error.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "stringpool.h"
 #include "flags.h"
 #include "except.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "hashtab.h"
-#include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -68,12 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "tree-pass.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
-#include "df.h"
 #include "params.h"
 #include "bb-reorder.h"
 #include "shrink-wrap.h"
@@ -552,7 +534,7 @@ try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
 	break;
       }
 
-  if (flag_shrink_wrap && HAVE_simple_return
+  if (SHRINK_WRAPPING_ENABLED
       && (targetm.profile_before_prologue () || !crtl->profile)
       && nonempty_prologue && !crtl->calls_eh_return)
     {
@@ -818,7 +800,6 @@ try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
 	    FOR_EACH_BB_REVERSE_FN (bb, cfun)
 	      {
 		basic_block copy_bb, tbb;
-		rtx_insn *insert_point;
 		int eflags;
 
 		if (!bitmap_clear_bit (&bb_tail, bb->index))
@@ -848,8 +829,8 @@ try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
 		    BB_COPY_PARTITION (copy_bb, bb);
 		  }
 
-		insert_point = emit_note_after (NOTE_INSN_DELETED,
-						BB_END (copy_bb));
+		rtx_note *insert_point = emit_note_after (NOTE_INSN_DELETED,
+							  BB_END (copy_bb));
 		emit_barrier_after (BB_END (copy_bb));
 
 		tbb = bb;
@@ -1013,12 +994,11 @@ convert_to_simple_return (edge entry_edge, edge orig_entry_edge,
 	  else if (*pdest_bb == NULL)
 	    {
 	      basic_block bb;
-	      rtx_insn *start;
 
 	      bb = create_basic_block (NULL, NULL, exit_pred);
 	      BB_COPY_PARTITION (bb, e->src);
-	      start = emit_jump_insn_after (gen_simple_return (),
-					    BB_END (bb));
+	      rtx_insn *ret = targetm.gen_simple_return ();
+	      rtx_jump_insn *start = emit_jump_insn_after (ret, BB_END (bb));
 	      JUMP_LABEL (start) = simple_return_rtx;
 	      emit_barrier_after (start);
 

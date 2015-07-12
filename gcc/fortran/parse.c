@@ -108,14 +108,13 @@ match_word_omp_simd (const char *str, match (*subr) (void), locus *old_locus,
 static void
 use_modules (void)
 {
-  gfc_error_buf old_error_1;
-  output_buffer old_error;
+  gfc_error_buffer old_error;
 
-  gfc_push_error (&old_error, &old_error_1);
+  gfc_push_error (&old_error);
   gfc_buffer_error (false);
   gfc_use_modules ();
   gfc_buffer_error (true);
-  gfc_pop_error (&old_error, &old_error_1);
+  gfc_pop_error (&old_error);
   gfc_commit_symbols ();
   gfc_warning_check ();
   gfc_current_ns->old_cl_list = gfc_current_ns->cl_list;
@@ -370,6 +369,16 @@ decode_statement (void)
   gfc_undo_symbols ();
   gfc_current_locus = old_locus;
 
+  if (gfc_match_submod_proc () == MATCH_YES)
+    {
+      if (gfc_new_block->attr.subroutine)
+	return ST_SUBROUTINE;
+      else if (gfc_new_block->attr.function)
+	return ST_FUNCTION;
+    }
+  gfc_undo_symbols ();
+  gfc_current_locus = old_locus;
+
   /* Check for the IF, DO, SELECT, WHERE, FORALL, CRITICAL, BLOCK and ASSOCIATE
      statements, which might begin with a block label.  The match functions for
      these statements are unusual in that their keyword is not seen before
@@ -523,6 +532,7 @@ decode_statement (void)
       match ("sequence", gfc_match_eos, ST_SEQUENCE);
       match ("stop", gfc_match_stop, ST_STOP);
       match ("save", gfc_match_save, ST_ATTR_DECL);
+      match ("submodule", gfc_match_submodule, ST_SUBMODULE);
       match ("sync all", gfc_match_sync_all, ST_SYNC_ALL);
       match ("sync images", gfc_match_sync_images, ST_SYNC_IMAGES);
       match ("sync memory", gfc_match_sync_memory, ST_SYNC_MEMORY);
@@ -1540,8 +1550,8 @@ gfc_enclosing_unit (gfc_compile_state * result)
 
   for (p = gfc_state_stack; p; p = p->previous)
     if (p->state == COMP_FUNCTION || p->state == COMP_SUBROUTINE
-	|| p->state == COMP_MODULE || p->state == COMP_BLOCK_DATA
-	|| p->state == COMP_PROGRAM)
+	|| p->state == COMP_MODULE || p->state == COMP_SUBMODULE
+	|| p->state == COMP_BLOCK_DATA || p->state == COMP_PROGRAM)
       {
 
 	if (result != NULL)
@@ -1666,6 +1676,9 @@ gfc_ascii_statement (gfc_statement st)
     case ST_END_MODULE:
       p = "END MODULE";
       break;
+    case ST_END_SUBMODULE:
+      p = "END SUBMODULE";
+      break;
     case ST_END_PROGRAM:
       p = "END PROGRAM";
       break;
@@ -1747,6 +1760,9 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_MODULE:
       p = "MODULE";
+      break;
+    case ST_SUBMODULE:
+      p = "SUBMODULE";
       break;
     case ST_PAUSE:
       p = "PAUSE";
@@ -2198,6 +2214,7 @@ accept_statement (gfc_statement st)
     case ST_FUNCTION:
     case ST_SUBROUTINE:
     case ST_MODULE:
+    case ST_SUBMODULE:
       gfc_current_ns->proc_name = gfc_new_block;
       break;
 
@@ -2435,8 +2452,7 @@ verify_st_order (st_state *p, gfc_statement st, bool silent)
       break;
 
     default:
-      gfc_internal_error ("Unexpected %s statement in verify_st_order() at %C",
-			  gfc_ascii_statement (st));
+      return false;
     }
 
   /* All is well, record the statement in case we need it next time.  */
@@ -2446,7 +2462,7 @@ verify_st_order (st_state *p, gfc_statement st, bool silent)
 
 order:
   if (!silent)
-    gfc_error_1 ("%s statement at %C cannot follow %s statement at %L",
+    gfc_error ("%s statement at %C cannot follow %s statement at %L",
 	       gfc_ascii_statement (st),
 	       gfc_ascii_statement (p->last_statement), &p->where);
 
@@ -2823,7 +2839,7 @@ endType:
 		   "subcomponent exists)", c->name, &c->loc, sym->name);
 
       if (sym->attr.lock_comp && coarray && !lock_type)
-	gfc_error_1 ("Noncoarray component %s at %L of type LOCK_TYPE or with "
+	gfc_error ("Noncoarray component %s at %L of type LOCK_TYPE or with "
 		   "subcomponent of type LOCK_TYPE must have a codimension or "
 		   "be a subcomponent of a coarray. (Variables of type %s may "
 		   "not have a codimension as %s at %L has a codimension or a "
@@ -2943,6 +2959,10 @@ loop:
 	  gfc_free_namespace (gfc_current_ns);
 	  goto loop;
 	}
+      /* F2008 C1210 forbids the IMPORT statement in module procedure
+	 interface bodies and the flag is set to import symbols.  */
+      if (gfc_new_block->attr.module_procedure)
+        gfc_current_ns->has_import_set = 1;
       break;
 
     case ST_PROCEDURE:
@@ -3292,7 +3312,8 @@ declSt:
 	  break;
 
 	case ST_STATEMENT_FUNCTION:
-	  if (gfc_current_state () == COMP_MODULE)
+	  if (gfc_current_state () == COMP_MODULE
+	      || gfc_current_state () == COMP_SUBMODULE)
 	    {
 	      unexpected_statement (st);
 	      break;
@@ -3525,7 +3546,7 @@ parse_if_block (void)
 	case ST_ELSEIF:
 	  if (seen_else)
 	    {
-	      gfc_error_1 ("ELSE IF statement at %C cannot follow ELSE "
+	      gfc_error ("ELSE IF statement at %C cannot follow ELSE "
 			 "statement at %L", &else_locus);
 
 	      reject_statement ();
@@ -3749,8 +3770,8 @@ gfc_check_do_variable (gfc_symtree *st)
   for (s=gfc_state_stack; s; s = s->previous)
     if (s->do_variable == st)
       {
-	gfc_error_now_1 ("Variable '%s' at %C cannot be redefined inside "
-			 "loop beginning at %L", st->name, &s->head->loc);
+	gfc_error_now ("Variable %qs at %C cannot be redefined inside "
+		       "loop beginning at %L", st->name, &s->head->loc);
 	return 1;
       }
 
@@ -3957,6 +3978,8 @@ parse_associate (void)
   for (a = new_st.ext.block.assoc; a; a = a->next)
     {
       gfc_symbol* sym;
+      gfc_ref *ref;
+      gfc_array_ref *array_ref;
 
       if (gfc_get_sym_tree (a->name, NULL, &a->st, false))
 	gcc_unreachable ();
@@ -3973,6 +3996,84 @@ parse_associate (void)
 	 for parsing component references on the associate-name
 	 in case of association to a derived-type.  */
       sym->ts = a->target->ts;
+
+      /* Check if the target expression is array valued.  This can not always
+	 be done by looking at target.rank, because that might not have been
+	 set yet.  Therefore traverse the chain of refs, looking for the last
+	 array ref and evaluate that.  */
+      array_ref = NULL;
+      for (ref = a->target->ref; ref; ref = ref->next)
+	if (ref->type == REF_ARRAY)
+	  array_ref = &ref->u.ar;
+      if (array_ref || a->target->rank)
+	{
+	  gfc_array_spec *as;
+	  int dim, rank = 0;
+	  if (array_ref)
+	    {
+	      /* Count the dimension, that have a non-scalar extend.  */
+	      for (dim = 0; dim < array_ref->dimen; ++dim)
+		if (array_ref->dimen_type[dim] != DIMEN_ELEMENT
+		    && !(array_ref->dimen_type[dim] == DIMEN_UNKNOWN
+			 && array_ref->end[dim] == NULL
+			 && array_ref->start[dim] != NULL))
+		  ++rank;
+	    }
+	  else
+	    rank = a->target->rank;
+	  /* When the rank is greater than zero then sym will be an array.  */
+	  if (sym->ts.type == BT_CLASS)
+	    {
+	      if ((!CLASS_DATA (sym)->as && rank != 0)
+		  || (CLASS_DATA (sym)->as
+		      && CLASS_DATA (sym)->as->rank != rank))
+		{
+		  /* Don't just (re-)set the attr and as in the sym.ts,
+		     because this modifies the target's attr and as.  Copy the
+		     data and do a build_class_symbol.  */
+		  symbol_attribute attr = CLASS_DATA (a->target)->attr;
+		  int corank = gfc_get_corank (a->target);
+		  gfc_typespec type;
+
+		  if (rank || corank)
+		    {
+		      as = gfc_get_array_spec ();
+		      as->type = AS_DEFERRED;
+		      as->rank = rank;
+		      as->corank = corank;
+		      attr.dimension = rank ? 1 : 0;
+		      attr.codimension = corank ? 1 : 0;
+		    }
+		  else
+		    {
+		      as = NULL;
+		      attr.dimension = attr.codimension = 0;
+		    }
+		  attr.class_ok = 0;
+		  type = CLASS_DATA (sym)->ts;
+		  if (!gfc_build_class_symbol (&type,
+					       &attr, &as))
+		    gcc_unreachable ();
+		  sym->ts = type;
+		  sym->ts.type = BT_CLASS;
+		  sym->attr.class_ok = 1;
+		}
+	      else
+		sym->attr.class_ok = 1;
+	    }
+	  else if ((!sym->as && rank != 0)
+		   || (sym->as && sym->as->rank != rank))
+	    {
+	      as = gfc_get_array_spec ();
+	      as->type = AS_DEFERRED;
+	      as->rank = rank;
+	      as->corank = gfc_get_corank (a->target);
+	      sym->as = as;
+	      sym->attr.dimension = 1;
+	      if (as->corank)
+		sym->attr.codimension = 1;
+	    }
+	}
     }
 
   accept_statement (ST_ASSOCIATE);
@@ -4916,6 +5017,7 @@ parse_contained (int module)
 	/* These statements are associated with the end of the host unit.  */
 	case ST_END_FUNCTION:
 	case ST_END_MODULE:
+	case ST_END_SUBMODULE:
 	case ST_END_PROGRAM:
 	case ST_END_SUBROUTINE:
 	  accept_statement (st);
@@ -4932,7 +5034,8 @@ parse_contained (int module)
 	}
     }
   while (st != ST_END_FUNCTION && st != ST_END_SUBROUTINE
-	 && st != ST_END_MODULE && st != ST_END_PROGRAM);
+	 && st != ST_END_MODULE && st != ST_END_SUBMODULE
+	 && st != ST_END_PROGRAM);
 
   /* The first namespace in the list is guaranteed to not have
      anything (worthwhile) in it.  */
@@ -4952,6 +5055,35 @@ parse_contained (int module)
 }
 
 
+/* The result variable in a MODULE PROCEDURE needs to be created and
+    its characteristics copied from the interface since it is neither
+    declared in the procedure declaration nor in the specification
+    part.  */
+
+static void
+get_modproc_result (void)
+{
+  gfc_symbol *proc;
+  if (gfc_state_stack->previous
+      && gfc_state_stack->previous->state == COMP_CONTAINS
+      && gfc_state_stack->previous->previous->state == COMP_SUBMODULE)
+    {
+      proc = gfc_current_ns->proc_name ? gfc_current_ns->proc_name : NULL;
+      if (proc != NULL
+	  && proc->attr.function
+	  && proc->ts.interface
+	  && proc->ts.interface->result
+	  && proc->ts.interface->result != proc->ts.interface)
+	{
+	  gfc_copy_dummy_sym (&proc->result, proc->ts.interface->result, 1);
+	  gfc_set_sym_referenced (proc->result);
+	  proc->result->attr.if_source = IFSRC_DECL;
+	  gfc_commit_symbol (proc->result);
+	}
+    }
+}
+
+
 /* Parse a PROGRAM, SUBROUTINE, FUNCTION unit or BLOCK construct.  */
 
 static void
@@ -4959,6 +5091,11 @@ parse_progunit (gfc_statement st)
 {
   gfc_state_data *p;
   int n;
+
+  if (gfc_new_block
+      && gfc_new_block->abr_modproc_decl
+      && gfc_new_block->attr.function)
+    get_modproc_result ();
 
   st = parse_spec (st);
   switch (st)
@@ -5019,7 +5156,8 @@ contains:
     if (p->state == COMP_CONTAINS)
       n++;
 
-  if (gfc_find_state (COMP_MODULE) == true)
+  if (gfc_find_state (COMP_MODULE) == true
+      || gfc_find_state (COMP_SUBMODULE) == true)
     n--;
 
   if (n > 0)
@@ -5075,10 +5213,10 @@ gfc_global_used (gfc_gsymbol *sym, locus *where)
     }
 
   if (sym->binding_label)
-    gfc_error_1 ("Global binding name '%s' at %L is already being used as a %s "
+    gfc_error ("Global binding name %qs at %L is already being used as a %s "
 	       "at %L", sym->binding_label, where, name, &sym->where);
   else
-    gfc_error_1 ("Global name '%s' at %L is already being used as a %s at %L",
+    gfc_error ("Global name %qs at %L is already being used as a %s at %L",
 	       sym->name, where, name, &sym->where);
 }
 
@@ -5133,6 +5271,36 @@ parse_block_data (void)
 }
 
 
+/* Following the association of the ancestor (sub)module symbols, they
+   must be set host rather than use associated and all must be public.
+   They are flagged up by 'used_in_submodule' so that they can be set
+   DECL_EXTERNAL in trans_decl.c(gfc_finish_var_decl).  Otherwise the
+   linker chokes on multiple symbol definitions.  */
+
+static void
+set_syms_host_assoc (gfc_symbol *sym)
+{
+  gfc_component *c;
+
+  if (sym == NULL)
+    return;
+
+  if (sym->attr.module_procedure)
+    sym->attr.external = 0;
+
+/*  sym->attr.access = ACCESS_PUBLIC;  */
+
+  sym->attr.use_assoc = 0;
+  sym->attr.host_assoc = 1;
+  sym->attr.used_in_submodule =1;
+
+  if (sym->attr.flavor == FL_DERIVED)
+    {
+      for (c = sym->components; c; c = c->next)
+	c->attr.access = ACCESS_PUBLIC;
+    }
+}
+
 /* Parse a module subprogram.  */
 
 static void
@@ -5152,6 +5320,15 @@ parse_module (void)
       s->defined = 1;
     }
 
+  /* Something is nulling the module_list after this point. This is good
+     since it allows us to 'USE' the parent modules that the submodule
+     inherits and to set (most) of the symbols as host associated.  */
+  if (gfc_current_state () == COMP_SUBMODULE)
+    {
+      use_modules ();
+      gfc_traverse_ns (gfc_current_ns, set_syms_host_assoc);
+    }
+
   st = parse_spec (ST_NONE);
 
   error = false;
@@ -5166,6 +5343,7 @@ loop:
       break;
 
     case ST_END_MODULE:
+    case ST_END_SUBMODULE:
       accept_statement (st);
       break;
 
@@ -5461,6 +5639,14 @@ loop:
       parse_module ();
       break;
 
+    case ST_SUBMODULE:
+      push_state (&s, COMP_SUBMODULE, gfc_new_block);
+      accept_statement (st);
+
+      gfc_get_errors (NULL, &errors_before);
+      parse_module ();
+      break;
+
     /* Anything else starts a nameless main program block.  */
     default:
       if (seen_program)
@@ -5485,7 +5671,7 @@ loop:
     gfc_dump_parse_tree (gfc_current_ns, stdout);
 
   gfc_get_errors (NULL, &errors);
-  if (s.state == COMP_MODULE)
+  if (s.state == COMP_MODULE || s.state == COMP_SUBMODULE)
     {
       gfc_dump_module (s.sym->name, errors_before == errors);
       gfc_current_ns->derived_types = gfc_derived_types;
@@ -5548,7 +5734,7 @@ duplicate_main:
   /* If we see a duplicate main program, shut down.  If the second
      instance is an implied main program, i.e. data decls or executable
      statements, we're in for lots of errors.  */
-  gfc_error_1 ("Two main PROGRAMs at %L and %C", &prog_locus);
+  gfc_error ("Two main PROGRAMs at %L and %C", &prog_locus);
   reject_statement ();
   gfc_done_2 ();
   return true;

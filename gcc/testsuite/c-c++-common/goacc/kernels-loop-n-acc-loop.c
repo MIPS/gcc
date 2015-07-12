@@ -15,6 +15,3 @@
 /* { dg-final { scan-tree-dump-times "(?n);; Function .*foo.*._omp_fn.0" 1 "optimized" } } */
 
 /* { dg-final { scan-tree-dump-times "(?n)pragma omp target oacc_parallel.*num_gangs\\(32\\)" 1 "parloops_oacc_kernels" } } */
-
-/* { dg-final { cleanup-tree-dump "parloops_oacc_kernels" } } */
-/* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -1,6 +1,6 @@
 // wstring_convert implementation -*- C++ -*-
 
-// Copyright (C) 2012 Free Software Foundation, Inc.
+// Copyright (C) 2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -58,14 +58,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		     _OutStr& __outstr, const _Codecvt& __cvt, _State& __state,
 		     size_t& __count, _Fn __fn)
     {
+      if (__first == __last)
+	{
+	  __outstr.clear();
+	  __count = 0;
+	  return true;
+	}
+
       size_t __outchars = 0;
       auto __next = __first;
-      const auto __maxlen = __cvt.max_length();
+      const auto __maxlen = __cvt.max_length() + 1;
 
       codecvt_base::result __result;
       do
 	{
-	  __outstr.resize(__outstr.size() + (__last - __next) + __maxlen);
+	  __outstr.resize(__outstr.size() + (__last - __next) * __maxlen);
 	  auto __outnext = &__outstr.front() + __outchars;
 	  auto const __outlast = &__outstr.back() + 1;
 	  __result = (__cvt.*__fn)(__state, __next, __last, __next,
@@ -149,6 +156,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       size_t __n;
       return __str_codecvt_out(__first, __last, __outstr, __cvt, __state, __n);
     }
+
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
 
   /// String conversions
   template<typename _Codecvt, typename _Elem = wchar_t,
@@ -301,6 +310,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       bool			_M_with_strings = false;
     };
 
+_GLIBCXX_END_NAMESPACE_CXX11
+
   /// Buffer conversions
   template<typename _Codecvt, typename _Elem = wchar_t,
 	   typename _Tr = char_traits<_Elem>>
@@ -325,7 +336,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       : _M_buf(__bytebuf), _M_cvt(__pcvt), _M_state(__state)
       {
 	if (!_M_cvt)
-	  __throw_logic_error("wstring_convert");
+	  __throw_logic_error("wbuffer_convert");
 
 	_M_always_noconv = _M_cvt->always_noconv();
 

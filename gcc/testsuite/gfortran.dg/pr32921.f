@@ -46,4 +46,3 @@
       RETURN
       END
 ! { dg-final { scan-tree-dump-times "stride" 4 "lim2" } }
-! { dg-final { cleanup-tree-dump "lim2" } }

@@ -21,36 +21,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
 #include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
-#include "predict.h"
-#include "hashtab.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
 #include "insn-config.h"
 #include "regs.h"
 #include "flags.h"
 #include "except.h"
 #include "diagnostic-core.h"
 #include "recog.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -60,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "df.h"
 #include "dbgcnt.h"
 #include "target.h"
 
@@ -505,9 +487,9 @@ attempt_change (rtx new_addr, rtx inc_reg)
   PUT_MODE (mem_tmp, mode);
   XEXP (mem_tmp, 0) = new_addr;
 
-  old_cost = (set_src_cost (mem, speed)
+  old_cost = (set_src_cost (mem, mode, speed)
 	      + set_rtx_cost (PATTERN (inc_insn.insn), speed));
-  new_cost = set_src_cost (mem_tmp, speed);
+  new_cost = set_src_cost (mem_tmp, mode, speed);
 
   /* The first item of business is to see if this is profitable.  */
   if (old_cost < new_cost)
@@ -778,28 +760,6 @@ get_next_ref (int regno, basic_block bb, rtx_insn **next_array)
 }
 
 
-/* Reverse the operands in a mem insn.  */
-
-static void
-reverse_mem (void)
-{
-  rtx tmp = mem_insn.reg1;
-  mem_insn.reg1 = mem_insn.reg0;
-  mem_insn.reg0 = tmp;
-}
-
-
-/* Reverse the operands in a inc insn.  */
-
-static void
-reverse_inc (void)
-{
-  rtx tmp = inc_insn.reg1;
-  inc_insn.reg1 = inc_insn.reg0;
-  inc_insn.reg0 = tmp;
-}
-
-
 /* Return true if INSN is of a form "a = b op c" where a and b are
    regs.  op is + if c is a reg and +|- if c is a const.  Fill in
    INC_INSN with what is found.
@@ -868,7 +828,7 @@ parse_add_or_inc (rtx_insn *insn, bool before_mem)
 	{
 	  /* Reverse the two operands and turn *_ADD into *_INC since
 	     a = c + a.  */
-	  reverse_inc ();
+	  std::swap (inc_insn.reg0, inc_insn.reg1);
 	  inc_insn.form = before_mem ? FORM_PRE_INC : FORM_POST_INC;
 	  return true;
 	}
@@ -1028,7 +988,7 @@ find_inc (bool first_try)
 	 find this.  Only try it once though.  */
       if (first_try && !mem_insn.reg1_is_const)
 	{
-	  reverse_mem ();
+	  std::swap (mem_insn.reg0, mem_insn.reg1);
 	  return find_inc (false);
 	}
       else
@@ -1129,7 +1089,7 @@ find_inc (bool first_try)
 		    return false;
 
 		  if (!rtx_equal_p (mem_insn.reg0, inc_insn.reg0))
-		    reverse_inc ();
+		    std::swap (inc_insn.reg0, inc_insn.reg1);
 		}
 
 	      other_insn
@@ -1179,7 +1139,7 @@ find_inc (bool first_try)
 		  /* See comment above on find_inc (false) call.  */
 		  if (first_try)
 		    {
-		      reverse_mem ();
+		      std::swap (mem_insn.reg0, mem_insn.reg1);
 		      return find_inc (false);
 		    }
 		  else
@@ -1198,7 +1158,7 @@ find_inc (bool first_try)
 	    {
 	      /* We know that mem_insn.reg0 must equal inc_insn.reg1
 		 or else we would not have found the inc insn.  */
-	      reverse_mem ();
+	      std::swap (mem_insn.reg0, mem_insn.reg1);
 	      if (!rtx_equal_p (mem_insn.reg0, inc_insn.reg0))
 		{
 		  /* See comment above on find_inc (false) call.  */
@@ -1237,7 +1197,7 @@ find_inc (bool first_try)
 	    {
 	      if (first_try)
 		{
-		  reverse_mem ();
+		  std::swap (mem_insn.reg0, mem_insn.reg1);
 		  return find_inc (false);
 		}
 	      else

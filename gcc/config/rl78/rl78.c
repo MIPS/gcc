@@ -21,34 +21,21 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "rtl.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -62,21 +49,14 @@
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "reload.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "rl78-protos.h"
 #include "dumpfile.h"
@@ -86,6 +66,9 @@
 #include "insn-flags.h" /* for gen_*().  */
 #include "builtins.h"
 #include "stringpool.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 static inline bool is_interrupt_func (const_tree decl);
 static inline bool is_brk_interrupt_func (const_tree decl);
@@ -678,8 +661,10 @@ need_to_save (unsigned int regno)
 
       /* If the handler is a non-leaf function then it may call
 	 non-interrupt aware routines which will happily clobber
-	 any call_used registers, so we have to preserve them.  */
-      if (!crtl->is_leaf && call_used_regs[regno])
+	 any call_used registers, so we have to preserve them.
+         We do not have to worry about the frame pointer register
+	 though, as that is handled below.  */
+      if (!crtl->is_leaf && call_used_regs[regno] && regno < 22)
 	return true;
 
       /* Otherwise we only have to save a register, call_used
@@ -1367,8 +1352,8 @@ rl78_expand_prologue (void)
 	  emit_insn (gen_subhi3 (ax, ax, GEN_INT (fs)));
 	  insn = F (emit_move_insn (sp, ax));
 	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			gen_rtx_SET (SImode, sp,
-				     gen_rtx_PLUS (HImode, sp, GEN_INT (-fs))));
+			gen_rtx_SET (sp, gen_rtx_PLUS (HImode, sp,
+						       GEN_INT (-fs))));
 	}
       else
 	{
@@ -4168,20 +4153,22 @@ rl78_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 #define TARGET_RTX_COSTS rl78_rtx_costs
 
 static bool
-rl78_rtx_costs (rtx   x,
-		int   code,
-		int   outer_code ATTRIBUTE_UNUSED,
-		int   opno ATTRIBUTE_UNUSED,
-		int * total,
-		bool  speed ATTRIBUTE_UNUSED)
+rl78_rtx_costs (rtx          x,
+		machine_mode mode,
+		int          outer_code ATTRIBUTE_UNUSED,
+		int          opno ATTRIBUTE_UNUSED,
+		int *        total,
+		bool         speed ATTRIBUTE_UNUSED)
 {
+  int code = GET_CODE (x);
+
   if (code == IF_THEN_ELSE)
     {
       *total = COSTS_N_INSNS (10);
       return true;
     }
 
-  if (GET_MODE (x) == SImode)
+  if (mode == SImode)
     {
       switch (code)
 	{
@@ -4383,8 +4370,8 @@ rl78_asm_init_sections (void)
 
 static section *
 rl78_select_section (tree decl,
-		     int reloc ATTRIBUTE_UNUSED,
-		     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
+		     int reloc,
+		     unsigned HOST_WIDE_INT align)
 {
   int readonly = 1;
 
@@ -4426,9 +4413,17 @@ rl78_select_section (tree decl,
     }
 
   if (readonly)
-    return readonly_data_section;
+    return TARGET_ES0 ? frodata_section : readonly_data_section;
 
-  return data_section;
+  switch (categorize_decl_for_section (decl, reloc))
+    {
+    case SECCAT_TEXT:   return text_section;
+    case SECCAT_DATA:   return data_section;
+    case SECCAT_BSS:    return bss_section;
+    case SECCAT_RODATA: return TARGET_ES0 ? frodata_section : readonly_data_section;
+    default:
+      return default_select_section (decl, reloc, align);
+    }
 }
 
 void

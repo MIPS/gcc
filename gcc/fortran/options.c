@@ -21,17 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "options.h"
 #include "flags.h"
 #include "intl.h"
 #include "opts.h"
@@ -378,6 +370,11 @@ gfc_post_options (const char **pfilename)
   if (!flag_automatic)
     flag_max_stack_var_size = 0;
   
+  /* If we call BLAS directly, only inline up to the BLAS limit.  */
+
+  if (flag_external_blas && flag_inline_matmul_limit < 0)
+    flag_inline_matmul_limit = flag_blas_matmul_limit;
+
   /* Optimization implies front end optimization, unless the user
      specified it directly.  */
 

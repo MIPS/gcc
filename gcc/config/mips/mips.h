@@ -236,6 +236,7 @@ struct mips_cpu_info {
 #define TARGET_MIPS5500             (mips_arch == PROCESSOR_R5500)
 #define TARGET_MIPS5900             (mips_arch == PROCESSOR_R5900)
 #define TARGET_MIPS7000             (mips_arch == PROCESSOR_R7000)
+#define TARGET_MIPS8000             (mips_arch == PROCESSOR_R8000)
 #define TARGET_MIPS9000             (mips_arch == PROCESSOR_R9000)
 #define TARGET_OCTEON		    (mips_arch == PROCESSOR_OCTEON	\
 				     || mips_arch == PROCESSOR_OCTEON2	\
@@ -998,22 +999,21 @@ struct mips_cpu_info {
 /* Integer multiply-accumulate instructions should be generated.  */
 #define GENERATE_MADD_MSUB	(TARGET_IMADD && !TARGET_MIPS16)
 
-/* ISA has floating-point madd and msub instructions 'd = a * b [+-] c'.  */
-#define ISA_HAS_FP_MADD4_MSUB4  ISA_HAS_FP4
+/* ISA has 4 operand fused madd instructions of the form
+   'd = [+-] (a * b [+-] c)'.  */
+#define ISA_HAS_FUSED_MADD4	TARGET_MIPS8000
 
-/* ISA has floating-point MADDF and MSUBF instructions 'd = d [+-] a * b'.  */
-#define ISA_HAS_FP_MADDF_MSUBF  (mips_isa_rev >= 6)
+/* ISA has 4 operand unfused madd instructions of the form
+   'd = [+-] (a * b [+-] c)'.  */
+#define ISA_HAS_UNFUSED_MADD4	(ISA_HAS_FP4 && !TARGET_MIPS8000)
 
-/* ISA has floating-point madd and msub instructions 'c = a * b [+-] c'.  */
-#define ISA_HAS_FP_MADD3_MSUB3  TARGET_LOONGSON_2EF
+/* ISA has 3 operand r6 fused madd instructions of the form
+   'c = c [+-] (a * b)'.  */
+#define ISA_HAS_FUSED_MADDF	(mips_isa_rev >= 6)
 
-/* ISA has floating-point nmadd and nmsub instructions
-   'd = -((a * b) [+-] c)'.  */
-#define ISA_HAS_NMADD4_NMSUB4	ISA_HAS_FP4
-
-/* ISA has floating-point nmadd and nmsub instructions
-   'c = -((a * b) [+-] c)'.  */
-#define ISA_HAS_NMADD3_NMSUB3	TARGET_LOONGSON_2EF
+/* ISA has 3 operand loongson fused madd instructions of the form
+   'c = [+-] (a * b [+-] c)'.  */
+#define ISA_HAS_FUSED_MADD3	TARGET_LOONGSON_2EF
 
 /* ISA has floating-point RECIP.fmt and RSQRT.fmt instructions.  The
    MIPS64 rev. 1 ISA says that RECIP.D and RSQRT.D are unpredictable when
@@ -2234,7 +2234,7 @@ enum reg_class
 
 /* Stack layout; function entry, exit and calling.  */
 
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 #define FRAME_GROWS_DOWNWARD flag_stack_protect
 
@@ -2910,7 +2910,7 @@ do {									\
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(STREAM,SIZE)					\
-  fprintf (STREAM, "\t.space\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
+  fprintf (STREAM, "\t.space\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
 
 /* This is how to output a string.  */
 #undef ASM_OUTPUT_ASCII
@@ -3108,6 +3108,7 @@ extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
 extern unsigned int mips_base_compression_flags;
 extern GTY(()) struct target_globals *mips16_globals;
+extern GTY(()) struct target_globals *micromips_globals;
 #endif
 
 /* Enable querying of DFA units.  */
@@ -3162,3 +3163,10 @@ extern GTY(()) struct target_globals *mips16_globals;
 #define STANDARD_STARTFILE_PREFIX_1 "/lib64/"
 #define STANDARD_STARTFILE_PREFIX_2 "/usr/lib64/"
 #endif
+
+/* Load store bonding is not supported by micromips and fix_24k.  The
+   performance can be degraded for those targets.  Hence, do not bond for
+   micromips or fix_24k.  */
+#define ENABLE_LD_ST_PAIRS \
+  (TARGET_LOAD_STORE_PAIRS && TUNE_P5600 \
+   && !TARGET_MICROMIPS && !TARGET_FIX_24K)

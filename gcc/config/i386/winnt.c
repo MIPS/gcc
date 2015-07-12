@@ -22,54 +22,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "function.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "cfg.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "output.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "varasm.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "diagnostic-core.h"
-#include "hash-table.h"
 #include "langhooks.h"
-#include "ggc.h"
 #include "target.h"
 #include "except.h"
-#include "hash-table.h"
-#include "vec.h"
-#include "predict.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
+#include "emit-rtl.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "lto-streamer.h"
 #include "lto-section-names.h"
@@ -339,20 +319,6 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
   switch (TREE_CODE (decl))
     {
     case FUNCTION_DECL:
-      /* FIXME:  Imported stdcall names are not modified by the Ada frontend.
-	 Check and decorate the RTL name now.  */
-      if  (strcmp (lang_hooks.name, "GNU Ada") == 0)
-	{
-	  tree new_id;
-	  tree old_id = DECL_ASSEMBLER_NAME (decl);
-	  const char* asm_str = IDENTIFIER_POINTER (old_id);
-	  /* Do not change the identifier if a verbatim asmspec
-	     or if stdcall suffix already added. */
-	  if (!(*asm_str == '*' || strchr (asm_str, '@'))
-	      && (new_id = i386_pe_maybe_mangle_decl_assembler_name (decl,
-								     old_id)))
-	    XSTR (symbol, 0) = IDENTIFIER_POINTER (new_id);
-	}
       break;
 
     case VAR_DECL:
@@ -734,31 +700,6 @@ i386_pe_record_stub (const char *name)
 
 #ifdef CXX_WRAP_SPEC_LIST
 
-/* Hashtable helpers.  */
-
-struct wrapped_symbol_hasher : typed_noop_remove <char>
-{
-  typedef char *value_type;
-  typedef char *compare_type;
-  static inline hashval_t hash (const char *);
-  static inline bool equal (const char *, const char *);
-  static inline void remove (char *);
-};
-
-inline hashval_t
-wrapped_symbol_hasher::hash (const char *v)
-{
-  return htab_hash_string (v);
-}
-
-/*  Hash table equality helper function.  */
-
-inline bool
-wrapped_symbol_hasher::equal (const char *x, const char *y)
-{
-  return !strcmp (x, y);
-}
-
 /* Search for a function named TARGET in the list of library wrappers
    we are using, returning a pointer to it if found or NULL if not.
    This function might be called on quite a few symbols, and we only
@@ -770,7 +711,7 @@ static const char *
 i386_find_on_wrapper_list (const char *target)
 {
   static char first_time = 1;
-  static hash_table<wrapped_symbol_hasher> *wrappers;
+  static hash_table<nofree_string_hash> *wrappers;
 
   if (first_time)
     {
@@ -783,7 +724,7 @@ i386_find_on_wrapper_list (const char *target)
       char *bufptr;
       /* Breaks up the char array into separated strings
          strings and enter them into the hash table.  */
-      wrappers = new hash_table<wrapped_symbol_hasher> (8);
+      wrappers = new hash_table<nofree_string_hash> (8);
       for (bufptr = wrapper_list_buffer; *bufptr; ++bufptr)
 	{
 	  char *found = NULL;

@@ -20,48 +20,24 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "options.h"
 #include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "calls.h"
-#include "rtl.h"
 #include "emit-rtl.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
-#include "gimple-ssa.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-pass.h"
 #include "tree-inline.h"
@@ -482,7 +458,7 @@ build_tm_abort_call (location_t loc, bool is_outer)
 /* Map for aribtrary function replacement under TM, as created
    by the tm_wrap attribute.  */
 
-struct tm_wrapper_hasher : ggc_cache_hasher<tree_map *>
+struct tm_wrapper_hasher : ggc_cache_ptr_hash<tree_map>
 {
   static inline hashval_t hash (tree_map *m) { return m->hash; }
   static inline bool
@@ -491,17 +467,11 @@ struct tm_wrapper_hasher : ggc_cache_hasher<tree_map *>
     return a->base.from == b->base.from;
   }
 
-  static void
-  handle_cache_entry (tree_map *&m)
-    {
-      extern void gt_ggc_mx (tree_map *&);
-      if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
-	return;
-      else if (ggc_marked_p (m->base.from))
-	gt_ggc_mx (m);
-      else
-	m = static_cast<tree_map *> (HTAB_DELETED_ENTRY);
-    }
+  static int
+  keep_cache_entry (tree_map *&m)
+  {
+    return ggc_marked_p (m->base.from);
+  }
 };
 
 static GTY((cache)) hash_table<tm_wrapper_hasher> *tm_wrap_map;
@@ -972,10 +942,8 @@ typedef struct tm_log_entry
 
 /* Log entry hashtable helpers.  */
 
-struct log_entry_hasher
+struct log_entry_hasher : pointer_hash <tm_log_entry>
 {
-  typedef tm_log_entry *value_type;
-  typedef tm_log_entry *compare_type;
   static inline hashval_t hash (const tm_log_entry *);
   static inline bool equal (const tm_log_entry *, const tm_log_entry *);
   static inline void remove (tm_log_entry *);
@@ -1047,10 +1015,8 @@ typedef struct tm_new_mem_map
 
 /* Hashtable helpers.  */
 
-struct tm_mem_map_hasher : typed_free_remove <tm_new_mem_map_t>
+struct tm_mem_map_hasher : free_ptr_hash <tm_new_mem_map_t>
 {
-  typedef tm_new_mem_map_t *value_type;
-  typedef tm_new_mem_map_t *compare_type;
   static inline hashval_t hash (const tm_new_mem_map_t *);
   static inline bool equal (const tm_new_mem_map_t *, const tm_new_mem_map_t *);
 };
@@ -3348,10 +3314,8 @@ typedef struct tm_memop
 
 /* TM memory operation hashtable helpers.  */
 
-struct tm_memop_hasher : typed_free_remove <tm_memop>
+struct tm_memop_hasher : free_ptr_hash <tm_memop>
 {
-  typedef tm_memop *value_type;
-  typedef tm_memop *compare_type;
   static inline hashval_t hash (const tm_memop *);
   static inline bool equal (const tm_memop *, const tm_memop *);
 };

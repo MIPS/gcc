@@ -47,35 +47,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
+#include "gimple.h"
 #include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "cgraph.h"
 #include "tree-pass.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "flags.h"
 #include "target.h"
@@ -107,14 +87,13 @@ struct histogram_entry
    duplicate entries.  */
 
 vec<histogram_entry *> histogram;
-static alloc_pool histogram_pool;
+static pool_allocator<histogram_entry> histogram_pool
+  ("IPA histogram", 10);
 
 /* Hashtable support for storing SSA names hashed by their SSA_NAME_VAR.  */
 
-struct histogram_hash : typed_noop_remove <histogram_entry>
+struct histogram_hash : nofree_ptr_hash <histogram_entry>
 {
-  typedef histogram_entry *value_type;
-  typedef histogram_entry *compare_type;
   static inline hashval_t hash (const histogram_entry *);
   static inline int equal (const histogram_entry *, const histogram_entry *);
 };
@@ -144,7 +123,7 @@ account_time_size (hash_table<histogram_hash> *hashtable,
 
   if (!*val)
     {
-      *val = (histogram_entry *) pool_alloc (histogram_pool);
+      *val = histogram_pool.allocate ();
       **val = key;
       histogram.safe_push (*val);
     }
@@ -186,7 +165,7 @@ dump_histogram (FILE *file, vec<histogram_entry *> histogram)
     {
       cumulated_time += histogram[i]->count * histogram[i]->time;
       cumulated_size += histogram[i]->size;
-      fprintf (file, "  %"PRId64": time:%i (%2.2f) size:%i (%2.2f)\n",
+      fprintf (file, "  %" PRId64": time:%i (%2.2f) size:%i (%2.2f)\n",
 	       (int64_t) histogram[i]->count,
 	       histogram[i]->time,
 	       cumulated_time * 100.0 / overall_time,
@@ -205,8 +184,6 @@ ipa_profile_generate_summary (void)
   basic_block bb;
 
   hash_table<histogram_hash> hashtable (10);
-  histogram_pool = create_alloc_pool ("IPA histogram", sizeof (struct histogram_entry),
-				      10);
   
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
     FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
@@ -287,8 +264,6 @@ ipa_profile_read_summary (void)
   int j = 0;
 
   hash_table<histogram_hash> hashtable (10);
-  histogram_pool = create_alloc_pool ("IPA histogram", sizeof (struct histogram_entry),
-				      10);
 
   while ((file_data = file_data_vec[j++]))
     {
@@ -543,7 +518,7 @@ ipa_profile (void)
 	{
 	  gcov_type min, cumulated_time = 0, cumulated_size = 0;
 
-	  fprintf (dump_file, "Overall time: %"PRId64"\n",
+	  fprintf (dump_file, "Overall time: %" PRId64"\n",
 		   (int64_t)overall_time);
 	  min = get_hot_bb_threshold ();
           for (i = 0; i < (int)histogram.length () && histogram[i]->count >= min;
@@ -552,7 +527,7 @@ ipa_profile (void)
 	      cumulated_time += histogram[i]->count * histogram[i]->time;
 	      cumulated_size += histogram[i]->size;
 	    }
-	  fprintf (dump_file, "GCOV min count: %"PRId64
+	  fprintf (dump_file, "GCOV min count: %" PRId64
 		   " Time:%3.2f%% Size:%3.2f%%\n", 
 		   (int64_t)min,
 		   cumulated_time * 100.0 / overall_time,
@@ -578,7 +553,7 @@ ipa_profile (void)
 	      cumulated_time += histogram[i]->count * histogram[i]->time;
 	      cumulated_size += histogram[i]->size;
 	    }
-	  fprintf (dump_file, "Determined min count: %"PRId64
+	  fprintf (dump_file, "Determined min count: %" PRId64
 		   " Time:%3.2f%% Size:%3.2f%%\n", 
 		   (int64_t)threshold,
 		   cumulated_time * 100.0 / overall_time,
@@ -593,7 +568,7 @@ ipa_profile (void)
 	}
     }
   histogram.release ();
-  free_alloc_pool (histogram_pool);
+  histogram_pool.release ();
 
   /* Produce speculative calls: we saved common traget from porfiling into
      e->common_target_id.  Now, at link time, we can look up corresponding

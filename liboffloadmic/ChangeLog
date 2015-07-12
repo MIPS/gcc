@@ -1,3 +1,18 @@
+2015-07-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* plugin/Makefile.am (main_target_image.h): Change type of data
+	member of struct MainTargetImage to uint8_t.
+	* plugin/Makefile.in: Regenerate.
+
+2015-05-13  Michael Haubenwallner  <michael.haubenwallner@ssi-schaefer.com>
+
+	* Makefile.in: Regenerated with automake-1.11.6.
+	* aclocal.m4: Likewise.
+	* configure: Likewise.
+	* plugin/Makefile.in: Likewise.
+	* plugin/aclocal.m4: Likewise.
+	* plugin/configure: Likewise.
+
 2015-04-06  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* plugin/libgomp-plugin-intelmic.cpp: Include map.

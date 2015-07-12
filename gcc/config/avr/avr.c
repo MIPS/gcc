@@ -21,26 +21,18 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-attr.h"
 #include "insn-codes.h"
 #include "flags.h"
 #include "reload.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "print-tree.h"
@@ -48,11 +40,6 @@
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "output.h"
-#include "hashtab.h"
-#include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -64,25 +51,21 @@
 #include "obstack.h"
 #include "recog.h"
 #include "optabs.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "params.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "builtins.h"
 #include "context.h"
 #include "tree-pass.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Maximal allowed offset for an address in the LD command */
 #define MAX_LD_OFFSET(MODE) (64 - (signed)GET_MODE_SIZE (MODE))
@@ -186,7 +169,7 @@ static struct machine_function * avr_init_machine_status (void);
 
 /* Prototypes for hook implementors if needed before their implementation.  */
 
-static bool avr_rtx_costs (rtx, int, int, int, int*, bool);
+static bool avr_rtx_costs (rtx, machine_mode, int, int, int*, bool);
 
 
 /* Allocate registers from r25 to r8 for parameters for function calls.  */
@@ -1129,7 +1112,7 @@ emit_push_byte (unsigned regno, bool frame_related_p)
   mem = gen_frame_mem (QImode, mem);
   reg = gen_rtx_REG (QImode, regno);
 
-  insn = emit_insn (gen_rtx_SET (VOIDmode, mem, reg));
+  insn = emit_insn (gen_rtx_SET (mem, reg));
   if (frame_related_p)
     RTX_FRAME_RELATED_P (insn) = 1;
 
@@ -1209,9 +1192,9 @@ avr_prologue_setup_frame (HOST_WIDE_INT size, HARD_REG_SET set)
          is going to be permanent in the function is frame_pointer_needed.  */
 
       add_reg_note (insn, REG_CFA_ADJUST_CFA,
-                    gen_rtx_SET (VOIDmode, (frame_pointer_needed
-                                            ? frame_pointer_rtx
-                                            : stack_pointer_rtx),
+                    gen_rtx_SET ((frame_pointer_needed
+				  ? frame_pointer_rtx
+				  : stack_pointer_rtx),
                                  plus_constant (Pmode, stack_pointer_rtx,
                                                 -(size + live_seq))));
 
@@ -1229,7 +1212,7 @@ avr_prologue_setup_frame (HOST_WIDE_INT size, HARD_REG_SET set)
           m = gen_rtx_MEM (QImode, plus_constant (Pmode, stack_pointer_rtx,
                                                   offset));
           r = gen_rtx_REG (QImode, reg);
-          add_reg_note (insn, REG_CFA_OFFSET, gen_rtx_SET (VOIDmode, m, r));
+          add_reg_note (insn, REG_CFA_OFFSET, gen_rtx_SET (m, r));
         }
 
       cfun->machine->stack_usage += size + live_seq;
@@ -1341,7 +1324,7 @@ avr_prologue_setup_frame (HOST_WIDE_INT size, HARD_REG_SET set)
             {
               RTX_FRAME_RELATED_P (insn) = 1;
               add_reg_note (insn, REG_CFA_ADJUST_CFA,
-                            gen_rtx_SET (VOIDmode, fp, stack_pointer_rtx));
+                            gen_rtx_SET (fp, stack_pointer_rtx));
             }
 
           insn = emit_move_insn (my_fp, plus_constant (GET_MODE (my_fp),
@@ -1351,9 +1334,8 @@ avr_prologue_setup_frame (HOST_WIDE_INT size, HARD_REG_SET set)
             {
               RTX_FRAME_RELATED_P (insn) = 1;
               add_reg_note (insn, REG_CFA_ADJUST_CFA,
-                            gen_rtx_SET (VOIDmode, fp,
-                                         plus_constant (Pmode, fp,
-                                                        -size_cfa)));
+                            gen_rtx_SET (fp, plus_constant (Pmode, fp,
+							    -size_cfa)));
             }
 
           /* Copy to stack pointer.  Note that since we've already
@@ -1379,7 +1361,7 @@ avr_prologue_setup_frame (HOST_WIDE_INT size, HARD_REG_SET set)
             {
               RTX_FRAME_RELATED_P (insn) = 1;
               add_reg_note (insn, REG_CFA_ADJUST_CFA,
-                            gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+                            gen_rtx_SET (stack_pointer_rtx,
                                          plus_constant (Pmode,
                                                         stack_pointer_rtx,
                                                         -size_cfa)));
@@ -1404,7 +1386,7 @@ avr_prologue_setup_frame (HOST_WIDE_INT size, HARD_REG_SET set)
                                                     -size));
               RTX_FRAME_RELATED_P (insn) = 1;
               add_reg_note (insn, REG_CFA_ADJUST_CFA,
-                            gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+                            gen_rtx_SET (stack_pointer_rtx,
                                          plus_constant (Pmode,
                                                         stack_pointer_rtx,
                                                         -size_cfa)));
@@ -1574,7 +1556,7 @@ emit_pop_byte (unsigned regno)
   mem = gen_frame_mem (QImode, mem);
   reg = gen_rtx_REG (QImode, regno);
 
-  emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
+  emit_insn (gen_rtx_SET (reg, mem));
 }
 
 /*  Output RTL epilogue.  */
@@ -2715,10 +2697,11 @@ avr_final_prescan_insn (rtx_insn *insn, rtx *operand ATTRIBUTE_UNUSED,
 
       if (set)
         fprintf (asm_out_file, "/* DEBUG: cost = %d.  */\n",
-                 set_src_cost (SET_SRC (set), optimize_insn_for_speed_p ()));
+                 set_src_cost (SET_SRC (set), GET_MODE (SET_DEST (set)),
+			       optimize_insn_for_speed_p ()));
       else
         fprintf (asm_out_file, "/* DEBUG: pattern-cost = %d.  */\n",
-                 rtx_cost (PATTERN (insn), INSN, 0,
+                 rtx_cost (PATTERN (insn), VOIDmode, INSN, 0,
                            optimize_insn_for_speed_p()));
     }
 }
@@ -4380,9 +4363,9 @@ avr_out_load_psi_reg_no_disp_tiny (rtx_insn *insn, rtx *op, int *plen)
     }
   else
     {
-      return avr_asm_len ("ld %A0,%1+"  CR_TAB
-                          "ld %B0,%1+"  CR_TAB
-                          "ld %C0,%1", op, plen, -3);
+      avr_asm_len ("ld %A0,%1+"  CR_TAB
+		   "ld %B0,%1+"  CR_TAB
+		   "ld %C0,%1", op, plen, -3);
 
       if (reg_dest != reg_base - 2 &&
           !reg_unused_after (insn, base))
@@ -8473,7 +8456,7 @@ avr_out_round (rtx_insn *insn ATTRIBUTE_UNUSED, rtx *xop, int *plen)
   xsrc = SIGNED_FIXED_POINT_MODE_P (mode)
     ? gen_rtx_SS_PLUS (mode, xop[1], xadd)
     : gen_rtx_US_PLUS (mode, xop[1], xadd);
-  xpattern = gen_rtx_SET (VOIDmode, xop[0], xsrc);
+  xpattern = gen_rtx_SET (xop[0], xsrc);
 
   op[0] = xop[0];
   op[1] = xop[1];
@@ -8490,7 +8473,7 @@ avr_out_round (rtx_insn *insn ATTRIBUTE_UNUSED, rtx *xop, int *plen)
   rtx xreg = simplify_gen_subreg (imode, xop[0], mode, 0);
   rtx xmask = immed_wide_int_const (-wi_add - wi_add, imode);
 
-  xpattern = gen_rtx_SET (VOIDmode, xreg, gen_rtx_AND (imode, xreg, xmask));
+  xpattern = gen_rtx_SET (xreg, gen_rtx_AND (imode, xreg, xmask));
 
   op[0] = xreg;
   op[1] = xreg;
@@ -9928,7 +9911,7 @@ avr_operand_rtx_cost (rtx x, machine_mode mode, enum rtx_code outer,
     }
 
   total = 0;
-  avr_rtx_costs (x, code, outer, opno, &total, speed);
+  avr_rtx_costs (x, mode, outer, opno, &total, speed);
   return total;
 }
 
@@ -9939,11 +9922,10 @@ avr_operand_rtx_cost (rtx x, machine_mode mode, enum rtx_code outer,
    In either case, *TOTAL contains the cost result.  */
 
 static bool
-avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
+avr_rtx_costs_1 (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
                  int opno ATTRIBUTE_UNUSED, int *total, bool speed)
 {
-  enum rtx_code code = (enum rtx_code) codearg;
-  machine_mode mode = GET_MODE (x);
+  enum rtx_code code = GET_CODE (x);
   HOST_WIDE_INT val;
 
   switch (code)
@@ -10004,13 +9986,15 @@ avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
     case ZERO_EXTEND:
       *total = COSTS_N_INSNS (GET_MODE_SIZE (mode)
 			      - GET_MODE_SIZE (GET_MODE (XEXP (x, 0))));
-      *total += avr_operand_rtx_cost (XEXP (x, 0), mode, code, 0, speed);
+      *total += avr_operand_rtx_cost (XEXP (x, 0), GET_MODE (XEXP (x, 0)),
+				      code, 0, speed);
       return true;
 
     case SIGN_EXTEND:
       *total = COSTS_N_INSNS (GET_MODE_SIZE (mode) + 2
 			      - GET_MODE_SIZE (GET_MODE (XEXP (x, 0))));
-      *total += avr_operand_rtx_cost (XEXP (x, 0), mode, code, 0, speed);
+      *total += avr_operand_rtx_cost (XEXP (x, 0), GET_MODE (XEXP (x, 0)),
+				      code, 0, speed);
       return true;
 
     case PLUS:
@@ -10716,13 +10700,15 @@ avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
 	case QImode:
 	  *total = COSTS_N_INSNS (1);
 	  if (GET_CODE (XEXP (x, 1)) != CONST_INT)
-	    *total += avr_operand_rtx_cost (XEXP (x, 1), mode, code, 1, speed);
+	    *total += avr_operand_rtx_cost (XEXP (x, 1), QImode, code,
+					    1, speed);
 	  break;
 
         case HImode:
 	  *total = COSTS_N_INSNS (2);
 	  if (GET_CODE (XEXP (x, 1)) != CONST_INT)
-            *total += avr_operand_rtx_cost (XEXP (x, 1), mode, code, 1, speed);
+            *total += avr_operand_rtx_cost (XEXP (x, 1), HImode, code,
+					    1, speed);
 	  else if (INTVAL (XEXP (x, 1)) != 0)
 	    *total += COSTS_N_INSNS (1);
           break;
@@ -10736,7 +10722,8 @@ avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
         case SImode:
           *total = COSTS_N_INSNS (4);
           if (GET_CODE (XEXP (x, 1)) != CONST_INT)
-            *total += avr_operand_rtx_cost (XEXP (x, 1), mode, code, 1, speed);
+            *total += avr_operand_rtx_cost (XEXP (x, 1), SImode, code,
+					    1, speed);
 	  else if (INTVAL (XEXP (x, 1)) != 0)
 	    *total += COSTS_N_INSNS (3);
           break;
@@ -10744,7 +10731,8 @@ avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
 	default:
 	  return false;
 	}
-      *total += avr_operand_rtx_cost (XEXP (x, 0), mode, code, 0, speed);
+      *total += avr_operand_rtx_cost (XEXP (x, 0), GET_MODE (XEXP (x, 0)),
+				      code, 0, speed);
       return true;
 
     case TRUNCATE:
@@ -10771,10 +10759,10 @@ avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
 /* Implement `TARGET_RTX_COSTS'.  */
 
 static bool
-avr_rtx_costs (rtx x, int codearg, int outer_code,
+avr_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	       int opno, int *total, bool speed)
 {
-  bool done = avr_rtx_costs_1 (x, codearg, outer_code,
+  bool done = avr_rtx_costs_1 (x, mode, outer_code,
                                opno, total, speed);
 
   if (avr_log.rtx_costs)
@@ -11333,9 +11321,10 @@ avr_hard_regno_call_part_clobbered (unsigned regno, machine_mode mode)
     return 0;
 
   /* Return true if any of the following boundaries is crossed:
-     17/18, 27/28 and 29/30.  */
+     17/18 or 19/20 (if AVR_TINY), 27/28 and 29/30.  */
 
-  return ((regno < 18 && regno + GET_MODE_SIZE (mode) > 18)
+  return ((regno <= LAST_CALLEE_SAVED_REG &&
+           regno + GET_MODE_SIZE (mode) > (LAST_CALLEE_SAVED_REG + 1))
           || (regno < REG_Y && regno + GET_MODE_SIZE (mode) > REG_Y)
           || (regno < REG_Z && regno + GET_MODE_SIZE (mode) > REG_Z));
 }

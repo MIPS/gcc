@@ -21,11 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_SCHED_INT_H
 #define GCC_SCHED_INT_H
 
-#include "insn-attr.h"
-
 #ifdef INSN_SCHEDULING
-
-#include "df.h"
 
 /* Identificator of a scheduler pass.  */
 enum sched_pass_id_t { SCHED_PASS_UNKNOWN, SCHED_RGN_PASS, SCHED_EBB_PASS,
@@ -1649,8 +1645,8 @@ sd_iterator_next (sd_iterator_def *it_ptr)
 
 extern int sd_lists_size (const_rtx, sd_list_types_def);
 extern bool sd_lists_empty_p (const_rtx, sd_list_types_def);
-extern void sd_init_insn (rtx);
-extern void sd_finish_insn (rtx);
+extern void sd_init_insn (rtx_insn *);
+extern void sd_finish_insn (rtx_insn *);
 extern dep_t sd_find_dep_between (rtx, rtx, bool);
 extern void sd_add_dep (dep_t, bool);
 extern enum DEPS_ADJUST_RESULT sd_add_or_update_dep (dep_t, bool);

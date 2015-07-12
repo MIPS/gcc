@@ -103,9 +103,10 @@ along with GCC; see the file COPYING3.	If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hard-reg-set.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "insn-config.h"
@@ -114,21 +115,7 @@ along with GCC; see the file COPYING3.	If not see
 #include "output.h"
 #include "addresses.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "optabs.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -138,19 +125,17 @@ along with GCC; see the file COPYING3.	If not see
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfgbuild.h"
-#include "basic-block.h"
 #include "except.h"
 #include "tree-pass.h"
 #include "timevar.h"
 #include "target.h"
 #include "ira.h"
+#include "alloc-pool.h"
+#include "lra.h"
+#include "insn-attr.h"
 #include "lra-int.h"
-#include "df.h"
 
 /* Dump bitmap SET with TITLE and BB INDEX.  */
 void
@@ -310,7 +295,7 @@ lra_delete_dead_insn (rtx_insn *insn)
 /* Emit insn x = y + z.  Return NULL if we failed to do it.
    Otherwise, return the insn.  We don't use gen_add3_insn as it might
    clobber CC.  */
-static rtx
+static rtx_insn *
 emit_add3_insn (rtx x, rtx y, rtx z)
 {
   rtx_insn *last;
@@ -319,7 +304,7 @@ emit_add3_insn (rtx x, rtx y, rtx z)
 
   if (have_addptr3_insn (x, y, z))
     {
-      rtx insn = gen_addptr3_insn (x, y, z);
+      rtx_insn *insn = gen_addptr3_insn (x, y, z);
 
       /* If the target provides an "addptr" pattern it hopefully does
 	 for a reason.  So falling back to the normal add would be
@@ -329,8 +314,8 @@ emit_add3_insn (rtx x, rtx y, rtx z)
       return insn;
     }
 
-  rtx_insn *insn = emit_insn (gen_rtx_SET (VOIDmode, x,
-					   gen_rtx_PLUS (GET_MODE (y), y, z)));
+  rtx_insn *insn = emit_insn (gen_rtx_SET (x, gen_rtx_PLUS (GET_MODE (y),
+							    y, z)));
   if (recog_memoized (insn) < 0)
     {
       delete_insns_since (last);
@@ -341,12 +326,10 @@ emit_add3_insn (rtx x, rtx y, rtx z)
 
 /* Emit insn x = x + y.  Return the insn.  We use gen_add2_insn as the
    last resort.  */
-static rtx
+static rtx_insn *
 emit_add2_insn (rtx x, rtx y)
 {
-  rtx insn;
-
-  insn = emit_add3_insn (x, x, y);
+  rtx_insn *insn = emit_add3_insn (x, x, y);
   if (insn == NULL_RTX)
     {
       insn = gen_add2_insn (x, y);
@@ -374,7 +357,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
   rtx a1, a2, base, index, disp, scale, index_scale;
   bool ok_p;
 
-  rtx add3_insn = emit_add3_insn (x, y, z);
+  rtx_insn *add3_insn = emit_add3_insn (x, y, z);
   old = max_reg_num ();
   if (add3_insn != NULL)
     ;
@@ -427,7 +410,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
 	     adding the address segment to register.  */
 	  lra_assert (x != y && x != z);
 	  emit_move_insn (x, y);
-	  rtx insn = emit_add2_insn (x, z);
+	  rtx_insn *insn = emit_add2_insn (x, z);
 	  lra_assert (insn != NULL_RTX);
 	}
       else
@@ -439,7 +422,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
 	      /* Generate x = index_scale; x = x + base.  */
 	      lra_assert (index_scale != NULL_RTX && base != NULL_RTX);
 	      emit_move_insn (x, index_scale);
-	      rtx insn = emit_add2_insn (x, base);
+	      rtx_insn *insn = emit_add2_insn (x, base);
 	      lra_assert (insn != NULL_RTX);
 	    }
 	  else if (scale == NULL_RTX)
@@ -454,13 +437,13 @@ lra_emit_add (rtx x, rtx y, rtx z)
 		  delete_insns_since (last);
 		  /* Generate x = disp; x = x + base.  */
 		  emit_move_insn (x, disp);
-		  rtx add2_insn = emit_add2_insn (x, base);
+		  rtx_insn *add2_insn = emit_add2_insn (x, base);
 		  lra_assert (add2_insn != NULL_RTX);
 		}
 	      /* Generate x = x + index.  */
 	      if (index != NULL_RTX)
 		{
-		  rtx insn = emit_add2_insn (x, index);
+		  rtx_insn *insn = emit_add2_insn (x, index);
 		  lra_assert (insn != NULL_RTX);
 		}
 	    }
@@ -472,7 +455,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
 	      ok_p = false;
 	      if (recog_memoized (move_insn) >= 0)
 		{
-		  rtx insn = emit_add2_insn (x, disp);
+		  rtx_insn *insn = emit_add2_insn (x, disp);
 		  if (insn != NULL_RTX)
 		    {
 		      insn = emit_add2_insn (x, base);
@@ -485,7 +468,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
 		  delete_insns_since (last);
 		  /* Generate x = disp; x = x + base; x = x + index_scale.  */
 		  emit_move_insn (x, disp);
-		  rtx insn = emit_add2_insn (x, base);
+		  rtx_insn *insn = emit_add2_insn (x, base);
 		  lra_assert (insn != NULL_RTX);
 		  insn = emit_add2_insn (x, index_scale);
 		  lra_assert (insn != NULL_RTX);
@@ -549,15 +532,7 @@ lra_update_dups (lra_insn_recog_data_t id, signed char *nops)
    insns.  */
 
 /* Pools for insn reg info.  */
-static alloc_pool insn_reg_pool;
-
-/* Initiate pool for insn reg info.  */
-static void
-init_insn_regs (void)
-{
-  insn_reg_pool
-    = create_alloc_pool ("insn regs", sizeof (struct lra_insn_reg), 100);
-}
+pool_allocator<lra_insn_reg> lra_insn_reg::pool ("insn regs", 100);
 
 /* Create LRA insn related info about a reference to REGNO in INSN with
    TYPE (in/out/inout), biggest reference mode MODE, flag that it is
@@ -569,9 +544,7 @@ new_insn_reg (rtx_insn *insn, int regno, enum op_type type,
 	      machine_mode mode,
 	      bool subreg_p, bool early_clobber, struct lra_insn_reg *next)
 {
-  struct lra_insn_reg *ir;
-
-  ir = (struct lra_insn_reg *) pool_alloc (insn_reg_pool);
+  lra_insn_reg *ir = new lra_insn_reg ();
   ir->type = type;
   ir->biggest_mode = mode;
   if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (lra_reg_info[regno].biggest_mode)
@@ -584,13 +557,6 @@ new_insn_reg (rtx_insn *insn, int regno, enum op_type type,
   return ir;
 }
 
-/* Free insn reg info IR.  */
-static void
-free_insn_reg (struct lra_insn_reg *ir)
-{
-  pool_free (insn_reg_pool, ir);
-}
-
 /* Free insn reg info list IR.	*/
 static void
 free_insn_regs (struct lra_insn_reg *ir)
@@ -600,7 +566,7 @@ free_insn_regs (struct lra_insn_reg *ir)
   for (; ir != NULL; ir = next_ir)
     {
       next_ir = ir->next;
-      free_insn_reg (ir);
+      delete ir;
     }
 }
 
@@ -608,7 +574,7 @@ free_insn_regs (struct lra_insn_reg *ir)
 static void
 finish_insn_regs (void)
 {
-  free_alloc_pool (insn_reg_pool);
+  lra_insn_reg::pool.release ();
 }
 
 
@@ -736,7 +702,6 @@ init_insn_recog_data (void)
 {
   lra_insn_recog_data_len = 0;
   lra_insn_recog_data = NULL;
-  init_insn_regs ();
 }
 
 /* Expand, if necessary, LRA data about insns.	*/
@@ -790,6 +755,8 @@ finish_insn_recog_data (void)
     if ((data = lra_insn_recog_data[i]) != NULL)
       free_insn_recog_data (data);
   finish_insn_regs ();
+  lra_copy::pool.release ();
+  lra_insn_reg::pool.release ();
   free (lra_insn_recog_data);
 }
 
@@ -1104,10 +1071,7 @@ lra_set_insn_recog_data (rtx_insn *insn)
 	    regno = REGNO (XEXP (XEXP (link, 0), 0));
 	    lra_assert (regno < FIRST_PSEUDO_REGISTER);
 	    /* It is an argument register.  */
-	    for (i = (hard_regno_nregs
-		      [regno][GET_MODE (XEXP (XEXP (link, 0), 0))]) - 1;
-		 i >= 0;
-		 i--)
+	    for (i = REG_NREGS (XEXP (XEXP (link, 0), 0)) - 1; i >= 0; i--)
 	      arg_hard_regs[n_hard_regs++] = regno + i;
 	  }
       if (n_hard_regs != 0)
@@ -1312,7 +1276,7 @@ get_new_reg_value (void)
 }
 
 /* Pools for copies.  */
-static alloc_pool copy_pool;
+pool_allocator<lra_copy> lra_copy::pool ("lra copies", 100);
 
 /* Vec referring to pseudo copies.  */
 static vec<lra_copy_t> copy_vec;
@@ -1352,8 +1316,6 @@ init_reg_info (void)
   lra_reg_info = XNEWVEC (struct lra_reg, reg_info_size);
   for (i = 0; i < reg_info_size; i++)
     initialize_lra_reg_info_element (i);
-  copy_pool
-    = create_alloc_pool ("lra copies", sizeof (struct lra_copy), 100);
   copy_vec.create (100);
 }
 
@@ -1368,8 +1330,6 @@ finish_reg_info (void)
     bitmap_clear (&lra_reg_info[i].insn_bitmap);
   free (lra_reg_info);
   reg_info_size = 0;
-  free_alloc_pool (copy_pool);
-  copy_vec.release ();
 }
 
 /* Expand common reg info if it is necessary.  */
@@ -1396,7 +1356,7 @@ lra_free_copies (void)
     {
       cp = copy_vec.pop ();
       lra_reg_info[cp->regno1].copies = lra_reg_info[cp->regno2].copies = NULL;
-      pool_free (copy_pool, cp);
+      delete cp;
     }
 }
 
@@ -1412,13 +1372,10 @@ lra_create_copy (int regno1, int regno2, int freq)
   regno1_dest_p = true;
   if (regno1 > regno2)
     {
-      int temp = regno2;
-
+      std::swap (regno1, regno2);
       regno1_dest_p = false;
-      regno2 = regno1;
-      regno1 = temp;
     }
-  cp = (lra_copy_t) pool_alloc (copy_pool);
+  cp = new lra_copy ();
   copy_vec.safe_push (cp);
   cp->regno1_dest_p = regno1_dest_p;
   cp->freq = freq;
@@ -1587,7 +1544,7 @@ invalidate_insn_data_regno_info (lra_insn_recog_data_t data, rtx_insn *insn,
     {
       i = ir->regno;
       next_ir = ir->next;
-      free_insn_reg (ir);
+      delete ir;
       bitmap_clear_bit (&lra_reg_info[i].insn_bitmap, uid);
       if (i >= FIRST_PSEUDO_REGISTER && ! debug_p)
 	{
@@ -1815,9 +1772,10 @@ lra_process_new_insns (rtx_insn *insn, rtx_insn *before, rtx_insn *after,
 
 
 /* Replace all references to register OLD_REGNO in *LOC with pseudo
-   register NEW_REG.  Return true if any change was made.  */
+   register NEW_REG.  Try to simplify subreg of constant if SUBREG_P.
+   Return true if any change was made.  */
 bool
-lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg)
+lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg, bool subreg_p)
 {
   rtx x = *loc;
   bool result = false;
@@ -1829,9 +1787,25 @@ lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg)
     return false;
 
   code = GET_CODE (x);
-  if (code == REG && (int) REGNO (x) == old_regno)
+  if (code == SUBREG && subreg_p)
     {
-      machine_mode mode = GET_MODE (*loc);
+      rtx subst, inner = SUBREG_REG (x);
+      /* Transform subreg of constant while we still have inner mode
+	 of the subreg.  The subreg internal should not be an insn
+	 operand.  */
+      if (REG_P (inner) && (int) REGNO (inner) == old_regno
+	  && CONSTANT_P (new_reg)
+	  && (subst = simplify_subreg (GET_MODE (x), new_reg, GET_MODE (inner),
+				       SUBREG_BYTE (x))) != NULL_RTX)
+	{
+	  *loc = subst;
+	  return true;
+	}
+      
+    }
+  else if (code == REG && (int) REGNO (x) == old_regno)
+    {
+      machine_mode mode = GET_MODE (x);
       machine_mode inner_mode = GET_MODE (new_reg);
 
       if (mode != inner_mode
@@ -1853,26 +1827,30 @@ lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg)
     {
       if (fmt[i] == 'e')
 	{
-	  if (lra_substitute_pseudo (&XEXP (x, i), old_regno, new_reg))
+	  if (lra_substitute_pseudo (&XEXP (x, i), old_regno,
+				     new_reg, subreg_p))
 	    result = true;
 	}
       else if (fmt[i] == 'E')
 	{
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	    if (lra_substitute_pseudo (&XVECEXP (x, i, j), old_regno, new_reg))
+	    if (lra_substitute_pseudo (&XVECEXP (x, i, j), old_regno,
+				       new_reg, subreg_p))
 	      result = true;
 	}
     }
   return result;
 }
 
-/* Call lra_substitute_pseudo within an insn.  This won't update the insn ptr,
-   just the contents of the insn.  */
+/* Call lra_substitute_pseudo within an insn.  Try to simplify subreg
+   of constant if SUBREG_P.  This won't update the insn ptr, just the
+   contents of the insn.  */
 bool
-lra_substitute_pseudo_within_insn (rtx_insn *insn, int old_regno, rtx new_reg)
+lra_substitute_pseudo_within_insn (rtx_insn *insn, int old_regno,
+				   rtx new_reg, bool subreg_p)
 {
   rtx loc = insn;
-  return lra_substitute_pseudo (&loc, old_regno, new_reg);
+  return lra_substitute_pseudo (&loc, old_regno, new_reg, subreg_p);
 }
 
 

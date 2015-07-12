@@ -453,6 +453,11 @@ class Build_connection_graphs : public Traverse
   void
   handle_composite_literal(Named_object* object, Expression* expr);
 
+  // Handle analysis of the left and right operands of a binary expression
+  // with respect to OBJECT.
+  void
+  handle_binary(Named_object* object, Expression* expr);
+
   // Resolve the outermost named object of EXPR if there is one.
   Named_object*
   resolve_var_reference(Expression* expr);
@@ -586,8 +591,20 @@ Build_connection_graphs::handle_call(Named_object* object, Expression* e)
   // Only call expression statements are interesting
   // e.g. 'func(var)' for which we can show var does not escape.
   Call_expression* ce = e->call_expression();
-  if (ce == NULL || ce->args() == NULL)
+  if (ce == NULL)
     return;
+  else if (ce->args() == NULL)
+    {
+      if (ce->fn()->interface_field_reference_expression() != NULL)
+	{
+	  // This is a call to an interface method with no arguments. OBJECT
+	  // must be the receiver and we assume it escapes.
+	  Connection_node* rcvr_node =
+	    this->gogo_->add_connection_node(object)->connection_node();
+	  rcvr_node->set_escape_state(Node::ESCAPE_ARG);
+	}
+      return;
+    }
   
   // If the function call that references OBJECT is unknown, we must be
   // conservative and assume every argument escapes.  A function call is unknown
@@ -606,6 +623,8 @@ Build_connection_graphs::handle_call(Named_object* object, Expression* e)
 		this->gogo_->add_connection_node(arg_no)->connection_node();
 	      arg_node->set_escape_state(Node::ESCAPE_ARG);
 	    }
+	  else if ((*arg)->call_expression() != NULL)
+	    this->handle_call(object, *arg);
 	}
       return;
     }
@@ -787,7 +806,6 @@ Build_connection_graphs::handle_call(Named_object* object, Expression* e)
        ++pos)
     {
       std::string param_name;
-      bool param_is_interface = false;
       if (*pos >= 0 && params->size() <= static_cast<size_t>(*pos))
 	{
 	  // There were more arguments than there are parameters. This must be
@@ -804,11 +822,7 @@ Build_connection_graphs::handle_call(Named_object* object, Expression* e)
 	  param_name = fntype->receiver()->name();
 	}
       else
-	{
-	  param_name = params->at(*pos).name();
-	  param_is_interface =
-	    (params->at(*pos).type()->interface_type() != NULL);
-	}
+	param_name = params->at(*pos).name();
 
       if (Gogo::is_sink_name(param_name) || param_name.empty())
 	continue;
@@ -832,11 +846,6 @@ Build_connection_graphs::handle_call(Named_object* object, Expression* e)
 
       Node* arg_node = this->gogo_->add_connection_node(object);
       Node* param_node = this->gogo_->add_connection_node(param_no);
-
-      // Act conservatively when an argument is converted into an interface
-      // value.  FIXME.
-      if (param_is_interface)
-	param_node->connection_node()->set_escape_state(Node::ESCAPE_ARG);
       param_node->add_edge(arg_node);
     }
 
@@ -925,6 +934,31 @@ Build_connection_graphs::handle_composite_literal(Named_object* object,
       Node* arg_node = this->gogo_->add_connection_node(*p);
       object_node->add_edge(arg_node);
     }
+}
+
+// Given an OBJECT reference in a binary expression E, analyze the left and
+// right operands for possible edges.
+
+void
+Build_connection_graphs::handle_binary(Named_object* object, Expression* e)
+{
+  Binary_expression* be = e->binary_expression();
+  go_assert(be != NULL);
+  Expression* left = be->left();
+  Expression* right = be->right();
+
+  if (left->call_result_expression() != NULL)
+    left = left->call_result_expression()->call();
+  if (left->call_expression() != NULL)
+    this->handle_call(object, left);
+  else if (left->binary_expression() != NULL)
+    this->handle_binary(object, left);
+  if (right->call_result_expression() != NULL)
+    right = right->call_result_expression()->call();
+  if (right->call_expression() != NULL)
+    this->handle_call(object, right);
+  else if (right->binary_expression() != NULL)
+    this->handle_binary(object, right);
 }
 
 // Create connection nodes for each variable in a called function.
@@ -1020,8 +1054,6 @@ Build_connection_graphs::variable(Named_object* var)
 		 || rhs_no != var)
 		break;
 
-	      var_node->connection_node()->set_escape_state(Node::ESCAPE_ARG);
-
 	      Node* def_node = this->gogo_->add_connection_node(lhs_no);
 	      def_node->add_edge(var_node);
 	    }
@@ -1071,20 +1103,7 @@ Build_connection_graphs::variable(Named_object* var)
 	      if (cond->call_expression() != NULL)
 		this->handle_call(var, cond);
 	      else if (cond->binary_expression() != NULL)
-		{
-		  Binary_expression* comp = cond->binary_expression();
-		  Expression* left = comp->left();
-		  Expression* right = comp->right();
-
-		  if (left->call_result_expression() != NULL)
-		    left = left->call_result_expression()->call();
-		  if (left->call_expression() != NULL)
-		    this->handle_call(var, left);
-		  if (right->call_result_expression() != NULL)
-		    right = right->call_result_expression()->call();
-		  if (right->call_expression() != NULL)
-		    this->handle_call(var, right);
-		}
+		this->handle_binary(var, cond);
 	    }
 	    break;
 
@@ -1113,6 +1132,8 @@ Build_connection_graphs::variable(Named_object* var)
 		init = init->call_result_expression()->call();
 	      if (init->call_expression() != NULL)
 		this->handle_call(var, init);
+	      else if (init->binary_expression() != NULL)
+		this->handle_binary(var, init);
 	    }
 	    break;
 

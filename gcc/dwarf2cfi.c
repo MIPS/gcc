@@ -24,35 +24,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "version.h"
 #include "flags.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "stor-layout.h"
-#include "hard-reg-set.h"
 #include "function.h"
 #include "cfgbuild.h"
 #include "dwarf2.h"
 #include "dwarf2out.h"
 #include "dwarf2asm.h"
-#include "ggc.h"
-#include "hash-table.h"
 #include "tm_p.h"
 #include "target.h"
 #include "common/common-target.h"
 #include "tree-pass.h"
 
 #include "except.h"		/* expand_builtin_dwarf_sp_column */
-#include "hashtab.h"
-#include "statistics.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -180,10 +165,8 @@ typedef dw_trace_info *dw_trace_info_ref;
 
 /* Hashtable helpers.  */
 
-struct trace_info_hasher : typed_noop_remove <dw_trace_info>
+struct trace_info_hasher : nofree_ptr_hash <dw_trace_info>
 {
-  typedef dw_trace_info *value_type;
-  typedef dw_trace_info *compare_type;
   static inline hashval_t hash (const dw_trace_info *);
   static inline bool equal (const dw_trace_info *, const dw_trace_info *);
 };
@@ -920,7 +903,7 @@ reg_save (unsigned int reg, unsigned int sreg, HOST_WIDE_INT offset)
    and adjust data structures to match.  */
 
 static void
-notice_args_size (rtx insn)
+notice_args_size (rtx_insn *insn)
 {
   HOST_WIDE_INT args_size, delta;
   rtx note;
@@ -944,9 +927,9 @@ notice_args_size (rtx insn)
 
       /* Convert a change in args_size (always a positive in the
 	 direction of stack growth) to a change in stack pointer.  */
-#ifndef STACK_GROWS_DOWNWARD
-      delta = -delta;
-#endif
+      if (!STACK_GROWS_DOWNWARD)
+	delta = -delta;
+
       cur_cfa->offset += delta;
     }
 }
@@ -2247,7 +2230,6 @@ add_cfis_to_fde (void)
 	      int num = dwarf2out_cfi_label_num;
 	      const char *label = dwarf2out_cfi_label ();
 	      dw_cfi_ref xcfi;
-	      rtx tmp;
 
 	      /* Set the location counter to the new label.  */
 	      xcfi = new_cfi ();
@@ -2256,7 +2238,7 @@ add_cfis_to_fde (void)
 	      xcfi->dw_cfi_oprnd1.dw_cfi_addr = label;
 	      vec_safe_push (fde->dw_fde_cfi, xcfi);
 
-	      tmp = emit_note_before (NOTE_INSN_CFI_LABEL, insn);
+	      rtx_note *tmp = emit_note_before (NOTE_INSN_CFI_LABEL, insn);
 	      NOTE_LABEL_NUMBER (tmp) = num;
 	    }
 
@@ -2347,9 +2329,9 @@ maybe_record_trace_start_abnormal (rtx_insn *start, rtx_insn *origin)
     {
       /* Convert a change in args_size (always a positive in the
 	 direction of stack growth) to a change in stack pointer.  */
-#ifndef STACK_GROWS_DOWNWARD
-      delta = -delta;
-#endif
+      if (!STACK_GROWS_DOWNWARD)
+	delta = -delta;
+
       cur_row->cfa.offset += delta;
     }
   
@@ -3260,7 +3242,7 @@ output_cfi_directive (FILE *f, dw_cfi_ref cfi)
     case DW_CFA_offset_extended:
     case DW_CFA_offset_extended_sf:
       r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 1);
-      fprintf (f, "\t.cfi_offset %lu, "HOST_WIDE_INT_PRINT_DEC"\n",
+      fprintf (f, "\t.cfi_offset %lu, " HOST_WIDE_INT_PRINT_DEC"\n",
 	       r, cfi->dw_cfi_oprnd2.dw_cfi_offset);
       break;
 
@@ -3283,7 +3265,7 @@ output_cfi_directive (FILE *f, dw_cfi_ref cfi)
     case DW_CFA_def_cfa:
     case DW_CFA_def_cfa_sf:
       r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, 1);
-      fprintf (f, "\t.cfi_def_cfa %lu, "HOST_WIDE_INT_PRINT_DEC"\n",
+      fprintf (f, "\t.cfi_def_cfa %lu, " HOST_WIDE_INT_PRINT_DEC"\n",
 	       r, cfi->dw_cfi_oprnd2.dw_cfi_offset);
       break;
 
@@ -3318,13 +3300,13 @@ output_cfi_directive (FILE *f, dw_cfi_ref cfi)
 	  fprintf (f, "\t.cfi_escape %#x,", DW_CFA_GNU_args_size);
 	  dw2_asm_output_data_uleb128_raw (cfi->dw_cfi_oprnd1.dw_cfi_offset);
 	  if (flag_debug_asm)
-	    fprintf (f, "\t%s args_size "HOST_WIDE_INT_PRINT_DEC,
+	    fprintf (f, "\t%s args_size " HOST_WIDE_INT_PRINT_DEC,
 		     ASM_COMMENT_START, cfi->dw_cfi_oprnd1.dw_cfi_offset);
 	  fputc ('\n', f);
 	}
       else
 	{
-	  fprintf (f, "\t.cfi_GNU_args_size "HOST_WIDE_INT_PRINT_DEC "\n",
+	  fprintf (f, "\t.cfi_GNU_args_size " HOST_WIDE_INT_PRINT_DEC "\n",
 		   cfi->dw_cfi_oprnd1.dw_cfi_offset);
 	}
       break;
@@ -3492,11 +3474,10 @@ public:
 bool
 pass_dwarf2_frame::gate (function *)
 {
-#ifndef HAVE_prologue
   /* Targets which still implement the prologue in assembler text
      cannot use the generic dwarf2 unwinding.  */
-  return false;
-#endif
+  if (!targetm.have_prologue ())
+    return false;
 
   /* ??? What to do for UI_TARGET unwinding?  They might be able to benefit
      from the optimized shrink-wrapping annotations that we will compute.

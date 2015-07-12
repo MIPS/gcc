@@ -25,5 +25,3 @@ f (void)
    - three in the low iteration count loop
    Crucially, none for a peeled off last iteration following the parallel.  */
 /* { dg-final { scan-tree-dump-times "(?n)\\\[i" 9 "parloops" } } */
-
-/* { dg-final { cleanup-tree-dump "parloops" } } */

@@ -21,48 +21,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "hash-table.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "hashtab.h"
-#include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -82,8 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-sccvn.h"
 #include "tree-cfg.h"
 #include "domwalk.h"
-#include "ipa-ref.h"
-#include "plugin-api.h"
 #include "cgraph.h"
 #include "omp-low.h"
 
@@ -145,11 +117,14 @@ along with GCC; see the file COPYING3.  If not see
 */
 
 
+static tree *last_vuse_ptr;
+static vn_lookup_kind vn_walk_kind;
+static vn_lookup_kind default_vn_walk_kind;
+
 /* vn_nary_op hashtable helpers.  */
 
-struct vn_nary_op_hasher : typed_noop_remove <vn_nary_op_s>
+struct vn_nary_op_hasher : nofree_ptr_hash <vn_nary_op_s>
 {
-  typedef vn_nary_op_s *value_type;
   typedef vn_nary_op_s *compare_type;
   static inline hashval_t hash (const vn_nary_op_s *);
   static inline bool equal (const vn_nary_op_s *, const vn_nary_op_s *);
@@ -181,10 +156,8 @@ typedef vn_nary_op_table_type::iterator vn_nary_op_iterator_type;
 static int
 vn_phi_eq (const_vn_phi_t const vp1, const_vn_phi_t const vp2);
 
-struct vn_phi_hasher
+struct vn_phi_hasher : pointer_hash <vn_phi_s>
 { 
-  typedef vn_phi_s *value_type;
-  typedef vn_phi_s *compare_type;
   static inline hashval_t hash (const vn_phi_s *);
   static inline bool equal (const vn_phi_s *, const vn_phi_s *);
   static inline void remove (vn_phi_s *);
@@ -249,10 +222,8 @@ free_reference (vn_reference_s *vr)
 
 /* vn_reference hashtable helpers.  */
 
-struct vn_reference_hasher
+struct vn_reference_hasher : pointer_hash <vn_reference_s>
 {
-  typedef vn_reference_s *value_type;
-  typedef vn_reference_s *compare_type;
   static inline hashval_t hash (const vn_reference_s *);
   static inline bool equal (const vn_reference_s *, const vn_reference_s *);
   static inline void remove (vn_reference_s *);
@@ -290,17 +261,15 @@ typedef struct vn_tables_s
   vn_phi_table_type *phis;
   vn_reference_table_type *references;
   struct obstack nary_obstack;
-  alloc_pool phis_pool;
-  alloc_pool references_pool;
+  pool_allocator<vn_phi_s> *phis_pool;
+  pool_allocator<vn_reference_s> *references_pool;
 } *vn_tables_t;
 
 
 /* vn_constant hashtable helpers.  */
 
-struct vn_constant_hasher : typed_free_remove <vn_constant_s>
+struct vn_constant_hasher : free_ptr_hash <vn_constant_s>
 { 
-  typedef vn_constant_s *value_type;
-  typedef vn_constant_s *compare_type;
   static inline hashval_t hash (const vn_constant_s *);
   static inline bool equal (const vn_constant_s *, const vn_constant_s *);
 };
@@ -1260,6 +1229,25 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
       addr = gimple_assign_rhs1 (def_stmt);
       addr_base = get_addr_base_and_unit_offset (TREE_OPERAND (addr, 0),
 						 &addr_offset);
+      /* If that didn't work because the address isn't invariant propagate
+         the reference tree from the address operation in case the current
+	 dereference isn't offsetted.  */
+      if (!addr_base
+	  && *i_p == ops->length () - 1
+	  && off == 0
+	  /* This makes us disable this transform for PRE where the
+	     reference ops might be also used for code insertion which
+	     is invalid.  */
+	  && default_vn_walk_kind == VN_WALKREWRITE)
+	{
+	  auto_vec<vn_reference_op_s, 32> tem;
+	  copy_reference_ops_from_ref (TREE_OPERAND (addr, 0), &tem);
+	  ops->pop ();
+	  ops->pop ();
+	  ops->safe_splice (tem);
+	  --*i_p;
+	  return;
+	}
       if (!addr_base
 	  || TREE_CODE (addr_base) != MEM_REF)
 	return;
@@ -1558,10 +1546,6 @@ vn_reference_lookup_1 (vn_reference_t vr, vn_reference_t *vnresult)
   return NULL_TREE;
 }
 
-static tree *last_vuse_ptr;
-static vn_lookup_kind vn_walk_kind;
-static vn_lookup_kind default_vn_walk_kind;
-
 /* Callback for walk_non_aliased_vuses.  Adjusts the vn_reference_t VR_
    with the current VUSE and performs the expression lookup.  */
 
@@ -1650,15 +1634,12 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
   /* First try to disambiguate after value-replacing in the definitions LHS.  */
   if (is_gimple_assign (def_stmt))
     {
-      vec<vn_reference_op_s> tem;
       tree lhs = gimple_assign_lhs (def_stmt);
       bool valueized_anything = false;
       /* Avoid re-allocation overhead.  */
       lhs_ops.truncate (0);
       copy_reference_ops_from_ref (lhs, &lhs_ops);
-      tem = lhs_ops;
       lhs_ops = valueize_refs_1 (lhs_ops, &valueized_anything);
-      gcc_assert (lhs_ops == tem);
       if (valueized_anything)
 	{
 	  lhs_ref_ok = ao_ref_init_from_vn_reference (&lhs_ref,
@@ -1895,7 +1876,12 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       size2 = lhs_ref.size;
       maxsize2 = lhs_ref.max_size;
       if (maxsize2 == -1
-	  || (base != base2 && !operand_equal_p (base, base2, 0))
+	  || (base != base2
+	      && (TREE_CODE (base) != MEM_REF
+		  || TREE_CODE (base2) != MEM_REF
+		  || TREE_OPERAND (base, 0) != TREE_OPERAND (base2, 0)
+		  || !tree_int_cst_equal (TREE_OPERAND (base, 1),
+					  TREE_OPERAND (base2, 1))))
 	  || offset2 > offset
 	  || offset2 + size2 < offset + maxsize)
 	return (void *)-1;
@@ -2024,7 +2010,16 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       lhs = gimple_call_arg (def_stmt, 0);
       lhs_offset = 0;
       if (TREE_CODE (lhs) == SSA_NAME)
-	lhs = SSA_VAL (lhs);
+	{
+	  lhs = SSA_VAL (lhs);
+	  if (TREE_CODE (lhs) == SSA_NAME)
+	    {
+	      gimple def_stmt = SSA_NAME_DEF_STMT (lhs);
+	      if (gimple_assign_single_p (def_stmt)
+		  && gimple_assign_rhs_code (def_stmt) == ADDR_EXPR)
+		lhs = gimple_assign_rhs1 (def_stmt);
+	    }
+	}
       if (TREE_CODE (lhs) == ADDR_EXPR)
 	{
 	  tree tem = get_addr_base_and_unit_offset (TREE_OPERAND (lhs, 0),
@@ -2035,6 +2030,8 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	      && tree_fits_uhwi_p (TREE_OPERAND (tem, 1)))
 	    {
 	      lhs = TREE_OPERAND (tem, 0);
+	      if (TREE_CODE (lhs) == SSA_NAME)
+		lhs = SSA_VAL (lhs);
 	      lhs_offset += tree_to_uhwi (TREE_OPERAND (tem, 1));
 	    }
 	  else if (DECL_P (tem))
@@ -2085,10 +2082,15 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 		  || TREE_OPERAND (lhs, 0) != base)))
 	return (void *)-1;
 
-      /* And the access has to be contained within the memcpy destination.  */
       at = offset / BITS_PER_UNIT;
       if (TREE_CODE (base) == MEM_REF)
 	at += tree_to_uhwi (TREE_OPERAND (base, 1));
+      /* If the access is completely outside of the memcpy destination
+	 area there is no aliasing.  */
+      if (lhs_offset >= at + maxsize / BITS_PER_UNIT
+	  || lhs_offset + copy_size <= at)
+	return NULL;
+      /* And the access has to be contained within the memcpy destination.  */
       if (lhs_offset > at
 	  || lhs_offset + copy_size < at + maxsize / BITS_PER_UNIT)
 	return (void *)-1;
@@ -2281,7 +2283,7 @@ vn_reference_insert (tree op, tree result, tree vuse, tree vdef)
   vn_reference_t vr1;
   bool tem;
 
-  vr1 = (vn_reference_t) pool_alloc (current_info->references_pool);
+  vr1 = current_info->references_pool->allocate ();
   if (TREE_CODE (result) == SSA_NAME)
     vr1->value_id = VN_INFO (result)->value_id;
   else
@@ -2326,7 +2328,7 @@ vn_reference_insert_pieces (tree vuse, alias_set_type set, tree type,
   vn_reference_s **slot;
   vn_reference_t vr1;
 
-  vr1 = (vn_reference_t) pool_alloc (current_info->references_pool);
+  vr1 = current_info->references_pool->allocate ();
   vr1->value_id = value_id;
   vr1->vuse = vuse ? SSA_VAL (vuse) : NULL_TREE;
   vr1->operands = valueize_refs (operands);
@@ -2366,11 +2368,7 @@ vn_nary_op_compute_hash (const vn_nary_op_t vno1)
   if (vno1->length == 2
       && commutative_tree_code (vno1->opcode)
       && tree_swap_operands_p (vno1->op[0], vno1->op[1], false))
-    {
-      tree temp = vno1->op[0];
-      vno1->op[0] = vno1->op[1];
-      vno1->op[1] = temp;
-    }
+    std::swap (vno1->op[0], vno1->op[1]);
 
   hstate.add_int (vno1->opcode);
   for (i = 0; i < vno1->length; ++i)
@@ -2752,7 +2750,7 @@ static vn_phi_t
 vn_phi_insert (gimple phi, tree result)
 {
   vn_phi_s **slot;
-  vn_phi_t vp1 = (vn_phi_t) pool_alloc (current_info->phis_pool);
+  vn_phi_t vp1 = current_info->phis_pool->allocate ();
   unsigned i;
   vec<tree> args = vNULL;
 
@@ -2995,7 +2993,7 @@ visit_reference_op_call (tree lhs, gcall *stmt)
 	changed |= set_ssa_val_to (vdef, vdef);
       if (lhs)
 	changed |= set_ssa_val_to (lhs, lhs);
-      vr2 = (vn_reference_t) pool_alloc (current_info->references_pool);
+      vr2 = current_info->references_pool->allocate ();
       vr2->vuse = vr1.vuse;
       /* As we are not walking the virtual operand chain we know the
 	 shared_lookup_references are still original so we can re-use
@@ -3870,7 +3868,7 @@ copy_nary (vn_nary_op_t onary, vn_tables_t info)
 static void
 copy_phi (vn_phi_t ophi, vn_tables_t info)
 {
-  vn_phi_t phi = (vn_phi_t) pool_alloc (info->phis_pool);
+  vn_phi_t phi = info->phis_pool->allocate ();
   vn_phi_s **slot;
   memcpy (phi, ophi, sizeof (*phi));
   ophi->phiargs.create (0);
@@ -3886,7 +3884,7 @@ copy_reference (vn_reference_t oref, vn_tables_t info)
 {
   vn_reference_t ref;
   vn_reference_s **slot;
-  ref = (vn_reference_t) pool_alloc (info->references_pool);
+  ref = info->references_pool->allocate ();
   memcpy (ref, oref, sizeof (*ref));
   oref->operands.create (0);
   slot = info->references->find_slot_with_hash (ref, ref->hashcode, INSERT);
@@ -3951,8 +3949,8 @@ process_scc (vec<tree> scc)
       optimistic_info->references->empty ();
       obstack_free (&optimistic_info->nary_obstack, NULL);
       gcc_obstack_init (&optimistic_info->nary_obstack);
-      empty_alloc_pool (optimistic_info->phis_pool);
-      empty_alloc_pool (optimistic_info->references_pool);
+      optimistic_info->phis_pool->release ();
+      optimistic_info->references_pool->release ();
       FOR_EACH_VEC_ELT (scc, i, var)
 	VN_INFO (var)->expr = NULL_TREE;
       FOR_EACH_VEC_ELT (scc, i, var)
@@ -4129,12 +4127,9 @@ allocate_vn_table (vn_tables_t table)
   table->references = new vn_reference_table_type (23);
 
   gcc_obstack_init (&table->nary_obstack);
-  table->phis_pool = create_alloc_pool ("VN phis",
-					sizeof (struct vn_phi_s),
-					30);
-  table->references_pool = create_alloc_pool ("VN references",
-					      sizeof (struct vn_reference_s),
-					      30);
+  table->phis_pool = new pool_allocator<vn_phi_s> ("VN phis", 30);
+  table->references_pool = new pool_allocator<vn_reference_s> ("VN references",
+							       30);
 }
 
 /* Free a value number table.  */
@@ -4149,8 +4144,8 @@ free_vn_table (vn_tables_t table)
   delete table->references;
   table->references = NULL;
   obstack_free (&table->nary_obstack, NULL);
-  free_alloc_pool (table->phis_pool);
-  free_alloc_pool (table->references_pool);
+  delete table->phis_pool;
+  delete table->references_pool;
 }
 
 static void

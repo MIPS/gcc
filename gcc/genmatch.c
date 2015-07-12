@@ -25,14 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include <new>
 #include "system.h"
 #include "coretypes.h"
-#include "ggc.h"
 #include <cpplib.h>
 #include "errors.h"
-#include "hashtab.h"
 #include "hash-table.h"
-#include "hash-map.h"
 #include "hash-set.h"
-#include "vec.h"
 #include "is-a.h"
 
 
@@ -58,7 +54,7 @@ __attribute__((format (printf, 6, 0)))
 error_cb (cpp_reader *, int errtype, int, source_location location,
 	  unsigned int, const char *msg, va_list *ap)
 {
-  const line_map *map;
+  const line_map_ordinary *map;
   linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
   expanded_location loc = linemap_expand_location (line_table, map, location);
   fprintf (stderr, "%s:%d:%d %s: ", loc.file, loc.line, loc.column,
@@ -134,7 +130,7 @@ static void
 output_line_directive (FILE *f, source_location location,
 		       bool dumpfile = false)
 {
-  const line_map *map;
+  const line_map_ordinary *map;
   linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
   expanded_location loc = linemap_expand_location (line_table, map, location);
   if (dumpfile)
@@ -165,6 +161,9 @@ enum tree_code {
 CONVERT0,
 CONVERT1,
 CONVERT2,
+VIEW_CONVERT0,
+VIEW_CONVERT1,
+VIEW_CONVERT2,
 MAX_TREE_CODES
 };
 #undef DEFTREECODE
@@ -176,10 +175,66 @@ END_BUILTINS
 };
 #undef DEF_BUILTIN
 
+/* Return true if CODE represents a commutative tree code.  Otherwise
+   return false.  */
+bool
+commutative_tree_code (enum tree_code code)
+{
+  switch (code)
+    {
+    case PLUS_EXPR:
+    case MULT_EXPR:
+    case MULT_HIGHPART_EXPR:
+    case MIN_EXPR:
+    case MAX_EXPR:
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case BIT_AND_EXPR:
+    case NE_EXPR:
+    case EQ_EXPR:
+    case UNORDERED_EXPR:
+    case ORDERED_EXPR:
+    case UNEQ_EXPR:
+    case LTGT_EXPR:
+    case TRUTH_AND_EXPR:
+    case TRUTH_XOR_EXPR:
+    case TRUTH_OR_EXPR:
+    case WIDEN_MULT_EXPR:
+    case VEC_WIDEN_MULT_HI_EXPR:
+    case VEC_WIDEN_MULT_LO_EXPR:
+    case VEC_WIDEN_MULT_EVEN_EXPR:
+    case VEC_WIDEN_MULT_ODD_EXPR:
+      return true;
+
+    default:
+      break;
+    }
+  return false;
+}
+
+/* Return true if CODE represents a ternary tree code for which the
+   first two operands are commutative.  Otherwise return false.  */
+bool
+commutative_ternary_tree_code (enum tree_code code)
+{
+  switch (code)
+    {
+    case WIDEN_MULT_PLUS_EXPR:
+    case WIDEN_MULT_MINUS_EXPR:
+    case DOT_PROD_EXPR:
+    case FMA_EXPR:
+      return true;
+
+    default:
+      break;
+    }
+  return false;
+}
+
 
 /* Base class for all identifiers the parser knows.  */
 
-struct id_base : typed_noop_remove<id_base>
+struct id_base : nofree_ptr_hash<id_base>
 {
   enum id_kind { CODE, FN, PREDICATE, USER } kind;
 
@@ -190,8 +245,6 @@ struct id_base : typed_noop_remove<id_base>
   const char *id;
 
   /* hash_table support.  */
-  typedef id_base *value_type;
-  typedef id_base *compare_type;
   static inline hashval_t hash (const id_base *);
   static inline int equal (const id_base *, const id_base *);
 };
@@ -327,6 +380,9 @@ add_operator (enum tree_code code, const char *id,
       /* And allow CONSTRUCTOR for vector initializers.  */
       && !(code == CONSTRUCTOR))
     return;
+  /* Treat ADDR_EXPR as atom, thus don't allow matching its operand.  */
+  if (code == ADDR_EXPR)
+    nargs = 0;
   operator_id *op = new operator_id (code, id, nargs, tcc);
   id_base **slot = operators->find_slot_with_hash (op, op->hashval, INSERT);
   if (*slot)
@@ -398,28 +454,7 @@ get_operator (const char *id)
   return 0;
 }
 
-
-/* Helper for the capture-id map.  */
-
-struct capture_id_map_hasher : default_hashmap_traits
-{
-  static inline hashval_t hash (const char *);
-  static inline bool equal_keys (const char *, const char *);
-};
-
-inline hashval_t
-capture_id_map_hasher::hash (const char *id)
-{
-  return htab_hash_string (id);
-}
-
-inline bool
-capture_id_map_hasher::equal_keys (const char *id1, const char *id2)
-{
-  return strcmp (id1, id2) == 0;
-}
-
-typedef hash_map<const char *, unsigned, capture_id_map_hasher> cid_map_t;
+typedef hash_map<nofree_string_hash, unsigned> cid_map_t;
 
 
 /* The AST produced by parsing of the pattern definitions.  */
@@ -753,12 +788,14 @@ lower_commutative (simplify *s, vec<simplify *>& simplifiers)
    children if STRIP, else replace them with an unconditional convert.  */
 
 operand *
-lower_opt_convert (operand *o, enum tree_code oper, bool strip)
+lower_opt_convert (operand *o, enum tree_code oper,
+		   enum tree_code to_oper, bool strip)
 {
   if (capture *c = dyn_cast<capture *> (o))
     {
       if (c->what)
-	return new capture (c->where, lower_opt_convert (c->what, oper, strip));
+	return new capture (c->where,
+			    lower_opt_convert (c->what, oper, to_oper, strip));
       else
 	return c;
     }
@@ -770,16 +807,18 @@ lower_opt_convert (operand *o, enum tree_code oper, bool strip)
   if (*e->operation == oper)
     {
       if (strip)
-	return lower_opt_convert (e->ops[0], oper, strip);
+	return lower_opt_convert (e->ops[0], oper, to_oper, strip);
 
-      expr *ne = new expr (get_operator ("CONVERT_EXPR"));
-      ne->append_op (lower_opt_convert (e->ops[0], oper, strip));
+      expr *ne = new expr (to_oper == CONVERT_EXPR
+			   ? get_operator ("CONVERT_EXPR")
+			   : get_operator ("VIEW_CONVERT_EXPR"));
+      ne->append_op (lower_opt_convert (e->ops[0], oper, to_oper, strip));
       return ne;
     }
 
   expr *ne = new expr (e->operation, e->is_commutative);
   for (unsigned i = 0; i < e->ops.length (); ++i)
-    ne->append_op (lower_opt_convert (e->ops[i], oper, strip));
+    ne->append_op (lower_opt_convert (e->ops[i], oper, to_oper, strip));
 
   return ne;
 }
@@ -822,20 +861,28 @@ lower_opt_convert (operand *o)
 
   v1.safe_push (o);
 
-  enum tree_code opers[] = { CONVERT0, CONVERT1, CONVERT2 };
+  enum tree_code opers[]
+    = { CONVERT0, CONVERT_EXPR,
+	CONVERT1, CONVERT_EXPR,
+	CONVERT2, CONVERT_EXPR,
+	VIEW_CONVERT0, VIEW_CONVERT_EXPR,
+	VIEW_CONVERT1, VIEW_CONVERT_EXPR,
+	VIEW_CONVERT2, VIEW_CONVERT_EXPR };
 
   /* Conditional converts are lowered to a pattern with the
      conversion and one without.  The three different conditional
      convert codes are lowered separately.  */
 
-  for (unsigned i = 0; i < 3; ++i)
+  for (unsigned i = 0; i < sizeof (opers) / sizeof (enum tree_code); i += 2)
     {
       v2 = vNULL;
       for (unsigned j = 0; j < v1.length (); ++j)
 	if (has_opt_convert (v1[j], opers[i]))
 	  {
-	    v2.safe_push (lower_opt_convert (v1[j], opers[i], false));
-	    v2.safe_push (lower_opt_convert (v1[j], opers[i], true));
+	    v2.safe_push (lower_opt_convert (v1[j],
+					     opers[i], opers[i+1], false));
+	    v2.safe_push (lower_opt_convert (v1[j],
+					     opers[i], opers[i+1], true));
 	  }
 
       if (v2 != vNULL)
@@ -1708,6 +1755,13 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
       sprintf (optype, "boolean_type_node");
       type = optype;
     }
+  else if (*operation == COND_EXPR
+	   || *operation == VEC_COND_EXPR)
+    {
+      /* Conditions are of the same type as their first alternative.  */
+      sprintf (optype, "TREE_TYPE (ops%d[1])", depth);
+      type = optype;
+    }
   else
     {
       /* Other operations are of the same type as their first operand.  */
@@ -1742,6 +1796,10 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
 
   if (gimple)
     {
+      if (*operation == CONVERT_EXPR)
+	fprintf (f, "  if (%s != TREE_TYPE (ops%d[0])\n"
+	    "      && !useless_type_conversion_p (%s, TREE_TYPE (ops%d[0])))\n"
+	    "  {\n", type, depth, type, depth);
       /* ???  Building a stmt can fail for various reasons here, seq being
          NULL or the stmt referencing SSA names occuring in abnormal PHIs.
 	 So if we fail here we should continue matching other patterns.  */
@@ -1754,9 +1812,15 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
 	       ops.length (), type);
       fprintf (f, "  res = maybe_push_res_to_seq (tem_code, %s, tem_ops, seq);\n"
 	       "  if (!res) return false;\n", type);
+      if (*operation == CONVERT_EXPR)
+        fprintf (f, "  }\n"
+		 "  else\n"
+		 "    res = ops%d[0];\n", depth);
     }
   else
     {
+      if (*operation == CONVERT_EXPR)
+	fprintf (f, "  if (TREE_TYPE (ops%d[0]) != %s)\n", depth, type);
       if (operation->kind == id_base::CODE)
 	fprintf (f, "  res = fold_build%d_loc (loc, %s, %s",
 		 ops.length(), opr, type);
@@ -1766,6 +1830,9 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
       for (unsigned i = 0; i < ops.length (); ++i)
 	fprintf (f, ", ops%d[%u]", depth, i);
       fprintf (f, ");\n");
+      if (*operation == CONVERT_EXPR)
+	fprintf (f, "  else\n"
+		 "    res = ops%d[0];\n", depth);
     }
   fprintf (f, "%s = res;\n", dest);
   fprintf (f, "}\n");
@@ -1984,6 +2051,25 @@ dt_operand::gen_gimple_expr (FILE *f)
       fprintf (f, "if ((%s = do_valueize (valueize, %s)))\n",
 	       child_opname, child_opname);
       fprintf (f, "{\n");
+    }
+  /* While the toplevel operands are canonicalized by the caller
+     after valueizing operands of sub-expressions we have to
+     re-canonicalize operand order.  */
+  if (operator_id *code = dyn_cast <operator_id *> (id))
+    {
+      /* ???  We can't canonicalize tcc_comparison operands here
+         because that requires changing the comparison code which
+	 we already matched...  */
+      if (commutative_tree_code (code->code)
+	  || commutative_ternary_tree_code (code->code))
+	{
+	  char child_opname0[20], child_opname1[20];
+	  gen_opname (child_opname0, 0);
+	  gen_opname (child_opname1, 1);
+	  fprintf (f, "if (tree_swap_operands_p (%s, %s, false))\n"
+		   "  std::swap (%s, %s);\n", child_opname0, child_opname1,
+		   child_opname0, child_opname1);
+	}
     }
 
   return n_ops;
@@ -2887,14 +2973,22 @@ parser::parse_operation ()
   const cpp_token *token = peek ();
   if (strcmp (id, "convert0") == 0)
     fatal_at (id_tok, "use 'convert?' here");
+  else if (strcmp (id, "view_convert0") == 0)
+    fatal_at (id_tok, "use 'view_convert?' here");
   if (token->type == CPP_QUERY
       && !(token->flags & PREV_WHITE))
     {
       if (strcmp (id, "convert") == 0)
 	id = "convert0";
-      else if (strcmp  (id, "convert1") == 0)
+      else if (strcmp (id, "convert1") == 0)
 	;
-      else if (strcmp  (id, "convert2") == 0)
+      else if (strcmp (id, "convert2") == 0)
+	;
+      else if (strcmp (id, "view_convert") == 0)
+	id = "view_convert0";
+      else if (strcmp (id, "view_convert1") == 0)
+	;
+      else if (strcmp (id, "view_convert2") == 0)
 	;
       else
 	fatal_at (id_tok, "non-convert operator conditionalized");
@@ -2904,8 +2998,10 @@ parser::parse_operation ()
 		  "match expression");
       eat_token (CPP_QUERY);
     }
-  else if (strcmp  (id, "convert1") == 0
-	   || strcmp  (id, "convert2") == 0)
+  else if (strcmp (id, "convert1") == 0
+	   || strcmp (id, "convert2") == 0
+	   || strcmp (id, "view_convert1") == 0
+	   || strcmp (id, "view_convert2") == 0)
     fatal_at (id_tok, "expected '?' after conditional operator");
   id_base *op = get_operator (id);
   if (!op)
@@ -2913,7 +3009,12 @@ parser::parse_operation ()
 
   user_id *p = dyn_cast<user_id *> (op);
   if (p && p->is_oper_list)
-    record_operlist (id_tok->src_loc, p);
+    {
+      if (active_fors.length() == 0)
+	record_operlist (id_tok->src_loc, p);
+      else
+	fatal_at (id_tok, "operator-list %s cannot be exapnded inside 'for'", id);
+    }
   return op;
 }
 
@@ -3317,7 +3418,9 @@ parser::parse_for (source_location)
 	  id_base *idb = get_operator (oper);
 	  if (idb == NULL)
 	    fatal_at (token, "no such operator '%s'", oper);
-	  if (*idb == CONVERT0 || *idb == CONVERT1 || *idb == CONVERT2)
+	  if (*idb == CONVERT0 || *idb == CONVERT1 || *idb == CONVERT2
+	      || *idb == VIEW_CONVERT0 || *idb == VIEW_CONVERT1
+	      || *idb == VIEW_CONVERT2)
 	    fatal_at (token, "conditional operators cannot be used inside for");
 
 	  if (arity == -1)
@@ -3329,8 +3432,13 @@ parser::parse_for (source_location)
 		      "others with arity %d", oper, idb->nargs, arity);
 
 	  user_id *p = dyn_cast<user_id *> (idb);
-	  if (p && p->is_oper_list)
-	    op->substitutes.safe_splice (p->substitutes);
+	  if (p)
+	    {
+	      if (p->is_oper_list)
+		op->substitutes.safe_splice (p->substitutes);
+	      else
+		fatal_at (token, "iterator cannot be used as operator-list");
+	    }
 	  else 
 	    op->substitutes.safe_push (idb);
 	}
@@ -3426,6 +3534,11 @@ parser::parse_operator_list (source_location)
       else
 	op->substitutes.safe_push (idb);
     }
+
+  // Check that there is no junk after id-list
+  token = peek();
+  if (token->type != CPP_CLOSE_PAREN)
+    fatal_at (token, "expected identifier got %s", cpp_type2name (token->type, 0));
 
   if (op->substitutes.length () == 0)
     fatal_at (token, "operator-list cannot be empty");
@@ -3643,6 +3756,9 @@ main (int argc, char **argv)
 add_operator (CONVERT0, "CONVERT0", "tcc_unary", 1);
 add_operator (CONVERT1, "CONVERT1", "tcc_unary", 1);
 add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
+add_operator (VIEW_CONVERT0, "VIEW_CONVERT0", "tcc_unary", 1);
+add_operator (VIEW_CONVERT1, "VIEW_CONVERT1", "tcc_unary", 1);
+add_operator (VIEW_CONVERT2, "VIEW_CONVERT2", "tcc_unary", 1);
 #undef END_OF_BASE_TREE_CODES
 #undef DEFTREECODE
 

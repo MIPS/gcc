@@ -20,31 +20,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
+#include "rtl.h"
+#include "df.h"
 
-#include "machmode.h"
-#include "hard-reg-set.h"
 #include "rtl-error.h"
 #include "tm_p.h"
 #include "obstack.h"
 #include "insn-config.h"
-#include "ggc.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "input.h"
-#include "function.h"
-#include "symtab.h"
-#include "rtl.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -57,13 +43,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "regs.h"
 #include "addresses.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfgbuild.h"
-#include "basic-block.h"
-#include "df.h"
 #include "reload.h"
 #include "recog.h"
 #include "except.h"
@@ -1654,12 +1635,14 @@ calculate_elim_costs_all_insns (void)
 		      || reg_equiv_invariant (REGNO (SET_DEST (set)))))
 		{
 		  unsigned regno = REGNO (SET_DEST (set));
-		  rtx init = reg_equiv_init (regno);
+		  rtx_insn_list *init = reg_equiv_init (regno);
 		  if (init)
 		    {
 		      rtx t = eliminate_regs_1 (SET_SRC (set), VOIDmode, insn,
 						false, true);
-		      int cost = set_src_cost (t, optimize_bb_for_speed_p (bb));
+		      machine_mode mode = GET_MODE (SET_DEST (set));
+		      int cost = set_src_cost (t, mode,
+					       optimize_bb_for_speed_p (bb));
 		      int freq = REG_FREQ_FROM_BB (bb);
 
 		      reg_equiv_init_cost[regno] = cost * freq;
@@ -2531,7 +2514,8 @@ note_reg_elim_costly (const_rtx x, rtx insn)
 	{
 	  rtx t = reg_equiv_invariant (REGNO (x));
 	  rtx new_rtx = eliminate_regs_1 (t, Pmode, insn, true, true);
-	  int cost = set_src_cost (new_rtx, optimize_bb_for_speed_p (elim_bb));
+	  int cost = set_src_cost (new_rtx, Pmode,
+				   optimize_bb_for_speed_p (elim_bb));
 	  int freq = REG_FREQ_FROM_BB (elim_bb);
 
 	  if (cost != 0)
@@ -3452,8 +3436,7 @@ eliminate_regs_in_insn (rtx_insn *insn, int replace)
 		   the INSN_CODE the same and let reload fix it up.  */
 		if (!validate_change (insn, &SET_SRC (old_set), new_src, 0))
 		  {
-		    rtx new_pat = gen_rtx_SET (VOIDmode,
-					       SET_DEST (old_set), new_src);
+		    rtx new_pat = gen_rtx_SET (SET_DEST (old_set), new_src);
 
 		    if (!validate_change (insn, &PATTERN (insn), new_pat, 0))
 		      SET_SRC (old_set) = new_src;
@@ -5625,11 +5608,7 @@ reloads_unique_chain_p (int r1, int r2)
 
   /* The following loop assumes that r1 is the reload that feeds r2.  */
   if (r1 > r2)
-    {
-      int tmp = r2;
-      r2 = r1;
-      r1 = tmp;
-    }
+    std::swap (r1, r2);
 
   for (i = 0; i < n_reloads; i ++)
     /* Look for input reloads that aren't our two */
@@ -5708,18 +5687,15 @@ gen_reload_chain_without_interm_reg_p (int r1, int r2)
   /* Assume other cases in gen_reload are not possible for
      chain reloads or do need an intermediate hard registers.  */
   bool result = true;
-  int regno, n, code;
+  int regno, code;
   rtx out, in;
   rtx_insn *insn;
   rtx_insn *last = get_last_insn ();
 
   /* Make r2 a component of r1.  */
   if (reg_mentioned_p (rld[r1].in, rld[r2].in))
-    {
-      n = r1;
-      r1 = r2;
-      r2 = n;
-    }
+    std::swap (r1, r2);
+
   gcc_assert (reg_mentioned_p (rld[r2].in, rld[r1].in));
   regno = rld[r1].regno >= 0 ? rld[r1].regno : rld[r2].regno;
   gcc_assert (regno >= 0);
@@ -5740,7 +5716,7 @@ gen_reload_chain_without_interm_reg_p (int r1, int r2)
 	  || CONSTANT_P (XEXP (in, 1))
 	  || MEM_P (XEXP (in, 1))))
     {
-      insn = emit_insn (gen_rtx_SET (VOIDmode, out, in));
+      insn = emit_insn (gen_rtx_SET (out, in));
       code = recog_memoized (insn);
       result = false;
 
@@ -8235,7 +8211,7 @@ emit_reload_insns (struct insn_chain *chain)
 
   for (j = 0; j < reload_n_operands; j++)
     {
-      rtx x = emit_insn_after (outaddr_address_reload_insns[j], insn);
+      rtx_insn *x = emit_insn_after (outaddr_address_reload_insns[j], insn);
       x = emit_insn_after (output_address_reload_insns[j], x);
       x = emit_insn_after (output_reload_insns[j], x);
       emit_insn_after (other_output_reload_insns[j], x);
@@ -8710,7 +8686,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       if (op0 != XEXP (in, 0) || op1 != XEXP (in, 1))
 	in = gen_rtx_PLUS (GET_MODE (in), op0, op1);
 
-      insn = emit_insn_if_valid_for_reload (gen_rtx_SET (VOIDmode, out, in));
+      insn = emit_insn_if_valid_for_reload (gen_rtx_SET (out, in));
       if (insn)
 	return insn;
 
@@ -8799,7 +8775,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 	in = gen_rtx_fmt_e (GET_CODE (in), GET_MODE (in), op1);
 
       /* First, try a plain SET.  */
-      set = emit_insn_if_valid_for_reload (gen_rtx_SET (VOIDmode, out, in));
+      set = emit_insn_if_valid_for_reload (gen_rtx_SET (out, in));
       if (set)
 	return set;
 
@@ -8814,10 +8790,8 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 
       gen_reload (out_moded, op1, opnum, type);
 
-      insn
-	= gen_rtx_SET (VOIDmode, out,
-		       gen_rtx_fmt_e (GET_CODE (in), GET_MODE (in),
-				      out_moded));
+      insn = gen_rtx_SET (out, gen_rtx_fmt_e (GET_CODE (in), GET_MODE (in),
+					      out_moded));
       insn = emit_insn_if_valid_for_reload (insn);
       if (insn)
 	{
@@ -8842,7 +8816,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 
   /* Otherwise, just write (set OUT IN) and hope for the best.  */
   else
-    emit_insn (gen_rtx_SET (VOIDmode, out, in));
+    emit_insn (gen_rtx_SET (out, in));
 
   /* Return the first insn emitted.
      We can not just return get_last_insn, because there may have
@@ -9236,7 +9210,7 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
 	 that in gen_reload.  */
 
       last = get_last_insn ();
-      add_insn = emit_insn (gen_rtx_SET (VOIDmode, incloc,
+      add_insn = emit_insn (gen_rtx_SET (incloc,
 					 gen_rtx_PLUS (GET_MODE (incloc),
 						       incloc, inc)));
 

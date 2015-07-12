@@ -21,10 +21,12 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
+#include "df.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-flags.h"
@@ -35,25 +37,11 @@
 #include "reload.h"
 #include "diagnostic-core.h"
 #include "obstack.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
-#include "hashtab.h"
-#include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,31 +51,22 @@
 #include "insn-codes.h"
 #include "optabs.h"
 #include "except.h"
-#include "ggc.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
-#include "hash-table.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
-#include "df.h"
 #include "tm-constrs.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Prototypes */
 
@@ -1215,8 +1194,7 @@ m32c_pushm_popm (Push_Pop_Type ppt)
 	    addr = gen_rtx_PLUS (GET_MODE (addr), addr, GEN_INT (byte_count));
 
 	  dwarf_set[n_dwarfs++] =
-	    gen_rtx_SET (VOIDmode,
-			 gen_rtx_MEM (mode, addr),
+	    gen_rtx_SET (gen_rtx_MEM (mode, addr),
 			 gen_rtx_REG (mode, pushm_info[i].reg1));
 	  F (dwarf_set[n_dwarfs - 1]);
 
@@ -1247,8 +1225,7 @@ m32c_pushm_popm (Push_Pop_Type ppt)
       if (reg_mask)
 	{
 	  XVECEXP (note, 0, 0)
-	    = gen_rtx_SET (VOIDmode,
-			   stack_pointer_rtx,
+	    = gen_rtx_SET (stack_pointer_rtx,
 			   gen_rtx_PLUS (GET_MODE (stack_pointer_rtx),
 					 stack_pointer_rtx,
 					 GEN_INT (-byte_count)));
@@ -1885,7 +1862,7 @@ m32c_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       /* reload FB to A_REGS */
       rtx temp = gen_reg_rtx (Pmode);
       x = copy_rtx (x);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, XEXP (x, 0)));
+      emit_insn (gen_rtx_SET (temp, XEXP (x, 0)));
       XEXP (x, 0) = temp;
     }
 
@@ -2245,9 +2222,11 @@ m32c_memory_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS m32c_rtx_costs
 static bool
-m32c_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
+m32c_rtx_costs (rtx x, machine_mode mode, int outer_code,
+		int opno ATTRIBUTE_UNUSED,
 		int *total, bool speed ATTRIBUTE_UNUSED)
 {
+  int code = GET_CODE (x);
   switch (code)
     {
     case REG:
@@ -2315,7 +2294,7 @@ m32c_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 
     default:
       /* Reasonable default.  */
-      if (TARGET_A16 && GET_MODE(x) == SImode)
+      if (TARGET_A16 && mode == SImode)
 	*total += COSTS_N_INSNS (2);
       break;
     }
@@ -3069,26 +3048,14 @@ m32c_insert_attributes (tree node ATTRIBUTE_UNUSED,
     }	
 }
 
-
-struct pragma_traits : default_hashmap_traits
-{
-  static hashval_t hash (const char *str) { return htab_hash_string (str); }
-  static bool
-  equal_keys (const char *a, const char *b)
-  {
-    return !strcmp (a, b);
-  }
-};
-
 /* Hash table of pragma info.  */
-static GTY(()) hash_map<const char *, unsigned, pragma_traits> *pragma_htab;
+static GTY(()) hash_map<nofree_string_hash, unsigned> *pragma_htab;
 
 void
 m32c_note_pragma_address (const char *varname, unsigned address)
 {
   if (!pragma_htab)
-    pragma_htab
-      = hash_map<const char *, unsigned, pragma_traits>::create_ggc (31);
+    pragma_htab = hash_map<nofree_string_hash, unsigned>::create_ggc (31);
 
   const char *name = ggc_strdup (varname);
   unsigned int *slot = &pragma_htab->get_or_insert (name);
@@ -3380,7 +3347,7 @@ m32c_prepare_move (rtx * operands, machine_mode mode)
       rtx dest_reg = XEXP (pmv, 0);
       rtx dest_mod = XEXP (pmv, 1);
 
-      emit_insn (gen_rtx_SET (Pmode, dest_reg, dest_mod));
+      emit_insn (gen_rtx_SET (dest_reg, dest_mod));
       operands[0] = gen_rtx_MEM (mode, dest_reg);
     }
   if (can_create_pseudo_p () && MEM_P (operands[0]) && MEM_P (operands[1]))
@@ -4139,6 +4106,9 @@ m32c_emit_prologue (void)
       && !m32c_function_needs_enter ())
     cfun->machine->use_rts = 1;
 
+  if (flag_stack_usage_info)
+    current_function_static_stack_size = frame_size;
+  
   if (frame_size > 254)
     {
       extra_frame_size = frame_size - 254;

@@ -445,9 +445,9 @@ main (int argc, char **argv)
   if (!out)
     fatal_error (input_location, "cannot open '%s'", ptx_cfile_name);
 
-  /* We do not support OMP offloading. Don't generate an offload image
-     if we did not see -fopenacc.  */
-  if (fopenacc)
+  /* PR libgomp/65099: Currently, we only support offloading in 64-bit
+     configurations, and only for OpenACC offloading.  */
+  if (!target_ilp32 && fopenacc)
     {
       ptx_name = make_temp_file (".mkoffload");
       obstack_ptr_grow (&argv_obstack, "-o");

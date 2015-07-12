@@ -657,6 +657,7 @@ experimental_headers = \
 	${experimental_srcdir}/memory \
 	${experimental_srcdir}/numeric \
 	${experimental_srcdir}/optional \
+	${experimental_srcdir}/propagate_const \
 	${experimental_srcdir}/ratio \
 	${experimental_srcdir}/set \
 	${experimental_srcdir}/string \
@@ -759,12 +760,14 @@ debug_srcdir = ${glibcxx_srcdir}/include/debug
 debug_builddir = ./debug
 debug_headers = \
 	${debug_srcdir}/array \
+	${debug_srcdir}/assertions.h \
 	${debug_srcdir}/bitset \
 	${debug_srcdir}/debug.h \
 	${debug_srcdir}/deque \
 	${debug_srcdir}/formatter.h \
 	${debug_srcdir}/forward_list \
 	${debug_srcdir}/functions.h \
+	${debug_srcdir}/helper_functions.h \
 	${debug_srcdir}/list \
 	${debug_srcdir}/map \
 	${debug_srcdir}/macros.h \
@@ -784,6 +787,7 @@ debug_headers = \
 	${debug_srcdir}/safe_unordered_container.tcc \
 	${debug_srcdir}/set \
 	${debug_srcdir}/set.h \
+	${debug_srcdir}/stl_iterator.h \
 	${debug_srcdir}/string \
 	${debug_srcdir}/unordered_map \
 	${debug_srcdir}/unordered_set \

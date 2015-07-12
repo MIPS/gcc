@@ -276,6 +276,12 @@ match_rtx (rtx x, struct link *path, int fail_label)
 	  printf ("  if (XINT (x, %d) != %d) goto L%d;\n",
 		  i, XINT (x, i), fail_label);
 	}
+      else if (fmt[i] == 'r')
+	{
+	  gcc_assert (i == 0);
+	  printf ("  if (REGNO (x) != %d) goto L%d;\n",
+		  REGNO (x), fail_label);
+	}
       else if (fmt[i] == 'w')
 	{
 	  /* Make sure that at run time `x' is the RTX we want to test.  */
@@ -357,33 +363,23 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"config.h\"\n");
   printf ("#include \"system.h\"\n");
   printf ("#include \"coretypes.h\"\n");
-  printf ("#include \"tm.h\"\n");
-  printf ("#include \"insn-config.h\"\n");
-  printf ("#include \"hash-set.h\"\n");
-  printf ("#include \"machmode.h\"\n");
-  printf ("#include \"vec.h\"\n");
-  printf ("#include \"double-int.h\"\n");
-  printf ("#include \"input.h\"\n");
-  printf ("#include \"alias.h\"\n");
-  printf ("#include \"symtab.h\"\n");
-  printf ("#include \"wide-int.h\"\n");
-  printf ("#include \"inchash.h\"\n");
+  printf ("#include \"backend.h\"\n");
   printf ("#include \"tree.h\"\n");
+  printf ("#include \"rtl.h\"\n");
+  printf ("#include \"insn-config.h\"\n");
+  printf ("#include \"alias.h\"\n");
   printf ("#include \"varasm.h\"\n");
   printf ("#include \"stor-layout.h\"\n");
   printf ("#include \"calls.h\"\n");
-  printf ("#include \"rtl.h\"\n");
   printf ("#include \"tm_p.h\"\n");
   printf ("#include \"regs.h\"\n");
   printf ("#include \"output.h\"\n");
   printf ("#include \"recog.h\"\n");
   printf ("#include \"except.h\"\n");
-  printf ("#include \"function.h\"\n");
   printf ("#include \"diagnostic-core.h\"\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"tm-constrs.h\"\n\n");
 
-  printf ("#ifdef HAVE_peephole\n");
   printf ("extern rtx peep_operand[];\n\n");
   printf ("#define operands peep_operand\n\n");
 
@@ -417,7 +413,6 @@ from the machine description file `md'.  */\n\n");
     max_opno = 1;
 
   printf ("rtx peep_operand[%d];\n", max_opno + 1);
-  printf ("#endif\n");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

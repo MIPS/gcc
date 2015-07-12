@@ -50,9 +50,7 @@ not after.
 
 
 #include "intl.h"
-#include "input.h"
 #include "splay-tree.h"
-#include "vec.h"
 
 /* Major control parameters.  */
 
@@ -203,19 +201,19 @@ typedef enum
   ST_CALL, ST_CASE, ST_CLOSE, ST_COMMON, ST_CONTINUE, ST_CONTAINS, ST_CYCLE,
   ST_DATA, ST_DATA_DECL, ST_DEALLOCATE, ST_DO, ST_ELSE, ST_ELSEIF,
   ST_ELSEWHERE, ST_END_ASSOCIATE, ST_END_BLOCK, ST_END_BLOCK_DATA,
-  ST_ENDDO, ST_IMPLIED_ENDDO,
-  ST_END_FILE, ST_FINAL, ST_FLUSH, ST_END_FORALL, ST_END_FUNCTION, ST_ENDIF,
-  ST_END_INTERFACE, ST_END_MODULE, ST_END_PROGRAM, ST_END_SELECT,
-  ST_END_SUBROUTINE, ST_END_WHERE, ST_END_TYPE, ST_ENTRY, ST_EQUIVALENCE,
-  ST_ERROR_STOP, ST_EXIT, ST_FORALL, ST_FORALL_BLOCK, ST_FORMAT, ST_FUNCTION,
-  ST_GOTO, ST_IF_BLOCK, ST_IMPLICIT, ST_IMPLICIT_NONE, ST_IMPORT,
-  ST_INQUIRE, ST_INTERFACE, ST_SYNC_ALL, ST_SYNC_MEMORY, ST_SYNC_IMAGES,
-  ST_PARAMETER, ST_MODULE, ST_MODULE_PROC, ST_NAMELIST, ST_NULLIFY, ST_OPEN,
-  ST_PAUSE, ST_PRIVATE, ST_PROGRAM, ST_PUBLIC, ST_READ, ST_RETURN, ST_REWIND,
-  ST_STOP, ST_SUBROUTINE, ST_TYPE, ST_USE, ST_WHERE_BLOCK, ST_WHERE, ST_WAIT,
-  ST_WRITE, ST_ASSIGNMENT, ST_POINTER_ASSIGNMENT, ST_SELECT_CASE, ST_SEQUENCE,
-  ST_SIMPLE_IF, ST_STATEMENT_FUNCTION, ST_DERIVED_DECL, ST_LABEL_ASSIGNMENT,
-  ST_ENUM, ST_ENUMERATOR, ST_END_ENUM, ST_SELECT_TYPE, ST_TYPE_IS, ST_CLASS_IS,
+  ST_ENDDO, ST_IMPLIED_ENDDO, ST_END_FILE, ST_FINAL, ST_FLUSH, ST_END_FORALL,
+  ST_END_FUNCTION, ST_ENDIF, ST_END_INTERFACE, ST_END_MODULE, ST_END_SUBMODULE,
+  ST_END_PROGRAM, ST_END_SELECT, ST_END_SUBROUTINE, ST_END_WHERE, ST_END_TYPE,
+  ST_ENTRY, ST_EQUIVALENCE, ST_ERROR_STOP, ST_EXIT, ST_FORALL, ST_FORALL_BLOCK,
+  ST_FORMAT, ST_FUNCTION, ST_GOTO, ST_IF_BLOCK, ST_IMPLICIT, ST_IMPLICIT_NONE,
+  ST_IMPORT, ST_INQUIRE, ST_INTERFACE, ST_SYNC_ALL, ST_SYNC_MEMORY,
+  ST_SYNC_IMAGES, ST_PARAMETER, ST_MODULE, ST_SUBMODULE, ST_MODULE_PROC,
+  ST_NAMELIST, ST_NULLIFY, ST_OPEN, ST_PAUSE, ST_PRIVATE, ST_PROGRAM, ST_PUBLIC,
+  ST_READ, ST_RETURN, ST_REWIND, ST_STOP, ST_SUBROUTINE, ST_TYPE, ST_USE,
+  ST_WHERE_BLOCK, ST_WHERE, ST_WAIT, ST_WRITE, ST_ASSIGNMENT,
+  ST_POINTER_ASSIGNMENT, ST_SELECT_CASE, ST_SEQUENCE, ST_SIMPLE_IF,
+  ST_STATEMENT_FUNCTION, ST_DERIVED_DECL, ST_LABEL_ASSIGNMENT, ST_ENUM,
+  ST_ENUMERATOR, ST_END_ENUM, ST_SELECT_TYPE, ST_TYPE_IS, ST_CLASS_IS,
   ST_OACC_PARALLEL_LOOP, ST_OACC_END_PARALLEL_LOOP, ST_OACC_PARALLEL,
   ST_OACC_END_PARALLEL, ST_OACC_KERNELS, ST_OACC_END_KERNELS, ST_OACC_DATA,
   ST_OACC_END_DATA, ST_OACC_HOST_DATA, ST_OACC_END_HOST_DATA, ST_OACC_LOOP,
@@ -420,6 +418,7 @@ enum gfc_isym_id
   GFC_ISYM_EXPONENT,
   GFC_ISYM_EXTENDS_TYPE_OF,
   GFC_ISYM_FDATE,
+  GFC_ISYM_FE_RUNTIME_ERROR,
   GFC_ISYM_FGET,
   GFC_ISYM_FGETC,
   GFC_ISYM_FLOOR,
@@ -753,6 +752,9 @@ typedef struct
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
     is_protected:1,		/* Symbol has been marked as protected.  */
     use_assoc:1,		/* Symbol has been use-associated.  */
+    used_in_submodule:1,	/* Symbol has been use-associated in a
+				   submodule. Needed since these entities must
+				   be set host associated to be compliant.  */
     use_only:1,			/* Symbol has been use-associated, with ONLY.  */
     use_rename:1,		/* Symbol has been use-associated and renamed.  */
     imported:1,			/* Symbol has been associated by IMPORT.  */
@@ -780,6 +782,11 @@ typedef struct
   /* Function/subroutine attributes */
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
   unsigned unmaskable:1, masked:1, contained:1, mod_proc:1, abstract:1;
+
+  /* Set if this is a module function or subroutine. Note that it is an
+     attribute because it appears as a prefix in the declaration like
+     PURE, etc..  */
+  unsigned module_procedure:1;
 
   /* Set if a (public) symbol [e.g. generic name] exposes this symbol,
      which is relevant for private module procedures.  */
@@ -1013,6 +1020,7 @@ typedef struct
 			AS_EXPLICIT, but we want to remember that we
 			did this.  */
 
+  bool resolved;
 }
 gfc_array_spec;
 
@@ -1491,6 +1499,9 @@ typedef struct gfc_symbol
   unsigned forall_index:1;
   /* Used to avoid multiple resolutions of a single symbol.  */
   unsigned resolved:1;
+  /* Set if this is a module function or subroutine with the
+     abreviated declaration in a submodule.  */
+  unsigned abr_modproc_decl:1;
 
   int refs;
   struct gfc_namespace *ns;	/* namespace containing this symbol */
@@ -1958,7 +1969,7 @@ typedef struct gfc_intrinsic_sym
   gfc_typespec ts;
   unsigned elemental:1, inquiry:1, transformational:1, pure:1,
     generic:1, specific:1, actual_ok:1, noreturn:1, conversion:1,
-    from_module:1;
+    from_module:1, vararg:1;
 
   int standard;
 
@@ -2446,6 +2457,9 @@ typedef struct gfc_code
     {
       gfc_typespec ts;
       gfc_alloc *list;
+      /* Take the array specification from expr3 to allocate arrays
+	 without an explicit array specification.  */
+      unsigned arr_spec_from_expr3:1;
     }
     alloc;
 
@@ -2696,14 +2710,6 @@ const char * gfc_get_string (const char *, ...) ATTRIBUTE_PRINTF_1;
 bool gfc_find_sym_in_expr (gfc_symbol *, gfc_expr *);
 
 /* error.c */
-
-typedef struct gfc_error_buf
-{
-  int flag;
-  size_t allocated, index;
-  char *message;
-} gfc_error_buf;
-
 void gfc_error_init_1 (void);
 void gfc_diagnostics_init (void);
 void gfc_diagnostics_finish (void);
@@ -2711,17 +2717,15 @@ void gfc_buffer_error (bool);
 
 const char *gfc_print_wide_char (gfc_char_t);
 
-void gfc_warning_1 (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 bool gfc_warning (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
-void gfc_warning_now_1 (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 bool gfc_warning_now (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
+bool gfc_warning_now_at (location_t loc, int opt, const char *gmsgid, ...)
+  ATTRIBUTE_GCC_GFC(3,4);
 
 void gfc_clear_warning (void);
 void gfc_warning_check (void);
 
-void gfc_error_1 (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_error (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
-void gfc_error_now_1 (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_error_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
 void gfc_internal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
@@ -2730,17 +2734,23 @@ bool gfc_error_check (void);
 bool gfc_error_flag_test (void);
 
 notification gfc_notification_std (int);
-bool gfc_notify_std_1 (int, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 bool gfc_notify_std (int, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 
 /* A general purpose syntax error.  */
 #define gfc_syntax_error(ST)	\
   gfc_error ("Syntax error in %s statement at %C", gfc_ascii_statement (ST));
 
-#include "pretty-print.h" /* For output_buffer.  */
-void gfc_push_error (output_buffer *, gfc_error_buf *);
-void gfc_pop_error (output_buffer *, gfc_error_buf *);
-void gfc_free_error (output_buffer *, gfc_error_buf *);
+#include "pretty-print.h"  /* For output_buffer.  */
+struct gfc_error_buffer
+{
+  bool flag;
+  output_buffer buffer;
+  gfc_error_buffer(void) : flag(false), buffer() {}
+};
+
+void gfc_push_error (gfc_error_buffer *);
+void gfc_pop_error (gfc_error_buffer *);
+void gfc_free_error (gfc_error_buffer *);
 
 void gfc_get_errors (int *, int *);
 void gfc_errors_to_warnings (bool);
@@ -2840,7 +2850,7 @@ bool gfc_add_type (gfc_symbol *, gfc_typespec *, locus *);
 void gfc_clear_attr (symbol_attribute *);
 bool gfc_missing_attr (symbol_attribute *, locus *);
 bool gfc_copy_attr (symbol_attribute *, symbol_attribute *, locus *);
-
+int gfc_copy_dummy_sym (gfc_symbol **, gfc_symbol *, int);
 bool gfc_add_component (gfc_symbol *, const char *, gfc_component **);
 gfc_symbol *gfc_use_derived (gfc_symbol *);
 gfc_symtree *gfc_use_derived_tree (gfc_symtree *);
@@ -3142,6 +3152,10 @@ bool gfc_ref_dimen_size (gfc_array_ref *, int dimen, mpz_t *, mpz_t *);
 void gfc_free_interface (gfc_interface *);
 int gfc_compare_derived_types (gfc_symbol *, gfc_symbol *);
 int gfc_compare_types (gfc_typespec *, gfc_typespec *);
+bool gfc_check_dummy_characteristics (gfc_symbol *, gfc_symbol *,
+				      bool, char *, int);
+bool gfc_check_result_characteristics (gfc_symbol *, gfc_symbol *,
+				       char *, int);
 int gfc_compare_interfaces (gfc_symbol*, gfc_symbol*, const char *, int, int,
 			    char *, int, const char *, const char *);
 void gfc_check_interfaces (gfc_namespace *);
@@ -3284,6 +3298,10 @@ int gfc_code_walker (gfc_code **, walk_code_fn_t, walk_expr_fn_t, void *);
 /* simplify.c */
 
 void gfc_convert_mpz_to_signed (mpz_t, int);
+
+/* trans-array.c  */
+
+bool gfc_is_reallocatable_lhs (gfc_expr *);
 
 /* trans-decl.c */
 

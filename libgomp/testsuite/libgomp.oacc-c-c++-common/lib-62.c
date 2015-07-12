@@ -12,8 +12,6 @@ main (int argc, char **argv)
   unsigned char *h;
   void *d;
 
-  acc_init (acc_device_nvidia);
-
   h = (unsigned char *) malloc (N);
 
   for (i = 0; i < N; i++)
@@ -40,8 +38,6 @@ main (int argc, char **argv)
   acc_free (d);
 
   free (h);
-
-  acc_shutdown (acc_device_nvidia);
 
   return 0;
 }

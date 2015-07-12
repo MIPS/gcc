@@ -20,32 +20,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "symtab.h"
-#include "inchash.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "cfgloop.h"
 #include "diagnostic-core.h"
 #include "flags.h"
-#include "tree.h"
 #include "fold-const.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "dumpfile.h"
@@ -959,7 +943,7 @@ get_loop_body_in_bfs_order (const struct loop *loop)
 	    }
 	}
 
-      gcc_assert (i >= vc);
+      gcc_assert (i > vc);
 
       bb = blocks[vc++];
     }

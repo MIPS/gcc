@@ -21,37 +21,25 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
+#include "df.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
 #include "obstack.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "print-tree.h"
 #include "varasm.h"
-#include "hashtab.h"
-#include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,34 +51,23 @@
 #include "except.h"
 #include "output.h"
 #include "dbxout.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "reload.h"
 #include "cfgloop.h"
 #include "sched-int.h"
-#include "hash-table.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
@@ -101,9 +78,6 @@
 #include "opts.h"
 #include "tree-vectorizer.h"
 #include "dumpfile.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "target-globals.h"
 #include "builtins.h"
@@ -115,6 +89,9 @@
 #if TARGET_MACHO
 #include "gstab.h"  /* for N_SLINE */
 #endif
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
@@ -155,10 +132,9 @@ typedef struct rs6000_stack {
   int gp_size;			/* size of saved GP registers */
   int fp_size;			/* size of saved FP registers */
   int altivec_size;		/* size of saved AltiVec registers */
-  int cr_size;			/* size to hold CR if not in save_size */
-  int vrsave_size;		/* size to hold VRSAVE if not in save_size */
-  int altivec_padding_size;	/* size of altivec alignment padding if
-				   not in save_size */
+  int cr_size;			/* size to hold CR if not in fixed area */
+  int vrsave_size;		/* size to hold VRSAVE */
+  int altivec_padding_size;	/* size of altivec alignment padding */
   int spe_gp_size;		/* size of 64-bit GPR save size for SPE */
   int spe_padding_size;
   HOST_WIDE_INT total_size;	/* total bytes allocated for stack */
@@ -188,6 +164,8 @@ typedef struct GTY(()) machine_function
      64-bits wide and is allocated early enough so that the offset
      does not overflow the 16-bit load/store offset field.  */
   rtx sdmode_stack_slot;
+  /* Alternative internal arg pointer for -fsplit-stack.  */
+  rtx split_stack_arg_pointer;
   /* Flag if r2 setup is needed with ELFv2 ABI.  */
   bool r2_setup_needed;
 } machine_function;
@@ -1130,7 +1108,7 @@ static tree rs6000_handle_struct_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_builtin_vectorized_libmass (tree, tree, tree);
 static void rs6000_emit_set_long_const (rtx, HOST_WIDE_INT);
 static int rs6000_memory_move_cost (machine_mode, reg_class_t, bool);
-static bool rs6000_debug_rtx_costs (rtx, int, int, int, int *, bool);
+static bool rs6000_debug_rtx_costs (rtx, machine_mode, int, int, int *, bool);
 static int rs6000_debug_address_cost (rtx, machine_mode, addr_space_t,
 				      bool);
 static int rs6000_debug_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
@@ -1191,6 +1169,7 @@ static bool rs6000_debug_cannot_change_mode_class (machine_mode,
 						   machine_mode,
 						   enum reg_class);
 static bool rs6000_save_toc_in_prologue_p (void);
+static rtx rs6000_internal_arg_pointer (void);
 
 rtx (*rs6000_legitimize_reload_address_ptr) (rtx, machine_mode, int, int,
 					     int, int *)
@@ -1241,7 +1220,7 @@ struct GTY((for_user)) toc_hash_struct
   int labelno;
 };
 
-struct toc_hasher : ggc_hasher<toc_hash_struct *>
+struct toc_hasher : ggc_ptr_hash<toc_hash_struct>
 {
   static hashval_t hash (toc_hash_struct *);
   static bool equal (toc_hash_struct *, toc_hash_struct *);
@@ -1258,7 +1237,7 @@ struct GTY((for_user)) builtin_hash_struct
   unsigned char uns_p[4];	/* and whether the types are unsigned.  */
 };
 
-struct builtin_hasher : ggc_hasher<builtin_hash_struct *>
+struct builtin_hasher : ggc_ptr_hash<builtin_hash_struct>
 {
   static hashval_t hash (builtin_hash_struct *);
   static bool equal (builtin_hash_struct *, builtin_hash_struct *);
@@ -1411,6 +1390,12 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_SET_UP_BY_PROLOGUE
 #define TARGET_SET_UP_BY_PROLOGUE rs6000_set_up_by_prologue
+
+#undef TARGET_EXTRA_LIVE_ON_ENTRY
+#define TARGET_EXTRA_LIVE_ON_ENTRY rs6000_live_on_entry
+
+#undef TARGET_INTERNAL_ARG_POINTER
+#define TARGET_INTERNAL_ARG_POINTER rs6000_internal_arg_pointer
 
 #undef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS HAVE_AS_TLS
@@ -1597,8 +1582,8 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_ASM_LOOP_ALIGN_MAX_SKIP
 #define TARGET_ASM_LOOP_ALIGN_MAX_SKIP rs6000_loop_align_max_skip
 
-#undef TARGET_MD_ASM_CLOBBERS
-#define TARGET_MD_ASM_CLOBBERS rs6000_md_asm_clobbers
+#undef TARGET_MD_ASM_ADJUST
+#define TARGET_MD_ASM_ADJUST rs6000_md_asm_adjust
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE rs6000_option_override
@@ -1611,17 +1596,6 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_STACK_PROTECT_FAIL
 #define TARGET_STACK_PROTECT_FAIL rs6000_stack_protect_fail
 #endif
-
-/* MPC604EUM 3.5.2 Weak Consistency between Multiple Processors
-   The PowerPC architecture requires only weak consistency among
-   processors--that is, memory accesses between processors need not be
-   sequentially consistent and memory accesses among processors can occur
-   in any order. The ability to order memory accesses weakly provides
-   opportunities for more efficient use of the system bus. Unless a
-   dependency exists, the 604e allows read operations to precede store
-   operations.  */
-#undef TARGET_RELAXED_ORDERING
-#define TARGET_RELAXED_ORDERING true
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
@@ -1808,6 +1782,16 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
     return (IN_RANGE (regno, FIRST_GPR_REGNO, LAST_GPR_REGNO)
 	    && IN_RANGE (last_regno, FIRST_GPR_REGNO, LAST_GPR_REGNO)
 	    && ((regno & 1) == 0));
+
+  /* If we don't allow 128-bit binary floating point, disallow the 128-bit
+     types from going in any registers.  Similarly if __float128 is not
+     supported, don't allow __float128/__ibm128 types.  */
+  if (!TARGET_LONG_DOUBLE_128
+      && (mode == TFmode || mode == KFmode || mode == IFmode))
+    return false;
+
+  if (!TARGET_FLOAT128 && (mode == KFmode || mode == IFmode))
+    return false;
 
   /* VSX registers that overlap the FPR registers are larger than for non-VSX
      implementations.  Don't allow an item to be split between a FP register
@@ -2078,6 +2062,7 @@ rs6000_debug_reg_global (void)
   const char *trace_str;
   const char *abi_str;
   const char *cmodel_str;
+  const char *float128_str;
   struct cl_target_option cl_opts;
 
   /* Modes we want tieable information on.  */
@@ -2091,6 +2076,8 @@ rs6000_debug_reg_global (void)
     SFmode,
     DFmode,
     TFmode,
+    IFmode,
+    KFmode,
     SDmode,
     DDmode,
     TDmode,
@@ -2436,6 +2423,15 @@ rs6000_debug_reg_global (void)
 
   fprintf (stderr, DEBUG_FMT_S, "e500_double",
 	   (TARGET_E500_DOUBLE ? "true" : "false"));
+
+  switch (TARGET_FLOAT128)
+    {
+    case FLOAT128_NONE:	float128_str = "none";		break;
+    case FLOAT128_SW:	float128_str = "software";	break;
+    default:		float128_str = "unknown";	break;
+    }
+
+  fprintf (stderr, DEBUG_FMT_S, "float128", float128_str);
 
   if (TARGET_LINK_STACK)
     fprintf (stderr, DEBUG_FMT_S, "link_stack", "true");
@@ -3209,17 +3205,20 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128 : 0));
 }
 
-/* Implement TARGET_MD_ASM_CLOBBERS.  All asm statements are considered
+/* Implement TARGET_MD_ASM_ADJUST.  All asm statements are considered
    to clobber the XER[CA] bit because clobbering that bit without telling
    the compiler worked just fine with versions of GCC before GCC 5, and
    breaking a lot of older code in ways that are hard to track down is
    not such a great idea.  */
 
-static tree
-rs6000_md_asm_clobbers (tree, tree, tree clobbers)
+static rtx_insn *
+rs6000_md_asm_adjust (vec<rtx> &/*outputs*/, vec<rtx> &/*inputs*/,
+		      vec<const char *> &/*constraints*/,
+		      vec<rtx> &clobbers, HARD_REG_SET &clobbered_regs)
 {
-  tree s = build_string (strlen (reg_names[CA_REGNO]), reg_names[CA_REGNO]);
-  return tree_cons (NULL_TREE, s, clobbers);
+  clobbers.safe_push (gen_rtx_REG (SImode, CA_REGNO));
+  SET_HARD_REG_BIT (clobbered_regs, CA_REGNO);
+  return NULL;
 }
 
 /* Override command line options.  Mostly we process the processor type and
@@ -3691,6 +3690,13 @@ rs6000_option_override_internal (bool global_init_p)
       && optimize_function_for_speed_p (cfun)
       && optimize >= 3)
     rs6000_isa_flags |= OPTION_MASK_P8_FUSION_SIGN;
+
+  /* Set the appropriate IEEE 128-bit floating option.  Do not enable float128
+     support by default until the libgcc support is added.  */
+  if (TARGET_FLOAT128 == FLOAT128_UNSET)
+    TARGET_FLOAT128 = FLOAT128_NONE;
+  else if (TARGET_FLOAT128 == FLOAT128_SW && !TARGET_VSX)
+    error ("-mfloat128-software requires VSX support");
 
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
@@ -5203,7 +5209,7 @@ direct_return (void)
 	  && info->first_altivec_reg_save == LAST_ALTIVEC_REGNO + 1
 	  && ! info->lr_save_p
 	  && ! info->cr_save_p
-	  && info->vrsave_mask == 0
+	  && info->vrsave_size == 0
 	  && ! info->push_p)
 	return 1;
     }
@@ -5780,14 +5786,13 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       if ((int_vector_p || TARGET_VSX) && all_const_zero)
 	{
 	  /* Zero register.  */
-	  emit_insn (gen_rtx_SET (VOIDmode, target,
-				  gen_rtx_XOR (mode, target, target)));
+	  emit_insn (gen_rtx_SET (target, gen_rtx_XOR (mode, target, target)));
 	  return;
 	}
       else if (int_vector_p && easy_vector_constant (const_vec, mode))
 	{
 	  /* Splat immediate.  */
-	  emit_insn (gen_rtx_SET (VOIDmode, target, const_vec));
+	  emit_insn (gen_rtx_SET (target, const_vec));
 	  return;
 	}
       else
@@ -5872,14 +5877,12 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 			  gen_rtvec (1, const0_rtx), UNSPEC_LVE);
       emit_insn (gen_rtx_PARALLEL (VOIDmode,
 				   gen_rtvec (2,
-					      gen_rtx_SET (VOIDmode,
-							   target, mem),
+					      gen_rtx_SET (target, mem),
 					      x)));
       x = gen_rtx_VEC_SELECT (inner_mode, target,
 			      gen_rtx_PARALLEL (VOIDmode,
 						gen_rtvec (1, const0_rtx)));
-      emit_insn (gen_rtx_SET (VOIDmode, target,
-			      gen_rtx_VEC_DUPLICATE (mode, x)));
+      emit_insn (gen_rtx_SET (target, gen_rtx_VEC_DUPLICATE (mode, x)));
       return;
     }
 
@@ -5943,8 +5946,7 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
 		      gen_rtvec (1, const0_rtx), UNSPEC_LVE);
   emit_insn (gen_rtx_PARALLEL (VOIDmode,
 			       gen_rtvec (2,
-					  gen_rtx_SET (VOIDmode,
-						       reg, mem),
+					  gen_rtx_SET (reg, mem),
 					  x)));
 
   /* Linear sequence.  */
@@ -5973,14 +5975,14 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
 		  ? gen_rtx_IOR (V16QImode, notx, notx)
 		  : gen_rtx_AND (V16QImode, notx, notx));
       rtx tmp = gen_reg_rtx (V16QImode);
-      emit_insn (gen_rtx_SET (VOIDmode, tmp, iorx));
+      emit_insn (gen_rtx_SET (tmp, iorx));
 
       /* Permute with operands reversed and adjusted selector.  */
       x = gen_rtx_UNSPEC (mode, gen_rtvec (3, reg, target, tmp),
 			  UNSPEC_VPERM);
     }
 
-  emit_insn (gen_rtx_SET (VOIDmode, target, x));
+  emit_insn (gen_rtx_SET (target, x));
 }
 
 /* Extract field ELT from VEC into TARGET.  */
@@ -6380,7 +6382,7 @@ quad_load_store_p (rtx op0, rtx op1)
     {
       fprintf (stderr, "\n========== quad_load_store, return %s\n",
 	       ret ? "true" : "false");
-      debug_rtx (gen_rtx_SET (VOIDmode, op0, op1));
+      debug_rtx (gen_rtx_SET (op0, op1));
     }
 
   return ret;
@@ -7293,10 +7295,10 @@ rs6000_legitimize_tls_address_aix (rtx addr, enum tls_model model)
       set_mem_alias_set (modmem, get_TOC_alias_set ());
       
       rtx modreg = gen_reg_rtx (Pmode);
-      emit_insn (gen_rtx_SET (VOIDmode, modreg, modmem));
+      emit_insn (gen_rtx_SET (modreg, modmem));
 
       tmpreg = gen_reg_rtx (Pmode);
-      emit_insn (gen_rtx_SET (VOIDmode, tmpreg, mem));
+      emit_insn (gen_rtx_SET (tmpreg, mem));
 
       dest = gen_reg_rtx (Pmode);
       if (TARGET_32BIT)
@@ -7316,7 +7318,7 @@ rs6000_legitimize_tls_address_aix (rtx addr, enum tls_model model)
 
   /* Load the TOC value into temporary register.  */
   tmpreg = gen_reg_rtx (Pmode);
-  emit_insn (gen_rtx_SET (VOIDmode, tmpreg, mem));
+  emit_insn (gen_rtx_SET (tmpreg, mem));
   set_unique_reg_note (get_last_insn (), REG_EQUAL,
 		       gen_rtx_MINUS (Pmode, addr, tlsreg));
 
@@ -7493,8 +7495,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	      else
 		insn = gen_tls_got_dtprel_32 (tmp2, got, addr);
 	      emit_insn (insn);
-	      insn = gen_rtx_SET (Pmode, dest,
-				  gen_rtx_PLUS (Pmode, tmp2, tmp1));
+	      insn = gen_rtx_SET (dest, gen_rtx_PLUS (Pmode, tmp2, tmp1));
 	    }
 	  emit_insn (insn);
 	}
@@ -8145,15 +8146,15 @@ rs6000_emit_set_const (rtx dest, rtx source)
     {
     case QImode:
     case HImode:
-      emit_insn (gen_rtx_SET (VOIDmode, dest, source));
+      emit_insn (gen_rtx_SET (dest, source));
       return true;
 
     case SImode:
       temp = !can_create_pseudo_p () ? dest : gen_reg_rtx (SImode);
 
-      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (temp),
+      emit_insn (gen_rtx_SET (copy_rtx (temp),
 			      GEN_INT (c & ~(HOST_WIDE_INT) 0xffff)));
-      emit_insn (gen_rtx_SET (VOIDmode, dest,
+      emit_insn (gen_rtx_SET (dest,
 			      gen_rtx_IOR (SImode, copy_rtx (temp),
 					   GEN_INT (c & 0xffff))));
       break;
@@ -8377,8 +8378,8 @@ rs6000_emit_le_vsx_load (rtx dest, rtx source, machine_mode mode)
   tmp = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (dest) : dest;
   permute_mem = rs6000_gen_le_vsx_permute (source, mode);
   permute_reg = rs6000_gen_le_vsx_permute (tmp, mode);
-  emit_insn (gen_rtx_SET (VOIDmode, tmp, permute_mem));
-  emit_insn (gen_rtx_SET (VOIDmode, dest, permute_reg));
+  emit_insn (gen_rtx_SET (tmp, permute_mem));
+  emit_insn (gen_rtx_SET (dest, permute_reg));
 }
 
 /* Emit a little-endian store to vector memory location DEST from VSX
@@ -8406,8 +8407,8 @@ rs6000_emit_le_vsx_store (rtx dest, rtx source, machine_mode mode)
   tmp = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (source) : source;
   permute_src = rs6000_gen_le_vsx_permute (source, mode);
   permute_tmp = rs6000_gen_le_vsx_permute (tmp, mode);
-  emit_insn (gen_rtx_SET (VOIDmode, tmp, permute_src));
-  emit_insn (gen_rtx_SET (VOIDmode, dest, permute_tmp));
+  emit_insn (gen_rtx_SET (tmp, permute_src));
+  emit_insn (gen_rtx_SET (dest, permute_tmp));
 }
 
 /* Emit a sequence representing a little-endian VSX load or store,
@@ -8761,7 +8762,7 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
 	      || GET_CODE (operands[1]) == CONST)
 	  && small_data_operand (operands[1], mode))
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+	  emit_insn (gen_rtx_SET (operands[0], operands[1]));
 	  return;
 	}
 
@@ -8813,8 +8814,7 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
 		  operands[1] = rs6000_machopic_legitimize_pic_address (
 				  operands[1], mode, operands[0]);
 		  if (operands[0] != operands[1])
-		    emit_insn (gen_rtx_SET (VOIDmode,
-					    operands[0], operands[1]));
+		    emit_insn (gen_rtx_SET (operands[0], operands[1]));
 		  return;
 		}
 #endif
@@ -8860,7 +8860,7 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
 		rs6000_machopic_legitimize_pic_address (operands[1], mode,
 							operands[0]);
 	      if (operands[0] != operands[1])
-		emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+		emit_insn (gen_rtx_SET (operands[0], operands[1]));
 	      return;
 	    }
 #endif
@@ -8913,7 +8913,7 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
       break;
 
     default:
-      fatal_insn ("bad move", gen_rtx_SET (VOIDmode, dest, source));
+      fatal_insn ("bad move", gen_rtx_SET (dest, source));
     }
 
   /* Above, we may have called force_const_mem which may have returned
@@ -8923,7 +8923,7 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
     operands[1] = validize_mem (operands[1]);
 
  emit_set:
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+  emit_insn (gen_rtx_SET (operands[0], operands[1]));
 }
 
 /* Return true if a structure, union or array containing FIELD should be
@@ -11154,7 +11154,7 @@ setup_incoming_varargs (cumulative_args_t cum, machine_mode mode,
   else
     {
       first_reg_offset = next_cum.words;
-      save_area = virtual_incoming_args_rtx;
+      save_area = crtl->args.internal_arg_pointer;
 
       if (targetm.calls.must_pass_in_stack (mode, type))
 	first_reg_offset += rs6000_arg_size (TYPE_MODE (type), type);
@@ -11201,8 +11201,7 @@ setup_incoming_varargs (cumulative_args_t cum, machine_mode mode,
 					       * UNITS_PER_FP_WORD);
 
       emit_jump_insn
-	(gen_rtx_SET (VOIDmode,
-		      pc_rtx,
+	(gen_rtx_SET (pc_rtx,
 		      gen_rtx_IF_THEN_ELSE (VOIDmode,
 					    gen_rtx_NE (VOIDmode, cr1,
 							const0_rtx),
@@ -11323,8 +11322,8 @@ rs6000_va_start (tree valist, rtx nextarg)
 	       FP_ARG_NUM_REG);
 
   if (TARGET_DEBUG_ARG)
-    fprintf (stderr, "va_start: words = "HOST_WIDE_INT_PRINT_DEC", n_gpr = "
-	     HOST_WIDE_INT_PRINT_DEC", n_fpr = "HOST_WIDE_INT_PRINT_DEC"\n",
+    fprintf (stderr, "va_start: words = " HOST_WIDE_INT_PRINT_DEC", n_gpr = "
+	     HOST_WIDE_INT_PRINT_DEC", n_fpr = " HOST_WIDE_INT_PRINT_DEC"\n",
 	     words, n_gpr, n_fpr);
 
   if (cfun->va_list_gpr_size)
@@ -11349,7 +11348,7 @@ rs6000_va_start (tree valist, rtx nextarg)
     }
 
   /* Find the overflow area.  */
-  t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
+  t = make_tree (TREE_TYPE (ovf), crtl->args.internal_arg_pointer);
   if (words != 0)
     t = fold_build_pointer_plus_hwi (t, words * MIN_UNITS_PER_WORD);
   t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
@@ -11474,7 +11473,6 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   f_ovf = DECL_CHAIN (f_res);
   f_sav = DECL_CHAIN (f_ovf);
 
-  valist = build_va_arg_indirect_ref (valist);
   gpr = build3 (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
   fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), unshare_expr (valist),
 		f_fpr, NULL_TREE);
@@ -12428,7 +12426,7 @@ void
 altivec_expand_lvx_be (rtx op0, rtx op1, machine_mode mode, unsigned unspec)
 {
   rtx tmp = gen_reg_rtx (mode);
-  rtx load = gen_rtx_SET (VOIDmode, tmp, op1);
+  rtx load = gen_rtx_SET (tmp, op1);
   rtx lvx = gen_rtx_UNSPEC (mode, gen_rtvec (1, const0_rtx), unspec);
   rtx par = gen_rtx_PARALLEL (mode, gen_rtvec (2, load, lvx));
   rtx sel = swap_selector_for_mode (mode);
@@ -12436,7 +12434,7 @@ altivec_expand_lvx_be (rtx op0, rtx op1, machine_mode mode, unsigned unspec)
 
   gcc_assert (REG_P (op0));
   emit_insn (par);
-  emit_insn (gen_rtx_SET (VOIDmode, op0, vperm));
+  emit_insn (gen_rtx_SET (op0, vperm));
 }
 
 /* Generate code for a "stvx" or "stvxl" built-in for a little endian target
@@ -12446,7 +12444,7 @@ void
 altivec_expand_stvx_be (rtx op0, rtx op1, machine_mode mode, unsigned unspec)
 {
   rtx tmp = gen_reg_rtx (mode);
-  rtx store = gen_rtx_SET (VOIDmode, op0, tmp);
+  rtx store = gen_rtx_SET (op0, tmp);
   rtx stvx = gen_rtx_UNSPEC (mode, gen_rtvec (1, const0_rtx), unspec);
   rtx par = gen_rtx_PARALLEL (mode, gen_rtvec (2, store, stvx));
   rtx sel = swap_selector_for_mode (mode);
@@ -12454,7 +12452,7 @@ altivec_expand_stvx_be (rtx op0, rtx op1, machine_mode mode, unsigned unspec)
 
   gcc_assert (REG_P (op1));
   vperm = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op1, sel), UNSPEC_VPERM);
-  emit_insn (gen_rtx_SET (VOIDmode, tmp, vperm));
+  emit_insn (gen_rtx_SET (tmp, vperm));
   emit_insn (par);
 }
 
@@ -12471,8 +12469,8 @@ altivec_expand_stvex_be (rtx op0, rtx op1, machine_mode mode, unsigned unspec)
 
   gcc_assert (REG_P (op1));
   vperm = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op1, sel), UNSPEC_VPERM);
-  emit_insn (gen_rtx_SET (VOIDmode, tmp, vperm));
-  emit_insn (gen_rtx_SET (VOIDmode, op0, stvx));
+  emit_insn (gen_rtx_SET (tmp, vperm));
+  emit_insn (gen_rtx_SET (op0, stvx));
 }
 
 static rtx
@@ -12845,10 +12843,10 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 		   to start a transaction.  We do this by placing the 1's
 		   complement of CR's EQ bit into TARGET.  */
 		rtx scratch = gen_reg_rtx (SImode);
-		emit_insn (gen_rtx_SET (VOIDmode, scratch,
+		emit_insn (gen_rtx_SET (scratch,
 					gen_rtx_EQ (SImode, cr,
 						     const0_rtx)));
-		emit_insn (gen_rtx_SET (VOIDmode, target,
+		emit_insn (gen_rtx_SET (target,
 					gen_rtx_XOR (SImode, scratch,
 						     GEN_INT (1))));
 	      }
@@ -14222,8 +14220,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	  {
 	    /* For the load case need to negate the address.  */
 	    op = gen_reg_rtx (GET_MODE (addr));
-	    emit_insn (gen_rtx_SET (VOIDmode, op,
-				    gen_rtx_NEG (GET_MODE (addr), addr)));
+	    emit_insn (gen_rtx_SET (op, gen_rtx_NEG (GET_MODE (addr), addr)));
 	  }
 	op = gen_rtx_MEM (mode, op);
 
@@ -14318,6 +14315,8 @@ rs6000_init_builtins (void)
   tree tdecl;
   tree ftype;
   machine_mode mode;
+  machine_mode ieee128_mode;
+  machine_mode ibm128_mode;
 
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "rs6000_init_builtins%s%s%s%s\n",
@@ -14385,6 +14384,32 @@ rs6000_init_builtins (void)
   dfloat128_type_internal_node = dfloat128_type_node;
   void_type_internal_node = void_type_node;
 
+  /* 128-bit floating point support.  KFmode is IEEE 128-bit floating point.
+     IFmode is the IBM extended 128-bit format that is a pair of doubles.
+     TFmode will be either IEEE 128-bit floating point or the IBM double-double
+     format that uses a pair of doubles, depending on the switches and
+     defaults.  */
+  if (TARGET_IEEEQUAD)
+    {
+      ieee128_mode = TFmode;
+      ibm128_mode = IFmode;
+    }
+  else
+    {
+      ieee128_mode = KFmode;
+      ibm128_mode = TFmode;
+    }
+
+  ieee128_float_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (ieee128_float_type_node) = 128;
+  layout_type (ieee128_float_type_node);
+  SET_TYPE_MODE (ieee128_float_type_node, ieee128_mode);
+
+  ibm128_float_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (ibm128_float_type_node) = 128;
+  layout_type (ibm128_float_type_node);
+  SET_TYPE_MODE (ibm128_float_type_node, ibm128_mode);
+
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
      tree type node.  */
   builtin_mode_to_type[QImode][0] = integer_type_node;
@@ -14397,6 +14422,8 @@ rs6000_init_builtins (void)
   builtin_mode_to_type[TImode][1] = unsigned_intTI_type_node;
   builtin_mode_to_type[SFmode][0] = float_type_node;
   builtin_mode_to_type[DFmode][0] = double_type_node;
+  builtin_mode_to_type[IFmode][0] = ibm128_float_type_node;
+  builtin_mode_to_type[KFmode][0] = ieee128_float_type_node;
   builtin_mode_to_type[TFmode][0] = long_double_type_node;
   builtin_mode_to_type[DDmode][0] = dfloat64_type_node;
   builtin_mode_to_type[TDmode][0] = dfloat128_type_node;
@@ -17411,9 +17438,9 @@ rs6000_secondary_reload_trace (int line, rtx reg, rtx mem, rtx scratch,
 	   store_p ? "store" : "load");
 
   if (store_p)
-    set = gen_rtx_SET (VOIDmode, mem, reg);
+    set = gen_rtx_SET (mem, reg);
   else
-    set = gen_rtx_SET (VOIDmode, reg, mem);
+    set = gen_rtx_SET (reg, mem);
 
   clobber = gen_rtx_CLOBBER (VOIDmode, scratch);
   debug_rtx (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set, clobber)));
@@ -17505,7 +17532,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 
       if ((addr_mask & RELOAD_REG_PRE_MODIFY) == 0)
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, op0, op1));
+	  emit_insn (gen_rtx_SET (op0, op1));
 	  new_addr = reg;
 	}
       break;
@@ -17522,7 +17549,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 
 	  else if (GET_CODE (op1) == PLUS)
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, scratch, op1));
+	      emit_insn (gen_rtx_SET (scratch, op1));
 	      op_reg = scratch;
 	    }
 
@@ -17531,7 +17558,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 
 	  and_op = gen_rtx_AND (GET_MODE (scratch), op_reg, op1);
 	  cc_clobber = gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (CCmode));
-	  rv = gen_rtvec (2, gen_rtx_SET (VOIDmode, scratch, and_op), cc_clobber);
+	  rv = gen_rtvec (2, gen_rtx_SET (scratch, and_op), cc_clobber);
 	  emit_insn (gen_rtx_PARALLEL (VOIDmode, rv));
 	  new_addr = scratch;
 	}
@@ -17542,7 +17569,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
     case SUBREG:
       if (!base_reg_operand (addr, GET_MODE (addr)))
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	  emit_insn (gen_rtx_SET (scratch, addr));
 	  new_addr = scratch;
 	}
       break;
@@ -17559,7 +17586,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	{
 	  if ((addr_mask & RELOAD_REG_INDEXED) == 0)
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	      emit_insn (gen_rtx_SET (scratch, addr));
 	      new_addr = scratch;
 	    }
 	}
@@ -17569,7 +17596,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	{
 	  if ((addr_mask & RELOAD_REG_OFFSET) == 0)
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	      emit_insn (gen_rtx_SET (scratch, addr));
 	      new_addr = scratch;
 	    }
 	}
@@ -17589,7 +17616,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	{
 	  if ((addr_mask & RELOAD_REG_INDEXED) == 0)
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	      emit_insn (gen_rtx_SET (scratch, addr));
 	      new_addr = scratch;
 	    }
 	}
@@ -17599,7 +17626,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	{
 	  if ((addr_mask & RELOAD_REG_OFFSET) == 0)
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	      emit_insn (gen_rtx_SET (scratch, addr));
 	      new_addr = scratch;
 	    }
 	}
@@ -17630,9 +17657,9 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 
   /* Now create the move.  */
   if (store_p)
-    emit_insn (gen_rtx_SET (VOIDmode, mem, reg));
+    emit_insn (gen_rtx_SET (mem, reg));
   else
-    emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
+    emit_insn (gen_rtx_SET (reg, mem));
 
   return;
 }
@@ -17681,9 +17708,9 @@ rs6000_secondary_reload_gpr (rtx reg, rtx mem, rtx scratch, bool store_p)
 
   /* Now create the move.  */
   if (store_p)
-    emit_insn (gen_rtx_SET (VOIDmode, mem, reg));
+    emit_insn (gen_rtx_SET (mem, reg));
   else
-    emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
+    emit_insn (gen_rtx_SET (reg, mem));
 
   return;
 }
@@ -18248,7 +18275,7 @@ rs6000_output_move_128bit (rtx operands[])
   if (TARGET_DEBUG_ADDR)
     {
       fprintf (stderr, "\n===== Bad 128 bit move:\n");
-      debug_rtx (gen_rtx_SET (VOIDmode, dest, src));
+      debug_rtx (gen_rtx_SET (dest, src));
     }
 
   gcc_unreachable ();
@@ -19561,8 +19588,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	  && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_LONG_DOUBLE_128)
 	emit_insn (gen_rtx_PARALLEL (VOIDmode,
 	  gen_rtvec (10,
-		     gen_rtx_SET (VOIDmode,
-				  compare_result,
+		     gen_rtx_SET (compare_result,
 				  gen_rtx_COMPARE (comp_mode, op0, op1)),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
@@ -19585,7 +19611,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	    emit_insn (gen_stack_protect_testsi (compare_result, op0, op1b));
 	}
       else
-	emit_insn (gen_rtx_SET (VOIDmode, compare_result,
+	emit_insn (gen_rtx_SET (compare_result,
 				gen_rtx_COMPARE (comp_mode, op0, op1)));
     }
 
@@ -19619,7 +19645,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
       compare2_rtx = gen_rtx_COMPARE (CCEQmode,
 				      gen_rtx_IOR (SImode, or1_rtx, or2_rtx),
 				      const_true_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, or_result, compare2_rtx));
+      emit_insn (gen_rtx_SET (or_result, compare2_rtx));
 
       compare_result = or_result;
       code = EQ;
@@ -19652,9 +19678,9 @@ rs6000_emit_eqne (machine_mode mode, rtx op1, rtx op2, rtx scratch)
     scratch = gen_reg_rtx (mode);
 
   if (logical_operand (op2, mode))
-    emit_insn (gen_rtx_SET (VOIDmode, scratch, gen_rtx_XOR (mode, op1, op2)));
+    emit_insn (gen_rtx_SET (scratch, gen_rtx_XOR (mode, op1, op2)));
   else
-    emit_insn (gen_rtx_SET (VOIDmode, scratch,
+    emit_insn (gen_rtx_SET (scratch,
 			    gen_rtx_PLUS (mode, op1, negate_rtx (mode, op2))));
 
   return scratch;
@@ -19702,7 +19728,7 @@ rs6000_emit_sCOND (machine_mode mode, rtx operands[])
       rev_cond_rtx = gen_rtx_fmt_ee (rs6000_reverse_condition (cc_mode, cond_code),
 				     SImode, XEXP (condition_rtx, 0), const0_rtx);
       not_op = gen_rtx_COMPARE (CCEQmode, rev_cond_rtx, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, not_result, not_op));
+      emit_insn (gen_rtx_SET (not_result, not_op));
       condition_rtx = gen_rtx_EQ (VOIDmode, not_result, const0_rtx);
     }
 
@@ -19718,7 +19744,7 @@ rs6000_emit_sCOND (machine_mode mode, rtx operands[])
   else
     {
       PUT_MODE (condition_rtx, SImode);
-      emit_insn (gen_rtx_SET (VOIDmode, result, condition_rtx));
+      emit_insn (gen_rtx_SET (result, condition_rtx));
     }
 }
 
@@ -19731,7 +19757,7 @@ rs6000_emit_cbranch (machine_mode mode, rtx operands[])
 
   condition_rtx = rs6000_generate_compare (operands[0], mode);
   loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands[3]);
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+  emit_jump_insn (gen_rtx_SET (pc_rtx,
 			       gen_rtx_IF_THEN_ELSE (VOIDmode, condition_rtx,
 						     loc_ref, pc_rtx)));
 }
@@ -19915,9 +19941,7 @@ rs6000_emit_vector_compare_inner (enum rtx_code code, rtx op0, rtx op1)
     case UNEQ:
     case LTGT:
       mask = gen_reg_rtx (mode);
-      emit_insn (gen_rtx_SET (VOIDmode,
-			      mask,
-			      gen_rtx_fmt_ee (code, mode, op0, op1)));
+      emit_insn (gen_rtx_SET (mask, gen_rtx_fmt_ee (code, mode, op0, op1)));
       return mask;
     }
 
@@ -20119,8 +20143,7 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op_true, rtx op_false,
 
   cond2 = gen_rtx_fmt_ee (NE, cc_mode, gen_lowpart (dest_mode, mask),
 			  CONST0_RTX (dest_mode));
-  emit_insn (gen_rtx_SET (VOIDmode,
-			  dest,
+  emit_insn (gen_rtx_SET (dest,
 			  gen_rtx_IF_THEN_ELSE (dest_mode,
 						cond2,
 						op_true,
@@ -20222,8 +20245,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   if (! is_against_zero)
     {
       temp = gen_reg_rtx (compare_mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp,
-			      gen_rtx_MINUS (compare_mode, op0, op1)));
+      emit_insn (gen_rtx_SET (temp, gen_rtx_MINUS (compare_mode, op0, op1)));
       op0 = temp;
       op1 = CONST0_RTX (compare_mode);
     }
@@ -20257,19 +20279,19 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 
     case LE:
       temp = gen_reg_rtx (compare_mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (compare_mode, op0)));
+      emit_insn (gen_rtx_SET (temp, gen_rtx_NEG (compare_mode, op0)));
       op0 = temp;
       break;
 
     case ORDERED:
       temp = gen_reg_rtx (compare_mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_ABS (compare_mode, op0)));
+      emit_insn (gen_rtx_SET (temp, gen_rtx_ABS (compare_mode, op0)));
       op0 = temp;
       break;
 
     case EQ:
       temp = gen_reg_rtx (compare_mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp,
+      emit_insn (gen_rtx_SET (temp,
 			      gen_rtx_NEG (compare_mode,
 					   gen_rtx_ABS (compare_mode, op0))));
       op0 = temp;
@@ -20278,7 +20300,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
     case UNGE:
       /* a UNGE 0 <-> (a GE 0 || -a UNLT 0) */
       temp = gen_reg_rtx (result_mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp,
+      emit_insn (gen_rtx_SET (temp,
 			      gen_rtx_IF_THEN_ELSE (result_mode,
 						    gen_rtx_GE (VOIDmode,
 								op0, op1),
@@ -20287,14 +20309,14 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
       true_cond = temp;
 
       temp = gen_reg_rtx (compare_mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (compare_mode, op0)));
+      emit_insn (gen_rtx_SET (temp, gen_rtx_NEG (compare_mode, op0)));
       op0 = temp;
       break;
 
     case GT:
       /* a GT 0 <-> (a GE 0 && -a UNLT 0) */
       temp = gen_reg_rtx (result_mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp,
+      emit_insn (gen_rtx_SET (temp,
 			      gen_rtx_IF_THEN_ELSE (result_mode,
 						    gen_rtx_GE (VOIDmode,
 								op0, op1),
@@ -20303,7 +20325,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
       false_cond = temp;
 
       temp = gen_reg_rtx (compare_mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (compare_mode, op0)));
+      emit_insn (gen_rtx_SET (temp, gen_rtx_NEG (compare_mode, op0)));
       op0 = temp;
       break;
 
@@ -20311,7 +20333,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
       gcc_unreachable ();
     }
 
-  emit_insn (gen_rtx_SET (VOIDmode, dest,
+  emit_insn (gen_rtx_SET (dest,
 			  gen_rtx_IF_THEN_ELSE (result_mode,
 						gen_rtx_GE (VOIDmode,
 							    op0, op1),
@@ -20399,9 +20421,7 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
       && (VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode)
 	  || (mode == SFmode && VECTOR_UNIT_VSX_P (DFmode))))
     {
-      emit_insn (gen_rtx_SET (VOIDmode,
-			      dest,
-			      gen_rtx_fmt_ee (code, mode, op0, op1)));
+      emit_insn (gen_rtx_SET (dest, gen_rtx_fmt_ee (code, mode, op0, op1)));
       return;
     }
 
@@ -20431,7 +20451,7 @@ emit_unlikely_jump (rtx cond, rtx label)
   rtx x;
 
   x = gen_rtx_IF_THEN_ELSE (VOIDmode, cond, label, pc_rtx);
-  x = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, x));
+  x = emit_jump_insn (gen_rtx_SET (pc_rtx, x));
   add_int_reg_note (x, REG_BR_PROB, very_unlikely);
 }
 
@@ -20592,7 +20612,9 @@ rs6000_adjust_atomic_subword (rtx orig_mem, rtx *pshift, rtx *pmask)
   /* Shift amount for subword relative to aligned word.  */
   shift = gen_reg_rtx (SImode);
   addr = gen_lowpart (SImode, addr);
-  emit_insn (gen_rlwinm (shift, addr, GEN_INT (3), GEN_INT (shift_mask)));
+  rtx tmp = gen_reg_rtx (SImode);
+  emit_insn (gen_ashlsi3 (tmp, addr, GEN_INT (3)));
+  emit_insn (gen_andsi3 (shift, tmp, GEN_INT (shift_mask)));
   if (BYTES_BIG_ENDIAN)
     shift = expand_simple_binop (SImode, XOR, shift, GEN_INT (shift_mask),
 			         shift, 1, OPTAB_LIB_WIDEN);
@@ -20615,10 +20637,9 @@ rs6000_mask_atomic_subword (rtx oldval, rtx newval, rtx mask)
   rtx x;
 
   x = gen_reg_rtx (SImode);
-  emit_insn (gen_rtx_SET (VOIDmode, x,
-			  gen_rtx_AND (SImode,
-				       gen_rtx_NOT (SImode, mask),
-				       oldval)));
+  emit_insn (gen_rtx_SET (x, gen_rtx_AND (SImode,
+					  gen_rtx_NOT (SImode, mask),
+					  oldval)));
 
   x = expand_simple_binop (SImode, IOR, newval, x, x, 1, OPTAB_LIB_WIDEN);
 
@@ -20653,8 +20674,8 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
   oldval = operands[3];
   newval = operands[4];
   is_weak = (INTVAL (operands[5]) != 0);
-  mod_s = (enum memmodel) INTVAL (operands[6]);
-  mod_f = (enum memmodel) INTVAL (operands[7]);
+  mod_s = memmodel_base (INTVAL (operands[6]));
+  mod_f = memmodel_base (INTVAL (operands[7]));
   orig_mode = mode = GET_MODE (mem);
 
   mask = shift = NULL_RTX;
@@ -20725,7 +20746,7 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
       x = gen_rtx_COMPARE (CCmode, or_result, const0_rtx);
     }
 
-  emit_insn (gen_rtx_SET (VOIDmode, cond, x));
+  emit_insn (gen_rtx_SET (cond, x));
 
   x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
   emit_unlikely_jump (x, label2);
@@ -20742,12 +20763,12 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
       emit_unlikely_jump (x, label1);
     }
 
-  if (mod_f != MEMMODEL_RELAXED)
+  if (!is_mm_relaxed (mod_f))
     emit_label (XEXP (label2, 0));
 
   rs6000_post_atomic_barrier (mod_s);
 
-  if (mod_f == MEMMODEL_RELAXED)
+  if (is_mm_relaxed (mod_f))
     emit_label (XEXP (label2, 0));
 
   if (shift)
@@ -20757,7 +20778,7 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
 
   /* In all cases, CR0 contains EQ on success, and NE on failure.  */
   x = gen_rtx_EQ (SImode, cond, const0_rtx);
-  emit_insn (gen_rtx_SET (VOIDmode, boolval, x));
+  emit_insn (gen_rtx_SET (boolval, x));
 }
 
 /* Expand an atomic exchange operation.  */
@@ -20773,7 +20794,7 @@ rs6000_expand_atomic_exchange (rtx operands[])
   retval = operands[0];
   mem = operands[1];
   val = operands[2];
-  model = (enum memmodel) INTVAL (operands[3]);
+  model = memmodel_base (INTVAL (operands[3]));
   mode = GET_MODE (mem);
 
   mask = shift = NULL_RTX;
@@ -20824,7 +20845,7 @@ void
 rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 			 rtx orig_before, rtx orig_after, rtx model_rtx)
 {
-  enum memmodel model = (enum memmodel) INTVAL (model_rtx);
+  enum memmodel model = memmodel_base (INTVAL (model_rtx));
   machine_mode mode = GET_MODE (mem);
   machine_mode store_mode = mode;
   rtx label, x, cond, mask, shift;
@@ -20869,7 +20890,7 @@ rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 		 set, that will be sufficient to not affect other bits.  */
 	      x = gen_rtx_NOT (SImode, mask);
 	      x = gen_rtx_IOR (SImode, x, val);
-	      emit_insn (gen_rtx_SET (VOIDmode, val, x));
+	      emit_insn (gen_rtx_SET (val, x));
 	      mask = NULL;
 	      break;
 
@@ -21017,7 +21038,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	    p_dst = simplify_gen_subreg (reg_mode, dst, mode,
 					 i * reg_mode_size);
 
-	  emit_insn (gen_rtx_SET (VOIDmode, p_dst, p_src));
+	  emit_insn (gen_rtx_SET (p_dst, p_src));
 	}
 
       return;
@@ -21029,8 +21050,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	 overlap.  */
       int i;
       for (i = nregs - 1; i >= 0; i--)
-	emit_insn (gen_rtx_SET (VOIDmode,
-				simplify_gen_subreg (reg_mode, dst, mode,
+	emit_insn (gen_rtx_SET (simplify_gen_subreg (reg_mode, dst, mode,
 						     i * reg_mode_size),
 				simplify_gen_subreg (reg_mode, src, mode,
 						     i * reg_mode_size)));
@@ -21065,19 +21085,20 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		  if (TARGET_UPDATE)
 		    {
 		      rtx ndst = simplify_gen_subreg (reg_mode, dst, mode, 0);
-		      emit_insn (gen_rtx_SET (VOIDmode, ndst,
-				 gen_rtx_MEM (reg_mode, XEXP (src, 0))));
+		      emit_insn (gen_rtx_SET (ndst,
+					      gen_rtx_MEM (reg_mode,
+							   XEXP (src, 0))));
 		      used_update = true;
 		    }
 		  else
-		    emit_insn (gen_rtx_SET (VOIDmode, basereg,
-			       XEXP (XEXP (src, 0), 1)));
+		    emit_insn (gen_rtx_SET (basereg,
+					    XEXP (XEXP (src, 0), 1)));
 		  src = replace_equiv_address (src, basereg);
 		}
 	      else
 		{
 		  rtx basereg = gen_rtx_REG (Pmode, reg);
-		  emit_insn (gen_rtx_SET (VOIDmode, basereg, XEXP (src, 0)));
+		  emit_insn (gen_rtx_SET (basereg, XEXP (src, 0)));
 		  src = replace_equiv_address (src, basereg);
 		}
 	    }
@@ -21132,13 +21153,14 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		  if (TARGET_UPDATE)
 		    {
 		      rtx nsrc = simplify_gen_subreg (reg_mode, src, mode, 0);
-		      emit_insn (gen_rtx_SET (VOIDmode,
-				 gen_rtx_MEM (reg_mode, XEXP (dst, 0)), nsrc));
+		      emit_insn (gen_rtx_SET (gen_rtx_MEM (reg_mode,
+							   XEXP (dst, 0)),
+					      nsrc));
 		      used_update = true;
 		    }
 		  else
-		    emit_insn (gen_rtx_SET (VOIDmode, basereg,
-			       XEXP (XEXP (dst, 0), 1)));
+		    emit_insn (gen_rtx_SET (basereg,
+					    XEXP (XEXP (dst, 0), 1)));
 		  dst = replace_equiv_address (dst, basereg);
 		}
 	      else
@@ -21176,8 +21198,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	  if (j == 0 && used_update)
 	    continue;
 
-	  emit_insn (gen_rtx_SET (VOIDmode,
-				  simplify_gen_subreg (reg_mode, dst, mode,
+	  emit_insn (gen_rtx_SET (simplify_gen_subreg (reg_mode, dst, mode,
 						       j * reg_mode_size),
 				  simplify_gen_subreg (reg_mode, src, mode,
 						       j * reg_mode_size)));
@@ -22019,31 +22040,6 @@ rs6000_stack_info (void)
   else
     info_ptr->push_p = non_fixed_size > (TARGET_32BIT ? 220 : 288);
 
-  /* Zero offsets if we're not saving those registers.  */
-  if (info_ptr->fp_size == 0)
-    info_ptr->fp_save_offset = 0;
-
-  if (info_ptr->gp_size == 0)
-    info_ptr->gp_save_offset = 0;
-
-  if (! TARGET_ALTIVEC_ABI || info_ptr->altivec_size == 0)
-    info_ptr->altivec_save_offset = 0;
-
-  /* Zero VRSAVE offset if not saved and restored.  */
-  if (! TARGET_ALTIVEC_VRSAVE || info_ptr->vrsave_mask == 0)
-    info_ptr->vrsave_save_offset = 0;
-
-  if (! TARGET_SPE_ABI
-      || info_ptr->spe_64bit_regs_used == 0
-      || info_ptr->spe_gp_size == 0)
-    info_ptr->spe_gp_save_offset = 0;
-
-  if (! info_ptr->lr_save_p)
-    info_ptr->lr_save_offset = 0;
-
-  if (! info_ptr->cr_save_p)
-    info_ptr->cr_save_offset = 0;
-
   return info_ptr;
 }
 
@@ -22149,39 +22145,39 @@ debug_stack_info (rs6000_stack_t *info)
   if (info->calls_p)
     fprintf (stderr, "\tcalls_p             = %5d\n", info->calls_p);
 
-  if (info->gp_save_offset)
+  if (info->gp_size)
     fprintf (stderr, "\tgp_save_offset      = %5d\n", info->gp_save_offset);
 
-  if (info->fp_save_offset)
+  if (info->fp_size)
     fprintf (stderr, "\tfp_save_offset      = %5d\n", info->fp_save_offset);
 
-  if (info->altivec_save_offset)
+  if (info->altivec_size)
     fprintf (stderr, "\taltivec_save_offset = %5d\n",
 	     info->altivec_save_offset);
 
-  if (info->spe_gp_save_offset)
+  if (info->spe_gp_size == 0)
     fprintf (stderr, "\tspe_gp_save_offset  = %5d\n",
 	     info->spe_gp_save_offset);
 
-  if (info->vrsave_save_offset)
+  if (info->vrsave_size)
     fprintf (stderr, "\tvrsave_save_offset  = %5d\n",
 	     info->vrsave_save_offset);
 
-  if (info->lr_save_offset)
+  if (info->lr_save_p)
     fprintf (stderr, "\tlr_save_offset      = %5d\n", info->lr_save_offset);
 
-  if (info->cr_save_offset)
+  if (info->cr_save_p)
     fprintf (stderr, "\tcr_save_offset      = %5d\n", info->cr_save_offset);
 
   if (info->varargs_save_offset)
     fprintf (stderr, "\tvarargs_save_offset = %5d\n", info->varargs_save_offset);
 
   if (info->total_size)
-    fprintf (stderr, "\ttotal_size          = "HOST_WIDE_INT_PRINT_DEC"\n",
+    fprintf (stderr, "\ttotal_size          = " HOST_WIDE_INT_PRINT_DEC"\n",
 	     info->total_size);
 
   if (info->vars_size)
-    fprintf (stderr, "\tvars_size           = "HOST_WIDE_INT_PRINT_DEC"\n",
+    fprintf (stderr, "\tvars_size           = " HOST_WIDE_INT_PRINT_DEC"\n",
 	     info->vars_size);
 
   if (info->parm_size)
@@ -22620,7 +22616,7 @@ rs6000_emit_stack_tie (rtx fp, bool hard_frame_needed)
   while (--i >= 0)
     {
       rtx mem = gen_frame_mem (BLKmode, regs[i]);
-      RTVEC_ELT (p, i) = gen_rtx_SET (VOIDmode, mem, const0_rtx);
+      RTVEC_ELT (p, i) = gen_rtx_SET (mem, const0_rtx);
     }
 
   emit_insn (gen_stack_tie (gen_rtx_PARALLEL (VOIDmode, p)));
@@ -22630,7 +22626,7 @@ rs6000_emit_stack_tie (rtx fp, bool hard_frame_needed)
    If COPY_REG, make sure a copy of the old frame is left there.
    The generated code may use hard register 0 as a temporary.  */
 
-static void
+static rtx_insn *
 rs6000_emit_allocate_stack (HOST_WIDE_INT size, rtx copy_reg, int copy_off)
 {
   rtx_insn *insn;
@@ -22643,7 +22639,7 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, rtx copy_reg, int copy_off)
     {
       warning (0, "stack frame too large");
       emit_insn (gen_trap ());
-      return;
+      return 0;
     }
 
   if (crtl->limit_stack)
@@ -22694,9 +22690,9 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, rtx copy_reg, int copy_off)
   
   insn = emit_insn (TARGET_32BIT
 		    ? gen_movsi_update_stack (stack_reg, stack_reg,
-					todec, stack_reg)
+					      todec, stack_reg)
 		    : gen_movdi_di_update_stack (stack_reg, stack_reg,
-					   todec, stack_reg));
+						 todec, stack_reg));
   /* Since we didn't use gen_frame_mem to generate the MEM, grab
      it now and set the alias set/attributes. The above gen_*_update
      calls will generate a PARALLEL with the MEM set being the first
@@ -22712,9 +22708,9 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, rtx copy_reg, int copy_off)
 
   RTX_FRAME_RELATED_P (insn) = 1;
   add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode, stack_reg,
-			     gen_rtx_PLUS (Pmode, stack_reg,
-					   GEN_INT (-size))));
+		gen_rtx_SET (stack_reg, gen_rtx_PLUS (Pmode, stack_reg,
+						      GEN_INT (-size))));
+  return insn;
 }
 
 #define PROBE_INTERVAL (1 << STACK_CHECK_PROBE_INTERVAL_EXP)
@@ -22768,20 +22764,18 @@ rs6000_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
       /* Step 2: compute initial and final value of the loop counter.  */
 
       /* TEST_ADDR = SP + FIRST.  */
-      emit_insn (gen_rtx_SET (VOIDmode, r12,
-			      plus_constant (Pmode, stack_pointer_rtx,
-					     -first)));
+      emit_insn (gen_rtx_SET (r12, plus_constant (Pmode, stack_pointer_rtx,
+						  -first)));
 
       /* LAST_ADDR = SP + FIRST + ROUNDED_SIZE.  */
       if (rounded_size > 32768)
 	{
 	  emit_move_insn (r0, GEN_INT (-rounded_size));
-	  emit_insn (gen_rtx_SET (VOIDmode, r0,
-				  gen_rtx_PLUS (Pmode, r12, r0)));
+	  emit_insn (gen_rtx_SET (r0, gen_rtx_PLUS (Pmode, r12, r0)));
 	}
       else
-	emit_insn (gen_rtx_SET (VOIDmode, r0,
-			        plus_constant (Pmode, r12, -rounded_size)));
+	emit_insn (gen_rtx_SET (r0, plus_constant (Pmode, r12,
+						   -rounded_size)));
 
 
       /* Step 3: the loop
@@ -22971,8 +22965,7 @@ generate_set_vrsave (rtx reg, rs6000_stack_t *info, int epiloguep)
   rtx vrsave = gen_rtx_REG (SImode, VRSAVE_REGNO);
 
   clobs[0]
-    = gen_rtx_SET (VOIDmode,
-		   vrsave,
+    = gen_rtx_SET (vrsave,
 		   gen_rtx_UNSPEC_VOLATILE (SImode,
 					    gen_rtvec (2, reg, vrsave),
 					    UNSPECV_SET_VRSAVE));
@@ -23004,8 +22997,7 @@ generate_set_vrsave (rtx reg, rs6000_stack_t *info, int epiloguep)
 	    rtx reg = gen_rtx_REG (V4SImode, i);
 
 	    clobs[nclobs++]
-	      = gen_rtx_SET (VOIDmode,
-			     reg,
+	      = gen_rtx_SET (reg,
 			     gen_rtx_UNSPEC (V4SImode,
 					     gen_rtvec (1, reg), 27));
 	  }
@@ -23026,7 +23018,7 @@ gen_frame_set (rtx reg, rtx frame_reg, int offset, bool store)
 
   addr = gen_rtx_PLUS (Pmode, frame_reg, GEN_INT (offset));
   mem = gen_frame_mem (GET_MODE (reg), addr);
-  return gen_rtx_SET (VOIDmode, store ? mem : reg, store ? reg : mem);
+  return gen_rtx_SET (store ? mem : reg, store ? reg : mem);
 }
 
 static rtx
@@ -23426,7 +23418,7 @@ rs6000_emit_move_from_cr (rtx reg)
 	  RTVEC_ELT (r, 0) = gen_rtx_REG (CCmode, CR0_REGNO + cr_reg[0]);
 	  RTVEC_ELT (r, 1) = GEN_INT (1 << (7 - cr_reg[0]));
 	  RTVEC_ELT (p, 0)
-	    = gen_rtx_SET (VOIDmode, reg,
+	    = gen_rtx_SET (reg,
 			   gen_rtx_UNSPEC (SImode, r, UNSPEC_MOVESI_FROM_CR));
 
 	  emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
@@ -23461,6 +23453,48 @@ rs6000_reg_live_or_pic_offset_p (int reg)
                   || (DEFAULT_ABI == ABI_DARWIN && flag_pic))));
 }
 
+/* Return whether the split-stack arg pointer (r12) is used.  */
+
+static bool
+split_stack_arg_pointer_used_p (void)
+{
+  /* If the pseudo holding the arg pointer is no longer a pseudo,
+     then the arg pointer is used.  */
+  if (cfun->machine->split_stack_arg_pointer != NULL_RTX
+      && (!REG_P (cfun->machine->split_stack_arg_pointer)
+	  || (REGNO (cfun->machine->split_stack_arg_pointer)
+	      < FIRST_PSEUDO_REGISTER)))
+    return true;
+
+  /* Unfortunately we also need to do some code scanning, since
+     r12 may have been substituted for the pseudo.  */
+  rtx_insn *insn;
+  basic_block bb = ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb;
+  FOR_BB_INSNS (bb, insn)
+    if (NONDEBUG_INSN_P (insn))
+      {
+	/* A call destroys r12.  */
+	if (CALL_P (insn))
+	  return false;
+
+	df_ref use;
+	FOR_EACH_INSN_USE (use, insn)
+	  {
+	    rtx x = DF_REF_REG (use);
+	    if (REG_P (x) && REGNO (x) == 12)
+	      return true;
+	  }
+	df_ref def;
+	FOR_EACH_INSN_DEF (def, insn)
+	  {
+	    rtx x = DF_REF_REG (def);
+	    if (REG_P (x) && REGNO (x) == 12)
+	      return false;
+	  }
+      }
+  return bitmap_bit_p (DF_LR_OUT (bb), 12);
+}
+
 /* Emit function prologue as insns.  */
 
 void
@@ -23481,6 +23515,10 @@ rs6000_emit_prologue (void)
   /* Offset to top of frame for frame_reg and sp respectively.  */
   HOST_WIDE_INT frame_off = 0;
   HOST_WIDE_INT sp_off = 0;
+  /* sp_adjust is the stack adjusting instruction, tracked so that the
+     insn setting up the split-stack arg pointer can be emitted just
+     prior to it, when r12 is not used here for other purposes.  */
+  rtx_insn *sp_adjust = 0;
 
 #ifdef ENABLE_CHECKING
   /* Track and check usage of r0, r11, r12.  */
@@ -23636,7 +23674,7 @@ rs6000_emit_prologue (void)
       /* Explain what happens to the stack pointer.  */
       {
 	rtx newval = gen_rtx_PLUS (Pmode, sp_reg_rtx, treg);
-	RTVEC_ELT (p, j++) = gen_rtx_SET (VOIDmode, sp_reg_rtx, newval);
+	RTVEC_ELT (p, j++) = gen_rtx_SET (sp_reg_rtx, newval);
       }
 
       insn = emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
@@ -23672,7 +23710,7 @@ rs6000_emit_prologue (void)
 	       || info->first_fp_reg_save < 64
 	       || info->first_gp_reg_save < 32
 	       || info->altivec_size != 0
-	       || info->vrsave_mask != 0
+	       || info->vrsave_size != 0
 	       || crtl->calls_eh_return)
 	ptr_regno = 12;
       else
@@ -23699,7 +23737,10 @@ rs6000_emit_prologue (void)
 	    ptr_off = info->altivec_save_offset + info->altivec_size;
 	  frame_off = -ptr_off;
 	}
-      rs6000_emit_allocate_stack (info->total_size, ptr_reg, ptr_off);
+      sp_adjust = rs6000_emit_allocate_stack (info->total_size,
+					      ptr_reg, ptr_off);
+      if (REGNO (frame_reg_rtx) == 12)
+	sp_adjust = 0;
       sp_off = info->total_size;
       if (frame_reg_rtx != sp_reg_rtx)
 	rs6000_emit_stack_tie (frame_reg_rtx, false);
@@ -23740,7 +23781,8 @@ rs6000_emit_prologue (void)
   if (!WORLD_SAVE_P (info)
       && info->cr_save_p
       && REGNO (frame_reg_rtx) != cr_save_regno
-      && !(using_static_chain_p && cr_save_regno == 11))
+      && !(using_static_chain_p && cr_save_regno == 11)
+      && !(flag_split_stack && cr_save_regno == 12 && sp_adjust))
     {
       cr_save_rtx = gen_rtx_REG (SImode, cr_save_regno);
       START_USE (cr_save_regno);
@@ -23886,6 +23928,8 @@ rs6000_emit_prologue (void)
       int end_save = info->gp_save_offset + info->gp_size;
       int ptr_off;
 
+      if (ptr_regno == 12)
+	sp_adjust = 0;
       if (!ptr_set_up)
 	ptr_reg = gen_rtx_REG (Pmode, ptr_regno);
 
@@ -24003,7 +24047,7 @@ rs6000_emit_prologue (void)
       compare_result = gen_rtx_REG (CCUNSmode, CR0_REGNO);
       validate_condition_mode (EQ, CCUNSmode);
       lo = gen_int_mode (toc_restore_insn & 0xffff, SImode);
-      emit_insn (gen_rtx_SET (VOIDmode, compare_result,
+      emit_insn (gen_rtx_SET (compare_result,
 			      gen_rtx_COMPARE (CCUNSmode, tmp_reg_si, lo)));
       toc_save_done = gen_label_rtx ();
       jump = gen_rtx_IF_THEN_ELSE (VOIDmode,
@@ -24011,7 +24055,7 @@ rs6000_emit_prologue (void)
 					       const0_rtx),
 				   gen_rtx_LABEL_REF (VOIDmode, toc_save_done),
 				   pc_rtx);
-      jump = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, jump));
+      jump = emit_jump_insn (gen_rtx_SET (pc_rtx, jump));
       JUMP_LABEL (jump) = toc_save_done;
       LABEL_NUSES (toc_save_done) += 1;
 
@@ -24085,7 +24129,7 @@ rs6000_emit_prologue (void)
       int n_crsave = 0;
       int i;
 
-      crsave_v[n_crsave++] = gen_rtx_SET (VOIDmode, mem, cr_save_rtx);
+      crsave_v[n_crsave++] = gen_rtx_SET (mem, cr_save_rtx);
       for (i = 0; i < 8; i++)
 	if (save_reg_p (CR0_REGNO + i))
 	  crsave_v[n_crsave++]
@@ -24118,8 +24162,7 @@ rs6000_emit_prologue (void)
 	    if (save_reg_p (CR0_REGNO + i))
 	      {
 		crframe[n_crframe]
-		  = gen_rtx_SET (VOIDmode, mem,
-				 gen_rtx_REG (SImode, CR0_REGNO + i));
+		  = gen_rtx_SET (mem, gen_rtx_REG (SImode, CR0_REGNO + i));
 
 		RTX_FRAME_RELATED_P (crframe[n_crframe]) = 1;
 		n_crframe++;
@@ -24134,8 +24177,7 @@ rs6000_emit_prologue (void)
 	  /* In other ABIs, by convention, we use a single CR regnum to
 	     represent the fact that all call-saved CR fields are saved.
 	     We use CR2_REGNO to be compatible with gcc-2.95 on Linux.  */
-	  rtx set = gen_rtx_SET (VOIDmode, mem,
-				 gen_rtx_REG (SImode, CR2_REGNO));
+	  rtx set = gen_rtx_SET (mem, gen_rtx_REG (SImode, CR2_REGNO));
 	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, set);
 	}
     }
@@ -24206,7 +24248,10 @@ rs6000_emit_prologue (void)
 	}
       else if (REGNO (frame_reg_rtx) == 1)
 	frame_off = info->total_size;
-      rs6000_emit_allocate_stack (info->total_size, ptr_reg, ptr_off);
+      sp_adjust = rs6000_emit_allocate_stack (info->total_size,
+					      ptr_reg, ptr_off);
+      if (REGNO (frame_reg_rtx) == 12)
+	sp_adjust = 0;
       sp_off = info->total_size;
       if (frame_reg_rtx != sp_reg_rtx)
 	rs6000_emit_stack_tie (frame_reg_rtx, false);
@@ -24222,7 +24267,7 @@ rs6000_emit_prologue (void)
 
   /* Save AltiVec registers if needed.  Save here because the red zone does
      not always include AltiVec registers.  */
-  if (!WORLD_SAVE_P (info) && TARGET_ALTIVEC_ABI
+  if (!WORLD_SAVE_P (info)
       && info->altivec_size != 0 && (strategy & SAVE_INLINE_VRS) == 0)
     {
       int end_save = info->altivec_save_offset + info->altivec_size;
@@ -24236,6 +24281,8 @@ rs6000_emit_prologue (void)
 
       gcc_checking_assert (scratch_regno == 11 || scratch_regno == 12);
       NOT_INUSE (0);
+      if (scratch_regno == 12)
+	sp_adjust = 0;
       if (end_save + frame_off != 0)
 	{
 	  rtx offset = GEN_INT (end_save + frame_off);
@@ -24258,7 +24305,7 @@ rs6000_emit_prologue (void)
 	  frame_off = ptr_off;
 	}
     }
-  else if (!WORLD_SAVE_P (info) && TARGET_ALTIVEC_ABI
+  else if (!WORLD_SAVE_P (info)
 	   && info->altivec_size != 0)
     {
       int i;
@@ -24300,9 +24347,7 @@ rs6000_emit_prologue (void)
      epilogue.  */
 
   if (!WORLD_SAVE_P (info)
-      && TARGET_ALTIVEC
-      && TARGET_ALTIVEC_VRSAVE
-      && info->vrsave_mask != 0)
+      && info->vrsave_size != 0)
     {
       rtx reg, vrsave;
       int offset;
@@ -24315,7 +24360,7 @@ rs6000_emit_prologue (void)
       if ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
 	  && !using_static_chain_p)
 	save_regno = 11;
-      else if (REGNO (frame_reg_rtx) == 12)
+      else if (flag_split_stack || REGNO (frame_reg_rtx) == 12)
 	{
 	  save_regno = 11;
 	  if (using_static_chain_p)
@@ -24328,7 +24373,7 @@ rs6000_emit_prologue (void)
       if (TARGET_MACHO)
 	emit_insn (gen_get_vrsave_internal (reg));
       else
-	emit_insn (gen_rtx_SET (VOIDmode, reg, vrsave));
+	emit_insn (gen_rtx_SET (reg, vrsave));
 
       /* Save VRSAVE.  */
       offset = info->vrsave_save_offset + frame_off;
@@ -24361,6 +24406,7 @@ rs6000_emit_prologue (void)
 	  rtx lr = gen_rtx_REG (Pmode, LR_REGNO);
 	  rtx tmp = gen_rtx_REG (Pmode, 12);
 
+	  sp_adjust = 0;
 	  insn = emit_move_insn (tmp, lr);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 
@@ -24415,6 +24461,46 @@ rs6000_emit_prologue (void)
     {
       rtx reg = gen_rtx_REG (reg_mode, TOC_REGNUM);
       emit_insn (gen_frame_store (reg, sp_reg_rtx, RS6000_TOC_SAVE_SLOT));
+    }
+
+  if (flag_split_stack && split_stack_arg_pointer_used_p ())
+    {
+      /* Set up the arg pointer (r12) for -fsplit-stack code.  If
+	 __morestack was called, it left the arg pointer to the old
+	 stack in r29.  Otherwise, the arg pointer is the top of the
+	 current frame.  */
+      if (sp_adjust)
+	{
+	  rtx r12 = gen_rtx_REG (Pmode, 12);
+	  rtx set_r12 = gen_rtx_SET (r12, sp_reg_rtx);
+	  emit_insn_before (set_r12, sp_adjust);
+	}
+      else if (frame_off != 0 || REGNO (frame_reg_rtx) != 12)
+	{
+	  rtx r12 = gen_rtx_REG (Pmode, 12);
+	  if (frame_off == 0)
+	    emit_move_insn (r12, frame_reg_rtx);
+	  else
+	    emit_insn (gen_add3_insn (r12, frame_reg_rtx, GEN_INT (frame_off)));
+	}
+      if (info->push_p)
+	{
+	  rtx r12 = gen_rtx_REG (Pmode, 12);
+	  rtx r29 = gen_rtx_REG (Pmode, 29);
+	  rtx cr7 = gen_rtx_REG (CCUNSmode, CR7_REGNO);
+	  rtx not_more = gen_label_rtx ();
+	  rtx jump;
+
+	  jump = gen_rtx_IF_THEN_ELSE (VOIDmode,
+				       gen_rtx_GEU (VOIDmode, cr7, const0_rtx),
+				       gen_rtx_LABEL_REF (VOIDmode, not_more),
+				       pc_rtx);
+	  jump = emit_jump_insn (gen_rtx_SET (pc_rtx, jump));
+	  JUMP_LABEL (jump) = not_more;
+	  LABEL_NUSES (not_more) += 1;
+	  emit_move_insn (r12, r29);
+	  emit_label (not_more);
+	}
     }
 }
 
@@ -24532,7 +24618,7 @@ load_cr_save (int regno, rtx frame_reg_rtx, int offset, bool exit_func)
   if (!exit_func && DEFAULT_ABI == ABI_V4)
     {
       rtx cr = gen_rtx_REG (SImode, CR2_REGNO);
-      rtx set = gen_rtx_SET (VOIDmode, reg, cr);
+      rtx set = gen_rtx_SET (reg, cr);
 
       add_reg_note (insn, REG_CFA_REGISTER, set);
       RTX_FRAME_RELATED_P (insn) = 1;
@@ -24572,7 +24658,7 @@ restore_saved_cr (rtx reg, int using_mfcr_multiple, bool exit_func)
 	    RTVEC_ELT (r, 0) = reg;
 	    RTVEC_ELT (r, 1) = GEN_INT (1 << (7-i));
 	    RTVEC_ELT (p, ndx) =
-	      gen_rtx_SET (VOIDmode, gen_rtx_REG (CCmode, CR0_REGNO + i),
+	      gen_rtx_SET (gen_rtx_REG (CCmode, CR0_REGNO + i),
 			   gen_rtx_UNSPEC (CCmode, r, UNSPEC_MOVESI_TO_CR));
 	    ndx++;
 	  }
@@ -24748,7 +24834,9 @@ rs6000_emit_epilogue (int sibcall)
      here will not trigger at the moment;  We don't actually need a
      frame pointer for alloca, but the generic parts of the compiler
      give us one anyway.  */
-  use_backchain_to_restore_sp = (info->total_size > 32767 - info->lr_save_offset
+  use_backchain_to_restore_sp = (info->total_size + (info->lr_save_p
+						     ? info->lr_save_offset
+						     : 0) > 32767
 				 || (cfun->calls_alloca
 				     && !frame_pointer_needed));
   restore_lr = (info->lr_save_p
@@ -24862,8 +24950,7 @@ rs6000_emit_epilogue (int sibcall)
 
   /* Restore AltiVec registers if we must do so before adjusting the
      stack.  */
-  if (TARGET_ALTIVEC_ABI
-      && info->altivec_size != 0
+  if (info->altivec_size != 0
       && (ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
 	  || (DEFAULT_ABI != ABI_V4
 	      && offset_below_red_zone_p (info->altivec_save_offset))))
@@ -24950,9 +25037,7 @@ rs6000_emit_epilogue (int sibcall)
     }
 
   /* Restore VRSAVE if we must do so before adjusting the stack.  */
-  if (TARGET_ALTIVEC
-      && TARGET_ALTIVEC_VRSAVE
-      && info->vrsave_mask != 0
+  if (info->vrsave_size != 0
       && (ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
 	  || (DEFAULT_ABI != ABI_V4
 	      && offset_below_red_zone_p (info->vrsave_save_offset))))
@@ -25046,7 +25131,6 @@ rs6000_emit_epilogue (int sibcall)
 
   /* Restore AltiVec registers if we have not done so already.  */
   if (!ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
-      && TARGET_ALTIVEC_ABI
       && info->altivec_size != 0
       && (DEFAULT_ABI == ABI_V4
 	  || !offset_below_red_zone_p (info->altivec_save_offset)))
@@ -25154,9 +25238,7 @@ rs6000_emit_epilogue (int sibcall)
 
   /* Restore VRSAVE if we have not done so already.  */
   if (!ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
-      && TARGET_ALTIVEC
-      && TARGET_ALTIVEC_VRSAVE
-      && info->vrsave_mask != 0
+      && info->vrsave_size != 0
       && (DEFAULT_ABI == ABI_V4
 	  || !offset_below_red_zone_p (info->vrsave_save_offset)))
     {
@@ -25846,6 +25928,185 @@ rs6000_output_function_epilogue (FILE *file,
 
       fputs ("\t.align 2\n", file);
     }
+}
+
+/* -fsplit-stack support.  */
+
+/* A SYMBOL_REF for __morestack.  */
+static GTY(()) rtx morestack_ref;
+
+static rtx
+gen_add3_const (rtx rt, rtx ra, long c)
+{
+  if (TARGET_64BIT)
+    return gen_adddi3 (rt, ra, GEN_INT (c));
+ else
+    return gen_addsi3 (rt, ra, GEN_INT (c));
+}
+
+/* Emit -fsplit-stack prologue, which goes before the regular function
+   prologue (at local entry point in the case of ELFv2).  */
+
+void
+rs6000_expand_split_stack_prologue (void)
+{
+  rs6000_stack_t *info = rs6000_stack_info ();
+  unsigned HOST_WIDE_INT allocate;
+  long alloc_hi, alloc_lo;
+  rtx r0, r1, r12, lr, ok_label, compare, jump, call_fusage;
+  rtx_insn *insn;
+
+  gcc_assert (flag_split_stack && reload_completed);
+
+  if (!info->push_p)
+    return;
+
+  if (global_regs[29])
+    {
+      error ("-fsplit-stack uses register r29");
+      inform (DECL_SOURCE_LOCATION (global_regs_decl[29]),
+	      "conflicts with %qD", global_regs_decl[29]);
+    }
+
+  allocate = info->total_size;
+  if (allocate > (unsigned HOST_WIDE_INT) 1 << 31)
+    {
+      sorry ("Stack frame larger than 2G is not supported for -fsplit-stack");
+      return;
+    }
+  if (morestack_ref == NULL_RTX)
+    {
+      morestack_ref = gen_rtx_SYMBOL_REF (Pmode, "__morestack");
+      SYMBOL_REF_FLAGS (morestack_ref) |= (SYMBOL_FLAG_LOCAL
+					   | SYMBOL_FLAG_FUNCTION);
+    }
+
+  r0 = gen_rtx_REG (Pmode, 0);
+  r1 = gen_rtx_REG (Pmode, STACK_POINTER_REGNUM);
+  r12 = gen_rtx_REG (Pmode, 12);
+  emit_insn (gen_load_split_stack_limit (r0));
+  /* Always emit two insns here to calculate the requested stack,
+     so that the linker can edit them when adjusting size for calling
+     non-split-stack code.  */
+  alloc_hi = (-allocate + 0x8000) & ~0xffffL;
+  alloc_lo = -allocate - alloc_hi;
+  if (alloc_hi != 0)
+    {
+      emit_insn (gen_add3_const (r12, r1, alloc_hi));
+      if (alloc_lo != 0)
+	emit_insn (gen_add3_const (r12, r12, alloc_lo));
+      else
+	emit_insn (gen_nop ());
+    }
+  else
+    {
+      emit_insn (gen_add3_const (r12, r1, alloc_lo));
+      emit_insn (gen_nop ());
+    }
+
+  compare = gen_rtx_REG (CCUNSmode, CR7_REGNO);
+  emit_insn (gen_rtx_SET (compare, gen_rtx_COMPARE (CCUNSmode, r12, r0)));
+  ok_label = gen_label_rtx ();
+  jump = gen_rtx_IF_THEN_ELSE (VOIDmode,
+			       gen_rtx_GEU (VOIDmode, compare, const0_rtx),
+			       gen_rtx_LABEL_REF (VOIDmode, ok_label),
+			       pc_rtx);
+  jump = emit_jump_insn (gen_rtx_SET (pc_rtx, jump));
+  JUMP_LABEL (jump) = ok_label;
+  /* Mark the jump as very likely to be taken.  */
+  add_int_reg_note (jump, REG_BR_PROB,
+		    REG_BR_PROB_BASE - REG_BR_PROB_BASE / 100);
+
+  lr = gen_rtx_REG (Pmode, LR_REGNO);
+  insn = emit_move_insn (r0, lr);
+  RTX_FRAME_RELATED_P (insn) = 1;
+  insn = emit_insn (gen_frame_store (r0, r1, info->lr_save_offset));
+  RTX_FRAME_RELATED_P (insn) = 1;
+
+  insn = emit_call_insn (gen_call (gen_rtx_MEM (SImode, morestack_ref),
+				   const0_rtx, const0_rtx));
+  call_fusage = NULL_RTX;
+  use_reg (&call_fusage, r12);
+  add_function_usage_to (insn, call_fusage);
+  emit_insn (gen_frame_load (r0, r1, info->lr_save_offset));
+  insn = emit_move_insn (lr, r0);
+  add_reg_note (insn, REG_CFA_RESTORE, lr);
+  RTX_FRAME_RELATED_P (insn) = 1;
+  emit_insn (gen_split_stack_return ());
+
+  emit_label (ok_label);
+  LABEL_NUSES (ok_label) = 1;
+}
+
+/* Return the internal arg pointer used for function incoming
+   arguments.  When -fsplit-stack, the arg pointer is r12 so we need
+   to copy it to a pseudo in order for it to be preserved over calls
+   and suchlike.  We'd really like to use a pseudo here for the
+   internal arg pointer but data-flow analysis is not prepared to
+   accept pseudos as live at the beginning of a function.  */
+
+static rtx
+rs6000_internal_arg_pointer (void)
+{
+  if (flag_split_stack)
+    {
+      if (cfun->machine->split_stack_arg_pointer == NULL_RTX)
+	{
+	  rtx pat;
+
+	  cfun->machine->split_stack_arg_pointer = gen_reg_rtx (Pmode);
+	  REG_POINTER (cfun->machine->split_stack_arg_pointer) = 1;
+
+	  /* Put the pseudo initialization right after the note at the
+	     beginning of the function.  */
+	  pat = gen_rtx_SET (cfun->machine->split_stack_arg_pointer,
+			     gen_rtx_REG (Pmode, 12));
+	  push_topmost_sequence ();
+	  emit_insn_after (pat, get_insns ());
+	  pop_topmost_sequence ();
+	}
+      return plus_constant (Pmode, cfun->machine->split_stack_arg_pointer,
+			    FIRST_PARM_OFFSET (current_function_decl));
+    }
+  return virtual_incoming_args_rtx;
+}
+
+/* We may have to tell the dataflow pass that the split stack prologue
+   is initializing a register.  */
+
+static void
+rs6000_live_on_entry (bitmap regs)
+{
+  if (flag_split_stack)
+    bitmap_set_bit (regs, 12);
+}
+
+/* Emit -fsplit-stack dynamic stack allocation space check.  */
+
+void
+rs6000_split_stack_space_check (rtx size, rtx label)
+{
+  rtx sp = gen_rtx_REG (Pmode, STACK_POINTER_REGNUM);
+  rtx limit = gen_reg_rtx (Pmode);
+  rtx requested = gen_reg_rtx (Pmode);
+  rtx cmp = gen_reg_rtx (CCUNSmode);
+  rtx jump;
+
+  emit_insn (gen_load_split_stack_limit (limit));
+  if (CONST_INT_P (size))
+    emit_insn (gen_add3_insn (requested, sp, GEN_INT (-INTVAL (size))));
+  else
+    {
+      size = force_reg (Pmode, size);
+      emit_move_insn (requested, gen_rtx_MINUS (Pmode, sp, size));
+    }
+  emit_insn (gen_rtx_SET (cmp, gen_rtx_COMPARE (CCUNSmode, requested, limit)));
+  jump = gen_rtx_IF_THEN_ELSE (VOIDmode,
+			       gen_rtx_GEU (VOIDmode, cmp, const0_rtx),
+			       gen_rtx_LABEL_REF (VOIDmode, label),
+			       pc_rtx);
+  jump = emit_jump_insn (gen_rtx_SET (pc_rtx, jump));
+  JUMP_LABEL (jump) = label;
 }
 
 /* A C compound statement that outputs the assembler code for a thunk
@@ -29855,6 +30116,9 @@ rs6000_elf_file_end (void)
   if (TARGET_32BIT || DEFAULT_ABI == ABI_ELFv2)
     file_end_indicate_exec_stack ();
 #endif
+
+  if (flag_split_stack)
+    file_end_indicate_split_stack ();
 }
 #endif
 
@@ -30365,10 +30629,10 @@ rs6000_xcoff_encode_section_info (tree decl, rtx rtl, int first)
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
-		  int *total, bool speed)
+rs6000_rtx_costs (rtx x, machine_mode mode, int outer_code,
+		  int opno ATTRIBUTE_UNUSED, int *total, bool speed)
 {
-  machine_mode mode = GET_MODE (x);
+  int code = GET_CODE (x);
 
   switch (code)
     {
@@ -30652,7 +30916,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 		*total = COSTS_N_INSNS (2);
 	      return true;
 	    }
-	  else if (mode == Pmode)
+	  else
 	    {
 	      *total = COSTS_N_INSNS (3);
 	      return false;
@@ -30689,16 +30953,16 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 /* Debug form of r6000_rtx_costs that is selected if -mdebug=cost.  */
 
 static bool
-rs6000_debug_rtx_costs (rtx x, int code, int outer_code, int opno, int *total,
-			bool speed)
+rs6000_debug_rtx_costs (rtx x, machine_mode mode, int outer_code,
+			int opno, int *total, bool speed)
 {
-  bool ret = rs6000_rtx_costs (x, code, outer_code, opno, total, speed);
+  bool ret = rs6000_rtx_costs (x, mode, outer_code, opno, total, speed);
 
   fprintf (stderr,
-	   "\nrs6000_rtx_costs, return = %s, code = %s, outer_code = %s, "
+	   "\nrs6000_rtx_costs, return = %s, mode = %s, outer_code = %s, "
 	   "opno = %d, total = %d, speed = %s, x:\n",
 	   ret ? "complete" : "scan inner",
-	   GET_RTX_NAME (code),
+	   GET_MODE_NAME (mode),
 	   GET_RTX_NAME (outer_code),
 	   opno,
 	   *total,
@@ -30970,7 +31234,7 @@ rs6000_emit_nmsub (rtx dst, rtx m1, rtx m2, rtx a)
   r = gen_rtx_NEG (mode, a);
   r = gen_rtx_FMA (mode, m1, m2, r);
   r = gen_rtx_NEG (mode, r);
-  emit_insn (gen_rtx_SET (VOIDmode, dst, r));
+  emit_insn (gen_rtx_SET (dst, r));
 }
 
 /* Newton-Raphson approximation of floating point divide DST = N/D.  If NOTE_P,
@@ -31002,9 +31266,8 @@ rs6000_emit_swdiv (rtx dst, rtx n, rtx d, bool note_p)
 
   /* x0 = 1./d estimate */
   x0 = gen_reg_rtx (mode);
-  emit_insn (gen_rtx_SET (VOIDmode, x0,
-			  gen_rtx_UNSPEC (mode, gen_rtvec (1, d),
-					  UNSPEC_FRES)));
+  emit_insn (gen_rtx_SET (x0, gen_rtx_UNSPEC (mode, gen_rtvec (1, d),
+					      UNSPEC_FRES)));
 
   /* Each iteration but the last calculates x_(i+1) = x_i * (2 - d * x_i).  */
   if (passes > 1) {
@@ -31083,9 +31346,8 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
   halfthree = rs6000_load_constant_and_splat (mode, dconst3_2);
 
   /* x0 = rsqrt estimate */
-  emit_insn (gen_rtx_SET (VOIDmode, x0,
-			  gen_rtx_UNSPEC (mode, gen_rtvec (1, src),
-					  UNSPEC_RSQRT)));
+  emit_insn (gen_rtx_SET (x0, gen_rtx_UNSPEC (mode, gen_rtvec (1, src),
+					      UNSPEC_RSQRT)));
 
   /* y = 0.5 * src = 1.5 * src - src -> fewer constants */
   rs6000_emit_msub (y, src, halfthree, src);
@@ -31343,7 +31605,7 @@ altivec_expand_vec_perm_le (rtx operands[4])
   iorx = (TARGET_P8_VECTOR
 	  ? gen_rtx_IOR (V16QImode, notx, notx)
 	  : gen_rtx_AND (V16QImode, notx, notx));
-  emit_insn (gen_rtx_SET (VOIDmode, norreg, iorx));
+  emit_insn (gen_rtx_SET (norreg, iorx));
 
   /* Permute with operands reversed and adjusted selector.  */
   unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op0, norreg),
@@ -31630,7 +31892,7 @@ rs6000_expand_vec_perm_const_1 (rtx target, rtx op0, rtx op1,
       x = gen_rtx_VEC_CONCAT (dmode, op0, op1);
       v = gen_rtvec (2, GEN_INT (perm0), GEN_INT (perm1));
       x = gen_rtx_VEC_SELECT (vmode, x, gen_rtx_PARALLEL (VOIDmode, v));
-      emit_insn (gen_rtx_SET (VOIDmode, target, x));
+      emit_insn (gen_rtx_SET (target, x));
     }
   return true;
 }
@@ -33178,7 +33440,7 @@ rs6000_call_aix (rtx value, rtx func_desc, rtx flag, rtx cookie)
       rtx stack_toc_unspec = gen_rtx_UNSPEC (Pmode,
 					     gen_rtvec (1, stack_toc_offset),
 					     UNSPEC_TOCSLOT);
-      toc_restore = gen_rtx_SET (VOIDmode, toc_reg, stack_toc_unspec);
+      toc_restore = gen_rtx_SET (toc_reg, stack_toc_unspec);
 
       /* Can we optimize saving the TOC in the prologue or
 	 do we need to do it at every call?  */
@@ -33252,7 +33514,7 @@ rs6000_call_aix (rtx value, rtx func_desc, rtx flag, rtx cookie)
   /* Create the call.  */
   call[0] = gen_rtx_CALL (VOIDmode, gen_rtx_MEM (SImode, func_addr), flag);
   if (value != NULL_RTX)
-    call[0] = gen_rtx_SET (VOIDmode, value, call[0]);
+    call[0] = gen_rtx_SET (value, call[0]);
   n_call = 1;
 
   if (toc_load)
@@ -33284,7 +33546,7 @@ rs6000_sibcall_aix (rtx value, rtx func_desc, rtx flag, rtx cookie)
   /* Create the call.  */
   call[0] = gen_rtx_CALL (VOIDmode, gen_rtx_MEM (SImode, func_desc), flag);
   if (value != NULL_RTX)
-    call[0] = gen_rtx_SET (VOIDmode, value, call[0]);
+    call[0] = gen_rtx_SET (value, call[0]);
 
   call[1] = simple_return_rtx;
 
@@ -33433,14 +33695,14 @@ rs6000_split_logical_inner (rtx dest,
 	{
 	  if (value == 0)
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, dest, const0_rtx));
+	      emit_insn (gen_rtx_SET (dest, const0_rtx));
 	      return;
 	    }
 
 	  else if (value == mask)
 	    {
 	      if (!rtx_equal_p (dest, op1))
-		emit_insn (gen_rtx_SET (VOIDmode, dest, op1));
+		emit_insn (gen_rtx_SET (dest, op1));
 	      return;
 	    }
 	}
@@ -33452,7 +33714,7 @@ rs6000_split_logical_inner (rtx dest,
 	  if (value == 0)
 	    {
 	      if (!rtx_equal_p (dest, op1))
-		emit_insn (gen_rtx_SET (VOIDmode, dest, op1));
+		emit_insn (gen_rtx_SET (dest, op1));
 	      return;
 	    }
 	}
@@ -33482,7 +33744,7 @@ rs6000_split_logical_inner (rtx dest,
   if (complement_final_p)
     bool_rtx = gen_rtx_NOT (mode, bool_rtx);
 
-  emit_insn (gen_rtx_SET (VOIDmode, dest, bool_rtx));
+  emit_insn (gen_rtx_SET (dest, bool_rtx));
 }
 
 /* Split a DImode AND/IOR/XOR with a constant on a 32-bit system.  These
@@ -33768,7 +34030,7 @@ expand_fusion_gpr_load (rtx *operands)
 
   new_mem = gen_rtx_UNSPEC (extend_mode, gen_rtvec (1, new_mem),
 			    UNSPEC_FUSION_GPR);
-  emit_insn (gen_rtx_SET (VOIDmode, target, new_mem));
+  emit_insn (gen_rtx_SET (target, new_mem));
 
   if (extend == SIGN_EXTEND)
     {
@@ -33778,7 +34040,7 @@ expand_fusion_gpr_load (rtx *operands)
       rtx sign_reg
 	= simplify_subreg (target_mode, target, extend_mode, sub_off);
 
-      emit_insn (gen_rtx_SET (VOIDmode, target,
+      emit_insn (gen_rtx_SET (target,
 			      gen_rtx_SIGN_EXTEND (extend_mode, sign_reg)));
     }
 
@@ -34856,7 +35118,7 @@ replace_swap_with_copy (swap_web_entry *insn_entry, unsigned i)
   rtx_insn *insn = insn_entry[i].insn;
   rtx body = PATTERN (insn);
   rtx src_reg = XEXP (SET_SRC (body), 0);
-  rtx copy = gen_rtx_SET (VOIDmode, SET_DEST (body), src_reg);
+  rtx copy = gen_rtx_SET (SET_DEST (body), src_reg);
   rtx_insn *new_insn = emit_insn_before (copy, insn);
   set_block_for_insn (new_insn, BLOCK_FOR_INSN (insn));
   df_insn_rescan (new_insn);

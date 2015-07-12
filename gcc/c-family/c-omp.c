@@ -25,15 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "c-common.h"
 #include "c-pragma.h"
@@ -220,7 +212,7 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
   addr = save_expr (addr);
   if (TREE_CODE (addr) != SAVE_EXPR
       && (TREE_CODE (addr) != ADDR_EXPR
-	  || TREE_CODE (TREE_OPERAND (addr, 0)) != VAR_DECL))
+	  || !VAR_P (TREE_OPERAND (addr, 0))))
     {
       /* Make sure LHS is simple enough so that goa_lhs_expr_p can recognize
 	 it even after unsharing function body.  */
@@ -272,8 +264,8 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
   /* Generally it is hard to prove lhs1 and lhs are the same memory
      location, just diagnose different variables.  */
   if (rhs1
-      && TREE_CODE (rhs1) == VAR_DECL
-      && TREE_CODE (lhs) == VAR_DECL
+      && VAR_P (rhs1)
+      && VAR_P (lhs)
       && rhs1 != lhs)
     {
       if (code == OMP_ATOMIC)
@@ -287,7 +279,7 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
     {
       /* Generally it is hard to prove lhs1 and lhs are the same memory
 	 location, just diagnose different variables.  */
-      if (lhs1 && TREE_CODE (lhs1) == VAR_DECL && TREE_CODE (lhs) == VAR_DECL)
+      if (lhs1 && VAR_P (lhs1) && VAR_P (lhs))
 	{
 	  if (lhs1 != lhs)
 	    {
@@ -396,7 +388,7 @@ check_omp_for_incr_expr (location_t loc, tree exp, tree decl)
 	  {
 	    tree op1 = TREE_OPERAND (exp, 1);
 	    tree temp = TARGET_EXPR_SLOT (op0);
-	    if (TREE_CODE_CLASS (TREE_CODE (op1)) == tcc_binary
+	    if (BINARY_CLASS_P (op1)
 		&& TREE_OPERAND (op1, 1) == temp)
 	      {
 		op1 = copy_node (op1);
@@ -1103,7 +1095,7 @@ c_oacc_extract_device_id (const char *device)
   return GOMP_DEVICE_NONE;
 }
 
-struct identifier_hasher : ggc_cache_hasher<tree>
+struct identifier_hasher : ggc_cache_ptr_hash<tree_node>
 {
   static hashval_t hash (tree t) { return htab_hash_pointer (t); }
   static bool equal (tree a, tree b)

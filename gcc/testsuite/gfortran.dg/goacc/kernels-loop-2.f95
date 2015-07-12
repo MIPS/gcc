@@ -43,6 +43,3 @@ end program main
 ! { dg-final { scan-tree-dump-times "(?n);; Function MAIN__._omp_fn.2 " 1 "optimized" } }
 
 ! { dg-final { scan-tree-dump-times "(?n)pragma omp target oacc_parallel.*num_gangs\\(32\\)" 3 "parloops_oacc_kernels" } }
-
-! { dg-final { cleanup-tree-dump "parloops_oacc_kernels" } }
-! { dg-final { cleanup-tree-dump "optimized" } }

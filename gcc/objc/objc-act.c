@@ -22,17 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "options.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -53,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "objc-act.h"
 #include "objc-map.h"
-#include "input.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "toplev.h"
@@ -61,14 +52,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-target.h"
 #include "diagnostic-core.h"
 #include "intl.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
-#include "hash-table.h"
-#include "wide-int.h"
 #include "langhooks-def.h"
 /* Different initialization, code gen and meta data generation for each
    runtime.  */
@@ -277,7 +262,7 @@ struct GTY((for_user)) string_descriptor {
   tree constructor;
 };
 
-struct objc_string_hasher : ggc_hasher<string_descriptor *>
+struct objc_string_hasher : ggc_ptr_hash<string_descriptor>
 {
   static hashval_t hash (string_descriptor *);
   static bool equal (string_descriptor *, string_descriptor *);
@@ -439,8 +424,7 @@ objc_init (void)
   return true;
 }
 
-/* This is called automatically (at the very end of compilation) by
-   c_write_global_declarations and cp_write_global_declarations.  */
+/* This is called at the end of parsing by the C/C++ parsers.  */
 void
 objc_write_global_declarations (void)
 {
@@ -3869,10 +3853,8 @@ objc_get_class_ivars (tree class_name)
    more like a set).  So, we store the DECLs, but define equality as
    DECLs having the same name, and hash as the hash of the name.  */
 
-struct decl_name_hash : typed_noop_remove <tree_node>
+struct decl_name_hash : nofree_ptr_hash <tree_node>
 {
-  typedef tree_node *value_type;
-  typedef tree_node *compare_type;
   static inline hashval_t hash (const tree_node *);
   static inline bool equal (const tree_node *, const tree_node *);
 };

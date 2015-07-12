@@ -112,30 +112,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "flags.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -152,36 +138,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "dwarf2out.h"
 #include "dwarf2.h"
 #include "toplev.h"
-#include "hash-table.h"
 #include "intl.h"
 #include "tm_p.h"
 #include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "builtins.h"
+#include "tree-hash-traits.h"
 
 static GTY(()) int call_site_base;
 
-struct tree_hash_traits : default_hashmap_traits
-{
-  static hashval_t hash (tree t) { return TREE_HASH (t); }
-};
-
-static GTY (()) hash_map<tree, tree, tree_hash_traits> *type_to_runtime_map;
+static GTY (()) hash_map<tree_hash, tree> *type_to_runtime_map;
 
 /* Describe the SjLj_Function_Context structure.  */
 static GTY(()) tree sjlj_fc_type_node;
@@ -219,10 +192,8 @@ struct action_record
 
 /* Hashtable helpers.  */
 
-struct action_record_hasher : typed_free_remove <action_record>
+struct action_record_hasher : free_ptr_hash <action_record>
 {
-  typedef action_record *value_type;
-  typedef action_record *compare_type;
   static inline hashval_t hash (const action_record *);
   static inline bool equal (const action_record *, const action_record *);
 };
@@ -266,8 +237,7 @@ init_eh (void)
   if (! flag_exceptions)
     return;
 
-  type_to_runtime_map
-    = hash_map<tree, tree, tree_hash_traits>::create_ggc (31);
+  type_to_runtime_map = hash_map<tree_hash, tree>::create_ggc (31);
 
   /* Create the SjLj_Function_Context structure.  This should match
      the definition in unwind-sjlj.c.  */
@@ -735,9 +705,8 @@ struct ttypes_filter {
 
 /* Helper for ttypes_filter hashing.  */
 
-struct ttypes_filter_hasher : typed_free_remove <ttypes_filter>
+struct ttypes_filter_hasher : free_ptr_hash <ttypes_filter>
 {
-  typedef ttypes_filter *value_type;
   typedef tree_node *compare_type;
   static inline hashval_t hash (const ttypes_filter *);
   static inline bool equal (const ttypes_filter *, const tree_node *);
@@ -763,10 +732,8 @@ typedef hash_table<ttypes_filter_hasher> ttypes_hash_type;
 
 /* Helper for ehspec hashing.  */
 
-struct ehspec_hasher : typed_free_remove <ttypes_filter>
+struct ehspec_hasher : free_ptr_hash <ttypes_filter>
 {
-  typedef ttypes_filter *value_type;
-  typedef ttypes_filter *compare_type;
   static inline hashval_t hash (const ttypes_filter *);
   static inline bool equal (const ttypes_filter *, const ttypes_filter *);
 };
@@ -985,16 +952,11 @@ emit_to_new_bb_before (rtx_insn *seq, rtx insn)
 void
 expand_dw2_landing_pad_for_region (eh_region region)
 {
-#ifdef HAVE_exception_receiver
-  if (HAVE_exception_receiver)
-    emit_insn (gen_exception_receiver ());
+  if (targetm.have_exception_receiver ())
+    emit_insn (targetm.gen_exception_receiver ());
+  else if (targetm.have_nonlocal_goto_receiver ())
+    emit_insn (targetm.gen_nonlocal_goto_receiver ());
   else
-#endif
-#ifdef HAVE_nonlocal_goto_receiver
-  if (HAVE_nonlocal_goto_receiver)
-    emit_insn (gen_nonlocal_goto_receiver ());
-  else
-#endif
     { /* Nothing */ }
 
   if (region->exc_ptr_reg)
@@ -1125,6 +1087,21 @@ sjlj_mark_call_sites (void)
       /* Reset value tracking at extended basic block boundaries.  */
       if (LABEL_P (insn))
 	last_call_site = -2;
+
+      /* If the function allocates dynamic stack space, the context must
+	 be updated after every allocation/deallocation accordingly.  */
+      if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_UPDATE_SJLJ_CONTEXT)
+	{
+	  rtx buf_addr;
+
+	  start_sequence ();
+	  buf_addr = plus_constant (Pmode, XEXP (crtl->eh.sjlj_fc, 0),
+				    sjlj_fc_jbuf_ofs);
+	  expand_builtin_update_setjmp_buf (buf_addr);
+	  p = get_insns ();
+	  end_sequence ();
+	  emit_insn_before (p, insn);
+	}
 
       if (! INSN_P (insn))
 	continue;
@@ -1289,9 +1266,8 @@ sjlj_emit_dispatch_table (rtx_code_label *dispatch_label, int num_dispatch)
   machine_mode unwind_word_mode = targetm.unwind_word_mode ();
   machine_mode filter_mode = targetm.eh_return_filter_mode ();
   eh_landing_pad lp;
-  rtx mem, fc, before, exc_ptr_reg, filter_reg;
+  rtx mem, fc, exc_ptr_reg, filter_reg;
   rtx_insn *seq;
-  rtx first_reachable_label;
   basic_block bb;
   eh_region r;
   edge e;
@@ -1338,7 +1314,7 @@ sjlj_emit_dispatch_table (rtx_code_label *dispatch_label, int num_dispatch)
   /* Jump to one of the directly reachable regions.  */
 
   disp_index = 0;
-  first_reachable_label = NULL;
+  rtx_code_label *first_reachable_label = NULL;
 
   /* If there's exactly one call site in the function, don't bother
      generating a switch statement.  */
@@ -1349,7 +1325,7 @@ sjlj_emit_dispatch_table (rtx_code_label *dispatch_label, int num_dispatch)
     if (lp && lp->post_landing_pad)
       {
 	rtx_insn *seq2;
-	rtx label;
+	rtx_code_label *label;
 
 	start_sequence ();
 
@@ -1363,7 +1339,7 @@ sjlj_emit_dispatch_table (rtx_code_label *dispatch_label, int num_dispatch)
 	    t = build_int_cst (integer_type_node, disp_index);
 	    case_elt = build_case_label (t, NULL, t_label);
 	    dispatch_labels.quick_push (case_elt);
-	    label = label_rtx (t_label);
+	    label = jump_target_rtx (t_label);
 	  }
 	else
 	  label = gen_label_rtx ();
@@ -1381,7 +1357,7 @@ sjlj_emit_dispatch_table (rtx_code_label *dispatch_label, int num_dispatch)
 	seq2 = get_insns ();
 	end_sequence ();
 
-	before = label_rtx (lp->post_landing_pad);
+	rtx_insn *before = label_rtx (lp->post_landing_pad);
 	bb = emit_to_new_bb_before (seq2, before);
 	e = make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
 	e->count = bb->count;
@@ -1493,6 +1469,18 @@ sjlj_build_landing_pads (void)
     }
 
   sjlj_lp_call_site_index.release ();
+}
+
+/* Update the sjlj function context.  This function should be called
+   whenever we allocate or deallocate dynamic stack space.  */
+
+void
+update_sjlj_context (void)
+{
+  if (!flag_exceptions)
+    return;
+
+  emit_note (NOTE_INSN_UPDATE_SJLJ_CONTEXT);
 }
 
 /* After initial rtl generation, call back to finish generating
@@ -1666,7 +1654,7 @@ for_each_eh_label (void (*callback) (rtx))
     {
       if (lp)
 	{
-	  rtx lab = lp->landing_pad;
+	  rtx_code_label *lab = lp->landing_pad;
 	  if (lab && LABEL_P (lab))
 	    (*callback) (lab);
 	}
@@ -1698,7 +1686,7 @@ for_each_eh_label (void (*callback) (rtx))
   direct call cases) and just pull the data out of the trees.  */
 
 void
-make_reg_eh_region_note (rtx insn, int ecf_flags, int lp_nr)
+make_reg_eh_region_note (rtx_insn *insn, int ecf_flags, int lp_nr)
 {
   rtx value;
   if (ecf_flags & ECF_NOTHROW)
@@ -1715,7 +1703,7 @@ make_reg_eh_region_note (rtx insn, int ecf_flags, int lp_nr)
    already exists.  */
 
 void
-make_reg_eh_region_note_nothrow_nononlocal (rtx insn)
+make_reg_eh_region_note_nothrow_nononlocal (rtx_insn *insn)
 {
   rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
   rtx intmin = GEN_INT (INT_MIN);
@@ -1945,7 +1933,7 @@ insn_nothrow_p (const_rtx insn)
 /* ??? This test is here in this file because it (ab)uses REG_EH_REGION.  */
 
 bool
-can_nonlocal_goto (const_rtx insn)
+can_nonlocal_goto (const rtx_insn *insn)
 {
   if (nonlocal_goto_handler_labels && CALL_P (insn))
     {
@@ -2500,7 +2488,7 @@ convert_to_eh_region_ranges (void)
   rtx_insn *first_no_action_insn = NULL;
   int call_site = 0;
   int cur_sec = 0;
-  rtx section_switch_note = NULL_RTX;
+  rtx_insn *section_switch_note = NULL;
   rtx_insn *first_no_action_insn_before_switch = NULL;
   rtx_insn *last_no_action_insn_before_switch = NULL;
   int saved_call_site_base = call_site_base;
@@ -2514,7 +2502,7 @@ convert_to_eh_region_ranges (void)
 	eh_region region;
 	bool nothrow;
 	int this_action;
-	rtx this_landing_pad;
+	rtx_code_label *this_landing_pad;
 
 	insn = iter;
 	if (NONJUMP_INSN_P (insn)
@@ -2545,7 +2533,7 @@ convert_to_eh_region_ranges (void)
 	if (this_action >= 0)
 	  this_landing_pad = lp->landing_pad;
 	else
-	  this_landing_pad = NULL_RTX;
+	  this_landing_pad = NULL;
 
 	/* Differing actions or landing pads implies a change in call-site
 	   info, which implies some EH_REGION note should be emitted.  */
@@ -3248,7 +3236,7 @@ dump_eh_tree (FILE * out, struct function *fun)
 		    fprintf (out, "(nil),");
 		  if (lp->post_landing_pad)
 		    {
-		      rtx lab = label_rtx (lp->post_landing_pad);
+		      rtx_insn *lab = label_rtx (lp->post_landing_pad);
 		      fprintf (out, "%i%s}", INSN_UID (lab),
 			       NOTE_P (lab) ? "(del)" : "");
 		    }

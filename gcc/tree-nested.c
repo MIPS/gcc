@@ -20,48 +20,25 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
 #include "tree-iterator.h"
-#include "bitmap.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "hashtab.h"
-#include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -1084,7 +1061,9 @@ static bool
 convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 {
   struct nesting_info *const info = (struct nesting_info *) wi->info;
-  bool need_chain = false, need_stmts = false;
+  /* If not optimizing, we will force the creation of the CHAIN object in
+     convert_all_function_calls, so we need to take it into account here.  */
+  bool need_chain = info->outer && !optimize, need_stmts = false;
   tree clause, decl;
   int dummy;
   bitmap new_suppress;
@@ -1712,7 +1691,9 @@ static bool
 convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 {
   struct nesting_info *const info = (struct nesting_info *) wi->info;
-  bool need_frame = false, need_stmts = false;
+  /* If not optimizing, we will force the creation of the FRAME object in
+     convert_all_function_calls, so we need to take it into account here.  */
+  bool need_frame = info->inner && !optimize, need_stmts = false;
   tree clause, decl;
   int dummy;
   bitmap new_suppress;

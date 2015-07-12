@@ -21,45 +21,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "gimple-pretty-print.h"
-#include "bitmap.h"
-#include "sbitmap.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "hashtab.h"
-#include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -77,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "tree-ssa.h"
 #include "lto-streamer.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-utils.h"
 
@@ -102,10 +73,8 @@ static void  verify_live_on_entry (tree_live_info_p);
 
 /* Hashtable helpers.  */
 
-struct tree_int_map_hasher : typed_noop_remove <tree_int_map>
+struct tree_int_map_hasher : nofree_ptr_hash <tree_int_map>
 {
-  typedef tree_int_map *value_type;
-  typedef tree_int_map *compare_type;
   static inline hashval_t hash (const tree_int_map *);
   static inline bool equal (const tree_int_map *, const tree_int_map *);
 };

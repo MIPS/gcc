@@ -30,28 +30,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "calls.h"
-#include "rtl.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
-#include "predict.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "insn-config.h"
 #include "regs.h"
 #include "flags.h"
@@ -59,10 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "diagnostic-core.h"
 #include "recog.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -75,20 +59,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "target.h"
 #include "cfgloop.h"
-#include "hash-map.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
 #include "tree-pass.h"
@@ -714,10 +688,10 @@ dump_prediction (FILE *file, enum br_predictor predictor, int probability,
 
   if (bb->count)
     {
-      fprintf (file, "  exec %"PRId64, bb->count);
+      fprintf (file, "  exec %" PRId64, bb->count);
       if (e)
 	{
-	  fprintf (file, " hit %"PRId64, e->count);
+	  fprintf (file, " hit %" PRId64, e->count);
 	  fprintf (file, " (%.1f%%)", e->count * 100.0 / bb->count);
 	}
     }

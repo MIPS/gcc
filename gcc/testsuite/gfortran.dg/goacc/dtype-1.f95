@@ -228,5 +228,3 @@ end subroutine sr5b
 ! { dg-final { scan-tree-dump-times "acc loop private\\(i4\\) seq" 1 "omplower" } }
 
 ! { dg-final { scan-tree-dump-times "acc loop private\\(i5\\) seq" 1 "omplower" } }
-
-! { dg-final { cleanup-tree-dump "omplower" } }

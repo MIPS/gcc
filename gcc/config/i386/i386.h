@@ -154,6 +154,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_PCOMMIT_P(x)	TARGET_ISA_PCOMMIT_P(x)
 #define TARGET_CLWB	TARGET_ISA_CLWB
 #define TARGET_CLWB_P(x)	TARGET_ISA_CLWB_P(x)
+#define TARGET_MWAITX	TARGET_ISA_MWAITX
+#define TARGET_MWAITX_P(x)	TARGET_ISA_MWAITX_P(x)
 
 #define TARGET_LP64	TARGET_ABI_64
 #define TARGET_LP64_P(x)	TARGET_ABI_64_P(x)
@@ -754,7 +756,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /* It should be MIN_STACK_BOUNDARY.  But we set it to 128 bits for
    both 32bit and 64bit, to support codes that need 128 bit stack
    alignment for SSE instructions, but can't realign the stack.  */
-#define PREFERRED_STACK_BOUNDARY_DEFAULT 128
+#define PREFERRED_STACK_BOUNDARY_DEFAULT \
+  (TARGET_IAMCU ? MIN_STACK_BOUNDARY : 128)
 
 /* 1 if -mstackrealign should be turned on by default.  It will
    generate an alternate prologue and epilogue that realigns the
@@ -801,7 +804,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    TARGET_ABSOLUTE_BIGGEST_ALIGNMENT.  */
 
 #define BIGGEST_ALIGNMENT \
-  (TARGET_AVX512F ? 512 : (TARGET_AVX ? 256 : 128))
+  (TARGET_AVX512F ? 512 : (TARGET_AVX ? 256 : (TARGET_IAMCU ? 32 : 128)))
 
 /* Maximum stack alignment.  */
 #define MAX_STACK_ALIGNMENT MAX_OFILE_ALIGNMENT
@@ -1298,7 +1301,9 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
    The classes must be numbered in nondecreasing order; that is,
    a larger-numbered class must never be contained completely
-   in a smaller-numbered class.
+   in a smaller-numbered class.  This is why CLOBBERED_REGS class
+   is listed early, even though in 64-bit mode it contains more
+   registers than just %eax, %ecx, %edx.
 
    For any two classes, it is very desirable that there be another
    class that represents their union.
@@ -1314,11 +1319,11 @@ enum reg_class
   NO_REGS,
   AREG, DREG, CREG, BREG, SIREG, DIREG,
   AD_REGS,			/* %eax/%edx for DImode */
+  CLOBBERED_REGS,		/* call-clobbered integer registers */
   Q_REGS,			/* %eax %ebx %ecx %edx */
   NON_Q_REGS,			/* %esi %edi %ebp %esp */
   INDEX_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp */
   LEGACY_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp %esp */
-  CLOBBERED_REGS,		/* call-clobbered integer registers */
   GENERAL_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp %esp
 				   %r8 %r9 %r10 %r11 %r12 %r13 %r14 %r15 */
   FP_TOP_REG, FP_SECOND_REG,	/* %st(0) %st(1) */
@@ -1375,10 +1380,10 @@ enum reg_class
    "AREG", "DREG", "CREG", "BREG",	\
    "SIREG", "DIREG",			\
    "AD_REGS",				\
+   "CLOBBERED_REGS",			\
    "Q_REGS", "NON_Q_REGS",		\
    "INDEX_REGS",			\
    "LEGACY_REGS",			\
-   "CLOBBERED_REGS",			\
    "GENERAL_REGS",			\
    "FP_TOP_REG", "FP_SECOND_REG",	\
    "FLOAT_REGS",			\
@@ -1414,11 +1419,11 @@ enum reg_class
       { 0x10,       0x0,    0x0 },       /* SIREG */                     \
       { 0x20,       0x0,    0x0 },       /* DIREG */                     \
       { 0x03,       0x0,    0x0 },       /* AD_REGS */                   \
+      { 0x07,       0x0,    0x0 },       /* CLOBBERED_REGS */            \
       { 0x0f,       0x0,    0x0 },       /* Q_REGS */                    \
   { 0x1100f0,    0x1fe0,    0x0 },       /* NON_Q_REGS */                \
       { 0x7f,    0x1fe0,    0x0 },       /* INDEX_REGS */                \
   { 0x1100ff,       0x0,    0x0 },       /* LEGACY_REGS */               \
-      { 0x07,       0x0,    0x0 },       /* CLOBBERED_REGS */            \
   { 0x1100ff,    0x1fe0,    0x0 },       /* GENERAL_REGS */              \
      { 0x100,       0x0,    0x0 },       /* FP_TOP_REG */                \
     { 0x0200,       0x0,    0x0 },       /* FP_SECOND_REG */             \
@@ -1564,7 +1569,7 @@ enum reg_class
 
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 /* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
@@ -1688,6 +1693,7 @@ typedef struct ix86_args {
   int stdarg;                   /* Set to 1 if function is stdarg.  */
   enum calling_abi call_abi;	/* Set to SYSV_ABI for sysv abi. Otherwise
  				   MS_ABI for ms abi.  */
+  tree decl;			/* Callee decl.  */
 } CUMULATIVE_ARGS;
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -2260,6 +2266,7 @@ enum processor_type
   PROCESSOR_I386,			/* 80386 */
   PROCESSOR_I486,			/* 80486DX, 80486SX, 80486DX[24] */
   PROCESSOR_PENTIUM,
+  PROCESSOR_IAMCU,
   PROCESSOR_PENTIUMPRO,
   PROCESSOR_PENTIUM4,
   PROCESSOR_NOCONA,

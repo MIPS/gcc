@@ -92,12 +92,12 @@ along with GCC; see the file COPYING3.  If not see
 
      # BLOCK 7 freq:10000
      # PRED: 3 [100.0%]  (fallthru,exec) 5 [100.0%]  (fallthru,exec)
-             6 [100.0%]  (fallthru,exec)
+	     6 [100.0%]  (fallthru,exec)
      # PT = nonlocal null
 
      # ctxD.2601_1 = PHI <0B(3), 0B(5), ctxD.2601_5(D)(6)>
      # .MEMD.3923_11 = PHI <.MEMD.3923_15(3), .MEMD.3923_17(5),
-                            .MEMD.3923_18(6)>
+			    .MEMD.3923_18(6)>
      # VUSE <.MEMD.3923_11>
      return ctxD.2601_1;
      # SUCC: EXIT [100.0%]
@@ -188,45 +188,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "trans-mem.h"
-#include "inchash.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
 #include "flags.h"
-#include "hash-table.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
 #include "tree-into-ssa.h"
 #include "params.h"
 #include "gimple-pretty-print.h"
@@ -243,7 +221,7 @@ along with GCC; see the file COPYING3.  If not see
    Additionally, the hash value for the struct is cached in hashval, and
    in_worklist indicates whether it's currently part of worklist.  */
 
-struct same_succ_def
+struct same_succ_def : pointer_hash <same_succ_def>
 {
   /* The bbs that have the same successor bbs.  */
   bitmap bbs;
@@ -260,8 +238,6 @@ struct same_succ_def
   hashval_t hashval;
 
   /* hash_table support.  */
-  typedef same_succ_def *value_type;
-  typedef same_succ_def *compare_type;
   static inline hashval_t hash (const same_succ_def *);
   static int equal (const same_succ_def *, const same_succ_def *);
   static void remove (same_succ_def *);
@@ -496,7 +472,7 @@ same_succ_hash (const_same_succ e)
       if (!is_gimple_call (stmt))
 	continue;
       if (gimple_call_internal_p (stmt))
-        hstate.add_int (gimple_call_internal_fn (stmt));
+	hstate.add_int (gimple_call_internal_fn (stmt));
       else
 	{
 	  inchash::add_expr (gimple_call_fn (stmt), hstate);
@@ -891,7 +867,6 @@ release_last_vdef (basic_block bb)
       mark_virtual_phi_result_for_renaming (phi);
       return;
     }
-  
 }
 
 /* For deleted_bb_preds, find bbs with same successors.  */
@@ -1148,7 +1123,7 @@ gimple_equal_p (same_succ same_succ, gimple s1, gimple s2)
     {
     case GIMPLE_CALL:
       if (!gimple_call_same_target_p (s1, s2))
-        return false;
+	return false;
 
       t1 = gimple_call_chain (s1);
       t2 = gimple_call_chain (s2);
@@ -1320,7 +1295,7 @@ same_phi_alternatives_1 (basic_block dest, edge e1, edge e2)
 	continue;
 
       if (operand_equal_for_phi_arg_p (val1, val2))
-        continue;
+	continue;
       if (gvn_uses_equal (val1, val2))
 	continue;
 
@@ -1462,7 +1437,7 @@ find_clusters_1 (same_succ same_succ)
 	    continue;
 
 	  find_duplicate (same_succ, bb1, bb2);
-        }
+	}
     }
 }
 

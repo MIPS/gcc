@@ -24,5 +24,3 @@ f (unsigned int n, unsigned int *__restrict__ a)
    - one in the low iteration count loop
    Crucially, none for a peeled off last iteration following the parallel.  */
 /* { dg-final { scan-tree-dump-times "(?n)\\\* 4" 3 "parloops" } } */
-
-/* { dg-final { cleanup-tree-dump "parloops" } } */

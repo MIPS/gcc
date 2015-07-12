@@ -21,27 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "stringpool.h"
-#include "hashtab.h"
-#include "hard-reg-set.h"
-#include "function.h"
+#include "gimple.h"
 #include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -53,28 +40,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "stor-layout.h"
 #include "dumpfile.h"
-#include "bitmap.h"
-#include "predict.h"
 #include "dominance.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-ssa-propagate.h"
 #include "target.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-utils.h"
 #include "gimple-pretty-print.h"
@@ -86,8 +61,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "tree-eh.h"
 #include "gimple-match.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
 
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.
@@ -2530,7 +2503,7 @@ gimple_fold_builtin_snprintf (gimple_stmt_iterator *gsi)
 	return false;
 
       tree orig_len = get_maxval_strlen (orig, 0);
-      if (!orig_len)
+      if (!orig_len || TREE_CODE (orig_len) != INTEGER_CST)
 	return false;
 
       /* We could expand this as
@@ -3846,7 +3819,7 @@ canonicalize_bool (tree expr, bool invert)
       else if (TREE_CODE (expr) == SSA_NAME)
 	return fold_build2 (EQ_EXPR, boolean_type_node, expr,
 			    build_int_cst (TREE_TYPE (expr), 0));
-      else if (TREE_CODE_CLASS (TREE_CODE (expr)) == tcc_comparison)
+      else if (COMPARISON_CLASS_P (expr))
 	return fold_build2 (invert_tree_comparison (TREE_CODE (expr), false),
 			    boolean_type_node,
 			    TREE_OPERAND (expr, 0),
@@ -3865,7 +3838,7 @@ canonicalize_bool (tree expr, bool invert)
       else if (TREE_CODE (expr) == SSA_NAME)
 	return fold_build2 (NE_EXPR, boolean_type_node, expr,
 			    build_int_cst (TREE_TYPE (expr), 0));
-      else if (TREE_CODE_CLASS (TREE_CODE (expr)) == tcc_comparison)
+      else if (COMPARISON_CLASS_P (expr))
 	return fold_build2 (TREE_CODE (expr),
 			    boolean_type_node,
 			    TREE_OPERAND (expr, 0),
@@ -3946,12 +3919,12 @@ same_bool_result_p (const_tree op1, const_tree op2)
   /* Check the cases where at least one of the operands is a comparison.
      These are a bit smarter than operand_equal_p in that they apply some
      identifies on SSA_NAMEs.  */
-  if (TREE_CODE_CLASS (TREE_CODE (op2)) == tcc_comparison
+  if (COMPARISON_CLASS_P (op2)
       && same_bool_comparison_p (op1, TREE_CODE (op2),
 				 TREE_OPERAND (op2, 0),
 				 TREE_OPERAND (op2, 1)))
     return true;
-  if (TREE_CODE_CLASS (TREE_CODE (op1)) == tcc_comparison
+  if (COMPARISON_CLASS_P (op1)
       && same_bool_comparison_p (op2, TREE_CODE (op1),
 				 TREE_OPERAND (op1, 0),
 				 TREE_OPERAND (op1, 1)))
@@ -5518,7 +5491,7 @@ fold_const_aggregate_ref_1 (tree t, tree (*valueize) (tree))
   if (TREE_THIS_VOLATILE (t))
     return NULL_TREE;
 
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_declaration)
+  if (DECL_P (t))
     return get_symbol_constant_value (t);
 
   tem = fold_read_from_constant_string (t);

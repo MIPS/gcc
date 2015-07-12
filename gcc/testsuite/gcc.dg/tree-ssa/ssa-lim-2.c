@@ -19,4 +19,3 @@ int size)
 }
 
 /* { dg-final { scan-tree-dump-times "1 <<" 3 "lim2" } } */
-/* { dg-final { cleanup-tree-dump "lim2" } } */

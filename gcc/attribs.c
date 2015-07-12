@@ -21,26 +21,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "symtab.h"
-#include "input.h"
-#include "alias.h"
-#include "double-int.h"
-#include "machmode.h"
-#include "inchash.h"
 #include "tree.h"
+#include "alias.h"
 #include "stringpool.h"
 #include "attribs.h"
 #include "stor-layout.h"
 #include "flags.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "cpplib.h"
 #include "target.h"
 #include "langhooks.h"
-#include "hash-table.h"
 #include "plugin.h"
 
 /* Table of the tables of attributes (common, language, format, machine)
@@ -65,9 +56,8 @@ substring_hash (const char *str, int l)
 
 /* Used for attribute_hash.  */
 
-struct attribute_hasher : typed_noop_remove <attribute_spec>
+struct attribute_hasher : nofree_ptr_hash <attribute_spec>
 {
-  typedef attribute_spec *value_type;
   typedef substring *compare_type;
   static inline hashval_t hash (const attribute_spec *);
   static inline bool equal (const attribute_spec *, const substring *);
@@ -478,10 +468,10 @@ decl_attributes (tree *node, tree attributes, int flags)
 	  /* This is a c++11 attribute that appertains to a
 	     type-specifier, outside of the definition of, a class
 	     type.  Ignore it.  */
-	  warning (OPT_Wattributes, "attribute ignored");
-	  inform (input_location,
-		  "an attribute that appertains to a type-specifier "
-		  "is ignored");
+	  if (warning (OPT_Wattributes, "attribute ignored"))
+	    inform (input_location,
+		    "an attribute that appertains to a type-specifier "
+		    "is ignored");
 	  continue;
 	}
 

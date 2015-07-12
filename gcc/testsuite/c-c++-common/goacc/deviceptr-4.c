@@ -9,4 +9,3 @@ subr (int *a)
 }
 
 /* { dg-final { scan-tree-dump-times "#pragma omp target oacc_parallel.*map\\(force_present:a" 1 "gimple" } } */
-/* { dg-final { cleanup-tree-dump "gimple" } } */

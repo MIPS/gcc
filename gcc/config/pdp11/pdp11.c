@@ -21,33 +21,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -58,20 +45,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "opts.h"
 #include "dbxout.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* this is the current value returned by the macro FIRST_PARM_OFFSET 
    defined in tm.h */
@@ -174,7 +158,7 @@ decode_pdp11_d (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
 static const char *singlemove_string (rtx *);
 static bool pdp11_assemble_integer (rtx, unsigned int, int);
-static bool pdp11_rtx_costs (rtx, int, int, int, int *, bool);
+static bool pdp11_rtx_costs (rtx, machine_mode, int, int, int *, bool);
 static bool pdp11_return_in_memory (const_tree, const_tree);
 static rtx pdp11_function_value (const_tree, const_tree, bool);
 static rtx pdp11_libcall_value (machine_mode, const_rtx);
@@ -926,10 +910,12 @@ pdp11_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 }
 
 static bool
-pdp11_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
+pdp11_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
 		 int opno ATTRIBUTE_UNUSED, int *total,
 		 bool speed ATTRIBUTE_UNUSED)
 {
+  int code = GET_CODE (x);
+
   switch (code)
     {
     case CONST_INT:
@@ -988,9 +974,9 @@ pdp11_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
       return false;
 
     case SIGN_EXTEND:
-      if (GET_MODE (x) == HImode)
+      if (mode == HImode)
       	*total = COSTS_N_INSNS (1);
-      else if (GET_MODE (x) == SImode)
+      else if (mode == SImode)
 	*total = COSTS_N_INSNS (6);
       else
 	*total = COSTS_N_INSNS (2);
@@ -1001,14 +987,14 @@ pdp11_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
     case ASHIFTRT:
       if (optimize_size)
         *total = COSTS_N_INSNS (1);
-      else if (GET_MODE (x) ==  QImode)
+      else if (mode ==  QImode)
         {
           if (GET_CODE (XEXP (x, 1)) != CONST_INT)
    	    *total = COSTS_N_INSNS (8); /* worst case */
           else
 	    *total = COSTS_N_INSNS (INTVAL (XEXP (x, 1)));
         }
-      else if (GET_MODE (x) == HImode)
+      else if (mode == HImode)
         {
           if (GET_CODE (XEXP (x, 1)) == CONST_INT)
             {
@@ -1020,7 +1006,7 @@ pdp11_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
           else
             *total = COSTS_N_INSNS (10); /* worst case */
         }
-      else if (GET_MODE (x) == SImode)
+      else if (mode == SImode)
         {
           if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	    *total = COSTS_N_INSNS (2.5 + 0.5 * INTVAL (XEXP (x, 1)));

@@ -12,5 +12,5 @@ main (void)
   return 0;
 }
 
-/* { dg-output "device nvidia not supported" } */
+/* { dg-output "device type nvidia not supported" } */
 /* { dg-shouldfail "" } */

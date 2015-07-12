@@ -17,4 +17,3 @@ contains
 end program test
 ! { dg-final { scan-tree-dump-times "pragma acc declare map\\(force_to:i\\)" 2 "original" } }
 ! { dg-final { scan-tree-dump-times "pragma acc declare map\\(force_from:i\\)" 2 "original" } }
-! { dg-final { cleanup-tree-dump "original" } } 

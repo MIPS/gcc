@@ -206,6 +206,9 @@ typedef struct gfc_ss_info
     /* If type is GFC_SS_SCALAR or GFC_SS_REFERENCE.  */
     struct
     {
+      /* If the scalar is passed as actual argument to an (elemental) procedure,
+	 this is the symbol of the corresponding dummy argument.  */
+      gfc_symbol *dummy_arg;
       tree value;
     }
     scalar;
@@ -595,7 +598,7 @@ void gfc_generate_module_vars (gfc_namespace *);
 /* Get the appropriate return statement for a procedure.  */
 tree gfc_generate_return (void);
 
-struct module_decl_hasher : ggc_hasher<tree_node *>
+struct module_decl_hasher : ggc_ptr_hash<tree_node>
 {
   typedef const char *compare_type;
 
@@ -665,6 +668,9 @@ tree gfc_deallocate_scalar_with_status (tree, tree, bool, gfc_expr*, gfc_typespe
 
 /* Generate code to call realloc().  */
 tree gfc_call_realloc (stmtblock_t *, tree, tree);
+
+/* Assign a derived type constructor to a variable.  */
+tree gfc_trans_structure_assign (tree, gfc_expr *, bool);
 
 /* Generate code for an assignment, includes scalarization.  */
 tree gfc_trans_assignment (gfc_expr *, gfc_expr *, bool, bool);

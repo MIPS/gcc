@@ -22,43 +22,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "options.h"
+#include "fold-const.h"
+#include "internal-fn.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
 #include "stor-layout.h"
 #include "tree-nested.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
@@ -75,8 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-parloops.h"
 #include "omp-low.h"
 #include "tree-nested.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-ssa.h"
 
@@ -229,10 +206,8 @@ struct reduction_info
 
 /* Reduction info hashtable helpers.  */
 
-struct reduction_hasher : typed_free_remove <reduction_info>
+struct reduction_hasher : free_ptr_hash <reduction_info>
 {
-  typedef reduction_info *value_type;
-  typedef reduction_info *compare_type;
   static inline hashval_t hash (const reduction_info *);
   static inline bool equal (const reduction_info *, const reduction_info *);
 };
@@ -281,10 +256,8 @@ struct name_to_copy_elt
 
 /* Name copies hashtable helpers.  */
 
-struct name_to_copy_hasher : typed_free_remove <name_to_copy_elt>
+struct name_to_copy_hasher : free_ptr_hash <name_to_copy_elt>
 {
-  typedef name_to_copy_elt *value_type;
-  typedef name_to_copy_elt *compare_type;
   static inline hashval_t hash (const name_to_copy_elt *);
   static inline bool equal (const name_to_copy_elt *, const name_to_copy_elt *);
 };

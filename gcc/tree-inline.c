@@ -21,18 +21,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "diagnostic-core.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "diagnostic-core.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
@@ -40,39 +35,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "params.h"
 #include "insn-config.h"
-#include "hashtab.h"
 #include "langhooks.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "tree-iterator.h"
 #include "intl.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
-#include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -85,9 +60,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "except.h"
 #include "debug.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
 #include "symbol-summary.h"
@@ -99,7 +71,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "tree-chkp.h"
 
-#include "rtl.h"	/* FIXME: For asm_str_count.  */
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -875,8 +846,7 @@ remap_dependence_clique (copy_body_data *id, unsigned short clique)
   if (clique == 0)
     return 0;
   if (!id->dependence_map)
-    id->dependence_map
-      = new hash_map<unsigned short, unsigned short, dependence_hasher>;
+    id->dependence_map = new hash_map<dependence_hash, unsigned short>;
   bool existed;
   unsigned short &newc = id->dependence_map->get_or_insert (clique, &existed);
   if (!existed)
@@ -3032,7 +3002,7 @@ insert_init_debug_bind (copy_body_data *id,
 	base_stmt = gsi_stmt (gsi);
     }
 
-  note = gimple_build_debug_bind (tracked_var, value, base_stmt);
+  note = gimple_build_debug_bind (tracked_var, unshare_expr (value), base_stmt);
 
   if (bb)
     {
@@ -4346,6 +4316,60 @@ add_local_variables (struct function *callee, struct function *caller,
       }
 }
 
+/* Add to BINDINGS a debug stmt resetting SRCVAR if inlining might
+   have brought in or introduced any debug stmts for SRCVAR.  */
+
+static inline void
+reset_debug_binding (copy_body_data *id, tree srcvar, gimple_seq *bindings)
+{
+  tree *remappedvarp = id->decl_map->get (srcvar);
+
+  if (!remappedvarp)
+    return;
+
+  if (TREE_CODE (*remappedvarp) != VAR_DECL)
+    return;
+
+  if (*remappedvarp == id->retvar || *remappedvarp == id->retbnd)
+    return;
+
+  tree tvar = target_for_debug_bind (*remappedvarp);
+  if (!tvar)
+    return;
+
+  gdebug *stmt = gimple_build_debug_bind (tvar, NULL_TREE,
+					  id->call_stmt);
+  gimple_seq_add_stmt (bindings, stmt);
+}
+
+/* For each inlined variable for which we may have debug bind stmts,
+   add before GSI a final debug stmt resetting it, marking the end of
+   its life, so that var-tracking knows it doesn't have to compute
+   further locations for it.  */
+
+static inline void
+reset_debug_bindings (copy_body_data *id, gimple_stmt_iterator gsi)
+{
+  tree var;
+  unsigned ix;
+  gimple_seq bindings = NULL;
+
+  if (!gimple_in_ssa_p (id->src_cfun))
+    return;
+
+  if (!opt_for_fn (id->dst_fn, flag_var_tracking_assignments))
+    return;
+
+  for (var = DECL_ARGUMENTS (id->src_fn);
+       var; var = DECL_CHAIN (var))
+    reset_debug_binding (id, var, &bindings);
+
+  FOR_EACH_LOCAL_DECL (id->src_cfun, ix, var)
+    reset_debug_binding (id, var, &bindings);
+
+  gsi_insert_seq_before_without_update (&gsi, bindings, GSI_SAME_STMT);
+}
+
 /* If STMT is a GIMPLE_CALL, replace it with its inline expansion.  */
 
 static bool
@@ -4660,6 +4684,8 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   copy_body (id, cg_edge->callee->count,
   	     GCOV_COMPUTE_SCALE (cg_edge->frequency, CGRAPH_FREQ_BASE),
 	     bb, return_block, NULL);
+
+  reset_debug_bindings (id, stmt_gsi);
 
   /* Reset the escaped solution.  */
   if (cfun->gimple_df)

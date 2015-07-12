@@ -158,7 +158,7 @@ enum reg_class
 
 #define STARTING_FRAME_OFFSET 0
 #define FRAME_GROWS_DOWNWARD 0
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 #define STACK_POINTER_REGNUM 1
 #define HARD_FRAME_POINTER_REGNUM 2
@@ -325,7 +325,7 @@ struct GTY(()) machine_function
 	       (ALIGN) / BITS_PER_UNIT);				\
       assemble_name ((FILE), (NAME));					\
       if ((SIZE) > 0)							\
-	fprintf (FILE, "["HOST_WIDE_INT_PRINT_DEC"]", (SIZE));		\
+	fprintf (FILE, "[" HOST_WIDE_INT_PRINT_DEC"]", (SIZE));		\
       fprintf (FILE, ";\n");						\
     }									\
   while (0)
@@ -342,7 +342,7 @@ struct GTY(()) machine_function
 	       (ALIGN) / BITS_PER_UNIT);				\
       assemble_name ((FILE), (NAME));					\
       if ((SIZE) > 0)							\
-	fprintf (FILE, "["HOST_WIDE_INT_PRINT_DEC"]", (SIZE));		\
+	fprintf (FILE, "[" HOST_WIDE_INT_PRINT_DEC"]", (SIZE));		\
       fprintf (FILE, ";\n");						\
     }									\
   while (0)

@@ -135,37 +135,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "options.h"
+#include "fold-const.h"
+#include "internal-fn.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 
@@ -291,10 +270,8 @@ registration_hasher::equal (const vtable_registration *p1,
 
 /* Hashtable definition and functions for vtbl_map_hash.  */
 
-struct vtbl_map_hasher : typed_noop_remove <struct vtbl_map_node>
+struct vtbl_map_hasher : nofree_ptr_hash <struct vtbl_map_node>
 {
-  typedef struct vtbl_map_node *value_type;
-  typedef struct vtbl_map_node *compare_type;
   static inline hashval_t hash (const vtbl_map_node *);
   static inline bool equal (const vtbl_map_node *, const vtbl_map_node *);
 };

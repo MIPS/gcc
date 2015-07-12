@@ -16,4 +16,3 @@ int foo (int *p)
 }
 
 /* { dg-final { scan-tree-dump "# of iterations 1, bounded by 1" "sccp2" } } */
-/* { dg-final { cleanup-tree-dump "sccp2" } } */

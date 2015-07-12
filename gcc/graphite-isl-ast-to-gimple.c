@@ -21,6 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 
 #ifdef HAVE_isl
+/* Workaround for GMP 5.1.3 bug, see PR56019.  */
+#include <stddef.h>
+
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
@@ -38,31 +41,14 @@ extern "C" {
 
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
+#include "hard-reg-set.h"
+#include "options.h"
+#include "fold-const.h"
+#include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop.h"
 #include "tree-pass.h"
@@ -1072,6 +1058,10 @@ graphite_regenerate_ast_isl (scop_p scop)
 
   translate_isl_ast (context_loop, root_node, if_region->true_region->entry,
 		     ip);
+
+  mark_virtual_operands_for_renaming (cfun);
+  update_ssa (TODO_update_ssa);
+
   graphite_verify ();
   scev_reset ();
   recompute_all_dominators ();

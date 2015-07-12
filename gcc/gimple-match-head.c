@@ -20,40 +20,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
+#include "options.h"
 #include "fold-const.h"
-#include "stringpool.h"
 #include "stor-layout.h"
 #include "flags.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
-#include "gimple-ssa.h"
-#include "tree-ssanames.h"
 #include "gimple-fold.h"
 #include "gimple-iterator.h"
-#include "hashtab.h"
-#include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -65,8 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-dfa.h"
 #include "builtins.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
 #include "dumpfile.h"
 #include "gimple-match.h"
 
@@ -202,9 +179,7 @@ gimple_resimplify2 (gimple_seq *seq,
 	  || commutative_tree_code (*res_code))
       && tree_swap_operands_p (res_ops[0], res_ops[1], false))
     {
-      tree tem = res_ops[0];
-      res_ops[0] = res_ops[1];
-      res_ops[1] = tem;
+      std::swap (res_ops[0], res_ops[1]);
       if (TREE_CODE_CLASS ((enum tree_code) *res_code) == tcc_comparison)
 	*res_code = swap_tree_comparison (*res_code);
       canonicalized = true;
@@ -274,9 +249,7 @@ gimple_resimplify3 (gimple_seq *seq,
       && commutative_ternary_tree_code (*res_code)
       && tree_swap_operands_p (res_ops[0], res_ops[1], false))
     {
-      tree tem = res_ops[0];
-      res_ops[0] = res_ops[1];
-      res_ops[1] = tem;
+      std::swap (res_ops[0], res_ops[1]);
       canonicalized = true;
     }
 
@@ -439,9 +412,7 @@ gimple_simplify (enum tree_code code, tree type,
        || TREE_CODE_CLASS (code) == tcc_comparison)
       && tree_swap_operands_p (op0, op1, false))
     {
-      tree tem = op0;
-      op0 = op1;
-      op1 = tem;
+      std::swap (op0, op1);
       if (TREE_CODE_CLASS (code) == tcc_comparison)
 	code = swap_tree_comparison (code);
     }
@@ -474,11 +445,7 @@ gimple_simplify (enum tree_code code, tree type,
      generation.  */
   if (commutative_ternary_tree_code (code)
       && tree_swap_operands_p (op0, op1, false))
-    {
-      tree tem = op0;
-      op0 = op1;
-      op1 = tem;
-    }
+    std::swap (op0, op1);
 
   code_helper rcode;
   tree ops[3] = {};
@@ -861,3 +828,27 @@ do_valueize (tree (*valueize)(tree), tree op)
   return op;
 }
 
+/* Routine to determine if the types T1 and T2 are effectively
+   the same for GIMPLE.  If T1 or T2 is not a type, the test
+   applies to their TREE_TYPE.  */
+
+static inline bool
+types_match (tree t1, tree t2)
+{
+  if (!TYPE_P (t1))
+    t1 = TREE_TYPE (t1);
+  if (!TYPE_P (t2))
+    t2 = TREE_TYPE (t2);
+
+  return types_compatible_p (t1, t2);
+}
+
+/* Return if T has a single use.  For GIMPLE, we also allow any
+   non-SSA_NAME (ie constants) and zero uses to cope with uses
+   that aren't linked up yet.  */
+
+static inline bool
+single_use (tree t)
+{
+  return TREE_CODE (t) != SSA_NAME || has_zero_uses (t) || has_single_use (t);
+}

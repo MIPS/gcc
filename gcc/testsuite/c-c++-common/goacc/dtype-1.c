@@ -156,5 +156,3 @@ test ()
 /* { dg-final { scan-tree-dump-times "acc loop seq private\\(i4\\)" 1 "omplower" } } */
 
 /* { dg-final { scan-tree-dump-times "acc loop seq private\\(i5\\)" 2 "omplower" } } */
-
-/* { dg-final { cleanup-tree-dump "omplower" } } */

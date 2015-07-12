@@ -11,4 +11,3 @@ void foo(int n)
 
 /* { dg-final { scan-tree-dump "Executing store motion of global.y" "lim2" } } */
 /* { dg-final { scan-tree-dump "Moving statement.*global.x.*out of loop 1" "lim2" } } */
-/* { dg-final { cleanup-tree-dump "lim2" } } */

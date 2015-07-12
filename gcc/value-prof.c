@@ -20,28 +20,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "tree-nested.h"
 #include "calls.h"
-#include "rtl.h"
-#include "hashtab.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -50,29 +38,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "value-prof.h"
 #include "recog.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "regs.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "coverage.h"
@@ -80,9 +55,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "dumpfile.h"
 #include "profile.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "data-streamer.h"
 #include "builtins.h"
@@ -296,10 +268,10 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
 	   unsigned int i;
 	   fprintf (dump_file, " [");
            for (i = 0; i < hist->hdata.intvl.steps; i++)
-	     fprintf (dump_file, " %d:%"PRId64,
+	     fprintf (dump_file, " %d:%" PRId64,
 		      hist->hdata.intvl.int_start + i,
 		      (int64_t) hist->hvalue.counters[i]);
-	   fprintf (dump_file, " ] outside range:%"PRId64,
+	   fprintf (dump_file, " ] outside range:%" PRId64,
 		    (int64_t) hist->hvalue.counters[i]);
 	}
       fprintf (dump_file, ".\n");
@@ -309,8 +281,8 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Pow2 counter ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "pow2:%"PRId64
-		    " nonpow2:%"PRId64,
+	   fprintf (dump_file, "pow2:%" PRId64
+		    " nonpow2:%" PRId64,
 		    (int64_t) hist->hvalue.counters[0],
 		    (int64_t) hist->hvalue.counters[1]);
 	}
@@ -321,9 +293,9 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Single value ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "value:%"PRId64
-		    " match:%"PRId64
-		    " wrong:%"PRId64,
+	   fprintf (dump_file, "value:%" PRId64
+		    " match:%" PRId64
+		    " wrong:%" PRId64,
 		    (int64_t) hist->hvalue.counters[0],
 		    (int64_t) hist->hvalue.counters[1],
 		    (int64_t) hist->hvalue.counters[2]);
@@ -335,8 +307,8 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Average value ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "sum:%"PRId64
-		    " times:%"PRId64,
+	   fprintf (dump_file, "sum:%" PRId64
+		    " times:%" PRId64,
 		    (int64_t) hist->hvalue.counters[0],
 		    (int64_t) hist->hvalue.counters[1]);
 	}
@@ -347,7 +319,7 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "IOR value ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "ior:%"PRId64,
+	   fprintf (dump_file, "ior:%" PRId64,
 		    (int64_t) hist->hvalue.counters[0]);
 	}
       fprintf (dump_file, ".\n");
@@ -357,9 +329,9 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Constant delta ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "value:%"PRId64
-		    " match:%"PRId64
-		    " wrong:%"PRId64,
+	   fprintf (dump_file, "value:%" PRId64
+		    " match:%" PRId64
+		    " wrong:%" PRId64,
 		    (int64_t) hist->hvalue.counters[0],
 		    (int64_t) hist->hvalue.counters[1],
 		    (int64_t) hist->hvalue.counters[2]);
@@ -370,9 +342,9 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Indirect call ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "value:%"PRId64
-		    " match:%"PRId64
-		    " all:%"PRId64,
+	   fprintf (dump_file, "value:%" PRId64
+		    " match:%" PRId64
+		    " all:%" PRId64,
 		    (int64_t) hist->hvalue.counters[0],
 		    (int64_t) hist->hvalue.counters[1],
 		    (int64_t) hist->hvalue.counters[2]);
@@ -383,7 +355,7 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Time profile ");
       if (hist->hvalue.counters)
       {
-        fprintf (dump_file, "time:%"PRId64,
+        fprintf (dump_file, "time:%" PRId64,
                  (int64_t) hist->hvalue.counters[0]);
       }
       fprintf (dump_file, ".\n");
@@ -394,10 +366,10 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
 	{
            int i;
 
-           fprintf (dump_file, "accu:%"PRId64, hist->hvalue.counters[0]);
+           fprintf (dump_file, "accu:%" PRId64, hist->hvalue.counters[0]);
            for (i = 1; i < (GCOV_ICALL_TOPN_VAL << 2); i += 2)
              {
-               fprintf (dump_file, " target:%"PRId64 " value:%"PRId64,
+               fprintf (dump_file, " target:%" PRId64 " value:%" PRId64,
                        (int64_t) hist->hvalue.counters[i],
                        (int64_t) hist->hvalue.counters[i+1]);
              }
@@ -1261,22 +1233,9 @@ gimple_mod_subtract_transform (gimple_stmt_iterator *si)
   return true;
 }
 
-struct profile_id_traits : default_hashmap_traits
-{
-  template<typename T>
-  static bool
-  is_deleted (T &e)
-    {
-      return e.m_key == UINT_MAX;
-    }
+typedef int_hash <unsigned int, 0, UINT_MAX> profile_id_hash;
 
-  template<typename T> static bool is_empty (T &e) { return e.m_key == 0; }
-  template<typename T> static void mark_deleted (T &e) { e.m_key = UINT_MAX; }
-  template<typename T> static void mark_empty (T &e) { e.m_key = 0; }
-};
-
-static hash_map<unsigned int, cgraph_node *, profile_id_traits> *
-cgraph_node_map = 0;
+static hash_map<profile_id_hash, cgraph_node *> *cgraph_node_map = 0;
 
 /* Returns true if node graph is initialized. This
    is used to test if profile_id has been created
@@ -1296,8 +1255,7 @@ void
 init_node_map (bool local)
 {
   struct cgraph_node *n;
-  cgraph_node_map
-    = new hash_map<unsigned int, cgraph_node *, profile_id_traits>;
+  cgraph_node_map = new hash_map<profile_id_hash, cgraph_node *>;
 
   FOR_EACH_DEFINED_FUNCTION (n)
     if (n->has_gimple_body_p ())
@@ -1666,8 +1624,8 @@ gimple_ic_transform (gimple_stmt_iterator *gsi)
       print_generic_expr (dump_file, direct_call->decl, TDF_SLIM);
       fprintf (dump_file, " transformation on insn postponned to ipa-profile");
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
-      fprintf (dump_file, "hist->count %"PRId64
-	       " hist->all %"PRId64"\n", count, all);
+      fprintf (dump_file, "hist->count %" PRId64
+	       " hist->all %" PRId64"\n", count, all);
     }
 
   return true;

@@ -21,38 +21,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "print-tree.h"
 #include "varasm.h"
-#include "hashtab.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "emit-rtl.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "tree-inline.h"
 #include "langhooks.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "timevar.h"
@@ -1889,7 +1869,7 @@ symtab_node::call_for_symbol_and_aliases_1 (bool (*callback) (symtab_node *,
   return false;
 }
 
-/* Return ture if address of N is possibly compared.  */
+/* Return true if address of N is possibly compared.  */
 
 static bool
 address_matters_1 (symtab_node *n, void *)
@@ -1917,7 +1897,7 @@ symtab_node::address_matters_p ()
   return call_for_symbol_and_aliases (address_matters_1, NULL, true);
 }
 
-/* Return ture if symbol's alignment may be increased.  */
+/* Return true if symbol's alignment may be increased.  */
 
 bool
 symtab_node::can_increase_alignment_p (void)

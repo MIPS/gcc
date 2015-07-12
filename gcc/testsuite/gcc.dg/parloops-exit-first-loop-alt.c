@@ -2,7 +2,7 @@
 /* { dg-require-effective-target pthread } */
 /* { dg-options "-O2 -ftree-parallelize-loops=2 -fdump-tree-parloops" } */
 
-/* Variable bound, vector addition.  */
+/* Variable bound, vector addition, signed loop counter, unsigned bound.  */
 
 void
 f (unsigned int n, unsigned int *__restrict__ a, unsigned int *__restrict__ b,
@@ -20,6 +20,3 @@ f (unsigned int n, unsigned int *__restrict__ a, unsigned int *__restrict__ b,
    - one in the low iteration count loop
    Crucially, none for a peeled off last iteration following the parallel.  */
 /* { dg-final { scan-tree-dump-times "(?n)^  \\*_\[0-9\]*" 3 "parloops" } } */
-
-/* { dg-final { cleanup-tree-dump "parloops" } } */
-

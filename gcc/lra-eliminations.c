@@ -54,9 +54,10 @@ along with GCC; see the file COPYING3.	If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hard-reg-set.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "insn-config.h"
@@ -65,22 +66,8 @@ along with GCC; see the file COPYING3.	If not see
 #include "output.h"
 #include "addresses.h"
 #include "target.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "symtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -89,15 +76,12 @@ along with GCC; see the file COPYING3.	If not see
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "except.h"
 #include "optabs.h"
-#include "df.h"
 #include "ira.h"
 #include "rtl-error.h"
+#include "lra.h"
+#include "insn-attr.h"
 #include "lra-int.h"
 
 /* This structure is used to record information about hard register
@@ -873,7 +857,7 @@ mark_not_eliminable (rtx x, machine_mode mem_mode)
    found elmination offset.  If the note is not found, return NULL.
    Remove the found note.  */
 static rtx
-remove_reg_equal_offset_note (rtx insn, rtx what)
+remove_reg_equal_offset_note (rtx_insn *insn, rtx what)
 {
   rtx link, *link_loc;
 
@@ -1076,8 +1060,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 		 constraint pass fix it up.  */
 	      if (! validate_change (insn, &SET_SRC (old_set), new_src, 0))
 		{
-		  rtx new_pat = gen_rtx_SET (VOIDmode,
-					     SET_DEST (old_set), new_src);
+		  rtx new_pat = gen_rtx_SET (SET_DEST (old_set), new_src);
 
 		  if (! validate_change (insn, &PATTERN (insn), new_pat, 0))
 		    SET_SRC (old_set) = new_src;

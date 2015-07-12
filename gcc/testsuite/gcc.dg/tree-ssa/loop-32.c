@@ -43,4 +43,3 @@ void test3(struct a *A)
 }
 
 /* { dg-final { scan-tree-dump-times "Executing store motion of" 3 "lim2" } } */
-/* { dg-final { cleanup-tree-dump "lim2" } } */

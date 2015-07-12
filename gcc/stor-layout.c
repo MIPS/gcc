@@ -22,15 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -40,12 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "hard-reg-set.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -59,10 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "regs.h"
 #include "params.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "tree-dump.h"
@@ -265,7 +248,7 @@ self_referential_size (tree size)
   fntype = build_function_type (return_type, param_type_list);
 
   /* Build the function declaration.  */
-  sprintf (buf, "SZ"HOST_WIDE_INT_PRINT_UNSIGNED, fnno++);
+  sprintf (buf, "SZ" HOST_WIDE_INT_PRINT_UNSIGNED, fnno++);
   fnname = get_file_function_name (buf);
   fndecl = build_decl (input_location, FUNCTION_DECL, fnname, fntype);
   for (t = param_decl_list; t; t = DECL_CHAIN (t))
@@ -321,7 +304,6 @@ finalize_size_functions (void)
       set_cfun (NULL);
       dump_function (TDI_original, fndecl);
       gimplify_function_tree (fndecl);
-      dump_function (TDI_generic, fndecl);
       cgraph_node::finalize_function (fndecl, false);
     }
 
@@ -1757,12 +1739,9 @@ finalize_type_size (tree type)
      However, where strict alignment is not required, avoid
      over-aligning structures, since most compilers do not do this
      alignment.  */
-
-  if (TYPE_MODE (type) != BLKmode && TYPE_MODE (type) != VOIDmode
-      && (STRICT_ALIGNMENT
-	  || (TREE_CODE (type) != RECORD_TYPE && TREE_CODE (type) != UNION_TYPE
-	      && TREE_CODE (type) != QUAL_UNION_TYPE
-	      && TREE_CODE (type) != ARRAY_TYPE)))
+  if (TYPE_MODE (type) != BLKmode
+      && TYPE_MODE (type) != VOIDmode
+      && (STRICT_ALIGNMENT || !AGGREGATE_TYPE_P (type)))
     {
       unsigned mode_align = GET_MODE_ALIGNMENT (TYPE_MODE (type));
 
@@ -2431,9 +2410,7 @@ layout_type (tree type)
   /* Compute the final TYPE_SIZE, TYPE_ALIGN, etc. for TYPE.  For
      records and unions, finish_record_layout already called this
      function.  */
-  if (TREE_CODE (type) != RECORD_TYPE
-      && TREE_CODE (type) != UNION_TYPE
-      && TREE_CODE (type) != QUAL_UNION_TYPE)
+  if (!RECORD_OR_UNION_TYPE_P (type))
     finalize_type_size (type);
 
   /* We should never see alias sets on incomplete aggregates.  And we

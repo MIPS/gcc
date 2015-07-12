@@ -21,26 +21,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-table.h"
-#include "hard-reg-set.h"
+#include "backend.h"
 #include "rtl.h"
-#include "symtab.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
-#include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "flags.h"
+#include "alias.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -51,10 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "addresses.h"
 #include "recog.h"
@@ -62,6 +43,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "target.h"
 #include "params.h"
+#include "cfgloop.h"
+#include "ira.h"
+#include "alloc-pool.h"
 #include "ira-int.h"
 
 /* The flags is set up every time when we calculate pseudo register
@@ -159,10 +143,8 @@ static cost_classes_t *regno_cost_classes;
 
 /* Helper for cost_classes hashing.  */
 
-struct cost_classes_hasher
+struct cost_classes_hasher : pointer_hash <cost_classes>
 {
-  typedef cost_classes *value_type;
-  typedef cost_classes *compare_type;
   static inline hashval_t hash (const cost_classes *);
   static inline bool equal (const cost_classes *, const cost_classes *);
   static inline void remove (cost_classes *);
@@ -1636,7 +1618,7 @@ find_costs_and_classes (FILE *dump_file)
   int i, k, start, max_cost_classes_num;
   int pass;
   basic_block bb;
-  enum reg_class *regno_best_class;
+  enum reg_class *regno_best_class, new_class;
 
   init_recog ();
   regno_best_class
@@ -1877,6 +1859,18 @@ find_costs_and_classes (FILE *dump_file)
 		= ira_reg_class_superunion[best][alt_class];
 	      ira_assert (regno_aclass[i] != NO_REGS
 			  && ira_reg_allocno_class_p[regno_aclass[i]]);
+	    }
+	  if ((new_class
+	       = (reg_class) (targetm.ira_change_pseudo_allocno_class
+			      (i, regno_aclass[i]))) != regno_aclass[i])
+	    {
+	      regno_aclass[i] = new_class;
+	      if (hard_reg_set_subset_p (reg_class_contents[new_class],
+					 reg_class_contents[best]))
+		best = new_class;
+	      if (hard_reg_set_subset_p (reg_class_contents[new_class],
+					 reg_class_contents[alt_class]))
+		alt_class = new_class;
 	    }
 	  if (pass == flag_expensive_optimizations)
 	    {

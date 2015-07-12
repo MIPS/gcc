@@ -31,7 +31,6 @@
 #include "tm.h"
 #include "rtl.h"
 #include "errors.h"
-#include "hashtab.h"
 #include "read-md.h"
 #include "gensupport.h"
 
@@ -70,13 +69,11 @@ write_header (void)
 #include \"coretypes.h\"\n\
 #include \"tm.h\"\n\
 #include \"insn-constants.h\"\n\
-#include \"ggc.h\"\n\
 #include \"rtl.h\"\n\
 #include \"tm_p.h\"\n\
-#include \"hashtab.h\"\n\
-#include \"hash-set.h\"\n\
 #include \"hard-reg-set.h\"\n\
 #include \"function.h\"\n\
+#include \"emit-rtl.h\"\n\
 \n\
 /* Fake - insn-config.h doesn't exist yet.  */\n\
 #define MAX_RECOG_OPERANDS 10\n\
@@ -90,6 +87,8 @@ write_header (void)
 #include \"hard-reg-set.h\"\n\
 #include \"predict.h\"\n\
 #include \"basic-block.h\"\n\
+#include \"bitmap.h\"\n\
+#include \"df.h\"\n\
 #include \"resource.h\"\n\
 #include \"diagnostic-core.h\"\n\
 #include \"reload.h\"\n\

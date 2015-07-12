@@ -267,6 +267,7 @@ enum reg_class
 #define LIBCALL_VALUE(MODE)				\
   gen_rtx_REG (((GET_MODE_CLASS (MODE) != MODE_INT	\
                  || COMPLEX_MODE_P (MODE)		\
+                 || VECTOR_MODE_P (MODE)		\
 		 || GET_MODE_SIZE (MODE) >= 4)		\
 		? (MODE)				\
 		: SImode),				\
@@ -562,15 +563,15 @@ typedef unsigned int CUMULATIVE_ARGS;
 	  switch ((ALIGN) / BITS_PER_UNIT)				\
             {								\
             case 4:							\
-              fprintf ((FILE), ":\t.BLKL\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+              fprintf ((FILE), ":\t.BLKL\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
 		       (SIZE) / 4);					\
 	      break;							\
             case 2:							\
-              fprintf ((FILE), ":\t.BLKW\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+              fprintf ((FILE), ":\t.BLKW\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
 		       (SIZE) / 2);					\
 	      break;							\
             default:							\
-              fprintf ((FILE), ":\t.BLKB\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+              fprintf ((FILE), ":\t.BLKB\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
 		       (SIZE));						\
 	      break;							\
             }								\
@@ -579,7 +580,7 @@ typedef unsigned int CUMULATIVE_ARGS;
         {								\
           fprintf ((FILE), "%s", COMMON_ASM_OP);			\
           assemble_name ((FILE), (NAME));				\
-          fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",	\
+          fprintf ((FILE), "," HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",	\
 	           (SIZE), (ALIGN) / BITS_PER_UNIT);			\
 	}								\
     }									\

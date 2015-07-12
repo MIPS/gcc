@@ -92,6 +92,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<bool __v>
     using __bool_constant = integral_constant<bool, __v>;
 
+#if __cplusplus > 201402L
+// TODO: #define __cpp_lib_bool_constant 201505
+  template<bool __v>
+    using bool_constant = integral_constant<bool, __v>;
+#endif
+
   // Meta programming helper types.
 
   template<bool, typename, typename>
@@ -2411,6 +2417,41 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename...> using void_t = void;
 #endif
 
+  /// Implementation of the detection idiom (negative case).
+  template<typename _Default, typename _AlwaysVoid,
+	   template<typename...> class _Op, typename... _Args>
+    struct __detector
+    {
+      using value_t = false_type;
+      using type = _Default;
+    };
+
+  /// Implementation of the detection idiom (positive case).
+  template<typename _Default, template<typename...> class _Op,
+	    typename... _Args>
+    struct __detector<_Default, __void_t<_Op<_Args...>>, _Op, _Args...>
+    {
+      using value_t = true_type;
+      using type = _Op<_Args...>;
+    };
+
+  // Detect whether _Op<_Args...> is a valid type, use _Default if not.
+  template<typename _Default, template<typename...> class _Op,
+	   typename... _Args>
+    using __detected_or = __detector<_Default, void, _Op, _Args...>;
+
+  // _Op<_Args...> if that is a valid type, otherwise _Default.
+  template<typename _Default, template<typename...> class _Op,
+	   typename... _Args>
+    using __detected_or_t
+      = typename __detected_or<_Default, _Op, _Args...>::type;
+
+  // _Op<_Args...> if that is a valid type, otherwise _Default<_Args...>.
+  template<template<typename...> class _Default,
+	   template<typename...> class _Op, typename... _Args>
+    using __detected_or_t_ =
+      __detected_or_t<_Default<_Args...>, _Op, _Args...>;
+
   /// @} group metaprogramming
 
   /**
@@ -2425,6 +2466,52 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Tp>						\
     struct __has_##_NTYPE<_Tp, __void_t<typename _Tp::_NTYPE>>		\
     : true_type								\
+    { };
+
+
+   namespace __is_swappable_impl {
+     template <typename _Tp, typename=void>
+     struct __is_swappable : public false_type
+     { };
+   }
+
+  template<typename _Tp>
+    inline
+    typename enable_if<__and_<is_move_constructible<_Tp>,
+			      is_move_assignable<_Tp>>::value>::type
+    swap(_Tp&, _Tp&)
+    noexcept(__and_<is_nothrow_move_constructible<_Tp>,
+	            is_nothrow_move_assignable<_Tp>>::value);
+
+  template<typename _Tp, size_t _Nm>
+    inline
+    typename enable_if<__is_swappable_impl::__is_swappable<_Tp>::value>::type
+    swap(_Tp (&__a)[_Nm], _Tp (&__b)[_Nm])
+    noexcept(noexcept(swap(*__a, *__b)));
+
+  namespace __is_swappable_impl {
+    using std::swap;
+
+    template <typename _Tp>
+    struct __is_swappable<_Tp, __void_t<decltype(swap(declval<_Tp&>(),
+                                                      declval<_Tp&>()))>>
+    : public true_type
+    { };
+  }
+
+  template <bool, typename _Tp>
+    struct __is_nothrow_swappable_impl
+    : public __bool_constant<noexcept(swap(declval<_Tp&>(), declval<_Tp&>()))>
+    { };
+
+  template <typename _Tp>
+    struct __is_nothrow_swappable_impl<false, _Tp> : public false_type
+    { };
+
+  template <typename _Tp>
+    struct __is_nothrow_swappable
+    : public __is_nothrow_swappable_impl<
+               __is_swappable_impl::__is_swappable<_Tp>::value, _Tp>
     { };
 
 _GLIBCXX_END_NAMESPACE_VERSION

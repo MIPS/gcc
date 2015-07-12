@@ -21,35 +21,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "target.h"
 #include "regs.h"
 #include "flags.h"
-#include "sbitmap.h"
-#include "bitmap.h"
-#include "hash-table.h"
-#include "hard-reg-set.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "symtab.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -62,7 +42,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "reload.h"
 #include "params.h"
-#include "df.h"
+#include "cfgloop.h"
+#include "ira.h"
+#include "alloc-pool.h"
 #include "ira-int.h"
 
 typedef struct allocno_hard_regs *allocno_hard_regs_t;
@@ -123,6 +105,21 @@ struct update_cost_record
   int divisor;
   /* Next record for given allocno.  */
   struct update_cost_record *next;
+
+  /* Pool allocation new operator.  */
+  inline void *operator new (size_t)
+  {
+    return pool.allocate ();
+  }
+
+  /* Delete operator utilizing pool allocation.  */
+  inline void operator delete (void *ptr)
+  {
+    pool.remove ((update_cost_record *) ptr);
+  }
+
+  /* Memory allocation pool.  */
+  static pool_allocator<update_cost_record> pool;
 };
 
 /* To decrease footprint of ira_allocno structure we store all data
@@ -225,10 +222,8 @@ static vec<ira_allocno_t> allocno_stack_vec;
 /* Vector of unique allocno hard registers.  */
 static vec<allocno_hard_regs_t> allocno_hard_regs_vec;
 
-struct allocno_hard_regs_hasher : typed_noop_remove <allocno_hard_regs>
+struct allocno_hard_regs_hasher : nofree_ptr_hash <allocno_hard_regs>
 {
-  typedef allocno_hard_regs *value_type;
-  typedef allocno_hard_regs *compare_type;
   static inline hashval_t hash (const allocno_hard_regs *);
   static inline bool equal (const allocno_hard_regs *,
 			    const allocno_hard_regs *);
@@ -549,7 +544,7 @@ print_hard_regs_subforest (FILE *f, allocno_hard_regs_node_t roots,
 	fprintf (f, " ");
       fprintf (f, "%d:(", node->preorder_num);
       print_hard_reg_set (f, node->hard_regs->set, false);
-      fprintf (f, ")@%"PRId64"\n", node->hard_regs->cost);
+      fprintf (f, ")@%" PRId64"\n", node->hard_regs->cost);
       print_hard_regs_subforest (f, node->first, level + 1);
     }
 }
@@ -1166,16 +1161,8 @@ setup_profitable_hard_regs (void)
    allocnos.  */
 
 /* Pool for update cost records.  */
-static alloc_pool update_cost_record_pool;
-
-/* Initiate update cost records.  */
-static void
-init_update_cost_records (void)
-{
-  update_cost_record_pool
-    = create_alloc_pool ("update cost records",
-			 sizeof (struct update_cost_record), 100);
-}
+static pool_allocator<update_cost_record> update_cost_record_pool
+  ("update cost records", 100);
 
 /* Return new update cost record with given params.  */
 static struct update_cost_record *
@@ -1184,7 +1171,7 @@ get_update_cost_record (int hard_regno, int divisor,
 {
   struct update_cost_record *record;
 
-  record = (struct update_cost_record *) pool_alloc (update_cost_record_pool);
+  record = update_cost_record_pool.allocate ();
   record->hard_regno = hard_regno;
   record->divisor = divisor;
   record->next = next;
@@ -1200,7 +1187,7 @@ free_update_cost_record_list (struct update_cost_record *list)
   while (list != NULL)
     {
       next = list->next;
-      pool_free (update_cost_record_pool, list);
+      update_cost_record_pool.remove (list);
       list = next;
     }
 }
@@ -1209,7 +1196,7 @@ free_update_cost_record_list (struct update_cost_record *list)
 static void
 finish_update_cost_records (void)
 {
-  free_alloc_pool (update_cost_record_pool);
+  update_cost_record_pool.release ();
 }
 
 /* Array whose element value is TRUE if the corresponding hard
@@ -1264,7 +1251,6 @@ initiate_cost_update (void)
     = (struct update_cost_queue_elem *) ira_allocate (size);
   memset (update_cost_queue_elems, 0, size);
   update_cost_check = 0;
-  init_update_cost_records ();
 }
 
 /* Deallocate data used by function update_costs_from_copies.  */
@@ -1739,15 +1725,22 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
 	  /* Reload can give another class so we need to check all
 	     allocnos.  */
 	  if (!retry_p
-	      && (!bitmap_bit_p (consideration_allocno_bitmap,
-				 ALLOCNO_NUM (conflict_a))
-		  || ((!ALLOCNO_ASSIGNED_P (conflict_a)
-		       || ALLOCNO_HARD_REGNO (conflict_a) < 0)
-		      && !(hard_reg_set_intersect_p
-			   (profitable_hard_regs,
-			    ALLOCNO_COLOR_DATA
-			    (conflict_a)->profitable_hard_regs)))))
-	    continue;
+	      && ((!ALLOCNO_ASSIGNED_P (conflict_a)
+		   || ALLOCNO_HARD_REGNO (conflict_a) < 0)
+		  && !(hard_reg_set_intersect_p
+		       (profitable_hard_regs,
+			ALLOCNO_COLOR_DATA
+			(conflict_a)->profitable_hard_regs))))
+	    {
+	      /* All conflict allocnos are in consideration bitmap
+		 when retry_p is false.  It might change in future and
+		 if it happens the assert will be broken.  It means
+		 the code should be modified for the new
+		 assumptions.  */
+	      ira_assert (bitmap_bit_p (consideration_allocno_bitmap,
+					ALLOCNO_NUM (conflict_a)));
+	      continue;
+	    }
 	  conflict_aclass = ALLOCNO_CLASS (conflict_a);
 	  ira_assert (ira_reg_classes_intersect_p
 		      [aclass][conflict_aclass]);
@@ -3854,14 +3847,6 @@ coalesced_pseudo_reg_freq_compare (const void *v1p, const void *v2p)
    It is used for sorting pseudo registers.  */
 static unsigned int *regno_max_ref_width;
 
-/* Redefine STACK_GROWS_DOWNWARD in terms of 0 or 1.  */
-#ifdef STACK_GROWS_DOWNWARD
-# undef STACK_GROWS_DOWNWARD
-# define STACK_GROWS_DOWNWARD 1
-#else
-# define STACK_GROWS_DOWNWARD 0
-#endif
-
 /* Sort pseudos according their slot numbers (putting ones with
   smaller numbers first, or last when the frame pointer is not
   needed).  */
@@ -4600,7 +4585,7 @@ ira_mark_new_stack_slot (rtx x, int regno, unsigned int total_size)
    CALL_USED_COUNT), and the first hard regno occupied by the
    pseudo-registers (through FIRST_HARD_REGNO).  */
 static int
-calculate_spill_cost (int *regnos, rtx in, rtx out, rtx insn,
+calculate_spill_cost (int *regnos, rtx in, rtx out, rtx_insn *insn,
 		      int *excess_pressure_live_length,
 		      int *nrefs, int *call_used_count, int *first_hard_regno)
 {
@@ -4661,7 +4646,7 @@ calculate_spill_cost (int *regnos, rtx in, rtx out, rtx insn,
    decisions.  */
 bool
 ira_better_spill_reload_regno_p (int *regnos, int *other_regnos,
-				 rtx in, rtx out, rtx insn)
+				 rtx in, rtx out, rtx_insn *insn)
 {
   int cost, other_cost;
   int length, other_length;

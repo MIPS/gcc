@@ -29,15 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -45,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-tree.h"
 #include "flags.h"
 #include "diagnostic-core.h"
-#include "wide-int.h"
 
 static tree
 process_init_constructor (tree type, tree init, tsubst_flags_t complain);
@@ -164,7 +155,7 @@ struct GTY((chain_next ("%h.next"), for_user)) pending_abstract_type {
   struct pending_abstract_type* next;
 };
 
-struct abstract_type_hasher : ggc_hasher<pending_abstract_type *>
+struct abstract_type_hasher : ggc_ptr_hash<pending_abstract_type>
 {
   typedef tree compare_type;
   static hashval_t hash (pending_abstract_type *);
@@ -843,7 +834,7 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
       TREE_CONSTANT (decl) = const_init && decl_maybe_constant_var_p (decl);
     }
 
-  if (cxx_dialect >= cxx14)
+  if (cxx_dialect >= cxx14 && CLASS_TYPE_P (strip_array_types (type)))
     /* Handle aggregate NSDMI in non-constant initializers, too.  */
     value = replace_placeholders (value, decl);
 
@@ -1091,10 +1082,27 @@ digest_init_r (tree type, tree init, bool nested, int flags,
   /* Come here only for aggregates: records, arrays, unions, complex numbers
      and vectors.  */
   gcc_assert (TREE_CODE (type) == ARRAY_TYPE
-	      || TREE_CODE (type) == VECTOR_TYPE
+	      || VECTOR_TYPE_P (type)
 	      || TREE_CODE (type) == RECORD_TYPE
 	      || TREE_CODE (type) == UNION_TYPE
 	      || TREE_CODE (type) == COMPLEX_TYPE);
+
+#ifdef ENABLE_CHECKING
+  /* "If T is a class type and the initializer list has a single
+     element of type cv U, where U is T or a class derived from T,
+     the object is initialized from that element."  */
+  if (cxx_dialect >= cxx11
+      && BRACE_ENCLOSED_INITIALIZER_P (init)
+      && CONSTRUCTOR_NELTS (init) == 1
+      && ((CLASS_TYPE_P (type) && !CLASSTYPE_NON_AGGREGATE (type))
+	  || VECTOR_TYPE_P (type)))
+    {
+      tree elt = CONSTRUCTOR_ELT (init, 0)->value;
+      if (reference_related_p (type, TREE_TYPE (elt)))
+	/* We should have fixed this in reshape_init.  */
+	gcc_unreachable ();
+    }
+#endif
 
   if (BRACE_ENCLOSED_INITIALIZER_P (init)
       && !TYPE_NON_AGGREGATE_CLASS (type))
@@ -1152,10 +1160,14 @@ digest_nsdmi_init (tree decl, tree init)
 {
   gcc_assert (TREE_CODE (decl) == FIELD_DECL);
 
+  tree type = TREE_TYPE (decl);
   int flags = LOOKUP_IMPLICIT;
   if (DIRECT_LIST_INIT_P (init))
     flags = LOOKUP_NORMAL;
-  init = digest_init_flags (TREE_TYPE (decl), init, flags);
+  if (BRACE_ENCLOSED_INITIALIZER_P (init)
+      && CP_AGGREGATE_TYPE_P (type))
+    init = reshape_init (type, init, tf_warning_or_error);
+  init = digest_init_flags (type, init, flags);
   if (TREE_CODE (init) == TARGET_EXPR)
     /* This represents the whole initialization.  */
     TARGET_EXPR_DIRECT_INIT_P (init) = true;
@@ -1223,7 +1235,7 @@ process_init_constructor_array (tree type, tree init,
   vec<constructor_elt, va_gc> *v = CONSTRUCTOR_ELTS (init);
 
   gcc_assert (TREE_CODE (type) == ARRAY_TYPE
-	      || TREE_CODE (type) == VECTOR_TYPE);
+	      || VECTOR_TYPE_P (type));
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
@@ -1559,7 +1571,7 @@ process_init_constructor (tree type, tree init, tsubst_flags_t complain)
 
   gcc_assert (BRACE_ENCLOSED_INITIALIZER_P (init));
 
-  if (TREE_CODE (type) == ARRAY_TYPE || TREE_CODE (type) == VECTOR_TYPE)
+  if (TREE_CODE (type) == ARRAY_TYPE || VECTOR_TYPE_P (type))
     flags = process_init_constructor_array (type, init, complain);
   else if (TREE_CODE (type) == RECORD_TYPE)
     flags = process_init_constructor_record (type, init, complain);
@@ -2099,6 +2111,7 @@ merge_exception_specifiers (tree list, tree add)
     return add;
   noex = TREE_PURPOSE (list);
   gcc_checking_assert (!TREE_PURPOSE (add)
+		       || errorcount
 		       || cp_tree_equal (noex, TREE_PURPOSE (add)));
 
   /* Combine the dynamic-exception-specifiers, if any.  */

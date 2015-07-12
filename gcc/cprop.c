@@ -20,39 +20,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
+#include "rtl.h"
+#include "df.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
-#include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "predict.h"
-#include "hashtab.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,11 +46,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "except.h"
 #include "params.h"
+#include "alloc-pool.h"
 #include "cselib.h"
 #include "intl.h"
 #include "obstack.h"
 #include "tree-pass.h"
-#include "df.h"
 #include "dbgcnt.h"
 #include "target.h"
 #include "cfgloop.h"
@@ -326,7 +309,7 @@ hash_scan_set (rtx set, rtx_insn *insn, struct hash_table_d *table,
 	  && REG_NOTE_KIND (note) == REG_EQUAL
 	  && !REG_P (src)
 	  && cprop_constant_p (XEXP (note, 0)))
-	src = XEXP (note, 0), set = gen_rtx_SET (VOIDmode, dest, src);
+	src = XEXP (note, 0), set = gen_rtx_SET (dest, src);
 
       /* Record sets for constant/copy propagation.  */
       if ((cprop_reg_p (src)
@@ -765,12 +748,38 @@ try_replace_reg (rtx from, rtx to, rtx_insn *insn)
   int success = 0;
   rtx set = single_set (insn);
 
+  bool check_rtx_costs = true;
+  bool speed = optimize_bb_for_speed_p (BLOCK_FOR_INSN (insn));
+  int old_cost = set ? set_rtx_cost (set, speed) : 0;
+
+  if (!set
+      || CONSTANT_P (SET_SRC (set))
+      || (note != 0
+	  && REG_NOTE_KIND (note) == REG_EQUAL
+	  && (GET_CODE (XEXP (note, 0)) == CONST
+	      || CONSTANT_P (XEXP (note, 0)))))
+    check_rtx_costs = false;
+
   /* Usually we substitute easy stuff, so we won't copy everything.
      We however need to take care to not duplicate non-trivial CONST
      expressions.  */
   to = copy_rtx (to);
 
   validate_replace_src_group (from, to, insn);
+
+  /* If TO is a constant, check the cost of the set after propagation
+     to the cost of the set before the propagation.  If the cost is
+     higher, then do not replace FROM with TO.  */
+
+  if (check_rtx_costs
+      && CONSTANT_P (to)
+      && set_rtx_cost (set, speed) > old_cost)
+    {
+      cancel_changes (0);
+      return false;
+    }
+
+
   if (num_changes_pending () && apply_change_group ())
     success = 1;
 
@@ -1420,8 +1429,7 @@ find_implicit_sets (void)
 		(implicit_sets_size - old_implicit_sets_size) * sizeof (rtx));
       }
 
-      new_rtx = gen_rtx_SET (VOIDmode, XEXP (cond, 0),
-			     XEXP (cond, 1));
+      new_rtx = gen_rtx_SET (XEXP (cond, 0), XEXP (cond, 1));
       implicit_sets[dest->index] = new_rtx;
       if (dump_file)
 	{
