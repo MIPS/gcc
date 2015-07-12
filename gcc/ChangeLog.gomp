@@ -1,3 +1,10 @@
+2015-07-12  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (build_receiver_ref): Mark *.omp_data_i as non-trapping.
+	* tree-parloops.c (gen_parallel_loop): Add LOOPS_NEED_FIXUP to loop
+	state.
+	(parallelize_loops): Allow nested loops.
+
 2015-07-11  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* internal-fn.c (expand_GOACC_FORK, expand_GOACC_JOIN)

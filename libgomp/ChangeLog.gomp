@@ -1,3 +1,7 @@
+2015-07-12  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-nest.c: New test.
+
 2015-07-10  James Norris  <jnorris@codesourcery.com>
 
 	* oacc-parallel.c (GOACC_parallel GOACC_data_start): Constrain

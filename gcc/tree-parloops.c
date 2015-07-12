@@ -2415,6 +2415,7 @@ gen_parallel_loop (struct loop *loop,
   /* Cancel the loop (it is simpler to do it here rather than to teach the
      expander to do it).  */
   cancel_loop_tree (loop);
+  loops_state_set (LOOPS_NEED_FIXUP);
 
   /* Free loop bound estimations that could contain references to
      removed statements.  */
@@ -2732,10 +2733,6 @@ parallelize_loops (bool oacc_kernels_p)
       if (oacc_kernels_p)
 	{
 	  if (!loop->in_oacc_kernels_region)
-	    continue;
-
-	  /* TODO: Allow nested loops.  */
-	  if (loop->inner)
 	    continue;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
