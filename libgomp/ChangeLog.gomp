@@ -1,3 +1,8 @@
+2015-07-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-gang-5.c:
+	Add XFAIL.
+
 2015-07-12  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-nest.c: New test.

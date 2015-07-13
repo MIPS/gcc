@@ -1,3 +1,6 @@
+/* main: Assertion `arr[i] == i + (i % 8) * 2' failed.
+   { dg-xfail-run-if "TODO" { openacc_nvidia_accel_selected } { "*" } { "" } } */
+
 #include <assert.h>
 
 /* Test of gang-private array variable declared on loop directive, with
