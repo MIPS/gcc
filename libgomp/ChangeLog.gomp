@@ -1,3 +1,7 @@
+2015-07-13  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/declare-1.c: Add test.
+
 2015-07-13  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c++/declare-1.C (foo): Initialize a.

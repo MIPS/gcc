@@ -7,6 +7,23 @@
 #define N 8
 
 void
+subr2 (int *a)
+{
+  int i;
+  int f[N];
+#pragma acc declare copyout (f)
+
+#pragma acc parallel copy (a[0:N])
+  {
+    for (i = 0; i < N; i++)
+      {
+	f[i] = a[i];
+	a[i] = f[i] + f[i] + f[i];
+      }
+  }
+}
+
+void
 subr1 (int *a)
 {
   int f[N];
@@ -90,6 +107,14 @@ main (int argc, char **argv)
   for (i = 0; i < N; i++)
     {
       if (a[i] != 1234 * 2)
+	abort ();
+    }
+
+  subr2 (&a[0]);
+
+  for (i = 0; i < 1; i++)
+    {
+      if (a[i] != 1234 * 6)
 	abort ();
     }
 
