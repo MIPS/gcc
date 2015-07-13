@@ -1864,9 +1864,19 @@ cp_fully_fold (tree x)
 {
   hash_map<tree, tree> *ctx = (scope_chain ? scope_chain->fold_map : NULL);
 
-//  if (cfun && !ctx)
-//    ctx = scope_chain->fold_map = new hash_map <tree,tree>;
-  if (!ctx)
+  if (ctx && scope_chain->act_cfun != cfun)
+     {
+       delete ctx;
+       ctx = NULL;
+       scope_chain->act_cfun = NULL;
+     }
+
+  if (!ctx && scope_chain && cfun)
+    {
+      ctx = scope_chain->fold_map = new hash_map <tree,tree>;
+      scope_chain->act_cfun = cfun;
+    }
+  else if (!ctx)
     {
       hash_map<tree, tree> fold_hash;
       return cp_fold (x, &fold_hash);

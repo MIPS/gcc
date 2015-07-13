@@ -4038,6 +4038,17 @@ emit_associated_thunks (tree fn)
 bool
 expand_or_defer_fn_1 (tree fn)
 {
+  if (!function_depth)
+    {
+      if (scope_chain && scope_chain->fold_map)
+	{
+	  hash_map<tree,tree> *fm = scope_chain->fold_map;
+	  delete fm;
+	  scope_chain->fold_map = NULL;
+	  scope_chain->act_cfun = NULL;
+	}
+    }
+
   /* When the parser calls us after finishing the body of a template
      function, we don't really want to expand the body.  */
   if (processing_template_decl)
@@ -4118,6 +4129,14 @@ expand_or_defer_fn (tree fn)
       emit_associated_thunks (fn);
 
       function_depth--;
+      if (function_depth == 0
+	  && scope_chain && scope_chain->fold_map)
+	{
+	  hash_map<tree, tree> *fm = scope_chain->fold_map;
+	  scope_chain->fold_map = NULL;
+	  scope_chain->act_cfun = NULL;
+	  delete fm;
+	}
     }
 }
 
