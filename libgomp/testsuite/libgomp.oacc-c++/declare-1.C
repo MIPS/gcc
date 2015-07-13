@@ -2,7 +2,7 @@
 template<class T>
 T foo()
 {
-  T a;
+  T a = 0;
   #pragma acc declare create (a)
 
   #pragma acc parallel

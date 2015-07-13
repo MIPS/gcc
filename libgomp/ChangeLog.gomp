@@ -1,5 +1,7 @@
 2015-07-13  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c++/declare-1.C (foo): Initialize a.
+
 	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-gang-5.c:
 	Add XFAIL.
 
