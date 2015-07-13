@@ -803,7 +803,7 @@ nvptx_get_num_devices (void)
 
 
 static void
-link_ptx (CUmodule *module, char *ptx_code, size_t length)
+link_ptx (CUmodule *module, char const *ptx_code, size_t length)
 {
   CUjit_option opts[7];
   void *optvals[7];
@@ -848,7 +848,9 @@ link_ptx (CUmodule *module, char *ptx_code, size_t length)
   while (off < length)
     {
       int l = strlen (ptx_code + off);
-      r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, ptx_code + off, l + 1,
+      /* cuLinkAddData's 'data' argument erroneously omits the const
+	 qualifier.  */
+      r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, (char*)ptx_code + off, l + 1,
 			 0, 0, 0, 0);
       if (r != CUDA_SUCCESS)
 	{
@@ -1585,23 +1587,35 @@ GOMP_OFFLOAD_fini_device (int n)
   pthread_mutex_unlock (&ptx_dev_lock);
 }
 
+typedef struct nvptx_tdata
+{
+  const char *ptx_src;
+  size_t ptx_len;
+
+  const char *const *var_names;
+  size_t var_num;
+
+  const char *const *fn_names;
+  size_t fn_num;
+} nvptx_tdata_t;
+
 int
 GOMP_OFFLOAD_load_image (int ord, void *target_data,
 			 struct addr_pair **target_table)
 {
   CUmodule module;
-  char **fn_names, **var_names;
+  const char *const *fn_names, *const *var_names;
   unsigned int fn_entries, var_entries, i, j;
   CUresult r;
   struct targ_fn_descriptor *targ_fns;
-  void **img_header = (void **) target_data;
+  nvptx_tdata_t const *img_header = (nvptx_tdata_t const *) target_data;
   struct ptx_image_data *new_image;
 
   GOMP_OFFLOAD_init_device (ord);
 
   nvptx_attach_host_thread_to_device (ord);
 
-  link_ptx (&module, img_header[0], (size_t) img_header[1]);
+  link_ptx (&module, img_header->ptx_src, img_header->ptx_len);
 
   pthread_mutex_lock (&ptx_image_lock);
   new_image = GOMP_PLUGIN_malloc (sizeof (struct ptx_image_data));
@@ -1611,23 +1625,15 @@ GOMP_OFFLOAD_load_image (int ord, void *target_data,
   ptx_images = new_image;
   pthread_mutex_unlock (&ptx_image_lock);
 
-  /* The mkoffload utility emits a table of pointers/integers at the start of
-     each offload image:
+  
+  /* The mkoffload utility emits a struct of pointers/integers at the
+     start of each offload image.  The array of kernel names and the
+     functions addresses form a one-to-one correspondence.  */
 
-     img_header[0] -> ptx code
-     img_header[1] -> size of ptx code
-     img_header[2] -> number of variables
-     img_header[3] -> array of variable names (pointers to strings)
-     img_header[4] -> number of kernels
-     img_header[5] -> array of kernel names (pointers to strings)
-
-     The array of kernel names and the functions addresses form a
-     one-to-one correspondence.  */
-
-  var_entries = (uintptr_t) img_header[2];
-  var_names = (char **) img_header[3];
-  fn_entries = (uintptr_t) img_header[4];
-  fn_names = (char **) img_header[5];
+  var_entries = img_header->var_num;
+  var_names = img_header->var_names;
+  fn_entries = img_header->fn_num;
+  fn_names = img_header->fn_names;
 
   *target_table = GOMP_PLUGIN_malloc (sizeof (struct addr_pair)
 				      * (fn_entries + var_entries));

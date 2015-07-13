@@ -1,3 +1,11 @@
+2015-07-13  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (link_ptx): Constify string argument.
+	Workaround driver library const error.
+	(struct nvptx_tdata, nvptx_tdata_t): New.
+	(GOMP_OFFLOAD_load_image): Use struct for target_data's real
+	type.
+
 2015-07-13  James Norris  <jnorris@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/declare-1.c: Add test.
@@ -2550,3 +2558,8 @@ Copyright (C) 2013-2015 Free Software Foundation, Inc.
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
 notice and this notice are preserved.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.gomp"
+End:

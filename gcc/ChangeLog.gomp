@@ -1,3 +1,8 @@
+2015-07-13  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/mkoffload.c (process): Constify mapping variables.
+	Define target data struct and initialize it.
+
 2015-07-12  Tom de Vries  <tom@codesourcery.com>
 
 	* omp-low.c (build_receiver_ref): Mark *.omp_data_i as non-trapping.
