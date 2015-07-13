@@ -8146,7 +8146,7 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
   cp_token *token;
   enum tree_code rhs_type;
   enum cp_parser_prec new_prec, lookahead_prec;
-  tree overload, folded;
+  tree overload;
 
   /* Parse the first expression.  */
   current.lhs_type = (cp_lexer_next_token_is (parser->lexer, CPP_NOT)
@@ -8198,13 +8198,14 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
       /* We used the operator token.  */
       cp_lexer_consume_token (parser->lexer);
 
-      folded = cp_fully_fold (current.lhs);
       /* For "false && x" or "true || x", x will never be executed;
 	 disable warnings while evaluating it.  */
       if (current.tree_type == TRUTH_ANDIF_EXPR)
-	c_inhibit_evaluation_warnings += folded == truthvalue_false_node;
+	c_inhibit_evaluation_warnings +=
+	  cp_fully_fold (current.lhs) == truthvalue_false_node;
       else if (current.tree_type == TRUTH_ORIF_EXPR)
-	c_inhibit_evaluation_warnings += folded == truthvalue_true_node;
+	c_inhibit_evaluation_warnings +=
+	  cp_fully_fold (current.lhs) == truthvalue_true_node;
 
       /* Extract another operand.  It may be the RHS of this expression
 	 or the LHS of a new, higher priority expression.  */
@@ -8246,12 +8247,13 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
 	  current = *sp;
 	}
 
-      folded = cp_fully_fold (current.lhs);
       /* Undo the disabling of warnings done above.  */
       if (current.tree_type == TRUTH_ANDIF_EXPR)
-	c_inhibit_evaluation_warnings -= folded == truthvalue_false_node;
+	c_inhibit_evaluation_warnings -=
+	  cp_fully_fold (current.lhs) == truthvalue_false_node;
       else if (current.tree_type == TRUTH_ORIF_EXPR)
-	c_inhibit_evaluation_warnings -= folded == truthvalue_true_node;
+	c_inhibit_evaluation_warnings -=
+	  cp_fully_fold (current.lhs) == truthvalue_true_node;
 
       if (warn_logical_not_paren
 	  && TREE_CODE_CLASS (current.tree_type) == tcc_comparison
