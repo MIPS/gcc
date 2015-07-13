@@ -153,6 +153,15 @@ OMP_4.1 {
 	omp_get_partition_place_nums;
 	omp_get_partition_place_nums_;
 	omp_get_partition_place_nums_8_;
+	omp_get_initial_device;
+	omp_get_initial_device_;
+	omp_target_alloc;
+	omp_target_free;
+	omp_target_is_present;
+	omp_target_memcpy;
+	omp_target_memcpy_rect;
+	omp_target_associate_ptr;
+	omp_target_disassociate_ptr;
 } OMP_4.0;
 
 GOMP_1.0 {

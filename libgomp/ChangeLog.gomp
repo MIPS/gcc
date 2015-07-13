@@ -1,3 +1,27 @@
+2015-07-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp.h.in (omp_get_initial_device,
+	omp_target_alloc, omp_target_free, omp_target_is_present,
+	omp_target_memcpy, omp_target_memcpy_rect, omp_target_associate_ptr,
+	omp_target_disassociate_ptr): New prototypes.
+	* omp_lib.f90.in (omp_get_initial_device): New interface.
+	* omp_lib.h.in (omp_get_initial_device): New extern.
+	* libgomp.map (OMP_4.1): Add omp_get_initial_device,
+	omp_get_initial_device_, omp_target_alloc, omp_target_free,
+	omp_target_is_present, omp_target_memcpy, omp_target_memcpy_rect,
+	omp_target_associate_ptr and omp_target_disassociate_ptr symbols.
+	* env.c (omp_get_initial_device): New function.  Add ialias.
+	* fortran.c (omp_get_initial_device): Add iredirect.
+	(omp_get_initial_device_): New function.
+	* target.c (gomp_map_vars_existing, gomp_map_vars, gomp_unmap_vars):
+	Handle refcount of INT_MAX as infinite.
+	(gomp_offload_image_to_device): Set refcount to INT_MAX.
+	(omp_target_alloc, omp_target_free, omp_target_is_present,
+	omp_target_memcpy, omp_target_memcpy_rect_worker,
+	omp_target_memcpy_rect, omp_target_associate_ptr,
+	omp_target_disassociate_ptr): New functions.
+	* testsuite/libgomp.c/target-12.c: New test.
+
 2015-06-26  Aldy Hernandez  <aldyh@redhat.com>
 
 	* libgomp.texi: Document omp_get_max_task_priority and

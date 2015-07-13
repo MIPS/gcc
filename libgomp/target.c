@@ -38,6 +38,7 @@
 #endif
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
 
 #ifdef PLUGIN_SUPPORT
 #include <dlfcn.h>
@@ -171,7 +172,8 @@ gomp_map_vars_existing (struct gomp_device_descr *devicep, splay_tree_key oldn,
 			    (void *) (oldn->tgt->tgt_start + oldn->tgt_offset),
 			    (void *) newn->host_start,
 			    newn->host_end - newn->host_start);
-  oldn->refcount++;
+  if (oldn->refcount != INT_MAX)
+    oldn->refcount++;
 }
 
 static int
@@ -436,7 +438,8 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 			  tgt->list[j].key = k;
 			  tgt->list[j].copy_from = false;
 			  tgt->list[j].always_copy_from = false;
-			  k->refcount++;
+			  if (k->refcount != INT_MAX)
+			    k->refcount++;
 			  gomp_map_pointer (tgt,
 					    (uintptr_t) *(void **) hostaddrs[j],
 					    k->tgt_offset
@@ -576,7 +579,10 @@ gomp_unmap_vars (struct target_mem_desc *tgt, bool do_copyfrom)
 
       bool do_unmap = false;
       if (k->refcount > 1)
-	k->refcount--;
+	{
+	  if (k->refcount != INT_MAX)
+	    k->refcount--;
+	}
       else if (k->async_refcount > 0)
 	k->async_refcount--;
       else
@@ -721,7 +727,7 @@ gomp_offload_image_to_device (struct gomp_device_descr *devicep,
       k->host_end = k->host_start + 1;
       k->tgt = tgt;
       k->tgt_offset = target_table[i].start;
-      k->refcount = 1;
+      k->refcount = INT_MAX;
       k->async_refcount = 0;
       array->left = NULL;
       array->right = NULL;
@@ -746,7 +752,7 @@ gomp_offload_image_to_device (struct gomp_device_descr *devicep,
       k->host_end = k->host_start + (uintptr_t) host_var_table[i * 2 + 1];
       k->tgt = tgt;
       k->tgt_offset = target_var->start;
-      k->refcount = 1;
+      k->refcount = INT_MAX;
       k->async_refcount = 0;
       array->left = NULL;
       array->right = NULL;
@@ -1173,6 +1179,390 @@ GOMP_teams (unsigned int num_teams, unsigned int thread_limit)
 	= thread_limit > INT_MAX ? UINT_MAX : thread_limit;
     }
   (void) num_teams;
+}
+
+void *
+omp_target_alloc (size_t size, int device_num)
+{
+  if (device_num == GOMP_DEVICE_HOST_FALLBACK)
+    return malloc (size);
+
+  if (device_num < 0)
+    return NULL;
+
+  struct gomp_device_descr *devicep = resolve_device (device_num);
+  if (devicep == NULL)
+    return NULL;
+
+  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    return malloc (size);
+
+  gomp_mutex_lock (&devicep->lock);
+  void *ret = devicep->alloc_func (devicep->target_id, size);
+  gomp_mutex_unlock (&devicep->lock);
+  return ret;
+}
+
+void
+omp_target_free (void *device_ptr, int device_num)
+{
+  if (device_ptr == NULL)
+    return;
+
+  if (device_num == GOMP_DEVICE_HOST_FALLBACK)
+    {
+      free (device_ptr);
+      return;
+    }
+
+  if (device_num < 0)
+    return;
+
+  struct gomp_device_descr *devicep = resolve_device (device_num);
+  if (devicep == NULL)
+    return;
+
+  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    {
+      free (device_ptr);
+      return;
+    }
+
+  gomp_mutex_lock (&devicep->lock);
+  devicep->free_func (devicep->target_id, device_ptr);
+  gomp_mutex_unlock (&devicep->lock);
+}
+
+int
+omp_target_is_present (void *ptr, size_t offset, int device_num)
+{
+  if (ptr == NULL)
+    return offset == 0;
+
+  if (device_num == GOMP_DEVICE_HOST_FALLBACK)
+    return 1;
+
+  if (device_num < 0)
+    return 0;
+
+  struct gomp_device_descr *devicep = resolve_device (device_num);
+  if (devicep == NULL)
+    return 0;
+
+  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    return 1;
+
+  gomp_mutex_lock (&devicep->lock);
+  struct splay_tree_s *mem_map = &devicep->mem_map;
+  struct splay_tree_key_s cur_node;
+
+  cur_node.host_start = (uintptr_t) ptr + offset;
+  cur_node.host_end = cur_node.host_start + 1;
+  splay_tree_key n = splay_tree_lookup (mem_map, &cur_node);
+  if (n == NULL)
+    {
+      /* Could be possibly zero size array section.  */
+      cur_node.host_end--;
+      n = splay_tree_lookup (mem_map, &cur_node);
+      if (n == NULL)
+	{
+	  cur_node.host_start--;
+	  n = splay_tree_lookup (mem_map, &cur_node);
+	  cur_node.host_start++;
+	}
+    }
+  int ret = n != NULL;
+  gomp_mutex_unlock (&devicep->lock);
+  return ret;
+}
+
+int
+omp_target_memcpy (void *dst, void *src, size_t length, size_t dst_offset,
+		   size_t src_offset, int dst_device_num, int src_device_num)
+{
+  struct gomp_device_descr *dst_devicep = NULL, *src_devicep = NULL;
+
+  if (dst_device_num != GOMP_DEVICE_HOST_FALLBACK)
+    {
+      if (dst_device_num < 0)
+	return EINVAL;
+
+      dst_devicep = resolve_device (dst_device_num);
+      if (dst_devicep == NULL)
+	return EINVAL;
+
+      if (!(dst_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+	dst_devicep = NULL;
+    }
+  if (src_device_num != GOMP_DEVICE_HOST_FALLBACK)
+    {
+      if (src_device_num < 0)
+	return EINVAL;
+
+      src_devicep = resolve_device (src_device_num);
+      if (src_devicep == NULL)
+	return EINVAL;
+
+      if (!(src_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+	src_devicep = NULL;
+    }
+  if (src_devicep == NULL && dst_devicep == NULL)
+    {
+      memcpy ((char *) dst + dst_offset, (char *) src + src_offset, length);
+      return 0;
+    }
+  if (src_devicep == NULL)
+    {
+      gomp_mutex_lock (&dst_devicep->lock);
+      dst_devicep->host2dev_func (dst_devicep->target_id,
+				  (char *) dst + dst_offset,
+				  (char *) src + src_offset, length);
+      gomp_mutex_unlock (&dst_devicep->lock);
+      return 0;
+    }
+  if (dst_devicep == NULL)
+    {
+      gomp_mutex_lock (&src_devicep->lock);
+      src_devicep->dev2host_func (src_devicep->target_id,
+				  (char *) dst + dst_offset,
+				  (char *) src + src_offset, length);
+      gomp_mutex_unlock (&src_devicep->lock);
+      return 0;
+    }
+  /* FIXME: Support device-to-device somehow?  */
+  return EINVAL;
+}
+
+static int
+omp_target_memcpy_rect_worker (void *dst, void *src, size_t element_size,
+			       int num_dims, const size_t *volume,
+			       const size_t *dst_offsets,
+			       const size_t *src_offsets,
+			       const size_t *dst_dimensions,
+			       const size_t *src_dimensions,
+			       struct gomp_device_descr *dst_devicep,
+			       struct gomp_device_descr *src_devicep)
+{
+  size_t dst_slice = element_size;
+  size_t src_slice = element_size;
+  size_t j, dst_off, src_off, length;
+  int i, ret;
+
+  if (num_dims == 1)
+    {
+      if (__builtin_mul_overflow (element_size, volume[0], &length)
+	  || __builtin_mul_overflow (element_size, dst_offsets[0], &dst_off)
+	  || __builtin_mul_overflow (element_size, src_offsets[0], &src_off))
+	return EINVAL;
+      if (dst_devicep == NULL && src_devicep == NULL)
+	memcpy ((char *) dst + dst_off, (char *) src + src_off, length);
+      else if (src_devicep == NULL)
+	dst_devicep->host2dev_func (dst_devicep->target_id,
+				    (char *) dst + dst_off,
+				    (char *) src + src_off, length);
+      else if (dst_devicep == NULL)
+	src_devicep->dev2host_func (src_devicep->target_id,
+				    (char *) dst + dst_off,
+				    (char *) src + src_off, length);
+      else
+	return EINVAL;
+      return 0;
+    }
+
+  /* FIXME: it would be nice to have some plugin function to handle
+     num_dims == 2 and num_dims == 3 more efficiently.  Larger ones can
+     be handled in the generic recursion below, and for host-host it
+     should be used even for any num_dims >= 2.  */
+
+  for (i = 1; i < num_dims; i++)
+    if (__builtin_mul_overflow (dst_slice, dst_dimensions[i], &dst_slice)
+	|| __builtin_mul_overflow (src_slice, src_dimensions[i], &src_slice))
+      return EINVAL;
+  if (__builtin_mul_overflow (dst_slice, dst_offsets[0], &dst_off)
+      || __builtin_mul_overflow (src_slice, src_offsets[0], &src_off))
+    return EINVAL;
+  for (j = 0; j < volume[0]; j++)
+    {
+      ret = omp_target_memcpy_rect_worker ((char *) dst + dst_off,
+					   (char *) src + src_off,
+					   element_size, num_dims - 1,
+					   volume + 1, dst_offsets + 1,
+					   src_offsets + 1, dst_dimensions + 1,
+					   src_dimensions + 1, dst_devicep,
+					   src_devicep);
+      if (ret)
+	return ret;
+      dst_off += dst_slice;
+      src_off += src_slice;
+    }
+  return 0;
+}
+
+int
+omp_target_memcpy_rect (void *dst, void *src, size_t element_size,
+			int num_dims, const size_t *volume,
+			const size_t *dst_offsets,
+			const size_t *src_offsets,
+			const size_t *dst_dimensions,
+			const size_t *src_dimensions,
+			int dst_device_num, int src_device_num)
+{
+  struct gomp_device_descr *dst_devicep = NULL, *src_devicep = NULL;
+
+  if (!dst && !src)
+    return INT_MAX;
+
+  if (dst_device_num != GOMP_DEVICE_HOST_FALLBACK)
+    {
+      if (dst_device_num < 0)
+	return EINVAL;
+
+      dst_devicep = resolve_device (dst_device_num);
+      if (dst_devicep == NULL)
+	return EINVAL;
+
+      if (!(dst_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+	dst_devicep = NULL;
+    }
+  if (src_device_num != GOMP_DEVICE_HOST_FALLBACK)
+    {
+      if (src_device_num < 0)
+	return EINVAL;
+
+      src_devicep = resolve_device (src_device_num);
+      if (src_devicep == NULL)
+	return EINVAL;
+
+      if (!(src_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+	src_devicep = NULL;
+    }
+
+  /* FIXME: Support device-to-device somehow?  */
+  if (src_devicep != NULL && dst_devicep != NULL)
+    return EINVAL;
+
+  if (src_devicep)
+    gomp_mutex_lock (&src_devicep->lock);
+  else if (dst_devicep)
+    gomp_mutex_lock (&dst_devicep->lock);
+  int ret = omp_target_memcpy_rect_worker (dst, src, element_size, num_dims,
+					   volume, dst_offsets, src_offsets,
+					   dst_dimensions, src_dimensions,
+					   dst_devicep, src_devicep);
+  if (src_devicep)
+    gomp_mutex_unlock (&src_devicep->lock);
+  else if (dst_devicep)
+    gomp_mutex_unlock (&dst_devicep->lock);
+  return ret;
+}
+
+int
+omp_target_associate_ptr (void *host_ptr, void *device_ptr, size_t size,
+			  size_t device_offset, int device_num)
+{
+  if (device_num == GOMP_DEVICE_HOST_FALLBACK)
+    return EINVAL;
+
+  if (device_num < 0)
+    return EINVAL;
+
+  struct gomp_device_descr *devicep = resolve_device (device_num);
+  if (devicep == NULL)
+    return EINVAL;
+
+  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    return EINVAL;
+
+  gomp_mutex_lock (&devicep->lock);
+
+  struct splay_tree_s *mem_map = &devicep->mem_map;
+  struct splay_tree_key_s cur_node;
+  int ret = EINVAL;
+
+  cur_node.host_start = (uintptr_t) host_ptr;
+  cur_node.host_end = cur_node.host_start + size;
+  splay_tree_key n = splay_tree_lookup (mem_map, &cur_node);
+  if (n)
+    {
+      if (n->tgt->tgt_start + n->tgt_offset
+	  == (uintptr_t) device_ptr + device_offset
+	  && n->host_start <= cur_node.host_start
+	  && n->host_end >= cur_node.host_end)
+	ret = 0;
+    }
+  else
+    {
+      struct target_mem_desc *tgt = gomp_malloc (sizeof (*tgt));
+      tgt->array = gomp_malloc (sizeof (*tgt->array));
+      tgt->refcount = 1;
+      tgt->tgt_start = 0;
+      tgt->tgt_end = 0;
+      tgt->to_free = NULL;
+      tgt->prev = NULL;
+      tgt->list_count = 0;
+      tgt->device_descr = devicep;
+      splay_tree_node array = tgt->array;
+      splay_tree_key k = &array->key;
+      k->host_start = cur_node.host_start;
+      k->host_end = cur_node.host_end;
+      k->tgt = tgt;
+      k->tgt_offset = (uintptr_t) device_ptr + device_offset;
+      k->refcount = INT_MAX;
+      k->async_refcount = 0;
+      array->left = NULL;
+      array->right = NULL;
+      splay_tree_insert (&devicep->mem_map, array);
+      ret = 0;
+    }
+  gomp_mutex_unlock (&devicep->lock);
+  return ret;
+}
+
+int
+omp_target_disassociate_ptr (void *ptr, int device_num)
+{
+  if (device_num == GOMP_DEVICE_HOST_FALLBACK)
+    return EINVAL;
+
+  if (device_num < 0)
+    return EINVAL;
+
+  struct gomp_device_descr *devicep = resolve_device (device_num);
+  if (devicep == NULL)
+    return EINVAL;
+
+  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    return EINVAL;
+
+  gomp_mutex_lock (&devicep->lock);
+
+  struct splay_tree_s *mem_map = &devicep->mem_map;
+  struct splay_tree_key_s cur_node;
+  int ret = EINVAL;
+
+  cur_node.host_start = (uintptr_t) ptr;
+  cur_node.host_end = cur_node.host_start + 1;
+  splay_tree_key n = splay_tree_lookup (mem_map, &cur_node);
+  if (n == NULL)
+    {
+      cur_node.host_end--;
+      n = splay_tree_lookup (mem_map, &cur_node);
+    }
+  if (n
+      && n->host_start == cur_node.host_start
+      && n->refcount == INT_MAX
+      && n->tgt->tgt_start == 0
+      && n->tgt->to_free == NULL
+      && n->tgt->refcount == 1
+      && n->tgt->list_count == 0)
+    {
+      splay_tree_remove (&devicep->mem_map, n);
+      gomp_unmap_tgt (n->tgt);
+      ret = 0;
+    }
+
+  gomp_mutex_unlock (&devicep->lock);
+  return ret;
 }
 
 #ifdef PLUGIN_SUPPORT

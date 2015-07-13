@@ -29,6 +29,7 @@
 #include "libgomp.h"
 #include "libgomp_f.h"
 #include "oacc-int.h"
+#include "gomp-constants.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -1461,6 +1462,12 @@ omp_is_initial_device (void)
 }
 
 int
+omp_get_initial_device (void)
+{
+  return GOMP_DEVICE_HOST_FALLBACK;
+}
+
+int
 omp_get_num_places (void)
 {
   return gomp_places_list_len;
@@ -1526,6 +1533,7 @@ ialias (omp_get_num_devices)
 ialias (omp_get_num_teams)
 ialias (omp_get_team_num)
 ialias (omp_is_initial_device)
+ialias (omp_get_initial_device)
 ialias (omp_get_max_task_priority)
 ialias (omp_get_num_places)
 ialias (omp_get_place_num)
