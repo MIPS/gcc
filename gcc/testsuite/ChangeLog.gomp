@@ -1,3 +1,8 @@
+2015-07-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-loop-nest.c: Remove cleanup-tree-dump
+	directives.
+
 2015-07-12  Tom de Vries  <tom@codesourcery.com>
 
 	* c-c++-common/goacc/kernels-loop-nest.c: New test.
