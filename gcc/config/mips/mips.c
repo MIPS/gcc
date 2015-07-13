@@ -21,6 +21,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include <algorithm>
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -2035,10 +2037,13 @@ mips_symbol_binds_local_p (const_rtx x)
 	  : SYMBOL_REF_LOCAL_P (x));
 }
 
+/* Return true if OP is a constant vector with the number of units in MODE,
+   and each unit has the same bit set.  */
+
 bool
 mips_const_vector_bitimm_set_p (rtx op, machine_mode mode)
 {
-  if (GET_CODE (op) == CONST_VECTOR && op != const0_rtx)
+  if (GET_CODE (op) == CONST_VECTOR && op != CONST0_RTX (mode))
     {
       rtx elt0 = CONST_VECTOR_ELT (op, 0);
       HOST_WIDE_INT val = INTVAL (elt0);
@@ -2057,10 +2062,13 @@ mips_const_vector_bitimm_set_p (rtx op, machine_mode mode)
   return false;
 }
 
+/* Return true if OP is a constant vector with the number of units in MODE,
+   and each unit has the same bit clear.  */
+
 bool
 mips_const_vector_bitimm_clr_p (rtx op, machine_mode mode)
 {
-  if (GET_CODE (op) == CONST_VECTOR && op != constm1_rtx)
+  if (GET_CODE (op) == CONST_VECTOR && op != CONSTM1_RTX (mode))
     {
       rtx elt0 = CONST_VECTOR_ELT (op, 0);
       HOST_WIDE_INT val = INTVAL (elt0);
@@ -3861,14 +3869,17 @@ mips_legitimize_const_move (machine_mode mode, rtx dest, rtx src)
 bool
 mips_legitimize_move (machine_mode mode, rtx dest, rtx src)
 {
-  if (!register_operand (dest, mode) && !register_operand (src, mode))
+  /* Both src and dest are non-registers;  one special case is supported where
+     the source is (const_int 0) and the store can source the zero register.
+     MIPS16 and MSA are never able to source the zero register directly in
+     memory operations.  */
+  if (!register_operand (dest, mode)
+      && !register_operand (src, mode)
+      && (TARGET_MIPS16 || !const_0_operand (src, mode)
+	  || MSA_SUPPORTED_MODE_P (mode)))
     {
-      if (TARGET_MIPS16 || !const_0_operand (src, mode)
-	  || MSA_SUPPORTED_MODE_P (mode))
-      {
-	mips_emit_move (dest, force_reg (mode, src));
-	return true;
-      }
+      mips_emit_move (dest, force_reg (mode, src));
+      return true;
     }
 
   /* We need to deal with constants that would be legitimate
@@ -4603,7 +4614,6 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	      *total = COSTS_N_INSNS (2) + set_src_cost (XEXP (x, 0), speed);
 	      return true;
 	    }
-	  *total = COSTS_N_INSNS (mips_idiv_insns ());
 	  if (MSA_SUPPORTED_MODE_P (mode))
 	    *total = COSTS_N_INSNS (mips_msa_idiv_insns ());
 	  else
@@ -5157,7 +5167,7 @@ mips_split_msa_insert_d (rtx dest, rtx src1, rtx index, rtx src2)
 			       GEN_INT (i * 2 + 1), high));
 }
 
-/* Split fill.d.  */
+/* Split FILL.D.  */
 
 void
 mips_split_msa_fill_d (rtx dest, rtx src)
@@ -5223,7 +5233,7 @@ mips_output_move (rtx dest, rtx src)
       && src_code == CONST_VECTOR
       && CONST_INT_P (CONST_VECTOR_ELT (src, 0)))
     {
-      gcc_assert (const_yi_operand (src, mode));
+      gcc_assert (mips_const_vector_same_int_p (src, mode, -512, 511));
       return "ldi.%v0\t%w0,%E1";
     }
 
@@ -5819,21 +5829,24 @@ mips_expand_conditional_branch (rtx *operands)
 void
 mips_expand_msa_branch (rtx *operands, rtx (*gen_fn)(rtx, rtx, rtx))
 {
-  rtx labelT = gen_label_rtx ();
-  rtx labelE = gen_label_rtx ();
-  rtx tmp = gen_fn (labelT, operands[1], const0_rtx);
+  rtx label_true = gen_label_rtx ();
+  rtx label_else = gen_label_rtx ();
+  rtx branch = gen_fn (label_true, operands[1], const0_rtx);
 
-  tmp = emit_jump_insn (tmp);
-  JUMP_LABEL (tmp) = labelT;
+  branch = emit_jump_insn (branch);
+  JUMP_LABEL (branch) = label_true;
+
   emit_move_insn (operands[0], const0_rtx);
-  tmp = emit_jump_insn (gen_jump (labelE));
+  branch = emit_jump_insn (gen_jump (label_else));
   emit_barrier ();
-  JUMP_LABEL (tmp) = labelE;
-  emit_label (labelT);
-  LABEL_NUSES (labelT) = 1;
+  JUMP_LABEL (branch) = label_else;
+
+  emit_label (label_true);
+  LABEL_NUSES (label_true) = 1;
   emit_move_insn (operands[0], const1_rtx);
-  emit_label (labelE);
-  LABEL_NUSES (labelE) = 1;
+
+  emit_label (label_else);
+  LABEL_NUSES (label_else) = 1;
 }
 
 /* Implement:
@@ -9143,8 +9156,8 @@ mips_print_operand_punct_valid_p (unsigned char code)
    'M'	Print high-order register in a double-word register operand.
    'z'	Print $0 if OP is zero, otherwise print OP normally.
    'b'	Print the address of a memory operand, without offset.
-   'v'	Print the insn size suffix b,h,w,d,f or d for vector modes V16QI,V8HI,V4SI,
-	  V2SI,V4DF and V2DF.  */
+   'v'	Print the insn size suffix b, h, w or d for vector modes V16QI, V8HI,
+	  V4SI, V2SI, and w, d for vector modes V4SF, V2DF respectively.  */
 
 static void
 mips_print_operand (FILE *file, rtx op, int letter)
@@ -9198,38 +9211,8 @@ mips_print_operand (FILE *file, rtx op, int letter)
     case 'B':
       if (CONST_INT_P (op))
 	{
-	  HOST_WIDE_INT val = INTVAL (op);
-	  if (val < 0)
-	    {
-	      gcc_assert (val >= -128);
-	      val += 256;
-	      fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
-	    }
-	  else
-	    {
-	      gcc_assert (val <= 255);
-	      fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
-	    }
-	}
-      else
-	output_operand_lossage ("invalid use of '%%%c'", letter);
-      break;
-
-    case 'K':
-      if (CONST_INT_P (op))
-	{
-	  int val = INTVAL (op);
-	  int i;
-	  for (i = 0; i < 16; i++)
-	    {
-	      if ((val & (1 << i)) == val)
-		{
-		  fprintf (file, "%d", i);
-		  break;
-		}
-	    }
-	  if (i == 16)
-	    output_operand_lossage ("invalid use of '%%%c' - Mask inappropriate", letter);
+	  unsigned HOST_WIDE_INT val8 = UINTVAL (op) & GET_MODE_MASK (QImode);
+	  fprintf (file, HOST_WIDE_INT_PRINT_UNSIGNED, val8);
 	}
       else
 	output_operand_lossage ("invalid use of '%%%c'", letter);
@@ -15563,16 +15546,16 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
   LOONGSON_BUILTIN_ALIAS (INSN, INSN ## _ ## SUFFIX, FUNCTION_TYPE)
 
 /* Define a MSA MIPS_BUILTIN_DIRECT function __builtin_msa_<INSN>
-   for instruction CODE_FOR_msa_<INSN>.  FUNCTION_TYPE is a
-   builtin_description field.  */
+   for instruction CODE_FOR_msa_<INSN>.  FUNCTION_TYPE is a builtin_description
+   field.  */
 #define MSA_BUILTIN(INSN, FUNCTION_TYPE)				\
     { CODE_FOR_msa_ ## INSN, MIPS_FP_COND_f,				\
     "__builtin_msa_" #INSN,  MIPS_BUILTIN_DIRECT,			\
     FUNCTION_TYPE, mips_builtin_avail_msa }
 
 /* Define a MSA MIPS_BUILTIN_DIRECT_NO_TARGET function __builtin_msa_<INSN>
-   for instruction CODE_FOR_msa_<INSN>.  FUNCTION_TYPE is a
-   builtin_description field.  */
+   for instruction CODE_FOR_msa_<INSN>.  FUNCTION_TYPE is a builtin_description
+   field.  */
 #define MSA_NO_TARGET_BUILTIN(INSN, FUNCTION_TYPE)			\
     { CODE_FOR_msa_ ## INSN, MIPS_FP_COND_f,				\
     "__builtin_msa_" #INSN,  MIPS_BUILTIN_DIRECT_NO_TARGET,		\
@@ -15739,6 +15722,8 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
 
 #define CODE_FOR_msa_ilvod_d CODE_FOR_msa_ilvl_d
 #define CODE_FOR_msa_ilvev_d CODE_FOR_msa_ilvr_d
+#define CODE_FOR_msa_pckod_d CODE_FOR_msa_ilvl_d
+#define CODE_FOR_msa_pckev_d CODE_FOR_msa_ilvr_d
 
 #define CODE_FOR_msa_ldi_b CODE_FOR_msa_ldiv16qi
 #define CODE_FOR_msa_ldi_h CODE_FOR_msa_ldiv8hi
@@ -16743,8 +16728,7 @@ mips_builtin_decl (unsigned int code, bool initialize_p ATTRIBUTE_UNUSED)
 /* Implement TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION.  */
 
 static tree
-mips_builtin_vectorized_function (tree fndecl, tree type_out,
-				  tree type_in)
+mips_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
 {
   machine_mode in_mode, out_mode;
   enum built_in_function fn = DECL_FUNCTION_CODE (fndecl);
@@ -16811,6 +16795,45 @@ static rtx
 mips_expand_builtin_insn (enum insn_code icode, unsigned int nops,
 			  struct expand_operand *ops, bool has_target_p)
 {
+  struct expand_operand tmp;
+
+  switch (icode)
+  {
+    case CODE_FOR_msa_ilvl_b:
+    case CODE_FOR_msa_ilvl_h:
+    case CODE_FOR_msa_ilvl_w:
+    case CODE_FOR_msa_ilvl_d:
+    case CODE_FOR_msa_ilvr_b:
+    case CODE_FOR_msa_ilvr_h:
+    case CODE_FOR_msa_ilvr_w:
+    case CODE_FOR_msa_ilvr_d:
+    case CODE_FOR_msa_ilvev_b:
+    case CODE_FOR_msa_ilvev_h:
+    case CODE_FOR_msa_ilvev_w:
+    case CODE_FOR_msa_ilvod_b:
+    case CODE_FOR_msa_ilvod_h:
+    case CODE_FOR_msa_ilvod_w:
+    case CODE_FOR_msa_pckev_b:
+    case CODE_FOR_msa_pckev_h:
+    case CODE_FOR_msa_pckev_w:
+    case CODE_FOR_msa_pckod_b:
+    case CODE_FOR_msa_pckod_h:
+    case CODE_FOR_msa_pckod_w:
+      /* Swap the operands 1 and 2 for interleave operations.  Builtins follow
+	 convention of ISA, which have op1 as higher component and op2 as lower
+	 component.  However, the VEC_PERM op in tree and vec_concat in RTL
+	 expects first operand to be lower component, because of which this swap
+	 is needed for builtins.  */
+      gcc_assert (has_target_p && (nops > 2));
+      tmp = ops[2];
+      ops[2] = ops[1];
+      ops[1] = tmp;
+      break;
+
+    default:
+      break;
+  }
+
   if (!maybe_expand_insn (icode, nops, ops))
     {
       error ("invalid argument to built-in function");
@@ -19382,6 +19405,11 @@ mips_option_override (void)
   if (TARGET_MICROMIPS && TARGET_MIPS16)
     error ("unsupported combination: %s", "-mips16 -mmicromips");
 
+  /* Prohibit Paired-Single and MSA combination.  This is software restriction
+     rather than architectural.  */
+  if (TARGET_MSA && TARGET_PAIRED_SINGLE_FLOAT)
+    error ("unsupported combination: %s", "-mmsa -mpaired-single");
+
   /* Save the base compression state and process flags as though we
      were generating uncompressed code.  */
   mips_base_compression_flags = TARGET_COMPRESSION;
@@ -21115,7 +21143,7 @@ mips_expand_vec_perm_const (rtx operands[4])
 
 static int
 mips_sched_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
-			       machine_mode mode)
+				machine_mode mode)
 {
   if (MSA_SUPPORTED_MODE_P (mode))
     return 2;
@@ -21225,7 +21253,7 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
 
     dest = gen_reg_rtx (imode);
 
-    emit_insn (unpack (dest, tmp, operands[1]));
+    emit_insn (unpack (dest, operands[1], tmp));
     emit_move_insn (operands[0], gen_lowpart (GET_MODE (operands[0]), dest));
     return;
   }
@@ -21394,7 +21422,8 @@ mips_expand_vector_init (rtx target, rtx vals)
 	  rtx same = XVECEXP (vals, 0, 0);
 	  rtx temp, temp2;
 
-	  if (CONST_INT_P (same) && nvar == 0 && mips_signed_immediate_p (INTVAL (same), 10, 0))
+	  if (CONST_INT_P (same) && nvar == 0
+	      && mips_signed_immediate_p (INTVAL (same), 10, 0))
 	    {
 	      switch (vmode)
 		{
@@ -21428,8 +21457,10 @@ mips_expand_vector_init (rtx target, rtx vals)
 	      unsigned offset = 0;
 
 	      if (TARGET_BIG_ENDIAN)
-		offset = GET_MODE_SIZE (GET_MODE (same)) - GET_MODE_SIZE (imode);
-	      temp2 = simplify_gen_subreg (imode, same, GET_MODE (same), offset);
+		offset = GET_MODE_SIZE (GET_MODE (same))
+			 - GET_MODE_SIZE (imode);
+	      temp2 = simplify_gen_subreg (imode, same, GET_MODE (same),
+					   offset);
 	    }
 	  emit_move_insn (temp, temp2);
 
@@ -21660,261 +21691,78 @@ mips_hard_regno_caller_save_mode (unsigned int regno,
     return mode;
 }
 
-static void
-mips_expand_msa_one_cmpl (rtx dest, rtx src)
-{
-  machine_mode mode = GET_MODE (dest);
-  switch (mode)
-    {
-    case V16QImode:
-      emit_insn (gen_msa_nor_v_b (dest, src, src));
-      break;
-    case V8HImode:
-      emit_insn (gen_msa_nor_v_h (dest, src, src));
-      break;
-    case V4SImode:
-      emit_insn (gen_msa_nor_v_w (dest, src, src));
-      break;
-    case V2DImode:
-      emit_insn (gen_msa_nor_v_d (dest, src, src));
-      break;
-    default:
-      gcc_unreachable ();
-    }
-}
+/* Generate RTL for comparing CMP_OP0 and CMP_OP1 using condition COND and
+   store the result -1 or 0 in DEST.  */
 
 static void
 mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
 {
   machine_mode cmp_mode = GET_MODE (op0);
+  int unspec = -1;
+  bool negate = false;
 
   switch (cmp_mode)
     {
     case V16QImode:
-      switch (cond)
-	{
-	case EQ:
-	  emit_insn (gen_msa_ceq_b (dest, op0, op1));
-	  break;
-	case LT:
-	  emit_insn (gen_msa_clt_s_b (dest, op0, op1));
-	  break;
-	case LE:
-	  emit_insn (gen_msa_cle_s_b (dest, op0, op1));
-	  break;
-	case LTU:
-	  emit_insn (gen_msa_clt_u_b (dest, op0, op1));
-	  break;
-	case LEU:
-	  emit_insn (gen_msa_cle_u_b (dest, op0, op1));
-	  break;
-	case GE: // swap
-	  emit_insn (gen_msa_cle_s_b (dest, op1, op0));
-	  break;
-	case GT: // swap
-	  emit_insn (gen_msa_clt_s_b (dest, op1, op0));
-	  break;
-	case GEU: // swap
-	  emit_insn (gen_msa_cle_u_b (dest, op1, op0));
-	  break;
-	case GTU: // swap
-	  emit_insn (gen_msa_clt_u_b (dest, op1, op0));
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      break;
-
     case V8HImode:
-      switch (cond)
-	{
-	case EQ:
-	  emit_insn (gen_msa_ceq_h (dest, op0, op1));
-	  break;
-	case LT:
-	  emit_insn (gen_msa_clt_s_h (dest, op0, op1));
-	  break;
-	case LE:
-	  emit_insn (gen_msa_cle_s_h (dest, op0, op1));
-	  break;
-	case LTU:
-	  emit_insn (gen_msa_clt_u_h (dest, op0, op1));
-	  break;
-	case LEU:
-	  emit_insn (gen_msa_cle_u_h (dest, op0, op1));
-	  break;
-	case GE: // swap
-	  emit_insn (gen_msa_cle_s_h (dest, op1, op0));
-	  break;
-	case GT: // swap
-	  emit_insn (gen_msa_clt_s_h (dest, op1, op0));
-	  break;
-	case GEU: // swap
-	  emit_insn (gen_msa_cle_u_h (dest, op1, op0));
-	  break;
-	case GTU: // swap
-	  emit_insn (gen_msa_clt_u_h (dest, op1, op0));
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      break;
-
     case V4SImode:
-      switch (cond)
-	{
-	case EQ:
-	  emit_insn (gen_msa_ceq_w (dest, op0, op1));
-	  break;
-	case LT:
-	  emit_insn (gen_msa_clt_s_w (dest, op0, op1));
-	  break;
-	case LE:
-	  emit_insn (gen_msa_cle_s_w (dest, op0, op1));
-	  break;
-	case LTU:
-	  emit_insn (gen_msa_clt_u_w (dest, op0, op1));
-	  break;
-	case LEU:
-	  emit_insn (gen_msa_cle_u_w (dest, op0, op1));
-	  break;
-	case GE: // swap
-	  emit_insn (gen_msa_cle_s_w (dest, op1, op0));
-	  break;
-	case GT: // swap
-	  emit_insn (gen_msa_clt_s_w (dest, op1, op0));
-	  break;
-	case GEU: // swap
-	  emit_insn (gen_msa_cle_u_w (dest, op1, op0));
-	  break;
-	case GTU: // swap
-	  emit_insn (gen_msa_clt_u_w (dest, op1, op0));
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      break;
-
     case V2DImode:
       switch (cond)
 	{
+	case NE:
+	  cond = reverse_condition (cond);
+	  negate = true;
+	  break;
 	case EQ:
-	  emit_insn (gen_msa_ceq_d (dest, op0, op1));
-	  break;
 	case LT:
-	  emit_insn (gen_msa_clt_s_d (dest, op0, op1));
-	  break;
 	case LE:
-	  emit_insn (gen_msa_cle_s_d (dest, op0, op1));
-	  break;
 	case LTU:
-	  emit_insn (gen_msa_clt_u_d (dest, op0, op1));
-	  break;
 	case LEU:
-	  emit_insn (gen_msa_cle_u_d (dest, op0, op1));
 	  break;
-	case GE: // swap
-	  emit_insn (gen_msa_cle_s_d (dest, op1, op0));
-	  break;
-	case GT: // swap
-	  emit_insn (gen_msa_clt_s_d (dest, op1, op0));
-	  break;
-	case GEU: // swap
-	  emit_insn (gen_msa_cle_u_d (dest, op1, op0));
-	  break;
-	case GTU: // swap
-	  emit_insn (gen_msa_clt_u_d (dest, op1, op0));
+	case GE:
+	case GT:
+	case GEU:
+	case GTU:
+	  std::swap (op0, op1);
+	  cond = swap_condition (cond);
 	  break;
 	default:
 	  gcc_unreachable ();
 	}
+      mips_emit_binary (cond, dest, op0, op1);
+      if (negate)
+	emit_move_insn (dest, gen_rtx_NOT (GET_MODE (dest), dest));
       break;
 
     case V4SFmode:
-      switch (cond)
-	{
-	case UNORDERED:
-	  emit_insn (gen_msa_fcun_w (dest, op0, op1));
-	  break;
-	case EQ:
-	  emit_insn (gen_msa_fceq_w (dest, op0, op1));
-	  break;
-	case NE:
-	  emit_insn (gen_msa_fcne_w (dest, op0, op1));
-	  break;
-	case LTGT:
-	  emit_insn (gen_msa_fcne_w (dest, op0, op1));
-	  break;
-	case GT: // use slt, swap op0 and op1
-	  emit_insn (gen_msa_fslt_w (dest, op1, op0));
-	  break;
-	case GE: // use sle, swap op0 and op1
-	  emit_insn (gen_msa_fsle_w (dest, op1, op0));
-	  break;
-	case LT: // use slt
-	  emit_insn (gen_msa_fslt_w (dest, op0, op1));
-	  break;
-	case LE: // use sle
-	  emit_insn (gen_msa_fsle_w (dest, op0, op1));
-	  break;
-	case UNGE: // use cule, swap op0 and op1
-	  emit_insn (gen_msa_fcule_w (dest, op1, op0));
-	  break;
-	case UNGT: // use cult, swap op0 and op1
-	  emit_insn (gen_msa_fcult_w (dest, op1, op0));
-	  break;
-	case UNLE:
-	  emit_insn (gen_msa_fcule_w (dest, op0, op1));
-	  break;
-	case UNLT:
-	  emit_insn (gen_msa_fcult_w (dest, op0, op1));
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      break;
-
     case V2DFmode:
       switch (cond)
 	{
 	case UNORDERED:
-	  emit_insn (gen_msa_fcun_d (dest, op0, op1));
-	  break;
+	case ORDERED:
 	case EQ:
-	  emit_insn (gen_msa_fceq_d (dest, op0, op1));
-	  break;
 	case NE:
-	  emit_insn (gen_msa_fcne_d (dest, op0, op1));
-	  break;
-	case LTGT:
-	  emit_insn (gen_msa_fcne_d (dest, op0, op1));
-	  break;
-	case GT: // use slt, swap op0 and op1
-	  emit_insn (gen_msa_fslt_d (dest, op1, op0));
-	  break;
-	case GE: // use sle, swap op0 and op1
-	  emit_insn (gen_msa_fsle_d (dest, op1, op0));
-	  break;
-	case LT: // use slt
-	  emit_insn (gen_msa_fslt_d (dest, op0, op1));
-	  break;
-	case LE: // use sle
-	  emit_insn (gen_msa_fsle_d (dest, op0, op1));
-	  break;
-	case UNGE: // use cule, swap op0 and op1
-	  emit_insn (gen_msa_fcule_d (dest, op1, op0));
-	  break;
-	case UNGT: // use uclt, swap op0 and op1
-	  emit_insn (gen_msa_fcult_d (dest, op1, op0));
-	  break;
+	case UNEQ:
 	case UNLE:
-	  emit_insn (gen_msa_fcule_d (dest, op0, op1));
-	  break;
 	case UNLT:
-	  emit_insn (gen_msa_fcult_d (dest, op0, op1));
 	  break;
+	case LTGT: cond = NE; break;
+	case UNGE: cond = UNLE; std::swap (op0, op1); break;
+	case UNGT: cond = UNLT; std::swap (op0, op1); break;
+	case LE: unspec = UNSPEC_MSA_FSLE; break;
+	case LT: unspec = UNSPEC_MSA_FSLT; break;
+	case GE: unspec = UNSPEC_MSA_FSLE; std::swap (op0, op1); break;
+	case GT: unspec = UNSPEC_MSA_FSLT; std::swap (op0, op1); break;
 	default:
 	  gcc_unreachable ();
+	}
+      if (unspec < 0)
+	mips_emit_binary (cond, dest, op0, op1);
+      else
+	{
+	  rtx x = gen_rtx_UNSPEC (GET_MODE (dest),
+				  gen_rtvec (2, op0, op1), unspec);
+	  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
 	}
       break;
 
@@ -21924,163 +21772,77 @@ mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
     }
 }
 
-static bool
-mips_msa_reversed_int_cond (enum rtx_code *cond)
-{
-  switch (*cond)
-    {
-    case NE:
-      *cond = EQ;
-      return true;
-
-    default:
-      return false;
-    }
-}
-
-static bool
-mips_msa_reversed_fp_cond (enum rtx_code *code)
-{
-  switch (*code)
-    {
-    case ORDERED:
-    case UNEQ:
-      *code = reverse_condition_maybe_unordered (*code);
-      return true;
-
-    default:
-      return false;
-    }
-}
-
-/* Generate RTL for comparing CMP_OP0, CMP_ OP1 using condition COND
-   and store the result -1 or 0 in DEST TRUE_SRC and DEST_SRC
-   must be -1 and 0 respectively.  */
-
-static void
-mips_expand_msa_vcond (rtx dest, rtx true_src, rtx false_src,
-		       enum rtx_code cond, rtx cmp_op0, rtx cmp_op1)
-{
-  machine_mode dest_mode = GET_MODE (dest);
-  machine_mode cmp_mode = GET_MODE (cmp_op0);
-  bool reversed_p;
-
-  if (FLOAT_MODE_P (cmp_mode))
-    reversed_p = mips_msa_reversed_fp_cond (&cond);
-  else
-    reversed_p = mips_msa_reversed_int_cond (&cond);
-
-  mips_expand_msa_cmp (dest, cond, cmp_op0, cmp_op1);
-  if (reversed_p)
-    mips_expand_msa_one_cmpl (dest, dest);
-
-  /* MSA vcond only produces result -1 and 0 for true and false.  */
-  gcc_assert ((true_src == CONSTM1_RTX (dest_mode))
-	      && (false_src == CONST0_RTX (dest_mode)));
-}
-
 /* Expand VEC_COND_EXPR, where:
    MODE is mode of the result
    VIMODE equivalent integer mode
-   OPERANDS operands of VEC_COND_EXPR
-   gen_msa_and_fn used to generate a VIMODE vector msa AND
-   gen_msa_nor_fn used to generate a VIMODE vector msa NOR
-   gen_msa_ior_fn used to generate a VIMODE vector msa AND.  */
+   OPERANDS operands of VEC_COND_EXPR.  */
 
 void
-mips_expand_vec_cond_expr (machine_mode mode,
-			   machine_mode vimode,
-			   rtx *operands,
-			   rtx (*gen_msa_and_fn)(rtx, rtx, rtx),
-			   rtx (*gen_msa_nor_fn)(rtx, rtx, rtx),
-			   rtx (*gen_msa_ior_fn)(rtx, rtx, rtx))
+mips_expand_vec_cond_expr (machine_mode mode, machine_mode vimode,
+			   rtx *operands)
 {
-  rtx true_val = CONSTM1_RTX (vimode);
-  rtx false_val = CONST0_RTX (vimode);
+  rtx cond = operands[3];
+  rtx cmp_op0 = operands[4];
+  rtx cmp_op1 = operands[5];
+  rtx cmp_res = gen_reg_rtx (vimode);
 
-  if (operands[1] == true_val && operands[2] == false_val)
-    mips_expand_msa_vcond (operands[0], operands[1], operands[2],
-			   GET_CODE (operands[3]), operands[4], operands[5]);
+  mips_expand_msa_cmp (cmp_res, GET_CODE (cond), cmp_op0, cmp_op1);
+
+  /* We handle the following cases:
+     1) r = a CMP b ? -1 : 0
+     2) r = a CMP b ? -1 : v
+     3) r = a CMP b ?  v : 0
+     4) r = a CMP b ? v1 : v2  */
+
+  /* Case (1) above.  We only move the results.  */
+  if (operands[1] == CONSTM1_RTX (vimode)
+      && operands[2] == CONST0_RTX (vimode))
+    emit_move_insn (operands[0], cmp_res);
   else
     {
-      rtx res = gen_reg_rtx (vimode);
-      rtx temp1 = gen_reg_rtx (vimode);
-      rtx temp2 = gen_reg_rtx (vimode);
-      rtx xres = gen_reg_rtx (vimode);
+      rtx src1 = gen_reg_rtx (vimode);
+      rtx src2 = gen_reg_rtx (vimode);
+      rtx mask = gen_reg_rtx (vimode);
+      rtx bsel;
 
-      mips_expand_msa_vcond (res, true_val, false_val,
-			     GET_CODE (operands[3]), operands[4], operands[5]);
+      /* Move the vector result to use it as a mask.  */
+      emit_move_insn (mask, cmp_res);
 
-      /* This results in a vector result with whose T/F elements having
-	 the value -1 or 0 for (T/F repectively).  This result may need
-	 adjusting if needed results operands[]/operands[1] are different.  */
-
-      /* Adjust True elements to be operand[1].  */
-      emit_move_insn (xres, res);
-      if (operands[1] != true_val)
+      if (register_operand (operands[1], mode))
 	{
-	  rtx xop1 = operands[1]; /* Assume we can use operands[1].  */
-
+	  rtx xop1 = operands[1];
 	  if (mode != vimode)
 	    {
 	      xop1 = gen_reg_rtx (vimode);
-	      if (GET_CODE (operands[1]) == CONST_VECTOR)
-		{
-		  rtx xtemp = gen_reg_rtx (mode);
-		  emit_move_insn (xtemp, operands[1]);
-		  emit_move_insn (xop1,
-				  gen_rtx_SUBREG (vimode, xtemp, 0));
-		}
-	      else
-		emit_move_insn (xop1,
-				gen_rtx_SUBREG (vimode, operands[1], 0));
+	      emit_move_insn (xop1, gen_rtx_SUBREG (vimode, operands[1], 0));
 	    }
-	  else if (GET_CODE (operands[1]) == CONST_VECTOR)
-	    {
-	      xop1 = gen_reg_rtx (mode);
-	      emit_move_insn (xop1, operands[1]);
-	    }
-
-	  emit_insn (gen_msa_and_fn (temp1, xres, xop1));
+	  emit_move_insn (src1, xop1);
 	}
       else
-	emit_move_insn (temp1, xres);
+	/* Case (2) if the below doesn't move the mask to src2.  */
+	emit_move_insn (src1, mask);
 
-      /* Adjust False elements to be operand[0].  */
-      emit_insn (gen_msa_nor_fn (temp2, xres, xres));
-      if (operands[2] != false_val)
+      if (register_operand (operands[2], mode))
 	{
-	  rtx xop2 = operands[2]; ; /* Assume we can use operands[2].  */
-
+	  rtx xop2 = operands[2];
 	  if (mode != vimode)
 	    {
 	      xop2 = gen_reg_rtx (vimode);
-	      if (GET_CODE (operands[2]) == CONST_VECTOR)
-		{
-		  rtx xtemp = gen_reg_rtx (mode);
-		  emit_move_insn (xtemp, operands[2]);
-		  emit_move_insn (xop2,
-				  gen_rtx_SUBREG (vimode, xtemp, 0));
-		}
-	      else
-		emit_move_insn (xop2,
-				gen_rtx_SUBREG (vimode, operands[2], 0));
+	      emit_move_insn (xop2, gen_rtx_SUBREG (vimode, operands[2], 0));
 	    }
-	  else if (GET_CODE (operands[2]) == CONST_VECTOR)
-	    {
-	      xop2 = gen_reg_rtx (mode);
-	      emit_move_insn (xop2, operands[2]);
-	    }
-
-	  emit_insn (gen_msa_and_fn (temp2, temp2, xop2));
+	  emit_move_insn (src2, xop2);
 	}
       else
-	emit_insn (gen_msa_and_fn (temp2, temp2, xres));
+	/* Case (3) if the above didn't move the mask to src1.  */
+	emit_move_insn (src2, mask);
 
-      /* Combine together into result.  */
-      emit_insn (gen_msa_ior_fn (xres, temp1, temp2));
-      emit_move_insn (operands[0],
-		      gen_rtx_SUBREG (mode, xres, 0));
+      /* We deal with case (4) if the mask wasn't moved to either src1 or src2.
+	 In any case, we eventually do vector mask-based copy.  */
+      bsel = gen_rtx_UNSPEC (vimode, gen_rtvec (3, mask, src2, src1),
+			     UNSPEC_MSA_BSEL_V);
+      /* The result is placed back to a register with the mask.  */
+      emit_insn (gen_rtx_SET (VOIDmode, mask, bsel));
+      emit_move_insn (operands[0], gen_rtx_SUBREG (mode, mask, 0));
     }
 }
 

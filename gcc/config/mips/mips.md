@@ -227,11 +227,12 @@
    shift_shift"
   (const_string "unknown"))
 
-(define_attr "alu_type" "unknown,add,sub,not,nor,and,or,xor"
+(define_attr "alu_type" "unknown,add,sub,not,nor,and,or,xor,simd_add"
   (const_string "unknown"))
 
 ;; Main data type used by the insn
-(define_attr "mode" "unknown,none,QI,HI,SI,DI,TI,SF,DF,TF,FPSW"
+(define_attr "mode" "unknown,none,QI,HI,SI,DI,TI,SF,DF,TF,FPSW,
+  V2DI,V4SI,V8HI,V16QI,V2DF,V4SF"
   (const_string "unknown"))
 
 ;; True if the main data type is twice the size of a word.
@@ -374,7 +375,12 @@
    shift,slt,signext,clz,pop,trap,imul,imul3,imul3nc,imadd,idiv,idiv3,move,
    fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,frdiv2,fabs,fneg,fcmp,fcvt,fsqrt,
    frsqrt,frsqrt1,frsqrt2,dspmac,dspmacsat,accext,accmod,dspalu,dspalusat,
-   multi,atomic,syncloop,nop,ghost,multimem"
+   multi,atomic,syncloop,nop,ghost,multimem,
+   simd_div,simd_fclass,simd_flog2,simd_fadd,simd_fcvt,simd_fmul,simd_fmadd,
+   simd_fdiv,simd_bitins,simd_bitmov,simd_insert,simd_sld,simd_mul,simd_fcmp,
+   simd_fexp2,simd_int_arith,simd_bit,simd_shift,simd_splat,simd_fill,
+   simd_permute,simd_shf,simd_sat,simd_pcnt,simd_copy,simd_branch,simd_cmsa,
+   simd_fminmax,simd_logic,simd_move,simd_load,simd_store"
   (cond [(eq_attr "jal" "!unset") (const_string "call")
 	 (eq_attr "got" "load") (const_string "load")
 
