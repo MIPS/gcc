@@ -16948,6 +16948,43 @@ mips_reorg_process_insns (void)
 		{
 		  mips_avoid_hazard (last_insn, insn, &hilo_delay,
 				     &delayed_reg, lo_reg, &fs_delay);
+		  /* When a compact branch introduces a forbidden slot hazard
+		     and the next useful instruction is a SEQUENCE of a jump
+		     and a non-nop instruction in the delay slot, remove the
+		     sequence and replace it with the delay slot instruction
+		     then the jump to clear the forbidden slot hazard.  */
+
+		  if (fs_delay)
+		    {
+		      rtx next;
+		      for (next = NEXT_INSN (insn); next != 0;
+			   next = NEXT_INSN (next))
+			{
+			  /* Search onwards from the current position looking for a
+			     SEQUENCE but stop if a BARRIER or useful instruction is
+			     found.  Labels are ok to search past since we will be
+			     rearranging the sequence, not hoisting the instruction.
+			   */
+			  if (BARRIER_P (next) 
+			      || (USEFUL_INSN_P (next)
+				  && GET_CODE (PATTERN (next)) != SEQUENCE))
+				break;
+
+			  if (USEFUL_INSN_P (next)
+			      && GET_CODE (PATTERN (next)) == SEQUENCE)
+			    {
+			      rtx ds = SEQ_END (next);
+			      if (INSN_CODE (ds) == CODE_FOR_nop) 
+				break;
+			      rtx jump = SEQ_BEGIN (next);
+			      rtx previous = PREV_INSN (next);
+			      delete_insn (next);
+			      add_insn_after (ds, previous, NULL);
+			      add_insn_after (jump, ds, NULL);
+			      break;
+			    }
+			}
+		    }
 		  last_insn = insn;
 		}
 	    }
