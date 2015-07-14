@@ -679,6 +679,9 @@ struct target_mem_desc {
   struct target_var_desc list[];
 };
 
+/* Special value for refcount - infinity.  */
+#define REFCOUNT_INFINITY (~(uintptr_t) 0)
+
 struct splay_tree_key_s {
   /* Address of the host object.  */
   uintptr_t host_start;

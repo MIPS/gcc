@@ -1,3 +1,11 @@
+2015-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (REFCOUNT_INFINITY): Define.
+	* target.c (gomp_map_vars_existing, gomp_map_vars, gomp_unmap_vars,
+	gomp_offload_image_to_device, omp_target_associate_ptr,
+	omp_target_disassociate_ptr): Use REFCOUNT_INFINITY instead of
+	INT_MAX.
+
 2015-07-13  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp.h.in (omp_get_initial_device,

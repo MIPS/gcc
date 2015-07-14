@@ -172,7 +172,7 @@ gomp_map_vars_existing (struct gomp_device_descr *devicep, splay_tree_key oldn,
 			    (void *) (oldn->tgt->tgt_start + oldn->tgt_offset),
 			    (void *) newn->host_start,
 			    newn->host_end - newn->host_start);
-  if (oldn->refcount != INT_MAX)
+  if (oldn->refcount != REFCOUNT_INFINITY)
     oldn->refcount++;
 }
 
@@ -438,7 +438,7 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 			  tgt->list[j].key = k;
 			  tgt->list[j].copy_from = false;
 			  tgt->list[j].always_copy_from = false;
-			  if (k->refcount != INT_MAX)
+			  if (k->refcount != REFCOUNT_INFINITY)
 			    k->refcount++;
 			  gomp_map_pointer (tgt,
 					    (uintptr_t) *(void **) hostaddrs[j],
@@ -580,7 +580,7 @@ gomp_unmap_vars (struct target_mem_desc *tgt, bool do_copyfrom)
       bool do_unmap = false;
       if (k->refcount > 1)
 	{
-	  if (k->refcount != INT_MAX)
+	  if (k->refcount != REFCOUNT_INFINITY)
 	    k->refcount--;
 	}
       else if (k->async_refcount > 0)
@@ -727,7 +727,7 @@ gomp_offload_image_to_device (struct gomp_device_descr *devicep,
       k->host_end = k->host_start + 1;
       k->tgt = tgt;
       k->tgt_offset = target_table[i].start;
-      k->refcount = INT_MAX;
+      k->refcount = REFCOUNT_INFINITY;
       k->async_refcount = 0;
       array->left = NULL;
       array->right = NULL;
@@ -752,7 +752,7 @@ gomp_offload_image_to_device (struct gomp_device_descr *devicep,
       k->host_end = k->host_start + (uintptr_t) host_var_table[i * 2 + 1];
       k->tgt = tgt;
       k->tgt_offset = target_var->start;
-      k->refcount = INT_MAX;
+      k->refcount = REFCOUNT_INFINITY;
       k->async_refcount = 0;
       array->left = NULL;
       array->right = NULL;
@@ -1507,7 +1507,7 @@ omp_target_associate_ptr (void *host_ptr, void *device_ptr, size_t size,
       k->host_end = cur_node.host_end;
       k->tgt = tgt;
       k->tgt_offset = (uintptr_t) device_ptr + device_offset;
-      k->refcount = INT_MAX;
+      k->refcount = REFCOUNT_INFINITY;
       k->async_refcount = 0;
       array->left = NULL;
       array->right = NULL;
@@ -1550,7 +1550,7 @@ omp_target_disassociate_ptr (void *ptr, int device_num)
     }
   if (n
       && n->host_start == cur_node.host_start
-      && n->refcount == INT_MAX
+      && n->refcount == REFCOUNT_INFINITY
       && n->tgt->tgt_start == 0
       && n->tgt->to_free == NULL
       && n->tgt->refcount == 1
