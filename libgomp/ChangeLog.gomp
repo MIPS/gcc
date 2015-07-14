@@ -1,3 +1,13 @@
+2015-07-14  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* libgomp.h (struct gomp_device_descr): Add dev2dev_func.
+	* target.c (omp_target_memcpy): Support device-to-device.
+	(omp_target_memcpy_rect_worker): Likewise.
+	(omp_target_memcpy_rect): Likewise.
+	(gomp_load_plugin_for_device): Check for GOMP_OFFLOAD_dev2dev.
+	* testsuite/libgomp.c/target-12.c (main): Extend for testing
+	device-to-device memcpy.
+
 2015-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (REFCOUNT_INFINITY): Define.

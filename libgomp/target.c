@@ -1329,7 +1329,15 @@ omp_target_memcpy (void *dst, void *src, size_t length, size_t dst_offset,
       gomp_mutex_unlock (&src_devicep->lock);
       return 0;
     }
-  /* FIXME: Support device-to-device somehow?  */
+  if (src_devicep == dst_devicep)
+    {
+      gomp_mutex_lock (&src_devicep->lock);
+      src_devicep->dev2dev_func (src_devicep->target_id,
+				 (char *) dst + dst_offset,
+				 (char *) src + src_offset, length);
+      gomp_mutex_unlock (&src_devicep->lock);
+      return 0;
+    }
   return EINVAL;
 }
 
@@ -1364,6 +1372,10 @@ omp_target_memcpy_rect_worker (void *dst, void *src, size_t element_size,
 	src_devicep->dev2host_func (src_devicep->target_id,
 				    (char *) dst + dst_off,
 				    (char *) src + src_off, length);
+      else if (src_devicep == dst_devicep)
+	src_devicep->dev2dev_func (src_devicep->target_id,
+				   (char *) dst + dst_off,
+				   (char *) src + src_off, length);
       else
 	return EINVAL;
       return 0;
@@ -1437,8 +1449,7 @@ omp_target_memcpy_rect (void *dst, void *src, size_t element_size,
 	src_devicep = NULL;
     }
 
-  /* FIXME: Support device-to-device somehow?  */
-  if (src_devicep != NULL && dst_devicep != NULL)
+  if (src_devicep != NULL && dst_devicep != NULL && src_devicep != dst_devicep)
     return EINVAL;
 
   if (src_devicep)
@@ -1601,10 +1612,10 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
     }									\
   while (0)
   /* Similar, but missing functions are not an error.  */
-#define DLSYM_OPT(f, n)						\
+#define DLSYM_OPT(f, n)							\
   do									\
     {									\
-      const char *tmp_err;							\
+      const char *tmp_err;						\
       device->f##_func = dlsym (plugin_handle, "GOMP_OFFLOAD_" #n);	\
       tmp_err = dlerror ();						\
       if (tmp_err == NULL)						\
@@ -1629,7 +1640,10 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
   DLSYM (host2dev);
   device->capabilities = device->get_caps_func ();
   if (device->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
-    DLSYM (run);
+    {
+      DLSYM (run);
+      DLSYM (dev2dev);
+    }
   if (device->capabilities & GOMP_OFFLOAD_CAP_OPENACC_200)
     {
       optional_present = optional_total = 0;

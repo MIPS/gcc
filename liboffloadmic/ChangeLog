@@ -1,3 +1,10 @@
+2015-07-14  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* plugin/libgomp-plugin-intelmic.cpp (GOMP_OFFLOAD_dev2dev): New
+	function.
+	* plugin/offload_target_main.cpp (__offload_target_tgt2tgt): New static
+	function, register it in liboffloadmic.
+
 2015-07-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* plugin/Makefile.am (main_target_image.h): Change type of data

@@ -105,6 +105,22 @@ main ()
       if (err)
 	abort ();
 
+      if (omp_target_memcpy (p, p, 10 * sizeof (int), 51 * sizeof (int),
+			     111 * sizeof (int), d, d) != 0)
+	abort ();
+
+      #pragma omp target if (d >= 0) device (d >= 0 ? d : 0) map(alloc:q[0:32]) map(from:err)
+	{
+	  int j;
+	  err = 0;
+	  for (j = 0; j < 10; j++)
+	    if (q[50 + j] != q[110 + j])
+	      err = 1;
+	}
+
+      if (err)
+	abort ();
+
       if (omp_target_disassociate_ptr (q, d) != 0)
 	abort ();
     }

@@ -771,6 +771,7 @@ struct gomp_device_descr
   void (*free_func) (int, void *);
   void *(*dev2host_func) (int, void *, const void *, size_t);
   void *(*host2dev_func) (int, void *, const void *, size_t);
+  void *(*dev2dev_func) (int, void *, const void *, size_t);
   void (*run_func) (int, void *, void *);
 
   /* Splay tree containing information about mapped memory regions.  */
