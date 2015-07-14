@@ -270,6 +270,12 @@ enum omp_clause_code {
      OpenMP clause: map ({alloc:,to:,from:,tofrom:,}variable-list).  */
   OMP_CLAUSE_MAP,
 
+  /* OpenMP clause: use_device_ptr (variable-list).  */
+  OMP_CLAUSE_USE_DEVICE_PTR,
+
+  /* OpenMP clause: is_device_ptr (variable-list).  */
+  OMP_CLAUSE_IS_DEVICE_PTR,
+
   /* Internal structure to hold OpenACC cache directive's variable-list.
      #pragma acc cache (variable-list).  */
   OMP_CLAUSE__CACHE_,

@@ -291,6 +291,8 @@ unsigned const char omp_clause_num_ops[] =
   2, /* OMP_CLAUSE_FROM  */
   2, /* OMP_CLAUSE_TO  */
   2, /* OMP_CLAUSE_MAP  */
+  1, /* OMP_CLAUSE_USE_DEVICE_PTR  */
+  1, /* OMP_CLAUSE_IS_DEVICE_PTR  */
   2, /* OMP_CLAUSE__CACHE_  */
   1, /* OMP_CLAUSE_DEVICE_RESIDENT  */
   1, /* OMP_CLAUSE_USE_DEVICE  */
@@ -358,6 +360,8 @@ const char * const omp_clause_code_name[] =
   "from",
   "to",
   "map",
+  "use_device_ptr",
+  "is_device_ptr",
   "_cache_",
   "device_resident",
   "use_device",
@@ -11388,6 +11392,8 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_GRAINSIZE:
 	case OMP_CLAUSE_NUM_TASKS:
 	case OMP_CLAUSE_HINT:
+	case OMP_CLAUSE_USE_DEVICE_PTR:
+	case OMP_CLAUSE_IS_DEVICE_PTR:
 	case OMP_CLAUSE__LOOPTEMP_:
 	case OMP_CLAUSE__SIMDUID_:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:

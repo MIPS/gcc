@@ -1,3 +1,13 @@
+2015-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_split_clauses): Improve function comment.
+	Handle OMP_CLAUSE_IS_DEVICE_PTR.  Adjust for OMP_CLAUSE_PRIVATE
+	and OMP_CLAUSE_FIRSTPRIVATE being supported also on
+	#pragma omp target construct.
+	* c-pragma.h (enum pragma_omp_clause): Add
+	PRAGMA_OMP_CLAUSE_IS_DEVICE_PTR and
+	PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR.
+
 2015-07-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-pragma.h (enum pragma_omp_clause): Add

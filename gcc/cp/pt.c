@@ -13601,6 +13601,8 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 	case OMP_CLAUSE_FROM:
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_MAP:
+	case OMP_CLAUSE_USE_DEVICE_PTR:
+	case OMP_CLAUSE_IS_DEVICE_PTR:
 	  OMP_CLAUSE_DECL (nc)
 	    = tsubst_omp_clause_decl (OMP_CLAUSE_DECL (oc), args, complain,
 				      in_decl);
@@ -13688,6 +13690,8 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 	  case OMP_CLAUSE_COPYPRIVATE:
 	  case OMP_CLAUSE_LINEAR:
 	  case OMP_CLAUSE_REDUCTION:
+	  case OMP_CLAUSE_USE_DEVICE_PTR:
+	  case OMP_CLAUSE_IS_DEVICE_PTR:
 	    /* tsubst_expr on SCOPE_REF results in returning
 	       finish_non_static_data_member result.  Undo that here.  */
 	    if (TREE_CODE (OMP_CLAUSE_DECL (oc)) == SCOPE_REF

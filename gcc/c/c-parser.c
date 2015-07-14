@@ -9945,6 +9945,8 @@ c_parser_omp_clause_name (c_parser *parser)
 	case 'i':
 	  if (!strcmp ("inbranch", p))
 	    result = PRAGMA_OMP_CLAUSE_INBRANCH;
+	  else if (!strcmp ("is_device_ptr", p))
+	    result = PRAGMA_OMP_CLAUSE_IS_DEVICE_PTR;
 	  break;
 	case 'l':
 	  if (!strcmp ("lastprivate", p))
@@ -10045,6 +10047,8 @@ c_parser_omp_clause_name (c_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_UNIFORM;
 	  else if (!strcmp ("untied", p))
 	    result = PRAGMA_OMP_CLAUSE_UNTIED;
+	  else if (!strcmp ("use_device_ptr", p))
+	    result = PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR;
 	  break;
 	case 'v':
 	  if (!strcmp ("vector", p))
@@ -10914,6 +10918,25 @@ c_parser_omp_clause_defaultmap (c_parser *parser, tree list)
  out_err:
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
   return list;
+}
+
+/* OpenMP 4.1:
+   use_device_ptr ( variable-list ) */
+
+static tree
+c_parser_omp_clause_use_device_ptr (c_parser *parser, tree list)
+{
+  return c_parser_omp_var_list_parens (parser, OMP_CLAUSE_USE_DEVICE_PTR,
+				       list);
+}
+
+/* OpenMP 4.1:
+   is_device_ptr ( variable-list ) */
+
+static tree
+c_parser_omp_clause_is_device_ptr (c_parser *parser, tree list)
+{
+  return c_parser_omp_var_list_parens (parser, OMP_CLAUSE_IS_DEVICE_PTR, list);
 }
 
 /* OpenACC:
@@ -12402,6 +12425,14 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
 	case PRAGMA_OMP_CLAUSE_MAP:
 	  clauses = c_parser_omp_clause_map (parser, clauses);
 	  c_name = "map";
+	  break;
+	case PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR:
+	  clauses = c_parser_omp_clause_use_device_ptr (parser, clauses);
+	  c_name = "use_device_ptr";
+	  break;
+	case PRAGMA_OMP_CLAUSE_IS_DEVICE_PTR:
+	  clauses = c_parser_omp_clause_is_device_ptr (parser, clauses);
+	  c_name = "is_device_ptr";
 	  break;
 	case PRAGMA_OMP_CLAUSE_DEVICE:
 	  clauses = c_parser_omp_clause_device (parser, clauses);
@@ -14382,7 +14413,8 @@ c_parser_omp_teams (location_t loc, c_parser *parser,
 #define OMP_TARGET_DATA_CLAUSE_MASK				\
 	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEVICE)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_MAP)		\
-	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF))
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR))
 
 static tree
 c_parser_omp_target_data (location_t loc, c_parser *parser)
@@ -14664,7 +14696,8 @@ c_parser_omp_target_exit_data (location_t loc, c_parser *parser,
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOWAIT)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRIVATE)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
-	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEFAULTMAP))
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEFAULTMAP)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IS_DEVICE_PTR))
 
 static bool
 c_parser_omp_target (c_parser *parser, enum pragma_context context)

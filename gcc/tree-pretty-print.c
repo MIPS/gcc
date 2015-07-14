@@ -329,6 +329,12 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
     case OMP_CLAUSE_UNIFORM:
       name = "uniform";
       goto print_remap;
+    case OMP_CLAUSE_USE_DEVICE_PTR:
+      name = "use_device_ptr";
+      goto print_remap;
+    case OMP_CLAUSE_IS_DEVICE_PTR:
+      name = "is_device_ptr";
+      goto print_remap;
     case OMP_CLAUSE__LOOPTEMP_:
       name = "_looptemp_";
       goto print_remap;

@@ -1954,6 +1954,11 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    }
 	  break;
 
+	case OMP_CLAUSE_USE_DEVICE_PTR:
+	case OMP_CLAUSE_IS_DEVICE_PTR:
+	  decl = OMP_CLAUSE_DECL (c);
+	  goto do_private;
+
 	case OMP_CLAUSE__LOOPTEMP_:
 	  gcc_assert (is_taskreg_ctx (ctx));
 	  decl = OMP_CLAUSE_DECL (c);
@@ -2138,6 +2143,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  /* FALLTHRU */
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_LINEAR:
+	case OMP_CLAUSE_USE_DEVICE_PTR:
+	case OMP_CLAUSE_IS_DEVICE_PTR:
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_variable_sized (decl))
 	    install_var_local (decl, ctx);

@@ -684,7 +684,7 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
     }
 }
 
-/* Right now we have 15 different combined constructs, this
+/* Right now we have 15 different combined/composite constructs, this
    function attempts to split or duplicate clauses for combined
    constructs.  CODE is the innermost construct in the combined construct,
    and MASK allows to determine which constructs are combined together,
@@ -744,6 +744,7 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	/* First the clauses that are unique to some constructs.  */
 	case OMP_CLAUSE_DEVICE:
 	case OMP_CLAUSE_MAP:
+	case OMP_CLAUSE_IS_DEVICE_PTR:
 	  s = C_OMP_CLAUSE_SPLIT_TARGET;
 	  break;
 	case OMP_CLAUSE_NUM_TEAMS:
@@ -814,7 +815,7 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	  else
 	    s = C_OMP_CLAUSE_SPLIT_DISTRIBUTE;
 	  break;
-	/* Private clause is supported on all constructs but target,
+	/* Private clause is supported on all constructs,
 	   it is enough to put it on the innermost one.  For
 	   #pragma omp {for,sections} put it on parallel though,
 	   as that's what we did for OpenMP 3.1.  */
@@ -830,9 +831,18 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	    }
 	  break;
 	/* Firstprivate clause is supported on all constructs but
-	   target and simd.  Put it on the outermost of those and
-	   duplicate on parallel.  */
+	   simd.  Put it on the outermost of those and duplicate on teams
+	   and parallel.  */
 	case OMP_CLAUSE_FIRSTPRIVATE:
+	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_MAP))
+	      != 0)
+	    {
+	      c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
+				    OMP_CLAUSE_FIRSTPRIVATE);
+	      OMP_CLAUSE_DECL (c) = OMP_CLAUSE_DECL (clauses);
+	      OMP_CLAUSE_CHAIN (c) = cclauses[C_OMP_CLAUSE_SPLIT_TARGET];
+	      cclauses[C_OMP_CLAUSE_SPLIT_TARGET] = c;
+	    }
 	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_THREADS))
 	      != 0)
 	    {

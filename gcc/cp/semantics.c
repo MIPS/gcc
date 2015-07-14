@@ -6385,6 +6385,26 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	    }
 	  break;
 
+	case OMP_CLAUSE_IS_DEVICE_PTR:
+	case OMP_CLAUSE_USE_DEVICE_PTR:
+	  field_ok = allow_fields;
+	  t = OMP_CLAUSE_DECL (c);
+	  if (!type_dependent_expression_p (t))
+	    {
+	      tree type = TREE_TYPE (t);
+	      if (TREE_CODE (type) != POINTER_TYPE
+		  && (TREE_CODE (type) != REFERENCE_TYPE
+		      || TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qs variable is not a pointer or reference "
+			    "to pointer",
+			    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  remove = true;
+		}
+	    }
+	  goto check_dup_generic;
+
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:

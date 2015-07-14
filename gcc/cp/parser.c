@@ -27740,6 +27740,8 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	case 'i':
 	  if (!strcmp ("inbranch", p))
 	    result = PRAGMA_OMP_CLAUSE_INBRANCH;
+	  else if (!strcmp ("is_device_ptr", p))
+	    result = PRAGMA_OMP_CLAUSE_IS_DEVICE_PTR;
 	  break;
 	case 'l':
 	  if (!strcmp ("lastprivate", p))
@@ -27836,6 +27838,8 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_UNIFORM;
 	  else if (!strcmp ("untied", p))
 	    result = PRAGMA_OMP_CLAUSE_UNTIED;
+	  else if (!strcmp ("use_device_ptr", p))
+	    result = PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR;
 	  break;
 	case 'v':
 	  if (!strcmp ("vector_length", p))
@@ -29851,6 +29855,16 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  clauses = cp_parser_omp_clause_defaultmap (parser, clauses,
 						     token->location);
 	  c_name = "defaultmap";
+	  break;
+	case PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR:
+	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_USE_DEVICE_PTR,
+					    clauses);
+	  c_name = "use_device_ptr";
+	  break;
+	case PRAGMA_OMP_CLAUSE_IS_DEVICE_PTR:
+	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_IS_DEVICE_PTR,
+					    clauses);
+	  c_name = "is_device_ptr";
 	  break;
 	case PRAGMA_OMP_CLAUSE_IF:
 	  clauses = cp_parser_omp_clause_if (parser, clauses, token->location);
@@ -32008,7 +32022,8 @@ cp_parser_omp_teams (cp_parser *parser, cp_token *pragma_tok,
 #define OMP_TARGET_DATA_CLAUSE_MASK				\
 	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEVICE)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_MAP)		\
-	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF))
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR))
 
 static tree
 cp_parser_omp_target_data (cp_parser *parser, cp_token *pragma_tok)
@@ -32292,7 +32307,8 @@ cp_parser_omp_target_update (cp_parser *parser, cp_token *pragma_tok,
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOWAIT)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRIVATE)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
-	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEFAULTMAP))
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEFAULTMAP)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IS_DEVICE_PTR))
 
 static bool
 cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,

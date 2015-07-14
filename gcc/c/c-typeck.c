@@ -12586,6 +12586,18 @@ c_finish_omp_clauses (tree clauses, bool declare_simd)
 	    }
 	  goto check_dup_generic;
 
+	case OMP_CLAUSE_IS_DEVICE_PTR:
+	case OMP_CLAUSE_USE_DEVICE_PTR:
+	  t = OMP_CLAUSE_DECL (c);
+	  if (TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qs variable is not a pointer",
+			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      remove = true;
+	    }
+	  goto check_dup_generic;
+
 	case OMP_CLAUSE_NOWAIT:
 	  if (copyprivate_seen)
 	    {

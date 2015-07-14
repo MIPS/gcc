@@ -1,3 +1,16 @@
+2015-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Parse use_device_ptr
+	and is_device_ptr.
+	(c_parser_omp_clause_use_device_ptr,
+	c_parser_omp_clause_is_device_ptr): New functions.
+	(c_parser_omp_all_clauses): Handle
+	PRAGMA_OMP_CLAUSE_{IS,USE}_DEVICE_PTR.
+	(OMP_TARGET_DATA_CLAUSE_MASK): Add PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR.
+	(OMP_TARGET_CLAUSE_MASK): Add PRAGMA_OMP_CLAUSE_IS_DEVICE_PTR.
+	* c-typeck.c (c_finish_omp_clauses): Handle
+	OMP_CLAUSE_{USE,IS}_DEVICE_PTR.
+
 2015-07-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_clause_name): Handle defaultmap clause.
