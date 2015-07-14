@@ -7513,9 +7513,7 @@ coerce_template_parms (tree parms,
     }
   /* We can't pass a pack expansion to a non-pack parameter of an alias
      template (DR 1430).  */
-  else if (in_decl
-	   && (DECL_ALIAS_TEMPLATE_P (in_decl)
-	       || concept_template_p (in_decl))
+  else if (in_decl && DECL_ALIAS_TEMPLATE_P (in_decl)
 	   && variadic_args_p
 	   && nargs - variadic_args_p < nparms - variadic_p)
     {
