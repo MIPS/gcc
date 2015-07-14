@@ -1,3 +1,8 @@
+2015-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_{REF,VAL,UVAL}_CONSTANT_STEP.
+
 2015-07-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-core.h (enum omp_clause_code): Add OMP_CLAUSE_DEFAULTMAP.

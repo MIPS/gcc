@@ -2825,6 +2825,7 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 		  i = -1;
 		break;
 	      case SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP:
+	      case SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP:
 		if (arginfo[i].dt == vect_constant_def
 		    || arginfo[i].dt == vect_external_def
 		    || (arginfo[i].linear_step
@@ -2832,6 +2833,8 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 		  i = -1;
 		break;
 	      case SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP:
+	      case SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP:
+	      case SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP:
 		/* FORNOW */
 		i = -1;
 		break;
