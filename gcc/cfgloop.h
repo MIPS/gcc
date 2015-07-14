@@ -221,6 +221,10 @@ struct GTY ((chain_next ("%h.next"))) loop {
   /* True if the loop is part of an oacc kernels region.  */
   unsigned in_oacc_kernels_region : 1;
 
+  /* True if loop is tagged as having independent iterations by user,
+     e.g. the OpenACC independent clause.  */
+  bool marked_independent;
+
   /* The number of times to unroll the loop.  0 means no information given,
      just do what we always do.  A value of 1 means do not unroll the loop.
      A value of USHRT_MAX means unroll with no specific unrolling factor.

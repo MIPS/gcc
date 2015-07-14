@@ -107,6 +107,12 @@ struct omp_region
 
   /* True if this is nested inside an OpenACC kernels construct.  */
   bool inside_kernels_p;
+
+  /* Records a generic kind field.  */
+  int kind;
+
+  /* For an OpenACC loop directive, true if has the 'independent' clause.  */
+  bool independent;
 };
 
 static struct omp_region *root_omp_region;
@@ -5685,8 +5691,15 @@ expand_omp_for (struct omp_region *region, gimple *inner_stmt)
     loops_state_set (LOOPS_NEED_FIXUP);
 
   if (region->inside_kernels_p)
-    expand_omp_for_generic (region, &fd, BUILT_IN_NONE, BUILT_IN_NONE,
-			    inner_stmt);
+    {
+      expand_omp_for_generic (region, &fd, BUILT_IN_NONE, BUILT_IN_NONE,
+			      inner_stmt);
+      if (region->independent && region->cont->loop_father)
+	{
+	  struct loop *loop = region->cont->loop_father;
+	  loop->marked_independent = true;
+	}
+    }
   else if (gimple_omp_for_kind (fd.for_stmt) & GF_OMP_FOR_SIMD)
     expand_omp_simd (region, &fd);
   else if (gimple_omp_for_kind (fd.for_stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
@@ -7867,6 +7880,31 @@ expand_omp (struct omp_region *region)
     }
 }
 
+/* Fill in additional data for a region REGION associated with an
+   OMP_FOR STMT.  */
+
+static void
+find_omp_for_region_data (struct omp_region *region, gomp_for *stmt)
+{
+  region->kind = gimple_omp_for_kind (stmt);
+
+  if (region->kind == GF_OMP_FOR_KIND_OACC_LOOP)
+    {
+      struct omp_region *target_region = region->outer;
+      while (target_region
+	     && target_region->type != GIMPLE_OMP_TARGET)
+	target_region = target_region->outer;
+      if (!target_region)
+	return;
+
+      tree clauses = gimple_omp_for_clauses (stmt);
+
+      if (target_region->kind == GF_OMP_TARGET_KIND_OACC_KERNELS
+	  && omp_find_clause (clauses, OMP_CLAUSE_INDEPENDENT))
+	region->independent = true;
+    }
+}
+
 /* Helper for build_omp_regions.  Scan the dominator tree starting at
    block BB.  PARENT is the region that contains BB.  If SINGLE_TREE is
    true, the function ends once a single tree is built (otherwise, whole
@@ -7933,6 +7971,8 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 		case GF_OMP_TARGET_KIND_OACC_KERNELS:
 		case GF_OMP_TARGET_KIND_OACC_DATA:
 		case GF_OMP_TARGET_KIND_OACC_HOST_DATA:
+		  if (is_gimple_omp_oacc (stmt))
+		    region->kind = gimple_omp_target_kind (stmt);
 		  break;
 		case GF_OMP_TARGET_KIND_UPDATE:
 		case GF_OMP_TARGET_KIND_ENTER_DATA:
@@ -7954,6 +7994,8 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 	    /* #pragma omp ordered depend is also just a stand-alone
 	       directive.  */
 	    region = NULL;
+	  else if (code == GIMPLE_OMP_FOR)
+	    find_omp_for_region_data (region, as_a <gomp_for *> (stmt));
 	  /* ..., this directive becomes the parent for a new region.  */
 	  if (region)
 	    parent = region;
