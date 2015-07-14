@@ -124,8 +124,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-pass.h"
 #include "emit-rtl.h"
-#include "targhooks.h"
-#include "target-hooks-def.h"
 
 #ifdef DELAY_SLOTS
 
@@ -3727,7 +3725,7 @@ dbr_schedule (rtx first)
     {
       fill_simple_delay_slots (1);
       fill_simple_delay_slots (0);
-      if (TARGET_USE_EAGER_DELAY_FILLER_P())
+      if (targetm.use_eager_delay_filler_p ())
 	fill_eager_delay_slots ();
       relax_delay_slots (first);
     }

@@ -149,6 +149,8 @@ static int *consumer_luid = NULL;
        (SUBINSN) != NEXT_INSN (SEQ_END (INSN));				\
        (SUBINSN) = NEXT_INSN (SUBINSN))
 
+#define TARGET_USE_EAGER_DELAY_FILLER_P	mips_use_eager_delay_filler_p
+
 /* True if bit BIT is set in VALUE.  */
 #define BITSET_P(VALUE, BIT) (((VALUE) & (1 << (BIT))) != 0)
 
@@ -15308,7 +15310,7 @@ mips_sched_reorder2 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 bool
 mips_use_eager_delay_filler_p ()
 {
-  return !(ISA_HAS_COMPACT_BRANCHES && !TARGET_CB_NEVER);
+  return TARGET_CB_NEVER;
 }
 
 /* Update round-robin counters for ALU1/2 and FALU1/2.  */

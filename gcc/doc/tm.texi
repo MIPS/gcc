@@ -10926,11 +10926,11 @@ definition is null.
 
 @deftypefn {Target Hook} bool TARGET_USE_EAGER_DELAY_FILLER_P (void)
 This predicate controls the use of the eager delay slot filler.  Targets
-such as certain MIPS architectures possess branches that can be transformed
-into branches without delay slots.  As the eager delay slot filler can
-increase code size, disabling the eager delay slot filler and relying on a
-seperate mechanism to transform branches with delay slots into branches
-without delay slots.
+such as certain MIPS architectures possess both branches with and without
+delay slots.  As the eager delay slot filler can increase code size,
+disabling it is benefical when ordinary branches are available. Use of delay
+slot branches filled using the basic filler is often sill desirable as the
+delay slot can hide a pipeline bubble.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_INIT_BUILTINS (void)

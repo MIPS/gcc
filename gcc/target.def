@@ -3305,16 +3305,16 @@ You need not implement the hook if it has nothing to do.  The default\n\
 definition is null.",
  void, (void), NULL)
 
-/*  Eager delay slot filling in delayed-branch scheduling */
+/* Eager delay slot filling in delayed-branch scheduling.  */
 DEFHOOK
 (use_eager_delay_filler_p,
  "This predicate controls the use of the eager delay slot filler.  Targets\n\
-such as certain MIPS architectures possess branches that can be transformed\n\
-into branches without delay slots.  As the eager delay slot filler can\n\
-increase code size, disabling the eager delay slot filler and relying on a\n\
-seperate mechanism to transform branches with delay slots into branches\n\
-without delay slots.", bool, (void),
-  default_use_eager_delay_filler_p)
+such as certain MIPS architectures possess both branches with and without\n\
+delay slots.  As the eager delay slot filler can increase code size,\n\
+disabling it is benefical when ordinary branches are available. Use of delay\n\
+slot branches filled using the basic filler is often sill desirable as the\n\
+delay slot can hide a pipeline bubble.", bool, (void),
+  hook_bool_void_true)
 
 /* Create the __builtin_va_list type.  */
 DEFHOOK
