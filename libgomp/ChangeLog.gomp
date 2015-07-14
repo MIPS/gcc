@@ -1,3 +1,7 @@
+2015-07-14  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/kernels-independent.c: New test.
+
 2015-07-13  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* plugin/plugin-nvptx.c (link_ptx): Constify string argument.

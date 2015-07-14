@@ -1,3 +1,7 @@
+2015-07-14  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-independent.c: New test.
+
 2015-07-13  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/kernels-loop-nest.c: Remove cleanup-tree-dump

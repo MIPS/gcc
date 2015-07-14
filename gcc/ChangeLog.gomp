@@ -1,3 +1,8 @@
+2015-07-14  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (parallelize_loops): Use marked_independent flag in
+	oacc kernels region.
+
 2015-07-14  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* cfgloop.h (struct loop): Add 'bool marked_independent' field.

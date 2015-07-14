@@ -2797,9 +2797,24 @@ parallelize_loops (bool oacc_kernels_p)
       if (!try_create_reduction_list (loop, &reduction_list, oacc_kernels_p))
 	continue;
 
-      if (!flag_loop_parallelize_all
-	  && !loop_parallel_p (loop, &parloop_obstack))
-	continue;
+      if (!flag_loop_parallelize_all)
+	{
+	  bool independent = (oacc_kernels_p
+			      && loop->marked_independent);
+
+	  if (independent)
+	    {
+	      if (dump_file
+		  && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file,
+			 "  SUCCESS: may be parallelized, marked independent\n");
+	    }
+	  else
+	    independent = loop_parallel_p (loop, &parloop_obstack);
+
+	  if (!independent)
+	    continue;
+	}
 
       changed = true;
       if (dump_file && (dump_flags & TDF_DETAILS))
