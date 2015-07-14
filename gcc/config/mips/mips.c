@@ -15307,7 +15307,7 @@ mips_sched_reorder2 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 
 /* Implement USE_EAGER_DELAY_FILLER.  */
 
-bool
+static bool
 mips_use_eager_delay_filler_p ()
 {
   return TARGET_CB_NEVER;

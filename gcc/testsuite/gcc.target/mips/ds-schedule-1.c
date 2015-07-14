@@ -1,5 +1,5 @@
-/* { dg-options "isa_rev >= 6"} */
-/* { dg-skip-if "code quality test" { *-*-* } { "-mcompact-branches=never" } { "" } } */
+/* { dg-options "isa_rev >= 6 -mcompact-branches=optimal"} */
+/* { dg-skip-if "code quality test" { *-*-* } { "" } { "" } } */
 /* { dg-final { scan-assembler-not "beq\t" } } */
 /* { dg-final { scan-assembler-times "\\(foo\\)" 1 } } */
 
