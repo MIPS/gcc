@@ -194,6 +194,10 @@ struct GTY ((chain_next ("%h.next"))) loop {
   /* True if the loop is part of an oacc kernels region.  */
   bool in_oacc_kernels_region;
 
+  /* True if loop is tagged as having independent iterations by user,
+     e.g. the OpenACC independent clause.  */
+  bool marked_independent;
+
   /* For SIMD loops, this is a unique identifier of the loop, referenced
      by IFN_GOMP_SIMD_VF, IFN_GOMP_SIMD_LANE and IFN_GOMP_SIMD_LAST_LANE
      builtins.  */

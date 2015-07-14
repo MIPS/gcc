@@ -1,3 +1,16 @@
+2015-07-14  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* cfgloop.h (struct loop): Add 'bool marked_independent' field.
+	* gimplify.c (gimplify_scan_omp_clauses): Keep OMP_CLAUSE_INDEPENDENT.
+	* omp-low.c (struct omp_region): Add 'int kind' and
+	'bool independent' fields.
+	(expand_omp_for): Set 'marked_independent' field for loop
+	corresponding to region.
+	(find_omp_for_region_data): New function.
+	(find_omp_target_region_data): Set kind field.
+	(build_omp_regions_1): Call find_omp_for_region_data() for
+	GIMPLE_OMP_FOR statements.
+
 2015-07-13  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/mkoffload.c (process): Constify mapping variables.

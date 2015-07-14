@@ -136,8 +136,16 @@ struct omp_region
   /* True if this is nested inside an OpenACC kernels construct.  */
   bool inside_kernels_p;
 
+  /* Records a generic kind field.  */
+  int kind;
+
   /* For an OpenACC loop, the level of parallelism requested.  */
   int gwv_this;
+
+  /* For an OpenACC loop directive, true if has the 'independent' clause.  */
+  bool independent;
+
+  tree broadcast_array;
 };
 
 /* Context structure.  Used to store information about each parallel
@@ -8273,8 +8281,15 @@ expand_omp_for (struct omp_region *region, gimple inner_stmt)
     loops_state_set (LOOPS_NEED_FIXUP);
 
   if (region->inside_kernels_p)
-    expand_omp_for_generic (region, &fd, BUILT_IN_NONE, BUILT_IN_NONE,
-			    inner_stmt);
+    {
+      expand_omp_for_generic (region, &fd, BUILT_IN_NONE, BUILT_IN_NONE,
+			      inner_stmt);
+      if (region->independent && region->cont->loop_father)
+	{
+	  struct loop *loop = region->cont->loop_father; 
+	  loop->marked_independent = true;
+	}
+    }
   else if (gimple_omp_for_kind (fd.for_stmt) & GF_OMP_FOR_SIMD)
     expand_omp_simd (region, &fd);
   else if (gimple_omp_for_kind (fd.for_stmt) == GF_OMP_FOR_KIND_CILKFOR)
@@ -9943,6 +9958,34 @@ find_omp_for_region_gwv (gimple stmt)
   return tmp;
 }
 
+static void
+find_omp_for_region_data (struct omp_region *region, gomp_for *stmt)
+{
+  region->gwv_this = find_omp_for_region_gwv (stmt);
+  region->kind = gimple_omp_for_kind (stmt);
+
+  if (region->kind == GF_OMP_FOR_KIND_OACC_LOOP)
+    {
+      struct omp_region *target_region = region->outer;
+      while (target_region
+	     && target_region->type != GIMPLE_OMP_TARGET)
+	target_region = target_region->outer;
+      if (!target_region)
+	return;
+
+      tree clauses = gimple_omp_for_clauses (stmt);
+
+      if (target_region->kind == GF_OMP_TARGET_KIND_OACC_PARALLEL
+	  && !find_omp_clause (clauses, OMP_CLAUSE_SEQ))
+	/* In OpenACC parallel constructs, 'independent' is implied on all
+	   loop directives without a 'seq' clause.  */
+	region->independent = true;
+      else if (target_region->kind == GF_OMP_TARGET_KIND_OACC_KERNELS
+	       && find_omp_clause (clauses, OMP_CLAUSE_INDEPENDENT))
+	region->independent = true;
+    }
+}
+
 /* Fill in additional data for a region REGION associated with an
    OMP_TARGET STMT.  */
 
@@ -9960,6 +10003,7 @@ find_omp_target_region_data (struct omp_region *region,
     region->gwv_this |= OACC_LOOP_MASK (OACC_worker);
   if (find_omp_clause (clauses, OMP_CLAUSE_VECTOR_LENGTH))
     region->gwv_this |= OACC_LOOP_MASK (OACC_vector);
+  region->kind = gimple_omp_target_kind (stmt);
 }
 
 /* Helper for build_omp_regions.  Scan the dominator tree starting at
@@ -10046,7 +10090,7 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 		}
 	    }
 	  else if (code == GIMPLE_OMP_FOR)
-	    region->gwv_this = find_omp_for_region_gwv (stmt);
+	    find_omp_for_region_data (region, as_a <gomp_for *> (stmt));
 	  /* ..., this directive becomes the parent for a new region.  */
 	  if (region)
 	    parent = region;
