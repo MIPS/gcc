@@ -1,3 +1,7 @@
+2015-07-14  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/kernels-independent.f90: New test.
+
 2015-12-04  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-1.c: Define PK
