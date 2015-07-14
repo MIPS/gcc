@@ -144,8 +144,6 @@ struct omp_region
 
   /* For an OpenACC loop directive, true if has the 'independent' clause.  */
   bool independent;
-
-  tree broadcast_array;
 };
 
 /* Context structure.  Used to store information about each parallel

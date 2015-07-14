@@ -1,3 +1,7 @@
+2015-07-14  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (struct omp_region): Remove broadcast_array member.
+
 2015-07-14  Tom de Vries  <tom@codesourcery.com>
 
 	* tree-parloops.c (parallelize_loops): Use marked_independent flag in
