@@ -398,11 +398,13 @@ convert_to_real (tree type, tree expr)
    EXPR must be pointer, integer, discrete (enum, char, or bool), float,
    fixed-point or vector; in other cases error is called.
 
+   If DOFOLD is TRZE, we try to simplify newly-created patterns by folding.
+
    The result of this is always supposed to be a newly created tree node
    not in use in any existing structure.  */
 
-tree
-convert_to_integer (tree type, tree expr)
+static tree
+convert_to_integer_1 (tree type, tree expr, bool dofold)
 {
   enum tree_code ex_form = TREE_CODE (expr);
   tree intype = TREE_TYPE (expr);
@@ -420,7 +422,7 @@ convert_to_integer (tree type, tree expr)
 
   if (ex_form == COMPOUND_EXPR)
     {
-      tree t = convert_to_integer (type, TREE_OPERAND (expr, 1));
+      tree t = convert_to_integer_1 (type, TREE_OPERAND (expr, 1), dofold);
       if (t == TREE_OPERAND (expr, 1))
 	return expr;
       return build2_loc (EXPR_LOCATION (expr), COMPOUND_EXPR, TREE_TYPE (t),
@@ -514,7 +516,7 @@ convert_to_integer (tree type, tree expr)
 	  break;
 
 	CASE_FLT_FN (BUILT_IN_TRUNC):
-	  return convert_to_integer (type, CALL_EXPR_ARG (s_expr, 0));
+	  return convert_to_integer_1 (type, CALL_EXPR_ARG (s_expr, 0), dofold);
 
 	default:
 	  break;
@@ -523,7 +525,7 @@ convert_to_integer (tree type, tree expr)
       if (fn)
         {
 	  tree newexpr = build_call_expr (fn, 1, CALL_EXPR_ARG (s_expr, 0));
-	  return convert_to_integer (type, newexpr);
+	  return convert_to_integer_1 (type, newexpr, dofold);
 	}
     }
 
@@ -554,7 +556,7 @@ convert_to_integer (tree type, tree expr)
       if (fn)
         {
 	  tree newexpr = build_call_expr (fn, 1, CALL_EXPR_ARG (s_expr, 0));
-	  return convert_to_integer (type, newexpr);
+	  return convert_to_integer_1 (type, newexpr, dofold);
 	}
     }
 
@@ -569,6 +571,14 @@ convert_to_integer (tree type, tree expr)
 	 there widen/truncate to the required type.  Some targets support the
 	 coexistence of multiple valid pointer sizes, so fetch the one we need
 	 from the type.  */
+      if (!dofold)
+        {
+	  expr = build1 (CONVERT_EXPR,
+			 lang_hooks.types.type_for_size
+			   (TYPE_PRECISION (intype), 0),
+			 expr);
+	  return build1 (CONVERT_EXPR, type, expr);
+	}
       expr = fold_build1 (CONVERT_EXPR,
 			  lang_hooks.types.type_for_size
 			    (TYPE_PRECISION (intype), 0),
@@ -819,10 +829,15 @@ convert_to_integer (tree type, tree expr)
 			if (TYPE_UNSIGNED (typex))
 			  typex = signed_type_for (typex);
 		      }
-		    return convert (type,
-				    fold_build2 (ex_form, typex,
-						 convert (typex, arg0),
-						 convert (typex, arg1)));
+		    if (dofold)
+		      return convert (type,
+				      fold_build2 (ex_form, typex,
+						   convert (typex, arg0),
+						   convert (typex, arg1)));
+		    arg0 = build1 (CONVERT_EXPR, typex, arg0);
+		    arg1 = build1 (CONVERT_EXPR, typex, arg1);
+		    expr = build2 (ex_form, typex, arg0, arg1);
+		    return build1 (CONVERT_EXPR, type, expr);
 		  }
 	      }
 	  }
@@ -846,9 +861,14 @@ convert_to_integer (tree type, tree expr)
 
 	    if (!TYPE_UNSIGNED (typex))
 	      typex = unsigned_type_for (typex);
+	    if (!dofold)
+	      return build1 (CONVERT_EXPR, type,
+			     build1 (ex_form, typex,
+				     build1 (CONVERT_EXPR, typex,
+					     TREE_OPERAND (expr, 0))));
 	    return convert (type,
 			    fold_build1 (ex_form, typex,
-					 convert (typex,
+					  convert (typex,
 						  TREE_OPERAND (expr, 0))));
 	  }
 
@@ -868,6 +888,14 @@ convert_to_integer (tree type, tree expr)
 	     the conditional and never loses.  A COND_EXPR may have a throw
 	     as one operand, which then has void type.  Just leave void
 	     operands as they are.  */
+	  if (!dofold)
+	    return build3 (COND_EXPR, type, TREE_OPERAND (expr, 0),
+			   VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 1)))
+			   ? TREE_OPERAND (expr, 1)
+			   : build1 (CONVERT_EXPR, type, TREE_OPERAND (expr, 1)),
+			   VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 2)))
+			   ? TREE_OPERAND (expr, 2)
+			   : build1 (CONVERT_EXPR, type, TREE_OPERAND (expr, 2)));
 	  return fold_build3 (COND_EXPR, type, TREE_OPERAND (expr, 0),
 			      VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 1)))
 			      ? TREE_OPERAND (expr, 1)
@@ -895,6 +923,8 @@ convert_to_integer (tree type, tree expr)
 	  expr = build1 (FIX_TRUNC_EXPR, type, expr);
 	  if (check == NULL)
 	    return expr;
+	  if (!dofold)
+	    return build2 (COMPOUND_EXPR, TREE_TYPE (expr), check, expr);
 	  return fold_build2 (COMPOUND_EXPR, TREE_TYPE (expr), check, expr);
 	}
       else
@@ -904,6 +934,10 @@ convert_to_integer (tree type, tree expr)
       return build1 (FIXED_CONVERT_EXPR, type, expr);
 
     case COMPLEX_TYPE:
+      if (!dofold)
+	return build1 (CONVERT_EXPR, type,
+		       build1 (REALPART_EXPR,
+			       TREE_TYPE (TREE_TYPE (expr)), expr));
       return convert (type,
 		      fold_build1 (REALPART_EXPR,
 				   TREE_TYPE (TREE_TYPE (expr)), expr));
@@ -922,6 +956,35 @@ convert_to_integer (tree type, tree expr)
       error ("aggregate value used where an integer was expected");
       return convert (type, integer_zero_node);
     }
+}
+
+/* Convert EXPR to some integer (or enum) type TYPE.
+
+   EXPR must be pointer, integer, discrete (enum, char, or bool), float,
+   fixed-point or vector; in other cases error is called.
+
+   The result of this is always supposed to be a newly created tree node
+   not in use in any existing structure.  */
+
+tree
+convert_to_integer (tree type, tree expr)
+{
+  return convert_to_integer_1 (type, expr, true);
+}
+
+/* Convert EXPR to some integer (or enum) type TYPE.
+
+   EXPR must be pointer, integer, discrete (enum, char, or bool), float,
+   fixed-point or vector; in other cases error is called.
+
+   The result of this is always supposed to be a newly created tree node
+   not in use in any existing structure.  The tree node isn't folded,
+   beside EXPR is of constant class.  */
+
+tree
+convert_to_integer_nofold (tree type, tree expr)
+{
+  return convert_to_integer_1 (type, expr, CONSTANT_CLASS_P (expr));
 }
 
 /* Convert EXPR to the complex type TYPE in the usual ways.  */

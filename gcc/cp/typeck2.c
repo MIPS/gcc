@@ -883,6 +883,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
     }
 
   init = fold_non_dependent_expr (init);
+  init = cp_fully_fold (init);
 
   if (TREE_CODE (type) == INTEGER_TYPE
       && TREE_CODE (ftype) == REAL_TYPE)

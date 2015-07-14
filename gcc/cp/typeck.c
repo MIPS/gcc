@@ -6973,7 +6973,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
     return convert_to_vector (type, expr);
   else if (VECTOR_TYPE_P (intype)
 	   && INTEGRAL_OR_ENUMERATION_TYPE_P (type))
-    return convert_to_integer (type, expr);
+    return convert_to_integer_nofold (type, expr);
   else
     {
       if (valid_p)

@@ -55,7 +55,7 @@ static void diagnose_ref_binding (location_t, tree, tree, tree);
 
    Here is a list of all the functions that assume that widening and
    narrowing is always done with a NOP_EXPR:
-     In convert.c, convert_to_integer.
+     In convert.c, convert_to_integer[_nofold].
      In c-typeck.c, build_binary_op_nodefault (boolean ops),
 	and c_common_truthvalue_conversion.
      In expr.c: expand_expr, for operands of a MULT_EXPR.
@@ -807,7 +807,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 	  return cp_truthvalue_conversion (e);
 	}
 
-      converted = convert_to_integer (type, e);
+      converted = convert_to_integer_nofold (type, e);
 
       /* Ignore any integer overflow caused by the conversion.  */
       return ignore_overflows (converted, e);

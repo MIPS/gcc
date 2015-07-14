@@ -6870,7 +6870,7 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
   bitfield_type = is_bitfield_expr_with_lowered_type (val);
   if (bitfield_type 
       && TYPE_PRECISION (TREE_TYPE (val)) < TYPE_PRECISION (type))
-    val = convert_to_integer (TYPE_MAIN_VARIANT (bitfield_type), val);
+    val = convert_to_integer_nofold (TYPE_MAIN_VARIANT (bitfield_type), val);
 
   if (val == error_mark_node)
     ;
