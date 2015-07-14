@@ -668,7 +668,7 @@ struct GTY((tag("GSS_OMP_CONTINUE")))
   tree control_use;
 };
 
-/* GIMPLE_OMP_SINGLE, GIMPLE_OMP_TEAMS */
+/* GIMPLE_OMP_SINGLE, GIMPLE_OMP_TEAMS, GIMPLE_OMP_ORDERED */
 
 struct GTY((tag("GSS_OMP_SINGLE_LAYOUT")))
   gimple_statement_omp_single_layout : public gimple_statement_omp
@@ -691,6 +691,13 @@ struct GTY((tag("GSS_OMP_SINGLE_LAYOUT")))
 {
     /* No extra fields; adds invariant:
          stmt->code == GIMPLE_OMP_TEAMS.  */
+};
+
+struct GTY((tag("GSS_OMP_SINGLE_LAYOUT")))
+  gomp_ordered : public gimple_statement_omp_single_layout
+{
+    /* No extra fields; adds invariant:
+	 stmt->code == GIMPLE_OMP_ORDERED.  */
 };
 
 
@@ -1007,6 +1014,14 @@ is_a_helper <gomp_critical *>::test (gimple gs)
 template <>
 template <>
 inline bool
+is_a_helper <gomp_ordered *>::test (gimple gs)
+{
+  return gs->code == GIMPLE_OMP_ORDERED;
+}
+
+template <>
+template <>
+inline bool
 is_a_helper <gomp_for *>::test (gimple gs)
 {
   return gs->code == GIMPLE_OMP_FOR;
@@ -1215,6 +1230,14 @@ is_a_helper <const gomp_critical *>::test (const_gimple gs)
 template <>
 template <>
 inline bool
+is_a_helper <const gomp_ordered *>::test (const_gimple gs)
+{
+  return gs->code == GIMPLE_OMP_ORDERED;
+}
+
+template <>
+template <>
+inline bool
 is_a_helper <const gomp_for *>::test (const_gimple gs)
 {
   return gs->code == GIMPLE_OMP_FOR;
@@ -1355,7 +1378,7 @@ gimple gimple_build_omp_section (gimple_seq);
 gimple gimple_build_omp_master (gimple_seq);
 gimple gimple_build_omp_taskgroup (gimple_seq);
 gomp_continue *gimple_build_omp_continue (tree, tree);
-gimple gimple_build_omp_ordered (gimple_seq);
+gomp_ordered *gimple_build_omp_ordered (gimple_seq, tree);
 gimple gimple_build_omp_return (bool);
 gomp_sections *gimple_build_omp_sections (gimple_seq, tree);
 gimple gimple_build_omp_sections_switch (void);
@@ -4457,6 +4480,35 @@ static inline void
 gimple_omp_critical_set_clauses (gomp_critical *crit_stmt, tree clauses)
 {
   crit_stmt->clauses = clauses;
+}
+
+
+/* Return the clauses associated with OMP_ORDERED statement ORD_STMT.  */
+
+static inline tree
+gimple_omp_ordered_clauses (const gomp_ordered *ord_stmt)
+{
+  return ord_stmt->clauses;
+}
+
+
+/* Return a pointer to the clauses associated with OMP ordered statement
+   ORD_STMT.  */
+
+static inline tree *
+gimple_omp_ordered_clauses_ptr (gomp_ordered *ord_stmt)
+{
+  return &ord_stmt->clauses;
+}
+
+
+/* Set CLAUSES to be the clauses associated with OMP ordered statement
+   ORD_STMT.  */
+
+static inline void
+gimple_omp_ordered_set_clauses (gomp_ordered *ord_stmt, tree clauses)
+{
+  ord_stmt->clauses = clauses;
 }
 
 

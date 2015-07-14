@@ -1,3 +1,32 @@
+2015-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* coretypes.h (struct gomp_ordered): Define.
+	* gimple-pretty-print.c (dump_gimple_omp_block): Do not handle
+	GIMPLE_OMP_ORDERED.
+	(dump_gimple_omp_ordered): New.
+	(pp_gimple_stmt_1): Handle GIMPLE_OMP_ORDERED.
+	* gimple-walk.c (walk_gimple_op): Same.
+	* gimple.c (gimple_build_omp_ordered): Generate gimple_ordered.
+	* gimple.def (GIMPLE_OMP_ORDERED): Add clauses.
+	* gimple.h (struct gomp_ordered): New.
+	(is_a_helper<gomp_ordered *>::test): New.
+	(is_a_helper<gomp_ordered *>): New.
+	(gimple_omp_ordered_clauses): New.
+	(gimple_omp_ordered_clauses_ptr): New.
+	(gimple_omp_ordered_set_clauses): New.
+	* gimplify.c (struct gimplify_omp_ctx): Add iter_vars field.
+	(delete_omp_context): Release iter_vars.
+	(gimplify_scan_omp_clauses): Handle OMP_CLAUSE_DEPEND_{SINK,SOURCE}.
+	(gimplify_omp_for): Initialize iter_vars.
+	(gimplify_expr): Handle OMP_ORDERED clauses.
+	* omp-low.c (check_omp_nesting_restrictions): Type check
+	OMP_CLAUSE_DEPEND_{KIND,SOURCE}.
+	(lower_depend_clauses): Add cases for OMP_CLAUSE_DEPEND_{SOURCE,SINK}.
+	* tree-inline.c (remap_gimple_stmt): Call gimple_build_omp_ordered
+	with clauses.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	OMP_CLAUSE_DEPEND_SINK.
+
 2015-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-core.h (enum omp_clause_code): Add

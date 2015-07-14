@@ -1479,7 +1479,9 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
 	case GIMPLE_OMP_ORDERED:
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
-	  copy = gimple_build_omp_ordered (s1);
+	  copy = gimple_build_omp_ordered
+		   (s1,
+		    gimple_omp_ordered_clauses (as_a <gomp_ordered *> (stmt)));
 	  break;
 
 	case GIMPLE_OMP_SECTION:

@@ -6148,6 +6148,11 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 			  == OMP_CLAUSE_DEPEND_SOURCE);
 	      break;
 	    }
+	  if (OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK)
+	    {
+	      gcc_assert (TREE_CODE (t) == TREE_LIST);
+	      break;
+	    }
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
 	      if (handle_omp_array_sections (c))

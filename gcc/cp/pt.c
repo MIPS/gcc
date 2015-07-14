@@ -13532,13 +13532,21 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 }
 
 /* Helper function for tsubst_omp_clauses, used for instantiation of
-   OMP_CLAUSE_DECL of clauses that handles also OpenMP array sections
-   represented with TREE_LIST.  */
+   OMP_CLAUSE_DECL of clauses.  */
 
 static tree
 tsubst_omp_clause_decl (tree decl, tree args, tsubst_flags_t complain,
 			tree in_decl)
 {
+  if (decl == NULL_TREE)
+    return NULL_TREE;
+
+  /* Handle an OpenMP array section represented as a TREE_LIST (or
+     OMP_CLAUSE_DEPEND_KIND).  An OMP_CLAUSE_DEPEND (with a depend
+     kind of OMP_CLAUSE_DEPEND_SINK) can also be represented as a
+     TREE_LIST.  We can handle it exactly the same as an array section
+     (purpose, value, and a chain), even though the nomenclature
+     (low_bound, length, etc) is different.  */
   if (TREE_CODE (decl) == TREE_LIST)
     {
       tree low_bound
@@ -14546,10 +14554,22 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       add_stmt (t);
       break;
 
+    case OMP_ORDERED:
+      tmp = tsubst_omp_clauses (OMP_ORDERED_CLAUSES (t), false, true,
+				args, complain, in_decl);
+      stmt = push_stmt_list ();
+      RECUR (OMP_BODY (t));
+      stmt = pop_stmt_list (stmt);
+
+      t = copy_node (t);
+      OMP_BODY (t) = stmt;
+      OMP_ORDERED_CLAUSES (t) = tmp;
+      add_stmt (t);
+      break;
+
     case OMP_SECTION:
     case OMP_MASTER:
     case OMP_TASKGROUP:
-    case OMP_ORDERED:
       stmt = push_stmt_list ();
       RECUR (OMP_BODY (t));
       stmt = pop_stmt_list (stmt);

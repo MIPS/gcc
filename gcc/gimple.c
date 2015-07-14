@@ -991,12 +991,15 @@ gimple_build_omp_continue (tree control_def, tree control_use)
 /* Build a GIMPLE_OMP_ORDERED statement.
 
    BODY is the sequence of statements inside a loop that will executed in
-   sequence.  */
+   sequence.
+   CLAUSES are clauses for this statement.  */
 
-gimple
-gimple_build_omp_ordered (gimple_seq body)
+gomp_ordered *
+gimple_build_omp_ordered (gimple_seq body, tree clauses)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_ORDERED, 0);
+  gomp_ordered *p
+    = as_a <gomp_ordered *> (gimple_alloc (GIMPLE_OMP_ORDERED, 0));
+  gimple_omp_ordered_set_clauses (p, clauses);
   if (body)
     gimple_omp_set_body (p, body);
 

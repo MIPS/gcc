@@ -29318,6 +29318,99 @@ cp_parser_omp_clause_simdlen (cp_parser *parser, tree list,
   return c;
 }
 
+/* OpenMP 4.1:
+   vec:
+     identifier [+/- integer]
+     vec , identifier [+/- integer]
+*/
+
+static tree
+cp_parser_omp_clause_depend_sink (cp_parser *parser, location_t clause_loc,
+				  tree list)
+{
+  tree vec = NULL;
+
+  if (cp_lexer_next_token_is_not (parser->lexer, CPP_NAME))
+    {
+      cp_parser_error (parser, "expected identifier");
+      return list;
+    }
+
+  while (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+    {
+      location_t id_loc = cp_lexer_peek_token (parser->lexer)->location;
+      tree t, identifier = cp_parser_identifier (parser);
+      tree addend = NULL;
+
+      if (identifier == error_mark_node)
+	t = error_mark_node;
+      else
+	{
+	  t = cp_parser_lookup_name_simple
+		(parser, identifier,
+		 cp_lexer_peek_token (parser->lexer)->location);
+	  if (t == error_mark_node)
+	    cp_parser_name_lookup_error (parser, identifier, t, NLE_NULL,
+					 id_loc);
+	}
+
+      if (t != error_mark_node)
+	{
+	  bool neg;
+
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_MINUS))
+	    neg = true;
+	  else if (cp_lexer_next_token_is (parser->lexer, CPP_PLUS))
+	    neg = false;
+	  else
+	    {
+	      addend = integer_zero_node;
+	      goto add_to_vector;
+	    }
+	  cp_lexer_consume_token (parser->lexer);
+
+	  if (cp_lexer_next_token_is_not (parser->lexer, CPP_NUMBER))
+	    {
+	      cp_parser_error (parser, "expected integer");
+	      return list;
+	    }
+
+	  addend = cp_lexer_peek_token (parser->lexer)->u.value;
+	  if (TREE_CODE (addend) != INTEGER_CST)
+	    {
+	      cp_parser_error (parser, "expected integer");
+	      return list;
+	    }
+	  if (neg)
+	    {
+	      bool overflow;
+	      wide_int offset = wi::neg (addend, &overflow);
+	      addend = wide_int_to_tree (TREE_TYPE (addend), offset);
+	      if (overflow)
+		warning_at (cp_lexer_peek_token (parser->lexer)->location,
+			    OPT_Woverflow,
+			    "overflow in implicit constant conversion");
+	    }
+	  cp_lexer_consume_token (parser->lexer);
+
+	add_to_vector:
+	  vec = tree_cons (addend, t, vec);
+
+	  if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
+	    break;
+
+	  cp_lexer_consume_token (parser->lexer);
+	}
+    }
+  cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
+
+  tree u = build_omp_clause (clause_loc, OMP_CLAUSE_DEPEND);
+  OMP_CLAUSE_DEPEND_KIND (u) = OMP_CLAUSE_DEPEND_SINK;
+  OMP_CLAUSE_DECL (u) = nreverse (vec);
+  OMP_CLAUSE_CHAIN (u) = list;
+  return u;
+}
+
 /* OpenMP 4.0:
    depend ( depend-kind : variable-list )
 
@@ -29325,10 +29418,9 @@ cp_parser_omp_clause_simdlen (cp_parser *parser, tree list,
      in | out | inout
 
    OpenMP 4.1:
-   depend ( depend-loop-kind [ : vec ] )
+   depend ( source )
 
-   depend-loop-kind:
-     source | sink  */
+   depend ( sink : vec ) */
 
 static tree
 cp_parser_omp_clause_depend (cp_parser *parser, tree list, location_t loc)
@@ -29375,17 +29467,19 @@ cp_parser_omp_clause_depend (cp_parser *parser, tree list, location_t loc)
       return c;
     }
 
-  /* FIXME: Handle OMP_CLAUSE_DEPEND_SINK.  */
-
   if (!cp_parser_require (parser, CPP_COLON, RT_COLON))
     goto resync_fail;
 
-  nlist = cp_parser_omp_var_list_no_open (parser, OMP_CLAUSE_DEPEND, list,
-					  NULL);
+  if (kind == OMP_CLAUSE_DEPEND_SINK)
+    nlist = cp_parser_omp_clause_depend_sink (parser, loc, list);
+  else
+    {
+      nlist = cp_parser_omp_var_list_no_open (parser, OMP_CLAUSE_DEPEND,
+					      list, NULL);
 
-  for (c = nlist; c != list; c = OMP_CLAUSE_CHAIN (c))
-    OMP_CLAUSE_DEPEND_KIND (c) = kind;
-
+      for (c = nlist; c != list; c = OMP_CLAUSE_CHAIN (c))
+	OMP_CLAUSE_DEPEND_KIND (c) = kind;
+    }
   return nlist;
 
  invalid_kind:

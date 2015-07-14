@@ -1,3 +1,11 @@
+2015-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_depend_sink): New.
+	(cp_parser_omp_clause_depend): Call it.
+	* pt.c (tsubst_omp_clause_decl): Handle OMP_CLAUSE_DEPEND_KIND.
+	(tsubst_expr): Handle OMP_ORDERED_CLAUSES.
+	* semantics.c (finish_omp_clauses): Handle OMP_CLAUSE_DEPEND_KIND.
+
 2015-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_clause_name): Parse use_device_ptr

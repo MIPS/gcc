@@ -3003,6 +3003,8 @@ scan_omp_teams (gomp_teams *stmt, omp_context *outer_ctx)
 static bool
 check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 {
+  tree c;
+
   /* No nesting of non-OpenACC STMT (that is, an OpenMP one, or a GOMP builtin)
      inside an OpenACC CTX.  */
   if (!(is_gimple_omp (stmt)
@@ -3223,7 +3225,57 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 	    break;
 	  }
       break;
+    case GIMPLE_OMP_TASK:
+      for (c = gimple_omp_task_clauses (stmt); c; c = OMP_CLAUSE_CHAIN (c))
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
+	    && (OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SOURCE
+		|| OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK))
+	  {
+	    enum omp_clause_depend_kind kind = OMP_CLAUSE_DEPEND_KIND (c);
+	    gcc_assert (kind == OMP_CLAUSE_DEPEND_SOURCE
+			|| kind == OMP_CLAUSE_DEPEND_SINK);
+	    error_at (OMP_CLAUSE_LOCATION (c),
+		      "%<depend(%s)%> is only allowed in %<omp ordered%>",
+		      kind == OMP_CLAUSE_DEPEND_SOURCE ? "source" : "sink");
+	    return false;
+	  }
+      break;
     case GIMPLE_OMP_ORDERED:
+      for (c = gimple_omp_ordered_clauses (as_a <gomp_ordered *> (stmt));
+	   c; c = OMP_CLAUSE_CHAIN (c))
+	{
+	  enum omp_clause_depend_kind kind = OMP_CLAUSE_DEPEND_KIND (c);
+	  if (kind == OMP_CLAUSE_DEPEND_SOURCE
+	      || kind == OMP_CLAUSE_DEPEND_SINK)
+	    {
+	      bool have_ordered = false;
+	      tree oclause;
+	      /* Look for containing ordered(N) loop.  */
+	      for (omp_context *octx = ctx; octx; octx = octx->outer)
+		if (gimple_code (octx->stmt) == GIMPLE_OMP_FOR
+		    && (oclause = find_omp_clause
+				    (gimple_omp_for_clauses (octx->stmt),
+				     OMP_CLAUSE_ORDERED))
+		    && OMP_CLAUSE_ORDERED_EXPR (oclause) != NULL_TREE)
+		  {
+		    have_ordered = true;
+		    break;
+		  }
+	      if (!have_ordered)
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%<depend%> clause must be closely nested "
+			    "inside an ordered loop");
+		  return false;
+		}
+	    }
+	  else
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"invalid depend kind in omp ordered depend");
+	      return false;
+	    }
+	}
       for (; ctx != NULL; ctx = ctx->outer)
 	switch (gimple_code (ctx->stmt))
 	  {
@@ -12568,6 +12620,10 @@ lower_depend_clauses (gimple stmt, gimple_seq *iseq, gimple_seq *oseq)
 	case OMP_CLAUSE_DEPEND_OUT:
 	case OMP_CLAUSE_DEPEND_INOUT:
 	  n_out++;
+	  break;
+	case OMP_CLAUSE_DEPEND_SOURCE:
+	case OMP_CLAUSE_DEPEND_SINK:
+	  /* FIXME:  */
 	  break;
 	default:
 	  gcc_unreachable ();
