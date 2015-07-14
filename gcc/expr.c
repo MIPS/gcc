@@ -4588,7 +4588,7 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
   if (bitpos + bitsize > str_bitsize)
     return false;
 
-  if (BYTES_BIG_ENDIAN)
+  if (reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
     bitpos = str_bitsize - bitpos - bitsize;
 
   switch (code)
