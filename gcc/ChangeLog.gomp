@@ -1,3 +1,8 @@
+2015-07-15  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_gen_wcast): Mark unreachable code
+	path.
+
 2015-07-14  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-low.c (struct omp_region): Remove broadcast_array member.

@@ -1243,10 +1243,12 @@ nvptx_gen_wcast (rtx reg, propagate_mask pm, unsigned rep, wcast_data_t *data)
 	
 	addr = gen_rtx_MEM (mode, addr);
 	addr = gen_rtx_UNSPEC (mode, gen_rtvec (1, addr), UNSPEC_SHARED_DATA);
-	if (pm & PM_read)
+	if (pm == PM_read)
 	  res = gen_rtx_SET (addr, reg);
-	if (pm & PM_write)
+	else if (pm == PM_write)
 	  res = gen_rtx_SET (reg, addr);
+	else
+	  gcc_unreachable ();
 
 	if (data->ptr)
 	  {
