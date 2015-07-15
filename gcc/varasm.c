@@ -2831,7 +2831,7 @@ assemble_real (REAL_VALUE_TYPE d, machine_mode mode, unsigned int align,
 
   /* Put out the first word with the specified alignment.  */
   if (reverse)
-    elt = flip_storage_order (SImode, GEN_INT (data[nelts - 1]));
+    elt = flip_storage_order (SImode, gen_int_mode (data[nelts - 1], SImode));
   else
     elt = GEN_INT (data[0]);
   assemble_integer (elt, MIN (nunits, units_per), align, 1);
@@ -2843,7 +2843,8 @@ assemble_real (REAL_VALUE_TYPE d, machine_mode mode, unsigned int align,
   for (int i = 1; i < nelts; i++)
     {
       if (reverse)
-	elt = flip_storage_order (SImode, GEN_INT (data[nelts - 1 - i]));
+	elt = flip_storage_order (SImode,
+				  gen_int_mode (data[nelts - 1 - i], SImode));
       else
 	elt = GEN_INT (data[i]);
       assemble_integer (elt, MIN (nunits, units_per), align, 1);
