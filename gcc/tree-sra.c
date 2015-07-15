@@ -2446,6 +2446,7 @@ create_artificial_child_access (struct access *parent, struct access *model,
   access->type = model->type;
   access->grp_write = true;
   access->grp_read = false;
+  access->reverse = model->reverse;
 
   child = &parent->first_child;
   while (*child && (*child)->offset < new_offset)
