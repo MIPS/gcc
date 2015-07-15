@@ -1,5 +1,9 @@
 2015-07-15  Jakub Jelinek  <jakub@redhat.com>
 
+	* parser.c (cp_parser_omp_var_list_no_open): Don't process
+	RID_THIS for kind == 0.  Don't call cp_parser_name_lookup_error
+	if finish_this_expr returned error_mark_node.
+
 	* parser.c (cp_parser_omp_clause_if): Add IS_OMP argument.  Parse
 	and diagnose directive-name-modifier.
 	(cp_parser_oacc_all_clauses, cp_parser_omp_all_clauses): Adjust

@@ -27910,7 +27910,9 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
       tree name, decl;
 
       token = cp_lexer_peek_token (parser->lexer);
-      if (current_class_ptr && cp_parser_is_keyword (token, RID_THIS))
+      if (kind != 0
+	  && current_class_ptr
+	  && cp_parser_is_keyword (token, RID_THIS))
 	{
 	  decl = finish_this_expr ();
 	  if (TREE_CODE (decl) == NON_LVALUE_EXPR
@@ -27929,10 +27931,12 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 	    goto skip_comma;
 
 	  decl = cp_parser_lookup_name_simple (parser, name, token->location);
+	  if (decl == error_mark_node)
+	    cp_parser_name_lookup_error (parser, name, decl, NLE_NULL,
+					 token->location);
 	}
       if (decl == error_mark_node)
-	cp_parser_name_lookup_error (parser, name, decl, NLE_NULL,
-				     token->location);
+	;
       else if (kind != 0)
 	{
 	  switch (kind)
