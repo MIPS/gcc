@@ -4192,7 +4192,10 @@ ipa_modify_expr (tree *expr, bool convert,
 
   tree src;
   if (cand->by_ref)
-    src = build_simple_mem_ref (cand->new_decl);
+    {
+      src = build_simple_mem_ref (cand->new_decl);
+      REF_REVERSE_STORAGE_ORDER (src) = cand->reverse;
+    }
   else
     src = cand->new_decl;
 
