@@ -1,3 +1,8 @@
+2015-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/if-1.c: New test.
+	* c-c++-common/gomp/if-2.c: New test.
+
 2015-07-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/vect/simd-clone-2.cc: New test.

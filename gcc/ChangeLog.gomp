@@ -1,3 +1,16 @@
+2015-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-core.h (struct tree_omp_clause): Add subcode.if_modifier
+	field.
+	* tree.h (OMP_CLAUSE_IF_MODIFIER): Define.
+	* gimplify.c (gimplify_scan_omp_clauses): Add CODE argument.
+	For OMP_CLAUSE_IF complain if OMP_CLAUSE_IF_MODIFIER is present
+	and does not match code.  Handle OMP_CLAUSE_GANG separately.
+	(gimplify_oacc_cache, gimplify_omp_parallel, gimplify_omp_task,
+	gimplify_omp_for, gimplify_omp_workshare, gimplify_omp_target_update,
+	gimplify_expr): Adjust gimplify_scan_omp_clauses callers.
+	* tree-pretty-print.c (dump_omp_clause): Print OMP_CLAUSE_IF_MODIFIER.
+
 2015-07-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* coretypes.h (struct gomp_ordered): Define.

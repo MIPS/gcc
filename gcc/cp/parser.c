@@ -28402,15 +28402,101 @@ cp_parser_omp_clause_final (cp_parser *parser, tree list, location_t location)
 }
 
 /* OpenMP 2.5:
-   if ( expression ) */
+   if ( expression )
+
+   OpenMP 4.1:
+   if ( directive-name-modifier : expression )
+
+   directive-name-modifier:
+     parallel | task | taskloop | target data | target | target update
+     | target enter data | target exit data  */
 
 static tree
-cp_parser_omp_clause_if (cp_parser *parser, tree list, location_t location)
+cp_parser_omp_clause_if (cp_parser *parser, tree list, location_t location,
+			 bool is_omp)
 {
   tree t, c;
+  enum tree_code if_modifier = ERROR_MARK;
 
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     return list;
+
+  if (is_omp && cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+    {
+      tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+      const char *p = IDENTIFIER_POINTER (id);
+      int n = 2;
+
+      if (strcmp ("parallel", p) == 0)
+	if_modifier = OMP_PARALLEL;
+      else if (strcmp ("task", p) == 0)
+	if_modifier = OMP_TASK;
+      else if (strcmp ("taskloop", p) == 0)
+	if_modifier = OMP_TASKLOOP;
+      else if (strcmp ("target", p) == 0)
+	{
+	  if_modifier = OMP_TARGET;
+	  if (cp_lexer_nth_token_is (parser->lexer, 2, CPP_NAME))
+	    {
+	      id = cp_lexer_peek_nth_token (parser->lexer, 2)->u.value;
+	      p = IDENTIFIER_POINTER (id);
+	      if (strcmp ("data", p) == 0)
+		if_modifier = OMP_TARGET_DATA;
+	      else if (strcmp ("update", p) == 0)
+		if_modifier = OMP_TARGET_UPDATE;
+	      else if (strcmp ("enter", p) == 0)
+		if_modifier = OMP_TARGET_ENTER_DATA;
+	      else if (strcmp ("exit", p) == 0)
+		if_modifier = OMP_TARGET_EXIT_DATA;
+	      if (if_modifier != OMP_TARGET)
+		n = 3;
+	      else
+		{
+		  location_t loc
+		    = cp_lexer_peek_nth_token (parser->lexer, 2)->location;
+		  error_at (loc, "expected %<data%>, %<update%>, %<enter%> "
+				 "or %<exit%>");
+		  if_modifier = ERROR_MARK;
+		}
+	      if (if_modifier == OMP_TARGET_ENTER_DATA
+		  || if_modifier == OMP_TARGET_EXIT_DATA)
+		{
+		  if (cp_lexer_nth_token_is (parser->lexer, 3, CPP_NAME))
+		    {
+		      id = cp_lexer_peek_nth_token (parser->lexer, 3)->u.value;
+		      p = IDENTIFIER_POINTER (id);
+		      if (strcmp ("data", p) == 0)
+			n = 4;
+		    }
+		  if (n != 4)
+		    {
+		      location_t loc
+			= cp_lexer_peek_nth_token (parser->lexer, 3)->location;
+		      error_at (loc, "expected %<data%>");
+		      if_modifier = ERROR_MARK;
+		    }
+		}
+	    }
+	}
+      if (if_modifier != ERROR_MARK)
+	{
+	  if (cp_lexer_nth_token_is (parser->lexer, n, CPP_COLON))
+	    {
+	      while (n-- > 0)
+		cp_lexer_consume_token (parser->lexer);
+	    }
+	  else
+	    {
+	      if (n > 2)
+		{
+		  location_t loc
+		    = cp_lexer_peek_nth_token (parser->lexer, n)->location;
+		  error_at (loc, "expected %<:%>");
+		}
+	      if_modifier = ERROR_MARK;
+	    }
+	}
+    }
 
   t = cp_parser_condition (parser);
 
@@ -28420,9 +28506,48 @@ cp_parser_omp_clause_if (cp_parser *parser, tree list, location_t location)
 					   /*or_comma=*/false,
 					   /*consume_paren=*/true);
 
-  check_no_duplicate_clause (list, OMP_CLAUSE_IF, "if", location);
+  for (c = list; c ; c = OMP_CLAUSE_CHAIN (c))
+    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_IF)
+      {
+	if (if_modifier != ERROR_MARK
+	    && OMP_CLAUSE_IF_MODIFIER (c) == if_modifier)
+	  {
+	    const char *p = NULL;
+	    switch (if_modifier)
+	      {
+	      case OMP_PARALLEL: p = "parallel"; break;
+	      case OMP_TASK: p = "task"; break;
+	      case OMP_TASKLOOP: p = "taskloop"; break;
+	      case OMP_TARGET_DATA: p = "target data"; break;
+	      case OMP_TARGET: p = "target"; break;
+	      case OMP_TARGET_UPDATE: p = "target update"; break;
+	      case OMP_TARGET_ENTER_DATA: p = "enter data"; break;
+	      case OMP_TARGET_EXIT_DATA: p = "exit data"; break;
+	      default: gcc_unreachable ();
+	      }
+	    error_at (location, "too many %<if%> clauses with %qs modifier",
+		      p);
+	    return list;
+	  }
+	else if (OMP_CLAUSE_IF_MODIFIER (c) == if_modifier)
+	  {
+	    if (!is_omp)
+	      error_at (location, "too many %<if%> clauses");
+	    else
+	      error_at (location, "too many %<if%> clauses without modifier");
+	    return list;
+	  }
+	else if (if_modifier == ERROR_MARK
+		 || OMP_CLAUSE_IF_MODIFIER (c) == ERROR_MARK)
+	  {
+	    error_at (location, "if any %<if%> clause has modifier, then all "
+				"%<if%> clauses have to use modifier");
+	    return list;
+	  }
+      }
 
   c = build_omp_clause (location, OMP_CLAUSE_IF);
+  OMP_CLAUSE_IF_MODIFIER (c) = if_modifier;
   OMP_CLAUSE_IF_EXPR (c) = t;
   OMP_CLAUSE_CHAIN (c) = list;
 
@@ -29807,7 +29932,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "host";
 	  break;
 	case PRAGMA_OACC_CLAUSE_IF:
-	  clauses = cp_parser_omp_clause_if (parser, clauses, here);
+	  clauses = cp_parser_omp_clause_if (parser, clauses, here, false);
 	  c_name = "if";
 	  break;
 	case PRAGMA_OACC_CLAUSE_NUM_GANGS:
@@ -29961,7 +30086,8 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "is_device_ptr";
 	  break;
 	case PRAGMA_OMP_CLAUSE_IF:
-	  clauses = cp_parser_omp_clause_if (parser, clauses, token->location);
+	  clauses = cp_parser_omp_clause_if (parser, clauses, token->location,
+					     true);
 	  c_name = "if";
 	  break;
 	case PRAGMA_OMP_CLAUSE_LASTPRIVATE:

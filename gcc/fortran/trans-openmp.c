@@ -2245,6 +2245,7 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
       gfc_add_block_to_block (block, &se.post);
 
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_IF);
+      OMP_CLAUSE_IF_MODIFIER (c) = ERROR_MARK;
       OMP_CLAUSE_IF_EXPR (c) = if_var;
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }

@@ -1010,10 +1010,39 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOGROUP))
 	      != 0)
 	    s = C_OMP_CLAUSE_SPLIT_TASKLOOP;
-	  /* FIXME: This is currently being discussed.  */
 	  else if ((mask & (OMP_CLAUSE_MASK_1
 			    << PRAGMA_OMP_CLAUSE_NUM_THREADS)) != 0)
-	    s = C_OMP_CLAUSE_SPLIT_PARALLEL;
+	    {
+	      if ((mask & (OMP_CLAUSE_MASK_1
+			   << PRAGMA_OMP_CLAUSE_MAP)) != 0)
+		{
+		  if (OMP_CLAUSE_IF_MODIFIER (clauses) == OMP_PARALLEL)
+		    s = C_OMP_CLAUSE_SPLIT_PARALLEL;
+		  else if (OMP_CLAUSE_IF_MODIFIER (clauses) == OMP_TARGET)
+		    s = C_OMP_CLAUSE_SPLIT_TARGET;
+		  else if (OMP_CLAUSE_IF_MODIFIER (clauses) == ERROR_MARK)
+		    {
+		      c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
+					    OMP_CLAUSE_IF);
+		      OMP_CLAUSE_IF_MODIFIER (c)
+			= OMP_CLAUSE_IF_MODIFIER (clauses);
+		      OMP_CLAUSE_IF_EXPR (c) = OMP_CLAUSE_IF_EXPR (clauses);
+		      OMP_CLAUSE_CHAIN (c)
+			= cclauses[C_OMP_CLAUSE_SPLIT_TARGET];
+		      cclauses[C_OMP_CLAUSE_SPLIT_TARGET] = c;
+		      s = C_OMP_CLAUSE_SPLIT_PARALLEL;
+		    }
+		  else
+		    {
+		      error_at (OMP_CLAUSE_LOCATION (clauses),
+				"expected %<parallel%> or %<target%> %<if%> "
+				"clause modifier");
+		      continue;
+		    }
+		}
+	      else
+		s = C_OMP_CLAUSE_SPLIT_PARALLEL;
+	    }
 	  else
 	    s = C_OMP_CLAUSE_SPLIT_TARGET;
 	  break;

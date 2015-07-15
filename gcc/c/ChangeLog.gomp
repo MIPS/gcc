@@ -1,3 +1,10 @@
+2015-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_if): Add IS_OMP argument.  Parse
+	and diagnose directive-name-modifier.
+	(c_parser_oacc_all_clauses, c_parser_omp_all_clauses): Adjust
+	callers.
+
 2015-07-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-parser.c (c_parser_omp_clause_depend_sink): New.

@@ -1,3 +1,9 @@
+2015-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_split_clauses): Use OMP_CLAUSE_IF_MODIFIER to
+	decide where to put OMP_CLAUSE_IF, without modifier duplicate to
+	both target and parallel if combined.
+
 2015-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-omp.c (c_omp_split_clauses): Improve function comment.

@@ -6136,7 +6136,8 @@ find_decl_expr (tree *tp, int *walk_subtrees, void *data)
 
 static void
 gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
-			   enum omp_region_type region_type)
+			   enum omp_region_type region_type,
+			   enum tree_code code)
 {
   struct gimplify_omp_ctx *ctx, *outer_ctx;
   tree c;
@@ -6560,8 +6561,33 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    }
 	  break;
 
-	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_IF:
+	  if (OMP_CLAUSE_IF_MODIFIER (c) != ERROR_MARK
+	      && OMP_CLAUSE_IF_MODIFIER (c) != code)
+	    {
+	      const char *p[2];
+	      for (int i = 0; i < 2; i++)
+		switch (i ? OMP_CLAUSE_IF_MODIFIER (c) : code)
+		  {
+		  case OMP_PARALLEL: p[i] = "parallel"; break;
+		  case OMP_TASK: p[i] = "task"; break;
+		  case OMP_TASKLOOP: p[i] = "taskloop"; break;
+		  case OMP_TARGET_DATA: p[i] = "target data"; break;
+		  case OMP_TARGET: p[i] = "target"; break;
+		  case OMP_TARGET_UPDATE: p[i] = "target update"; break;
+		  case OMP_TARGET_ENTER_DATA:
+		    p[i] = "target enter data"; break;
+		  case OMP_TARGET_EXIT_DATA: p[i] = "target exit data"; break;
+		  default: gcc_unreachable ();
+		  }
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"expected %qs %<if%> clause modifier rather than %qs",
+			p[0], p[1]);
+	      remove = true;
+	    }
+	  /* Fall through.  */
+
+	case OMP_CLAUSE_FINAL:
 	  OMP_CLAUSE_OPERAND (c, 0)
 	    = gimple_boolify (OMP_CLAUSE_OPERAND (c, 0));
 	  /* Fall through.  */
@@ -6582,15 +6608,19 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
 	case OMP_CLAUSE_VECTOR_LENGTH:
-	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
 	  if (gimplify_expr (&OMP_CLAUSE_OPERAND (c, 0), pre_p, NULL,
 			     is_gimple_val, fb_rvalue) == GS_ERROR)
 	    remove = true;
-	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_GANG
-	      && gimplify_expr (&OMP_CLAUSE_OPERAND (c, 1), pre_p, NULL,
-				is_gimple_val, fb_rvalue) == GS_ERROR)
+	  break;
+
+	case OMP_CLAUSE_GANG:
+	  if (gimplify_expr (&OMP_CLAUSE_OPERAND (c, 0), pre_p, NULL,
+			     is_gimple_val, fb_rvalue) == GS_ERROR)
+	    remove = true;
+	  if (gimplify_expr (&OMP_CLAUSE_OPERAND (c, 1), pre_p, NULL,
+			     is_gimple_val, fb_rvalue) == GS_ERROR)
 	    remove = true;
 	  break;
 
@@ -7019,7 +7049,8 @@ gimplify_oacc_cache (tree *expr_p, gimple_seq *pre_p)
 {
   tree expr = *expr_p;
 
-  gimplify_scan_omp_clauses (&OACC_CACHE_CLAUSES (expr), pre_p, ORT_WORKSHARE);
+  gimplify_scan_omp_clauses (&OACC_CACHE_CLAUSES (expr), pre_p, ORT_WORKSHARE,
+			     OACC_CACHE);
   gimplify_adjust_omp_clauses (pre_p, &OACC_CACHE_CLAUSES (expr));
 
   /* TODO: Do something sensible with this information.  */
@@ -7042,7 +7073,7 @@ gimplify_omp_parallel (tree *expr_p, gimple_seq *pre_p)
   gimplify_scan_omp_clauses (&OMP_PARALLEL_CLAUSES (expr), pre_p,
 			     OMP_PARALLEL_COMBINED (expr)
 			     ? ORT_COMBINED_PARALLEL
-			     : ORT_PARALLEL);
+			     : ORT_PARALLEL, OMP_PARALLEL);
 
   push_gimplify_context ();
 
@@ -7078,7 +7109,7 @@ gimplify_omp_task (tree *expr_p, gimple_seq *pre_p)
   gimplify_scan_omp_clauses (&OMP_TASK_CLAUSES (expr), pre_p,
 			     find_omp_clause (OMP_TASK_CLAUSES (expr),
 					      OMP_CLAUSE_UNTIED)
-			     ? ORT_UNTIED_TASK : ORT_TASK);
+			     ? ORT_UNTIED_TASK : ORT_TASK, OMP_TASK);
 
   push_gimplify_context ();
 
@@ -7179,7 +7210,8 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
     }
 
   if (TREE_CODE (for_stmt) != OMP_TASKLOOP)
-    gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p, ort);
+    gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p, ort,
+			       TREE_CODE (for_stmt));
   if (TREE_CODE (for_stmt) == OMP_DISTRIBUTE)
     gimplify_omp_ctxp->distribute = true;
 
@@ -7290,7 +7322,8 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	    }
 	}
 
-      gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (orig_for_stmt), pre_p, ort);
+      gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (orig_for_stmt), pre_p, ort,
+				 OMP_TASKLOOP);
     }
 
   if (orig_for_stmt != for_stmt)
@@ -7866,7 +7899,8 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
     default:
       gcc_unreachable ();
     }
-  gimplify_scan_omp_clauses (&OMP_CLAUSES (expr), pre_p, ort);
+  gimplify_scan_omp_clauses (&OMP_CLAUSES (expr), pre_p, ort,
+			     TREE_CODE (expr));
   if (ort == ORT_TARGET || ort == ORT_TARGET_DATA)
     {
       push_gimplify_context ();
@@ -7975,7 +8009,7 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
       gcc_unreachable ();
     }
   gimplify_scan_omp_clauses (&OMP_STANDALONE_CLAUSES (expr), pre_p,
-			     ORT_WORKSHARE);
+			     ORT_WORKSHARE, TREE_CODE (expr));
   gimplify_adjust_omp_clauses (pre_p, &OMP_STANDALONE_CLAUSES (expr));
   stmt = gimple_build_omp_target (NULL, kind, OMP_STANDALONE_CLAUSES (expr));
 
@@ -9039,7 +9073,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		break;
 	      case OMP_CRITICAL:
 		gimplify_scan_omp_clauses (&OMP_CRITICAL_CLAUSES (*expr_p),
-					   pre_p, ORT_WORKSHARE);
+					   pre_p, ORT_WORKSHARE, OMP_CRITICAL);
 		gimplify_adjust_omp_clauses (pre_p,
 					     &OMP_CRITICAL_CLAUSES (*expr_p));
 		g = gimple_build_omp_critical (body,

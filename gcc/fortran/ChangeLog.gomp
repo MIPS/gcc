@@ -1,3 +1,8 @@
+2015-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_clauses): Set OMP_CLAUSE_IF_MODIFIER
+	to ERROR_MARK.
+
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* types.def

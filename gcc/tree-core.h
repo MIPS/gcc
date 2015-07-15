@@ -1351,6 +1351,7 @@ struct GTY(()) tree_omp_clause {
     enum omp_clause_proc_bind_kind proc_bind_kind;
     enum tree_code                 reduction_code;
     enum omp_clause_linear_kind    linear_kind;
+    enum tree_code                 if_modifier;
   } GTY ((skip)) subcode;
 
   /* The gimplification of OMP_CLAUSE_REDUCTION_{INIT,MERGE} for omp-low's
