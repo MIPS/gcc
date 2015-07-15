@@ -1011,7 +1011,10 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuMemcpy failed: %s", cuda_error (r));
 
-  GOMP_PLUGIN_debug (0, "  %s: kernel %s: launch\n", __FUNCTION__, targ_fn->name);
+  GOMP_PLUGIN_debug (0, "  %s: kernel %s: launch"
+		     " gangs=%u, workers=%u, vectors=%u, shared=%u\n",
+		     __FUNCTION__, targ_fn->name, num_gangs, num_workers,
+		     vector_length, (unsigned)shared_size);
 
   // OpenACC		CUDA
   //

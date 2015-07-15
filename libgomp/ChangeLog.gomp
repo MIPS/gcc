@@ -1,3 +1,8 @@
+2015-07-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (nvptx_exec): Show grid dimensions in
+	debug message.
+
 2015-07-15  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/kernels-loop-nest-independent.f95: New
