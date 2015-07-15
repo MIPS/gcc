@@ -7758,7 +7758,8 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 	       && TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE)
 	{
 	  tree ftype = TREE_TYPE (field);
-	  if (!RECORD_OR_UNION_TYPE_P (strip_array_types (ftype)))
+	  tree ctype = strip_array_types (ftype);
+	  if (!RECORD_OR_UNION_TYPE_P (ctype) && TYPE_MODE (ctype) != QImode)
 	    {
 	      tree fmain_type = TYPE_MAIN_VARIANT (ftype);
 	      tree *typep = &fmain_type;
