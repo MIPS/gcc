@@ -453,6 +453,11 @@ class Build_connection_graphs : public Traverse
   void
   handle_composite_literal(Named_object* object, Expression* expr);
 
+  // Handle analysis of the left and right operands of a binary expression
+  // with respect to OBJECT.
+  void
+  handle_binary(Named_object* object, Expression* expr);
+
   // Resolve the outermost named object of EXPR if there is one.
   Named_object*
   resolve_var_reference(Expression* expr);
@@ -540,6 +545,41 @@ Build_connection_graphs::resolve_var_reference(Expression* expr)
       case Expression::EXPRESSION_TYPE_GUARD:
 	// p.(T)
 	expr = expr->type_guard_expression()->expr();
+	break;
+
+      case Expression::EXPRESSION_UNSAFE_CONVERSION:
+	{
+	  Expression* e = expr->unsafe_conversion_expression()->expr();
+	  if (e->call_result_expression() != NULL
+	      && e->call_result_expression()->index() == 0)
+	    {
+	      // a, ok := p.(T) gets lowered into a call to one of the interface
+	      // to type conversion functions instead of a type guard expression.
+	      // We only want to make a connection between a and p, the bool
+	      // result should not escape because p escapes.
+	      e = e->call_result_expression()->call();
+
+	      Named_object* fn =
+		e->call_expression()->fn()->func_expression()->named_object();
+	      std::string fn_name = fn->name();
+	      if (fn->package() == NULL
+		  && fn->is_function_declaration()
+		  && !fn->func_declaration_value()->asm_name().empty())
+		{
+		  if (fn_name == "ifaceI2E2"
+		      || fn_name == "ifaceI2I2")
+		    e = e->call_expression()->args()->at(0);
+		  else if (fn_name == "ifaceE2I2"
+			   || fn_name == "ifaceI2I2"
+			   || fn_name == "ifaceE2T2P"
+			   || fn_name == "ifaceI2T2P"
+			   || fn_name == "ifaceE2T2"
+			   || fn_name == "ifaceI2T2")
+		    e = e->call_expression()->args()->at(1);
+		}
+	    }
+	  expr = e;
+	}
 	break;
 
       default:
@@ -931,6 +971,31 @@ Build_connection_graphs::handle_composite_literal(Named_object* object,
     }
 }
 
+// Given an OBJECT reference in a binary expression E, analyze the left and
+// right operands for possible edges.
+
+void
+Build_connection_graphs::handle_binary(Named_object* object, Expression* e)
+{
+  Binary_expression* be = e->binary_expression();
+  go_assert(be != NULL);
+  Expression* left = be->left();
+  Expression* right = be->right();
+
+  if (left->call_result_expression() != NULL)
+    left = left->call_result_expression()->call();
+  if (left->call_expression() != NULL)
+    this->handle_call(object, left);
+  else if (left->binary_expression() != NULL)
+    this->handle_binary(object, left);
+  if (right->call_result_expression() != NULL)
+    right = right->call_result_expression()->call();
+  if (right->call_expression() != NULL)
+    this->handle_call(object, right);
+  else if (right->binary_expression() != NULL)
+    this->handle_binary(object, right);
+}
+
 // Create connection nodes for each variable in a called function.
 
 int
@@ -1024,8 +1089,6 @@ Build_connection_graphs::variable(Named_object* var)
 		 || rhs_no != var)
 		break;
 
-	      var_node->connection_node()->set_escape_state(Node::ESCAPE_ARG);
-
 	      Node* def_node = this->gogo_->add_connection_node(lhs_no);
 	      def_node->add_edge(var_node);
 	    }
@@ -1075,20 +1138,7 @@ Build_connection_graphs::variable(Named_object* var)
 	      if (cond->call_expression() != NULL)
 		this->handle_call(var, cond);
 	      else if (cond->binary_expression() != NULL)
-		{
-		  Binary_expression* comp = cond->binary_expression();
-		  Expression* left = comp->left();
-		  Expression* right = comp->right();
-
-		  if (left->call_result_expression() != NULL)
-		    left = left->call_result_expression()->call();
-		  if (left->call_expression() != NULL)
-		    this->handle_call(var, left);
-		  if (right->call_result_expression() != NULL)
-		    right = right->call_result_expression()->call();
-		  if (right->call_expression() != NULL)
-		    this->handle_call(var, right);
-		}
+		this->handle_binary(var, cond);
 	    }
 	    break;
 
@@ -1117,6 +1167,8 @@ Build_connection_graphs::variable(Named_object* var)
 		init = init->call_result_expression()->call();
 	      if (init->call_expression() != NULL)
 		this->handle_call(var, init);
+	      else if (init->binary_expression() != NULL)
+		this->handle_binary(var, init);
 	    }
 	    break;
 

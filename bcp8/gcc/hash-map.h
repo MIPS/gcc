@@ -21,17 +21,11 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef hash_map_h
 #define hash_map_h
 
-#include <new>
-#include <utility>
-#include "hash-table.h"
-#include "hash-map-traits.h"
-#include "mem-stats.h"
-#include "vec.h"
-
-template<typename Key, typename Value,
+template<typename KeyId, typename Value,
 	 typename Traits>
 class GTY((user)) hash_map
 {
+  typedef typename Traits::key_type Key;
   struct hash_entry
   {
     Key m_key;
@@ -114,7 +108,7 @@ class GTY((user)) hash_map
 public:
   explicit hash_map (size_t n = 13, bool ggc = false,
 		     bool gather_mem_stats = true CXX_MEM_STAT_INFO)
-    : m_table (n, ggc, gather_mem_stats, HASH_MAP PASS_MEM_STAT) {}
+    : m_table (n, ggc, gather_mem_stats, HASH_MAP_ORIGIN PASS_MEM_STAT) {}
 
   /* Create a hash_map in ggc memory.  */
   static hash_map *create_ggc (size_t size, bool gather_mem_stats = true
@@ -175,7 +169,8 @@ public:
   /* Call the call back on each pair of key and value with the passed in
      arg.  */
 
-  template<typename Arg, bool (*f)(const Key &, const Value &, Arg)>
+  template<typename Arg, bool (*f)(const typename Traits::key_type &,
+				   const Value &, Arg)>
   void traverse (Arg a) const
     {
       for (typename hash_table<hash_entry>::iterator iter = m_table.begin ();
@@ -183,7 +178,8 @@ public:
 	f ((*iter).m_key, (*iter).m_value, a);
     }
 
-  template<typename Arg, bool (*f)(const Key &, Value *, Arg)>
+  template<typename Arg, bool (*f)(const typename Traits::key_type &,
+				   Value *, Arg)>
   void traverse (Arg a) const
     {
       for (typename hash_table<hash_entry>::iterator iter = m_table.begin ();

@@ -21,30 +21,19 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
+#include "df.h"
 #include "regs.h"
 #include "insn-config.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "recog.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -56,32 +45,21 @@
 #include "langhooks.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "sched-int.h"
 #include "tm_p.h"
 #include "tm-constrs.h"
 #include "target.h"
-#include "target-def.h"
 #include "dwarf2.h"
 #include "timevar.h"
 #include "fold-const.h"
-#include "hash-table.h"
-#include "ggc.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "gimplify.h"
@@ -90,6 +68,9 @@
 #include "tilegx-multiply.h"
 #include "diagnostic.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* SYMBOL_REF for GOT */
 static GTY(()) rtx g_got_symbol = NULL;
@@ -571,9 +552,11 @@ tilegx_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 
 /* Implement TARGET_RTX_COSTS.  */
 static bool
-tilegx_rtx_costs (rtx x, int code, int outer_code, int opno, int *total,
-		  bool speed)
+tilegx_rtx_costs (rtx x, machine_mode mode, int outer_code, int opno,
+		  int *total, bool speed)
 {
+  int code = GET_CODE (x);
+
   switch (code)
     {
     case CONST_INT:
@@ -640,9 +623,9 @@ tilegx_rtx_costs (rtx x, int code, int outer_code, int opno, int *total,
       if (GET_CODE (XEXP (x, 0)) == MULT
 	  && cint_248_operand (XEXP (XEXP (x, 0), 1), VOIDmode))
 	{
-	  *total = (rtx_cost (XEXP (XEXP (x, 0), 0),
+	  *total = (rtx_cost (XEXP (XEXP (x, 0), 0), mode,
 			      (enum rtx_code) outer_code, opno, speed)
-		    + rtx_cost (XEXP (x, 1),
+		    + rtx_cost (XEXP (x, 1), mode,
 				(enum rtx_code) outer_code, opno, speed)
 		    + COSTS_N_INSNS (1));
 	  return true;

@@ -20,40 +20,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "predict.h"
+#include "tree.h"
+#include "rtl.h"
+#include "df.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
 
-#include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "predict.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,11 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "except.h"
-#include "ggc.h"
 #include "intl.h"
 #include "tree-pass.h"
-#include "hash-table.h"
-#include "df.h"
 #include "dbgcnt.h"
 #include "rtl-iter.h"
 
@@ -135,10 +116,8 @@ static struct edge_list *edge_list;
 
 /* Hashtable helpers.  */
 
-struct st_expr_hasher : typed_noop_remove <st_expr>
+struct st_expr_hasher : nofree_ptr_hash <st_expr>
 {
-  typedef st_expr *value_type;
-  typedef st_expr *compare_type;
   static inline hashval_t hash (const st_expr *);
   static inline bool equal (const st_expr *, const st_expr *);
 };
@@ -309,10 +288,10 @@ store_ops_ok (const_rtx x, int *regs_set)
 /* Returns a list of registers mentioned in X.
    FIXME: A regset would be prettier and less expensive.  */
 
-static rtx
+static rtx_expr_list *
 extract_mentioned_regs (rtx x)
 {
-  rtx mentioned_regs = NULL;
+  rtx_expr_list *mentioned_regs = NULL;
   subrtx_var_iterator::array_type array;
   FOR_EACH_SUBRTX_VAR (iter, array, x, NONCONST)
     {

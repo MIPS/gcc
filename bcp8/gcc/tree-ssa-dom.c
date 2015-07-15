@@ -21,48 +21,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "cfgloop.h"
-#include "inchash.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "domwalk.h"
 #include "tree-pass.h"
@@ -73,7 +50,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-scopedtables.h"
 #include "tree-ssa-threadedge.h"
 #include "tree-ssa-dom.h"
-#include "inchash.h"
 #include "gimplify.h"
 #include "tree-cfgcleanup.h"
 
@@ -179,10 +155,8 @@ static bool hashable_expr_equal_p (const struct hashable_expr *,
 				   const struct hashable_expr *);
 static void free_expr_hash_elt (void *);
 
-struct expr_elt_hasher
+struct expr_elt_hasher : pointer_hash <expr_hash_elt>
 {
-  typedef expr_hash_elt *value_type;
-  typedef expr_hash_elt *compare_type;
   static inline hashval_t hash (const value_type &);
   static inline bool equal (const value_type &, const compare_type &);
   static inline void remove (value_type &);
@@ -427,10 +401,10 @@ initialize_hash_element_from_expr (struct hashable_expr *expr,
   element->stamp = element;
 }
 
-/* Compare two hashable_expr structures for equivalence.
-   They are considered equivalent when the the expressions
-   they denote must necessarily be equal.  The logic is intended
-   to follow that of operand_equal_p in fold-const.c  */
+/* Compare two hashable_expr structures for equivalence.  They are
+   considered equivalent when the expressions they denote must
+   necessarily be equal.  The logic is intended to follow that of
+   operand_equal_p in fold-const.c */
 
 static bool
 hashable_expr_equal_p (const struct hashable_expr *expr0,
@@ -828,7 +802,8 @@ free_all_edge_infos (void)
 static void
 build_and_record_new_cond (enum tree_code code,
                            tree op0, tree op1,
-                           vec<cond_equivalence> *p)
+                           vec<cond_equivalence> *p,
+			   bool val = true)
 {
   cond_equivalence c;
   struct hashable_expr *cond = &c.cond;
@@ -841,7 +816,7 @@ build_and_record_new_cond (enum tree_code code,
   cond->ops.binary.opnd0 = op0;
   cond->ops.binary.opnd1 = op1;
 
-  c.value = boolean_true_node;
+  c.value = val ? boolean_true_node : boolean_false_node;
   p->safe_push (c);
 }
 
@@ -880,6 +855,8 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 				 op0, op1, &edge_info->cond_equivalences);
       build_and_record_new_cond (NE_EXPR, op0, op1,
 				 &edge_info->cond_equivalences);
+      build_and_record_new_cond (EQ_EXPR, op0, op1,
+				 &edge_info->cond_equivalences, false);
       break;
 
     case GE_EXPR:
@@ -1443,8 +1420,41 @@ record_temporary_equivalences (edge e)
       tree rhs = edge_info->rhs;
 
       /* If we have a simple NAME = VALUE equivalence, record it.  */
-      if (lhs && TREE_CODE (lhs) == SSA_NAME)
-	const_and_copies->record_const_or_copy (lhs, rhs);
+      if (lhs)
+	record_equality (lhs, rhs);
+
+      /* If LHS is an SSA_NAME and RHS is a constant integer and LHS was
+	 set via a widening type conversion, then we may be able to record
+	 additional equivalences.  */
+      if (lhs
+	  && TREE_CODE (lhs) == SSA_NAME
+	  && is_gimple_constant (rhs)
+	  && TREE_CODE (rhs) == INTEGER_CST)
+	{
+	  gimple defstmt = SSA_NAME_DEF_STMT (lhs);
+
+	  if (defstmt
+	      && is_gimple_assign (defstmt)
+	      && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (defstmt)))
+	    {
+	      tree old_rhs = gimple_assign_rhs1 (defstmt);
+
+	      /* If the conversion widens the original value and
+		 the constant is in the range of the type of OLD_RHS,
+		 then convert the constant and record the equivalence.
+
+		 Note that int_fits_type_p does not check the precision
+		 if the upper and lower bounds are OK.  */
+	      if (INTEGRAL_TYPE_P (TREE_TYPE (old_rhs))
+		  && (TYPE_PRECISION (TREE_TYPE (lhs))
+		      > TYPE_PRECISION (TREE_TYPE (old_rhs)))
+		  && int_fits_type_p (rhs, TREE_TYPE (old_rhs)))
+		{
+		  tree newval = fold_convert (TREE_TYPE (old_rhs), rhs);
+		  record_equality (old_rhs, newval);
+		}
+	    }
+	}
 
       /* If we have 0 = COND or 1 = COND equivalences, record them
 	 into our expression hash tables.  */
@@ -1591,7 +1601,6 @@ record_equivalences_from_incoming_edge (basic_block bb)
 {
   edge e;
   basic_block parent;
-  struct edge_info *edge_info;
 
   /* If our parent block ended with a control statement, then we may be
      able to record some equivalences based on which outgoing edge from
@@ -1603,57 +1612,7 @@ record_equivalences_from_incoming_edge (basic_block bb)
   /* If we had a single incoming edge from our parent block, then enter
      any data associated with the edge into our tables.  */
   if (e && e->src == parent)
-    {
-      unsigned int i;
-
-      edge_info = (struct edge_info *) e->aux;
-
-      if (edge_info)
-	{
-	  tree lhs = edge_info->lhs;
-	  tree rhs = edge_info->rhs;
-	  cond_equivalence *eq;
-
-	  if (lhs)
-	    record_equality (lhs, rhs);
-
-	  /* If LHS is an SSA_NAME and RHS is a constant integer and LHS was
-	     set via a widening type conversion, then we may be able to record
-	     additional equivalences.  */
-	  if (lhs
-	      && TREE_CODE (lhs) == SSA_NAME
-	      && is_gimple_constant (rhs)
-	      && TREE_CODE (rhs) == INTEGER_CST)
-	    {
-	      gimple defstmt = SSA_NAME_DEF_STMT (lhs);
-
-	      if (defstmt
-		  && is_gimple_assign (defstmt)
-		  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (defstmt)))
-		{
-		  tree old_rhs = gimple_assign_rhs1 (defstmt);
-
-		  /* If the conversion widens the original value and
-		     the constant is in the range of the type of OLD_RHS,
-		     then convert the constant and record the equivalence.
-
-		     Note that int_fits_type_p does not check the precision
-		     if the upper and lower bounds are OK.  */
-		  if (INTEGRAL_TYPE_P (TREE_TYPE (old_rhs))
-		      && (TYPE_PRECISION (TREE_TYPE (lhs))
-			  > TYPE_PRECISION (TREE_TYPE (old_rhs)))
-		      && int_fits_type_p (rhs, TREE_TYPE (old_rhs)))
-		    {
-		      tree newval = fold_convert (TREE_TYPE (old_rhs), rhs);
-		      record_equality (old_rhs, newval);
-		    }
-		}
-	    }
-
-	  for (i = 0; edge_info->cond_equivalences.iterate (i, &eq); ++i)
-	    record_cond (eq);
-	}
-    }
+    record_temporary_equivalences (e);
 }
 
 /* Dump SSA statistics on FILE.  */

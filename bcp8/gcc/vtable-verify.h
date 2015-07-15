@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #define VTABLE_VERIFY_H
 
 #include "sbitmap.h"
-#include "hash-table.h"
 
 /* The function decl used to create calls to __VLTVtableVerify.  It must
    be global because it needs to be initialized in the C++ front end, but
@@ -56,10 +55,8 @@ struct vtable_registration
   vec<unsigned> offsets;       /* The offsets array.                        */
 };
 
-struct registration_hasher : typed_noop_remove <struct vtable_registration>
+struct registration_hasher : nofree_ptr_hash <struct vtable_registration>
 {
-  typedef struct vtable_registration *value_type;
-  typedef struct vtable_registration *compare_type;
   static inline hashval_t hash (const vtable_registration *);
   static inline bool equal (const vtable_registration *,
 			    const vtable_registration *);

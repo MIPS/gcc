@@ -25,32 +25,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-
-#include "rtl.h"
-#include "hard-reg-set.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "except.h"
-#include "function.h"
 #include "insn-config.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,17 +51,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "output.h"
 #include "langhooks.h"
-#include "predict.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "target.h"
 #include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "regs.h"
 #include "alloc-pool.h"
 #include "pretty-print.h"
@@ -184,7 +166,7 @@ void
 emit_jump (rtx label)
 {
   do_pending_stack_adjust ();
-  emit_jump_insn (gen_jump (label));
+  emit_jump_insn (targetm.gen_jump (label));
   emit_barrier ();
 }
 
@@ -792,10 +774,6 @@ dump_case_nodes (FILE *f, struct case_node *root,
   dump_case_nodes (f, root->right, indent_step, indent_level);
 }
 
-#ifndef HAVE_casesi
-#define HAVE_casesi 0
-#endif
-
 /* Return the smallest number of different values for which it is best to use a
    jump-table instead of a tree of conditional branches.  */
 
@@ -824,7 +802,7 @@ expand_switch_as_decision_tree_p (tree range,
 
   /* If neither casesi or tablejump is available, or flag_jump_tables
      over-ruled us, we really have no choice.  */
-  if (!HAVE_casesi && !HAVE_tablejump)
+  if (!targetm.have_casesi () && !targetm.have_tablejump ())
     return true;
   if (!flag_jump_tables)
     return true;
@@ -985,7 +963,7 @@ emit_case_dispatch_table (tree index_expr, tree index_type,
   int i, ncases;
   struct case_node *n;
   rtx *labelvec;
-  rtx fallback_label = label_rtx (case_list->code_label);
+  rtx_insn *fallback_label = label_rtx (case_list->code_label);
   rtx_code_label *table_label = gen_label_rtx ();
   bool has_gaps = false;
   edge default_edge = stmt_bb ? EDGE_SUCC (stmt_bb, 0) : NULL;
@@ -1303,7 +1281,7 @@ expand_sjlj_dispatch_table (rtx dispatch_index,
      of expanding as a decision tree or dispatch table vs. the "new
      way" with decrement chain or dispatch table.  */
   if (dispatch_table.length () <= 5
-      || (!HAVE_casesi && !HAVE_tablejump)
+      || (!targetm.have_casesi () && !targetm.have_tablejump ())
       || !flag_jump_tables)
     {
       /* Expand the dispatch as a decrement chain:

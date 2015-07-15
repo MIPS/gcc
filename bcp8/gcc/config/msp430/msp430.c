@@ -21,33 +21,21 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "rtl.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -62,26 +50,22 @@
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "reload.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "msp430-protos.h"
 #include "dumpfile.h"
 #include "opts.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 
 static void msp430_compute_frame_info (void);
@@ -981,7 +965,8 @@ msp430_asm_integer (rtx x, unsigned int size, int aligned_p)
   switch (size)
     {
     case 4:
-      if (c == SYMBOL_REF || c == CONST || c == LABEL_REF || c == CONST_INT)
+      if (c == SYMBOL_REF || c == CONST || c == LABEL_REF || c == CONST_INT
+	  || c == PLUS || c == MINUS)
 	{
 	  fprintf (asm_out_file, "\t.long\t");
 	  output_addr_const (asm_out_file, x);
@@ -1020,17 +1005,19 @@ msp430_legitimate_constant (machine_mode mode, rtx x)
 #undef  TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS msp430_rtx_costs
 
-static bool msp430_rtx_costs (rtx   x ATTRIBUTE_UNUSED,
-			      int   code,
-			      int   outer_code ATTRIBUTE_UNUSED,
-			      int   opno ATTRIBUTE_UNUSED,
-			      int * total,
-			      bool  speed ATTRIBUTE_UNUSED)
+static bool msp430_rtx_costs (rtx	   x ATTRIBUTE_UNUSED,
+			      machine_mode mode,
+			      int	   outer_code ATTRIBUTE_UNUSED,
+			      int	   opno ATTRIBUTE_UNUSED,
+			      int *	   total,
+			      bool	   speed ATTRIBUTE_UNUSED)
 {
+  int code = GET_CODE (x);
+
   switch (code)
     {
     case SIGN_EXTEND:
-      if (GET_MODE (x) == SImode && outer_code == SET)
+      if (mode == SImode && outer_code == SET)
 	{
 	  *total = COSTS_N_INSNS (4);
 	  return true;
@@ -2379,6 +2366,13 @@ msp430_subreg (machine_mode mode, rtx r, machine_mode omode, int byte)
     }
   else if (GET_CODE (r) == MEM)
     rv = adjust_address (r, mode, byte);
+  else if (GET_CODE (r) == SYMBOL_REF
+	   && (byte == 0 || byte == 2)
+	   && mode == HImode)
+    {
+      rv = gen_rtx_ZERO_EXTRACT (HImode, r, GEN_INT (16), GEN_INT (8*byte));
+      rv = gen_rtx_CONST (HImode, r);
+    }
   else
     rv = simplify_gen_subreg (mode, r, omode, byte);
 

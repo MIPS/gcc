@@ -25,41 +25,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
-#include "tm.h"
-#include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "regset.h"
 #include "flags.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "cselib.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
 #include "insn-config.h"
-#include "hashtab.h"
-#include "function.h"
-#include "statistics.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -74,11 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "target.h"
 #include "params.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-ssa.h"
 #include "rtl-iter.h"
 #include "cfgcleanup.h"
@@ -96,7 +75,7 @@ along with GCC; see the file COPYING3.  If not see
    frame_pointer.
 
    * The third technique, (which is only done after register allocation)
-   processes the spill spill slots.  This differs from the second
+   processes the spill slots.  This differs from the second
    technique because it takes advantage of the fact that spilling is
    completely free from the effects of aliasing.
 
@@ -745,10 +724,8 @@ clear_alias_set_lookup (alias_set_type alias_set)
 /* Hashtable callbacks for maintaining the "bases" field of
    store_group_info, given that the addresses are function invariants.  */
 
-struct invariant_group_base_hasher : typed_noop_remove <group_info>
+struct invariant_group_base_hasher : nofree_ptr_hash <group_info>
 {
-  typedef group_info *value_type;
-  typedef group_info *compare_type;
   static inline hashval_t hash (const group_info *);
   static inline bool equal (const group_info *, const group_info *);
 };
@@ -1856,7 +1833,8 @@ find_shift_sequence (int access_size,
 		  byte = subreg_lowpart_offset (read_mode, new_mode);
 		  ret = simplify_subreg (read_mode, ret, new_mode, byte);
 		  if (ret && CONSTANT_P (ret)
-		      && set_src_cost (ret, speed) <= COSTS_N_INSNS (1))
+		      && (set_src_cost (ret, read_mode, speed)
+			  <= COSTS_N_INSNS (1)))
 		    return ret;
 		}
 	    }

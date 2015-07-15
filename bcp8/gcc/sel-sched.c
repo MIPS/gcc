@@ -20,22 +20,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
+#include "rtl.h"
+#include "df.h"
 #include "rtl-error.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
 #include "regs.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgbuild.h"
-#include "basic-block.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "insn-attr.h"
@@ -45,11 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "output.h"
 #include "sched-int.h"
-#include "ggc.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "langhooks.h"
 #include "rtlhooks-def.h"
 #include "emit-rtl.h"
@@ -57,6 +44,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-iter.h"
 
 #ifdef INSN_SCHEDULING
+#include "regset.h"
+#include "cfgloop.h"
 #include "sel-sched-ir.h"
 #include "sel-sched-dump.h"
 #include "sel-sched.h"
@@ -1202,11 +1191,10 @@ mark_unavailable_hard_regs (def_t def, struct reg_rename *reg_rename_p,
      frame pointer, or we could not discover its class.  */
   if (fixed_regs[regno]
       || global_regs[regno]
-#if !HARD_FRAME_POINTER_IS_FRAME_POINTER
-      || (frame_pointer_needed && regno == HARD_FRAME_POINTER_REGNUM)
-#else
-      || (frame_pointer_needed && regno == FRAME_POINTER_REGNUM)
-#endif
+      || (!HARD_FRAME_POINTER_IS_FRAME_POINTER && frame_pointer_needed
+	  && regno == HARD_FRAME_POINTER_REGNUM)
+      || (HARD_FRAME_POINTER_REGNUM && frame_pointer_needed
+	  && regno == FRAME_POINTER_REGNUM)
       || (reload_completed && cl == NO_REGS))
     {
       SET_HARD_REG_SET (reg_rename_p->unavailable_hard_regs);
@@ -4728,11 +4716,10 @@ static int
 find_seqno_for_bookkeeping (insn_t place_to_insert, insn_t join_point)
 {
   int seqno;
-  rtx next;
 
   /* Check if we are about to insert bookkeeping copy before a jump, and use
      jump's seqno for the copy; otherwise, use JOIN_POINT's seqno.  */
-  next = NEXT_INSN (place_to_insert);
+  rtx_insn *next = NEXT_INSN (place_to_insert);
   if (INSN_P (next)
       && JUMP_P (next)
       && BLOCK_FOR_INSN (next) == BLOCK_FOR_INSN (place_to_insert))
@@ -5153,11 +5140,11 @@ find_sequential_best_exprs (bnd_t bnd, expr_t expr_vliw, bool for_moveop)
 static void ATTRIBUTE_UNUSED
 move_nop_to_previous_block (insn_t nop, basic_block prev_bb)
 {
-  insn_t prev_insn, next_insn, note;
+  insn_t prev_insn, next_insn;
 
   gcc_assert (sel_bb_head_p (nop)
               && prev_bb == BLOCK_FOR_INSN (nop)->prev_bb);
-  note = bb_note (BLOCK_FOR_INSN (nop));
+  rtx_note *note = bb_note (BLOCK_FOR_INSN (nop));
   prev_insn = sel_bb_end (prev_bb);
   next_insn = NEXT_INSN (nop);
   gcc_assert (prev_insn != NULL_RTX
@@ -6743,10 +6730,11 @@ static void
 init_seqno_1 (basic_block bb, sbitmap visited_bbs, bitmap blocks_to_reschedule)
 {
   int bbi = BLOCK_TO_BB (bb->index);
-  insn_t insn, note = bb_note (bb);
+  insn_t insn;
   insn_t succ_insn;
   succ_iterator si;
 
+  rtx_note *note = bb_note (bb);
   bitmap_set_bit (visited_bbs, bbi);
   if (blocks_to_reschedule)
     bitmap_clear_bit (blocks_to_reschedule, bb->index);

@@ -28,7 +28,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "ggc.h"
 #include "rtl.h"
 #ifdef GENERATOR_FILE
 # include "errors.h"
@@ -442,7 +441,7 @@ rtx_equal_p_cb (const_rtx x, const_rtx y, rtx_equal_p_callback_function cb)
 
     case DEBUG_PARAMETER_REF:
       return DEBUG_PARAMETER_REF_DECL (x)
-	     == DEBUG_PARAMETER_REF_DECL (x);
+	     == DEBUG_PARAMETER_REF_DECL (y);
 
     case ENTRY_VALUE:
       return rtx_equal_p_cb (ENTRY_VALUE_EXP (x), ENTRY_VALUE_EXP (y), cb);
@@ -656,6 +655,59 @@ rtx_equal_p (const_rtx x, const_rtx y)
 	}
     }
   return 1;
+}
+
+/* Return an indication of which type of insn should have X as a body.
+   In generator files, this can be UNKNOWN if the answer is only known
+   at (GCC) runtime.  Otherwise the value is CODE_LABEL, INSN, CALL_INSN
+   or JUMP_INSN.  */
+
+enum rtx_code
+classify_insn (rtx x)
+{
+  if (LABEL_P (x))
+    return CODE_LABEL;
+  if (GET_CODE (x) == CALL)
+    return CALL_INSN;
+  if (ANY_RETURN_P (x))
+    return JUMP_INSN;
+  if (GET_CODE (x) == SET)
+    {
+      if (GET_CODE (SET_DEST (x)) == PC)
+	return JUMP_INSN;
+      else if (GET_CODE (SET_SRC (x)) == CALL)
+	return CALL_INSN;
+      else
+	return INSN;
+    }
+  if (GET_CODE (x) == PARALLEL)
+    {
+      int j;
+      bool has_return_p = false;
+      for (j = XVECLEN (x, 0) - 1; j >= 0; j--)
+	if (GET_CODE (XVECEXP (x, 0, j)) == CALL)
+	  return CALL_INSN;
+	else if (ANY_RETURN_P (XVECEXP (x, 0, j)))
+	  has_return_p = true;
+	else if (GET_CODE (XVECEXP (x, 0, j)) == SET
+		 && GET_CODE (SET_DEST (XVECEXP (x, 0, j))) == PC)
+	  return JUMP_INSN;
+	else if (GET_CODE (XVECEXP (x, 0, j)) == SET
+		 && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == CALL)
+	  return CALL_INSN;
+      if (has_return_p)
+	return JUMP_INSN;
+    }
+#ifdef GENERATOR_FILE
+  if (GET_CODE (x) == MATCH_OPERAND
+      || GET_CODE (x) == MATCH_OPERATOR
+      || GET_CODE (x) == MATCH_PARALLEL
+      || GET_CODE (x) == MATCH_OP_DUP
+      || GET_CODE (x) == MATCH_DUP
+      || GET_CODE (x) == PARALLEL)
+    return UNKNOWN;
+#endif
+  return INSN;
 }
 
 void

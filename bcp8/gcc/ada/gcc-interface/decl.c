@@ -27,16 +27,10 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "inchash.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -139,7 +133,7 @@ typedef struct variant_desc_d {
 
 /* A hash table used to cache the result of annotate_value.  */
 
-struct value_annotation_hasher : ggc_cache_hasher<tree_int_map *>
+struct value_annotation_hasher : ggc_cache_ptr_hash<tree_int_map>
 {
   static inline hashval_t
   hash (tree_int_map *m)
@@ -153,16 +147,10 @@ struct value_annotation_hasher : ggc_cache_hasher<tree_int_map *>
     return a->base.from == b->base.from;
   }
 
-  static void
-  handle_cache_entry (tree_int_map *&m)
+  static int
+  keep_cache_entry (tree_int_map *&m)
   {
-    extern void gt_ggc_mx (tree_int_map *&);
-    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
-      return;
-    else if (ggc_marked_p (m->base.from))
-      gt_ggc_mx (m);
-    else
-      m = static_cast<tree_int_map *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (m->base.from);
   }
 };
 
@@ -249,6 +237,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
   const Entity_Kind kind = Ekind (gnat_entity);
   /* True if this is a type.  */
   const bool is_type = IN (kind, Type_Kind);
+  /* True if this is an artificial entity.  */
+  const bool artificial_p = !Comes_From_Source (gnat_entity);
   /* True if debug info is requested for this entity.  */
   const bool debug_info_p = Needs_Debug_Info (gnat_entity);
   /* True if this entity is to be considered as imported.  */
@@ -1353,8 +1343,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    tree gnu_new_var
 	      = create_var_decl (create_concat_name (gnat_entity, "ALIGN"),
 				 NULL_TREE, gnu_new_type, NULL_TREE, false,
-				 false, false, false, NULL, gnat_entity);
-	    DECL_ARTIFICIAL (gnu_new_var) = 1;
+				 false, false, false, true, debug_info_p,
+				 NULL, gnat_entity);
 
 	    /* Initialize the aligned field if we have an initializer.  */
 	    if (gnu_expr)
@@ -1394,12 +1384,15 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       just above, we have nothing to do here.  */
 	    if (!TYPE_IS_THIN_POINTER_P (gnu_type))
 	      {
+		/* This variable is a GNAT encoding used by Workbench: let it
+		   go through the debugging information but mark it as
+		   artificial: users are not interested in it.  */
 		tree gnu_unc_var
 		   = create_var_decl (concat_name (gnu_entity_name, "UNC"),
 				      NULL_TREE, gnu_type, gnu_expr,
 				      const_flag, Is_Public (gnat_entity),
 				      imported_p || !definition, static_p,
-				      NULL, gnat_entity);
+				      true, debug_info_p, NULL, gnat_entity);
 		gnu_expr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_unc_var);
 		TREE_CONSTANT (gnu_expr) = 1;
 
@@ -1450,10 +1443,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	/* Now create the variable or the constant and set various flags.  */
 	gnu_decl
-	  = create_var_decl_1 (gnu_entity_name, gnu_ext_name, gnu_type,
-			       gnu_expr, const_flag, Is_Public (gnat_entity),
-			       imported_p || !definition, static_p,
-			       !renamed_obj, attr_list, gnat_entity);
+	  = create_var_decl (gnu_entity_name, gnu_ext_name, gnu_type,
+			     gnu_expr, const_flag, Is_Public (gnat_entity),
+			     imported_p || !definition, static_p,
+			     artificial_p, debug_info_p, attr_list,
+			     gnat_entity, !renamed_obj);
 	DECL_BY_REF_P (gnu_decl) = used_by_ref;
 	DECL_POINTS_TO_READONLY_P (gnu_decl) = used_by_ref && inner_const_flag;
 	DECL_CAN_NEVER_BE_NULL_P (gnu_decl) = Can_Never_Be_Null (gnat_entity);
@@ -1502,19 +1496,13 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		|| Is_Aliased (Etype (gnat_entity))))
 	  {
 	    tree gnu_corr_var
-	      = create_true_var_decl (gnu_entity_name, gnu_ext_name, gnu_type,
-				      gnu_expr, true, Is_Public (gnat_entity),
-				      !definition, static_p, attr_list,
-				      gnat_entity);
+	      = create_var_decl (gnu_entity_name, gnu_ext_name, gnu_type,
+				 gnu_expr, true, Is_Public (gnat_entity),
+				 !definition, static_p, artificial_p,
+				 debug_info_p, attr_list, gnat_entity,
+				 false);
 
 	    SET_DECL_CONST_CORRESPONDING_VAR (gnu_decl, gnu_corr_var);
-
-	    /* As debugging information will be generated for the variable,
-	       do not generate debugging information for the constant.  */
-	    if (debug_info_p)
-	      DECL_IGNORED_P (gnu_decl) = 1;
-	    else
-	      DECL_IGNORED_P (gnu_corr_var) = 1;
 	  }
 
 	/* If this is a constant, even if we don't need a true variable, we
@@ -1623,12 +1611,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    {
 	      tree gnu_value
 		= UI_To_gnu (Enumeration_Rep (gnat_literal), gnu_type);
+	      /* Do not generate debug info for individual enumerators.  */
 	      tree gnu_literal
 		= create_var_decl (get_entity_name (gnat_literal), NULL_TREE,
 				   gnu_type, gnu_value, true, false, false,
+				   false, !Comes_From_Source (gnat_literal),
 				   false, NULL, gnat_literal);
-	      /* Do not generate debug info for individual enumerators.  */
-	      DECL_IGNORED_P (gnu_literal) = 1;
 	      save_gnu_tree (gnat_literal, gnu_literal, false);
 	      gnu_list
 	        = tree_cons (DECL_NAME (gnu_literal), gnu_value, gnu_list);
@@ -1736,12 +1724,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       SET_TYPE_RM_MIN_VALUE
 	(gnu_type, elaborate_expression (Type_Low_Bound (gnat_entity),
 					 gnat_entity, "L", definition, true,
-					 Needs_Debug_Info (gnat_entity)));
+					 debug_info_p));
 
       SET_TYPE_RM_MAX_VALUE
 	(gnu_type, elaborate_expression (Type_High_Bound (gnat_entity),
 					 gnat_entity, "U", definition, true,
-					 Needs_Debug_Info (gnat_entity)));
+					 debug_info_p));
 
       TYPE_BIASED_REPRESENTATION_P (gnu_type)
 	= Has_Biased_Representation (gnat_entity);
@@ -1916,12 +1904,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       SET_TYPE_RM_MIN_VALUE
 	(gnu_type, elaborate_expression (Type_Low_Bound (gnat_entity),
 					 gnat_entity, "L", definition, true,
-					 Needs_Debug_Info (gnat_entity)));
+					 debug_info_p));
 
       SET_TYPE_RM_MAX_VALUE
 	(gnu_type, elaborate_expression (Type_High_Bound (gnat_entity),
 					 gnat_entity, "U", definition, true,
-					 Needs_Debug_Info (gnat_entity)));
+					 debug_info_p));
 
       /* Inherit our alias set from what we're a subtype of, as for
 	 integer subtypes.  */
@@ -2220,8 +2208,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  }
 
 	create_type_decl (create_concat_name (gnat_entity, "XUA"), tem,
-			  !Comes_From_Source (gnat_entity), debug_info_p,
-			  gnat_entity);
+			  artificial_p, debug_info_p, gnat_entity);
 
 	/* Give the fat pointer type a name.  If this is a packed array, tell
 	   the debugger how to interpret the underlying bits.  */
@@ -2230,8 +2217,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	else
 	  gnat_name = gnat_entity;
 	create_type_decl (create_concat_name (gnat_name, "XUP"), gnu_fat_type,
-			  !Comes_From_Source (gnat_entity), debug_info_p,
-			  gnat_entity);
+			  artificial_p, debug_info_p, gnat_entity);
 
 	/* Create the type to be designated by thin pointers: a record type for
 	   the array and its template.  We used to shift the fields to have the
@@ -2677,8 +2663,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      gnu_decl
 		= create_type_decl (gnu_entity_name, gnu_type,
 				    !Comes_From_Source (Etype (gnat_entity))
-				    && !Comes_From_Source (gnat_entity),
-				    debug_info_p, gnat_entity);
+				    && artificial_p, debug_info_p,
+				    gnat_entity);
 
 	      /* Save it as our equivalent in case the call below elaborates
 		 this type again.  */
@@ -3179,7 +3165,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	components_to_record (gnu_type, Component_List (record_definition),
 			      gnu_field_list, packed, definition, false,
 			      all_rep, is_unchecked_union,
-			      !Comes_From_Source (gnat_entity), debug_info_p,
+			      artificial_p, debug_info_p,
 			      false, OK_To_Reorder_Components (gnat_entity),
 			      all_rep ? NULL_TREE : bitsize_zero_node, NULL);
 
@@ -3610,8 +3596,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		      = create_var_decl (create_concat_name (gnat_entity,
 							     "XVZ"),
 					 NULL_TREE, sizetype, gnu_size_unit,
-					 false, false, false, false, NULL,
-					 gnat_entity);
+					 false, false, false, false, true,
+					 debug_info_p, NULL, gnat_entity);
 		}
 
 	      gnu_variant_list.release ();
@@ -3670,8 +3656,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    = build_pointer_type
 	      (make_dummy_type (Directly_Designated_Type (gnat_entity)));
 	  gnu_decl = create_type_decl (gnu_entity_name, gnu_type,
-				       !Comes_From_Source (gnat_entity),
-				       debug_info_p, gnat_entity);
+				       artificial_p, debug_info_p,
+				       gnat_entity);
 	  this_made_decl = true;
 	  gnu_type = TREE_TYPE (gnu_decl);
 	  save_gnu_tree (gnat_entity, gnu_decl, false);
@@ -3925,8 +3911,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	    process_attributes (&gnu_type, &attr_list, false, gnat_entity);
 	    gnu_decl = create_type_decl (gnu_entity_name, gnu_type,
-					 !Comes_From_Source (gnat_entity),
-					 debug_info_p, gnat_entity);
+					 artificial_p, debug_info_p,
+					 gnat_entity);
 	    this_made_decl = true;
 	    gnu_type = TREE_TYPE (gnu_decl);
 	    save_gnu_tree (gnat_entity, gnu_decl, false);
@@ -4109,7 +4095,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	     || imported_p
 	     || (Convention (gnat_entity) == Convention_Intrinsic
 		 && Has_Pragma_Inline_Always (gnat_entity)));
-	bool artificial_flag = !Comes_From_Source (gnat_entity);
        /* The semantics of "pure" in Ada essentially matches that of "const"
           in the back-end.  In particular, both properties are orthogonal to
           the "nothrow" property if the EH circuitry is explicit in the
@@ -4247,12 +4232,24 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    if (CONTAINS_PLACEHOLDER_P (TYPE_SIZE (gnu_return_type)))
 	      {
 		tree orig_type = gnu_return_type;
+		tree max_return_size
+		  = max_size (TYPE_SIZE (gnu_return_type), true);
+
+		/* If the size overflows to 0, set it to an arbitrary positive
+		   value so that assignments in the type are preserved.  Their
+		   actual size is independent of this positive value.  */
+		if (TREE_CODE (max_return_size) == INTEGER_CST
+		    && TREE_OVERFLOW (max_return_size)
+		    && integer_zerop (max_return_size))
+		  {
+		    max_return_size = copy_node (bitsize_unit_node);
+		    TREE_OVERFLOW (max_return_size) = 1;
+		  }
 
 		gnu_return_type
-		  = maybe_pad_type (gnu_return_type,
-				    max_size (TYPE_SIZE (gnu_return_type),
-					      true),
-				    0, gnat_entity, false, false, false, true);
+		  = maybe_pad_type (gnu_return_type, max_return_size, 0,
+				    gnat_entity, false, false, definition,
+				    true);
 
 		/* Declare it now since it will never be declared otherwise.
 		   This is necessary to ensure that its subtrees are properly
@@ -4604,7 +4601,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    gnu_decl
 	      = create_var_decl (gnu_entity_name, gnu_ext_name, gnu_type,
 				 gnu_address, false, Is_Public (gnat_entity),
-				 extern_flag, false, NULL, gnat_entity);
+				 extern_flag, false, artificial_p,
+				 debug_info_p, NULL, gnat_entity);
 	    DECL_BY_REF_P (gnu_decl) = 1;
 	  }
 
@@ -4612,7 +4610,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  {
 	    process_attributes (&gnu_type, &attr_list, false, gnat_entity);
 	    gnu_decl
-	      = create_type_decl (gnu_entity_name, gnu_type, artificial_flag,
+	      = create_type_decl (gnu_entity_name, gnu_type, artificial_p,
 				  debug_info_p, gnat_entity);
 	  }
 	else
@@ -4620,8 +4618,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    gnu_decl
 	      = create_subprog_decl (gnu_entity_name, gnu_ext_name, gnu_type,
 				     gnu_param_list, inline_status,
-				     public_flag, extern_flag, artificial_flag,
-				     attr_list, gnat_entity);
+				     public_flag, extern_flag, artificial_p,
+				     debug_info_p, attr_list, gnat_entity);
 	    /* This is unrelated to the stub built right above.  */
 	    DECL_STUBBED_P (gnu_decl)
 	      = Convention (gnat_entity) == Convention_Stubbed;
@@ -5013,8 +5011,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
       if (!gnu_decl)
 	gnu_decl = create_type_decl (gnu_entity_name, gnu_type,
-				     !Comes_From_Source (gnat_entity),
-				     debug_info_p, gnat_entity);
+				     artificial_p, debug_info_p,
+				     gnat_entity);
       else
 	{
 	  TREE_TYPE (gnu_decl) = gnu_type;
@@ -5176,22 +5174,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
       if (Unknown_RM_Size (gnat_entity) && rm_size (gnu_type))
 	Set_RM_Size (gnat_entity, annotate_value (rm_size (gnu_type)));
-    }
-
-  /* If we really have a ..._DECL node, set a couple of flags on it.  But we
-     cannot do so if we are reusing the ..._DECL node made for an equivalent
-     type or an alias or a renamed object as the predicates don't apply to it
-     but to GNAT_ENTITY.  */
-  if (DECL_P (gnu_decl)
-      && !(is_type && gnat_equiv_type != gnat_entity)
-      && !Present (Alias (gnat_entity))
-      && !(Present (Renamed_Object (gnat_entity)) && saved))
-    {
-      if (!Comes_From_Source (gnat_entity))
-	DECL_ARTIFICIAL (gnu_decl) = 1;
-
-      if (!debug_info_p)
-	DECL_IGNORED_P (gnu_decl) = 1;
     }
 
   /* If we haven't already, associate the ..._DECL node that we just made with
@@ -5382,7 +5364,8 @@ get_minimal_subprog_decl (Entity_Id gnat_entity)
 
   return
     create_subprog_decl (gnu_entity_name, gnu_ext_name, void_ftype, NULL_TREE,
-			 is_disabled, true, true, true, attr_list, gnat_entity);
+			 is_disabled, true, true, true, false, attr_list,
+			 gnat_entity);
 }
 
 /* Return whether the E_Subprogram_Type/E_Function/E_Procedure GNAT_ENTITY is
@@ -6247,14 +6230,10 @@ elaborate_expression_1 (tree gnu_expr, Entity_Id gnat_entity, const char *s,
 	 new variable must not be tagged "external", as we used to do here as
 	 soon as DEFINITION was false.  */
       tree gnu_decl
-	= create_var_decl_1 (create_concat_name (gnat_entity, s), NULL_TREE,
-			     TREE_TYPE (gnu_expr), gnu_expr, true,
-			     expr_public_p, !definition && expr_global_p,
-			     expr_global_p, !need_debug, NULL, gnat_entity);
-
-      /* Whether or not gnat_entity comes from source, this variable is a
-	 compilation artifact.  */
-      DECL_ARTIFICIAL (gnu_decl) = 1;
+	= create_var_decl (create_concat_name (gnat_entity, s), NULL_TREE,
+			   TREE_TYPE (gnu_expr), gnu_expr, true,
+			   expr_public_p, !definition && expr_global_p,
+			   expr_global_p, true, need_debug, NULL, gnat_entity);
 
       /* Using this variable at debug time (if need_debug is true) requires a
 	 proper location.  The back-end will compute a location for this

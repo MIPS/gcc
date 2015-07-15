@@ -88,41 +88,21 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
 #include "stor-layout.h"
-#include "hash-map.h"
-#include "hash-table.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "reload.h"
-#include "sbitmap.h"
 #include "alloc-pool.h"
 #include "regs.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -131,7 +111,6 @@
 #include "stmt.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "bitmap.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "cselib.h"
@@ -537,9 +516,8 @@ static void variable_htab_free (void *);
 
 /* Variable hashtable helpers.  */
 
-struct variable_hasher
+struct variable_hasher : pointer_hash <variable_def>
 {
-  typedef variable_def *value_type;
   typedef void *compare_type;
   static inline hashval_t hash (const variable_def *);
   static inline bool equal (const variable_def *, const void *);

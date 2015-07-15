@@ -20,28 +20,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "tree-nested.h"
 #include "calls.h"
-#include "rtl.h"
-#include "hashtab.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -50,29 +39,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "value-prof.h"
 #include "recog.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "regs.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "coverage.h"
@@ -80,9 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "dumpfile.h"
 #include "profile.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "data-streamer.h"
 #include "builtins.h"
@@ -1261,22 +1234,9 @@ gimple_mod_subtract_transform (gimple_stmt_iterator *si)
   return true;
 }
 
-struct profile_id_traits : default_hashmap_traits
-{
-  template<typename T>
-  static bool
-  is_deleted (T &e)
-    {
-      return e.m_key == UINT_MAX;
-    }
+typedef int_hash <unsigned int, 0, UINT_MAX> profile_id_hash;
 
-  template<typename T> static bool is_empty (T &e) { return e.m_key == 0; }
-  template<typename T> static void mark_deleted (T &e) { e.m_key = UINT_MAX; }
-  template<typename T> static void mark_empty (T &e) { e.m_key = 0; }
-};
-
-static hash_map<unsigned int, cgraph_node *, profile_id_traits> *
-cgraph_node_map = 0;
+static hash_map<profile_id_hash, cgraph_node *> *cgraph_node_map = 0;
 
 /* Returns true if node graph is initialized. This
    is used to test if profile_id has been created
@@ -1296,8 +1256,7 @@ void
 init_node_map (bool local)
 {
   struct cgraph_node *n;
-  cgraph_node_map
-    = new hash_map<unsigned int, cgraph_node *, profile_id_traits>;
+  cgraph_node_map = new hash_map<profile_id_hash, cgraph_node *>;
 
   FOR_EACH_DEFINED_FUNCTION (n)
     if (n->has_gimple_body_p ())

@@ -41,7 +41,6 @@ compilation is specified by a string called a "spec".  */
 #include "flags.h"
 #include "opts.h"
 #include "params.h"
-#include "vec.h"
 #include "filenames.h"
 
 /* By default there is no special suffix for target executables.  */
@@ -275,6 +274,7 @@ static const char *compare_debug_self_opt_spec_function (int, const char **);
 static const char *compare_debug_auxbase_opt_spec_function (int, const char **);
 static const char *pass_through_libs_spec_func (int, const char **);
 static const char *replace_extension_spec_func (int, const char **);
+static const char *greater_than_spec_func (int, const char **);
 static char *convert_white_space (char *);
 
 /* The Specs Language
@@ -340,7 +340,7 @@ or with constant text in a single argument.
         it is subsequently output with %*. SUFFIX is terminated by the next
         space or %.
  %d	marks the argument containing or following the %d as a
-	temporary file name, so that that file will be deleted if GCC exits
+	temporary file name, so that file will be deleted if GCC exits
 	successfully.  Unlike %g, this contributes no text to the argument.
  %w	marks the argument containing or following the %w as the
 	"output file" of this compilation.  This puts the argument
@@ -882,7 +882,8 @@ proper position among the other output files.  */
     %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}} " VTABLE_VERIFICATION_SPEC " \
     %{static:} %{L*} %(mfwrap) %(link_libgcc) " SANITIZER_EARLY_SPEC " %o\
     " CHKP_SPEC " \
-    %{fopenacc|fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)}\
+    %{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*} 1):\
+	%:include(libgomp.spec)%(link_gomp)}\
     %{fcilkplus:%:include(libcilkrts.spec)%(link_cilkrts)}\
     %{fgnu-tm:%:include(libitm.spec)%(link_itm)}\
     %(mflib) " STACK_SPLIT_SPEC "\
@@ -1043,7 +1044,8 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 /* Linking to libgomp implies pthreads.  This is particularly important
    for targets that use different start files and suchlike.  */
 #ifndef GOMP_SELF_SPECS
-#define GOMP_SELF_SPECS "%{fopenacc|fopenmp|ftree-parallelize-loops=*: " \
+#define GOMP_SELF_SPECS \
+  "%{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*} 1): " \
   "-pthread}"
 #endif
 
@@ -1176,12 +1178,14 @@ static const struct compiler default_compilers[] =
 		%(cpp_options) -o %{save-temps*:%b.i} %{!save-temps*:%g.i} \n\
 		    cc1 -fpreprocessed %{save-temps*:%b.i} %{!save-temps*:%g.i} \
 			%(cc1_options)\
-                        %{!fdump-ada-spec*:-o %g.s %{!o*:--output-pch=%i.gch}\
-                        %W{o*:--output-pch=%*}}%V}\
+			%{!fsyntax-only:-o %g.s \
+			    %{!fdump-ada-spec*:%{!o*:--output-pch=%i.gch}\
+					       %W{o*:--output-pch=%*}}%V}}\
 	  %{!save-temps*:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)\
-                    %{!fdump-ada-spec*:-o %g.s %{!o*:--output-pch=%i.gch}\
-                    %W{o*:--output-pch=%*}}%V}}}}}}", 0, 0, 0},
+		    %{!fsyntax-only:-o %g.s \
+		        %{!fdump-ada-spec*:%{!o*:--output-pch=%i.gch}\
+					   %W{o*:--output-pch=%*}}%V}}}}}}}", 0, 0, 0},
   {".i", "@cpp-output", 0, 0, 0},
   {"@cpp-output",
    "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0, 0, 0},
@@ -1481,6 +1485,7 @@ static const struct spec_function static_spec_functions[] =
   { "compare-debug-auxbase-opt", compare_debug_auxbase_opt_spec_function },
   { "pass-through-libs",	pass_through_libs_spec_func },
   { "replace-extension",	replace_extension_spec_func },
+  { "gt",			greater_than_spec_func },
 #ifdef EXTRA_SPEC_FUNCTIONS
   EXTRA_SPEC_FUNCTIONS
 #endif
@@ -3392,7 +3397,7 @@ driver_unknown_option_callback (const struct cl_decoded_option *decoded)
     }
   if (decoded->opt_index == OPT_SPECIAL_unknown)
     {
-      /* Give it a chance to define it a a spec file.  */
+      /* Give it a chance to define it a spec file.  */
       save_switch (decoded->canonical_option[0],
 		   decoded->canonical_option_num_elements - 1,
 		   &decoded->canonical_option[1], false, false);
@@ -3891,6 +3896,11 @@ driver_handle_option (struct gcc_options *opts,
 	 split the option from its argument.  */
       save_switch ("-o", 1, &arg, validated, true);
       return true;
+
+#ifdef ENABLE_DEFAULT_PIE
+    case OPT_pie:
+      /* -pie is turned on by default.  */
+#endif
 
     case OPT_static_libgcc:
     case OPT_shared_libgcc:
@@ -7460,7 +7470,7 @@ driver::maybe_print_and_exit () const
     {
       if (use_ld != NULL && ! strcmp (print_prog_name, "ld"))
 	{
-	  /* Append USE_LD to to the default linker.  */
+	  /* Append USE_LD to the default linker.  */
 #ifdef DEFAULT_LINKER
 	  char *ld;
 # ifdef HAVE_HOST_EXECUTABLE_SUFFIX
@@ -9420,6 +9430,47 @@ replace_extension_spec_func (int argc, const char **argv)
 
   free (name);
   return result;
+}
+
+/* Returns "" if the n in ARGV[1] == -opt=<n> is greater than ARGV[2].
+   Otherwise, return NULL.  */
+
+static const char *
+greater_than_spec_func (int argc, const char **argv)
+{
+  char *converted;
+
+  if (argc == 1)
+    return NULL;
+
+  gcc_assert (argc == 3);
+  gcc_assert (argv[0][0] == '-');
+  gcc_assert (argv[0][1] == '\0');
+
+  /* Point p to <n> in in -opt=<n>.  */
+  const char *p = argv[1];
+  while (true)
+    {
+      char c = *p;
+      if (c == '\0')
+	gcc_unreachable ();
+
+      ++p;
+
+      if (c == '=')
+	break;
+    }
+
+  long arg = strtol (p, &converted, 10);
+  gcc_assert (converted != p);
+
+  long lim = strtol (argv[2], &converted, 10);
+  gcc_assert (converted != argv[2]);
+
+  if (arg > lim)
+    return "";
+
+  return NULL;
 }
 
 /* Insert backslash before spaces in ORIG (usually a file path), to 

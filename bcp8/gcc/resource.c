@@ -20,29 +20,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "diagnostic-core.h"
+#include "backend.h"
 #include "rtl.h"
+#include "df.h"
+#include "diagnostic-core.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "regs.h"
 #include "flags.h"
 #include "output.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "resource.h"
 #include "except.h"
 #include "insn-attr.h"
 #include "params.h"
-#include "df.h"
+#include "emit-rtl.h"
 
 /* This structure is used to record liveness information at the targets or
    fallthrough insns of branches.  We will most likely need the information
@@ -895,7 +885,6 @@ mark_target_live_regs (rtx_insn *insns, rtx target_maybe_return, struct resource
   unsigned int i;
   struct target_info *tinfo = NULL;
   rtx_insn *insn;
-  rtx jump_insn = 0;
   rtx jump_target;
   HARD_REG_SET scratch;
   struct resources set, needed;
@@ -1123,8 +1112,8 @@ mark_target_live_regs (rtx_insn *insns, rtx target_maybe_return, struct resource
   CLEAR_RESOURCE (&set);
   CLEAR_RESOURCE (&needed);
 
-  jump_insn = find_dead_or_set_registers (target, res, &jump_target, 0,
-					  set, needed);
+  rtx_insn *jump_insn = find_dead_or_set_registers (target, res, &jump_target,
+						    0, set, needed);
 
   /* If we hit an unconditional branch, we have another way of finding out
      what is live: we can see what is live at the branch target and include

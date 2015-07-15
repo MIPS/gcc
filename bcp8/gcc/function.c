@@ -34,31 +34,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl-error.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "rtl-error.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "stringpool.h"
 #include "flags.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -80,15 +68,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "tree-pass.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "df.h"
 #include "params.h"
 #include "bb-reorder.h"
 #include "shrink-wrap.h"
@@ -133,7 +116,7 @@ struct function *cfun = 0;
 
 /* These hashes record the prologue and epilogue insns.  */
 
-struct insn_cache_hasher : ggc_cache_hasher<rtx>
+struct insn_cache_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   static hashval_t hash (rtx x) { return htab_hash_pointer (x); }
   static bool equal (rtx a, rtx b) { return a == b; }
@@ -227,6 +210,7 @@ free_after_compilation (struct function *f)
   f->eh = NULL;
   f->machine = NULL;
   f->cfg = NULL;
+  f->curr_properties &= ~PROP_cfg;
 
   regno_reg_rtx = NULL;
 }
@@ -585,7 +569,7 @@ struct GTY((for_user)) temp_slot_address_entry {
   struct temp_slot *temp_slot;
 };
 
-struct temp_address_hasher : ggc_hasher<temp_slot_address_entry *>
+struct temp_address_hasher : ggc_ptr_hash<temp_slot_address_entry>
 {
   static hashval_t hash (temp_slot_address_entry *);
   static bool equal (temp_slot_address_entry *, temp_slot_address_entry *);
@@ -2180,49 +2164,6 @@ use_register_for_decl (const_tree decl)
   return true;
 }
 
-/* Return true if TYPE should be passed by invisible reference.  */
-
-bool
-pass_by_reference (CUMULATIVE_ARGS *ca, machine_mode mode,
-		   tree type, bool named_arg)
-{
-  if (type)
-    {
-      /* If this type contains non-trivial constructors, then it is
-	 forbidden for the middle-end to create any new copies.  */
-      if (TREE_ADDRESSABLE (type))
-	return true;
-
-      /* GCC post 3.4 passes *all* variable sized types by reference.  */
-      if (!TYPE_SIZE (type) || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
-	return true;
-
-      /* If a record type should be passed the same as its first (and only)
-	 member, use the type and mode of that member.  */
-      if (TREE_CODE (type) == RECORD_TYPE && TYPE_TRANSPARENT_AGGR (type))
-	{
-	  type = TREE_TYPE (first_field (type));
-	  mode = TYPE_MODE (type);
-	}
-    }
-
-  return targetm.calls.pass_by_reference (pack_cumulative_args (ca), mode,
-					  type, named_arg);
-}
-
-/* Return true if TYPE, which is passed by reference, should be callee
-   copied instead of caller copied.  */
-
-bool
-reference_callee_copied (CUMULATIVE_ARGS *ca, machine_mode mode,
-			 tree type, bool named_arg)
-{
-  if (type && TREE_ADDRESSABLE (type))
-    return false;
-  return targetm.calls.callee_copies (pack_cumulative_args (ca), mode, type,
-				      named_arg);
-}
-
 /* Structures to communicate between the subroutines of assign_parms.
    The first holds data persistent across all parameters, the second
    is cleared out for each parameter.  */
@@ -3114,8 +3055,8 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	    }
 	  else
 	    t = op1;
-	  rtx pat = gen_extend_insn (op0, t, promoted_nominal_mode,
-				     data->passed_mode, unsignedp);
+	  rtx_insn *pat = gen_extend_insn (op0, t, promoted_nominal_mode,
+					   data->passed_mode, unsignedp);
 	  emit_insn (pat);
 	  insns = get_insns ();
 
@@ -3500,9 +3441,11 @@ assign_parm_load_bounds (struct assign_parm_data_one *data,
 
 static void
 assign_bounds (vec<bounds_parm_data> &bndargs,
-	       struct assign_parm_data_all &all)
+	       struct assign_parm_data_all &all,
+	       bool assign_regs, bool assign_special,
+	       bool assign_bt)
 {
-  unsigned i, pass, handled = 0;
+  unsigned i, pass;
   bounds_parm_data *pbdata;
 
   if (!bndargs.exists ())
@@ -3516,17 +3459,20 @@ assign_bounds (vec<bounds_parm_data> &bndargs,
       {
 	/* Pass 0 => regs only.  */
 	if (pass == 0
-	    && (!pbdata->parm_data.entry_parm
-		|| GET_CODE (pbdata->parm_data.entry_parm) != REG))
+	    && (!assign_regs
+		||(!pbdata->parm_data.entry_parm
+		   || GET_CODE (pbdata->parm_data.entry_parm) != REG)))
 	  continue;
 	/* Pass 1 => slots only.  */
 	else if (pass == 1
-		 && (!pbdata->parm_data.entry_parm
-		     || GET_CODE (pbdata->parm_data.entry_parm) == REG))
+		 && (!assign_special
+		     || (!pbdata->parm_data.entry_parm
+			 || GET_CODE (pbdata->parm_data.entry_parm) == REG)))
 	  continue;
 	/* Pass 2 => BT only.  */
 	else if (pass == 2
-		 && pbdata->parm_data.entry_parm)
+		 && (!assign_bt
+		     || pbdata->parm_data.entry_parm))
 	  continue;
 
 	if (!pbdata->parm_data.entry_parm
@@ -3547,14 +3493,7 @@ assign_bounds (vec<bounds_parm_data> &bndargs,
 	else
 	  assign_parm_setup_stack (&all, pbdata->bounds_parm,
 				   &pbdata->parm_data);
-
-	/* Count handled bounds to make sure we miss nothing.  */
-	handled++;
       }
-
-  gcc_assert (handled == bndargs.length ());
-
-  bndargs.release ();
 }
 
 /* Assign RTL expressions to the function's parameters.  This may involve
@@ -3679,12 +3618,14 @@ assign_parms (tree fndecl)
 	      /* We expect this is the last parm.  Otherwise it is wrong
 		 to assign bounds right now.  */
 	      gcc_assert (i == (fnargs.length () - 1));
-	      assign_bounds (bndargs, all);
+	      assign_bounds (bndargs, all, true, false, false);
 	      targetm.calls.setup_incoming_vararg_bounds (all.args_so_far,
 							  data.promoted_mode,
 							  data.passed_type,
 							  &pretend_bytes,
 							  false);
+	      assign_bounds (bndargs, all, false, true, true);
+	      bndargs.release ();
 	    }
 	}
 
@@ -3696,7 +3637,8 @@ assign_parms (tree fndecl)
 	bound_no++;
     }
 
-  assign_bounds (bndargs, all);
+  assign_bounds (bndargs, all, true, true, true);
+  bndargs.release ();
 
   if (targetm.calls.split_complex_arg)
     assign_parms_unsplit_complex (&all, fnargs);
@@ -4927,38 +4869,24 @@ init_function_start (tree subr)
 /* Expand code to verify the stack_protect_guard.  This is invoked at
    the end of a function to be protected.  */
 
-#ifndef HAVE_stack_protect_test
-# define HAVE_stack_protect_test		0
-# define gen_stack_protect_test(x, y, z)	(gcc_unreachable (), NULL_RTX)
-#endif
-
 void
 stack_protect_epilogue (void)
 {
   tree guard_decl = targetm.stack_protect_guard ();
   rtx_code_label *label = gen_label_rtx ();
   rtx x, y, tmp;
+  rtx_insn *seq;
 
   x = expand_normal (crtl->stack_protect_guard);
   y = expand_normal (guard_decl);
 
   /* Allow the target to compare Y with X without leaking either into
      a register.  */
-  switch ((int) (HAVE_stack_protect_test != 0))
-    {
-    case 1:
-      tmp = gen_stack_protect_test (x, y, label);
-      if (tmp)
-	{
-	  emit_insn (tmp);
-	  break;
-	}
-      /* FALLTHRU */
-
-    default:
-      emit_cmp_and_jump_insns (x, y, EQ, NULL_RTX, ptr_mode, 1, label);
-      break;
-    }
+  if (targetm.have_stack_protect_test ()
+      && ((seq = targetm.gen_stack_protect_test (x, y, label)) != NULL_RTX))
+    emit_insn (seq);
+  else
+    emit_cmp_and_jump_insns (x, y, EQ, NULL_RTX, ptr_mode, 1, label);
 
   /* The noreturn predictor has been moved to the tree level.  The rtl-level
      predictors estimate this branch about 20%, which isn't enough to get
@@ -5263,20 +5191,6 @@ use_return_register (void)
   diddle_return_value (do_use_return_reg, NULL);
 }
 
-/* Possibly warn about unused parameters.  */
-void
-do_warn_unused_parameter (tree fn)
-{
-  tree decl;
-
-  for (decl = DECL_ARGUMENTS (fn);
-       decl; decl = DECL_CHAIN (decl))
-    if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
-	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl)
-	&& !TREE_NO_WARNING (decl))
-      warning (OPT_Wunused_parameter, "unused parameter %q+D", decl);
-}
-
 /* Set the location of the insn chain starting at INSN to LOC.  */
 
 static void
@@ -5295,8 +5209,6 @@ set_insn_locations (rtx_insn *insn, int loc)
 void
 expand_function_end (void)
 {
-  rtx clobber_after;
-
   /* If arg_pointer_save_area was referenced only from a nested
      function, we will not have initialized it yet.  Do that now.  */
   if (arg_pointer_save_area && ! crtl->arg_pointer_save_area_init)
@@ -5345,7 +5257,7 @@ expand_function_end (void)
 
      We delay actual code generation after the current_function_value_rtx
      is computed.  */
-  clobber_after = get_last_insn ();
+  rtx_insn *clobber_after = get_last_insn ();
 
   /* Output the label for the actual return from the function.  */
   emit_label (return_label);
@@ -5495,11 +5407,9 @@ expand_function_end (void)
      certainly doesn't fall thru into the exit block.  */
   if (!BARRIER_P (clobber_after))
     {
-      rtx seq;
-
       start_sequence ();
       clobber_return_register ();
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
 
       emit_insn_after (seq, clobber_after);
@@ -5526,11 +5436,11 @@ expand_function_end (void)
   if (! EXIT_IGNORE_STACK
       && cfun->calls_alloca)
     {
-      rtx tem = 0, seq;
+      rtx tem = 0;
 
       start_sequence ();
       emit_stack_save (SAVE_FUNCTION, &tem);
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
       emit_insn_before (seq, parm_birth_insn);
 
@@ -5557,15 +5467,13 @@ get_arg_pointer_save_area (void)
 
   if (! crtl->arg_pointer_save_area_init)
     {
-      rtx seq;
-
       /* Save the arg pointer at the beginning of the function.  The
 	 generated stack slot may not be a valid memory address, so we
 	 have to check it and fix it if necessary.  */
       start_sequence ();
       emit_move_insn (validize_mem (copy_rtx (ret)),
                       crtl->args.internal_arg_pointer);
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
 
       push_topmost_sequence ();
@@ -5658,13 +5566,11 @@ prologue_epilogue_contains (const_rtx insn)
 static void
 emit_use_return_register_into_block (basic_block bb)
 {
-  rtx seq;
- rtx_insn *insn;
   start_sequence ();
   use_return_register ();
-  seq = get_insns ();
+  rtx_insn *seq = get_insns ();
   end_sequence ();
-  insn = BB_END (bb);
+  rtx_insn *insn = BB_END (bb);
   if (HAVE_cc0 && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
     insn = prev_cc0_setter (insn);
 
@@ -5675,13 +5581,12 @@ emit_use_return_register_into_block (basic_block bb)
 /* Create a return pattern, either simple_return or return, depending on
    simple_p.  */
 
-static rtx
+static rtx_insn *
 gen_return_pattern (bool simple_p)
 {
-  if (!HAVE_simple_return)
-    gcc_assert (!simple_p);
-
-  return simple_p ? gen_simple_return () : gen_return ();
+  return (simple_p
+	  ? targetm.gen_simple_return ()
+	  : targetm.gen_return ());
 }
 
 /* Insert an appropriate return pattern at the end of block BB.  This
@@ -5691,9 +5596,9 @@ gen_return_pattern (bool simple_p)
 void
 emit_return_into_block (bool simple_p, basic_block bb)
 {
-  rtx jump, pat;
-  jump = emit_jump_insn_after (gen_return_pattern (simple_p), BB_END (bb));
-  pat = PATTERN (jump);
+  rtx_jump_insn *jump = emit_jump_insn_after (gen_return_pattern (simple_p),
+					      BB_END (bb));
+  rtx pat = PATTERN (jump);
   if (GET_CODE (pat) == PARALLEL)
     pat = XVECEXP (pat, 0, 0);
   gcc_assert (ANY_RETURN_P (pat));
@@ -5738,7 +5643,6 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 {
   int i;
   basic_block bb;
-  rtx label;
   edge_iterator ei;
   edge e;
   auto_vec<basic_block> src_bbs (EDGE_COUNT (last_bb->preds));
@@ -5747,7 +5651,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
     if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
       src_bbs.quick_push (e->src);
 
-  label = BB_HEAD (last_bb);
+  rtx_insn *label = BB_HEAD (last_bb);
 
   FOR_EACH_VEC_ELT (src_bbs, i, bb)
     {
@@ -5788,7 +5692,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 	    dest = ret_rtx;
 	  if (!redirect_jump (as_a <rtx_jump_insn *> (jump), dest, 0))
 	    {
-	      if (HAVE_simple_return && simple_p)
+	      if (targetm.have_simple_return () && simple_p)
 		{
 		  if (dump_file)
 		    fprintf (dump_file,
@@ -5809,7 +5713,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 	}
       else
 	{
-	  if (HAVE_simple_return && simple_p)
+	  if (targetm.have_simple_return () && simple_p)
 	    {
 	      if (dump_file)
 		fprintf (dump_file,
@@ -5925,27 +5829,20 @@ thread_prologue_and_epilogue_insns (void)
       && (lookup_attribute ("no_split_stack", DECL_ATTRIBUTES (cfun->decl))
 	  == NULL))
     {
-#ifndef HAVE_split_stack_prologue
-      gcc_unreachable ();
-#else
-      gcc_assert (HAVE_split_stack_prologue);
-
       start_sequence ();
-      emit_insn (gen_split_stack_prologue ());
+      emit_insn (targetm.gen_split_stack_prologue ());
       split_prologue_seq = get_insns ();
       end_sequence ();
 
       record_insns (split_prologue_seq, NULL, &prologue_insn_hash);
       set_insn_locations (split_prologue_seq, prologue_location);
-#endif
     }
 
   prologue_seq = NULL;
-#ifdef HAVE_prologue
-  if (HAVE_prologue)
+  if (targetm.have_prologue ())
     {
       start_sequence ();
-      rtx_insn *seq = safe_as_a <rtx_insn *> (gen_prologue ());
+      rtx_insn *seq = targetm.gen_prologue ();
       emit_insn (seq);
 
       /* Insert an explicit USE for the frame pointer
@@ -5967,7 +5864,6 @@ thread_prologue_and_epilogue_insns (void)
       end_sequence ();
       set_insn_locations (prologue_seq, prologue_location);
     }
-#endif
 
   bitmap_initialize (&bb_flags, &bitmap_default_obstack);
 
@@ -6000,12 +5896,12 @@ thread_prologue_and_epilogue_insns (void)
 
   exit_fallthru_edge = find_fallthru_edge (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds);
 
-  if (HAVE_simple_return && entry_edge != orig_entry_edge)
+  if (targetm.have_simple_return () && entry_edge != orig_entry_edge)
     exit_fallthru_edge
 	= get_unconverted_simple_return (exit_fallthru_edge, bb_flags,
 					 &unconverted_simple_returns,
 					 &returnjump);
-  if (HAVE_return)
+  if (targetm.have_return ())
     {
       if (exit_fallthru_edge == NULL)
 	goto epilogue_done;
@@ -6026,7 +5922,8 @@ thread_prologue_and_epilogue_insns (void)
 
 	      /* Emitting the return may add a basic block.
 		 Fix bb_flags for the added block.  */
-	      if (HAVE_simple_return && last_bb != exit_fallthru_edge->src)
+	      if (targetm.have_simple_return ()
+		  && last_bb != exit_fallthru_edge->src)
 		bitmap_set_bit (&bb_flags, last_bb->index);
 
 	      goto epilogue_done;
@@ -6071,11 +5968,11 @@ thread_prologue_and_epilogue_insns (void)
   if (exit_fallthru_edge == NULL)
     goto epilogue_done;
 
-  if (HAVE_epilogue)
+  if (targetm.have_epilogue ())
     {
       start_sequence ();
       epilogue_end = emit_note (NOTE_INSN_EPILOGUE_BEG);
-      rtx_insn *seq = as_a <rtx_insn *> (gen_epilogue ());
+      rtx_insn *seq = targetm.gen_epilogue ();
       if (seq)
 	emit_jump_insn (seq);
 
@@ -6142,11 +6039,10 @@ epilogue_done:
 	}
     }
 
-  if (HAVE_simple_return)
+  if (targetm.have_simple_return ())
     convert_to_simple_return (entry_edge, orig_entry_edge, bb_flags,
 			      returnjump, unconverted_simple_returns);
 
-#ifdef HAVE_sibcall_epilogue
   /* Emit sibling epilogues before any sibling call sites.  */
   for (ei = ei_start (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds); (e =
 							     ei_safe_edge (ei));
@@ -6154,19 +6050,18 @@ epilogue_done:
     {
       basic_block bb = e->src;
       rtx_insn *insn = BB_END (bb);
-      rtx ep_seq;
 
       if (!CALL_P (insn)
 	  || ! SIBLING_CALL_P (insn)
-	  || (HAVE_simple_return && (entry_edge != orig_entry_edge
-				     && !bitmap_bit_p (&bb_flags, bb->index))))
+	  || (targetm.have_simple_return ()
+	      && entry_edge != orig_entry_edge
+	      && !bitmap_bit_p (&bb_flags, bb->index)))
 	{
 	  ei_next (&ei);
 	  continue;
 	}
 
-      ep_seq = gen_sibcall_epilogue ();
-      if (ep_seq)
+      if (rtx_insn *ep_seq = targetm.gen_sibcall_epilogue ())
 	{
 	  start_sequence ();
 	  emit_note (NOTE_INSN_EPILOGUE_BEG);
@@ -6184,7 +6079,6 @@ epilogue_done:
 	}
       ei_next (&ei);
     }
-#endif
 
   if (epilogue_end)
     {
@@ -6218,10 +6112,10 @@ epilogue_done:
 void
 reposition_prologue_and_epilogue_notes (void)
 {
-#if ! defined (HAVE_prologue) && ! defined (HAVE_sibcall_epilogue)
-  if (!HAVE_epilogue)
+  if (!targetm.have_prologue ()
+      && !targetm.have_epilogue ()
+      && !targetm.have_sibcall_epilogue ())
     return;
-#endif
 
   /* Since the hash table is created on demand, the fact that it is
      non-null is a signal that it is non-empty.  */

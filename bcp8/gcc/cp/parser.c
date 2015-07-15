@@ -24,15 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "timevar.h"
 #include "cpplib.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "print-tree.h"
 #include "stringpool.h"
@@ -45,13 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "diagnostic-core.h"
 #include "target.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
@@ -803,8 +790,8 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
       else
 	{
           if (warn_cxx11_compat
-              && C_RID_CODE (token->u.value) >= RID_FIRST_CXX0X
-              && C_RID_CODE (token->u.value) <= RID_LAST_CXX0X)
+              && C_RID_CODE (token->u.value) >= RID_FIRST_CXX11
+              && C_RID_CODE (token->u.value) <= RID_LAST_CXX11)
             {
               /* Warn about the C++0x keyword (but still treat it as
                  an identifier).  */
@@ -1362,8 +1349,6 @@ static cp_declarator *make_pointer_declarator
   (cp_cv_quals, cp_declarator *, tree);
 static cp_declarator *make_reference_declarator
   (cp_cv_quals, cp_declarator *, bool, tree);
-static cp_parameter_declarator *make_parameter_declarator
-  (cp_decl_specifier_seq *, cp_declarator *, tree);
 static cp_declarator *make_ptrmem_declarator
   (cp_cv_quals, tree, cp_declarator *, tree);
 
@@ -1588,6 +1573,10 @@ make_array_declarator (cp_declarator *element, tree bounds)
 static bool 
 declarator_can_be_parameter_pack (cp_declarator *declarator)
 {
+  if (declarator && declarator->parameter_pack_p)
+    /* We already saw an ellipsis.  */
+    return false;
+
   /* Search for a declarator name, or any other declarator that goes
      after the point where the ellipsis could appear in a parameter
      pack. If we find any of these, then this declarator can not be
@@ -1622,7 +1611,8 @@ cp_parameter_declarator *no_parameters;
 cp_parameter_declarator *
 make_parameter_declarator (cp_decl_specifier_seq *decl_specifiers,
 			   cp_declarator *declarator,
-			   tree default_argument)
+			   tree default_argument,
+			   bool template_parameter_pack_p = false)
 {
   cp_parameter_declarator *parameter;
 
@@ -1635,7 +1625,7 @@ make_parameter_declarator (cp_decl_specifier_seq *decl_specifiers,
     clear_decl_specs (&parameter->decl_specifiers);
   parameter->declarator = declarator;
   parameter->default_argument = default_argument;
-  parameter->ellipsis_p = false;
+  parameter->template_parameter_pack_p = template_parameter_pack_p;
 
   return parameter;
 }
@@ -4296,6 +4286,7 @@ cp_parser_primary_expression (cp_parser *parser,
     case CPP_CHAR16:
     case CPP_CHAR32:
     case CPP_WCHAR:
+    case CPP_UTF8CHAR:
     case CPP_NUMBER:
     case CPP_PREPARSED_EXPR:
       if (TREE_CODE (token->u.value) == USERDEF_LITERAL)
@@ -4357,6 +4348,7 @@ cp_parser_primary_expression (cp_parser *parser,
     case CPP_CHAR16_USERDEF:
     case CPP_CHAR32_USERDEF:
     case CPP_WCHAR_USERDEF:
+    case CPP_UTF8CHAR_USERDEF:
       return cp_parser_userdef_char_literal (parser);
 
     case CPP_STRING:
@@ -6899,6 +6891,7 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 		  case CPP_WCHAR:
 		  case CPP_CHAR16:
 		  case CPP_CHAR32:
+		  case CPP_UTF8CHAR:
 		    /* If a parameter is literal zero alone, remember it
 		       for -Wmemset-transposed-args warning.  */
 		    if (integer_zerop (tok->u.value)
@@ -7566,6 +7559,9 @@ cp_parser_new_placement (cp_parser* parser)
 		     (parser, non_attr, /*cast_p=*/false,
 		      /*allow_expansion_p=*/true,
 		      /*non_constant_p=*/NULL));
+
+  if (expression_list && expression_list->is_empty ())
+    error ("expected expression-list or type-id");
 
   return expression_list;
 }
@@ -10580,7 +10576,7 @@ cp_convert_range_for (tree statement, tree range_decl, tree range_expr,
     {
       tree range_temp;
 
-      if (TREE_CODE (range_expr) == VAR_DECL
+      if (VAR_P (range_expr)
 	  && array_of_runtime_bound_p (TREE_TYPE (range_expr)))
 	/* Can't bind a reference to an array of runtime bound.  */
 	range_temp = range_expr;
@@ -12180,6 +12176,7 @@ cp_parser_linkage_specification (cp_parser* parser)
 
    static_assert-declaration:
      static_assert ( constant-expression , string-literal ) ; 
+     static_assert ( constant-expression ) ; (C++1Z)
 
    If MEMBER_P, this static_assert is a class member.  */
 
@@ -12217,20 +12214,35 @@ cp_parser_static_assert(cp_parser *parser, bool member_p)
                                    /*allow_non_constant_p=*/true,
                                    /*non_constant_p=*/&dummy);
 
-  /* Parse the separating `,'.  */
-  cp_parser_require (parser, CPP_COMMA, RT_COMMA);
+  if (cp_lexer_peek_token (parser->lexer)->type == CPP_CLOSE_PAREN)
+    {
+      if (cxx_dialect < cxx1z)
+	pedwarn (input_location, OPT_Wpedantic,
+		 "static_assert without a message "
+		 "only available with -std=c++1z or -std=gnu++1z");
+      /* Eat the ')'  */
+      cp_lexer_consume_token (parser->lexer);
+      message = build_string (1, "");
+      TREE_TYPE (message) = char_array_type_node;
+      fix_string_type (message);
+    }
+  else
+    {
+      /* Parse the separating `,'.  */
+      cp_parser_require (parser, CPP_COMMA, RT_COMMA);
 
-  /* Parse the string-literal message.  */
-  message = cp_parser_string_literal (parser, 
-                                      /*translate=*/false,
-                                      /*wide_ok=*/true);
+      /* Parse the string-literal message.  */
+      message = cp_parser_string_literal (parser, 
+                                	  /*translate=*/false,
+                                	  /*wide_ok=*/true);
 
-  /* A `)' completes the static assertion.  */
-  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
-    cp_parser_skip_to_closing_parenthesis (parser, 
-                                           /*recovering=*/true, 
-                                           /*or_comma=*/false,
-					   /*consume_paren=*/true);
+      /* A `)' completes the static assertion.  */
+      if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+	cp_parser_skip_to_closing_parenthesis (parser, 
+                                               /*recovering=*/true, 
+                                               /*or_comma=*/false,
+					       /*consume_paren=*/true);
+    }
 
   /* A semicolon terminates the declaration.  */
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
@@ -13321,6 +13333,69 @@ cp_parser_template_parameter_list (cp_parser* parser)
   return end_template_parm_list (parameter_list);
 }
 
+/* Parse a default argument for a type template-parameter.
+   Note that diagnostics are handled in cp_parser_template_parameter.  */
+
+static tree
+cp_parser_default_type_template_argument (cp_parser *parser)
+{
+  gcc_assert (cp_lexer_next_token_is (parser->lexer, CPP_EQ));
+
+  /* Consume the `=' token.  */
+  cp_lexer_consume_token (parser->lexer);
+
+  /* Parse the default-argument.  */
+  push_deferring_access_checks (dk_no_deferred);
+  tree default_argument = cp_parser_type_id (parser);
+  pop_deferring_access_checks ();
+
+  return default_argument;
+}
+
+/* Parse a default argument for a template template-parameter.  */
+
+static tree
+cp_parser_default_template_template_argument (cp_parser *parser)
+{
+  gcc_assert (cp_lexer_next_token_is (parser->lexer, CPP_EQ));
+
+  bool is_template;
+
+  /* Consume the `='.  */
+  cp_lexer_consume_token (parser->lexer);
+  /* Parse the id-expression.  */
+  push_deferring_access_checks (dk_no_deferred);
+  /* save token before parsing the id-expression, for error
+     reporting */
+  const cp_token* token = cp_lexer_peek_token (parser->lexer);
+  tree default_argument
+    = cp_parser_id_expression (parser,
+                               /*template_keyword_p=*/false,
+                               /*check_dependency_p=*/true,
+                               /*template_p=*/&is_template,
+                               /*declarator_p=*/false,
+                               /*optional_p=*/false);
+  if (TREE_CODE (default_argument) == TYPE_DECL)
+    /* If the id-expression was a template-id that refers to
+       a template-class, we already have the declaration here,
+       so no further lookup is needed.  */
+    ;
+  else
+    /* Look up the name.  */
+    default_argument
+      = cp_parser_lookup_name (parser, default_argument,
+                               none_type,
+                               /*is_template=*/is_template,
+                               /*is_namespace=*/false,
+                               /*check_dependency=*/true,
+                               /*ambiguous_decls=*/NULL,
+                               token->location);
+  /* See if the default argument is valid.  */
+  default_argument = check_template_template_default_arg (default_argument);
+  pop_deferring_access_checks ();
+  return default_argument;
+}
+
 /* Parse a template-parameter.
 
    template-parameter:
@@ -13339,7 +13414,6 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
 {
   cp_token *token;
   cp_parameter_declarator *parameter_declarator;
-  cp_declarator *id_declarator;
   tree parm;
 
   /* Assume it is a type parameter or a template parameter.  */
@@ -13400,15 +13474,9 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
     return error_mark_node;
 
   /* If the parameter declaration is marked as a parameter pack, set
-     *IS_PARAMETER_PACK to notify the caller. Also, unmark the
-     declarator's PACK_EXPANSION_P, otherwise we'll get errors from
-     grokdeclarator. */
-  if (parameter_declarator->declarator
-      && parameter_declarator->declarator->parameter_pack_p)
-    {
-      *is_parameter_pack = true;
-      parameter_declarator->declarator->parameter_pack_p = false;
-    }
+   *IS_PARAMETER_PACK to notify the caller.  */
+  if (parameter_declarator->template_parameter_pack_p)
+    *is_parameter_pack = true;
 
   if (parameter_declarator->default_argument)
     {
@@ -13416,55 +13484,6 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
       if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
 	/* Consume the `...' for better error recovery.  */
 	cp_lexer_consume_token (parser->lexer);
-    }
-  /* If the next token is an ellipsis, and we don't already have it
-     marked as a parameter pack, then we have a parameter pack (that
-     has no declarator).  */
-  else if (!*is_parameter_pack
-	   && cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS)
-	   && (declarator_can_be_parameter_pack
-	       (parameter_declarator->declarator)))
-    {
-      /* Consume the `...'.  */
-      cp_lexer_consume_token (parser->lexer);
-      maybe_warn_variadic_templates ();
-      
-      *is_parameter_pack = true;
-    }
-  /* We might end up with a pack expansion as the type of the non-type
-     template parameter, in which case this is a non-type template
-     parameter pack.  */
-  else if (parameter_declarator->decl_specifiers.type
-	   && PACK_EXPANSION_P (parameter_declarator->decl_specifiers.type))
-    {
-      *is_parameter_pack = true;
-      parameter_declarator->decl_specifiers.type = 
-	PACK_EXPANSION_PATTERN (parameter_declarator->decl_specifiers.type);
-    }
-
-  if (*is_parameter_pack && cp_lexer_next_token_is (parser->lexer, CPP_EQ))
-    {
-      /* Parameter packs cannot have default arguments.  However, a
-	 user may try to do so, so we'll parse them and give an
-	 appropriate diagnostic here.  */
-
-      cp_token *start_token = cp_lexer_peek_token (parser->lexer);
-      
-      /* Find the name of the parameter pack.  */     
-      id_declarator = parameter_declarator->declarator;
-      while (id_declarator && id_declarator->kind != cdk_id)
-	id_declarator = id_declarator->declarator;
-      
-      if (id_declarator && id_declarator->kind == cdk_id)
-	error_at (start_token->location,
-		  "template parameter pack %qD cannot have a default argument",
-		  id_declarator->u.id.unqualified_name);
-      else
-	error_at (start_token->location,
-		  "template parameter pack cannot have a default argument");
-      
-      /* Parse the default argument, but throw away the result.  */
-      cp_parser_default_argument (parser, /*template_parm_p=*/true);
     }
 
   parm = grokdeclarator (parameter_declarator->declarator,
@@ -13543,11 +13562,8 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 	/* If the next token is an `=', we have a default argument.  */
 	if (cp_lexer_next_token_is (parser->lexer, CPP_EQ))
 	  {
-	    /* Consume the `=' token.  */
-	    cp_lexer_consume_token (parser->lexer);
-	    /* Parse the default-argument.  */
-	    push_deferring_access_checks (dk_no_deferred);
-	    default_argument = cp_parser_type_id (parser);
+	    default_argument
+	      = cp_parser_default_type_template_argument (parser);
 
             /* Template parameter packs cannot have default
                arguments. */
@@ -13565,7 +13581,6 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
               }
 	    else if (check_for_bare_parameter_packs (default_argument))
 	      default_argument = error_mark_node;
-	    pop_deferring_access_checks ();
 	  }
 	else
 	  default_argument = NULL_TREE;
@@ -13623,40 +13638,8 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 	   default-argument.  */
 	if (cp_lexer_next_token_is (parser->lexer, CPP_EQ))
 	  {
-	    bool is_template;
-
-	    /* Consume the `='.  */
-	    cp_lexer_consume_token (parser->lexer);
-	    /* Parse the id-expression.  */
-	    push_deferring_access_checks (dk_no_deferred);
-	    /* save token before parsing the id-expression, for error
-	       reporting */
-	    token = cp_lexer_peek_token (parser->lexer);
 	    default_argument
-	      = cp_parser_id_expression (parser,
-					 /*template_keyword_p=*/false,
-					 /*check_dependency_p=*/true,
-					 /*template_p=*/&is_template,
-					 /*declarator_p=*/false,
-					 /*optional_p=*/false);
-	    if (TREE_CODE (default_argument) == TYPE_DECL)
-	      /* If the id-expression was a template-id that refers to
-		 a template-class, we already have the declaration here,
-		 so no further lookup is needed.  */
-		 ;
-	    else
-	      /* Look up the name.  */
-	      default_argument
-		= cp_parser_lookup_name (parser, default_argument,
-					 none_type,
-					 /*is_template=*/is_template,
-					 /*is_namespace=*/false,
-					 /*check_dependency=*/true,
-					 /*ambiguous_decls=*/NULL,
-					 token->location);
-	    /* See if the default argument is valid.  */
-	    default_argument
-	      = check_template_template_default_arg (default_argument);
+	      = cp_parser_default_template_template_argument (parser);
 
             /* Template parameter packs cannot have default
                arguments. */
@@ -13672,7 +13655,6 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 			    "have default arguments");
                 default_argument = NULL_TREE;
               }
-	    pop_deferring_access_checks ();
 	  }
 	else
 	  default_argument = NULL_TREE;
@@ -13857,6 +13839,8 @@ cp_parser_template_id (cp_parser *parser,
   else if (variable_template_p (templ))
     {
       template_id = lookup_template_variable (templ, arguments);
+      if (TREE_CODE (template_id) == TEMPLATE_ID_EXPR)
+	SET_EXPR_LOCATION (template_id, next_token->location);
     }
   else
     {
@@ -13867,6 +13851,8 @@ cp_parser_template_id (cp_parser *parser,
 		   || BASELINK_P (templ)));
 
       template_id = lookup_template_function (templ, arguments);
+      if (TREE_CODE (template_id) == TEMPLATE_ID_EXPR)
+	SET_EXPR_LOCATION (template_id, next_token->location);
     }
 
   /* If parsing tentatively, replace the sequence of tokens that makes
@@ -14946,6 +14932,30 @@ cp_parser_simple_type_specifier (cp_parser* parser,
       maybe_warn_cpp0x (CPP0X_AUTO);
       if (parser->auto_is_implicit_function_template_parm_p)
 	{
+	  /* The 'auto' might be the placeholder return type for a function decl
+	     with trailing return type.  */
+	  bool have_trailing_return_fn_decl = false;
+	  if (cp_lexer_peek_nth_token (parser->lexer, 2)->type
+	      == CPP_OPEN_PAREN)
+	    {
+	      cp_parser_parse_tentatively (parser);
+	      cp_lexer_consume_token (parser->lexer);
+	      cp_lexer_consume_token (parser->lexer);
+	      if (cp_parser_skip_to_closing_parenthesis (parser,
+							 /*recovering*/false,
+							 /*or_comma*/false,
+							 /*consume_paren*/true))
+		have_trailing_return_fn_decl
+		  = cp_lexer_next_token_is (parser->lexer, CPP_DEREF);
+	      cp_parser_abort_tentative_parse (parser);
+	    }
+
+	  if (have_trailing_return_fn_decl)
+	    {
+	      type = make_auto ();
+	      break;
+	    }
+
 	  if (cxx_dialect >= cxx14)
 	    type = synthesize_implicit_template_parm (parser);
 	  else
@@ -18354,7 +18364,7 @@ parsing_nsdmi (void)
 
    Returns the type indicated by the type-id.
 
-   In addition to this this parses any queued up omp declare simd
+   In addition to this, parse any queued up omp declare simd
    clauses and Cilk Plus SIMD-enabled function's vector attributes.
 
    QUALS is either a bitmask of cv_qualifiers or -1 for a non-member
@@ -18980,6 +18990,7 @@ cp_parser_parameter_declaration (cp_parser *parser,
   tree default_argument;
   cp_token *token = NULL, *declarator_token_start = NULL;
   const char *saved_message;
+  bool template_parameter_pack_p = false;
 
   /* In a template parameter, `>' is not an operator.
 
@@ -19065,6 +19076,15 @@ cp_parser_parameter_declaration (cp_parser *parser,
       decl_specifiers.attributes
 	= chainon (decl_specifiers.attributes,
 		   cp_parser_attributes_opt (parser));
+
+      /* If the declarator is a template parameter pack, remember that and
+	 clear the flag in the declarator itself so we don't get errors
+	 from grokdeclarator.  */
+      if (template_parm_p && declarator && declarator->parameter_pack_p)
+	{
+	  declarator->parameter_pack_p = false;
+	  template_parameter_pack_p = true;
+	}
     }
 
   /* If the next token is an ellipsis, and we have not seen a
@@ -19083,15 +19103,16 @@ cp_parser_parameter_declaration (cp_parser *parser,
       if (type
 	  && TREE_CODE (type) != TYPE_PACK_EXPANSION
 	  && declarator_can_be_parameter_pack (declarator)
-          && (!declarator || !declarator->parameter_pack_p)
-          && uses_parameter_packs (type))
+          && (template_parm_p || uses_parameter_packs (type)))
         {
 	  /* Consume the `...'. */
 	  cp_lexer_consume_token (parser->lexer);
 	  maybe_warn_variadic_templates ();
 	  
 	  /* Build a pack expansion type */
-	  if (declarator)
+	  if (template_parm_p)
+	    template_parameter_pack_p = true;
+	  else if (declarator)
 	    declarator->parameter_pack_p = true;
 	  else
 	    decl_specifiers.type = make_pack_expansion (type);
@@ -19120,17 +19141,12 @@ cp_parser_parameter_declaration (cp_parser *parser,
 
       if (!parser->default_arg_ok_p)
 	{
-	  if (flag_permissive)
-	    warning (0, "deprecated use of default argument for parameter of non-function");
-	  else
-	    {
-	      error_at (token->location,
-			"default arguments are only "
-			"permitted for function parameters");
-	      default_argument = NULL_TREE;
-	    }
+	  permerror (token->location,
+		     "default arguments are only "
+		     "permitted for function parameters");
 	}
       else if ((declarator && declarator->parameter_pack_p)
+	       || template_parameter_pack_p
 	       || (decl_specifiers.type
 		   && PACK_EXPANSION_P (decl_specifiers.type)))
 	{
@@ -19163,7 +19179,8 @@ cp_parser_parameter_declaration (cp_parser *parser,
 
   return make_parameter_declarator (&decl_specifiers,
 				    declarator,
-				    default_argument);
+				    default_argument,
+				    template_parameter_pack_p);
 }
 
 /* Parse a default argument and return it.
@@ -20775,7 +20792,7 @@ cp_parser_member_declaration (cp_parser* parser)
 	  decl = cp_parser_alias_declaration (parser);
 	  /* Note that if we actually see the '=' token after the
 	     identifier, cp_parser_alias_declaration commits the
-	     tentative parse.  In that case, we really expects an
+	     tentative parse.  In that case, we really expect an
 	     alias-declaration.  Otherwise, we expect a using
 	     declaration.  */
 	  alias_decl_expected =
@@ -22409,8 +22426,7 @@ cp_parser_std_attribute (cp_parser *parser)
   tree attribute, attr_ns = NULL_TREE, attr_id = NULL_TREE, arguments;
   cp_token *token;
 
-  /* First, parse name of the the attribute, a.k.a
-     attribute-token.  */
+  /* First, parse name of the attribute, a.k.a attribute-token.  */
 
   token = cp_lexer_peek_token (parser->lexer);
   if (token->type == CPP_NAME)
@@ -22501,6 +22517,28 @@ cp_parser_std_attribute (cp_parser *parser)
   return attribute;
 }
 
+/* Check that the attribute ATTRIBUTE appears at most once in the
+   attribute-list ATTRIBUTES.  This is enforced for noreturn (7.6.3)
+   and deprecated (7.6.5).  Note that carries_dependency (7.6.4)
+   isn't implemented yet in GCC.  */
+
+static void
+cp_parser_check_std_attribute (tree attributes, tree attribute)
+{
+  if (attributes)
+    {
+      tree name = get_attribute_name (attribute);
+      if (is_attribute_p ("noreturn", name)
+	  && lookup_attribute ("noreturn", attributes))
+	error ("attribute noreturn can appear at most once "
+	       "in an attribute-list");
+      else if (is_attribute_p ("deprecated", name)
+	       && lookup_attribute ("deprecated", attributes))
+	error ("attribute deprecated can appear at most once "
+	       "in an attribute-list");
+    }
+}
+
 /* Parse a list of standard C++-11 attributes.
 
    attribute-list:
@@ -22523,6 +22561,7 @@ cp_parser_std_attribute_list (cp_parser *parser)
 	break;
       if (attribute != NULL_TREE)
 	{
+	  cp_parser_check_std_attribute (attributes, attribute);
 	  TREE_CHAIN (attribute) = attributes;
 	  attributes = attribute;
 	}
@@ -24429,7 +24468,7 @@ cp_parser_sizeof_pack (cp_parser *parser)
   if (expr == error_mark_node)
     cp_parser_name_lookup_error (parser, name, expr, NLE_NULL,
 				 token->location);
-  if (TREE_CODE (expr) == TYPE_DECL)
+  if (TREE_CODE (expr) == TYPE_DECL || TREE_CODE (expr) == TEMPLATE_DECL)
     expr = TREE_TYPE (expr);
   else if (TREE_CODE (expr) == CONST_DECL)
     expr = DECL_INITIAL (expr);
@@ -25391,6 +25430,7 @@ cp_parser_cache_defarg (cp_parser *parser, bool nsdmi)
 		 the default argument; otherwise the default
 		 argument continues.  */
 	      bool error = false;
+	      cp_token *peek;
 
 	      /* Set ITALP so cp_parser_parameter_declaration_list
 		 doesn't decide to commit to this parse.  */
@@ -25398,19 +25438,39 @@ cp_parser_cache_defarg (cp_parser *parser, bool nsdmi)
 	      parser->in_template_argument_list_p = true;
 
 	      cp_parser_parse_tentatively (parser);
-	      cp_lexer_consume_token (parser->lexer);
 
 	      if (nsdmi)
 		{
-		  int ctor_dtor_or_conv_p;
-		  cp_parser_declarator (parser, CP_PARSER_DECLARATOR_NAMED,
-					&ctor_dtor_or_conv_p,
-					/*parenthesized_p=*/NULL,
-					/*member_p=*/true,
-					/*friend_p=*/false);
+		  /* Parse declarators until we reach a non-comma or
+		     somthing that cannot be an initializer.
+		     Just checking whether we're looking at a single
+		     declarator is insufficient.  Consider:
+		       int var = tuple<T,U>::x;
+		     The template parameter 'U' looks exactly like a
+		     declarator.  */
+		  do
+		    {
+		      int ctor_dtor_or_conv_p;
+		      cp_lexer_consume_token (parser->lexer);
+		      cp_parser_declarator (parser, CP_PARSER_DECLARATOR_NAMED,
+					    &ctor_dtor_or_conv_p,
+					    /*parenthesized_p=*/NULL,
+					    /*member_p=*/true,
+					    /*friend_p=*/false);
+		      peek = cp_lexer_peek_token (parser->lexer);
+		      if (cp_parser_error_occurred (parser))
+			break;
+		    }
+		  while (peek->type == CPP_COMMA);
+		  /* If we met an '=' or ';' then the original comma
+		     was the end of the NSDMI.  Otherwise assume
+		     we're still in the NSDMI.  */
+		  error = (peek->type != CPP_EQ
+			   && peek->type != CPP_SEMICOLON);
 		}
 	      else
 		{
+		  cp_lexer_consume_token (parser->lexer);
 		  begin_scope (sk_function_parms, NULL_TREE);
 		  cp_parser_parameter_declaration_list (parser, &error);
 		  pop_bindings_and_leave_scope ();
@@ -28039,7 +28099,7 @@ cp_parser_oacc_data_clause_deviceptr (cp_parser *parser, tree list)
 	 c_parser_omp_var_list_parens should construct a list of
 	 locations to go along with the var list.  */
 
-      if (TREE_CODE (v) != VAR_DECL)
+      if (!VAR_P (v))
 	error_at (loc, "%qD is not a variable", v);
       else if (TREE_TYPE (v) == error_mark_node)
 	;

@@ -21,6 +21,11 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
 
+#include "ipa-ref.h"
+#include "plugin-api.h"
+
+class ipa_opt_pass_d;
+typedef ipa_opt_pass_d *ipa_opt_pass;
 
 /* Symbol table consists of functions and variables.
    TODO: add labels and CONST_DECLs.  */
@@ -44,7 +49,7 @@ struct GTY((for_user)) section_hash_entry_d
 
 typedef struct section_hash_entry_d section_hash_entry;
 
-struct section_name_hasher : ggc_hasher<section_hash_entry *>
+struct section_name_hasher : ggc_ptr_hash<section_hash_entry>
 {
   typedef const char *compare_type;
 
@@ -314,7 +319,7 @@ public:
   bool needed_p (void);
 
   /* Return true when there are references to the node.  */
-  bool referred_to_p (void);
+  bool referred_to_p (bool include_self = true);
 
   /* Return true if NODE can be discarded by linker from the binary.  */
   inline bool
@@ -585,8 +590,8 @@ struct GTY(()) cgraph_thunk_info {
    Available after function is analyzed.  */
 
 struct GTY(()) cgraph_local_info {
-  /* Set when function function is visible in current compilation unit only
-     and its address is never taken.  */
+  /* Set when function is visible in current compilation unit only and
+     its address is never taken.  */
   unsigned local : 1;
 
   /* False when there is something makes versioning impossible.  */
@@ -611,20 +616,6 @@ struct GTY(()) cgraph_global_info {
   /* For inline clones this points to the function they will be
      inlined into.  */
   cgraph_node *inlined_to;
-};
-
-/* Information about the function that is propagated by the RTL backend.
-   Available only for functions that has been already assembled.  */
-
-struct GTY(()) cgraph_rtl_info {
-   unsigned int preferred_incoming_stack_boundary;
-
-  /* Call unsaved hard registers really used by the corresponding
-     function (including ones used by functions called by the
-     function).  */
-  HARD_REG_SET function_used_regs;
-  /* Set if function_used_regs is valid.  */
-  unsigned function_used_regs_valid: 1;
 };
 
 /* Represent which DECL tree (or reference to such tree)
@@ -721,7 +712,7 @@ struct GTY(()) cgraph_simd_clone {
   /* Max hardware vector size in bits for floating point vectors.  */
   unsigned int vecsize_float;
 
-  /* The mangling character for a given vector size.  This is is used
+  /* The mangling character for a given vector size.  This is used
      to determine the ISA mangling bit as specified in the Intel
      Vector ABI.  */
   unsigned char vecsize_mangle;
@@ -783,7 +774,7 @@ enum cgraph_inline_failed_type_t
 
 struct cgraph_edge;
 
-struct cgraph_edge_hasher : ggc_hasher<cgraph_edge *>
+struct cgraph_edge_hasher : ggc_ptr_hash<cgraph_edge>
 {
   typedef gimple compare_type;
 
@@ -1194,7 +1185,7 @@ public:
   static cgraph_local_info *local_info (tree decl);
 
   /* Return local info for the compiled function.  */
-  static cgraph_rtl_info *rtl_info (tree);
+  static struct cgraph_rtl_info *rtl_info (tree);
 
   /* Return the cgraph node that has ASMNAME for its DECL_ASSEMBLER_NAME.
      Return NULL if there's no such node.  */
@@ -1263,7 +1254,7 @@ public:
 
   cgraph_local_info local;
   cgraph_global_info global;
-  cgraph_rtl_info rtl;
+  struct cgraph_rtl_info *rtl;
   cgraph_clone_info clone;
   cgraph_thunk_info thunk;
 
@@ -1868,17 +1859,12 @@ enum symtab_state
   FINISHED
 };
 
-struct asmname_hasher
+struct asmname_hasher : ggc_ptr_hash <symtab_node>
 {
-  typedef symtab_node *value_type;
   typedef const_tree compare_type;
 
   static hashval_t hash (symtab_node *n);
   static bool equal (symtab_node *n, const_tree t);
-  static void ggc_mx (symtab_node *n);
-  static void pch_nx (symtab_node *&);
-  static void pch_nx (symtab_node *&, gt_pointer_operator, void *);
-  static void remove (symtab_node *) {}
 };
 
 class GTY((tag ("SYMTAB"))) symbol_table
@@ -1919,7 +1905,7 @@ public:
   /* Once all functions from compilation unit are in memory, produce all clones
      and update all calls.  We might also do this on demand if we don't want to
      bring all functions to memory prior compilation, but current WHOPR
-     implementation does that and it is is bit easier to keep everything right
+     implementation does that and it is bit easier to keep everything right
      in this order.  */
   void materialize_all_clones (void);
 
@@ -2186,28 +2172,6 @@ inline bool
 asmname_hasher::equal (symtab_node *n, const_tree t)
 {
   return symbol_table::decl_assembler_name_equal (n->decl, t);
-}
-
-extern void gt_ggc_mx (symtab_node *&);
-
-inline void
-asmname_hasher::ggc_mx (symtab_node *n)
-{
-  gt_ggc_mx (n);
-}
-
-extern void gt_pch_nx (symtab_node *&);
-
-inline void
-asmname_hasher::pch_nx (symtab_node *&n)
-{
-  gt_pch_nx (n);
-}
-
-inline void
-asmname_hasher::pch_nx (symtab_node *&n, gt_pointer_operator op, void *cookie)
-{
-  op (&n, cookie);
 }
 
 /* In cgraph.c  */
@@ -2815,7 +2779,7 @@ varpool_node::all_refs_explicit_p ()
 	  && !force_output);
 }
 
-struct tree_descriptor_hasher : ggc_hasher<constant_descriptor_tree *>
+struct tree_descriptor_hasher : ggc_ptr_hash<constant_descriptor_tree>
 {
   static hashval_t hash (constant_descriptor_tree *);
   static bool equal (constant_descriptor_tree *, constant_descriptor_tree *);
@@ -3044,29 +3008,6 @@ varpool_node::call_for_symbol_and_aliases (bool (*callback) (varpool_node *,
   if (has_aliases_p ())
     return call_for_symbol_and_aliases_1 (callback, data, include_overwritable);
   return false;
-}
-
-/* Return true if NODE's address can be compared.  */
-
-inline bool
-symtab_node::address_can_be_compared_p ()
-{
-  /* Address of virtual tables and functions is never compared.  */
-  if (DECL_VIRTUAL_P (decl))
-    return false;
-  /* Address of C++ cdtors is never compared.  */
-  if (is_a <cgraph_node *> (this)
-      && (DECL_CXX_CONSTRUCTOR_P (decl)
-	  || DECL_CXX_DESTRUCTOR_P (decl)))
-    return false;
-  /* Constant pool symbols addresses are never compared.
-     flag_merge_constants permits us to assume the same on readonly vars.  */
-  if (is_a <varpool_node *> (this)
-      && (DECL_IN_CONSTANT_POOL (decl)
-	  || (flag_merge_constants >= 2
-	      && TREE_READONLY (decl) && !TREE_THIS_VOLATILE (decl))))
-    return false;
-  return true;
 }
 
 /* Return true if refernece may be used in address compare.  */

@@ -20,18 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CFGLOOP_H
 #define GCC_CFGLOOP_H
 
-#include "double-int.h"
-#include "wide-int.h"
-#include "bitmap.h"
-#include "sbitmap.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "cfgloopmanip.h"
 
 /* Structure to hold decision about unrolling/peeling.  */
@@ -94,7 +82,7 @@ struct GTY ((for_user)) loop_exit {
   struct loop_exit *next_e;
 };
 
-struct loop_exit_hasher : ggc_hasher<loop_exit *>
+struct loop_exit_hasher : ggc_ptr_hash<loop_exit>
 {
   typedef edge compare_type;
 

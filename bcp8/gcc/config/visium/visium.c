@@ -21,37 +21,23 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "statistics.h"
-#include "vec.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
+#include "rtl.h"
+#include "df.h"
 #include "alias.h"
 #include "flags.h"
-#include "symtab.h"
-#include "tree-core.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "fold-const.h"
-#include "tree-check.h"
-#include "tree.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
-#include "rtl.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -61,24 +47,22 @@
 #include "recog.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
-#include "ggc.h"
 #include "optabs.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "langhooks.h"
 #include "reload.h"
 #include "tm-constrs.h"
-#include "df.h"
 #include "params.h"
 #include "errors.h"
 #include "tree-pass.h"
 #include "context.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Machine specific function data. */
 struct GTY (()) machine_function
@@ -203,7 +187,7 @@ static int visium_register_move_cost (enum machine_mode, reg_class_t,
 
 static int visium_memory_move_cost (enum machine_mode, reg_class_t, bool);
 
-static bool visium_rtx_costs (rtx, int, int, int, int *, bool);
+static bool visium_rtx_costs (rtx, machine_mode, int, int, int *, bool);
 
 static void visium_option_override (void);
 
@@ -1900,11 +1884,11 @@ visium_memory_move_cost (enum machine_mode mode,
 /* Return the relative costs of expression X.  */
 
 static bool
-visium_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
+visium_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
 		  int opno ATTRIBUTE_UNUSED, int *total,
 		  bool speed ATTRIBUTE_UNUSED)
 {
-  enum machine_mode mode = GET_MODE (x);
+  int code = GET_CODE (x);
 
   switch (code)
     {

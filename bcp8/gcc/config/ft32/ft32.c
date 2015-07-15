@@ -21,10 +21,12 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-flags.h"
@@ -34,40 +36,25 @@
 #include "recog.h"
 #include "reload.h"
 #include "diagnostic-core.h"
-#include "obstack.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "expr.h"
 #include "optabs.h"
 #include "except.h"
-#include "function.h"
-#include "ggc.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "builtins.h"
+#include "emit-rtl.h"
 
+/* This file should be included last.  */
+#include "target-def.h"
 
 #include <stdint.h>
 
@@ -207,7 +194,7 @@ ft32_print_operand (FILE * file, rtx x, int code)
       return;
 
     case 'm':
-      fprintf (file, "%d", -INTVAL(x));
+      fprintf (file, "%ld", (long) (- INTVAL(x)));
       return;
 
     case 'd':                   // a DW spec, from an integer alignment (for BLKmode insns)
@@ -463,6 +450,9 @@ ft32_expand_prologue (void)
   rtx insn;
 
   ft32_compute_frame ();
+
+  if (flag_stack_usage_info)
+    current_function_static_stack_size = cfun->machine->size_for_adjusting_sp;
 
   if (!must_link () && (cfun->machine->callee_saved_reg_size == 4))
     {
@@ -792,7 +782,7 @@ ft32_is_mem_pm (rtx o)
 
 /* Define this to return an RTX representing the place where a
    function returns or receives a value of data type RET_TYPE, a tree
-   node node representing a data type.  */
+   node representing a data type.  */
 #undef TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE ft32_function_value
 #undef TARGET_LIBCALL_VALUE

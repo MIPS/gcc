@@ -24,39 +24,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tm.h"
 #include "tree.h"
+#include "options.h"
+#include "tm.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "attribs.h"
-#include "hash-table.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "toplev.h"
 #include "target.h"
 #include "convert.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "dumpfile.h"
 #include "splay-tree.h"
 #include "gimplify.h"
-#include "wide-int.h"
 
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
@@ -1413,7 +1398,7 @@ check_tag (tree tag, tree id, tree *tp, abi_tag_data *p)
 		       p->t, tag, *tp))
 	    inform (location_of (*tp), "%qT declared here", *tp);
 	}
-      else if (TREE_CODE (p->t) == VAR_DECL)
+      else if (VAR_P (p->t))
 	{
 	  if (warning (OPT_Wabi_tag, "%qD inherits the %E ABI tag "
 		       "that %qT (used in its type) has", p->t, tag, *tp))
@@ -1602,7 +1587,7 @@ check_abi_tags (tree t, tree subob)
 void
 check_abi_tags (tree decl)
 {
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (VAR_P (decl))
     check_abi_tags (decl, TREE_TYPE (decl));
   else if (TREE_CODE (decl) == FUNCTION_DECL
 	   && !mangle_return_type_p (decl))
@@ -3054,7 +3039,7 @@ finish_struct_anon_r (tree field, bool complain)
 	{
 	  /* We already complained about static data members in
 	     finish_static_data_member_decl.  */
-	  if (complain && TREE_CODE (elt) != VAR_DECL)
+	  if (complain && !VAR_P (elt))
 	    {
 	      if (is_union)
 		permerror (input_location,
@@ -4294,6 +4279,25 @@ layout_nonempty_base_or_field (record_layout_info rli,
 				       ? CLASSTYPE_ALIGN (type)
 				       : TYPE_ALIGN (type)));
 	  normalize_rli (rli);
+	}
+      else if (TREE_CODE (type) == NULLPTR_TYPE
+	       && warn_abi && abi_version_crosses (9))
+	{
+	  /* Before ABI v9, we were giving nullptr_t alignment of 1; if
+	     the offset wasn't aligned like a pointer when we started to
+	     layout this field, that affects its position.  */
+	  tree pos = rli_size_unit_so_far (&old_rli);
+	  if (int_cst_value (pos) % TYPE_ALIGN_UNIT (ptr_type_node) != 0)
+	    {
+	      if (abi_version_at_least (9))
+		warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wabi,
+			    "alignment of %qD increased in -fabi-version=9 "
+			    "(GCC 5.2)", decl);
+	      else
+		warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wabi, "alignment "
+			    "of %qD will increase in -fabi-version=9", decl);
+	    }
+	  break;
 	}
       else
 	/* There was no conflict.  We're done laying out this field.  */
@@ -6834,6 +6838,7 @@ finish_struct (tree t, tree attributes)
   unreverse_member_declarations (t);
 
   cplus_decl_attributes (&t, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
+  fixup_attribute_variants (t);
 
   /* Nadger the current location so that diagnostics point to the start of
      the struct, not the end.  */
@@ -6928,7 +6933,7 @@ finish_struct (tree t, tree attributes)
 }
 
 /* Hash table to avoid endless recursion when handling references.  */
-static hash_table<pointer_hash<tree_node> > *fixed_type_or_null_ref_ht;
+static hash_table<nofree_ptr_hash<tree_node> > *fixed_type_or_null_ref_ht;
 
 /* Return the dynamic type of INSTANCE, if known.
    Used to determine whether the virtual function table is needed
@@ -7047,7 +7052,7 @@ fixed_type_or_null (tree instance, int *nonnull, int *cdtorp)
 	  /* We only need one hash table because it is always left empty.  */
 	  if (!fixed_type_or_null_ref_ht)
 	    fixed_type_or_null_ref_ht
-	      = new hash_table<pointer_hash<tree_node> > (37); 
+	      = new hash_table<nofree_ptr_hash<tree_node> > (37);
 
 	  /* Reference variables should be references to objects.  */
 	  if (nonnull)

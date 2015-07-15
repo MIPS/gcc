@@ -30,15 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -54,13 +46,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "c-family/c-pragma.h"
@@ -407,7 +394,7 @@ grok_array_decl (location_t loc, tree array_expr, tree index_exp,
 	 It is a little-known fact that, if `a' is an array and `i' is
 	 an int, you can write `i[a]', which means the same thing as
 	 `a[i]'.  */
-      if (TREE_CODE (type) == ARRAY_TYPE || TREE_CODE (type) == VECTOR_TYPE)
+      if (TREE_CODE (type) == ARRAY_TYPE || VECTOR_TYPE_P (type))
 	p1 = array_expr;
       else
 	p1 = build_expr_type_conversion (WANT_POINTER, array_expr, false);
@@ -1017,7 +1004,7 @@ grokfield (const cp_declarator *declarator,
     return value;
 
   /* Need to set this before push_template_decl.  */
-  if (TREE_CODE (value) == VAR_DECL)
+  if (VAR_P (value))
     DECL_CONTEXT (value) = current_class_type;
 
   if (processing_template_decl && VAR_OR_FUNCTION_DECL_P (value))
@@ -1175,6 +1162,10 @@ is_late_template_attribute (tree attr, tree decl)
      decls. */
   if (is_attribute_p ("unused", name))
     return false;
+
+  /* Attribute tls_model wants to modify the symtab.  */
+  if (is_attribute_p ("tls_model", name))
+    return true;
 
   /* #pragma omp declare simd attribute needs to be always deferred.  */
   if (flag_openmp
@@ -1429,7 +1420,7 @@ cp_omp_mappable_type (tree type)
     {
       tree field;
       for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-	if (TREE_CODE (field) == VAR_DECL)
+	if (VAR_P (field))
 	  return false;
 	/* All fields must have mappable types.  */
 	else if (TREE_CODE (field) == FIELD_DECL
@@ -1450,21 +1441,21 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 
   /* Add implicit "omp declare target" attribute if requested.  */
   if (scope_chain->omp_declare_target_attribute
-      && ((TREE_CODE (*decl) == VAR_DECL
+      && ((VAR_P (*decl)
 	   && (TREE_STATIC (*decl) || DECL_EXTERNAL (*decl)))
 	  || TREE_CODE (*decl) == FUNCTION_DECL))
     {
-      if (TREE_CODE (*decl) == VAR_DECL
+      if (VAR_P (*decl)
 	  && DECL_CLASS_SCOPE_P (*decl))
 	error ("%q+D static data member inside of declare target directive",
 	       *decl);
-      else if (TREE_CODE (*decl) == VAR_DECL
+      else if (VAR_P (*decl)
 	       && (DECL_FUNCTION_SCOPE_P (*decl)
 		   || (current_function_decl && !DECL_EXTERNAL (*decl))))
 	error ("%q+D in block scope inside of declare target directive",
 	       *decl);
       else if (!processing_template_decl
-	       && TREE_CODE (*decl) == VAR_DECL
+	       && VAR_P (*decl)
 	       && !cp_omp_mappable_type (TREE_TYPE (*decl)))
 	error ("%q+D in declare target directive does not have mappable type",
 	       *decl);
@@ -1992,7 +1983,7 @@ mark_needed (tree decl)
       FOR_EACH_CLONE (clone, decl)
 	mark_needed (clone);
     }
-  else if (TREE_CODE (decl) == VAR_DECL)
+  else if (VAR_P (decl))
     {
       varpool_node *node = varpool_node::get_create (decl);
       /* C++ frontend use mark_decl_references to force COMDAT variables
@@ -2191,8 +2182,7 @@ constrain_visibility (tree decl, int visibility, bool tmpl)
 	  DECL_WEAK (decl) = 0;
 	  DECL_COMMON (decl) = 0;
 	  DECL_COMDAT (decl) = false;
-	  if (TREE_CODE (decl) == FUNCTION_DECL
-	      || TREE_CODE (decl) == VAR_DECL)
+	  if (VAR_OR_FUNCTION_DECL_P (decl))
 	    {
 	      struct symtab_node *snode = symtab_node::get (decl);
 
@@ -2655,7 +2645,7 @@ reset_type_linkage_2 (tree type)
 	  reset_decl_linkage (ti);
 	}
       for (tree m = TYPE_FIELDS (type); m; m = DECL_CHAIN (m))
-	if (TREE_CODE (m) == VAR_DECL)
+	if (VAR_P (m))
 	  reset_decl_linkage (m);
       for (tree m = TYPE_METHODS (type); m; m = DECL_CHAIN (m))
 	{
@@ -2713,7 +2703,7 @@ tentative_decl_linkage (tree decl)
 	      DECL_INTERFACE_KNOWN (decl) = 1;
 	    }
 	}
-      else if (TREE_CODE (decl) == VAR_DECL)
+      else if (VAR_P (decl))
 	maybe_commonize_var (decl);
     }
 }
@@ -3018,6 +3008,7 @@ get_guard (tree decl)
       TREE_STATIC (guard) = TREE_STATIC (decl);
       DECL_COMMON (guard) = DECL_COMMON (decl);
       DECL_COMDAT (guard) = DECL_COMDAT (decl);
+      CP_DECL_THREAD_LOCAL_P (guard) = CP_DECL_THREAD_LOCAL_P (decl);
       set_decl_tls_model (guard, DECL_TLS_MODEL (decl));
       if (DECL_ONE_ONLY (decl))
 	make_decl_one_only (guard, cxx_comdat_group (guard));
@@ -3032,6 +3023,27 @@ get_guard (tree decl)
       pushdecl_top_level_and_finish (guard, NULL_TREE);
     }
   return guard;
+}
+
+/* Return an atomic load of src with the appropriate memory model.  */
+
+static tree
+build_atomic_load_byte (tree src, HOST_WIDE_INT model)
+{
+  tree ptr_type = build_pointer_type (char_type_node);
+  tree mem_model = build_int_cst (integer_type_node, model);
+  tree t, addr, val;
+  unsigned int size;
+  int fncode;
+
+  size = tree_to_uhwi (TYPE_SIZE_UNIT (char_type_node));
+
+  fncode = BUILT_IN_ATOMIC_LOAD_N + exact_log2 (size) + 1;
+  t = builtin_decl_implicit ((enum built_in_function) fncode);
+
+  addr = build1 (ADDR_EXPR, ptr_type, src);
+  val = build_call_expr (t, 2, addr, mem_model);
+  return val;
 }
 
 /* Return those bits of the GUARD variable that should be set when the
@@ -3060,12 +3072,14 @@ get_guard_bits (tree guard)
    variable has already been initialized.  */
 
 tree
-get_guard_cond (tree guard)
+get_guard_cond (tree guard, bool thread_safe)
 {
   tree guard_value;
 
-  /* Check to see if the GUARD is zero.  */
-  guard = get_guard_bits (guard);
+  if (!thread_safe)
+    guard = get_guard_bits (guard);
+  else
+    guard = build_atomic_load_byte (guard, MEMMODEL_ACQUIRE);
 
   /* Mask off all but the low bit.  */
   if (targetm.cxx.guard_mask_bit ())
@@ -3133,7 +3147,7 @@ static bool
 var_needs_tls_wrapper (tree var)
 {
   return (!error_operand_p (var)
-	  && DECL_THREAD_LOCAL_P (var)
+	  && CP_DECL_THREAD_LOCAL_P (var)
 	  && !DECL_GNU_TLS_P (var)
 	  && !DECL_FUNCTION_SCOPE_P (var)
 	  && !var_defined_without_dynamic_init (var));
@@ -3681,7 +3695,7 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
 	  /* When using __cxa_atexit, we never try to destroy
 	     anything from a static destructor.  */
 	  gcc_assert (initp);
-	  guard_cond = get_guard_cond (guard);
+	  guard_cond = get_guard_cond (guard, false);
 	}
       /* If we don't have __cxa_atexit, then we will be running
 	 destructors from .fini sections, or their equivalents.  So,
@@ -4044,6 +4058,16 @@ cpp_check (tree t, cpp_operation op)
 {
   switch (op)
     {
+      case HAS_DEPENDENT_TEMPLATE_ARGS:
+	{
+	  tree ti = CLASSTYPE_TEMPLATE_INFO (t);
+	  if (!ti)
+	    return 0;
+	  ++processing_template_decl;
+	  const bool dep = any_dependent_template_arguments_p (TI_ARGS (ti));
+	  --processing_template_decl;
+	  return dep;
+	}
       case IS_ABSTRACT:
 	return DECL_PURE_VIRTUAL_P (t);
       case IS_CONSTRUCTOR:
@@ -4052,6 +4076,8 @@ cpp_check (tree t, cpp_operation op)
 	return DECL_DESTRUCTOR_P (t);
       case IS_COPY_CONSTRUCTOR:
 	return DECL_COPY_CONSTRUCTOR_P (t);
+      case IS_MOVE_CONSTRUCTOR:
+	return DECL_MOVE_CONSTRUCTOR_P (t);
       case IS_TEMPLATE:
 	return TREE_CODE (t) == TEMPLATE_DECL;
       case IS_TRIVIAL:
@@ -4187,7 +4213,7 @@ no_linkage_error (tree decl)
 		       "anonymous type, is used but never defined", decl);
       else if (DECL_EXTERN_C_P (decl))
 	/* Allow this; it's pretty common in C.  */;
-      else if (TREE_CODE (decl) == VAR_DECL)
+      else if (VAR_P (decl))
 	/* DRs 132, 319 and 389 seem to indicate types with
 	   no linkage can only be used to declare extern "C"
 	   entities.  Since it's not always an error in the
@@ -4205,9 +4231,13 @@ no_linkage_error (tree decl)
 		TYPE_NAME (t));
     }
   else if (cxx_dialect >= cxx11)
-    permerror (DECL_SOURCE_LOCATION (decl), "%q#D, declared using local type "
-	       "%qT, is used but never defined", decl, t);
-  else if (TREE_CODE (decl) == VAR_DECL)
+    {
+      if (VAR_P (decl) || !DECL_PURE_VIRTUAL_P (decl))
+	permerror (DECL_SOURCE_LOCATION (decl),
+		   "%q#D, declared using local type "
+		   "%qT, is used but never defined", decl, t);
+    }
+  else if (VAR_P (decl))
     warning_at (DECL_SOURCE_LOCATION (decl), 0, "type %qT with no linkage "
 		"used to declare variable %q#D with linkage", t, decl);
   else
@@ -4254,6 +4284,7 @@ handle_tls_init (void)
   DECL_ARTIFICIAL (guard) = true;
   DECL_IGNORED_P (guard) = true;
   TREE_USED (guard) = true;
+  CP_DECL_THREAD_LOCAL_P (guard) = true;
   set_decl_tls_model (guard, decl_default_tls_model (guard));
   pushdecl_top_level_and_finish (guard, NULL_TREE);
 
@@ -4369,6 +4400,8 @@ dump_tu (void)
     }
 }
 
+static location_t locus_at_end_of_parsing;
+
 /* Check the deallocation functions for CODE to see if we want to warn that
    only one was defined.  */
 
@@ -4416,17 +4449,16 @@ maybe_warn_sized_delete ()
    first, since that way we only need to reverse the decls once.  */
 
 void
-cp_write_global_declarations (void)
+c_parse_final_cleanups (void)
 {
   tree vars;
   bool reconsider;
   size_t i;
-  location_t locus;
   unsigned ssdf_count = 0;
   int retries = 0;
   tree decl;
 
-  locus = input_location;
+  locus_at_end_of_parsing = input_location;
   at_eof = 1;
 
   /* Bad parse errors.  Just forget about it.  */
@@ -4443,6 +4475,9 @@ cp_write_global_declarations (void)
       return;
     }
 
+  timevar_stop (TV_PHASE_PARSING);
+  timevar_start (TV_PHASE_DEFERRED);
+
   symtab->process_same_body_aliases ();
 
   /* Handle -fdump-ada-spec[-slim] */
@@ -4457,8 +4492,6 @@ cp_write_global_declarations (void)
     }
 
   /* FIXME - huh?  was  input_line -= 1;*/
-
-  timevar_start (TV_PHASE_DEFERRED);
 
   /* We now have to write out all the stuff we put off writing out.
      These include:
@@ -4555,7 +4588,7 @@ cp_write_global_declarations (void)
 
 	  /* Set the line and file, so that it is obviously not from
 	     the source file.  */
-	  input_location = locus;
+	  input_location = locus_at_end_of_parsing;
 	  ssdf_body = start_static_storage_duration_function (ssdf_count);
 
 	  /* Make sure the back end knows about all the variables.  */
@@ -4581,7 +4614,7 @@ cp_write_global_declarations (void)
 
 	  /* Finish up the static storage duration function for this
 	     round.  */
-	  input_location = locus;
+	  input_location = locus_at_end_of_parsing;
 	  finish_static_storage_duration_function (ssdf_body);
 
 	  /* All those initializations and finalizations might cause
@@ -4589,7 +4622,7 @@ cp_write_global_declarations (void)
 	     instantiations, etc.  */
 	  reconsider = true;
 	  ssdf_count++;
-	  /* ??? was:  locus.line++; */
+	  /* ??? was:  locus_at_end_of_parsing.line++; */
 	}
 
       /* Now do the same for thread_local variables.  */
@@ -4732,7 +4765,7 @@ cp_write_global_declarations (void)
 				(template_for_substitution (decl)))))
 	{
 	  warning (0, "inline function %q+D used but never defined", decl);
-	  /* Avoid a duplicate warning from check_global_declaration_1.  */
+	  /* Avoid a duplicate warning from check_global_declaration.  */
 	  TREE_NO_WARNING (decl) = 1;
 	}
     }
@@ -4759,12 +4792,13 @@ cp_write_global_declarations (void)
   if (priority_info_map)
     splay_tree_foreach (priority_info_map,
 			generate_ctor_and_dtor_functions_for_priority,
-			/*data=*/&locus);
+			/*data=*/&locus_at_end_of_parsing);
   else if (c_dialect_objc () && objc_static_init_needed_p ())
     /* If this is obj-c++ and we need a static init, call
        generate_ctor_or_dtor_function.  */
     generate_ctor_or_dtor_function (/*constructor_p=*/true,
-				    DEFAULT_INIT_PRIORITY, &locus);
+				    DEFAULT_INIT_PRIORITY,
+				    &locus_at_end_of_parsing);
 
   /* We're done with the splay-tree now.  */
   if (priority_info_map)
@@ -4780,40 +4814,11 @@ cp_write_global_declarations (void)
   /* Generate Java hidden aliases.  */
   build_java_method_aliases ();
 
-  timevar_stop (TV_PHASE_DEFERRED);
-  timevar_start (TV_PHASE_OPT_GEN);
-
   if (flag_vtable_verify)
     {
       vtv_recover_class_info ();
       vtv_compute_class_hierarchy_transitive_closure ();
       vtv_build_vtable_verify_fndecl ();
-    }
-
-  symtab->finalize_compilation_unit ();
-
-  if (flag_vtable_verify)
-    {
-      /* Generate the special constructor initialization function that
-         calls __VLTRegisterPairs, and give it a very high
-         initialization priority.  This must be done after
-         finalize_compilation_unit so that we have accurate
-         information about which vtable will actually be emitted.  */
-      vtv_generate_init_routine ();
-    }
-
-  timevar_stop (TV_PHASE_OPT_GEN);
-  timevar_start (TV_PHASE_CHECK_DBGINFO);
-
-  /* Now, issue warnings about static, but not defined, functions,
-     etc., and emit debugging information.  */
-  walk_namespaces (wrapup_globals_for_namespace, /*data=*/&reconsider);
-  if (vec_safe_length (pending_statics) != 0)
-    {
-      check_global_declarations (pending_statics->address (),
-				 pending_statics->length ());
-      emit_debug_global_declarations (pending_statics->address (),
-				      pending_statics->length ());
     }
 
   perform_deferred_noexcept_checks ();
@@ -4829,13 +4834,37 @@ cp_write_global_declarations (void)
       dump_tree_statistics ();
       dump_time_statistics ();
     }
-  input_location = locus;
+
+  timevar_stop (TV_PHASE_DEFERRED);
+  timevar_start (TV_PHASE_PARSING);
+}
+
+/* Perform any post compilation-proper cleanups for the C++ front-end.
+   This should really go away.  No front-end should need to do
+   anything past the compilation process.  */
+
+void
+cxx_post_compilation_parsing_cleanups (void)
+{
+  timevar_start (TV_PHASE_LATE_PARSING_CLEANUPS);
+
+  if (flag_vtable_verify)
+    {
+      /* Generate the special constructor initialization function that
+         calls __VLTRegisterPairs, and give it a very high
+         initialization priority.  This must be done after
+         finalize_compilation_unit so that we have accurate
+         information about which vtable will actually be emitted.  */
+      vtv_generate_init_routine ();
+    }
+
+  input_location = locus_at_end_of_parsing;
 
 #ifdef ENABLE_CHECKING
   validate_conversion_obstack ();
 #endif /* ENABLE_CHECKING */
 
-  timevar_stop (TV_PHASE_CHECK_DBGINFO);
+  timevar_stop (TV_PHASE_LATE_PARSING_CLEANUPS);
 }
 
 /* FN is an OFFSET_REF, DOTSTAR_EXPR or MEMBER_REF indicating the

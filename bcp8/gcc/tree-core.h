@@ -20,6 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TREE_CORE_H
 #define GCC_TREE_CORE_H
 
+#include "symtab.h"
+
 /* This file contains all the data structures that define the 'tree' type.
    There are no accessor macros nor functions in this file. Only the
    basic data structures, extern declarations and type definitions.  */
@@ -1652,7 +1654,7 @@ struct GTY(()) tree_optimization_option {
   struct tree_common common;
 
   /* The optimization options used by the user.  */
-  struct cl_optimization opts;
+  struct cl_optimization *opts;
 
   /* Target optabs for this set of optimization options.  This is of
      type `struct target_optabs *'.  */
@@ -1676,7 +1678,7 @@ struct GTY(()) tree_target_option {
   struct target_globals *globals;
 
   /* The optimization options used by the user.  */
-  struct cl_target_option opts;
+  struct cl_target_option *opts;
 };
 
 /* Define the overall contents of a tree node.

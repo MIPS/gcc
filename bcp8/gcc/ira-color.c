@@ -21,35 +21,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "predict.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "target.h"
 #include "regs.h"
 #include "flags.h"
-#include "sbitmap.h"
-#include "bitmap.h"
-#include "hash-table.h"
-#include "hard-reg-set.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "symtab.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -62,7 +43,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "reload.h"
 #include "params.h"
-#include "df.h"
+#include "cfgloop.h"
+#include "ira.h"
+#include "alloc-pool.h"
 #include "ira-int.h"
 
 typedef struct allocno_hard_regs *allocno_hard_regs_t;
@@ -240,10 +223,8 @@ static vec<ira_allocno_t> allocno_stack_vec;
 /* Vector of unique allocno hard registers.  */
 static vec<allocno_hard_regs_t> allocno_hard_regs_vec;
 
-struct allocno_hard_regs_hasher : typed_noop_remove <allocno_hard_regs>
+struct allocno_hard_regs_hasher : nofree_ptr_hash <allocno_hard_regs>
 {
-  typedef allocno_hard_regs *value_type;
-  typedef allocno_hard_regs *compare_type;
   static inline hashval_t hash (const allocno_hard_regs *);
   static inline bool equal (const allocno_hard_regs *,
 			    const allocno_hard_regs *);
@@ -1745,15 +1726,22 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
 	  /* Reload can give another class so we need to check all
 	     allocnos.  */
 	  if (!retry_p
-	      && (!bitmap_bit_p (consideration_allocno_bitmap,
-				 ALLOCNO_NUM (conflict_a))
-		  || ((!ALLOCNO_ASSIGNED_P (conflict_a)
-		       || ALLOCNO_HARD_REGNO (conflict_a) < 0)
-		      && !(hard_reg_set_intersect_p
-			   (profitable_hard_regs,
-			    ALLOCNO_COLOR_DATA
-			    (conflict_a)->profitable_hard_regs)))))
-	    continue;
+	      && ((!ALLOCNO_ASSIGNED_P (conflict_a)
+		   || ALLOCNO_HARD_REGNO (conflict_a) < 0)
+		  && !(hard_reg_set_intersect_p
+		       (profitable_hard_regs,
+			ALLOCNO_COLOR_DATA
+			(conflict_a)->profitable_hard_regs))))
+	    {
+	      /* All conflict allocnos are in consideration bitmap
+		 when retry_p is false.  It might change in future and
+		 if it happens the assert will be broken.  It means
+		 the code should be modified for the new
+		 assumptions.  */
+	      ira_assert (bitmap_bit_p (consideration_allocno_bitmap,
+					ALLOCNO_NUM (conflict_a)));
+	      continue;
+	    }
 	  conflict_aclass = ALLOCNO_CLASS (conflict_a);
 	  ira_assert (ira_reg_classes_intersect_p
 		      [aclass][conflict_aclass]);

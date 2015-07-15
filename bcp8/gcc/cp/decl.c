@@ -30,15 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tree-hasher.h"
 #include "stringpool.h"
@@ -53,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "decl.h"
 #include "intl.h"
 #include "toplev.h"
-#include "hashtab.h"
 #include "tm_p.h"
 #include "target.h"
 #include "c-family/c-common.h"
@@ -67,16 +58,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "splay-tree.h"
 #include "plugin.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "cilk.h"
-#include "wide-int.h"
 #include "builtins.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
@@ -892,30 +877,19 @@ walk_namespaces (walk_namespaces_fn f, void* data)
   return walk_namespaces_r (global_namespace, f, data);
 }
 
-/* Call wrapup_globals_declarations for the globals in NAMESPACE.  If
-   DATA is non-NULL, this is the last time we will call
-   wrapup_global_declarations for this NAMESPACE.  */
+/* Call wrapup_globals_declarations for the globals in NAMESPACE.  */
 
 int
-wrapup_globals_for_namespace (tree name_space, void* data)
+wrapup_globals_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
 {
   cp_binding_level *level = NAMESPACE_LEVEL (name_space);
   vec<tree, va_gc> *statics = level->static_decls;
   tree *vec = statics->address ();
   int len = statics->length ();
-  int last_time = (data != 0);
-
-  if (last_time)
-    {
-      check_global_declarations (vec, len);
-      emit_debug_global_declarations (vec, len);
-      return 0;
-    }
 
   /* Write out any globals that need to be output.  */
   return wrapup_global_declarations (vec, len);
 }
-
 
 /* In C++, you don't have to write `struct S' to refer to `S'; you
    can just use `S'.  We accomplish this by creating a TYPE_DECL as
@@ -2129,6 +2103,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   TREE_STATIC (olddecl) = TREE_STATIC (newdecl) |= TREE_STATIC (olddecl);
   if (! DECL_EXTERNAL (olddecl))
     DECL_EXTERNAL (newdecl) = 0;
+  if (! DECL_COMDAT (olddecl))
+    DECL_COMDAT (newdecl) = 0;
 
   new_template_info = NULL_TREE;
   if (DECL_LANG_SPECIFIC (newdecl) && DECL_LANG_SPECIFIC (olddecl))
@@ -2499,14 +2475,15 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  {
             struct symtab_node *snode = NULL;
 
-            if (TREE_CODE (newdecl) == VAR_DECL
-		&& (TREE_STATIC (olddecl) || TREE_PUBLIC (olddecl) || DECL_EXTERNAL (olddecl)))
+	    if (VAR_P (newdecl)
+		&& (TREE_STATIC (olddecl) || TREE_PUBLIC (olddecl)
+		    || DECL_EXTERNAL (olddecl)))
 	      snode = symtab_node::get (olddecl);
 	    memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
 		    (char *) newdecl + sizeof (struct tree_decl_common),
 		    size - sizeof (struct tree_decl_common)
 		    + TREE_CODE_LENGTH (TREE_CODE (newdecl)) * sizeof (char *));
-            if (TREE_CODE (newdecl) == VAR_DECL)
+	    if (VAR_P (newdecl))
 	      olddecl->decl_with_vis.symtab_node = snode;
 	  }
 	  break;
@@ -2519,8 +2496,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	}
     }
 
-  if (TREE_CODE (newdecl) == FUNCTION_DECL
-      || TREE_CODE (newdecl) == VAR_DECL)
+  if (VAR_OR_FUNCTION_DECL_P (newdecl))
     {
       if (DECL_EXTERNAL (olddecl)
 	  || TREE_PUBLIC (olddecl)
@@ -2545,9 +2521,13 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 	}
 
-      if (TREE_CODE (newdecl) == VAR_DECL
-	  && DECL_THREAD_LOCAL_P (newdecl))
-	set_decl_tls_model (olddecl, DECL_TLS_MODEL (newdecl));
+      if (VAR_P (newdecl)
+	  && CP_DECL_THREAD_LOCAL_P (newdecl))
+	{
+	  CP_DECL_THREAD_LOCAL_P (olddecl) = true;
+	  if (!processing_template_decl)
+	    set_decl_tls_model (olddecl, DECL_TLS_MODEL (newdecl));
+	}
     }
 
   DECL_UID (olddecl) = olddecl_uid;
@@ -2582,8 +2562,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
      structure is shared in between newdecl and oldecl.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     DECL_STRUCT_FUNCTION (newdecl) = NULL;
-  if (TREE_CODE (newdecl) == FUNCTION_DECL
-      || TREE_CODE (newdecl) == VAR_DECL)
+  if (VAR_OR_FUNCTION_DECL_P (newdecl))
     {
       struct symtab_node *snode = symtab_node::get (newdecl);
       if (snode)
@@ -2726,14 +2705,14 @@ redeclaration_error_message (tree newdecl, tree olddecl)
       return NULL;
     }
   else if (VAR_P (newdecl)
-	   && DECL_THREAD_LOCAL_P (newdecl) != DECL_THREAD_LOCAL_P (olddecl)
+	   && CP_DECL_THREAD_LOCAL_P (newdecl) != CP_DECL_THREAD_LOCAL_P (olddecl)
 	   && (! DECL_LANG_SPECIFIC (olddecl)
 	       || ! CP_DECL_THREADPRIVATE_P (olddecl)
-	       || DECL_THREAD_LOCAL_P (newdecl)))
+	       || CP_DECL_THREAD_LOCAL_P (newdecl)))
     {
       /* Only variables can be thread-local, and all declarations must
 	 agree on this property.  */
-      if (DECL_THREAD_LOCAL_P (newdecl))
+      if (CP_DECL_THREAD_LOCAL_P (newdecl))
 	return G_("thread-local declaration of %q#D follows "
 	          "non-thread-local declaration");
       else
@@ -3232,6 +3211,9 @@ struct cp_switch
      label.  We need a tree, rather than simply a hash table, because
      of the GNU case range extension.  */
   splay_tree cases;
+  /* Remember whether there was a case value that is outside the
+     range of the original type of the controlling expression.  */
+  bool outside_range_p;
 };
 
 /* A stack of the currently active switch statements.  The innermost
@@ -3253,6 +3235,7 @@ push_switch (tree switch_stmt)
   p->next = switch_stack;
   p->switch_stmt = switch_stmt;
   p->cases = splay_tree_new (case_compare, NULL, NULL);
+  p->outside_range_p = false;
   switch_stack = p;
 }
 
@@ -3264,10 +3247,14 @@ pop_switch (void)
 
   /* Emit warnings as needed.  */
   switch_location = EXPR_LOC_OR_LOC (cs->switch_stmt, input_location);
+  const bool bool_cond_p
+    = (SWITCH_STMT_TYPE (cs->switch_stmt)
+       && TREE_CODE (SWITCH_STMT_TYPE (cs->switch_stmt)) == BOOLEAN_TYPE);
   if (!processing_template_decl)
     c_do_switch_warnings (cs->cases, switch_location,
 			  SWITCH_STMT_TYPE (cs->switch_stmt),
-			  SWITCH_STMT_COND (cs->switch_stmt));
+			  SWITCH_STMT_COND (cs->switch_stmt),
+			  bool_cond_p, cs->outside_range_p);
 
   splay_tree_delete (cs->cases);
   switch_stack = switch_stack->next;
@@ -3332,7 +3319,8 @@ finish_case_label (location_t loc, tree low_value, tree high_value)
   high_value = case_conversion (type, high_value);
 
   r = c_add_case_label (loc, switch_stack->cases, cond, type,
-			low_value, high_value);
+			low_value, high_value,
+			&switch_stack->outside_range_p);
 
   /* After labels, make any new cleanups in the function go into their
      own new (temporary) binding contour.  */
@@ -3352,7 +3340,7 @@ struct typename_info {
   bool class_p;
 };
 
-struct typename_hasher : ggc_hasher<tree>
+struct typename_hasher : ggc_ptr_hash<tree_node>
 {
   typedef typename_info *compare_type;
 
@@ -3851,6 +3839,8 @@ cxx_init_decl_processing (void)
   global_namespace = build_lang_decl (NAMESPACE_DECL, global_scope_name,
 				      void_type_node);
   DECL_CONTEXT (global_namespace) = build_translation_unit_decl (NULL_TREE);
+  debug_hooks->register_main_translation_unit
+    (DECL_CONTEXT (global_namespace));
   TREE_PUBLIC (global_namespace) = 1;
   begin_scope (sk_namespace, global_namespace);
 
@@ -4016,6 +4006,8 @@ cxx_init_decl_processing (void)
     TYPE_SIZE_UNIT (nullptr_type_node) = size_int (GET_MODE_SIZE (ptr_mode));
     TYPE_UNSIGNED (nullptr_type_node) = 1;
     TYPE_PRECISION (nullptr_type_node) = GET_MODE_BITSIZE (ptr_mode);
+    if (abi_version_at_least (9))
+      TYPE_ALIGN (nullptr_type_node) = GET_MODE_ALIGNMENT (ptr_mode);
     SET_TYPE_MODE (nullptr_type_node, ptr_mode);
     record_builtin_type (RID_MAX, "decltype(nullptr)", nullptr_type_node);
     nullptr_node = build_int_cst (nullptr_type_node, 0);
@@ -4849,7 +4841,7 @@ start_decl (const cp_declarator *declarator,
   /* Enter this declaration into the symbol table.  Don't push the plain
      VAR_DECL for a variable template.  */
   if (!template_parm_scope_p ()
-      || TREE_CODE (decl) != VAR_DECL)
+      || !VAR_P (decl))
     decl = maybe_push_decl (decl);
 
   if (processing_template_decl)
@@ -4872,7 +4864,7 @@ start_decl (const cp_declarator *declarator,
       && DECL_DECLARED_CONSTEXPR_P (current_function_decl))
     {
       bool ok = false;
-      if (DECL_THREAD_LOCAL_P (decl))
+      if (CP_DECL_THREAD_LOCAL_P (decl))
 	error ("%qD declared %<thread_local%> in %<constexpr%> function",
 	       decl);
       else if (TREE_STATIC (decl))
@@ -5414,7 +5406,7 @@ reshape_init_vector (tree type, reshape_iter *d, tsubst_flags_t complain)
 {
   tree max_index = NULL_TREE;
 
-  gcc_assert (TREE_CODE (type) == VECTOR_TYPE);
+  gcc_assert (VECTOR_TYPE_P (type));
 
   if (COMPOUND_LITERAL_P (d->cur->value))
     {
@@ -5431,7 +5423,7 @@ reshape_init_vector (tree type, reshape_iter *d, tsubst_flags_t complain)
     }
 
   /* For a vector, we initialize it as an array of the appropriate size.  */
-  if (TREE_CODE (type) == VECTOR_TYPE)
+  if (VECTOR_TYPE_P (type))
     max_index = size_int (TYPE_VECTOR_SUBPARTS (type) - 1);
 
   return reshape_init_array_1 (TREE_TYPE (type), max_index, d, complain);
@@ -5739,7 +5731,7 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p,
     return reshape_init_class (type, d, first_initializer_p, complain);
   else if (TREE_CODE (type) == ARRAY_TYPE)
     return reshape_init_array (type, d, complain);
-  else if (TREE_CODE (type) == VECTOR_TYPE)
+  else if (VECTOR_TYPE_P (type))
     return reshape_init_vector (type, d, complain);
   else
     gcc_unreachable();
@@ -5941,7 +5933,7 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 		       "not by %<{...}%>",
 		       decl);
 	    }
-	  else if (TREE_CODE (type) == VECTOR_TYPE && TYPE_VECTOR_OPAQUE (type))
+	  else if (VECTOR_TYPE_P (type) && TYPE_VECTOR_OPAQUE (type))
 	    {
 	      error ("opaque vector types cannot be initialized");
 	      init = error_mark_node;
@@ -7069,7 +7061,7 @@ register_dtor_fn (tree decl)
      function to do the cleanup.  */
   dso_parm = (flag_use_cxa_atexit
 	      && !targetm.cxx.use_atexit_for_cxa_atexit ());
-  ob_parm = (DECL_THREAD_LOCAL_P (decl) || dso_parm);
+  ob_parm = (CP_DECL_THREAD_LOCAL_P (decl) || dso_parm);
   use_dtor = ob_parm && CLASS_TYPE_P (type);
   if (use_dtor)
     {
@@ -7112,7 +7104,7 @@ register_dtor_fn (tree decl)
   mark_used (cleanup);
   cleanup = build_address (cleanup);
 
-  if (DECL_THREAD_LOCAL_P (decl))
+  if (CP_DECL_THREAD_LOCAL_P (decl))
     atex_node = get_thread_atexit_node ();
   else
     atex_node = get_atexit_node ();
@@ -7152,7 +7144,7 @@ register_dtor_fn (tree decl)
 
   if (ob_parm)
     {
-      if (!DECL_THREAD_LOCAL_P (decl)
+      if (!CP_DECL_THREAD_LOCAL_P (decl)
 	  && targetm.cxx.use_aeabi_atexit ())
 	{
 	  arg1 = cleanup;
@@ -7184,15 +7176,15 @@ expand_static_init (tree decl, tree init)
   gcc_assert (TREE_STATIC (decl));
 
   /* Some variables require no dynamic initialization.  */
-  if (!init
-      && TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
+  if (TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
     {
       /* Make sure the destructor is callable.  */
       cxx_maybe_build_cleanup (decl, tf_warning_or_error);
-      return;
+      if (!init)
+	return;
     }
 
-  if (DECL_THREAD_LOCAL_P (decl) && DECL_GNU_TLS_P (decl)
+  if (CP_DECL_THREAD_LOCAL_P (decl) && DECL_GNU_TLS_P (decl)
       && !DECL_FUNCTION_SCOPE_P (decl))
     {
       if (init)
@@ -7221,13 +7213,13 @@ expand_static_init (tree decl, tree init)
       tree flag, begin;
       /* We don't need thread-safety code for thread-local vars.  */
       bool thread_guard = (flag_threadsafe_statics
-			   && !DECL_THREAD_LOCAL_P (decl));
+			   && !CP_DECL_THREAD_LOCAL_P (decl));
 
       /* Emit code to perform this initialization but once.  This code
 	 looks like:
 
 	   static <type> guard;
-	   if (!guard.first_byte) {
+	   if (!__atomic_load (guard.first_byte)) {
 	     if (__cxa_guard_acquire (&guard)) {
 	       bool flag = false;
 	       try {
@@ -7257,16 +7249,11 @@ expand_static_init (tree decl, tree init)
       /* Create the guard variable.  */
       guard = get_guard (decl);
 
-      /* This optimization isn't safe on targets with relaxed memory
-	 consistency.  On such targets we force synchronization in
-	 __cxa_guard_acquire.  */
-      if (!targetm.relaxed_ordering || !thread_guard)
-	{
-	  /* Begin the conditional initialization.  */
-	  if_stmt = begin_if_stmt ();
-	  finish_if_stmt_cond (get_guard_cond (guard), if_stmt);
-	  then_clause = begin_compound_stmt (BCS_NO_SCOPE);
-	}
+      /* Begin the conditional initialization.  */
+      if_stmt = begin_if_stmt ();
+
+      finish_if_stmt_cond (get_guard_cond (guard, thread_guard), if_stmt);
+      then_clause = begin_compound_stmt (BCS_NO_SCOPE);
 
       if (thread_guard)
 	{
@@ -7335,14 +7322,11 @@ expand_static_init (tree decl, tree init)
 	  finish_if_stmt (inner_if_stmt);
 	}
 
-      if (!targetm.relaxed_ordering || !thread_guard)
-	{
-	  finish_compound_stmt (then_clause);
-	  finish_then_clause (if_stmt);
-	  finish_if_stmt (if_stmt);
-	}
+      finish_compound_stmt (then_clause);
+      finish_then_clause (if_stmt);
+      finish_if_stmt (if_stmt);
     }
-  else if (DECL_THREAD_LOCAL_P (decl))
+  else if (CP_DECL_THREAD_LOCAL_P (decl))
     tls_aggregates = tree_cons (init, decl, tls_aggregates);
   else
     static_aggregates = tree_cons (init, decl, static_aggregates);
@@ -7759,15 +7743,12 @@ grokfndecl (tree ctype,
 	    }
 
 	  if (inlinep & 1)
-	    error ("%<inline%> is not allowed in declaration of friend "
-		   "template specialization %qD",
-		   decl);
-	  if (inlinep & 2)
-	    error ("%<constexpr%> is not allowed in declaration of friend "
-		   "template specialization %qD",
-		   decl);
-	  if (inlinep)
-	    return NULL_TREE;
+	    {
+	      error ("%<inline%> is not allowed in declaration of friend "
+		     "template specialization %qD",
+		     decl);
+	      return NULL_TREE;
+	    }
 	}
     }
 
@@ -7823,7 +7804,7 @@ grokfndecl (tree ctype,
 
   /* Members of anonymous types and local classes have no linkage; make
      them internal.  If a typedef is made later, this will be changed.  */
-  if (ctype && (TYPE_ANONYMOUS_P (ctype)
+  if (ctype && (!TREE_PUBLIC (TYPE_MAIN_DECL (ctype))
 		|| decl_function_context (TYPE_MAIN_DECL (ctype))))
     publicp = 0;
 
@@ -7929,7 +7910,7 @@ grokfndecl (tree ctype,
   if (TYPE_NOTHROW_P (type) || nothrow_libfn_p (decl))
     TREE_NOTHROW (decl) = 1;
 
-  if (flag_openmp || flag_cilkplus)
+  if (flag_openmp || flag_openmp_simd || flag_cilkplus)
     {
       /* Adjust "omp declare simd" attributes.  */
       tree ods = lookup_attribute ("omp declare simd", *attrlist);
@@ -8206,9 +8187,13 @@ grokvardecl (tree type,
   if (decl_spec_seq_has_spec_p (declspecs, ds_thread))
     {
       if (DECL_EXTERNAL (decl) || TREE_STATIC (decl))
-        set_decl_tls_model (decl, decl_default_tls_model (decl));
+	{
+	  CP_DECL_THREAD_LOCAL_P (decl) = true;
+	  if (!processing_template_decl)
+	    set_decl_tls_model (decl, decl_default_tls_model (decl));
+	}
       if (declspecs->gnu_thread_keyword_p)
-	DECL_GNU_TLS_P (decl) = true;
+	SET_DECL_GNU_TLS_P (decl);
     }
 
   /* If the type of the decl has no linkage, make sure that we'll
@@ -8253,13 +8238,6 @@ build_ptrmemfunc_type (tree type)
   if (type == error_mark_node)
     return type;
 
-  /* If a canonical type already exists for this type, use it.  We use
-     this method instead of type_hash_canon, because it only does a
-     simple equality check on the list of field members.  */
-
-  if ((t = TYPE_GET_PTRMEMFUNC_TYPE (type)))
-    return t;
-
   /* Make sure that we always have the unqualified pointer-to-member
      type first.  */
   if (cp_cv_quals quals = cp_type_quals (type))
@@ -8267,6 +8245,13 @@ build_ptrmemfunc_type (tree type)
       tree unqual = build_ptrmemfunc_type (TYPE_MAIN_VARIANT (type));
       return cp_build_qualified_type (unqual, quals);
     }
+
+  /* If a canonical type already exists for this type, use it.  We use
+     this method instead of type_hash_canon, because it only does a
+     simple equality check on the list of field members.  */
+
+  if ((t = TYPE_GET_PTRMEMFUNC_TYPE (type)))
+    return t;
 
   t = make_node (RECORD_TYPE);
 
@@ -9558,7 +9543,8 @@ grokdeclarator (const cp_declarator *declarator,
   if (virtualp
       && (current_class_name == NULL_TREE || decl_context != FIELD))
     {
-      error ("%<virtual%> outside class declaration");
+      error_at (declspecs->locations[ds_virtual],
+		"%<virtual%> outside class declaration");
       virtualp = 0;
     }
 
@@ -10418,7 +10404,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  /* Replace the anonymous name with the real name everywhere.  */
 	  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
 	    {
-	      if (ANON_AGGRNAME_P (TYPE_IDENTIFIER (t)))
+	      if (anon_aggrname_p (TYPE_IDENTIFIER (t)))
 		/* We do not rename the debug info representing the
 		   anonymous tagged type because the standard says in
 		   [dcl.typedef] that the naming applies only for
@@ -10505,19 +10491,11 @@ grokdeclarator (const cp_declarator *declarator,
 
   if (decl_context == TYPENAME)
     {
-      /* Note that the grammar rejects storage classes
-	 in typenames, fields or parameters.  */
-      if (type_quals != TYPE_UNQUALIFIED)
-	type_quals = TYPE_UNQUALIFIED;
+      /* Note that here we don't care about type_quals.  */
 
       /* Special case: "friend class foo" looks like a TYPENAME context.  */
       if (friendp)
 	{
-	  if (type_quals != TYPE_UNQUALIFIED)
-	    {
-	      error ("type qualifiers specified for friend class declaration");
-	      type_quals = TYPE_UNQUALIFIED;
-	    }
 	  if (inlinep)
 	    {
 	      error ("%<inline%> specified for friend class declaration");
@@ -10888,9 +10866,11 @@ grokdeclarator (const cp_declarator *declarator,
 
 		if (thread_p)
 		  {
-		    set_decl_tls_model (decl, decl_default_tls_model (decl));
+		    CP_DECL_THREAD_LOCAL_P (decl) = true;
+		    if (!processing_template_decl)
+		      set_decl_tls_model (decl, decl_default_tls_model (decl));
 		    if (declspecs->gnu_thread_keyword_p)
-		      DECL_GNU_TLS_P (decl) = true;
+		      SET_DECL_GNU_TLS_P (decl);
 		  }
 
 		if (constexpr_p && !initialized)
@@ -12319,7 +12299,7 @@ xref_tag_1 (enum tag_types tag_code, tree name,
 
   /* In case of anonymous name, xref_tag is only called to
      make type node and push name.  Name lookup is not required.  */
-  if (ANON_AGGRNAME_P (name))
+  if (anon_aggrname_p (name))
     t = NULL_TREE;
   else
     t = lookup_and_check_tag  (tag_code, name,
@@ -14350,6 +14330,12 @@ finish_function (int flags)
   /* Complain about locally defined typedefs that are not used in this
      function.  */
   maybe_warn_unused_local_typedefs ();
+
+  /* Possibly warn about unused parameters.  */
+  if (warn_unused_parameter
+      && !processing_template_decl 
+      && !DECL_CLONED_FUNCTION_P (fndecl))
+    do_warn_unused_parameter (fndecl);
 
   /* Genericize before inlining.  */
   if (!processing_template_decl)

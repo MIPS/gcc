@@ -73,17 +73,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "parse.h" /* FIXME */
 #include "constructor.h"
 #include "cpp.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "options.h"
 #include "stringpool.h"
 #include "scanner.h"
 #include <zlib.h>
@@ -719,6 +711,67 @@ syntax:
 cleanup:
   free_rename (use_list->rename);
   free (use_list);
+  return MATCH_ERROR;
+}
+
+
+/* Match a SUBMODULE statement.  */
+
+match
+gfc_match_submodule (void)
+{
+  match m;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  gfc_use_list *use_list;
+
+  if (!gfc_notify_std (GFC_STD_F2008, "SUBMODULE declaration at %C"))
+    return MATCH_ERROR;
+
+  gfc_new_block = NULL;
+  gcc_assert (module_list == NULL);
+
+  if (gfc_match_char ('(') != MATCH_YES)
+    goto syntax;
+
+  while (1)
+    {
+      m = gfc_match (" %n", name);
+      if (m != MATCH_YES)
+	goto syntax;
+
+      use_list = gfc_get_use_list ();
+      use_list->module_name = gfc_get_string (name);
+      use_list->where = gfc_current_locus;
+
+      if (module_list)
+	{
+	  gfc_use_list *last = module_list;
+	  while (last->next)
+	    last = last->next;
+	  last->next = use_list;
+	}
+      else
+	module_list = use_list;
+
+      if (gfc_match_char (')') == MATCH_YES)
+	break;
+
+      if (gfc_match_char (':') != MATCH_YES)
+	goto syntax;
+    }
+
+  m = gfc_match (" %s%t", &gfc_new_block);
+  if (m != MATCH_YES)
+    goto syntax;
+
+  if (!gfc_add_flavor (&gfc_new_block->attr, FL_MODULE,
+		       gfc_new_block->name, NULL))
+    return MATCH_ERROR;
+
+  return MATCH_YES;
+
+syntax:
+  gfc_error ("Syntax error in SUBMODULE statement at %C");
   return MATCH_ERROR;
 }
 
@@ -1894,7 +1947,7 @@ typedef enum
   AB_IS_CLASS, AB_PROCEDURE, AB_PROC_POINTER, AB_ASYNCHRONOUS, AB_CODIMENSION,
   AB_COARRAY_COMP, AB_VTYPE, AB_VTAB, AB_CONTIGUOUS, AB_CLASS_POINTER,
   AB_IMPLICIT_PURE, AB_ARTIFICIAL, AB_UNLIMITED_POLY, AB_OMP_DECLARE_TARGET,
-  AB_ARRAY_OUTER_DEPENDENCY
+  AB_ARRAY_OUTER_DEPENDENCY, AB_MODULE_PROCEDURE
 }
 ab_attribute;
 
@@ -1951,6 +2004,7 @@ static const mstring attr_bits[] =
     minit ("UNLIMITED_POLY", AB_UNLIMITED_POLY),
     minit ("OMP_DECLARE_TARGET", AB_OMP_DECLARE_TARGET),
     minit ("ARRAY_OUTER_DEPENDENCY", AB_ARRAY_OUTER_DEPENDENCY),
+    minit ("MODULE_PROCEDURE", AB_MODULE_PROCEDURE),
     minit (NULL, -1)
 };
 
@@ -2133,6 +2187,8 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_OMP_DECLARE_TARGET, attr_bits);
       if (attr->array_outer_dependency)
 	MIO_NAME (ab_attribute) (AB_ARRAY_OUTER_DEPENDENCY, attr_bits);
+      if (attr->module_procedure)
+	MIO_NAME (ab_attribute) (AB_MODULE_PROCEDURE, attr_bits);
 
       mio_rparen ();
 
@@ -2301,6 +2357,9 @@ mio_symbol_attribute (symbol_attribute *attr)
 	      break;
 	    case AB_ARRAY_OUTER_DEPENDENCY:
 	      attr->array_outer_dependency =1;
+	      break;
+	    case AB_MODULE_PROCEDURE:
+	      attr->module_procedure =1;
 	      break;
 	    }
 	}
@@ -4479,8 +4538,8 @@ load_commons (void)
 static void
 load_equiv (void)
 {
-  gfc_equiv *head, *tail, *end, *eq;
-  bool unused;
+  gfc_equiv *head, *tail, *end, *eq, *equiv;
+  bool duplicate;
 
   mio_lparen ();
   in_load_equiv = true;
@@ -4507,23 +4566,19 @@ load_equiv (void)
 	mio_expr (&tail->expr);
       }
 
-    /* Unused equivalence members have a unique name.  In addition, it
-       must be checked that the symbols are from the same module.  */
-    unused = true;
-    for (eq = head; eq; eq = eq->eq)
+    /* Check for duplicate equivalences being loaded from different modules */
+    duplicate = false;
+    for (equiv = gfc_current_ns->equiv; equiv; equiv = equiv->next)
       {
-	if (eq->expr->symtree->n.sym->module
-	      && head->expr->symtree->n.sym->module
-	      && strcmp (head->expr->symtree->n.sym->module,
-			 eq->expr->symtree->n.sym->module) == 0
-	      && !check_unique_name (eq->expr->symtree->name))
+	if (equiv->module && head->module
+	    && strcmp (equiv->module, head->module) == 0)
 	  {
-	    unused = false;
+	    duplicate = true;
 	    break;
 	  }
       }
 
-    if (unused)
+    if (duplicate)
       {
 	for (eq = head; eq; eq = head)
 	  {
@@ -6768,8 +6823,10 @@ gfc_use_module (gfc_use_list *module)
 
   /* Make sure we're not reading the same module that we may be building.  */
   for (p = gfc_state_stack; p; p = p->previous)
-    if (p->state == COMP_MODULE && strcmp (p->sym->name, module_name) == 0)
-      gfc_fatal_error ("Can't USE the same module we're building!");
+    if ((p->state == COMP_MODULE || p->state == COMP_SUBMODULE)
+	 && strcmp (p->sym->name, module_name) == 0)
+      gfc_fatal_error ("Can't USE the same %smodule we're building!",
+		       p->state == COMP_SUBMODULE ? "sub" : "");
 
   init_pi_tree ();
   init_true_name_tree ();

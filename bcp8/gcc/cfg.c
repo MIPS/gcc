@@ -49,35 +49,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "obstack.h"
-#include "ggc.h"
-#include "hash-table.h"
+#include "backend.h"
 #include "alloc-pool.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
-#include "basic-block.h"
 #include "df.h"
+#include "options.h"
+#include "cfganal.h"
 #include "cfgloop.h" /* FIXME: For struct loop.  */
 #include "dumpfile.h"
 
@@ -1037,10 +1017,8 @@ struct htab_bb_copy_original_entry
   int index2;
 };
 
-struct bb_copy_hasher : typed_noop_remove <htab_bb_copy_original_entry>
+struct bb_copy_hasher : nofree_ptr_hash <htab_bb_copy_original_entry>
 {
-  typedef htab_bb_copy_original_entry *value_type;
-  typedef htab_bb_copy_original_entry *compare_type;
   static inline hashval_t hash (const htab_bb_copy_original_entry *);
   static inline bool equal (const htab_bb_copy_original_entry *existing,
 			    const htab_bb_copy_original_entry * candidate);

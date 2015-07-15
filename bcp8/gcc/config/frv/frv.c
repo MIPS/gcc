@@ -20,24 +20,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "regs.h"
-#include "hard-reg-set.h"
-#include "rtl.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-flags.h"
@@ -46,11 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "recog.h"
 #include "reload.h"
-#include "hashtab.h"
-#include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -58,31 +46,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "emit-rtl.h"
 #include "stmt.h"
 #include "expr.h"
-#include "obstack.h"
 #include "except.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "diagnostic-core.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
 #include "tm_p.h"
-#include "ggc.h"
 #include "target.h"
-#include "target-def.h"
 #include "targhooks.h"
 #include "langhooks.h"
-#include "df.h"
 #include "dumpfile.h"
 #include "builtins.h"
 #include "ifcvt.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 #ifndef FRV_INLINE
 #define FRV_INLINE inline
@@ -395,8 +378,8 @@ static void frv_setup_incoming_varargs		(cumulative_args_t,
 						 tree, int *, int);
 static rtx frv_expand_builtin_saveregs		(void);
 static void frv_expand_builtin_va_start		(tree, rtx);
-static bool frv_rtx_costs			(rtx, int, int, int, int*,
-						 bool);
+static bool frv_rtx_costs			(rtx, machine_mode, int, int,
+						 int*, bool);
 static int frv_register_move_cost		(machine_mode,
 						 reg_class_t, reg_class_t);
 static int frv_memory_move_cost			(machine_mode,
@@ -1208,7 +1191,7 @@ frv_stack_info (void)
 	}
     }
 
-  /* Set up the sizes of each each field in the frame body, making the sizes
+  /* Set up the sizes of each field in the frame body, making the sizes
      of each be divisible by the size of a dword if dword operations might
      be used, or the size of a word otherwise.  */
   alignment = (TARGET_DWORD? 2 * UNITS_PER_WORD : UNITS_PER_WORD);
@@ -9467,12 +9450,14 @@ frv_in_small_data_p (const_tree decl)
 
 static bool
 frv_rtx_costs (rtx x,
-               int code ATTRIBUTE_UNUSED,
-               int outer_code ATTRIBUTE_UNUSED,
+               machine_mode mode,
+               int outer_code,
 	       int opno ATTRIBUTE_UNUSED,
                int *total,
 	       bool speed ATTRIBUTE_UNUSED)
 {
+  int code = GET_CODE (x);
+
   if (outer_code == MEM)
     {
       /* Don't differentiate between memory addresses.  All the ones
@@ -9510,16 +9495,16 @@ frv_rtx_costs (rtx x,
     case NOT:
     case NEG:
     case COMPARE:
-      if (GET_MODE (x) == SImode)
+      if (mode == SImode)
 	*total = COSTS_N_INSNS (1);
-      else if (GET_MODE (x) == DImode)
+      else if (mode == DImode)
         *total = COSTS_N_INSNS (2);
       else
         *total = COSTS_N_INSNS (3);
       return true;
 
     case MULT:
-      if (GET_MODE (x) == SImode)
+      if (mode == SImode)
         *total = COSTS_N_INSNS (2);
       else
         *total = COSTS_N_INSNS (6);	/* guess */

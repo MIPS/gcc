@@ -79,17 +79,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "gfortran.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "options.h"
 #include "fold-const.h"
 #include "gimple-expr.h"
 #include "diagnostic-core.h"	/* For internal_error/fatal_error.  */
@@ -101,7 +93,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-array.h"
 #include "trans-const.h"
 #include "dependency.h"
-#include "wide-int.h"
 
 static bool gfc_get_array_constructor_size (mpz_t *, gfc_constructor_base);
 
@@ -5005,7 +4996,8 @@ static tree
 gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 		     gfc_expr ** lower, gfc_expr ** upper, stmtblock_t * pblock,
 		     stmtblock_t * descriptor_block, tree * overflow,
-		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3)
+		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3,
+		     tree expr3_desc, bool e3_is_array_constr)
 {
   tree type;
   tree tmp;
@@ -5048,7 +5040,18 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 
       /* Set lower bound.  */
       gfc_init_se (&se, NULL);
-      if (lower == NULL)
+      if (expr3_desc != NULL_TREE)
+	{
+	  if (e3_is_array_constr)
+	    /* The lbound of a constant array [] starts at zero, but when
+	       allocating it, the standard expects the array to start at
+	       one.  */
+	    se.expr = gfc_index_one_node;
+	  else
+	    se.expr = gfc_conv_descriptor_lbound_get (expr3_desc,
+						      gfc_rank_cst[n]);
+	}
+      else if (lower == NULL)
 	se.expr = gfc_index_one_node;
       else
 	{
@@ -5076,10 +5079,35 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 
       /* Set upper bound.  */
       gfc_init_se (&se, NULL);
-      gcc_assert (ubound);
-      gfc_conv_expr_type (&se, ubound, gfc_array_index_type);
-      gfc_add_block_to_block (pblock, &se.pre);
-
+      if (expr3_desc != NULL_TREE)
+	{
+	  if (e3_is_array_constr)
+	    {
+	      /* The lbound of a constant array [] starts at zero, but when
+	       allocating it, the standard expects the array to start at
+	       one.  Therefore fix the upper bound to be
+	       (desc.ubound - desc.lbound)+ 1.  */
+	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
+				     gfc_array_index_type,
+				     gfc_conv_descriptor_ubound_get (
+				       expr3_desc, gfc_rank_cst[n]),
+				     gfc_conv_descriptor_lbound_get (
+				       expr3_desc, gfc_rank_cst[n]));
+	      tmp = fold_build2_loc (input_location, PLUS_EXPR,
+				     gfc_array_index_type, tmp,
+				     gfc_index_one_node);
+	      se.expr = gfc_evaluate_now (tmp, pblock);
+	    }
+	  else
+	    se.expr = gfc_conv_descriptor_ubound_get (expr3_desc,
+						      gfc_rank_cst[n]);
+	}
+      else
+	{
+	  gcc_assert (ubound);
+	  gfc_conv_expr_type (&se, ubound, gfc_array_index_type);
+	  gfc_add_block_to_block (pblock, &se.pre);
+	}
       gfc_conv_descriptor_ubound_set (descriptor_block, descriptor,
 				      gfc_rank_cst[n], se.expr);
       conv_ubound = se.expr;
@@ -5249,6 +5277,33 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 }
 
 
+/* Retrieve the last ref from the chain.  This routine is specific to
+   gfc_array_allocate ()'s needs.  */
+
+bool
+retrieve_last_ref (gfc_ref **ref_in, gfc_ref **prev_ref_in)
+{
+  gfc_ref *ref, *prev_ref;
+
+  ref = *ref_in;
+  /* Prevent warnings for uninitialized variables.  */
+  prev_ref = *prev_ref_in;
+  while (ref && ref->next != NULL)
+    {
+      gcc_assert (ref->type != REF_ARRAY || ref->u.ar.type == AR_ELEMENT
+		  || (ref->u.ar.dimen == 0 && ref->u.ar.codimen > 0));
+      prev_ref = ref;
+      ref = ref->next;
+    }
+
+  if (ref == NULL || ref->type != REF_ARRAY)
+    return false;
+
+  *ref_in = ref;
+  *prev_ref_in = prev_ref;
+  return true;
+}
+
 /* Initializes the descriptor and generates a call to _gfor_allocate.  Does
    the work for an ALLOCATE statement.  */
 /*GCC ARRAYS*/
@@ -5256,7 +5311,8 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 bool
 gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 		    tree errlen, tree label_finish, tree expr3_elem_size,
-		    tree *nelems, gfc_expr *expr3)
+		    tree *nelems, gfc_expr *expr3, tree e3_arr_desc,
+		    bool e3_is_array_constr)
 {
   tree tmp;
   tree pointer;
@@ -5274,21 +5330,24 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   gfc_expr **lower;
   gfc_expr **upper;
   gfc_ref *ref, *prev_ref = NULL;
-  bool allocatable, coarray, dimension;
+  bool allocatable, coarray, dimension, alloc_w_e3_arr_spec = false;
 
   ref = expr->ref;
 
   /* Find the last reference in the chain.  */
-  while (ref && ref->next != NULL)
-    {
-      gcc_assert (ref->type != REF_ARRAY || ref->u.ar.type == AR_ELEMENT
-		  || (ref->u.ar.dimen == 0 && ref->u.ar.codimen > 0));
-      prev_ref = ref;
-      ref = ref->next;
-    }
-
-  if (ref == NULL || ref->type != REF_ARRAY)
+  if (!retrieve_last_ref (&ref, &prev_ref))
     return false;
+
+  if (ref->u.ar.type == AR_FULL && expr3 != NULL)
+    {
+      /* F08:C633: Array shape from expr3.  */
+      ref = expr3->ref;
+
+      /* Find the last reference in the chain.  */
+      if (!retrieve_last_ref (&ref, &prev_ref))
+	return false;
+      alloc_w_e3_arr_spec = true;
+    }
 
   if (!prev_ref)
     {
@@ -5324,7 +5383,8 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
       break;
 
     case AR_FULL:
-      gcc_assert (ref->u.ar.as->type == AS_EXPLICIT);
+      gcc_assert (ref->u.ar.as->type == AS_EXPLICIT
+		  || alloc_w_e3_arr_spec);
 
       lower = ref->u.ar.as->lower;
       upper = ref->u.ar.as->upper;
@@ -5338,10 +5398,12 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   overflow = integer_zero_node;
 
   gfc_init_block (&set_descriptor_block);
-  size = gfc_array_init_size (se->expr, ref->u.ar.as->rank,
+  size = gfc_array_init_size (se->expr, alloc_w_e3_arr_spec ? expr->rank
+							   : ref->u.ar.as->rank,
 			      ref->u.ar.as->corank, &offset, lower, upper,
 			      &se->pre, &set_descriptor_block, &overflow,
-			      expr3_elem_size, nelems, expr3);
+			      expr3_elem_size, nelems, expr3, e3_arr_desc,
+			      e3_is_array_constr);
 
   if (dimension)
     {
@@ -6849,9 +6911,10 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       tree from;
       tree to;
       tree base;
-      bool onebased = false;
+      bool onebased = false, rank_remap;
 
       ndim = info->ref ? info->ref->u.ar.dimen : ss->dimen;
+      rank_remap = ss->dimen < ndim;
 
       if (se->want_coarray)
 	{
@@ -6883,6 +6946,22 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       /* Set the string_length for a character array.  */
       if (expr->ts.type == BT_CHARACTER)
 	se->string_length =  gfc_get_expr_charlen (expr);
+
+      /* If we have an array section or are assigning make sure that
+	 the lower bound is 1.  References to the full
+	 array should otherwise keep the original bounds.  */
+      if ((!info->ref || info->ref->u.ar.type != AR_FULL) && !se->want_pointer)
+	for (dim = 0; dim < loop.dimen; dim++)
+	  if (!integer_onep (loop.from[dim]))
+	    {
+	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
+				     gfc_array_index_type, gfc_index_one_node,
+				     loop.from[dim]);
+	      loop.to[dim] = fold_build2_loc (input_location, PLUS_EXPR,
+					      gfc_array_index_type,
+					      loop.to[dim], tmp);
+	      loop.from[dim] = gfc_index_one_node;
+	    }
 
       desc = info->descriptor;
       if (se->direct_byref && !se->byref_noassign)
@@ -6977,20 +7056,6 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	  from = loop.from[dim];
 	  to = loop.to[dim];
 
-	  /* If we have an array section or are assigning make sure that
-	     the lower bound is 1.  References to the full
-	     array should otherwise keep the original bounds.  */
-	  if ((!info->ref
-	          || info->ref->u.ar.type != AR_FULL)
-	      && !integer_onep (from))
-	    {
-	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
-				     gfc_array_index_type, gfc_index_one_node,
-				     from);
-	      to = fold_build2_loc (input_location, PLUS_EXPR,
-				    gfc_array_index_type, to, tmp);
-	      from = gfc_index_one_node;
-	    }
 	  onebased = integer_onep (from);
 	  gfc_conv_descriptor_lbound_set (&loop.pre, parm,
 					  gfc_rank_cst[dim], from);
@@ -7016,7 +7081,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	    {
 	      tmp = gfc_conv_array_lbound (desc, n);
 	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
-				     TREE_TYPE (base), tmp, loop.from[dim]);
+				     TREE_TYPE (base), tmp, from);
 	      tmp = fold_build2_loc (input_location, MULT_EXPR,
 				     TREE_TYPE (base), tmp,
 				     gfc_conv_array_stride (desc, n));
@@ -7051,7 +7116,19 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       /* Force the offset to be -1, when the lower bound of the highest
 	 dimension is one and the symbol is present and is not a
 	 pointer/allocatable or associated.  */
-      if (onebased && se->use_offset
+      if (((se->direct_byref || GFC_ARRAY_TYPE_P (TREE_TYPE (desc)))
+	   && !se->data_not_needed)
+	  || (se->use_offset && base != NULL_TREE))
+	{
+	  /* Set the offset depending on base.  */
+	  tmp = rank_remap && !se->direct_byref ?
+		fold_build2_loc (input_location, PLUS_EXPR,
+				 gfc_array_index_type, base,
+				 offset)
+	      : base;
+	  gfc_conv_descriptor_offset_set (&loop.pre, parm, tmp);
+	}
+      else if (onebased && (!rank_remap || se->use_offset)
 	  && expr->symtree
 	  && !(expr->symtree->n.sym && expr->symtree->n.sym->ts.type == BT_CLASS
 	       && !CLASS_DATA (expr->symtree->n.sym)->attr.class_pointer)
@@ -7066,11 +7143,6 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	  tmp = gfc_conv_mpz_to_tree (minus_one, gfc_index_integer_kind);
 	  gfc_conv_descriptor_offset_set (&loop.pre, parm, tmp);
 	}
-      else if (((se->direct_byref || GFC_ARRAY_TYPE_P (TREE_TYPE (desc)))
-		&& !se->data_not_needed)
-	       || (se->use_offset && base != NULL_TREE))
-	/* Set the offset depending on base.  */
-	gfc_conv_descriptor_offset_set (&loop.pre, parm, base);
       else
 	{
 	  /* Only the callee knows what the correct offset it, so just set
@@ -7080,6 +7152,16 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       desc = parm;
     }
 
+  /* For class arrays add the class tree into the saved descriptor to
+     enable getting of _vptr and the like.  */
+  if (expr->expr_type == EXPR_VARIABLE && VAR_P (desc)
+      && IS_CLASS_ARRAY (expr->symtree->n.sym)
+      && DECL_LANG_SPECIFIC (expr->symtree->n.sym->backend_decl))
+    {
+      gfc_allocate_lang_decl (desc);
+      GFC_DECL_SAVED_DESCRIPTOR (desc) =
+	  GFC_DECL_SAVED_DESCRIPTOR (expr->symtree->n.sym->backend_decl);
+    }
   if (!se->direct_byref || se->byref_noassign)
     {
       /* Get a pointer to the new descriptor.  */

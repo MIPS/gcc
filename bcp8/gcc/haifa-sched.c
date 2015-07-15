@@ -125,29 +125,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "diagnostic-core.h"
-#include "hard-reg-set.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "rtl.h"
+#include "df.h"
+#include "diagnostic-core.h"
 #include "tm_p.h"
 #include "regs.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "except.h"
 #include "recog.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfgbuild.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "sched-int.h"
 #include "target.h"
 #include "common/common-target.h"
@@ -156,7 +147,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "ira.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
-#include "hash-table.h"
 #include "dumpfile.h"
 
 #ifdef INSN_SCHEDULING
@@ -619,9 +609,8 @@ struct delay_pair
 
 /* Helpers for delay hashing.  */
 
-struct delay_i1_hasher : typed_noop_remove <delay_pair>
+struct delay_i1_hasher : nofree_ptr_hash <delay_pair>
 {
-  typedef delay_pair *value_type;
   typedef void *compare_type;
   static inline hashval_t hash (const delay_pair *);
   static inline bool equal (const delay_pair *, const void *);
@@ -643,9 +632,8 @@ delay_i1_hasher::equal (const delay_pair *x, const void *y)
   return x->i1 == y;
 }
 
-struct delay_i2_hasher : typed_free_remove <delay_pair>
+struct delay_i2_hasher : free_ptr_hash <delay_pair>
 {
-  typedef delay_pair *value_type;
   typedef void *compare_type;
   static inline hashval_t hash (const delay_pair *);
   static inline bool equal (const delay_pair *, const void *);
@@ -8097,8 +8085,6 @@ init_before_recovery (basic_block *before_recovery_ptr)
          Between these two blocks recovery blocks will be emitted.  */
 
       basic_block single, empty;
-      rtx_insn *x;
-      rtx label;
 
       /* If the fallthrough edge to exit we've found is from the block we've
 	 created before, don't do anything more.  */
@@ -8129,8 +8115,9 @@ init_before_recovery (basic_block *before_recovery_ptr)
       make_single_succ_edge (empty, EXIT_BLOCK_PTR_FOR_FN (cfun),
 			     EDGE_FALLTHRU);
 
-      label = block_label (empty);
-      x = emit_jump_insn_after (gen_jump (label), BB_END (single));
+      rtx_code_label *label = block_label (empty);
+      rtx_jump_insn *x = emit_jump_insn_after (targetm.gen_jump (label),
+					       BB_END (single));
       JUMP_LABEL (x) = label;
       LABEL_NUSES (label)++;
       haifa_init_insn (x);
@@ -8161,7 +8148,6 @@ init_before_recovery (basic_block *before_recovery_ptr)
 basic_block
 sched_create_recovery_block (basic_block *before_recovery_ptr)
 {
-  rtx label;
   rtx_insn *barrier;
   basic_block rec;
 
@@ -8173,7 +8159,7 @@ sched_create_recovery_block (basic_block *before_recovery_ptr)
   barrier = get_last_bb_insn (before_recovery);
   gcc_assert (BARRIER_P (barrier));
 
-  label = emit_label_after (gen_label_rtx (), barrier);
+  rtx_insn *label = emit_label_after (gen_label_rtx (), barrier);
 
   rec = create_basic_block (label, label, before_recovery);
 
@@ -8196,8 +8182,6 @@ void
 sched_create_recovery_edges (basic_block first_bb, basic_block rec,
 			     basic_block second_bb)
 {
-  rtx label;
-  rtx jump;
   int edge_flags;
 
   /* This is fixing of incoming edge.  */
@@ -8209,8 +8193,9 @@ sched_create_recovery_edges (basic_block first_bb, basic_block rec,
     edge_flags = 0;
 
   make_edge (first_bb, rec, edge_flags);
-  label = block_label (second_bb);
-  jump = emit_jump_insn_after (gen_jump (label), BB_END (rec));
+  rtx_code_label *label = block_label (second_bb);
+  rtx_jump_insn *jump = emit_jump_insn_after (targetm.gen_jump (label),
+					      BB_END (rec));
   JUMP_LABEL (jump) = label;
   LABEL_NUSES (label)++;
 

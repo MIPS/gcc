@@ -112,8 +112,6 @@
 #include "errors.h"
 #include "read-md.h"
 #include "gensupport.h"
-#include "hash-table.h"
-#include "inchash.h"
 #include <algorithm>
 
 #undef GENERATOR_FILE
@@ -2521,10 +2519,8 @@ merge_relative_positions (position **roota, position *a,
 
 /* A hasher of states that treats two states as "equal" if they might be
    merged (but trying to be more discriminating than "return true").  */
-struct test_pattern_hasher : typed_noop_remove <merge_state_info>
+struct test_pattern_hasher : nofree_ptr_hash <merge_state_info>
 {
-  typedef merge_state_info *value_type;
-  typedef merge_state_info *compare_type;
   static inline hashval_t hash (const value_type &);
   static inline bool equal (const value_type &, const compare_type &);
 };
@@ -4183,29 +4179,21 @@ write_header (void)
 #include \"config.h\"\n\
 #include \"system.h\"\n\
 #include \"coretypes.h\"\n\
-#include \"tm.h\"\n\
+#include \"backend.h\"\n\
+#include \"predict.h\"\n\
 #include \"rtl.h\"\n\
 #include \"tm_p.h\"\n\
-#include \"hashtab.h\"\n\
-#include \"hash-set.h\"\n\
-#include \"vec.h\"\n\
-#include \"machmode.h\"\n\
-#include \"hard-reg-set.h\"\n\
-#include \"input.h\"\n\
-#include \"function.h\"\n\
+#include \"emit-rtl.h\"\n\
 #include \"insn-config.h\"\n\
 #include \"recog.h\"\n\
 #include \"output.h\"\n\
 #include \"flags.h\"\n\
-#include \"hard-reg-set.h\"\n\
-#include \"predict.h\"\n\
-#include \"basic-block.h\"\n\
+#include \"df.h\"\n\
 #include \"resource.h\"\n\
 #include \"diagnostic-core.h\"\n\
 #include \"reload.h\"\n\
 #include \"regs.h\"\n\
 #include \"tm-constrs.h\"\n\
-#include \"predict.h\"\n\
 \n");
 
   puts ("\n\
@@ -4307,7 +4295,7 @@ get_failure_return (routine_type type)
 
     case SPLIT:
     case PEEPHOLE2:
-      return "NULL_RTX";
+      return "NULL";
     }
   gcc_unreachable ();
 }
@@ -5061,7 +5049,7 @@ print_subroutine_start (output_state *os, state *s, position *root)
   if (os->type == SUBPATTERN || os->type == RECOG)
     printf ("  int res ATTRIBUTE_UNUSED;\n");
   else
-    printf ("  rtx res ATTRIBUTE_UNUSED;\n");
+    printf ("  rtx_insn *res ATTRIBUTE_UNUSED;\n");
 }
 
 /* Output the definition of pattern routine ROUTINE.  */
@@ -5111,7 +5099,7 @@ print_pattern (output_state *os, pattern_routine *routine)
 static void
 print_subroutine (output_state *os, state *s, int proc_id)
 {
-  /* For now, the top-level functions take a plain "rtx", and perform a
+  /* For now, the top-level "recog" takes a plain "rtx", and performs a
      checked cast to "rtx_insn *" for use throughout the rest of the
      function and the code it calls.  */
   const char *insn_param
@@ -5134,29 +5122,31 @@ print_subroutine (output_state *os, state *s, int proc_id)
 
     case SPLIT:
       if (proc_id)
-	printf ("static rtx\nsplit_%d", proc_id);
+	printf ("static rtx_insn *\nsplit_%d", proc_id);
       else
-	printf ("rtx\nsplit_insns");
-      printf (" (rtx x1 ATTRIBUTE_UNUSED, %s ATTRIBUTE_UNUSED)\n",
-	      insn_param);
+	printf ("rtx_insn *\nsplit_insns");
+      printf (" (rtx x1 ATTRIBUTE_UNUSED, rtx_insn *insn ATTRIBUTE_UNUSED)\n");
       break;
 
     case PEEPHOLE2:
       if (proc_id)
-	printf ("static rtx\npeephole2_%d", proc_id);
+	printf ("static rtx_insn *\npeephole2_%d", proc_id);
       else
-	printf ("rtx\npeephole2_insns");
+	printf ("rtx_insn *\npeephole2_insns");
       printf (" (rtx x1 ATTRIBUTE_UNUSED,\n"
-	      "\t%s ATTRIBUTE_UNUSED,\n"
-	      "\tint *pmatch_len_ ATTRIBUTE_UNUSED)\n", insn_param);
+	      "\trtx_insn *insn ATTRIBUTE_UNUSED,\n"
+	      "\tint *pmatch_len_ ATTRIBUTE_UNUSED)\n");
       break;
     }
   print_subroutine_start (os, s, &root_pos);
   if (proc_id == 0)
     {
       printf ("  recog_data.insn = NULL;\n");
-      printf ("  rtx_insn *insn ATTRIBUTE_UNUSED;\n");
-      printf ("  insn = safe_as_a <rtx_insn *> (uncast_insn);\n");
+      if (os->type == RECOG)
+	{
+	  printf ("  rtx_insn *insn ATTRIBUTE_UNUSED;\n");
+	  printf ("  insn = safe_as_a <rtx_insn *> (uncast_insn);\n");
+	}
     }
   print_state (os, s, 2, true);
   printf ("}\n");
@@ -5183,22 +5173,6 @@ print_subroutine_group (output_state *os, routine_type type, state *root)
     }
   /* Output the main routine.  */
   print_subroutine (os, root, 0);
-}
-
-/* Return the rtx pattern specified by the list of rtxes in a
-   define_insn or define_split.  */
-
-static rtx
-add_implicit_parallel (rtvec vec)
-{
-  if (GET_NUM_ELEM (vec) == 1)
-    return RTVEC_ELT (vec, 0);
-  else
-    {
-      rtx pattern = rtx_alloc (PARALLEL);
-      XVEC (pattern, 0) = vec;
-      return pattern;
-    }
 }
 
 /* Return the rtx pattern for the list of rtxes in a define_peephole2.  */
@@ -5323,7 +5297,7 @@ main (int argc, char **argv)
 
 	  /* Declare the gen_split routine that we'll call if the
 	     pattern matches.  The definition comes from insn-emit.c.  */
-	  printf ("extern rtx gen_split_%d (rtx_insn *, rtx *);\n",
+	  printf ("extern rtx_insn *gen_split_%d (rtx_insn *, rtx *);\n",
 		  next_insn_code);
 	  break;
 
@@ -5335,7 +5309,7 @@ main (int argc, char **argv)
 
 	  /* Declare the gen_peephole2 routine that we'll call if the
 	     pattern matches.  The definition comes from insn-emit.c.  */
-	  printf ("extern rtx gen_peephole2_%d (rtx_insn *, rtx *);\n",
+	  printf ("extern rtx_insn *gen_peephole2_%d (rtx_insn *, rtx *);\n",
 		  next_insn_code);
 	  break;
 

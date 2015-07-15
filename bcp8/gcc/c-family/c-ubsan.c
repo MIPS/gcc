@@ -21,30 +21,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "options.h"
 #include "alloc-pool.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "output.h"
 #include "toplev.h"
@@ -306,8 +289,7 @@ ubsan_instrument_bounds (location_t loc, tree array, tree *index,
   tree base = get_base_address (array);
   if ((flag_sanitize & SANITIZE_BOUNDS_STRICT) == 0
       && TREE_CODE (array) == COMPONENT_REF
-      && base && (TREE_CODE (base) == INDIRECT_REF
-		  || TREE_CODE (base) == MEM_REF))
+      && base && (INDIRECT_REF_P (base) || TREE_CODE (base) == MEM_REF))
     {
       tree next = NULL_TREE;
       tree cref = array;

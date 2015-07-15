@@ -22,43 +22,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "diagnostic-core.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
+#include "diagnostic-core.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
 #include "regs.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "profile.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "except.h"
 #include "recog.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "sched-int.h"
 #include "target.h"
 #include "cfgloop.h"
-#include "double-int.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -69,8 +53,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "params.h"
 #include "gcov-io.h"
-#include "sbitmap.h"
-#include "df.h"
 #include "ddg.h"
 #include "tree-pass.h"
 #include "dbgcnt.h"
@@ -373,13 +355,15 @@ ps_num_consecutive_stages (partial_schedule_ptr ps, int id)
    more than one occurrence in the loop besides the control part or the
    do-loop pattern is not of the form we expect.  */
 static rtx
-doloop_register_get (rtx_insn *head ATTRIBUTE_UNUSED, rtx_insn *tail ATTRIBUTE_UNUSED)
+doloop_register_get (rtx_insn *head, rtx_insn *tail)
 {
-#ifdef HAVE_doloop_end
   rtx reg, condition;
   rtx_insn *insn, *first_insn_not_to_check;
 
   if (!JUMP_P (tail))
+    return NULL_RTX;
+
+  if (!targetm.code_for_doloop_end)
     return NULL_RTX;
 
   /* TODO: Free SMS's dependence on doloop_condition_get.  */
@@ -417,9 +401,6 @@ doloop_register_get (rtx_insn *head ATTRIBUTE_UNUSED, rtx_insn *tail ATTRIBUTE_U
       }
 
   return reg;
-#else
-  return NULL_RTX;
-#endif
 }
 
 /* Check if COUNT_REG is set to a constant in the PRE_HEADER block, so
@@ -2017,9 +1998,7 @@ get_sched_window (partial_schedule_ptr ps, ddg_node_ptr u_node,
      node close to its successors.  */
   if (pss_not_empty && count_succs >= count_preds)
     {
-      int tmp = end;
-      end = start;
-      start = tmp;
+      std::swap (start, end);
       step = -1;
     }
 

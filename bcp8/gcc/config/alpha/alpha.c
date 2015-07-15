@@ -22,35 +22,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "hashtab.h"
-#include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -60,50 +50,36 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "reload.h"
-#include "obstack.h"
 #include "except.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
 #include "debug.h"
 #include "langhooks.h"
-#include "hash-map.h"
-#include "hash-table.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "tree-pass.h"
 #include "context.h"
 #include "pass_manager.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
-#include "gimple-ssa.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-stdarg.h"
 #include "tm-constrs.h"
-#include "df.h"
 #include "libfuncs.h"
 #include "opts.h"
 #include "params.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Specify which cpu to schedule for.  */
 enum processor_type alpha_tune;
@@ -1384,10 +1360,10 @@ alpha_legitimize_reload_address (rtx x,
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-alpha_rtx_costs (rtx x, int code, int outer_code, int opno, int *total,
+alpha_rtx_costs (rtx x, machine_mode mode, int outer_code, int opno, int *total,
 		 bool speed)
 {
-  machine_mode mode = GET_MODE (x);
+  int code = GET_CODE (x);
   bool float_mode_p = FLOAT_MODE_P (mode);
   const struct alpha_rtx_cost_data *cost_data;
 
@@ -1452,9 +1428,9 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int opno, int *total,
       else if (GET_CODE (XEXP (x, 0)) == MULT
 	       && const48_operand (XEXP (XEXP (x, 0), 1), VOIDmode))
 	{
-	  *total = (rtx_cost (XEXP (XEXP (x, 0), 0),
+	  *total = (rtx_cost (XEXP (XEXP (x, 0), 0), mode,
 			      (enum rtx_code) outer_code, opno, speed)
-		    + rtx_cost (XEXP (x, 1),
+		    + rtx_cost (XEXP (x, 1), mode,
 				(enum rtx_code) outer_code, opno, speed)
 		    + COSTS_N_INSNS (1));
 	  return true;
@@ -4821,14 +4797,6 @@ alpha_multipass_dfa_lookahead (void)
 
 struct GTY(()) alpha_links;
 
-struct string_traits : default_hashmap_traits
-{
-  static bool equal_keys (const char *const &a, const char *const &b)
-  {
-    return strcmp (a, b) == 0;
-  }
-};
-
 struct GTY(()) machine_function
 {
   /* For flag_reorder_blocks_and_partition.  */
@@ -4838,7 +4806,7 @@ struct GTY(()) machine_function
   bool uses_condition_handler;
 
   /* Linkage entries.  */
-  hash_map<const char *, alpha_links *, string_traits> *links;
+  hash_map<nofree_string_hash, alpha_links *> *links;
 };
 
 /* How to allocate a 'struct machine_function'.  */
@@ -9565,7 +9533,7 @@ alpha_use_linkage (rtx func, bool lflag, bool rflag)
     }
   else
     cfun->machine->links
-      = hash_map<const char *, alpha_links *, string_traits>::create_ggc (64);
+      = hash_map<nofree_string_hash, alpha_links *>::create_ggc (64);
 
   if (al == NULL)
     {
@@ -9656,7 +9624,7 @@ alpha_write_linkage (FILE *stream, const char *funname)
 
   if (cfun->machine->links)
     {
-      hash_map<const char *, alpha_links *, string_traits>::iterator iter
+      hash_map<nofree_string_hash, alpha_links *>::iterator iter
 	= cfun->machine->links->begin ();
       for (; iter != cfun->machine->links->end (); ++iter)
 	alpha_write_one_linkage ((*iter).first, (*iter).second, stream);
@@ -9986,12 +9954,6 @@ alpha_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_EXPAND_BUILTIN_VA_START
 #define TARGET_EXPAND_BUILTIN_VA_START alpha_va_start
-
-/* The Alpha architecture does not require sequential consistency.  See
-   http://www.cs.umd.edu/~pugh/java/memoryModel/AlphaReordering.html
-   for an example of how it can be violated in practice.  */
-#undef TARGET_RELAXED_ORDERING
-#define TARGET_RELAXED_ORDERING true
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE alpha_option_override

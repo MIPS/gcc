@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "gfortran.h"
 #include "arith.h"
-#include "flags.h"
+#include "options.h"
 #include "dependency.h"
 #include "constructor.h"
 #include "opts.h"
@@ -1241,6 +1241,10 @@ combine_array_constructor (gfc_expr *e)
   /* Don't try to combine association lists, this makes no sense
      and leads to an ICE.  */
   if (in_assoc_list)
+    return false;
+
+  /* With FORALL, the BLOCKS created by create_var will cause an ICE.  */
+  if (forall_level > 0)
     return false;
 
   op1 = e->value.op.op1;

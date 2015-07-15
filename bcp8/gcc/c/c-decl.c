@@ -27,18 +27,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "tm.h"
 #include "intl.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "symtab.h"
-#include "input.h"
-#include "alias.h"
-#include "double-int.h"
-#include "machmode.h"
-#include "inchash.h"
 #include "tree.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "print-tree.h"
 #include "stor-layout.h"
@@ -47,10 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-inline.h"
 #include "flags.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "c-tree.h"
@@ -70,12 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "diagnostic-core.h"
 #include "dumpfile.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
-#include "hash-table.h"
 #include "langhooks-def.h"
 #include "plugin.h"
 #include "c-family/c-ada-spec.h"
@@ -683,14 +666,14 @@ decl_jump_unsafe (tree decl)
     return false;
 
   /* Always warn about crossing variably modified types.  */
-  if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == TYPE_DECL)
+  if ((VAR_P (decl) || TREE_CODE (decl) == TYPE_DECL)
       && variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
     return true;
 
   /* Otherwise, only warn if -Wgoto-misses-init and this is an
      initialized automatic decl.  */
   if (warn_jump_misses_init
-      && TREE_CODE (decl) == VAR_DECL
+      && VAR_P (decl)
       && !TREE_STATIC (decl)
       && DECL_INITIAL (decl) != NULL_TREE)
     return true;
@@ -831,7 +814,7 @@ bind_label (tree name, tree label, struct c_scope *scope,
 void
 c_finish_incomplete_decl (tree decl)
 {
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (VAR_P (decl))
     {
       tree type = TREE_TYPE (decl);
       if (type != error_mark_node
@@ -1207,6 +1190,7 @@ pop_scope (void)
     {
       tree file_decl = build_translation_unit_decl (NULL_TREE);
       context = file_decl;
+      debug_hooks->register_main_translation_unit (file_decl);
     }
   else
     context = block;
@@ -1612,7 +1596,7 @@ c_bind (location_t loc, tree decl, bool is_global)
   struct c_scope *scope;
   bool nested = false;
 
-  if (TREE_CODE (decl) != VAR_DECL || current_function_scope == NULL)
+  if (!VAR_P (decl) || current_function_scope == NULL)
     {
       /* Types and functions are always considered to be global.  */
       scope = file_scope;
@@ -2124,7 +2108,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    }
 	}
     }
-  else if (TREE_CODE (newdecl) == VAR_DECL)
+  else if (VAR_P (newdecl))
     {
       /* Only variables can be thread-local, and all declarations must
 	 agree on this property.  */
@@ -2319,7 +2303,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       && !(TREE_CODE (newdecl) == PARM_DECL
 	   && TREE_ASM_WRITTEN (olddecl) && !TREE_ASM_WRITTEN (newdecl))
       /* Don't warn about a variable definition following a declaration.  */
-      && !(TREE_CODE (newdecl) == VAR_DECL
+      && !(VAR_P (newdecl)
 	   && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl)))
     {
       warned = warning (OPT_Wredundant_decls, "redundant redeclaration of %q+D",
@@ -2440,7 +2424,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
     DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
 
   /* Merge the threadprivate attribute.  */
-  if (TREE_CODE (olddecl) == VAR_DECL && C_DECL_THREADPRIVATE_P (olddecl))
+  if (VAR_P (olddecl) && C_DECL_THREADPRIVATE_P (olddecl))
     C_DECL_THREADPRIVATE_P (newdecl) = 1;
 
   if (CODE_CONTAINS_STRUCT (TREE_CODE (olddecl), TS_DECL_WITH_VIS))
@@ -2624,7 +2608,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
     TREE_USED (newdecl) = 1;
   else if (TREE_USED (newdecl))
     TREE_USED (olddecl) = 1;
-  if (TREE_CODE (olddecl) == VAR_DECL || TREE_CODE (olddecl) == PARM_DECL)
+  if (VAR_P (olddecl) || TREE_CODE (olddecl) == PARM_DECL)
     DECL_READ_P (newdecl) |= DECL_READ_P (olddecl);
   if (DECL_PRESERVE_P (olddecl))
     DECL_PRESERVE_P (newdecl) = 1;
@@ -2673,8 +2657,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 		int __thread x attribute ((tls_model ("local-exec")));
 		extern int __thread x;
 	     as we'll lose the "local-exec" model.  */
-	  if (TREE_CODE (olddecl) == VAR_DECL
-	      && DECL_THREAD_LOCAL_P (newdecl))
+	  if (VAR_P (olddecl) && DECL_THREAD_LOCAL_P (newdecl))
 	    set_decl_tls_model (olddecl, DECL_TLS_MODEL (newdecl));
 	  break;
 	}
@@ -2707,8 +2690,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
      flags and attributes.  */
   if (DECL_RTL_SET_P (olddecl)
       && (TREE_CODE (olddecl) == FUNCTION_DECL
-	  || (TREE_CODE (olddecl) == VAR_DECL
-	      && TREE_STATIC (olddecl))))
+	  || (VAR_P (olddecl) && TREE_STATIC (olddecl))))
     make_decl_rtl (olddecl);
 }
 
@@ -2957,7 +2939,7 @@ pushdecl (tree x)
 	      type_saved = true;
 	    }
 	  if (B_IN_FILE_SCOPE (b)
-	      && TREE_CODE (b->decl) == VAR_DECL
+	      && VAR_P (b->decl)
 	      && TREE_STATIC (b->decl)
 	      && TREE_CODE (TREE_TYPE (b->decl)) == ARRAY_TYPE
 	      && !TYPE_DOMAIN (TREE_TYPE (b->decl))
@@ -3088,7 +3070,7 @@ pushdecl_top_level (tree x)
 {
   tree name;
   bool nested = false;
-  gcc_assert (TREE_CODE (x) == VAR_DECL || TREE_CODE (x) == CONST_DECL);
+  gcc_assert (VAR_P (x) || TREE_CODE (x) == CONST_DECL);
 
   name = DECL_NAME (x);
 
@@ -4407,17 +4389,16 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 {
   /* Add implicit "omp declare target" attribute if requested.  */
   if (current_omp_declare_target_attribute
-      && ((TREE_CODE (*node) == VAR_DECL
-	   && (TREE_STATIC (*node) || DECL_EXTERNAL (*node)))
+      && ((VAR_P (*node) && is_global_var (*node))
 	  || TREE_CODE (*node) == FUNCTION_DECL))
     {
-      if (TREE_CODE (*node) == VAR_DECL
+      if (VAR_P (*node)
 	  && ((DECL_CONTEXT (*node)
 	       && TREE_CODE (DECL_CONTEXT (*node)) == FUNCTION_DECL)
 	      || (current_function_decl && !DECL_EXTERNAL (*node))))
 	error ("%q+D in block scope inside of declare target directive",
 	       *node);
-      else if (TREE_CODE (*node) == VAR_DECL
+      else if (VAR_P (*node)
 	       && !lang_hooks.types.omp_mappable_type (TREE_TYPE (*node)))
 	error ("%q+D in declare target directive does not have mappable type",
 	       *node);
@@ -4555,7 +4536,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
      body of code to break, and it allows more efficient variable references
      in the presence of dynamic linking.  */
 
-  if (TREE_CODE (decl) == VAR_DECL
+  if (VAR_P (decl)
       && !initialized
       && TREE_PUBLIC (decl)
       && !DECL_THREAD_LOCAL_P (decl)
@@ -4608,7 +4589,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   /* C99 6.7.4p3: An inline definition of a function with external
      linkage shall not contain a definition of a modifiable object
      with static storage duration...  */
-  if (TREE_CODE (decl) == VAR_DECL
+  if (VAR_P (decl)
       && current_scope != file_scope
       && TREE_STATIC (decl)
       && !TREE_READONLY (decl)
@@ -4686,7 +4667,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
   if (asmspec_tree)
     asmspec = TREE_STRING_POINTER (asmspec_tree);
 
-  if (TREE_CODE (decl) == VAR_DECL
+  if (VAR_P (decl)
       && TREE_STATIC (decl)
       && global_bindings_p ())
     /* So decl is a global variable. Record the types it uses
@@ -4779,7 +4760,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
       relayout_decl (decl);
     }
 
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (VAR_P (decl))
     {
       if (init && TREE_CODE (init) == CONSTRUCTOR)
 	add_flexible_array_elts_to_size (decl, init);
@@ -4807,8 +4788,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	   TREE_TYPE (decl) = error_mark_node;
 	 }
 
-      if ((DECL_EXTERNAL (decl) || TREE_STATIC (decl))
-	  && DECL_SIZE (decl) != 0)
+      if (is_global_var (decl) && DECL_SIZE (decl) != 0)
 	{
 	  if (TREE_CODE (DECL_SIZE (decl)) == INTEGER_CST)
 	    constant_expression_warning (DECL_SIZE (decl));
@@ -4861,7 +4841,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	     GCC has accepted -- but ignored -- the ASMSPEC in
 	     this case.  */
 	  if (!DECL_FILE_SCOPE_P (decl)
-	      && TREE_CODE (decl) == VAR_DECL
+	      && VAR_P (decl)
 	      && !C_DECL_REGISTER (decl)
 	      && !TREE_STATIC (decl))
 	    warning (0, "ignoring asm-specifier for non-static local "
@@ -4924,8 +4904,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	{
 	  /* Recompute the RTL of a local array now
 	     if it used to be an incomplete type.  */
-	  if (was_incomplete
-	      && !TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
+	  if (was_incomplete && !is_global_var (decl))
 	    {
 	      /* If we used it already as memory, it must stay in memory.  */
 	      TREE_ADDRESSABLE (decl) = TREE_USED (decl);
@@ -4946,7 +4925,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
     }
 
   /* Install a cleanup (aka destructor) if one was given.  */
-  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+  if (VAR_P (decl) && !TREE_STATIC (decl))
     {
       tree attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
       if (attr)
@@ -4974,7 +4953,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
     }
 
   if (warn_cxx_compat
-      && TREE_CODE (decl) == VAR_DECL
+      && VAR_P (decl)
       && !DECL_EXTERNAL (decl)
       && DECL_INITIAL (decl) == NULL_TREE)
     {
@@ -6651,7 +6630,7 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	    if (global_decl
 		&& global_decl != visible_decl
-		&& TREE_CODE (global_decl) == VAR_DECL
+		&& VAR_P (global_decl)
 		&& !TREE_PUBLIC (global_decl))
 	      error_at (loc, "variable previously declared %<static%> "
 			"redeclared %<extern%>");
@@ -6730,7 +6709,7 @@ grokdeclarator (const struct c_declarator *declarator,
        will be ignored, and would even crash the compiler.
        Of course, this only makes sense on  VAR,PARM, and RESULT decl's.   */
     if (C_TYPE_FIELDS_VOLATILE (TREE_TYPE (decl))
-	&& (TREE_CODE (decl) == VAR_DECL ||  TREE_CODE (decl) == PARM_DECL
+	&& (VAR_P (decl) ||  TREE_CODE (decl) == PARM_DECL
 	  || TREE_CODE (decl) == RESULT_DECL))
       {
 	/* It is not an error for a structure with volatile fields to
@@ -6748,7 +6727,7 @@ grokdeclarator (const struct c_declarator *declarator,
     gcc_assert (!DECL_ASSEMBLER_NAME_SET_P (decl));
 
     if (warn_cxx_compat
-	&& TREE_CODE (decl) == VAR_DECL
+	&& VAR_P (decl)
 	&& TREE_PUBLIC (decl)
 	&& TREE_STATIC (decl)
 	&& (TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE
@@ -7417,7 +7396,7 @@ is_duplicate_field (tree x, tree y)
 
 static void
 detect_field_duplicates_hash (tree fieldlist,
-			      hash_table<pointer_hash <tree_node> > *htab)
+			      hash_table<nofree_ptr_hash <tree_node> > *htab)
 {
   tree x, y;
   tree_node **slot;
@@ -7517,7 +7496,7 @@ detect_field_duplicates (tree fieldlist)
     }
   else
     {
-      hash_table<pointer_hash <tree_node> > htab (37);
+      hash_table<nofree_ptr_hash <tree_node> > htab (37);
       detect_field_duplicates_hash (fieldlist, &htab);
     }
 }
@@ -7840,10 +7819,18 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
     }
 
   /* If this structure or union completes the type of any previous
-     variable declaration, lay it out and output its rtl.  */
-  for (x = C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t));
-       x;
-       x = TREE_CHAIN (x))
+     variable declaration, lay it out and output its rtl.
+
+     Note: C_TYPE_INCOMPLETE_VARS overloads TYPE_VFIELD which is used
+     in dwarf2out via rest_of_decl_compilation below and means
+     something totally different.  Since we will be clearing
+     C_TYPE_INCOMPLETE_VARS shortly after we iterate through them,
+     clear it ahead of time and avoid problems in dwarf2out.  Ideally,
+     C_TYPE_INCOMPLETE_VARS should use some language specific
+     node.  */
+  tree incomplete_vars = C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t));
+  C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
+  for (x = incomplete_vars; x; x = TREE_CHAIN (x))
     {
       tree decl = TREE_VALUE (x);
       if (TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
@@ -7856,7 +7843,6 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 	  rest_of_decl_compilation (decl, toplevel, 0);
 	}
     }
-  C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
 
   /* Update type location to the one of the definition, instead of e.g.
      a forward declaration.  */
@@ -7950,7 +7936,8 @@ start_enum (location_t loc, struct c_enum_contents *the_enum, tree name)
   the_enum->enum_overflow = 0;
 
   if (flag_short_enums)
-    TYPE_PACKED (enumtype) = 1;
+    for (tree v = TYPE_MAIN_VARIANT (enumtype); v; v = TYPE_NEXT_VARIANT (v))
+      TYPE_PACKED (v) = 1;
 
   /* FIXME: This will issue a warning for a use of a type defined
      within sizeof in a statement expr.  This is not terribly serious
@@ -9039,6 +9026,10 @@ finish_function (void)
   /* Complain about locally defined typedefs that are not used in this
      function.  */
   maybe_warn_unused_local_typedefs ();
+
+  /* Possibly warn about unused parameters.  */
+  if (warn_unused_parameter)
+    do_warn_unused_parameter (fndecl);
 
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */
@@ -10682,9 +10673,8 @@ finish_declspecs (struct c_declspecs *specs)
   return specs;
 }
 
-/* A subroutine of c_write_global_declarations.  Perform final processing
-   on one file scope's declarations (or the external scope's declarations),
-   GLOBALS.  */
+/* Perform final processing on one file scope's declarations (or the
+   external scope's declarations), GLOBALS.  */
 
 static void
 c_write_global_declarations_1 (tree globals)
@@ -10697,7 +10687,7 @@ c_write_global_declarations_1 (tree globals)
     {
       /* Check for used but undefined static functions using the C
 	 standard's definition of "used", and set TREE_NO_WARNING so
-	 that check_global_declarations doesn't repeat the check.  */
+	 that check_global_declaration doesn't repeat the check.  */
       if (TREE_CODE (decl) == FUNCTION_DECL
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
@@ -10718,21 +10708,6 @@ c_write_global_declarations_1 (tree globals)
 	reconsider |= wrapup_global_declaration_2 (decl);
     }
   while (reconsider);
-
-  for (decl = globals; decl; decl = DECL_CHAIN (decl))
-    check_global_declaration_1 (decl);
-}
-
-/* A subroutine of c_write_global_declarations Emit debug information for each
-   of the declarations in GLOBALS.  */
-
-static void
-c_write_global_declarations_2 (tree globals)
-{
-  tree decl;
-
-  for (decl = globals; decl ; decl = DECL_CHAIN (decl))
-    debug_hooks->global_decl (decl);
 }
 
 /* Callback to collect a source_ref from a DECL.  */
@@ -10782,8 +10757,11 @@ for_each_global_decl (void (*callback) (tree decl))
     callback (decl);
 }
 
+/* Perform any final parser cleanups and generate initial debugging
+   information.  */
+
 void
-c_write_global_declarations (void)
+c_parse_final_cleanups (void)
 {
   tree t;
   unsigned i;
@@ -10792,6 +10770,7 @@ c_write_global_declarations (void)
   if (pch_file)
     return;
 
+  timevar_stop (TV_PHASE_PARSING);
   timevar_start (TV_PHASE_DEFERRED);
 
   /* Do the Objective-C stuff.  This is where all the Objective-C
@@ -10830,34 +10809,15 @@ c_write_global_declarations (void)
     }
 
   /* Process all file scopes in this compilation, and the external_scope,
-     through wrapup_global_declarations and check_global_declarations.  */
+     through wrapup_global_declarations.  */
   FOR_EACH_VEC_ELT (*all_translation_units, i, t)
     c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   c_write_global_declarations_1 (BLOCK_VARS (ext_block));
 
   timevar_stop (TV_PHASE_DEFERRED);
-  timevar_start (TV_PHASE_OPT_GEN);
-
-  /* We're done parsing; proceed to optimize and emit assembly.
-     FIXME: shouldn't be the front end's responsibility to call this.  */
-  symtab->finalize_compilation_unit ();
-
-  timevar_stop (TV_PHASE_OPT_GEN);
-  timevar_start (TV_PHASE_DBGINFO);
-
-  /* After cgraph has had a chance to emit everything that's going to
-     be emitted, output debug information for globals.  */
-  if (!seen_error ())
-    {
-      timevar_push (TV_SYMOUT);
-      FOR_EACH_VEC_ELT (*all_translation_units, i, t)
-	c_write_global_declarations_2 (BLOCK_VARS (DECL_INITIAL (t)));
-      c_write_global_declarations_2 (BLOCK_VARS (ext_block));
-      timevar_pop (TV_SYMOUT);
-    }
+  timevar_start (TV_PHASE_PARSING);
 
   ext_block = NULL;
-  timevar_stop (TV_PHASE_DBGINFO);
 }
 
 /* Register reserved keyword WORD as qualifier for address space AS.  */

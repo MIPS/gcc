@@ -23,30 +23,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "function.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "tree.h"
-#include "stor-layout.h"
 #include "cp-tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "alias.h"
+#include "stor-layout.h"
 #include "c-family/c-common.h"
 #include "tree-iterator.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "flags.h"
 #include "splay-tree.h"
@@ -54,7 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ubsan.h"
 #include "cilk.h"
 #include "gimplify.h"
-#include "gimple-expr.h"
 
 /* Forward declarations.  */
 
@@ -840,7 +827,7 @@ omp_var_to_track (tree decl)
     type = TREE_TYPE (type);
   if (type == error_mark_node || !CLASS_TYPE_P (type))
     return false;
-  if (VAR_P (decl) && DECL_THREAD_LOCAL_P (decl))
+  if (VAR_P (decl) && CP_DECL_THREAD_LOCAL_P (decl))
     return false;
   if (cxx_omp_predetermined_sharing (decl) != OMP_CLAUSE_DEFAULT_UNSPECIFIED)
     return false;
@@ -1165,6 +1152,12 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       /* Using decls inside DECL_EXPRs are just dropped on the floor.  */
       *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
       *walk_subtrees = 0;
+    }
+  else if (TREE_CODE (stmt) == DECL_EXPR)
+    {
+      tree d = DECL_EXPR_DECL (stmt);
+      if (TREE_CODE (d) == VAR_DECL)
+	gcc_assert (CP_DECL_THREAD_LOCAL_P (d) == DECL_THREAD_LOCAL_P (d));
     }
   else if (TREE_CODE (stmt) == OMP_PARALLEL || TREE_CODE (stmt) == OMP_TASK)
     {

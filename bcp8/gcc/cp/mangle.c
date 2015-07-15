@@ -48,15 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tree-hasher.h"
 #include "stor-layout.h"
@@ -66,15 +58,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "obstack.h"
 #include "flags.h"
 #include "target.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
-#include "wide-int.h"
 #include "attribs.h"
 
 /* Debugging support.  */
@@ -997,7 +983,8 @@ write_nested_name (const tree decl)
       write_template_prefix (decl);
       write_template_args (TI_ARGS (template_info));
     }
-  else if (TREE_CODE (TREE_TYPE (decl)) == TYPENAME_TYPE)
+  else if ((!abi_version_at_least (10) || TREE_CODE (decl) == TYPE_DECL)
+	   && TREE_CODE (TREE_TYPE (decl)) == TYPENAME_TYPE)
     {
       tree name = TYPENAME_TYPE_FULLNAME (TREE_TYPE (decl));
       if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
@@ -2205,14 +2192,10 @@ write_CV_qualifiers_for_type (const tree type)
 
   /* Mangle attributes that affect type identity as extended qualifiers.
 
-     We mangle them onto the obstack, then copy the result into a string
-     vector and back up the obstack.  Once we've handled all of them we
-     sort them and write them out in order.
-
      We don't do this with classes and enums because their attributes
      are part of their definitions, not something added on.  */
 
-  if (abi_version_at_least (9) && !OVERLOAD_TYPE_P (type))
+  if (abi_version_at_least (10) && !OVERLOAD_TYPE_P (type))
     {
       auto_vec<tree> vec;
       for (tree a = TYPE_ATTRIBUTES (type); a; a = TREE_CHAIN (a))
@@ -2246,6 +2229,8 @@ write_CV_qualifiers_for_type (const tree type)
 	    }
 
 	  ++num_qualifiers;
+	  if (abi_version_crosses (10))
+	    G.need_abi_warning = true;
 	}
     }
 
@@ -2636,7 +2621,7 @@ write_template_args (tree args)
   if (args)
     length = TREE_VEC_LENGTH (args);
 
-  if (args && TREE_CODE (TREE_VEC_ELT (args, 0)) == TREE_VEC)
+  if (args && length && TREE_CODE (TREE_VEC_ELT (args, 0)) == TREE_VEC)
     {
       /* We have nested template args.  We want the innermost template
 	 argument list.  */
@@ -3535,24 +3520,34 @@ get_mangled_id (tree decl)
   return targetm.mangle_decl_assembler_name (decl, id);
 }
 
+/* If DECL is an implicit mangling alias, return its symtab node; otherwise
+   return NULL.  */
+
+static symtab_node *
+decl_implicit_alias_p (tree decl)
+{
+  if (DECL_P (decl) && DECL_ARTIFICIAL (decl)
+      && DECL_IGNORED_P (decl)
+      && (TREE_CODE (decl) == FUNCTION_DECL
+	  || (VAR_P (decl) && TREE_STATIC (decl))))
+    {
+      symtab_node *n = symtab_node::get (decl);
+      if (n && n->cpp_implicit_alias)
+	return n;
+    }
+  return NULL;
+}
+
 /* If DECL is a mangling alias, remove it from the symbol table and return
    true; otherwise return false.  */
 
 bool
 maybe_remove_implicit_alias (tree decl)
 {
-  if (DECL_P (decl) && DECL_ARTIFICIAL (decl)
-      && DECL_IGNORED_P (decl)
-      && (TREE_CODE (decl) == FUNCTION_DECL
-	  || (TREE_CODE (decl) == VAR_DECL
-	      && TREE_STATIC (decl))))
+  if (symtab_node *n = decl_implicit_alias_p (decl))
     {
-      symtab_node *n = symtab_node::get (decl);
-      if (n && n->cpp_implicit_alias)
-	{
-	  n->remove();
-	  return true;
-	}
+      n->remove();
+      return true;
     }
   return false;
 }
@@ -3592,21 +3587,38 @@ mangle_decl (const tree decl)
     }
   SET_DECL_ASSEMBLER_NAME (decl, id);
 
-  if (G.need_abi_warning
+  if (id != DECL_NAME (decl)
+      && !DECL_REALLY_EXTERN (decl)
       /* Don't do this for a fake symbol we aren't going to emit anyway.  */
       && TREE_CODE (decl) != TYPE_DECL
       && !DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl)
       && !DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (decl))
     {
+      bool set = false;
+
+      /* Check IDENTIFIER_GLOBAL_VALUE before setting to avoid redundant
+	 errors from multiple definitions.  */
+      tree d = IDENTIFIER_GLOBAL_VALUE (id);
+      if (!d || decl_implicit_alias_p (d))
+	{
+	  set = true;
+	  SET_IDENTIFIER_GLOBAL_VALUE (id, decl);
+	}
+
+      if (!G.need_abi_warning)
+	return;
+
       /* If the mangling will change in the future, emit an alias with the
 	 future mangled name for forward-compatibility.  */
       int save_ver;
       tree id2;
 
-      SET_IDENTIFIER_GLOBAL_VALUE (id, decl);
-      if (IDENTIFIER_GLOBAL_VALUE (id) != decl)
-	inform (DECL_SOURCE_LOCATION (decl), "a later -fabi-version= (or =0) "
-		"avoids this error with a change in mangling");
+      if (!set)
+	{
+	  SET_IDENTIFIER_GLOBAL_VALUE (id, decl);
+	  inform (DECL_SOURCE_LOCATION (decl), "a later -fabi-version= (or "
+		  "=0) avoids this error with a change in mangling");
+	}
 
       save_ver = flag_abi_version;
       flag_abi_version = flag_abi_compat_version;
@@ -3826,7 +3838,7 @@ mangle_thunk (tree fn_decl, const int this_adjusting, tree fixed_offset,
   return result;
 }
 
-struct conv_type_hasher : ggc_hasher<tree>
+struct conv_type_hasher : ggc_ptr_hash<tree_node>
 {
   static hashval_t hash (tree);
   static bool equal (tree, tree);

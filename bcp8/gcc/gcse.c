@@ -135,40 +135,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "predict.h"
+#include "tree.h"
+#include "rtl.h"
+#include "df.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
-#include "hard-reg-set.h"
-#include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "ira.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "predict.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -178,15 +162,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "except.h"
-#include "ggc.h"
 #include "params.h"
 #include "alloc-pool.h"
 #include "cselib.h"
 #include "intl.h"
-#include "obstack.h"
 #include "tree-pass.h"
-#include "hash-table.h"
-#include "df.h"
 #include "dbgcnt.h"
 #include "target.h"
 #include "gcse.h"
@@ -387,9 +367,8 @@ struct ls_expr
 /* Head of the list of load/store memory refs.  */
 static struct ls_expr * pre_ldst_mems = NULL;
 
-struct pre_ldst_expr_hasher : typed_noop_remove <ls_expr>
+struct pre_ldst_expr_hasher : nofree_ptr_hash <ls_expr>
 {
-  typedef ls_expr *value_type;
   typedef value_type compare_type;
   static inline hashval_t hash (const ls_expr *);
   static inline bool equal (const ls_expr *, const ls_expr *);
@@ -487,7 +466,6 @@ static void hash_scan_insn (rtx_insn *, struct gcse_hash_table_d *);
 static void hash_scan_set (rtx, rtx_insn *, struct gcse_hash_table_d *);
 static void hash_scan_clobber (rtx, rtx_insn *, struct gcse_hash_table_d *);
 static void hash_scan_call (rtx, rtx_insn *, struct gcse_hash_table_d *);
-static int want_to_gcse_p (rtx, int *);
 static int oprs_unchanged_p (const_rtx, const rtx_insn *, int);
 static int oprs_anticipatable_p (const_rtx, const rtx_insn *);
 static int oprs_available_p (const_rtx, const rtx_insn *);
@@ -545,7 +523,6 @@ static void trim_ld_motion_mems (void);
 static void update_ld_motion_stores (struct gcse_expr *);
 static void clear_modify_mem_tables (void);
 static void free_modify_mem_tables (void);
-static rtx gcse_emit_move_after (rtx, rtx, rtx_insn *);
 static bool is_too_expensive (const char *);
 
 #define GNEW(T)			((T *) gmalloc (sizeof (T)))
@@ -779,7 +756,7 @@ static basic_block current_bb;
    GCSE.  */
 
 static int
-want_to_gcse_p (rtx x, int *max_distance_ptr)
+want_to_gcse_p (rtx x, machine_mode mode, int *max_distance_ptr)
 {
 #ifdef STACK_REGS
   /* On register stack architectures, don't GCSE constants from the
@@ -830,7 +807,7 @@ want_to_gcse_p (rtx x, int *max_distance_ptr)
 
 	  gcc_assert (!optimize_function_for_speed_p (cfun)
 		      && optimize_function_for_size_p (cfun));
-	  cost = set_src_cost (x, 0);
+	  cost = set_src_cost (x, mode, 0);
 
 	  if (cost < COSTS_N_INSNS (GCSE_UNRESTRICTED_COST))
 	    {
@@ -1287,7 +1264,7 @@ hash_scan_set (rtx set, rtx_insn *insn, struct gcse_hash_table_d *table)
       if (note != 0
 	  && REG_NOTE_KIND (note) == REG_EQUAL
 	  && !REG_P (src)
-	  && want_to_gcse_p (XEXP (note, 0), NULL))
+	  && want_to_gcse_p (XEXP (note, 0), GET_MODE (dest), NULL))
 	src = XEXP (note, 0), set = gen_rtx_SET (dest, src);
 
       /* Only record sets of pseudo-regs in the hash table.  */
@@ -1301,7 +1278,7 @@ hash_scan_set (rtx set, rtx_insn *insn, struct gcse_hash_table_d *table)
 	     can't do the same thing at the rtl level.  */
 	  && !can_throw_internal (insn)
 	  /* Is SET_SRC something we want to gcse?  */
-	  && want_to_gcse_p (src, &max_distance)
+	  && want_to_gcse_p (src, GET_MODE (dest), &max_distance)
 	  /* Don't CSE a nop.  */
 	  && ! set_noop_p (set)
 	  /* Don't GCSE if it has attached REG_EQUIV note.
@@ -1333,43 +1310,42 @@ hash_scan_set (rtx set, rtx_insn *insn, struct gcse_hash_table_d *table)
      the REG stored in that memory. This makes it possible to remove
      redundant loads from due to stores to the same location.  */
   else if (flag_gcse_las && REG_P (src) && MEM_P (dest))
-      {
-        unsigned int regno = REGNO (src);
-	int max_distance = 0;
+    {
+      unsigned int regno = REGNO (src);
+      int max_distance = 0;
 
-	/* Only record sets of pseudo-regs in the hash table.  */
-        if (regno >= FIRST_PSEUDO_REGISTER
-	   /* Don't GCSE something if we can't do a reg/reg copy.  */
-	   && can_copy_p (GET_MODE (src))
-	   /* GCSE commonly inserts instruction after the insn.  We can't
-	      do that easily for EH edges so disable GCSE on these for now.  */
-	   && !can_throw_internal (insn)
-	   /* Is SET_DEST something we want to gcse?  */
-	   && want_to_gcse_p (dest, &max_distance)
-	   /* Don't CSE a nop.  */
-	   && ! set_noop_p (set)
-	   /* Don't GCSE if it has attached REG_EQUIV note.
-	      At this point this only function parameters should have
-	      REG_EQUIV notes and if the argument slot is used somewhere
-	      explicitly, it means address of parameter has been taken,
-	      so we should not extend the lifetime of the pseudo.  */
-	   && ((note = find_reg_note (insn, REG_EQUIV, NULL_RTX)) == 0
-	       || ! MEM_P (XEXP (note, 0))))
-             {
-               /* Stores are never anticipatable.  */
-               int antic_p = 0;
-	       /* An expression is not available if its operands are
-	          subsequently modified, including this insn.  It's also not
-	          available if this is a branch, because we can't insert
-	          a set after the branch.  */
-               int avail_p = oprs_available_p (dest, insn)
-			     && ! JUMP_P (insn);
+      /* Only record sets of pseudo-regs in the hash table.  */
+      if (regno >= FIRST_PSEUDO_REGISTER
+	  /* Don't GCSE something if we can't do a reg/reg copy.  */
+	  && can_copy_p (GET_MODE (src))
+	  /* GCSE commonly inserts instruction after the insn.  We can't
+	     do that easily for EH edges so disable GCSE on these for now.  */
+	  && !can_throw_internal (insn)
+	  /* Is SET_DEST something we want to gcse?  */
+	  && want_to_gcse_p (dest, GET_MODE (dest), &max_distance)
+	  /* Don't CSE a nop.  */
+	  && ! set_noop_p (set)
+	  /* Don't GCSE if it has attached REG_EQUIV note.
+	     At this point this only function parameters should have
+	     REG_EQUIV notes and if the argument slot is used somewhere
+	     explicitly, it means address of parameter has been taken,
+	     so we should not extend the lifetime of the pseudo.  */
+	  && ((note = find_reg_note (insn, REG_EQUIV, NULL_RTX)) == 0
+	      || ! MEM_P (XEXP (note, 0))))
+	{
+	  /* Stores are never anticipatable.  */
+	  int antic_p = 0;
+	  /* An expression is not available if its operands are
+	     subsequently modified, including this insn.  It's also not
+	     available if this is a branch, because we can't insert
+	     a set after the branch.  */
+	  int avail_p = oprs_available_p (dest, insn) && ! JUMP_P (insn);
 
-	       /* Record the memory expression (DEST) in the hash table.  */
-	       insert_expr_in_table (dest, GET_MODE (dest), insn,
-				     antic_p, avail_p, max_distance, table);
-             }
-      }
+	  /* Record the memory expression (DEST) in the hash table.  */
+	  insert_expr_in_table (dest, GET_MODE (dest), insn,
+				antic_p, avail_p, max_distance, table);
+	}
+    }
 }
 
 static void
@@ -2439,7 +2415,7 @@ single_set_gcse (rtx_insn *insn)
 /* Emit move from SRC to DEST noting the equivalence with expression computed
    in INSN.  */
 
-static rtx
+static rtx_insn *
 gcse_emit_move_after (rtx dest, rtx src, rtx_insn *insn)
 {
   rtx_insn *new_rtx;
@@ -3965,7 +3941,6 @@ update_ld_motion_stores (struct gcse_expr * expr)
 	  rtx pat = PATTERN (insn);
 	  rtx src = SET_SRC (pat);
 	  rtx reg = expr->reaching_reg;
-	  rtx copy;
 
 	  /* If we've already copied it, continue.  */
 	  if (expr->reaching_reg == src)
@@ -3980,7 +3955,7 @@ update_ld_motion_stores (struct gcse_expr * expr)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  copy = gen_move_insn (reg, copy_rtx (SET_SRC (pat)));
+	  rtx_insn *copy = gen_move_insn (reg, copy_rtx (SET_SRC (pat)));
 	  emit_insn_before (copy, insn);
 	  SET_SRC (pat) = reg;
 	  df_insn_rescan (insn);

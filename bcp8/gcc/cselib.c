@@ -20,41 +20,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
+#include "df.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"/* FIXME: For hashing DEBUG_EXPR & friends.  */
 #include "tm_p.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "hashtab.h"
-#include "input.h"
-#include "function.h"
 #include "emit-rtl.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
-#include "hash-table.h"
 #include "dumpfile.h"
 #include "alloc-pool.h"
 #include "cselib.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "valtrack.h"
 #include "params.h"
 #include "alloc-pool.h"
 #include "target.h"
-#include "bitmap.h"
 
 /* A list of cselib_val structures.  */
 struct elt_list
@@ -117,9 +101,8 @@ static rtx cselib_expand_value_rtx_1 (rtx, struct expand_value_data *, int);
      this involves walking the table entries for a given value and comparing
      the locations of the entries with the rtx we are looking up.  */
 
-struct cselib_hasher : typed_noop_remove <cselib_val>
+struct cselib_hasher : nofree_ptr_hash <cselib_val>
 {
-  typedef cselib_val *value_type;
   struct key {
     /* The rtx value and its mode (needed separately for constant
        integers).  */

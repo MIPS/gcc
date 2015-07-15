@@ -487,10 +487,12 @@
    (V4SI "v4di")   (V8SI "v8di")   (V16SI "v16di")])
 
 (define_mode_attr ssedoublemode
-  [(V16SF "V32SF") (V16SI "V32SI") (V8DI "V16DI") (V8DF "V16DF")
-   (V8SF "V16SF") (V8SI "V16SI") (V4DI "V8DI") (V4DF "V8DF")
-   (V16HI "V16SI") (V8HI "V8SI") (V4HI "V4SI") (V4SI "V4DI")
-   (V32HI "V32SI") (V32QI "V32HI") (V16QI "V16HI") (V64QI "V64HI")])
+  [(V4SF "V8SF") (V8SF "V16SF") (V16SF "V32SF")
+   (V2DF "V4DF") (V4DF "V8DF") (V8DF "V16DF")
+   (V16QI "V16HI") (V32QI "V32HI") (V64QI "V64HI")
+   (V4HI "V4SI") (V8HI "V8SI") (V16HI "V16SI") (V32HI "V32SI")
+   (V4SI "V4DI") (V8SI "V16SI") (V16SI "V32SI")
+   (V4DI "V8DI") (V8DI "V16DI")])
 
 (define_mode_attr ssebytemode
   [(V8DI "V64QI") (V4DI "V32QI") (V2DI "V16QI")])
@@ -1078,9 +1080,9 @@
       /* The DImode arrived in a pair of integral registers (e.g. %edx:%eax).
 	 Assemble the 64-bit DImode value in an xmm register.  */
       emit_insn (gen_sse2_loadld (operands[0], CONST0_RTX (V4SImode),
-				  gen_rtx_SUBREG (SImode, operands[1], 0)));
+				  gen_lowpart (SImode, operands[1])));
       emit_insn (gen_sse2_loadld (operands[2], CONST0_RTX (V4SImode),
-				  gen_rtx_SUBREG (SImode, operands[1], 4)));
+				  gen_highpart (SImode, operands[1])));
       emit_insn (gen_vec_interleave_lowv4si (operands[0], operands[0],
 					     operands[2]));
    }
@@ -2021,11 +2023,11 @@
 (define_insn "avx_addsubv4df3"
   [(set (match_operand:V4DF 0 "register_operand" "=x")
 	(vec_merge:V4DF
-	  (plus:V4DF
+	  (minus:V4DF
 	    (match_operand:V4DF 1 "register_operand" "x")
 	    (match_operand:V4DF 2 "nonimmediate_operand" "xm"))
-	  (minus:V4DF (match_dup 1) (match_dup 2))
-	  (const_int 10)))]
+	  (plus:V4DF (match_dup 1) (match_dup 2))
+	  (const_int 5)))]
   "TARGET_AVX"
   "vaddsubpd\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sseadd")
@@ -2035,11 +2037,11 @@
 (define_insn "sse3_addsubv2df3"
   [(set (match_operand:V2DF 0 "register_operand" "=x,x")
 	(vec_merge:V2DF
-	  (plus:V2DF
+	  (minus:V2DF
 	    (match_operand:V2DF 1 "register_operand" "0,x")
 	    (match_operand:V2DF 2 "nonimmediate_operand" "xm,xm"))
-	  (minus:V2DF (match_dup 1) (match_dup 2))
-	  (const_int 2)))]
+	  (plus:V2DF (match_dup 1) (match_dup 2))
+	  (const_int 1)))]
   "TARGET_SSE3"
   "@
    addsubpd\t{%2, %0|%0, %2}
@@ -2053,11 +2055,11 @@
 (define_insn "avx_addsubv8sf3"
   [(set (match_operand:V8SF 0 "register_operand" "=x")
 	(vec_merge:V8SF
-	  (plus:V8SF
+	  (minus:V8SF
 	    (match_operand:V8SF 1 "register_operand" "x")
 	    (match_operand:V8SF 2 "nonimmediate_operand" "xm"))
-	  (minus:V8SF (match_dup 1) (match_dup 2))
-	  (const_int 170)))]
+	  (plus:V8SF (match_dup 1) (match_dup 2))
+	  (const_int 85)))]
   "TARGET_AVX"
   "vaddsubps\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sseadd")
@@ -2067,11 +2069,11 @@
 (define_insn "sse3_addsubv4sf3"
   [(set (match_operand:V4SF 0 "register_operand" "=x,x")
 	(vec_merge:V4SF
-	  (plus:V4SF
+	  (minus:V4SF
 	    (match_operand:V4SF 1 "register_operand" "0,x")
 	    (match_operand:V4SF 2 "nonimmediate_operand" "xm,xm"))
-	  (minus:V4SF (match_dup 1) (match_dup 2))
-	  (const_int 10)))]
+	  (plus:V4SF (match_dup 1) (match_dup 2))
+	  (const_int 5)))]
   "TARGET_SSE3"
   "@
    addsubps\t{%2, %0|%0, %2}
@@ -2081,6 +2083,124 @@
    (set_attr "prefix" "orig,vex")
    (set_attr "prefix_rep" "1,*")
    (set_attr "mode" "V4SF")])
+
+(define_split
+  [(set (match_operand:VF_128_256 0 "register_operand")
+	(match_operator:VF_128_256 6 "addsub_vm_operator"
+	  [(minus:VF_128_256
+	     (match_operand:VF_128_256 1 "register_operand")
+	     (match_operand:VF_128_256 2 "nonimmediate_operand"))
+	   (plus:VF_128_256
+	     (match_operand:VF_128_256 3 "nonimmediate_operand")
+	     (match_operand:VF_128_256 4 "nonimmediate_operand"))
+	   (match_operand 5 "const_int_operand")]))]
+  "TARGET_SSE3
+   && can_create_pseudo_p ()
+   && ((rtx_equal_p (operands[1], operands[3])
+	&& rtx_equal_p (operands[2], operands[4]))
+       || (rtx_equal_p (operands[1], operands[4])
+	   && rtx_equal_p (operands[2], operands[3])))"
+  [(set (match_dup 0)
+	(vec_merge:VF_128_256
+	  (minus:VF_128_256 (match_dup 1) (match_dup 2))
+	  (plus:VF_128_256 (match_dup 1) (match_dup 2))
+	  (match_dup 5)))])
+
+(define_split
+  [(set (match_operand:VF_128_256 0 "register_operand")
+	(match_operator:VF_128_256 6 "addsub_vm_operator"
+	  [(plus:VF_128_256
+	     (match_operand:VF_128_256 1 "nonimmediate_operand")
+	     (match_operand:VF_128_256 2 "nonimmediate_operand"))
+	   (minus:VF_128_256
+	     (match_operand:VF_128_256 3 "register_operand")
+	     (match_operand:VF_128_256 4 "nonimmediate_operand"))
+	   (match_operand 5 "const_int_operand")]))]
+  "TARGET_SSE3
+   && can_create_pseudo_p ()
+   && ((rtx_equal_p (operands[1], operands[3])
+	&& rtx_equal_p (operands[2], operands[4]))
+       || (rtx_equal_p (operands[1], operands[4])
+	   && rtx_equal_p (operands[2], operands[3])))"
+  [(set (match_dup 0)
+	(vec_merge:VF_128_256
+	  (minus:VF_128_256 (match_dup 3) (match_dup 4))
+	  (plus:VF_128_256 (match_dup 3) (match_dup 4))
+	  (match_dup 5)))]
+{
+  /* Negate mask bits to compensate for swapped PLUS and MINUS RTXes.  */
+  operands[5]
+    = GEN_INT (~INTVAL (operands[5])
+	       & ((HOST_WIDE_INT_1U << GET_MODE_NUNITS (<MODE>mode)) - 1));
+})
+
+(define_split
+  [(set (match_operand:VF_128_256 0 "register_operand")
+	(match_operator:VF_128_256 7 "addsub_vs_operator"
+	  [(vec_concat:<ssedoublemode>
+	     (minus:VF_128_256
+	       (match_operand:VF_128_256 1 "register_operand")
+	       (match_operand:VF_128_256 2 "nonimmediate_operand"))
+	     (plus:VF_128_256
+	       (match_operand:VF_128_256 3 "nonimmediate_operand")
+	       (match_operand:VF_128_256 4 "nonimmediate_operand")))
+	   (match_parallel 5 "addsub_vs_parallel"
+	     [(match_operand 6 "const_int_operand")])]))]
+  "TARGET_SSE3
+   && can_create_pseudo_p ()
+   && ((rtx_equal_p (operands[1], operands[3])
+	&& rtx_equal_p (operands[2], operands[4]))
+       || (rtx_equal_p (operands[1], operands[4])
+	   && rtx_equal_p (operands[2], operands[3])))"
+  [(set (match_dup 0)
+	(vec_merge:VF_128_256
+	  (minus:VF_128_256 (match_dup 1) (match_dup 2))
+	  (plus:VF_128_256 (match_dup 1) (match_dup 2))
+	  (match_dup 5)))]
+{
+  int i, nelt = XVECLEN (operands[5], 0);
+  HOST_WIDE_INT ival = 0;
+
+  for (i = 0; i < nelt; i++)
+    if (INTVAL (XVECEXP (operands[5], 0, i)) < GET_MODE_NUNITS (<MODE>mode))
+      ival |= HOST_WIDE_INT_1 << i;
+
+  operands[5] = GEN_INT (ival);
+})
+
+(define_split
+  [(set (match_operand:VF_128_256 0 "register_operand")
+	(match_operator:VF_128_256 7 "addsub_vs_operator"
+	  [(vec_concat:<ssedoublemode>
+	     (plus:VF_128_256
+	       (match_operand:VF_128_256 1 "nonimmediate_operand")
+	       (match_operand:VF_128_256 2 "nonimmediate_operand"))
+	     (minus:VF_128_256
+	       (match_operand:VF_128_256 3 "register_operand")
+	       (match_operand:VF_128_256 4 "nonimmediate_operand")))
+	   (match_parallel 5 "addsub_vs_parallel"
+	     [(match_operand 6 "const_int_operand")])]))]
+  "TARGET_SSE3
+   && can_create_pseudo_p ()
+   && ((rtx_equal_p (operands[1], operands[3])
+	&& rtx_equal_p (operands[2], operands[4]))
+       || (rtx_equal_p (operands[1], operands[4])
+	   && rtx_equal_p (operands[2], operands[3])))"
+  [(set (match_dup 0)
+	(vec_merge:VF_128_256
+	  (minus:VF_128_256 (match_dup 3) (match_dup 4))
+	  (plus:VF_128_256 (match_dup 3) (match_dup 4))
+	  (match_dup 5)))]
+{
+  int i, nelt = XVECLEN (operands[5], 0);
+  HOST_WIDE_INT ival = 0;
+
+  for (i = 0; i < nelt; i++)
+    if (INTVAL (XVECEXP (operands[5], 0, i)) >= GET_MODE_NUNITS (<MODE>mode))
+      ival |= HOST_WIDE_INT_1 << i;
+
+  operands[5] = GEN_INT (ival);
+})
 
 (define_insn "avx_h<plusminus_insn>v4df3"
   [(set (match_operand:V4DF 0 "register_operand" "=x")
@@ -13112,24 +13232,48 @@
    (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "<MODE>")])
 
-(define_insn "avx2_pmovmskb"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(unspec:SI [(match_operand:V32QI 1 "register_operand" "x")]
-		   UNSPEC_MOVMSK))]
-  "TARGET_AVX2"
-  "vpmovmskb\t{%1, %0|%0, %1}"
+(define_insn "*<sse>_movmsk<ssemodesuffix><avxsizesuffix>_zext"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	  (unspec:SI
+	    [(match_operand:VF_128_256 1 "register_operand" "x")]
+	    UNSPEC_MOVMSK)))]
+  "TARGET_64BIT && TARGET_SSE"
+  "%vmovmsk<ssemodesuffix>\t{%1, %k0|%k0, %1}"
   [(set_attr "type" "ssemov")
-   (set_attr "prefix" "vex")
-   (set_attr "mode" "DI")])
+   (set_attr "prefix" "maybe_vex")
+   (set_attr "mode" "<MODE>")])
 
-(define_insn "sse2_pmovmskb"
+(define_insn "<sse2_avx2>_pmovmskb"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(unspec:SI [(match_operand:V16QI 1 "register_operand" "x")]
-		   UNSPEC_MOVMSK))]
+	(unspec:SI
+	  [(match_operand:VI1_AVX2 1 "register_operand" "x")]
+	  UNSPEC_MOVMSK))]
   "TARGET_SSE2"
   "%vpmovmskb\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssemov")
-   (set_attr "prefix_data16" "1")
+   (set (attr "prefix_data16")
+     (if_then_else
+       (match_test "TARGET_AVX")
+     (const_string "*")
+     (const_string "1")))
+   (set_attr "prefix" "maybe_vex")
+   (set_attr "mode" "SI")])
+
+(define_insn "*<sse2_avx2>_pmovmskb_zext"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	  (unspec:SI
+	    [(match_operand:VI1_AVX2 1 "register_operand" "x")]
+	    UNSPEC_MOVMSK)))]
+  "TARGET_64BIT && TARGET_SSE2"
+  "%vpmovmskb\t{%1, %k0|%k0, %1}"
+  [(set_attr "type" "ssemov")
+   (set (attr "prefix_data16")
+     (if_then_else
+       (match_test "TARGET_AVX")
+     (const_string "*")
+     (const_string "1")))
    (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "SI")])
 
@@ -13194,10 +13338,12 @@
    (set_attr "atom_sse_attr" "fence")
    (set_attr "memory" "unknown")])
 
-
+;; As per AMD and Intel ISA manuals, the first operand is extensions
+;; and it goes to %ecx. The second operand received is hints and it goes
+;; to %eax.
 (define_insn "sse3_mwait"
-  [(unspec_volatile [(match_operand:SI 0 "register_operand" "a")
-		     (match_operand:SI 1 "register_operand" "c")]
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "c")
+		     (match_operand:SI 1 "register_operand" "a")]
 		    UNSPECV_MWAIT)]
   "TARGET_SSE3"
 ;; 64bit version is "mwait %rax,%rcx". But only lower 32bits are used.

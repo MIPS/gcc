@@ -21,19 +21,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "options.h"
 #include "flags.h"
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 
@@ -544,7 +537,10 @@ gfc_match_name (char *buffer)
   c = gfc_next_ascii_char ();
   if (!(ISALPHA (c) || (c == '_' && flag_allow_leading_underscore)))
     {
-      if (!gfc_error_flag_test () && c != '(')
+      /* Special cases for unary minus and plus, which allows for a sensible
+	 error message for code of the form 'c = exp(-a*b) )' where an
+	 extra ')' appears at the end of statement.  */
+      if (!gfc_error_flag_test () && c != '(' && c != '-' && c != '+')
 	gfc_error ("Invalid character in name at %C");
       gfc_current_locus = old_loc;
       return MATCH_NO;
@@ -5459,7 +5455,10 @@ gfc_match_type_is (void)
   c = gfc_get_case ();
   c->where = gfc_current_locus;
 
-  if (gfc_match_type_spec (&c->ts) == MATCH_ERROR)
+  m = gfc_match_type_spec (&c->ts);
+  if (m == MATCH_NO)
+    goto syntax;
+  if (m == MATCH_ERROR)
     goto cleanup;
 
   if (gfc_match_char (')') != MATCH_YES)
@@ -5539,7 +5538,10 @@ gfc_match_class_is (void)
   c = gfc_get_case ();
   c->where = gfc_current_locus;
 
-  if (match_derived_type_spec (&c->ts) == MATCH_ERROR)
+  m = match_derived_type_spec (&c->ts);
+  if (m == MATCH_NO)
+    goto syntax;
+  if (m == MATCH_ERROR)
     goto cleanup;
 
   if (c->ts.type == BT_DERIVED)

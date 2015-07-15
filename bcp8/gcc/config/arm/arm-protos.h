@@ -210,8 +210,11 @@ extern int arm_dllexport_p (tree);
 extern int arm_dllimport_p (tree);
 extern void arm_mark_dllexport (tree);
 extern void arm_mark_dllimport (tree);
+extern bool arm_change_mode_p (tree);
 #endif
 
+extern tree arm_valid_target_attribute_tree (tree, struct gcc_options *,
+					     struct gcc_options *);
 extern void arm_pr_long_calls (struct cpp_reader *);
 extern void arm_pr_no_long_calls (struct cpp_reader *);
 extern void arm_pr_long_calls_off (struct cpp_reader *);
@@ -281,9 +284,10 @@ struct tune_params
   /* The preference for non short cirtcuit operation when optimizing for
      performance. The first element covers Thumb state and the second one
      is for ARM state.  */
-  enum log_op_non_sc {LOG_OP_NON_SC_FALSE, LOG_OP_NON_SC_TRUE};
-  log_op_non_sc logical_op_non_short_circuit_thumb: 1;
-  log_op_non_sc logical_op_non_short_circuit_arm: 1;
+  enum log_op_non_short_circuit {LOG_OP_NON_SHORT_CIRCUIT_FALSE,
+				 LOG_OP_NON_SHORT_CIRCUIT_TRUE};
+  log_op_non_short_circuit logical_op_non_short_circuit_thumb: 1;
+  log_op_non_short_circuit logical_op_non_short_circuit_arm: 1;
   /* Prefer 32-bit encoding instead of flag-setting 16-bit encoding.  */
   enum {DISPARAGE_FLAGS_NEITHER, DISPARAGE_FLAGS_PARTIAL, DISPARAGE_FLAGS_ALL}
     disparage_flag_setting_t16_encodings: 2;
@@ -326,12 +330,16 @@ extern bool arm_autoinc_modes_ok_p (machine_mode, enum arm_auto_incmodes);
 
 extern void arm_emit_eabi_attribute (const char *, int, int);
 
+extern void arm_reset_previous_fndecl (void);
+
 /* Defined in gcc/common/config/arm-common.c.  */
 extern const char *arm_rewrite_selected_cpu (const char *name);
 
 /* Defined in gcc/common/config/arm-c.c.  */
 extern void arm_lang_object_attributes_init (void);
+extern void arm_register_target_pragmas (void);
 extern void arm_cpu_cpp_builtins (struct cpp_reader *);
+extern void arm_cpu_builtins (struct cpp_reader *, int);
 
 extern bool arm_is_constant_pool_ref (rtx);
 

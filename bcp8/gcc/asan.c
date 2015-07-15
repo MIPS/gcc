@@ -22,41 +22,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "hash-table.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
+#include "rtl.h"
+#include "options.h"
+#include "fold-const.h"
+#include "cfganal.h"
+#include "internal-fn.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "calls.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "tree-iterator.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
@@ -64,12 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "asan.h"
 #include "gimple-pretty-print.h"
 #include "target.h"
-#include "hashtab.h"
-#include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -440,12 +416,8 @@ asan_mem_ref_get_end (const asan_mem_ref *ref, tree len)
   return asan_mem_ref_get_end (ref->start, len);
 }
 
-struct asan_mem_ref_hasher
-  : typed_noop_remove <asan_mem_ref>
+struct asan_mem_ref_hasher : nofree_ptr_hash <asan_mem_ref>
 {
-  typedef asan_mem_ref *value_type;
-  typedef asan_mem_ref *compare_type;
-
   static inline hashval_t hash (const asan_mem_ref *);
   static inline bool equal (const asan_mem_ref *, const asan_mem_ref *);
 };

@@ -1,3 +1,4 @@
+
 /* Target code for NVPTX.
    Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
@@ -22,29 +23,17 @@
 #include <sstream>
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "insn-codes.h"
-#include "hashtab.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -57,7 +46,6 @@
 #include "regs.h"
 #include "optabs.h"
 #include "recog.h"
-#include "ggc.h"
 #include "timevar.h"
 #include "tm_p.h"
 #include "tm-preds.h"
@@ -65,20 +53,19 @@
 #include "langhooks.h"
 #include "dbxout.h"
 #include "target.h"
-#include "target-def.h"
 #include "diagnostic.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "cfgrtl.h"
 #include "stor-layout.h"
-#include "df.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Record the function decls we've written, and the libfuncs and function
    decls corresponding to them.  */
 static std::stringstream func_decls;
 
-struct declared_libfunc_hasher : ggc_cache_hasher<rtx>
+struct declared_libfunc_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   static hashval_t hash (rtx x) { return htab_hash_pointer (x); }
   static bool equal (rtx a, rtx b) { return a == b; }
@@ -87,7 +74,7 @@ struct declared_libfunc_hasher : ggc_cache_hasher<rtx>
 static GTY((cache))
   hash_table<declared_libfunc_hasher> *declared_libfuncs_htab;
 
-  struct tree_hasher : ggc_cache_hasher<tree>
+struct tree_hasher : ggc_cache_ptr_hash<tree_node>
 {
   static hashval_t hash (tree t) { return htab_hash_pointer (t); }
   static bool equal (tree a, tree b) { return a == b; }
@@ -1887,19 +1874,10 @@ get_replacement (struct reg_replace *r)
    conversion copyin/copyout instructions.  */
 
 static void
-nvptx_reorg (void)
+nvptx_reorg_subreg (void)
 {
   struct reg_replace qiregs, hiregs, siregs, diregs;
   rtx_insn *insn, *next;
-
-  /* We are freeing block_for_insn in the toplev to keep compatibility
-     with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
-  compute_bb_for_insn ();
-
-  df_clear_flags (DF_LR_RUN_DCE);
-  df_analyze ();
-
-  thread_prologue_and_epilogue_insns ();
 
   qiregs.n_allocated = 0;
   hiregs.n_allocated = 0;
@@ -1976,14 +1954,41 @@ nvptx_reorg (void)
 	  validate_change (insn, recog_data.operand_loc[i], new_reg, false);
 	}
     }
+}
 
-  int maxregs = max_reg_num ();
+/* PTX-specific reorganization
+   1) mark now-unused registers, so function begin doesn't declare
+   unused registers.
+   2) replace subregs with suitable sequences.
+*/
+
+static void
+nvptx_reorg (void)
+{
+  /* We are freeing block_for_insn in the toplev to keep compatibility
+     with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
+  compute_bb_for_insn ();
+
+  thread_prologue_and_epilogue_insns ();
+
+  df_clear_flags (DF_LR_RUN_DCE);
+  df_set_flags (DF_NO_INSN_RESCAN | DF_NO_HARD_REGS);
+  df_analyze ();
   regstat_init_n_sets_and_refs ();
 
-  for (int i = LAST_VIRTUAL_REGISTER + 1; i < maxregs; i++)
+  int max_regs = max_reg_num ();
+
+  /* Mark unused regs as unused.  */
+  for (int i = LAST_VIRTUAL_REGISTER + 1; i < max_regs; i++)
     if (REG_N_SETS (i) == 0 && REG_N_REFS (i) == 0)
       regno_reg_rtx[i] = const0_rtx;
+
+  /* Replace subregs.  */
+  nvptx_reorg_subreg ();
+
   regstat_free_n_sets_and_refs ();
+
+  df_finish_pass (true);
 }
 
 /* Handle a "kernel" attribute; arguments as in

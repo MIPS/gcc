@@ -23,15 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
-#include "statistics.h"
-#include "hash-table.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "context.h"
 #include "pass_manager.h"
@@ -53,10 +46,8 @@ typedef struct statistics_counter_s {
 
 /* Hashtable helpers.  */
 
-struct stats_counter_hasher
+struct stats_counter_hasher : pointer_hash <statistics_counter_t>
 {
-  typedef statistics_counter_t *value_type;
-  typedef statistics_counter_t *compare_type;
   static inline hashval_t hash (const statistics_counter_t *);
   static inline bool equal (const statistics_counter_t *,
 			    const statistics_counter_t *);

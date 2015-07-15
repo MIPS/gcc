@@ -20,31 +20,20 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "regs.h"
 #include "addresses.h"
-#include "hard-reg-set.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "reload.h"
 #include "recog.h"
 #include "flags.h"
 #include "diagnostic-core.h"
-#include "obstack.h"
 #include "tree-pass.h"
-#include "df.h"
 #include "rtl-iter.h"
+#include "emit-rtl.h"
 
 /* The following code does forward propagation of hard register copies.
    The object is to eliminate as many dependencies as possible, so that
@@ -363,7 +352,7 @@ copy_value (rtx dest, rtx src, struct value_data *vd)
      we must not do the same for the high part.
      Note we can still get low parts for the same mode combination through
      a two-step copy involving differently sized hard regs.
-     Assume hard regs fr* are 32 bits bits each, while r* are 64 bits each:
+     Assume hard regs fr* are 32 bits each, while r* are 64 bits each:
      (set (reg:DI r0) (reg:DI fr0))
      (set (reg:SI fr2) (reg:SI r0))
      loads the low part of (reg:DI fr0) - i.e. fr1 - into fr2, while:

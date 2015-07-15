@@ -21,16 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "flags.h"
@@ -142,9 +133,11 @@ location_from_offset (location_t loc, int offset)
   expanded_location s = expand_location_to_spelling_point (loc);
   int line_width;
   const char *line = location_get_source_line (s, &line_width);
+  if (line == NULL)
+    return loc;
   line += s.column - 1 ;
   line_width -= s.column - 1;
-  unsigned int column = 
+  unsigned int column =
     location_column_from_byte_offset (line, line_width, (unsigned) offset);
 
   return linemap_position_for_loc_and_offset (line_table, loc, column);
@@ -1520,7 +1513,7 @@ check_format_arg (void *ctx, tree format_tree,
   tree array_size = 0;
   tree array_init;
 
-  if (TREE_CODE (format_tree) == VAR_DECL)
+  if (VAR_P (format_tree))
     {
       /* Pull out a constant value if the front end didn't.  */
       format_tree = decl_constant_value (format_tree);
@@ -1624,7 +1617,7 @@ check_format_arg (void *ctx, tree format_tree,
       res->number_non_literal++;
       return;
     }
-  if (TREE_CODE (format_tree) == VAR_DECL
+  if (VAR_P (format_tree)
       && TREE_CODE (TREE_TYPE (format_tree)) == ARRAY_TYPE
       && (array_init = decl_constant_value (format_tree)) != format_tree
       && TREE_CODE (array_init) == STRING_CST)

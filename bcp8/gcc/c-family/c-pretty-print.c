@@ -22,17 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "options.h"
 #include "stor-layout.h"
 #include "attribs.h"
 #include "intl.h"
@@ -657,7 +649,7 @@ c_pretty_printer::storage_class_specifier (tree t)
     {
       if (DECL_REGISTER (t))
 	pp_c_ws_string (this, "register");
-      else if (TREE_STATIC (t) && TREE_CODE (t) == VAR_DECL)
+      else if (TREE_STATIC (t) && VAR_P (t))
 	pp_c_ws_string (this, "static");
     }
 }
@@ -1614,7 +1606,7 @@ c_pretty_printer::postfix_expression (tree e)
     case COMPONENT_REF:
       {
 	tree object = TREE_OPERAND (e, 0);
-	if (TREE_CODE (object) == INDIRECT_REF)
+	if (INDIRECT_REF_P (object))
 	  {
 	    postfix_expression (TREE_OPERAND (object, 0));
 	    pp_c_arrow (this);

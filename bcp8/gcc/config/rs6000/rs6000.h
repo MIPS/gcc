@@ -426,6 +426,33 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 				   & (MASK_BCP8_GROUP_END		\
 				      | MASK_BCP8_ALIGN_GROUP)) != 0)
 
+/* Helper macros for TFmode.  Quad floating point (TFmode) can be either IBM
+   long double format that uses a pair of doubles, or IEEE 128-bit floating
+   point.  KFmode was added as a way to represent IEEE 128-bit floating point,
+   even if the default for long double is the IBM long double format.
+   Similarly IFmode is the IBM long double format even if the default is IEEE
+   128-bit.  */
+#define FLOAT128_IEEE_P(MODE)						\
+  (((MODE) == TFmode && TARGET_IEEEQUAD)				\
+   || ((MODE) == KFmode))
+
+#define FLOAT128_IBM_P(MODE)						\
+  (((MODE) == TFmode && !TARGET_IEEEQUAD)				\
+   || ((MODE) == IFmode))
+
+/* Helper macros to say whether a 128-bit floating point type can go in a
+   single vector register, or whether it needs paired scalar values.  */
+#define FLOAT128_VECTOR_P(MODE) (TARGET_FLOAT128 && FLOAT128_IEEE_P (MODE))
+
+#define FLOAT128_2REG_P(MODE)						\
+  (FLOAT128_IBM_P (MODE)						\
+   || ((MODE) == TDmode)						\
+   || (!TARGET_FLOAT128 && FLOAT128_IEEE_P (MODE)))
+
+/* Return true for floating point that does not use a vector register.  */
+#define SCALAR_FLOAT_MODE_NOT_VECTOR_P(MODE)				\
+  (SCALAR_FLOAT_MODE_P (MODE) && !FLOAT128_VECTOR_P (MODE))
+
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];
 
@@ -671,7 +698,7 @@ extern int rs6000_vector_align[];
 #define TARGET_DF_SPE	(TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT	\
 			 && !TARGET_FPRS && TARGET_E500_DOUBLE)
 
-/* Whether SF/DF operations are supported by by the normal floating point unit
+/* Whether SF/DF operations are supported by the normal floating point unit
    (or the vector/scalar unit).  */
 #define TARGET_SF_FPR	(TARGET_HARD_FLOAT && TARGET_FPRS		\
 			 && TARGET_SINGLE_FLOAT)
@@ -920,11 +947,10 @@ enum data_align { align_abi, align_opt, align_both };
    aligned to 4 or 8 bytes.  */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
-   || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
-	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)	\
-       && (ALIGN) < 32)							\
+   || (SCALAR_FLOAT_MODE_NOT_VECTOR_P (MODE) && (ALIGN) < 32)		\
    || (!TARGET_EFFICIENT_UNALIGNED_VSX                                  \
-       && (VECTOR_MODE_P ((MODE)) && (((int)(ALIGN)) < VECTOR_ALIGN (MODE)))))
+       && ((VECTOR_MODE_P (MODE) || FLOAT128_VECTOR_P (MODE))		\
+	   && (((int)(ALIGN)) < VECTOR_ALIGN (MODE)))))
 
 
 /* Standard register usage.  */
@@ -1206,7 +1232,7 @@ enum data_align { align_abi, align_opt, align_both };
    ? V2DFmode								\
    : TARGET_E500_DOUBLE && ((MODE) == VOIDmode || (MODE) == DFmode)	\
    ? DFmode								\
-   : !TARGET_E500_DOUBLE && (MODE) == TFmode && FP_REGNO_P (REGNO)	\
+   : !TARGET_E500_DOUBLE && FLOAT128_IBM_P (MODE) && FP_REGNO_P (REGNO)	\
    ? DFmode								\
    : !TARGET_E500_DOUBLE && (MODE) == TDmode && FP_REGNO_P (REGNO)	\
    ? DImode								\
@@ -1217,8 +1243,7 @@ enum data_align { align_abi, align_opt, align_both };
      && (GET_MODE_SIZE (MODE) > 4)					\
      && INT_REGNO_P (REGNO)) ? 1 : 0)					\
    || (TARGET_VSX && FP_REGNO_P (REGNO)					\
-       && GET_MODE_SIZE (MODE) > 8 && ((MODE) != TDmode) 		\
-       && ((MODE) != TFmode)))
+       && GET_MODE_SIZE (MODE) > 8 && !FLOAT128_2REG_P (MODE)))
 
 #define VSX_VECTOR_MODE(MODE)		\
 	 ((MODE) == V4SFmode		\
@@ -2071,10 +2096,6 @@ do {									     \
    is undesirable.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* Define if operations between registers always perform the operation
-   on the full register even if a narrower mode is specified.  */
-#define WORD_REGISTER_OPERATIONS
-
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
@@ -2082,7 +2103,7 @@ do {									     \
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Define if loading short immediate values into registers sign extends.  */
-#define SHORT_IMMEDIATES_SIGN_EXTEND
+#define SHORT_IMMEDIATES_SIGN_EXTEND 1
 
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */

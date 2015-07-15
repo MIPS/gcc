@@ -24,36 +24,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
+#include "df.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-attr.h"
 #include "recog.h"
 #include "output.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "function.h"
-#include "hashtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -65,44 +54,32 @@ along with GCC; see the file COPYING3.  If not see
 #include "libfuncs.h"
 #include "reload.h"
 #include "tm_p.h"
-#include "ggc.h"
 #include "gstab.h"
-#include "hash-table.h"
 #include "debug.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
 #include "langhooks.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "sched-int.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
-#include "bitmap.h"
 #include "diagnostic.h"
 #include "target-globals.h"
 #include "opts.h"
 #include "tree-pass.h"
 #include "context.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
@@ -1278,20 +1255,9 @@ static int mips_register_move_cost (machine_mode, reg_class_t,
 static unsigned int mips_function_arg_boundary (machine_mode, const_tree);
 static machine_mode mips_get_reg_raw_mode (int regno);
 
-struct mips16_flip_traits : default_hashmap_traits
-{
-  static hashval_t hash (const char *s) { return htab_hash_string (s); }
-  static bool
-  equal_keys (const char *a, const char *b)
-  {
-    return !strcmp (a, b);
-  }
-};
-
 /* This hash table keeps track of implicit "mips16" and "nomips16" attributes
    for -mflip_mips16.  It maps decl names onto a boolean mode setting.  */
-static GTY (()) hash_map<const char *, bool, mips16_flip_traits> *
-  mflip_mips16_htab;
+static GTY (()) hash_map<nofree_string_hash, bool> *mflip_mips16_htab;
 
 /* True if -mflip-mips16 should next add an attribute for the default MIPS16
    mode, false if it should next add an attribute for the opposite mode.  */
@@ -1312,8 +1278,7 @@ mflip_mips16_use_mips16_p (tree decl)
     return !base_is_mips16;
 
   if (!mflip_mips16_htab)
-    mflip_mips16_htab
-      = hash_map<const char *, bool, mips16_flip_traits>::create_ggc (37);
+    mflip_mips16_htab = hash_map<nofree_string_hash, bool>::create_ggc (37);
 
   name = IDENTIFIER_POINTER (DECL_NAME (decl));
 
@@ -2451,7 +2416,7 @@ mips_legitimate_address_p (machine_mode mode, rtx x, bool strict_p)
   return mips_classify_address (&addr, x, mode, strict_p);
 }
 
-/* Return true if X is a legitimate $sp-based address for mode MDOE.  */
+/* Return true if X is a legitimate $sp-based address for mode MODE.  */
 
 bool
 mips_stack_address_p (rtx x, machine_mode mode)
@@ -3280,7 +3245,7 @@ mips_legitimize_tls_address (rtx loc)
 
   model = SYMBOL_REF_TLS_MODEL (loc);
   /* Only TARGET_ABICALLS code can have more than one module; other
-     code must be be static and should not use a GOT.  All TLS models
+     code must be static and should not use a GOT.  All TLS models
      reduce to local exec in this situation.  */
   if (!TARGET_ABICALLS)
     model = TLS_MODEL_LOCAL_EXEC;
@@ -3744,8 +3709,8 @@ mips_binary_cost (rtx x, int single_cost, int double_cost, bool speed)
   else
     cost = single_cost;
   return (cost
-	  + set_src_cost (XEXP (x, 0), speed)
-	  + rtx_cost (XEXP (x, 1), GET_CODE (x), 1, speed));
+	  + set_src_cost (XEXP (x, 0), GET_MODE (x), speed)
+	  + rtx_cost (XEXP (x, 1), GET_MODE (x), GET_CODE (x), 1, speed));
 }
 
 /* Return the cost of floating-point multiplications of mode MODE.  */
@@ -3846,10 +3811,10 @@ mips_set_reg_reg_cost (machine_mode mode)
 /* Implement TARGET_RTX_COSTS.  */
 
 static bool
-mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
-		int *total, bool speed)
+mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
+		int opno ATTRIBUTE_UNUSED, int *total, bool speed)
 {
-  machine_mode mode = GET_MODE (x);
+  int code = GET_CODE (x);
   bool float_mode_p = FLOAT_MODE_P (mode);
   int cost;
   rtx addr;
@@ -3948,7 +3913,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	     for a word or doubleword operation, so we cannot rely on
 	     the result of mips_build_integer.  */
 	  else if (!TARGET_MIPS16
-		   && (outer_code == SET || mode == VOIDmode))
+		   && (outer_code == SET || GET_MODE (x) == VOIDmode))
 	    cost = 1;
 	  *total = COSTS_N_INSNS (cost);
 	  return true;
@@ -3994,7 +3959,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  && UINTVAL (XEXP (x, 1)) == 0xffffffff)
 	{
 	  *total = (mips_zero_extend_cost (mode, XEXP (x, 0))
-		    + set_src_cost (XEXP (x, 0), speed));
+		    + set_src_cost (XEXP (x, 0), mode, speed));
 	  return true;
 	}
       if (ISA_HAS_CINS && CONST_INT_P (XEXP (x, 1)))
@@ -4004,7 +3969,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	      && CONST_INT_P (XEXP (op, 1))
 	      && mask_low_and_shift_p (mode, XEXP (x, 1), XEXP (op, 1), 32))
 	    {
-	      *total = COSTS_N_INSNS (1) + set_src_cost (XEXP (op, 0), speed);
+	      *total = COSTS_N_INSNS (1);
+	      *total += set_src_cost (XEXP (op, 0), mode, speed);
 	      return true;
 	    }
 	}
@@ -4016,8 +3982,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	{
 	  cost = GET_MODE_SIZE (mode) > UNITS_PER_WORD ? 2 : 1;
           *total = (COSTS_N_INSNS (cost)
-		    + set_src_cost (XEXP (XEXP (x, 0), 0), speed)
-		    + set_src_cost (XEXP (XEXP (x, 1), 0), speed));
+		    + set_src_cost (XEXP (XEXP (x, 0), 0), mode, speed)
+		    + set_src_cost (XEXP (XEXP (x, 1), 0), mode, speed));
 	  return true;
 	}
 	    
@@ -4053,7 +4019,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case LO_SUM:
       /* Low-part immediates need an extended MIPS16 instruction.  */
       *total = (COSTS_N_INSNS (TARGET_MIPS16 ? 2 : 1)
-		+ set_src_cost (XEXP (x, 0), speed));
+		+ set_src_cost (XEXP (x, 0), mode, speed));
       return true;
 
     case LT:
@@ -4081,30 +4047,27 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return true;
 
     case MINUS:
-      if (float_mode_p
-	  && (ISA_HAS_NMADD4_NMSUB4 || ISA_HAS_NMADD3_NMSUB3)
-	  && TARGET_FUSED_MADD
-	  && !HONOR_NANS (mode)
-	  && !HONOR_SIGNED_ZEROS (mode))
+      if (float_mode_p && ISA_HAS_UNFUSED_MADD4 && !HONOR_SIGNED_ZEROS (mode))
 	{
-	  /* See if we can use NMADD or NMSUB.  See mips.md for the
-	     associated patterns.  */
+	  /* See if we can use NMADD or NMSUB via the *nmadd4<mode>_fastmath
+	     or *nmsub4<mode>_fastmath patterns.  These patterns check for
+	     HONOR_SIGNED_ZEROS so we check here too.  */
 	  rtx op0 = XEXP (x, 0);
 	  rtx op1 = XEXP (x, 1);
 	  if (GET_CODE (op0) == MULT && GET_CODE (XEXP (op0, 0)) == NEG)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ set_src_cost (XEXP (XEXP (op0, 0), 0), speed)
-			+ set_src_cost (XEXP (op0, 1), speed)
-			+ set_src_cost (op1, speed));
+			+ set_src_cost (XEXP (XEXP (op0, 0), 0), mode, speed)
+			+ set_src_cost (XEXP (op0, 1), mode, speed)
+			+ set_src_cost (op1, mode, speed));
 	      return true;
 	    }
 	  if (GET_CODE (op1) == MULT)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ set_src_cost (op0, speed)
-			+ set_src_cost (XEXP (op1, 0), speed)
-			+ set_src_cost (XEXP (op1, 1), speed));
+			+ set_src_cost (op0, mode, speed)
+			+ set_src_cost (XEXP (op1, 0), mode, speed)
+			+ set_src_cost (XEXP (op1, 1), mode, speed));
 	      return true;
 	    }
 	}
@@ -4115,9 +4078,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	{
 	  /* If this is part of a MADD or MSUB, treat the PLUS as
 	     being free.  */
-	  if ((ISA_HAS_FP_MADD4_MSUB4 || ISA_HAS_FP_MADD3_MSUB3)
-	      && TARGET_FUSED_MADD
-	      && GET_CODE (XEXP (x, 0)) == MULT)
+	  if (ISA_HAS_UNFUSED_MADD4 && GET_CODE (XEXP (x, 0)) == MULT)
 	    *total = 0;
 	  else
 	    *total = mips_cost->fp_add;
@@ -4134,8 +4095,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  if (const_immlsa_operand (op2, mode))
 	    {
 	      *total = (COSTS_N_INSNS (1)
-			+ set_src_cost (XEXP (XEXP (x, 0), 0), speed)
-			+ set_src_cost (XEXP (x, 1), speed));
+			+ set_src_cost (XEXP (XEXP (x, 0), 0), mode, speed)
+			+ set_src_cost (XEXP (x, 1), mode, speed));
 	      return true;
 	    }
 	}
@@ -4149,22 +4110,18 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return true;
 
     case NEG:
-      if (float_mode_p
-	  && (ISA_HAS_NMADD4_NMSUB4 || ISA_HAS_NMADD3_NMSUB3)
-	  && TARGET_FUSED_MADD
-	  && !HONOR_NANS (mode)
-	  && HONOR_SIGNED_ZEROS (mode))
+      if (float_mode_p && ISA_HAS_UNFUSED_MADD4)
 	{
-	  /* See if we can use NMADD or NMSUB.  See mips.md for the
-	     associated patterns.  */
+	  /* See if we can use NMADD or NMSUB via the *nmadd4<mode> or
+	     *nmsub4<mode> patterns.  */
 	  rtx op = XEXP (x, 0);
 	  if ((GET_CODE (op) == PLUS || GET_CODE (op) == MINUS)
 	      && GET_CODE (XEXP (op, 0)) == MULT)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ set_src_cost (XEXP (XEXP (op, 0), 0), speed)
-			+ set_src_cost (XEXP (XEXP (op, 0), 1), speed)
-			+ set_src_cost (XEXP (op, 1), speed));
+			+ set_src_cost (XEXP (XEXP (op, 0), 0), mode, speed)
+			+ set_src_cost (XEXP (XEXP (op, 0), 1), mode, speed)
+			+ set_src_cost (XEXP (op, 1), mode, speed));
 	      return true;
 	    }
 	}
@@ -4176,8 +4133,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return false;
 
     case FMA:
-      if (ISA_HAS_FP_MADDF_MSUBF)
-	*total = mips_fp_mult_cost (mode);
+      *total = mips_fp_mult_cost (mode);
       return false;
 
     case MULT:
@@ -4207,10 +4163,10 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  if (outer_code == SQRT || GET_CODE (XEXP (x, 1)) == SQRT)
 	    /* An rsqrt<mode>a or rsqrt<mode>b pattern.  Count the
 	       division as being free.  */
-	    *total = set_src_cost (XEXP (x, 1), speed);
+	    *total = set_src_cost (XEXP (x, 1), mode, speed);
 	  else
 	    *total = (mips_fp_div_cost (mode)
-		      + set_src_cost (XEXP (x, 1), speed));
+		      + set_src_cost (XEXP (x, 1), mode, speed));
 	  return true;
 	}
       /* Fall through.  */
@@ -4238,7 +4194,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	      && CONST_INT_P (XEXP (x, 1))
 	      && exact_log2 (INTVAL (XEXP (x, 1))) >= 0)
 	    {
-	      *total = COSTS_N_INSNS (2) + set_src_cost (XEXP (x, 0), speed);
+	      *total = COSTS_N_INSNS (2);
+	      *total += set_src_cost (XEXP (x, 0), mode, speed);
 	      return true;
 	    }
 	  *total = COSTS_N_INSNS (mips_idiv_insns ());
@@ -4261,7 +4218,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  && GET_MODE (XEXP (x, 0)) == QImode
 	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == PLUS)
 	{
-	  *total = set_src_cost (XEXP (XEXP (x, 0), 0), speed);
+	  *total = set_src_cost (XEXP (XEXP (x, 0), 0), VOIDmode, speed);
 	  return true;
 	}
       *total = mips_zero_extend_cost (mode, XEXP (x, 0));
@@ -4304,9 +4261,10 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	      if (ISA_HAS_R6DMUL
 		  && GET_CODE (op) == ZERO_EXTEND
 		  && GET_MODE (op) == DImode)
-		*total += rtx_cost (op, MULT, i, speed);
+		*total += rtx_cost (op, DImode, MULT, i, speed);
 	      else
-		*total += rtx_cost (XEXP (op, 0), GET_CODE (op), 0, speed);
+		*total += rtx_cost (XEXP (op, 0), VOIDmode, GET_CODE (op),
+				    0, speed);
 	    }
 
 	  return true;
@@ -6614,30 +6572,10 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
     }
 }
 
-struct local_alias_traits : default_hashmap_traits
-{
-  static hashval_t hash (rtx);
-  static bool equal_keys (rtx, rtx);
-};
-
 /* Each locally-defined hard-float MIPS16 function has a local symbol
    associated with it.  This hash table maps the function symbol (FUNC)
    to the local symbol (LOCAL). */
-static GTY (()) hash_map<rtx, rtx, local_alias_traits> *mips16_local_aliases;
-
-/* Hash table callbacks for mips16_local_aliases.  */
-
-hashval_t
-local_alias_traits::hash (rtx func)
-{
-  return htab_hash_string (XSTR (func, 0));
-}
-
-bool
-local_alias_traits::equal_keys (rtx func1, rtx func2)
-{
-  return rtx_equal_p (func1, func2);
-}
+static GTY (()) hash_map<nofree_string_hash, rtx> *mips16_local_aliases;
 
 /* FUNC is the symbol for a locally-defined hard-float MIPS16 function.
    Return a local alias for it, creating a new one if necessary.  */
@@ -6647,24 +6585,23 @@ mips16_local_alias (rtx func)
 {
   /* Create the hash table if this is the first call.  */
   if (mips16_local_aliases == NULL)
-    mips16_local_aliases
-      = hash_map<rtx, rtx, local_alias_traits>::create_ggc (37);
+    mips16_local_aliases = hash_map<nofree_string_hash, rtx>::create_ggc (37);
 
   /* Look up the function symbol, creating a new entry if need be.  */
   bool existed;
-  rtx *slot = &mips16_local_aliases->get_or_insert (func, &existed);
+  const char *func_name = XSTR (func, 0);
+  rtx *slot = &mips16_local_aliases->get_or_insert (func_name, &existed);
   gcc_assert (slot != NULL);
 
   if (!existed)
     {
-      const char *func_name, *local_name;
       rtx local;
 
       /* Create a new SYMBOL_REF for the local symbol.  The choice of
 	 __fn_local_* is based on the __fn_stub_* names that we've
 	 traditionally used for the non-MIPS16 stub.  */
       func_name = targetm.strip_name_encoding (XSTR (func, 0));
-      local_name = ACONCAT (("__fn_local_", func_name, NULL));
+      const char *local_name = ACONCAT (("__fn_local_", func_name, NULL));
       local = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (local_name));
       SYMBOL_REF_FLAGS (local) = SYMBOL_REF_FLAGS (func) | SYMBOL_FLAG_LOCAL;
 
@@ -9840,17 +9777,18 @@ mips16_cfun_returns_in_fpr_p (void)
 static bool
 mips_find_gp_ref (bool *cache, bool (*pred) (rtx_insn *))
 {
-  rtx_insn *insn;
+  rtx_insn *insn, *subinsn;
 
   if (!*cache)
     {
       push_topmost_sequence ();
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-	if (USEFUL_INSN_P (insn) && pred (insn))
-	  {
-	    *cache = true;
-	    break;
-	  }
+	FOR_EACH_SUBINSN (subinsn, insn)
+	  if (USEFUL_INSN_P (subinsn) && pred (subinsn))
+	    {
+	      *cache = true;
+	      break;
+	    }
       pop_topmost_sequence ();
     }
   return *cache;
@@ -16363,9 +16301,8 @@ mips_hash_base (rtx base)
 
 /* Hashtable helpers.  */
 
-struct mips_lo_sum_offset_hasher : typed_free_remove <mips_lo_sum_offset>
+struct mips_lo_sum_offset_hasher : free_ptr_hash <mips_lo_sum_offset>
 {
-  typedef mips_lo_sum_offset *value_type;
   typedef rtx_def *compare_type;
   static inline hashval_t hash (const mips_lo_sum_offset *);
   static inline bool equal (const mips_lo_sum_offset *, const rtx_def *);
@@ -19415,6 +19352,33 @@ mips_lra_p (void)
 {
   return mips_lra_flag;
 }
+
+/* Implement TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS.  */
+
+static reg_class_t
+mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
+{
+  /* LRA will allocate an FPR for an integer mode pseudo instead of spilling
+     to memory if an FPR is present in the allocno class.  It is rare that
+     we actually need to place an integer mode value in an FPR so where
+     possible limit the allocation to GR_REGS.  This will slightly pessimize
+     code that involves integer to/from float conversions as these will have
+     to reload into FPRs in LRA.  Such reloads are sometimes eliminated and
+     sometimes only partially eliminated.  We choose to take this penalty
+     in order to eliminate usage of FPRs in code that does not use floating
+     point data.
+
+     This change has a similar effect to increasing the cost of FPR->GPR
+     register moves for integer modes so that they are higher than the cost
+     of memory but changing the allocno class is more reliable.
+
+     This is also similar to forbidding integer mode values in FPRs entirely
+     but this would lead to an inconsistency in the integer to/from float
+     instructions that say integer mode values must be placed in FPRs.  */
+  if (INTEGRAL_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS)
+    return GR_REGS;
+  return allocno_class;
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -19671,6 +19635,8 @@ mips_lra_p (void)
 #define TARGET_SPILL_CLASS mips_spill_class
 #undef TARGET_LRA_P
 #define TARGET_LRA_P mips_lra_p
+#undef TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS
+#define TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS mips_ira_change_pseudo_allocno_class
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

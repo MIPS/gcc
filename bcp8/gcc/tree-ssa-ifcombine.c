@@ -21,44 +21,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
 /* rtl is needed only because arm back-end requires it for
    BRANCH_COST.  */
-#include "rtl.h"
 #include "tm_p.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "tree-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
 #include "tree-pass.h"
 
 #ifndef LOGICAL_OP_NON_SHORT_CIRCUIT
@@ -107,11 +88,7 @@ recognize_if_then_else (basic_block cond_bb,
   t = EDGE_SUCC (cond_bb, 0);
   e = EDGE_SUCC (cond_bb, 1);
   if (!(t->flags & EDGE_TRUE_VALUE))
-    {
-      edge tmp = t;
-      t = e;
-      e = tmp;
-    }
+    std::swap (t, e);
   if (!(t->flags & EDGE_TRUE_VALUE)
       || !(e->flags & EDGE_FALSE_VALUE))
     return false;

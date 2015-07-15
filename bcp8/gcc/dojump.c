@@ -20,30 +20,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "predict.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "insn-config.h"
 #include "insn-attr.h"
 /* Include expr.h after insn-config.h so we get HAVE_conditional_move.  */
-#include "hashtab.h"
-#include "statistics.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -55,10 +42,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "langhooks.h"
-#include "ggc.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "tm_p.h"
+#include "target.h"
 
 static bool prefer_and_bit_test (machine_mode, int);
 static void do_jump_by_parts_greater (tree, tree, int,
@@ -217,8 +202,8 @@ prefer_and_bit_test (machine_mode mode, int bitnum)
   XEXP (XEXP (shift_test, 0), 1) = GEN_INT (bitnum);
 
   speed_p = optimize_insn_for_speed_p ();
-  return (rtx_cost (and_test, IF_THEN_ELSE, 0, speed_p)
-	  <= rtx_cost (shift_test, IF_THEN_ELSE, 0, speed_p));
+  return (rtx_cost (and_test, mode, IF_THEN_ELSE, 0, speed_p)
+	  <= rtx_cost (shift_test, mode, IF_THEN_ELSE, 0, speed_p));
 }
 
 /* Subroutine of do_jump, dealing with exploded comparisons of the type
@@ -1216,13 +1201,12 @@ do_compare_and_jump (tree treeop0, tree treeop1, enum rtx_code signed_code,
   unsignedp = TYPE_UNSIGNED (type);
   code = unsignedp ? unsigned_code : signed_code;
 
-#ifdef HAVE_canonicalize_funcptr_for_compare
   /* If function pointers need to be "canonicalized" before they can
      be reliably compared, then canonicalize them.
      Only do this if *both* sides of the comparison are function pointers.
      If one side isn't, we want a noncanonicalized comparison.  See PR
      middle-end/17564.  */
-  if (HAVE_canonicalize_funcptr_for_compare
+  if (targetm.have_canonicalize_funcptr_for_compare ()
       && TREE_CODE (TREE_TYPE (treeop0)) == POINTER_TYPE
       && TREE_CODE (TREE_TYPE (TREE_TYPE (treeop0)))
           == FUNCTION_TYPE
@@ -1233,13 +1217,12 @@ do_compare_and_jump (tree treeop0, tree treeop1, enum rtx_code signed_code,
       rtx new_op0 = gen_reg_rtx (mode);
       rtx new_op1 = gen_reg_rtx (mode);
 
-      emit_insn (gen_canonicalize_funcptr_for_compare (new_op0, op0));
+      emit_insn (targetm.gen_canonicalize_funcptr_for_compare (new_op0, op0));
       op0 = new_op0;
 
-      emit_insn (gen_canonicalize_funcptr_for_compare (new_op1, op1));
+      emit_insn (targetm.gen_canonicalize_funcptr_for_compare (new_op1, op1));
       op1 = new_op1;
     }
-#endif
 
   do_compare_rtx_and_jump (op0, op1, code, unsignedp, mode,
                            ((mode == BLKmode)

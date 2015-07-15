@@ -2827,7 +2827,7 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
   (STATEMENT_LIST_CHECK (NODE)->stmt_list.tail)
 
 #define TREE_OPTIMIZATION(NODE) \
-  (&OPTIMIZATION_NODE_CHECK (NODE)->optimization.opts)
+  (OPTIMIZATION_NODE_CHECK (NODE)->optimization.opts)
 
 #define TREE_OPTIMIZATION_OPTABS(NODE) \
   (OPTIMIZATION_NODE_CHECK (NODE)->optimization.optabs)
@@ -2839,7 +2839,7 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
 extern tree build_optimization_node (struct gcc_options *opts);
 
 #define TREE_TARGET_OPTION(NODE) \
-  (&TARGET_OPTION_NODE_CHECK (NODE)->target_option.opts)
+  (TARGET_OPTION_NODE_CHECK (NODE)->target_option.opts)
 
 #define TREE_TARGET_GLOBALS(NODE) \
   (TARGET_OPTION_NODE_CHECK (NODE)->target_option.globals)
@@ -3772,6 +3772,7 @@ extern tree build_constructor_from_list (tree, tree);
 extern tree build_constructor_va (tree, int, ...);
 extern tree build_real_from_int_cst (tree, const_tree);
 extern tree build_complex (tree, tree, tree);
+extern tree build_each_one_cst (tree);
 extern tree build_one_cst (tree);
 extern tree build_minus_one_cst (tree);
 extern tree build_all_ones_cst (tree);
@@ -3988,14 +3989,12 @@ extern tree remove_attribute (const char *, tree);
 
 extern tree merge_attributes (tree, tree);
 
-#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 /* Given two Windows decl attributes lists, possibly including
    dllimport, return a list of their union .  */
 extern tree merge_dllimport_decl_attributes (tree, tree);
 
 /* Handle a "dllimport" or "dllexport" attribute.  */
 extern tree handle_dll_attribute (tree *, tree, tree, int, bool *);
-#endif
 
 /* Returns true iff unqualified CAND and BASE are equivalent.  */
 
@@ -4598,6 +4597,27 @@ extern int tree_map_base_marked_p (const void *);
 extern void DEBUG_FUNCTION verify_type (const_tree t);
 extern bool gimple_canonical_types_compatible_p (const_tree, const_tree,
 						 bool trust_type_canonical = true);
+/* Return simplified tree code of type that is used for canonical type merging.  */
+inline enum tree_code
+tree_code_for_canonical_type_merging (enum tree_code code)
+{
+  /* By C standard, each enumerated type shall be compatible with char,
+     a signed integer, or an unsigned integer.  The choice of type is
+     implementation defined (in our case it depends on -fshort-enum).
+
+     For this reason we make no distinction between ENUMERAL_TYPE and INTEGER
+     type and compare only by their signedness and precision.  */
+  if (code == ENUMERAL_TYPE)
+    return INTEGER_TYPE;
+  /* To allow inter-operability between languages having references and
+     C, we consider reference types and pointers alike.  Note that this is
+     not strictly necessary for C-Fortran 2008 interoperability because
+     Fortran define C_PTR type that needs to be compatible with C pointers
+     and we handle this one as ptr_type_node.  */
+  if (code == REFERENCE_TYPE)
+    return POINTER_TYPE;
+  return code;
+}
 
 #define tree_map_eq tree_map_base_eq
 extern unsigned int tree_map_hash (const void *);
@@ -4607,7 +4627,7 @@ extern unsigned int tree_map_hash (const void *);
 extern unsigned int tree_decl_map_hash (const void *);
 #define tree_decl_map_marked_p tree_map_base_marked_p
 
-struct tree_decl_map_cache_hasher : ggc_cache_hasher<tree_decl_map *>
+struct tree_decl_map_cache_hasher : ggc_cache_ptr_hash<tree_decl_map>
 {
   static hashval_t hash (tree_decl_map *m) { return tree_decl_map_hash (m); }
   static bool
@@ -4616,16 +4636,10 @@ struct tree_decl_map_cache_hasher : ggc_cache_hasher<tree_decl_map *>
     return tree_decl_map_eq (a, b);
   }
 
-  static void
-  handle_cache_entry (tree_decl_map *&m)
+  static int
+  keep_cache_entry (tree_decl_map *&m)
   {
-    extern void gt_ggc_mx (tree_decl_map *&);
-    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
-      return;
-    else if (ggc_marked_p (m->base.from))
-      gt_ggc_mx (m);
-    else
-      m = static_cast<tree_decl_map *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (m->base.from);
   }
 };
 
@@ -4878,23 +4892,8 @@ target_opts_for_fn (const_tree fndecl)
 /* For anonymous aggregate types, we need some sort of name to
    hold on to.  In practice, this should not appear, but it should
    not be harmful if it does.  */
-#ifndef NO_DOT_IN_LABEL
-#define ANON_AGGRNAME_FORMAT "._%d"
-#define ANON_AGGRNAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == '.' \
-				  && IDENTIFIER_POINTER (ID_NODE)[1] == '_')
-#else /* NO_DOT_IN_LABEL */
-#ifndef NO_DOLLAR_IN_LABEL
-#define ANON_AGGRNAME_FORMAT "$_%d"
-#define ANON_AGGRNAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == '$' \
-				  && IDENTIFIER_POINTER (ID_NODE)[1] == '_')
-#else /* NO_DOLLAR_IN_LABEL */
-#define ANON_AGGRNAME_PREFIX "__anon_"
-#define ANON_AGGRNAME_P(ID_NODE) \
-  (!strncmp (IDENTIFIER_POINTER (ID_NODE), ANON_AGGRNAME_PREFIX, \
-	     sizeof (ANON_AGGRNAME_PREFIX) - 1))
-#define ANON_AGGRNAME_FORMAT "__anon_%d"
-#endif	/* NO_DOLLAR_IN_LABEL */
-#endif	/* NO_DOT_IN_LABEL */
+extern const char *anon_aggrname_format();
+extern bool anon_aggrname_p (const_tree);
 
 /* The tree and const_tree overload templates.   */
 namespace wi

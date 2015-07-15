@@ -21,32 +21,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "options.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tree-pass.h"
 #include "stringpool.h"
-#include "bitmap.h"
-#include "gimple-expr.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "is-a.h"
-#include "tree-ssa-alias.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "gimple.h"
-#include "ipa-ref.h"
+#include "calls.h"
 #include "lto-streamer.h"
 #include "cgraph.h"
 #include "tree-chkp.h"
@@ -571,25 +556,10 @@ chkp_maybe_create_clone (tree fndecl)
 
       if (gimple_has_body_p (fndecl))
 	{
-	  /* If function will not be instrumented, then it's instrumented
-	     version is a thunk for the original.  */
-	  if (!chkp_instrumentable_p (fndecl))
-	    {
-	      clone->remove_callees ();
-	      clone->remove_all_references ();
-	      clone->thunk.thunk_p = true;
-	      clone->thunk.add_pointer_bounds_args = true;
-	      clone->create_edge (node, NULL, 0, CGRAPH_FREQ_BASE);
-	      /* Thunk shouldn't be a cdtor.  */
-	      DECL_STATIC_CONSTRUCTOR (clone->decl) = 0;
-	      DECL_STATIC_DESTRUCTOR (clone->decl) = 0;
-	    }
-	  else
-	    {
-	      tree_function_versioning (fndecl, new_decl, NULL, false,
-					NULL, false, NULL, NULL);
-	      clone->lowered = true;
-	    }
+	  gcc_assert (chkp_instrumentable_p (fndecl));
+	  tree_function_versioning (fndecl, new_decl, NULL, false,
+				    NULL, false, NULL, NULL);
+	  clone->lowered = true;
 	}
 
       /* New params are inserted after versioning because it

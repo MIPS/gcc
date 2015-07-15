@@ -22,34 +22,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
+#include "gimple.h"
 #include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "stringpool.h"
+#include "gimple-ssa.h"
 #include "gimplify.h"
 #include "stor-layout.h"
 #include "demangle.h"
-#include "gimple-ssa.h"
 
 /* ----- Type related -----  */
 
@@ -86,6 +71,12 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
       /* Do not lose casts between pointers to different address spaces.  */
       if (TYPE_ADDR_SPACE (TREE_TYPE (outer_type))
 	  != TYPE_ADDR_SPACE (TREE_TYPE (inner_type)))
+	return false;
+      /* Do not lose casts to function pointer types.  */
+      if ((TREE_CODE (TREE_TYPE (outer_type)) == FUNCTION_TYPE
+	   || TREE_CODE (TREE_TYPE (outer_type)) == METHOD_TYPE)
+	  && !(TREE_CODE (TREE_TYPE (inner_type)) == FUNCTION_TYPE
+	       || TREE_CODE (TREE_TYPE (inner_type)) == METHOD_TYPE))
 	return false;
     }
 
@@ -145,13 +136,6 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
   else if (POINTER_TYPE_P (inner_type)
 	   && POINTER_TYPE_P (outer_type))
     {
-      /* Do not lose casts to function pointer types.  */
-      if ((TREE_CODE (TREE_TYPE (outer_type)) == FUNCTION_TYPE
-	   || TREE_CODE (TREE_TYPE (outer_type)) == METHOD_TYPE)
-	  && !(TREE_CODE (TREE_TYPE (inner_type)) == FUNCTION_TYPE
-	       || TREE_CODE (TREE_TYPE (inner_type)) == METHOD_TYPE))
-	return false;
-
       /* We do not care for const qualification of the pointed-to types
 	 as const qualification has no semantic value to the middle-end.  */
 

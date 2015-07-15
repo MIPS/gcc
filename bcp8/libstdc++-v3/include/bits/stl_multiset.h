@@ -138,6 +138,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  @brief  Default constructor creates no elements.
        */
       multiset()
+#if __cplusplus >= 201103L
+      noexcept(is_nothrow_default_constructible<allocator_type>::value)
+#endif
       : _M_t() { }
 
       /**
@@ -403,9 +406,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       void
       swap(multiset& __x)
-#if __cplusplus >= 201103L
-      noexcept(_Alloc_traits::_S_nothrow_swap())
-#endif
+      _GLIBCXX_NOEXCEPT_IF(__is_nothrow_swappable<_Compare>::value)
       { _M_t.swap(__x._M_t); }
 
       // insert/erase
@@ -871,6 +872,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     inline void
     swap(multiset<_Key, _Compare, _Alloc>& __x,
 	 multiset<_Key, _Compare, _Alloc>& __y)
+    _GLIBCXX_NOEXCEPT_IF(noexcept(__x.swap(__y)))
     { __x.swap(__y); }
 
 _GLIBCXX_END_NAMESPACE_CONTAINER

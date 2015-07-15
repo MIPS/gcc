@@ -86,7 +86,7 @@ along with GCC; see the file COPYING3.  If not see
      * set_disjuction		: bitmap_xor_comp / bitmap_xor_comp_into
      * set_compare		: bitmap_equal_p
 
-   Some operations on 3 sets that occur frequently in in data flow problems
+   Some operations on 3 sets that occur frequently in data flow problems
    are also implemented:
 
      * A | (B & C)		: bitmap_ior_and_into
@@ -127,10 +127,7 @@ along with GCC; see the file COPYING3.  If not see
    bad for persistent sets, so persistent sets should be allocated on an
    obstack whenever possible.  */
 
-#include "hashtab.h"
-#include "statistics.h"
 #include "obstack.h"
-#include "mem-stats.h"
 
 /* Bitmap memory usage.  */
 struct bitmap_usage: public mem_usage

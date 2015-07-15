@@ -21,50 +21,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "options.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "hash-table.h"
-#include "hash-map.h"
-#include "bitmap.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "hashtab.h"
-#include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -81,10 +53,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "gimple-pretty-print.h"
 #include "params.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-chkp.h"
+#include "tree-hash-traits.h"
 
 /* A vector indexed by SSA_NAME_VERSION.  0 means unknown, positive value
    is an index into strinfo vector, negative value stands for
@@ -167,25 +138,9 @@ struct decl_stridxlist_map
   struct stridxlist list;
 };
 
-/* stridxlist hashtable helpers.  */
-
-struct stridxlist_hash_traits : default_hashmap_traits
-{
-  static inline hashval_t hash (tree);
-};
-
-/* Hash a from tree in a decl_stridxlist_map.  */
-
-inline hashval_t
-stridxlist_hash_traits::hash (tree item)
-{
-  return DECL_UID (item);
-}
-
 /* Hash table for mapping decls to a chained list of offset -> idx
    mappings.  */
-static hash_map<tree, stridxlist, stridxlist_hash_traits>
-  *decl_to_stridxlist_htab;
+static hash_map<tree_decl_hash, stridxlist> *decl_to_stridxlist_htab;
 
 /* Obstack for struct stridxlist and struct decl_stridxlist_map.  */
 static struct obstack stridx_obstack;
@@ -351,7 +306,7 @@ addr_stridxptr (tree exp)
   if (!decl_to_stridxlist_htab)
     {
       decl_to_stridxlist_htab
-       	= new hash_map<tree, stridxlist, stridxlist_hash_traits> (64);
+       	= new hash_map<tree_decl_hash, stridxlist> (64);
       gcc_obstack_init (&stridx_obstack);
     }
 

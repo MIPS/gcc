@@ -22,15 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "tree-hasher.h"
@@ -42,19 +34,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "debug.h"
 #include "convert.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "splay-tree.h"
-#include "hash-table.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
-#include "wide-int.h"
 #include "attribs.h"
 
 static tree bot_manip (tree *, int *, void *);
@@ -746,7 +731,7 @@ struct cplus_array_info
   tree domain;
 };
 
-struct cplus_array_hasher : ggc_hasher<tree>
+struct cplus_array_hasher : ggc_ptr_hash<tree_node>
 {
   typedef cplus_array_info *compare_type;
 
@@ -1724,7 +1709,7 @@ struct list_proxy
   tree chain;
 };
 
-struct list_hasher : ggc_hasher<tree>
+struct list_hasher : ggc_ptr_hash<tree_node>
 {
   typedef list_proxy *compare_type;
 
@@ -2209,8 +2194,8 @@ static tree
 verify_stmt_tree_r (tree* tp, int * /*walk_subtrees*/, void* data)
 {
   tree t = *tp;
-  hash_table<pointer_hash <tree_node> > *statements
-      = static_cast <hash_table<pointer_hash <tree_node> > *> (data);
+  hash_table<nofree_ptr_hash <tree_node> > *statements
+      = static_cast <hash_table<nofree_ptr_hash <tree_node> > *> (data);
   tree_node **slot;
 
   if (!STATEMENT_CODE_P (TREE_CODE (t)))
@@ -2233,7 +2218,7 @@ verify_stmt_tree_r (tree* tp, int * /*walk_subtrees*/, void* data)
 void
 verify_stmt_tree (tree t)
 {
-  hash_table<pointer_hash <tree_node> > statements (37);
+  hash_table<nofree_ptr_hash <tree_node> > statements (37);
   cp_walk_tree (&t, verify_stmt_tree_r, &statements, NULL);
 }
 
@@ -2311,14 +2296,14 @@ no_linkage_check (tree t, bool relaxed_p)
       return no_linkage_check (TYPE_PTRMEM_CLASS_TYPE (t), relaxed_p);
 
     case METHOD_TYPE:
-      r = no_linkage_check (TYPE_METHOD_BASETYPE (t), relaxed_p);
-      if (r)
-	return r;
-      /* Fall through.  */
     case FUNCTION_TYPE:
       {
-	tree parm;
-	for (parm = TYPE_ARG_TYPES (t);
+	tree parm = TYPE_ARG_TYPES (t);
+	if (TREE_CODE (t) == METHOD_TYPE)
+	  /* The 'this' pointer isn't interesting; a method has the same
+	     linkage (or lack thereof) as its enclosing class.  */
+	  parm = TREE_CHAIN (parm);
+	for (;
 	     parm && parm != void_list_node;
 	     parm = TREE_CHAIN (parm))
 	  {
@@ -2430,6 +2415,29 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
 	 break_out_target_exprs will have handled anything below this
 	 point.  */
       *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+  if (TREE_CODE (*tp) == SAVE_EXPR)
+    {
+      t = *tp;
+      splay_tree_node n = splay_tree_lookup (target_remap,
+					     (splay_tree_key) t);
+      if (n)
+	{
+	  *tp = (tree)n->value;
+	  *walk_subtrees = 0;
+	}
+      else
+	{
+	  copy_tree_r (tp, walk_subtrees, NULL);
+	  splay_tree_insert (target_remap,
+			     (splay_tree_key)t,
+			     (splay_tree_value)*tp);
+	  /* Make sure we don't remap an already-remapped SAVE_EXPR.  */
+	  splay_tree_insert (target_remap,
+			     (splay_tree_key)*tp,
+			     (splay_tree_value)*tp);
+	}
       return NULL_TREE;
     }
 
@@ -2561,15 +2569,15 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
   switch (TREE_CODE (*t))
     {
     case PLACEHOLDER_EXPR:
-      gcc_assert (same_type_ignoring_top_level_qualifiers_p
-		  (TREE_TYPE (*t), TREE_TYPE (obj)));
-      *t = obj;
-      *walk_subtrees = false;
-      break;
-
-    case TARGET_EXPR:
-      /* Don't mess with placeholders in an unrelated object.  */
-      *walk_subtrees = false;
+      {
+	tree x = obj;
+	for (; !(same_type_ignoring_top_level_qualifiers_p
+		 (TREE_TYPE (*t), TREE_TYPE (x)));
+	     x = TREE_OPERAND (x, 0))
+	  gcc_assert (TREE_CODE (x) == COMPONENT_REF);
+	*t = x;
+	*walk_subtrees = false;
+      }
       break;
 
     case CONSTRUCTOR:
@@ -2585,7 +2593,12 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 	    if (TREE_CODE (*valp) == CONSTRUCTOR
 		&& AGGREGATE_TYPE_P (type))
 	      {
-		subob = build_ctor_subob_ref (ce->index, type, obj);
+		/* If we're looking at the initializer for OBJ, then build
+		   a sub-object reference.  If we're looking at an
+		   initializer for another object, just pass OBJ down.  */
+		if (same_type_ignoring_top_level_qualifiers_p
+		    (TREE_TYPE (*t), TREE_TYPE (obj)))
+		  subob = build_ctor_subob_ref (ce->index, type, obj);
 		if (TREE_CODE (*valp) == TARGET_EXPR)
 		  valp = &TARGET_EXPR_INITIAL (*valp);
 	      }
@@ -3225,8 +3238,7 @@ scalarish_type_p (const_tree t)
   if (t == error_mark_node)
     return 1;
 
-  return (SCALAR_TYPE_P (t)
-	  || TREE_CODE (t) == VECTOR_TYPE);
+  return (SCALAR_TYPE_P (t) || VECTOR_TYPE_P (t));
 }
 
 /* Returns true iff T requires non-trivial default initialization.  */
@@ -3641,13 +3653,15 @@ handle_abi_tag_attribute (tree* node, tree name, tree args,
 		 name, *node);
 	  goto fail;
 	}
-      else if (CLASSTYPE_TEMPLATE_INSTANTIATION (*node))
+      else if (CLASS_TYPE_P (*node)
+	       && CLASSTYPE_TEMPLATE_INSTANTIATION (*node))
 	{
 	  warning (OPT_Wattributes, "ignoring %qE attribute applied to "
 		   "template instantiation %qT", name, *node);
 	  goto fail;
 	}
-      else if (CLASSTYPE_TEMPLATE_SPECIALIZATION (*node))
+      else if (CLASS_TYPE_P (*node)
+	       && CLASSTYPE_TEMPLATE_SPECIALIZATION (*node))
 	{
 	  warning (OPT_Wattributes, "ignoring %qE attribute applied to "
 		   "template specialization %qT", name, *node);
@@ -3669,8 +3683,7 @@ handle_abi_tag_attribute (tree* node, tree name, tree args,
     }
   else
     {
-      if (TREE_CODE (*node) != FUNCTION_DECL
-	  && TREE_CODE (*node) != VAR_DECL)
+      if (!VAR_OR_FUNCTION_DECL_P (*node))
 	{
 	  error ("%qE attribute applied to non-function, non-variable %qD",
 		 name, *node);
@@ -4024,7 +4037,7 @@ decl_storage_duration (tree decl)
   if (!TREE_STATIC (decl)
       && !DECL_EXTERNAL (decl))
     return dk_auto;
-  if (DECL_THREAD_LOCAL_P (decl))
+  if (CP_DECL_THREAD_LOCAL_P (decl))
     return dk_thread;
   return dk_static;
 }

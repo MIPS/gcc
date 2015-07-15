@@ -81,30 +81,17 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "regs.h"
 #include "flags.h"
 #include "output.h"
 #include "target.h"
-#include "hashtab.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "tm_p.h"
-#include "obstack.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -119,20 +106,11 @@
 #include "diagnostic-core.h"
 #include "toplev.h" /* user_defined_section_attribute */
 #include "tree-pass.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "bb-reorder.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "except.h"
 #include "fibonacci_heap.h"
@@ -1396,12 +1374,11 @@ copy_bb_p (const_basic_block bb, int code_may_grow)
 int
 get_uncond_jump_length (void)
 {
-  rtx_insn *label, *jump;
   int length;
 
   start_sequence ();
-  label = emit_label (gen_label_rtx ());
-  jump = emit_jump_insn (gen_jump (label));
+  rtx_code_label *label = emit_label (gen_label_rtx ());
+  rtx_insn *jump = emit_jump_insn (targetm.gen_jump (label));
   length = get_attr_min_length (jump);
   end_sequence ();
 
@@ -1417,8 +1394,7 @@ fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
 {
   eh_landing_pad new_lp;
   basic_block new_bb, last_bb, post_bb;
-  rtx_insn *new_label, *jump;
-  rtx post_label;
+  rtx_insn *jump;
   unsigned new_partition;
   edge_iterator ei;
   edge e;
@@ -1430,14 +1406,14 @@ fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
   LABEL_PRESERVE_P (new_lp->landing_pad) = 1;
 
   /* Put appropriate instructions in new bb.  */
-  new_label = emit_label (new_lp->landing_pad);
+  rtx_code_label *new_label = emit_label (new_lp->landing_pad);
 
   expand_dw2_landing_pad_for_region (old_lp->region);
 
   post_bb = BLOCK_FOR_INSN (old_lp->landing_pad);
   post_bb = single_succ (post_bb);
-  post_label = block_label (post_bb);
-  jump = emit_jump_insn (gen_jump (post_label));
+  rtx_code_label *post_label = block_label (post_bb);
+  jump = emit_jump_insn (targetm.gen_jump (post_label));
   JUMP_LABEL (jump) = post_label;
 
   /* Create new basic block to be dest for lp.  */
@@ -1759,14 +1735,13 @@ add_labels_and_missing_jumps (vec<edge> crossing_edges)
     {
       basic_block src = e->src;
       basic_block dest = e->dest;
-      rtx label;
-      rtx_insn *new_jump;
+      rtx_jump_insn *new_jump;
 
       if (dest == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	continue;
 
       /* Make sure dest has a label.  */
-      label = block_label (dest);
+      rtx_code_label *label = block_label (dest);
 
       /* Nothing to do for non-fallthru edges.  */
       if (src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
@@ -1784,7 +1759,7 @@ add_labels_and_missing_jumps (vec<edge> crossing_edges)
       /* Make sure there's only one successor.  */
       gcc_assert (single_succ_p (src));
 
-      new_jump = emit_jump_insn_after (gen_jump (label), BB_END (src));
+      new_jump = emit_jump_insn_after (targetm.gen_jump (label), BB_END (src));
       BB_END (src) = new_jump;
       JUMP_LABEL (new_jump) = label;
       LABEL_NUSES (label) += 1;
@@ -1817,7 +1792,7 @@ fix_up_fall_thru_edges (void)
   bool cond_jump_crosses;
   int invert_worked;
   rtx_insn *old_jump;
-  rtx fall_thru_label;
+  rtx_code_label *fall_thru_label;
 
   FOR_EACH_BB_FN (cur_bb, cfun)
     {
@@ -2100,7 +2075,7 @@ fix_crossing_conditional_branches (void)
 		  gcc_assert (GET_CODE (old_label) == LABEL_REF);
 		  old_jump_target = old_jump_insn->jump_target ();
 		  new_jump = as_a <rtx_jump_insn *>
-				(emit_jump_insn (gen_jump (old_jump_target)));
+		    (emit_jump_insn (targetm.gen_jump (old_jump_target)));
 		  new_jump->set_jump_target (old_jump_target);
 
 		  last_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;

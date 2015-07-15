@@ -21,41 +21,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "flags.h"
 #include "tree-pretty-print.h"
-#include "bitmap.h"
 #include "dumpfile.h"
-#include "hash-table.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-live.h"
 #include "tree-ssa-coalesce.h"
 #include "diagnostic-core.h"
@@ -79,10 +57,8 @@ typedef const struct coalesce_pair *const_coalesce_pair_p;
 
 /* Coalesce pair hashtable helpers.  */
 
-struct coalesce_pair_hasher : typed_noop_remove <coalesce_pair>
+struct coalesce_pair_hasher : nofree_ptr_hash <coalesce_pair>
 {
-  typedef coalesce_pair *value_type;
-  typedef coalesce_pair *compare_type;
   static inline hashval_t hash (const coalesce_pair *);
   static inline bool equal (const coalesce_pair *, const coalesce_pair *);
 };
@@ -1249,10 +1225,8 @@ coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl,
 
 /* Hashtable support for storing SSA names hashed by their SSA_NAME_VAR.  */
 
-struct ssa_name_var_hash : typed_noop_remove <tree_node>
+struct ssa_name_var_hash : nofree_ptr_hash <tree_node>
 {
-  typedef union tree_node *value_type;
-  typedef union tree_node *compare_type;
   static inline hashval_t hash (const tree_node *);
   static inline int equal (const tree_node *, const tree_node *);
 };

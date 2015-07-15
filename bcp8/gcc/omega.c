@@ -33,17 +33,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "options.h"
 #include "diagnostic-core.h"
 #include "dumpfile.h"
 #include "omega.h"
@@ -554,11 +546,7 @@ omega_pretty_print_problem (FILE *file, omega_pb pb)
 		else
 		  {
 		    if (pb->geqs[e].coef[v1] == 1)
-		      {
-			v3 = v2;
-			v2 = v1;
-			v1 = v3;
-		      }
+		      std::swap (v1, v2);
 
 		    /* Relation is v1 <= v2 or v1 < v2.  */
 		    po[v1][v2] = ((pb->geqs[e].coef[0] == 0) ? le : lt);

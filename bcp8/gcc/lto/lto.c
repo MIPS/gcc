@@ -23,47 +23,29 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "opts.h"
 #include "toplev.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
-#include "fixed-value.h"
+#include "tm.h"
+#include "function.h"
+#include "bitmap.h"
+#include "cfghooks.h"
+#include "basic-block.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "options.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "diagnostic-core.h"
-#include "tm.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-ssa-operands.h"
 #include "tree-pass.h"
 #include "langhooks.h"
-#include "bitmap.h"
-#include "inchash.h"
 #include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "common.h"
 #include "debug.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "lto.h"
 #include "lto-tree.h"
 #include "lto-streamer.h"
@@ -319,7 +301,7 @@ hash_canonical_type (tree type)
      smaller sets; when searching for existing matching types to merge,
      only existing types having the same features as the new type will be
      checked.  */
-  hstate.add_int (TREE_CODE (type));
+  hstate.add_int (tree_code_for_canonical_type_merging (TREE_CODE (type)));
   hstate.add_int (TYPE_MODE (type));
 
   /* Incorporate common features of numerical types.  */
@@ -342,17 +324,15 @@ hash_canonical_type (tree type)
   if (TREE_CODE (type) == COMPLEX_TYPE)
     hstate.add_int (TYPE_UNSIGNED (type));
 
-  /* For pointer and reference types, fold in information about the type
-     pointed to but do not recurse to the pointed-to type.  */
-  if (POINTER_TYPE_P (type))
-    {
-      hstate.add_int (TYPE_ADDR_SPACE (TREE_TYPE (type)));
-      hstate.add_int (TREE_CODE (TREE_TYPE (type)));
-    }
+  /* Fortran's C_SIGNED_CHAR is !TYPE_STRING_FLAG but needs to be
+     interoperable with "signed char".  Unless all frontends are revisited to
+     agree on these types, we must ignore the flag completely.  */
 
-  /* For integer types hash only the string flag.  */
-  if (TREE_CODE (type) == INTEGER_TYPE)
-    hstate.add_int (TYPE_STRING_FLAG (type));
+  /* Fortran standard define C_PTR type that is compatible with every
+     C pointer.  For this reason we need to glob all pointers into one.
+     Still pointers in different address spaces are not compatible.  */
+  if (POINTER_TYPE_P (type))
+    hstate.add_int (TYPE_ADDR_SPACE (TREE_TYPE (type)));
 
   /* For array types hash the domain bounds and the string flag.  */
   if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
@@ -413,6 +393,9 @@ static void
 iterative_hash_canonical_type (tree type, inchash::hash &hstate)
 {
   hashval_t v;
+
+  /* All type variants have same TYPE_CANONICAL.  */
+  type = TYPE_MAIN_VARIANT (type);
   /* An already processed type.  */
   if (TYPE_CANONICAL (type))
     {
@@ -498,7 +481,15 @@ gimple_register_canonical_type (tree t)
   if (TYPE_CANONICAL (t) || !type_with_alias_set_p (t))
     return;
 
-  gimple_register_canonical_type_1 (t, hash_canonical_type (t));
+  /* Canonical types are same among all complete variants.  */
+  if (TYPE_CANONICAL (TYPE_MAIN_VARIANT (t)))
+    TYPE_CANONICAL (t) = TYPE_CANONICAL (TYPE_MAIN_VARIANT (t));
+  else
+    {
+      gimple_register_canonical_type_1 (TYPE_MAIN_VARIANT (t),
+					hash_canonical_type (TYPE_MAIN_VARIANT (t)));
+      TYPE_CANONICAL (t) = TYPE_CANONICAL (TYPE_MAIN_VARIANT (t));
+    }
 }
 
 /* Re-compute TYPE_CANONICAL for NODE and related types.  */
@@ -941,10 +932,8 @@ struct tree_scc
   tree entries[1];
 };
 
-struct tree_scc_hasher : typed_noop_remove <tree_scc>
+struct tree_scc_hasher : nofree_ptr_hash <tree_scc>
 {
-  typedef tree_scc *value_type;
-  typedef tree_scc *compare_type;
   static inline hashval_t hash (const tree_scc *);
   static inline bool equal (const tree_scc *, const tree_scc *);
 };
@@ -1160,7 +1149,6 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
     {
       compare_values (TYPE_MODE);
       compare_values (TYPE_STRING_FLAG);
-      compare_values (TYPE_NO_FORCE_BLK);
       compare_values (TYPE_NEEDS_CONSTRUCTING);
       if (RECORD_OR_UNION_TYPE_P (t1))
 	{

@@ -20,29 +20,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "options.h"
 #include "fold-const.h"
 #include "internal-fn.h"
 #include "stor-layout.h"
-#include "hashtab.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -54,14 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "ubsan.h"
 #include "target.h"
 #include "stringpool.h"
@@ -538,14 +518,10 @@ expand_addsub_overflow (location_t loc, tree_code code, tree lhs,
       /* PLUS_EXPR is commutative, if operand signedness differs,
 	 canonicalize to the first operand being signed and second
 	 unsigned to simplify following code.  */
-      rtx tem = op1;
-      op1 = op0;
-      op0 = tem;
-      tree t = arg1;
-      arg1 = arg0;
-      arg0 = t;
-      uns0_p = 0;
-      uns1_p = 1;
+      std::swap (op0, op1);
+      std::swap (arg0, arg1);
+      uns0_p = false;
+      uns1_p = true;
     }
 
   /* u1 +- u2 -> ur  */
@@ -686,9 +662,7 @@ expand_addsub_overflow (location_t loc, tree_code code, tree lhs,
 	  int pos_neg0 = get_range_pos_neg (arg0);
 	  if (pos_neg0 != 3 && pos_neg == 3)
 	    {
-	      rtx tem = op1;
-	      op1 = op0;
-	      op0 = tem;
+	      std::swap (op0, op1);
 	      pos_neg = pos_neg0;
 	    }
 	}
@@ -793,22 +767,14 @@ expand_addsub_overflow (location_t loc, tree_code code, tree lhs,
 	 do_compare_rtx_and_jump will be just folded.  Otherwise try
 	 to use range info if available.  */
       if (code == PLUS_EXPR && CONST_INT_P (op0))
-	{
-	  rtx tem = op0;
-	  op0 = op1;
-	  op1 = tem;
-	}
+	std::swap (op0, op1);
       else if (CONST_INT_P (op1))
 	;
       else if (code == PLUS_EXPR && TREE_CODE (arg0) == SSA_NAME)
 	{
 	  pos_neg = get_range_pos_neg (arg0);
 	  if (pos_neg != 3)
-	    {
-	      rtx tem = op0;
-	      op0 = op1;
-	      op1 = tem;
-	    }
+	    std::swap (op0, op1);
 	}
       if (pos_neg == 3 && !CONST_INT_P (op1) && TREE_CODE (arg1) == SSA_NAME)
 	pos_neg = get_range_pos_neg (arg1);
@@ -1035,14 +1001,10 @@ expand_mul_overflow (location_t loc, tree lhs, tree arg0, tree arg1,
       /* Multiplication is commutative, if operand signedness differs,
 	 canonicalize to the first operand being signed and second
 	 unsigned to simplify following code.  */
-      rtx tem = op1;
-      op1 = op0;
-      op0 = tem;
-      tree t = arg1;
-      arg1 = arg0;
-      arg0 = t;
-      uns0_p = 0;
-      uns1_p = 1;
+      std::swap (op0, op1);
+      std::swap (arg0, arg1);
+      uns0_p = false;
+      uns1_p = true;
     }
 
   int pos_neg0 = get_range_pos_neg (arg0);
@@ -1440,7 +1402,7 @@ expand_mul_overflow (location_t loc, tree lhs, tree arg0, tree arg1,
 	  emit_label (one_small_one_large);
 
 	  /* lopart is the low part of the operand that is sign extended
-	     to mode, larger is the the other operand, hipart is the
+	     to mode, larger is the other operand, hipart is the
 	     high part of larger and lopart0 and lopart1 are the low parts
 	     of both operands.
 	     We perform lopart0 * lopart1 and lopart * hipart widening
@@ -1766,15 +1728,15 @@ expand_arith_overflow (enum tree_code code, gimple stmt)
 	  return;
 	}
 
-#ifdef WORD_REGISTER_OPERATIONS
       /* For sub-word operations, if target doesn't have them, start
 	 with precres widening right away, otherwise do it only
 	 if the most simple cases can't be used.  */
-      if (orig_precres == precres && precres < BITS_PER_WORD)
+      if (WORD_REGISTER_OPERATIONS
+	  && orig_precres == precres
+	  && precres < BITS_PER_WORD)
 	;
-      else
-#endif
-      if ((uns0_p && uns1_p && unsr_p && prec0 <= precres && prec1 <= precres)
+      else if ((uns0_p && uns1_p && unsr_p && prec0 <= precres
+		&& prec1 <= precres)
 	  || ((!uns0_p || !uns1_p) && !unsr_p
 	      && prec0 + uns0_p <= precres
 	      && prec1 + uns1_p <= precres))
@@ -1803,7 +1765,7 @@ expand_arith_overflow (enum tree_code code, gimple stmt)
       /* For sub-word operations, retry with a wider type first.  */
       if (orig_precres == precres && precop <= BITS_PER_WORD)
 	{
-#ifdef WORD_REGISTER_OPERATIONS
+#if WORD_REGISTER_OPERATIONS
 	  int p = BITS_PER_WORD;
 #else
 	  int p = precop;

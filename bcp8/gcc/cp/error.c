@@ -21,15 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "cp-tree.h"
@@ -684,7 +676,7 @@ dump_aggr_type (cxx_pretty_printer *pp, tree t, int flags)
       name = DECL_NAME (name);
     }
 
-  if (name == 0 || ANON_AGGRNAME_P (name))
+  if (name == 0 || anon_aggrname_p (name))
     {
       if (flags & TFF_CLASS_KEY_OR_ENUM)
 	pp_string (pp, M_("<anonymous>"));
@@ -1072,7 +1064,7 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
       dump_simple_decl (pp, t, TREE_TYPE (t), flags);
 
       /* Handle variable template specializations.  */
-      if (TREE_CODE (t) == VAR_DECL
+      if (VAR_P (t)
 	  && DECL_LANG_SPECIFIC (t)
 	  && DECL_TEMPLATE_INFO (t)
 	  && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (t)))
@@ -1302,6 +1294,14 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
 	{
 	  tree inner_parms = INNERMOST_TEMPLATE_PARMS (parms);
 	  int len = TREE_VEC_LENGTH (inner_parms);
+
+	  if (len == 0)
+	    {
+	      /* Skip over the dummy template levels of a template template
+		 parm.  */
+	      gcc_assert (TREE_CODE (TREE_TYPE (t)) == TEMPLATE_TEMPLATE_PARM);
+	      continue;
+	    }
 
 	  pp_cxx_ws_string (pp, "template");
 	  pp_cxx_begin_template_argument_list (pp);

@@ -35,28 +35,14 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
 #include "rtl.h"
-#include "hard-reg-set.h"
-#include "obstack.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "diagnostic-core.h"
 #include "alloc-pool.h"
 #include "et-forest.h"
 #include "timevar.h"
-#include "hash-map.h"
 #include "graphds.h"
-#include "bitmap.h"
 
 /* We name our nodes with integers, beginning with 1.  Zero is reserved for
    'undefined' or 'end of list'.  The name of each node is given by the dfs
@@ -490,11 +476,7 @@ link_roots (struct dom_info *di, TBB v, TBB w)
   di->path_min[s] = di->path_min[w];
   di->set_size[v] += di->set_size[w];
   if (di->set_size[v] < 2 * di->set_size[w])
-    {
-      TBB tmp = s;
-      s = di->set_child[v];
-      di->set_child[v] = tmp;
-    }
+    std::swap (di->set_child[v], s);
 
   /* Merge all subtrees.  */
   while (s)
@@ -656,7 +638,12 @@ calculate_dominance_info (enum cdi_direction dir)
   bool reverse = (dir == CDI_POST_DOMINATORS) ? true : false;
 
   if (dom_computed[dir_index] == DOM_OK)
-    return;
+    {
+#if ENABLE_CHECKING
+      verify_dominators (dir);
+#endif
+      return;
+    }
 
   timevar_push (TV_DOMINANCE);
   if (!dom_info_available_p (dir))
@@ -683,6 +670,12 @@ calculate_dominance_info (enum cdi_direction dir)
 
       free_dom_info (&di);
       dom_computed[dir_index] = DOM_NO_FAST_QUERY;
+    }
+  else
+    {
+#if ENABLE_CHECKING
+      verify_dominators (dir);
+#endif
     }
 
   compute_dom_fast_query (dir);

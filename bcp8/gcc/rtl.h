@@ -20,17 +20,25 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_RTL_H
 #define GCC_RTL_H
 
-#include "statistics.h"
-#include "machmode.h"
-#include "input.h"
-#include "real.h"
-#include "vec.h"
-#include "fixed-value.h"
-#include "alias.h"
-#include "hashtab.h"
+/* This file is occasionally included by generator files which expect
+   machmode.h and other files to exist and would not normally have been
+   included by coretypes.h.  */
+#ifdef GENERATOR_FILE
+#include "machmode.h"     
+#include "signop.h"
 #include "wide-int.h"
-#include "flags.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "statistics.h"
+#include "vec.h"
+#include "hash-table.h"
+#include "hash-set.h"
+#include "input.h"
 #include "is-a.h"
+#endif  /* GENERATOR_FILE */
+
+#include "hard-reg-set.h"
 
 /* Value used by some passes to "recognize" noop moves as valid
  instructions.  */
@@ -279,7 +287,7 @@ struct GTY((variable_size)) hwivec_def {
 /* RTL expression ("rtx").  */
 
 /* The GTY "desc" and "tag" options below are a kludge: we need a desc
-   field for for gengtype to recognize that inheritance is occurring,
+   field for gengtype to recognize that inheritance is occurring,
    so that all subclasses are redirected to the traversal hook for the
    base class.
    However, all of the fields are in the base class, and special-casing
@@ -2140,9 +2148,9 @@ wi::max_value (machine_mode mode, signop sgn)
 }
 
 extern void init_rtlanal (void);
-extern int rtx_cost (rtx, enum rtx_code, int, bool);
+extern int rtx_cost (rtx, machine_mode, enum rtx_code, int, bool);
 extern int address_cost (rtx, machine_mode, addr_space_t, bool);
-extern void get_full_rtx_cost (rtx, enum rtx_code, int,
+extern void get_full_rtx_cost (rtx, machine_mode, enum rtx_code, int,
 			       struct full_rtx_costs *);
 extern unsigned int subreg_lsb (const_rtx);
 extern unsigned int subreg_lsb_1 (machine_mode, machine_mode,
@@ -2170,43 +2178,6 @@ extern void decompose_mem_address (struct address_info *, rtx);
 extern void update_address (struct address_info *);
 extern HOST_WIDE_INT get_index_scale (const struct address_info *);
 extern enum rtx_code get_index_code (const struct address_info *);
-
-#ifndef GENERATOR_FILE
-/* Return the cost of SET X.  SPEED_P is true if optimizing for speed
-   rather than size.  */
-
-static inline int
-set_rtx_cost (rtx x, bool speed_p)
-{
-  return rtx_cost (x, INSN, 4, speed_p);
-}
-
-/* Like set_rtx_cost, but return both the speed and size costs in C.  */
-
-static inline void
-get_full_set_rtx_cost (rtx x, struct full_rtx_costs *c)
-{
-  get_full_rtx_cost (x, INSN, 4, c);
-}
-
-/* Return the cost of moving X into a register, relative to the cost
-   of a register move.  SPEED_P is true if optimizing for speed rather
-   than size.  */
-
-static inline int
-set_src_cost (rtx x, bool speed_p)
-{
-  return rtx_cost (x, SET, 1, speed_p);
-}
-
-/* Like set_src_cost, but return both the speed and size costs in C.  */
-
-static inline void
-get_full_set_src_cost (rtx x, struct full_rtx_costs *c)
-{
-  get_full_rtx_cost (x, SET, 1, c);
-}
-#endif
 
 /* 1 if RTX is a subreg containing a reg that is already known to be
    sign- or zero-extended from the mode of the subreg to the mode of
@@ -2547,13 +2518,15 @@ do {								        \
      || defined (HAVE_POST_INCREMENT) || defined (HAVE_POST_DECREMENT) \
      || defined (HAVE_PRE_MODIFY_DISP) || defined (HAVE_POST_MODIFY_DISP) \
      || defined (HAVE_PRE_MODIFY_REG) || defined (HAVE_POST_MODIFY_REG))
-#define AUTO_INC_DEC
+#define AUTO_INC_DEC 1
+#else
+#define AUTO_INC_DEC 0
 #endif
 
 /* Define a macro to look for REG_INC notes,
    but save time on machines where they never exist.  */
 
-#ifdef AUTO_INC_DEC
+#if AUTO_INC_DEC
 #define FIND_REG_INC_NOTE(INSN, REG)			\
   ((REG) != NULL_RTX && REG_P ((REG))			\
    ? find_regno_note ((INSN), REG_INC, REGNO (REG))	\
@@ -2639,6 +2612,43 @@ extern int currently_expanding_to_rtl;
 
 /* Generally useful functions.  */
 
+#ifndef GENERATOR_FILE
+/* Return the cost of SET X.  SPEED_P is true if optimizing for speed
+   rather than size.  */
+
+static inline int
+set_rtx_cost (rtx x, bool speed_p)
+{
+  return rtx_cost (x, VOIDmode, INSN, 4, speed_p);
+}
+
+/* Like set_rtx_cost, but return both the speed and size costs in C.  */
+
+static inline void
+get_full_set_rtx_cost (rtx x, struct full_rtx_costs *c)
+{
+  get_full_rtx_cost (x, VOIDmode, INSN, 4, c);
+}
+
+/* Return the cost of moving X into a register, relative to the cost
+   of a register move.  SPEED_P is true if optimizing for speed rather
+   than size.  */
+
+static inline int
+set_src_cost (rtx x, machine_mode mode, bool speed_p)
+{
+  return rtx_cost (x, mode, SET, 1, speed_p);
+}
+
+/* Like set_src_cost, but return both the speed and size costs in C.  */
+
+static inline void
+get_full_set_src_cost (rtx x, machine_mode mode, struct full_rtx_costs *c)
+{
+  get_full_rtx_cost (x, mode, SET, 1, c);
+}
+#endif
+
 /* In explow.c */
 extern HOST_WIDE_INT trunc_int_for_mode	(HOST_WIDE_INT, machine_mode);
 extern rtx plus_constant (machine_mode, rtx, HOST_WIDE_INT, bool = false);
@@ -2657,6 +2667,7 @@ extern rtvec rtvec_alloc (int);
 extern rtvec shallow_copy_rtvec (rtvec);
 extern bool shared_const_p (const_rtx);
 extern rtx copy_rtx (rtx);
+extern enum rtx_code classify_insn (rtx);
 extern void dump_rtx_statistics (void);
 
 /* In emit-rtl.c */
@@ -2823,11 +2834,11 @@ extern rtx_insn *delete_related_insns (rtx);
 extern rtx *find_constant_term_loc (rtx *);
 
 /* In emit-rtl.c  */
-extern rtx_insn *try_split (rtx, rtx, int);
+extern rtx_insn *try_split (rtx, rtx_insn *, int);
 extern int split_branch_probability;
 
-/* In unknown file  */
-extern rtx split_insns (rtx, rtx);
+/* In insn-recog.c (generated by genrecog).  */
+extern rtx_insn *split_insns (rtx, rtx_insn *);
 
 /* In simplify-rtx.c  */
 extern rtx simplify_const_unary_operation (enum rtx_code, machine_mode,
@@ -2871,9 +2882,7 @@ extern bool val_signbit_known_clear_p (machine_mode,
 /* In reginfo.c  */
 extern machine_mode choose_hard_reg_mode (unsigned int, unsigned int,
 					       bool);
-#ifdef HARD_CONST
 extern const HARD_REG_SET &simplifiable_subregs (const subreg_shape &);
-#endif
 
 /* In emit-rtl.c  */
 extern rtx set_for_reg_notes (rtx);
@@ -2930,10 +2939,8 @@ extern int reg_overlap_mentioned_p (const_rtx, const_rtx);
 extern const_rtx set_of (const_rtx, const_rtx);
 extern void record_hard_reg_sets (rtx, const_rtx, void *);
 extern void record_hard_reg_uses (rtx *, void *);
-#ifdef HARD_CONST
 extern void find_all_hard_regs (const_rtx, HARD_REG_SET *);
 extern void find_all_hard_reg_sets (const rtx_insn *, HARD_REG_SET *, bool);
-#endif
 extern void note_stores (const_rtx, void (*) (rtx, const_rtx, void *), void *);
 extern void note_uses (rtx *, void (*) (rtx *, void *), void *);
 extern int dead_or_set_p (const_rtx, const_rtx);
@@ -3485,7 +3492,7 @@ extern void add_insn (rtx_insn *);
 extern void add_insn_before (rtx, rtx, basic_block);
 extern void add_insn_after (rtx, rtx, basic_block);
 extern void remove_insn (rtx);
-extern rtx_insn *emit (rtx);
+extern rtx_insn *emit (rtx, bool = true);
 extern void emit_insn_at_entry (rtx);
 extern rtx gen_lowpart_SUBREG (machine_mode, rtx);
 extern rtx gen_const_mem (machine_mode, rtx);
@@ -3517,7 +3524,7 @@ extern void debug (const rtx_def *ptr);
 extern void debug_rtx (const_rtx);
 extern void debug_rtx_list (const rtx_insn *, int);
 extern void debug_rtx_range (const rtx_insn *, const rtx_insn *);
-extern const_rtx debug_rtx_find (const rtx_insn *, int);
+extern const rtx_insn *debug_rtx_find (const rtx_insn *, int);
 extern void print_mem_expr (FILE *, const_tree);
 extern void print_rtl (FILE *, const_rtx);
 extern void print_simple_rtl (FILE *, const_rtx);
@@ -3563,9 +3570,7 @@ extern bool can_assign_to_reg_without_clobbers_p (rtx);
 extern rtx fis_get_condition (rtx_insn *);
 
 /* In ira.c */
-#ifdef HARD_CONST
 extern HARD_REG_SET eliminable_regset;
-#endif
 extern void mark_elimination (int, int);
 
 /* In reginfo.c */
@@ -3581,9 +3586,7 @@ extern void init_reg_sets (void);
 extern void regclass (rtx, int);
 extern void reg_scan (rtx_insn *, unsigned int);
 extern void fix_register (const char *, int, int);
-#ifdef HARD_CONST
 extern const HARD_REG_SET *valid_mode_changes_for_regno (unsigned int);
-#endif
 
 /* In reload1.c */
 extern int function_invariant_p (const_rtx);
@@ -3699,5 +3702,20 @@ extern void _fatal_insn (const char *, const_rtx, const char *, int, const char 
 
 /* reginfo.c */
 extern tree GTY(()) global_regs_decl[FIRST_PSEUDO_REGISTER];
+
+/* Information about the function that is propagated by the RTL backend.
+   Available only for functions that has been already assembled.  */
+
+struct GTY(()) cgraph_rtl_info {
+   unsigned int preferred_incoming_stack_boundary;
+
+  /* Call unsaved hard registers really used by the corresponding
+     function (including ones used by functions called by the
+     function).  */
+  HARD_REG_SET function_used_regs;
+  /* Set if function_used_regs is valid.  */
+  unsigned function_used_regs_valid: 1;
+};
+
 
 #endif /* ! GCC_RTL_H */

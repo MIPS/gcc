@@ -31,40 +31,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "calls.h"
-#include "rtl.h"
 #include "regs.h"
-#include "hard-reg-set.h"
-#include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-flags.h"
-#include "hashtab.h"
-#include "function.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "statistics.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -79,16 +66,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "tm-constrs.h"
 #include "reload.h" /* For operands_match_p */
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "tree-pass.h"
 #include "context.h"
 #include "pass_manager.h"
@@ -4127,9 +4109,11 @@ static void arc_file_start (void)
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-arc_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
-	       int *total, bool speed)
+arc_rtx_costs (rtx x, machine_mode mode, int outer_code,
+	       int opno ATTRIBUTE_UNUSED, int *total, bool speed)
 {
+  int code = GET_CODE (x);
+
   switch (code)
     {
       /* Small integers are as cheap as registers.  */
@@ -4221,7 +4205,8 @@ arc_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  if (CONSTANT_P (XEXP (x, 0)))
 	    {
 	      *total += (COSTS_N_INSNS (2)
-			 + rtx_cost (XEXP (x, 1), (enum rtx_code) code, 0, speed));
+			 + rtx_cost (XEXP (x, 1), mode, (enum rtx_code) code,
+				     0, speed));
 	      return true;
 	    }
 	  *total = COSTS_N_INSNS (1);
@@ -4263,8 +4248,8 @@ arc_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       if (GET_CODE (XEXP (x, 0)) == MULT
 	  && _2_4_8_operand (XEXP (XEXP (x, 0), 1), VOIDmode))
 	{
-	  *total += (rtx_cost (XEXP (x, 1), PLUS, 0, speed)
-		     + rtx_cost (XEXP (XEXP (x, 0), 0), PLUS, 1, speed));
+	  *total += (rtx_cost (XEXP (x, 1), mode, PLUS, 0, speed)
+		     + rtx_cost (XEXP (XEXP (x, 0), 0), mode, PLUS, 1, speed));
 	  return true;
 	}
       return false;
@@ -4272,8 +4257,8 @@ arc_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       if (GET_CODE (XEXP (x, 1)) == MULT
 	  && _2_4_8_operand (XEXP (XEXP (x, 1), 1), VOIDmode))
 	{
-	  *total += (rtx_cost (XEXP (x, 0), PLUS, 0, speed)
-		     + rtx_cost (XEXP (XEXP (x, 1), 0), PLUS, 1, speed));
+	  *total += (rtx_cost (XEXP (x, 0), mode, PLUS, 0, speed)
+		     + rtx_cost (XEXP (XEXP (x, 1), 0), mode, PLUS, 1, speed));
 	  return true;
 	}
       return false;
@@ -4288,15 +4273,16 @@ arc_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	    /* btst / bbit0 / bbit1:
 	       Small integers and registers are free; everything else can
 	       be put in a register.  */
-	    *total = (rtx_cost (XEXP (op0, 0), SET, 1, speed)
-		      + rtx_cost (XEXP (op0, 2), SET, 1, speed));
+	    mode = GET_MODE (XEXP (op0, 0));
+	    *total = (rtx_cost (XEXP (op0, 0), mode, SET, 1, speed)
+		      + rtx_cost (XEXP (op0, 2), mode, SET, 1, speed));
 	    return true;
 	  }
 	if (GET_CODE (op0) == AND && op1 == const0_rtx
 	    && satisfies_constraint_C1p (XEXP (op0, 1)))
 	  {
 	    /* bmsk.f */
-	    *total = rtx_cost (XEXP (op0, 0), SET, 1, speed);
+	    *total = rtx_cost (XEXP (op0, 0), VOIDmode, SET, 1, speed);
 	    return true;
 	  }
 	/* add.f  */
@@ -4305,8 +4291,9 @@ arc_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	    /* op0 might be constant, the inside of op1 is rather
 	       unlikely to be so.  So swapping the operands might lower
 	       the cost.  */
-	    *total = (rtx_cost (op0, PLUS, 1, speed)
-		      + rtx_cost (XEXP (op1, 0), PLUS, 0, speed));
+	    mode = GET_MODE (op0);
+	    *total = (rtx_cost (op0, mode, PLUS, 1, speed)
+		      + rtx_cost (XEXP (op1, 0), mode, PLUS, 0, speed));
 	  }
 	return false;
       }
@@ -4321,18 +4308,19 @@ arc_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	     be put in a register.  */
 	  rtx op0 = XEXP (x, 0);
 
-	  *total = (rtx_cost (XEXP (op0, 0), SET, 1, speed)
-		    + rtx_cost (XEXP (op0, 2), SET, 1, speed));
+	  mode = GET_MODE (XEXP (op0, 0));
+	  *total = (rtx_cost (XEXP (op0, 0), mode, SET, 1, speed)
+		    + rtx_cost (XEXP (op0, 2), mode, SET, 1, speed));
 	  return true;
 	}
       /* Fall through.  */
     /* scc_insn expands into two insns.  */
     case GTU: case GEU: case LEU:
-      if (GET_MODE (x) == SImode)
+      if (mode == SImode)
 	*total += COSTS_N_INSNS (1);
       return false;
     case LTU: /* might use adc.  */
-      if (GET_MODE (x) == SImode)
+      if (mode == SImode)
 	*total += COSTS_N_INSNS (1) - 1;
       return false;
     default:

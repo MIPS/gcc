@@ -23,27 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "hashtab.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
+#include "gimple.h"
+#include "gimple-predict.h"
 #include "rtl.h"
+#include "ssa.h"
+#include "options.h"
+#include "fold-const.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -53,32 +42,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
-#include "stringpool.h"
 #include "stor-layout.h"
 #include "print-tree.h"
 #include "tree-iterator.h"
 #include "tree-inline.h"
 #include "tree-pretty-print.h"
 #include "langhooks.h"
-#include "bitmap.h"
-#include "gimple-ssa.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "tree-ssanames.h"
 #include "tree-ssa.h"
 #include "diagnostic-core.h"
 #include "target.h"
@@ -87,6 +63,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-low.h"
 #include "cilk.h"
 #include "gomp-constants.h"
+#include "tree-dump.h"
 
 #include "langhooks-def.h"	/* FIXME: for lhd_set_decl_assembler_name */
 #include "tree-pass.h"		/* FIXME: only for PROP_gimple_any */
@@ -138,10 +115,8 @@ enum omp_region_type
 
 /* Gimplify hashtable helper.  */
 
-struct gimplify_hasher : typed_free_remove <elt_t>
+struct gimplify_hasher : free_ptr_hash <elt_t>
 {
-  typedef elt_t *value_type;
-  typedef elt_t *compare_type;
   static inline hashval_t hash (const elt_t *);
   static inline bool equal (const elt_t *, const elt_t *);
 };
@@ -2271,16 +2246,17 @@ gimplify_arg (tree *arg_p, gimple_seq *pre_p, location_t call_location)
   return gimplify_expr (arg_p, pre_p, NULL, test, fb);
 }
 
-/* Don't fold inside offloading regions: it can break code by adding decl
-   references that weren't in the source.  We'll do it during omplower pass
-   instead.  */
+/* Don't fold inside offloading or taskreg regions: it can break code by
+   adding decl references that weren't in the source.  We'll do it during
+   omplower pass instead.  */
 
 static bool
 maybe_fold_stmt (gimple_stmt_iterator *gsi)
 {
   struct gimplify_omp_ctx *ctx;
   for (ctx = gimplify_omp_ctxp; ctx; ctx = ctx->outer_context)
-    if (ctx->region_type == ORT_TARGET)
+    if (ctx->region_type == ORT_TARGET
+	|| (ctx->region_type & (ORT_PARALLEL | ORT_TASK)) != 0)
       return false;
   return fold_stmt (gsi);
 }
@@ -4651,7 +4627,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
     return ret;
 
   /* In case of va_arg internal fn wrappped in a WITH_SIZE_EXPR, add the type
-     size as argument to the the call.  */
+     size as argument to the call.  */
   if (TREE_CODE (*from_p) == WITH_SIZE_EXPR)
     {
       tree call = TREE_OPERAND (*from_p, 0);
@@ -9449,6 +9425,8 @@ gimplify_function_tree (tree fndecl)
   cfun->curr_properties |= PROP_gimple_any;
 
   pop_cfun ();
+
+  dump_function (TDI_generic, fndecl);
 }
 
 /* Return a dummy expression of type TYPE in order to keep going after an

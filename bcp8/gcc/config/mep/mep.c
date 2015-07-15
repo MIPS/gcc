@@ -21,25 +21,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "calls.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-flags.h"
@@ -47,12 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "obstack.h"
-#include "hashtab.h"
-#include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -64,34 +52,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "reload.h"
 #include "tm_p.h"
-#include "ggc.h"
 #include "diagnostic-core.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
-#include "hash-table.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "opts.h"
 #include "dumpfile.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Structure of this file:
 
@@ -252,7 +231,7 @@ static void mep_move_ready_insn (rtx_insn **, int, rtx_insn *);
 static int mep_sched_reorder (FILE *, int, rtx_insn **, int *, int);
 static rtx_insn *mep_make_bundle (rtx, rtx_insn *);
 static void mep_bundle_insns (rtx_insn *);
-static bool mep_rtx_cost (rtx, int, int, int, int *, bool);
+static bool mep_rtx_cost (rtx, machine_mode, int, int, int *, bool);
 static int mep_address_cost (rtx, machine_mode, addr_space_t, bool);
 static void mep_setup_incoming_varargs (cumulative_args_t, machine_mode,
 					tree, int *, int);
@@ -4085,26 +4064,14 @@ struct GTY(()) pragma_entry {
   int flag;
 };
 
-struct pragma_traits : default_hashmap_traits
-{
-  static hashval_t hash (const char *s) { return htab_hash_string (s); }
-  static bool
-  equal_keys (const char *a, const char *b)
-  {
-    return strcmp (a, b) == 0;
-  }
-};
-
 /* Hash table of farcall-tagged sections.  */
-static GTY(()) hash_map<const char *, pragma_entry, pragma_traits> *
-  pragma_htab;
+static GTY(()) hash_map<nofree_string_hash, pragma_entry> *pragma_htab;
 
 static void
 mep_note_pragma_flag (const char *funcname, int flag)
 {
   if (!pragma_htab)
-    pragma_htab
-      = hash_map<const char *, pragma_entry, pragma_traits>::create_ggc (31);
+    pragma_htab = hash_map<nofree_string_hash, pragma_entry>::create_ggc (31);
 
   bool existed;
   const char *name = ggc_strdup (funcname);
@@ -7142,10 +7109,13 @@ mep_expand_binary_intrinsic (int ATTRIBUTE_UNUSED immediate,
 }
 
 static bool
-mep_rtx_cost (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
+mep_rtx_cost (rtx x, machine_mode mode ATTRIBUTE_UNUSED,
+	      int outer_code ATTRIBUTE_UNUSED,
 	      int opno ATTRIBUTE_UNUSED, int *total,
 	      bool ATTRIBUTE_UNUSED speed_t)
 {
+  int code = GET_CODE (x);
+
   switch (code)
     {
     case CONST_INT:

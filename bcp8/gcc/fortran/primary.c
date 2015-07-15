@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "flags.h"
+#include "options.h"
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
@@ -736,6 +736,58 @@ done:
       gfc_internal_error ("gfc_range_check() returned bad value");
     }
 
+  /* Warn about trailing digits which suggest the user added too many
+     trailing digits, which may cause the appearance of higher pecision
+     than the kind kan support.
+
+     This is done by replacing the rightmost non-zero digit with zero
+     and comparing with the original value.  If these are equal, we
+     assume the user supplied more digits than intended (or forgot to
+     convert to the correct kind).
+  */
+
+  if (warn_conversion_extra)
+    {
+      mpfr_t r;
+      char *c, *p;
+      bool did_break;
+
+      c = strchr (buffer, 'e');
+      if (c == NULL)
+	c = buffer + strlen(buffer);
+
+      did_break = false;
+      for (p = c - 1; p >= buffer; p--)
+	{
+	  if (*p == '.')
+	    continue;
+	  
+	  if (*p != '0')
+	    {
+	      *p = '0';
+	      did_break = true;
+	      break;
+	    }
+	}
+
+      if (did_break)
+	{
+	  mpfr_init (r);
+	  mpfr_set_str (r, buffer, 10, GFC_RND_MODE);
+	  if (negate)
+	    mpfr_neg (r, r, GFC_RND_MODE);
+
+	  mpfr_sub (r, r, e->value.real, GFC_RND_MODE);
+
+	  if (mpfr_cmp_ui (r, 0) == 0)
+	    gfc_warning (OPT_Wconversion_extra, "Non-significant digits "
+			 "in %qs number at %C, maybe incorrect KIND",
+			 gfc_typename (&e->ts));
+
+	  mpfr_clear (r);
+	}
+    }
+
   *result = e;
   return MATCH_YES;
 
@@ -1201,6 +1253,9 @@ match_sym_complex_part (gfc_expr **result)
       gfc_error ("Expected PARAMETER symbol in complex constant at %C");
       return MATCH_ERROR;
     }
+
+  if (!sym->value)
+    goto error;
 
   if (!gfc_numeric_ts (&sym->value->ts))
     {
@@ -1859,7 +1914,8 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
   if (sym->assoc && gfc_peek_ascii_char () == '('
       && !(sym->assoc->dangling && sym->assoc->st
 	   && sym->assoc->st->n.sym
-	   && sym->assoc->st->n.sym->attr.dimension == 0))
+	   && sym->assoc->st->n.sym->attr.dimension == 0)
+      && sym->ts.type != BT_CLASS)
     sym->attr.dimension = 1;
 
   if ((equiv_flag && gfc_peek_ascii_char () == '(')
@@ -2908,7 +2964,8 @@ gfc_match_rvalue (gfc_expr **result)
 
       st = gfc_enclosing_unit (NULL);
 
-      if (st != NULL && st->state == COMP_FUNCTION
+      if (st != NULL
+	  && st->state == COMP_FUNCTION
 	  && st->sym == sym
 	  && !sym->attr.recursive)
 	{
@@ -3212,6 +3269,7 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
      of keywords, such as 'end', being turned into variables by
      failed matching to assignments for, e.g., END INTERFACE.  */
   if (gfc_current_state () == COMP_MODULE
+      || gfc_current_state () == COMP_SUBMODULE
       || gfc_current_state () == COMP_INTERFACE
       || gfc_current_state () == COMP_CONTAINS)
     host_flag = 0;

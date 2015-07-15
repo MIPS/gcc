@@ -42,40 +42,21 @@ along with GCC; see the file COPYING3.  If not see
      of inliner. 
    - Finally we propagate the following flags: unlikely executed, executed
      once, executed at startup and executed at exit.  These flags are used to
-     control code size/performance threshold and and code placement (by producing
+     control code size/performance threshold and code placement (by producing
      .text.unlikely/.text.hot/.text.startup/.text.exit subsections).  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
-#include "fold-const.h"
+#include "backend.h"
 #include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
+#include "tree.h"
+#include "gimple.h"
 #include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "cgraph.h"
 #include "tree-pass.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "flags.h"
 #include "target.h"
@@ -112,10 +93,8 @@ static pool_allocator<histogram_entry> histogram_pool
 
 /* Hashtable support for storing SSA names hashed by their SSA_NAME_VAR.  */
 
-struct histogram_hash : typed_noop_remove <histogram_entry>
+struct histogram_hash : nofree_ptr_hash <histogram_entry>
 {
-  typedef histogram_entry *value_type;
-  typedef histogram_entry *compare_type;
   static inline hashval_t hash (const histogram_entry *);
   static inline int equal (const histogram_entry *, const histogram_entry *);
 };

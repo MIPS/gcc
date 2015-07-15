@@ -21,60 +21,32 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
-#include "hash-map.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "trans-mem.h"
 #include "stor-layout.h"
 #include "print-tree.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "flags.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
-#include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-into-ssa.h"
-#include "hashtab.h"
-#include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -146,10 +118,8 @@ struct locus_discrim_map
 
 /* Hashtable helpers.  */
 
-struct locus_discrim_hasher : typed_free_remove <locus_discrim_map>
+struct locus_discrim_hasher : free_ptr_hash <locus_discrim_map>
 {
-  typedef locus_discrim_map *value_type;
-  typedef locus_discrim_map *compare_type;
   static inline hashval_t hash (const locus_discrim_map *);
   static inline bool equal (const locus_discrim_map *,
 			    const locus_discrim_map *);
@@ -2641,6 +2611,23 @@ delete_tree_cfg_annotations (void)
   vec_free (label_to_block_map_for_fn (cfun));
 }
 
+/* Return the virtual phi in BB.  */
+
+gphi *
+get_virtual_phi (basic_block bb)
+{
+  for (gphi_iterator gsi = gsi_start_phis (bb);
+       !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    {
+      gphi *phi = gsi.phi ();
+
+      if (virtual_operand_p (PHI_RESULT (phi)))
+	return phi;
+    }
+
+  return NULL;
+}
 
 /* Return the first statement in basic block BB.  */
 
@@ -4019,8 +4006,22 @@ verify_gimple_assign_ternary (gassign *stmt)
 	}
       break;
 
-    case COND_EXPR:
     case VEC_COND_EXPR:
+      if (!VECTOR_INTEGER_TYPE_P (rhs1_type)
+	  || TYPE_SIGN (rhs1_type) != SIGNED
+	  || TYPE_SIZE (rhs1_type) != TYPE_SIZE (lhs_type)
+	  || TYPE_VECTOR_SUBPARTS (rhs1_type)
+	     != TYPE_VECTOR_SUBPARTS (lhs_type))
+	{
+	  error ("the first argument of a VEC_COND_EXPR must be of a signed "
+		 "integral vector type of the same size and number of "
+		 "elements as the result");
+	  debug_generic_expr (lhs_type);
+	  debug_generic_expr (rhs1_type);
+	  return true;
+	}
+      /* Fallthrough.  */
+    case COND_EXPR:
       if (!useless_type_conversion_p (lhs_type, rhs2_type)
 	  || !useless_type_conversion_p (lhs_type, rhs3_type))
 	{

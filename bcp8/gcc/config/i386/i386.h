@@ -154,6 +154,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_PCOMMIT_P(x)	TARGET_ISA_PCOMMIT_P(x)
 #define TARGET_CLWB	TARGET_ISA_CLWB
 #define TARGET_CLWB_P(x)	TARGET_ISA_CLWB_P(x)
+#define TARGET_MWAITX	TARGET_ISA_MWAITX
+#define TARGET_MWAITX_P(x)	TARGET_ISA_MWAITX_P(x)
 
 #define TARGET_LP64	TARGET_ABI_64
 #define TARGET_LP64_P(x)	TARGET_ABI_64_P(x)
@@ -754,7 +756,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /* It should be MIN_STACK_BOUNDARY.  But we set it to 128 bits for
    both 32bit and 64bit, to support codes that need 128 bit stack
    alignment for SSE instructions, but can't realign the stack.  */
-#define PREFERRED_STACK_BOUNDARY_DEFAULT 128
+#define PREFERRED_STACK_BOUNDARY_DEFAULT \
+  (TARGET_IAMCU ? MIN_STACK_BOUNDARY : 128)
 
 /* 1 if -mstackrealign should be turned on by default.  It will
    generate an alternate prologue and epilogue that realigns the
@@ -801,14 +804,14 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    TARGET_ABSOLUTE_BIGGEST_ALIGNMENT.  */
 
 #define BIGGEST_ALIGNMENT \
-  (TARGET_AVX512F ? 512 : (TARGET_AVX ? 256 : 128))
+  (TARGET_AVX512F ? 512 : (TARGET_AVX ? 256 : (TARGET_IAMCU ? 32 : 128)))
 
 /* Maximum stack alignment.  */
 #define MAX_STACK_ALIGNMENT MAX_OFILE_ALIGNMENT
 
 /* Alignment value for attribute ((aligned)).  It is a constant since
    it is the part of the ABI.  We shouldn't change it with -mavx.  */
-#define ATTRIBUTE_ALIGNED_VALUE 128
+#define ATTRIBUTE_ALIGNED_VALUE (TARGET_IAMCU ? 32 : 128)
 
 /* Decide whether a variable of mode MODE should be 128 bit aligned.  */
 #define ALIGN_MODE_128(MODE) \
@@ -2263,6 +2266,7 @@ enum processor_type
   PROCESSOR_I386,			/* 80386 */
   PROCESSOR_I486,			/* 80486DX, 80486SX, 80486DX[24] */
   PROCESSOR_PENTIUM,
+  PROCESSOR_IAMCU,
   PROCESSOR_PENTIUMPRO,
   PROCESSOR_PENTIUM4,
   PROCESSOR_NOCONA,
@@ -2474,6 +2478,13 @@ struct GTY(()) machine_function {
 
   /* If true, it is safe to not save/restore DRAP register.  */
   BOOL_BITFIELD no_drap_save_restore : 1;
+
+  /* If true, there is register available for argument passing.  This
+     is used only in ix86_function_ok_for_sibcall by 32-bit to determine
+     if there is scratch register available for indirect sibcall.  In
+     64-bit, rax, r10 and r11 are scratch registers which aren't used to
+     pass arguments and can be used for indirect sibcall.  */
+  BOOL_BITFIELD arg_reg_available : 1;
 
   /* During prologue/epilogue generation, the current frame state.
      Otherwise, the frame state at the end of the prologue.  */

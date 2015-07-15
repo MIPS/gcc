@@ -2991,10 +2991,17 @@ instead of @code{0} in the assembly output.
 Integer that is valid as an immediate operand for
 a custom instruction opcode. Range 0 to 255.
 
+@item P
+An immediate operand for R2 andchi/andci instructions. 
+
 @item S
 Matches immediates which are addresses in the small
 data section and therefore can be added to @code{gp}
 as a 16-bit immediate to re-create their 32-bit value.
+
+@item w
+A memory operand suitable for load/store IO and cache
+instructions.
 
 @ifset INTERNALS
 @item T
@@ -3069,6 +3076,27 @@ Altivec vector register
 
 @item wa
 Any VSX register if the -mvsx option was used or NO_REGS.
+
+When using any of the register constraints (@code{wa}, @code{wd},
+@code{wf}, @code{wg}, @code{wh}, @code{wi}, @code{wj}, @code{wk},
+@code{wl}, @code{wm}, @code{ws}, @code{wt}, @code{wu}, @code{wv},
+@code{ww}, or @code{wy}) that take VSX registers, you must use
+@code{%x<n>} in the template so that the correct register is used.
+Otherwise the register number output in the assembly file will be
+incorrect if an Altivec register is an operand of a VSX instruction
+that expects VSX register numbering.
+
+@smallexample
+asm ("xvadddp %x0,%x1,%x2" : "=wa" (v1) : "wa" (v2), "wa" (v3));
+@end smallexample
+
+is correct, but:
+
+@smallexample
+asm ("xvadddp %0,%1,%2" : "=wa" (v1) : "wa" (v2), "wa" (v3));
+@end smallexample
+
+is not correct.
 
 @item wd
 VSX vector register to hold vector double data or NO_REGS.

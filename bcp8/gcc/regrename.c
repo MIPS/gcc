@@ -20,31 +20,20 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "rtl.h"
+#include "df.h"
 #include "rtl-error.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "regs.h"
 #include "addresses.h"
-#include "hard-reg-set.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "reload.h"
 #include "output.h"
 #include "recog.h"
 #include "flags.h"
-#include "obstack.h"
 #include "tree-pass.h"
-#include "df.h"
 #include "target.h"
 #include "emit-rtl.h"
 #include "regrename.h"
@@ -452,12 +441,10 @@ rename_chains (void)
 	continue;
 
       if (fixed_regs[reg] || global_regs[reg]
-#if !HARD_FRAME_POINTER_IS_FRAME_POINTER
-	  || (frame_pointer_needed && reg == HARD_FRAME_POINTER_REGNUM)
-#else
-	  || (frame_pointer_needed && reg == FRAME_POINTER_REGNUM)
-#endif
-	  )
+	  || (!HARD_FRAME_POINTER_IS_FRAME_POINTER && frame_pointer_needed
+	      && reg == HARD_FRAME_POINTER_REGNUM)
+	  || (HARD_FRAME_POINTER_REGNUM && frame_pointer_needed
+	      && reg == FRAME_POINTER_REGNUM))
 	continue;
 
       COPY_HARD_REG_SET (this_unavailable, unavailable);
@@ -501,12 +488,20 @@ rename_chains (void)
 	  continue;
 	}
 
-      if (dump_file)
-	fprintf (dump_file, ", renamed as %s\n", reg_names[best_new_reg]);
-
-      regrename_do_replace (this_head, best_new_reg);
-      tick[best_new_reg] = ++this_tick;
-      df_set_regs_ever_live (best_new_reg, true);
+      if (regrename_do_replace (this_head, best_new_reg))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, ", renamed as %s\n", reg_names[best_new_reg]);
+	  tick[best_new_reg] = ++this_tick;
+	  df_set_regs_ever_live (best_new_reg, true);
+	}
+      else
+	{
+	  if (dump_file)
+	    fprintf (dump_file, ", renaming as %s failed\n",
+		     reg_names[best_new_reg]);
+	  tick[reg] = ++this_tick;
+	}
     }
 }
 
@@ -932,7 +927,13 @@ regrename_analyze (bitmap bb_mask)
     bb->aux = NULL;
 }
 
-void
+/* Attempt to replace all uses of the register in the chain beginning with
+   HEAD with REG.  Returns true on success and false if the replacement is
+   rejected because the insns would not validate.  The latter can happen
+   e.g. if a match_parallel predicate enforces restrictions on register
+   numbering in its subpatterns.  */
+
+bool
 regrename_do_replace (struct du_head *head, int reg)
 {
   struct du_chain *chain;
@@ -946,22 +947,26 @@ regrename_do_replace (struct du_head *head, int reg)
       int reg_ptr = REG_POINTER (*chain->loc);
 
       if (DEBUG_INSN_P (chain->insn) && REGNO (*chain->loc) != base_regno)
-	INSN_VAR_LOCATION_LOC (chain->insn) = gen_rtx_UNKNOWN_VAR_LOC ();
+	validate_change (chain->insn, &(INSN_VAR_LOCATION_LOC (chain->insn)),
+			 gen_rtx_UNKNOWN_VAR_LOC (), true);
       else
 	{
-	  *chain->loc = gen_raw_REG (GET_MODE (*chain->loc), reg);
+	  validate_change (chain->insn, chain->loc, 
+			   gen_raw_REG (GET_MODE (*chain->loc), reg), true);
 	  if (regno >= FIRST_PSEUDO_REGISTER)
 	    ORIGINAL_REGNO (*chain->loc) = regno;
 	  REG_ATTRS (*chain->loc) = attr;
 	  REG_POINTER (*chain->loc) = reg_ptr;
 	}
-
-      df_insn_rescan (chain->insn);
     }
+
+  if (!apply_change_group ())
+    return false;
 
   mode = GET_MODE (*head->first->loc);
   head->regno = reg;
   head->nregs = hard_regno_nregs[reg][mode];
+  return true;
 }
 
 
@@ -1301,11 +1306,11 @@ scan_rtx_address (rtx_insn *insn, rtx *loc, enum reg_class cl,
     case PRE_INC:
     case PRE_DEC:
     case PRE_MODIFY:
-#ifndef AUTO_INC_DEC
       /* If the target doesn't claim to handle autoinc, this must be
 	 something special, like a stack push.  Kill this chain.  */
+    if (!AUTO_INC_DEC)
       action = mark_all_read;
-#endif
+
       break;
 
     case MEM:

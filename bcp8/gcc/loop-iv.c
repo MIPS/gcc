@@ -50,31 +50,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "hard-reg-set.h"
-#include "obstack.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "cfgloop.h"
-#include "symtab.h"
-#include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
-#include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "cfgloop.h"
+#include "flags.h"
+#include "alias.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -86,8 +68,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "intl.h"
 #include "diagnostic-core.h"
-#include "df.h"
-#include "hash-table.h"
 #include "dumpfile.h"
 #include "rtl-iter.h"
 
@@ -136,9 +116,8 @@ static struct loop *current_loop;
 
 /* Hashtable helper.  */
 
-struct biv_entry_hasher : typed_free_remove <biv_entry>
+struct biv_entry_hasher : free_ptr_hash <biv_entry>
 {
-  typedef biv_entry *value_type;
   typedef rtx_def *compare_type;
   static inline hashval_t hash (const biv_entry *);
   static inline bool equal (const biv_entry *, const rtx_def *);
@@ -676,7 +655,7 @@ get_biv_step_1 (df_ref def, rtx reg,
 		rtx *outer_step)
 {
   rtx set, rhs, op0 = NULL_RTX, op1 = NULL_RTX;
-  rtx next, nextr, tmp;
+  rtx next, nextr;
   enum rtx_code code;
   rtx_insn *insn = DF_REF_INSN (def);
   df_ref next_def;
@@ -706,9 +685,7 @@ get_biv_step_1 (df_ref def, rtx reg,
       op1 = XEXP (rhs, 1);
 
       if (code == PLUS && CONSTANT_P (op0))
-	{
-	  tmp = op0; op0 = op1; op1 = tmp;
-	}
+	std::swap (op0, op1);
 
       if (!simple_reg_p (op0)
 	  || !CONSTANT_P (op1))
@@ -2041,7 +2018,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 
 	      for (pnote = &cond_list; *pnote; pnote = pnote_next)
 		{
-		  rtx note = *pnote;
+		  rtx_expr_list *note = *pnote;
 		  rtx old_cond = XEXP (note, 0);
 
 		  pnote_next = (rtx_expr_list **)&XEXP (note, 1);
@@ -2075,7 +2052,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	      /* Likewise for the conditions.  */
 	      for (pnote = &cond_list; *pnote; pnote = pnote_next)
 		{
-		  rtx note = *pnote;
+		  rtx_expr_list *note = *pnote;
 		  rtx old_cond = XEXP (note, 0);
 
 		  pnote_next = (rtx_expr_list **)&XEXP (note, 1);
@@ -2359,7 +2336,7 @@ iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
 			 struct niter_desc *desc)
 {
   rtx op0, op1, delta, step, bound, may_xform, tmp, tmp0, tmp1;
-  struct rtx_iv iv0, iv1, tmp_iv;
+  struct rtx_iv iv0, iv1;
   rtx assumption, may_not_xform;
   enum rtx_code cond;
   machine_mode mode, comp_mode;
@@ -2422,7 +2399,7 @@ iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
       case GT:
       case GEU:
       case GTU:
-	tmp_iv = iv0; iv0 = iv1; iv1 = tmp_iv;
+	std::swap (iv0, iv1);
 	cond = swap_condition (cond);
 	break;
       case NE:

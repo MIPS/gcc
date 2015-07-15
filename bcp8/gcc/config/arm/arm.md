@@ -4553,7 +4553,7 @@
   "TARGET_32BIT"
   "#" ; "rsbs\\t%Q0, %1, #0\;sbc\\t%R0,%R0,%R0"
       ;; Don't care what register is input to sbc,
-      ;; since we just just need to propagate the carry.
+      ;; since we just need to propagate the carry.
   "&& reload_completed"
   [(parallel [(set (reg:CC CC_REGNUM)
                    (compare:CC (const_int 0) (match_dup 1)))
@@ -5480,6 +5480,42 @@
     {
       if (!REG_P (operands[0]))
 	operands[1] = force_reg (DImode, operands[1]);
+    }
+  if (REG_P (operands[0]) && REGNO (operands[0]) < FIRST_VIRTUAL_REGISTER
+      && !HARD_REGNO_MODE_OK (REGNO (operands[0]), DImode))
+    {
+      /* Avoid LDRD's into an odd-numbered register pair in ARM state
+	 when expanding function calls.  */
+      gcc_assert (can_create_pseudo_p ());
+      if (MEM_P (operands[1]) && MEM_VOLATILE_P (operands[1]))
+	{
+	  /* Perform load into legal reg pair first, then move.  */
+	  rtx reg = gen_reg_rtx (DImode);
+	  emit_insn (gen_movdi (reg, operands[1]));
+	  operands[1] = reg;
+	}
+      emit_move_insn (gen_lowpart (SImode, operands[0]),
+		      gen_lowpart (SImode, operands[1]));
+      emit_move_insn (gen_highpart (SImode, operands[0]),
+		      gen_highpart (SImode, operands[1]));
+      DONE;
+    }
+  else if (REG_P (operands[1]) && REGNO (operands[1]) < FIRST_VIRTUAL_REGISTER
+	   && !HARD_REGNO_MODE_OK (REGNO (operands[1]), DImode))
+    {
+      /* Avoid STRD's from an odd-numbered register pair in ARM state
+	 when expanding function prologue.  */
+      gcc_assert (can_create_pseudo_p ());
+      rtx split_dest = (MEM_P (operands[0]) && MEM_VOLATILE_P (operands[0]))
+		       ? gen_reg_rtx (DImode)
+		       : operands[0];
+      emit_move_insn (gen_lowpart (SImode, split_dest),
+		      gen_lowpart (SImode, operands[1]));
+      emit_move_insn (gen_highpart (SImode, split_dest),
+		      gen_highpart (SImode, operands[1]));
+      if (split_dest != operands[0])
+	emit_insn (gen_movdi (operands[0], split_dest));
+      DONE;
     }
   "
 )
@@ -7787,6 +7823,13 @@
    && !arm_is_long_call_p (SYMBOL_REF_DECL (operands[0]))"
   "*
   {
+   rtx op = operands[0];
+
+   /* Switch mode now when possible.  */
+   if (SYMBOL_REF_DECL (op) && !TREE_PUBLIC (SYMBOL_REF_DECL (op))
+        && arm_arch5 && arm_change_mode_p (SYMBOL_REF_DECL (op)))
+      return NEED_PLT_RELOC ? \"blx%?\\t%a0(PLT)\" : \"blx%?\\t(%a0)\";
+
     return NEED_PLT_RELOC ? \"bl%?\\t%a0(PLT)\" : \"bl%?\\t%a0\";
   }"
   [(set_attr "type" "call")]
@@ -7804,6 +7847,13 @@
    && !arm_is_long_call_p (SYMBOL_REF_DECL (operands[1]))"
   "*
   {
+   rtx op = operands[1];
+
+   /* Switch mode now when possible.  */
+   if (SYMBOL_REF_DECL (op) && !TREE_PUBLIC (SYMBOL_REF_DECL (op))
+        && arm_arch5 && arm_change_mode_p (SYMBOL_REF_DECL (op)))
+      return NEED_PLT_RELOC ? \"blx%?\\t%a0(PLT)\" : \"blx%?\\t(%a0)\";
+
     return NEED_PLT_RELOC ? \"bl%?\\t%a1(PLT)\" : \"bl%?\\t%a1\";
   }"
   [(set_attr "type" "call")]

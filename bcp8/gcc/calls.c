@@ -20,37 +20,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "stringpool.h"
 #include "attribs.h"
-#include "predict.h"
-#include "hashtab.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -67,13 +49,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "tm_p.h"
 #include "timevar.h"
-#include "sbitmap.h"
-#include "bitmap.h"
 #include "langhooks.h"
 #include "target.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "except.h"
 #include "dbgcnt.h"
@@ -226,10 +203,16 @@ prepare_call_address (tree fndecl_or_type, rtx funexp, rtx static_chain_value,
 	       && targetm.small_register_classes_for_mode_p (FUNCTION_MODE))
 	      ? force_not_mem (memory_address (FUNCTION_MODE, funexp))
 	      : memory_address (FUNCTION_MODE, funexp));
-  else if (flag_pic && !flag_plt && fndecl_or_type
+  else if (flag_pic
+	   && fndecl_or_type
 	   && TREE_CODE (fndecl_or_type) == FUNCTION_DECL
+	   && (!flag_plt
+	       || lookup_attribute ("noplt", DECL_ATTRIBUTES (fndecl_or_type)))
 	   && !targetm.binds_local_p (fndecl_or_type))
     {
+      /* This is done only for PIC code.  There is no easy interface to force the
+	 function address into GOT for non-PIC case.  non-PIC case needs to be
+	 handled specially by the backend.  */
       funexp = force_reg (Pmode, funexp);
     }
   else if (! sibcallp)
@@ -308,7 +291,6 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 	     cumulative_args_t args_so_far ATTRIBUTE_UNUSED)
 {
   rtx rounded_stack_size_rtx = GEN_INT (rounded_stack_size);
-  rtx_insn *call_insn;
   rtx call, funmem;
   int already_popped = 0;
   HOST_WIDE_INT n_popped
@@ -434,7 +416,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
     gcc_unreachable ();
 
   /* Find the call we just emitted.  */
-  call_insn = last_call_insn ();
+  rtx_call_insn *call_insn = last_call_insn ();
 
   /* Some target create a fresh MEM instead of reusing the one provided
      above.  Set its MEM_EXPR.  */
@@ -866,6 +848,50 @@ call_expr_flags (const_tree t)
   return flags;
 }
 
+/* Return true if TYPE should be passed by invisible reference.  */
+
+bool
+pass_by_reference (CUMULATIVE_ARGS *ca, machine_mode mode,
+		   tree type, bool named_arg)
+{
+  if (type)
+    {
+      /* If this type contains non-trivial constructors, then it is
+	 forbidden for the middle-end to create any new copies.  */
+      if (TREE_ADDRESSABLE (type))
+	return true;
+
+      /* GCC post 3.4 passes *all* variable sized types by reference.  */
+      if (!TYPE_SIZE (type) || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+	return true;
+
+      /* If a record type should be passed the same as its first (and only)
+	 member, use the type and mode of that member.  */
+      if (TREE_CODE (type) == RECORD_TYPE && TYPE_TRANSPARENT_AGGR (type))
+	{
+	  type = TREE_TYPE (first_field (type));
+	  mode = TYPE_MODE (type);
+	}
+    }
+
+  return targetm.calls.pass_by_reference (pack_cumulative_args (ca), mode,
+					  type, named_arg);
+}
+
+/* Return true if TYPE, which is passed by reference, should be callee
+   copied instead of caller copied.  */
+
+bool
+reference_callee_copied (CUMULATIVE_ARGS *ca, machine_mode mode,
+			 tree type, bool named_arg)
+{
+  if (type && TREE_ADDRESSABLE (type))
+    return false;
+  return targetm.calls.callee_copies (pack_cumulative_args (ca), mode, type,
+				      named_arg);
+}
+
+
 /* Precompute all register parameters as described by ARGS, storing values
    into fields within the ARGS array.
 
@@ -932,8 +958,9 @@ precompute_register_parameters (int num_actuals, struct arg_data *args,
 		     || (GET_CODE (args[i].value) == SUBREG
 			 && REG_P (SUBREG_REG (args[i].value)))))
 		 && args[i].mode != BLKmode
-		 && set_src_cost (args[i].value, optimize_insn_for_speed_p ())
-		    > COSTS_N_INSNS (1)
+		 && (set_src_cost (args[i].value, args[i].mode,
+				   optimize_insn_for_speed_p ())
+		     > COSTS_N_INSNS (1))
 		 && ((*reg_parm_seen
 		      && targetm.small_register_classes_for_mode_p (args[i].mode))
 		     || optimize))
@@ -1143,7 +1170,7 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
    and may be modified by this routine.
 
    OLD_PENDING_ADJ, MUST_PREALLOCATE and FLAGS are pointers to integer
-   flags which may may be modified by this routine.
+   flags which may be modified by this routine.
 
    MAY_TAILCALL is cleared if we encounter an invisible pass-by-reference
    that requires allocation of stack space.
@@ -2749,13 +2776,8 @@ expand_call (tree exp, rtx target, int ignore)
     try_tail_call = 0;
 
   /*  Rest of purposes for tail call optimizations to fail.  */
-  if (
-#ifdef HAVE_sibcall_epilogue
-      !HAVE_sibcall_epilogue
-#else
-      1
-#endif
-      || !try_tail_call
+  if (!try_tail_call
+      || !targetm.have_sibcall_epilogue ()
       /* Doing sibling call optimization needs some work, since
 	 structure_value_addr can be allocated on the stack.
 	 It does not seem worth the effort since few optimizable
@@ -4436,9 +4458,9 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
   if (flag_ipa_ra)
     {
-      rtx last, datum = orgfun;
+      rtx datum = orgfun;
       gcc_assert (GET_CODE (datum) == SYMBOL_REF);
-      last = last_call_insn ();
+      rtx_call_insn *last = last_call_insn ();
       add_reg_note (last, REG_CALL_DECL, datum);
     }
 

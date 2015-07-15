@@ -25,39 +25,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "line-map.h"
-#include "input.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "tree-inline.h"
 #include "realmpfr.h"	/* For GMP/MPFR/MPC versions, in print_version.  */
 #include "version.h"
-#include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "insn-attr.h"
 #include "insn-config.h"
 #include "insn-flags.h"
-#include "hard-reg-set.h"
 #include "recog.h"
 #include "output.h"
 #include "except.h"
-#include "function.h"
 #include "toplev.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -82,12 +68,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h" /* for init_set_costs */
 #include "hosthooks.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "opts.h"
 #include "opts-diagnostic.h"
@@ -96,16 +76,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "asan.h"
 #include "tsan.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "plugin.h"
 #include "context.h"
 #include "pass_manager.h"
 #include "auto-profile.h"
 #include "dwarf2out.h"
-#include "bitmap.h"
 #include "ipa-reference.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
@@ -126,10 +102,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
-#endif
-
-#ifndef HAVE_prologue
-#define HAVE_prologue 0
 #endif
 
 #include <new>
@@ -497,15 +469,15 @@ wrapup_global_declarations (tree *vec, int len)
   return output_something;
 }
 
-/* A subroutine of check_global_declarations.  Issue appropriate warnings
-   for the global declaration DECL.  */
+/* Issue appropriate warnings for the global declaration DECL.  */
 
 void
-check_global_declaration_1 (tree decl)
+check_global_declaration (tree decl)
 {
   /* Warn about any function declared static but not defined.  We don't
      warn about variables, because many programs have static variables
      that exist only to get some text into the object file.  */
+  symtab_node *snode = symtab_node::get (decl);
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_INITIAL (decl) == 0
       && DECL_EXTERNAL (decl)
@@ -513,9 +485,9 @@ check_global_declaration_1 (tree decl)
       && ! TREE_NO_WARNING (decl)
       && ! TREE_PUBLIC (decl)
       && (warn_unused_function
-	  || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
+	  || snode->referred_to_p (/*include_self=*/false)))
     {
-      if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+      if (snode->referred_to_p (/*include_self=*/false))
 	pedwarn (input_location, 0, "%q+F used but never defined", decl);
       else
 	warning (OPT_Wunused_function, "%q+F declared %<static%> but never defined", decl);
@@ -530,54 +502,32 @@ check_global_declaration_1 (tree decl)
        || (warn_unused_variable
 	   && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
       && ! DECL_IN_SYSTEM_HEADER (decl)
+      && ! snode->referred_to_p (/*include_self=*/false)
+      /* This TREE_USED check is needed in addition to referred_to_p
+	 above, because the `__unused__' attribute is not being
+	 considered for referred_to_p.  */
       && ! TREE_USED (decl)
       /* The TREE_USED bit for file-scope decls is kept in the identifier,
 	 to handle multiple external decls in different scopes.  */
       && ! (DECL_NAME (decl) && TREE_USED (DECL_NAME (decl)))
       && ! DECL_EXTERNAL (decl)
+      && ! DECL_ARTIFICIAL (decl)
+      && ! DECL_ABSTRACT_ORIGIN (decl)
       && ! TREE_PUBLIC (decl)
       /* A volatile variable might be used in some non-obvious way.  */
       && ! TREE_THIS_VOLATILE (decl)
       /* Global register variables must be declared to reserve them.  */
       && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+      /* Global ctors and dtors are called by the runtime.  */
+      && (TREE_CODE (decl) != FUNCTION_DECL
+	  || (!DECL_STATIC_CONSTRUCTOR (decl)
+	      && !DECL_STATIC_DESTRUCTOR (decl)))
       /* Otherwise, ask the language.  */
       && lang_hooks.decls.warn_unused_global (decl))
     warning ((TREE_CODE (decl) == FUNCTION_DECL)
 	     ? OPT_Wunused_function
              : OPT_Wunused_variable,
 	     "%q+D defined but not used", decl);
-}
-
-/* Issue appropriate warnings for the global declarations in V (of
-   which there are LEN).  */
-
-void
-check_global_declarations (tree *v, int len)
-{
-  int i;
-
-  for (i = 0; i < len; i++)
-    check_global_declaration_1 (v[i]);
-}
-
-/* Emit debugging information for all global declarations in VEC.  */
-
-void
-emit_debug_global_declarations (tree *vec, int len)
-{
-  int i;
-
-  /* Avoid confusing the debug information machinery when there are errors.  */
-  if (seen_error ())
-    return;
-  /* No need for debug info in object files when producing slimLTO.  */
-  if (!in_lto_p && flag_lto && !flag_fat_lto_objects)
-    return;
-
-  timevar_push (TV_SYMOUT);
-  for (i = 0; i < len; i++)
-    debug_hooks->global_decl (vec[i]);
-  timevar_pop (TV_SYMOUT);
 }
 
 /* Compile an entire translation unit.  Write a file of assembly
@@ -589,8 +539,7 @@ compile_file (void)
   timevar_start (TV_PHASE_PARSING);
   timevar_push (TV_PARSE_GLOBAL);
 
-  /* Call the parser, which parses the entire file (calling
-     rest_of_compilation for each function).  */
+  /* Parse entire file and generate initial debug information.  */
   lang_hooks.parse_file ();
 
   timevar_pop (TV_PARSE_GLOBAL);
@@ -604,14 +553,40 @@ compile_file (void)
 
   if (flag_syntax_only || flag_wpa)
     return;
+ 
+  /* Reset maximum_field_alignment, it can be adjusted by #pragma pack
+     and this shouldn't influence any types built by the middle-end
+     from now on (like gcov_info_type).  */
+  maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
 
   ggc_protect_identifiers = false;
 
-  /* This must also call finalize_compilation_unit.  */
-  lang_hooks.decls.final_write_globals ();
+  /* Run the actual compilation process.  */
+  if (!in_lto_p)
+    {
+      timevar_start (TV_PHASE_OPT_GEN);
+      symtab->finalize_compilation_unit ();
+      timevar_stop (TV_PHASE_OPT_GEN);
+    }
+
+  /* Perform any post compilation-proper parser cleanups and
+     processing.  This is currently only needed for the C++ parser,
+     which can be hopefully cleaned up so this hook is no longer
+     necessary.  */
+  if (lang_hooks.decls.post_compilation_parsing_cleanups)
+    lang_hooks.decls.post_compilation_parsing_cleanups ();
 
   if (seen_error ())
     return;
+
+  /* After the parser has generated debugging information, augment
+     this information with any new location/etc information that may
+     have become available after the compilation proper.  */
+  timevar_start (TV_PHASE_DBGINFO);
+  symtab_node *node;
+  FOR_EACH_DEFINED_SYMBOL (node)
+    debug_hooks->late_global_decl (node->decl);
+  timevar_stop (TV_PHASE_DBGINFO);
 
   timevar_start (TV_PHASE_LATE_ASM);
 
@@ -1317,20 +1292,6 @@ process_options (void)
      so we can correctly initialize debug output.  */
   no_backend = lang_hooks.post_options (&main_input_filename);
 
-  /* Set default values for parameters relation to the Scalar Reduction
-     of Aggregates passes (SRA and IP-SRA).  We must do this here, rather
-     than in opts.c:default_options_optimization as historically these
-     tuning heuristics have been based on MOVE_RATIO, which on some
-     targets requires other symbols from the backend.  */
-  maybe_set_param_value
-    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED,
-     get_move_ratio (true) * UNITS_PER_WORD,
-     global_options.x_param_values, global_options_set.x_param_values);
-  maybe_set_param_value
-    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE,
-     get_move_ratio (false) * UNITS_PER_WORD,
-     global_options.x_param_values, global_options_set.x_param_values);
-
   /* Some machines may reject certain combinations of options.  */
   targetm.target_option.override ();
 
@@ -1607,19 +1568,16 @@ process_options (void)
 	}
     }
 
-#ifndef HAVE_prefetch
-  if (flag_prefetch_loop_arrays > 0)
+  if (flag_prefetch_loop_arrays > 0 && !targetm.code_for_prefetch)
     {
       warning (0, "-fprefetch-loop-arrays not supported for this target");
       flag_prefetch_loop_arrays = 0;
     }
-#else
-  if (flag_prefetch_loop_arrays > 0 && !HAVE_prefetch)
+  else if (flag_prefetch_loop_arrays > 0 && !targetm.have_prefetch ())
     {
       warning (0, "-fprefetch-loop-arrays not supported for this target (try -march switches)");
       flag_prefetch_loop_arrays = 0;
     }
-#endif
 
   /* This combination of options isn't handled for i386 targets and doesn't
      make much sense anyway, so don't allow it.  */
@@ -1678,7 +1636,7 @@ process_options (void)
 
  /* Do not use IPA optimizations for register allocation if profiler is active
     or port does not emit prologue and epilogue as RTL.  */
-  if (profile_flag || !HAVE_prologue || !HAVE_epilogue)
+  if (profile_flag || !targetm.have_prologue () || !targetm.have_epilogue ())
     flag_ipa_ra = 0;
 
   /* Enable -Werror=coverage-mismatch when -Werror and -Wno-error

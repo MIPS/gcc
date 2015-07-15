@@ -50,27 +50,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "machmode.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
-#include "hashtab.h"
-#include "hard-reg-set.h"
 #include "function.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -83,7 +70,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "target.h"
 #include "tm_p.h"
-#include "target-def.h"
 #include "regs.h"
 #include "reload.h"
 #include "insn-codes.h"
@@ -1351,10 +1337,6 @@ default_target_can_inline_p (tree caller, tree callee)
   return ret;
 }
 
-#ifndef HAVE_casesi
-# define HAVE_casesi 0
-#endif
-
 /* If the machine does not have a case insn that compares the bounds,
    this means extra overhead for dispatch tables, which raises the
    threshold for using them.  */
@@ -1362,7 +1344,7 @@ default_target_can_inline_p (tree caller, tree callee)
 unsigned int
 default_case_values_threshold (void)
 {
-  return (HAVE_casesi ? 4 : 5);
+  return (targetm.have_casesi () ? 4 : 5);
 }
 
 bool
