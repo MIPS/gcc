@@ -8489,7 +8489,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
       return itype;
     }
 
-  tree size_constant = fold_simple_on_cst (size);
+  tree size_constant = cp_fully_fold (size);
 
   /* Normally, the array-bound will be a constant.  */
   if (TREE_CODE (size_constant) == INTEGER_CST)
