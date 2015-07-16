@@ -1,3 +1,8 @@
+2015-07-16  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-c++-common/gomp/sink-2.c: New test.
+	* g++.dg/gomp/sink-2.C: New test.
+
 2015-07-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/if-1.c: New test.

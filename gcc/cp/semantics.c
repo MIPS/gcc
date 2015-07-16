@@ -7235,8 +7235,9 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
    sk_omp scope.  */
 
 tree
-finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
-		tree condv, tree incrv, tree body, tree pre_body, tree clauses)
+finish_omp_for (location_t locus, enum tree_code code, tree declv,
+		tree orig_declv, tree initv, tree condv, tree incrv,
+		tree body, tree pre_body, tree clauses)
 {
   tree omp_for = NULL, orig_incr = NULL;
   tree decl = NULL, init, cond, incr, orig_decl = NULL_TREE, block = NULL_TREE;
@@ -7329,6 +7330,9 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
       SET_EXPR_LOCATION (stmt, locus);
       return add_stmt (stmt);
     }
+
+  if (!orig_declv)
+    orig_declv = copy_node (declv);
 
   if (processing_template_decl)
     orig_incr = make_tree_vec (TREE_VEC_LENGTH (incrv));
@@ -7430,8 +7434,8 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
   if (code == CILK_FOR && !processing_template_decl)
     block = push_stmt_list ();
 
-  omp_for = c_finish_omp_for (locus, code, declv, initv, condv, incrv,
-			      body, pre_body);
+  omp_for = c_finish_omp_for (locus, code, declv, orig_declv, initv, condv,
+			      incrv, body, pre_body);
 
   if (omp_for == NULL)
     {

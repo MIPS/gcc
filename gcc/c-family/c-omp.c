@@ -432,6 +432,10 @@ c_omp_for_incr_canonicalize_ptr (location_t loc, tree decl, tree incr)
 
 /* Validate and generate OMP_FOR.
    DECLV is a vector of iteration variables, for each collapsed loop.
+
+   ORIG_DECLV, if non-NULL, is a vector with the original iteration
+   variables (prior to any transformations, by say, C++ iterators).
+
    INITV, CONDV and INCRV are vectors containing initialization
    expressions, controlling predicates and increment expressions.
    BODY is the body of the loop and PRE_BODY statements that go before
@@ -439,7 +443,8 @@ c_omp_for_incr_canonicalize_ptr (location_t loc, tree decl, tree incr)
 
 tree
 c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
-		  tree initv, tree condv, tree incrv, tree body, tree pre_body)
+		  tree orig_declv, tree initv, tree condv, tree incrv,
+		  tree body, tree pre_body)
 {
   location_t elocus;
   bool fail = false;
@@ -678,6 +683,8 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
       OMP_FOR_INCR (t) = incrv;
       OMP_FOR_BODY (t) = body;
       OMP_FOR_PRE_BODY (t) = pre_body;
+      if (code == OMP_FOR)
+	OMP_FOR_ORIG_DECLS (t) = orig_declv;
 
       SET_EXPR_LOCATION (t, locus);
       return add_stmt (t);

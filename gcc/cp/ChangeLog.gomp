@@ -1,3 +1,15 @@
+2015-07-16  Aldy Hernandez  <aldyh@redhat.com>
+
+	* cp-tree.h (finish_omp_for): Add new argument.
+	* parser.c (cp_parser_omp_for_loop): Pass new argument to
+	finish_omp_for.
+	* pt.c (tsubst_omp_for_iterator): New argument orig_declv.
+	Set OMP_FOR_ORIG_DECLS from orig_declv if available.
+	(tsubst_expr): Pass new vector to tsubst_omp_for_iterator.
+	* semantics.c (finish_omp_for): Pass original DECLs to
+	c_finish_omp_for.
+	Set OMP_FOR_ORIG_DECLS.
+
 2015-07-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_var_list_no_open): Don't process

@@ -7344,7 +7344,11 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       gcc_assert (DECL_P (decl));
       gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl))
 		  || POINTER_TYPE_P (TREE_TYPE (decl)));
-      gimplify_omp_ctxp->iter_vars.quick_push (decl);
+      if (TREE_CODE (for_stmt) == OMP_FOR && OMP_FOR_ORIG_DECLS (for_stmt))
+	gimplify_omp_ctxp->iter_vars.quick_push
+	  (TREE_VEC_ELT (OMP_FOR_ORIG_DECLS (for_stmt), i));
+      else
+	gimplify_omp_ctxp->iter_vars.quick_push (decl);
 
       /* Make sure the iteration variable is private.  */
       tree c = NULL_TREE;

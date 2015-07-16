@@ -13816,8 +13816,8 @@ static tree *omp_parallel_combined_clauses;
 /* Substitute one OMP_FOR iterator.  */
 
 static void
-tsubst_omp_for_iterator (tree t, int i, tree declv, tree initv,
-			 tree condv, tree incrv, tree *clauses,
+tsubst_omp_for_iterator (tree t, int i, tree declv, tree orig_declv,
+			 tree initv, tree condv, tree incrv, tree *clauses,
 			 tree args, tsubst_flags_t complain, tree in_decl,
 			 bool integral_constant_expression_p)
 {
@@ -13828,6 +13828,13 @@ tsubst_omp_for_iterator (tree t, int i, tree declv, tree initv,
 
   init = TREE_VEC_ELT (OMP_FOR_INIT (t), i);
   gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
+
+  if (orig_declv && OMP_FOR_ORIG_DECLS (t))
+    {
+      tree o = TREE_VEC_ELT (OMP_FOR_ORIG_DECLS (t), i);
+      TREE_VEC_ELT (orig_declv, i) = RECUR (o);
+    }
+
   decl = TREE_OPERAND (init, 0);
   init = TREE_OPERAND (init, 1);
   tree decl_expr = NULL_TREE;
@@ -14459,6 +14466,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       {
 	tree clauses, body, pre_body;
 	tree declv = NULL_TREE, initv = NULL_TREE, condv = NULL_TREE;
+	tree orig_declv = NULL_TREE;
 	tree incrv = NULL_TREE;
 	int i;
 
@@ -14468,6 +14476,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	if (OMP_FOR_INIT (t) != NULL_TREE)
 	  {
 	    declv = make_tree_vec (TREE_VEC_LENGTH (OMP_FOR_INIT (t)));
+	    if (TREE_CODE (t) == OMP_FOR && OMP_FOR_ORIG_DECLS (t))
+	      orig_declv = make_tree_vec (TREE_VEC_LENGTH (OMP_FOR_INIT (t)));
 	    initv = make_tree_vec (TREE_VEC_LENGTH (OMP_FOR_INIT (t)));
 	    condv = make_tree_vec (TREE_VEC_LENGTH (OMP_FOR_INIT (t)));
 	    incrv = make_tree_vec (TREE_VEC_LENGTH (OMP_FOR_INIT (t)));
@@ -14481,8 +14491,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 
 	if (OMP_FOR_INIT (t) != NULL_TREE)
 	  for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (t)); i++)
-	    tsubst_omp_for_iterator (t, i, declv, initv, condv, incrv,
-				     &clauses, args, complain, in_decl,
+	    tsubst_omp_for_iterator (t, i, declv, orig_declv, initv, condv,
+				     incrv, &clauses, args, complain, in_decl,
 				     integral_constant_expression_p);
 	omp_parallel_combined_clauses = NULL;
 
@@ -14491,8 +14501,9 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	body = pop_stmt_list (body);
 
 	if (OMP_FOR_INIT (t) != NULL_TREE)
-	  t = finish_omp_for (EXPR_LOCATION (t), TREE_CODE (t), declv, initv,
-			      condv, incrv, body, pre_body, clauses);
+	  t = finish_omp_for (EXPR_LOCATION (t), TREE_CODE (t), declv,
+			      orig_declv, initv, condv, incrv, body, pre_body,
+			      clauses);
 	else
 	  {
 	    t = make_node (TREE_CODE (t));
@@ -22151,7 +22162,7 @@ dependent_template_id_p (tree tmpl, tree args)
 }
 
 /* Returns TRUE if OMP_FOR with DECLV, INITV, CONDV and INCRV vectors
-   is dependent.  */
+   are dependent.  */
 
 bool
 dependent_omp_for_p (tree declv, tree initv, tree condv, tree incrv)

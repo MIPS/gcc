@@ -13817,7 +13817,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
      an error from the initialization parsing.  */
   if (!fail)
     {
-      stmt = c_finish_omp_for (loc, code, declv, initv, condv,
+      stmt = c_finish_omp_for (loc, code, declv, NULL, initv, condv,
 			       incrv, body, NULL);
       if (stmt)
 	{

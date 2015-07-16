@@ -31458,8 +31458,8 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
   if (declv == NULL_TREE)
     ret = NULL_TREE;
   else
-    ret = finish_omp_for (loc_first, code, declv, initv, condv, incrv, body,
-			  pre_body, clauses);
+    ret = finish_omp_for (loc_first, code, declv, NULL, initv, condv, incrv,
+			  body, pre_body, clauses);
 
   while (nbraces)
     {
