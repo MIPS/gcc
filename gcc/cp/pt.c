@@ -10475,10 +10475,16 @@ gen_elem_of_pack_expansion_instantiation (tree pattern,
     /* Expanding a fixed parameter pack from
        coerce_template_parameter_pack.  */
     t = tsubst_decl (pattern, args, complain);
+  else if (pattern == error_mark_node)
+    t = error_mark_node;
   else if (constraint_p (pattern))
-    /* Constraints are satisfied, not instantiated.  */
-    t = (constraints_satisfied_p (pattern, args)
-	 ? boolean_true_node : boolean_false_node);
+    {
+      if (processing_template_decl)
+	t = tsubst_constraint (pattern, args, complain, in_decl);
+      else
+	t = (constraints_satisfied_p (pattern, args)
+	     ? boolean_true_node : boolean_false_node);
+    }
   else if (!TYPE_P (pattern))
     t = tsubst_expr (pattern, args, complain, in_decl,
 		     /*integral_constant_expression_p=*/false);

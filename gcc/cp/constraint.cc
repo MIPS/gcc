@@ -1730,7 +1730,7 @@ satisfy_pack_expansion (tree t, tree args,
   int n = TREE_VEC_LENGTH (exprs);
 
   for (int i = 0; i < n; ++i)
-    if (TREE_VEC_ELT (exprs, i) == boolean_false_node)
+    if (TREE_VEC_ELT (exprs, i) != boolean_true_node)
       return boolean_false_node;
   return boolean_true_node;
 }

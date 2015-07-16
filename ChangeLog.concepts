@@ -1,5 +1,11 @@
 2015-07-16  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/constraint.cc (satisfy_pack_expansion): Reverse check.
+	(gen_elem_of_pack_expansion_instantiation): Don't treat
+	error_mark_node as a constraint.  Handle partial instantiation.
+
+2015-07-16  Jason Merrill  <jason@redhat.com>
+
 	* gcc/cp/constraint.cc (lift_expression): Lift EXPR_PACK_EXPANSION.
 	(push_down_pack_expansion, xform_pack_expansion): New.
 	(xform_expr): Call xform_pack_expansion.
