@@ -558,10 +558,11 @@ lift_expression (tree t)
       return lift_requires_expression (t);
 
     case EXPR_PACK_EXPANSION:
-      /* Defer the lifting of pack expansions until constraint
-         evaluation. We know that we're not going to be doing
-         anything else with this predicate constraint until
-         we expand it. */
+      /* Use copy_node rather than make_pack_expansion so that
+	 PACK_EXPANSION_PARAMETER_PACKS stays the same.  */
+      t = copy_node (t);
+      SET_PACK_EXPANSION_PATTERN
+	(t, lift_expression (PACK_EXPANSION_PATTERN (t)));
       return t;
 
     case TREE_LIST:
@@ -777,6 +778,43 @@ xform_atomic (tree t)
   return build_nt (PRED_CONSTR, t);
 }
 
+/* Push down the pack expansion EXP into the leaves of the constraint PAT.  */
+
+tree
+push_down_pack_expansion (tree exp, tree pat)
+{
+  switch (TREE_CODE (pat))
+    {
+    case CONJ_CONSTR:
+    case DISJ_CONSTR:
+      {
+	pat = copy_node (pat);
+	TREE_OPERAND (pat, 0)
+	  = push_down_pack_expansion (exp, TREE_OPERAND (pat, 0));
+	TREE_OPERAND (pat, 1)
+	  = push_down_pack_expansion (exp, TREE_OPERAND (pat, 1));
+	return pat;
+      }
+    default:
+      {
+	exp = copy_node (exp);
+	SET_PACK_EXPANSION_PATTERN (exp, pat);
+	return exp;
+      }
+    }
+}
+
+/* Transform a pack expansion into a constraint.  First we transform the
+   pattern of the pack expansion, then we push the pack expansion down into the
+   leaves of the constraint so that partial ordering will work.  */
+
+tree
+xform_pack_expansion (tree t)
+{
+  tree pat = transform_expression (PACK_EXPANSION_PATTERN (t));
+  return push_down_pack_expansion (t, pat);
+}
+
 /* Transform an expression into a constraint.  */
 
 tree
@@ -795,6 +833,9 @@ xform_expr (tree t)
 
     case BIND_EXPR:
       return transform_expression (BIND_EXPR_BODY (t));
+
+    case EXPR_PACK_EXPANSION:
+      return xform_pack_expansion (t);
 
     default:
       /* All other constraints are atomic. */
@@ -1131,19 +1172,6 @@ build_concept_check_arguments (tree arg, tree rest)
   return args;
 }
 
-/* Construct a template-id that will resolve to a concept
-   check at some point in the future.  This is used to
-   represent concept checks nested in a pack expansion.  */
-tree
-build_template_id_check (tree target, tree arg, tree rest)
-{
-  tree args = build_concept_check_arguments (arg, rest);
-  if (variable_template_p (target))
-    return lookup_template_variable (target, args);
-  else
-    return build_call_check (lookup_template_function (target, args));
-}
-
 } // namespace
 
 /* Construct an expression that checks the concept given by
@@ -1226,10 +1254,7 @@ finish_shorthand_constraint (tree decl, tree constr)
   tree tmpl = DECL_TI_TEMPLATE (con);
   if (TREE_CODE (con) == VAR_DECL)
     {
-      if (!apply_to_all_p)
-        check = build_concept_check (tmpl, arg, args);
-      else
-        check = build_template_id_check (tmpl, arg, args);
+      check = build_concept_check (tmpl, arg, args);
     }
   else
     {
@@ -1690,45 +1715,24 @@ namespace {
 
 tree satisfy_constraint_1 (tree, tree, tsubst_flags_t, tree);
 
-/* Check the pack expansion by first transforming it into a
-   conjunction of constraints. */
+/* Check the constraint pack expansion.  */
 
 tree
 satisfy_pack_expansion (tree t, tree args,
                       tsubst_flags_t complain, tree in_decl)
 {
-  /* Check that somebody isn't arbitrarily expanding packs
-     as part of a predicate. Note that packs are normally
-     untyped, however, we use the type field as a hack to
-     indicate folded boolean expressions generated from a
-     shorthand constraint.  This check should disappear with
-     fold expressions.  */
-  if (!TREE_TYPE (t) || !same_type_p (TREE_TYPE (t), boolean_type_node))
-    {
-      error ("invalid pack expansion in constraint %qE", t);
-      return boolean_false_node;
-    }
-
-  /* Get the vector of expanded arguments. */
+  /* Get the vector of satisfaction results.
+     gen_elem_of_pack_expansion_instantiation will check that each element of
+     the expansion is satisfied.  */
   tree exprs = tsubst_pack_expansion (t, args, complain, in_decl);
   if (exprs == error_mark_node)
     return boolean_false_node;
   int n = TREE_VEC_LENGTH (exprs);
 
-  /* An empty expansion is inherently satisfied. */
-  if (n == 0)
-    return boolean_true_node;
-
-  /* Build a conjunction of constraints from the resulting
-     expansions and then check that. */
-  tree result = NULL_TREE;
   for (int i = 0; i < n; ++i)
-    {
-      tree expr = TREE_VEC_ELT (exprs, i);
-      tree constr = transform_expression (expr);
-      result = conjoin_constraints (result, constr);
-    }
-  return satisfy_constraint_1 (result, args, complain, in_decl);
+    if (TREE_VEC_ELT (exprs, i) == boolean_false_node)
+      return boolean_false_node;
+  return boolean_true_node;
 }
 
 /* A predicate constraint is satisfied if its expression evaluates
@@ -1745,14 +1749,8 @@ satisfy_predicate_constraint (tree t, tree args,
 {
   tree original = TREE_OPERAND (t, 0);
 
-  /* Pack expansions are not transformed during normalization,
-     which means we might have requires-expressions.
-
-     FIXME: We should never have a naked pack expansion in a
-     predicate constraint. When the fold-expression branch is
-     integrated, this same logical will apply to that fold. */
-  if (TREE_CODE (original) == EXPR_PACK_EXPANSION)
-    return satisfy_pack_expansion (original, args, complain, in_decl);
+  /* We should never have a naked pack expansion in a predicate constraint.  */
+  gcc_assert (TREE_CODE (original) != EXPR_PACK_EXPANSION);
 
   tree expr = tsubst_expr (original, args, complain, in_decl, false);
   if (expr == error_mark_node)
@@ -1987,6 +1985,9 @@ satisfy_constraint_1 (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
   case DISJ_CONSTR:
     return satisfy_disjunction (t, args, complain, in_decl);
+
+  case EXPR_PACK_EXPANSION:
+    return satisfy_pack_expansion (t, args, complain, in_decl);
 
   default:
     gcc_unreachable ();

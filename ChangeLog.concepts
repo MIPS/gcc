@@ -1,3 +1,17 @@
+2015-07-16  Jason Merrill  <jason@redhat.com>
+
+	* gcc/cp/constraint.cc (lift_expression): Lift EXPR_PACK_EXPANSION.
+	(push_down_pack_expansion, xform_pack_expansion): New.
+	(xform_expr): Call xform_pack_expansion.
+	(satisfy_pack_expansion): Simplify.
+	(satisfy_constraint_1): Call it.
+	(satisfy_predicate_constraint): We shouldn't have pack expansion
+	predicates anymore.
+	(build_template_id_check): Remove.
+	(finish_shorthand_constraint): Adjust.
+	* gcc/cp/pt.c (gen_elem_of_pack_expansion_instantiation): Handle
+	constraint expansions.
+
 2015-07-13  Jason Merrill  <jason@redhat.com>
 
 	PR c++/66092
