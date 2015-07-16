@@ -1107,11 +1107,12 @@ namespace {
 bool
 contains_wildcard_p (tree args)
 {
-  for (int i = 0; i < TREE_VEC_LENGTH (args); ++i) {
-    tree arg = TREE_VEC_ELT (args, i);
-    if (TREE_CODE (arg) == WILDCARD_DECL)
-      return true;
-  }
+  for (int i = 0; i < TREE_VEC_LENGTH (args); ++i)
+    {
+      tree arg = TREE_VEC_ELT (args, i);
+      if (TREE_CODE (arg) == WILDCARD_DECL)
+	return true;
+    }
   return false;
 }
 
