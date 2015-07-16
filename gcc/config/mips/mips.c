@@ -14551,7 +14551,7 @@ mips_store_data_bypass_p (rtx out_insn, rtx in_insn)
   if (GET_CODE (PATTERN (in_insn)) == UNSPEC_VOLATILE)
     return false;
 
-  return !store_data_bypass_p (out_insn, in_insn);
+  return store_data_bypass_p (out_insn, in_insn);
 }
 
 
