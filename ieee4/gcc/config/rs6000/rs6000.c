@@ -15969,7 +15969,7 @@ rs6000_init_libfuncs (void)
 	if (TARGET_POWERPC64)
 	  {
 	    set_conv_libfunc (sfix_optab, DImode, TFmode, "__gcc_qtol");
-	    set_conv_libfunc (ufix_optab, DImode, TFmode, "__gcc_qtolu");
+	    set_conv_libfunc (ufix_optab, DImode, TFmode, "__gcc_qtoul");
 	    set_conv_libfunc (sfloat_optab, TFmode, DImode, "__gcc_ltoq");
 	    set_conv_libfunc (ufloat_optab, TFmode, DImode, "__gcc_ultoq");
 	  }
