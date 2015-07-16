@@ -15964,14 +15964,14 @@ rs6000_init_libfuncs (void)
 	    set_conv_libfunc (ufix_optab, SImode, TFmode, "__gcc_qtou");
 	    set_conv_libfunc (sfloat_optab, TFmode, SImode, "__gcc_itoq");
 	    set_conv_libfunc (ufloat_optab, TFmode, SImode, "__gcc_utoq");
+	  }
 
-	    if (TARGET_POWERPC64)
-	      {
-		set_conv_libfunc (sfix_optab, DImode, TFmode, "__gcc_qtol");
-		set_conv_libfunc (ufix_optab, DImode, TFmode, "__gcc_qtolu");
-		set_conv_libfunc (sfloat_optab, TFmode, DImode, "__gcc_ltoq");
-		set_conv_libfunc (ufloat_optab, TFmode, DImode, "__gcc_ultoq");
-	      }
+	if (TARGET_POWERPC64)
+	  {
+	    set_conv_libfunc (sfix_optab, DImode, TFmode, "__gcc_qtol");
+	    set_conv_libfunc (ufix_optab, DImode, TFmode, "__gcc_qtolu");
+	    set_conv_libfunc (sfloat_optab, TFmode, DImode, "__gcc_ltoq");
+	    set_conv_libfunc (ufloat_optab, TFmode, DImode, "__gcc_ultoq");
 	  }
 
 	if (!(TARGET_HARD_FLOAT && TARGET_FPRS))
