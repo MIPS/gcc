@@ -3740,7 +3740,10 @@ cxx_constant_value (tree t, tree decl)
 }
 
 /* Helper routine for fold_simple_on_cst function.  Either return simplified
-   expression T, otherwise NULL_TREE.  */
+   expression T, otherwise NULL_TREE.
+   In contrast to cp_fully_fold, and to maybe_constant_value, we try to fold
+   even if we are within template-declaration.  So be careful on call, as in
+   such case types can be undefined.  */
 
 static tree
 fold_simple_on_cst_1 (tree t)
@@ -3851,9 +3854,11 @@ fold_simple_on_cst_1 (tree t)
       op3 = TREE_OPERAND (t, 2);
       if (!op1)
 	return NULL_TREE;
-      op1 = build3 (code, TREE_TYPE (t), op1, op2, op3);
-      op1 = fold (op1);
-      if (TREE_CODE (op1) != TREE_CODE (t))
+      op1 = fold (build3 (code, TREE_TYPE (t), op1, op2, op3));
+
+      /* We need to recurse into result, if CODE isn't
+         a COND-expression.  */
+      if (TREE_CODE (op1) != code)
 	return fold_simple_on_cst_1 (op1);
       return NULL_TREE;
 
@@ -3861,6 +3866,8 @@ fold_simple_on_cst_1 (tree t)
       return NULL_TREE;
     }
 
+  /* Just return folded expression if we got as result
+     a CST-expression.  */
   switch (TREE_CODE (t))
     {
     case STRING_CST:

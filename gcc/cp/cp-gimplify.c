@@ -1864,6 +1864,8 @@ cp_fully_fold (tree x)
 {
   hash_map<tree, tree> *ctx = (scope_chain ? scope_chain->fold_map : NULL);
 
+  /* If current scope has a hash_map, but it was for different CFUN,
+     then destroy hash_map to avoid issues with ggc_collect.  */
   if (ctx && scope_chain->act_cfun != cfun)
      {
        delete ctx;
@@ -1871,11 +1873,15 @@ cp_fully_fold (tree x)
        scope_chain->act_cfun = NULL;
      }
 
+  /* If there is no hash_map, but there is a scope, and a set CFUN,
+     then create the hash_map for scope.  */
   if (!ctx && scope_chain && cfun)
     {
       ctx = scope_chain->fold_map = new hash_map <tree,tree>;
       scope_chain->act_cfun = cfun;
     }
+  /* Otherwise if there is no hash_map, use for folding temporary
+     hash_map.  */
   else if (!ctx)
     {
       hash_map<tree, tree> fold_hash;
@@ -1888,8 +1894,9 @@ cp_fully_fold (tree x)
 static tree
 cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 {
-  tree org_x = x, r = NULL_TREE;
   tree *slot, op0, op1, op2, op3;
+  tree org_x = x, r = NULL_TREE;
+  enum tree_code code;
   location_t loc;
 
   if (!x || x == error_mark_node)
@@ -1918,7 +1925,8 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
   if (slot && *slot)
     return *slot;
 
-  switch (TREE_CODE (x))
+  code = TREE_CODE (x);
+  switch (code)
     {
     case SIZEOF_EXPR:
       if (SIZEOF_EXPR_TYPE_P (x))
@@ -1953,10 +1961,11 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	  && TREE_OVERFLOW_P (op0)
 	  && TREE_TYPE (x) == TREE_TYPE (op0))
 	return x;
+
       op0 = cp_fold (op0, fold_hash);
 
       if (op0 != TREE_OPERAND (x, 0))
-        x = build1_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0);
+        x = build1_loc (loc, code, TREE_TYPE (x), op0);
 
       x = fold (x);
 
@@ -1997,7 +2006,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
       op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
 
       if (op0 != TREE_OPERAND (x, 0))
-        x = build1_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0);
+        x = build1_loc (loc, code, TREE_TYPE (x), op0);
 
       x = fold (x);
 
@@ -2014,7 +2023,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);
 
 	if (TREE_OPERAND (x, 0) != op0 || TREE_OPERAND (x, 1) != op1)
-	  x = build2_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1);
+	  x = build2_loc (loc, code, TREE_TYPE (x), op0, op1);
 
 	break;
 
@@ -2061,7 +2070,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
       loc = EXPR_LOCATION (x);
       op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
       op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);
-      if ((TREE_CODE (x) == COMPOUND_EXPR || TREE_CODE (x) == MODIFY_EXPR)
+      if ((code == COMPOUND_EXPR || code == MODIFY_EXPR)
 	  && ((op1 && TREE_SIDE_EFFECTS (op1))
 	       || (op0 && TREE_SIDE_EFFECTS (op0))))
 	break;
@@ -2069,7 +2078,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	op0 = build_empty_stmt (loc);
 
       if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1))
-	x = build2_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1);
+	x = build2_loc (loc, code, TREE_TYPE (x), op0, op1);
 
       x = fold (x);
 
@@ -2126,15 +2135,11 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
       if (VOID_TYPE_P (TREE_TYPE (x)))
 	break;
 
-      r = build3_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1, op2);
+      x = build3_loc (loc, code, TREE_TYPE (x), op0, op1, op2);
 
-      if (TREE_CODE (x) == COND_EXPR)
-	{
-	  x = r;
-	  break;
-        }
+      if (code != COND_EXPR)
+	x = fold (x);
 
-      x = fold (r);
       break;
 
     case CALL_EXPR:
@@ -2199,6 +2204,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	  x = org_x;
 	break;
       }
+
     case BIND_EXPR:
       op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
       op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);
@@ -2252,7 +2258,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
       if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1)
 	  || op2 != TREE_OPERAND (x, 2) || op3 != TREE_OPERAND (x, 3))
-	x = build4_loc (loc, TREE_CODE (x), TREE_TYPE (x), op0, op1, op2, op3);
+	x = build4_loc (loc, code, TREE_TYPE (x), op0, op1, op2, op3);
 
       x = fold (x);
       break;
