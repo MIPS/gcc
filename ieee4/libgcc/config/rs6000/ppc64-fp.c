@@ -28,24 +28,30 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TMODES
 #include "fp-bit.h"
 
-extern DItype __fixtfdi (TFtype);
+#define WEAK(NAME)	__attribute__ ((__weak__, __alias__ (NAME)))
+
+extern DItype __fixtfdi (TFtype) WEAK("__gcc_qtol");
+extern DItype __gcc_qtol (TFtype);
 extern DItype __fixdfdi (DFtype);
 extern DItype __fixsfdi (SFtype);
 extern USItype __fixunsdfsi (DFtype);
 extern USItype __fixunssfsi (SFtype);
-extern TFtype __floatditf (DItype);
-extern TFtype __floatunditf (UDItype);
+extern TFtype __floatditf (DItype) WEAK("__gcc_ltoq");
+extern TFtype __gcc_ltoq (DItype);
+extern TFtype __floatunditf (UDItype) WEAK("__gcc_ultoq");
+extern TFtype __gcc_ultoq (UDItype);
 extern DFtype __floatdidf (DItype);
 extern DFtype __floatundidf (UDItype);
 extern SFtype __floatdisf (DItype);
 extern SFtype __floatundisf (UDItype);
-extern DItype __fixunstfdi (TFtype);
+extern DItype __fixunstfdi (TFtype) WEAK("__gcc_qtoul");
+extern DItype __gcc_qtoul (TFtype);
 
 static DItype local_fixunssfdi (SFtype);
 static DItype local_fixunsdfdi (DFtype);
 
 DItype
-__fixtfdi (TFtype a)
+__gcc_qtol (TFtype a)
 {
   if (a < 0)
     return - __fixunstfdi (-a);
@@ -87,7 +93,7 @@ __fixunssfsi (SFtype a)
 }
 
 TFtype
-__floatditf (DItype u)
+__gcc_ltoq (DItype u)
 {
   DFtype dh, dl;
 
@@ -99,7 +105,7 @@ __floatditf (DItype u)
 }
 
 TFtype
-__floatunditf (UDItype u)
+__gcc_ultoq (UDItype u)
 {
   DFtype dh, dl;
 
@@ -184,7 +190,7 @@ __floatundisf (UDItype u)
 }
 
 DItype
-__fixunstfdi (TFtype a)
+__gcc_qtoul (TFtype a)
 {
   if (a < 0)
     return 0;

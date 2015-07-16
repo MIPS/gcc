@@ -1,5 +1,9 @@
 2015-07-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_init_libfuncs): If 64-bit and not
+	using XL compabile names, change DI<->TF conversions to use
+	__gcc_<xxx> names.
+
 	Clone branch, subversion id 225889.
 	* REVISION: New file, track subversion id.
 
