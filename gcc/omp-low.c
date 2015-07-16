@@ -5637,6 +5637,8 @@ gimple_build_cond_empty (tree cond)
   return gimple_build_cond (pred_code, lhs, rhs, NULL_TREE, NULL_TREE);
 }
 
+static void expand_omp_build_assign (gimple_stmt_iterator *, tree, tree,
+				     bool = false);
 
 /* Build the function calls to GOMP_parallel_start etc to actually
    generate the parallel operation.  REGION is the parallel region
@@ -5754,13 +5756,12 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
 	  gsi = gsi_start_bb (then_bb);
-	  stmt = gimple_build_assign (tmp_then, val);
-	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	  expand_omp_build_assign (&gsi, tmp_then, val, true);
 
 	  gsi = gsi_start_bb (else_bb);
-	  stmt = gimple_build_assign
-	    	   (tmp_else, build_int_cst (unsigned_type_node, 1));
-	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	  expand_omp_build_assign (&gsi, tmp_else,
+				   build_int_cst (unsigned_type_node, 1),
+				   true);
 
 	  make_edge (cond_bb, then_bb, EDGE_TRUE_VALUE);
 	  make_edge (cond_bb, else_bb, EDGE_FALSE_VALUE);
@@ -6221,16 +6222,21 @@ expand_omp_regimplify_p (tree *tp, int *walk_subtrees, void *)
   return NULL_TREE;
 }
 
-/* Prepend TO = FROM assignment before *GSI_P.  */
+/* Prepend or append TO = FROM assignment before or after *GSI_P.  */
 
 static void
-expand_omp_build_assign (gimple_stmt_iterator *gsi_p, tree to, tree from)
+expand_omp_build_assign (gimple_stmt_iterator *gsi_p, tree to, tree from,
+			 bool after)
 {
   bool simple_p = DECL_P (to) && TREE_ADDRESSABLE (to);
   from = force_gimple_operand_gsi (gsi_p, from, simple_p, NULL_TREE,
-				   true, GSI_SAME_STMT);
+				   !after, after ? GSI_CONTINUE_LINKING
+						 : GSI_SAME_STMT);
   gimple stmt = gimple_build_assign (to, from);
-  gsi_insert_before (gsi_p, stmt, GSI_SAME_STMT);
+  if (after)
+    gsi_insert_after (gsi_p, stmt, GSI_CONTINUE_LINKING);
+  else
+    gsi_insert_before (gsi_p, stmt, GSI_SAME_STMT);
   if (walk_tree (&from, expand_omp_regimplify_p, NULL, NULL)
       || walk_tree (&to, expand_omp_regimplify_p, NULL, NULL))
     {

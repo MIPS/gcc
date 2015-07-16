@@ -1,3 +1,11 @@
+2015-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_priority): Fix typo.
+	(cp_parser_omp_parallel): Allow parsing
+	#pragma omp target parallel.
+	(cp_parser_omp_target): Allow parsing #pragma omp target simd
+	and #pragma omp target parallel{, for{, simd}}.
+
 2015-07-16  Aldy Hernandez  <aldyh@redhat.com>
 
 	* cp-tree.h (finish_omp_for): Add new argument.

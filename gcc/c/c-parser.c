@@ -14261,7 +14261,11 @@ c_parser_omp_parallel (location_t loc, c_parser *parser,
       OMP_PARALLEL_COMBINED (stmt) = 1;
       return stmt;
     }
-  else if (cclauses)
+  /* When combined with distribute, parallel has to be followed by for.
+     #pragma omp target parallel is allowed though.  */
+  else if (cclauses
+	   && (mask & (OMP_CLAUSE_MASK_1
+		       << PRAGMA_OMP_CLAUSE_DIST_SCHEDULE)) != 0)
     {
       error_at (loc, "expected %<for%> after %qs", p_name);
       c_parser_skip_to_pragma_eol (parser);
@@ -14272,7 +14276,7 @@ c_parser_omp_parallel (location_t loc, c_parser *parser,
       c_parser_skip_to_pragma_eol (parser, false);
       return NULL_TREE;
     }
-  else if (c_parser_next_token_is (parser, CPP_NAME))
+  else if (cclauses == NULL && c_parser_next_token_is (parser, CPP_NAME))
     {
       const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
       if (strcmp (p, "sections") == 0)
@@ -14293,6 +14297,11 @@ c_parser_omp_parallel (location_t loc, c_parser *parser,
     }
 
   clauses = c_parser_omp_all_clauses (parser, mask, p_name, cclauses == NULL);
+  if (cclauses)
+    {
+      omp_split_clauses (loc, OMP_PARALLEL, mask, clauses, cclauses);
+      clauses = cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL];
+    }
 
   block = c_begin_omp_parallel ();
   c_parser_statement (parser);
@@ -14928,8 +14937,15 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
       const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+      enum tree_code ccode = ERROR_MARK;
 
       if (strcmp (p, "teams") == 0)
+	ccode = OMP_TEAMS;
+      else if (strcmp (p, "parallel") == 0)
+	ccode = OMP_PARALLEL;
+      else if (strcmp (p, "simd") == 0)
+	ccode = OMP_SIMD;
+      if (ccode != ERROR_MARK)
 	{
 	  tree cclauses[C_OMP_CLAUSE_SPLIT_COUNT];
 	  char p_name[sizeof ("#pragma omp target teams distribute "
@@ -14939,15 +14955,48 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
 	  strcpy (p_name, "#pragma omp target");
 	  if (!flag_openmp)  /* flag_openmp_simd  */
 	    {
-	      tree stmt = c_parser_omp_teams (loc, parser, p_name,
-					      OMP_TARGET_CLAUSE_MASK,
-					      cclauses);
+	      tree stmt;
+	      switch (ccode)
+		{
+		case OMP_TEAMS:
+		  stmt = c_parser_omp_teams (loc, parser, p_name,
+					     OMP_TARGET_CLAUSE_MASK,
+					     cclauses);
+		  break;
+		case OMP_PARALLEL:
+		  stmt = c_parser_omp_parallel (loc, parser, p_name,
+						OMP_TARGET_CLAUSE_MASK,
+						cclauses);
+		  break;
+		case OMP_SIMD:
+		  stmt = c_parser_omp_simd (loc, parser, p_name,
+					    OMP_TARGET_CLAUSE_MASK,
+					    cclauses);
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
 	      return stmt != NULL_TREE;
 	    }
 	  keep_next_level ();
-	  tree block = c_begin_compound_stmt (true);
-	  tree ret = c_parser_omp_teams (loc, parser, p_name,
-					 OMP_TARGET_CLAUSE_MASK, cclauses);
+	  tree block = c_begin_compound_stmt (true), ret;
+	  switch (ccode)
+	    {
+	    case OMP_TEAMS:
+	      ret = c_parser_omp_teams (loc, parser, p_name,
+					OMP_TARGET_CLAUSE_MASK, cclauses);
+	      break;
+	    case OMP_PARALLEL:
+	      ret = c_parser_omp_parallel (loc, parser, p_name,
+					   OMP_TARGET_CLAUSE_MASK, cclauses);
+	      break;
+	    case OMP_SIMD:
+	      ret = c_parser_omp_simd (loc, parser, p_name,
+				       OMP_TARGET_CLAUSE_MASK, cclauses);
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
 	  block = c_end_compound_stmt (loc, block, true);
 	  if (ret == NULL_TREE)
 	    return false;

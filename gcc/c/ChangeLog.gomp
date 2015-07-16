@@ -1,3 +1,10 @@
+2015-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_parallel): Allow parsing
+	#pragma omp target parallel.
+	(c_parser_omp_target): Allow parsing #pragma omp target simd
+	and #pragma omp target parallel{, for{, simd}}.
+
 2015-07-16  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-parser.c (c_parser_omp_for_loop): Pass new argument to

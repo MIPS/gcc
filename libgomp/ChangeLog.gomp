@@ -1,3 +1,15 @@
+2015-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/for-2.h (OMPTGT, OMPTO, OMPFROM): Define
+	if not already defined.
+	(N(f0), N(f1), N(f2), N(f3), N(f4), N(f5), N(f6), N(f7), N(f8),
+	N(f9), N(f10), N(f11), N(f12), N(f13), N(f14)): Use OMPTGT macro.
+	(N(test)): Use OMPTO and OMPFROM macros.
+	* testsuite/libgomp.c/for-5.c: New test.
+	* testsuite/libgomp.c/for-6.c: New test.
+	* testsuite/libgomp.c++/for-13.C: New test.
+	* testsuite/libgomp.c++/for-14.C: New test.
+
 2015-07-14  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* libgomp.h (struct gomp_device_descr): Add dev2dev_func.

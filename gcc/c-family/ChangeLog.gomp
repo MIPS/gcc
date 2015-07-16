@@ -1,3 +1,10 @@
+2015-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_split_clauses): Handle new 4 combined constructs.
+	Handle OMP_CLAUSE_DEFAULTMAP.  Document 2 missing combined constructs.
+	Fix up OMP_CLAUSE_FIRSTPRIVATE handling on #pragma omp distribute simd.
+	Fix up shared/default handling.  Add ENABLE_CHECKING verification.
+
 2015-07-16  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-common.h (c_finish_omp_for): Add argument.

@@ -691,28 +691,34 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
     }
 }
 
-/* Right now we have 15 different combined/composite constructs, this
+/* Right now we have 21 different combined/composite constructs, this
    function attempts to split or duplicate clauses for combined
    constructs.  CODE is the innermost construct in the combined construct,
    and MASK allows to determine which constructs are combined together,
    as every construct has at least one clause that no other construct
    has (except for OMP_SECTIONS, but that can be only combined with parallel).
-   Combined constructs are:
-   #pragma omp parallel for
-   #pragma omp parallel sections
-   #pragma omp parallel for simd
-   #pragma omp for simd
-   #pragma omp distribute simd
+   Combined/composite constructs are:
    #pragma omp distribute parallel for
    #pragma omp distribute parallel for simd
-   #pragma omp teams distribute
-   #pragma omp teams distribute parallel for
-   #pragma omp teams distribute parallel for simd
+   #pragma omp distribute simd
+   #pragma omp for simd
+   #pragma omp parallel for
+   #pragma omp parallel for simd
+   #pragma omp parallel sections
+   #pragma omp target parallel
+   #pragma omp target parallel for
+   #pragma omp target parallel for simd
    #pragma omp target teams
    #pragma omp target teams distribute
    #pragma omp target teams distribute parallel for
    #pragma omp target teams distribute parallel for simd
-   #pragma omp taskloop simd  */
+   #pragma omp target teams distribute simd
+   #pragma omp target simd
+   #pragma omp taskloop simd
+   #pragma omp teams distribute
+   #pragma omp teams distribute parallel for
+   #pragma omp teams distribute parallel for simd
+   #pragma omp teams distribute simd  */
 
 void
 c_omp_split_clauses (location_t loc, enum tree_code code,
@@ -752,6 +758,7 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	case OMP_CLAUSE_DEVICE:
 	case OMP_CLAUSE_MAP:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
+	case OMP_CLAUSE_DEFAULTMAP:
 	  s = C_OMP_CLAUSE_SPLIT_TARGET;
 	  break;
 	case OMP_CLAUSE_NUM_TEAMS:
@@ -793,12 +800,25 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	case OMP_CLAUSE_COLLAPSE:
 	  if (code == OMP_SIMD)
 	    {
-	      c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
-				    OMP_CLAUSE_COLLAPSE);
-	      OMP_CLAUSE_COLLAPSE_EXPR (c)
-		= OMP_CLAUSE_COLLAPSE_EXPR (clauses);
-	      OMP_CLAUSE_CHAIN (c) = cclauses[C_OMP_CLAUSE_SPLIT_SIMD];
-	      cclauses[C_OMP_CLAUSE_SPLIT_SIMD] = c;
+	      if ((mask & ((OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_SCHEDULE)
+			   | (OMP_CLAUSE_MASK_1
+			      << PRAGMA_OMP_CLAUSE_DIST_SCHEDULE)
+			   | (OMP_CLAUSE_MASK_1
+			      << PRAGMA_OMP_CLAUSE_NOGROUP))) != 0)
+		{
+		  c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
+					OMP_CLAUSE_COLLAPSE);
+		  OMP_CLAUSE_COLLAPSE_EXPR (c)
+		    = OMP_CLAUSE_COLLAPSE_EXPR (clauses);
+		  OMP_CLAUSE_CHAIN (c) = cclauses[C_OMP_CLAUSE_SPLIT_SIMD];
+		  cclauses[C_OMP_CLAUSE_SPLIT_SIMD] = c;
+		}
+	      else
+		{
+		  /* This must be #pragma omp target simd */
+		  s = C_OMP_CLAUSE_SPLIT_SIMD;
+		  break;
+		}
 	    }
 	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_SCHEDULE)) != 0)
 	    {
@@ -844,6 +864,16 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_MAP))
 	      != 0)
 	    {
+	      if (code == OMP_SIMD
+		  && (mask & ((OMP_CLAUSE_MASK_1
+			       << PRAGMA_OMP_CLAUSE_NUM_THREADS)
+			      | (OMP_CLAUSE_MASK_1
+				 << PRAGMA_OMP_CLAUSE_NUM_TEAMS))) == 0)
+		{
+		  /* This must be #pragma omp target simd.  */
+		  s = C_OMP_CLAUSE_SPLIT_TARGET;
+		  break;
+		}
 	      c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
 				    OMP_CLAUSE_FIRSTPRIVATE);
 	      OMP_CLAUSE_DECL (c) = OMP_CLAUSE_DECL (clauses);
@@ -870,7 +900,9 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 		}
 	      else
 		/* This must be
-		   #pragma omp parallel{, for{, simd}, sections}.  */
+		   #pragma omp parallel{, for{, simd}, sections}
+		   or
+		   #pragma omp target parallel.  */
 		s = C_OMP_CLAUSE_SPLIT_PARALLEL;
 	    }
 	  else if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_TEAMS))
@@ -890,7 +922,7 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	    {
 	      /* This must be #pragma omp distribute simd.  */
 	      gcc_assert (code == OMP_SIMD);
-	      s = C_OMP_CLAUSE_SPLIT_TEAMS;
+	      s = C_OMP_CLAUSE_SPLIT_DISTRIBUTE;
 	    }
 	  else if ((mask & (OMP_CLAUSE_MASK_1
 			    << PRAGMA_OMP_CLAUSE_NOGROUP)) != 0)
@@ -939,11 +971,6 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	   taskloop.  */
 	case OMP_CLAUSE_SHARED:
 	case OMP_CLAUSE_DEFAULT:
-	  if (code == OMP_TEAMS)
-	    {
-	      s = C_OMP_CLAUSE_SPLIT_TEAMS;
-	      break;
-	    }
 	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOGROUP))
 	      != 0)
 	    {
@@ -953,6 +980,12 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_TEAMS))
 	      != 0)
 	    {
+	      if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_THREADS))
+		  == 0)
+		{
+		  s = C_OMP_CLAUSE_SPLIT_TEAMS;
+		  break;
+		}
 	      c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
 				    OMP_CLAUSE_CODE (clauses));
 	      if (OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_SHARED)
@@ -962,7 +995,6 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 		  = OMP_CLAUSE_DEFAULT_KIND (clauses);
 	      OMP_CLAUSE_CHAIN (c) = cclauses[C_OMP_CLAUSE_SPLIT_TEAMS];
 	      cclauses[C_OMP_CLAUSE_SPLIT_TEAMS] = c;
-	      
 	    }
 	  s = C_OMP_CLAUSE_SPLIT_PARALLEL;
 	  break;
@@ -970,22 +1002,22 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	   Duplicate it on all of them, but omit on for or sections if
 	   parallel is present.  */
 	case OMP_CLAUSE_REDUCTION:
-	  if (code == OMP_SIMD)
-	    {
-	      c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
-				    OMP_CLAUSE_REDUCTION);
-	      OMP_CLAUSE_DECL (c) = OMP_CLAUSE_DECL (clauses);
-	      OMP_CLAUSE_REDUCTION_CODE (c)
-		= OMP_CLAUSE_REDUCTION_CODE (clauses);
-	      OMP_CLAUSE_REDUCTION_PLACEHOLDER (c)
-		= OMP_CLAUSE_REDUCTION_PLACEHOLDER (clauses);
-	      OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (c)
-		= OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clauses);
-	      OMP_CLAUSE_CHAIN (c) = cclauses[C_OMP_CLAUSE_SPLIT_SIMD];
-	      cclauses[C_OMP_CLAUSE_SPLIT_SIMD] = c;
-	    }
 	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_SCHEDULE)) != 0)
 	    {
+	      if (code == OMP_SIMD)
+		{
+		  c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
+					OMP_CLAUSE_REDUCTION);
+		  OMP_CLAUSE_DECL (c) = OMP_CLAUSE_DECL (clauses);
+		  OMP_CLAUSE_REDUCTION_CODE (c)
+		    = OMP_CLAUSE_REDUCTION_CODE (clauses);
+		  OMP_CLAUSE_REDUCTION_PLACEHOLDER (c)
+		    = OMP_CLAUSE_REDUCTION_PLACEHOLDER (clauses);
+		  OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (c)
+		    = OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clauses);
+		  OMP_CLAUSE_CHAIN (c) = cclauses[C_OMP_CLAUSE_SPLIT_SIMD];
+		  cclauses[C_OMP_CLAUSE_SPLIT_SIMD] = c;
+		}
 	      if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_TEAMS))
 		  != 0)
 		{
@@ -1008,8 +1040,10 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	      else
 		s = C_OMP_CLAUSE_SPLIT_FOR;
 	    }
-	  else if (code == OMP_SECTIONS)
+	  else if (code == OMP_SECTIONS || code == OMP_PARALLEL)
 	    s = C_OMP_CLAUSE_SPLIT_PARALLEL;
+	  else if (code == OMP_SIMD)
+	    s = C_OMP_CLAUSE_SPLIT_SIMD;
 	  else
 	    s = C_OMP_CLAUSE_SPLIT_TEAMS;
 	  break;
@@ -1067,6 +1101,22 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
       OMP_CLAUSE_CHAIN (clauses) = cclauses[s];
       cclauses[s] = clauses;
     }
+#ifdef ENABLE_CHECKING
+  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_MAP)) == 0)
+    gcc_assert (cclauses[C_OMP_CLAUSE_SPLIT_TARGET] == NULL_TREE);
+  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_TEAMS)) == 0)
+    gcc_assert (cclauses[C_OMP_CLAUSE_SPLIT_TEAMS] == NULL_TREE);
+  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DIST_SCHEDULE)) == 0)
+    gcc_assert (cclauses[C_OMP_CLAUSE_SPLIT_DISTRIBUTE] == NULL_TREE);
+  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_THREADS)) == 0)
+    gcc_assert (cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL] == NULL_TREE);
+  if ((mask & ((OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_SCHEDULE)
+	       | (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOGROUP))) == 0
+      && code != OMP_SECTIONS)
+    gcc_assert (cclauses[C_OMP_CLAUSE_SPLIT_FOR] == NULL_TREE);
+  if (code != OMP_SIMD)
+    gcc_assert (cclauses[C_OMP_CLAUSE_SPLIT_SIMD] == NULL_TREE);
+#endif
 }
 
 
