@@ -165,6 +165,10 @@ public:
     : ch_base (pass_data_ch, ctxt)
   {}
 
+  pass_ch (pass_data data, gcc::context *ctxt)
+    : ch_base (data, ctxt)
+  {}
+
   /* opt_pass methods: */
   virtual bool gate (function *) { return flag_tree_ch != 0; }
   
@@ -436,43 +440,30 @@ const pass_data pass_data_ch_oacc_kernels =
   TODO_cleanup_cfg, /* todo_flags_finish */
 };
 
-class pass_ch_oacc_kernels : public ch_base
+class pass_ch_oacc_kernels : public pass_ch
 {
 public:
   pass_ch_oacc_kernels (gcc::context *ctxt)
-    : ch_base (pass_data_ch_oacc_kernels, ctxt)
+    : pass_ch (pass_data_ch_oacc_kernels, ctxt)
   {}
 
   /* opt_pass methods: */
   virtual bool gate (function *) { return true; }
-  virtual unsigned int execute (function *);
 
 protected:
   /* ch_base method: */
   virtual bool process_loop_p (struct loop *loop);
 }; // class pass_ch_oacc_kernels
 
-unsigned int
-pass_ch_oacc_kernels::execute (function *fun)
-{
-  loop_optimizer_init (LOOPS_HAVE_PREHEADERS
-		       | LOOPS_HAVE_SIMPLE_LATCHES);
-
-  unsigned int res = copy_headers (fun);
-
-  loop_optimizer_finalize ();
-  return res;
-}
-
 } // anon namespace
 
 bool
 pass_ch_oacc_kernels::process_loop_p (struct loop *loop)
 {
-  if (do_while_loop_p (loop))
+  if (!loop->in_oacc_kernels_region)
     return false;
 
-  return loop->in_oacc_kernels_region;
+  return pass_ch::process_loop_p (loop);
 }
 
 gimple_opt_pass *

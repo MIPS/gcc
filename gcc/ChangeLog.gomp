@@ -1,3 +1,14 @@
+2015-07-16  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-loop-ch.c (pass_ch::pass_ch (pass_data, gcc::context)): New
+	constructor.
+	(pass_ch_oacc_kernels): Derive from pass_ch.
+	(pass_ch_oacc_kernels::pass_ch_oacc_kernels(gcc::context)): Call pass_ch
+	constructor.
+	(pass_ch_oacc_kernels::execute): Remove.
+	(pass_ch_oacc_kernels::process_loop_p): Rewrite using
+	pass_ch::process_loop_p.
+
 2015-07-15  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_gen_wcast): Mark unreachable code
