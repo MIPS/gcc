@@ -2648,10 +2648,12 @@ diagnose_declaration_constraints (location_t loc, tree decl, tree args)
   inform (loc, "  constraints not satisfied");
 
   /* Constraints are attached to the template.  */
-  if (tree ti = DECL_TEMPLATE_INFO (decl)) {
-    decl = TI_TEMPLATE (ti);
-    args = TI_ARGS (ti);
-  }
+  if (tree ti = DECL_TEMPLATE_INFO (decl))
+    {
+      decl = TI_TEMPLATE (ti);
+      if (!args)
+	args = TI_ARGS (ti);
+    }
 
   /* Check that the constraints are actually valid.  */
   tree ci = get_constraints (decl);

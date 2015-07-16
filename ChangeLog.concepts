@@ -1,5 +1,10 @@
 2015-07-16  Jason Merrill  <jason@redhat.com>
 
+	* gcc/cp/constraint.cc (diagnose_decl_constraints): Don't override
+	passed-in args.
+
+2015-07-16  Jason Merrill  <jason@redhat.com>
+
 	PR c++/66218
 	* gcc/cp/constraint.cc (satisfy_argument_deduction_constraint):
 	Call tsubst_constraint here.
