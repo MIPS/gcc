@@ -103,9 +103,9 @@ struct mips_cpu_info {
 			 || (mips_cb == MIPS_CB_OPTIMAL \
 			     && !ISA_HAS_DELAY_SLOTS))
 
-#define ISA_HAS_JRC (ISA_HAS_COMPACT_BRANCHES		\
-		     || (TARGET_MICROMIPS		\
-			 && mips_cb == MIPS_CB_OPTIMAL))
+#define ISA_HAS_JRC ((ISA_HAS_COMPACT_BRANCHES		\
+		      || TARGET_MICROMIPS)		\
+		     && mips_cb != MIPS_CB_NEVER)
 
 /* True if the output file is marked as ".abicalls; .option pic0"
    (-call_nonpic).  */
