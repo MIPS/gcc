@@ -426,13 +426,10 @@ Driver
 mcompact-branches=
 Target RejectNegative JoinedOrMissing Var(mips_cb) Report Enum(mips_cb_setting) Init(MIPS_CB_OPTIMAL)
 Specify the compact branch usage policy
-never	    Only use delay slot branches
-optimal	    Use compact branches where beneficial
-always	    Only use compact branches
 
 Enum
 Name(mips_cb_setting) Type(enum mips_cb_setting)
-Policies available for use with -mcompact-branches=
+Policies available for use with -mcompact-branches=:
 
 EnumValue
 Enum(mips_cb_setting) String(never) Value(MIPS_CB_NEVER)
