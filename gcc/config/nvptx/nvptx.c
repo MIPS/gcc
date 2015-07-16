@@ -1257,7 +1257,7 @@ nvptx_gen_wcast (rtx reg, propagate_mask pm, unsigned rep, wcast_data_t *data)
 	    
 	    emit_insn (res);
 	    emit_insn (gen_adddi3 (data->ptr, data->ptr,
-				   GEN_INT (GET_MODE_SIZE (GET_MODE (res)))));
+				   GEN_INT (GET_MODE_SIZE (GET_MODE (reg)))));
 	    res = get_insns ();
 	    end_sequence ();
 	  }

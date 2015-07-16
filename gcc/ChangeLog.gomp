@@ -1,3 +1,8 @@
+2015-07-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_gen_wcast): Fix typo accessing reg's
+	mode for pointer increment.
+
 2015-07-16  Tom de Vries  <tom@codesourcery.com>
 
 	* tree-ssa-loop-ch.c (pass_ch::pass_ch (pass_data, gcc::context)): New
