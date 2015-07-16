@@ -1064,7 +1064,10 @@ setup_profitable_hard_regs (void)
 	continue;
       data = ALLOCNO_COLOR_DATA (a);
       if (ALLOCNO_UPDATED_HARD_REG_COSTS (a) == NULL
-	  && ALLOCNO_CLASS_COST (a) > ALLOCNO_MEMORY_COST (a))
+	  && ALLOCNO_CLASS_COST (a) > ALLOCNO_MEMORY_COST (a)
+	  /* Do not empty profitable regs for static chain pointer
+	     pseudo when non-local goto is used.  */
+	  && ! non_spilled_static_chain_regno_p (ALLOCNO_REGNO (a)))
 	CLEAR_HARD_REG_SET (data->profitable_hard_regs);
       else
 	{
@@ -1146,7 +1149,10 @@ setup_profitable_hard_regs (void)
 	      if (! TEST_HARD_REG_BIT (data->profitable_hard_regs,
 				       hard_regno))
 		continue;
-	      if (ALLOCNO_UPDATED_MEMORY_COST (a) < costs[j])
+	      if (ALLOCNO_UPDATED_MEMORY_COST (a) < costs[j]
+		  /* Do not remove HARD_REGNO for static chain pointer
+		     pseudo when non-local goto is used.  */
+		  && ! non_spilled_static_chain_regno_p (ALLOCNO_REGNO (a)))
 		CLEAR_HARD_REG_BIT (data->profitable_hard_regs,
 				    hard_regno);
 	      else if (min_cost > costs[j])
@@ -1154,7 +1160,10 @@ setup_profitable_hard_regs (void)
 	    }
 	}
       else if (ALLOCNO_UPDATED_MEMORY_COST (a)
-	       < ALLOCNO_UPDATED_CLASS_COST (a))
+	       < ALLOCNO_UPDATED_CLASS_COST (a)
+	       /* Do not empty profitable regs for static chain
+		  pointer pseudo when non-local goto is used.  */
+	       && ! non_spilled_static_chain_regno_p (ALLOCNO_REGNO (a)))
 	CLEAR_HARD_REG_SET (data->profitable_hard_regs);
       if (ALLOCNO_UPDATED_CLASS_COST (a) > min_cost)
 	ALLOCNO_UPDATED_CLASS_COST (a) = min_cost;
@@ -1876,7 +1885,10 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
 	  ira_assert (hard_regno >= 0);
 	}
     }
-  if (min_full_cost > mem_cost)
+  if (min_full_cost > mem_cost
+      /* Do not spill static chain pointer pseudo when non-local goto
+	 is used.  */
+      && ! non_spilled_static_chain_regno_p (ALLOCNO_REGNO (a)))
     {
       if (! retry_p && internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	fprintf (ira_dump_file, "(memory is more profitable %d vs %d) ",
@@ -2502,6 +2514,12 @@ allocno_spill_priority_compare (ira_allocno_t a1, ira_allocno_t a2)
 {
   int pri1, pri2, diff;
 
+  /* Avoid spilling static chain pointer pseudo when non-local goto is
+     used.  */
+  if (non_spilled_static_chain_regno_p (ALLOCNO_REGNO (a1)))
+    return 1;
+  else if (non_spilled_static_chain_regno_p (ALLOCNO_REGNO (a2)))
+    return -1;
   if (ALLOCNO_BAD_SPILL_P (a1) && ! ALLOCNO_BAD_SPILL_P (a2))
     return 1;
   if (ALLOCNO_BAD_SPILL_P (a2) && ! ALLOCNO_BAD_SPILL_P (a1))
@@ -2754,6 +2772,11 @@ improve_allocation (void)
   ira_allocno_t a;
   bitmap_iterator bi;
 
+  /* Don't bother to optimize the code with static chain pointer and
+     non-local goto in order not to spill the chain pointer
+     pseudo.  */
+  if (cfun->static_chain_decl && crtl->has_nonlocal_goto)
+    return;
   /* Clear counts used to process conflicting allocnos only once for
      each allocno.  */
   EXECUTE_IF_SET_IN_BITMAP (coloring_allocno_bitmap, 0, i, bi)
@@ -2960,6 +2983,12 @@ allocno_priority_compare_func (const void *v1p, const void *v2p)
   ira_allocno_t a2 = *(const ira_allocno_t *) v2p;
   int pri1, pri2;
 
+  /* Assign hard reg to static chain pointer pseudo first when
+     non-local goto is used.  */
+  if (non_spilled_static_chain_regno_p (ALLOCNO_REGNO (a1)))
+    return 1;
+  else if (non_spilled_static_chain_regno_p (ALLOCNO_REGNO (a2)))
+    return -1;
   pri1 = allocno_priorities[ALLOCNO_NUM (a1)];
   pri2 = allocno_priorities[ALLOCNO_NUM (a2)];
   if (pri2 != pri1)
@@ -3401,7 +3430,10 @@ move_spill_restore (void)
 		 by copy although the allocno will not get memory
 		 slot.  */
 	      || ira_equiv_no_lvalue_p (regno)
-	      || !bitmap_bit_p (loop_node->border_allocnos, ALLOCNO_NUM (a)))
+	      || !bitmap_bit_p (loop_node->border_allocnos, ALLOCNO_NUM (a))
+	      /* Do not spill static chain pointer pseudo when
+		 non-local goto is used.  */
+	      || non_spilled_static_chain_regno_p (regno))
 	    continue;
 	  mode = ALLOCNO_MODE (a);
 	  rclass = ALLOCNO_CLASS (a);
