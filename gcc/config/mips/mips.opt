@@ -422,9 +422,6 @@ Driver
 mclib=
 Target RejectNegative Joined Var(mips_c_lib) ToLower Enum(mips_lib_setting) Init(MIPS_LIB_NEWLIB)
 Specify the C library to use with this application
-newlib      Use newlib
-small       Use SmallLib
-tiny        Use SmallLib optimised for size
 
 Enum
 Name(mips_lib_setting) Type(enum mips_lib_setting)
