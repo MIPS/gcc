@@ -12767,7 +12767,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		TYPE_POINTER_TO (r) = NULL_TREE;
 		TYPE_REFERENCE_TO (r) = NULL_TREE;
 
-                /* Propagate constraints on placeholders. */
+		/* Propagate constraints on placeholders.  FIXME we should
+		   substitute here, but that causes infinite recursion.	 */
                 if (TREE_CODE (t) == TEMPLATE_TYPE_PARM)
                   if (tree constr = DECL_SIZE_UNIT (TYPE_NAME (t)))
                     DECL_SIZE_UNIT (TYPE_NAME (r)) = constr;
@@ -23069,7 +23070,6 @@ do_auto_deduction (tree type, tree init, tree auto_node,
         /* Use the deduced type to check the associated constraints. */
         tree cargs = make_tree_vec (1);
         TREE_VEC_ELT (cargs, 0) = deduced;
-        constr = tsubst_constraint (constr, cargs, complain, NULL_TREE);
         if (!constraints_satisfied_p (constr, cargs))
           {
             if (complain & tf_warning_or_error)

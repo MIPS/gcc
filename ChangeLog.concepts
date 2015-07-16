@@ -1,5 +1,13 @@
 2015-07-16  Jason Merrill  <jason@redhat.com>
 
+	PR c++/66218
+	* gcc/cp/constraint.cc (satisfy_argument_deduction_constraint):
+	Call tsubst_constraint here.
+	(tsubst_compound_requirement): And here.
+	(do_auto_deduction): Not here.
+
+2015-07-16  Jason Merrill  <jason@redhat.com>
+
 	* gcc/cp/constraint.cc (satisfy_pack_expansion): Reverse check.
 	(gen_elem_of_pack_expansion_instantiation): Don't treat
 	error_mark_node as a constraint.  Handle partial instantiation.
