@@ -1,5 +1,10 @@
 2015-07-17  Tom de Vries  <tom@codesourcery.com>
 
+	* c-c++-common/goacc/private-reduction-1.c (reduction): Add missing
+	return.
+
+2015-07-17  Tom de Vries  <tom@codesourcery.com>
+
 	* c-c++-common/goacc/kernels-loop-2-acc-loop.c (ACC_LOOP): Define empty.
 	* c-c++-common/goacc/kernels-loop-3-acc-loop.c: Same.
 	* c-c++-common/goacc/kernels-loop-acc-loop.c: Same.
