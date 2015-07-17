@@ -1,3 +1,10 @@
+2015-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/linear-2.c (verify): New function.
+	(TEST): Use it.
+	* testsuite/libgomp.c++/linear-2.C (verify): New function.
+	(TEST): Use it.
+
 2015-07-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/for-2.h (OMPTGT, OMPTO, OMPFROM): Define

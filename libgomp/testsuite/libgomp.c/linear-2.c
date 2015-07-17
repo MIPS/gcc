@@ -200,17 +200,28 @@ f18 (long long int i, long long int k, short start, long int step)
     }
 }
 
+void
+verify (void)
+{
+  int err;
+  #pragma omp target map(from:err)
+  {
+    err = 0;
+    for (int i = 0; i < 256; i++)
+      if (a[i] != (((i & 3) == 0 && i >= 8
+		    && i < 8 + 48 * 4)
+		   ? ((i - 8) / 4) + 16 : 0))
+	err = 1;
+    __builtin_memset (a, 0, sizeof (a));
+  }
+  if (err)
+    __builtin_abort ();
+}
+
 int
 main ()
 {
-#define TEST(x) \
-  x;						\
-  for (int i = 0; i < 256; i++)			\
-    if (a[i] != (((i & 3) == 0 && i >= 8	\
-		  && i < 8 + 48 * 4)		\
-		 ? ((i - 8) / 4) + 16 : 0))	\
-      __builtin_abort ();			\
-  __builtin_memset (a, 0, sizeof (a))
+#define TEST(x) x; verify ()
   TEST (f1 (8));
   TEST (f2 (8, 3));
   TEST (f3 (8LL, 4LL));
