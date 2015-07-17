@@ -1,4 +1,9 @@
 2015-07-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/worker-partn-8.c: New file.
+
+2015-07-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/private-vars-loop-gang-5.c:
 	Remove XFAIL.
