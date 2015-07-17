@@ -3047,7 +3047,7 @@ write_complex_part (rtx cplx, rtx val, bool imag_p)
 /* Extract one of the components of the complex value CPLX.  Extract the
    real part if IMAG_P is false, and the imaginary part if it's true.  */
 
-static rtx
+rtx
 read_complex_part (rtx cplx, bool imag_p)
 {
   machine_mode cmode, imode;
@@ -6889,18 +6889,12 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	blkmode_bitfield = true;
 
       *punsignedp = DECL_UNSIGNED (field);
-      /* ??? Fortran can take COMPONENT_REF of a void type.  */
-      *preversep
-        = !VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0)))
-	  && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0)))
-	  && !AGGREGATE_TYPE_P (TREE_TYPE (exp));
     }
   else if (TREE_CODE (exp) == BIT_FIELD_REF)
     {
       size_tree = TREE_OPERAND (exp, 1);
       *punsignedp = (! INTEGRAL_TYPE_P (TREE_TYPE (exp))
 		     || TYPE_UNSIGNED (TREE_TYPE (exp)));
-      *preversep = REF_REVERSE_STORAGE_ORDER (exp);
 
       /* For vector types, with the correct size of access, use the mode of
 	 inner type.  */
@@ -6913,12 +6907,6 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
     {
       mode = TYPE_MODE (TREE_TYPE (exp));
       *punsignedp = TYPE_UNSIGNED (TREE_TYPE (exp));
-      *preversep
-	= ((TREE_CODE (exp) == ARRAY_REF
-	    && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0))))
-	   || (TREE_CODE (exp) == MEM_REF
-	       && REF_REVERSE_STORAGE_ORDER (exp)))
-	  && !AGGREGATE_TYPE_P (TREE_TYPE (exp));
 
       if (mode == BLKmode)
 	size_tree = TYPE_SIZE (TREE_TYPE (exp));
@@ -6933,6 +6921,8 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
       else
 	*pbitsize = tree_to_uhwi (size_tree);
     }
+
+  *preversep = reverse_storage_order_for_component_p (exp);
 
   /* Compute cumulative bit-offset for nested component-refs and array-refs,
      and find the ultimate containing object.  */
@@ -10182,9 +10172,12 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	if (GET_CODE (op0) == CONCAT && !must_force_mem)
 	  {
 	    if (bitpos == 0
-		&& bitsize == GET_MODE_BITSIZE (GET_MODE (op0))
-		&& !reversep)
-	      return op0;
+		&& bitsize == GET_MODE_BITSIZE (GET_MODE (op0)))
+	      {
+		if (reversep)
+		  op0 = flip_storage_order (GET_MODE (op0), op0);
+		return op0;
+	      }
 	    if (bitpos == 0
 		&& bitsize == GET_MODE_BITSIZE (GET_MODE (XEXP (op0, 0)))
 		&& bitsize)

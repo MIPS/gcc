@@ -1,3 +1,5 @@
+/* { dg-skip-if "requires default endianness" { *-*-* } "-fsso-struct=*" "" } */
+
 union U
 {
   const int a;

@@ -416,17 +416,9 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
   /* First get the final access size and the storage order from just the
      outermost expression.  */
   if (TREE_CODE (exp) == COMPONENT_REF)
-    {
-      size_tree = DECL_SIZE (TREE_OPERAND (exp, 1));
-      *preverse
-	= TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0)))
-	  && !AGGREGATE_TYPE_P (TREE_TYPE (exp));
-    }
+    size_tree = DECL_SIZE (TREE_OPERAND (exp, 1));
   else if (TREE_CODE (exp) == BIT_FIELD_REF)
-    {
-      size_tree = TREE_OPERAND (exp, 1);
-      *preverse = REF_REVERSE_STORAGE_ORDER (exp);
-    }
+    size_tree = TREE_OPERAND (exp, 1);
   else if (!VOID_TYPE_P (TREE_TYPE (exp)))
     {
       machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
@@ -434,19 +426,12 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	size_tree = TYPE_SIZE (TREE_TYPE (exp));
       else
 	bitsize = int (GET_MODE_PRECISION (mode));
-      *preverse
-	= ((TREE_CODE (exp) == ARRAY_REF
-	    && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0))))
-	   || (TREE_CODE (exp) == MEM_REF
-	       && REF_REVERSE_STORAGE_ORDER (exp)))
-	  && !AGGREGATE_TYPE_P (TREE_TYPE (exp));
     }
-  else
-    *preverse = false;
-
   if (size_tree != NULL_TREE
       && TREE_CODE (size_tree) == INTEGER_CST)
     bitsize = wi::to_offset (size_tree);
+
+  *preverse = reverse_storage_order_for_component_p (exp);
 
   /* Initially, maxsize is the same as the accessed element size.
      In the following it will only grow (or become -1).  */

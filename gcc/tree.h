@@ -4306,23 +4306,56 @@ handled_component_p (const_tree t)
     }
 }
 
-/* Return true if REF is a storage order barrier, i.e. a VIEW_CONVERT_EXPR
+/* Return true T is a component with reverse storage order.  */
+
+static inline bool
+reverse_storage_order_for_component_p (tree t)
+{
+  /* The storage order only applies to scalar components.  */
+  if (AGGREGATE_TYPE_P (TREE_TYPE (t)))
+    return false;
+
+  if (TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR)
+    t = TREE_OPERAND (t, 0);
+
+  switch (TREE_CODE (t))
+    {
+    case ARRAY_REF:
+    case COMPONENT_REF:
+      /* ??? Fortran can take COMPONENT_REF of a void type.  */
+      return !VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (t, 0)))
+	     && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (t, 0)));
+
+    case BIT_FIELD_REF:
+    case MEM_REF:
+      return REF_REVERSE_STORAGE_ORDER (t);
+
+    case ARRAY_RANGE_REF:
+    case VIEW_CONVERT_EXPR:
+    default:
+      return false;
+    }
+
+  gcc_unreachable ();
+}
+
+/* Return true if T is a storage order barrier, i.e. a VIEW_CONVERT_EXPR
    that can modify the storage order of objects.  Note that, even if the
    TYPE_REVERSE_STORAGE_ORDER flag is set on both the inner type and the
    outer type, a VIEW_CONVERT_EXPR can modify the storage order because
    it can change the partition of the aggregate object into scalars.  */
 
 static inline bool
-storage_order_barrier_p (const_tree ref)
+storage_order_barrier_p (const_tree t)
 {
-  if (TREE_CODE (ref) != VIEW_CONVERT_EXPR)
+  if (TREE_CODE (t) != VIEW_CONVERT_EXPR)
     return false;
 
-  if (AGGREGATE_TYPE_P (TREE_TYPE (ref))
-      && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (ref)))
+  if (AGGREGATE_TYPE_P (TREE_TYPE (t))
+      && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (t)))
     return true;
 
-  tree op = TREE_OPERAND (ref, 0);
+  tree op = TREE_OPERAND (t, 0);
 
   if (AGGREGATE_TYPE_P (TREE_TYPE (op))
       && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (op)))

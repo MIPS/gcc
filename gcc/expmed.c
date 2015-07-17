@@ -380,6 +380,17 @@ flip_storage_order (enum machine_mode mode, rtx x)
   if (mode == QImode)
     return x;
 
+  if (COMPLEX_MODE_P (mode))
+    {
+      rtx real = read_complex_part (x, false);
+      rtx imag = read_complex_part (x, true);
+
+      real = flip_storage_order (GET_MODE_INNER (mode), real);
+      imag = flip_storage_order (GET_MODE_INNER (mode), imag);
+
+      return gen_rtx_CONCAT (mode, real, imag);
+    }
+
   if (__builtin_expect (reverse_storage_order_supported < 0, 0))
     check_reverse_storage_order_support ();
 
@@ -391,8 +402,12 @@ flip_storage_order (enum machine_mode mode, rtx x)
 	  && __builtin_expect (reverse_float_storage_order_supported < 0, 0))
 	check_reverse_float_storage_order_support ();
 
-      int_mode = int_mode_for_mode (mode);
-      gcc_assert (int_mode != BLKmode);
+      int_mode = mode_for_size (GET_MODE_PRECISION (mode), MODE_INT, 0);
+      if (int_mode == BLKmode)
+	{
+	  sorry ("reverse storage order for %smode", GET_MODE_NAME (mode));
+	  return x;
+	}
       x = gen_lowpart (int_mode, x);
     }
 
@@ -1867,9 +1882,21 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   /* Should probably push op0 out to memory and then do a load.  */
   gcc_assert (int_mode != BLKmode);
 
-  target = extract_fixed_bit_field (int_mode, op0, bitsize, bitnum,
-				    target, unsignedp, reverse);
-  return convert_extracted_bit_field (target, mode, tmode, unsignedp);
+  target = extract_fixed_bit_field (int_mode, op0, bitsize, bitnum, target,
+				    unsignedp, reverse);
+
+  /* Complex values must be reversed piecewise, so we need to undo the global
+     reversal, convert to the complex mode and reverse again.  */
+  if (reverse && COMPLEX_MODE_P (tmode))
+    {
+      target = flip_storage_order (int_mode, target);
+      target = convert_extracted_bit_field (target, mode, tmode, unsignedp);
+      target = flip_storage_order (tmode, target);
+    }
+  else
+    target = convert_extracted_bit_field (target, mode, tmode, unsignedp);
+
+  return target;
 }
 
 /* Generate code to extract a byte-field from STR_RTX

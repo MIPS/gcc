@@ -1,4 +1,5 @@
 /* PR rtl-optimization/65401 */
+/* { dg-skip-if "requires default endianness" { *-*-* } "-fsso-struct=*" "" } */
 
 struct S { unsigned short s[64]; };
 
