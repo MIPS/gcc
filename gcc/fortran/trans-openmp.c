@@ -2668,6 +2668,9 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
   tree omp_clauses = gfc_trans_omp_clauses_1 (block, clauses, where,
 					      declare_simd);
 
+  if (clauses == NULL)
+    return NULL_TREE;
+
   for (; clauses->device_types; clauses = clauses->dtype_clauses)
     {
       tree c, following_clauses = NULL_TREE, dev_list = NULL_TREE;

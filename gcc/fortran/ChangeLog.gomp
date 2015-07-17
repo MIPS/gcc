@@ -1,5 +1,10 @@
 2015-07-17  Julian Brown  <julian@codesourcery.com>
 
+	* trans-openmp.c (gfc_trans_omp_clauses): Add NULL check for
+	clauses.
+
+2015-07-17  Julian Brown  <julian@codesourcery.com>
+
 	* gfortran.h (gfc_omp_clauses): Change "dtype" int field to
 	"device_types" gfc_expr_list.
 	* openmp.c (gfc_match_omp_clauses): Remove scan_dtype variable (add
