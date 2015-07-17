@@ -1,3 +1,7 @@
+2015-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-pragma.h (enum pragma_omp_clause): Add PRAGMA_OMP_CLAUSE_LINK.
+
 2015-07-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-omp.c (c_omp_split_clauses): Handle new 4 combined constructs.

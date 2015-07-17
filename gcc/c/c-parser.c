@@ -9953,6 +9953,8 @@ c_parser_omp_clause_name (c_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_LASTPRIVATE;
 	  else if (!strcmp ("linear", p))
 	    result = PRAGMA_OMP_CLAUSE_LINEAR;
+	  else if (!strcmp ("link", p))
+	    result = PRAGMA_OMP_CLAUSE_LINK;
 	  break;
 	case 'm':
 	  if (!strcmp ("map", p))
@@ -10235,7 +10237,7 @@ c_parser_omp_variable_list (c_parser *parser,
 			  && !TREE_READONLY (low_bound))
 			{
 			  error_at (clause_loc,
-					"%qD is not a constant", low_bound);
+				    "%qD is not a constant", low_bound);
 			  t = error_mark_node;
 			}
 
@@ -10243,7 +10245,7 @@ c_parser_omp_variable_list (c_parser *parser,
 			  && !TREE_READONLY (length))
 			{
 			  error_at (clause_loc,
-					"%qD is not a constant", length);
+				    "%qD is not a constant", length);
 			  t = error_mark_node;
 			}
 		    }
@@ -12600,8 +12602,18 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  if (!first)
 	    goto clause_not_first;
 	  break;
+	case PRAGMA_OMP_CLAUSE_LINK:
+	  clauses
+	    = c_parser_omp_var_list_parens (parser, OMP_CLAUSE_LINK, clauses);
+	  c_name = "link";
+	  break;
 	case PRAGMA_OMP_CLAUSE_TO:
-	  clauses = c_parser_omp_clause_to (parser, clauses);
+	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_LINK)) != 0)
+	    clauses
+	      = c_parser_omp_var_list_parens (parser, OMP_CLAUSE_TO_DECLARE,
+					      clauses);
+	  else
+	    clauses = c_parser_omp_clause_to (parser, clauses);
 	  c_name = "to";
 	  break;
 	case PRAGMA_OMP_CLAUSE_FROM:
@@ -15313,13 +15325,64 @@ c_finish_omp_declare_simd (c_parser *parser, tree fndecl, tree parms,
 /* OpenMP 4.0:
    # pragma omp declare target new-line
    declarations and definitions
-   # pragma omp end declare target new-line  */
+   # pragma omp end declare target new-line
+
+   OpenMP 4.1:
+   # pragma omp declare target ( extended-list ) new-line
+
+   # pragma omp declare target declare-target-clauses[seq] new-line  */
+
+#define OMP_DECLARE_TARGET_CLAUSE_MASK				\
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_TO)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_LINK))
 
 static void
 c_parser_omp_declare_target (c_parser *parser)
 {
-  c_parser_skip_to_pragma_eol (parser);
-  current_omp_declare_target_attribute++;
+  location_t loc = c_parser_peek_token (parser)->location;
+  tree clauses = NULL_TREE;
+  if (c_parser_next_token_is (parser, CPP_NAME))
+    clauses = c_parser_omp_all_clauses (parser, OMP_DECLARE_TARGET_CLAUSE_MASK,
+					"#pragma omp declare target");
+  else if (c_parser_next_token_is (parser, CPP_OPEN_PAREN))
+    {
+      clauses = c_parser_omp_var_list_parens (parser, OMP_CLAUSE_TO_DECLARE,
+					      clauses);
+      c_parser_skip_to_pragma_eol (parser);
+    }
+  else
+    {
+      c_parser_skip_to_pragma_eol (parser);
+      current_omp_declare_target_attribute++;
+      return;
+    }
+  if (current_omp_declare_target_attribute)
+    error_at (loc, "%<#pragma omp declare target%> with clauses in between "
+		   "%<#pragma omp declare target%> without clauses and "
+		   "%<#pragma omp end declare target%>");
+  for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    {
+      tree t = OMP_CLAUSE_DECL (c), id;
+      tree at1 = lookup_attribute ("omp declare target", DECL_ATTRIBUTES (t));
+      tree at2 = lookup_attribute ("omp declare target link",
+				   DECL_ATTRIBUTES (t));
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINK)
+	{
+	  id = get_identifier ("omp declare target link");
+	  std::swap (at1, at2);
+	}
+      else
+	id = get_identifier ("omp declare target");
+      if (at2)
+	{
+	  error_at (OMP_CLAUSE_LOCATION (c),
+		    "%qD specified both in declare target %<link%> and %<to%>"
+		    " clauses", t);
+	  continue;
+	}
+      if (!at1)
+	DECL_ATTRIBUTES (t) = tree_cons (id, NULL_TREE, DECL_ATTRIBUTES (t));
+    }
 }
 
 static void

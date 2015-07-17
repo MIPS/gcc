@@ -1,3 +1,15 @@
+2015-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_name): Handle link clause.
+	(cp_parser_omp_var_list_no_open): Formatting fix.
+	(cp_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_LINK.
+	For PRAGMA_OMP_CLAUSE_TO, parse it as OMP_CLAUSE_TO_DECLARE
+	rather than OMP_CLAUSE_TO if it is a declare target directive clause.
+	(OMP_DECLARE_TARGET_CLAUSE_MASK): Define.
+	(cp_parser_omp_declare_target): Parse directive with clauses forms.
+	* semantics.c (finish_omp_clauses): Handle
+	OMP_CLAUSE_{TO_DECLARE,LINK}.
+
 2015-07-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_clause_priority): Fix typo.

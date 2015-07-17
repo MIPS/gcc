@@ -1,3 +1,8 @@
+2015-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/declare-target-1.c: New test.
+	* c-c++-common/gomp/declare-target-2.c: New test.
+
 2015-07-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/clauses-1.c: New test.

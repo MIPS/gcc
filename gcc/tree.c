@@ -288,6 +288,8 @@ unsigned const char omp_clause_num_ops[] =
   2, /* OMP_CLAUSE_ALIGNED  */
   1, /* OMP_CLAUSE_DEPEND  */
   1, /* OMP_CLAUSE_UNIFORM  */
+  1, /* OMP_CLAUSE_TO_DECLARE  */
+  1, /* OMP_CLAUSE_LINK  */
   2, /* OMP_CLAUSE_FROM  */
   2, /* OMP_CLAUSE_TO  */
   2, /* OMP_CLAUSE_MAP  */
@@ -357,6 +359,8 @@ const char * const omp_clause_code_name[] =
   "aligned",
   "depend",
   "uniform",
+  "to",
+  "link",
   "from",
   "to",
   "map",
@@ -11392,6 +11396,8 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_GRAINSIZE:
 	case OMP_CLAUSE_NUM_TASKS:
 	case OMP_CLAUSE_HINT:
+	case OMP_CLAUSE_TO_DECLARE:
+	case OMP_CLAUSE_LINK:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	case OMP_CLAUSE__LOOPTEMP_:

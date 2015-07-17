@@ -6266,6 +6266,36 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	    bitmap_set_bit (&map_head, DECL_UID (t));
 	  break;
 
+	case OMP_CLAUSE_TO_DECLARE:
+	  t = OMP_CLAUSE_DECL (c);
+	  if (TREE_CODE (t) == FUNCTION_DECL)
+	    break;
+	  /* FALLTHRU */
+	case OMP_CLAUSE_LINK:
+	  t = OMP_CLAUSE_DECL (c);
+	  if (!VAR_P (t))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE is not a variable in clause %qs", t,
+			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      remove = true;
+	    }
+	  else if (DECL_THREAD_LOCAL_P (t))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qD is threadprivate variable in %qs clause", t,
+			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      remove = true;
+	    }
+	  else if (!cp_omp_mappable_type (TREE_TYPE (t)))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qD does not have a mappable type in %qs clause", t,
+			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      remove = true;
+	    }
+	  break;
+
 	case OMP_CLAUSE_UNIFORM:
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) != PARM_DECL)

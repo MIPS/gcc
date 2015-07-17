@@ -1,3 +1,14 @@
+2015-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-core.h (enum omp_clause_code): Add OMP_CLAUSE_TO_DECLARE
+	and OMP_CLAUSE_LINK.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name): Add entries for
+	OMP_CLAUSE_{TO_DECLARE,LINK}.
+	(walk_tree_1): Handle OMP_CLAUSE_{TO_DECLARE,LINK}.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Likewise.
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+
 2015-07-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (expand_omp_build_assign): Add prototype.  Add AFTER

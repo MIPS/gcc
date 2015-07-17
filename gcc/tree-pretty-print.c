@@ -344,6 +344,12 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
     case OMP_CLAUSE_USE_DEVICE:
       name = "use_device";
       goto print_remap;
+    case OMP_CLAUSE_TO_DECLARE:
+      name = "to";
+      goto print_remap;
+    case OMP_CLAUSE_LINK:
+      name = "link";
+      goto print_remap;
   print_remap:
       pp_string (pp, name);
       pp_left_paren (pp);
