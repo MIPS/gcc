@@ -1,3 +1,5 @@
+/* { dg-additional-options "-Wall" } */
+
 void
 f (short c)
 {

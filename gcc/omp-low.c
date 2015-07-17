@@ -9645,7 +9645,8 @@ expand_omp_target (struct omp_region *region)
       tree tmp_var;
 
       tmp_var = create_tmp_var (TREE_TYPE (device));
-      if (offloaded)
+      if (offloaded
+	  && do_splitoff)
 	e = split_block_after_labels (new_bb);
       else
 	{

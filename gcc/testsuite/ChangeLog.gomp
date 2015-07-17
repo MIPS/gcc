@@ -1,3 +1,7 @@
+2015-07-17  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/if-clause-2.c: Compile with -Wall.
+
 2015-07-17  Julian Brown  <julian@codesourcery.com>
 
 	* c-c++-common/goacc/dtype-1.c: Update test for new behaviour.
