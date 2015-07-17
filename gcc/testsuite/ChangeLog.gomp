@@ -1,3 +1,7 @@
+2015-07-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-c++-common/gomp/sink-3.c: New test.
+
 2015-07-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/declare-target-1.c: New test.

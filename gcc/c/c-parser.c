@@ -11880,54 +11880,54 @@ c_parser_omp_clause_depend_sink (c_parser *parser, location_t clause_loc,
 
       c_parser_consume_token (parser);
 
-      if (t != error_mark_node)
+      bool neg;
+      if (c_parser_next_token_is (parser, CPP_MINUS))
+	neg = true;
+      else if (c_parser_next_token_is (parser, CPP_PLUS))
+	neg = false;
+      else
 	{
-	  bool neg;
-
-	  if (c_parser_next_token_is (parser, CPP_MINUS))
-	    neg = true;
-	  else if (c_parser_next_token_is (parser, CPP_PLUS))
-	    neg = false;
-	  else
-	    {
-	      addend = integer_zero_node;
-	      goto add_to_vector;
-	    }
-	  c_parser_consume_token (parser);
-
-	  if (c_parser_next_token_is_not (parser, CPP_NUMBER))
-	    {
-	      c_parser_error (parser, "expected integer");
-	      return list;
-	    }
-
-	  addend = c_parser_peek_token (parser)->value;
-	  if (TREE_CODE (addend) != INTEGER_CST)
-	    {
-	      c_parser_error (parser, "expected integer");
-	      return list;
-	    }
-	  if (neg)
-	    {
-	      bool overflow;
-	      wide_int offset = wi::neg (addend, &overflow);
-	      addend = wide_int_to_tree (TREE_TYPE (addend), offset);
-	      if (overflow)
-		warning_at (c_parser_peek_token (parser)->location,
-			    OPT_Woverflow,
-			    "overflow in implicit constant conversion");
-	    }
-	  c_parser_consume_token (parser);
-
-	add_to_vector:
-	  vec = tree_cons (addend, t, vec);
-
-	  if (c_parser_next_token_is_not (parser, CPP_COMMA))
-	    break;
-
-	  c_parser_consume_token (parser);
+	  addend = integer_zero_node;
+	  goto add_to_vector;
 	}
+      c_parser_consume_token (parser);
+
+      if (c_parser_next_token_is_not (parser, CPP_NUMBER))
+	{
+	  c_parser_error (parser, "expected integer");
+	  return list;
+	}
+
+      addend = c_parser_peek_token (parser)->value;
+      if (TREE_CODE (addend) != INTEGER_CST)
+	{
+	  c_parser_error (parser, "expected integer");
+	  return list;
+	}
+      if (neg)
+	{
+	  bool overflow;
+	  wide_int offset = wi::neg (addend, &overflow);
+	  addend = wide_int_to_tree (TREE_TYPE (addend), offset);
+	  if (overflow)
+	    warning_at (c_parser_peek_token (parser)->location,
+			OPT_Woverflow,
+			"overflow in implicit constant conversion");
+	}
+      c_parser_consume_token (parser);
+
+    add_to_vector:
+      if (t != error_mark_node)
+	vec = tree_cons (addend, t, vec);
+
+      if (c_parser_next_token_is_not (parser, CPP_COMMA))
+	break;
+
+      c_parser_consume_token (parser);
     }
+
+  if (vec == NULL_TREE)
+    return list;
 
   tree u = build_omp_clause (clause_loc, OMP_CLAUSE_DEPEND);
   OMP_CLAUSE_DEPEND_KIND (u) = OMP_CLAUSE_DEPEND_SINK;

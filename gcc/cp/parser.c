@@ -29485,61 +29485,61 @@ cp_parser_omp_clause_depend_sink (cp_parser *parser, location_t clause_loc,
 					 id_loc);
 	}
 
-      if (t != error_mark_node)
+      bool neg;
+      if (cp_lexer_next_token_is (parser->lexer, CPP_MINUS))
+	neg = true;
+      else if (cp_lexer_next_token_is (parser->lexer, CPP_PLUS))
+	neg = false;
+      else
 	{
-	  bool neg;
-
-	  if (cp_lexer_next_token_is (parser->lexer, CPP_MINUS))
-	    neg = true;
-	  else if (cp_lexer_next_token_is (parser->lexer, CPP_PLUS))
-	    neg = false;
-	  else
-	    {
-	      addend = integer_zero_node;
-	      goto add_to_vector;
-	    }
-	  cp_lexer_consume_token (parser->lexer);
-
-	  if (cp_lexer_next_token_is_not (parser->lexer, CPP_NUMBER))
-	    {
-	      cp_parser_error (parser, "expected integer");
-	      return list;
-	    }
-
-	  addend = cp_lexer_peek_token (parser->lexer)->u.value;
-	  if (TREE_CODE (addend) != INTEGER_CST)
-	    {
-	      cp_parser_error (parser, "expected integer");
-	      return list;
-	    }
-	  if (neg)
-	    {
-	      bool overflow;
-	      wide_int offset = wi::neg (addend, &overflow);
-	      addend = wide_int_to_tree (TREE_TYPE (addend), offset);
-	      if (overflow)
-		warning_at (cp_lexer_peek_token (parser->lexer)->location,
-			    OPT_Woverflow,
-			    "overflow in implicit constant conversion");
-	    }
-	  cp_lexer_consume_token (parser->lexer);
-
-	add_to_vector:
-	  vec = tree_cons (addend, t, vec);
-
-	  if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
-	    break;
-
-	  cp_lexer_consume_token (parser->lexer);
+	  addend = integer_zero_node;
+	  goto add_to_vector;
 	}
-    }
-  cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
+      cp_lexer_consume_token (parser->lexer);
 
-  tree u = build_omp_clause (clause_loc, OMP_CLAUSE_DEPEND);
-  OMP_CLAUSE_DEPEND_KIND (u) = OMP_CLAUSE_DEPEND_SINK;
-  OMP_CLAUSE_DECL (u) = nreverse (vec);
-  OMP_CLAUSE_CHAIN (u) = list;
-  return u;
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_NUMBER))
+	{
+	  cp_parser_error (parser, "expected integer");
+	  return list;
+	}
+
+      addend = cp_lexer_peek_token (parser->lexer)->u.value;
+      if (TREE_CODE (addend) != INTEGER_CST)
+	{
+	  cp_parser_error (parser, "expected integer");
+	  return list;
+	}
+      if (neg)
+	{
+	  bool overflow;
+	  wide_int offset = wi::neg (addend, &overflow);
+	  addend = wide_int_to_tree (TREE_TYPE (addend), offset);
+	  if (overflow)
+	    warning_at (cp_lexer_peek_token (parser->lexer)->location,
+			OPT_Woverflow,
+			"overflow in implicit constant conversion");
+	}
+      cp_lexer_consume_token (parser->lexer);
+
+    add_to_vector:
+      if (t != error_mark_node)
+	vec = tree_cons (addend, t, vec);
+
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
+	break;
+
+      cp_lexer_consume_token (parser->lexer);
+    }
+
+  if (cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN) && vec)
+    {
+      tree u = build_omp_clause (clause_loc, OMP_CLAUSE_DEPEND);
+      OMP_CLAUSE_DEPEND_KIND (u) = OMP_CLAUSE_DEPEND_SINK;
+      OMP_CLAUSE_DECL (u) = nreverse (vec);
+      OMP_CLAUSE_CHAIN (u) = list;
+      return u;
+    }
+  return list;
 }
 
 /* OpenMP 4.0:
