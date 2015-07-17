@@ -48,7 +48,7 @@ main (int argc, char *argv[])
     assert (n[i] == 2);
 
   for (i = 0; i < 1024; i++)
-    assert (arr[i] == (i % 64) < 32 ? 1 : -1);
+    assert (arr[i] == ((i % 64) < 32) ? 1 : -1);
 
   return 0;
 }
